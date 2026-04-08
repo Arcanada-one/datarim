@@ -6,17 +6,17 @@ Datarim includes 11 specialized agents. Each agent is a persona with defined cap
 
 | Agent | Role | Model | Primary Stages |
 |-------|------|-------|----------------|
-| planner | Lead Project Manager | opus | /init, /plan, /archive |
-| architect | Chief Architect | opus | /prd, /design |
-| developer | Senior Developer (TDD) | opus | /do |
-| reviewer | QA & Security Lead | opus | /qa, /reflect |
-| compliance | Compliance Runner | opus | /compliance |
-| code-simplifier | Code Simplification | opus | /compliance |
-| strategist | Strategic Advisor | opus | /plan (L3-4) |
-| devops | DevOps Engineer | opus | /plan, /do, /compliance |
-| writer | Technical Writer | opus | /reflect, /archive, /prd |
-| security | Security Analyst | opus | /design, /qa, /compliance |
-| sre | Site Reliability Engineer | opus | /design, /qa, /reflect |
+| planner | Lead Project Manager | opus | /dr-init, /dr-plan, /dr-archive |
+| architect | Chief Architect | opus | /dr-prd, /dr-design |
+| developer | Senior Developer (TDD) | opus | /dr-do |
+| reviewer | QA & Security Lead | opus | /dr-qa, /dr-reflect |
+| compliance | Compliance Runner | opus | /dr-compliance |
+| code-simplifier | Code Simplification | opus | /dr-compliance |
+| strategist | Strategic Advisor | opus | /dr-plan (L3-4) |
+| devops | DevOps Engineer | opus | /dr-plan, /dr-do, /dr-compliance |
+| writer | Technical Writer | opus | /dr-reflect, /dr-archive, /dr-prd |
+| security | Security Analyst | opus | /dr-design, /dr-qa, /dr-compliance |
+| sre | Site Reliability Engineer | opus | /dr-design, /dr-qa, /dr-reflect |
 
 ## Agent File Format
 

@@ -17,7 +17,7 @@ Before writing ANY file to `datarim/`, you MUST resolve the correct path:
 
 1. **Check if `datarim/` exists in the current working directory.** If yes, use it.
 2. **If NOT found:** Walk up the directory tree (parent, grandparent, etc.) until you find a directory that contains `datarim/`. Use that path.
-3. **If still NOT found anywhere up the tree:** **STOP. Do NOT create the directory.** Only the `/init` command is authorized to create a new `datarim/` directory. If you are not running `/init`, output an error: _"datarim/ directory not found. Run `/init` first to initialize it in the correct project root."_
+3. **If still NOT found anywhere up the tree:** **STOP. Do NOT create the directory.** Only the `/dr-init` command is authorized to create a new `datarim/` directory. If you are not running `/dr-init`, output an error: _"datarim/ directory not found. Run `/dr-init` first to initialize it in the correct project root."_
 
 **Why:** In monorepos and submodule setups, the working directory may be a subdirectory. Creating `datarim/` there pollutes the subproject. The correct location is always the top-level project root.
 
@@ -125,7 +125,7 @@ not_started → in_progress → completed → archived
 ```
 
 ### Archive Command Behavior
-`/archive` command:
+`/dr-archive` command:
 1. Reads `activeContext.md` to get current task ID
 2. Verifies task exists in `tasks.md`
 3. Archives ONLY that specific task (not all completed)
@@ -195,17 +195,17 @@ Or use the current date from conversation context. See `$HOME/.claude/skills/uti
 ## Mode Transition Optimization
 
 ### Automatic Transitions
-- Level 3-4 → Auto-enter CREATIVE mode (/design)
-- QA validation needed → Auto-enter QA mode (/qa)
+- Level 3-4 → Auto-enter CREATIVE mode (/dr-design)
+- QA validation needed → Auto-enter QA mode (/dr-qa)
 - Implementation done → Auto-suggest REFLECT mode
 
 ### Manual Transitions
-- `/plan` → PLAN mode
-- `/design` → CREATIVE mode
-- `/do` → DO mode
-- `/qa` → QA mode
-- `/reflect` → REFLECT mode
-- `/archive` → ARCHIVE mode
+- `/dr-plan` → PLAN mode
+- `/dr-design` → CREATIVE mode
+- `/dr-do` → DO mode
+- `/dr-qa` → QA mode
+- `/dr-reflect` → REFLECT mode
+- `/dr-archive` → ARCHIVE mode
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: consilium
-description: Assemble a panel of Datarim agents for multi-perspective analysis of decisions. Use for /design stage (L3-4) or critical decisions in /plan.
+description: Assemble a panel of Datarim agents for multi-perspective analysis of decisions. Use for /dr-design stage (L3-4) or critical decisions in /dr-plan.
 ---
 
 # Consilium — Multi-Agent Panel Discussions

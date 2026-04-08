@@ -203,23 +203,23 @@ cp /path/to/datarim/CLAUDE.md .
 claude
 
 # Initialize a task — Datarim assigns complexity and routes the pipeline
-/init Add user authentication with JWT
+/dr-init Add user authentication with JWT
 
 # The framework tells you what stage comes next.
 # For an L3 task, the pipeline would be:
-/prd        # Generate product requirements document
-/plan       # Create implementation plan
-/design     # Explore architectural decisions
-/do         # Implement with TDD
-/qa         # Run quality assurance checks
-/reflect    # Analyze what worked and what to improve
-/archive    # Archive the completed task
+/dr-prd        # Generate product requirements document
+/dr-plan       # Create implementation plan
+/dr-design     # Explore architectural decisions
+/dr-do         # Implement with TDD
+/dr-qa         # Run quality assurance checks
+/dr-reflect    # Analyze what worked and what to improve
+/dr-archive    # Archive the completed task
 
 # Check progress at any time
-/status
+/dr-status
 
 # Resume after a break
-/continue
+/dr-continue
 ```
 
 Each command guides you through its stage. The framework tracks state between
@@ -276,20 +276,20 @@ specific capabilities. You can add custom skills by placing `.md` files in
 
 | Command | Stage | Description |
 |---------|-------|-------------|
-| `/init` | Initialize | Start a new task. Assigns complexity level (L1–L4), routes the pipeline, creates task context. |
-| `/prd` | Requirements | Generate a Product Requirements Document. Analyzes the problem, defines scope, success criteria, and constraints. |
-| `/plan` | Planning | Create a detailed implementation plan. Breaks work into phases, estimates effort, identifies risks. |
-| `/design` | Design | Explore architectural decisions. Evaluates alternatives, documents trade-offs, defines interfaces. |
-| `/do` | Implementation | Write code following TDD. Implements the plan, writes tests first, follows project conventions. |
-| `/qa` | Quality Assurance | Run quality checks. Code review, test verification, standard compliance, coverage analysis. |
-| `/compliance` | Compliance | Post-QA hardening. Validates implementation against PRD, checks for regressions, security audit. |
-| `/reflect` | Reflection | Analyze the completed task. What worked, what failed, what to improve. Proposes framework updates. |
-| `/archive` | Archive | Archive the task. Stores context, decisions, and outcomes for future reference. |
-| `/status` | Any | Check current task status, progress through the pipeline, and pending actions. |
-| `/continue` | Any | Resume work from the last checkpoint. Restores context and picks up where you left off. |
+| `/dr-init` | Initialize | Start a new task. Assigns complexity level (L1–L4), routes the pipeline, creates task context. |
+| `/dr-prd` | Requirements | Generate a Product Requirements Document. Analyzes the problem, defines scope, success criteria, and constraints. |
+| `/dr-plan` | Planning | Create a detailed implementation plan. Breaks work into phases, estimates effort, identifies risks. |
+| `/dr-design` | Design | Explore architectural decisions. Evaluates alternatives, documents trade-offs, defines interfaces. |
+| `/dr-do` | Implementation | Write code following TDD. Implements the plan, writes tests first, follows project conventions. |
+| `/dr-qa` | Quality Assurance | Run quality checks. Code review, test verification, standard compliance, coverage analysis. |
+| `/dr-compliance` | Compliance | Post-QA hardening. Validates implementation against PRD, checks for regressions, security audit. |
+| `/dr-reflect` | Reflection | Analyze the completed task. What worked, what failed, what to improve. Proposes framework updates. |
+| `/dr-archive` | Archive | Archive the task. Stores context, decisions, and outcomes for future reference. |
+| `/dr-status` | Any | Check current task status, progress through the pipeline, and pending actions. |
+| `/dr-continue` | Any | Resume work from the last checkpoint. Restores context and picks up where you left off. |
 
-Commands are sequential within a pipeline but you can always check `/status` or
-`/continue` at any point.
+Commands are sequential within a pipeline but you can always check `/dr-status` or
+`/dr-continue` at any point.
 
 ---
 
@@ -399,7 +399,7 @@ at every step.
 
 ### How it works
 
-1. **Reflect** — After every completed task, the `/reflect` command analyzes what
+1. **Reflect** — After every completed task, the `/dr-reflect` command analyzes what
    happened. What stages added value? What was skipped unnecessarily? Where did the
    pipeline slow down without benefit? What patterns emerged?
 

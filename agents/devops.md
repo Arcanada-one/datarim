@@ -24,5 +24,5 @@ Your goal is to own the build-ship-run pipeline -- from code commit to running i
   - `$HOME/.claude/skills/tech-stack.md` (Stack selection guidance)
   - `$HOME/.claude/skills/security.md` (Secret management, supply chain)
 
-**When invoked:** `/plan` (infrastructure design), `/do` (Dockerfile, CI config), `/compliance` (CI/CD impact analysis).
+**When invoked:** `/dr-plan` (infrastructure design), `/dr-do` (Dockerfile, CI config), `/dr-compliance` (CI/CD impact analysis).
 **In consilium:** Voice of automation and delivery.

@@ -1,16 +1,16 @@
 ---
-name: reflect
+name: dr-reflect
 description: Review completed task and create reflection document with lessons learned
 ---
 
-# /reflect - Review & Quality Mode
+# /dr-reflect - Review & Quality Mode
 
 **Role**: Reviewer Agent
 **Source**: `$HOME/.claude/agents/reviewer.md`
 
 ## Instructions
 1.  **LOAD**: Read `$HOME/.claude/agents/reviewer.md` and adopt that persona.
-2.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/init`. Do NOT create it — only `/init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system.md` § Path Resolution Rule.
+2.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system.md` § Path Resolution Rule.
 3.  **SKILL**: Read `$HOME/.claude/skills/security.md` and `$HOME/.claude/skills/testing.md`.
 4.  **CONTEXT**: Read `datarim/tasks.md` and `datarim/style-guide.md`.
 4.  **ACTION**:
@@ -28,4 +28,4 @@ description: Review completed task and create reflection document with lessons l
 
 ## Next Steps
 - Evolution proposals pending? → Apply approved changes
-- Task complete? → `/archive`
+- Task complete? → `/dr-archive`

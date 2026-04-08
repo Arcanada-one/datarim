@@ -1,16 +1,16 @@
 ---
-name: design
+name: dr-design
 description: Explore architectural and design decisions for complex features (Level 3-4)
 ---
 
-# /design - Architecture & Design Mode
+# /dr-design - Architecture & Design Mode
 
 **Role**: Architect Agent
 **Source**: `$HOME/.claude/agents/architect.md`
 
 ## Instructions
 1.  **LOAD**: Read `$HOME/.claude/agents/architect.md` and adopt that persona.
-2.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/init`. Do NOT create it — only `/init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system.md` § Path Resolution Rule.
+2.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system.md` § Path Resolution Rule.
 3.  **CONTEXT**: Read `datarim/tasks.md` and `datarim/systemPatterns.md`.
 3.  **ACTION**:
     - Identify components needing design.
@@ -25,4 +25,4 @@ description: Explore architectural and design decisions for complex features (Le
 4.  **OUTPUT**: New creative docs + `tasks.md` update. For L3-4 tasks, output also includes consilium panel summary, key debates, resolutions, and Failure Mode Table.
 
 ## Next Steps
-- Design complete? → `/do`
+- Design complete? → `/dr-do`

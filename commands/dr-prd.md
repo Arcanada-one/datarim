@@ -13,7 +13,7 @@ This command generates a structured Product Requirements Document (PRD) followin
 
 ## Instructions
 
-0.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/init`. Do NOT create it — only `/init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system.md` § Path Resolution Rule.
+0.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system.md` § Path Resolution Rule.
 
 1.  **Analyze Context (Phase 1)**:
     -   Read `datarim/projectbrief.md`, `techContext.md`, and `systemPatterns.md`.
@@ -43,7 +43,7 @@ This command generates a structured Product Requirements Document (PRD) followin
 
 6.  **Output Summary**:
     -   Confirm file location.
-    -   List next steps: `/init`, `/plan`.
+    -   List next steps: `/dr-init`, `/dr-plan`.
 
 ## Template Structure
 
@@ -55,4 +55,4 @@ The PRD MUST include:
 
 ## Usage
 
-Run: `/prd "Brief description of the task"`
+Run: `/dr-prd "Brief description of the task"`

@@ -21,4 +21,4 @@ Your goal is to evaluate whether a task is worth building and propose the most e
 - ALWAYS APPLY:
   - `$HOME/.claude/skills/datarim-system.md` (Core workflow rules, file locations)
 
-**When invoked:** `/plan` stage (mandatory for L3-4), optional for L2.
+**When invoked:** `/dr-plan` stage (mandatory for L3-4), optional for L2.

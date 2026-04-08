@@ -1,11 +1,11 @@
 ---
 name: compliance
-description: Post-QA hardening workflow (7 steps): change set vs PRD/task, code simplification, references/dead code, test coverage, linters, test run, optional hardening. Use with /compliance or any post-implementation review.
+description: Post-QA hardening workflow (7 steps): change set vs PRD/task, code simplification, references/dead code, test coverage, linters, test run, optional hardening. Use with /dr-compliance or any post-implementation review.
 ---
 
 # Compliance Workflow Skill
 
-> **Self-contained.** Use when running /compliance or any post-QA hardening flow. No external spec file required.
+> **Self-contained.** Use when running /dr-compliance or any post-QA hardening flow. No external spec file required.
 
 ## Inputs (when present in project)
 

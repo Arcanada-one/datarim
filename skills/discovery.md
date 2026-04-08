@@ -1,6 +1,6 @@
 ---
 name: discovery
-description: Structured requirements discovery through focused one-question-at-a-time interviews with proposed answers. Use in /prd stage or before /init.
+description: Structured requirements discovery through focused one-question-at-a-time interviews with proposed answers. Use in /dr-prd stage or before /dr-init.
 ---
 
 # Discovery — Requirements Discovery Interview

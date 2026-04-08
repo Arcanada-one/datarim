@@ -1,10 +1,10 @@
 ---
-name: init
+name: dr-init
 description: Initialize a new Datarim task with complexity detection and automatic task numbering
 disable-model-invocation: true
 ---
 
-# /init - Initialize New Task
+# /dr-init - Initialize New Task
 
 **Role**: Planner Agent (Initial)
 **Source**: `$HOME/.claude/agents/planner.md`
@@ -18,12 +18,12 @@ disable-model-invocation: true
 3.  **ACTION**:
     - Analyze the user request.
     - Determine complexity level (1-4).
-    - **Context Gathering**: For complex tasks, ensure context is gathered (via `/prd`) before planning.
+    - **Context Gathering**: For complex tasks, ensure context is gathered (via `/dr-prd`) before planning.
     - **If new project/service**: Load `$HOME/.claude/skills/tech-stack.md` and identify required stack.
     - Create/Update `datarim/tasks.md` with new task.
     - Update `datarim/activeContext.md`.
 4.  **OUTPUT**: Initialized task structure (including tech stack if applicable).
 
 ## Next Steps
-- Level 1? → `/do`
-- Level 2+? → `/plan`
+- Level 1? → `/dr-do`
+- Level 2+? → `/dr-plan`
