@@ -24,7 +24,7 @@ Brackets `[]` = optional at that level.
 
 ## How Complexity is Assessed
 
-The `/init` command determines complexity by analyzing:
+The `/dr-init` command determines complexity by analyzing:
 
 1. **Scope:** How many files will be touched?
 2. **Lines of code:** Rough estimate of changes
@@ -37,14 +37,14 @@ The `/init` command determines complexity by analyzing:
 The agent's complexity assessment is a suggestion. The user can override:
 
 ```
-/init Add caching layer
+/dr-init Add caching layer
 # Agent suggests L2, but you know it's more complex:
 "This is L3 — it touches the data layer, cache invalidation, and monitoring."
 ```
 
 ## L4: Phased Implementation
 
-For L4 tasks, `/do` splits into multiple phases:
+For L4 tasks, `/dr-do` splits into multiple phases:
 1. Each phase is a self-contained unit of work
 2. Each phase can be independently tested
 3. Progress is tracked per-phase in `datarim/progress.md`

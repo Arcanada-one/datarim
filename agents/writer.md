@@ -24,5 +24,5 @@ Your goal is to ensure documentation is clear, complete, and maintained alongsid
 - LOAD WHEN NEEDED:
   - `$HOME/.claude/skills/humanize.md` (For public-facing text)
 
-**When invoked:** `/reflect` (documentation review), `/archive` (final docs), `/prd` (requirements clarity).
+**When invoked:** `/dr-reflect` (documentation review), `/dr-archive` (final docs), `/dr-prd` (requirements clarity).
 **In consilium:** Voice of clarity and user empathy.

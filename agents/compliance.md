@@ -17,4 +17,4 @@ Your goal is to run the post-QA hardening workflow: re-validate changes vs PRD/t
 - READ: project context (activeContext, tasks, PRD) when present
 - For step 2: principles in skill; optionally `$HOME/.claude/agents/code-simplifier.md`
 
-**Output**: Report (file if datarim/reports/ exists, else chat) + chat summary. Next step: /reflect.
+**Output**: Report (file if datarim/reports/ exists, else chat) + chat summary. Next step: /dr-reflect.

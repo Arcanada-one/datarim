@@ -12,7 +12,7 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
 
 ## Instructions
 
-0.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/init`. Do NOT create it — only `/init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system.md` § Path Resolution Rule.
+0.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system.md` § Path Resolution Rule.
 
 1.  **Analyze Context**:
     -   Read `datarim/tasks.md` (Complexity, Requirements).
@@ -43,7 +43,7 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
 
 6.  **Output Summary**:
     -   Confirm task status update.
-    -   List next steps: `/do`.
+    -   List next steps: `/dr-do`.
 
 ## Template Structure (Design Document)
 
@@ -56,4 +56,4 @@ The plan in `datarim/tasks.md` MUST include: **Overview**, **Security Summary** 
 
 ## Usage
 
-Run: `/plan`
+Run: `/dr-plan`

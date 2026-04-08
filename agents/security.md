@@ -25,5 +25,5 @@ Your goal is to identify, assess, and mitigate security risks throughout the dev
 - LOAD WHEN NEEDED:
   - `$HOME/.claude/skills/compliance.md` (Regulatory and compliance checks)
 
-**When invoked:** `/design` (threat model), `/qa` (deep security review), `/compliance` (secrets scan).
+**When invoked:** `/dr-design` (threat model), `/dr-qa` (deep security review), `/dr-compliance` (secrets scan).
 **In consilium:** Voice of security -- "what can go wrong and how do we prevent it?"

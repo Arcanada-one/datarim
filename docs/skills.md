@@ -14,9 +14,9 @@ Datarim includes 13 reusable skill modules. Skills provide rules, patterns, and 
 | performance | Lazy loading, caching, batching, DB optimization | architect, sre |
 | tech-stack | Stack selection by project type (frontend, API, AI, real-time) | planner, architect |
 | utilities | Native shell recipes for common operations | Any agent (on demand) |
-| consilium | Multi-agent panel discussions | /design (L3-4) |
-| discovery | Requirements discovery interview | /prd |
-| evolution | Framework self-update rules | /reflect |
+| consilium | Multi-agent panel discussions | /dr-design (L3-4) |
+| discovery | Requirements discovery interview | /dr-prd |
+| evolution | Framework self-update rules | /dr-reflect |
 | factcheck | Fact verification for publications | On demand |
 | humanize | AI text pattern removal | On demand |
 

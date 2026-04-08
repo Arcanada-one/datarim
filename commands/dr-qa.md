@@ -1,9 +1,9 @@
 ---
-name: qa
+name: dr-qa
 description: Multi-layer quality verification — checks PRD alignment, design conformance, plan completeness, and code quality
 ---
 
-# /qa - Multi-Layer Quality Verification
+# /dr-qa - Multi-Layer Quality Verification
 
 **Role**: Reviewer Agent
 **Source**: `$HOME/.claude/agents/reviewer.md`
@@ -11,7 +11,7 @@ description: Multi-layer quality verification — checks PRD alignment, design c
 ## Instructions
 
 1.  **LOAD**: Read `$HOME/.claude/agents/reviewer.md` and adopt that persona.
-2.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/init`. Do NOT create it — only `/init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system.md` § Path Resolution Rule.
+2.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system.md` § Path Resolution Rule.
 3.  **SKILL**: Read `$HOME/.claude/skills/security.md` and `$HOME/.claude/skills/testing.md`.
 4.  **CONTEXT**: Read `datarim/tasks.md` to get the current task ID and implementation plan. Read `datarim/activeContext.md` for current state.
 5.  **ACTION**: Execute the 4 verification layers below, in order, based on available artifacts. Skip layers whose artifacts do not exist.
@@ -198,14 +198,14 @@ Write to `datarim/qa/qa-report-{task-id}.md`:
 
 | Overall | Condition | Next Step |
 |---------|-----------|-----------|
-| **ALL_PASS** | Every executed layer is PASS | Proceed to `/compliance` or `/reflect` |
-| **CONDITIONAL_PASS** | All layers PASS or PASS_WITH_NOTES, no FAIL | Proceed to `/compliance` or `/reflect`, notes documented |
-| **BLOCKED** | One or more layers FAIL | Return to `/do` with fix list from failed layers |
+| **ALL_PASS** | Every executed layer is PASS | Proceed to `/dr-compliance` or `/dr-reflect` |
+| **CONDITIONAL_PASS** | All layers PASS or PASS_WITH_NOTES, no FAIL | Proceed to `/dr-compliance` or `/dr-reflect`, notes documented |
+| **BLOCKED** | One or more layers FAIL | Return to `/dr-do` with fix list from failed layers |
 
 ---
 
 ## Next Steps
 
-- **ALL_PASS or CONDITIONAL_PASS** at L3-4 → `/compliance`
-- **ALL_PASS or CONDITIONAL_PASS** at L1-2 → `/reflect`
-- **BLOCKED** → `/do` with specific fix list extracted from FAIL layers
+- **ALL_PASS or CONDITIONAL_PASS** at L3-4 → `/dr-compliance`
+- **ALL_PASS or CONDITIONAL_PASS** at L1-2 → `/dr-reflect`
+- **BLOCKED** → `/dr-do` with specific fix list extracted from FAIL layers

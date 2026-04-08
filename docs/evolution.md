@@ -4,7 +4,7 @@ Datarim improves itself based on real project experience. This document explains
 
 ## How It Works
 
-1. After completing a task, the `/reflect` command analyzes what worked and what didn't
+1. After completing a task, the `/dr-reflect` command analyzes what worked and what didn't
 2. The agent proposes framework updates (new patterns, improved skills, refined agent behaviors)
 3. **Human reviews and approves** each proposal — no automatic changes
 4. Approved changes are applied and logged in `datarim/docs/evolution-log.md`

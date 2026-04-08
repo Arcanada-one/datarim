@@ -10,7 +10,7 @@ init → prd → plan → design → do → qa → compliance → reflect → ar
 
 ---
 
-## Stage 1: /init — Task Initialization
+## Stage 1: /dr-init — Task Initialization
 
 **Agent:** Planner
 **Purpose:** Create a new task, assess its complexity, set up `datarim/` if needed.
@@ -22,12 +22,12 @@ init → prd → plan → design → do → qa → compliance → reflect → ar
 4. If `datarim/` doesn't exist, create it (this is the only command that may do so)
 
 **Routing after init:**
-- L1 → `/do`
-- L2+ → `/prd` or `/plan`
+- L1 → `/dr-do`
+- L2+ → `/dr-prd` or `/dr-plan`
 
 ---
 
-## Stage 2: /prd — Product Requirements Document
+## Stage 2: /dr-prd — Product Requirements Document
 
 **Agent:** Architect
 **Purpose:** Gather requirements, explore solutions, get user approval.
@@ -42,7 +42,7 @@ init → prd → plan → design → do → qa → compliance → reflect → ar
 
 ---
 
-## Stage 3: /plan — Implementation Planning
+## Stage 3: /dr-plan — Implementation Planning
 
 **Agent:** Planner
 **Purpose:** Create a detailed implementation plan with security analysis.
@@ -59,7 +59,7 @@ init → prd → plan → design → do → qa → compliance → reflect → ar
 
 ---
 
-## Stage 4: /design — Architecture Exploration
+## Stage 4: /dr-design — Architecture Exploration
 
 **Agent:** Architect
 **Purpose:** Explore and document architectural decisions (L3-4 only).
@@ -73,7 +73,7 @@ init → prd → plan → design → do → qa → compliance → reflect → ar
 
 ---
 
-## Stage 5: /do — TDD Implementation
+## Stage 5: /dr-do — TDD Implementation
 
 **Agent:** Developer
 **Purpose:** Implement the plan using Test-Driven Development.
@@ -87,7 +87,7 @@ init → prd → plan → design → do → qa → compliance → reflect → ar
 
 ---
 
-## Stage 6: /qa — Quality Assurance
+## Stage 6: /dr-qa — Quality Assurance
 
 **Agent:** Reviewer
 **Purpose:** Multi-layer verification of the implementation.
@@ -102,7 +102,7 @@ init → prd → plan → design → do → qa → compliance → reflect → ar
 
 ---
 
-## Stage 7: /compliance — Post-QA Hardening
+## Stage 7: /dr-compliance — Post-QA Hardening
 
 **Agent:** Compliance
 **Purpose:** 7-step hardening workflow.
@@ -118,7 +118,7 @@ init → prd → plan → design → do → qa → compliance → reflect → ar
 
 ---
 
-## Stage 8: /reflect — Lessons Learned + Evolution
+## Stage 8: /dr-reflect — Lessons Learned + Evolution
 
 **Agent:** Reviewer
 **Purpose:** Document lessons and propose framework improvements.
@@ -132,7 +132,7 @@ init → prd → plan → design → do → qa → compliance → reflect → ar
 
 ---
 
-## Stage 9: /archive — Task Completion
+## Stage 9: /dr-archive — Task Completion
 
 **Agent:** Planner
 **Purpose:** Archive the task and reset for the next one.
@@ -147,8 +147,8 @@ init → prd → plan → design → do → qa → compliance → reflect → ar
 
 ## Utility Commands
 
-### /status
+### /dr-status
 Read-only check of current task, progress, and backlog.
 
-### /continue
+### /dr-continue
 Resume work from the last checkpoint. Reads `activeContext.md` to determine current phase and routes to the appropriate stage.

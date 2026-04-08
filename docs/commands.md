@@ -6,17 +6,17 @@ Datarim provides 11 slash commands for Claude Code. Each command drives one pipe
 
 | Command | Stage | Agent | Description |
 |---------|-------|-------|-------------|
-| `/init` | Initialize | planner | Create task, assess complexity, set up `datarim/` |
-| `/prd` | Requirements | architect | Generate PRD with discovery interview |
-| `/plan` | Planning | planner | Detailed implementation plan with strategist gate |
-| `/design` | Design | architect | Architecture exploration with consilium (L3-4) |
-| `/do` | Implementation | developer | TDD development, one method at a time |
-| `/qa` | Quality | reviewer | Multi-layer verification (PRD, design, plan, code) |
-| `/compliance` | Hardening | compliance | 7-step post-QA hardening workflow |
-| `/reflect` | Reflection | reviewer | Lessons learned + framework evolution proposals |
-| `/archive` | Archive | planner | Complete task, update backlog, reset context |
-| `/status` | Utility | — | Check current task and backlog status (read-only) |
-| `/continue` | Utility | — | Resume from last checkpoint |
+| `/dr-init` | Initialize | planner | Create task, assess complexity, set up `datarim/` |
+| `/dr-prd` | Requirements | architect | Generate PRD with discovery interview |
+| `/dr-plan` | Planning | planner | Detailed implementation plan with strategist gate |
+| `/dr-design` | Design | architect | Architecture exploration with consilium (L3-4) |
+| `/dr-do` | Implementation | developer | TDD development, one method at a time |
+| `/dr-qa` | Quality | reviewer | Multi-layer verification (PRD, design, plan, code) |
+| `/dr-compliance` | Hardening | compliance | 7-step post-QA hardening workflow |
+| `/dr-reflect` | Reflection | reviewer | Lessons learned + framework evolution proposals |
+| `/dr-archive` | Archive | planner | Complete task, update backlog, reset context |
+| `/dr-status` | Utility | — | Check current task and backlog status (read-only) |
+| `/dr-continue` | Utility | — | Resume from last checkpoint |
 
 ## Command File Format
 
@@ -43,23 +43,23 @@ description: {one-line description}
 
 ```bash
 # Start a new task
-/init Add rate limiting to the API
+/dr-init Add rate limiting to the API
 
 # Generate requirements (for L2+ tasks)
-/prd
+/dr-prd
 
 # Create implementation plan
-/plan
+/dr-plan
 
 # Start coding
-/do
+/dr-do
 
 # Run quality checks
-/qa
+/dr-qa
 
 # Check progress anytime
-/status
+/dr-status
 
 # Resume after a break
-/continue
+/dr-continue
 ```

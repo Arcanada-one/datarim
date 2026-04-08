@@ -26,5 +26,5 @@ Your goal is to ensure systems are reliable, observable, and recoverable in prod
 - LOAD WHEN NEEDED:
   - `$HOME/.claude/skills/security.md` (Security-related reliability concerns)
 
-**When invoked:** `/design` (reliability requirements), `/qa` (load/resilience review), `/reflect` (postmortem analysis).
+**When invoked:** `/dr-design` (reliability requirements), `/dr-qa` (load/resilience review), `/dr-reflect` (postmortem analysis).
 **In consilium:** Voice of reliability -- "will this survive production?"

@@ -1,13 +1,13 @@
 ---
 name: evolution
-description: Rules for proposing and applying framework improvements during /reflect. Human approval required for all changes.
+description: Rules for proposing and applying framework improvements during /dr-reflect. Human approval required for all changes.
 ---
 
 # Evolution — Framework Self-Update Rules
 
 ## What is Evolution
 
-Datarim improves itself based on lessons learned from each completed task. After every `/reflect`, the agent analyzes insights from the task and proposes targeted improvements to the framework — skills, agents, templates, or project configuration.
+Datarim improves itself based on lessons learned from each completed task. After every `/dr-reflect`, the agent analyzes insights from the task and proposes targeted improvements to the framework — skills, agents, templates, or project configuration.
 
 Evolution is how Datarim avoids repeating mistakes and accumulates institutional knowledge.
 
@@ -15,7 +15,7 @@ Evolution is how Datarim avoids repeating mistakes and accumulates institutional
 
 ## When Triggered
 
-Evolution runs as the final step of `/reflect`. The agent:
+Evolution runs as the final step of `/dr-reflect`. The agent:
 
 1. Reviews the reflection document just created
 2. Identifies patterns that could benefit future tasks

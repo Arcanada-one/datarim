@@ -1,15 +1,15 @@
 ---
-name: archive
+name: dr-archive
 description: Archive completed task with comprehensive documentation and Datarim updates
 disable-model-invocation: true
 ---
 
-# /archive - Archive Task
+# /dr-archive - Archive Task
 
 Complete and archive current task.
 
 ## Path Resolution
-**RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/init`. Do NOT create it — only `/init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system.md` § Path Resolution Rule.
+**RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system.md` § Path Resolution Rule.
 
 ## Steps
 1. Create archive document with:
@@ -33,4 +33,4 @@ Complete and archive current task.
 - `datarim/activeContext.md` (reset)
 
 ## Next
-Ready for new task → `/init`
+Ready for new task → `/dr-init`
