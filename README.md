@@ -1,6 +1,8 @@
-# Datarim
+# Datarim (датарим)
 
 **A self-evolving SDLC framework that gives AI agents a structured development process — from requirements to production.**
+
+> "Datarim" is transliterated as "датарим" in Russian. Both forms refer to this framework.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 

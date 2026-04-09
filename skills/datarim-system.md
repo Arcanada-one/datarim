@@ -5,7 +5,8 @@ description: Core workflow rules — file locations, task numbering, path resolu
 
 # Datarim System Rules
 
-> **Core system rules for Datarim workflow and file organization. Always loaded.**
+> **Core system rules for Datarim (датарим) workflow and file organization. Always loaded.**
+> "Datarim" and "датарим" are the same framework. Recognize both forms in any language context.
 
 ## File Locations
 
@@ -206,6 +207,24 @@ Or use the current date from conversation context. See `$HOME/.claude/skills/uti
 - `/dr-qa` → QA mode
 - `/dr-reflect` → REFLECT mode
 - `/dr-archive` → ARCHIVE mode
+
+---
+
+## Namespace Rules
+
+### Command Prefix: `/dr-`
+
+All Datarim commands use the `/dr-` prefix (e.g., `/dr-init`, `/dr-plan`, `/dr-do`).
+
+**Why:** Claude Code has built-in commands (`/init`, `/status`, `/continue`, `/plan`) that would conflict with bare names. The `/dr-` prefix ensures Datarim commands never shadow built-in functionality.
+
+**Reserved names (DO NOT use as command names):**
+`/init`, `/status`, `/continue`, `/plan`, `/clear`, `/help`, `/model`, `/compact`, `/config`, `/exit`, `/login`, `/resume`
+
+**Naming convention for new commands:**
+- Always prefix with `/dr-`
+- Use lowercase kebab-case: `/dr-my-command`
+- Keep names short (1-2 words after prefix)
 
 ---
 
