@@ -139,7 +139,7 @@ Stages in `[brackets]` are conditional — included when the agent determines th
 ### macOS / Linux
 
 ```bash
-git clone <repo-url>
+git clone https://git.veritasarcana.ai/root/datarim.git
 cd datarim
 chmod +x install.sh
 ./install.sh
@@ -152,7 +152,7 @@ confirms what was installed.
 
 ```bash
 # From WSL or Git Bash terminal:
-git clone <repo-url>
+git clone https://git.veritasarcana.ai/root/datarim.git
 cd datarim
 ./install.sh
 ```
