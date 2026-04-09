@@ -1,7 +1,8 @@
 # Datarim — SDLC Framework for AI Agentic Systems
 
 > **Version:** 1.0
-> **Framework:** Datarim provides structured rules, agents, skills, and commands for autonomous AI-driven software development via Claude Code.
+> **Framework:** Datarim (датарим) provides structured rules, agents, skills, and commands for autonomous AI-driven software development via Claude Code.
+> **Note:** "Datarim" is transliterated as "датарим" in Russian. Both refer to this framework — agents must recognize either form in any language context.
 
 ---
 
@@ -57,6 +58,19 @@ Agent files: `$HOME/.claude/agents/{name}.md`
 3. Agent reads relevant `datarim/` state files
 4. Only one primary agent per command execution
 5. Consilium skill can assemble multiple agents for panel discussions
+
+### Minimum Agent Set by Complexity
+
+Not all agents are needed for every task. Load the minimum set to conserve context tokens:
+
+| Level | Required Agents | Optional |
+|-------|----------------|----------|
+| **L1** | developer | reviewer |
+| **L2** | planner, developer | reviewer, architect |
+| **L3** | planner, architect, developer, reviewer | strategist, security, writer |
+| **L4** | planner, architect, developer, reviewer, strategist | devops, security, sre, writer, compliance |
+
+Consilium panels (L3-4) draw from the full roster as needed.
 
 ---
 
