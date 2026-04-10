@@ -1,8 +1,6 @@
-# Datarim (датарим)
+# Datarim
 
 **A self-evolving SDLC framework that gives AI agents a structured development process — from requirements to production.**
-
-> "Datarim" is transliterated as "датарим" in Russian. Both forms refer to this framework.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
@@ -141,7 +139,7 @@ Stages in `[brackets]` are conditional — included when the agent determines th
 ### macOS / Linux
 
 ```bash
-git clone https://git.veritasarcana.ai/root/datarim.git
+git clone https://github.com/Arcanada-one/datarim.git
 cd datarim
 chmod +x install.sh
 ./install.sh
@@ -154,7 +152,7 @@ confirms what was installed.
 
 ```bash
 # From WSL or Git Bash terminal:
-git clone https://git.veritasarcana.ai/root/datarim.git
+git clone https://github.com/Arcanada-one/datarim.git
 cd datarim
 ./install.sh
 ```
