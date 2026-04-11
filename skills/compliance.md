@@ -1,64 +1,144 @@
 ---
 name: compliance
-description: Post-QA hardening workflow (7 steps): change set vs PRD/task, code simplification, references/dead code, test coverage, linters, test run, optional hardening. Use with /dr-compliance or any post-implementation review.
+description: Adaptive post-QA hardening workflow. Detects task type (code, documentation, research, legal, content, infrastructure) and applies the appropriate verification checklist. Ensures work meets all stated requirements before archiving.
 ---
 
-# Compliance Workflow Skill
+# Compliance — Adaptive Post-QA Hardening
 
-> **Self-contained.** Use when running /dr-compliance or any post-QA hardening flow. No external spec file required.
+Compliance is the final quality gate before archiving. It verifies that the work meets all stated requirements and standards. The checklist adapts to the task type.
 
-## Inputs (when present in project)
+## Step 0: Detect Task Type
 
-- **Current task:** From activeContext (task ID, title) if project has datarim; else from context.
-- **PRD or task description:** From project prd/ or tasks if present.
-- **Base branch:** Default `main` or `master`.
-- **Changed files:** From Git diff (current vs base) if repo; else from task context.
+Read `datarim/tasks.md` and `datarim/activeContext.md` to determine task type:
 
-## Steps (execute in order, best-effort)
+| Type | Indicators | Checklist |
+|------|-----------|-----------|
+| **Code** | Modified source code files (.js, .ts, .py, etc.) | Software Checklist (7 steps) |
+| **Documentation** | Modified .md files in docs, guides, README | Documentation Checklist |
+| **Research** | PRD mentions research, analysis, literature | Research Checklist |
+| **Legal** | PRD mentions legal, compliance, terms, policy | Legal Checklist |
+| **Content** | Modified posts, articles, blog content | Content Checklist |
+| **Infrastructure** | Modified Docker, CI/CD, IaC, deploy configs | Infrastructure Checklist |
+| **Mixed** | Multiple types | Apply relevant checklists from each type |
 
-1. **Change set & PRD/task alignment** — Get diff; re-check changes align with PRD/task; report drift.
-2. **Code simplification** — Apply Code Simplifier principles below (and optionally `.claude/agents/code-simplifier.md`) to **recently modified code** only.
-3. **References and dead code** — Check refs; flag/remove unused variables and imports; optional dead code.
-4. **Test coverage** — If project requires tests: verify coverage of changed code; report gaps; suggest or add tests.
-5. **Linters and formatters** — Run linters (fix or document); run formatter (e.g. Prettier); apply.
-6. **Test execution** — Run test suite; report pass/fail; list failures if any.
-7. **CI/CD impact analysis** — Check if changes affect CI/CD pipeline:
-   - **Deleted/moved files:** If any files were deleted or moved (especially route files, pages, components), verify that no build artifacts, caches, or generated files still reference the old paths. In particular:
-     - Next.js `.next/types/` caches route type validators — stale entries cause TS errors on CI where caches persist across runs.
-     - Check `.gitlab-ci.yml` (or equivalent) for cache cleanup steps. If the project has `GIT_CLEAN_FLAGS: none`, stale caches WILL persist.
-     - Check for references to old paths in: config files, import maps, route configs, CI scripts, nginx configs, documentation.
-   - **New dependencies:** If `pnpm-lock.yaml`/`package.json` changed, verify CI installs them correctly.
-   - **New env vars:** If new environment variables are used, verify they are in `turbo.json` `env` arrays and CI `variables:` blocks.
-   - **Build output:** If build outputs changed (new pages, removed pages), verify deploy scripts handle them.
-   - Report any CI-breaking risks found.
-8. **Optional hardening** — Error handling consistency; dependency audit if lockfile changed; security scan if project has it.
+---
 
-## Output — Report structure
+## Software Checklist (7 steps)
 
-Write report with these sections:
+### 1. Change Set & PRD/Task Alignment
+- Compare diff against PRD requirements and task acceptance criteria
+- Flag: unimplemented requirements, out-of-scope changes, missing edge cases
 
-1. PRD alignment (ok | drift)
-2. Simplification applied (yes | no + summary)
-3. References/unused (fixed | reported)
-4. Coverage (ok | gaps)
-5. Lint/format (run + fixes)
-6. Tests (pass | fail)
-7. CI/CD impact (ok | risks found + fixes)
-8. Optional hardening (done | skipped)
-9. Remaining risks/follow-ups
+### 2. Code Simplification
+- Check: functions >50 lines, deeply nested logic, duplicate code
+- Apply Code Simplifier principles to recently modified code only
 
-**Report path:** If project has `datarim/reports/`, write `datarim/reports/compliance-report-[task_id]-[date].md` (use `date +%Y-%m-%d` for date). Otherwise output report in chat only.
+### 3. References and Dead Code
+- Flag unused imports, variables, functions in changed files
+- Verify no debug statements left in production code
 
-## Error handling
+### 4. Test Coverage
+- Verify tests exist for all changed code paths
+- Check: edge cases, error paths, boundary conditions
 
-- No Git → infer changed files from task context.
-- No PRD → use task description from context/tasks.
-- Step failure → record in report; continue all steps; list all failures at end.
+### 5. Linters and Formatters
+- Run project linters and formatters
+- Flag: lint errors, formatting inconsistencies
 
-## Code Simplifier principles (for step 2)
+### 6. Test Execution
+- Run the full test suite, report pass/fail counts
 
-1. **Preserve functionality** — Do not change what the code does; only how.
-2. **Apply project standards** — Follow project coding standards (e.g. CLAUDE.md, style guide).
-3. **Enhance clarity** — Reduce nesting; clear names; no nested ternaries (prefer switch or if/else); clarity over brevity.
-4. **Maintain balance** — Avoid over-simplification; keep code debuggable and extendable.
-5. **Scope** — Focus on recently modified code only unless instructed otherwise.
+### 7. CI/CD Impact Analysis
+- Detect: new dependencies, changed env vars, new build steps
+- Flag: breaking changes to build pipeline, missing migration steps
+
+---
+
+## Documentation Checklist
+
+### 1. Completeness
+- All required sections present, no placeholders (TBD, TODO)
+
+### 2. Accuracy
+- Technical claims correct, code examples work, versions current
+
+### 3. Consistency
+- Terminology consistent, formatting follows style guide, heading hierarchy logical
+
+### 4. Cross-References
+- Internal links resolve, external links valid, bidirectional where needed
+
+### 5. Audience Appropriateness
+- Language matches audience, prerequisites stated, examples progressive
+
+---
+
+## Research Checklist
+
+### 1. Methodology
+- Stated and followed, data sources identified, scope appropriate
+
+### 2. Citation Completeness
+- All claims cited, sources authoritative and current, format consistent
+
+### 3. Argument Coherence
+- Logical flow, conclusions follow evidence, counter-arguments acknowledged
+
+### 4. Scope Compliance
+- Within defined scope, out-of-scope noted for future work
+
+---
+
+## Legal Checklist
+
+### 1. Jurisdictional Compliance
+- Correct jurisdiction referenced, applicable laws current
+
+### 2. Definitions and Terms
+- All specialized terms defined, used consistently
+
+### 3. Structural Integrity
+- Clause numbering sequential, cross-references correct
+
+### 4. Rights and Obligations
+- Clear for all parties, liability limited, termination defined, dispute resolution present
+
+---
+
+## Content Checklist
+
+### 1. Factual Accuracy
+- Claims verified (factcheck skill), statistics sourced
+
+### 2. AI Pattern Removal
+- Passes humanize audit, author's voice preserved
+
+### 3. Platform Requirements
+- Meets target platform specs (length, format, media, SEO)
+
+### 4. Editorial Standards
+- No spelling/grammar errors, tone matches audience
+
+---
+
+## Infrastructure Checklist
+
+### 1. Configuration Accuracy
+- Correct for target environment, no hardcoded secrets
+
+### 2. Rollback Plan
+- Changes reversible, procedure documented, previous state backed up
+
+### 3. Monitoring and Alerts
+- Monitoring configured, alert thresholds set, dashboards updated
+
+### 4. Security
+- Least-privilege, SSL/TLS correct, access controls appropriate
+
+---
+
+## Output
+
+Report with: type detected, per-step results (PASS/FAIL/N/A), overall verdict (COMPLIANT / NON-COMPLIANT / COMPLIANT_WITH_NOTES), remaining risks.
+
+Save to `datarim/reports/compliance-report-{task_id}.md` if directory exists, otherwise present in chat.

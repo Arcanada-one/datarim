@@ -6,10 +6,10 @@ Datarim uses a 4-level complexity system to determine which pipeline stages to r
 
 | Level | Files | LOC | Architecture | Example |
 |-------|-------|-----|-------------|---------|
-| **L1** Quick Fix | 1 | <50 | None | Fix typo in README |
-| **L2** Enhancement | 2-5 | <200 | Minor refactor | Add input validation |
-| **L3** Feature | 5-15 | 200-1000 | Design needed | Implement OAuth2 |
-| **L4** Major Feature | 15+ | >1000 | Complex | Migrate to microservices |
+| **L1** Quick Fix | 1 | <50 | None | Fix typo in README, fix a citation in a legal brief, correct a date in a report |
+| **L2** Enhancement | 2-5 | <200 | Minor refactor | Add input validation, add a section to a research paper, create a project status update |
+| **L3** Feature | 5-15 | 200-1000 | Design needed | Implement OAuth2, write a grant proposal, create compliance documentation, design a landing page |
+| **L4** Major Feature | 15+ | >1000 | Complex | Migrate to microservices, write a technical book, complete a regulatory filing, build an observability stack |
 
 ## Pipeline Routes
 

@@ -1,14 +1,14 @@
-# Datarim — SDLC Framework for AI Agentic Systems
+# Datarim — Universal Iterative Workflow Framework
 
-> **Version:** 1.0
-> **Framework:** Datarim (датарим) provides structured rules, agents, skills, and commands for autonomous AI-driven software development via Claude Code.
-> **Note:** "Datarim" is transliterated as "датарим" in Russian. Both refer to this framework — agents must recognize either form in any language context.
+> **Version:** 1.2.0
+> **Framework:** Datarim (Датарим) provides structured rules, agents, skills, and commands for iterative project execution via Claude Code — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
+> **Note:** "Datarim" is transliterated as "Датарим" in Russian. Both refer to this framework — agents must recognize either form in any language context.
 
 ---
 
 ## Core Principle
 
-Every task follows a **complexity-aware pipeline**. The AI agent does not freestyle — it follows a structured SDLC process adapted to the task's size and risk.
+Every task follows a **complexity-aware pipeline**. The operator (human or AI agent) does not freestyle — they follow a structured iterative process adapted to the task's size and risk.
 
 ---
 
@@ -45,11 +45,15 @@ Agents are specialized personas loaded per pipeline stage. Each agent has define
 | **code-simplifier** | Code Simplification | /dr-compliance |
 | **strategist** | Strategic Advisor | /dr-plan (L3-4) |
 | **devops** | DevOps Engineer | /dr-plan, /dr-do, /dr-compliance |
-| **writer** | Technical Writer | /dr-reflect, /dr-archive, /dr-prd |
+| **writer** | Content Writer | /dr-write, /dr-reflect, /dr-archive, /dr-prd |
+| **editor** | Content Editor | /dr-edit, /dr-qa (content) |
+| **skill-creator** | Skill/Agent/Command Creator | /dr-addskill |
+| **optimizer** | Framework Optimizer | /dr-optimize, /dr-reflect (health check) |
+| **librarian** | Knowledge Base Librarian | /dr-dream |
 | **security** | Security Analyst | /dr-design, /dr-qa, /dr-compliance |
 | **sre** | Site Reliability Engineer | /dr-design, /dr-qa, /dr-reflect |
 
-Agent files: `$HOME/.claude/agents/{name}.md`
+Agent files: `$HOME/.claude/agents/{name}.md` (15 agents)
 
 ### Agent Loading Rules
 
@@ -67,8 +71,10 @@ Not all agents are needed for every task. Load the minimum set to conserve conte
 |-------|----------------|----------|
 | **L1** | developer | reviewer |
 | **L2** | planner, developer | reviewer, architect |
-| **L3** | planner, architect, developer, reviewer | strategist, security, writer |
-| **L4** | planner, architect, developer, reviewer, strategist | devops, security, sre, writer, compliance |
+| **L3** | planner, architect, developer, reviewer | strategist, security, writer, editor |
+| **L4** | planner, architect, developer, reviewer, strategist | devops, security, sre, writer, editor, compliance |
+
+For content-focused tasks (articles, research, documentation), writer and editor replace developer and reviewer as primary agents.
 
 Consilium panels (L3-4) draw from the full roster as needed.
 
@@ -96,10 +102,14 @@ Skills are reusable knowledge modules loaded on demand. They provide rules, patt
 - `consilium.md` — Multi-agent panel discussions (loaded by: /dr-design for L3-4)
 - `discovery.md` — Requirements discovery interview (loaded by: /dr-prd)
 - `evolution.md` — Framework self-update rules (loaded by: /dr-reflect)
-- `factcheck.md` — Fact verification for publications (loaded on demand)
-- `humanize.md` — AI text pattern removal (loaded on demand)
+- `writing.md` — Content creation and editorial workflow (loaded by: writer, editor)
+- `dream.md` — Knowledge base maintenance rules (loaded by: librarian)
+- `seo-launch.md` — SEO, analytics, website/app launch checklists (loaded on demand)
+- `marketing.md` — Ad campaigns, conversion tracking, landing pages, growth (loaded on demand)
+- `factcheck.md` — Fact verification for publications (loaded by: editor, on demand)
+- `humanize.md` — AI text pattern removal (loaded by: editor, on demand)
 
-Skill files: `$HOME/.claude/skills/{name}.md`
+Skill files: `$HOME/.claude/skills/{name}.md` (17 skills)
 
 ---
 
@@ -142,19 +152,27 @@ Before writing ANY file to `datarim/`:
 
 | Command | Stage | Description |
 |---------|-------|-------------|
-| `/dr-init` | Initialize | Create task, assess complexity, set up `datarim/` |
+| `/dr-init` | Initialize | Create task or pick from backlog, assess complexity, set up `datarim/` |
 | `/dr-prd` | Requirements | Generate PRD with discovery interview |
 | `/dr-plan` | Planning | Detailed implementation plan with strategist gate |
 | `/dr-design` | Design | Architecture exploration with consilium |
-| `/dr-do` | Implementation | TDD development, one method at a time |
-| `/dr-qa` | Quality | Multi-layer verification (PRD, design, plan, code) |
+| `/dr-do` | Execution | Implement the plan: TDD for code, structured iteration for other work |
+| `/dr-qa` | Quality | Multi-layer verification (PRD, design, plan, output quality) |
 | `/dr-compliance` | Hardening | 7-step post-QA hardening |
 | `/dr-reflect` | Reflection | Lessons learned + framework evolution proposals |
 | `/dr-archive` | Archive | Complete task, update backlog, reset context |
 | `/dr-status` | Utility | Check current task and backlog status |
 | `/dr-continue` | Utility | Resume from last checkpoint |
+| `/dr-write` | Content | Create written content — articles, docs, research, posts |
+| `/dr-edit` | Content | Editorial review — fact-check, humanize, style, polish |
+| `/dr-addskill` | Extension | Create or update skills, agents, commands with web research |
+| `/dr-optimize` | Maintenance | Audit framework, prune unused, merge duplicates, sync docs |
+| `/dr-dream` | Maintenance | Knowledge base maintenance: organize, lint, index, cross-reference |
+| `/dr-help` | Utility | List all commands with descriptions and usage guidance |
+| `/factcheck` | Standalone | Fact-check articles and posts before publication |
+| `/humanize` | Standalone | Remove AI writing patterns from text |
 
-Command files: `$HOME/.claude/commands/{name}.md`
+Command files: `$HOME/.claude/commands/{name}.md` (19 commands)
 
 ---
 

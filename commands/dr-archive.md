@@ -33,4 +33,5 @@ Complete and archive current task.
 - `datarim/activeContext.md` (reset)
 
 ## Next
-Ready for new task → `/dr-init`
+- Ready for new task → `/dr-init`
+- Knowledge base grown since last maintenance? → Suggest `/dr-dream` (if >5 documents created since last dream run)

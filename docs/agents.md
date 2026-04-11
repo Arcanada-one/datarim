@@ -1,6 +1,6 @@
 # Agents Reference
 
-Datarim includes 11 specialized agents. Each agent is a persona with defined capabilities, context requirements, and skill dependencies.
+Datarim includes 15 specialized agents. Each agent is a persona with defined capabilities, context requirements, and skill dependencies.
 
 ## Agent Roster
 
@@ -14,7 +14,11 @@ Datarim includes 11 specialized agents. Each agent is a persona with defined cap
 | code-simplifier | Code Simplification | opus | /dr-compliance |
 | strategist | Strategic Advisor | opus | /dr-plan (L3-4) |
 | devops | DevOps Engineer | opus | /dr-plan, /dr-do, /dr-compliance |
-| writer | Technical Writer | opus | /dr-reflect, /dr-archive, /dr-prd |
+| writer | Content Writer | opus | /dr-write, /dr-reflect, /dr-archive, /dr-prd |
+| editor | Content Editor | opus | /dr-edit, /dr-qa (content) |
+| skill-creator | Skill/Agent/Command Creator | opus | /dr-addskill |
+| optimizer | Framework Optimizer | opus | /dr-optimize, /dr-reflect |
+| librarian | Knowledge Base Librarian | opus | /dr-dream |
 | security | Security Analyst | opus | /dr-design, /dr-qa, /dr-compliance |
 | sre | Site Reliability Engineer | opus | /dr-design, /dr-qa, /dr-reflect |
 
@@ -48,6 +52,8 @@ Agents can be assembled into panels for multi-perspective analysis:
 - **Code panel:** developer + reviewer + code-simplifier
 - **Production panel:** sre + devops + security
 - **Feature panel:** strategist + architect + developer + writer
+- **Content panel:** writer + editor
+- **Knowledge panel:** librarian + architect + writer
 - **Custom:** any 3-7 agents based on the question
 
 See `skills/consilium.md` for the full panel discussion protocol.

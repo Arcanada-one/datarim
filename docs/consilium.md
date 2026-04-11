@@ -29,6 +29,8 @@ Select agents based on the question domain:
 | Code | developer, reviewer, code-simplifier | Implementation approach |
 | Production | sre, devops, security | Deployment and operations |
 | Feature | strategist, architect, developer, writer | New feature evaluation |
+| Content | writer, editor | Editorial decisions, publication strategy |
+| Knowledge | librarian, architect, writer | Knowledge base structure decisions |
 | Custom | Any 3-7 agents | Domain-specific questions |
 
 ### 3. ANALYZE

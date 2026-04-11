@@ -1,6 +1,6 @@
 # Skills Reference
 
-Datarim includes 13 reusable skill modules. Skills provide rules, patterns, and guidelines loaded on demand by agents and commands.
+Datarim includes 17 reusable skill modules. Skills provide rules, patterns, and guidelines loaded on demand by agents and commands.
 
 ## Skill Catalog
 
@@ -17,8 +17,12 @@ Datarim includes 13 reusable skill modules. Skills provide rules, patterns, and 
 | consilium | Multi-agent panel discussions | /dr-design (L3-4) |
 | discovery | Requirements discovery interview | /dr-prd |
 | evolution | Framework self-update rules | /dr-reflect |
-| factcheck | Fact verification for publications | On demand |
-| humanize | AI text pattern removal | On demand |
+| writing | Content creation and editorial workflow | writer, editor |
+| dream | Knowledge base maintenance rules | librarian |
+| seo-launch | SEO, analytics, website/app launch, ASO checklists | on demand |
+| marketing | Ad campaigns, conversion tracking, landing pages, growth | on demand |
+| factcheck | Fact verification for publications | editor, on demand |
+| humanize | AI text pattern removal | editor, on demand |
 
 ## Loading Hierarchy
 

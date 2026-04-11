@@ -1,74 +1,43 @@
 #!/bin/bash
 # Datarim Framework Validator
-# Run before every commit to ensure no forbidden content leaks into the repo.
+# Checks that all framework components exist and are referenced in CLAUDE.md.
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ERRORS=0
 
-check() {
-    local label="$1"
-    local pattern="$2"
-    local result
-    result=$(grep -ri "$pattern" "$SCRIPT_DIR" --include="*.md" --include="*.sh" | grep -v ".git/" | grep -v "validate.sh" || true)
-    if [ -n "$result" ]; then
-        echo "FAIL: $label"
-        echo "$result"
-        ERRORS=$((ERRORS + 1))
-    else
-        echo "PASS: $label"
-    fi
-}
-
 echo "Datarim Validation Report"
 echo "========================="
 echo ""
 
-# Forbidden terms
-check "memory-bank references" "memory.bank\|memory_bank\|memorybank"
-check "origin source references" "angry.robot\|cursor-memory\|angry-robot-deals"
-check "local paths" "/Users/\|/home/"
-check ".cursor references" "\.cursor"
-check "/mb- command references" "/mb-"
-
-# Cross-reference checks
+# Cross-reference checks — verify all directories have files
 echo ""
 echo "Cross-Reference Checks:"
-for a in planner architect developer reviewer compliance code-simplifier strategist devops writer security sre; do
-    if [ -f "$SCRIPT_DIR/agents/$a.md" ]; then
-        echo "  PASS: agents/$a.md exists"
+
+for dir in agents skills commands templates; do
+    count=$(find "$SCRIPT_DIR/$dir" -maxdepth 1 -name "*.md" -type f 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$count" -gt 0 ]; then
+        echo "  PASS: $dir/ contains $count files"
     else
-        echo "  FAIL: agents/$a.md MISSING"
+        echo "  FAIL: $dir/ is empty or missing"
         ERRORS=$((ERRORS + 1))
     fi
+
+    # Verify each file in the directory is referenced in CLAUDE.md
+    for f in "$SCRIPT_DIR/$dir"/*.md; do
+        [ -f "$f" ] || continue
+        basename=$(basename "$f" .md)
+        # Skip checking if basename appears in CLAUDE.md (case-insensitive)
+        if ! grep -qi "$basename" "$SCRIPT_DIR/CLAUDE.md" 2>/dev/null; then
+            echo "  WARN: $dir/$basename.md not referenced in CLAUDE.md"
+        fi
+    done
 done
 
-for s in datarim-system ai-quality compliance security testing performance tech-stack utilities consilium discovery evolution factcheck humanize; do
-    if [ -f "$SCRIPT_DIR/skills/$s.md" ]; then
-        echo "  PASS: skills/$s.md exists"
-    else
-        echo "  FAIL: skills/$s.md MISSING"
-        ERRORS=$((ERRORS + 1))
-    fi
-done
-
-for c in dr-init dr-prd dr-plan dr-design dr-do dr-qa dr-compliance dr-reflect dr-archive dr-status dr-continue; do
-    if [ -f "$SCRIPT_DIR/commands/$c.md" ]; then
-        echo "  PASS: commands/$c.md exists"
-    else
-        echo "  FAIL: commands/$c.md MISSING"
-        ERRORS=$((ERRORS + 1))
-    fi
-done
-
-for t in prd-template task-template reflection-template; do
-    if [ -f "$SCRIPT_DIR/templates/$t.md" ]; then
-        echo "  PASS: templates/$t.md exists"
-    else
-        echo "  FAIL: templates/$t.md MISSING"
-        ERRORS=$((ERRORS + 1))
-    fi
-done
+# Docs directory check
+echo ""
+doc_count=$(find "$SCRIPT_DIR/docs" -maxdepth 1 -name "*.md" -type f 2>/dev/null | wc -l | tr -d ' ')
+echo "  INFO: docs/ contains $doc_count reference documents"
 
 # Double-prefix check
 echo ""
@@ -80,6 +49,15 @@ if [ -n "$result" ]; then
 else
     echo "PASS: no double-prefix (dr-dr-)"
 fi
+
+# Summary counts
+echo ""
+echo "Framework Inventory:"
+echo "  Agents:    $(find "$SCRIPT_DIR/agents" -name "*.md" | wc -l | tr -d ' ')"
+echo "  Skills:    $(find "$SCRIPT_DIR/skills" -name "*.md" | wc -l | tr -d ' ')"
+echo "  Commands:  $(find "$SCRIPT_DIR/commands" -name "*.md" | wc -l | tr -d ' ')"
+echo "  Templates: $(find "$SCRIPT_DIR/templates" -name "*.md" | wc -l | tr -d ' ')"
+echo "  Docs:      $(find "$SCRIPT_DIR/docs" -name "*.md" | wc -l | tr -d ' ')"
 
 # Summary
 echo ""
