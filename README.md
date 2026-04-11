@@ -2,7 +2,7 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 1.3.0](https://img.shields.io/badge/Version-1.3.0-green.svg)](VERSION)
+[![Version: 1.4.0](https://img.shields.io/badge/Version-1.4.0-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
@@ -15,7 +15,7 @@ reflection. The result is inconsistent quality, skipped steps, and zero institut
 learning. Every task starts from scratch, repeating the same mistakes from yesterday.
 
 Datarim fixes this by providing a complete iterative pipeline for any project type.
-It includes 15 specialized agents, 18 reusable skills, and 19 commands that guide
+It includes 15 specialized agents, 19 reusable skills, and 19 commands that guide
 work through a structured process: requirements gathering, planning, design,
 execution, quality assurance, compliance, reflection, and archival. The pipeline is
 complexity-aware — a quick fix does not go through the same process as a major
@@ -92,7 +92,7 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   security, and SRE. Each agent has a defined role, capabilities, and the stages
   where it operates.
 
-- **18 reusable skills** — modular knowledge units that agents load on demand,
+- **19 reusable skills** — modular knowledge units that agents load on demand,
   covering everything from testing methodology to security hardening to content
   creation workflows.
 
@@ -307,6 +307,7 @@ involve all fifteen agents across different stages.
 | **marketing** | Ad campaigns, conversion tracking, landing pages, growth marketing | On demand |
 | **factcheck** | Claim extraction, source verification, accuracy scoring | Editor, Writer |
 | **humanize** | AI artifact removal, voice preservation, natural language patterns | Editor, Writer |
+| **telegram-publishing** | Telegram Bot API publishing rules, caption limits, discussion group comments | On demand |
 
 Skills are modular. Each is a standalone Markdown file that agents load when they need
 specific capabilities. You can add custom skills by placing `.md` files in
@@ -794,7 +795,7 @@ and why it exists.
 ```
 datarim/
   agents/            # Agent personas (15 agents)
-  skills/            # Knowledge modules (18 skills)
+  skills/            # Knowledge modules (19 skills)
   commands/          # Slash commands (19 commands)
   templates/         # Task and document templates (5 templates)
   docs/              # Extended documentation and use cases

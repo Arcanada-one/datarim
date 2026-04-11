@@ -110,6 +110,7 @@ Rules and checklists for search optimization, analytics, and launch preparation 
 - [ ] manifest.json for PWA (if applicable)
 - [ ] Cross-browser tested (Chrome, Firefox, Safari, Edge)
 - [ ] Mobile responsive on 3+ screen sizes
+- [ ] Static assets versioned for CDN cache busting (CSS/JS `?v=N` or content hash in filename) — Cloudflare and other CDNs cache aggressively; without versioning, users see stale CSS/JS after deploy
 
 ---
 

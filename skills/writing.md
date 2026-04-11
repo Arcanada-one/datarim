@@ -63,6 +63,7 @@ Before any content is considered complete:
 - [ ] All links and references are valid
 - [ ] Spelling and grammar are correct in all languages used
 - [ ] Content reads naturally — not "too clean" or "too balanced"
+- [ ] Target audience claims verified with the author (who it's for / not for — these contain subjective judgments that factcheck can't catch from sources alone)
 
 ## Anti-Patterns to Avoid
 

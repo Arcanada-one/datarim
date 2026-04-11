@@ -1,6 +1,6 @@
 # Datarim — Universal Iterative Workflow Framework
 
-> **Version:** 1.3.0
+> **Version:** 1.4.0
 > **Framework:** Datarim (Датарим) provides structured rules, agents, skills, and commands for iterative project execution via Claude Code — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
 > **Note:** "Datarim" is transliterated as "Датарим" in Russian. Both refer to this framework — agents must recognize either form in any language context.
 
@@ -109,8 +109,9 @@ Skills are reusable knowledge modules loaded on demand. They provide rules, patt
 - `factcheck.md` — Fact verification for publications (loaded by: editor, on demand)
 - `humanize.md` — AI text pattern removal (loaded by: editor, on demand)
 - `visual-maps.md` — Mermaid workflow diagrams: pipeline routing, stage flows, agent-skill-command graphs (loaded on demand for navigation)
+- `telegram-publishing.md` — Telegram Bot API publishing rules, caption limits, discussion group comments (loaded on demand)
 
-Skill files: `$HOME/.claude/skills/{name}.md` (18 skills)
+Skill files: `$HOME/.claude/skills/{name}.md` (19 skills)
 
 ---
 
