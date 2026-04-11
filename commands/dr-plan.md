@@ -54,6 +54,18 @@ The plan in `datarim/tasks.md` MUST include: **Overview**, **Security Summary** 
 -   **Principles**: Fail-closed, Least privilege, No secrets in code/logs.
 -   **Anti-Patterns**: Trusting user input, Logging sensitive data, Hardcoding secrets, SQL concatenation, Unvalidated file paths.
 
+## Transition Checkpoint
+
+Before proceeding to `/dr-design` or `/dr-do`:
+```
+[ ] Requirements clearly documented?
+[ ] Components and affected files identified?
+[ ] Definition of Done is testable and explicit?
+[ ] Boundaries stated (what we DON'T do)?
+[ ] Technology stack validated (if applicable)?
+[ ] tasks.md updated with implementation plan?
+```
+
 ## Usage
 
 Run: `/dr-plan`

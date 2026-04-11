@@ -29,9 +29,13 @@ description: Review completed task and create reflection document with lessons l
     - Check against Health Metrics thresholds (see `evolution.md`).
     - If any threshold is exceeded, suggest: "Framework may benefit from optimization. Run `/dr-optimize` to audit and clean up."
     - This is a suggestion only — do not run optimization automatically.
-7.  **OUTPUT**: `datarim/reflection/reflection-[id].md`.
+7.  **FOLLOW-UP TASKS**:
+    - Review the "Next Steps" section of the reflection document.
+    - If follow-up tasks are identified, note them for `/dr-archive` to add to backlog.
+    - Do NOT add to backlog here — `/dr-archive` handles backlog writes to keep the workflow clean.
+8.  **OUTPUT**: `datarim/reflection/reflection-[id].md`.
 
 ## Next Steps
 - Evolution proposals pending? → Apply approved changes
 - Health check flagged issues? → `/dr-optimize`
-- Task complete? → `/dr-archive`
+- Task complete? → `/dr-archive` (will handle backlog updates and follow-up task creation)

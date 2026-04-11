@@ -209,3 +209,13 @@ Write to `datarim/qa/qa-report-{task-id}.md`:
 - **ALL_PASS or CONDITIONAL_PASS** at L3-4 → `/dr-compliance`
 - **ALL_PASS or CONDITIONAL_PASS** at L1-2 → `/dr-reflect`
 - **BLOCKED** → `/dr-do` with specific fix list extracted from FAIL layers
+
+## Transition Checkpoint
+
+Before proceeding to next stage:
+```
+[ ] All applicable layers executed?
+[ ] DoD criteria verified against implementation?
+[ ] Security issues addressed (or documented as accepted risk)?
+[ ] QA report written to datarim/qa/?
+```

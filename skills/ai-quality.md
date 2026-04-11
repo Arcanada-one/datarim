@@ -81,25 +81,41 @@ ELEMENTS:
 
 ---
 
+## STAGE-RULE MAPPING
+
+Load only the rules relevant to your current stage:
+
+| Stage | Rules to Apply | Focus |
+|-------|---------------|-------|
+| **/dr-init** | #4 Requirements, #12 Complexity | Is the task well-defined? Can AI solve it? |
+| **/dr-plan** | #1 Stubbing, #5 DoD, #6 Corner Cases, #7 Skeleton, #11 Boundaries | Decompose, define scope and done criteria |
+| **/dr-design** | #6 Corner Cases, #7 Skeleton, #9 Cognitive Load, #13 Transactions | Design quality, keep it simple |
+| **/dr-do** | #2 TDD, #3 Method Size, #8 Iterative, #9 Cognitive Load | Write tests first, small methods, one at a time |
+| **/dr-qa** | #5 DoD verification, #10 Focused Review | Review one method at a time, check done criteria |
+| **/dr-reflect** | #8 Iterative verification, #10 Review | Was the process followed? |
+| **/dr-archive** | #14 Structure | Hierarchical summaries for future context |
+
+---
+
 ## QUICK RULE REFERENCE
 
-| # | Rule | One-Liner | Mode |
-|---|------|-----------|------|
-| 1 | Stubbing | Break into 50-line stubs | PLAN, BUILD |
-| 2 | TDD | Tests before code (Strict Mocking) | BUILD |
-| 3 | Method Size | Max 50 lines, 7-9 objects | BUILD |
-| 4 | Requirements | Context before coding | VAN, PLAN |
-| 5 | DoD | Explicit done criteria | PLAN |
-| 6 | Corner Cases | List boundaries first | PLAN, CREATIVE |
-| 7 | Skeleton | Architecture before code | PLAN, CREATIVE |
-| 8 | Iterative | One method at a time | BUILD |
-| 9 | Cognitive | 7+/-2 objects max | BUILD |
-| 10 | Review | Review one method only | REFLECT |
-| 11 | Boundaries | State what's out of scope | PLAN |
-| 12 | Complexity | Verify AI can solve | VAN |
-| 13 | Transaction | Explicit isolation levels | BUILD, CREATIVE |
-| 14 | MB Structure | Hierarchical summaries | VAN, ARCHIVE |
-| 15 | Prompts | Structured prompt creation | ALL |
+| # | Rule | One-Liner |
+|---|------|-----------|
+| 1 | Stubbing | Break into 50-line stubs |
+| 2 | TDD | Tests before code (Strict Mocking) |
+| 3 | Method Size | Max 50 lines, 7-9 objects |
+| 4 | Requirements | Context before coding |
+| 5 | DoD | Explicit done criteria |
+| 6 | Corner Cases | List boundaries first |
+| 7 | Skeleton | Architecture before code |
+| 8 | Iterative | One method at a time |
+| 9 | Cognitive | 7+/-2 objects max |
+| 10 | Review | Review one method only |
+| 11 | Boundaries | State what's out of scope |
+| 12 | Complexity | Verify AI can solve |
+| 13 | Transaction | Explicit isolation levels |
+| 14 | Structure | Hierarchical summaries |
+| 15 | Prompts | Structured prompt creation |
 
 ---
 

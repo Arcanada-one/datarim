@@ -8,6 +8,8 @@ Datarim's pipeline consists of 9 stages. Not all stages run for every task — c
 init → prd → plan → design → do → qa → compliance → reflect → archive
 ```
 
+> **Visual navigation:** Load `visual-maps.md` skill for mermaid diagrams of pipeline routing, stage flows, and agent-skill-command relationships.
+
 ---
 
 ## Stage 1: /dr-init — Task Initialization
@@ -65,11 +67,11 @@ init → prd → plan → design → do → qa → compliance → reflect → ar
 **Purpose:** Explore and document architectural decisions (L3-4 only).
 
 **What happens:**
-1. For L3-4: Consilium panel — multi-agent discussion with conflict resolution
-2. Creative exploration with tradeoff matrices
-3. Priority Ladder resolution
-4. Architecture Decision Records (ADRs)
-5. Output: `datarim/creative/creative-{id}-{name}.md`
+1. **Determine design type:** UI/UX, Architecture, Data Model, or Algorithm
+2. For each component: define problem → explore 3+ options → analyze tradeoffs → decide
+3. For L3-4: Consilium panel — multi-agent discussion with conflict resolution
+4. Apply quality rules: #6 Corner Cases, #7 Skeleton, #9 Cognitive Load, #13 Transactions
+5. Output: `datarim/creative/creative-{task_id}-{type}-{name}.md`
 
 ---
 
@@ -80,10 +82,11 @@ init → prd → plan → design → do → qa → compliance → reflect → ar
 
 **What happens:**
 1. Load implementation plan from `datarim/tasks.md`
-2. TDD loop: Write test → Fail → Code → Pass
-3. Implement one method/stub at a time
-4. Follow project patterns and style guide
-5. Update `datarim/progress.md`
+2. **Pre-flight check** (L3-L4 code tasks): verify plan exists, design docs complete, dependencies available, project builds
+3. TDD loop: Write test → Fail → Code → Pass
+4. Implement one method/stub at a time (apply rules #2, #3, #8, #9)
+5. Follow project patterns and style guide
+6. Update `datarim/progress.md`
 
 **Note:** For content-focused tasks (articles, research, documentation), `/dr-write` replaces `/dr-do` as the execution stage.
 
