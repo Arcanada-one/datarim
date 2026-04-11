@@ -18,12 +18,15 @@ Continue from where you left off.
 - `datarim/activeContext.md`
 - `datarim/tasks.md`
 - `datarim/progress.md`
+- `datarim/backlog.md` (for routing when no active task)
 
 ## Write
 Depends on current phase
 
 ## Routing
-- No active task → suggest `/dr-init`
+- No active task → check `datarim/backlog.md` for pending items:
+  - If pending items exist → display them and suggest `/dr-init` with backlog selection
+  - If no pending items → suggest `/dr-init` with new task
 - In PLAN → continue planning
 - In DO → continue implementation
 - Ready for ARCHIVE → suggest `/dr-archive`
