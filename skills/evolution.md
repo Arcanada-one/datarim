@@ -1,47 +1,86 @@
 ---
 name: evolution
-description: Rules for proposing and applying framework improvements during /dr-reflect. Human approval required for all changes.
+description: Rules for proposing, applying, and optimizing framework improvements. Covers growth (new components via /dr-reflect) and maintenance (pruning, merging, efficiency via /dr-optimize). Human approval required for all changes.
 ---
 
-# Evolution — Framework Self-Update Rules
+# Evolution — Framework Self-Update and Optimization Rules
 
 ## What is Evolution
 
-Datarim improves itself based on lessons learned from each completed task. After every `/dr-reflect`, the agent analyzes insights from the task and proposes targeted improvements to the framework — skills, agents, templates, or project configuration.
+Datarim improves itself in two ways:
 
-Evolution is how Datarim avoids repeating mistakes and accumulates institutional knowledge.
+1. **Growth** — after each completed task, `/dr-reflect` analyzes lessons learned and proposes targeted improvements: new skills, updated agents, expanded templates.
+2. **Maintenance** — periodically or on demand, `/dr-optimize` audits the framework for bloat, duplicates, broken references, and inefficiencies, then proposes cleanup and consolidation.
+
+Both paths require **explicit human approval** for every change. Evolution is how Datarim avoids repeating mistakes, accumulates institutional knowledge, and stays lean over time.
 
 ---
 
 ## When Triggered
 
-Evolution runs as the final step of `/dr-reflect`. The agent:
+### Automatic: After `/dr-reflect` (Growth)
 
+The agent:
 1. Reviews the reflection document just created
 2. Identifies patterns that could benefit future tasks
 3. Generates zero or more Evolution Proposals
-4. Presents proposals to the human for approval
-5. Applies only approved changes
+4. **Bloat check**: Counts total skills, agents, commands. If any threshold is exceeded (see Health Metrics below), suggests running `/dr-optimize`
+5. Presents proposals to the human for approval
+6. Applies only approved changes
 
-**No automatic modifications.** Every change requires explicit human approval.
+### Explicit: Via `/dr-optimize` (Maintenance)
+
+The optimizer agent:
+1. Performs a full audit of all framework components
+2. Builds a dependency graph (commands → agents → skills)
+3. Detects unused, oversized, duplicate, and broken components
+4. Generates optimization proposals
+5. Presents report and proposals for approval
+6. Applies approved changes and syncs all documentation
+
+### User-requested: Via `/dr-addskill` (Growth)
+
+When creating new components, the skill-creator agent:
+1. Audits existing framework before creating anything new
+2. Prefers updating existing components over creating new ones
+3. Follows the Anti-Bloat Rule (below)
+
+**No automatic modifications.** Every change requires explicit human approval across all paths.
 
 ---
 
 ## Proposal Categories
 
+### Growth Categories (from `/dr-reflect`)
+
 | Category | Target | Description |
 |----------|--------|-------------|
-| `skill-update` | `skills/{name}.md` | Improve existing skill content — add missing recipes, fix inaccuracies, expand coverage |
+| `skill-update` | `skills/{name}.md` | Improve existing skill — add recipes, fix inaccuracies, expand coverage |
 | `agent-update` | `agents/{name}.md` | Refine agent capabilities, context loading, or decision criteria |
 | `claude-md-update` | `CLAUDE.md` | Update project-level rules, pipeline definitions, or conventions |
-| `new-template` | `templates/{name}.md` | Create new template based on a recurring pattern discovered during the task |
-| `new-skill` | `skills/{name}.md` | Propose an entirely new skill when existing skills don't cover a discovered need |
+| `new-template` | `templates/{name}.md` | Create template for a recurring pattern |
+| `new-skill` | `skills/{name}.md` | Create entirely new skill for an uncovered domain |
+
+### Optimization Categories (from `/dr-optimize`)
+
+| Category | Target | Description |
+|----------|--------|-------------|
+| `prune-skill` | `skills/{name}.md` | Remove an unused or obsolete skill |
+| `prune-agent` | `agents/{name}.md` | Remove an unused or obsolete agent |
+| `prune-command` | `commands/{name}.md` | Remove an unused or obsolete command |
+| `merge-skills` | `skills/{name}.md` | Combine two overlapping skills into one |
+| `merge-agents` | `agents/{name}.md` | Combine two overlapping agents into one |
+| `split-skill` | `skills/{name}.md` | Split an oversized skill into base + supporting files |
+| `rewrite-skill` | `skills/{name}.md` | Restructure a skill for clarity and context efficiency |
+| `fix-description` | any `.md` | Optimize description for better auto-triggering or shorter context |
+| `fix-references` | any `.md` | Fix broken cross-references between components |
+| `sync-docs` | `CLAUDE.md`, `README.md`, `dr-help.md` | Update documentation counts and tables to match actual files |
 
 ---
 
 ## Proposal Format
 
-Each proposal is a self-contained block presented in the reflection output.
+Each proposal is a self-contained block.
 
 ```markdown
 ## Evolution Proposal
@@ -51,6 +90,7 @@ Each proposal is a self-contained block presented in the reflection output.
 - **What:** Add property-based testing section with hypothesis/fast-check examples
 - **Why:** Discovered during TASK-0042 that property tests caught edge cases unit tests missed. Three bugs found by property tests were not covered by example-based tests.
 - **Impact:** Medium — affects testing strategy for all future tasks
+- **Risk:** Low / Medium / High
 - **Diff preview:**
   ```
   + ## Property-Based Testing
@@ -63,18 +103,20 @@ Each proposal is a self-contained block presented in the reflection output.
 
 | Field | Description |
 |-------|-------------|
-| **Category** | One of the five categories above |
-| **Target** | Exact file path relative to the framework root |
+| **Category** | One of the categories above (growth or optimization) |
+| **Target** | File path relative to the framework root |
 | **What** | Concise description of the change (one sentence) |
-| **Why** | Evidence from the current task that justifies the change |
+| **Why** | Evidence — from task reflection, audit findings, or user request |
 | **Impact** | Low / Medium / High — how broadly this affects future tasks |
 
 ### Optional Fields
 
 | Field | Description |
 |-------|-------------|
-| **Diff preview** | Approximate content to add/change (helps human evaluate) |
-| **Alternatives** | Other approaches considered and why this one was chosen |
+| **Risk** | Low / Medium / High — how likely this is to break something |
+| **Diff preview** | Approximate content to add/change |
+| **Alternatives** | Other approaches considered |
+| **Depends on** | Other proposals that must be applied first |
 
 ---
 
@@ -82,13 +124,48 @@ Each proposal is a self-contained block presented in the reflection output.
 
 After presenting proposals, the agent MUST:
 
-1. List all proposals with their category, target, and one-line summary
+1. List all proposals with their number, category, target, risk, and one-line summary
 2. Ask: "Which proposals should I apply? (all / none / comma-separated numbers)"
 3. Wait for explicit response
 4. Apply ONLY the approved proposals
 5. Skip or discard rejected proposals without argument
 
 **Never apply changes speculatively.** Never say "I'll go ahead and update this" without approval.
+
+---
+
+## Health Metrics
+
+These thresholds trigger an optimization suggestion during `/dr-reflect`:
+
+| Metric | Threshold | Action |
+|--------|-----------|--------|
+| Total skills | >20 | Suggest `/dr-optimize` — check for merges |
+| Total agents | >18 | Suggest `/dr-optimize` — check for merges |
+| Total commands | >25 | Suggest `/dr-optimize` — check for duplicates |
+| Any skill >500 lines | — | Suggest splitting into base + supporting files |
+| Total description chars | >8000 | Suggest shortening descriptions |
+| Orphan rate | >15% components unreferenced | Suggest `/dr-optimize` — prune orphans |
+
+The optimizer reports these metrics in its audit. Healthy frameworks stay under all thresholds.
+
+---
+
+## Anti-Bloat Rule
+
+**Prefer updating existing files over creating new ones.**
+
+Before proposing `new-skill`, `new-template`, or any new file:
+1. Check if an existing skill could absorb the content
+2. Check if an existing template could be extended
+3. Only create a new file if the content is clearly a distinct concern
+
+Before proposing a merge:
+1. Verify both components serve the same domain
+2. Check that no information is lost in the merge
+3. Update all cross-references after merging
+
+Framework bloat degrades agent performance. Every new file adds to context loading overhead. Every description adds to the context budget. Keep the framework as small as it needs to be and no smaller.
 
 ---
 
@@ -103,24 +180,12 @@ All approved changes are logged in `datarim/docs/evolution-log.md`. Create this 
 
 | Date | Task ID | Category | Target | Change | Rationale |
 |------|---------|----------|--------|--------|-----------|
+| 2026-04-11 | OPT-001 | prune-skill | skills/old-unused.md | Removed unused skill | No agent references it, no invocation in 30+ tasks |
+| 2026-04-11 | OPT-001 | merge-skills | skills/testing.md | Merged testing-helpers.md into testing.md | 80% overlap, single skill is clearer |
 | 2026-04-08 | TASK-0042 | skill-update | skills/testing.md | Added property-based testing section | Property tests caught 3 edge cases missed by unit tests |
-| 2026-04-05 | TASK-0038 | new-template | templates/api-endpoint.md | Created API endpoint template | Same boilerplate written in 4 consecutive tasks |
 ```
 
-Each row captures enough context to understand why the change was made without reading the full reflection.
-
----
-
-## Anti-Bloat Rule
-
-**Prefer updating existing files over creating new ones.**
-
-Before proposing `new-skill` or `new-template`:
-1. Check if an existing skill could absorb the content
-2. Check if an existing template could be extended
-3. Only propose a new file if the content is clearly a distinct concern
-
-Framework bloat degrades agent performance. Every new file adds to context loading overhead.
+For optimization runs, use `OPT-NNN` as the task ID. For growth proposals from `/dr-reflect`, use the current task ID.
 
 ---
 
@@ -130,12 +195,15 @@ Each Evolution change is a discrete edit to a specific file. Rollback strategy:
 
 - **If using git:** Each approved set of changes should be a single commit with a message referencing the task ID. Revert via `git revert`.
 - **If not using git:** The evolution log provides enough information to manually undo changes. The diff preview in the original proposal shows what was added.
+- **For prune operations:** The optimizer creates a backup of deleted files in `datarim/archive/optimized/` before removal. Files can be restored from there.
 
 **Rule:** Never make changes that cannot be independently reverted. If two proposals modify the same file, apply them as separate edits so either can be rolled back without affecting the other.
 
 ---
 
 ## Examples of Good Proposals
+
+### Growth (from /dr-reflect)
 
 **Good — specific, evidence-based:**
 ```
@@ -155,6 +223,30 @@ Why: Missed rollback plan in TASK-0047, causing 30min downtime. Same checklist n
 Impact: High
 ```
 
+### Optimization (from /dr-optimize)
+
+**Good — prune with evidence:**
+```
+Category: prune-skill
+Target: skills/deprecated-helper.md
+What: Remove deprecated helper skill
+Why: Not referenced by any agent or command. Last used 40+ tasks ago. Functionality absorbed into utilities.md.
+Impact: Low
+Risk: Low
+```
+
+**Good — merge with clear rationale:**
+```
+Category: merge-skills
+Target: skills/testing.md (absorb skills/test-helpers.md)
+What: Merge test-helpers.md into testing.md
+Why: 80% topic overlap. Both cover mocking patterns and test organization. Separate files cause confusion about where to look.
+Impact: Medium
+Risk: Medium — need to update 2 agent references
+```
+
+### Bad Proposals
+
 **Bad — vague, no evidence:**
 ```
 Category: skill-update
@@ -164,11 +256,11 @@ Why: Felt incomplete
 Impact: Low
 ```
 
-**Bad — bloat, could be part of existing skill:**
+**Bad — premature prune without checking references:**
 ```
-Category: new-skill
-Target: skills/error-handling.md
-What: Error handling patterns
-Why: Would be useful
-→ Should be a section in skills/ai-quality.md or skills/testing.md instead
+Category: prune-agent
+Target: agents/sre.md
+What: Remove SRE agent
+Why: Haven't used it recently
+→ Must check: does any command or consilium panel reference it?
 ```

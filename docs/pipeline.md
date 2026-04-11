@@ -73,7 +73,7 @@ init → prd → plan → design → do → qa → compliance → reflect → ar
 
 ---
 
-## Stage 5: /dr-do — TDD Implementation
+## Stage 5: /dr-do — Execution
 
 **Agent:** Developer
 **Purpose:** Implement the plan using Test-Driven Development.
@@ -84,6 +84,8 @@ init → prd → plan → design → do → qa → compliance → reflect → ar
 3. Implement one method/stub at a time
 4. Follow project patterns and style guide
 5. Update `datarim/progress.md`
+
+**Note:** For content-focused tasks (articles, research, documentation), `/dr-write` replaces `/dr-do` as the execution stage.
 
 ---
 
@@ -105,7 +107,7 @@ init → prd → plan → design → do → qa → compliance → reflect → ar
 ## Stage 7: /dr-compliance — Post-QA Hardening
 
 **Agent:** Compliance
-**Purpose:** 7-step hardening workflow.
+**Purpose:** 7-step hardening workflow. Adaptive: detects the task type (code, content, research, documentation) and applies the appropriate checklist for that domain.
 
 **Steps:**
 1. Change set vs PRD/task alignment
@@ -152,3 +154,43 @@ Read-only check of current task, progress, and backlog.
 
 ### /dr-continue
 Resume work from the last checkpoint. Reads `activeContext.md` to determine current phase and routes to the appropriate stage.
+
+---
+
+## Content Commands
+
+### /dr-write — Create Content
+**Agent:** Writer
+**Purpose:** Create written content — articles, blog posts, documentation, research papers, social media.
+
+**What happens:**
+1. Research and plan: gather sources, create outline
+2. Draft: write from outline, one section at a time
+3. Self-review: check structure, flow, naturalness
+4. Mark sections needing editorial review
+
+### /dr-edit — Editorial Review
+**Agent:** Editor
+**Purpose:** Fact-check, remove AI patterns, enforce style, polish to publication quality.
+
+**What happens:**
+1. Fact verification: extract claims, verify against sources
+2. AI pattern removal: vocabulary, structure, formatting, linguistic patterns
+3. Editorial polish: style consistency, cross-references, naturalness
+4. Report changes for author approval
+
+---
+
+## Framework Management Commands
+
+### /dr-addskill — Extend Framework
+**Agent:** Skill Creator
+**Purpose:** Research, design, and create new skills, agents, or commands.
+
+### /dr-optimize — Framework Optimization
+**Agent:** Optimizer
+**Purpose:** Audit framework health, prune unused, merge duplicates, sync docs.
+
+### /dr-dream — Knowledge Base Maintenance
+**Agent:** Librarian
+**Purpose:** Organize datarim/ directory — index, cross-reference, lint, consolidate.

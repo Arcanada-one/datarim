@@ -1,5 +1,5 @@
 #!/bin/bash
-# Datarim SDLC Framework Installer
+# Datarim Framework Installer
 # Installs agents, skills, commands, and templates to ~/.claude/
 #
 # Usage:
@@ -19,7 +19,8 @@ if [ "$1" = "--force" ]; then
     FORCE=true
 fi
 
-echo "Datarim SDLC Framework Installer"
+VERSION=$(cat "$SCRIPT_DIR/VERSION" 2>/dev/null || echo "unknown")
+echo "Datarim Framework Installer v$VERSION"
 echo "================================="
 echo ""
 echo "Source:  $SCRIPT_DIR"
@@ -85,7 +86,7 @@ echo "     cp $SCRIPT_DIR/CLAUDE.md /path/to/your/project/"
 echo ""
 echo "  2. Customize the project-specific section at the bottom of CLAUDE.md"
 echo ""
-echo "  3. Start Claude Code and run: /init <task description>"
+echo "  3. Start Claude Code and run: /dr-init <task description>"
 echo ""
 
 if [ "$SKIPPED" -gt 0 ] && [ "$FORCE" = false ]; then

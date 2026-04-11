@@ -1,32 +1,37 @@
 # Datarim
 
-**A self-evolving SDLC framework that gives AI agents a structured development process — from requirements to production.**
+**A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
+[![Version: 1.2.0](https://img.shields.io/badge/Version-1.2.0-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
 
 ## What is Datarim?
 
-AI coding agents today operate without methodology. They receive a prompt, generate
-code, and move on. There is no requirements analysis, no design phase, no quality
-assurance, no reflection. The result is inconsistent quality, skipped phases, and
-zero institutional learning. Every task starts from scratch, repeating the same
-mistakes the agent made yesterday.
+Most work with AI assistants is unstructured. You give a prompt, get a result, move
+on. There is no requirements analysis, no planning phase, no quality assurance, no
+reflection. The result is inconsistent quality, skipped steps, and zero institutional
+learning. Every task starts from scratch, repeating the same mistakes from yesterday.
 
-Datarim fixes this by providing a complete SDLC pipeline purpose-built for AI agents.
-It includes 11 specialized agents, 13 reusable skills, and 11 commands that guide
-development through a structured process: requirements gathering, planning, design,
-implementation, quality assurance, compliance, reflection, and archival. The pipeline
-is complexity-aware — a one-line typo fix does not go through the same process as a
-database migration. Datarim routes each task through exactly the stages it needs.
+Datarim fixes this by providing a complete iterative pipeline for any project type.
+It includes 15 specialized agents, 17 reusable skills, and 19 commands that guide
+work through a structured process: requirements gathering, planning, design,
+execution, quality assurance, compliance, reflection, and archival. The pipeline is
+complexity-aware — a quick fix does not go through the same process as a major
+project. Datarim routes each task through exactly the stages it needs.
 
-Built exclusively for Claude Code, Datarim is universal. It works for any project,
-any programming language, any tech stack. There are no hardcoded paths, no vendor
-lock-in, no project-specific assumptions. And it is self-evolving: after every
-completed task, the framework analyzes what worked, what failed, and proposes
-improvements to its own agents, skills, and rules. The name "Datarim" comes from
-*data + rim* — the edge where structured data meets creative engineering.
+Datarim is not limited to software development. Research papers, technical
+documentation, legal documents, project management, content creation — any work that
+benefits from structured iteration can use the framework. The agents and skills adapt
+to the domain. The process stays the same.
+
+Built for Claude Code, Datarim works for any project and any domain. There are no
+hardcoded paths, no vendor lock-in, no project-specific assumptions. And it is
+self-evolving: after every completed task, the framework analyzes what worked, what
+failed, and proposes improvements to its own agents, skills, and rules. The name
+"Datarim" comes from *data + rim* — the edge where structured data meets creative
+work.
 
 ---
 
@@ -82,16 +87,25 @@ Stages in `[brackets]` are conditional — included when the agent determines th
 
 ## Features
 
-- **11 specialized agents** — planner, architect, developer, reviewer, compliance,
-  code-simplifier, strategist, devops, writer, security, and SRE. Each agent has a
-  defined role, capabilities, and the stages where it operates.
+- **15 specialized agents** — planner, architect, developer, reviewer, compliance,
+  code-simplifier, strategist, devops, writer, editor, skill-creator, optimizer,
+  security, and SRE. Each agent has a defined role, capabilities, and the stages
+  where it operates.
 
-- **13 reusable skills** — modular knowledge units that agents load on demand,
-  covering everything from testing methodology to security hardening to AI text
-  humanization.
+- **17 reusable skills** — modular knowledge units that agents load on demand,
+  covering everything from testing methodology to security hardening to content
+  creation workflows.
+
+- **19 commands** — 9 pipeline stages, 2 content (write, edit), 3 framework and
+  knowledge management (addskill, optimize, dream), 3 utilities (status, continue,
+  help), and 2 standalone tools (factcheck, humanize).
 
 - **9-stage complexity-aware pipeline** — tasks flow through exactly the stages they
   need. No unnecessary ceremony for simple fixes, full rigor for major changes.
+
+- **Backlog management** — two-file architecture for task tracking. Active items in
+  `backlog.md`, completed history in `backlog-archive.md`. Pick tasks from backlog
+  with `/dr-init` or add new ones as you work.
 
 - **Self-evolving framework** — after every task, the reflect stage analyzes outcomes
   and proposes improvements to agents, skills, and framework rules. The framework
@@ -120,8 +134,9 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   evaluates value, risk, and cost. Not every technically interesting idea deserves
   implementation resources.
 
-- **Universal compatibility** — works for any project, any language, any stack.
-  Python, TypeScript, Rust, Go, Java — the framework adapts to what you are building.
+- **Universal compatibility** — works for any project, any domain, any tech stack.
+  Software, research, documentation, legal work, project management — the framework
+  adapts to what you are building.
 
 ---
 
@@ -225,6 +240,24 @@ claude
 Each command guides you through its stage. The framework tracks state between
 commands and tells you what to do next.
 
+### Non-Programming Example
+
+```bash
+# Example: Writing a research literature review
+/dr-init Write literature review on quantum error correction (2020-2026)
+
+/dr-prd        # Define scope: target journals, databases, citation format, minimum sources
+/dr-plan       # Section outline, source allocation per section
+/dr-do         # Write each section
+/factcheck     # Verify technical claims against published papers
+/dr-qa         # Check citation completeness, argument coherence, formatting
+/dr-reflect    # Note what worked for the next chapter
+/dr-archive    # Archive with source bibliography
+```
+
+Datarim works the same way for legal documents, project plans, technical
+documentation, or any structured work.
+
 ---
 
 ## Agents
@@ -239,12 +272,17 @@ commands and tells you what to do next.
 | **Code Simplifier** | Reduces complexity, eliminates duplication, improves readability | `do`, `qa` |
 | **Strategist** | Evaluates value/risk/cost, advises on priorities, gates major work | `init`, `prd` |
 | **DevOps** | Handles deployment, CI/CD, infrastructure, and environment configuration | `do`, `compliance` |
-| **Writer** | Creates documentation, README files, API docs, user guides | `do`, `reflect` |
+| **Writer** | Creates content — articles, docs, research papers, posts, guides | `write`, `reflect` |
+| **Editor** | Editorial review — fact-checking, AI pattern removal, style, polish | `edit`, `qa` |
+| **Skill Creator** | Creates new skills, agents, commands from user descriptions and web research | `addskill` |
+| **Optimizer** | Audits framework, prunes unused, merges duplicates, syncs documentation | `optimize`, `reflect` |
+| **Librarian** | Organizes knowledge base, builds index, cross-references, flags contradictions | `dream` |
 | **Security** | Audits for vulnerabilities, reviews auth flows, checks dependencies | `qa`, `compliance` |
 | **SRE** | Evaluates reliability, scalability, monitoring, and operational readiness | `design`, `compliance` |
 
 Agents are loaded on demand. A quick fix (L1) may only activate the Developer.
-A major migration (L4) may involve all eleven agents across different stages.
+A content task may use Writer and Editor instead. A major migration (L4) may
+involve all fifteen agents across different stages.
 
 ---
 
@@ -263,8 +301,12 @@ A major migration (L4) may involve all eleven agents across different stages.
 | **consilium** | Multi-agent panel assembly, structured debate, consensus building | Any (on demand) |
 | **discovery** | Requirements elicitation, stakeholder interviews, scope definition | Planner, Strategist |
 | **evolution** | Framework self-improvement, metric tracking, change proposals | Reflect stage |
-| **factcheck** | Claim extraction, source verification, accuracy scoring | Writer |
-| **humanize** | AI artifact removal, voice preservation, natural language patterns | Writer |
+| **writing** | Content creation workflow, editorial standards, quality checklist | Writer, Editor |
+| **dream** | Knowledge base maintenance: ingest, lint, consolidate, index | Librarian |
+| **seo-launch** | SEO audit, analytics setup, website/app launch, ASO checklists | On demand |
+| **marketing** | Ad campaigns, conversion tracking, landing pages, growth marketing | On demand |
+| **factcheck** | Claim extraction, source verification, accuracy scoring | Editor, Writer |
+| **humanize** | AI artifact removal, voice preservation, natural language patterns | Editor, Writer |
 
 Skills are modular. Each is a standalone Markdown file that agents load when they need
 specific capabilities. You can add custom skills by placing `.md` files in
@@ -276,20 +318,28 @@ specific capabilities. You can add custom skills by placing `.md` files in
 
 | Command | Stage | Description |
 |---------|-------|-------------|
-| `/dr-init` | Initialize | Start a new task. Assigns complexity level (L1–L4), routes the pipeline, creates task context. |
+| `/dr-init` | Initialize | Start a new task or pick one from the backlog. Assigns complexity level (L1-L4) and routes the pipeline. |
 | `/dr-prd` | Requirements | Generate a Product Requirements Document. Analyzes the problem, defines scope, success criteria, and constraints. |
 | `/dr-plan` | Planning | Create a detailed implementation plan. Breaks work into phases, estimates effort, identifies risks. |
 | `/dr-design` | Design | Explore architectural decisions. Evaluates alternatives, documents trade-offs, defines interfaces. |
-| `/dr-do` | Implementation | Write code following TDD. Implements the plan, writes tests first, follows project conventions. |
-| `/dr-qa` | Quality Assurance | Run quality checks. Code review, test verification, standard compliance, coverage analysis. |
-| `/dr-compliance` | Compliance | Post-QA hardening. Validates implementation against PRD, checks for regressions, security audit. |
+| `/dr-do` | Execution | Execute the plan. TDD for code, structured iteration for research, documentation, or other work. |
+| `/dr-qa` | Quality | Run quality checks. PRD alignment, design conformance, plan completeness, output quality. |
+| `/dr-compliance` | Compliance | Post-QA hardening. Validates against PRD, checks for regressions, security audit. |
 | `/dr-reflect` | Reflection | Analyze the completed task. What worked, what failed, what to improve. Proposes framework updates. |
-| `/dr-archive` | Archive | Archive the task. Stores context, decisions, and outcomes for future reference. |
-| `/dr-status` | Any | Check current task status, progress through the pipeline, and pending actions. |
+| `/dr-archive` | Archive | Archive the task. Stores context, updates backlog, resets for the next task. |
+| `/dr-write` | Content | Create written content — articles, docs, research, posts. Uses the writer agent. |
+| `/dr-edit` | Content | Editorial review — fact-check, AI pattern removal, style, publication quality. Uses the editor agent. |
+| `/dr-addskill` | Extension | Create or update skills, agents, commands. Researches best practices, audits existing framework, generates artifacts. |
+| `/dr-optimize` | Maintenance | Audit framework health, prune unused components, merge duplicates, fix references, sync documentation. |
+| `/dr-dream` | Maintenance | Knowledge base maintenance: organize files, build index, cross-reference, flag contradictions, archive stale content. |
+| `/dr-status` | Any | Check current task status, pipeline progress, and backlog summary. |
 | `/dr-continue` | Any | Resume work from the last checkpoint. Restores context and picks up where you left off. |
+| `/dr-help` | Any | List all available commands with descriptions, pipeline flow, and complexity routing. |
+| `/factcheck` | Standalone | Fact-check articles and posts. Extracts claims, verifies against sources, corrects errors. |
+| `/humanize` | Standalone | Remove AI writing patterns from text. Fixes vocabulary, structure, and formatting artifacts. |
 
-Commands are sequential within a pipeline but you can always check `/dr-status` or
-`/dr-continue` at any point.
+Commands are sequential within a pipeline but you can always check `/dr-status`,
+`/dr-continue`, or `/dr-help` at any point.
 
 ---
 
@@ -300,9 +350,9 @@ Commands are sequential within a pipeline but you can always check `/dr-status` 
 **Scope:** Single file, under 50 lines of code.
 **Pipeline:** `init` → `do` → `reflect` → `archive`
 **Example tasks:**
-- Fix a typo in README
+- Fix a typo in README or correct a date in a legal brief
 - Update a dependency version in package.json
-- Correct a CSS color value
+- Correct a CSS color value or fix a citation format
 - Fix a broken import path
 
 L1 tasks skip requirements, planning, design, QA, and compliance. The fix is trivial
@@ -316,7 +366,7 @@ even small fixes can reveal patterns worth noting.
 **Example tasks:**
 - Add input validation to a login form
 - Implement a new API endpoint for an existing resource
-- Add error handling to a file upload function
+- Add a new section to a research paper or update a project status report
 - Create a configuration option for an existing feature
 
 L2 tasks get a lightweight plan and optional PRD and QA. The scope is small enough
@@ -330,7 +380,7 @@ missing edge cases.
 **Example tasks:**
 - Implement OAuth2 authentication
 - Build a real-time notification system
-- Create a data export pipeline with multiple formats
+- Write a complete grant proposal or compliance documentation
 - Add role-based access control
 
 L3 tasks go through the full pipeline. Requirements need formal documentation, design
@@ -344,7 +394,7 @@ is included when the feature touches security, data handling, or external integr
 **Example tasks:**
 - Migrate from monolith to microservices
 - Rewrite the authentication system
-- Implement a plugin architecture
+- Write a technical book or complete a regulatory filing package
 - Build a multi-tenant data isolation layer
 
 L4 tasks use phased implementation. The work is broken into multiple implementation
@@ -392,6 +442,196 @@ Consilium is available at any stage via the `consilium` skill. Use it for:
 
 ---
 
+## Content Workflow
+
+Datarim includes dedicated agents and commands for content work — writing articles,
+research papers, documentation, blog posts, social media, and other text.
+
+**Two content commands:**
+
+| Command | Agent | What it does |
+|---------|-------|-------------|
+| `/dr-write` | Writer | Research, outline, draft. Creates content from scratch or expands existing material. |
+| `/dr-edit` | Editor | Fact-check, remove AI patterns, enforce style, polish to publication quality. |
+
+**Content pipeline:**
+
+```
+/dr-write → /dr-edit → /dr-archive
+```
+
+Or integrated into the standard pipeline:
+
+```
+/dr-init → /dr-prd → /dr-plan → /dr-write → /dr-edit → /dr-qa → /dr-reflect → /dr-archive
+```
+
+**The Editor agent** combines two specialized skills:
+- **factcheck** — extracts claims, verifies against authoritative sources, flags
+  inaccuracies with verdicts (ACCURATE, INACCURATE, OUTDATED, MISLEADING)
+- **humanize** — detects and removes AI writing patterns (banned vocabulary,
+  structural tells, formatting artifacts, communication tells) while preserving
+  the author's voice
+
+**Standalone commands** `/factcheck` and `/humanize` remain available for quick
+one-off checks on any file, outside the full editorial pipeline.
+
+---
+
+## Framework Extension
+
+Datarim can extend itself. The `/dr-addskill` command creates new skills, agents,
+and commands based on a natural language description of what you need.
+
+**How it works:**
+
+```bash
+# Example: Add interior design capability
+/dr-addskill Interior designer that creates technical design specifications from room descriptions
+
+# Example: Add a data analysis skill
+/dr-addskill Data analyst that explores datasets, generates charts, and writes statistical reports
+```
+
+**What happens:**
+
+1. The Skill Creator agent researches best practices for the requested domain
+2. Downloads and analyzes 2-3 existing skills or agent patterns from the community
+3. Audits your current Datarim setup to avoid duplication
+4. Designs the skill/agent/command following Datarim conventions
+5. Presents the design for your approval
+6. Creates the files in the correct scope
+
+**Scope rules:**
+
+| Condition | Creates in |
+|-----------|-----------|
+| You said "global" or "for all projects" | `~/.claude/` (user-level) |
+| Project has `.claude/skills/` with files | Project `.claude/` |
+| Project has `.claude/` directory | Project `.claude/` |
+| No project `.claude/` | Asks you, defaults to project |
+
+Project-level skills are portable and version-controlled. User-level skills apply
+everywhere. The framework prefers project scope to keep skills close to where they
+are used.
+
+---
+
+## Framework Optimization
+
+As you add skills and complete tasks, the framework grows. `/dr-optimize` keeps it
+lean by auditing, pruning, and consolidating components.
+
+**How it works:**
+
+```bash
+# Run a full audit and optimization
+/dr-optimize
+
+# Audit only the project scope
+/dr-optimize project
+
+# Audit only the user-level installation
+/dr-optimize global
+```
+
+**What the optimizer checks:**
+
+| Check | What it detects |
+|-------|----------------|
+| Unused components | Skills no agent loads, agents no command invokes |
+| Oversized skills | Any skill over 500 lines (should use supporting files) |
+| Duplicate coverage | Two skills covering the same domain |
+| Broken references | Skills referenced in CLAUDE.md but missing from disk |
+| Doc count mismatch | Documentation says 15 agents but disk has 12 |
+| Description budget | Total descriptions exceed context budget |
+
+**What it proposes:**
+
+- `prune-skill` / `prune-agent` / `prune-command` — remove unused components
+- `merge-skills` / `merge-agents` — combine overlapping components
+- `split-skill` — break oversized skills into base + supporting files
+- `rewrite-skill` — restructure for clarity and token efficiency
+- `sync-docs` — fix documentation counts and tables
+
+Every proposal requires your approval. The optimizer never deletes or changes
+anything without explicit confirmation. Deleted files are backed up in
+`datarim/archive/optimized/` before removal.
+
+**Auto-detection:** After every `/dr-reflect`, Datarim checks framework health
+metrics. If thresholds are exceeded (e.g., >20 skills, >25 commands, orphan rate
+>15%), it suggests running `/dr-optimize`. This is a suggestion only — never
+automatic.
+
+### The Growth-Maintenance Cycle
+
+```
+     /dr-addskill                    /dr-optimize
+    (adds new skills)              (prunes & merges)
+          │                               │
+          ▼                               ▼
+    ┌───────────┐    /dr-reflect    ┌───────────┐
+    │  GROWTH   │───────────────────│MAINTENANCE│
+    │ (extend)  │   health check    │ (optimize)│
+    └───────────┘                   └───────────┘
+```
+
+The framework grows through `/dr-addskill` and evolution proposals from
+`/dr-reflect`. It shrinks through `/dr-optimize` audits. The health check in
+`/dr-reflect` bridges the two: it detects when growth has created bloat and
+suggests maintenance.
+
+---
+
+## Dream: Knowledge Base Maintenance
+
+As you complete tasks, the `datarim/` directory grows: PRDs, task plans, reflections,
+QA reports, design documents, archives. Over time, files accumulate — some misplaced,
+some duplicated, some contradicting each other. Cross-references break. The index
+falls out of date. Finding things gets harder.
+
+`/dr-dream` is the librarian that keeps your knowledge base organized. Like sleep
+consolidates memory in the brain, Dream consolidates knowledge in the project.
+
+**Three operations:**
+
+| Operation | What it does |
+|-----------|-------------|
+| **Ingest** | Finds misplaced files, fixes naming, adds missing metadata |
+| **Lint** | Health-checks for contradictions, orphans, broken links, stale content, duplicates |
+| **Consolidate** | Merges duplicates, builds index, adds cross-references, archives stale docs |
+
+**Usage:**
+
+```bash
+/dr-dream           # Full maintenance: ingest + lint + consolidate
+/dr-dream lint      # Quick health check only
+/dr-dream index     # Rebuild the index only
+```
+
+**What Dream produces:**
+
+- `datarim/index.md` — navigable catalog of all documents, grouped by type and tag,
+  with recent activity log
+- `datarim/docs/activity-log.md` — chronological record of all maintenance actions
+- Lint report with issues grouped by severity
+- Consolidation proposals (with approval gate — nothing changes without your OK)
+
+**Contradiction handling:** When two documents make conflicting claims, Dream flags
+both with a `[!contradiction]` callout. It never picks sides — that is your decision.
+
+**When to run:** After every 10-15 completed tasks, before starting a new project
+phase, or whenever searching for documents takes too long. `/dr-archive` automatically
+suggests Dream when >5 documents have been created since the last maintenance run.
+
+**Inspired by** [Andrej Karpathy's LLM Wiki pattern](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f):
+the insight that LLMs are uniquely suited for the bookkeeping that humans abandon —
+updating cross-references, noting contradictions, maintaining consistency across
+dozens of pages. Your role: curate, direct, think about meaning. The librarian
+handles everything else.
+
+---
+
 ## Self-Evolution
 
 Datarim improves itself over time. This is not automatic — it requires human approval
@@ -433,6 +673,15 @@ at every step.
   and termination, transparency and enforcement) are immutable.
 - The requirement for human approval of changes is permanent.
 - The audit trail requirement is permanent.
+
+### Evolution + Optimization
+
+Evolution (growth) and optimization (maintenance) are two sides of the same coin.
+`/dr-reflect` proposes improvements — new skills, updated agents, expanded
+templates. `/dr-optimize` proposes cleanup — pruning unused components, merging
+duplicates, fixing broken references. Together, they keep the framework growing in
+capability while staying lean in size. See the [Framework Optimization](#framework-optimization)
+section for details.
 
 ---
 
@@ -514,11 +763,21 @@ reality adapt to it. Every completed task is an opportunity to improve the proce
 
 ### Universal
 
-Datarim has no opinion about your tech stack. It does not care if you write Python
-or Rust, use React or Svelte, deploy to AWS or a bare-metal server. The framework
-operates at the methodology level — requirements, planning, design, implementation,
-verification — which is independent of technology choices. You bring the stack.
-Datarim brings the process.
+Datarim has no opinion about your tech stack or your domain. It does not care if you
+write Python or Rust, draft a legal brief or a research paper, deploy to AWS or
+publish to a journal. The framework operates at the methodology level —
+requirements, planning, design, execution, verification — which is independent of
+what you are building. You bring the project. Datarim brings the process.
+
+### For Everyone
+
+Datarim is not limited to software developers or AI agents. Anyone who uses Claude
+Code can benefit from the framework. A researcher writing a dissertation follows the
+same pipeline as a developer building an API: define scope, plan the work, execute,
+review quality, reflect on lessons. A project manager tracking a product launch uses
+the backlog to organize tasks and the pipeline to process them one by one. The
+complexity routing ensures that a quick correction does not require a full PRD, while
+a major initiative gets the rigor it deserves.
 
 ### Human in the Loop
 
@@ -534,11 +793,11 @@ and why it exists.
 
 ```
 datarim/
-  agents/            # Agent definition files (11 agents)
-  skills/            # Skill definition files (13 skills)
-  commands/          # Command definition files (11 commands)
-  templates/         # Task and document templates
-  docs/              # Extended documentation
+  agents/            # Agent personas (15 agents)
+  skills/            # Knowledge modules (17 skills)
+  commands/          # Slash commands (19 commands)
+  templates/         # Task and document templates (5 templates)
+  docs/              # Extended documentation and use cases
   CLAUDE.md          # Framework rules (copy to your project)
   install.sh         # Automated installer
   LICENSE            # MIT license
@@ -577,4 +836,4 @@ MIT — see [LICENSE](LICENSE)
 
 ---
 
-Built for agents that deserve a better process.
+Built for everyone who deserves a better process.

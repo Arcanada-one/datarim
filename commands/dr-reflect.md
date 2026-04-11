@@ -24,8 +24,14 @@ description: Review completed task and create reflection document with lessons l
     - Generate evolution proposals (categories: `skill-update`, `agent-update`, `claude-md-update`, `new-template`, `new-skill`).
     - Present proposals to user for approval.
     - Log approved changes in `datarim/docs/evolution-log.md`.
-6.  **OUTPUT**: `datarim/reflection/reflection-[id].md`.
+6.  **HEALTH CHECK**:
+    - Count total skills, agents, commands in the active scope.
+    - Check against Health Metrics thresholds (see `evolution.md`).
+    - If any threshold is exceeded, suggest: "Framework may benefit from optimization. Run `/dr-optimize` to audit and clean up."
+    - This is a suggestion only — do not run optimization automatically.
+7.  **OUTPUT**: `datarim/reflection/reflection-[id].md`.
 
 ## Next Steps
 - Evolution proposals pending? → Apply approved changes
+- Health check flagged issues? → `/dr-optimize`
 - Task complete? → `/dr-archive`
