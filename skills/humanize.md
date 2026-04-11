@@ -172,6 +172,7 @@ significant, innovative, dynamic, compelling, unprecedented, exceptional, sophis
 5. **Generic phrases instead of specifics** — "современные технологии позволяют" — name the specific technology.
 6. **Absurd metaphors** — AI in Russian produces bizarre metaphors that no native speaker would write. Remove them.
 7. **Uniform sentence rhythm** — Vary: short declarative. Then a longer one with a subordinate clause, maybe a dash for emphasis. Fragment for effect. Then back to medium.
+8. **Несогласованные заголовки** — Когда h2 задаёт рамку ("С чем путают X", "Где используется Y"), а h3 под ним начинаются с "Не..." или иной формы, не связанной с рамкой h2. Подзаголовки должны логически следовать из заголовка. "С чем путают" → подзаголовки называют то, с чем путают (без "Не").
 
 ---
 
