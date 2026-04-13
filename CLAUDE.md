@@ -1,6 +1,6 @@
 # Datarim — Universal Iterative Workflow Framework
 
-> **Version:** 1.4.0
+> **Version:** 1.6.0
 > **Framework:** Datarim (Датарим) provides structured rules, agents, skills, and commands for iterative project execution via Claude Code — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
 > **Note:** "Datarim" is transliterated as "Датарим" in Russian. Both refer to this framework — agents must recognize either form in any language context.
 
@@ -52,8 +52,9 @@ Agents are specialized personas loaded per pipeline stage. Each agent has define
 | **librarian** | Knowledge Base Librarian | /dr-dream |
 | **security** | Security Analyst | /dr-design, /dr-qa, /dr-compliance |
 | **sre** | Site Reliability Engineer | /dr-design, /dr-qa, /dr-reflect |
+| **tester** | Platform QA Tester | /dr-qa, /dr-do (verification) |
 
-Agent files: `$HOME/.claude/agents/{name}.md` (15 agents)
+Agent files: `$HOME/.claude/agents/{name}.md` (16 agents)
 
 ### Agent Loading Rules
 
@@ -69,10 +70,10 @@ Not all agents are needed for every task. Load the minimum set to conserve conte
 
 | Level | Required Agents | Optional |
 |-------|----------------|----------|
-| **L1** | developer | reviewer |
-| **L2** | planner, developer | reviewer, architect |
-| **L3** | planner, architect, developer, reviewer | strategist, security, writer, editor |
-| **L4** | planner, architect, developer, reviewer, strategist | devops, security, sre, writer, editor, compliance |
+| **L1** | developer | reviewer, tester |
+| **L2** | planner, developer | reviewer, architect, tester |
+| **L3** | planner, architect, developer, reviewer | strategist, security, tester, writer, editor |
+| **L4** | planner, architect, developer, reviewer, strategist | devops, security, sre, tester, writer, editor, compliance |
 
 For content-focused tasks (articles, research, documentation), writer and editor replace developer and reviewer as primary agents.
 
@@ -117,29 +118,47 @@ Skill files: `$HOME/.claude/skills/{name}.md` (19 skills)
 
 ## Datarim State Directory
 
-Each project maintains a `datarim/` directory at the project root (created by `/dr-init`).
+Each project maintains two directories at the project root (created by `/dr-init`):
 
 ```
-datarim/
-├── activeContext.md       # Current task state
-├── tasks.md              # Active task tracking + implementation plan
-├── backlog.md            # Pending tasks queue
-├── backlog-archive.md    # Completed/cancelled tasks
-├── progress.md           # Overall progress
-├── projectbrief.md       # Project overview
-├── productContext.md      # Product requirements
-├── systemPatterns.md     # Architecture patterns
-├── techContext.md        # Technology context
-├── style-guide.md        # Code style guide
-├── prd/                  # Product Requirements Documents
-├── tasks/                # Task documentation
-├── creative/             # Design phase documents
-├── reflection/           # Reflection documents
-├── qa/                   # QA reports
-├── reports/              # Compliance/diagnostic reports
-├── archive/              # Completed task archives
-└── docs/                 # Evolution log
+datarim/                          # Workflow state (LOCAL — in .gitignore)
+├── activeContext.md              # Current task state
+├── tasks.md                     # Active task tracking + implementation plan
+├── backlog.md                   # Pending tasks queue
+├── backlog-archive.md           # Completed/cancelled tasks
+├── progress.md                  # Overall progress
+├── projectbrief.md              # Project overview
+├── productContext.md             # Product requirements
+├── systemPatterns.md            # Architecture patterns
+├── techContext.md               # Technology context
+├── style-guide.md               # Code style guide
+├── prd/                         # Product Requirements Documents
+├── tasks/                       # Task documentation
+├── creative/                    # Design phase documents
+├── reflection/                  # Reflection documents
+├── qa/                          # QA reports
+├── reports/                     # Compliance/diagnostic reports
+└── docs/                        # Evolution log
+
+documentation/                    # Project documentation (COMMITTED to git)
+└── archive/                     # Completed task archives
+    ├── infrastructure/          # INFRA-* tasks
+    ├── web/                     # WEB-* tasks
+    ├── development/             # DEV-* tasks
+    ├── content/                 # CONTENT-* tasks
+    ├── research/                # RESEARCH-* tasks
+    ├── agents/                  # AGENT-* tasks
+    ├── benchmarks/              # BENCH-* tasks
+    ├── devops/                  # DEVOPS-* tasks
+    ├── framework/               # TUNE-*, ROB-* tasks
+    ├── maintenance/             # MAINT-* tasks
+    ├── finance/                 # FIN-* tasks
+    ├── qa/                      # QA-* tasks
+    ├── optimized/               # Framework optimizer backups
+    └── general/                 # Unmatched prefixes
 ```
+
+**Two-layer architecture:** `datarim/` is ephemeral workflow state (added to `.gitignore`). `documentation/archive/` is long-term project documentation (committed to git). See [Getting Started](docs/getting-started.md) for details.
 
 ### Path Resolution Rule
 
@@ -191,7 +210,7 @@ Datarim improves itself through the `/dr-reflect` stage:
 
 ## Critical Rules
 
-1. **Datarim is truth** — All task state lives in `datarim/`, not in conversation memory
+1. **Datarim is truth** — `datarim/` for workflow state, `documentation/archive/` for completed task archives
 2. **Task ID required** — All reports must include task ID in filename
 3. **Path resolution first** — Always find `datarim/` before writing
 4. **No absolute paths** — Use `$HOME/.claude/` or project-relative paths only

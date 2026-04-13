@@ -63,6 +63,7 @@ Before proceeding to `/dr-design` or `/dr-do`:
 [ ] Definition of Done is testable and explicit?
 [ ] Boundaries stated (what we DON'T do)?
 [ ] Technology stack validated (if applicable)?
+[ ] Rollback strategy viable? (verify commands actually work — e.g., is the target a git repo?)
 [ ] tasks.md updated with implementation plan?
 ```
 

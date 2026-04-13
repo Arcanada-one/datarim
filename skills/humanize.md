@@ -4,6 +4,7 @@ description: Make AI-generated text sound human. Removes AI writing patterns, fi
 allowed-tools: Read Write Edit Grep Glob Bash
 argument-hint: [path-to-file]
 effort: high
+model: sonnet
 ---
 
 # Humanize — Remove AI Fingerprints from Text

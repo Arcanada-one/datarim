@@ -1,6 +1,7 @@
 ---
 name: seo-launch
 description: SEO audit, analytics setup, and website launch preparation. Technical SEO checklist, Core Web Vitals, GA4/GSC configuration, structured data, pre-launch verification, and App Store/Google Play submission guidelines. Use for any web property or app launch.
+model: sonnet
 ---
 
 # SEO & Launch — Technical Optimization and Publication Readiness

@@ -21,7 +21,9 @@ Items automatically moved here when tasks are completed via /dr-archive command.
 
 Format:
 
-### BACKLOG-XXXX: Task Title
+### [PREFIX]-XXXX: Task Title
+
+(PREFIX follows Unified Task Numbering — same ID as in active backlog and active task. See $HOME/.claude/skills/datarim-system.md.)
 
 | Field | Value |
 |-------|-------|
@@ -31,7 +33,7 @@ Format:
 | **Created** | YYYY-MM-DD |
 | **Completed** | YYYY-MM-DD HH:MM:SS UTC |
 | **Source** | PRD-XXX / Manual / Discovery |
-| **Archived From** | TASK-XXXX |
+| **Archive** | documentation/archive/{area}/archive-[PREFIX]-XXXX.md |
 | **Tags** | comma, separated, tags |
 
 **Description:**
