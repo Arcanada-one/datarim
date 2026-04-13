@@ -19,7 +19,14 @@
 <!--
 Add new items below using this format:
 
-### BACKLOG-XXXX: Task Title
+### [PREFIX]-XXXX: Task Title
+
+PREFIX follows Unified Task Numbering (see $HOME/.claude/skills/datarim-system.md):
+- Project prefix (ARCA, VERD, DATA, CONS, SUP, ROB, VOICE, OVER) — if task belongs to one project
+- Area prefix (INFRA, WEB, DEV, DEVOPS, CONTENT, RESEARCH, AGENT, BENCH, MAINT, FIN, QA, TUNE) — if cross-project
+- TASK — fallback
+
+The ID stays the same when the backlog item becomes an active task and when it is archived.
 
 | Field | Value |
 |-------|-------|

@@ -36,11 +36,16 @@ effort: high
     - If project has `.claude/` directory → project `.claude/`
     - Otherwise → ask the user
 7.  **DESIGN**: Create the artifact(s) following Datarim conventions:
-    - Skills: YAML frontmatter (name, description) + structured markdown sections
-    - Agents: Frontmatter (name, description, model) + Role statement + Capabilities + Context Loading
+    - Skills: YAML frontmatter (name, description, [model for task-skills]) + structured markdown sections
+    - Agents: Frontmatter (name, description, **model** [REQUIRED]) + Role statement + Capabilities + Context Loading
     - Commands: Frontmatter (name, description, argument-hint) + Instructions + Next Steps
     - Keep descriptions under 250 characters for reliable skill triggering
     - Refer to existing skills in Context Loading where relevant
+    - **Determine model per `$HOME/.claude/skills/datarim-system.md` § Model Assignment Convention:**
+      - Agents: REQUIRED (opus / sonnet / haiku)
+      - Task skills: REQUIRED (opus / sonnet / haiku)
+      - Reference skills (rules/patterns only): omit `model` (inherits from caller)
+    - Document the rationale for chosen model in the proposal you present to the user
 8.  **PRESENT**: Show the user:
     - What files will be created/updated (paths + content)
     - Why this structure was chosen

@@ -1,6 +1,7 @@
 ---
 name: discovery
 description: Structured requirements discovery through focused one-question-at-a-time interviews with proposed answers. Use in /dr-prd stage or before /dr-init.
+model: sonnet
 ---
 
 # Discovery — Requirements Discovery Interview

@@ -20,6 +20,20 @@ Your goal is to extend the Datarim framework by creating new skills, agents, and
 - Duplicate existing functionality. Prefer updating over creating new files.
 - Install to user scope without explicit request when project scope exists.
 - Create files without the user's approval.
+- **Create any agent or task-skill without an explicit `model` field in frontmatter.** Reference-only skills (rules, patterns, guidelines) may omit `model` to inherit from caller. See Model Assignment Convention below.
+
+**MANDATORY: Model Assignment**
+
+Every new agent and task-skill MUST include a `model` field in frontmatter. Choose per the convention in `$HOME/.claude/skills/datarim-system.md` § Model Assignment Convention:
+
+| Choose | When |
+|--------|------|
+| `opus` | Critical reasoning, architecture, security, strategic decisions, multi-perspective debate |
+| `sonnet` | Standard code work, structured tasks, content creation, knowledge maintenance |
+| `haiku` | Simple lookups, command execution, structured output, API calls |
+| `inherit` (omit field) | **Reference-only skills** — rules and patterns the caller applies inline |
+
+Document the rationale briefly in the artifact's first paragraph or in the proposal you present to the user.
 
 **Workflow**:
 
@@ -63,6 +77,7 @@ For each artifact to create/update:
 ---
 name: skill-name
 description: What it does and when to use it. Front-load the key use case. Max 250 chars for reliable triggering.
+model: sonnet  # opus | sonnet | haiku | inherit (omit for reference-only skills)
 ---
 
 # Skill Title
@@ -70,12 +85,16 @@ description: What it does and when to use it. Front-load the key use case. Max 2
 [Domain knowledge, rules, patterns, checklists, workflows]
 ```
 
+**Note on `model` in skills:**
+- Include for **task skills** (skills that perform an action when invoked)
+- Omit for **reference skills** (rules, guidelines, patterns the caller applies inline) — they inherit from caller
+
 **Agents** — follow the Datarim agent pattern:
 ```yaml
 ---
 name: agent-name
 description: Role description for the agent roster.
-model: opus
+model: sonnet  # REQUIRED. opus for critical reasoning, sonnet for most work, haiku for simple structured tasks
 ---
 
 You are the **Role Name**.

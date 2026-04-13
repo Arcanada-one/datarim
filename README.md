@@ -2,7 +2,7 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 1.4.0](https://img.shields.io/badge/Version-1.4.0-green.svg)](VERSION)
+[![Version: 1.6.0](https://img.shields.io/badge/Version-1.6.0-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
@@ -15,7 +15,7 @@ reflection. The result is inconsistent quality, skipped steps, and zero institut
 learning. Every task starts from scratch, repeating the same mistakes from yesterday.
 
 Datarim fixes this by providing a complete iterative pipeline for any project type.
-It includes 15 specialized agents, 19 reusable skills, and 19 commands that guide
+It includes 16 specialized agents, 19 reusable skills, and 19 commands that guide
 work through a structured process: requirements gathering, planning, design,
 execution, quality assurance, compliance, reflection, and archival. The pipeline is
 complexity-aware — a quick fix does not go through the same process as a major
@@ -557,7 +557,7 @@ lean by auditing, pruning, and consolidating components.
 
 Every proposal requires your approval. The optimizer never deletes or changes
 anything without explicit confirmation. Deleted files are backed up in
-`datarim/archive/optimized/` before removal.
+`documentation/archive/optimized/` before removal.
 
 **Auto-detection:** After every `/dr-reflect`, Datarim checks framework health
 metrics. If thresholds are exceeded (e.g., >20 skills, >25 commands, orphan rate

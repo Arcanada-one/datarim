@@ -1,6 +1,7 @@
 ---
 name: writing
 description: Content creation and editorial workflow — research, outlining, drafting, editing, fact-checking, and publication preparation. Loaded by writer and editor agents for structured content work.
+model: sonnet
 ---
 
 # Writing Workflow

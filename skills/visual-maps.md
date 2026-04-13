@@ -1,6 +1,7 @@
 ---
 name: visual-maps
 description: Mermaid workflow diagrams — pipeline routing by complexity, stage process flows, agent-skill-command relationships. Load on demand for navigation and orientation.
+model: sonnet
 ---
 
 # Visual Maps — Workflow Diagrams
@@ -159,7 +160,7 @@ graph TD
     B -->|Cancel| H["Skip archive doc"]
     C --> D{"From backlog?"}
     H --> D
-    D -->|Yes| E["Move BACKLOG-XXXX to backlog-archive"]
+    D -->|Yes| E["Move task ID entry to backlog-archive"]
     D -->|No| F["Skip backlog update"]
     E --> G["Add follow-up tasks to backlog"]
     F --> G

@@ -4,6 +4,7 @@ description: Fact-check articles and social media posts before publication. Extr
 allowed-tools: Read Write Edit Grep Glob Bash WebSearch WebFetch Agent
 argument-hint: [path-to-article]
 effort: max
+model: sonnet
 ---
 
 # Factcheck — Structured Fact Verification and Article Improvement
