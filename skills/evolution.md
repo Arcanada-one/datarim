@@ -1,6 +1,7 @@
 ---
 name: evolution
 description: Rules for proposing, applying, and optimizing framework improvements. Covers growth (new components via /dr-reflect) and maintenance (pruning, merging, efficiency via /dr-optimize). Human approval required for all changes.
+model: opus
 ---
 
 # Evolution — Framework Self-Update and Optimization Rules
@@ -195,7 +196,7 @@ Each Evolution change is a discrete edit to a specific file. Rollback strategy:
 
 - **If using git:** Each approved set of changes should be a single commit with a message referencing the task ID. Revert via `git revert`.
 - **If not using git:** The evolution log provides enough information to manually undo changes. The diff preview in the original proposal shows what was added.
-- **For prune operations:** The optimizer creates a backup of deleted files in `datarim/archive/optimized/` before removal. Files can be restored from there.
+- **For prune operations:** The optimizer creates a backup of deleted files in `documentation/archive/optimized/` before removal. Files can be restored from there.
 
 **Rule:** Never make changes that cannot be independently reverted. If two proposals modify the same file, apply them as separate edits so either can be rolled back without affecting the other.
 

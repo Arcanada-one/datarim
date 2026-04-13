@@ -15,7 +15,11 @@ disable-model-invocation: true
     - Find the **top-level git root** (`git rev-parse --show-toplevel`).
     - If the project uses submodules, use the **outermost** repo root (e.g., `local-env/`, not `aio-v2/`).
     - Create `datarim/` there ONLY if it does not already exist.
-    - If creating for the first time, also create `backlog.md` and `backlog-archive.md` from templates at `$HOME/.claude/templates/backlog-template.md` and `$HOME/.claude/templates/backlog-archive-template.md`.
+    - If creating for the first time:
+      a. Create `backlog.md` and `backlog-archive.md` from templates at `$HOME/.claude/templates/backlog-template.md` and `$HOME/.claude/templates/backlog-archive-template.md`.
+      b. Create `documentation/archive/` directory (for long-term task archives).
+      c. If `.gitignore` exists and does not contain `datarim/` → append `datarim/` to it.
+      d. If `.gitignore` does not exist → ask user: "Create `.gitignore` with `datarim/`? (recommended — keeps workflow state local)"
 3.  **CHECK BACKLOG**: If `datarim/backlog.md` exists and contains pending items:
     - Display pending items as a numbered list (ID, title, priority, complexity).
     - **If user provided a `BACKLOG-XXXX` ID**: Select that item directly.
@@ -23,16 +27,21 @@ disable-model-invocation: true
     - **When selecting a backlog item**:
       a. Change its status from `pending` to `in_progress` in `backlog.md`.
       b. Use its description, priority, complexity, and acceptance criteria as starting context.
-      c. Create a new task with `TASK-XXXX` ID. Record `Source: BACKLOG-XXXX` in `tasks.md`.
+      c. **Use the backlog item's existing ID as the task ID** (do NOT create a new one). Example: `INFRA-0004` in backlog → `INFRA-0004` as active task. The ID stays the same across lifecycle per Unified Task Numbering.
     - **If backlog is empty** or user provided a new task description: Proceed to step 4.
 4.  **ACTION**:
     - Analyze the user request (or backlog item context from step 3).
     - Determine complexity level (1-4). If from backlog, use the item's complexity as starting estimate.
+    - **Determine Task ID** (if NOT from backlog): select prefix per Unified Task Numbering (`$HOME/.claude/skills/datarim-system.md`) — project prefix first, then area prefix, `TASK` as fallback. Scan existing tasks for next sequential number.
     - **Context Gathering**: For complex tasks, ensure context is gathered (via `/dr-prd`) before planning.
     - **If new project/service**: Load `$HOME/.claude/skills/tech-stack.md` and identify required stack.
     - Create/Update `datarim/tasks.md` with new task.
     - Update `datarim/activeContext.md`.
-5.  **OUTPUT**: Initialized task structure (including tech stack if applicable).
+5.  **SUBTASK BACKLOG** (Level 3-4 only):
+    - If analysis reveals distinct subtasks or phases, present them to user:
+      "This task has N identifiable subtasks. Add them to backlog for independent tracking?"
+    - If approved: create entries in `datarim/backlog.md` using appropriate project/area prefix per Unified Task Numbering (NOT `BACKLOG-XXXX`). Subtasks of a project task typically share its project prefix.
+6.  **OUTPUT**: Initialized task structure (including tech stack if applicable).
 
 ## Next Steps
 - Level 1? → `/dr-do`

@@ -41,7 +41,16 @@ This command generates a structured Product Requirements Document (PRD) followin
     -   Include: Problem Statement, Scope, Context Analysis, Technical Approach (Selected + Alternatives), Success Criteria, Risks.
     -   Save to `datarim/prd/PRD-{slug}.md`.
 
-6.  **Output Summary**:
+6.  **Backlog Generation** (optional):
+    -   Extract actionable items from PRD sections (features, components, migrations, integrations).
+    -   **Determine prefix for generated items** per Unified Task Numbering (`$HOME/.claude/skills/datarim-system.md`):
+        - If PRD is scoped to one project → use that project's prefix (e.g., PRD-SUP-0001 → items are `SUP-0002`, `SUP-0003`, ...)
+        - If PRD is cross-project → use area prefix (e.g., `INFRA-NNNN` for infrastructure work)
+    -   Scan existing tasks and backlog to determine next sequential number per prefix.
+    -   Present to user: "PRD identifies N potential backlog items: [numbered list with proposed IDs, titles, complexity]"
+    -   If approved: create entries in `datarim/backlog.md` with status `pending` and a reference to PRD in the description (e.g., "Source: PRD-SUP-0001").
+
+7.  **Output Summary**:
     -   Confirm file location.
     -   List next steps: `/dr-init`, `/dr-plan`.
 

@@ -46,9 +46,34 @@ if [ "$DR_DIR" = "/" ]; then echo "ERROR: datarim/ not found"; else echo "$DR_DI
 - `creative/` — Creative phase documents
 - `reflection/` — Reflection documents
 - `qa/` — QA reports
-- `archive/` — Completed task archives
 - `reports/` — Debug/diagnostic reports
 - `docs/` — Framework evolution log and documentation
+
+### Documentation Directory (project-level, alongside `datarim/`)
+
+Completed task archives live **outside** `datarim/`, in `documentation/archive/{area}/`. This separation reflects two layers:
+
+- **`datarim/`** — ephemeral workflow state (tasks, backlog, activeContext). Added to `.gitignore`. Stays on developer's local machine.
+- **`documentation/archive/`** — long-term project documentation. Committed to git. Task archives with goals, decisions, and implementation details become the project's knowledge base.
+
+```
+documentation/
+└── archive/
+    ├── infrastructure/    # INFRA-* tasks
+    ├── web/               # WEB-* tasks
+    ├── content/           # CONTENT-* tasks
+    ├── research/          # RESEARCH-* tasks
+    ├── agents/            # AGENT-* tasks
+    ├── benchmarks/        # BENCH-* tasks
+    ├── development/       # DEV-* tasks
+    ├── devops/            # DEVOPS-* tasks
+    ├── framework/         # TUNE-*, ROB-* tasks
+    ├── maintenance/       # MAINT-* tasks
+    ├── finance/           # FIN-* tasks
+    ├── qa/                # QA-* tasks
+    ├── optimized/         # Framework optimizer backups
+    └── general/           # Unmatched prefixes
+```
 
 ---
 
@@ -56,7 +81,7 @@ if [ "$DR_DIR" = "/" ]; then echo "ERROR: datarim/ not found"; else echo "$DR_DI
 
 ### MANDATORY: Task ID in ALL Report Filenames
 
-**Format:** `[PREFIX]-[4-digit-number]` (e.g., `TASK-0001`, `FIN-0001`)
+**Format:** `{PREFIX}-{NNNN}` (e.g., `TASK-0001`, `FIN-0001`) — see Unified Task Numbering below
 
 **Report Types:**
 - QA reports: `qa-report-[task_id]-[phase].md`
@@ -79,7 +104,7 @@ if [ "$DR_DIR" = "/" ]; then echo "ERROR: datarim/ not found"; else echo "$DR_DI
 
 ### Format
 ```
-[PREFIX]-[NUMBER]
+{PREFIX}-{NNNN}
 ```
 
 **Examples:**
@@ -134,6 +159,113 @@ not_started → in_progress → completed → archived
 
 ---
 
+## Unified Task Numbering (Invariant ID)
+
+**Core principle:** A task's ID is assigned once and remains unchanged across its entire lifecycle:
+
+```
+backlog.md → tasks.md → documentation/archive/ → backlog-archive.md
+```
+
+The same ID `{PREFIX}-{NNNN}` appears in every document referencing this task — no renumbering when a backlog item becomes active, no separate `BACKLOG-XXXX` namespace.
+
+### Prefix Selection (priority order)
+
+1. **Project prefix** — if the task belongs to one specific project
+2. **Area prefix** — if the task is cross-project or general
+3. **`TASK`** — fallback (avoid if possible)
+
+### Prefix Registry
+
+**Project prefixes** (scoped to one project):
+
+| Prefix | Project |
+|--------|---------|
+| `ARCA` | Arcanada Ecosystem core |
+| `VERD` | Verdicus |
+| `DATA` | Datarim framework |
+| `CONS` | Consilium |
+| `SUP` | Support Center |
+| `ROB` | Rules of Robotics |
+| `VOICE` | Voice Agent |
+| `OVER` | Overlook |
+
+**Area prefixes** (cross-project or general):
+
+| Prefix | Area |
+|--------|------|
+| `INFRA` | Servers, DNS, SSL, cloud infrastructure |
+| `WEB` | Websites, landing pages |
+| `DEV` | Application code development |
+| `DEVOPS` | CI/CD, pipelines, automation |
+| `CONTENT` | Articles, posts, social media |
+| `RESEARCH` | Analysis, literature review |
+| `AGENT` | AI agents |
+| `BENCH` | Benchmarks, performance tests |
+| `MAINT` | Workspace scans, maintenance |
+| `FIN` | Finance, legal |
+| `QA` | Standalone QA work |
+| `TUNE` | Datarim framework self-improvement |
+
+### Deprecated: `BACKLOG-XXXX`
+
+The generic `BACKLOG-XXXX` format is deprecated. New backlog items use project/area prefix directly. Historical `BACKLOG-XXXX` references in completed archives and reports remain for historical accuracy.
+
+### Rename Policy
+
+A task ID changes **only** by explicit request from user or agent. When renamed, all references in the knowledge base must be updated atomically.
+
+---
+
+## Model Assignment Convention
+
+Each agent and task-skill MUST specify a `model` field in YAML frontmatter to optimize cost without sacrificing quality. This follows the official Anthropic Claude Code spec (https://code.claude.com/docs/en/sub-agents and /skills).
+
+### Available values
+
+| Value | Behavior |
+|-------|----------|
+| `opus` | Most capable, highest cost. Use for critical reasoning. |
+| `sonnet` | Balanced capability/cost. Default for most work. |
+| `haiku` | Fast, low cost. Use for simple structured tasks. |
+| `<full-id>` | E.g., `claude-opus-4-6` for pinning a specific version. |
+| `inherit` | Use caller's model. Default for reference skills. |
+
+### Decision matrix
+
+| Use **opus** when... | Use **sonnet** when... | Use **haiku** when... |
+|----------------------|------------------------|------------------------|
+| Architectural decisions | Standard code/content work | Simple lookups |
+| Security analysis | Structured tasks (checklists) | Test execution |
+| Strategic evaluation | Editorial review | API calls |
+| Multi-perspective debate | Knowledge maintenance | Mechanical output |
+| Critical reasoning | Standard QA | Shell utilities |
+
+### Reference vs task content (skills only)
+
+- **Reference skills** (rules, patterns, guidelines applied inline): omit `model` — it inherits from caller. Examples: `datarim-system`, `ai-quality`, `security`, `testing`, `performance`, `tech-stack`.
+- **Task skills** (perform an action when invoked): set `model` explicitly. Examples: `dream`, `consilium`, `factcheck`, `humanize`.
+
+### Effort field (additional lever)
+
+Both agent and skill frontmatter support `effort: low|medium|high|max`. Use `effort: max` (Opus 4.6 only) for very complex one-off tasks. Default: inherits from session.
+
+### Current assignments (v1.6.0)
+
+**Agents (16):**
+- **opus (6):** architect, planner, strategist, security, reviewer, skill-creator
+- **sonnet (9):** developer, compliance, code-simplifier, devops, editor, librarian, optimizer, sre, writer
+- **haiku (1):** tester
+
+**Task-skills (14):**
+- **opus (3):** consilium, evolution, incident-investigation
+- **sonnet (9):** discovery, compliance, dream, factcheck, humanize, marketing, seo-launch, visual-maps, writing
+- **haiku (2):** telegram-publishing, utilities
+
+**Reference skills (6, no model):** datarim-system, ai-quality, security, testing, performance, tech-stack
+
+---
+
 ## Backlog Management (v2.0)
 
 ### Two-File Architecture
@@ -141,7 +273,7 @@ not_started → in_progress → completed → archived
 **Active Backlog** (`backlog.md`):
 - Contains ONLY `pending` and `in_progress` items
 - Performance optimized (~10x faster reads)
-- Format: `BACKLOG-[4-digit-number]`
+- Format: `{PREFIX}-{NNNN}` (same ID the task will have — see Unified Task Numbering above)
 
 **Backlog Archive** (`backlog-archive.md`):
 - Historical `completed` and `cancelled` items
@@ -228,9 +360,55 @@ All Datarim commands use the `/dr-` prefix (e.g., `/dr-init`, `/dr-plan`, `/dr-d
 
 ---
 
+## Archive Area Mapping
+
+When archiving a task, determine the target subdirectory by extracting the prefix from the task ID:
+
+| Prefix | Area Subdirectory |
+|--------|------------------|
+| `INFRA` | `infrastructure/` |
+| `WEB` | `web/` |
+| `CONTENT` | `content/` |
+| `RESEARCH` | `research/` |
+| `AGENT` | `agents/` |
+| `BENCH` | `benchmarks/` |
+| `DEV` | `development/` |
+| `DEVOPS` | `devops/` |
+| `TUNE` | `framework/` |
+| `ROB` | `framework/` |
+| `MAINT` | `maintenance/` |
+| `FIN` | `finance/` |
+| `QA` | `qa/` |
+| *(unknown)* | `general/` |
+
+**Logic:**
+1. Extract PREFIX from task ID (everything before the first `-`)
+2. Look up PREFIX in the table above
+3. If not found → use `general/`
+
+**Archive file path:** `documentation/archive/{area}/archive-{task_id}.md`
+
+---
+
+## Project Setup
+
+When Datarim is initialized in a project (`/dr-init`):
+
+1. **`datarim/`** is created at the project root for workflow state
+2. **`documentation/archive/`** is created for long-term task archives
+3. **`datarim/`** is added to `.gitignore` — workflow state is local, not shared
+4. **`documentation/`** is committed — archives are project documentation
+
+This allows:
+- Multiple developers to work in parallel (each with their own `datarim/`)
+- Project managers to read `documentation/archive/` for progress and decisions
+- Clean git history — no ephemeral workflow files
+
+---
+
 ## Critical Rules (Always Apply)
 
-1. **Datarim is Truth** — Never work outside `datarim/`
+1. **Datarim is Truth** — `datarim/` for workflow state, `documentation/archive/` for completed task archives
 2. **Task ID Required** — ALL reports must include task ID
 3. **No documentation/tasks/** — This directory must NOT exist
 4. **Context Tracking** — Always update `activeContext.md`

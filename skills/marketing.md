@@ -1,6 +1,7 @@
 ---
 name: marketing
 description: Digital marketing workflows — ad campaigns (Google Ads, Meta Ads), landing page optimization, conversion tracking, A/B testing, email sequences, and growth marketing checklists. Use when planning or executing marketing campaigns.
+model: sonnet
 ---
 
 # Marketing — Digital Campaign and Growth Checklists

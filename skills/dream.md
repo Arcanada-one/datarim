@@ -1,6 +1,7 @@
 ---
 name: dream
 description: Knowledge base maintenance — organize, deduplicate, cross-reference, and consolidate the datarim/ directory. Processes inbox items, builds connections between documents, flags contradictions, and archives stale content. Inspired by the LLM Wiki pattern.
+model: sonnet
 ---
 
 # Dream — Knowledge Base Maintenance
@@ -22,11 +23,14 @@ New documents, notes, and artifacts land in the knowledge base through tasks. Ov
 - Files missing task ID in filename (required by datarim-system rules)
 - Files without frontmatter or metadata
 - Files that reference other files using wrong paths (broken links)
+- Archives in `documentation/archive/` without matching reflection in `datarim/reflection/`
+- Archive files in wrong area subdirectory (prefix doesn't match area per Archive Area Mapping in `datarim-system.md`)
 
 **Actions:**
 - Propose moving misplaced files to correct directories
 - Propose renaming files to follow naming conventions
 - Add missing cross-references between related documents
+- Add cross-references between `datarim/reflection/` and `documentation/archive/`
 
 ### 2. Lint (health check)
 
@@ -46,6 +50,8 @@ Periodic review of the entire knowledge base for structural problems.
 | **Oversized files** | Documents over 500 lines that should be split |
 | **Inconsistent naming** | Files not following the `[type]-[task_id]-[name].md` pattern |
 | **Cross-reference symmetry** | If doc A links to doc B, does B link back to A? |
+| **Archive-reflection symmetry** | Archive in `documentation/archive/` exists without matching reflection in `datarim/reflection/`, or vice versa |
+| **Archive area mismatch** | Archive file in wrong subdirectory per prefix→area mapping in `datarim-system.md` |
 
 **Output:** A lint report listing all issues found, grouped by severity (critical → warning → info).
 
@@ -59,7 +65,7 @@ Deep maintenance that restructures the knowledge base for clarity and efficiency
 |--------|-------------|
 | **Merge duplicates** | Combine two documents covering the same topic into one |
 | **Extract patterns** | Find recurring themes across reflections and create a patterns page in `docs/` |
-| **Build index** | Create or update `datarim/index.md` — a catalog of all documents with one-line summaries |
+| **Build index** | Create or update `datarim/index.md` — a catalog of all documents (from both `datarim/` and `documentation/archive/`) with one-line summaries |
 | **Update progress** | Sync `progress.md` with actual state of tasks, backlog, and archives |
 | **Archive stale** | Move completed/obsolete documents to `archive/` with proper metadata |
 | **Cross-reference** | Add bidirectional links between related documents (PRD ↔ task ↔ reflection ↔ archive) |
@@ -185,7 +191,7 @@ When Dream finds two documents making conflicting claims:
 
 ## What Dream Does NOT Do
 
-- Modify source code files. Dream works only with `datarim/` contents.
+- Modify source code files. Dream works with `datarim/` and `documentation/archive/` contents only.
 - Delete documents without approval. All removals are proposed, never automatic.
 - Resolve contradictions. It flags them for human judgment.
 - Create new knowledge. It organizes existing knowledge — writing new content is the writer's job.
