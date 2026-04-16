@@ -22,7 +22,8 @@ description: Review completed task and create reflection document with lessons l
     - Load `$HOME/.claude/skills/evolution.md`.
     - Analyze: what worked well? what was inefficient? any missing skills/patterns?
     - Generate evolution proposals (categories: `skill-update`, `agent-update`, `claude-md-update`, `new-template`, `new-skill`).
-    - Present proposals to user for approval.
+    - **Classify each proposal as Class A or Class B** per `evolution.md` § "Class A vs Class B — Operating-Model Gate". Class A = content changes (approval-ready). Class B = operating-model / contract changes (source-of-truth direction, sync semantics, pipeline routing, core contract, command semantics). Class B proposals **must not be presented for user approval** until a PRD update (or project-level contract equivalent) is drafted; pause and request the PRD draft instead.
+    - Present Class A proposals to user for approval. Hold Class B until PRD is updated, then re-present.
     - Log approved changes in `datarim/docs/evolution-log.md`.
 6.  **HEALTH CHECK**:
     - Count total skills, agents, commands in the active scope.
