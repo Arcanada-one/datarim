@@ -203,8 +203,8 @@ Write to `datarim/qa/qa-report-{task-id}.md`:
 
 | Overall | Condition | Next Step |
 |---------|-----------|-----------|
-| **ALL_PASS** | Every executed layer is PASS | Proceed to `/dr-compliance` or `/dr-reflect` |
-| **CONDITIONAL_PASS** | All layers PASS or PASS_WITH_NOTES, no FAIL | Proceed to `/dr-compliance` or `/dr-reflect`, notes documented |
+| **ALL_PASS** | Every executed layer is PASS | Proceed to `/dr-compliance` or `/dr-archive` |
+| **CONDITIONAL_PASS** | All layers PASS or PASS_WITH_NOTES, no FAIL | Proceed to `/dr-compliance` or `/dr-archive`, notes documented |
 | **BLOCKED** | One or more layers FAIL | Return to `/dr-do` with fix list from failed layers |
 
 ---
@@ -212,7 +212,7 @@ Write to `datarim/qa/qa-report-{task-id}.md`:
 ## Next Steps
 
 - **ALL_PASS or CONDITIONAL_PASS** at L3-4 → `/dr-compliance`
-- **ALL_PASS or CONDITIONAL_PASS** at L1-2 → `/dr-reflect`
+- **ALL_PASS or CONDITIONAL_PASS** at L1-2 → `/dr-archive`
 - **BLOCKED** → `/dr-do` with specific fix list extracted from FAIL layers
 
 ## Transition Checkpoint

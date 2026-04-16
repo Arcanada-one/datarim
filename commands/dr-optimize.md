@@ -16,7 +16,7 @@ effort: high
 - **After `/dr-addskill`** — to check if the new skill overlaps with existing ones
 - **When context issues appear** — if skills stop triggering or Claude seems to forget instructions
 - **On user request** — when the user asks to clean up, simplify, or reorganize
-- **Auto-suggested by `/dr-reflect`** — when the reflection detects framework inefficiencies
+- **Auto-suggested by `/dr-archive` Step 0.5 (reflecting skill)** — when the reflection health-check detects framework inefficiencies
 
 ## Instructions
 

@@ -49,7 +49,7 @@ description: Implement planned changes using TDD and AI quality principles
 
 ## Transition Checkpoint
 
-Before proceeding to `/dr-qa` or `/dr-reflect`:
+Before proceeding to `/dr-qa` or `/dr-archive`:
 ```
 [ ] All planned changes implemented?
 [ ] Tests written and passing?
@@ -59,5 +59,5 @@ Before proceeding to `/dr-qa` or `/dr-reflect`:
 
 ## Next Steps
 - All checks pass, L3-4? → `/dr-qa`
-- All checks pass, L1-2? → `/dr-reflect`
+- All checks pass, L1-2? → `/dr-archive`
 - Checks incomplete? → Continue implementation
