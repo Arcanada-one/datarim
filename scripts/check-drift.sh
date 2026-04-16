@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# check-drift.sh — advisory drift detection between repo and runtime
+#
+# Compares this repo against $CLAUDE_DIR (default $HOME/.claude) across
+# the four managed scopes: agents, skills, commands, templates.
+#
+# Usage:
+#   ./scripts/check-drift.sh          # human-readable output
+#   ./scripts/check-drift.sh --quiet  # suppress per-line output; exit code only
+#
+# Exit codes:
+#   0  runtime in sync with repo
+#   1  drift detected (see output)
+#   2  error (missing directory, etc.)
+#
+# Read-only: no writes to either side. Non-blocking by design — use as a
+# pre-commit sanity check, CI advisory, or after install.sh.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+CLAUDE_DIR="${CLAUDE_DIR:-$HOME/.claude}"
+SCOPES=(agents skills commands templates)
+QUIET=false
+
+if [ "${1:-}" = "--quiet" ]; then
+    QUIET=true
+fi
+
+if [ ! -d "$CLAUDE_DIR" ]; then
+    echo "ERROR: runtime dir not found: $CLAUDE_DIR" >&2
+    exit 2
+fi
+
+if [ ! -d "$SCRIPT_DIR/agents" ]; then
+    echo "ERROR: repo dir looks wrong (no agents/): $SCRIPT_DIR" >&2
+    exit 2
+fi
+
+$QUIET || echo "Datarim Drift Check"
+$QUIET || echo "==================="
+$QUIET || echo "Repo:    $SCRIPT_DIR"
+$QUIET || echo "Runtime: $CLAUDE_DIR"
+$QUIET || echo ""
+
+DRIFT_COUNT=0
+
+for scope in "${SCOPES[@]}"; do
+    if [ ! -d "$CLAUDE_DIR/$scope" ]; then
+        $QUIET || echo "[$scope] MISSING in runtime"
+        DRIFT_COUNT=$((DRIFT_COUNT + 1))
+        continue
+    fi
+
+    # diff -rq returns 0 on match, 1 on differ; both are valid exits for us
+    DIFF_OUT=$(diff -rq "$CLAUDE_DIR/$scope/" "$SCRIPT_DIR/$scope/" 2>/dev/null || true)
+
+    if [ -z "$DIFF_OUT" ]; then
+        $QUIET || echo "[$scope] in sync"
+    else
+        while IFS= read -r line; do
+            $QUIET || echo "[$scope] $line"
+            DRIFT_COUNT=$((DRIFT_COUNT + 1))
+        done <<< "$DIFF_OUT"
+    fi
+done
+
+$QUIET || echo ""
+
+if [ "$DRIFT_COUNT" -gt 0 ]; then
+    $QUIET || echo "RESULT: $DRIFT_COUNT drift item(s) found"
+    exit 1
+fi
+
+$QUIET || echo "RESULT: all scopes in sync"
+exit 0
