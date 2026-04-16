@@ -35,5 +35,5 @@ description: Adaptive post-QA hardening. Detects task type (code, docs, research
 - **NON-COMPLIANT** — critical issues found, fix before archiving
 
 ## Next Steps
-- COMPLIANT → `/dr-reflect`
+- COMPLIANT → `/dr-archive`
 - NON-COMPLIANT → fix issues, then re-run `/dr-compliance`
