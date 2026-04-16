@@ -200,6 +200,19 @@ If all three are NO — Class A, proceed normally.
 
 PRD updates add ~15-30 minutes of work per Class B proposal. The TUNE-0002 → TUNE-0003 incident cost ~6 hours of wrong-direction implementation + correction + TUNE-0011 recovery, or ~12x the gate cost. The gate also creates a persistent record (PRD diff + rationale) that future research can reconcile against instead of re-deriving.
 
+### Projects without a framework-level PRD
+
+Datarim framework itself has `PRD-datarim-sdlc-framework.md` as the contract artifact. But consumer projects that use Datarim as an installed framework often do not have their own framework-level PRD. The Class B gate still applies — it just points at a different contract artifact.
+
+For consumer projects, PRD substitutes in priority order:
+
+1. **Project-level PRD** at `datarim/prd/PRD-{project-id}.md` — if the project has one covering the area the proposal touches, update it.
+2. **Project `CLAUDE.md`** — the top-level project contract. Changes to source-of-truth direction, sync semantics, or core conventions must update `CLAUDE.md` with the new rule and a rationale comment.
+3. **Architectural decision records** (`datarim/creative/*.md` or project's ADR directory) — if the change reflects a design decision, record it there with "supersedes ADR-N" linkage.
+4. **None of the above** — then the proposal is really a framework-level Class B change disguised as a project-level one. Escalate to Datarim framework PRD update (`PRD-datarim-sdlc-framework.md`) instead of inlining into the project.
+
+**Rule:** a Class B proposal always needs a written contract artifact that ratifies it. Never apply a Class B change whose only justification is a reflection entry. Reflection proposes; a contract ratifies.
+
 ---
 
 ## Health Metrics
