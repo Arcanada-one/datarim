@@ -95,8 +95,7 @@ Load only the rules relevant to your current stage:
 | **/dr-design** | #6 Corner Cases, #7 Skeleton, #9 Cognitive Load, #13 Transactions | Design quality, keep it simple |
 | **/dr-do** | #2 TDD, #3 Method Size, #8 Iterative, #9 Cognitive Load | Write tests first, small methods, one at a time |
 | **/dr-qa** | #5 DoD verification, #10 Focused Review | Review one method at a time, check done criteria |
-| **/dr-reflect** | #8 Iterative verification, #10 Review | Was the process followed? |
-| **/dr-archive** | #14 Structure | Hierarchical summaries for future context |
+| **/dr-archive** | #8 Iterative verification + #10 Review (Step 0.5 reflection), #14 Structure (Step 2 archive doc) | Was the process followed? Hierarchical summaries for future context |
 
 ---
 

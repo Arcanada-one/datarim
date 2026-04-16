@@ -1,6 +1,6 @@
 ---
 name: evolution
-description: Rules for proposing, applying, and optimizing framework improvements. Covers growth (new components via /dr-reflect) and maintenance (pruning, merging, efficiency via /dr-optimize). Human approval required for all changes.
+description: Rules for proposing, applying, and optimizing framework improvements. Covers growth (new components via /dr-archive Step 0.5 reflecting skill) and maintenance (pruning, merging, efficiency via /dr-optimize). Human approval required for all changes.
 model: opus
 ---
 
@@ -10,7 +10,7 @@ model: opus
 
 Datarim improves itself in two ways:
 
-1. **Growth** — after each completed task, `/dr-reflect` analyzes lessons learned and proposes targeted improvements: new skills, updated agents, expanded templates.
+1. **Growth** — after each completed task, the `reflecting` skill (invoked by `/dr-archive` Step 0.5) analyzes lessons learned and proposes targeted improvements: new skills, updated agents, expanded templates.
 2. **Maintenance** — periodically or on demand, `/dr-optimize` audits the framework for bloat, duplicates, broken references, and inefficiencies, then proposes cleanup and consolidation.
 
 Both paths require **explicit human approval** for every change. Evolution is how Datarim avoids repeating mistakes, accumulates institutional knowledge, and stays lean over time.
@@ -19,7 +19,7 @@ Both paths require **explicit human approval** for every change. Evolution is ho
 
 ## When Triggered
 
-### Automatic: After `/dr-reflect` (Growth)
+### Automatic: Inside `/dr-archive` Step 0.5 via `reflecting` skill (Growth)
 
 The agent:
 1. Reviews the reflection document just created
@@ -52,7 +52,7 @@ When creating new components, the skill-creator agent:
 
 ## Proposal Categories
 
-### Growth Categories (from `/dr-reflect`)
+### Growth Categories (from `/dr-archive` Step 0.5 reflection)
 
 | Category | Target | Description |
 |----------|--------|-------------|
@@ -151,7 +151,7 @@ Examples of Class A:
 - Add a new `*.md` template for a recurring pattern
 - Fix a cross-reference or typo
 
-**Approval path:** `/dr-reflect` → user approval → apply to runtime → curate to repo. Normal flow.
+**Approval path:** `/dr-archive` Step 0.5 (reflecting skill) → user approval → apply to runtime → curate to repo. Normal flow.
 
 ### Class B — Operating-model changes (PRD update required BEFORE approval)
 
@@ -168,7 +168,7 @@ Class B triggers (non-exhaustive):
 **Approval path for Class B:**
 
 1. Reflection generates the proposal and flags it as Class B in the proposal block.
-2. `/dr-reflect` pauses — does NOT ask for proposal approval yet.
+2. `/dr-archive` Step 0.5 (reflecting skill) pauses — does NOT ask for proposal approval yet; also does NOT proceed to Step 1.
 3. Instead, asks the user: "This proposal changes operating model. Update `PRD-datarim-sdlc-framework.md` first? Draft the PRD diff before approval?"
 4. User either drafts PRD change (or approves a draft) — PRD becomes the source-of-truth for the new contract.
 5. Only AFTER PRD is updated does the proposal re-enter normal Class A approval flow.
@@ -176,7 +176,7 @@ Class B triggers (non-exhaustive):
 
 ### Founding incident (2026-04-15..16)
 
-TUNE-0002 research concluded "repo-first operating model should replace runtime-first" based on research-level reasoning. This was treated as a regular proposal and approved through the normal reflection gate. TUNE-0003 then executed it — bumping VERSION, rewriting README Operating Model section, rewriting wrapper CLAUDE.md to 5-step repo-first workflow — without reconciling against `PRD-datarim-sdlc-framework.md`, which explicitly specified runtime-first via `/dr-reflect`.
+TUNE-0002 research concluded "repo-first operating model should replace runtime-first" based on research-level reasoning. This was treated as a regular proposal and approved through the normal reflection gate. TUNE-0003 then executed it — bumping VERSION, rewriting README Operating Model section, rewriting wrapper CLAUDE.md to 5-step repo-first workflow — without reconciling against `PRD-datarim-sdlc-framework.md`, which explicitly specified runtime-first via `/dr-reflect` (the command existing at the time of the incident; consolidated into `/dr-archive` Step 0.5 in v1.10.0 via TUNE-0013).
 
 The PRD was the load-bearing contract. The reflection gate had no way to see that. Result:
 
@@ -217,7 +217,7 @@ For consumer projects, PRD substitutes in priority order:
 
 ## Health Metrics
 
-These thresholds trigger an optimization suggestion during `/dr-reflect`:
+These thresholds trigger an optimization suggestion during `/dr-archive` Step 0.5 (reflecting skill):
 
 | Metric | Threshold | Action |
 |--------|-----------|--------|
@@ -266,7 +266,7 @@ All approved changes are logged in `datarim/docs/evolution-log.md`. Create this 
 | 2026-04-08 | TASK-0042 | skill-update | skills/testing.md | Added property-based testing section | Property tests caught 3 edge cases missed by unit tests |
 ```
 
-For optimization runs, use `OPT-NNN` as the task ID. For growth proposals from `/dr-reflect`, use the current task ID.
+For optimization runs, use `OPT-NNN` as the task ID. For growth proposals from `/dr-archive` Step 0.5 reflection, use the current task ID.
 
 ---
 
@@ -306,7 +306,7 @@ Each Evolution change is a discrete edit to a specific file. Rollback strategy:
 
 ## Examples of Good Proposals
 
-### Growth (from /dr-reflect)
+### Growth (from /dr-archive Step 0.5 reflection)
 
 **Good — specific, evidence-based:**
 ```
