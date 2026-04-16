@@ -10,7 +10,7 @@ Datarim includes 16 specialized agents. Each agent is a persona with defined cap
 | architect | Chief Architect | opus | /dr-prd, /dr-design |
 | strategist | Strategic Advisor | opus | /dr-plan (L3-4) |
 | security | Security Analyst | opus | /dr-design, /dr-qa, /dr-compliance |
-| reviewer | QA & Security Lead | opus | /dr-qa, /dr-reflect |
+| reviewer | QA & Security Lead | opus | /dr-qa, /dr-archive (Step 0.5 reflection) |
 | skill-creator | Skill/Agent/Command Creator | opus | /dr-addskill |
 | developer | Senior Developer (TDD) | sonnet | /dr-do |
 | compliance | Compliance Runner | sonnet | /dr-compliance |
@@ -18,9 +18,9 @@ Datarim includes 16 specialized agents. Each agent is a persona with defined cap
 | devops | DevOps Engineer | sonnet | /dr-plan, /dr-do, /dr-compliance |
 | editor | Content Editor | sonnet | /dr-edit, /dr-qa (content) |
 | librarian | Knowledge Base Librarian | sonnet | /dr-dream |
-| optimizer | Framework Optimizer | sonnet | /dr-optimize, /dr-reflect |
-| sre | Site Reliability Engineer | sonnet | /dr-design, /dr-qa, /dr-reflect |
-| writer | Content Writer | sonnet | /dr-write, /dr-reflect, /dr-archive, /dr-prd |
+| optimizer | Framework Optimizer | sonnet | /dr-optimize, /dr-archive (Step 0.5 health-check) |
+| sre | Site Reliability Engineer | sonnet | /dr-design, /dr-qa, /dr-archive (Step 0.5 postmortem) |
+| writer | Content Writer | sonnet | /dr-write, /dr-archive (Step 0.5 documentation review + final docs), /dr-prd |
 | tester | Platform QA Tester | haiku | /dr-qa, /dr-do (verification) |
 
 **Distribution:** 6 opus (critical reasoning), 9 sonnet (standard work), 1 haiku (test execution).

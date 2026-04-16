@@ -20,7 +20,7 @@ The original and most common use case. The pipeline maps directly to structured 
 | `/dr-design` | Consilium panel: Architect + Security evaluate JWT vs session tokens |
 | `/dr-do` | TDD implementation: write tests first, then code, one method at a time |
 | `/dr-qa` | Verify: PRD alignment, security review, test coverage, OWASP checks |
-| `/dr-reflect` | Note: refresh token rotation was underestimated in planning |
+| `/dr-archive` (Step 0.5) | Note: refresh token rotation was underestimated in planning |
 | `/dr-archive` | Archive task, update backlog |
 
 ---
@@ -38,7 +38,7 @@ Research projects follow a natural pipeline: define scope, plan methodology, exe
 | `/dr-plan` | Section outline: surface codes, topological codes, recent hardware results. Source allocation per section |
 | `/dr-do` | Write each section. Use `/factcheck` to verify technical claims against papers |
 | `/dr-qa` | Check: citation completeness, argument coherence, section balance, formatting compliance |
-| `/dr-reflect` | Lesson: starting with a source matrix (topic x paper) saved time vs linear reading |
+| `/dr-archive` (Step 0.5) | Lesson: starting with a source matrix (topic x paper) saved time vs linear reading |
 | `/dr-archive` | Archive with source bibliography for future chapters |
 
 ---
@@ -56,7 +56,7 @@ API docs, architecture decision records, user guides, runbooks — all benefit f
 | `/dr-plan` | Priority: auth flow first, then payment lifecycle (create → capture → refund), then webhooks |
 | `/dr-do` | Write docs. Cross-reference with actual API code for accuracy |
 | `/dr-qa` | Verify: every endpoint documented, examples tested, error codes complete, links valid |
-| `/dr-reflect` | Note: generating examples from actual API responses was faster than writing them manually |
+| `/dr-archive` (Step 0.5) | Note: generating examples from actual API responses was faster than writing them manually |
 
 ---
 
@@ -75,7 +75,7 @@ Legal work is highly structured and benefits from phased review. The pipeline en
 | `/dr-do` | Draft each section. Cross-reference with jurisdiction requirements |
 | `/dr-qa` | Review: internal consistency, defined-term usage, clause numbering, regulatory compliance |
 | `/dr-compliance` | Final hardening: check all cross-references, verify against compliance checklist |
-| `/dr-reflect` | Lesson: starting with a clause dependency map prevented circular references |
+| `/dr-archive` (Step 0.5) | Lesson: starting with a clause dependency map prevented circular references |
 
 ---
 
@@ -92,7 +92,7 @@ Manage a project backlog, plan iterations, track progress, and run retrospective
 | `/dr-plan` | Work breakdown: 4 phases over 6 weeks. Dependencies mapped. Critical path identified |
 | `/dr-do` | Execute tasks from backlog one by one. Each task follows its own mini-pipeline |
 | `/dr-qa` | Per-task quality check. Cross-task consistency review (branding, messaging, dates) |
-| `/dr-reflect` | Sprint retrospective: what slipped, what was overscoped, what to adjust for next iteration |
+| `/dr-archive` (Step 0.5) | Sprint retrospective: what slipped, what was overscoped, what to adjust for next iteration |
 | `/dr-archive` | Archive phase, carry forward incomplete items to next phase backlog |
 
 **Backlog management** is central here:
@@ -116,7 +116,7 @@ Blog posts, social media, newsletters — content that needs editorial quality b
 | `/factcheck` | Verify: benchmark numbers, version claims, feature comparisons, date accuracy |
 | `/humanize` | Remove AI writing patterns: fix em-dash overuse, replace "leverage" with "use", vary paragraph lengths |
 | `/dr-qa` | Editorial review: argument flow, headline accuracy, CTA placement |
-| `/dr-reflect` | Note: benchmarks were the most-shared section — lead with data next time |
+| `/dr-archive` (Step 0.5) | Note: benchmarks were the most-shared section — lead with data next time |
 
 The `/factcheck` and `/humanize` commands are standalone — use them at any point in any workflow, not just within the pipeline.
 
@@ -136,7 +136,7 @@ Design systems, component libraries, landing pages, and interactive interfaces �
 | `/dr-design` | Consilium panel: Architect + Developer + Writer evaluate component architecture, CSS strategy (Tailwind vs custom), animation approach |
 | `/dr-do` | Build components one by one. HTML/CSS/JS with responsive testing at each step |
 | `/dr-qa` | Cross-browser testing, accessibility audit, performance metrics, visual regression check |
-| `/dr-reflect` | Note: component library approach saved 40% time vs building from scratch |
+| `/dr-archive` (Step 0.5) | Note: component library approach saved 40% time vs building from scratch |
 
 ---
 
@@ -153,7 +153,7 @@ CI/CD pipelines, containerization, deployment automation — structured phases p
 | `/dr-plan` | Phases: 1) Dockerfile + compose, 2) CI pipeline, 3) staging deploy, 4) prod deploy with approval gate |
 | `/dr-do` | Build each phase. Test locally before CI integration |
 | `/dr-compliance` | CI/CD impact analysis, security scan (no hardcoded secrets), rollback plan documented, monitoring configured |
-| `/dr-reflect` | Lesson: testing the pipeline in a throwaway environment first prevented 2 production issues |
+| `/dr-archive` (Step 0.5) | Lesson: testing the pipeline in a throwaway environment first prevented 2 production issues |
 
 ---
 
@@ -172,7 +172,7 @@ Observability, SLOs, incident response — reliability work demands rigorous pla
 | `/dr-do` | Implement phase by phase. Each service instrumented independently |
 | `/dr-qa` | Verify: all services emit metrics, logs searchable, traces connected across services, alerts fire correctly |
 | `/dr-compliance` | Infrastructure checklist: monitoring configured, alert thresholds set, rollback plan, security (least-privilege) |
-| `/dr-reflect` | Lesson: starting with SLO definitions before instrumentation kept the team focused on what matters |
+| `/dr-archive` (Step 0.5) | Lesson: starting with SLO definitions before instrumentation kept the team focused on what matters |
 
 ---
 
@@ -189,7 +189,7 @@ Search engine optimization, analytics configuration, and advertising campaigns r
 | `/dr-plan` | Phases: 1) technical audit (crawlability, indexing, sitemap), 2) on-page SEO (meta, headings, structured data), 3) GA4 + GSC setup, 4) conversion tracking |
 | `/dr-do` | Execute phase by phase. Validate each change with PageSpeed Insights and Search Console |
 | `/dr-qa` | Verify: sitemap submitted, robots.txt correct, structured data validates, GA4 events firing, no broken canonical tags |
-| `/dr-reflect` | Note: fixing Core Web Vitals before content optimization improved crawl budget allocation |
+| `/dr-archive` (Step 0.5) | Note: fixing Core Web Vitals before content optimization improved crawl budget allocation |
 
 ---
 
@@ -207,7 +207,7 @@ Google Ads, Facebook Ads, and paid acquisition campaigns benefit from structured
 | `/dr-do` | Build campaigns, write ad copy, configure audiences, set up conversion tracking pixels |
 | `/dr-qa` | Verify: tracking pixels fire correctly, budget caps set, negative keywords added, landing pages load <3s, ad policy compliance |
 | `/dr-compliance` | Content checklist: ad copy meets platform policies, no prohibited claims, disclaimers present, landing page matches ad promise |
-| `/dr-reflect` | Lesson: starting with conversion tracking verification before launching saved debugging time later |
+| `/dr-archive` (Step 0.5) | Lesson: starting with conversion tracking verification before launching saved debugging time later |
 
 ---
 
@@ -226,7 +226,7 @@ Preparing apps and products for Google Play, App Store, or other marketplaces �
 | `/dr-edit` | Fact-check feature claims, humanize descriptions, verify keyword density |
 | `/dr-compliance` | Legal checklist: privacy policy covers all data usage, EULA terms complete, age rating accurate, export compliance declared |
 | `/dr-qa` | Verify: all assets uploaded, metadata complete for all locales, screenshots match current UI, links valid |
-| `/dr-reflect` | Note: preparing the privacy nutrition labels early avoided a rejection cycle |
+| `/dr-archive` (Step 0.5) | Note: preparing the privacy nutrition labels early avoided a rejection cycle |
 
 ---
 
@@ -243,7 +243,7 @@ Pre-launch checklist for websites — from domain configuration to analytics to 
 | `/dr-do` | Execute each category: verify SSL, test redirects, compress images, add OG tags, set up 404 page |
 | `/dr-qa` | Cross-browser test, mobile test, PageSpeed audit, broken link scan, form submission test, social preview cards |
 | `/dr-compliance` | Documentation checklist: cookie consent present, privacy policy linked, terms of service linked, GDPR compliance (if EU), contact info visible |
-| `/dr-reflect` | Note: social preview card testing caught a missing OG image that would have looked unprofessional on first shares |
+| `/dr-archive` (Step 0.5) | Note: social preview card testing caught a missing OG image that would have looked unprofessional on first shares |
 
 ---
 
@@ -260,7 +260,7 @@ The pipeline stages map to universal project phases:
 | **do** | Execute the actual work |
 | **qa** | Verify the work meets requirements |
 | **compliance** | Final hardening and cross-checks |
-| **reflect** | Learn from the experience |
+| **archive → Step 0.5** | Learn from the experience (reflection runs inside archive) |
 | **archive** | Store for future reference |
 
 Any project that benefits from this structure can use Datarim. The complexity routing ensures you don't over-process simple tasks or under-process complex ones.

@@ -2,10 +2,10 @@
 
 ## Overview
 
-Datarim's pipeline consists of 9 stages. Not all stages run for every task — complexity level determines the route.
+Datarim's pipeline consists of 8 stages. Not all stages run for every task — complexity level determines the route. Reflection is not a standalone stage — it runs automatically inside `/dr-archive` as mandatory Step 0.5 (v1.10.0, TUNE-0013).
 
 ```
-init → prd → plan → design → do → qa → compliance → reflect → archive
+init → prd → plan → design → do → qa → compliance → archive
 ```
 
 > **Visual navigation:** Load `visual-maps.md` skill for mermaid diagrams of pipeline routing, stage flows, and agent-skill-command relationships.
@@ -123,30 +123,31 @@ init → prd → plan → design → do → qa → compliance → reflect → ar
 
 ---
 
-## Stage 8: /dr-reflect — Lessons Learned + Evolution
+## Stage 8: /dr-archive — Reflection + Task Completion
 
-**Agent:** Reviewer
-**Purpose:** Document lessons and propose framework improvements.
-
-**What happens:**
-1. Review completed task against Definition of Done
-2. Document what worked, what didn't, lessons learned
-3. **Evolution step:** Analyze insights, propose framework updates
-4. Present proposals to user for approval
-5. Log approved changes in `datarim/docs/evolution-log.md`
-
----
-
-## Stage 9: /dr-archive — Task Completion
-
-**Agent:** Planner
-**Purpose:** Archive the task and reset for the next one.
+**Agents:** Reviewer (Step 0.5 reflection) + Planner (Steps 1-7 archive)
+**Purpose:** Reflect on the task, archive it, reset for the next one.
 
 **What happens:**
-1. Create archive document with full task summary
-2. Move task from `backlog.md` to `backlog-archive.md`
-3. Reset `activeContext.md`
-4. Clear completed items from `tasks.md`
+0. Pre-archive clean-git check (mandatory gate)
+0.5. **Reflect (mandatory, non-skippable)** — invokes `skills/reflecting.md`:
+   - Review completed task against Definition of Done
+   - Document what worked, what didn't, lessons learned → `datarim/reflection/reflection-{id}.md`
+   - Generate evolution proposals (skill/agent/claude-md/template updates + new components)
+   - Class A vs Class B classification per `skills/evolution.md`
+   - Human approval gate for Class A; hold Class B until PRD update
+   - Apply approved changes to runtime; log in `datarim/docs/evolution-log.md`
+   - Health-metrics check; suggest `/dr-optimize` if thresholds exceeded
+   - Collect follow-up-task list for Step 4
+1. Archive-area determination (by task-ID prefix)
+2. Create archive document with full task summary (embeds reflection insights)
+3. Move task from `backlog.md` to `backlog-archive.md`
+4. Follow-up-task entries from reflection → new backlog items
+5. Update Archived Tasks table in `tasks.md`
+6. Reset `activeContext.md`
+7. Clear completed item from Active Tasks section of `tasks.md`
+
+**Historical note:** Prior to v1.10.0 (TUNE-0013), reflection ran as a separate Stage 8 `/dr-reflect` command. It was consolidated into `/dr-archive` to eliminate the "mandatory gate disguised as optional" defect. The `/dr-reflect` command no longer exists.
 
 ---
 
