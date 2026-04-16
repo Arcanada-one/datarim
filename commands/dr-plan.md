@@ -49,7 +49,12 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
         - (b) Record the gap as an explicit known-limitation and open a follow-up backlog item to fix the installer.
     -   Rationale: TUNE-0003 Phase 5 discovered that `install.sh:56 case "*.md"` silently excluded `.sh` templates — the gap was readable from line 1 but surfaced only at verification. Grepping the filter at planning time catches this class of asymmetry.
 
-7.  **Planning Hygiene — Summary Counts from Source Table**:
+7.  **Research Kill-Criteria Checkpoint** (for comparative/research tasks):
+    -   After research but BEFORE mechanical testing (smoke-install, Docker runs, benchmarks): evaluate whether research evidence alone eliminates candidates (deprecated, stale, wrong license, wrong category, hype).
+    -   Candidates failing kill-criteria from research skip testing entirely — saves hours of Docker/install time.
+    -   Rationale: LTM-0001 eliminated 7 of 13 candidates from research evidence alone, saving ~4.5h of Docker smoke-runs.
+
+8.  **Planning Hygiene — Summary Counts from Source Table**:
     -   Any aggregate count in the plan (e.g. "total deferred", "files touched", "rows", "threats") MUST be derived from the authoritative source table (drift report, component breakdown, threat model) and the plan MUST cite that source inline.
     -   Freehand summary numbers are prohibited — they propagate into validation checklists and blur AC verification.
     -   Example: not `"12 deferred diffs"` but `"14 deferred diffs (from drift-TUNE-0003.md: 8 skills + 2 agents + 4 commands)"`.
@@ -79,6 +84,7 @@ Before proceeding to `/dr-design` or `/dr-do`:
 [ ] Boundaries stated (what we DON'T do)?
 [ ] Technology stack validated (if applicable)?
 [ ] Rollback strategy viable? (verify commands actually work — e.g., is the target a git repo?)
+[ ] For TDD sections of the plan: each test assertion traced through *current* (pre-fix) code state before being labelled expected-pass or expected-fail? (TUNE-0004 QA NOTE-2: a plan predicting "3 of 4 drift tests pass before fix" was wrong because the predictions were not checked against the actual `diff -rq` behaviour with the bug still present.)
 [ ] tasks.md updated with implementation plan?
 ```
 

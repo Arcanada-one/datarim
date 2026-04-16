@@ -23,10 +23,12 @@ chmod +x install.sh
 ./install.sh
 ```
 
-The installer copies agents, skills, commands, and templates to `~/.claude/` and reports what was installed. If files already exist, it skips them by default. Use `--force` to overwrite:
+The installer copies agents, skills, commands, and templates to `~/.claude/` and reports what was installed. If files already exist, it skips them by default. Use `--force` to overwrite — on a live system it will ask you to confirm and take an automatic backup first (see [Installer Contract](#installer-contract) below):
 
 ```bash
-./install.sh --force
+./install.sh --force            # asks "type yes" on a live system, creates backup
+./install.sh --force --yes      # non-interactive (CI / scripted)
+DATARIM_INSTALL_YES=1 ./install.sh --force   # same, via env var
 ```
 
 ### Option 2: Manual
@@ -37,7 +39,51 @@ cp agents/*.md ~/.claude/agents/
 cp skills/*.md ~/.claude/skills/
 cp commands/*.md ~/.claude/commands/
 cp templates/*.md ~/.claude/templates/
+# Non-.md templates (e.g. cloudflare-nginx-setup.sh) also belong in ~/.claude/templates/
+cp templates/*.sh ~/.claude/templates/ 2>/dev/null || true
+chmod +x ~/.claude/templates/*.sh 2>/dev/null || true
 ```
+
+### Installer Contract
+
+The installer has a deliberately narrow contract — review a diff of `install.sh` if you want the authoritative version.
+
+**Install scopes** (copied into `$CLAUDE_DIR`, default `~/.claude/`):
+
+| Scope | Content types | Notes |
+|-------|---------------|-------|
+| `agents/`    | `.md` | Agent personas |
+| `skills/`    | `.md` | Skills, including supporting subdirectories (`datarim-system/`, `visual-maps/`) |
+| `commands/`  | `.md` | Slash-command definitions |
+| `templates/` | `.md`, `.sh`, `.json`, `.yaml`, `.yml` | Reusable scaffolds. `.sh` templates get `+x` automatically. |
+
+**Repo-only** (intentionally NOT installed):
+
+- `scripts/` — dev tooling (`check-drift.sh`, `pre-archive-check.sh`). These run from the cloned repo; running them from `~/.claude/` is semantically undefined.
+- `tests/` — bats tests for the repo's own scripts.
+- `install.sh`, `validate.sh`, `VERSION`, `CLAUDE.md`, `README.md`, `LICENSE` — repo artefacts.
+
+**Content-type whitelist.** Files with extensions outside the whitelist are logged (`WARN (unknown extension, skipped)`) and not copied — never silently dropped. To add a new content type, update both `INSTALL_EXTENSIONS` in `install.sh` and this table, then extend the bats suite.
+
+**`--force` safety** (TUNE-0004, post-incident hardening):
+
+1. `CLAUDE_DIR` is asserted to be non-empty, not `/`, and not `$HOME` itself — fails with exit 2 otherwise.
+2. On a fresh target (`$CLAUDE_DIR/agents|skills|commands|templates` all empty) `--force` is a no-op guard and proceeds immediately.
+3. On a *live* target (any install scope is non-empty), `--force` requires explicit consent:
+   - Interactive TTY: prompts for the literal word `yes`. Anything else aborts (exit 1).
+   - Non-TTY (CI, pipes): aborts with exit 1 unless `--yes` / `DATARIM_INSTALL_YES=1` is supplied.
+4. Before any overwrite, the installer copies each install scope into `$CLAUDE_DIR/backups/force-<UTC-timestamp>/`. A `SUCCESS` marker is written last — its presence signals a complete backup. Restore is a manual `cp -R` from that directory.
+5. Backups accumulate; the installer never deletes them. Review periodically and remove stale entries with `rm -rf $CLAUDE_DIR/backups/force-<old-timestamp>/`.
+
+**Exit codes:**
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success (including merge-mode no-op when everything already exists) |
+| `1` | `--force` aborted (user declined, non-TTY without `--yes`) |
+| `2` | Invalid arguments, or `CLAUDE_DIR` sanity guard tripped |
+
+**Drift between repo and runtime.** After an install, `./scripts/check-drift.sh` should exit 0. Drift is not automatically an error — it is a signal that the runtime has evolved (or the repo has), and the operator can decide whether to curate the change into the repo or re-install. The script's `SCOPES` list mirrors `install.sh INSTALL_SCOPES` (TUNE-0004 AC-3); extending the installer implies extending drift detection.
 
 ### Activate in Your Project
 
