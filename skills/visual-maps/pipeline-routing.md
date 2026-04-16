@@ -8,15 +8,13 @@ graph TD
     Init --> L4{"L4?"}
 
     L1 -->|"Quick Fix"| Do1["/dr-do"]
-    Do1 --> Reflect1["/dr-reflect"]
-    Reflect1 --> Archive1["/dr-archive"]
+    Do1 --> Archive1["/dr-archive<br>(Step 0.5: reflect)"]
 
     L2 -->|"Enhancement"| PRD2["[/dr-prd]"]
     PRD2 --> Plan2["/dr-plan"]
     Plan2 --> Do2["/dr-do"]
     Do2 --> QA2["[/dr-qa]"]
-    QA2 --> Reflect2["/dr-reflect"]
-    Reflect2 --> Archive2["/dr-archive"]
+    QA2 --> Archive2["/dr-archive<br>(Step 0.5: reflect)"]
 
     L3 -->|"Feature"| PRD3["/dr-prd"]
     PRD3 --> Plan3["/dr-plan"]
@@ -24,8 +22,7 @@ graph TD
     Design3 --> Do3["/dr-do"]
     Do3 --> QA3["/dr-qa"]
     QA3 --> Compliance3["[/dr-compliance]"]
-    Compliance3 --> Reflect3["/dr-reflect"]
-    Reflect3 --> Archive3["/dr-archive"]
+    Compliance3 --> Archive3["/dr-archive<br>(Step 0.5: reflect)"]
 
     L4 -->|"Major"| PRD4["/dr-prd"]
     PRD4 --> Plan4["/dr-plan"]
@@ -33,8 +30,7 @@ graph TD
     Design4 --> Do4["/dr-do<br>(phased)"]
     Do4 --> QA4["/dr-qa"]
     QA4 --> Comp4["/dr-compliance"]
-    Comp4 --> Reflect4["/dr-reflect"]
-    Reflect4 --> Archive4["/dr-archive"]
+    Comp4 --> Archive4["/dr-archive<br>(Step 0.5: reflect)"]
 
     style Init fill:#4da6ff,stroke:#0066cc,color:white
     style L1 fill:#10b981,stroke:#059669,color:white
@@ -43,4 +39,4 @@ graph TD
     style L4 fill:#ef4444,stroke:#dc2626,color:white
 ```
 
-Brackets `[]` indicate stages that are conditional at that complexity level.
+Brackets `[]` indicate stages that are conditional at that complexity level. `/dr-archive` always runs **Step 0.5 reflection** internally (non-skippable, mandatory since v1.10.0 / TUNE-0013); this is not shown as a separate pipeline node because it cannot be skipped.

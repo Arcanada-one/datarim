@@ -31,8 +31,7 @@ graph TD
         do["/dr-do"]
         qa["/dr-qa"]
         compliance["/dr-compliance"]
-        reflect["/dr-reflect"]
-        archive["/dr-archive"]
+        archive["/dr-archive<br>(Step 0.5: reflect)"]
     end
 
     subgraph "Content Commands"
@@ -85,8 +84,8 @@ graph TD
     qa -.-> security_agent
     compliance --> comp_agent
     compliance -.-> code_simp
-    reflect --> reviewer
     archive --> planner
+    archive -.->|"Step 0.5"| reviewer
     write --> writer_agent
     edit --> editor_agent
     factcheck_cmd --> editor_agent
@@ -127,6 +126,7 @@ graph LR
         cons["consilium"]
         disc["discovery"]
         evo["evolution"]
+        refl["reflecting"]
         writ["writing"]
         drm["dream"]
         comp_sk["compliance"]
@@ -141,7 +141,7 @@ graph LR
     planner --> sys & aiq & tech
     architect --> sys & tech & perf & sec & cons
     developer --> sys & aiq & test
-    reviewer --> sys & sec & test
+    reviewer --> sys & sec & test & refl & evo
     comp_agent --> sys & comp_sk
     writer_agent --> sys & writ & fc
     editor_agent --> sys & fc & hum & writ
