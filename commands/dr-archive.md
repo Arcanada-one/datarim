@@ -20,6 +20,20 @@ Complete and archive current task.
      c. **Abort archive** (return to `/dr-do` or fix manually).
    - Do NOT archive over a dirty working tree silently. Applied ≠ committed ≠ canonical — see TUNE-0003 reflection for the governance rationale.
 
+0.5. **REFLECT** (MANDATORY, non-skippable):
+   - Load `$HOME/.claude/skills/reflecting.md`.
+   - Execute the reflect workflow per that skill:
+     a. Create `datarim/reflection/reflection-[task_id].md`.
+     b. Generate evolution proposals (categories: skill-update, agent-update, claude-md-update, new-template, new-skill).
+     c. Classify Class A / Class B per `skills/evolution.md`.
+     d. Present Class A for approval; hold Class B (require PRD update before apply).
+     e. Apply approved Class A to runtime; log in `datarim/docs/evolution-log.md`.
+     f. Run health-metrics check; suggest `/dr-optimize` if thresholds exceeded (no auto-run).
+     g. Note follow-up tasks for Step 4 consumption.
+   - Step CANNOT be skipped. No `--no-reflect` flag exists.
+   - On failure (skill load error / user rejects Class A): STOP archive; do NOT proceed to Step 1. Archive is idempotent — re-running re-enters Step 0.5.
+   - Historical: prior to Datarim v1.10.0 (TUNE-0013), this ran as a separate `/dr-reflect` command; consolidated here because an "optional mandatory gate" is the defect.
+
 1. **DETERMINE ARCHIVE AREA**:
    - Extract prefix from task ID (everything before the first `-`, e.g., `INFRA` from `INFRA-0001`)
    - Map prefix to area subdirectory using `$HOME/.claude/skills/datarim-system.md` § Archive Area Mapping
@@ -51,11 +65,13 @@ Complete and archive current task.
 
 ## Read
 - `datarim/tasks.md`
-- `datarim/reflection/reflection-[task_id].md`
+- `datarim/reflection/reflection-[task_id].md` (written by Step 0.5)
 - `datarim/creative/*.md` (Level 3-4)
 - `datarim/backlog.md` (to find and remove completed/cancelled item)
 - `datarim/backlog-archive.md` (to append completed/cancelled item)
 - `$HOME/.claude/skills/datarim-system.md` (Archive Area Mapping)
+- `$HOME/.claude/skills/reflecting.md` (loaded by Step 0.5)
+- `$HOME/.claude/skills/evolution.md` (loaded by Step 0.5 for Class A/B gate)
 
 ## Write
 - `documentation/archive/[area]/archive-[task_id].md`
