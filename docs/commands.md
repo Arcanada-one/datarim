@@ -1,8 +1,8 @@
 # Commands Reference
 
-Datarim provides 19 slash commands for Claude Code. Commands are grouped by category.
+Datarim provides 18 slash commands for Claude Code. Commands are grouped by category.
 
-## Pipeline Commands (9)
+## Pipeline Commands (8)
 
 | Command | Stage | Agent | Description |
 |---------|-------|-------|-------------|
@@ -13,8 +13,7 @@ Datarim provides 19 slash commands for Claude Code. Commands are grouped by cate
 | `/dr-do` | Execution | developer | TDD development, one method at a time |
 | `/dr-qa` | Quality | reviewer | Multi-layer verification (PRD, design, plan, code) |
 | `/dr-compliance` | Hardening | compliance | 7-step post-QA hardening workflow |
-| `/dr-reflect` | Reflection | reviewer | Lessons learned + framework evolution proposals |
-| `/dr-archive` | Archive | planner | Complete task, update backlog, reset context |
+| `/dr-archive` | Archive | reviewer (Step 0.5 reflection) + planner (Steps 1-7) | Reflection + evolution proposals + complete task + update backlog + reset context |
 
 ## Content Commands (2)
 
