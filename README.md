@@ -2,7 +2,7 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 1.6.0](https://img.shields.io/badge/Version-1.6.0-green.svg)](VERSION)
+[![Version: 1.7.0](https://img.shields.io/badge/Version-1.7.0-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
@@ -149,6 +149,27 @@ Stages in `[brackets]` are conditional — included when the agent determines th
 
 ---
 
+## Operating Model
+
+**This repository is the canonical source of truth for the framework.**
+`~/.claude/` (or `$CLAUDE_DIR`) is a deployed runtime copy produced by
+`install.sh`.
+
+The flow is one-way: **repo → runtime**. To change any agent, skill, command,
+or template:
+
+1. Edit the file in this repository (`agents/`, `skills/`, `commands/`,
+   `templates/`).
+2. Run `./install.sh` (merge mode) or `./install.sh --force` (overwrite).
+3. Verify with `./scripts/check-drift.sh` — output must be clean.
+4. Commit the change.
+
+Never edit files in `~/.claude/` directly. Runtime edits are not preserved
+across `install.sh --force` and produce silent drift that this advisory script
+will surface but not repair automatically.
+
+---
+
 ## Installation
 
 ### macOS / Linux
@@ -161,7 +182,18 @@ chmod +x install.sh
 ```
 
 The installer copies agents, skills, commands, templates, and any supporting
-subdirectories to `~/.claude/` and confirms what was installed.
+subdirectories to `~/.claude/` and confirms what was installed. Use
+`./install.sh --force` to overwrite existing files.
+
+### Drift Check
+
+```bash
+./scripts/check-drift.sh
+```
+
+Advisory check — compares `~/.claude/` against the repo in all four scopes and
+reports any file that differs or exists on only one side. Exits `0` if in sync,
+`1` if drift found, `2` on error. Non-blocking by design.
 
 ### Windows (WSL / Git Bash)
 
