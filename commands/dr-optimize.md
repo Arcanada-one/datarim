@@ -1,6 +1,6 @@
 ---
 name: dr-optimize
-description: Audit and optimize the Datarim framework — prune unused skills, merge duplicates, fix broken references, sync documentation, and improve context efficiency. Run periodically or when the framework feels bloated.
+description: Audit and optimize the Datarim framework — detect bloat, duplicates, oversized files, selective-loading candidates, and stale references.
 allowed-tools: Read Write Edit Grep Glob Bash WebSearch WebFetch Agent
 effort: high
 ---
@@ -61,12 +61,15 @@ effort: high
     |-------|-----------|--------|
     | Unused skill | No agent references it | Propose `prune-skill` |
     | Unused agent | No command invokes it | Propose `prune-agent` |
-    | Oversized skill | >500 lines | Propose `split-skill` |
-    | Duplicate coverage | >70% topic overlap | Propose `merge-skills` |
+    | Oversized skill | Warn `>300`, split `>400` lines | Propose `split-skill` |
+    | Oversized agent | Warn `>120`, split `>180` lines | Propose `split-agent` or `rewrite-agent` |
+    | Duplicate coverage | >70% overlap or repeated instruction blocks | Propose `merge-skills` / rewrite |
     | Stale description | Description != content | Propose `fix-description` |
     | Broken reference | Referenced but missing | Propose `fix-references` |
-    | Doc count mismatch | CLAUDE.md != disk | Propose `sync-docs` |
-    | Description budget | Total >8K chars | Propose `fix-description` (shorten) |
+    | Doc count mismatch | CLAUDE.md / README.md / help docs != disk | Propose `sync-docs` |
+    | Description budget | Any description `>160` chars or total `>8K` chars | Propose `fix-description` |
+    | Selective-loading candidate | Monolithic file with mixed subdomains | Propose split into entry + supporting files |
+    | Low-value provenance comments | Task-origin or migration notes that do not affect usage/policy | Propose rewrite cleanup |
 
 7.  **GENERATE REPORT**: Present findings:
 
@@ -77,6 +80,8 @@ effort: high
     Total components: N agents, M skills, K commands, T templates
     Total lines: XXXX
     Description budget: YYYY / 8000 chars (ZZ%)
+    Oversized skills: A warning / B split candidates
+    Oversized agents: C warning / D split candidates
 
     Issues found: N
     - Critical: X
@@ -94,16 +99,21 @@ effort: high
     - Apply ONLY approved changes
 
 9.  **APPLY AND SYNC**: After applying changes:
-    - Update CLAUDE.md: agent/skill/command tables and counts
-    - Update README.md (repo): feature counts, agent table, skills table, commands table, directory structure counts
-    - Update README.md (project): counts
-    - Update dr-help.md: command list, agents list, counts
+    - Update CLAUDE.md if counts, behavior descriptions, or references became stale
+    - Update README.md if install flow, counts, or structure documentation became stale
+    - Update dr-help.md if command behavior or command lists changed
     - Log all changes in `datarim/docs/evolution-log.md`
 
 10. **VERIFY**: Run final check:
     - All counts in docs match actual files
     - No broken cross-references remain
+    - Entry files still point to valid supporting fragments
     - All proposed changes applied correctly
+
+## Notes
+
+- Do not treat repo-vs-runtime drift as a permanent universal audit mode for the shared repo. That belongs to bootstrap migration work only.
+- When supporting directories exist, read the short entry file first and then only the fragments needed for the current issue.
 
 ## Output
 - Full audit report with dependency graph

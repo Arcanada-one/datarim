@@ -31,49 +31,62 @@ echo ""
 # Create target directories
 mkdir -p "$CLAUDE_DIR/agents" "$CLAUDE_DIR/skills" "$CLAUDE_DIR/commands" "$CLAUDE_DIR/templates"
 
-# Copy function with merge/force logic
-copy_files() {
+# Copy function with merge/force logic, including supporting subdirectories
+copy_markdown_tree() {
     local src_dir="$1"
     local dst_dir="$2"
-    local category="$3"
-
+    local depth="${3:-0}"
     local count=0
-    for f in "$src_dir"/*.md; do
-        [ -f "$f" ] || continue
-        local basename
-        basename=$(basename "$f")
 
-        if [ "$FORCE" = false ] && [ -f "$dst_dir/$basename" ]; then
-            echo "  SKIP (exists): $basename"
-            SKIPPED=$((SKIPPED + 1))
-        else
-            cp "$f" "$dst_dir/$basename"
-            echo "  COPY: $basename"
-            COPIED=$((COPIED + 1))
+    mkdir -p "$dst_dir"
+
+    for entry in "$src_dir"/*; do
+        [ -e "$entry" ] || continue
+        local basename
+        basename=$(basename "$entry")
+
+        if [ -d "$entry" ]; then
+            echo "  DIR:  ${basename}/"
+            copy_markdown_tree "$entry" "$dst_dir/$basename" $((depth + 1))
+            count=$((count + 1))
+            continue
         fi
-        count=$((count + 1))
+
+        case "$entry" in
+            *.md)
+                if [ "$FORCE" = false ] && [ -f "$dst_dir/$basename" ]; then
+                    echo "  SKIP (exists): $basename"
+                    SKIPPED=$((SKIPPED + 1))
+                else
+                    cp "$entry" "$dst_dir/$basename"
+                    echo "  COPY: $basename"
+                    COPIED=$((COPIED + 1))
+                fi
+                count=$((count + 1))
+                ;;
+        esac
     done
 
-    if [ "$count" -eq 0 ]; then
+    if [ "$count" -eq 0 ] && [ "$depth" -eq 0 ]; then
         echo "  (no files found in $src_dir)"
     fi
 }
 
 # Install each component
 echo "Installing agents..."
-copy_files "$SCRIPT_DIR/agents" "$CLAUDE_DIR/agents" "agents"
+copy_markdown_tree "$SCRIPT_DIR/agents" "$CLAUDE_DIR/agents"
 echo ""
 
 echo "Installing skills..."
-copy_files "$SCRIPT_DIR/skills" "$CLAUDE_DIR/skills" "skills"
+copy_markdown_tree "$SCRIPT_DIR/skills" "$CLAUDE_DIR/skills"
 echo ""
 
 echo "Installing commands..."
-copy_files "$SCRIPT_DIR/commands" "$CLAUDE_DIR/commands" "commands"
+copy_markdown_tree "$SCRIPT_DIR/commands" "$CLAUDE_DIR/commands"
 echo ""
 
 echo "Installing templates..."
-copy_files "$SCRIPT_DIR/templates" "$CLAUDE_DIR/templates" "templates"
+copy_markdown_tree "$SCRIPT_DIR/templates" "$CLAUDE_DIR/templates"
 echo ""
 
 # Summary
