@@ -18,6 +18,11 @@
 ## Architecture Impact
 (Components affected, new files, modified files)
 
+### DB Migration Convention (if plan touches a database)
+- State explicitly which DB(s) the plan touches and whether migrations are tracked in-repo.
+- For DBs managed outside the code repo (e.g. `bi_aggregate` — no `migrations/` folder; manual ALTER on local + prod), note this inline so reviewers (human or AI) do not flag a missing migration file as a blocker.
+- Format: "DB `<name>`: migrations <in-repo at `<path>` | managed outside repo — manual ALTER applied to <envs>>; verified via `DESCRIBE`."
+
 ## Detailed Design
 (Component breakdown, interface design, data flow)
 

@@ -148,6 +148,68 @@ Before marking a change of this class as DoD-complete, the developer (or `/dr-qa
 
 ---
 
+## Silent-Failure Detection (exit 0 + error in stdout)
+
+**Who this applies to:** any wrapper around a subprocess, CLI, or external tool whose *exit code cannot be
+trusted* because the tool writes error signals into stdout/stderr as normal output. The canonical pattern:
+an LLM CLI, a build tool, or a shell utility that exits `0` even when it refused or failed the request.
+
+### When the gate is mandatory
+
+The gate **must** fire (structured-output parsing is required, not exit-code inspection) when:
+
+- A subprocess writes human-readable error sentences to stdout/stderr but exits `0` (e.g. quota-exceeded,
+  permission-denied, stale-token, content-filtered — all common in LLM / cloud CLIs).
+- A CLI offers both human-text and machine-readable output formats (`--json`, `--output-format stream-json`,
+  `--format=porcelain`) AND the machine format is documented. The machine format is the contract; the text
+  format is for humans and can drift across versions.
+- A wrapper returns the tool's stdout to a downstream consumer that treats it as valid payload (review body,
+  generated content, audit record). A silent pass-through poisons downstream state.
+
+### Why returncode-based detection fails
+
+A subprocess returning `0` means "the process ran and did not crash" — NOT "the work was successful."
+Many modern CLIs deliberately exit `0` on recoverable conditions to match shell-pipeline ergonomics
+(`cmd && next` chains on success-per-intent, not success-per-attempt). If the wrapper only checks `returncode`,
+the error message becomes the "result" and flows downstream unlabelled.
+
+Reference incident: **DEV-1183** (aio-py-scripts code-review bot). `claude -p` exits `0` when the 5-hour
+subscription window is exhausted and writes `"You've hit your limit · resets 5pm (UTC)"` to stdout. The old
+wrapper (`--output-format text` + `returncode != 0` check) treated that as a valid code review, posted it to
+GitLab as the review body, AND wrote it to `tbl_code_reviews` as a real review round — poisoning the
+`previous_findings` context used by the next retry. The bug lived in production for weeks.
+
+### What a passing gate looks like
+
+1. **Switch the tool to its machine-readable format** if one exists (`--output-format stream-json`, `--json`,
+   `--format porcelain`). Capture a live fixture during `/dr-plan` (see `commands/dr-plan.md` § Fixture
+   Capture for External Output).
+2. **Parse the structured output** for documented error shapes. For `claude -p --output-format stream-json
+   --verbose`, the shape is `rate_limit_event.rate_limit_info.status == "rejected"` with a UNIX-epoch
+   `resetsAt`. Never regex human sentences; structural fields are stable, prose drifts.
+3. **Raise at the narrowest layer.** Raise the domain error *inside* the wrapper function (before returning
+   to any caller). Downstream code that treats the return value as trusted never sees an invalid value.
+   Raising one layer up means the intermediate side-effects (history writes, logs, cache updates) still run
+   on the error branch.
+4. **Subclass the legacy exception** so existing `except ParentError:` handlers continue to work unchanged.
+   One new branch at the dispatcher; zero refactors elsewhere.
+
+### What the gate is NOT
+
+- Not a replacement for unit tests. It's an *additional* check for wrappers around tools that lie via exit
+  code.
+- Not required for tools with honest exit codes. `git`, `grep`, `psql` return non-zero on failure — trust them.
+- Not a substitute for the Live Smoke-Test Gate. If the change also touches raw SQL or cross-container paths,
+  both gates apply.
+
+### Verdict
+
+- Gate required + structured-output parsing + raise-inside-wrapper → **Layer 4 PASS**.
+- Gate required + returncode-only detection → **Layer 4 FAIL**, even if unit tests pass with mocks that
+  pre-return "valid" stdout.
+
+---
+
 ## Spec-Lint Tests for Prose Contracts
 
 Some Datarim commands define their behavior as **markdown prose** (LLM prompt), not executable code. These contracts cannot be functionally tested with bats/vitest — but they *can* be guarded against silent regression via **spec-lint**: regex assertions over the markdown file.
