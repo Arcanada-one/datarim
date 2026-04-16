@@ -57,6 +57,16 @@ For major features, new systems, or anything with business impact.
 
 ---
 
+## Source-Material Re-Read Rule (comparative research tasks)
+
+**When building a candidate list for comparative research (technology selection, framework evaluation, etc.), re-read ALL raw materials the user provided at task inception** — source files, URLs, prior dialogs, wiki entries. Cross-check your assembled list against them before finalizing.
+
+Do NOT rely on session memory or your own enumeration. The user pointed at specific files for a reason — they contain candidates, context, or constraints you may miss otherwise.
+
+Source: LTM-0001 reflection — Hindsight (a top-3 candidate) was in the user's source file (`wiki/AI/Long Term Memory/_raw_/Системы долгосрочной памяти - Сравнение.md`) but omitted from the 12-candidate list because the agent built it from memory instead of re-reading the file.
+
+---
+
 ## Codebase-First Rule
 
 **Before asking any question, check if the answer already exists in code or docs.**

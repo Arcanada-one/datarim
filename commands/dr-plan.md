@@ -59,7 +59,14 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
     -   Freehand summary numbers are prohibited — they propagate into validation checklists and blur AC verification.
     -   Example: not `"12 deferred diffs"` but `"14 deferred diffs (from drift-TUNE-0003.md: 8 skills + 2 agents + 4 commands)"`.
 
-8.  **Output Summary**:
+9.  **Fixture Capture for External Output (MANDATORY when the plan parses a CLI / subprocess / API response)**:
+    -   When the task depends on an external tool's output format (CLI, subprocess, webhook, HTTP API, log stream), capture a **real** sample during `/dr-plan` and commit it to `datarim/tasks/{TASK-ID}-fixtures.md` with timestamp, tool version, command invoked, and all relevant output formats.
+    -   Do NOT design a parser against the documented or inferred format alone when a live sample is reachable. Documentation drifts, versions vary, and the fastest path to a correct parser is a fixture you can paste into a test.
+    -   Prefer the tool's machine-readable output (`--json`, `--output-format stream-json`, `--format porcelain`) over human-text; structural fields are stable, prose drifts. If the plan proposes regex-on-human-text while a machine format is available, stop and revisit.
+    -   If a live failure window is already open (e.g. a production service in an error state), capture the fixture AND run the end-to-end smoke test in the same session — limit windows close fast and cannot be recreated on demand.
+    -   Rationale: DEV-1183 plan initially proposed regex parsing of `"resets 5pm (UTC)"`. A 30-min live capture during `/dr-plan` surfaced a machine-readable `rate_limit_event.rate_limit_info.resetsAt` UNIX epoch — strictly better (no TZ/locale fragility, future-proof for new limit types). Without the capture, the plan would have shipped a locale-fragile parser.
+
+10.  **Output Summary**:
     -   Confirm task status update.
     -   List next steps: `/dr-do`.
 
@@ -79,6 +86,7 @@ Before proceeding to `/dr-design` or `/dr-do`:
 [ ] Requirements clearly documented?
 [ ] Components and affected files identified?
 [ ] Installer/deploy-script content-type audit done (if plan touches install.sh / sync / deploy)?
+[ ] Live fixture captured into `datarim/tasks/{TASK-ID}-fixtures.md` if the plan parses any external tool output (CLI/API/subprocess/log)? (DEV-1183: empirical capture replaced locale-fragile regex with structural epoch parsing.)
 [ ] All aggregate counts in plan derived from source tables (not freehand)?
 [ ] Definition of Done is testable and explicit?
 [ ] Boundaries stated (what we DON'T do)?
