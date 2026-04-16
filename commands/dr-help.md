@@ -10,14 +10,14 @@ Show the user a complete reference of all available Datarim commands, the pipeli
 ## Pipeline Flow
 
 ```
-init → prd → plan → design → do → qa → compliance → reflect → archive
+init → prd → plan → design → do → qa → compliance → archive
 ```
 
-Not every task goes through every stage. Datarim routes tasks based on complexity (see below).
+Not every task goes through every stage. Datarim routes tasks based on complexity (see below). Reflection runs automatically as mandatory Step 0.5 inside `/dr-archive` (v1.10.0, TUNE-0013).
 
 ## Commands
 
-### Pipeline Commands (9)
+### Pipeline Commands (8)
 
 | Command | Stage | Description |
 |---------|-------|-------------|
@@ -28,8 +28,7 @@ Not every task goes through every stage. Datarim routes tasks based on complexit
 | `/dr-do` | Execution | Execute the plan using TDD (for code) or structured iteration (for other work). |
 | `/dr-qa` | Quality | Multi-layer quality verification: PRD alignment, design conformance, plan completeness, output quality. |
 | `/dr-compliance` | Hardening | Post-QA hardening. 7-step workflow: revalidate, simplify, check references, coverage, lint, tests, harden. |
-| `/dr-reflect` | Reflection | Analyze the completed task. What worked, what failed, what to improve. Propose framework updates. |
-| `/dr-archive` | Archive | Archive the completed task. Store context, update backlog, reset for the next task. |
+| `/dr-archive` | Archive | Archive the completed task. Performs reflection (Step 0.5) + evolution proposals, then stores context and updates backlog. |
 
 ### Content Commands (2)
 
@@ -71,7 +70,7 @@ For writing and editing tasks, use the content commands:
 
 Or within the standard pipeline:
 ```
-/dr-init → /dr-prd → /dr-plan → /dr-write → /dr-edit → /dr-qa → /dr-reflect → /dr-archive
+/dr-init → /dr-prd → /dr-plan → /dr-write → /dr-edit → /dr-qa → /dr-archive
 ```
 
 For quick one-off checks, use `/factcheck` or `/humanize` directly on any file.
@@ -80,12 +79,12 @@ For quick one-off checks, use `/factcheck` or `/humanize` directly on any file.
 
 | Level | Name | Scope | Pipeline |
 |-------|------|-------|----------|
-| L1 | Quick Fix | 1 file, minor change | `init → do → reflect → archive` |
-| L2 | Enhancement | 2-5 files | `init → [prd] → plan → do → [qa] → reflect → archive` |
-| L3 | Feature | 5-15 files | `init → prd → plan → design → do → qa → [compliance] → reflect → archive` |
-| L4 | Major | 15+ files | `init → prd → plan → design → phased-do → qa → compliance → reflect → archive` |
+| L1 | Quick Fix | 1 file, minor change | `init → do → archive` |
+| L2 | Enhancement | 2-5 files | `init → [prd] → plan → do → [qa] → archive` |
+| L3 | Feature | 5-15 files | `init → prd → plan → design → do → qa → [compliance] → archive` |
+| L4 | Major | 15+ files | `init → prd → plan → design → phased-do → qa → compliance → archive` |
 
-Stages in `[brackets]` are optional — included when the agent determines they add value.
+Stages in `[brackets]` are optional — included when the agent determines they add value. `archive` always runs reflection internally as mandatory Step 0.5 (v1.10.0, TUNE-0013).
 
 ## Agents (15)
 
