@@ -250,7 +250,6 @@ After initialization, the pipeline depends on the task's complexity level. Datar
 ```
 /dr-init "Fix the typo in the README header"
 /dr-do
-/dr-reflect
 /dr-archive
 ```
 
@@ -260,7 +259,6 @@ After initialization, the pipeline depends on the task's complexity level. Datar
 /dr-init "Add input validation to the login form"
 /dr-plan
 /dr-do
-/dr-reflect
 /dr-archive
 ```
 
@@ -273,9 +271,10 @@ After initialization, the pipeline depends on the task's complexity level. Datar
 /dr-design
 /dr-do
 /dr-qa
-/dr-reflect
 /dr-archive
 ```
+
+> **Note:** reflection runs automatically inside `/dr-archive` as mandatory Step 0.5 (v1.10.0, TUNE-0013). You do not invoke it separately.
 
 You do not need to memorize these routes. After each stage, Datarim tells you what comes next. Run `/dr-status` at any time to see where you are in the pipeline.
 

@@ -17,7 +17,8 @@ Skills are split into two categories:
 | performance | Reference | inherit | Lazy loading, caching, batching, DB optimization | architect, sre |
 | tech-stack | Reference | inherit | Stack selection by project type | planner, architect |
 | consilium | Task | opus | Multi-agent panel discussions | /dr-design (L3-4) |
-| evolution | Task | opus | Framework self-update rules | /dr-reflect |
+| evolution | Task | opus | Framework self-update rules | /dr-archive (Step 0.5 via reflecting skill), /dr-optimize |
+| reflecting | Task | inherit | Review-phase workflow: lessons learned, evolution proposals with Class A/B gate, health-metrics check, follow-up-task detection | /dr-archive (Step 0.5, internal only) |
 | incident-investigation | Task | opus | Root cause analysis for incidents | sre, on demand |
 | compliance | Task | sonnet | 7-step post-QA hardening workflow | compliance agent |
 | discovery | Task | sonnet | Requirements discovery interview | /dr-prd |
