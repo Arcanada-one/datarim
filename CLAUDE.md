@@ -15,19 +15,21 @@ Every task follows a **complexity-aware pipeline**. The operator (human or AI ag
 ## Pipeline
 
 ```
-init → prd → plan → design → do → qa → compliance → reflect → archive
+init → prd → plan → design → do → qa → compliance → archive
 ```
+
+Reflection runs automatically inside `archive` as mandatory Step 0.5 (v1.10.0, TUNE-0013). The `/dr-reflect` command no longer exists.
 
 ### Complexity Routing
 
 | Level | Scope | Pipeline |
 |-------|-------|----------|
-| **L1** Quick Fix | 1 file, <50 LOC | init → do → reflect → archive |
-| **L2** Enhancement | 2-5 files, <200 LOC | init → [prd] → plan → do → [qa] → reflect → archive |
-| **L3** Feature | 5-15 files, 200-1000 LOC | init → prd → plan → design → do → qa → [compliance] → reflect → archive |
-| **L4** Major Feature | 15+ files, >1000 LOC | init → prd → plan → design → phased-do → qa → compliance → reflect → archive |
+| **L1** Quick Fix | 1 file, <50 LOC | init → do → archive |
+| **L2** Enhancement | 2-5 files, <200 LOC | init → [prd] → plan → do → [qa] → archive |
+| **L3** Feature | 5-15 files, 200-1000 LOC | init → prd → plan → design → do → qa → [compliance] → archive |
+| **L4** Major Feature | 15+ files, >1000 LOC | init → prd → plan → design → phased-do → qa → compliance → archive |
 
-Brackets `[]` = optional at that level.
+Brackets `[]` = optional at that level. `archive` always runs reflection internally as mandatory Step 0.5; this is not shown as a separate pipeline node because it cannot be skipped.
 
 ---
 
@@ -40,18 +42,18 @@ Agents are specialized personas loaded per pipeline stage. Each agent has define
 | **planner** | Lead Project Manager | /dr-init, /dr-plan, /dr-archive |
 | **architect** | Chief Architect | /dr-prd, /dr-design |
 | **developer** | Senior Developer (TDD) | /dr-do |
-| **reviewer** | QA & Security Lead | /dr-qa, /dr-reflect |
+| **reviewer** | QA & Security Lead | /dr-qa, /dr-archive (Step 0.5 reflection) |
 | **compliance** | Compliance Runner | /dr-compliance |
 | **code-simplifier** | Code Simplification | /dr-compliance |
 | **strategist** | Strategic Advisor | /dr-plan (L3-4) |
 | **devops** | DevOps Engineer | /dr-plan, /dr-do, /dr-compliance |
-| **writer** | Content Writer | /dr-write, /dr-reflect, /dr-archive, /dr-prd |
+| **writer** | Content Writer | /dr-write, /dr-archive (Step 0.5 + final docs), /dr-prd |
 | **editor** | Content Editor | /dr-edit, /dr-qa (content) |
 | **skill-creator** | Skill/Agent/Command Creator | /dr-addskill |
-| **optimizer** | Framework Optimizer | /dr-optimize, /dr-reflect (health check) |
+| **optimizer** | Framework Optimizer | /dr-optimize, /dr-archive (Step 0.5 health-check) |
 | **librarian** | Knowledge Base Librarian | /dr-dream |
 | **security** | Security Analyst | /dr-design, /dr-qa, /dr-compliance |
-| **sre** | Site Reliability Engineer | /dr-design, /dr-qa, /dr-reflect |
+| **sre** | Site Reliability Engineer | /dr-design, /dr-qa, /dr-archive (Step 0.5 postmortem) |
 | **tester** | Platform QA Tester | /dr-qa, /dr-do (verification) |
 
 Agent files: `$HOME/.claude/agents/{name}.md` (16 agents)
@@ -102,7 +104,8 @@ Skills are reusable knowledge modules loaded on demand. They provide rules, patt
 **Specialized skills:**
 - `consilium.md` — Multi-agent panel discussions (loaded by: /dr-design for L3-4)
 - `discovery.md` — Requirements discovery interview (loaded by: /dr-prd)
-- `evolution.md` — Framework self-update rules (loaded by: /dr-reflect)
+- `evolution.md` — Framework self-update rules (loaded by: /dr-archive Step 0.5 via reflecting skill, /dr-optimize)
+- `reflecting.md` — Review-phase workflow: lessons learned, evolution proposals with Class A/B gate, health-metrics check, follow-up-task detection (loaded by: /dr-archive Step 0.5, internal only)
 - `writing.md` — Content creation and editorial workflow (loaded by: writer, editor)
 - `dream.md` — Knowledge base maintenance rules (loaded by: librarian)
 - `seo-launch.md` — SEO, analytics, website/app launch checklists (loaded on demand)
@@ -180,8 +183,7 @@ Before writing ANY file to `datarim/`:
 | `/dr-do` | Execution | Implement the plan: TDD for code, structured iteration for other work |
 | `/dr-qa` | Quality | Multi-layer verification (PRD, design, plan, output quality) |
 | `/dr-compliance` | Hardening | 7-step post-QA hardening |
-| `/dr-reflect` | Reflection | Lessons learned + framework evolution proposals |
-| `/dr-archive` | Archive | Complete task, update backlog, reset context |
+| `/dr-archive` | Archive | Reflection (Step 0.5: lessons learned + framework evolution proposals) + complete task + update backlog + reset context |
 | `/dr-status` | Utility | Check current task and backlog status |
 | `/dr-continue` | Utility | Resume from last checkpoint |
 | `/dr-write` | Content | Create written content — articles, docs, research, posts |
@@ -193,13 +195,13 @@ Before writing ANY file to `datarim/`:
 | `/factcheck` | Standalone | Fact-check articles and posts before publication |
 | `/humanize` | Standalone | Remove AI writing patterns from text |
 
-Command files: `$HOME/.claude/commands/{name}.md` (19 commands)
+Command files: `$HOME/.claude/commands/{name}.md` (18 commands)
 
 ---
 
 ## Self-Evolution
 
-Datarim improves itself through the `/dr-reflect` stage:
+Datarim improves itself through `/dr-archive` Step 0.5 (the `reflecting` skill):
 
 1. After each task, the agent analyzes what worked and what didn't
 2. Proposes updates to skills, agents, or this CLAUDE.md
