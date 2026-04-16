@@ -70,7 +70,7 @@ graph LR
     B --> C["Layer 3: Plan completeness"]
     C --> D["Layer 4: Code/content quality"]
     D --> E{"Verdict"}
-    E -->|PASS| F["/dr-compliance or /dr-reflect"]
+    E -->|PASS| F["/dr-compliance or /dr-archive"]
     E -->|FAIL| G["Back to /dr-do"]
 ```
 
@@ -88,29 +88,26 @@ graph LR
     C & D & E & F & G & H --> I["Write report"]
 ```
 
-## /dr-reflect
-
-```mermaid
-graph LR
-    A["Review vs plan"] --> B["What went well"]
-    B --> C["Challenges"]
-    C --> D["Lessons learned"]
-    D --> E["Evolution proposals"]
-    E --> F["Health check"]
-```
-
 ## /dr-archive
+
+Reflection runs as **Step 0.5** (mandatory, non-skippable) inside `/dr-archive` via the `reflecting` skill. Archive cannot proceed if reflection fails or Class A proposals are rejected.
 
 ```mermaid
 graph TD
-    A["Read activeContext + tasks.md"] --> B{"Cancel or Complete?"}
-    B -->|Complete| C["Create archive doc"]
-    B -->|Cancel| H["Skip archive doc"]
-    C --> D{"From backlog?"}
-    H --> D
-    D -->|Yes| E["Move task ID entry to backlog-archive"]
-    D -->|No| F["Skip backlog update"]
-    E --> G["Add follow-up tasks to backlog"]
-    F --> G
-    G --> I["Reset activeContext + tasks.md"]
+    A["Step 0: Pre-archive clean-git check"] --> B["Step 0.5: REFLECT (reflecting skill)"]
+    B --> B1["Review vs plan"]
+    B1 --> B2["Lessons learned"]
+    B2 --> B3["Evolution proposals (Class A/B gate)"]
+    B3 --> B4["Health check"]
+    B4 --> B5["Follow-up task list"]
+    B5 --> C{"Cancel or Complete?"}
+    C -->|Complete| D["Step 1: Determine area + create archive doc"]
+    C -->|Cancel| H["Skip archive doc"]
+    D --> E{"From backlog?"}
+    H --> E
+    E -->|Yes| F["Step 3: Move task ID entry to backlog-archive"]
+    E -->|No| G["Skip backlog update"]
+    F --> K["Step 4: Add follow-up tasks to backlog"]
+    G --> K
+    K --> L["Steps 5-7: Update archived-tasks table + reset activeContext/tasks.md"]
 ```
