@@ -29,6 +29,8 @@ Complete and archive current task.
    - Task summary
    - Implementation details
    - Reflection insights
+   - **Known Loss Verification Gate (MANDATORY when archive will include any "Known Loss" / "Unrecoverable" / "Content lost" statement):**
+     Before recording that any file, section, decision, or piece of work is permanently lost, run the Disaster Recovery Checklist from `$HOME/.claude/skills/evolution.md` § Disaster Recovery for Lost Runtime Files. Record in the archive document which channels were checked (grep reflections by filename, compacted session context, cross-references, git history of consumer projects, external backups) and what each returned. If the checklist takes >30 minutes, defer the archive, open a follow-up recovery task, do not record the loss yet. Only after all 5 channels are exhausted may a loss claim enter the archive. Rationale: TUNE-0003 archive recorded 4 files as "text reconstruction is not possible" after 0 minutes of discovery; TUNE-0011 recovered 100% of them in 20 minutes using channels 1-3.
 3. **BACKLOG UPDATE** (if task existed in backlog):
    - Get current task ID from `datarim/activeContext.md`
    - If the same ID exists in `datarim/backlog.md` (as `in_progress` or `pending`):
