@@ -160,8 +160,8 @@ chmod +x install.sh
 ./install.sh
 ```
 
-The installer copies agents, skills, commands, and templates to `~/.claude/` and
-confirms what was installed.
+The installer copies agents, skills, commands, templates, and any supporting
+subdirectories to `~/.claude/` and confirms what was installed.
 
 ### Windows (WSL / Git Bash)
 
@@ -176,14 +176,15 @@ The same installer works under WSL and Git Bash. Native PowerShell is not suppor
 
 ### Manual Installation
 
-If you prefer to install manually or need to customize the locations:
+If you prefer to install manually or need to customize the locations, use
+recursive copies so supporting fragments are preserved:
 
 ```bash
 mkdir -p ~/.claude/{agents,skills,commands,templates}
-cp agents/*.md ~/.claude/agents/
-cp skills/*.md ~/.claude/skills/
-cp commands/*.md ~/.claude/commands/
-cp templates/*.md ~/.claude/templates/
+cp -R agents/. ~/.claude/agents/
+cp -R skills/. ~/.claude/skills/
+cp -R commands/. ~/.claude/commands/
+cp -R templates/. ~/.claude/templates/
 ```
 
 ### Activate in Your Project
