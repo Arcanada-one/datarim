@@ -17,7 +17,7 @@ description: Review completed task and create reflection document with lessons l
     - Review changes against Definition of Done.
     - Verify tests pass.
     - Check for security vulnerabilities.
-    - Create reflection document using `datarim/templates/reflection-template.md`.
+    - Create reflection document using `$HOME/.claude/templates/reflection-template.md` (fallback to `datarim/templates/reflection-template.md` only if project provides a custom template).
 5.  **EVOLUTION**:
     - Load `$HOME/.claude/skills/evolution.md`.
     - Analyze: what worked well? what was inefficient? any missing skills/patterns?
