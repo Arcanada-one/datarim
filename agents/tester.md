@@ -56,6 +56,33 @@ When asked to verify a deployed service:
 3. Test basic endpoints if specified
 4. Report status codes and response times
 
+**Web UI Testing** (website projects):
+
+Load `$HOME/.claude/skills/frontend-ui.md` when the project is a website (PHP / Next.js / Astro / static / Alpine / Tailwind). Run all four sub-checks in order — a green HTTP status is necessary but **not sufficient**.
+
+1. **Smoke** — `curl -sf -o /dev/null -w "%{http_code}" <url>` for every public URL (including lang variants `/en/*`, `/ru/*`). All must return `200` (or expected `301/302` for redirects). Report failures with URL and status.
+2. **Content parity** — for multi-language sites, diff the key set between translation files (`content/en.php` vs `content/ru.php`, `en.json` vs `ru.json`). Report missing keys, placeholder strings (`TODO`, `FIXME`, `{{`), or orphaned keys. All content files must have the same key count and no placeholders.
+3. **Visual verification** — HTTP 200 does not prove the page renders correctly. For any UI change:
+    - Take a screenshot (Playwright / Chrome DevTools MCP / manual via user) in **both** light and dark modes.
+    - Compare against design doc (`datarim/creative/*.md`) if available.
+    - Report visual regressions (wrong colors, layout break, missing elements, mode contrast issues).
+    - If no screenshot tool available — flag as "manual visual review required" in QA report, not PASS.
+4. **CSS audit** — grep for anti-patterns flagged in `frontend-ui.md`:
+    - `:not(.dark)` in dark-mode CSS (recurring specificity bug — always fails the cascade)
+    - Hardcoded colors bypassing Tailwind tokens
+    - Missing `prefers-reduced-motion` on animations
+    - Layout shifts without `min-height` on dynamic blocks
+
+Report format for Web UI tasks:
+
+| Check | Result | Notes |
+|-------|--------|-------|
+| Smoke (N URLs) | X/N `200` | failing URLs if any |
+| Content parity | pass/fail | missing keys / placeholders |
+| Visual (light) | pass/fail/manual | screenshot ref or reason |
+| Visual (dark) | pass/fail/manual | screenshot ref or reason |
+| CSS audit | pass/fail | anti-patterns found |
+
 **Output Format**:
 Report results as a structured table:
 
@@ -68,8 +95,10 @@ For failures: include test name, error message, and file location.
 **Context Loading**:
 - READ: `CLAUDE.md` (project-specific test commands and setup)
 - ALWAYS APPLY:
-  - `$HOME/.claude/skills/testing.md` (Testing pyramid, mocking rules)
+  - `$HOME/.claude/skills/testing.md` (Testing pyramid, mocking rules, Live Smoke-Test Gate)
   - `$HOME/.claude/skills/datarim-system.md` (File locations)
+- LOAD WHEN NEEDED:
+  - `$HOME/.claude/skills/frontend-ui.md` (Web UI tasks — CSS, visual, a11y, i18n)
 - OPTIONAL:
   - `documentation/archive/` (Completed task context for regression testing)
 
