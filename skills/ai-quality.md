@@ -60,9 +60,12 @@ PRACTICES:
 |- Review one method at a time
 |- Define clear boundaries (what we DON'T do)
 |- Verify AI can solve before starting
+|- Authorization prompts to user: 1 sentence risk + 1 yes/no question.
+   Threat models → docs, not interactive prompt.
 ```
 
 **Why:** Broad context = scattered results. Focus = precision.
+Source (auth UX): LTM-0001 — user requested simpler prompts after a 7-option authorization table.
 
 ---
 
@@ -151,6 +154,45 @@ Before proceeding, ask:
 - One method at a time
 - Define boundaries explicitly
 - Document requirements upfront
+
+---
+
+## INCIDENT-NARRATIVE IN SAFETY GUARDS
+
+When adding a non-obvious safety control (confirmation prompts, destructive-flag guards, permission checks, rate limits), cite in the runtime message the **incident ID + one-line effect** that motivated the control. This turns the guard into its own documentation: the operator sees *why* at the moment it triggers, without needing to open docs or git history.
+
+### Why
+
+A silent guard (`"Confirm? [y/N]"`) teaches nothing. Operators either learn its rationale by accident — when it fires on their own mistake — or they bypass it because they don't understand it. Either path erodes the guard over time.
+
+A narrated guard carries the original lesson forward. Future operators, LLM agents included, learn from the incident without reproducing it.
+
+### Pattern
+
+```bash
+echo "WARNING: --force on a live system will overwrite $CLAUDE_DIR"
+echo "         TUNE-0003 incident: --force previously destroyed 9 runtime evolutions."
+```
+
+Two lines. First states the *what* (effect of proceeding). Second states the *why* (incident that exists because someone already proceeded).
+
+### Rules
+
+1. **One incident per guard** — cite the *founding* incident, not a list. If the guard accretes history, the most-costly incident wins.
+2. **Quantify the effect** when possible (files lost, hours spent, users affected). "Destroyed 9 runtime evolutions" is clearer than "caused problems".
+3. **Cite by ID, not by date** — IDs (`TUNE-0003`, `DEV-1156`) index into archives; dates rot.
+4. **Keep it to ≤ 2 lines** in runtime output. Long narratives belong in docs; this is a reminder, not a lecture.
+5. **Update the reference when superseded** — if a later incident replaces the original justification, rewrite both the guard and the archive cross-reference. Do not layer old and new together.
+
+### When to skip
+
+- Guards for completely self-evident constraints (typing `yes` to confirm destructive action). The prompt itself is the narrative.
+- Compile-time or lint-level guards that never reach a human at runtime.
+- Guards with no user-visible output (internal invariant checks).
+
+### Exemplar
+
+`install.sh:115` (TUNE-0004) — `--force` live-system warning cites TUNE-0003 by ID and quantifies the cost (9 files). The guard fires before any filesystem mutation; the operator has context before making the decision, not after.
 
 ---
 

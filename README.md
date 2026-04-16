@@ -2,7 +2,7 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 1.8.0](https://img.shields.io/badge/Version-1.8.0-green.svg)](VERSION)
+[![Version: 1.9.0](https://img.shields.io/badge/Version-1.9.0-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
@@ -173,9 +173,12 @@ the next person who clones it gets the current state.
 4. Bump `VERSION` if the change is significant enough to warrant a release.
 
 `install.sh` is for seeding a fresh machine — it installs this repo's content
-into `~/.claude/` with merge semantics (skip existing). **Do not use
-`install.sh --force` on a live system** — it overwrites runtime evolutions
-from other projects that were never curated back to this repo.
+into `~/.claude/` with merge semantics (skip existing). `install.sh --force`
+overwrites existing files and, since v1.9.0, **will refuse to run on a live
+system without an explicit `yes` confirmation (or `--yes`/`DATARIM_INSTALL_YES=1`)
+and always takes a timestamped backup into `~/.claude/backups/force-*/` before
+touching anything**. Use with intention; the guard exists because `--force`
+previously destroyed 9 runtime evolutions during the TUNE-0003 incident.
 
 ---
 
@@ -208,6 +211,12 @@ evolved beyond the repo snapshot and may be ready to land upstream.
 Exits `0` if no drift, `1` if drift found (normal — most living systems
 diverge), `2` on error. Exit `1` is not a failure; it is a prompt to review
 what has changed.
+
+The scope list (`SCOPES=(agents skills commands templates)`) mirrors
+`install.sh INSTALL_SCOPES` exactly; dev-tooling directories (`scripts/`,
+`tests/`) are deliberately excluded because they are not distributed to
+runtime. See [docs/getting-started.md](docs/getting-started.md#installer-contract)
+for the full installer contract.
 
 ### Windows (WSL / Git Bash)
 

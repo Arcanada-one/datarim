@@ -1,8 +1,23 @@
 #!/usr/bin/env bash
 # check-drift.sh — advisory drift detection between repo and runtime
 #
-# Compares this repo against $CLAUDE_DIR (default $HOME/.claude) across
-# the four managed scopes: agents, skills, commands, templates.
+# Compares this repo against $CLAUDE_DIR (default $HOME/.claude) across the
+# four managed scopes: agents, skills, commands, templates. Scope list MUST
+# match install.sh INSTALL_SCOPES exactly (TUNE-0004 AC-3). If the installer
+# starts or stops managing a scope, update both lists together and run the
+# bats suite.
+#
+# Deliberately NOT scanned (TUNE-0004 AC-4):
+#   - scripts/    dev tooling (this script, pre-archive-check.sh). They are
+#                 run from the repo, not from $CLAUDE_DIR, so "drift" between
+#                 repo and runtime is semantically undefined.
+#   - tests/      bats tests exercise the repo's own scripts.
+#   - install.sh, validate.sh, VERSION, CLAUDE.md, README.md, LICENSE —
+#                 repo artefacts, not distributed to runtime.
+#
+# Any content type handled by install.sh (.md .sh .json .yaml .yml) is caught
+# automatically because `diff -rq` compares whole directories regardless of
+# extension.
 #
 # Usage:
 #   ./scripts/check-drift.sh          # human-readable output
@@ -20,6 +35,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 CLAUDE_DIR="${CLAUDE_DIR:-$HOME/.claude}"
+# Must match install.sh INSTALL_SCOPES. See header comment (TUNE-0004 AC-3).
 SCOPES=(agents skills commands templates)
 QUIET=false
 
