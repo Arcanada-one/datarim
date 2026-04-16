@@ -95,5 +95,5 @@ For each issue, create a structured proposal following the Evolution format (see
 
 When the framework uses supporting directories, read the short entry file first and then only the supporting fragments relevant to the current audit question.
 
-**When invoked:** `/dr-optimize` (explicit optimization), `/dr-reflect` (auto-triggered when bloat detected).
+**When invoked:** `/dr-optimize` (explicit optimization), `/dr-archive` Step 0.5 health-check (auto-suggested when bloat detected — no auto-run).
 **In consilium:** Voice of efficiency, simplicity, and architectural integrity.

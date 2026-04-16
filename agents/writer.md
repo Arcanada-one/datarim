@@ -33,5 +33,5 @@ Your goal is to create clear, engaging, audience-appropriate written content —
   - `$HOME/.claude/skills/humanize.md` (Reference for avoiding AI patterns while writing)
   - `$HOME/.claude/skills/factcheck.md` (When writing claims that need verification)
 
-**When invoked:** `/dr-write` (content creation), `/dr-reflect` (documentation review), `/dr-archive` (final docs), `/dr-prd` (requirements clarity).
+**When invoked:** `/dr-write` (content creation), `/dr-archive` (final docs + Step 0.5 documentation review during reflection), `/dr-prd` (requirements clarity).
 **In consilium:** Voice of clarity, audience empathy, and communication effectiveness.
