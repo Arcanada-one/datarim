@@ -47,8 +47,7 @@ graph LR
     design --> do["do"]
     do --> qa["qa"]
     qa --> compliance["compliance"]
-    compliance --> reflect["reflect"]
-    reflect --> archive["archive"]
+    compliance --> archive["archive<br/>(reflect=Step 0.5)"]
 
     style init fill:#4a9eff,stroke:#333,color:#fff
     style prd fill:#ff6b6b,stroke:#333,color:#fff
@@ -57,31 +56,32 @@ graph LR
     style do fill:#69db7c,stroke:#333,color:#000
     style qa fill:#da77f2,stroke:#333,color:#fff
     style compliance fill:#e599f7,stroke:#333,color:#000
-    style reflect fill:#74c0fc,stroke:#333,color:#000
     style archive fill:#868e96,stroke:#333,color:#fff
 ```
+
+Reflection runs automatically inside `archive` as mandatory Step 0.5 (v1.10.0, TUNE-0013).
 
 ### Complexity Routing (ASCII)
 
 Not every task needs every stage. Datarim routes tasks based on complexity:
 
 ```
-L1 (Quick Fix):    init ──────────────────────────── do ──── reflect ── archive
-L2 (Enhancement):  init ── [prd] ── plan ──────────── do ── [qa] ── reflect ── archive
-L3 (Feature):      init ── prd ── plan ── design ──── do ── qa ── [compliance] ── reflect ── archive
-L4 (Major):        init ── prd ── plan ── design ── phased-do ── qa ── compliance ── reflect ── archive
+L1 (Quick Fix):    init ──────────────────────────── do ──── archive
+L2 (Enhancement):  init ── [prd] ── plan ──────────── do ── [qa] ── archive
+L3 (Feature):      init ── prd ── plan ── design ──── do ── qa ── [compliance] ── archive
+L4 (Major):        init ── prd ── plan ── design ── phased-do ── qa ── compliance ── archive
 ```
 
-Stages in `[brackets]` are conditional — included when the agent determines they add value.
+Stages in `[brackets]` are conditional — included when the agent determines they add value. `archive` always runs reflection internally as mandatory Step 0.5.
 
 ### Complexity Routing Table
 
 | Level | Name | Scope | LOC Estimate | Pipeline |
 |-------|------|-------|-------------|----------|
-| L1 | Quick Fix | 1 file | < 50 | `init` → `do` → `reflect` → `archive` |
-| L2 | Enhancement | 2–5 files | < 200 | `init` → `[prd]` → `plan` → `do` → `[qa]` → `reflect` → `archive` |
-| L3 | Feature | 5–15 files | 200–1000 | `init` → `prd` → `plan` → `design` → `do` → `qa` → `[compliance]` → `reflect` → `archive` |
-| L4 | Major | 15+ files | > 1000 | `init` → `prd` → `plan` → `design` → `phased-do` → `qa` → `compliance` → `reflect` → `archive` |
+| L1 | Quick Fix | 1 file | < 50 | `init` → `do` → `archive` |
+| L2 | Enhancement | 2–5 files | < 200 | `init` → `[prd]` → `plan` → `do` → `[qa]` → `archive` |
+| L3 | Feature | 5–15 files | 200–1000 | `init` → `prd` → `plan` → `design` → `do` → `qa` → `[compliance]` → `archive` |
+| L4 | Major | 15+ files | > 1000 | `init` → `prd` → `plan` → `design` → `phased-do` → `qa` → `compliance` → `archive` |
 
 ---
 
@@ -92,24 +92,26 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   security, and SRE. Each agent has a defined role, capabilities, and the stages
   where it operates.
 
-- **24 reusable skills** — modular knowledge units that agents load on demand,
+- **25 reusable skills** — modular knowledge units that agents load on demand,
   covering everything from testing methodology to security hardening to content
   creation workflows.
 
-- **19 commands** — 9 pipeline stages, 2 content (write, edit), 3 framework and
+- **18 commands** — 8 pipeline stages, 2 content (write, edit), 3 framework and
   knowledge management (addskill, optimize, dream), 3 utilities (status, continue,
   help), and 2 standalone tools (factcheck, humanize).
 
-- **9-stage complexity-aware pipeline** — tasks flow through exactly the stages they
+- **8-stage complexity-aware pipeline** — tasks flow through exactly the stages they
   need. No unnecessary ceremony for simple fixes, full rigor for major changes.
+  Reflection runs automatically inside `archive` as mandatory Step 0.5 (v1.10.0,
+  TUNE-0013).
 
 - **Backlog management** — two-file architecture for task tracking. Active items in
   `backlog.md`, completed history in `backlog-archive.md`. Pick tasks from backlog
   with `/dr-init` or add new ones as you work.
 
-- **Self-evolving framework** — after every task, the reflect stage analyzes outcomes
-  and proposes improvements to agents, skills, and framework rules. The framework
-  gets better with use.
+- **Self-evolving framework** — after every task, `/dr-archive` Step 0.5 (reflecting
+  skill) analyzes outcomes and proposes improvements to agents, skills, and framework
+  rules. The framework gets better with use.
 
 - **Consilium: multi-agent panel discussions** — for critical decisions, assemble a
   panel of relevant agents to debate trade-offs and reach a recommendation before
@@ -157,16 +159,16 @@ versions of the framework that can be installed into any new project or
 machine.
 
 The living system evolves. Different projects use `~/.claude/` daily and, via
-`/dr-reflect`, propose updates to skills, agents, and commands. Approved
-updates land in `~/.claude/` first, then get curated back into this repo so
-the next person who clones it gets the current state.
+`/dr-archive` Step 0.5 (reflecting skill), propose updates to skills, agents,
+and commands. Approved updates land in `~/.claude/` first, then get curated
+back into this repo so the next person who clones it gets the current state.
 
 **Direction of sync: runtime → repo (with curation).**
 
 ### How to update the framework
 
 1. Edit the file in `~/.claude/` — that is where the change goes first. Usually
-   this happens through `/dr-reflect` after a task surfaces a lesson.
+   this happens through `/dr-archive` Step 0.5 after a task surfaces a lesson.
 2. After the human approves the change, commit it in this repository by
    copying the updated file from `~/.claude/` into the repo tree.
 3. Run `./scripts/check-drift.sh` to confirm runtime and repo match.
@@ -283,8 +285,7 @@ claude
 /dr-design     # Explore architectural decisions
 /dr-do         # Implement with TDD
 /dr-qa         # Run quality assurance checks
-/dr-reflect    # Analyze what worked and what to improve
-/dr-archive    # Archive the completed task
+/dr-archive    # Reflection (Step 0.5: analyze what worked and what to improve) + archive
 
 # Check progress at any time
 /dr-status
@@ -307,8 +308,7 @@ commands and tells you what to do next.
 /dr-do         # Write each section
 /factcheck     # Verify technical claims against published papers
 /dr-qa         # Check citation completeness, argument coherence, formatting
-/dr-reflect    # Note what worked for the next chapter
-/dr-archive    # Archive with source bibliography
+/dr-archive    # Reflection (Step 0.5: note what worked for the next chapter) + archive with source bibliography
 ```
 
 Datarim works the same way for legal documents, project plans, technical
@@ -328,10 +328,10 @@ documentation, or any structured work.
 | **Code Simplifier** | Reduces complexity, eliminates duplication, improves readability | `do`, `qa` |
 | **Strategist** | Evaluates value/risk/cost, advises on priorities, gates major work | `init`, `prd` |
 | **DevOps** | Handles deployment, CI/CD, infrastructure, and environment configuration | `do`, `compliance` |
-| **Writer** | Creates content — articles, docs, research papers, posts, guides | `write`, `reflect` |
+| **Writer** | Creates content — articles, docs, research papers, posts, guides | `write`, `archive` (Step 0.5) |
 | **Editor** | Editorial review — fact-checking, AI pattern removal, style, polish | `edit`, `qa` |
 | **Skill Creator** | Creates new skills, agents, commands from user descriptions and web research | `addskill` |
-| **Optimizer** | Audits framework, prunes unused, merges duplicates, syncs documentation | `optimize`, `reflect` |
+| **Optimizer** | Audits framework, prunes unused, merges duplicates, syncs documentation | `optimize`, `archive` (Step 0.5 health-check) |
 | **Librarian** | Organizes knowledge base, builds index, cross-references, flags contradictions | `dream` |
 | **Security** | Audits for vulnerabilities, reviews auth flows, checks dependencies | `qa`, `compliance` |
 | **SRE** | Evaluates reliability, scalability, monitoring, and operational readiness | `design`, `compliance` |
@@ -382,8 +382,7 @@ specific capabilities. You can add custom skills by placing `.md` files in
 | `/dr-do` | Execution | Execute the plan. TDD for code, structured iteration for research, documentation, or other work. |
 | `/dr-qa` | Quality | Run quality checks. PRD alignment, design conformance, plan completeness, output quality. |
 | `/dr-compliance` | Compliance | Post-QA hardening. Validates against PRD, checks for regressions, security audit. |
-| `/dr-reflect` | Reflection | Analyze the completed task. What worked, what failed, what to improve. Proposes framework updates. |
-| `/dr-archive` | Archive | Archive the task. Stores context, updates backlog, resets for the next task. |
+| `/dr-archive` | Archive | Archive the task. Step 0.5 runs reflection (analyze, propose framework updates). Steps 1-7 store context, update backlog, reset for the next task. |
 | `/dr-write` | Content | Create written content — articles, docs, research, posts. Uses the writer agent. |
 | `/dr-edit` | Content | Editorial review — fact-check, AI pattern removal, style, publication quality. Uses the editor agent. |
 | `/dr-addskill` | Extension | Create or update skills, agents, commands. Researches best practices, audits existing framework, generates artifacts. |
@@ -405,7 +404,7 @@ Commands are sequential within a pipeline but you can always check `/dr-status`,
 ### L1 — Quick Fix
 
 **Scope:** Single file, under 50 lines of code.
-**Pipeline:** `init` → `do` → `reflect` → `archive`
+**Pipeline:** `init` → `do` → `archive` (archive runs reflection as Step 0.5)
 **Example tasks:**
 - Fix a typo in README or correct a date in a legal brief
 - Update a dependency version in package.json
@@ -419,7 +418,7 @@ even small fixes can reveal patterns worth noting.
 ### L2 — Enhancement
 
 **Scope:** 2–5 files, under 200 lines of code.
-**Pipeline:** `init` → `[prd]` → `plan` → `do` → `[qa]` → `reflect` → `archive`
+**Pipeline:** `init` → `[prd]` → `plan` → `do` → `[qa]` → `archive` (archive runs reflection as Step 0.5)
 **Example tasks:**
 - Add input validation to a login form
 - Implement a new API endpoint for an existing resource
@@ -433,7 +432,7 @@ missing edge cases.
 ### L3 — Feature
 
 **Scope:** 5–15 files, 200–1000 lines of code.
-**Pipeline:** `init` → `prd` → `plan` → `design` → `do` → `qa` → `[compliance]` → `reflect` → `archive`
+**Pipeline:** `init` → `prd` → `plan` → `design` → `do` → `qa` → `[compliance]` → `archive` (archive runs reflection as Step 0.5)
 **Example tasks:**
 - Implement OAuth2 authentication
 - Build a real-time notification system
@@ -447,7 +446,7 @@ is included when the feature touches security, data handling, or external integr
 ### L4 — Major
 
 **Scope:** 15+ files, over 1000 lines of code.
-**Pipeline:** `init` → `prd` → `plan` → `design` → `phased-do` → `qa` → `compliance` → `reflect` → `archive`
+**Pipeline:** `init` → `prd` → `plan` → `design` → `phased-do` → `qa` → `compliance` → `archive` (archive runs reflection as Step 0.5)
 **Example tasks:**
 - Migrate from monolith to microservices
 - Rewrite the authentication system
@@ -520,7 +519,7 @@ research papers, documentation, blog posts, social media, and other text.
 Or integrated into the standard pipeline:
 
 ```
-/dr-init → /dr-prd → /dr-plan → /dr-write → /dr-edit → /dr-qa → /dr-reflect → /dr-archive
+/dr-init → /dr-prd → /dr-plan → /dr-write → /dr-edit → /dr-qa → /dr-archive
 ```
 
 **The Editor agent** combines two specialized skills:
@@ -615,10 +614,10 @@ Every proposal requires your approval. The optimizer never deletes or changes
 anything without explicit confirmation. Deleted files are backed up in
 `documentation/archive/optimized/` before removal.
 
-**Auto-detection:** After every `/dr-reflect`, Datarim checks framework health
-metrics. If thresholds are exceeded (e.g., >20 skills, >25 commands, orphan rate
->15%), it suggests running `/dr-optimize`. This is a suggestion only — never
-automatic.
+**Auto-detection:** After every `/dr-archive` (Step 0.5 reflection), Datarim
+checks framework health metrics. If thresholds are exceeded (e.g., >20 skills,
+>25 commands, orphan rate >15%), it suggests running `/dr-optimize`. This is
+a suggestion only — never automatic.
 
 ### The Growth-Maintenance Cycle
 
@@ -627,16 +626,16 @@ automatic.
     (adds new skills)              (prunes & merges)
           │                               │
           ▼                               ▼
-    ┌───────────┐    /dr-reflect    ┌───────────┐
-    │  GROWTH   │───────────────────│MAINTENANCE│
-    │ (extend)  │   health check    │ (optimize)│
-    └───────────┘                   └───────────┘
+    ┌───────────┐  /dr-archive Step 0.5  ┌───────────┐
+    │  GROWTH   │───────────────────────│MAINTENANCE│
+    │ (extend)  │      health check     │ (optimize)│
+    └───────────┘                       └───────────┘
 ```
 
 The framework grows through `/dr-addskill` and evolution proposals from
-`/dr-reflect`. It shrinks through `/dr-optimize` audits. The health check in
-`/dr-reflect` bridges the two: it detects when growth has created bloat and
-suggests maintenance.
+`/dr-archive` Step 0.5 (reflecting skill). It shrinks through `/dr-optimize`
+audits. The health check in `/dr-archive` bridges the two: it detects when
+growth has created bloat and suggests maintenance.
 
 ---
 
@@ -696,9 +695,10 @@ at every step.
 
 ### How it works
 
-1. **Reflect** — After every completed task, the `/dr-reflect` command analyzes what
-   happened. What stages added value? What was skipped unnecessarily? Where did the
-   pipeline slow down without benefit? What patterns emerged?
+1. **Reflect** — After every completed task, `/dr-archive` Step 0.5 (the `reflecting`
+   skill) analyzes what happened. What stages added value? What was skipped
+   unnecessarily? Where did the pipeline slow down without benefit? What patterns
+   emerged?
 
 2. **Propose** — Based on the reflection, the evolution skill generates concrete
    proposals: update a skill's instructions, adjust an agent's behavior, add a new
@@ -734,7 +734,7 @@ at every step.
 ### Evolution + Optimization
 
 Evolution (growth) and optimization (maintenance) are two sides of the same coin.
-`/dr-reflect` proposes improvements — new skills, updated agents, expanded
+`/dr-archive` Step 0.5 proposes improvements — new skills, updated agents, expanded
 templates. `/dr-optimize` proposes cleanup — pruning unused components, merging
 duplicates, fixing broken references. Together, they keep the framework growing in
 capability while staying lean in size. See the [Framework Optimization](#framework-optimization)
