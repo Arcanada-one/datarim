@@ -81,3 +81,36 @@ must:
 - Gate required + gate passed + recorded → **Layer 4 PASS** on this dimension.
 - Gate required + gate not run → **Layer 4 FAIL**, not `PASS_WITH_NOTES`. This is the whole point.
 - Gate required + gate failed (unexpected result) → stop, diagnose, do not merge.
+
+---
+
+## Spec-Lint Tests for Prose Contracts
+
+Some Datarim commands define their behavior as **markdown prose** (LLM prompt), not executable code. These contracts cannot be functionally tested with bats/vitest — but they *can* be guarded against silent regression via **spec-lint**: regex assertions over the markdown file.
+
+### When to use
+
+When a command's critical behavior is defined in `commands/*.md` prose and you need regression safety that the contract language stays intact across future edits.
+
+### Pattern
+
+```bash
+# archive-contract-lint.bats (exemplar — TUNE-0007)
+SPEC="${BATS_TEST_DIRNAME}/../commands/dr-archive.md"
+
+@test "branch 1/3: 'Commit now' option is documented" {
+    run grep -F "Commit now" "$SPEC"
+    [ "$status" -eq 0 ]
+}
+```
+
+### Rules
+
+1. **One test per contract clause** — each option, keyword, or governance phrase gets its own `@test` so failures pinpoint exactly what was removed.
+2. **Use `-F` (fixed string) for exact phrases**, `-E` (regex) only when phrasing may legitimately vary.
+3. **Test file lives in `tests/`** alongside functional tests — name it `{command}-contract-lint.bats`.
+4. **Complement, don't replace** — if the contract has an executable component (detection script, validator), write functional tests for that *and* spec-lint for the prose wrapper.
+
+### Exemplar
+
+`tests/archive-contract-lint.bats` — 11 tests covering `/dr-archive` step-0 gate: section presence, `git status --porcelain` mandate, multi-repo clause, STOP keyword, 3 prompt branches (Commit/Accept/Abort), governance language, TUNE-0003 attribution. Source: TUNE-0007.
