@@ -57,10 +57,21 @@ not_started → in_progress → completed → archived
 
 `/dr-archive` must:
 
-1. Read `activeContext.md` to get the current task ID.
-2. Verify the task exists in `tasks.md`.
-3. Archive only that specific task.
-4. Update `activeContext.md` after archiving.
+1. **Verify clean git status** for every repo touched by the task. If dirty, STOP and force commit/accept/abort decision — never archive silently over uncommitted changes. (See TUNE-0003 reflection: applied ≠ committed ≠ canonical.)
+2. Read `activeContext.md` to get the current task ID.
+3. Verify the task exists in `tasks.md`.
+4. Archive only that specific task.
+5. Update `activeContext.md` after archiving.
+
+### PRD Waiver Policy (Level 3-4 follow-up tasks)
+
+A Level 3 or Level 4 task MAY waive `/dr-prd` regeneration if all conditions hold:
+
+1. It executes **one clearly scoped track** from a parent PRD/archive.
+2. The parent PRD or archive was approved within the **last 30 days**.
+3. No new requirements are introduced — the waiver is for scope already covered.
+
+When waived, `tasks.md` MUST include a line `**PRD waived:**` with the parent reference and rationale. Absent this line, `/dr-plan` for L3-4 requires PRD generation.
 
 ## Unified Task Numbering
 

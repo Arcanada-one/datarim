@@ -136,6 +136,9 @@ Read `datarim/tasks.md` and `datarim/activeContext.md` to determine task type:
 ### 4. Security
 - Least-privilege, SSL/TLS correct, access controls appropriate
 
+### 5. Discovery Probe Verification
+- For infra tasks referencing external state (GitHub org contents, DNS records, server inventory, cloud project structure) — verify assumptions against the **live API** during `/dr-prd`, NOT at `/dr-do`. Inventory mismatches caught late cost creative/planning effort. Example: `.meta` planned 13 repos when only 7 existed in the GitHub org (INFRA-0013).
+
 ---
 
 ## Output
