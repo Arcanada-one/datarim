@@ -195,4 +195,17 @@ Two lines. First states the *what* (effect of proceeding). Second states the *wh
 
 ---
 
+## SCOPE DECISION FOR UNTRACKED LOAD-BEARING FILES
+
+When a task's sweep phase touches files in an untracked-but-load-bearing part of a repository (e.g. `data/*.php` cards that the website reads at runtime but that were never `git add`-ed), make the governance call **before staging**, not during:
+
+- **(a) Promote now** — commit the untracked files as part of the current task. Document in the commit message that promotion is incidental to the task, and list which files were newly tracked. Acceptable when the files are stable and the task naturally touches them.
+- **(b) Defer** — create a separate governance task to audit and commit the untracked layer. Continue the sweep on already-tracked files only.
+
+Do not start staging without choosing (a) or (b). Mixing tracked and newly-promoted files without a conscious decision creates hidden scope creep that is hard to audit later.
+
+Rationale: TUNE-0013 Phase 5a promoted 26 untracked `datarim.club/data/*.php` files. The decision was correct but made at staging-time, not at sweep-planning-time — resulting in scope creep that had to be explained retroactively.
+
+---
+
 *These principles reduce bugs by 40-50% and improve code quality by 30-50%.*

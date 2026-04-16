@@ -35,6 +35,13 @@
 ### Integration Tests
 ### Security Tests
 
+### Acceptance via Dogfooding (framework-tooling tasks only)
+For TUNE-* tasks that modify the Datarim pipeline itself, dogfooding — using the modified pipeline to complete and archive the very task that modified it — is a structurally stronger validation than a throwaway smoke test. If dogfooding is chosen over a separate smoke test, document:
+- Which pipeline step is exercised (e.g. `/dr-archive` Step 0.5 for TUNE-0013)
+- What constitutes success (e.g. reflection doc created, evolution proposals generated, archive doc embeds reflection reference)
+- Why dogfooding is preferred (exercises exact runtime configuration, not a synthetic setup)
+Rationale: TUNE-0013 AC-12 looked like a gap because the plan specified a separate throwaway-L1 smoke test, while the actual archive dogfooded the new Step 0.5 — structurally stronger but formally unplanned.
+
 ## Rollback Strategy
 
 ## Validation Checklist
