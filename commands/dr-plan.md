@@ -41,7 +41,20 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
     -   Document technology stack selection.
     -   Verify dependencies and build configuration.
 
-6.  **Output Summary**:
+6.  **Installer / Deploy-Script Content-Type Audit (MANDATORY when plan touches install.sh, sync-script, or any deploy/copy tool)**:
+    -   Grep the file-type filter (`case "*.md"`, `find ... -name`, extension whitelist, etc.) in the target script.
+    -   List every supported extension explicitly in the plan's Technology Validation or Architecture Impact section.
+    -   If the plan promotes/adds files with an extension the installer does NOT handle, either:
+        - (a) Extend the installer filter in the same plan (add to scope), or
+        - (b) Record the gap as an explicit known-limitation and open a follow-up backlog item to fix the installer.
+    -   Rationale: TUNE-0003 Phase 5 discovered that `install.sh:56 case "*.md"` silently excluded `.sh` templates — the gap was readable from line 1 but surfaced only at verification. Grepping the filter at planning time catches this class of asymmetry.
+
+7.  **Planning Hygiene — Summary Counts from Source Table**:
+    -   Any aggregate count in the plan (e.g. "total deferred", "files touched", "rows", "threats") MUST be derived from the authoritative source table (drift report, component breakdown, threat model) and the plan MUST cite that source inline.
+    -   Freehand summary numbers are prohibited — they propagate into validation checklists and blur AC verification.
+    -   Example: not `"12 deferred diffs"` but `"14 deferred diffs (from drift-TUNE-0003.md: 8 skills + 2 agents + 4 commands)"`.
+
+8.  **Output Summary**:
     -   Confirm task status update.
     -   List next steps: `/dr-do`.
 
@@ -60,6 +73,8 @@ Before proceeding to `/dr-design` or `/dr-do`:
 ```
 [ ] Requirements clearly documented?
 [ ] Components and affected files identified?
+[ ] Installer/deploy-script content-type audit done (if plan touches install.sh / sync / deploy)?
+[ ] All aggregate counts in plan derived from source tables (not freehand)?
 [ ] Definition of Done is testable and explicit?
 [ ] Boundaries stated (what we DON'T do)?
 [ ] Technology stack validated (if applicable)?
