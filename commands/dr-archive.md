@@ -12,32 +12,40 @@ Complete and archive current task.
 **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system.md` § Path Resolution Rule.
 
 ## Steps
-0. **DETERMINE ARCHIVE AREA**:
+0. **PRE-ARCHIVE CLEAN-GIT CHECK** (MANDATORY):
+   - For every git repository touched by this task (arcanada workspace + any nested project repos like `Projects/Datarim/code/datarim/`), run `git status --porcelain`.
+   - If any repo has uncommitted changes, STOP and present the list to the user with three options:
+     a. **Commit now** (proceed with archive after commits land).
+     b. **Explicitly accept pending state** (record the reason in the archive document's "Known Outstanding State" section).
+     c. **Abort archive** (return to `/dr-do` or fix manually).
+   - Do NOT archive over a dirty working tree silently. Applied ≠ committed ≠ canonical — see TUNE-0003 reflection for the governance rationale.
+
+1. **DETERMINE ARCHIVE AREA**:
    - Extract prefix from task ID (everything before the first `-`, e.g., `INFRA` from `INFRA-0001`)
    - Map prefix to area subdirectory using `$HOME/.claude/skills/datarim-system.md` § Archive Area Mapping
    - If prefix not in mapping → use `general/`
    - Create `documentation/archive/{area}/` directory if it doesn't exist
-1. Create archive document with:
+2. Create archive document with:
    - Task summary
    - Implementation details
    - Reflection insights
-2. **BACKLOG UPDATE** (if task existed in backlog):
+3. **BACKLOG UPDATE** (if task existed in backlog):
    - Get current task ID from `datarim/activeContext.md`
    - If the same ID exists in `datarim/backlog.md` (as `in_progress` or `pending`):
      a. **Remove** that entry from `datarim/backlog.md`
      b. **Add** entry to `datarim/backlog-archive.md` under `## Completed` with status `completed`, completion date, and link to archive doc — keeping the same ID
      c. Update Archive Statistics count in `backlog-archive.md`
    - If the task ID does not appear in `backlog.md`: skip this step (task was ad hoc, not from backlog)
-3. **FOLLOW-UP TASKS** (from reflection):
+4. **FOLLOW-UP TASKS** (from reflection):
    - Read `datarim/reflection/reflection-[task_id].md` for "Next Steps" section
    - If follow-up items exist, ask user: "Add these as new backlog items?"
    - If yes: add each as new `{PREFIX}-XXXX` entry in `datarim/backlog.md` with status `pending`. Choose prefix per Unified Task Numbering (`$HOME/.claude/skills/datarim-system.md`) — project or area prefix relevant to the follow-up item
-4. **UPDATE ARCHIVED TASKS TABLE**: Add a row to the `## Archived Tasks` table in `datarim/tasks.md`:
+5. **UPDATE ARCHIVED TASKS TABLE**: Add a row to the `## Archived Tasks` table in `datarim/tasks.md`:
    ```
    | {task_id} | {title} | {today's date} | `documentation/archive/{area}/archive-{task_id}.md` |
    ```
-5. Reset `activeContext.md`
-6. Clear completed task from Active Tasks section of `tasks.md` (keep Archived Tasks table)
+6. Reset `activeContext.md`
+7. Clear completed task from Active Tasks section of `tasks.md` (keep Archived Tasks table)
 
 ## Read
 - `datarim/tasks.md`

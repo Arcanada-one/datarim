@@ -119,6 +119,15 @@ graph TD
 | **Auth / Identity** | Nest.js, Passport, JWT, OAuth2, Redis. Docker. |
 | **Prototyping / MVP** | Next.js, API Routes, PostgreSQL, Prisma. Docker Compose. |
 
+### Infrastructure / Backup
+
+| Type | Stack |
+|------|-------|
+| **Server backups** | `restic` + Backblaze B2 (native backend, client-side encryption, dedup, snapshots). Config via `/etc/restic/`, systemd timer for daily backups, `backup-healthcheck.sh` for monitoring. First backup + restore test is mandatory. Use binary-installed restic (apt version lacks `self-update`). |
+| **Database backups** | Per-engine tooling (`pg_dump`, `mysqldump`, `mongodump`) piped into restic — captures logical dump as a named file in the repo. |
+
+Source: INFRA-0008 reflection — restic + B2 proven across arcana-www/prod/db; standardize to avoid revisiting the choice per-server.
+
 ## Mandatory Toolchains
 
 ### Python (ALWAYS)

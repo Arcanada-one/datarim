@@ -78,6 +78,16 @@ Found: Jest (from package.json devDependencies and existing test files in __test
 → Proceeding with Jest unless you say otherwise.
 ```
 
+### Pre-checks before proposing port / infra decisions
+
+Before proposing a port number or infra-level value, verify against existing allocations:
+
+- **Ports:** check the project's port-allocation memory or infra doc (e.g. `reference_port_allocation.md` in auto-memory, or `Areas/Infrastructure/Servers.md`). Port-conflict surprises late in deploy are expensive to unwind.
+- **Subdomains:** check DNS records via `dig` or the project's DNS inventory before proposing new subdomain.
+- **Database names / schemas / namespaces:** check the project's existing resources before proposing a new one.
+
+Source: AGENT-0010 reflection — port 3500 conflict between SUP and MUN was discovered only during deploy, after backlog descriptions had already propagated.
+
 ---
 
 ## Dependency Tracking
