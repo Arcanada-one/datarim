@@ -115,7 +115,7 @@ Skills are reusable knowledge modules loaded on demand. They provide rules, patt
 - `visual-maps.md` — Mermaid workflow diagrams: pipeline routing, stage flows, agent-skill-command graphs (loaded on demand for navigation)
 - `telegram-publishing.md` — Telegram Bot API publishing rules, caption limits, discussion group comments (loaded on demand)
 
-Skill files: `$HOME/.claude/skills/{name}.md` (24 skills, 3 with supporting fragment directories)
+Skill files: `$HOME/.claude/skills/{name}.md` (25 skills, 3 with supporting fragment directories)
 
 ---
 
