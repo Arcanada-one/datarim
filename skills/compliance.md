@@ -1,6 +1,6 @@
 ---
 name: compliance
-description: Adaptive post-QA hardening workflow. Detects task type (code, documentation, research, legal, content, infrastructure) and applies the appropriate verification checklist. Ensures work meets all stated requirements before archiving.
+description: Post-QA hardening — detects task type (code, docs, research, legal, content, infra) and applies the matching verification checklist before archiving.
 model: sonnet
 ---
 

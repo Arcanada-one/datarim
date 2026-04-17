@@ -1,6 +1,6 @@
 ---
 name: ai-quality
-description: Five pillars of AI-assisted development (decomposition, test-first, architecture-first, focused work, context). Use for TDD, stubbing, method size limits, DoD, and code quality decisions.
+description: Five pillars of AI-assisted development — decomposition, TDD, architecture-first, focused work, context. Method size limits, DoD, stubbing.
 ---
 
 # AI Quality & Best Practices
@@ -205,6 +205,37 @@ When a task's sweep phase touches files in an untracked-but-load-bearing part of
 Do not start staging without choosing (a) or (b). Mixing tracked and newly-promoted files without a conscious decision creates hidden scope creep that is hard to audit later.
 
 Rationale: TUNE-0013 Phase 5a promoted 26 untracked `datarim.club/data/*.php` files. The decision was correct but made at staging-time, not at sweep-planning-time — resulting in scope creep that had to be explained retroactively.
+
+---
+
+---
+
+## OPERATOR-FIRST ATTRIBUTION
+
+When a framework, vendor, or external service fails during integration, **default attribution is operator error** until proven otherwise.
+
+### Rule
+
+Before concluding "vendor bug" / "framework limitation" / "integration floor":
+
+1. **Reproduce via minimal API** — curl the vendor endpoint directly, raw SDK call, docs example. If the minimal repro succeeds, the failure is on the operator's side (config, model choice, document format, timeout).
+2. **Vendor blame requires BOTH:** (a) minimal repro confirms the failure, AND (b) reading the docs cannot flip it.
+3. **Stop burning budget** — if retry loops are consuming tokens/money during the run, halt and diagnose before proceeding.
+
+### Why
+
+LTM-0002 first run ($20.32 wasted) blamed OpenRouter for Cognee's embedding failure, Claude Sonnet for JSON parse errors, and laptop RAM for Graphiti's absence. All three were operator errors:
+- `curl` proved OpenRouter embeddings work (wrong LiteLLM prefix, not vendor protocol)
+- Document pre-processing fixed JSON parse failures (not a language-level ceiling)
+- arcana-dev has 62 Gi RAM (self-imposed laptop constraint)
+
+### When to apply
+
+Every integration failure during `/dr-do`. Before writing "framework X doesn't support Y" in a report, verify with a 5-minute minimal repro. The cost of a curl test is 5 minutes; the cost of a wrong attribution is a wrong article, a wrong vendor choice, and wasted operator budget.
+
+### Exemplar
+
+LTM-0002 R2: single `curl` to OpenRouter `/v1/embeddings` with `encoding_format="float"` → 1536-dim vector. Proved in 30 seconds that the vendor works. Cognee's failure was my `openai/` LiteLLM prefix routing to the wrong handler — fixed by switching to `openrouter/` prefix.
 
 ---
 
