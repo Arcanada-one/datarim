@@ -14,6 +14,11 @@
 #   ./scripts/curate-runtime.sh --no-bump      # skip version patch-bump
 #   ./scripts/curate-runtime.sh --help
 #
+# Environment:
+#   CLAUDE_DIR          runtime dir (default: $HOME/.claude)
+#   DATARIM_REPO_DIR    repo dir override (default: derived from script location;
+#                       used by bats tests to point at a temp mock repo)
+#
 # Exit codes:
 #   0  success (changes made or nothing to do)
 #   1  error (missing dir, bad args)
@@ -47,7 +52,8 @@ Usage:
   curate-runtime.sh --help          Show this message
 
 Environment:
-  CLAUDE_DIR   Runtime directory (default: $HOME/.claude)
+  CLAUDE_DIR         Runtime directory (default: $HOME/.claude)
+  DATARIM_REPO_DIR   Repo directory override (default: derived from script path)
 USAGE
 }
 
