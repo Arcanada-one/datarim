@@ -33,7 +33,7 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+SCRIPT_DIR="${DATARIM_REPO_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
 CLAUDE_DIR="${CLAUDE_DIR:-$HOME/.claude}"
 # Must match install.sh INSTALL_SCOPES. See header comment (TUNE-0004 AC-3).
 SCOPES=(agents skills commands templates)
