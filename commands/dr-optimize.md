@@ -71,26 +71,7 @@ effort: high
     | Selective-loading candidate | Monolithic file with mixed subdomains | Propose split into entry + supporting files |
     | Low-value provenance comments | Task-origin or migration notes that do not affect usage/policy | Propose rewrite cleanup |
 
-7.  **GENERATE REPORT**: Present findings:
-
-    ```
-    === OPTIMIZATION REPORT ===
-
-    Framework Health: GOOD / NEEDS ATTENTION / BLOATED
-    Total components: N agents, M skills, K commands, T templates
-    Total lines: XXXX
-    Description budget: YYYY / 8000 chars (ZZ%)
-    Oversized skills: A warning / B split candidates
-    Oversized agents: C warning / D split candidates
-
-    Issues found: N
-    - Critical: X
-    - Recommended: Y
-    - Optional: Z
-
-    === PROPOSALS ===
-    (listed by risk: Low → Medium → High)
-    ```
+7.  **GENERATE REPORT**: Follow the **Structured Audit Report** template from `optimizer.md` (6 sections: Health Metrics Dashboard, Top-5 Oversized, Description Budget Violations, Merge Candidates, Orphan Analysis, Actionable Recommendations). Present all 6 sections with concrete data — no placeholders, no "TBD".
 
 8.  **APPROVAL GATE**: Follow the evolution.md approval process:
     - List all proposals with numbers
