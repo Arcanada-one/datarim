@@ -1,6 +1,6 @@
 ---
 name: reflecting
-description: Review-phase workflow — lessons learned, evolution proposals with Class A/B gate, health-metrics check, follow-up-task detection. Invoked internally by /dr-archive Step 0.5.
+description: Review-phase workflow — lessons learned, evolution proposals (Class A/B gate), health-metrics check. Invoked by /dr-archive Step 0.5.
 ---
 
 # Reflecting Skill — Review & Self-Evolution Workflow

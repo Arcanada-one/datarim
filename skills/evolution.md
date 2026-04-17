@@ -1,6 +1,6 @@
 ---
 name: evolution
-description: Rules for proposing, applying, and optimizing framework improvements. Covers growth (new components via /dr-archive Step 0.5 reflecting skill) and maintenance (pruning, merging, efficiency via /dr-optimize). Human approval required for all changes.
+description: Rules for proposing and applying framework improvements. Covers growth (new components) and maintenance (pruning, merging). Human approval required.
 model: opus
 ---
 
@@ -229,6 +229,8 @@ These thresholds trigger an optimization suggestion during `/dr-archive` Step 0.
 | Orphan rate | >15% components unreferenced | Suggest `/dr-optimize` — prune orphans |
 
 The optimizer reports these metrics in its audit. Healthy frameworks stay under all thresholds.
+
+**Audit persistence:** When running `/dr-optimize`, write the structured report to `datarim/reports/optimize-audit-{YYYY-MM-DD}.md` for historical tracking. Chat-only findings are lost on context compaction.
 
 ---
 

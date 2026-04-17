@@ -25,8 +25,7 @@ Skills are split into two categories:
 | dream | Task | sonnet | Knowledge base maintenance rules | librarian |
 | factcheck | Task | sonnet | Fact verification for publications | editor, on demand |
 | humanize | Task | sonnet | AI text pattern removal | editor, on demand |
-| marketing | Task | sonnet | Ad campaigns, conversion tracking, growth | on demand |
-| seo-launch | Task | sonnet | SEO, analytics, website/app launch checklists | on demand |
+| go-to-market | Task | sonnet | SEO, analytics, ad campaigns, launch checklists | on demand |
 | visual-maps | Task | sonnet | Mermaid workflow diagrams | on demand |
 | writing | Task | sonnet | Content creation and editorial workflow | writer, editor |
 | remote-measurement | Task | haiku | Efficient remote host iteration (upload-run-stream pattern) | on demand (≥50-item SSH loops) |

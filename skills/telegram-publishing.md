@@ -1,6 +1,6 @@
 ---
 name: telegram-publishing
-description: Rules and patterns for publishing content to Telegram channels via Bot API. Covers caption limits, message formatting, discussion group comments, and testing workflow.
+description: Telegram channel publishing via Bot API — caption limits, formatting, discussion group comments, and testing workflow.
 model: haiku
 ---
 
