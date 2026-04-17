@@ -144,7 +144,7 @@ Not all proposals are equivalent at the approval step. Reflection approval is su
 Proposals that add, refine, or clarify the content of existing skills, agents, commands, or templates — without changing the framework's contract with its users.
 
 Examples of Class A:
-- Add a new recipe to `utilities.md`
+- Add a new recipe to `utilities/` (e.g. `utilities/crypto.md`)
 - Restore a missing section to `testing.md`
 - Tighten a classification list in `dr-do.md` (e.g. review-feedback categories)
 - Promote a runtime-only skill into the repo
@@ -277,7 +277,7 @@ When runtime files in `$HOME/.claude/` are lost or corrupted (overwrite, acciden
 ### Recovery Checklist (apply in order, ~5 minutes per channel)
 
 1. **Grep all reflection docs by filename** — not just reflections of the "obvious parent" task. Search every `datarim/reflection/*.md` across all projects in the incident window for any mention of the lost filename. A reflection from an unrelated task may have proposed changes to the file (as WEB-0002 P4 did for `tester.md`).
-2. **Check compacted session contexts** — if the incident happened in a session where the lost skill/command was previously invoked via the Skill tool, its content is preserved in the session's system-reminder blocks and survives `/compact`. See `skills/utilities.md § Recovering Runtime Files from Compacted Session Context` for extraction recipe.
+2. **Check compacted session contexts** — if the incident happened in a session where the lost skill/command was previously invoked via the Skill tool, its content is preserved in the session's system-reminder blocks and survives `/compact`. See `skills/utilities/recovery.md` for extraction recipe.
 3. **Follow cross-references** — when file A documents that file B has section §X (e.g. `dr-qa.md` Layer 4d references `testing.md § Live Smoke-Test Gate`), the cross-reference is an implicit spec for B.§X even if B is lost. Reconstruct by synthesizing B.§X from A's description of it.
 4. **Git history of consumer projects** — if the lost file is framework code used by multiple projects, commits in those projects during the incident window may reveal how the file was being used, implying its pre-incident structure.
 5. **External backups — last resort only** — Time Machine, APFS snapshots, cloud sync, backup daemons. Check existence *before* relying on it; none may be present.
