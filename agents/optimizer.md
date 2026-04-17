@@ -86,6 +86,44 @@ For each issue, create a structured proposal following the Evolution format (see
 5. Update all documentation made stale by the approved changes.
 6. Log changes in `datarim/docs/evolution-log.md`.
 
+## Structured Audit Report
+
+When running `/dr-optimize`, produce a report with these 6 sections:
+
+### Section 1: Health Metrics Dashboard
+
+| Metric | Current | Threshold | Status |
+|--------|---------|-----------|--------|
+| Skills count | {N} | >20 | OK / OVER |
+| Agents count | {N} | >18 | OK / OVER |
+| Commands count | {N} | >25 | OK / OVER |
+| Description chars total | {N} | >8000 | OK / OVER |
+| Max skill lines | {name}: {N} | >500 | OK / OVER |
+| Max agent lines | {name}: {N} | >120 warn, >180 split | OK / WARN / SPLIT |
+| Orphan rate | {N}% ({list}) | >15% | OK / OVER |
+
+### Section 2: Top-5 Oversized Components
+
+Per type (skills, agents, commands), sorted by line count descending. Include fragment directories in skill totals where applicable.
+
+### Section 3: Description Budget Violations
+
+List all components with description >160 chars, sorted descending. Show: name, type, char count, first 80 chars of description. Footer: total chars, % of 8,000 budget.
+
+### Section 4: Merge Candidates
+
+Pairs with >70% topic overlap. Evidence: shared keywords in description, similar section headings, overlapping "Loaded By" agents. Skip pairs that serve genuinely different pipeline stages.
+
+### Section 5: Orphan Analysis
+
+Components not referenced by any other component (skills no agent loads, agents no command invokes). Exclude entry-point commands (they are user-invoked by design).
+
+### Section 6: Actionable Recommendations
+
+Numbered list. Each entry: `[category] (risk) — description`. Group by risk (Low → Medium → High). Mark items that cross Health Metrics thresholds as PRIORITY.
+
+---
+
 **Context Loading**:
 - READ: All files in the target scope (agents/, skills/, commands/, templates/)
 - READ: `CLAUDE.md`, `README.md`, `datarim/docs/evolution-log.md`
