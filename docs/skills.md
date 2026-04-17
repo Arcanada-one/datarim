@@ -31,7 +31,7 @@ Skills are split into two categories:
 | writing | Task | sonnet | Content creation and editorial workflow | writer, editor |
 | remote-measurement | Task | haiku | Efficient remote host iteration (upload-run-stream pattern) | on demand (≥50-item SSH loops) |
 | telegram-publishing | Task | haiku | Telegram Bot API publishing | on demand |
-| utilities | Task | haiku | Native shell recipes for common operations | Any agent (on demand) |
+| utilities | Task | haiku | Native shell recipes for common operations (12 fragment files) | Any agent (on demand) |
 
 **Distribution:** 6 reference (inherit), 3 opus, 9 sonnet, 3 haiku.
 
