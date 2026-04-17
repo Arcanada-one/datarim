@@ -1,0 +1,269 @@
+#!/usr/bin/env bash
+# curate-runtime.sh — copy drifted files from runtime ($CLAUDE_DIR) into repo
+#
+# Companion to check-drift.sh (read-only advisory). This script performs the
+# actual copy: runtime → repo, with optional patch-bump of VERSION/CLAUDE.md/
+# README.md. Three modes: --dry-run, --auto, --interactive (default).
+#
+# SCOPES must match check-drift.sh and install.sh (TUNE-0004 AC-3).
+#
+# Usage:
+#   ./scripts/curate-runtime.sh                # interactive (default)
+#   ./scripts/curate-runtime.sh --dry-run      # show plan, no writes
+#   ./scripts/curate-runtime.sh --auto         # copy differ+new, skip delete
+#   ./scripts/curate-runtime.sh --no-bump      # skip version patch-bump
+#   ./scripts/curate-runtime.sh --help
+#
+# Exit codes:
+#   0  success (changes made or nothing to do)
+#   1  error (missing dir, bad args)
+#   2  user abort
+
+set -euo pipefail
+
+SCRIPT_DIR="${DATARIM_REPO_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
+CLAUDE_DIR="${CLAUDE_DIR:-$HOME/.claude}"
+SCOPES=(agents skills commands templates)
+
+MODE="interactive"  # interactive | dry-run | auto
+DO_BUMP=true
+COPIED=0
+NEW_COPIED=0
+DELETED=0
+SKIPPED=0
+
+# --- Argument parsing -------------------------------------------------------
+
+print_usage() {
+    cat <<'USAGE'
+curate-runtime.sh — copy drifted runtime files into repo
+
+Usage:
+  curate-runtime.sh                 Interactive mode (default)
+  curate-runtime.sh --dry-run       Show what would be done, no writes
+  curate-runtime.sh --auto          Copy differ+new files, skip deletes
+  curate-runtime.sh --interactive   Same as default
+  curate-runtime.sh --no-bump       Skip version patch-bump
+  curate-runtime.sh --help          Show this message
+
+Environment:
+  CLAUDE_DIR   Runtime directory (default: $HOME/.claude)
+USAGE
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --dry-run)      MODE="dry-run"; shift ;;
+        --auto)         MODE="auto"; shift ;;
+        --interactive)  MODE="interactive"; shift ;;
+        --no-bump)      DO_BUMP=false; shift ;;
+        --help|-h)      print_usage; exit 0 ;;
+        *)
+            echo "ERROR: unknown argument: $1" >&2
+            print_usage >&2
+            exit 1
+            ;;
+    esac
+done
+
+# --- Validation -------------------------------------------------------------
+
+if [ ! -d "$CLAUDE_DIR" ]; then
+    echo "ERROR: runtime dir not found: $CLAUDE_DIR" >&2
+    exit 1
+fi
+
+if [ ! -d "$SCRIPT_DIR/agents" ]; then
+    echo "ERROR: repo dir looks wrong (no agents/): $SCRIPT_DIR" >&2
+    exit 1
+fi
+
+echo "Datarim Curation: runtime → repo"
+echo "================================="
+echo "Runtime: $CLAUDE_DIR"
+echo "Repo:    $SCRIPT_DIR"
+echo "Mode:    $MODE"
+echo ""
+
+# --- Prompt helper (interactive mode) ----------------------------------------
+
+ACCEPT_ALL=false
+
+prompt_action() {
+    local label="$1"
+    if [ "$ACCEPT_ALL" = true ]; then return 0; fi
+
+    while true; do
+        read -r -p "  $label? (y)es/(n)o/(a)ll/(s)kip-rest: " choice
+        case "$choice" in
+            y|Y|yes)  return 0 ;;
+            n|N|no)   return 1 ;;
+            a|A|all)  ACCEPT_ALL=true; return 0 ;;
+            s|S|skip) return 2 ;;
+            *)        echo "  Please enter y, n, a, or s." ;;
+        esac
+    done
+}
+
+# --- Process each scope -----------------------------------------------------
+
+for scope in "${SCOPES[@]}"; do
+    runtime_dir="$CLAUDE_DIR/$scope"
+    repo_dir="$SCRIPT_DIR/$scope"
+
+    if [ ! -d "$runtime_dir" ]; then
+        echo "[$scope] SKIP — not in runtime"
+        continue
+    fi
+
+    mkdir -p "$repo_dir"
+
+    DIFF_OUT=$(diff -rq "$runtime_dir/" "$repo_dir/" 2>/dev/null || true)
+    if [ -z "$DIFF_OUT" ]; then
+        echo "[$scope] in sync"
+        continue
+    fi
+
+    while IFS= read -r line; do
+        # Pattern: "Files <A> and <B> differ"
+        if [[ "$line" =~ ^Files\ (.+)\ and\ (.+)\ differ$ ]]; then
+            src="${BASH_REMATCH[1]}"
+            dst="${BASH_REMATCH[2]}"
+            # Validate paths
+            if [[ "$src" != "$runtime_dir/"* ]] || [[ "$dst" != "$repo_dir/"* ]]; then
+                echo "  WARN: unexpected paths in diff output, skipping: $line"
+                continue
+            fi
+            relpath="${src#"$runtime_dir/"}"
+
+            case "$MODE" in
+                dry-run)
+                    echo "  [DRY-RUN] COPY $scope/$relpath"
+                    SKIPPED=$((SKIPPED + 1))
+                    ;;
+                auto)
+                    mkdir -p "$(dirname "$dst")"
+                    cp "$src" "$dst"
+                    echo "  COPY $scope/$relpath"
+                    COPIED=$((COPIED + 1))
+                    ;;
+                interactive)
+                    if prompt_action "COPY $scope/$relpath"; then
+                        mkdir -p "$(dirname "$dst")"
+                        cp "$src" "$dst"
+                        echo "  COPIED $scope/$relpath"
+                        COPIED=$((COPIED + 1))
+                    else
+                        echo "  SKIP $scope/$relpath"
+                        SKIPPED=$((SKIPPED + 1))
+                    fi
+                    ;;
+            esac
+
+        # Pattern: "Only in <dir>: <name>"
+        elif [[ "$line" =~ ^Only\ in\ (.+):\ (.+)$ ]]; then
+            dir="${BASH_REMATCH[1]}"
+            name="${BASH_REMATCH[2]}"
+
+            if [[ "$dir" == "$runtime_dir"* ]]; then
+                # File exists in runtime but not in repo → NEW
+                subdir="${dir#"$runtime_dir"}"
+                subdir="${subdir#/}"
+                relpath="${subdir:+$subdir/}$name"
+
+                case "$MODE" in
+                    dry-run)
+                        echo "  [DRY-RUN] NEW  $scope/$relpath"
+                        SKIPPED=$((SKIPPED + 1))
+                        ;;
+                    auto)
+                        mkdir -p "$repo_dir/${subdir:-.}"
+                        cp -R "$runtime_dir/$relpath" "$repo_dir/$relpath"
+                        echo "  NEW  $scope/$relpath"
+                        NEW_COPIED=$((NEW_COPIED + 1))
+                        ;;
+                    interactive)
+                        if prompt_action "NEW  $scope/$relpath (copy from runtime)"; then
+                            mkdir -p "$repo_dir/${subdir:-.}"
+                            cp -R "$runtime_dir/$relpath" "$repo_dir/$relpath"
+                            echo "  ADDED $scope/$relpath"
+                            NEW_COPIED=$((NEW_COPIED + 1))
+                        else
+                            echo "  SKIP $scope/$relpath"
+                            SKIPPED=$((SKIPPED + 1))
+                        fi
+                        ;;
+                esac
+
+            elif [[ "$dir" == "$repo_dir"* ]]; then
+                # File exists in repo but not in runtime → DELETED
+                subdir="${dir#"$repo_dir"}"
+                subdir="${subdir#/}"
+                relpath="${subdir:+$subdir/}$name"
+
+                case "$MODE" in
+                    dry-run)
+                        echo "  [DRY-RUN] DELETE $scope/$relpath (gone from runtime)"
+                        SKIPPED=$((SKIPPED + 1))
+                        ;;
+                    auto)
+                        echo "  WARN: $scope/$relpath gone from runtime — skipped (use --interactive to delete)"
+                        SKIPPED=$((SKIPPED + 1))
+                        ;;
+                    interactive)
+                        if prompt_action "DELETE $scope/$relpath (gone from runtime)"; then
+                            rm -f "$repo_dir/$relpath"
+                            echo "  DELETED $scope/$relpath"
+                            DELETED=$((DELETED + 1))
+                        else
+                            echo "  SKIP $scope/$relpath"
+                            SKIPPED=$((SKIPPED + 1))
+                        fi
+                        ;;
+                esac
+            fi
+        fi
+    done <<< "$DIFF_OUT"
+done
+
+# --- Patch-bump --------------------------------------------------------------
+
+TOTAL_CHANGES=$((COPIED + NEW_COPIED + DELETED))
+
+if [ "$TOTAL_CHANGES" -gt 0 ] && [ "$DO_BUMP" = true ]; then
+    VERSION_FILE="$SCRIPT_DIR/VERSION"
+    if [ -f "$VERSION_FILE" ]; then
+        OLD_VER=$(cat "$VERSION_FILE" | tr -d '[:space:]')
+        IFS='.' read -r major minor patch <<< "$OLD_VER"
+        NEW_VER="$major.$minor.$((patch + 1))"
+        echo "$NEW_VER" > "$VERSION_FILE"
+
+        # Update CLAUDE.md
+        CLAUDE_FILE="$SCRIPT_DIR/CLAUDE.md"
+        if [ -f "$CLAUDE_FILE" ]; then
+            sed -i '' "s/> \*\*Version:\*\* $OLD_VER/> **Version:** $NEW_VER/" "$CLAUDE_FILE"
+        fi
+
+        # Update README.md badge (two occurrences on badge line)
+        README_FILE="$SCRIPT_DIR/README.md"
+        if [ -f "$README_FILE" ]; then
+            sed -i '' "s/$OLD_VER/$NEW_VER/g" "$README_FILE"
+        fi
+
+        echo ""
+        echo "Version bumped: $OLD_VER → $NEW_VER"
+    fi
+fi
+
+# --- Summary -----------------------------------------------------------------
+
+echo ""
+echo "================================="
+echo "Summary: $COPIED copied, $NEW_COPIED new, $DELETED deleted, $SKIPPED skipped"
+
+if [ "$TOTAL_CHANGES" -gt 0 ]; then
+    echo ""
+    echo "Run ./scripts/check-drift.sh to verify sync."
+fi
+
+exit 0
