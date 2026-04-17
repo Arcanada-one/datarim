@@ -132,8 +132,7 @@ graph LR
         comp_sk["compliance"]
         fc["factcheck"]
         hum["humanize"]
-        seo["seo-launch"]
-        mkt["marketing"]
+        gtm["go-to-market"]
         util["utilities"]
         vmap["visual-maps"]
     end

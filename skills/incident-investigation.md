@@ -1,6 +1,6 @@
 ---
 name: incident-investigation
-description: Production incident triage and root-cause investigation. Use when a server is under abnormal load, a service is degraded, or you need to diagnose "why is the server on fire." Enforces CPU-first triage order and standard diagnostic bundle.
+description: Production incident triage and root-cause investigation. CPU-first triage order, standard diagnostic bundle. Use when a service is degraded.
 model: opus
 ---
 

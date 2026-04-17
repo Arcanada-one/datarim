@@ -1,6 +1,6 @@
 ---
 name: testing
-description: Testing pyramid, frameworks (Jest, Vitest, Playwright), mocking rules, and the Live Smoke-Test Gate for raw SQL and cross-datasource code. Use when writing or reviewing tests.
+description: Testing pyramid, frameworks (Vitest, Playwright, bats), mocking rules, Live Smoke-Test Gate for raw SQL. Use when writing or reviewing tests.
 ---
 
 # Testing Guidelines
@@ -348,3 +348,33 @@ Redirect `HOME` (see above) so these tests cannot accidentally hit the operator'
 ### Exemplar
 
 `tests/install.bats` + `tests/check-drift.bats` (TUNE-0004): 23 tests covering content-type whitelisting, `--force` safety (live detect, sanity guards, non-TTY, backup+SUCCESS), idempotency, scope-contract alignment, and `.md`-only regression. Shared helper at `tests/helpers/install_fixture.bash`.
+
+---
+
+## Post-Deploy Smoke Gate (User-Switch Deployments)
+
+When a deployment changes the **runtime user** (e.g. root → dedicated service user), run one full application cycle as the new user **before switching cron/systemd** to that user. A clean exit under the old user proves nothing about the new user's permissions, HOME directory, config file access, or tool authentication.
+
+### When the gate is mandatory
+
+The gate fires when a deployment does any of:
+- Switches cron or systemd service from one user to another.
+- Changes file ownership on config/data directories.
+- Creates a new system user to run existing code.
+
+### What to verify
+
+1. **One complete cycle** as the new user: `su -s /bin/bash newuser -c '/path/to/run.sh'` — must exit 0 with clean output.
+2. **All external tool auth paths**: CLIs invoked via subprocess (Gemini, Claude, gcloud, etc.) store credentials in `~/.config/` or `~/.toolname/`. If HOME changed, creds are missing.
+3. **File I/O permissions**: data directories, log files, lock files, temp dirs — all must be writable by the new user.
+4. **Exception hierarchy**: `PermissionError` is a subclass of `OSError` in Python. If outer handlers catch `OSError` for network errors, they will silently swallow file permission failures. Explicitly exclude `PermissionError`, `FileNotFoundError`, `IsADirectoryError`.
+
+### Why "deploy then switch cron" fails
+
+Reference incident: **EMAIL-0001**. Switching cron from root to `email-agent` caused 3 simultaneous regressions: (1) data directory owned by root → PermissionError, (2) Gemini CLI OAuth creds not in new HOME → API_KEY_INVALID, (3) `except (OSError, ...)` caught PermissionError as "transient network failure" → silently swallowed. 54 emails were fetched (marked as read in Gmail) but never delivered to Telegram. All found by operator hours later, not by deployment verification.
+
+### Passing gate
+
+- Run one cycle as new user + verify clean output → **deploy proceeds**.
+- Cycle fails → fix perms/creds/handlers, re-run cycle, then deploy.
+- Cycle not run → deployment is **not verified**, regression risk accepted explicitly.

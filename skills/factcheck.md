@@ -1,6 +1,6 @@
 ---
 name: factcheck
-description: Fact-check articles and social media posts before publication. Extracts claims, verifies them against authoritative sources, and improves the text while preserving the author's style. Use when preparing content for publication, verifying facts in articles, or reviewing posts for accuracy.
+description: Fact-check articles and posts before publication. Extracts claims, verifies against sources, improves text while preserving style.
 allowed-tools: Read Write Edit Grep Glob Bash WebSearch WebFetch Agent
 argument-hint: [path-to-article]
 effort: max

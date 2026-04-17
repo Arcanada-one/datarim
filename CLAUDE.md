@@ -108,14 +108,13 @@ Skills are reusable knowledge modules loaded on demand. They provide rules, patt
 - `reflecting.md` — Review-phase workflow: lessons learned, evolution proposals with Class A/B gate, health-metrics check, follow-up-task detection (loaded by: /dr-archive Step 0.5, internal only)
 - `writing.md` — Content creation and editorial workflow (loaded by: writer, editor)
 - `dream.md` — Knowledge base maintenance rules (loaded by: librarian)
-- `seo-launch.md` — SEO, analytics, website/app launch checklists (loaded on demand)
-- `marketing.md` — Ad campaigns, conversion tracking, landing pages, growth (loaded on demand)
+- `go-to-market.md` — SEO, analytics, ad campaigns, landing pages, launch checklists (loaded on demand)
 - `factcheck.md` — Fact verification for publications (loaded by: editor, on demand)
 - `humanize.md` — AI text pattern removal (loaded by: editor, on demand)
 - `visual-maps.md` — Mermaid workflow diagrams: pipeline routing, stage flows, agent-skill-command graphs (loaded on demand for navigation)
 - `telegram-publishing.md` — Telegram Bot API publishing rules, caption limits, discussion group comments (loaded on demand)
 
-Skill files: `$HOME/.claude/skills/{name}.md` (25 skills, 3 with supporting fragment directories)
+Skill files: `$HOME/.claude/skills/{name}.md` (24 skills, 3 with supporting fragment directories)
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: dream
-description: Knowledge base maintenance — organize, deduplicate, cross-reference, and consolidate the datarim/ directory. Processes inbox items, builds connections between documents, flags contradictions, and archives stale content. Inspired by the LLM Wiki pattern.
+description: Knowledge base maintenance — organize, deduplicate, cross-reference, and consolidate the datarim/ directory. Flags contradictions, archives stale content.
 model: sonnet
 ---
 

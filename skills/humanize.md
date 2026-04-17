@@ -1,6 +1,6 @@
 ---
 name: humanize
-description: Make AI-generated text sound human. Removes AI writing patterns, fixes formatting artifacts (em dashes, bullet overuse, etc.), preserves author's voice. Use when humanizing articles, blog posts, social media content, or any text that should not look AI-generated. Works for both English and Russian.
+description: Remove AI writing patterns and formatting artifacts from text. Preserves author voice. Use for articles, posts, content that must not look AI-generated.
 allowed-tools: Read Write Edit Grep Glob Bash
 argument-hint: [path-to-file]
 effort: high

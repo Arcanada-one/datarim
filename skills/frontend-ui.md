@@ -1,6 +1,6 @@
 ---
 name: frontend-ui
-description: Frontend UI checklist for web-interface tasks — CSS specificity, dark/light theme parity, visual testing, mobile responsiveness, i18n UI parity. Apply when modifying HTML/CSS/templates.
+description: Frontend UI checklist — CSS specificity, dark/light themes, visual testing, mobile responsiveness, i18n parity. Apply when editing HTML/CSS.
 model: sonnet
 ---
 

@@ -49,7 +49,7 @@ Both agents and skills may specify `effort: low|medium|high|max`.
 
 **Task-skills (14):**
 - `opus`: consilium, evolution, incident-investigation
-- `sonnet`: discovery, compliance, dream, factcheck, humanize, marketing, seo-launch, visual-maps, writing
+- `sonnet`: discovery, compliance, dream, factcheck, go-to-market, humanize, visual-maps, writing
 - `haiku`: telegram-publishing, utilities
 
 **Reference skills (6):**
