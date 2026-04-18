@@ -64,7 +64,12 @@ Complete and archive current task.
    | {task_id} | {title} | {today's date} | `documentation/archive/{area}/archive-{task_id}.md` |
    ```
 6. **Remove** the archived task from `## Active Tasks` in `activeContext.md`. Keep other active tasks. Prepend the newly archived task to `## Последние завершённые`. Do NOT reset the entire file. See `$HOME/.claude/skills/datarim-system.md` § activeContext.md Write Rules.
-7. Clear the archived task from Active Tasks section of `tasks.md` (keep Archived Tasks table and other active tasks)
+   - **Pruning:** After adding the new entry, if `## Последние завершённые` has more than 10 entries, remove the oldest entries (bottom of list) to keep exactly 10.
+7. **REMOVE TASK BODY from tasks.md**:
+   - Delete the ENTIRE task entry (from `### {TASK-ID}` to the next `###` or `##` header) from `## Active Tasks` section.
+   - Do NOT preserve task content in HTML comments (`<!-- -->`). The archive file in `documentation/archive/` IS the permanent record.
+   - If the task has an associated plan file (`datarim/plans/{TASK-ID}-plan.md`), delete that file too.
+   - Keep the `## Archived Tasks` table and all other active tasks intact.
 
 ## Read
 - `datarim/tasks.md`

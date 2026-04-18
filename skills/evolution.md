@@ -215,6 +215,16 @@ For consumer projects, PRD substitutes in priority order:
 
 ---
 
+## Contract-Implementation Atomicity (anti-TUNE-0003)
+
+**Single-repo:** PRD/contract update and implementation MUST land in the same commit.
+
+**Cross-repo:** When they live in different git repositories, they MUST land in the
+same `/dr-do` session, on the same calendar day, with cross-cite in both commit messages
+referencing the shared task ID. See `datarim/docs/ADR-TUNE-0014-cross-repo-atomicity.md` for rationale and verification procedure.
+
+---
+
 ## Health Metrics
 
 These thresholds trigger an optimization suggestion during `/dr-archive` Step 0.5 (reflecting skill):

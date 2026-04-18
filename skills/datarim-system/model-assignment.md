@@ -47,9 +47,9 @@ Both agents and skills may specify `effort: low|medium|high|max`.
 - `sonnet`: developer, compliance, code-simplifier, devops, editor, librarian, optimizer, sre, writer
 - `haiku`: tester
 
-**Task-skills (14):**
-- `opus`: consilium, evolution, incident-investigation
-- `sonnet`: discovery, compliance, dream, factcheck, go-to-market, humanize, visual-maps, writing
+**Task-skills (10):**
+- `opus`: consilium, evolution
+- `sonnet`: discovery, compliance, dream, factcheck, humanize, infra-automation, visual-maps, writing
 - `haiku`: telegram-publishing, utilities
 
 **Reference skills (6):**

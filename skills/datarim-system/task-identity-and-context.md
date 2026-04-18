@@ -51,6 +51,39 @@ When a pipeline command needs a task ID, apply this logic:
 - No command overwrites the entire `## Active Tasks` section.
 - Legacy format (`**Current Task:**` single line) — if encountered, convert to `## Active Tasks` list on first write.
 
+### tasks.md Content Discipline
+
+**Allowed content** in `tasks.md`:
+- Task entries (header `### {ID} — Title`, status, overview, acceptance criteria)
+- Implementation plans for L1-L2 tasks (inline)
+- Plan pointers for L3+ tasks (`**Implementation Plan:** [link to datarim/plans/{ID}-plan.md]`)
+- `## Archived Tasks` table (one row per archived task)
+
+**Prohibited content** — must go to dedicated files:
+- Credentials, secrets, access policies → `Areas/Credentials/`
+- Specification templates, conventions → `skills/` or `docs/`
+- Audit reports → `datarim/docs/` or `documentation/`
+- Infrastructure runbooks → `Areas/Infrastructure/`
+- Code blocks > 50 lines → external file with link
+
+### File Size Guards
+
+Before writing to `tasks.md` or `activeContext.md`, check file size:
+
+| File | Warn threshold | Hard limit | Action at limit |
+|------|---------------|------------|-----------------|
+| `tasks.md` | 3,000 lines | 5,000 lines | STOP writing. Inform user: "tasks.md exceeds 5K lines. Run `/dr-optimize` or archive completed tasks before proceeding." |
+| `activeContext.md` | 100 lines | 200 lines | Prune "Последние завершённые" to 5 most recent entries. |
+
+Check command: `wc -l < datarim/tasks.md`
+
+### Concurrent Write Safety
+
+Before modifying `tasks.md`:
+1. Note the file's current `Last Updated` timestamp line.
+2. After writing, verify the timestamp you read matches — if it changed between read and write, another session modified the file.
+3. If conflict detected: re-read the file, merge your changes manually, do NOT overwrite blindly.
+
 ## Task Context Tracking
 
 `activeContext.md` tracks all active tasks:
