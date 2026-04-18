@@ -34,9 +34,10 @@ disable-model-invocation: true
     - Determine complexity level (1-4). If from backlog, use the item's complexity as starting estimate.
     - **Determine Task ID** (if NOT from backlog): select prefix per Unified Task Numbering (`$HOME/.claude/skills/datarim-system.md`) — project prefix first, then area prefix, `TASK` as fallback. Scan existing tasks for next sequential number.
     - **Context Gathering**: For complex tasks, ensure context is gathered (via `/dr-prd`) before planning.
+    - **PRD Waiver Check** (Level 3-4 only): If no PRD exists for this task (check `datarim/prd/PRD-{task-id}*.md` and parent PRD within 30 days), prompt: "No PRD found for this L3+ task. Options: (a) Run `/dr-prd` first, (b) State waiver reason (will be recorded as `**PRD waived:**` in tasks.md)." If user chooses (b), record the waiver in the task's Overview section. Source: TUNE-0009 audit found retroactive-only enforcement insufficient.
     - **If new project/service**: Load `$HOME/.claude/skills/tech-stack.md` and identify required stack.
     - Create/Update `datarim/tasks.md` with new task.
-    - Update `datarim/activeContext.md`.
+    - **Append** new task to `## Active Tasks` in `datarim/activeContext.md`. Do NOT remove existing active tasks. If `activeContext.md` uses legacy format (`**Current Task:**` single line), convert to `## Active Tasks` list first. See `$HOME/.claude/skills/datarim-system.md` § activeContext.md Write Rules.
 5.  **SUBTASK BACKLOG** (Level 3-4 only):
     - If analysis reveals distinct subtasks or phases, present them to user:
       "This task has N identifiable subtasks. Add them to backlog for independent tracking?"

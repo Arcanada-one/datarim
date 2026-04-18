@@ -239,4 +239,115 @@ LTM-0002 R2: single `curl` to OpenRouter `/v1/embeddings` with `encoding_format=
 
 ---
 
+## DEPENDENCY ISOLATION
+
+When deploying services on shared servers, **isolate dependencies** from the system Python/Node.
+
+### Rule
+
+Use **venv** (Python) or **Docker** for any service that:
+1. Installs ML libraries (torch, transformers, sentence-transformers) — they pull 30+ transitive deps
+2. Runs as a systemd service (long-lived process)
+3. Shares the server with other services
+
+`pip install --break-system-packages` is acceptable for one-off scripts, NOT for production services.
+
+### Why
+
+INFRA-0020 installed torch + sentence-transformers + 30 deps into system Python on arcana-db. Future `pip install` for another service may upgrade a shared dependency and break the embedding API silently. The same pattern occurred in LTM-0002 (Docker was the correct isolation) and EMAIL-0001 (system pip, no isolation).
+
+### Quick Setup
+
+```bash
+python3 -m venv /opt/my-service/.venv
+source /opt/my-service/.venv/bin/activate
+pip install -r requirements.txt
+```
+
+In systemd: `ExecStart=/opt/my-service/.venv/bin/python3 main.py`
+
+### Pin ML Dependencies
+
+ML ecosystem has frequent breaking changes across major versions. When installing ML libraries:
+
+1. **Pin major versions** — `transformers>=4.45,<5.0`, not `transformers>=4.45`
+2. **Pre-deploy import check** — before restarting a service, verify the import works:
+   ```bash
+   /opt/my-service/.venv/bin/python3 -c "from FlagEmbedding import BGEM3FlagModel; print('OK')"
+   ```
+3. **Capture `pip freeze`** after a working install for reproducibility
+
+SRCH-0002: FlagEmbedding 1.3.5 failed at startup with transformers 5.x (`is_torch_fx_available` removed). Pinning to `<5.0` fixed it. A 5-second import check would have caught this before the service restart.
+
+### Verify Model Architecture Impact
+
+When switching model loaders (e.g. `SentenceTransformer` → `BGEM3FlagModel`), do not assume single-variable predictions (like "fp16 = 50% less RAM") apply. A different loader loads a different architecture.
+
+SRCH-0002: plan predicted fp16 would reduce RAM from 914MB to ~450MB. Actual: 2,400MB (+163%) because `BGEM3FlagModel` loads sparse_linear + colbert_linear components on top of the base model. Latency also increased 3x (118ms → 360ms) due to heavier inference path. The prediction was based on fp16 alone, ignoring the architectural change.
+
+**Rule:** When changing model loaders, benchmark RAM and latency empirically before committing to production. Do not extrapolate from documentation of a single feature (fp16).
+
+---
+
+## DOCKER SMOKE TEST
+
+Before declaring implementation complete on any Docker-deployed service, run a minimal smoke test:
+
+```bash
+docker compose up -d --build
+# Wait for health
+curl -sf http://localhost:PORT/health || exit 1
+# Basic API call
+curl -sf -X POST http://localhost:PORT/endpoint -H 'Content-Type: application/json' -d '...'
+docker compose down
+```
+
+### Why
+
+CONN-0004 found 5 of 6 production bugs only during Docker deployment — none surfaced in unit tests. Issues: Prisma config missing from image, circular DI crash, Alpine/glibc incompatibility, root user restrictions, validation pipe scope. A 30-second Docker smoke test catches the entire class.
+
+### When to apply
+
+Every `/dr-qa` for projects with Docker deployment. Unit tests pass ≠ container works.
+
+---
+
+## CLI CONNECTOR DOCKER PATTERN
+
+When deploying services that spawn CLI tools as subprocesses (Claude Code, Cursor, Codex, Gemini CLI):
+
+1. **Use `node:22-slim`** (Debian), NOT `alpine` — native CLI binaries require glibc
+2. **Create non-root user** — Claude CLI (and likely others) refuse elevated permission modes as root
+3. **Persistent volume for auth** — CLI subscription auth stores tokens in `~/.claude/.credentials.json`; Docker volume preserves across restarts
+
+```dockerfile
+FROM node:22-slim AS production
+RUN npm install -g @anthropic-ai/claude-code
+RUN useradd -m -s /bin/bash connector
+USER connector
+```
+
+```yaml
+volumes:
+  - cli-auth:/home/connector/.claude
+```
+
+CONN-0004: Three bugs from wrong base image (Alpine musl) + root user + ephemeral auth. Pattern applies to all CLI connector deployments.
+
+### CLI Installer in Docker (non-root user)
+
+When a CLI tool installs via `curl | bash` to `$HOME` (e.g. Cursor CLI):
+
+1. **Install as root** during Docker build (default user)
+2. **Copy to shared path**: `cp -r /root/.local/share/<tool> /opt/<tool>`
+3. **Fix permissions**: `chmod -R a+rX /opt/<tool>`
+4. **Symlink binary**: `ln -sf /opt/<tool>/.../<binary> /usr/local/bin/<binary>`
+5. **Pre-create user dirs**: `mkdir -p /home/<user>/.<tool> && chown <user>:<user> /home/<user>/.<tool>`
+
+Do NOT symlink to `/root/...` — non-root user cannot read `/root/`. Do NOT rely on Docker volume creating dirs with correct ownership — volumes mount as root.
+
+CONN-0008: 4 Dockerfile iterations because `curl | bash` installed to `/root/.local/share/cursor-agent/`, inaccessible to non-root `connector` user. Same root→non-root pattern as CONN-0004.
+
+---
+
 *These principles reduce bugs by 40-50% and improve code quality by 30-50%.*

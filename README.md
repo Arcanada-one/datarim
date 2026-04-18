@@ -2,7 +2,7 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 1.10.0](https://img.shields.io/badge/Version-1.10.0-green.svg)](VERSION)
+[![Version: 1.12.0](https://img.shields.io/badge/Version-1.12.0-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
@@ -59,7 +59,7 @@ graph LR
     style archive fill:#868e96,stroke:#333,color:#fff
 ```
 
-Reflection runs automatically inside `archive` as mandatory Step 0.5 (v1.10.0, TUNE-0013).
+Reflection runs automatically inside `archive` as mandatory Step 0.5 (v1.12.0, TUNE-0013).
 
 ### Complexity Routing (ASCII)
 
@@ -102,7 +102,7 @@ Stages in `[brackets]` are conditional — included when the agent determines th
 
 - **8-stage complexity-aware pipeline** — tasks flow through exactly the stages they
   need. No unnecessary ceremony for simple fixes, full rigor for major changes.
-  Reflection runs automatically inside `archive` as mandatory Step 0.5 (v1.10.0,
+  Reflection runs automatically inside `archive` as mandatory Step 0.5 (v1.12.0,
   TUNE-0013).
 
 - **Backlog management** — two-file architecture for task tracking. Active items in

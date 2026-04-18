@@ -39,6 +39,9 @@ When archiving a task, map the prefix to the destination subdirectory:
 | `MAINT` | `maintenance/` |
 | `FIN` | `finance/` |
 | `QA` | `qa/` |
+| `CONN` | `connectors/` |
+| `SRCH` | `search/` |
+| `LTM` | `research/` |
 | *(unknown)* | `general/` |
 
 Archive path:
@@ -67,3 +70,4 @@ This allows parallel local workflow state with committed shared archives.
 5. Backlog uses the active + archive split.
 6. Path resolution happens before any write.
 7. Use `$HOME/.claude/` or project-relative paths, not machine-specific absolute paths.
+8. When updating site blog registries, update ALL registry files (primary `pages/blog/registry.php` AND secondary `pages/blog/posts/registry.php`). TUNE-0019: secondary was missed → 404 on blog post.
