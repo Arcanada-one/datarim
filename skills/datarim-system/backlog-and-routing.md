@@ -39,7 +39,7 @@
 - 5-15 files
 - 200-1000 lines
 - requires design
-- flow: `init → prd → plan → design → do → qa → archive`
+- flow: `init → prd → plan → design → do → qa → compliance → archive`
 
 ### Level 4
 
@@ -65,9 +65,22 @@ Or use the current date from session context.
 
 ### Automatic Transitions
 
-- Level 3-4 → auto-enter `/dr-design`
-- QA validation needed → auto-enter `/dr-qa`
-- Implementation done → auto-suggest `/dr-archive` (runs reflection as Step 0.5)
+- Level 3-4 after `/dr-plan` → auto-enter `/dr-design`
+- Level 3-4 after `/dr-do` → auto-enter `/dr-qa`
+- Level 3-4 after `/dr-qa` (PASS/CONDITIONAL_PASS) → auto-enter `/dr-compliance`
+- Level 1-2 after `/dr-do` → auto-suggest `/dr-archive` (runs reflection as Step 0.5)
+
+### FAIL Return Routing
+
+QA BLOCKED routes back by **earliest** failed layer:
+- Layer 1 (PRD) → `/dr-prd`
+- Layer 2 (Design) → `/dr-design`
+- Layer 3 (Plan) → `/dr-plan`
+- Layer 4 (Code) → `/dr-do`
+
+Compliance NON-COMPLIANT → `/dr-do` (default) or earlier stage if PRD/plan gap identified.
+
+After fix: resume forward, re-run QA/compliance. Loop guard: 3 same-layer fails → escalate to user.
 
 ### Manual Transitions
 

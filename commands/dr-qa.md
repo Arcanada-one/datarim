@@ -12,10 +12,11 @@ description: Multi-layer quality verification — checks PRD alignment, design c
 
 1.  **LOAD**: Read `$HOME/.claude/agents/reviewer.md` and adopt that persona.
 2.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system.md` § Path Resolution Rule.
-3.  **SKILL**: Read `$HOME/.claude/skills/security.md` and `$HOME/.claude/skills/testing.md`.
-4.  **CONTEXT**: Read `datarim/tasks.md` to get the current task ID and implementation plan. Read `datarim/activeContext.md` for current state.
-5.  **ACTION**: Execute the 4 verification layers below, in order, based on available artifacts. Skip layers whose artifacts do not exist.
-6.  **OUTPUT**: Write `datarim/qa/qa-report-{task-id}.md` with results.
+3.  **TASK RESOLUTION**: Apply Task Resolution Rule from `$HOME/.claude/skills/datarim-system.md` § Task Resolution Rule. Use the resolved task ID for all subsequent steps.
+4.  **SKILL**: Read `$HOME/.claude/skills/security.md` and `$HOME/.claude/skills/testing.md`.
+5.  **CONTEXT**: Read `datarim/tasks.md` to get the resolved task's implementation plan. Read `datarim/activeContext.md` for current state.
+6.  **ACTION**: Execute the 4 verification layers below, in order, based on available artifacts. Skip layers whose artifacts do not exist.
+7.  **OUTPUT**: Write `datarim/qa/qa-report-{task-id}.md` with results.
 
 ---
 
@@ -203,9 +204,9 @@ Write to `datarim/qa/qa-report-{task-id}.md`:
 
 | Overall | Condition | Next Step |
 |---------|-----------|-----------|
-| **ALL_PASS** | Every executed layer is PASS | Proceed to `/dr-compliance` or `/dr-archive` |
-| **CONDITIONAL_PASS** | All layers PASS or PASS_WITH_NOTES, no FAIL | Proceed to `/dr-compliance` or `/dr-archive`, notes documented |
-| **BLOCKED** | One or more layers FAIL | Return to `/dr-do` with fix list from failed layers |
+| **ALL_PASS** | Every executed layer is PASS | L3-4 → `/dr-compliance`; L1-2 → `/dr-archive` |
+| **CONDITIONAL_PASS** | All layers PASS or PASS_WITH_NOTES, no FAIL | L3-4 → `/dr-compliance`; L1-2 → `/dr-archive` (notes documented) |
+| **BLOCKED** | One or more layers FAIL | Route by earliest failed layer (see FAIL Routing below) |
 
 ---
 
@@ -213,7 +214,30 @@ Write to `datarim/qa/qa-report-{task-id}.md`:
 
 - **ALL_PASS or CONDITIONAL_PASS** at L3-4 → `/dr-compliance`
 - **ALL_PASS or CONDITIONAL_PASS** at L1-2 → `/dr-archive`
-- **BLOCKED** → `/dr-do` with specific fix list extracted from FAIL layers
+- **BLOCKED** — route by **earliest** failed layer:
+
+| Failed Layer | Return To | Rationale |
+|-------------|-----------|-----------|
+| Layer 1 (PRD Alignment) | `/dr-prd` | Requirements incomplete or wrong — update PRD first |
+| Layer 2 (Design Conformance) | `/dr-design` | Architecture decisions violated — revise design |
+| Layer 3 (Plan Completeness) | `/dr-plan` | Steps skipped or plan outdated — update plan |
+| Layer 4 (Code Quality) | `/dr-do` | Code bugs, security, anti-patterns — fix code |
+
+Multi-layer FAIL: route to **earliest** stage (Layer 1 > 2 > 3 > 4). Earlier failures are root causes; later failures are often symptoms.
+
+## Loop Guard
+
+If the same layer fails **3 times** on the same task, escalate to the user with a summary of all three failures. Options:
+- (a) Force-pass with documented waiver (recorded in QA report)
+- (b) Reduce task scope
+- (c) Cancel the task
+
+## Re-entry After FAIL Fix
+
+After returning to an earlier stage and correcting the issue:
+- **Resume forward** through remaining pipeline stages
+- **QA must be re-run** — previous pass is invalidated by the correction
+- Previous QA report kept for audit trail; new report gets `-v2`, `-v3` suffix
 
 ## Transition Checkpoint
 
