@@ -14,10 +14,10 @@ Datarim uses a 4-level complexity system to determine which pipeline stages to r
 ## Pipeline Routes
 
 ```
-L1: init → do → reflect → archive
-L2: init → [prd] → plan → do → [qa] → reflect → archive
-L3: init → prd → plan → design → do → qa → [compliance] → reflect → archive
-L4: init → prd → plan → design → phased-do → qa → compliance → reflect → archive
+L1: init → do → archive
+L2: init → [prd] → plan → do → [qa] → archive
+L3: init → prd → plan → design → do → qa → compliance → archive
+L4: init → prd → plan → design → phased-do → qa → compliance → archive
 ```
 
 Brackets `[]` = optional at that level.

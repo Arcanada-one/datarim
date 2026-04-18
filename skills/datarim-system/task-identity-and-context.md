@@ -24,25 +24,48 @@ If the user does not provide a task ID, the system:
 
 ### Task ID Extraction
 
-Read the first task line from `datarim/activeContext.md`:
+Read active tasks from `datarim/activeContext.md` under `## Active Tasks`:
 
 ```markdown
-**Current Task:** [TASK-ID] - [Task Title]
+## Active Tasks
+
+- **TASK-0001** — Description (Level 2, started 2026-04-18)
+- **TASK-0002** — Description (Level 3, started 2026-04-17)
 ```
+
+### Task Resolution Rule
+
+When a pipeline command needs a task ID, apply this logic:
+
+1. If user provided a task ID argument → use it directly.
+2. Read `## Active Tasks` from `datarim/activeContext.md`.
+3. If 0 active tasks → STOP, suggest `/dr-init`.
+4. If 1 active task → use it (backward compatible, no prompt).
+5. If >1 active tasks → prompt user:
+   `"Несколько активных задач: [list]. По какой задаче? (укажите ID)"`
+
+### activeContext.md Write Rules
+
+- `/dr-init` **APPENDS** a new task to `## Active Tasks`.
+- `/dr-archive` **REMOVES** the specific archived task from `## Active Tasks`. Other active tasks remain.
+- No command overwrites the entire `## Active Tasks` section.
+- Legacy format (`**Current Task:**` single line) — if encountered, convert to `## Active Tasks` list on first write.
 
 ## Task Context Tracking
 
-`activeContext.md` must identify the current task:
+`activeContext.md` tracks all active tasks:
 
 ```markdown
-**Current Task:** [TASK-ID] - [Task Title]
-- **Status**: [in_progress|completed|paused]
-- **Started**: [Date]
-- **Complexity**: Level [1-4]
-- **Type**: [Type]
-- **Priority**: [Priority]
-- **Repository**: [Repository]
-- **Branch**: [Branch name]
+# Active Context
+
+## Active Tasks
+
+- **TASK-0001** — Description (Level 2, started 2026-04-18)
+- **TASK-0002** — Description (Level 3, started 2026-04-17)
+
+## Последние завершённые
+
+- **TASK-0000** ✅ (2026-04-17) → Summary. `archive-TASK-0000.md`.
 ```
 
 ### Task Status Lifecycle
@@ -58,10 +81,10 @@ not_started → in_progress → completed → archived
 `/dr-archive` must:
 
 1. **Verify clean git status** for every repo touched by the task. If dirty, STOP and force commit/accept/abort decision — never archive silently over uncommitted changes. (See TUNE-0003 reflection: applied ≠ committed ≠ canonical.)
-2. Read `activeContext.md` to get the current task ID.
+2. **Resolve task ID** using Task Resolution Rule (argument or disambiguation).
 3. Verify the task exists in `tasks.md`.
 4. Archive only that specific task.
-5. Update `activeContext.md` after archiving.
+5. **Remove** the archived task from `## Active Tasks` in `activeContext.md` (keep other active tasks).
 
 ### PRD Waiver Policy (Level 3-4 follow-up tasks)
 
@@ -103,6 +126,9 @@ No renumbering occurs when a backlog item becomes active.
 | `ROB` | Rules of Robotics |
 | `VOICE` | Voice Agent |
 | `OVER` | Overlook |
+| `CONN` | Model Connector |
+| `SRCH` | Scrutator (Search & Retrieval) |
+| `LTM` | Long Term Memory |
 
 #### Area Prefixes
 

@@ -33,6 +33,9 @@ Rules and patterns for structured content creation and editorial review.
 3. Use concrete examples and specific data over abstract statements.
 4. Write naturally — avoid the AI patterns listed in the humanize skill from the start.
 5. Mark claims that need verification with `<!-- verify: claim -->` comments.
+6. **Numbers check:** every number must come from the primary source (spec sheet, benchmark JSON, invoice), not from memory or context summaries. `free -h` shows 62Gi; the spec is 64 GB. Use the spec.
+7. **Comparative metrics:** if you write "37x faster" or "45% higher", state what you're comparing against in the same sentence. The reader hasn't seen your internal requirements doc.
+8. **CTA platform check:** before writing "tell us in the comments", verify the target platform has comments. Website without comments → "write to us" or omit.
 
 ### Phase 3: Self-Review (before editor)
 1. Read aloud (mentally). Does it sound like a person wrote it?
@@ -84,3 +87,4 @@ When creating content in multiple languages:
 - Each language version is independent — it may have different structure, examples, or emphasis.
 - Russian tech content uses English technical terms with Russian explanation where needed.
 - Social media posts: create RU long, RU short, EN long, EN LinkedIn, EN Twitter variants as needed.
+- **Social posts must be self-contained** — min ~200 words for FB/TG/LI. A picture does not replace text. Platform limits are generous (FB: 63K chars, TG: 4096, LI: 3000) — use them. A 130-word summary is a teaser, not a post.

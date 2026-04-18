@@ -12,10 +12,11 @@ description: Implement planned changes using TDD and AI quality principles
 
 1.  **LOAD**: Read `$HOME/.claude/agents/developer.md` and adopt that persona.
 2.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system.md` § Path Resolution Rule.
-3.  **SKILL**: Read `$HOME/.claude/skills/ai-quality.md` (apply rules #2, #3, #8, #9 — see § Stage-Rule Mapping).
-4.  **CONTEXT**: Read `datarim/tasks.md` (Implementation Plan).
+3.  **TASK RESOLUTION**: Apply Task Resolution Rule from `$HOME/.claude/skills/datarim-system.md` § Task Resolution Rule. Use the resolved task ID for all subsequent steps.
+4.  **SKILL**: Read `$HOME/.claude/skills/ai-quality.md` (apply rules #2, #3, #8, #9 — see § Stage-Rule Mapping).
+5.  **CONTEXT**: Read `datarim/tasks.md` (Implementation Plan for the resolved task).
 
-5.  **PRE-FLIGHT CHECK** (L3-L4 code tasks only):
+6.  **PRE-FLIGHT CHECK** (L3-L4 code tasks only):
     Before writing any code, verify readiness:
     ```
     [ ] Plan document exists and is complete (datarim/tasks.md has implementation steps)?
@@ -25,13 +26,13 @@ description: Implement planned changes using TDD and AI quality principles
     ```
     If any check fails — fix before implementing. Do not start coding on a broken foundation.
 
-6.  **ACTION**:
+7.  **ACTION**:
     - **TDD Loop**: Write test -> Fail -> Code -> Pass.
     - Implement one stub/method at a time.
     - Follow `datarim/patterns.md` and `datarim/style-guide.md`.
     - Apply quality rules: max 50 lines/method, max 7-9 objects in scope, tests before code.
 
-7.  **REVIEW-FEEDBACK HANDLING** (when an automated code review or human review returns findings):
+8.  **REVIEW-FEEDBACK HANDLING** (when an automated code review or human review returns findings):
     Classify each finding, then act:
     - **Critical / blocking** → fix in the current MR before merge. Non-negotiable.
     - **Warning / suggestion that is cheap and strictly better** (1–5 lines, no new abstractions, no scope change)
@@ -45,7 +46,7 @@ description: Implement planned changes using TDD and AI quality principles
     feedback was processed, not silently ignored. Commit code changes and backlog additions together in the
     same review round.
 
-8.  **OUTPUT**: Code changes + `progress.md` update + backlog updates (if any).
+9.  **OUTPUT**: Code changes + `progress.md` update + backlog updates (if any).
 
 ## Transition Checkpoint
 

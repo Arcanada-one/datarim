@@ -15,7 +15,7 @@ description: Tech stack selection by project type (static, API, full-stack, etc.
 4. Do NOT introduce frameworks unless explicitly required.
 5. Do NOT over-engineer.
 6. Always select the stack based on project type.
-7. Always use the latest compatible stable versions.
+7. Always use the latest stable (LTS where applicable) versions of ALL dependencies. If a latest major has breaking changes — adapt the code, do NOT downgrade.
 8. Always include linting, formatting, and testing.
 9. Always use Docker for backend services.
 
@@ -171,6 +171,16 @@ graph LR
 - `tsup`/`swc` — build
 - `lefthook`/`husky` — git hooks
 
+## Scaffold Checklist
+
+After creating a new project in `Projects/*/code/`:
+1. `git init` — initialize standalone repo (parent arcanada gitignores `Projects/*/code/`)
+2. `pnpm outdated` / `uv pip list --outdated` — zero outdated = pass
+3. Verify `.gitignore` covers `node_modules/`, `dist/`, `.env`
+4. Initial commit with scaffold
+
+Source: CONN-0002 — Model Connector code had no `.git` for weeks; discovered only at archive time.
+
 ## Docker Rules
 
 1. Backend service -> Docker REQUIRED
@@ -181,8 +191,12 @@ graph LR
 
 ## Dependency Version Policy
 
+- **General rule:** ALWAYS install the **latest stable** (LTS where applicable) version of every dependency — runtime, toolchain, ORM, framework, CLI tool. If `pnpm add foo` installs a major version with breaking changes, **adapt the code to the new API** instead of downgrading. Downgrading to a previous major is only acceptable if the latest version has a critical, documented, unresolved bug.
 - **Node.js:** LTS (even versions), `engines` field, `pnpm-lock.yaml`
 - **Python:** latest stable minor, `pyproject.toml`, `uv.lock`
+- **Audit after scaffold:** Run `pnpm outdated` (or `uv pip list --outdated`) immediately after project init. Zero outdated packages = pass.
+- **AI hallucination guard:** Do NOT rely on training data for current package versions. Before specifying a version in `package.json` / `pyproject.toml`, verify the latest major via `npm view <pkg> version` (or `pip index versions <pkg>`). CONN-0001 incident: AI proposed Prisma 6 when Prisma 7 was already the latest stable — caught only at audit, cost rework.
+- **Post-install verification (MANDATORY):** After every `pnpm add` / `uv add` during implementation, run `pnpm outdated` (or equivalent). If any dependency shows a newer major, update immediately — do not defer.
 
 ## Testing Policy
 

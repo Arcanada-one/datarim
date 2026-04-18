@@ -1,6 +1,6 @@
 # Datarim — Universal Iterative Workflow Framework
 
-> **Version:** 1.10.0
+> **Version:** 1.12.0
 > **Framework:** Datarim (Датарим) provides structured rules, agents, skills, and commands for iterative project execution via Claude Code — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
 > **Note:** "Datarim" is transliterated as "Датарим" in Russian. Both refer to this framework — agents must recognize either form in any language context.
 
@@ -26,7 +26,7 @@ Reflection runs automatically inside `archive` as mandatory Step 0.5 (v1.10.0, T
 |-------|-------|----------|
 | **L1** Quick Fix | 1 file, <50 LOC | init → do → archive |
 | **L2** Enhancement | 2-5 files, <200 LOC | init → [prd] → plan → do → [qa] → archive |
-| **L3** Feature | 5-15 files, 200-1000 LOC | init → prd → plan → design → do → qa → [compliance] → archive |
+| **L3** Feature | 5-15 files, 200-1000 LOC | init → prd → plan → design → do → qa → compliance → archive |
 | **L4** Major Feature | 15+ files, >1000 LOC | init → prd → plan → design → phased-do → qa → compliance → archive |
 
 Brackets `[]` = optional at that level. `archive` always runs reflection internally as mandatory Step 0.5; this is not shown as a separate pipeline node because it cannot be skipped.

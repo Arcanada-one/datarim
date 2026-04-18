@@ -21,7 +21,7 @@ graph TD
     Plan3 --> Design3["/dr-design"]
     Design3 --> Do3["/dr-do"]
     Do3 --> QA3["/dr-qa"]
-    QA3 --> Compliance3["[/dr-compliance]"]
+    QA3 --> Compliance3["/dr-compliance"]
     Compliance3 --> Archive3["/dr-archive<br>(Step 0.5: reflect)"]
 
     L4 -->|"Major"| PRD4["/dr-prd"]

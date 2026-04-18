@@ -13,7 +13,7 @@ description: Review-phase workflow — lessons learned, evolution proposals (Cla
 This skill is **invoked internally by `/dr-archive` Step 0.5** for every completed task. It is **not a standalone command** — the former `/dr-reflect` command was retired in v1.10.0 (TUNE-0013) because reflection must run on every archive, not optionally.
 
 **Trigger:** `/dr-archive` Step 0.5 loads this skill.
-**Input:** current task state from `datarim/tasks.md` + `datarim/activeContext.md`.
+**Input:** resolved task state (from Task Resolution Rule in `$HOME/.claude/skills/datarim-system.md` § Task Resolution Rule) via `datarim/tasks.md` + `datarim/activeContext.md`. The task ID is already resolved by `/dr-archive` Step 0.
 **Output:** `datarim/reflection/reflection-{task-id}.md` + (optional) applied Class A evolution changes + follow-up-task list returned to `/dr-archive` Step 4.
 **Failure mode:** if skill load fails or user rejects Class A proposals → STOP archive; do NOT proceed to Step 1 of `/dr-archive`. Archive is idempotent — re-running re-enters Step 0.5.
 

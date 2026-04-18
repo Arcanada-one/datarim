@@ -11,11 +11,12 @@ description: Adaptive post-QA hardening. Detects task type (code, docs, research
 ## Instructions
 1.  **LOAD**: Read `$HOME/.claude/agents/compliance.md` and adopt that persona.
 2.  **RESOLVE PATH**: Find `datarim/` using standard path resolution.
-3.  **LOAD SKILLS**:
+3.  **TASK RESOLUTION**: Apply Task Resolution Rule from `$HOME/.claude/skills/datarim-system.md` § Task Resolution Rule. Use the resolved task ID for all subsequent steps.
+4.  **LOAD SKILLS**:
     - `$HOME/.claude/skills/datarim-system.md` (Always)
     - `$HOME/.claude/skills/compliance.md` (Adaptive checklists)
-4.  **DETECT TASK TYPE**: Read `datarim/tasks.md` and `datarim/activeContext.md`. Determine: code, documentation, research, legal, content, infrastructure, or mixed.
-5.  **APPLY CHECKLIST**: Execute the appropriate checklist(s) from the compliance skill:
+5.  **DETECT TASK TYPE**: Read `datarim/tasks.md` (for the resolved task) and `datarim/activeContext.md`. Determine: code, documentation, research, legal, content, infrastructure, or mixed.
+6.  **APPLY CHECKLIST**: Execute the appropriate checklist(s) from the compliance skill:
     - **Code** → 7-step software checklist (lint, tests, coverage, CI/CD)
     - **Documentation** → completeness, accuracy, consistency, cross-references, audience
     - **Research** → methodology, citations, argument coherence, scope
@@ -23,7 +24,7 @@ description: Adaptive post-QA hardening. Detects task type (code, docs, research
     - **Content** → factcheck, humanize, platform requirements, editorial standards
     - **Infrastructure** → configuration, rollback plan, monitoring, security
     - **Mixed** → apply relevant sections from each matching type
-6.  **REPORT**: Output compliance report with per-step results and overall verdict.
+7.  **REPORT**: Output compliance report with per-step results and overall verdict.
 
 ## Output
 - `datarim/reports/compliance-report-{task_id}.md` (if directory exists)
@@ -35,5 +36,9 @@ description: Adaptive post-QA hardening. Detects task type (code, docs, research
 - **NON-COMPLIANT** — critical issues found, fix before archiving
 
 ## Next Steps
-- COMPLIANT → `/dr-archive`
-- NON-COMPLIANT → fix issues, then re-run `/dr-compliance`
+- COMPLIANT or COMPLIANT_WITH_NOTES → `/dr-archive`
+- NON-COMPLIANT — identify defect source and route:
+  - PRD/task alignment gap identified → `/dr-prd` (update requirements, then resume forward)
+  - Code/test/lint/CI/CD issues → `/dr-do` (fix code, then re-run `/dr-compliance`)
+  - Default (source unclear) → `/dr-do`
+  - After fix: re-run `/dr-compliance` (previous report kept for audit; new gets `-v2` suffix)

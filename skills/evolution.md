@@ -226,6 +226,7 @@ These thresholds trigger an optimization suggestion during `/dr-archive` Step 0.
 | Total commands | >25 | Suggest `/dr-optimize` — check for duplicates |
 | Any skill >500 lines | — | Suggest splitting into base + supporting files |
 | Total description chars | >8000 | Suggest shortening descriptions |
+| Any description >155 chars | — | Shorten to ≤155 chars (sufficient for discovery) |
 | Orphan rate | >15% components unreferenced | Suggest `/dr-optimize` — prune orphans |
 
 The optimizer reports these metrics in its audit. Healthy frameworks stay under all thresholds.

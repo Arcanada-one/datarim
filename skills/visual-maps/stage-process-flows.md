@@ -70,8 +70,12 @@ graph LR
     B --> C["Layer 3: Plan completeness"]
     C --> D["Layer 4: Code/content quality"]
     D --> E{"Verdict"}
-    E -->|PASS| F["/dr-compliance or /dr-archive"]
-    E -->|FAIL| G["Back to /dr-do"]
+    E -->|"PASS L3-4"| F["/dr-compliance"]
+    E -->|"PASS L1-2"| F2["/dr-archive"]
+    E -->|"FAIL L1"| G1["Back to /dr-prd"]
+    E -->|"FAIL L2"| G2["Back to /dr-design"]
+    E -->|"FAIL L3"| G3["Back to /dr-plan"]
+    E -->|"FAIL L4"| G4["Back to /dr-do"]
 ```
 
 ## /dr-compliance

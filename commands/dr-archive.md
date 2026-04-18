@@ -12,7 +12,10 @@ Complete and archive current task.
 **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system.md` § Path Resolution Rule.
 
 ## Steps
-0. **PRE-ARCHIVE CLEAN-GIT CHECK** (MANDATORY):
+
+0. **TASK RESOLUTION**: Apply Task Resolution Rule from `$HOME/.claude/skills/datarim-system.md` § Task Resolution Rule. Resolve which task is being archived (from argument or disambiguation). Use the resolved task ID for all subsequent steps.
+
+0.1. **PRE-ARCHIVE CLEAN-GIT CHECK** (MANDATORY):
    - For every git repository touched by this task (arcanada workspace + any nested project repos like `Projects/Datarim/code/datarim/`), run `git status --porcelain`.
    - If any repo has uncommitted changes, STOP and present the list to the user with three options:
      a. **Commit now** (proceed with archive after commits land).
@@ -46,7 +49,7 @@ Complete and archive current task.
    - **Known Loss Verification Gate (MANDATORY when archive will include any "Known Loss" / "Unrecoverable" / "Content lost" statement):**
      Before recording that any file, section, decision, or piece of work is permanently lost, run the Disaster Recovery Checklist from `$HOME/.claude/skills/evolution.md` § Disaster Recovery for Lost Runtime Files. Record in the archive document which channels were checked (grep reflections by filename, compacted session context, cross-references, git history of consumer projects, external backups) and what each returned. If the checklist takes >30 minutes, defer the archive, open a follow-up recovery task, do not record the loss yet. Only after all 5 channels are exhausted may a loss claim enter the archive. Rationale: TUNE-0003 archive recorded 4 files as "text reconstruction is not possible" after 0 minutes of discovery; TUNE-0011 recovered 100% of them in 20 minutes using channels 1-3.
 3. **BACKLOG UPDATE** (if task existed in backlog):
-   - Get current task ID from `datarim/activeContext.md`
+   - Use the resolved task ID from Step 0
    - If the same ID exists in `datarim/backlog.md` (as `in_progress` or `pending`):
      a. **Remove** that entry from `datarim/backlog.md`
      b. **Add** entry to `datarim/backlog-archive.md` under `## Completed` with status `completed`, completion date, and link to archive doc — keeping the same ID
@@ -60,8 +63,8 @@ Complete and archive current task.
    ```
    | {task_id} | {title} | {today's date} | `documentation/archive/{area}/archive-{task_id}.md` |
    ```
-6. Reset `activeContext.md`
-7. Clear completed task from Active Tasks section of `tasks.md` (keep Archived Tasks table)
+6. **Remove** the archived task from `## Active Tasks` in `activeContext.md`. Keep other active tasks. Prepend the newly archived task to `## Последние завершённые`. Do NOT reset the entire file. See `$HOME/.claude/skills/datarim-system.md` § activeContext.md Write Rules.
+7. Clear the archived task from Active Tasks section of `tasks.md` (keep Archived Tasks table and other active tasks)
 
 ## Read
 - `datarim/tasks.md`
@@ -83,10 +86,10 @@ Complete and archive current task.
 ## Cancellation Mode
 
 If user says "cancel task" or "cancel {TASK-ID}":
-1. Get task ID from `datarim/activeContext.md` (or from user argument)
+1. Resolve task ID using Task Resolution Rule (argument or disambiguation).
 2. **Remove** the entry from `datarim/backlog.md` (if present)
 3. **Add** entry to `datarim/backlog-archive.md` under `## Cancelled` with status `cancelled`, date, and reason — keeping the same ID
-4. Reset `activeContext.md`
+4. **Remove** the cancelled task from `## Active Tasks` in `activeContext.md` (keep other active tasks)
 5. Clear task from `tasks.md`
 6. Do NOT create archive document (task was not completed)
 
