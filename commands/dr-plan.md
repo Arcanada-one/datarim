@@ -36,7 +36,9 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
     -   **Security Design**: Perform **Threat Modeling** and map to **Security Controls** (Appendix A).
 
 5.  **Create Implementation Plan (Phase 5)**:
-    -   Update `datarim/tasks.md` using the **Design Document Template**.
+    -   **L1-L2 tasks:** Write plan inline in `datarim/tasks.md` task entry.
+    -   **L3-L4 tasks:** Write plan to `datarim/plans/{TASK-ID}-plan.md`. In the task entry in `tasks.md`, add only a pointer: `**Implementation Plan:** [datarim/plans/{TASK-ID}-plan.md](plans/{TASK-ID}-plan.md)`.
+    -   Both formats use the same **Design Document Template**.
     -   Include: **Security Summary** (Attack Surface, Risks), **Architecture Impact**, **Detailed Design** (API, DB, Config), **Security Design** (Threats, Controls), **Implementation Steps**, **Test Plan** (Unit/Integration/Security), **Rollback Strategy**, **Validation Checklist**.
 
 6.  **Technology Validation**:

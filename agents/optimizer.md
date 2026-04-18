@@ -101,6 +101,8 @@ When running `/dr-optimize`, produce a report with these 6 sections:
 | Max skill lines | {name}: {N} | >500 | OK / OVER |
 | Max agent lines | {name}: {N} | >120 warn, >180 split | OK / WARN / SPLIT |
 | Orphan rate | {N}% ({list}) | >15% | OK / OVER |
+| tasks.md lines | {N} | >3000 warn, >5000 hard | OK / WARN / OVER |
+| activeContext.md lines | {N} | >100 warn, >200 hard | OK / WARN / OVER |
 
 ### Section 2: Top-5 Oversized Components
 

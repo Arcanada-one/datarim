@@ -1,6 +1,6 @@
 ---
 name: infra-automation
-description: SSH batch execution, ping matrices, health checks for Arcana servers. Use when performing infrastructure operations across multiple servers.
+description: Infrastructure operations — SSH batch execution, health checks, network debugging, pre-migration inventory, remote measurement. Use for Arcana server ops or when a site/endpoint is down.
 model: sonnet
 ---
 
@@ -92,3 +92,54 @@ ssh root@65.108.236.39 "nginx -t" 2>&1
 3. **Verify command on one server first** before running batch across all.
 4. **Keep SSH sessions short** — run command and exit, don't keep persistent sessions.
 5. **Log operations** — pipe output to file for audit trail when making changes.
+
+---
+
+## Network-First Debugging
+
+When a site or endpoint is "not working", investigate in this order BEFORE touching app-layer config:
+
+1. **DNS resolution:** `dig <domain>`, `dig <domain> CNAME`, `dig NS <domain>`
+2. **Reachability:** `curl -sI --connect-timeout 10 http://<resolved-ip>/`, `ping -c 3 <ip>`
+3. **Origin-side:** `curl -sI -H "Host: <domain>" http://127.0.0.1/`
+4. **Only then** investigate app layer (SSL, web server config, file permissions, app logs)
+
+**Red herrings:** expired SSL cert (irrelevant if DNS points elsewhere), web server config (irrelevant if requests don't reach server), file permissions (check only after confirming requests arrive).
+
+## Pre-Migration Service Inventory
+
+Before migrating a server, enumerate ALL services:
+1. Web server configs: `grep -r "server_name" /etc/nginx/`
+2. TLS certificates: `sudo certbot certificates`
+3. DNS records pointing to server IP
+4. Active listeners: `ss -tlnp`
+5. Cron jobs: `sudo crontab -l`, `/etc/cron.d/`, `systemctl list-timers`
+6. Outgoing connections: webhooks, monitoring, backups
+
+**Migration config edits:** always backup → edit → diff → validate syntax → reload (not restart) → verify with curl.
+
+---
+
+## Remote Measurement
+
+**Core principle:** Upload a script, run it once, stream results back. Never wrap a large per-item loop inside an SSH heredoc — every item pays the SSH parsing tax and failures leak children.
+
+```bash
+cat > /tmp/measure.sh <<'EOS'
+#!/usr/bin/env bash
+set -euo pipefail
+while IFS= read -r d; do
+  sz=$(du -sb "/var/www/$d" 2>/dev/null | awk '{print $1}')
+  [ -n "$sz" ] && printf '%s\t%s\n' "$d" "$sz" >> "$2/bodies.tsv"
+done < "$1"
+EOS
+scp /tmp/measure.sh /tmp/list.txt user@host:/tmp/
+ssh user@host "chmod +x /tmp/measure.sh && /tmp/measure.sh /tmp/list.txt /tmp/out"
+scp -r user@host:/tmp/out/ /local/reports/
+```
+
+**Long-running (>5 min):** use `systemd-run --unit` or `nohup`, never bare `&`.
+
+**Killing leaked processes:** target the process group: `kill -TERM -- -$PGID` (not just PID).
+
+**Anti-patterns:** nested SSH per item, backgrounded SSH loops, `sudo -n` without pre-check.
