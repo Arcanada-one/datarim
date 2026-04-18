@@ -1,6 +1,6 @@
 ---
 name: writing
-description: Content creation workflow — research, outlining, drafting, editing, fact-checking, publication prep. Loaded by writer and editor agents.
+description: Content creation workflow + go-to-market — research, drafting, editing, publication, SEO, analytics, launch checklists. Loaded by writer and editor agents.
 model: sonnet
 ---
 
@@ -88,3 +88,36 @@ When creating content in multiple languages:
 - Russian tech content uses English technical terms with Russian explanation where needed.
 - Social media posts: create RU long, RU short, EN long, EN LinkedIn, EN Twitter variants as needed.
 - **Social posts must be self-contained** — min ~200 words for FB/TG/LI. A picture does not replace text. Platform limits are generous (FB: 63K chars, TG: 4096, LI: 3000) — use them. A 130-word summary is a teaser, not a post.
+
+---
+
+## Go-to-Market & Launch
+
+### Technical SEO Checklist
+- `robots.txt` allows indexing; XML sitemap submitted to Search Console
+- Canonical tags correct; no duplicate content (www vs non-www, http vs https)
+- Unique `<title>` (50-60 chars) and `<meta description>` (120-160 chars) per page
+- One `<h1>` per page; heading hierarchy logical (h1>h2>h3)
+- JSON-LD schema markup (Article, Product, FAQ, Organization)
+- Core Web Vitals: LCP<2.5s, INP<200ms, CLS<0.1
+
+### Analytics Setup
+- GA4: data stream, enhanced measurement, custom events, conversions, 14-month retention
+- Search Console: property verified, sitemap submitted, no critical coverage errors
+- Ad tracking: conversion tags installed, UTM parameters on all ad URLs
+
+### Website Pre-Launch
+- SSL valid, HTTPS everywhere, HSTS enabled, www/non-www redirect
+- OG tags (og:title, og:description, og:image 1200x630px), Twitter Card tags
+- 404 page customized, forms tested, favicon installed (16/32/180/192/512)
+- Privacy Policy, Terms of Service, cookie consent banner
+- PageSpeed mobile >80, no broken links, cross-browser tested
+
+### Landing Page Optimization
+- Above fold: headline matching ad promise, one primary CTA, social proof
+- Below fold: feature/benefit blocks with specifics, FAQ, secondary CTA
+- Mobile-responsive, minimal form fields, inline validation
+
+### Campaign Budget Framework
+- 70% proven channels, 20% testing, 10% experimental
+- Key metrics: CPA < target, ROAS > 3x, CTR > 2% search, CVR > 2% landing page
