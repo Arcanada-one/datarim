@@ -1,15 +1,27 @@
 ---
 name: dr-init
-description: Initialize a new Datarim task with complexity detection and automatic task numbering
+description: Initialize a new Datarim task or scaffold a new project. Auto-detects intent from prompt context.
 disable-model-invocation: true
 ---
 
-# /dr-init - Initialize New Task
+# /dr-init - Initialize New Task or Project
 
 **Role**: Planner Agent (Initial)
 **Source**: `$HOME/.claude/agents/planner.md`
 
 ## Instructions
+0.  **INTENT DETECTION** — Determine whether the user wants to create a **project** or a **task**:
+    - Scan the user's input for project creation signals:
+      - English keywords: "create project", "new project", "init project", "scaffold project", "setup project"
+      - Russian keywords: "создай проект", "новый проект", "инициализируй проект", "создать проект"
+      - Pattern: `/dr-init create project "Name"`
+      - Pattern: `/dr-init new project for <description>`
+    - **If project intent detected:**
+      a. Load `$HOME/.claude/skills/project-init.md` and follow its scaffolding flow.
+      b. **EXIT** — do not continue to the task flow below.
+    - **If NO project intent detected:**
+      → Continue to Step 1 (standard task flow, unchanged).
+
 1.  **LOAD**: Read `$HOME/.claude/agents/planner.md` and adopt that persona.
 2.  **RESOLVE PATH**: This is the ONLY command that may create `datarim/`. Resolve the correct location:
     - Find the **top-level git root** (`git rev-parse --show-toplevel`).

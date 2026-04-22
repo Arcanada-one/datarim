@@ -2,7 +2,7 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 1.12.0](https://img.shields.io/badge/Version-1.12.0-green.svg)](VERSION)
+[![Version: 1.14.0](https://img.shields.io/badge/Version-1.14.0-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
@@ -15,7 +15,7 @@ reflection. The result is inconsistent quality, skipped steps, and zero institut
 learning. Every task starts from scratch, repeating the same mistakes from yesterday.
 
 Datarim fixes this by providing a complete iterative pipeline for any project type.
-It includes 16 specialized agents, 24 reusable skills, and 19 commands that guide
+It includes 16 specialized agents, 21 reusable skills, and 19 commands that guide
 work through a structured process: requirements gathering, planning, design,
 execution, quality assurance, compliance, reflection, and archival. The pipeline is
 complexity-aware — a quick fix does not go through the same process as a major
@@ -135,6 +135,12 @@ Stages in `[brackets]` are conditional — included when the agent determines th
 - **Strategic advisor gate** — before committing to major work, the strategist agent
   evaluates value, risk, and cost. Not every technically interesting idea deserves
   implementation resources.
+
+- **Project scaffolding** — `/dr-init create project "Name"` creates a complete
+  project structure: CLAUDE.md with Laws of Robotics and Datarim pipeline, docs/
+  stubs (architecture, testing, deployment, gotchas), ephemeral working directories,
+  and Datarim workflow state. Tech stack auto-detected. Idempotent — safe to run on
+  existing projects.
 
 - **Universal compatibility** — works for any project, any domain, any tech stack.
   Software, research, documentation, legal work, project management — the framework
@@ -364,6 +370,7 @@ involve all fifteen agents across different stages.
 | **factcheck** | Claim extraction, source verification, accuracy scoring | Editor, Writer |
 | **humanize** | AI artifact removal, voice preservation, natural language patterns | Editor, Writer |
 | **telegram-publishing** | Telegram Bot API publishing rules, caption limits, discussion group comments | On demand |
+| **project-init** | Project scaffolding: CLAUDE.md, docs/, datarim/ structure for new projects | /dr-init (project mode) |
 
 Skills are modular. Each is a standalone Markdown file that agents load when they need
 specific capabilities. You can add custom skills by placing `.md` files in
@@ -375,7 +382,7 @@ specific capabilities. You can add custom skills by placing `.md` files in
 
 | Command | Stage | Description |
 |---------|-------|-------------|
-| `/dr-init` | Initialize | Start a new task or pick one from the backlog. Assigns complexity level (L1-L4) and routes the pipeline. |
+| `/dr-init` | Initialize | Start a new task, pick from backlog, or scaffold a new project. For tasks: assigns complexity (L1-L4) and routes pipeline. For projects: `/dr-init create project "Name"`. |
 | `/dr-prd` | Requirements | Generate a Product Requirements Document. Analyzes the problem, defines scope, success criteria, and constraints. |
 | `/dr-plan` | Planning | Create a detailed implementation plan. Breaks work into phases, estimates effort, identifies risks. |
 | `/dr-design` | Design | Explore architectural decisions. Evaluates alternatives, documents trade-offs, defines interfaces. |
@@ -851,9 +858,9 @@ and why it exists.
 ```
 datarim/
   agents/            # Agent personas (15 agents)
-  skills/            # Knowledge modules (24 skills)
+  skills/            # Knowledge modules (25 skills)
   commands/          # Slash commands (19 commands)
-  templates/         # Task and document templates (5 templates)
+  templates/         # Task and document templates (12 templates)
   docs/              # Extended documentation and use cases
   CLAUDE.md          # Framework rules (copy to your project)
   install.sh         # Automated installer

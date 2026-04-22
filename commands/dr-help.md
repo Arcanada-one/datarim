@@ -21,7 +21,7 @@ Not every task goes through every stage. Datarim routes tasks based on complexit
 
 | Command | Stage | Description |
 |---------|-------|-------------|
-| `/dr-init` | Initialize | Start a new task or pick one from the backlog. Assigns complexity level (L1-L4) and routes the pipeline. |
+| `/dr-init` | Initialize | Start a new task, pick from backlog, or **scaffold a new project**. Assigns complexity (L1-L4) for tasks; for projects use `/dr-init create project "Name"`. |
 | `/dr-prd` | Requirements | Generate a Product Requirements Document. Define scope, constraints, and success criteria. |
 | `/dr-plan` | Planning | Create a detailed implementation plan. Break work into phases, estimate effort, identify risks. |
 | `/dr-design` | Design | Explore architectural and design decisions. Evaluate alternatives, run consilium panels for L3-L4. |
@@ -37,7 +37,7 @@ Not every task goes through every stage. Datarim routes tasks based on complexit
 | `/dr-write` | Create written content — articles, blog posts, documentation, research papers, social media. Uses the **writer** agent with the writing workflow skill. |
 | `/dr-edit` | Editorial review — fact verification, AI pattern removal, style consistency, publication-ready quality. Uses the **editor** agent with factcheck and humanize skills. |
 
-### Framework Management Commands (2)
+### Framework Management Commands (3)
 
 | Command | Description |
 |---------|-------------|
@@ -86,13 +86,14 @@ For quick one-off checks, use `/factcheck` or `/humanize` directly on any file.
 
 Stages in `[brackets]` are optional — included when the agent determines they add value. `archive` always runs reflection internally as mandatory Step 0.5 (v1.10.0, TUNE-0013).
 
-## Agents (15)
+## Agents (16)
 
 | Agent | Role |
 |-------|------|
 | planner | Project management, task breakdown, complexity assessment |
 | architect | System design, trade-offs, interfaces |
 | developer | TDD implementation, code quality |
+| tester | Platform QA, test runners, Docker-aware execution |
 | reviewer | QA, security compliance, DoD validation |
 | compliance | Post-QA hardening, PRD revalidation |
 | code-simplifier | Reduce complexity, improve readability |
@@ -115,9 +116,23 @@ Datarim tracks tasks in a two-file backlog system:
 Use `/dr-init` to pick a task from the backlog or create a new one.
 Use `/dr-status` to see the backlog summary.
 
+## Project Scaffolding
+
+`/dr-init` can also scaffold a new project structure:
+
+```
+/dr-init create project "My API Service"
+/dr-init новый проект "Мой сервис"
+```
+
+This creates: `CLAUDE.md`, `docs/` (architecture, testing, deployment, gotchas), `docs/ephemeral/` (plans, research, reviews), `datarim/` (workflow state), and `documentation/archive/`. Tech stack is auto-detected from project description via `tech-stack.md`.
+
+Idempotent — safe to run on existing projects (skips existing files, creates only what is missing).
+
 ## Tips
 
 - Start with `/dr-init <task description>` — the framework handles routing.
+- Use `/dr-init create project "Name"` to scaffold a new project with full structure.
 - Use `/dr-status` at any time to see where you are.
 - Use `/dr-continue` after a break to resume with full context.
 - Datarim works for any project type: software, research, documentation, legal, project management.
