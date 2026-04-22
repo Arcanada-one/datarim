@@ -272,11 +272,13 @@ The file has two sections:
 # Navigate to your project
 cd your-project
 
-# Copy the framework rules into your project root
-cp /path/to/datarim/CLAUDE.md .
+# Option A: Scaffold a new project (creates CLAUDE.md, docs/, datarim/ automatically)
+claude
+/dr-init create project "My API Service"
 
+# Option B: Set up manually in an existing project
+cp /path/to/datarim/CLAUDE.md .
 # Edit the project-specific section at the bottom of CLAUDE.md
-# Add your project description, tech stack, conventions
 
 # Start Claude Code
 claude
