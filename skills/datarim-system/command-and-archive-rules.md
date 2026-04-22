@@ -78,6 +78,20 @@ When `/dr-init` detects project creation intent (keywords: "create project", "ne
 
 Project mode exits after scaffolding — it does not continue to the task flow.
 
+## Count Verification Rule
+
+Any plan or documentation that references component counts (skills, agents, commands, templates) **must verify from disk** before writing. Do not copy counts from existing documentation — they drift.
+
+```bash
+# Authoritative counts
+ls $HOME/.claude/skills/*.md | wc -l    # skills
+ls $HOME/.claude/agents/*.md | wc -l    # agents
+ls $HOME/.claude/commands/*.md | wc -l  # commands
+ls $HOME/.claude/templates/*.md | wc -l # templates
+```
+
+Source: TUNE-0028 — plan stated "24→25 skills" but actual count was 20→21. README had stale counts (24 skills, 5 templates). Disk-first verification catches this.
+
 ## Critical Rules
 
 1. `datarim/` is workflow truth; `documentation/archive/` is archive truth.

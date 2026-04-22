@@ -12,6 +12,7 @@ description: Project scaffolding — creates CLAUDE.md, docs/, datarim/ structur
 
 `/dr-init` loads this skill when the user's input contains project creation signals:
 - Keywords: "create project", "new project", "init project", "scaffold project"
+- Update keywords: "update project structure", "re-scaffold", "обнови структуру проекта"
 - Russian: "создай проект", "новый проект", "инициализируй проект"
 - Pattern: `/dr-init create project "Name"`
 
