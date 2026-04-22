@@ -1,6 +1,6 @@
 # Datarim — Universal Iterative Workflow Framework
 
-> **Version:** 1.12.0
+> **Version:** 1.14.0
 > **Framework:** Datarim (Датарим) provides structured rules, agents, skills, and commands for iterative project execution via Claude Code — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
 > **Note:** "Datarim" is transliterated as "Датарим" in Russian. Both refer to this framework — agents must recognize either form in any language context.
 
@@ -113,8 +113,9 @@ Skills are reusable knowledge modules loaded on demand. They provide rules, patt
 - `humanize.md` — AI text pattern removal (loaded by: editor, on demand)
 - `visual-maps.md` — Mermaid workflow diagrams: pipeline routing, stage flows, agent-skill-command graphs (loaded on demand for navigation)
 - `telegram-publishing.md` — Telegram Bot API publishing rules, caption limits, discussion group comments (loaded on demand)
+- `project-init.md` — Project scaffolding: creates CLAUDE.md, docs/, datarim/ structure for new projects (loaded by: /dr-init when project intent detected)
 
-Skill files: `$HOME/.claude/skills/{name}.md` (24 skills, 3 with supporting fragment directories)
+Skill files: `$HOME/.claude/skills/{name}.md` (21 skills, 3 with supporting fragment directories)
 
 ---
 
@@ -175,7 +176,7 @@ Before writing ANY file to `datarim/`:
 
 | Command | Stage | Description |
 |---------|-------|-------------|
-| `/dr-init` | Initialize | Create task or pick from backlog, assess complexity, set up `datarim/` |
+| `/dr-init` | Initialize | Create task, pick from backlog, or **scaffold a new project**. Assess complexity, set up `datarim/` |
 | `/dr-prd` | Requirements | Generate PRD with discovery interview |
 | `/dr-plan` | Planning | Detailed implementation plan with strategist gate |
 | `/dr-design` | Design | Architecture exploration with consilium |
