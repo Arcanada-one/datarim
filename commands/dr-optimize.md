@@ -71,6 +71,12 @@ effort: high
     | Selective-loading candidate | Monolithic file with mixed subdomains | Propose split into entry + supporting files |
     | Low-value provenance comments | Task-origin or migration notes that do not affect usage/policy | Propose rewrite cleanup |
 
+6b. **DATARIM STATE HYGIENE** (always run):
+    - Read `datarim/tasks.md`: extract all task IDs in `## Active Tasks` section AND all task IDs in `## Archived Tasks` table.
+    - If any task ID appears in BOTH sections → it was archived but not cleaned from Active Tasks. Propose `remove-orphaned-active-task` (auto-approve: safe, data preserved in archive).
+    - Read `datarim/activeContext.md`: if any task listed in `## Active Tasks` has a matching entry in the Archived Tasks table of tasks.md → propose removal from activeContext.
+    - This catches cases where archive ran before Steps 6-7 existed (e.g. pre-v1.10.0 archives).
+
 7.  **GENERATE REPORT**: Follow the **Structured Audit Report** template from `optimizer.md` (6 sections: Health Metrics Dashboard, Top-5 Oversized, Description Budget Violations, Merge Candidates, Orphan Analysis, Actionable Recommendations). Present all 6 sections with concrete data — no placeholders, no "TBD".
 
 8.  **APPROVAL GATE**: Follow the evolution.md approval process:

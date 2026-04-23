@@ -61,6 +61,11 @@ date -u +%Y-%m-%dT%H:%M:%SZ
 
 Or use the current date from session context.
 
+## Embedded Phases (not separate pipeline stages)
+
+- **Research** runs inside `/dr-prd` as Phase 1.3 (L2+). Researcher agent produces `datarim/insights/INSIGHTS-{task-id}.md`. Not a separate pipeline node — no routing change needed. (TUNE-0029)
+- **Gap Discovery** runs inside `/dr-do` as Step 7.5. Developer agent spawns researcher subagent on unknowns, appends to insights. Fundamental gaps escalate to `/dr-prd`. (TUNE-0029)
+
 ## Mode Transition Optimization
 
 ### Automatic Transitions

@@ -1,6 +1,6 @@
 # Datarim — Universal Iterative Workflow Framework
 
-> **Version:** 1.14.0
+> **Version:** 1.15.0
 > **Framework:** Datarim (Датарим) provides structured rules, agents, skills, and commands for iterative project execution via Claude Code — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
 > **Note:** "Datarim" is transliterated as "Датарим" in Russian. Both refer to this framework — agents must recognize either form in any language context.
 
@@ -55,8 +55,9 @@ Agents are specialized personas loaded per pipeline stage. Each agent has define
 | **security** | Security Analyst | /dr-design, /dr-qa, /dr-compliance |
 | **sre** | Site Reliability Engineer | /dr-design, /dr-qa, /dr-archive (Step 0.5 postmortem) |
 | **tester** | Platform QA Tester | /dr-qa, /dr-do (verification) |
+| **researcher** | Structured External Research | /dr-prd (Phase 1.3), /dr-do (Gap Discovery) |
 
-Agent files: `$HOME/.claude/agents/{name}.md` (16 agents)
+Agent files: `$HOME/.claude/agents/{name}.md` (17 agents)
 
 ### Agent Loading Rules
 
@@ -114,8 +115,10 @@ Skills are reusable knowledge modules loaded on demand. They provide rules, patt
 - `visual-maps.md` — Mermaid workflow diagrams: pipeline routing, stage flows, agent-skill-command graphs (loaded on demand for navigation)
 - `telegram-publishing.md` — Telegram Bot API publishing rules, caption limits, discussion group comments (loaded on demand)
 - `project-init.md` — Project scaffolding: creates CLAUDE.md, docs/, datarim/ structure for new projects (loaded by: /dr-init when project intent detected)
+- `research-workflow.md` — Structured research methodology, checklist, tool selection, gap discovery protocol (loaded by: researcher)
+- `publishing.md` — Multi-platform publishing rules, formatting, platform limits, workflow (loaded by: writer, on demand)
 
-Skill files: `$HOME/.claude/skills/{name}.md` (21 skills, 3 with supporting fragment directories)
+Skill files: `$HOME/.claude/skills/{name}.md` (22 skills, 3 with supporting fragment directories)
 
 ---
 
@@ -188,6 +191,7 @@ Before writing ANY file to `datarim/`:
 | `/dr-continue` | Utility | Resume from last checkpoint |
 | `/dr-write` | Content | Create written content — articles, docs, research, posts |
 | `/dr-edit` | Content | Editorial review — fact-check, humanize, style, polish |
+| `/dr-publish` | Content | Adapt and publish content to multiple platforms |
 | `/dr-addskill` | Extension | Create or update skills, agents, commands with web research |
 | `/dr-optimize` | Maintenance | Audit framework, prune unused, merge duplicates, sync docs |
 | `/dr-dream` | Maintenance | Knowledge base maintenance: organize, lint, index, cross-reference |
@@ -195,7 +199,7 @@ Before writing ANY file to `datarim/`:
 | `/factcheck` | Standalone | Fact-check articles and posts before publication |
 | `/humanize` | Standalone | Remove AI writing patterns from text |
 
-Command files: `$HOME/.claude/commands/{name}.md` (18 commands)
+Command files: `$HOME/.claude/commands/{name}.md` (19 commands)
 
 ---
 

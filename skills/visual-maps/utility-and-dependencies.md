@@ -37,6 +37,7 @@ graph TD
     subgraph "Content Commands"
         write["/dr-write"]
         edit["/dr-edit"]
+        publish["/dr-publish"]
         factcheck_cmd["/factcheck"]
         humanize_cmd["/humanize"]
     end
@@ -69,16 +70,19 @@ graph TD
         sre_agent["sre"]
         devops_agent["devops"]
         code_simp["code-simplifier"]
+        researcher["researcher"]
     end
 
     init --> planner
     prd --> architect
+    prd -.->|"Phase 1.3"| researcher
     plan --> planner
     plan -.->|"L3-4"| strategist
     design --> architect
     design -.->|"L3-4"| security_agent
     design -.->|"L3-4"| sre_agent
     do --> developer
+    do -.->|"gap discovery"| researcher
     do -.-> devops_agent
     qa --> reviewer
     qa -.-> security_agent
@@ -88,6 +92,7 @@ graph TD
     archive -.->|"Step 0.5"| reviewer
     write --> writer_agent
     edit --> editor_agent
+    publish --> writer_agent
     factcheck_cmd --> editor_agent
     humanize_cmd --> editor_agent
     addskill --> skill_creator
@@ -114,6 +119,7 @@ graph LR
         devops_agent["devops"]
         sre_agent["sre"]
         security_agent["security"]
+        researcher_agent["researcher"]
     end
 
     subgraph "Skills"
@@ -132,8 +138,10 @@ graph LR
         comp_sk["compliance"]
         fc["factcheck"]
         hum["humanize"]
+        pub["publishing"]
         util["utilities"]
         vmap["visual-maps"]
+        research_wf["research-workflow"]
     end
 
     planner --> sys & aiq & tech
@@ -141,7 +149,7 @@ graph LR
     developer --> sys & aiq & test
     reviewer --> sys & sec & test & refl & evo
     comp_agent --> sys & comp_sk
-    writer_agent --> sys & writ & fc
+    writer_agent --> sys & writ & fc & pub
     editor_agent --> sys & fc & hum & writ
     skill_creator --> sys & evo & writ
     optimizer_agent --> sys & evo
@@ -150,4 +158,5 @@ graph LR
     devops_agent --> sys & tech & sec
     sre_agent --> sys & perf & sec
     security_agent --> sys & sec & comp_sk
+    researcher_agent --> sys & research_wf & tech
 ```

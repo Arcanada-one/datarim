@@ -20,7 +20,16 @@ This command generates a structured Product Requirements Document (PRD) followin
     -   Identify affected components and constraints (Security, Performance).
     -   Read relevant source code files to understand current implementation.
 
+1.5. **Research External Context (Phase 1.3)** (L2+ only):
+    -   Determine research mode: **Lite** (L2, 5 checkpoints) or **Full** (L3-L4, 10 checkpoints). Skip entirely for L1.
+    -   Load `$HOME/.claude/skills/research-workflow.md`.
+    -   Spawn researcher agent (`$HOME/.claude/agents/researcher.md`) with task context: task ID, description, identified stack/dependencies from Phase 1.
+    -   Agent creates `datarim/insights/INSIGHTS-{task-id}.md` from template `$HOME/.claude/templates/insights-template.md`.
+    -   Agent runs research checklist per mode, using available tools adaptively (context7, WebSearch, LTM API, codebase analysis).
+    -   If insights document already exists (e.g., from a previous `/dr-prd` run), update rather than overwrite.
+
 2.  **Discovery Interview (Phase 1.5)**:
+    -   If `datarim/insights/INSIGHTS-{task-id}.md` exists, read it before starting the interview — use research findings to inform questions and proposals.
     -   Load `$HOME/.claude/skills/discovery.md`.
     -   Run a focused interview (mode based on complexity: Quick for L1-2, Standard for L2-3, Deep for L3-4).
     -   Apply codebase-first rule: prioritize existing code patterns and constraints over assumptions.
@@ -39,6 +48,7 @@ This command generates a structured Product Requirements Document (PRD) followin
 5.  **Generate PRD**:
     -   Use the structure from `$HOME/.claude/templates/prd-template.md`.
     -   Include: Problem Statement, Scope, Context Analysis, Technical Approach (Selected + Alternatives), Success Criteria, Risks.
+    -   If insights document was created in Phase 1.3, add a reference in the PRD header: `**Research:** [INSIGHTS-{task-id}](../insights/INSIGHTS-{task-id}.md)`
     -   Save to `datarim/prd/PRD-{slug}.md`.
 
 6.  **Backlog Generation** (optional):

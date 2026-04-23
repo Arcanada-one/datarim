@@ -43,6 +43,7 @@ if [ "$DR_DIR" = "/" ]; then print "ERROR: datarim/ not found"; else print "$DR_
 - `qa/` — QA reports
 - `reports/` — debug, diagnostic, and compliance reports
 - `docs/` — framework evolution log and related documentation
+- `insights/` — research insights documents (created by /dr-prd Phase 1.3, updated by /dr-do gap discovery)
 
 ## Documentation Boundary
 
@@ -69,6 +70,26 @@ documentation/
     ├── optimized/
     └── general/
 ```
+
+## Symlink Architecture
+
+The framework runtime directories in `$HOME/.claude/` are **symlinks** pointing to the Datarim git repository. This means edits to skills/commands/agents/templates in runtime are automatically tracked by git.
+
+| Runtime path | Symlink target |
+|-------------|---------------|
+| `$HOME/.claude/skills/` | `Projects/Datarim/code/datarim/skills/` |
+| `$HOME/.claude/commands/` | `Projects/Datarim/code/datarim/commands/` |
+| `$HOME/.claude/agents/` | `Projects/Datarim/code/datarim/agents/` |
+| `$HOME/.claude/templates/` | `Projects/Datarim/code/datarim/templates/` |
+
+**Implications:**
+- `git diff` in the Datarim repo shows runtime changes to skills/commands/agents/templates
+- No manual sync needed for these 4 directories — symlinks keep them identical
+- `install.sh` is needed only for first-time setup or rollback from backup
+- Backup of pre-symlink originals: `$HOME/.claude/backups/pre-symlink-2026-04-22/`
+- If the repo path changes, symlinks must be recreated
+
+**Established:** TUNE-0027 (2026-04-22).
 
 ## Documentation Storage Rules
 

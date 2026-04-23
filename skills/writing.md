@@ -36,6 +36,8 @@ Rules and patterns for structured content creation and editorial review.
 6. **Numbers check:** every number must come from the primary source (spec sheet, benchmark JSON, invoice), not from memory or context summaries. `free -h` shows 62Gi; the spec is 64 GB. Use the spec.
 7. **Comparative metrics:** if you write "37x faster" or "45% higher", state what you're comparing against in the same sentence. The reader hasn't seen your internal requirements doc.
 8. **CTA platform check:** before writing "tell us in the comments", verify the target platform has comments. Website without comments → "write to us" or omit.
+9. **Link verification:** before publishing any content with URLs, verify every link is accessible (curl, gh api, WebFetch). Local file paths do not guarantee GitHub/web availability. A local `benchmark/` folder ≠ `github.com/repo/tree/main/benchmark`.
+10. **Pricing/subscription claims:** always verify via WebSearch — pricing models change frequently. Cursor switched from request-based to credit-based billing mid-2025; Gemini CLI auth changed from AI Studio to Code Assist license. Never write pricing from memory.
 
 ### Phase 3: Self-Review (before editor)
 1. Read aloud (mentally). Does it sound like a person wrote it?
