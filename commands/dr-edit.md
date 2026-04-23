@@ -58,6 +58,7 @@ effort: high
 - Backup of the original
 
 ## Next Steps
-- Content needs more writing? → `/dr-write`
-- Part of a Datarim pipeline task? → `/dr-qa` or `/dr-archive`
+- Content needs more writing or rework? → `/dr-write`
+- Content approved and ready to publish? → `/dr-publish`
+- Part of a Datarim pipeline task (non-content)? → `/dr-qa` or `/dr-archive`
 - Quick targeted check only? → `/factcheck` or `/humanize`

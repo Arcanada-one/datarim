@@ -13,7 +13,7 @@ Show the user a complete reference of all available Datarim commands, the pipeli
 init → prd → plan → design → do → qa → compliance → archive
 ```
 
-Not every task goes through every stage. Datarim routes tasks based on complexity (see below). Reflection runs automatically as mandatory Step 0.5 inside `/dr-archive` (v1.10.0, TUNE-0013).
+Not every task goes through every stage. Datarim routes tasks based on complexity (see below). Research phase runs inside `/dr-prd` for L2+ tasks (Phase 1.3). Gap discovery runs inside `/dr-do` when unknowns are encountered. Reflection runs automatically as mandatory Step 0.5 inside `/dr-archive` (v1.10.0, TUNE-0013).
 
 ## Commands
 
@@ -22,10 +22,10 @@ Not every task goes through every stage. Datarim routes tasks based on complexit
 | Command | Stage | Description |
 |---------|-------|-------------|
 | `/dr-init` | Initialize | Start a new task, pick from backlog, or **scaffold a new project**. Assigns complexity (L1-L4) for tasks; for projects use `/dr-init create project "Name"`. |
-| `/dr-prd` | Requirements | Generate a Product Requirements Document. Define scope, constraints, and success criteria. |
+| `/dr-prd` | Requirements | Generate a PRD. **Includes external context research** (Phase 1.3) for L2+ — versions, docs, best practices. Outputs insights document. |
 | `/dr-plan` | Planning | Create a detailed implementation plan. Break work into phases, estimate effort, identify risks. |
 | `/dr-design` | Design | Explore architectural and design decisions. Evaluate alternatives, run consilium panels for L3-L4. |
-| `/dr-do` | Execution | Execute the plan using TDD (for code) or structured iteration (for other work). |
+| `/dr-do` | Execution | Execute the plan using TDD (for code) or structured iteration (for other work). **Gap discovery** spawns researcher subagent on unknowns. |
 | `/dr-qa` | Quality | Multi-layer quality verification: PRD alignment, design conformance, plan completeness, output quality. |
 | `/dr-compliance` | Hardening | Post-QA hardening. 7-step workflow: revalidate, simplify, check references, coverage, lint, tests, harden. |
 | `/dr-archive` | Archive | Archive the completed task. Performs reflection (Step 0.5) + evolution proposals, then stores context and updates backlog. |
@@ -86,12 +86,13 @@ For quick one-off checks, use `/factcheck` or `/humanize` directly on any file.
 
 Stages in `[brackets]` are optional — included when the agent determines they add value. `archive` always runs reflection internally as mandatory Step 0.5 (v1.10.0, TUNE-0013).
 
-## Agents (16)
+## Agents (17)
 
 | Agent | Role |
 |-------|------|
 | planner | Project management, task breakdown, complexity assessment |
 | architect | System design, trade-offs, interfaces |
+| researcher | External context research — versions, docs, best practices, CVE. Runs in /dr-prd Phase 1.3 and /dr-do gap discovery |
 | developer | TDD implementation, code quality |
 | tester | Platform QA, test runners, Docker-aware execution |
 | reviewer | QA, security compliance, DoD validation |

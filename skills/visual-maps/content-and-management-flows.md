@@ -43,6 +43,27 @@ graph LR
     C --> D["Pass 3: Anti-AI audit"]
 ```
 
+### /dr-publish
+
+```mermaid
+graph LR
+    A["Read approved content"] --> B["Determine target platforms"]
+    B --> C["Adapt per platform<br>(limits, formatting)"]
+    C --> D["Pre-publish checklist"]
+    D --> E["User approves each version"]
+    E --> F["Publish + verify previews"]
+```
+
+### Content Pipeline (full cycle)
+
+```mermaid
+graph TD
+    write["/dr-write<br>Author drafts"] --> edit["/dr-edit<br>Editor reviews"]
+    edit -->|"Needs rework"| write
+    edit -->|"Approved"| publish["/dr-publish<br>Format & publish"]
+    publish --> archive["/dr-archive"]
+```
+
 ## Framework Management Flows
 
 ### /dr-addskill

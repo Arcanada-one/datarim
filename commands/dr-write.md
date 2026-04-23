@@ -32,5 +32,5 @@ argument-hint: [topic or file path]
 
 ## Next Steps
 - Content needs fact-checking or polish? → `/dr-edit`
-- Content is part of a Datarim task? → `/dr-qa` (for pipeline integration)
+- Content is approved and ready to publish? → `/dr-publish`
 - Content is a standalone piece? → `/factcheck` or `/humanize` for targeted review

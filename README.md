@@ -2,7 +2,7 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 1.14.0](https://img.shields.io/badge/Version-1.14.0-green.svg)](VERSION)
+[![Version: 1.15.0](https://img.shields.io/badge/Version-1.15.0-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
@@ -15,7 +15,7 @@ reflection. The result is inconsistent quality, skipped steps, and zero institut
 learning. Every task starts from scratch, repeating the same mistakes from yesterday.
 
 Datarim fixes this by providing a complete iterative pipeline for any project type.
-It includes 16 specialized agents, 21 reusable skills, and 19 commands that guide
+It includes 17 specialized agents, 22 reusable skills, and 19 commands that guide
 work through a structured process: requirements gathering, planning, design,
 execution, quality assurance, compliance, reflection, and archival. The pipeline is
 complexity-aware — a quick fix does not go through the same process as a major
@@ -47,7 +47,7 @@ graph LR
     design --> do["do"]
     do --> qa["qa"]
     qa --> compliance["compliance"]
-    compliance --> archive["archive<br/>(reflect=Step 0.5)"]
+    compliance --> archive["archive<br>(reflect = Step 0.5)"]
 
     style init fill:#4a9eff,stroke:#333,color:#fff
     style prd fill:#ff6b6b,stroke:#333,color:#fff
@@ -59,7 +59,7 @@ graph LR
     style archive fill:#868e96,stroke:#333,color:#fff
 ```
 
-Reflection runs automatically inside `archive` as mandatory Step 0.5 (v1.12.0, TUNE-0013).
+Reflection runs automatically inside `archive` as mandatory Step 0.5 (since v1.10.0, TUNE-0013).
 
 ### Complexity Routing (ASCII)
 
@@ -87,17 +87,17 @@ Stages in `[brackets]` are conditional — included when the agent determines th
 
 ## Features
 
-- **15 specialized agents** — planner, architect, developer, reviewer, compliance,
+- **17 specialized agents** — planner, architect, developer, reviewer, compliance,
   code-simplifier, strategist, devops, writer, editor, skill-creator, optimizer,
-  security, and SRE. Each agent has a defined role, capabilities, and the stages
-  where it operates.
+  librarian, security, SRE, tester, and researcher. Each agent has a defined role,
+  capabilities, and the stages where it operates.
 
-- **25 reusable skills** — modular knowledge units that agents load on demand,
+- **22 reusable skills** — modular knowledge units that agents load on demand,
   covering everything from testing methodology to security hardening to content
-  creation workflows.
+  creation workflows and structured research.
 
-- **18 commands** — 8 pipeline stages, 2 content (write, edit), 3 framework and
-  knowledge management (addskill, optimize, dream), 3 utilities (status, continue,
+- **19 commands** — 8 pipeline stages, 3 content (write, edit, publish), 3 framework
+  and knowledge management (addskill, optimize, dream), 3 utilities (status, continue,
   help), and 2 standalone tools (factcheck, humanize).
 
 - **8-stage complexity-aware pipeline** — tasks flow through exactly the stages they
@@ -343,10 +343,12 @@ documentation, or any structured work.
 | **Librarian** | Organizes knowledge base, builds index, cross-references, flags contradictions | `dream` |
 | **Security** | Audits for vulnerabilities, reviews auth flows, checks dependencies | `qa`, `compliance` |
 | **SRE** | Evaluates reliability, scalability, monitoring, and operational readiness | `design`, `compliance` |
+| **Tester** | Platform QA for verifying changes, auto-detects test runners, structured reporting | `qa`, `do` |
+| **Researcher** | Structured external research — docs, best practices, versions, compatibility | `prd` (Phase 1.3), `do` (Gap Discovery) |
 
 Agents are loaded on demand. A quick fix (L1) may only activate the Developer.
 A content task may use Writer and Editor instead. A major migration (L4) may
-involve all fifteen agents across different stages.
+involve all seventeen agents across different stages.
 
 ---
 
@@ -371,8 +373,11 @@ involve all fifteen agents across different stages.
 | **marketing** | Ad campaigns, conversion tracking, landing pages, growth marketing | On demand |
 | **factcheck** | Claim extraction, source verification, accuracy scoring | Editor, Writer |
 | **humanize** | AI artifact removal, voice preservation, natural language patterns | Editor, Writer |
+| **publishing** | Multi-platform publishing rules, formatting, limits, workflow | Writer (on demand) |
 | **telegram-publishing** | Telegram Bot API publishing rules, caption limits, discussion group comments | On demand |
 | **project-init** | Project scaffolding: CLAUDE.md, docs/, datarim/ structure for new projects | /dr-init (project mode) |
+| **research-workflow** | Structured research methodology — checklist, tool selection, gap discovery protocol | Researcher |
+| **reflecting** | Post-task reflection: lessons learned, evolution proposals, Class A/B gate | /dr-archive (Step 0.5) |
 
 Skills are modular. Each is a standalone Markdown file that agents load when they need
 specific capabilities. You can add custom skills by placing `.md` files in
@@ -394,6 +399,7 @@ specific capabilities. You can add custom skills by placing `.md` files in
 | `/dr-archive` | Archive | Archive the task. Step 0.5 runs reflection (analyze, propose framework updates). Steps 1-7 store context, update backlog, reset for the next task. |
 | `/dr-write` | Content | Create written content — articles, docs, research, posts. Uses the writer agent. |
 | `/dr-edit` | Content | Editorial review — fact-check, AI pattern removal, style, publication quality. Uses the editor agent. |
+| `/dr-publish` | Content | Adapt and publish content to multiple platforms (Telegram, LinkedIn, blog, etc.). Uses the writer agent. |
 | `/dr-addskill` | Extension | Create or update skills, agents, commands. Researches best practices, audits existing framework, generates artifacts. |
 | `/dr-optimize` | Maintenance | Audit framework health, prune unused components, merge duplicates, fix references, sync documentation. |
 | `/dr-dream` | Maintenance | Knowledge base maintenance: organize files, build index, cross-reference, flag contradictions, archive stale content. |
@@ -512,23 +518,24 @@ Consilium is available at any stage via the `consilium` skill. Use it for:
 Datarim includes dedicated agents and commands for content work — writing articles,
 research papers, documentation, blog posts, social media, and other text.
 
-**Two content commands:**
+**Three content commands:**
 
 | Command | Agent | What it does |
 |---------|-------|-------------|
 | `/dr-write` | Writer | Research, outline, draft. Creates content from scratch or expands existing material. |
 | `/dr-edit` | Editor | Fact-check, remove AI patterns, enforce style, polish to publication quality. |
+| `/dr-publish` | Writer | Adapt content per platform (Telegram, LinkedIn, blog, etc.), check limits, publish. |
 
 **Content pipeline:**
 
 ```
-/dr-write → /dr-edit → /dr-archive
+/dr-write → /dr-edit → /dr-publish → /dr-archive
 ```
 
 Or integrated into the standard pipeline:
 
 ```
-/dr-init → /dr-prd → /dr-plan → /dr-write → /dr-edit → /dr-qa → /dr-archive
+/dr-init → /dr-prd → /dr-plan → /dr-write → /dr-edit → /dr-publish → /dr-qa → /dr-archive
 ```
 
 **The Editor agent** combines two specialized skills:
@@ -859,10 +866,10 @@ and why it exists.
 
 ```
 datarim/
-  agents/            # Agent personas (15 agents)
-  skills/            # Knowledge modules (25 skills)
+  agents/            # Agent personas (17 agents)
+  skills/            # Knowledge modules (22 skills)
   commands/          # Slash commands (19 commands)
-  templates/         # Task and document templates (12 templates)
+  templates/         # Task and document templates (13 templates)
   docs/              # Extended documentation and use cases
   CLAUDE.md          # Framework rules (copy to your project)
   install.sh         # Automated installer

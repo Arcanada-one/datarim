@@ -313,6 +313,8 @@ Each Evolution change is a discrete edit to a specific file. Rollback strategy:
 - **If not using git:** The evolution log provides enough information to manually undo changes. The diff preview in the original proposal shows what was added.
 - **For prune operations:** The optimizer creates a backup of deleted files in `documentation/archive/optimized/` before removal. Files can be restored from there.
 
+> **Note (TUNE-0027):** Since 2026-04-22, `skills/`, `commands/`, `agents/`, `templates/` in `$HOME/.claude/` are symlinks to the Datarim git repo. Manual sync (`install.sh`) is no longer needed for these directories — changes are shared instantly. `install.sh` remains relevant only for first-time installation or rollback. See `skills/datarim-system/path-and-storage.md` § Symlink Architecture.
+
 **Rule:** Never make changes that cannot be independently reverted. If two proposals modify the same file, apply them as separate edits so either can be rolled back without affecting the other.
 
 ---

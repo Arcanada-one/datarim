@@ -10,13 +10,13 @@ graph TD
     L1 -->|"Quick Fix"| Do1["/dr-do"]
     Do1 --> Archive1["/dr-archive<br>(Step 0.5: reflect)"]
 
-    L2 -->|"Enhancement"| PRD2["[/dr-prd]"]
+    L2 -->|"Enhancement"| PRD2["[/dr-prd<br>(incl. research)]"]
     PRD2 --> Plan2["/dr-plan"]
     Plan2 --> Do2["/dr-do"]
     Do2 --> QA2["[/dr-qa]"]
     QA2 --> Archive2["/dr-archive<br>(Step 0.5: reflect)"]
 
-    L3 -->|"Feature"| PRD3["/dr-prd"]
+    L3 -->|"Feature"| PRD3["/dr-prd<br>(incl. research)"]
     PRD3 --> Plan3["/dr-plan"]
     Plan3 --> Design3["/dr-design"]
     Design3 --> Do3["/dr-do"]
@@ -24,7 +24,7 @@ graph TD
     QA3 --> Compliance3["/dr-compliance"]
     Compliance3 --> Archive3["/dr-archive<br>(Step 0.5: reflect)"]
 
-    L4 -->|"Major"| PRD4["/dr-prd"]
+    L4 -->|"Major"| PRD4["/dr-prd<br>(incl. research)"]
     PRD4 --> Plan4["/dr-plan"]
     Plan4 --> Design4["/dr-design"]
     Design4 --> Do4["/dr-do<br>(phased)"]

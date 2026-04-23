@@ -17,10 +17,13 @@ graph LR
 
 ```mermaid
 graph LR
-    A["Read context"] --> B["Discovery interview"]
-    B --> C["Generate 3+ approaches"]
-    C --> D["User consultation"]
-    D --> E["Write PRD"]
+    A["Read context"] --> R{"L2+?"}
+    R -->|Yes| B["Research (Phase 1.3)"]
+    R -->|No| C["Discovery interview"]
+    B --> C
+    C --> D["Generate 3+ approaches"]
+    D --> E["User consultation"]
+    E --> F["Write PRD"]
 ```
 
 ## /dr-plan
@@ -59,7 +62,9 @@ graph LR
     B -->|No| D["Implement iteratively"]
     C --> D
     D --> E["Test"]
-    E --> F["Update progress"]
+    E -->|"gap?"| G["Researcher subagent"]
+    G --> D
+    E -->|"pass"| F["Update progress"]
 ```
 
 ## /dr-qa

@@ -67,6 +67,17 @@ Source: LTM-0001 reflection — Hindsight (a top-3 candidate) was in the user's 
 
 ---
 
+## Research Insights Awareness
+
+If `datarim/insights/INSIGHTS-{task-id}.md` exists (created by `/dr-prd` Phase 1.3), **read it before starting the interview**. Use research findings to:
+- Formulate better proposed answers (based on verified versions, docs, best practices)
+- Skip questions already answered by research (e.g., "What version of X?" if insights already captured it)
+- Surface risks or compatibility issues discovered by the researcher agent
+
+Source: TUNE-0029 — research phase produces insights before discovery interview runs.
+
+---
+
 ## Codebase-First Rule
 
 **Before asking any question, check if the answer already exists in code or docs.**

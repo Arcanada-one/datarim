@@ -42,17 +42,19 @@ effort: high
     - Empty or `full` → Full maintenance (steps 5-10)
 
 ### Step 5: Inventory
-Scan `datarim/` recursively. For every `.md` file, record:
+Scan **both** `datarim/` and `documentation/archive/` recursively. For every `.md` file, record:
 - Path, filename, size (lines)
 - Frontmatter (if present): title, task_id, type, status, tags, related
-- Directory it belongs to (prd/, tasks/, reflection/, etc.)
+- Directory it belongs to (prd/, tasks/, reflection/, archive/{area}/, etc.)
 - Inbound and outbound links (references to/from other files)
+
+`documentation/archive/` contains long-term task archives — implementation details, lessons learned, decision rationale. These are part of the knowledge base and must be cross-referenced with `datarim/reflection/`, `datarim/tasks.md`, and each other.
 
 Present summary:
 ```
 === KNOWLEDGE BASE INVENTORY ===
-Total documents: NN
-By type: PRDs: N, Tasks: N, Reflections: N, QA: N, Archives: N, Other: N
+Total documents: NN (datarim: X, archive: Y)
+By type: PRDs: N, Tasks: N, Reflections: N, Archives: N, QA: N, Other: N
 With frontmatter: N / NN (XX%)
 Orphans (no inbound links): N
 ```
