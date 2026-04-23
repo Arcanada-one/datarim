@@ -32,6 +32,14 @@ description: Implement planned changes using TDD and AI quality principles
     - Follow `datarim/patterns.md` and `datarim/style-guide.md`.
     - Apply quality rules: max 50 lines/method, max 7-9 objects in scope, tests before code.
 
+7.5 **GAP DISCOVERY** (during implementation):
+    If you encounter an unknown that blocks progress (import failure, unexpected API behavior, docs ≠ reality, missing feature, compatibility issue):
+    -   Load `$HOME/.claude/skills/research-workflow.md` § Gap Discovery Protocol.
+    -   Spawn researcher subagent (`$HOME/.claude/agents/researcher.md`) with a focused query describing the specific gap.
+    -   Researcher appends findings to `datarim/insights/INSIGHTS-{task-id}.md` § Gap Discoveries.
+    -   If gap is fundamental (wrong stack, impossible requirement): STOP. Recommend operator run `/dr-prd` to revise requirements.
+    -   Otherwise: continue implementation with updated context.
+
 8.  **REVIEW-FEEDBACK HANDLING** (when an automated code review or human review returns findings):
     Classify each finding, then act:
     - **Critical / blocking** → fix in the current MR before merge. Non-negotiable.

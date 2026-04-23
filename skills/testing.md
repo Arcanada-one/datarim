@@ -184,15 +184,23 @@ GitLab as the review body, AND wrote it to `tbl_code_reviews` as a real review r
 1. **Switch the tool to its machine-readable format** if one exists (`--output-format stream-json`, `--json`,
    `--format porcelain`). Capture a live fixture during `/dr-plan` (see `commands/dr-plan.md` § Fixture
    Capture for External Output).
-2. **Parse the structured output** for documented error shapes. For `claude -p --output-format stream-json
+2. **Parse the structured output BEFORE checking the exit code.** A non-zero exit with a structured error
+   event (e.g. `rate_limit_event`) should raise the specific domain error, not a generic "CLI failed" error.
+   Ordering matters: an early `if returncode != 0: raise GenericError` skips the structured parsing entirely.
+   Reference: DEV-1183 FIX — the original wrapper checked exit code first, missing the rate-limit event when
+   the CLI changed from exit 0 to non-zero on limit-hit.
+3. **Parse the structured output** for documented error shapes. For `claude -p --output-format stream-json
    --verbose`, the shape is `rate_limit_event.rate_limit_info.status == "rejected"` with a UNIX-epoch
    `resetsAt`. Never regex human sentences; structural fields are stable, prose drifts.
-3. **Raise at the narrowest layer.** Raise the domain error *inside* the wrapper function (before returning
+4. **Raise at the narrowest layer.** Raise the domain error *inside* the wrapper function (before returning
    to any caller). Downstream code that treats the return value as trusted never sees an invalid value.
    Raising one layer up means the intermediate side-effects (history writes, logs, cache updates) still run
    on the error branch.
-4. **Subclass the legacy exception** so existing `except ParentError:` handlers continue to work unchanged.
+5. **Subclass the legacy exception** so existing `except ParentError:` handlers continue to work unchanged.
    One new branch at the dispatcher; zero refactors elsewhere.
+6. **Test both exit-code scenarios** (returncode 0 AND non-zero) with identical structured stdout. Ordering
+   bugs only surface when the non-zero path is exercised. This is a 1-line mock difference but catches an
+   entire class of regressions. Reference: DEV-1183 FIX — original tests only used `returncode=0`.
 
 ### What the gate is NOT
 

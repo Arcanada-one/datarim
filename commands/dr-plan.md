@@ -20,6 +20,7 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
     -   Read `datarim/tasks.md` (Complexity, Requirements for the resolved task).
     -   Read `datarim/activeContext.md` (Active Tasks list).
     -   Review `datarim/prd/*.md` if available.
+    -   Read `datarim/insights/INSIGHTS-{task-id}.md` if exists (research context from `/dr-prd` Phase 1.3).
 
 3.  **Strategist Gate** (mandatory for L3-4, optional for L2):
     -   Load `$HOME/.claude/agents/strategist.md`.

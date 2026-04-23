@@ -25,6 +25,7 @@ Your goal is to ensure systems are reliable, observable, and recoverable in prod
   - `$HOME/.claude/skills/performance.md` (Optimization patterns)
 - LOAD WHEN NEEDED:
   - `$HOME/.claude/skills/security.md` (Security-related reliability concerns)
+  - `$HOME/.claude/skills/infra-automation.md` (Remote measurement, incident triage, infrastructure debugging)
 
 **When invoked:** `/dr-design` (reliability requirements), `/dr-qa` (load/resilience review), `/dr-archive` Step 0.5 (postmortem analysis during reflection).
 **In consilium:** Voice of reliability -- "will this survive production?"

@@ -60,12 +60,15 @@ PRACTICES:
 |- Review one method at a time
 |- Define clear boundaries (what we DON'T do)
 |- Verify AI can solve before starting
+|- Wire ALL planned features in first pass — if code/prompts are ready
+   and wiring is <30 min, do it. "Low risk deferral" is still deferral.
 |- Authorization prompts to user: 1 sentence risk + 1 yes/no question.
    Threat models → docs, not interactive prompt.
 ```
 
 **Why:** Broad context = scattered results. Focus = precision.
 Source (auth UX): LTM-0001 — user requested simpler prompts after a 7-option authorization table.
+Source (wire-all): LTM-0008 — dedup/rerank deferred as "low risk", user challenged, wiring took <15 min.
 
 ---
 
@@ -347,6 +350,34 @@ When a CLI tool installs via `curl | bash` to `$HOME` (e.g. Cursor CLI):
 Do NOT symlink to `/root/...` — non-root user cannot read `/root/`. Do NOT rely on Docker volume creating dirs with correct ownership — volumes mount as root.
 
 CONN-0008: 4 Dockerfile iterations because `curl | bash` installed to `/root/.local/share/cursor-agent/`, inaccessible to non-root `connector` user. Same root→non-root pattern as CONN-0004.
+
+### CLI Output Channel Conventions
+
+Each CLI agent has its own output channel convention — do NOT assume uniformity:
+
+| CLI | Success JSON | Error JSON | Exit code on error |
+|-----|-------------|------------|-------------------|
+| Claude Code | stdout | stdout (`is_error: true`) | 0 |
+| Cursor | stdout | stdout (`is_error: true`) | 0 |
+| Gemini CLI | stdout | **stderr** (last JSON block) | 1 |
+
+CONN-0007: Gemini CLI outputs error JSON to stderr, not stdout. Parser must try stdout first, then extract last JSON block from stderr if stdout is empty. stderr always contains IDE companion noise (`[IDEClient]`) — filter before error classification.
+
+### CWD Isolation for CLI Connectors
+
+Some CLI tools scan the working directory on startup for project context. If spawned from a directory with many files, this wastes tokens and adds latency.
+
+**Pattern:** Create an isolated temp dir before spawning, clean up after:
+```typescript
+const cwd = await mkdtemp(join(tmpdir(), 'cli_'));
+try {
+  spawn(binary, args, { cwd });
+} finally {
+  rm(cwd, { recursive: true, force: true }).catch(() => {});
+}
+```
+
+CONN-0007: Gemini CLI scans workspace on startup. Spawning from `/tmp/gemini_*` prevents token waste. Same pattern used in Email Agent (`email_agent.py:196`).
 
 ---
 
