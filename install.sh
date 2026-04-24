@@ -115,7 +115,9 @@ force_safety_guard() {
             echo "       Re-run with --yes (or DATARIM_INSTALL_YES=1) if this is intentional." >&2
             exit 1
         fi
-        read -r -p "Type 'yes' to proceed (anything else aborts): " confirm
+        printf "Type 'yes' to proceed (anything else aborts): "
+        read -r confirm
+        confirm="${confirm%$'\r'}"
         if [ "$confirm" != "yes" ]; then
             echo "Aborted by user."
             exit 1

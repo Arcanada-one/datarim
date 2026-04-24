@@ -108,11 +108,15 @@ prompt_action() {
     if [ "$ACCEPT_ALL" = true ]; then return 0; fi
 
     while true; do
-        read -r -p "  $label? (y)es/(n)o/(a)ll/(s)kip-rest: " choice || {
+        # Prompt via printf to stdout (not read -p which uses stderr —
+        # some terminals like Amazon WorkSpaces / IDE terminals don't show stderr prompts)
+        printf "  %s? (y)es/(n)o/(a)ll/(s)kip-rest: " "$label"
+        read -r choice || {
             echo ""
             echo "  EOF on stdin — aborting." >&2
             exit 2
         }
+        choice="${choice%$'\r'}"  # Strip trailing CR (CRLF terminals)
         case "$choice" in
             y|Y|yes)  return 0 ;;
             n|N|no)   return 1 ;;
