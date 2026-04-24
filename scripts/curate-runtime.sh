@@ -84,6 +84,14 @@ if [ ! -d "$SCRIPT_DIR/agents" ]; then
     exit 1
 fi
 
+# --- TTY check (interactive mode requires terminal) --------------------------
+
+if [ "$MODE" = "interactive" ] && [ ! -t 0 ]; then
+    echo "ERROR: interactive mode requires a TTY (stdin is not a terminal)." >&2
+    echo "       Use --auto for non-interactive environments, or --dry-run to preview." >&2
+    exit 1
+fi
+
 echo "Datarim Curation: runtime → repo"
 echo "================================="
 echo "Runtime: $CLAUDE_DIR"
@@ -100,7 +108,11 @@ prompt_action() {
     if [ "$ACCEPT_ALL" = true ]; then return 0; fi
 
     while true; do
-        read -r -p "  $label? (y)es/(n)o/(a)ll/(s)kip-rest: " choice
+        read -r -p "  $label? (y)es/(n)o/(a)ll/(s)kip-rest: " choice || {
+            echo ""
+            echo "  EOF on stdin — aborting." >&2
+            exit 2
+        }
         case "$choice" in
             y|Y|yes)  return 0 ;;
             n|N|no)   return 1 ;;
@@ -120,6 +132,19 @@ for scope in "${SCOPES[@]}"; do
     if [ ! -d "$runtime_dir" ]; then
         echo "[$scope] SKIP — not in runtime"
         continue
+    fi
+
+    # Symlink detection: if runtime dir is a symlink pointing at repo dir,
+    # diff -rq compares a directory with itself and always says "in sync".
+    if [ -L "$runtime_dir" ]; then
+        resolved=$(cd -P "$runtime_dir" && pwd)
+        repo_resolved=$(cd -P "$repo_dir" 2>/dev/null && pwd || echo "")
+        if [ "$resolved" = "$repo_resolved" ]; then
+            echo "[$scope] SYMLINK → repo (same directory, drift detection impossible)"
+            echo "         Tip: remove symlink and run install.sh to create real copies"
+            continue
+        fi
+        echo "[$scope] NOTE: runtime is a symlink → $resolved"
     fi
 
     mkdir -p "$repo_dir"
@@ -154,11 +179,16 @@ for scope in "${SCOPES[@]}"; do
                     COPIED=$((COPIED + 1))
                     ;;
                 interactive)
-                    if prompt_action "COPY $scope/$relpath"; then
+                    prompt_action "COPY $scope/$relpath" && rc=0 || rc=$?
+                    if [ "$rc" -eq 0 ]; then
                         mkdir -p "$(dirname "$dst")"
                         cp "$src" "$dst"
                         echo "  COPIED $scope/$relpath"
                         COPIED=$((COPIED + 1))
+                    elif [ "$rc" -eq 2 ]; then
+                        echo "  SKIP-REST (remaining in $scope)"
+                        SKIPPED=$((SKIPPED + 1))
+                        break
                     else
                         echo "  SKIP $scope/$relpath"
                         SKIPPED=$((SKIPPED + 1))
@@ -189,11 +219,16 @@ for scope in "${SCOPES[@]}"; do
                         NEW_COPIED=$((NEW_COPIED + 1))
                         ;;
                     interactive)
-                        if prompt_action "NEW  $scope/$relpath (copy from runtime)"; then
+                        prompt_action "NEW  $scope/$relpath (copy from runtime)" && rc=0 || rc=$?
+                        if [ "$rc" -eq 0 ]; then
                             mkdir -p "$repo_dir/${subdir:-.}"
                             cp -R "$runtime_dir/$relpath" "$repo_dir/$relpath"
                             echo "  ADDED $scope/$relpath"
                             NEW_COPIED=$((NEW_COPIED + 1))
+                        elif [ "$rc" -eq 2 ]; then
+                            echo "  SKIP-REST (remaining in $scope)"
+                            SKIPPED=$((SKIPPED + 1))
+                            break
                         else
                             echo "  SKIP $scope/$relpath"
                             SKIPPED=$((SKIPPED + 1))
@@ -217,10 +252,15 @@ for scope in "${SCOPES[@]}"; do
                         SKIPPED=$((SKIPPED + 1))
                         ;;
                     interactive)
-                        if prompt_action "DELETE $scope/$relpath (gone from runtime)"; then
+                        prompt_action "DELETE $scope/$relpath (gone from runtime)" && rc=0 || rc=$?
+                        if [ "$rc" -eq 0 ]; then
                             rm -f "$repo_dir/$relpath"
                             echo "  DELETED $scope/$relpath"
                             DELETED=$((DELETED + 1))
+                        elif [ "$rc" -eq 2 ]; then
+                            echo "  SKIP-REST (remaining in $scope)"
+                            SKIPPED=$((SKIPPED + 1))
+                            break
                         else
                             echo "  SKIP $scope/$relpath"
                             SKIPPED=$((SKIPPED + 1))
@@ -244,16 +284,16 @@ if [ "$TOTAL_CHANGES" -gt 0 ] && [ "$DO_BUMP" = true ]; then
         NEW_VER="$major.$minor.$((patch + 1))"
         echo "$NEW_VER" > "$VERSION_FILE"
 
-        # Update CLAUDE.md
+        # Update CLAUDE.md (portable sed: temp file + mv, works on both BSD and GNU)
         CLAUDE_FILE="$SCRIPT_DIR/CLAUDE.md"
         if [ -f "$CLAUDE_FILE" ]; then
-            sed -i '' "s/> \*\*Version:\*\* $OLD_VER/> **Version:** $NEW_VER/" "$CLAUDE_FILE"
+            sed "s/> \*\*Version:\*\* $OLD_VER/> **Version:** $NEW_VER/" "$CLAUDE_FILE" > "$CLAUDE_FILE.tmp" && mv "$CLAUDE_FILE.tmp" "$CLAUDE_FILE"
         fi
 
         # Update README.md badge (two occurrences on badge line)
         README_FILE="$SCRIPT_DIR/README.md"
         if [ -f "$README_FILE" ]; then
-            sed -i '' "s/$OLD_VER/$NEW_VER/g" "$README_FILE"
+            sed "s/$OLD_VER/$NEW_VER/g" "$README_FILE" > "$README_FILE.tmp" && mv "$README_FILE.tmp" "$README_FILE"
         fi
 
         echo ""

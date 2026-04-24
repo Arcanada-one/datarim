@@ -1,6 +1,6 @@
 ---
 name: dr-publish
-description: Format and publish approved content to target platforms — social media, blogs, websites. Loads publishing rules, adapts text per platform, runs pre-publish checks.
+description: Format and publish approved content to target platforms. Loads publishing rules, adapts text per platform, runs pre-publish checks.
 argument-hint: [file path to approved content]
 ---
 

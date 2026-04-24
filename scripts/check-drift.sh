@@ -68,6 +68,19 @@ for scope in "${SCOPES[@]}"; do
         continue
     fi
 
+    # Symlink detection: if runtime dir is a symlink pointing at repo dir,
+    # diff -rq compares a directory with itself and always says "in sync".
+    if [ -L "$CLAUDE_DIR/$scope" ]; then
+        resolved=$(cd -P "$CLAUDE_DIR/$scope" && pwd)
+        repo_resolved=$(cd -P "$SCRIPT_DIR/$scope" 2>/dev/null && pwd || echo "")
+        if [ "$resolved" = "$repo_resolved" ]; then
+            $QUIET || echo "[$scope] SYMLINK → repo (same directory, drift detection impossible)"
+            DRIFT_COUNT=$((DRIFT_COUNT + 1))
+            continue
+        fi
+        $QUIET || echo "[$scope] NOTE: runtime is a symlink → $resolved"
+    fi
+
     # diff -rq returns 0 on match, 1 on differ; both are valid exits for us
     DIFF_OUT=$(diff -rq "$CLAUDE_DIR/$scope/" "$SCRIPT_DIR/$scope/" 2>/dev/null || true)
 

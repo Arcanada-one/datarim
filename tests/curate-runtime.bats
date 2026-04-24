@@ -157,3 +157,57 @@ teardown() {
     fi
   done
 }
+
+# --- T12: interactive mode rejects non-TTY stdin (TUNE-0030) ----------------
+
+@test "interactive mode rejects non-TTY stdin with exit 1" {
+  echo "v2" > "$MOCK_RUNTIME/skills/test.md"
+  echo "v1" > "$MOCK_REPO/skills/test.md"
+
+  # Pipe stdin → non-TTY
+  run bash -c 'echo "" | CLAUDE_DIR="'"$MOCK_RUNTIME"'" DATARIM_REPO_DIR="'"$MOCK_REPO"'" bash "'"$SCRIPT_PATH"'"'
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"TTY"* ]]
+}
+
+# --- T13: --auto works without TTY (TUNE-0030) -----------------------------
+
+@test "--auto works even without TTY" {
+  echo "v2" > "$MOCK_RUNTIME/skills/test.md"
+  echo "v1" > "$MOCK_REPO/skills/test.md"
+
+  run bash -c 'echo "" | CLAUDE_DIR="'"$MOCK_RUNTIME"'" DATARIM_REPO_DIR="'"$MOCK_REPO"'" bash "'"$SCRIPT_PATH"'" --auto --no-bump'
+  [ "$status" -eq 0 ]
+  [ "$(cat "$MOCK_REPO/skills/test.md")" = "v2" ]
+}
+
+# --- T14: symlink runtime dirs detected and reported (TUNE-0030) -----------
+
+@test "symlink runtime dir → repo detected as SYMLINK" {
+  # Replace real runtime skills dir with symlink to repo skills
+  rm -rf "$MOCK_RUNTIME/skills"
+  ln -s "$MOCK_REPO/skills" "$MOCK_RUNTIME/skills"
+
+  run env CLAUDE_DIR="$MOCK_RUNTIME" DATARIM_REPO_DIR="$MOCK_REPO" bash "$SCRIPT_PATH" --dry-run
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"SYMLINK"* ]]
+  [[ "$output" == *"drift detection impossible"* ]]
+}
+
+# --- T15: portable sed in version bump (TUNE-0030) -------------------------
+
+@test "version bump uses portable sed (no sed -i)" {
+  echo "changed" > "$MOCK_RUNTIME/agents/test.md"
+  echo "original" > "$MOCK_REPO/agents/test.md"
+
+  # Verify no sed -i '' in the script (would break GNU sed on RedHat)
+  run grep -c "sed -i ''" "$SCRIPT_PATH"
+  [ "$output" = "0" ]
+
+  # Verify version bump still works
+  run env CLAUDE_DIR="$MOCK_RUNTIME" DATARIM_REPO_DIR="$MOCK_REPO" bash "$SCRIPT_PATH" --auto
+  [ "$status" -eq 0 ]
+  [ "$(cat "$MOCK_REPO/VERSION" | tr -d '[:space:]')" = "1.10.1" ]
+  grep -q '1.10.1' "$MOCK_REPO/CLAUDE.md"
+  grep -q '1.10.1' "$MOCK_REPO/README.md"
+}

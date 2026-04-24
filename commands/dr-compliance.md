@@ -1,6 +1,6 @@
 ---
 name: dr-compliance
-description: Adaptive post-QA hardening. Detects task type (code, docs, research, legal, content, infrastructure) and applies the appropriate verification checklist. Final quality gate before archiving.
+description: Adaptive post-QA hardening. Detects task type and applies matching verification checklist. Final quality gate before archiving.
 ---
 
 # /dr-compliance — Adaptive Post-QA Hardening

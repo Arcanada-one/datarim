@@ -1,6 +1,6 @@
 ---
 name: editor
-description: Content Editor for editorial review, fact verification, AI pattern removal, and publication-ready quality. Works with articles, blog posts, social media, research papers, and documentation.
+description: Content Editor for editorial review, fact verification, AI pattern removal, and publication-ready quality across all content types.
 model: sonnet
 ---
 
