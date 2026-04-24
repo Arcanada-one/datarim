@@ -1,6 +1,6 @@
 ---
 name: skill-creator
-description: Skill Creator agent for researching, designing, and generating new skills, agents, and commands. Analyzes best practices, audits existing framework components, and creates or updates artifacts in the correct location (project or user scope).
+description: Skill Creator for researching, designing, and generating new skills, agents, and commands. Audits existing components first.
 model: opus
 ---
 
@@ -70,69 +70,11 @@ mkdir -p .claude/skills .claude/agents .claude/commands
 ```
 
 ### Step 5: Design and Generate
-For each artifact to create/update:
-
-**Skills** — follow the SKILL.md standard:
-```yaml
----
-name: skill-name
-description: What it does and when to use it. Front-load the key use case. Max 250 chars for reliable triggering.
-model: sonnet  # opus | sonnet | haiku | inherit (omit for reference-only skills)
----
-
-# Skill Title
-
-[Domain knowledge, rules, patterns, checklists, workflows]
-```
-
-**Note on `model` in skills:**
-- Include for **task skills** (skills that perform an action when invoked)
-- Omit for **reference skills** (rules, guidelines, patterns the caller applies inline) — they inherit from caller
-
-**Agents** — follow the Datarim agent pattern:
-```yaml
----
-name: agent-name
-description: Role description for the agent roster.
-model: sonnet  # REQUIRED. opus for critical reasoning, sonnet for most work, haiku for simple structured tasks
----
-
-You are the **Role Name**.
-Your goal is to [primary objective].
-
-**Capabilities**: [bulleted list]
-
-**Context Loading**:
-- READ: [relevant datarim files]
-- ALWAYS APPLY: [mandatory skills]
-- LOAD WHEN NEEDED: [optional skills]
-
-**When invoked:** [commands that use this agent]
-**In consilium:** [voice/perspective in panel discussions]
-```
-
-**Commands** — follow the Datarim command pattern:
-```yaml
----
-name: command-name
-description: What the command does
-argument-hint: [expected arguments]
----
-
-# /command-name — Brief Title
-
-**Role**: Agent Name
-**Source**: `path/to/agent.md`
-
-## Instructions
-1. LOAD: [agent]
-2. LOAD SKILLS: [skills list]
-3. ACTION: [what to do]
-4. OUTPUT: [deliverables]
-
-## Next Steps
-- [conditional routing]
-```
+For each artifact, follow the Datarim patterns. Reference existing skills/agents/commands in `$HOME/.claude/` as exemplars for structure and frontmatter. Key rules:
+- Skills: YAML frontmatter (`name`, `description`, `model`), markdown body. Task skills require `model`; reference skills omit it.
+- Agents: YAML frontmatter (`name`, `description`, `model` REQUIRED), persona + capabilities + context loading.
+- Commands: YAML frontmatter (`name`, `description`), instructions referencing agent + skills.
+- Description max 155 chars, front-load the key use case.
 
 ### Step 6: Present and Apply
 1. Show the user what will be created/updated (file paths and content preview).

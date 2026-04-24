@@ -2,7 +2,7 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 1.15.0](https://img.shields.io/badge/Version-1.15.0-green.svg)](VERSION)
+[![Version: 1.15.2](https://img.shields.io/badge/Version-1.15.2-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
@@ -249,6 +249,22 @@ cp -R skills/. ~/.claude/skills/
 cp -R commands/. ~/.claude/commands/
 cp -R templates/. ~/.claude/templates/
 ```
+
+### Updating an existing installation
+
+```bash
+cd /path/to/datarim              # your cloned repo
+git pull origin main
+./install.sh                     # merge: adds new files, skips existing
+./install.sh --force             # force: overwrites all (backup taken automatically)
+```
+
+**Merge mode** (default) is recommended for regular updates — it adds new
+skills, agents, commands, and templates without touching files you may have
+customized. **Force mode** overwrites everything after taking a backup.
+
+See [docs/getting-started.md](docs/getting-started.md#updating-datarim) for
+detailed guidance on merge vs force mode.
 
 ### Activate in Your Project
 

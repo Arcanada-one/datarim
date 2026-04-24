@@ -1,6 +1,6 @@
 ---
 name: dr-write
-description: Create written content — articles, blog posts, documentation, research papers, social media posts, or any structured text. Uses the writer agent with writing workflow skill.
+description: Create written content — articles, blog posts, docs, research papers, social media posts. Uses writer agent with writing workflow.
 argument-hint: [topic or file path]
 ---
 
