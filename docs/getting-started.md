@@ -91,36 +91,27 @@ The installer has a deliberately narrow contract — review a diff of `install.s
 
 If you have Datarim installed and want to get the latest version:
 
-### Update from GitHub
-
 ```bash
 cd /path/to/datarim              # your cloned repo
-git pull origin main
-./install.sh                     # merge mode (default)
+./update.sh                      # pull + install + verify — one command
 ```
 
-### Merge mode vs Force mode
+`update.sh` does three things automatically:
+1. `git pull origin main` — fetches the latest version
+2. `./install.sh --force --yes` — overwrites `~/.claude/` with the latest files (backup taken automatically)
+3. Verifies that runtime and repo are in sync
 
-| Mode | Command | Behavior |
-|------|---------|----------|
-| **Merge** (default) | `./install.sh` | Adds new files, skips existing ones. Safe for frequent updates. |
-| **Force** | `./install.sh --force` | Overwrites all files. Creates automatic backup first. Use when you want a clean sync with the repo. |
+Use `./update.sh --dry-run` to preview what would change without writing anything.
 
-**Merge mode** is recommended for regular updates: it adds new skills, agents, commands, and templates without touching files you may have customized in `~/.claude/`.
+### Manual alternative
 
-**Force mode** is useful when you want the exact repo state, or when something seems broken. On a live system it will ask you to type `yes` and create a backup in `~/.claude/backups/force-<timestamp>/` before overwriting. Use `--force --yes` for CI/scripted environments.
-
-### After updating
+If you prefer to update step by step:
 
 ```bash
-./scripts/check-drift.sh         # verify runtime matches repo (should exit 0)
-```
-
-Inside Claude Code:
-
-```
-/dr-help                         # check if new commands appeared
-/dr-status                       # check framework status
+git pull origin main
+./install.sh                     # merge mode: adds new files, skips existing
+./install.sh --force             # force mode: overwrites all (backup taken)
+./scripts/check-drift.sh         # verify sync
 ```
 
 ### What stays unchanged
