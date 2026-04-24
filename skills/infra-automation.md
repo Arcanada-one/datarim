@@ -1,6 +1,6 @@
 ---
 name: infra-automation
-description: Infrastructure operations — SSH batch execution, health checks, network debugging, pre-migration inventory, remote measurement. Use for Arcana server ops or when a site/endpoint is down.
+description: Infrastructure ops — SSH batch execution, health checks, network debugging, pre-migration inventory. Use for Arcana server ops.
 model: sonnet
 ---
 

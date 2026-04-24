@@ -1,6 +1,6 @@
 ---
 name: dr-dream
-description: Knowledge base maintenance — organize, deduplicate, cross-reference, and consolidate the datarim/ directory. Processes misplaced files, builds connections between documents, flags contradictions, and archives stale content. Run periodically or when the knowledge base feels messy.
+description: Knowledge base maintenance — organize, deduplicate, cross-reference the datarim/ directory. Run periodically or when it feels messy.
 argument-hint: [lint | index | full]
 allowed-tools: Read Write Edit Grep Glob Bash Agent
 effort: high

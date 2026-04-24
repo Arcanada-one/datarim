@@ -1,6 +1,6 @@
 ---
 name: dr-addskill
-description: Create or update Datarim skills, agents, and commands. Researches best practices, audits existing components, and generates properly formatted artifacts in the correct scope (project or user level).
+description: Create or update Datarim skills, agents, and commands. Researches best practices, audits existing components, generates artifacts.
 argument-hint: [description of needed capability]
 allowed-tools: Read Write Edit Grep Glob Bash WebSearch WebFetch Agent
 effort: high

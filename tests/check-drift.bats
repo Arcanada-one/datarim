@@ -62,3 +62,19 @@ setup() {
     grep -E "^INSTALL_SCOPES=\\(agents skills commands templates\\)" "$FAKE_REPO/install.sh"
     grep -E "^SCOPES=\\(agents skills commands templates\\)" "$FAKE_REPO/scripts/check-drift.sh"
 }
+
+# ---------- TUNE-0030: Symlink detection ----------
+
+@test "D6 TUNE-0030 symlink runtime dir → repo detected (exit 1, SYMLINK in output)" {
+    run_install
+    [ "$status" -eq 0 ]
+
+    # Replace real runtime skills dir with symlink to repo skills
+    rm -rf "$FAKE_CLAUDE/skills"
+    ln -s "$FAKE_REPO/skills" "$FAKE_CLAUDE/skills"
+
+    run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" "$FAKE_REPO/scripts/check-drift.sh"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"SYMLINK"* ]]
+    [[ "$output" == *"drift detection impossible"* ]]
+}

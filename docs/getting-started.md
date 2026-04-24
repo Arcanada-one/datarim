@@ -85,6 +85,52 @@ The installer has a deliberately narrow contract — review a diff of `install.s
 
 **Drift between repo and runtime.** After an install, `./scripts/check-drift.sh` should exit 0. Drift is not automatically an error — it is a signal that the runtime has evolved (or the repo has), and the operator can decide whether to curate the change into the repo or re-install. The script's `SCOPES` list mirrors `install.sh INSTALL_SCOPES` (TUNE-0004 AC-3); extending the installer implies extending drift detection.
 
+---
+
+## Updating Datarim
+
+If you have Datarim installed and want to get the latest version:
+
+### Update from GitHub
+
+```bash
+cd /path/to/datarim              # your cloned repo
+git pull origin main
+./install.sh                     # merge mode (default)
+```
+
+### Merge mode vs Force mode
+
+| Mode | Command | Behavior |
+|------|---------|----------|
+| **Merge** (default) | `./install.sh` | Adds new files, skips existing ones. Safe for frequent updates. |
+| **Force** | `./install.sh --force` | Overwrites all files. Creates automatic backup first. Use when you want a clean sync with the repo. |
+
+**Merge mode** is recommended for regular updates: it adds new skills, agents, commands, and templates without touching files you may have customized in `~/.claude/`.
+
+**Force mode** is useful when you want the exact repo state, or when something seems broken. On a live system it will ask you to type `yes` and create a backup in `~/.claude/backups/force-<timestamp>/` before overwriting. Use `--force --yes` for CI/scripted environments.
+
+### After updating
+
+```bash
+./scripts/check-drift.sh         # verify runtime matches repo (should exit 0)
+```
+
+Inside Claude Code:
+
+```
+/dr-help                         # check if new commands appeared
+/dr-status                       # check framework status
+```
+
+### What stays unchanged
+
+- Your project `CLAUDE.md` files — they are in your project, not in `~/.claude/`
+- Your `datarim/` workflow state — local to each project
+- Your `documentation/archive/` — committed to your project's git
+
+---
+
 ### Activate in Your Project
 
 After installation, copy `CLAUDE.md` into your project root:

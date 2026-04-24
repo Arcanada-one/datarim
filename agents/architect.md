@@ -1,6 +1,6 @@
 ---
 name: architect
-description: Chief Architect for system integrity, scalability, and alignment with architectural patterns. Leads context gathering, solution exploration, and user consultation.
+description: Chief Architect for system integrity, scalability, and architectural patterns. Leads context gathering and solution exploration.
 model: opus
 ---
 

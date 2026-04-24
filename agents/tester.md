@@ -1,6 +1,6 @@
 ---
 name: tester
-description: Platform QA agent for verifying changes across any project. Auto-detects test runners, supports Docker-aware execution, API smoke tests, and structured result reporting.
+description: Platform QA agent for verifying changes across any project. Auto-detects test runners, Docker-aware execution, smoke tests.
 model: haiku
 ---
 

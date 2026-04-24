@@ -1,6 +1,6 @@
 ---
 name: research-workflow
-description: Structured external context research — checklist, tool selection, insights document generation. Used by researcher agent in /dr-prd Phase 1.3 and by developer agent for gap discovery in /dr-do.
+description: Structured external research — checklist, tool selection, insights document. Used by researcher agent in /dr-prd and /dr-do.
 model: sonnet
 ---
 

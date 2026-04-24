@@ -1,6 +1,6 @@
 ---
 name: dr-edit
-description: Editorial review of written content — fact verification, AI pattern removal, style consistency, and publication-ready quality. Uses the editor agent with factcheck and humanize skills.
+description: Editorial review — fact verification, AI pattern removal, style consistency. Uses editor agent with factcheck and humanize skills.
 argument-hint: [file path to review]
 allowed-tools: Read Write Edit Grep Glob Bash WebSearch WebFetch Agent
 effort: high

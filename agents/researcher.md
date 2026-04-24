@@ -1,6 +1,6 @@
 ---
 name: researcher
-description: Research Analyst for investigating external context — library versions, best practices, documentation, compatibility, and security advisories. Runs inside /dr-prd (Phase 1.3) and as subagent from /dr-do on gap discovery.
+description: Research Analyst for external context — library versions, best practices, docs, compatibility. Runs in /dr-prd and /dr-do.
 model: sonnet
 ---
 
