@@ -254,17 +254,12 @@ cp -R templates/. ~/.claude/templates/
 
 ```bash
 cd /path/to/datarim              # your cloned repo
-git pull origin main
-./install.sh                     # merge: adds new files, skips existing
-./install.sh --force             # force: overwrites all (backup taken automatically)
+./update.sh                      # pull + install + verify
 ```
 
-**Merge mode** (default) is recommended for regular updates — it adds new
-skills, agents, commands, and templates without touching files you may have
-customized. **Force mode** overwrites everything after taking a backup.
-
-See [docs/getting-started.md](docs/getting-started.md#updating-datarim) for
-detailed guidance on merge vs force mode.
+One command: pulls latest from GitHub, overwrites `~/.claude/` with fresh
+files (backup taken automatically), verifies sync. Use `--dry-run` to
+preview without writing.
 
 ### Activate in Your Project
 
