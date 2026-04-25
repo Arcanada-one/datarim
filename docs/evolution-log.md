@@ -220,7 +220,7 @@ Approved Class A evolution proposals from `reflection/reflection-TUNE-0032.md`. 
 ### Follow-Up Tasks Added to Backlog
 
 - **TUNE-0033** — Fork-first install model + symlink default (L3, P1). Added during TUNE-0032 compliance step.
-- **TUNE-0034** — Bats test suite cleanup: 10 pre-existing failures (optimizer.md restructure, removed go-to-market.md, dr-reflect references, file-sync-config description >155 chars). L1, P2.
+- **TUNE-0034** — Bats test suite cleanup: 10 pre-existing failures (optimizer.md restructure, removed go-to-market.md, reflect-removal sweep whitelist gaps, file-sync-config description >155 chars). L1, P2.
 - **TUNE-0035** — Site update cross-product checklist generalisation (folded into Proposal 3 above; backlog entry kept as tracking checkpoint to verify wiring on next site update). L1, P3.
 - **TUNE-0036** — `/dr-archive` Step 0.1 staged-diff audit (folded into Proposal 5 above; backlog entry kept as tracking checkpoint). L1, P3.
 

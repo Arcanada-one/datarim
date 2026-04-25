@@ -48,6 +48,8 @@ When creating new components, the skill-creator agent:
 
 **No automatic modifications.** Every change requires explicit human approval across all paths.
 
+> **Historical note (v1.10.0, TUNE-0013):** the standalone `/dr-reflect` command was retired and consolidated into `/dr-archive` Step 0.5 via the `reflecting` skill — reflection must run on every archive, not optionally. Disaster-recovery procedures for runtime files live in `skills/utilities/recovery.md` (cross-referenced from `skills/evolution/disaster-recovery.md`).
+
 ---
 
 ## Fragment Routing

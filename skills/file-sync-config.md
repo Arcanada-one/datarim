@@ -1,6 +1,6 @@
 ---
 name: file-sync-config
-description: Pre-flight checklist + decision tree + ignore-pattern templates для настройки файлового синка (Syncthing, rclone, rsync, Dropbox, iCloud, Disk Arcana). Предотвращает sync-конфликты в working trees git-репо и cross-platform сломанные venv/build артефакты.
+description: Pre-flight checklist + ignore patterns для file-sync (Syncthing/rclone/rsync/Dropbox/iCloud) — защита git working trees и venv/build.
 ---
 
 # File-Sync Configuration — Pre-Flight Checklist
