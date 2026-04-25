@@ -162,6 +162,9 @@ No renumbering occurs when a backlog item becomes active.
 | `CONN` | Model Connector |
 | `SRCH` | Scrutator (Search & Retrieval) |
 | `LTM` | Long Term Memory |
+| `AUTH` | Auth Arcana (identity & authorization) |
+| `BILL` | Billing Arcana (unified billing & subscriptions) |
+| `CONV` | Conversion Arcana (document/format conversion, ex rich-md-html) |
 
 #### Area Prefixes
 

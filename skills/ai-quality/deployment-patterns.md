@@ -55,6 +55,46 @@ SRCH-0002: plan predicted fp16 would reduce RAM from 914MB to ~450MB. Actual: 2,
 
 ---
 
+## NODE_ENV in Container Environments — Anti-Pattern
+
+`NODE_ENV=development` в Docker container'е (compose, Dockerfile `ENV`, docker run `-e`) — это анти-pattern. Контейнер не знает дев-режима.
+
+### Rule
+
+**Container default = `NODE_ENV=production`.** Dev-mode-only зависимости (pino-pretty, ts-node, source-map-support, error-stack-with-context, etc.) живут в `devDependencies`. Production Dockerfile делает `npm ci --omit=dev` → эти пакеты физически отсутствуют в image. Любой код, который их `require()` при `NODE_ENV=development`, упадёт с `Cannot find module ...` на старте.
+
+### Why
+
+AUTH-0002: Dockerfile корректно делал `npm ci --omit=dev`, но `docker-compose.yml` выставлял `NODE_ENV=development`. Pino logger conditionally подключал `pino-pretty` транспорт при dev-режиме. Контейнер crashed at startup (`unable to determine transport target for "pino-pretty"`). 5 минут диагностики + 1 цикл compose rebuild.
+
+### Pattern
+
+```yaml
+# docker-compose.yml — production-mode default for any container
+services:
+  app:
+    environment:
+      NODE_ENV: production    # <-- not development
+      LOG_LEVEL: info
+      # actual dev/staging differentiation: separate compose file or env override
+```
+
+```typescript
+// pino setup — pretty transport ONLY when explicitly requested
+transport: process.env.LOG_PRETTY === '1'
+  ? { target: 'pino-pretty', options: { colorize: true } }
+  : undefined
+```
+
+Локальный dev (host machine, `npm run start:dev`) сохраняет `NODE_ENV=development` через npm scripts — там devDeps присутствуют. Container никогда.
+
+### When to apply
+
+- Любой Dockerfile + docker-compose.yml для Node.js / Python / Ruby сервиса.
+- Общий принцип: «container env mirrors prod», даже если container запущен на dev-машине.
+
+---
+
 ## NestJS @Global() in Multi-Bootstrap Monorepos
 
 `@Global()` on a module only applies within the bootstrap context where its root module is registered. In a NestJS monorepo with separate `main.ts` files (e.g. API, Worker, Bot), each bootstrap creates an independent DI container. A `@Global()` module registered in `AppModule` is NOT available in `WorkerModule`'s container.
@@ -98,7 +138,7 @@ When deploying services that spawn CLI tools as subprocesses (Claude Code, Curso
 
 ```dockerfile
 FROM node:22-slim AS production
-RUN npm install -g @anthropic-ai/claude-code
+RUN curl -fsSL https://claude.ai/install.sh | bash
 RUN useradd -m -s /bin/bash connector
 USER connector
 ```
