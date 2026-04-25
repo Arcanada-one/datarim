@@ -4,6 +4,55 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ---
 
+## 2026-04-26 — v1.17.1 — TUNE-0034 — Bats baseline cleanup + reflection apply
+
+### Summary
+
+10 pre-existing bats failures (carry-over baseline through 2 archive cycles) classified into 6 stale + 4 fixable, resolved to 0 fail / 154 pass / 154 total — first clean baseline since v1.10.0. Two opportunistic verify-wiring tasks (TUNE-0035 cross-product checklist, TUNE-0036 staged-diff audit) batched and confirmed active in the same archive cycle. Three Class A reflection proposals approved and applied.
+
+### Changes
+
+**Bats cleanup (TUNE-0034 core):**
+- `tests/optimize-audit.bats` — removed 3 stale assertions on the deleted `## Structured Audit Report` 6-section schema in `agents/optimizer.md`.
+- `tests/optimize-merge.bats` — removed 3 stale assertions (`go-to-market.md` existence + frontmatter + snapshot "24 skills" count).
+- `tests/reflect-removal-sweep.bats` — whitelist extended +2 (`skills/evolution/{class-ab-gate,examples-and-patterns}.md`).
+- `skills/evolution.md` — added Historical-note paragraph (v1.10.0/TUNE-0013 forward-pointer + cross-ref to `skills/utilities/recovery.md`).
+- `skills/file-sync-config.md` — frontmatter `description` 339 → 133 chars (155-char cap restored).
+- `docs/evolution-log.md:223` — TUNE-0034 follow-up entry rephrased (drop retired-command literal substring; transient log not whitelisted).
+
+**Class A reflection proposals (3 applied):**
+| # | Category | Target | Change | Rationale |
+|---|---|---|---|---|
+| 1 | skill-update | `skills/testing.md` | Added § "Triaging Legacy Test Failures" — 3-bucket taxonomy (delete / patch / rephrase) with TUNE-0034 examples + decision aid | Reflection: fixture used 2-bucket taxonomy and missed the rephrase case at /dr-do |
+| 2 | command-update | `commands/dr-init.md` | Added Step 2.5 "Workspace cross-task hygiene check" — non-blocking advisory grepping foreign task IDs in `datarim/*.md` | Reflection: TUNE-0036 staged-diff catches tangle at archive but only after carry-over costs a session; surface at /dr-init |
+| 3 | claude-md-update | `code/datarim/CLAUDE.md:121` | `(23 skills, ...)` → `(24 skills, ...)` — match actual filesystem count | Reflection: test #119 (snapshot enforcer) was correctly removed but the drift remained; bumped doc to actual |
+
+**Site (patch-mode):**
+- `Projects/Websites/datarim.club/config.php` — version 1.17.0 → 1.17.1.
+- `Projects/Websites/datarim.club/pages/changelog.php` — new v1.17.1 "Latest" entry; demoted v1.17.0 by removing its `'tag' => 'Latest'`.
+
+**Workspace version anchors:**
+- `code/datarim/{VERSION,CLAUDE.md,README.md}` — 1.17.0 → 1.17.1.
+- `Projects/Datarim/{README,CLAUDE}.md` — current-version markers bumped (semantic `v1.17.0+` operating-model anchors retained).
+
+### Verification
+
+- `bats tests/` (1.13.0): 154/154 pass / 0 fail (was 150/10/160).
+- Live: https://datarim.club/en/changelog HTTP 200, v1.17.1 visible (2 grep hits, "Latest" demoted).
+- Cross-product diff (TUNE-0035 wiring) caught 2 pre-existing site drifts → filed as TUNE-0037 (file-sync-config.php missing) + TUNE-0038 (orphan telegram-publishing.php).
+
+### Class B proposals
+
+None — content-only cleanup, no operating-model change.
+
+### Follow-Up Tasks Added to Backlog
+
+- **TUNE-0037** — Add `data/skills/file-sync-config.php` site page (EN+RU short+body). L1, P3.
+- **TUNE-0038** — Cleanup orphan `data/skills/telegram-publishing.php` (skill removed pre-2026, PHP not cleaned). L1, P3.
+- **TUNE-0035 / TUNE-0036** — closed as **verified** (cross-product wiring caught 2 drifts; staged-diff audit + cross-task leakage detection present in `commands/dr-archive.md:26`).
+
+---
+
 ## 2026-04-25 — v1.17.0 — TUNE-0033 — Symlink-default install + `local/` overlay
 
 ### Summary

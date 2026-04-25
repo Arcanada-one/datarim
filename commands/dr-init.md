@@ -32,6 +32,14 @@ disable-model-invocation: true
       b. Create `documentation/archive/` directory (for long-term task archives).
       c. If `.gitignore` exists and does not contain `datarim/` → append `datarim/` to it.
       d. If `.gitignore` does not exist → ask user: "Create `.gitignore` with `datarim/`? (recommended — keeps workflow state local)"
+
+2.5. **WORKSPACE CROSS-TASK HYGIENE CHECK** (advisory, non-blocking):
+    - After path resolution, run `git status --porcelain datarim/tasks.md datarim/activeContext.md datarim/backlog.md datarim/progress.md` (those that exist).
+    - Grep their pending diffs for foreign task IDs (anything matching `[A-Z]+-[0-9]{4}` other than the new task being initialised).
+    - If foreign IDs are found, emit a single-line advisory: `"Workspace datarim/* carries pending state for {N} other tasks: {ID1, ID2, ...}. Consider /dr-archive or commit before /dr-init."`
+    - **Non-blocking** — operator proceeds at will. Skip silently if the workspace is clean or no `datarim/*.md` exist yet.
+    - Source: TUNE-0034 reflection Proposal 2. TUNE-0036 staged-diff audit at `/dr-archive` already catches the tangle but only after the carry-over has already cost a session; surfacing it at `/dr-init` lets the operator clean state proactively.
+
 3.  **CHECK BACKLOG**: If `datarim/backlog.md` exists and contains pending items:
     - Display pending items as a numbered list (ID, title, priority, complexity).
     - **If user provided a `BACKLOG-XXXX` ID**: Select that item directly.
