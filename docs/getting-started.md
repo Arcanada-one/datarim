@@ -6,7 +6,7 @@ This guide walks you through installing the Datarim framework, initializing it i
 
 ## Prerequisites
 
-- [Claude Code](https://claude.ai/code) CLI installed and authenticated
+- [Claude Code](https://code.claude.com/docs/en/overview) CLI installed and authenticated. Install: `curl -fsSL https://claude.ai/install.sh | bash` (macOS/Linux/WSL) or `irm https://claude.ai/install.ps1 | iex` (Windows PowerShell)
 - A git repository for your project (Datarim uses `.gitignore` to separate workflow state from project documentation)
 - **Recommended:** [context7](https://github.com/upstash/context7) MCP server for token-efficient documentation access when looking up library docs
 
