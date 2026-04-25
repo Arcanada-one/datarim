@@ -22,6 +22,7 @@ Complete and archive current task.
      b. **Explicitly accept pending state** (record the reason in the archive document's "Known Outstanding State" section).
      c. **Abort archive** (return to `/dr-do` or fix manually).
    - Do NOT archive over a dirty working tree silently. Applied ≠ committed ≠ canonical — see TUNE-0003 reflection for the governance rationale.
+   - **Staged-diff audit (per commit):** after `git add` and before `git commit`, run `git diff --staged --stat` and visually verify the file list matches the commit-message scope. Reject the commit if files unrelated to the message scope appear in the staged set; restage selectively. Source: TUNE-0032 — 2 INFRA-0026 files (`skills/file-sync-config.md`, `templates/cli-conflict-resolver-prompt.md`) leaked into the TUNE-0032 commit despite an explicit `git add` path-list, undetected because the staged diff was not inspected before commit.
 
 0.5. **REFLECT** (MANDATORY, non-skippable):
    - Load `$HOME/.claude/skills/reflecting.md`.

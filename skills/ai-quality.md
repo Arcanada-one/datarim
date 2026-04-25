@@ -159,6 +159,43 @@ Before proceeding, ask:
 
 ---
 
+## Spec-First with Golden Fixtures (Format-Change Pattern)
+
+When a task changes **output format, structure, or contract across multiple files** (e.g. CTA blocks across 17 commands + 5 agents, response envelopes across N services, log fields across handlers), apply this pattern as a default rule for L3+ tasks:
+
+```
+SEQUENCE:
+1. Spec-as-skill        → write the canonical specification first as a single
+                          source-of-truth skill (e.g. cta-format.md). Define
+                          structure, field rules, anti-patterns.
+2. Golden fixtures      → create one fixture per variant (single, multi,
+                          fail-routing, etc.) under tests/{topic}/fixtures/.
+                          These are the visual artefacts agents produce.
+3. Spec-regression tests → bats / language-native tests verify:
+                          (a) every consumer file references the skill
+                          (b) every consumer agent loads the skill
+                          (c) fixtures match all spec invariants
+                          (d) anti-pattern guards (forbidden chars, etc.)
+4. Mechanical propagation → only after 1-3 land, propagate the change to all
+                          consumers. Tests guard against drift.
+```
+
+**Why:** Without fixtures + tests, the same drift problem re-emerges every time a new consumer is added without spec compliance. Mechanical propagation alone protects current state, not future state.
+
+**When to apply:**
+- Format / structure changes affecting ≥5 files of the same kind
+- Output-contract changes (CTA, response envelope, log fields, validation messages)
+- Cross-cutting style / convention changes that need agent compliance
+
+**When NOT to apply:**
+- Single-file changes
+- Internal-only refactors with no external contract
+- One-off scripts where future drift is not a concern
+
+Source: TUNE-0032 — Approach C (Spec-First with Golden Fixtures) chosen over Approach A (Big Bang refactor) for canonical CTA block. 39 tests now guard 17 commands + 5 agents from drift; mechanical sweep alone (Approach A) would have left the same problem to re-emerge with the next added command.
+
+---
+
 ## Fragment Routing
 
 Load only the fragment needed for the current sub-problem:
