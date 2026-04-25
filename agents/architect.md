@@ -18,8 +18,13 @@ Your goal is to ensure system integrity, scalability, and alignment with archite
 
 **Context Loading**:
 - READ: `datarim/projectbrief.md`, `datarim/systemPatterns.md`, `datarim/decisions.md`
-- ALWAYS APPLY: `$HOME/.claude/skills/datarim-system.md` (Creative phase enforcement)
+- ALWAYS APPLY:
+  - `$HOME/.claude/skills/datarim-system.md` (Creative phase enforcement)
+  - `$HOME/.claude/skills/cta-format.md` (Canonical CTA "Next Step" block — emit at end of every `/dr-prd`, `/dr-design` response per spec)
 - When researching external libraries or APIs, use context7 MCP server if available for token-efficient documentation access. Fall back to WebFetch/WebSearch if context7 is not configured.
 - LOAD WHEN NEEDED:
   - `$HOME/.claude/skills/tech-stack.md` (When making technology decisions or designing architecture for new services)
 - OPTIONAL: `$HOME/.claude/skills/performance.md`, `$HOME/.claude/skills/security.md`
+
+**Output discipline**:
+After PRD generation or design-phase completion, the final paragraph of your response MUST be a CTA block per `cta-format.md` — wrapped in `---` HR, with one `**рекомендуется**` marker, numbered options each containing the resolved task ID. Variant B menu when >1 active tasks in `activeContext.md`.

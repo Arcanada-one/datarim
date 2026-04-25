@@ -35,10 +35,16 @@ description: Adaptive post-QA hardening. Detects task type and applies matching 
 - **COMPLIANT_WITH_NOTES** — passes with minor observations
 - **NON-COMPLIANT** — critical issues found, fix before archiving
 
-## Next Steps
-- COMPLIANT or COMPLIANT_WITH_NOTES → `/dr-archive`
-- NON-COMPLIANT — identify defect source and route:
-  - PRD/task alignment gap identified → `/dr-prd` (update requirements, then resume forward)
-  - Code/test/lint/CI/CD issues → `/dr-do` (fix code, then re-run `/dr-compliance`)
-  - Default (source unclear) → `/dr-do`
-  - After fix: re-run `/dr-compliance` (previous report kept for audit; new gets `-v2` suffix)
+## Next Steps (CTA)
+
+After verdict, the compliance agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format.md`. NON-COMPLIANT verdicts use the FAIL-Routing variant (see § FAIL-Routing in cta-format).
+
+**Routing logic for `/dr-compliance`:**
+
+- COMPLIANT or COMPLIANT_WITH_NOTES → primary `/dr-archive {TASK-ID}` (final archive with reflection Step 0.5)
+- NON-COMPLIANT, PRD/task alignment gap → primary `/dr-prd {TASK-ID}` (FAIL-Routing Layer 1; update requirements, resume forward)
+- NON-COMPLIANT, code/test/lint/CI issues → primary `/dr-do {TASK-ID}` (FAIL-Routing Layer 4; fix, re-run `/dr-compliance` — new report gets `-v2` suffix)
+- NON-COMPLIANT, source unclear → primary `/dr-do {TASK-ID}` (default)
+- Loop guard: 3 same-layer fails → escalate to user
+
+The CTA block MUST follow canonical FAIL-Routing format when NON-COMPLIANT (header changes to `**Compliance NON-COMPLIANT для {TASK-ID} — earliest failed layer: Layer N (Layer name)**`). Variant B menu when >1 active tasks.

@@ -210,20 +210,26 @@ Write to `datarim/qa/qa-report-{task-id}.md`:
 
 ---
 
-## Next Steps
+## Next Steps (CTA)
 
-- **ALL_PASS or CONDITIONAL_PASS** at L3-4 → `/dr-compliance`
-- **ALL_PASS or CONDITIONAL_PASS** at L1-2 → `/dr-archive`
-- **BLOCKED** — route by **earliest** failed layer:
+After verdict, the reviewer agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format.md`. BLOCKED verdicts MUST use the FAIL-Routing variant.
 
-| Failed Layer | Return To | Rationale |
-|-------------|-----------|-----------|
-| Layer 1 (PRD Alignment) | `/dr-prd` | Requirements incomplete or wrong — update PRD first |
-| Layer 2 (Design Conformance) | `/dr-design` | Architecture decisions violated — revise design |
-| Layer 3 (Plan Completeness) | `/dr-plan` | Steps skipped or plan outdated — update plan |
-| Layer 4 (Code Quality) | `/dr-do` | Code bugs, security, anti-patterns — fix code |
+**Routing logic for `/dr-qa`:**
 
-Multi-layer FAIL: route to **earliest** stage (Layer 1 > 2 > 3 > 4). Earlier failures are root causes; later failures are often symptoms.
+- ALL_PASS or CONDITIONAL_PASS at L3-4 → primary `/dr-compliance {TASK-ID}` (final hardening)
+- ALL_PASS or CONDITIONAL_PASS at L1-2 → primary `/dr-archive {TASK-ID}` (notes documented if any)
+- **BLOCKED** — FAIL-Routing variant per Layer-to-command map:
+
+| Failed Layer | Return Command (primary in CTA) | Rationale |
+|--------------|---------------------------------|-----------|
+| Layer 1 (PRD Alignment) | `/dr-prd {TASK-ID}` | Requirements incomplete or wrong — update PRD first |
+| Layer 2 (Design Conformance) | `/dr-design {TASK-ID}` | Architecture decisions violated — revise design |
+| Layer 3 (Plan Completeness) | `/dr-plan {TASK-ID}` | Steps skipped or plan outdated — update plan |
+| Layer 4 (Code Quality) | `/dr-do {TASK-ID}` | Code bugs, security, anti-patterns — fix code |
+
+Multi-layer FAIL: route to **earliest** failed layer (Layer 1 > 2 > 3 > 4). Earlier failures are root causes.
+
+The FAIL-Routing CTA header MUST read: `**QA failed для {TASK-ID} — earliest failed layer: Layer N (Layer name)**`. Variant B menu when >1 active tasks.
 
 ## Loop Guard
 

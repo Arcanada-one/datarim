@@ -1,6 +1,6 @@
 # Skills Reference
 
-Datarim includes 21 reusable skill modules. Skills provide rules, patterns, and guidelines loaded on demand by agents and commands.
+Datarim includes 22 reusable skill modules. Skills provide rules, patterns, and guidelines loaded on demand by agents and commands.
 
 Skills are split into two categories:
 - **Reference skills** — rules and patterns the caller applies inline. Inherit caller's model (no `model` field).
@@ -11,6 +11,7 @@ Skills are split into two categories:
 | Skill | Type | Model | Purpose | Loaded By |
 |-------|------|-------|---------|-----------|
 | datarim-system | Reference | inherit | Core workflow rules, path resolution, file locations | All commands (mandatory) |
+| cta-format | Reference | inherit | Canonical CTA "Next Step" block format (v1.16.0, TUNE-0032) | planner, architect, developer, reviewer, compliance |
 | ai-quality | Reference | inherit | 5 pillars: decomposition, TDD, architecture-first, focus, context | developer, planner |
 | security | Reference | inherit | Auth, input validation, data protection | reviewer, security agent |
 | testing | Reference | inherit | Testing pyramid, frameworks, mocking rules | developer, reviewer |

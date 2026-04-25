@@ -66,7 +66,15 @@ Before proceeding to `/dr-qa` or `/dr-archive`:
 [ ] No known regressions introduced?
 ```
 
-## Next Steps
-- All checks pass, L3-4? → `/dr-qa`
-- All checks pass, L1-2? → `/dr-archive`
-- Checks incomplete? → Continue implementation
+## Next Steps (CTA)
+
+After implementation, the developer agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format.md`.
+
+**Routing logic for `/dr-do`:**
+
+- All checks pass, L3-4 → primary `/dr-qa {TASK-ID}` (multi-layer verification)
+- All checks pass, L1-2 → primary `/dr-archive {TASK-ID}` (reflection runs as Step 0.5)
+- Checks incomplete → primary `/dr-do {TASK-ID}` (continue) + alternative `/dr-status`
+- Fundamental gap discovered (Gap Discovery escalation) → primary `/dr-prd {TASK-ID}` (revise requirements)
+
+The CTA block MUST follow the canonical format (numbered list, one `**рекомендуется**`, `---` HR wrapping, task ID included). Variant B menu when >1 active tasks.

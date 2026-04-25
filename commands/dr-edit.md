@@ -57,8 +57,16 @@ effort: high
 - Corrected document (after approval)
 - Backup of the original
 
-## Next Steps
-- Content needs more writing or rework? → `/dr-write`
-- Content approved and ready to publish? → `/dr-publish`
-- Part of a Datarim pipeline task (non-content)? → `/dr-qa` or `/dr-archive`
-- Quick targeted check only? → `/factcheck` or `/humanize`
+## Next Steps (CTA)
+
+After edit pass, the editor agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format.md`.
+
+**Routing logic for `/dr-edit`:**
+
+- Content approved, publication ready → primary `/dr-publish {TASK-ID}` (multi-platform formatting)
+- Content needs more writing → primary `/dr-write {TASK-ID}` (continue authoring)
+- Pipeline task (non-content track) → primary `/dr-qa {TASK-ID}` or `/dr-archive {TASK-ID}` per complexity
+- Targeted micro-check only → alternative `/factcheck` or `/humanize`
+- Always include `/dr-status` as escape hatch
+
+The CTA block MUST follow the canonical format (numbered, one `**рекомендуется**`, `---` HR). Variant B menu when >1 active tasks.

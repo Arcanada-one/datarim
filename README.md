@@ -2,7 +2,7 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 1.15.2](https://img.shields.io/badge/Version-1.15.2-green.svg)](VERSION)
+[![Version: 1.16.0](https://img.shields.io/badge/Version-1.16.0-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
@@ -150,7 +150,7 @@ Stages in `[brackets]` are conditional — included when the agent determines th
 
 ## Prerequisites
 
-- [Claude Code](https://claude.ai/code) CLI installed and authenticated
+- [Claude Code](https://code.claude.com/docs/en/overview) CLI installed and authenticated. Install: `curl -fsSL https://claude.ai/install.sh | bash` (macOS/Linux/WSL) or `irm https://claude.ai/install.ps1 | iex` (Windows PowerShell)
 - **Recommended:** [context7](https://github.com/upstash/context7) MCP server for
   token-efficient documentation access (reduces context usage when looking up library
   docs)

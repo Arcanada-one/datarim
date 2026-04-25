@@ -108,7 +108,15 @@ effort: high
 - Applied changes summary
 - Updated documentation
 
-## Next Steps
-- Applied structural changes? → Test with `/dr-help` to verify commands list
-- Removed components? → Check that no workflow is broken
-- Need deeper restructuring? → Use `/dr-design` with consilium panel
+## Next Steps (CTA)
+
+After optimize-pass, the optimizer agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format.md`.
+
+**Routing logic for `/dr-optimize`:**
+
+- Applied structural changes → primary `/dr-help` (verify command list renders) + reminder to curate runtime → repo
+- Removed components → primary "verify no workflow broken" + alternative `/dr-status`
+- Need deeper restructuring → primary `/dr-design {TASK-ID}` (consilium panel)
+- Always include `/dr-status` as escape hatch
+
+The CTA block MUST follow the canonical format (numbered, one `**рекомендуется**`, `---` HR). Variant B menu when >1 active tasks.

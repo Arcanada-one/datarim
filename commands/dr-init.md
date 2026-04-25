@@ -56,7 +56,17 @@ disable-model-invocation: true
     - If approved: create entries in `datarim/backlog.md` using appropriate project/area prefix per Unified Task Numbering (NOT `BACKLOG-XXXX`). Subtasks of a project task typically share its project prefix.
 6.  **OUTPUT**: Initialized task structure (including tech stack if applicable).
 
-## Next Steps
-- Level 1? → `/dr-do`
-- Level 2+? → `/dr-plan`
-- No task specified and backlog has pending items? → Show backlog for selection
+## Next Steps (CTA)
+
+After completing initialization, the planner agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format.md`.
+
+**Routing logic for `/dr-init`:**
+
+- New L1 task → primary `/dr-do {TASK-ID}` (single-file fix, ≤50 LoC)
+- New L2 task → primary `/dr-plan {TASK-ID}` (planning before code)
+- New L3-4 task without PRD → primary `/dr-prd {TASK-ID}` (PRD obligatory unless waiver)
+- New L3-4 task with parent PRD <30 days → alternative `/dr-plan {TASK-ID}` (waiver path)
+- Backlog had pending items shown → alternative `/dr-init {BACKLOG-ID}` for any other listed item
+- Always include `/dr-status` as escape hatch
+
+The CTA block MUST: (a) include resolved task ID, (b) mark exactly one `**рекомендуется**`, (c) list ≤5 numbered options, (d) be wrapped in `---` HR. If >1 active tasks in `datarim/activeContext.md`, append `**Другие активные задачи:**` menu (Variant B).

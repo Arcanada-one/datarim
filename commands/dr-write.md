@@ -30,7 +30,15 @@ argument-hint: [topic or file path]
     - **Mark for editorial review**: Flag sections that need fact-checking or style review.
 6.  **OUTPUT**: Draft content with editorial notes. Suggest `/dr-edit` for fact-checking and AI pattern review.
 
-## Next Steps
-- Content needs fact-checking or polish? → `/dr-edit`
-- Content is approved and ready to publish? → `/dr-publish`
-- Content is a standalone piece? → `/factcheck` or `/humanize` for targeted review
+## Next Steps (CTA)
+
+After draft, the writer agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format.md`.
+
+**Routing logic for `/dr-write`:**
+
+- Draft ready, needs editorial pass → primary `/dr-edit {TASK-ID}` (fact-check + style + AI patterns)
+- Draft approved, ready to ship → primary `/dr-publish {TASK-ID}` (multi-platform formatting)
+- Standalone piece, only targeted check needed → alternative `/factcheck` or `/humanize`
+- Always include `/dr-status` as escape hatch
+
+The CTA block MUST follow the canonical format (numbered, one `**рекомендуется**`, `---` HR). Variant B menu when >1 active tasks.

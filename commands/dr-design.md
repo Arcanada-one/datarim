@@ -56,6 +56,14 @@ Before proceeding to `/dr-do`:
 [ ] tasks.md updated with design decisions?
 ```
 
-## Next Steps
-- All checks pass? → `/dr-do`
-- Missing items? → Complete before transition
+## Next Steps (CTA)
+
+After design phase, the architect agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format.md`.
+
+**Routing logic for `/dr-design`:**
+
+- All design checks pass → primary `/dr-do {TASK-ID}` (begin TDD implementation)
+- Missing items in design → primary `/dr-design {TASK-ID}` (continue) + alternative `/dr-prd {TASK-ID}` if requirements gap
+- Always include `/dr-status` as escape hatch
+
+The CTA block MUST follow the canonical format (numbered list, one `**рекомендуется**`, `---` HR wrapping, task ID included). Variant B menu when >1 active tasks.
