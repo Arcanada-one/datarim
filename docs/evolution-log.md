@@ -52,6 +52,57 @@ The pivot from the original "fork-first" framing to "symlink-default + `local/` 
 
 ---
 
+## 2026-04-25 — TUNE-0033 — Reflection Class A Proposals (5 applied)
+
+Reflection (Step 0.5 of `/dr-archive TUNE-0033`) generated 5 Class A evolution proposals; all 5 approved and applied. Class B count: 0.
+
+### Proposal 1 — Cross-product checklist mapping for operating-model changes (claude-md-update)
+
+- **Target:** `Projects/Websites/CLAUDE.md` § "Cross-product checklist (generalised TUNE-0028 + TUNE-0032 rule)"
+- **What:** Added 3 new rows to the Runtime → Site mapping table covering operating-model changes (operating-model → `pages/getting-started.php` mandatory; → `pages/home.php` conditional; → `content/{en,ru}.php` conditional). Added pre-deploy operating-model term grep gate.
+- **Why:** TUNE-0033 — `pages/getting-started.php` was not updated in /dr-do, surfaced only at /dr-archive live verification (AC-19). Existing checklist covered per-artefact maps but not systemic surfaces like onboarding pages.
+- **Evidence:** PRD-TUNE-0033 AC-19 listed live `/docs/getting-started \| grep symlink`, but plan §5 affected files did not include `pages/getting-started.php`.
+
+### Proposal 2 — Class B Public Surface Scan checkpoint in /dr-plan (skill-update)
+
+- **Target:** `commands/dr-plan.md` (new step 12 between Live Audit Checkpoint and Output Summary)
+- **What:** Added mandatory "Class B Public Surface Scan" step requiring enumeration of ALL user-facing surfaces reflecting the new operating model (8 minimum surfaces listed). For each surface, plan §5 MUST include affected-files entry AND PRD MUST include corresponding acceptance criterion. Deferring = Class B contract violation.
+- **Why:** Same root cause as Proposal 1 — Class B operating-model task surface scan was implicit, not codified, leading to deferred public surfaces.
+
+### Proposal 3 — Improve deploy.sh dry-run UX
+
+- **Target:** `Projects/Websites/deploy.sh`
+- **What:** Added `[DRY RUN]` prefix to deploy line when `--dry-run` flag is set, plus distinct trailing message ("[DRY RUN] No files transferred. Run without --dry-run to execute.") instead of identical "Done: ... deployed" line. Real deploy still prints "Done: $DOMAIN deployed".
+- **Why:** TUNE-0033 — initial dry-run output was practically indistinguishable from real deploy. Operator (me) almost misinterpreted result.
+
+### Proposal 4 — Document `absorbed` task disposition pattern (skill-update)
+
+- **Target:** `skills/datarim-system.md` (new § "Task Disposition Patterns" before Quick Routing Heuristic)
+- **What:** Documented 4 dispositions — `completed`, `cancelled`, **`absorbed`** (new), `superseded`. Each with When / Action columns. `absorbed` covers the case where a task's deliverable is fully delivered inside another task's scope (TUNE-0031 update.sh inside TUNE-0033).
+- **Why:** TUNE-0031 status was "superseded-pending" with no clean disposition vocabulary. `absorbed` accurately captures: deliverable shipped, but in a different task's archive. Preserves audit trail.
+
+### Proposal 5 — Workspace cross-task leakage detection in /dr-archive Step 0.1 (skill-update)
+
+- **Target:** `commands/dr-archive.md` Step 0.1
+- **What:** Added proactive check: when running clean-git, examine modified `datarim/` workflow files for foreign task IDs. If foreign IDs (e.g. `TRANS-0015`, `VERD-0010`) appear in diff while archiving a different task → flag as out-of-scope.
+- **Why:** TUNE-0033 — workspace `datarim/{tasks,backlog,progress,activeContext}.md` carried 100+ uncommitted lines from TRANS-0015 / VERD-0010 / LTM-0004 prior sessions. Staged-diff audit (TUNE-0032 lesson) caught the leak only at commit time. Proactive task-ID mapping at Step 0.1 prevents the round-trip.
+
+### Class A/B Gate
+
+All 5 proposals are **Class A** (content updates, no operating-model changes). Approved: human (Pavel), 2026-04-25, via `/dr-archive TUNE-0033` reflection review with `all` approval.
+
+### Health Metrics Snapshot
+
+- Skills: 23 (no new skill, 1 § added to `datarim-system.md`)
+- Agents: 17 (no change)
+- Commands: 19 (no change, 2 commands updated: `dr-plan.md`, `dr-archive.md`)
+- Templates: 13 (no change)
+- bats: 150 pass + 10 fail (carry-over from TUNE-0034 backlog)
+
+All metrics within thresholds. `/dr-optimize` not required.
+
+---
+
 ## 2026-04-25 — v1.16.0 — TUNE-0032 — Canonical CTA "Next Step" Block
 
 ### Summary

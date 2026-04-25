@@ -58,6 +58,19 @@ local overlay wins. `validate.sh` emits a WARN line per detected override.
 (`local/skills/my-org-style.md`) to avoid accidental overrides of framework
 skills you actually wanted to keep tracking upstream.
 
+## Task Disposition Patterns
+
+When closing a task, choose the disposition that matches the actual outcome:
+
+| Disposition | When | Action |
+|---|---|---|
+| `completed` | All ACs PASS, full archive done | Standard `/dr-archive` flow → `documentation/archive/{area}/archive-{ID}.md` + `backlog-archive.md` ## Completed |
+| `cancelled` | User abandoned the task; no deliverable shipped | `backlog-archive.md` ## Cancelled with status `cancelled`, date, **reason**. No archive document. |
+| `absorbed` | Scope and deliverable fully delivered **inside another task** | `backlog-archive.md` ## Completed with status `absorbed`, link to absorbing task ID, note `delivered as part of {OTHER-TASK}`. No separate archive document — reference the absorbing task's archive. |
+| `superseded` | Replaced by a newer task with broader/different scope; no deliverable from this ID | `backlog-archive.md` ## Cancelled with status `superseded`, link to replacing task. |
+
+Source: TUNE-0033 — `update.sh` deliverable from TUNE-0031 was shipped inside TUNE-0033 scope; `cancelled` was inaccurate (deliverable existed) and `completed` was inaccurate (no separate archive). `absorbed` captures the reality and preserves audit trail.
+
 ## Quick Routing Heuristic
 
 - Need file placement or archive destination? Load `path-and-storage.md` or `command-and-archive-rules.md`.
