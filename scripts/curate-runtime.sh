@@ -72,6 +72,22 @@ while [ $# -gt 0 ]; do
     esac
 done
 
+# v1.17.0 (TUNE-0033 AC-8): deprecation banner. With symlink-mode installs the
+# concept of "curate runtime → repo" is empty (runtime IS the repo). Copy-mode
+# users still need this until v1.18 (TUNE-0044) when both scripts go away.
+cat >&2 <<'WARN'
+============================================================
+DEPRECATED in v1.17.0 (TUNE-0033)
+
+curate-runtime.sh is needed only for copy-mode installs.
+Symlink-mode installs (default since v1.17.0) have no drift —
+runtime IS the repo. Edit files in the repo, then 'git commit'.
+
+This script will be REMOVED in v1.18.0 (TUNE-0044).
+See: docs/getting-started.md
+============================================================
+WARN
+
 # --- Validation -------------------------------------------------------------
 
 if [ ! -d "$CLAUDE_DIR" ]; then

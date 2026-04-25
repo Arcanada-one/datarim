@@ -14,7 +14,7 @@ This guide walks you through installing the Datarim framework, initializing it i
 
 ## Installation
 
-### Option 1: Install Script
+### Quick start (symlink mode — default since v1.17.0)
 
 ```bash
 git clone https://github.com/Arcanada-one/datarim.git
@@ -23,15 +23,67 @@ chmod +x install.sh
 ./install.sh
 ```
 
-The installer copies agents, skills, commands, and templates to `~/.claude/` and reports what was installed. If files already exist, it skips them by default. Use `--force` to overwrite — on a live system it will ask you to confirm and take an automatic backup first (see [Installer Contract](#installer-contract) below):
+On macOS and Linux this creates four symlinks in `~/.claude/` — `agents`, `skills`, `commands`, `templates` — each pointing at the matching directory inside the cloned repo. The runtime IS the repo: any edit you make in either place lands in the same file, so `git diff` shows your changes immediately and there is no separate "curate" step.
+
+The installer also creates `~/.claude/local/{skills,agents,commands,templates}/` (real directories, gitignored) for personal additions and overrides that you do not want committed upstream. See [Local Overlay](#local-overlay) below.
+
+### Copy mode (legacy / Windows)
+
+If symlinks are not available — typical on Windows Git Bash, FAT32/exFAT volumes, or restricted shells — pass `--copy` (or let the installer auto-detect):
 
 ```bash
-./install.sh --force            # asks "type yes" on a live system, creates backup
-./install.sh --force --yes      # non-interactive (CI / scripted)
-DATARIM_INSTALL_YES=1 ./install.sh --force   # same, via env var
+./install.sh --copy             # explicit copy mode
+./install.sh --copy --force --yes   # CI / scripted overwrite (creates backup)
 ```
 
-### Option 2: Manual
+`uname -s` matching `MINGW*`, `MSYS*`, or `CYGWIN*` triggers the copy fallback automatically; the installer prints `Mode: copy (auto-detected: symlinks not available)`.
+
+### Migration from v1.16 (existing copy install)
+
+The first time `./install.sh` is run against a v1.16 copy install, it shows an interactive prompt:
+
+```
+Options:
+  [c] Convert to symlinks (recommended)
+       Existing files moved to $CLAUDE_DIR/backups/migrate-<ts>/
+       Future updates run via 'git pull' inside the repo — no copy step.
+  [k] Keep copy mode permanently
+       Re-run install.sh --copy from now on.
+  [a] Abort
+```
+
+`--yes` (or `DATARIM_INSTALL_YES=1`) auto-selects `[c]`. CI / non-TTY environments without auto-consent abort with exit 1 — pick `--copy` or `--yes` explicitly.
+
+### Local overlay
+
+`~/.claude/local/` is the user-private layer:
+
+```
+~/.claude/local/
+├── skills/        # personal skills, e.g. my-company-style.md
+├── agents/
+├── commands/
+├── templates/
+├── .gitignore     # contents `*` — entire dir is private
+└── README.md      # convention notes
+```
+
+Loader order (`skills/datarim-system.md` § Loading Order): the framework layer loads first, then files in `local/<scope>/<name>.md` override framework files of the same name. `validate.sh` emits a `WARN: override detected: …` line per shadow.
+
+**Convention:** prefix overlay files with a personal namespace (`my-org-…`, your initials, …) so you don't accidentally shadow framework files you actually want to track upstream.
+
+### Manual install (no script)
+
+```bash
+mkdir -p ~/.claude
+ln -s "$(pwd)/agents"    ~/.claude/agents
+ln -s "$(pwd)/skills"    ~/.claude/skills
+ln -s "$(pwd)/commands"  ~/.claude/commands
+ln -s "$(pwd)/templates" ~/.claude/templates
+mkdir -p ~/.claude/local/{skills,agents,commands,templates}
+```
+
+Or, for copy mode (the legacy v1.16 path):
 
 ```bash
 mkdir -p ~/.claude/{agents,skills,commands,templates}
@@ -39,51 +91,49 @@ cp agents/*.md ~/.claude/agents/
 cp skills/*.md ~/.claude/skills/
 cp commands/*.md ~/.claude/commands/
 cp templates/*.md ~/.claude/templates/
-# Non-.md templates (e.g. cloudflare-nginx-setup.sh) also belong in ~/.claude/templates/
 cp templates/*.sh ~/.claude/templates/ 2>/dev/null || true
 chmod +x ~/.claude/templates/*.sh 2>/dev/null || true
 ```
+
+### Fork-as-contributor (advanced)
+
+If you intend to upstream framework changes back to `Arcanada-one/datarim`, fork the repo on GitHub, clone your fork, and clone-and-symlink against it. For *personal additions* prefer the `local/` overlay — fork merge conflicts on Markdown are a real UX barrier (this is why oh-my-zsh / bash-it / chezmoi all use overlays for end-user additions).
 
 ### Installer Contract
 
 The installer has a deliberately narrow contract — review a diff of `install.sh` if you want the authoritative version.
 
-**Install scopes** (copied into `$CLAUDE_DIR`, default `~/.claude/`):
+**Install scopes** (linked or copied into `$CLAUDE_DIR`, default `~/.claude/`):
 
 | Scope | Content types | Notes |
 |-------|---------------|-------|
 | `agents/`    | `.md` | Agent personas |
 | `skills/`    | `.md` | Skills, including supporting subdirectories (`datarim-system/`, `visual-maps/`) |
 | `commands/`  | `.md` | Slash-command definitions |
-| `templates/` | `.md`, `.sh`, `.json`, `.yaml`, `.yml` | Reusable scaffolds. `.sh` templates get `+x` automatically. |
+| `templates/` | `.md`, `.sh`, `.json`, `.yaml`, `.yml` | Reusable scaffolds. `.sh` templates get `+x` automatically in copy mode (symlink mode preserves the source bits). |
 
 **Repo-only** (intentionally NOT installed):
 
-- `scripts/` — dev tooling (`check-drift.sh`, `pre-archive-check.sh`). These run from the cloned repo; running them from `~/.claude/` is semantically undefined.
+- `scripts/` — dev tooling (`check-drift.sh`, `pre-archive-check.sh`, `curate-runtime.sh` — both `check-drift` and `curate-runtime` are deprecated since v1.17 and will be removed in v1.18, TUNE-0044). These run from the cloned repo.
 - `tests/` — bats tests for the repo's own scripts.
-- `install.sh`, `validate.sh`, `VERSION`, `CLAUDE.md`, `README.md`, `LICENSE` — repo artefacts.
+- `install.sh`, `update.sh`, `validate.sh`, `VERSION`, `CLAUDE.md`, `README.md`, `LICENSE` — repo artefacts.
 
-**Content-type whitelist.** Files with extensions outside the whitelist are logged (`WARN (unknown extension, skipped)`) and not copied — never silently dropped. To add a new content type, update both `INSTALL_EXTENSIONS` in `install.sh` and this table, then extend the bats suite.
+**Content-type whitelist.** In copy mode, files with extensions outside the whitelist are logged (`WARN (unknown extension, skipped)`) and not copied. In symlink mode the entire scope dir is exposed wholesale, so the whitelist does not apply at install time.
 
-**`--force` safety** (TUNE-0004, post-incident hardening):
+**`--force` safety:**
 
-1. `CLAUDE_DIR` is asserted to be non-empty, not `/`, and not `$HOME` itself — fails with exit 2 otherwise.
-2. On a fresh target (`$CLAUDE_DIR/agents|skills|commands|templates` all empty) `--force` is a no-op guard and proceeds immediately.
-3. On a *live* target (any install scope is non-empty), `--force` requires explicit consent:
-   - Interactive TTY: prompts for the literal word `yes`. Anything else aborts (exit 1).
-   - Non-TTY (CI, pipes): aborts with exit 1 unless `--yes` / `DATARIM_INSTALL_YES=1` is supplied.
-4. Before any overwrite, the installer copies each install scope into `$CLAUDE_DIR/backups/force-<UTC-timestamp>/`. A `SUCCESS` marker is written last — its presence signals a complete backup. Restore is a manual `cp -R` from that directory.
-5. Backups accumulate; the installer never deletes them. Review periodically and remove stale entries with `rm -rf $CLAUDE_DIR/backups/force-<old-timestamp>/`.
+- Symlink topology + `--force` → no-op (prints "Already symlinked, nothing to update"). Use `cd repo && git pull` or `./update.sh` instead.
+- Copy topology + `--force` (TUNE-0004 hardening): `CLAUDE_DIR` sanity-checked, live-system consent required (`yes` typed at TTY, or `--yes` / `DATARIM_INSTALL_YES=1`), backup of each scope under `$CLAUDE_DIR/backups/force-<UTC-timestamp>/` with a `SUCCESS` marker written last.
 
 **Exit codes:**
 
 | Code | Meaning |
 |------|---------|
-| `0` | Success (including merge-mode no-op when everything already exists) |
-| `1` | `--force` aborted (user declined, non-TTY without `--yes`) |
+| `0` | Success (or symlink-mode no-op) |
+| `1` | Migration aborted, `--force` declined, or non-TTY without `--yes` |
 | `2` | Invalid arguments, or `CLAUDE_DIR` sanity guard tripped |
 
-**Drift between repo and runtime.** After an install, `./scripts/check-drift.sh` should exit 0. Drift is not automatically an error — it is a signal that the runtime has evolved (or the repo has), and the operator can decide whether to curate the change into the repo or re-install. The script's `SCOPES` list mirrors `install.sh INSTALL_SCOPES` (TUNE-0004 AC-3); extending the installer implies extending drift detection.
+**Drift between repo and runtime.** Under symlink mode, drift is impossible by definition — runtime IS the repo. `./scripts/check-drift.sh` exits 0 in that case (and is itself deprecated since v1.17, planned for removal in v1.18 along with `curate-runtime.sh`). Under copy mode, the script behaves as before.
 
 ---
 
@@ -93,32 +143,39 @@ If you have Datarim installed and want to get the latest version:
 
 ```bash
 cd /path/to/datarim              # your cloned repo
-./update.sh                      # pull + install + verify — one command
+./update.sh                      # pull + verify — one command
 ```
 
-`update.sh` does three things automatically:
-1. `git pull origin main` — fetches the latest version
-2. `./install.sh --force --yes` — overwrites `~/.claude/` with the latest files (backup taken automatically)
-3. Verifies that runtime and repo are in sync
+`update.sh` branches on the runtime topology it detects:
+
+- **Symlink mode (default):** runs `git pull origin main` and exits. The runtime is the repo, so the pull IS the install.
+- **Copy mode:** `git pull origin main` then `./install.sh --copy --force --yes` then `./scripts/check-drift.sh --quiet`.
 
 Use `./update.sh --dry-run` to preview what would change without writing anything.
 
 ### Manual alternative
 
-If you prefer to update step by step:
+Symlink mode:
+
+```bash
+cd /path/to/datarim
+git pull origin main
+```
+
+Copy mode:
 
 ```bash
 git pull origin main
-./install.sh                     # merge mode: adds new files, skips existing
-./install.sh --force             # force mode: overwrites all (backup taken)
-./scripts/check-drift.sh         # verify sync
+./install.sh --copy --force      # overwrites all (backup taken on live system)
+./scripts/check-drift.sh         # verify sync (deprecated, removal v1.18)
 ```
 
 ### What stays unchanged
 
-- Your project `CLAUDE.md` files — they are in your project, not in `~/.claude/`
+- Your project `CLAUDE.md` files — they live in your project, not in `~/.claude/`
 - Your `datarim/` workflow state — local to each project
 - Your `documentation/archive/` — committed to your project's git
+- Your `~/.claude/local/` overlay — never touched by `install.sh` after the initial directory + `.gitignore` scaffold
 
 ---
 

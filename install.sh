@@ -2,7 +2,14 @@
 # Datarim Framework Installer
 # Installs agents, skills, commands, and templates into $CLAUDE_DIR (~/.claude).
 #
-# Contract (TUNE-0004, aligned with PRD-datarim-sdlc-framework §4):
+# Operating model (v1.17.0, TUNE-0033):
+#   Default mode is SYMLINK — the four scope directories in $CLAUDE_DIR
+#   (agents/skills/commands/templates) become symlinks to $SCRIPT_DIR/<scope>/.
+#   This makes the repo the runtime: edits land in git tracking immediately
+#   and curation/drift detection are no-ops by definition. Use --copy to
+#   preserve the legacy v1.16 behaviour (real file copies).
+#
+# Contract (TUNE-0004 aligned with PRD-datarim-sdlc-framework §4 — copy mode):
 #   - Install scopes (distributed to runtime): agents, skills, commands, templates.
 #   - Repo-only scopes (dev tooling, NOT installed): scripts/, tests/, validate.sh.
 #   - Content types copied: .md .sh .json .yaml .yml. Unknown extensions are
@@ -13,32 +20,50 @@
 #     timestamped backup under $CLAUDE_DIR/backups/force-<ISO>/ with a
 #     SUCCESS marker written only after a complete copy.
 #
+# Local overlay (v1.17.0): $CLAUDE_DIR/local/{skills,agents,commands,templates}/
+# is created (empty + .gitignore) for user-private skills/agents that override
+# framework files of the same name. Loader policy: local wins, validate.sh WARN.
+#
 # Usage:
-#   ./install.sh                 # merge mode (skip existing files)
-#   ./install.sh --force         # overwrite (requires confirmation on live system)
+#   ./install.sh                 # symlink mode (default, repo == runtime)
+#   ./install.sh --copy          # legacy copy mode (real files)
+#   ./install.sh --force         # force re-install (copy mode only)
 #   ./install.sh --force --yes   # overwrite without prompt (CI / scripted)
 #   ./install.sh --help          # print usage and exit
 #
 # Environment:
-#   CLAUDE_DIR              target runtime dir (default: $HOME/.claude)
-#   DATARIM_INSTALL_YES=1   same as --yes (for CI)
+#   CLAUDE_DIR                target runtime dir (default: $HOME/.claude)
+#   DATARIM_INSTALL_YES=1     same as --yes (for CI / migration auto-consent)
+#
+# Test hooks (not user-facing, used by bats suite):
+#   DATARIM_FORCE_UNAME       override `uname -s` (e.g. MINGW64_NT-10) to
+#                             exercise the Windows copy-fallback path
+#   DATARIM_MIGRATION_CHOICE  pre-answer the c|k|a migration prompt
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CLAUDE_DIR="${CLAUDE_DIR-$HOME/.claude}"
 DATARIM_INSTALL_YES="${DATARIM_INSTALL_YES:-}"
+DATARIM_FORCE_UNAME="${DATARIM_FORCE_UNAME:-}"
+DATARIM_MIGRATION_CHOICE="${DATARIM_MIGRATION_CHOICE:-}"
 
 # Install scopes — must match scripts/check-drift.sh SCOPES (AC-3).
 INSTALL_SCOPES=(agents skills commands templates)
+
+# v1.17.0: local/ overlay scope dirs (TUNE-0033). Symmetric with INSTALL_SCOPES.
+LOCAL_SCOPES=(skills agents commands templates)
 
 # Content-type whitelist. Extending this list is a deliberate act: review the
 # repo for new content, decide what deploys, update here and in docs.
 INSTALL_EXTENSIONS=(md sh json yaml yml)
 
 FORCE=false
+FORCE_COPY=false           # v1.17.0: --copy flag → forces copy mode
 ASSUME_YES=false
+INSTALL_MODE="symlink"     # set by detect_install_mode in main
 COPIED=0
+LINKED=0
 SKIPPED=0
 
 print_usage() {
@@ -46,15 +71,19 @@ print_usage() {
 Datarim Framework Installer
 
 Usage:
-  install.sh                 Merge mode (skip files that already exist)
-  install.sh --force         Overwrite existing files (requires confirmation
-                             on a live system; always creates a backup)
+  install.sh                 Symlink mode (default, repo == runtime)
+  install.sh --copy          Legacy copy mode (real files instead of symlinks)
+  install.sh --force         Force re-install (copy mode only — no-op on symlinks)
   install.sh --force --yes   Overwrite without prompt (CI / scripted)
   install.sh --help          Show this message
 
 Environment:
   CLAUDE_DIR                 Target directory (default: $HOME/.claude)
-  DATARIM_INSTALL_YES=1      Equivalent to --yes
+  DATARIM_INSTALL_YES=1      Equivalent to --yes (also auto-converts copy → symlink)
+
+Migration:
+  Existing copy-mode installs upgrade to symlinks via interactive prompt
+  ([c]onvert / [k]eep / [a]bort). With --yes the choice defaults to [c].
 USAGE
 }
 
@@ -62,6 +91,7 @@ parse_args() {
     while [ $# -gt 0 ]; do
         case "$1" in
             --force)     FORCE=true; shift ;;
+            --copy)      FORCE_COPY=true; shift ;;
             --yes|-y)    ASSUME_YES=true; shift ;;
             --help|-h)   print_usage; exit 0 ;;
             *)
@@ -71,6 +101,66 @@ parse_args() {
                 ;;
         esac
     done
+}
+
+# --- Platform detection ----------------------------------------------------
+
+# Read uname -s (with DATARIM_FORCE_UNAME test hook).
+get_uname() {
+    if [ -n "$DATARIM_FORCE_UNAME" ]; then
+        echo "$DATARIM_FORCE_UNAME"
+        return
+    fi
+    uname -s 2>/dev/null || echo "unknown"
+}
+
+# Determine install mode. Returns "symlink" or "copy" on stdout.
+# Decision order:
+#   1. --copy flag → copy.
+#   2. Windows shells (MINGW*, MSYS*, CYGWIN*) → copy (silent fallback).
+#   3. Runtime probe: ln -s succeeds → symlink, else copy.
+detect_install_mode() {
+    if [ "$FORCE_COPY" = true ]; then
+        echo "copy"; return
+    fi
+    case "$(get_uname)" in
+        MINGW*|MSYS*|CYGWIN*)
+            echo "copy"; return
+            ;;
+    esac
+    local probe="${TMPDIR:-/tmp}/datarim-symlink-probe-$$"
+    mkdir -p "$probe"
+    if ln -s /etc/hosts "$probe/link" 2>/dev/null && [ -L "$probe/link" ]; then
+        rm -rf "$probe"
+        echo "symlink"
+    else
+        rm -rf "$probe"
+        echo "copy"
+    fi
+}
+
+# Inspect $CLAUDE_DIR scopes and report topology:
+#   none     all 4 scopes absent
+#   symlink  all 4 scopes are symlinks
+#   copy     all 4 scopes are real directories
+#   mixed    some symlinks + some real dirs (abort signal)
+detect_existing_topology() {
+    local scope present_count=0 symlink_count=0 dir_count=0
+    for scope in "${INSTALL_SCOPES[@]}"; do
+        if [ -L "$CLAUDE_DIR/$scope" ]; then
+            symlink_count=$((symlink_count + 1))
+            present_count=$((present_count + 1))
+        elif [ -d "$CLAUDE_DIR/$scope" ]; then
+            dir_count=$((dir_count + 1))
+            present_count=$((present_count + 1))
+        fi
+    done
+    if [ "$present_count" -eq 0 ]; then echo "none"; return; fi
+    if [ "$symlink_count" -gt 0 ] && [ "$dir_count" -gt 0 ]; then
+        echo "mixed"; return
+    fi
+    if [ "$symlink_count" -gt 0 ]; then echo "symlink"; return; fi
+    echo "copy"
 }
 
 # --- Safety helpers ---------------------------------------------------------
@@ -98,6 +188,27 @@ assert_claude_dir_safe() {
 
 force_safety_guard() {
     assert_claude_dir_safe
+
+    # v1.17.0 (TUNE-0033 AC-5): under existing symlink topology --force is a
+    # semantic no-op — the runtime IS the repo. Bail out before any backup.
+    local s already_symlinked=true
+    for s in "${INSTALL_SCOPES[@]}"; do
+        if [ ! -L "$CLAUDE_DIR/$s" ]; then
+            already_symlinked=false; break
+        fi
+    done
+    if [ "$already_symlinked" = true ] && [ "$INSTALL_MODE" = "symlink" ]; then
+        echo "Already symlinked to $SCRIPT_DIR — nothing to update."
+        echo "Run 'cd $SCRIPT_DIR && git pull' or './update.sh' to fetch upstream changes."
+        exit 0
+    fi
+
+    # Symlink-mode + existing real-copy: migration_prompt creates its own
+    # migrate-<ts> backup atomically via mv. Skip the legacy create_backup
+    # path so we don't double-backup; consent is collected in migration_prompt.
+    if [ "$INSTALL_MODE" = "symlink" ]; then
+        return 0
+    fi
 
     if ! is_live_system; then
         return 0  # fresh target — --force is safe, no backup needed.
@@ -222,9 +333,165 @@ copy_scope_tree() {
     fi
 }
 
+# --- v1.17.0 symlink + local overlay ----------------------------------------
+
+# Create one symlink per scope: $CLAUDE_DIR/<scope> → $SCRIPT_DIR/<scope>.
+# Idempotent: if the link already points at the right target, no-op.
+# Refuses to overwrite a real directory without explicit migration consent.
+link_scope_tree() {
+    local src_dir="$1"   # absolute path to $SCRIPT_DIR/<scope>
+    local dst_dir="$2"   # absolute path to $CLAUDE_DIR/<scope>
+    local parent dst_name existing
+    parent="$(dirname "$dst_dir")"
+    dst_name="$(basename "$dst_dir")"
+    mkdir -p "$parent"
+
+    if [ -L "$dst_dir" ]; then
+        existing="$(cd -P "$dst_dir" 2>/dev/null && pwd || echo "")"
+        if [ "$existing" = "$src_dir" ]; then
+            echo "  LINK (already): $dst_name → $src_dir"
+            return
+        fi
+        rm "$dst_dir"
+    elif [ -e "$dst_dir" ]; then
+        echo "  ERROR: $dst_dir exists as a real directory; refuse to overwrite without migration." >&2
+        exit 1
+    fi
+
+    ln -s "$src_dir" "$dst_dir"
+    echo "  LINK: $dst_name → $src_dir"
+    LINKED=$((LINKED + 1))
+}
+
+# Create $CLAUDE_DIR/local/{skills,agents,commands,templates}/ + .gitignore
+# + README.md. Idempotent. Files are created via direct cat (NOT
+# copy_scope_tree) because the dotfile filter rejects .gitignore by design.
+setup_local_overlay() {
+    local local_root="$CLAUDE_DIR/local"
+    mkdir -p "$local_root"
+    local scope
+    for scope in "${LOCAL_SCOPES[@]}"; do
+        mkdir -p "$local_root/$scope"
+    done
+    if [ ! -f "$local_root/.gitignore" ]; then
+        cat > "$local_root/.gitignore" <<'GI'
+# Datarim local overlay — entire directory is user-private.
+# Loader order (validate.sh): local/<scope>/foo.md overrides <scope>/foo.md.
+*
+!.gitignore
+!README.md
+GI
+    fi
+    if [ ! -f "$local_root/README.md" ]; then
+        cat > "$local_root/README.md" <<'MD'
+# Datarim Local Overlay
+
+This directory holds personal additions and overrides for the four scopes:
+`local/skills/`, `local/agents/`, `local/commands/`, `local/templates/`.
+
+Files here override framework files of the same name. Convention: prefix
+filenames with your namespace (e.g. `local/skills/my-company-style.md`)
+to avoid accidental overrides.
+
+Document any deliberate override here so future-you can tell what was intended.
+MD
+    fi
+}
+
+# Move existing copy-mode scopes into a backup directory, write a SUCCESS
+# marker (with scopes_migrated field — see creative-TUNE-0033-migration-ux),
+# then return so the caller can create symlinks. mv is atomic per scope:
+# if a power-cut interrupts mid-loop the marker absence signals partial.
+migrate_to_symlinks() {
+    local ts backup scope
+    ts="$(date -u +%Y%m%dT%H%M%SZ)"
+    backup="$CLAUDE_DIR/backups/migrate-$ts"
+    mkdir -p "$backup"
+    for scope in "${INSTALL_SCOPES[@]}"; do
+        if [ -e "$CLAUDE_DIR/$scope" ] && [ ! -L "$CLAUDE_DIR/$scope" ]; then
+            mv "$CLAUDE_DIR/$scope" "$backup/$scope"
+        fi
+    done
+    cat > "$backup/SUCCESS" <<MARKER
+migrated_at=$ts
+source=$CLAUDE_DIR
+scopes_migrated=$(IFS=,; echo "${INSTALL_SCOPES[*]}")
+script_dir=$SCRIPT_DIR
+MARKER
+    echo "Backup: $backup"
+}
+
+# Show 3-option migration prompt to upgrading copy-mode users. Side effects:
+#   c → migrate_to_symlinks (caller continues to symlink creation)
+#   k → set INSTALL_MODE=copy globally (caller falls through to copy branch)
+#   a → exit 1
+# Auto-consent paths (logged distinctly per security recommendation):
+#   ASSUME_YES (--yes)            → c
+#   DATARIM_INSTALL_YES (env)     → c
+#   DATARIM_MIGRATION_CHOICE      → c|k|a (test hook)
+# Non-TTY without any auto-consent → exit 1 with explicit error.
+migration_prompt() {
+    cat <<EOF
+v1.17.0 introduces symlink-default install mode (TUNE-0033).
+
+Found existing real-copy installation in $CLAUDE_DIR/.
+
+Options:
+  [c] Convert to symlinks (recommended)
+       Existing files moved to \$CLAUDE_DIR/backups/migrate-<ts>/
+       Future updates run via 'git pull' inside the repo — no copy step.
+
+  [k] Keep copy mode permanently
+       Re-run install.sh --copy from now on.
+       (Suitable for Windows / FAT filesystems / restricted shells.)
+
+  [a] Abort
+       No changes made. Re-run when ready.
+
+EOF
+    if [ "$ASSUME_YES" = true ]; then
+        echo "AUTO-CONSENT (--yes flag) — proceeding to convert." >&2
+        migrate_to_symlinks
+        return
+    fi
+    if [ -n "$DATARIM_INSTALL_YES" ]; then
+        echo "AUTO-CONSENT (DATARIM_INSTALL_YES env) — proceeding to convert." >&2
+        migrate_to_symlinks
+        return
+    fi
+    if [ -n "$DATARIM_MIGRATION_CHOICE" ]; then
+        echo "AUTO-CONSENT (DATARIM_MIGRATION_CHOICE=$DATARIM_MIGRATION_CHOICE) — test hook." >&2
+        case "$DATARIM_MIGRATION_CHOICE" in
+            c|C) migrate_to_symlinks; return ;;
+            k|K) INSTALL_MODE=copy; echo "Keeping copy mode." >&2; return ;;
+            a|A) echo "Aborted." >&2; exit 1 ;;
+            *)   echo "Invalid DATARIM_MIGRATION_CHOICE: $DATARIM_MIGRATION_CHOICE" >&2; exit 1 ;;
+        esac
+    fi
+    if [ ! -t 0 ]; then
+        echo "ERROR: non-TTY environment — refuse to prompt without --yes." >&2
+        echo "       Re-run with --yes (or DATARIM_INSTALL_YES=1) to auto-convert," >&2
+        echo "       or with --copy to keep copy mode." >&2
+        exit 1
+    fi
+    printf "Choice [c/k/a]: "
+    read -r choice
+    choice="${choice%$'\r'}"
+    case "$choice" in
+        c|C) migrate_to_symlinks ;;
+        k|K) INSTALL_MODE=copy; echo "Keeping copy mode." ;;
+        a|A) echo "Aborted."; exit 1 ;;
+        *)   echo "Invalid choice: $choice" >&2; exit 1 ;;
+    esac
+}
+
 # --- Main -------------------------------------------------------------------
 
 parse_args "$@"
+
+# Decide install mode (symlink vs copy) before any guard runs — the guard
+# itself now branches on INSTALL_MODE.
+INSTALL_MODE=$(detect_install_mode)
 
 VERSION=$(cat "$SCRIPT_DIR/VERSION" 2>/dev/null || echo "unknown")
 echo "Datarim Framework Installer v$VERSION"
@@ -232,10 +499,20 @@ echo "================================="
 echo ""
 echo "Source:  $SCRIPT_DIR"
 echo "Target:  $CLAUDE_DIR"
+case "$INSTALL_MODE" in
+    symlink)
+        echo "Mode:    symlink (default — repo is runtime)"
+        ;;
+    copy)
+        if [ "$FORCE_COPY" = true ]; then
+            echo "Mode:    copy (--copy)"
+        else
+            echo "Mode:    copy (auto-detected: symlinks not available)"
+        fi
+        ;;
+esac
 if [ "$FORCE" = true ]; then
-    echo "Mode:    force (overwrite)"
-else
-    echo "Mode:    merge (skip existing)"
+    echo "Force:   on"
 fi
 echo ""
 
@@ -248,20 +525,46 @@ else
         echo "ERROR: CLAUDE_DIR is empty." >&2
         exit 2
     fi
+    assert_claude_dir_safe
 fi
 
-for scope in "${INSTALL_SCOPES[@]}"; do
-    mkdir -p "$CLAUDE_DIR/$scope"
-done
+if [ "$INSTALL_MODE" = "symlink" ]; then
+    topology=$(detect_existing_topology)
+    case "$topology" in
+        copy)
+            migration_prompt
+            ;;
+        mixed)
+            echo "ERROR: mixed topology in $CLAUDE_DIR (some symlinks + some real dirs)." >&2
+            echo "       Please clean up manually before re-running install.sh." >&2
+            exit 1
+            ;;
+        symlink|none)
+            : ;;  # ready for link_scope_tree
+    esac
+fi
 
-for scope in "${INSTALL_SCOPES[@]}"; do
-    echo "Installing $scope..."
-    copy_scope_tree "$SCRIPT_DIR/$scope" "$CLAUDE_DIR/$scope"
-    echo ""
-done
+# migration_prompt may have flipped INSTALL_MODE to copy (user picked [k]).
+if [ "$INSTALL_MODE" = "symlink" ]; then
+    for scope in "${INSTALL_SCOPES[@]}"; do
+        link_scope_tree "$SCRIPT_DIR/$scope" "$CLAUDE_DIR/$scope"
+    done
+else
+    for scope in "${INSTALL_SCOPES[@]}"; do
+        mkdir -p "$CLAUDE_DIR/$scope"
+    done
+    for scope in "${INSTALL_SCOPES[@]}"; do
+        echo "Installing $scope..."
+        copy_scope_tree "$SCRIPT_DIR/$scope" "$CLAUDE_DIR/$scope"
+        echo ""
+    done
+fi
+
+setup_local_overlay
 
 echo "================================="
-echo "Done! Copied: $COPIED, Skipped: $SKIPPED"
+echo "Done! Linked: $LINKED, Copied: $COPIED, Skipped: $SKIPPED"
+echo "Local overlay: $CLAUDE_DIR/local/{skills,agents,commands,templates}/  (gitignored)"
 echo ""
 echo "Next steps:"
 echo "  1. Copy CLAUDE.md to your project root:"
@@ -272,9 +575,9 @@ echo ""
 echo "  3. Start Claude Code and run: /dr-init <task description>"
 echo ""
 
-if [ "$SKIPPED" -gt 0 ] && [ "$FORCE" = false ]; then
+if [ "$SKIPPED" -gt 0 ] && [ "$FORCE" = false ] && [ "$INSTALL_MODE" = "copy" ]; then
     echo "Note: $SKIPPED file(s) were skipped because they already exist."
     echo "      Use --force to overwrite (safe: a backup is taken automatically"
-    echo "      on live systems): ./install.sh --force"
+    echo "      on live systems): ./install.sh --copy --force"
     echo ""
 fi

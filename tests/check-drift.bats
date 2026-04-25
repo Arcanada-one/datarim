@@ -27,7 +27,8 @@ setup() {
 }
 
 @test "D2 AC-3 manual runtime edit creates drift (exit 1, file listed)" {
-    run_install
+    # TUNE-0033: drift testing requires copy mode — under symlinks, runtime IS repo.
+    run_install --copy
     [ "$status" -eq 0 ]
     echo "# evolved in runtime" >> "$FAKE_CLAUDE/agents/planner.md"
     run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" "$FAKE_REPO/scripts/check-drift.sh"
@@ -66,15 +67,37 @@ setup() {
 # ---------- TUNE-0030: Symlink detection ----------
 
 @test "D6 TUNE-0030 symlink runtime dir → repo detected (exit 1, SYMLINK in output)" {
-    run_install
-    [ "$status" -eq 0 ]
+    run_install --copy
 
-    # Replace real runtime skills dir with symlink to repo skills
+    # Replace real runtime skills dir with symlink to a *different* repo
+    # (NOT $FAKE_REPO/skills) so the symlink is not the new in-sync default.
+    local other="$BATS_TEST_TMPDIR/other-repo"
+    mkdir -p "$other"
+    cp -R "$FAKE_REPO/skills" "$other/"
     rm -rf "$FAKE_CLAUDE/skills"
-    ln -s "$FAKE_REPO/skills" "$FAKE_CLAUDE/skills"
+    ln -s "$other/skills" "$FAKE_CLAUDE/skills"
 
     run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" "$FAKE_REPO/scripts/check-drift.sh"
     [ "$status" -eq 1 ]
-    [[ "$output" == *"SYMLINK"* ]]
-    [[ "$output" == *"drift detection impossible"* ]]
+    [[ "$output" == *"SYMLINK"* || "$output" == *"different repo"* ]]
+}
+
+# ---------- TUNE-0033: AC-9 symlink-aware exit codes ----------
+
+@test "D7 AC-9 symlink-mode runtime → exit 0 (sync by definition)" {
+    run_install
+    [ "$status" -eq 0 ]
+    # Default install creates symlinks — check-drift should now exit 0
+    run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" "$FAKE_REPO/scripts/check-drift.sh" --quiet
+    [ "$status" -eq 0 ]
+}
+
+@test "D8 AC-9 copy-mode with real drift → exit 1 (existing behaviour)" {
+    run_install --copy
+    [ "$status" -eq 0 ]
+    # Edit a file in runtime to simulate evolution
+    echo "# evolved in runtime" >> "$FAKE_CLAUDE/agents/planner.md"
+    run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" "$FAKE_REPO/scripts/check-drift.sh"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"planner.md"* ]]
 }

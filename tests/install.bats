@@ -42,10 +42,10 @@ setup() {
 }
 
 @test "T4 AC-1 unknown .xyz extension skipped with WARN in output" {
-    # The unknown-ext file is local to this test so check-drift tests remain
-    # drift-free after a full install of the standard fixture.
+    # Extension whitelist applies in copy mode; symlink mode follows the repo
+    # tree wholesale, so the WARN/skip semantic only exists for --copy.
     echo "binary-ish" > "$FAKE_REPO/templates/unknown.xyz"
-    run_install
+    run_install --copy
     [ "$status" -eq 0 ]
     [ ! -f "$FAKE_CLAUDE/templates/unknown.xyz" ]
     [[ "$output" == *"unknown.xyz"* ]]
@@ -63,14 +63,14 @@ setup() {
 @test "T6 merge mode: existing file skipped (no overwrite without --force)" {
     seed_live_runtime
     echo "# existing edit" > "$FAKE_CLAUDE/agents/planner.md"
-    run_install
+    run_install --copy
     [ "$status" -eq 0 ]
     grep -q "existing edit" "$FAKE_CLAUDE/agents/planner.md"
 }
 
 @test "T7 merge mode: new files still copied even when others exist" {
     seed_live_runtime
-    run_install
+    run_install --copy
     [ "$status" -eq 0 ]
     [ -f "$FAKE_CLAUDE/skills/testing.md" ]
     [ -f "$FAKE_CLAUDE/templates/deploy.sh" ]
@@ -94,11 +94,12 @@ setup() {
 }
 
 @test "T10 AC-2 --force --yes on live system: backup created with SUCCESS marker" {
+    # Legacy --force backup path applies to copy mode only; symlink mode
+    # delegates backup creation to migrate_to_symlinks (see T33-5).
     seed_live_runtime
-    run_install --force --yes
+    run_install --copy --force --yes
     [ "$status" -eq 0 ]
     [ -d "$FAKE_CLAUDE/backups" ]
-    # Exactly one force-* backup directory with SUCCESS marker inside.
     local backup
     backup="$(ls -d "$FAKE_CLAUDE"/backups/force-* 2>/dev/null | head -1)"
     [ -n "$backup" ]
@@ -109,13 +110,11 @@ setup() {
 @test "T10b AC-2 --force --yes: pre-existing file is overwritten after backup" {
     seed_live_runtime
     echo "# existing edit" > "$FAKE_CLAUDE/agents/planner.md"
-    run_install --force --yes
+    run_install --copy --force --yes
     [ "$status" -eq 0 ]
-    # Old content preserved in backup.
     local backup
     backup="$(ls -d "$FAKE_CLAUDE"/backups/force-* 2>/dev/null | head -1)"
     grep -q "existing edit" "$backup/agents/planner.md"
-    # Current runtime now has new content (seeded # planner from fixture).
     ! grep -q "existing edit" "$FAKE_CLAUDE/agents/planner.md"
     grep -q "^# planner" "$FAKE_CLAUDE/agents/planner.md"
 }
@@ -169,4 +168,116 @@ setup() {
 @test "T16 unknown flag exits 2" {
     run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" "$FAKE_REPO/install.sh" --wtf
     [ "$status" -eq 2 ]
+}
+
+# ============================================================================
+# TUNE-0033: symlink-default + local/ overlay
+# ============================================================================
+
+# ---------- AC-1: symlink-default fresh install ----------
+
+@test "T33-1 AC-1 fresh install creates symlinks for all 4 scopes (default mode)" {
+    run_install
+    [ "$status" -eq 0 ]
+    assert_symlink_to "$FAKE_CLAUDE/agents"    "$FAKE_REPO/agents"
+    assert_symlink_to "$FAKE_CLAUDE/skills"    "$FAKE_REPO/skills"
+    assert_symlink_to "$FAKE_CLAUDE/commands"  "$FAKE_REPO/commands"
+    assert_symlink_to "$FAKE_CLAUDE/templates" "$FAKE_REPO/templates"
+}
+
+@test "T33-2 AC-1 fresh install creates local/ overlay with 4 scope dirs + .gitignore" {
+    run_install
+    [ "$status" -eq 0 ]
+    [ -d "$FAKE_CLAUDE/local/skills" ]
+    [ -d "$FAKE_CLAUDE/local/agents" ]
+    [ -d "$FAKE_CLAUDE/local/commands" ]
+    [ -d "$FAKE_CLAUDE/local/templates" ]
+    [ -f "$FAKE_CLAUDE/local/.gitignore" ]
+    grep -q '^\*$' "$FAKE_CLAUDE/local/.gitignore"
+}
+
+# ---------- AC-2: --copy fallback ----------
+
+@test "T33-3 AC-2 --copy creates real copies, not symlinks" {
+    run_install --copy
+    [ "$status" -eq 0 ]
+    [ ! -L "$FAKE_CLAUDE/agents" ]
+    [ -d "$FAKE_CLAUDE/agents" ]
+    [ -f "$FAKE_CLAUDE/agents/planner.md" ]
+    # local/ overlay still set up under copy mode.
+    [ -d "$FAKE_CLAUDE/local/skills" ]
+}
+
+# ---------- AC-3: platform auto-detection ----------
+
+@test "T33-4 AC-3 MSYSTEM=MINGW64 forces copy mode (Windows fallback)" {
+    run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" \
+        DATARIM_FORCE_UNAME=MINGW64_NT-10 \
+        "$FAKE_REPO/install.sh"
+    [ "$status" -eq 0 ]
+    [ ! -L "$FAKE_CLAUDE/agents" ]
+    [ -f "$FAKE_CLAUDE/agents/planner.md" ]
+    [[ "$output" == *"copy"* ]]
+}
+
+# ---------- AC-4: migration prompt (3 options) ----------
+
+@test "T33-5 AC-4(c) migration --yes converts copy → symlinks with backup" {
+    seed_existing_copy_install
+    # Mark with a unique edit we can recognise in the backup.
+    echo "# user edit before migrate" > "$FAKE_CLAUDE/skills/testing.md"
+    run_install --yes
+    [ "$status" -eq 0 ]
+    # Result: symlinks now in place
+    assert_symlink_to "$FAKE_CLAUDE/skills" "$FAKE_REPO/skills"
+    # Backup directory exists with migrate-* prefix and SUCCESS marker
+    local backup
+    backup="$(ls -d "$FAKE_CLAUDE"/backups/migrate-* 2>/dev/null | head -1)"
+    [ -n "$backup" ]
+    [ -f "$backup/SUCCESS" ]
+    grep -q "scopes_migrated=" "$backup/SUCCESS"
+    # Original user content preserved in backup
+    grep -q "user edit before migrate" "$backup/skills/testing.md"
+}
+
+@test "T33-6 AC-4(k) migration with INSTALL_CHOICE=k keeps copy mode" {
+    seed_existing_copy_install
+    echo "# user content" > "$FAKE_CLAUDE/skills/testing.md"
+    run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" \
+        DATARIM_MIGRATION_CHOICE=k \
+        "$FAKE_REPO/install.sh"
+    [ "$status" -eq 0 ]
+    # Skills remains a real dir (not symlink)
+    [ ! -L "$FAKE_CLAUDE/skills" ]
+    [ -d "$FAKE_CLAUDE/skills" ]
+    # User content preserved (merge mode, no overwrite)
+    grep -q "user content" "$FAKE_CLAUDE/skills/testing.md"
+    # No migration backup created
+    [ ! -d "$FAKE_CLAUDE/backups" ] || ! ls "$FAKE_CLAUDE"/backups/migrate-* >/dev/null 2>&1
+}
+
+@test "T33-7 AC-4(a) migration with INSTALL_CHOICE=a aborts cleanly" {
+    seed_existing_copy_install
+    run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" \
+        DATARIM_MIGRATION_CHOICE=a \
+        "$FAKE_REPO/install.sh"
+    [ "$status" -eq 1 ]
+    # No symlinks, no backups
+    [ ! -L "$FAKE_CLAUDE/skills" ]
+    [ ! -d "$FAKE_CLAUDE/backups" ] || ! ls "$FAKE_CLAUDE"/backups/migrate-* >/dev/null 2>&1
+}
+
+# ---------- AC-5: --force under symlinks is a no-op ----------
+
+@test "T33-8 AC-5 --force under existing symlinks: no-op, no backup" {
+    # First: clean install (creates symlinks)
+    run_install
+    [ "$status" -eq 0 ]
+    # Second: --force --yes — should detect symlinks and exit without backup
+    run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" \
+        "$FAKE_REPO/install.sh" --force --yes
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"symlink"* || "$output" == *"Already"* || "$output" == *"nothing to update"* ]]
+    # No backup directory created — symlink mode skips backup
+    [ ! -d "$FAKE_CLAUDE/backups" ] || ! ls "$FAKE_CLAUDE"/backups/force-* >/dev/null 2>&1
 }
