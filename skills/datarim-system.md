@@ -41,6 +41,23 @@ Before writing any file to `datarim/`:
 2. If not, walk up the directory tree until a parent containing `datarim/` is found.
 3. If no such directory exists, stop and instruct the user to run `/dr-init`.
 
+## Loading Order (v1.17.0+)
+
+Skills, agents, commands, and templates load from two layers:
+
+1. **Framework layer:** `$HOME/.claude/{skills,agents,commands,templates}/{name}.md`.
+   In symlink-mode (default since v1.17.0, TUNE-0033) this resolves to the
+   cloned datarim repo. In copy-mode it resolves to local copies.
+2. **Local overlay:** `$HOME/.claude/local/{skills,agents,commands,templates}/{name}.md`.
+   User-private. Gitignored. Created empty by `install.sh`.
+
+**Conflict resolution:** if a name collides between layer 1 and layer 2, the
+local overlay wins. `validate.sh` emits a WARN line per detected override.
+
+**Convention:** prefix local files with a personal namespace
+(`local/skills/my-org-style.md`) to avoid accidental overrides of framework
+skills you actually wanted to keep tracking upstream.
+
 ## Quick Routing Heuristic
 
 - Need file placement or archive destination? Load `path-and-storage.md` or `command-and-archive-rules.md`.

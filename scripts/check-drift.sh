@@ -43,6 +43,22 @@ if [ "${1:-}" = "--quiet" ]; then
     QUIET=true
 fi
 
+# v1.17.0 (TUNE-0033 AC-8): deprecation banner. Symlink-mode installs make
+# this script's purpose moot (runtime IS repo) and copy-mode is now the
+# secondary path. Removal scheduled for v1.18 (TUNE-0044).
+$QUIET || cat >&2 <<'WARN'
+============================================================
+DEPRECATED in v1.17.0 (TUNE-0033)
+
+check-drift.sh is needed only for copy-mode installs.
+Symlink-mode installs (default since v1.17.0) have no drift —
+runtime IS the repo.
+
+This script will be REMOVED in v1.18.0 (TUNE-0044).
+See: docs/getting-started.md
+============================================================
+WARN
+
 if [ ! -d "$CLAUDE_DIR" ]; then
     echo "ERROR: runtime dir not found: $CLAUDE_DIR" >&2
     exit 2
@@ -68,17 +84,19 @@ for scope in "${SCOPES[@]}"; do
         continue
     fi
 
-    # Symlink detection: if runtime dir is a symlink pointing at repo dir,
-    # diff -rq compares a directory with itself and always says "in sync".
+    # v1.17.0 (TUNE-0033 AC-9): symlink → repo means runtime IS repo, sync by
+    # definition (NOT drift). Symlink → another path is real divergence — keep
+    # it as drift since the user no longer ships an in-sync runtime.
     if [ -L "$CLAUDE_DIR/$scope" ]; then
         resolved=$(cd -P "$CLAUDE_DIR/$scope" && pwd)
         repo_resolved=$(cd -P "$SCRIPT_DIR/$scope" 2>/dev/null && pwd || echo "")
         if [ "$resolved" = "$repo_resolved" ]; then
-            $QUIET || echo "[$scope] SYMLINK → repo (same directory, drift detection impossible)"
-            DRIFT_COUNT=$((DRIFT_COUNT + 1))
+            $QUIET || echo "[$scope] SYMLINK → repo (in sync by definition)"
             continue
         fi
-        $QUIET || echo "[$scope] NOTE: runtime is a symlink → $resolved"
+        $QUIET || echo "[$scope] WARN: runtime symlink → $resolved (different repo)"
+        DRIFT_COUNT=$((DRIFT_COUNT + 1))
+        continue
     fi
 
     # diff -rq returns 0 on match, 1 on differ; both are valid exits for us

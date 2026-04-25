@@ -50,6 +50,30 @@ else
     echo "PASS: no double-prefix (dr-dr-)"
 fi
 
+# v1.17.0 (TUNE-0033 AC-7): detect local/ overlay overrides
+LOCAL_DIR="${CLAUDE_DIR:-$HOME/.claude}/local"
+if [ -d "$LOCAL_DIR" ]; then
+    echo ""
+    echo "Local Overlay Override Check:"
+    OVERRIDE_COUNT=0
+    for scope in skills agents commands templates; do
+        [ -d "$LOCAL_DIR/$scope" ] || continue
+        for f in "$LOCAL_DIR/$scope"/*.md; do
+            [ -f "$f" ] || continue
+            bname=$(basename "$f")
+            if [ -f "$SCRIPT_DIR/$scope/$bname" ]; then
+                echo "  WARN: override detected: local/$scope/$bname shadows $scope/$bname"
+                OVERRIDE_COUNT=$((OVERRIDE_COUNT + 1))
+            fi
+        done
+    done
+    if [ "$OVERRIDE_COUNT" -eq 0 ]; then
+        echo "  INFO: no local overrides detected"
+    else
+        echo "  INFO: $OVERRIDE_COUNT override(s) — review local/README.md"
+    fi
+fi
+
 # Summary counts
 echo ""
 echo "Framework Inventory:"

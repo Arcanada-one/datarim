@@ -4,6 +4,54 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ---
 
+## 2026-04-25 — v1.17.0 — TUNE-0033 — Symlink-default install + `local/` overlay
+
+### Summary
+
+Operating-model revision. Default `install.sh` mode is now **symlink** — `~/.claude/{agents,skills,commands,templates}` become symlinks to the cloned repo's matching directories. The runtime IS the repo: edits land in git tracking immediately, drift is impossible by definition, and the `curate-runtime.sh` / `check-drift.sh` workflow becomes a copy-mode-only legacy path. A new gitignored `~/.claude/local/` overlay holds personal additions and overrides.
+
+### Changes
+
+**Updated files:**
+- `install.sh` — added `--copy` flag, `detect_install_mode`, `detect_existing_topology`, `link_scope_tree`, `setup_local_overlay`, `migration_prompt` (3 options c/k/a), `migrate_to_symlinks`. Symlink-aware `force_safety_guard` short-circuit. Main flow rewired around install-mode branch. Added `DATARIM_FORCE_UNAME` and `DATARIM_MIGRATION_CHOICE` test hooks.
+- `update.sh` — added `detect_runtime_mode`. Symlink topology → exits 0 after `git pull`. Copy topology → calls `install.sh --copy --force --yes` (preserves user's mode).
+- `scripts/curate-runtime.sh` — added DEPRECATED-in-v1.17 banner; removal scheduled for v1.18 (TUNE-0044).
+- `scripts/check-drift.sh` — added DEPRECATED banner; symlink → repo now exits 0 (sync by definition); symlink → other path treated as drift.
+- `validate.sh` — added Local Overlay Override Check that emits `WARN: override detected: local/<scope>/<file> shadows <scope>/<file>`.
+- `skills/datarim-system.md` — added § Loading Order documenting the framework + overlay layering and conflict-resolution rule.
+- `docs/getting-started.md` — § Installation rewritten for symlink-default + `--copy` fallback + Windows note + `local/` overlay + migration prompt; § Updating rewritten around runtime-mode branch.
+
+**New tests** (16 added, all passing — final 150 pass + 10 pre-existing fail = 160 total):
+- `tests/install.bats` — 8 tests covering AC-1 (symlink + local overlay), AC-2 (`--copy`), AC-3 (Windows fallback via `DATARIM_FORCE_UNAME`), AC-4 (migration c/k/a), AC-5 (`--force` no-op on symlinks).
+- `tests/check-drift.bats` — 2 tests covering AC-9 (symlink → exit 0; copy + drift → exit 1).
+- `tests/update.bats` (new) — 2 tests covering AC-6 (symlink skips install; copy passes `--copy` to install).
+- `tests/validate-override.bats` (new) — 2 tests covering AC-7 (override WARN; clean case INFO).
+- `tests/deprecation-banners.bats` (new) — 2 tests covering AC-8 (curate-runtime + check-drift banners reference TUNE-0033).
+- `tests/helpers/install_fixture.bash` — added `setup_full_scripts`, `seed_existing_copy_install`, `seed_symlink_install`, `init_fake_git_with_origin`, `assert_symlink_to`.
+
+### Class A/B Gate
+
+This change is **Class B** (operating-model change, public framework contract). Approved: human (Pavel), 2026-04-25, via `/dr-prd TUNE-0033` PRD review and `/dr-design TUNE-0033` consilium-light validation.
+
+### Rationale
+
+TUNE-0032 QA notes N1 + N3 surfaced a contract contradiction: under symlink topology (which arcanada workspace already used internally), `check-drift.sh` exiting 1 was a "detection impossible" guard, not real drift, and `curate-runtime.sh`'s "runtime → repo" direction was semantically vacant (the inode is the same on both sides). Five derived problems documented in PRD § Problem Statement.
+
+The pivot from the original "fork-first" framing to "symlink-default + `local/` overlay" was driven by research (`datarim/insights/INSIGHTS-TUNE-0033.md`): every studied precedent (oh-my-zsh `$ZSH_CUSTOM`, bash-it `custom/`, chezmoi, prezto) rejects fork as the primary path for end-user additions because of Markdown merge-conflict UX cost. Fork remains a contributor path, documented in one paragraph.
+
+### Migration & Rollback
+
+- v1.16 → v1.17 upgrades show an interactive prompt with three options ([c]onvert / [k]eep / [a]bort). `--yes` auto-converts. Original real-copy contents are preserved under `$CLAUDE_DIR/backups/migrate-<timestamp>/SUCCESS`.
+- Single-revert rollback: `git revert <TUNE-0033-commit>` in `code/datarim/` restores the v1.16 contract; users on symlinks remove the symlinks, `git checkout v1.16.0`, then `./install.sh --force --yes`. The `local/` overlay is never touched by rollback. ≤15 minutes total.
+
+### Deferred follow-ups (registered as backlog items)
+
+- **TUNE-0044** — Final removal of `curate-runtime.sh` and `check-drift.sh` in v1.18 (deferred until at least one minor release of grace period).
+- **TUNE-0045** — Critical-skill override blocklist: turn validate.sh WARN into an ERROR for shadows of `security.md`, `compliance.md`, `datarim-system.md` (security recommendation, ship-and-iterate).
+- **TUNE-0046** — `cleanup_old_migrate_backups`: rotate `$CLAUDE_DIR/backups/migrate-*` keeping the 5 most recent (sre recommendation).
+
+---
+
 ## 2026-04-25 — v1.16.0 — TUNE-0032 — Canonical CTA "Next Step" Block
 
 ### Summary
