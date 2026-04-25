@@ -118,7 +118,7 @@ Skills are reusable knowledge modules loaded on demand. They provide rules, patt
 - `research-workflow.md` — Structured research methodology, checklist, tool selection, gap discovery protocol (loaded by: researcher)
 - `publishing.md` — Multi-platform publishing rules, formatting, platform limits, workflow (loaded by: writer, on demand)
 
-Skill files: `$HOME/.claude/skills/{name}.md` (23 skills, 3 with supporting fragment directories)
+Skill files: `$HOME/.claude/skills/{name}.md` (24 skills, 3 with supporting fragment directories)
 
 > **v1.16.0 addition:** `cta-format.md` — canonical CTA "Next Step" block specification, loaded by `planner`, `architect`, `developer`, `reviewer`, `compliance` agents. Defines structure, separators, primary marker, multi-task menu (Variant B), and FAIL-Routing variant. Source: TUNE-0032.
 
