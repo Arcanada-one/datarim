@@ -72,7 +72,20 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
     -   Rationale: DEV-1183 plan initially proposed regex parsing of `"resets 5pm (UTC)"`. A 30-min live capture during `/dr-plan` surfaced a machine-readable `rate_limit_event.rate_limit_info.resetsAt` UNIX epoch — strictly better (no TZ/locale fragility, future-proof for new limit types). Without the capture, the plan would have shipped a locale-fragile parser.
     -   **Known CLI agent pattern — exit code 0 on JSON errors:** Many CLI agents (Claude Code, Cursor, likely Gemini/Codex) return exit code 0 even when the JSON output contains `is_error: true`. The error is encoded inside JSON, not signaled by the process exit code. When capturing fixtures, always capture both a success AND an error case to verify exit code behavior. Parsers must check `is_error`/`subtype` in JSON, not rely on exit codes. (CONN-0003: Claude CLI returns exit 0 for `error_max_turns` with errors inside JSON.)
 
-11.  **Output Summary**:
+11.  **Live Audit Checkpoint (MANDATORY when plan locks a runtime stack via lockfile-format manifest — `package.json`, `requirements.txt`, `Cargo.toml`, `go.mod`, `Gemfile`, `pom.xml`, etc.)**:
+    -   For each lockable manifest the plan proposes, materialise a minimal stub in `/tmp/dr-plan-audit-{TASK-ID}/` containing only the runtime dependencies (skip dev/test/lint), pinned exactly as the plan locks them.
+    -   Run the ecosystem audit gate using the same threshold the plan declares for CI:
+        -   npm: `npm install --omit=dev && npm audit --omit=dev --audit-level=high`
+        -   pip: `pip install -r requirements.txt && pip-audit --strict`
+        -   cargo: `cargo audit --deny warnings`
+        -   etc.
+    -   **If the audit gate fails on the proposed lock**, before promoting the plan to `/dr-do`:
+        -   (a) Bump version pins in the plan (and any cited PRD constraint) until the gate passes; OR
+        -   (b) Open a backlog item describing the unfixable CVE chain and document it in the plan's Security Summary as an **explicit accepted risk** with sign-off line.
+        -   Do NOT proceed to `/dr-do` with a plan that pre-fails the CI security gate it itself declares.
+    -   Rationale: AUTH-0002 plan locked NestJS 10 + Fastify 4 (PRD-time decision) and declared `npm audit --omit=dev --audit-level=high` as the CI gate. At `/dr-do` install-time, that gate failed on 5 high + 1 critical CVEs in the locked stack (Fastify body-bypass, @fastify/middie path traversal, etc.). A 30-second `npm audit` against the proposed lock at `/dr-plan` time would have surfaced this and triggered the bump (NestJS 11 + Fastify 5) before code generation, saving ~1h of mid-implementation re-pinning, re-install, re-test cycles.
+
+12.  **Output Summary**:
     -   Confirm task status update.
     -   List next steps by complexity:
         -   L3-4 → `/dr-design`
@@ -99,6 +112,7 @@ Before proceeding to `/dr-design` or `/dr-do`:
 [ ] Definition of Done is testable and explicit?
 [ ] Boundaries stated (what we DON'T do)?
 [ ] Technology stack validated (if applicable)?
+[ ] Live audit checkpoint executed for any lockable manifest (`npm audit` / `pip-audit` / `cargo audit`) and either gate passes or accepted-risk sign-off is recorded in plan? (AUTH-0002: NestJS 10 + Fastify 4 plan-time lock would have failed `npm audit --audit-level=high` — check at plan-time, not at do-time.)
 [ ] Rollback strategy viable? (verify commands actually work — e.g., is the target a git repo?)
 [ ] For TDD sections of the plan: each test assertion traced through *current* (pre-fix) code state before being labelled expected-pass or expected-fail? (TUNE-0004 QA NOTE-2: a plan predicting "3 of 4 drift tests pass before fix" was wrong because the predictions were not checked against the actual `diff -rq` behaviour with the bug still present.)
 [ ] tasks.md updated with implementation plan?
@@ -107,3 +121,17 @@ Before proceeding to `/dr-design` or `/dr-do`:
 ## Usage
 
 Run: `/dr-plan`
+
+## Next Steps (CTA)
+
+After plan generation, the planner agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format.md`.
+
+**Routing logic for `/dr-plan`:**
+
+- L3-4 with creative-phase needs → primary `/dr-design {TASK-ID}` (auto-transition for L3-4)
+- L3-4 without creative-phase needs → primary `/dr-do {TASK-ID}` (skip design)
+- L1-2 → primary `/dr-do {TASK-ID}` (begin TDD)
+- Plan incomplete or strategist suggests pivot → primary `/dr-prd {TASK-ID}` (revise scope)
+- Always include `/dr-status` as escape hatch
+
+The CTA block MUST follow the canonical format (numbered, one `**рекомендуется**`, `---` HR). Variant B menu when >1 active tasks.

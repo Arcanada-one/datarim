@@ -78,7 +78,15 @@ effort: high
 - **Keep SKILL.md under 500 lines** — move detailed reference to supporting files
 - **Front-load key use case in description** — truncated after 250 chars
 
-## Next Steps
-- New skill needs testing? → Ask user to invoke it and review output
-- Updating Datarim source? → Update counts in CLAUDE.md, README.md, dr-help.md
-- Need more domain expertise? → Run additional web research
+## Next Steps (CTA)
+
+After skill creation, the skill-creator agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format.md`.
+
+**Routing logic for `/dr-addskill`:**
+
+- New skill needs testing → primary "ask user to invoke and review output" + alternative `/dr-qa {TASK-ID}` if part of TUNE task
+- Updating Datarim source → primary "update counts in CLAUDE.md, README.md, dr-help.md" + reminder to curate via `scripts/curate-runtime.sh`
+- Need more domain expertise → alternative `/dr-prd {TASK-ID}` (research-phase) before iterating
+- Always include `/dr-status` as escape hatch
+
+The CTA block MUST follow the canonical format (numbered, one `**рекомендуется**`, `---` HR). Variant B menu when >1 active tasks.

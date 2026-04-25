@@ -56,7 +56,15 @@ argument-hint: [file path to approved content]
 - Pre-publish checklist (passed/failed)
 - Publication instructions or applied changes
 
-## Next Steps
-- Content task in Datarim pipeline? → `/dr-archive`
-- Need to write more content? → `/dr-write`
-- Need to edit before publishing? → `/dr-edit`
+## Next Steps (CTA)
+
+After publish, the writer/editor agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format.md`.
+
+**Routing logic for `/dr-publish`:**
+
+- Content task in Datarim pipeline → primary `/dr-archive {TASK-ID}` (final archive)
+- Need to write more content → primary `/dr-write {TASK-ID}`
+- Need to edit before re-publishing → primary `/dr-edit {TASK-ID}`
+- Always include `/dr-status` as escape hatch
+
+The CTA block MUST follow the canonical format (numbered, one `**рекомендуется**`, `---` HR). Variant B menu when >1 active tasks.

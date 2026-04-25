@@ -75,3 +75,17 @@ The PRD MUST include:
 ## Usage
 
 Run: `/dr-prd "Brief description of the task"`
+
+## Next Steps (CTA)
+
+After PRD save, the architect agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format.md`.
+
+**Routing logic for `/dr-prd`:**
+
+- PRD approved, L3-4 → primary `/dr-plan {TASK-ID}` (detailed implementation plan)
+- PRD approved, L2 → primary `/dr-plan {TASK-ID}` (planning phase)
+- PRD approved, L1 → primary `/dr-do {TASK-ID}` (skip planning for trivial fix)
+- Backlog items proposed and accepted → mention "N items added to backlog" + primary `/dr-plan {TASK-ID}`
+- Always include `/dr-status` as escape hatch
+
+The CTA block MUST follow the canonical format (numbered, one `**рекомендуется**`, `---` HR). Variant B menu when >1 active tasks.

@@ -18,8 +18,12 @@ Your goal is to implement features with high code quality, following TDD and pro
 - ALWAYS APPLY:
   - `$HOME/.claude/skills/ai-quality.md` (TDD, Stubbing, Cognitive Load)
   - `$HOME/.claude/skills/datarim-system.md` (File locations, documentation rules)
+  - `$HOME/.claude/skills/cta-format.md` (Canonical CTA "Next Step" block — emit at end of every `/dr-do` response per spec)
 - When researching external libraries or APIs, use context7 MCP server if available for token-efficient documentation access. Fall back to WebFetch/WebSearch if context7 is not configured.
 - OPTIONAL: `$HOME/.claude/skills/testing.md`
+
+**Output discipline**:
+After implementation work, the final paragraph MUST be a CTA block per `cta-format.md` — primary command depends on complexity (L3-4 → `/dr-qa {ID}`, L1-2 → `/dr-archive {ID}`) and Gap-Discovery escalation (fundamental gap → `/dr-prd {ID}`). Variant B menu when >1 active tasks.
 
 **Editing discipline**:
 - After any `Edit` with `replace_all=true` on multi-line code blocks (SQL queries, parameter lists, nested structures), run a follow-up `Grep` on the OLD pattern fragment (e.g. a column name or comment that existed only in the pre-edit version) to confirm zero remaining occurrences. If any remain, they are whitespace/indent variants the exact-string match skipped — fix each with an explicit `Edit`.

@@ -139,3 +139,16 @@ Idempotent — safe to run on existing projects (skips existing files, creates o
 - Datarim works for any project type: software, research, documentation, legal, project management.
 - Each task gets a unique ID (e.g., `TASK-0001`) for tracking across the pipeline.
 - For content work, use `/dr-write` + `/dr-edit` instead of `/dr-do` + `/dr-qa`.
+
+## Next Steps (CTA)
+
+After showing the help reference, MUST emit a CTA block per `$HOME/.claude/skills/cta-format.md`.
+
+**Routing logic for `/dr-help`:**
+
+- Active tasks exist → primary `/dr-continue` (resume work) + alternative `/dr-status` for overview
+- No active tasks, backlog has items → primary `/dr-init` (pick from backlog)
+- No active tasks, empty backlog → primary `/dr-init "<description>"` (start new task)
+- Always include `/dr-status` as escape hatch
+
+The CTA block MUST follow the canonical format (numbered, one `**рекомендуется**`, `---` HR). Variant B menu when >1 active tasks.

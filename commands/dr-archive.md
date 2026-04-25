@@ -98,6 +98,15 @@ If user says "cancel task" or "cancel {TASK-ID}":
 5. Clear task from `tasks.md`
 6. Do NOT create archive document (task was not completed)
 
-## Next
-- Ready for new task → `/dr-init`
-- Knowledge base grown since last maintenance? → Suggest `/dr-dream` (if >5 documents created since last dream run)
+## Next Steps (CTA)
+
+After archive, the planner agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format.md`. After archiving, the just-archived task is removed from `## Active Tasks`; CTA reflects the new state of activeContext.
+
+**Routing logic for `/dr-archive`:**
+
+- Archive completed, other active tasks remain → primary `/dr-continue` (resume the next active task) + alternative `/dr-status`
+- Archive completed, no other active tasks → primary `/dr-init` (start new work) + alternative "pick from backlog"
+- Knowledge base grew >5 docs since last maintenance → alternative `/dr-dream` (housekeeping)
+- Always include `/dr-status` as escape hatch
+
+The CTA block MUST follow the canonical format. If multiple tasks remain active after this archive, render Variant B menu (`**Другие активные задачи:**`).

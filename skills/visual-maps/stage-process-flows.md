@@ -120,3 +120,26 @@ graph TD
     G --> K
     K --> L["Steps 5-7: Update archived-tasks table + reset activeContext/tasks.md"]
 ```
+
+## CTA Emission per Stage (TUNE-0032 / v1.16.0)
+
+Every stage flow above ends with the agent emitting a canonical CTA block per `$HOME/.claude/skills/cta-format.md`. The CTA is part of the response — not a separate stage. Mapping of stage end → primary CTA command:
+
+| Stage end | Primary CTA in block |
+|-----------|----------------------|
+| `/dr-init` (L1) | `/dr-do {TASK-ID}` |
+| `/dr-init` (L2) | `/dr-plan {TASK-ID}` |
+| `/dr-init` (L3-4 no PRD) | `/dr-prd {TASK-ID}` |
+| `/dr-prd` | `/dr-plan {TASK-ID}` (or `/dr-do` for L1) |
+| `/dr-plan` (L3-4) | `/dr-design {TASK-ID}` |
+| `/dr-plan` (L1-2) | `/dr-do {TASK-ID}` |
+| `/dr-design` | `/dr-do {TASK-ID}` |
+| `/dr-do` (L3-4) | `/dr-qa {TASK-ID}` |
+| `/dr-do` (L1-2) | `/dr-archive {TASK-ID}` |
+| `/dr-qa` PASS / CONDITIONAL_PASS (L3-4) | `/dr-compliance {TASK-ID}` |
+| `/dr-qa` BLOCKED | layer-return command per FAIL-Routing |
+| `/dr-compliance` COMPLIANT | `/dr-archive {TASK-ID}` |
+| `/dr-compliance` NON-COMPLIANT | `/dr-do {TASK-ID}` (default) |
+| `/dr-archive` | `/dr-continue` (if other active tasks) or `/dr-init` |
+
+Every CTA block includes the resolved task ID inline, exactly one `**рекомендуется**` marker, ≤5 numbered options, and `---` HR wrapping. When `## Active Tasks` lists >1 task, the block appends a `**Другие активные задачи:**` Variant B menu.

@@ -32,3 +32,18 @@ Depends on current phase
 - In PLAN → continue planning
 - In DO → continue implementation
 - Ready for ARCHIVE → suggest `/dr-archive`
+
+## Next Steps (CTA)
+
+After resolving the current phase, the planner/architect/developer agent (whichever owns the resumed phase) MUST emit a CTA block per `$HOME/.claude/skills/cta-format.md`.
+
+**Routing logic for `/dr-continue`:**
+
+- Resumed in PLAN phase → primary `/dr-plan {TASK-ID}` (continue planning)
+- Resumed in DESIGN phase → primary `/dr-design {TASK-ID}`
+- Resumed in DO phase → primary `/dr-do {TASK-ID}`
+- Ready for QA / archive → primary `/dr-qa {TASK-ID}` or `/dr-archive {TASK-ID}` per pipeline
+- No active tasks but backlog has items → primary `/dr-init` (pick from backlog)
+- Always include `/dr-status` as escape hatch
+
+The CTA block MUST follow the canonical format. If >1 active tasks, the entire `## Active Tasks` list is the menu (Variant B fully expanded).

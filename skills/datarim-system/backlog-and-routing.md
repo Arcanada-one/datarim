@@ -68,24 +68,35 @@ Or use the current date from session context.
 
 ## Mode Transition Optimization
 
-### Automatic Transitions
+Every transition listed below MUST be surfaced to the user as a canonical CTA block per `$HOME/.claude/skills/cta-format.md`. The text in this section defines WHICH command becomes the primary CTA at each transition; the FORMAT of the CTA block is owned by `cta-format.md` (single source of truth, TUNE-0032 v1.16.0).
 
-- Level 3-4 after `/dr-plan` → auto-enter `/dr-design`
-- Level 3-4 after `/dr-do` → auto-enter `/dr-qa`
-- Level 3-4 after `/dr-qa` (PASS/CONDITIONAL_PASS) → auto-enter `/dr-compliance`
-- Level 1-2 after `/dr-do` → auto-suggest `/dr-archive` (runs reflection as Step 0.5)
+### Automatic Transitions (primary CTA after each stage)
 
-### FAIL Return Routing
+| Stage finished | Complexity | Primary CTA in next-step block |
+|---|---|---|
+| `/dr-plan` | L3-4 | `/dr-design {TASK-ID}` |
+| `/dr-plan` | L1-2 | `/dr-do {TASK-ID}` |
+| `/dr-design` | L3-4 | `/dr-do {TASK-ID}` |
+| `/dr-do` | L3-4 | `/dr-qa {TASK-ID}` |
+| `/dr-do` | L1-2 | `/dr-archive {TASK-ID}` (reflection runs Step 0.5) |
+| `/dr-qa` PASS / CONDITIONAL_PASS | L3-4 | `/dr-compliance {TASK-ID}` |
+| `/dr-qa` PASS / CONDITIONAL_PASS | L1-2 | `/dr-archive {TASK-ID}` |
+| `/dr-compliance` COMPLIANT* | L3-4 | `/dr-archive {TASK-ID}` |
 
-QA BLOCKED routes back by **earliest** failed layer:
-- Layer 1 (PRD) → `/dr-prd`
-- Layer 2 (Design) → `/dr-design`
-- Layer 3 (Plan) → `/dr-plan`
-- Layer 4 (Code) → `/dr-do`
+### FAIL Return Routing (FAIL-Routing CTA variant)
 
-Compliance NON-COMPLIANT → `/dr-do` (default) or earlier stage if PRD/plan gap identified.
+QA BLOCKED → header `**QA failed для {TASK-ID} — earliest failed layer: Layer N (Layer name)**`, primary CTA per Layer-to-command map:
 
-After fix: resume forward, re-run QA/compliance. Loop guard: 3 same-layer fails → escalate to user.
+| Failed Layer | Primary CTA |
+|---|---|
+| Layer 1 (PRD) | `/dr-prd {TASK-ID}` |
+| Layer 2 (Design) | `/dr-design {TASK-ID}` |
+| Layer 3 (Plan) | `/dr-plan {TASK-ID}` |
+| Layer 4 (Code) | `/dr-do {TASK-ID}` |
+
+Compliance NON-COMPLIANT → header `**Compliance NON-COMPLIANT для {TASK-ID} — ...**`, primary `/dr-do {TASK-ID}` (default) or earlier stage if PRD/plan gap identified.
+
+After fix: resume forward, re-run QA/compliance. Loop guard: 3 same-layer fails → escalate to user via CTA option `Эскалация` (see `cta-format.md` § FAIL-Routing).
 
 ### Manual Transitions
 
@@ -94,3 +105,7 @@ After fix: resume forward, re-run QA/compliance. Loop guard: 3 same-layer fails 
 - `/dr-do` → execution mode
 - `/dr-qa` → QA mode
 - `/dr-archive` → archive mode (includes reflection as Step 0.5)
+
+### Multi-task awareness (Variant B)
+
+Whenever `## Active Tasks` in `datarim/activeContext.md` lists >1 task, the CTA block MUST append a `**Другие активные задачи:**` menu listing each parallel task with its own recommended next command. This is mandatory for `/dr-status`, `/dr-continue`, `/dr-archive`; agents on other commands MAY append it when context permits. See `cta-format.md` § Canonical Block — Multiple Active Tasks.

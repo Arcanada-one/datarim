@@ -137,7 +137,15 @@ Append maintenance summary to `datarim/docs/activity-log.md`.
 - Consolidation proposals (if full mode)
 - Activity log entry
 
-## Next Steps
-- Issues need human resolution? → Review contradictions and decide
-- Knowledge base is clean? → Continue with `/dr-init` for next task
-- Framework itself needs optimization? → `/dr-optimize`
+## Next Steps (CTA)
+
+After dream-pass, the librarian agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format.md`.
+
+**Routing logic for `/dr-dream`:**
+
+- Knowledge-base clean, no contradictions → primary `/dr-init` (resume normal workflow)
+- Contradictions found, need human resolution → primary "review-and-decide" prompt + alternative `/dr-status`
+- Framework drift detected → primary `/dr-optimize` (deeper restructuring)
+- Always include `/dr-status` as escape hatch
+
+The CTA block MUST follow the canonical format. If active tasks present, primary CTA points to next pipeline step for the most urgent active task. Variant B menu when >1 active tasks.

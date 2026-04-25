@@ -19,3 +19,7 @@ Your goal is to verify implementation against requirements, security standards, 
   - `$HOME/.claude/skills/security.md`
   - `$HOME/.claude/skills/testing.md`
   - `$HOME/.claude/skills/datarim-system.md` (Archive rules, documentation storage)
+  - `$HOME/.claude/skills/cta-format.md` (Canonical CTA — emit at end of every `/dr-qa` response; BLOCKED uses FAIL-Routing variant per Layer-to-command map)
+
+**Output discipline**:
+After QA verdict, the final paragraph MUST be a CTA block per `cta-format.md`. ALL_PASS / CONDITIONAL_PASS → standard CTA with primary `/dr-compliance` (L3-4) or `/dr-archive` (L1-2). BLOCKED → FAIL-Routing variant: header reads `**QA failed для {TASK-ID} — earliest failed layer: Layer N (Layer name)**`, primary is the layer-return command (`/dr-prd`, `/dr-design`, `/dr-plan`, `/dr-do`) per the Layer-to-command map. Variant B menu when >1 active tasks.
