@@ -78,6 +78,37 @@ Source: TUNE-0029 — research phase produces insights before discovery intervie
 
 ---
 
+## Scope Live-Grep Rule (multi-artefact tasks)
+
+**When a task touches multiple files of the same kind (commands, agents, skills, templates, pages, services, migrations, etc.), grep the filesystem for the actual count before fixing scope in the PRD.** Do not rely on memory or prior PRD numbers — they drift. The PRD's "scope" section must reflect the live filesystem at PRD-write time, not a stale enumeration.
+
+Common live-counts:
+
+```sh
+ls $HOME/.claude/commands/dr-*.md | wc -l   # current dr-* command count
+ls $HOME/.claude/skills/*.md | wc -l         # skills (single .md file)
+ls $HOME/.claude/agents/*.md | wc -l         # agents
+ls $HOME/.claude/templates/*.md | wc -l      # templates
+git ls-files '*.service.ts' | wc -l          # services in monorepo (example)
+```
+
+Source: TUNE-0032 — PRD § Scope said "15 commands"; actual count was 17 (`/dr-help`, `/dr-publish` were missed). In compliance Step 1 this surfaced as "unplanned addition" and forced a scope-vs-actual reconciliation in the QA report. Cost: ~5 minutes diff-explanation. Avoidance: `wc -l` before PRD draft.
+
+## AC-Feasibility Rule (operating-model check)
+
+**Every measurable Acceptance Criterion in a PRD must be reachable under the current operating-model.** Before user-approval (PRD Phase 3), dry-run each AC against live state:
+
+- AC says "exit 0" — run the command, check actual exit code on a representative working tree.
+- AC says "file X exists" — verify the path resolution rules produce that path.
+- AC says "build succeeds" — confirm the build command exists and the target environment is intact.
+- AC says "runtime in sync with repo" — check whether the sync mechanism (curate / git pull / symlink) is active and applicable.
+
+If an AC is not currently reachable due to operating-model state (e.g. symlinks vs real copies, git submodules vs flat repos, container vs host runtime), reformulate as **"X OR documented invariant satisfied by construction"** with the documented exception path.
+
+Source: TUNE-0032 PRD AC-8 required `check-drift.sh exit 0`. Under the symlink-first operating model used in arcanada workspace, `check-drift.sh` returns 1 (symlink-guard signal, not real drift). The AC was technically unreachable but semantically over-satisfied. The mismatch surfaced in QA only — should have been caught in PRD Phase 3.
+
+---
+
 ## Codebase-First Rule
 
 **Before asking any question, check if the answer already exists in code or docs.**

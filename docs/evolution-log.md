@@ -67,3 +67,62 @@ Runtime ↔ repo for `agents/`, `skills/`, `commands/`, `templates/` is via syml
 ### Affected by Future Changes
 
 Any future change to the CTA format MUST update `skills/cta-format.md`, regenerate fixtures in `tests/cta-format/fixtures/`, and update this evolution log.
+
+---
+
+## 2026-04-25 — TUNE-0032 — Reflection Class A Proposals (5 applied)
+
+Approved Class A evolution proposals from `reflection/reflection-TUNE-0032.md`. All target framework process improvements identified during the TUNE-0032 cycle.
+
+### Proposal 1+2: Discovery skill — Scope Live-Grep + AC-Feasibility Rules
+
+- **File:** `skills/discovery.md`
+- **Class:** A (content addition; no operating-model change)
+- **What:** Two new sections inserted before "Codebase-First Rule":
+  - **Scope Live-Grep Rule** — when a task touches multiple artefacts of the same kind (commands/agents/skills/templates), grep filesystem for actual count before fixing scope in PRD; do not rely on memory.
+  - **AC-Feasibility Rule** — every measurable AC must be reachable under the current operating-model; dry-run each AC against live state before user-approval; reformulate as "X OR documented invariant" when not directly reachable.
+- **Why:** TUNE-0032 PRD § Scope said "15 commands" (actual: 17). AC-8 (`check-drift exit 0`) was unreachable under symlink topology — surfaced only in QA. Both should have been caught at PRD draft time.
+- **Approved:** human (Pavel), 2026-04-25.
+
+### Proposal 3: Websites/CLAUDE.md — Cross-product site-update checklist
+
+- **File:** `Projects/Websites/CLAUDE.md` § "Шаг 3: Обновить сайт datarim.club"
+- **Class:** A (extends existing TUNE-0028 rule)
+- **What:** Generalised the per-artefact site-update mapping into an explicit table covering `skills`, `commands`, `agents`, `templates`. Added templates as conditional ("обновить, если папка существует / если template имеет публичную ценность"). Added pre-deploy diff loop:
+  ```sh
+  for kind in skills commands agents; do
+    diff <(ls $HOME/.claude/$kind/*.md | xargs -I{} basename {} .md | sort) \
+         <(ls datarim.club/data/$kind/*.php | xargs -I{} basename {} .php | sort)
+  done
+  ```
+- **Why:** TUNE-0028 explicitly required `data/commands/*.php` updates; skills/agents were implicit and templates were unmentioned. TUNE-0032 added `data/skills/cta-format.php` correctly only because the agent generalised by analogy — luck, not rule.
+- **Approved:** human (Pavel), 2026-04-25.
+
+### Proposal 4: ai-quality.md — Spec-First with Golden Fixtures pattern
+
+- **File:** `skills/ai-quality.md`
+- **Class:** A (content addition — new pattern section)
+- **What:** New "Spec-First with Golden Fixtures (Format-Change Pattern)" section before "Fragment Routing". Codifies the 4-step sequence (spec-as-skill → fixtures → spec-regression tests → mechanical propagation) for L3+ tasks changing output format/structure across ≥5 files of the same kind.
+- **Why:** TUNE-0032 used Approach C (this pattern); 39 bats tests now guard 17 commands + 5 agents from drift. Approach A (mechanical sweep) was rejected exactly because drift would re-emerge with each new consumer. Pattern deserves codification beyond TUNE-0032.
+- **Approved:** human (Pavel), 2026-04-25.
+
+### Proposal 5: dr-archive.md — Pre-commit staged-diff audit
+
+- **File:** `commands/dr-archive.md` Step 0.1
+- **Class:** A (refinement of existing mandatory step)
+- **What:** Added explicit instruction: after `git add` and before `git commit`, run `git diff --staged --stat` and verify the file list matches commit-message scope; reject and restage if unrelated files appear.
+- **Why:** TUNE-0032 archive: 2 INFRA-0026 files (`skills/file-sync-config.md`, `templates/cli-conflict-resolver-prompt.md`) leaked into TUNE-0032 commit `5ac8cd9` despite explicit `git add` path-list. Root cause not pinpointed; staged-diff audit makes leak visible before history is cast in stone.
+- **Approved:** human (Pavel), 2026-04-25.
+
+### Class B (HELD)
+
+- **Operating-model revision** — symlink-default `install.sh` + `curate-runtime.sh` deprecation + fork-flow recommendation. Class B (operating-model contract change). Held pending PRD-TUNE-0033 (added to backlog 2026-04-25, P1, L3). Not applied here.
+
+### Follow-Up Tasks Added to Backlog
+
+- **TUNE-0033** — Fork-first install model + symlink default (L3, P1). Added during TUNE-0032 compliance step.
+- **TUNE-0034** — Bats test suite cleanup: 10 pre-existing failures (optimizer.md restructure, removed go-to-market.md, dr-reflect references, file-sync-config description >155 chars). L1, P2.
+- **TUNE-0035** — Site update cross-product checklist generalisation (folded into Proposal 3 above; backlog entry kept as tracking checkpoint to verify wiring on next site update). L1, P3.
+- **TUNE-0036** — `/dr-archive` Step 0.1 staged-diff audit (folded into Proposal 5 above; backlog entry kept as tracking checkpoint). L1, P3.
+
+Items 2-4 are candidates for opportunistic batch (one L1 cleanup pass).
