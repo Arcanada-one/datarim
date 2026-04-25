@@ -85,7 +85,21 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
         -   Do NOT proceed to `/dr-do` with a plan that pre-fails the CI security gate it itself declares.
     -   Rationale: AUTH-0002 plan locked NestJS 10 + Fastify 4 (PRD-time decision) and declared `npm audit --omit=dev --audit-level=high` as the CI gate. At `/dr-do` install-time, that gate failed on 5 high + 1 critical CVEs in the locked stack (Fastify body-bypass, @fastify/middie path traversal, etc.). A 30-second `npm audit` against the proposed lock at `/dr-plan` time would have surfaced this and triggered the bump (NestJS 11 + Fastify 5) before code generation, saving ~1h of mid-implementation re-pinning, re-install, re-test cycles.
 
-12.  **Output Summary**:
+12.  **Class B Public Surface Scan** (MANDATORY when Class A/B gate per `$HOME/.claude/skills/evolution.md` classifies the task as **Class B** — operating-model / contract change):
+    -   Enumerate ALL user-facing surfaces that reflect the new operating model. Minimum:
+        -   `code/datarim/docs/getting-started.md`
+        -   `code/datarim/README.md`
+        -   `code/datarim/CLAUDE.md`
+        -   `Projects/Datarim/CLAUDE.md` and `Projects/Datarim/README.md`
+        -   `Projects/Websites/datarim.club/pages/getting-started.php` (public onboarding — **mandatory**)
+        -   `Projects/Websites/datarim.club/pages/changelog.php` (release entry)
+        -   `Projects/Websites/datarim.club/content/{en,ru}.php` (if stat counts / onboarding-related strings change)
+        -   `Projects/Websites/datarim.club/config.php` (version)
+    -   For EACH surface in the list, plan §5 MUST include an explicit affected-files entry AND PRD MUST include a corresponding acceptance criterion (e.g. `AC-NN: live curl /docs/getting-started \| grep <new-term>` for live verification).
+    -   Deferring a surface to /dr-qa or /dr-archive is a **Class B contract violation** — Class B tasks ship with their full public surface coverage in /dr-do, not «minor скорректируем потом».
+    -   Source: TUNE-0033 — AC-19 (`pages/getting-started.php` symlink content) was deferred from /dr-do, surfaced only at /dr-archive live deploy verification. Surface scan checkpoint prevents recurrence.
+
+13.  **Output Summary**:
     -   Confirm task status update.
     -   List next steps by complexity:
         -   L3-4 → `/dr-design`
