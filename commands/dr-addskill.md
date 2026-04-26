@@ -52,6 +52,7 @@ effort: high
     - How to invoke the new capability
     - Wait for approval before writing any files
 9.  **APPLY**: After approval:
+    - **Stack-agnostic gate (MANDATORY when target scope is `$HOME/.claude/{skills,agents,commands,templates}/`):** load `$HOME/.claude/skills/evolution/stack-agnostic-gate.md` and run gate over each new/updated artifact's full text (script form: `scripts/stack-agnostic-gate.sh <target>`). FAIL → do NOT write; return to user with the matched keywords and either (a) reword stack-neutral, or (b) install into a project-scoped `.claude/` dir instead.
     - Create necessary directories (`mkdir -p .claude/skills .claude/agents .claude/commands`)
     - Write the files
     - If updating Datarim source repo, also update CLAUDE.md counts and tables

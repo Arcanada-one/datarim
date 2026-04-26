@@ -244,4 +244,4 @@ If requirement is not explicitly stated by user:
 
 ## Reusable Templates
 
-- `templates/nestjs-service-scaffold.md` — Phase-1 scaffold checklist for any new NestJS backend service in the Arcanada/Aether ecosystem. Covers init, config, Prisma wiring, health check, structured logging, error filter, validation pipe, and Docker integration. Use during `/dr-plan` Step 6 when the chosen stack is NestJS.
+For stack-specific scaffolds (NestJS, Django, Rails, etc.) consult the relevant project's `CLAUDE.md` or its per-project `templates/` directory. The Datarim framework does not ship stack-specific scaffolds — `tech-stack.md` is the only stack-aware skill by design (whitelisted in `skills/evolution/stack-agnostic-gate.md`).
