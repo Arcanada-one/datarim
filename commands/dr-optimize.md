@@ -84,6 +84,7 @@ effort: high
     - Ask: "Which proposals should I apply? (all / none / comma-separated numbers)"
     - Wait for explicit response
     - Apply ONLY approved changes
+    - **Stack-agnostic gate (MANDATORY before each write to `$HOME/.claude/{skills,agents,commands,templates}/`):** load `$HOME/.claude/skills/evolution/stack-agnostic-gate.md` and run gate over each proposal's text (script form: `scripts/stack-agnostic-gate.sh <target>`). FAIL → reject the proposal silently for now and surface to user as «stack-specific — relocate to project's CLAUDE.md or reword stack-neutral».
 
 9.  **APPLY AND SYNC**: After applying changes:
     - Update CLAUDE.md if counts, behavior descriptions, or references became stale

@@ -34,6 +34,7 @@ This skill is **invoked internally by `/dr-archive` Step 0.5** for every complet
     - Generate evolution proposals (categories: `skill-update`, `agent-update`, `claude-md-update`, `new-template`, `new-skill`).
     - **Classify each proposal as Class A or Class B** per `evolution.md` § "Class A vs Class B — Operating-Model Gate". Class A = content changes (approval-ready). Class B = operating-model / contract changes (source-of-truth direction, sync semantics, pipeline routing, core contract, command semantics). Class B proposals **must not be presented for user approval** until a PRD update (or project-level contract equivalent) is drafted; pause and request the PRD draft instead.
     - Present Class A proposals to user for approval. Hold Class B until PRD is updated, then re-present.
+    - **Stack-agnostic gate (MANDATORY before write):** before applying any approved Class A proposal that writes to `$HOME/.claude/{skills,agents,commands,templates}/`, load `$HOME/.claude/skills/evolution/stack-agnostic-gate.md` and run the gate against the proposal text (script form: `scripts/stack-agnostic-gate.sh <target>`). FAIL → reject the proposal, do NOT write; reword to stack-neutral or escalate to user as «belongs in project's CLAUDE.md, not framework runtime».
     - Log approved changes in `datarim/docs/evolution-log.md`.
 7.  **HEALTH CHECK**:
     - Count total skills, agents, commands in the active scope.

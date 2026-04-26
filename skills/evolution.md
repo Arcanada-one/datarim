@@ -62,6 +62,8 @@ Load only the fragment needed for the current sub-problem:
   Use when runtime files in `$HOME/.claude/` are lost or corrupted. 5-channel recovery checklist.
 - `skills/evolution/examples-and-patterns.md`
   Use for reference when writing proposals or applying the deprecation pattern (forward-pointer annotations).
+- `skills/evolution/stack-agnostic-gate.md`
+  MANDATORY pre-apply check before writing any approved Class A proposal to runtime. Rejects stack-specific content; whitelists `tech-stack.md` and the gate skill itself. CI helper at `scripts/stack-agnostic-gate.sh`.
 
 ---
 
