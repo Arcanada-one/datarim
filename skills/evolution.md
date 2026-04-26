@@ -218,3 +218,23 @@ Each Evolution change is a discrete edit to a specific file. Rollback strategy:
 > **Note (TUNE-0027):** Since 2026-04-22, `skills/`, `commands/`, `agents/`, `templates/` in `$HOME/.claude/` are symlinks to the Datarim git repo. Manual sync (`install.sh`) is no longer needed for these directories — changes are shared instantly. `install.sh` remains relevant only for first-time installation or rollback. See `skills/datarim-system/path-and-storage.md` § Symlink Architecture.
 
 **Rule:** Never make changes that cannot be independently reverted. If two proposals modify the same file, apply them as separate edits so either can be rolled back without affecting the other.
+
+---
+
+## Pattern: Memory Rule → Executable Gate at Apply Step
+
+When a user-memory rule (e.g. `~/.claude/projects/<proj>/memory/feedback_*.md`) repeatedly surfaces in reflection as a corrective action — meaning the rule was declared, then violated, then manually reverted — text-only memory is no longer sufficient at scale. Promote the rule to an **executable gate at the apply step** of the relevant pipeline command.
+
+**Trigger threshold:** N ≥ 2 occurrences of the same memory rule appearing as a reflection corrective in distinct tasks within a short window (≤14 days).
+
+**Gate anatomy:**
+
+1. **Runtime contract** — `skills/<area>/<rule-name>-gate.md` documenting trigger, scope, allow/deny criteria, escape hatches, decision matrix. Markdown checklist agents can apply via Read+grep when no script is reachable.
+2. **CI helper** — `scripts/<rule-name>-gate.sh` (pure bash, dependency-free). Same logic, scriptable for bats and CI. Exit codes: `0` PASS / `1` FAIL / `2` invocation error.
+3. **Hooks** — embed «MUST run gate» line in every command/skill that reaches the apply step the rule should guard. Failure to embed = silently disabled gate.
+4. **Bats fixtures** — at minimum 1 FAIL fixture (golden violation reproducing the original incident) + 1 PASS fixture (legitimate negative case) + 1 regression-invariant test on the gate's own host file (catches re-introduction of the violation).
+5. **Whitelist + escape hatch** — declare any file that is exempt by design (e.g. `tech-stack.md` for stack-keywords). Provide a per-block escape marker (e.g. HTML-comment fence) for legitimate illustrative content. Use sparingly; reviewers should challenge each usage.
+
+**Source incident:** TUNE-0039 (2026-04-26) — `feedback_datarim_stack_agnostic.md` declared 2026-04-25 (VERD-0010), violated 2026-04-26 (VERD-0021, three artefacts). Memory rule advisory; gate enforces.
+
+**Reuse candidates:** consider this pattern for any future recurring memory rule — e.g. «no-secrets-in-code», «no-personal-paths», «no-deprecated-API-XXX», ecosystem-specific keyword bans.
