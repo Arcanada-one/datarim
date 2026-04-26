@@ -49,6 +49,32 @@ When a commercial VPN (Wireguard-based or otherwise) coexists with Tailscale on 
 
 Source: AGENT-0010 reflection + memory `feedback_macos_tailscale.md`. ~60 min of debug time saved per future incident by following this checklist first.
 
+## Cross-Stack Relative-Path Includes (Threat-Model Recipe)
+
+When a task changes the *root* of an HTTP request — flipping `$document_root`, chroot, mount point, container volume, or symlink target — the threat model MUST audit every consumer that resolves paths *relative to that root*, not just the configuration that does the flip.
+
+**Pattern:** any include / require / load directive that resolves a path relative to its own source-file location is bound to its own filesystem location.
+<!-- gate:example-only -->
+Common forms across ecosystems: `__DIR__`-style anchors, `path.resolve(__dirname, ...)`, `os.path.dirname(__file__)`, `Module::path()` helpers, etc.
+<!-- /gate:example-only -->
+When the document root flips between two trees that contain *byte-identical files at different inodes*, runtime caches keyed by path (opcode caches, module caches, autoload registries) treat the two paths as different sources, then fail loudly when the same class / module / definition is loaded from both inodes within one worker lifecycle.
+
+**Audit rows to add to STRIDE-style tables for any document_root / chroot / mount-flip task:**
+
+1. *Tampering / Elevation* — cached include from old root remains live in long-running workers after flip → class-redeclare / module-reload error.
+2. *Availability* — opcode / bytecode cache primes from one path, new requests resolve to another inode → fatal at request-time.
+3. *Repudiation* — the same logical class loaded from two inodes — which one is canonical for audit?
+
+**Mitigation pattern:**
+
+- Make the two roots the same inode tree (symlink one to the other) for the duration of the flip — content equality is not enough; opcache treats path as the cache key.
+- Keep absolute paths in critical includes; do not rely on relative-from-source-file resolution at the application boundary.
+- Plan a canonical relocation as a follow-up step that severs the symlink dependency.
+- Restart any persistent worker pool (long-running request handlers, cached interpreters) to drop stale path bindings — config reload alone is insufficient.
+
+**Source incident:** flipping the request document root for 375 hosts produced fatal `Cannot declare class … already in use` in long-running workers because the application's filesystem-relative include resolved to a different inode under the new root. Auto-rollback fired in <30 s; mitigation = symlink the new root's auxiliary directory to the old root's same directory; canonical relocation deferred to a follow-up step.
+
 ## Reusable Templates
 
 - `templates/security-deps-upgrade-plan.md` — stack-neutral plan for dependency-CVE / framework-version-bump / transitive-override tasks. Sections: baseline audit snapshot, target version selection, breaking-change diff, lockfile/peer-dep impact, regression test scope, rollback. Use during `/dr-plan` for any maintenance task closing security advisories.
+- `templates/cutover-runbook-template.md` — stack-neutral atomic 8-phase cutover pattern with auto-rollback. Use during `/dr-plan` for any live-service config flip / deployment / mount-point migration where pre/post smoke comparison can guard the change.

@@ -5,9 +5,9 @@ description: Recurring bash/shell traps that pass review and break in prod. Load
 
 # Bash Pitfalls — Quick Reference
 
-Source incidents: DEV-1174 Phase 8 Step 1 (BUG #1, BUG #2 — both High, both regex/grep traps caught only by post-implementation QA, both 1-line fixable).
+Source incidents: DEV-1174 Phase 8 Step 1 (BUG #1, BUG #2 — both High, both regex/grep traps caught only by post-implementation QA, both 1-line fixable); DEV-1174 Phase 8 Step 2 Round 1 (cutover smoke shape — Trap 6).
 
-## The Five Traps
+## The Six Traps
 
 ### 1. `grep -F` makes EVERY meta character literal
 
@@ -89,6 +89,27 @@ mysqldump … | mysql …
 ```
 
 `pipefail` is per-shell-option, not per-command. Always set it explicitly around critical pipelines.
+
+### 6. Single-status smoke is too narrow for cutover regressions
+
+```bash
+# WRONG — only HTTP code; misses content / length / redirect-target shifts.
+post=$(curl -sw '%{http_code}\n' -o /dev/null -H "Host: $d" "$url")
+
+# RIGHT — capture the response shape as a tuple, diff pre/post.
+fmt='%{http_code} %{content_type} %{size_download} %{redirect_url}'
+pre=$(curl -sw  "$fmt" -o /dev/null -H "Host: $d" "$url")
+post=$(curl -sw "$fmt" -o /dev/null -H "Host: $d" "$url")
+[ "$pre" = "$post" ] || rollback
+```
+
+For any cutover / migration / config-flip smoke gate, capture the full tuple `(http_code, content_type, size_download, redirect_url)` and diff pre/post. Status-code-only smoke misses semantic regressions where:
+
+- 301 → 301 with different `Location` (host renamed, path relocated);
+- 302 → 200 with empty body (route fell through);
+- 200 → 200 with `Content-Length` changed by 90% (page rendered, content broken).
+
+Stack-neutral; works for any HTTP backend. Tuple comparison is the cheapest way to harden auto-rollback triggers against false-PASS — in DEV-1174 Phase 8 Step 2 the pre/post tuple diff caught Round 1's 301 → 500 within a second of `systemctl reload`.
 
 ## Mandatory Workflow Rule for /dr-do
 
