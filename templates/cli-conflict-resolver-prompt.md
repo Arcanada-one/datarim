@@ -101,7 +101,9 @@ Hard constraints:
 Эти правила **обязательны** в любом CLI-агент-в-shell pattern (защита от runaway agents):
 
 1. **No external state changes outside scope** — никаких `git push`, `npm publish`, `cargo publish`, `aws s3 cp`, `curl POST` к production endpoints без explicit approval.
+<!-- gate:example-only -->
 2. **No package installs** — `npm install`, `pip install`, `cargo add` могут потащить уязвимости.
+<!-- /gate:example-only -->
 3. **No builds/tests** — слишком долго для cron, могут оставить артефакты, могут упасть и заблокировать решение.
 4. **Time budget** — `timeout NNs` обязателен. CLI Claude может задуматься на минуты, cron должен быть предсказуем.
 5. **Machine-readable verdict** — последняя строка output ровно `RESOLVED` или `FAILED: <reason>`. Без variations. Скрипт парсит `tail -n 1`.

@@ -203,7 +203,9 @@ Load only the fragment needed for the current sub-problem:
 - `skills/ai-quality/incident-patterns.md`
   Use when adding safety guards, reviewing integration failure attribution, or making scope decisions for untracked files.
 - `skills/ai-quality/deployment-patterns.md`
+  <!-- gate:example-only -->
   Use when deploying services (Docker, venv, NestJS DI, CLI connectors in containers).
+  <!-- /gate:example-only -->
 - `skills/ai-quality/bash-pitfalls.md`
   Use when writing or reviewing any `.sh`, especially regex/grep/sed-heavy ops scripts. Mandatory shellcheck rule for /dr-do, plus the five recurring traps (grep -F + ^, boundary-alternation regex, raw ${var} in regex, password in process arglist, set -e + pipelines).
 

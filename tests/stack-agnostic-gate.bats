@@ -41,3 +41,12 @@ FIXTURES="$REPO_ROOT/tests/fixtures/stack-agnostic-gate"
     run "$GATE" "$REPO_ROOT/commands/dr-plan.md"
     [ "$status" -eq 0 ]
 }
+
+@test "T6: whitelist precedent — deployment-patterns.md exempt by default (TUNE-0040)" {
+    # By-design stack-aware deployment incidents reference (parallel to
+    # tech-stack.md). Whitelisted in scripts/stack-agnostic-gate.sh
+    # WHITELIST array; precedent rationale documented in
+    # skills/evolution/stack-agnostic-gate.md § Whitelist.
+    run "$GATE" "$REPO_ROOT/skills/ai-quality/deployment-patterns.md"
+    [ "$status" -eq 0 ]
+}
