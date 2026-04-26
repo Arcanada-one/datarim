@@ -64,6 +64,10 @@ disable-model-invocation: true
     - If approved: create entries in `datarim/backlog.md` using appropriate project/area prefix per Unified Task Numbering (NOT `BACKLOG-XXXX`). Subtasks of a project task typically share its project prefix.
 6.  **OUTPUT**: Initialized task structure (including tech stack if applicable).
 
+## Reusable Templates
+
+- `templates/task-template.md` — minimal Implementation-Plan scaffold (`Overview` / `Architecture Impact` / `Implementation Steps` / `Test Plan` / `Rollback Strategy` / `Validation Checklist`). Use when bootstrapping `datarim/tasks/{TASK-ID}-task-description.md` for L1-L2 tasks where the heavier `prd-template.md` would be overkill.
+
 ## Next Steps (CTA)
 
 After completing initialization, the planner agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format.md`.

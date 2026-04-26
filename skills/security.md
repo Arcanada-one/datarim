@@ -48,3 +48,7 @@ When a commercial VPN (Wireguard-based or otherwise) coexists with Tailscale on 
 5. **Free auth keys are single-use** — reusing an expired key silently fails. Generate a new key from the admin console for each rejoin.
 
 Source: AGENT-0010 reflection + memory `feedback_macos_tailscale.md`. ~60 min of debug time saved per future incident by following this checklist first.
+
+## Reusable Templates
+
+- `templates/security-deps-upgrade-plan.md` — stack-neutral plan for dependency-CVE / framework-version-bump / transitive-override tasks. Sections: baseline audit snapshot, target version selection, breaking-change diff, lockfile/peer-dep impact, regression test scope, rollback. Use during `/dr-plan` for any maintenance task closing security advisories.

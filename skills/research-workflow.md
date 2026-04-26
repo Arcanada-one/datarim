@@ -106,6 +106,35 @@ If the gap is **fundamental** — wrong technology choice, impossible requiremen
 
 ---
 
+## Empirical Provider Verification
+
+When a plan locks in a third-party endpoint (LLM, STT/TTS, OAuth, payment, webhook target, queue, storage API, anything not under our control), **the contract MUST be confirmed by a real request before any code depends on the assumed shape**. Documentation drifts; SDKs paper over differences; existing integrations may have been written against a different paradigm.
+
+### Trigger
+
+Run this gate during `/dr-plan` Step 6 (Technology Validation) or `/dr-do` pre-flight when the task introduces or replaces a third-party endpoint.
+
+### Procedure
+
+1. **Endpoint shape probe.** Send the smallest valid request (curl / `httpx` / `fetch`) that exercises the *real* input format the implementation will use — including `Content-Type`, auth header, multipart shape, query params, and any vendor-specific flags (`response_format`, `stream`, `modalities`, etc.).
+2. **Capture the response into a fixture file** (`datarim/tasks/{TASK-ID}-fixtures.md`) per the existing `dr-plan` Step 10 fixture rule. Tag with timestamp + endpoint URL + auth method + tool/SDK version.
+3. **Capture an error case too** (bad auth, malformed payload, oversized input) — most third-party APIs encode errors inside JSON with HTTP 200/201, not via status codes.
+4. **Compare the captured response shape against the plan's assumptions.** If a field name, content-type, modality, or required flag differs, revise the plan before writing code.
+
+### Why this matters
+
+Mock providers, stale README files, and "this worked in another project" memories are not evidence. A 3-minute probe against the real endpoint replaces an unknown number of mid-implementation rewrites and one or more push-rebuild-redeploy cycles when the assumption was wrong.
+
+### When to skip
+
+The endpoint is already covered by a green integration test in this codebase, run within the past 14 days against the same provider/model/version. Otherwise: run the probe.
+
+### Source
+
+TRANS-0015: ~30 minutes of Groq integration test scaffolding had to be redone after empirically discovering that OpenRouter's audio models require `output modality=audio + stream:true` and have no Whisper in their catalog — the existing `transcriber-openrouter.service.ts` was conceptually broken from day one, hidden by a mock provider. A 3-minute curl test against the three audio model IDs would have surfaced the gap before any spec was written.
+
+---
+
 ## Output Format
 
 Use the insights template at `$HOME/.claude/templates/insights-template.md`.

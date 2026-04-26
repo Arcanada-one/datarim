@@ -241,3 +241,7 @@ If requirement is not explicitly stated by user:
 - Do NOT invent new stacks
 - Do NOT ask which stack to use
 - Apply rules **automatically**
+
+## Reusable Templates
+
+- `templates/nestjs-service-scaffold.md` — Phase-1 scaffold checklist for any new NestJS backend service in the Arcanada/Aether ecosystem. Covers init, config, Prisma wiring, health check, structured logging, error filter, validation pipe, and Docker integration. Use during `/dr-plan` Step 6 when the chosen stack is NestJS.
