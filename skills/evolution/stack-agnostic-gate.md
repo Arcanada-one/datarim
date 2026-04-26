@@ -63,6 +63,32 @@ False-positive recovery uses the escape hatch below.
 - **`skills/evolution/stack-agnostic-gate.md`** (this file) — the gate's
   own contract document MUST enumerate the denylist verbatim, so it cannot
   be subject to the rule it defines.
+- **`skills/ai-quality/deployment-patterns.md`** (TUNE-0040) — by-design
+  reference for deployment incidents across the ecosystem stack. Section
+  headers like `## NestJS @Global() in Multi-Bootstrap Monorepos`
+  document patterns that ARE stack-specific by nature (multi-bootstrap
+  monorepo DI semantics ≠ universal). Generalization would gut
+  applicability; wrapping ~20 individual blocks would erode escape-hatch
+  intent. Whitelisted parallel to `tech-stack.md` precedent.
+
+## When to add a file to the Whitelist
+
+The whitelist is a precedent system. Each entry weakens the gate's
+discriminative power. Add a file ONLY if:
+
+1. The file is **by-design** stack-aware — its core value depends on
+   naming concrete frameworks/runtimes (e.g. tech-stack selection,
+   deployment incident postmortems with framework-specific DI/lifespan
+   semantics).
+2. Generalization would gut applicability — replacing concrete names
+   with abstract roles makes the content useless to readers.
+3. Wrapping individual blocks in `<!-- gate:example-only -->` would
+   exceed escape-hatch sparingly-used intent (rule of thumb: >3 escape
+   blocks in one file → consider whitelist).
+4. The exemption is reviewed by maintainer at PR time, not self-applied.
+
+Files added to whitelist must be referenced in the list above with a
+one-line rationale (per existing entries).
 - **`<!-- gate:example-only -->` … `<!-- /gate:example-only -->`** —
   per-block escape hatch. Lines between an opening and closing marker are
   ignored by the gate. Use only when the stack-specific term is genuinely

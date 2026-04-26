@@ -15,11 +15,12 @@ REPO_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
   grep -q '^model: haiku$' "$REPO_DIR/skills/utilities.md"
 }
 
-@test "T3: utilities/ directory exists with 12 fragment files" {
+@test "T3: utilities/ directory exists with 13 fragment files" {
+  # 12 original + keyword-linter.md (TUNE-0039 Class A apply, integrated TUNE-0040)
   [ -d "$REPO_DIR/skills/utilities" ]
   local count
   count=$(ls "$REPO_DIR/skills/utilities/"*.md 2>/dev/null | wc -l | tr -d ' ')
-  [ "$count" -eq 12 ]
+  [ "$count" -eq 13 ]
 }
 
 @test "T4: all 12 expected fragment files exist" {

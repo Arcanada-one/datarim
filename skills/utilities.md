@@ -36,6 +36,8 @@ Load only the fragment relevant to the task:
   Use for running scripts on remote servers via SSH without heredoc corruption (base64 pattern).
 - `skills/utilities/recovery.md`
   Use for recovering lost runtime files from compacted session context (disaster recovery).
+- `skills/utilities/keyword-linter.md`
+  Use when building a keyword-denylist linter — bash recipe with whole-word grep, escape-hatch markers, whitelist mechanic, bats fixture pattern. Pattern source: stack-agnostic gate (TUNE-0039).
 
 ## Quick Selection Guide
 

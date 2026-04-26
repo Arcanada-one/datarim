@@ -60,7 +60,7 @@ The actual thing the task enables. Examples by task type:
 
 - **Database change**: insert a row → query it back → check expected columns/types.
 - **Background job**: trigger it → check job_state / queue table → verify final state.
-- **Cross-container call** (NestJS → PHP → bash → MySQL): run the full chain via the real entry point
+- **Cross-container call** (backend service → static-fileserver → bash → DB): run the full chain via the real entry point
   (`docker exec <api> sh -c "..."` or `curl <api-url>`), then verify **post-conditions**:
   - Target files exist with expected count (not just "directory created")
   - Target DB exists with expected schema

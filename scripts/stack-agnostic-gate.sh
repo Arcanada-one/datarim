@@ -35,7 +35,7 @@
 #     between an opening and closing marker). Use sparingly.
 #   - Read-only: no writes, no network, no exec of scanned content.
 
-set -euo pipefail
+set -uo pipefail
 
 # ---------------------------------------------------------------------------
 # Denylist (case-insensitive). Extend as new ecosystems leak.
@@ -86,6 +86,7 @@ DENYLIST=(
 WHITELIST=(
     "skills/tech-stack.md"
     "skills/evolution/stack-agnostic-gate.md"
+    "skills/ai-quality/deployment-patterns.md"
 )
 
 # ---------------------------------------------------------------------------
@@ -160,30 +161,45 @@ strip_example_blocks() {
     ' "$1"
 }
 
+SCAN_FILE_HITS=0
+
+# Compose all denylist patterns into one ERE alternation. Single grep call
+# per file avoids fd-leak under bash 3.2 nested process-substitution.
+DENYLIST_REGEX=""
+for kw in "${DENYLIST[@]}"; do
+    if [ -z "$DENYLIST_REGEX" ]; then
+        DENYLIST_REGEX="$kw"
+    else
+        DENYLIST_REGEX="$DENYLIST_REGEX|$kw"
+    fi
+done
+
 scan_file() {
+    SCAN_FILE_HITS=0
     local file="$1"
     if is_whitelisted "$file"; then
         return 0
     fi
 
-    local stripped
-    stripped="$(strip_example_blocks "$file")"
+    # Strip <!-- gate:example-only --> blocks then run a single ERE-alternation
+    # grep against the combined denylist. -w (whole-word) prevents the classic
+    # false-positive trap (e.g. "RSpec" matching inside "perspective"). -i for
+    # case-insensitive. -n for line numbers. -o gives matching token only,
+    # which we use to label each hit precisely.
+    local matches
+    matches="$(strip_example_blocks "$file" | grep -n -w -i -E -o -- "$DENYLIST_REGEX" 2>/dev/null || true)"
 
-    local hits=0
-    local kw
-    for kw in "${DENYLIST[@]}"; do
-        # grep -n -i with fixed-string-ish pattern. Patterns above use \. for
-        # literal dots, so we use ERE (-E).
-        while IFS= read -r match; do
-            [ -n "$match" ] || continue
-            local line_no="${match%%:*}"
-            local context="${match#*:}"
-            printf '%s:%s:%s: %s\n' "$file" "$line_no" "$kw" "$context" >&2
-            hits=$((hits + 1))
-        done < <(printf '%s\n' "$stripped" | grep -n -w -i -E -- "$kw" || true)
-    done
+    [ -z "$matches" ] && return 0
 
-    return "$hits"
+    while IFS= read -r match; do
+        [ -n "$match" ] || continue
+        local line_no="${match%%:*}"
+        local kw="${match#*:}"
+        printf '%s:%s:%s\n' "$file" "$line_no" "$kw" >&2
+        SCAN_FILE_HITS=$((SCAN_FILE_HITS + 1))
+    done <<< "$matches"
+
+    return 0
 }
 
 # ---------------------------------------------------------------------------
@@ -195,20 +211,18 @@ FILES_WITH_HITS=0
 scan_path() {
     local path="$1"
     if [ -f "$path" ]; then
-        local file_hits=0
-        scan_file "$path" || file_hits=$?
-        if [ "$file_hits" -gt 0 ]; then
-            TOTAL_HITS=$((TOTAL_HITS + file_hits))
+        scan_file "$path"
+        if [ "$SCAN_FILE_HITS" -gt 0 ]; then
+            TOTAL_HITS=$((TOTAL_HITS + SCAN_FILE_HITS))
             FILES_WITH_HITS=$((FILES_WITH_HITS + 1))
         fi
     elif [ -d "$path" ]; then
         # Recursive *.md scan. Exclude tests/fixtures/ — fixtures are
         # intentionally stack-specific to validate the gate itself.
         while IFS= read -r f; do
-            local file_hits=0
-            scan_file "$f" || file_hits=$?
-            if [ "$file_hits" -gt 0 ]; then
-                TOTAL_HITS=$((TOTAL_HITS + file_hits))
+            scan_file "$f"
+            if [ "$SCAN_FILE_HITS" -gt 0 ]; then
+                TOTAL_HITS=$((TOTAL_HITS + SCAN_FILE_HITS))
                 FILES_WITH_HITS=$((FILES_WITH_HITS + 1))
             fi
         done < <(find "$path" -type f -name '*.md' \
