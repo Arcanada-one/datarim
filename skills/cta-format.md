@@ -182,6 +182,10 @@ Loaded by the following agents (declared in their `Context Loading` section):
 
 Referenced from all 15 `/dr-*` command files in `commands/dr-*.md`.
 
+## Templates
+
+- `templates/cta-template.md` — fill-in-the-blank Markdown snippet with placeholder tables for the three CTA shapes (Single Active Task, Multiple Active Tasks, FAIL-Routing). Use when generating a CTA block in agent / command output; copy the appropriate snippet and substitute placeholders. Update both files together if the format changes.
+
 ## Versioning
 
 Introduced in Datarim v1.16.0 (TUNE-0032). Source PRD: `datarim/prd/PRD-TUNE-0032.md`. Research: `datarim/insights/INSIGHTS-TUNE-0032.md`.

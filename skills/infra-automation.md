@@ -143,3 +143,8 @@ scp -r user@host:/tmp/out/ /local/reports/
 **Killing leaked processes:** target the process group: `kill -TERM -- -$PGID` (not just PID).
 
 **Anti-patterns:** nested SSH per item, backgrounded SSH loops, `sudo -n` without pre-check.
+
+## Reusable Templates
+
+- `templates/infra-cost-reduction-checklist.md` — pre-execution checklist for any VM/storage right-sizing, server consolidation, or unused-resource cleanup task. Distilled from DEV-1174 (SWC), DEV-1038 (Azure unused disks), DEV-1087 (memory guardrails). Use during `/dr-plan` when the task touches infrastructure costs.
+- `templates/infra-artifact-checklist.md` — local-artifact + commit + checkpoint + operator-remote-execution flow for infra deliverables that the operator runs on production. Use when the task ships scripts/configs operators will execute, not code we deploy via CI.

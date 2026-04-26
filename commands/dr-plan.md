@@ -136,6 +136,13 @@ Before proceeding to `/dr-design` or `/dr-do`:
 
 Run: `/dr-plan`
 
+## Reusable Templates
+
+- `templates/integration-checklist.md` — third-party-integration checklist for any task that adds, replaces, or modifies an integration with an external HTTP API, SDK, webhook target, OAuth provider, payment gateway, message queue, storage API, or LLM/STT/TTS endpoint. Reference from Step 6 (Technology Validation) when the task contains the `external API` keyword or introduces a new third-party dependency.
+- `templates/security-deps-upgrade-plan.md` — see `skills/security.md`. Reference during Step 6 for dependency-CVE / framework-bump tasks.
+- `templates/infra-cost-reduction-checklist.md` — see `skills/infra-automation.md`. Reference during Step 6 for VM/storage right-sizing or unused-resource cleanup.
+- `templates/nestjs-service-scaffold.md` — see `skills/tech-stack.md`. Reference during Step 6 when the chosen stack is NestJS.
+
 ## Next Steps (CTA)
 
 After plan generation, the planner agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format.md`.
