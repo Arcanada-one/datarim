@@ -146,6 +146,15 @@ Before launching the bulk run:
    - Downstream filters that key off this attribution behave as expected (e.g. `as_of` / category filter excludes/includes per ground truth).
 4. Record the smoke result (item id, expected target, actual target, downstream filter check) before proceeding.
 
+### Coverage probe (group-aggregation features)
+
+For features whose acceptance metric depends on **group-aggregated** data (entity-grouping, topic-clustering, batched reflection, multi-row aggregation, etc.) — **before** the N=1 smoke, run a **coverage probe**: query the underlying corpus to count how many groups satisfy the «≥N members» threshold the aggregation requires. If the count is zero or near-floor (1-2 groups), the chosen acceptance metric is statistically dominated by one group's signal and likely cannot exceed the baseline on this corpus. Two responses:
+
+1. **Flag in the implementation plan** that the AC may not exceed baseline на этом corpus, and ensure the plan has an explicit **branch-trigger** (DIAGNOSE / re-corpus / A/B-alternative) для the miss path. This makes a numerical miss an expected, handled outcome rather than a panic-reroute.
+2. **If the trigger does not exist in the plan**, escalate before pilot — either expand the corpus, lower the AC, or add the branch-trigger.
+
+**Reference incident:** LTM-0013 (2026-04-27). Reflect-job creates meta-facts only from entity-groups with ≥2 source chunks. Pilot corpus had 188 entities but **187 single-chunk** — only 1 group qualified. Resulting 4-fact pool was statistically insufficient for the chosen recall@5 ≥ baseline+5pp threshold; AC-2 missed numerically. Plan §3.4 *did* include a DIAGNOSE branch-trigger, so the miss became an expected handled outcome rather than blocked archive. A coverage probe before the pilot would have flagged the floor case in advance.
+
 ### Verdict
 
 - Gate required + N=1 smoke passed + intermediate state asserted → **proceed with bulk run**.
