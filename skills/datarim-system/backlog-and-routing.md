@@ -67,6 +67,18 @@ When a `/dr-do` step modifies an Acceptance Criterion in a measurable way — sa
 
 Source: LTM-0012 — pilot subset modified 50 → 41 chunks for ground-truth coverage; the operational decision was correct, but the plan kept saying «50» until QA flagged it. Recurring class with TUNE-0034 (stale `@test` count) and TUNE-0028 (stale skill count): drift between plan and reality is process debt that compounds.
 
+### Avoid absolute test-count numbers in AC formulation
+
+Test-baseline ACs that pin an absolute number (e.g. «≥159/160 PASS») drift between plan and `/dr-do` whenever an unrelated concurrent task changes the suite (description-length sweep, new spec test, removed assertion). Use **semantic phrasing** that survives baseline shifts:
+
+- ✅ «0 new failures vs HEAD baseline» — durable, captures the intent
+- ✅ «test count ≥ HEAD baseline (verify with `git stash && bats tests/`)» — durable + recipe
+- ❌ «≥159/160 PASS» — pins to a snapshot that goes stale within hours
+
+When the absolute number IS the AC (e.g. «add 5 new tests, expect +5 pass»), state it as a delta against HEAD baseline measured immediately before the edit, not as an absolute target.
+
+Source: TUNE-0043 — plan AC-5 said «≥159/160 PASS», actual baseline at QA time was 158/160 (TUNE-0042 pre-existing red surfaced between plan and `/dr-do`). Semantic intent («0 regressions») was met; the absolute number forced QA to spend a paragraph explaining the gap.
+
 ## Embedded Phases (not separate pipeline stages)
 
 - **Research** runs inside `/dr-prd` as Phase 1.3 (L2+). Researcher agent produces `datarim/insights/INSIGHTS-{task-id}.md`. Not a separate pipeline node — no routing change needed. (TUNE-0029)

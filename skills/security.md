@@ -19,6 +19,24 @@ description: Authentication, authorization, input validation, data protection, d
 - Audit dependencies for known vulnerabilities using the project's package-manager-native audit command at the declared severity threshold.
 - Pin dependency versions.
 
+### Stack-neutral phrasing for dependency-audit references
+
+When citing dependency-audit commands in framework runtime (skills, agents,
+commands, templates), use the stack-neutral phrasing:
+
+> «package-manager-native audit command at the declared severity threshold»
+
+Concrete invocations belong in project-level `CLAUDE.md`, not the framework
+runtime — they are stack-specific by definition.
+<!-- gate:example-only -->
+Concrete forms across ecosystems: `npm audit`, `pnpm audit`, `yarn audit`,
+`pip-audit`, `cargo audit`, `bundle audit`, `govulncheck`, `composer audit`.
+<!-- /gate:example-only -->
+
+Source: TUNE-0043 — emerged 4× as canonical reword across `skills/security.md`,
+`skills/project-init.md`, `agents/researcher.md`, `commands/dr-qa.md`. Locking
+the phrasing prevents the same reword cycle in future Class A applies.
+
 ## Reconnaissance vs Compromise
 
 A **200 response** to a suspicious filename is **not proof of compromise**. Many sites legitimately host files whose names overlap with common webshell filenames (`dk.php`, `install.php`, `index2.php`). Reconnaissance traffic is constant background noise — every public IPv4 is probed daily.
