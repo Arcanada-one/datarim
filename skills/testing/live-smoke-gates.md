@@ -115,3 +115,43 @@ Reference incident: **EMAIL-0001**. Switching cron from root to `email-agent` ca
 - Run one cycle as new user + verify clean output → **deploy proceeds**.
 - Cycle fails → fix perms/creds/handlers, re-run cycle, then deploy.
 - Cycle not run → deployment is **not verified**, regression risk accepted explicitly.
+
+---
+
+## Gate 4: N=1 Smoke Validation Before Bulk Ingest/Transform
+
+**Who this applies to:** any task that runs a parser, resolver, normalizer, or disambiguator across a corpus (re-ingest, batch migration, import, ETL, embedding refresh, bulk reclassification). The failure mode lives in the *attribution layer* — the bulk run completes "successfully" while every record is linked to the wrong target, and the gap is invisible until downstream evaluation.
+
+### When the gate is mandatory
+
+The gate **must** fire (one-item dry-run is required, not optional) before any bulk run that:
+
+- Depends on an entity-resolution / record-linkage / normalization step where multiple candidates exist (task-id pattern vs generic name, canonical FK vs free-text label, primary vs alias).
+- Persists foreign-key relationships derived from a parser (regex, NER, LLM extractor).
+- Computes downstream features (filters, ranks, joins) keyed off the resolved attribution.
+- Will be hard or expensive to re-run (paid LLM calls, multi-hour pipeline, side-effect-heavy persistence).
+
+### Why mocks and unit tests don't satisfy it
+
+Unit tests verify the parser produces *some* answer for a representative input. They don't verify the answer points to the *intended* target row in the database, because the disambiguation tie-breaker depends on what other entities already exist in the namespace at runtime. The bug class — wrong attribution that compiles green and persists silently — only manifests against real data.
+
+### What a passing gate looks like
+
+Before launching the bulk run:
+
+1. Pick **one known-representative item** from the corpus where the correct attribution is unambiguous (a chunk that names a canonical task-id, a row with a clear-cut foreign key, etc.).
+2. Run the full ingest/transform path on that item against the real datastore.
+3. **Assert intermediate state, not just final output**:
+   - The persisted row points at the *expected* FK / canonical entity (not a generic alias).
+   - Downstream filters that key off this attribution behave as expected (e.g. `as_of` / category filter excludes/includes per ground truth).
+4. Record the smoke result (item id, expected target, actual target, downstream filter check) before proceeding.
+
+### Verdict
+
+- Gate required + N=1 smoke passed + intermediate state asserted → **proceed with bulk run**.
+- Gate required + smoke skipped, only final output checked → **bulk-run cost wasted on first attribution mistake**, restart from item #1 after fixing resolver. This is the whole point of the gate.
+- Gate required + smoke revealed misattribution → fix the resolver/normalizer first, re-run smoke, then bulk.
+
+### Reference incident
+
+**LTM-0012** (2026-04-26). 41-chunk pilot re-ingest hit acceptance gate on primary metric (`recall@5 = 0.667` ≥ target 0.5), but two supplementary DoD failed (extraction-rate 17 % vs target 80 %, manual `as_of` filter missing). Single root cause: the entity resolver preferred generic entity names over a more specific task-id pattern, so events for archive chunks were attached to the wrong canonical entity and the `as_of` filter treated them as timeless. A single N=1 smoke on one archive chunk before the 1209-second pilot would have surfaced the misattribution; instead the gap was discovered after the full benchmark cycle. Cost: one full pilot + benchmark + analysis loop, recoverable but avoidable.

@@ -37,8 +37,8 @@ Per `$HOME/.claude/skills/ai-quality.md` § Live Audit Checkpoint — verify the
 1. mkdir -p /tmp/dr-plan-audit-{TASK-ID}
 2. cp <project>/package.json /tmp/dr-plan-audit-{TASK-ID}/   # or pyproject.toml / Cargo.toml
 3. apply proposed dep changes in /tmp manifest
-4. <package-manager-install-command>     # e.g. pnpm install --lockfile-only
-5. <package-manager-audit-command>       # e.g. pnpm audit
+4. <package-manager-install-command>     # lockfile-only mode if available
+5. <package-manager-audit-command>       # at the project's declared severity threshold
 6. confirm count matches plan target
 ```
 
@@ -49,19 +49,21 @@ Per `$HOME/.claude/skills/ai-quality.md` § Live Audit Checkpoint — verify the
 
 ## Compatibility Matrix
 
+<!-- gate:example-only -->
 | Layer | Floor (this upgrade) | Production (current) | Status |
 |---|---|---|---|
-| Language runtime | (e.g. Node 20+ for NestJS 11) | (Dockerfile / server config) | ✅ / ⚠ |
-| Major framework | (e.g. NestJS ≥ 11) | | |
-| Adjacent libs | (e.g. Mongoose ≥ 8 for NestJS 11) | | |
+| Language runtime | (e.g. Node 20+ for backend-framework v11) | (Dockerfile / server config) | ✅ / ⚠ |
+| Major framework | (e.g. backend-framework ≥ 11) | | |
+| Adjacent libs | (e.g. ORM ≥ 8 for backend-framework 11) | | |
 | Test runner | | | |
 | Build tool | | | |
+<!-- /gate:example-only -->
 
 ## Implementation Steps (TDD-driven where relevant)
 
 1. **Audit baseline capture** — run audit, save to `qa-{TASK-ID}-baseline.txt`
 2. **Manifest edit + lockfile regen** — apply diff, regenerate lockfile
-3. **Code migrations** (if any) — e.g. axios → fetch, removed APIs, breaking changes
+3. **Code migrations** (if any) — e.g. legacy HTTP client → native fetch, removed APIs, breaking changes
 4. **Test suite** — existing tests must remain green; add tests for new code paths
 5. **Build verification** — clean compile / type check
 6. **Smoke test** — bootstrap-level OR live HTTP / DB call where feasible

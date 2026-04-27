@@ -87,6 +87,8 @@ WHITELIST=(
     "skills/tech-stack.md"
     "skills/evolution/stack-agnostic-gate.md"
     "skills/ai-quality/deployment-patterns.md"
+    "skills/testing/live-smoke-gates.md"
+    "skills/utilities/ga4-admin.md"
 )
 
 # ---------------------------------------------------------------------------

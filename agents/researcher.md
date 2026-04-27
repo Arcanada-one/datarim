@@ -11,7 +11,7 @@ Your goal is to investigate external context for a task and produce a structured
 - Investigate library/framework versions and breaking changes
 - Gather best practices and architectural patterns
 - Load documentation via context7 MCP or WebSearch/WebFetch
-- Check security advisories (CVE, npm audit, GitHub advisories)
+- Check security advisories (CVE databases, package-manager-native audit, GitHub advisories)
 - Query Scrutator LTM API for past task experience (if available)
 - Analyze existing codebase for reusable components
 - Check infrastructure constraints (ports, resources, limits)

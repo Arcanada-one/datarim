@@ -5,13 +5,13 @@ description: Shell-script testing with bats-core (isolation, fixtures, alignment
 
 # Bats-Core and Spec-Lint
 
-Two patterns for testing artefacts that don't fit Vitest/Jest: shell scripts and markdown prose contracts.
+Two patterns for testing artefacts that don't fit conventional code-test runners: shell scripts and markdown prose contracts.
 
 ---
 
 ## Spec-Lint Tests for Prose Contracts
 
-Some Datarim commands define their behavior as **markdown prose** (LLM prompt), not executable code. These contracts cannot be functionally tested with bats/vitest — but they *can* be guarded against silent regression via **spec-lint**: regex assertions over the markdown file.
+Some Datarim commands define their behavior as **markdown prose** (LLM prompt), not executable code. These contracts cannot be functionally tested with bats or a JS/TS test runner — but they *can* be guarded against silent regression via **spec-lint**: regex assertions over the markdown file.
 
 ### When to use
 
@@ -44,7 +44,7 @@ SPEC="${BATS_TEST_DIRNAME}/../commands/dr-archive.md"
 
 ## Shell Script Testing with bats-core
 
-When the "code under test" is a bash script (installer, sync tool, deploy wrapper, migration helper), `bats-core` provides the same red-green discipline as Vitest or Jest does for JS/TS. The patterns below are proven in production tests and should be preferred over hand-rolled `assert`-style shell loops.
+When the "code under test" is a bash script (installer, sync tool, deploy wrapper, migration helper), `bats-core` provides the same red-green discipline as a JS/TS test runner does for application code. The patterns below are proven in production tests and should be preferred over hand-rolled `assert`-style shell loops.
 
 ### When to use
 

@@ -4,6 +4,61 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ---
 
+## 2026-04-27 — TUNE-0043 — Complete stack-agnostic sweep
+
+### Summary
+
+TUNE-0040 closure left a known-deferred state: gate v2 bash 3.2 fd-leak fix unmasked 32 hits across 11 files which had been silently failing the gate before the fix (single-grep ERE alternation rewrite). TUNE-0043 closes the remaining surface: 4 reword + 4 wrap (block-style markers) + 2 whitelist + 1 hybrid. Gate now PASSes clean (exit 0) on all four scopes (`skills/`, `agents/`, `commands/`, `templates/`).
+
+### Changes
+
+| # | Category | Target | Change |
+|---|----------|--------|--------|
+| 1 | gate-extension | `scripts/stack-agnostic-gate.sh` `WHITELIST` array + `skills/evolution/stack-agnostic-gate.md` § Whitelist | Added 2 entries: `skills/testing/live-smoke-gates.md` (DEV-1156/1169 incident postmortems with stack-specific DI/lifespan semantics — parallel `deployment-patterns.md` precedent) and `skills/utilities/ga4-admin.md` (Python-specific GA4 Admin API recipe — parallel `tech-stack.md` precedent). Both rationales meet 4 whitelist criteria from gate-spec § «When to add a file to the Whitelist». |
+| 2 | reword | `skills/security.md:19` | `npm audit` → `package-manager-native audit command at the declared severity threshold` |
+| 3 | reword | `skills/project-init.md:152` | `pnpm install, uv sync` → `via the project's package manager` |
+| 4 | reword | `agents/researcher.md:14` | `npm audit` → `package-manager-native audit` |
+| 5 | reword | `commands/dr-qa.md:118` | `npm audit, pip audit, cargo audit` → `the project's package-manager-native audit command at the declared severity threshold` |
+| 6 | wrap | `skills/discovery.md:127-131` | Q&A example block (Jest detection demo) wrapped in `<!-- gate:example-only -->` markers (block-style, separate lines) |
+| 7 | wrap | `skills/testing.md:10-14` | `## Frameworks` section body wrapped (taxonomy enumeration) |
+| 8 | reword | `skills/testing/bats-and-spec-lint.md:8,14,47` | Removed «Vitest/Jest» comparisons entirely, generalized to «code-test runners» / «JS/TS test runner» (3 hits eliminated cleanly without escape hatch — proved cleaner than wrapping) |
+| 9 | wrap | `agents/tester.md:18-32` Test Runner Detection table + reword line 61 (Web UI list) | Table wrapped (illustrative manifest→runner mapping); line 61 reworded to drop framework list |
+| 10 | hybrid | `templates/security-deps-upgrade-plan.md` | Lines 40-41: `pnpm install/audit` examples → generic placeholder hints. Lines 50-58: Compatibility Matrix wrapped (NestJS×3 in `(e.g. ...)` examples → generic «backend-framework v11» placeholders inside example block). Line 64: «axios → fetch» → «legacy HTTP client → native fetch». |
+
+### Verification
+
+- **Stack-agnostic gate:** all 4 scopes (`skills/`, `agents/`, `commands/`, `templates/`) → exit 0 PASS clean. Inventory was 32 hits / 11 files (fixture: `datarim/tasks/TUNE-0043-fixtures.md`); post-edit: 0 hits / 0 files.
+- **Bats baseline:** 95/100 PASS. The 5 reds are pre-existing (verified via `git stash` + run): #60/63/64 — `optimize-merge.bats` cwd-dependent path issue (unrelated to TUNE-0043), #65 — `infra-automation.md` description 186 chars (separate sweep), #78 — `class-ab-gate.md` not in T3 dr-reflect whitelist (separate concern). No new failures introduced.
+- **Inline-marker pitfall surfaced:** initial attempt used inline `<!-- gate:example-only -->X<!-- /gate:example-only -->` on the same line as content. The gate's awk strip uses `next` after matching the opening marker, so the closing marker on the same line is never processed → `skip=1` persists indefinitely. Reverted to (a) block-style markers (each on its own line) where the wrapped content was a multi-line block, (b) plain reword where only inline mention existed. This pitfall is a Class A apply candidate (see below).
+
+### Pattern-level Class A apply candidates (deferred to /dr-archive Step 0.5)
+
+1. **Inline-marker pitfall** — `evolution/stack-agnostic-gate.md` (gate contract) should explicitly note: «markers MUST be on their own lines; inline `<!-- gate:example-only -->X<!-- /gate:example-only -->` does not work because awk's `next` skips closing-marker matching on the same input line.»
+2. **«package-manager-native audit» phrasing** — emerged 4× as the canonical reword for `npm audit` / `cargo audit` / `pip audit`. Could become a documented microcopy pattern in `skills/security.md` (When citing dependency-audit commands in framework runtime, use the abstract phrasing — «the project's package-manager-native audit command at the declared severity threshold»; concrete commands belong in project `CLAUDE.md`).
+
+---
+
+## 2026-04-27 — LTM-0012 — Class A applies (2)
+
+### Summary
+
+LTM-0012 (`/dr-archive` Step 0.5) reflection produced two stack-agnostic Class A proposals — both PASS the `stack-agnostic-gate.sh` and were applied to runtime. Source pain: the LTM-0012 entity-resolution gap (recall@5 met, but extraction-rate 17 % vs target 80 % + manual `as_of` smoke fail) was discoverable in 5 minutes via an N=1 smoke before the 1209-second pilot, and pilot subset «50 → 41 chunks» drift was operationally correct but never reflected in the plan document.
+
+### Changes
+
+| # | Category | Target | Change |
+|---|----------|--------|--------|
+| 1 | skill-update | `skills/testing/live-smoke-gates.md` (+ entry pointer in `skills/testing.md`) | Added **Gate 4: N=1 Smoke Validation Before Bulk Ingest/Transform**. Generic principle: before any bulk run that depends on a parser/resolver/normalizer (re-ingest, batch migration, ETL, embedding refresh), run the full path on ONE known-representative item and assert intermediate state — FK target / canonical attribution / downstream filter behaviour, not just final output. Mocks don't satisfy because tie-breakers depend on real-data namespace state. Reference incident: LTM-0012 entity-resolution gap. |
+| 2 | skill-update | `skills/datarim-system/backlog-and-routing.md` | Added **§ Plan Drift Discipline**. Rule: when a `/dr-do` step modifies an Acceptance Criterion in a measurable way (sample size, threshold, dataset, tool), patch the plan document inline before commit, not after QA flags drift. Recurrent class with TUNE-0034 (stale `@test` count) and TUNE-0028 (stale skill count). |
+
+### Verification
+
+- **Stack-agnostic gate:** PASS on both edited files (entries 1 and 2). Pre-existing FAIL on `skills/testing.md` (Jest/Mocha/Vitest in legacy "Frameworks" section, lines 12-13) confirmed to predate this edit; out of scope per `evolution/stack-agnostic-gate.md` § Out of Scope (forward-looking gate).
+- **Bats:** 159/160 PASS. The single red is `optimize-merge.bats:115` (`testing.md` description 172 chars > 155 limit) — confirmed pre-existing via `git stash` + bats run (the failure reproduces without the edit). Not introduced by these applies.
+- **Class A applies do not introduce new bats regressions.** The pre-existing description-length red is tracked separately for the next `/dr-optimize` description-length sweep.
+
+---
+
 ## 2026-04-27 — v1.17.1 — TRANS-0017 — Heredoc-vs-stdin pitfall
 
 ### Summary

@@ -61,6 +61,12 @@ date -u +%Y-%m-%dT%H:%M:%SZ
 
 Or use the current date from session context.
 
+## Plan Drift Discipline
+
+When a `/dr-do` step modifies an Acceptance Criterion in a measurable way — sample size (50 → 41), threshold (≥0.8 → ≥0.5), dataset (full → curated subset), tool (planned model → fallback model) — patch the plan document inline **before commit**, not after QA flags drift. A single-line edit to plan §10 takes seconds; an unexplained drift adds noise to Layer 3 verification and forces the QA report to spend lines explaining a deviation that should have been a planning artefact.
+
+Source: LTM-0012 — pilot subset modified 50 → 41 chunks for ground-truth coverage; the operational decision was correct, but the plan kept saying «50» until QA flagged it. Recurring class with TUNE-0034 (stale `@test` count) and TUNE-0028 (stale skill count): drift between plan and reality is process debt that compounds.
+
 ## Embedded Phases (not separate pipeline stages)
 
 - **Research** runs inside `/dr-prd` as Phase 1.3 (L2+). Researcher agent produces `datarim/insights/INSIGHTS-{task-id}.md`. Not a separate pipeline node — no routing change needed. (TUNE-0029)

@@ -9,9 +9,11 @@ description: Testing pyramid, frameworks, mocking rules. Load this entry first, 
 
 ## Frameworks
 
+<!-- gate:example-only -->
 - **Backend**: Jest / Mocha / Vitest
 - **Frontend**: Vitest / React Testing Library
 - **E2E**: Playwright / Cypress
+<!-- /gate:example-only -->
 
 ## Testing Pyramid
 
@@ -35,7 +37,7 @@ description: Testing pyramid, frameworks, mocking rules. Load this entry first, 
 Load only the fragment needed for the current sub-problem:
 
 - `skills/testing/live-smoke-gates.md`
-  Use for raw-SQL / cross-datasource Live Smoke-Test Gate, cross-container Docker smoke, and user-switch deployment gates. Trigger when the change touches `$queryRaw`, multi-datasource code, Docker orchestration, container health, or runtime user/permissions.
+  Use for raw-SQL / cross-datasource Live Smoke-Test Gate, cross-container Docker smoke, user-switch deployment gates, and N=1 smoke validation before bulk ingest/transform. Trigger when the change touches `$queryRaw`, multi-datasource code, Docker orchestration, container health, runtime user/permissions, or any bulk run that depends on entity resolution / record linkage / normalization.
 
 - `skills/testing/silent-failure-detection.md`
   Use for wrappers around CLIs/subprocesses that exit `0` on error and write error sentences to stdout (LLM CLIs, cloud tools). Mandates structured-output parsing, raise-inside-wrapper, and testing both exit-code scenarios.
