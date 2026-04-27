@@ -154,8 +154,48 @@ TUNE-0039 Step 16 verification: `bash scripts/stack-agnostic-gate.sh ~/.claude/{
 
 **Rule:** any verification step that asserts on exit code MUST capture the source command's exit BEFORE piping. The pipe is a formatter, not a result-bearer. Reinforce especially during /dr-do verification and /dr-qa Layer 4.
 
+## Pitfall: Heredoc IS stdin
+
+A heredoc replaces the command's stdin entirely. Writing `interpreter - <<'EOF' ... EOF` and then trying to read piped input from inside the heredoc body does NOT see the pipe — heredoc content already replaced stdin.
+
+### Trap
+
+```bash
+echo "$payload" | python3 - <<'PY'
+import sys
+data = sys.stdin.read()  # gets the heredoc body, NOT "$payload"
+PY
+```
+
+The pipe is silently ignored. Tests built around this pattern can pass for the wrong reason — the script processes the heredoc text as if it were the input.
+
+### Right
+
+Pass payload via environment variable, read with `os.environ`:
+
+```bash
+PAYLOAD="$payload" python3 -c '
+import os
+data = os.environ["PAYLOAD"]
+'
+```
+
+Or use a here-string for stdin alongside an inline `-c` script (no heredoc):
+
+```bash
+python3 -c 'import sys; data = sys.stdin.read()' <<<"$payload"
+```
+
+### Why this matters in practice
+
+TRANS-0017 — initial `post-deploy-verify.sh` evaluator used the heredoc-with-stdin shadow pattern. Tests appeared to pass because the script processed the heredoc body (a leftover `data = sys.stdin.read()` line plus the JSON parsing template) — not the captured PROD snapshot. Caught only when fixture content was actually inspected against parser output.
+
+**Rule:** any inline interpreter that needs caller-supplied data should receive it through an environment variable or a here-string, not through a heredoc-and-pipe combination. The heredoc body is the script source — it cannot also be the input stream.
+
 ## Why this fragment exists
 
 DEV-1174 Phase 8 Step 1 shipped two High-severity bugs to QA, both of which are textbook regex/grep traps and both of which would have been caught by either (a) a 5-second mental "what does the regex engine see?" check, or (b) shellcheck with extended pattern checks. The fix in both cases was to abandon the regex and use `awk` token-equality. This fragment encodes the lesson so future ops-script work doesn't repeat it.
 
 The pipe-blindness pitfall above was added in TUNE-0040 reflection after the same operator (me) violated the existing «check exit code carefully» rule during TUNE-0039 final validation — concrete example with task IDs is more memorable than abstract warning.
+
+The heredoc-IS-stdin pitfall was added in TRANS-0017 reflection after the same shadow caused tests to pass on incorrect data flow in `post-deploy-verify.sh`. Concrete recovery recipe (env-var pass-through) included so future inline-interpreter work doesn't repeat it.
