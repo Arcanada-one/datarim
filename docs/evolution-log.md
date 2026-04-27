@@ -4,6 +4,39 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ---
 
+## 2026-04-27 — v1.17.1 — TRANS-0017 — Heredoc-vs-stdin pitfall
+
+### Summary
+
+One Class A reflection proposal applied during `/dr-archive TRANS-0017` (Phase C CI/CD hardening for Transcribator). Source bug: initial `post-deploy-verify.sh` evaluator used `python3 - <<'PY' ... sys.stdin.read() PY` over a piped JSON payload — the heredoc body replaced stdin entirely, so the parser silently consumed its own template instead of the captured PROD snapshot. Tests passed for the wrong reason until cross-checked by hand. Generic bash + inline-interpreter pitfall, not stack-specific. Recovery recipe (env-var pass-through or here-string + `-c` script) included so future ops-script work doesn't repeat it.
+
+### Changes
+
+| # | Category | Target | Change |
+|---|---|---|---|
+| 1 | skill-update | `skills/ai-quality/bash-pitfalls.md` | Appended § «Pitfall: Heredoc IS stdin» with WRONG/RIGHT pattern, env-var pass-through recipe, here-string alternative, TRANS-0017 case study reference. |
+
+Stack-agnostic gate verification (`bash scripts/stack-agnostic-gate.sh skills/ai-quality/bash-pitfalls.md`): **PASS clean**.
+Bats baseline: 159/160 (1 pre-existing fail: testing.md description >155 chars, TUNE-0042 follow-up — no regression introduced).
+
+### Class A: rejected proposals
+
+- A2 (`docker image prune` `-af` vs `-f` scope) — too narrow for standalone Class A; underlying lesson already implicit in `ai-quality/deployment-patterns.md` (whitelisted, stack-aware) plus concrete fix in TRANS-0017 runbook. Documented in reflection only.
+
+### Class B
+
+None.
+
+### Follow-up tasks
+
+None new. Steps 10-11 (synthetic acceptance test + Pavel walkthrough Level-1 rollback) — PROD activity, не отдельная задача backlog'а; tracked в archive-TRANS-0017 § Outstanding.
+
+### No version bump
+
+Single-pitfall append; not warranting 1.17.1 → 1.17.2. Patch-mode site sync deferred — bash-pitfalls fragment is internal and not surfaced via `data/skills/*.php`.
+
+---
+
 ## 2026-04-26 — v1.17.1 — TUNE-0034 — Bats baseline cleanup + reflection apply
 
 ### Summary
