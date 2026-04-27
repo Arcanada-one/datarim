@@ -19,6 +19,7 @@ Your goal is to verify that changes work correctly using the most efficient test
 
 Detect the project type by checking for manifest files at the project root:
 
+<!-- gate:example-only -->
 | File | Stack | Default Runner |
 |------|-------|---------------|
 | `package.json` | Node.js | Check scripts.test → `npm test`, `pnpm test`, `jest`, `vitest` |
@@ -30,6 +31,7 @@ Detect the project type by checking for manifest files at the project root:
 | `Package.swift` | Swift | `swift test` |
 | `Gemfile` | Ruby | `bundle exec rspec` or `bundle exec rake test` |
 | `build.gradle` / `pom.xml` | Java/Kotlin | `./gradlew test` or `mvn test` |
+<!-- /gate:example-only -->
 
 If CLAUDE.md specifies custom test commands, use those instead.
 
@@ -58,7 +60,7 @@ When asked to verify a deployed service:
 
 **Web UI Testing** (website projects):
 
-Load `$HOME/.claude/skills/frontend-ui.md` when the project is a website (PHP / Next.js / Astro / static / Alpine / Tailwind). Run all four sub-checks in order — a green HTTP status is necessary but **not sufficient**.
+Load `$HOME/.claude/skills/frontend-ui.md` when the project is a website. Run all four sub-checks in order — a green HTTP status is necessary but **not sufficient**.
 
 1. **Smoke** — `curl -sf -o /dev/null -w "%{http_code}" <url>` for every public URL (including lang variants `/en/*`, `/ru/*`). All must return `200` (or expected `301/302` for redirects). Report failures with URL and status.
 2. **Content parity** — for multi-language sites, diff the key set between translation files (`content/en.php` vs `content/ru.php`, `en.json` vs `ru.json`). Report missing keys, placeholder strings (`TODO`, `FIXME`, `{{`), or orphaned keys. All content files must have the same key count and no placeholders.

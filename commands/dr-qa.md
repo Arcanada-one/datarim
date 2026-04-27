@@ -115,7 +115,7 @@ description: Multi-layer quality verification — checks PRD alignment, design c
 ### 4b. Security
 - Apply checks from `$HOME/.claude/skills/security.md`
 - Scan for hardcoded secrets, exposed endpoints, missing input validation
-- Check dependency vulnerabilities if lockfile exists (`npm audit`, `pip audit`, `cargo audit`)
+- Check dependency vulnerabilities if lockfile exists (use the project's package-manager-native audit command at the declared severity threshold)
 
 ### 4c. Anti-Patterns
 - Methods exceeding 50 lines

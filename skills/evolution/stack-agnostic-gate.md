@@ -70,6 +70,20 @@ False-positive recovery uses the escape hatch below.
   monorepo DI semantics ≠ universal). Generalization would gut
   applicability; wrapping ~20 individual blocks would erode escape-hatch
   intent. Whitelisted parallel to `tech-stack.md` precedent.
+- **`skills/testing/live-smoke-gates.md`** (TUNE-0043) — DEV-1156
+  (multi-datasource ORM client mismatch) + DEV-1169 (cross-container
+  HTTP→shell→DB chain) incident postmortems. Failure semantics are
+  intrinsically stack-specific (DI container resolution, container
+  exec-bit/TLS defaults, version-specific auth plugins). Generalization
+  would erase the diagnostic value — a reader needs the concrete framework
+  name to recognize the same trap in their own code. Parallel to
+  `deployment-patterns.md` precedent.
+- **`skills/utilities/ga4-admin.md`** (TUNE-0043) — Python-specific
+  Google Analytics 4 Admin API recipe (uses `google-auth-oauthlib` +
+  `requests` libs). The skill IS a Python recipe; replacing concrete
+  `pip install` with abstract «package install» renders the recipe
+  un-runnable. Parallel to `tech-stack.md` precedent (stack-aware by
+  design, not by accident).
 
 ## When to add a file to the Whitelist
 

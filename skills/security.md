@@ -16,7 +16,7 @@ description: Authentication, authorization, input validation, data protection, d
 - Do not log PII (Personally Identifiable Information).
 
 ## Dependency Safety
-- Audit dependencies for known vulnerabilities (`npm audit`).
+- Audit dependencies for known vulnerabilities using the project's package-manager-native audit command at the declared severity threshold.
 - Pin dependency versions.
 
 ## Reconnaissance vs Compromise

@@ -124,11 +124,13 @@ Sources to check (in order):
 
 **If you can look it up, don't ask.** State what you found and ask the user to confirm:
 
+<!-- gate:example-only -->
 ```
 Q: What testing framework does this project use?
 Found: Jest (from package.json devDependencies and existing test files in __tests__/)
 → Proceeding with Jest unless you say otherwise.
 ```
+<!-- /gate:example-only -->
 
 ### Pre-checks before proposing port / infra decisions
 

@@ -149,7 +149,7 @@ This allows updating old projects to the new structure incrementally.
 
 ## What This Skill Does NOT Do
 
-- Does not install dependencies (`pnpm install`, `uv sync`) — that is the user's responsibility
+- Does not install dependencies via the project's package manager — that is the user's responsibility
 - Does not create source code files — only project infrastructure
 - Does not modify existing files — only creates new ones
 - Does not run CI/CD setup — that is a separate task
