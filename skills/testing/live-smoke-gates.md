@@ -5,7 +5,7 @@ description: Live verification gates for raw SQL, cross-container orchestration,
 
 # Live Smoke-Test Gates
 
-Three related gates that fire when the failure mode lives in the *runtime environment*, not in code logic. Mocks cannot satisfy them — only a real run against real systems can.
+Five related gates that fire when the failure mode lives in the *runtime environment*, not in code logic. Mocks cannot satisfy them — only a real run against real systems can.
 
 ---
 
@@ -164,3 +164,39 @@ For features whose acceptance metric depends on **group-aggregated** data (entit
 ### Reference incident
 
 **LTM-0012** (2026-04-26). 41-chunk pilot re-ingest hit acceptance gate on primary metric (`recall@5 = 0.667` ≥ target 0.5), but two supplementary DoD failed (extraction-rate 17 % vs target 80 %, manual `as_of` filter missing). Single root cause: the entity resolver preferred generic entity names over a more specific task-id pattern, so events for archive chunks were attached to the wrong canonical entity and the `as_of` filter treated them as timeless. A single N=1 smoke on one archive chunk before the 1209-second pilot would have surfaced the misattribution; instead the gap was discovered after the full benchmark cycle. Cost: one full pilot + benchmark + analysis loop, recoverable but avoidable.
+
+---
+
+## Gate 5: Container Env-Var Freshness After Deploy
+
+**Who this applies to:** any deploy where environment variables changed (new secret added, key rotated, config flag flipped) and the runtime is a long-running container or service. The failure mode is silent: the deploy reports green, the new value sits in the on-disk config file, but the running process started from a stale snapshot and never sees it.
+
+### Why this fails silently
+
+Container orchestrators that recreate on image change (`docker compose up -d --build`, `kubectl rollout restart`) load env vars at create time. If the image hash didn't change but the env file content did, the orchestrator may keep the existing container and skip env reload. The on-disk config file looks correct; the running process behaves as if the change never happened. Inspection of the *file* gives a false-positive; only inspection of the *process* surfaces the truth.
+
+### When the gate is mandatory
+
+The gate **must** fire whenever:
+
+- A deploy adds, removes, or changes an env var consumed by the running service (API key, feature flag, connection string, URL).
+- The deploy command did not include an explicit recreate flag (`--force-recreate`, `kubectl rollout restart`, `systemctl restart`).
+- The new env var is consulted lazily at request time (most are) — boot-time crashes would otherwise self-report.
+
+### What a passing gate looks like
+
+After deploy, before declaring success:
+
+1. **Verify on disk:** `grep <NEW_VAR> /path/to/.env` returns the expected line.
+2. **Verify in process:** `docker exec <container> sh -c 'env | grep <NEW_VAR>'` (or k8s/systemd equivalent) returns the same value. **This is the load-bearing check** — file presence is necessary but not sufficient.
+3. If step 2 returns empty or stale value: force recreate (`docker compose up -d --force-recreate <service>`) and re-run step 2 before retesting application behaviour.
+
+### Verdict
+
+- File present + process env shows new value → proceed with smoke.
+- File present + process env empty/stale → **deploy was effectively a no-op for this change**; recreate before any further verification.
+- File absent → deploy script bug; do not recreate, fix the deploy step first.
+
+### Reference incident
+
+**CONN-0047** (2026-04-27). Groq connector deploy added `GROQ_API_KEY` to PROD `.env`; CI ran `docker compose up -d --build` and reported success. `grep GROQ /srv/apps/.../.env` returned the new key (file write OK), but `docker exec ... env | grep GROQ` returned empty — the container was not recreated by the build step because the image hash already matched. Application traffic to `/connectors/groq/execute` would have failed `auth_error` despite the "successful" deploy. Closed by `docker compose up -d --force-recreate model-connector`. Generic Compose gotcha — applies to any new env var on any project in the ecosystem (Transcribator, Verdicus, Auth Arcana, Munera, Ops Bot).
