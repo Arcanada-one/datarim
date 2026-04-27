@@ -1,6 +1,6 @@
 ---
 name: testing
-description: Testing pyramid, frameworks, mocking rules. Load this entry first, then only the fragment needed for the specific gate (live smoke, silent failure, bats, or legacy triage).
+description: Testing pyramid, frameworks, mocking. Load first; then the fragment for the active gate (live smoke, silent failure, bats, legacy triage).
 ---
 
 # Testing Guidelines
