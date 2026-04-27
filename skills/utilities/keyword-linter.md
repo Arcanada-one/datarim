@@ -113,6 +113,58 @@ Three fixtures + one regression invariant test minimum:
   and they are symlinks to a repo, the linter sees one logical surface.
   No need to scan twice.
 
+## Bash 3.2 compatibility — single-grep alternation pattern
+
+**Symptom:** linter exits rc=133 (SIGTRAP, signal 5) when scanning a
+directory with ≥8 target files. Single-file mode unaffected. Output
+truncated; summary line never printed.
+
+**Root cause:** the naive scan structure runs one grep per denylist
+keyword inside a `done < <(printf ... | grep ... || true)` process
+substitution, looped over N files. Each file × M keywords = N×M nested
+process substitutions. Bash 3.2 (macOS default,
+`bash 3.2.57(1)-release`) leaks file descriptors from this nesting;
+after roughly 250 process subs the kernel sends SIGTRAP.
+
+**Fix:** compose the entire denylist into a single ERE alternation once
+at script load, then run grep ONCE per file with `-o` to emit only
+matched tokens (so each line of grep output identifies the offending
+keyword precisely).
+
+```bash
+DENYLIST_REGEX=""
+for kw in "${DENYLIST[@]}"; do
+    if [ -z "$DENYLIST_REGEX" ]; then
+        DENYLIST_REGEX="$kw"
+    else
+        DENYLIST_REGEX="$DENYLIST_REGEX|$kw"
+    fi
+done
+
+scan_file() {
+    local file="$1"
+    is_whitelisted "$file" && return 0
+    local matches
+    matches="$(strip_example_blocks "$file" \
+        | grep -n -w -i -E -o -- "$DENYLIST_REGEX" 2>/dev/null || true)"
+    [ -z "$matches" ] && return 0
+    while IFS= read -r match; do
+        local line_no="${match%%:*}"
+        local kw="${match#*:}"
+        printf '%s:%s:%s\n' "$file" "$line_no" "$kw" >&2
+        SCAN_FILE_HITS=$((SCAN_FILE_HITS + 1))
+    done <<< "$matches"
+}
+```
+
+**Verification recipe:** test on a directory with ≥10 empty `.md`
+files. If exit code is 133 / your linter dies silently mid-scan, you
+still have the leak. Single-grep alternation eliminates it.
+
+**Source:** TUNE-0040 Gap 1 — `scripts/stack-agnostic-gate.sh` v1
+shipped with the naive nested loop, silently masked TUNE-0039 final
+validation; surfaced as SIGTRAP only on next dir-mode invocation.
+
 ## When NOT to use this pattern
 
 - The rule is a one-off, not recurring. A code review comment is enough.

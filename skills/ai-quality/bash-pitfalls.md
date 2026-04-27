@@ -120,6 +120,42 @@ When implementing or modifying any `.sh` file:
 3. For any whole-token / whole-word match against shell-quoted user data, prefer `awk` token comparison (`$N == d`) over regex word-boundary alternation — it's shorter, clearer, and meta-safe.
 4. For any password / secret on the `mysql` / `mysqldump` / `psql` / `redis-cli` command line, use `--defaults-extra-file=` (or stdin) — never `-p"$pass"`.
 
+## Pitfall: Pipe-induced exit-code blindness during verification
+
+### Trap
+
+```bash
+# WRONG — `$?` is tail's exit (=0), not the script's. Failing scripts pass.
+./build.sh 2>&1 | tail -5
+echo "rc=$?"   # always 0 even if build.sh exited 133
+```
+
+### Right
+
+```bash
+# Capture exit code BEFORE piping to formatters:
+./build.sh > /tmp/out 2>&1; rc=$?
+tail -5 /tmp/out
+[ "$rc" -eq 0 ] || exit 1
+
+# OR use pipefail when assertion needs the source command's exit:
+set -o pipefail
+./build.sh 2>&1 | tail -5
+echo "rc=$?"   # now reflects build.sh exit (or tail's if tail fails)
+
+# OR PIPESTATUS for fine-grained control:
+./build.sh 2>&1 | tail -5
+[ "${PIPESTATUS[0]}" -eq 0 ] || exit 1
+```
+
+### Why this matters in practice
+
+TUNE-0039 Step 16 verification: `bash scripts/stack-agnostic-gate.sh ~/.claude/{skills,...}/ 2>&1 | tail` reported «PASS clean», but the actual gate script exited 133 (SIGTRAP, kernel-killed) silently. The `tail -1` returned exit 0, so `$?` was 0. I observed «PASS clean» as the last printed line and concluded success. Real state: 11 leaky files in runtime, gate dying mid-scan. Latent bug for ~24 hours; surfaced in TUNE-0040 only when I ran the gate without the tail-pipe wrapper.
+
+**Rule:** any verification step that asserts on exit code MUST capture the source command's exit BEFORE piping. The pipe is a formatter, not a result-bearer. Reinforce especially during /dr-do verification and /dr-qa Layer 4.
+
 ## Why this fragment exists
 
 DEV-1174 Phase 8 Step 1 shipped two High-severity bugs to QA, both of which are textbook regex/grep traps and both of which would have been caught by either (a) a 5-second mental "what does the regex engine see?" check, or (b) shellcheck with extended pattern checks. The fix in both cases was to abandon the regex and use `awk` token-equality. This fragment encodes the lesson so future ops-script work doesn't repeat it.
+
+The pipe-blindness pitfall above was added in TUNE-0040 reflection after the same operator (me) violated the existing «check exit code carefully» rule during TUNE-0039 final validation — concrete example with task IDs is more memorable than abstract warning.
