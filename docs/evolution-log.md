@@ -4,6 +4,81 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ---
 
+## 2026-04-27 — CONN-0047 — Class A apply (1, archive Step 0.5)
+
+### Summary
+
+Groq connector deploy revealed silent env-var staleness mode: `.env` updated on disk, but `docker compose up -d --build` did not recreate the container because the image hash matched. Container kept the pre-edit env snapshot; smoke against the application would have failed `auth_error` despite a "successful" deploy. Closed by `docker compose up -d --force-recreate`. Generic pattern, applies across the ecosystem (Transcribator, Verdicus, Auth Arcana, Munera, Ops Bot).
+
+### Class A applies
+
+#### Proposal 1: live-smoke-gates.md — Gate 5 «Container Env-Var Freshness After Deploy»
+
+- **File:** `skills/testing/live-smoke-gates.md` (new section appended; intro line «Three related gates» → «Five related gates»)
+- **Class:** A (new gate, content-only addition; existing 4 gates untouched)
+- **What:** New Gate 5 mandates `docker exec <container> sh -c 'env | grep <NEW_VAR>'` (or k8s/systemd equivalent) after any deploy that adds, removes, or changes env vars. File-level `grep .env` is necessary but not sufficient — only process inspection proves the running container picked up the change. Verdict matrix: file present + process env shows new value → proceed; file present + process env empty → force `--force-recreate`, re-verify; file absent → fix deploy first. Reference incident: CONN-0047.
+- **Why:** CONN-0047 deploy auto-fired CI on push of `feat(CONN-0047)`; CI ran `docker compose up -d --build` and reported success. `.env` had `GROQ_API_KEY=gsk_*`, but `docker exec ... env | grep GROQ` returned empty. Smoke против `/connectors/groq/execute` failed bы как `auth_error`. Closed by manual `--force-recreate`. Generic Compose semantics: `env_file` читается at container *create*, not container *start*; recreate only когда image identity меняется. Lesson generalises to every deploy в экосистеме с secrets/keys/flags в `.env`.
+- **Stack-agnostic gate:** PASS (Docker Compose / kubectl / systemd terminology kept generic; «or k8s/systemd equivalent» / «or equivalent» phrasing throughout).
+- **Bats:** 160/160 PASS post-apply.
+- **Approved:** human (Pavel) auto-approval per autonomous-ops memory, applied during /dr-archive CONN-0047 Step 0.5.
+
+### Class B (HELD)
+
+#### Proposal 4: CI deploy `--force-recreate` on env change
+
+- **Class:** B — infrastructure deploy contract change
+- **Target:** `Projects/Model Connector/code/.github/workflows/ci.yml` (deploy job)
+- **Held because:** changes deploy semantics beyond a single connector; needs ADR / short design doc для Model Connector (no PRD exists yet).
+- **Action:** Deferred to follow-up task (recommendation: новый `INFRA-0030` или `CONN-0049` когда Pavel ready to formalise).
+
+### Class A (REJECTED runtime placement)
+
+#### Proposal 2: api-connector-mirror-pattern.md template
+
+- **What:** Reusable «OpenAI-compat API connector» template for future connectors (Grok / Together / Fireworks / etc.).
+- **Rejected for:** runtime framework (`$HOME/.claude/templates/`).
+- **Reason:** Template is NestJS + vitest specific (stack-bound) — runtime framework is stack-neutral. Stack-agnostic gate would FAIL.
+- **Recommended placement:** `Projects/Model Connector/templates/api-connector-template/` (project-level). Out of scope for этого archive — track как informal reminder для CONN-0048 implementation.
+
+### Class A (REJECTED — out of scope)
+
+#### Proposal 3: Project Model Connector CLAUDE.md addendum
+
+- **What:** «Adding a new API connector — checklist» 7-step paragraph в `Projects/Model Connector/CLAUDE.md`.
+- **Rejected for:** этого archive's apply window.
+- **Reason:** Onboarding-only doc, low impact, can be added inline by next CONN task developer when actually needed. Avoids CLAUDE.md churn без trigger.
+
+---
+
+## 2026-04-27 — LTM-0013 — Class A apply (1, archive Step 0.5)
+
+### Summary
+
+Reflect-job entity-grouping pilot caught a corpus floor case (188 entities, 187 single-chunk → only 1 group qualifies for ≥2-chunk threshold), producing 4 meta-facts. Resulting recall@5=0.556 = baseline = AC-2 numerical miss. Plan §3.4 had explicit DIAGNOSE branch-trigger, so the miss became an expected handled outcome rather than blocked archive. **Lesson:** for features whose acceptance metric depends on group-aggregated data, a coverage probe BEFORE the N=1 smoke would have flagged the floor case in advance and validated that the plan included a branch-trigger.
+
+### Class A applies
+
+#### Proposal 1: live-smoke-gates.md — Coverage probe sub-section
+
+- **File:** `skills/testing/live-smoke-gates.md` Gate 4
+- **Class:** A (refinement of existing mandatory gate; new sub-section)
+- **What:** Added «Coverage probe (group-aggregation features)» sub-section после «What a passing gate looks like». Mandates pre-pilot probe для features dependent на group-aggregated data: count groups satisfying ≥N-member threshold; flag plan'ы без branch-trigger при near-floor count (1-2 groups). Reference incident: LTM-0013.
+- **Why:** LTM-0013 reflect pilot — corpus floor case (1 entity-group qualifying). AC-2 numerically missed. Plan §3.4 had DIAGNOSE branch-trigger, so miss handled gracefully — but probe earlier would have surfaced floor case before pilot started + validated trigger existence proactively. Pattern generalises to topic-clustering / batched aggregation / multi-row reflection features.
+- **Stack-agnostic gate:** PASS (skills scope clean).
+- **Approved:** human (Pavel), 2026-04-27.
+
+### Class B (HELD)
+
+- **B1:** Per-request `score_factor` override в Scrutator `RecallRequest`. **Defer reason:** project-specific API contract change, not framework-level. Tracked в LTM project follow-up.
+- **B2:** Pre-pilot operator checklist (migration apply / container deploy / `.env` setup). **Defer reason:** project-specific (Scrutator on arcana-db). Belongs в `Projects/Scrutator/code/CLAUDE.md`.
+
+### Follow-Up Tasks Added to Backlog
+
+- **LTM-future-DIAGNOSE** (P2, L2) — already added 2026-04-27 per plan §3.4 trigger (entity-resolver coverage gap audit + reflect rerun + sweep rerun).
+- **LTM-future-OPS-1, OPS-2, SCRUTATOR-housekeeping-1** — proposed в reflection «Next Steps»; awaiting user confirmation before adding.
+
+---
+
 ## 2026-04-27 — TUNE-0043 — Class A applies (3, archive Step 0.5)
 
 ### Summary
