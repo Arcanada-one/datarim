@@ -4,7 +4,7 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ---
 
-## 2026-04-27 — TUNE-0043 — Complete stack-agnostic sweep
+## 2026-04-27 — v1.17.2 — TUNE-0043 — Complete stack-agnostic sweep
 
 ### Summary
 
