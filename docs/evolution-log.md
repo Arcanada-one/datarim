@@ -4,6 +4,28 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ---
 
+## 2026-04-27 — TUNE-0043 — Class A applies (3, archive Step 0.5)
+
+### Summary
+
+TUNE-0043 `/dr-archive` Step 0.5 reflection produced three Class A proposals — all pre-flagged through QA + compliance + Step 7 (version bump). All three PASS the `stack-agnostic-gate.sh` and were applied to runtime. Bats `tests/` 158/160 PASS after applies (2 pre-existing reds unchanged: #115 testing.md description >155 = TUNE-0042; #128 T3a separate concern). 0 regressions.
+
+### Changes
+
+| # | Category | Target | Change |
+|---|----------|--------|--------|
+| 1 | skill-update | `skills/evolution/stack-agnostic-gate.md` (new § «Markers must be on separate lines (pitfall)») | Block-style markers ONLY: awk strip uses `next` after opening match, so closing marker on the same input line is never processed → `skip=1` persists for the rest of the file. Examples of correct (separate lines) and wrong (same line) usage. Source incident: TUNE-0043 — initial wrap attempts on inline mentions used the same-line form; gate kept FAILing despite the wrap looking correct in the diff. |
+| 2 | skill-update | `skills/security.md` (new § «Stack-neutral phrasing for dependency-audit references») | Locks the canonical phrasing «package-manager-native audit command at the declared severity threshold» that emerged 4× as TUNE-0043 reword across `security.md`, `project-init.md`, `researcher.md`, `dr-qa.md`. Concrete commands belong in project-level `CLAUDE.md`. Examples list wrapped in `<!-- gate:example-only -->` markers. Prevents the same reword cycle in future Class A applies. |
+| 3 | skill-update | `skills/datarim-system/backlog-and-routing.md` § Plan Drift Discipline (new sub-§ «Avoid absolute test-count numbers in AC formulation») | Test-baseline ACs that pin an absolute number (e.g. «≥159/160 PASS») drift between plan and `/dr-do` whenever an unrelated concurrent task changes the suite. Recommends semantic phrasing: «0 new failures vs HEAD baseline» or «test count ≥ HEAD baseline (verify with `git stash && bats tests/`)». Source: TUNE-0043 AC-5 («≥159/160» in plan, actual 158/160 at QA — semantic intent met but absolute number was stale). |
+
+### Verification
+
+- **Stack-agnostic gate:** PASS clean on all three edited files (`scripts/stack-agnostic-gate.sh ~/.claude/skills/{security.md,evolution/stack-agnostic-gate.md,datarim-system/backlog-and-routing.md}`).
+- **Bats baseline:** 158/160 PASS post-apply. The 2 reds are pre-existing (verified pre-edit in compliance-report-TUNE-0043.md): #115 `optimize-merge.bats` testing.md description >155 chars (TUNE-0042); #128 T3a (separate concern).
+- **Recurrence loop closure:** all three applies are downstream of the loop VERD-0010 → VERD-0021 → TUNE-0039 → TUNE-0040 → TUNE-0043. Each application reinforces the gate's own contract (Proposal 1), the canonical microcopy that prevents future leaks (Proposal 2), or the planning discipline that surfaces drift earlier (Proposal 3).
+
+---
+
 ## 2026-04-27 — v1.17.2 — TUNE-0043 — Complete stack-agnostic sweep
 
 ### Summary

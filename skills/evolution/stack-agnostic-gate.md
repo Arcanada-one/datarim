@@ -110,6 +110,33 @@ one-line rationale (per existing entries).
   surrounding prose is stack-neutral. Reviewers should challenge any usage
   that smuggles prescriptive guidance under the marker.
 
+## Markers must be on separate lines (pitfall)
+
+The escape-hatch markers are **block-style only**. The gate's awk strip
+matches `<!-- gate:example-only -->` line-by-line and uses `next` after
+the opening marker matches, so the closing marker on the **same input
+line** is never processed and `skip=1` persists for the rest of the
+file (every subsequent line is silently dropped from the scan, masking
+real violations).
+
+Correct (separate lines, the only working form):
+
+```
+<!-- gate:example-only -->
+package install command examples for the documented runtime
+<!-- /gate:example-only -->
+```
+
+Wrong (same line — opening matches, closing is never seen, scan halts):
+
+```
+<!-- gate:example-only -->examples here<!-- /gate:example-only -->
+```
+
+Source: TUNE-0043 — initial wrap attempts on inline mentions used the
+same-line form; gate kept FAILing despite the wrap looking correct in
+the diff. Diagnosed only after re-reading the awk strip logic.
+
 ## Invocation
 
 Direct CLI (CI helper):
