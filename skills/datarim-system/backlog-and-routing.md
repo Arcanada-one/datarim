@@ -79,6 +79,40 @@ When the absolute number IS the AC (e.g. «add 5 new tests, expect +5 pass»), s
 
 Source: TUNE-0043 — plan AC-5 said «≥159/160 PASS», actual baseline at QA time was 158/160 (TUNE-0042 pre-existing red surfaced between plan and `/dr-do`). Semantic intent («0 regressions») was met; the absolute number forced QA to spend a paragraph explaining the gap.
 
+### Re-verify quantitative backlog inventories at init/do start
+
+When a backlog item lists specific quantitative claims — «N failing tests #X..#Y», «M hits across K files», «P GHSA in audit», «Q deprecated references in skill foo» — the inventory is a **snapshot** taken when the item was filed. Concurrent unrelated tasks can quietly close a fraction of the inventory between snapshot-time and execution-time, so the inventory must be re-verified before treating it as canonical.
+
+**Recipe at `/dr-init` or `/dr-do` start:**
+
+1. Re-execute the **same diagnostic** the inventory was built from (`bats tests/`, `grep -rln pattern path`, the project's package-manager-native audit command, `scripts/stack-agnostic-gate.sh scope`, etc.).
+2. Compare the live count to the inventory count.
+3. **reality < inventory** → amend the backlog body inline (strike or rewrite the closed entries with a one-line «closed by {commit-or-task-id}» note), recalibrate the estimate, log the delta in `progress.md`. Do not silently proceed on stale numbers.
+4. **reality > inventory** → escalate to the operator as scope expansion. Decide whether to absorb the new items, defer to a follow-up, or split the task.
+5. **reality == inventory** → proceed; no action.
+
+Source: TUNE-0034 — backlog body listed «10 failing tests» with named root causes (#100-#143). Pre-flight `bats tests/` at /dr-do start showed only 2 actual reds — 8 had been closed in flight by TUNE-0029 (`optimizer.md` rewrite), TUNE-0040 (description-length sweep), TUNE-0043 (stack-agnostic sweep), and an earlier TUNE-0034 v1.17.1 round (`file-sync-config.md` description trim). Estimate (30-60 min) was 5× the actual (10 min). Skipping re-verification could have caused phantom-debug work on already-passing tests.
+
+Companion to «Avoid absolute test-count numbers in AC formulation» above: same source-of-truth logic applied to inventory-side claims rather than AC-side claims. Both rules answer the same question — «how do we keep backlog text in sync with runtime reality?» — at different points in the pipeline.
+
+## MR-Strategy Heuristic for L3-L4 Tasks
+
+When a Strategist gate must decide between one-MR delivery and per-phase staged release, classify the feature first:
+
+- **Closed-loop feature** — component N+1 depends on component N's outputs being **persisted** (skill writes entries that retrieval reads, sync pushes deltas the digest promotes, etc.). Ship in **one MR** and release design docs (architecture, data-model, algorithm, deploy) BEFORE the code MR opens, so reviewers load the entire shape before reading any one piece. Splitting a closed loop into per-phase MRs creates intermediate states where, e.g., the writer ships before the reader, or the sync runs on entries the digest cannot promote — every intermediate state is broken-by-design.
+
+- **Open-loop feature** — each component is independently testable in production, with no persistence-mediated handoff between components (CRUD endpoints behind a feature flag, parallel notifier backends, additive UI panels). **Stage-release per component** with feature flags; one MR per component is the default; intermediate states are valid runtime configurations.
+
+**Decision recipe at PRD time:**
+
+1. Draw the data-flow graph: which component writes what, and which component reads it on the next pass?
+2. If any read depends on a write that the same task introduces → closed-loop → one MR.
+3. Else → open-loop → stage-release.
+
+**Why this matters for plan §2 Strategist gate:** the gate's MR-count answer drives Operator workload (one merge vs N), QA cycle count (one cycle covering the whole shape vs N independent cycles), and design-doc scope (full architecture upfront vs per-component appendices). Misclassifying open-loop as closed-loop wastes review bandwidth; misclassifying closed-loop as open-loop ships broken intermediate states.
+
+Source: DEV-1196 reflection §2.4 — 10 phases (model upgrade → knowledge base → evolution skill → retrieval hook → installer → sync cron → digest cron → auto-promotion gate → Aether-internal contract → pre-merge rehearsal) formed a closed loop; one-MR delivery with 4 design docs released before code was the right strategy. Per-phase MRs would have shipped 10 broken intermediate states.
+
 ## Embedded Phases (not separate pipeline stages)
 
 - **Research** runs inside `/dr-prd` as Phase 1.3 (L2+). Researcher agent produces `datarim/insights/INSIGHTS-{task-id}.md`. Not a separate pipeline node — no routing change needed. (TUNE-0029)

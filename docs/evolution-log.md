@@ -4,6 +4,34 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ---
 
+## 2026-04-27 — TUNE-0034 — Class A apply (1, archive Step 0.5, v1.17.3)
+
+### Summary
+
+TUNE-0034 closing round (residual 2 reds → 0) surfaced the «backlog inventory drift» pattern: backlog body listed «10 failing tests» with named root causes per number, but pre-flight `bats tests/` at /dr-do start showed only 2 actual reds (8 had been silently closed by intervening tasks: TUNE-0029, TUNE-0040, TUNE-0043, and an earlier TUNE-0034 v1.17.1 round). Estimate (30-60 min) was 5× the actual (10 min). Class A apply codifies the re-verification recipe that prevents phantom-debug work on the next cleanup cycle.
+
+### Class A applies
+
+#### Proposal 1: backlog-and-routing.md — Re-verify quantitative backlog inventories at init/do start
+
+- **File:** `skills/datarim-system/backlog-and-routing.md` § Plan Drift Discipline (new sub-section)
+- **Class:** A (content addition to existing skill; complements the adjacent «Avoid absolute test-count numbers in AC formulation» § from TUNE-0043).
+- **What:** Added sub-section «Re-verify quantitative backlog inventories at init/do start» with a 5-step recipe (re-execute the source diagnostic, compare live to inventory, amend / escalate / proceed). Sources cited: TUNE-0034 v1.17.1 + v1.17.3 cycle showing 10 → 2 inventory drift.
+- **Why:** Closes the inventory-side mirror of the AC-side drift rule already in this file. Same source-of-truth logic, applied at the inventory level instead of the AC level. Pattern parallels TUNE-0028 (stale skill count) and TUNE-0043 (absolute test-count drift).
+- **Stack-agnostic gate:** initial draft FAILed (1 hit: `npm audit` in example list, line 88); reworded to «the project's package-manager-native audit command» using the canonical microcopy from TUNE-0043 Proposal 2 (security.md). Re-run: PASS clean ×4 scopes.
+- **Bats verification:** 160/160 PASS post-apply.
+- **Approved:** human (Pavel), 2026-04-27.
+
+### Class B (HELD)
+
+- **B1: Archive-cycle scan of adjacent backlog items.** When `/dr-archive` Step 0.5 reflection notes that the just-completed task incidentally fixed reds/hits owned by another open backlog item, propose backlog-body amendments to that adjacent item. **Defer reason:** changes archive-cycle contract; requires PRD update or amendment to `commands/dr-archive.md` spec. Re-evaluate by 2026-05-27 if Proposal 1 (init/do side fix) turns out insufficient.
+
+### Follow-Up Tasks Added to Backlog
+
+None. TUNE-0035 (Site update cross-product checklist verify) is already in backlog with status `pending` since 2026-04-25 and may benefit from the same re-verification recipe at /dr-init time.
+
+---
+
 ## 2026-04-27 — CONN-0047 — Class A apply (1, archive Step 0.5)
 
 ### Summary
