@@ -1,0 +1,55 @@
+name: security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gitleaks:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Install gitleaks (pinned binary)
+        env:
+          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          ACTUAL_SHA="$(sha256sum /tmp/gitleaks.tar.gz | awk '{print $1}')"
+          if [ "${ACTUAL_SHA}" != "${GITLEAKS_SHA256}" ]; then
+            echo "::error::gitleaks tarball SHA256 mismatch (expected ${GITLEAKS_SHA256}, got ${ACTUAL_SHA})"
+            exit 1
+          fi
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          sudo install -m 0755 /tmp/gitleaks /usr/local/bin/gitleaks
+          gitleaks version
+
+      - name: Scan working tree + history
+        run: |
+          set -euo pipefail
+          gitleaks detect --redact --no-banner --exit-code 1 \
+            --report-format sarif --report-path /tmp/gitleaks.sarif
+
+      - name: Upload SARIF
+        if: always()
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: gitleaks-sarif
+          path: /tmp/gitleaks.sarif
+          if-no-files-found: ignore
