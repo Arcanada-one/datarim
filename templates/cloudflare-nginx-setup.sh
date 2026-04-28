@@ -25,6 +25,7 @@
 # Source incident: corporate audit 2026-04-28, Findings 1+2.
 
 set -euo pipefail
+# nosemgrep: bash.lang.security.ifs-tampering.ifs-tampering -- canonical strict-mode IFS, not derived from input
 IFS=$'\n\t'
 
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 2; }

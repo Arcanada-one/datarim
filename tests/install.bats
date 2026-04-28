@@ -1,4 +1,5 @@
 #!/usr/bin/env bats
+bats_require_minimum_version 1.5.0
 #
 # Tests for install.sh (TUNE-0004).
 #
@@ -90,7 +91,7 @@ setup() {
     [ "$status" -eq 1 ]
     [[ "$output" == *"non-TTY"* || "$output" == *"TTY"* || "$output" == *"tty"* ]]
     # No backup created because install aborted BEFORE copy phase.
-    [ ! -d "$FAKE_CLAUDE/backups" ] || ! ls "$FAKE_CLAUDE/backups" 2>/dev/null | grep -q force-
+    [ ! -d "$FAKE_CLAUDE/backups" ] || ! compgen -G "$FAKE_CLAUDE/backups/force-*" >/dev/null
 }
 
 @test "T10 AC-2 --force --yes on live system: backup created with SUCCESS marker" {
@@ -115,7 +116,7 @@ setup() {
     local backup
     backup="$(ls -d "$FAKE_CLAUDE"/backups/force-* 2>/dev/null | head -1)"
     grep -q "existing edit" "$backup/agents/planner.md"
-    ! grep -q "existing edit" "$FAKE_CLAUDE/agents/planner.md"
+    run ! grep -q "existing edit" "$FAKE_CLAUDE/agents/planner.md"
     grep -q "^# planner" "$FAKE_CLAUDE/agents/planner.md"
 }
 

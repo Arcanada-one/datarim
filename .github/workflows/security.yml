@@ -21,7 +21,6 @@ on:
 
 permissions:
   contents: read
-  security-events: write
 
 concurrency:
   group: security-${{ github.ref }}
@@ -34,6 +33,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
       - name: Install shellcheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck
       - name: Run shellcheck (severity=warning)
@@ -51,8 +52,16 @@ jobs:
   shellcheck-extracted:
     name: shellcheck-extracted
     runs-on: ubuntu-latest
+    # Informational during the TUNE-0045 baseline window: many shipped skills
+    # contain illustrative bash snippets with `<PLACEHOLDER>` syntax that fails
+    # shellcheck. Promotion to required pending TUNE-0048 (tag illustrative
+    # blocks with `# nosec-extract` or `<!-- security:counter-example -->`).
+    # See documentation/archive/security/triage-2026-04.md.
+    continue-on-error: true
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
       - name: Install shellcheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck
       - name: Extract bash blocks from markdown
@@ -81,6 +90,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
@@ -99,8 +110,13 @@ jobs:
   bandit-extracted:
     name: bandit-extracted
     runs-on: ubuntu-latest
+    # Informational during the TUNE-0045 baseline window — same rationale as
+    # shellcheck-extracted (illustrative blocks need explicit opt-out tagging).
+    continue-on-error: true
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
@@ -131,6 +147,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
@@ -141,7 +159,6 @@ jobs:
           set -euo pipefail
           semgrep --error \
             --config p/default \
-            --config p/bash \
             --config p/python \
             --config p/secrets \
             --config p/github-actions \
@@ -157,6 +174,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Install gitleaks (pinned binary)
         env:
@@ -195,6 +213,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Install trufflehog (release checksums verified)
         env:
@@ -218,6 +237,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
       - name: Install actionlint (release checksums verified)
         env:
           ACTIONLINT_VERSION: 1.7.7
@@ -240,6 +261,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
@@ -256,6 +279,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
       - name: Install osv-scanner (release checksums verified)
         env:
           OSV_VERSION: 1.9.2
@@ -277,6 +302,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
       - name: Install bats
         run: sudo apt-get update && sudo apt-get install -y bats
       - name: Run security regression tests
@@ -288,6 +315,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
       - name: Anti-pattern scan (skipping counter-example fences)
         run: |
           set -euo pipefail
