@@ -46,6 +46,13 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
     -   Document technology stack selection.
     -   Verify dependencies and build configuration.
 
+6.5.  **Symbol Existence Check (MANDATORY when the plan names a method, function, file, flag, env var, or CLI command as a fix target)**:
+    -   For every named code surface in the plan (e.g. `module.foo`, `path/to/file.ext`, `--flag-name`, `$ENV_VAR`), grep the project to confirm it exists.
+    -   The plan MUST cite the file:line where each named target lives. Phantom targets (named in the plan but absent from the code) are a planning defect — fix the plan or fix the code, then re-grep.
+    -   If a target is intentionally to be created, the plan MUST say so explicitly and justify the new surface (one sentence: why does this need to exist?). Otherwise, redirect the fix to the actual surface that owns the behaviour.
+    -   Apply to all references: not just function names, but also config keys, CLI sub-commands, file paths, env vars, and HTTP routes.
+    -   Rationale: a 30-second grep at planning time prevents 10–30 minute investigations during `/dr-do`. Source: LTM-0017 — plan named `pipeline.py::_resolve_entity` as the resolver-fix surface; method did not exist (entity grouping was raw SQL inside `repository.fetch_chunks_for_reflect`). Required in-flight redirect; would have been caught at `/dr-plan` time by a single grep.
+
 7.  **Installer / Deploy-Script Content-Type Audit (MANDATORY when plan touches install.sh, sync-script, or any deploy/copy tool)**:
     -   Grep the file-type filter (`case "*.md"`, `find ... -name`, extension whitelist, etc.) in the target script.
     -   List every supported extension explicitly in the plan's Technology Validation or Architecture Impact section.
