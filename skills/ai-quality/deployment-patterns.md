@@ -270,3 +270,89 @@ except Exception:
 ### Why
 
 SRCH-0020: Sparse indexing failures in `indexer.py` were invisible for weeks due to `except: pass`. The embedding API was intermittently failing, but no evidence existed in logs. A single `logger.warning()` would have surfaced the root cause immediately.
+
+## Failure-Path Drills — Two-Axis Rollback Contract Verification
+
+Rollback contracts have **two orthogonal failure axes**. A drill that exercises only one axis leaves the other unverified, and the gap surfaces the next time production hits the missed axis — usually at an unscheduled moment.
+
+### The two axes
+
+1. **Image axis** — the bug lives inside the application image (code, binary, baked-in config). The build still produces an image; the container starts but exits, crashes, or never reaches healthy due to runtime behavior.
+2. **Config axis** — the bug lives in deploy-time configuration external to the image (compose file, env file, healthcheck path, port mapping, volume bind, deploy script). The image is unchanged; the container starts but is misconfigured by the surrounding deploy contract.
+
+Image-tag rollback (`tag :previous → :latest`) restores the IMAGE only. **If the failure root cause is on the config axis, rolling back the image has no effect** — the `:previous` container runs with the SAME broken config from disk and reproduces the failure. The rollback path itself fails and the cascade stays open.
+
+### Drill recipe (per service, per release cycle)
+
+Test BOTH axes in pairs (or alternate them on consecutive drill cycles). Each axis exercises a different layer of the rollback contract.
+
+- **Code-break drill (image axis):** introduce a bug into application source — e.g. an unconditional throw in the bootstrap function, a syntax error caught at runtime, an obviously bad return type. The build still succeeds; the container starts but exits or stays unhealthy. Rollback to `:previous` should restore service ≤ the recovery budget.
+- **Config-break drill (config axis):** introduce a bug into deploy-time config — e.g. a healthcheck endpoint that does not exist on the running service, a missing required env variable, a port that does not match the listener. The image is unchanged; the container starts but the deploy contract marks it unhealthy. Rollback MUST restore both image AND config to the last-known-good state.
+
+A rollback contract that handles only the image axis silently fails on every config-axis incident — and config breaks are common (renames, env regression, healthcheck drift, volume permission). Without both-axis coverage in drills, the gap is invisible until production hits it.
+
+### Per drill: capture and document
+
+- Timeline (UTC) — push, build complete, deploy start, failure detection, rollback engagement, recovery (or rollback-failed), Ops Bot signal sent + delivery code.
+- AC disposition — split the rollback budget into **engagement** (≤Xs from failure detection) and **recovery** (≤Ys to fully functional). The two are different metrics and a contract may pass one and fail the other.
+- Critical-path notification delivery — receiver returned 2xx, payload was parseable, on-call channel was reachable.
+- Cascade containment — dependent services (workers, bots, downstream consumers) recovered within budget or stayed contained without ripple.
+
+### When to apply
+
+Any service with a CI/CD rollback contract. Image-axis-only rollback designs SHOULD be flagged in code review as incomplete; the question to ask is: «if the breakage lives in the deploy config rather than the image, what does this rollback do?»
+
+### Source
+
+Two consecutive drills on the same service, same release cycle, same rollback contract:
+
+- **Code-break drill (image axis)** — exposed an `if`-guard bypass on the failure-detection step (verify outcome `skipped` ≠ `failure` → rollback never engaged). Detection-layer fix landed.
+- **Config-break drill (config axis)** — exposed that the rollback step swaps the image tag but does NOT restore the deploy config from the previous-known-good commit. With a config-only break, the `:previous` image runs against the SAME broken config and the rollback step itself fails. Detection layer worked; execution layer was incomplete.
+
+Both drills caught real production hardening gaps in controlled outage windows. Each window cost ~10–12 min; an unscheduled production accident at the same blast radius costs unbounded MTTR.
+
+## Critical-Path Secret Presence Gate
+
+Any CI workflow that fires alerts via `Authorization: Bearer ${{ secrets.X }}` (or any header that interpolates a secret into a critical-path notification) MUST include a pre-deploy lint step that fails when the secret is empty.
+
+### Why
+
+Empty secrets pass YAML interpolation silently. The `Authorization: Bearer ` header becomes literally `Bearer ` (trailing space, no token), and the receiver returns 401 / 403 / quietly drops the request. Alerting is silently broken until a drill or a real incident fires the path — by which point the alert is the thing that should have warned you.
+
+The cost of the gate is ~3 lines of YAML per repo. The cost of silent alerting is unbounded — every incident during the silent window is invisible to on-call.
+
+### Pattern
+
+A dedicated lint job that the build/deploy job depends on:
+
+```yaml
+jobs:
+  secret-presence-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify critical alert secrets are present
+        run: |
+          [ -n "${{ secrets.OPSBOT_API_KEY }}" ] || \
+            { echo "::error::OPSBOT_API_KEY is empty — alerting broken"; exit 1; }
+
+  build:
+    needs: secret-presence-gate
+    runs-on: ubuntu-latest
+    steps:
+      - ...
+```
+
+For a workflow that wires multiple critical-path secrets, declare each one explicitly — do not collapse them into a single check. A single missing secret should produce a single named error so on-call can fix it without bisecting.
+
+### When to apply
+
+Any secret used in critical-path notifications: incident-bot API tokens, paging-system keys, Slack incident webhooks, container-registry tokens used by deploy steps, deploy SSH keys. The rule of thumb: «if this secret is empty and a real incident fires the path, does anyone get notified?» — if «no», this secret is critical-path and needs the presence gate.
+
+### What this does NOT do
+
+- It does not validate that the secret is **correct** — only that it is non-empty. A wrong-but-present token still fails at the receiver. Pair the presence gate with a periodic synthetic-fire test (drill-style) that POSTs a known payload and asserts 2xx, to catch wrong-token regressions.
+- It does not catch secrets that are present in `vars.X` but missing from `secrets.X` (or vice versa). Apply the gate to whichever scope the workflow actually uses.
+
+### Source
+
+A drill on a service with a previously-validated rollback contract. The workflow correctly fired the fatal-notify path on rollback failure, but the request was rejected with `curl: (22) ... 401` because `Authorization: Bearer ` was empty — the GitHub Secret holding the token had been removed or never set on this repo. The alert never reached the receiver. Silent-alerting failure window: unknown duration before the drill caught it.
