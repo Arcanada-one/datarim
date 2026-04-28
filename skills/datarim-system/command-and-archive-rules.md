@@ -47,6 +47,7 @@ When archiving a task, map the prefix to the destination subdirectory:
 | `BILL` | `billing/` |
 | `CONV` | `conversion/` |
 | `DISK` | `disk/` |
+| `SEC` | `security/` |
 | *(unknown)* | `general/` |
 
 Archive path:

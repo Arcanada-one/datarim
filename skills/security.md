@@ -92,6 +92,40 @@ When the document root flips between two trees that contain *byte-identical file
 
 **Source incident:** flipping the request document root for 375 hosts produced fatal `Cannot declare class … already in use` in long-running workers because the application's filesystem-relative include resolved to a different inode under the new root. Auto-rollback fired in <30 s; mitigation = symlink the new root's auxiliary directory to the old root's same directory; canonical relocation deferred to a follow-up step.
 
+## Git History Scrub Recipe (post-leak rotation)
+
+When a credential, identifier, or other sensitive string lands in git history and must be removed before the artefact is rotated or the repo is published, follow this recipe. **Source incident:** SEC-0001 — public framework repo carried a leaked OAuth Client ID for 11 days; first scrub run missed the same string in a subsequent commit message, caught locally by the pre-push grep gate.
+
+**Tooling.** Use `git filter-repo` (upstream replacement for the deprecated BFG / `git filter-branch`). Install via the system package manager; do not bundle a copy.
+
+**Mandatory invocation form.** Pass the same replacement file to BOTH flags:
+
+```
+git filter-repo --replace-text REPLACEMENTS.txt --replace-message REPLACEMENTS.txt
+```
+
+`--replace-text` rewrites blob contents only. `--replace-message` rewrites commit messages. Skipping the second flag leaks any pattern that appears in your own commit message describing the redaction (canonical trap: a commit titled "remove leaked X" naming X verbatim). The two-flag form is cheaper than a second `filter-repo` pass and removes the trap.
+
+**Mandatory pre-push local grep gate.** Before any `git push`, run a grep that covers every redacted pattern against the full rewritten history:
+
+```
+git log --all -p | grep -cE '<pattern1>|<pattern2>|...'   # MUST return 0
+```
+
+Non-zero output means the rewrite is partial. Re-edit the replacement file (add the missed variant), re-clone fresh, re-run filter-repo, re-grep. **Never push a partial scrub** — it advertises which patterns you tried to hide while still leaking the rest.
+
+**Backup placement (never use a tag in the same repo).** History rewrite produces new commit hashes for every affected ref, including tags. A `git push --force --tags` after `filter-repo` rewrites every tag — including any tag you intentionally placed at pre-rewrite HEAD as a backup. The backup tag silently moves to post-scrub state and becomes useless. Acceptable backup channels:
+
+- **Local mirror clone** (`git clone --mirror` to a `~/.cache/`-style path, `git fsck --full --strict` exit 0). Survives every subsequent destructive op on the working repo. Restoration recipe: `git push --mirror --force <remote>` from the mirror.
+- **External object storage** (S3/B2/equivalent) of a `git bundle create` of the pre-scrub state.
+- **Separate repo** under a different name, with the pre-scrub mirror pushed once and never written to again.
+
+If you must keep a remote ref pointing at pre-scrub HEAD as a convenience marker, push it AFTER the scrub completes and use a name that does not collide with anything `--tags` will sweep — e.g. push to `refs/backup/pre-scrub-<incident-id>` (custom namespace), and remember that `git push origin --tags` does NOT cover `refs/backup/*`.
+
+**Force-push form.** Use `git push --force-with-lease` rather than `--force` whenever the repo has any active collaborators, to refuse the push if remote HEAD moved since you cloned. For history scrub, push `main` first, verify a fresh re-clone has 0 hits on the redaction grep, then push tags (only if you have tags to update — and only the ones meant to follow the new history).
+
+**Post-scrub clone-sync notification.** Force-push invalidates every existing clone. List known consumers (build runners, mirror replicas, contributor laptops where known) and explicitly notify them to `git fetch && git reset --hard origin/<branch>`. The new history is incompatible with the old; `git pull` on a stale clone produces a divergent merge, not a clean reset.
+
 ## Reusable Templates
 
 - `templates/security-deps-upgrade-plan.md` — stack-neutral plan for dependency-CVE / framework-version-bump / transitive-override tasks. Sections: baseline audit snapshot, target version selection, breaking-change diff, lockfile/peer-dep impact, regression test scope, rollback. Use during `/dr-plan` for any maintenance task closing security advisories.
