@@ -21,16 +21,37 @@ Reusable patterns for SSH-based operations across Arcana servers.
 
 ## SSH Batch Execute
 
-Run a command on all (or selected) servers:
+> **Bootstrap once** (Datarim § Security Mandate S1, host-key verification):
+> add the host key to `~/.ssh/known_hosts` on the operator machine before any
+> batch SSH automation. Document the exact bootstrap event in
+> `Areas/Infrastructure/known-hosts-rotation.md`.
+>
+> ```bash
+> for host in <HOST_LIST>; do
+>   ssh-keyscan -H "$host" >> ~/.ssh/known_hosts
+> done
+> ```
+
+Run a command on all (or selected) servers (relies on default
+`StrictHostKeyChecking=ask` — bootstrap above pre-populates `known_hosts` so the
+prompt never fires; an unknown host fails fast in batch mode):
 
 ```bash
-for host in 49.13.52.208 65.108.236.39 135.181.222.38 37.27.107.227; do
+for host in <HOST_LIST>; do
   echo "=== $host ==="
-  ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 root@$host "<COMMAND>" 2>&1 | head -20
+  ssh -o BatchMode=yes -o ConnectTimeout=5 "deploy@$host" "<COMMAND>" 2>&1 | head -20
 done
 ```
 
-**Flags:** `-o BatchMode=yes` prevents interactive prompts (fails fast if key not accepted). `-o ConnectTimeout=5` prevents hanging on unreachable hosts.
+**Flags:** `-o BatchMode=yes` disables interactive prompts (fails fast on
+unknown host or missing key). `-o ConnectTimeout=5` prevents hanging on
+unreachable hosts. Use `deploy@` user with narrow `sudo` rules; reserve `root@`
+for one-shot bootstrap with a logged EOL date.
+
+<!-- security:counter-example -->
+# UNSAFE — bypasses host-key verification, never use in shipped recipes:
+ssh -o StrictHostKeyChecking=no -o BatchMode=yes "$host" "<COMMAND>"
+<!-- /security:counter-example -->
 
 ## Ping Matrix (Tailscale)
 
