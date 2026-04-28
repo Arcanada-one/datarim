@@ -135,10 +135,23 @@ When deploying services that spawn CLI tools as subprocesses (Claude Code, Curso
 1. **Use `node:22-slim`** (Debian), NOT `alpine` — native CLI binaries require glibc
 2. **Create non-root user** — Claude CLI (and likely others) refuse elevated permission modes as root
 3. **Persistent volume for auth** — CLI subscription auth stores tokens in `~/.claude/.credentials.json`; Docker volume preserves across restarts
+4. **Pin and verify the installer** (Datarim § Security Mandate S4) — never pipe a remote installer straight into a shell. Download the artifact, verify its SHA-256 against the upstream-published hash, then execute.
+
+Reference shape (renew the version + hash in lockstep via Renovate / Dependabot):
 
 ```dockerfile
 FROM node:22-slim AS production
-RUN curl -fsSL https://claude.ai/install.sh | bash
+
+ARG CLAUDE_CLI_VERSION=0.42.4
+ARG CLAUDE_CLI_SHA256=<sha256-from-upstream-release>
+RUN set -eu \
+ && curl -fsSL -o /tmp/claude-cli.tgz \
+      "https://example.com/claude-cli/${CLAUDE_CLI_VERSION}/claude-cli-linux-x64.tgz" \
+ && echo "${CLAUDE_CLI_SHA256}  /tmp/claude-cli.tgz" | sha256sum --check \
+ && tar -xzf /tmp/claude-cli.tgz -C /opt \
+ && ln -sf /opt/claude-cli/bin/claude /usr/local/bin/claude \
+ && rm /tmp/claude-cli.tgz
+
 RUN useradd -m -s /bin/bash connector
 USER connector
 ```
@@ -148,13 +161,26 @@ volumes:
   - cli-auth:/home/connector/.claude
 ```
 
+`npm`-distributed CLIs install via the lockfile and signature verification:
+
+```dockerfile
+COPY package.json package-lock.json ./
+RUN npm ci && npm audit signatures
+```
+
+<!-- security:counter-example -->
+# UNSAFE — no integrity check, the installer can be swapped server-side
+# at any moment and every consumer pulls the swap silently.
+RUN curl -fsSL https://claude.ai/install.sh | bash
+<!-- /security:counter-example -->
+
 CONN-0004: Three bugs from wrong base image (Alpine musl) + root user + ephemeral auth. Pattern applies to all CLI connector deployments.
 
 ### CLI Installer in Docker (non-root user)
 
-When a CLI tool installs via `curl | bash` to `$HOME` (e.g. Cursor CLI):
+When a CLI tool ships only a shell installer that writes into `$HOME` (e.g. Cursor CLI), wrap it in a hash-pinned download as above. Then move the resulting tree into a shared path the non-root user can read:
 
-1. **Install as root** during Docker build (default user)
+1. **Install as root** during Docker build (default user); pin and verify the tarball before extraction.
 2. **Copy to shared path**: `cp -r /root/.local/share/<tool> /opt/<tool>`
 3. **Fix permissions**: `chmod -R a+rX /opt/<tool>`
 4. **Symlink binary**: `ln -sf /opt/<tool>/.../<binary> /usr/local/bin/<binary>`
@@ -162,7 +188,7 @@ When a CLI tool installs via `curl | bash` to `$HOME` (e.g. Cursor CLI):
 
 Do NOT symlink to `/root/...` — non-root user cannot read `/root/`. Do NOT rely on Docker volume creating dirs with correct ownership — volumes mount as root.
 
-CONN-0008: 4 Dockerfile iterations because `curl | bash` installed to `/root/.local/share/cursor-agent/`, inaccessible to non-root `connector` user. Same root→non-root pattern as CONN-0004.
+CONN-0008: 4 Dockerfile iterations because the upstream installer wrote to `/root/.local/share/cursor-agent/`, inaccessible to non-root `connector` user. Same root→non-root pattern as CONN-0004.
 
 ### CLI Output Channel Conventions
 
