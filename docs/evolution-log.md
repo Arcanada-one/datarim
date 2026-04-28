@@ -4,6 +4,38 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ---
 
+## 2026-04-28 — SEC-0001 — Class A apply (1 bundled proposal, archive Step 0.5)
+
+### Summary
+
+SEC-0001 closed Security Mandate Finding 5: leaked OAuth Client ID in public framework repo (11-day exposure window). 5-phase response per Mandate S3.5 (sanitize HEAD → rotate client → audit → history scrub → ecosystem sweep + CI gate). Step 8 history scrub revealed two recipe gaps the framework should now codify: (a) `git filter-repo --replace-text` is content-only — the same redacted token survived in my own commit message until a second run added `--replace-message`; (b) `git push --force --tags` after history rewrite overwrites every tag — including any tag intentionally placed at pre-rewrite HEAD as a backup, silently neutralising the backup channel. Local mirror saved the day. Both lessons folded into a new § "Git history scrub recipe" in `skills/security.md`.
+
+### Class A applies
+
+#### Proposal 1+2 (bundled): security.md — Git history scrub recipe
+
+- **File:** `skills/security.md` § "Git history scrub recipe (post-leak rotation)" (new section, inserted between "Cross-Stack Relative-Path Includes" and "Reusable Templates")
+- **Class:** A (content addition to existing skill; no contract change).
+- **What:** Added § "Git history scrub recipe" covering: (1) `git filter-repo --replace-text FILE --replace-message FILE` mandatory two-flag invocation form, (2) mandatory pre-push local grep gate (`git log --all -p | grep -cE '<patterns>'` MUST = 0; non-zero = re-edit + re-clone + re-run), (3) backup-placement rule (never use a tag in the same repo as backup channel — force-push tags after filter-repo rewrites every tag; use local mirror clone or external object storage or separate repo), (4) `--force-with-lease` over `--force` for collaborative repos, (5) post-scrub clone-sync notification protocol.
+- **Why:** SEC-0001 Step 8 first run leaked GA4 property ID through commit message (caught by mandatory grep gate before push); release-tag-as-backup got rewritten by `--force --tags` and became useless. Permanent rules close both gaps for the next quarterly rotation cycle.
+- **Stack-agnostic gate:** PASS clean (`scripts/stack-agnostic-gate.sh skills/security.md`). Generic placeholders used (`<pattern>`, `<incident-id>`, `<branch>`, `<remote>`); no Arcanada-specific identifiers leaked into the recipe.
+- **Bats verification:** 160/160 PASS post-apply.
+- **Approved:** human (Pavel), 2026-04-28.
+
+### Class B (HELD)
+
+- **B1: Workspace-discipline cross-cite for SEC-* tasks** (project-level CLAUDE.md edit, not framework). Append concrete blob-swap example from SEC-0001 (4 files, 154+/1−, ~13 parallel sessions' foreign hunks preserved). **Defer reason:** project-level documentation amplification rather than runtime contract; could be re-classified as A on review. Holding until next workspace-discipline-related incident or until re-evaluated 2026-05-28.
+
+### Class A held (proposal not yet applied)
+
+- **Proposal 5: gitleaks vault-config template** (`templates/gitleaks-vault-config.toml`) — pre-tuned `.gitleaks.toml` with allowlists for `wiki/_raw_/`, `.obsidian/plugins/`, compiled JS bundles (67/70 false positives in SEC-0001 sweep of `Arcanada-one/arcanada-ecosystem` came from these sources). **Defer reason:** SEC-0002 (ecosystem CI rollout) is the natural consumer; better to design the template against real findings during SEC-0002 /dr-plan than to ship a speculative template now. Linked to SEC-0002 backlog entry.
+
+### Follow-Up Tasks Added to Backlog
+
+- **SEC-0005** (added in SEC-0001 /dr-do per Step 10 sweep findings, not in this archive's reflection): rotate 3 HIGH secrets in `Arcanada-one/arcanada-ecosystem` private repo + scrub history. P1, L2, ~2-3 ч.
+
+---
+
 ## 2026-04-27 — TUNE-0034 — Class A apply (1, archive Step 0.5, v1.17.3)
 
 ### Summary
