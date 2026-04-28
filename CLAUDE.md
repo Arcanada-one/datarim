@@ -228,6 +228,37 @@ Datarim improves itself through `/dr-archive` Step 0.5 (the `reflecting` skill):
 
 ---
 
+## Security Mandate
+
+> **Status:** mandatory for every Datarim artifact (skill, agent, command, template, script, doc).
+> **Origin:** corporate security audit, 2026-04-28 (6 findings: 2× HIGH command injection, 4× MEDIUM SSH/credentials/supply-chain). Full audit log: `documentation/archive/security/findings-2026-04-28.md`.
+> **Authority:** RFC 2119 keywords (MUST / MUST NOT / SHOULD / MAY) apply throughout.
+> **Single source of truth:** `skills/security-baseline.md` § S1–S9 — full rules, suppression policy, counter-example fence syntax, standards mapping. This CLAUDE.md section is the entry point.
+
+### Threat model (one paragraph)
+
+Datarim ships skills, templates, agents, and commands that AI agents copy into runtime and execute, often with elevated privileges (root SSH, OAuth tokens with write scope, package installation). A vulnerable line in a shipped script is replicated into every consumer's production runbook. A documented `curl | bash` recipe in a skill becomes the canonical install pattern across the ecosystem. **Every shipped artifact is production code under attack.**
+
+### Rule clusters (details in `skills/security-baseline.md`)
+
+- **S1** — Shell scripts and embedded shell blocks (strict mode, quoting, input regex, heredoc terminators, no eval/curl|bash, no SSH `StrictHostKeyChecking=no`, `shellcheck` clean)
+- **S2** — Python and python-fenced blocks (no `shell=True`, atomic mode-0o600 credential writes via `O_EXCL`, no `eval`/`pickle.loads`/`yaml.load`, `requests verify=True`, SHA-256+, `bandit -ll -ii` clean)
+- **S3** — Credentials, secrets, tenant identifiers (no hardcoded IDs, generic env-var paths via `${PROJECT_CREDS_DIR}`, secrets via env/Vault/prompt only, `.gitignore` coverage, rotation policy on accidental commit)
+- **S4** — Supply chain (no `curl | bash`, hash-pinned installs, GitHub Actions pinned to commit SHA + explicit `permissions:`, SBOM, signed releases, SLSA L2, Dependabot/Renovate)
+- **S5** — Markdown documentation as executable instructions (placeholders not real IDs, never prescribe unsafe patterns, `<!-- security:counter-example -->` fence syntax for teaching counter-examples)
+- **S6** — Repo hygiene (LICENSE, SECURITY.md, CODE_OF_CONDUCT, CONTRIBUTING, CODEOWNERS, dependabot.yml, branch + tag protection)
+- **S7** — CI verification gate (`shellcheck`, `bandit`, `semgrep`, `gitleaks`, `trufflehog`, `actionlint`, `zizmor`, `osv-scanner`, regression `bats`)
+- **S8** — Standards mapping (ASVS v5 / SOC 2 CC / ISO 27001 Annex A / CIS Controls v8 — see `docs/standards-mapping.md`)
+- **S9** — Drift, evolution, incident response (no relaxation without architect approval; new findings → rule update + regression test within 7 days)
+
+### CI verification (consumer projects)
+
+Every Datarim-managed project SHOULD run `templates/security-workflow.yml` (drop-in) or call `Arcanada-one/datarim/.github/workflows/reusable-security.yml@<tag>` (preferred). Local dry-run via `/dr-security-audit`.
+
+**Source:** corporate audit findings 2026-04-28 + research baseline `~/arcanada/datarim/insights/INSIGHTS-security-baseline-oss-cli-2026.md`.
+
+---
+
 ## Documentation
 
 For external library and API documentation, use `context7` MCP server when available. It provides token-efficient access to up-to-date documentation. If `context7` is not available, fall back to `WebFetch` / `WebSearch`.
