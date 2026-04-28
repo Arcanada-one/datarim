@@ -1,4 +1,5 @@
 #!/usr/bin/env bats
+bats_require_minimum_version 1.5.0
 # Self-tests for tests/security/extract-code-blocks.sh
 # Origin: TUNE-0045 P2.1 — markdown code-block extractor.
 # Contract:
@@ -12,7 +13,7 @@ setup() {
   EXTRACTOR="$REPO_ROOT/tests/security/extract-code-blocks.sh"
   FIXTURES="$REPO_ROOT/tests/security/fixtures"
   WORK="$(mktemp -d)"
-  cd "$WORK"
+  cd "$WORK" || exit
 }
 
 teardown() {
@@ -39,7 +40,7 @@ teardown() {
   count=$(find "$WORK/_extracted" -name '*.sh' | wc -l | tr -d ' ')
   [ "$count" = "1" ]
   # Verify the extracted content is the safe one, NOT the SSH disable line
-  ! grep -rq 'StrictHostKeyChecking=no' "$WORK/_extracted/"
+  run ! grep -rq 'StrictHostKeyChecking=no' "$WORK/_extracted/"
   grep -rq 'echo "ok"' "$WORK/_extracted/"
 }
 
@@ -50,8 +51,8 @@ teardown() {
   total=$(find "$WORK/_extracted" -name '*.sh' -o -name '*.py' | wc -l | tr -d ' ')
   [ "$total" = "1" ]
   grep -rq 'extracted normally' "$WORK/_extracted/"
-  ! grep -rq 'author requests skip' "$WORK/_extracted/"
-  ! grep -rq 'skipped python block' "$WORK/_extracted/"
+  run ! grep -rq 'author requests skip' "$WORK/_extracted/"
+  run ! grep -rq 'skipped python block' "$WORK/_extracted/"
 }
 
 @test "extractor: mixed.md extracts only block-1 and block-4" {
@@ -61,16 +62,16 @@ teardown() {
   [ "$total" = "2" ]
   grep -rq 'block-1 extracted' "$WORK/_extracted/"
   grep -rq 'block-4 extracted' "$WORK/_extracted/"
-  ! grep -rq 'rm -rf /' "$WORK/_extracted/"
-  ! grep -rq 'block-3 has skip marker' "$WORK/_extracted/"
+  run ! grep -rq 'rm -rf /' "$WORK/_extracted/"
+  run ! grep -rq 'block-3 has skip marker' "$WORK/_extracted/"
 }
 
 @test "extractor: produces manifest.txt listing extracted files" {
   run bash "$EXTRACTOR" -o "$WORK/_extracted" "$FIXTURES/mixed.md"
   [ "$status" -eq 0 ]
   [ -f "$WORK/_extracted/manifest.txt" ]
-  lines=$(wc -l < "$WORK/_extracted/manifest.txt" | tr -d ' ')
-  [ "$lines" = "2" ]
+  manifest_lines=$(wc -l < "$WORK/_extracted/manifest.txt" | tr -d ' ')
+  [ "$manifest_lines" = "2" ]
 }
 
 @test "extractor: handles multiple input files" {
