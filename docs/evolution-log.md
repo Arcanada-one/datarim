@@ -4,6 +4,53 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ---
 
+## 2026-04-28 — LTM-0017 — Class A apply (3 proposals, post-archive)
+
+### Summary
+
+LTM-0017 archived as Path 2 (escalate to A2 topic-clustering) — entity-resolver canonicalisation cannot lift recall@5 from 0.556 floor case on `ltm-bench-datarim-kb`. Reflection surfaced 3 Class A proposals; Pavel approved all three for application post-archive.
+
+### Class A applies
+
+#### Proposal 1: commands/dr-plan.md — Symbol Existence Check
+
+- **File:** `commands/dr-plan.md` § Step 6.5 "Symbol Existence Check" (new step inserted between Technology Validation and Installer Audit).
+- **Class:** A (content addition to existing command spec; no contract change).
+- **What:** New mandatory `/dr-plan` step requiring grep-confirmation of every named code surface (method, function, file, flag, env var, CLI command, config key, HTTP route) before plan approval. Plan must cite file:line for each named target. Phantom targets (named in plan, absent from code) explicitly flagged as planning defects requiring redirect or justification.
+- **Why:** LTM-0017 plan named `pipeline.py::_resolve_entity` as resolver-fix surface; method did not exist (entity grouping was raw SQL inside `repository.fetch_chunks_for_reflect`). Required in-flight redirect, ~10 min /dr-do investigation. A 30-second grep at /dr-plan would have caught it.
+- **Stack-agnostic gate:** PASS clean (`scripts/stack-agnostic-gate.sh commands/dr-plan.md`).
+- **Bats verification:** 160/160 PASS post-apply.
+- **Approved:** human (Pavel), 2026-04-28.
+
+#### Proposal 2: skills/ai-quality/incident-patterns.md — Floor-Case Diagnostics Dual-Axis
+
+- **File:** `skills/ai-quality/incident-patterns.md` § "Floor-Case Diagnostics — Dual-Axis Audit" (new section appended after "Vendor-Blame Discipline").
+- **Class:** A (content addition to incident-patterns fragment).
+- **What:** Documents the dual-axis pattern for "metric stuck at baseline" diagnostics. Mandates probing BOTH the *transformation axis* (does new logic do what we designed) AND the *population axis* (is the data visible to the new logic at all). Single-axis audits produce incomplete root-cause analyses. Includes 5 rules and an exemplar.
+- **Why:** LTM-0017 plan framed diagnostic exclusively around canonicalisation (transformation axis). Audit returned 0.00% transformation delta — true no-op. Population probe surfaced 134/188 (71%) entities with `source_chunk_id IS NULL` — invisible to JOIN regardless of canonicalisation. A dual-axis plan would have surfaced both gaps in the same audit.
+- **Stack-agnostic gate:** PASS clean.
+- **Bats verification:** 160/160 PASS post-apply.
+- **Approved:** human (Pavel), 2026-04-28.
+
+#### Proposal 3: ~/arcanada/CLAUDE.md — Pre-commit re-verification (workspace, not framework)
+
+- **File:** `~/arcanada/CLAUDE.md` § Multi-Agent Workspace Discipline rule 8 (sub-step "Pre-commit re-verification (retry-tolerant blob-swap)").
+- **Class:** A — workspace-level rule extension; not subject to stack-agnostic gate or bats (workspace CLAUDE.md is project-specific, not framework runtime).
+- **What:** Pre-commit verification: between `git update-index` and `git commit`, run `git diff --staged --numstat` + capture HEAD SHA. If file-set / line-counts diverge from expected blob-swap delta, or HEAD shifted, redo blob-swap from new HEAD before commit.
+- **Why:** During LTM-0017 archive, parallel session's TRANS-0027 commit landed between my `update-index` and `commit`, causing my staged blob to lose the LTM-0017 entry. ~10 min recovery vs ~30s preemptive check.
+- **Approved:** human (Pavel), 2026-04-28.
+
+### Class B (none)
+
+No Class B proposals from LTM-0017 reflection.
+
+### Follow-Up Tasks Added to Backlog (already by /dr-do Step 12)
+
+- **LTM-0018** — A2 topic-clustering grouping primitive design (P2, L3). Unblocks LTM-0009.
+- **LTM-0019** — Entity `source_chunk_id` backfill investigation (P3, L2).
+
+---
+
 ## 2026-04-28 — SEC-0001 — Class A apply (1 bundled proposal, archive Step 0.5)
 
 ### Summary
