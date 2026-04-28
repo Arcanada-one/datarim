@@ -41,6 +41,7 @@ Read `datarim/tasks.md` and `datarim/activeContext.md` to determine task type:
 ### 4. Test Coverage
 - Verify tests exist for all changed code paths
 - Check: edge cases, error paths, boundary conditions
+- **Quantitative-threshold AC enforcement.** When an Acceptance Criterion declares a numeric threshold (coverage %, latency budget, RPS, error rate, etc.), Compliance Step 4 (or Step 6 for runtime metrics) MUST execute the measurement tool and record the actual number. «Presumed met» is not an acceptable verdict for thresholded AC. If the measurement tool is absent on the host, install it (typically a one-line install via the project's package-manager-native tooling) before claiming PASS, or escalate the AC as BLOCKED back to `/dr-do`. Source: DISK-0003 — AC-7 (≥80% line coverage) was carried as «presumed met» through `/dr-qa` PASS_WITH_NOTES; Compliance had to install the coverage tool and measure (actual 91.5%) to close the gap.
 
 ### 5. Linters and Formatters
 - Run project linters and formatters
