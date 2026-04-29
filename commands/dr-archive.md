@@ -39,6 +39,7 @@ Complete and archive current task.
    - `mixed` — current + other IDs in the same diff → stage selectively (own only).
    - `unattributed` — no task ID present → require explicit user disposition (default-deny).
    - `whitelisted` (TUNE-0059) — basename is a known version-bump file (`VERSION`, `CHANGELOG.md`, `package.json`, `Cargo.toml`, `pyproject.toml`, `.gitignore`) AND `--task-id` is set → bypass default-deny (operator-supplied disposition is the attribution). Pass `--no-whitelist` to restore strict behaviour.
+   - `mine-by-elimination` (TUNE-0060) — file body carries foreign historical task IDs but the actual diff lines (additions/removals) added by this session contain ZERO task IDs AND `--task-id` is set → attribute to the current task (operator-supplied disposition; nothing else to attribute it to). Closes the false-`foreign` misclassification of doc edits like CLAUDE.md/README.md/architectural docs where the committed body references many historical tasks but the current edit (e.g., a version bump) introduces none. Untracked files (no diff at all) skip this branch and fall through to `foreign` per safety guard.
 
    Exit 0 means archive may proceed. Exit 1 means apply recipe 0.1.3 below; STOP if the user declines.
 

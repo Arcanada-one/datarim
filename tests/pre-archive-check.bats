@@ -311,3 +311,49 @@ EOF
     [ "$status" -eq 1 ]
     [[ "$output" == *"unattributed"* ]]
 }
+
+# ---------- TUNE-0060 mine-by-elimination klass ----------
+#
+# Founding incident: TUNE-0059 archive — `code/datarim/CLAUDE.md` and
+# `code/datarim/README.md` (committed body has many historical task IDs)
+# version-bump 1.18.0→1.18.2 misclassified as `foreign` despite diff lines
+# being clean. With `--task-id` set + actual diff-line IDs == ∅ + body IDs ≠ ∅,
+# attribute to current task (operator declared --task-id, diff has nothing
+# else to attribute it to). Untracked files (no diff at all) NOT eligible —
+# they fall through to existing classification per safety guard.
+
+# T26 hit: body has foreign IDs, diff lines clean (e.g., version bump on doc) → mine-by-elimination + exit 0
+@test "shared mode: body has foreign IDs + diff lines clean → mine-by-elimination (exit 0)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    # Seed CLAUDE.md-shape file: body has foreign historical task IDs
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "doc.md" "Reference DEV-1210 fix and LTM-0009 benchmark."
+    # Modify with content that contains NO task IDs (e.g., version-line bump)
+    echo "Updated for v1.18.3 release." >> "$BATS_TEST_TMPDIR/fw/doc.md"
+    run "$SCRIPT" --task-id TUNE-0060 "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"mine-by-elimination"* ]]
+}
+
+# T27 escape: diff lines contain TASK_ID → existing classification preserved (own/mixed), NOT mine-by-elimination
+@test "shared mode: diff lines contain TASK_ID → mixed (not mine-by-elimination)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "doc.md" "Reference DEV-1210 fix."
+    # Diff line contains TUNE-0060
+    echo "TUNE-0060: my edit on this line." >> "$BATS_TEST_TMPDIR/fw/doc.md"
+    run "$SCRIPT" --task-id TUNE-0060 "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"mixed"* ]]
+    [[ "$output" != *"mine-by-elimination"* ]]
+}
+
+# T28 regression-guard: diff lines contain ONLY foreign IDs → genuine foreign (not mine-by-elimination)
+@test "shared mode: diff lines contain foreign IDs → foreign (not mine-by-elimination)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "doc.md" "# doc"
+    # Diff line itself contains TRANS-0021 — genuine foreign edit
+    echo "TRANS-0021: foreign edit on this line." >> "$BATS_TEST_TMPDIR/fw/doc.md"
+    run "$SCRIPT" --task-id TUNE-0060 "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"foreign"* ]]
+    [[ "$output" != *"mine-by-elimination"* ]]
+}
