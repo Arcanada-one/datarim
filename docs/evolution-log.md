@@ -4,6 +4,35 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ---
 
+## 2026-04-29 — TUNE-0054 — Markdown reference integrity linter (`scripts/check-doc-refs.sh`) + `.docrefignore` baseline
+
+### Summary
+
+Class A — internal tooling. New invocation-only linter `scripts/check-doc-refs.sh` recursively scans `code/datarim/{CLAUDE.md,skills,agents,commands,templates,docs}/**/*.md` for broken markdown links `[text](path.md)` and bare-path mentions `(skills|agents|commands|templates|docs)/.../*.md`. Each reference resolves relative to dirname (link form) or ROOT (bare form), is canonicalised lexically, then existence-checked. Whitelist precedence: inline `<!-- doc-ref:allow path=... -->` on the same line > `.docrefignore` glob > orphan reported. Closes the recurrence loop surfaced in TUNE-0050 reflection (N=2 phantom paths shipped through `/dr-archive` undetected).
+
+### What changed
+
+- **NEW `scripts/check-doc-refs.sh`** (~170 LoC bash, mirrors `pre-archive-check.sh` style). Strict-mode (`set -u`), AWK pre-processor strips fenced code blocks (``` toggle) AND inline backtick spans before extraction. Lexical path canonicalisation (`canonicalise_path()`) collapses `./` and `../` without I/O so parent directories need not exist — required for path-traversal detection. External links (`http://`, `https://`, `mailto:`, `ftp://`, `#anchor-only`) skipped.
+- **NEW `tests/check-doc-refs.bats`** — 10 fixtures: T1 clean tree / T2 planted orphan link / T3 `.docrefignore` glob / T4 inline allow marker / T5 bare-path orphan / T6 nested relative resolves / T7 path-traversal exit 2 / T8 externals skipped / T9 fenced blocks ignored / T10 missing root exit 2. All PASS.
+- **NEW `.docrefignore`** at repo root — accepted-debt baseline (gitignore-style globs). Initial snapshot: 1 entry (`templates/security-workflow.yml` referenced by `skills/security-baseline.md:401` — TUNE-0045 P2 phantom; cleanup deferred to follow-up TUNE-0064).
+- **NEW `documentation/INSIGHTS-TUNE-0054.md`** — orphan inventory + 4 open-question resolutions + 3 follow-ups proposed (TUNE-0063/0064/0065).
+- **MOD `commands/dr-archive.md` Step 0.5(e)** — appended advisory line pointing to `scripts/check-doc-refs.sh --root code/datarim/` (non-blocking, parallel to `stack-agnostic-gate.sh --diff-only`).
+- **MOD `.github/workflows/security.yml`** — `doc-refs` job parallel to existing 12 (bats fixture suite + linter against repo HEAD; expects exit 0 with baseline applied).
+
+### Key design decisions
+
+1. **Backtick code-span stripping for bare-path extraction.** Mid-implementation self-dogfood reported 13 orphans; 12 of them were code-span mentions like `` `datarim/docs/activity-log.md` `` in narrative text. Fix: AWK pre-processor strips backticks before BOTH markdown-link AND bare-path extraction.
+2. **Lexical (no-I/O) path canonicalisation.** `cd $(dirname x) && pwd -P` fails when traversal exits the filesystem tree, falling back to literal string which then false-matches `ROOT_ABS/*` glob. Pure-bash `canonicalise_path()` resolves purely-string, traversal guard reliable.
+3. **`LC_ALL=C` for AWK.** macOS BSD awk emits multibyte warnings on Cyrillic content; byte-mode silences without affecting results (ASCII patterns only).
+4. **Class A (not B).** No operator-facing contract change; advisory only. Promotion path = TUNE-0065 follow-up if N=2 advisory-bypass incidents.
+
+### Recurrence-prevention pattern
+
+«Memory Rule → Executable Gate at Apply Step» — 7th iteration:
+TUNE-0044 → TUNE-0056 → TUNE-0058 → TUNE-0059 → TUNE-0060 → TUNE-0061 → **TUNE-0054**.
+
+---
+
 ## 2026-04-29 — TUNE-0061 — `pre-archive-check.sh` env-var whitelist extension (`DATARIM_PRE_ARCHIVE_WHITELIST`)
 
 ### Summary
