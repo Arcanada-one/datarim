@@ -359,3 +359,18 @@ jobs:
             exit 1
           fi
           echo "markdown-policy: clean"
+
+  # 13. doc-refs — markdown reference integrity linter (TUNE-0054)
+  doc-refs:
+    name: doc-refs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Install bats
+        run: sudo apt-get update && sudo apt-get install -y bats
+      - name: Run check-doc-refs bats fixtures
+        run: bats tests/check-doc-refs.bats
+      - name: Self-dogfood — run linter against repo HEAD with baseline applied
+        run: bash scripts/check-doc-refs.sh --root .

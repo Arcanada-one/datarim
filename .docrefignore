@@ -1,0 +1,16 @@
+# .docrefignore — accepted-debt baseline for scripts/check-doc-refs.sh
+#
+# Format: gitignore-style globs (one pattern per line, # comments, blank lines OK).
+# Patterns match against canonicalised paths relative to ROOT (e.g. `skills/x.md`,
+# `templates/security-workflow.yml`).
+#
+# Each entry below is a known orphan reference frozen at TUNE-0054 /dr-do
+# (2026-04-29). Cleanup tracked under follow-up TUNE-0064.
+#
+# Adding to this file is a tactical retreat — the linter is the strategic gate.
+# Prefer fixing the reference (or removing it) over whitelisting.
+#
+# Source: see documentation/INSIGHTS-TUNE-0054.md for orphan inventory + rationale.
+
+# --- Phantom template referenced by skills/security-baseline.md (TUNE-0045 carry-over)
+templates/security-workflow.yml
