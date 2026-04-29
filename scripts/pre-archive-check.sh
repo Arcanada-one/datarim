@@ -68,6 +68,29 @@ WHITELIST_BASENAMES=(
     ".gitignore"
 )
 
+# ---------- TUNE-0061 env-var extension (DATARIM_PRE_ARCHIVE_WHITELIST) ----------
+#
+# Founding incident: TUNE-0060 self-dogfood — `Projects/Websites/datarim.club/
+# config.php` is a legitimate Datarim public-surface version-bump file, but the
+# basename `config.php` is project-specific and does not belong in the canonical
+# hardcoded list shipped to all consumers. The env-var lets each consumer
+# extend the whitelist for their own version-bump files without modifying the
+# framework. Format: colon-separated basenames (PATH-style). Path components
+# rejected (basename match only, no traversal).
+
+if [ -n "${DATARIM_PRE_ARCHIVE_WHITELIST:-}" ]; then
+    IFS=':' read -ra _EXTRA_WHITELIST <<< "$DATARIM_PRE_ARCHIVE_WHITELIST"
+    for _entry in "${_EXTRA_WHITELIST[@]}"; do
+        [ -z "$_entry" ] && continue
+        if [ "$_entry" != "$(basename -- "$_entry")" ] || [ "$_entry" != "${_entry#*/}" ]; then
+            echo "ERROR: DATARIM_PRE_ARCHIVE_WHITELIST entries must be basenames (no '/'): $_entry" >&2
+            exit 2
+        fi
+        WHITELIST_BASENAMES+=("$_entry")
+    done
+    unset _EXTRA_WHITELIST _entry
+fi
+
 is_whitelisted_path() {
     local fp="$1"
     local bn

@@ -357,3 +357,42 @@ EOF
     [[ "$output" == *"foreign"* ]]
     [[ "$output" != *"mine-by-elimination"* ]]
 }
+
+# ---------- TUNE-0061 env-var whitelist extension ----------
+#
+# Founding incident: TUNE-0060 self-dogfood — `Projects/Websites/datarim.club/
+# config.php` is a legitimate Datarim public-surface version-bump file, but the
+# basename `config.php` is project-specific and does not belong in the canonical
+# hardcoded list shipped to all consumers. `DATARIM_PRE_ARCHIVE_WHITELIST`
+# (colon-separated basenames) lets each consumer extend the whitelist for their
+# own version-bump files without modifying the framework.
+
+# T29: env-var hit (single basename) → klass=whitelisted, exit 0
+@test "shared mode: env-var DATARIM_PRE_ARCHIVE_WHITELIST=config.php → whitelisted (exit 0)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "config.php" "<?php \$version = '1.0.0';"
+    echo "<?php \$version = '1.0.1';" > "$BATS_TEST_TMPDIR/fw/config.php"
+    DATARIM_PRE_ARCHIVE_WHITELIST="config.php" run "$SCRIPT" --task-id TUNE-0061 "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"whitelisted"* ]]
+}
+
+# T30: env-var colon-separated multi-basename split → all entries whitelisted
+@test "shared mode: env-var colon-separated 'foo:bar:config.php' → config.php whitelisted (exit 0)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "config.php" "seed"
+    echo "edit" > "$BATS_TEST_TMPDIR/fw/config.php"
+    DATARIM_PRE_ARCHIVE_WHITELIST="foo:bar:config.php" run "$SCRIPT" --task-id TUNE-0061 "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"whitelisted"* ]]
+}
+
+# T31: --no-whitelist overrides env-var (strict default-deny preserved)
+@test "shared mode: --no-whitelist overrides env-var → unattributed (exit 1)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "config.php" "seed"
+    echo "edit" > "$BATS_TEST_TMPDIR/fw/config.php"
+    DATARIM_PRE_ARCHIVE_WHITELIST="config.php" run "$SCRIPT" --task-id TUNE-0061 --no-whitelist "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"unattributed"* ]]
+}
