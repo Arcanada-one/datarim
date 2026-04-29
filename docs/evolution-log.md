@@ -4,6 +4,40 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ---
 
+## 2026-04-29 — TUNE-0044 — Class B apply (operating-model contract change, v1.18.0)
+
+### Summary
+
+`/dr-archive` Step 0.1 promoted from binary clean/dirty semantics to **task-ID-aware** classification for shared workspace repositories. Founding incidents: VERD-0026 (2026-04-27), DISK-0002, LTM-0017 — three archives blocked or delayed by foreign-task hunks from parallel agent sessions in `~/arcanada/.git`. Project-level rule landed in `~/arcanada/CLAUDE.md` § Multi-Agent Workspace Discipline; TUNE-0044 promotes it to framework runtime so all consumers inherit the semantics.
+
+### What changed
+
+- **`commands/dr-archive.md`** Step 0.1 rewritten with sub-steps 0.1.1–0.1.5: repo classification (workspace vs project), shared-mode check via extended `pre-archive-check.sh`, patch-staging recipe (interactive `git add -p` + non-interactive blob-swap fallback), retry-tolerant pre-commit re-verify, preserved TUNE-0032/0033 staged-diff audit, legacy single-agent project check.
+- **`scripts/pre-archive-check.sh`** extended with `--task-id <ID> --shared <repo>` flags. Classifies each modified file's hunks as `own` / `foreign` / `mixed` / `unattributed`. Exit 0 on clean / foreign-only; exit 1 on own / mixed / unattributed; exit 2 on usage error. Strict regex validation `^[A-Z]+-[0-9]{4}$`. Legacy mode unchanged (TUNE-0003 contract preserved).
+- **`tests/pre-archive-check.bats`** extended with 7 new test cases (foreign-only, own, mixed, unattributed, invalid task-id, missing --shared, legacy regression). 12 → 19 tests, all PASS.
+- **`CLAUDE.md`** § Workspace Discipline (multi-agent) added between Critical Rules and Security Mandate, summarising Step 0.1 contract for AI agents loading the framework template.
+- **`~/arcanada/CLAUDE.md`** rule 8 extended with reverse cross-cite to `commands/dr-archive.md` Step 0.1.3 (canonical recipe location).
+
+### Why
+
+Datarim's framework runtime had a single-agent assumption: any uncommitted change in workspace repos blocks `/dr-archive`. In multi-agent environments (Arcanada workspace runs 5–10 parallel sessions touching the same `datarim/{tasks,backlog,progress,activeContext}.md`), this triggered false-positive STOPs at every archive. The recipe to handle it lived only in project-level `~/arcanada/CLAUDE.md` rule 8 (DISK-0002 origin). Class B promotion: foreign hunks become a non-blocker; own forgotten hunks remain a blocker; default-deny on unattributed hunks preserves the safety contract.
+
+### Class A/B classification
+
+**Class B** — operating-model contract change to a public command (`/dr-archive`). PRD `prd/PRD-TUNE-0044-multi-agent-workspace-archive-semantics.md` approved 2026-04-29 (Pavel). Backward-compatible: legacy single-agent mode unchanged; new shared mode is opt-in via `--task-id`/`--shared`.
+
+### Verification
+
+- bats `tests/pre-archive-check.bats` — 19/19 PASS (12 legacy + 7 new).
+- Stack-agnostic gate — PASS clean on `scripts/pre-archive-check.sh`, `tests/pre-archive-check.bats`, `commands/dr-archive.md`.
+- VERSION bumped 1.18.0-rc3 → 1.18.0; CLAUDE.md / README.md badges synced across `code/datarim/` and `Projects/Datarim/`.
+
+### Approved
+
+Human (Pavel), 2026-04-29 (PRD approved earlier same day).
+
+---
+
 ## 2026-04-28 — LTM-0017 — Class A apply (3 proposals, post-archive)
 
 ### Summary

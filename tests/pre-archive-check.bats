@@ -166,3 +166,78 @@ make_dirty() {
     [[ "$output" == *"dirty"* ]]
     [[ "$output" != *"clean"* ]]
 }
+
+# ---------- TUNE-0044 shared-mode helpers ----------
+
+# Helper: seed a tracked file in a clean repo, then mutate without staging.
+make_workflow_file() {
+    local repo="$1"; local file="$2"; local content="$3"
+    mkdir -p "$(dirname "$repo/$file")"
+    echo "$content" > "$repo/$file"
+    git -C "$repo" add "$file"
+    git -C "$repo" commit --quiet -m "seed $file"
+}
+
+modify_with_task_id() {
+    local repo="$1"; local file="$2"; local task_id="$3"
+    echo "added by $task_id: workflow update" >> "$repo/$file"
+}
+
+# ---------- TUNE-0044 shared-mode tests ----------
+
+@test "shared mode: foreign hunks only → exit 0 (archive proceeds)" {
+    make_clean_repo "$BATS_TEST_TMPDIR/ws"
+    make_workflow_file "$BATS_TEST_TMPDIR/ws" "datarim/tasks.md" "# tasks"
+    modify_with_task_id "$BATS_TEST_TMPDIR/ws" "datarim/tasks.md" "TRANS-0021"
+    run "$SCRIPT" --task-id TUNE-0044 --shared "$BATS_TEST_TMPDIR/ws"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"foreign"* ]]
+}
+
+@test "shared mode: own-task-ID hunks → exit 1 (must commit)" {
+    make_clean_repo "$BATS_TEST_TMPDIR/ws"
+    make_workflow_file "$BATS_TEST_TMPDIR/ws" "datarim/tasks.md" "# tasks"
+    modify_with_task_id "$BATS_TEST_TMPDIR/ws" "datarim/tasks.md" "TUNE-0044"
+    run "$SCRIPT" --task-id TUNE-0044 --shared "$BATS_TEST_TMPDIR/ws"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"own"* ]]
+}
+
+@test "shared mode: mixed (own + foreign) hunks → exit 1 (must stage selectively)" {
+    make_clean_repo "$BATS_TEST_TMPDIR/ws"
+    make_workflow_file "$BATS_TEST_TMPDIR/ws" "datarim/progress.md" "# progress"
+    {
+        echo "TRANS-0021: workflow update"
+        echo "TUNE-0044: workflow update"
+    } >> "$BATS_TEST_TMPDIR/ws/datarim/progress.md"
+    run "$SCRIPT" --task-id TUNE-0044 --shared "$BATS_TEST_TMPDIR/ws"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"mixed"* ]]
+}
+
+@test "shared mode: unattributed hunks → exit 1 (default-deny)" {
+    make_clean_repo "$BATS_TEST_TMPDIR/ws"
+    make_workflow_file "$BATS_TEST_TMPDIR/ws" "datarim/notes.md" "# notes"
+    echo "ad-hoc edit, no task id" >> "$BATS_TEST_TMPDIR/ws/datarim/notes.md"
+    run "$SCRIPT" --task-id TUNE-0044 --shared "$BATS_TEST_TMPDIR/ws"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"unattributed"* ]]
+}
+
+@test "shared mode: invalid --task-id → exit 2" {
+    make_clean_repo "$BATS_TEST_TMPDIR/ws"
+    run "$SCRIPT" --task-id "not-an-id" --shared "$BATS_TEST_TMPDIR/ws"
+    [ "$status" -eq 2 ]
+}
+
+@test "shared mode: missing --shared → exit 2" {
+    run "$SCRIPT" --task-id TUNE-0044
+    [ "$status" -eq 2 ]
+}
+
+@test "legacy mode (no --task-id) preserved: dirty repo still exit 1" {
+    make_clean_repo "$BATS_TEST_TMPDIR/repo"
+    make_dirty "$BATS_TEST_TMPDIR/repo" untracked
+    run "$SCRIPT" "$BATS_TEST_TMPDIR/repo"
+    [ "$status" -eq 1 ]
+}

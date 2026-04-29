@@ -1,39 +1,163 @@
 #!/usr/bin/env bash
-# pre-archive-check.sh — pre-archive clean-git gate (TUNE-0003 Proposal 1)
+# pre-archive-check.sh — pre-archive clean-git gate (TUNE-0003 Proposal 1, TUNE-0044 shared mode)
 #
-# Verifies that every git repository touched by a task has a clean working tree
+# Verifies the working-tree state of every git repository touched by a task
 # before `/dr-archive` proceeds. Codifies the contract documented in
-# commands/dr-archive.md step 0.
+# commands/dr-archive.md Step 0.1.
 #
-# Usage:
-#   ./scripts/pre-archive-check.sh REPO_PATH [REPO_PATH...]
+# Two modes:
+#   1. Legacy mode (TUNE-0003) — single-agent project repos must be fully clean.
+#        Usage: pre-archive-check.sh REPO_PATH [REPO_PATH...]
+#
+#   2. Shared mode (TUNE-0044) — multi-agent workspace repos where parallel
+#      sessions may have uncommitted hunks under foreign task IDs. Only the
+#      current task's own forgotten hunks (or unattributed hunks) block.
+#        Usage: pre-archive-check.sh --task-id <ID> --shared <REPO_PATH>
 #
 # Exit codes:
-#   0  all repos clean (proceed with archive)
-#   1  at least one repo dirty (block archive)
-#   2  usage error (no args, path missing, path not a git repo)
+#   0  archive may proceed (clean / foreign-only)
+#   1  archive blocked (dirty in legacy mode; own/mixed/unattributed in shared mode)
+#   2  usage error (no args, missing path, bad regex, not a git repo)
 #
-# Output:
-#   stdout — dirty repo paths, one per line (machine-readable).
-#   stderr — human-facing summary + 3-way prompt template (commit/accept/abort)
-#            so the caller (Claude Code during /dr-archive) can present it.
+# Output (legacy mode):
+#   stdout — dirty repo paths, one per line.
+#   stderr — human-facing 3-way prompt (commit/accept/abort).
 #
-# Read-only: runs `git status --porcelain` only. No mutation of any repo.
+# Output (shared mode):
+#   stdout — TAB-separated per-file classification: <file>\t<klass>\t<task-ids-csv>
+#            klass ∈ {own, foreign, mixed, unattributed}.
+#   stderr — recipe pointer when blocking; OK summary when foreign-only.
+#
+# Read-only: runs `git status --porcelain` and `git diff` only. No mutation.
 
 set -u
 
 print_usage() {
     cat >&2 <<'EOF'
-Usage: pre-archive-check.sh REPO_PATH [REPO_PATH...]
+Usage:
+  pre-archive-check.sh REPO_PATH [REPO_PATH...]
+  pre-archive-check.sh --task-id <ID> --shared <REPO_PATH>
 
-  Checks each REPO_PATH for a clean git working tree.
+Legacy mode: every REPO_PATH must be fully clean.
+Shared mode: classify hunks by task ID; only own/mixed/unattributed block.
 
 Exit codes:
-  0 - all clean (archive may proceed)
-  1 - at least one repo dirty (archive blocked — see stderr for options)
+  0 - archive may proceed
+  1 - archive blocked (dirty / own-task hunks / unattributed)
   2 - usage error
 EOF
 }
+
+# ---------- Flag parsing (TUNE-0044 shared mode) ----------
+
+TASK_ID=""
+SHARED_REPO=""
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --task-id)
+            [ "$#" -ge 2 ] || { echo "ERROR: --task-id requires a value" >&2; exit 2; }
+            TASK_ID="$2"
+            shift 2
+            ;;
+        --shared)
+            [ "$#" -ge 2 ] || { echo "ERROR: --shared requires a path" >&2; exit 2; }
+            SHARED_REPO="$2"
+            shift 2
+            ;;
+        --)
+            shift
+            break
+            ;;
+        --help|-h)
+            print_usage
+            exit 0
+            ;;
+        -*)
+            echo "ERROR: unknown flag: $1" >&2
+            print_usage
+            exit 2
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
+# ---------- Shared mode ----------
+
+if [ -n "$TASK_ID" ] || [ -n "$SHARED_REPO" ]; then
+    # Strict regex validation per CLAUDE.md S1: anchored, no metacharacters.
+    if ! printf '%s' "$TASK_ID" | grep -qE '^[A-Z]+-[0-9]{4}$'; then
+        echo "ERROR: invalid --task-id (expected ^[A-Z]+-[0-9]{4}$): $TASK_ID" >&2
+        exit 2
+    fi
+    if [ -z "$SHARED_REPO" ]; then
+        echo "ERROR: --shared <repo> required with --task-id" >&2
+        exit 2
+    fi
+    if [ ! -e "$SHARED_REPO" ]; then
+        echo "ERROR: path not found: $SHARED_REPO" >&2
+        exit 2
+    fi
+    if [ ! -d "$SHARED_REPO/.git" ] && ! git -C "$SHARED_REPO" rev-parse --git-dir >/dev/null 2>&1; then
+        echo "ERROR: not a git repository: $SHARED_REPO" >&2
+        exit 2
+    fi
+
+    # Per-file classification.
+    block=0
+    saw_foreign=0
+    while IFS= read -r line; do
+        [ -z "$line" ] && continue
+        # `git status --porcelain` format: XY␣<path>. Strip the 3-char prefix.
+        file="${line:3}"
+        # Untracked files have no staged diff and no HEAD blob; treat the file
+        # contents as the diff text to scan for IDs.
+        diff_text=""
+        if [ -f "$SHARED_REPO/$file" ]; then
+            diff_text="$diff_text"$'\n'"$(cat "$SHARED_REPO/$file" 2>/dev/null || true)"
+        fi
+        diff_text="$diff_text"$'\n'"$(git -C "$SHARED_REPO" diff -- "$file" 2>/dev/null || true)"
+        diff_text="$diff_text"$'\n'"$(git -C "$SHARED_REPO" diff --cached -- "$file" 2>/dev/null || true)"
+        found_ids=$(printf '%s' "$diff_text" | grep -oE '[A-Z]+-[0-9]{4}' | sort -u | tr '\n' ',' | sed 's/,$//')
+        if [ -z "$found_ids" ]; then
+            klass="unattributed"
+            block=1
+        elif printf ',%s,' "$found_ids" | grep -q ",$TASK_ID,"; then
+            if [ "$found_ids" = "$TASK_ID" ]; then
+                klass="own"
+            else
+                klass="mixed"
+            fi
+            block=1
+        else
+            klass="foreign"
+            saw_foreign=1
+        fi
+        printf '%s\t%s\t%s\n' "$file" "$klass" "$found_ids"
+    done < <(git -C "$SHARED_REPO" status --porcelain 2>/dev/null)
+
+    if [ "$block" -eq 0 ]; then
+        if [ "$saw_foreign" -eq 1 ]; then
+            echo "OK: shared repo has foreign-only hunks — archive may proceed" >&2
+        else
+            echo "OK: shared repo clean — archive may proceed" >&2
+        fi
+        exit 0
+    fi
+
+    {
+        echo ""
+        echo "BLOCKED: shared repo has own / mixed / unattributed hunks for $TASK_ID."
+        echo "Apply patch-staging recipe before commit:"
+        echo "  - Interactive (TTY): git -C $SHARED_REPO add -p <file>"
+        echo "  - Non-interactive (AI agent): blob-swap recipe."
+        echo "See commands/dr-archive.md Step 0.1.3 for the canonical recipe."
+    } >&2
+    exit 1
+fi
+
+# ---------- Legacy mode (TUNE-0003) ----------
 
 if [ "$#" -eq 0 ]; then
     print_usage
