@@ -15,15 +15,56 @@ Complete and archive current task.
 
 0. **TASK RESOLUTION**: Apply Task Resolution Rule from `$HOME/.claude/skills/datarim-system.md` § Task Resolution Rule. Resolve which task is being archived (from argument or disambiguation). Use the resolved task ID for all subsequent steps.
 
-0.1. **PRE-ARCHIVE CLEAN-GIT CHECK** (MANDATORY):
-   - For every git repository touched by this task (arcanada workspace + any nested project repos like `Projects/Datarim/code/datarim/`), run `git status --porcelain`.
-   - If any repo has uncommitted changes, STOP and present the list to the user with three options:
-     a. **Commit now** (proceed with archive after commits land).
-     b. **Explicitly accept pending state** (record the reason in the archive document's "Known Outstanding State" section).
-     c. **Abort archive** (return to `/dr-do` or fix manually).
-   - Do NOT archive over a dirty working tree silently. Applied ≠ committed ≠ canonical — see TUNE-0003 reflection for the governance rationale.
-   - **Staged-diff audit (per commit):** after `git add` and before `git commit`, run `git diff --staged --stat` and visually verify the file list matches the commit-message scope. Reject the commit if files unrelated to the message scope appear in the staged set; restage selectively. Source: TUNE-0032 — 2 INFRA-0026 files (`skills/file-sync-config.md`, `templates/cli-conflict-resolver-prompt.md`) leaked into the TUNE-0032 commit despite an explicit `git add` path-list, undetected because the staged diff was not inspected before commit.
-   - **Workspace cross-task leakage detection (proactive):** when running clean-git check, examine each modified `datarim/` workflow file (`tasks.md`, `backlog.md`, `progress.md`, `activeContext.md`) and grep for task IDs other than the archiving task. If foreign task IDs appear in the diff (e.g. `TRANS-0015`, `VERD-0010`) → flag those changes as "out-of-scope, exclude from archive commit". Their state belongs to an unrelated session and must not be bundled. Source: TUNE-0033 — workspace `datarim/{tasks,backlog,progress,activeContext}.md` carried 100+ uncommitted lines from TRANS-0015 / VERD-0010 / LTM-0004 prior sessions; staged-diff audit caught the leak only at commit time; proactive task-ID mapping at Step 0.1 prevents the round-trip.
+0.1. **PRE-ARCHIVE GIT CHECK** (MANDATORY):
+
+   **0.1.1 Repo classification.** Every git repo touched by this task is one of:
+   - **Workspace repo** (shared, e.g. a workflow-state directory shared by multiple parallel agent sessions): foreign-task-ID hunks are NOT a blocker; only this task's own forgotten hunks (or unattributed hunks) block.
+   - **Project repo** (single-agent, e.g. a project's source tree): foreign-task-ID hunks are impossible by construction; treat any uncommitted change as a STOP.
+
+   Default the framework's own state directory and any cross-task workflow store to *workspace*. Default product source trees to *project*. When in doubt, ask the user.
+
+   **0.1.2 Workspace repo check** (per repo classified as shared):
+   Run `scripts/pre-archive-check.sh --task-id <CURRENT-TASK-ID> --shared <repo-path>`. The script classifies each modified file's hunks by task ID:
+   - `own` — only the current task's ID appears → MUST be committed before archive.
+   - `foreign` — only other task IDs (parallel sessions) → leave untouched, NOT a blocker.
+   - `mixed` — current + other IDs in the same diff → stage selectively (own only).
+   - `unattributed` — no task ID present → require explicit user disposition (default-deny).
+
+   Exit 0 means archive may proceed. Exit 1 means apply recipe 0.1.3 below; STOP if the user declines.
+
+   **0.1.3 Apply recipe — patch staging.** Two equivalent paths:
+
+   <!-- gate:example-only -->
+   *Preferred (interactive shell with TTY):*
+   ```
+   git -C <repo> add -p <workflow-file>
+   ```
+   Accept only hunks containing the current task ID. Reject foreign hunks.
+
+   *Fallback (non-interactive shell, e.g. AI agent without TTY):* blob-swap recipe.
+   ```
+   git -C <repo> show HEAD:<file> > /tmp/<file>-mine
+   $EDITOR /tmp/<file>-mine                       # apply only your hunk on top of HEAD
+   BLOB=$(git -C <repo> hash-object -w /tmp/<file>-mine)
+   git -C <repo> update-index --cacheinfo 100644,$BLOB,<file>
+   git -C <repo> diff --staged <file>             # verify only your edit staged
+   ```
+
+   *Pre-commit retry-tolerant re-verify* (mandatory before `git commit` in either path):
+   ```
+   git -C <repo> diff --staged --numstat          # verify file-set + line counts
+   git -C <repo> log -1 --format=%H               # capture HEAD SHA
+   ```
+   If file-set / line counts differ from expected delta, or HEAD SHA shifted (parallel session committed in between), rebuild the blob from the new HEAD and re-stage. Do not commit partial state.
+   <!-- /gate:example-only -->
+
+   **0.1.4 Cross-task leakage staged-diff audit** (TUNE-0032 / TUNE-0033, preserved):
+   After `git add` and before `git commit`, run `git diff --staged --stat` and verify the file-list matches the commit-message scope. Reject the commit if files unrelated to the message scope appear in the staged set; restage selectively. Source: TUNE-0032 — 2 INFRA-0026 files leaked into a TUNE-0032 commit because the staged diff was not inspected before commit.
+
+   **0.1.5 Project repo check** (per repo classified as single-agent):
+   Run `scripts/pre-archive-check.sh <project-repo-path>` (legacy mode, unchanged TUNE-0003 behaviour). Exit 1 → STOP and present the 3-way prompt (Commit now / Accept pending / Abort). Applied ≠ committed ≠ canonical.
+
+   **Founding incidents:** VERD-0026 (2026-04-27) — STOP'нулся на foreign hunks от параллельной сессии; project-level rule landed in `~/arcanada/CLAUDE.md` § Multi-Agent Workspace Discipline; TUNE-0044 promotes it to framework runtime. See PRD-TUNE-0044 for the rationale.
 
 0.5. **REFLECT** (MANDATORY, non-skippable):
    - Load `$HOME/.claude/skills/reflecting.md`.

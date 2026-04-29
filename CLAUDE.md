@@ -1,6 +1,6 @@
 # Datarim — Universal Iterative Workflow Framework
 
-> **Version:** 1.17.3
+> **Version:** 1.18.0
 > **Framework:** Datarim (Датарим) provides structured rules, agents, skills, and commands for iterative project execution via Claude Code — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
 > **Note:** "Datarim" is transliterated as "Датарим" in Russian. Both refer to this framework — agents must recognize either form in any language context.
 
@@ -225,6 +225,12 @@ Datarim improves itself through `/dr-archive` Step 0.5 (the `reflecting` skill):
 5. **Context before code** — Gather requirements before implementing
 6. **One thing at a time** — Implement one method/stub per iteration
 7. **Human in the loop** — Evolution proposals need approval
+
+---
+
+## Workspace Discipline (multi-agent)
+
+Workflow-state directories shared by multiple agent sessions follow Step 0.1 semantics from `commands/dr-archive.md`: foreign-task-ID hunks belong to parallel sessions and are NOT blockers; only the current task's own forgotten hunks (or unattributed hunks) block. Apply the recipe (`git add -p` or blob-swap) at Step 0.1.3. Project source trees remain single-agent and treat any uncommitted change as a STOP. Source: TUNE-0044 (2026-04-29).
 
 ---
 
