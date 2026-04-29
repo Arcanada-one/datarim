@@ -94,6 +94,21 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
         -   Do NOT proceed to `/dr-do` with a plan that pre-fails the CI security gate it itself declares.
     -   Rationale: AUTH-0002 plan locked a backend framework + HTTP-server pin (PRD-time decision) and declared the project's CI security gate at high-severity threshold. At `/dr-do` install-time, that gate failed on 5 high + 1 critical CVEs in the locked stack (body-bypass, middleware path traversal, etc.). A 30-second audit-command run against the proposed lock at `/dr-plan` time would have surfaced this and triggered the version bump before code generation, saving ~1h of mid-implementation re-pinning, re-install, re-test cycles.
 
+11.5.  **CI Verification Gate — Delta-vs-Baseline Framing (MANDATORY when plan declares a CI green-jobs gate as an acceptance criterion)**:
+    -   Before drafting V-CI («all CI jobs green» / «pipeline green» / similar) as the acceptance bar, **probe the target branch's last CI run**. If the baseline run is itself failing, a strict «all green» gate is unfulfillable by a mechanical change and will force ad-hoc V-gate reformulation at `/dr-do` or `/dr-archive` time.
+    -   For target branches with a failing baseline (e.g. WIP branches, work-branches accumulating partial fixes, dependency-bump branches against a red baseline), draft V-CI as a **delta** check: «no NEW failures vs baseline» — the change must not regress any job that was green on the baseline run.
+    -   Strict «all CI jobs green» is appropriate **only** when the baseline run is itself green.
+    <!-- gate:example-only -->
+    -   Concrete recipes (illustrative — substitute the project's actual CI provider; pattern applies equally to GitHub Actions, GitLab CI, CircleCI, Buildkite, Jenkins):
+        -   Detect baseline status: `gh run list --branch <BRANCH> --limit 1 --json conclusion,databaseId`
+        -   Capture failed jobs on baseline: `gh run view <baseline-run-id> --json jobs --jq '[.jobs[] | select(.conclusion=="failure") | .name]'`
+        -   After change, compare: `gh run view <change-run-id> --json jobs --jq '[.jobs[] | select(.conclusion=="failure") | .name]'`
+        -   Delta gate passes iff change-run failed-set ⊆ baseline failed-set (no new entries).
+        -   GitLab CI equivalent: `glab ci list --branch <BRANCH>` + `glab ci view <id>` JSON.
+    <!-- /gate:example-only -->
+    -   The plan MUST cite the baseline run id and the baseline failed-job list inline so reviewers can verify the delta gate at `/dr-qa` / `/dr-archive` without re-querying.
+    -   Rationale: TUNE-0055 + TUNE-0067 — two consecutive WIP-branch dep-bump archives required ad-hoc V-4 reformulation from «all green» to «no NEW failures vs baseline» because the target branch (`tune-0053-security-baseline`) carried 4-5 pre-existing red jobs (`shellcheck-extracted`, `bandit-extracted`, `regression-bats`, `markdown-policy`, `semgrep`). Mechanical SHA replacement of pinned action versions cannot regress unrelated red jobs, but a strict-green gate written without baseline awareness force-fails the V-checklist post-hoc. A 30-second baseline probe at `/dr-plan` time prevents the reformulation churn.
+
 12.  **Class B Public Surface Scan** (MANDATORY when Class A/B gate per `$HOME/.claude/skills/evolution.md` classifies the task as **Class B** — operating-model / contract change):
     -   Enumerate ALL user-facing surfaces that reflect the new operating model. Minimum:
         -   `code/datarim/docs/getting-started.md`
@@ -135,6 +150,7 @@ Before proceeding to `/dr-design` or `/dr-do`:
 [ ] Definition of Done is testable and explicit?
 [ ] Boundaries stated (what we DON'T do)?
 [ ] Technology stack validated (if applicable)?
+[ ] If plan declares a CI green-jobs gate, baseline CI run probed and V-CI drafted as «all green» (only if baseline green) or «no new failures vs baseline» (if baseline carries pre-existing red jobs)? Baseline run id and baseline failed-job list cited inline in plan? (TUNE-0055 + TUNE-0067: two consecutive WIP-branch dep bumps required ad-hoc V-4 reformulation; baseline probe at plan time prevents the churn.)
 [ ] Live audit checkpoint executed for any lockable manifest (project's package-manager-native audit at the declared CI threshold) and either gate passes or accepted-risk sign-off is recorded in plan? (AUTH-0002: a backend-framework + HTTP-server pin chosen at PRD time would have failed the project's high-severity audit gate — check at plan-time, not at do-time.)
 [ ] Rollback strategy viable? (verify commands actually work — e.g., is the target a git repo?)
 [ ] For TDD sections of the plan: each test assertion traced through *current* (pre-fix) code state before being labelled expected-pass or expected-fail? (TUNE-0004 QA NOTE-2: a plan predicting "3 of 4 drift tests pass before fix" was wrong because the predictions were not checked against the actual `diff -rq` behaviour with the bug still present.)
