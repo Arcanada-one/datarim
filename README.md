@@ -192,6 +192,8 @@ previously destroyed 9 runtime evolutions during the TUNE-0003 incident.
 
 ## Installation
 
+> **Releases are signed.** Every tagged release ships a cosign-signed source tarball, a CycloneDX SBOM, and a SLSA L2 build provenance attestation. Verify before installing — see [`docs/release-verification.md`](docs/release-verification.md).
+
 ### First install on a new machine
 
 ```bash
