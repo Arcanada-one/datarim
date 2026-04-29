@@ -4,6 +4,32 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ---
 
+## 2026-04-29 — TUNE-0061 — `pre-archive-check.sh` env-var whitelist extension (`DATARIM_PRE_ARCHIVE_WHITELIST`)
+
+### Summary
+
+`scripts/pre-archive-check.sh` shared mode now honours an opt-in env-var `DATARIM_PRE_ARCHIVE_WHITELIST` (colon-separated basenames, PATH-style) that extends the hardcoded TUNE-0059 whitelist with project-specific version-bump basenames at consumer level, without modifying the framework. Closes the gap surfaced in TUNE-0060 self-dogfood: `Projects/Websites/datarim.club/config.php` is a legitimate Datarim public-surface version-bump file but its basename is project-specific and does not belong in the canonical hardcoded list shipped to all consumers.
+
+### What changed
+
+- **`scripts/pre-archive-check.sh`** (+15 LoC): after the `WHITELIST_BASENAMES` defaults block, parse `${DATARIM_PRE_ARCHIVE_WHITELIST:-}` via `IFS=':' read -ra` (skip blanks, reject path components — basename match only), append entries to `WHITELIST_BASENAMES`. `is_whitelisted_path()` unchanged; `--no-whitelist` continues to short-circuit the entire whitelist check (overrides both hardcoded list AND env-var entries).
+- **`tests/pre-archive-check.bats`** (+30 LoC): T29 (env-var single basename `config.php` → whitelisted, exit 0), T30 (colon-separated `foo:bar:config.php` → all entries whitelisted, AC-3), T31 (`--no-whitelist` overrides env-var → unattributed, exit 1). bats 28 → 31 PASS.
+- **`commands/dr-archive.md`** Step 0.1.2 footnote on the `whitelisted` row documents the env-var extension and its precedence vs `--no-whitelist`.
+
+### Why
+
+TUNE-0060 archive (the previous iteration) self-dogfooded the new `mine-by-elimination` klass and surfaced one residual gap: `Projects/Websites/datarim.club/config.php` was correctly identified as a legitimate version-bump file by Pavel during the archive but the gate classified it `unattributed` (basename outside hardcoded list). The choice was either pollute the canonical list with `config.php` (breaks framework neutrality — `config.php` is generic enough that a non-Datarim consumer might NOT want it whitelisted) or add an opt-in extension mechanism. Spawn-trigger N=2 reached: TUNE-0059 (hardcoded VERSION/CHANGELOG/etc.) was the first instance; TUNE-0060 self-dogfood surfaced the second. Pattern «Memory Rule → Executable Gate at Apply Step» — sixth iteration (TUNE-0044/0056/0058/0059/0060/0061).
+
+### Class
+
+Class A (additive runtime behaviour, env-var opt-in, no contract break). VERSION 1.18.3 → 1.18.4 (patch additive). Public Surface deployed: `Projects/Websites/datarim.club/config.php` 1.18.3 → 1.18.4 + `pages/changelog.php` v1.18.4 release entry. Backwards-compat preserved by design: env-var unset → behaviour identical to TUNE-0060 (T1-T28 fixtures all PASS). `--no-whitelist` continues to override (T31 verifies). Path-traversal guard rejects `/`-containing entries with exit 2.
+
+### Self-dogfood
+
+`DATARIM_PRE_ARCHIVE_WHITELIST=config.php ./scripts/pre-archive-check.sh --task-id TUNE-0061 --shared ~/arcanada` from framework repo classifies the workspace's modified `Projects/Websites/datarim.club/config.php` as `whitelisted` (was `unattributed` in the TUNE-0060 archive run). Bats fixtures T29/T30/T31 cover the same recipe in isolation.
+
+---
+
 ## 2026-04-29 — TUNE-0060 — `pre-archive-check.sh` `mine-by-elimination` klass
 
 ### Summary
