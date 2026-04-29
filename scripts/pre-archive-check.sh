@@ -36,10 +36,13 @@ print_usage() {
     cat >&2 <<'EOF'
 Usage:
   pre-archive-check.sh REPO_PATH [REPO_PATH...]
-  pre-archive-check.sh --task-id <ID> --shared <REPO_PATH>
+  pre-archive-check.sh --task-id <ID> --shared <REPO_PATH> [--no-whitelist]
 
 Legacy mode: every REPO_PATH must be fully clean.
 Shared mode: classify hunks by task ID; only own/mixed/unattributed block.
+  Whitelist: version-bump basenames (VERSION, CHANGELOG.md, package.json,
+  Cargo.toml, pyproject.toml, .gitignore) bypass default-deny when --task-id
+  is set. Use --no-whitelist to restore strict default-deny.
 
 Exit codes:
   0 - archive may proceed
@@ -48,10 +51,38 @@ Exit codes:
 EOF
 }
 
-# ---------- Flag parsing (TUNE-0044 shared mode) ----------
+# ---------- TUNE-0059 whitelist (version-bump basenames) ----------
+#
+# Founding incident: TUNE-0056 self-dogfood — `VERSION` (single line `1.18.1`)
+# physically cannot carry a task ID and was misclassified as `unattributed`,
+# blocking a legitimate release commit. Whitelist activates only when the
+# operator supplies `--task-id` (commit-time disposition). `--no-whitelist`
+# escape restores strict default-deny for paranoid contexts.
+
+WHITELIST_BASENAMES=(
+    "VERSION"
+    "CHANGELOG.md"
+    "package.json"
+    "Cargo.toml"
+    "pyproject.toml"
+    ".gitignore"
+)
+
+is_whitelisted_path() {
+    local fp="$1"
+    local bn
+    bn="$(basename -- "$fp")"
+    for w in "${WHITELIST_BASENAMES[@]}"; do
+        [ "$bn" = "$w" ] && return 0
+    done
+    return 1
+}
+
+# ---------- Flag parsing (TUNE-0044 shared mode, TUNE-0059 whitelist escape) ----------
 
 TASK_ID=""
 SHARED_REPO=""
+NO_WHITELIST=0
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --task-id)
@@ -63,6 +94,10 @@ while [ "$#" -gt 0 ]; do
             [ "$#" -ge 2 ] || { echo "ERROR: --shared requires a path" >&2; exit 2; }
             SHARED_REPO="$2"
             shift 2
+            ;;
+        --no-whitelist)
+            NO_WHITELIST=1
+            shift
             ;;
         --)
             shift
@@ -133,8 +168,14 @@ if [ -n "$SHARED_REPO" ]; then
         diff_text="$diff_text"$'\n'"$(git -C "$SHARED_REPO" diff --cached -- "$file" 2>/dev/null || true)"
         found_ids=$(printf '%s' "$diff_text" | grep -oE '[A-Z]+-[0-9]{4}' | sort -u | tr '\n' ',' | sed 's/,$//')
         if [ -z "$found_ids" ]; then
-            klass="unattributed"
-            block=1
+            if [ "$NO_WHITELIST" -eq 0 ] && is_whitelisted_path "$file"; then
+                klass="whitelisted"
+                # Operator-supplied --task-id is the disposition; surface in stdout
+                # so the bypass is visible (not silent).
+            else
+                klass="unattributed"
+                block=1
+            fi
         elif printf ',%s,' "$found_ids" | grep -q ",$TASK_ID,"; then
             if [ "$found_ids" = "$TASK_ID" ]; then
                 klass="own"
