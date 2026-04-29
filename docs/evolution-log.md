@@ -4,6 +4,33 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ---
 
+## 2026-04-30 — TUNE-0069 — `commands/dr-plan.md` CI delta-vs-baseline framing for V-checklist
+
+### Summary
+
+Class A — internal tooling. `commands/dr-plan.md` Step 11.5 codifies CI delta-vs-baseline framing for V-checklist generation: when target branch's last CI run is itself failing (WIP branches, work-branches with partial fixes, dep-bump branches against red baseline), V-CI MUST be drafted as «no NEW failures vs baseline» rather than strict «all green». Strict-green gate appropriate only when baseline run is itself green. Validation Checklist updated with corresponding entry. Closes TUNE-0067 reflection Proposal 2 (N=2 spawn-trigger met via TUNE-0055 + TUNE-0067).
+
+### What changed
+
+- **MOD `commands/dr-plan.md`** — NEW Step 11.5 «CI Verification Gate — Delta-vs-Baseline Framing» (~30 lines), inserted between Live Audit Checkpoint (11) and Class B Public Surface Scan (12). Includes baseline-probe rationale, delta-gate semantics, stack-agnostic recipe wrapped in `<!-- gate:example-only -->` (GitHub Actions / GitLab CI variants), inline-cite requirement for baseline run id and failed-job list, TUNE-0055 + TUNE-0067 source-incident citation.
+- **MOD `commands/dr-plan.md` Transition Checkpoint** — added baseline-probe checklist entry above Live Audit row.
+
+### Key design decisions
+
+1. **Step 11.5 (not 12) to avoid renumbering.** Existing Step 6.5 precedent for sub-numbered steps; downstream Steps 12 (Class B Public Surface Scan) and 13 (Output Summary) keep their numbers — no cross-document refactor needed.
+2. **`gh` CLI recipe wrapped in example-only fence.** Stack-agnostic invariant requires `gh`/`glab` examples to be illustrative, not prescriptive; pattern (baseline probe + delta compare) is the contract, specific tool is operator's choice.
+3. **Inline baseline-citation requirement.** Plan MUST cite baseline run id and failed-job list so `/dr-qa` and `/dr-archive` can verify the delta gate without re-querying `gh` (also makes the gate stable against post-hoc CI runs that close or reopen flaky failures).
+4. **Class A (not B).** No operator-facing contract change; framework runtime invariant («mechanical changes can't regress unrelated red jobs») stays the same — Step 11.5 just makes the V-checklist author-aware of it. No VERSION bump, no datarim.club deploy.
+
+### Recurrence-prevention pattern
+
+«Memory Rule → Executable Gate at Apply Step» — 9th iteration:
+TUNE-0044 → TUNE-0056 → TUNE-0058 → TUNE-0059 → TUNE-0060 → TUNE-0061 → TUNE-0054 → TUNE-0068 → **TUNE-0069**.
+
+Source incidents (N=2): TUNE-0055 (`actions/checkout` v4→v5, baseline 4 red jobs, V-4 reformulation post-hoc) + TUNE-0067 (`actions/setup-python` v5→v6, baseline 5 red jobs, V-4 reformulation post-hoc). Both archives explicitly held this proposal with N=2 spawn-trigger met; TUNE-0069 is the deferred application.
+
+---
+
 ## 2026-04-29 — TUNE-0054 — Markdown reference integrity linter (`scripts/check-doc-refs.sh`) + `.docrefignore` baseline
 
 ### Summary
