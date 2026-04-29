@@ -164,9 +164,18 @@ if [ -n "$SHARED_REPO" ]; then
         if [ -f "$SHARED_REPO/$file" ]; then
             diff_text="$diff_text"$'\n'"$(cat "$SHARED_REPO/$file" 2>/dev/null || true)"
         fi
-        diff_text="$diff_text"$'\n'"$(git -C "$SHARED_REPO" diff -- "$file" 2>/dev/null || true)"
-        diff_text="$diff_text"$'\n'"$(git -C "$SHARED_REPO" diff --cached -- "$file" 2>/dev/null || true)"
+        # TUNE-0060: capture the actual diff (additions/removals) separately so
+        # we can distinguish IDs introduced by THIS edit from IDs that already
+        # lived in the committed body. Used by mine-by-elimination klass.
+        diff_changes="$(git -C "$SHARED_REPO" diff -- "$file" 2>/dev/null || true)"
+        diff_changes_cached="$(git -C "$SHARED_REPO" diff --cached -- "$file" 2>/dev/null || true)"
+        diff_text="$diff_text"$'\n'"$diff_changes"$'\n'"$diff_changes_cached"
         found_ids=$(printf '%s' "$diff_text" | grep -oE '[A-Z]+-[0-9]{4}' | sort -u | tr '\n' ',' | sed 's/,$//')
+        # TUNE-0060: extract task IDs only from actual added/removed lines
+        # (lines starting with single `+` or `-`, excluding `+++`/`---` headers).
+        diff_line_ids=$(printf '%s\n%s\n' "$diff_changes" "$diff_changes_cached" \
+            | grep -E '^[+-][^+-]' \
+            | grep -oE '[A-Z]+-[0-9]{4}' | sort -u | tr '\n' ',' | sed 's/,$//')
         if [ -z "$found_ids" ]; then
             if [ "$NO_WHITELIST" -eq 0 ] && is_whitelisted_path "$file"; then
                 klass="whitelisted"
@@ -183,6 +192,17 @@ if [ -n "$SHARED_REPO" ]; then
                 klass="mixed"
             fi
             block=1
+        elif [ -n "$TASK_ID" ] \
+             && { [ -n "$diff_changes" ] || [ -n "$diff_changes_cached" ]; } \
+             && [ -z "$diff_line_ids" ]; then
+            # TUNE-0060: file body carries foreign historical IDs but the actual
+            # diff lines added/removed by this session contain ZERO task IDs.
+            # Operator declared --task-id; nothing else to attribute the edit
+            # to. Closes the CLAUDE.md/README.md misclassification surfaced in
+            # TUNE-0059 archive. Untracked files (no diff at all) skip this
+            # branch and fall through to `foreign` per safety guard.
+            klass="mine-by-elimination"
+            saw_foreign=1
         else
             klass="foreign"
             saw_foreign=1

@@ -4,6 +4,35 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ---
 
+## 2026-04-29 — TUNE-0060 — `pre-archive-check.sh` `mine-by-elimination` klass
+
+### Summary
+
+`scripts/pre-archive-check.sh` shared mode got a 6-th hunk classification, `mine-by-elimination`. When `--task-id <ID>` is set, the file is modified (has actual diff lines), AND those diff lines (additions/removals) contain ZERO task IDs while the committed body carries foreign historical IDs, the gate attributes the edit to the current task and exits 0. Closes the false-`foreign` misclassification of doc edits like `CLAUDE.md`, `README.md`, and architectural docs where the body references many historical tasks but the current edit (e.g., a version-line bump) introduces none.
+
+### What changed
+
+- **`scripts/pre-archive-check.sh`** (+19 LoC): per-file capture of `diff_changes` and `diff_changes_cached` separately from full `diff_text`; `diff_line_ids` extraction from added/removed lines only (`grep -E '^[+-][^+-]'`); new branch in classification cascade between the `mixed` arm and the `foreign` arm that fires when `--task-id` set + diff is non-empty + `diff_line_ids` empty. Untracked files (no diff at all) skip the branch and fall through to `foreign` per safety guard.
+- **`tests/pre-archive-check.bats`** (+30 LoC): T26 (body has foreign IDs + diff lines clean → mine-by-elimination + exit 0), T27 (diff lines contain TASK_ID → mixed, NOT mine-by-elimination), T28 (diff lines contain only foreign IDs → foreign, NOT mine-by-elimination). bats 25 → 28 PASS.
+- **`commands/dr-archive.md`** Step 0.1.2: 6-th classification row (`mine-by-elimination`) added to the contract paragraph with the safety-guard note for untracked files.
+
+### Why
+
+TUNE-0059 archive surfaced the residual false-positive after the whitelist landed. `code/datarim/CLAUDE.md` and `code/datarim/README.md` (committed body has many historical task IDs from prior reflections + features) version-bumped 1.18.0 → 1.18.2 in TUNE-0059 archive — the diff lines were just `-1.18.0` / `+1.18.2`, no IDs introduced by the current session. The `whitelisted` klass did not cover them (basename ≠ version-bump file), and `found_ids` from the body had IDs but none matched `--task-id TUNE-0059`, so the gate said `foreign`. The operator manually staged via `git add` to work around — the same toll TUNE-0058 closed for baseline matches in `stack-agnostic-gate.sh`. Spawn-trigger N=2 reached by Pavel approval (TUNE-0059 self = N=1, CLAUDE.md/README.md observed misclassification = second class instance, escalated by operator).
+
+### Class
+
+Class B (operating-model contract change — extends what counts as `attributed`). VERSION 1.18.2 → 1.18.3 (patch additive). Public Surface deployed: `Projects/Websites/datarim.club/config.php` 1.18.2 → 1.18.3 + `pages/changelog.php` v1.18.3 release entry. Backwards-compat preserved: T1-T25 fixtures all PASS; safety guard ensures untracked files are NOT misclassified.
+
+### Verification
+
+- `bats tests/pre-archive-check.bats` → 28/28 PASS.
+- `bats tests/pre-archive-check.bats tests/stack-agnostic-gate.bats` → 38/38 PASS (full repo regression).
+- `shellcheck -S warning scripts/pre-archive-check.sh` → clean.
+- Pattern «Memory Rule → Executable Gate at Apply Step» — fifth iteration (TUNE-0044/0056/0058/0059/**0060**).
+
+---
+
 ## 2026-04-29 — TUNE-0059 — `pre-archive-check.sh` whitelist for version-bump basenames
 
 ### Summary
