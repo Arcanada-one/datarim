@@ -194,10 +194,14 @@ if [ -n "$SHARED_REPO" ]; then
         diff_changes_cached="$(git -C "$SHARED_REPO" diff --cached -- "$file" 2>/dev/null || true)"
         diff_text="$diff_text"$'\n'"$diff_changes"$'\n'"$diff_changes_cached"
         found_ids=$(printf '%s' "$diff_text" | grep -oE '[A-Z]+-[0-9]{4}' | sort -u | tr '\n' ',' | sed 's/,$//')
-        # TUNE-0060: extract task IDs only from actual added/removed lines
-        # (lines starting with single `+` or `-`, excluding `+++`/`---` headers).
+        # TUNE-0060/TUNE-0068: extract task IDs only from actual added/removed
+        # lines (those starting with `+` or `-`, excluding the `+++`/`---` file
+        # headers). The earlier `^[+-][^+-]` shape rejected legitimate content
+        # lines whose first character was `-` or `+` (markdown bullets, diff
+        # markers in prose) — observed via TUNE-0068 self-dogfood on workspace
+        # `activeContext.md` where `+- **TUNE-0068**` was filtered out.
         diff_line_ids=$(printf '%s\n%s\n' "$diff_changes" "$diff_changes_cached" \
-            | grep -E '^[+-][^+-]' \
+            | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' \
             | grep -oE '[A-Z]+-[0-9]{4}' | sort -u | tr '\n' ',' | sed 's/,$//')
         if [ -z "$found_ids" ]; then
             if [ "$NO_WHITELIST" -eq 0 ] && is_whitelisted_path "$file"; then
@@ -208,8 +212,13 @@ if [ -n "$SHARED_REPO" ]; then
                 klass="unattributed"
                 block=1
             fi
-        elif printf ',%s,' "$found_ids" | grep -q ",$TASK_ID,"; then
-            if [ "$found_ids" = "$TASK_ID" ]; then
+        elif printf ',%s,' "$diff_line_ids" | grep -q ",$TASK_ID,"; then
+            # TUNE-0068: own/mixed gate considers only IDs on actual diff lines
+            # (`^[+-][^+-]`). Committed-body and hunk-context IDs no longer
+            # taint classification — closes the false-positive `mixed` observed
+            # on workspace `tasks.md`/`activeContext.md`/`backlog.md` in the
+            # TUNE-0055 + TUNE-0067 archives where TASK_ID lived only in body.
+            if [ "$diff_line_ids" = "$TASK_ID" ]; then
                 klass="own"
             else
                 klass="mixed"
