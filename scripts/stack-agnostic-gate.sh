@@ -10,12 +10,23 @@
 #
 # Usage:
 #   scripts/stack-agnostic-gate.sh <file-or-dir> [--whitelist <path>] ...
+#                                  [--diff-only [<base>]]
 #
 # Inputs:
 #   <file-or-dir>   Path to scan. File → single-file mode. Directory →
 #                   recursive *.md scan (excluding tests/fixtures/).
 #   --whitelist     Optional, repeatable. Default whitelist: skills/tech-stack.md.
 #                   Whitelist match is suffix-based (path ends with the value).
+#   --diff-only     Scan only lines added in `git diff <base> -- <file>` —
+#                   ignore pre-existing baseline matches (TUNE-0058). Default
+#                   base = HEAD. Optional positional next arg is treated as
+#                   base if it does not exist as a filesystem path. Single-file
+#                   target outside a git repo or untracked → exit 2; directory
+#                   scan silently skips untracked files. Source incident:
+#                   TUNE-0044 + TUNE-0056 self-dogfood operator-toll on
+#                   docs/evolution-log.md (pre-existing matches kept failing
+#                   the gate every archive even when the current task did not
+#                   touch them).
 #
 # Output (stderr):
 #   Per match: "<path>:<line>:<keyword>: <context>"
@@ -95,6 +106,8 @@ WHITELIST=(
 # Argument parsing
 # ---------------------------------------------------------------------------
 TARGET=""
+DIFF_ONLY=0
+DIFF_BASE="HEAD"
 while [ $# -gt 0 ]; do
     case "$1" in
         --whitelist)
@@ -107,8 +120,20 @@ while [ $# -gt 0 ]; do
             WHITELIST=()
             shift
             ;;
+        --diff-only)
+            DIFF_ONLY=1
+            shift
+            # Optional next positional: treat as base ref if it doesn't start
+            # with a flag and doesn't resolve to an existing filesystem path
+            # (refs and SHAs aren't paths under normal cwd). User can still
+            # disambiguate by passing `./main` to force path interpretation.
+            if [ $# -gt 0 ] && [ "${1#-}" = "$1" ] && [ ! -e "$1" ]; then
+                DIFF_BASE="$1"
+                shift
+            fi
+            ;;
         --help|-h)
-            sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'
+            sed -n '2,40p' "$0" | sed 's/^# \{0,1\}//'
             exit 0
             ;;
         --*)
@@ -153,14 +178,36 @@ is_whitelisted() {
 }
 
 # Strip lines inside <!-- gate:example-only --> ... <!-- /gate:example-only -->
-# blocks. Output goes to stdout; line numbers preserved by replacing skipped
-# lines with blanks (so grep -n still maps to the original file line).
+# blocks. Reads from stdin, writes to stdout; line numbers preserved by
+# replacing skipped lines with blanks (so grep -n still maps to the original
+# stream offset). In --diff-only mode the stream is the added-lines only, so
+# numbers refer to "added-line N" rather than file line N.
 strip_example_blocks() {
     awk '
         /<!-- gate:example-only -->/ { skip=1; print ""; next }
         /<!-- \/gate:example-only -->/ { skip=0; print ""; next }
         { if (skip) print ""; else print }
-    ' "$1"
+    '
+}
+
+# Produce the content stream that scan_file should examine for `$1`. In full
+# mode this is just the file. In --diff-only mode it is the added lines from
+# `git diff <base> -- <file>` (without the leading `+` and without `+++`
+# headers). On diff-only failures returns non-zero — caller decides whether
+# that is a hard error (single-file mode) or a silent skip (directory mode).
+produce_scan_stream() {
+    local file="$1"
+    if [ "$DIFF_ONLY" -ne 1 ]; then
+        cat "$file"
+        return 0
+    fi
+    local repo_root
+    repo_root="$(git -C "$(dirname "$file")" rev-parse --show-toplevel 2>/dev/null)" || return 2
+    if ! git -C "$repo_root" ls-files --error-unmatch -- "$file" >/dev/null 2>&1; then
+        return 2
+    fi
+    git -C "$repo_root" diff "$DIFF_BASE" -- "$file" 2>/dev/null \
+        | awk '/^\+\+\+ /{next} /^\+/{print substr($0,2)}'
 }
 
 SCAN_FILE_HITS=0
@@ -176,10 +223,22 @@ for kw in "${DENYLIST[@]}"; do
     fi
 done
 
+SCAN_FILE_DIFF_SKIP=0
+
 scan_file() {
     SCAN_FILE_HITS=0
+    SCAN_FILE_DIFF_SKIP=0
     local file="$1"
     if is_whitelisted "$file"; then
+        return 0
+    fi
+
+    # produce_scan_stream emits the content to scan (full file in default
+    # mode, added-lines-only in --diff-only). Non-zero = non-git or untracked
+    # file in --diff-only — flag for caller.
+    local stream
+    if ! stream="$(produce_scan_stream "$file")"; then
+        SCAN_FILE_DIFF_SKIP=1
         return 0
     fi
 
@@ -189,7 +248,7 @@ scan_file() {
     # case-insensitive. -n for line numbers. -o gives matching token only,
     # which we use to label each hit precisely.
     local matches
-    matches="$(strip_example_blocks "$file" | grep -n -w -i -E -o -- "$DENYLIST_REGEX" 2>/dev/null || true)"
+    matches="$(printf '%s\n' "$stream" | strip_example_blocks | grep -n -w -i -E -o -- "$DENYLIST_REGEX" 2>/dev/null || true)"
 
     [ -z "$matches" ] && return 0
 
@@ -214,6 +273,10 @@ scan_path() {
     local path="$1"
     if [ -f "$path" ]; then
         scan_file "$path"
+        if [ "$DIFF_ONLY" -eq 1 ] && [ "$SCAN_FILE_DIFF_SKIP" -eq 1 ]; then
+            echo "stack-agnostic-gate: --diff-only requires a tracked file inside a git repo: $path" >&2
+            exit 2
+        fi
         if [ "$SCAN_FILE_HITS" -gt 0 ]; then
             TOTAL_HITS=$((TOTAL_HITS + SCAN_FILE_HITS))
             FILES_WITH_HITS=$((FILES_WITH_HITS + 1))

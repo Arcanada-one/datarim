@@ -4,6 +4,45 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ---
 
+## 2026-04-29 — TUNE-0058 — `stack-agnostic-gate.sh --diff-only [<base>]` flag
+
+### Summary
+
+`scripts/stack-agnostic-gate.sh` got a new `--diff-only [<base>]` mode that scans only lines added by `git diff <base> -- <file>` (default base `HEAD`) instead of the full file. Pre-existing baseline matches in shared-history files (`docs/evolution-log.md`, README, changelog and similar) are ignored, removing the operator-toll of running `git diff '^+'` manually at every archive to prove the current task did not introduce a fresh stack-specific term. Default full-file scan unchanged.
+
+### What changed
+
+- **`scripts/stack-agnostic-gate.sh`** (+30/-7 LoC): `--diff-only` flag parsing with optional positional base ref (lookahead disambiguation: consumed only if next arg does not exist as a filesystem path); new `produce_scan_stream` helper that emits either the full file or the added-lines stream from `git diff`; `strip_example_blocks` refactored to read from stdin (decoupled from file argument) so both modes share a single downstream pipeline; single-file invocation on untracked or non-git target → exit 2 with explanatory message; directory-scan mode silently skips untracked files; `--help` line-range bumped (`2,30p` → `2,40p`) to cover the new Inputs paragraph.
+- **`tests/stack-agnostic-gate.bats`** (+85 LoC): 4 new fixture-based tests T7-T10 with `setup_diff_repo` / `teardown_diff_repo` helpers that build a throwaway `mktemp -d` git repo with a baseline file containing pre-existing stack-specific terms. T7 (no edits → diff-only PASS), T8 (added stack-specific line → diff-only FAIL), T9 (mixed baseline + clean additions → diff-only PASS), T10 (non-git path → exit 2). bats 6 → 10 PASS.
+- **`commands/dr-archive.md`** Step 0.5(e): one extra sentence recommending `--diff-only` invocation for shared-history files when applying Class A through the stack-agnostic gate, with the rationale and source citation.
+
+### Why
+
+Recurring rough edge surfaced at TUNE-0044 + TUNE-0056 self-dogfood: `docs/evolution-log.md` already carried 3 pre-existing baseline matches from older entries; the gate failed every archive that touched the file even when the current task added zero stack terms. Operator had to verify by hand via `git diff '^+'` to prove no fresh leak — same recipe each time, no automation. `--diff-only` codifies that recipe inside the gate itself; consumers ask once and the gate scopes itself to the current task's contribution.
+
+### Class
+
+Class A (additive, internal behaviour, no public surface). No VERSION bump expected. No datarim.club deploy. Backwards-compat preserved: default full-file scan untouched, T1-T6 legacy fixtures all PASS, whitelist + example-only fence semantics unchanged.
+
+### Verification
+
+- `bats tests/stack-agnostic-gate.bats tests/pre-archive-check.bats` → 32/32 PASS.
+- `shellcheck -S warning scripts/stack-agnostic-gate.sh` → clean.
+- Self-dogfood: `./scripts/stack-agnostic-gate.sh docs/evolution-log.md` → `FAIL: 3 matches`; `./scripts/stack-agnostic-gate.sh --diff-only docs/evolution-log.md` → `PASS: clean`.
+- Stack-agnostic gate self-passes on the modified script (bash + grep, zero stack terms by construction).
+
+### Held proposals (none applied this archive)
+
+- **Proposal 1 (Class A, hold).** `--help` sentinel terminator pattern (e.g. `# --- end help ---`) to replace `sed -n '<start>,<end>p'` magic numbers in shipped scripts. Spawn-trigger N=2: TUNE-0058 + any future flag addition that requires another bump.
+- **Proposal 2 (Class B, hold).** `--diff-classify` mode for `pre-archive-check.sh` that classifies hunks by task IDs found inside the current diff text rather than commit history. Reduces over-broad "mixed" classification on shared-history files (`commands/dr-archive.md`, gate script, bats files) where commit history accumulates many task IDs but the current diff is single-task. Spawn-trigger N=2: TUNE-0056 + TUNE-0058.
+
+### Source incidents
+
+- TUNE-0044 archive (2026-04-29) — first observed `docs/evolution-log.md` baseline match leaking through.
+- TUNE-0056 archive (2026-04-29) — same operator-toll repeated; held as Class A Proposal 1.
+
+---
+
 ## 2026-04-29 — TUNE-0056 — Class B apply (conditional-shared classification via marker file, v1.18.1)
 
 ### Summary
