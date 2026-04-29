@@ -82,7 +82,7 @@ Complete and archive current task.
      b. Generate evolution proposals (categories: skill-update, agent-update, claude-md-update, new-template, new-skill).
      c. Classify Class A / Class B per `skills/evolution.md`.
      d. Present Class A for approval; hold Class B (require PRD update before apply).
-     e. Apply approved Class A to runtime (stack-agnostic gate MUST PASS per `$HOME/.claude/skills/evolution/stack-agnostic-gate.md`; gate FAIL → reject the proposal and ask user to either reword stack-neutral or relocate to project's `CLAUDE.md`); log applied changes in `datarim/docs/evolution-log.md`.
+     e. Apply approved Class A to runtime (stack-agnostic gate MUST PASS per `$HOME/.claude/skills/evolution/stack-agnostic-gate.md`; gate FAIL → reject the proposal and ask user to either reword stack-neutral or relocate to project's `CLAUDE.md`); log applied changes in `datarim/docs/evolution-log.md`. **Recommended invocation for shared-history files** (`docs/evolution-log.md`, README, changelog and any file that already carries pre-existing baseline matches): `scripts/stack-agnostic-gate.sh --diff-only <path>` — scans only lines added by the current task (`git diff HEAD -- <path>`), ignoring legacy baseline content. Default full-file mode remains correct for newly-touched skills/agents/commands/templates. Source: TUNE-0058.
      f. Run health-metrics check; suggest `/dr-optimize` if thresholds exceeded (no auto-run).
      g. Note follow-up tasks for Step 4 consumption.
    - Step CANNOT be skipped. No `--no-reflect` flag exists.
