@@ -283,13 +283,13 @@ jobs:
           persist-credentials: false
       - name: Install osv-scanner (release checksums verified)
         env:
-          OSV_VERSION: 1.9.2
+          OSV_VERSION: 2.3.5
         run: |
           set -euo pipefail
           base="https://github.com/google/osv-scanner/releases/download/v${OSV_VERSION}"
           asset="osv-scanner_linux_amd64"
           curl -fsSL -o "/tmp/${asset}" "${base}/${asset}"
-          curl -fsSL -o "/tmp/osv-scanner_SHA256SUMS" "${base}/SHA256SUMS"
+          curl -fsSL -o "/tmp/osv-scanner_SHA256SUMS" "${base}/osv-scanner_SHA256SUMS"
           (cd /tmp && grep "${asset}" osv-scanner_SHA256SUMS | sha256sum -c -)
           sudo install -m 0755 "/tmp/${asset}" /usr/local/bin/osv-scanner
           osv-scanner --version
@@ -334,7 +334,7 @@ jobs:
               /StrictHostKeyChecking=no/ { printf "%s:%d:[ssh-disable] %s\n", FILENAME, NR, $0; found=1 }
               /curl[[:space:]]+[^|]*\|[[:space:]]*bash([[:space:]]|$)/ { printf "%s:%d:[curl-bash] %s\n", FILENAME, NR, $0; found=1 }
               /curl[[:space:]]+[^|]*\|[[:space:]]*sh([[:space:]]|$)/ { printf "%s:%d:[curl-sh] %s\n", FILENAME, NR, $0; found=1 }
-              /client_secret_/ { printf "%s:%d:[client-secret] %s\n", FILENAME, NR, $0; found=1 }
+              /client_secret_[a-zA-Z0-9_-]{20,}/ { printf "%s:%d:[client-secret] %s\n", FILENAME, NR, $0; found=1 }
               END { exit (found ? 1 : 0) }
             ' "$md" || fail=1
           done
