@@ -38,6 +38,7 @@ Complete and archive current task.
    - `foreign` — only other task IDs (parallel sessions) → leave untouched, NOT a blocker.
    - `mixed` — current + other IDs in the same diff → stage selectively (own only).
    - `unattributed` — no task ID present → require explicit user disposition (default-deny).
+   - `whitelisted` (TUNE-0059) — basename is a known version-bump file (`VERSION`, `CHANGELOG.md`, `package.json`, `Cargo.toml`, `pyproject.toml`, `.gitignore`) AND `--task-id` is set → bypass default-deny (operator-supplied disposition is the attribution). Pass `--no-whitelist` to restore strict behaviour.
 
    Exit 0 means archive may proceed. Exit 1 means apply recipe 0.1.3 below; STOP if the user declines.
 

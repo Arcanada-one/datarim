@@ -279,3 +279,35 @@ EOF
     [ "$status" -eq 1 ]
     [[ "$output" == *"own"* ]]
 }
+
+# ---------- TUNE-0059 whitelist (version-bump basenames) ----------
+
+# T23: VERSION-only edit + --task-id → klass=whitelisted, exit 0
+@test "shared mode: whitelisted basename (VERSION) + --task-id → exit 0 (whitelisted)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "VERSION" "1.0.0"
+    echo "1.0.1" > "$BATS_TEST_TMPDIR/fw/VERSION"
+    run "$SCRIPT" --task-id TUNE-0059 "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"whitelisted"* ]]
+}
+
+# T24: --no-whitelist escape → VERSION classified as unattributed → exit 1
+@test "shared mode: --no-whitelist escape + VERSION → exit 1 (unattributed restored)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "VERSION" "1.0.0"
+    echo "1.0.1" > "$BATS_TEST_TMPDIR/fw/VERSION"
+    run "$SCRIPT" --task-id TUNE-0059 --no-whitelist "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"unattributed"* ]]
+}
+
+# T25: non-whitelisted basename without task-id → still unattributed (default-deny preserved)
+@test "shared mode: non-whitelisted basename without task-id → exit 1 (default-deny preserved)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "random.txt" "seed"
+    echo "ad-hoc edit" >> "$BATS_TEST_TMPDIR/fw/random.txt"
+    run "$SCRIPT" --task-id TUNE-0059 "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"unattributed"* ]]
+}

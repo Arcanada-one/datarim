@@ -4,6 +4,34 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ---
 
+## 2026-04-29 — TUNE-0059 — `pre-archive-check.sh` whitelist for version-bump basenames
+
+### Summary
+
+`scripts/pre-archive-check.sh` shared mode got a 5-th hunk classification, `whitelisted`. When `--task-id <ID>` is set and a modified file's basename matches a hardcoded list of version-bump files (`VERSION`, `CHANGELOG.md`, `package.json`, `Cargo.toml`, `pyproject.toml`, `.gitignore`), the gate accepts it without a task-ID inside the diff. The operator-supplied `--task-id` is the attribution. Pass `--no-whitelist` to restore strict default-deny.
+
+### What changed
+
+- **`scripts/pre-archive-check.sh`** (+33/-2 LoC): `WHITELIST_BASENAMES` array (6 entries) with founding-incident comment; `is_whitelisted_path()` helper (basename exact-match, no regex on user input); `NO_WHITELIST=0` global; `--no-whitelist` flag in arg parser; classification branch wraps the empty-`found_ids` else-branch with whitelist check; usage text extended with whitelist paragraph.
+- **`tests/pre-archive-check.bats`** (+30 LoC): T23 (whitelisted basename + `--task-id` → exit 0, klass=whitelisted), T24 (`--no-whitelist` escape restores `unattributed` → exit 1), T25 (non-whitelisted basename without task-ID → default-deny preserved → exit 1). bats 22 → 25 PASS.
+- **`commands/dr-archive.md`** Step 0.1.2: 5-th classification row (`whitelisted`) added to the contract paragraph with the basename list and `--no-whitelist` escape note.
+
+### Why
+
+TUNE-0056 self-dogfood surfaced the false positive: `VERSION` (single line `1.18.1`) physically cannot carry a task ID and was classified as `unattributed`, blocking a legitimate release commit. Pavel's `/dr-archive {TASK-ID}` IS the disposition, but the gate had no machine-readable way to see it. Spawn-trigger N=2 was reached when the same toll resurfaced in the TUNE-0059 self-dogfood (catch-up VERSION drift from TUNE-0056). Whitelist closes the gap without weakening default-deny: it activates only with `--task-id` (operator disposition) and prints the bypass on stdout for visibility.
+
+### Class
+
+Class B (operating-model contract change — extends what counts as `attributed`). VERSION 1.18.1 → 1.18.2 (patch additive). Public Surface deployed: `Projects/Websites/datarim.club/config.php` 1.18.1 → 1.18.2 + `pages/changelog.php` v1.18.2 release entry. Backwards-compat preserved: T1-T22 fixtures all PASS, default-deny still default for all non-whitelisted unattributed hunks.
+
+### Verification
+
+- `bats tests/pre-archive-check.bats` → 25/25 PASS.
+- `shellcheck -S warning scripts/pre-archive-check.sh` → clean.
+- Self-dogfood: `./scripts/pre-archive-check.sh --task-id TUNE-0059 .` from framework repo → `VERSION` line shows `whitelisted` in stdout.
+
+---
+
 ## 2026-04-29 — TUNE-0058 — `stack-agnostic-gate.sh --diff-only [<base>]` flag
 
 ### Summary
