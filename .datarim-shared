@@ -1,0 +1,13 @@
+# Datarim shared-workspace marker (TUNE-0056)
+#
+# Presence of this file at a repo root signals that `scripts/pre-archive-check.sh`
+# should treat this repo with shared-workspace semantics when invoked with
+# `--task-id <ID>` (without an explicit `--shared` flag).
+#
+# Rationale: this framework repo is touched by multiple parallel agent sessions
+# (TUNE-*, META-*, DEV-* tasks). Foreign-task-ID hunks in the working tree are
+# normal cross-session state, not blockers. The marker enables auto-detection
+# instead of requiring every operator to remember the `--shared` flag.
+#
+# See commands/dr-archive.md Step 0.1.1 (repo classification table) and
+# scripts/pre-archive-check.sh (auto-detect block).

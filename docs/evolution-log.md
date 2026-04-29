@@ -4,6 +4,42 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ---
 
+## 2026-04-29 — TUNE-0056 — Class B apply (conditional-shared classification via marker file, v1.18.1)
+
+### Summary
+
+Self-dogfood of TUNE-0044 archive showed framework repo `Arcanada-one/datarim` itself carried foreign DEV-1210/DEV-1212 hunks from parallel agent sessions but was single-agent-classified — `pre-archive-check.sh` without explicit `--shared` flag treated framework repo as project-strict. Closing the gap with a portable marker file `.datarim-shared` at repo root. Presence + `--task-id` flag → auto-route to shared-mode classification, no explicit `--shared` argument needed.
+
+### What changed
+
+- **`scripts/pre-archive-check.sh`** — added 8-line auto-detect block after flag parsing: when `--task-id` is given without `--shared` and the next positional repo has a `.datarim-shared` marker file, route to shared mode automatically. Outer condition simplified from `[ -n "$TASK_ID" ] || [ -n "$SHARED_REPO" ]` to `[ -n "$SHARED_REPO" ]` so `--task-id` alone (without marker on positional) falls through to legacy strict mode.
+- **`tests/pre-archive-check.bats`** — +3 fixtures covering conditional-shared (marker + foreign hunks → exit 0; marker absent + dirty → legacy STOP; marker + own hunks → exit 1 own classification). bats 19 → 22 PASS.
+- **`commands/dr-archive.md`** Step 0.1.1 — classification table extended with `Conditional-shared` row (marker + `--task-id` auto-detect). Step 0.1.2 invocation form expanded with auto-detect example. Step 0.1.5 narrative clarified (project = no marker).
+- **`.datarim-shared`** — new marker file at framework repo root with explanatory comment.
+- **`VERSION`** — `1.18.0` → `1.18.1` (additive, backwards-compatible).
+
+### Why
+
+- TUNE-0044 founding rule (multi-agent shared semantics) required explicit `--shared <path>` flag for every invocation. Self-dogfood revealed this loses where it's most needed: framework repo itself, where AI agents most often forget the flag because repo classification looks like a project (has its own `.git`, builds, ships releases).
+- Marker file is opt-in, machine-readable, portable across forks/mirrors (origin URL match was rejected — fragile). Backwards-compat preserved: project repos without marker keep TUNE-0003 strict legacy behaviour.
+
+### Class
+
+- **Class B** (operating-model extension) — adds new classification path; `commands/dr-archive.md` contract widens. Held as TUNE-0056 candidate at TUNE-0044 archive (Proposal 1, evolution-proposals held). Now applied with full Public Surface scan: changelog v1.18.1 entry, Step 0.1.1 table updated, evolution-log entry (this).
+
+### Verification
+
+- 22/22 bats PASS (`tests/pre-archive-check.bats`).
+- shellcheck `-S warning` clean on `scripts/pre-archive-check.sh`.
+- stack-agnostic-gate PASS on touched files.
+- Self-dogfood: this archive cycle uses `pre-archive-check.sh --task-id TUNE-0056 .` from `code/datarim/` — auto-detect marker, foreign hunks isolated, archive proceeds without `--shared` flag.
+
+### Founding incident
+
+- TUNE-0044 self-dogfood (2026-04-29): framework repo had DEV-1210/DEV-1212 foreign hunks in working tree during archive, single-agent-classified by default, manual `--shared` flag was the only escape hatch.
+
+---
+
 ## 2026-04-29 — TUNE-0044 — Class B apply (operating-model contract change, v1.18.0)
 
 ### Summary

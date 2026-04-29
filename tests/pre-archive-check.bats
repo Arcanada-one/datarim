@@ -241,3 +241,41 @@ modify_with_task_id() {
     run "$SCRIPT" "$BATS_TEST_TMPDIR/repo"
     [ "$status" -eq 1 ]
 }
+
+# ---------- TUNE-0056 conditional-shared (marker auto-detect) ----------
+
+# Helper: install .datarim-shared marker file at repo root + commit.
+make_marker_repo() {
+    local repo="$1"
+    make_clean_repo "$repo"
+    cat > "$repo/.datarim-shared" <<'EOF'
+# Datarim shared-workspace marker (TUNE-0056)
+EOF
+    git -C "$repo" add .datarim-shared
+    git -C "$repo" commit --quiet -m "marker"
+}
+
+@test "conditional-shared: marker + --task-id + foreign hunks → exit 0 (auto-shared)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "skills/foo.md" "# foo"
+    modify_with_task_id "$BATS_TEST_TMPDIR/fw" "skills/foo.md" "DEV-1210"
+    run "$SCRIPT" --task-id TUNE-0056 "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"foreign"* ]]
+}
+
+@test "conditional-shared: marker absent + --task-id + dirty repo → legacy STOP exit 1" {
+    make_clean_repo "$BATS_TEST_TMPDIR/proj"
+    make_dirty "$BATS_TEST_TMPDIR/proj" untracked
+    run "$SCRIPT" --task-id TUNE-0056 "$BATS_TEST_TMPDIR/proj"
+    [ "$status" -eq 1 ]
+}
+
+@test "conditional-shared: marker + --task-id + own hunks → exit 1 with own classification" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "skills/foo.md" "# foo"
+    modify_with_task_id "$BATS_TEST_TMPDIR/fw" "skills/foo.md" "TUNE-0056"
+    run "$SCRIPT" --task-id TUNE-0056 "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"own"* ]]
+}

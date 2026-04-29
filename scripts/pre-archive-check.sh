@@ -83,9 +83,21 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 
+# ---------- Conditional-shared auto-detect (TUNE-0056) ----------
+# When --task-id is given without --shared, and the next positional repo has a
+# `.datarim-shared` marker file at its root, route to shared mode automatically.
+# Allows framework repos to opt into shared-workspace semantics without a flag.
+
+if [ -n "$TASK_ID" ] && [ -z "$SHARED_REPO" ] && [ "$#" -ge 1 ]; then
+    if [ -d "$1" ] && [ -f "$1/.datarim-shared" ]; then
+        SHARED_REPO="$1"
+        shift
+    fi
+fi
+
 # ---------- Shared mode ----------
 
-if [ -n "$TASK_ID" ] || [ -n "$SHARED_REPO" ]; then
+if [ -n "$SHARED_REPO" ]; then
     # Strict regex validation per CLAUDE.md S1: anchored, no metacharacters.
     if ! printf '%s' "$TASK_ID" | grep -qE '^[A-Z]+-[0-9]{4}$'; then
         echo "ERROR: invalid --task-id (expected ^[A-Z]+-[0-9]{4}$): $TASK_ID" >&2

@@ -19,12 +19,21 @@ Complete and archive current task.
 
    **0.1.1 Repo classification.** Every git repo touched by this task is one of:
    - **Workspace repo** (shared, e.g. a workflow-state directory shared by multiple parallel agent sessions): foreign-task-ID hunks are NOT a blocker; only this task's own forgotten hunks (or unattributed hunks) block.
+   - **Conditional-shared repo** (TUNE-0056): a repo containing a `.datarim-shared` marker file at its root. Treated as workspace-shared automatically when `pre-archive-check.sh` is invoked with `--task-id` (no explicit `--shared` flag needed). Used by framework repos that are touched by multiple parallel agent sessions but were historically classified as project repos.
    - **Project repo** (single-agent, e.g. a project's source tree): foreign-task-ID hunks are impossible by construction; treat any uncommitted change as a STOP.
 
-   Default the framework's own state directory and any cross-task workflow store to *workspace*. Default product source trees to *project*. When in doubt, ask the user.
+   | Repo type | Marker / flag | Classification |
+   |-----------|---------------|----------------|
+   | Workspace | invoked with `--shared <path>` | shared (TUNE-0044) |
+   | Conditional-shared | `.datarim-shared` marker at repo root + `--task-id` | shared (TUNE-0056, auto-detect) |
+   | Project | neither | single-agent (legacy TUNE-0003) |
 
-   **0.1.2 Workspace repo check** (per repo classified as shared):
-   Run `scripts/pre-archive-check.sh --task-id <CURRENT-TASK-ID> --shared <repo-path>`. The script classifies each modified file's hunks by task ID:
+   Default the framework's own state directory and any cross-task workflow store to *workspace*. Default product source trees to *project*. Mark a repo as *conditional-shared* by committing `.datarim-shared` to its root with an explanatory comment. When in doubt, ask the user.
+
+   **0.1.2 Workspace repo check** (per repo classified as shared OR conditional-shared):
+   Run either invocation form:
+   - Explicit shared: `scripts/pre-archive-check.sh --task-id <CURRENT-TASK-ID> --shared <repo-path>`.
+   - Conditional-shared (auto-detect): `scripts/pre-archive-check.sh --task-id <CURRENT-TASK-ID> <repo-path>` — the script auto-routes to shared mode when `<repo-path>/.datarim-shared` exists. The script classifies each modified file's hunks by task ID:
    - `own` — only the current task's ID appears → MUST be committed before archive.
    - `foreign` — only other task IDs (parallel sessions) → leave untouched, NOT a blocker.
    - `mixed` — current + other IDs in the same diff → stage selectively (own only).
@@ -61,10 +70,10 @@ Complete and archive current task.
    **0.1.4 Cross-task leakage staged-diff audit** (TUNE-0032 / TUNE-0033, preserved):
    After `git add` and before `git commit`, run `git diff --staged --stat` and verify the file-list matches the commit-message scope. Reject the commit if files unrelated to the message scope appear in the staged set; restage selectively. Source: TUNE-0032 — 2 INFRA-0026 files leaked into a TUNE-0032 commit because the staged diff was not inspected before commit.
 
-   **0.1.5 Project repo check** (per repo classified as single-agent):
+   **0.1.5 Project repo check** (per repo classified as single-agent — i.e., no `.datarim-shared` marker):
    Run `scripts/pre-archive-check.sh <project-repo-path>` (legacy mode, unchanged TUNE-0003 behaviour). Exit 1 → STOP and present the 3-way prompt (Commit now / Accept pending / Abort). Applied ≠ committed ≠ canonical.
 
-   **Founding incidents:** VERD-0026 (2026-04-27) — STOP'нулся на foreign hunks от параллельной сессии; project-level rule landed in `~/arcanada/CLAUDE.md` § Multi-Agent Workspace Discipline; TUNE-0044 promotes it to framework runtime. See PRD-TUNE-0044 for the rationale.
+   **Founding incidents:** VERD-0026 (2026-04-27) — STOP'нулся на foreign hunks от параллельной сессии; project-level rule landed in `~/arcanada/CLAUDE.md` § Multi-Agent Workspace Discipline; TUNE-0044 promotes it to framework runtime. TUNE-0056 (2026-04-29) — self-dogfood TUNE-0044 archive showed framework repo `Arcanada-one/datarim` itself carried foreign DEV-1210/DEV-1212 hunks but was single-agent-classified, requiring manual `--shared` flag. Marker-based auto-detect closes the gap.
 
 0.5. **REFLECT** (MANDATORY, non-skippable):
    - Load `$HOME/.claude/skills/reflecting.md`.
