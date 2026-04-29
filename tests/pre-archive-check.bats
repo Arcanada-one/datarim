@@ -334,15 +334,16 @@ EOF
     [[ "$output" == *"mine-by-elimination"* ]]
 }
 
-# T27 escape: diff lines contain TASK_ID → existing classification preserved (own/mixed), NOT mine-by-elimination
-@test "shared mode: diff lines contain TASK_ID → mixed (not mine-by-elimination)" {
+# T27 escape: diff lines contain TASK_ID → own classification (TUNE-0068: body context no longer
+# taints; only +/- diff lines count toward mixed/own gate). NOT mine-by-elimination.
+@test "shared mode: diff lines contain only TASK_ID, body has foreign → own (not mixed; TUNE-0068)" {
     make_marker_repo "$BATS_TEST_TMPDIR/fw"
     make_workflow_file "$BATS_TEST_TMPDIR/fw" "doc.md" "Reference DEV-1210 fix."
-    # Diff line contains TUNE-0060
+    # Diff line contains TUNE-0060 only; DEV-1210 lives in the unchanged body (hunk context).
     echo "TUNE-0060: my edit on this line." >> "$BATS_TEST_TMPDIR/fw/doc.md"
     run "$SCRIPT" --task-id TUNE-0060 "$BATS_TEST_TMPDIR/fw"
     [ "$status" -eq 1 ]
-    [[ "$output" == *"mixed"* ]]
+    [[ "$output" == *"own"* ]]
     [[ "$output" != *"mine-by-elimination"* ]]
 }
 
@@ -395,4 +396,46 @@ EOF
     DATARIM_PRE_ARCHIVE_WHITELIST="config.php" run "$SCRIPT" --task-id TUNE-0061 --no-whitelist "$BATS_TEST_TMPDIR/fw"
     [ "$status" -eq 1 ]
     [[ "$output" == *"unattributed"* ]]
+}
+
+# ---------- TUNE-0068 own/mixed gate uses diff lines only ----------
+#
+# Founding incident: TUNE-0055 + TUNE-0067 archives — workspace files
+# (`tasks.md` / `activeContext.md` / `backlog.md` / `progress.md`) reported
+# `mixed` with current TASK_ID listed, despite `git diff HEAD | grep -E
+# '^[+-][^+-]' | grep -c <TASK_ID>` returning 0 (own ID lived only in the
+# committed body or hunk-context, not in any actual diff line). Operator had
+# to manually re-verify per CLAUDE.md rule 4. Fix: own/mixed gate considers
+# only `^[+-][^+-]` diff lines (`diff_line_ids`); body/context IDs no longer
+# trigger `mixed`.
+
+# T33 regression-guard: markdown-bullet diff line `+- TASK_ID …` must classify
+# as `own`. Founding incident: TUNE-0068 self-dogfood on workspace
+# `activeContext.md` — the regex `^[+-][^+-]` rejected `+- **TUNE-0068**`
+# because the second char (`-`) collided with the diff-marker filter, leaving
+# `diff_line_ids` empty and routing the file to `mine-by-elimination` despite
+# the diff clearly carrying the current TASK_ID.
+@test "shared mode: added markdown-bullet line `+- TASK_ID …` → own (TUNE-0068)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "ctx.md" "## Active Tasks"
+    # Append a markdown bullet whose content begins with `-` (the bullet dash).
+    echo "- TUNE-0068: my new active task entry." >> "$BATS_TEST_TMPDIR/fw/ctx.md"
+    run "$SCRIPT" --task-id TUNE-0068 "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"own"* ]]
+    [[ "$output" != *"mine-by-elimination"* ]]
+}
+
+# T32 hit: foreign +/- line + own task ID only in unchanged body (hunk context) → foreign
+@test "shared mode: foreign diff line + own TASK_ID only in hunk context → foreign (TUNE-0068)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    # Seed: committed body carries the current TASK_ID + a foreign baseline ID.
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "doc.md" "Reference TUNE-0068 fix and DEV-1210 baseline."
+    # Modify: append a line whose only ID is foreign (TRANS-0021). The current
+    # TASK_ID lives only on an unchanged context line.
+    echo "TRANS-0021: foreign edit on this line." >> "$BATS_TEST_TMPDIR/fw/doc.md"
+    run "$SCRIPT" --task-id TUNE-0068 "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"foreign"* ]]
+    [[ "$output" != *"mixed"* ]]
 }
