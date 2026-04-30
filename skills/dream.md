@@ -1,6 +1,6 @@
 ---
 name: dream
-description: Knowledge base maintenance — organize, deduplicate, cross-reference, and consolidate the datarim/ directory. Flags contradictions, archives stale content.
+description: Knowledge base maintenance — organize, deduplicate, cross-reference the datarim/ directory. Flags contradictions, archives stale content.
 model: sonnet
 ---
 
