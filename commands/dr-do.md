@@ -54,7 +54,7 @@ description: Implement planned changes using TDD and AI quality principles
     feedback was processed, not silently ignored. Commit code changes and backlog additions together in the
     same review round.
 
-9.  **OUTPUT** (thin-index schema, TUNE-0071):
+9.  **OUTPUT** (thin-index schema):
     -   Code changes (committed per Workspace Discipline rules in CLAUDE.md).
     -   Update `datarim/tasks/{TASK-ID}-task-description.md` § Implementation Notes with implementation log (or `## Decisions` for design choices). Description file frontmatter `status` stays `in_progress` until `/dr-archive`.
     -   Update `datarim/tasks.md` one-liner if status transitions (e.g. `in_progress` → `blocked`); the line itself stays in canonical thin-index format.

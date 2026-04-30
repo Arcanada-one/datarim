@@ -13,7 +13,7 @@ Show the user a complete reference of all available Datarim commands, the pipeli
 init → prd → plan → design → do → qa → compliance → archive
 ```
 
-Not every task goes through every stage. Datarim routes tasks based on complexity (see below). Research phase runs inside `/dr-prd` for L2+ tasks (Phase 1.3). Gap discovery runs inside `/dr-do` when unknowns are encountered. Reflection runs automatically as mandatory Step 0.5 inside `/dr-archive` (v1.10.0, TUNE-0013).
+Not every task goes through every stage. Datarim routes tasks based on complexity (see below). Research phase runs inside `/dr-prd` for L2+ tasks (Phase 1.3). Gap discovery runs inside `/dr-do` when unknowns are encountered. Reflection runs automatically as mandatory Step 0.5 inside `/dr-archive` (v1.10.0).
 
 ## Commands
 
@@ -84,7 +84,7 @@ For quick one-off checks, use `/factcheck` or `/humanize` directly on any file.
 | L3 | Feature | 5-15 files | `init → prd → plan → design → do → qa → [compliance] → archive` |
 | L4 | Major | 15+ files | `init → prd → plan → design → phased-do → qa → compliance → archive` |
 
-Stages in `[brackets]` are optional — included when the agent determines they add value. `archive` always runs reflection internally as mandatory Step 0.5 (v1.10.0, TUNE-0013).
+Stages in `[brackets]` are optional — included when the agent determines they add value. `archive` always runs reflection internally as mandatory Step 0.5 (v1.10.0).
 
 ## Agents (17)
 
@@ -137,7 +137,9 @@ Idempotent — safe to run on existing projects (skips existing files, creates o
 - Use `/dr-status` at any time to see where you are.
 - Use `/dr-continue` after a break to resume with full context.
 - Datarim works for any project type: software, research, documentation, legal, project management.
+<!-- gate:history-allowed -->
 - Each task gets a unique ID (e.g., `TASK-0001`) for tracking across the pipeline.
+<!-- /gate:history-allowed -->
 - For content work, use `/dr-write` + `/dr-edit` instead of `/dr-do` + `/dr-qa`.
 
 ## Next Steps (CTA)

@@ -7,7 +7,7 @@ description: Diagnose and repair Datarim operational files — migrate to thin o
 
 **Role**: Planner Agent (compact)
 **Source**: `$HOME/.claude/agents/planner.md`
-**Tool**: `scripts/datarim-doctor.sh` (TUNE-0071)
+**Tool**: `scripts/datarim-doctor.sh`
 
 ## When to Run
 
