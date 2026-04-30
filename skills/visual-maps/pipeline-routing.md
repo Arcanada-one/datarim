@@ -80,4 +80,4 @@ graph LR
     style Esc fill:#7c2d12,stroke:#451a03,color:white
 ```
 
-Source: TUNE-0032 — unified CTA spec, v1.16.0.
+Source: prior incident — unified CTA spec, v1.16.0.

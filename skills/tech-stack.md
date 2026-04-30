@@ -126,7 +126,7 @@ graph TD
 | **Server backups** | `restic` + Backblaze B2 (native backend, client-side encryption, dedup, snapshots). Config via `/etc/restic/`, systemd timer for daily backups, `backup-healthcheck.sh` for monitoring. First backup + restore test is mandatory. Use binary-installed restic (apt version lacks `self-update`). |
 | **Database backups** | Per-engine tooling (`pg_dump`, `mysqldump`, `mongodump`) piped into restic — captures logical dump as a named file in the repo. |
 
-Source: INFRA-0008 reflection — restic + B2 proven across arcana-www/prod/db; standardize to avoid revisiting the choice per-server.
+Source: prior incident reflection — restic + B2 proven across arcana-www/prod/db; standardize to avoid revisiting the choice per-server.
 
 ## Mandatory Toolchains
 
@@ -179,7 +179,7 @@ After creating a new project in `Projects/*/code/`:
 3. Verify `.gitignore` covers `node_modules/`, `dist/`, `.env`
 4. Initial commit with scaffold
 
-Source: CONN-0002 — Model Connector code had no `.git` for weeks; discovered only at archive time.
+Source: prior incident — Model Connector code had no `.git` for weeks; discovered only at archive time.
 
 ## Docker Rules
 

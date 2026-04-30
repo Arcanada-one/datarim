@@ -115,11 +115,11 @@ Dream maintains `datarim/index.md` — a navigable catalog of the knowledge base
 
 ## By Type
 ### PRDs (5)
-- [PRD-0001](prd/PRD-0001-auth-system.md) — Authentication system requirements
-- [PRD-0002](prd/PRD-0002-export-pipeline.md) — Data export pipeline
+-(prd/PRD-0001-auth-system.md) — Authentication system requirements
+-(prd/PRD-0002-export-pipeline.md) — Data export pipeline
 
 ### Tasks (8)
-- [TASK-0001](tasks/TASK-0001-setup.md) — Project setup and configuration
+-(tasks/TASK-0001-setup.md) — Project setup and configuration
 ...
 
 ### Reflections (6)
@@ -127,8 +127,8 @@ Dream maintains `datarim/index.md` — a navigable catalog of the knowledge base
 
 ## By Tag
 ### authentication
-- [PRD-0001](prd/PRD-0001-auth-system.md)
-- [TASK-0005](tasks/TASK-0005-jwt-implementation.md)
+-(prd/PRD-0001-auth-system.md)
+-(tasks/TASK-0005-jwt-implementation.md)
 - [reflection-TASK-0005](reflection/reflection-TASK-0005.md)
 
 ## Recent Activity

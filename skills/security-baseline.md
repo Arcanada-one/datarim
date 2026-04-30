@@ -284,8 +284,8 @@ Consumer projects add their language ecosystem (e.g. one `package-ecosystem` blo
 
 | Tool                  | Scope                                         | Promotion trigger          |
 |-----------------------|-----------------------------------------------|----------------------------|
-| `shellcheck-extracted`| bash blocks extracted from shipped `.md`      | TUNE-0048 — illustrative-block tagging sweep |
-| `bandit-extracted`    | python blocks extracted from shipped `.md`    | TUNE-0048 — same           |
+| `shellcheck-extracted`| bash blocks extracted from shipped `.md`      | prior incident — illustrative-block tagging sweep |
+| `bandit-extracted`    | python blocks extracted from shipped `.md`    | prior incident — same           |
 
 Promotion path: tag each illustrative block with the appropriate counter-example or example-only fence, flip `continue-on-error: false`, then the informational job becomes required.
 

@@ -20,7 +20,7 @@ Use **venv** (Python) or **Docker** for any service that:
 
 ### Why
 
-INFRA-0020 installed torch + sentence-transformers + 30 deps into system Python on arcana-db. Future `pip install` for another service may upgrade a shared dependency and break the embedding API silently. The same pattern occurred in LTM-0002 (Docker was the correct isolation) and EMAIL-0001 (system pip, no isolation).
+A real incident installed torch + sentence-transformers + 30 deps into system Python on a shared host. Future `pip install` for another service may upgrade a shared dependency and break the embedding API silently. The same pattern recurred on two further services — Docker was the correct isolation in one, system pip with no isolation in the other.
 
 ### Quick Setup
 
@@ -43,13 +43,13 @@ ML ecosystem has frequent breaking changes across major versions. When installin
    ```
 3. **Capture `pip freeze`** after a working install for reproducibility
 
-SRCH-0002: FlagEmbedding 1.3.5 failed at startup with transformers 5.x (`is_torch_fx_available` removed). Pinning to `<5.0` fixed it. A 5-second import check would have caught this before the service restart.
+Real incident: FlagEmbedding 1.3.5 failed at startup with transformers 5.x (`is_torch_fx_available` removed). Pinning to `<5.0` fixed it. A 5-second import check would have caught this before the service restart.
 
 ### Verify Model Architecture Impact
 
 When switching model loaders (e.g. `SentenceTransformer` → `BGEM3FlagModel`), do not assume single-variable predictions (like "fp16 = 50% less RAM") apply. A different loader loads a different architecture.
 
-SRCH-0002: plan predicted fp16 would reduce RAM from 914MB to ~450MB. Actual: 2,400MB (+163%) because `BGEM3FlagModel` loads sparse_linear + colbert_linear components on top of the base model. Latency also increased 3x (118ms → 360ms) due to heavier inference path. The prediction was based on fp16 alone, ignoring the architectural change.
+Real incident: a plan predicted fp16 would reduce RAM from 914MB to ~450MB. Actual: 2,400MB (+163%) because `BGEM3FlagModel` loads sparse_linear + colbert_linear components on top of the base model. Latency also increased 3x (118ms → 360ms) due to heavier inference path. The prediction was based on fp16 alone, ignoring the architectural change.
 
 **Rule:** When changing model loaders, benchmark RAM and latency empirically before committing to production. Do not extrapolate from documentation of a single feature (fp16).
 
@@ -65,7 +65,7 @@ SRCH-0002: plan predicted fp16 would reduce RAM from 914MB to ~450MB. Actual: 2,
 
 ### Why
 
-AUTH-0002: Dockerfile корректно делал `npm ci --omit=dev`, но `docker-compose.yml` выставлял `NODE_ENV=development`. Pino logger conditionally подключал `pino-pretty` транспорт при dev-режиме. Контейнер crashed at startup (`unable to determine transport target for "pino-pretty"`). 5 минут диагностики + 1 цикл compose rebuild.
+Real incident: Dockerfile корректно делал `npm ci --omit=dev`, но `docker-compose.yml` выставлял `NODE_ENV=development`. Pino logger conditionally подключал `pino-pretty` транспорт при dev-режиме. Контейнер crashed at startup (`unable to determine transport target for "pino-pretty"`). 5 минут диагностики + 1 цикл compose rebuild.
 
 ### Pattern
 
@@ -101,7 +101,7 @@ transport: process.env.LOG_PRETTY === '1'
 
 **Rule:** In multi-bootstrap monorepos, explicitly import shared modules (RedisModule, PrismaModule, etc.) in every app module that needs them, regardless of `@Global()`.
 
-TRANS-0013: Worker crashed with `RedisService not found` because `RedisModule` was `@Global()` but only bootstrapped via `AppModule`. Worker had its own bootstrap and needed an explicit import.
+Real incident: Worker crashed with `RedisService not found` because `RedisModule` was `@Global()` but only bootstrapped via `AppModule`. Worker had its own bootstrap and needed an explicit import.
 
 ---
 
@@ -120,7 +120,7 @@ docker compose down
 
 ### Why
 
-CONN-0004 found 5 of 6 production bugs only during Docker deployment — none surfaced in unit tests. Issues: Prisma config missing from image, circular DI crash, Alpine/glibc incompatibility, root user restrictions, validation pipe scope. A 30-second Docker smoke test catches the entire class.
+A real Docker deployment incident found 5 of 6 production bugs only during Docker deployment — none surfaced in unit tests. Issues: Prisma config missing from image, circular DI crash, Alpine/glibc incompatibility, root user restrictions, validation pipe scope. A 30-second Docker smoke test catches the entire class.
 
 ### When to apply
 
@@ -174,7 +174,7 @@ RUN npm ci && npm audit signatures
 RUN curl -fsSL https://claude.ai/install.sh | bash
 <!-- /security:counter-example -->
 
-CONN-0004: Three bugs from wrong base image (Alpine musl) + root user + ephemeral auth. Pattern applies to all CLI connector deployments.
+Real incident: Three bugs from wrong base image (Alpine musl) + root user + ephemeral auth. Pattern applies to all CLI connector deployments.
 
 ### CLI Installer in Docker (non-root user)
 
@@ -188,7 +188,7 @@ When a CLI tool ships only a shell installer that writes into `$HOME` (e.g. Curs
 
 Do NOT symlink to `/root/...` — non-root user cannot read `/root/`. Do NOT rely on Docker volume creating dirs with correct ownership — volumes mount as root.
 
-CONN-0008: 4 Dockerfile iterations because the upstream installer wrote to `/root/.local/share/cursor-agent/`, inaccessible to non-root `connector` user. Same root→non-root pattern as CONN-0004.
+Real incident: 4 Dockerfile iterations because the upstream installer wrote to `/root/.local/share/cursor-agent/`, inaccessible to non-root `connector` user. Same root→non-root pattern recurs across CLI deployments.
 
 ### CLI Output Channel Conventions
 
@@ -200,7 +200,7 @@ Each CLI agent has its own output channel convention — do NOT assume uniformit
 | Cursor | stdout | stdout (`is_error: true`) | 0 |
 | Gemini CLI | stdout | **stderr** (last JSON block) | 1 |
 
-CONN-0007: Gemini CLI outputs error JSON to stderr, not stdout. Parser must try stdout first, then extract last JSON block from stderr if stdout is empty. stderr always contains IDE companion noise (`[IDEClient]`) — filter before error classification.
+Real incident: Gemini CLI outputs error JSON to stderr, not stdout. Parser must try stdout first, then extract last JSON block from stderr if stdout is empty. stderr always contains IDE companion noise (`[IDEClient]`) — filter before error classification.
 
 ### CWD Isolation for CLI Connectors
 
@@ -216,7 +216,7 @@ try {
 }
 ```
 
-CONN-0007: Gemini CLI scans workspace on startup. Spawning from `/tmp/gemini_*` prevents token waste. Same pattern used in Email Agent (`email_agent.py:196`).
+Real incident: Gemini CLI scans workspace on startup. Spawning from `/tmp/gemini_*` prevents token waste. Same pattern used in Email Agent (`email_agent.py:196`).
 
 ## Async HTTP Client — Singleton Pattern
 
@@ -226,7 +226,7 @@ In async Python (FastAPI/uvicorn), **always use a singleton `httpx.AsyncClient`*
 
 ### Why
 
-SRCH-0020: Scrutator `embedder.py` created a new `httpx.AsyncClient` per call to `embed_texts()` and `embed_sparse()`. Each `index_document()` = 2 clients. After 2-3 requests (4-6 clients), TCP sockets exhausted → 503 with empty error message. Restarting the service temporarily fixed it (socket cleanup).
+Real incident: Scrutator `embedder.py` created a new `httpx.AsyncClient` per call to `embed_texts()` and `embed_sparse()`. Each `index_document()` = 2 clients. After 2-3 requests (4-6 clients), TCP sockets exhausted → 503 with empty error message. Restarting the service temporarily fixed it (socket cleanup).
 
 ### Pattern
 
@@ -269,7 +269,7 @@ except Exception:
 
 ### Why
 
-SRCH-0020: Sparse indexing failures in `indexer.py` were invisible for weeks due to `except: pass`. The embedding API was intermittently failing, but no evidence existed in logs. A single `logger.warning()` would have surfaced the root cause immediately.
+Real incident: Sparse indexing failures in `indexer.py` were invisible for weeks due to `except: pass`. The embedding API was intermittently failing, but no evidence existed in logs. A single `logger.warning()` would have surfaced the root cause immediately.
 
 ## Failure-Path Drills — Two-Axis Rollback Contract Verification
 

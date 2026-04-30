@@ -106,7 +106,7 @@ Each proposal is a self-contained block.
 - **Category:** skill-update
 - **Target:** skills/testing.md
 - **What:** Add property-based testing section with hypothesis/fast-check examples
-- **Why:** Discovered during TASK-0042 that property tests caught edge cases unit tests missed.
+- **Why:** Discovered during a prior incident that property tests caught edge cases unit tests missed.
 - **Impact:** Medium — affects testing strategy for all future tasks
 - **Risk:** Low / Medium / High
 - **Diff preview:**
@@ -215,7 +215,7 @@ Each Evolution change is a discrete edit to a specific file. Rollback strategy:
 - **If not using git:** The evolution log provides enough information to manually undo changes. The diff preview in the original proposal shows what was added.
 - **For prune operations:** The optimizer creates a backup of deleted files in `documentation/archive/optimized/` before removal. Files can be restored from there.
 
-> **Note (TUNE-0027):** Since 2026-04-22, `skills/`, `commands/`, `agents/`, `templates/` in `$HOME/.claude/` are symlinks to the Datarim git repo. Manual sync (`install.sh`) is no longer needed for these directories — changes are shared instantly. `install.sh` remains relevant only for first-time installation or rollback. See `skills/datarim-system/path-and-storage.md` § Symlink Architecture.
+> **Note:** Since 2026-04-22, `skills/`, `commands/`, `agents/`, `templates/` in `$HOME/.claude/` are symlinks to the Datarim git repo. Manual sync (`install.sh`) is no longer needed for these directories — changes are shared instantly. `install.sh` remains relevant only for first-time installation or rollback. See `skills/datarim-system/path-and-storage.md` § Symlink Architecture.
 
 **Rule:** Never make changes that cannot be independently reverted. If two proposals modify the same file, apply them as separate edits so either can be rolled back without affecting the other.
 
@@ -235,6 +235,6 @@ When a user-memory rule (e.g. `~/.claude/projects/<proj>/memory/feedback_*.md`) 
 4. **Bats fixtures** — at minimum 1 FAIL fixture (golden violation reproducing the original incident) + 1 PASS fixture (legitimate negative case) + 1 regression-invariant test on the gate's own host file (catches re-introduction of the violation).
 5. **Whitelist + escape hatch** — declare any file that is exempt by design (e.g. `tech-stack.md` for stack-keywords). Provide a per-block escape marker (e.g. HTML-comment fence) for legitimate illustrative content. Use sparingly; reviewers should challenge each usage.
 
-**Source incident:** TUNE-0039 (2026-04-26) — `feedback_datarim_stack_agnostic.md` declared 2026-04-25 (VERD-0010), violated 2026-04-26 (VERD-0021, three artefacts). Memory rule advisory; gate enforces.
+**Source incident:** TUNE-0039 (2026-04-26) — `feedback_datarim_stack_agnostic.md` declared 2026-04-25, violated 2026-04-26 (VERD-0021, three artefacts). Memory rule advisory; gate enforces.
 
 **Reuse candidates:** consider this pattern for any future recurring memory rule — e.g. «no-secrets-in-code», «no-personal-paths», «no-deprecated-API-XXX», ecosystem-specific keyword bans.

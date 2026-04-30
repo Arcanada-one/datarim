@@ -69,7 +69,7 @@ Or use the current date from session context.
 
 When a `/dr-do` step modifies an Acceptance Criterion in a measurable way — sample size (50 → 41), threshold (≥0.8 → ≥0.5), dataset (full → curated subset), tool (planned model → fallback model) — patch the plan document inline **before commit**, not after QA flags drift. A single-line edit to plan §10 takes seconds; an unexplained drift adds noise to Layer 3 verification and forces the QA report to spend lines explaining a deviation that should have been a planning artefact.
 
-Source: LTM-0012 — pilot subset modified 50 → 41 chunks for ground-truth coverage; the operational decision was correct, but the plan kept saying «50» until QA flagged it. Recurring class with TUNE-0034 (stale `@test` count) and TUNE-0028 (stale skill count): drift between plan and reality is process debt that compounds.
+Source: prior incident — pilot subset modified 50 → 41 chunks for ground-truth coverage; the operational decision was correct, but the plan kept saying «50» until QA flagged it. Recurring class with TUNE-0034 (stale `@test` count) and TUNE-0028 (stale skill count): drift between plan and reality is process debt that compounds.
 
 ### Avoid absolute test-count numbers in AC formulation
 
@@ -81,7 +81,7 @@ Test-baseline ACs that pin an absolute number (e.g. «≥159/160 PASS») drift b
 
 When the absolute number IS the AC (e.g. «add 5 new tests, expect +5 pass»), state it as a delta against HEAD baseline measured immediately before the edit, not as an absolute target.
 
-Source: TUNE-0043 — plan AC-5 said «≥159/160 PASS», actual baseline at QA time was 158/160 (TUNE-0042 pre-existing red surfaced between plan and `/dr-do`). Semantic intent («0 regressions») was met; the absolute number forced QA to spend a paragraph explaining the gap.
+Source: prior incident — plan AC-5 said «≥159/160 PASS», actual baseline at QA time was 158/160 (TUNE-0042 pre-existing red surfaced between plan and `/dr-do`). Semantic intent («0 regressions») was met; the absolute number forced QA to spend a paragraph explaining the gap.
 
 ### Re-verify quantitative backlog inventories at init/do start
 
@@ -95,7 +95,7 @@ When a backlog item lists specific quantitative claims — «N failing tests #X.
 4. **reality > inventory** → escalate to the operator as scope expansion. Decide whether to absorb the new items, defer to a follow-up, or split the task.
 5. **reality == inventory** → proceed; no action.
 
-Source: TUNE-0034 — backlog body listed «10 failing tests» with named root causes (#100-#143). Pre-flight `bats tests/` at /dr-do start showed only 2 actual reds — 8 had been closed in flight by TUNE-0029 (`optimizer.md` rewrite), TUNE-0040 (description-length sweep), TUNE-0043 (stack-agnostic sweep), and an earlier TUNE-0034 v1.17.1 round (`file-sync-config.md` description trim). Estimate (30-60 min) was 5× the actual (10 min). Skipping re-verification could have caused phantom-debug work on already-passing tests.
+Source: prior incident — backlog body listed «10 failing tests» with named root causes (#100-#143). Pre-flight `bats tests/` at /dr-do start showed only 2 actual reds — 8 had been closed in flight by TUNE-0029 (`optimizer.md` rewrite), TUNE-0040 (description-length sweep), TUNE-0043 (stack-agnostic sweep), and an earlier TUNE-0034 v1.17.1 round (`file-sync-config.md` description trim). Estimate (30-60 min) was 5× the actual (10 min). Skipping re-verification could have caused phantom-debug work on already-passing tests.
 
 Companion to «Avoid absolute test-count numbers in AC formulation» above: same source-of-truth logic applied to inventory-side claims rather than AC-side claims. Both rules answer the same question — «how do we keep backlog text in sync with runtime reality?» — at different points in the pipeline.
 
@@ -115,12 +115,12 @@ When a Strategist gate must decide between one-MR delivery and per-phase staged 
 
 **Why this matters for plan §2 Strategist gate:** the gate's MR-count answer drives Operator workload (one merge vs N), QA cycle count (one cycle covering the whole shape vs N independent cycles), and design-doc scope (full architecture upfront vs per-component appendices). Misclassifying open-loop as closed-loop wastes review bandwidth; misclassifying closed-loop as open-loop ships broken intermediate states.
 
-Source: DEV-1196 reflection §2.4 — 10 phases (model upgrade → knowledge base → evolution skill → retrieval hook → installer → sync cron → digest cron → auto-promotion gate → Aether-internal contract → pre-merge rehearsal) formed a closed loop; one-MR delivery with 4 design docs released before code was the right strategy. Per-phase MRs would have shipped 10 broken intermediate states.
+Source: prior incident reflection §2.4 — 10 phases (model upgrade → knowledge base → evolution skill → retrieval hook → installer → sync cron → digest cron → auto-promotion gate → Aether-internal contract → pre-merge rehearsal) formed a closed loop; one-MR delivery with 4 design docs released before code was the right strategy. Per-phase MRs would have shipped 10 broken intermediate states.
 
 ## Embedded Phases (not separate pipeline stages)
 
-- **Research** runs inside `/dr-prd` as Phase 1.3 (L2+). Researcher agent produces `datarim/insights/INSIGHTS-{task-id}.md`. Not a separate pipeline node — no routing change needed. (TUNE-0029)
-- **Gap Discovery** runs inside `/dr-do` as Step 7.5. Developer agent spawns researcher subagent on unknowns, appends to insights. Fundamental gaps escalate to `/dr-prd`. (TUNE-0029)
+- **Research** runs inside `/dr-prd` as Phase 1.3 (L2+). Researcher agent produces `datarim/insights/INSIGHTS-{task-id}.md`. Not a separate pipeline node — no routing change needed.
+- **Gap Discovery** runs inside `/dr-do` as Step 7.5. Developer agent spawns researcher subagent on unknowns, appends to insights. Fundamental gaps escalate to `/dr-prd`.
 
 ## Mode Transition Optimization
 

@@ -96,7 +96,7 @@ ls $HOME/.claude/commands/*.md | wc -l  # commands
 ls $HOME/.claude/templates/*.md | wc -l # templates
 ```
 
-Source: TUNE-0028 — plan stated "24→25 skills" but actual count was 20→21. README had stale counts (24 skills, 5 templates). Disk-first verification catches this.
+Source: prior incident — plan stated "24→25 skills" but actual count was 20→21. README had stale counts (24 skills, 5 templates). Disk-first verification catches this.
 
 ## Critical Rules
 
@@ -107,9 +107,9 @@ Source: TUNE-0028 — plan stated "24→25 skills" but actual count was 20→21.
 5. Backlog uses the active + archive split.
 6. Path resolution happens before any write.
 7. Use `$HOME/.claude/` or project-relative paths, not machine-specific absolute paths.
-8. When updating site blog registries, update ALL registry files (primary `pages/blog/registry.php` AND secondary `pages/blog/posts/registry.php`). TUNE-0019: secondary was missed → 404 on blog post.
+8. When updating site blog registries, update ALL registry files (primary `pages/blog/registry.php` AND secondary `pages/blog/posts/registry.php`). prior incident: secondary was missed → 404 on blog post.
 9. **`/dr-archive` Step 0.1 nested git scan** — clean-git check MUST cover ALL nested repos under workspace, not only the workspace root. Use:
    ```sh
    find . -maxdepth 6 -name .git -type d -exec dirname {} \;
    ```
-   For each — `git status --porcelain` + `git rev-list --count @{u}..HEAD`. Flag dirty trees and unpushed commits per Step 0.1 three-options gate. Source: INFRA-0026 — Email Agent sub-repo had 7 uncommitted file deltas + 1 unpushed commit, invisible until explicit nested scan.
+   For each — `git status --porcelain` + `git rev-list --count @{u}..HEAD`. Flag dirty trees and unpushed commits per Step 0.1 three-options gate. Source: prior incident — Email Agent sub-repo had 7 uncommitted file deltas + 1 unpushed commit, invisible until explicit nested scan.

@@ -5,7 +5,7 @@ description: Consumer-side recipe для Datarim release — sha256 → cosign v
 
 # Release Verify — Consumer-Side Verification Recipe
 
-Datarim релизы публикуются `Arcanada-one/datarim` через `release.yml` (TUNE-0050) и подписаны Sigstore cosign keyless (GitHub OIDC) + сопровождаются CycloneDX SBOM и SLSA L2 build provenance attestation. **Никогда не устанавливай tarball без проверки подписи.**
+Datarim релизы публикуются `Arcanada-one/datarim` через `release.yml` и подписаны Sigstore cosign keyless (GitHub OIDC) + сопровождаются CycloneDX SBOM и SLSA L2 build provenance attestation. **Никогда не устанавливай tarball без проверки подписи.**
 
 Этот skill — точка входа для AI-агентов и операторов, потребляющих Datarim релизы. Канонический источник правды: [`docs/release-verification.md`](../docs/release-verification.md). Этот skill дублирует core recipe, чтобы агент мог ответить пользователю без дополнительного fetch.
 
@@ -125,7 +125,7 @@ cosign verify-blob \
 ## Source of Truth
 
 - Канонический recipe: [`docs/release-verification.md`](../docs/release-verification.md) (пользовательская страница).
-- Workflow, выпускающий артефакты: [`.github/workflows/release.yml`](../.github/workflows/release.yml) (TUNE-0050).
+- Workflow, выпускающий артефакты: [`.github/workflows/release.yml`](../.github/workflows/release.yml).
 - Security Mandate § S4 (Supply Chain): [`CLAUDE.md`](../CLAUDE.md#security-mandate).
 - Sigstore cosign docs: https://docs.sigstore.dev/cosign/
 - SLSA spec: https://slsa.dev/

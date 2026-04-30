@@ -22,7 +22,7 @@ description: Pre-flight checklist + ignore patterns для file-sync (Syncthing/
 
 INFRA-0026 (2026-04-25): первая версия `.stignore` для Syncthing содержала 28 patterns и не покрывала `.venv`, `__pycache__`, `target/`, `*.db`, плюс не исключала вложенные git-репо целиком. Результат:
 
-- 1 материализованный sync-conflict в production (`AI_agents/Email Agent/CLAUDE.md`) — потеряли бы EMAIL-0009 deploy документацию если бы Syncthing не сохранил .sync-conflict копию.
+- 1 материализованный sync-conflict в production (`AI_agents/Email Agent/CLAUDE.md`) — потеряли бы deploy-документацию если бы Syncthing не сохранил .sync-conflict копию.
 - 60+ sync-conflict файлов накопилось в vault за неделю.
 - 14 git-репо с разными checkout-ветками синкались как plain working trees → working tree drift между mac и DEV.
 - Cross-platform breakage риск: Python `.venv` (macOS Mach-O) vs Linux ELF binaries.

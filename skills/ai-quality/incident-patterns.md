@@ -40,7 +40,7 @@ Two lines. First states the *what* (effect of proceeding). Second states the *wh
 
 ### Exemplar
 
-`install.sh:115` (TUNE-0004) — `--force` live-system warning cites TUNE-0003 by ID and quantifies the cost (9 files). The guard fires before any filesystem mutation; the operator has context before making the decision, not after.
+`install.sh:115` — `--force` live-system warning cites TUNE-0003 by ID and quantifies the cost (9 files). The guard fires before any filesystem mutation; the operator has context before making the decision, not after.
 
 ---
 
@@ -53,7 +53,7 @@ When a task's sweep phase touches files in an untracked-but-load-bearing part of
 
 Do not start staging without choosing (a) or (b). Mixing tracked and newly-promoted files without a conscious decision creates hidden scope creep that is hard to audit later.
 
-Rationale: TUNE-0013 Phase 5a promoted 26 untracked `datarim.club/data/*.php` files. The decision was correct but made at staging-time, not at sweep-planning-time — resulting in scope creep that had to be explained retroactively.
+Rationale: prior incident Phase 5a promoted 26 untracked `datarim.club/data/*.php` files. The decision was correct but made at staging-time, not at sweep-planning-time — resulting in scope creep that had to be explained retroactively.
 
 ---
 
@@ -71,7 +71,7 @@ Before concluding "vendor bug" / "framework limitation" / "integration floor":
 
 ### Why
 
-LTM-0002 first run ($20.32 wasted) blamed OpenRouter for Cognee's embedding failure, Claude Sonnet for JSON parse errors, and laptop RAM for Graphiti's absence. All three were operator errors:
+a prior incident first run ($20.32 wasted) blamed OpenRouter for Cognee's embedding failure, Claude Sonnet for JSON parse errors, and laptop RAM for Graphiti's absence. All three were operator errors:
 - `curl` proved OpenRouter embeddings work (wrong LiteLLM prefix, not vendor protocol)
 - Document pre-processing fixed JSON parse failures (not a language-level ceiling)
 - arcana-dev has 62 Gi RAM (self-imposed laptop constraint)
@@ -82,7 +82,7 @@ Every integration failure during `/dr-do`. Before writing "framework X doesn't s
 
 ### Exemplar
 
-LTM-0002 R2: single `curl` to OpenRouter `/v1/embeddings` with `encoding_format="float"` → 1536-dim vector. Proved in 30 seconds that the vendor works. Cognee's failure was my `openai/` LiteLLM prefix routing to the wrong handler — fixed by switching to `openrouter/` prefix.
+a prior incident R2: single `curl` to OpenRouter `/v1/embeddings` with `encoding_format="float"` → 1536-dim vector. Proved in 30 seconds that the vendor works. Cognee's failure was my `openai/` LiteLLM prefix routing to the wrong handler — fixed by switching to `openrouter/` prefix.
 
 ---
 
@@ -135,4 +135,4 @@ Population probe (is the data visible to the new logic?)
 
 ### Exemplar
 
-LTM-0017 audit on `ltm-bench-datarim-kb`: plan framed the diagnostic exclusively around canonicalisation (transformation axis). Audit returned `merge_ratio_pct = 0.00%` and `entity_groups_with_2plus_canonical_count = 1` (unchanged from raw) — the transformation axis was a true no-op. **The population probe was the surprise:** 134 of 188 entities (71 %) had `source_chunk_id IS NULL`, invisible to the reflect JOIN regardless of canonicalisation. A complete diagnostic surfaced both axes: a separate task (LTM-0019) was spawned for the population gap, and the verdict report documented "canonicalisation alone cannot lift the floor case" with both axis numerics. Without the population probe, the audit would have closed as "feature works; floor is corpus-inherent" without surfacing the orthogonal data-population bug.
+a prior incident audit on `ltm-bench-datarim-kb`: plan framed the diagnostic exclusively around canonicalisation (transformation axis). Audit returned `merge_ratio_pct = 0.00%` and `entity_groups_with_2plus_canonical_count = 1` (unchanged from raw) — the transformation axis was a true no-op. **The population probe was the surprise:** 134 of 188 entities (71 %) had `source_chunk_id IS NULL`, invisible to the reflect JOIN regardless of canonicalisation. A complete diagnostic surfaced both axes: a separate task was spawned for the population gap, and the verdict report documented "canonicalisation alone cannot lift the floor case" with both axis numerics. Without the population probe, the audit would have closed as "feature works; floor is corpus-inherent" without surfacing the orthogonal data-population bug.
