@@ -33,7 +33,7 @@ disable-model-invocation: true
       c. If `.gitignore` exists and does not contain `datarim/` → append `datarim/` to it.
       d. If `.gitignore` does not exist → ask user: "Create `.gitignore` with `datarim/`? (recommended — keeps workflow state local)"
 
-2.4. **STRUCTURAL COMPLIANCE CHECK** (TUNE-0071, runs only when `datarim/` already exists — skip on first-time creation in Step 2):
+2.4. **STRUCTURAL COMPLIANCE CHECK** (runs only when `datarim/` already exists — skip on first-time creation in Step 2):
     - Probe: `scripts/datarim-doctor.sh --quiet --root="$DATARIM_ROOT"` (exit code only).
     - **exit 0** → silent, continue to Step 2.5.
     - **exit 1** (non-compliant findings):
@@ -52,7 +52,7 @@ disable-model-invocation: true
     - Grep their pending diffs for foreign task IDs (anything matching `[A-Z]+-[0-9]{4}` other than the new task being initialised).
     - If foreign IDs are found, emit a single-line advisory: `"Workspace datarim/* carries pending state for {N} other tasks: {ID1, ID2, ...}. Consider /dr-archive or commit before /dr-init."`
     - **Non-blocking** — operator proceeds at will. Skip silently if the workspace is clean or no `datarim/*.md` exist yet.
-    - Source: TUNE-0034 reflection Proposal 2. TUNE-0036 staged-diff audit at `/dr-archive` already catches the tangle but only after the carry-over has already cost a session; surfacing it at `/dr-init` lets the operator clean state proactively.
+    - The staged-diff audit at `/dr-archive` already catches the tangle but only after the carry-over has already cost a session; surfacing it at `/dr-init` lets the operator clean state proactively.
 
 3.  **CHECK BACKLOG**: If `datarim/backlog.md` exists and contains pending items:
     - Display pending items as a numbered list (ID, title, priority, complexity).
@@ -61,14 +61,14 @@ disable-model-invocation: true
     - **When selecting a backlog item**:
       a. Change its status from `pending` to `in_progress` in `backlog.md`.
       b. Use its description, priority, complexity, and acceptance criteria as starting context.
-      c. **Use the backlog item's existing ID as the task ID** (do NOT create a new one). Example: `INFRA-0004` in backlog → `INFRA-0004` as active task. The ID stays the same across lifecycle per Unified Task Numbering.
+      c. **Use the backlog item's existing ID as the task ID** (do NOT create a new one). The ID stays the same across lifecycle per Unified Task Numbering.
     - **If backlog is empty** or user provided a new task description: Proceed to step 4.
 4.  **ACTION**:
     - Analyze the user request (or backlog item context from step 3).
     - Determine complexity level (1-4). If from backlog, use the item's complexity as starting estimate.
     - **Determine Task ID** (if NOT from backlog): select prefix per Unified Task Numbering (`$HOME/.claude/skills/datarim-system.md`) — project prefix first, then area prefix, `TASK` as fallback. Scan existing tasks for next sequential number.
     - **Context Gathering**: For complex tasks, ensure context is gathered (via `/dr-prd`) before planning.
-    - **PRD Waiver Check** (Level 3-4 only): If no PRD exists for this task (check `datarim/prd/PRD-{task-id}*.md` and parent PRD within 30 days), prompt: "No PRD found for this L3+ task. Options: (a) Run `/dr-prd` first, (b) State waiver reason (will be recorded as `**PRD waived:**` in tasks.md)." If user chooses (b), record the waiver in the task's Overview section. Source: TUNE-0009 audit found retroactive-only enforcement insufficient.
+    - **PRD Waiver Check** (Level 3-4 only): If no PRD exists for this task (check `datarim/prd/PRD-{task-id}*.md` and parent PRD within 30 days), prompt: "No PRD found for this L3+ task. Options: (a) Run `/dr-prd` first, (b) State waiver reason (will be recorded as `**PRD waived:**` in tasks.md)." If user chooses (b), record the waiver in the task's Overview section. Retroactive-only enforcement is insufficient — the prompt at `/dr-init` is the canonical gate.
     - **If new project/service**: Load `$HOME/.claude/skills/tech-stack.md` and identify required stack.
     - Create/Update `datarim/tasks.md` with new task.
     - **Append** new task to `## Active Tasks` in `datarim/activeContext.md`. Do NOT remove existing active tasks. If `activeContext.md` uses legacy format (`**Current Task:**` single line), convert to `## Active Tasks` list first. See `$HOME/.claude/skills/datarim-system.md` § activeContext.md Write Rules.
