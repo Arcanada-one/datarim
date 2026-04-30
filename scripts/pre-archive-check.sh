@@ -37,16 +37,20 @@ print_usage() {
 Usage:
   pre-archive-check.sh REPO_PATH [REPO_PATH...]
   pre-archive-check.sh --task-id <ID> --shared <REPO_PATH> [--no-whitelist]
+                       [--no-schema-check]
 
 Legacy mode: every REPO_PATH must be fully clean.
 Shared mode: classify hunks by task ID; only own/mixed/unattributed block.
   Whitelist: version-bump basenames (VERSION, CHANGELOG.md, package.json,
   Cargo.toml, pyproject.toml, .gitignore) bypass default-deny when --task-id
   is set. Use --no-whitelist to restore strict default-deny.
+Schema check (TUNE-0071): after clean-git classification, every bullet line
+  in REPO/datarim/{tasks,backlog}.md must match the canonical thin-index
+  regex. Use --no-schema-check to bypass during in-flight migration.
 
 Exit codes:
   0 - archive may proceed
-  1 - archive blocked (dirty / own-task hunks / unattributed)
+  1 - archive blocked (dirty / own-task hunks / unattributed / schema-violation)
   2 - usage error
 EOF
 }
@@ -101,11 +105,76 @@ is_whitelisted_path() {
     return 1
 }
 
+# ---------- TUNE-0071 schema-compliance gate ----------
+#
+# After clean-git classification, every bullet line in datarim/{tasks,backlog}.md
+# MUST match the canonical thin-index regex defined in skills/datarim-doctor.md.
+# Block on first violation with a pointer to /dr-doctor.
+#
+# Bypass: --no-schema-check (set NO_SCHEMA_CHECK=1) during in-flight migration.
+# Auto-skip: if the repo has no datarim/ subdirectory, the gate is a no-op
+# (project repos vs. workspace).
+
+# Canonical line regex (single-line, anchored). Status sets:
+#   tasks.md   : in_progress|blocked|not_started
+#   backlog.md : pending|blocked-pending|cancelled
+SCHEMA_TASKS_RE='^- [A-Z]{2,10}-[0-9]{4} · (in_progress|blocked|not_started) · P[0-3] · L[1-4] · .{1,80} → tasks/[A-Z]{2,10}-[0-9]{4}-task-description\.md$'
+SCHEMA_BACKLOG_RE='^- [A-Z]{2,10}-[0-9]{4} · (pending|blocked-pending|cancelled) · P[0-3] · L[1-4] · .{1,80} → tasks/[A-Z]{2,10}-[0-9]{4}-task-description\.md$'
+
+# check_schema_compliance REPO_PATH → exit 0 (clean) | 1 (violations printed to stderr)
+check_schema_compliance() {
+    local repo="$1"
+    [ "$NO_SCHEMA_CHECK" -eq 1 ] && return 0
+    [ -d "$repo/datarim" ] || return 0
+
+    local violations=0
+    local file
+    local re
+    for file in tasks.md backlog.md; do
+        local fp="$repo/datarim/$file"
+        [ -f "$fp" ] || continue
+        if [ "$file" = "tasks.md" ]; then
+            re="$SCHEMA_TASKS_RE"
+        else
+            re="$SCHEMA_BACKLOG_RE"
+        fi
+        # Extract candidate bullet lines (any `- PREFIX-NNNN ...` shape).
+        # A line is a violation if it starts with `- {PREFIX}-{NNNN}` but does
+        # NOT match the canonical thin-index regex. Strip the leading `^`
+        # anchor from $re when composing with the `N:` prefix from grep -n.
+        local re_no_anchor="${re#^}"
+        local bad
+        bad=$(grep -nE '^- [A-Z]+-[0-9]+' "$fp" 2>/dev/null \
+              | grep -vE "^[0-9]+:$re_no_anchor" || true)
+        # Also flag legacy block-style headings (### TASK-ID:).
+        local legacy_blocks
+        legacy_blocks=$(grep -nE '^### [A-Z]+-[0-9]+:' "$fp" 2>/dev/null || true)
+        if [ -n "$bad" ] || [ -n "$legacy_blocks" ]; then
+            {
+                echo "BLOCK: $fp contains non-compliant lines (run /dr-doctor):"
+                [ -n "$bad" ] && printf '%s\n' "$bad" | sed 's/^/  /'
+                [ -n "$legacy_blocks" ] && printf '%s\n' "$legacy_blocks" | sed 's/^/  /'
+            } >&2
+            violations=1
+        fi
+    done
+
+    [ "$violations" -eq 0 ] && return 0
+    {
+        echo ""
+        echo "Schema-compliance gate failed. Options:"
+        echo "  a. Run /dr-doctor --fix    — migrate operational files."
+        echo "  b. Re-run with --no-schema-check (in-flight migration only)."
+    } >&2
+    return 1
+}
+
 # ---------- Flag parsing (TUNE-0044 shared mode, TUNE-0059 whitelist escape) ----------
 
 TASK_ID=""
 SHARED_REPO=""
 NO_WHITELIST=0
+NO_SCHEMA_CHECK=0
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --task-id)
@@ -120,6 +189,10 @@ while [ "$#" -gt 0 ]; do
             ;;
         --no-whitelist)
             NO_WHITELIST=1
+            shift
+            ;;
+        --no-schema-check)
+            NO_SCHEMA_CHECK=1
             shift
             ;;
         --)
@@ -243,6 +316,10 @@ if [ -n "$SHARED_REPO" ]; then
     done < <(git -C "$SHARED_REPO" status --porcelain 2>/dev/null)
 
     if [ "$block" -eq 0 ]; then
+        # Schema-compliance gate (TUNE-0071) runs after clean-git success.
+        if ! check_schema_compliance "$SHARED_REPO"; then
+            exit 1
+        fi
         if [ "$saw_foreign" -eq 1 ]; then
             echo "OK: shared repo has foreign-only hunks — archive may proceed" >&2
         else
@@ -292,6 +369,12 @@ done
 
 # Clean case → silent success.
 if [ "${#dirty_repos[@]}" -eq 0 ]; then
+    # Schema-compliance gate (TUNE-0071): run on every repo that has datarim/.
+    for repo in "$@"; do
+        if ! check_schema_compliance "$repo"; then
+            exit 1
+        fi
+    done
     echo "OK: $# repo(s) clean — archive may proceed" >&2
     exit 0
 fi

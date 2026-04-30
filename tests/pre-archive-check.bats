@@ -439,3 +439,69 @@ EOF
     [[ "$output" == *"foreign"* ]]
     [[ "$output" != *"mixed"* ]]
 }
+
+# ---------- TUNE-0071 schema-compliance gate ----------
+
+# T34: compliant thin-index lines pass schema gate (clean repo + datarim/).
+@test "schema-check: compliant tasks.md/backlog.md → exit 0 (TUNE-0071)" {
+    make_clean_repo "$BATS_TEST_TMPDIR/ws"
+    mkdir -p "$BATS_TEST_TMPDIR/ws/datarim"
+    cat > "$BATS_TEST_TMPDIR/ws/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+
+- TUNE-0071 · in_progress · P1 · L3 · Index-Style Refactor → tasks/TUNE-0071-task-description.md
+EOF
+    cat > "$BATS_TEST_TMPDIR/ws/datarim/backlog.md" <<'EOF'
+# Backlog
+
+## Pending
+
+- INFRA-0099 · pending · P2 · L2 · Sample Backlog Item → tasks/INFRA-0099-task-description.md
+EOF
+    git -C "$BATS_TEST_TMPDIR/ws" add datarim/
+    git -C "$BATS_TEST_TMPDIR/ws" commit --quiet -m "seed datarim"
+    run "$SCRIPT" "$BATS_TEST_TMPDIR/ws"
+    [ "$status" -eq 0 ]
+}
+
+# T35: legacy block-style heading in tasks.md → schema-check blocks (exit 1).
+@test "schema-check: legacy ### TASK-ID: heading flagged → exit 1 (TUNE-0071)" {
+    make_clean_repo "$BATS_TEST_TMPDIR/ws"
+    mkdir -p "$BATS_TEST_TMPDIR/ws/datarim"
+    cat > "$BATS_TEST_TMPDIR/ws/datarim/tasks.md" <<'EOF'
+# Tasks
+
+### TUNE-0071: Index-Style Refactor
+
+- Status: in_progress
+- Priority: P1
+EOF
+    git -C "$BATS_TEST_TMPDIR/ws" add datarim/
+    git -C "$BATS_TEST_TMPDIR/ws" commit --quiet -m "seed legacy"
+    run "$SCRIPT" "$BATS_TEST_TMPDIR/ws"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"non-compliant"* ]] || [[ "$output" == *"dr-doctor"* ]]
+}
+
+# T36: --no-schema-check overrides the gate (in-flight migration escape).
+@test "schema-check: --no-schema-check bypasses non-compliant lines → exit 0 (TUNE-0071)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    mkdir -p "$BATS_TEST_TMPDIR/fw/datarim"
+    cat > "$BATS_TEST_TMPDIR/fw/datarim/tasks.md" <<'EOF'
+# Tasks
+
+### TUNE-0071: Legacy block-style entry
+
+Description body without thin-index format.
+EOF
+    git -C "$BATS_TEST_TMPDIR/fw" add datarim/
+    git -C "$BATS_TEST_TMPDIR/fw" commit --quiet -m "seed legacy in marker repo"
+    # Without override → blocks
+    run "$SCRIPT" --task-id TUNE-0071 --shared "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 1 ]
+    # With override → passes
+    run "$SCRIPT" --task-id TUNE-0071 --shared "$BATS_TEST_TMPDIR/fw" --no-schema-check
+    [ "$status" -eq 0 ]
+}
