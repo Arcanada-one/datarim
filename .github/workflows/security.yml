@@ -374,3 +374,40 @@ jobs:
         run: bats tests/check-doc-refs.bats
       - name: Self-dogfood — run linter against repo HEAD with baseline applied
         run: bash scripts/check-doc-refs.sh --root .
+
+  # 14. task-id-gate — history-agnostic policy on shipped runtime
+  task-id-gate:
+    name: task-id-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+          # --diff-only mode requires diff base; fetch sufficient history.
+          fetch-depth: 50
+      - name: Install bats
+        run: sudo apt-get update && sudo apt-get install -y bats
+      - name: Run task-id-gate bats fixtures
+        run: bats tests/task-id-gate.bats
+      - name: Self-dogfood — gate diff-only against origin/main
+        # Transitional baseline: pre-existing task-ID references in skills/
+        # and commands/ are tracked as a follow-up cleanup pass. The gate
+        # runs in --diff-only mode against the merge-base so only NEW leakage
+        # in the current change-set fails CI. After the cleanup pass lands,
+        # this step switches to full-tree mode.
+        run: |
+          set -euo pipefail
+          base="$(git merge-base HEAD origin/main 2>/dev/null || echo HEAD~1)"
+          fail=0
+          for d in skills agents commands templates; do
+            while IFS= read -r f; do
+              if ! bash scripts/task-id-gate.sh --diff-only "$base" "$f"; then
+                fail=1
+              fi
+            done < <(git diff --name-only "$base"...HEAD -- "$d" | grep -E '\.md$' || true)
+          done
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::task-id-gate: new task-ID references introduced in changed runtime files"
+            exit 1
+          fi
+          echo "task-id-gate: clean (no new task-IDs in change-set)"

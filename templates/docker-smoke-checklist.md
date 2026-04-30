@@ -122,6 +122,6 @@ The hack belongs in the committed configuration, not in the session:
 - `--ssl=0` / `--skip-ssl` flags on the CLI — add to `[client]` in a mounted `.my.cnf`
 - Recreating a container repeatedly until a race condition resolves — diagnose the race instead
 
-Reference incident: DEV-1169 follow-up — three runtime bugs lurked behind 241 passing unit tests because
-no one had ever run the cross-container clone chain in Docker. The fix lived in `docker-compose.yml` +
-a new `.my.cnf` + a single git exec-bit, not in any code.
+Reference pattern: a cross-container clone chain hid three runtime bugs behind hundreds of passing unit tests
+because no one had ever run the chain end-to-end in Docker. The fix lived entirely in `docker-compose.yml` +
+a new `.my.cnf` + a single git exec-bit, not in any application code.

@@ -224,6 +224,7 @@ Datarim improves itself through `/dr-archive` Step 0.5 (the `reflecting` skill):
 5. **Context before code** — Gather requirements before implementing
 6. **One thing at a time** — Implement one method/stub per iteration
 7. **Human in the loop** — Evolution proposals need approval
+8. **Rules are stack- AND history-agnostic** — Task IDs MUST NOT appear in `skills/*.md`, `agents/*.md`, `commands/*.md`, `templates/*.md`. Provenance lives in `docs/evolution-log.md`, `documentation/archive/`, git log. Gates: `scripts/stack-agnostic-gate.sh` (stack terms) and `scripts/task-id-gate.sh` (history). Contracts: `skills/evolution/stack-agnostic-gate.md` and `skills/evolution/history-agnostic-gate.md`.
 
 ---
 

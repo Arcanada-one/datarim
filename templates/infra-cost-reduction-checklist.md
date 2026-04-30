@@ -1,8 +1,9 @@
 # Infra Cost-Reduction Checklist
 
 Use this checklist before executing any VM/storage right-sizing or server
-consolidation task. Adapted from lessons in DEV-1174 (SWC), DEV-1038 (Azure
-unused disks), DEV-1087 (ae-lovable-sites memory guardrails).
+consolidation task. Distilled from recurring patterns: lifting workloads onto
+ARM/Graviton instances, reaping unused cloud disks, and adding memory
+guardrails before peak-hour scale events.
 
 ---
 
@@ -80,8 +81,8 @@ unused disks), DEV-1087 (ae-lovable-sites memory guardrails).
 - [ ] DB checksum comparison on largest N tables pre/post.
 - [ ] 24-h monitoring window: RAM headroom ≥ 20 %, IO `%util < 70 %`,
       zero 5xx spike.
-- [ ] Handoff of decommissioned resources to unused-resource cleanup task
-      (e.g. DEV-1038) with resource IDs.
+- [ ] Handoff of decommissioned resources to a follow-up unused-resource
+      cleanup task with resource IDs.
 
 ## 7. Scope Boundaries
 
