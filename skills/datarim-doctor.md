@@ -1,6 +1,6 @@
 ---
 name: datarim-doctor
-description: Schema spec and migration semantics for /dr-doctor — thin one-liner contract for tasks.md/backlog.md, YAML description-file schema, conflict resolution, edge cases. Loaded on demand by /dr-doctor and /dr-init Step 0.6.
+description: Schema and migration semantics for /dr-doctor — thin one-liner contract, YAML description schema, conflict resolution. Loaded by /dr-doctor + /dr-init.
 ---
 
 # Datarim Doctor — Schema and Migration Semantics

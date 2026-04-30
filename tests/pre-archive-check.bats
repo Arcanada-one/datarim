@@ -549,7 +549,7 @@ EOF
 }
 
 # T39: forbidden-section gate detects ## Последние завершённые.
-@test "v2 gate: activeContext.md § Последние завершённые → exit 1 (TUNE-0071 v2)" {
+@test "v2 gate: activeContext.md last-completed-section forbidden -> exit 1 (TUNE-0071 v2)" {
     make_marker_repo "$BATS_TEST_TMPDIR/fw"
     mkdir -p "$BATS_TEST_TMPDIR/fw/datarim"
     cat > "$BATS_TEST_TMPDIR/fw/datarim/tasks.md" <<'EOF'

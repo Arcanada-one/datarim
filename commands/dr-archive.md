@@ -15,9 +15,11 @@ Complete and archive current task.
 
 0. **TASK RESOLUTION**: Apply Task Resolution Rule from `$HOME/.claude/skills/datarim-system.md` § Task Resolution Rule. Resolve which task is being archived (from argument or disambiguation). Use the resolved task ID for all subsequent steps.
 
-0.1. **PRE-ARCHIVE GIT CHECK** (MANDATORY):
+0.1. **PRE-ARCHIVE CLEAN-GIT CHECK** (MANDATORY):
 
-   **0.1.1 Repo classification.** Every git repo touched by this task is one of:
+   **Contract (TUNE-0003 Proposal 1, preserved):** this gate runs `git status --porcelain` per every git repository touched by the task. On a dirty tree the operator picks one of three branches: **Commit now** (land the changes), **Accept pending state** (record in the archive doc's "Known Outstanding State" section), or **Abort** (return to /dr-do). Do not archive over a dirty working tree silently — STOP if no branch is chosen.
+
+   **0.1.1 Repo classification.** Every git repository touched by this task is one of:
    - **Workspace repo** (shared, e.g. a workflow-state directory shared by multiple parallel agent sessions): foreign-task-ID hunks are NOT a blocker; only this task's own forgotten hunks (or unattributed hunks) block.
    - **Conditional-shared repo** (TUNE-0056): a repo containing a `.datarim-shared` marker file at its root. Treated as workspace-shared automatically when `pre-archive-check.sh` is invoked with `--task-id` (no explicit `--shared` flag needed). Used by framework repos that are touched by multiple parallel agent sessions but were historically classified as project repos.
    - **Project repo** (single-agent, e.g. a project's source tree): foreign-task-ID hunks are impossible by construction; treat any uncommitted change as a STOP.
