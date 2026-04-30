@@ -114,7 +114,7 @@ cosign verify-blob \
 | Симптом | Причина / fix |
 |---|---|
 | `cosign verify-blob` → `no matching signatures` | `--certificate-identity` не совпадает с `release.yml@refs/tags/<TAG>` из подписавшего workflow. Проверь точный TAG, capitalization org/repo. |
-| `gh attestation verify` → `no attestations found` | Релиз создан до TUNE-0050 (release.yml landing 2026-04-29) или вручную. Только теги, прошедшие через `release.yml`, имеют SLSA L2 attestation. |
+| `gh attestation verify` → `no attestations found` | Релиз создан вручную или до внедрения `release.yml` (2026-04-29). Только теги, прошедшие через `release.yml`, имеют SLSA L2 attestation. |
 | `sha256sum: WARNING: 1 computed checksum did NOT match` | Tarball повреждён или подменён в транзите. Скачай заново; если воспроизводится — открой issue. |
 | `gh: command not found` | Установи [GitHub CLI](https://cli.github.com/) ≥ 2.40 — нужен только для шага 5 (attestation verify); шаги 1-4 можно сделать через `curl` + `cosign`. |
 

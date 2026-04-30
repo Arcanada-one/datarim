@@ -150,7 +150,7 @@ echo "rc=$?"   # now reflects build.sh exit (or tail's if tail fails)
 
 ### Why this matters in practice
 
-a prior phase verification: `bash scripts/stack-agnostic-gate.sh ~/.claude/{skills,...}/ 2>&1 | tail` reported «PASS clean», but the actual gate script exited 133 (SIGTRAP, kernel-killed) silently. The `tail -1` returned exit 0, so `$?` was 0. I observed «PASS clean» as the last printed line and concluded success. Real state: 11 leaky files in runtime, gate dying mid-scan. Latent bug for ~24 hours; surfaced in TUNE-0040 only when I ran the gate without the tail-pipe wrapper.
+a prior phase verification: `bash scripts/stack-agnostic-gate.sh ~/.claude/{skills,...}/ 2>&1 | tail` reported «PASS clean», but the actual gate script exited 133 (SIGTRAP, kernel-killed) silently. The `tail -1` returned exit 0, so `$?` was 0. I observed «PASS clean» as the last printed line and concluded success. Real state: 11 leaky files in runtime, gate dying mid-scan. Latent bug for ~24 hours; surfaced only when the gate was run without the tail-pipe wrapper.
 
 **Rule:** any verification step that asserts on exit code MUST capture the source command's exit BEFORE piping. The pipe is a formatter, not a result-bearer. Reinforce especially during /dr-do verification and /dr-qa Layer 4.
 

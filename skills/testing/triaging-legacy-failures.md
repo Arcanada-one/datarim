@@ -26,7 +26,7 @@ The assertion encodes a real, currently-relevant invariant — the *underlying f
 The offending substring lives in *transient or continuously-mutating* content (logs, status pages, changelogs) where neither delete (loses the entry) nor whitelist-extension (propagates the contract forward forever) fits.
 
 - **Action:** rewrite the content the test matches against — drop the offending substring, preserve semantics. Do not extend a whitelist to cover content that will keep growing.
-- **Example:** `docs/evolution-log.md:223` mentioned the retired-command name (the literal substring that the `reflect-removal-sweep.bats` whitelist policed) inside a TUNE-0034 follow-up entry. Whitelisting the file would propagate the v1.10.0/TUNE-0013 forward-pointer requirement to a transient log forever. Rephrased the line to "reflect-removal sweep whitelist gaps" — substring gone, meaning intact. (Self-application: this very example earlier carried the substring; it is rephrased here for the same reason.)
+- **Example:** `docs/evolution-log.md:223` mentioned the retired-command name (the literal substring that the `reflect-removal-sweep.bats` whitelist policed) inside a follow-up entry. Whitelisting the file would propagate the v1.10.0 forward-pointer requirement to a transient log forever. Rephrased the line to "reflect-removal sweep whitelist gaps" — substring gone, meaning intact. (Self-application: this very example earlier carried the substring; it is rephrased here for the same reason.)
 
 ## Decision aid
 

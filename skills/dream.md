@@ -77,6 +77,7 @@ Deep maintenance that restructures the knowledge base for clarity and efficiency
 
 When Dream processes documents, it ensures this frontmatter exists:
 
+<!-- gate:history-allowed -->
 ```yaml
 ---
 title: Document Title
@@ -89,6 +90,7 @@ tags: [tag1, tag2]
 related: [path/to/related-doc.md]
 ---
 ```
+<!-- /gate:history-allowed -->
 
 **Fields:**
 - `title` — human-readable title
@@ -107,6 +109,7 @@ Not all fields are required for all documents. Dream adds missing fields where i
 
 Dream maintains `datarim/index.md` — a navigable catalog of the knowledge base:
 
+<!-- gate:history-allowed -->
 ```markdown
 # Knowledge Base Index
 
@@ -137,6 +140,7 @@ Dream maintains `datarim/index.md` — a navigable catalog of the knowledge base
 | 2026-04-11 | Created | tasks/TASK-0042-dream-system.md |
 | 2026-04-10 | Archived | archive/archive-TASK-0041.md |
 ```
+<!-- /gate:history-allowed -->
 
 ---
 

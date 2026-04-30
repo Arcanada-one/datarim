@@ -19,7 +19,7 @@ description: Core Datarim rules. Load this entry first, then only the fragment n
 - Use `$HOME/.claude/` or project-relative paths, not absolute machine-specific paths.
 - **Operational files are thin indexes**: `tasks.md`, `backlog.md`, `activeContext.md` carry one-liner-per-task pointers — never full task content. Descriptions live in `tasks/{TASK-ID}-task-description.md`. `progress.md` is **abolished**. See § Operational File Schema below.
 
-## Operational File Schema (TUNE-0071, v1.19.0+)
+## Operational File Schema (v1.19.0+)
 
 Operational files are **indexes**, not content. Each line answers: which task, what state, where the description lives. Detailed contract: `skills/datarim-doctor.md`.
 
@@ -38,13 +38,15 @@ Canonical regex (anchored, single-line):
 Separator: `·` (U+00B7 MIDDLE DOT). Arrow: `→` (U+2192). Title: 1–80 chars, single-line, no `→`.
 
 Example:
+<!-- gate:history-allowed -->
 ```
 - TUNE-0071 · in_progress · P1 · L3 · Index-Style Refactor → tasks/TUNE-0071-task-description.md
 ```
+<!-- /gate:history-allowed -->
 
 Section headers (`## Active`, `## Pending`) and blank lines allowed; only `- {PREFIX}-{NNNN}` bullets are validated.
 
-### `activeContext.md` thin contract (v2 — TUNE-0071 v2, ≤30 lines)
+### `activeContext.md` thin contract (v2 — ≤30 lines)
 
 One section only — strict mirror of `tasks.md` § Active:
 
@@ -69,7 +71,7 @@ Notes or in the archive doc.
 
 ### `backlog-archive.md`
 
-**Abolished as of v1.19.1 (TUNE-0071 v2).** `/dr-doctor --fix` migrates each
+**Abolished as of v1.19.1.** `/dr-doctor --fix` migrates each
 entry to `documentation/archive/{area or cancelled}/archive-{ID}.md` with
 per-task content-presence assertion, then deletes the file. `pre-archive-check.sh`
 blocks when the file exists.
@@ -137,7 +139,7 @@ Before writing any file to `datarim/`:
 Skills, agents, commands, and templates load from two layers:
 
 1. **Framework layer:** `$HOME/.claude/{skills,agents,commands,templates}/{name}.md`.
-   In symlink-mode (default since v1.17.0, TUNE-0033) this resolves to the
+   In symlink-mode (default since v1.17.0) this resolves to the
    cloned datarim repo. In copy-mode it resolves to local copies.
 2. **Local overlay:** `$HOME/.claude/local/{skills,agents,commands,templates}/{name}.md`.
    User-private. Gitignored. Created empty by `install.sh`.
@@ -160,7 +162,7 @@ When closing a task, choose the disposition that matches the actual outcome:
 | `absorbed` | Scope and deliverable fully delivered **inside another task** | `backlog-archive.md` ## Completed with status `absorbed`, link to absorbing task ID, note `delivered as part of {OTHER-TASK}`. No separate archive document — reference the absorbing task's archive. |
 | `superseded` | Replaced by a newer task with broader/different scope; no deliverable from this ID | `backlog-archive.md` ## Cancelled with status `superseded`, link to replacing task. |
 
-Source: prior incident — `update.sh` deliverable from TUNE-0031 was shipped inside TUNE-0033 scope; `cancelled` was inaccurate (deliverable existed) and `completed` was inaccurate (no separate archive). `absorbed` captures the reality and preserves audit trail.
+Source: prior incident — an `update.sh` deliverable was shipped inside a different task's scope; `cancelled` was inaccurate (deliverable existed) and `completed` was inaccurate (no separate archive). `absorbed` captures the reality and preserves audit trail.
 
 ## Quick Routing Heuristic
 

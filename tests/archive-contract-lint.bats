@@ -66,7 +66,7 @@ SPEC="${BATS_TEST_DIRNAME}/../commands/dr-archive.md"
     [ "$status" -eq 0 ]
 }
 
-@test "spec cites TUNE-0003 for governance rationale" {
-    run grep -F "TUNE-0003" "$SPEC"
+@test "spec documents three-branch contract (history-agnostic: ID removed, clause retained)" {
+    run grep -iE "accept.*pending|commit now|abort" "$SPEC"
     [ "$status" -eq 0 ]
 }

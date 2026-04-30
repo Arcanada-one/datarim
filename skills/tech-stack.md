@@ -195,7 +195,7 @@ Source: prior incident — Model Connector code had no `.git` for weeks; discove
 - **Node.js:** LTS (even versions), `engines` field, `pnpm-lock.yaml`
 - **Python:** latest stable minor, `pyproject.toml`, `uv.lock`
 - **Audit after scaffold:** Run `pnpm outdated` (or `uv pip list --outdated`) immediately after project init. Zero outdated packages = pass.
-- **AI hallucination guard:** Do NOT rely on training data for current package versions. Before specifying a version in `package.json` / `pyproject.toml`, verify the latest major via `npm view <pkg> version` (or `pip index versions <pkg>`). CONN-0001 incident: AI proposed Prisma 6 when Prisma 7 was already the latest stable — caught only at audit, cost rework.
+- **AI hallucination guard:** Do NOT rely on training data for current package versions. Before specifying a version in `package.json` / `pyproject.toml`, verify the latest major via `npm view <pkg> version` (or `pip index versions <pkg>`). Prior incident: AI proposed Prisma 6 when Prisma 7 was already the latest stable — caught only at audit, cost rework.
 - **Post-install verification (MANDATORY):** After every `pnpm add` / `uv add` during implementation, run `pnpm outdated` (or equivalent). If any dependency shows a newer major, update immediately — do not defer.
 
 ## Testing Policy

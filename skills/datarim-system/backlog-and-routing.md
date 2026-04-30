@@ -1,6 +1,6 @@
 # Datarim System — Backlog and Routing
 
-## Backlog Management (v3.0 — single-file, TUNE-0071 v2)
+## Backlog Management (v3.0 — single-file)
 
 ### Single-File Architecture
 
@@ -9,7 +9,7 @@
 - optimized for normal reads
 - uses the same `{PREFIX}-{NNNN}` ID the task will keep later
 
-`backlog-archive.md` was retired in v1.19.1 (TUNE-0071 v2). Completion archive
+`backlog-archive.md` was retired in v1.19.1. Completion archive
 is **canonical only** in `documentation/archive/{area}/archive-{ID}.md`
 (committed to git). Cancelled tasks live in
 `documentation/archive/cancelled/archive-{ID}.md`.
@@ -52,7 +52,7 @@ is **canonical only** in `documentation/archive/{area}/archive-{ID}.md`
 - complex architecture
 - flow: `init → prd → plan → design → phased-do → qa → compliance → archive`
 
-All levels: `archive` runs reflection internally as mandatory Step 0.5 (v1.10.0, TUNE-0013).
+All levels: `archive` runs reflection internally as mandatory Step 0.5.
 
 ## Date Handling
 
@@ -69,7 +69,7 @@ Or use the current date from session context.
 
 When a `/dr-do` step modifies an Acceptance Criterion in a measurable way — sample size (50 → 41), threshold (≥0.8 → ≥0.5), dataset (full → curated subset), tool (planned model → fallback model) — patch the plan document inline **before commit**, not after QA flags drift. A single-line edit to plan §10 takes seconds; an unexplained drift adds noise to Layer 3 verification and forces the QA report to spend lines explaining a deviation that should have been a planning artefact.
 
-Source: prior incident — pilot subset modified 50 → 41 chunks for ground-truth coverage; the operational decision was correct, but the plan kept saying «50» until QA flagged it. Recurring class with TUNE-0034 (stale `@test` count) and TUNE-0028 (stale skill count): drift between plan and reality is process debt that compounds.
+Source: prior incident — pilot subset modified 50 → 41 chunks for ground-truth coverage; the operational decision was correct, but the plan kept saying «50» until QA flagged it. Recurring class with stale `@test` counts and stale skill counts: drift between plan and reality is process debt that compounds.
 
 ### Avoid absolute test-count numbers in AC formulation
 
@@ -81,7 +81,7 @@ Test-baseline ACs that pin an absolute number (e.g. «≥159/160 PASS») drift b
 
 When the absolute number IS the AC (e.g. «add 5 new tests, expect +5 pass»), state it as a delta against HEAD baseline measured immediately before the edit, not as an absolute target.
 
-Source: prior incident — plan AC-5 said «≥159/160 PASS», actual baseline at QA time was 158/160 (TUNE-0042 pre-existing red surfaced between plan and `/dr-do`). Semantic intent («0 regressions») was met; the absolute number forced QA to spend a paragraph explaining the gap.
+Source: prior incident — plan AC-5 said «≥159/160 PASS», actual baseline at QA time was 158/160 (a pre-existing red surfaced between plan and `/dr-do`). Semantic intent («0 regressions») was met; the absolute number forced QA to spend a paragraph explaining the gap.
 
 ### Re-verify quantitative backlog inventories at init/do start
 
@@ -95,7 +95,7 @@ When a backlog item lists specific quantitative claims — «N failing tests #X.
 4. **reality > inventory** → escalate to the operator as scope expansion. Decide whether to absorb the new items, defer to a follow-up, or split the task.
 5. **reality == inventory** → proceed; no action.
 
-Source: prior incident — backlog body listed «10 failing tests» with named root causes (#100-#143). Pre-flight `bats tests/` at /dr-do start showed only 2 actual reds — 8 had been closed in flight by TUNE-0029 (`optimizer.md` rewrite), TUNE-0040 (description-length sweep), TUNE-0043 (stack-agnostic sweep), and an earlier TUNE-0034 v1.17.1 round (`file-sync-config.md` description trim). Estimate (30-60 min) was 5× the actual (10 min). Skipping re-verification could have caused phantom-debug work on already-passing tests.
+Source: prior incident — backlog body listed «10 failing tests» with named root causes. Pre-flight `bats tests/` at /dr-do start showed only 2 actual reds — 8 had been closed in flight by parallel sweep tasks (optimizer rewrite, description-length sweep, stack-agnostic sweep, description trim). Estimate (30-60 min) was 5× the actual (10 min). Skipping re-verification could have caused phantom-debug work on already-passing tests.
 
 Companion to «Avoid absolute test-count numbers in AC formulation» above: same source-of-truth logic applied to inventory-side claims rather than AC-side claims. Both rules answer the same question — «how do we keep backlog text in sync with runtime reality?» — at different points in the pipeline.
 
@@ -124,7 +124,7 @@ Source: prior incident reflection §2.4 — 10 phases (model upgrade → knowled
 
 ## Mode Transition Optimization
 
-Every transition listed below MUST be surfaced to the user as a canonical CTA block per `$HOME/.claude/skills/cta-format.md`. The text in this section defines WHICH command becomes the primary CTA at each transition; the FORMAT of the CTA block is owned by `cta-format.md` (single source of truth, TUNE-0032 v1.16.0).
+Every transition listed below MUST be surfaced to the user as a canonical CTA block per `$HOME/.claude/skills/cta-format.md`. The text in this section defines WHICH command becomes the primary CTA at each transition; the FORMAT of the CTA block is owned by `cta-format.md` (single source of truth).
 
 ### Automatic Transitions (primary CTA after each stage)
 

@@ -95,7 +95,7 @@ rsync -avz -- "$target" user@host:/tmp/
 ### CI coverage
 
 - **Required:** `shellcheck` (over committed `*.sh`).
-- **Informational (TUNE-0048 promotion path):** `shellcheck-extracted` (over `bash` / `sh` / `shell` blocks extracted from shipped `.md`).
+- **Informational (promotion path):** `shellcheck-extracted` (over `bash` / `sh` / `shell` blocks extracted from shipped `.md`).
 
 ---
 
@@ -175,7 +175,7 @@ with os.fdopen(fd, "w") as f:
 
 ### Implementation reference
 
-- Release workflow: [`.github/workflows/release.yml`](../.github/workflows/release.yml) — TUNE-0050 implementation.
+- Release workflow: [`.github/workflows/release.yml`](../.github/workflows/release.yml) — supply-chain security implementation.
 - Verify recipe (consumer-side): [`docs/release-verification.md`](../docs/release-verification.md), [`skills/release-verify.md`](release-verify.md).
 - Stack-agnostic phrasing for dependency-audit references: see [`skills/security.md`](security.md) § Stack-neutral phrasing.
 
@@ -320,7 +320,7 @@ Triage doc location: `documentation/archive/security/triage-YYYY-MM.md`. Require
 6. **Follow-up backlog items** — task IDs for any work deferred, with concrete triggers for closure.
 7. **Lessons** — single section feeding back into S1–S9 rule expansion or `tests/security/baseline.json` § `suppressions[]` if accepted-risk.
 
-Reference: SEC-0001 archive — public framework repo carried a leaked OAuth Client ID for 11 days; the recovery added `git filter-repo` two-flag form + pre-push grep gate to [`skills/security.md`](security.md) § Git History Scrub Recipe. The template above is the postmortem shape used by SEC-0001.
+Reference: a prior security incident (public framework repo carried a leaked OAuth Client ID for 11 days); the recovery added `git filter-repo` two-flag form + pre-push grep gate to [`skills/security.md`](security.md) § Git History Scrub Recipe. The template above is the postmortem shape from that incident.
 
 ---
 
@@ -398,7 +398,7 @@ Both skills cross-link freely; neither replaces the other. CLAUDE.md § Security
 
 ## Reusable Templates
 
-- [`templates/security-workflow.yml`](../templates/security-workflow.yml) — drop-in CI gate for consumer projects (TUNE-0045 baseline).
+- [`templates/security-workflow.yml`](../templates/security-workflow.yml) — drop-in CI gate for consumer projects.
 - [`templates/security-deps-upgrade-plan.md`](../templates/security-deps-upgrade-plan.md) — stack-neutral plan for dependency-CVE / framework-bump tasks. See [`skills/security.md`](security.md) § Reusable Templates.
 - `tests/security/finding-<N>-<slug>.bats` — regression test scaffold (S9 obligation: every fixed finding gets a regression test).
 
@@ -409,7 +409,7 @@ Both skills cross-link freely; neither replaces the other. CLAUDE.md § Security
 - Corporate audit, 2026-04-28: [`documentation/archive/security/findings-2026-04-28.md`](../documentation/archive/security/findings-2026-04-28.md)
 - Audit baseline (machine-readable): [`tests/security/baseline.json`](../tests/security/baseline.json)
 - Research baseline: `~/arcanada/datarim/insights/INSIGHTS-security-baseline-oss-cli-2026.md` (575 LoC OSS CLI security research, 2026-04-28)
-- Recovery archive (incident → rule expansion): SEC-0001 archive at `documentation/archive/security/archive-SEC-0001.md`
+- Recovery archive (incident → rule expansion): security incident archive at `documentation/archive/security/`
 - Companion operational recipes: [`skills/security.md`](security.md)
 - Consumer-side verify entry: [`skills/release-verify.md`](release-verify.md), [`docs/release-verification.md`](../docs/release-verification.md)
 - Standards mapping (S8): [`docs/standards-mapping.md`](../docs/standards-mapping.md)

@@ -48,7 +48,7 @@ When creating new components, the skill-creator agent:
 
 **No automatic modifications.** Every change requires explicit human approval across all paths.
 
-> **Historical note (v1.10.0, TUNE-0013):** the standalone `/dr-reflect` command was retired and consolidated into `/dr-archive` Step 0.5 via the `reflecting` skill — reflection must run on every archive, not optionally. Disaster-recovery procedures for runtime files live in `skills/utilities/recovery.md` (cross-referenced from `skills/evolution/disaster-recovery.md`).
+> **Historical note (v1.10.0):** the standalone `/dr-reflect` command was retired and consolidated into `/dr-archive` Step 0.5 via the `reflecting` skill — reflection must run on every archive, not optionally. Disaster-recovery procedures for runtime files live in `skills/utilities/recovery.md` (cross-referenced from `skills/evolution/disaster-recovery.md`).
 
 ---
 
@@ -235,6 +235,6 @@ When a user-memory rule (e.g. `~/.claude/projects/<proj>/memory/feedback_*.md`) 
 4. **Bats fixtures** — at minimum 1 FAIL fixture (golden violation reproducing the original incident) + 1 PASS fixture (legitimate negative case) + 1 regression-invariant test on the gate's own host file (catches re-introduction of the violation).
 5. **Whitelist + escape hatch** — declare any file that is exempt by design (e.g. `tech-stack.md` for stack-keywords). Provide a per-block escape marker (e.g. HTML-comment fence) for legitimate illustrative content. Use sparingly; reviewers should challenge each usage.
 
-**Source incident:** TUNE-0039 (2026-04-26) — `feedback_datarim_stack_agnostic.md` declared 2026-04-25, violated 2026-04-26 (VERD-0021, three artefacts). Memory rule advisory; gate enforces.
+**Source incident:** `feedback_datarim_stack_agnostic.md` declared 2026-04-25, violated the next day across three artefacts. Memory rule advisory; gate enforces.
 
 **Reuse candidates:** consider this pattern for any future recurring memory rule — e.g. «no-secrets-in-code», «no-personal-paths», «no-deprecated-API-XXX», ecosystem-specific keyword bans.

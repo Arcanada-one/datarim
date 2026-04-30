@@ -13,14 +13,14 @@ description: Pre-flight checklist + ignore patterns для file-sync (Syncthing/
 - rclone bisync
 - Dropbox/iCloud/Google Drive shared folder
 - rsync периодический job
-- Disk Arcana sync (DISK-0011 future)
+- Disk Arcana sync (planned)
 - Любой custom sync layer
 
 **НЕ загружай** для одностороннего бэкапа или CI artifact transfer — там risk model другой.
 
 ## Why It Matters (founding incident)
 
-INFRA-0026 (2026-04-25): первая версия `.stignore` для Syncthing содержала 28 patterns и не покрывала `.venv`, `__pycache__`, `target/`, `*.db`, плюс не исключала вложенные git-репо целиком. Результат:
+Founding incident (2026-04-25): первая версия `.stignore` для Syncthing содержала 28 patterns и не покрывала `.venv`, `__pycache__`, `target/`, `*.db`, плюс не исключала вложенные git-репо целиком. Результат:
 
 - 1 материализованный sync-conflict в production (`AI_agents/Email Agent/CLAUDE.md`) — потеряли бы deploy-документацию если бы Syncthing не сохранил .sync-conflict копию.
 - 60+ sync-conflict файлов накопилось в vault за неделю.
@@ -105,7 +105,7 @@ find "$SYNC_ROOT" -maxdepth 6 \( \
 
 **По умолчанию выбирай ДА** — почти всегда вторая нода рано или поздно станет «активной» (новый агент, deploy script, manual edit). Лучше overprotection.
 
-## Reusable .stignore Template (Syncthing, INFRA-0026 v2)
+## Reusable .stignore Template (Syncthing)
 
 ```gitignore
 # === КРИТИЧНО: Project source code (separate git repos) ===
@@ -256,7 +256,7 @@ Source: https://docs.syncthing.net/users/ignoring.html
 
 ## Related
 
-- `Areas/Architecture/ADR-0001-file-sync-policy.md` — vault-level convention для Arcanada ecosystem
-- `Areas/Infrastructure/Syncthing.md` — реальный INFRA-0026 deployment runbook
+- `Areas/Architecture/file-sync-policy.md` (ADR) — vault-level convention для Arcanada ecosystem
+- `Areas/Infrastructure/Syncthing.md` — Syncthing deployment runbook
 - `Areas/Infrastructure/scripts/arcanada-pull.sh` — git-pull cron с CLI Claude conflict resolver
 - `templates/cli-conflict-resolver-prompt.md` — reusable Claude promp для conflict resolution

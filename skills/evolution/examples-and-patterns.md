@@ -10,6 +10,7 @@ description: Good/bad evolution proposal examples and deprecation pattern. Refer
 ### Growth (from /dr-archive Step 0.5 reflection)
 
 **Good — specific, evidence-based:**
+<!-- gate:history-allowed -->
 ```
 Category: skill-update
 Target: skills/security.md
@@ -17,8 +18,10 @@ What: Add rate limiting section with token bucket and sliding window patterns
 Why: TASK-0051 required rate limiting on 3 endpoints; had to research patterns from scratch each time
 Impact: Medium
 ```
+<!-- /gate:history-allowed -->
 
 **Good — new template justified by repetition:**
+<!-- gate:history-allowed -->
 ```
 Category: new-template
 Target: templates/migration-checklist.md
@@ -26,6 +29,7 @@ What: Checklist template for database migrations (backup, test, rollback plan, m
 Why: Missed rollback plan in TASK-0047, causing 30min downtime. Same checklist needed in TASK-0044 and TASK-0039.
 Impact: High
 ```
+<!-- /gate:history-allowed -->
 
 ### Optimization (from /dr-optimize)
 
@@ -79,7 +83,7 @@ When a concept, command, or convention is removed or renamed, historical referen
 
 1. **Delete/rename** the live artifact (e.g. remove `commands/dr-reflect.md`).
 2. **Sweep** all live spec/doc/agent/skill/command files — replace operational references with the new name.
-3. **Preserve** historical mentions (changelogs, incident narratives, archived reflections) with a **forward-pointer annotation** on each, citing the version and task ID: `"(consolidated into /dr-archive Step 0.5 in v1.10.0 via TUNE-0013)"`.
+3. **Preserve** historical mentions (changelogs, incident narratives, archived reflections) with a **forward-pointer annotation** on each, citing the version and consolidation point: e.g. `"(consolidated into /dr-archive Step 0.5 in v1.10.0)"`.
 4. **Create a bats sweep-test** (T3-style) that:
    - Lists every file matching the old term via `grep -rln`.
    - Checks each against an explicit **whitelist** (files allowed to mention the old term).
@@ -96,4 +100,4 @@ When a concept, command, or convention is removed or renamed, historical referen
 
 ### Exemplar
 
-TUNE-0013 (v1.10.0): removal of `/dr-reflect` command. Whitelist: `CLAUDE.md`, `docs/pipeline.md`, `commands/dr-archive.md`, `skills/reflecting.md`, `skills/evolution.md`. Sweep-test: `tests/reflect-removal-sweep.bats` (4 assertions: T3a whitelist, T3b forward-pointer, T3c file-deleted, T3d visual-maps clean).
+Example (v1.10.0): removal of `/dr-reflect` command. Whitelist: `CLAUDE.md`, `docs/pipeline.md`, `commands/dr-archive.md`, `skills/reflecting.md`, `skills/evolution.md`. Sweep-test: `tests/reflect-removal-sweep.bats` (4 assertions: T3a whitelist, T3b forward-pointer, T3c file-deleted, T3d visual-maps clean).
