@@ -1,6 +1,6 @@
 # Datarim — Universal Iterative Workflow Framework
 
-> **Version:** 1.19.0
+> **Version:** 1.19.1
 > **Framework:** Datarim (Датарим) provides structured rules, agents, skills, and commands for iterative project execution via Claude Code — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
 > **Note:** "Datarim" is transliterated as "Датарим" in Russian. Both refer to this framework — agents must recognize either form in any language context.
 
@@ -130,11 +130,9 @@ Each project maintains two directories at the project root (created by `/dr-init
 
 ```
 datarim/                          # Workflow state (LOCAL — in .gitignore)
-├── activeContext.md              # Current task state
-├── tasks.md                     # Active task tracking + implementation plan
-├── backlog.md                   # Pending tasks queue
-├── backlog-archive.md           # Completed/cancelled tasks
-├── progress.md                  # Overall progress
+├── activeContext.md              # Active Tasks mirror only (≤30 lines, TUNE-0071 v2)
+├── tasks.md                     # Active one-liner index (thin schema)
+├── backlog.md                   # Pending one-liner index (thin schema)
 ├── projectbrief.md              # Project overview
 ├── productContext.md             # Product requirements
 ├── systemPatterns.md            # Architecture patterns
@@ -163,6 +161,7 @@ documentation/                    # Project documentation (COMMITTED to git)
     ├── finance/                 # FIN-* tasks
     ├── qa/                      # QA-* tasks
     ├── optimized/               # Framework optimizer backups
+    ├── cancelled/               # Cancelled tasks (TUNE-0071 v2)
     └── general/                 # Unmatched prefixes
 ```
 

@@ -505,3 +505,117 @@ EOF
     run "$SCRIPT" --task-id TUNE-0071 --shared "$BATS_TEST_TMPDIR/fw" --no-schema-check
     [ "$status" -eq 0 ]
 }
+
+# ---------- TUNE-0071 v2 gates (1.19.1) ----------
+# T37: forbidden-file gate detects backlog-archive.md presence.
+@test "v2 gate: backlog-archive.md presence → exit 1 (TUNE-0071 v2)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    mkdir -p "$BATS_TEST_TMPDIR/fw/datarim"
+    cat > "$BATS_TEST_TMPDIR/fw/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+EOF
+    cat > "$BATS_TEST_TMPDIR/fw/datarim/backlog-archive.md" <<'EOF'
+# Backlog Archive (legacy aggregated)
+
+## Completed
+
+### TUNE-0001: Legacy entry
+EOF
+    git -C "$BATS_TEST_TMPDIR/fw" add datarim/
+    git -C "$BATS_TEST_TMPDIR/fw" commit --quiet -m "seed legacy backlog-archive"
+    run "$SCRIPT" --task-id TUNE-0071 --shared "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"backlog-archive.md"* ]] || [[ "$stderr_output" == *"backlog-archive.md"* ]] || true
+}
+
+# T38: forbidden-file gate detects progress.md presence.
+@test "v2 gate: progress.md presence → exit 1 (TUNE-0071 v2)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    mkdir -p "$BATS_TEST_TMPDIR/fw/datarim"
+    cat > "$BATS_TEST_TMPDIR/fw/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+EOF
+    cat > "$BATS_TEST_TMPDIR/fw/datarim/progress.md" <<'EOF'
+# Progress (abolished)
+EOF
+    git -C "$BATS_TEST_TMPDIR/fw" add datarim/
+    git -C "$BATS_TEST_TMPDIR/fw" commit --quiet -m "seed legacy progress.md"
+    run "$SCRIPT" --task-id TUNE-0071 --shared "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 1 ]
+}
+
+# T39: forbidden-section gate detects ## Последние завершённые.
+@test "v2 gate: activeContext.md § Последние завершённые → exit 1 (TUNE-0071 v2)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    mkdir -p "$BATS_TEST_TMPDIR/fw/datarim"
+    cat > "$BATS_TEST_TMPDIR/fw/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+EOF
+    cat > "$BATS_TEST_TMPDIR/fw/datarim/activeContext.md" <<'EOF'
+# Active Context
+
+## Active Tasks
+
+## Последние завершённые
+
+- 2026-04-30 · TUNE-0001 · Legacy → archive/
+EOF
+    git -C "$BATS_TEST_TMPDIR/fw" add datarim/
+    git -C "$BATS_TEST_TMPDIR/fw" commit --quiet -m "seed legacy section"
+    run "$SCRIPT" --task-id TUNE-0071 --shared "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 1 ]
+}
+
+# T40: activeContext.md § Active Tasks paragraph form → exit 1 (line-format).
+@test "v2 gate: activeContext.md Active paragraph form → exit 1 (TUNE-0071 v2)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    mkdir -p "$BATS_TEST_TMPDIR/fw/datarim"
+    cat > "$BATS_TEST_TMPDIR/fw/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+
+- TRANS-0001 · in_progress · P1 · L4 · Transcribator → tasks/TRANS-0001-task-description.md
+EOF
+    cat > "$BATS_TEST_TMPDIR/fw/datarim/activeContext.md" <<'EOF'
+# Active Context
+
+## Active Tasks
+
+- **TRANS-0001** (in_progress, 2026-04-21) — Long paragraph format that violates v2 contract.
+EOF
+    git -C "$BATS_TEST_TMPDIR/fw" add datarim/
+    git -C "$BATS_TEST_TMPDIR/fw" commit --quiet -m "seed paragraph active"
+    run "$SCRIPT" --task-id TUNE-0071 --shared "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 1 ]
+}
+
+# T41: thin-compliant activeContext.md Active section → exit 0.
+@test "v2 gate: activeContext.md Active thin → exit 0 (TUNE-0071 v2)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    mkdir -p "$BATS_TEST_TMPDIR/fw/datarim"
+    cat > "$BATS_TEST_TMPDIR/fw/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+
+- TRANS-0001 · in_progress · P1 · L4 · Transcribator → tasks/TRANS-0001-task-description.md
+EOF
+    cat > "$BATS_TEST_TMPDIR/fw/datarim/activeContext.md" <<'EOF'
+# Active Context
+
+## Active Tasks
+
+- TRANS-0001 · in_progress · P1 · L4 · Transcribator → tasks/TRANS-0001-task-description.md
+EOF
+    git -C "$BATS_TEST_TMPDIR/fw" add datarim/
+    git -C "$BATS_TEST_TMPDIR/fw" commit --quiet -m "seed thin active"
+    run "$SCRIPT" --task-id TUNE-0071 --shared "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 0 ]
+}

@@ -1,22 +1,26 @@
 # Datarim System — Backlog and Routing
 
-## Backlog Management (v2.0)
+## Backlog Management (v3.0 — single-file, TUNE-0071 v2)
 
-### Two-File Architecture
+### Single-File Architecture
 
-**Active Backlog** (`backlog.md`)
-- contains only `pending` and `in_progress`
+**Backlog** (`backlog.md`) — thin one-liner index
+- contains only `pending` / `blocked-pending` / `cancelled` (transient state)
 - optimized for normal reads
 - uses the same `{PREFIX}-{NNNN}` ID the task will keep later
 
-**Backlog Archive** (`backlog-archive.md`)
-- stores `completed` and `cancelled` items
-- used for history, not routine execution
+`backlog-archive.md` was retired in v1.19.1 (TUNE-0071 v2). Completion archive
+is **canonical only** in `documentation/archive/{area}/archive-{ID}.md`
+(committed to git). Cancelled tasks live in
+`documentation/archive/cancelled/archive-{ID}.md`.
 
 ### When to Update
 
-- On task completion: move from `backlog.md` to `backlog-archive.md`
-- On new work: add to `backlog.md` with `pending`
+- On task completion: remove from `backlog.md`; archive prose lives in
+  `documentation/archive/{area}/archive-{ID}.md` written by `/dr-archive`.
+- On task cancellation: write `documentation/archive/cancelled/archive-{ID}.md`,
+  then remove from `backlog.md`.
+- On new work: add to `backlog.md` with `pending`.
 
 ## Complexity Decision Tree
 
