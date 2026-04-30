@@ -17,6 +17,93 @@ description: Core Datarim rules. Load this entry first, then only the fragment n
 - Keep `datarim/` for local workflow state and `documentation/archive/` for committed long-term archives.
 - Never create `documentation/tasks/`.
 - Use `$HOME/.claude/` or project-relative paths, not absolute machine-specific paths.
+- **Operational files are thin indexes** (TUNE-0071): `tasks.md`, `backlog.md`, `activeContext.md` carry one-liner-per-task pointers — never full task content. Descriptions live in `tasks/{TASK-ID}-task-description.md`. `progress.md` is **abolished**. See § Operational File Schema below.
+
+## Operational File Schema (TUNE-0071, v1.19.0+)
+
+Operational files are **indexes**, not content. Each line answers: which task, what state, where the description lives. Detailed contract: `skills/datarim-doctor.md`.
+
+### `tasks.md` and `backlog.md` line format
+
+Canonical regex (anchored, single-line):
+
+```
+^- ([A-Z]{2,10}-[0-9]{4}) · (STATUS) · P[0-3] · L[1-4] · (.{1,80}) → tasks/\1-task-description\.md$
+```
+
+`STATUS` ∈
+- `tasks.md`: `in_progress|blocked|not_started`
+- `backlog.md`: `pending|blocked-pending|cancelled`
+
+Separator: `·` (U+00B7 MIDDLE DOT). Arrow: `→` (U+2192). Title: 1–80 chars, single-line, no `→`.
+
+Example:
+```
+- TUNE-0071 · in_progress · P1 · L3 · Index-Style Refactor → tasks/TUNE-0071-task-description.md
+```
+
+Section headers (`## Active`, `## Pending`) and blank lines allowed; only `- {PREFIX}-{NNNN}` bullets are validated.
+
+### `activeContext.md` thin contract
+
+Three sections, all index-style:
+
+```markdown
+## Active Tasks
+- {ID} · {status} · P{n} · L{n} · {title} → tasks/{ID}-task-description.md
+
+## Last Updated
+YYYY-MM-DD HH:MM · {ID} — short summary
+
+## Последние завершённые
+- YYYY-MM-DD · {ID} · {title} → ../documentation/archive/{area}/archive-{ID}.md
+```
+
+Last-completed line regex:
+```
+^- ([0-9]{4}-[0-9]{2}-[0-9]{2}) · ([A-Z]{2,10}-[0-9]{4}) · (.{1,80}) → \.\./documentation/archive/[a-z]+/archive-\2\.md$
+```
+
+Cap `## Последние завершённые` at 20 entries (oldest fall off; older entries remain in `archive/`).
+
+### `progress.md`
+
+**Abolished as of v1.19.0.** `/dr-doctor --fix` deletes the file after promoting last-completed entries into `activeContext.md` § «Последние завершённые». Per-task progress notes belong in `tasks/{TASK-ID}-task-description.md` § Implementation Notes or in the archive doc.
+
+### Description File Contract
+
+`datarim/tasks/{TASK-ID}-task-description.md` is the **only** place for task content. Required 12-key YAML frontmatter (closed schema):
+
+```yaml
+---
+id: <TASK-ID>                 # ^[A-Z]{2,10}-[0-9]{4}$
+title: <string>               # ≤ 80 chars
+status: <enum>                # in_progress|blocked|not_started|pending|blocked-pending|cancelled
+priority: <enum>              # P0|P1|P2|P3
+complexity: <enum>            # L1|L2|L3|L4
+type: <string>                # free-form (framework, infra, content, …)
+project: <string>             # free-form (Datarim, Arcanada, Verdicus, …)
+started: <date>               # YYYY-MM-DD
+parent: <TASK-ID|null>
+related: <list[TASK-ID]>      # empty list ok
+prd: <relpath|null>           # e.g. prd/PRD-{ID}.md
+plan: <relpath|null>          # e.g. plans/{ID}-plan.md
+---
+```
+
+Body sections (markdown, ≤ 250 lines): `## Overview`, `## Acceptance Criteria`, `## Constraints`, `## Out of Scope`, `## Related`. Optional `## Implementation Notes`, `## Decisions`. Anything beyond ~250 lines → split into PRD/design doc.
+
+### activeContext.md Write Rules
+
+When mutating `## Active Tasks`:
+- **Append** new task as a one-liner; do NOT remove other active tasks.
+- **Remove** archived task on `/dr-archive`, keep other active tasks intact.
+- **Convert** any legacy `**Current Task:** {ID}` line into the thin list before appending. (Self-heal via `/dr-doctor`.)
+
+### Self-Heal Entry Points
+
+- `/dr-init` Step 2.4 — probes `scripts/datarim-doctor.sh --quiet`; offers `/dr-doctor --fix` on non-compliance.
+- `/dr-archive` pre-archive gate — `pre-archive-check.sh` validates line format; bypass with `--no-schema-check` only during in-flight migration.
 
 ## Fragment Routing
 
