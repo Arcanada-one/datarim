@@ -231,6 +231,10 @@ Datarim improves itself through `/dr-archive` Step 0.5 (the `reflecting` skill):
 
 Workflow-state directories shared by multiple agent sessions follow Step 0.1 semantics from `commands/dr-archive.md`: foreign-task-ID hunks belong to parallel sessions and are NOT blockers; only the current task's own forgotten hunks (or unattributed hunks) block. Apply the recipe (`git add -p` or blob-swap) at Step 0.1.3. Project source trees remain single-agent and treat any uncommitted change as a STOP. Source: TUNE-0044 (2026-04-29).
 
+### Canonical-First Development for Runtime Artefacts
+
+Any code that lives in `code/datarim/{scripts,tests,skills,agents,commands,templates}/` MUST be edited in the canonical Datarim repo, never via `~/.claude/<scope>/` (which under v1.17+ symlink-mode is a directory-symlink to canonical). Editing through the symlink works mechanically (same inode) but obscures `git diff` visibility in the canonical repo and risks loss-on-rebuild. Any tool that writes directly to `~/.claude/<scope>/` outside the install pipeline is a defect — the canonical repo is the single source of truth.
+
 ---
 
 ## Security Mandate
