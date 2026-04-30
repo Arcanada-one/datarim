@@ -10,7 +10,7 @@ Show current task and Backlog status.
 ## Path Resolution
 **RESOLVE PATH**: Before any read from `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, tell user to run `/dr-init`. See `$HOME/.claude/skills/datarim-system.md` § Path Resolution Rule.
 
-## Display (thin-index schema, TUNE-0071)
+## Display (thin-index schema)
 1. **All active tasks** — parse one-liner format from `## Active Tasks` in `activeContext.md` (or `## Active` in `tasks.md`):
    - Regex: `^- ([A-Z]{2,10}-[0-9]{4}) · (status) · (P[0-3]) · (L[1-4]) · (.+) → tasks/\1-task-description\.md$`
    - Render numbered list: `{N}. {ID} · {status} · {P}/{L} · {title}`. Max 80-char title (already capped by schema).
@@ -19,7 +19,7 @@ Show current task and Backlog status.
    - `pending`: N items
    - `blocked-pending`: N items
    - `cancelled`: N items
-3. **Recently completed (`--recent N`, default N=5, TUNE-0071 v2)** — runtime
+3. **Recently completed (`--recent N`, default N=5)** — runtime
    computation, NOT a stored section. List `documentation/archive/**/archive-*.md`
    sorted by mtime descending, take first N. For each: derive `{ID}` from
    filename (strip `archive-` prefix and `.md` suffix); read first matching
