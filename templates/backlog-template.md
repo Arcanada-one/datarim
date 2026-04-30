@@ -28,4 +28,7 @@ Schema reference: skills/datarim-system.md § Operational File Schema.
 
 ## Cancelled
 
-<!-- Cancelled items (kept for audit trail; consider moving to backlog-archive.md) -->
+<!-- Recently cancelled tasks (transient — full archive in
+     documentation/archive/cancelled/archive-{ID}.md). TUNE-0071 v2 (v1.19.1):
+     backlog-archive.md retired. -->
+

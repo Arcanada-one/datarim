@@ -159,6 +159,63 @@ check_schema_compliance() {
         fi
     done
 
+    # ---------- TUNE-0071 v2 gates (1.19.1) ----------
+    # Gate v2-A: forbidden files. progress.md (abolished v1.19.0) and
+    # backlog-archive.md (abolished v1.19.1) MUST NOT exist; their data lives
+    # in documentation/archive/{area or cancelled}/archive-{ID}.md.
+    local forbidden
+    for forbidden in progress.md backlog-archive.md; do
+        local fp="$repo/datarim/$forbidden"
+        if [ -f "$fp" ]; then
+            echo "BLOCK: $fp exists — abolished operational file (run /dr-doctor --fix)" >&2
+            violations=1
+        fi
+    done
+
+    # Gate v2-B: forbidden activeContext.md sections. § «Последние завершённые»
+    # / § «Last Completed» were retired in v1.19.1 — recency hint is now a
+    # runtime computation in /dr-status --recent.
+    local active_ctx="$repo/datarim/activeContext.md"
+    if [ -f "$active_ctx" ]; then
+        local forbidden_sec
+        forbidden_sec=$(grep -nE '^## (Последние завершённые|Last Completed)' "$active_ctx" 2>/dev/null || true)
+        if [ -n "$forbidden_sec" ]; then
+            {
+                echo "BLOCK: $active_ctx contains abolished section (run /dr-doctor --fix):"
+                printf '%s\n' "$forbidden_sec" | sed 's/^/  /'
+            } >&2
+            violations=1
+        fi
+
+        # Gate v2-C: activeContext.md § Active Tasks must contain only thin
+        # one-liner entries matching SCHEMA_TASKS_RE (same as tasks.md). Extract
+        # bullets in § Active Tasks section only (until next ## heading).
+        local active_block
+        active_block=$(awk '
+            /^## Active Tasks$/ { in_block=1; next }
+            /^## / { in_block=0 }
+            in_block && /^- / { print NR":"$0 }
+        ' "$active_ctx" 2>/dev/null)
+        if [ -n "$active_block" ]; then
+            local re_no_anchor="${SCHEMA_TASKS_RE#^}"
+            local bad_active
+            # Catch any bullet that mentions a TASK-ID — including legacy
+            # `- **TASK-ID** (paragraph)` and `- TASK-ID:` block forms — and
+            # validate against canonical thin-index regex. Bullets without a
+            # TASK-ID are ignored (operator notes, comments).
+            bad_active=$(printf '%s\n' "$active_block" \
+                | grep -E '^[0-9]+:- .*[A-Z]+-[0-9]+' \
+                | grep -vE "^[0-9]+:$re_no_anchor" || true)
+            if [ -n "$bad_active" ]; then
+                {
+                    echo "BLOCK: $active_ctx § Active Tasks contains non-compliant entries (run /dr-doctor --fix):"
+                    printf '%s\n' "$bad_active" | sed 's/^/  /'
+                } >&2
+                violations=1
+            fi
+        fi
+    fi
+
     [ "$violations" -eq 0 ] && return 0
     {
         echo ""

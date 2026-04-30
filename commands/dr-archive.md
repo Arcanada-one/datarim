@@ -118,18 +118,20 @@ Complete and archive current task.
    - Keep all other active task one-liners intact.
    - If a plan file exists at `datarim/plans/{TASK-ID}-plan.md`, delete it. The archive doc is the permanent record.
    - Description file `datarim/tasks/{TASK-ID}-task-description.md` MAY be kept (frontmatter `status: completed`) or deleted at operator discretion — archive supersedes it.
-6. **UPDATE activeContext.md** (thin-index schema, TUNE-0071):
+6. **UPDATE activeContext.md** (thin-index schema, TUNE-0071 v2 — v1.19.1):
    - **Remove** the archived task's one-liner from `## Active Tasks` (keep all others).
-   - **Prepend** the new last-completed line to `## Последние завершённые`:
-     ```
-     - {YYYY-MM-DD} · {TASK-ID} · {title} → ../documentation/archive/{area}/archive-{TASK-ID}.md
-     ```
-   - **Pruning:** if `## Последние завершённые` exceeds 20 entries, drop the oldest from the bottom (older entries remain in `archive/`). Older lower-bound was 10; raised to 20 in v1.19.0 per TUNE-0071 (progress.md retired — last-completed is now the single completion log).
-   - Update `## Last Updated` line: `YYYY-MM-DD HH:MM · {TASK-ID} — archived`.
-   - Do NOT reset the file. See `$HOME/.claude/skills/datarim-system.md` § Operational File Schema and § activeContext.md Write Rules.
-7. **NO `progress.md` UPDATE** (TUNE-0071):
-   - `progress.md` is abolished as of v1.19.0. The completion log is `activeContext.md` § «Последние завершённые» (Step 6 above).
-   - If `progress.md` still exists in this project (legacy state), running `/dr-doctor --fix` once will retire it; `/dr-init` Step 2.4 self-heal probe surfaces this on next initialization.
+   - The Active section is **strict mirror** of `tasks.md § Active` — after removal, both files share the same line set.
+   - Do NOT write any `## Последние завершённые` / `## Last Completed` /
+     `## Last Updated` section: those were retired in v1.19.1 (TUNE-0071 v2).
+     Recency is computed runtime by `/dr-status --recent N` from
+     `documentation/archive/**/archive-*.md` mtime-sort.
+7. **NO `progress.md` / `backlog-archive.md` UPDATE** (TUNE-0071 v2):
+   - `progress.md` is abolished (v1.19.0). `backlog-archive.md` is abolished
+     (v1.19.1). Both are blocked by `pre-archive-check.sh`.
+   - Cancelled tasks: write `documentation/archive/cancelled/archive-{ID}.md`
+     directly; remove from `backlog.md`.
+   - Legacy state (any of those files present): `/dr-doctor --fix` migrates and
+     deletes; `/dr-init` Step 2.4 self-heal probe surfaces this on next session.
 
 ## Read
 - `datarim/tasks.md` (thin index — one-liner for the archived task)
@@ -138,8 +140,7 @@ Complete and archive current task.
 - `datarim/creative/*.md` (Level 3-4)
 - `datarim/plans/{TASK-ID}-plan.md` (L3-4)
 - `datarim/backlog.md` (to find and remove completed/cancelled item)
-- `datarim/backlog-archive.md` (to append completed/cancelled item)
-- `datarim/activeContext.md` (Active Tasks list)
+- `datarim/activeContext.md` (Active Tasks list — strict mirror of tasks.md)
 - `$HOME/.claude/skills/datarim-system.md` (Operational File Schema, Archive Area Mapping)
 - `$HOME/.claude/skills/reflecting.md` (loaded by Step 0.5)
 - `$HOME/.claude/skills/evolution.md` (loaded by Step 0.5 for Class A/B gate)
@@ -147,9 +148,9 @@ Complete and archive current task.
 ## Write
 - `documentation/archive/[area]/archive-[task_id].md` (NEW — permanent record)
 - `datarim/backlog.md` (remove `in_progress`/`pending` entry if present)
-- `datarim/backlog-archive.md` (append `## Completed` row)
+- `documentation/archive/cancelled/archive-{ID}.md` (NEW — for cancellation flow)
 - `datarim/tasks.md` (remove archived one-liner; preserve other active one-liners)
-- `datarim/activeContext.md` (remove from Active Tasks; prepend Last Completed; cap at 20)
+- `datarim/activeContext.md` (remove from Active Tasks — strict mirror of tasks.md)
 - `datarim/plans/{TASK-ID}-plan.md` (DELETE if exists — archive supersedes)
 - **Never write `datarim/progress.md`** (abolished as of v1.19.0).
 

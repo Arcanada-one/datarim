@@ -44,31 +44,35 @@ Example:
 
 Section headers (`## Active`, `## Pending`) and blank lines allowed; only `- {PREFIX}-{NNNN}` bullets are validated.
 
-### `activeContext.md` thin contract
+### `activeContext.md` thin contract (v2 — TUNE-0071 v2, ≤30 lines)
 
-Three sections, all index-style:
+One section only — strict mirror of `tasks.md` § Active:
 
 ```markdown
+# Active Context
+
 ## Active Tasks
+<!-- strict mirror of tasks.md § Active — identical lines, identical order -->
 - {ID} · {status} · P{n} · L{n} · {title} → tasks/{ID}-task-description.md
-
-## Last Updated
-YYYY-MM-DD HH:MM · {ID} — short summary
-
-## Последние завершённые
-- YYYY-MM-DD · {ID} · {title} → ../documentation/archive/{area}/archive-{ID}.md
 ```
 
-Last-completed line regex:
-```
-^- ([0-9]{4}-[0-9]{2}-[0-9]{2}) · ([A-Z]{2,10}-[0-9]{4}) · (.{1,80}) → \.\./documentation/archive/[a-z]+/archive-\2\.md$
-```
-
-Cap `## Последние завершённые` at 20 entries (oldest fall off; older entries remain in `archive/`).
+**Removed in v1.19.1:** `## Последние завершённые` and `## Last Updated`
+sections. Recency hint is now a runtime computation in `/dr-status --recent N`
+that mtime-sorts `documentation/archive/**/archive-*.md`. Single source of
+truth for completion history = `documentation/archive/`.
 
 ### `progress.md`
 
-**Abolished as of v1.19.0.** `/dr-doctor --fix` deletes the file after promoting last-completed entries into `activeContext.md` § «Последние завершённые». Per-task progress notes belong in `tasks/{TASK-ID}-task-description.md` § Implementation Notes or in the archive doc.
+**Abolished as of v1.19.0.** `/dr-doctor --fix` deletes the file. Per-task
+progress notes belong in `tasks/{TASK-ID}-task-description.md` § Implementation
+Notes or in the archive doc.
+
+### `backlog-archive.md`
+
+**Abolished as of v1.19.1 (TUNE-0071 v2).** `/dr-doctor --fix` migrates each
+entry to `documentation/archive/{area or cancelled}/archive-{ID}.md` with
+per-task content-presence assertion, then deletes the file. `pre-archive-check.sh`
+blocks when the file exists.
 
 ### Description File Contract
 

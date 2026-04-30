@@ -19,15 +19,33 @@ Show current task and Backlog status.
    - `pending`: N items
    - `blocked-pending`: N items
    - `cancelled`: N items
-3. **Recently completed** — top 5 from `activeContext.md` § «Последние завершённые» (date · ID · title pattern).
+3. **Recently completed (`--recent N`, default N=5, TUNE-0071 v2)** — runtime
+   computation, NOT a stored section. List `documentation/archive/**/archive-*.md`
+   sorted by mtime descending, take first N. For each: derive `{ID}` from
+   filename (strip `archive-` prefix and `.md` suffix); read first matching
+   `^# Archive — {ID}` heading or first `^# ` line for `{title}`; date = mtime
+   formatted `YYYY-MM-DD`. Render `{date · ID · title}`. The legacy
+   `activeContext.md § Последние завершённые` was retired in v1.19.1 — single
+   source of truth = `documentation/archive/`.
+
+   POSIX recipe (illustrative):
+   ```sh
+   ls -t documentation/archive/**/archive-*.md 2>/dev/null | head -"${N:-5}"
+   ```
 4. **Next steps suggestion** — pick highest-priority active task, suggest its current pipeline phase.
 
 For full task content, agent reads `datarim/tasks/{TASK-ID}-task-description.md` on demand. Operational files stay thin.
 
+## Flags
+
+- `--recent N` (default N=5) — number of recently-completed entries to display
+  in Section 3. Operator override; values 1..50 acceptable.
+
 ## Read
-- `datarim/activeContext.md` (Active Tasks + Last Updated + Последние завершённые)
+- `datarim/activeContext.md` (Active Tasks — strict mirror of tasks.md)
 - `datarim/tasks.md` (one-liners only — no body to parse)
 - `datarim/backlog.md` (one-liners; group by status)
+- `documentation/archive/**/archive-*.md` (mtime-sorted, lazy via `ls -t`)
 - `datarim/tasks/{TASK-ID}-task-description.md` — only when operator asks for task detail (lazy-load)
 
 ## Write
