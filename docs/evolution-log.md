@@ -4,6 +4,31 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ---
 
+## 2026-04-30 — TUNE-0079 — History-agnostic cleanup complete + CI strict mode (v1.21.1)
+
+### Summary
+
+Class A — internal tooling. Follow-up to TUNE-0078. Cleaned all pre-existing task-ID references from runtime scopes (`skills/`, `commands/`) per the heuristic in TUNE-0078 plan § 4.3: pure provenance parentheticals deleted, load-bearing rationale anonymized, counter-example incidents kept with neutral phrasing. Final tally: 64 hits in `commands/` (9 files) + ~316 hits in `skills/` (38 files) eliminated across 4 sessions of per-file `Edit` (bulk regex confirmed unsafe — fence-aware editing required). CI `task-id-gate` job switched from `--diff-only` transitional mode to strict full-tree. Bats suite extended T11–T14: regression invariant — each runtime scope stays gate-clean. VERSION → 1.21.1.
+
+### What changed
+
+- **MOD `skills/`** — 27 files, ~316 hits cleaned. All gate-clean.
+- **MOD `commands/`** — 9 files, 64 hits cleaned (sessions 1–2). All gate-clean.
+- **MOD 2× `tests/*.bats`** — 2 tests that asserted task-ID presence updated to history-agnostic assertions (version tag + contract clause).
+- **MOD `tests/task-id-gate.bats`** — added T11–T14 regression invariants. 14/14 green.
+- **MOD `.github/workflows/security.yml`** — `task-id-gate` job: full-tree mode. Removed `fetch-depth: 50`. Removed transitional comment.
+- **MOD `code/datarim/{CLAUDE.md,VERSION,README.md}`** — version 1.21.1.
+
+### Why patch (not minor)
+
+Pure cleanup, no contract change. Gate behavior identical for new code; only the transitional `--diff-only` shim removed.
+
+### Lesson
+
+Bulk regex (Python `re.sub` over markdown) is NOT fence-aware. Session 3 attempted bulk patterns to accelerate cleanup; one match landed inside a code-fence Examples block and corrupted teaching content. Reverted manually. Per-file `Edit` with explicit fence inspection was the only safe path. ~30 sessions of per-file work amortized over the framework's lifetime; bulk-tool acceleration is forbidden for `skills/`/`commands/`/`agents/`/`templates/` markdown going forward — write a fence-aware AST walker first if acceleration is needed.
+
+---
+
 ## 2026-04-30 — TUNE-0078 — Rules history-agnostic gate (v1.21.0)
 
 ### Summary
