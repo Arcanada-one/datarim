@@ -4,6 +4,40 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ---
 
+## 2026-04-30 — TUNE-0078 — Rules history-agnostic gate (v1.21.0)
+
+### Summary
+
+Class A — internal tooling. New `scripts/task-id-gate.sh` mirrors the stack-agnostic-gate sibling but enforces a single regex `\b[A-Z]{2,10}-[0-9]{4}\b` over runtime markdown (skills/agents/commands/templates). New contract document `skills/evolution/history-agnostic-gate.md`. New bats suite `tests/task-id-gate.bats` (10 cases including `--diff-only` parity). Critical Rules in `code/datarim/CLAUDE.md` extended with rule 8 («Rules are stack- AND history-agnostic»). CI integration as 14th job in `.github/workflows/security.yml`, running in `--diff-only` mode against `merge-base HEAD origin/main` so only fresh leakage in the change-set fails CI — pre-existing baseline references (~339 hits in 57 files) tracked as follow-up cleanup pass TUNE-0079. VERSION → 1.21.0.
+
+### Source rationale
+
+Datarim runtime rules are read by AI agents that have no access to the historical context behind each task-ID reference. A rule that says «Per TUNE-0033 …» forces the agent to either treat the citation as opaque noise or attempt to locate the cited task in archive — wasted tokens for a reference the rule itself does not depend on. Worse, embedded task-IDs leak into AI outputs addressed to end users. The sibling stack-agnostic-gate established the enforcement pattern (detection → escape-hatch → CI integration); the history-agnostic case is structurally identical.
+
+### What changed
+
+- **NEW `scripts/task-id-gate.sh`** — bash 3.2 portable, single-regex denylist, `--whitelist` and `--diff-only` flags, exit codes 0/1/2 per contract. Self-exemption for the gate's own contract document.
+- **NEW `skills/evolution/history-agnostic-gate.md`** — runtime contract document (Trigger, Scope, Denylist, Whitelist, Escape Hatch, markers-must-be-on-separate-lines pitfall, Invocation, Exit codes, Why this exists, Out of scope).
+- **NEW `tests/task-id-gate.bats`** + `tests/fixtures/task-id-gate/` (5 fixtures) — 10 test cases, all green locally.
+- **MOD `.github/workflows/security.yml`** — 14th job `task-id-gate`. Hard-fail on any new leakage in changed files; bats suite runs in same job. `fetch-depth: 50` for diff-base resolution.
+- **MOD `code/datarim/CLAUDE.md`** — Critical Rules § rule 8.
+- **MOD `code/datarim/VERSION`** — 1.20.0 → 1.21.0.
+- **Cleanup pass partial:** `agents/developer.md` (2 hits) and `templates/` (21 hits across 9 files) cleaned — load-bearing rationale rephrased to neutral lessons; legitimate template placeholder (e.g. `INFRA-0099` in `backlog-template.md`) wrapped in `<!-- gate:history-allowed -->` escape fence. `skills/` (252 hits across 38 files) and `commands/` (64 hits across 9 files) deferred to TUNE-0079.
+
+### Migration
+
+Symlink-mode users: gate + skill + bats auto-available via the `scripts/` and `tests/` install scopes. Copy-mode users: `./update.sh` pulls the new files. No operator action required for the runtime — CI gate is the enforcement point.
+
+### Why `--diff-only` instead of strict mode at v1.21.0
+
+The full cleanup pass (~339 hits, ~57 files) is mechanically tractable but requires per-line judgement (delete pure provenance vs. rephrase load-bearing rationale vs. migrate counter-example incident to evolution-log topic heading). Shipping the gate with `--diff-only` lets the enforcement land immediately while the cleanup proceeds incrementally — the sibling stack-agnostic-gate handled identical baseline carry-forward via the same flag. Switch to full-tree mode after TUNE-0079 lands.
+
+### Follow-up
+
+- **TUNE-0079** (P2, L2, pending) — Complete the cleanup pass over `skills/` and `commands/` per the cleanup heuristic in `datarim/plans/TUNE-0078-plan.md` § 4.3. Switch CI gate to full-tree mode at the same time. Estimated ~3-4h focused work.
+
+---
+
 ## 2026-04-30 — TUNE-0077 — Datarim Doctor data-loss safety gate + scripts/tests install scopes (v1.20.0)
 
 ### Summary

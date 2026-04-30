@@ -107,7 +107,7 @@ Status-code-only smoke misses semantic regressions:
 - 302 → 200 with empty body (route fell through)
 - 200 → 200 with size changed by 90% (page rendered, content broken)
 
-Source: DEV-1174 Phase 8 Step 2 Round 1 — the tuple shape detected the 301 → 500 mismatch within seconds; status-only smoke would have caught it, but the underlying lesson generalises to every cutover where the pre/post pair must hold.
+Source pattern: in a cross-stack relative-path bug, the `(status, location, body_size)` tuple detected a 301 → 500 mismatch within seconds where status-only smoke would not. The lesson generalises to every cutover where the pre/post pair must hold.
 
 ---
 
@@ -126,4 +126,4 @@ Source: DEV-1174 Phase 8 Step 2 Round 1 — the tuple shape detected the 301 →
 
 ## Source Pattern
 
-DEV-1174 Phase 8 Step 2 cutover (2026-04-26 21:15:42 UTC). Round 1 hit a cross-stack relative-path bug, auto-rollback fired in <30 s, mitigation codified, Round 2 succeeded in 21 seconds end-to-end with 15/15 pilot hosts pre/post identical. The 8-phase pattern is the distillation.
+A multi-host pilot cutover where Round 1 hit a cross-stack relative-path bug, auto-rollback fired in under 30 seconds, the mitigation was codified, and Round 2 succeeded in ~20 seconds end-to-end with all pilot hosts pre/post identical. The 8-phase pattern is the distillation.

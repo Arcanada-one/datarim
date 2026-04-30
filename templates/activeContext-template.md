@@ -1,7 +1,7 @@
 # Active Context
 
 <!--
-TUNE-0071 v2 thin-index schema (v1.19.1+).
+Thin-index schema (v1.19.1+).
 
 ONE section only — strict mirror of tasks.md § Active.
 Identical lines, identical order. Validated by pre-archive-check.sh.

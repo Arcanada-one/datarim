@@ -4,7 +4,7 @@
 
 ## Origin
 
-Pattern из `Areas/Infrastructure/scripts/arcanada-pull.sh` (INFRA-0026, 2026-04-25). Smoke-tested: 3/3 успешных pull, корректный exit code, надёжная decision logic.
+Pattern derived from a multi-host git-pull resolver script. Smoke-tested: 3/3 successful pulls, correct exit code, reliable decision logic.
 
 ## Invocation Pattern
 

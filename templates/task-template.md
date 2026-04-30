@@ -14,7 +14,7 @@ plan: null
 ---
 
 <!--
-TUNE-0071 thin-index schema (v1.19.0+).
+Thin-index schema (v1.19.0+).
 
 This is the canonical task description file. Path:
   datarim/tasks/{TASK-ID}-task-description.md

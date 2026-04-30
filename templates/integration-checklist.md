@@ -76,7 +76,7 @@ If the implementation includes a mock provider for tests / local dev / CI:
 
 - How is the toggle controlled (`{PROVIDER}_PROVIDER=mock` env var / DI override / feature flag)? ___
 - Is the real provider exercised in **at least one** automated test on CI? yes / no
-  - If no — record a follow-up to add an integration smoke (the mock alone hid TRANS-0015's broken OpenRouter STT integration for months).
+  - If no — record a follow-up to add an integration smoke. A mock alone has hidden a broken upstream provider integration (e.g. an STT endpoint silently misconfigured) for months at a time.
 - Production default: mock / real ? ___
 - Plan to retire the mock once the real provider is stable for: 7 days / 30 days / N/A.
 
@@ -113,4 +113,4 @@ If the implementation includes a mock provider for tests / local dev / CI:
 
 ## Source
 
-TRANS-0015 — voice transcription integration spent ~30 minutes generating 8 unit tests + integration code for the wrong OpenRouter model paradigm because the existing integration was trusted without empirical verification. A 3-minute curl test would have eliminated the false start. This template makes that probe a planning-time gate rather than a mid-implementation discovery.
+A voice-transcription integration spent ~30 minutes generating ~8 unit tests + glue code for the wrong upstream model paradigm because the existing integration was trusted without empirical verification. A 3-minute curl probe would have eliminated the false start. This template makes that probe a planning-time gate rather than a mid-implementation discovery.
