@@ -135,40 +135,10 @@ emit_orphan() {
     ORPHAN_COUNT=$((ORPHAN_COUNT + 1))
 }
 
-# Lexical path canonicalisation (no I/O — parent dirs need not exist).
-# Collapses './' and resolves '../' against the prior component. Preserves
-# leading '/' for absolute inputs. Used for path-traversal detection.
-canonicalise_path() {
-    local input="$1"
-    local lead=""
-    case "$input" in
-        /*) lead="/" ;;
-    esac
-    local IFS='/'
-    # shellcheck disable=SC2206
-    local parts=( $input )
-    local out=()
-    local seg
-    for seg in "${parts[@]}"; do
-        case "$seg" in
-            ''|'.') ;;
-            '..')
-                if [ "${#out[@]}" -gt 0 ] && [ "${out[$((${#out[@]}-1))]}" != ".." ]; then
-                    unset 'out[${#out[@]}-1]'
-                    out=("${out[@]}")
-                elif [ -z "$lead" ]; then
-                    out+=("..")
-                fi
-                ;;
-            *) out+=("$seg") ;;
-        esac
-    done
-    if [ "${#out[@]}" -eq 0 ]; then
-        printf '%s' "${lead:-.}"
-    else
-        printf '%s%s' "$lead" "$(IFS=/; echo "${out[*]}")"
-    fi
-}
+# Lexical path canonicalisation: extracted to scripts/lib/canonicalise.sh
+# (TUNE-0071 — shared with scripts/datarim-doctor.sh).
+# shellcheck source=lib/canonicalise.sh
+. "$(dirname "$0")/lib/canonicalise.sh"
 
 # --- per-file scan ------------------------------------------------------------
 # AWK script handles fenced/inline-code stripping in one pass and emits records:
