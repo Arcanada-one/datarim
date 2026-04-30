@@ -33,6 +33,20 @@ disable-model-invocation: true
       c. If `.gitignore` exists and does not contain `datarim/` → append `datarim/` to it.
       d. If `.gitignore` does not exist → ask user: "Create `.gitignore` with `datarim/`? (recommended — keeps workflow state local)"
 
+2.4. **STRUCTURAL COMPLIANCE CHECK** (TUNE-0071, runs only when `datarim/` already exists — skip on first-time creation in Step 2):
+    - Probe: `scripts/datarim-doctor.sh --quiet --root="$DATARIM_ROOT"` (exit code only).
+    - **exit 0** → silent, continue to Step 2.5.
+    - **exit 1** (non-compliant findings):
+      - Print summary: `"datarim/ structure non-compliant: {N} findings"` (re-run without `--quiet` to surface counts).
+      - Interactive (TTY, `[ -t 0 ]`) → prompt: `"Run /dr-doctor --fix? [Y/n]"`. Default Y.
+        - Y → invoke `/dr-doctor --fix` (or directly `scripts/datarim-doctor.sh --fix --root="$DATARIM_ROOT"`), then continue.
+        - n → print warning, continue with non-compliance (operator's call; `/dr-archive` schema gate will block later).
+      - Non-tty (`! [ -t 0 ]`) → skip prompt, print warning, continue.
+    - **exit 2** (migration error from a prior run) → print error, ABORT `/dr-init`. Operator inspects state manually.
+    - **exit 3** (concurrent invocation, lock held) → wait briefly and retry once; if still held → ABORT.
+    - **exit 4** (path-traversal violation in operational files) → print error, ABORT — security violation, do NOT continue.
+    - This check is the self-heal entry point for the thin-index schema. See `skills/datarim-doctor.md` for the canonical contract.
+
 2.5. **WORKSPACE CROSS-TASK HYGIENE CHECK** (advisory, non-blocking):
     - After path resolution, run `git status --porcelain datarim/tasks.md datarim/activeContext.md datarim/backlog.md datarim/progress.md` (those that exist).
     - Grep their pending diffs for foreign task IDs (anything matching `[A-Z]+-[0-9]{4}` other than the new task being initialised).
