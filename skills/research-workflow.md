@@ -131,7 +131,7 @@ The endpoint is already covered by a green integration test in this codebase, ru
 
 ### Source
 
-TRANS-0015: ~30 minutes of Groq integration test scaffolding had to be redone after empirically discovering that OpenRouter's audio models require `output modality=audio + stream:true` and have no Whisper in their catalog — the existing `transcriber-openrouter.service.ts` was conceptually broken from day one, hidden by a mock provider. A 3-minute curl test against the three audio model IDs would have surfaced the gap before any spec was written.
+Real incident: ~30 minutes of Groq integration test scaffolding had to be redone after empirically discovering that OpenRouter's audio models require `output modality=audio + stream:true` and have no Whisper in their catalog — the existing `transcriber-openrouter.service.ts` was conceptually broken from day one, hidden by a mock provider. A 3-minute curl test against the three audio model IDs would have surfaced the gap before any spec was written.
 
 ---
 

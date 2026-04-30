@@ -37,7 +37,7 @@ Load only the fragment relevant to the task:
 - `skills/utilities/recovery.md`
   Use for recovering lost runtime files from compacted session context (disaster recovery).
 - `skills/utilities/keyword-linter.md`
-  Use when building a keyword-denylist linter — bash recipe with whole-word grep, escape-hatch markers, whitelist mechanic, bats fixture pattern. Pattern source: stack-agnostic gate (TUNE-0039).
+  Use when building a keyword-denylist linter — bash recipe with whole-word grep, escape-hatch markers, whitelist mechanic, bats fixture pattern. Pattern source: stack-agnostic gate.
 
 ## Quick Selection Guide
 

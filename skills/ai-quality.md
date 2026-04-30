@@ -67,8 +67,8 @@ PRACTICES:
 ```
 
 **Why:** Broad context = scattered results. Focus = precision.
-Source (auth UX): LTM-0001 — user requested simpler prompts after a 7-option authorization table.
-Source (wire-all): LTM-0008 — dedup/rerank deferred as "low risk", user challenged, wiring took <15 min.
+Source (auth UX): prior incident — user requested simpler prompts after a 7-option authorization table.
+Source (wire-all): prior incident — dedup/rerank deferred as "low risk", user challenged, wiring took <15 min.
 
 ---
 
@@ -192,7 +192,7 @@ SEQUENCE:
 - Internal-only refactors with no external contract
 - One-off scripts where future drift is not a concern
 
-Source: TUNE-0032 — Approach C (Spec-First with Golden Fixtures) chosen over Approach A (Big Bang refactor) for canonical CTA block. 39 tests now guard 17 commands + 5 agents from drift; mechanical sweep alone (Approach A) would have left the same problem to re-emerge with the next added command.
+Source: prior incident — Approach C (Spec-First with Golden Fixtures) chosen over Approach A (Big Bang refactor) for canonical CTA block. 39 tests now guard 17 commands + 5 agents from drift; mechanical sweep alone (Approach A) would have left the same problem to re-emerge with the next added command.
 
 ---
 

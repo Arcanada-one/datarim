@@ -5,7 +5,7 @@ description: Schema and migration semantics for /dr-doctor — thin one-liner co
 
 # Datarim Doctor — Schema and Migration Semantics
 
-This skill is the runtime knowledge module for `/dr-doctor`. It defines the **canonical thin contract** that operational files (`tasks.md`, `backlog.md`, `activeContext.md`) MUST conform to, and the **migration algorithm** that `scripts/datarim-doctor.sh` applies. Source: TUNE-0071.
+This skill is the runtime knowledge module for `/dr-doctor`. It defines the **canonical thin contract** that operational files (`tasks.md`, `backlog.md`, `activeContext.md`) MUST conform to, and the **migration algorithm** that `scripts/datarim-doctor.sh` applies. Source: prior incident.
 
 Loaded by:
 - `/dr-doctor` (always)
@@ -60,7 +60,7 @@ Three sections, all index-style:
 - TUNE-0071 · in_progress · P1 · L3 · Index-Style Refactor → tasks/TUNE-0071-task-description.md
 
 ## Last Updated
-YYYY-MM-DD HH:MM · TUNE-0071 — short summary
+YYYY-MM-DD HH:MM · prior incident — short summary
 
 ## Последние завершённые
 - 2026-04-30 · TUNE-0071 · Index-Style Refactor → ../documentation/archive/framework/archive-TUNE-0071.md

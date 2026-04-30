@@ -17,7 +17,7 @@ description: Core Datarim rules. Load this entry first, then only the fragment n
 - Keep `datarim/` for local workflow state and `documentation/archive/` for committed long-term archives.
 - Never create `documentation/tasks/`.
 - Use `$HOME/.claude/` or project-relative paths, not absolute machine-specific paths.
-- **Operational files are thin indexes** (TUNE-0071): `tasks.md`, `backlog.md`, `activeContext.md` carry one-liner-per-task pointers — never full task content. Descriptions live in `tasks/{TASK-ID}-task-description.md`. `progress.md` is **abolished**. See § Operational File Schema below.
+- **Operational files are thin indexes**: `tasks.md`, `backlog.md`, `activeContext.md` carry one-liner-per-task pointers — never full task content. Descriptions live in `tasks/{TASK-ID}-task-description.md`. `progress.md` is **abolished**. See § Operational File Schema below.
 
 ## Operational File Schema (TUNE-0071, v1.19.0+)
 
@@ -160,7 +160,7 @@ When closing a task, choose the disposition that matches the actual outcome:
 | `absorbed` | Scope and deliverable fully delivered **inside another task** | `backlog-archive.md` ## Completed with status `absorbed`, link to absorbing task ID, note `delivered as part of {OTHER-TASK}`. No separate archive document — reference the absorbing task's archive. |
 | `superseded` | Replaced by a newer task with broader/different scope; no deliverable from this ID | `backlog-archive.md` ## Cancelled with status `superseded`, link to replacing task. |
 
-Source: TUNE-0033 — `update.sh` deliverable from TUNE-0031 was shipped inside TUNE-0033 scope; `cancelled` was inaccurate (deliverable existed) and `completed` was inaccurate (no separate archive). `absorbed` captures the reality and preserves audit trail.
+Source: prior incident — `update.sh` deliverable from TUNE-0031 was shipped inside TUNE-0033 scope; `cancelled` was inaccurate (deliverable existed) and `completed` was inaccurate (no separate archive). `absorbed` captures the reality and preserves audit trail.
 
 ## Quick Routing Heuristic
 

@@ -7,7 +7,7 @@ description: Canonical CTA "Next Step" block format for every /dr-* command and 
 
 This skill is the **single source of truth** for the "Next Step" Call-to-Action block produced by every `/dr-*` command and every pipeline agent (`planner`, `architect`, `developer`, `reviewer`, `compliance`).
 
-It exists because users reported (TUNE-0032) that free-form Next-Step prose forces them to mentally map task IDs to commands, especially when 2+ tasks are active. The fix: every command output ends with a structured, predictable CTA block with explicit task IDs and one marked primary action.
+It exists because free-form Next-Step prose forces operators to mentally map task IDs to commands, especially when 2+ tasks are active. The fix: every command output ends with a structured, predictable CTA block with explicit task IDs and one marked primary action.
 
 ## When to Apply
 
@@ -38,7 +38,7 @@ If a command intentionally produces no actionable next step (e.g. `/dr-help`, `/
 |-------|------|
 | Top/bottom separator | Markdown HR `---` (CommonMark, confirmed working in Claude Code renderer) |
 | Header | Exactly `**Следующий шаг — {TASK-ID}** (L{N}, {status})`. `{TASK-ID}` MUST resolve to one currently-active task. |
-| Number of options | Min 1, recommended 3, hard ceiling 5 (Miller / Hick / Chernev 2015 — see INSIGHTS-TUNE-0032 § 4) |
+| Number of options | Min 1, recommended 3, hard ceiling 5 (Miller / Hick / Chernev 2015) |
 | Option syntax | `N. \`{command + args}\` — **рекомендуется** / альтернатива / {plain text} — {purpose}` |
 | Primary marker | Exactly one `**рекомендуется**` per block. Never zero, never two. |
 | Purpose clause | One sentence, ≤80 chars. Describe outcome, not mechanics. |
@@ -120,9 +120,12 @@ When an agent generates the CTA block:
 | `─── Следующий шаг ───` (box-drawing) | Mojibake on Windows (Claude Code issue #34247) | `---` Markdown HR |
 | `## Следующий шаг` (header) | All headers render identical bold in CC terminal — no hierarchy distinction | Bold inline `**Следующий шаг — {ID}**` |
 | Two `**рекомендуется**` markers | Defeats primary-CTA hierarchy | Exactly one |
-| Missing task ID in actionable command | Re-introduces the original bug TUNE-0032 fixes | Always include `{TASK-ID}` for task-scoped commands |
+| Missing task ID in actionable command | Re-introduces the original bug this format is designed to prevent | Always include `{TASK-ID}` for task-scoped commands |
 
 ## Examples
+
+<!-- gate:history-allowed -->
+The illustrative task IDs in the examples below (`ARCA-0001`, `TUNE-0031`, `TUNE-0032`, `AUTH-0001`, etc.) are placeholders for the rendered shape — substitute with the actual current task ID when emitting a real CTA block.
 
 ### Example 1 — `/dr-init` for new L4 task (single active)
 
@@ -169,6 +172,7 @@ When an agent generates the CTA block:
 
 ---
 ```
+<!-- /gate:history-allowed -->
 
 ## Loading
 
@@ -188,6 +192,6 @@ Referenced from all 15 `/dr-*` command files in `commands/dr-*.md`.
 
 ## Versioning
 
-Introduced in Datarim v1.16.0 (TUNE-0032). Source PRD: `datarim/prd/PRD-TUNE-0032.md`. Research: `datarim/insights/INSIGHTS-TUNE-0032.md`.
+Introduced in Datarim v1.16.0. See `docs/evolution-log.md` for provenance and source research.
 
 Future changes to this format MUST update golden fixtures in `tests/cta-format/` and `evolution-log.md`.

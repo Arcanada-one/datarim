@@ -63,14 +63,14 @@ False-positive recovery uses the escape hatch below.
 - **`skills/evolution/stack-agnostic-gate.md`** (this file) — the gate's
   own contract document MUST enumerate the denylist verbatim, so it cannot
   be subject to the rule it defines.
-- **`skills/ai-quality/deployment-patterns.md`** (TUNE-0040) — by-design
+- **`skills/ai-quality/deployment-patterns.md`** — by-design
   reference for deployment incidents across the ecosystem stack. Section
   headers like `## NestJS @Global() in Multi-Bootstrap Monorepos`
   document patterns that ARE stack-specific by nature (multi-bootstrap
   monorepo DI semantics ≠ universal). Generalization would gut
   applicability; wrapping ~20 individual blocks would erode escape-hatch
   intent. Whitelisted parallel to `tech-stack.md` precedent.
-- **`skills/testing/live-smoke-gates.md`** (TUNE-0043) — DEV-1156
+- **`skills/testing/live-smoke-gates.md`** — DEV-1156
   (multi-datasource ORM client mismatch) + DEV-1169 (cross-container
   HTTP→shell→DB chain) incident postmortems. Failure semantics are
   intrinsically stack-specific (DI container resolution, container
@@ -78,7 +78,7 @@ False-positive recovery uses the escape hatch below.
   would erase the diagnostic value — a reader needs the concrete framework
   name to recognize the same trap in their own code. Parallel to
   `deployment-patterns.md` precedent.
-- **`skills/utilities/ga4-admin.md`** (TUNE-0043) — Python-specific
+- **`skills/utilities/ga4-admin.md`** — Python-specific
   Google Analytics 4 Admin API recipe (uses `google-auth-oauthlib` +
   `requests` libs). The skill IS a Python recipe; replacing concrete
   `pip install` with abstract «package install» renders the recipe
@@ -133,7 +133,7 @@ Wrong (same line — opening matches, closing is never seen, scan halts):
 <!-- gate:example-only -->examples here<!-- /gate:example-only -->
 ```
 
-Source: TUNE-0043 — initial wrap attempts on inline mentions used the
+Source: prior incident — initial wrap attempts on inline mentions used the
 same-line form; gate kept FAILing despite the wrap looking correct in
 the diff. Diagnosed only after re-reading the awk strip logic.
 

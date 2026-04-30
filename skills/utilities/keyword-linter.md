@@ -2,7 +2,7 @@
 
 Reusable bash recipe for building a keyword-denylist linter — a script that
 scans markdown (or any text) for forbidden terms and exits non-zero on
-match. Source pattern: `scripts/stack-agnostic-gate.sh` (TUNE-0039).
+match. Source pattern: `scripts/stack-agnostic-gate.sh`.
 
 Use when promoting a recurring user-memory rule to an executable gate at
 an apply step (see `skills/evolution.md` § Pattern: Memory Rule →
