@@ -89,7 +89,7 @@ The framework runtime directories in `$HOME/.claude/` are **symlinks** pointing 
 - Backup of pre-symlink originals: `$HOME/.claude/backups/pre-symlink-2026-04-22/`
 - If the repo path changes, symlinks must be recreated
 
-**Established:** TUNE-0027 (2026-04-22).
+**Established:** 2026-04-22.
 
 ## Documentation Storage Rules
 
@@ -98,10 +98,12 @@ The framework runtime directories in `$HOME/.claude/` are **symlinks** pointing 
 All reports must use `{PREFIX}-{NNNN}` in the filename.
 
 Examples:
+<!-- gate:history-allowed -->
 - `qa-report-TUNE-0002-phase1.md`
 - `compliance-report-TUNE-0002-2026-04-15.md`
 - `debug-DEV-0053-autosync.md`
 - `creative-INFRA-0013-vault-schema.md`
+<!-- /gate:history-allowed -->
 
 ### Prohibited Locations
 

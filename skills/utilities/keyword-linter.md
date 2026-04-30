@@ -161,9 +161,9 @@ scan_file() {
 files. If exit code is 133 / your linter dies silently mid-scan, you
 still have the leak. Single-grep alternation eliminates it.
 
-**Source:** TUNE-0040 Gap 1 — `scripts/stack-agnostic-gate.sh` v1
-shipped with the naive nested loop, silently masked TUNE-0039 final
-validation; surfaced as SIGTRAP only on next dir-mode invocation.
+**Source:** the `scripts/stack-agnostic-gate.sh` v1 shipped with the
+naive nested loop; surfaced as SIGTRAP only on the next dir-mode
+invocation after final validation.
 
 ## When NOT to use this pattern
 

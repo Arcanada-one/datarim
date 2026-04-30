@@ -44,10 +44,12 @@ Separator: `·` (U+00B7 MIDDLE DOT, NOT bullet, NOT period). Arrow: `→` (U+219
 
 Examples (compliant):
 
+<!-- gate:history-allowed -->
 ```
 - TUNE-0071 · in_progress · P1 · L3 · Index-Style Refactor → tasks/TUNE-0071-task-description.md
 - INFRA-0099 · pending · P2 · L2 · Vault MFA Rollout → tasks/INFRA-0099-task-description.md
 ```
+<!-- /gate:history-allowed -->
 
 Section headers (`## Active`, `## Pending`, etc.) and blank lines are allowed — only bullet lines starting with `- {PREFIX}-{NNNN}` are validated against the regex.
 
@@ -55,6 +57,7 @@ Section headers (`## Active`, `## Pending`, etc.) and blank lines are allowed �
 
 Three sections, all index-style:
 
+<!-- gate:history-allowed -->
 ```markdown
 ## Active Tasks
 - TUNE-0071 · in_progress · P1 · L3 · Index-Style Refactor → tasks/TUNE-0071-task-description.md
@@ -65,6 +68,7 @@ YYYY-MM-DD HH:MM · prior incident — short summary
 ## Последние завершённые
 - 2026-04-30 · TUNE-0071 · Index-Style Refactor → ../documentation/archive/framework/archive-TUNE-0071.md
 ```
+<!-- /gate:history-allowed -->
 
 Last-completed line regex:
 
@@ -98,8 +102,8 @@ project: <string>             # free-form (e.g. Datarim, Arcanada, Verdicus)
 started: <date>               # YYYY-MM-DD
 parent: <TASK-ID|null>        # null if no parent
 related: <list[TASK-ID]>      # YAML list, empty list ok
-prd: <relpath|null>           # e.g. prd/PRD-TUNE-0071.md, null if none
-plan: <relpath|null>          # e.g. plans/TUNE-0071-plan.md, null if none
+prd: <relpath|null>           # e.g. prd/PRD-{TASK-ID}.md, null if none
+plan: <relpath|null>          # e.g. plans/{TASK-ID}-plan.md, null if none
 ---
 ```
 
@@ -192,7 +196,7 @@ Before Pass 1: if `tasks.md` and `backlog.md` contain ZERO `### TASK-ID:` headin
 
 ### Duplicate IDs across tasks.md and backlog.md
 
-If `TUNE-0099` appears in both files (legacy state):
+If a task ID appears in both files (legacy state):
 - Status comes from `tasks.md` (active wins over pending).
 - Backlog entry is dropped from `backlog.md`.
 - Single description file written.

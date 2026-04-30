@@ -20,7 +20,7 @@ When a command's critical behavior is defined in `commands/*.md` prose and you n
 ### Pattern
 
 ```bash
-# archive-contract-lint.bats (exemplar — TUNE-0007)
+# archive-contract-lint.bats (exemplar)
 SPEC="${BATS_TEST_DIRNAME}/../commands/dr-archive.md"
 
 @test "branch 1/3: 'Commit now' option is documented" {
@@ -38,7 +38,7 @@ SPEC="${BATS_TEST_DIRNAME}/../commands/dr-archive.md"
 
 ### Exemplar
 
-`tests/archive-contract-lint.bats` — 11 tests covering `/dr-archive` step-0 gate: section presence, `git status --porcelain` mandate, multi-repo clause, STOP keyword, 3 prompt branches (Commit/Accept/Abort), governance language, TUNE-0003 attribution. Source: prior incident.
+`tests/archive-contract-lint.bats` — 11 tests covering `/dr-archive` step-0 gate: section presence, `git status --porcelain` mandate, multi-repo clause, STOP keyword, 3 prompt branches (Commit/Accept/Abort), governance language, incident attribution. Source: prior incident.
 
 ---
 

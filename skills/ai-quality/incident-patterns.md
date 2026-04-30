@@ -17,10 +17,12 @@ A narrated guard carries the original lesson forward. Future operators, LLM agen
 
 ### Pattern
 
+<!-- gate:history-allowed -->
 ```bash
 echo "WARNING: --force on a live system will overwrite $CLAUDE_DIR"
 echo "         TUNE-0003 incident: --force previously destroyed 9 runtime evolutions."
 ```
+<!-- /gate:history-allowed -->
 
 Two lines. First states the *what* (effect of proceeding). Second states the *why* (incident that exists because someone already proceeded).
 
@@ -28,7 +30,7 @@ Two lines. First states the *what* (effect of proceeding). Second states the *wh
 
 1. **One incident per guard** — cite the *founding* incident, not a list. If the guard accretes history, the most-costly incident wins.
 2. **Quantify the effect** when possible (files lost, hours spent, users affected). "Destroyed 9 runtime evolutions" is clearer than "caused problems".
-3. **Cite by ID, not by date** — IDs (`TUNE-0003`, `DEV-1156`) index into archives; dates rot.
+3. **Cite by ID, not by date** — task IDs index into archives; dates rot.
 4. **Keep it to ≤ 2 lines** in runtime output. Long narratives belong in docs; this is a reminder, not a lecture.
 5. **Update the reference when superseded** — if a later incident replaces the original justification, rewrite both the guard and the archive cross-reference. Do not layer old and new together.
 
@@ -40,7 +42,7 @@ Two lines. First states the *what* (effect of proceeding). Second states the *wh
 
 ### Exemplar
 
-`install.sh:115` — `--force` live-system warning cites TUNE-0003 by ID and quantifies the cost (9 files). The guard fires before any filesystem mutation; the operator has context before making the decision, not after.
+`install.sh:115` — `--force` live-system warning cites the incident ID and quantifies the cost (9 files). The guard fires before any filesystem mutation; the operator has context before making the decision, not after.
 
 ---
 

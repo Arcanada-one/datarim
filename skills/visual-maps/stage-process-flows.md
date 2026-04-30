@@ -121,7 +121,7 @@ graph TD
     K --> L["Steps 5-7: Update archived-tasks table + reset activeContext/tasks.md"]
 ```
 
-## CTA Emission per Stage (TUNE-0032 / v1.16.0)
+## CTA Emission per Stage (v1.16.0)
 
 Every stage flow above ends with the agent emitting a canonical CTA block per `$HOME/.claude/skills/cta-format.md`. The CTA is part of the response — not a separate stage. Mapping of stage end → primary CTA command:
 
