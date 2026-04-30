@@ -36,10 +36,15 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
     -   **Data Flow**: Trace input -> processing -> output.
     -   **Security Design**: Perform **Threat Modeling** and map to **Security Controls** (Appendix A).
 
-5.  **Create Implementation Plan (Phase 5)**:
-    -   **L1-L2 tasks:** Write plan inline in `datarim/tasks.md` task entry.
-    -   **L3-L4 tasks:** Write plan to `datarim/plans/{TASK-ID}-plan.md`. In the task entry in `tasks.md`, add only a pointer: `**Implementation Plan:** [datarim/plans/{TASK-ID}-plan.md](plans/{TASK-ID}-plan.md)`.
-    -   Both formats use the same **Design Document Template**.
+5.  **Create Implementation Plan (Phase 5)** — thin-index schema, TUNE-0071:
+    -   **`datarim/tasks.md`** carries ONLY the one-liner pointer (canonical regex per `skills/datarim-system.md` § Operational File Schema):
+        ```
+        - {TASK-ID} · in_progress · P{n} · L{n} · {title} → tasks/{TASK-ID}-task-description.md
+        ```
+        Never write plan content directly into `tasks.md`.
+    -   **L1-L2 tasks:** plan body lives in `datarim/tasks/{TASK-ID}-task-description.md` § Implementation Notes (or a dedicated `## Implementation Plan` section). Description file MUST have the 12-key YAML frontmatter (see `skills/datarim-system.md` § Description File Contract).
+    -   **L3-L4 tasks:** plan body lives in `datarim/plans/{TASK-ID}-plan.md`. The description file's frontmatter sets `plan: plans/{TASK-ID}-plan.md`. The description body's `## Related` section points readers there.
+    -   Both formats use the same **Design Document Template** (Phase 5 below).
     -   Include: **Security Summary** (Attack Surface, Risks), **Architecture Impact**, **Detailed Design** (API, DB, Config), **Security Design** (Threats, Controls), **Implementation Steps**, **Test Plan** (Unit/Integration/Security), **Rollback Strategy**, **Validation Checklist**.
 
 6.  **Technology Validation**:

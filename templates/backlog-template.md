@@ -1,64 +1,31 @@
-# Task Backlog
-
-**Last Updated:** {DATE}
-**Total Items:** 0
-
----
-
-## Summary
-
-| Status | Count |
-|--------|-------|
-| Pending | 0 |
-| In Progress | 0 |
-
----
-
-## Pending Items
+# Backlog
 
 <!--
-Add new items below using this format:
+TUNE-0071 thin-index schema (v1.19.0+).
 
-### [PREFIX]-XXXX: Task Title
+Each line is a one-liner pointer to a description file. NO task content here.
+Full task body lives in datarim/tasks/{TASK-ID}-task-description.md.
 
-PREFIX follows Unified Task Numbering (see $HOME/.claude/skills/datarim-system.md):
-- Project prefix (ARCA, VERD, DATA, CONS, SUP, ROB, VOICE, OVER) — if task belongs to one project
-- Area prefix (INFRA, WEB, DEV, DEVOPS, CONTENT, RESEARCH, AGENT, BENCH, MAINT, FIN, QA, TUNE) — if cross-project
-- TASK — fallback
+Canonical regex (single-line, anchored):
+  ^- ([A-Z]{2,10}-[0-9]{4}) · (pending|blocked-pending|cancelled) · P[0-3] · L[1-4] · (.{1,80}) → tasks/\1-task-description\.md$
 
-The ID stays the same when the backlog item becomes an active task and when it is archived.
+Separator: · (U+00B7 MIDDLE DOT). Arrow: → (U+2192). Title: 1–80 chars.
 
-| Field | Value |
-|-------|-------|
-| **Status** | pending |
-| **Priority** | critical / high / medium / low |
-| **Complexity** | Level 1-4 |
-| **Created** | YYYY-MM-DD |
-| **Source** | PRD-XXX / Manual / Discovery |
-| **Tags** | comma, separated, tags |
+Example:
+  - INFRA-0099 · pending · P2 · L2 · Vault MFA Rollout → tasks/INFRA-0099-task-description.md
 
-**Description:**
-Brief but comprehensive description of what needs to be done.
-
-**Acceptance Criteria:**
-- [ ] Criterion 1
-- [ ] Criterion 2
-
-**Notes:**
-Additional context, considerations, references.
-
----
+Validation: scripts/datarim-doctor.sh / pre-archive-check.sh. Self-heal: /dr-doctor --fix.
+Schema reference: skills/datarim-system.md § Operational File Schema.
 -->
+
+## Pending
 
 <!-- No pending items yet -->
 
----
+## Blocked-Pending
 
-## In Progress Items
+<!-- Items waiting on external prerequisites -->
 
-<!-- Items currently being worked on -->
+## Cancelled
 
----
-
-<!-- Completed and cancelled items are stored in backlog-archive.md -->
-<!-- This keeps the active backlog file small and fast to read -->
+<!-- Cancelled items (kept for audit trail; consider moving to backlog-archive.md) -->

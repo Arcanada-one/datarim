@@ -54,7 +54,12 @@ description: Implement planned changes using TDD and AI quality principles
     feedback was processed, not silently ignored. Commit code changes and backlog additions together in the
     same review round.
 
-9.  **OUTPUT**: Code changes + `progress.md` update + backlog updates (if any).
+9.  **OUTPUT** (thin-index schema, TUNE-0071):
+    -   Code changes (committed per Workspace Discipline rules in CLAUDE.md).
+    -   Update `datarim/tasks/{TASK-ID}-task-description.md` § Implementation Notes with implementation log (or `## Decisions` for design choices). Description file frontmatter `status` stays `in_progress` until `/dr-archive`.
+    -   Update `datarim/tasks.md` one-liner if status transitions (e.g. `in_progress` → `blocked`); the line itself stays in canonical thin-index format.
+    -   Backlog updates if subtasks discovered (new `pending` one-liners in `datarim/backlog.md`).
+    -   **Never write `datarim/progress.md`** (abolished as of v1.19.0). Per-task notes go in the description file; cross-task completion log is `activeContext.md` § «Последние завершённые», populated by `/dr-archive`.
 
 ## Transition Checkpoint
 
@@ -62,7 +67,7 @@ Before proceeding to `/dr-qa` or `/dr-archive`:
 ```
 [ ] All planned changes implemented?
 [ ] Tests written and passing?
-[ ] progress.md updated with implementation details?
+[ ] tasks/{TASK-ID}-task-description.md updated with implementation notes?
 [ ] No known regressions introduced?
 ```
 
