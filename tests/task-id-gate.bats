@@ -17,6 +17,8 @@
 #   T8: --diff-only ignores pre-existing baseline matches (no diff)
 #   T9: --diff-only catches freshly-added task-ID line
 #   T10: --diff-only on non-git path → exit 2
+#   T11-T14: regression invariants — skills/, commands/, agents/, templates/
+#            scopes stay gate-clean (parallel to stack-agnostic-gate.bats T5)
 
 REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
 GATE="$REPO_ROOT/scripts/task-id-gate.sh"
@@ -112,4 +114,24 @@ EOF
     run "$GATE" --diff-only "$TMPFILE"
     rm -f "$TMPFILE"
     [ "$status" -eq 2 ]
+}
+
+@test "T11: skills/ scope is gate-clean (regression invariant)" {
+    run "$GATE" "$REPO_ROOT/skills"
+    [ "$status" -eq 0 ]
+}
+
+@test "T12: commands/ scope is gate-clean (regression invariant)" {
+    run "$GATE" "$REPO_ROOT/commands"
+    [ "$status" -eq 0 ]
+}
+
+@test "T13: agents/ scope is gate-clean (regression invariant)" {
+    run "$GATE" "$REPO_ROOT/agents"
+    [ "$status" -eq 0 ]
+}
+
+@test "T14: templates/ scope is gate-clean (regression invariant)" {
+    run "$GATE" "$REPO_ROOT/templates"
+    [ "$status" -eq 0 ]
 }
