@@ -308,6 +308,37 @@ if command -v flock >/dev/null 2>&1; then
     fi
 fi
 
+# --- TUNE-0077 safety gate: pre-write backup --------------------------------
+# Always tarball datarim/ before any --fix write. Restored automatically on
+# invariant failure (parsed_count > emitted_count post-write).
+BACKUP_DIR="${DATARIM_DOCTOR_BACKUP_DIR:-/tmp}"
+BACKUP_TS="$(date -u +%Y%m%dT%H%M%SZ)"
+BACKUP_TARBALL="$BACKUP_DIR/datarim-backup-$BACKUP_TS.tgz"
+mkdir -p "$BACKUP_DIR"
+(
+    umask 077
+    tar -czf "$BACKUP_TARBALL" -C "$(dirname "$ROOT_ABS")" "$(basename "$ROOT_ABS")" 2>/dev/null
+) || { log "ERROR: backup tarball failed: $BACKUP_TARBALL"; exit 2; }
+[ -s "$BACKUP_TARBALL" ] || { log "ERROR: backup tarball empty: $BACKUP_TARBALL"; exit 2; }
+
+# Capture pre-fix parsed-block count (single source of truth for invariant)
+PARSED_COUNT=0
+for f in "$ROOT_ABS/tasks.md" "$ROOT_ABS/backlog.md"; do
+    [ -f "$f" ] || continue
+    n=$(grep -cE '^### [A-Z]+-[0-9]+:' "$f" 2>/dev/null || true)
+    PARSED_COUNT=$((PARSED_COUNT + n))
+done
+
+# Restore-and-die helper for invariant failure
+restore_backup_and_die() {
+    local reason="$1"
+    log "INVARIANT VIOLATION: $reason — restoring from $BACKUP_TARBALL"
+    rm -rf "$ROOT_ABS"
+    tar -xzf "$BACKUP_TARBALL" -C "$(dirname "$ROOT_ABS")" 2>/dev/null \
+        || { log "ERROR: restore from $BACKUP_TARBALL failed — manual recovery required"; exit 2; }
+    exit 2
+}
+
 migrate_file() {
     local src="$1" out="$2" heading="$3" status_default="$4"
     [ -f "$src" ] || return 0
@@ -363,6 +394,21 @@ if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "progress" ]; then
     fi
 fi
 
+# --- TUNE-0077 safety gate: post-write invariant check ----------------------
+# After all writes, count emitted one-liners. Must be >= parsed blocks (no data
+# loss). Mismatch → restore from backup tarball and exit 2.
+EMITTED_COUNT=0
+for f in "$ROOT_ABS/tasks.md" "$ROOT_ABS/backlog.md"; do
+    [ -f "$f" ] || continue
+    n=$(grep -cE '^- [A-Z]+-[0-9]+ · ' "$f" 2>/dev/null || true)
+    EMITTED_COUNT=$((EMITTED_COUNT + n))
+done
+
+if [ "$EMITTED_COUNT" -lt "$PARSED_COUNT" ]; then
+    restore_backup_and_die "emitted=$EMITTED_COUNT < parsed=$PARSED_COUNT (data loss detected)"
+fi
+
 command -v flock >/dev/null 2>&1 && flock -u 9 2>/dev/null || true
-log "OK: migration complete (root=$ROOT_ABS)"
+log "OK: migration complete (root=$ROOT_ABS, parsed=$PARSED_COUNT, emitted=$EMITTED_COUNT)"
+log "Backup: $BACKUP_TARBALL"
 exit 0

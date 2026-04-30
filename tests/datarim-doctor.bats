@@ -148,3 +148,99 @@ teardown() {
     run "$DOCTOR" --bogus-flag
     [ "$status" -eq 64 ]
 }
+
+# --- TUNE-0077: data-loss safety contract -----------------------------------
+
+@test "T16 (TUNE-0077) --fix creates pre-write tarball backup of datarim/" {
+    cp "$FIXTURES/legacy-tasks.md" "$TMPROOT/datarim/tasks.md"
+    BACKUP_DIR="$TMPROOT/backup-out"
+    mkdir -p "$BACKUP_DIR"
+    DATARIM_DOCTOR_BACKUP_DIR="$BACKUP_DIR" run "$DOCTOR" --root="$TMPROOT/datarim" --fix
+    [ "$status" -eq 0 ]
+    # Exactly one tarball expected, named datarim-backup-*.tgz
+    n="$(find "$BACKUP_DIR" -name 'datarim-backup-*.tgz' | wc -l | tr -d ' ')"
+    [ "$n" = "1" ]
+    # Backup tarball must contain the original tasks.md (pre-fix state)
+    tarball="$(find "$BACKUP_DIR" -name 'datarim-backup-*.tgz')"
+    tar tzf "$tarball" | grep -q 'tasks.md'
+}
+
+@test "T17 (TUNE-0077) --fix backup file mode is 0600 (umask 077)" {
+    cp "$FIXTURES/legacy-tasks.md" "$TMPROOT/datarim/tasks.md"
+    BACKUP_DIR="$TMPROOT/backup-out"
+    mkdir -p "$BACKUP_DIR"
+    DATARIM_DOCTOR_BACKUP_DIR="$BACKUP_DIR" "$DOCTOR" --root="$TMPROOT/datarim" --fix >/dev/null
+    tarball="$(find "$BACKUP_DIR" -name 'datarim-backup-*.tgz')"
+    mode="$(stat -f '%Lp' "$tarball" 2>/dev/null || stat -c '%a' "$tarball" 2>/dev/null)"
+    [ "$mode" = "600" ]
+}
+
+@test "T18 (TUNE-0077) post-fix invariant: emitted_count >= parsed_count" {
+    # Synthetic 3-task fixture; after --fix all 3 IDs MUST appear as one-liners
+    cat > "$TMPROOT/datarim/backlog.md" <<'EOF'
+# Backlog
+
+## Pending
+
+### TUNE-9001: Safety check 1
+
+- **Status:** pending
+- **Priority:** P2
+- **Complexity:** Level 1
+
+### TUNE-9002: Safety check 2
+
+- **Status:** pending
+- **Priority:** P3
+- **Complexity:** Level 2
+
+### TUNE-9003: Safety check 3
+
+- **Status:** pending
+- **Priority:** P2
+- **Complexity:** Level 1
+EOF
+    "$DOCTOR" --root="$TMPROOT/datarim" --fix >/dev/null
+    n="$(grep -c '^- TUNE-900' "$TMPROOT/datarim/backlog.md")"
+    [ "$n" = "3" ]
+}
+
+@test "T19 (TUNE-0077) printf hardening: no 'printf \"\$' patterns in script" {
+    # Bug C class: printf "$line" misparses '-' prefix as flag
+    ! grep -nE 'printf "\$' "$DOCTOR"
+}
+
+@test "T20 (TUNE-0077) --fix on body starting with '-' produces clean stderr" {
+    # Body line starting with '-' must not trigger 'printf: invalid option' errors
+    cat > "$TMPROOT/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+
+### TUNE-9100: Body with leading dash
+
+- **Status:** in_progress
+- **Priority:** P2
+- **Complexity:** Level 1
+
+#### Overview
+
+- bullet line that starts with a dash and could trigger printf flag parsing
+- another such bullet
+EOF
+    run "$DOCTOR" --root="$TMPROOT/datarim" --fix
+    [ "$status" -eq 0 ]
+    # No 'invalid option' or '-:' printf errors in stderr
+    [[ "$output" != *"invalid option"* ]]
+    [[ "$output" != *"printf:"* ]] || [[ "$output" != *"-:"* ]]
+}
+
+@test "T21 (TUNE-0077) --fix prints backup path in stdout summary" {
+    cp "$FIXTURES/legacy-tasks.md" "$TMPROOT/datarim/tasks.md"
+    BACKUP_DIR="$TMPROOT/backup-out"
+    mkdir -p "$BACKUP_DIR"
+    run env DATARIM_DOCTOR_BACKUP_DIR="$BACKUP_DIR" "$DOCTOR" --root="$TMPROOT/datarim" --fix
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"backup"* ]] || [[ "$output" == *"Backup"* ]]
+    [[ "$output" == *"datarim-backup-"* ]]
+}
