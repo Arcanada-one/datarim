@@ -4,6 +4,60 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ---
 
+## 2026-04-30 — TUNE-0077 — Datarim Doctor data-loss safety gate + scripts/tests install scopes (v1.20.0)
+
+### Summary
+
+Class A — internal tooling. `scripts/datarim-doctor.sh` gains a defence-in-depth safety contract for `--fix` mode: pre-write tarball backup (mode 0600), post-write `emitted_count >= parsed_count` invariant with auto-restore on violation, backup path surfaced in success summary. `install.sh` `INSTALL_SCOPES` extended with `scripts` and `tests` — both directories now whole-dir-symlinked into `~/.claude/` under default symlink mode (uniform with existing `agents`/`skills`/`commands`/`templates` pattern). Eliminates drift between canonical Datarim repo and `~/.claude/` runtime: `~/.claude/scripts/datarim-doctor.sh` is the canonical file by inode — divergence impossible. VERSION → 1.20.0.
+
+### Source incident
+
+External Datarim copy on `aether/local-env` (2026-04-30 16:31 UTC): a 730-LoC rogue `datarim-doctor.sh` v2 (developed in another project's worktree, never merged to canonical Arcanada Datarim repo) was placed directly into `~/.claude/scripts/datarim-doctor.sh`. Its `--fix` invocation destroyed 30 task entries from `tasks.md`/`backlog.md` indexes, collided 5 followup-ID description files, and reported «All fixes applied successfully». Recovery from external `/tmp/datarim-backup-*.tgz` tarball.
+
+Two structural defects enabled the incident:
+
+1. **Drift-by-design.** `~/.claude/scripts/` was outside `INSTALL_SCOPES`. Canonical script (368 LoC) and runtime copy (730 LoC) had no install-time link — drift undetectable until live `--fix`.
+2. **No data-loss gate.** Doctor `--fix` had no pre-write backup, no post-write invariant. A faulty Pass 2 silently replaced indexes with empty content.
+
+### What changed
+
+- **MOD `scripts/datarim-doctor.sh`:**
+  - NEW pre-fix tarball backup at `${DATARIM_DOCTOR_BACKUP_DIR:-/tmp}/datarim-backup-{TS}.tgz`, mode 0600 via `umask 077`.
+  - NEW `PARSED_COUNT` capture (pre-fix `### TASK-ID:` block count across `tasks.md`+`backlog.md`).
+  - NEW post-fix `EMITTED_COUNT` re-scan + invariant `emitted >= parsed` — violation triggers `restore_backup_and_die()` (rm-rf + tar -xzf, exit 2).
+  - Success summary logs `Backup: $BACKUP_TARBALL` and counters.
+- **MOD `install.sh`:**
+  - `INSTALL_SCOPES` extended `(agents skills commands templates)` → `(agents skills commands templates scripts tests)`.
+  - `LOCAL_SCOPES` unchanged (scripts/tests are framework-internal, not user-extensible — local overlay applies only to user-facing scopes).
+  - Existing `link_scope_tree` handles new scopes uniformly — no special-case code path needed.
+  - Header comment updated: scripts/tests are «installed scopes» as of v1.20.0.
+- **MOD `tests/datarim-doctor.bats`:** +6 regression tests T16–T21 covering backup creation, mode 0600, post-fix invariant on synthetic 3-block fixture, printf hardening (no `printf "$` patterns), body-with-leading-dash safety, summary-prints-backup-path.
+- **MOD `VERSION`:** `1.19.1` → `1.20.0` (minor — additive install scope).
+- **MOD `CLAUDE.md`:** version banner bump.
+
+### Key design decisions
+
+1. **Defence in depth (3 layers).** Pre-write tarball + post-write invariant + auto-restore. No single bug can cause data loss; even a faulty Pass 2 emit gets caught.
+2. **Whole-directory symlink (uniform with skills/agents/commands/templates).** Initial implementation tried file-level `RUNTIME_SCRIPTS` allow-list — rejected at QA review as deviation from established pattern. With dir-symlink, `~/.claude/scripts/` and `~/.claude/tests/` ARE the canonical directories by inode — drift impossible by construction. Bonus: `lib/canonicalise.sh` and bats fixtures resolve naturally via standard SCRIPT_DIR / BATS_TEST_DIRNAME — no symlink-following helpers needed.
+3. **Quarantine over edit.** Rogue `~/.claude/scripts/datarim-doctor.sh` (730 LoC) was deleted, not patched. Backup at `/tmp/rogue-doctor-v2-backup.sh` for forensics. Canonical 368 LoC stays the single source of truth — porting v2 features back is a separate decision deferred to TUNE-0072+ backlog.
+4. **`scripts/tests` not in LOCAL_SCOPES.** User overlay (`~/.claude/local/`) makes sense for skills/agents/commands/templates (user-extensible). Scripts and tests are framework-internal — adding `local/scripts/` would only add an attack surface for shadowing critical safety logic with unreviewed user code.
+
+### Validation
+
+- `bats tests/datarim-doctor.bats` — 21/21 pass (15 pre-existing + 6 new).
+- `shellcheck -S warning scripts/datarim-doctor.sh install.sh` — clean.
+- Live smoke: `~/.claude/scripts/datarim-doctor.sh --root=/Users/ug/arcanada/datarim` → exit 0 «OK: datarim/ structure compliant».
+- `readlink -f ~/.claude/scripts/datarim-doctor.sh` → `Projects/Datarim/code/datarim/scripts/datarim-doctor.sh` ✓.
+- `./install.sh` idempotent: rogue real-file moved to `~/.claude/backups/runtime-rogue-{TS}/`, replaced by symlink.
+
+### Follow-ups
+
+- **TUNE-0072** (backlog) — `--quiet` exit-code parity. Independent issue.
+- Consider adding `tests/install.bats` scenarios for RUNTIME_SCRIPTS (rogue replacement, idempotent re-link). Informal follow-up.
+- Consider `skills/datarim-doctor.md` § Safety Contract subsection documenting the invariant for downstream callers. Informal follow-up.
+
+---
+
 ## 2026-04-30 — TUNE-0069 — `commands/dr-plan.md` CI delta-vs-baseline framing for V-checklist
 
 ### Summary
