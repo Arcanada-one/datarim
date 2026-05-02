@@ -77,6 +77,19 @@ Complete and archive current task.
    **0.1.5 Project repo check** (per repo classified as single-agent — i.e., no `.datarim-shared` marker):
    Run `scripts/pre-archive-check.sh <project-repo-path>` (legacy mode). Exit 1 → STOP and present the 3-way prompt (Commit now / Accept pending / Abort). Applied ≠ committed ≠ canonical.
 
+0.2. **VERSION CONSISTENCY CHECK** (framework repo only, MANDATORY when `VERSION` changed):
+
+   When the framework repo's `VERSION` file changed in HEAD->working-tree, all consumer files (CLAUDE.md, README.md, docs/) must reference the new version. Catches the recurring class «VERSION bumped but README/CLAUDE.md left stale».
+
+   Run: `bash scripts/version-consistency-check.sh <framework-repo-path>`
+
+   Exit codes:
+   - **0** — `VERSION` unchanged, OR all consumers aligned. Proceed.
+   - **1** — `VERSION` bumped + at least one consumer cites old version. STOP and either update the lagging files or re-run with `--allow-version-lag` if the lag is intentional (rare; most cases are unintentional drift).
+   - **2** — usage error (path not a git repo). Investigate.
+
+   Scope: only `CLAUDE.md` and `README.md` (current-state surfaces). `docs/` is excluded by design — `evolution-log.md` / `release-notes.md` / `changelog.md` are append-only historical ledgers that reference past versions on purpose. This step is skipped automatically when `VERSION` is unchanged — most archives don't bump, so the check is a fast no-op outside framework releases.
+
 0.5. **REFLECT** (MANDATORY, non-skippable):
    - Load `$HOME/.claude/skills/reflecting.md`.
    - Execute the reflect workflow per that skill:
