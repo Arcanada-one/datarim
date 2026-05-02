@@ -63,6 +63,15 @@ Complete and archive current task.
    git -C <repo> diff --staged <file>             # verify only your edit staged
    ```
 
+   *Also use blob-swap when:* the in-tree edit tool (mtime-checking `Edit`)
+   refuses the change because a parallel session wrote to the same shared
+   workflow file between your `Read` and `Edit`. Re-Read+retry is itself
+   race-prone in shared workspaces; blob-swap operates on the HEAD blob (not
+   the working tree) so the mtime check is bypassed entirely. Apply only when
+   the desired change is mechanical (e.g. removing your own task-ID one-liner
+   from an index file) so the target blob can be constructed deterministically
+   from HEAD.
+
    *Pre-commit retry-tolerant re-verify* (mandatory before `git commit` in either path):
    ```
    git -C <repo> diff --staged --numstat          # verify file-set + line counts

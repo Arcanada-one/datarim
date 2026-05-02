@@ -40,17 +40,19 @@ Both agents and skills may specify `effort: low|medium|high|max`.
 - Use `max` only for very complex one-off tasks.
 - Otherwise inherit from the session unless a task-specific override is justified.
 
-### Current Assignments (v1.6.0)
+### Current Assignments
 
-**Agents (16):**
-- `opus`: architect, planner, strategist, security, reviewer, skill-creator
-- `sonnet`: developer, compliance, code-simplifier, devops, editor, librarian, optimizer, sre, writer
+> Snapshot of explicit-model assignments. Refresh on changes via `/dr-optimize` or routine reflection. The lists below are alphabetical for diff-stability; canonical source remains the `model:` field in each artifact.
+
+**Agents (17):**
+- `opus`: architect, planner, reviewer, security, skill-creator, strategist
+- `sonnet`: code-simplifier, compliance, developer, devops, editor, librarian, optimizer, researcher, sre, writer
 - `haiku`: tester
 
-**Task-skills (10):**
+**Task-skills (14, explicit `model`):**
 - `opus`: consilium, evolution
-- `sonnet`: discovery, compliance, dream, factcheck, humanize, infra-automation, visual-maps, writing
-- `haiku`: telegram-publishing, utilities
+- `sonnet`: compliance, discovery, dream, factcheck, frontend-ui, humanize, infra-automation, research-workflow, visual-maps, writing
+- `haiku`: publishing, utilities
 
-**Reference skills (6):**
-- datarim-system, ai-quality, security, testing, performance, tech-stack
+**Reference skills (no `model` field — inherit from caller):**
+- ai-quality, cta-format, datarim-doctor, datarim-system, file-sync-config, performance, project-init, reflecting, release-verify, security, security-baseline, tech-stack, testing
