@@ -43,6 +43,21 @@ teardown() {
     [ -z "$output" ]
 }
 
+@test "T1b (TUNE-0072) --quiet on legacy → exit 1 (parity with verbose)" {
+    cp "$FIXTURES/legacy-tasks.md" "$TMPROOT/datarim/tasks.md"
+    run "$DOCTOR" --root="$TMPROOT/datarim" --quiet
+    [ "$status" -eq 1 ]
+}
+
+@test "T17b (TUNE-0072) --quiet on compliant input → exit 0 (parity with verbose)" {
+    cp "$FIXTURES/compliant-tasks.md" "$TMPROOT/datarim/tasks.md"
+    : > "$TMPROOT/datarim/tasks/TUNE-0071-task-description.md"
+    : > "$TMPROOT/datarim/tasks/LEGACY-0001-task-description.md"
+    run "$DOCTOR" --root="$TMPROOT/datarim" --quiet
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
+
 # --- Migration (--fix) -------------------------------------------------------
 
 @test "T5 --fix on legacy tasks.md produces compliant one-liner" {
