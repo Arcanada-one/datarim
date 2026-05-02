@@ -87,8 +87,8 @@ fi
 ROOT_ABS="$(cd "$ROOT" && pwd)"
 
 # --- helpers ----------------------------------------------------------------
-log() { [ "$QUIET" -eq 0 ] && echo "$@"; }
-warn() { [ "$QUIET" -eq 0 ] && echo "WARN: $*" >&2; }
+log() { if [ "$QUIET" -eq 0 ]; then echo "$@"; fi; }
+warn() { if [ "$QUIET" -eq 0 ]; then echo "WARN: $*" >&2; fi; }
 
 # Canonical regex for one-liner entries.
 ONELINER_RE='^- [A-Z]{2,10}-[0-9]{4} · (in_progress|blocked|not_started|pending|blocked-pending|cancelled) · P[0-3] · L[1-4] · .{1,80} → tasks/[A-Z]{2,10}-[0-9]{4}-task-description\.md$'
