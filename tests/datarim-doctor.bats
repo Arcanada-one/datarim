@@ -287,6 +287,79 @@ EOF
     [ "$status" -eq 0 ]
 }
 
+@test "T24 (TUNE-0076) Pass4-cancelled: synthesises documentation/archive/cancelled/archive-{ID}.md with frontmatter" {
+    cp "$FIXTURES/legacy-backlog-archive.md" "$TMPROOT/datarim/backlog-archive.md"
+    "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt >/dev/null
+    [ -f "$TMPROOT/documentation/archive/cancelled/archive-CONN-9001.md" ]
+    grep -q "^id: CONN-9001$" "$TMPROOT/documentation/archive/cancelled/archive-CONN-9001.md"
+    grep -q "^status: cancelled$" "$TMPROOT/documentation/archive/cancelled/archive-CONN-9001.md"
+    grep -q "^cancelled_at: 2026-04-19$" "$TMPROOT/documentation/archive/cancelled/archive-CONN-9001.md"
+    grep -q "^reason:" "$TMPROOT/documentation/archive/cancelled/archive-CONN-9001.md"
+    grep -q "^source: synthesised" "$TMPROOT/documentation/archive/cancelled/archive-CONN-9001.md"
+    [ -f "$TMPROOT/documentation/archive/cancelled/archive-TUNE-9001.md" ]
+}
+
+@test "T25 (TUNE-0076) Pass4-completed-existing: verified existing archive is not rewritten" {
+    cp "$FIXTURES/legacy-backlog-archive.md" "$TMPROOT/datarim/backlog-archive.md"
+    mkdir -p "$TMPROOT/documentation/archive/framework"
+    cat > "$TMPROOT/documentation/archive/framework/archive-TUNE-9101.md" <<'EOF'
+# Archive — TUNE-9101 (pre-existing, must be preserved)
+EOF
+    sha_before="$(shasum "$TMPROOT/documentation/archive/framework/archive-TUNE-9101.md" | awk '{print $1}')"
+    "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt >/dev/null
+    sha_after="$(shasum "$TMPROOT/documentation/archive/framework/archive-TUNE-9101.md" | awk '{print $1}')"
+    [ "$sha_before" = "$sha_after" ]
+}
+
+@test "T26 (TUNE-0076) Pass4-completed-missing: synthesises into general/ with completed_at" {
+    cp "$FIXTURES/legacy-backlog-archive.md" "$TMPROOT/datarim/backlog-archive.md"
+    "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt >/dev/null
+    [ -f "$TMPROOT/documentation/archive/general/archive-TUNE-9102.md" ]
+    grep -q "^id: TUNE-9102$" "$TMPROOT/documentation/archive/general/archive-TUNE-9102.md"
+    grep -q "^status: completed$" "$TMPROOT/documentation/archive/general/archive-TUNE-9102.md"
+    grep -q "^completed_at: 2026-04-26$" "$TMPROOT/documentation/archive/general/archive-TUNE-9102.md"
+    grep -q "^source: synthesised" "$TMPROOT/documentation/archive/general/archive-TUNE-9102.md"
+}
+
+@test "T27 (TUNE-0076) Pass4-conflict --no-prompt skips existing archive without ID literal" {
+    cp "$FIXTURES/legacy-backlog-archive.md" "$TMPROOT/datarim/backlog-archive.md"
+    mkdir -p "$TMPROOT/documentation/archive/general"
+    # Existing archive without TUNE-9102 literal — conflict
+    cat > "$TMPROOT/documentation/archive/general/archive-TUNE-9102.md" <<'EOF'
+# Unrelated content (no task ID present)
+EOF
+    sha_before="$(shasum "$TMPROOT/documentation/archive/general/archive-TUNE-9102.md" | awk '{print $1}')"
+    run "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt
+    [ "$status" -eq 0 ]
+    sha_after="$(shasum "$TMPROOT/documentation/archive/general/archive-TUNE-9102.md" | awk '{print $1}')"
+    # Skipped (--no-prompt) → file unchanged
+    [ "$sha_before" = "$sha_after" ]
+}
+
+@test "T28 (TUNE-0076) Pass5-zero-findings: post-fix dry-run on migrated tree → exit 0" {
+    cp "$FIXTURES/legacy-backlog-archive.md" "$TMPROOT/datarim/backlog-archive.md"
+    "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt >/dev/null
+    # backlog-archive.md must be removed after successful Pass 4
+    [ ! -f "$TMPROOT/datarim/backlog-archive.md" ]
+    # Pre-fix backup must exist
+    [ -f "$TMPROOT/datarim/backlog-archive.md.pre-v2.bak" ]
+    # Post-fix dry-run is exit 0
+    run "$DOCTOR" --root="$TMPROOT/datarim"
+    [ "$status" -eq 0 ]
+}
+
+@test "T29 (TUNE-0076) Pass5 idempotent: second --fix on migrated tree → exit 0, no-op" {
+    cp "$FIXTURES/legacy-backlog-archive.md" "$TMPROOT/datarim/backlog-archive.md"
+    "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt >/dev/null
+    # Snapshot post-fix state
+    n1="$(find "$TMPROOT/documentation/archive" -name 'archive-*.md' | wc -l | tr -d ' ')"
+    # Re-run --fix (no backlog-archive.md present)
+    run "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt
+    [ "$status" -eq 0 ]
+    n2="$(find "$TMPROOT/documentation/archive" -name 'archive-*.md' | wc -l | tr -d ' ')"
+    [ "$n1" = "$n2" ]
+}
+
 @test "T21 (TUNE-0077) --fix prints backup path in stdout summary" {
     cp "$FIXTURES/legacy-tasks.md" "$TMPROOT/datarim/tasks.md"
     BACKUP_DIR="$TMPROOT/backup-out"

@@ -34,6 +34,7 @@ ROOT=""
 MODE="dry-run"
 SCOPE="all"
 QUIET=0
+CONFLICT_POLICY="prompt"   # TUNE-0076: prompt|keep|overwrite|skip|abort
 
 # --- usage ------------------------------------------------------------------
 usage() {
@@ -45,9 +46,11 @@ USAGE:
 
 OPTIONS:
   --fix               Apply fixes (default: dry-run)
-  --scope=<scope>     One of: tasks|backlog|active|progress|descriptions|all (default: all)
+  --scope=<scope>     One of: tasks|backlog|active|backlog-archive|progress|descriptions|all (default: all)
   --root=<path>       Datarim root (default: walk up from $PWD)
   --quiet             Exit-code only (no stdout)
+  --no-prompt         Skip conflicts in Pass 4 backlog-archive migration (alias for --conflict-policy=skip)
+  --conflict-policy=<p>  One of: prompt|keep|overwrite|skip|abort (default: prompt; auto-skip in non-TTY)
   --help              Print this help
 
 EXIT CODES:
@@ -67,6 +70,8 @@ for arg in "$@"; do
         --scope=*) SCOPE="${arg#--scope=}" ;;
         --root=*) ROOT="${arg#--root=}" ;;
         --quiet) QUIET=1 ;;
+        --no-prompt) CONFLICT_POLICY="skip" ;;
+        --conflict-policy=*) CONFLICT_POLICY="${arg#--conflict-policy=}" ;;
         --help|-h) usage; exit 0 ;;
         *) usage >&2; exit 64 ;;
     esac
@@ -390,6 +395,162 @@ migrate_file() {
     fi
 }
 
+prefix_to_area() {
+    # TUNE-0076: canonical Archive Area Mapping
+    case "${1%%-*}" in
+        INFRA) echo "infrastructure" ;;
+        WEB) echo "web" ;;
+        CONTENT) echo "content" ;;
+        RESEARCH|LTM) echo "research" ;;
+        AGENT) echo "agents" ;;
+        BENCH) echo "benchmarks" ;;
+        DEV) echo "development" ;;
+        DEVOPS) echo "devops" ;;
+        TUNE|ROB) echo "framework" ;;
+        MAINT) echo "maintenance" ;;
+        FIN) echo "finance" ;;
+        QA) echo "qa" ;;
+        CONN) echo "connectors" ;;
+        SRCH) echo "search" ;;
+        VERD) echo "verdicus" ;;
+        AUTH) echo "auth" ;;
+        BILL) echo "billing" ;;
+        CONV) echo "conversion" ;;
+        DISK) echo "disk" ;;
+        SEC) echo "security" ;;
+        *) echo "general" ;;
+    esac
+}
+
+resolve_conflict() {
+    # TUNE-0076: returns 0 if caller should overwrite, 1 if skip, exits 2 on abort
+    local id="$1" target="$2" new_content="$3"
+    local policy="$CONFLICT_POLICY"
+    if [ "$policy" = "prompt" ] && ! [ -t 0 ]; then policy="skip"; fi
+    case "$policy" in
+        keep|skip) return 1 ;;
+        overwrite) return 0 ;;
+        abort) log "ABORT: conflict on $id"; exit 2 ;;
+        prompt)
+            diff -u "$target" <(printf '%s\n' "$new_content") 2>&1 | head -40 >&2 || true
+            printf 'Conflict on %s — [k]eep [o]verwrite [s]kip [a]bort: ' "$id" >&2
+            local choice; read -r choice
+            case "${choice:-s}" in
+                o|O) return 0 ;;
+                a|A) exit 2 ;;
+                *) return 1 ;;
+            esac
+            ;;
+        *) warn "unknown conflict policy: $policy → skip"; return 1 ;;
+    esac
+}
+
+synthesise_cancelled_archive() {
+    local id="$1" title="$2" block="$3"
+    local cancelled_at; cancelled_at="$(extract_field "$block" "Cancelled")"
+    local reason; reason="$(extract_field "$block" "Reason")"
+    local body; body="$(extract_body "$block")"
+    local sha; sha="$(printf '%s' "$block" | shasum 2>/dev/null | awk '{print substr($1,1,7)}')"
+    local target="$DOCS_ARCHIVE_ROOT/cancelled/archive-$id.md"
+    local content
+    content="$(cat <<EOF
+---
+id: $id
+title: $title
+status: cancelled
+cancelled_at: ${cancelled_at:-unknown}
+reason: ${reason:-not specified}
+source: synthesised from backlog-archive.md by datarim-doctor.sh Pass 4 (TUNE-0076)
+original_block_sha: $sha
+---
+
+## Overview
+
+$body
+EOF
+)"
+    if [ -f "$target" ]; then
+        if grep -q "$id" "$target"; then return 0; fi   # verified, no rewrite
+        if ! resolve_conflict "$id" "$target" "$content"; then return 1; fi
+    fi
+    mkdir -p "$(dirname "$target")"
+    printf '%s\n' "$content" > "$target"
+}
+
+synthesise_completed_archive() {
+    local id="$1" title="$2" block="$3" area="$4"
+    local completed_at; completed_at="$(extract_field "$block" "Completed")"
+    local body; body="$(extract_body "$block")"
+    local sha; sha="$(printf '%s' "$block" | shasum 2>/dev/null | awk '{print substr($1,1,7)}')"
+    local target="$DOCS_ARCHIVE_ROOT/$area/archive-$id.md"
+    local content
+    content="$(cat <<EOF
+---
+id: $id
+title: $title
+status: completed
+completed_at: ${completed_at:-unknown}
+source: synthesised from backlog-archive.md by datarim-doctor.sh Pass 4 (TUNE-0076)
+original_block_sha: $sha
+---
+
+## Overview
+
+$body
+EOF
+)"
+    if [ -f "$target" ]; then
+        if grep -q "$id" "$target"; then return 0; fi   # verified existing
+        if ! resolve_conflict "$id" "$target" "$content"; then return 1; fi
+    fi
+    mkdir -p "$(dirname "$target")"
+    printf '%s\n' "$content" > "$target"
+}
+
+migrate_backlog_archive() {
+    # TUNE-0076: Pass 4 — migrate backlog-archive.md → documentation/archive/{area}/
+    local src="$ROOT_ABS/backlog-archive.md"
+    [ -f "$src" ] || return 0
+
+    DOCS_ARCHIVE_ROOT="$(dirname "$ROOT_ABS")/documentation/archive"
+    cp "$src" "$src.pre-v2.bak"
+
+    local TMP_SECMAP
+    TMP_SECMAP="$(mktemp -t doctor-secmap.XXXXXX)"
+    # shellcheck disable=SC2064
+    trap "rm -f '$TMP_SECMAP'" EXIT INT TERM
+
+    awk '
+        /^## Cancelled$/ { sec="cancelled"; next }
+        /^## Completed$/ { sec="completed"; next }
+        /^### [A-Z]+-[0-9]+:/ {
+            id = $2; sub(/:$/, "", id)
+            if (sec != "" && id ~ /^[A-Z]+-[0-9]+$/) print sec "\t" id
+        }
+    ' "$src" > "$TMP_SECMAP"
+
+    local sec id title block area parsed=0
+    while IFS=$'\t' read -r sec id; do
+        validate_task_id "$id" || continue
+        title="$(extract_title "$src" "$id")"
+        block="$(extract_block "$src" "$id")"
+        parsed=$((parsed + 1))
+        if [ "$sec" = "cancelled" ]; then
+            synthesise_cancelled_archive "$id" "$title" "$block" || true
+        else
+            area="$(prefix_to_area "$id")"
+            local existing="$DOCS_ARCHIVE_ROOT/$area/archive-$id.md"
+            if [ -f "$existing" ] && grep -q "$id" "$existing"; then
+                continue   # verified existing, no synthesis
+            fi
+            synthesise_completed_archive "$id" "$title" "$block" "general" || true
+        fi
+    done < "$TMP_SECMAP"
+
+    log "Pass 4: migrated $parsed entries from backlog-archive.md → documentation/archive/"
+    rm -f "$src"
+}
+
 migrate_active_context() {
     # TUNE-0073: rich-block bullet → thin one-liner for activeContext.md
     local src="$ROOT_ABS/activeContext.md"
@@ -443,6 +604,9 @@ if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "backlog" ]; then
 fi
 if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "active" ]; then
     migrate_active_context
+fi
+if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "backlog-archive" ]; then
+    migrate_backlog_archive
 fi
 
 if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "progress" ]; then
