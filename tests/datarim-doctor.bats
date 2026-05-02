@@ -250,6 +250,43 @@ EOF
     [[ "$output" != *"printf:"* ]] || [[ "$output" != *"-:"* ]]
 }
 
+@test "T22 (TUNE-0073) dry-run on rich-block activeContext.md → exit 1 + finding count" {
+    cp "$FIXTURES/legacy-activeContext-richblock.md" "$TMPROOT/datarim/activeContext.md"
+    run "$DOCTOR" --root="$TMPROOT/datarim"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"finding"* ]] || [[ "$output" == *"non-compliant"* ]]
+}
+
+@test "T23 (TUNE-0073) --fix migrates rich-block activeContext.md to thin one-liners (with cross-lookup)" {
+    # tasks.md provides priority/complexity for INFRA-0099 (rich-block has none)
+    cat > "$TMPROOT/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+
+- INFRA-0099 · in_progress · P1 · L2 · Cross-lookup pathway entry → tasks/INFRA-0099-task-description.md
+EOF
+    cp "$FIXTURES/legacy-activeContext-richblock.md" "$TMPROOT/datarim/activeContext.md"
+    run "$DOCTOR" --root="$TMPROOT/datarim" --fix
+    [ "$status" -eq 0 ]
+    # Inline (Level 2, P2) parsed
+    grep -qE '^- TUNE-0099 · in_progress · P2 · L2 · Rich-block migrator pass → tasks/TUNE-0099-task-description\.md$' \
+        "$TMPROOT/datarim/activeContext.md"
+    # Cross-lookup from tasks.md (P1, L2)
+    grep -qE '^- INFRA-0099 · in_progress · P1 · L2 · Cross-lookup pathway entry → tasks/INFRA-0099-task-description\.md$' \
+        "$TMPROOT/datarim/activeContext.md"
+    # Forbidden section "Последние завершённые" stripped
+    ! grep -q 'Последние завершённые' "$TMPROOT/datarim/activeContext.md"
+    # Idempotency: 2nd --fix does not change file
+    sha1="$(shasum "$TMPROOT/datarim/activeContext.md" | awk '{print $1}')"
+    "$DOCTOR" --root="$TMPROOT/datarim" --fix >/dev/null
+    sha2="$(shasum "$TMPROOT/datarim/activeContext.md" | awk '{print $1}')"
+    [ "$sha1" = "$sha2" ]
+    # Post-fix dry-run is exit 0
+    run "$DOCTOR" --root="$TMPROOT/datarim"
+    [ "$status" -eq 0 ]
+}
+
 @test "T21 (TUNE-0077) --fix prints backup path in stdout summary" {
     cp "$FIXTURES/legacy-tasks.md" "$TMPROOT/datarim/tasks.md"
     BACKUP_DIR="$TMPROOT/backup-out"
