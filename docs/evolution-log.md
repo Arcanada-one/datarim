@@ -4,6 +4,37 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ---
 
+## 2026-05-02 — TUNE-0080 — Pre-archive version-consistency check (v1.21.2)
+
+### Summary
+
+Class A — internal tooling. Implements the Class A A-1 proposal from TUNE-0079 reflection. New `scripts/version-consistency-check.sh` gate runs as `commands/dr-archive.md` Step 0.2 between clean-git check and reflect. When `VERSION` changed in HEAD->working-tree, the script greps `CLAUDE.md` and `README.md` for the old version string and blocks archive (exit 1) if any consumer is still stale. `--allow-version-lag` override available.
+
+### Why patch (not minor)
+
+Closes recurring drift class identified across multiple prior archives (CLAUDE.md was at 1.20.0 and README.md at 1.19.1 while VERSION was 1.21.0 — caught manually during TUNE-0079 archive). Pure tooling addition, no contract change. Bash 3.2 portable, shellcheck clean, 10 bats cases green.
+
+### What changed
+
+- **NEW `scripts/version-consistency-check.sh`** (~110 LOC). Reads `git show HEAD:VERSION` vs working `VERSION`. If changed, `grep -Frln "$old"` against `CLAUDE.md` + `README.md`. Initial-commit and `VERSION`-unchanged → exit 0 fast paths.
+- **NEW `tests/version-consistency-check.bats`** — 10 cases: T1 unchanged / T2 clean bump / T3 lagging CLAUDE.md / T4 lagging README.md / T5 docs/ excluded by design / T6 `--allow-version-lag` override / T7 not-a-git-repo / T8 initial bootstrap / T9 whitespace tolerance / T10 no args.
+- **MOD `commands/dr-archive.md`** — Step 0.2 documents the gate, scope rationale, override flag.
+- **MOD `code/datarim/{VERSION, CLAUDE.md, README.md}`** — patch bump 1.21.1 → 1.21.2.
+
+### Scope decision: `docs/` EXCLUDED
+
+Initial design included `docs/` recursive in the scan scope. First live-smoke run on the framework repo (immediately after first bats green-bar) tripped on `docs/evolution-log.md` referencing v1.21.1 — the prior release entry. By design: evolution-log / release-notes / changelog are append-only historical ledgers that reference past versions, not current-state surfaces.
+
+Including `docs/` would fire on every subsequent archive (every prior release entry would match the bumped-from string). Narrowed scope to `CLAUDE.md` (Version line) + `README.md` (badge) — exactly the recurring drift class from TUNE-0079 reflection.
+
+### Lesson — dogfooding > synthetic fixtures
+
+TDD red→green discipline caught the implementation but not the scope error. All 10 synthetic bats cases passed with `docs/` in scope (synthetic repos started clean, so the rule «docs cite old → fail» seemed correct in isolation). The live repo encodes years of release history that fixtures cannot reproduce.
+
+**New rule:** when a gate is built against a recurring incident class, smoke-test on the live repo before declaring done. Synthetic fixtures verify mechanics; live state validates scope.
+
+---
+
 ## 2026-04-30 — TUNE-0079 — History-agnostic cleanup complete + CI strict mode (v1.21.1)
 
 ### Summary
