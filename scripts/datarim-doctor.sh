@@ -281,6 +281,9 @@ fi
 if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "backlog" ]; then
     scan_file "$ROOT_ABS/backlog.md"
 fi
+if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "active" ]; then
+    scan_file "$ROOT_ABS/activeContext.md"
+fi
 if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "progress" ]; then
     scan_progress "$ROOT_ABS/progress.md"
 fi
@@ -328,6 +331,13 @@ for f in "$ROOT_ABS/tasks.md" "$ROOT_ABS/backlog.md"; do
     n=$(grep -cE '^### [A-Z]+-[0-9]+:' "$f" 2>/dev/null || true)
     PARSED_COUNT=$((PARSED_COUNT + n))
 done
+if [ -f "$ROOT_ABS/activeContext.md" ]; then
+    # TUNE-0073: count only rich-block entries that migrate_active_context consumes
+    # (`- **ID** (status, date) — title` shape). Excludes ✅-bullets in
+    # «Последние завершённые», which Gate v2-B already strips.
+    n_active=$(grep -cE '^- \*\*[A-Z]+-[0-9]+\*\* \(' "$ROOT_ABS/activeContext.md" 2>/dev/null || true)
+    PARSED_COUNT=$((PARSED_COUNT + n_active))
+fi
 
 # Restore-and-die helper for invariant failure
 restore_backup_and_die() {
@@ -380,11 +390,59 @@ migrate_file() {
     fi
 }
 
+migrate_active_context() {
+    # TUNE-0073: rich-block bullet → thin one-liner for activeContext.md
+    local src="$ROOT_ABS/activeContext.md"
+    [ -f "$src" ] || return 0
+    grep -qE '^- \*\*[A-Z]+-[0-9]+\*\*' "$src" || return 0   # idempotent
+
+    local -a out=()
+    local id status started title comp prio rest line lookup
+    while IFS= read -r line || [ -n "$line" ]; do
+        if [[ "$line" =~ ^-\ \*\*([A-Z]+-[0-9]+)\*\*\ \(([a-z_]+),\ ([0-9-]+)\)\ —\ (.+)$ ]]; then
+            id="${BASH_REMATCH[1]}"; status="${BASH_REMATCH[2]}"
+            started="${BASH_REMATCH[3]}"; rest="${BASH_REMATCH[4]}"
+            validate_task_id "$id" || continue
+            # Strip trailing dot
+            rest="${rest%.}"
+            # Try inline "(Level N, PN)" suffix
+            if [[ "$rest" =~ ^(.+)\ \(Level\ ([1-4]),\ (P[0-3])\)$ ]]; then
+                title="${BASH_REMATCH[1]}"
+                comp="L${BASH_REMATCH[2]}"
+                prio="${BASH_REMATCH[3]}"
+            else
+                title="$rest"
+                # Cross-lookup tasks.md thin-index
+                lookup=""
+                [ -f "$ROOT_ABS/tasks.md" ] && \
+                    lookup="$(grep -m1 "^- $id · " "$ROOT_ABS/tasks.md" 2>/dev/null || true)"
+                if [ -n "$lookup" ]; then
+                    prio="$(echo "$lookup" | awk -F' · ' '{print $3}')"
+                    comp="$(echo "$lookup" | awk -F' · ' '{print $4}')"
+                else
+                    prio="P2"; comp="L2"
+                fi
+            fi
+            title="$(norm_topic "$title")"
+            out+=("- $id · $status · $prio · $comp · $title → tasks/$id-task-description.md")
+        fi
+    done < "$src"
+
+    if [ "${#out[@]}" -gt 0 ]; then
+        local sorted
+        sorted="$(printf '%s\n' "${out[@]}" | sort -u)"
+        printf '# Active Context\n\n## Active Tasks\n\n%s\n' "$sorted" > "$src"
+    fi
+}
+
 if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "tasks" ]; then
     migrate_file "$ROOT_ABS/tasks.md" "$ROOT_ABS/tasks.md" "# Tasks"$'\n\n''## Active' "in_progress"
 fi
 if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "backlog" ]; then
     migrate_file "$ROOT_ABS/backlog.md" "$ROOT_ABS/backlog.md" "# Backlog"$'\n\n''## Pending' "pending"
+fi
+if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "active" ]; then
+    migrate_active_context
 fi
 
 if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "progress" ]; then
@@ -398,7 +456,7 @@ fi
 # After all writes, count emitted one-liners. Must be >= parsed blocks (no data
 # loss). Mismatch → restore from backup tarball and exit 2.
 EMITTED_COUNT=0
-for f in "$ROOT_ABS/tasks.md" "$ROOT_ABS/backlog.md"; do
+for f in "$ROOT_ABS/tasks.md" "$ROOT_ABS/backlog.md" "$ROOT_ABS/activeContext.md"; do
     [ -f "$f" ] || continue
     n=$(grep -cE '^- [A-Z]+-[0-9]+ · ' "$f" 2>/dev/null || true)
     EMITTED_COUNT=$((EMITTED_COUNT + n))
