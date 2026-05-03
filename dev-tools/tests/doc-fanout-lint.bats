@@ -322,3 +322,32 @@ artifacts:
     run "$LINT" --root "$TMPROOT" --strict --quiet
     [ "$status" -eq 1 ]   # warning becomes failure with --strict
 }
+
+# -------------------------------------------------------------------- T16, T17
+@test "T16: install-hook.sh idempotent (run twice → same content)" {
+    HK="$BATS_TEST_DIRNAME/../install-hook.sh"
+    REPO="$TMPROOT/repo"
+    mkdir -p "$REPO/.git/hooks"
+    run "$HK" "$REPO"
+    [ "$status" -eq 0 ]
+    SUM1="$(shasum "$REPO/.git/hooks/pre-commit" | awk '{print $1}')"
+    run "$HK" "$REPO"
+    [ "$status" -eq 0 ]
+    SUM2="$(shasum "$REPO/.git/hooks/pre-commit" | awk '{print $1}')"
+    [ "$SUM1" = "$SUM2" ]
+}
+
+@test "T17: install-hook.sh preserves existing hook contents" {
+    HK="$BATS_TEST_DIRNAME/../install-hook.sh"
+    REPO="$TMPROOT/repo"
+    mkdir -p "$REPO/.git/hooks"
+    cat > "$REPO/.git/hooks/pre-commit" <<'PRE'
+#!/usr/bin/env bash
+echo "existing hook line"
+PRE
+    chmod +x "$REPO/.git/hooks/pre-commit"
+    run "$HK" "$REPO"
+    [ "$status" -eq 0 ]
+    grep -q "existing hook line" "$REPO/.git/hooks/pre-commit"
+    grep -q "datarim-doc-fanout-lint" "$REPO/.git/hooks/pre-commit"
+}
