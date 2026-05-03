@@ -231,28 +231,6 @@ Resolved by `--conflict-policy`:
 
 `scripts/lib/canonicalise.sh` rejects any path that resolves outside `$DATARIM_ROOT` (lexical canonicalisation, no I/O). Tool exits 4. Operator inspects the entry manually.
 
-## Section Awareness
-
-**Archive sections are ignored by both scan and migration phases.** Doctor MUST NOT emit findings, rewrite content, or synthesise description files for any line that lives inside one of these whitelisted headers:
-
-- `## Archived` (in `tasks.md`, `backlog.md`)
-- `### Archived` (in `activeContext.md`)
-- `### Recently Archived` (in `activeContext.md`)
-
-Archive sections are operator-curated TL;DRs paired with the canonical archive at `documentation/archive/{area}/archive-{TASK-ID}.md`. They legitimately use rich formats — bold-id bullets (`- **DEV-XXXX** — description (date) → archive-link`) — that elsewhere would be flagged as legacy. Scanning them produces false positives; migrating them duplicates content and destroys the operator-curated summary.
-
-State machine (per file):
-
-1. Encounter whitelisted archive header → enter `in_archive=1`.
-2. Lines while `in_archive=1` → ignored by scanner; passed through verbatim by `--fix`.
-3. Encounter any other `^##` or `^###` header → reset `in_archive=0`.
-
-**Detection rules are exact.** Doctor does NOT accept arbitrary archive-like headers (`## Old Tasks`, `### Историческое`). Adding a new whitelisted marker is a framework change — open a `TUNE-*` task, update this contract and the bats fixtures together. Operators expecting a custom header to be ignored should rename it to one of the canonical three.
-
-<!-- security:counter-example -->
-*Counter-example — what doctor MUST NOT do:* applying the legacy bold-id regex to archive content and proposing to rewrite `- **DEV-1226** — TL;DR (date) → archive-DEV-1226.md` into a thin one-liner. This pattern destroys the operator's manually maintained summary and creates a duplicate `tasks/DEV-1226-task-description.md` shadowing the canonical archive. If you see findings inside an archive section, the scanner is broken — file it as a `TUNE-*` task.
-<!-- /security:counter-example -->
-
 ## Edge Cases
 
 - **Bash 3.2 (macOS default)** — tool uses two-pass grep+awk parser, NOT NUL-delimited reads. Verified across bash 3.2 / 4.4 / 5.x.
