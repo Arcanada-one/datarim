@@ -4,6 +4,33 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ---
 
+## 2026-05-03 — TUNE-0084 — pre-archive-check.sh classify by uncommitted diff + 3× Class A applies
+
+### Summary
+
+Refactored `pre-archive-check.sh` shared-mode classification: column 3 (`task-ids-csv`) now sources from `+/-` diff lines only (not `cat $file` body), so index files (`tasks.md`, `activeContext.md`, `backlog.md`) stop reporting their entire active-task roster as if introduced by the current edit. BLOCKED message rewritten to list only categories actually observed during iteration (was: consolidated `own / mixed / unattributed` lie). Defensive guard `[ "$block" -ne 1 ] → exit 2` codifies the wording↔exit-code invariant.
+
+### What changed
+
+- **MOD `code/datarim/scripts/pre-archive-check.sh`** (+69 / −24) — diff-only `found_ids` sourcing with untracked-file body fallback; separate `body_ids` signal for mine-by-elimination branch (TUNE-0060 contract preserved); `hit_own` / `hit_mixed` / `hit_unattributed` flags + hit-categorical BLOCKED message; precondition guard before BLOCKED block.
+- **MOD `code/datarim/tests/pre-archive-check.bats`** (+111) — 6 regression fixtures (T42-T47): column-3 cleanliness on index files (T42), foreign-only column-3 (T43), mixed preserved (T44), exit-0 wording invariant (T45), BLOCKED hit-categorical wording (T46), untracked-file body fallback (T47). Full suite 47/47 green; shellcheck `-S warning` clean.
+
+### Class A evolution (3 proposals, all applied this turn)
+
+1. **NEW `code/datarim/skills/utilities/git-diff-parsing.md`** + **MOD `skills/utilities.md`** — canonical filter chain (`grep -E '^[+-]' | grep -vE '^(\+\+\+|---)'`) for parsing `git diff` output; covers markdown-bullet edge case, untracked-file fallback, hunk-context noise. Pattern surfaced 3 times in framework history (TUNE-0060 / 0068 / 0084) before being formalised.
+2. **MOD `code/datarim/CLAUDE.md`** — new § Defensive Invariants section after § Security Mandate. Documents precondition-guard pattern for state↔wording invariants in shell scripts (e.g. `BLOCKED ↔ exit 1`). Founding incident: TUNE-0084 pre-fix BLOCKED + exit 0 simultaneously misled operators.
+3. **MOD `code/datarim/skills/ai-quality.md`** — added separate-signals sub-rule under § DECOMPOSITION. When one variable answers two semantically distinct questions (e.g. display roster + body presence proxy), refactoring one role silently breaks the other. Founding incident: TUNE-0084 regression T26 — `found_ids` carried two roles, narrowing it to one broke mine-by-elimination.
+
+### Bats verification after Class A apply
+
+- **MOD `code/datarim/tests/utilities-decomposition.bats`** — T3 fragment count `13 → 14` to track the new `git-diff-parsing.md` fragment. (Same pattern as the prior `keyword-linter.md` incident referenced in `reflecting.md`.) Suite green for utilities-decomposition + pre-archive-check; remaining 2 failures (T26 check-drift INSTALL_SCOPES, T156 datarim-doctor.md description >155 chars) are pre-existing and unrelated to TUNE-0084.
+
+### Lesson
+
+Two-source diff-text composition (body ∪ raw diff) is one source too many. Body carries committed roster; raw diff carries hunk-context (which IS body adjacent to a hunk). Both pollute display while only the +/- lines are the actual edit. Single canonical source = `^[+-]` filtered diff. Untracked files (no HEAD blob) are the only legitimate body-fallback path.
+
+---
+
 ## 2026-05-03 — TUNE-0083 — Runtime datarim-doctor.md sync + Runtime/Canonical Identity rubric
 
 ### Summary

@@ -38,6 +38,8 @@ Load only the fragment relevant to the task:
   Use for recovering lost runtime files from compacted session context (disaster recovery).
 - `skills/utilities/keyword-linter.md`
   Use when building a keyword-denylist linter — bash recipe with whole-word grep, escape-hatch markers, whitelist mechanic, bats fixture pattern. Pattern source: stack-agnostic gate.
+- `skills/utilities/git-diff-parsing.md`
+  Use when a shell recipe extracts data from `git diff` / `git diff --cached`. Canonical filter chain (`^[+-]` excluding `+++/---`) for separating real additions/removals from hunk-context noise; covers the markdown-bullet edge case and untracked-file fallback.
 
 ## Quick Selection Guide
 

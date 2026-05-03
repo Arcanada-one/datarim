@@ -17,9 +17,12 @@ KEY LIMITS:
 |- Max 50 lines per method
 |- Max 7-9 objects in working memory
 |- One responsibility per function
+|- Separate signals — one variable, one question
 ```
 
 **Why:** AI loses focus with complexity. Small units = better output.
+
+**Separate-signals rule.** When a single variable answers two semantically distinct questions (e.g. "what to display" AND "is body non-empty"), refactoring one role silently breaks the other. Always extract independent signals for independent questions, even if they currently compute from the same source. The cost is one extra line at definition; the saving is not chasing regressions through downstream branches that read the variable as a proxy for something it no longer represents.
 
 ---
 
