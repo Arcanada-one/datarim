@@ -360,6 +360,106 @@ EOF
     [ "$n1" = "$n2" ]
 }
 
+@test "T-ARCHIVE-1 (TUNE-0085) dry-run ignores legacy bold-id bullets in tasks.md ## Archived section" {
+    cat > "$TMPROOT/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+
+- TUNE-0085 · in_progress · P2 · L2 · doctor section-aware → tasks/TUNE-0085-task-description.md
+
+## Archived
+
+- **DEV-1212** — старая задача с богатым контекстом (2026-04-01) → documentation/archive/general/archive-DEV-1212.md
+- **DEV-1226** — ещё одна архивная (2026-04-15) → documentation/archive/general/archive-DEV-1226.md
+- **INFRA-0026** — third archived bullet (2026-04-20) → documentation/archive/infrastructure/archive-INFRA-0026.md
+EOF
+    : > "$TMPROOT/datarim/tasks/TUNE-0085-task-description.md"
+    run "$DOCTOR" --root="$TMPROOT/datarim"
+    [ "$status" -eq 0 ]
+}
+
+@test "T-ARCHIVE-2 (TUNE-0085) dry-run ignores legacy bullets in activeContext.md ### Recently Archived" {
+    cat > "$TMPROOT/datarim/activeContext.md" <<'EOF'
+# Active Context
+
+## Active Tasks
+
+- TUNE-0085 · in_progress · P2 · L2 · doctor section-aware → tasks/TUNE-0085-task-description.md
+
+### Recently Archived
+
+- **DEV-1226** (completed, 2026-04-15) — рефлексия и архив с TL;DR.
+- **DEV-1212** (completed, 2026-04-10) — другая архивная сводка.
+EOF
+    : > "$TMPROOT/datarim/tasks/TUNE-0085-task-description.md"
+    run "$DOCTOR" --root="$TMPROOT/datarim"
+    [ "$status" -eq 0 ]
+}
+
+@test "T-ARCHIVE-3 (TUNE-0085) --fix preserves ## Archived section verbatim while migrating ## Active" {
+    cat > "$TMPROOT/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+
+### TUNE-0099: legacy block to migrate
+
+- **Status:** in_progress
+- **Priority:** P2
+- **Complexity:** Level 1
+
+## Archived
+
+- **DEV-1212** — старая задача (2026-04-01) → documentation/archive/general/archive-DEV-1212.md
+- **DEV-1226** — ещё одна архивная (2026-04-15) → documentation/archive/general/archive-DEV-1226.md
+EOF
+    run "$DOCTOR" --root="$TMPROOT/datarim" --fix
+    [ "$status" -eq 0 ]
+    # Active section migrated to thin one-liner
+    grep -qE '^- TUNE-0099 · in_progress · P[0-3] · L[1-4] · .+ → tasks/TUNE-0099-task-description\.md$' \
+        "$TMPROOT/datarim/tasks.md"
+    # Archive section preserved verbatim (rich bold-id bullets still there)
+    grep -q '^## Archived$' "$TMPROOT/datarim/tasks.md"
+    grep -qF -- '- **DEV-1212** — старая задача' "$TMPROOT/datarim/tasks.md"
+    grep -qF -- '- **DEV-1226** — ещё одна архивная' "$TMPROOT/datarim/tasks.md"
+    # No description files synthesised for archived IDs
+    [ ! -f "$TMPROOT/datarim/tasks/DEV-1212-task-description.md" ]
+    [ ! -f "$TMPROOT/datarim/tasks/DEV-1226-task-description.md" ]
+}
+
+@test "T-ARCHIVE-4 (TUNE-0085) --fix preserves ### Recently Archived in activeContext.md" {
+    cat > "$TMPROOT/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+
+- INFRA-0099 · in_progress · P1 · L2 · stub → tasks/INFRA-0099-task-description.md
+EOF
+    : > "$TMPROOT/datarim/tasks/INFRA-0099-task-description.md"
+    cat > "$TMPROOT/datarim/activeContext.md" <<'EOF'
+# Active Context
+
+## Active Tasks
+
+- **INFRA-0099** (in_progress, 2026-05-03) — needs migration.
+
+### Recently Archived
+
+- **DEV-1226** (completed, 2026-04-15) — TL;DR архивной задачи, must survive --fix.
+- **DEV-1212** (completed, 2026-04-10) — ещё одна сводка.
+EOF
+    run "$DOCTOR" --root="$TMPROOT/datarim" --fix
+    [ "$status" -eq 0 ]
+    # Active migrated
+    grep -qE '^- INFRA-0099 · in_progress · P1 · L2 · .+ → tasks/INFRA-0099-task-description\.md$' \
+        "$TMPROOT/datarim/activeContext.md"
+    # Archive preserved
+    grep -q '^### Recently Archived$' "$TMPROOT/datarim/activeContext.md"
+    grep -qF -- '- **DEV-1226** (completed, 2026-04-15)' "$TMPROOT/datarim/activeContext.md"
+    grep -qF -- '- **DEV-1212** (completed, 2026-04-10)' "$TMPROOT/datarim/activeContext.md"
+}
+
 @test "T21 (TUNE-0077) --fix prints backup path in stdout summary" {
     cp "$FIXTURES/legacy-tasks.md" "$TMPROOT/datarim/tasks.md"
     BACKUP_DIR="$TMPROOT/backup-out"
