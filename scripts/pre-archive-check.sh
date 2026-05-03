@@ -307,23 +307,47 @@ if [ -n "$SHARED_REPO" ]; then
     # Per-file classification.
     block=0
     saw_foreign=0
+    hit_own=0
+    hit_mixed=0
+    hit_unattributed=0
     while IFS= read -r line; do
         [ -z "$line" ] && continue
         # `git status --porcelain` format: XY␣<path>. Strip the 3-char prefix.
         file="${line:3}"
-        # Untracked files have no staged diff and no HEAD blob; treat the file
-        # contents as the diff text to scan for IDs.
-        diff_text=""
-        if [ -f "$SHARED_REPO/$file" ]; then
-            diff_text="$diff_text"$'\n'"$(cat "$SHARED_REPO/$file" 2>/dev/null || true)"
-        fi
-        # TUNE-0060: capture the actual diff (additions/removals) separately so
-        # we can distinguish IDs introduced by THIS edit from IDs that already
-        # lived in the committed body. Used by mine-by-elimination klass.
+        # TUNE-0060: capture the actual diff (additions/removals) so we can
+        # distinguish IDs introduced by THIS edit from IDs that lived in the
+        # committed body. Used by mine-by-elimination klass and (TUNE-0084) by
+        # the column-3 display itself.
         diff_changes="$(git -C "$SHARED_REPO" diff -- "$file" 2>/dev/null || true)"
         diff_changes_cached="$(git -C "$SHARED_REPO" diff --cached -- "$file" 2>/dev/null || true)"
-        diff_text="$diff_text"$'\n'"$diff_changes"$'\n'"$diff_changes_cached"
-        found_ids=$(printf '%s' "$diff_text" | grep -oE '[A-Z]+-[0-9]{4}' | sort -u | tr '\n' ',' | sed 's/,$//')
+        # TUNE-0084: column 3 (`found_ids`) is sourced from the uncommitted
+        # diff +/- lines only, NOT from the committed body or hunk context.
+        # Index files (`tasks.md`, `activeContext.md`, `backlog.md`) by design
+        # list every active task ID in their committed body — both body-cat
+        # injection (pre-TUNE-0084) and unfiltered diff output (which carries
+        # context lines surrounding every hunk) made column 3 misreport the
+        # entire roster as if introduced by this edit. Untracked files have no
+        # HEAD blob and no diff at all, so for them the full file content IS
+        # the change — fall back to body scan.
+        if [ -n "$diff_changes" ] || [ -n "$diff_changes_cached" ]; then
+            found_ids=$(printf '%s\n%s\n' "$diff_changes" "$diff_changes_cached" \
+                | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' \
+                | grep -oE '[A-Z]+-[0-9]{4}' | sort -u | tr '\n' ',' | sed 's/,$//')
+        elif [ -f "$SHARED_REPO/$file" ]; then
+            found_ids=$(cat "$SHARED_REPO/$file" 2>/dev/null \
+                | grep -oE '[A-Z]+-[0-9]{4}' | sort -u | tr '\n' ',' | sed 's/,$//')
+        else
+            found_ids=""
+        fi
+        # TUNE-0060/TUNE-0084: separate body-scan signal preserved for the
+        # mine-by-elimination branch. `found_ids` (column 3 display) is now
+        # diff-only, so we cannot reuse it as the body-presence signal.
+        if [ -f "$SHARED_REPO/$file" ]; then
+            body_ids=$(cat "$SHARED_REPO/$file" 2>/dev/null \
+                | grep -oE '[A-Z]+-[0-9]{4}' | sort -u | tr '\n' ',' | sed 's/,$//')
+        else
+            body_ids=""
+        fi
         # TUNE-0060/TUNE-0068: extract task IDs only from actual added/removed
         # lines (those starting with `+` or `-`, excluding the `+++`/`---` file
         # headers). The earlier `^[+-][^+-]` shape rejected legitimate content
@@ -333,7 +357,7 @@ if [ -n "$SHARED_REPO" ]; then
         diff_line_ids=$(printf '%s\n%s\n' "$diff_changes" "$diff_changes_cached" \
             | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' \
             | grep -oE '[A-Z]+-[0-9]{4}' | sort -u | tr '\n' ',' | sed 's/,$//')
-        if [ -z "$found_ids" ]; then
+        if [ -z "$found_ids" ] && [ -z "$body_ids" ]; then
             if [ "$NO_WHITELIST" -eq 0 ] && is_whitelisted_path "$file"; then
                 klass="whitelisted"
                 # Operator-supplied --task-id is the disposition; surface in stdout
@@ -341,6 +365,23 @@ if [ -n "$SHARED_REPO" ]; then
             else
                 klass="unattributed"
                 block=1
+                hit_unattributed=1
+            fi
+        elif [ -z "$found_ids" ] && [ -n "$body_ids" ]; then
+            # TUNE-0084: diff carries no IDs but body has historical IDs. If the
+            # operator declared --task-id and an actual diff exists, this is the
+            # mine-by-elimination case (TUNE-0060). Otherwise (untracked
+            # ad-hoc note with foreign-only body), default-deny applies.
+            if [ -n "$TASK_ID" ] \
+               && { [ -n "$diff_changes" ] || [ -n "$diff_changes_cached" ]; }; then
+                klass="mine-by-elimination"
+                saw_foreign=1
+            elif [ "$NO_WHITELIST" -eq 0 ] && is_whitelisted_path "$file"; then
+                klass="whitelisted"
+            else
+                klass="unattributed"
+                block=1
+                hit_unattributed=1
             fi
         elif printf ',%s,' "$diff_line_ids" | grep -q ",$TASK_ID,"; then
             # TUNE-0068: own/mixed gate considers only IDs on actual diff lines
@@ -350,21 +391,12 @@ if [ -n "$SHARED_REPO" ]; then
             # TUNE-0055 + TUNE-0067 archives where TASK_ID lived only in body.
             if [ "$diff_line_ids" = "$TASK_ID" ]; then
                 klass="own"
+                hit_own=1
             else
                 klass="mixed"
+                hit_mixed=1
             fi
             block=1
-        elif [ -n "$TASK_ID" ] \
-             && { [ -n "$diff_changes" ] || [ -n "$diff_changes_cached" ]; } \
-             && [ -z "$diff_line_ids" ]; then
-            # TUNE-0060: file body carries foreign historical IDs but the actual
-            # diff lines added/removed by this session contain ZERO task IDs.
-            # Operator declared --task-id; nothing else to attribute the edit
-            # to. Closes the CLAUDE.md/README.md misclassification surfaced in
-            # TUNE-0059 archive. Untracked files (no diff at all) skip this
-            # branch and fall through to `foreign` per safety guard.
-            klass="mine-by-elimination"
-            saw_foreign=1
         else
             klass="foreign"
             saw_foreign=1
@@ -385,9 +417,22 @@ if [ -n "$SHARED_REPO" ]; then
         exit 0
     fi
 
+    # TUNE-0084: invariant — BLOCKED message ↔ exit 1. Defensive guard catches
+    # any future refactor that decouples wording from exit path.
+    if [ "$block" -ne 1 ]; then
+        echo "ERROR: pre-archive-check internal: BLOCKED branch with block=$block" >&2
+        exit 2
+    fi
+    # TUNE-0084: list only categories actually observed during iteration; the
+    # consolidated "own / mixed / unattributed" header lied when only one
+    # category fired.
+    hit_categories=""
+    [ "$hit_own" -eq 1 ]          && hit_categories="${hit_categories:+$hit_categories, }own"
+    [ "$hit_mixed" -eq 1 ]        && hit_categories="${hit_categories:+$hit_categories, }mixed"
+    [ "$hit_unattributed" -eq 1 ] && hit_categories="${hit_categories:+$hit_categories, }unattributed"
     {
         echo ""
-        echo "BLOCKED: shared repo has own / mixed / unattributed hunks for $TASK_ID."
+        echo "BLOCKED: shared repo has $hit_categories hunks for $TASK_ID."
         echo "Apply patch-staging recipe before commit:"
         echo "  - Interactive (TTY): git -C $SHARED_REPO add -p <file>"
         echo "  - Non-interactive (AI agent): blob-swap recipe."
