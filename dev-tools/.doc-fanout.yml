@@ -1,0 +1,92 @@
+# Doc-fanout linter config — bundled defaults for Datarim framework repo
+# Schema: v1 (TUNE-0091). See dev-tools/README.md for grammar.
+#
+# Three rule kinds:
+#   grep_in_file    — pattern (with {name} substitution) must appear in `file`
+#   file_must_exist — `path` (with {name}) must resolve to an existing file
+#   count_match     — first capture group of `pattern` in `consumer_file`
+#                     must equal len(glob expansion)
+#
+# Block style only (depth <=3). No flow style, no anchors, no multiline scalars.
+
+version: 1
+
+artifacts:
+  - glob: commands/dr-*.md
+    name_transform: basename_no_ext
+    consumers:
+      - id: framework_claude
+        kind: grep_in_file
+        file: CLAUDE.md
+        pattern: /{name}
+        severity: error
+      - id: framework_readme
+        kind: grep_in_file
+        file: README.md
+        pattern: /{name}
+        severity: error
+      - id: docs_commands_row
+        kind: grep_in_file
+        file: docs/commands.md
+        pattern: /{name}
+        severity: error
+      - id: site_data_php
+        kind: file_must_exist
+        path: ../../../Websites/datarim.club/data/commands/{name}.php
+        severity: warning
+        cross_root: true
+
+  - glob: skills/*.md
+    name_transform: basename_no_ext
+    consumers:
+      - id: framework_claude
+        kind: grep_in_file
+        file: CLAUDE.md
+        pattern: "{name}"
+        severity: error
+      - id: docs_skills_row
+        kind: grep_in_file
+        file: docs/skills.md
+        pattern: "{name}"
+        severity: error
+      - id: site_data_php
+        kind: file_must_exist
+        path: ../../../Websites/datarim.club/data/skills/{name}.php
+        severity: warning
+        cross_root: true
+
+  - glob: agents/*.md
+    name_transform: basename_no_ext
+    consumers:
+      - id: framework_claude
+        kind: grep_in_file
+        file: CLAUDE.md
+        pattern: "{name}"
+        severity: error
+      - id: docs_agents_row
+        kind: grep_in_file
+        file: docs/agents.md
+        pattern: "{name}"
+        severity: error
+      - id: site_data_php
+        kind: file_must_exist
+        path: ../../../Websites/datarim.club/data/agents/{name}.php
+        severity: warning
+        cross_root: true
+
+counts:
+  - id: skill_count_docs
+    source_glob: skills/*.md
+    consumer_file: docs/skills.md
+    pattern: ([0-9]+) reusable skill
+    severity: error
+  - id: agent_count_docs
+    source_glob: agents/*.md
+    consumer_file: docs/agents.md
+    pattern: ([0-9]+) specialized agent
+    severity: error
+  - id: command_count_docs
+    source_glob: commands/dr-*.md
+    consumer_file: docs/commands.md
+    pattern: ([0-9]+) slash command
+    severity: error
