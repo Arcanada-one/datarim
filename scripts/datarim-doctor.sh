@@ -232,12 +232,48 @@ write_description() {
 FINDINGS=0
 declare -a FINDING_LINES=()
 
+# TUNE-0085: archive section header detection.
+# Whitelist of headers that mark intentionally rich archive blocks. Doctor
+# MUST NOT scan or migrate content within these sections — they are operator-
+# curated TL;DRs paired with documentation/archive/{area}/archive-{ID}.md.
+is_archive_header() {
+    local line="$1"
+    [[ "$line" =~ ^##[[:space:]]+Archived[[:space:]]*$ ]] && return 0
+    [[ "$line" =~ ^###[[:space:]]+Archived[[:space:]]*$ ]] && return 0
+    [[ "$line" =~ ^###[[:space:]]+Recently[[:space:]]+Archived[[:space:]]*$ ]] && return 0
+    return 1
+}
+
+# Print archive section (from first archive header to EOF) verbatim, or empty
+# if none. Used by migrate_file / migrate_active_context to preserve archive
+# content across full-file rewrites.
+extract_archive_tail() {
+    local file="$1"
+    [ -f "$file" ] || return 0
+    awk '
+        /^##[[:space:]]+Archived[[:space:]]*$/      { in_arch=1 }
+        /^###[[:space:]]+Archived[[:space:]]*$/     { in_arch=1 }
+        /^###[[:space:]]+Recently[[:space:]]+Archived[[:space:]]*$/ { in_arch=1 }
+        in_arch { print }
+    ' "$file"
+}
+
 scan_file() {
     local file="$1"
     [ -f "$file" ] || return 0
     local lineno=0 line
+    local in_archive=0
     while IFS= read -r line || [ -n "$line" ]; do
         lineno=$((lineno + 1))
+        # TUNE-0085: track archive section state — skip findings within it.
+        if is_archive_header "$line"; then
+            in_archive=1
+            continue
+        fi
+        if [ "$in_archive" -eq 1 ] && [[ "$line" =~ ^(##|###)[[:space:]] ]]; then
+            in_archive=0
+        fi
+        [ "$in_archive" -eq 1 ] && continue
         if [[ "$line" =~ ^###[[:space:]]+[A-Z]+-[0-9]+: ]]; then
             FINDINGS=$((FINDINGS + 1))
             FINDING_LINES+=("$file:$lineno: legacy block-style entry")
@@ -340,7 +376,17 @@ if [ -f "$ROOT_ABS/activeContext.md" ]; then
     # TUNE-0073: count only rich-block entries that migrate_active_context consumes
     # (`- **ID** (status, date) — title` shape). Excludes ✅-bullets in
     # «Последние завершённые», which Gate v2-B already strips.
-    n_active=$(grep -cE '^- \*\*[A-Z]+-[0-9]+\*\* \(' "$ROOT_ABS/activeContext.md" 2>/dev/null || true)
+    # TUNE-0085: also exclude bullets inside archive sections (## Archived /
+    # ### Archived / ### Recently Archived) — they are preserved verbatim by
+    # migrate_active_context and never produce thin one-liners.
+    n_active=$(awk '
+        /^##[[:space:]]+Archived[[:space:]]*$/      { in_arch=1; next }
+        /^###[[:space:]]+Archived[[:space:]]*$/     { in_arch=1; next }
+        /^###[[:space:]]+Recently[[:space:]]+Archived[[:space:]]*$/ { in_arch=1; next }
+        /^(##|###)[[:space:]]/                      { in_arch=0 }
+        !in_arch && /^- \*\*[A-Z]+-[0-9]+\*\* \(/   { count++ }
+        END { print count+0 }
+    ' "$ROOT_ABS/activeContext.md")
     PARSED_COUNT=$((PARSED_COUNT + n_active))
 fi
 
@@ -386,12 +432,24 @@ migrate_file() {
         out_lines+=("- $id · $status · $priority · $complexity · $topic → tasks/$id-task-description.md")
     done < <(extract_ids "$src")
 
+    # TUNE-0085: preserve archive section verbatim when rewriting the file.
+    local archive_tail
+    archive_tail="$(extract_archive_tail "$src")"
+
     if [ "${#out_lines[@]}" -gt 0 ]; then
         local sorted
         sorted="$(printf '%s\n' "${out_lines[@]}" | sort -u)"
-        printf '%s\n\n%s\n' "$heading" "$sorted" > "$out"
+        if [ -n "$archive_tail" ]; then
+            printf '%s\n\n%s\n\n%s\n' "$heading" "$sorted" "$archive_tail" > "$out"
+        else
+            printf '%s\n\n%s\n' "$heading" "$sorted" > "$out"
+        fi
     else
-        printf '%s\n\n<!-- no entries -->\n' "$heading" > "$out"
+        if [ -n "$archive_tail" ]; then
+            printf '%s\n\n<!-- no entries -->\n\n%s\n' "$heading" "$archive_tail" > "$out"
+        else
+            printf '%s\n\n<!-- no entries -->\n' "$heading" > "$out"
+        fi
     fi
 }
 
@@ -557,9 +615,23 @@ migrate_active_context() {
     [ -f "$src" ] || return 0
     grep -qE '^- \*\*[A-Z]+-[0-9]+\*\*' "$src" || return 0   # idempotent
 
+    # TUNE-0085: capture archive section before rewriting; skip migration
+    # of bullets inside archive section (they are operator-curated TL;DRs).
+    local archive_tail
+    archive_tail="$(extract_archive_tail "$src")"
+
     local -a out=()
     local id status started title comp prio rest line lookup
+    local in_archive=0
     while IFS= read -r line || [ -n "$line" ]; do
+        if is_archive_header "$line"; then
+            in_archive=1
+            continue
+        fi
+        if [ "$in_archive" -eq 1 ] && [[ "$line" =~ ^(##|###)[[:space:]] ]]; then
+            in_archive=0
+        fi
+        [ "$in_archive" -eq 1 ] && continue
         if [[ "$line" =~ ^-\ \*\*([A-Z]+-[0-9]+)\*\*\ \(([a-z_]+),\ ([0-9-]+)\)\ —\ (.+)$ ]]; then
             id="${BASH_REMATCH[1]}"; status="${BASH_REMATCH[2]}"
             started="${BASH_REMATCH[3]}"; rest="${BASH_REMATCH[4]}"
@@ -592,7 +664,11 @@ migrate_active_context() {
     if [ "${#out[@]}" -gt 0 ]; then
         local sorted
         sorted="$(printf '%s\n' "${out[@]}" | sort -u)"
-        printf '# Active Context\n\n## Active Tasks\n\n%s\n' "$sorted" > "$src"
+        if [ -n "$archive_tail" ]; then
+            printf '# Active Context\n\n## Active Tasks\n\n%s\n\n%s\n' "$sorted" "$archive_tail" > "$src"
+        else
+            printf '# Active Context\n\n## Active Tasks\n\n%s\n' "$sorted" > "$src"
+        fi
     fi
 }
 
