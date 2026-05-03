@@ -180,22 +180,27 @@ Applied by `scripts/datarim-doctor.sh --fix`. Single transactional sequence guar
 
 ### Pass 6 — Operational-files archive section migration
 
-Strips legacy archive sections (`## Archived` in `tasks.md` / `backlog.md`; `### Archived` and `### Recently Archived` in `activeContext.md`) and migrates each archive bullet to a canonical `documentation/archive/{area}/archive-{TASK-ID}.md` doc. The canonical thin-index contract (§ activeContext.md thin contract above, § Operational File Schema) prohibits archive sections in operational files: completion history lives in `documentation/archive/`, recency hint is computed at runtime via `/dr-status --recent N`. Pass 6 enforces that contract.
+Strips legacy archive sections (`## Archived` in `tasks.md` / `backlog.md`; `### Archived`, `### Recently Archived`, `## Последние завершённые` in `activeContext.md`) and migrates each archive bullet to a canonical `documentation/archive/{area}/archive-{TASK-ID}.md` doc. The canonical thin-index contract (§ activeContext.md thin contract above, § Operational File Schema) prohibits archive sections in operational files: completion history lives in `documentation/archive/`, recency hint is computed at runtime via `/dr-status --recent N`. Pass 6 enforces that contract.
 
-Three archive-bullet shapes are recognised (priority S1 → S2 → S3):
+Four archive-bullet shapes are recognised (priority S1 → S2 → S4 → S3):
 
 - **S1 (arrow-link):** `- **TASK-ID** — title (YYYY-MM-DD) → documentation/archive/{area}/archive-TASK-ID.md`
 - **S2 (status-paren):** `- **TASK-ID** (status, YYYY-MM-DD) — title` (status ∈ `completed | cancelled | …`)
-- **S3 (plain-bold):** `- **TASK-ID** — title` (no date, no link)
+- **S4 (mid-bold-context):** `- **TASK-ID** context-words — title` (context word(s) between `**ID**` and em-dash)
+- **S3 (plain-bold):** `- **TASK-ID** — title` (no date, no link, no mid-bold context)
+
+Task IDs may be **compound** — `DEV-1226`, `DEV-1212-S8`, `DEV-1196-FOLLOWUP-lock-ownership-doc`. Numeric component (`-[0-9]{4}`) is required; suffix `(-[A-Za-z0-9]+)*` is optional.
 
 Per bullet:
 
-1. Validate task ID matches `^[A-Z]{2,10}-[0-9]{4}$`. Invalid → preserve in operational file with manual-migration marker.
-2. Resolve archive area via `prefix_to_area()` (TUNE-0076 mapping); compute canonical path `documentation/archive/{area}/archive-{ID}.md`.
-3. Path-traversal safety: canonical path MUST stay under `documentation/archive/`; violation → preserve, warn.
+1. Validate task ID matches `^[A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*$`. Invalid → preserve in operational file with manual-migration marker.
+2. **Explicit-pointer dispatch:** if bullet body contains `→ documentation/archive/{path}.md`, prefer that path as canonical; otherwise fall back to `prefix_to_area()` (TUNE-0076 mapping) → `documentation/archive/{area}/archive-{ID}.md`.
+3. Path-traversal safety: canonical path MUST stay under `documentation/archive/`; violation rejects explicit pointer and falls back to `prefix_to_area`. If fallback also escapes → preserve, warn.
 4. **Verified case** — canonical archive exists with `{ID}` literal inside → strip bullet from operational file.
-5. **Missing case** — canonical archive absent → synthesise stub with frontmatter (`id`, `title`, `status`, `{status}_at`, `source: synthesised from operational-file by datarim-doctor.sh Pass 6`, `original_block_sha`) + body = original bullet content; strip bullet.
-6. **Collision case** — canonical archive exists but does NOT contain `{ID}` literal → invoke `resolve_conflict()` (`--no-prompt` defaults to skip in non-TTY); on skip, preserve bullet in operational file with `<!-- TUNE-0085: bullets pending manual migration … -->` marker; on overwrite, synthesise stub.
+5. **Missing case** — canonical absent at computed path → defensive `find documentation/archive/ -name "archive-{ID}.md"` (depth ≤ 3) checks every area subdir; if found with ID literal, strip bullet with warning `archive at unexpected area`. Otherwise synthesise stub with frontmatter (`id`, `title`, `status`, `{status}_at`, `source: synthesised from operational-file by datarim-doctor.sh Pass 6`, `original_block_sha`) + body = original bullet content; strip bullet.
+6. **Collision case** — canonical archive exists but does NOT contain `{ID}` literal → invoke `resolve_conflict()` (`--no-prompt` defaults to skip in non-TTY); on skip, preserve bullet in operational file with `<!-- bullets pending manual migration … -->` marker; on overwrite, synthesise stub.
+
+**Headerless fallback:** operational files without any archive section header are processed line-by-line. Bullets parseable via S1–S4 are candidates; bullets with explicit non-terminal status (`in_progress`, `not_started`, `pending`, `blocked`, `approved`, `review`, `active`) are passed through as active content. Other parseable bullets follow the same dispatch as the headered branch (explicit pointer → defensive find → synthesise). Non-parseable lines (one-liner thin-index entries, headers, frontmatter) pass through unchanged.
 
 Unparseable bullets (no shape match) → preserve with warning `Pass 6: unparseable archive bullet`. Operator fixes manually.
 
@@ -206,30 +211,6 @@ After per-file processing, Doctor logs a one-line summary: `Pass 6 {file}: parse
 <!-- security:counter-example -->
 *Counter-example — what Doctor MUST NOT do (Approach D, rejected by QA TUNE-0085):* add a whitelist exception that preserves archive sections by design. This would legalise non-compliant pattern, accumulate token-bloat in operational files (12-18 KB on typical installations × 10-30 reads per session = 120-540 KB lost tokens), and contradict the canonical contract `datarim-system.md § activeContext.md thin contract` («one section only», v1.19.1). Migration, not preservation, is the correct enforcement.
 <!-- /security:counter-example -->
-
-#### Known Issues (v1.21.5 — to be fixed in 1.21.6 via TUNE-0088)
-
-A distributed-user incident on a real DEV-* vault (2026-05-03) revealed four parser/dispatch bugs. **Until 1.21.6 ships, do NOT run `/dr-doctor --fix` if any of the following applies to your vault** (dry-run `/dr-doctor` without `--fix` is always safe and recommended for drift detection):
-
-1. **Compound task IDs in archive bullets** — patterns like `**DEV-1212-S8**`, `**DEV-1196-FOLLOWUP-lock-ownership-doc**`, or `**DEV-1182** soft-delete fix —` (context word between `**ID**` and `—`) — current parser regex stops at `[A-Z]+-[0-9]+\b` and reports them as `unparseable`.
-2. **Bullets with explicit `→ documentation/archive/{area}/archive-{ID}.md` pointer where `{area}` differs from the hardcoded `prefix_to_area` mapping** — Pass 6 ignores the explicit pointer and computes a fresh canonical_path via `prefix_to_area(prefix)`. If the real archive lives under a different area subdir (e.g. canonical at `general/archive-DEV-1226.md`, prefix_to_area returns `development/`), Pass 6 fails verification, falls through to synthesise, and creates a parallel stub at the wrong area — duplicating the canonical archive with diverging content.
-3. **Legacy `**ID**` bullets in `activeContext.md` that live outside any `### Recently Archived` / `### Archived` header** — Pass 6 early-returns on files without an archive header. Scanner still flags them via the legacy bold-id pattern, but `--fix` does not migrate them. Fix: either add a `### Recently Archived` header above them and re-run, or wait for 1.21.6 (Pass 6 fallback for headerless legacy).
-4. **Misclassification (downstream of #1/#2)** — `parsed=N stripped=0 synthesised=N` when canonical archives exist. Visible in the per-file summary line.
-
-**Recovery if you already ran `--fix` and hit one of these:**
-
-```
-# 1. tarball restore reverts datarim/* to pre-fix state (TUNE-0077)
-tar xzf /tmp/datarim-backup-<TS>.tgz -C $(dirname your-vault/datarim)
-
-# 2. remove duplicated synthesised stubs (untracked in git, safe)
-rm -rf documentation/archive/<wrong-area>/   # e.g. development/ if canonical was general/
-
-# 3. verify clean state
-git status   # datarim/* clean, documentation/archive/<wrong-area>/ deleted
-```
-
-Track fix at TUNE-0088. v1.21.6 release notes will include a one-shot reconciler for users who already migrated under v1.21.5.
 
 ### Pass 5 — Post-fix re-scan
 

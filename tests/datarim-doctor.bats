@@ -545,3 +545,263 @@ EOF
     [[ "$output" == *"backup"* ]] || [[ "$output" == *"Backup"* ]]
     [[ "$output" == *"datarim-backup-"* ]]
 }
+
+# --- TUNE-0088: Pass 6 hardening (4 bugs from v1.21.5 distributed-user report) ---
+
+@test "T-ARCHIVE-A6-ext (TUNE-0088) parser does NOT match non-task bold spans (false-positive guard)" {
+    cat > "$TMPROOT/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+
+- TUNE-0088 · in_progress · P1 · L3 · stub → tasks/TUNE-0088-task-description.md
+
+## Archived
+
+- **TODO** — should not parse as task
+- **FIXME** — neither should this
+- **SECTION-1** — no digits → no match
+- **DEV-1226** — legitimate task (2026-04-15) → documentation/archive/general/archive-DEV-1226.md
+EOF
+    : > "$TMPROOT/datarim/tasks/TUNE-0088-task-description.md"
+    mkdir -p "$TMPROOT/documentation/archive/general"
+    printf '%s\n' '# Archive — DEV-1226' '' 'id: DEV-1226' > "$TMPROOT/documentation/archive/general/archive-DEV-1226.md"
+
+    run "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt
+    [ "$status" -eq 0 ]
+    # Legitimate bullet stripped (no orphan TODO/FIXME stubs synthesised)
+    [ ! -f "$TMPROOT/documentation/archive/development/archive-TODO.md" ]
+    [ ! -f "$TMPROOT/documentation/archive/development/archive-FIXME.md" ]
+    [ ! -f "$TMPROOT/documentation/archive/general/archive-TODO.md" ]
+    # Non-task bullets preserved with manual-migration marker (parser returned 1 for them)
+    grep -qF -- '**TODO**' "$TMPROOT/datarim/tasks.md"
+    grep -qF -- '**FIXME**' "$TMPROOT/datarim/tasks.md"
+}
+
+@test "T-ARCHIVE-A7 (TUNE-0088) Pass 6 prefers explicit pointer over prefix_to_area" {
+    cat > "$TMPROOT/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+
+- TUNE-0088 · in_progress · P1 · L3 · stub → tasks/TUNE-0088-task-description.md
+
+## Archived
+
+- **DEV-1226** — pointer at general (2026-04-15) → documentation/archive/general/archive-DEV-1226.md
+EOF
+    : > "$TMPROOT/datarim/tasks/TUNE-0088-task-description.md"
+    # Canonical at GENERAL, NOT at development (prefix_to_area DEV→development)
+    mkdir -p "$TMPROOT/documentation/archive/general" "$TMPROOT/documentation/archive/development"
+    printf '%s\n' '# Archive — DEV-1226' '' 'id: DEV-1226' > "$TMPROOT/documentation/archive/general/archive-DEV-1226.md"
+
+    run "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt
+    [ "$status" -eq 0 ]
+    # Bullet stripped (explicit pointer found canonical at general)
+    run grep -qF -- '**DEV-1226**' "$TMPROOT/datarim/tasks.md"
+    [ "$status" -ne 0 ]
+    # No stub synthesised at development (the wrong area)
+    [ ! -f "$TMPROOT/documentation/archive/development/archive-DEV-1226.md" ]
+}
+
+@test "T-ARCHIVE-A7b (TUNE-0088) Pass 6 rejects path-traversal in explicit pointer" {
+    cat > "$TMPROOT/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+
+- TUNE-0088 · in_progress · P1 · L3 · stub → tasks/TUNE-0088-task-description.md
+
+## Archived
+
+- **DEV-9999** — evil pointer (2026-04-15) → documentation/archive/../../etc/passwd
+EOF
+    : > "$TMPROOT/datarim/tasks/TUNE-0088-task-description.md"
+
+    run "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt
+    [ "$status" -eq 0 ]
+    # /etc/passwd or any traversal MUST NOT be touched (we can't write there as user, but check no warn-stub wrote outside docs_root)
+    [ ! -f "$TMPROOT/etc/passwd" ]
+    # Bullet preserved with marker OR fallback to prefix_to_area path (either is acceptable, not silent overwrite outside docs_root)
+    # Either: bullet still in file (preserved) OR a stub at the prefix_to_area location (development/) — never outside docs_root
+    if [ -f "$TMPROOT/documentation/archive/development/archive-DEV-9999.md" ]; then
+        # Fallback path: stub written under docs_root (acceptable)
+        :
+    else
+        # Preserve path: bullet retained
+        grep -qF -- '**DEV-9999**' "$TMPROOT/datarim/tasks.md"
+    fi
+}
+
+@test "T-ARCHIVE-A8 (TUNE-0088) parser handles compound IDs DEV-1212-S8 and DEV-1196-FOLLOWUP-*" {
+    cat > "$TMPROOT/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+
+- TUNE-0088 · in_progress · P1 · L3 · stub → tasks/TUNE-0088-task-description.md
+
+## Archived
+
+- **DEV-1212-S8** — compound id (2026-04-10) → documentation/archive/general/archive-DEV-1212-S8.md
+- **DEV-1196-FOLLOWUP-lock-ownership-doc** — long followup (2026-04-05) → documentation/archive/general/archive-DEV-1196-FOLLOWUP-lock-ownership-doc.md
+- **DEV-1182** soft-delete fix — mid-bold context (2026-04-08) → documentation/archive/general/archive-DEV-1182.md
+EOF
+    : > "$TMPROOT/datarim/tasks/TUNE-0088-task-description.md"
+    mkdir -p "$TMPROOT/documentation/archive/general"
+    printf '%s\n' '# Archive — DEV-1212-S8' '' 'id: DEV-1212-S8' > "$TMPROOT/documentation/archive/general/archive-DEV-1212-S8.md"
+    printf '%s\n' '# Archive — DEV-1196-FOLLOWUP-lock-ownership-doc' '' 'id: DEV-1196-FOLLOWUP-lock-ownership-doc' > "$TMPROOT/documentation/archive/general/archive-DEV-1196-FOLLOWUP-lock-ownership-doc.md"
+    printf '%s\n' '# Archive — DEV-1182' '' 'id: DEV-1182' > "$TMPROOT/documentation/archive/general/archive-DEV-1182.md"
+
+    run "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt
+    [ "$status" -eq 0 ]
+    # All three bullets stripped (parser handled compound IDs)
+    run grep -q 'DEV-1212-S8' "$TMPROOT/datarim/tasks.md"
+    [ "$status" -ne 0 ]
+    run grep -q 'DEV-1196-FOLLOWUP' "$TMPROOT/datarim/tasks.md"
+    [ "$status" -ne 0 ]
+    run grep -qF -- '**DEV-1182**' "$TMPROOT/datarim/tasks.md"
+    [ "$status" -ne 0 ]
+    # No regressions to development/ subdir
+    [ ! -f "$TMPROOT/documentation/archive/development/archive-DEV-1212-S8.md" ]
+    [ ! -f "$TMPROOT/documentation/archive/development/archive-DEV-1196-FOLLOWUP-lock-ownership-doc.md" ]
+    [ ! -f "$TMPROOT/documentation/archive/development/archive-DEV-1182.md" ]
+}
+
+@test "T-ARCHIVE-A9 (TUNE-0088) Pass 6 headerless fallback strips legacy bullets in activeContext.md" {
+    cat > "$TMPROOT/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+
+- TUNE-0088 · in_progress · P1 · L3 · stub → tasks/TUNE-0088-task-description.md
+EOF
+    : > "$TMPROOT/datarim/tasks/TUNE-0088-task-description.md"
+    # activeContext.md has legacy bullets without ### Recently Archived header
+    cat > "$TMPROOT/datarim/activeContext.md" <<'EOF'
+# Active Context
+
+## Active Tasks
+
+- TUNE-0088 · in_progress · P1 · L3 · stub → tasks/TUNE-0088-task-description.md
+- **DEV-1226** — headerless legacy (2026-04-15) → documentation/archive/general/archive-DEV-1226.md
+- **DEV-1212-S8** — compound headerless (2026-04-10) → documentation/archive/general/archive-DEV-1212-S8.md
+EOF
+    mkdir -p "$TMPROOT/documentation/archive/general"
+    printf '%s\n' '# Archive — DEV-1226' '' 'id: DEV-1226' > "$TMPROOT/documentation/archive/general/archive-DEV-1226.md"
+    printf '%s\n' '# Archive — DEV-1212-S8' '' 'id: DEV-1212-S8' > "$TMPROOT/documentation/archive/general/archive-DEV-1212-S8.md"
+
+    run "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt
+    [ "$status" -eq 0 ]
+    # One-liner active task preserved
+    grep -qE '^- TUNE-0088 · in_progress · P1 · L3 ·' "$TMPROOT/datarim/activeContext.md"
+    # Legacy bullets stripped
+    run grep -qF -- '**DEV-1226**' "$TMPROOT/datarim/activeContext.md"
+    [ "$status" -ne 0 ]
+    run grep -qF -- '**DEV-1212-S8**' "$TMPROOT/datarim/activeContext.md"
+    [ "$status" -ne 0 ]
+    # No stubs at development/ (the explicit pointer at general/ is correct)
+    [ ! -f "$TMPROOT/documentation/archive/development/archive-DEV-1226.md" ]
+    [ ! -f "$TMPROOT/documentation/archive/development/archive-DEV-1212-S8.md" ]
+}
+
+@test "T-ARCHIVE-A9b (TUNE-0088) headerless fallback synthesises stub when canonical missing" {
+    cat > "$TMPROOT/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+
+- TUNE-0088 · in_progress · P1 · L3 · stub → tasks/TUNE-0088-task-description.md
+EOF
+    : > "$TMPROOT/datarim/tasks/TUNE-0088-task-description.md"
+    cat > "$TMPROOT/datarim/activeContext.md" <<'EOF'
+# Active Context
+
+## Active Tasks
+
+- TUNE-0088 · in_progress · P1 · L3 · stub → tasks/TUNE-0088-task-description.md
+- **DEV-9876** — headerless missing canonical (2026-04-20)
+EOF
+
+    run "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt
+    [ "$status" -eq 0 ]
+    # Stub synthesised at prefix_to_area (DEV → development)
+    [ -f "$TMPROOT/documentation/archive/development/archive-DEV-9876.md" ]
+    grep -q '^id: DEV-9876$' "$TMPROOT/documentation/archive/development/archive-DEV-9876.md"
+    # Bullet stripped from activeContext.md
+    run grep -qF -- '**DEV-9876**' "$TMPROOT/datarim/activeContext.md"
+    [ "$status" -ne 0 ]
+}
+
+@test "T-ARCHIVE-A10 (TUNE-0088) defensive find — canonical at unexpected area subdir" {
+    cat > "$TMPROOT/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+
+- TUNE-0088 · in_progress · P1 · L3 · stub → tasks/TUNE-0088-task-description.md
+
+## Archived
+
+- **DEV-1226** — no explicit pointer (2026-04-15)
+EOF
+    : > "$TMPROOT/datarim/tasks/TUNE-0088-task-description.md"
+    # prefix_to_area maps DEV → development; canonical actually lives at general/
+    mkdir -p "$TMPROOT/documentation/archive/general" "$TMPROOT/documentation/archive/development"
+    printf '%s\n' '# Archive — DEV-1226' '' 'id: DEV-1226' > "$TMPROOT/documentation/archive/general/archive-DEV-1226.md"
+
+    run "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt
+    [ "$status" -eq 0 ]
+    # Bullet stripped (defensive find located canonical at unexpected subdir)
+    run grep -qF -- '**DEV-1226**' "$TMPROOT/datarim/tasks.md"
+    [ "$status" -ne 0 ]
+    # No stub created at development/ (defensive find prevented it)
+    [ ! -f "$TMPROOT/documentation/archive/development/archive-DEV-1226.md" ]
+    # Original canonical at general/ untouched
+    [ -f "$TMPROOT/documentation/archive/general/archive-DEV-1226.md" ]
+}
+
+@test "T-REPRODUCER (TUNE-0088) distributed-user vault: 14 mixed shapes stripped, no stubs in development/" {
+    cat > "$TMPROOT/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+
+- TUNE-0088 · in_progress · P1 · L3 · stub → tasks/TUNE-0088-task-description.md
+
+## Archived
+
+- **DEV-1226** — S1 with explicit pointer (2026-04-15) → documentation/archive/general/archive-DEV-1226.md
+- **DEV-1227** — S1 (2026-04-14) → documentation/archive/general/archive-DEV-1227.md
+- **DEV-1212-S8** — compound (2026-04-10) → documentation/archive/general/archive-DEV-1212-S8.md
+- **DEV-1196-FOLLOWUP-lock-ownership-doc** — long followup (2026-04-05) → documentation/archive/general/archive-DEV-1196-FOLLOWUP-lock-ownership-doc.md
+- **DEV-1182** soft-delete fix — mid-bold (2026-04-08) → documentation/archive/general/archive-DEV-1182.md
+- **DEV-1174** Phase 8 Step 2 — mid-bold (2026-04-07) → documentation/archive/general/archive-DEV-1174.md
+- **DEV-1100** — S1 (2026-04-01) → documentation/archive/general/archive-DEV-1100.md
+- **DEV-1101** — S1 (2026-04-02) → documentation/archive/general/archive-DEV-1101.md
+- **DEV-1102** — S1 (2026-04-03) → documentation/archive/general/archive-DEV-1102.md
+- **DEV-1103** — S1 (2026-04-04) → documentation/archive/general/archive-DEV-1103.md
+- **DEV-1104** — S1 (2026-04-05) → documentation/archive/general/archive-DEV-1104.md
+- **DEV-1105** — S1 (2026-04-06) → documentation/archive/general/archive-DEV-1105.md
+- **DEV-1106** — S1 (2026-04-07) → documentation/archive/general/archive-DEV-1106.md
+- **DEV-1107** — S1 (2026-04-08) → documentation/archive/general/archive-DEV-1107.md
+EOF
+    : > "$TMPROOT/datarim/tasks/TUNE-0088-task-description.md"
+    mkdir -p "$TMPROOT/documentation/archive/general"
+    for id in DEV-1226 DEV-1227 DEV-1212-S8 DEV-1196-FOLLOWUP-lock-ownership-doc DEV-1182 DEV-1174 DEV-1100 DEV-1101 DEV-1102 DEV-1103 DEV-1104 DEV-1105 DEV-1106 DEV-1107; do
+        printf '%s\n' "# Archive — $id" '' "id: $id" > "$TMPROOT/documentation/archive/general/archive-$id.md"
+    done
+
+    run "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt
+    [ "$status" -eq 0 ]
+    # All 14 bullets stripped from operational file
+    run grep -q '^## Archived$' "$TMPROOT/datarim/tasks.md"
+    [ "$status" -ne 0 ]
+    run grep -qF -- '**DEV-' "$TMPROOT/datarim/tasks.md"
+    [ "$status" -ne 0 ]
+    # NO stubs created in development/ (the regression we are fixing)
+    [ ! -d "$TMPROOT/documentation/archive/development" ] || [ -z "$(ls -A "$TMPROOT/documentation/archive/development" 2>/dev/null)" ]
+    # General archives untouched (still 14 files)
+    n="$(find "$TMPROOT/documentation/archive/general" -name 'archive-DEV-*.md' | wc -l | tr -d ' ')"
+    [ "$n" -eq 14 ]
+}
