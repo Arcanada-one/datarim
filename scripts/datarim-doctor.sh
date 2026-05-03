@@ -228,6 +228,18 @@ write_description() {
     } > "$out"
 }
 
+# --- TUNE-0085: archive section detection -----------------------------------
+# Whitelist of headers that mark archive sections in operational files. These
+# sections violate the canonical thin-index contract (datarim-system.md § 49)
+# and MUST be migrated to documentation/archive/{area}/archive-{ID}.md by Pass 6.
+is_archive_header() {
+    local line="$1"
+    [[ "$line" =~ ^##[[:space:]]+Archived[[:space:]]*$ ]] && return 0
+    [[ "$line" =~ ^###[[:space:]]+Archived[[:space:]]*$ ]] && return 0
+    [[ "$line" =~ ^###[[:space:]]+Recently[[:space:]]+Archived[[:space:]]*$ ]] && return 0
+    return 1
+}
+
 # --- compliance scan --------------------------------------------------------
 FINDINGS=0
 declare -a FINDING_LINES=()
@@ -236,8 +248,36 @@ scan_file() {
     local file="$1"
     [ -f "$file" ] || return 0
     local lineno=0 line
+    local in_archive=0 archive_start_line=0 archive_bullets=0
     while IFS= read -r line || [ -n "$line" ]; do
         lineno=$((lineno + 1))
+        # TUNE-0085: roll up archive section findings into a single entry per
+        # section instead of one per bullet — distributed users see actionable
+        # signal, not noise.
+        if is_archive_header "$line"; then
+            # Flush previous archive section finding if any (before opening new one)
+            if [ "$in_archive" -eq 1 ] && [ "$archive_bullets" -gt 0 ]; then
+                FINDINGS=$((FINDINGS + 1))
+                FINDING_LINES+=("$file:$archive_start_line: archive section ($archive_bullets legacy entries — run --fix to migrate to documentation/archive/)")
+            fi
+            in_archive=1
+            archive_start_line=$lineno
+            archive_bullets=0
+            continue
+        fi
+        if [ "$in_archive" -eq 1 ] && [[ "$line" =~ ^(##|###)[[:space:]] ]]; then
+            # Section closed — emit rolled-up finding
+            if [ "$archive_bullets" -gt 0 ]; then
+                FINDINGS=$((FINDINGS + 1))
+                FINDING_LINES+=("$file:$archive_start_line: archive section ($archive_bullets legacy entries — run --fix to migrate to documentation/archive/)")
+            fi
+            in_archive=0
+            archive_bullets=0
+        fi
+        if [ "$in_archive" -eq 1 ]; then
+            [[ "$line" =~ ^[-*][[:space:]]+\*\*[A-Z]+-[0-9]+\*\* ]] && archive_bullets=$((archive_bullets + 1))
+            continue
+        fi
         if [[ "$line" =~ ^###[[:space:]]+[A-Z]+-[0-9]+: ]]; then
             FINDINGS=$((FINDINGS + 1))
             FINDING_LINES+=("$file:$lineno: legacy block-style entry")
@@ -251,6 +291,11 @@ scan_file() {
             fi
         fi
     done < "$file"
+    # Flush trailing archive section if file ended inside one
+    if [ "$in_archive" -eq 1 ] && [ "$archive_bullets" -gt 0 ]; then
+        FINDINGS=$((FINDINGS + 1))
+        FINDING_LINES+=("$file:$archive_start_line: archive section ($archive_bullets legacy entries — run --fix to migrate to documentation/archive/)")
+    fi
 }
 
 scan_progress() {
@@ -595,6 +640,187 @@ migrate_active_context() {
         printf '# Active Context\n\n## Active Tasks\n\n%s\n' "$sorted" > "$src"
     fi
 }
+
+# --- TUNE-0085: Pass 6 — operational-files archive section migration --------
+# Strip ## Archived / ### Recently Archived / ### Archived sections from
+# operational files; for each archive bullet, verify or synthesise a canonical
+# archive doc at documentation/archive/{area}/archive-{ID}.md, then drop the
+# bullet. Collisions (existing archive doc without {ID} literal) preserve the
+# bullet in operational file with a manual-migration marker.
+
+# Parse one of 3 known archive-bullet shapes. Outputs TSV:
+#   id<TAB>title<TAB>date<TAB>status_hint<TAB>body
+# Returns 0 on parse success, 1 on unparseable.
+parse_archive_bullet() {
+    local line="$1"
+    local id title date status_hint body
+    # S1: - **ID** — title (YYYY-MM-DD) → path
+    if [[ "$line" =~ ^-[[:space:]]+\*\*([A-Z]+-[0-9]+)\*\*[[:space:]]+—[[:space:]]+(.+)[[:space:]]+\(([0-9]{4}-[0-9]{2}-[0-9]{2})\)[[:space:]]+→[[:space:]]+ ]]; then
+        id="${BASH_REMATCH[1]}"
+        title="${BASH_REMATCH[2]}"
+        date="${BASH_REMATCH[3]}"
+        status_hint="completed"
+        body="$line"
+        printf '%s\t%s\t%s\t%s\t%s\n' "$id" "$title" "$date" "$status_hint" "$body"
+        return 0
+    fi
+    # S2: - **ID** (status, YYYY-MM-DD) — title
+    if [[ "$line" =~ ^-[[:space:]]+\*\*([A-Z]+-[0-9]+)\*\*[[:space:]]+\(([a-z_]+),[[:space:]]+([0-9]{4}-[0-9]{2}-[0-9]{2})\)[[:space:]]+—[[:space:]]+(.+)$ ]]; then
+        id="${BASH_REMATCH[1]}"
+        status_hint="${BASH_REMATCH[2]}"
+        date="${BASH_REMATCH[3]}"
+        title="${BASH_REMATCH[4]}"
+        # Strip trailing dot
+        title="${title%.}"
+        body="$line"
+        printf '%s\t%s\t%s\t%s\t%s\n' "$id" "$title" "$date" "$status_hint" "$body"
+        return 0
+    fi
+    # S3: - **ID** — title (no date, no link)
+    if [[ "$line" =~ ^-[[:space:]]+\*\*([A-Z]+-[0-9]+)\*\*[[:space:]]+—[[:space:]]+(.+)$ ]]; then
+        id="${BASH_REMATCH[1]}"
+        title="${BASH_REMATCH[2]}"
+        date=""
+        status_hint="completed"
+        body="$line"
+        printf '%s\t%s\t%s\t%s\t%s\n' "$id" "$title" "$date" "$status_hint" "$body"
+        return 0
+    fi
+    return 1
+}
+
+# Synthesise minimal canonical archive stub from inline bullet.
+# args: id title date status_hint body target_path
+synthesise_archive_stub() {
+    local id="$1" title="$2" date="$3" status_hint="$4" body="$5" target="$6"
+    local status="completed"
+    [ "$status_hint" = "cancelled" ] && status="cancelled"
+    local sha; sha="$(printf '%s' "$body" | shasum 2>/dev/null | awk '{print substr($1,1,7)}')"
+    local date_field="${status}_at"
+    mkdir -p "$(dirname "$target")"
+    {
+        echo "---"
+        echo "id: $id"
+        echo "title: $title"
+        echo "status: $status"
+        echo "${date_field}: ${date:-unknown}"
+        echo "source: synthesised from operational-file by datarim-doctor.sh Pass 6 (TUNE-0085)"
+        echo "original_block_sha: $sha"
+        echo "---"
+        echo
+        echo "## Overview"
+        echo
+        echo "$body"
+    } > "$target"
+}
+
+# Pass 6 entry point per file. Detects archive section, processes each bullet,
+# rewrites file with active section only (+ preserved orphan bullets if any).
+migrate_operational_archive() {
+    local src="$1"
+    [ -f "$src" ] || return 0
+    # Idempotent: skip files without any archive header
+    local has_archive=0
+    while IFS= read -r line || [ -n "$line" ]; do
+        if is_archive_header "$line"; then has_archive=1; break; fi
+    done < "$src"
+    [ "$has_archive" -eq 0 ] && return 0
+
+    local docs_root
+    docs_root="$(dirname "$ROOT_ABS")/documentation/archive"
+    local active_part="" preserve_bullets=""
+    local in_archive=0
+    local parsed=0 stripped=0 synthesised=0 skipped=0
+    local line parsed_tsv id title date status_hint body area canonical_path
+
+    while IFS= read -r line || [ -n "$line" ]; do
+        if is_archive_header "$line"; then
+            in_archive=1
+            continue
+        fi
+        if [ "$in_archive" -eq 1 ] && [[ "$line" =~ ^(##|###)[[:space:]] ]]; then
+            in_archive=0
+            active_part+="$line"$'\n'
+            continue
+        fi
+        if [ "$in_archive" -eq 0 ]; then
+            active_part+="$line"$'\n'
+            continue
+        fi
+        # Inside archive section
+        # Skip blank lines and HTML comments (not bullets)
+        if [[ -z "$line" ]] || [[ "$line" =~ ^[[:space:]]*\<\!--.*--\>[[:space:]]*$ ]]; then
+            continue
+        fi
+        # Try parse as archive bullet
+        if parsed_tsv="$(parse_archive_bullet "$line")"; then
+            parsed=$((parsed + 1))
+            IFS=$'\t' read -r id title date status_hint body <<< "$parsed_tsv"
+            validate_task_id "$id" || {
+                warn "Pass 6: invalid task id in archive bullet: $line"
+                preserve_bullets+="$line"$'\n'
+                continue
+            }
+            area="$(prefix_to_area "$id")"
+            canonical_path="$docs_root/$area/archive-$id.md"
+            # Path-traversal safety: canonical_path must stay under docs_root
+            case "$canonical_path" in
+                "$docs_root"/*) ;;
+                *) warn "Pass 6: rejected canonical path outside archive root: $canonical_path"
+                   preserve_bullets+="$line"$'\n'; continue ;;
+            esac
+            if [ -f "$canonical_path" ]; then
+                if grep -q "$id" "$canonical_path"; then
+                    # Verified: archive doc has ID literal — strip bullet
+                    stripped=$((stripped + 1))
+                else
+                    # Collision: existing archive doc without ID literal
+                    if resolve_conflict "$id" "$canonical_path" ""; then
+                        synthesise_archive_stub "$id" "$title" "$date" "$status_hint" "$body" "$canonical_path"
+                        synthesised=$((synthesised + 1))
+                    else
+                        skipped=$((skipped + 1))
+                        preserve_bullets+="$line"$'\n'
+                    fi
+                fi
+            else
+                # Missing: synthesise stub
+                synthesise_archive_stub "$id" "$title" "$date" "$status_hint" "$body" "$canonical_path"
+                synthesised=$((synthesised + 1))
+            fi
+        else
+            warn "Pass 6: unparseable archive bullet in $src: $line"
+            preserve_bullets+="$line"$'\n'
+        fi
+    done < "$src"
+
+    # Rewrite file: active part + (preserved orphan bullets with marker if any)
+    # Strip trailing blank lines from active_part for clean output
+    active_part="${active_part%$'\n'}"
+    if [ -n "$preserve_bullets" ]; then
+        preserve_bullets="${preserve_bullets%$'\n'}"
+        printf '%s\n\n<!-- TUNE-0085: bullets pending manual migration — fix conflict in documentation/archive/, then re-run /dr-doctor --fix -->\n%s\n' \
+            "$active_part" "$preserve_bullets" > "$src"
+    else
+        printf '%s\n' "$active_part" > "$src"
+    fi
+
+    log "Pass 6 ${src##*/}: parsed=$parsed stripped=$stripped synthesised=$synthesised skipped=$skipped"
+    PASS6_PARSED_TOTAL=$((${PASS6_PARSED_TOTAL:-0} + parsed))
+    PASS6_EMITTED_TOTAL=$((${PASS6_EMITTED_TOTAL:-0} + stripped + synthesised + skipped))
+}
+
+PASS6_PARSED_TOTAL=0
+PASS6_EMITTED_TOTAL=0
+if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "tasks" ]; then
+    migrate_operational_archive "$ROOT_ABS/tasks.md"
+fi
+if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "backlog" ]; then
+    migrate_operational_archive "$ROOT_ABS/backlog.md"
+fi
+if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "active" ]; then
+    migrate_operational_archive "$ROOT_ABS/activeContext.md"
+fi
 
 if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "tasks" ]; then
     migrate_file "$ROOT_ABS/tasks.md" "$ROOT_ABS/tasks.md" "# Tasks"$'\n\n''## Active' "in_progress"

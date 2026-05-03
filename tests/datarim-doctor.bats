@@ -323,7 +323,7 @@ EOF
 
 @test "T27 (TUNE-0076) Pass4-conflict --no-prompt skips existing archive without ID literal" {
     cp "$FIXTURES/legacy-backlog-archive.md" "$TMPROOT/datarim/backlog-archive.md"
-    mkdir -p "$TMPROOT/documentation/archive/general"
+    mkdir -p "$TMPROOT/documentation/archive/development" "$TMPROOT/documentation/archive/general"
     # Existing archive without TUNE-9102 literal — conflict
     cat > "$TMPROOT/documentation/archive/general/archive-TUNE-9102.md" <<'EOF'
 # Unrelated content (no task ID present)
@@ -358,6 +358,182 @@ EOF
     [ "$status" -eq 0 ]
     n2="$(find "$TMPROOT/documentation/archive" -name 'archive-*.md' | wc -l | tr -d ' ')"
     [ "$n1" = "$n2" ]
+}
+
+# --- TUNE-0085: Pass 6 — operational-files archive section migration ---------
+
+@test "T-ARCHIVE-A1 (TUNE-0085) Pass 6 strips ## Archived bullets when canonical archive exists" {
+    cat > "$TMPROOT/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+
+- TUNE-0085 · in_progress · P2 · L3 · doctor enforces canonical contract → tasks/TUNE-0085-task-description.md
+
+## Archived
+
+- **DEV-1212** — старая задача (2026-04-01) → documentation/archive/development/archive-DEV-1212.md
+- **DEV-1226** — ещё одна архивная (2026-04-15) → documentation/archive/development/archive-DEV-1226.md
+EOF
+    : > "$TMPROOT/datarim/tasks/TUNE-0085-task-description.md"
+    mkdir -p "$TMPROOT/documentation/archive/development" "$TMPROOT/documentation/archive/general"
+    printf '%s\n' '# Archive — DEV-1212' '' 'id: DEV-1212' > "$TMPROOT/documentation/archive/development/archive-DEV-1212.md"
+    printf '%s\n' '# Archive — DEV-1226' '' 'id: DEV-1226' > "$TMPROOT/documentation/archive/development/archive-DEV-1226.md"
+
+    run "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt
+    [ "$status" -eq 0 ]
+    # Archive section header is stripped
+    ! grep -q '^## Archived$' "$TMPROOT/datarim/tasks.md"
+    # Active section preserved
+    grep -qF -- '- TUNE-0085 · in_progress · P2 · L3' "$TMPROOT/datarim/tasks.md"
+    # Bold-id bullets are gone
+    ! grep -q '\*\*DEV-1212\*\*' "$TMPROOT/datarim/tasks.md"
+    ! grep -q '\*\*DEV-1226\*\*' "$TMPROOT/datarim/tasks.md"
+    # Post-fix dry-run is exit 0
+    run "$DOCTOR" --root="$TMPROOT/datarim"
+    [ "$status" -eq 0 ]
+}
+
+@test "T-ARCHIVE-A2 (TUNE-0085) Pass 6 synthesises stub when canonical archive missing" {
+    cat > "$TMPROOT/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+
+- TUNE-0085 · in_progress · P2 · L3 · doctor enforces canonical contract → tasks/TUNE-0085-task-description.md
+
+## Archived
+
+- **DEV-1300** — задача без архива (2026-04-20) → documentation/archive/development/archive-DEV-1300.md
+EOF
+    : > "$TMPROOT/datarim/tasks/TUNE-0085-task-description.md"
+    # Note: no DEV-1300 archive doc pre-created → must be synthesised
+
+    run "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt
+    [ "$status" -eq 0 ]
+    # Stub synthesised
+    [ -f "$TMPROOT/documentation/archive/development/archive-DEV-1300.md" ]
+    grep -q '^id: DEV-1300$' "$TMPROOT/documentation/archive/development/archive-DEV-1300.md"
+    grep -q '^status: completed$' "$TMPROOT/documentation/archive/development/archive-DEV-1300.md"
+    grep -q '^source: synthesised' "$TMPROOT/documentation/archive/development/archive-DEV-1300.md"
+    # Bullet stripped from operational file
+    ! grep -q '\*\*DEV-1300\*\*' "$TMPROOT/datarim/tasks.md"
+    ! grep -q '^## Archived$' "$TMPROOT/datarim/tasks.md"
+}
+
+@test "T-ARCHIVE-A3 (TUNE-0085) Pass 6 collision (existing archive without ID) → --no-prompt skip + preserve" {
+    cat > "$TMPROOT/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+
+- TUNE-0085 · in_progress · P2 · L3 · doctor enforces canonical contract → tasks/TUNE-0085-task-description.md
+
+## Archived
+
+- **DEV-1400** — collision case (2026-04-22) → documentation/archive/development/archive-DEV-1400.md
+EOF
+    : > "$TMPROOT/datarim/tasks/TUNE-0085-task-description.md"
+    mkdir -p "$TMPROOT/documentation/archive/development" "$TMPROOT/documentation/archive/general"
+    # Existing archive doc WITHOUT DEV-1400 literal → conflict
+    printf '%s\n' '# Unrelated archive' 'no task id literal here' > "$TMPROOT/documentation/archive/development/archive-DEV-1400.md"
+    sha_before="$(shasum "$TMPROOT/documentation/archive/development/archive-DEV-1400.md" | awk '{print $1}')"
+
+    run "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt
+    [ "$status" -eq 0 ]
+    # Existing archive untouched
+    sha_after="$(shasum "$TMPROOT/documentation/archive/development/archive-DEV-1400.md" | awk '{print $1}')"
+    [ "$sha_before" = "$sha_after" ]
+    # Bullet preserved in operational file with manual-migration marker
+    grep -q 'pending manual migration' "$TMPROOT/datarim/tasks.md"
+    grep -qF -- '**DEV-1400**' "$TMPROOT/datarim/tasks.md"
+}
+
+@test "T-ARCHIVE-A4 (TUNE-0085) Pass 6 strips ### Recently Archived from activeContext.md (S2 shape)" {
+    cat > "$TMPROOT/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+
+- INFRA-0099 · in_progress · P1 · L2 · stub → tasks/INFRA-0099-task-description.md
+EOF
+    : > "$TMPROOT/datarim/tasks/INFRA-0099-task-description.md"
+    cat > "$TMPROOT/datarim/activeContext.md" <<'EOF'
+# Active Context
+
+## Active Tasks
+
+- INFRA-0099 · in_progress · P1 · L2 · stub → tasks/INFRA-0099-task-description.md
+
+### Recently Archived
+
+- **DEV-1500** (completed, 2026-04-25) — TL;DR, must migrate to documentation/archive/.
+- **DEV-1501** (cancelled, 2026-04-26) — cancelled task TL;DR.
+EOF
+    mkdir -p "$TMPROOT/documentation/archive/development" "$TMPROOT/documentation/archive/general"
+    printf '%s\n' '# Archive — DEV-1500' '' 'id: DEV-1500' > "$TMPROOT/documentation/archive/development/archive-DEV-1500.md"
+    # DEV-1501 missing → must be synthesised
+
+    run "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt
+    [ "$status" -eq 0 ]
+    # ### Recently Archived header stripped
+    ! grep -q 'Recently Archived' "$TMPROOT/datarim/activeContext.md"
+    ! grep -q '\*\*DEV-1500\*\*' "$TMPROOT/datarim/activeContext.md"
+    ! grep -q '\*\*DEV-1501\*\*' "$TMPROOT/datarim/activeContext.md"
+    # Active mirror preserved
+    grep -qE '^- INFRA-0099 · in_progress · P1 · L2 · ' "$TMPROOT/datarim/activeContext.md"
+    # DEV-1501 stub synthesised with cancelled status
+    [ -f "$TMPROOT/documentation/archive/development/archive-DEV-1501.md" ]
+    grep -q '^status: cancelled$' "$TMPROOT/documentation/archive/development/archive-DEV-1501.md"
+}
+
+@test "T-ARCHIVE-A5 (TUNE-0085) Pass 6 idempotent: second --fix on migrated tree → no changes" {
+    cat > "$TMPROOT/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+
+- TUNE-0085 · in_progress · P2 · L3 · stub → tasks/TUNE-0085-task-description.md
+
+## Archived
+
+- **DEV-1600** — entry (2026-04-28) → documentation/archive/development/archive-DEV-1600.md
+EOF
+    : > "$TMPROOT/datarim/tasks/TUNE-0085-task-description.md"
+    mkdir -p "$TMPROOT/documentation/archive/development" "$TMPROOT/documentation/archive/general"
+    printf '%s\n' '# Archive — DEV-1600' '' 'id: DEV-1600' > "$TMPROOT/documentation/archive/development/archive-DEV-1600.md"
+
+    "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt >/dev/null
+    sha1="$(shasum "$TMPROOT/datarim/tasks.md" | awk '{print $1}')"
+    n1="$(find "$TMPROOT/documentation/archive" -name 'archive-*.md' | wc -l | tr -d ' ')"
+    run "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt
+    [ "$status" -eq 0 ]
+    sha2="$(shasum "$TMPROOT/datarim/tasks.md" | awk '{print $1}')"
+    n2="$(find "$TMPROOT/documentation/archive" -name 'archive-*.md' | wc -l | tr -d ' ')"
+    [ "$sha1" = "$sha2" ]
+    [ "$n1" = "$n2" ]
+}
+
+@test "T-ARCHIVE-A6 (TUNE-0085) dry-run reports archive sections as findings (rolled-up)" {
+    cat > "$TMPROOT/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+
+- TUNE-0085 · in_progress · P2 · L3 · stub → tasks/TUNE-0085-task-description.md
+
+## Archived
+
+- **DEV-1700** — bullet1 (2026-04-29) → documentation/archive/development/archive-DEV-1700.md
+- **DEV-1701** — bullet2 (2026-04-30) → documentation/archive/development/archive-DEV-1701.md
+- **DEV-1702** — bullet3 (2026-05-01) → documentation/archive/development/archive-DEV-1702.md
+EOF
+    : > "$TMPROOT/datarim/tasks/TUNE-0085-task-description.md"
+    run "$DOCTOR" --root="$TMPROOT/datarim"
+    [ "$status" -eq 1 ]
+    # One rolled-up finding per archive section, not 3 individual bullets
+    n_findings="$(echo "$output" | grep -c 'archive section')"
+    [ "$n_findings" = "1" ]
 }
 
 @test "T21 (TUNE-0077) --fix prints backup path in stdout summary" {
