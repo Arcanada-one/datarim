@@ -1,6 +1,6 @@
 # Commands Reference
 
-Datarim provides 19 slash commands for Claude Code. Commands are grouped by category.
+Datarim provides 20 slash commands for Claude Code. Commands are grouped by category.
 
 ## Unified CTA Block (v1.16.0)
 
@@ -54,13 +54,14 @@ Source: TUNE-0032. Spec: `skills/cta-format.md`. Template: `templates/cta-templa
 | `/dr-edit` | Content | editor | Editorial review -- fact-check, humanize, style, polish. Emits CTA. |
 | `/dr-publish` | Content | writer | Adapt and publish content to multiple platforms. Emits CTA. |
 
-## Framework Management (3)
+## Framework Management (4)
 
 | Command | Stage | Agent | Description |
 |---------|-------|-------|-------------|
 | `/dr-addskill` | Extension | skill-creator | Create or update skills, agents, commands with web research. Emits CTA. |
-| `/dr-optimize` | Maintenance | optimizer | Audit framework, prune unused, merge duplicates, sync docs. Emits CTA. |
+| `/dr-doctor` | Maintenance | -- | Diagnose and repair Datarim operational files — migrate to thin one-liner schema, externalize task descriptions, abolish progress.md. Emits CTA. |
 | `/dr-dream` | Maintenance | librarian | Knowledge base maintenance: organize, lint, index, cross-reference. Emits CTA. |
+| `/dr-optimize` | Maintenance | optimizer | Audit framework, prune unused, merge duplicates, sync docs. Emits CTA. |
 
 ## Utility Commands (3)
 

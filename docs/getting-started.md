@@ -390,9 +390,23 @@ After running `/dr-init` for the first time, verify:
 
 ---
 
+## Framework Maintenance Commands
+
+Three commands help you keep the framework itself healthy over time:
+
+| Command | Purpose |
+|---------|---------|
+| `/dr-doctor` | Diagnose and repair Datarim operational files — migrate to thin one-liner schema, externalize task descriptions, abolish progress.md. Run when upgrading from older Datarim versions. |
+| `/dr-optimize` | Audit framework health: prune unused components, merge duplicates, fix broken references, sync documentation. Suggests actions but does not auto-apply without confirmation. |
+| `/dr-dream` | Knowledge base maintenance: organize files, build cross-reference index, flag contradictions, archive stale content. Run periodically as the knowledge base grows. |
+
+Run `/dr-doctor` if you are upgrading from a pre-v1.19.0 installation or if `/dr-status` reports structural anomalies.
+
+---
+
 ## Next Steps
 
 - [Pipeline Stages](pipeline.md) -- detailed reference for each of the 9 pipeline stages
-- [Commands Reference](commands.md) -- all 19 available commands with usage examples
+- [Commands Reference](commands.md) -- all 20 available commands with usage examples
 - [Backlog Workflow](backlog-workflow.md) -- how to manage tasks, priorities, and the backlog
 - [Complexity Routing](complexity.md) -- how task complexity determines which stages run

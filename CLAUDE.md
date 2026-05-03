@@ -1,6 +1,6 @@
 # Datarim — Universal Iterative Workflow Framework
 
-> **Version:** 1.21.6
+> **Version:** 1.21.7
 > **Framework:** Datarim (Датарим) provides structured rules, agents, skills, and commands for iterative project execution via Claude Code — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
 > **Note:** "Datarim" is transliterated as "Датарим" in Russian. Both refer to this framework — agents must recognize either form in any language context.
 
@@ -18,7 +18,7 @@ Every task follows a **complexity-aware pipeline**. The operator (human or AI ag
 init → prd → plan → design → do → qa → compliance → archive
 ```
 
-Reflection runs automatically inside `archive` as mandatory Step 0.5 (v1.10.0, TUNE-0013). The `/dr-reflect` command no longer exists.
+Reflection runs automatically inside `archive` as mandatory Step 0.5 (v1.10.0, TUNE-0013). The separate reflection command was consolidated into `/dr-archive` Step 0.5 in v1.10.0.
 
 ### Complexity Routing
 
@@ -194,13 +194,14 @@ Before writing ANY file to `datarim/`:
 | `/dr-edit` | Content | Editorial review — fact-check, humanize, style, polish |
 | `/dr-publish` | Content | Adapt and publish content to multiple platforms |
 | `/dr-addskill` | Extension | Create or update skills, agents, commands with web research |
-| `/dr-optimize` | Maintenance | Audit framework, prune unused, merge duplicates, sync docs |
+| `/dr-doctor` | Maintenance | Diagnose and repair Datarim operational files — migrate to thin one-liner schema, externalize task descriptions, abolish progress.md |
 | `/dr-dream` | Maintenance | Knowledge base maintenance: organize, lint, index, cross-reference |
+| `/dr-optimize` | Maintenance | Audit framework, prune unused, merge duplicates, sync docs |
 | `/dr-help` | Utility | List all commands with descriptions and usage guidance |
 | `/factcheck` | Standalone | Fact-check articles and posts before publication |
 | `/humanize` | Standalone | Remove AI writing patterns from text |
 
-Command files: `$HOME/.claude/commands/{name}.md` (19 commands)
+Command files: `$HOME/.claude/commands/{name}.md` (20 commands)
 
 ---
 
@@ -263,7 +264,7 @@ Datarim ships skills, templates, agents, and commands that AI agents copy into r
 
 ### CI verification (consumer projects)
 
-Every Datarim-managed project SHOULD run `templates/security-workflow.yml` (drop-in) or call `Arcanada-one/datarim/.github/workflows/reusable-security.yml@<tag>` (preferred). Local dry-run via `/dr-security-audit`.
+Every Datarim-managed project SHOULD run `templates/security-workflow.yml` (drop-in) or call `Arcanada-one/datarim/.github/workflows/reusable-security.yml@<tag>` (preferred). Local dry-run: run `templates/security-workflow.yml` locally (security audit is integrated into `/dr-qa`).
 
 **Source:** corporate audit findings 2026-04-28 + research baseline `~/arcanada/datarim/insights/INSIGHTS-security-baseline-oss-cli-2026.md`.
 

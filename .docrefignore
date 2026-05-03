@@ -10,7 +10,8 @@
 # Adding to this file is a tactical retreat — the linter is the strategic gate.
 # Prefer fixing the reference (or removing it) over whitelisting.
 #
-# Source: see documentation/INSIGHTS-TUNE-0054.md for orphan inventory + rationale.
+# Source: see Projects/Datarim/datarim/insights/INSIGHTS-TUNE-0054.md for orphan inventory + rationale.
+# (File relocated from documentation/INSIGHTS-TUNE-0054.md by TUNE-0090 on 2026-05-03.)
 
 # --- Phantom template referenced by skills/security-baseline.md (TUNE-0045 carry-over)
 templates/security-workflow.yml
