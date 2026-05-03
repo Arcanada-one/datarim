@@ -619,3 +619,114 @@ EOF
     run "$SCRIPT" --task-id TUNE-0071 --shared "$BATS_TEST_TMPDIR/fw"
     [ "$status" -eq 0 ]
 }
+
+# ---------- TUNE-0084 classify by uncommitted diff, not file body ----------
+#
+# Founding incident: TUNE-0083 archive — `tasks.md` / `activeContext.md` /
+# `backlog.md` (index files listing N active tasks ⇒ N task IDs in committed
+# body) classified as `mixed` because `diff_text` was composed from
+# `cat <file>` ∪ `git diff` ∪ `git diff --cached`. Body-cat injected every
+# committed-body ID into `found_ids` (column 3), polluting the displayed
+# attribution. Classification gate (`diff_line_ids`) was already correct
+# post-TUNE-0068; only the **display column** carried the pollution. AC-1
+# below pins the new contract: column 3 reflects diff-only IDs (or full body
+# only for untracked files where there is no HEAD blob to diff against).
+
+# T42 (AC-1): committed body lists many TASK-IDs + own diff line only →
+# column 3 contains TASK_ID only, not the body roster.
+@test "shared mode: index-file body has many TASK-IDs + own diff line → column 3 = own only (TUNE-0084)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "datarim/tasks.md" "# Tasks
+- TRANS-0021 · in_progress · P1 · L3 · Transcribator
+- LTM-0017 · in_progress · P2 · L2 · Long-Term Memory
+- VERD-0026 · in_progress · P1 · L3 · Verdicus
+- DEV-1212 · in_progress · P2 · L2 · Dev tooling
+- INFRA-0040 · in_progress · P1 · L3 · Infra"
+    echo "- TUNE-0084 · in_progress · P3 · L2 · diff-only classification" \
+        >> "$BATS_TEST_TMPDIR/fw/datarim/tasks.md"
+    run "$SCRIPT" --task-id TUNE-0084 --shared "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"own"* ]]
+    # Column 3 (csv of ids) MUST contain TUNE-0084.
+    [[ "$output" == *"TUNE-0084"* ]]
+    # Column 3 MUST NOT carry the foreign body-roster IDs (this is the AC-1 fix).
+    [[ "$output" != *"TRANS-0021"* ]]
+    [[ "$output" != *"LTM-0017"* ]]
+    [[ "$output" != *"VERD-0026"* ]]
+    [[ "$output" != *"DEV-1212"* ]]
+    [[ "$output" != *"INFRA-0040"* ]]
+}
+
+# T43 (AC-3): foreign-only diff line on index file with multi-ID body →
+# column 3 = foreign-only, exit 0, no "mixed" leakage.
+@test "shared mode: foreign-only diff on index file → column 3 = foreign only (TUNE-0084)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "datarim/activeContext.md" "# Active Context
+- TUNE-0084 · in_progress · P3 · L2 · self
+- VERD-0026 · in_progress · P1 · L3 · Verdicus"
+    echo "- TRANS-0021 · in_progress · P1 · L3 · foreign edit" \
+        >> "$BATS_TEST_TMPDIR/fw/datarim/activeContext.md"
+    run "$SCRIPT" --task-id TUNE-0084 --shared "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"foreign"* ]]
+    [[ "$output" == *"TRANS-0021"* ]]
+    # Column 3 must NOT contain own/body IDs that did not appear on diff lines.
+    [[ "$output" != *"TUNE-0084"* ]]
+    [[ "$output" != *"VERD-0026"* ]]
+}
+
+# T44 (AC-4): mixed diff (own + foreign on the same hunk) preserved.
+@test "shared mode: mixed diff (own + foreign on same hunk) → klass=mixed (TUNE-0084)" {
+    make_marker_repo "$BATS_TEST_TMPDIR/fw"
+    make_workflow_file "$BATS_TEST_TMPDIR/fw" "datarim/backlog.md" "# Backlog"
+    {
+        echo "- TUNE-0084 · pending · own line"
+        echo "- TRANS-0021 · pending · foreign line"
+    } >> "$BATS_TEST_TMPDIR/fw/datarim/backlog.md"
+    run "$SCRIPT" --task-id TUNE-0084 --shared "$BATS_TEST_TMPDIR/fw"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"mixed"* ]]
+    [[ "$output" == *"TUNE-0084"* ]]
+    [[ "$output" == *"TRANS-0021"* ]]
+}
+
+# T45 (AC-6): foreign-only path → no "BLOCKED" token anywhere (exit-0
+# wording invariant). Pre-fix the script printed
+# "BLOCKED: shared repo has own / mixed / unattributed hunks" while exiting 0.
+@test "shared mode: foreign-only → no BLOCKED token while exit 0 (TUNE-0084)" {
+    make_clean_repo "$BATS_TEST_TMPDIR/ws"
+    make_workflow_file "$BATS_TEST_TMPDIR/ws" "datarim/tasks.md" "# tasks"
+    modify_with_task_id "$BATS_TEST_TMPDIR/ws" "datarim/tasks.md" "TRANS-0021"
+    run "$SCRIPT" --task-id TUNE-0084 --shared "$BATS_TEST_TMPDIR/ws"
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"BLOCKED"* ]]
+}
+
+# T46 (AC-6): BLOCKED message lists only hit categories.
+@test "shared mode: BLOCKED message lists only hit categories (TUNE-0084)" {
+    make_clean_repo "$BATS_TEST_TMPDIR/ws"
+    make_workflow_file "$BATS_TEST_TMPDIR/ws" "datarim/tasks.md" "# tasks"
+    modify_with_task_id "$BATS_TEST_TMPDIR/ws" "datarim/tasks.md" "TUNE-0084"
+    run "$SCRIPT" --task-id TUNE-0084 --shared "$BATS_TEST_TMPDIR/ws"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"BLOCKED"* ]]
+    [[ "$output" == *"own"* ]]
+    # No mixed / unattributed actually occurred — wording must not lie.
+    [[ "$output" != *"mixed"* ]]
+    [[ "$output" != *"unattributed"* ]]
+}
+
+# T47 (AC-1 untracked-fallback): untracked file (no HEAD blob) keeps the
+# legacy body-scan behaviour because there is no diff to scan.
+@test "shared mode: untracked file body still scanned (TUNE-0084)" {
+    make_clean_repo "$BATS_TEST_TMPDIR/ws"
+    mkdir -p "$BATS_TEST_TMPDIR/ws/datarim"
+    cat > "$BATS_TEST_TMPDIR/ws/datarim/notes.md" <<'EOF'
+# Notes
+- TUNE-0084 · ad-hoc note
+EOF
+    run "$SCRIPT" --task-id TUNE-0084 --shared "$BATS_TEST_TMPDIR/ws"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"own"* ]]
+    [[ "$output" == *"TUNE-0084"* ]]
+}
