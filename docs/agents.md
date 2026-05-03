@@ -1,6 +1,6 @@
 # Agents Reference
 
-Datarim includes 16 specialized agents. Each agent is a persona with defined capabilities, context requirements, and skill dependencies. Each agent runs on a specific Claude model — see [Model Assignment Convention](../skills/datarim-system.md) (in skill `datarim-system.md`) for the rationale.
+Datarim includes 17 specialized agents. Each agent is a persona with defined capabilities, context requirements, and skill dependencies. Each agent runs on a specific Claude model — see [Model Assignment Convention](../skills/datarim-system.md) (in skill `datarim-system.md`) for the rationale.
 
 ## Agent Roster
 
@@ -22,6 +22,7 @@ Datarim includes 16 specialized agents. Each agent is a persona with defined cap
 | sre | Site Reliability Engineer | sonnet | /dr-design, /dr-qa, /dr-archive (Step 0.5 postmortem) |
 | writer | Content Writer | sonnet | /dr-write, /dr-archive (Step 0.5 documentation review + final docs), /dr-prd |
 | tester | Platform QA Tester | haiku | /dr-qa, /dr-do (verification) |
+| researcher | Structured External Research | sonnet | /dr-prd (Phase 1.3), /dr-do (Gap Discovery) |
 
 **Distribution:** 6 opus (critical reasoning), 9 sonnet (standard work), 1 haiku (test execution).
 
