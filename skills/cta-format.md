@@ -101,7 +101,7 @@ When an agent generates the CTA block:
 
 1. **Resolve task ID first.** Read `## Active Tasks` from `datarim/activeContext.md`. If 0 → suggest `/dr-init`. If 1 → use it. If >1 → use the task explicitly being worked on; surface the rest in "Другие активные задачи".
 2. **Choose primary by complexity rules.** Per `backlog-and-routing.md`:
-   - L1 after `/dr-do` → primary is `/dr-archive {ID}`
+   - L1 after `/dr-do` → primary is `/dr-archive {ID}` (docs/deploy/maintenance задачи: in-loop verification — curl smoke / diff check / unit-level — уже выполнена в `/dr-do`; отдельный QA-проход не добавляет evidence).
    - L2 after `/dr-do` → primary is `/dr-archive {ID}`
    - L3-4 after `/dr-plan` → primary is `/dr-design {ID}`
    - L3-4 after `/dr-do` → primary is `/dr-qa {ID}`
