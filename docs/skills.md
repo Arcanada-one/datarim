@@ -1,6 +1,6 @@
 # Skills Reference
 
-Datarim includes 22 reusable skill modules. Skills provide rules, patterns, and guidelines loaded on demand by agents and commands.
+Datarim includes 27 reusable skill modules. Skills provide rules, patterns, and guidelines loaded on demand by agents and commands.
 
 Skills are split into two categories:
 - **Reference skills** — rules and patterns the caller applies inline. Inherit caller's model (no `model` field).
@@ -29,11 +29,18 @@ Skills are split into two categories:
 | go-to-market | Task | sonnet | SEO, analytics, ad campaigns, launch checklists | on demand |
 | visual-maps | Task | sonnet | Mermaid workflow diagrams | on demand |
 | writing | Task | sonnet | Content creation and editorial workflow | writer, editor |
-| remote-measurement | Task | haiku | Efficient remote host iteration (upload-run-stream pattern) | on demand (≥50-item SSH loops) |
-| telegram-publishing | Task | haiku | Telegram Bot API publishing | on demand |
 | utilities | Task | haiku | Native shell recipes for common operations (12 fragment files) | Any agent (on demand) |
+| datarim-doctor | Task | sonnet | /dr-doctor schema and migration semantics (thin one-liner contract) | /dr-doctor, /dr-init self-heal, /dr-archive line-format gate |
+| file-sync-config | Reference | inherit | Pre-flight checklist + ignore patterns for file-sync (Syncthing/rclone) | on demand for sync setup |
+| frontend-ui | Task | sonnet | CSS specificity, dark/light themes, visual testing, mobile responsiveness | when editing HTML/CSS |
+| infra-automation | Task | sonnet | SSH batch execution, health checks, network debugging, pre-migration inventory | server ops tasks |
+| project-init | Task | sonnet | Project scaffolding (CLAUDE.md, docs/, datarim/ structure) | /dr-init when project intent detected |
+| publishing | Task | haiku | Multi-platform publishing rules, formatting, platform limits | writer, on demand |
+| release-verify | Reference | inherit | Consumer-side release verification (sha256 → cosign verify-blob → gh attestation) | on install/update from GitHub Release |
+| research-workflow | Task | sonnet | Structured external research methodology, checklist, tool selection | researcher agent in /dr-prd, /dr-do |
+| security-baseline | Reference | inherit | Canonical S1–S9 security rule reference cited from CLAUDE.md § Security Mandate | plan/qa/compliance/do touching shipped artefacts |
 
-**Distribution:** 6 reference (inherit), 3 opus, 9 sonnet, 3 haiku.
+**Distribution:** 8 reference (inherit), 3 opus, 12 sonnet, 4 haiku.
 
 ## Loading Hierarchy
 

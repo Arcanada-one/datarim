@@ -117,8 +117,12 @@ Skills are reusable knowledge modules loaded on demand. They provide rules, patt
 - `project-init.md` — Project scaffolding: creates CLAUDE.md, docs/, datarim/ structure for new projects (loaded by: /dr-init when project intent detected)
 - `research-workflow.md` — Structured research methodology, checklist, tool selection, gap discovery protocol (loaded by: researcher)
 - `publishing.md` — Multi-platform publishing rules, formatting, platform limits, workflow (loaded by: writer, on demand)
+- `datarim-doctor.md` — Schema and migration semantics for /dr-doctor (thin one-liner contract, YAML description schema) (loaded by: /dr-doctor, /dr-init self-heal, /dr-archive line-format gate)
+- `file-sync-config.md` — Pre-flight checklist + ignore patterns for file-sync (Syncthing/rclone/rsync) protecting git working trees and venv/build (loaded on demand for sync setup)
+- `frontend-ui.md` — Frontend UI checklist: CSS specificity, dark/light themes, visual testing, mobile responsiveness, i18n parity (loaded when editing HTML/CSS)
+- `infra-automation.md` — Infrastructure ops: SSH batch execution, health checks, network debugging, pre-migration inventory (loaded for server ops)
 
-Skill files: `$HOME/.claude/skills/{name}.md` (24 skills, 3 with supporting fragment directories)
+Skill files: `$HOME/.claude/skills/{name}.md` (27 skills, 3 with supporting fragment directories)
 
 > **v1.16.0 addition:** `cta-format.md` — canonical CTA "Next Step" block specification, loaded by `planner`, `architect`, `developer`, `reviewer`, `compliance` agents. Defines structure, separators, primary marker, multi-task menu (Variant B), and FAIL-Routing variant. Source: TUNE-0032.
 
