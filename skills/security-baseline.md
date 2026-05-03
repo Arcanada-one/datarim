@@ -6,7 +6,7 @@ description: Canonical S1–S9 security rule reference cited from CLAUDE.md § S
 # Security Baseline (S1–S9)
 
 > **Authority:** RFC 2119 keywords (MUST / MUST NOT / SHOULD / MAY) apply throughout this document.
-> **Origin:** corporate security audit, 2026-04-28 — full audit log: [`documentation/archive/security/findings-2026-04-28.md`](../documentation/archive/security/findings-2026-04-28.md). Research baseline: `~/arcanada/datarim/insights/INSIGHTS-security-baseline-oss-cli-2026.md`.
+> **Origin:** corporate security audit, 2026-04-28 — full audit log: `~/arcanada/documentation/archive/security/findings-2026-04-28.md` (relocated from framework repo by TUNE-0090, 2026-05-03). Research baseline: `~/arcanada/datarim/insights/INSIGHTS-security-baseline-oss-cli-2026.md`.
 > **Companion skills:** [`skills/security.md`](security.md) (operational recipes — git history scrub, Tailscale+VPN coexistence, recon-vs-compromise heuristics, cross-stack relative-path includes) and [`skills/release-verify.md`](release-verify.md) (S4 consumer-side verify entry point).
 > **CI baseline:** [`tests/security/baseline.json`](../tests/security/baseline.json) — machine-readable suppressions registry + required-jobs status.
 > **Standards mapping:** [`docs/standards-mapping.md`](../docs/standards-mapping.md) (S8 — full ASVS / SOC 2 / ISO 27001 / CIS table).
@@ -406,7 +406,7 @@ Both skills cross-link freely; neither replaces the other. CLAUDE.md § Security
 
 ## Source artefacts
 
-- Corporate audit, 2026-04-28: [`documentation/archive/security/findings-2026-04-28.md`](../documentation/archive/security/findings-2026-04-28.md)
+- Corporate audit, 2026-04-28: `~/arcanada/documentation/archive/security/findings-2026-04-28.md` (relocated from framework repo by TUNE-0090, 2026-05-03)
 - Audit baseline (machine-readable): [`tests/security/baseline.json`](../tests/security/baseline.json)
 - Research baseline: `~/arcanada/datarim/insights/INSIGHTS-security-baseline-oss-cli-2026.md` (575 LoC OSS CLI security research, 2026-04-28)
 - Recovery archive (incident → rule expansion): security incident archive at `documentation/archive/security/`

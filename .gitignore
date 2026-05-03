@@ -19,3 +19,8 @@ desktop.ini
 
 # Node (if any tooling added later)
 node_modules/
+
+# TUNE-0090: framework repo MUST NOT contain documentation/ — that is a consumer-side artefact.
+# Consumer projects write task archives to documentation/archive/ per CLAUDE.md template.
+# Framework workflow state lives in Projects/Datarim/datarim/; security/insights archives in ~/arcanada/documentation/.
+documentation/
