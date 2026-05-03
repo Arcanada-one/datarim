@@ -4,6 +4,27 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ---
 
+## 2026-05-03 — TUNE-0083 — Runtime datarim-doctor.md sync + Runtime/Canonical Identity rubric
+
+### Summary
+
+Closed symmetric site/runtime drift on `datarim-doctor` skill: runtime `code/datarim/skills/datarim-doctor.md` (= `~/.claude/skills/datarim-doctor.md` via symlink-default install) was rewritten to v1.21.3 5-pass migration + Data-Loss Safety Contract, matching the site PHP page already updated in TUNE-0082. Class A #1 from reflection added a § Runtime / Canonical Identity rubric to `skills/datarim-system.md` documenting symlink-default inode identity and removing the copy-mode "sync runtime" reflex from AI-agent operational descriptions. Class A #2 (refine `pre-archive-check.sh` "mixed" classification heuristic) deferred to backlog as TUNE-0084 (P3 · L2).
+
+### Why patch-level (no version bump this round)
+
+Pure documentation parity fix (skill text → contract reality already shipped in v1.21.0/v1.21.3). No `scripts/datarim-doctor.sh` change, no contract change. The runtime skill was simply stale.
+
+### What changed
+
+- **MOD `code/datarim/skills/datarim-doctor.md`** (+69 / -41) — 5-pass algorithm (Pass 4 = backlog-archive migration; Pass 5 = post-fix re-scan), § Data-Loss Safety Contract (4 rails), `activeContext.md` Active-Tasks-only mirror, abolished `«Последние завершённые»` rolling section, CLI surface (`--no-prompt`, `--conflict-policy`, scope `backlog-archive`, env `DATARIM_DOCTOR_BACKUP_DIR`).
+- **MOD `code/datarim/skills/datarim-system.md`** (+12) — new § Runtime / Canonical Identity rubric (above § Loading Order). Documents inode identity verification via `stat -f %i` (macOS) / `stat -c %i` (GNU); copy-mode detection via divergent inodes.
+
+### Lesson
+
+Copy-mode reflex from pre-v1.17 era persists in AI-agent operational descriptions even when the underlying install topology is symlink. Surfacing the rubric in the always-loaded `datarim-system.md` skill is the cheapest place to short-circuit the reflex.
+
+---
+
 ## 2026-05-02 — TUNE-0080 — Pre-archive version-consistency check (v1.21.2)
 
 ### Summary
