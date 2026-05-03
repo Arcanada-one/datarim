@@ -207,6 +207,30 @@ After per-file processing, Doctor logs a one-line summary: `Pass 6 {file}: parse
 *Counter-example — what Doctor MUST NOT do (Approach D, rejected by QA TUNE-0085):* add a whitelist exception that preserves archive sections by design. This would legalise non-compliant pattern, accumulate token-bloat in operational files (12-18 KB on typical installations × 10-30 reads per session = 120-540 KB lost tokens), and contradict the canonical contract `datarim-system.md § activeContext.md thin contract` («one section only», v1.19.1). Migration, not preservation, is the correct enforcement.
 <!-- /security:counter-example -->
 
+#### Known Issues (v1.21.5 — to be fixed in 1.21.6 via TUNE-0088)
+
+A distributed-user incident on a real DEV-* vault (2026-05-03) revealed four parser/dispatch bugs. **Until 1.21.6 ships, do NOT run `/dr-doctor --fix` if any of the following applies to your vault** (dry-run `/dr-doctor` without `--fix` is always safe and recommended for drift detection):
+
+1. **Compound task IDs in archive bullets** — patterns like `**DEV-1212-S8**`, `**DEV-1196-FOLLOWUP-lock-ownership-doc**`, or `**DEV-1182** soft-delete fix —` (context word between `**ID**` and `—`) — current parser regex stops at `[A-Z]+-[0-9]+\b` and reports them as `unparseable`.
+2. **Bullets with explicit `→ documentation/archive/{area}/archive-{ID}.md` pointer where `{area}` differs from the hardcoded `prefix_to_area` mapping** — Pass 6 ignores the explicit pointer and computes a fresh canonical_path via `prefix_to_area(prefix)`. If the real archive lives under a different area subdir (e.g. canonical at `general/archive-DEV-1226.md`, prefix_to_area returns `development/`), Pass 6 fails verification, falls through to synthesise, and creates a parallel stub at the wrong area — duplicating the canonical archive with diverging content.
+3. **Legacy `**ID**` bullets in `activeContext.md` that live outside any `### Recently Archived` / `### Archived` header** — Pass 6 early-returns on files without an archive header. Scanner still flags them via the legacy bold-id pattern, but `--fix` does not migrate them. Fix: either add a `### Recently Archived` header above them and re-run, or wait for 1.21.6 (Pass 6 fallback for headerless legacy).
+4. **Misclassification (downstream of #1/#2)** — `parsed=N stripped=0 synthesised=N` when canonical archives exist. Visible in the per-file summary line.
+
+**Recovery if you already ran `--fix` and hit one of these:**
+
+```
+# 1. tarball restore reverts datarim/* to pre-fix state (TUNE-0077)
+tar xzf /tmp/datarim-backup-<TS>.tgz -C $(dirname your-vault/datarim)
+
+# 2. remove duplicated synthesised stubs (untracked in git, safe)
+rm -rf documentation/archive/<wrong-area>/   # e.g. development/ if canonical was general/
+
+# 3. verify clean state
+git status   # datarim/* clean, documentation/archive/<wrong-area>/ deleted
+```
+
+Track fix at TUNE-0088. v1.21.6 release notes will include a one-shot reconciler for users who already migrated under v1.21.5.
+
 ### Pass 5 — Post-fix re-scan
 
 19. After `--fix` finishes the four mutating passes, the script composes the existing scan dispatch in dry-run mode and re-validates the tree.
