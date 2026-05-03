@@ -100,7 +100,8 @@ ONELINER_RE='^- [A-Z]{2,10}-[0-9]{4} · (in_progress|blocked|not_started|pending
 
 validate_task_id() {
     local id="$1"
-    [[ "$id" =~ ^[A-Z]{2,10}-[0-9]{4}$ ]] && return 0 || return 1
+    # TUNE-0088: accept compound IDs (e.g. DEV-1212-S8, DEV-1196-FOLLOWUP-lock-ownership-doc)
+    [[ "$id" =~ ^[A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*$ ]] && return 0 || return 1
 }
 
 # Validate that a description-file relpath stays inside ROOT.
@@ -237,6 +238,9 @@ is_archive_header() {
     [[ "$line" =~ ^##[[:space:]]+Archived[[:space:]]*$ ]] && return 0
     [[ "$line" =~ ^###[[:space:]]+Archived[[:space:]]*$ ]] && return 0
     [[ "$line" =~ ^###[[:space:]]+Recently[[:space:]]+Archived[[:space:]]*$ ]] && return 0
+    # TUNE-0088: Russian archive section names (operator drift in mixed-locale vaults)
+    [[ "$line" =~ ^##[[:space:]]+Последние[[:space:]]+завершённые[[:space:]]*$ ]] && return 0
+    [[ "$line" =~ ^###[[:space:]]+Последние[[:space:]]+завершённые[[:space:]]*$ ]] && return 0
     return 1
 }
 
@@ -653,33 +657,47 @@ migrate_active_context() {
 # Returns 0 on parse success, 1 on unparseable.
 parse_archive_bullet() {
     local line="$1"
-    local id title date status_hint body
+    local id title date status_hint body context
+    # TUNE-0088: ID may be compound — DEV-1226, DEV-1212-S8, DEV-1196-FOLLOWUP-lock-ownership-doc.
+    # Numeric component required (excludes false positives like **TODO**, **SECTION-1**).
     # S1: - **ID** — title (YYYY-MM-DD) → path
-    if [[ "$line" =~ ^-[[:space:]]+\*\*([A-Z]+-[0-9]+)\*\*[[:space:]]+—[[:space:]]+(.+)[[:space:]]+\(([0-9]{4}-[0-9]{2}-[0-9]{2})\)[[:space:]]+→[[:space:]]+ ]]; then
+    if [[ "$line" =~ ^-[[:space:]]+\*\*([A-Z]+-[0-9]+(-[A-Za-z0-9]+)*)\*\*[[:space:]]+—[[:space:]]+(.+)[[:space:]]+\(([0-9]{4}-[0-9]{2}-[0-9]{2})\)[[:space:]]+→[[:space:]]+ ]]; then
         id="${BASH_REMATCH[1]}"
-        title="${BASH_REMATCH[2]}"
-        date="${BASH_REMATCH[3]}"
+        title="${BASH_REMATCH[3]}"
+        date="${BASH_REMATCH[4]}"
         status_hint="completed"
         body="$line"
         printf '%s\t%s\t%s\t%s\t%s\n' "$id" "$title" "$date" "$status_hint" "$body"
         return 0
     fi
     # S2: - **ID** (status, YYYY-MM-DD) — title
-    if [[ "$line" =~ ^-[[:space:]]+\*\*([A-Z]+-[0-9]+)\*\*[[:space:]]+\(([a-z_]+),[[:space:]]+([0-9]{4}-[0-9]{2}-[0-9]{2})\)[[:space:]]+—[[:space:]]+(.+)$ ]]; then
+    if [[ "$line" =~ ^-[[:space:]]+\*\*([A-Z]+-[0-9]+(-[A-Za-z0-9]+)*)\*\*[[:space:]]+\(([a-z_]+),[[:space:]]+([0-9]{4}-[0-9]{2}-[0-9]{2})\)[[:space:]]+—[[:space:]]+(.+)$ ]]; then
         id="${BASH_REMATCH[1]}"
-        status_hint="${BASH_REMATCH[2]}"
-        date="${BASH_REMATCH[3]}"
-        title="${BASH_REMATCH[4]}"
-        # Strip trailing dot
+        status_hint="${BASH_REMATCH[3]}"
+        date="${BASH_REMATCH[4]}"
+        title="${BASH_REMATCH[5]}"
         title="${title%.}"
         body="$line"
         printf '%s\t%s\t%s\t%s\t%s\n' "$id" "$title" "$date" "$status_hint" "$body"
         return 0
     fi
-    # S3: - **ID** — title (no date, no link)
-    if [[ "$line" =~ ^-[[:space:]]+\*\*([A-Z]+-[0-9]+)\*\*[[:space:]]+—[[:space:]]+(.+)$ ]]; then
+    # S4 (TUNE-0088): - **ID** context-words — title  (mid-bold context phrase)
+    # More specific than S3, tested before it.
+    if [[ "$line" =~ ^-[[:space:]]+\*\*([A-Z]+-[0-9]+(-[A-Za-z0-9]+)*)\*\*[[:space:]]+([^—]+)[[:space:]]+—[[:space:]]+(.+)$ ]]; then
         id="${BASH_REMATCH[1]}"
-        title="${BASH_REMATCH[2]}"
+        context="${BASH_REMATCH[3]}"
+        context="${context%[[:space:]]}"
+        title="${BASH_REMATCH[4]} (context: ${context})"
+        date=""
+        status_hint="completed"
+        body="$line"
+        printf '%s\t%s\t%s\t%s\t%s\n' "$id" "$title" "$date" "$status_hint" "$body"
+        return 0
+    fi
+    # S3: - **ID** — title (no date, no link)
+    if [[ "$line" =~ ^-[[:space:]]+\*\*([A-Z]+-[0-9]+(-[A-Za-z0-9]+)*)\*\*[[:space:]]+—[[:space:]]+(.+)$ ]]; then
+        id="${BASH_REMATCH[1]}"
+        title="${BASH_REMATCH[3]}"
         date=""
         status_hint="completed"
         body="$line"
@@ -714,6 +732,95 @@ synthesise_archive_stub() {
     } > "$target"
 }
 
+# TUNE-0088 Bug 3: headerless fallback — operational file without ### Recently Archived header.
+# Per-line scan: parseable archive bullets handled, others passed through unchanged.
+migrate_headerless_archive() {
+    local src="$1"
+    local docs_root
+    docs_root="$(dirname "$ROOT_ABS")/documentation/archive"
+    local active_part="" preserve_bullets=""
+    local parsed=0 stripped=0 synthesised=0 skipped=0
+    local line parsed_tsv id title date status_hint body area canonical_path explicit_path found_path
+
+    while IFS= read -r line || [ -n "$line" ]; do
+        if parsed_tsv="$(parse_archive_bullet "$line")"; then
+            IFS=$'\t' read -r id title date status_hint body <<< "$parsed_tsv"
+            if ! validate_task_id "$id"; then
+                # Not a real task ID — pass through as active content
+                active_part+="$line"$'\n'
+                continue
+            fi
+            # TUNE-0088: in headerless mode, skip bullets with explicit non-terminal status —
+            # they're active, not archive (defends against rewriting `## Active Tasks` legacy block).
+            case "$status_hint" in
+                in_progress|not_started|pending|blocked|approved|review|active)
+                    active_part+="$line"$'\n'
+                    continue
+                    ;;
+            esac
+            parsed=$((parsed + 1))
+            # Explicit-pointer dispatch (same logic as migrate_operational_archive)
+            explicit_path=""
+            if [[ "$body" =~ →[[:space:]]+(documentation/archive/[A-Za-z0-9_/.-]+\.md)([[:space:]]|$) ]]; then
+                explicit_path="${BASH_REMATCH[1]}"
+            fi
+            if [ -n "$explicit_path" ]; then
+                canonical_path="$(dirname "$ROOT_ABS")/$explicit_path"
+            else
+                area="$(prefix_to_area "$id")"
+                canonical_path="$docs_root/$area/archive-$id.md"
+            fi
+            case "$canonical_path" in
+                "$docs_root"/*) ;;
+                *) warn "Pass 6 (headerless): rejected path outside archive root: $canonical_path"
+                   if [ -n "$explicit_path" ]; then
+                       area="$(prefix_to_area "$id")"
+                       canonical_path="$docs_root/$area/archive-$id.md"
+                       case "$canonical_path" in
+                           "$docs_root"/*) ;;
+                           *) preserve_bullets+="$line"$'\n'; continue ;;
+                       esac
+                   else
+                       preserve_bullets+="$line"$'\n'; continue
+                   fi
+                   ;;
+            esac
+            if [ -f "$canonical_path" ] && grep -q "$id" "$canonical_path"; then
+                stripped=$((stripped + 1))
+            else
+                # Defensive find — canonical may live under unexpected area subdir
+                found_path="$(find "$docs_root" -maxdepth 3 -type f -name "archive-${id}.md" -print -quit 2>/dev/null)"
+                if [ -n "$found_path" ] && grep -q "$id" "$found_path"; then
+                    warn "Pass 6 (headerless): archive at unexpected area: $found_path"
+                    stripped=$((stripped + 1))
+                else
+                    synthesise_archive_stub "$id" "$title" "$date" "$status_hint" "$body" "$canonical_path"
+                    synthesised=$((synthesised + 1))
+                fi
+            fi
+        else
+            active_part+="$line"$'\n'
+        fi
+    done < "$src"
+
+    # If nothing parsed, do not touch the file (idempotency)
+    if [ "$parsed" -eq 0 ]; then
+        return 0
+    fi
+
+    active_part="${active_part%$'\n'}"
+    if [ -n "$preserve_bullets" ]; then
+        preserve_bullets="${preserve_bullets%$'\n'}"
+        printf '%s\n\n<!-- TUNE-0088: headerless bullets pending manual migration -->\n%s\n' \
+            "$active_part" "$preserve_bullets" > "$src"
+    else
+        printf '%s\n' "$active_part" > "$src"
+    fi
+    log "Pass 6 ${src##*/} (headerless): parsed=$parsed stripped=$stripped synthesised=$synthesised skipped=$skipped"
+    PASS6_PARSED_TOTAL=$((${PASS6_PARSED_TOTAL:-0} + parsed))
+    PASS6_EMITTED_TOTAL=$((${PASS6_EMITTED_TOTAL:-0} + stripped + synthesised + skipped))
+}
+
 # Pass 6 entry point per file. Detects archive section, processes each bullet,
 # rewrites file with active section only (+ preserved orphan bullets if any).
 migrate_operational_archive() {
@@ -724,14 +831,19 @@ migrate_operational_archive() {
     while IFS= read -r line || [ -n "$line" ]; do
         if is_archive_header "$line"; then has_archive=1; break; fi
     done < "$src"
-    [ "$has_archive" -eq 0 ] && return 0
+    if [ "$has_archive" -eq 0 ]; then
+        # TUNE-0088 Bug 3: headerless legacy bullets — operator drift, scanner finds them but
+        # Pass 6 used to early-return. Option A: fall back to per-line scan.
+        migrate_headerless_archive "$src"
+        return $?
+    fi
 
     local docs_root
     docs_root="$(dirname "$ROOT_ABS")/documentation/archive"
     local active_part="" preserve_bullets=""
     local in_archive=0
     local parsed=0 stripped=0 synthesised=0 skipped=0
-    local line parsed_tsv id title date status_hint body area canonical_path
+    local line parsed_tsv id title date status_hint body area canonical_path explicit_path found_path
 
     while IFS= read -r line || [ -n "$line" ]; do
         if is_archive_header "$line"; then
@@ -761,13 +873,33 @@ migrate_operational_archive() {
                 preserve_bullets+="$line"$'\n'
                 continue
             }
-            area="$(prefix_to_area "$id")"
-            canonical_path="$docs_root/$area/archive-$id.md"
+            # TUNE-0088 Bug 1: prefer explicit pointer (→ documentation/archive/...) over prefix_to_area
+            explicit_path=""
+            if [[ "$body" =~ →[[:space:]]+(documentation/archive/[A-Za-z0-9_/.-]+\.md)([[:space:]]|$) ]]; then
+                explicit_path="${BASH_REMATCH[1]}"
+            fi
+            if [ -n "$explicit_path" ]; then
+                canonical_path="$(dirname "$ROOT_ABS")/$explicit_path"
+            else
+                area="$(prefix_to_area "$id")"
+                canonical_path="$docs_root/$area/archive-$id.md"
+            fi
             # Path-traversal safety: canonical_path must stay under docs_root
             case "$canonical_path" in
                 "$docs_root"/*) ;;
                 *) warn "Pass 6: rejected canonical path outside archive root: $canonical_path"
-                   preserve_bullets+="$line"$'\n'; continue ;;
+                   # Fall back to prefix_to_area when explicit pointer rejected
+                   if [ -n "$explicit_path" ]; then
+                       area="$(prefix_to_area "$id")"
+                       canonical_path="$docs_root/$area/archive-$id.md"
+                       case "$canonical_path" in
+                           "$docs_root"/*) ;;
+                           *) preserve_bullets+="$line"$'\n'; continue ;;
+                       esac
+                   else
+                       preserve_bullets+="$line"$'\n'; continue
+                   fi
+                   ;;
             esac
             if [ -f "$canonical_path" ]; then
                 if grep -q "$id" "$canonical_path"; then
@@ -784,9 +916,16 @@ migrate_operational_archive() {
                     fi
                 fi
             else
-                # Missing: synthesise stub
-                synthesise_archive_stub "$id" "$title" "$date" "$status_hint" "$body" "$canonical_path"
-                synthesised=$((synthesised + 1))
+                # TUNE-0088 Bug 4: defensive find — canonical may live under unexpected area subdir
+                found_path="$(find "$docs_root" -maxdepth 3 -type f -name "archive-${id}.md" -print -quit 2>/dev/null)"
+                if [ -n "$found_path" ] && grep -q "$id" "$found_path"; then
+                    warn "Pass 6: archive at unexpected area: $found_path (computed: $canonical_path)"
+                    stripped=$((stripped + 1))
+                else
+                    # Missing: synthesise stub
+                    synthesise_archive_stub "$id" "$title" "$date" "$status_hint" "$body" "$canonical_path"
+                    synthesised=$((synthesised + 1))
+                fi
             fi
         else
             warn "Pass 6: unparseable archive bullet in $src: $line"
