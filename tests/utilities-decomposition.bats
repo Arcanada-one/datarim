@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
   [ -d "$REPO_DIR/skills/utilities" ]
   local count
   count=$(ls "$REPO_DIR/skills/utilities/"*.md 2>/dev/null | wc -l | tr -d ' ')
-  [ "$count" -eq 13 ]
+  [ "$count" -eq 14 ]
 }
 
 @test "T4: all 12 expected fragment files exist" {

@@ -269,6 +269,22 @@ Every Datarim-managed project SHOULD run `templates/security-workflow.yml` (drop
 
 ---
 
+## Defensive Invariants
+
+When a script's textual output is contractually paired with its exit code or internal state (e.g. "BLOCKED" message ↔ exit 1, "OK" message ↔ exit 0, "applied" flag ↔ side-effect performed), insert a precondition guard immediately before emitting the wording:
+
+```bash
+if [ "$flag" -ne <expected> ]; then
+    echo "ERROR: internal invariant violated: <description>" >&2
+    exit 2
+fi
+echo "<wording bound to flag>"
+```
+
+The guard catches the class of refactor regressions where future edits decouple state from wording (e.g. a new branch sets the flag but skips the wording, or vice versa). Cost is two lines; the saving is not shipping a contradictory message that misleads operators about whether a pipeline is blocked. Apply to any state machine where wording is a named contract surface (gates, classifiers, commit gates, deploy guards). Do not apply to incidental log lines.
+
+---
+
 ## Documentation
 
 For external library and API documentation, use `context7` MCP server when available. It provides token-efficient access to up-to-date documentation. If `context7` is not available, fall back to `WebFetch` / `WebSearch`.
