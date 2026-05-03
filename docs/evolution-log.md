@@ -1006,3 +1006,55 @@ Approved Class A evolution proposals from `reflection/reflection-TUNE-0032.md`. 
 - **TUNE-0036** — `/dr-archive` Step 0.1 staged-diff audit (folded into Proposal 5 above; backlog entry kept as tracking checkpoint). L1, P3.
 
 Items 2-4 are candidates for opportunistic batch (one L1 cleanup pass).
+
+---
+
+## TUNE-0090 — Doc-surface drift sweep + framework/consumer boundary fix (v1.21.7)
+
+**Date:** 2026-05-03
+**Complexity:** L2
+**Outcome:** Three drift findings fixed; new bats regression test added; framework/consumer boundary invariant established; one in-flight scope addition (`skills/security-baseline.md` doc-refs).
+
+### Class A Applied
+
+#### Proposal 1: file-relocation pre-flight grep checklist
+
+- **File:** `skills/evolution/file-relocation-checklist.md` (NEW fragment under existing `skills/evolution/`)
+- **Class:** A (skill-update — new fragment)
+- **What:** Codifies the pre-flight `grep -rln "$OLD" code/datarim/` check before staging any `git mv` or cross-repo relocation. Ensures relocation + reference-fixup land in the same commit. Cross-repo variant + verification step included.
+- **Why:** During `/dr-do`, after relocating `code/datarim/documentation/` (Steps 8-10), `check-doc-refs.sh` flagged 3 dangling refs in `skills/security-baseline.md`. Plan hadn't enumerated the skill as a touch-point. Pre-flight grep would have caught it before commit.
+- **Stack-agnostic gate:** PASS (POSIX `grep`, no stack-specific tools).
+- **Approved:** human (Pavel), 2026-05-03.
+
+#### Proposal 2: tests/test-command-doc-coverage.bats
+
+- **File:** `code/datarim/tests/test-command-doc-coverage.bats` (already added in `/dr-do` commit `109e75b`)
+- **Class:** A (new bats regression test)
+- **What:** 4 assertions guarding the gap TUNE-0090 just fixed: every `commands/dr-*.md` is mentioned in `docs/commands.md` AND `CLAUDE.md`; no obsolete `/dr-reflect` or `/dr-security` references; `code/datarim/documentation/` does not exist.
+- **Why:** Without a continuous detector, the same drift can reopen silently (as it did for `/dr-doctor`).
+- **Stack-agnostic gate:** PASS (bats whitelisted via `skills/testing/bats-and-spec-lint.md`).
+- **Approved:** human (Pavel), 2026-05-03.
+
+### Class A Applied (project-specific — outside framework gate scope)
+
+#### Proposal 3: Projects/Datarim/CLAUDE.md § Public-surface ↔ runtime sync
+
+- **File:** `Projects/Datarim/CLAUDE.md` (project-specific config)
+- **Class:** A (claude-md-update)
+- **What:** New subsection codifying the n-way sync rule when adding a new `commands/`/`skills/`/`agents/` artifact: must propagate to (a) site `data/{kind}/<name>.php`, (b) `code/datarim/docs/{commands,skills,agents}.md` row, (c) `code/datarim/CLAUDE.md` mention, (d) `code/datarim/README.md` mention. References the new bats test as the framework-doc detector.
+- **Why:** TUNE-0090 itself was discovered because the site had `data/commands/dr-doctor.php` while framework docs lacked any mention of `/dr-doctor`. Asymmetry-as-drift needs explicit rule.
+- **Stack-agnostic gate:** N/A (file is `Projects/Datarim/CLAUDE.md`, project-specific config — gate scope excludes).
+- **Approved:** human (Pavel), 2026-05-03.
+
+### Class B (HELD — defer to PRD-TUNE-0091)
+
+- **Doc-fanout linter (general).** Auto-detect missing references on N consumer surfaces when an artifact is added in a commit. Broader than the dr-* bats test. Not auto-spawned; user to add as backlog item if desired.
+
+### Follow-Up Tasks (not auto-spawned)
+
+- **TUNE-0091** — Class B doc-fanout linter (PRD required). Awaiting user confirmation.
+- **CI bats wiring for framework repo** — `test-command-doc-coverage.bats` (and the other 10) need CI execution to prevent silent regression. Own discovery scope (which CI? trigger? runner?). Note only.
+
+### In-flight Scope Addition (folded into `/dr-do` framework commit)
+
+- **`skills/security-baseline.md` doc-refs.** 3 references to relocated `documentation/archive/security/findings-2026-04-28.md` updated to workspace path. Required to keep `check-doc-refs.sh` green after relocation. Direct consequence of Step 9 — not a scope expansion. Lesson → Class A 1 (above).
