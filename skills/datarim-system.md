@@ -134,6 +134,18 @@ Before writing any file to `datarim/`:
 2. If not, walk up the directory tree until a parent containing `datarim/` is found.
 3. If no such directory exists, stop and instruct the user to run `/dr-init`.
 
+## Runtime / Canonical Identity (symlink-default)
+
+Under the default install (v1.17.0+ symlink mode), `$HOME/.claude/{skills,agents,commands,templates}/{name}.md` and the corresponding `code/datarim/<scope>/{name}.md` in the cloned framework repo are **the same file** — same inode, same content, same writes. Verify with `stat -f %i <runtime-path> <repo-path>` (macOS) or `stat -c %i` (GNU); identical inode numbers confirm symlink-mode.
+
+Implications when editing a runtime artefact:
+
+- A single `Edit`/`Write` to either path is the entire change. No `cp` / `rsync` / "sync runtime" step exists by construction; copy-mode reflexes from pre-v1.17 do not apply.
+- `git diff` in the canonical repo immediately shows the change — that is the single source of truth for review and commit.
+- A double-write (edit runtime, then `cp` to repo) is a no-op at best and an inode-detaching footgun at worst. If `cp` reports `are identical (not copied)`, the install is symlinked and the cp was unnecessary.
+
+Copy-mode installs (`./install.sh --copy`, Windows / FAT) keep the legacy two-file topology; in that mode the curate-runtime / check-drift dance still applies. Detect copy-mode by `stat`-ing the inodes: divergent inode numbers = copy-mode = manual sync needed.
+
 ## Loading Order (v1.17.0+)
 
 Skills, agents, commands, and templates load from two layers:
