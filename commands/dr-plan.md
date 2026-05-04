@@ -160,3 +160,6 @@ After plan generation, the planner agent MUST emit a CTA block per `$HOME/.claud
 - Always include `/dr-status` as escape hatch
 
 The CTA block MUST follow the canonical format (numbered, one `**рекомендуется**`, `---` HR). Variant B menu when >1 active tasks.
+
+<!-- TUNE-0092 demo: intentional regression — stack-specific term -->
+Run `npm install` to verify deps.
