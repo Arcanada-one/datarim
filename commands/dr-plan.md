@@ -131,6 +131,7 @@ Before proceeding to `/dr-design` or `/dr-do`:
 [ ] Live audit checkpoint executed for any lockable manifest (project's package-manager-native audit at the declared CI threshold) and either gate passes or accepted-risk sign-off is recorded in plan? (AUTH-0002: a backend-framework + HTTP-server pin chosen at PRD time would have failed the project's high-severity audit gate — check at plan-time, not at do-time.)
 [ ] Rollback strategy viable? (verify commands actually work — e.g., is the target a git repo?)
 [ ] For TDD sections of the plan: each test assertion traced through *current* (pre-fix) code state before being labelled expected-pass or expected-fail? (TUNE-0004 QA NOTE-2: a plan predicting "3 of 4 drift tests pass before fix" was wrong because the predictions were not checked against the actual `diff -rq` behaviour with the bug still present.)
+[ ] Every test-count baseline claim (e.g. "X/Y tests pass") cites the branch and HEAD SHA the count was measured on? (TUNE-0092: initial plan captured `281/285 pass, 4 fail` on a feature branch and framed it as the main baseline; first action of /dr-do — `git checkout origin/main` — revealed actual baseline was `160/160` green, the 4 failures belonged to an unmerged sibling branch. ~5 minutes of remediation-tree drafting wasted. A 5-second `git rev-parse HEAD` next to the count would have caught it.)
 [ ] tasks.md updated with implementation plan?
 ```
 
