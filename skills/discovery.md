@@ -63,7 +63,7 @@ For major features, new systems, or anything with business impact.
 
 Do NOT rely on session memory or your own enumeration. The user pointed at specific files for a reason — they contain candidates, context, or constraints you may miss otherwise.
 
-Source: LTM-0001 reflection — Hindsight (a top-3 candidate) was in the user's source file (`wiki/AI/Long Term Memory/_raw_/Системы долгосрочной памяти - Сравнение.md`) but omitted from the 12-candidate list because the agent built it from memory instead of re-reading the file.
+Source: prior incident reflection — Hindsight (a top-3 candidate) was in the user's source file (`wiki/AI/Long Term Memory/_raw_/Системы долгосрочной памяти - Сравнение.md`) but omitted from the 12-candidate list because the agent built it from memory instead of re-reading the file.
 
 ---
 
@@ -74,7 +74,7 @@ If `datarim/insights/INSIGHTS-{task-id}.md` exists (created by `/dr-prd` Phase 1
 - Skip questions already answered by research (e.g., "What version of X?" if insights already captured it)
 - Surface risks or compatibility issues discovered by the researcher agent
 
-Source: TUNE-0029 — research phase produces insights before discovery interview runs.
+Source: prior incident — research phase produces insights before discovery interview runs.
 
 ---
 
@@ -92,7 +92,7 @@ ls $HOME/.claude/templates/*.md | wc -l      # templates
 git ls-files '*.service.ts' | wc -l          # services in monorepo (example)
 ```
 
-Source: TUNE-0032 — PRD § Scope said "15 commands"; actual count was 17 (`/dr-help`, `/dr-publish` were missed). In compliance Step 1 this surfaced as "unplanned addition" and forced a scope-vs-actual reconciliation in the QA report. Cost: ~5 minutes diff-explanation. Avoidance: `wc -l` before PRD draft.
+Source: prior incident — PRD § Scope said "15 commands"; actual count was 17 (`/dr-help`, `/dr-publish` were missed). In compliance Step 1 this surfaced as "unplanned addition" and forced a scope-vs-actual reconciliation in the QA report. Cost: ~5 minutes diff-explanation. Avoidance: `wc -l` before PRD draft.
 
 ## AC-Feasibility Rule (operating-model check)
 
@@ -105,7 +105,7 @@ Source: TUNE-0032 — PRD § Scope said "15 commands"; actual count was 17 (`/dr
 
 If an AC is not currently reachable due to operating-model state (e.g. symlinks vs real copies, git submodules vs flat repos, container vs host runtime), reformulate as **"X OR documented invariant satisfied by construction"** with the documented exception path.
 
-Source: TUNE-0032 PRD AC-8 required `check-drift.sh exit 0`. Under the symlink-first operating model used in arcanada workspace, `check-drift.sh` returns 1 (symlink-guard signal, not real drift). The AC was technically unreachable but semantically over-satisfied. The mismatch surfaced in QA only — should have been caught in PRD Phase 3.
+Source: prior incident PRD AC-8 required `check-drift.sh exit 0`. Under the symlink-first operating model used in arcanada workspace, `check-drift.sh` returns 1 (symlink-guard signal, not real drift). The AC was technically unreachable but semantically over-satisfied. The mismatch surfaced in QA only — should have been caught in PRD Phase 3.
 
 ---
 
@@ -140,7 +140,7 @@ Before proposing a port number or infra-level value, verify against existing all
 - **Subdomains:** check DNS records via `dig` or the project's DNS inventory before proposing new subdomain.
 - **Database names / schemas / namespaces:** check the project's existing resources before proposing a new one.
 
-Source: AGENT-0010 reflection — port 3500 conflict between SUP and MUN was discovered only during deploy, after backlog descriptions had already propagated.
+Source: prior incident reflection — port 3500 conflict between SUP and MUN was discovered only during deploy, after backlog descriptions had already propagated.
 
 ---
 

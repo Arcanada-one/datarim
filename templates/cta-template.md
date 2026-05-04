@@ -22,11 +22,11 @@ Placeholders:
 
 | Placeholder | Source | Example |
 |-------------|--------|---------|
-| `{TASK_ID}` | `datarim/activeContext.md` § Active Tasks (resolved) | `TUNE-0032` |
+| `{TASK_ID}` | `datarim/activeContext.md` § Active Tasks (resolved) | a task identifier (project-prefix `-` four-digit number) |
 | `{LEVEL}` | task complexity from `tasks.md` | `3` |
 | `{STATUS}` | task lifecycle status | `in_progress` |
-| `{COMMAND_PRIMARY}` | recommended next pipeline step | `/dr-design TUNE-0032` |
-| `{COMMAND_ALT_1}`, `{COMMAND_ALT_2}` | reasonable alternatives or escape hatches | `/dr-do TUNE-0032`, `/dr-status` |
+| `{COMMAND_PRIMARY}` | recommended next pipeline step | `/dr-design {TASK_ID}` |
+| `{COMMAND_ALT_1}`, `{COMMAND_ALT_2}` | reasonable alternatives or escape hatches | `/dr-do {TASK_ID}`, `/dr-status` |
 | `{PURPOSE_*}` | one-sentence outcome (≤80 chars) | `Auto-transition после plan для L3` |
 
 ## Multiple Active Tasks (>1 in activeContext.md)
@@ -80,6 +80,4 @@ Placeholders:
 ## Reference
 
 - **Spec:** `skills/cta-format.md` — single source of truth
-- **Source task:** TUNE-0032 (v1.16.0)
-- **Research:** `datarim/insights/INSIGHTS-TUNE-0032.md`
-- **Tests:** `tests/cta-format.bats` (39 spec-regression tests) and golden fixtures in `tests/cta-format/fixtures/`
+- **Tests:** `tests/cta-format.bats` (spec-regression suite) and golden fixtures in `tests/cta-format/fixtures/`

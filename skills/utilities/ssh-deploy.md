@@ -30,4 +30,4 @@ ssh host "echo $CMD | base64 -d | bash"
 - Multi-line scripts with embedded variable expansion
 - Server-side automation (INFRA tasks, CI deploys, agent rollouts)
 
-Source: INFRA-0008 reflection — heredoc approach broke on restic+B2 deploy scripts across arcana-www/prod/db. Base64 pattern resolved it universally.
+Source: prior incident reflection — heredoc approach broke on restic+B2 deploy scripts across arcana-www/prod/db. Base64 pattern resolved it universally.

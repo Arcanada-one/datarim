@@ -39,12 +39,13 @@ graph TD
     style L4 fill:#ef4444,stroke:#dc2626,color:white
 ```
 
-Brackets `[]` indicate stages that are conditional at that complexity level. `/dr-archive` always runs **Step 0.5 reflection** internally (non-skippable, mandatory since v1.10.0 / TUNE-0013); this is not shown as a separate pipeline node because it cannot be skipped.
+Brackets `[]` indicate stages that are conditional at that complexity level. `/dr-archive` always runs **Step 0.5 reflection** internally (non-skippable, mandatory since v1.10.0); this is not shown as a separate pipeline node because it cannot be skipped.
 
-## CTA Decision Points (TUNE-0032 / v1.16.0)
+## CTA Decision Points (v1.16.0)
 
 Every transition between stages MUST emit a canonical CTA block per `$HOME/.claude/skills/cta-format.md`. Diagram representation:
 
+<!-- gate:history-allowed -->
 ```mermaid
 graph LR
     Stage["Stage finished<br>(e.g. /dr-plan)"] --> CTA["CTA block<br>(cta-format.md)"]
@@ -55,6 +56,7 @@ graph LR
     style CTA fill:#fbbf24,stroke:#d97706,color:#1f2937
     style NextStage fill:#10b981,stroke:#059669,color:white
 ```
+<!-- /gate:history-allowed -->
 
 The CTA block always includes:
 1. Resolved task ID
@@ -80,4 +82,4 @@ graph LR
     style Esc fill:#7c2d12,stroke:#451a03,color:white
 ```
 
-Source: TUNE-0032 — unified CTA spec, v1.16.0.
+Source: prior incident — unified CTA spec, v1.16.0.

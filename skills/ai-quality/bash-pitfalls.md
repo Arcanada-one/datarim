@@ -5,7 +5,7 @@ description: Recurring bash/shell traps that pass review and break in prod. Load
 
 # Bash Pitfalls — Quick Reference
 
-Source incidents: DEV-1174 Phase 8 Step 1 (BUG #1, BUG #2 — both High, both regex/grep traps caught only by post-implementation QA, both 1-line fixable); DEV-1174 Phase 8 Step 2 Round 1 (cutover smoke shape — Trap 6).
+Source incidents: a prior incident Phase 8 Step 1 (BUG #1, BUG #2 — both High, both regex/grep traps caught only by post-implementation QA, both 1-line fixable); a prior phase Round 1 (cutover smoke shape — Trap 6).
 
 ## The Six Traps
 
@@ -109,7 +109,7 @@ For any cutover / migration / config-flip smoke gate, capture the full tuple `(h
 - 302 → 200 with empty body (route fell through);
 - 200 → 200 with `Content-Length` changed by 90% (page rendered, content broken).
 
-Stack-neutral; works for any HTTP backend. Tuple comparison is the cheapest way to harden auto-rollback triggers against false-PASS — in DEV-1174 Phase 8 Step 2 the pre/post tuple diff caught Round 1's 301 → 500 within a second of `systemctl reload`.
+Stack-neutral; works for any HTTP backend. Tuple comparison is the cheapest way to harden auto-rollback triggers against false-PASS — in a prior phase Step 2 the pre/post tuple diff caught Round 1's 301 → 500 within a second of `systemctl reload`.
 
 ## Mandatory Workflow Rule for /dr-do
 
@@ -150,7 +150,7 @@ echo "rc=$?"   # now reflects build.sh exit (or tail's if tail fails)
 
 ### Why this matters in practice
 
-TUNE-0039 Step 16 verification: `bash scripts/stack-agnostic-gate.sh ~/.claude/{skills,...}/ 2>&1 | tail` reported «PASS clean», but the actual gate script exited 133 (SIGTRAP, kernel-killed) silently. The `tail -1` returned exit 0, so `$?` was 0. I observed «PASS clean» as the last printed line and concluded success. Real state: 11 leaky files in runtime, gate dying mid-scan. Latent bug for ~24 hours; surfaced in TUNE-0040 only when I ran the gate without the tail-pipe wrapper.
+a prior phase verification: `bash scripts/stack-agnostic-gate.sh ~/.claude/{skills,...}/ 2>&1 | tail` reported «PASS clean», but the actual gate script exited 133 (SIGTRAP, kernel-killed) silently. The `tail -1` returned exit 0, so `$?` was 0. I observed «PASS clean» as the last printed line and concluded success. Real state: 11 leaky files in runtime, gate dying mid-scan. Latent bug for ~24 hours; surfaced only when the gate was run without the tail-pipe wrapper.
 
 **Rule:** any verification step that asserts on exit code MUST capture the source command's exit BEFORE piping. The pipe is a formatter, not a result-bearer. Reinforce especially during /dr-do verification and /dr-qa Layer 4.
 
@@ -188,14 +188,14 @@ python3 -c 'import sys; data = sys.stdin.read()' <<<"$payload"
 
 ### Why this matters in practice
 
-TRANS-0017 — initial `post-deploy-verify.sh` evaluator used the heredoc-with-stdin shadow pattern. Tests appeared to pass because the script processed the heredoc body (a leftover `data = sys.stdin.read()` line plus the JSON parsing template) — not the captured PROD snapshot. Caught only when fixture content was actually inspected against parser output.
+prior incident — initial `post-deploy-verify.sh` evaluator used the heredoc-with-stdin shadow pattern. Tests appeared to pass because the script processed the heredoc body (a leftover `data = sys.stdin.read()` line plus the JSON parsing template) — not the captured PROD snapshot. Caught only when fixture content was actually inspected against parser output.
 
 **Rule:** any inline interpreter that needs caller-supplied data should receive it through an environment variable or a here-string, not through a heredoc-and-pipe combination. The heredoc body is the script source — it cannot also be the input stream.
 
 ## Why this fragment exists
 
-DEV-1174 Phase 8 Step 1 shipped two High-severity bugs to QA, both of which are textbook regex/grep traps and both of which would have been caught by either (a) a 5-second mental "what does the regex engine see?" check, or (b) shellcheck with extended pattern checks. The fix in both cases was to abandon the regex and use `awk` token-equality. This fragment encodes the lesson so future ops-script work doesn't repeat it.
+a prior phase shipped two High-severity bugs to QA, both of which are textbook regex/grep traps and both of which would have been caught by either (a) a 5-second mental "what does the regex engine see?" check, or (b) shellcheck with extended pattern checks. The fix in both cases was to abandon the regex and use `awk` token-equality. This fragment encodes the lesson so future ops-script work doesn't repeat it.
 
-The pipe-blindness pitfall above was added in TUNE-0040 reflection after the same operator (me) violated the existing «check exit code carefully» rule during TUNE-0039 final validation — concrete example with task IDs is more memorable than abstract warning.
+The pipe-blindness pitfall above was added in prior reflection after the same operator (me) violated the existing «check exit code carefully» rule during a prior incident final validation — concrete example with task IDs is more memorable than abstract warning.
 
-The heredoc-IS-stdin pitfall was added in TRANS-0017 reflection after the same shadow caused tests to pass on incorrect data flow in `post-deploy-verify.sh`. Concrete recovery recipe (env-var pass-through) included so future inline-interpreter work doesn't repeat it.
+The heredoc-IS-stdin pitfall was added in prior reflection after the same shadow caused tests to pass on incorrect data flow in `post-deploy-verify.sh`. Concrete recovery recipe (env-var pass-through) included so future inline-interpreter work doesn't repeat it.

@@ -1,0 +1,45 @@
+name: sanity-dual-copy
+
+# Guard against dual-copy drift between `code/` and `code/datarim/` mirrored
+# scopes (skills, agents, commands, templates, tests). The repo is currently
+# single-copy at root; the workflow stays as a forward-compatible safety net
+# in case the layout ever splits again.
+#
+# Source: TUNE-0045 P2.3, creative § 5.1.
+
+on:
+  pull_request:
+  push:
+    branches: [main, "tune-*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sanity-dual-copy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  diff:
+    name: diff-mirrored-scopes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+      - name: Diff mirrored scopes
+        run: |
+          set -euo pipefail
+          fail=0
+          for scope in skills agents commands templates tests; do
+            if [[ -d "code/$scope" && -d "code/datarim/$scope" ]]; then
+              if ! diff -rq "code/$scope" "code/datarim/$scope"; then
+                echo "::error::dual-copy drift in scope: $scope"
+                fail=1
+              fi
+            fi
+          done
+          if [ "$fail" -ne 0 ]; then
+            exit 1
+          fi
+          echo "sanity-dual-copy: clean (or single-copy layout)"

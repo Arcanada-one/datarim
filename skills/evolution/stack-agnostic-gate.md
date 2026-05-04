@@ -13,8 +13,7 @@ misleading guidance.
 
 This gate runs **before any Class A apply step** writes to the framework
 runtime. It is the executable enforcement of `feedback_datarim_stack_agnostic.md`
-(user-memory rule, declared 2026-04-25 after VERD-0010, hardened by VERD-0021
-and TUNE-0039).
+(user-memory rule declared after incidents found stack-specific terms leaking into framework runtime).
 
 ## Trigger
 
@@ -63,22 +62,21 @@ False-positive recovery uses the escape hatch below.
 - **`skills/evolution/stack-agnostic-gate.md`** (this file) — the gate's
   own contract document MUST enumerate the denylist verbatim, so it cannot
   be subject to the rule it defines.
-- **`skills/ai-quality/deployment-patterns.md`** (TUNE-0040) — by-design
+- **`skills/ai-quality/deployment-patterns.md`** — by-design
   reference for deployment incidents across the ecosystem stack. Section
   headers like `## NestJS @Global() in Multi-Bootstrap Monorepos`
   document patterns that ARE stack-specific by nature (multi-bootstrap
   monorepo DI semantics ≠ universal). Generalization would gut
   applicability; wrapping ~20 individual blocks would erode escape-hatch
   intent. Whitelisted parallel to `tech-stack.md` precedent.
-- **`skills/testing/live-smoke-gates.md`** (TUNE-0043) — DEV-1156
-  (multi-datasource ORM client mismatch) + DEV-1169 (cross-container
-  HTTP→shell→DB chain) incident postmortems. Failure semantics are
-  intrinsically stack-specific (DI container resolution, container
-  exec-bit/TLS defaults, version-specific auth plugins). Generalization
-  would erase the diagnostic value — a reader needs the concrete framework
-  name to recognize the same trap in their own code. Parallel to
-  `deployment-patterns.md` precedent.
-- **`skills/utilities/ga4-admin.md`** (TUNE-0043) — Python-specific
+- **`skills/testing/live-smoke-gates.md`** — incident postmortems for
+  multi-datasource ORM client mismatch and cross-container
+  HTTP→shell→DB chain failures. Failure semantics are intrinsically
+  stack-specific (DI container resolution, container exec-bit/TLS defaults,
+  version-specific auth plugins). Generalization would erase diagnostic
+  value — a reader needs the concrete framework name to recognize the same
+  trap in their own code. Parallel to `deployment-patterns.md` precedent.
+- **`skills/utilities/ga4-admin.md`** — Python-specific
   Google Analytics 4 Admin API recipe (uses `google-auth-oauthlib` +
   `requests` libs). The skill IS a Python recipe; replacing concrete
   `pip install` with abstract «package install» renders the recipe
@@ -133,7 +131,7 @@ Wrong (same line — opening matches, closing is never seen, scan halts):
 <!-- gate:example-only -->examples here<!-- /gate:example-only -->
 ```
 
-Source: TUNE-0043 — initial wrap attempts on inline mentions used the
+Source: prior incident — initial wrap attempts on inline mentions used the
 same-line form; gate kept FAILing despite the wrap looking correct in
 the diff. Diagnosed only after re-reading the awk strip logic.
 
@@ -168,13 +166,13 @@ reachable from the current working directory):
 
 ## Why This Exists
 
-User memory `feedback_datarim_stack_agnostic.md` declared the rule on
-2026-04-25 after VERD-0010. VERD-0021 reflection (2026-04-26) found three
-Class A proposals that passed reviewer judgment and leaked stack-specific
-content into runtime — `security.md` `fetch` migration, multi-PM dependency
-list, `ai-quality.md` Live Audit recipes — all reverted manually. Memory is
-necessary but insufficient: the executable gate at the apply step turns the
-rule from advisory into enforceable.
+User memory `feedback_datarim_stack_agnostic.md` declared the rule after
+early incidents. A subsequent reflection round found three Class A proposals
+that passed reviewer judgment and leaked stack-specific content into runtime
+— `security.md` `fetch` migration, multi-PM dependency list, `ai-quality.md`
+Live Audit recipes — all reverted manually. Memory is necessary but
+insufficient: the executable gate at the apply step turns the rule from
+advisory into enforceable.
 
 ## Out of Scope
 

@@ -4,9 +4,504 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ---
 
-| Date | Task ID | Category | Target | Change | Rationale |
-|------|---------|----------|--------|--------|-----------|
-| 2026-05-04 | INFRA-0015 | skill-update | `skills/research-workflow.md` | Added § «Pre-Flight Artifact Discovery» — Step 0 of `/dr-do` for any task referencing named artifacts (file paths, deployed services, infra resources, schemas). Procedure: enumerate → verify live → 3 outcomes (Match / Already done / Drift) → pivot via `INSIGHTS-{TASK-ID}.md` § Gap Discoveries when needed; cross-approach pivots re-read PRD § Solution Exploration. When-to-skip: plan <24h old + no parallel sessions + no prior shipped tasks in the area. | INFRA-0015 Phase 1: plan called for sidecar migration; pre-flight discovered AUTH-0011 already shipped SDK-direct VaultService (1290 LoC). Phase 1 effort dropped from 1-2d to ~2h by following plan's already-rejected alternative with documented rationale. Stack-agnostic gate PASS, bats 160/160 PASS. |
+## 2026-05-04 — INFRA-0015 — research-workflow.md § Pre-Flight Artifact Discovery (Class A)
+
+### Class A Applied
+
+- **`skills/research-workflow.md` § Pre-Flight Artifact Discovery (NEW)** — Step 0 of `/dr-do` for any task referencing named artifacts (file paths, deployed services, infra resources, schemas). Procedure: enumerate → verify live → 3 outcomes (Match / Already done / Drift) → pivot via `INSIGHTS-{TASK-ID}.md` § Gap Discoveries when needed; cross-approach pivots re-read PRD § Solution Exploration. When-to-skip: plan <24h old + no parallel sessions + no prior shipped tasks in the area.
+
+### Why
+
+Plan called for sidecar migration; pre-flight discovered an already-shipped SDK-direct service (~1290 LoC). Phase 1 effort dropped from 1-2d to ~2h by following plan's already-rejected alternative with documented rationale. Stack-agnostic gate PASS, bats 160/160 PASS.
+
+---
+
+## 2026-05-03 — TUNE-0084 — pre-archive-check.sh classify by uncommitted diff + 3× Class A applies
+
+### Summary
+
+Refactored `pre-archive-check.sh` shared-mode classification: column 3 (`task-ids-csv`) now sources from `+/-` diff lines only (not `cat $file` body), so index files (`tasks.md`, `activeContext.md`, `backlog.md`) stop reporting their entire active-task roster as if introduced by the current edit. BLOCKED message rewritten to list only categories actually observed during iteration (was: consolidated `own / mixed / unattributed` lie). Defensive guard `[ "$block" -ne 1 ] → exit 2` codifies the wording↔exit-code invariant.
+
+### What changed
+
+- **MOD `code/datarim/scripts/pre-archive-check.sh`** (+69 / −24) — diff-only `found_ids` sourcing with untracked-file body fallback; separate `body_ids` signal for mine-by-elimination branch (TUNE-0060 contract preserved); `hit_own` / `hit_mixed` / `hit_unattributed` flags + hit-categorical BLOCKED message; precondition guard before BLOCKED block.
+- **MOD `code/datarim/tests/pre-archive-check.bats`** (+111) — 6 regression fixtures (T42-T47): column-3 cleanliness on index files (T42), foreign-only column-3 (T43), mixed preserved (T44), exit-0 wording invariant (T45), BLOCKED hit-categorical wording (T46), untracked-file body fallback (T47). Full suite 47/47 green; shellcheck `-S warning` clean.
+
+### Class A evolution (3 proposals, all applied this turn)
+
+1. **NEW `code/datarim/skills/utilities/git-diff-parsing.md`** + **MOD `skills/utilities.md`** — canonical filter chain (`grep -E '^[+-]' | grep -vE '^(\+\+\+|---)'`) for parsing `git diff` output; covers markdown-bullet edge case, untracked-file fallback, hunk-context noise. Pattern surfaced 3 times in framework history (TUNE-0060 / 0068 / 0084) before being formalised.
+2. **MOD `code/datarim/CLAUDE.md`** — new § Defensive Invariants section after § Security Mandate. Documents precondition-guard pattern for state↔wording invariants in shell scripts (e.g. `BLOCKED ↔ exit 1`). Founding incident: TUNE-0084 pre-fix BLOCKED + exit 0 simultaneously misled operators.
+3. **MOD `code/datarim/skills/ai-quality.md`** — added separate-signals sub-rule under § DECOMPOSITION. When one variable answers two semantically distinct questions (e.g. display roster + body presence proxy), refactoring one role silently breaks the other. Founding incident: TUNE-0084 regression T26 — `found_ids` carried two roles, narrowing it to one broke mine-by-elimination.
+
+### Bats verification after Class A apply
+
+- **MOD `code/datarim/tests/utilities-decomposition.bats`** — T3 fragment count `13 → 14` to track the new `git-diff-parsing.md` fragment. (Same pattern as the prior `keyword-linter.md` incident referenced in `reflecting.md`.) Suite green for utilities-decomposition + pre-archive-check; remaining 2 failures (T26 check-drift INSTALL_SCOPES, T156 datarim-doctor.md description >155 chars) are pre-existing and unrelated to TUNE-0084.
+
+### Lesson
+
+Two-source diff-text composition (body ∪ raw diff) is one source too many. Body carries committed roster; raw diff carries hunk-context (which IS body adjacent to a hunk). Both pollute display while only the +/- lines are the actual edit. Single canonical source = `^[+-]` filtered diff. Untracked files (no HEAD blob) are the only legitimate body-fallback path.
+
+---
+
+## 2026-05-03 — TUNE-0083 — Runtime datarim-doctor.md sync + Runtime/Canonical Identity rubric
+
+### Summary
+
+Closed symmetric site/runtime drift on `datarim-doctor` skill: runtime `code/datarim/skills/datarim-doctor.md` (= `~/.claude/skills/datarim-doctor.md` via symlink-default install) was rewritten to v1.21.3 5-pass migration + Data-Loss Safety Contract, matching the site PHP page already updated in TUNE-0082. Class A #1 from reflection added a § Runtime / Canonical Identity rubric to `skills/datarim-system.md` documenting symlink-default inode identity and removing the copy-mode "sync runtime" reflex from AI-agent operational descriptions. Class A #2 (refine `pre-archive-check.sh` "mixed" classification heuristic) deferred to backlog as TUNE-0084 (P3 · L2).
+
+### Why patch-level (no version bump this round)
+
+Pure documentation parity fix (skill text → contract reality already shipped in v1.21.0/v1.21.3). No `scripts/datarim-doctor.sh` change, no contract change. The runtime skill was simply stale.
+
+### What changed
+
+- **MOD `code/datarim/skills/datarim-doctor.md`** (+69 / -41) — 5-pass algorithm (Pass 4 = backlog-archive migration; Pass 5 = post-fix re-scan), § Data-Loss Safety Contract (4 rails), `activeContext.md` Active-Tasks-only mirror, abolished `«Последние завершённые»` rolling section, CLI surface (`--no-prompt`, `--conflict-policy`, scope `backlog-archive`, env `DATARIM_DOCTOR_BACKUP_DIR`).
+- **MOD `code/datarim/skills/datarim-system.md`** (+12) — new § Runtime / Canonical Identity rubric (above § Loading Order). Documents inode identity verification via `stat -f %i` (macOS) / `stat -c %i` (GNU); copy-mode detection via divergent inodes.
+
+### Lesson
+
+Copy-mode reflex from pre-v1.17 era persists in AI-agent operational descriptions even when the underlying install topology is symlink. Surfacing the rubric in the always-loaded `datarim-system.md` skill is the cheapest place to short-circuit the reflex.
+
+---
+
+## 2026-05-02 — TUNE-0080 — Pre-archive version-consistency check (v1.21.2)
+
+### Summary
+
+Class A — internal tooling. Implements the Class A A-1 proposal from TUNE-0079 reflection. New `scripts/version-consistency-check.sh` gate runs as `commands/dr-archive.md` Step 0.2 between clean-git check and reflect. When `VERSION` changed in HEAD->working-tree, the script greps `CLAUDE.md` and `README.md` for the old version string and blocks archive (exit 1) if any consumer is still stale. `--allow-version-lag` override available.
+
+### Why patch (not minor)
+
+Closes recurring drift class identified across multiple prior archives (CLAUDE.md was at 1.20.0 and README.md at 1.19.1 while VERSION was 1.21.0 — caught manually during TUNE-0079 archive). Pure tooling addition, no contract change. Bash 3.2 portable, shellcheck clean, 10 bats cases green.
+
+### What changed
+
+- **NEW `scripts/version-consistency-check.sh`** (~110 LOC). Reads `git show HEAD:VERSION` vs working `VERSION`. If changed, `grep -Frln "$old"` against `CLAUDE.md` + `README.md`. Initial-commit and `VERSION`-unchanged → exit 0 fast paths.
+- **NEW `tests/version-consistency-check.bats`** — 10 cases: T1 unchanged / T2 clean bump / T3 lagging CLAUDE.md / T4 lagging README.md / T5 docs/ excluded by design / T6 `--allow-version-lag` override / T7 not-a-git-repo / T8 initial bootstrap / T9 whitespace tolerance / T10 no args.
+- **MOD `commands/dr-archive.md`** — Step 0.2 documents the gate, scope rationale, override flag.
+- **MOD `code/datarim/{VERSION, CLAUDE.md, README.md}`** — patch bump 1.21.1 → 1.21.2.
+
+### Scope decision: `docs/` EXCLUDED
+
+Initial design included `docs/` recursive in the scan scope. First live-smoke run on the framework repo (immediately after first bats green-bar) tripped on `docs/evolution-log.md` referencing v1.21.1 — the prior release entry. By design: evolution-log / release-notes / changelog are append-only historical ledgers that reference past versions, not current-state surfaces.
+
+Including `docs/` would fire on every subsequent archive (every prior release entry would match the bumped-from string). Narrowed scope to `CLAUDE.md` (Version line) + `README.md` (badge) — exactly the recurring drift class from TUNE-0079 reflection.
+
+### Lesson — dogfooding > synthetic fixtures
+
+TDD red→green discipline caught the implementation but not the scope error. All 10 synthetic bats cases passed with `docs/` in scope (synthetic repos started clean, so the rule «docs cite old → fail» seemed correct in isolation). The live repo encodes years of release history that fixtures cannot reproduce.
+
+**New rule:** when a gate is built against a recurring incident class, smoke-test on the live repo before declaring done. Synthetic fixtures verify mechanics; live state validates scope.
+
+---
+
+## 2026-04-30 — TUNE-0079 — History-agnostic cleanup complete + CI strict mode (v1.21.1)
+
+### Summary
+
+Class A — internal tooling. Follow-up to TUNE-0078. Cleaned all pre-existing task-ID references from runtime scopes (`skills/`, `commands/`) per the heuristic in TUNE-0078 plan § 4.3: pure provenance parentheticals deleted, load-bearing rationale anonymized, counter-example incidents kept with neutral phrasing. Final tally: 64 hits in `commands/` (9 files) + ~316 hits in `skills/` (38 files) eliminated across 4 sessions of per-file `Edit` (bulk regex confirmed unsafe — fence-aware editing required). CI `task-id-gate` job switched from `--diff-only` transitional mode to strict full-tree. Bats suite extended T11–T14: regression invariant — each runtime scope stays gate-clean. VERSION → 1.21.1.
+
+### What changed
+
+- **MOD `skills/`** — 27 files, ~316 hits cleaned. All gate-clean.
+- **MOD `commands/`** — 9 files, 64 hits cleaned (sessions 1–2). All gate-clean.
+- **MOD 2× `tests/*.bats`** — 2 tests that asserted task-ID presence updated to history-agnostic assertions (version tag + contract clause).
+- **MOD `tests/task-id-gate.bats`** — added T11–T14 regression invariants. 14/14 green.
+- **MOD `.github/workflows/security.yml`** — `task-id-gate` job: full-tree mode. Removed `fetch-depth: 50`. Removed transitional comment.
+- **MOD `code/datarim/{CLAUDE.md,VERSION,README.md}`** — version 1.21.1.
+
+### Why patch (not minor)
+
+Pure cleanup, no contract change. Gate behavior identical for new code; only the transitional `--diff-only` shim removed.
+
+### Lesson
+
+Bulk regex (Python `re.sub` over markdown) is NOT fence-aware. Session 3 attempted bulk patterns to accelerate cleanup; one match landed inside a code-fence Examples block and corrupted teaching content. Reverted manually. Per-file `Edit` with explicit fence inspection was the only safe path. ~30 sessions of per-file work amortized over the framework's lifetime; bulk-tool acceleration is forbidden for `skills/`/`commands/`/`agents/`/`templates/` markdown going forward — write a fence-aware AST walker first if acceleration is needed.
+
+---
+
+## 2026-04-30 — TUNE-0078 — Rules history-agnostic gate (v1.21.0)
+
+### Summary
+
+Class A — internal tooling. New `scripts/task-id-gate.sh` mirrors the stack-agnostic-gate sibling but enforces a single regex `\b[A-Z]{2,10}-[0-9]{4}\b` over runtime markdown (skills/agents/commands/templates). New contract document `skills/evolution/history-agnostic-gate.md`. New bats suite `tests/task-id-gate.bats` (10 cases including `--diff-only` parity). Critical Rules in `code/datarim/CLAUDE.md` extended with rule 8 («Rules are stack- AND history-agnostic»). CI integration as 14th job in `.github/workflows/security.yml`, running in `--diff-only` mode against `merge-base HEAD origin/main` so only fresh leakage in the change-set fails CI — pre-existing baseline references (~339 hits in 57 files) tracked as follow-up cleanup pass TUNE-0079. VERSION → 1.21.0.
+
+### Source rationale
+
+Datarim runtime rules are read by AI agents that have no access to the historical context behind each task-ID reference. A rule that says «Per TUNE-0033 …» forces the agent to either treat the citation as opaque noise or attempt to locate the cited task in archive — wasted tokens for a reference the rule itself does not depend on. Worse, embedded task-IDs leak into AI outputs addressed to end users. The sibling stack-agnostic-gate established the enforcement pattern (detection → escape-hatch → CI integration); the history-agnostic case is structurally identical.
+
+### What changed
+
+- **NEW `scripts/task-id-gate.sh`** — bash 3.2 portable, single-regex denylist, `--whitelist` and `--diff-only` flags, exit codes 0/1/2 per contract. Self-exemption for the gate's own contract document.
+- **NEW `skills/evolution/history-agnostic-gate.md`** — runtime contract document (Trigger, Scope, Denylist, Whitelist, Escape Hatch, markers-must-be-on-separate-lines pitfall, Invocation, Exit codes, Why this exists, Out of scope).
+- **NEW `tests/task-id-gate.bats`** + `tests/fixtures/task-id-gate/` (5 fixtures) — 10 test cases, all green locally.
+- **MOD `.github/workflows/security.yml`** — 14th job `task-id-gate`. Hard-fail on any new leakage in changed files; bats suite runs in same job. `fetch-depth: 50` for diff-base resolution.
+- **MOD `code/datarim/CLAUDE.md`** — Critical Rules § rule 8.
+- **MOD `code/datarim/VERSION`** — 1.20.0 → 1.21.0.
+- **Cleanup pass partial:** `agents/developer.md` (2 hits) and `templates/` (21 hits across 9 files) cleaned — load-bearing rationale rephrased to neutral lessons; legitimate template placeholder (e.g. `INFRA-0099` in `backlog-template.md`) wrapped in `<!-- gate:history-allowed -->` escape fence. `skills/` (252 hits across 38 files) and `commands/` (64 hits across 9 files) deferred to TUNE-0079.
+
+### Migration
+
+Symlink-mode users: gate + skill + bats auto-available via the `scripts/` and `tests/` install scopes. Copy-mode users: `./update.sh` pulls the new files. No operator action required for the runtime — CI gate is the enforcement point.
+
+### Why `--diff-only` instead of strict mode at v1.21.0
+
+The full cleanup pass (~339 hits, ~57 files) is mechanically tractable but requires per-line judgement (delete pure provenance vs. rephrase load-bearing rationale vs. migrate counter-example incident to evolution-log topic heading). Shipping the gate with `--diff-only` lets the enforcement land immediately while the cleanup proceeds incrementally — the sibling stack-agnostic-gate handled identical baseline carry-forward via the same flag. Switch to full-tree mode after TUNE-0079 lands.
+
+### Follow-up
+
+- **TUNE-0079** (P2, L2, pending) — Complete the cleanup pass over `skills/` and `commands/` per the cleanup heuristic in `datarim/plans/TUNE-0078-plan.md` § 4.3. Switch CI gate to full-tree mode at the same time. Estimated ~3-4h focused work.
+
+---
+
+## 2026-04-30 — TUNE-0077 — Datarim Doctor data-loss safety gate + scripts/tests install scopes (v1.20.0)
+
+### Summary
+
+Class A — internal tooling. `scripts/datarim-doctor.sh` gains a defence-in-depth safety contract for `--fix` mode: pre-write tarball backup (mode 0600), post-write `emitted_count >= parsed_count` invariant with auto-restore on violation, backup path surfaced in success summary. `install.sh` `INSTALL_SCOPES` extended with `scripts` and `tests` — both directories now whole-dir-symlinked into `~/.claude/` under default symlink mode (uniform with existing `agents`/`skills`/`commands`/`templates` pattern). Eliminates drift between canonical Datarim repo and `~/.claude/` runtime: `~/.claude/scripts/datarim-doctor.sh` is the canonical file by inode — divergence impossible. VERSION → 1.20.0.
+
+### Source incident
+
+External Datarim copy on `aether/local-env` (2026-04-30 16:31 UTC): a 730-LoC rogue `datarim-doctor.sh` v2 (developed in another project's worktree, never merged to canonical Arcanada Datarim repo) was placed directly into `~/.claude/scripts/datarim-doctor.sh`. Its `--fix` invocation destroyed 30 task entries from `tasks.md`/`backlog.md` indexes, collided 5 followup-ID description files, and reported «All fixes applied successfully». Recovery from external `/tmp/datarim-backup-*.tgz` tarball.
+
+Two structural defects enabled the incident:
+
+1. **Drift-by-design.** `~/.claude/scripts/` was outside `INSTALL_SCOPES`. Canonical script (368 LoC) and runtime copy (730 LoC) had no install-time link — drift undetectable until live `--fix`.
+2. **No data-loss gate.** Doctor `--fix` had no pre-write backup, no post-write invariant. A faulty Pass 2 silently replaced indexes with empty content.
+
+### What changed
+
+- **MOD `scripts/datarim-doctor.sh`:**
+  - NEW pre-fix tarball backup at `${DATARIM_DOCTOR_BACKUP_DIR:-/tmp}/datarim-backup-{TS}.tgz`, mode 0600 via `umask 077`.
+  - NEW `PARSED_COUNT` capture (pre-fix `### TASK-ID:` block count across `tasks.md`+`backlog.md`).
+  - NEW post-fix `EMITTED_COUNT` re-scan + invariant `emitted >= parsed` — violation triggers `restore_backup_and_die()` (rm-rf + tar -xzf, exit 2).
+  - Success summary logs `Backup: $BACKUP_TARBALL` and counters.
+- **MOD `install.sh`:**
+  - `INSTALL_SCOPES` extended `(agents skills commands templates)` → `(agents skills commands templates scripts tests)`.
+  - `LOCAL_SCOPES` unchanged (scripts/tests are framework-internal, not user-extensible — local overlay applies only to user-facing scopes).
+  - Existing `link_scope_tree` handles new scopes uniformly — no special-case code path needed.
+  - Header comment updated: scripts/tests are «installed scopes» as of v1.20.0.
+- **MOD `tests/datarim-doctor.bats`:** +6 regression tests T16–T21 covering backup creation, mode 0600, post-fix invariant on synthetic 3-block fixture, printf hardening (no `printf "$` patterns), body-with-leading-dash safety, summary-prints-backup-path.
+- **MOD `VERSION`:** `1.19.1` → `1.20.0` (minor — additive install scope).
+- **MOD `CLAUDE.md`:** version banner bump.
+
+### Key design decisions
+
+1. **Defence in depth (3 layers).** Pre-write tarball + post-write invariant + auto-restore. No single bug can cause data loss; even a faulty Pass 2 emit gets caught.
+2. **Whole-directory symlink (uniform with skills/agents/commands/templates).** Initial implementation tried file-level `RUNTIME_SCRIPTS` allow-list — rejected at QA review as deviation from established pattern. With dir-symlink, `~/.claude/scripts/` and `~/.claude/tests/` ARE the canonical directories by inode — drift impossible by construction. Bonus: `lib/canonicalise.sh` and bats fixtures resolve naturally via standard SCRIPT_DIR / BATS_TEST_DIRNAME — no symlink-following helpers needed.
+3. **Quarantine over edit.** Rogue `~/.claude/scripts/datarim-doctor.sh` (730 LoC) was deleted, not patched. Backup at `/tmp/rogue-doctor-v2-backup.sh` for forensics. Canonical 368 LoC stays the single source of truth — porting v2 features back is a separate decision deferred to TUNE-0072+ backlog.
+4. **`scripts/tests` not in LOCAL_SCOPES.** User overlay (`~/.claude/local/`) makes sense for skills/agents/commands/templates (user-extensible). Scripts and tests are framework-internal — adding `local/scripts/` would only add an attack surface for shadowing critical safety logic with unreviewed user code.
+
+### Validation
+
+- `bats tests/datarim-doctor.bats` — 21/21 pass (15 pre-existing + 6 new).
+- `shellcheck -S warning scripts/datarim-doctor.sh install.sh` — clean.
+- Live smoke: `~/.claude/scripts/datarim-doctor.sh --root=/Users/ug/arcanada/datarim` → exit 0 «OK: datarim/ structure compliant».
+- `readlink -f ~/.claude/scripts/datarim-doctor.sh` → `Projects/Datarim/code/datarim/scripts/datarim-doctor.sh` ✓.
+- `./install.sh` idempotent: rogue real-file moved to `~/.claude/backups/runtime-rogue-{TS}/`, replaced by symlink.
+
+### Follow-ups
+
+- **TUNE-0072** (backlog) — `--quiet` exit-code parity. Independent issue.
+- Consider adding `tests/install.bats` scenarios for RUNTIME_SCRIPTS (rogue replacement, idempotent re-link). Informal follow-up.
+- Consider `skills/datarim-doctor.md` § Safety Contract subsection documenting the invariant for downstream callers. Informal follow-up.
+
+---
+
+## 2026-04-30 — TUNE-0069 — `commands/dr-plan.md` CI delta-vs-baseline framing for V-checklist
+
+### Summary
+
+Class A — internal tooling. `commands/dr-plan.md` Step 11.5 codifies CI delta-vs-baseline framing for V-checklist generation: when target branch's last CI run is itself failing (WIP branches, work-branches with partial fixes, dep-bump branches against red baseline), V-CI MUST be drafted as «no NEW failures vs baseline» rather than strict «all green». Strict-green gate appropriate only when baseline run is itself green. Validation Checklist updated with corresponding entry. Closes TUNE-0067 reflection Proposal 2 (N=2 spawn-trigger met via TUNE-0055 + TUNE-0067).
+
+### What changed
+
+- **MOD `commands/dr-plan.md`** — NEW Step 11.5 «CI Verification Gate — Delta-vs-Baseline Framing» (~30 lines), inserted between Live Audit Checkpoint (11) and Class B Public Surface Scan (12). Includes baseline-probe rationale, delta-gate semantics, stack-agnostic recipe wrapped in `<!-- gate:example-only -->` (GitHub Actions / GitLab CI variants), inline-cite requirement for baseline run id and failed-job list, TUNE-0055 + TUNE-0067 source-incident citation.
+- **MOD `commands/dr-plan.md` Transition Checkpoint** — added baseline-probe checklist entry above Live Audit row.
+
+### Key design decisions
+
+1. **Step 11.5 (not 12) to avoid renumbering.** Existing Step 6.5 precedent for sub-numbered steps; downstream Steps 12 (Class B Public Surface Scan) and 13 (Output Summary) keep their numbers — no cross-document refactor needed.
+2. **`gh` CLI recipe wrapped in example-only fence.** Stack-agnostic invariant requires `gh`/`glab` examples to be illustrative, not prescriptive; pattern (baseline probe + delta compare) is the contract, specific tool is operator's choice.
+3. **Inline baseline-citation requirement.** Plan MUST cite baseline run id and failed-job list so `/dr-qa` and `/dr-archive` can verify the delta gate without re-querying `gh` (also makes the gate stable against post-hoc CI runs that close or reopen flaky failures).
+4. **Class A (not B).** No operator-facing contract change; framework runtime invariant («mechanical changes can't regress unrelated red jobs») stays the same — Step 11.5 just makes the V-checklist author-aware of it. No VERSION bump, no datarim.club deploy.
+
+### Recurrence-prevention pattern
+
+«Memory Rule → Executable Gate at Apply Step» — 9th iteration:
+TUNE-0044 → TUNE-0056 → TUNE-0058 → TUNE-0059 → TUNE-0060 → TUNE-0061 → TUNE-0054 → TUNE-0068 → **TUNE-0069**.
+
+Source incidents (N=2): TUNE-0055 (`actions/checkout` v4→v5, baseline 4 red jobs, V-4 reformulation post-hoc) + TUNE-0067 (`actions/setup-python` v5→v6, baseline 5 red jobs, V-4 reformulation post-hoc). Both archives explicitly held this proposal with N=2 spawn-trigger met; TUNE-0069 is the deferred application.
+
+---
+
+## 2026-04-29 — TUNE-0054 — Markdown reference integrity linter (`scripts/check-doc-refs.sh`) + `.docrefignore` baseline
+
+### Summary
+
+Class A — internal tooling. New invocation-only linter `scripts/check-doc-refs.sh` recursively scans `code/datarim/{CLAUDE.md,skills,agents,commands,templates,docs}/**/*.md` for broken markdown links `[text](path.md)` and bare-path mentions `(skills|agents|commands|templates|docs)/.../*.md`. Each reference resolves relative to dirname (link form) or ROOT (bare form), is canonicalised lexically, then existence-checked. Whitelist precedence: inline `<!-- doc-ref:allow path=... -->` on the same line > `.docrefignore` glob > orphan reported. Closes the recurrence loop surfaced in TUNE-0050 reflection (N=2 phantom paths shipped through `/dr-archive` undetected).
+
+### What changed
+
+- **NEW `scripts/check-doc-refs.sh`** (~170 LoC bash, mirrors `pre-archive-check.sh` style). Strict-mode (`set -u`), AWK pre-processor strips fenced code blocks (``` toggle) AND inline backtick spans before extraction. Lexical path canonicalisation (`canonicalise_path()`) collapses `./` and `../` without I/O so parent directories need not exist — required for path-traversal detection. External links (`http://`, `https://`, `mailto:`, `ftp://`, `#anchor-only`) skipped.
+- **NEW `tests/check-doc-refs.bats`** — 10 fixtures: T1 clean tree / T2 planted orphan link / T3 `.docrefignore` glob / T4 inline allow marker / T5 bare-path orphan / T6 nested relative resolves / T7 path-traversal exit 2 / T8 externals skipped / T9 fenced blocks ignored / T10 missing root exit 2. All PASS.
+- **NEW `.docrefignore`** at repo root — accepted-debt baseline (gitignore-style globs). Initial snapshot: 1 entry (`templates/security-workflow.yml` referenced by `skills/security-baseline.md:401` — TUNE-0045 P2 phantom; cleanup deferred to follow-up TUNE-0064).
+- **NEW `documentation/INSIGHTS-TUNE-0054.md`** — orphan inventory + 4 open-question resolutions + 3 follow-ups proposed (TUNE-0063/0064/0065).
+- **MOD `commands/dr-archive.md` Step 0.5(e)** — appended advisory line pointing to `scripts/check-doc-refs.sh --root code/datarim/` (non-blocking, parallel to `stack-agnostic-gate.sh --diff-only`).
+- **MOD `.github/workflows/security.yml`** — `doc-refs` job parallel to existing 12 (bats fixture suite + linter against repo HEAD; expects exit 0 with baseline applied).
+
+### Key design decisions
+
+1. **Backtick code-span stripping for bare-path extraction.** Mid-implementation self-dogfood reported 13 orphans; 12 of them were code-span mentions like `` `datarim/docs/activity-log.md` `` in narrative text. Fix: AWK pre-processor strips backticks before BOTH markdown-link AND bare-path extraction.
+2. **Lexical (no-I/O) path canonicalisation.** `cd $(dirname x) && pwd -P` fails when traversal exits the filesystem tree, falling back to literal string which then false-matches `ROOT_ABS/*` glob. Pure-bash `canonicalise_path()` resolves purely-string, traversal guard reliable.
+3. **`LC_ALL=C` for AWK.** macOS BSD awk emits multibyte warnings on Cyrillic content; byte-mode silences without affecting results (ASCII patterns only).
+4. **Class A (not B).** No operator-facing contract change; advisory only. Promotion path = TUNE-0065 follow-up if N=2 advisory-bypass incidents.
+
+### Recurrence-prevention pattern
+
+«Memory Rule → Executable Gate at Apply Step» — 7th iteration:
+TUNE-0044 → TUNE-0056 → TUNE-0058 → TUNE-0059 → TUNE-0060 → TUNE-0061 → **TUNE-0054**.
+
+---
+
+## 2026-04-29 — TUNE-0061 — `pre-archive-check.sh` env-var whitelist extension (`DATARIM_PRE_ARCHIVE_WHITELIST`)
+
+### Summary
+
+`scripts/pre-archive-check.sh` shared mode now honours an opt-in env-var `DATARIM_PRE_ARCHIVE_WHITELIST` (colon-separated basenames, PATH-style) that extends the hardcoded TUNE-0059 whitelist with project-specific version-bump basenames at consumer level, without modifying the framework. Closes the gap surfaced in TUNE-0060 self-dogfood: `Projects/Websites/datarim.club/config.php` is a legitimate Datarim public-surface version-bump file but its basename is project-specific and does not belong in the canonical hardcoded list shipped to all consumers.
+
+### What changed
+
+- **`scripts/pre-archive-check.sh`** (+15 LoC): after the `WHITELIST_BASENAMES` defaults block, parse `${DATARIM_PRE_ARCHIVE_WHITELIST:-}` via `IFS=':' read -ra` (skip blanks, reject path components — basename match only), append entries to `WHITELIST_BASENAMES`. `is_whitelisted_path()` unchanged; `--no-whitelist` continues to short-circuit the entire whitelist check (overrides both hardcoded list AND env-var entries).
+- **`tests/pre-archive-check.bats`** (+30 LoC): T29 (env-var single basename `config.php` → whitelisted, exit 0), T30 (colon-separated `foo:bar:config.php` → all entries whitelisted, AC-3), T31 (`--no-whitelist` overrides env-var → unattributed, exit 1). bats 28 → 31 PASS.
+- **`commands/dr-archive.md`** Step 0.1.2 footnote on the `whitelisted` row documents the env-var extension and its precedence vs `--no-whitelist`.
+
+### Why
+
+TUNE-0060 archive (the previous iteration) self-dogfooded the new `mine-by-elimination` klass and surfaced one residual gap: `Projects/Websites/datarim.club/config.php` was correctly identified as a legitimate version-bump file by Pavel during the archive but the gate classified it `unattributed` (basename outside hardcoded list). The choice was either pollute the canonical list with `config.php` (breaks framework neutrality — `config.php` is generic enough that a non-Datarim consumer might NOT want it whitelisted) or add an opt-in extension mechanism. Spawn-trigger N=2 reached: TUNE-0059 (hardcoded VERSION/CHANGELOG/etc.) was the first instance; TUNE-0060 self-dogfood surfaced the second. Pattern «Memory Rule → Executable Gate at Apply Step» — sixth iteration (TUNE-0044/0056/0058/0059/0060/0061).
+
+### Class
+
+Class A (additive runtime behaviour, env-var opt-in, no contract break). VERSION 1.18.3 → 1.18.4 (patch additive). Public Surface deployed: `Projects/Websites/datarim.club/config.php` 1.18.3 → 1.18.4 + `pages/changelog.php` v1.18.4 release entry. Backwards-compat preserved by design: env-var unset → behaviour identical to TUNE-0060 (T1-T28 fixtures all PASS). `--no-whitelist` continues to override (T31 verifies). Path-traversal guard rejects `/`-containing entries with exit 2.
+
+### Self-dogfood
+
+`DATARIM_PRE_ARCHIVE_WHITELIST=config.php ./scripts/pre-archive-check.sh --task-id TUNE-0061 --shared ~/arcanada` from framework repo classifies the workspace's modified `Projects/Websites/datarim.club/config.php` as `whitelisted` (was `unattributed` in the TUNE-0060 archive run). Bats fixtures T29/T30/T31 cover the same recipe in isolation.
+
+---
+
+## 2026-04-29 — TUNE-0060 — `pre-archive-check.sh` `mine-by-elimination` klass
+
+### Summary
+
+`scripts/pre-archive-check.sh` shared mode got a 6-th hunk classification, `mine-by-elimination`. When `--task-id <ID>` is set, the file is modified (has actual diff lines), AND those diff lines (additions/removals) contain ZERO task IDs while the committed body carries foreign historical IDs, the gate attributes the edit to the current task and exits 0. Closes the false-`foreign` misclassification of doc edits like `CLAUDE.md`, `README.md`, and architectural docs where the body references many historical tasks but the current edit (e.g., a version-line bump) introduces none.
+
+### What changed
+
+- **`scripts/pre-archive-check.sh`** (+19 LoC): per-file capture of `diff_changes` and `diff_changes_cached` separately from full `diff_text`; `diff_line_ids` extraction from added/removed lines only (`grep -E '^[+-][^+-]'`); new branch in classification cascade between the `mixed` arm and the `foreign` arm that fires when `--task-id` set + diff is non-empty + `diff_line_ids` empty. Untracked files (no diff at all) skip the branch and fall through to `foreign` per safety guard.
+- **`tests/pre-archive-check.bats`** (+30 LoC): T26 (body has foreign IDs + diff lines clean → mine-by-elimination + exit 0), T27 (diff lines contain TASK_ID → mixed, NOT mine-by-elimination), T28 (diff lines contain only foreign IDs → foreign, NOT mine-by-elimination). bats 25 → 28 PASS.
+- **`commands/dr-archive.md`** Step 0.1.2: 6-th classification row (`mine-by-elimination`) added to the contract paragraph with the safety-guard note for untracked files.
+
+### Why
+
+TUNE-0059 archive surfaced the residual false-positive after the whitelist landed. `code/datarim/CLAUDE.md` and `code/datarim/README.md` (committed body has many historical task IDs from prior reflections + features) version-bumped 1.18.0 → 1.18.2 in TUNE-0059 archive — the diff lines were just `-1.18.0` / `+1.18.2`, no IDs introduced by the current session. The `whitelisted` klass did not cover them (basename ≠ version-bump file), and `found_ids` from the body had IDs but none matched `--task-id TUNE-0059`, so the gate said `foreign`. The operator manually staged via `git add` to work around — the same toll TUNE-0058 closed for baseline matches in `stack-agnostic-gate.sh`. Spawn-trigger N=2 reached by Pavel approval (TUNE-0059 self = N=1, CLAUDE.md/README.md observed misclassification = second class instance, escalated by operator).
+
+### Class
+
+Class B (operating-model contract change — extends what counts as `attributed`). VERSION 1.18.2 → 1.18.3 (patch additive). Public Surface deployed: `Projects/Websites/datarim.club/config.php` 1.18.2 → 1.18.3 + `pages/changelog.php` v1.18.3 release entry. Backwards-compat preserved: T1-T25 fixtures all PASS; safety guard ensures untracked files are NOT misclassified.
+
+### Verification
+
+- `bats tests/pre-archive-check.bats` → 28/28 PASS.
+- `bats tests/pre-archive-check.bats tests/stack-agnostic-gate.bats` → 38/38 PASS (full repo regression).
+- `shellcheck -S warning scripts/pre-archive-check.sh` → clean.
+- Pattern «Memory Rule → Executable Gate at Apply Step» — fifth iteration (TUNE-0044/0056/0058/0059/**0060**).
+
+---
+
+## 2026-04-29 — TUNE-0059 — `pre-archive-check.sh` whitelist for version-bump basenames
+
+### Summary
+
+`scripts/pre-archive-check.sh` shared mode got a 5-th hunk classification, `whitelisted`. When `--task-id <ID>` is set and a modified file's basename matches a hardcoded list of version-bump files (`VERSION`, `CHANGELOG.md`, `package.json`, `Cargo.toml`, `pyproject.toml`, `.gitignore`), the gate accepts it without a task-ID inside the diff. The operator-supplied `--task-id` is the attribution. Pass `--no-whitelist` to restore strict default-deny.
+
+### What changed
+
+- **`scripts/pre-archive-check.sh`** (+33/-2 LoC): `WHITELIST_BASENAMES` array (6 entries) with founding-incident comment; `is_whitelisted_path()` helper (basename exact-match, no regex on user input); `NO_WHITELIST=0` global; `--no-whitelist` flag in arg parser; classification branch wraps the empty-`found_ids` else-branch with whitelist check; usage text extended with whitelist paragraph.
+- **`tests/pre-archive-check.bats`** (+30 LoC): T23 (whitelisted basename + `--task-id` → exit 0, klass=whitelisted), T24 (`--no-whitelist` escape restores `unattributed` → exit 1), T25 (non-whitelisted basename without task-ID → default-deny preserved → exit 1). bats 22 → 25 PASS.
+- **`commands/dr-archive.md`** Step 0.1.2: 5-th classification row (`whitelisted`) added to the contract paragraph with the basename list and `--no-whitelist` escape note.
+
+### Why
+
+TUNE-0056 self-dogfood surfaced the false positive: `VERSION` (single line `1.18.1`) physically cannot carry a task ID and was classified as `unattributed`, blocking a legitimate release commit. Pavel's `/dr-archive {TASK-ID}` IS the disposition, but the gate had no machine-readable way to see it. Spawn-trigger N=2 was reached when the same toll resurfaced in the TUNE-0059 self-dogfood (catch-up VERSION drift from TUNE-0056). Whitelist closes the gap without weakening default-deny: it activates only with `--task-id` (operator disposition) and prints the bypass on stdout for visibility.
+
+### Class
+
+Class B (operating-model contract change — extends what counts as `attributed`). VERSION 1.18.1 → 1.18.2 (patch additive). Public Surface deployed: `Projects/Websites/datarim.club/config.php` 1.18.1 → 1.18.2 + `pages/changelog.php` v1.18.2 release entry. Backwards-compat preserved: T1-T22 fixtures all PASS, default-deny still default for all non-whitelisted unattributed hunks.
+
+### Verification
+
+- `bats tests/pre-archive-check.bats` → 25/25 PASS.
+- `shellcheck -S warning scripts/pre-archive-check.sh` → clean.
+- Self-dogfood: `./scripts/pre-archive-check.sh --task-id TUNE-0059 .` from framework repo → `VERSION` line shows `whitelisted` in stdout.
+
+---
+
+## 2026-04-29 — TUNE-0058 — `stack-agnostic-gate.sh --diff-only [<base>]` flag
+
+### Summary
+
+`scripts/stack-agnostic-gate.sh` got a new `--diff-only [<base>]` mode that scans only lines added by `git diff <base> -- <file>` (default base `HEAD`) instead of the full file. Pre-existing baseline matches in shared-history files (`docs/evolution-log.md`, README, changelog and similar) are ignored, removing the operator-toll of running `git diff '^+'` manually at every archive to prove the current task did not introduce a fresh stack-specific term. Default full-file scan unchanged.
+
+### What changed
+
+- **`scripts/stack-agnostic-gate.sh`** (+30/-7 LoC): `--diff-only` flag parsing with optional positional base ref (lookahead disambiguation: consumed only if next arg does not exist as a filesystem path); new `produce_scan_stream` helper that emits either the full file or the added-lines stream from `git diff`; `strip_example_blocks` refactored to read from stdin (decoupled from file argument) so both modes share a single downstream pipeline; single-file invocation on untracked or non-git target → exit 2 with explanatory message; directory-scan mode silently skips untracked files; `--help` line-range bumped (`2,30p` → `2,40p`) to cover the new Inputs paragraph.
+- **`tests/stack-agnostic-gate.bats`** (+85 LoC): 4 new fixture-based tests T7-T10 with `setup_diff_repo` / `teardown_diff_repo` helpers that build a throwaway `mktemp -d` git repo with a baseline file containing pre-existing stack-specific terms. T7 (no edits → diff-only PASS), T8 (added stack-specific line → diff-only FAIL), T9 (mixed baseline + clean additions → diff-only PASS), T10 (non-git path → exit 2). bats 6 → 10 PASS.
+- **`commands/dr-archive.md`** Step 0.5(e): one extra sentence recommending `--diff-only` invocation for shared-history files when applying Class A through the stack-agnostic gate, with the rationale and source citation.
+
+### Why
+
+Recurring rough edge surfaced at TUNE-0044 + TUNE-0056 self-dogfood: `docs/evolution-log.md` already carried 3 pre-existing baseline matches from older entries; the gate failed every archive that touched the file even when the current task added zero stack terms. Operator had to verify by hand via `git diff '^+'` to prove no fresh leak — same recipe each time, no automation. `--diff-only` codifies that recipe inside the gate itself; consumers ask once and the gate scopes itself to the current task's contribution.
+
+### Class
+
+Class A (additive, internal behaviour, no public surface). No VERSION bump expected. No datarim.club deploy. Backwards-compat preserved: default full-file scan untouched, T1-T6 legacy fixtures all PASS, whitelist + example-only fence semantics unchanged.
+
+### Verification
+
+- `bats tests/stack-agnostic-gate.bats tests/pre-archive-check.bats` → 32/32 PASS.
+- `shellcheck -S warning scripts/stack-agnostic-gate.sh` → clean.
+- Self-dogfood: `./scripts/stack-agnostic-gate.sh docs/evolution-log.md` → `FAIL: 3 matches`; `./scripts/stack-agnostic-gate.sh --diff-only docs/evolution-log.md` → `PASS: clean`.
+- Stack-agnostic gate self-passes on the modified script (bash + grep, zero stack terms by construction).
+
+### Held proposals (none applied this archive)
+
+- **Proposal 1 (Class A, hold).** `--help` sentinel terminator pattern (e.g. `# --- end help ---`) to replace `sed -n '<start>,<end>p'` magic numbers in shipped scripts. Spawn-trigger N=2: TUNE-0058 + any future flag addition that requires another bump.
+- **Proposal 2 (Class B, hold).** `--diff-classify` mode for `pre-archive-check.sh` that classifies hunks by task IDs found inside the current diff text rather than commit history. Reduces over-broad "mixed" classification on shared-history files (`commands/dr-archive.md`, gate script, bats files) where commit history accumulates many task IDs but the current diff is single-task. Spawn-trigger N=2: TUNE-0056 + TUNE-0058.
+
+### Source incidents
+
+- TUNE-0044 archive (2026-04-29) — first observed `docs/evolution-log.md` baseline match leaking through.
+- TUNE-0056 archive (2026-04-29) — same operator-toll repeated; held as Class A Proposal 1.
+
+---
+
+## 2026-04-29 — TUNE-0056 — Class B apply (conditional-shared classification via marker file, v1.18.1)
+
+### Summary
+
+Self-dogfood of TUNE-0044 archive showed framework repo `Arcanada-one/datarim` itself carried foreign DEV-1210/DEV-1212 hunks from parallel agent sessions but was single-agent-classified — `pre-archive-check.sh` without explicit `--shared` flag treated framework repo as project-strict. Closing the gap with a portable marker file `.datarim-shared` at repo root. Presence + `--task-id` flag → auto-route to shared-mode classification, no explicit `--shared` argument needed.
+
+### What changed
+
+- **`scripts/pre-archive-check.sh`** — added 8-line auto-detect block after flag parsing: when `--task-id` is given without `--shared` and the next positional repo has a `.datarim-shared` marker file, route to shared mode automatically. Outer condition simplified from `[ -n "$TASK_ID" ] || [ -n "$SHARED_REPO" ]` to `[ -n "$SHARED_REPO" ]` so `--task-id` alone (without marker on positional) falls through to legacy strict mode.
+- **`tests/pre-archive-check.bats`** — +3 fixtures covering conditional-shared (marker + foreign hunks → exit 0; marker absent + dirty → legacy STOP; marker + own hunks → exit 1 own classification). bats 19 → 22 PASS.
+- **`commands/dr-archive.md`** Step 0.1.1 — classification table extended with `Conditional-shared` row (marker + `--task-id` auto-detect). Step 0.1.2 invocation form expanded with auto-detect example. Step 0.1.5 narrative clarified (project = no marker).
+- **`.datarim-shared`** — new marker file at framework repo root with explanatory comment.
+- **`VERSION`** — `1.18.0` → `1.18.1` (additive, backwards-compatible).
+
+### Why
+
+- TUNE-0044 founding rule (multi-agent shared semantics) required explicit `--shared <path>` flag for every invocation. Self-dogfood revealed this loses where it's most needed: framework repo itself, where AI agents most often forget the flag because repo classification looks like a project (has its own `.git`, builds, ships releases).
+- Marker file is opt-in, machine-readable, portable across forks/mirrors (origin URL match was rejected — fragile). Backwards-compat preserved: project repos without marker keep TUNE-0003 strict legacy behaviour.
+
+### Class
+
+- **Class B** (operating-model extension) — adds new classification path; `commands/dr-archive.md` contract widens. Held as TUNE-0056 candidate at TUNE-0044 archive (Proposal 1, evolution-proposals held). Now applied with full Public Surface scan: changelog v1.18.1 entry, Step 0.1.1 table updated, evolution-log entry (this).
+
+### Verification
+
+- 22/22 bats PASS (`tests/pre-archive-check.bats`).
+- shellcheck `-S warning` clean on `scripts/pre-archive-check.sh`.
+- stack-agnostic-gate PASS on touched files.
+- Self-dogfood: this archive cycle uses `pre-archive-check.sh --task-id TUNE-0056 .` from `code/datarim/` — auto-detect marker, foreign hunks isolated, archive proceeds without `--shared` flag.
+
+### Founding incident
+
+- TUNE-0044 self-dogfood (2026-04-29): framework repo had DEV-1210/DEV-1212 foreign hunks in working tree during archive, single-agent-classified by default, manual `--shared` flag was the only escape hatch.
+
+---
+
+## 2026-04-29 — TUNE-0044 — Class B apply (operating-model contract change, v1.18.0)
+
+### Summary
+
+`/dr-archive` Step 0.1 promoted from binary clean/dirty semantics to **task-ID-aware** classification for shared workspace repositories. Founding incidents: VERD-0026 (2026-04-27), DISK-0002, LTM-0017 — three archives blocked or delayed by foreign-task hunks from parallel agent sessions in `~/arcanada/.git`. Project-level rule landed in `~/arcanada/CLAUDE.md` § Multi-Agent Workspace Discipline; TUNE-0044 promotes it to framework runtime so all consumers inherit the semantics.
+
+### What changed
+
+- **`commands/dr-archive.md`** Step 0.1 rewritten with sub-steps 0.1.1–0.1.5: repo classification (workspace vs project), shared-mode check via extended `pre-archive-check.sh`, patch-staging recipe (interactive `git add -p` + non-interactive blob-swap fallback), retry-tolerant pre-commit re-verify, preserved TUNE-0032/0033 staged-diff audit, legacy single-agent project check.
+- **`scripts/pre-archive-check.sh`** extended with `--task-id <ID> --shared <repo>` flags. Classifies each modified file's hunks as `own` / `foreign` / `mixed` / `unattributed`. Exit 0 on clean / foreign-only; exit 1 on own / mixed / unattributed; exit 2 on usage error. Strict regex validation `^[A-Z]+-[0-9]{4}$`. Legacy mode unchanged (TUNE-0003 contract preserved).
+- **`tests/pre-archive-check.bats`** extended with 7 new test cases (foreign-only, own, mixed, unattributed, invalid task-id, missing --shared, legacy regression). 12 → 19 tests, all PASS.
+- **`CLAUDE.md`** § Workspace Discipline (multi-agent) added between Critical Rules and Security Mandate, summarising Step 0.1 contract for AI agents loading the framework template.
+- **`~/arcanada/CLAUDE.md`** rule 8 extended with reverse cross-cite to `commands/dr-archive.md` Step 0.1.3 (canonical recipe location).
+
+### Why
+
+Datarim's framework runtime had a single-agent assumption: any uncommitted change in workspace repos blocks `/dr-archive`. In multi-agent environments (Arcanada workspace runs 5–10 parallel sessions touching the same `datarim/{tasks,backlog,progress,activeContext}.md`), this triggered false-positive STOPs at every archive. The recipe to handle it lived only in project-level `~/arcanada/CLAUDE.md` rule 8 (DISK-0002 origin). Class B promotion: foreign hunks become a non-blocker; own forgotten hunks remain a blocker; default-deny on unattributed hunks preserves the safety contract.
+
+### Class A/B classification
+
+**Class B** — operating-model contract change to a public command (`/dr-archive`). PRD `prd/PRD-TUNE-0044-multi-agent-workspace-archive-semantics.md` approved 2026-04-29 (Pavel). Backward-compatible: legacy single-agent mode unchanged; new shared mode is opt-in via `--task-id`/`--shared`.
+
+### Verification
+
+- bats `tests/pre-archive-check.bats` — 19/19 PASS (12 legacy + 7 new).
+- Stack-agnostic gate — PASS clean on `scripts/pre-archive-check.sh`, `tests/pre-archive-check.bats`, `commands/dr-archive.md`.
+- VERSION bumped 1.18.0-rc3 → 1.18.0; CLAUDE.md / README.md badges synced across `code/datarim/` and `Projects/Datarim/`.
+
+### Approved
+
+Human (Pavel), 2026-04-29 (PRD approved earlier same day).
+
+---
+
+## 2026-04-28 — LTM-0017 — Class A apply (3 proposals, post-archive)
+
+### Summary
+
+LTM-0017 archived as Path 2 (escalate to A2 topic-clustering) — entity-resolver canonicalisation cannot lift recall@5 from 0.556 floor case on `ltm-bench-datarim-kb`. Reflection surfaced 3 Class A proposals; Pavel approved all three for application post-archive.
+
+### Class A applies
+
+#### Proposal 1: commands/dr-plan.md — Symbol Existence Check
+
+- **File:** `commands/dr-plan.md` § Step 6.5 "Symbol Existence Check" (new step inserted between Technology Validation and Installer Audit).
+- **Class:** A (content addition to existing command spec; no contract change).
+- **What:** New mandatory `/dr-plan` step requiring grep-confirmation of every named code surface (method, function, file, flag, env var, CLI command, config key, HTTP route) before plan approval. Plan must cite file:line for each named target. Phantom targets (named in plan, absent from code) explicitly flagged as planning defects requiring redirect or justification.
+- **Why:** LTM-0017 plan named `pipeline.py::_resolve_entity` as resolver-fix surface; method did not exist (entity grouping was raw SQL inside `repository.fetch_chunks_for_reflect`). Required in-flight redirect, ~10 min /dr-do investigation. A 30-second grep at /dr-plan would have caught it.
+- **Stack-agnostic gate:** PASS clean (`scripts/stack-agnostic-gate.sh commands/dr-plan.md`).
+- **Bats verification:** 160/160 PASS post-apply.
+- **Approved:** human (Pavel), 2026-04-28.
+
+#### Proposal 2: skills/ai-quality/incident-patterns.md — Floor-Case Diagnostics Dual-Axis
+
+- **File:** `skills/ai-quality/incident-patterns.md` § "Floor-Case Diagnostics — Dual-Axis Audit" (new section appended after "Vendor-Blame Discipline").
+- **Class:** A (content addition to incident-patterns fragment).
+- **What:** Documents the dual-axis pattern for "metric stuck at baseline" diagnostics. Mandates probing BOTH the *transformation axis* (does new logic do what we designed) AND the *population axis* (is the data visible to the new logic at all). Single-axis audits produce incomplete root-cause analyses. Includes 5 rules and an exemplar.
+- **Why:** LTM-0017 plan framed diagnostic exclusively around canonicalisation (transformation axis). Audit returned 0.00% transformation delta — true no-op. Population probe surfaced 134/188 (71%) entities with `source_chunk_id IS NULL` — invisible to JOIN regardless of canonicalisation. A dual-axis plan would have surfaced both gaps in the same audit.
+- **Stack-agnostic gate:** PASS clean.
+- **Bats verification:** 160/160 PASS post-apply.
+- **Approved:** human (Pavel), 2026-04-28.
+
+#### Proposal 3: ~/arcanada/CLAUDE.md — Pre-commit re-verification (workspace, not framework)
+
+- **File:** `~/arcanada/CLAUDE.md` § Multi-Agent Workspace Discipline rule 8 (sub-step "Pre-commit re-verification (retry-tolerant blob-swap)").
+- **Class:** A — workspace-level rule extension; not subject to stack-agnostic gate or bats (workspace CLAUDE.md is project-specific, not framework runtime).
+- **What:** Pre-commit verification: between `git update-index` and `git commit`, run `git diff --staged --numstat` + capture HEAD SHA. If file-set / line-counts diverge from expected blob-swap delta, or HEAD shifted, redo blob-swap from new HEAD before commit.
+- **Why:** During LTM-0017 archive, parallel session's TRANS-0027 commit landed between my `update-index` and `commit`, causing my staged blob to lose the LTM-0017 entry. ~10 min recovery vs ~30s preemptive check.
+- **Approved:** human (Pavel), 2026-04-28.
+
+### Class B (none)
+
+No Class B proposals from LTM-0017 reflection.
+
+### Follow-Up Tasks Added to Backlog (already by /dr-do Step 12)
+
+- **LTM-0018** — A2 topic-clustering grouping primitive design (P2, L3). Unblocks LTM-0009.
+- **LTM-0019** — Entity `source_chunk_id` backfill investigation (P3, L2).
+
+---
 
 ## 2026-04-28 — SEC-0001 — Class A apply (1 bundled proposal, archive Step 0.5)
 
@@ -553,3 +1048,54 @@ None (TUNE-0091's currently-failing tests will surface organically on its PR via
 ### Follow-Up Tasks
 
 - **TUNE-0094** spawned (P3 L1) — runtime `~/.claude/skills/datarim-doctor.md` (= `code/datarim/skills/datarim-doctor.md`) sync to v1.21.3 5-pass + Data-Loss Safety Contract. Symmetric to TUNE-0082's site fix.
+---
+
+## TUNE-0090 — Doc-surface drift sweep + framework/consumer boundary fix (v1.21.7)
+
+**Date:** 2026-05-03
+**Complexity:** L2
+**Outcome:** Three drift findings fixed; new bats regression test added; framework/consumer boundary invariant established; one in-flight scope addition (`skills/security-baseline.md` doc-refs).
+
+### Class A Applied
+
+#### Proposal 1: file-relocation pre-flight grep checklist
+
+- **File:** `skills/evolution/file-relocation-checklist.md` (NEW fragment under existing `skills/evolution/`)
+- **Class:** A (skill-update — new fragment)
+- **What:** Codifies the pre-flight `grep -rln "$OLD" code/datarim/` check before staging any `git mv` or cross-repo relocation. Ensures relocation + reference-fixup land in the same commit. Cross-repo variant + verification step included.
+- **Why:** During `/dr-do`, after relocating `code/datarim/documentation/` (Steps 8-10), `check-doc-refs.sh` flagged 3 dangling refs in `skills/security-baseline.md`. Plan hadn't enumerated the skill as a touch-point. Pre-flight grep would have caught it before commit.
+- **Stack-agnostic gate:** PASS (POSIX `grep`, no stack-specific tools).
+- **Approved:** human (Pavel), 2026-05-03.
+
+#### Proposal 2: tests/test-command-doc-coverage.bats
+
+- **File:** `code/datarim/tests/test-command-doc-coverage.bats` (already added in `/dr-do` commit `109e75b`)
+- **Class:** A (new bats regression test)
+- **What:** 4 assertions guarding the gap TUNE-0090 just fixed: every `commands/dr-*.md` is mentioned in `docs/commands.md` AND `CLAUDE.md`; no obsolete `/dr-reflect` or `/dr-security` references; `code/datarim/documentation/` does not exist.
+- **Why:** Without a continuous detector, the same drift can reopen silently (as it did for `/dr-doctor`).
+- **Stack-agnostic gate:** PASS (bats whitelisted via `skills/testing/bats-and-spec-lint.md`).
+- **Approved:** human (Pavel), 2026-05-03.
+
+### Class A Applied (project-specific — outside framework gate scope)
+
+#### Proposal 3: Projects/Datarim/CLAUDE.md § Public-surface ↔ runtime sync
+
+- **File:** `Projects/Datarim/CLAUDE.md` (project-specific config)
+- **Class:** A (claude-md-update)
+- **What:** New subsection codifying the n-way sync rule when adding a new `commands/`/`skills/`/`agents/` artifact: must propagate to (a) site `data/{kind}/<name>.php`, (b) `code/datarim/docs/{commands,skills,agents}.md` row, (c) `code/datarim/CLAUDE.md` mention, (d) `code/datarim/README.md` mention. References the new bats test as the framework-doc detector.
+- **Why:** TUNE-0090 itself was discovered because the site had `data/commands/dr-doctor.php` while framework docs lacked any mention of `/dr-doctor`. Asymmetry-as-drift needs explicit rule.
+- **Stack-agnostic gate:** N/A (file is `Projects/Datarim/CLAUDE.md`, project-specific config — gate scope excludes).
+- **Approved:** human (Pavel), 2026-05-03.
+
+### Class B (HELD — defer to PRD-TUNE-0091)
+
+- **Doc-fanout linter (general).** Auto-detect missing references on N consumer surfaces when an artifact is added in a commit. Broader than the dr-* bats test. Not auto-spawned; user to add as backlog item if desired.
+
+### Follow-Up Tasks (not auto-spawned)
+
+- **TUNE-0091** — Class B doc-fanout linter (PRD required). Awaiting user confirmation.
+- **CI bats wiring for framework repo** — `test-command-doc-coverage.bats` (and the other 10) need CI execution to prevent silent regression. Own discovery scope (which CI? trigger? runner?). Note only.
+
+### In-flight Scope Addition (folded into `/dr-do` framework commit)
+
+- **`skills/security-baseline.md` doc-refs.** 3 references to relocated `documentation/archive/security/findings-2026-04-28.md` updated to workspace path. Required to keep `check-doc-refs.sh` green after relocation. Direct consequence of Step 9 — not a scope expansion. Lesson → Class A 1 (above).

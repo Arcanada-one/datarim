@@ -11,7 +11,9 @@
 #
 # Contract (TUNE-0004 aligned with PRD-datarim-sdlc-framework §4 — copy mode):
 #   - Install scopes (distributed to runtime): agents, skills, commands, templates.
-#   - Repo-only scopes (dev tooling, NOT installed): scripts/, tests/, validate.sh.
+#   - Installed scopes (whole-dir symlink under default mode): agents/, skills/,
+#     commands/, templates/, scripts/ (since v1.20.0 TUNE-0077), tests/ (since
+#     v1.20.0 TUNE-0077). Repo-only: validate.sh (single root file).
 #   - Content types copied: .md .sh .json .yaml .yml. Unknown extensions are
 #     logged (WARN) and skipped — never silently dropped.
 #   - .sh files receive +x after copy.
@@ -49,9 +51,20 @@ DATARIM_FORCE_UNAME="${DATARIM_FORCE_UNAME:-}"
 DATARIM_MIGRATION_CHOICE="${DATARIM_MIGRATION_CHOICE:-}"
 
 # Install scopes — must match scripts/check-drift.sh SCOPES (AC-3).
-INSTALL_SCOPES=(agents skills commands templates)
+# v1.20.0 (TUNE-0077): scripts and tests added — uniform whole-directory symlink
+# semantics. Eliminates drift between canonical Datarim repo and ~/.claude/
+# runtime (a 730-LoC rogue datarim-doctor.sh placed directly into ~/.claude/
+# scripts/ destroyed 30 task entries on aether/local-env 2026-04-30). With
+# dir-symlink, ~/.claude/scripts/datarim-doctor.sh is the canonical file by
+# inode — no possibility of divergence. Symmetric with skills/agents pattern.
+# Note: 'dev-tools' is intentionally NOT in this list — see
+# code/datarim/dev-tools/README.md (developer-only tooling, not shipped
+# to consumers; TUNE-0091).
+INSTALL_SCOPES=(agents skills commands templates scripts tests)
 
-# v1.17.0: local/ overlay scope dirs (TUNE-0033). Symmetric with INSTALL_SCOPES.
+# v1.17.0: local/ overlay scope dirs (TUNE-0033). Local overlay applies only to
+# user-extensible scopes (skills/agents/commands/templates) — scripts/tests are
+# framework-internal and not extended via local/.
 LOCAL_SCOPES=(skills agents commands templates)
 
 # Content-type whitelist. Extending this list is a deliberate act: review the

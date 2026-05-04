@@ -20,7 +20,7 @@ When a command's critical behavior is defined in `commands/*.md` prose and you n
 ### Pattern
 
 ```bash
-# archive-contract-lint.bats (exemplar — TUNE-0007)
+# archive-contract-lint.bats (exemplar)
 SPEC="${BATS_TEST_DIRNAME}/../commands/dr-archive.md"
 
 @test "branch 1/3: 'Commit now' option is documented" {
@@ -38,7 +38,7 @@ SPEC="${BATS_TEST_DIRNAME}/../commands/dr-archive.md"
 
 ### Exemplar
 
-`tests/archive-contract-lint.bats` — 11 tests covering `/dr-archive` step-0 gate: section presence, `git status --porcelain` mandate, multi-repo clause, STOP keyword, 3 prompt branches (Commit/Accept/Abort), governance language, TUNE-0003 attribution. Source: TUNE-0007.
+`tests/archive-contract-lint.bats` — 11 tests covering `/dr-archive` step-0 gate: section presence, `git status --porcelain` mandate, multi-repo clause, STOP keyword, 3 prompt branches (Commit/Accept/Abort), governance language, incident attribution. Source: prior incident.
 
 ---
 
@@ -146,4 +146,19 @@ Redirect `HOME` (see above) so these tests cannot accidentally hit the operator'
 
 ### Exemplar
 
-`tests/install.bats` + `tests/check-drift.bats` (TUNE-0004): 23 tests covering content-type whitelisting, `--force` safety (live detect, sanity guards, non-TTY, backup+SUCCESS), idempotency, scope-contract alignment, and `.md`-only regression. Shared helper at `tests/helpers/install_fixture.bash`.
+`tests/install.bats` + `tests/check-drift.bats`: 23 tests covering content-type whitelisting, `--force` safety (live detect, sanity guards, non-TTY, backup+SUCCESS), idempotency, scope-contract alignment, and `.md`-only regression. Shared helper at `tests/helpers/install_fixture.bash`.
+
+### Negated grep assertions: always quiet the matcher
+
+When asserting that a phrase is **absent** from output (or a fixture file), prefer the explicit quiet form:
+
+```bash
+# Correct: negate exit code AND silence matcher output
+run some-script
+[ "$status" -eq 0 ]
+! echo "$output" | grep -qF "forbidden phrase"
+```
+
+Dropping `-q` (`! grep -F "..."`) leaves matched lines on stdout/stderr, which (a) pollutes test output and obscures real failures, (b) under some bats runners interacts with output capture in surprising ways. Use `-F` (fixed-string) by default; reach for `-E`/`-P` only when phrasing legitimately varies.
+
+The same rule applies to spec-lint contracts asserting a removed clause — `! grep -qF "old wording" "$SPEC"` is the canonical shape. Pair it with a positive `grep -qF "new wording"` test on the same line range to make the replacement contract explicit.

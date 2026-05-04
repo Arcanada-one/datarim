@@ -5,6 +5,8 @@ description: Authentication, authorization, input validation, data protection, d
 
 # Security Guidelines
 
+> **Companion:** canonical S1–S9 rule reference lives in [`skills/security-baseline.md`](security-baseline.md) — single source of truth per CLAUDE.md § Security Mandate. This skill complements the baseline with operational recipes (git history scrub, Tailscale + VPN coexistence, recon-vs-compromise heuristics, cross-stack relative-path includes, stack-neutral phrasing for dependency audit). Load both together when planning security-relevant changes; load this one alone when investigating a live incident.
+
 ## Authentication & Authorization
 - Never hardcode secrets/keys. Use `.env`.
 - Validate all inputs on the server side.
@@ -33,7 +35,7 @@ Concrete forms across ecosystems: `npm audit`, `pnpm audit`, `yarn audit`,
 `pip-audit`, `cargo audit`, `bundle audit`, `govulncheck`, `composer audit`.
 <!-- /gate:example-only -->
 
-Source: TUNE-0043 — emerged 4× as canonical reword across `skills/security.md`,
+Source: prior incident — emerged 4× as canonical reword across `skills/security.md`,
 `skills/project-init.md`, `agents/researcher.md`, `commands/dr-qa.md`. Locking
 the phrasing prevents the same reword cycle in future Class A applies.
 
@@ -65,7 +67,7 @@ When a commercial VPN (Wireguard-based or otherwise) coexists with Tailscale on 
 4. **Verify the Tailscale utun interface is up** — `ifconfig | grep -A1 utun.*tailscale` should show a non-zero interface and an IPv4 in the `100.64.0.0/10` range before trusting the mesh.
 5. **Free auth keys are single-use** — reusing an expired key silently fails. Generate a new key from the admin console for each rejoin.
 
-Source: AGENT-0010 reflection + memory `feedback_macos_tailscale.md`. ~60 min of debug time saved per future incident by following this checklist first.
+Source: prior incident reflection + memory `feedback_macos_tailscale.md`. ~60 min of debug time saved per future incident by following this checklist first.
 
 ## Cross-Stack Relative-Path Includes (Threat-Model Recipe)
 
@@ -94,7 +96,7 @@ When the document root flips between two trees that contain *byte-identical file
 
 ## Git History Scrub Recipe (post-leak rotation)
 
-When a credential, identifier, or other sensitive string lands in git history and must be removed before the artefact is rotated or the repo is published, follow this recipe. **Source incident:** SEC-0001 — public framework repo carried a leaked OAuth Client ID for 11 days; first scrub run missed the same string in a subsequent commit message, caught locally by the pre-push grep gate.
+When a credential, identifier, or other sensitive string lands in git history and must be removed before the artefact is rotated or the repo is published, follow this recipe. **Source incident:** prior incident — public framework repo carried a leaked OAuth Client ID for 11 days; first scrub run missed the same string in a subsequent commit message, caught locally by the pre-push grep gate.
 
 **Tooling.** Use `git filter-repo` (upstream replacement for the deprecated BFG / `git filter-branch`). Install via the system package manager; do not bundle a copy.
 

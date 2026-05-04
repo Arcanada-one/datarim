@@ -10,7 +10,7 @@ description: Review-phase workflow — lessons learned, evolution proposals (Cla
 
 ## Invocation Contract
 
-This skill is **invoked internally by `/dr-archive` Step 0.5** for every completed task. It is **not a standalone command** — the former `/dr-reflect` command was retired in v1.10.0 (TUNE-0013) because reflection must run on every archive, not optionally.
+This skill is **invoked internally by `/dr-archive` Step 0.5** for every completed task. It is **not a standalone command** — the former `/dr-reflect` command was retired in v1.10.0 because reflection must run on every archive, not optionally.
 
 **Trigger:** `/dr-archive` Step 0.5 loads this skill.
 **Input:** resolved task state (from Task Resolution Rule in `$HOME/.claude/skills/datarim-system.md` § Task Resolution Rule) via `datarim/tasks.md` + `datarim/activeContext.md`. The task ID is already resolved by `/dr-archive` Step 0.
@@ -29,13 +29,13 @@ This skill is **invoked internally by `/dr-archive` Step 0.5** for every complet
     - Check for security vulnerabilities.
     - Create reflection document using `$HOME/.claude/templates/reflection-template.md` (fallback to `datarim/templates/reflection-template.md` only if project provides a custom template).
 6.  **EVOLUTION**:
-    - Load `$HOME/.claude/skills/evolution.md` **by reference** (Read it at runtime — do not duplicate its Class A/B gate here; single source of truth per TUNE-0012).
+    - Load `$HOME/.claude/skills/evolution.md` **by reference** (Read it at runtime — do not duplicate its Class A/B gate here; single source of truth).
     - Analyze: what worked well? what was inefficient? any missing skills/patterns?
     - Generate evolution proposals (categories: `skill-update`, `agent-update`, `claude-md-update`, `new-template`, `new-skill`).
     - **Classify each proposal as Class A or Class B** per `evolution.md` § "Class A vs Class B — Operating-Model Gate". Class A = content changes (approval-ready). Class B = operating-model / contract changes (source-of-truth direction, sync semantics, pipeline routing, core contract, command semantics). Class B proposals **must not be presented for user approval** until a PRD update (or project-level contract equivalent) is drafted; pause and request the PRD draft instead.
     - Present Class A proposals to user for approval. Hold Class B until PRD is updated, then re-present.
     - **Stack-agnostic gate (MANDATORY before write):** before applying any approved Class A proposal that writes to `$HOME/.claude/{skills,agents,commands,templates}/`, load `$HOME/.claude/skills/evolution/stack-agnostic-gate.md` and run the gate against the proposal text (script form: `scripts/stack-agnostic-gate.sh <target>`). FAIL → reject the proposal, do NOT write; reword to stack-neutral or escalate to user as «belongs in project's CLAUDE.md, not framework runtime».
-    - **Bats verification (MANDATORY after write):** after applying any approved Class A proposal that touches `skills/`, `agents/`, `commands/`, `templates/`, or `tests/` in the framework repo, run `bats tests/` from the repo root. Failed tests = re-open the proposal as REJECTED with the diff and failing-test names; do NOT log as APPLIED in `evolution-log.md`. Source: TUNE-0040 — TUNE-0039 archive Class A apply (`keyword-linter.md` added) silently broke `tests/utilities-decomposition.bats:T3` (hardcoded count 12 → actual 13); regression detected 1 day late only at TUNE-0040 /dr-do.
+    - **Bats verification (MANDATORY after write):** after applying any approved Class A proposal that touches `skills/`, `agents/`, `commands/`, `templates/`, or `tests/` in the framework repo, run `bats tests/` from the repo root. Failed tests = re-open the proposal as REJECTED with the diff and failing-test names; do NOT log as APPLIED in `evolution-log.md`. Source: prior incident — a Class A apply (`keyword-linter.md` added) silently broke `tests/utilities-decomposition.bats:T3` (hardcoded count 12 → actual 13); regression detected 1 day late only at the subsequent /dr-do.
     - Log approved changes in `datarim/docs/evolution-log.md`.
 7.  **HEALTH CHECK**:
     - Count total skills, agents, commands in the active scope.
@@ -55,4 +55,4 @@ On successful completion, control returns to `/dr-archive` Step 1 (archive-area 
 
 ## Historical note
 
-Prior to Datarim v1.10.0 (TUNE-0013), this logic was a standalone command `/dr-reflect` — an optional pipeline stage between `/dr-compliance` and `/dr-archive`. It was consolidated into `/dr-archive` as mandatory Step 0.5 because the "optional mandatory gate" was the anti-pattern: reflection was expected every task yet trivially skippable. The command was removed; the workflow lives here as a skill.
+Prior to Datarim v1.10.0, this logic was a standalone command `/dr-reflect` — an optional pipeline stage between `/dr-compliance` and `/dr-archive`. It was consolidated into `/dr-archive` as mandatory Step 0.5 because the "optional mandatory gate" was the anti-pattern: reflection was expected every task yet trivially skippable. The command was removed; the workflow lives here as a skill.

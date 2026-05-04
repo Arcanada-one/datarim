@@ -1,6 +1,6 @@
 ---
 name: dream
-description: Knowledge base maintenance — organize, deduplicate, cross-reference, and consolidate the datarim/ directory. Flags contradictions, archives stale content.
+description: Knowledge base maintenance — organize, deduplicate, cross-reference the datarim/ directory. Flags contradictions, archives stale content.
 model: sonnet
 ---
 
@@ -77,6 +77,7 @@ Deep maintenance that restructures the knowledge base for clarity and efficiency
 
 When Dream processes documents, it ensures this frontmatter exists:
 
+<!-- gate:history-allowed -->
 ```yaml
 ---
 title: Document Title
@@ -89,6 +90,7 @@ tags: [tag1, tag2]
 related: [path/to/related-doc.md]
 ---
 ```
+<!-- /gate:history-allowed -->
 
 **Fields:**
 - `title` — human-readable title
@@ -107,6 +109,7 @@ Not all fields are required for all documents. Dream adds missing fields where i
 
 Dream maintains `datarim/index.md` — a navigable catalog of the knowledge base:
 
+<!-- gate:history-allowed -->
 ```markdown
 # Knowledge Base Index
 
@@ -115,11 +118,11 @@ Dream maintains `datarim/index.md` — a navigable catalog of the knowledge base
 
 ## By Type
 ### PRDs (5)
-- [PRD-0001](prd/PRD-0001-auth-system.md) — Authentication system requirements
-- [PRD-0002](prd/PRD-0002-export-pipeline.md) — Data export pipeline
+-(prd/PRD-0001-auth-system.md) — Authentication system requirements
+-(prd/PRD-0002-export-pipeline.md) — Data export pipeline
 
 ### Tasks (8)
-- [TASK-0001](tasks/TASK-0001-setup.md) — Project setup and configuration
+-(tasks/TASK-0001-setup.md) — Project setup and configuration
 ...
 
 ### Reflections (6)
@@ -127,8 +130,8 @@ Dream maintains `datarim/index.md` — a navigable catalog of the knowledge base
 
 ## By Tag
 ### authentication
-- [PRD-0001](prd/PRD-0001-auth-system.md)
-- [TASK-0005](tasks/TASK-0005-jwt-implementation.md)
+-(prd/PRD-0001-auth-system.md)
+-(tasks/TASK-0005-jwt-implementation.md)
 - [reflection-TASK-0005](reflection/reflection-TASK-0005.md)
 
 ## Recent Activity
@@ -137,6 +140,7 @@ Dream maintains `datarim/index.md` — a navigable catalog of the knowledge base
 | 2026-04-11 | Created | tasks/TASK-0042-dream-system.md |
 | 2026-04-10 | Archived | archive/archive-TASK-0041.md |
 ```
+<!-- /gate:history-allowed -->
 
 ---
 

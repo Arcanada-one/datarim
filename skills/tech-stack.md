@@ -126,7 +126,7 @@ graph TD
 | **Server backups** | `restic` + Backblaze B2 (native backend, client-side encryption, dedup, snapshots). Config via `/etc/restic/`, systemd timer for daily backups, `backup-healthcheck.sh` for monitoring. First backup + restore test is mandatory. Use binary-installed restic (apt version lacks `self-update`). |
 | **Database backups** | Per-engine tooling (`pg_dump`, `mysqldump`, `mongodump`) piped into restic — captures logical dump as a named file in the repo. |
 
-Source: INFRA-0008 reflection — restic + B2 proven across arcana-www/prod/db; standardize to avoid revisiting the choice per-server.
+Source: prior incident reflection — restic + B2 proven across arcana-www/prod/db; standardize to avoid revisiting the choice per-server.
 
 ## Mandatory Toolchains
 
@@ -179,7 +179,7 @@ After creating a new project in `Projects/*/code/`:
 3. Verify `.gitignore` covers `node_modules/`, `dist/`, `.env`
 4. Initial commit with scaffold
 
-Source: CONN-0002 — Model Connector code had no `.git` for weeks; discovered only at archive time.
+Source: prior incident — Model Connector code had no `.git` for weeks; discovered only at archive time.
 
 ## Docker Rules
 
@@ -195,7 +195,7 @@ Source: CONN-0002 — Model Connector code had no `.git` for weeks; discovered o
 - **Node.js:** LTS (even versions), `engines` field, `pnpm-lock.yaml`
 - **Python:** latest stable minor, `pyproject.toml`, `uv.lock`
 - **Audit after scaffold:** Run `pnpm outdated` (or `uv pip list --outdated`) immediately after project init. Zero outdated packages = pass.
-- **AI hallucination guard:** Do NOT rely on training data for current package versions. Before specifying a version in `package.json` / `pyproject.toml`, verify the latest major via `npm view <pkg> version` (or `pip index versions <pkg>`). CONN-0001 incident: AI proposed Prisma 6 when Prisma 7 was already the latest stable — caught only at audit, cost rework.
+- **AI hallucination guard:** Do NOT rely on training data for current package versions. Before specifying a version in `package.json` / `pyproject.toml`, verify the latest major via `npm view <pkg> version` (or `pip index versions <pkg>`). Prior incident: AI proposed Prisma 6 when Prisma 7 was already the latest stable — caught only at audit, cost rework.
 - **Post-install verification (MANDATORY):** After every `pnpm add` / `uv add` during implementation, run `pnpm outdated` (or equivalent). If any dependency shows a newer major, update immediately — do not defer.
 
 ## Testing Policy

@@ -26,7 +26,7 @@ The gate **must** fire (live smoke test is required, not optional) when a change
 
 A wrong-client `$queryRaw` **compiles clean** and **passes mocked tests** — because the mock doesn't know which datasource the real call would hit. The error only appears at runtime, against real data, in a code path the test suite cannot reach.
 
-Reference incident: **DEV-1156** (aio-v2). A raw query intended to hit `stats` (mysql5) was injected on the `bi_aggregate` client (mysql8). Unit tests mocked the Prisma client and passed green. Production returned "table not found" on first request. Root cause: `PrismaService` vs `PrismaBiService` were both valid injections for the DI container, and the type-checker could not distinguish them for a `$queryRaw` call.
+Reference incident: a raw query intended to hit `stats` (mysql5) was injected on the `bi_aggregate` client (mysql8). Unit tests mocked the Prisma client and passed green. Production returned "table not found" on first request. Root cause: `PrismaService` vs `PrismaBiService` were both valid injections for the DI container, and the type-checker could not distinguish them for a `$queryRaw` call.
 
 ### What a passing gate looks like
 
@@ -70,7 +70,7 @@ A mocked HTTP client returns whatever the test sets up. The real client would ha
 
 Each of those layers can silently break without a single unit test failing.
 
-Reference incident: **DEV-1169 follow-up** (`reflection-DEV-1169-followup.md`). 241 unit tests passed and the NestJS clone code merged to main. First-ever live Docker clone (during `/dr-qa` weeks later) surfaced 3 independent runtime bugs: `wp_clone_script_dev` was non-executable in git index (`100644`), SWC version of the script used hardcoded `-hdb` hostname with no `db` service in Docker, and MySQL 8 PHP clients hit `self-signed certificate` errors against local MySQL 8 containers. Zero of these were detectable in unit tests.
+Reference incident: 241 unit tests passed and NestJS clone code merged to main. First-ever live Docker clone (during `/dr-qa` weeks later) surfaced 3 independent runtime bugs: `wp_clone_script_dev` was non-executable in git index (`100644`), SWC version of the script used hardcoded `-hdb` hostname with no `db` service in Docker, and MySQL 8 PHP clients hit `self-signed certificate` errors against local MySQL 8 containers. Zero of these were detectable in unit tests.
 
 ### What a passing gate looks like
 
@@ -108,7 +108,7 @@ The gate fires when a deployment does any of:
 
 ### Why "deploy then switch cron" fails
 
-Reference incident: **EMAIL-0001**. Switching cron from root to `email-agent` caused 3 simultaneous regressions: (1) data directory owned by root → PermissionError, (2) Gemini CLI OAuth creds not in new HOME → API_KEY_INVALID, (3) `except (OSError, ...)` caught PermissionError as "transient network failure" → silently swallowed. 54 emails were fetched (marked as read in Gmail) but never delivered to Telegram. All found by operator hours later, not by deployment verification.
+Reference incident: switching cron from root to an agent user caused 3 simultaneous regressions: (1) data directory owned by root → PermissionError, (2) Gemini CLI OAuth creds not in new HOME → API_KEY_INVALID, (3) `except (OSError, ...)` caught PermissionError as "transient network failure" → silently swallowed. 54 emails were fetched (marked as read in Gmail) but never delivered to Telegram. All found by operator hours later, not by deployment verification.
 
 ### Passing gate
 
@@ -153,7 +153,7 @@ For features whose acceptance metric depends on **group-aggregated** data (entit
 1. **Flag in the implementation plan** that the AC may not exceed baseline на этом corpus, and ensure the plan has an explicit **branch-trigger** (DIAGNOSE / re-corpus / A/B-alternative) для the miss path. This makes a numerical miss an expected, handled outcome rather than a panic-reroute.
 2. **If the trigger does not exist in the plan**, escalate before pilot — either expand the corpus, lower the AC, or add the branch-trigger.
 
-**Reference incident:** LTM-0013 (2026-04-27). Reflect-job creates meta-facts only from entity-groups with ≥2 source chunks. Pilot corpus had 188 entities but **187 single-chunk** — only 1 group qualified. Resulting 4-fact pool was statistically insufficient for the chosen recall@5 ≥ baseline+5pp threshold; AC-2 missed numerically. Plan §3.4 *did* include a DIAGNOSE branch-trigger, so the miss became an expected handled outcome rather than blocked archive. A coverage probe before the pilot would have flagged the floor case in advance.
+**Reference incident:** a reflect-job creates meta-facts only from entity-groups with ≥2 source chunks. Pilot corpus had 188 entities but **187 single-chunk** — only 1 group qualified. Resulting 4-fact pool was statistically insufficient for the chosen recall@5 ≥ baseline+5pp threshold; AC-2 missed numerically. The plan *did* include a DIAGNOSE branch-trigger, so the miss became an expected handled outcome rather than blocked archive. A coverage probe before the pilot would have flagged the floor case in advance.
 
 ### Verdict
 
@@ -163,7 +163,7 @@ For features whose acceptance metric depends on **group-aggregated** data (entit
 
 ### Reference incident
 
-**LTM-0012** (2026-04-26). 41-chunk pilot re-ingest hit acceptance gate on primary metric (`recall@5 = 0.667` ≥ target 0.5), but two supplementary DoD failed (extraction-rate 17 % vs target 80 %, manual `as_of` filter missing). Single root cause: the entity resolver preferred generic entity names over a more specific task-id pattern, so events for archive chunks were attached to the wrong canonical entity and the `as_of` filter treated them as timeless. A single N=1 smoke on one archive chunk before the 1209-second pilot would have surfaced the misattribution; instead the gap was discovered after the full benchmark cycle. Cost: one full pilot + benchmark + analysis loop, recoverable but avoidable.
+41-chunk pilot re-ingest hit acceptance gate on primary metric (`recall@5 = 0.667` ≥ target 0.5), but two supplementary DoD failed (extraction-rate 17 % vs target 80 %, manual `as_of` filter missing). Single root cause: the entity resolver preferred generic entity names over a more specific task-id pattern, so events for archive chunks were attached to the wrong canonical entity and the `as_of` filter treated them as timeless. A single N=1 smoke on one archive chunk before the ~1200-second pilot would have surfaced the misattribution; instead the gap was discovered after the full benchmark cycle. Cost: one full pilot + benchmark + analysis loop, recoverable but avoidable.
 
 ---
 
@@ -199,4 +199,4 @@ After deploy, before declaring success:
 
 ### Reference incident
 
-**CONN-0047** (2026-04-27). Groq connector deploy added `GROQ_API_KEY` to PROD `.env`; CI ran `docker compose up -d --build` and reported success. `grep GROQ /srv/apps/.../.env` returned the new key (file write OK), but `docker exec ... env | grep GROQ` returned empty — the container was not recreated by the build step because the image hash already matched. Application traffic to `/connectors/groq/execute` would have failed `auth_error` despite the "successful" deploy. Closed by `docker compose up -d --force-recreate model-connector`. Generic Compose gotcha — applies to any new env var on any project in the ecosystem (Transcribator, Verdicus, Auth Arcana, Munera, Ops Bot).
+A connector deploy added `GROQ_API_KEY` to PROD `.env`; CI ran `docker compose up -d --build` and reported success. `grep GROQ /srv/apps/.../.env` returned the new key (file write OK), but `docker exec ... env | grep GROQ` returned empty — the container was not recreated by the build step because the image hash already matched. Application traffic to the connector endpoint would have failed `auth_error` despite the "successful" deploy. Closed by `docker compose up -d --force-recreate model-connector`. Generic Compose gotcha — applies to any new env var on any project in the ecosystem.
