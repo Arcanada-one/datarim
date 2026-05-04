@@ -1,0 +1,34 @@
+name: bats
+
+# TUNE-0092 — full bats regression suite for the framework repo.
+# Runs every *.bats file under tests/ on every PR and on push to main.
+# Complements the scoped bats jobs in security.yml (regression-bats, doc-refs,
+# task-id-gate) and dev-tools-lint.yml (bats-self-tests) by covering the rest
+# of the suite that previously had no CI gate.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bats-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  full-suite:
+    name: bats tests/ (full)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install bats
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends bats
+
+      - name: Run full bats suite
+        run: bats tests/
