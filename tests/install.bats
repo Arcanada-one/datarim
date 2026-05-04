@@ -1,4 +1,5 @@
 #!/usr/bin/env bats
+bats_require_minimum_version 1.5.0
 #
 # Tests for install.sh (TUNE-0004).
 #
@@ -90,7 +91,7 @@ setup() {
     [ "$status" -eq 1 ]
     [[ "$output" == *"non-TTY"* || "$output" == *"TTY"* || "$output" == *"tty"* ]]
     # No backup created because install aborted BEFORE copy phase.
-    [ ! -d "$FAKE_CLAUDE/backups" ] || ! ls "$FAKE_CLAUDE/backups" 2>/dev/null | grep -q force-
+    [ ! -d "$FAKE_CLAUDE/backups" ] || ! compgen -G "$FAKE_CLAUDE/backups/force-*" >/dev/null
 }
 
 @test "T10 AC-2 --force --yes on live system: backup created with SUCCESS marker" {
@@ -115,7 +116,7 @@ setup() {
     local backup
     backup="$(ls -d "$FAKE_CLAUDE"/backups/force-* 2>/dev/null | head -1)"
     grep -q "existing edit" "$backup/agents/planner.md"
-    ! grep -q "existing edit" "$FAKE_CLAUDE/agents/planner.md"
+    run ! grep -q "existing edit" "$FAKE_CLAUDE/agents/planner.md"
     grep -q "^# planner" "$FAKE_CLAUDE/agents/planner.md"
 }
 
@@ -280,4 +281,32 @@ setup() {
     [[ "$output" == *"symlink"* || "$output" == *"Already"* || "$output" == *"nothing to update"* ]]
     # No backup directory created — symlink mode skips backup
     [ ! -d "$FAKE_CLAUDE/backups" ] || ! ls "$FAKE_CLAUDE"/backups/force-* >/dev/null 2>&1
+}
+
+# ---------- TUNE-0091: dev-tools/ excluded from install ----------
+
+@test "T34 TUNE-0091 dev-tools/ is NOT installed (symlink mode)" {
+    # Create a fake dev-tools/ tree in the source repo (mirrors real layout).
+    mkdir -p "$FAKE_REPO/dev-tools/tests"
+    echo '#!/bin/sh' > "$FAKE_REPO/dev-tools/doc-fanout-lint.sh"
+    echo "version: 1" > "$FAKE_REPO/dev-tools/.doc-fanout.yml"
+    echo "# bats" > "$FAKE_REPO/dev-tools/tests/doc-fanout-lint.bats"
+    run_install
+    [ "$status" -eq 0 ]
+    # Post-install: dev-tools must not appear under CLAUDE_DIR.
+    [ ! -e "$FAKE_CLAUDE/dev-tools" ]
+}
+
+@test "T35 TUNE-0091 dev-tools/ is NOT installed (copy mode)" {
+    mkdir -p "$FAKE_REPO/dev-tools"
+    echo '#!/bin/sh' > "$FAKE_REPO/dev-tools/doc-fanout-lint.sh"
+    run_install --copy
+    [ "$status" -eq 0 ]
+    [ ! -e "$FAKE_CLAUDE/dev-tools" ]
+}
+
+@test "T36 TUNE-0091 INSTALL_SCOPES whitelist excludes dev-tools" {
+    # Static contract assertion: dev-tools must not appear in INSTALL_SCOPES.
+    grep -E '^INSTALL_SCOPES=' "$FAKE_REPO/install.sh" | grep -qv 'dev-tools'
+    [ "$?" -eq 0 ]
 }

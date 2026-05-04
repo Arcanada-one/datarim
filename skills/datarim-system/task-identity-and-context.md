@@ -10,9 +10,11 @@
 
 Examples:
 
+<!-- gate:history-allowed -->
 - `TASK-0001`
 - `FIN-0001`
 - `QA-0008`
+<!-- /gate:history-allowed -->
 
 ### Auto-Generation
 
@@ -26,12 +28,14 @@ If the user does not provide a task ID, the system:
 
 Read active tasks from `datarim/activeContext.md` under `## Active Tasks`:
 
+<!-- gate:history-allowed -->
 ```markdown
 ## Active Tasks
 
 - **TASK-0001** — Description (Level 2, started 2026-04-18)
 - **TASK-0002** — Description (Level 3, started 2026-04-17)
 ```
+<!-- /gate:history-allowed -->
 
 ### Task Resolution Rule
 
@@ -88,6 +92,7 @@ Before modifying `tasks.md`:
 
 `activeContext.md` tracks all active tasks:
 
+<!-- gate:history-allowed -->
 ```markdown
 # Active Context
 
@@ -100,6 +105,7 @@ Before modifying `tasks.md`:
 
 - **TASK-0000** ✅ (2026-04-17) → Summary. `archive-TASK-0000.md`.
 ```
+<!-- /gate:history-allowed -->
 
 ### Task Status Lifecycle
 
@@ -113,7 +119,7 @@ not_started → in_progress → completed → archived
 
 `/dr-archive` must:
 
-1. **Verify clean git status** for every repo touched by the task. If dirty, STOP and force commit/accept/abort decision — never archive silently over uncommitted changes. (See TUNE-0003 reflection: applied ≠ committed ≠ canonical.)
+1. **Verify clean git status** for every repo touched by the task. If dirty, STOP and force commit/accept/abort decision — never archive silently over uncommitted changes. (Key lesson: applied ≠ committed ≠ canonical.)
 2. **Resolve task ID** using Task Resolution Rule (argument or disambiguation).
 3. Verify the task exists in `tasks.md`.
 4. Archive only that specific task.

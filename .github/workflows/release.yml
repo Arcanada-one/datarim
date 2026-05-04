@@ -1,0 +1,133 @@
+name: release
+
+# Datarim release workflow (TUNE-0050).
+# Triggers on tags matching v*. Builds source tarball via `git archive`,
+# generates CycloneDX SBOM via syft, signs both with cosign keyless OIDC,
+# attests build provenance (SLSA L2) via actions/attest-build-provenance,
+# publishes everything to GitHub Releases.
+#
+# Approach: Hybrid C — cosign sign-blob (portable verification) + GitHub
+# native attestations (SLSA L2). End-user verify recipe lives in
+# docs/release-verification.md.
+#
+# Tools install pattern (mirrors security.yml):
+#   - cosign + syft → standalone binaries, sha256-verified.
+#   - actions/checkout, actions/attest-build-provenance, softprops/action-gh-release
+#     → SHA-pinned to commit.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  COSIGN_VERSION: v3.0.6
+  COSIGN_SHA256: c956e5dfcac53d52bcf058360d579472f0c1d2d9b69f55209e256fe7783f4c74
+  SYFT_VERSION: v1.43.0
+  SYFT_SHA256: 7b98251d2d08926bb5d4639b56b1f0996a58ef6667c5830e3fe3cd3ad5f4214a
+
+jobs:
+  release:
+    name: build-sign-attest-publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write       # required to create the GitHub Release
+      id-token: write       # required for cosign keyless OIDC + attestations
+      attestations: write   # required for actions/attest-build-provenance
+    steps:
+      - name: Validate tag format
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(rc|alpha|beta|test)[0-9]+)?$ ]]; then
+            echo "::error::tag '$tag' does not match release format ^v\\d+\\.\\d+\\.\\d+(-(rc|alpha|beta|test)\\d+)?$"
+            exit 1
+          fi
+          {
+            echo "TAG=$tag"
+            echo "VERSION=${tag#v}"
+          } >> "$GITHUB_ENV"
+          # Mark non-stable suffixes as prerelease.
+          if [[ "$tag" =~ -(rc|alpha|beta|test)[0-9]+$ ]]; then
+            echo "IS_PRERELEASE=true" >> "$GITHUB_ENV"
+          else
+            echo "IS_PRERELEASE=false" >> "$GITHUB_ENV"
+          fi
+
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install cosign (verified binary)
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/cosign-linux-amd64" -o /tmp/cosign
+          echo "${COSIGN_SHA256}  /tmp/cosign" | sha256sum -c -
+          sudo install -m 0755 /tmp/cosign /usr/local/bin/cosign
+          cosign version
+
+      - name: Install syft (verified binary)
+        run: |
+          set -euo pipefail
+          asset="syft_${SYFT_VERSION#v}_linux_amd64.tar.gz"
+          curl -fsSL "https://github.com/anchore/syft/releases/download/${SYFT_VERSION}/${asset}" -o "/tmp/${asset}"
+          echo "${SYFT_SHA256}  /tmp/${asset}" | sha256sum -c -
+          tar -xzf "/tmp/${asset}" -C /tmp syft
+          sudo install -m 0755 /tmp/syft /usr/local/bin/syft
+          syft version
+
+      - name: Build source tarball (deterministic)
+        run: |
+          set -euo pipefail
+          tarball="datarim-${TAG}-source.tar.gz"
+          # --no-name on gzip strips embedded timestamp; git archive uses commit date for mtimes.
+          git archive --format=tar --prefix="datarim-${TAG}/" HEAD | gzip --no-name -6 > "$tarball"
+          sha256sum "$tarball" > "${tarball}.sha256"
+          ls -la "$tarball"*
+          echo "TARBALL=$tarball" >> "$GITHUB_ENV"
+
+      - name: Generate SBOM (CycloneDX)
+        run: |
+          set -euo pipefail
+          sbom="datarim-${TAG}-sbom.cdx.json"
+          syft scan dir:. -o "cyclonedx-json=${sbom}"
+          # Sanity: bomFormat must be CycloneDX, components array non-empty.
+          jq -e '.bomFormat == "CycloneDX" and (.components | length > 0)' "$sbom" > /dev/null
+          echo "SBOM=$sbom" >> "$GITHUB_ENV"
+
+      - name: Cosign sign-blob (tarball + SBOM)
+        run: |
+          set -euo pipefail
+          for f in "$TARBALL" "$SBOM"; do
+            cosign sign-blob --bundle "${f}.cosign.bundle" --yes "$f"
+            test -s "${f}.cosign.bundle"
+          done
+
+      - name: Attest build provenance (SLSA L2)
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-path: ${{ env.TARBALL }}
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
+        with:
+          tag_name: ${{ env.TAG }}
+          name: ${{ env.TAG }}
+          prerelease: ${{ env.IS_PRERELEASE }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          body: |
+            Verify this release before installing — see
+            [docs/release-verification.md](https://github.com/Arcanada-one/datarim/blob/${{ env.TAG }}/docs/release-verification.md).
+          files: |
+            ${{ env.TARBALL }}
+            ${{ env.TARBALL }}.sha256
+            ${{ env.TARBALL }}.cosign.bundle
+            ${{ env.SBOM }}
+            ${{ env.SBOM }}.cosign.bundle

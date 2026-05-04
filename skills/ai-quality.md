@@ -17,9 +17,12 @@ KEY LIMITS:
 |- Max 50 lines per method
 |- Max 7-9 objects in working memory
 |- One responsibility per function
+|- Separate signals — one variable, one question
 ```
 
 **Why:** AI loses focus with complexity. Small units = better output.
+
+**Separate-signals rule.** When a single variable answers two semantically distinct questions (e.g. "what to display" AND "is body non-empty"), refactoring one role silently breaks the other. Always extract independent signals for independent questions, even if they currently compute from the same source. The cost is one extra line at definition; the saving is not chasing regressions through downstream branches that read the variable as a proxy for something it no longer represents.
 
 ---
 
@@ -67,8 +70,8 @@ PRACTICES:
 ```
 
 **Why:** Broad context = scattered results. Focus = precision.
-Source (auth UX): LTM-0001 — user requested simpler prompts after a 7-option authorization table.
-Source (wire-all): LTM-0008 — dedup/rerank deferred as "low risk", user challenged, wiring took <15 min.
+Source (auth UX): prior incident — user requested simpler prompts after a 7-option authorization table.
+Source (wire-all): prior incident — dedup/rerank deferred as "low risk", user challenged, wiring took <15 min.
 
 ---
 
@@ -192,7 +195,7 @@ SEQUENCE:
 - Internal-only refactors with no external contract
 - One-off scripts where future drift is not a concern
 
-Source: TUNE-0032 — Approach C (Spec-First with Golden Fixtures) chosen over Approach A (Big Bang refactor) for canonical CTA block. 39 tests now guard 17 commands + 5 agents from drift; mechanical sweep alone (Approach A) would have left the same problem to re-emerge with the next added command.
+Source: prior incident — Approach C (Spec-First with Golden Fixtures) chosen over Approach A (Big Bang refactor) for canonical CTA block. 39 tests now guard 17 commands + 5 agents from drift; mechanical sweep alone (Approach A) would have left the same problem to re-emerge with the next added command.
 
 ---
 

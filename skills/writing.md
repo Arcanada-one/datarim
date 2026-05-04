@@ -1,6 +1,6 @@
 ---
 name: writing
-description: Content creation workflow + go-to-market — research, drafting, editing, publication, SEO, analytics, launch checklists. Loaded by writer and editor agents.
+description: Content creation + go-to-market — research, drafting, editing, publication, SEO, analytics, launch. Loaded by writer and editor agents.
 model: sonnet
 ---
 

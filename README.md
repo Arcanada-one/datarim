@@ -2,7 +2,7 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 1.17.3](https://img.shields.io/badge/Version-1.17.3-green.svg)](VERSION)
+[![Version: 1.22.0](https://img.shields.io/badge/Version-1.22.0-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
@@ -15,7 +15,7 @@ reflection. The result is inconsistent quality, skipped steps, and zero institut
 learning. Every task starts from scratch, repeating the same mistakes from yesterday.
 
 Datarim fixes this by providing a complete iterative pipeline for any project type.
-It includes 17 specialized agents, 22 reusable skills, and 19 commands that guide
+It includes 17 specialized agents, 22 reusable skills, and 20 commands that guide
 work through a structured process: requirements gathering, planning, design,
 execution, quality assurance, compliance, reflection, and archival. The pipeline is
 complexity-aware — a quick fix does not go through the same process as a major
@@ -96,8 +96,8 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   covering everything from testing methodology to security hardening to content
   creation workflows and structured research.
 
-- **19 commands** — 8 pipeline stages, 3 content (write, edit, publish), 3 framework
-  and knowledge management (addskill, optimize, dream), 3 utilities (status, continue,
+- **20 commands** — 8 pipeline stages, 3 content (write, edit, publish), 4 framework
+  and knowledge management (addskill, doctor, optimize, dream), 3 utilities (status, continue,
   help), and 2 standalone tools (factcheck, humanize).
 
 - **8-stage complexity-aware pipeline** — tasks flow through exactly the stages they
@@ -191,6 +191,8 @@ previously destroyed 9 runtime evolutions during the TUNE-0003 incident.
 ---
 
 ## Installation
+
+> **Releases are signed.** Every tagged release ships a cosign-signed source tarball, a CycloneDX SBOM, and a SLSA L2 build provenance attestation. Verify before installing — see [`docs/release-verification.md`](docs/release-verification.md).
 
 ### First install on a new machine
 
@@ -412,8 +414,9 @@ specific capabilities. You can add custom skills by placing `.md` files in
 | `/dr-edit` | Content | Editorial review — fact-check, AI pattern removal, style, publication quality. Uses the editor agent. |
 | `/dr-publish` | Content | Adapt and publish content to multiple platforms (Telegram, LinkedIn, blog, etc.). Uses the writer agent. |
 | `/dr-addskill` | Extension | Create or update skills, agents, commands. Researches best practices, audits existing framework, generates artifacts. |
-| `/dr-optimize` | Maintenance | Audit framework health, prune unused components, merge duplicates, fix references, sync documentation. |
+| `/dr-doctor` | Maintenance | Diagnose and repair Datarim operational files — migrate to thin one-liner schema, externalize task descriptions, abolish progress.md. |
 | `/dr-dream` | Maintenance | Knowledge base maintenance: organize files, build index, cross-reference, flag contradictions, archive stale content. |
+| `/dr-optimize` | Maintenance | Audit framework health, prune unused components, merge duplicates, fix references, sync documentation. |
 | `/dr-status` | Any | Check current task status, pipeline progress, and backlog summary. |
 | `/dr-continue` | Any | Resume work from the last checkpoint. Restores context and picks up where you left off. |
 | `/dr-help` | Any | List all available commands with descriptions, pipeline flow, and complexity routing. |
@@ -879,7 +882,7 @@ and why it exists.
 datarim/
   agents/            # Agent personas (17 agents)
   skills/            # Knowledge modules (22 skills)
-  commands/          # Slash commands (19 commands)
+  commands/          # Slash commands (20 commands)
   templates/         # Task and document templates (13 templates)
   docs/              # Extended documentation and use cases
   CLAUDE.md          # Framework rules (copy to your project)

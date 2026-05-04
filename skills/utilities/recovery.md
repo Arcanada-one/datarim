@@ -23,4 +23,4 @@
 - If compaction was itself more aggressive than default, some skill bodies may be summarized rather than verbatim. Check for ellipses or `[summary]` markers before trusting.
 - Not a substitute for real backups — this is an emergent, opportunistic recovery path. Set up proper backup for the runtime tree (e.g. APFS snapshots or a git-tracked `~/.claude/`) for durability.
 
-**Source:** TUNE-0011 — `install.sh --force` during TUNE-0003 /dr-archive overwrote 4 runtime files. 2 of them (`commands/dr-do.md`, `commands/dr-qa.md`) were recovered verbatim from system-reminder blocks preserved through /compact. Channel 2 of the Disaster Recovery checklist in `skills/evolution.md`.
+**Source:** prior incident — `install.sh --force` during a prior incident /dr-archive overwrote 4 runtime files. 2 of them (`commands/dr-do.md`, `commands/dr-qa.md`) were recovered verbatim from system-reminder blocks preserved through /compact. Channel 2 of the Disaster Recovery checklist in `skills/evolution.md`.

@@ -133,7 +133,7 @@ Before generating lists of framework components (agents, skills, commands, use c
    - Agent/skill `.md` files for accurate capability descriptions
 3. **Never hardcode counts** — they drift as the framework evolves (e.g., 15→16 agents, 18→22 skills during v1.5→v1.6)
 
-**Why:** WEB-0002 showed "15 agents / 18 skills" on the site while actuals were 16/22. Also showed 6 use cases instead of 13. Both errors came from relying on stale session data instead of querying the source.
+**Why:** A prior incident showed stale counts on the site ("15 agents / 18 skills" while actuals were 16/22, and 6 use cases instead of 13). Both errors came from relying on stale session data instead of querying the source.
 
 ---
 

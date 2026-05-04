@@ -41,6 +41,7 @@ Read `datarim/tasks.md` and `datarim/activeContext.md` to determine task type:
 ### 4. Test Coverage
 - Verify tests exist for all changed code paths
 - Check: edge cases, error paths, boundary conditions
+- **Quantitative-threshold AC enforcement.** When an Acceptance Criterion declares a numeric threshold (coverage %, latency budget, RPS, error rate, etc.), Compliance Step 4 (or Step 6 for runtime metrics) MUST execute the measurement tool and record the actual number. «Presumed met» is not an acceptable verdict for thresholded AC. If the measurement tool is absent on the host, install it (typically a one-line install via the project's package-manager-native tooling) before claiming PASS, or escalate the AC as BLOCKED back to `/dr-do`. Source: prior incident — AC-7 (≥80% line coverage) was carried as «presumed met» through `/dr-qa` PASS_WITH_NOTES; Compliance had to install the coverage tool and measure (actual 91.5%) to close the gap.
 
 ### 5. Linters and Formatters
 - Run project linters and formatters
@@ -137,7 +138,7 @@ Read `datarim/tasks.md` and `datarim/activeContext.md` to determine task type:
 - Least-privilege, SSL/TLS correct, access controls appropriate
 
 ### 5. Discovery Probe Verification
-- For infra tasks referencing external state (GitHub org contents, DNS records, server inventory, cloud project structure) — verify assumptions against the **live API** during `/dr-prd`, NOT at `/dr-do`. Inventory mismatches caught late cost creative/planning effort. Example: `.meta` planned 13 repos when only 7 existed in the GitHub org (INFRA-0013).
+- For infra tasks referencing external state (GitHub org contents, DNS records, server inventory, cloud project structure) — verify assumptions against the **live API** during `/dr-prd`, NOT at `/dr-do`. Inventory mismatches caught late cost creative/planning effort. Example: `.meta` planned 13 repos when only 7 existed in the GitHub org.
 
 ### 6. Nested Git Repos Cleanliness
 - For workspace-level infra tasks (file-sync, backup, mass-rename) scan ALL nested git repos, not only the workspace root:
@@ -145,14 +146,14 @@ Read `datarim/tasks.md` and `datarim/activeContext.md` to determine task type:
   find . -maxdepth 6 -name .git -type d -exec dirname {} \;
   ```
 - For each: `git status --porcelain` + `git rev-list --count @{u}..HEAD` (uncommitted + unpushed).
-- Flag as Open Item if any nested repo has uncommitted changes or unpushed commits — they may be invisible production fixes that file-sync silently propagated (see INFRA-0026: Email Agent had 7 file deltas + 1 unpushed commit invisible until `/dr-archive` clean-git check).
+- Flag as Open Item if any nested repo has uncommitted changes or unpushed commits — they may be invisible production fixes that file-sync silently propagated (see evolution-log: Email Agent had 7 file deltas + 1 unpushed commit invisible until `/dr-archive` clean-git check).
 
 ### 7. File-Sync Configuration Audit (when task touches Syncthing/rclone/rsync/Dropbox/Disk Arcana setup)
 - Load `$HOME/.claude/skills/file-sync-config.md`.
 - Run pre-flight inventory `find` per the skill's checklist BEFORE confirming compliant.
 - Verify ignore patterns cover ALL discovered classes (.venv/__pycache__/target/*.db/.next/.build/etc.).
 - Verify nested git repos either fully excluded or documented as «read-only mirror».
-- Source: INFRA-0026 — first .stignore set (28 patterns) missed 11 classes; 1 sync-conflict materialized + 60+ accumulated before audit caught it.
+- Source: prior incident — first .stignore set (28 patterns) missed 11 classes; 1 sync-conflict materialized + 60+ accumulated before audit caught it.
 
 ---
 

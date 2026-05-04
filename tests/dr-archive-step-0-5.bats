@@ -54,7 +54,7 @@ SPEC="${BATS_TEST_DIRNAME}/../commands/dr-archive.md"
     [ "$status" -eq 0 ]
 }
 
-@test "spec cites TUNE-0013 for pipeline v2 rationale" {
-    run grep -F "TUNE-0013" "$SPEC"
+@test "spec documents v1.10.0 pipeline rationale (history-agnostic: ID removed, version retained)" {
+    run grep -F "v1.10.0" "$SPEC"
     [ "$status" -eq 0 ]
 }

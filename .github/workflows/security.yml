@@ -1,10 +1,23 @@
 name: security
 
+# Datarim full security gate (TUNE-0045 P2).
+# 12 parallel jobs covering shell + python + supply chain + secrets + workflows.
+# Replaces the P1 stop-gap security-minimal.yml.
+#
+# Tools install pattern:
+#   - Trivial OS packages (shellcheck, bats) → apt-get on the runner image.
+#   - Python tooling (bandit, semgrep, zizmor) → pipx (PyPI integrity = TLS + index attestation).
+#   - Standalone binaries (gitleaks, trufflehog, actionlint, osv-scanner) → download release tarball,
+#     verify the matching SHA256 from the project's release checksums file, install to /usr/local/bin.
+#   - Single third-party action — actions/checkout — pinned to commit SHA.
+#
+# This avoids managing pin-rot across 6+ third-party actions while keeping the
+# install layer transparent and auditable.
+
 on:
-  push:
-    branches: [main]
   pull_request:
-    branches: [main]
+  push:
+    branches: [main, "tune-*"]
 
 permissions:
   contents: read
@@ -14,15 +27,155 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # 1. shellcheck on shell sources
+  shellcheck:
+    name: shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Run shellcheck (severity=warning)
+        run: |
+          set -euo pipefail
+          shellcheck --version
+          mapfile -d '' files < <(find . -name '*.sh' -not -path './.git/*' -print0)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "no shell scripts found"
+            exit 0
+          fi
+          shellcheck --severity=warning "${files[@]}"
+
+  # 2. shellcheck on bash blocks extracted from markdown
+  shellcheck-extracted:
+    name: shellcheck-extracted
+    runs-on: ubuntu-latest
+    # Informational during the TUNE-0045 baseline window: many shipped skills
+    # contain illustrative bash snippets with `<PLACEHOLDER>` syntax that fails
+    # shellcheck. Promotion to required pending TUNE-0048 (tag illustrative
+    # blocks with `# nosec-extract` or `<!-- security:counter-example -->`).
+    # See documentation/archive/security/triage-2026-04.md.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Extract bash blocks from markdown
+        run: |
+          set -euo pipefail
+          mapfile -d '' mds < <(find skills agents commands templates docs -name '*.md' -print0 2>/dev/null || true)
+          if [ "${#mds[@]}" -eq 0 ]; then
+            echo "no markdown files in scoped dirs"
+            exit 0
+          fi
+          mkdir -p _extracted
+          bash tests/security/extract-code-blocks.sh -o _extracted "${mds[@]}"
+      - name: Run shellcheck on extracted bash blocks
+        run: |
+          set -euo pipefail
+          mapfile -d '' files < <(find _extracted -name '*.sh' -print0 2>/dev/null || true)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "no extracted shell blocks"
+            exit 0
+          fi
+          shellcheck --severity=warning --shell=bash "${files[@]}"
+
+  # 3. bandit on python sources
+  bandit:
+    name: bandit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.12"
+      - name: Install bandit
+        run: pipx install bandit
+      - name: Run bandit on .py files
+        run: |
+          set -euo pipefail
+          if find . -name '*.py' -not -path './.git/*' -not -path './_extracted/*' | head -1 | grep -q .; then
+            bandit -r . -ll -ii -x ./_extracted,./.git
+          else
+            echo "no python sources"
+          fi
+
+  # 4. bandit on python blocks extracted from markdown
+  bandit-extracted:
+    name: bandit-extracted
+    runs-on: ubuntu-latest
+    # Informational during the TUNE-0045 baseline window — same rationale as
+    # shellcheck-extracted (illustrative blocks need explicit opt-out tagging).
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.12"
+      - name: Install bandit
+        run: pipx install bandit
+      - name: Extract python blocks from markdown
+        run: |
+          set -euo pipefail
+          mapfile -d '' mds < <(find skills agents commands templates docs -name '*.md' -print0 2>/dev/null || true)
+          if [ "${#mds[@]}" -eq 0 ]; then
+            echo "no markdown"
+            exit 0
+          fi
+          mkdir -p _extracted
+          bash tests/security/extract-code-blocks.sh -o _extracted "${mds[@]}"
+      - name: Run bandit on extracted python blocks
+        run: |
+          set -euo pipefail
+          if find _extracted -name '*.py' | head -1 | grep -q .; then
+            bandit -r _extracted -ll -ii
+          else
+            echo "no extracted python blocks"
+          fi
+
+  # 5. semgrep multi-config
+  semgrep:
+    name: semgrep
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.12"
+      - name: Install semgrep
+        run: pipx install semgrep
+      - name: Run semgrep
+        run: |
+          set -euo pipefail
+          semgrep --error \
+            --config p/default \
+            --config p/python \
+            --config p/secrets \
+            --config p/github-actions \
+            --config p/security-audit \
+            --exclude tests/security/fixtures \
+            --exclude _extracted \
+            .
+
+  # 6. gitleaks — full git history secret scan (sha256-pinned binary)
   gitleaks:
     name: gitleaks
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
-
       - name: Install gitleaks (pinned binary)
         env:
           GITLEAKS_VERSION: 8.30.1
@@ -31,21 +184,20 @@ jobs:
           set -euo pipefail
           curl -fsSL -o /tmp/gitleaks.tar.gz \
             "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
-          ACTUAL_SHA="$(sha256sum /tmp/gitleaks.tar.gz | awk '{print $1}')"
-          if [ "${ACTUAL_SHA}" != "${GITLEAKS_SHA256}" ]; then
-            echo "::error::gitleaks tarball SHA256 mismatch (expected ${GITLEAKS_SHA256}, got ${ACTUAL_SHA})"
+          actual="$(sha256sum /tmp/gitleaks.tar.gz | awk '{print $1}')"
+          if [ "$actual" != "$GITLEAKS_SHA256" ]; then
+            echo "::error::gitleaks tarball SHA256 mismatch (expected $GITLEAKS_SHA256, got $actual)"
             exit 1
           fi
           tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
           sudo install -m 0755 /tmp/gitleaks /usr/local/bin/gitleaks
           gitleaks version
-
-      - name: Scan working tree + history
+      - name: Scan working tree + full history
         run: |
           set -euo pipefail
           gitleaks detect --redact --no-banner --exit-code 1 \
+            --log-opts="--all" \
             --report-format sarif --report-path /tmp/gitleaks.sarif
-
       - name: Upload SARIF
         if: always()
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
@@ -53,3 +205,191 @@ jobs:
           name: gitleaks-sarif
           path: /tmp/gitleaks.sarif
           if-no-files-found: ignore
+
+  # 7. trufflehog — verified secrets only (binary verified via release checksums)
+  trufflehog:
+    name: trufflehog
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Install trufflehog (release checksums verified)
+        env:
+          TRUFFLEHOG_VERSION: 3.83.7
+        run: |
+          set -euo pipefail
+          base="https://github.com/trufflesecurity/trufflehog/releases/download/v${TRUFFLEHOG_VERSION}"
+          asset="trufflehog_${TRUFFLEHOG_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL -o "/tmp/${asset}" "${base}/${asset}"
+          curl -fsSL -o "/tmp/trufflehog_checksums.txt" "${base}/trufflehog_${TRUFFLEHOG_VERSION}_checksums.txt"
+          (cd /tmp && grep "${asset}" trufflehog_checksums.txt | sha256sum -c -)
+          tar -xzf "/tmp/${asset}" -C /tmp trufflehog
+          sudo install -m 0755 /tmp/trufflehog /usr/local/bin/trufflehog
+          trufflehog --version
+      - name: Run trufflehog filesystem (verified only)
+        run: trufflehog filesystem . --only-verified --fail --no-update
+
+  # 8. actionlint — workflow-yaml lint (binary verified via release checksums)
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+      - name: Install actionlint (release checksums verified)
+        env:
+          ACTIONLINT_VERSION: 1.7.7
+        run: |
+          set -euo pipefail
+          base="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}"
+          asset="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL -o "/tmp/${asset}" "${base}/${asset}"
+          curl -fsSL -o "/tmp/actionlint_checksums.txt" "${base}/actionlint_${ACTIONLINT_VERSION}_checksums.txt"
+          (cd /tmp && grep "${asset}" actionlint_checksums.txt | sha256sum -c -)
+          tar -xzf "/tmp/${asset}" -C /tmp actionlint
+          sudo install -m 0755 /tmp/actionlint /usr/local/bin/actionlint
+          actionlint --version
+      - name: Run actionlint
+        run: actionlint -color
+
+  # 9. zizmor — GitHub Actions security audit
+  zizmor:
+    name: zizmor
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.12"
+      - name: Install zizmor
+        run: pipx install zizmor
+      - name: Run zizmor
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: zizmor --min-severity medium .github/workflows/
+
+  # 10. osv-scanner — dependency vulnerabilities (binary verified via release checksums)
+  osv-scanner:
+    name: osv-scanner
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+      - name: Install osv-scanner (release checksums verified)
+        env:
+          OSV_VERSION: 2.3.5
+        run: |
+          set -euo pipefail
+          base="https://github.com/google/osv-scanner/releases/download/v${OSV_VERSION}"
+          asset="osv-scanner_linux_amd64"
+          curl -fsSL -o "/tmp/${asset}" "${base}/${asset}"
+          curl -fsSL -o "/tmp/osv-scanner_SHA256SUMS" "${base}/osv-scanner_SHA256SUMS"
+          (cd /tmp && grep "${asset}" osv-scanner_SHA256SUMS | sha256sum -c -)
+          sudo install -m 0755 "/tmp/${asset}" /usr/local/bin/osv-scanner
+          osv-scanner --version
+      - name: Run osv-scanner
+        run: |
+          set -euo pipefail
+          # osv-scanner v2 exits 128 with "No package sources found" when the repo
+          # has no language manifests. Detect manifests up front and skip cleanly
+          # — Datarim framework is shell+markdown, no runtime deps to scan.
+          if find . \
+              -path ./.git -prune -o \
+              -path ./_extracted -prune -o \
+              \( -name 'package.json' -o -name 'pnpm-lock.yaml' -o -name 'yarn.lock' \
+                 -o -name 'requirements.txt' -o -name 'pyproject.toml' -o -name 'Pipfile.lock' -o -name 'poetry.lock' \
+                 -o -name 'go.mod' -o -name 'Cargo.toml' -o -name 'pom.xml' -o -name 'build.gradle' \
+                 -o -name 'Gemfile' -o -name 'composer.json' \) \
+              -print 2>/dev/null | grep -q .; then
+            osv-scanner -r .
+          else
+            echo "no package manifests in repo — osv-scanner skipped (n/a)"
+          fi
+
+  # 11. bats regression tests for fixed findings
+  regression-bats:
+    name: regression-bats
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+      - name: Install bats
+        run: sudo apt-get update && sudo apt-get install -y bats
+      - name: Run security regression tests
+        run: bash tests/security/run-all.sh
+
+  # 12. markdown-policy — anti-pattern grep over shipped docs (counter-example fence aware)
+  markdown-policy:
+    name: markdown-policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+      - name: Anti-pattern scan (skipping counter-example fences)
+        run: |
+          set -euo pipefail
+          mapfile -d '' mds < <(find skills agents commands templates docs -name '*.md' -print0 2>/dev/null || true)
+          if [ "${#mds[@]}" -eq 0 ]; then
+            echo "no markdown in shipped scopes"
+            exit 0
+          fi
+          fail=0
+          for md in "${mds[@]}"; do
+            awk '
+              /^[[:space:]]*<!--[[:space:]]*security:counter-example[[:space:]]*-->[[:space:]]*$/ { skip=1; next }
+              /^[[:space:]]*<!--[[:space:]]*\/security:counter-example[[:space:]]*-->[[:space:]]*$/ { skip=0; next }
+              skip == 1 { next }
+              /StrictHostKeyChecking=no/ { printf "%s:%d:[ssh-disable] %s\n", FILENAME, NR, $0; found=1 }
+              /curl[[:space:]]+[^|]*\|[[:space:]]*bash([[:space:]]|$)/ { printf "%s:%d:[curl-bash] %s\n", FILENAME, NR, $0; found=1 }
+              /curl[[:space:]]+[^|]*\|[[:space:]]*sh([[:space:]]|$)/ { printf "%s:%d:[curl-sh] %s\n", FILENAME, NR, $0; found=1 }
+              /client_secret_[a-zA-Z0-9_-]{20,}/ { printf "%s:%d:[client-secret] %s\n", FILENAME, NR, $0; found=1 }
+              END { exit (found ? 1 : 0) }
+            ' "$md" || fail=1
+          done
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::anti-pattern(s) found in shipped markdown outside counter-example fences"
+            exit 1
+          fi
+          echo "markdown-policy: clean"
+
+  # 13. doc-refs — markdown reference integrity linter (TUNE-0054)
+  doc-refs:
+    name: doc-refs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+      - name: Install bats
+        run: sudo apt-get update && sudo apt-get install -y bats
+      - name: Run check-doc-refs bats fixtures
+        run: bats tests/check-doc-refs.bats
+      - name: Self-dogfood — run linter against repo HEAD with baseline applied
+        run: bash scripts/check-doc-refs.sh --root .
+
+  # 14. task-id-gate — history-agnostic policy on shipped runtime
+  task-id-gate:
+    name: task-id-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+      - name: Install bats
+        run: sudo apt-get update && sudo apt-get install -y bats
+      - name: Run task-id-gate bats fixtures
+        run: bats tests/task-id-gate.bats
+      - name: Self-dogfood — gate against runtime scopes (full tree)
+        run: |
+          set -euo pipefail
+          for d in skills agents commands templates; do
+            bash scripts/task-id-gate.sh "$d"
+          done

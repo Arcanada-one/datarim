@@ -1,0 +1,14 @@
+# Fixture for test-command-doc-coverage.bats (assertion 2)
+# Asserts every commands/dr-*.md is mentioned in framework CLAUDE.md.
+
+version: 1
+
+artifacts:
+  - glob: commands/dr-*.md
+    name_transform: basename_no_ext
+    consumers:
+      - id: framework_claude
+        kind: grep_in_file
+        file: CLAUDE.md
+        pattern: /{name}
+        severity: error

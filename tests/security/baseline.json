@@ -1,0 +1,55 @@
+{
+  "$schema": "https://datarim.club/schema/security-baseline-v1.json",
+  "generated": "2026-04-28",
+  "task": "TUNE-0045",
+  "phase": "P2.5",
+  "summary": "Post-P1 baseline. All required CI jobs are GREEN. Extracted-block jobs (shellcheck-extracted, bandit-extracted) are informational and the documented findings are grandfathered until TUNE-0048 tags illustrative blocks with explicit opt-out markers.",
+  "required_jobs_status": {
+    "shellcheck": "0 findings",
+    "bandit": "no .py sources",
+    "semgrep": "0 findings (1 finding suppressed inline with documented reason — see suppressions[])",
+    "gitleaks": "0 findings (88 commits scanned, ~1.13 MB)",
+    "trufflehog": "0 verified secrets (1592 chunks, ~7.16 MB)",
+    "actionlint": "0 findings",
+    "zizmor": "0 findings (medium+) after persist-credentials fix",
+    "osv-scanner": "no package sources (no package-lock.json / requirements.txt / etc. in scope)",
+    "regression-bats": "31/31 GREEN (21 P1 + 10 P2.1)",
+    "markdown-policy": "clean (no anti-patterns outside counter-example fences)"
+  },
+  "informational_jobs": {
+    "shellcheck-extracted": {
+      "status": "informational (continue-on-error: true)",
+      "warnings": 23,
+      "errors": 5,
+      "scope": "bash blocks extracted from skills/agents/commands/templates/docs",
+      "rationale": "shipped skills contain illustrative snippets with <PLACEHOLDER> syntax that is not valid bash; these are documentation, not standalone scripts.",
+      "promotion_path": "TUNE-0048 — tag each illustrative block with `# nosec-extract` or wrap in `<!-- security:counter-example -->` fence; flip continue-on-error: false."
+    },
+    "bandit-extracted": {
+      "status": "informational (continue-on-error: true)",
+      "findings": 0,
+      "skipped_files": 1,
+      "skipped_reason": "syntax error while parsing AST from doc snippet (not real Python code)",
+      "promotion_path": "TUNE-0048 — same as shellcheck-extracted."
+    }
+  },
+  "suppressions": [
+    {
+      "tool": "semgrep",
+      "rule": "bash.lang.security.ifs-tampering.ifs-tampering",
+      "file": "templates/cloudflare-nginx-setup.sh",
+      "line": 28,
+      "reason": "canonical strict-mode IFS, not derived from input — defensive, not vulnerable",
+      "marker": "# nosemgrep: bash.lang.security.ifs-tampering.ifs-tampering -- canonical strict-mode IFS, not derived from input"
+    }
+  ],
+  "follow_up_tasks": [
+    {
+      "id": "TUNE-0048",
+      "type": "follow-up",
+      "title": "Tag illustrative bash/python blocks in shipped docs to promote shellcheck-extracted + bandit-extracted to required CI jobs",
+      "trigger": "before next major framework release (1.19.x or 2.0.0)",
+      "estimate": "2-3 hours sweep over skills/, agents/, commands/, templates/, docs/"
+    }
+  ]
+}

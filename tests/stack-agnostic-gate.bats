@@ -50,3 +50,88 @@ FIXTURES="$REPO_ROOT/tests/fixtures/stack-agnostic-gate"
     run "$GATE" "$REPO_ROOT/skills/ai-quality/deployment-patterns.md"
     [ "$status" -eq 0 ]
 }
+
+# -----------------------------------------------------------------------------
+# TUNE-0058: --diff-only mode. Scan only added lines (`+` prefix in
+# `git diff <base> -- <file>`), ignore pre-existing baseline matches.
+# Source: TUNE-0044 + TUNE-0056 self-dogfood operator-toll on
+# docs/evolution-log.md (3 pre-existing npm/NestJS/vitest matches from old
+# entries kept failing the gate every time the file was touched, requiring
+# manual `git diff '^+'` verification to prove no fresh leak).
+# -----------------------------------------------------------------------------
+
+# Build a throwaway git repo whose HEAD already contains a baseline file with
+# stack-specific terms (simulating docs/evolution-log.md). Caller can then add
+# more lines (clean or dirty) and invoke the gate with --diff-only.
+setup_diff_repo() {
+    DIFF_REPO="$(mktemp -d)"
+    (
+        cd "$DIFF_REPO"
+        git init -q
+        git config user.email "test@example.com"
+        git config user.name "test"
+        cat > evolution-log.md <<'EOF'
+# Evolution Log
+
+## 2025-01-01 baseline
+
+- Switched from NestJS to plain handlers.
+- Replaced npm install with manual lockfile review.
+- Vitest suites now run in CI.
+EOF
+        git add evolution-log.md
+        git commit -q -m "baseline"
+    )
+}
+
+teardown_diff_repo() {
+    [ -n "${DIFF_REPO:-}" ] && rm -rf "$DIFF_REPO"
+}
+
+@test "T7: --diff-only ignores pre-existing baseline matches (no diff)" {
+    setup_diff_repo
+    # No new edits — diff against HEAD is empty. Even though file contains
+    # NestJS / npm install / Vitest in HEAD, --diff-only must exit 0.
+    run "$GATE" --diff-only "$DIFF_REPO/evolution-log.md"
+    teardown_diff_repo
+    [ "$status" -eq 0 ]
+}
+
+@test "T8: --diff-only catches freshly-added stack-specific term" {
+    setup_diff_repo
+    # Append a stack-specific line. Baseline matches must remain ignored,
+    # only the freshly-added Prisma line should trigger FAIL.
+    cat >> "$DIFF_REPO/evolution-log.md" <<'EOF'
+
+## 2026-04-29 follow-up
+
+- Migrated database layer to Prisma.
+EOF
+    run "$GATE" --diff-only "$DIFF_REPO/evolution-log.md"
+    teardown_diff_repo
+    [ "$status" -eq 1 ]
+}
+
+@test "T9: --diff-only with mixed baseline+added — only fresh hits reported" {
+    setup_diff_repo
+    cat >> "$DIFF_REPO/evolution-log.md" <<'EOF'
+
+## 2026-04-29 follow-up
+
+- Pure prose addition with no stack terms whatsoever.
+- Another safe line.
+EOF
+    run "$GATE" --diff-only "$DIFF_REPO/evolution-log.md"
+    teardown_diff_repo
+    # Only added lines scanned; added lines clean → exit 0 even though HEAD
+    # still has NestJS/npm install/Vitest baseline matches.
+    [ "$status" -eq 0 ]
+}
+
+@test "T10: --diff-only on non-git path exits 2 (not silent PASS)" {
+    TMPFILE="$(mktemp)"
+    printf '%s\n' "Some content with NestJS." > "$TMPFILE"
+    run "$GATE" --diff-only "$TMPFILE"
+    rm -f "$TMPFILE"
+    [ "$status" -eq 2 ]
+}

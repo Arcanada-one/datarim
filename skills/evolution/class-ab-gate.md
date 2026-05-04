@@ -5,7 +5,7 @@ description: Class A vs B operating-model gate for evolution proposals. Load whe
 
 # Class A vs Class B — Operating-Model Gate
 
-Not all proposals are equivalent at the approval step. Reflection approval is sufficient for *content* changes, but framework *contract* changes require a PRD update first. The gate below codifies this distinction after the TUNE-0002 → TUNE-0003 incident.
+Not all proposals are equivalent at the approval step. Reflection approval is sufficient for *content* changes, but framework *contract* changes require a PRD update first. The gate below codifies this distinction after a prior incident where a content-level approval was applied to a contract-level change.
 
 ## Class A — Content changes (reflection approval sufficient)
 
@@ -54,7 +54,7 @@ If all three are NO — Class A, proceed normally.
 
 ## Why this gate is worth the friction
 
-PRD updates add ~15-30 minutes of work per Class B proposal. The TUNE-0002 → TUNE-0003 incident cost ~6 hours of wrong-direction implementation + correction + TUNE-0011 recovery, or ~12x the gate cost. The gate also creates a persistent record (PRD diff + rationale) that future research can reconcile against instead of re-deriving.
+PRD updates add ~15-30 minutes of work per Class B proposal. A prior incident of this type cost ~6 hours of wrong-direction implementation + correction + downstream recovery, or ~12x the gate cost. The gate also creates a persistent record (PRD diff + rationale) that future research can reconcile against instead of re-deriving.
 
 ## Projects without a framework-level PRD
 
@@ -71,24 +71,24 @@ For consumer projects, PRD substitutes in priority order:
 
 ---
 
-## Contract-Implementation Atomicity (anti-TUNE-0003)
+## Contract-Implementation Atomicity
 
 **Single-repo:** PRD/contract update and implementation MUST land in the same commit.
 
 **Cross-repo:** When they live in different git repositories, they MUST land in the
 same `/dr-do` session, on the same calendar day, with cross-cite in both commit messages
-referencing the shared task ID. See `datarim/docs/ADR-TUNE-0014-cross-repo-atomicity.md` for rationale and verification procedure.
+referencing the shared task ID. See `datarim/docs/ADR-cross-repo-atomicity.md` for rationale and verification procedure.
 
 ---
 
-## Founding incident (2026-04-15..16)
+## Founding incident
 
-TUNE-0002 research concluded "repo-first operating model should replace runtime-first" based on research-level reasoning. This was treated as a regular proposal and approved through the normal reflection gate. TUNE-0003 then executed it — bumping VERSION, rewriting README Operating Model section, rewriting wrapper CLAUDE.md to 5-step repo-first workflow — without reconciling against `PRD-datarim-sdlc-framework.md`, which explicitly specified runtime-first via `/dr-reflect` (the command existing at the time of the incident; consolidated into `/dr-archive` Step 0.5 in v1.10.0 via TUNE-0013).
+Prior research concluded "repo-first operating model should replace runtime-first" based on research-level reasoning. This was treated as a regular proposal and approved through the normal reflection gate. A follow-up execution task then applied it — bumping VERSION, rewriting README Operating Model section, rewriting wrapper CLAUDE.md to a repo-first workflow — without reconciling against `PRD-datarim-sdlc-framework.md`, which explicitly specified runtime-first via `/dr-reflect` (the command existing at the time; consolidated into `/dr-archive` Step 0.5 in v1.10.0).
 
 The PRD was the load-bearing contract. The reflection gate had no way to see that. Result:
 
 1. Wrong-direction docs committed as v1.7.0.
 2. `install.sh --force` run during /dr-archive on the (now stale-again) runtime, overwriting 9 files with repo content that had been built on the wrong premise.
-3. Mid-task correction to runtime-first (v1.8.0), 4 hours of recovery + 4 files of TUNE-0011 reconstruction work downstream.
+3. Mid-task correction to runtime-first (v1.8.0), 4 hours of recovery + downstream reconstruction work.
 
 **Lesson:** research conclusions cannot silently override PRDs. The PRD is the contract; research proposes, PRD ratifies.
