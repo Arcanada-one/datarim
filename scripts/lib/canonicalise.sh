@@ -19,7 +19,10 @@ canonicalise_path() {
     case "$input" in
         /*) lead="/" ;;
     esac
-    local IFS='/'
+    # IFS is `local` — scoped to this function, restored on return. Path-component
+    # split is the intended operation, not tampering. Subshells/external commands
+    # are not invoked while IFS is altered.
+    local IFS='/'  # nosemgrep: bash.lang.security.ifs-tampering.ifs-tampering
     # shellcheck disable=SC2206
     local parts=( $input )
     local out=()
@@ -41,7 +44,8 @@ canonicalise_path() {
     if [ "${#out[@]}" -eq 0 ]; then
         printf '%s' "${lead:-.}"
     else
-        IFS=/
+        # Reassign within still-local IFS scope; controls "${out[*]}" join only.
+        IFS=/  # nosemgrep: bash.lang.security.ifs-tampering.ifs-tampering
         printf '%s%s' "$lead" "${out[*]}"
     fi
 }
