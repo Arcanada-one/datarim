@@ -426,6 +426,8 @@ migrate_file() {
         started="$(extract_field "$block" "Started")"
         [ -z "$started" ] && started="$(extract_field "$block" "Added")"
         project="$(extract_field "$block" "Project")"
+        # TUNE-0074: fall back to prefix lookup when legacy block omitted Project.
+        [ -z "$project" ] && project="$(prefix_to_project "$id")"
         body="$(extract_body "$block")"
         topic="$(norm_topic "$title")"
 
@@ -442,6 +444,31 @@ migrate_file() {
     else
         printf '%s\n\n<!-- no entries -->\n' "$heading" > "$out"
     fi
+}
+
+prefix_to_project() {
+    # TUNE-0074: canonical Prefix → Project lookup. Returns ecosystem project name
+    # for known prefixes; "unknown" otherwise. Used by migrate_file() to fill
+    # frontmatter `project:` when legacy block omitted the `Project:` field.
+    case "${1%%-*}" in
+        TUNE|ROB) echo "Datarim" ;;
+        VERD) echo "Verdicus" ;;
+        TRANS) echo "Transcribator" ;;
+        AUTH) echo "Auth Arcana" ;;
+        MUN) echo "Munera" ;;
+        SUP) echo "Support Center" ;;
+        AGENT|ARCA|ARGA) echo "Arcanada Ecosystem" ;;
+        CONN) echo "Model Connector" ;;
+        SRCH) echo "Scrutator" ;;
+        DISK) echo "Disk Arcana" ;;
+        LTM) echo "Long Term Memory" ;;
+        EMAIL) echo "Email Agent" ;;
+        BILL) echo "Billing" ;;
+        CONV) echo "Conversion" ;;
+        SEC) echo "Security" ;;
+        INFRA|WEB|CONTENT|RESEARCH|BENCH|DEV|DEVOPS|MAINT|FIN|QA) echo "unknown" ;;
+        *) echo "unknown" ;;
+    esac
 }
 
 prefix_to_area() {

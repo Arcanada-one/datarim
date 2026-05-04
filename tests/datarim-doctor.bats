@@ -805,3 +805,29 @@ EOF
     n="$(find "$TMPROOT/documentation/archive/general" -name 'archive-DEV-*.md' | wc -l | tr -d ' ')"
     [ "$n" -eq 14 ]
 }
+
+# --- TUNE-0074: prefix→project mapping ---------------------------------------
+
+@test "T-PREFIX-A1 (TUNE-0074) legacy entry with TUNE prefix lacking Project → frontmatter project: Datarim" {
+    cp "$FIXTURES/legacy-tasks-no-project.md" "$TMPROOT/datarim/tasks.md"
+    "$DOCTOR" --root="$TMPROOT/datarim" --fix >/dev/null
+    desc="$TMPROOT/datarim/tasks/TUNE-0500-task-description.md"
+    [ -f "$desc" ]
+    grep -qE '^project: Datarim$' "$desc"
+}
+
+@test "T-PREFIX-A2 (TUNE-0074) legacy entry with unknown prefix lacking Project → project: unknown" {
+    cp "$FIXTURES/legacy-tasks-no-project.md" "$TMPROOT/datarim/tasks.md"
+    "$DOCTOR" --root="$TMPROOT/datarim" --fix >/dev/null
+    desc="$TMPROOT/datarim/tasks/XYZ-0001-task-description.md"
+    [ -f "$desc" ]
+    grep -qE '^project: unknown$' "$desc"
+}
+
+@test "T-PREFIX-A3 (TUNE-0074) explicit Project field still wins over prefix lookup" {
+    cp "$FIXTURES/legacy-tasks.md" "$TMPROOT/datarim/tasks.md"
+    "$DOCTOR" --root="$TMPROOT/datarim" --fix >/dev/null
+    # legacy-tasks.md has TUNE-0071 with explicit "Project: Datarim framework"
+    desc="$TMPROOT/datarim/tasks/TUNE-0071-task-description.md"
+    grep -qE '^project: Datarim framework$' "$desc"
+}
