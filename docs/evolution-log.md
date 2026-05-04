@@ -537,3 +537,19 @@ None.
 ### Follow-Up Tasks
 
 None (TUNE-0091's currently-failing tests will surface organically on its PR via the new bats CI gate — desired behaviour, not a follow-up).
+
+## 2026-05-04 — TUNE-0082 (datarim.club skill-page drift sweep)
+
+### Class A Applied
+
+- **`skills/reflecting.md` § Instructions step 8 (FOLLOW-UP TASKS)** — added out-of-scope drift heuristic-scan: scan implementation notes and "What Didn't" section for phrases (`out-of-scope`, `still stale`, `also stale`, `runtime ... lagging`, `symmetric ... drift`, `separate task`, `deferred`, `noted for follow-up`); auto-suggest follow-up backlog entries rather than rely on operator memory. Source: TUNE-0082 spotted runtime `datarim-doctor.md` drift in /dr-do; only safety-net was operator memory at archive time. Stack-agnostic gate: PASS clean. Bats: 160/160 green.
+
+- **(project-scope, not framework runtime)** `Projects/Websites/CLAUDE.md` § Datarim Update Workflow → Scoping warning block — added «Runtime-skill freshness check (TUNE-0082)» paragraph + pre-deploy versioned-marker diff snippet. Site-only sync leaves AI-agent consumers reading stale runtime contracts. Routing: project CLAUDE.md (PHP-specific), not `~/.claude/skills/` → stack-agnostic gate N/A.
+
+### Class B
+
+- **B-1 — Pre-deploy «scope guard» in `deploy.sh`** (carryover from TUNE-0081). Still pending PRD: needs design for «expected scope manifest» vs rsync transfer-list comparison + false-positive handling on mtime-only drift (TUNE-0082 hit md5-identical files surfacing in rsync delta).
+
+### Follow-Up Tasks
+
+- **TUNE-0094** spawned (P3 L1) — runtime `~/.claude/skills/datarim-doctor.md` (= `code/datarim/skills/datarim-doctor.md`) sync to v1.21.3 5-pass + Data-Loss Safety Contract. Symmetric to TUNE-0082's site fix.
