@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# doc-fanout-lint.sh — N-way consumer-surface drift detector (TUNE-0091)
+# doc-fanout-lint.sh — N-way consumer-surface drift detector
 #
 # Detects asymmetric drift between a canonical artefact directory
 # (e.g. commands/dr-*.md) and N consumer surfaces (CLAUDE.md mention,
