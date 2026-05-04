@@ -519,3 +519,17 @@ Approved Class A evolution proposals from `reflection/reflection-TUNE-0032.md`. 
 - **TUNE-0036** — `/dr-archive` Step 0.1 staged-diff audit (folded into Proposal 5 above; backlog entry kept as tracking checkpoint). L1, P3.
 
 Items 2-4 are candidates for opportunistic batch (one L1 cleanup pass).
+
+## 2026-05-04 — TUNE-0092 (CI bats wiring)
+
+### Class A Applied
+
+- **`commands/dr-plan.md` § Transition Checkpoint** — added baseline-citation rule: every test-count baseline in a plan ("X/Y tests pass") must cite the branch and HEAD SHA the count was measured on. Source: TUNE-0092 — initial plan captured 281/285 on a feature branch and framed it as the main baseline; the actual main baseline was 160/160 green. Stack-agnostic gate verified clean.
+
+### Class B
+
+None.
+
+### Follow-Up Tasks
+
+None (TUNE-0091's currently-failing tests will surface organically on its PR via the new bats CI gate — desired behaviour, not a follow-up).
