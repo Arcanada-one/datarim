@@ -1,11 +1,11 @@
 ---
 name: datarim-doctor
-description: Schema and migration semantics for /dr-doctor — thin one-liner contract, YAML description schema, 5-pass migration, data-loss safety contract, conflict resolution. Loaded by /dr-doctor + /dr-init self-heal + /dr-archive line-format gate.
+description: Schema and migration semantics for /dr-doctor — thin one-liner contract, YAML description schema, 6-pass migration, data-loss safety contract, conflict resolution. Loaded by /dr-doctor + /dr-init self-heal + /dr-archive line-format gate.
 ---
 
 # Datarim Doctor — Schema and Migration Semantics
 
-This skill is the runtime knowledge module for `/dr-doctor`. It defines the **canonical thin contract** that operational files (`tasks.md`, `backlog.md`, `activeContext.md`) MUST conform to, the **5-pass migration algorithm** that `scripts/datarim-doctor.sh` applies, and the **data-loss safety contract** that wraps every `--fix` invocation.
+This skill is the runtime knowledge module for `/dr-doctor`. It defines the **canonical thin contract** that operational files (`tasks.md`, `backlog.md`, `activeContext.md`) MUST conform to, the **6-pass migration algorithm** that `scripts/datarim-doctor.sh` applies, and the **data-loss safety contract** that wraps every `--fix` invocation.
 
 Loaded by:
 - `/dr-doctor` (always)
@@ -130,7 +130,7 @@ Discussion / decisions log MAY follow as `## Decisions`.
 
 Anything beyond ~250 lines is a smell — split into a PRD or design doc.
 
-## Migration Algorithm (`--fix`) — 5 passes
+## Migration Algorithm (`--fix`) — 6 passes
 
 Applied by `scripts/datarim-doctor.sh --fix`. Single transactional sequence guarded by the data-loss safety contract (see next section). Atomic per file via `mv tmp file`.
 
@@ -178,7 +178,7 @@ Applied by `scripts/datarim-doctor.sh --fix`. Single transactional sequence guar
 17. Conflict policy is configurable via `--conflict-policy=prompt|keep|overwrite|skip|abort` (default `prompt`; auto-`skip` in non-TTY); `--no-prompt` is the canonical CI alias for `skip`.
 18. The legacy `backlog-archive.md` is preserved in-tree as `backlog-archive.md.pre-v2.bak` (sidecar; operator-visible).
 
-### Pass 6 — Operational-files archive section migration
+### Pass 6 — Operational-files archive section migration (TUNE-0085 v1.21.5, hardened TUNE-0088 v1.21.6)
 
 Strips legacy archive sections (`## Archived` in `tasks.md` / `backlog.md`; `### Archived`, `### Recently Archived`, `## Последние завершённые` in `activeContext.md`) and migrates each archive bullet to a canonical `documentation/archive/{area}/archive-{TASK-ID}.md` doc. The canonical thin-index contract (§ activeContext.md thin contract above, § Operational File Schema) prohibits archive sections in operational files: completion history lives in `documentation/archive/`, recency hint is computed at runtime via `/dr-status --recent N`. Pass 6 enforces that contract.
 
@@ -229,7 +229,7 @@ Defence-in-depth around `--fix` mode. Every `--fix` invocation MUST satisfy all 
 - **Pre-write tarball backup.** Before any mutation, the script writes a `umask 077` tarball of the entire `datarim/` root to `${DATARIM_DOCTOR_BACKUP_DIR:-/tmp}/datarim-backup-{TS}.tgz`. Path is surfaced in the success summary so the operator can locate it for manual rollback.
 - **Sidecar copy.** Every legacy file mutated by Pass 4 also gets a `.pre-v2.bak` sidecar in-tree alongside the original (operator-visible, survives normal git workflows). Pass 5 asserts the sidecar exists.
 - **Count invariant.** Doctor counts task entries before mutation (`PARSED_COUNT`) and after rewrite (`EMITTED_COUNT`). Invariant: `EMITTED_COUNT ≥ PARSED_COUNT`. Violation triggers `restore_backup_and_die()`: removes mutated state in-place, `tar -xzf` the pre-write tarball back over the tree, and exits 2 with `emitted=N < parsed=M (data loss detected)`.
-- **Symlink-default uniformity.** Under the symlink-default install (v1.17.0+), `~/.claude/scripts/datarim-doctor.sh` is a directory-symlink target of the canonical Datarim repo path. Divergence between runtime and repo is impossible by construction; rogue v2 binaries cannot be silently dropped on top of the runtime.
+- **Symlink-default uniformity.** Under the `install.sh` default mode, `~/.claude/scripts/datarim-doctor.sh` is a directory-symlink target of the canonical Datarim repo path. Divergence between runtime and repo is impossible by construction; rogue v2 binaries cannot be silently dropped on top of the runtime.
 
 The contract is a hard precondition for any future `--fix` change: new mutating passes MUST plug into the same `PARSED_COUNT` / `EMITTED_COUNT` accounting and respect the tarball restore path.
 
@@ -314,5 +314,5 @@ Escape hatch: `pre-archive-check.sh --no-schema-check` (used during in-flight mi
 
 - `commands/dr-doctor.md` — operator-facing wrapper.
 - `scripts/datarim-doctor.sh` — implementation.
-- `tests/datarim-doctor.bats` — covers compliance detection, 5-pass migration, safety contract (tarball + invariant + restore), conflict policies, regex compliance, CLI/UX.
+- `tests/datarim-doctor.bats` — covers compliance detection, 6-pass migration, safety contract (tarball + invariant + restore), conflict policies, regex compliance, CLI/UX.
 - `skills/datarim-system.md` — broader Datarim file layout and path resolution.
