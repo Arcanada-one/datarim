@@ -1,6 +1,6 @@
 ---
 name: datarim-doctor
-description: Schema and migration semantics for /dr-doctor — thin one-liner contract, YAML description schema, 6-pass migration, data-loss safety contract, conflict resolution. Loaded by /dr-doctor + /dr-init self-heal + /dr-archive line-format gate.
+description: Schema and migration semantics for /dr-doctor — thin one-liner contract, 6-pass migration, data-loss safety, conflict resolution. Loaded by self-heal.
 ---
 
 # Datarim Doctor — Schema and Migration Semantics
