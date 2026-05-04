@@ -202,6 +202,14 @@ write_description() {
 
     [ -f "$out" ] && return 0   # preserve existing
 
+    if [ -n "$body" ]; then
+        local body_lines
+        body_lines="$(printf '%s' "$body" | awk 'END{print NR}')"
+        if [ "${body_lines:-0}" -gt 250 ]; then
+            warn "description body for $id exceeds 250 lines (got $body_lines) — emitting anyway"
+        fi
+    fi
+
     mkdir -p "$ROOT_ABS/tasks"
     {
         echo "---"
@@ -364,6 +372,11 @@ if command -v flock >/dev/null 2>&1; then
         exit 3
     fi
 fi
+# Test hook: hold the lock for N seconds after acquisition to make concurrency
+# races deterministic in bats. Production callers leave the var unset.
+if [ -n "${DATARIM_DOCTOR_LOCK_HOLD_SECS:-}" ]; then
+    sleep "$DATARIM_DOCTOR_LOCK_HOLD_SECS"
+fi
 
 # --- TUNE-0077 safety gate: pre-write backup --------------------------------
 # Always tarball datarim/ before any --fix write. Restored automatically on
@@ -475,7 +488,7 @@ resolve_conflict() {
     # TUNE-0076: returns 0 if caller should overwrite, 1 if skip, exits 2 on abort
     local id="$1" target="$2" new_content="$3"
     local policy="$CONFLICT_POLICY"
-    if [ "$policy" = "prompt" ] && ! [ -t 0 ]; then policy="skip"; fi
+    if [ "$policy" = "prompt" ] && ! [ -t 0 ] && [ -z "${DATARIM_DOCTOR_TTY_OVERRIDE:-}" ]; then policy="skip"; fi
     case "$policy" in
         keep|skip) return 1 ;;
         overwrite) return 0 ;;

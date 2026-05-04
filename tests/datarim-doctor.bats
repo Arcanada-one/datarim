@@ -805,3 +805,72 @@ EOF
     n="$(find "$TMPROOT/documentation/archive/general" -name 'archive-DEV-*.md' | wc -l | tr -d ' ')"
     [ "$n" -eq 14 ]
 }
+
+# --- TUNE-0075: complete bats coverage T6/T16/T18 (TUNE-0071 plan §1.2) ------
+
+@test "T-LOCK-CONCURRENT (TUNE-0075) parallel --fix → second exit 3 (lock held)" {
+    command -v flock >/dev/null 2>&1 || skip "flock(1) not available on this runner"
+    cp "$FIXTURES/legacy-tasks.md" "$TMPROOT/datarim/tasks.md"
+    DATARIM_DOCTOR_LOCK_HOLD_SECS=2 "$DOCTOR" --root="$TMPROOT/datarim" --fix >/dev/null 2>&1 &
+    pid1=$!
+    # Spin until the lockfile exists or the first process is gone
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+        [ -f "$TMPROOT/datarim/.doctor.lock" ] && break
+        sleep 0.1
+    done
+    run "$DOCTOR" --root="$TMPROOT/datarim" --fix
+    [ "$status" -eq 3 ]
+    [[ "$output" == *"another /dr-doctor is running"* ]]
+    wait "$pid1" || true
+}
+
+@test "T-CONFLICT-DIFF (TUNE-0075) prompt mode emits unified diff fragment on existing archive" {
+    cp "$FIXTURES/legacy-backlog-archive.md" "$TMPROOT/datarim/backlog-archive.md"
+    mkdir -p "$TMPROOT/documentation/archive/cancelled"
+    # Pre-existing archive WITHOUT CONN-9001 literal triggers conflict in Pass 4
+    cat > "$TMPROOT/documentation/archive/cancelled/archive-CONN-9001.md" <<'EOF'
+# Pre-existing archive — completely different content
+status: superseded
+notes: legacy stub from a former session, no task id present
+EOF
+    # Force prompt branch despite non-TTY bats stdin; feed 's' (skip) to satisfy read
+    run env DATARIM_DOCTOR_TTY_OVERRIDE=1 bash -c \
+        "printf 's\n' | '$DOCTOR' --root='$TMPROOT/datarim' --fix --conflict-policy=prompt 2>&1"
+    [ "$status" -eq 0 ]
+    # Unified diff hallmark: at least one '+' and one '-' content line in stderr fragment
+    [[ "$output" == *$'\n+'* ]] || [[ "$output" == *$'+++'* ]]
+    [[ "$output" == *$'\n-'* ]] || [[ "$output" == *$'---'* ]]
+    [[ "$output" == *"Conflict on CONN-9001"* ]]
+}
+
+@test "T-BODY-LIMIT (TUNE-0075) body > 250 lines → stderr warn, fix continues" {
+    # Synthesise legacy tasks.md with a 260-line body
+    {
+        echo "# Tasks"
+        echo
+        echo "## Active Tasks"
+        echo
+        echo "### TUNE-9500: Massive body task"
+        echo
+        echo "- **Status:** in_progress"
+        echo "- **Priority:** P3"
+        echo "- **Complexity:** Level 1"
+        echo
+        echo "#### Overview"
+        echo
+        for i in $(seq 1 260); do
+            echo "Line $i of an oversized body."
+        done
+    } > "$TMPROOT/datarim/tasks.md"
+
+    run "$DOCTOR" --root="$TMPROOT/datarim" --fix
+    [ "$status" -eq 0 ]
+    # Warn surfaces on stderr (bats merges into $output)
+    [[ "$output" == *"exceeds 250 lines"* ]]
+    [[ "$output" == *"TUNE-9500"* ]]
+    # Fix completed: description file written + tasks.md rewritten as one-liner
+    [ -f "$TMPROOT/datarim/tasks/TUNE-9500-task-description.md" ]
+    grep -qE '^- TUNE-9500 · ' "$TMPROOT/datarim/tasks.md"
+    # Body actually persisted past warning (no abort)
+    grep -q "Line 260 of an oversized body." "$TMPROOT/datarim/tasks/TUNE-9500-task-description.md"
+}
