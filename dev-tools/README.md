@@ -1,7 +1,7 @@
 # dev-tools/ — Developer-only tooling for Datarim framework
 
 > **NOT shipped to consumers.** This directory is intentionally excluded
-> from `INSTALL_SCOPES` in `install.sh` (TUNE-0091). Consumer projects
+> from `INSTALL_SCOPES` in `install.sh`. Consumer projects
 > of Datarim never see it. No supply-chain footprint on user side.
 
 ## Purpose

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install-hook.sh — Idempotent pre-commit hook installer (TUNE-0091)
+# install-hook.sh — Idempotent pre-commit hook installer
 #
 # Wires doc-fanout-lint.sh into the developer's local pre-commit hook of
 # the workspace repo (~/arcanada or wherever the linter is invoked from).

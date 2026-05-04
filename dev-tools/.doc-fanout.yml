@@ -1,5 +1,5 @@
 # Doc-fanout linter config — bundled defaults for Datarim framework repo
-# Schema: v1 (TUNE-0091). See dev-tools/README.md for grammar.
+# Schema: v1. See dev-tools/README.md for grammar.
 #
 # Three rule kinds:
 #   grep_in_file    — pattern (with {name} substitution) must appear in `file`

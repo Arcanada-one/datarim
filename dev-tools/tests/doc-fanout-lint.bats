@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# doc-fanout-lint.bats — TUNE-0091
+# doc-fanout-lint.bats — bats coverage for doc-fanout-lint.sh
 #
 # Coverage:
 #   T1  parses bundled-style config (block YAML, AWK path)
