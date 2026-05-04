@@ -106,6 +106,44 @@ If the gap is **fundamental** — wrong technology choice, impossible requiremen
 
 ---
 
+## Pre-Flight Artifact Discovery
+
+Plans drift. Between `/dr-plan` and `/dr-do`, the surrounding state of the project may have moved — earlier tasks landed, services got deployed, schemas changed, infrastructure resources got renamed. Running implementation against a stale plan wastes effort and may discard work that already shipped.
+
+### Trigger
+
+Run at the start of `/dr-do` (Step 0, before the TDD loop), for any task that references named artifacts assumed to exist or not exist:
+
+- File paths in another repo or service ("source file will be created" / "extend an existing module")
+- Deployed services or endpoints ("a service already exposes a route")
+- Infrastructure resources ("policy not yet defined", "key not yet provisioned")
+- Database schemas / migrations
+- Build outputs, deployed binaries, on-disk caches
+
+### Procedure
+
+1. **Enumerate the named artifacts** in the plan and PRD.
+2. **For each one, verify the current state** against the live source — read the file, query the API, list the resource, inspect the deployed service. Use the same observation tools the plan would have used at write time.
+3. **Compare against the plan's assumptions.** Three outcomes:
+   - **Match** — proceed with implementation as planned.
+   - **Already done** — the deliverable is already shipped (a prior task extended scope, a parallel session merged earlier). Mark the step vacuous in `tasks/{TASK-ID}-task-description.md` § Progress and skip.
+   - **Drift** — artifact exists but in a different shape than assumed. Pause, document the gap in `insights/INSIGHTS-{TASK-ID}.md` § Gap Discoveries with the diff, and pivot the plan if needed before writing code.
+4. **If pivot crosses approach boundaries** (a different alternative from PRD § Solution Exploration becomes the right choice), escalate — re-read the rejected alternatives in PRD, capture the rationale for the pivot in INSIGHTS § GD-NN, and proceed with the new approach.
+
+### Why this matters
+
+A plan written 2-3 days ago against a snapshot of the project state can be wrong about: which modules are already wired, which infra resources already exist, which secrets are already migrated. Acting on those assumptions wastes hours of implementation and sometimes deletes shipped work. A short pre-flight scan replaces those losses.
+
+### When to skip
+
+The plan was written within the last 24 hours, no parallel sessions touched the same area, and no prior tasks in the same project have shipped between plan and implementation. Otherwise: run pre-flight.
+
+### Source
+
+INFRA-0015 Phase 1 (2026-05-04): plan called for one integration approach; pre-flight discovery showed that an earlier task in the same project had already shipped the alternative approach (a substantial body of working code). Following the plan would have discarded shipped work. Pivot to the rejected-but-now-correct alternative was captured in `INSIGHTS-INFRA-0015.md` § GD-01. Phase 1 effort dropped from a planned 1-2 days to ~2 hours by following the plan's already-rejected alternative — with a concrete reason for the pivot rather than blind execution.
+
+---
+
 ## Empirical Provider Verification
 
 When a plan locks in a third-party endpoint (LLM, STT/TTS, OAuth, payment, webhook target, queue, storage API, anything not under our control), **the contract MUST be confirmed by a real request before any code depends on the assumed shape**. Documentation drifts; SDKs paper over differences; existing integrations may have been written against a different paradigm.

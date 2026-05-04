@@ -4,6 +4,10 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ---
 
+| Date | Task ID | Category | Target | Change | Rationale |
+|------|---------|----------|--------|--------|-----------|
+| 2026-05-04 | INFRA-0015 | skill-update | `skills/research-workflow.md` | Added § «Pre-Flight Artifact Discovery» — Step 0 of `/dr-do` for any task referencing named artifacts (file paths, deployed services, infra resources, schemas). Procedure: enumerate → verify live → 3 outcomes (Match / Already done / Drift) → pivot via `INSIGHTS-{TASK-ID}.md` § Gap Discoveries when needed; cross-approach pivots re-read PRD § Solution Exploration. When-to-skip: plan <24h old + no parallel sessions + no prior shipped tasks in the area. | INFRA-0015 Phase 1: plan called for sidecar migration; pre-flight discovered AUTH-0011 already shipped SDK-direct VaultService (1290 LoC). Phase 1 effort dropped from 1-2d to ~2h by following plan's already-rejected alternative with documented rationale. Stack-agnostic gate PASS, bats 160/160 PASS. |
+
 ## 2026-04-28 — SEC-0001 — Class A apply (1 bundled proposal, archive Step 0.5)
 
 ### Summary
