@@ -30,6 +30,12 @@ Load and run this gate at the apply step of:
 - `commands/dr-archive.md` Step 0.5(e) — runtime apply of approved Class A
 - `commands/dr-optimize.md` — apply of approved optimization proposals
 - `commands/dr-addskill.md` — write of newly created skill/agent/command/template
+- `commands/dr-do.md` — **after every phase commit** that touched files under
+  `skills/`, `agents/`, `commands/`, `templates/`, or `dev-tools/` in the
+  framework repo. Run as a fast pre-flight (`scripts/task-id-gate.sh <touched-paths>`);
+  treat a hit as a phase-fail, not a downstream compliance-stage finding.
+  Earlier detection avoids a compliance-stage round-trip and keeps task-ID
+  leakage out of intermediate commits on the feature branch.
 
 ## Scope
 
