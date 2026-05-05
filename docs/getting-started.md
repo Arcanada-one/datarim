@@ -70,6 +70,16 @@ Options:
 
 Loader order (`skills/datarim-system.md` § Loading Order): the framework layer loads first, then files in `local/<scope>/<name>.md` override framework files of the same name. `validate.sh` emits a `WARN: override detected: …` line per shadow.
 
+**Critical-skill blocklist.** Six skills cannot be shadowed from `local/skills/`:
+`security.md`, `security-baseline.md`, `compliance.md`, `datarim-system.md`,
+`ai-quality.md`, `evolution.md`. They define the security contract and core
+workflow invariants — silently overriding them via overlay would let a personal
+file relax rules that downstream agents and CI gates rely on. Placing any of
+these names in `local/skills/` makes `validate.sh` exit **1** with an `ERROR:
+critical skill ...` line. Customise by forking or upstream PR. The blocklist is
+path-scoped to the `skills/` directory; same basename under `local/agents/`,
+`local/commands/`, or `local/templates/` is allowed (standard WARN).
+
 **Convention:** prefix overlay files with a personal namespace (`my-org-…`, your initials, …) so you don't accidentally shadow framework files you actually want to track upstream.
 
 ### Manual install (no script)

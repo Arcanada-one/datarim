@@ -56,13 +56,25 @@ if [ -d "$LOCAL_DIR" ]; then
     echo ""
     echo "Local Overlay Override Check:"
     OVERRIDE_COUNT=0
+    CRITICAL_OVERRIDE_COUNT=0
     for scope in skills agents commands templates; do
         [ -d "$LOCAL_DIR/$scope" ] || continue
         for f in "$LOCAL_DIR/$scope"/*.md; do
             [ -f "$f" ] || continue
             bname=$(basename "$f")
             if [ -f "$SCRIPT_DIR/$scope/$bname" ]; then
-                echo "  WARN: override detected: local/$scope/$bname shadows $scope/$bname"
+                # Critical-skill blocklist: shadowing security-contract surfaces is rejected (exit 1).
+                # Source list locked: skills/datarim-system.md § Loading Order; docs/getting-started.md § Personal additions.
+                case "$scope/$bname" in
+                    skills/security.md|skills/security-baseline.md|skills/compliance.md|skills/datarim-system.md|skills/ai-quality.md|skills/evolution.md)
+                        echo "  ERROR: critical skill '$scope/$bname' cannot be overridden via local/ overlay (security contract). Remove $LOCAL_DIR/$scope/$bname or rename it."
+                        CRITICAL_OVERRIDE_COUNT=$((CRITICAL_OVERRIDE_COUNT + 1))
+                        ERRORS=$((ERRORS + 1))
+                        ;;
+                    *)
+                        echo "  WARN: override detected: local/$scope/$bname shadows $scope/$bname"
+                        ;;
+                esac
                 OVERRIDE_COUNT=$((OVERRIDE_COUNT + 1))
             fi
         done
@@ -71,6 +83,9 @@ if [ -d "$LOCAL_DIR" ]; then
         echo "  INFO: no local overrides detected"
     else
         echo "  INFO: $OVERRIDE_COUNT override(s) — review local/README.md"
+        if [ "$CRITICAL_OVERRIDE_COUNT" -gt 0 ]; then
+            echo "  INFO: $CRITICAL_OVERRIDE_COUNT critical override(s) — exit 1 (blocked)"
+        fi
     fi
 fi
 

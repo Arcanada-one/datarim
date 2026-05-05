@@ -159,6 +159,24 @@ Skills, agents, commands, and templates load from two layers:
 **Conflict resolution:** if a name collides between layer 1 and layer 2, the
 local overlay wins. `validate.sh` emits a WARN line per detected override.
 
+**Critical-skill blocklist (security contract).** Six skills carry the framework's
+security and workflow invariants and MUST NOT be shadowed from `local/`:
+
+- `skills/security.md`
+- `skills/security-baseline.md`
+- `skills/compliance.md`
+- `skills/datarim-system.md`
+- `skills/ai-quality.md`
+- `skills/evolution.md`
+
+If `$HOME/.claude/local/skills/<name>.md` matches any of the above, `validate.sh`
+emits `ERROR: critical skill ... cannot be overridden via local/ overlay
+(security contract)` and exits **1**. The blocklist is path-scoped to `skills/`;
+identically named files under `local/agents/`, `local/commands/`, or
+`local/templates/` keep the standard WARN behaviour. To customise behaviour of
+a critical skill, fork the framework or contribute upstream — silent local
+shadowing is rejected by design.
+
 **Convention:** prefix local files with a personal namespace
 (`local/skills/my-org-style.md`) to avoid accidental overrides of framework
 skills you actually wanted to keep tracking upstream.
