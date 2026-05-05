@@ -209,6 +209,78 @@ _categories_allowed() {
     esac
 }
 
+# Set of core skills/agents/commands whose override should warn the operator.
+# Override is allowed but flagged because shadowing these can break workflow
+# integrity (history-agnostic gate, evolution loop, archive contract).
+DR_PLUGIN_CRITICAL_CORE="evolution datarim-system pre-archive-check"
+
+_is_override_basename() {
+    # Return 0 if basename's stem (everything before final dot) is in the
+    # space-separated overrides list.
+    local bn="$1"
+    local overrides="$2"
+    local stem="${bn%.*}"
+    case " $overrides " in
+        *" $stem "*) return 0 ;;
+        *)           return 1 ;;
+    esac
+}
+
+_manifest_overrides_of() {
+    # Echo each "  - <ov>" line under <id>'s "  overrides:" key.
+    local manifest="$1" id="$2"
+    [ -f "$manifest" ] || return 1
+    awk -v id="$id" '
+        BEGIN { in_block = 0; in_ov = 0 }
+        /^- id: / {
+            in_block = ($0 == "- id: " id) ? 1 : 0
+            in_ov = 0
+            next
+        }
+        in_block && /^[[:space:]]+overrides:[[:space:]]*$/ { in_ov = 1; next }
+        in_ov && /^[[:space:]]+-[[:space:]]+/ {
+            line = $0
+            sub(/^[[:space:]]+-[[:space:]]+/, "", line)
+            sub(/[[:space:]]+$/, "", line)
+            print line
+            next
+        }
+        in_ov && /^[[:space:]]+[a-z_]+:/ { in_ov = 0 }
+    ' "$manifest"
+}
+
+_warn_critical_core_overrides() {
+    local id="$1" overrides="$2" ov
+    for ov in $overrides; do
+        case " $DR_PLUGIN_CRITICAL_CORE " in
+            *" $ov "*)
+                echo "WARNING: plugin '$id' overrides critical core skill '$ov' — shadowing this can break framework workflow integrity" >&2
+                ;;
+        esac
+    done
+}
+
+_validate_overrides_shipped() {
+    # For each override stem, verify a file <stem>.<ext> exists in at least one
+    # of the plugin's declared categories. Returns 0 on success, 1 on missing.
+    local src="$1" cats="$2" overrides="$3"
+    local ov cat found f
+    for ov in $overrides; do
+        found=0
+        for cat in $cats; do
+            for f in "$src/$cat/$ov".*; do
+                [ -e "$f" ] && { found=1; break; }
+            done
+            [ $found -eq 1 ] && break
+        done
+        if [ $found -ne 1 ]; then
+            echo "dr-plugin enable: override '$ov' has no matching shipped file in plugin's category dirs" >&2
+            return 1
+        fi
+    done
+    return 0
+}
+
 _collect_inventory_for() {
     # Echo basenames of regular files under <src>/<cat>/, skipping dotfiles.
     local src="$1" cat="$2"
@@ -315,8 +387,18 @@ cmd_enable() {
         fi
     done
 
+    # Parse overrides + validate they are shipped by the plugin.
+    local overrides_list
+    overrides_list="$(parse_yaml_list "$yaml" overrides)"
+    if [ -n "$overrides_list" ]; then
+        if ! _validate_overrides_shipped "$src" "$cats" "$overrides_list"; then
+            return 1
+        fi
+        _warn_critical_core_overrides "$id" "$overrides_list"
+    fi
+
     # Pre-scan conflict.
-    local target_dir target bn
+    local target_dir target bn target_pos files
     for cat in $cats; do
         target_dir="$runtime/$cat/$id"
         # Reject if a non-directory exists at the target dir path.
@@ -324,28 +406,48 @@ cmd_enable() {
             echo "dr-plugin enable: conflict at $runtime/$cat/$id (regular file blocks plugin namespace)" >&2
             return 1
         fi
-        # Per-file conflict: target file exists but is not our own symlink.
-        local files
         files="$(_collect_inventory_for "$src" "$cat")"
         for bn in $files; do
-            target="$target_dir/$bn"
+            if _is_override_basename "$bn" "$overrides_list"; then
+                # Override path: root position competes with core via local overlay.
+                target="$runtime/$cat/$bn"
+            else
+                target="$target_dir/$bn"
+            fi
             if [ -e "$target" ] && [ ! -L "$target" ]; then
-                echo "dr-plugin enable: conflict: $target already exists" >&2
+                echo "dr-plugin enable: conflict: $target already exists (regular file)" >&2
                 return 1
+            fi
+            # Symlink already pointing somewhere outside this plugin's source → conflict.
+            if [ -L "$target" ]; then
+                local existing_target
+                existing_target="$(readlink "$target")"
+                case "$existing_target" in
+                    "$src"/*) : ;;  # ours, idempotent path
+                    *)
+                        echo "dr-plugin enable: override conflict: $target already symlinked to $existing_target" >&2
+                        return 1
+                        ;;
+                esac
             fi
         done
     done
 
-    # Apply: create symlinks.
-    local files src_file
+    # Apply: create symlinks at correct position per override status.
+    local src_file
     for cat in $cats; do
         files="$(_collect_inventory_for "$src" "$cat")"
         [ -n "$files" ] || continue
         target_dir="$runtime/$cat/$id"
-        mkdir -p "$target_dir"
         for bn in $files; do
             src_file="$src/$cat/$bn"
-            ln -sfn "$src_file" "$target_dir/$bn"
+            if _is_override_basename "$bn" "$overrides_list"; then
+                target_pos="$runtime/$cat/$bn"
+            else
+                mkdir -p "$target_dir"
+                target_pos="$target_dir/$bn"
+            fi
+            ln -sfn "$src_file" "$target_pos"
         done
     done
 
@@ -371,6 +473,13 @@ cmd_enable() {
             echo "  depends_on:"
             for dep in $depends; do
                 echo "    - $dep"
+            done
+        fi
+        if [ -n "$overrides_list" ]; then
+            echo "  overrides:"
+            local ov
+            for ov in $overrides_list; do
+                echo "    - $ov"
             done
         fi
         echo "  file_inventory:"
@@ -435,13 +544,33 @@ cmd_disable() {
         return 1
     fi
 
-    # Remove symlinks (whole plugin subdir under each category).
+    # Remove namespaced symlinks (whole plugin subdir under each category).
     local runtime cat target_dir
     runtime="$(resolve_runtime_root)"
     for cat in skills agents commands templates; do
         target_dir="$runtime/$cat/$id"
         [ -d "$target_dir" ] || continue
         rm -rf "$target_dir"
+    done
+
+    # Remove root-positioned override symlinks. Read overrides list from manifest
+    # entry; for each <ov>, scan all categories for `<runtime>/<cat>/<ov>.*` and
+    # unlink only if symlink points back into our source dir (defensive check).
+    local plugin_src ov f
+    plugin_src="$(manifest_field "$manifest" "$id" source)"
+    local overrides_in_manifest
+    overrides_in_manifest="$(_manifest_overrides_of "$manifest" "$id")"
+    for ov in $overrides_in_manifest; do
+        for cat in skills agents commands templates; do
+            for f in "$runtime/$cat/$ov".*; do
+                [ -L "$f" ] || continue
+                local linked
+                linked="$(readlink "$f")"
+                case "$linked" in
+                    "$plugin_src"/*) rm -f "$f" ;;
+                esac
+            done
+        done
     done
 
     manifest_remove_entry "$manifest" "$id"
