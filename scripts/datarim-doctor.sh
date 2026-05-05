@@ -35,6 +35,7 @@ MODE="dry-run"
 SCOPE="all"
 QUIET=0
 CONFLICT_POLICY="prompt"   # TUNE-0076: prompt|keep|overwrite|skip|abort
+PROBE_PREFIX=""            # TUNE-0030: --probe-prefix PREFIX → print area subdir
 
 # --- usage ------------------------------------------------------------------
 usage() {
@@ -51,6 +52,7 @@ OPTIONS:
   --quiet             Exit-code only (no stdout)
   --no-prompt         Skip conflicts in Pass 4 backlog-archive migration (alias for --conflict-policy=skip)
   --conflict-policy=<p>  One of: prompt|keep|overwrite|skip|abort (default: prompt; auto-skip in non-TTY)
+  --probe-prefix=<P>  Print archive area subdir for prefix P and exit (TUNE-0030)
   --help              Print this help
 
 EXIT CODES:
@@ -72,6 +74,7 @@ for arg in "$@"; do
         --quiet) QUIET=1 ;;
         --no-prompt) CONFLICT_POLICY="skip" ;;
         --conflict-policy=*) CONFLICT_POLICY="${arg#--conflict-policy=}" ;;
+        --probe-prefix=*) PROBE_PREFIX="${arg#--probe-prefix=}" ;;
         --help|-h) usage; exit 0 ;;
         *) usage >&2; exit 64 ;;
     esac
@@ -86,14 +89,92 @@ if [ -z "$ROOT" ]; then
     done
 fi
 if [ -z "$ROOT" ] || [ ! -d "$ROOT" ]; then
-    [ "$QUIET" -eq 0 ] && echo "ERROR: --root not specified or not a directory" >&2
-    exit 64
+    # TUNE-0030: probe-prefix can run without datarim/ (uses $PWD walk-up only).
+    if [ -n "$PROBE_PREFIX" ]; then
+        ROOT_ABS="$PWD"
+    else
+        [ "$QUIET" -eq 0 ] && echo "ERROR: --root not specified or not a directory" >&2
+        exit 64
+    fi
+else
+    ROOT_ABS="$(cd "$ROOT" && pwd)"
 fi
-ROOT_ABS="$(cd "$ROOT" && pwd)"
 
 # --- helpers ----------------------------------------------------------------
 log() { if [ "$QUIET" -eq 0 ]; then echo "$@"; fi; }
 warn() { if [ "$QUIET" -eq 0 ]; then echo "WARN: $*" >&2; fi; }
+
+# --- TUNE-0030: prefix → archive area resolution ----------------------------
+# Two-tier lookup:
+#   1) area prefix (universal, stack-agnostic) — defined here, owned by Datarim runtime.
+#   2) project prefix — declared by caller in nearest CLAUDE.md (walk-up tree),
+#      under `## Task Prefix Registry` section with table | Prefix | Project | Archive Subdir |.
+# Falls back to `general` when neither matches. Path-traversal hardened.
+area_prefix_to_subdir() {
+    case "${1%%-*}" in
+        INFRA) echo "infrastructure" ;;
+        WEB) echo "web" ;;
+        CONTENT) echo "content" ;;
+        RESEARCH) echo "research" ;;
+        AGENT) echo "agents" ;;
+        BENCH) echo "benchmarks" ;;
+        DEV) echo "development" ;;
+        DEVOPS) echo "devops" ;;
+        TUNE|ROB) echo "framework" ;;
+        MAINT) echo "maintenance" ;;
+        FIN) echo "finance" ;;
+        QA) echo "qa" ;;
+        SEC) echo "security" ;;
+        *) return 1 ;;
+    esac
+}
+
+lookup_project_prefix_from_claude_md() {
+    local prefix="$1" start_dir="${2:-$PWD}" cwd claude_md result
+    cwd="$(cd "$start_dir" 2>/dev/null && pwd)" || return 1
+    [ -z "$cwd" ] && return 1
+    while [ -n "$cwd" ] && [ "$cwd" != "/" ]; do
+        claude_md="$cwd/CLAUDE.md"
+        if [ -f "$claude_md" ]; then
+            result="$(awk -v p="$prefix" '
+                /^#{2,6} Task Prefix Registry/ { in_section=1; next }
+                in_section && /^#{1,6} / { in_section=0 }
+                in_section && /^\| *[A-Z][A-Z0-9_-]* *\|/ {
+                    n = split($0, f, "|")
+                    if (n < 4) next
+                    pp = f[2]; gsub(/^ +| +$/, "", pp)
+                    if (pp == p) {
+                        sub_dir = f[4]; gsub(/^ +| +$/, "", sub_dir)
+                        print sub_dir
+                        exit
+                    }
+                }
+            ' "$claude_md" 2>/dev/null)"
+            if [ -n "$result" ]; then
+                if [[ "$result" =~ ^[a-z][a-z0-9-]*$ ]]; then
+                    echo "$result"
+                    return 0
+                else
+                    warn "rejected unsafe Archive Subdir '$result' for prefix $prefix in $claude_md"
+                    return 1
+                fi
+            fi
+        fi
+        cwd="$(dirname "$cwd")"
+    done
+    return 1
+}
+
+prefix_to_area() {
+    local prefix="${1%%-*}" subdir
+    if subdir="$(area_prefix_to_subdir "$prefix")"; then
+        echo "$subdir"; return 0
+    fi
+    if subdir="$(lookup_project_prefix_from_claude_md "$prefix" "${ROOT_ABS:-$PWD}")"; then
+        echo "$subdir"; return 0
+    fi
+    echo "general"
+}
 
 # Canonical regex for one-liner entries.
 ONELINER_RE='^- [A-Z]{2,10}-[0-9]{4} · (in_progress|blocked|not_started|pending|blocked-pending|cancelled) · P[0-3] · L[1-4] · .{1,80} → tasks/[A-Z]{2,10}-[0-9]{4}-task-description\.md$'
@@ -333,6 +414,16 @@ scan_traversal() {
     done < "$file"
 }
 
+# --- TUNE-0030: probe-prefix early-exit ------------------------------------
+if [ -n "$PROBE_PREFIX" ]; then
+    if ! [[ "$PROBE_PREFIX" =~ ^[A-Z][A-Z0-9_-]*$ ]]; then
+        [ "$QUIET" -eq 0 ] && echo "ERROR: invalid prefix '$PROBE_PREFIX' (must match ^[A-Z][A-Z0-9_-]*\$)" >&2
+        exit 64
+    fi
+    prefix_to_area "$PROBE_PREFIX"
+    exit 0
+fi
+
 scan_traversal "$ROOT_ABS/tasks.md"
 scan_traversal "$ROOT_ABS/backlog.md"
 scan_traversal "$ROOT_ABS/activeContext.md"
@@ -457,32 +548,7 @@ migrate_file() {
     fi
 }
 
-prefix_to_area() {
-    # TUNE-0076: canonical Archive Area Mapping
-    case "${1%%-*}" in
-        INFRA) echo "infrastructure" ;;
-        WEB) echo "web" ;;
-        CONTENT) echo "content" ;;
-        RESEARCH|LTM) echo "research" ;;
-        AGENT) echo "agents" ;;
-        BENCH) echo "benchmarks" ;;
-        DEV) echo "development" ;;
-        DEVOPS) echo "devops" ;;
-        TUNE|ROB) echo "framework" ;;
-        MAINT) echo "maintenance" ;;
-        FIN) echo "finance" ;;
-        QA) echo "qa" ;;
-        CONN) echo "connectors" ;;
-        SRCH) echo "search" ;;
-        VERD) echo "verdicus" ;;
-        AUTH) echo "auth" ;;
-        BILL) echo "billing" ;;
-        CONV) echo "conversion" ;;
-        DISK) echo "disk" ;;
-        SEC) echo "security" ;;
-        *) echo "general" ;;
-    esac
-}
+# TUNE-0030: prefix_to_area moved earlier (before probe-prefix early-exit). See top of file.
 
 resolve_conflict() {
     # TUNE-0076: returns 0 if caller should overwrite, 1 if skip, exits 2 on abort

@@ -153,26 +153,7 @@ No renumbering occurs when a backlog item becomes active.
 
 ### Prefix Registry
 
-#### Project Prefixes
-
-| Prefix | Project |
-|--------|---------|
-| `ARCA` | Arcanada Ecosystem core |
-| `VERD` | Verdicus |
-| `DATA` | Datarim framework |
-| `CONS` | Consilium |
-| `SUP` | Support Center |
-| `ROB` | Rules of Robotics |
-| `VOICE` | Voice Agent |
-| `OVER` | Overlook |
-| `CONN` | Model Connector |
-| `SRCH` | Scrutator (Search & Retrieval) |
-| `LTM` | Long Term Memory |
-| `AUTH` | Auth Arcana (identity & authorization) |
-| `BILL` | Billing Arcana (unified billing & subscriptions) |
-| `CONV` | Conversion Arcana (document/format conversion, ex rich-md-html) |
-
-#### Area Prefixes
+#### Area Prefixes (universal, owned by Datarim runtime)
 
 | Prefix | Area |
 |--------|------|
@@ -187,7 +168,31 @@ No renumbering occurs when a backlog item becomes active.
 | `MAINT` | Maintenance |
 | `FIN` | Finance and legal |
 | `QA` | Standalone QA |
+| `SEC` | Security |
+| `ROB` | Rules of Robotics (universal AI governance) |
 | `TUNE` | Datarim self-improvement |
+
+#### Project Prefix Resolution
+
+Datarim is stack-agnostic and ecosystem-agnostic — it does not embed names of specific consumer projects. Project-prefix registries live in the consumer's own `CLAUDE.md`, declared as a `## Task Prefix Registry` section with a Markdown table:
+
+```markdown
+## Task Prefix Registry
+
+| Prefix | Project | Archive Subdir |
+|--------|---------|----------------|
+| EXAMPLE | Example project | example |
+```
+
+`Archive Subdir` MUST match `^[a-z][a-z0-9-]*$` (single lowercase path component, no `/`, no `..`).
+
+Resolution algorithm (implemented in `scripts/datarim-doctor.sh`):
+
+1. **Area prefix:** look up the Area Prefixes table above. If matched → use that area subdir.
+2. **Project prefix:** walk up the directory tree from the Datarim root; for each `CLAUDE.md` encountered, parse `## Task Prefix Registry` and search for a row with the requested prefix. First match wins.
+3. **Fallback:** if neither matched → `general`.
+
+Each ecosystem (or each project that owns a registry) declares its own prefixes in its own `CLAUDE.md`. Adding a new project does not require a Datarim framework change.
 
 ### Deprecated Namespace
 

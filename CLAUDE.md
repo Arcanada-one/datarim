@@ -317,3 +317,15 @@ Everything below this line is project-specific. When installing Datarim in a new
 ### Key Files
 
 <!-- Important files and their purposes -->
+
+### Task Prefix Registry
+
+Project-local task prefixes for `datarim-doctor.sh` archive routing. The doctor walks up the directory tree, parses the first `## Task Prefix Registry` section it finds, and resolves the prefix to its Archive Subdir. Universal area prefixes (`INFRA`, `WEB`, `DEV`, `DEVOPS`, `CONTENT`, `RESEARCH`, `AGENT`, `BENCH`, `MAINT`, `FIN`, `QA`, `SEC`, `TUNE`, `ROB`) live in the Datarim runtime and apply automatically — do not repeat them here.
+
+Schema: `| Prefix | Project | Archive Subdir |`. Archive Subdir MUST match `^[a-z][a-z0-9-]*$` (single path component, no `/`, no `..`).
+
+| Prefix | Project | Archive Subdir |
+|--------|---------|----------------|
+| DATA | Datarim framework | framework |
+
+> `TUNE` is already a universal area prefix in the runtime (archive subdir `framework/`); no row needed. Adding a new project prefix here propagates automatically to `/dr-archive` routing — no Datarim framework change required.
