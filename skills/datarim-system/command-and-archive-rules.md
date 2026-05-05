@@ -22,7 +22,9 @@ Do not create Datarim commands with these names:
 
 ## Archive Area Mapping
 
-When archiving a task, map the prefix to the destination subdirectory:
+When archiving a task, map the prefix to the destination subdirectory.
+
+**Universal area prefixes** (stack-agnostic, owned by Datarim runtime):
 
 | Prefix | Area Subdirectory |
 |--------|------------------|
@@ -39,16 +41,10 @@ When archiving a task, map the prefix to the destination subdirectory:
 | `MAINT` | `maintenance/` |
 | `FIN` | `finance/` |
 | `QA` | `qa/` |
-| `CONN` | `connectors/` |
-| `SRCH` | `search/` |
-| `LTM` | `research/` |
-| `VERD` | `verdicus/` |
-| `AUTH` | `auth/` |
-| `BILL` | `billing/` |
-| `CONV` | `conversion/` |
-| `DISK` | `disk/` |
 | `SEC` | `security/` |
-| *(unknown)* | `general/` |
+| *(unknown)* | resolved via Project Prefix lookup, else `general/` |
+
+**Project prefixes** (ecosystem- or project-specific) are NOT defined in the Datarim runtime. They are declared by the consumer in the nearest `CLAUDE.md` `## Task Prefix Registry` section and resolved by `scripts/datarim-doctor.sh` walking up from the Datarim root. See `skills/datarim-system/task-identity-and-context.md` § Project Prefix Resolution.
 
 Archive path:
 
