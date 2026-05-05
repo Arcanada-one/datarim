@@ -201,6 +201,7 @@ Before writing ANY file to `datarim/`:
 | `/dr-doctor` | Maintenance | Diagnose and repair Datarim operational files — migrate to thin one-liner schema, externalize task descriptions, abolish progress.md |
 | `/dr-dream` | Maintenance | Knowledge base maintenance: organize, lint, index, cross-reference |
 | `/dr-optimize` | Maintenance | Audit framework, prune unused, merge duplicates, sync docs |
+| `/dr-plugin` | Extension | Manage opt-in plugin system (list/enable/disable). Phase A scaffold per TUNE-0101 |
 | `/dr-help` | Utility | List all commands with descriptions and usage guidance |
 | `/factcheck` | Standalone | Fact-check articles and posts before publication |
 | `/humanize` | Standalone | Remove AI writing patterns from text |

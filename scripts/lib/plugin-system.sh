@@ -134,6 +134,128 @@ parse_plugin_yaml() {
     ' "$file"
 }
 
+parse_yaml_inline_list() {
+    # Parse "- key: [a, b, c]" inline-array form. Used for file_inventory
+    # categories where lists are emitted on a single line.
+    local file="$1"
+    local key="$2"
+    if [ ! -f "$file" ]; then
+        return 1
+    fi
+    awk -v key="$key" '
+        $0 ~ "^[[:space:]]+" key ":[[:space:]]*\\[" {
+            line = $0
+            sub("^[[:space:]]+" key ":[[:space:]]*\\[", "", line)
+            sub("\\][[:space:]]*$", "", line)
+            n = split(line, parts, /,[[:space:]]*/)
+            for (i = 1; i <= n; i++) {
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", parts[i])
+                if (parts[i] != "") print parts[i]
+            }
+            exit
+        }
+    ' "$file"
+}
+
+# --- enabled-plugins.md manipulation -----------------------------------------
+#
+# Each manifest entry is an unindented block opening with "- id: <id>" and
+# extending until the next "- id:" or end-of-file. Helpers below treat the
+# manifest as a sequence of such blocks.
+
+manifest_has_entry() {
+    local manifest="$1" id="$2"
+    [ -f "$manifest" ] || return 1
+    grep -q "^- id: ${id}$" "$manifest"
+}
+
+manifest_field() {
+    # Echo scalar field of <id>'s entry. Empty output if absent.
+    local manifest="$1" id="$2" field="$3"
+    [ -f "$manifest" ] || return 1
+    awk -v id="$id" -v field="$field" '
+        BEGIN { in_block = 0 }
+        /^- id: / {
+            in_block = ($0 == "- id: " id) ? 1 : 0
+            next
+        }
+        in_block {
+            if (match($0, "^[[:space:]]+" field ":")) {
+                line = $0
+                sub("^[[:space:]]+" field ":[[:space:]]*", "", line)
+                print line
+                exit
+            }
+        }
+    ' "$manifest"
+}
+
+manifest_remove_entry() {
+    local manifest="$1" id="$2"
+    [ -f "$manifest" ] || return 1
+    local tmp
+    tmp="$(mktemp)"
+    awk -v id="$id" '
+        /^- id: / {
+            if ($0 == "- id: " id) { skipping = 1; next }
+            skipping = 0
+        }
+        !skipping
+    ' "$manifest" > "$tmp"
+    mv "$tmp" "$manifest"
+}
+
+manifest_dependents_of() {
+    # Echo each plugin id that lists <target> in its depends_on list.
+    local manifest="$1" target="$2"
+    [ -f "$manifest" ] || return 1
+    awk -v target="$target" '
+        BEGIN { current = ""; in_dep = 0 }
+        /^- id: / {
+            current = $0
+            sub(/^- id: /, "", current)
+            in_dep = 0
+            next
+        }
+        /^[[:space:]]+depends_on:[[:space:]]*$/ {
+            in_dep = 1
+            next
+        }
+        in_dep && /^[[:space:]]+-[[:space:]]+/ {
+            line = $0
+            sub(/^[[:space:]]+-[[:space:]]+/, "", line)
+            sub(/[[:space:]]+$/, "", line)
+            if (line == target) print current
+            next
+        }
+        in_dep && /^[[:space:]]+[a-z_]+:/ { in_dep = 0 }
+        in_dep && /^- / { in_dep = 0 }
+    ' "$manifest"
+}
+
+# --- locking (mkdir-based, POSIX-portable) ----------------------------------
+#
+# macOS does not ship `flock`. Use mkdir which is atomic on POSIX filesystems.
+
+acquire_plugin_lock() {
+    local lock_dir="$1"
+    local timeout="${2:-60}"
+    local elapsed=0
+    while ! mkdir "$lock_dir" 2>/dev/null; do
+        if [ "$elapsed" -ge "$timeout" ]; then
+            return 3
+        fi
+        sleep 1
+        elapsed=$((elapsed + 1))
+    done
+    return 0
+}
+
+release_plugin_lock() {
+    local lock_dir="$1"
+    rmdir "$lock_dir" 2>/dev/null || true
+}
+
 parse_yaml_list() {
     local file="$1"
     local key="$2"

@@ -62,6 +62,7 @@ Source: TUNE-0032. Spec: `skills/cta-format.md`. Template: `templates/cta-templa
 | `/dr-doctor` | Maintenance | -- | Diagnose and repair Datarim operational files — migrate to thin one-liner schema, externalize task descriptions, abolish progress.md. Emits CTA. |
 | `/dr-dream` | Maintenance | librarian | Knowledge base maintenance: organize, lint, index, cross-reference. Emits CTA. |
 | `/dr-optimize` | Maintenance | optimizer | Audit framework, prune unused, merge duplicates, sync docs. Emits CTA. |
+| `/dr-plugin` | Extension | -- | Manage opt-in plugin system: list active plugins, enable/disable third-party modules. Phase A (TUNE-0101). Emits CTA. |
 
 ## Utility Commands (3)
 
