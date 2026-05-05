@@ -441,6 +441,28 @@ if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "progress" ]; then
     scan_progress "$ROOT_ABS/progress.md"
 fi
 
+# --- routing-drift advisory pass (TUNE-0022) --------------------------------
+# Greps framework runtime files for canonical L1-L4 routing tokens. Surfaces
+# a single rolled-up finding when any derived view (commands/skills/visual-maps)
+# falls behind skills/datarim-system/routing-invariants.md. Fix is manual;
+# doctor only flags. Skipped in --probe-prefix mode (already early-exited).
+scan_routing_drift() {
+    local script="$SCRIPT_DIR/check-routing-drift.sh"
+    [ -x "$script" ] || return 0
+    local rc=0
+    "$script" --quiet >/dev/null 2>&1 || rc=$?
+    [ "$rc" -eq 0 ] && return 0
+    if [ "$rc" -eq 1 ]; then
+        local n
+        n="$("$script" 2>/dev/null | grep -cE '^[a-z].*: (missing token|derived file missing)' || true)"
+        FINDINGS=$((FINDINGS + 1))
+        FINDING_LINES+=("routing-drift: ${n:-1} derived file(s) out of sync with skills/datarim-system/routing-invariants.md — run scripts/check-routing-drift.sh for diff")
+    fi
+}
+if [ "$SCOPE" = "all" ]; then
+    scan_routing_drift
+fi
+
 # --- dry-run ----------------------------------------------------------------
 if [ "$MODE" = "dry-run" ]; then
     if [ "$FINDINGS" -eq 0 ]; then
