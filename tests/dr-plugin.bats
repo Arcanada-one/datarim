@@ -435,3 +435,123 @@ EOF
     [[ "$output" == *"demo"* ]]
     [[ "$output" == *"datarim-core"* ]]
 }
+
+# --- Phase B: overrides mechanism --------------------------------------------
+
+# Build a plugin whose plugin.yaml declares overrides on selected skill names.
+# Usage: make_plugin_with_overrides <id> <override-name>... -- <regular-name>...
+make_plugin_with_overrides() {
+    local id="$1"; shift
+    local dir="$TMPROOT/sources/$id"
+    mkdir -p "$dir/skills"
+    local overrides=()
+    while [ $# -gt 0 ] && [ "$1" != "--" ]; do
+        overrides+=("$1"); shift
+    done
+    [ "${1:-}" = "--" ] && shift
+    local regular=("$@")
+    {
+        echo "schema_version: 1"
+        echo "id: $id"
+        echo "title: $id"
+        echo "version: 0.0.1"
+        echo "author: x"
+        echo "license: MIT"
+        echo "description: x"
+        echo "categories:"
+        echo "  - skills"
+        if [ ${#overrides[@]} -gt 0 ]; then
+            echo "overrides:"
+            local n
+            for n in "${overrides[@]}"; do echo "  - $n"; done
+        fi
+    } > "$dir/plugin.yaml"
+    local n
+    for n in "${overrides[@]}"; do echo "# override $n" > "$dir/skills/${n}.md"; done
+    for n in "${regular[@]}"; do echo "# regular $n" > "$dir/skills/${n}.md"; done
+    echo "$dir"
+}
+
+@test "T80 enable with override installs file at root position (not namespaced)" {
+    local src
+    src="$(make_plugin_with_overrides "myplug" "foo" -- "bar")"
+    run "$PLUGIN_SH" enable "$src"
+    [ "$status" -eq 0 ]
+    # Override target: root position wins via local overlay precedence.
+    [ -L "$DR_PLUGIN_RUNTIME_ROOT/skills/foo.md" ]
+    # Non-override: namespaced subdir.
+    [ -L "$DR_PLUGIN_RUNTIME_ROOT/skills/myplug/bar.md" ]
+    # Override basename should NOT exist under namespaced subdir.
+    [ ! -e "$DR_PLUGIN_RUNTIME_ROOT/skills/myplug/foo.md" ]
+}
+
+@test "T81 enable with critical-core override emits warning to stderr" {
+    local src
+    src="$(make_plugin_with_overrides "evilplug" "evolution" -- "harmless")"
+    run "$PLUGIN_SH" enable "$src"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"WARNING"* ]] || [[ "$output" == *"warning"* ]]
+    [[ "$output" == *"evolution"* ]]
+}
+
+@test "T82 enable with non-critical override is silent (no warning)" {
+    local src
+    src="$(make_plugin_with_overrides "innocent" "harmless" -- "another")"
+    run "$PLUGIN_SH" enable "$src"
+    [ "$status" -eq 0 ]
+    ! [[ "$output" == *"WARNING"* ]]
+    ! [[ "$output" == *"warning"* ]]
+}
+
+@test "T83 disable removes override symlink from root position" {
+    local src
+    src="$(make_plugin_with_overrides "myplug" "foo" -- "bar")"
+    "$PLUGIN_SH" enable "$src"
+    [ -L "$DR_PLUGIN_RUNTIME_ROOT/skills/foo.md" ]
+    run "$PLUGIN_SH" disable myplug
+    [ "$status" -eq 0 ]
+    [ ! -L "$DR_PLUGIN_RUNTIME_ROOT/skills/foo.md" ]
+    [ ! -d "$DR_PLUGIN_RUNTIME_ROOT/skills/myplug" ]
+}
+
+@test "T84 multi-override conflict: second plugin overriding same target → fail" {
+    local s1 s2
+    s1="$(make_plugin_with_overrides "first" "shared" --)"
+    s2="$(make_plugin_with_overrides "second" "shared" --)"
+    "$PLUGIN_SH" enable "$s1"
+    [ -L "$DR_PLUGIN_RUNTIME_ROOT/skills/shared.md" ]
+    run "$PLUGIN_SH" enable "$s2"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"shared"* ]] || [[ "$output" == *"override"* ]] || [[ "$output" == *"conflict"* ]]
+}
+
+@test "T85 enable rejects override that is not shipped by the plugin" {
+    local dir="$TMPROOT/sources/badoverride"
+    mkdir -p "$dir/skills"
+    cat > "$dir/plugin.yaml" <<EOF
+schema_version: 1
+id: badoverride
+title: Bad Override
+version: 0.0.1
+author: x
+license: MIT
+description: x
+categories:
+  - skills
+overrides:
+  - missing
+EOF
+    echo "# something else" > "$dir/skills/something.md"
+    run "$PLUGIN_SH" enable "$dir"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"missing"* ]] || [[ "$output" == *"override"* ]]
+}
+
+@test "T86 manifest records overrides field for re-disable correctness" {
+    local src
+    src="$(make_plugin_with_overrides "myplug" "foo" "qux" -- "bar")"
+    "$PLUGIN_SH" enable "$src"
+    grep -q "overrides:" "$TMPROOT/datarim/enabled-plugins.md"
+    grep -q "    - foo" "$TMPROOT/datarim/enabled-plugins.md"
+    grep -q "    - qux" "$TMPROOT/datarim/enabled-plugins.md"
+}
