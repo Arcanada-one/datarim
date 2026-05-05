@@ -1,0 +1,37 @@
+# Enabled Plugins
+
+<!--
+  Runtime manifest managed by /dr-plugin (TUNE-0101).
+  Manual edits are permitted but require `/dr-plugin sync` afterwards to
+  reconcile filesystem state with this file.
+
+  Schema (one block per plugin under "## Active"):
+
+      - id: <kebab-case>
+        source: <"builtin" | abs path | git URL>
+        version: <git commit sha or VERSION string>
+        enabled_at: <ISO 8601 timestamp>
+        protected: <true|false>          # only datarim-core
+        overrides: [<id>, ...]           # optional
+        depends_on: [<id>, ...]          # optional
+        file_inventory:
+          skills: [<file.md>, ...]
+          agents: [<file.md>, ...]
+          commands: [<file.md>, ...]
+          templates: [<file.md>, ...]
+
+  Source: PRD-TUNE-0101, plans/TUNE-0101-plan.md.
+-->
+
+## Active
+
+- id: datarim-core
+  source: builtin
+  version: 1.22.2
+  enabled_at: 2026-05-05T00:00:00Z
+  protected: true
+  file_inventory:
+    skills: []
+    agents: []
+    commands: []
+    templates: []
