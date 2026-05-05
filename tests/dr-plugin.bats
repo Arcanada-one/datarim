@@ -215,3 +215,223 @@ teardown() {
     run "$PLUGIN_SH" unknown-cmd
     [ "$status" -eq 64 ]
 }
+
+# --- Phase A3 helpers --------------------------------------------------------
+
+# Create a synthetic plugin source dir with given id and category files.
+# Usage: make_plugin_source <id> <skill-file>...
+make_plugin_source() {
+    local id="$1"; shift
+    local dir="$TMPROOT/sources/$id"
+    mkdir -p "$dir/skills" "$dir/commands"
+    cat > "$dir/plugin.yaml" <<EOF
+schema_version: 1
+id: $id
+title: Test Plugin $id
+version: 0.0.1
+author: Test
+license: MIT
+description: Synthetic test plugin.
+categories:
+  - skills
+  - commands
+EOF
+    local f
+    for f in "$@"; do
+        echo "# $f content" > "$dir/skills/$f"
+    done
+    echo "# default command" > "$dir/commands/${id}-cmd.md"
+    echo "$dir"
+}
+
+# --- enable: happy paths -----------------------------------------------------
+
+@test "T50 enable from local path creates symlinks in runtime root" {
+    local src
+    src="$(make_plugin_source "demo" "alpha.md" "beta.md")"
+    run "$PLUGIN_SH" enable "$src"
+    [ "$status" -eq 0 ]
+    [ -L "$DR_PLUGIN_RUNTIME_ROOT/skills/demo/alpha.md" ]
+    [ -L "$DR_PLUGIN_RUNTIME_ROOT/skills/demo/beta.md" ]
+    [ -L "$DR_PLUGIN_RUNTIME_ROOT/commands/demo/demo-cmd.md" ]
+}
+
+@test "T51 enable updates manifest with file_inventory" {
+    local src
+    src="$(make_plugin_source "demo" "alpha.md")"
+    run "$PLUGIN_SH" enable "$src"
+    [ "$status" -eq 0 ]
+    grep -q "id: demo" "$TMPROOT/datarim/enabled-plugins.md"
+    grep -q "alpha.md" "$TMPROOT/datarim/enabled-plugins.md"
+    grep -q "demo-cmd.md" "$TMPROOT/datarim/enabled-plugins.md"
+}
+
+@test "T52 enable rejects missing plugin.yaml" {
+    mkdir -p "$TMPROOT/sources/broken"
+    run "$PLUGIN_SH" enable "$TMPROOT/sources/broken"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"plugin.yaml"* ]]
+}
+
+@test "T53 enable rejects mismatched id (yaml id != dir name allowed; uses yaml id)" {
+    # Plugin id from yaml, not dir name — should succeed and use 'demo' as id.
+    local src
+    src="$(make_plugin_source "demo" "alpha.md")"
+    mv "$src" "$TMPROOT/sources/different-name"
+    run "$PLUGIN_SH" enable "$TMPROOT/sources/different-name"
+    [ "$status" -eq 0 ]
+    grep -q "id: demo" "$TMPROOT/datarim/enabled-plugins.md"
+}
+
+@test "T54 enable second time is idempotent — no duplicate manifest entry" {
+    local src
+    src="$(make_plugin_source "demo" "alpha.md")"
+    run "$PLUGIN_SH" enable "$src"
+    [ "$status" -eq 0 ]
+    run "$PLUGIN_SH" enable "$src"
+    [ "$status" -eq 0 ]
+    local count
+    count="$(grep -c "^- id: demo$" "$TMPROOT/datarim/enabled-plugins.md")"
+    [ "$count" = "1" ]
+}
+
+@test "T55 enable conflict (target file already exists outside plugin) → fail" {
+    # First plugin places foo.md in skills/.
+    local s1 s2
+    s1="$(make_plugin_source "first" "shared.md")"
+    s2="$(make_plugin_source "second" "shared.md")"
+    "$PLUGIN_SH" enable "$s1"
+    # Manually drop a stray file in the same target path the second plugin would
+    # try to create (collision in skills/ root, not under plugin namespace).
+    echo "stray" > "$DR_PLUGIN_RUNTIME_ROOT/skills/second"
+    run "$PLUGIN_SH" enable "$s2"
+    [ "$status" -ne 0 ]
+}
+
+@test "T56 enable rejects invalid yaml id" {
+    local dir="$TMPROOT/sources/badid"
+    mkdir -p "$dir/skills"
+    cat > "$dir/plugin.yaml" <<EOF
+schema_version: 1
+id: ../evil
+title: Bad
+version: 0.0.1
+author: x
+license: MIT
+description: x
+categories:
+  - skills
+EOF
+    run "$PLUGIN_SH" enable "$dir"
+    [ "$status" -ne 0 ]
+}
+
+@test "T57 enable rejects schema_version != 1" {
+    local dir="$TMPROOT/sources/v2"
+    mkdir -p "$dir/skills"
+    cat > "$dir/plugin.yaml" <<EOF
+schema_version: 2
+id: future
+title: Future
+version: 0.0.1
+author: x
+license: MIT
+description: x
+categories:
+  - skills
+EOF
+    run "$PLUGIN_SH" enable "$dir"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"schema_version"* ]]
+}
+
+# --- disable: happy paths ----------------------------------------------------
+
+@test "T60 disable removes symlinks" {
+    local src
+    src="$(make_plugin_source "demo" "alpha.md")"
+    "$PLUGIN_SH" enable "$src"
+    [ -L "$DR_PLUGIN_RUNTIME_ROOT/skills/demo/alpha.md" ]
+    run "$PLUGIN_SH" disable demo
+    [ "$status" -eq 0 ]
+    [ ! -L "$DR_PLUGIN_RUNTIME_ROOT/skills/demo/alpha.md" ]
+    [ ! -d "$DR_PLUGIN_RUNTIME_ROOT/skills/demo" ]
+}
+
+@test "T61 disable removes manifest entry" {
+    local src
+    src="$(make_plugin_source "demo" "alpha.md")"
+    "$PLUGIN_SH" enable "$src"
+    grep -q "^- id: demo$" "$TMPROOT/datarim/enabled-plugins.md"
+    "$PLUGIN_SH" disable demo
+    ! grep -q "^- id: demo$" "$TMPROOT/datarim/enabled-plugins.md"
+}
+
+@test "T62 disable datarim-core → exit 1 (protected)" {
+    "$PLUGIN_SH" list >/dev/null  # bootstrap
+    run "$PLUGIN_SH" disable datarim-core
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"protected"* ]] || [[ "$output" == *"datarim-core"* ]]
+}
+
+@test "T63 disable nonexistent plugin → exit 1" {
+    "$PLUGIN_SH" list >/dev/null
+    run "$PLUGIN_SH" disable no-such-plugin
+    [ "$status" -eq 1 ]
+}
+
+@test "T64 disable plugin with active dependent → fail with named dependent" {
+    local s1
+    s1="$(make_plugin_source "base" "core.md")"
+    "$PLUGIN_SH" enable "$s1"
+    # Build a dependent that depends_on base.
+    local d="$TMPROOT/sources/dep"
+    mkdir -p "$d/skills"
+    cat > "$d/plugin.yaml" <<EOF
+schema_version: 1
+id: dep
+title: Dependent
+version: 0.0.1
+author: x
+license: MIT
+description: x
+categories:
+  - skills
+depends_on:
+  - base
+EOF
+    echo "# dep" > "$d/skills/dep.md"
+    "$PLUGIN_SH" enable "$d"
+    run "$PLUGIN_SH" disable base
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"dep"* ]]
+}
+
+# --- locking ----------------------------------------------------------------
+
+@test "T70 concurrent enable returns lock-busy exit 3" {
+    local src
+    src="$(make_plugin_source "demo" "alpha.md")"
+    # Manually create the lock dir to simulate a held lock.
+    mkdir -p "$TMPROOT/datarim/.locks/plugin.lock"
+    DR_PLUGIN_LOCK_TIMEOUT=1 run "$PLUGIN_SH" enable "$src"
+    [ "$status" -eq 3 ]
+    rmdir "$TMPROOT/datarim/.locks/plugin.lock"
+}
+
+# --- validation surface for cmd_enable ---------------------------------------
+
+@test "T71 enable rejects path with traversal" {
+    run "$PLUGIN_SH" enable "../../etc"
+    [ "$status" -ne 0 ]
+}
+
+@test "T72 enable list shows newly enabled plugin" {
+    local src
+    src="$(make_plugin_source "demo" "alpha.md")"
+    "$PLUGIN_SH" enable "$src"
+    run "$PLUGIN_SH" list
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"demo"* ]]
+    [[ "$output" == *"datarim-core"* ]]
+}
