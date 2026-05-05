@@ -182,3 +182,28 @@ advisory into enforceable.
   the gate surfaces them but does not auto-fix.
 - **Whitespace / Unicode bypass** — accepted residual risk. Bypass requires
   intentional malice; reflection follow-up + memory rule provide redundancy.
+
+## Quarterly Review Log
+
+A baseline-tracking record of denylist health checks. Cadence: once per
+calendar quarter. Each entry: date · scope · baseline · decisions.
+
+Methodology per review (3 passes):
+
+1. **Coverage** — run gate on full `~/.claude/skills/` corpus, expect PASS.
+   If FAIL → triage hits as either real leak (escape-hatch / whitelist /
+   reword) or denylist false-positive (escape-hatch / whitelist).
+2. **New-leak scan** — `grep -riwl <candidate>` over the corpus for common
+   stack terms not yet on the denylist (frontend frameworks, ORMs, loggers,
+   queues, CSS frameworks). For each non-zero candidate, classify hits as
+   genuine leak (extend denylist) or legitimate abstract example (no action).
+3. **Dead-entry sweep** — for each existing denylist entry, confirm the term
+   is still relevant to ecosystem reality (i.e. a project uses it or might
+   plausibly leak it into framework runtime). Remove entries that have lost
+   all plausible source.
+
+Append next entry at the bottom; do not rewrite history.
+
+| Date | Files scanned | Bats | Coverage | New-leak candidates | Dead-entry sweep | Net change |
+|------|---------------|------|----------|---------------------|------------------|------------|
+| 2026-05-05 | `~/.claude/skills/` (recursive `*.md`) | 10/10 GREEN | PASS clean | scanned: React, Vue, Rails, Redis, Tailwind, PostgreSQL, MySQL, pino, TypeORM, Sequelize, Mongoose, Knex, Webpack, Vite, Rollup, esbuild, GraphQL, Apollo, Kafka, RabbitMQ, Celery, Sidekiq, Hibernate, Symfony, CodeIgniter — all hits either escape-hatched (`testing.md` Vitest/React inside `<!-- gate:example-only -->`), abstract-example (`Redis`/`PostgreSQL` in discovery/perf as one of many), CLI-tool-specific (`mysql`/`redis-cli` in bash-pitfalls — pitfall semantics intrinsic), or false-positive English ("rails" as metaphor in datarim-doctor) | no entries lost ecosystem relevance | none — baseline preserved |
