@@ -420,3 +420,24 @@ Run `/dr-doctor` if you are upgrading from a pre-v1.19.0 installation or if `/dr
 - [Commands Reference](commands.md) -- all 20 available commands with usage examples
 - [Backlog Workflow](backlog-workflow.md) -- how to manage tasks, priorities, and the backlog
 - [Complexity Routing](complexity.md) -- how task complexity determines which stages run
+
+## Adding plugins (v1.23.0+)
+
+Datarim ships with a built-in `datarim-core` set. Optional skills, agents, commands, and templates beyond core are managed via the `/dr-plugin` CLI (TUNE-0101).
+
+```bash
+/dr-plugin list                              # active set + bootstrap on first run
+/dr-plugin enable /path/to/my-plugin         # absolute path to a directory with plugin.yaml
+/dr-plugin disable my-plugin
+/dr-plugin sync                              # reconcile runtime ↔ manifest (idempotent)
+/dr-plugin doctor [--fix]                    # 9 health checks
+```
+
+Each plugin source is a directory containing `plugin.yaml` (schema_version: 1) and one or more of the `skills/`, `agents/`, `commands/`, `templates/` subdirectories. Files install as symlinks under `~/.claude/<category>/<plugin-id>/<basename>` (namespace-isolated). Root-position install is opt-in via the `overrides:` field in `plugin.yaml` — useful when a plugin intentionally shadows a core artefact via the `local`-overlay precedence.
+
+The active set is recorded in `datarim/enabled-plugins.md` — manual edits are tolerated but require a follow-up `/dr-plugin sync` to reconcile runtime symlinks. Every `enable` takes a tarball snapshot before applying changes; on mid-apply failure the snapshot restores atomically.
+
+**Health checks** (`/dr-plugin doctor`): manifest-syntax, inventory-consistency, broken-symlinks, orphan-files, override-integrity, dependency-graph (DFS cycle/dangling), git-state, snapshot-cleanup (>30d), skill-registry (frontmatter `name:` ↔ basename). Exit codes: `0` clean, `1` warnings only, `2` errors found, `64` usage error.
+
+For full reference see `commands/dr-plugin.md` and `templates/plugin.yaml.template`.
+

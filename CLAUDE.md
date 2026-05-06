@@ -1,6 +1,6 @@
 # Datarim — Universal Iterative Workflow Framework
 
-> **Version:** 1.22.2
+> **Version:** 1.23.0
 > **Framework:** Datarim (Датарим) provides structured rules, agents, skills, and commands for iterative project execution via Claude Code — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
 > **Note:** "Datarim" is transliterated as "Датарим" in Russian. Both refer to this framework — agents must recognize either form in any language context.
 
@@ -201,12 +201,40 @@ Before writing ANY file to `datarim/`:
 | `/dr-doctor` | Maintenance | Diagnose and repair Datarim operational files — migrate to thin one-liner schema, externalize task descriptions, abolish progress.md |
 | `/dr-dream` | Maintenance | Knowledge base maintenance: organize, lint, index, cross-reference |
 | `/dr-optimize` | Maintenance | Audit framework, prune unused, merge duplicates, sync docs |
-| `/dr-plugin` | Extension | Manage opt-in plugin system (list/enable/disable). Phase A scaffold per TUNE-0101 |
+| `/dr-plugin` | Extension | Manage opt-in plugin system (list/enable/disable/sync/doctor — TUNE-0101 v1.23.0). Manifest-driven runtime symlinks, snapshot/rollback, dependency-graph + skill-registry health checks |
 | `/dr-help` | Utility | List all commands with descriptions and usage guidance |
 | `/factcheck` | Standalone | Fact-check articles and posts before publication |
 | `/humanize` | Standalone | Remove AI writing patterns from text |
 
-Command files: `$HOME/.claude/commands/{name}.md` (20 commands)
+Command files: `$HOME/.claude/commands/{name}.md` (21 commands)
+
+---
+
+## Plugin System (v1.23.0+, TUNE-0101)
+
+Datarim ships with a built-in `datarim-core` set (skills/agents/commands/templates) and an opt-in plugin mechanism for everything beyond. Plugins are local directories (or git URLs in a future phase) shaped as `{plugin-id}/{plugin.yaml, skills/, agents/, commands/, templates/}`. The `/dr-plugin` CLI manages the active set:
+
+```bash
+/dr-plugin list                              # active set + bootstrap on first run
+/dr-plugin enable /path/to/my-plugin         # absolute path to source dir
+/dr-plugin disable my-plugin
+/dr-plugin sync                              # reconcile runtime ↔ manifest (idempotent)
+/dr-plugin doctor [--fix]                    # 9 health checks
+```
+
+**Manifest:** `datarim/enabled-plugins.md` — single source of truth (one entry per active plugin: `id`, `source`, `version`, `enabled_at`, optional `depends_on`, `overrides`, `file_inventory`).
+
+**Symlink layout:** plugin files link into `~/.claude/<category>/<plugin-id>/<basename>` for namespace isolation. Files declared under `overrides:` install at root position `~/.claude/<category>/<basename>` to win the local-overlay precedence. Root-position install is conflict-checked against existing symlinks and regular files.
+
+**Safety:**
+- Pre-mutation snapshot of `runtime/` + `manifest.md` on every `enable` (FIFO cap `DR_PLUGIN_SNAPSHOT_MAX=50`; age-based purge after `DR_PLUGIN_SNAPSHOT_AGE_DAYS=30`).
+- mkdir-based atomic lock (`DR_PLUGIN_LOCK_TIMEOUT=60`) — `flock` is not assumed (macOS portability).
+- Validation gate rejects: invalid plugin id (must be kebab-case, ≤32 chars), embedded credentials in URLs, CRLF in `plugin.yaml` (security), path traversal (`..`), schema_version drift (only `1` accepted).
+- Critical-core overrides (`evolution`, `datarim-system`, `pre-archive-check`) emit a warning to stderr and proceed — operator decides.
+
+**Doctor checks (9):** manifest-syntax, inventory-consistency, broken-symlinks, orphan-files, override-integrity, dependency-graph (DFS cycle/dangling), git-state (uncommitted manifest), snapshot-cleanup (>30d), skill-registry (frontmatter `name:` ↔ basename — closes Skill-tool resolution gap).
+
+**Personal additions vs plugins:** `~/.claude/local/{skills,agents,commands,templates}/` (gitignored overlay) is for one-off personal stuff. `/dr-plugin` is for shareable, versioned extensions distributed as a unit.
 
 ---
 
