@@ -1,6 +1,6 @@
 ---
 name: network-exposure-baseline
-description: Allowlist/blocklist policy for network bind targets (docker-compose ports, redis bind, postgres listen_addresses, systemd ListenStream). Use before exposing any port to a non-loopback interface.
+description: Allowlist/blocklist for network bind targets (compose ports, redis bind, postgres listen_addresses, systemd ListenStream); load before any port change.
 ---
 
 # Network Exposure Baseline
@@ -158,6 +158,47 @@ Exit codes:
 - `/dr-plan` — warning, если план меняет networking surfaces без явной Tier-классификации.
 - `/dr-do` — pre-commit-style check на diff: новые `0.0.0.0`, short-form, без `# exposure: justified` → block.
 - `/dr-archive` — validation checklist gate: все Tier 3 binds имеют unexpired justification.
+
+## Tiered Gate Rules (canonical decision table)
+
+Pipeline-команды читают frontmatter task description и принимают одно из трёх
+решений: `hard_block` (gate блокирует шаг), `advisory_warn` (gate печатает
+предупреждение, но не блокирует), `skip` (gate тих). Decision table:
+
+| Priority | Type                                                                                    | Network surface touched? | Decision        |
+|----------|-----------------------------------------------------------------------------------------|--------------------------|-----------------|
+| `P0`     | (любой)                                                                                  | (любой)                  | `hard_block`    |
+| `P1`     | `security-incident` / `infrastructure` / `framework-hardening` / `security-baseline` / `auth-mandate` | (любой)         | `hard_block`    |
+| `P1`     | прочие                                                                                   | (любой)                  | `advisory_warn` |
+| `P2`/`P3`| (любой)                                                                                  | yes                      | `advisory_warn` |
+| `P2`/`P3`| (любой)                                                                                  | no                       | `skip`          |
+| missing/malformed | —                                                                              | —                        | `hard_block` (fail-closed) |
+
+«Network surface touched» означает, что diff (для `/dr-plan`) или staged change
+(для `/dr-do`) затрагивает один из источников verifier'а: docker-compose,
+`redis.conf`, `postgresql.conf`, systemd `.socket`, firewall/UFW rules, или
+runtime bind argument.
+
+Канонический исполнитель — `dev-tools/network-exposure-gate.sh`. Drift между
+этим skill'ом и скриптом — defect; обновляй обе одновременно. Каждое решение
+гейта эмитится телеметрией в Ops Bot (`category: info, agent: dr-prd|dr-plan|dr-do|dr-archive, body: gate=<decision> task=<id>`) для quarterly tuning через `/dr-optimize`.
+
+Пример вызова из pipeline-команды:
+
+```bash
+decision=$(dev-tools/network-exposure-gate.sh \
+    --task-description datarim/tasks/<TASK-ID>-task-description.md \
+    --network-diff \
+    --quiet)
+case "$decision" in
+    hard_block)    # STOP pipeline step
+        ;;
+    advisory_warn) # print warning, continue
+        ;;
+    skip)          # silent
+        ;;
+esac
+```
 
 ## Machine-parseable Rules Block
 

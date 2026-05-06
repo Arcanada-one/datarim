@@ -51,6 +51,34 @@ This command generates a structured Product Requirements Document (PRD) followin
     -   If insights document was created in Phase 1.3, add a reference in the PRD header: `**Research:** [INSIGHTS-{task-id}](../insights/INSIGHTS-{task-id}.md)`
     -   Save to `datarim/prd/PRD-{slug}.md`.
 
+5.5. **Network Exposure Baseline (tiered gate)**:
+    -   Read `$HOME/.claude/skills/network-exposure-baseline.md` § Tier Model + § Tiered Gate Rules.
+    -   Decide gate disposition by invoking the canonical executor:
+        ```bash
+        decision=$(dev-tools/network-exposure-gate.sh \
+            --task-description datarim/tasks/{TASK-ID}-task-description.md \
+            --quiet)
+        ```
+        Resolve the path to `dev-tools/` via the runtime root (`$HOME/.claude/` symlinks to `code/datarim/`).
+    -   Apply the decision:
+        -   **`hard_block`** → the PRD MUST include a section titled **«Network Exposure Baseline»** with:
+            (a) declared default Tier per port/listener affected by this task
+                (`Tier 0` socket, `Tier 1` loopback, `Tier 2` Tailscale, or
+                `Tier 3` public);
+            (b) for any Tier 3 entry: justification text + `expires` date
+                (≤90 days from PRD authorship); and
+            (c) explicit acceptance criterion that the verifier
+                (`dev-tools/network-exposure-check.sh`) passes against the
+                proposed configuration.
+            Missing section ⇒ PRD is incomplete, do not advance to `/dr-plan`.
+        -   **`advisory_warn`** → include the section if the task touches a
+            networking surface; otherwise mention exposure stance in one
+            sentence in § Risks. Do not block.
+        -   **`skip`** → no PRD section required.
+    -   The gate is **fail-closed**: missing or malformed `priority`/`type`
+        frontmatter resolves to `hard_block`. Fix the description before
+        re-running.
+
 6.  **Backlog Generation** (optional):
     -   Extract actionable items from PRD sections (features, components, migrations, integrations).
     -   **Determine prefix for generated items** per Unified Task Numbering (`$HOME/.claude/skills/datarim-system.md`):
