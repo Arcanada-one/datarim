@@ -2,7 +2,7 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 1.22.2](https://img.shields.io/badge/Version-1.22.2-green.svg)](VERSION)
+[![Version: 1.23.0](https://img.shields.io/badge/Version-1.23.0-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
@@ -96,8 +96,8 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   covering everything from testing methodology to security hardening to content
   creation workflows and structured research.
 
-- **20 commands** — 8 pipeline stages, 3 content (write, edit, publish), 4 framework
-  and knowledge management (addskill, doctor, optimize, dream), 3 utilities (status, continue,
+- **21 commands** — 8 pipeline stages, 3 content (write, edit, publish), 5 framework
+  and knowledge management (addskill, doctor, optimize, dream, **plugin** v1.23.0+), 3 utilities (status, continue,
   help), and 2 standalone tools (factcheck, humanize).
 
 - **8-stage complexity-aware pipeline** — tasks flow through exactly the stages they
@@ -108,6 +108,14 @@ Stages in `[brackets]` are conditional — included when the agent determines th
 - **Backlog management** — two-file architecture for task tracking. Active items in
   `backlog.md`, completed history in `backlog-archive.md`. Pick tasks from backlog
   with `/dr-init` or add new ones as you work.
+
+- **Plugin system (v1.23.0+, TUNE-0101)** — opt-in extension mechanism. `datarim-core`
+  ships built-in; additional skills/agents/commands/templates are enabled via
+  `/dr-plugin enable <source>` against a `plugin.yaml` manifest. Runtime symlinks
+  per-plugin namespace under `~/.claude/<category>/<plugin-id>/`; root-position via
+  `overrides:`. `dr-plugin doctor` runs 9 health checks (manifest-syntax,
+  inventory-consistency, broken-symlinks, orphan-files, override-integrity,
+  dependency-graph, git-state, snapshot-cleanup, skill-registry).
 
 - **Self-evolving framework** — after every task, `/dr-archive` Step 0.5 (reflecting
   skill) analyzes outcomes and proposes improvements to agents, skills, and framework
@@ -417,6 +425,7 @@ specific capabilities. You can add custom skills by placing `.md` files in
 | `/dr-doctor` | Maintenance | Diagnose and repair Datarim operational files — migrate to thin one-liner schema, externalize task descriptions, abolish progress.md. |
 | `/dr-dream` | Maintenance | Knowledge base maintenance: organize files, build index, cross-reference, flag contradictions, archive stale content. |
 | `/dr-optimize` | Maintenance | Audit framework health, prune unused components, merge duplicates, fix references, sync documentation. |
+| `/dr-plugin` | Maintenance | Manage opt-in plugins (v1.23.0+, TUNE-0101). `list/enable/disable/sync/doctor` over a manifest-driven runtime. Symlinks plugin sources into `~/.claude/{cat}/{plugin-id}/` namespaces; supports root-position `overrides:`; pre-mutation snapshot/rollback. |
 | `/dr-status` | Any | Check current task status, pipeline progress, and backlog summary. |
 | `/dr-continue` | Any | Resume work from the last checkpoint. Restores context and picks up where you left off. |
 | `/dr-help` | Any | List all available commands with descriptions, pipeline flow, and complexity routing. |
