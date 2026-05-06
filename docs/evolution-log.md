@@ -1099,3 +1099,20 @@ None (TUNE-0091's currently-failing tests will surface organically on its PR via
 ### In-flight Scope Addition (folded into `/dr-do` framework commit)
 
 - **`skills/security-baseline.md` doc-refs.** 3 references to relocated `documentation/archive/security/findings-2026-04-28.md` updated to workspace path. Required to keep `check-doc-refs.sh` green after relocation. Direct consequence of Step 9 — not a scope expansion. Lesson → Class A 1 (above).
+
+## TUNE-0101 reflection (2026-05-06)
+
+### Class A — Spawned to backlog (NOT applied here, separate /dr-do tasks)
+
+- **TUNE-0110 — `skills/plan-path-validator.md`** (new-skill). Pre-flight exists-check для file-paths в `/dr-plan` output; catches deprecated/missing tooling references. Spawned потому что Plan TUNE-0101 step E4 цитировал deprecated `dev-tools/scripts/check-drift.sh` (DEPRECATED v1.17), не обнаружено до /dr-do.
+- **TUNE-0111 — `templates/shell-helper-template.sh`** (new-template). Conventions: `printf '%s\n'` newline-separated output, `while IFS= read -r x; do ... done < <(cmd)` iteration, `LC_ALL=C` scoping для regex. Spawned после двукратного word-splitting bug fix (R2 → R5).
+
+### Class B — Held (PRD required)
+
+- **PRD-revision gate at design pivot during `/dr-do`.** Когда implementation выбирает решение, отличное от PRD (e.g., flock → mkdir-lock platform substitution), агент обязан сделать inline ADR note в PRD § Alternatives Considered ИЛИ обновить PRD до merge. Drift PRD ↔ implementation в TUNE-0101 (flock cited, mkdir-lock implemented) был замечен только в `/dr-qa`. Class B (operating-model change to /dr-do contract). Awaiting PRD draft.
+
+### Decisions Logged (TUNE-0101 implementation)
+
+- **mkdir-lock vs flock substitution** (Round 2). PRD цитирует `flock`; macOS bash не поставляет `flock`. mkdir-based atomic mutex выбран как POSIX cross-platform substitute. Class B follow-up captures the workflow gap.
+- **Plan E4 skip** (Round 6). `dev-tools/scripts/check-drift.sh` — deprecated v1.17, удаляется v1.18. Step moot; symlink-mode пользователи не имеют drift по определению.
+- **+1 unplanned skill-registry check** (Round 5). Check 9 добавлен поверх 8 plan'ом checks как закрытие Round 4 side-observation про `dr-archive` симптом. Improvement, not scope creep.
