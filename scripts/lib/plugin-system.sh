@@ -448,3 +448,171 @@ manifest_inventory_of() {
         }
     ' "$manifest"
 }
+
+# --- doctor helpers (TUNE-0101 Phase D) -------------------------------------
+
+# Snapshot age threshold for snapshot-cleanup check (days). Snapshots older
+# than this are considered stale candidates for purge.
+DR_PLUGIN_SNAPSHOT_AGE_DAYS="${DR_PLUGIN_SNAPSHOT_AGE_DAYS:-30}"
+
+snapshot_list_old() {
+    # Args: <snap_dir> <age_days>
+    # Echo paths of .tar.gz snapshots older than age_days, one per line.
+    local snap_d="$1" age="$2"
+    [ -d "$snap_d" ] || return 0
+    # `find -mtime +N` matches files whose modification time is more than N
+    # 24-hour periods ago. POSIX-portable.
+    find "$snap_d" -maxdepth 1 -name '*.tar.gz' -type f -mtime "+${age}" 2>/dev/null
+}
+
+snapshot_purge_old() {
+    # Args: <snap_dir> <age_days>
+    # Echo number of files removed on stdout; 0 if none.
+    local snap_d="$1" age="$2"
+    local count=0 f
+    [ -d "$snap_d" ] || { echo 0; return 0; }
+    while IFS= read -r f; do
+        [ -n "$f" ] || continue
+        if rm -f "$f" 2>/dev/null; then
+            count=$((count + 1))
+        fi
+    done < <(snapshot_list_old "$snap_d" "$age")
+    echo "$count"
+}
+
+manifest_required_scalar_fields() {
+    # Echo newline-separated list of required scalar fields per entry.
+    # Newline separator is mandatory because callers run with IFS=$'\n\t'
+    # so space-separated for-loops would not word-split.
+    printf '%s\n' source version enabled_at
+}
+
+manifest_validate_entry() {
+    # Args: <manifest> <id>
+    # Returns 0 if entry has all required fields and id is valid.
+    # Echoes one issue per line on stderr; 1 on any failure.
+    local manifest="$1" id="$2"
+    local issues=0 field val
+    if ! validate_plugin_id "$id" 2>/dev/null; then
+        echo "  invalid id: $id" >&2
+        issues=$((issues + 1))
+    fi
+    for field in $(manifest_required_scalar_fields); do
+        val="$(manifest_field "$manifest" "$id" "$field")"
+        if [ -z "$val" ]; then
+            echo "  $id: missing field '$field'" >&2
+            issues=$((issues + 1))
+        fi
+    done
+    # Source must pass validate_source if present.
+    val="$(manifest_field "$manifest" "$id" source)"
+    if [ -n "$val" ]; then
+        if ! validate_source "$val" >/dev/null 2>&1; then
+            echo "  $id: invalid source: $val" >&2
+            issues=$((issues + 1))
+        fi
+    fi
+    [ "$issues" -eq 0 ]
+}
+
+manifest_depends_of() {
+    # Args: <manifest> <id>
+    # Echo space-separated dep ids declared by <id>.
+    local manifest="$1" id="$2"
+    [ -f "$manifest" ] || return 0
+    awk -v id="$id" '
+        BEGIN { in_block=0; in_dep=0 }
+        /^- id: / {
+            in_block = ($0 == "- id: " id) ? 1 : 0
+            in_dep = 0
+            next
+        }
+        in_block && /^[[:space:]]+depends_on:[[:space:]]*$/ { in_dep=1; next }
+        in_block && in_dep && /^[[:space:]]+-[[:space:]]+/ {
+            line = $0
+            sub(/^[[:space:]]+-[[:space:]]+/, "", line)
+            sub(/[[:space:]]+$/, "", line)
+            printf "%s\n", line
+            next
+        }
+        in_block && in_dep && /^[[:space:]]+[a-z_]+:/ { in_dep=0 }
+        in_block && /^- / { in_block=0; in_dep=0 }
+    ' "$manifest"
+}
+
+manifest_dep_graph_check() {
+    # Args: <manifest>
+    # Echo issues, one per line, in form:
+    #   "dangling <id> <missing-dep>"
+    #   "cycle <id1>,<id2>,...,<id1>"
+    # Returns number of issues via stdout count (caller wc -l).
+    local manifest="$1"
+    [ -f "$manifest" ] || return 0
+    local active_ids active_ids_padded id dep
+    active_ids="$(manifest_active_ids "$manifest")"
+    active_ids_padded=" $(echo $active_ids | tr '\n' ' ')"
+    # Dangling check.
+    while IFS= read -r id; do
+        [ -n "$id" ] || continue
+        while IFS= read -r dep; do
+            [ -n "$dep" ] || continue
+            case "$active_ids_padded" in
+                *" $dep "*) ;;
+                *) echo "dangling $id $dep" ;;
+            esac
+        done < <(manifest_depends_of "$manifest" "$id")
+    done < <(printf '%s\n' "$active_ids")
+    # Cycle detection via iterative DFS.
+    local visited=""
+    while IFS= read -r id; do
+        [ -n "$id" ] || continue
+        case "$visited" in *" $id "*) continue ;; esac
+        _dep_dfs "$manifest" "$id" " $id " "$active_ids_padded"
+        visited="$visited $id "
+    done < <(printf '%s\n' "$active_ids")
+}
+
+_dep_dfs() {
+    # Args: <manifest> <node> <chain-of-active-path> <active_ids_padded>
+    # Emits "cycle <chain-with-back-edge>" if a back edge to anything in chain
+    # is found. Uses bounded recursion (chain length <= |active_ids|).
+    local manifest="$1" node="$2" chain="$3" active="$4"
+    local dep new_chain
+    while IFS= read -r dep; do
+        [ -n "$dep" ] || continue
+        # Only follow deps that are in active set ($active is space-padded).
+        case "$active" in *" $dep "*) ;; *) continue ;; esac
+        case "$chain" in
+            *" $dep "*)
+                echo "cycle ${chain# }$dep"
+                return 0
+                ;;
+        esac
+        new_chain="$chain$dep "
+        _dep_dfs "$manifest" "$dep" "$new_chain" "$active"
+    done < <(manifest_depends_of "$manifest" "$node")
+}
+
+skill_frontmatter_name() {
+    # Args: <skill-md-file>
+    # Echo the `name:` field from YAML frontmatter (first --- ... --- block),
+    # or empty string if missing or file is not a markdown skill.
+    local file="$1"
+    [ -f "$file" ] || return 0
+    awk '
+        BEGIN { in_fm = 0; depth = 0 }
+        /^---[[:space:]]*$/ {
+            depth++
+            if (depth == 1) { in_fm = 1; next }
+            if (depth == 2) { exit }
+        }
+        in_fm && /^name:[[:space:]]*/ {
+            line = $0
+            sub(/^name:[[:space:]]*/, "", line)
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
+            gsub(/^["\x27]|["\x27]$/, "", line)
+            print line
+            exit
+        }
+    ' "$file"
+}
