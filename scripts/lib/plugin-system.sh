@@ -299,3 +299,152 @@ parse_yaml_list() {
         }
     ' "$file"
 }
+
+# --- snapshot / rollback (TUNE-0101 Phase C) --------------------------------
+#
+# Snapshots are gzipped tar archives of the runtime root + manifest, taken
+# before mutating operations (enable/disable). On failure mid-apply, the
+# snapshot is restored verbatim. Stored under
+# <ws>/datarim/plugin-storage/.snapshots/<UTC-timestamp>.tar.gz.
+#
+# Rotation: FIFO cap at DR_PLUGIN_SNAPSHOT_MAX (default 50). Age-based purge
+# (>30d) is delegated to `dr-plugin doctor` (Phase D).
+
+DR_PLUGIN_SNAPSHOT_MAX="${DR_PLUGIN_SNAPSHOT_MAX:-50}"
+
+snapshot_dir() {
+    local ws="$1"
+    echo "$ws/datarim/plugin-storage/.snapshots"
+}
+
+snapshot_create() {
+    # Args: <workspace> <runtime_root> <manifest_path>
+    # Echoes snapshot path on stdout; non-zero on tar failure.
+    local ws="$1" runtime="$2" manifest="$3"
+    local snap_d
+    snap_d="$(snapshot_dir "$ws")"
+    mkdir -p "$snap_d" || return 2
+
+    local ts
+    ts="$(date -u +"%Y%m%dT%H%M%SZ")"
+    local snap="$snap_d/${ts}.tar.gz"
+
+    # Stage runtime tree + manifest, then archive. Staging avoids portability
+    # issues with multi -C tar invocations on BSD/macOS tar.
+    local stage
+    stage="$(mktemp -d "${TMPDIR:-/tmp}/dr-plugin-snap.XXXXXX")" || return 2
+    if [ -d "$runtime" ]; then
+        # Preserve symlinks (-RP). Empty runtime → cp -R prints nothing harmful.
+        cp -RP "$runtime/." "$stage/runtime/" 2>/dev/null || mkdir -p "$stage/runtime"
+    else
+        mkdir -p "$stage/runtime"
+    fi
+    if [ -f "$manifest" ]; then
+        cp "$manifest" "$stage/manifest.md" || true
+    fi
+    if ! tar -czf "$snap" -C "$stage" . 2>/dev/null; then
+        rm -rf "$stage"
+        return 2
+    fi
+    rm -rf "$stage"
+    snapshot_rotate "$snap_d"
+    echo "$snap"
+}
+
+snapshot_rotate() {
+    local snap_d="$1"
+    [ -d "$snap_d" ] || return 0
+    local count
+    count="$(find "$snap_d" -maxdepth 1 -name '*.tar.gz' -type f 2>/dev/null | wc -l | tr -d ' ')"
+    [ "$count" -le "$DR_PLUGIN_SNAPSHOT_MAX" ] && return 0
+    local excess=$((count - DR_PLUGIN_SNAPSHOT_MAX))
+    # Sort by mtime ascending (oldest first) — portable across BSD/GNU.
+    # shellcheck disable=SC2038  # snapshot names are UTC timestamps, no spaces.
+    find "$snap_d" -maxdepth 1 -name '*.tar.gz' -type f 2>/dev/null \
+        | xargs -I{} stat -f "%m %N" {} 2>/dev/null \
+        | sort -n \
+        | head -n "$excess" \
+        | awk '{ $1=""; sub(/^ /,""); print }' \
+        | while IFS= read -r f; do
+            [ -n "$f" ] && rm -f "$f"
+        done
+    # GNU stat fallback if BSD `stat -f` failed silently above.
+    count="$(find "$snap_d" -maxdepth 1 -name '*.tar.gz' -type f 2>/dev/null | wc -l | tr -d ' ')"
+    if [ "$count" -gt "$DR_PLUGIN_SNAPSHOT_MAX" ]; then
+        excess=$((count - DR_PLUGIN_SNAPSHOT_MAX))
+        find "$snap_d" -maxdepth 1 -name '*.tar.gz' -type f -printf '%T@ %p\n' 2>/dev/null \
+            | sort -n \
+            | head -n "$excess" \
+            | awk '{ $1=""; sub(/^ /,""); print }' \
+            | while IFS= read -r f; do
+                [ -n "$f" ] && rm -f "$f"
+            done
+    fi
+    return 0
+}
+
+restore_from_snapshot() {
+    # Args: <snapshot_path> <runtime_root> <manifest_path>
+    # Wipes managed runtime category subtrees and replaces from snapshot.
+    local snap="$1" runtime="$2" manifest="$3"
+    [ -f "$snap" ] || { echo "snapshot_restore: snapshot missing: $snap" >&2; return 2; }
+
+    local stage_r
+    stage_r="$(mktemp -d "${TMPDIR:-/tmp}/dr-plugin-rst.XXXXXX")" || return 2
+    if ! tar -xzf "$snap" -C "$stage_r" 2>/dev/null; then
+        rm -rf "$stage_r"
+        return 2
+    fi
+
+    local cat
+    for cat in skills agents commands templates; do
+        rm -rf "${runtime:?runtime root must be set}/$cat"
+    done
+    mkdir -p "$runtime"
+
+    if [ -d "$stage_r/runtime" ]; then
+        cp -RP "$stage_r/runtime/." "$runtime/" 2>/dev/null || true
+    fi
+
+    if [ -f "$stage_r/manifest.md" ]; then
+        cp "$stage_r/manifest.md" "$manifest"
+    fi
+
+    rm -rf "$stage_r"
+    return 0
+}
+
+manifest_active_ids() {
+    local manifest="$1"
+    [ -f "$manifest" ] || return 0
+    awk '/^- id: / { print $3 }' "$manifest"
+}
+
+manifest_inventory_of() {
+    # Args: <manifest> <id> <category>
+    # Echoes whitespace-separated basenames from file_inventory.<cat>.
+    local manifest="$1" id="$2" cat="$3"
+    [ -f "$manifest" ] || return 0
+    awk -v id="$id" -v cat="$cat" '
+        BEGIN { in_block=0; in_inv=0 }
+        /^- id: / {
+            in_block = ($0 == "- id: " id) ? 1 : 0
+            in_inv = 0
+            next
+        }
+        in_block && /^[[:space:]]+file_inventory:[[:space:]]*$/ { in_inv=1; next }
+        in_inv && $0 ~ "^[[:space:]]+" cat ":[[:space:]]*\\[" {
+            line = $0
+            sub("^[[:space:]]+" cat ":[[:space:]]*\\[", "", line)
+            sub("\\][[:space:]]*$", "", line)
+            n = split(line, parts, /,[[:space:]]*/)
+            for (i = 1; i <= n; i++) {
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", parts[i])
+                if (parts[i] != "") print parts[i]
+            }
+        }
+        in_inv && /^[[:space:]]+[a-z_]+:/ && $0 !~ "^[[:space:]]+(skills|agents|commands|templates):" {
+            in_inv = 0
+        }
+    ' "$manifest"
+}
