@@ -756,6 +756,384 @@ cmd_sync() {
     return 0
 }
 
+# --- doctor subcommand (TUNE-0101 Phase D) ----------------------------------
+#
+# Diagnoses inconsistent state and (with --fix) attempts repair.
+#
+# Eight checks (per plan TUNE-0101 § Phase D) + Check 9 skill-registry:
+#   1. manifest-syntax        (error,   no auto-fix)
+#   2. inventory-consistency  (error,   --fix → cmd_sync)
+#   3. broken-symlinks        (error,   --fix → cmd_sync)
+#   4. orphan-files           (warning, --fix → cmd_sync)
+#   5. override-integrity     (error,   --fix → cmd_sync)
+#   6. dependency-graph       (error,   no auto-fix)
+#   7. git-state              (warning, no auto-fix)
+#   8. snapshot-cleanup >Nd   (warning, --fix → snapshot_purge_old)
+#   9. skill-registry         (warning, no auto-fix; closes dr-archive symptom)
+#
+# Exit codes: 0=clean, 1=warnings only, 2=errors found, 3=fatal.
+
+DR_PLUGIN_SNAPSHOT_AGE_DAYS="${DR_PLUGIN_SNAPSHOT_AGE_DAYS:-30}"
+
+_doctor_emit() {
+    # Args: <severity> <message>
+    local sev="$1"; shift
+    echo "  [${sev}] $*" >&2
+}
+
+# Internal: build the runtime/<cat>/<key>|src|mode inventory map (file form
+# matches cmd_sync). Echoes lines on stdout via temp file path.
+_doctor_build_inventory() {
+    local manifest="$1" out="$2"
+    local active_ids id cat files bn overrides_list plugin_src
+    active_ids="$(manifest_active_ids "$manifest")"
+    : > "$out"
+    for id in $active_ids; do
+        plugin_src="$(manifest_field "$manifest" "$id" source)"
+        overrides_list="$(_manifest_overrides_of "$manifest" "$id" | tr '\n' ' ')"
+        for cat in skills agents commands templates; do
+            files="$(manifest_inventory_of "$manifest" "$id" "$cat")"
+            for bn in $files; do
+                if _is_override_basename "$bn" "$overrides_list"; then
+                    printf '%s|%s|%s|root|%s\n' "$cat" "$bn" "$plugin_src/$cat/$bn" "$id" >> "$out"
+                else
+                    printf '%s|%s|%s|ns|%s\n' "$cat" "$id/$bn" "$plugin_src/$cat/$bn" "$id" >> "$out"
+                fi
+            done
+        done
+    done
+}
+
+_doctor_check_manifest_syntax() {
+    # Returns issue count via stdout.
+    local manifest="$1"
+    local id issues=0
+    if [ ! -f "$manifest" ]; then
+        _doctor_emit error "manifest missing: $manifest"
+        echo 1
+        return 0
+    fi
+    while IFS= read -r id; do
+        [ -n "$id" ] || continue
+        # Pipe stderr from validator into our [error] emit format.
+        local err_buf
+        err_buf="$(manifest_validate_entry "$manifest" "$id" 2>&1 1>/dev/null || true)"
+        if [ -n "$err_buf" ]; then
+            while IFS= read -r line; do
+                _doctor_emit error "${line#  }"
+                issues=$((issues + 1))
+            done < <(printf '%s\n' "$err_buf")
+        fi
+    done < <(manifest_active_ids "$manifest")
+    echo "$issues"
+}
+
+_doctor_check_inventory_consistency() {
+    # Args: <inv_file> <runtime>
+    # Each declared inventory entry must have a symlink at the right position.
+    local inv_file="$1" runtime="$2"
+    local issues=0 cat key src mode owner target
+    while IFS='|' read -r cat key src mode owner; do
+        [ -n "$cat" ] || continue
+        target="$runtime/$cat/$key"
+        if [ ! -L "$target" ]; then
+            _doctor_emit error "missing symlink: $target (owner: $owner)"
+            issues=$((issues + 1))
+        fi
+    done < "$inv_file"
+    echo "$issues"
+}
+
+_doctor_check_broken_symlinks() {
+    # Args: <inv_file> <runtime>
+    # Declared symlinks that exist but point to a missing target.
+    local inv_file="$1" runtime="$2"
+    local issues=0 cat key src mode owner target
+    while IFS='|' read -r cat key src mode owner; do
+        [ -n "$cat" ] || continue
+        target="$runtime/$cat/$key"
+        if [ -L "$target" ] && [ ! -e "$target" ]; then
+            _doctor_emit error "broken symlink: $target → $(readlink "$target")"
+            issues=$((issues + 1))
+        fi
+    done < "$inv_file"
+    echo "$issues"
+}
+
+_doctor_check_orphan_files() {
+    # Args: <inv_file> <runtime> <active_ids_padded>
+    local inv_file="$1" runtime="$2" active_ids_padded="$3"
+    local issues=0 cat link bn sub sub_id nlink nbn
+    for cat in skills agents commands templates; do
+        [ -d "$runtime/$cat" ] || continue
+        for link in "$runtime/$cat"/*; do
+            [ -L "$link" ] || continue
+            bn="$(basename "$link")"
+            if ! grep -qE "^${cat}\|${bn}\|" "$inv_file"; then
+                _doctor_emit warning "orphan symlink: $runtime/$cat/$bn"
+                issues=$((issues + 1))
+            fi
+        done
+        for sub in "$runtime/$cat"/*/; do
+            [ -d "$sub" ] || continue
+            sub_id="$(basename "$sub")"
+            case "$active_ids_padded" in
+                *" $sub_id "*)
+                    for nlink in "$sub"*; do
+                        [ -L "$nlink" ] || continue
+                        nbn="$(basename "$nlink")"
+                        if ! grep -qE "^${cat}\|${sub_id}/${nbn}\|" "$inv_file"; then
+                            _doctor_emit warning "orphan symlink: $sub$nbn"
+                            issues=$((issues + 1))
+                        fi
+                    done
+                    ;;
+                *)
+                    _doctor_emit warning "orphan namespaced subdir: $sub (no plugin '$sub_id' in manifest)"
+                    issues=$((issues + 1))
+                    ;;
+            esac
+        done
+    done
+    echo "$issues"
+}
+
+_doctor_check_override_integrity() {
+    # Args: <manifest>
+    # For each plugin's overrides list:
+    #  (a) basename must appear in plugin's file_inventory (some category).
+    #  (b) the source plugin dir must contain the file (validated indirectly
+    #      via inventory consistency upstream).
+    local manifest="$1"
+    local issues=0 id ovr cat invs found
+    while IFS= read -r id; do
+        [ -n "$id" ] || continue
+        while IFS= read -r ovr; do
+            [ -n "$ovr" ] || continue
+            found=0
+            for cat in skills agents commands templates; do
+                invs=" $(manifest_inventory_of "$manifest" "$id" "$cat" | tr '\n' ' ') "
+                case "$invs" in
+                    *" $ovr "*) found=1; break ;;
+                esac
+            done
+            if [ "$found" -eq 0 ]; then
+                _doctor_emit error "override '$ovr' declared by '$id' but not in any file_inventory"
+                issues=$((issues + 1))
+            fi
+        done < <(_manifest_overrides_of "$manifest" "$id")
+    done < <(manifest_active_ids "$manifest")
+    echo "$issues"
+}
+
+_doctor_check_dependency_graph() {
+    # Args: <manifest>
+    local manifest="$1"
+    local issues=0 line
+    while IFS= read -r line; do
+        [ -n "$line" ] || continue
+        case "$line" in
+            "dangling "*)
+                _doctor_emit error "${line}"
+                issues=$((issues + 1))
+                ;;
+            "cycle "*)
+                _doctor_emit error "${line}"
+                issues=$((issues + 1))
+                ;;
+        esac
+    done < <(manifest_dep_graph_check "$manifest")
+    echo "$issues"
+}
+
+_doctor_check_git_state() {
+    # Args: <workspace> <manifest>
+    local ws="$1" manifest="$2"
+    [ -d "$ws/.git" ] || { echo 0; return 0; }
+    command -v git >/dev/null 2>&1 || { echo 0; return 0; }
+    # `git status --porcelain` exits 0 even if not a repo when given -C; use
+    # rev-parse to gate cleanly.
+    if ! git -C "$ws" rev-parse --git-dir >/dev/null 2>&1; then
+        echo 0
+        return 0
+    fi
+    local rel
+    rel="${manifest#"$ws/"}"
+    local status_out
+    status_out="$(git -C "$ws" status --porcelain -- "$rel" 2>/dev/null)"
+    if [ -n "$status_out" ]; then
+        _doctor_emit warning "manifest has uncommitted changes: $rel"
+        echo 1
+        return 0
+    fi
+    echo 0
+}
+
+_doctor_check_snapshot_cleanup() {
+    # Args: <workspace>
+    local ws="$1"
+    local snap_d
+    snap_d="$(snapshot_dir "$ws")"
+    [ -d "$snap_d" ] || { echo 0; return 0; }
+    local old
+    old="$(snapshot_list_old "$snap_d" "$DR_PLUGIN_SNAPSHOT_AGE_DAYS" | wc -l | tr -d ' ')"
+    if [ "$old" -gt 0 ]; then
+        _doctor_emit warning "snapshots older than ${DR_PLUGIN_SNAPSHOT_AGE_DAYS}d: $old in $snap_d"
+        echo "$old"
+        return 0
+    fi
+    echo 0
+}
+
+_doctor_check_skill_registry() {
+    # Args: <runtime>
+    # For each runtime/skills/*.md (root + namespaced), verify the linked
+    # file has a YAML frontmatter `name:` field matching the basename
+    # (without `.md`). Mismatch → Skill tool cannot resolve by name.
+    # Closes the dr-archive symptom logged in Round 4: skills missing
+    # frontmatter are invisible to the Skill tool even if discoverable as
+    # slash commands.
+    local runtime="$1"
+    [ -d "$runtime/skills" ] || { echo 0; return 0; }
+    local issues=0 link bn name expected target sub sub_id nlink
+    for link in "$runtime/skills"/*; do
+        [ -L "$link" ] || continue
+        bn="$(basename "$link")"
+        case "$bn" in *.md) ;; *) continue ;; esac
+        target="$(readlink "$link")"
+        case "$target" in /*) ;; *) target="$runtime/skills/$target" ;; esac
+        [ -e "$target" ] || continue
+        expected="${bn%.md}"
+        name="$(skill_frontmatter_name "$target")"
+        if [ -z "$name" ]; then
+            _doctor_emit warning "skill missing frontmatter 'name:' — $link (Skill tool cannot resolve)"
+            issues=$((issues + 1))
+        elif [ "$name" != "$expected" ]; then
+            _doctor_emit warning "skill frontmatter name mismatch: '$name' ≠ basename '$expected' ($link)"
+            issues=$((issues + 1))
+        fi
+    done
+    for sub in "$runtime/skills"/*/; do
+        [ -d "$sub" ] || continue
+        sub_id="$(basename "$sub")"
+        for nlink in "$sub"*.md; do
+            [ -L "$nlink" ] || continue
+            bn="$(basename "$nlink")"
+            target="$(readlink "$nlink")"
+            case "$target" in /*) ;; *) target="$sub$target" ;; esac
+            [ -e "$target" ] || continue
+            expected="${bn%.md}"
+            name="$(skill_frontmatter_name "$target")"
+            if [ -z "$name" ]; then
+                _doctor_emit warning "skill missing frontmatter 'name:' — $nlink"
+                issues=$((issues + 1))
+            elif [ "$name" != "$expected" ]; then
+                _doctor_emit warning "skill frontmatter name mismatch: '$name' ≠ basename '$expected' ($nlink)"
+                issues=$((issues + 1))
+            fi
+        done
+    done
+    echo "$issues"
+}
+
+cmd_doctor() {
+    local fix=0
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --fix)        fix=1 ;;
+            -h|--help)
+                usage
+                return 0
+                ;;
+            *)
+                echo "dr-plugin doctor: unknown flag: $1" >&2
+                return 64
+                ;;
+        esac
+        shift
+    done
+
+    local ws repo manifest runtime
+    ws="$(resolve_workspace)"
+    repo="$(resolve_repo_root "$ws")"
+    manifest="$ws/datarim/enabled-plugins.md"
+    bootstrap_manifest_if_missing "$manifest" "$repo"
+    runtime="$(resolve_runtime_root)"
+
+    local active_ids active_ids_padded
+    active_ids="$(manifest_active_ids "$manifest")"
+    active_ids_padded=" $(echo $active_ids | tr '\n' ' ')"
+
+    local inv_file
+    inv_file="$(mktemp -t dr-plugin-doctor-inv.XXXXXX)"
+    _doctor_build_inventory "$manifest" "$inv_file"
+
+    local errors=0 warnings=0 c
+
+    echo "[1/9] manifest-syntax" >&2
+    c="$(_doctor_check_manifest_syntax "$manifest")"
+    [ "$c" -gt 0 ] && errors=$((errors + c))
+
+    echo "[2/9] inventory-consistency" >&2
+    c="$(_doctor_check_inventory_consistency "$inv_file" "$runtime")"
+    [ "$c" -gt 0 ] && errors=$((errors + c))
+
+    echo "[3/9] broken-symlinks" >&2
+    c="$(_doctor_check_broken_symlinks "$inv_file" "$runtime")"
+    [ "$c" -gt 0 ] && errors=$((errors + c))
+
+    echo "[4/9] orphan-files" >&2
+    c="$(_doctor_check_orphan_files "$inv_file" "$runtime" "$active_ids_padded")"
+    [ "$c" -gt 0 ] && warnings=$((warnings + c))
+
+    echo "[5/9] override-integrity" >&2
+    c="$(_doctor_check_override_integrity "$manifest")"
+    [ "$c" -gt 0 ] && errors=$((errors + c))
+
+    echo "[6/9] dependency-graph" >&2
+    c="$(_doctor_check_dependency_graph "$manifest")"
+    [ "$c" -gt 0 ] && errors=$((errors + c))
+
+    echo "[7/9] git-state" >&2
+    c="$(_doctor_check_git_state "$ws" "$manifest")"
+    [ "$c" -gt 0 ] && warnings=$((warnings + c))
+
+    echo "[8/9] snapshot-cleanup (>${DR_PLUGIN_SNAPSHOT_AGE_DAYS}d)" >&2
+    local old_snaps
+    old_snaps="$(_doctor_check_snapshot_cleanup "$ws")"
+    [ "$old_snaps" -gt 0 ] && warnings=$((warnings + old_snaps))
+
+    echo "[9/9] skill-registry" >&2
+    c="$(_doctor_check_skill_registry "$runtime")"
+    [ "$c" -gt 0 ] && warnings=$((warnings + c))
+
+    rm -f "$inv_file"
+
+    # Auto-fix path: errors 2,3,5 → cmd_sync; warning 4 → cmd_sync;
+    # warning 8 → snapshot_purge_old.
+    if [ "$fix" -eq 1 ]; then
+        if [ "$errors" -gt 0 ] || [ "$warnings" -gt 0 ]; then
+            echo "dr-plugin doctor: --fix → running sync + snapshot purge" >&2
+            cmd_sync >&2 || true
+            local snap_d purged
+            snap_d="$(snapshot_dir "$ws")"
+            purged="$(snapshot_purge_old "$snap_d" "$DR_PLUGIN_SNAPSHOT_AGE_DAYS" 2>/dev/null || echo 0)"
+            echo "dr-plugin doctor: purged $purged stale snapshot(s)" >&2
+        fi
+    fi
+
+    if [ "$errors" -gt 0 ]; then
+        echo "dr-plugin doctor: $errors error(s), $warnings warning(s)" >&2
+        return 2
+    fi
+    if [ "$warnings" -gt 0 ]; then
+        echo "dr-plugin doctor: 0 errors, $warnings warning(s)" >&2
+        return 1
+    fi
+    echo "dr-plugin doctor: clean (9/9 checks passed)" >&2
+    return 0
+}
+
 # --- main dispatcher ---------------------------------------------------------
 
 main() {
@@ -785,8 +1163,7 @@ main() {
             cmd_sync "$@"
             ;;
         doctor)
-            echo "dr-plugin: 'doctor' not yet implemented (TUNE-0101 Phase D)." >&2
-            exit 1
+            cmd_doctor "$@"
             ;;
         *)
             echo "dr-plugin: unknown subcommand: $cmd" >&2

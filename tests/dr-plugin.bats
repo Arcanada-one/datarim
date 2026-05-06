@@ -702,3 +702,286 @@ EOF
     [ -f "$DR_PLUGIN_RUNTIME_ROOT/skills/zoo.md" ]
     [ ! -e "$DR_PLUGIN_RUNTIME_ROOT/skills/zoo.md.gone-id.disabled" ]
 }
+
+# --- T120-T139: Phase D — dr-plugin doctor (8 checks + skill-registry) ------
+
+@test "T120 doctor on bootstrapped clean tree exits 0" {
+    "$PLUGIN_SH" list >/dev/null
+    run "$PLUGIN_SH" doctor
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"clean"* ]] || [[ "$output" == *"9/9"* ]]
+}
+
+@test "T121 doctor detects missing required field (manifest-syntax)" {
+    "$PLUGIN_SH" list >/dev/null
+    # Append a malformed entry: no version/enabled_at.
+    cat >> "$TMPROOT/datarim/enabled-plugins.md" <<EOF
+
+- id: broken
+  source: /tmp/nowhere
+EOF
+    run "$PLUGIN_SH" doctor
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"missing field"* ]] || [[ "$output" == *"version"* ]]
+}
+
+@test "T122 doctor detects invalid id in manifest" {
+    "$PLUGIN_SH" list >/dev/null
+    cat >> "$TMPROOT/datarim/enabled-plugins.md" <<EOF
+
+- id: BadID
+  source: /tmp/x
+  version: 0.0.1
+  enabled_at: 2026-05-06T00:00:00Z
+EOF
+    run "$PLUGIN_SH" doctor
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"invalid id"* ]]
+}
+
+@test "T123 doctor detects inventory-consistency (missing symlink)" {
+    local src
+    src="$(make_plugin_source "incon" "foo.md")"
+    "$PLUGIN_SH" enable "$src"
+    rm -rf "$DR_PLUGIN_RUNTIME_ROOT/skills/incon"
+    run "$PLUGIN_SH" doctor
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"missing symlink"* ]]
+}
+
+@test "T124 doctor detects broken-symlinks" {
+    local src
+    src="$(make_plugin_source "brok" "foo.md")"
+    "$PLUGIN_SH" enable "$src"
+    # Replace target with broken symlink (ln to nonexistent).
+    rm -f "$DR_PLUGIN_RUNTIME_ROOT/skills/brok/foo.md"
+    ln -sfn "$TMPROOT/nope" "$DR_PLUGIN_RUNTIME_ROOT/skills/brok/foo.md"
+    run "$PLUGIN_SH" doctor
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"broken symlink"* ]]
+}
+
+@test "T125 doctor detects orphan-files (warning only, exit 1)" {
+    local src
+    src="$(make_plugin_source "clean" "foo.md")"
+    "$PLUGIN_SH" enable "$src"
+    ln -sfn "$TMPROOT/nowhere" "$DR_PLUGIN_RUNTIME_ROOT/skills/orphan.md"
+    run "$PLUGIN_SH" doctor
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"orphan"* ]]
+}
+
+@test "T126 doctor --fix runs sync to repair orphan + broken" {
+    local src
+    src="$(make_plugin_source "fixme" "foo.md")"
+    "$PLUGIN_SH" enable "$src"
+    ln -sfn "$TMPROOT/nowhere" "$DR_PLUGIN_RUNTIME_ROOT/skills/junk.md"
+    rm -f "$DR_PLUGIN_RUNTIME_ROOT/skills/fixme/foo.md"
+    run "$PLUGIN_SH" doctor --fix
+    # After fix, re-run doctor → orphan/broken errors gone (exit ≠ 2).
+    # skill-registry may still warn for stub skills without frontmatter
+    # (intentional: proves Check 9 is wired and exit=1 is "warnings only").
+    run "$PLUGIN_SH" doctor
+    [ "$status" -ne 2 ]
+    [ ! -L "$DR_PLUGIN_RUNTIME_ROOT/skills/junk.md" ]
+    [ -L "$DR_PLUGIN_RUNTIME_ROOT/skills/fixme/foo.md" ]
+}
+
+@test "T127 doctor detects override declared but not in inventory" {
+    local dir="$TMPROOT/sources/badovr"
+    mkdir -p "$dir/skills"
+    cat > "$dir/plugin.yaml" <<EOF
+schema_version: 1
+id: badovr
+title: x
+version: 0.0.1
+author: x
+license: MIT
+description: x
+categories:
+  - skills
+EOF
+    echo "x" > "$dir/skills/real.md"
+    "$PLUGIN_SH" enable "$dir"
+    # Manually inject overrides field into manifest entry referring to
+    # a basename that's not in file_inventory.
+    python3 - <<'PY'
+import pathlib
+m = pathlib.Path("$TMPROOT/datarim/enabled-plugins.md".replace("$TMPROOT", "${TMPROOT}"))
+PY
+    # Simpler: append override line via awk-rewrite.
+    awk '
+        /^- id: badovr$/ { in_b=1; print; next }
+        in_b && /^[[:space:]]+file_inventory:/ {
+            print "  overrides:"
+            print "    - phantom.md"
+            print
+            in_b=0
+            next
+        }
+        { print }
+    ' "$TMPROOT/datarim/enabled-plugins.md" > "$TMPROOT/m.tmp"
+    mv "$TMPROOT/m.tmp" "$TMPROOT/datarim/enabled-plugins.md"
+    run "$PLUGIN_SH" doctor
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"override"* ]]
+    [[ "$output" == *"phantom.md"* ]]
+}
+
+@test "T128 doctor detects dangling dependency" {
+    local src
+    src="$(make_plugin_source "depok" "a.md")"
+    "$PLUGIN_SH" enable "$src"
+    # Inject a depends_on referencing a non-active plugin.
+    awk '
+        /^- id: depok$/ { in_b=1; print; next }
+        in_b && /^[[:space:]]+enabled_at:/ {
+            print
+            print "  depends_on:"
+            print "    - ghost-dep"
+            in_b=0
+            next
+        }
+        { print }
+    ' "$TMPROOT/datarim/enabled-plugins.md" > "$TMPROOT/m.tmp"
+    mv "$TMPROOT/m.tmp" "$TMPROOT/datarim/enabled-plugins.md"
+    run "$PLUGIN_SH" doctor
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"dangling"* ]]
+    [[ "$output" == *"ghost-dep"* ]]
+}
+
+@test "T129 doctor detects dependency cycle" {
+    local s1 s2
+    s1="$(make_plugin_source "cyca" "a.md")"
+    s2="$(make_plugin_source "cycb" "b.md")"
+    "$PLUGIN_SH" enable "$s1"
+    "$PLUGIN_SH" enable "$s2"
+    # Inject a→b and b→a cycle.
+    awk '
+        /^- id: cyca$/ { print; getline; print; getline; print; getline; print; print "  depends_on:"; print "    - cycb"; next }
+        /^- id: cycb$/ { print; getline; print; getline; print; getline; print; print "  depends_on:"; print "    - cyca"; next }
+        { print }
+    ' "$TMPROOT/datarim/enabled-plugins.md" > "$TMPROOT/m.tmp"
+    mv "$TMPROOT/m.tmp" "$TMPROOT/datarim/enabled-plugins.md"
+    run "$PLUGIN_SH" doctor
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"cycle"* ]]
+}
+
+@test "T130 doctor snapshot-cleanup warns on >30d-old snapshots" {
+    "$PLUGIN_SH" list >/dev/null
+    local snap_d="$TMPROOT/datarim/plugin-storage/.snapshots"
+    mkdir -p "$snap_d"
+    : > "$snap_d/old.tar.gz"
+    # Backdate 40 days via touch -t (date 40 days ago).
+    local old_date
+    if date -v -40d +"%Y%m%d%H%M" >/dev/null 2>&1; then
+        old_date="$(date -v -40d +"%Y%m%d%H%M")"
+    else
+        old_date="$(date -d '40 days ago' +"%Y%m%d%H%M")"
+    fi
+    touch -t "$old_date" "$snap_d/old.tar.gz"
+    run "$PLUGIN_SH" doctor
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"snapshots older than"* ]]
+}
+
+@test "T131 doctor --fix purges old snapshots" {
+    "$PLUGIN_SH" list >/dev/null
+    local snap_d="$TMPROOT/datarim/plugin-storage/.snapshots"
+    mkdir -p "$snap_d"
+    : > "$snap_d/old.tar.gz"
+    local old_date
+    if date -v -40d +"%Y%m%d%H%M" >/dev/null 2>&1; then
+        old_date="$(date -v -40d +"%Y%m%d%H%M")"
+    else
+        old_date="$(date -d '40 days ago' +"%Y%m%d%H%M")"
+    fi
+    touch -t "$old_date" "$snap_d/old.tar.gz"
+    run "$PLUGIN_SH" doctor --fix
+    [ ! -f "$snap_d/old.tar.gz" ]
+}
+
+@test "T132 doctor skill-registry detects missing frontmatter name" {
+    local dir="$TMPROOT/sources/regplug"
+    mkdir -p "$dir/skills"
+    cat > "$dir/plugin.yaml" <<EOF
+schema_version: 1
+id: regplug
+title: x
+version: 0.0.1
+author: x
+license: MIT
+description: x
+categories:
+  - skills
+EOF
+    # Ship a skill file WITHOUT YAML frontmatter — Skill tool can't resolve.
+    echo "# just a markdown body, no frontmatter" > "$dir/skills/no-frontmatter.md"
+    "$PLUGIN_SH" enable "$dir"
+    run "$PLUGIN_SH" doctor
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"frontmatter"* ]]
+}
+
+@test "T133 doctor skill-registry detects name/basename mismatch" {
+    local dir="$TMPROOT/sources/regplug2"
+    mkdir -p "$dir/skills"
+    cat > "$dir/plugin.yaml" <<EOF
+schema_version: 1
+id: regplug2
+title: x
+version: 0.0.1
+author: x
+license: MIT
+description: x
+categories:
+  - skills
+EOF
+    cat > "$dir/skills/wrongname.md" <<EOF
+---
+name: rightname
+description: test skill
+---
+
+# Body
+EOF
+    "$PLUGIN_SH" enable "$dir"
+    run "$PLUGIN_SH" doctor
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"mismatch"* ]] || [[ "$output" == *"frontmatter"* ]]
+}
+
+@test "T134 doctor skill-registry passes for properly-formed skill" {
+    local dir="$TMPROOT/sources/regplug3"
+    mkdir -p "$dir/skills"
+    cat > "$dir/plugin.yaml" <<EOF
+schema_version: 1
+id: regplug3
+title: x
+version: 0.0.1
+author: x
+license: MIT
+description: x
+categories:
+  - skills
+EOF
+    cat > "$dir/skills/goodskill.md" <<EOF
+---
+name: goodskill
+description: a well-formed skill
+---
+
+# Body
+EOF
+    "$PLUGIN_SH" enable "$dir"
+    run "$PLUGIN_SH" doctor
+    [ "$status" -eq 0 ]
+}
+
+@test "T135 doctor unknown flag returns exit 64" {
+    "$PLUGIN_SH" list >/dev/null
+    run "$PLUGIN_SH" doctor --bogus
+    [ "$status" -eq 64 ]
+}
