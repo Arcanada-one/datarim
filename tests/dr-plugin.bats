@@ -555,3 +555,150 @@ EOF
     grep -q "    - foo" "$TMPROOT/datarim/enabled-plugins.md"
     grep -q "    - qux" "$TMPROOT/datarim/enabled-plugins.md"
 }
+
+# --- TUNE-0101 Phase C: snapshot/rollback + sync ----------------------------
+
+@test "T100 snapshot_create writes tarball and rotates within cap" {
+    export DR_PLUGIN_SNAPSHOT_MAX=3
+    local manifest="$TMPROOT/datarim/enabled-plugins.md"
+    mkdir -p "$TMPROOT/datarim"
+    echo "# manifest" > "$manifest"
+    local snap1 snap2 snap3 snap4
+    snap1="$(snapshot_create "$TMPROOT" "$DR_PLUGIN_RUNTIME_ROOT" "$manifest")"
+    [ -f "$snap1" ]
+    sleep 1
+    snap2="$(snapshot_create "$TMPROOT" "$DR_PLUGIN_RUNTIME_ROOT" "$manifest")"
+    sleep 1
+    snap3="$(snapshot_create "$TMPROOT" "$DR_PLUGIN_RUNTIME_ROOT" "$manifest")"
+    sleep 1
+    snap4="$(snapshot_create "$TMPROOT" "$DR_PLUGIN_RUNTIME_ROOT" "$manifest")"
+    [ -f "$snap4" ]
+    [ ! -f "$snap1" ]   # FIFO rotated oldest
+    local count
+    count="$(find "$(snapshot_dir "$TMPROOT")" -name '*.tar.gz' -type f | wc -l | tr -d ' ')"
+    [ "$count" = "3" ]
+}
+
+@test "T101 restore_from_snapshot reverts manifest + runtime to captured state" {
+    local manifest="$TMPROOT/datarim/enabled-plugins.md"
+    mkdir -p "$TMPROOT/datarim"
+    echo "# pre-state" > "$manifest"
+    mkdir -p "$DR_PLUGIN_RUNTIME_ROOT/skills"
+    ln -sfn "$TMPROOT/imaginary" "$DR_PLUGIN_RUNTIME_ROOT/skills/pre.md"
+    local snap
+    snap="$(snapshot_create "$TMPROOT" "$DR_PLUGIN_RUNTIME_ROOT" "$manifest")"
+
+    # Mutate state.
+    echo "# post-state mess" > "$manifest"
+    rm -f "$DR_PLUGIN_RUNTIME_ROOT/skills/pre.md"
+    ln -sfn "$TMPROOT/other" "$DR_PLUGIN_RUNTIME_ROOT/skills/post.md"
+
+    restore_from_snapshot "$snap" "$DR_PLUGIN_RUNTIME_ROOT" "$manifest"
+
+    grep -q "pre-state" "$manifest"
+    [ -L "$DR_PLUGIN_RUNTIME_ROOT/skills/pre.md" ]
+    [ ! -e "$DR_PLUGIN_RUNTIME_ROOT/skills/post.md" ]
+}
+
+@test "T102 enable rolls back when fault injected after symlinks" {
+    local src
+    src="$(make_plugin_source "rbplug" "foo.md")"
+    DR_PLUGIN_FAULT_INJECT=after_symlinks run "$PLUGIN_SH" enable "$src"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"fault injected"* ]] || [[ "$output" == *"restored"* ]]
+    # Symlinks must be gone after restore.
+    [ ! -L "$DR_PLUGIN_RUNTIME_ROOT/skills/rbplug/foo.md" ]
+    [ ! -d "$DR_PLUGIN_RUNTIME_ROOT/skills/rbplug" ]
+    # Manifest must not contain the rbplug entry.
+    if [ -f "$TMPROOT/datarim/enabled-plugins.md" ]; then
+        ! grep -q "^- id: rbplug$" "$TMPROOT/datarim/enabled-plugins.md"
+    fi
+}
+
+@test "T103 enable rolls back when fault injected after manifest" {
+    local src
+    src="$(make_plugin_source "rbplug2" "foo.md")"
+    DR_PLUGIN_FAULT_INJECT=after_manifest run "$PLUGIN_SH" enable "$src"
+    [ "$status" -ne 0 ]
+    [ ! -L "$DR_PLUGIN_RUNTIME_ROOT/skills/rbplug2/foo.md" ]
+    if [ -f "$TMPROOT/datarim/enabled-plugins.md" ]; then
+        ! grep -q "^- id: rbplug2$" "$TMPROOT/datarim/enabled-plugins.md"
+    fi
+}
+
+@test "T104 sync removes orphan root-position symlink" {
+    local src
+    src="$(make_plugin_source "syncplug" "foo.md")"
+    "$PLUGIN_SH" enable "$src"
+    # Inject orphan: dangling symlink not in any plugin's inventory.
+    ln -sfn "$TMPROOT/nowhere" "$DR_PLUGIN_RUNTIME_ROOT/skills/orphan.md"
+    [ -L "$DR_PLUGIN_RUNTIME_ROOT/skills/orphan.md" ]
+    run "$PLUGIN_SH" sync
+    [ "$status" -eq 0 ]
+    [ ! -L "$DR_PLUGIN_RUNTIME_ROOT/skills/orphan.md" ]
+    # Legitimate plugin symlink must remain.
+    [ -L "$DR_PLUGIN_RUNTIME_ROOT/skills/syncplug/foo.md" ]
+}
+
+@test "T105 sync removes orphan namespaced subdir for unknown plugin" {
+    local src
+    src="$(make_plugin_source "knownplug" "foo.md")"
+    "$PLUGIN_SH" enable "$src"
+    mkdir -p "$DR_PLUGIN_RUNTIME_ROOT/skills/ghost-id"
+    ln -sfn "$TMPROOT/nope" "$DR_PLUGIN_RUNTIME_ROOT/skills/ghost-id/leftover.md"
+    run "$PLUGIN_SH" sync
+    [ "$status" -eq 0 ]
+    [ ! -d "$DR_PLUGIN_RUNTIME_ROOT/skills/ghost-id" ]
+    [ -L "$DR_PLUGIN_RUNTIME_ROOT/skills/knownplug/foo.md" ]
+}
+
+@test "T106 sync recreates broken symlink (target deleted)" {
+    local src
+    src="$(make_plugin_source "brokplug" "foo.md")"
+    "$PLUGIN_SH" enable "$src"
+    [ -L "$DR_PLUGIN_RUNTIME_ROOT/skills/brokplug/foo.md" ]
+    rm -f "$DR_PLUGIN_RUNTIME_ROOT/skills/brokplug/foo.md"
+    [ ! -L "$DR_PLUGIN_RUNTIME_ROOT/skills/brokplug/foo.md" ]
+    run "$PLUGIN_SH" sync
+    [ "$status" -eq 0 ]
+    [ -L "$DR_PLUGIN_RUNTIME_ROOT/skills/brokplug/foo.md" ]
+    # Target must point at the source file.
+    local lk
+    lk="$(readlink "$DR_PLUGIN_RUNTIME_ROOT/skills/brokplug/foo.md")"
+    [[ "$lk" == "$src/skills/foo.md" ]]
+}
+
+@test "T107 sync output reports counts" {
+    local src
+    src="$(make_plugin_source "countplug" "foo.md")"
+    "$PLUGIN_SH" enable "$src"
+    ln -sfn "$TMPROOT/nowhere" "$DR_PLUGIN_RUNTIME_ROOT/skills/junk.md"
+    rm -f "$DR_PLUGIN_RUNTIME_ROOT/skills/countplug/foo.md"
+    run "$PLUGIN_SH" sync
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"removed=1"* ]]
+    [[ "$output" == *"recreated=1"* ]]
+}
+
+@test "T108 sync is idempotent on a clean tree" {
+    local src
+    src="$(make_plugin_source "cleanplug" "foo.md")"
+    "$PLUGIN_SH" enable "$src"
+    "$PLUGIN_SH" sync >/dev/null
+    run "$PLUGIN_SH" sync
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"removed=0"* ]]
+    [[ "$output" == *"recreated=0"* ]]
+}
+
+@test "T109 sync restores disabled-orphan backup file" {
+    local src
+    src="$(make_plugin_source "anchorplug" "foo.md")"
+    "$PLUGIN_SH" enable "$src"
+    # Synthesise a `*.<id>.disabled` backup left behind by a vanished plugin.
+    echo "stale content" > "$DR_PLUGIN_RUNTIME_ROOT/skills/zoo.md.gone-id.disabled"
+    run "$PLUGIN_SH" sync
+    [ "$status" -eq 0 ]
+    [ -f "$DR_PLUGIN_RUNTIME_ROOT/skills/zoo.md" ]
+    [ ! -e "$DR_PLUGIN_RUNTIME_ROOT/skills/zoo.md.gone-id.disabled" ]
+}

@@ -362,6 +362,17 @@ cmd_enable() {
     # shellcheck disable=SC2064
     trap "release_plugin_lock '$lock_dir'" EXIT INT TERM
 
+    # Snapshot pre-mutation state so we can roll back on mid-apply failure
+    # (TUNE-0101 Phase C, V-8). Snapshot is taken after lock acquisition so
+    # concurrent invocations cannot race the snapshot itself.
+    local _snap=""
+    local runtime_pre
+    runtime_pre="$(resolve_runtime_root)"
+    _snap="$(snapshot_create "$ws" "$runtime_pre" "$manifest")" || {
+        echo "dr-plugin enable: snapshot failed" >&2
+        return 2
+    }
+
     if manifest_has_entry "$manifest" "$id"; then
         local existing
         existing="$(manifest_field "$manifest" "$id" source)"
@@ -451,6 +462,15 @@ cmd_enable() {
         done
     done
 
+    # Fault injection: fail right after symlinks created, before manifest write.
+    if [ "${DR_PLUGIN_FAULT_INJECT:-}" = "after_symlinks" ]; then
+        if [ -n "$_snap" ]; then
+            restore_from_snapshot "$_snap" "$runtime_pre" "$manifest" || true
+        fi
+        echo "dr-plugin enable: fault injected (after_symlinks) — restored from $_snap" >&2
+        return 2
+    fi
+
     # Build inventory strings (for inline list YAML).
     local skills_inv agents_inv commands_inv templates_inv
     skills_inv="$(_collect_inventory_for "$src" skills | paste -sd ',' - | sed 's/,/, /g')"
@@ -488,6 +508,24 @@ cmd_enable() {
         echo "    commands: [$commands_inv]"
         echo "    templates: [$templates_inv]"
     } >> "$manifest"
+
+    # Fault injection (testing only): simulate post-apply failure to verify
+    # snapshot rollback. DR_PLUGIN_FAULT_INJECT honoured values:
+    #   after_symlinks  — fail before manifest is finalised (already applied
+    #                     symlinks must be undone via snapshot restore).
+    #   after_manifest  — fail after manifest is finalised (full rollback).
+    # Production callers leave the variable unset.
+    if [ -n "${DR_PLUGIN_FAULT_INJECT:-}" ]; then
+        case "$DR_PLUGIN_FAULT_INJECT" in
+            after_manifest|after_symlinks)
+                if [ -n "$_snap" ]; then
+                    restore_from_snapshot "$_snap" "$runtime_pre" "$manifest" || true
+                fi
+                echo "dr-plugin enable: fault injected ($DR_PLUGIN_FAULT_INJECT) — restored from $_snap" >&2
+                return 2
+                ;;
+        esac
+    fi
 
     echo "dr-plugin: enabled $id (source: $src)" >&2
     return 0
@@ -578,6 +616,146 @@ cmd_disable() {
     return 0
 }
 
+# --- sync subcommand --------------------------------------------------------
+#
+# Reconciles runtime symlink tree with manifest. Three branches:
+#   1. orphan  : symlink in runtime not declared by any active plugin → remove
+#   2. broken  : declared inventory entry missing/dangling → recreate (ln -sfn)
+#   3. disabled-orphan : <stem>.<id>.disabled backup whose plugin is gone → restore
+#
+# Idempotent. Acquires plugin lock.
+# Source: plans/TUNE-0101-plan.md § Phase C, V-9.
+
+cmd_sync() {
+    local ws repo manifest runtime
+    ws="$(resolve_workspace)"
+    repo="$(resolve_repo_root "$ws")"
+    manifest="$ws/datarim/enabled-plugins.md"
+    bootstrap_manifest_if_missing "$manifest" "$repo"
+    runtime="$(resolve_runtime_root)"
+
+    local lock_dir
+    lock_dir="$(_lock_path "$ws")"
+    mkdir -p "$(dirname "$lock_dir")"
+    if ! acquire_plugin_lock "$lock_dir" "$DR_PLUGIN_LOCK_TIMEOUT"; then
+        echo "dr-plugin sync: lock busy: $lock_dir" >&2
+        return 3
+    fi
+    # shellcheck disable=SC2064
+    trap "release_plugin_lock '$lock_dir'" EXIT INT TERM
+
+    local active_ids active_ids_padded id
+    active_ids="$(manifest_active_ids "$manifest")"
+    active_ids_padded=" $(echo $active_ids | tr '\n' ' ')"
+
+    # Build inventory map: each line is "cat|key|src_path|mode" where
+    # mode=root (override → runtime/<cat>/<basename>) or
+    # mode=ns   (namespaced → runtime/<cat>/<id>/<basename>); key is the
+    # rel-path under runtime/<cat>/.
+    local inv_file
+    inv_file="$(mktemp -t dr-plugin-inv.XXXXXX)"
+    : > "$inv_file"
+
+    for id in $active_ids; do
+        local plugin_src overrides_list cat files bn
+        plugin_src="$(manifest_field "$manifest" "$id" source)"
+        overrides_list="$(_manifest_overrides_of "$manifest" "$id" | tr '\n' ' ')"
+        for cat in skills agents commands templates; do
+            files="$(manifest_inventory_of "$manifest" "$id" "$cat")"
+            for bn in $files; do
+                if _is_override_basename "$bn" "$overrides_list"; then
+                    printf '%s|%s|%s|root\n' "$cat" "$bn" "$plugin_src/$cat/$bn" >> "$inv_file"
+                else
+                    printf '%s|%s|%s|ns\n' "$cat" "$id/$bn" "$plugin_src/$cat/$bn" >> "$inv_file"
+                fi
+            done
+        done
+    done
+
+    local removed=0 recreated=0 restored=0
+
+    # Phase 1: orphan scan — root-position symlinks under runtime/<cat>/
+    local cat
+    for cat in skills agents commands templates; do
+        [ -d "$runtime/$cat" ] || continue
+        local link bn
+        for link in "$runtime/$cat"/*; do
+            [ -L "$link" ] || continue
+            bn="$(basename "$link")"
+            if ! grep -qE "^${cat}\|${bn}\|" "$inv_file"; then
+                rm -f "$link"
+                removed=$((removed+1))
+            fi
+        done
+        # Phase 1b: namespaced subdirs
+        local sub sub_id
+        for sub in "$runtime/$cat"/*/; do
+            [ -d "$sub" ] || continue
+            sub_id="$(basename "$sub")"
+            case "$active_ids_padded" in
+                *" $sub_id "*) ;;
+                *)
+                    rm -rf "$sub"
+                    removed=$((removed+1))
+                    continue
+                    ;;
+            esac
+            local nlink nbn
+            for nlink in "$sub"*; do
+                [ -L "$nlink" ] || [ -e "$nlink" ] || continue
+                nbn="$(basename "$nlink")"
+                if ! grep -qE "^${cat}\|${sub_id}/${nbn}\|" "$inv_file"; then
+                    rm -f "$nlink"
+                    removed=$((removed+1))
+                fi
+            done
+            # Drop empty subdirs.
+            rmdir "$sub" 2>/dev/null || true
+        done
+    done
+
+    # Phase 2: broken-symlink recreate from inventory.
+    local cat_f key src_f mode target
+    while IFS='|' read -r cat_f key src_f mode; do
+        [ -n "$cat_f" ] || continue
+        target="$runtime/$cat_f/$key"
+        if [ "$mode" = "ns" ]; then
+            mkdir -p "$(dirname "$target")"
+        fi
+        if [ ! -L "$target" ] || [ ! -e "$target" ]; then
+            ln -sfn "$src_f" "$target"
+            recreated=$((recreated+1))
+        fi
+    done < "$inv_file"
+
+    rm -f "$inv_file"
+
+    # Phase 3: disabled-orphan restore.
+    local f fname id_part orig
+    for cat in skills agents commands templates; do
+        [ -d "$runtime/$cat" ] || continue
+        for f in "$runtime/$cat"/*.disabled; do
+            [ -e "$f" ] || continue
+            fname="$(basename "$f")"
+            id_part="$(echo "$fname" | awk -F. '{ if (NF >= 3) print $(NF-1); else print "" }')"
+            [ -n "$id_part" ] || continue
+            case "$active_ids_padded" in
+                *" $id_part "*) ;;
+                *)
+                    orig="${f%.${id_part}.disabled}"
+                    if [ ! -e "$orig" ]; then
+                        mv "$f" "$orig"
+                        restored=$((restored+1))
+                    fi
+                    ;;
+            esac
+        done
+    done
+
+    echo "dr-plugin sync: removed=$removed recreated=$recreated restored=$restored" >&2
+    return 0
+}
+
 # --- main dispatcher ---------------------------------------------------------
 
 main() {
@@ -603,8 +781,11 @@ main() {
         disable)
             cmd_disable "$@"
             ;;
-        sync|doctor)
-            echo "dr-plugin: '$cmd' not yet implemented (TUNE-0101 Phase C/D)." >&2
+        sync)
+            cmd_sync "$@"
+            ;;
+        doctor)
+            echo "dr-plugin: 'doctor' not yet implemented (TUNE-0101 Phase D)." >&2
             exit 1
             ;;
         *)
