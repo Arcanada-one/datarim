@@ -76,6 +76,19 @@ For each artifact, follow the Datarim patterns. Reference existing skills/agents
 - Commands: YAML frontmatter (`name`, `description`), instructions referencing agent + skills.
 - Description max 155 chars, front-load the key use case.
 
+#### Quality Criteria for Skill Authoring
+
+These patterns separate skills the agent reliably triggers from skills the agent silently ignores or misuses:
+
+- **Description = triggering condition, NOT a workflow summary.** A description that summarizes the skill's process gives the agent a shortcut to follow without reading the full body. Write descriptions in the form *"Use when X happens / before Y / when stuck on Z"*. Bad: *"dispatches an agent per task with review between tasks"*. Good: *"flaky tests, intermittent failures, race-condition symptoms"*.
+- **Name by the action you take.** Active verb-first gerunds (`creating-skills`, `root-cause-tracing`, `dispatching-parallel-agents`). Avoid noun phrases (`skill-creation`, `debugging-techniques`).
+- **One excellent runnable example beats many sketches.** Show the full pattern from a real scenario, with the actual command, output, and decision. Don't ship multi-language fill-in-the-blank templates — they teach the agent to produce templates instead of doing the task.
+- **Token-efficient by default.** Keep frequently-loaded skills compact. Use cross-references (`REQUIRED: use <other-skill>`) instead of duplicating instructions. Move heavy reference material into supporting files in `skills/<name>/`.
+- **Flowcharts only for non-obvious decisions.** Use a graphviz block when paths branch in ways the reader could mistake. Use tables for reference material, numbered lists for linear steps, code blocks for code. Don't render a flowchart for something a sentence can express.
+- **Test strategy depends on skill type.** Discipline-enforcing skills need pressure scenarios (time + sunk cost + authority conflict). Technique skills need application + edge cases. Pattern skills need recognition + counter-examples. Reference skills need retrieval + gap testing. Pick the test type before writing.
+- **Iron Law — never ship a discipline skill that hasn't been seen to prevent the failure.** For skills that exist to stop a behavior (TDD discipline, debugging order, security gates), watch a fresh agent fail the relevant scenario *without* the skill loaded, capture the rationalizations verbatim, then write the skill so it answers each rationalization explicitly. If you skipped the baseline failure, the skill is hypothesis-only and should be reworked. (See `/dr-addskill` § TDD for Skill Creation for the full RED-GREEN-REFACTOR cycle.)
+- **Close every rationalization explicitly.** When stress-testing surfaces an excuse ("too simple to test", "this case doesn't count"), add a Red-Flags row that names the excuse and gives the response. Spirit vs letter: violating the letter is violating the spirit.
+
 ### Step 6: Present and Apply
 1. Show the user what will be created/updated (file paths and content preview).
 2. Explain the rationale: why this structure, why these files, why this scope.
