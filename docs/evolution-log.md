@@ -4,6 +4,24 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ---
 
+## 2026-05-09 — AUTH-0072 — Pipeline-position-aware AC formulation в `skills/ai-quality.md` (Class A)
+
+### Class A Applied
+
+- **Target:** `skills/ai-quality.md` — new section «Pipeline-Position-Aware AC Formulation» inserted before § Fragment Routing (~24 lines).
+- **What changed:** added a rule that ACs asserting HTTP status code MUST trace request through full middleware/filter chain; if asserted source is downstream of any validator, phrase as **semantic gate** (`not <failure_class>`) instead of literal status. Includes failure-mode example, 3-step rule, semantic-gate template, applicability scope, anti-pattern.
+- **Why:** AUTH-0072 cycle-1 finding #1 — PRD AC-11 declared «→ 401» without tracing pipeline; reality `Zod` validator runs *before* auth and short-circuits to `400`. Cost: PRD/plan/QA all required amendment under self-review (~30 min). Pattern is recurring across HTTP-routed code.
+- **Verification:**
+  - Stack-agnostic gate: PASS clean (stack-specific framework names wrapped in `<!-- gate:example-only -->` markers).
+  - Bats `tests/`: 4 pre-existing baseline failures (D5 check-drift, T277 description-length, T325 dr-reflect whitelist, T11/T12 task-id-gate from `security-baseline.md` + untracked `self-verification.md`) — UNRELATED to this proposal. `task-id-gate` on `ai-quality.md` itself: PASS clean. No new failures introduced.
+
+### Class B (HELD — pending PRD)
+
+- **Proposal 2 — `/dr-archive` unpushed-commits = 0 gate.** Per project repo touched: `git rev-list --count origin/<default-branch>..HEAD` MUST = 0 OR explicit accept-loss in archive doc. Source: AUTH-0065 «code-complete» archive shipped with commit `81fc3ccab` only on local main → +1 day cycle (AUTH-0072). Modifies archive command contract → requires PRD draft before apply. Spawned as TUNE-0149 (workspace backlog).
+- **Proposal 3 — `/dr-do` staging-not-stale pre-check.** Before any AC requiring staging E2E: `docker compose ps` + health-curl on staging host. Halt if dead/stale. Source: AUTH-0072 AC-10/11 partially blocked by INFRA-0111 compose collision. Modifies dr-do contract → requires PRD draft before apply. Spawned as TUNE-0148 (workspace backlog).
+
+---
+
 ## 2026-05-09 — INFRA-0078 — Architectural-superseding probe в `/dr-plan` Phase 4 (Class A)
 
 ### Class A Applied
