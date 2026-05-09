@@ -33,4 +33,6 @@
 ## Success Criteria
 - [ ] (Measurable outcomes)
 
+> **Falsifiability requirement:** every quantitative AC (coverage %, latency budget, RPS, token delta, line count, etc.) MUST cite a concrete verification command and its exit-code contract inline — for example: `dev-tools/measure-foo.sh --check` returns exit 0. No «presumed met» verdicts at QA / Compliance. If the measurement tool does not yet exist, declare its creation as part of the plan; do not approve the AC until it is falsifiable. See `skills/evolution.md` § Pattern: Split-Architecture Metrics for the absorption-task variant.
+
 ## Next Steps
