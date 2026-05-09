@@ -31,6 +31,7 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
     -   If strategist recommends pivot or cheaper alternative, present to user before proceeding.
 
 4.  **Detailed Design (Phase 4)**:
+    -   **Architectural-superseding probe (MANDATORY first sub-step before any component breakdown)**: if the task description carries a `Spawned from` / `Source:` reference to a prior archive, OR addresses a problem class that other recent archives may have already solved, read those references and answer one question: *has any recent task already resolved the architectural problem this task addresses?* If yes — recommend cancellation, scope reduction, or re-framing as redundancy/follow-up BEFORE proceeding to component breakdown. Document the answer (and the archives consulted) inline in the plan's Overview / Decisions section. Cost: a single grep + skim. Saving: avoids designing infrastructure that has been obsoleted by a sibling task whose archive the operator has not yet internalised.
     -   **Component Breakdown**: List every modified and new file.
     -   **Interface Design**: Define function signatures, API contracts.
     -   **Data Flow**: Trace input -> processing -> output.
