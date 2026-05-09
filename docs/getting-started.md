@@ -20,10 +20,15 @@ This guide walks you through installing the Datarim framework, initializing it i
 git clone https://github.com/Arcanada-one/datarim.git
 cd datarim
 chmod +x install.sh
-./install.sh
+./install.sh --with-claude              # Claude Code runtime (symlink, default since v1.17)
+./install.sh --with-codex               # Codex CLI runtime (multi-runtime, v2.0+)
+./install.sh --with-claude --with-codex # both runtimes at once
+./install.sh --project /path/to/project # project-local copy mode (no symlinks)
 ```
 
-On macOS and Linux this creates four symlinks in `~/.claude/` — `agents`, `skills`, `commands`, `templates` — each pointing at the matching directory inside the cloned repo. The runtime IS the repo: any edit you make in either place lands in the same file, so `git diff` shows your changes immediately and there is no separate "curate" step.
+Datarim v2.0+ is **multi-runtime (Claude + Codex)**. Without flags, `install.sh` prints help and exits 0 — you must choose at least one runtime or `--project DIR`. The installer creates 6 scope symlinks in `~/.${runtime}/` — `agents`, `skills`, `commands`, `templates`, `scripts`, `tests` — each pointing at the matching directory inside the cloned repo. The runtime IS the repo: any edit you make in either place lands in the same file, so `git diff` shows your changes immediately and there is no separate "curate" step. **Codex disclaimer:** Codex experience may differ — no `Task` / `TodoWrite` primitives; intent-layer rewrites in absorbed superpowers skills preserve runtime-agnostic readability.
+
+`AGENTS.md` (a symlink to `CLAUDE.md`) is shipped at the repo root so Codex CLI and other runtimes that read `AGENTS.md` by convention work out of the box.
 
 The installer also creates `~/.claude/local/{skills,agents,commands,templates}/` (real directories, gitignored) for personal additions and overrides that you do not want committed upstream. See [Local Overlay](#local-overlay) below.
 
