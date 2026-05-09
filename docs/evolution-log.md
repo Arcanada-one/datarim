@@ -4,6 +4,22 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ---
 
+## 2026-05-09 — INFRA-0078 — Architectural-superseding probe в `/dr-plan` Phase 4 (Class A)
+
+### Class A Applied
+
+- **`commands/dr-plan.md` § Detailed Design (Phase 4)** — добавлен mandatory first sub-step «Architectural-superseding probe». Перед component breakdown планер должен прочитать архивы, на которые ссылается `Spawned from` / `Source:` в задаче, и явно ответить: решена ли архитектурная проблема уже соседней задачей? Если да — рекомендовать cancellation / scope-reduction / re-framing как redundancy. Документировать ответ inline в Overview/Decisions секции плана.
+
+### Why
+
+INFRA-0078 был полностью спланирован как «выделенный RPi/NUC subnet router host» (Phase 4-6 + Appendix A Security написаны), прежде чем в фазе implementation выяснилось что INFRA-0073 уже сделал NAS прямым tailnet peer'ом — subnet router из primary path стал redundancy-only. Один grep по `Spawned from` ссылке (archive-INFRA-0072 → archive-INFRA-0073) на этапе /dr-plan вытащил бы этот факт за 30 секунд. Cost = тривиальный; saving = 1-2h plan churn + €100 averted hardware procurement + 3-7 day procurement loop avoided. Stack-agnostic gate PASS (clean diff).
+
+### Held Class B (deferred)
+
+- **Mandatory strategist gate для redundancy-only tasks** — proposal сделать L2 strategist gate non-skippable когда задача содержит keywords `fallback` / `redundancy` / `backup-of-backup` или `Spawned from` archive с completed primary path. Class B (operating-model change) — отложен до накопления N≥3 incidents (сейчас N=1). PRD draft потребуется для apply.
+
+---
+
 ## 2026-05-04 — INFRA-0015 — research-workflow.md § Pre-Flight Artifact Discovery (Class A)
 
 ### Class A Applied
