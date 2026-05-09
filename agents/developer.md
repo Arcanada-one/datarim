@@ -30,6 +30,30 @@ After implementation work, the final paragraph MUST be a CTA block per `cta-form
 - Rationale: a multi-SELECT refactor where one of N near-identical queries is left unmodified due to a single trailing-space difference will pass compile checks and surface only during a live resync. A 5-second post-edit grep on a fragment unique to the pre-edit version catches the miss.
 - Prefer N explicit `Edit` calls with unique surrounding context over one `replace_all` when editing 2–3 near-identical multi-line blocks.
 
+**Resilience-pattern defaults (HTTP integrations)**:
+- When wrapping an HTTP client with a circuit breaker, default-exclude 4xx
+  responses from the breaker's failure stats — they are application-level
+  errors (auth, payload, route mismatch) that should propagate to the caller
+  but should not trip the breaker. Exceptions: `408` (request-timeout) and
+  `429` (rate-limit) signal downstream pressure and SHOULD count toward the
+  threshold. Document the accepted set in the breaker's error-filter test.
+- When the breaker exposes lifecycle events (`open`, `half_open`, `close`),
+  wire the recovery transition (`close`) to a self-heal observability event
+  emitted to the project's event hub. The plan should enumerate event-listener
+  bindings explicitly — not as «state changes emit X», which is easy to miss
+  during TDD where input/output assertions take precedence over side-effects.
+
+**Design-conformance audit (L3-L4 tasks)**:
+- For tasks consuming `creative/*.md` design references, read the referenced
+  ADRs and decision sections line-by-line — do not rely on summaries. For
+  files larger than the read-tool's configured limit, use the project's
+  external-context delegation channel (declared in the project's `CLAUDE.md`).
+- TDD's red-green cycle focuses on input/output contracts; lifecycle bindings
+  (breaker.close → emit event, module init → register, interceptor → global
+  filter) are easy to miss if only the plan checklist is consulted. After the
+  final TDD phase, run a brief design-conformance audit listing every event
+  / lifecycle binding the design requires and verify each is wired.
+
 **Self-test before pinging the user**:
 - When the user is the only manual-test surface (Telegram client, mobile/desktop GUI, browser, IDE plugin), reserve user retries strictly for the parts that genuinely require their interaction. Verify everything else yourself first.
 - Infrastructure changes you MUST self-verify before reporting "ready, please retry": volume/file system writes (`exec` into the running container or shell, write a sentinel, read it back), env var propagation (`env | grep`), service restart success (status check + log tail for the boot banner), schema migrations (run a probe query that hits the new column/table), provider connectivity (curl with the exact auth header + payload shape the code will use), DNS/network reachability (resolve + open the port).
