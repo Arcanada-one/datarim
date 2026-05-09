@@ -2,6 +2,9 @@
 name: dream
 description: Knowledge base maintenance — organize, deduplicate, cross-reference the datarim/ directory. Flags contradictions, archives stale content.
 model: sonnet
+runtime: [claude, codex]
+current_aal: 1
+target_aal: 2
 ---
 
 # Dream — Knowledge Base Maintenance

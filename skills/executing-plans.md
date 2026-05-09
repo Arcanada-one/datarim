@@ -1,6 +1,9 @@
 ---
 name: executing-plans
 description: Use when you have a written implementation plan to execute in a separate session with review checkpoints
+runtime: [claude, codex]
+current_aal: 2
+target_aal: 4
 ---
 
 # Executing Plans

@@ -2,6 +2,9 @@
 name: evolution
 description: Rules for proposing and applying framework improvements. Covers growth (new components) and maintenance (pruning, merging). Human approval required.
 model: opus
+runtime: [claude, codex]
+current_aal: 2
+target_aal: 3
 ---
 
 # Evolution — Framework Self-Update and Optimization Rules

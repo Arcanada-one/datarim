@@ -1,6 +1,9 @@
 ---
 name: file-sync-config
 description: Pre-flight checklist + ignore patterns для file-sync (Syncthing/rclone/rsync/Dropbox/iCloud) — защита git working trees и venv/build.
+runtime: [claude, codex]
+current_aal: 1
+target_aal: 2
 ---
 
 # File-Sync Configuration — Pre-Flight Checklist

@@ -1,6 +1,9 @@
 ---
 name: systematic-debugging
 description: Use when encountering any bug, test failure, or unexpected behavior, before proposing fixes
+runtime: [claude, codex]
+current_aal: 2
+target_aal: 3
 ---
 
 # Systematic Debugging

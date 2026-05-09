@@ -2,6 +2,9 @@
 name: utilities
 description: Native shell recipes for common operations. Load this entry first, then only the fragment needed for the specific utility category.
 model: haiku
+runtime: [claude, codex]
+current_aal: 1
+target_aal: 2
 ---
 
 # Native Shell Utilities

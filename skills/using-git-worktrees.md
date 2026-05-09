@@ -1,6 +1,9 @@
 ---
 name: using-git-worktrees
 description: Use when starting feature work that needs isolation from current workspace or before executing implementation plans - ensures an isolated workspace exists via native tools or git worktree fallback
+runtime: [claude, codex]
+current_aal: 1
+target_aal: 2
 ---
 
 # Using Git Worktrees

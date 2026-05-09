@@ -5,6 +5,9 @@ allowed-tools: Read Write Edit Grep Glob Bash
 argument-hint: [path-to-file]
 effort: high
 model: sonnet
+runtime: [claude, codex]
+current_aal: 1
+target_aal: 2
 ---
 
 # Humanize — Remove AI Fingerprints from Text

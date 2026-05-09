@@ -5,6 +5,9 @@ allowed-tools: Read Write Edit Grep Glob Bash WebSearch WebFetch Agent
 argument-hint: [path-to-article]
 effort: max
 model: sonnet
+runtime: [claude, codex]
+current_aal: 1
+target_aal: 2
 ---
 
 # Factcheck — Structured Fact Verification and Article Improvement

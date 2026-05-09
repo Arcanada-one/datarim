@@ -1,6 +1,9 @@
 ---
 name: project-init
 description: Project scaffolding — creates CLAUDE.md, docs/, datarim/ structure for new or existing projects. Loaded by /dr-init when project intent is detected.
+runtime: [claude, codex]
+current_aal: 1
+target_aal: 2
 ---
 
 # Project Init — Scaffolding Skill
