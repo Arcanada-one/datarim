@@ -202,6 +202,25 @@ Source: prior incident — Approach C (Spec-First with Golden Fixtures) chosen o
 
 ---
 
+## Pipeline-Position-Aware AC Formulation
+
+When an Acceptance Criterion asserts an HTTP status code (e.g. `→ 401`, `should return 403`), trace the request through the **full middleware/filter chain** — rate limiter → CORS → body parser → validator → guard → controller — before locking the literal status. Any layer upstream of the asserted source can short-circuit the chain and return a different code than expected.
+
+**Failure mode:** AC declares `→ 401` (auth-rejected). <!-- gate:example-only -->Validator (Zod / class-validator / Pydantic / Joi) runs *before* auth, sees an empty body, returns `400 Validation failed`.<!-- /gate:example-only --> AC literally fails — but the asserted *behavior* (auth bypass works) is correct. PRD/plan/QA all need amendment under self-review.
+
+**Rule:**
+1. **Trace step.** Identify the source file/line that emits the asserted status. List every preceding middleware that can return early.
+2. **Literal vs semantic gate.** If only the asserted source can produce the status under all valid inputs → literal AC OK. If any preceding middleware can short-circuit → phrase as **semantic gate**: `not <failure_class>` instead of `== <specific_status>`.
+3. **Semantic gate template:** `[[ "$code" != "<failure_status>" ]] || ! echo "$body" | grep -q '<failure_marker>'`. Asserts «failure class N did not happen», not «specific success class M did happen». Robust to upstream layer swaps.
+
+**When to apply:** any L2+ task that ships HTTP-routed code. Mandatory for L3+ when the controller sits behind ≥2 middleware layers.
+
+**Stack-agnostic:** applies to any HTTP framework with a middleware/filter chain. <!-- gate:example-only -->Concrete examples: Express, Fastify, NestJS, Koa, Hapi, Django, Flask, FastAPI, Rails, Spring Boot, ASP.NET Core, Phoenix, Gin.<!-- /gate:example-only -->
+
+**Anti-pattern:** copying the literal status from upstream PRD without re-tracing when middleware order changes (e.g. switching framework, adding rate limiter, moving validator). Re-trace on every PRD that touches HTTP routing.
+
+---
+
 ## Fragment Routing
 
 Load only the fragment needed for the current sub-problem:
