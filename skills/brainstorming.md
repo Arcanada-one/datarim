@@ -1,6 +1,9 @@
 ---
 name: brainstorming
 description: "You MUST use this before any creative work — creating features, building components, adding functionality, or modifying behavior. Explores user intent, requirements and design before implementation."
+runtime: [claude, codex]
+current_aal: 1
+target_aal: 2
 ---
 
 # Brainstorming Ideas Into Designs

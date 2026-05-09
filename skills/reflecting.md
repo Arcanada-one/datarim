@@ -1,6 +1,9 @@
 ---
 name: reflecting
 description: Review-phase workflow — lessons learned, evolution proposals (Class A/B gate), health-metrics check. Invoked by /dr-archive Step 0.5.
+runtime: [claude, codex]
+current_aal: 1
+target_aal: 3
 ---
 
 # Reflecting Skill — Review & Self-Evolution Workflow

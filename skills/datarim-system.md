@@ -1,6 +1,9 @@
 ---
 name: datarim-system
 description: Core Datarim rules. Load this entry first, then only the fragment needed for paths, storage, numbering, backlog, routing, or archive behavior.
+runtime: [claude, codex]
+current_aal: 1
+target_aal: 2
 ---
 
 # Datarim System Rules
@@ -183,62 +186,32 @@ skills you actually wanted to keep tracking upstream.
 
 ## Skill Discovery
 
-Skills exist to push the agent out of its default behavior into a disciplined process. They only help if they are loaded *before* you act.
+Skills push the agent out of default behavior into a disciplined process. They only help if loaded *before* you act.
 
-### The Rule
+**The Rule:** invoke relevant skills BEFORE any response or action — including clarifying questions. Even a 1% chance a skill applies means check first; an unfit skill can be dropped, but decisions made without one cannot be undone. Discovery: `$HOME/.claude/skills/` (or the runtime's skill tool); `/dr-help` lists `dr-*` commands.
 
-**Invoke relevant skills BEFORE any response or action — including clarifying questions.** Even a 1% chance a skill might apply means check first. If an invoked skill turns out not to fit the situation, you can drop it; you cannot retroactively undo decisions made without it.
-
-How to invoke depends on the runtime:
-- Datarim-native runtimes expose skills as files under `$HOME/.claude/skills/` (or symlinked from `code/datarim/skills/`); the agent reads them directly when conditions match. `/dr-help` lists all available `dr-*` commands; ad-hoc skill listing is a `ls $HOME/.claude/skills/` away.
-- Runtimes with a Skill / `skill` / `activate_skill` tool expose the same files as invokable units — use the runtime's tool when present rather than reading the file with a generic Read tool.
-- When neither, treat the skill files as a reference library: load by path before the work starts.
-
-### Instruction Priority
-
-When skills, project memory, and default behavior conflict, the order is:
-
-1. **User's explicit instructions** (project `CLAUDE.md` / `AGENTS.md` / direct requests in conversation) — highest priority. The user is in control.
-2. **Datarim skills and framework rules** — override default behavior in their domain.
-3. **Default runtime behavior** — lowest priority.
+**Instruction Priority** when skills, project memory, and default behavior conflict:
+1. User's explicit instructions (`CLAUDE.md` / `AGENTS.md` / conversation) — highest. The user is in control.
+2. Datarim skills and framework rules — override default behavior in their domain.
+3. Default runtime behavior — lowest.
 
 If `CLAUDE.md` says "don't use TDD" and a skill says "always use TDD", follow `CLAUDE.md`.
 
-### Skill Priority When Multiple Apply
+**Skill Priority** when multiple apply: process skills first (`brainstorming`, `systematic-debugging`, `writing-plans`) decide *how*; implementation skills (`frontend-ui`, `infra-automation`, `ai-quality`) execute under that process. "Let's build X" → brainstorming first; "Fix this bug" → systematic-debugging first.
 
-1. **Process skills first** (`brainstorming`, `systematic-debugging`, `writing-plans`) — they decide *how* to approach the task.
-2. **Implementation skills second** (`frontend-ui`, `infra-automation`, `ai-quality`) — they execute under that process.
+**Skill Types:** rigid (TDD, debugging, security gates) — follow exactly, the discipline is the value. Flexible (patterns, heuristics) — adapt principles to context. The skill itself declares which.
 
-"Let's build X" → brainstorming first, then implementation skills.
-"Fix this bug" → systematic-debugging first, then domain-specific skills.
-
-### Skill Types
-
-- **Rigid** (TDD, debugging, security gates): follow exactly. Don't adapt away the discipline. The discipline is the value.
-- **Flexible** (patterns, heuristics): adapt principles to context.
-
-The skill itself tells you which it is.
-
-### Red Flags — these thoughts mean STOP, you're rationalizing skill skipping
+**Red Flags — rationalizations that mean STOP and check for skills:**
 
 | Thought | Reality |
 |---------|---------|
-| "This is just a simple question" | Questions are tasks. Check for skills. |
-| "I need more context first" | Skill check comes BEFORE clarifying questions. |
-| "Let me explore the codebase first" | Skills tell you HOW to explore. Check first. |
-| "I can check git/files quickly" | Files lack conversation context. Check for skills. |
-| "Let me gather information first" | Skills tell you HOW to gather information. |
-| "This doesn't need a formal skill" | If a skill exists for the situation, use it. |
-| "I remember this skill" | Skills evolve. Read the current version. |
-| "This doesn't count as a task" | Action = task. Check for skills. |
-| "The skill is overkill" | Simple things become complex. Use it. |
-| "I'll just do this one thing first" | Check BEFORE doing anything. |
-| "This feels productive" | Undisciplined action wastes time. Skills prevent this. |
-| "I know what that means" | Knowing the concept ≠ using the skill. Invoke it. |
+| "Simple question / quick check / not really a task" | Questions and actions are tasks. Check for skills. |
+| "I need more context / let me explore first" | Skills tell you HOW to gather context. Check first. |
+| "I remember this / I know what that means" | Skills evolve. Knowing ≠ invoking. Read current version. |
+| "Doesn't need a skill / overkill / one thing first" | If a skill exists, use it. Simple things become complex. |
+| "This feels productive" | Undisciplined action wastes time. Skills prevent that. |
 
-### User Instructions Are *What*, Not *How*
-
-Instructions like "add X" or "fix Y" describe the goal; they don't waive the workflow. A user saying "just commit this" still requires the same TDD / verification / commit-message discipline as any other change — unless they explicitly waive it.
+User instructions describe goal (*what*), not workflow (*how*). "Just commit this" still requires TDD / verification / commit-message discipline — unless explicitly waived.
 
 ## Task Disposition Patterns
 
@@ -253,13 +226,3 @@ When closing a task, choose the disposition that matches the actual outcome:
 
 Source: prior incident — an `update.sh` deliverable was shipped inside a different task's scope; `cancelled` was inaccurate (deliverable existed) and `completed` was inaccurate (no separate archive). `absorbed` captures the reality and preserves audit trail.
 
-## Quick Routing Heuristic
-
-- Need file placement or archive destination? Load `path-and-storage.md` or `command-and-archive-rules.md`.
-- Need task ID, active task, or backlog lifecycle logic? Load `task-identity-and-context.md` and `backlog-and-routing.md`.
-- Need complexity-driven stage routing? Load `backlog-and-routing.md`.
-- Need `model` or `effort` guidance for agents/skills? Load `model-assignment.md`.
-
-## Why This Skill Is Split
-
-This skill is always in the hot path, so the entry file stays short and routing-focused. Detailed rules now live in focused supporting fragments to reduce context waste while preserving the full system contract.

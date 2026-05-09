@@ -1,6 +1,9 @@
 ---
 name: requesting-code-review
 description: Use when completing tasks, implementing major features, or before merging to verify work meets requirements
+runtime: [claude, codex]
+current_aal: 2
+target_aal: 3
 ---
 
 # Requesting Code Review

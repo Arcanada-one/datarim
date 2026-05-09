@@ -2,6 +2,9 @@
 name: compliance
 description: Post-QA hardening — detects task type (code, docs, research, legal, content, infra) and applies the matching verification checklist before archiving.
 model: sonnet
+runtime: [claude, codex]
+current_aal: 2
+target_aal: 3
 ---
 
 # Compliance — Adaptive Post-QA Hardening

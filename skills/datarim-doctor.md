@@ -1,6 +1,9 @@
 ---
 name: datarim-doctor
 description: Schema and migration semantics for /dr-doctor — thin one-liner contract, 6-pass migration, data-loss safety, conflict resolution. Loaded by self-heal.
+runtime: [claude, codex]
+current_aal: 2
+target_aal: 3
 ---
 
 # Datarim Doctor — Schema and Migration Semantics

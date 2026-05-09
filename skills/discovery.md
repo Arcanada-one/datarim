@@ -2,6 +2,9 @@
 name: discovery
 description: Structured requirements discovery through focused one-question-at-a-time interviews with proposed answers. Use in /dr-prd stage or before /dr-init.
 model: sonnet
+runtime: [claude, codex]
+current_aal: 1
+target_aal: 2
 ---
 
 # Discovery — Requirements Discovery Interview

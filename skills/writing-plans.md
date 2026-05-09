@@ -1,6 +1,9 @@
 ---
 name: writing-plans
 description: Use when you have a spec or requirements for a multi-step task, before touching code
+runtime: [claude, codex]
+current_aal: 1
+target_aal: 2
 ---
 
 # Writing Plans

@@ -1,6 +1,9 @@
 ---
 name: subagent-driven-development
 description: Use when executing implementation plans with independent tasks in the current session
+runtime: [claude, codex]
+current_aal: 2
+target_aal: 4
 ---
 
 # Subagent-Driven Development

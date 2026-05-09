@@ -1,6 +1,9 @@
 ---
 name: ai-quality
 description: Five pillars of AI-assisted development — decomposition, TDD, architecture-first, focused work, context. Method size limits, DoD, stubbing.
+runtime: [claude, codex]
+current_aal: 1
+target_aal: 2
 ---
 
 # AI Quality & Best Practices

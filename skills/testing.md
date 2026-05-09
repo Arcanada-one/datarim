@@ -1,6 +1,9 @@
 ---
 name: testing
 description: Testing pyramid, frameworks, mocking. Load first; then the fragment for the active gate (live smoke, silent failure, bats, legacy triage).
+runtime: [claude, codex]
+current_aal: 1
+target_aal: 2
 ---
 
 # Testing Guidelines
