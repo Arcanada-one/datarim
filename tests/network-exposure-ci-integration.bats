@@ -13,7 +13,7 @@ setup() {
     REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
     SCRIPT="$REPO_ROOT/dev-tools/network-exposure-check.sh"
     F="$REPO_ROOT/tests/fixtures/network-exposure"
-    WF="$REPO_ROOT/templates/network-exposure-lint.yml"
+    WF="$REPO_ROOT/.github/workflows/network-exposure-lint.yml"
     TODAY="2026-05-06"
 }
 
