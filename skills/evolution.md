@@ -224,6 +224,24 @@ Each Evolution change is a discrete edit to a specific file. Rollback strategy:
 
 ---
 
+## Pattern: Split-Architecture Metrics for Absorption Tasks
+
+When a Class B task absorbs new components (skills, templates, fragments) into a **cold path** — meaning the new files are loaded on-demand at invocation time, not auto-loaded into every session — an aggregate token-budget metric (`total_chars_after / total_chars_before ≤ N%`) becomes meaningless because the hot path never sees the cold-path mass. Aggregate gates fail by design under structural absorption.
+
+**Rule:** any absorption task whose plan adds files that are not auto-loaded MUST replace the aggregate metric with a split-axis metric:
+
+1. **Idle hot-path budget** — measure only the entry skills/files loaded by every pipeline command (the discovery skill, system contract, mandatory loaders). Tight bound here protects per-invocation token cost.
+2. **Per-existing-file delta** — bound the per-file growth on any file that existed in the baseline (e.g. `≤+30% chars`). Catches in-place bloat of touched components.
+3. **On-demand exempt** — newly introduced files loaded only on invocation are reported informationally (count, total chars) but excluded from the gate.
+
+**Why it matters:** absorbing N new on-demand skills inflates aggregate chars by Σ(new) regardless of runtime cost. A single aggregate gate forces a false trade-off between absorption and «no growth»; a split-axis gate aligns the metric with how runtime actually loads content.
+
+**Falsifiability requirement:** each axis MUST have a concrete measurement command in `dev-tools/` that returns exit 0 (PASS) / exit 1 (FAIL). PRD AC text references the command directly so QA and Compliance re-runs are deterministic.
+
+**Source:** Datarim v2.0.0 absorption (14 skills + 4 templates) — original aggregate ≤+10% gate violated by +27% structural addition; reformulated mid-task into hot-path ≤+16% + per-file ≤+30% + on-demand exempt.
+
+---
+
 ## Pattern: Memory Rule → Executable Gate at Apply Step
 
 When a user-memory rule (e.g. `~/.claude/projects/<proj>/memory/feedback_*.md`) repeatedly surfaces in reflection as a corrective action — meaning the rule was declared, then violated, then manually reverted — text-only memory is no longer sufficient at scale. Promote the rule to an **executable gate at the apply step** of the relevant pipeline command.

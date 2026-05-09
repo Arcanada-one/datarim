@@ -248,6 +248,19 @@ Datarim improves itself through `/dr-archive` Step 0.5 (the `reflecting` skill):
 3. **Human approval required** — no automatic modifications
 4. Changes logged in `datarim/docs/evolution-log.md`
 
+### Validation Discipline
+
+New schema validations (frontmatter shape, token budget gates, intent-layer grep, cross-reference checks, etc.) ship as **standalone scripts** under `dev-tools/check-*.sh` or `dev-tools/measure-*.sh`, invoked by `/dr-qa`, `/dr-compliance`, or CI. They MUST NOT be added as new branches inside `datarim-doctor.sh`, whose primary concern is operational-file migration (progress.md retirement, schema bumps, etc.).
+
+Rule: **orthogonal concerns get orthogonal tools.** Content validation has a different lifetime, invocation context, and test surface than ops-file migration; coupling the two grows the migrator into a 1000+-line monolith and slows future schema changes.
+
+Each new validator follows a simple contract:
+
+- Pure shell, no dependencies beyond what bash + grep + the framework's own `dev-tools/` provide.
+- Single `--check` mode: exit 0 = PASS, exit 1 = FAIL. Optional `--report` for human-readable detail.
+- Self-documents target scope in the script header.
+- Referenced directly by PRD AC text (so the gate is falsifiable; see `skills/evolution.md` § Pattern: Split-Architecture Metrics).
+
 ---
 
 ## Critical Rules
