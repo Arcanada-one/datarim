@@ -1,6 +1,6 @@
 # Datarim — Universal Iterative Workflow Framework
 
-> **Version:** 2.0.0
+> **Version:** 2.1.0
 > **Framework:** Datarim (Датарим) provides structured rules, agents, skills, and commands for iterative project execution via AI coding assistants — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
 > **Multi-runtime:** Datarim is runtime-agnostic. This file is also available as `AGENTS.md` (symlink) for Codex CLI and other agent runtimes that read `AGENTS.md` by convention.
 > **Note:** "Datarim" is transliterated as "Датарим" in Russian. Both refer to this framework — agents must recognize either form in any language context.
@@ -191,6 +191,7 @@ Before writing ANY file to `datarim/`:
 | `/dr-design` | Design | Architecture exploration with consilium |
 | `/dr-do` | Execution | Implement the plan: TDD for code, structured iteration for other work |
 | `/dr-qa` | Quality | Multi-layer verification (PRD, design, plan, output quality) |
+| `/dr-verify` | Verification | Standalone self-verification (on-demand). Tri-layer: Layer 1 deterministic floor + Layer 2 cross-model peer-review (DeepSeek default) + Layer 3 native runtime dispatch. Findings-only mode. |
 | `/dr-compliance` | Hardening | 7-step post-QA hardening |
 | `/dr-archive` | Archive | Reflection (Step 0.5: lessons learned + framework evolution proposals) + complete task + update backlog + reset context |
 | `/dr-status` | Utility | Check current task and backlog status |
@@ -207,7 +208,50 @@ Before writing ANY file to `datarim/`:
 | `/factcheck` | Standalone | Fact-check articles and posts before publication |
 | `/humanize` | Standalone | Remove AI writing patterns from text |
 
-Command files: `$HOME/.claude/commands/{name}.md` (21 commands)
+Command files: `$HOME/.claude/commands/{name}.md` (22 commands)
+
+### /dr-verify (on-demand, tri-layer architecture)
+
+Manual self-verification command (post-completion review of any pipeline artifact). **Tri-layer architecture (cheapest-first, fail-fast):**
+
+1. **Layer 1 — Deterministic floor.** `dev-tools/dr-verify-floor.sh` — pure shell pipeline (AC coverage grep, file-touched audit, test-presence parse, shellcheck). Zero LLM cost; runs in seconds.
+2. **Layer 2 — Cross-model peer-review.** `coworker ask --provider {peer-provider} --task-id <ID>` — adversarial reviewer in clean external context. Default provider `deepseek` (~14× cheaper than Sonnet on output tokens). Vendor-neutral via the coworker abstraction.
+3. **Layer 3 — Native runtime dispatch.** Claude 3-agent parallel (reviewer + tester + security) is canonical; Codex single-prompt is `[experimental]` fallback retained for parity.
+
+Findings carry an explicit `source_layer` tag (`floor` / `peer_review` / `dispatch`) and dedupe across layers prefers earlier-source findings. NOT a replacement for `/dr-qa` — `/dr-qa` is a manual single-agent multi-layer review; `/dr-verify` is a runtime-dispatch structured-findings loop.
+
+**Когда использовать:**
+- Перед merge / archive — sanity check на final PRD/plan/code state
+- Retrospective validation — проверка завершённой задачи на пропущенные gaps
+- Fast pre-merge gating: `--floor-only` (Layer 1 only, zero LLM cost)
+- Не входит в default pipeline (manual on-demand only — automated post-step hook is a deferred future evolution)
+
+**Args:** `/dr-verify {TASK-ID} [--stage={prd,plan,do,all}] [--max-iter=N] [--no-fix] [--floor-only] [--peer-provider={deepseek,groq,openrouter,...}] [--runtime={claude,codex}] [--external-verifier=PASS] [--cost-cap=N]`
+
+**Findings schema:** `{finding_id, source_layer ∈ {floor, peer_review, dispatch}, artifact_ref, ac_criteria[], severity (high/medium/low), category (correctness/completeness/consistency/safety), drift_subtype (optional), evidence (file_quote/test_output/absent), suggested_fix, check_name (Layer 1), peer_review_provider (Layer 2)}`. 7 validator rules + 3 severity anchors + 4 category anchors + 3 evidence types + auto-discard + verifiability + secret redaction. Canonical in `skills/self-verification.md` § Findings Schema.
+
+**Verdict logic:** BLOCKED (≥1 high) / CONDITIONAL (≥1 medium, 0 high) / PASS (only low or empty).
+
+**Audit log:** `datarim/qa/verify-{task-id}-{stage}-{iter}.md` (append-only, `chmod a-w` post-write). Header carries `source_layer_breakdown: {floor: N, peer_review: M, dispatch: K}` for tri-layer provenance.
+
+**`coworker --task-id <ID>` propagation MANDATORY at Layer 2.** Without it the prospective-rate / token-cost tooling (`dev-tools/measure-prospective-rate.sh` + `dev-tools/measure-invocation-token-cost.sh`) cannot filter logs by task.
+
+### Verification tagging at archive time
+
+`/dr-archive` Step 2 instructs the operator to fill the `verification_outcome` block in the archive frontmatter (canonical schema in `templates/archive-template.md`):
+
+```yaml
+verification_outcome:
+  caught_by_verify: <int>     # high/medium gaps caught BEFORE /dr-archive
+  missed_by_verify: <int>     # gaps that escaped to a post-archive follow-up
+  false_positive: <int>       # findings triaged as not real
+  n_a: <bool>                 # true when /dr-verify was not run
+  dogfood_window: <window-id> # operator-supplied grouping key
+```
+
+Aggregator `dev-tools/measure-prospective-rate.sh --since <YYYY-MM-DD>` walks all `archive-*.md` files, computes `caught_per_5_tasks`, and emits a `decision_hint` for the next pipeline gate. The `verification_outcome` block is the single source of truth for the prospective measurement campaign.
+
+**Status:** tri-layer canonical, findings-only at all layers (no auto-fix). Cross-link: skill `skills/self-verification.md` · floor script `dev-tools/dr-verify-floor.sh` · template `templates/archive-template.md`.
 
 ---
 

@@ -2,7 +2,7 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 2.0.0](https://img.shields.io/badge/Version-2.0.0-green.svg)](VERSION)
+[![Version: 2.1.0](https://img.shields.io/badge/Version-2.1.0-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
@@ -132,6 +132,14 @@ Stages in `[brackets]` are conditional — included when the agent determines th
 - **Multi-layer QA** — verification happens at multiple stages: PRD validation,
   design review, plan verification, code review, and compliance checking. Defects
   are caught early, not in production.
+
+- **Tri-layer self-verification (`/dr-verify`)** — on-demand standalone verification
+  of any pipeline artifact. Layer 1 deterministic floor (shell pipeline, no LLM
+  cost) → Layer 2 cross-model peer-review (DeepSeek default via the `coworker`
+  abstraction, cleanly external context) → Layer 3 native runtime dispatch
+  (Claude 3-agent parallel, Codex single-prompt fallback). Findings carry a
+  `source_layer` tag for tri-layer provenance and dedupe. `--floor-only` for fast
+  pre-merge gating with zero LLM cost.
 
 - **Native shell utilities** — no external MCP server dependencies required. All
   core functionality works through Claude Code's built-in tools and shell access.
