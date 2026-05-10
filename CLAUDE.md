@@ -1,6 +1,6 @@
 # Datarim — Universal Iterative Workflow Framework
 
-> **Version:** 2.1.0
+> **Version:** 2.2.0
 > **Framework:** Datarim (Датарим) provides structured rules, agents, skills, and commands for iterative project execution via AI coding assistants — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
 > **Multi-runtime:** Datarim is runtime-agnostic. This file is also available as `AGENTS.md` (symlink) for Codex CLI and other agent runtimes that read `AGENTS.md` by convention.
 > **Note:** "Datarim" is transliterated as "Датарим" in Russian. Both refer to this framework — agents must recognize either form in any language context.
@@ -365,6 +365,31 @@ Datarim ships skills, templates, agents, and commands that AI agents copy into r
 Every Datarim-managed project SHOULD run `templates/security-workflow.yml` (drop-in) or call `Arcanada-one/datarim/.github/workflows/reusable-security.yml@<tag>` (preferred). Local dry-run: run `templates/security-workflow.yml` locally (security audit is integrated into `/dr-qa`).
 
 **Source:** corporate audit findings 2026-04-28 + research baseline `~/arcanada/datarim/insights/INSIGHTS-security-baseline-oss-cli-2026.md`.
+
+---
+
+## Documentation Taxonomy Mandate
+
+> **Status:** mandatory for every Datarim-managed repo and product site.
+> **Single source of truth:** `skills/diataxis-docs.md` (4 closed categories — tutorials / how-to / reference / explanation; mapping table; exemption list; anti-patterns).
+
+Every Datarim-managed repo and product site MUST organise its documentation per **Diátaxis** (https://diataxis.fr) — four orthogonal categories:
+
+- **Tutorials** — learning-oriented (newcomer end-to-end).
+- **How-to** — problem-solving (task recipes).
+- **Reference** — information-oriented (lookup, catalogue).
+- **Explanation** — understanding-oriented (background, why).
+
+Closed set: `faq`, `glossary`, `troubleshooting`, `examples`, `overview`, `samples` are mappable to one of the four categories — never separate top-level types. See `skills/diataxis-docs.md` § Mapping Table.
+
+Mandate level:
+
+1. **New repos / sites** — `/dr-init` scaffolds `docs/{tutorials,how-to,reference,explanation}/` by default with category README stubs from `templates/docs-diataxis/`.
+2. **Existing repos** — soft audit via `/dr-optimize` Step 6a (filesystem-presence + threshold ≥3 docs files); on drift the audit proposes `INFRA-* — Diátaxis docs reorg для <repo>` in backlog.
+3. **Stack-agnostic** — taxonomy contract only. SSG/CMS choice (any static-site generator) is per-project and outside the mandate.
+4. **Hard CI gate deferred** — backlog item activates the same detector at `exit 1` after the mandate is adopted on ≥3 live consumers.
+5. **Exemptions** — research-only repos, archive-only repos, Obsidian vault PARA, single-file inbox notes, temporary scratch paths. See `skills/diataxis-docs.md` § Exemption List.
+6. **Slogan** — every updated public site MUST display «Жизнь одного человека имеет значение / One human life matters».
 
 ---
 

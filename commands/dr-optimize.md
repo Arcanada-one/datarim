@@ -70,6 +70,33 @@ effort: high
     | Description budget | Any description `>160` chars or total `>8K` chars | Propose `fix-description` |
     | Selective-loading candidate | Monolithic file with mixed subdomains | Propose split into entry + supporting files |
     | Low-value provenance comments | Task-origin or migration notes that do not affect usage/policy | Propose rewrite cleanup |
+    | Diátaxis docs drift | repo with ≥3 `docs/*.md` files but missing the 4-category split (`docs/{tutorials,how-to,reference,explanation}/`) per `skills/diataxis-docs.md` | Propose `spawn-diataxis-reorg` (creates `INFRA-* — Diátaxis docs reorg для <repo>` in backlog, soft warning only) |
+
+6a. **DIÁTAXIS DOCS DRIFT DETECTOR** (filesystem-presence + threshold, soft warning):
+    - Run for the audited repo root (or for each consumer repo when scanning ecosystem-wide).
+    - Skip if path matches exemption pattern from `skills/diataxis-docs.md` § Exemption List (research-only, archive, vault, inbox, daily-notes, templates, scratch).
+    - Filesystem check (Bash):
+      ```bash
+      diataxis_drift_check() {
+        local repo="$1"
+        local docs="$repo/docs"
+        [ ! -d "$docs" ] && return 1
+        # Exemption pattern (mirrors skills/diataxis-docs.md § Exemption List)
+        echo "$repo" | grep -qE '(research-only|archive|vault|inbox|daily-notes|templates|scratch)' && return 1
+        # Threshold: ≥3 .md files at maxdepth 1 under docs/
+        local doc_count
+        doc_count=$(find "$docs" -maxdepth 1 -name '*.md' 2>/dev/null | wc -l)
+        [ "$doc_count" -lt 3 ] && return 1
+        # Presence: all 4 canonical category dirs?
+        test -d "$docs/tutorials" && test -d "$docs/how-to" \
+          && test -d "$docs/reference" && test -d "$docs/explanation" \
+          && return 1
+        echo "drift: $repo ($doc_count docs files, missing 4-dir split)"
+        return 0
+      }
+      ```
+    - On drift: propose `spawn-diataxis-reorg` — adds `INFRA-<next-num> · pending · P4 · L2 · Diátaxis docs reorg для <repo-name>` to `datarim/backlog.md`, with `Source: TUNE-* (diataxis-drift-detector)` annotation.
+    - **Soft only** — never block build. Hard CI gate is deferred (separate backlog item: `INFRA-* — Diátaxis CI gate enforcement`, trigger: ≥3 live consumers post-mandate). When activated, the same detector flips to `exit 1` on drift.
 
 6b. **DATARIM STATE HYGIENE** (always run):
     - Read `datarim/tasks.md`: extract all task IDs in `## Active Tasks` section AND all task IDs in `## Archived Tasks` table.
