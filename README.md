@@ -2,7 +2,7 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 2.2.0](https://img.shields.io/badge/Version-2.2.0-green.svg)](VERSION)
+[![Version: 2.3.0](https://img.shields.io/badge/Version-2.3.0-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
@@ -117,6 +117,14 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   `overrides:`. `dr-plugin doctor` runs 9 health checks (manifest-syntax,
   inventory-consistency, broken-symlinks, orphan-files, override-integrity,
   dependency-graph, git-state, snapshot-cleanup, skill-registry).
+
+- **Reference plugin: dr-orchestrate (v2.3.0+, TUNE-0164)** — first non-core plugin.
+  Tmux-based self-driving Datarim pipeline runner; Phase 1 is a lean rule-based
+  runner with security floor (whitelist, byte-0x1b escape block, 500 ms micro +
+  60 s decision cooldown, 5-violations/hr → 1 h pane block, fail-closed), YAML
+  secrets backend (mode-0600 enforced), and JSONL audit with hash-only matched
+  text. Install via `dr-plugin enable dr-orchestrate`. See
+  `plugins/dr-orchestrate/README.md`.
 
 - **Self-evolving framework** — after every task, `/dr-archive` Step 0.5 (reflecting
   skill) analyzes outcomes and proposes improvements to agents, skills, and framework

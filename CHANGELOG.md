@@ -4,6 +4,41 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.3.0] — 2026-05-11
+
+**First non-core plugin — `dr-orchestrate` Phase 1 (Lean tmux Runner).** TUNE-0164 ships the Datarim plugin reference implementation on top of TUNE-0101 plugin system: tmux-driven self-running pipeline runner with security floor (whitelist + 0x1b escape block + 500 ms / 60 s cooldown + 5-violations/hr → 1 h pane block, fail-closed), YAML secrets backend (mode-0600 enforced), JSONL audit with hash-only matched text. Phase 1 covers V-AC 1–15 (lean rule-based runner). Phase 2 (TUNE-0165) adds subagent inference + Telegram bridge; Phase 3 (TUNE-0166) adds auto-learning + 24 h re-validation.
+
+### Added
+
+- **TUNE-0164 — `plugins/dr-orchestrate/`** _(NEW plugin, 13 files)_ — first non-core plugin shipping with the framework.
+  - `plugin.yaml` — schema_version 1 manifest (id `dr-orchestrate`, version `0.1.0`, category `commands`).
+  - `scripts/plugin.sh` — hook dispatcher (`dispatch on_cycle [--dry-run]`, `dispatch on_tune_complete`, `get_autonomy → 1`).
+  - `scripts/cmd_run.sh` — `dr-orchestrate run` entry. bash-4+ + tmux-1.7+ preflight; single iteration; default audit at `~/.local/share/datarim-orchestrate/audit-YYYY-MM-DD.jsonl`.
+  - `scripts/tmux_manager.sh` — session/pane CRUD (`session_init`, `pane_split`, `pane_kill`, `pane_send`, `pane_capture`, `tmux_version_check`).
+  - `scripts/security.sh` — fail-closed security floor: whitelist `[a-zA-Z0-9 _./:=@-]`, byte-0x1b escape block, two-layer cooldown (`micro` 500 ms, `decision` 60 s), violation ledger, 1 h pane block on the 5th violation/hr.
+  - `scripts/secrets_backend.sh` — YAML get with 0600 mode enforcement; Vault stub (Phase 2).
+  - `scripts/audit_sink.sh` — `emit` JSONL append, `make_event` canonical schema (`timestamp, matched_text_hash, command, exit_code, duration_ms, pane_id`); OpsBot stub (Phase 2).
+  - `scripts/semantic_parser.sh` — Phase 1 stub returning rule-based confidence for `/dr-{init,prd,plan,do,qa,archive}`.
+  - `commands/dr-orchestrate.md` — command surface markdown.
+  - `tests/*.bats` — 6 bats files covering V-AC 1–15.
+  - `README.md` — plugin-level usage doc.
+  - `user-config.template.yaml` — operator config template (gitignored when copied to `user-config.yaml`).
+- **TUNE-0164 — `Projects/Websites/datarim.club/data/commands/dr-orchestrate.php`** _(NEW)_ — site command page (EN+RU, lifecycle, security summary).
+
+### Changed
+
+- **TUNE-0164 — `CLAUDE.md` § Commands** — added `/dr-orchestrate run` row (Plugin stage); commands count footer now `22 commands core + 1 plugin`.
+- **TUNE-0164 — `README.md` § Plugin system** — added “Reference plugin: dr-orchestrate (v2.3.0+, TUNE-0164)” bullet.
+- **TUNE-0164 — `docs/plugin-author-guide.md`** — appended “Reference Plugin: dr-orchestrate” section pointing at the new plugin as the canonical example.
+- **TUNE-0164 — `.gitignore`** — added `plugins/dr-orchestrate/user-config.yaml` (operator-supplied secret).
+- **TUNE-0164 — `VERSION`** 2.2.0 → 2.3.0 (minor — first non-core plugin).
+
+### Notes
+
+- Phase 1 ships `key_injection: false` by default; the operator must opt in via `user-config.yaml` to enable any `tmux send-keys`.
+- Audit sink raw text is never persisted — `matched_text_hash` (sha256) is the only representation of pane content (V-AC-12).
+- bats tests source the helper scripts and run on bash 3.2 (mac system); `cmd_run.sh` enforces a bash-4+ floor at runtime.
+
 ## [2.2.0] — 2026-05-10
 
 **Documentation Taxonomy Mandate — Diátaxis adoption ecosystem-wide.** TUNE-0161 ships `skills/diataxis-docs.md` as single source of truth for the four-category contract (tutorials / how-to / reference / explanation). `/dr-init` scaffold default flips to 4-category split with auto-mapped legacy stubs. `/dr-optimize` Step 6 detects drift via filesystem-presence + ≥3 docs threshold. Hard CI gate deferred to backlog after ≥3 live consumers.
