@@ -1,0 +1,8 @@
+version: "3.9"
+services:
+  api:
+    image: arcanada/api:latest
+    x-exposure-justification: "OLD — expired waiver"
+    x-exposure-expires: "2025-01-01"
+    ports:
+      - "0.0.0.0:443:443"

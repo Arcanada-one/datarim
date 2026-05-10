@@ -114,6 +114,30 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
     -   The plan MUST cite the baseline run id and the baseline failed-job list inline so reviewers can verify the delta gate at `/dr-qa` / `/dr-archive` without re-querying.
     -   Rationale: WIP-branch dep-bump archives have repeatedly required ad-hoc V-checklist reformulation from «all green» to «no NEW failures vs baseline» because the target branch carried multiple pre-existing red jobs (`shellcheck-extracted`, `bandit-extracted`, `regression-bats`, `markdown-policy`, `semgrep`). Mechanical SHA replacement of pinned action versions cannot regress unrelated red jobs, but a strict-green gate written without baseline awareness force-fails the V-checklist post-hoc. A 30-second baseline probe at `/dr-plan` time prevents the reformulation churn.
 
+11.6.  **Network Exposure Surfaces (tiered gate)**:
+    -   Detect whether the plan touches any networking surface: docker-compose
+        `ports`/`expose`, `redis.conf`, `postgresql.conf`, systemd `.socket`,
+        firewall/UFW rules, or a runtime bind argument. If yes, set the
+        `--network-diff` signal for the gate executor.
+    -   Run `dev-tools/network-exposure-gate.sh --task-description datarim/tasks/{TASK-ID}-task-description.md [--network-diff] --quiet`
+        and apply the verdict per `$HOME/.claude/skills/network-exposure-baseline.md` § Tiered Gate Rules:
+        -   **`hard_block`** → the plan MUST include a section
+            **«Network Exposure»** that lists every touched listener with
+            target Tier (0/1/2/3) and, for Tier 3, the proposed
+            `x-exposure-justification` text and `x-exposure-expires` date.
+            The plan MUST also cite an explicit acceptance criterion that
+            `dev-tools/network-exposure-check.sh` will pass against the
+            proposed configuration. Without this section the plan is
+            incomplete; do not advance to `/dr-do`.
+        -   **`advisory_warn`** → if a networking surface is touched, emit a
+            single-line advisory in the plan's § Risks pointing readers to
+            the skill. Do not block.
+        -   **`skip`** → no plan section required.
+    -   When justifications are needed, provide concrete mitigation language —
+        not «потому что надо». TTL ≤ 90 days from plan authorship, in the
+        future. The gate is fail-closed on missing/malformed
+        `priority`/`type`.
+
 12.  **Class B Public Surface Scan** (MANDATORY when Class A/B gate per `$HOME/.claude/skills/evolution.md` classifies the task as **Class B** — operating-model / contract change):
     -   Enumerate ALL user-facing surfaces that reflect the new operating model. Minimum:
         -   `code/datarim/docs/getting-started.md`
@@ -161,6 +185,7 @@ Before proceeding to `/dr-design` or `/dr-do`:
 [ ] For TDD sections of the plan: each test assertion traced through *current* (pre-fix) code state before being labelled expected-pass or expected-fail? (A plan predicting «N of M tests pass before fix» is wrong if the predictions are not checked against the actual code path with the bug still present.)
 [ ] Every test-count baseline claim (e.g. «X/Y tests pass») cites the branch and HEAD SHA the count was measured on? (Prior incident: a plan captured a green/red split on a feature branch and framed it as the main baseline; first action of /dr-do — `git checkout origin/main` — revealed the actual baseline differed because the failures belonged to an unmerged sibling branch. A `git rev-parse HEAD` next to the count would have caught it before the remediation tree was drafted.)
 [ ] tasks.md updated with implementation plan?
+[ ] If the plan touches a networking surface (compose ports / redis / postgres / systemd socket / firewall), `dev-tools/network-exposure-gate.sh` was invoked and its verdict was applied: `hard_block` ⇒ § Network Exposure section present with Tier classification + verifier-pass AC; `advisory_warn` ⇒ § Risks one-liner; `skip` ⇒ nothing.
 ```
 
 ## Usage

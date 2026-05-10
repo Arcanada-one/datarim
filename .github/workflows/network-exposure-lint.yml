@@ -1,0 +1,102 @@
+# Reusable workflow — secure-by-default network-exposure lint for Datarim
+# consumers. See ~/.claude/skills/network-exposure-baseline.md for the
+# decision contract; rationale lives in docs/evolution-log.md.
+# Drop into Arcanada-one/<repo>/.github/workflows/network-exposure-lint.yml
+# Or call from another workflow:
+#
+#   jobs:
+#     network-exposure:
+#       uses: Arcanada-one/datarim/.github/workflows/network-exposure-lint.yml@main
+#       with:
+#         compose_paths: docker-compose.yml docker-compose.prod.yml
+#
+name: network-exposure-lint
+
+on:
+  workflow_call:
+    inputs:
+      compose_paths:
+        description: 'Space-separated list of docker-compose files (relative to repo root).'
+        type: string
+        required: false
+        default: 'docker-compose.yml'
+      redis_conf_paths:
+        description: 'Space-separated list of redis.conf files.'
+        type: string
+        required: false
+        default: ''
+      postgres_conf_paths:
+        description: 'Space-separated list of postgresql.conf files.'
+        type: string
+        required: false
+        default: ''
+      systemd_socket_paths:
+        description: 'Space-separated list of systemd .socket units.'
+        type: string
+        required: false
+        default: ''
+      strict:
+        description: 'Treat warnings as failures.'
+        type: boolean
+        required: false
+        default: true
+      datarim_ref:
+        description: 'Datarim ref to checkout the linter from.'
+        type: string
+        required: false
+        default: 'main'
+  workflow_dispatch:
+    inputs:
+      compose_paths:
+        description: 'Compose paths'
+        type: string
+        default: 'docker-compose.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: network-exposure-lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout target repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Checkout Datarim linter
+        uses: actions/checkout@v4
+        with:
+          repository: Arcanada-one/datarim
+          ref: ${{ inputs.datarim_ref }}
+          path: .datarim
+          persist-credentials: false
+
+      - name: Install yq
+        run: |
+          set -euo pipefail
+          if ! command -v yq >/dev/null 2>&1; then
+            sudo wget -qO /usr/local/bin/yq \
+              https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
+            sudo chmod +x /usr/local/bin/yq
+          fi
+          yq --version
+
+      - name: Run lint
+        id: lint
+        env:
+          COMPOSE_PATHS: ${{ inputs.compose_paths }}
+          REDIS_PATHS: ${{ inputs.redis_conf_paths }}
+          POSTGRES_PATHS: ${{ inputs.postgres_conf_paths }}
+          SYSTEMD_PATHS: ${{ inputs.systemd_socket_paths }}
+          STRICT: ${{ inputs.strict }}
+        run: |
+          set -uo pipefail
+          args=()
+          for p in $COMPOSE_PATHS;  do [ -n "$p" ] && args+=(--compose "$p");        done
+          for p in $REDIS_PATHS;    do [ -n "$p" ] && args+=(--redis-conf "$p");     done
+          for p in $POSTGRES_PATHS; do [ -n "$p" ] && args+=(--postgres-conf "$p");  done
+          for p in $SYSTEMD_PATHS;  do [ -n "$p" ] && args+=(--systemd-socket "$p"); done
+          [ "$STRICT" = "false" ] && args+=(--no-strict)
+          ./.datarim/dev-tools/network-exposure-check.sh "${args[@]}"

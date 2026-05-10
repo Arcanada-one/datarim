@@ -54,6 +54,42 @@ description: Implement planned changes using TDD and AI quality principles
     feedback was processed, not silently ignored. Commit code changes and backlog additions together in the
     same review round.
 
+8.5. **NETWORK EXPOSURE PRE-COMMIT GATE** (MANDATORY when staged changes touch a networking surface):
+    -   Before invoking `git commit`, scan the staged diff for changes to:
+        docker-compose `ports`/`expose`, `redis.conf`, `postgresql.conf`,
+        systemd `.socket`, firewall/UFW rules, or runtime bind arguments. If
+        none, skip this step.
+    -   Run the verifier on every modified networking-config file in the
+        staged set:
+        ```bash
+        dev-tools/network-exposure-check.sh \
+            --compose <staged-compose>... \
+            --redis-conf <staged-redis>... \
+            --postgres-conf <staged-postgres>... \
+            --systemd-socket <staged-socket>...
+        ```
+        Exit code `1` from the verifier ⇒ **STOP**, do not commit. Fix the
+        violation per `$HOME/.claude/skills/network-exposure-baseline.md`
+        (loopback / Tailscale / Tier 3 with valid `x-exposure-justification`
+        + `x-exposure-expires` ≤ 90 d).
+    -   Run the tiered gate to confirm enforcement strictness:
+        ```bash
+        decision=$(dev-tools/network-exposure-gate.sh \
+            --task-description datarim/tasks/{TASK-ID}-task-description.md \
+            --network-diff --quiet)
+        ```
+        On `hard_block` the verifier failure is non-overridable; on
+        `advisory_warn` the operator MAY override with `--skip-exposure-gate`,
+        which MUST emit an Ops Bot event:
+        `POST https://ops.arcanada.one/events` with
+        `{category: warning, agent: dr-do, task: {TASK-ID}, body: "network-exposure-gate skipped"}`
+        and a one-line note in
+        `datarim/tasks/{TASK-ID}-task-description.md` § Decisions explaining
+        the override rationale and remediation date.
+    -   The gate is fail-closed: missing/malformed `priority`/`type`
+        frontmatter resolves to `hard_block` regardless of the
+        `--skip-exposure-gate` flag.
+
 9.  **OUTPUT** (thin-index schema):
     -   Code changes (committed per Workspace Discipline rules in CLAUDE.md).
     -   Update `datarim/tasks/{TASK-ID}-task-description.md` § Implementation Notes with implementation log (or `## Decisions` for design choices). Description file frontmatter `status` stays `in_progress` until `/dr-archive`.
@@ -69,6 +105,7 @@ Before proceeding to `/dr-qa` or `/dr-archive`:
 [ ] Tests written and passing?
 [ ] tasks/{TASK-ID}-task-description.md updated with implementation notes?
 [ ] No known regressions introduced?
+[ ] If staged changes touch any networking surface, `dev-tools/network-exposure-check.sh` exited 0 against the staged set and the tiered-gate verdict was honoured (or an `advisory_warn` override was logged with Ops Bot event + § Decisions note)?
 ```
 
 ## Next Steps (CTA)
