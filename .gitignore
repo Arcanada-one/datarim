@@ -24,3 +24,7 @@ node_modules/
 # Consumer projects write task archives to documentation/archive/ per CLAUDE.md template.
 # Framework workflow state lives in Projects/Datarim/datarim/; security/insights archives in ~/arcanada/documentation/.
 documentation/
+
+# TUNE-0164: dr-orchestrate plugin operator config (mode-0600 secrets via secrets_backend.sh).
+# Template ships at plugins/dr-orchestrate/user-config.template.yaml.
+plugins/dr-orchestrate/user-config.yaml

@@ -1,0 +1,8 @@
+# dr-orchestrate user config template
+# Copy to user-config.yaml, chmod 600, then edit.
+# user-config.yaml is gitignored — see code/datarim/.gitignore.
+
+key_injection: false   # MUST be set to true to allow send-keys; default fail-closed.
+session_name: datarim
+audit_dir: ~/.local/share/datarim-orchestrate
+state_dir: ~/.local/share/datarim-orchestrate/state

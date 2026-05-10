@@ -1,6 +1,6 @@
 # Datarim — Universal Iterative Workflow Framework
 
-> **Version:** 2.2.0
+> **Version:** 2.3.0
 > **Framework:** Datarim (Датарим) provides structured rules, agents, skills, and commands for iterative project execution via AI coding assistants — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
 > **Multi-runtime:** Datarim is runtime-agnostic. This file is also available as `AGENTS.md` (symlink) for Codex CLI and other agent runtimes that read `AGENTS.md` by convention.
 > **Note:** "Datarim" is transliterated as "Датарим" in Russian. Both refer to this framework — agents must recognize either form in any language context.
@@ -205,11 +205,12 @@ Before writing ANY file to `datarim/`:
 | `/dr-dream` | Maintenance | Knowledge base maintenance: organize, lint, index, cross-reference |
 | `/dr-optimize` | Maintenance | Audit framework, prune unused, merge duplicates, sync docs |
 | `/dr-plugin` | Extension | Manage opt-in plugin system (list/enable/disable/sync/doctor — TUNE-0101 v1.23.0). Manifest-driven runtime symlinks, snapshot/rollback, dependency-graph + skill-registry health checks |
+| `/dr-orchestrate run` | Plugin | Self-driving Datarim pipeline runner (Phase 1 — Lean tmux runner, TUNE-0164 v2.3.0). Install via `dr-plugin enable dr-orchestrate`. Security floor: whitelist + 0x1b escape-block + 500 ms / 60 s cooldown + 5-violations/hr 1 h pane block. JSONL audit, hash-only credentials. |
 | `/dr-help` | Utility | List all commands with descriptions and usage guidance |
 | `/factcheck` | Standalone | Fact-check articles and posts before publication |
 | `/humanize` | Standalone | Remove AI writing patterns from text |
 
-Command files: `$HOME/.claude/commands/{name}.md` (22 commands)
+Command files: `$HOME/.claude/commands/{name}.md` (22 commands core + 1 plugin)
 
 ### /dr-verify (on-demand, tri-layer architecture)
 

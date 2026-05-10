@@ -1,0 +1,10 @@
+schema_version: 1
+id: dr-orchestrate
+title: "Datarim Orchestrator (Phase 1 — Lean)"
+version: 0.1.0
+author: "Pavel Valentov / Arcanada"
+license: MIT
+description: "tmux-based self-driving Datarim pipeline runner — Phase 1 lean rule-based."
+categories:
+  - commands
+homepage: https://datarim.club/commands/dr-orchestrate

@@ -212,4 +212,30 @@ Top five failure modes and their exit codes:
 - `datarim/prd/PRD-TUNE-0101-plugin-system-core.md` — Product requirements
 - `datarim/commands/dr-plugin.md` — CLI reference and exit codes
 - `datarim/templates/plugin.yaml.template` — Blank manifest template
+
+## 12. Reference Plugin: `dr-orchestrate` (TUNE-0164)
+
+The first non-core plugin shipping with the framework lives at
+`plugins/dr-orchestrate/` and is intended as the canonical example for plugin
+authors. It demonstrates:
+
+- A `plugin.yaml` manifest at schema_version 1.
+- A `scripts/plugin.sh` hook dispatcher exposing `dispatch on_cycle [--dry-run]`,
+  `dispatch on_tune_complete` and `get_autonomy` (returns the AAL level).
+- A separate `scripts/cmd_run.sh` entry point invoked by `dr-plugin enable
+  dr-orchestrate && /dr-orchestrate run`.
+- Modular helper scripts (`tmux_manager.sh`, `security.sh`, `secrets_backend.sh`,
+  `audit_sink.sh`, `semantic_parser.sh`) — each sourceable for unit tests, each
+  callable as a bare CLI for ad-hoc inspection.
+- A bats-only test suite under `plugins/dr-orchestrate/tests/`, sourced via
+  `tests/dr-orchestrate -> ../plugins/dr-orchestrate/tests` symlink for
+  framework-level discovery.
+- A `user-config.template.yaml` operator-config skeleton; the live
+  `user-config.yaml` is gitignored at the framework `.gitignore`.
+
+Phase 1 (TUNE-0164, this release) covers V-AC 1–15. Phase 2 (TUNE-0165)
+introduces subagent inference and a Telegram bridge; Phase 3 (TUNE-0166) adds
+auto-learning rules and 24 h re-validation. Use it as a template for your own
+plugins; contract surfaces (manifest, hook dispatch, autonomy reporting) are
+intentionally minimal and inheritable.
 - `datarim/docs/getting-started.md` — Workspace onboarding
