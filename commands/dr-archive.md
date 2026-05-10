@@ -99,6 +99,55 @@ Complete and archive current task.
 
    Scope: only `CLAUDE.md` and `README.md` (current-state surfaces). `docs/` is excluded by design — `evolution-log.md` / `release-notes.md` / `changelog.md` are append-only historical ledgers that reference past versions on purpose. This step is skipped automatically when `VERSION` is unchanged — most archives don't bump, so the check is a fast no-op outside framework releases.
 
+0.3. **NETWORK EXPOSURE VALIDATION GATE** (MANDATORY when the task touched any networking surface):
+
+   Touched surfaces include: docker-compose `ports`/`expose`, `redis.conf`,
+   `postgresql.conf`, systemd `.socket`, firewall/UFW rules, runtime bind
+   arguments. If none of these were touched in the task's commits across all
+   repos, skip this step.
+
+   **0.3.1 Verifier replay.** Run the verifier against the final state of every
+   touched config:
+   ```bash
+   dev-tools/network-exposure-check.sh \
+       --compose <final-compose>... \
+       --redis-conf <final-redis>... \
+       --postgres-conf <final-postgres>... \
+       --systemd-socket <final-socket>...
+   ```
+   Exit code `1` ⇒ STOP archive. Drive the verifier to exit 0 (fix bind, add
+   justified Tier 3 with `x-exposure-justification` + `x-exposure-expires`
+   ≤ 90 d, or open a follow-up task and return to `/dr-do`). Quote the verifier
+   command and exit code in the archive doc § Verification.
+
+   **0.3.2 Tiered-gate verdict in archive doc.** Capture the gate decision so
+   reviewers can replay it later:
+   ```bash
+   decision=$(dev-tools/network-exposure-gate.sh \
+       --task-description datarim/tasks/{TASK-ID}-task-description.md \
+       --network-diff --quiet)
+   ```
+   Record `decision` (one of `hard_block` / `advisory_warn` / `skip`) in the
+   archive doc.
+
+   **0.3.3 External proof for Tier 3 binds.** For every Tier 3 listener that
+   ends up in production, the archive doc MUST include ONE of:
+   -   external port-scan output (e.g. `nmap` run from outside the host)
+       confirming the listener is reachable as designed and that no
+       unintended ports are exposed on the same host;
+   -   a reference to a separate INFRA-* / SEC-* audit task that owns the
+       external verification and is itself archived;
+   -   an explicit waiver paragraph stating who accepted the residual risk,
+       its expiry date (≤ 90 days), and the follow-up task ID that will
+       perform the post-hoc audit.
+
+   **0.3.4 Failed gate ⇒ explicit operator handoff.** If the gate verdict was
+   `hard_block` and the verifier still returns 1 at archive time (e.g. the
+   operator chose «Accept pending state» at Step 0.1), the archive doc § Known
+   Outstanding State / Operator Handoff MUST list each unjustified bind, the
+   blast-radius, and the remediation owner + ETA. «DoD met» framing is
+   forbidden when the network gate is red.
+
 0.5. **REFLECT** (MANDATORY, non-skippable):
    - Load `$HOME/.claude/skills/reflecting.md`.
    - Execute the reflect workflow per that skill:
