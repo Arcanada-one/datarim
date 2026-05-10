@@ -64,6 +64,7 @@ All notable changes to the Datarim framework are documented here. Format follows
 - Old `dev-tools/measure-verify-cost.sh` remains deprecated side-by-side from v2.0.0 (broken parser shape against current coworker log format); replacement is `dev-tools/measure-invocation-token-cost.sh`.
 - Codex CLI degraded mode: when `CODEX_RUNTIME=1` is set, chain step #5 is skipped and step #6 (same-model isolated) is taken; orchestrator MUST propagate the WARN to audit log so operator sees the degraded path.
 - Public-surface 4-way sync covered: `data/commands/dr-verify.php` (EN+RU), `docs/commands.md` row, framework `CLAUDE.md` § /dr-verify rewrite, `README.md` mention.
+- **Counts-drift correction footnote (TUNE-0163, 2026-05-10)** — `README.md` § Directory Structure previously read `templates/ # Task and document templates (23 templates)`. The `23` figure was incorrect at origin (templates count was 19 at the time of the v2.1.0 sweep — actual `find templates -maxdepth 1 -name '*.md' | wc -l` = 19; templates were never 23). Corrected to `(19 templates)` by TUNE-0163. Original incorrect claim preserved here for audit trail. Same task corrects `(39 skills)` → `(40 skills)` in framework `CLAUDE.md:127` and `pages/about.php:15` on `datarim.club`.
 
 ## [2.0.0] — 2026-05-09
 

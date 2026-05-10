@@ -124,7 +124,7 @@ Skills are reusable knowledge modules loaded on demand. They provide rules, patt
 - `frontend-ui.md` — Frontend UI checklist: CSS specificity, dark/light themes, visual testing, mobile responsiveness, i18n parity (loaded when editing HTML/CSS)
 - `infra-automation.md` — Infrastructure ops: SSH batch execution, health checks, network debugging, pre-migration inventory (loaded for server ops)
 
-Skill files: `$HOME/.claude/skills/{name}.md` (39 skills, 10 with supporting fragment directories)
+Skill files: `$HOME/.claude/skills/{name}.md` (40 skills, 10 with supporting fragment directories)
 
 > **v1.16.0 addition:** `cta-format.md` — canonical CTA "Next Step" block specification, loaded by `planner`, `architect`, `developer`, `reviewer`, `compliance` agents. Defines structure, separators, primary marker, multi-task menu (Variant B), and FAIL-Routing variant. Source: TUNE-0032.
 
