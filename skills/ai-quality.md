@@ -221,6 +221,57 @@ When an Acceptance Criterion asserts an HTTP status code (e.g. `→ 401`, `shoul
 
 ---
 
+## RFC 7807 Problem-Details Envelope for Programmatic API Errors
+
+For services with programmatic API consumers (SPA, mobile clients, server-to-server), HTTP error responses MUST be parseable by machines, not just by humans reading a log line. Standardize on **RFC 7807 `application/problem+json`** as the ecosystem error envelope and concentrate the mapping in a single seam, not scattered per-handler `try/catch` blocks.
+
+**Contract.**
+
+1. **Single exit point.** Implement a global error-mapping seam at the framework boundary — the framework's idiomatic global exception filter, error middleware, or top-level handler — that converts every thrown error to the RFC 7807 envelope. No controller or middleware emits error JSON directly; the global seam is the only place that writes error response bodies.
+2. **Frozen title table.** Define the `type` → `title` mapping centrally in one module. Every recognised problem type has a stable URI in `type` and a frozen short `title`. Adding a new problem type is an explicit edit to the table, not an ad-hoc string at the throw site.
+3. **Typed exception class.** Define one application exception type that carries `{type, title, status, detail?, instance?, ...extensions}` and is thrown from anywhere in the call stack. The global seam recognises it by class and pass-through-maps it to the response. Foreign exceptions (validation library errors, framework HTTP exceptions, generic `Error`) are mapped by class in a priority chain inside the seam.
+4. **Detail discipline for 5xx.** Server-class responses (`5xx`) MUST omit user-facing `detail` strings to prevent information disclosure (stack frames, internal paths, library messages). Client-class responses (`4xx`) MAY carry `detail` describing what the caller did wrong.
+5. **No per-handler error JSON.** A handler that produces an ad-hoc `reply.send({error: ...})` defeats the contract — programmatic consumers will receive two different envelope shapes from the same service. Replace such call sites with `throw new ProblemException(...)` and let the global seam render.
+
+**Why.** A programmatic consumer parses by `Content-Type` and field names. Inconsistent envelopes (some handlers use `{error, code}`, others `{message}`, others raw text) force defensive client code at every call site. RFC 7807 is a published standard; any well-formed problem document is parseable by off-the-shelf libraries. Concentrating the mapping in one seam means new endpoints get correct error shapes for free, and audit/refactor of error contracts is one file, not N.
+
+**When to apply.** Any service exposing an HTTP API to a programmatic consumer outside the team writing the service. Internal-only utilities with human-only callers may use simpler shapes, but the moment a SPA or mobile client lands as a consumer the global seam is mandatory.
+
+**Anti-patterns.**
+
+- Per-controller `@UseFilters` decorators / per-route error handlers — re-creates the per-handler scattering the rule is preventing.
+- Inline `if (err) reply.code(400).send({error: 'foo'})` after the global seam exists — silent contract divergence.
+- Mutating the title table at runtime or per-environment — titles are part of the wire contract; changing them breaks consumers.
+
+---
+
+## Atomic Multi-Surface Plan Amendment
+
+When an Acceptance Criterion's location moves mid-implementation — different controller, different module, different URL path, different scope boundary — update **all** parallel artefacts atomically within the same revision cycle, not lazily across separate commits or "I'll fix the plan later" deferrals. The parallel surfaces typically include:
+
+- The PRD section that owns the AC text (with an `AMENDED YYYY-MM-DD` marker and a one-line justification).
+- The implementation plan's per-step locus and the AC ↔ step mapping.
+- The task description's Implementation Notes (operator-facing record of the moved boundary).
+
+**Rule.**
+
+1. **One revision cycle, one operator-approval event.** Every amended surface references the same approval date or decision identifier. Drift starts when one artefact carries an old AC location and another carries the new one — readers cannot tell which is authoritative.
+2. **Cross-check after edit.** Grep the AC identifier across all parallel artefacts. Exactly one canonical definition per surface, and the location/path/scope text MUST match across surfaces. A mismatch is a post-amendment finding, not a normal state.
+3. **Ship in the same commit or same branch push as the code.** Do not merge the code change while the PRD/plan still describe the old location. The artefact set ships as a unit; consumers reading mid-stream see a consistent picture.
+4. **Step-locus precision.** When AC moves between modules/controllers, the implementation plan's Implementation Steps section MUST update its locus references — not just Implementation Notes. A reviewer reading only the Steps must reach the same code as a reviewer reading the Notes.
+
+**Why.** When PRD, plan, and task description carry the same AC under three different locations, future readers (QA at archive time, the next developer touching the area, a security audit) cannot distinguish authoritative from stale. Drift compounds: the next amendment based on a stale surface re-amplifies the divergence. Atomic updates with cross-check make the artefact set self-consistent at every commit.
+
+**When to apply.** Any L2+ task that maintains parallel PRD + plan + task description artefacts. Mandatory when an AC's path/module/controller changes mid-implementation. Recommended when scope reduction or expansion changes which surface owns which assertion.
+
+**Anti-patterns.**
+
+- "I'll update the PRD after this commit lands" — the moment the commit lands, the PRD is wrong and CI/QA reads stale text.
+- Updating Implementation Notes only, leaving Implementation Steps locus pointing at the old module — reviewers reading only one section drift.
+- Multiple amendment markers with conflicting dates or no operator approval reference — provenance becomes unrecoverable.
+
+---
+
 ## Fragment Routing
 
 Load only the fragment needed for the current sub-problem:
