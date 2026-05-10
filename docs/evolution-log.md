@@ -1259,3 +1259,50 @@ None (TUNE-0091's currently-failing tests will surface organically on its PR via
 - History-agnostic gate: `git diff -- skills/self-verification.md commands/dr-plan.md | grep -E '^\+' | grep -cE 'TUNE-[0-9]+'` → 0.
 - Provenance lives in this evolution-log entry + archive + git log per Datarim Rule #8.
 
+
+---
+
+## AUTH-0057 + AUTH-0075 — 5 Class A proposals applied (2026-05-10)
+
+**Date:** 2026-05-10
+**Source tasks:** AUTH-0057 (Phase 2A slice 0057a — OIDC interactions API core) + AUTH-0075 (Phase 2A slice 0057b — interactions API hardening). Reflections at `~/arcanada/datarim/reflection/reflection-AUTH-0057.md` and `reflection-AUTH-0075.md`.
+**Outcome:** 4 framework-runtime updates + 1 consumer-CLAUDE.md update. Both runtime-runtime gates GREEN: stack-agnostic-gate.sh `PASS: clean` (`--diff-only` mode) on both `skills/testing.md` and `skills/ai-quality.md`. Workspace `~/arcanada/CLAUDE.md` is stack-specific by design (Backend Stack Standards) — gate exempt per `feedback_datarim_stack_agnostic` precedent.
+
+### Class A Applied (framework runtime)
+
+- **`skills/testing.md` § Coverage Instrumenter Blind-Spot Awareness (NEW section).** Merged AUTH-0057 P4.1 (detection: pre-flight discrepancy check at 20pp threshold) with AUTH-0075 P1 (remediation hierarchy: refactor-lift > switch instrumenter > ignore comments). Stack-neutral wording: «raw runtime hooks», «framework-internal pass-through», «framework-instrumented layers» — no `Fastify`/`v8`/`Istanbul`/`vitest`/`NestJS` literal terms. Documents the architectural-improvement rationale for refactor-lift and the «document the decision» discipline at every level of the hierarchy.
+  - **File:** `skills/testing.md` (~+22 prose lines inserted before § Reporting Test Counts in Audit Output).
+  - **Class:** A.
+  - **Source:** AUTH-0057 reflection §4.1 + AUTH-0075 reflection §5 P1 (deduped + merged into single coherent section per evolution-apply procedure).
+  - **Stack-agnostic gate:** PASS (mode: `--diff-only`).
+  - **Summary:** detection rule + 3-level remediation hierarchy for coverage instrumenter blind spots through framework-internal pass-through code.
+
+- **`skills/ai-quality.md` § RFC 7807 Problem-Details Envelope for Programmatic API Errors (NEW section).** AUTH-0075 P2 applied. Mandates RFC 7807 `application/problem+json` as the ecosystem standard for HTTP error responses on services with programmatic consumers; concentrates mapping in a single global error-mapping seam at the framework boundary; defines frozen title table, typed exception class, 5xx detail discipline, no-per-handler-error-JSON anti-pattern. Stack-neutral wording: «framework's idiomatic global exception filter, error middleware, or top-level handler» — no `NestJS`/`APP_FILTER`/`Fastify`/`Express` literal terms. RFC 7807 itself is a published standard, cited by number.
+  - **File:** `skills/ai-quality.md` (~+24 prose lines inserted before § Atomic Multi-Surface Plan Amendment).
+  - **Class:** A.
+  - **Source:** AUTH-0075 reflection §5 P2.
+  - **Stack-agnostic gate:** PASS (mode: `--diff-only`).
+  - **Summary:** RFC 7807 envelope as ecosystem standard for HTTP errors on programmatic-consumer services; single global exit-point seam, frozen title table, 5xx detail suppression.
+
+- **`skills/ai-quality.md` § Atomic Multi-Surface Plan Amendment (NEW section).** AUTH-0057 P4.2 applied verbatim per AUTH-0057 archive note (gate PASS, plan-time concept, no stack terms). Mandates atomic update of all parallel artefacts (PRD §2 + plan + task description Implementation Notes + Implementation Steps locus) within the same revision cycle when an AC's location moves mid-implementation. Cross-check via grep across surfaces; ship in same commit/branch push as the code; one operator-approval reference per amendment.
+  - **File:** `skills/ai-quality.md` (~+18 prose lines inserted before § Fragment Routing).
+  - **Class:** A.
+  - **Source:** AUTH-0057 reflection §4.2.
+  - **Stack-agnostic gate:** PASS (mode: `--diff-only`).
+  - **Summary:** atomic multi-surface AC-amendment protocol — one revision cycle, cross-check after edit, ship-with-code, step-locus precision.
+
+### Class A Applied (consumer CLAUDE.md, not framework runtime)
+
+- **`~/arcanada/CLAUDE.md` § Backend Stack Standards — CSP / security-header decision matrix (narrow-prefix vs ecosystem-wide).** AUTH-0075 P3 applied. Decision rule for new ecosystem services: hand-rolled Fastify `onSend` hook when target is a single URL prefix + ≤6 static headers + no nonce/hash; `@fastify/helmet` (or equivalent middleware package) when ecosystem-wide / multi-prefix / dynamic / >6 headers / collision-with-other-module. Mandates inline prefix-guard-assumption comment in hand-rolled hooks. **Stack-specific by design (Fastify reference) — correctly placed in consumer CLAUDE.md, not framework runtime, per `feedback_datarim_stack_agnostic` memory.** Not part of `code/datarim/{skills,agents,commands,templates}/`.
+
+### Decisions Locked
+
+- **D-1 (P1 ↔ P4.1 dedup):** P4.1 (detection) and P1 (remediation hierarchy) live as a single section in `skills/testing.md` rather than two adjacent sections. Detection without remediation is incomplete; remediation without detection has no trigger. Combined section keeps the rule's full lifecycle in one place. Stack-neutral wording common to both sources is unified; AUTH-0075-specific «refactor-lift superior to instrumenter switch» framing wins because it captures the architectural-improvement rationale that AUTH-0057 wording lacked.
+- **D-2 (P3 routing):** P3 (CSP decision matrix) deliberately bypasses the framework runtime and lands in `~/arcanada/CLAUDE.md`. The matrix names `Fastify` and `@fastify/helmet` as concrete artefacts — the rule cannot be useful without those names. Per `feedback_datarim_stack_agnostic`, stack-specific guidance lives in consumer CLAUDE.md, not framework runtime. Workspace CLAUDE.md gate is exempt by precedent (already contains Fastify/Prisma/pnpm references).
+- **D-3 (P4 reject):** AUTH-0075 P4 («new skill `rfc7807-error-handling.md`») rejected by AUTH-0075 reflection itself as subset of P2; ai-quality.md is the canonical home for API contract patterns; a separate skill would create duplication. No action taken.
+
+### Verification
+
+- Stack-agnostic gate: `bash scripts/stack-agnostic-gate.sh skills/testing.md --diff-only` → PASS clean. `bash scripts/stack-agnostic-gate.sh skills/ai-quality.md --diff-only` → PASS clean.
+- Workspace `~/arcanada/CLAUDE.md` is stack-specific by design — gate not applied (consumer config, not runtime artefact).
+- Provenance lives in this evolution-log entry + reflection files + git log.

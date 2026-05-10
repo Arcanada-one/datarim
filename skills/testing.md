@@ -33,6 +33,24 @@ target_aal: 2
   real integration (wrong client, wrong schema, wrong dialect), a mocked test will pass and production will
   fail. See § Live Smoke-Test Gates below.
 
+## Coverage Instrumenter Blind-Spot Awareness
+
+When code under test executes through a framework-internal pass-through — raw runtime hooks where the web framework hands the underlying runtime request/response objects to user code, bypassing the framework's own instrumentation seams — the coverage instrumenter may underreport line/branch execution even though tests pass and the code paths run. Symptoms: a controller/handler whose every behavioural test passes yet shows single-digit coverage, threshold regressions appearing immediately after introducing raw-pass code, branch-vs-main coverage delta with no behavioural delta.
+
+**Detection (pre-flight).** Before committing the production code, write a placeholder handler with the same raw-pass pattern, run the full test suite under coverage, and compare reported vs. actual execution. If the discrepancy exceeds a 20pp relative threshold against the same code expressed without raw-pass, treat the gap as instrumenter-blind, not test-suite-incomplete.
+
+**Remediation hierarchy.** Prefer architectural fixes over instrumentation papering:
+
+1. **Refactor-lift (preferred).** Restructure error-handling and data-flow code to exit the pass-through into framework-instrumented layers — global exception filters, interceptors, guards, framework-native error-mapping seams. Throwing a typed exception from the handler body (instrumented) and catching it in a global filter (instrumented) is fully traced. The pass-through callback shrinks to the irreducible minimum: only the line that hands raw objects to the framework-internal API. Refactor-lift produces architectural improvement, not coverage measurement papering.
+2. **Switch instrumenter.** If refactor-lift is impractical for the current code shape, change the coverage provider in the test runner config to one that traces through the raw-pass pattern. Document the choice in the test runner config with a comment citing the raw-pass reason.
+3. **Ignore comments (last resort).** Apply per-line ignore directives (e.g. `/* coverage-tool ignore next */`) only at the call sites where raw pass-through is unavoidable — typically a single handler line that hands `req.raw` / `res.raw` (or equivalent runtime handles) to a framework-internal callback. Each annotated line carries an inline comment explaining why the instrumenter cannot trace it. Do not blanket-ignore whole methods or files.
+
+**Why this order.** Refactor-lift fixes the underlying architecture and yields real coverage; switching instrumenter is a measurement change with no architectural value but preserves test-suite shape; ignore comments are defence-in-depth for irreducible cases. Reaching for the ignore directive first leaves the architectural smell (error logic interleaved with raw-pass code) in place and creates a maintenance debt — the next reader sees coverage green and assumes the raw-pass path is tested when it is merely excluded.
+
+**Document the decision.** Whichever level of the hierarchy is chosen, record the rationale in the test file or module preamble: which raw-pass call site, which instrumenter behaviour, which remediation level, and (for ignore comments) what the test surface actually exercises. Prevents future contributors from re-litigating the trade-off blind.
+
+---
+
 ## Reporting Test Counts in Audit Output
 
 When QA / Compliance reports cite per-spec test counts (e.g. "added 28 tests" or "11 unit tests in `<spec>`"), derive each count via a mechanical extractor of the test-runner's case-declaration syntax — never operator memory. The contract is one line: **report = output of `<extractor> <spec-file>`, recorded verbatim in the audit doc**. The extractor is a per-language regex whose form depends on the test framework family in use; the rule itself is framework-neutral.
