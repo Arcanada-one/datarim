@@ -4,6 +4,45 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ---
 
+## 2026-05-11 — TUNE-0164 — Apply 4 Class A proposals to runtime (Phase 1 dr-orchestrate reflection)
+
+### Class A Applied
+
+- **`skills/datarim-system.md` § Large-Plan Read Strategy (L3+ tasks) (NEW section).** TUNE-0164 Proposal 1. Codifies the «coworker structured-summary on plans ≥ 600 lines» default for L3+ tasks: one delegated call returns per-step / per-V-AC / per-file specification that anchors implementation order, V-AC mapping, MOD touchpoints; QA and compliance reuse the same summary. Stack-neutral wording: «external-context delegation channel» / «runtime's external-LLM contract» — no vendor lock. References CLAUDE.md § Coworker Delegation for the concrete channel.
+  - **File:** `skills/datarim-system.md` (~+30 prose lines inserted after § Quick Path Resolution Rule).
+  - **Class:** A.
+  - **Source:** TUNE-0164 reflection Proposal 1.
+  - **Stack-agnostic gate:** PASS (mode: `--diff-only`).
+  - **Summary:** L3+ tasks with PRD+plan+INSIGHTS ≥ 600 lines delegate the bulk read to an external-context channel; main context consumes the structured summary, not the raw artefacts.
+
+- **`skills/ai-quality/bash-pitfalls.md` § «`date +%s%N` is GNU-only» + «`awk sub()` does NOT support capture groups» (TWO NEW sections).** TUNE-0164 Proposals 2 + 3. First section: portable millisecond clock recipe (Bash 5 `$EPOCHREALTIME` → `perl Time::HiRes` fallback); flags `date +%s%N` as silently broken on macOS / BSD. Second section: awk `sub()` / `gsub()` accept ERE pattern but treat `\1..\9` as literal text, no capture groups; canonical alternative is `match()` + `substr()` or sed/perl. Both pitfalls were hit during TUNE-0164 `/dr-do` and would have shipped silently broken on mac.
+  - **File:** `skills/ai-quality/bash-pitfalls.md` (~+90 prose lines inserted before § Why this fragment exists).
+  - **Class:** A.
+  - **Source:** TUNE-0164 reflection Proposals 2 + 3.
+  - **Stack-agnostic gate:** PASS (mode: `--diff-only`).
+  - **Summary:** portable `now_ms` recipe (Bash 5 EPOCHREALTIME → perl); awk `sub()` capture-group trap with `match()` + `substr()` alternative.
+
+### Class A Applied (consumer-side, not framework runtime)
+
+- **`~/.claude/projects/-Users-ug-arcanada/memory/feedback_foreign_path_args_disambiguation.md` (NEW feedback memory).** TUNE-0164 Proposal 4. Auto-memory entry: when `/dr-*` invocation arguments include a filesystem path outside `~/arcanada/` or the active framework root, treat as a candidate parallel ask and confirm scope before touching the foreign repo. Indexed in `MEMORY.md`. Stack-neutral by virtue of living in personal auto-memory (consumer-side), not in framework runtime. Not in `code/datarim/{skills,agents,commands,templates}/`.
+
+### Class A Applied (backlog spawn, no runtime change)
+
+- **`datarim/backlog.md` — INFRA-* — TUNE-0101 plugin-system gitignore drift.** TUNE-0164 Proposal 5. Backlog entry only; no framework runtime change. Description: `dr-plugin enable/list/doctor` creates `enabled-plugins.md` and `plugin-storage/` at the framework repo root on first invocation; neither is gitignored. Surfaced during TUNE-0164 plugin-system smoke; cleaned post-smoke. Follow-up requires one-line `.gitignore` patch on the framework repo (and optionally a `dr-plugin clean` subcommand). Spawned in `/dr-archive` Step 4.
+
+### Decisions Locked
+
+- **D-1 (Proposal 4 routing):** Foreign-path argument disambiguation lives as a personal auto-memory entry (`memory/feedback_foreign_path_args_disambiguation.md`), NOT as a framework skill or CLAUDE.md amendment. Rationale: the rule is about how an agent interprets an operator's slash-command invocation — operator-specific workflow guidance, not framework contract. Auto-memory is the right surface; multiple operators may interpret foreign-path args differently.
+- **D-2 (Proposals 2 + 3 colocated):** Both new pitfalls land in the same skill file (`skills/ai-quality/bash-pitfalls.md`) because they share the same audience (bash script authors / shell-pipeline reviewers) and the same recovery shape (canonical-recipe alternative). Splitting would duplicate the «Why this matters in practice» framing.
+
+### Verification
+
+- Stack-agnostic gate: `bash scripts/stack-agnostic-gate.sh --diff-only skills/datarim-system.md` → PASS clean. `bash scripts/stack-agnostic-gate.sh --diff-only skills/ai-quality/bash-pitfalls.md` → PASS clean.
+- `bats tests/` after applies: 402 active passes, 5 pre-existing failures (D5 check-drift, 277 marketing description length, T3a dr-reflect whitelist, T11/T12 task-id-gate skills/commands scope). Pre-edit baseline identical 5/5; **zero new regressions attributable to TUNE-0164 Class A applies.**
+- Provenance: this evolution-log entry + `datarim/reflection/reflection-TUNE-0164.md` + git log (commit `evolution(TUNE-0164): apply 4 Class A proposals to runtime`).
+
+---
+
 ## 2026-05-09 — AUTH-0072 — Pipeline-position-aware AC formulation в `skills/ai-quality.md` (Class A)
 
 ### Class A Applied
