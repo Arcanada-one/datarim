@@ -33,6 +33,27 @@ target_aal: 2
   real integration (wrong client, wrong schema, wrong dialect), a mocked test will pass and production will
   fail. See § Live Smoke-Test Gates below.
 
+## Reporting Test Counts in Audit Output
+
+When QA / Compliance reports cite per-spec test counts (e.g. "added 28 tests" or "11 unit tests in `<spec>`"), derive each count via a mechanical extractor of the test-runner's case-declaration syntax — never operator memory. The contract is one line: **report = output of `<extractor> <spec-file>`, recorded verbatim in the audit doc**. The extractor is a per-language regex whose form depends on the test framework family in use; the rule itself is framework-neutral.
+
+<!-- gate:example-only -->
+Illustrative extractors (replace with whatever matches the project's test framework):
+
+```bash
+# JS/TS Jest/Mocha-style declaration syntax
+grep -cE '^[[:space:]]*(it|test)\(' <spec>
+
+# Python pytest function-style declaration
+grep -cE '^def test_' <spec>
+
+# Go testing package convention
+grep -cE '^func Test' <spec>
+```
+<!-- /gate:example-only -->
+
+If the audit cites a count that does not match the extractor output for the same revision, treat that as a finding (drift between operator memory and source-of-truth). Source: prior incident — a per-spec count off-by-one in a QA report was caught only by independent re-execution at Compliance.
+
 ---
 
 ## Discipline

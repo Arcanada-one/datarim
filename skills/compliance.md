@@ -56,6 +56,7 @@ Read `datarim/tasks.md` and `datarim/activeContext.md` to determine task type:
 ### 7. CI/CD Impact Analysis
 - Detect: new dependencies, changed env vars, new build steps
 - Flag: breaking changes to build pipeline, missing migration steps
+- **Stale-base merge-result gate (`git`-only).** Before reporting any apparent change in PR diff vs `origin/<base>` as a "regression", check whether the diff is a side-effect of `origin/<base>` advancing past the branch's merge-base rather than a branch-side edit. If `git diff <merge-base>..HEAD -- <file>` is empty for a file that nonetheless appears in `git diff origin/<base>..HEAD -- <file>`, simulate the actual 3-way merge: `git merge-tree $(git merge-base HEAD origin/<base>) HEAD origin/<base>`. If the simulated tree preserves the upstream change in question, the apparent diff is a no-op on merge — record this in the report and do NOT block the archive on a rebase requirement. Source: prior incident — a feature PR appeared to revert an upstream baseline-hardening fix that landed mid-flight; merge-tree simulation confirmed the fix was preserved by 3-way merge, deflating a needless rebase cycle.
 
 ---
 
@@ -157,6 +158,13 @@ Read `datarim/tasks.md` and `datarim/activeContext.md` to determine task type:
 - Verify ignore patterns cover ALL discovered classes (.venv/__pycache__/target/*.db/.next/.build/etc.).
 - Verify nested git repos either fully excluded or documented as «read-only mirror».
 - Source: prior incident — first .stignore set (28 patterns) missed 11 classes; 1 sync-conflict materialized + 60+ accumulated before audit caught it.
+
+### 8. Scheduler-Unit Antipattern Check (when task deploys recurring scheduler units — e.g. systemd timers, cron entries, launchd plists)
+- Validate every modified scheduler unit on the host with the OS's native validator (e.g. `systemd-analyze verify <unit>`, `crontab -T`, `plutil -lint`). Non-zero exit → block compliant.
+- For timer-style units: verify the unit does NOT carry a hard dependency on the work-unit it triggers. A timer that hard-requires its own service stops together with the service when an operator runs the service manually — the timer goes silent, the next scheduled fire is lost, and the failure is invisible (no failed unit, no alert handler invoked). Cross-host static check: <!-- gate:example-only -->`grep -E "^Requires=" *.timer` MUST be empty per host where recurring units are deployed.<!-- /gate:example-only -->
+- Verify catch-up semantics for missed fires: persistent-fire flag set so a host coming back from outage / a unit re-enabled after stop runs the previously missed schedule. Without it, a single missed fire silently disappears.
+- Recommend smoke procedure via the timer interface (start the timer, let it trigger the unit) rather than starting the work-unit directly — the latter can mask the antipattern above.
+- Source: prior incident — three production hosts shipped scheduler timers with the antipattern; daily fire missed on one host, detected only via downstream artefact count (snapshot count on the storage target), not via any in-host alert.
 
 ---
 

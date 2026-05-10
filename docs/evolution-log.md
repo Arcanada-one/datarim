@@ -1205,3 +1205,30 @@ None (TUNE-0091's currently-failing tests will surface organically on its PR via
 - **D-5 (archive template phantom):** `templates/archive-template.md` did not exist; created as NEW canonical file.
 - **D-6 (measure-prospective-rate.sh):** added as 6th deliverable beyond PRD 5-item roadmap — needed immediately for Phase 3 measurement.
 - **D-7 (deprecated side-by-side):** `measure-verify-cost.sh` deprecated in-place; removal deferred 30 days via backlog.
+
+---
+
+## AUTH-0061 — Reflection-driven Class A skill updates (2026-05-10)
+
+**Date:** 2026-05-10
+**Source task:** AUTH-0061 (Auth Arcana Phase 2A — admin OIDC clients API + Redis cache + seed CLI). Reflection at `~/arcanada/datarim/reflection/reflection-AUTH-0061.md`.
+**Outcome:** Two Class A skill updates accepted by operator and applied to runtime; one Class A project-CLAUDE.md update applied to consumer; one Class B proposal HELD pending PRD update. Stack-agnostic gate `--diff-only`: PASS clean on both runtime files.
+
+### Class A Applied (framework runtime)
+
+- **`skills/testing.md` — Reporting Test Counts in Audit Output (NEW section).** Mandates that QA/Compliance reports derive per-spec test counts via a mechanical extractor of the test-runner's case-declaration syntax (framework-neutral contract; per-language regex examples behind `<!-- gate:example-only -->`). Drift between operator memory and extractor output = finding. Source: a per-spec count off-by-one was caught only by independent re-execution at Compliance; mechanical derivation removes the drift class.
+- **`skills/compliance.md` § Software Checklist Step 7 — Stale-base merge-result gate (`git`-only).** Adds an inline rule that before reporting a "regression" from a PR diff vs `origin/<base>`, the auditor MUST check whether the diff is a side-effect of `origin/<base>` advancing past the branch's merge-base (i.e. `git diff <merge-base>..HEAD -- <file>` empty), and if so, simulate the actual 3-way merge via `git merge-tree $(git merge-base HEAD origin/<base>) HEAD origin/<base>` before flagging. Source: a feature PR appeared to revert an upstream baseline-hardening fix that landed mid-flight; merge-tree simulation confirmed the fix was preserved by 3-way merge — a needless rebase cycle was avoided.
+
+### Class A Applied (consumer CLAUDE.md, not framework runtime)
+
+- **`~/arcanada/CLAUDE.md` § Backend Stack Standards — Devdep audit cadence.** Adds a quarterly `pnpm audit --audit-level=moderate` review on top of the existing `--audit-level=high` merge gate; moderate findings either patched or recorded as explicit waivers in the repo's SECURITY.md / `Areas/Credentials` note with reason + revisit date. First sweep due 2026-08-10. **Stack-specific (pnpm) — correctly placed in consumer CLAUDE.md, not framework runtime, per `feedback_datarim_stack_agnostic` memory.** Not part of `code/datarim/{skills,agents,commands,templates}/`.
+
+### Class B (HELD — pending PRD)
+
+- **Auth Arcana seed-CLI default-flip.** Until AUTH-0074 ships (P1 L3 — static OIDC `client_secret_basic` verification path on `/token`), the seed CLI MUST default `tokenEndpointAuthMethod='private_key_jwt'` (or refuse `client_secret_basic` without explicit env opt-in). Today's default ships static clients with an end-to-end-broken `/oidc/token` exchange. Modifies the default contract for shipping OIDC clients in the ecosystem and touches AUTH-0062 sequencing → requires PRD-AUTH-0002 amendment before approval. **HOLD until PRD update lands.**
+
+### Verification
+
+- `task-id-gate.sh` on `skills/testing.md`, `skills/compliance.md`: PASS clean (no task-IDs leaked into runtime artefacts; provenance lives here only).
+- `stack-agnostic-gate.sh --diff-only` on both files: PASS clean (no stack-specific terms added to runtime).
+- `bats tests/` baseline failures (T11/T12 skills/commands gate-clean, T17 brainstorming description >155, T26 check-drift SCOPES, T325 dr-reflect whitelist) confirmed pre-existing via stash-and-re-run on the canonical repo (Datarim framework); not regressions from this change.
