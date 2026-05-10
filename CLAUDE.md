@@ -57,8 +57,9 @@ Agents are specialized personas loaded per pipeline stage. Each agent has define
 | **sre** | Site Reliability Engineer | /dr-design, /dr-qa, /dr-archive (Step 0.5 postmortem) |
 | **tester** | Platform QA Tester | /dr-qa, /dr-do (verification) |
 | **researcher** | Structured External Research | /dr-prd (Phase 1.3), /dr-do (Gap Discovery) |
+| **peer-reviewer** | Adversarial Peer Reviewer (Layer 2/3 fallback) | /dr-verify (cross-Claude-family fallback subagent) |
 
-Agent files: `$HOME/.claude/agents/{name}.md` (17 agents)
+Agent files: `$HOME/.claude/agents/{name}.md` (18 agents)
 
 ### Agent Loading Rules
 
@@ -123,7 +124,7 @@ Skills are reusable knowledge modules loaded on demand. They provide rules, patt
 - `frontend-ui.md` — Frontend UI checklist: CSS specificity, dark/light themes, visual testing, mobile responsiveness, i18n parity (loaded when editing HTML/CSS)
 - `infra-automation.md` — Infrastructure ops: SSH batch execution, health checks, network debugging, pre-migration inventory (loaded for server ops)
 
-Skill files: `$HOME/.claude/skills/{name}.md` (27 skills, 3 with supporting fragment directories)
+Skill files: `$HOME/.claude/skills/{name}.md` (39 skills, 10 with supporting fragment directories)
 
 > **v1.16.0 addition:** `cta-format.md` — canonical CTA "Next Step" block specification, loaded by `planner`, `architect`, `developer`, `reviewer`, `compliance` agents. Defines structure, separators, primary marker, multi-task menu (Variant B), and FAIL-Routing variant. Source: TUNE-0032.
 
