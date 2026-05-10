@@ -17,8 +17,8 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ### Class B (HELD — pending PRD)
 
-- **Proposal 2 — `/dr-archive` unpushed-commits = 0 gate.** Per project repo touched: `git rev-list --count origin/<default-branch>..HEAD` MUST = 0 OR explicit accept-loss in archive doc. Source: AUTH-0065 «code-complete» archive shipped with commit `81fc3ccab` only on local main → +1 day cycle (AUTH-0072). Modifies archive command contract → requires PRD draft before apply. Spawned as TUNE-0149 (workspace backlog).
-- **Proposal 3 — `/dr-do` staging-not-stale pre-check.** Before any AC requiring staging E2E: `docker compose ps` + health-curl on staging host. Halt if dead/stale. Source: AUTH-0072 AC-10/11 partially blocked by INFRA-0111 compose collision. Modifies dr-do contract → requires PRD draft before apply. Spawned as TUNE-0148 (workspace backlog).
+- **Proposal 2 — `/dr-archive` unpushed-commits = 0 gate.** Per project repo touched: `git rev-list --count origin/<default-branch>..HEAD` MUST = 0 OR explicit accept-loss in archive doc. Source: AUTH-0065 «code-complete» archive shipped with commit `81fc3ccab` only on local main → +1 day cycle (AUTH-0072). Modifies archive command contract → requires PRD draft before apply (suggested TUNE prefix).
+- **Proposal 3 — `/dr-do` staging-not-stale pre-check.** Before any AC requiring staging E2E: `docker compose ps` + health-curl on staging host. Halt if dead/stale. Source: AUTH-0072 AC-10/11 partially blocked by INFRA-0111 compose collision. Modifies dr-do contract → requires PRD draft before apply.
 
 ---
 
@@ -1232,3 +1232,30 @@ None (TUNE-0091's currently-failing tests will surface organically on its PR via
 - `task-id-gate.sh` on `skills/testing.md`, `skills/compliance.md`: PASS clean (no task-IDs leaked into runtime artefacts; provenance lives here only).
 - `stack-agnostic-gate.sh --diff-only` on both files: PASS clean (no stack-specific terms added to runtime).
 - `bats tests/` baseline failures (T11/T12 skills/commands gate-clean, T17 brainstorming description >155, T26 check-drift SCOPES, T325 dr-reflect whitelist) confirmed pre-existing via stash-and-re-run on the canonical repo (Datarim framework); not regressions from this change.
+
+---
+
+## TUNE-0155 — /dr-verify provider auto-resolution + Class A reflection apply (2026-05-10)
+
+**Date:** 2026-05-10
+**Source task:** TUNE-0155 (zero-flag UX for /dr-verify Layer 2 peer-review provider). Reflection at `~/arcanada/datarim/reflection/reflection-TUNE-0155.md`. Audit logs at `datarim/qa/verify-TUNE-0155-do-{1,2}.md`. Compliance report at `datarim/reports/compliance-report-TUNE-0155.md`.
+**Outcome:** Three Class A skill/command updates applied to runtime; zero Class B proposals (all changes are prompt/rule extensions, no operating-model contract change). Both runtime gates GREEN: stack-agnostic-gate.sh `PASS: clean` on changed files; history-agnostic gate `0 TUNE-* refs added` in diff.
+
+### Class A Applied (framework runtime)
+
+- **`skills/self-verification.md` § Layer 2 — JSONL emission discipline (NEW subsection at ~line 161).** Mandates suppression of PASS-as-finding entries: findings array carries only defects or incorrect-premise items, never «cleared»/«verified»/«no finding» confirmations. Compress confirmations into the final-line summary. Source: across iter 1 + iter 2 deepseek peer-reviewer emitted 8 of 15 raw findings as PASS-as-finding despite explicit prose rule — a structural prompt constraint with concrete correct/incorrect examples is needed.
+- **`commands/dr-plan.md` Step 6.5 — Symbol Existence Check extension (PRD AC verification commands).** Adds requirement that every PRD AC `**Verification:**` line is smoke-checked at plan time against the implemented CLI surface (or pre-implementation skeleton). Phantom flags, positional-args invocations against named-flag contracts, and misnamed env vars caught here, not at /dr-verify post-/dr-do. Cost: ~5s per AC; saving: a full pipeline cycle. Source: TUNE-0155 PRD had 6 phantom AC verification commands (`--dry-run` flag, positional args, `dr-verify --dry-run`, `CLAUDE_RUNTIME` env var) discovered only at /dr-verify iter 1.
+- **`commands/dr-plan.md` Step 6.5 — AC ↔ V-AC semantic match check.** Adds requirement that Validation Checklist rows verify what the AC actually asserts, not just verbatim mirror the AC number. Failure mode: PRD AC «cost-cap soft enforcement, exit 2 on breach» mirrored by V-AC `for f in ...; test -f $f` (file presence) — verbatim cite of AC, but verification tests something else. Source: TUNE-0155 V-AC-12 ↔ AC-12 mismatch surfaced only at /dr-verify iter 2 reviewer, then patched in /dr-compliance.
+
+### Decisions Locked
+
+- **D-1 (Layer 2 reviewer prompts):** structural rule with concrete examples wins over abstract prose rule. Applied with both correct (suppression) and incorrect (PASS-as-finding) JSONL examples inline.
+- **D-2 (combined Step 6.5 extension):** AC verification command smoke + AC↔V-AC semantic match are sibling rules under same Symbol Existence Check umbrella — single docstring expansion preserves locality.
+- **D-3 (Class B deferred):** none. All TUNE-0155 reflection proposals are prompt/rule extensions; operating-model contract unchanged.
+
+### Verification
+
+- Stack-agnostic gate: `bash scripts/stack-agnostic-gate.sh skills/self-verification.md` → PASS clean. `bash scripts/stack-agnostic-gate.sh commands/dr-plan.md` → PASS clean.
+- History-agnostic gate: `git diff -- skills/self-verification.md commands/dr-plan.md | grep -E '^\+' | grep -cE 'TUNE-[0-9]+'` → 0.
+- Provenance lives in this evolution-log entry + archive + git log per Datarim Rule #8.
+

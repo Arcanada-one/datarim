@@ -107,21 +107,74 @@ Pre-LLM shell pipeline. Implemented in `code/datarim/dev-tools/dr-verify-floor.s
 External-model adversarial reviewer with **clean context** (no upstream Claude/Codex history → no self-agreement bias). Vendor-neutral via the `coworker` CLI abstraction:
 
 ```
-coworker ask --provider {peer-provider} --profile datarim \
+coworker ask --provider {peer-provider} --profile code \
              --task-id {TASK-ID} \
              --paths <artifact-paths> \
              --question "<adversarial-frame-template>"
 ```
 
-**Default provider — `deepseek`** (~$0.07/1M output tokens vs ~$1/1M for Claude Sonnet → roughly 14× cheaper). Override via `--peer-provider={groq,openrouter,...}`.
+**Provider — resolved via chain (not hardcoded).** See § Peer Review Provider Resolution below for the canonical 6-step chain. The previous «default `deepseek`» behaviour is now chain step #4 (coworker `--profile code` recommended_provider), not a hardcoded literal. CLI override via `--peer-provider={deepseek,groq,openrouter,sonnet,haiku,...}` is chain step #1.
 
 **`--task-id {TASK-ID}` propagation is MANDATORY.** Without it the downstream token-cost tool (`dev-tools/measure-invocation-token-cost.sh`) cannot filter `~/.local/state/coworker/log/<YYYY-MM-DD>.jsonl` records by task. Skill MUST pass it on every Layer 2 invocation.
 
 **Adversarial frame template** is the same as the v1 Codex path (canonical text in §Single-Prompt Loop Mechanics) — DeepSeek receives it verbatim.
 
-**Findings schema:** every record tagged `source_layer: "peer_review"` and `peer_review_provider: <name>` so audit log preserves which external model produced which finding.
+**Findings schema:** every record tagged `source_layer: "peer_review"`, `peer_review_provider: <name>`, and `peer_review_mode: cross_vendor|cross_claude_family|same_model_isolated` so audit log preserves which external model produced which finding under which dispatch class.
 
-**Cost guard:** Layer 2 + Layer 3 combined cost is bounded by `--cost-cap` (default 1.25× baseline `/dr-do`). Excess → orchestrator warns operator and continues; auto-degrade is intentionally not done at v2 (operator decides whether to drop Layer 3).
+**Cost guard:** Layer 2 + Layer 3 combined cost is bounded by `--cost-cap` (default 1.25× baseline `/dr-do`). Excess → orchestrator warns operator and continues; auto-degrade is intentionally not done at v2 (operator decides whether to drop Layer 3). Per-step cost-cap probe in chain step #0 of `dev-tools/resolve-peer-provider.sh` (default `PEER_REVIEW_COST_THRESHOLD=$0.10/run`) guards against runaway Sonnet/Haiku invocation specifically.
+
+### Peer Review Provider Resolution
+
+`/dr-verify` invocations without an explicit `--peer-provider` flag (zero-flag UX) trigger a 6-step resolution chain implemented by `dev-tools/resolve-peer-provider.sh`. The chain reads the canonical datarim-config files (per-project then per-user XDG) and the coworker default before falling through to cross-Claude-family or same-model isolated dispatch. Each step emits 3 lines on stdout (`provider`, `peer_review_mode`, `source_layer`) and exits 0; subsequent steps are tried only if the prior step yielded no provider.
+
+| Step | Source | Mode (typical) | source_layer tag |
+|------|--------|----------------|-------------------|
+| 1 | `--peer-provider <name>` CLI flag (override) | inferred from provider | `cli_flag` |
+| 2 | `./datarim/config.yaml` (per-project datarim-config, team-shared) `peer_review.provider` | inferred | `per_project_config` |
+| 3 | `~/.config/datarim/config.yaml` (per-user XDG datarim-config) `peer_review.provider` | inferred | `per_user_config` |
+| 4 | `coworker --profile code` recommended_provider (parsed from `~/.config/coworker/profiles.yaml`) | typically `cross_vendor` | `coworker_default` |
+| 5 | cross-Claude-family subagent — `agents/peer-reviewer.md` dispatched at `model: sonnet` (Claude Code runtime only) | `cross_claude_family` | `fallback_subagent` |
+| 6 | same-model isolated last resort — Opus reviewing Opus output (Codex degraded path or final fallback) | `same_model_isolated` | `fallback_isolated` |
+
+**Provider whitelist:** `deepseek | moonshot | openrouter | sonnet | haiku | opus | none`. Unknown values → exit 1 (supply-chain mitigation: malicious PR injecting `provider: typosquat-host` blocked at parse).
+
+**`peer_review_mode` taxonomy (3-tier):**
+
+- **`cross_vendor`** — DeepSeek / Moonshot / OpenRouter via `coworker ask`. Different company, different training run, different RLHF — strongest mitigation of self-agreement bias (Huang et al. ICLR 2024).
+- **`cross_claude_family`** (cross-Claude-family) — Sonnet 4.6 reviewing Opus 4.7 output via Claude Code subagent dispatch. Different model checkpoints with different post-training runs, isolated subagent context. Middle tier — covered by Claude subscription (no per-user API key needed). Empirical bias delta vs same-model self-critique remains under measurement in the active dogfood window.
+- **`same_model_isolated`** (same-model isolated) — Opus reviewing Opus or Codex single-prompt loop. Same model family, same training distribution. Last-resort fallback only; least-mature pattern (KILL_OR_PIVOT trigger documented in evolution log).
+
+**Per-project vs per-user config precedence:** per-project (D-5) wins on conflict. The helper writes a stderr WARN when both are set with different values; the audit-log records the winning layer in `peer_review_provider_source_layer`.
+
+**Codex CLI degraded mode:** when `CODEX_RUNTIME=1` is set in env, chain step #5 is skipped and step #6 is taken. The helper writes `WARN: Codex runtime detected, falling back to same_model_isolated mode` to stderr (D-4); orchestrator MUST propagate this warning into the audit-log so operator visibility on the degraded path is preserved.
+
+**Audit-log fields written by orchestrator** (added per record):
+
+- `peer_review_provider: <name>` — actual provider used
+- `peer_review_mode: <enum>` — taxonomy tag
+- `peer_review_provider_source_layer: <enum>` — chain step that resolved
+
+These enable per-mode rate aggregation in `dev-tools/measure-prospective-rate.sh --verify-dir <path>`, which emits `cross_vendor_rate`, `cross_claude_family_rate`, `same_model_isolated_rate` keys for per-mode dogfood measurement.
+
+**Reference contract:** `dev-tools/resolve-peer-provider.sh --help` prints the canonical output schema and exit codes (0 success / 1 invalid provider / 2 cost-cap breach).
+
+#### JSONL emission discipline (Layer 2 reviewer prompts)
+
+Findings are emitted ONLY when a check FAILS or surfaces NEW DRIFT. If a claim is verified and holds, do NOT include a JSONL line for it. The reviewer's job is to surface gaps, not to enumerate everything checked.
+
+**Accepted output shapes:**
+- 0 items (all claims valid — silent suppression is correct)
+- 1+ items (defects or incorrect-premise findings)
+
+**Rejected output shapes:**
+- Entries whose `check_name` says «cleared», «PASS», «verified», «no finding» — these belong outside the JSONL stream (in a final-line summary at most).
+- Entries restating an already-confirmed-correct fact as a finding.
+
+**Correct (suppression):** prompt asks «verify F001 cleared»; reader examines lines and concludes claim holds → emit nothing for F001.
+
+**Incorrect (PASS-as-finding):** `{"finding_id":"F004","check_name":"F001 cleared, no finding"}` — the pass entry should not be in the array.
+
+Compress confirmations into the final-line summary `{cleared_iter1: [...], total_new_findings: N}` (or omit if no prior iter to compare). Keeps the audit log signal-dense.
 
 ### Layer 3 — Native Runtime Dispatch
 
@@ -152,7 +205,7 @@ Conditional: runtime detected as codex (via env `CODEX_RUNTIME=1` or `--runtime=
 4. Validate against schema rules 1-7.
 5. Iterate per Loop Exit Criteria.
 
-> Operators on Codex CLI SHOULD invoke `/dr-verify ... --peer-provider deepseek` to get cross-model coverage on top of the single-prompt fallback.
+> Operators on Codex CLI SHOULD invoke `/dr-verify ... --peer-provider deepseek` to get cross-model coverage on top of the single-prompt fallback. Without an explicit flag, `dev-tools/resolve-peer-provider.sh` emits `same_model_isolated` mode + stderr WARN under Codex runtime (chain step #6).
 
 ## Findings Schema
 

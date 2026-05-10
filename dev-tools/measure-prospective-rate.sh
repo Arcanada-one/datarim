@@ -34,6 +34,7 @@ set -uo pipefail
 SINCE=""
 ARCHIVE_ROOT="documentation/archive"
 TAG_FIELD="verification_outcome"
+VERIFY_DIR="datarim/qa"
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -49,6 +50,10 @@ while [ $# -gt 0 ]; do
             shift
             [ $# -gt 0 ] || { echo "measure-prospective-rate: --tag-field requires value" >&2; exit 2; }
             TAG_FIELD="$1"; shift ;;
+        --verify-dir)
+            shift
+            [ $# -gt 0 ] || { echo "measure-prospective-rate: --verify-dir requires value" >&2; exit 2; }
+            VERIFY_DIR="$1"; shift ;;
         --help|-h)
             sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'
             exit 0 ;;
@@ -67,14 +72,13 @@ if ! printf '%s' "$SINCE" | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
     exit 2
 fi
 
-if [ ! -d "$ARCHIVE_ROOT" ]; then
-    cat <<EOF
-{"since": "$SINCE", "archive_root": "$ARCHIVE_ROOT", "total_tasks": 0, "n_a": 0, "sum_caught": 0, "sum_missed": 0, "sum_false_positive": 0, "rate_per_5_tasks": 0.0, "rate_per_10_tasks": 0.0, "decision_hint": "archive-root not found", "dogfood_window_breakdown": {}}
-EOF
-    exit 0
-fi
+# Note: missing archive-root is handled inside python (os.walk returns empty
+# iterator). The bash early-exit branch was removed so the verify-dir walk
+# runs even when archive-root is absent — otherwise callers using only
+# verify-dir would see a truncated JSON shape missing the per_mode_rates
+# fields.
 
-python3 - "$SINCE" "$ARCHIVE_ROOT" "$TAG_FIELD" <<'PYEOF'
+python3 - "$SINCE" "$ARCHIVE_ROOT" "$TAG_FIELD" "$VERIFY_DIR" <<'PYEOF'
 import json
 import os
 import re
@@ -84,6 +88,7 @@ from datetime import datetime
 since = sys.argv[1]
 archive_root = sys.argv[2]
 tag_field = sys.argv[3]
+verify_dir = sys.argv[4]
 
 since_dt = datetime.strptime(since, "%Y-%m-%d")
 since_ts = since_dt.timestamp()
@@ -198,6 +203,48 @@ else:
     rate_5 = 0.0
     rate_10 = 0.0
 
+# Per-mode peer_review distribution from datarim/qa/verify-*.md.
+# Walks audit-log files since SINCE; counts `peer_review_mode: <X>` field
+# occurrences (per-finding tag) and emits per-mode rates per scoring task.
+mode_counts = {
+    "cross_vendor": 0,
+    "cross_claude_family": 0,
+    "same_model_isolated": 0,
+}
+verify_files_seen = 0
+verify_mode_re = re.compile(r"peer_review_mode:\s*([a-z_]+)")
+if os.path.isdir(verify_dir):
+    for root, _dirs, files in os.walk(verify_dir):
+        for name in files:
+            if not name.startswith("verify-") or not name.endswith(".md"):
+                continue
+            path = os.path.join(root, name)
+            try:
+                mtime = os.path.getmtime(path)
+            except OSError:
+                continue
+            if mtime < since_ts:
+                continue
+            verify_files_seen += 1
+            try:
+                with open(path, "r", encoding="utf-8", errors="replace") as fh:
+                    body = fh.read()
+            except OSError:
+                continue
+            for m in verify_mode_re.finditer(body):
+                mode = m.group(1)
+                if mode in mode_counts:
+                    mode_counts[mode] += 1
+
+# Per-mode rates: count / scoring_tasks (parallel to caught_per_5_tasks).
+# When scoring_tasks=0 the absolute count is exposed (rate undefined → 0.0).
+def per_mode_rate(count, denom):
+    return round(count / denom, 4) if denom > 0 else 0.0
+
+cross_vendor_rate = per_mode_rate(mode_counts["cross_vendor"], scoring_tasks)
+cross_claude_family_rate = per_mode_rate(mode_counts["cross_claude_family"], scoring_tasks)
+same_model_isolated_rate = per_mode_rate(mode_counts["same_model_isolated"], scoring_tasks)
+
 if scoring_tasks == 0:
     decision_hint = "dogfood_window not yet populated"
 elif rate_5 >= 1.0:
@@ -211,6 +258,7 @@ result = {
     "since": since,
     "archive_root": archive_root,
     "tag_field": tag_field,
+    "verify_dir": verify_dir,
     "total_tasks": total_tasks,
     "n_a": n_a_count,
     "scoring_tasks": scoring_tasks,
@@ -221,6 +269,11 @@ result = {
     "rate_per_10_tasks": rate_10,
     "decision_hint": decision_hint,
     "dogfood_window_breakdown": window_breakdown,
+    "verify_files_seen": verify_files_seen,
+    "peer_review_mode_counts": mode_counts,
+    "cross_vendor_rate": cross_vendor_rate,
+    "cross_claude_family_rate": cross_claude_family_rate,
+    "same_model_isolated_rate": same_model_isolated_rate,
 }
 print(json.dumps(result, ensure_ascii=False, indent=2))
 PYEOF

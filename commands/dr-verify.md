@@ -19,7 +19,7 @@ description: Standalone self-verification of a Datarim artifact (PRD/plan/do out
    - `--max-iter=N` optional, default 3
    - `--no-fix` flag, default ON (findings-only mode)
    - `--floor-only` flag — skip Layer 2 + Layer 3 (deterministic checks only, fastest, zero LLM cost)
-   - `--peer-provider={deepseek,groq,openrouter,...}` optional, default `deepseek` (Layer 2 cross-model reviewer; vendor-neutral via coworker abstraction)
+   - `--peer-provider={deepseek,moonshot,openrouter,sonnet,haiku,...}` optional. When omitted, provider auto-resolves via 6-step chain in `dev-tools/resolve-peer-provider.sh` (CLI → per-project datarim-config → per-user XDG datarim-config → coworker `--profile code` default → cross-Claude-family subagent → same-model isolated last resort). See skill § Peer Review Provider Resolution.
    - `--runtime={claude,codex}` optional, auto-detect via env (`CODEX_RUNTIME=1` → codex, else claude); affects Layer 3 only
    - `--external-verifier=PASS` optional override (Loop Exit Criteria level 1)
    - `--cost-cap=N` optional token ceiling, default = baseline `/dr-do` tokens × 1.25
@@ -30,7 +30,11 @@ description: Standalone self-verification of a Datarim artifact (PRD/plan/do out
    - `all` → all of above + AC list extracted from PRD
 6. **TRI-LAYER DISPATCH** (canonical v2 order — fastest+cheapest first, fail-fast on Layer 1):
    - **6.1 Layer 1 — Deterministic floor.** Invoke `bash code/datarim/dev-tools/dr-verify-floor.sh --task {TASK-ID} --stage {stage} --workspace <project-root>`. Capture JSONL findings on stdout, progress on stderr. Each finding carries `source_layer: "floor"`. If `--floor-only` passed, skip 6.2 and 6.3.
-   - **6.2 Layer 2 — Cross-model peer-review.** Invoke `coworker ask --provider {peer-provider} --profile datarim --task-id {TASK-ID} --paths <artifact-paths> --question "<adversarial-frame-template>"`. The `--task-id {TASK-ID}` propagation is **MANDATORY** — without it the token-cost tool cannot filter logs by task. Parse JSON response per skill §Findings Schema; each finding tagged `source_layer: "peer_review"` and `peer_review_provider: <name>`.
+   - **6.2 Layer 2 — Provider resolution + cross-model peer-review.** First invoke `bash dev-tools/resolve-peer-provider.sh [--peer-provider <flag>] [--project-config ./datarim/config.yaml] [--user-config ~/.config/datarim/config.yaml]` to resolve `provider`, `peer_review_mode`, `source_layer` (3 lines on stdout; exit 0 success / 1 invalid / 2 cost-cap). Then dispatch by mode:
+     - `cross_vendor` → `coworker ask --provider <p> --profile code --task-id {TASK-ID} --paths <artifact-paths> --question "<adversarial-frame-template>"`
+     - `cross_claude_family` → spawn `agents/peer-reviewer.md` subagent (model: sonnet, readonly tools)
+     - `same_model_isolated` → fall through to Layer 3 single-prompt loop (or Codex degraded path)
+     The `--task-id {TASK-ID}` propagation is **MANDATORY** at all dispatch paths — without it the token-cost tool cannot filter logs by task. Each finding tagged `source_layer: "peer_review"`, `peer_review_provider: <name>`, `peer_review_mode: <enum>`, `peer_review_provider_source_layer: <chain-step-tag>`.
    - **6.3 Layer 3 — Native runtime dispatch.** Branch on `--runtime`:
      - **claude path**: spawn 3 parallel subagents via `Agent` tool (`subagent_type=reviewer`/`tester`/`security`; tool whitelist: Read, Grep, Glob, Bash read-only — **NO** Write/Edit). Each receives self-contained context package. Findings tagged `source_layer: "dispatch"`.
      - **codex path** *([experimental] fallback only — see skill §Runtime-Aware Switch)*: single-prompt loop with canonical adversarial framing.
@@ -85,6 +89,7 @@ If same finding emerges on **3 consecutive iterations** with same `artifact_ref`
 ## Constraints
 
 - **Stack-agnostic** mandate. All three layers run identically under any runtime; Layer 2 vendor-neutral via coworker abstraction.
+- **`--peer-provider` is now an override, not a default.** Provider auto-resolves via `dev-tools/resolve-peer-provider.sh` chain when flag is omitted. Backward-compat preserved: legacy `--peer-provider deepseek` invocation remains valid as chain step #1 (`source_layer: cli_flag`).
 - **Read-only** subagent tool whitelist (Read, Grep, Glob, Bash read-only). **NO** Write, Edit, NotebookEdit at all layers.
 - **Cost budget cap**: `--cost-cap=N` (default 1.25× baseline `/dr-do`). If Layer 2 + Layer 3 combined cost exceeds cap, warn operator and continue (do not auto-degrade — operator decides).
 - **Append-only audit log** (`chmod a-w` post-write).
@@ -140,6 +145,43 @@ $ /dr-verify {TASK-ID} --stage all --runtime codex
   → 1 finding (completeness)
 [aggregate] 2 unique findings post-dedupe
 Final verdict: CONDITIONAL
+```
+
+### Example 4: Zero-flag UX (resolution chain auto-resolves)
+
+```
+$ /dr-verify {TASK-ID} --stage prd
+[Layer 1 — floor]  → 0 findings
+[resolve-peer-provider]
+  no --peer-provider flag
+  no ./datarim/config.yaml
+  no ~/.config/datarim/config.yaml
+  coworker --profile code default → deepseek
+  → provider=deepseek, mode=cross_vendor, source_layer=coworker_default
+[Layer 2 — peer_review provider=deepseek mode=cross_vendor]
+  coworker ask --provider deepseek --profile code --task-id {TASK-ID} ...
+  → 1 finding (medium, correctness)
+[Layer 3 — dispatch runtime=claude]  → 0 findings
+[aggregate] 1 unique finding
+  → verdict: CONDITIONAL
+  → audit: datarim/qa/verify-{TASK-ID}-prd-1.md
+    peer_review_provider: deepseek
+    peer_review_mode: cross_vendor
+    peer_review_provider_source_layer: coworker_default
+```
+
+If neither config nor coworker is set up (greenfield onboarding), chain step #5 dispatches `agents/peer-reviewer.md` (model: sonnet) — covered by Claude subscription, no external API key required:
+
+```
+$ /dr-verify {TASK-ID} --stage prd
+...
+[resolve-peer-provider]
+  no flag, no config, no coworker
+  → provider=sonnet, mode=cross_claude_family, source_layer=fallback_subagent
+[Layer 2 — peer_review provider=sonnet mode=cross_claude_family]
+  spawn agents/peer-reviewer.md (readonly: Read, Grep, Glob)
+  → 2 findings (medium, completeness + safety)
+...
 ```
 
 ## Transition Checkpoint
