@@ -215,7 +215,13 @@ Command files: `$HOME/.claude/commands/{name}.md` (22 commands)
 Manual self-verification command (post-completion review of any pipeline artifact). **Tri-layer architecture (cheapest-first, fail-fast):**
 
 1. **Layer 1 — Deterministic floor.** `dev-tools/dr-verify-floor.sh` — pure shell pipeline (AC coverage grep, file-touched audit, test-presence parse, shellcheck). Zero LLM cost; runs in seconds.
-2. **Layer 2 — Cross-model peer-review.** `coworker ask --provider {peer-provider} --task-id <ID>` — adversarial reviewer in clean external context. Default provider `deepseek` (~14× cheaper than Sonnet on output tokens). Vendor-neutral via the coworker abstraction.
+2. **Layer 2 — Cross-model peer-review.** `coworker ask --provider {peer-provider} --task-id <ID>` — adversarial reviewer in clean external context. Vendor-neutral via the coworker abstraction.
+
+   **Provider auto-resolves** via 6-step resolution chain (`dev-tools/resolve-peer-provider.sh`):
+   - **zero-flag UX** when no provider configured anywhere — chain falls through to subagent dispatch
+   - resolution chain order: CLI → per-project datarim-config → per-user XDG datarim-config → coworker `--profile code` default → cross-Claude-family fallback → same-model isolated last resort
+   - cross-Claude-family fallback dispatches `agents/peer-reviewer.md` at `model: sonnet` (covered by Claude subscription, no external API key required)
+   - audit-log records `peer_review_provider`, `peer_review_mode`, `peer_review_provider_source_layer` for unambiguous trace
 3. **Layer 3 — Native runtime dispatch.** Claude 3-agent parallel (reviewer + tester + security) is canonical; Codex single-prompt is `[experimental]` fallback retained for parity.
 
 Findings carry an explicit `source_layer` tag (`floor` / `peer_review` / `dispatch`) and dedupe across layers prefers earlier-source findings. NOT a replacement for `/dr-qa` — `/dr-qa` is a manual single-agent multi-layer review; `/dr-verify` is a runtime-dispatch structured-findings loop.
