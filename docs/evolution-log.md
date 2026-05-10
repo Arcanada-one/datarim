@@ -1150,3 +1150,58 @@ None (TUNE-0091's currently-failing tests will surface organically on its PR via
 - **mkdir-lock vs flock substitution** (Round 2). PRD цитирует `flock`; macOS bash не поставляет `flock`. mkdir-based atomic mutex выбран как POSIX cross-platform substitute. Class B follow-up captures the workflow gap.
 - **Plan E4 skip** (Round 6). `dev-tools/scripts/check-drift.sh` — deprecated v1.17, удаляется v1.18. Step moot; symlink-mode пользователи не имеют drift по определению.
 - **+1 unplanned skill-registry check** (Round 5). Check 9 добавлен поверх 8 plan'ом checks как закрытие Round 4 side-observation про `dr-archive` симптом. Improvement, not scope creep.
+
+
+---
+
+## TUNE-0137 — Self-Verification v1 (v2.0.0)
+
+**Date:** 2026-05-09
+**Complexity:** L3
+**Outcome:** v1 tri-layer architecture research + PRD v2 pivot. Phase 1 shipped: `skills/self-verification.md` + `commands/dr-verify.md` + `dev-tools/measure-verify-effectiveness.sh` + `dev-tools/test-self-verification-claude.sh` + `dev-tools/measure-verify-cost.sh`. AC-7 hit-rate 7.7% literal / 15.4% semantic on n=13 known gaps → R-5 KILL_OR_PIVOT triggered. Research dimensions consensus: vanity metric (retrospective recall), not feature failure. PRD v2 pivot to tri-layer (Layer 1 deterministic floor + Layer 2 cross-model peer-review + Layer 3 native dispatch). TUNE-0144 spawned for Phase 2 implementation.
+
+### Class A Applied
+
+- **`skills/self-verification.md` initial draft** — v1 single-pass Codex prompt path, basic findings schema, audit log spec.
+- **`commands/dr-verify.md` initial draft** — Layer 3 native dispatch only; `--max-iter`, `--stage` args.
+- **`dev-tools/measure-verify-{cost,effectiveness}.sh`** — v1 measurement harness; broken data-source path (`~/.local/share/coworker/log.jsonl` phantom). Deprecated in TUNE-0144.
+- **`dev-tools/test-self-verification-claude.sh`** — AC-10 integration test harness (contract validator, not executable test).
+
+### Class B (HELD — addressed in TUNE-0144 / gated tasks)
+
+- **Layer 1 deterministic floor** → TUNE-0144 Phase 2.
+- **Layer 2 cross-model peer-review** → TUNE-0144 Phase 2.
+- **Post-step hook auto-trigger** → TUNE-0138 (gated on Phase 3-4 dogfood ≥1 per 5 tasks).
+
+---
+
+## TUNE-0144 — Self-Verification v2 tri-layer + tagging schema + token-cost tooling (v2.1.0)
+
+**Date:** 2026-05-10
+**Complexity:** L3
+**Outcome:** Phase 2 PRD-TUNE-0137 v2 shipped. 6 deliverables: (1) Layer 1 deterministic floor `dev-tools/dr-verify-floor.sh` (340 LoC, shellcheck-clean, JSONL findings with `source_layer: floor`); (2) Layer 2 cross-model peer-review path wired into `commands/dr-verify.md` (`--peer-provider`, `--floor-only`, `--task-id` propagation); (3) `skills/self-verification.md` tri-layer sections + extended findings schema; (4) `dev-tools/measure-invocation-token-cost.sh` (XDG_STATE_HOME, OpenTelemetry dotted-key JSONL, per-task token aggregation); (5) `dev-tools/measure-prospective-rate.sh` (archive frontmatter walker, R-5 v2 decision_hint); (6) `templates/archive-template.md` canonical NEW with `verification_outcome` schema + `commands/dr-archive.md` MANDATORY filling instruction. Public-surface 4-way: `data/commands/dr-verify.php` (EN+RU), `docs/commands.md` row, `README.md` bullet, `code/datarim/CLAUDE.md` tri-layer rewrite. Old `measure-verify-cost.sh` deprecated side-by-side. Version 2.0.0 → 2.1.0 across 6 files.
+
+### Class A Applied
+
+- **`dev-tools/dr-verify-floor.sh`** (NEW) — Layer 1 deterministic floor shell pipeline. Checks: AC coverage grep, file-touched audit, test-presence parse (manifest-agnostic), shellcheck recursive. JSONL output with `source_layer: "floor"`, `check_name`, `severity`. Exit = count of `severity=high` findings.
+- **`dev-tools/measure-invocation-token-cost.sh`** (NEW) — per-task coworker token cost aggregator. XDG_STATE_HOME resolution, daily-rotated JSONL, OpenTelemetry dotted-key dict access, provider breakdown.
+- **`dev-tools/measure-prospective-rate.sh`** (NEW) — Phase 3 dogfood rate tracker. Walks `documentation/archive/**/archive-*.md`, extracts `verification_outcome` frontmatter, computes `caught_per_5_tasks`. `decision_hint` drives R-5 v2 kill-gate verdict.
+- **`templates/archive-template.md`** (NEW canonical) — formal YAML frontmatter schema including closed `verification_outcome` block: `caught_by_verify`, `missed_by_verify`, `false_positive`, `n_a`, `dogfood_window`.
+- **`commands/dr-archive.md` Step 2 extension** — MANDATORY `verification_outcome` fill instruction with pointer to template.
+- **`code/datarim/CLAUDE.md` § /dr-verify rewrite** — tri-layer description + verification tagging workflow at archive time.
+- **`data/commands/dr-verify.php`** (NEW) — public-surface EN+RU page on datarim.club.
+- **`dev-tools/measure-verify-cost.sh` deprecation** — DEPRECATED header + stderr warning; side-by-side preserve; data-source path phantom corrected.
+
+### Class B (HELD — gated tasks)
+
+- **Post-step hook auto-trigger (TUNE-0138)** — gated on Phase 3-4 prospective dogfood verdict ≥1 per 5 tasks.
+- **Auto-fix policy (TUNE-0140)** — gated on TUNE-0138 ship + FP rate <30%.
+- **Cost-adaptive L4 self-degradation (TUNE-0139)** — gated on TUNE-0138 ship.
+- **`dev-tools/check-version-consistency.sh`** — mechanical CI enforcer for TUNE-0019 version consistency rule. Optional follow-up backlog item.
+
+### Decisions Logged (TUNE-0144 implementation)
+
+- **D-4 (coworker log truth path):** `~/.local/state/coworker/log/<YYYY-MM-DD>.jsonl` (XDG_STATE_HOME, daily-rotated, OpenTelemetry keys) — NOT `~/.local/share/coworker/log.jsonl` as cited in PRD line 186. PRD edit deferred to TUNE-0137 parent archive.
+- **D-5 (archive template phantom):** `templates/archive-template.md` did not exist; created as NEW canonical file.
+- **D-6 (measure-prospective-rate.sh):** added as 6th deliverable beyond PRD 5-item roadmap — needed immediately for Phase 3 measurement.
+- **D-7 (deprecated side-by-side):** `measure-verify-cost.sh` deprecated in-place; removal deferred 30 days via backlog.
