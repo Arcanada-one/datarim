@@ -15,7 +15,7 @@ reflection. The result is inconsistent quality, skipped steps, and zero institut
 learning. Every task starts from scratch, repeating the same mistakes from yesterday.
 
 Datarim fixes this by providing a complete iterative pipeline for any project type.
-It includes 17 specialized agents, 27 reusable skills, and 20 commands that guide
+It includes 18 specialized agents, 39 reusable skills, and 22 commands that guide
 work through a structured process: requirements gathering, planning, design,
 execution, quality assurance, compliance, reflection, and archival. The pipeline is
 complexity-aware — a quick fix does not go through the same process as a major
@@ -87,16 +87,17 @@ Stages in `[brackets]` are conditional — included when the agent determines th
 
 ## Features
 
-- **17 specialized agents** — planner, architect, developer, reviewer, compliance,
+- **18 specialized agents** — planner, architect, developer, reviewer, compliance,
   code-simplifier, strategist, devops, writer, editor, skill-creator, optimizer,
-  librarian, security, SRE, tester, and researcher. Each agent has a defined role,
-  capabilities, and the stages where it operates.
+  librarian, security, SRE, tester, researcher, and peer-reviewer (Layer 2/3
+  cross-Claude-family fallback). Each agent has a defined role, capabilities,
+  and the stages where it operates.
 
-- **27 reusable skills** — modular knowledge units that agents load on demand,
+- **39 reusable skills** — modular knowledge units that agents load on demand,
   covering everything from testing methodology to security hardening to content
   creation workflows and structured research.
 
-- **21 commands** — 8 pipeline stages, 3 content (write, edit, publish), 5 framework
+- **22 commands** — 8 pipeline stages + /dr-verify standalone, 3 content (write, edit, publish), 5 framework
   and knowledge management (addskill, doctor, optimize, dream, **plugin** v1.23.0+), 3 utilities (status, continue,
   help), and 2 standalone tools (factcheck, humanize).
 
@@ -135,11 +136,15 @@ Stages in `[brackets]` are conditional — included when the agent determines th
 
 - **Tri-layer self-verification (`/dr-verify`)** — on-demand standalone verification
   of any pipeline artifact. Layer 1 deterministic floor (shell pipeline, no LLM
-  cost) → Layer 2 cross-model peer-review (DeepSeek default via the `coworker`
-  abstraction, cleanly external context) → Layer 3 native runtime dispatch
-  (Claude 3-agent parallel, Codex single-prompt fallback). Findings carry a
-  `source_layer` tag for tri-layer provenance and dedupe. `--floor-only` for fast
-  pre-merge gating with zero LLM cost.
+  cost) → Layer 2 cross-model peer-review (cleanly external context) → Layer 3
+  native runtime dispatch (Claude 3-agent parallel, Codex single-prompt fallback).
+  Layer 2 provider auto-resolves via a 6-step chain (CLI flag → per-project
+  `datarim/config.yaml` → per-user XDG → coworker `--profile code` default →
+  cross-Claude-family subagent fallback → same-model isolated last resort), so
+  `/dr-verify {TASK-ID}` works zero-flag without any external API key. Findings
+  carry `source_layer` + `peer_review_mode` (`cross_vendor` / `cross_claude_family` /
+  `same_model_isolated`) tags for tri-layer provenance and dispatch-class audit.
+  `--floor-only` for fast pre-merge gating with zero LLM cost.
 
 - **Native shell utilities** — no external MCP server dependencies required. All
   core functionality works through Claude Code's built-in tools and shell access.
@@ -897,10 +902,10 @@ and why it exists.
 
 ```
 datarim/
-  agents/            # Agent personas (17 agents)
-  skills/            # Knowledge modules (27 skills)
-  commands/          # Slash commands (20 commands)
-  templates/         # Task and document templates (18 templates)
+  agents/            # Agent personas (18 agents)
+  skills/            # Knowledge modules (39 skills)
+  commands/          # Slash commands (22 commands)
+  templates/         # Task and document templates (23 templates)
   docs/              # Extended documentation and use cases
   CLAUDE.md          # Framework rules (copy to your project)
   install.sh         # Automated installer
