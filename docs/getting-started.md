@@ -255,6 +255,36 @@ your-project/
 
 ---
 
+---
+
+## Project Scaffolding — Diátaxis Documentation Structure
+
+When `/dr-init` is invoked with a project-creation intent (e.g. `/dr-init create project "Foo"`), the scaffolder follows the **Documentation Taxonomy Mandate** (`skills/diataxis-docs.md`). The default `docs/` layout is the four Diátaxis categories with auto-mapped legacy stubs:
+
+```
+your-project/docs/
+├── tutorials/              # Learning-oriented (newcomer end-to-end)
+│   └── README.md
+├── how-to/                 # Problem-solving (task recipes)
+│   ├── README.md
+│   ├── testing.md          # Legacy stub mapped to how-to
+│   ├── deployment.md       # Legacy stub mapped to how-to
+│   └── gotchas.md          # Legacy stub mapped to how-to
+├── reference/              # Information-oriented (lookup, catalogue)
+│   ├── README.md
+│   └── architecture.md     # Legacy stub mapped to reference (system map)
+└── explanation/            # Understanding-oriented (background, why)
+    └── README.md
+```
+
+The four categories are a **closed set** — `faq`, `glossary`, `troubleshooting`, `examples`, `overview`, `samples` are mappable to one of the four canonical buckets, never separate top-level types. See `skills/diataxis-docs.md` § Mapping Table for the full mapping (architecture / testing / deployment / gotchas / api / cli / config / concepts / design / tutorial / quickstart / faq / troubleshooting / examples / glossary).
+
+**Idempotency:** `/dr-init` never overwrites existing files. If `docs/` already exists with files, the scaffolder skips them and reports "skipped: already exists" per file.
+
+**Stack-agnostic:** the mandate describes taxonomy only — your choice of static-site generator (any) is per-project and outside the contract.
+
+**Drift detection:** `/dr-optimize` Step 6 detects repos with ≥3 `docs/*.md` files but missing the 4-category split, and proposes `INFRA-* — Diátaxis docs reorg` in backlog. Soft warning only at this stage; a future hard CI gate is deferred to a separate backlog item.
+
 ## Two-Layer Architecture
 
 Datarim separates workflow state from project documentation. This is the central design decision behind the directory structure.

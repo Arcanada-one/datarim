@@ -2,7 +2,7 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 2.1.0](https://img.shields.io/badge/Version-2.1.0-green.svg)](VERSION)
+[![Version: 2.2.0](https://img.shields.io/badge/Version-2.2.0-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
@@ -15,7 +15,7 @@ reflection. The result is inconsistent quality, skipped steps, and zero institut
 learning. Every task starts from scratch, repeating the same mistakes from yesterday.
 
 Datarim fixes this by providing a complete iterative pipeline for any project type.
-It includes 18 specialized agents, 39 reusable skills, and 22 commands that guide
+It includes 18 specialized agents, 40 reusable skills, and 22 commands that guide
 work through a structured process: requirements gathering, planning, design,
 execution, quality assurance, compliance, reflection, and archival. The pipeline is
 complexity-aware — a quick fix does not go through the same process as a major
@@ -93,7 +93,7 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   cross-Claude-family fallback). Each agent has a defined role, capabilities,
   and the stages where it operates.
 
-- **39 reusable skills** — modular knowledge units that agents load on demand,
+- **40 reusable skills** — modular knowledge units that agents load on demand,
   covering everything from testing methodology to security hardening to content
   creation workflows and structured research.
 
@@ -903,7 +903,7 @@ and why it exists.
 ```
 datarim/
   agents/            # Agent personas (18 agents)
-  skills/            # Knowledge modules (39 skills)
+  skills/            # Knowledge modules (40 skills)
   commands/          # Slash commands (22 commands)
   templates/         # Task and document templates (23 templates)
   docs/              # Extended documentation and use cases
