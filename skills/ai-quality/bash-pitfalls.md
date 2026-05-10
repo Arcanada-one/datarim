@@ -192,6 +192,98 @@ prior incident — initial `post-deploy-verify.sh` evaluator used the heredoc-wi
 
 **Rule:** any inline interpreter that needs caller-supplied data should receive it through an environment variable or a here-string, not through a heredoc-and-pipe combination. The heredoc body is the script source — it cannot also be the input stream.
 
+## Pitfall: `date +%s%N` is GNU-only — silent breakage on macOS / BSD
+
+### Trap
+
+```bash
+# WRONG — works on Linux (GNU coreutils), prints literal "%N" on macOS BSD date.
+now_ms=$(date +%s%N)
+echo "${now_ms:0:-6}"   # garbage on mac: e.g. "1715000000%N" -> empty
+```
+
+`date +%N` is a GNU-only format token. macOS / FreeBSD `date(1)` prints it
+verbatim, so the timestamp silently becomes wrong. No exit error, no warning —
+just a non-numeric trailing `%N` that downstream arithmetic discards or
+mangles. Cross-platform shell scripts that need millisecond precision MUST NOT
+rely on `date +%s%N`.
+
+### Right
+
+```bash
+# Portable millisecond clock: prefer bash 5's $EPOCHREALTIME, fall back to
+# perl (present on macOS by default and on every Ubuntu base image).
+now_ms() {
+  if [[ -n "${EPOCHREALTIME:-}" ]]; then
+    local r="$EPOCHREALTIME"
+    local sec="${r%.*}"
+    local frac="${r#*.}"
+    frac="${frac:0:3}"
+    while [[ ${#frac} -lt 3 ]]; do frac="${frac}0"; done
+    echo "$(( 10#$sec * 1000 + 10#$frac ))"
+  else
+    perl -MTime::HiRes=time -e 'printf "%d\n", time()*1000'
+  fi
+}
+```
+
+Bash 5 exposes `$EPOCHREALTIME` as `<seconds>.<fractional>` — fast (no fork),
+no external dependency. Bash 3.2 / 4 paths fall back to perl, which is on
+every supported runner and the macOS base install. Avoid the temptation to
+require GNU coreutils — most dev hosts in this ecosystem are macOS.
+
+### Why this matters in practice
+
+TUNE-0164 plan §5.4 originally specified `date +%s%N` for the security-floor
+cooldown clock. The first smoke run on the mac dev box produced timestamps
+ending in literal `%N`, breaking the cooldown arithmetic without any error.
+The fix above was applied during `/dr-do` and is now the canonical recipe.
+
+## Pitfall: `awk` `sub()` does NOT support capture groups — that's `sed`-only
+
+### Trap
+
+```bash
+# WRONG — awk's sub()/gsub() do not interpret `\1` as a backreference.
+# It just substitutes the literal two characters "\" and "1".
+echo 'foo: "bar"' | awk '/^foo:/ { sub(/"(.*)"/, "\\1"); print }'
+# Prints:  foo: \1            (NOT  foo: bar)
+```
+
+`awk`'s `sub()` and `gsub()` accept an ERE pattern but the replacement string
+treats `\1..\9` as literal text — there are no capture groups. The behaviour
+is silently wrong: no syntax error, just the wrong substitution. People hit
+this every time they translate a working `sed s/(.*)/\1/` into awk «because
+awk feels cleaner here».
+
+### Right
+
+Use `match()` + `substr()` for capture-equivalent extraction inside awk:
+
+```bash
+echo 'foo: "bar"' | awk '
+  /^foo:/ {
+    if (match($0, /"[^"]*"/)) {
+      print substr($0, RSTART + 1, RLENGTH - 2)
+    }
+  }
+'
+# Prints:  bar
+```
+
+Or stay in `sed` / `perl` for backreference-heavy replacements:
+
+```bash
+echo 'foo: "bar"' | sed -E 's/^foo: "(.*)"$/\1/'
+```
+
+### Why this matters in practice
+
+TUNE-0164 plan §5.5 used `awk '... sub(/^"(.*)"$/, "\\1") ...'` for stripping
+quotes around YAML scalar values. First smoke test produced `\1` literal in
+the output instead of the quoted contents. Replaced with `match()` +
+`substr()` and the fixture cleared.
+
 ## Why this fragment exists
 
 a prior phase shipped two High-severity bugs to QA, both of which are textbook regex/grep traps and both of which would have been caught by either (a) a 5-second mental "what does the regex engine see?" check, or (b) shellcheck with extended pattern checks. The fix in both cases was to abandon the regex and use `awk` token-equality. This fragment encodes the lesson so future ops-script work doesn't repeat it.
