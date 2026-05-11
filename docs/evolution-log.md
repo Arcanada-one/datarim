@@ -1345,3 +1345,26 @@ None (TUNE-0091's currently-failing tests will surface organically on its PR via
 - Stack-agnostic gate: `bash scripts/stack-agnostic-gate.sh skills/testing.md --diff-only` → PASS clean. `bash scripts/stack-agnostic-gate.sh skills/ai-quality.md --diff-only` → PASS clean.
 - Workspace `~/arcanada/CLAUDE.md` is stack-specific by design — gate not applied (consumer config, not runtime artefact).
 - Provenance lives in this evolution-log entry + reflection files + git log.
+
+---
+
+## 2026-05-11 — DEV-1362 Class A applied
+
+### Proposal A1 (skill-update)
+
+- **Target:** `skills/testing/live-smoke-gates.md`
+- **What:** Added `Gate 6: UI Trigger → Cross-Datasource Write` — fires when a UI affordance triggers a server-side write to a data store that unit tests do not bind. Mandates live click + post-condition read in the target store, recorded in the QA report.
+- **Why:** DEV-1362 round-5 QA — operator surfaced the gap that vitest mock at API boundary + jest mock at repository boundary leaves the click→row path uncovered. Asana-sync manual buttons only verified end-to-end via live DB row read in `bi_aggregate.tbl_asana_sync_runs`.
+- **Impact:** Medium — affects any UI-write task across the framework. Generalises beyond Asana-sync to any audit-trail, event-log, or status-column write.
+
+### Proposal A2 (skill-update)
+
+- **Target:** `skills/evolution.md`
+- **What:** Added `Pattern: Helper Extends Doctrine — Same-Task Reconcile`. When a runtime helper covers a wider set of conditions than the doctrine that documents it, the same task MUST update the doctrine OR record `narrower-doctrine-intentional` inline next to the helper. `/dr-compliance` Step 3 FAILs Layer 4 when both states co-exist.
+- **Why:** DEV-1362 `isAbortError` doctrine looped twice — helper accepted both native + library-specific cancel-marker names, project convention file named only the native one. Doctrine was amended, reverted, re-amended; two QA rounds + one compliance round wasted on the loop.
+- **Impact:** Medium — affects future helper-vs-doctrine drift across any project. Reusable for error-name normalizers, MIME-type allowlists, dialect-flag fallbacks, locale-tag aliases, soft-delete predicates, transitional schema shapes.
+
+### Verification
+
+- Stack-agnostic gate: `bash scripts/stack-agnostic-gate.sh --diff-only HEAD skills/testing/live-smoke-gates.md` → PASS clean. `bash scripts/stack-agnostic-gate.sh --diff-only HEAD skills/evolution.md` → PASS clean (after one rewrite: initial draft cited a specific HTTP-client library name, reworded to stack-neutral «library-specific cancel-marker name»).
+- Provenance: this evolution-log entry + reflection `~/code/aether/local-env/datarim/reflection/reflection-DEV-1362.md` + git log on the canonical Datarim repo.
