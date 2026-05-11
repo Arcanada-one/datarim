@@ -1,6 +1,6 @@
-# dr-orchestrate Plugin — Phase 2 (Subagent Inference)
+# dr-orchestrate Plugin — Phase 2 (Subagent Inference + Bot-Interaction Interface)
 
-> Class B plugin. Status: Phase 2 (Datarim v2.4.0).
+> Class B plugin. Status: Phase 2 (Datarim v2.5.0, plugin v0.3.0).
 
 ## Install
 
@@ -81,6 +81,40 @@ Resolver outputs below the confidence threshold (or `chain_exhausted`) route to
 `matched_text_hash` (sha256) preserves the hash-only invariant — raw pane text
 never enters the log.
 
+## Bot-Interaction Interface (v0.3.0+)
+
+Programmatic IO surface alongside the tmux pane. Lets a bot (or any HTTP client)
+submit prompts to the orchestrator and receive escalation / progress events.
+
+**Wire contract:** `openapi/orchestrator-interface.yaml` (OpenAPI 3.1).
+
+- **Inbound** — `POST /orchestrator/input` (Bearer auth, JSON body
+  `{session_id, command, ts, meta?}`). Default response `202 Accepted`. Sync
+  shortcut (`200` + inline body) only for whitelist commands (`dr-status`,
+  `dr-help`) when the client sends `X-Sync-Timeout` (hard-cap ≤ 2000 ms).
+- **Reference impl** — `adnanh/webhook` v2.8.3 (Go single binary, MIT) +
+  `config/hooks.yaml` + `scripts/orchestrator-input-handler.sh`. Loopback bind
+  `127.0.0.1:8090` (Tier 1, single-tenant). Bearer secret via Vault ref
+  `vault:secret/datarim/orchestrator/bearer`.
+- **Inbox FIFO** — handler atomically writes ULID-named JSON files into
+  `~/.local/share/datarim-orchestrate/inbox/`. `cmd_run.sh` drains the inbox
+  oldest-first per cycle and injects `.command` as `UNKNOWN_TEXT` into the
+  existing semantic-parser → resolver pipeline.
+- **Outbound** — `_emit_devbot` in `escalation_backend.sh`. Backends switched
+  via `DR_ORCH_OUTBOUND_BACKEND`:
+  - `callback` (default) — HMAC-SHA256 sign + `X-Timestamp` (300 s replay
+    window) + curl POST to `DR_ORCH_ESCALATION_DEVBOT_URL`. HMAC secret via
+    Vault ref `vault:secret/datarim/orchestrator/hmac_secret`.
+  - `redis` (opt-in) — `redis-cli PUBLISH orchestrator-out:{session_id}` via
+    `DR_ORCH_OUTBOUND_REDIS_URL`.
+- **Activation gate** — when `DR_ORCH_ESCALATION_DEVBOT_URL` is unset,
+  `_emit_devbot` silently `return 0` (noop). Rollback = `unset` the env var.
+- **Contract tests** — `tests/contract/run-schemathesis.sh` + CI workflow
+  `.github/workflows/dr-orchestrate-contract.yml` start the reference impl on
+  an ephemeral port and run schemathesis property-based fuzz against the spec.
+- **Pre-activation gate** — `dev-tools/check-agent0017-live.sh` (curl `/healthz`
+  + smoke `POST /prompts`) MUST pass before operators set the production env.
+
 ## Backend Install
 
 `coworker` and `claude` should be on `$PATH` of the host that runs the plugin.
@@ -107,14 +141,20 @@ a clean `chain_exhausted` envelope so the escalation path always runs.
 - `scripts/semantic_parser.sh` — rule-based first-pass classifier.
 - `scripts/rules_loader.sh` — 3-source rules merge (default → user → learned).
 - `scripts/subagent_resolver.sh` — multi-backend AI CLI dispatch.
-- `scripts/escalation_backend.sh` — mock | dev-bot escalation sink.
+- `scripts/escalation_backend.sh` — mock | dev-bot escalation sink (callback HMAC + Redis pub/sub backends).
+- `scripts/orchestrator-input-handler.sh` — inbound HTTP body validator + atomic inbox enqueue.
+- `scripts/outbound-hmac-sign.sh` — HMAC-SHA256 sign + curl POST for callback backend.
+- `scripts/outbound-redis-publish.sh` — redis-cli PUBLISH wrapper for Redis backend.
+- `openapi/orchestrator-interface.yaml` — OpenAPI 3.1 wire contract.
+- `config/hooks.yaml` — adnanh/webhook trigger config.
 - `rules/default.yaml` — bootstrap slash-command patterns.
 - `agents/dr-orchestrate-resolver.md` — declarative spec for the resolver subprocess.
 - `commands/dr-orchestrate.md` — command surface.
 - `tests/*.bats` — V-AC coverage (Phase 1 + Phase 2).
 
-## Out of Scope (Phase 2)
+## Out of Scope (Phase 2 + v0.3.0)
 
-Telegram bridge UI, auto-learned rules write path (Phase 3), real dev-bot HTTP
-endpoint, Vault `secrets_backend.sh` rewrite, embedding/vector classification,
-multi-host SSH, Docker / K8s orchestration, native Windows.
+Telegram bridge UI, auto-learned rules write path (Phase 3), Vault
+`secrets_backend.sh` rewrite, embedding/vector classification, multi-host SSH,
+Docker / K8s orchestration, native Windows, stateful session store (Redis
+SETEX deferred), SSE/WebSocket outbound transport (deferred).

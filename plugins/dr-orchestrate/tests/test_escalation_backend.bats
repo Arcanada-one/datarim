@@ -38,10 +38,13 @@ _resolver_json() {
     [ "$status" -eq 0 ]
 }
 
-@test "M3: env-var DR_ORCH_ESCALATION_BACKEND=dev-bot returns 99 stub" {
+@test "M3: env-var DR_ORCH_ESCALATION_BACKEND=dev-bot exits 0 (no-op when URL unset)" {
+    # _emit_devbot is now a gated no-op: exits 0 silently when
+    # DR_ORCH_ESCALATION_DEVBOT_URL is unset (V-AC-7). The old stub (exit 99)
+    # is replaced by the real implementation.
     DR_ORCH_ESCALATION_BACKEND=dev-bot \
-      run bash -c "DR_ORCH_ESCALATION_BACKEND=dev-bot bash '$DR_ORCH_DIR/scripts/escalation_backend.sh' emit '$(_resolver_json)' '%5'"
-    [ "$status" -eq 99 ]
+      run bash -c "unset DR_ORCH_ESCALATION_DEVBOT_URL; DR_ORCH_ESCALATION_BACKEND=dev-bot bash '$DR_ORCH_DIR/scripts/escalation_backend.sh' emit '$(_resolver_json)' '%5'"
+    [ "$status" -eq 0 ]
 }
 
 @test "M3: unknown backend returns exit 2" {
