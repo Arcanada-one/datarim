@@ -24,3 +24,15 @@ escalation:
   backend: "mock"
   # JSONL ledger for mock escalations. Append-only.
   mock_log: ~/.local/share/dr-orchestrate/escalation.jsonl
+
+# Bot-Interaction Interface dispatcher (Datarim v2.5.0+).
+# Routes orchestrator IO either through terminal (current behaviour) or
+# through a bot proxy (e.g. AGENT-0017) via the plugin v0.3.0+ interface.
+bot_interaction:
+  provider: terminal              # terminal | agent0017
+  endpoint: ""                    # required iff provider=agent0017 (e.g. http://localhost:3010/prompts)
+  shared_secret_ref: ""           # required iff provider=agent0017 (vault:secret/datarim/orchestrator/hmac_secret or env:NAME)
+  outbound_backend: callback      # callback | redis (relevant when provider=agent0017)
+  redis_url: ""                   # required iff outbound_backend=redis (e.g. redis://arcana-db:6379/0)
+  inbound_bind: 127.0.0.1:8090    # advisory — adnanh/webhook bind from CLI flag
+  bearer_secret_ref: ""           # vault:secret/datarim/orchestrator/bearer or env:NAME

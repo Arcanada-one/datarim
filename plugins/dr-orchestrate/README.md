@@ -152,6 +152,25 @@ a clean `chain_exhausted` envelope so the escalation path always runs.
 - `commands/dr-orchestrate.md` — command surface.
 - `tests/*.bats` — V-AC coverage (Phase 1 + Phase 2).
 
+## Bot Interaction Config
+
+`user-config.template.yaml` contains a `bot_interaction:` block that controls
+how the orchestrator's IO is routed at startup.
+
+**Provider switching:**
+
+| `provider` value | Behaviour |
+|-----------------|-----------|
+| `terminal` (default) | No env mutations — existing tmux-pane behaviour preserved. |
+| `agent0017` | Exports `DR_ORCH_ESCALATION_BACKEND=dev-bot`; sets `DR_ORCH_ESCALATION_DEVBOT_URL` when `endpoint` is non-empty; activates Redis outbound when `outbound_backend: redis`. |
+
+Copy `user-config.template.yaml` → `user-config.yaml`, set `chmod 600`, fill in
+the relevant fields, and restart the orchestrator. Reverting to terminal mode is
+as simple as setting `provider: terminal` (or removing the block entirely).
+
+See `openapi/orchestrator-interface.yaml` for the full wire contract and
+`scripts/bot_interaction_dispatcher.sh` for the sourced env-export logic.
+
 ## Out of Scope (Phase 2 + v0.3.0)
 
 Telegram bridge UI, auto-learned rules write path (Phase 3), Vault

@@ -48,6 +48,10 @@ source "$DR_ORCH_DIR/scripts/secrets_backend.sh"
 source "$DR_ORCH_DIR/scripts/audit_sink.sh"
 # shellcheck source=semantic_parser.sh
 source "$DR_ORCH_DIR/scripts/semantic_parser.sh"
+# shellcheck source=bot_interaction_dispatcher.sh
+source "$DR_ORCH_DIR/scripts/bot_interaction_dispatcher.sh"
+USER_CONFIG_YAML="${DR_ORCH_USER_CONFIG:-$DR_ORCH_DIR/user-config.yaml}"
+[[ -f "$USER_CONFIG_YAML" ]] && bot_interaction_load "$USER_CONFIG_YAML" || true
 
 SESSION_NAME="${SESSION_NAME:-datarim}"
 AUDIT_DIR="${AUDIT_DIR:-$HOME/.local/share/datarim-orchestrate}"
