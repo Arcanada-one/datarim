@@ -24,12 +24,14 @@ mkdir -p "$STATE_DIR"
 # shellcheck source=rules_loader.sh
 source "$DR_ORCH_DIR/scripts/rules_loader.sh"
 
-# _with_timeout <secs> <cmd...> — run cmd with FD-3 closed and a kill-on-overrun
-# watchdog. Echoes stdout, returns the command's rc, or 124 on timeout.
+# _with_timeout <secs> <cmd...> — run cmd with FD-3 closed, stdin redirected
+# from /dev/null (CLI backends like `claude --print` probe stdin for 3s
+# otherwise and emit a "no stdin data received" warning), and a kill-on-
+# overrun watchdog. Echoes stdout, returns the command's rc, or 124 on timeout.
 _with_timeout() {
   local secs="$1"; shift
   local outfile; outfile="$(mktemp)"
-  ( exec 3>&-; "$@" >"$outfile" 2>/dev/null ) &
+  ( exec 3>&-; "$@" </dev/null >"$outfile" 2>/dev/null ) &
   local pid=$! elapsed=0 rc
   while (( elapsed < secs )); do
     if ! kill -0 "$pid" 2>/dev/null; then
