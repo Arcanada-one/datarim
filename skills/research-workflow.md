@@ -2,6 +2,9 @@
 name: research-workflow
 description: Structured external research — checklist, tool selection, insights document. Used by researcher agent in /dr-prd and /dr-do.
 model: sonnet
+runtime: [claude, codex]
+current_aal: 1
+target_aal: 2
 ---
 
 # Research Workflow

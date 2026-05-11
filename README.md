@@ -2,7 +2,7 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 1.22.2](https://img.shields.io/badge/Version-1.22.2-green.svg)](VERSION)
+[![Version: 2.4.0](https://img.shields.io/badge/Version-2.4.0-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
@@ -15,7 +15,7 @@ reflection. The result is inconsistent quality, skipped steps, and zero institut
 learning. Every task starts from scratch, repeating the same mistakes from yesterday.
 
 Datarim fixes this by providing a complete iterative pipeline for any project type.
-It includes 17 specialized agents, 27 reusable skills, and 20 commands that guide
+It includes 18 specialized agents, 40 reusable skills, and 22 commands that guide
 work through a structured process: requirements gathering, planning, design,
 execution, quality assurance, compliance, reflection, and archival. The pipeline is
 complexity-aware — a quick fix does not go through the same process as a major
@@ -87,17 +87,18 @@ Stages in `[brackets]` are conditional — included when the agent determines th
 
 ## Features
 
-- **17 specialized agents** — planner, architect, developer, reviewer, compliance,
+- **18 specialized agents** — planner, architect, developer, reviewer, compliance,
   code-simplifier, strategist, devops, writer, editor, skill-creator, optimizer,
-  librarian, security, SRE, tester, and researcher. Each agent has a defined role,
-  capabilities, and the stages where it operates.
+  librarian, security, SRE, tester, researcher, and peer-reviewer (Layer 2/3
+  cross-Claude-family fallback). Each agent has a defined role, capabilities,
+  and the stages where it operates.
 
-- **27 reusable skills** — modular knowledge units that agents load on demand,
+- **40 reusable skills** — modular knowledge units that agents load on demand,
   covering everything from testing methodology to security hardening to content
   creation workflows and structured research.
 
-- **20 commands** — 8 pipeline stages, 3 content (write, edit, publish), 4 framework
-  and knowledge management (addskill, doctor, optimize, dream), 3 utilities (status, continue,
+- **22 commands** — 8 pipeline stages + /dr-verify standalone, 3 content (write, edit, publish), 5 framework
+  and knowledge management (addskill, doctor, optimize, dream, **plugin** v1.23.0+), 3 utilities (status, continue,
   help), and 2 standalone tools (factcheck, humanize).
 
 - **8-stage complexity-aware pipeline** — tasks flow through exactly the stages they
@@ -108,6 +109,26 @@ Stages in `[brackets]` are conditional — included when the agent determines th
 - **Backlog management** — two-file architecture for task tracking. Active items in
   `backlog.md`, completed history in `backlog-archive.md`. Pick tasks from backlog
   with `/dr-init` or add new ones as you work.
+
+- **Plugin system (v1.23.0+, TUNE-0101)** — opt-in extension mechanism. `datarim-core`
+  ships built-in; additional skills/agents/commands/templates are enabled via
+  `/dr-plugin enable <source>` against a `plugin.yaml` manifest. Runtime symlinks
+  per-plugin namespace under `~/.claude/<category>/<plugin-id>/`; root-position via
+  `overrides:`. `dr-plugin doctor` runs 9 health checks (manifest-syntax,
+  inventory-consistency, broken-symlinks, orphan-files, override-integrity,
+  dependency-graph, git-state, snapshot-cleanup, skill-registry).
+
+- **Reference plugin: dr-orchestrate (v2.4.0+)** — first non-core plugin.
+  Tmux-based self-driving Datarim pipeline runner. Phase 1 ships a lean
+  rule-based runner with security floor (whitelist, byte-0x1b escape block,
+  500 ms micro + 60 s decision cooldown, 5-violations/hr → 1 h pane block,
+  fail-closed); Phase 2 (v2.4.0) adds a multi-backend subagent inference
+  layer (coworker → claude → codex, lenient JSON parse, FD-3 close, fail-
+  closed threshold gate) for unknown prompts and bumps plugin autonomy from
+  L1 (manual) to L2 (assisted). Flock-race-safe cooldown on Linux, audit
+  schema v2 with confidence + backend metadata, hash-only matched text
+  invariant preserved. Install via `dr-plugin enable dr-orchestrate`. See
+  `plugins/dr-orchestrate/README.md`.
 
 - **Self-evolving framework** — after every task, `/dr-archive` Step 0.5 (reflecting
   skill) analyzes outcomes and proposes improvements to agents, skills, and framework
@@ -124,6 +145,18 @@ Stages in `[brackets]` are conditional — included when the agent determines th
 - **Multi-layer QA** — verification happens at multiple stages: PRD validation,
   design review, plan verification, code review, and compliance checking. Defects
   are caught early, not in production.
+
+- **Tri-layer self-verification (`/dr-verify`)** — on-demand standalone verification
+  of any pipeline artifact. Layer 1 deterministic floor (shell pipeline, no LLM
+  cost) → Layer 2 cross-model peer-review (cleanly external context) → Layer 3
+  native runtime dispatch (Claude 3-agent parallel, Codex single-prompt fallback).
+  Layer 2 provider auto-resolves via a 6-step chain (CLI flag → per-project
+  `datarim/config.yaml` → per-user XDG → coworker `--profile code` default →
+  cross-Claude-family subagent fallback → same-model isolated last resort), so
+  `/dr-verify {TASK-ID}` works zero-flag without any external API key. Findings
+  carry `source_layer` + `peer_review_mode` (`cross_vendor` / `cross_claude_family` /
+  `same_model_isolated`) tags for tri-layer provenance and dispatch-class audit.
+  `--floor-only` for fast pre-merge gating with zero LLM cost.
 
 - **Native shell utilities** — no external MCP server dependencies required. All
   core functionality works through Claude Code's built-in tools and shell access.
@@ -417,6 +450,7 @@ specific capabilities. You can add custom skills by placing `.md` files in
 | `/dr-doctor` | Maintenance | Diagnose and repair Datarim operational files — migrate to thin one-liner schema, externalize task descriptions, abolish progress.md. |
 | `/dr-dream` | Maintenance | Knowledge base maintenance: organize files, build index, cross-reference, flag contradictions, archive stale content. |
 | `/dr-optimize` | Maintenance | Audit framework health, prune unused components, merge duplicates, fix references, sync documentation. |
+| `/dr-plugin` | Maintenance | Manage opt-in plugins (v1.23.0+, TUNE-0101). `list/enable/disable/sync/doctor` over a manifest-driven runtime. Symlinks plugin sources into `~/.claude/{cat}/{plugin-id}/` namespaces; supports root-position `overrides:`; pre-mutation snapshot/rollback. |
 | `/dr-status` | Any | Check current task status, pipeline progress, and backlog summary. |
 | `/dr-continue` | Any | Resume work from the last checkpoint. Restores context and picks up where you left off. |
 | `/dr-help` | Any | List all available commands with descriptions, pipeline flow, and complexity routing. |
@@ -880,10 +914,10 @@ and why it exists.
 
 ```
 datarim/
-  agents/            # Agent personas (17 agents)
-  skills/            # Knowledge modules (27 skills)
-  commands/          # Slash commands (20 commands)
-  templates/         # Task and document templates (18 templates)
+  agents/            # Agent personas (18 agents)
+  skills/            # Knowledge modules (40 skills)
+  commands/          # Slash commands (22 commands)
+  templates/         # Task and document templates (19 templates)
   docs/              # Extended documentation and use cases
   CLAUDE.md          # Framework rules (copy to your project)
   install.sh         # Automated installer

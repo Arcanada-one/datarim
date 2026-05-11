@@ -168,6 +168,13 @@ Complete and archive current task.
    - If prefix not in mapping → use `general/`
    - Create `documentation/archive/{area}/` directory if it doesn't exist
 2. Create archive document with:
+   - **Frontmatter from canonical template** `templates/archive-template.md` — copy YAML schema (`id`, `title`, `status`, `completed_date`, `complexity`, `type`, `project`, `related`, `archive_doc`, `verification_outcome`). Schema is closed; do not add custom keys.
+   - **`verification_outcome` block — MANDATORY at archive time.** Triage the audit log under `datarim/qa/verify-{TASK-ID}-*.md` (if `/dr-verify` ran) and fill the four counters + `dogfood_window` per template comment block:
+     - `caught_by_verify` — high/medium gaps that `/dr-verify` surfaced and the operator fixed BEFORE this archive.
+     - `missed_by_verify` — initially `0`; updated retroactively if a post-archive follow-up reveals a gap that should have been caught.
+     - `false_positive` — `/dr-verify` findings the operator triaged as not real.
+     - `n_a: true` — when `/dr-verify` was not invoked (L1 trivial fix or pre-tri-layer task).
+     - `dogfood_window` — operator-supplied window-id grouping key consumed by `dev-tools/measure-prospective-rate.sh`.
    - Task summary
    - Implementation details
    - Reflection insights

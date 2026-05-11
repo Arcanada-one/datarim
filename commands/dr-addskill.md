@@ -51,6 +51,27 @@ effort: high
     - Why this structure was chosen
     - How to invoke the new capability
     - Wait for approval before writing any files
+8a. **TDD FOR SKILL CREATION** (mandatory for discipline-enforcing skills, recommended for technique skills):
+
+    **RED — Baseline failure** *before* writing any skill prose:
+    - Construct a test scenario that exercises the failure mode the skill is meant to prevent (or the technique it is meant to teach).
+    - Run the scenario against a fresh agent context with the candidate skill **not** loaded — observe whether it fails as expected.
+    - Capture the agent's rationalizations *verbatim* (e.g., "too simple to need a test", "I'll just check this one thing first"). These become inputs to the GREEN step.
+    - For discipline-enforcing skills, build pressure into the scenario: combined time pressure + sunk cost + authority conflict expose rationalizations that simple scenarios miss.
+
+    **GREEN — Minimal skill addressing observed failures:**
+    - Write the smallest skill body that answers each captured rationalization explicitly. Don't generalize to hypothetical failures — answer the ones you observed.
+    - Each rationalization gets a Red-Flag row in the skill body: the excuse on the left, the corrective response on the right.
+
+    **REFACTOR — Bulletproofing pass:**
+    - Re-run the test scenario with the skill loaded. If the agent still rationalizes around it, identify the new loophole, add a counter, repeat.
+    - Make the spirit-vs-letter principle explicit when the skill is being followed-but-not-honored: *"Violating the letter is violating the spirit."*
+    - Stop when an additional iteration produces no new rationalizations.
+
+    **Cancel-and-restart trigger:** if you wrote skill prose without observing a baseline failure first, the skill is hypothesis-only. Delete it and run the RED step before re-attempting.
+
+    For pure-reference skills (rules / constants / cross-reference indexes) the RED step is replaced by a retrieval gap test: ask a fresh agent the questions the skill is meant to answer; record gaps; write the skill to fill those gaps.
+
 9.  **APPLY**: After approval:
     - **Stack-agnostic gate (MANDATORY when target scope is `$HOME/.claude/{skills,agents,commands,templates}/`):** load `$HOME/.claude/skills/evolution/stack-agnostic-gate.md` and run gate over each new/updated artifact's full text (script form: `scripts/stack-agnostic-gate.sh <target>`). FAIL → do NOT write; return to user with the matched keywords and either (a) reword stack-neutral, or (b) install into a project-scoped `.claude/` dir instead.
     - Create necessary directories (`mkdir -p .claude/skills .claude/agents .claude/commands`)

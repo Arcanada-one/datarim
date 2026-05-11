@@ -2,6 +2,9 @@
 name: consilium
 description: Assemble a panel of Datarim agents for multi-perspective analysis of decisions. Use for /dr-design stage (L3-4) or critical decisions in /dr-plan.
 model: opus
+runtime: [claude, codex]
+current_aal: 1
+target_aal: 3
 ---
 
 # Consilium — Multi-Agent Panel Discussions

@@ -1,6 +1,6 @@
 # Skills Reference
 
-Datarim includes 27 reusable skill modules. Skills provide rules, patterns, and guidelines loaded on demand by agents and commands.
+Datarim includes 40 reusable skill modules. Skills provide rules, patterns, and guidelines loaded on demand by agents and commands.
 
 Skills are split into two categories:
 - **Reference skills** — rules and patterns the caller applies inline. Inherit caller's model (no `model` field).
@@ -39,8 +39,9 @@ Skills are split into two categories:
 | release-verify | Reference | inherit | Consumer-side release verification (sha256 → cosign verify-blob → gh attestation) | on install/update from GitHub Release |
 | research-workflow | Task | sonnet | Structured external research methodology, checklist, tool selection | researcher agent in /dr-prd, /dr-do |
 | security-baseline | Reference | inherit | Canonical S1–S9 security rule reference cited from CLAUDE.md § Security Mandate | plan/qa/compliance/do touching shipped artefacts |
+| diataxis-docs | Reference | inherit | Documentation Taxonomy Mandate — 4 closed Diátaxis categories (tutorials / how-to / reference / explanation), mapping table, exemption list, anti-patterns | /dr-init project scaffolding, /dr-optimize audit, /dr-archive surface verification |
 
-**Distribution:** 8 reference (inherit), 3 opus, 12 sonnet, 4 haiku.
+**Distribution:** 9 reference (inherit), 3 opus, 12 sonnet, 4 haiku.
 
 ## Loading Hierarchy
 

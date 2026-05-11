@@ -1,6 +1,9 @@
 ---
 name: security
 description: Authentication, authorization, input validation, data protection, dependency safety. Use for security review or when handling secrets and user data.
+runtime: [claude, codex]
+current_aal: 1
+target_aal: 2
 ---
 
 # Security Guidelines

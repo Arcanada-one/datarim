@@ -1,6 +1,9 @@
 ---
 name: performance
 description: Optimization patterns (lazy loading, caching, batching), database and frontend performance. Use when designing or reviewing for performance.
+runtime: [claude, codex]
+current_aal: 1
+target_aal: 2
 ---
 
 # Performance Guidelines

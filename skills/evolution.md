@@ -2,6 +2,9 @@
 name: evolution
 description: Rules for proposing and applying framework improvements. Covers growth (new components) and maintenance (pruning, merging). Human approval required.
 model: opus
+runtime: [claude, codex]
+current_aal: 2
+target_aal: 3
 ---
 
 # Evolution — Framework Self-Update and Optimization Rules
@@ -221,6 +224,24 @@ Each Evolution change is a discrete edit to a specific file. Rollback strategy:
 
 ---
 
+## Pattern: Split-Architecture Metrics for Absorption Tasks
+
+When a Class B task absorbs new components (skills, templates, fragments) into a **cold path** — meaning the new files are loaded on-demand at invocation time, not auto-loaded into every session — an aggregate token-budget metric (`total_chars_after / total_chars_before ≤ N%`) becomes meaningless because the hot path never sees the cold-path mass. Aggregate gates fail by design under structural absorption.
+
+**Rule:** any absorption task whose plan adds files that are not auto-loaded MUST replace the aggregate metric with a split-axis metric:
+
+1. **Idle hot-path budget** — measure only the entry skills/files loaded by every pipeline command (the discovery skill, system contract, mandatory loaders). Tight bound here protects per-invocation token cost.
+2. **Per-existing-file delta** — bound the per-file growth on any file that existed in the baseline (e.g. `≤+30% chars`). Catches in-place bloat of touched components.
+3. **On-demand exempt** — newly introduced files loaded only on invocation are reported informationally (count, total chars) but excluded from the gate.
+
+**Why it matters:** absorbing N new on-demand skills inflates aggregate chars by Σ(new) regardless of runtime cost. A single aggregate gate forces a false trade-off between absorption and «no growth»; a split-axis gate aligns the metric with how runtime actually loads content.
+
+**Falsifiability requirement:** each axis MUST have a concrete measurement command in `dev-tools/` that returns exit 0 (PASS) / exit 1 (FAIL). PRD AC text references the command directly so QA and Compliance re-runs are deterministic.
+
+**Source:** Datarim v2.0.0 absorption (14 skills + 4 templates) — original aggregate ≤+10% gate violated by +27% structural addition; reformulated mid-task into hot-path ≤+16% + per-file ≤+30% + on-demand exempt.
+
+---
+
 ## Pattern: Memory Rule → Executable Gate at Apply Step
 
 When a user-memory rule (e.g. `~/.claude/projects/<proj>/memory/feedback_*.md`) repeatedly surfaces in reflection as a corrective action — meaning the rule was declared, then violated, then manually reverted — text-only memory is no longer sufficient at scale. Promote the rule to an **executable gate at the apply step** of the relevant pipeline command.
@@ -238,3 +259,28 @@ When a user-memory rule (e.g. `~/.claude/projects/<proj>/memory/feedback_*.md`) 
 **Source incident:** `feedback_datarim_stack_agnostic.md` declared 2026-04-25, violated the next day across three artefacts. Memory rule advisory; gate enforces.
 
 **Reuse candidates:** consider this pattern for any future recurring memory rule — e.g. «no-secrets-in-code», «no-personal-paths», «no-deprecated-API-XXX», ecosystem-specific keyword bans.
+
+---
+
+## Pattern: Helper Extends Doctrine — Same-Task Reconcile
+
+When a runtime helper (a predicate, branch, return value, accepted-name set, allowed-flag list) covers a strictly wider set of conditions than the doctrine that documents it, the same task that widens the helper MUST close the gap in one of two ways. Doctrine-only and code-only states are both unstable: the next reader follows the narrower doctrine, judges the wider branch redundant, reverts it, and the runtime regresses to the original incident.
+
+**Trigger:** a code change introduces or expands a branch / accepted-name / matched-flag / fallback path that is not literally enumerated in the matching doctrine (the convention bullet, comment block, ADR, or contract sentence that explicitly names the helper). The new branch is provably reachable in production — not dead code, not a defensive belt-and-braces — and the test suite asserts it.
+
+**Required disposition (one of the two, in the same task):**
+
+1. **Update the doctrine.** Add the new condition / name / flag to the doctrine prose in the same task. The doctrine and the helper now describe the same set.
+2. **Record narrower-doctrine-intentional.** If the doctrine is deliberately narrower than the helper (e.g. the helper accepts a deprecated form on the way to removal, or one branch is platform-specific), add an inline disposition next to the helper itself: a one-line comment of the form `// doctrine narrower than helper: <reason> — see <link/anchor>` or the language-equivalent. The disposition is required in the same change so a future reader does not need to reconstruct the intent.
+
+**What does NOT close the gap:**
+
+- A reflection note that says «doctrine to update later». Drift looped twice between archives in source incident below — text-only memory is not load-bearing.
+- A backlog follow-up to «decide simplify-helper vs amend-doctrine». The follow-up is itself the gap; the decision is the disposition above.
+- A comment on the helper that says «matches both X and Y» without the **why** — the next reviewer reads the doctrine, sees only X, and removes the Y branch as dead code.
+
+**Verification at /dr-compliance:** when Step 3 (References) detects that a helper accepts more values / names / shapes than the doctrine enumerates, FAIL Layer 4 unless one of the two dispositions is in the same diff. Operator override sets the disposition explicitly and re-runs.
+
+**Source incident:** an `isAbortError` predicate accepted two cancel-marker names rather than one because the runtime emitted both shapes (the native cancel name plus a library-specific cancel name from a wrapped HTTP client). The matching doctrine in the project's convention file named only the native shape. The doctrine was amended to match the helper, reverted, then re-amended only after the drift surfaced for a second time across two review rounds. Two QA rounds and one compliance round wasted on the loop. The pattern generalises: any helper that quietly broadens its accept-set creates a future-reader trap unless the doctrine moves with it in the same task.
+
+**Reuse candidates:** error-name normalizers (Abort/Cancel/Timeout), allowed-MIME-type lists, dialect-flag fallbacks, locale-tag aliases, soft-delete predicates that accept multiple sentinel values, schema migrations that tolerate transitional column shapes.

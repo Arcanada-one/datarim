@@ -1,7 +1,8 @@
 # Datarim — Universal Iterative Workflow Framework
 
-> **Version:** 1.22.2
-> **Framework:** Datarim (Датарим) provides structured rules, agents, skills, and commands for iterative project execution via Claude Code — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
+> **Version:** 2.4.0
+> **Framework:** Datarim (Датарим) provides structured rules, agents, skills, and commands for iterative project execution via AI coding assistants — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
+> **Multi-runtime:** Datarim is runtime-agnostic. This file is also available as `AGENTS.md` (symlink) for Codex CLI and other agent runtimes that read `AGENTS.md` by convention.
 > **Note:** "Datarim" is transliterated as "Датарим" in Russian. Both refer to this framework — agents must recognize either form in any language context.
 
 ---
@@ -56,8 +57,9 @@ Agents are specialized personas loaded per pipeline stage. Each agent has define
 | **sre** | Site Reliability Engineer | /dr-design, /dr-qa, /dr-archive (Step 0.5 postmortem) |
 | **tester** | Platform QA Tester | /dr-qa, /dr-do (verification) |
 | **researcher** | Structured External Research | /dr-prd (Phase 1.3), /dr-do (Gap Discovery) |
+| **peer-reviewer** | Adversarial Peer Reviewer (Layer 2/3 fallback) | /dr-verify (cross-Claude-family fallback subagent) |
 
-Agent files: `$HOME/.claude/agents/{name}.md` (17 agents)
+Agent files: `$HOME/.claude/agents/{name}.md` (18 agents)
 
 ### Agent Loading Rules
 
@@ -122,7 +124,7 @@ Skills are reusable knowledge modules loaded on demand. They provide rules, patt
 - `frontend-ui.md` — Frontend UI checklist: CSS specificity, dark/light themes, visual testing, mobile responsiveness, i18n parity (loaded when editing HTML/CSS)
 - `infra-automation.md` — Infrastructure ops: SSH batch execution, health checks, network debugging, pre-migration inventory (loaded for server ops)
 
-Skill files: `$HOME/.claude/skills/{name}.md` (27 skills, 3 with supporting fragment directories)
+Skill files: `$HOME/.claude/skills/{name}.md` (40 skills, 10 with supporting fragment directories)
 
 > **v1.16.0 addition:** `cta-format.md` — canonical CTA "Next Step" block specification, loaded by `planner`, `architect`, `developer`, `reviewer`, `compliance` agents. Defines structure, separators, primary marker, multi-task menu (Variant B), and FAIL-Routing variant. Source: TUNE-0032.
 
@@ -190,6 +192,7 @@ Before writing ANY file to `datarim/`:
 | `/dr-design` | Design | Architecture exploration with consilium |
 | `/dr-do` | Execution | Implement the plan: TDD for code, structured iteration for other work |
 | `/dr-qa` | Quality | Multi-layer verification (PRD, design, plan, output quality) |
+| `/dr-verify` | Verification | Standalone self-verification (on-demand). Tri-layer: Layer 1 deterministic floor + Layer 2 cross-model peer-review (DeepSeek default) + Layer 3 native runtime dispatch. Findings-only mode. |
 | `/dr-compliance` | Hardening | 7-step post-QA hardening |
 | `/dr-archive` | Archive | Reflection (Step 0.5: lessons learned + framework evolution proposals) + complete task + update backlog + reset context |
 | `/dr-status` | Utility | Check current task and backlog status |
@@ -201,11 +204,90 @@ Before writing ANY file to `datarim/`:
 | `/dr-doctor` | Maintenance | Diagnose and repair Datarim operational files — migrate to thin one-liner schema, externalize task descriptions, abolish progress.md |
 | `/dr-dream` | Maintenance | Knowledge base maintenance: organize, lint, index, cross-reference |
 | `/dr-optimize` | Maintenance | Audit framework, prune unused, merge duplicates, sync docs |
+| `/dr-plugin` | Extension | Manage opt-in plugin system (list/enable/disable/sync/doctor — TUNE-0101 v1.23.0). Manifest-driven runtime symlinks, snapshot/rollback, dependency-graph + skill-registry health checks |
+| `/dr-orchestrate run` | Plugin | Self-driving Datarim pipeline runner (v2.4.0). Phase 1 lean rule-based tmux runner; Phase 2 adds multi-backend subagent inference (coworker → claude → codex) for unknown prompts, autonomy L1 → L2 (assisted), flock-race-safe cooldown, audit schema v2. Install via `dr-plugin enable dr-orchestrate`. Security floor: whitelist + 0x1b escape-block + 500 ms micro + 60 s decision cooldown + 5-violations/hr 1 h pane block. JSONL audit, hash-only credentials. |
 | `/dr-help` | Utility | List all commands with descriptions and usage guidance |
 | `/factcheck` | Standalone | Fact-check articles and posts before publication |
 | `/humanize` | Standalone | Remove AI writing patterns from text |
 
-Command files: `$HOME/.claude/commands/{name}.md` (20 commands)
+Command files: `$HOME/.claude/commands/{name}.md` (22 commands core + 1 plugin)
+
+### /dr-verify (on-demand, tri-layer architecture)
+
+Manual self-verification command (post-completion review of any pipeline artifact). **Tri-layer architecture (cheapest-first, fail-fast):**
+
+1. **Layer 1 — Deterministic floor.** `dev-tools/dr-verify-floor.sh` — pure shell pipeline (AC coverage grep, file-touched audit, test-presence parse, shellcheck). Zero LLM cost; runs in seconds.
+2. **Layer 2 — Cross-model peer-review.** `coworker ask --provider {peer-provider} --task-id <ID>` — adversarial reviewer in clean external context. Vendor-neutral via the coworker abstraction.
+
+   **Provider auto-resolves** via 6-step resolution chain (`dev-tools/resolve-peer-provider.sh`):
+   - **zero-flag UX** when no provider configured anywhere — chain falls through to subagent dispatch
+   - resolution chain order: CLI → per-project datarim-config → per-user XDG datarim-config → coworker `--profile code` default → cross-Claude-family fallback → same-model isolated last resort
+   - cross-Claude-family fallback dispatches `agents/peer-reviewer.md` at `model: sonnet` (covered by Claude subscription, no external API key required)
+   - audit-log records `peer_review_provider`, `peer_review_mode`, `peer_review_provider_source_layer` for unambiguous trace
+3. **Layer 3 — Native runtime dispatch.** Claude 3-agent parallel (reviewer + tester + security) is canonical; Codex single-prompt is `[experimental]` fallback retained for parity.
+
+Findings carry an explicit `source_layer` tag (`floor` / `peer_review` / `dispatch`) and dedupe across layers prefers earlier-source findings. NOT a replacement for `/dr-qa` — `/dr-qa` is a manual single-agent multi-layer review; `/dr-verify` is a runtime-dispatch structured-findings loop.
+
+**Когда использовать:**
+- Перед merge / archive — sanity check на final PRD/plan/code state
+- Retrospective validation — проверка завершённой задачи на пропущенные gaps
+- Fast pre-merge gating: `--floor-only` (Layer 1 only, zero LLM cost)
+- Не входит в default pipeline (manual on-demand only — automated post-step hook is a deferred future evolution)
+
+**Args:** `/dr-verify {TASK-ID} [--stage={prd,plan,do,all}] [--max-iter=N] [--no-fix] [--floor-only] [--peer-provider={deepseek,groq,openrouter,...}] [--runtime={claude,codex}] [--external-verifier=PASS] [--cost-cap=N]`
+
+**Findings schema:** `{finding_id, source_layer ∈ {floor, peer_review, dispatch}, artifact_ref, ac_criteria[], severity (high/medium/low), category (correctness/completeness/consistency/safety), drift_subtype (optional), evidence (file_quote/test_output/absent), suggested_fix, check_name (Layer 1), peer_review_provider (Layer 2)}`. 7 validator rules + 3 severity anchors + 4 category anchors + 3 evidence types + auto-discard + verifiability + secret redaction. Canonical in `skills/self-verification.md` § Findings Schema.
+
+**Verdict logic:** BLOCKED (≥1 high) / CONDITIONAL (≥1 medium, 0 high) / PASS (only low or empty).
+
+**Audit log:** `datarim/qa/verify-{task-id}-{stage}-{iter}.md` (append-only, `chmod a-w` post-write). Header carries `source_layer_breakdown: {floor: N, peer_review: M, dispatch: K}` for tri-layer provenance.
+
+**`coworker --task-id <ID>` propagation MANDATORY at Layer 2.** Without it the prospective-rate / token-cost tooling (`dev-tools/measure-prospective-rate.sh` + `dev-tools/measure-invocation-token-cost.sh`) cannot filter logs by task.
+
+### Verification tagging at archive time
+
+`/dr-archive` Step 2 instructs the operator to fill the `verification_outcome` block in the archive frontmatter (canonical schema in `templates/archive-template.md`):
+
+```yaml
+verification_outcome:
+  caught_by_verify: <int>     # high/medium gaps caught BEFORE /dr-archive
+  missed_by_verify: <int>     # gaps that escaped to a post-archive follow-up
+  false_positive: <int>       # findings triaged as not real
+  n_a: <bool>                 # true when /dr-verify was not run
+  dogfood_window: <window-id> # operator-supplied grouping key
+```
+
+Aggregator `dev-tools/measure-prospective-rate.sh --since <YYYY-MM-DD>` walks all `archive-*.md` files, computes `caught_per_5_tasks`, and emits a `decision_hint` for the next pipeline gate. The `verification_outcome` block is the single source of truth for the prospective measurement campaign.
+
+**Status:** tri-layer canonical, findings-only at all layers (no auto-fix). Cross-link: skill `skills/self-verification.md` · floor script `dev-tools/dr-verify-floor.sh` · template `templates/archive-template.md`.
+
+---
+
+## Plugin System (v1.23.0+, TUNE-0101)
+
+Datarim ships with a built-in `datarim-core` set (skills/agents/commands/templates) and an opt-in plugin mechanism for everything beyond. Plugins are local directories (or git URLs in a future phase) shaped as `{plugin-id}/{plugin.yaml, skills/, agents/, commands/, templates/}`. The `/dr-plugin` CLI manages the active set:
+
+```bash
+/dr-plugin list                              # active set + bootstrap on first run
+/dr-plugin enable /path/to/my-plugin         # absolute path to source dir
+/dr-plugin disable my-plugin
+/dr-plugin sync                              # reconcile runtime ↔ manifest (idempotent)
+/dr-plugin doctor [--fix]                    # 9 health checks
+```
+
+**Manifest:** `datarim/enabled-plugins.md` — single source of truth (one entry per active plugin: `id`, `source`, `version`, `enabled_at`, optional `depends_on`, `overrides`, `file_inventory`).
+
+**Symlink layout:** plugin files link into `~/.claude/<category>/<plugin-id>/<basename>` for namespace isolation. Files declared under `overrides:` install at root position `~/.claude/<category>/<basename>` to win the local-overlay precedence. Root-position install is conflict-checked against existing symlinks and regular files.
+
+**Safety:**
+- Pre-mutation snapshot of `runtime/` + `manifest.md` on every `enable` (FIFO cap `DR_PLUGIN_SNAPSHOT_MAX=50`; age-based purge after `DR_PLUGIN_SNAPSHOT_AGE_DAYS=30`).
+- mkdir-based atomic lock (`DR_PLUGIN_LOCK_TIMEOUT=60`) — `flock` is not assumed (macOS portability).
+- Validation gate rejects: invalid plugin id (must be kebab-case, ≤32 chars), embedded credentials in URLs, CRLF in `plugin.yaml` (security), path traversal (`..`), schema_version drift (only `1` accepted).
+- Critical-core overrides (`evolution`, `datarim-system`, `pre-archive-check`) emit a warning to stderr and proceed — operator decides.
+
+**Doctor checks (9):** manifest-syntax, inventory-consistency, broken-symlinks, orphan-files, override-integrity, dependency-graph (DFS cycle/dangling), git-state (uncommitted manifest), snapshot-cleanup (>30d), skill-registry (frontmatter `name:` ↔ basename — closes Skill-tool resolution gap).
+
+**Personal additions vs plugins:** `~/.claude/local/{skills,agents,commands,templates}/` (gitignored overlay) is for one-off personal stuff. `/dr-plugin` is for shareable, versioned extensions distributed as a unit.
 
 ---
 
@@ -217,6 +299,19 @@ Datarim improves itself through `/dr-archive` Step 0.5 (the `reflecting` skill):
 2. Proposes updates to skills, agents, or this CLAUDE.md
 3. **Human approval required** — no automatic modifications
 4. Changes logged in `datarim/docs/evolution-log.md`
+
+### Validation Discipline
+
+New schema validations (frontmatter shape, token budget gates, intent-layer grep, cross-reference checks, etc.) ship as **standalone scripts** under `dev-tools/check-*.sh` or `dev-tools/measure-*.sh`, invoked by `/dr-qa`, `/dr-compliance`, or CI. They MUST NOT be added as new branches inside `datarim-doctor.sh`, whose primary concern is operational-file migration (progress.md retirement, schema bumps, etc.).
+
+Rule: **orthogonal concerns get orthogonal tools.** Content validation has a different lifetime, invocation context, and test surface than ops-file migration; coupling the two grows the migrator into a 1000+-line monolith and slows future schema changes.
+
+Each new validator follows a simple contract:
+
+- Pure shell, no dependencies beyond what bash + grep + the framework's own `dev-tools/` provide.
+- Single `--check` mode: exit 0 = PASS, exit 1 = FAIL. Optional `--report` for human-readable detail.
+- Self-documents target scope in the script header.
+- Referenced directly by PRD AC text (so the gate is falsifiable; see `skills/evolution.md` § Pattern: Split-Architecture Metrics).
 
 ---
 
@@ -271,6 +366,31 @@ Datarim ships skills, templates, agents, and commands that AI agents copy into r
 Every Datarim-managed project SHOULD run `templates/security-workflow.yml` (drop-in) or call `Arcanada-one/datarim/.github/workflows/reusable-security.yml@<tag>` (preferred). Local dry-run: run `templates/security-workflow.yml` locally (security audit is integrated into `/dr-qa`).
 
 **Source:** corporate audit findings 2026-04-28 + research baseline `~/arcanada/datarim/insights/INSIGHTS-security-baseline-oss-cli-2026.md`.
+
+---
+
+## Documentation Taxonomy Mandate
+
+> **Status:** mandatory for every Datarim-managed repo and product site.
+> **Single source of truth:** `skills/diataxis-docs.md` (4 closed categories — tutorials / how-to / reference / explanation; mapping table; exemption list; anti-patterns).
+
+Every Datarim-managed repo and product site MUST organise its documentation per **Diátaxis** (https://diataxis.fr) — four orthogonal categories:
+
+- **Tutorials** — learning-oriented (newcomer end-to-end).
+- **How-to** — problem-solving (task recipes).
+- **Reference** — information-oriented (lookup, catalogue).
+- **Explanation** — understanding-oriented (background, why).
+
+Closed set: `faq`, `glossary`, `troubleshooting`, `examples`, `overview`, `samples` are mappable to one of the four categories — never separate top-level types. See `skills/diataxis-docs.md` § Mapping Table.
+
+Mandate level:
+
+1. **New repos / sites** — `/dr-init` scaffolds `docs/{tutorials,how-to,reference,explanation}/` by default with category README stubs from `templates/docs-diataxis/`.
+2. **Existing repos** — soft audit via `/dr-optimize` Step 6a (filesystem-presence + threshold ≥3 docs files); on drift the audit proposes `INFRA-* — Diátaxis docs reorg для <repo>` in backlog.
+3. **Stack-agnostic** — taxonomy contract only. SSG/CMS choice (any static-site generator) is per-project and outside the mandate.
+4. **Hard CI gate deferred** — backlog item activates the same detector at `exit 1` after the mandate is adopted on ≥3 live consumers.
+5. **Exemptions** — research-only repos, archive-only repos, Obsidian vault PARA, single-file inbox notes, temporary scratch paths. See `skills/diataxis-docs.md` § Exemption List.
+6. **Slogan** — every updated public site MUST display «Жизнь одного человека имеет значение / One human life matters».
 
 ---
 

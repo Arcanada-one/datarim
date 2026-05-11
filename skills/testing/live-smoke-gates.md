@@ -200,3 +200,41 @@ After deploy, before declaring success:
 ### Reference incident
 
 A connector deploy added `GROQ_API_KEY` to PROD `.env`; CI ran `docker compose up -d --build` and reported success. `grep GROQ /srv/apps/.../.env` returned the new key (file write OK), but `docker exec ... env | grep GROQ` returned empty — the container was not recreated by the build step because the image hash already matched. Application traffic to the connector endpoint would have failed `auth_error` despite the "successful" deploy. Closed by `docker compose up -d --force-recreate model-connector`. Generic Compose gotcha — applies to any new env var on any project in the ecosystem.
+
+---
+
+## Gate 6: UI Trigger → Cross-Datasource Write
+
+**Who this applies to:** any change that ships a UI affordance (button, menu item, link, form submit, drawer action) which causes a server-side write to a data store the unit-test suite does not exercise. The failure mode lives between the click and the row — neither the frontend test (which mocks the API) nor the backend test (which mocks the data layer) crosses the seam, and the runtime gap is invisible until live data is inspected.
+
+### Why mocks don't satisfy it
+
+Frontend tests mock the API client at the fetch/HTTP boundary, so the click is observed but the request is never sent. Backend tests mock the data-layer client at the repository boundary, so the request is observed but the row is never written. Both layers report green. The end-to-end path — click → wire request → handler → real client → real write → durable row — is never traversed in any automated suite. A wrong data source, a wrong column, a missing audit-trail row, or a silent transaction rollback can all pass every test and fail every live click.
+
+### When the gate is mandatory
+
+The gate **must** fire (live click + post-condition read in the target store, recorded) when a change ships:
+
+- A UI action (button, menu, drawer submit, keyboard shortcut) whose handler resolves to a write on a data store that the test environment does not bind (separate physical instance, separate schema, separate tenant, separate region).
+- A status badge / progress indicator backed by a column that the same UI action writes — the read and the write are on the same store but on different code paths, and a stale-read race is invisible to mocks.
+- An audit-trail / event-log row written as a side effect of the action — silent drop is the canonical failure mode.
+
+### What a passing gate looks like
+
+Before marking the change as done, the developer (or `/dr-qa` Layer 4) must record in the QA report:
+
+1. **The click sequence** — exact UI path traversed (page, element, value entered, confirm dialog if any), captured in a live browser session against the deployed build, not in jsdom.
+2. **The target store coordinates** — host / database / table / row identifier (no credentials). Same physical instance / schema as production where feasible; staging is acceptable if it shares the engine version and schema with prod.
+3. **The post-condition read** — exact query and result: the column values just written, the audit row created, the count delta. Inspecting the UI status badge does not substitute for inspecting the row — the badge is itself under test.
+4. **The before/after delta** — capture a pre-click read so that the diff is unambiguous; «row exists after the click» is necessary, «row did not exist before the click» is the additional bit that closes the timing assumption.
+
+### Why the read-back step matters separately from the click
+
+A click that yields a 2xx response means the API accepted the request, not that the row landed. Many failure modes return 2xx and silently drop the write: wrong data source binding, missing transaction commit, conditional `WHERE` clause that excluded the intended row, schema column rename that the ORM tolerated. Only the live read against the target store closes the loop.
+
+### Verdict
+
+- Gate required + live click + live read + delta recorded → **Layer 4 PASS** on this dimension.
+- Gate required + only mocked tests run → **Layer 4 FAIL**. The button works on every machine that has no database; that is the whole point of the gate.
+- Gate required + live click without the target-store read-back → **Layer 4 FAIL**. The badge can lie; the row cannot.
+- Gate required + read-back reveals missing or wrong row → diagnose before marking done; do not paper over with a UI-only retry that masks the data-layer regression.
