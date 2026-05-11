@@ -49,3 +49,17 @@ teardown() {
     run is_pane_blocked pane_under_threshold
     [ "$status" -eq 1 ]
 }
+
+@test "M4: decision-kind 60s cooldown gates back-to-back autonomous decisions" {
+    source "$DR_ORCH_DIR/scripts/security.sh"
+    run check_cooldown decision_pane_test decision
+    [ "$status" -eq 0 ]
+    run check_cooldown decision_pane_test decision
+    [ "$status" -eq 1 ]
+}
+
+@test "M4: unknown cooldown kind returns exit 2" {
+    source "$DR_ORCH_DIR/scripts/security.sh"
+    run check_cooldown some_pane bogus
+    [ "$status" -eq 2 ]
+}

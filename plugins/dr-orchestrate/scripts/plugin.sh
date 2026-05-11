@@ -19,8 +19,14 @@ dispatch() {
       fi
       "$DR_ORCH_DIR/scripts/cmd_run.sh" "$@"
       ;;
+    on_unknown_prompt)
+      # TUNE-0165 M6: parser-miss escalation hook. Caller supplies the
+      # already-captured pane text via --unknown-prompt; cmd_run.sh drives the
+      # resolver + escalation chain.
+      "$DR_ORCH_DIR/scripts/cmd_run.sh" --unknown-prompt "$@"
+      ;;
     on_tune_complete)
-      echo "dr-orchestrate: on_tune_complete noop (Phase 2 hook)"
+      echo "dr-orchestrate: on_tune_complete noop (Phase 3 hook)"
       return 0
       ;;
     *)
@@ -29,7 +35,8 @@ dispatch() {
   esac
 }
 
-get_autonomy() { echo "1"; }
+# Plugin autonomy level. TUNE-0165 bumps L1 (manual) → L2 (assisted).
+get_autonomy() { echo "2"; }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   cmd="${1:-}"; shift || true

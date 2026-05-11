@@ -2,7 +2,7 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 2.3.0](https://img.shields.io/badge/Version-2.3.0-green.svg)](VERSION)
+[![Version: 2.4.0](https://img.shields.io/badge/Version-2.4.0-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
@@ -118,12 +118,16 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   inventory-consistency, broken-symlinks, orphan-files, override-integrity,
   dependency-graph, git-state, snapshot-cleanup, skill-registry).
 
-- **Reference plugin: dr-orchestrate (v2.3.0+, TUNE-0164)** — first non-core plugin.
-  Tmux-based self-driving Datarim pipeline runner; Phase 1 is a lean rule-based
-  runner with security floor (whitelist, byte-0x1b escape block, 500 ms micro +
-  60 s decision cooldown, 5-violations/hr → 1 h pane block, fail-closed), YAML
-  secrets backend (mode-0600 enforced), and JSONL audit with hash-only matched
-  text. Install via `dr-plugin enable dr-orchestrate`. See
+- **Reference plugin: dr-orchestrate (v2.4.0+)** — first non-core plugin.
+  Tmux-based self-driving Datarim pipeline runner. Phase 1 ships a lean
+  rule-based runner with security floor (whitelist, byte-0x1b escape block,
+  500 ms micro + 60 s decision cooldown, 5-violations/hr → 1 h pane block,
+  fail-closed); Phase 2 (v2.4.0) adds a multi-backend subagent inference
+  layer (coworker → claude → codex, lenient JSON parse, FD-3 close, fail-
+  closed threshold gate) for unknown prompts and bumps plugin autonomy from
+  L1 (manual) to L2 (assisted). Flock-race-safe cooldown on Linux, audit
+  schema v2 with confidence + backend metadata, hash-only matched text
+  invariant preserved. Install via `dr-plugin enable dr-orchestrate`. See
   `plugins/dr-orchestrate/README.md`.
 
 - **Self-evolving framework** — after every task, `/dr-archive` Step 0.5 (reflecting

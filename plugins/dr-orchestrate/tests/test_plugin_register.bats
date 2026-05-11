@@ -27,8 +27,27 @@ setup() {
     [ "$status" -eq 0 ]
 }
 
-@test "V-AC-15: get_autonomy returns 1" {
+@test "V-AC-15: get_autonomy returns 2 (TUNE-0165 bumps L1→L2)" {
     run bash "$DR_ORCH_DIR/scripts/plugin.sh" get_autonomy
     [ "$status" -eq 0 ]
-    [ "$output" = "1" ]
+    [ "$output" = "2" ]
+}
+
+@test "V-AC-16: dispatch on_unknown_prompt routes to cmd_run.sh" {
+    # cmd_run.sh requires bash 4+ — skip on macOS system bash (3.2) hosts.
+    [[ "${BASH_VERSINFO[0]}" -ge 4 ]] || skip "bash 4+ required (have $BASH_VERSION)"
+    export STATE_DIR="$(mktemp -d)"
+    export AUDIT_DIR="$(mktemp -d)"
+    export DR_ORCH_SUBAGENT_CHAIN="absent-1 absent-2"
+    run bash "$DR_ORCH_DIR/scripts/plugin.sh" dispatch on_unknown_prompt --pane "%9" --unknown-prompt "ambiguous pane text"
+    [ "$status" -eq 0 ]
+    n=$(find "$AUDIT_DIR" -name 'audit-*.jsonl' -exec cat {} \; | wc -l | tr -d ' ')
+    [ "$n" -ge 1 ]
+    rm -rf "$STATE_DIR" "$AUDIT_DIR"
+}
+
+@test "V-AC-16: dispatch on_unknown_prompt is wired in plugin.sh" {
+    # Structural check independent of bash version: the dispatch case exists.
+    run grep -E '^[[:space:]]*on_unknown_prompt\)' "$DR_ORCH_DIR/scripts/plugin.sh"
+    [ "$status" -eq 0 ]
 }

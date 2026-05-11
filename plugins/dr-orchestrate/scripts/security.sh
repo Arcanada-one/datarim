@@ -44,18 +44,25 @@ check_escape() {
   [[ "$text" != *$'\x1b'* ]] || { audit_block "escape" "$text"; return 1; }
 }
 
-# Two-layer cooldown:
+# Two-layer cooldown (TUNE-0165 M4: flock-race-safe under concurrency):
 #   micro    — 500 ms gate per send to the same pane.
 #   decision — 60 s gate per autonomous decision to the same pane.
 # Hits within window → record_violation + return 1. Misses update timestamp.
-check_cooldown() {
-  local pane="$1"; local kind="${2:-micro}"
-  local floor
-  case "$kind" in
-    micro)    floor=500 ;;
-    decision) floor=60000 ;;
-    *)        echo "ERR: unknown cooldown kind '$kind'" >&2; return 2 ;;
-  esac
+# Where `flock` is available (Linux util-linux) the read-write window is held
+# inside a non-blocking exclusive lock so concurrent contenders fall through
+# to "blocked" rather than racing the timestamp file. On macOS (no flock by
+# default) the behavior degrades to Phase-1 non-atomic semantics with a one-
+# time WARN; the V-AC-21 contract is Linux-gated.
+_warn_flock_once() {
+  local kind="$1"
+  local sentinel="$STATE_DIR/.warned.flock-${kind}"
+  [[ -f "$sentinel" ]] && return 0
+  echo "WARN flock unavailable on this host — cooldown is not race-safe (kind=${kind})" >&2
+  : > "$sentinel"
+}
+
+_cooldown_check_unlocked() {
+  local pane="$1"; local kind="$2"; local floor="$3"
   local safe_pane="${pane//\//_}"; safe_pane="${safe_pane//:/_}"
   local state_file="$STATE_DIR/${safe_pane}.cooldown.${kind}"
   local now; now="$(now_ms)"
@@ -67,6 +74,27 @@ check_cooldown() {
     fi
   fi
   echo "$now" > "$state_file"
+}
+
+check_cooldown() {
+  local pane="$1"; local kind="${2:-micro}"
+  local floor
+  case "$kind" in
+    micro)    floor=500 ;;
+    decision) floor=60000 ;;
+    *)        echo "ERR: unknown cooldown kind '$kind'" >&2; return 2 ;;
+  esac
+  if command -v flock >/dev/null 2>&1; then
+    local safe_pane="${pane//\//_}"; safe_pane="${safe_pane//:/_}"
+    local lock_file="$STATE_DIR/${safe_pane}.cooldown.${kind}.lock"
+    (
+      flock -n 200 || exit 1
+      _cooldown_check_unlocked "$pane" "$kind" "$floor"
+    ) 200>"$lock_file"
+  else
+    _warn_flock_once "$kind"
+    _cooldown_check_unlocked "$pane" "$kind" "$floor"
+  fi
 }
 
 # Violation ledger. 5 violations of any kind within 1 hour → pane blocked 1 h.
