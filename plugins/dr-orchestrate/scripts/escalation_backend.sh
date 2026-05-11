@@ -73,8 +73,54 @@ _emit_mock() {
 }
 
 _emit_devbot() {
-  echo "WARN dev-bot escalation backend is a stub (AGENT-0017/0018 pending)" >&2
-  return 99
+  local resolver_json="${1:-}"; local session_id="${2:-unknown}"
+  # Gated no-op: if destination URL is unset, return silently (V-AC-7).
+  # Defensive invariant: silent exit MUST NOT print a success message.
+  if [[ -z "${DR_ORCH_ESCALATION_DEVBOT_URL:-}" ]]; then
+    return 0
+  fi
+  # Resolve HMAC secret: env var direct (DR_ORCH_ESCALATION_HMAC_SECRET) or
+  # via secrets_backend (DR_ORCH_ESCALATION_HMAC_SECRET_REF → yaml_get).
+  local secret="${DR_ORCH_ESCALATION_HMAC_SECRET:-}"
+  if [[ -z "$secret" ]] && [[ -n "${DR_ORCH_ESCALATION_HMAC_SECRET_REF:-}" ]]; then
+    # shellcheck source=secrets_backend.sh
+    source "$DR_ORCH_DIR/scripts/secrets_backend.sh" 2>/dev/null || true
+    secret="$(yaml_get "${DR_ORCH_ESCALATION_HMAC_SECRET_REF}" "hmac_secret" 2>/dev/null || true)"
+  fi
+  # Build schema_version:2 event payload.
+  local cid ts text
+  cid="$(_cycle_id)"
+  ts="$(date -u +%FT%TZ)"
+  text="$(_redact "${DR_ORCH_PROMPT_TEXT:-}")"
+  local payload
+  payload="$(jq -n -c \
+    --argjson sv 2 \
+    --arg et "escalation" \
+    --arg cid "$cid" \
+    --arg sid "$session_id" \
+    --arg txt "$text" \
+    --arg ts_ "$ts" \
+    '{schema_version:$sv, event_type:$et, cycle_id:$cid, session_id:$sid, text:$txt, ts:$ts_}')"
+  # Dispatch to outbound backend.
+  local backend="${DR_ORCH_OUTBOUND_BACKEND:-callback}"
+  case "$backend" in
+    callback)
+      if [[ -z "$secret" ]]; then
+        printf 'ERR: DR_ORCH_ESCALATION_HMAC_SECRET required for callback backend\n' >&2
+        return 1
+      fi
+      bash "$DR_ORCH_DIR/scripts/outbound-hmac-sign.sh" sign_and_post \
+        "$DR_ORCH_ESCALATION_DEVBOT_URL" "$secret" "$payload"
+      ;;
+    redis)
+      bash "$DR_ORCH_DIR/scripts/outbound-redis-publish.sh" publish_event \
+        "$session_id" "$payload"
+      ;;
+    *)
+      printf 'ERR: unknown DR_ORCH_OUTBOUND_BACKEND=%s\n' "$backend" >&2
+      return 2
+      ;;
+  esac
 }
 
 emit() {
@@ -85,7 +131,7 @@ emit() {
   fi
   case "$DR_ORCH_ESCALATION_BACKEND" in
     mock)    _emit_mock    "$resolver_json" "$pane_id" ;;
-    dev-bot) _emit_devbot ;;
+    dev-bot) _emit_devbot "$resolver_json" "$pane_id" ;;
     *)       echo "ERR: unknown escalation backend '$DR_ORCH_ESCALATION_BACKEND'" >&2; return 2 ;;
   esac
 }

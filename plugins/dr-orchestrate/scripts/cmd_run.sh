@@ -114,6 +114,22 @@ fi
 
 if (( UNKNOWN_PROMPT )); then
   PANE_ID="${PANE_ID:-${SESSION_NAME}:0.0}"
+  # Inbox-poll branch: dequeue oldest inbox message before falling back to
+  # pane_capture. Inbox directory is written by orchestrator-input-handler.sh
+  # (async path). Files are named <ulid>.json and sorted lexicographically
+  # (ULID sort = arrival order). On dequeue the file is removed atomically.
+  _DR_ORCH_INBOX_DIR="${DR_ORCH_INBOX_DIR:-$HOME/.local/share/datarim-orchestrate/inbox}"
+  if [[ -z "$UNKNOWN_TEXT" ]] && [[ -d "$_DR_ORCH_INBOX_DIR" ]]; then
+    oldest="$(ls "$_DR_ORCH_INBOX_DIR"/*.json 2>/dev/null | sort | head -1 || true)"
+    if [[ -n "$oldest" ]] && [[ -f "$oldest" ]]; then
+      _inbox_body="$(cat "$oldest")"
+      _inbox_cmd="$(printf '%s' "$_inbox_body" | jq -r '.command // empty' 2>/dev/null || true)"
+      if [[ -n "$_inbox_cmd" ]]; then
+        UNKNOWN_TEXT="$_inbox_cmd"
+        rm -f "$oldest"
+      fi
+    fi
+  fi
   if [[ -z "$UNKNOWN_TEXT" ]]; then
     UNKNOWN_TEXT="$(pane_capture "$PANE_ID" 2>/dev/null || true)"
   fi

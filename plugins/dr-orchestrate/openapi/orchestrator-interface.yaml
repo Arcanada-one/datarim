@@ -1,0 +1,141 @@
+openapi: "3.1.0"
+info:
+  title: Orchestrator Bot Interface
+  version: "1.0.0"
+  description: >
+    Inbound HTTP interface for the dr-orchestrate plugin.
+    Receives commands from bot clients, dispatches to the local orchestrator,
+    and returns sync results for whitelisted commands or 202 Accepted for async.
+
+servers:
+  - url: http://127.0.0.1:8090
+    description: Local reference impl (adnanh/webhook v2.8.3)
+
+paths:
+  /hooks/orchestrator-input:
+    post:
+      operationId: orchestratorInput
+      summary: Submit a command to the orchestrator
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: X-Sync-Timeout
+          in: header
+          required: false
+          description: >
+            Milliseconds to wait for inline (sync) response.
+            Only honoured for whitelisted commands (dr-status, dr-help).
+            Maximum enforced: 2000ms. If omitted, always returns 202.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 2000
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrchestratorInput"
+            examples:
+              dr-status:
+                summary: Whitelisted sync command
+                value:
+                  session_id: "abc123xyz00"
+                  command: "dr-status"
+                  ts: "2026-05-11T00:00:00Z"
+              arbitrary:
+                summary: Arbitrary async command
+                value:
+                  session_id: "abc123xyz00"
+                  command: "/dr-do TUNE-0175"
+                  ts: "2026-05-11T00:00:00Z"
+                  meta:
+                    source: "telegram"
+      responses:
+        "200":
+          description: Sync-shortcut response (whitelisted command + X-Sync-Timeout ≤2000ms)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrchestratorEvent"
+        "202":
+          description: Accepted — command queued for async processing
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: ["queued"]
+                required:
+                  - status
+        "400":
+          description: Bad request — JSON schema validation failed or malformed body
+        "401":
+          description: Unauthorized — missing or invalid Bearer token
+          headers:
+            WWW-Authenticate:
+              schema:
+                type: string
+                example: 'Bearer realm="orchestrator"'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Static token validated by hooks.yaml trigger rule
+
+  schemas:
+    OrchestratorInput:
+      type: object
+      required:
+        - session_id
+        - command
+        - ts
+      additionalProperties: false
+      properties:
+        session_id:
+          type: string
+          pattern: "^[A-Za-z0-9_-]{8,64}$"
+          description: Caller-scoped session identifier (URL-safe, 8–64 chars)
+        command:
+          type: string
+          minLength: 1
+          maxLength: 4096
+          description: Raw command string to dispatch (e.g. dr-status, /dr-do TASK-ID)
+        ts:
+          type: string
+          format: date-time
+          description: ISO-8601 timestamp of the request (caller-supplied)
+        meta:
+          type: object
+          additionalProperties: true
+          description: Optional bag of caller metadata (source, user_id, etc.)
+
+    OrchestratorEvent:
+      type: object
+      required:
+        - schema_version
+        - event_type
+        - cycle_id
+      properties:
+        schema_version:
+          type: integer
+          const: 2
+        event_type:
+          type: string
+          enum:
+            - escalation
+            - progress
+            - complete
+        cycle_id:
+          type: string
+          format: uuid
+          description: UUID v7 for this response cycle
+        text:
+          type: string
+          description: Human-readable result text (optional for 200 path)
+        session_id:
+          type: string

@@ -1,0 +1,39 @@
+# hooks.yaml — adnanh/webhook v2.8.3 configuration for dr-orchestrate.
+# Start with: webhook -hooks config/hooks.yaml -port 8090 -verbose
+# Auth: static Bearer token via DR_ORCH_INBOUND_TOKEN env var.
+# The trigger-rule matches both the Authorization header pattern AND
+# presence of session_id in the raw body before invoking the handler.
+- id: orchestrator-input
+  execute-command: "./scripts/orchestrator-input-handler.sh"
+  command-working-directory: "."
+  response-message: '{"status":"queued"}'
+  response-headers:
+    - name: Content-Type
+      value: application/json
+  trigger-rule:
+    and:
+      - match:
+          type: regex
+          regex: "^Bearer [A-Za-z0-9+/=._-]{8,512}$"
+          parameter:
+            source: header
+            name: Authorization
+      - match:
+          type: regex
+          regex: '"session_id":"[A-Za-z0-9_-]{8,64}"'
+          parameter:
+            source: payload
+            name: raw
+  pass-arguments-to-command:
+    - source: payload
+      name: raw
+    - source: header
+      name: X-Sync-Timeout
+  pass-environment-to-command:
+    - envname: DR_ORCH_DIR
+    - envname: DR_ORCH_INBOUND_TOKEN
+    - envname: DR_ORCH_INBOX_DIR
+    - envname: DR_ORCH_OUTBOUND_BACKEND
+    - envname: DR_ORCH_ESCALATION_DEVBOT_URL
+    - envname: DR_ORCH_ESCALATION_HMAC_SECRET
+    - envname: DR_ORCH_OUTBOUND_REDIS_URL
