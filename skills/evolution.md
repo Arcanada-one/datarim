@@ -259,3 +259,28 @@ When a user-memory rule (e.g. `~/.claude/projects/<proj>/memory/feedback_*.md`) 
 **Source incident:** `feedback_datarim_stack_agnostic.md` declared 2026-04-25, violated the next day across three artefacts. Memory rule advisory; gate enforces.
 
 **Reuse candidates:** consider this pattern for any future recurring memory rule — e.g. «no-secrets-in-code», «no-personal-paths», «no-deprecated-API-XXX», ecosystem-specific keyword bans.
+
+---
+
+## Pattern: Helper Extends Doctrine — Same-Task Reconcile
+
+When a runtime helper (a predicate, branch, return value, accepted-name set, allowed-flag list) covers a strictly wider set of conditions than the doctrine that documents it, the same task that widens the helper MUST close the gap in one of two ways. Doctrine-only and code-only states are both unstable: the next reader follows the narrower doctrine, judges the wider branch redundant, reverts it, and the runtime regresses to the original incident.
+
+**Trigger:** a code change introduces or expands a branch / accepted-name / matched-flag / fallback path that is not literally enumerated in the matching doctrine (the convention bullet, comment block, ADR, or contract sentence that explicitly names the helper). The new branch is provably reachable in production — not dead code, not a defensive belt-and-braces — and the test suite asserts it.
+
+**Required disposition (one of the two, in the same task):**
+
+1. **Update the doctrine.** Add the new condition / name / flag to the doctrine prose in the same task. The doctrine and the helper now describe the same set.
+2. **Record narrower-doctrine-intentional.** If the doctrine is deliberately narrower than the helper (e.g. the helper accepts a deprecated form on the way to removal, or one branch is platform-specific), add an inline disposition next to the helper itself: a one-line comment of the form `// doctrine narrower than helper: <reason> — see <link/anchor>` or the language-equivalent. The disposition is required in the same change so a future reader does not need to reconstruct the intent.
+
+**What does NOT close the gap:**
+
+- A reflection note that says «doctrine to update later». Drift looped twice between archives in source incident below — text-only memory is not load-bearing.
+- A backlog follow-up to «decide simplify-helper vs amend-doctrine». The follow-up is itself the gap; the decision is the disposition above.
+- A comment on the helper that says «matches both X and Y» without the **why** — the next reviewer reads the doctrine, sees only X, and removes the Y branch as dead code.
+
+**Verification at /dr-compliance:** when Step 3 (References) detects that a helper accepts more values / names / shapes than the doctrine enumerates, FAIL Layer 4 unless one of the two dispositions is in the same diff. Operator override sets the disposition explicitly and re-runs.
+
+**Source incident:** an `isAbortError` predicate accepted two cancel-marker names rather than one because the runtime emitted both shapes (the native cancel name plus a library-specific cancel name from a wrapped HTTP client). The matching doctrine in the project's convention file named only the native shape. The doctrine was amended to match the helper, reverted, then re-amended only after the drift surfaced for a second time across two review rounds. Two QA rounds and one compliance round wasted on the loop. The pattern generalises: any helper that quietly broadens its accept-set creates a future-reader trap unless the doctrine moves with it in the same task.
+
+**Reuse candidates:** error-name normalizers (Abort/Cancel/Timeout), allowed-MIME-type lists, dialect-flag fallbacks, locale-tag aliases, soft-delete predicates that accept multiple sentinel values, schema migrations that tolerate transitional column shapes.
