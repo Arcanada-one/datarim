@@ -1368,3 +1368,35 @@ None (TUNE-0091's currently-failing tests will surface organically on its PR via
 
 - Stack-agnostic gate: `bash scripts/stack-agnostic-gate.sh --diff-only HEAD skills/testing/live-smoke-gates.md` → PASS clean. `bash scripts/stack-agnostic-gate.sh --diff-only HEAD skills/evolution.md` → PASS clean (after one rewrite: initial draft cited a specific HTTP-client library name, reworded to stack-neutral «library-specific cancel-marker name»).
 - Provenance: this evolution-log entry + reflection `~/code/aether/local-env/datarim/reflection/reflection-DEV-1362.md` + git log on the canonical Datarim repo.
+
+---
+
+## 2026-05-11 — TUNE-0165 Class A applied
+
+### Proposal B1 (template-update + command-update)
+
+- **Target:** `templates/prd-template.md` + `commands/dr-prd.md` (Step 5 pre-save gates).
+- **What:** Added `ships_in:` derivation rule. PRDs that ship framework / library releases MUST derive `ships_in:` from the canonical version source (`code/datarim/VERSION` or project equivalent) at PRD-draft time. `/dr-prd` Step 5 reads the current version and pre-fills `ships_in: <next-minor-or-patch>`. Manual override requires an inline justification comment. Drift between PRD-declared and actual release version becomes an explicit pre-save gate.
+- **Why:** TUNE-0165 PRD shipped with `ships_in: Datarim v1.25.0` while framework was advancing v2.3.0 → v2.4.0; 5 body refs to the stale version drifted with the frontmatter and only surfaced at `/dr-compliance`, requiring an extra patch round.
+- **Impact:** Medium — closes a recurring class of «PRD ships-version drift» defects across every framework / plugin / library release PRD.
+
+### Proposal B2 (template-update + command-update)
+
+- **Target:** `templates/prd-template.md` + `commands/dr-prd.md` (Step 5 pre-save gates).
+- **What:** Added V-AC path live-validation gate. Every AC / V-AC line that cites a script / binary / spec file / directory MUST be live-validated (`command -v <bin>` / `test -f <path>` / dry-run exit code) before PRD approval. Cites intentionally produced by the plan must be marked `[to-be-created]` inline; everything else without a successful probe blocks save.
+- **Why:** TUNE-0165 PRD shipped with 2 phantom-path cites — `tests/test_plugin_dispatch.bats` (real implementation: case in `test_plugin_register.bats`) + `dev-tools/check-version-consistency.sh` (real path: `scripts/version-consistency-check.sh`). Both survived `/dr-qa` and surfaced at `/dr-compliance`. Similar phantom in earlier TUNE-0164 PRD. `[to-be-created]` marker preserves compatibility with PRDs whose plans create new tooling.
+- **Impact:** Medium — closes a recurring class of «PRD cites non-existent path» defects across all PRD-time artefacts.
+
+### Verification
+
+- Stack-agnostic gate: `bash scripts/stack-agnostic-gate.sh templates/prd-template.md` → PASS clean. `bash scripts/stack-agnostic-gate.sh commands/dr-prd.md` → PASS clean.
+- Bats: `bats tests/` → 402 ok + 5 pre-existing not_ok (T11/T12 skill-scope gate, D5 SCOPES list, skill description >155 chars, dr-reflect whitelist). 0 new regressions — same baseline as before TUNE-0165 archive.
+- Provenance: this evolution-log entry + reflection `~/arcanada/datarim/reflection/reflection-TUNE-0165.md` + git log on the canonical Datarim repo.
+
+### Class B Held — Proposal B3 (deferral clause template)
+
+- **Target (planned):** `templates/coverage-deferral-clause.md` + reference in `skills/compliance.md` § Step 4.
+- **What:** Standardise «deferred V-AC» waiver template — explicit fields for measured-vs-deferred status, gating dependency (e.g. `INFRA-0137`), follow-up condition, timestamp + operator initials.
+- **Why:** TUNE-0165 V-AC-22 (48h soak `false_escalate_rate < 0.15`) deferred to Linux runtime without a structured waiver — opens a class of «deferred-AC forgotten» defects across autonomy / quality-baseline metrics.
+- **Class:** B — change in `skills/compliance.md` § Step 4 «Quantitative-threshold AC enforcement» is an operating-model contract change; requires a PRD draft before apply.
+- **Status:** HELD. Spawned as backlog item `TUNE-0182` (P2 L2) with PRD draft as the gate.
