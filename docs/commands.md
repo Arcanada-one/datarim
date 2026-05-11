@@ -43,6 +43,7 @@ Source: TUNE-0032. Spec: `skills/cta-format.md`. Template: `templates/cta-templa
 | `/dr-design` | Design | architect | Architecture exploration with consilium (L3-4). Emits CTA. |
 | `/dr-do` | Execution | developer | TDD development, one method at a time. Emits CTA. |
 | `/dr-qa` | Quality | reviewer | Multi-layer verification (PRD, design, plan, code). Emits CTA (FAIL-Routing variant on BLOCKED). |
+| `/dr-verify` | Verification | -- | Standalone tri-layer self-verification (on-demand). Layer 1 deterministic floor + Layer 2 cross-model peer-review (provider auto-resolves via 6-step chain — zero-flag UX, cross-Claude-family fallback when no external API key) + Layer 3 native runtime dispatch. Findings carry `source_layer` + `peer_review_mode` (`cross_vendor` / `cross_claude_family` / `same_model_isolated`); findings-only mode; emits CTA (FAIL-Routing variant on BLOCKED). |
 | `/dr-compliance` | Hardening | compliance | 7-step post-QA hardening workflow. Emits CTA (FAIL-Routing variant on NON-COMPLIANT). |
 | `/dr-archive` | Archive | reviewer (Step 0.5 reflection) + planner (Steps 1-7) | Reflection + evolution proposals + complete task + update backlog + reset context. Emits CTA. |
 
@@ -62,6 +63,7 @@ Source: TUNE-0032. Spec: `skills/cta-format.md`. Template: `templates/cta-templa
 | `/dr-doctor` | Maintenance | -- | Diagnose and repair Datarim operational files — migrate to thin one-liner schema, externalize task descriptions, abolish progress.md. Emits CTA. |
 | `/dr-dream` | Maintenance | librarian | Knowledge base maintenance: organize, lint, index, cross-reference. Emits CTA. |
 | `/dr-optimize` | Maintenance | optimizer | Audit framework, prune unused, merge duplicates, sync docs. Emits CTA. |
+| `/dr-plugin` | Extension | -- | Manage opt-in plugin system: list active plugins, enable/disable third-party modules. Phase A (TUNE-0101). Emits CTA. |
 
 ## Utility Commands (3)
 

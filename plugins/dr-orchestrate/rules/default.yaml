@@ -1,0 +1,41 @@
+# dr-orchestrate bootstrap rules (TUNE-0165 Phase 2).
+# 3-source loader (rules_loader.sh) merges this with user.yaml + learned-rules.yaml.
+# Precedence: learned > user > default (this file).
+#
+# Schema:
+#   patterns:
+#     - match: <slash-command-or-prefix-string>   # literal substring or canonical anchor
+#       action: <slash-command>                    # /dr-* canonical name to emit on hit
+#       confidence: <float 0..1>                   # 0.95 = exact-match anchor
+
+patterns:
+  - match: "/dr-init"
+    action: "/dr-init"
+    confidence: 0.95
+  - match: "/dr-prd"
+    action: "/dr-prd"
+    confidence: 0.95
+  - match: "/dr-plan"
+    action: "/dr-plan"
+    confidence: 0.95
+  - match: "/dr-design"
+    action: "/dr-design"
+    confidence: 0.95
+  - match: "/dr-do"
+    action: "/dr-do"
+    confidence: 0.95
+  - match: "/dr-qa"
+    action: "/dr-qa"
+    confidence: 0.95
+  - match: "/dr-compliance"
+    action: "/dr-compliance"
+    confidence: 0.95
+  - match: "/dr-archive"
+    action: "/dr-archive"
+    confidence: 0.95
+  - match: "/dr-status"
+    action: "/dr-status"
+    confidence: 0.90
+  - match: "/dr-continue"
+    action: "/dr-continue"
+    confidence: 0.90

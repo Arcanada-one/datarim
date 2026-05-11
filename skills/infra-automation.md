@@ -2,6 +2,9 @@
 name: infra-automation
 description: Infrastructure ops — SSH batch execution, health checks, network debugging, pre-migration inventory. Use for Arcana server ops.
 model: sonnet
+runtime: [claude, codex]
+current_aal: 1
+target_aal: 2
 ---
 
 # Infrastructure Automation

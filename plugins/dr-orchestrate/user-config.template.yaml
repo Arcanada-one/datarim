@@ -1,0 +1,26 @@
+# dr-orchestrate user config template
+# Copy to user-config.yaml, chmod 600, then edit.
+# user-config.yaml is gitignored — see code/datarim/.gitignore.
+
+key_injection: false   # MUST be set to true to allow send-keys; default fail-closed.
+session_name: datarim
+audit_dir: ~/.local/share/datarim-orchestrate
+state_dir: ~/.local/share/datarim-orchestrate/state
+
+# Phase 2 (TUNE-0165): subagent inference layer (autonomy L2 assisted).
+subagent:
+  # Fallback chain tried in order. First parseable JSON response wins.
+  # Recognised backends: coworker-deepseek, coworker-groq, claude, codex.
+  fallback_chain: ["coworker-deepseek", "claude", "codex"]
+  # Per-backend wall-clock budget. Chain continues on timeout.
+  timeout_s: 15
+  # Caller-side gate. Below this, escalation_backend.sh is invoked.
+  confidence_threshold: 0.80
+
+# Phase 2 (TUNE-0165): escalation routing.
+escalation:
+  # backend ∈ {mock, dev-bot}. mock writes JSONL locally; dev-bot is stub
+  # until AGENT-0017/0018 lands the real consumer.
+  backend: "mock"
+  # JSONL ledger for mock escalations. Append-only.
+  mock_log: ~/.local/share/dr-orchestrate/escalation.jsonl

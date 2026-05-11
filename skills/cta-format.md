@@ -1,6 +1,9 @@
 ---
 name: cta-format
 description: Canonical CTA "Next Step" block format for every /dr-* command and pipeline agent. Load when generating slash-command output or finishing a phase.
+runtime: [claude, codex]
+current_aal: 1
+target_aal: 2
 ---
 
 # CTA Format — Canonical Specification

@@ -1,6 +1,9 @@
 ---
 name: security-baseline
 description: Canonical S1–S9 security rule reference cited from CLAUDE.md § Security Mandate. Load for plan/qa/compliance/do touching shipped artefacts.
+runtime: [claude, codex]
+current_aal: 1
+target_aal: 2
 ---
 
 # Security Baseline (S1–S9)

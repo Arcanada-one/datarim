@@ -1,6 +1,9 @@
 ---
 name: tech-stack
 description: Tech stack selection by project type (static, API, full-stack, etc.). Use when creating a new project, service, or module or when choosing technologies.
+runtime: [claude, codex]
+current_aal: 1
+target_aal: 2
 ---
 
 # Tech Stack Selection

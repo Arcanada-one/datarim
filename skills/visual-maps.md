@@ -2,6 +2,9 @@
 name: visual-maps
 description: Visual index for Datarim maps. Load this entry first, then only the diagram fragment needed for routing, stage flow, or dependency orientation.
 model: sonnet
+runtime: [claude, codex]
+current_aal: 1
+target_aal: 2
 ---
 
 # Visual Maps — Workflow Diagrams

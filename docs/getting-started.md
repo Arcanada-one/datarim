@@ -20,10 +20,15 @@ This guide walks you through installing the Datarim framework, initializing it i
 git clone https://github.com/Arcanada-one/datarim.git
 cd datarim
 chmod +x install.sh
-./install.sh
+./install.sh --with-claude              # Claude Code runtime (symlink, default since v1.17)
+./install.sh --with-codex               # Codex CLI runtime (multi-runtime, v2.0+)
+./install.sh --with-claude --with-codex # both runtimes at once
+./install.sh --project /path/to/project # project-local copy mode (no symlinks)
 ```
 
-On macOS and Linux this creates four symlinks in `~/.claude/` — `agents`, `skills`, `commands`, `templates` — each pointing at the matching directory inside the cloned repo. The runtime IS the repo: any edit you make in either place lands in the same file, so `git diff` shows your changes immediately and there is no separate "curate" step.
+Datarim v2.0+ is **multi-runtime (Claude + Codex)**. Without flags, `install.sh` prints help and exits 0 — you must choose at least one runtime or `--project DIR`. The installer creates 6 scope symlinks in `~/.${runtime}/` — `agents`, `skills`, `commands`, `templates`, `scripts`, `tests` — each pointing at the matching directory inside the cloned repo. The runtime IS the repo: any edit you make in either place lands in the same file, so `git diff` shows your changes immediately and there is no separate "curate" step. **Codex disclaimer:** Codex experience may differ — no `Task` / `TodoWrite` primitives; intent-layer rewrites in absorbed superpowers skills preserve runtime-agnostic readability.
+
+`AGENTS.md` (a symlink to `CLAUDE.md`) is shipped at the repo root so Codex CLI and other runtimes that read `AGENTS.md` by convention work out of the box.
 
 The installer also creates `~/.claude/local/{skills,agents,commands,templates}/` (real directories, gitignored) for personal additions and overrides that you do not want committed upstream. See [Local Overlay](#local-overlay) below.
 
@@ -250,6 +255,36 @@ your-project/
 
 ---
 
+---
+
+## Project Scaffolding — Diátaxis Documentation Structure
+
+When `/dr-init` is invoked with a project-creation intent (e.g. `/dr-init create project "Foo"`), the scaffolder follows the **Documentation Taxonomy Mandate** (`skills/diataxis-docs.md`). The default `docs/` layout is the four Diátaxis categories with auto-mapped legacy stubs:
+
+```
+your-project/docs/
+├── tutorials/              # Learning-oriented (newcomer end-to-end)
+│   └── README.md
+├── how-to/                 # Problem-solving (task recipes)
+│   ├── README.md
+│   ├── testing.md          # Legacy stub mapped to how-to
+│   ├── deployment.md       # Legacy stub mapped to how-to
+│   └── gotchas.md          # Legacy stub mapped to how-to
+├── reference/              # Information-oriented (lookup, catalogue)
+│   ├── README.md
+│   └── architecture.md     # Legacy stub mapped to reference (system map)
+└── explanation/            # Understanding-oriented (background, why)
+    └── README.md
+```
+
+The four categories are a **closed set** — `faq`, `glossary`, `troubleshooting`, `examples`, `overview`, `samples` are mappable to one of the four canonical buckets, never separate top-level types. See `skills/diataxis-docs.md` § Mapping Table for the full mapping (architecture / testing / deployment / gotchas / api / cli / config / concepts / design / tutorial / quickstart / faq / troubleshooting / examples / glossary).
+
+**Idempotency:** `/dr-init` never overwrites existing files. If `docs/` already exists with files, the scaffolder skips them and reports "skipped: already exists" per file.
+
+**Stack-agnostic:** the mandate describes taxonomy only — your choice of static-site generator (any) is per-project and outside the contract.
+
+**Drift detection:** `/dr-optimize` Step 6 detects repos with ≥3 `docs/*.md` files but missing the 4-category split, and proposes `INFRA-* — Diátaxis docs reorg` in backlog. Soft warning only at this stage; a future hard CI gate is deferred to a separate backlog item.
+
 ## Two-Layer Architecture
 
 Datarim separates workflow state from project documentation. This is the central design decision behind the directory structure.
@@ -420,3 +455,24 @@ Run `/dr-doctor` if you are upgrading from a pre-v1.19.0 installation or if `/dr
 - [Commands Reference](commands.md) -- all 20 available commands with usage examples
 - [Backlog Workflow](backlog-workflow.md) -- how to manage tasks, priorities, and the backlog
 - [Complexity Routing](complexity.md) -- how task complexity determines which stages run
+
+## Adding plugins (v1.23.0+)
+
+Datarim ships with a built-in `datarim-core` set. Optional skills, agents, commands, and templates beyond core are managed via the `/dr-plugin` CLI (TUNE-0101).
+
+```bash
+/dr-plugin list                              # active set + bootstrap on first run
+/dr-plugin enable /path/to/my-plugin         # absolute path to a directory with plugin.yaml
+/dr-plugin disable my-plugin
+/dr-plugin sync                              # reconcile runtime ↔ manifest (idempotent)
+/dr-plugin doctor [--fix]                    # 9 health checks
+```
+
+Each plugin source is a directory containing `plugin.yaml` (schema_version: 1) and one or more of the `skills/`, `agents/`, `commands/`, `templates/` subdirectories. Files install as symlinks under `~/.claude/<category>/<plugin-id>/<basename>` (namespace-isolated). Root-position install is opt-in via the `overrides:` field in `plugin.yaml` — useful when a plugin intentionally shadows a core artefact via the `local`-overlay precedence.
+
+The active set is recorded in `datarim/enabled-plugins.md` — manual edits are tolerated but require a follow-up `/dr-plugin sync` to reconcile runtime symlinks. Every `enable` takes a tarball snapshot before applying changes; on mid-apply failure the snapshot restores atomically.
+
+**Health checks** (`/dr-plugin doctor`): manifest-syntax, inventory-consistency, broken-symlinks, orphan-files, override-integrity, dependency-graph (DFS cycle/dangling), git-state, snapshot-cleanup (>30d), skill-registry (frontmatter `name:` ↔ basename). Exit codes: `0` clean, `1` warnings only, `2` errors found, `64` usage error.
+
+For full reference see `commands/dr-plugin.md` and `templates/plugin.yaml.template`. Authoring third-party plugins: [plugin-author-guide.md](plugin-author-guide.md).
+

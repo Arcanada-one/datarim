@@ -134,7 +134,9 @@ seed_live_runtime() {
 # Run install.sh with FAKE_CLAUDE and redirected HOME. bats captures no TTY
 # by default — which is exactly the non-TTY scenario we want for most tests.
 run_install() {
-    run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" "$FAKE_REPO/install.sh" "$@"
+    # TUNE-0114: install.sh now requires --with-claude / --with-codex / --project
+    # explicitly (D2 contract). The bats fixture targets the Claude runtime.
+    run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" "$FAKE_REPO/install.sh" --with-claude "$@"
 }
 
 # Emulate TTY via `script -q` where available (macOS BSD `script`). Used only
