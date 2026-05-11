@@ -1,10 +1,11 @@
 schema_version: 1
 id: dr-orchestrate
-title: "Datarim Orchestrator (Phase 1 — Lean)"
-version: 0.1.0
+title: "Datarim Orchestrator (Phase 2 — Subagent Inference)"
+version: 0.2.0
 author: "Pavel Valentov / Arcanada"
 license: MIT
-description: "tmux-based self-driving Datarim pipeline runner — Phase 1 lean rule-based."
+description: "tmux-based self-driving Datarim pipeline runner — Phase 2 adds multi-backend subagent inference for unknown prompts (autonomy L1→L2)."
 categories:
   - commands
+  - agents
 homepage: https://datarim.club/commands/dr-orchestrate

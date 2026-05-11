@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# semantic_parser.sh — Phase 1 stub.
-# Phase 2 (TUNE-0165) replaces this with a full grep+sed anchor matcher and
-# subagent inference layer.
+# semantic_parser.sh — rule-based first-pass classifier.
+# Hit → confidence ≥ 0.95, source=rule_phase1_stub.
+# Miss → confidence 0, source=rule_phase2_miss (subagent_resolver.sh handles
+# the fallback inference in TUNE-0165 M6).
 # V-AC: 14 (rule-based confidence > 0 for known commands).
 set -euo pipefail
 
@@ -9,18 +10,18 @@ set -euo pipefail
 parse() {
   local input="${1:-}"
   local conf=0
+  local source="rule_phase2_miss"
   case "$input" in
     */dr-init*|*/dr-prd*|*/dr-plan*|*/dr-do*|*/dr-qa*|*/dr-archive*)
       conf="0.95"
-      ;;
-    *)
-      conf="0"
+      source="rule_phase1_stub"
       ;;
   esac
   jq -n -c \
     --arg cmd "$input" \
     --argjson conf "$conf" \
-    '{command:$cmd, confidence:$conf, source:"rule_phase1_stub"}'
+    --arg src "$source" \
+    '{command:$cmd, confidence:$conf, source:$src}'
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
