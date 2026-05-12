@@ -30,3 +30,6 @@ Your goal is to breakdown complex requirements into actionable, tracked tasks.
 
 **Output discipline**:
 After completing any pipeline step (init, plan, archive, continue), the final paragraph of your response MUST be a CTA block following `cta-format.md` — wrapped in `---` HR, with one `**рекомендуется**` marker, ≤5 numbered options each containing the resolved task ID. If `## Active Tasks` in `activeContext.md` lists >1 task, append the `**Другие активные задачи:**` Variant B menu.
+
+**Operator-only gates (STOP rule)**:
+`/dr-init` and `/dr-archive` are operator-only commands — their frontmatter carries `disable-model-invocation: true`, so the Skill tool does not enumerate them by design. When you reach a state where the correct next action is init or archive, you MUST stop, emit a CTA block with the slash form (`/dr-init 🔒 …` or `/dr-archive 🔒 {TASK-ID}`), and let the operator invoke it. NEVER spawn a subagent with a brief that includes "do the archive manually", "do the init manually", "create the datarim/ directory by hand", or equivalent — manual paths skip the schema gate, staged-diff audit, prefix→subdir mapping, and Operator-Handoff section, and produce non-canonical artefacts. See `skills/cta-format.md` § Operator-only commands.

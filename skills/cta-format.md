@@ -177,6 +177,18 @@ The illustrative task IDs in the examples below (`ARCA-0001`, `TUNE-0031`, `TUNE
 ```
 <!-- /gate:history-allowed -->
 
+## Operator-only commands
+
+A small number of slash commands are intentionally invisible to the Skill tool (`disable-model-invocation: true` in frontmatter): `/dr-init` and `/dr-archive`. These are lifecycle bookends carrying irreversible workspace mutations — they require operator authorisation each invocation and MUST NOT be invoked by an agent via the Skill tool or via a subagent dispatched to "do the archive / init manually".
+
+**Convention:** mark these commands with the 🔒 badge inside any CTA block, and add a parenthetical note that the command is operator-only. Example primary line:
+
+```
+1. `/dr-archive 🔒 {TASK-ID}` — **рекомендуется** — operator-only (agents cannot invoke; surface as slash-CTA)
+```
+
+If an agent reaches a lifecycle gate whose correct next action is an operator-only command, it MUST stop, emit a CTA with the slash form (no Skill call), and let the operator decide. Spawning a subagent to perform the gate manually bypasses the framework's schema gate, staged-diff audit, and canonical archive placement, and is a contract violation.
+
 ## Loading
 
 Loaded by the following agents (declared in their `Context Loading` section):
