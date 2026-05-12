@@ -2,7 +2,7 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 2.5.0](https://img.shields.io/badge/Version-2.5.0-green.svg)](VERSION)
+[![Version: 2.6.0](https://img.shields.io/badge/Version-2.6.0-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
@@ -129,6 +129,16 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   schema v2 with confidence + backend metadata, hash-only matched text
   invariant preserved. Install via `dr-plugin enable dr-orchestrate`. See
   `plugins/dr-orchestrate/README.md`.
+
+- **Autonomous Agent Operating Rules contract** — `dr-orchestrate` ships
+  `rules/fb-rules.yaml` (FB-1..FB-8 policy block with `enforcement_layer` /
+  `tier` / `default_action` / `reversibility_required` / `audit_required` /
+  `conflicts_with_law` + `hard_gated_actions:` list) and a `rules_loader.sh`
+  `load_fb_policy()` entry point. Consumers mirror the canonical rule text in
+  their own ecosystem `CLAUDE.md` (Datarim ships the contract surface, not
+  the canonical text — the text is ecosystem-owned and audit-tagged per
+  consumer). See `plugins/dr-orchestrate/rules/fb-rules.yaml` header and the
+  framework's `CLAUDE.md` § Autonomous Agent Operating Rules (cross-link).
 
 - **Self-evolving framework** — after every task, `/dr-archive` Step 0.5 (reflecting
   skill) analyzes outcomes and proposes improvements to agents, skills, and framework

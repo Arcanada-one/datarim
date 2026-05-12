@@ -1,6 +1,6 @@
 # Datarim — Universal Iterative Workflow Framework
 
-> **Version:** 2.5.0
+> **Version:** 2.6.0
 > **Framework:** Datarim (Датарим) provides structured rules, agents, skills, and commands for iterative project execution via AI coding assistants — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
 > **Multi-runtime:** Datarim is runtime-agnostic. This file is also available as `AGENTS.md` (symlink) for Codex CLI and other agent runtimes that read `AGENTS.md` by convention.
 > **Note:** "Datarim" is transliterated as "Датарим" in Russian. Both refer to this framework — agents must recognize either form in any language context.
@@ -406,6 +406,22 @@ Datarim framework's contribution:
 - **Pre-publish gate hook** — invoked by `/dr-archive` Step 2 when the task touched any artifact published to an external registry (closed set: npm / PyPI / Docker Hub / web). Hard block on findings.
 
 Consumers MUST mirror the canonical mandate text and the forbidden-regex extension in their own ecosystem `CLAUDE.md` before publishing public packages; the lint script and the regex file are contract surfaces, not substitutes for the operator-readable rules text. Conflict resolution with Supreme Directive: Law 1 (Non-Harm) overrides re-publish urgency — if a strip introduces a security regression, escalate per the consumer's FB-rules instead of patch-bumping.
+
+---
+
+## Autonomous Agent Operating Rules (cross-link)
+
+> **Status:** mandatory for every Datarim consumer that hosts AI agents. The full ruleset lives in the **consumer's** ecosystem `CLAUDE.md` — Datarim ships the operating-rules contract surface, not the canonical text, because the canonical text is ecosystem-owned and audit-tagged per consumer.
+> **Reference consumer:** `/Users/ug/arcanada/CLAUDE.md` § Autonomous Agent Operating Rules Mandate (Arcanada ecosystem canonical; source: TUNE-0185 Phase 4 + `Projects/Datarim/datarim/insights/INSIGHTS-TUNE-0185-fb-rules.md`).
+
+Datarim framework's contribution:
+
+- **`plugins/dr-orchestrate/rules/fb-rules.yaml`** — machine-readable policy block (FB-1..FB-8 with `enforcement_layer` / `tier` / `default_action` / `reversibility_required` / `audit_required` / `conflicts_with_law` + `hard_gated_actions:` list).
+- **`plugins/dr-orchestrate/scripts/rules_loader.sh`** — `load_fb_policy()` and `load_fb_hard_gates()` entry points; orthogonal to the prompt-pattern `load()` stream (separate schema, separate consumers — do not merge).
+- **Pipeline gates** — `/dr-prd` discovery decision-matrix enforces FB-2; `/dr-design` consilium enforces FB-3; `/dr-qa` + `/dr-verify` pre-archive enforce FB-7; reflection enforces FB-4 (`reason` field in audit log).
+- **Conflict resolution** — Supreme Directive (Laws 1-5) > Autonomous Agent Operating Rules > AAL Mandate > project-specific mandates. `hard_gated_actions:` NEVER auto-execute regardless of FB-5.
+
+Consumers MUST mirror the canonical FB-rules text and the enforcement-mapping table in their own ecosystem `CLAUDE.md` before enabling the `dr-orchestrate` plugin; the YAML policy block is a contract surface, not a substitute for the operator-readable rules text.
 
 ---
 
