@@ -12,10 +12,13 @@ init → prd → plan → design → do → qa → compliance → archive
 
 ---
 
-## Stage 1: /dr-init — Task Initialization
+## Stage 1: /dr-init 🔒 — Task Initialization (operator-only)
 
 **Agent:** Planner
 **Purpose:** Create a new task, assess its complexity, set up `datarim/` if needed.
+
+> **🔒 Operator-only.** `/dr-init` carries `disable-model-invocation: true` in frontmatter and is intentionally invisible to the Skill tool. Agents must surface this stage as a slash-CTA for the operator; they must not invoke it through the Skill tool, and they must not spawn a subagent to create `datarim/` artefacts manually.
+
 
 **What happens:**
 1. Analyze the user's task description
@@ -123,10 +126,13 @@ init → prd → plan → design → do → qa → compliance → archive
 
 ---
 
-## Stage 8: /dr-archive — Reflection + Task Completion
+## Stage 8: /dr-archive 🔒 — Reflection + Task Completion (operator-only)
 
 **Agents:** Reviewer (Step 0.5 reflection) + Planner (Steps 1-7 archive)
 **Purpose:** Reflect on the task, archive it, reset for the next one.
+
+> **🔒 Operator-only.** `/dr-archive` carries `disable-model-invocation: true` in frontmatter and is intentionally invisible to the Skill tool. After a COMPLIANT verdict from `/dr-compliance`, the compliance / planner agent MUST surface the slash-CTA for the operator and MUST NOT spawn a subagent to perform the archive manually — manual paths skip the schema gate, staged-diff audit (Step 0.1), prefix→subdir mapping, and Operator-Handoff section.
+
 
 **What happens:**
 0. Pre-archive clean-git check (mandatory gate)

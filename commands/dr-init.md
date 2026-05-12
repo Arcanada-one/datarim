@@ -4,7 +4,9 @@ description: Initialize a new Datarim task or scaffold a new project. Auto-detec
 disable-model-invocation: true
 ---
 
-# /dr-init - Initialize New Task or Project
+# 🔒 /dr-init — Initialize New Task or Project (Operator-only)
+
+> **🔒 Operator-only command.** The `disable-model-invocation: true` flag in the frontmatter above hides this command from the Skill tool enumeration by design — agents cannot invoke it. This is intentional: initialisation creates `datarim/` (only this command may), wires prefix→subdir mapping, and selects task IDs that propagate through the whole pipeline. If an agent reaches a state where a new task should be opened, it MUST stop and surface a slash-CTA to the operator (e.g. `**рекомендуется** /dr-init {DESCRIPTION}`) rather than spawning a subagent to create files manually — manual paths skip the structural compliance probe (Step 2.4), workspace cross-task hygiene check (Step 2.5), and PRD-waiver gate.
 
 **Role**: Planner Agent (Initial)
 **Source**: `$HOME/.claude/agents/planner.md`
