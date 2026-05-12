@@ -1,0 +1,109 @@
+# fb-rules.yaml — Autonomous Agent Operating Rules (FB-1..FB-8) policy block.
+# Canonical text: /Users/ug/arcanada/CLAUDE.md § Autonomous Agent Operating Rules Mandate.
+# Source insight:  Projects/Datarim/datarim/insights/INSIGHTS-TUNE-0185-fb-rules.md.
+# Consumer: scripts/rules_loader.sh § load_fb_policy() (TUNE-0185 Phase 4).
+#
+# Schema (separate from default.yaml prompt-pattern schema):
+#   rules:
+#     - rule_id: FB-N                    # FB-1..FB-8, exact case
+#       title: <short label>             # ≤ 60 chars
+#       enforcement_layer: <int 1-6>     # see CLAUDE.md § AAL Mandate target operating model
+#       tier: <rule-based|subagent|escalation>
+#       default_action: <auto|escalate|refuse>
+#       reversibility_required: <bool>   # false where the rule is decision-only
+#       audit_required: <bool>           # always true per Law 5 (Transparency)
+#       conflicts_with_law: <int|null>   # Supreme Directive Law that takes precedence
+#
+# Loader contract: load_fb_policy() emits JSON array of policy entries; consumers
+# (subagent_resolver.sh, escalation_backend.sh, audit_sink.sh) read this array
+# to choose default_action / log audit reason / route escalations.
+#
+# This file is policy-config, not prompt-pattern config. The default.yaml prompt
+# table is unchanged; rules_loader.sh load() and load_fb_policy() are independent
+# entry points. Do not merge.
+
+rules:
+  - rule_id: FB-1
+    title: "Исследовать доступные варианты решения"
+    enforcement_layer: 2
+    tier: rule-based
+    default_action: auto
+    reversibility_required: false
+    audit_required: true
+    conflicts_with_law: null
+
+  - rule_id: FB-2
+    title: "Сравнить варианты по best practices / security / maintainability"
+    enforcement_layer: 2
+    tier: rule-based
+    default_action: auto
+    reversibility_required: false
+    audit_required: true
+    conflicts_with_law: null
+
+  - rule_id: FB-3
+    title: "Консилиум по ролям (architect / dev / DevOps / security / QA / PO)"
+    enforcement_layer: 4
+    tier: subagent
+    default_action: auto
+    reversibility_required: false
+    audit_required: true
+    conflicts_with_law: null
+
+  - rule_id: FB-4
+    title: "Выбрать вариант и записать reason в audit log"
+    enforcement_layer: 2
+    tier: rule-based
+    default_action: auto
+    reversibility_required: false
+    audit_required: true
+    conflicts_with_law: 5
+
+  - rule_id: FB-5
+    title: "Выполнить безопасно-выполнимые части задачи без оператора"
+    enforcement_layer: 2
+    tier: rule-based
+    default_action: auto
+    reversibility_required: true
+    audit_required: true
+    conflicts_with_law: 1
+
+  - rule_id: FB-6
+    title: "Делать решения обратимыми при неопределённости"
+    enforcement_layer: 6
+    tier: rule-based
+    default_action: auto
+    reversibility_required: true
+    audit_required: true
+    conflicts_with_law: 4
+
+  - rule_id: FB-7
+    title: "Заложить корректировку / откат / переделку после тестов"
+    enforcement_layer: 3
+    tier: rule-based
+    default_action: auto
+    reversibility_required: true
+    audit_required: true
+    conflicts_with_law: 4
+
+  - rule_id: FB-8
+    title: "Эскалировать только реально блокирующие вопросы"
+    enforcement_layer: 6
+    tier: escalation
+    default_action: escalate
+    reversibility_required: false
+    audit_required: true
+    conflicts_with_law: null
+
+# Hard-gated actions (NEVER auto-execute regardless of FB-5).
+# Mirror of CLAUDE.md § Hard-gated actions; consumer compares planned action.kind.
+hard_gated_actions:
+  - prod_deploy
+  - secret_rotation
+  - irreversible_db_op
+  - public_communication
+  - finance_action
+  - legal_action
+  - force_push_main
+  - git_history_delete
+  - multi_user_visible_action
