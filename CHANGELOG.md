@@ -4,6 +4,26 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.6.1] — 2026-05-12
+
+**`/dr-doctor` recognises three additional legacy formats.** Bug fix completes the schema-migration surface that earlier passes left silently broken on real-world repos. Pass 1 regex extended to compound IDs + optional trailing colon; new Pass 7 strips one-line HTML-comment archive notes when the cited archive file exists; new Pass 0 rejects misplaced `## Backlog` sections inside `tasks.md`.
+
+### Added
+
+- **Pass 0 — `## Backlog` reject in `tasks.md`** (`scripts/datarim-doctor.sh`, `skills/datarim-doctor.md`). Detects `^## Backlog$` header inside `tasks.md`; emits finding `'## Backlog' section forbidden in tasks.md — move bullets manually to backlog.md` and exits 1 in dry-run mode. `--fix` does NOT auto-migrate (cross-task hunk corruption risk); operator manually relocates bullets.
+- **Pass 7 — HTML-comment archive notes verified-strip** (`scripts/datarim-doctor.sh`, `skills/datarim-doctor.md`). Recognises `<!-- {ID} {archived|cancelled|superseded|closed|dropped} {YYYY-MM-DD} → documentation/archive/{area}/archive-{ID}.md (...) -->`. Strips line iff the cited archive file exists; otherwise preserves with WARN. Path-traversal guard via `validate_relpath`; filename-match guard requires basename = `archive-{ID}.md` to prevent cross-ID strip. Idempotent.
+
+### Changed
+
+- **Pass 1 regex** — compound IDs (`PREFIX-NNNN-FOLLOWUP-slug`) and optional trailing colon now accepted. Updated touchpoints: `extract_ids`, `extract_block` awk, `extract_title`, pre-fix `PARSED_COUNT`, `migrate_file` guard, Pass 4 awk. Backwards-compatible with canonical `### PREFIX-NNNN:` shape.
+- **`extract_title`** — synthesises title from compound suffix when block header has no trailing text. Strips literal `FOLLOWUP-` token, replaces hyphens with spaces, sentence-cases first character; appends « follow-up » suffix when the literal `FOLLOWUP` segment appeared in the ID.
+- **`ONELINER_RE`** — accepts compound IDs in both the bullet ID position and the description-file pointer (`tasks/{ID}-task-description.md`). Restores write/read symmetry — Pass 1 migration output now passes the schema gate.
+- **`EMITTED_COUNT` post-write invariant regex** — accepts compound IDs. Without this, the data-loss safety contract restored from backup on every compound-ID migration.
+
+### Tests
+
+- 4 new bats cases covering compound-ID block migration, headerless-fallback firing under prior manual-migration marker carry-over, Pass 7 verified-strip + idempotence, Pass 0 reject. Existing cases unchanged. Total 52/52 green. `shellcheck -S warning` zero.
+
 ## [2.3.0] — 2026-05-11
 
 **First non-core plugin — `dr-orchestrate` Phase 1 (Lean tmux Runner).** TUNE-0164 ships the Datarim plugin reference implementation on top of TUNE-0101 plugin system: tmux-driven self-running pipeline runner with security floor (whitelist + 0x1b escape block + 500 ms / 60 s cooldown + 5-violations/hr → 1 h pane block, fail-closed), YAML secrets backend (mode-0600 enforced), JSONL audit with hash-only matched text. Phase 1 covers V-AC 1–15 (lean rule-based runner). Phase 2 (TUNE-0165) adds subagent inference + Telegram bridge; Phase 3 (TUNE-0166) adds auto-learning + 24 h re-validation.

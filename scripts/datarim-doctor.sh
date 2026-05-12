@@ -177,7 +177,7 @@ prefix_to_area() {
 }
 
 # Canonical regex for one-liner entries.
-ONELINER_RE='^- [A-Z]{2,10}-[0-9]{4} · (in_progress|blocked|not_started|pending|blocked-pending|cancelled) · P[0-3] · L[1-4] · .{1,80} → tasks/[A-Z]{2,10}-[0-9]{4}-task-description\.md$'
+ONELINER_RE='^- [A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)* · (in_progress|blocked|not_started|pending|blocked-pending|cancelled) · P[0-3] · L[1-4] · .{1,80} → tasks/[A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*-task-description\.md$'
 
 validate_task_id() {
     local id="$1"
@@ -201,22 +201,52 @@ validate_relpath() {
 #   2) extract_block <file> <id> → emits the full block (heading + body) for one ID
 #   3) extract_field <block> <key> → grep the "- **Key:** value" line within block
 extract_ids() {
-    grep -oE '^### [A-Z]+-[0-9]+:' "$1" 2>/dev/null | sed -E 's/^### //; s/:$//'
+    # compound IDs + optional trailing colon (e.g. PREFIX-NNNN-FOLLOWUP-slug).
+    grep -oE '^### [A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*:?( |$)' "$1" 2>/dev/null \
+        | sed -E 's/^### //; s/:?[[:space:]]*$//'
 }
 
 extract_block() {
     local file="$1" id="$2"
     awk -v id="$id" '
     BEGIN { in_block=0 }
-    $0 ~ "^### " id ":" { in_block=1; print; next }
-    /^### [A-Z]+-[0-9]+:|^## / && in_block { exit }
+    $0 ~ "^### " id "(:| |$)" { in_block=1; print; next }
+    /^### [A-Z][A-Z0-9_]*-[0-9]+([:[:space:]]|-[A-Za-z0-9]+)|^## / && in_block { exit }
     in_block { print }
     ' "$file"
 }
 
 extract_title() {
     local file="$1" id="$2"
-    grep -m1 "^### $id:" "$file" 2>/dev/null | sed -E "s/^### $id:[[:space:]]*//" || true
+    # optional colon after ID. If body empty after ID, synthesise title from
+    # compound suffix (e.g. "PREFIX-NNNN-FOLLOWUP-hook-section" → "Hook section follow-up").
+    local raw
+    raw="$(grep -m1 -E "^### $id(:|$| )" "$file" 2>/dev/null | sed -E "s|^### $id:?[[:space:]]*||")"
+    if [ -z "$raw" ]; then
+        # Synthesise from compound suffix
+        local suffix="${id#*-[0-9][0-9][0-9][0-9]}"
+        suffix="${suffix#-}"
+        if [ -n "$suffix" ]; then
+            local has_followup=""
+            case "$suffix" in
+                *FOLLOWUP*|*followup*) has_followup="yes" ;;
+            esac
+            # Remove FOLLOWUP token, replace dashes with space
+            local slug="${suffix//FOLLOWUP-/}"
+            slug="${slug//followup-/}"
+            slug="${slug//-/ }"
+            # Sentence-case first char
+            local first="${slug:0:1}"
+            local rest="${slug:1}"
+            slug="$(printf '%s%s' "$(echo "$first" | tr '[:lower:]' '[:upper:]')" "$rest")"
+            if [ -n "$has_followup" ]; then
+                raw="${slug} follow-up"
+            else
+                raw="$slug"
+            fi
+        fi
+    fi
+    printf '%s' "$raw"
 }
 
 extract_field() {
@@ -371,9 +401,15 @@ scan_file() {
             [[ "$line" =~ ^[-*][[:space:]]+\*\*[A-Z]+-[0-9]+\*\* ]] && archive_bullets=$((archive_bullets + 1))
             continue
         fi
-        if [[ "$line" =~ ^###[[:space:]]+[A-Z]+-[0-9]+: ]]; then
+        if [[ "$line" =~ ^###[[:space:]]+[A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*:?([[:space:]]|$) ]]; then
             FINDINGS=$((FINDINGS + 1))
             FINDING_LINES+=("$file:$lineno: legacy block-style entry")
+        elif [[ "$line" =~ ^\<!--[[:space:]]+[A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*[[:space:]]+(archived|cancelled|superseded|closed|dropped)[[:space:]] ]]; then
+            FINDINGS=$((FINDINGS + 1))
+            FINDING_LINES+=("$file:$lineno: HTML-comment archive note (Pass 7 — run --fix to strip if archive file exists)")
+        elif [ "$(basename "$file")" = "tasks.md" ] && [[ "$line" =~ ^##[[:space:]]+Backlog[[:space:]]*$ ]]; then
+            FINDINGS=$((FINDINGS + 1))
+            FINDING_LINES+=("$file:$lineno: '## Backlog' section forbidden in tasks.md — move bullets manually to backlog.md")
         elif [[ "$line" =~ ^[-*][[:space:]]+\*\*[A-Z]+-[0-9]+\*\* ]]; then
             FINDINGS=$((FINDINGS + 1))
             FINDING_LINES+=("$file:$lineno: legacy bold-id bullet")
@@ -508,7 +544,7 @@ mkdir -p "$BACKUP_DIR"
 PARSED_COUNT=0
 for f in "$ROOT_ABS/tasks.md" "$ROOT_ABS/backlog.md"; do
     [ -f "$f" ] || continue
-    n=$(grep -cE '^### [A-Z]+-[0-9]+:' "$f" 2>/dev/null || true)
+    n=$(grep -cE '^### [A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*:?( |$)' "$f" 2>/dev/null || true)
     PARSED_COUNT=$((PARSED_COUNT + n))
 done
 if [ -f "$ROOT_ABS/activeContext.md" ]; then
@@ -533,7 +569,7 @@ migrate_file() {
     local src="$1" out="$2" heading="$3" status_default="$4"
     [ -f "$src" ] || return 0
     # Idempotency: if file has zero legacy headings, treat as already compliant.
-    if ! grep -qE '^### [A-Z]+-[0-9]+:' "$src"; then
+    if ! grep -qE '^### [A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*:?( |$)' "$src"; then
         return 0
     fi
     local -a out_lines=()
@@ -673,9 +709,10 @@ migrate_backlog_archive() {
     awk '
         /^## Cancelled$/ { sec="cancelled"; next }
         /^## Completed$/ { sec="completed"; next }
-        /^### [A-Z]+-[0-9]+:/ {
+        # compound IDs + optional colon
+        /^### [A-Z][A-Z0-9]*-[0-9]+([-A-Za-z0-9]*)?:?([[:space:]]|$)/ {
             id = $2; sub(/:$/, "", id)
-            if (sec != "" && id ~ /^[A-Z]+-[0-9]+$/) print sec "\t" id
+            if (sec != "" && id ~ /^[A-Z][A-Z0-9]*-[0-9]+(-[A-Za-z0-9]+)*$/) print sec "\t" id
         }
     ' "$src" > "$TMP_SECMAP"
 
@@ -1050,6 +1087,58 @@ migrate_operational_archive() {
     PASS6_EMITTED_TOTAL=$((${PASS6_EMITTED_TOTAL:-0} + stripped + synthesised + skipped))
 }
 
+# --- Pass 7 — HTML-comment archive notes verified-strip ---------------------
+# Repo-local convention emits one-line HTML comments after archival:
+#   <!-- {ID} archived YYYY-MM-DD → documentation/archive/{area}/archive-{ID}.md (...) -->
+# When the referenced archive file exists, strip the comment (it duplicates the
+# archive entry and bloats operational files). When missing, preserve + WARN.
+# Recognised status verbs: archived | cancelled | superseded | closed | dropped.
+migrate_html_comment_archives() {
+    local src="$1"
+    [ -f "$src" ] || return 0
+    local docs_root
+    docs_root="$(dirname "$ROOT_ABS")/documentation/archive"
+    local html_re='^<!--[[:space:]]+([A-Z][A-Z0-9_]*-[0-9]+(-[A-Za-z0-9]+)*)[[:space:]]+(archived|cancelled|superseded|closed|dropped)[[:space:]]+([0-9]{4}-[0-9]{2}-[0-9]{2})[[:space:]]*(→|->)[[:space:]]*(documentation/archive/[A-Za-z0-9_./-]+\.md)'
+    local tmp; tmp="$(mktemp)"
+    local stripped=0 preserved=0 line
+    while IFS= read -r line || [ -n "$line" ]; do
+        if [[ "$line" =~ $html_re ]]; then
+            local id="${BASH_REMATCH[1]}"
+            local relpath="${BASH_REMATCH[6]}"
+            if ! validate_relpath "$relpath" "documentation/archive/"; then
+                warn "Pass 7: rejected path outside archive root: $relpath"
+                printf '%s\n' "$line" >> "$tmp"
+                continue
+            fi
+            local expected="archive-${id}.md"
+            local basename_path; basename_path="$(basename "$relpath")"
+            if [ "$basename_path" != "$expected" ]; then
+                warn "Pass 7: filename mismatch for $id (got $basename_path, expected $expected)"
+                printf '%s\n' "$line" >> "$tmp"
+                continue
+            fi
+            local abs
+            abs="$(dirname "$ROOT_ABS")/$relpath"
+            if [ -f "$abs" ]; then
+                stripped=$((stripped + 1))
+                continue
+            else
+                warn "Pass 7: archive file missing for $id: $relpath (preserving comment)"
+                preserved=$((preserved + 1))
+                printf '%s\n' "$line" >> "$tmp"
+            fi
+        else
+            printf '%s\n' "$line" >> "$tmp"
+        fi
+    done < "$src"
+    if [ "$stripped" -gt 0 ]; then
+        mv "$tmp" "$src"
+    else
+        rm -f "$tmp"
+    fi
+    log "Pass 7 ${src##*/}: stripped=$stripped preserved=$preserved"
+}
+
 PASS6_PARSED_TOTAL=0
 PASS6_EMITTED_TOTAL=0
 if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "tasks" ]; then
@@ -1060,6 +1149,17 @@ if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "backlog" ]; then
 fi
 if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "active" ]; then
     migrate_operational_archive "$ROOT_ABS/activeContext.md"
+fi
+
+# Pass 7 — HTML-comment archive notes verified-strip
+if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "tasks" ]; then
+    migrate_html_comment_archives "$ROOT_ABS/tasks.md"
+fi
+if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "backlog" ]; then
+    migrate_html_comment_archives "$ROOT_ABS/backlog.md"
+fi
+if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "active" ]; then
+    migrate_html_comment_archives "$ROOT_ABS/activeContext.md"
 fi
 
 if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "tasks" ]; then
@@ -1088,7 +1188,8 @@ fi
 EMITTED_COUNT=0
 for f in "$ROOT_ABS/tasks.md" "$ROOT_ABS/backlog.md" "$ROOT_ABS/activeContext.md"; do
     [ -f "$f" ] || continue
-    n=$(grep -cE '^- [A-Z]+-[0-9]+ · ' "$f" 2>/dev/null || true)
+    # count compound IDs too (PREFIX-NNNN-FOLLOWUP-slug shape).
+    n=$(grep -cE '^- [A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)* · ' "$f" 2>/dev/null || true)
     EMITTED_COUNT=$((EMITTED_COUNT + n))
 done
 
