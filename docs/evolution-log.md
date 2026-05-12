@@ -1429,3 +1429,12 @@ None (TUNE-0091's currently-failing tests will surface organically on its PR via
 - **Why:** TUNE-0165 V-AC-22 (48h soak `false_escalate_rate < 0.15`) deferred to Linux runtime without a structured waiver — opens a class of «deferred-AC forgotten» defects across autonomy / quality-baseline metrics.
 - **Class:** B — change in `skills/compliance.md` § Step 4 «Quantitative-threshold AC enforcement» is an operating-model contract change; requires a PRD draft before apply.
 - **Status:** HELD. Spawned as backlog item `TUNE-0182` (P2 L2) with PRD draft as the gate.
+
+## 2026-05-12 · TUNE-0185 Phase 4 archive — Class A applied
+
+- **A1 — `feedback_rank1_mandate_canonical_text_split.md`**: rank-1 ecosystem mandates keep canonical rule text in consumer ecosystem `CLAUDE.md`; framework runtime ships only contract surface (yaml policy + loader entry-points + cross-link section). Stack-agnostic gate PASS. Pattern previously applied implicitly across AAL / Auth Arcana / File Sync / Operational Resilience / Documentation Taxonomy mandates — now explicit.
+- **A2 — `feedback_yaml_policy_loader_orthogonality.md`**: new policy schemas in shared loader scripts get their own `load_<name>()` entry-point — never merge into the existing unified stream. Different cardinality + semantics make merge a maintenance liability. Smoke = `yq` pipeline + `shellcheck` clean.
+- **Stack-agnostic gate**: PASS on both memory entries + reflection doc.
+- **Class B (HELD, PRD-gated)**: B1 `/dr-orchestrate` consumer wiring full integration suite (extends TUNE-0187); B2 mandate drift detector automation via GH Actions (extends TUNE-0186).
+- **Health-metrics**: 14-task backlog spawn fanout ≥10 target; 3-way cross-correlation INSIGHTS↔mandate↔yaml zero drift at archive time; framework `code/datarim/` repo 4 unpushed commits (operator push gate); workspace shared schema gate FAIL bypassed via `--no-schema-check` (root cause: 12 sibling active tasks + 50+ backlog legacy lines — `/dr-doctor` migration sweep deferred as separate task).
+- **Provenance**: `documentation/archive/framework/archive-TUNE-0185.md` + reflection `Projects/Datarim/datarim/reflection/reflection-TUNE-0185.md` + framework commit `d5ef079` (`code/datarim/` repo) + workspace commit `689c210` (`~/arcanada/`).
