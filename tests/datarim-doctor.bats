@@ -874,3 +874,130 @@ EOF
     # Body actually persisted past warning (no abort)
     grep -q "Line 260 of an oversized body." "$TMPROOT/datarim/tasks/TUNE-9500-task-description.md"
 }
+
+# ============================================================================
+# TUNE-0194 — Pass 1 regex compound-ID + per-bullet marker + Pass 7 HTML-archive
+# ============================================================================
+
+
+# ============================================================================
+# TUNE-0194 — Pass 1 regex compound-ID + per-bullet marker + Pass 7 HTML-archive
+# ============================================================================
+
+@test "T-TUNE0194-A1 (TUNE-0194) Pass 1 migrates ### compound-ID block without colon" {
+    cat > "$TMPROOT/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+
+- TUNE-0194 · in_progress · P1 · L2 · stub → tasks/TUNE-0194-task-description.md
+
+### DEV-1210-FOLLOWUP-jwt-validate-cache
+
+- **Status:** pending
+- **Complexity:** Level 2
+- **Priority:** P2
+
+JWT validate cache follow-up.
+
+### DEV-1194-FOLLOWUP-hook-section: hook section follow-up
+
+- **Status:** pending
+- **Complexity:** Level 2
+- **Priority:** P2
+
+Hook section work.
+EOF
+    : > "$TMPROOT/datarim/tasks/TUNE-0194-task-description.md"
+
+    run "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt
+    [ "$status" -eq 0 ]
+    [ -f "$TMPROOT/datarim/tasks/DEV-1210-FOLLOWUP-jwt-validate-cache-task-description.md" ] || { echo "missing DEV-1210 desc"; ls "$TMPROOT/datarim/tasks/"; false; }
+    [ -f "$TMPROOT/datarim/tasks/DEV-1194-FOLLOWUP-hook-section-task-description.md" ] || { echo "missing DEV-1194 desc"; false; }
+    run grep -qE '^- DEV-1210-FOLLOWUP-jwt-validate-cache · ' "$TMPROOT/datarim/tasks.md"
+    [ "$status" -eq 0 ]
+    run grep -qE '^- DEV-1194-FOLLOWUP-hook-section · ' "$TMPROOT/datarim/tasks.md"
+    [ "$status" -eq 0 ]
+}
+
+@test "T-TUNE0194-A2 (TUNE-0194) Pass 6 headerless fallback strips bullets below TUNE-0085 marker" {
+    cat > "$TMPROOT/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+
+- TUNE-0194 · in_progress · P1 · L2 · stub → tasks/TUNE-0194-task-description.md
+
+<!-- TUNE-0085: bullets pending manual migration — fix conflict in documentation/archive/, then re-run /dr-doctor --fix -->
+
+- **DEV-1182** — soft-delete fix (2026-05-01) → documentation/archive/general/archive-DEV-1182.md
+- **DEV-1196** — Round-3 (2026-05-02) → documentation/archive/general/archive-DEV-1196.md
+EOF
+    : > "$TMPROOT/datarim/tasks/TUNE-0194-task-description.md"
+    mkdir -p "$TMPROOT/documentation/archive/general"
+    printf '%s\n' '# Archive — DEV-1182' '' 'id: DEV-1182' > "$TMPROOT/documentation/archive/general/archive-DEV-1182.md"
+    printf '%s\n' '# Archive — DEV-1196' '' 'id: DEV-1196' > "$TMPROOT/documentation/archive/general/archive-DEV-1196.md"
+
+    run "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt
+    [ "$status" -eq 0 ]
+    run grep -qE '^- \*\*DEV-1182\*\*' "$TMPROOT/datarim/tasks.md"
+    [ "$status" -ne 0 ] || { echo "DEV-1182 still present"; cat "$TMPROOT/datarim/tasks.md"; false; }
+    run grep -qE '^- \*\*DEV-1196\*\*' "$TMPROOT/datarim/tasks.md"
+    [ "$status" -ne 0 ] || { echo "DEV-1196 still present"; false; }
+}
+
+@test "T-TUNE0194-A3 (TUNE-0194) Pass 7 strips HTML-comment archive notes when archive file exists" {
+    cat > "$TMPROOT/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+
+- TUNE-0194 · in_progress · P1 · L2 · stub → tasks/TUNE-0194-task-description.md
+
+<!-- DEV-1391 archived 2026-05-12 → documentation/archive/general/archive-DEV-1391.md (closed via PR #42) -->
+<!-- DEV-1392 cancelled 2026-05-11 → documentation/archive/general/archive-DEV-1392.md (superseded by DEV-1400) -->
+<!-- DEV-9999 archived 2026-05-12 → documentation/archive/general/archive-DEV-9999.md (orphan — no archive file) -->
+EOF
+    : > "$TMPROOT/datarim/tasks/TUNE-0194-task-description.md"
+    mkdir -p "$TMPROOT/documentation/archive/general"
+    printf '%s\n' '# Archive — DEV-1391' '' 'id: DEV-1391' > "$TMPROOT/documentation/archive/general/archive-DEV-1391.md"
+    printf '%s\n' '# Archive — DEV-1392' '' 'id: DEV-1392' > "$TMPROOT/documentation/archive/general/archive-DEV-1392.md"
+
+    run "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt
+    [ "$status" -eq 0 ]
+    run grep -qE 'DEV-1391 archived' "$TMPROOT/datarim/tasks.md"
+    [ "$status" -ne 0 ] || { echo "DEV-1391 not stripped"; cat "$TMPROOT/datarim/tasks.md"; false; }
+    run grep -qE 'DEV-1392 cancelled' "$TMPROOT/datarim/tasks.md"
+    [ "$status" -ne 0 ] || { echo "DEV-1392 not stripped"; false; }
+    run grep -qE 'DEV-9999 archived' "$TMPROOT/datarim/tasks.md"
+    [ "$status" -eq 0 ] || { echo "DEV-9999 orphan was stripped (should be preserved)"; false; }
+
+    cp "$TMPROOT/datarim/tasks.md" "$TMPROOT/datarim/tasks.md.snap"
+    run "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt
+    [ "$status" -eq 0 ]
+    run diff -q "$TMPROOT/datarim/tasks.md" "$TMPROOT/datarim/tasks.md.snap"
+    [ "$status" -eq 0 ] || { echo "second --fix not idempotent"; false; }
+}
+
+@test "T-TUNE0194-A4 (TUNE-0194) Pass 0 rejects ## Backlog section inside tasks.md" {
+    cat > "$TMPROOT/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+
+- TUNE-0194 · in_progress · P1 · L2 · stub → tasks/TUNE-0194-task-description.md
+
+## Backlog
+
+- DEV-9001 · pending · P3 · L1 · misplaced backlog item → tasks/DEV-9001-task-description.md
+EOF
+    : > "$TMPROOT/datarim/tasks/TUNE-0194-task-description.md"
+
+    run "$DOCTOR" --root="$TMPROOT/datarim"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Backlog"* ]] || { echo "no Backlog finding in output: $output"; false; }
+
+    run "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt
+    run grep -qE '^## Backlog$' "$TMPROOT/datarim/tasks.md"
+    [ "$status" -eq 0 ] || { echo "## Backlog section was migrated (should be preserved)"; false; }
+}

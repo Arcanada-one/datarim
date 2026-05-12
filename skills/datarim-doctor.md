@@ -133,13 +133,19 @@ Discussion / decisions log MAY follow as `## Decisions`.
 
 Anything beyond ~250 lines is a smell — split into a PRD or design doc.
 
-## Migration Algorithm (`--fix`) — 6 passes
+## Migration Algorithm (`--fix`) — 8 passes
 
 Applied by `scripts/datarim-doctor.sh --fix`. Single transactional sequence guarded by the data-loss safety contract (see next section). Atomic per file via `mv tmp file`.
 
+### Pass 0 — `## Backlog` section reject in `tasks.md`
+
+1. If `tasks.md` contains a top-level `## Backlog` header, emit finding `'## Backlog' section forbidden in tasks.md — move bullets manually to backlog.md` and exit 1 in dry-run mode.
+2. `--fix` does NOT auto-migrate the section (cross-task hunk corruption risk). The section is preserved verbatim; the operator manually relocates bullets to `backlog.md` with correct task IDs and statuses.
+3. Rationale: bullets nested inside a wrong file have unknown semantic intent (pending vs in-progress, target prefix project) — schema-level reject is safer than guessing.
+
 ### Pass 1 — Description files (build cache)
 
-1. Walk `datarim/tasks.md` and `datarim/backlog.md` for legacy block-style headings: `^### ([A-Z]+-[0-9]+):\s*(.+)$`.
+1. Walk `datarim/tasks.md` and `datarim/backlog.md` for legacy block-style headings: `^### ([A-Z]{2,10}-[0-9]{4}(?:-[A-Za-z0-9]+)*):?\s*(.*)$`. Trailing colon is optional; compound IDs (e.g. `PREFIX-NNNN-FOLLOWUP-slug`) accepted.
 2. For each legacy block, extract the body until the next `### ID:` heading or section break.
 3. Parse known fields (case-insensitive, leading `- ` or `* ` allowed):
     - **Status / Status:** → frontmatter `status`
@@ -151,7 +157,7 @@ Applied by `scripts/datarim-doctor.sh --fix`. Single transactional sequence guar
     - **Related / Связанные:** → frontmatter `related`
     - **PRD:** → frontmatter `prd`
     - **Plan:** → frontmatter `plan`
-4. Heading first capture group → `id`. Second capture group → `title` (truncated to 80 chars on word boundary).
+4. Heading first capture group → `id`. Second capture group → `title` (truncated to 80 chars on word boundary). If title text is empty (e.g. `### PREFIX-NNNN-FOLLOWUP-slug` with no trailing text), synthesise title from the compound suffix: strip the literal `FOLLOWUP-` token, replace remaining hyphens with spaces, sentence-case the first character; append « follow-up » suffix when the literal `FOLLOWUP` appeared in the ID.
 5. Remaining body → write under `## Overview` (until first sub-heading) and pass through other sub-headings unchanged.
 6. Normalize fields:
     - Status case-folded; alias `pending` ↔ `not_started` resolved by source file (tasks.md → `not_started`/`in_progress`/`blocked`; backlog.md → `pending`/`blocked-pending`/`cancelled`).
@@ -214,6 +220,28 @@ After per-file processing, Doctor logs a one-line summary: `Pass 6 {file}: parse
 <!-- security:counter-example -->
 *Counter-example — what Doctor MUST NOT do (Approach D, rejected by QA TUNE-0085):* add a whitelist exception that preserves archive sections by design. This would legalise non-compliant pattern, accumulate token-bloat in operational files (12-18 KB on typical installations × 10-30 reads per session = 120-540 KB lost tokens), and contradict the canonical contract `datarim-system.md § activeContext.md thin contract` («one section only», v1.19.1). Migration, not preservation, is the correct enforcement.
 <!-- /security:counter-example -->
+
+### Pass 7 — HTML-comment archive notes (verified-strip)
+
+Repo-local convention emits a one-line HTML comment after each archival:
+
+```
+<!-- {ID} {verb} {YYYY-MM-DD} → documentation/archive/{area}/archive-{ID}.md ({optional context}) -->
+```
+
+Recognised status verbs: `archived` | `cancelled` | `superseded` | `closed` | `dropped`. Both arrow forms accepted: `→` and `->`.
+
+Algorithm per operational file (`tasks.md`, `backlog.md`, `activeContext.md`):
+
+1. Line-by-line scan. Match the canonical regex (compound ID + verb + ISO date + relpath to `documentation/archive/...md`).
+2. Path-traversal guard: `validate_relpath` against `documentation/archive/` root rejects `..` segments.
+3. Filename match guard: basename of the cited relpath MUST equal `archive-{ID}.md` (no cross-ID strip).
+4. Existence check: `[ -f "{ROOT_ABS}/../{relpath}" ]`.
+5. **Verified-strip:** file exists → omit the comment line; counter `stripped++`.
+6. **Preserve + WARN:** archive file missing → keep the comment line + emit `Pass 7: archive file missing for {ID}: {relpath} (preserving comment)`; counter `preserved++`.
+7. Atomic write via `mv tmpfile target` only when `stripped > 0`.
+
+Log line: `Pass 7 {file}: stripped={N} preserved={M}`. **Idempotent:** second `--fix` finds the same set of comments minus the previously-stripped lines; `stripped=0` on second run.
 
 ### Pass 5 — Post-fix re-scan
 
