@@ -1,6 +1,6 @@
 # Datarim — Universal Iterative Workflow Framework
 
-> **Version:** 2.6.0
+> **Version:** 2.7.0
 > **Framework:** Datarim (Датарим) provides structured rules, agents, skills, and commands for iterative project execution via AI coding assistants — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
 > **Multi-runtime:** Datarim is runtime-agnostic. This file is also available as `AGENTS.md` (symlink) for Codex CLI and other agent runtimes that read `AGENTS.md` by convention.
 > **Note:** "Datarim" is transliterated as "Датарим" in Russian. Both refer to this framework — agents must recognize either form in any language context.
