@@ -4,6 +4,28 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.7.0] — 2026-05-13
+
+**Two operator-facing surface improvements ship together.** `/dr-init` gains a topic-overlap advisory against the pending backlog; `/dr-compliance` and `/dr-archive` emit a plain-language operator recap after their technical block. Both are non-blocking surface additions — pipeline ordering, complexity routing, and existing exit-code contracts remain unchanged.
+
+### Added — `/dr-init` Step 2.5b · Topic Overlap Advisory
+
+Detects when a fresh task description overlaps in topic with **pending backlog items** (orthogonal to Step 2.5, which catches foreign task IDs in pending diffs). Recurrence motivating the gate: two backlog IDs spawned for one deliverable when an earlier pending item escaped notice during a fresh `/dr-init`. Advisory only — non-blocking, `exit 0` by contract — so operators see a soft warning and choose `duplicate` / `refine-scope` / `orthogonal` before committing.
+
+- **New detector `dev-tools/check-topic-overlap.py`** — Python 3 stdlib only, no pip dependencies. RU + EN tokenisation, hand-curated stopword corpora under `dev-tools/data/stopwords-{en,ru}.txt` (≥200 entries each, includes Datarim domain noise), crude suffix stemmer, top-N significant stems against pending backlog titles. Output formats: `text` (operator-readable, default) and `json` (structured matches with `task_id`, `title`, `matched`, `overlap_count`). `--include-status` (default `pending`) lets pilots scan `in_progress` items too for self-overlap demos.
+- **`commands/dr-init.md`** — Step 2.5b inserted after the existing workspace-hygiene check. Skips silently when `python3` is absent, `backlog.md` empty of `pending` items, or detector missing (older install). Non-tty / CI runs capture stdout into the step report and never prompt.
+- **Regression coverage:** `tests/dr-init-topic-overlap.bats` (PRD cases a/b/c — overlap surfaced, orthogonal not flagged, RU+EN mixed), `tests/dr-init-topic-overlap-fp-budget.bats` (FP rate <10% on 30-item orthogonal corpus + TP rate ≥4/5 on known-overlap probes), `tests/dr-init-topic-overlap-latency.bats` (≤300 ms on a 500-item synthetic backlog, measured via `time.perf_counter` for portability across macOS / Linux).
+- **Notes:** Class B operating-model change — surface lives in `dr-init` only. No new runtime dependency: `python3` is already present on every Datarim consumer that exercises any existing python-fenced skill, and Step 2.5b skips silently when absent.
+
+### Added — Human-readable operator recap after `/dr-compliance` and `/dr-archive`
+
+A new skill defines a 4-sub-section recap (what was done / what worked / what didn't work or is still open / what's next) that both operator-facing commands now emit between their technical block (verdict / archive write) and the CTA block. The recap follows the operator's most recent message language (Russian default for Arcanada consumers, English otherwise), bans tables and jargon, and is capped at 150–400 words. The technical output is unchanged.
+
+- **`skills/human-summary.md`** — contract: 4 fixed sub-headings, length budget 150–400 words, anti-patterns (tables, English loanwords in Russian text, bare task IDs, multi-level nested lists, acronyms without expansion, emoji, mixed-language summaries), RU and EN mini-examples.
+- **`commands/dr-compliance.md` Step 8 — HUMAN SUMMARY.** Runs on every verdict; on NON-COMPLIANT the «what didn't work» sub-section carries the failure detail in plain language and «what's next» mirrors the FAIL-Routing CTA without command syntax.
+- **`commands/dr-archive.md` Step 8 — HUMAN SUMMARY.** Sourced from the just-written archive document plus the reflection file. Chat-only — archive and reflection are not mutated.
+- **`tests/test-human-summary-contract.bats`** — 9 spec-regression tests guarding skill existence, four mandated sub-headings, RU+EN mini-examples, length budget declaration, and cross-references from both commands.
+
 ## [2.6.1] — 2026-05-12
 
 **`/dr-doctor` recognises three additional legacy formats.** Bug fix completes the schema-migration surface that earlier passes left silently broken on real-world repos. Pass 1 regex extended to compound IDs + optional trailing colon; new Pass 7 strips one-line HTML-comment archive notes when the cited archive file exists; new Pass 0 rejects misplaced `## Backlog` sections inside `tasks.md`.

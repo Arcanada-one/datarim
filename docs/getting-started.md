@@ -221,6 +221,8 @@ Then run:
 /dr-init "Your task description"
 ```
 
+During Step 2.5b (added in v2.7.0) `/dr-init` runs a non-blocking topic-overlap advisory: if your description shares ≥2 keyword stems with a **pending** backlog item, the matching IDs are printed so you can catch potential duplicates before committing to a fresh task. The check is silent when no overlap is found, when `backlog.md` carries no pending items, or when `python3` is unavailable. RU + EN input both work — tokenisation is language-aware.
+
 If `datarim/` does not exist yet, `/dr-init` creates it along with the documentation directory structure. After initialization, your project looks like this:
 
 ```
