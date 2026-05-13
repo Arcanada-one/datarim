@@ -390,7 +390,7 @@ Mandate level:
 3. **Stack-agnostic** — taxonomy contract only. SSG/CMS choice (any static-site generator) is per-project and outside the mandate.
 4. **Hard CI gate deferred** — backlog item activates the same detector at `exit 1` after the mandate is adopted on ≥3 live consumers.
 5. **Exemptions** — research-only repos, archive-only repos, Obsidian vault PARA, single-file inbox notes, temporary scratch paths. See `skills/diataxis-docs.md` § Exemption List.
-6. **Slogan** — every updated public site MUST display «Жизнь одного человека имеет значение / One human life matters».
+6. **Brand layer is out of scope** — Datarim defines the taxonomy structure (four categories + exemptions). Slogans, footers, brand assets are ecosystem-specific and defined by the consumer's own CLAUDE.md.
 
 ---
 

@@ -38,10 +38,6 @@ Every artificial entity **MUST** be uniquely identifiable, traceable, and audita
 
 ---
 
-## Slogan
-
-> **One human life matters** / **Жизнь одного человека имеет значение**
-
 ## Project Overview
 
 **__PROJECT_NAME__** is __ONE_LINE_DESCRIPTION__.

@@ -129,10 +129,6 @@ This is a **closed set**. No new documentation types (FAQ, glossary, troubleshoo
 
 This skill MUST NOT name any specific SSG or CMS (e.g., Docusaurus, Mintlify, VitePress, Hugo, Sphinx). The choice of document generator is per-project and outside the scope of the taxonomy mandate. Examples of generator-specific configuration are permitted only within `<!-- gate:example-only -->` fences in companion templates, never in this skill.
 
-## Slogan Compliance
-
-Every updated public site in the ecosystem must display the slogan «Жизнь одного человека имеет значение / One human life matters» in a conspicuous location (footer, header, or splash page). Slogan compliance is verified during `/dr-publish` workflow and `/dr-archive` surface scan. Manual review is required when automated position checks cannot determine visibility quality.
-
 ## Drift Detection
 
 Mandate compliance is verified by `/dr-optimize` Step 6 using a filesystem-presence check (Option B: threshold 3 docs files + all 4 directories required). Detection is soft — warning only, no build-blocking. A future hard CI gate (enforceable exit code 1) is deferred to an INFRA-* backlog item, to be activated after mandate adoption on at least three live consumers.
