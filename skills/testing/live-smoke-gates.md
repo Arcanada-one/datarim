@@ -9,6 +9,30 @@ Five related gates that fire when the failure mode lives in the *runtime environ
 
 ---
 
+## Current-State Auth Probe
+
+**Who this applies to:** any live smoke test that crosses an authentication boundary — HTTP API key, OAuth client credential, JWT issuer/audience, signed request, mTLS cert, secrets-manager-issued token, or equivalent. This subsection is a pre-flight requirement for **every** gate below, not a standalone gate.
+
+### Why it matters
+
+Smoke failures across an auth boundary surface ambiguously: a stale or rotated credential looks identical to a capability regression at the application-layer error ("401", "403", "500", empty response). Without a current-state probe of the credential before the capability test, triage budget is spent on the wrong layer. The pattern compounds during an in-flight architectural transition — e.g. a migration roadmap toward a centralised identity provider — where the legacy and new issuers may both mint credentials in parallel and the smoke harness can pick the wrong one silently.
+
+### What a passing probe looks like
+
+Before invoking the capability under test:
+
+1. **Hit an auth-scoped, capability-cheap endpoint with the same credential** — pick the cheapest call that fails fast on auth without exercising the capability under test (token-introspection endpoint, JWKS endpoint, secrets-manager `lookup` call, CLI auth-status command, key-metadata endpoint).
+2. **Use a distinct exit code / sentinel on auth failure** — different sentinel for auth-probe failure vs capability regression. Triage automation and CI dashboards must distinguish them; an "auth expired" condition counted as a capability red is wasted alert budget.
+3. **Record the probe result alongside the smoke result** — both lines in the QA report: `auth_probe: PASS (issued <iso8601>, expires <iso8601>)` and `capability_probe: <result>`.
+
+### Verdict
+
+- Probe required + probe passed → proceed with the gate that fired.
+- Probe required + probe failed (expired / revoked / wrong issuer) → fix the credential first, do not run the capability test. A capability red on a stale credential is a false signal.
+- Probe required + probe skipped → the gate's verdict is **unverified** — capability red and capability green are both unreliable.
+
+---
+
 ## Gate 1: Raw-SQL / Cross-Datasource
 
 **Who this applies to:** any change whose correctness depends on a *real* external system behaving a specific way — not on code logic that can be proven in isolation. The canonical trigger is raw SQL and cross-datasource code, but the principle generalizes.
