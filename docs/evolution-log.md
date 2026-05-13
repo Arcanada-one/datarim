@@ -31,6 +31,19 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
   - **Class:** A.
   - **Source:** CONN-0096 reflection Proposal 3.
   - **Stack-agnostic gate:** N/A (ecosystem-side memory; framework gate does not apply).
+## 2026-05-13 — INFRA-0192 — Live Smoke-Test Gates: Current-State Auth Probe subsection (INFRA-0191 follow-up F-1)
+
+### Class A Applied
+
+- **`skills/testing/live-smoke-gates.md` — `## Current-State Auth Probe` subsection (NEW, 22 lines).** Pre-flight requirement for every gate below; prescribes hitting an auth-scoped capability-cheap endpoint with the same credential before the capability test, a distinct sentinel/exit code on auth failure, and recording the probe result alongside the smoke result in the QA report.
+  - **File:** `code/datarim/skills/testing/live-smoke-gates.md` (subsection inserted between the intro paragraph and `## Gate 1`).
+  - **Class:** A (closes the Class A Deferred entry from the 2026-05-13 INFRA-0191 section below).
+  - **Source:** INFRA-0191 reflection Proposal A1 + backlog INFRA-0192.
+  - **Stack-agnostic gate:** PASS (`scripts/stack-agnostic-gate.sh --diff-only skills/testing.md` and `--diff-only skills/testing/live-smoke-gates.md` both clean).
+  - **Regression spec:** `code/datarim/tests/skill-testing-current-state-auth-probe.bats` (5 assertions — file presence, header presence, ordering after `# Live Smoke-Test Gates`, stack-neutral wording, ≤30-line body).
+  - **Reword applied:** "migration roadmap toward a centralised identity provider" replaces the original draft phrasing that referenced an ecosystem-specific migration list.
+
+---
 
 ## 2026-05-13 — INFRA-0191 — Cron-agent multi-provider memory rule (1 of 2 Class A proposals applied; 1 deferred + 1 Class B held)
 
