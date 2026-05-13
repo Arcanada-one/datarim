@@ -164,7 +164,7 @@ def _format_text(matches: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def main() -> None:
+def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="check-topic-overlap",
         description=(
@@ -173,47 +173,35 @@ def main() -> None:
             "matches when ≥min-overlap top-N stems coincide. Exit 0 always."
         ),
     )
-    p.add_argument(
-        "--task-description",
-        required=True,
-        help="Path to task description file, or '-' for stdin.",
-    )
-    p.add_argument(
-        "--backlog",
-        required=True,
-        help="Path to datarim/backlog.md.",
-    )
+    p.add_argument("--task-description", required=True,
+                   help="Path to task description file, or '-' for stdin.")
+    p.add_argument("--backlog", required=True, help="Path to datarim/backlog.md.")
     p.add_argument("--top-n", type=int, default=5)
     p.add_argument("--min-overlap", type=int, default=2)
-    p.add_argument(
-        "--include-status",
-        default="pending",
-        help="Comma-separated statuses to scan (default: pending).",
-    )
-    p.add_argument(
-        "--format",
-        choices=("text", "json"),
-        default="text",
-        help="Output format. JSON is structured; text is operator-readable.",
-    )
-    p.add_argument(
-        "--stopwords-en",
-        default=str(DATA_DIR / "stopwords-en.txt"),
-    )
-    p.add_argument(
-        "--stopwords-ru",
-        default=str(DATA_DIR / "stopwords-ru.txt"),
-    )
-    args = p.parse_args()
+    p.add_argument("--include-status", default="pending",
+                   help="Comma-separated statuses to scan (default: pending).")
+    p.add_argument("--format", choices=("text", "json"), default="text",
+                   help="Output format. JSON is structured; text is operator-readable.")
+    p.add_argument("--stopwords-en", default=str(DATA_DIR / "stopwords-en.txt"))
+    p.add_argument("--stopwords-ru", default=str(DATA_DIR / "stopwords-ru.txt"))
+    return p
 
-    if args.task_description == "-":
-        task_text = sys.stdin.read()
-    else:
-        td_path = Path(args.task_description)
-        if not td_path.is_file():
-            # Missing description file — silent exit 0 per advisory contract.
-            return
-        task_text = td_path.read_text(encoding="utf-8")
+
+def _read_task_text(arg: str) -> str | None:
+    if arg == "-":
+        return sys.stdin.read()
+    td_path = Path(arg)
+    if not td_path.is_file():
+        return None
+    return td_path.read_text(encoding="utf-8")
+
+
+def main() -> None:
+    args = _build_parser().parse_args()
+
+    task_text = _read_task_text(args.task_description)
+    if task_text is None:
+        return  # missing description file — silent exit 0
 
     stopwords = load_stopwords(Path(args.stopwords_en)) | load_stopwords(
         Path(args.stopwords_ru)
