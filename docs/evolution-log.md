@@ -32,6 +32,26 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
   - **Source:** CONN-0096 reflection Proposal 3.
   - **Stack-agnostic gate:** N/A (ecosystem-side memory; framework gate does not apply).
 
+## 2026-05-13 — INFRA-0191 — Cron-agent multi-provider memory rule (1 of 2 Class A proposals applied; 1 deferred + 1 Class B held)
+
+### Class A Applied
+
+- **Memory rule `feedback_cron_agent_multi_provider.md` (NEW).** INFRA-0191 Proposal A2. Documents PRIMARY (subscription/free-tier subprocess) → FALLBACK (Model Connector universal `/execute`) pattern with fail-soft sentinels for cron-style AI agents. Applies to Email Agent / Inbox Organizer / Twitter Collector / Screen Reader / Agent Dreamer. Sentinel strings (`<svc>-disabled`, `<svc>-http-XXX`, `<svc>-skipped`) used вместо exceptions so cron cycles degrade to `no-ai` notification instead of crashing.
+  - **File:** `~/.claude/projects/-Users-ug-arcanada/memory/feedback_cron_agent_multi_provider.md` (NEW) + `MEMORY.md` index entry.
+  - **Class:** A.
+  - **Source:** INFRA-0191 reflection Proposal A2 + archive (commit `5485569` workspace).
+  - **Stack-agnostic gate:** N/A — local user memory file (project-scoped, not framework runtime).
+  - **Summary:** Cron agents with external LLM API deps adopt multi-provider chain with fail-soft sentinels at each layer; restores availability при quota exhaust без новых secrets.
+
+### Class A Deferred (Pending Stack-Agnostic Rewording)
+
+- **`skills/testing.md` § Live Smoke-Test Gate — Current-State Auth Probe** (Proposal A1). Текущая draft формулировка cites «Auth Arcana migration list (Phase 5+)», что fails `scripts/stack-agnostic-gate.sh`. Reword stack-neutral («migration roadmap toward centralised IdP») перед apply. Deferred to follow-up task F-1 (backlog spawn).
+
+### Class B Held (PRD Required)
+
+- **Project repo sync policy (Proposal B1).** INFRA-0189 + INFRA-0191 landed только в workspace `~/arcanada/.git`, не в `Arcanada-one/email-agent`. Per Operational Resilience Mandate Principle 1 — PRD-INFRA-XXXX needs to define canonical repo + sync direction + cadence. Deferred to follow-up F-4.
+
+---
 
 ## 2026-05-11 — TUNE-0164 — Apply 4 Class A proposals to runtime (Phase 1 dr-orchestrate reflection)
 
