@@ -37,7 +37,7 @@ Source: TUNE-0032. Spec: `skills/cta-format.md`. Template: `templates/cta-templa
 
 | Command | Stage | Agent | Description |
 |---------|-------|-------|-------------|
-| `/dr-init` | Initialize | planner | Create task, assess complexity, set up `datarim/`. Emits CTA. |
+| `/dr-init` | Initialize | planner | Create task, assess complexity, set up `datarim/`. Includes Step 2.5b — non-blocking topic-overlap advisory against pending backlog (v2.7.0+). Emits CTA. |
 | `/dr-prd` | Requirements | architect | Generate PRD with discovery interview. Emits CTA. |
 | `/dr-plan` | Planning | planner | Detailed implementation plan with strategist gate. Emits CTA. |
 | `/dr-design` | Design | architect | Architecture exploration with consilium (L3-4). Emits CTA. |

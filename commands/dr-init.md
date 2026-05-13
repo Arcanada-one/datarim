@@ -56,6 +56,26 @@ disable-model-invocation: true
     - **Non-blocking** — operator proceeds at will. Skip silently if the workspace is clean or no `datarim/*.md` exist yet.
     - The staged-diff audit at `/dr-archive` already catches the tangle but only after the carry-over has already cost a session; surfacing it at `/dr-init` lets the operator clean state proactively.
 
+2.5b. **TOPIC OVERLAP ADVISORY** (advisory, non-blocking; framework v2.7.0+):
+    - Catches topic-overlap with **pending backlog items** — orthogonal to Step 2.5, which catches foreign task IDs in pending diffs. Recurrence motivating this gate: two backlog IDs spawned for one deliverable when an earlier pending item escaped notice during fresh `/dr-init`.
+    - Skip silently when any of the following holds:
+      - `datarim/backlog.md` absent or empty of `pending` items.
+      - `python3` not on `PATH` (echo single-line `"python3 not available — topic-overlap check skipped"` and continue; framework dependency floor stays Bash-only).
+      - The runtime root is missing `dev-tools/check-topic-overlap.py` (older install, advisory deferred until upgrade).
+    - Otherwise invoke:
+      ```bash
+      printf '%s\n' "$USER_TASK_DESCRIPTION" | \
+        python3 "$DATARIM_RUNTIME/dev-tools/check-topic-overlap.py" \
+          --task-description - \
+          --backlog "$DATARIM_ROOT/backlog.md" \
+          --top-n 5 --min-overlap 2
+      ```
+      `$DATARIM_RUNTIME` is the framework code root (`code/datarim` in the framework repo, `~/.claude` after install).
+    - Stream stdout straight to the operator. The script is **exit 0 by contract** — exit code is ignored even on parse anomalies.
+    - In non-tty / CI runs (`DATARIM_NONINTERACTIVE=1` or `! [ -t 0 ]`): capture stdout into the step report, never prompt.
+    - When the advisory surfaces matches, operator chooses: `duplicate` (abort + `/dr-init {EXISTING-ID}`), `refine-scope` (narrow new task to avoid collision), or `orthogonal` (continue — overlap is incidental). Default on no operator input: continue.
+    - Performance contract: completes ≤300 ms on a 500-item backlog (regression-gated by `tests/dr-init-topic-overlap-latency.bats`); false-positive rate <10% on a 30-item orthogonal corpus (`tests/dr-init-topic-overlap-fp-budget.bats`).
+
 3.  **CHECK BACKLOG**: If `datarim/backlog.md` exists and contains pending items:
     - Display pending items as a numbered list (ID, title, priority, complexity).
     - **If user provided a `BACKLOG-XXXX` ID**: Select that item directly.
