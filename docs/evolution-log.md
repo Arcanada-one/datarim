@@ -4,6 +4,35 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ---
 
+## 2026-05-13 — CONN-0096 — Public Surface Hygiene Mandate cross-link + lint contract surface
+
+### Class A Applied
+
+- **`CLAUDE.md` § Public Surface Hygiene Mandate (cross-link) (NEW section).** CONN-0096 Proposal 1. Inserted between Documentation Taxonomy Mandate and Defensive Invariants. Mirrors the Autonomous Agent Operating Rules cross-link pattern — canonical mandate text lives in the consumer's ecosystem `CLAUDE.md`; framework ships the contract surface only. References `~/arcanada/CLAUDE.md` § Public Surface Hygiene Mandate as the Arcanada-ecosystem canonical source.
+  - **File:** `CLAUDE.md` (~+18 prose lines inserted before § Defensive Invariants).
+  - **Class:** A.
+  - **Source:** CONN-0096 reflection Proposal 1.
+  - **Stack-agnostic gate:** PASS (mode: `--diff-only`, no stack terms).
+  - **Summary:** consumers shipping public packages MUST mirror canonical mandate in own ecosystem CLAUDE.md; framework ships lint script + regex file as contract surface, not the rules text.
+
+- **`dev-tools/public-surface-lint.sh` + `dev-tools/public-surface-forbidden.regex` + `dev-tools/tests/public-surface-lint.bats` (NEW files).** CONN-0096 Proposal 2. Pure-shell linter greps supplied paths for forbidden references (PRD-/creative-/plans-/insights- patterns, internal-datarim-repo paths, milestone-code references) loaded from a sibling `.regex` file. Single `--check` mode: exit 0 = clean, exit 1 = found, exit 2 = usage error. Skips `dist/` / `build/` / `node_modules/` / `.venv/` / `.git/` / `__pycache__/` / `.pytest_cache/` by default. Per `dev-tools/` orthogonal-tool rule — content validation lives outside `datarim-doctor.sh`. Bats spec covers 14 cases (clean, all 4 forbidden-prefix variants, internal-link variant, milestone-code variant, skip-dist variant, report mode positive + negative, missing/empty regex error paths, unknown-argument error path).
+  - **Files:** `dev-tools/public-surface-lint.sh` (~135 LoC including spec comments), `dev-tools/public-surface-forbidden.regex` (~25 LoC including comment header), `dev-tools/tests/public-surface-lint.bats` (~110 LoC, 14 test cases).
+  - **Class:** A.
+  - **Source:** CONN-0096 reflection Proposal 2.
+  - **Stack-agnostic gate:** PASS (pure bash + grep, no stack terms in script body or docs).
+  - **Bats verification:** 14/14 pass. Pre-existing framework bats failures (T11, T12, D5, 336, 384) are baseline regressions on origin/main, not caused by these additions (verified via `git stash` + `bats tests/` → identical failure set).
+  - **Summary:** contract-surface lint that consumers wire into their CI / pre-publish hook; consumers extend the regex set with their own task-prefix patterns at install time.
+
+### Class A Applied (consumer-side, not framework runtime)
+
+- **Auto-memory `feedback_token_health_probe_before_publish.md`.** CONN-0096 Proposal 3. New ecosystem-side memory: every CI workflow depending on a long-lived token (npm/PyPI/Docker/CF) MUST health-probe the token at job start, not at the publish step. Distinct exit code on expiry distinguishes "rotate token" from "investigate publish failure". Pattern mirrors `feedback_openrouter_key_revoke_probe` for OpenRouter — generalised across token providers.
+  - **File:** `~/.claude/projects/-Users-ug-arcanada/memory/feedback_token_health_probe_before_publish.md` (ecosystem-side, not framework runtime).
+  - **MEMORY.md index updated** with one-line pointer.
+  - **Class:** A.
+  - **Source:** CONN-0096 reflection Proposal 3.
+  - **Stack-agnostic gate:** N/A (ecosystem-side memory; framework gate does not apply).
+
+
 ## 2026-05-11 — TUNE-0164 — Apply 4 Class A proposals to runtime (Phase 1 dr-orchestrate reflection)
 
 ### Class A Applied

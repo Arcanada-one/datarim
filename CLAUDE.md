@@ -394,6 +394,21 @@ Mandate level:
 
 ---
 
+## Public Surface Hygiene Mandate (cross-link)
+
+> **Status:** mandatory for every Datarim consumer that ships public packages (npm / PyPI / Docker Hub / web). The canonical text lives in the **consumer's** ecosystem `CLAUDE.md` — Datarim ships the contract surface (forbidden-regex set + retroactive-sweep recipe), not the canonical text, because the regex set is ecosystem-owned (consumer's task-prefix registry) and audit-tagged per consumer.
+> **Reference consumer:** `/Users/ug/arcanada/CLAUDE.md` § Public Surface Hygiene Mandate (Arcanada ecosystem canonical).
+
+Datarim framework's contribution:
+
+- **`dev-tools/public-surface-lint.sh`** — pure-shell linter that walks `--paths` and greps for forbidden references (task IDs, PRD-/creative-/plans-/insights- patterns, internal-datarim-repo paths) loaded from a sibling `.regex` file. Single `--check` mode: exit 0 = clean, exit 1 = found. Per `dev-tools/` orthogonal-tool rule — content validation has different lifetime and invocation context than ops-file migration, so the lint lives outside `datarim-doctor.sh`.
+- **`dev-tools/public-surface-forbidden.regex`** — machine-readable regex set; consumers extend it with their own task-prefix list at install time (one line per pattern, `#` for comments).
+- **Pre-publish gate hook** — invoked by `/dr-archive` Step 2 when the task touched any artifact published to an external registry (closed set: npm / PyPI / Docker Hub / web). Hard block on findings.
+
+Consumers MUST mirror the canonical mandate text and the forbidden-regex extension in their own ecosystem `CLAUDE.md` before publishing public packages; the lint script and the regex file are contract surfaces, not substitutes for the operator-readable rules text. Conflict resolution with Supreme Directive: Law 1 (Non-Harm) overrides re-publish urgency — if a strip introduces a security regression, escalate per the consumer's FB-rules instead of patch-bumping.
+
+---
+
 ## Defensive Invariants
 
 When a script's textual output is contractually paired with its exit code or internal state (e.g. "BLOCKED" message ↔ exit 1, "OK" message ↔ exit 0, "applied" flag ↔ side-effect performed), insert a precondition guard immediately before emitting the wording:
