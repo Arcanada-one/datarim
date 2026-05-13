@@ -1,0 +1,146 @@
+# Reusable workflow — token health probe for publish/push CI workflows.
+# Probes the auth-scoped endpoint of the target provider BEFORE the publish
+# step so token expiry surfaces in <2s instead of after a full build/test pass.
+#
+# Distinct exit code 89 on expired-token so the workflow run page
+# distinguishes "rotate token" from "investigate publish failure".
+#
+# Call from another workflow as a leading job before publish:
+#
+#   jobs:
+#     probe:
+#       uses: Arcanada-one/datarim/.github/workflows/token-health-probe.yml@main
+#       with:
+#         provider: npm
+#       secrets:
+#         token: ${{ secrets.NPM_TOKEN }}
+#     publish:
+#       needs: probe
+#       runs-on: ubuntu-latest
+#       steps: [...]
+#
+# Supported providers: npm, pypi, dockerhub, cloudflare.
+#
+name: token-health-probe
+
+on:
+  workflow_call:
+    inputs:
+      provider:
+        description: 'Provider id: npm | pypi | dockerhub | cloudflare.'
+        type: string
+        required: true
+      registry_url:
+        description: 'Override default registry/API URL (advanced).'
+        type: string
+        required: false
+        default: ''
+      cloudflare_extra_args:
+        description: 'Extra query args appended to Cloudflare verify endpoint (empty for default).'
+        type: string
+        required: false
+        default: ''
+    secrets:
+      token:
+        description: 'The long-lived token to probe.'
+        required: true
+      dockerhub_username:
+        description: 'Docker Hub username (only for provider=dockerhub).'
+        required: false
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: 'Provider id (smoke only — no real publish triggered).'
+        type: string
+        default: 'npm'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: token-health-probe-${{ inputs.provider }}
+    runs-on: ubuntu-latest
+    env:
+      PROVIDER: ${{ inputs.provider }}
+      REGISTRY_URL: ${{ inputs.registry_url }}
+      CF_EXTRA: ${{ inputs.cloudflare_extra_args }}
+      TOKEN: ${{ secrets.token }}
+      DOCKERHUB_USERNAME: ${{ secrets.dockerhub_username }}
+    steps:
+      - name: Validate token is non-empty
+        run: |
+          set -uo pipefail
+          if [ -z "${TOKEN:-}" ]; then
+            echo "::error::Token secret is empty — repository SECRET 'token' is missing or unset"
+            exit 89
+          fi
+
+      - name: npm whoami probe
+        if: ${{ inputs.provider == 'npm' }}
+        run: |
+          set -uo pipefail
+          url="${REGISTRY_URL:-https://registry.npmjs.org}"
+          # curl -H Bearer against /-/whoami: returns {"username":"..."} on valid,
+          # empty {} or error on expired/invalid.
+          body=$(curl -fsS -H "Authorization: Bearer ${TOKEN}" "${url}/-/whoami" || true)
+          echo "Response body: ${body}"
+          case "$body" in
+            *'"username"'*) echo "npm token live"; exit 0 ;;
+            *) echo "::error::npm token expired or invalid (whoami returned no username)"; exit 89 ;;
+          esac
+
+      - name: pypi token probe
+        if: ${{ inputs.provider == 'pypi' }}
+        run: |
+          set -uo pipefail
+          url="${REGISTRY_URL:-https://upload.pypi.org/legacy/}"
+          code=$(curl -s -o /dev/null -w '%{http_code}' \
+            -H "Authorization: Bearer ${TOKEN}" "$url")
+          echo "HTTP status: $code"
+          case "$code" in
+            200|405) echo "pypi token accepted by upload endpoint"; exit 0 ;;
+            401|403) echo "::error::pypi token expired or invalid (HTTP $code)"; exit 89 ;;
+            *) echo "::error::pypi probe unexpected HTTP $code (treat as expired)"; exit 89 ;;
+          esac
+
+      - name: cloudflare token verify probe
+        if: ${{ inputs.provider == 'cloudflare' }}
+        run: |
+          set -uo pipefail
+          url="${REGISTRY_URL:-https://api.cloudflare.com/client/v4/user/tokens/verify}"
+          [ -n "$CF_EXTRA" ] && url="${url}?${CF_EXTRA}"
+          body=$(curl -fsS -H "Authorization: Bearer ${TOKEN}" "$url" || true)
+          echo "Response body: ${body}"
+          case "$body" in
+            *'"success":true'*) echo "cloudflare token live"; exit 0 ;;
+            *) echo "::error::cloudflare token expired or invalid"; exit 89 ;;
+          esac
+
+      - name: dockerhub auth probe
+        if: ${{ inputs.provider == 'dockerhub' }}
+        env:
+          DH_USER: ${{ env.DOCKERHUB_USERNAME }}
+        run: |
+          set -uo pipefail
+          if [ -z "${DH_USER:-}" ]; then
+            echo "::error::dockerhub provider requires secrets.dockerhub_username"
+            exit 89
+          fi
+          url="${REGISTRY_URL:-https://hub.docker.com/v2/users/login}"
+          code=$(curl -s -o /dev/null -w '%{http_code}' \
+            -H "Content-Type: application/json" \
+            -d "{\"username\":\"${DH_USER}\",\"password\":\"${TOKEN}\"}" \
+            "$url")
+          echo "HTTP status: $code"
+          case "$code" in
+            200) echo "dockerhub creds live"; exit 0 ;;
+            401) echo "::error::dockerhub creds expired or invalid (HTTP 401)"; exit 89 ;;
+            *) echo "::error::dockerhub probe unexpected HTTP $code (treat as expired)"; exit 89 ;;
+          esac
+
+      - name: unknown provider
+        if: ${{ inputs.provider != 'npm' && inputs.provider != 'pypi' && inputs.provider != 'cloudflare' && inputs.provider != 'dockerhub' }}
+        run: |
+          echo "::error::unknown provider: ${PROVIDER} — supported: npm, pypi, cloudflare, dockerhub"
+          exit 2
