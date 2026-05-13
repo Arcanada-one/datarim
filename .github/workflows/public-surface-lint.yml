@@ -1,0 +1,89 @@
+# Reusable workflow — Public Surface Hygiene Mandate gate.
+# See $HOME/.claude/CLAUDE.md (consumer ecosystem) § Public Surface Hygiene
+# Mandate for the canonical text; framework contract surface lives in
+# dev-tools/public-surface-lint.sh + dev-tools/public-surface-forbidden.regex.
+#
+# Call from another workflow:
+#
+#   jobs:
+#     public-surface:
+#       uses: Arcanada-one/datarim/.github/workflows/public-surface-lint.yml@main
+#       with:
+#         paths: 'README.md CHANGELOG.md docs packages'
+#
+name: public-surface-lint
+
+on:
+  workflow_call:
+    inputs:
+      paths:
+        description: 'Space-separated paths to scan (relative to consumer repo root).'
+        type: string
+        required: false
+        default: 'README.md CHANGELOG.md CONTRIBUTING.md docs packages'
+      regex_file:
+        description: 'Path to forbidden-regex file inside consumer repo (overrides framework default).'
+        type: string
+        required: false
+        default: ''
+      report:
+        description: 'Print findings to log when failing.'
+        type: boolean
+        required: false
+        default: true
+      datarim_ref:
+        description: 'Datarim ref to checkout the linter from.'
+        type: string
+        required: false
+        default: 'main'
+  workflow_dispatch:
+    inputs:
+      paths:
+        description: 'Paths to scan'
+        type: string
+        default: 'README.md CHANGELOG.md CONTRIBUTING.md docs packages'
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: public-surface-lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout target repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Checkout Datarim linter
+        uses: actions/checkout@v4
+        with:
+          repository: Arcanada-one/datarim
+          ref: ${{ inputs.datarim_ref }}
+          path: .datarim
+          persist-credentials: false
+
+      - name: Resolve regex file
+        id: regex
+        env:
+          CONSUMER_REGEX: ${{ inputs.regex_file }}
+        run: |
+          set -euo pipefail
+          if [ -n "$CONSUMER_REGEX" ] && [ -f "$CONSUMER_REGEX" ]; then
+            echo "path=$CONSUMER_REGEX" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=.datarim/dev-tools/public-surface-forbidden.regex" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run public-surface lint
+        env:
+          PATHS_INPUT: ${{ inputs.paths }}
+          REGEX_PATH: ${{ steps.regex.outputs.path }}
+          REPORT: ${{ inputs.report }}
+        run: |
+          set -uo pipefail
+          args=(--regex "$REGEX_PATH" --paths)
+          for p in $PATHS_INPUT; do [ -n "$p" ] && args+=("$p"); done
+          [ "$REPORT" = "true" ] && args+=(--report)
+          ./.datarim/dev-tools/public-surface-lint.sh "${args[@]}"
