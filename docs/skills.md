@@ -1,6 +1,6 @@
 # Skills Reference
 
-Datarim includes 40 reusable skill modules. Skills provide rules, patterns, and guidelines loaded on demand by agents and commands.
+Datarim includes 45 reusable skill modules. Skills provide rules, patterns, and guidelines loaded on demand by agents and commands.
 
 Skills are split into two categories:
 - **Reference skills** — rules and patterns the caller applies inline. Inherit caller's model (no `model` field).
@@ -40,8 +40,12 @@ Skills are split into two categories:
 | research-workflow | Task | sonnet | Structured external research methodology, checklist, tool selection | researcher agent in /dr-prd, /dr-do |
 | security-baseline | Reference | inherit | Canonical S1–S9 security rule reference cited from CLAUDE.md § Security Mandate | plan/qa/compliance/do touching shipped artefacts |
 | diataxis-docs | Reference | inherit | Documentation Taxonomy Mandate — 4 closed Diátaxis categories (tutorials / how-to / reference / explanation), mapping table, exemption list, anti-patterns | /dr-init project scaffolding, /dr-optimize audit, /dr-archive surface verification |
+| init-task-persistence | Reference | inherit | Verbatim operator brief artefact contract — frontmatter + append-log + mandatory read by every pipeline command | All pipeline commands (mandatory READ at first step) |
+| expectations-checklist | Reference | inherit | Operator wishlist artefact (Option B flat markdown) — wish_id slug + История статусов + Текущий статус + override semantics | /dr-prd, /dr-plan (write); /dr-qa, /dr-compliance (verify) |
+| playwright-qa | Task | sonnet | Browser-based frontend QA — CLI / MCP / env-browser resolution chain + headed / headed-strict + per-task flock + run-`<ISO-ts>`/ artefacts | /dr-qa Layer 4f on frontend touch |
+| human-summary | Reference | inherit | Plain-language operator recap — four sub-sections + banlist + whitelist + per-paragraph escape hatch + 150–400 word budget | /dr-qa, /dr-compliance, /dr-archive (Step 8) |
 
-**Distribution:** 9 reference (inherit), 3 opus, 12 sonnet, 4 haiku.
+**Distribution:** 12 reference (inherit), 3 opus, 13 sonnet, 4 haiku.
 
 ## Loading Hierarchy
 
