@@ -49,16 +49,19 @@ if ! curl -fsS --max-time 5 "$BASE_URL" >/dev/null 2>&1; then
   exit 3
 fi
 
-AUTH_HEADER=""
+# Build the optional Authorization header as a bash array so the colon-bearing
+# value survives word-splitting (schemathesis CLI expects --header NAME:VALUE
+# as a single argv element).
+AUTH_ARGS=()
 if [[ -n "${DR_ORCH_INBOUND_TOKEN:-}" ]]; then
-  AUTH_HEADER="--header Authorization:Bearer ${DR_ORCH_INBOUND_TOKEN}"
+  AUTH_ARGS=(--header "Authorization:Bearer ${DR_ORCH_INBOUND_TOKEN}")
 fi
 
-# shellcheck disable=SC2086
 # Schemathesis >=3.30 renamed --base-url -> --url and --hypothesis-max-examples -> --max-examples.
+# Schemathesis 4.x: LOCATION (schema path) is positional after the options.
 schemathesis run \
   --url "$BASE_URL" \
   --checks all \
   --max-examples "$MAX_EXAMPLES" \
-  ${AUTH_HEADER} \
+  "${AUTH_ARGS[@]}" \
   "$SCHEMA"
