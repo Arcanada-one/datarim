@@ -1,0 +1,76 @@
+# Human-summary banlist — Russian plain-language output guard.
+#
+# Format:
+#   - One ASCII token per line, lowercase or original case.
+#   - `#` starts a comment to end-of-line.
+#   - `# source: <ref>` and `# section: <category>` are informational.
+#   - Trailing whitespace is stripped; empty lines allowed.
+#
+# Matching rule: ASCII-only tokens length ≥3, case-insensitive full-word
+# equality. The token may appear inside Russian prose; transliterations
+# («пайплайн») are NOT matched.
+#
+# Whitelist (sibling file) is consulted BEFORE this banlist. A token that
+# appears in whitelist is allowed unconditionally even if it would have
+# matched a banlist entry.
+
+# section: devops / ci-cd
+pipeline                # source: corpus review — universal RU equivalent «конвейер»
+coverage                # source: corpus review
+deploy                  # source: corpus review — RU «развёртывание»
+release                 # source: corpus review
+rollback                # source: corpus review — RU «откат»
+runtime                 # source: corpus review
+build                   # source: operator review — RU «сборка»
+test                    # source: operator review — only as noun in Russian
+fix                     # source: corpus review
+patch                   # source: corpus review
+hotfix                  # source: corpus review
+feature                 # source: corpus review
+
+# section: git
+commit                  # source: corpus review
+branch                  # source: corpus review — RU «ветка»
+merge                   # source: corpus review — RU «слияние»
+fork                    # source: corpus review
+repo                    # source: operator review — RU «репозиторий»
+repository              # source: operator review
+pull-request            # source: operator review — use Russian equivalent
+
+# section: monitoring & dashboards
+dashboard               # source: corpus review
+workflow                # source: corpus review
+snapshot                # source: corpus review
+cache                   # source: corpus review
+latency                 # source: corpus review
+throughput              # source: corpus review
+retry                   # source: operator review
+fallback                # source: corpus review
+healthcheck             # source: corpus review
+hardcode                # source: operator review
+
+# section: testing terminology
+mock                    # source: corpus review
+stub                    # source: corpus review
+fixture                 # source: corpus review
+parser                  # source: corpus review
+
+# section: runtime & processes
+runner                  # source: corpus review
+agent                   # source: operator review — only when used loosely
+worker                  # source: corpus review
+job                     # source: corpus review
+queue                   # source: corpus review
+scope                   # source: operator review — RU «объём»
+refactor                # source: corpus review
+regression              # source: corpus review
+smoke                   # source: operator review
+
+# section: gates & hooks
+gate                    # source: operator review
+hook                    # source: corpus review
+trigger                 # source: corpus review
+callback                # source: corpus review
+payload                 # source: corpus review
+endpoint                # source: corpus review
+override                # source: corpus review — as noun in plain language
