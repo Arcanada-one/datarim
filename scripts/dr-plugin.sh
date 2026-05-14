@@ -24,6 +24,7 @@
 # Source: PRD-TUNE-0101, plans/TUNE-0101-plan.md § Phase A.
 
 set -euo pipefail
+# nosemgrep: bash.lang.security.ifs-tampering.ifs-tampering -- intentional strict-mode IFS scope is process-wide, single-script
 IFS=$'\n\t'
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

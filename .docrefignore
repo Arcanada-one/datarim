@@ -15,3 +15,11 @@
 
 # --- Phantom template referenced by skills/security-baseline.md (TUNE-0045 carry-over)
 templates/security-workflow.yml
+
+# --- Phantom Diátaxis stub-file headers in templates/project-docs-stubs.md.
+# The template defines stub file CONTENT (consumer creates the files).
+# Linter mis-detects "## File: <path>" headers as bare-path mentions.
+docs/reference/architecture.md
+docs/how-to/testing.md
+docs/how-to/deployment.md
+docs/how-to/gotchas.md
