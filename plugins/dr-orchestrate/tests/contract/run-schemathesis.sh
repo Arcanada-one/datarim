@@ -55,9 +55,10 @@ if [[ -n "${DR_ORCH_INBOUND_TOKEN:-}" ]]; then
 fi
 
 # shellcheck disable=SC2086
+# Schemathesis >=3.30 renamed --base-url -> --url and --hypothesis-max-examples -> --max-examples.
 schemathesis run \
-  --base-url "$BASE_URL" \
+  --url "$BASE_URL" \
   --checks all \
-  --hypothesis-max-examples "$MAX_EXAMPLES" \
+  --max-examples "$MAX_EXAMPLES" \
   ${AUTH_HEADER} \
   "$SCHEMA"
