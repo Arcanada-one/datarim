@@ -1,0 +1,56 @@
+name: scorecard
+
+# OpenSSF Scorecard: weekly score + on-demand runs. Results are pushed
+# to the OpenSSF dashboard (publish_results: true) and uploaded as
+# SARIF to the repository's code-scanning view.
+
+on:
+  branch_protection_rule:
+  schedule:
+    - cron: "0 6 * * 1"   # Monday 06:00 UTC
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: scorecard-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analysis:
+    name: openssf-scorecard
+    runs-on: ubuntu-latest
+    permissions:
+      # Required for publish_results to OpenSSF dashboard.
+      id-token: write
+      # Required to upload SARIF to code-scanning.
+      security-events: write
+      # Read-only repo access.
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+
+      - name: Run analysis
+        uses: ossf/scorecard-action@62b2cac7ed8198b15735ed49ab1e5cf35480ba46 # v2.4.0
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: scorecard-results
+          path: results.sarif
+          retention-days: 5
+
+      - name: Upload SARIF to code-scanning
+        uses: github/codeql-action/upload-sarif@4f3212b61783c3c68e8309a0f18a699764811cda # v3.27.1
+        with:
+          sarif_file: results.sarif
