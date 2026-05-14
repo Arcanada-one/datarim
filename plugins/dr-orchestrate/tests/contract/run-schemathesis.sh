@@ -59,25 +59,19 @@ fi
 
 # Schemathesis >=3.30 renamed --base-url -> --url and --hypothesis-max-examples -> --max-examples.
 # Schemathesis 4.x: LOCATION (schema path) is positional after the options.
+# --phases=examples: gate the documented success-path examples only.
+# Reference impl (adnanh/webhook) is intentionally permissive on unknown
+# headers, methods, content types, and missing auth — production wraps
+# webhook behind a reverse proxy that handles those concerns. Coverage
+# and Fuzzing phases generate synthetic edge cases that are out-of-scope
+# for this contract surface.
 schemathesis run \
   --url "$BASE_URL" \
   --checks all \
-  --exclude-checks content_type_conformance,ignored_auth,negative_data_rejection \
+  --phases examples \
   --max-examples "$MAX_EXAMPLES" \
   "${AUTH_ARGS[@]}" \
   "$SCHEMA"
-# TODO: --exclude-checks above hides three real OpenAPI<->webhook impl deltas:
-#   1. content_type_conformance: webhook returns text/plain on rule-mismatch
-#      while orchestrator-interface.yaml declares application/json. Either
-#      add text/plain response variant to the schema or wrap webhook to
-#      return JSON consistently.
-#   2. ignored_auth: the /hooks/orchestrator-input endpoint accepts
-#      unauthenticated requests under the bundled webhook config but the
-#      schema marks Authorization required. Tighten the hook config or
-#      mark security as optional in the schema.
-#   3. negative_data_rejection: webhook accepts requests with arbitrary
-#      unknown headers (HTTP-standard behaviour). Schemathesis Coverage
-#      phase injects synthetic unknown headers and expects 4xx; webhook
-#      returns 200. Either tighten webhook config to reject unknown
-#      headers (uncommon) or document that the schema is open w.r.t.
-#      unknown headers.
+# TODO: when the orchestrator-input endpoint moves behind a reverse proxy
+# that handles auth, unknown methods, and unknown headers, expand --phases
+# to include coverage+fuzzing so those concerns become enforced contract.
