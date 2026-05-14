@@ -50,6 +50,21 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
     -   Both formats use the same **Design Document Template** (Phase 5 below).
     -   Include: **Security Summary** (Attack Surface, Risks), **Architecture Impact**, **Detailed Design** (API, DB, Config), **Security Design** (Threats, Controls), **Implementation Steps**, **Test Plan** (Unit/Integration/Security), **Rollback Strategy**, **Validation Checklist**.
 
+5b. **Seed expectations checklist (L2 without PRD only)** per `$HOME/.claude/skills/expectations-checklist.md`:
+    -   Skip this step when a PRD exists — `/dr-prd` Step 5.5b already seeded the file.
+    -   For L2 tasks without a PRD, the planner MUST create or update `datarim/tasks/{TASK-ID}-expectations.md` from `$HOME/.claude/templates/expectations-template.md`.
+    -   **Source of items.** Each operator wish becomes one item. Derive items from:
+        (a) the init-task `## Operator brief (verbatim)` plus every `## Append-log` entry (one wish per distinct intent), and
+        (b) the plan's § Validation Checklist when it asserts operator-observable outcomes.
+    -   **Per-item shape** (Option B; full contract in `expectations-checklist.md`): title in plain Russian ending with a period; `wish_id` = kebab-slug of the title (cyrillic allowed); `Что хочу проверить:`; `Как проверить (success criterion):`; `Связанный AC из PRD:` set to «—» (no PRD); `#### История статусов` with one initial line `<ISO> / <local> · /dr-plan · pending → pending · reason: пункт создан при формировании плана`; `#### Текущий статус: pending`.
+    -   **Append-merge if the file already exists.** Same contract as `/dr-prd` Step 5.5b — match by `wish_id`, append new wishes at the bottom, never rewrite existing items.
+    -   **Post-write validation gate.** Invoke:
+        ```bash
+        dev-tools/check-expectations-checklist.sh --task {TASK-ID}
+        ```
+        Exit code `1` ⇒ STOP and fix the file before continuing.
+    -   For L1 tasks this step is skipped entirely; for L3-L4 tasks the PRD step seeded the file already.
+
 6.  **Technology Validation**:
     -   Document technology stack selection.
     -   Verify dependencies and build configuration.

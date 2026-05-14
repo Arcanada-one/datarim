@@ -56,6 +56,27 @@ This command generates a structured Product Requirements Document (PRD) followin
         - **V-AC path live-validation.** For every AC / V-AC line citing a script, binary, spec file, or directory path: run `command -v <bin>` / `test -f <path>` / dry-run probe and confirm exit 0 before save. Cites that do not exist yet MUST be marked `[to-be-created]` inline so the gate distinguishes intentional plan-deliverables from typos / phantom paths. Block save if a non-`[to-be-created]` cite fails the probe.
     -   Save to `datarim/prd/PRD-{slug}.md`.
 
+5.5b. **Seed expectations checklist (L3-L4, mandatory)** per `$HOME/.claude/skills/expectations-checklist.md`:
+    -   For tasks with `complexity: L3` or `L4`, the architect MUST create or update `datarim/tasks/{TASK-ID}-expectations.md` from `$HOME/.claude/templates/expectations-template.md`.
+    -   **Source of items.** Each operator wish becomes one item. Derive items from:
+        (a) the init-task `## Operator brief (verbatim)` plus every `## Append-log` entry (one wish per distinct intent), and
+        (b) the PRD § Success Criteria list (one wish per V-AC where the criterion reflects an operator-observable outcome — internal-only AC stays in PRD).
+    -   **Per-item shape** (Option B schema; full contract in `expectations-checklist.md`):
+        - title in plain Russian, ending with a period;
+        - `wish_id` = kebab-slug of the title (cyrillic allowed);
+        - `Что хочу проверить:` one or two sentences;
+        - `Как проверить (success criterion):` one concrete signal;
+        - `Связанный AC из PRD:` `V-AC-<N>` или «—»;
+        - `#### История статусов` with one initial line `<ISO> / <local> · /dr-prd · pending → pending · reason: пункт создан при формировании PRD`;
+        - `#### Текущий статус` set to `pending`.
+    -   **Append-merge if the file already exists.** Load existing items by `wish_id`. New PRD-derived wishes whose slug does not match any existing item are appended at the bottom; existing items are not rewritten. If a previously-linked AC was renamed, append one `stage: append-merge` History line to the affected item.
+    -   **Post-write validation gate.** Invoke:
+        ```bash
+        dev-tools/check-expectations-checklist.sh --task {TASK-ID}
+        ```
+        Exit code `1` ⇒ STOP and fix the file before continuing. Exit code `2` ⇒ usage error in the invocation, not in the file.
+    -   For `complexity: L1` or `L2` this step is skipped here; `/dr-plan` handles L2 without PRD.
+
 5.5. **Network Exposure Baseline (tiered gate)**:
     -   Read `$HOME/.claude/skills/network-exposure-baseline.md` § Tier Model + § Tiered Gate Rules.
     -   Decide gate disposition by invoking the canonical executor:
