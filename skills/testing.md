@@ -33,6 +33,24 @@ target_aal: 2
   real integration (wrong client, wrong schema, wrong dialect), a mocked test will pass and production will
   fail. See § Live Smoke-Test Gates below.
 
+## Driver-Side Serialization Simulation
+
+When mocking a DB driver (`bi.execute = mock.fn()`, `pool.query = mock.fn()`, etc.) in a unit test, the test captures bind parameters **before** the driver applies its own serialization. Most drivers transform non-scalar bind values on the wire — and that transformation is part of the production write path your test claims to cover. A naive `typeof p === 'string'` assertion on captured params silently passes for an array bypass that the real driver would JSON-serialize into the column.
+
+**Rule.** Any unit test that captures DB-driver mock params and then asserts column-shape invariants MUST first run the captured params through a `simulateDriverBind(p)` helper that reproduces the driver's serialization:
+
+- Arrays → `JSON.stringify` (default for several SQL connectors when binding to a scalar placeholder — verify per driver).
+- Plain objects → `JSON.stringify` (when the target column is text; some drivers also auto-serialize for JSON columns).
+- Date / Buffer / typed-array / null / scalar → pass-through.
+
+The simulation is **driver-specific** — declare the helper in the spec file and cite the driver doc that justifies the serialization rules. A simulator for connector X does not work for a test of connector Y; copy-pasting the wrong simulator silently accepts buggy binds.
+
+**Why this matters.** Application-level sanitization (e.g. a `sanitizeValue` that maps arrays → scalars) lives upstream of the bind boundary. A regression that lets an array slip past that sanitizer would be invisible to a mock-based assert but would write a bracketed JSON literal into the column on production. The simulator closes the gap a pure-mock spec cannot.
+
+**When to apply.** Mandatory for every unit test of a DB writer (`UPDATE`, `INSERT`, batch upserts) where the column receiving the bind has a documented format contract (scalar, comma-joined list, JSON, etc.). Skip only when the spec is exercising the driver's typeCast / JSON-column round-trip directly — in that case the driver IS the assertion.
+
+---
+
 ## Coverage Instrumenter Blind-Spot Awareness
 
 When code under test executes through a framework-internal pass-through — raw runtime hooks where the web framework hands the underlying runtime request/response objects to user code, bypassing the framework's own instrumentation seams — the coverage instrumenter may underreport line/branch execution even though tests pass and the code paths run. Symptoms: a controller/handler whose every behavioural test passes yet shows single-digit coverage, threshold regressions appearing immediately after introducing raw-pass code, branch-vs-main coverage delta with no behavioural delta.
@@ -71,6 +89,21 @@ grep -cE '^func Test' <spec>
 <!-- /gate:example-only -->
 
 If the audit cites a count that does not match the extractor output for the same revision, treat that as a finding (drift between operator memory and source-of-truth). Source: prior incident — a per-spec count off-by-one in a QA report was caught only by independent re-execution at Compliance.
+
+---
+
+## Producer-Side Smoke Verification for Verdict Gates
+
+When a Definition-of-Done acceptance criterion is a numerical threshold computed by a verdict script over event records emitted by a producer (a daemon, soak harness, ingest pipeline, audit emitter), validate **both halves** in the same pre-archive gate:
+
+1. **Consumer-side smoke** — feed the verdict script synthetic input that mimics the producer's expected output shape and assert it returns the correct exit codes for both pass and fail thresholds. This catches verdict-logic bugs (off-by-one in rate math, wrong field name, missing nullability handler).
+2. **Producer-side smoke** — exercise the producer against a realistic input (or one representative cycle), capture an actual event record from the producer's normal output stream, and confirm the record carries every field the verdict script reads. This catches schema-emission bugs (producer dropped a field, fast-path bypass, partial event shape).
+
+Validating only the consumer half against synthetic events is a recurring trap: the verdict script passes, the producer ships, and weeks later the verdict gate runs against real producer output and exits with «no data in window» because the schema the synthetic test used does not match what the producer actually emits in production conditions.
+
+**Rule.** A verdict-gate acceptance criterion is incomplete until the archive doc cites one record from the producer's real output stream that the verdict script would consume successfully. A synthetic fixture is not a substitute.
+
+**When to apply.** Any task that ships a verdict script + acceptance criterion in the same package, where the verdict script is intended to run later against a long-running producer. Skip when the producer is exercised inline in the test (verdict script is unit-tested over the producer's actual output in the same run).
 
 ---
 
