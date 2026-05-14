@@ -44,6 +44,14 @@ verification_outcome field semantics:
 | AC-1: {description} | {pass/fail/partial} | {link or summary} |
 | AC-2: {description} | {pass/fail/partial} | {link or summary} |
 
+## Выполнение ожиданий оператора
+
+(Для каждого пункта из `datarim/tasks/{TASK-ID}-expectations.md` — статус и одно-два предложения комментария обычным языком. Без таблиц. Без англицизмов. Если файла ожиданий не было — короткая строка «Чек-лист ожиданий не заводился» и переход к следующей секции.)
+
+- **{пункт 1 из expectations — формулировка операторскими словами}.** {Статус: выполнено / частично / не выполнено / неприменимо.} {Одно-два предложения комментария: что именно сделано, какие доказательства, что осталось.}
+- **{пункт 2}.** {статус.} {комментарий.}
+- _(и так по каждому пункту в исходном порядке)_
+
 ## Known Outstanding State / Operator Handoff
 
 (Any residual technical debt, deferred improvements, or configuration steps the next operator should know. Empty if none.)

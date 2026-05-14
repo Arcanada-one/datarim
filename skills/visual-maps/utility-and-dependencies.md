@@ -142,13 +142,17 @@ graph LR
         util["utilities"]
         vmap["visual-maps"]
         research_wf["research-workflow"]
+        init_task["init-task-persistence"]
+        expect_sk["expectations-checklist"]
+        play_sk["playwright-qa"]
+        human_sk["human-summary"]
     end
 
-    planner --> sys & aiq & tech
-    architect --> sys & tech & perf & sec & cons
-    developer --> sys & aiq & test
-    reviewer --> sys & sec & test & refl & evo
-    comp_agent --> sys & comp_sk
+    planner --> sys & aiq & tech & init_task
+    architect --> sys & tech & perf & sec & cons & init_task & expect_sk
+    developer --> sys & aiq & test & init_task
+    reviewer --> sys & sec & test & refl & evo & init_task & expect_sk & play_sk & human_sk
+    comp_agent --> sys & comp_sk & expect_sk & human_sk
     writer_agent --> sys & writ & fc & pub
     editor_agent --> sys & fc & hum & writ
     skill_creator --> sys & evo & writ
@@ -160,3 +164,12 @@ graph LR
     security_agent --> sys & sec & comp_sk
     researcher_agent --> sys & research_wf & tech
 ```
+
+## New v2.8.0 Skills (TUNE-0210)
+
+Four operator-facing skills introduced in v2.8.0 augment the canonical agent ↔ skill graph above:
+
+- **`init-task-persistence`** — schema and lifecycle contract for the verbatim operator brief. Loaded by every pipeline command at its first read step (planner / architect / developer / reviewer).
+- **`expectations-checklist`** — flat-markdown wishlist schema (Option B from creative). Architect writes at `/dr-prd`, planner writes at `/dr-plan` (L2 without PRD). Reviewer + compliance verify via the `--verify` validator.
+- **`playwright-qa`** — frontend-touch detection + browser-pass artefact layout. Reviewer loads in `/dr-qa` Layer 4f.
+- **`human-summary`** — plain-language operator recap with banlist + whitelist + escape-hatch. Reviewer + compliance + archive all emit the four-sub-section recap as Step 8.

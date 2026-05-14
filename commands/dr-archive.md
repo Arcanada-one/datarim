@@ -182,6 +182,13 @@ Complete and archive current task.
    - Task summary
    - Implementation details
    - Reflection insights
+   - **`## Выполнение ожиданий оператора` section (MANDATORY when `datarim/tasks/{TASK-ID}-expectations.md` exists, per F6 of TUNE-0210 contract):**
+     - Read `datarim/tasks/{TASK-ID}-expectations.md` and render every item from `## Ожидания` in its original order.
+     - Each rendered bullet: bold operator-words formulation, followed by the final `/dr-qa` status word (one of «выполнено», «частично», «не выполнено», «неприменимо» — never the schema enum `met`/`partial`/`missed`/`n-a`) and one or two plain-language sentences of comment sourced from the item's most recent `#### История статусов` line (`reason: …`).
+     - **No tables in this section.** Bullet list only (single-level allowed; nested bullets forbidden).
+     - **No anglicisms** — apply the banlist rules from `skills/human-summary.md` to the comment text (Russian prose only; ASCII tokens of length ≥3 from `skills/human-summary/banlist.txt` MUST NOT appear unless wrapped in the per-paragraph escape-hatch fence). The two-paragraph fenced budget from `human-summary.md` § Per-paragraph escape hatch applies here as well.
+     - Placement: between `## Final Acceptance Criteria` and `## Known Outstanding State / Operator Handoff` (see `templates/archive-template.md`).
+     - Missing expectations file ⇒ render a single line «Чек-лист ожиданий не заводился» under the heading and proceed; do not skip the heading entirely (the section is part of the archive's canonical shape).
    - **Known Loss Verification Gate (MANDATORY when archive will include any "Known Loss" / "Unrecoverable" / "Content lost" statement):**
      Before recording that any file, section, decision, or piece of work is permanently lost, run the Disaster Recovery Checklist from `$HOME/.claude/skills/evolution.md` § Disaster Recovery for Lost Runtime Files. Record in the archive document which channels were checked (grep reflections by filename, compacted session context, cross-references, git history of consumer projects, external backups) and what each returned. If the checklist takes >30 minutes, defer the archive, open a follow-up recovery task, do not record the loss yet. Only after all 5 channels are exhausted may a loss claim enter the archive. Rationale: an archive that records files as "text reconstruction is not possible" after 0 minutes of discovery has historically been recovered 100% in <30 minutes using channels 1-3. Always run the checklist first.
 3. **BACKLOG UPDATE** (if task existed in backlog):

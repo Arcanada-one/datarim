@@ -4,6 +4,67 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.8.0] — 2026-05-14
+
+**Operator-memory pipeline upgrade.** Seven related improvements ship together under the umbrella of «remember what the operator asked for, across the full pipeline»: verbatim init-task persistence, operator wishlist with verification gate, browser-based frontend QA, plain-language operator recap on three commands, archive section that mirrors the wishlist outcome, refreshed visual maps, and a coherent docs/site fanout. Backwards-compatible for legacy tasks via a 30-day rolling soft window; the new gates default to `info`-severity advisories that never block legacy pipelines.
+
+### Added — Init-task persistence (F1)
+
+Every `/dr-init` now writes a per-task `init-task.md` with a closed-schema frontmatter and a verbatim `## Operator brief` section. Every later pipeline command MUST read this file and append-log block before its first action; divergences between the operator's stated intent and the planned/implemented work are recorded in the task-description's Implementation Notes.
+
+- New skill `init-task-persistence` (12-field frontmatter, append-log semantics, operator-only writes).
+- New validator `dev-tools/check-init-task-presence.sh` (30-day rolling soft window, info < 30 d, warn ≥ 30 d, never blocker for legacy tasks).
+- Nine pipeline commands read init-task at first step.
+- Regression coverage: 13 bats cases.
+
+### Added — Expectations checklist + verification gate (F2 + F3)
+
+`/dr-prd` (L3-L4) and `/dr-plan` (L2 without PRD) write an operator-readable wishlist in plain Russian; `/dr-qa` Layer 3b and `/dr-compliance` Step 5b verify the checklist; missed items without operator override route the task back to `/dr-do --focus-items <wish_ids>` via the FAIL-Routing CTA.
+
+- New skill `expectations-checklist` (Option B schema: flat markdown, kebab-slug wish_id with cyrillic, История статусов running log, Текущий статус enum, override line ≥10 chars).
+- New validator `dev-tools/check-expectations-checklist.sh` with `--task` / `--verify` / `--all` modes; cyrillic wish_ids round-trip through shell arguments safely.
+- New Layer 3b in `/dr-qa` between Layer 3 (plan) and Layer 4 (code) — FAIL makes the overall verdict BLOCKED regardless of other layers.
+- Regression coverage: 16 + 8 bats cases.
+
+### Added — Browser-based frontend QA (F4)
+
+When a task changes any frontend markup, `/dr-qa` Layer 4f resolves an available browser tool, acquires a per-task lock, opens the local dev surface, and writes screenshot + trace + summary into `datarim/qa/playwright-{TASK-ID}/run-<ISO-ts>/`. Skipped silently for non-frontend tasks. Three headed modes: default headless, lenient `--headed` (no display ⇒ finding + fall through), strict `--headed-strict` (no display ⇒ exit 2).
+
+- New skill `playwright-qa` (frontend touch detection, resolution chain CLI → MCP → env-browser, headed semantics, artefact layout).
+- New tool `dev-tools/detect-playwright-tooling.sh` with `--require` / `--json` / `--headed` / `--headed-strict`, `DATARIM_PLAYWRIGHT` env override, path-traversal guard, mkdir-fallback lock.
+- Regression coverage: 15 bats cases.
+
+### Added — Plain-language reports across `/dr-qa`, `/dr-compliance`, `/dr-archive` (F5, absorbs TUNE-0195)
+
+All three operator-facing commands end with a four-sub-section recap («Что было сделано», «Что получилось», «Что не получилось / осталось открытым», «Что дальше») between the technical block and the CTA block. Banlist (50 anglicism tokens) + whitelist (30 universal terms — `JSON`, `OAuth`, `HTTP`, `CLI`, `RFC`, `CI/CD`, …) + per-paragraph `<!-- gate:literal -->` escape hatch (≤ 2 fenced paragraphs per summary). Severity ladder: 1st offence ⇒ info, 3rd ⇒ warn, 5th ⇒ block. Archive documents written before this contract are grandfathered and never re-validated.
+
+- New skill `human-summary` (four sub-headings, 150–400 word budget, per-caller mutability, banlist + whitelist + escape hatch, severity ladder, RU and EN examples).
+- New sibling files `skills/human-summary/banlist.txt` and `whitelist.txt`.
+- New Step 8 in `/dr-qa`, `/dr-compliance`, `/dr-archive` — uniform contract; archive variant is chat-only (archive document is the permanent record).
+- Regression coverage: 24 bats cases.
+
+### Added — Archive expectations section (F6)
+
+Every `archive-{ID}.md` carries a new `## Выполнение ожиданий оператора` section between Final Acceptance Criteria and Known Outstanding State. Each operator wish is rendered as a single-level bullet with the plain-language status word (`выполнено` / `частично` / `не выполнено` / `неприменимо` — never the raw schema enum) and one or two sentences of comment sourced from the most recent История статусов reason. No tables; banlist applies; missing expectations file ⇒ explicit «Чек-лист ожиданий не заводился» line preserves the canonical archive shape.
+
+- `templates/archive-template.md` carries the section placeholder.
+- `commands/dr-archive.md` Step 2 enumerates the mandatory section, status-word translation, no-tables + no-anglicisms rules.
+- Regression coverage: 10 bats cases.
+
+### Changed — Visual maps refreshed with new artefact and skill nodes
+
+The fragment-index visual maps gain three new artefact nodes (`init-task`, `expectations`, `playwright-run`) in a new «Artifact Flow Across the Pipeline» diagram, four new skill nodes (`init-task-persistence`, `expectations-checklist`, `playwright-qa`, `human-summary`) in the Agent ↔ Skill dependency graph, and Layer 3b + Layer 4f branches in the `/dr-qa` stage flow.
+
+- `skills/visual-maps.md` fragment descriptions updated.
+- `skills/visual-maps/pipeline-routing.md` carries a new 10-node Artifact Flow Mermaid block (under the 25-node cap).
+- `skills/visual-maps/stage-process-flows.md` updates `/dr-prd`, `/dr-plan`, `/dr-qa` flows.
+- `skills/visual-maps/utility-and-dependencies.md` wires four new skill nodes to relevant agents.
+- Regression coverage: 18 bats cases.
+
+### Changed — Skill count
+
+Framework now ships **45 skills** (was 41 — +4 from this release: `init-task-persistence`, `expectations-checklist`, `playwright-qa`, `human-summary`). All consumer surfaces (`CLAUDE.md`, `README.md`, `docs/skills.md`, public site) brought to the same count.
+
 ## [2.7.0] — 2026-05-13
 
 **Two operator-facing surface improvements ship together.** `/dr-init` gains a topic-overlap advisory against the pending backlog; `/dr-compliance` and `/dr-archive` emit a plain-language operator recap after their technical block. Both are non-blocking surface additions — pipeline ordering, complexity routing, and existing exit-code contracts remain unchanged.
