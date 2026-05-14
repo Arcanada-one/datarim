@@ -214,6 +214,13 @@ Complete and archive current task.
      directly; remove from `backlog.md`.
    - Legacy state (any of those files present): `/dr-doctor --fix` migrates and
      deletes; `/dr-init` Step 2.4 self-heal probe surfaces this on next session.
+8. **HUMAN SUMMARY**:
+   - Load `$HOME/.claude/skills/human-summary.md`.
+   - Emit the `## Отчёт оператору` (RU) / `## Operator summary` (EN) section, with the four mandated sub-sections, between the archive-mutation block and the CTA block. Language follows the most recent operator message.
+   - Source material: the just-written archive document (§ Overview / § Outcome / § Known Outstanding State / § Выполнение ожиданий оператора) plus the reflection file from Step 0.5.
+   - Do NOT mutate the archive document or the reflection file — the summary is chat-only; the archive remains the permanent record.
+   - The summary MUST honour the banlist + whitelist + per-paragraph escape-hatch contract from the skill (`<!-- gate:literal -->` … `<!-- /gate:literal -->` for verbatim quoted blocks only; max two fenced paragraphs per summary).
+   - Length budget: 150–400 words **total across the four sub-sections** (not per sub-section). Hard upper bound. If sources are bigger, compress.
 
 ## Read
 - `datarim/tasks.md` (thin index — one-liner for the archived task)

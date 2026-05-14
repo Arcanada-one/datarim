@@ -36,6 +36,14 @@ description: Adaptive post-QA hardening. Detects task type and applies matching 
     - **Infrastructure** → configuration, rollback plan, monitoring, security
     - **Mixed** → apply relevant sections from each matching type
 7.  **REPORT**: Output compliance report with per-step results and overall verdict.
+8.  **HUMAN SUMMARY**:
+    - Load `$HOME/.claude/skills/human-summary.md`.
+    - Emit the `## Отчёт оператору` (RU) / `## Operator summary` (EN) section, with the four mandated sub-sections, between the verdict / report block and the CTA block. Language follows the most recent operator message.
+    - Source material: § Overview of the task description, per-step results from Step 6, and the verdict from Step 7.
+    - Runs on every verdict (COMPLIANT, COMPLIANT_WITH_NOTES, NON-COMPLIANT). On NON-COMPLIANT the «Что не получилось» sub-section carries the failure detail in plain language and «Что дальше» paraphrases the FAIL-Routing CTA without command syntax.
+    - The summary MUST honour the banlist + whitelist + per-paragraph escape-hatch contract from the skill (`<!-- gate:literal -->` … `<!-- /gate:literal -->` for verbatim quoted blocks only; max two fenced paragraphs per summary).
+    - Output: chat. If `datarim/reports/compliance-report-{task_id}.md` exists, append the same section at the end of that file.
+    - Length budget: 150–400 words **total across the four sub-sections** (not per sub-section). Hard upper bound.
 
 ## Output
 - `datarim/reports/compliance-report-{task_id}.md` (if directory exists)
