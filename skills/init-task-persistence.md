@@ -155,6 +155,130 @@ After writing, `/dr-init` invokes
 exit as a warning (the description and operational-file work still
 continues — operator may fix the init-task manually).
 
+## Q&A round-trip contract
+
+The append-log captures two kinds of entries: operator-authored amendments
+(see § Append-log contract above) and **agent-driven Q&A rounds** — every
+question the agent asks the operator during a pipeline stage and its
+matching answer. The mechanism makes the source-of-truth for operator
+intent grow with the work; no clarification is ever lost between sessions.
+
+### When a Q&A round MUST be appended
+
+Six pipeline commands write Q&A blocks: `/dr-prd`, `/dr-plan`,
+`/dr-design`, `/dr-do`, `/dr-qa`, `/dr-compliance`. Each command's step
+"APPEND Q&A IF ANY" runs near the end of the stage. Every operator
+clarification an agent obtained during the stage MUST end up in the file
+before the stage emits its CTA. `/dr-init` (which creates the file) and
+`/dr-archive` (read-only consumer for "operator expectations" recap) do
+not write Q&A blocks.
+
+### Block format (canonical)
+
+Each round is a single Markdown block under § Append-log. The block
+follows the `### <ISO> — amendment by …` convention but uses a distinct
+marker so `grep` and the validator can tell the two apart.
+
+```markdown
+### <ISO-8601 timestamp> — Q&A by /dr-<stage> (round <N>)
+
+**Question (verbatim, asked by <agent role>):**
+
+<exact question text>
+
+**Answer (verbatim, by <operator|agent>):**
+
+<exact answer text>
+
+**Decided by:** operator | agent
+
+**Decision rationale:**
+
+<≥ 50 characters; MANDATORY when Decided by: agent — must explain why
+the agent picked this option (best-practice reference, prior archive,
+FB-rules link)>
+
+**Summary (how it changes initial conditions):**
+
+<one or two lines>
+
+**Conflict with existing wish:** none | <wish_id> — <description>
+```
+
+Six fixed subheadings are required on every block: `Question`,
+`Answer`, `Decided by`, `Summary`, and `Conflict with existing wish`.
+`Decision rationale` is required only when `Decided by: agent`; when
+present, its body MUST contain at least 50 non-whitespace characters.
+
+### Operator answer vs agent decision
+
+- `Decided by: operator` — the operator responded; `Answer` carries the
+  verbatim response. `Decision rationale` is not required.
+- `Decided by: agent` — no operator answer was available in a reasonable
+  window OR the question was non-critical; the agent chose the option by
+  best practices. `Decision rationale` is mandatory and must reference
+  the basis of the choice (FB-1..FB-5, archive precedent, framework
+  contract). These autonomous decisions are verified at `/dr-qa`
+  Layer 3b the same way operator answers are.
+
+### Conflict handling
+
+If a Q&A round contradicts a wish in `tasks/{TASK-ID}-expectations.md`
+or a clause of the verbatim brief, set `Conflict with existing wish:
+<wish_id> — <description>`. The agent MUST NOT silently overwrite the
+prior wish; the stage's CTA must route work back to either
+`/dr-do --focus-items <wish_id>` (when found during `/dr-qa` or
+`/dr-compliance`) or back to `/dr-prd` (when found during planning /
+design). A matching closure entry — operator amendment or follow-up Q&A
+that resolves the conflict — is what the Layer 3b checker looks for.
+
+### Utility — `dev-tools/append-init-task-qa.sh`
+
+Pipeline commands do not write the block by hand. They invoke the
+utility:
+
+```
+append-init-task-qa.sh \
+    --root <path> \
+    --task <ID> --stage <prd|plan|design|do|qa|compliance> --round <N> \
+    --question-file <path> --answer-file <path> \
+    --decided-by <operator|agent> \
+    [--rationale-file <path>] \
+    --summary "<one-line text>" \
+    [--conflict-with <wish_id>] \
+    [--conflict-detail-file <path>]
+```
+
+All textual inputs come via `--*-file <path>` (no literals on the CLI)
+per Security Mandate § S1 — this prevents shell-injection through
+operator answers that contain quotes, backticks, or `$(…)` constructs.
+Exit codes: `0` appended OK, `1` validation/IO error, `2` usage error.
+Writes are atomic: the utility takes a per-task `flock`
+(`datarim/tasks/.{TASK-ID}.qa-lock`), prepares the new content in a
+temp-file, then `mv`-s it into place.
+
+### Validation extension
+
+`dev-tools/check-init-task-presence.sh --task <ID>` extends the existing
+structural validator with a Q&A pass. For every block whose heading
+matches `^### .+ — Q&A by /dr-[a-z-]+ \(round [0-9]+\)$`, the validator
+asserts:
+
+1. All five mandatory subheadings present.
+2. `Decided by:` value ∈ `{operator, agent}`.
+3. When `Decided by: agent` — `Decision rationale:` subheading present
+   and its body ≥ 50 non-whitespace characters.
+
+Any violation raises exit 1 with a `Q&A block:` finding line.
+
+### Legacy fallback
+
+Tasks created before this contract shipped (2.9.0) do not require Q&A
+blocks. The `/dr-doctor` rolling soft window from § Backwards-compatibility
+window applies to the file's presence; **absence of Q&A blocks inside an
+otherwise valid init-task is never a finding**. The agent falls back to
+`tasks/{TASK-ID}-task-description.md` for intent.
+
 ## Dogfooding
 
 The first task to use this contract is the task that defines it. Its own
