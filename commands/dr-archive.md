@@ -17,6 +17,8 @@ Complete and archive current task.
 
 0. **TASK RESOLUTION**: Apply Task Resolution Rule from `$HOME/.claude/skills/datarim-system.md` § Task Resolution Rule. Resolve which task is being archived (from argument or disambiguation). Use the resolved task ID for all subsequent steps.
 
+0.05. **READ INIT-TASK** (mandatory per `$HOME/.claude/skills/init-task-persistence.md`): Open `datarim/tasks/{TASK-ID}-init-task.md` if present. Read the full `## Operator brief (verbatim)` section AND every `## Append-log` entry. The archive document MUST include a `## Выполнение ожиданий оператора` section (F6 of TUNE-0210 contract) that reflects how each operator-stated expectation was met. Missing init-task is non-blocking on archive — note its absence under § Legacy and continue.
+
 0.1. **PRE-ARCHIVE CLEAN-GIT CHECK** (MANDATORY):
 
    **Contract:** this gate runs `git status --porcelain` per every git repository touched by the task. On a dirty tree the operator picks one of three branches: **Commit now** (land the changes), **Accept pending state** (record in the archive doc's "Known Outstanding State" section), or **Abort** (return to /dr-do). Do not archive over a dirty working tree silently — STOP if no branch is chosen.

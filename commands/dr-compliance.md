@@ -15,7 +15,7 @@ description: Adaptive post-QA hardening. Detects task type and applies matching 
 4.  **LOAD SKILLS**:
     - `$HOME/.claude/skills/datarim-system.md` (Always)
     - `$HOME/.claude/skills/compliance.md` (Adaptive checklists)
-5.  **DETECT TASK TYPE**: Read `datarim/tasks.md` (for the resolved task) and `datarim/activeContext.md`. Determine: code, documentation, research, legal, content, infrastructure, or mixed.
+5.  **DETECT TASK TYPE**: Read `datarim/tasks.md` (for the resolved task) and `datarim/activeContext.md`. Determine: code, documentation, research, legal, content, infrastructure, or mixed. Additionally, read `datarim/tasks/{TASK-ID}-init-task.md` if present (mandatory per `$HOME/.claude/skills/init-task-persistence.md`): the verbatim operator brief + every append-log block. Any divergence between the operator's stated intent and the verified output MUST be surfaced in the compliance report § Plain-language summary. Missing init-task is non-blocking — flag as advisory and continue.
 6.  **APPLY CHECKLIST**: Execute the appropriate checklist(s) from the compliance skill:
     - **Code** → 7-step software checklist (lint, tests, coverage, CI/CD)
     - **Documentation** → completeness, accuracy, consistency, cross-references, audience

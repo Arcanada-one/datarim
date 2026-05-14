@@ -15,6 +15,8 @@ This command generates a structured Product Requirements Document (PRD) followin
 
 0.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system.md` § Path Resolution Rule.
 
+0.5. **READ INIT-TASK** (mandatory per `$HOME/.claude/skills/init-task-persistence.md`): Open `datarim/tasks/{TASK-ID}-init-task.md` if present. Read the full `## Operator brief (verbatim)` section AND every `## Append-log` entry. Any divergence between the operator's stated intent and the discovery scope MUST be surfaced in PRD § Discovery / § Constraints. Missing init-task is non-blocking — flag as advisory and continue.
+
 1.  **Analyze Context (Phase 1)**:
     -   Read `datarim/projectbrief.md`, `techContext.md`, and `systemPatterns.md`.
     -   Identify affected components and constraints (Security, Performance).

@@ -14,7 +14,7 @@ description: Implement planned changes using TDD and AI quality principles
 2.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system.md` § Path Resolution Rule.
 3.  **TASK RESOLUTION**: Apply Task Resolution Rule from `$HOME/.claude/skills/datarim-system.md` § Task Resolution Rule. Use the resolved task ID for all subsequent steps.
 4.  **SKILL**: Read `$HOME/.claude/skills/ai-quality.md` (apply rules #2, #3, #8, #9 — see § Stage-Rule Mapping).
-5.  **CONTEXT**: Read `datarim/tasks.md` (Implementation Plan for the resolved task).
+5.  **CONTEXT**: Read `datarim/tasks.md` (Implementation Plan for the resolved task). Additionally, read `datarim/tasks/{TASK-ID}-init-task.md` if present (mandatory per `$HOME/.claude/skills/init-task-persistence.md`): the verbatim operator brief + every append-log block. Any divergence between the operator's stated intent and the planned implementation MUST be recorded in `datarim/tasks/{TASK-ID}-task-description.md` § Implementation Notes. Missing init-task is non-blocking — flag as advisory and continue.
 
 6.  **PRE-FLIGHT CHECK** (L3-L4 code tasks only):
     Before writing any code, verify readiness:
