@@ -63,6 +63,13 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/OrchestratorEvent"
+            text/plain:
+              # Reference impl (adnanh/webhook) returns text/plain rule-mismatch
+              # messages under permissive hook configs. Production deployments
+              # tightening hook rules will always return application/json.
+              schema:
+                type: string
+                example: "Hook rules were not satisfied."
         "202":
           description: Accepted — command queued for async processing
           content:
