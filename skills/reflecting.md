@@ -47,7 +47,7 @@ This skill is **invoked internally by `/dr-archive` Step 0.5** for every complet
     - This is a suggestion only — do not run optimization automatically.
 8.  **FOLLOW-UP TASKS**:
     - Review the "Next Steps" section of the reflection document.
-    - **Out-of-scope drift auto-detection (TUNE-0082):** scan implementation notes and "What Didn't" section for phrases indicating drift spotted but not fixed (heuristics: `out-of-scope`, `still stale`, `also stale`, `runtime ... lagging`, `symmetric ... drift`, `separate task`, `deferred`, `noted for follow-up`). For each match, auto-suggest a follow-up backlog entry with proposed prefix + brief title rather than relying on operator memory. Surface the suggestions explicitly in the reflection's "Follow-Up Tasks" section so `/dr-archive` Step 4 picks them up.
+    - **Out-of-scope drift auto-detection:** scan implementation notes and "What Didn't" section for phrases indicating drift spotted but not fixed (heuristics: `out-of-scope`, `still stale`, `also stale`, `runtime ... lagging`, `symmetric ... drift`, `separate task`, `deferred`, `noted for follow-up`). For each match, auto-suggest a follow-up backlog entry with proposed prefix + brief title rather than relying on operator memory. Surface the suggestions explicitly in the reflection's "Follow-Up Tasks" section so `/dr-archive` Step 4 picks them up.
     - If follow-up tasks are identified, **return the list to `/dr-archive` Step 4 consumer** (do NOT write to backlog here).
     - `/dr-archive` Step 4 handles backlog writes to keep the workflow clean.
 9.  **OUTPUT**: `datarim/reflection/reflection-[id].md`.

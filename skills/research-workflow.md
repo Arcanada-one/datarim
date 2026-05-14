@@ -143,7 +143,7 @@ The plan was written within the last 24 hours, no parallel sessions touched the 
 
 ### Source
 
-INFRA-0015 Phase 1 (2026-05-04): plan called for one integration approach; pre-flight discovery showed that an earlier task in the same project had already shipped the alternative approach (a substantial body of working code). Following the plan would have discarded shipped work. Pivot to the rejected-but-now-correct alternative was captured in `INSIGHTS-INFRA-0015.md` § GD-01. Phase 1 effort dropped from a planned 1-2 days to ~2 hours by following the plan's already-rejected alternative — with a concrete reason for the pivot rather than blind execution.
+Example — past task Phase 1: plan called for one integration approach; pre-flight discovery showed that an earlier task in the same project had already shipped the alternative approach (a substantial body of working code). Following the plan would have discarded shipped work. Pivot to the rejected-but-now-correct alternative was captured in the corresponding `INSIGHTS-<TASK-ID>.md` § GD-01. Phase 1 effort dropped from a planned 1-2 days to ~2 hours by following the plan's already-rejected alternative — with a concrete reason for the pivot rather than blind execution.
 
 ---
 

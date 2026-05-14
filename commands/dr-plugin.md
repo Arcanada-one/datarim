@@ -1,6 +1,6 @@
 # /dr-plugin — Datarim Plugin System CLI
 
-**Source:** [PRD-TUNE-0101](../../../../datarim/prd/PRD-TUNE-0101-plugin-system-core.md), [plans/TUNE-0101-plan.md](../../../../datarim/plans/TUNE-0101-plan.md)
+**Source:** plugin-system core PRD and plan (see workspace `datarim/prd/` and `datarim/plans/` indexes).
 **Status (Phase A scaffold):** `list` + first-run bootstrap implemented; `enable`/`disable`/`sync`/`doctor` deferred to next iterations.
 
 ## Purpose
