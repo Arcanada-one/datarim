@@ -15,7 +15,7 @@ description: Multi-layer quality verification — checks PRD alignment, design c
 3.  **TASK RESOLUTION**: Apply Task Resolution Rule from `$HOME/.claude/skills/datarim-system.md` § Task Resolution Rule. Use the resolved task ID for all subsequent steps.
 4.  **SKILL**: Read `$HOME/.claude/skills/security.md` and `$HOME/.claude/skills/testing.md`.
 5.  **CONTEXT**: Read `datarim/tasks.md` to get the resolved task's implementation plan. Read `datarim/activeContext.md` for current state. Additionally, read `datarim/tasks/{TASK-ID}-init-task.md` if present (mandatory per `$HOME/.claude/skills/init-task-persistence.md`): the verbatim operator brief + every append-log block. Any divergence between the operator's stated intent and the implementation MUST be flagged in the QA report § Expectations / § Plain-language summary. Missing init-task is non-blocking — flag as advisory and continue.
-6.  **ACTION**: Execute the 4 verification layers below, in order, based on available artifacts. Skip layers whose artifacts do not exist.
+6.  **ACTION**: Execute the verification layers below in order. Layers 1, 2, 3, 4 are the classical multi-layer review; Layer 3b is the expectations-verification gate (runs after Layer 3 when `datarim/tasks/{TASK-ID}-expectations.md` exists). Skip layers whose artifacts do not exist.
 7.  **OUTPUT**: Write `datarim/qa/qa-report-{task-id}.md` with results.
 
 ---
@@ -101,6 +101,48 @@ description: Multi-layer quality verification — checks PRD alignment, design c
 
 ---
 
+## Layer 3b: Expectations Verification
+
+**Condition:** Execute when `datarim/tasks/{TASK-ID}-expectations.md` exists (mandatory for L3-L4 tasks per `$HOME/.claude/skills/expectations-checklist.md`; optional for L1-L2 within the 30-day soft window).
+
+**Checks:**
+
+- Read the file. For each item under `## Ожидания`:
+  - read `wish_id`, `Что хочу проверить`, `Как проверить (success criterion)`, current `#### Текущий статус`, and any existing `override:` line;
+  - run the success criterion against the implementation and decide one of `met` / `partial` / `missed` / `n-a`;
+  - append one line to that item's `#### История статусов` with the canonical format `<ISO> / <local> · /dr-qa · <prior> → <new> · reason: <one-sentence plain ru>`;
+  - update the item's `#### Текущий статус` to the new value.
+- After all items are updated, invoke the routing validator:
+  ```bash
+  dev-tools/check-expectations-checklist.sh --verify {TASK-ID}
+  ```
+  - Exit 0 + stdout marker `PASS` ⇒ Layer 3b verdict **PASS**;
+  - Exit 0 + stdout marker `CONDITIONAL_PASS` ⇒ Layer 3b verdict **PASS_WITH_NOTES** (every partial/missed item carries an operator override ≥10 chars);
+  - Exit 1 + stdout marker `BLOCKED` ⇒ Layer 3b verdict **FAIL**. Capture the validator's `Focus items:` and `Next step:` lines verbatim into the QA report.
+
+**Verdict:** PASS | PASS_WITH_NOTES | FAIL
+
+```markdown
+### Layer 3b: Expectations Verification — {VERDICT}
+
+**Items verified:** {N}
+**Status transitions written:** {N} (one История статусов line per item)
+
+| # | wish_id | Текущий статус | Override present? | Notes |
+|---|---------|----------------|-------------------|-------|
+| 1 | {slug}  | met            | n/a               | — |
+| 2 | {slug}  | partial        | yes (≥10 chars)   | conditional pass |
+| 3 | {slug}  | missed         | no                | BLOCKED |
+
+**Validator verdict:** {PASS | CONDITIONAL_PASS | BLOCKED}
+**Focus items (if BLOCKED):** {comma-separated wish_ids}
+**Next step (if BLOCKED):** `/dr-do {TASK-ID} --focus-items <wish_ids>`
+```
+
+A FAIL at Layer 3b makes the overall verdict **BLOCKED** regardless of other layers; the FAIL-Routing CTA (see § Verdict Logic) MUST surface the focus-items line verbatim. The classical Layer 1–4 verdicts are computed independently; Layer 3b is an additional gate that runs in parallel.
+
+---
+
 ## Layer 4: Code Quality
 
 **Condition:** Always executed.
@@ -174,6 +216,10 @@ Write to `datarim/qa/qa-report-{task-id}.md`:
 
 ---
 
+{Layer 3b section — or "Layer 3b: Expectations Verification — SKIPPED (no expectations checklist)"}
+
+---
+
 {Layer 4 section}
 
 ---
@@ -225,9 +271,10 @@ After verdict, the reviewer agent MUST emit a CTA block per `$HOME/.claude/skill
 | Layer 1 (PRD Alignment) | `/dr-prd {TASK-ID}` | Requirements incomplete or wrong — update PRD first |
 | Layer 2 (Design Conformance) | `/dr-design {TASK-ID}` | Architecture decisions violated — revise design |
 | Layer 3 (Plan Completeness) | `/dr-plan {TASK-ID}` | Steps skipped or plan outdated — update plan |
+| Layer 3b (Expectations) | `/dr-do {TASK-ID} --focus-items <wish_ids>` | Operator expectations missed/partial without override — return to implementation focused on the listed `wish_id`s |
 | Layer 4 (Code Quality) | `/dr-do {TASK-ID}` | Code bugs, security, anti-patterns — fix code |
 
-Multi-layer FAIL: route to **earliest** failed layer (Layer 1 > 2 > 3 > 4). Earlier failures are root causes.
+Multi-layer FAIL: route to **earliest** failed layer (Layer 1 > 2 > 3 > 3b > 4). Earlier failures are root causes. Layer 3b sits between plan completeness and code quality because operator-expectation misses indicate scope-drift; they are higher-level than code defects but presuppose the plan was executed.
 
 The FAIL-Routing CTA header MUST read: `**QA failed для {TASK-ID} — earliest failed layer: Layer N (Layer name)**`. Variant B menu when >1 active tasks.
 

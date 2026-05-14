@@ -95,8 +95,27 @@ Layer-to-command map (mirrors `skills/datarim-system/backlog-and-routing.md` § 
 | Layer 1 (PRD) | `/dr-prd {TASK-ID}` |
 | Layer 2 (Design) | `/dr-design {TASK-ID}` |
 | Layer 3 (Plan) | `/dr-plan {TASK-ID}` |
+| Layer 3b (Expectations) | `/dr-do {TASK-ID} --focus-items <wish_id_1,...,N>` (focus arg lists only the wish_ids flagged BLOCKED by `dev-tools/check-expectations-checklist.sh --verify`) |
 | Layer 4 (Code) | `/dr-do {TASK-ID}` |
 | Compliance NON-COMPLIANT | `/dr-do {TASK-ID}` (default) or earlier stage if PRD/plan gap identified |
+
+### Expectations-FAIL CTA shape
+
+When `/dr-qa` Layer 3b or `/dr-compliance` reports `BLOCKED` against the expectations checklist, the FAIL-Routing CTA primary line MUST carry the `--focus-items` argument verbatim from the validator's `Next step:` line. Header changes to `**Expectations BLOCKED для {TASK-ID} — N wish-item(s) missed/partial без override**` and the primary option shows the focus list inline:
+
+```markdown
+---
+
+**Expectations BLOCKED для {TASK-ID} — 2 wish-item(s) missed/partial без override**
+
+1. `/dr-do {TASK-ID} --focus-items item-two,item-three` — **рекомендуется** — закрыть ожидания оператора (см. § Expectations в QA-отчёте)
+2. Дописать `override:` в `tasks/{TASK-ID}-expectations.md` если оператор принял частичное выполнение — затем повторить `/dr-qa {TASK-ID}`
+3. Эскалация — после 3 same-layer fails (loop guard)
+
+---
+```
+
+The header digit «N» MUST match the count of blocking wish-ids in the focus list — never paraphrase as «несколько» or «some». The order of wish-ids in the focus argument matches the validator's emission order (file order). Authors MUST NOT regroup or rename wish-ids in the CTA — the operator needs to be able to copy-paste the primary line directly into the shell.
 
 ## Authoring Rules for Agents
 

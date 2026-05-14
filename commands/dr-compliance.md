@@ -16,6 +16,17 @@ description: Adaptive post-QA hardening. Detects task type and applies matching 
     - `$HOME/.claude/skills/datarim-system.md` (Always)
     - `$HOME/.claude/skills/compliance.md` (Adaptive checklists)
 5.  **DETECT TASK TYPE**: Read `datarim/tasks.md` (for the resolved task) and `datarim/activeContext.md`. Determine: code, documentation, research, legal, content, infrastructure, or mixed. Additionally, read `datarim/tasks/{TASK-ID}-init-task.md` if present (mandatory per `$HOME/.claude/skills/init-task-persistence.md`): the verbatim operator brief + every append-log block. Any divergence between the operator's stated intent and the verified output MUST be surfaced in the compliance report § Plain-language summary. Missing init-task is non-blocking — flag as advisory and continue.
+5b. **VERIFY EXPECTATIONS** (mandatory when `datarim/tasks/{TASK-ID}-expectations.md` exists per `$HOME/.claude/skills/expectations-checklist.md`):
+    -   Re-read the file. For each item under `## Ожидания`, run its `Как проверить (success criterion)` against the implementation and append one transition line to `#### История статусов` in the canonical format `<ISO> / <local> · /dr-compliance · <prior> → <new> · reason: <one-sentence plain ru>`. Update the item's `#### Текущий статус`.
+    -   Invoke the routing validator:
+        ```bash
+        dev-tools/check-expectations-checklist.sh --verify {TASK-ID}
+        ```
+        -   Exit 0 + stdout marker `PASS` ⇒ proceed.
+        -   Exit 0 + stdout marker `CONDITIONAL_PASS` ⇒ proceed; record «conditional» disposition in the compliance report § Plain-language summary.
+        -   Exit 1 + stdout marker `BLOCKED` ⇒ compliance verdict is **NON-COMPLIANT** regardless of the rest of the checklist. Capture the validator's `Focus items:` and `Next step:` lines verbatim into the report and surface them in the FAIL-Routing CTA.
+    -   Missing expectations file on L3-L4: surface as advisory finding in the report; on L1-L2 within the 30-day soft window: non-blocking.
+
 6.  **APPLY CHECKLIST**: Execute the appropriate checklist(s) from the compliance skill:
     - **Code** → 7-step software checklist (lint, tests, coverage, CI/CD)
     - **Documentation** → completeness, accuracy, consistency, cross-references, audience
@@ -43,6 +54,7 @@ After verdict, the compliance agent MUST emit a CTA block per `$HOME/.claude/ski
 
 - COMPLIANT or COMPLIANT_WITH_NOTES → primary `/dr-archive 🔒 {TASK-ID}` — **operator-only** (the Skill tool does not enumerate it by design). Surface as slash-CTA for the operator to invoke from the TTY; MUST NOT attempt `Skill(/dr-archive)`, MUST NOT spawn a subagent to "do the archive manually" — manual paths skip the schema gate, staged-diff audit, prefix→subdir mapping, and Operator-Handoff section. See `skills/cta-format.md` § Operator-only commands.
 - NON-COMPLIANT, PRD/task alignment gap → primary `/dr-prd {TASK-ID}` (FAIL-Routing Layer 1; update requirements, resume forward)
+- NON-COMPLIANT, expectations BLOCKED → primary `/dr-do {TASK-ID} --focus-items <wish_ids>` (FAIL-Routing Layer 3b; resolve operator-expectation misses listed by the validator, then re-run `/dr-qa` and `/dr-compliance` — new report gets `-v2` suffix)
 - NON-COMPLIANT, code/test/lint/CI issues → primary `/dr-do {TASK-ID}` (FAIL-Routing Layer 4; fix, re-run `/dr-compliance` — new report gets `-v2` suffix)
 - NON-COMPLIANT, source unclear → primary `/dr-do {TASK-ID}` (default)
 - Loop guard: 3 same-layer fails → escalate to user
