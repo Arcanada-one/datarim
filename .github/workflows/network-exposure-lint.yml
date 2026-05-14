@@ -61,12 +61,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout target repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
 
       - name: Checkout Datarim linter
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: Arcanada-one/datarim
           ref: ${{ inputs.datarim_ref }}
