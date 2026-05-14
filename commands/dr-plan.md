@@ -172,6 +172,13 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
     -   Deferring a surface to /dr-qa or /dr-archive is a **Class B contract violation** — Class B tasks ship with their full public surface coverage in /dr-do, not «minor скорректируем потом».
     -   When a Class B operating-model AC (e.g. `pages/getting-started.php` symlink content) is deferred from `/dr-do`, it surfaces only at `/dr-archive` live deploy verification. Surface scan checkpoint prevents recurrence.
 
+12.5. **APPEND Q&A IF ANY** (mandatory per `$HOME/.claude/skills/init-task-persistence.md` § Q&A round-trip contract): for every operator clarification round captured during this stage — either operator answer or autonomous agent-decision under FB-1..FB-5 — invoke `dev-tools/append-init-task-qa.sh` to persist the round into `datarim/tasks/{TASK-ID}-init-task.md § Append-log`.
+    -   Write the question and answer (and rationale, when applicable) to temp files first; free-form text MUST come via `--*-file <path>` per Security Mandate § S1.
+    -   Required flags: `--root <repo-root> --task {TASK-ID} --stage plan --round <N> --question-file <path> --answer-file <path> --decided-by <operator|agent> --summary "<one-line>"`.
+    -   When `--decided-by agent`: `--rationale-file <path>` MUST contain ≥ 50 non-whitespace characters of reasoning.
+    -   On contradiction with an expectation: add `--conflict-with <wish_id>`; CTA MUST route work back to `/dr-prd` (revise discovery) or `/dr-do --focus-items <wish_id>` (when the conflict is implementation-detail level).
+    -   Skip if no clarification rounds occurred. Utility exit 0 = appended; 1 = IO/validation error; 2 = usage error.
+
 13.  **Output Summary**:
     -   Confirm task status update.
     -   List next steps by complexity:

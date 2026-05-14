@@ -35,6 +35,12 @@ description: Adaptive post-QA hardening. Detects task type and applies matching 
     - **Content** → factcheck, humanize, platform requirements, editorial standards
     - **Infrastructure** → configuration, rollback plan, monitoring, security
     - **Mixed** → apply relevant sections from each matching type
+6.5. **APPEND Q&A IF ANY** (mandatory per `$HOME/.claude/skills/init-task-persistence.md` § Q&A round-trip contract): for every operator clarification round captured during compliance verification — either operator answer or autonomous agent-decision under FB-1..FB-5 — invoke `dev-tools/append-init-task-qa.sh` to persist the round into `datarim/tasks/{TASK-ID}-init-task.md § Append-log` before emitting the report.
+    -   Write the question, answer, and rationale (when applicable) to temp files first; free-form text MUST come via `--*-file <path>` per Security Mandate § S1.
+    -   Required flags: `--root <repo-root> --task {TASK-ID} --stage compliance --round <N> --question-file <path> --answer-file <path> --decided-by <operator|agent> --summary "<one-line>"`.
+    -   When `--decided-by agent`: `--rationale-file <path>` MUST contain ≥ 50 non-whitespace characters citing the compliance-standard rationale.
+    -   On contradiction with an expectation: add `--conflict-with <wish_id>` (+ optional `--conflict-detail-file`); CTA MUST route back to `/dr-do --focus-items <wish_id>` for closure before the task can be archived.
+    -   Skip if no clarification rounds occurred.
 7.  **REPORT**: Output compliance report with per-step results and overall verdict.
 8.  **HUMAN SUMMARY**:
     - Load `$HOME/.claude/skills/human-summary.md`.
