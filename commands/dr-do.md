@@ -90,6 +90,13 @@ description: Implement planned changes using TDD and AI quality principles
         frontmatter resolves to `hard_block` regardless of the
         `--skip-exposure-gate` flag.
 
+8.6. **APPEND Q&A IF ANY** (mandatory per `$HOME/.claude/skills/init-task-persistence.md` § Q&A round-trip contract): for every operator clarification round captured during implementation — either operator answer or autonomous agent-decision under FB-1..FB-5 — invoke `dev-tools/append-init-task-qa.sh` to persist the round into `datarim/tasks/{TASK-ID}-init-task.md § Append-log`.
+    -   Write the question, answer, and rationale (when applicable) to temp files first; free-form text MUST come via `--*-file <path>` per Security Mandate § S1.
+    -   Required flags: `--root <repo-root> --task {TASK-ID} --stage do --round <N> --question-file <path> --answer-file <path> --decided-by <operator|agent> --summary "<one-line>"`.
+    -   When `--decided-by agent`: `--rationale-file <path>` MUST contain ≥ 50 non-whitespace characters of justification.
+    -   On contradiction with an expectation discovered mid-implementation: add `--conflict-with <wish_id>`; CTA MUST route back to `/dr-do --focus-items <wish_id>` after the conflict closure entry lands.
+    -   Skip if no clarification rounds occurred.
+
 9.  **OUTPUT** (thin-index schema):
     -   Code changes (committed per Workspace Discipline rules in CLAUDE.md).
     -   Update `datarim/tasks/{TASK-ID}-task-description.md` § Implementation Notes with implementation log (or `## Decisions` for design choices). Description file frontmatter `status` stays `in_progress` until `/dr-archive`.
