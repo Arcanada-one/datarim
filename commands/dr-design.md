@@ -43,6 +43,13 @@ description: Explore architectural and design decisions for complex features (Le
     - Output includes Failure Mode Table.
     - **Waiver:** If one option clearly dominates all others across every tradeoff dimension, Consilium may be waived. Record: "Consilium waived — Option X dominates (see tradeoff table)" in the creative document. Include a Failure Mode Table regardless (lightweight version acceptable).
 
+7.5. **APPEND Q&A IF ANY** (mandatory per `$HOME/.claude/skills/init-task-persistence.md` § Q&A round-trip contract): for every operator clarification round captured during design exploration — either operator answer or autonomous agent-decision under FB-1..FB-5 — invoke `dev-tools/append-init-task-qa.sh` to persist the round into `datarim/tasks/{TASK-ID}-init-task.md § Append-log`.
+    -   Write the question, answer, and rationale (when applicable) to temp files first; free-form text MUST come via `--*-file <path>` per Security Mandate § S1.
+    -   Required flags: `--root <repo-root> --task {TASK-ID} --stage design --round <N> --question-file <path> --answer-file <path> --decided-by <operator|agent> --summary "<one-line>"`.
+    -   When `--decided-by agent`: `--rationale-file <path>` MUST contain ≥ 50 non-whitespace characters citing the architectural basis of the choice.
+    -   On contradiction with an existing expectation or PRD scope: add `--conflict-with <wish_id>`; CTA MUST route back to `/dr-prd` to revise discovery before the design is consumed by `/dr-do`.
+    -   Skip if no clarification rounds occurred.
+
 8.  **OUTPUT**: New creative docs + `tasks.md` update. For L3-4 tasks, output also includes consilium panel summary, key debates, resolutions, and Failure Mode Table.
 
 ## Transition Checkpoint
