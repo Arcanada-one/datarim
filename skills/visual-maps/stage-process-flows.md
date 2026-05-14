@@ -17,26 +17,28 @@ graph LR
 
 ```mermaid
 graph LR
-    A["Read context"] --> R{"L2+?"}
+    A["Read context + init-task"] --> R{"L2+?"}
     R -->|Yes| B["Research (Phase 1.3)"]
     R -->|No| C["Discovery interview"]
     B --> C
     C --> D["Generate 3+ approaches"]
     D --> E["User consultation"]
     E --> F["Write PRD"]
+    F --> G["Write expectations<br>(L3-4 mandatory)"]
 ```
 
 ## /dr-plan
 
 ```mermaid
 graph LR
-    A["Read PRD + context"] --> B{"L3-4?"}
+    A["Read PRD + init-task"] --> B{"L3-4?"}
     B -->|Yes| C["Strategist gate"]
     B -->|No| D["Component breakdown"]
     C --> D
     D --> E["Interface + security design"]
     E --> F["Implementation steps"]
     F --> G["Write tasks.md"]
+    G --> H["Write expectations<br>(L2 if no PRD)"]
 ```
 
 ## /dr-design
@@ -73,14 +75,20 @@ graph LR
 graph LR
     A["Layer 1: PRD alignment"] --> B["Layer 2: Design conformance"]
     B --> C["Layer 3: Plan completeness"]
-    C --> D["Layer 4: Code/content quality"]
-    D --> E{"Verdict"}
-    E -->|"PASS L3-4"| F["/dr-compliance"]
+    C --> C2["Layer 3b: Expectations verification"]
+    C2 --> D["Layer 4: Code/content quality"]
+    D --> D2{"frontend touch?"}
+    D2 -->|Yes| D3["Layer 4f: playwright-run"]
+    D2 -->|No| E
+    D3 --> E
+    E{"Verdict"} -->|"PASS L3-4"| F["/dr-compliance"]
     E -->|"PASS L1-2"| F2["/dr-archive"]
     E -->|"FAIL L1"| G1["Back to /dr-prd"]
     E -->|"FAIL L2"| G2["Back to /dr-design"]
     E -->|"FAIL L3"| G3["Back to /dr-plan"]
+    E -->|"FAIL L3b"| G3b["Back to /dr-do<br>--focus-items"]
     E -->|"FAIL L4"| G4["Back to /dr-do"]
+    E --> H["HUMAN SUMMARY<br>(Step 8)"]
 ```
 
 ## /dr-compliance

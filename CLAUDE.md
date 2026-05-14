@@ -1,6 +1,6 @@
 # Datarim — Universal Iterative Workflow Framework
 
-> **Version:** 2.7.0
+> **Version:** 2.8.0
 > **Framework:** Datarim (Датарим) provides structured rules, agents, skills, and commands for iterative project execution via AI coding assistants — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
 > **Multi-runtime:** Datarim is runtime-agnostic. This file is also available as `AGENTS.md` (symlink) for Codex CLI and other agent runtimes that read `AGENTS.md` by convention.
 > **Note:** "Datarim" is transliterated as "Датарим" in Russian. Both refer to this framework — agents must recognize either form in any language context.
@@ -123,8 +123,12 @@ Skills are reusable knowledge modules loaded on demand. They provide rules, patt
 - `file-sync-config.md` — Pre-flight checklist + ignore patterns for file-sync (Syncthing/rclone/rsync) protecting git working trees and venv/build (loaded on demand for sync setup)
 - `frontend-ui.md` — Frontend UI checklist: CSS specificity, dark/light themes, visual testing, mobile responsiveness, i18n parity (loaded when editing HTML/CSS)
 - `infra-automation.md` — Infrastructure ops: SSH batch execution, health checks, network debugging, pre-migration inventory (loaded for server ops)
+- `init-task-persistence.md` — Verbatim operator brief artefact contract — frontmatter + append-log + mandatory read by every pipeline command. Source of truth for operator intent across the task lifecycle.
+- `expectations-checklist.md` — Operator wishlist artefact (Option B flat markdown) — wish_id slug + История статусов + Текущий статус + override semantics. Written at PRD/PLAN, verified at QA/COMPLIANCE.
+- `playwright-qa.md` — Browser-based frontend QA contract — CLI / MCP / env-browser resolution chain + headed / headed-strict modes + per-task flock lock + run-{ISO-ts}/ artefact layout. Loaded by `/dr-qa` Layer 4f on frontend touch.
+- `human-summary.md` — Plain-language operator recap (`/dr-qa`, `/dr-compliance`, `/dr-archive` Step 8) — four sub-sections + banlist + whitelist + per-paragraph escape hatch + 150–400 word budget.
 
-Skill files: `$HOME/.claude/skills/{name}.md` (41 skills, 10 with supporting fragment directories)
+Skill files: `$HOME/.claude/skills/{name}.md` (45 skills, 10 with supporting fragment directories)
 
 > **v1.16.0 addition:** `cta-format.md` — canonical CTA "Next Step" block specification, loaded by `planner`, `architect`, `developer`, `reviewer`, `compliance` agents. Defines structure, separators, primary marker, multi-task menu (Variant B), and FAIL-Routing variant. Source: TUNE-0032.
 
