@@ -59,9 +59,14 @@ setup() {
 }
 
 @test "D5 AC-3 check-drift SCOPES list matches install.sh contract (static grep)" {
-    # Static check: both scripts list the same 4 scopes.
-    grep -E "^INSTALL_SCOPES=\\(agents skills commands templates\\)" "$FAKE_REPO/install.sh"
-    grep -E "^SCOPES=\\(agents skills commands templates\\)" "$FAKE_REPO/scripts/check-drift.sh"
+    # Static check: install.sh installs at least the 4 runtime scopes that
+    # check-drift.sh audits (`agents skills commands templates`).
+    # install.sh MAY install additional scopes (scripts, tests) beyond the
+    # runtime-symlink set — check-drift.sh only audits the runtime scopes.
+    # Contract: prefix-match. install.sh must declare the 4 in order at the
+    # head of the array; check-drift.sh must declare exactly those 4.
+    grep -E '^INSTALL_SCOPES=\(agents skills commands templates( [a-z]+)*\)' "$FAKE_REPO/install.sh"
+    grep -E '^SCOPES=\(agents skills commands templates\)' "$FAKE_REPO/scripts/check-drift.sh"
 }
 
 # ---------- TUNE-0030: Symlink detection ----------

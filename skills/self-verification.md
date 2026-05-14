@@ -1,6 +1,6 @@
 ---
 name: self-verification
-description: Orchestrator skill для runtime-aware self-verification (manual /dr-verify). Tri-layer architecture: Layer 1 deterministic floor (shell pipeline, no LLM cost) → Layer 2 cross-model peer-review (DeepSeek via coworker, ~14× cheaper than Sonnet, clean context — no self-agreement bias) → Layer 3 native runtime dispatch (Claude 3-agent parallel; Codex single-prompt retained as [experimental] fallback). Findings-only mode.
+description: "Orchestrator for runtime-aware self-verification (manual /dr-verify). Tri-layer: deterministic shell, peer-review, runtime dispatch."
 runtime: [claude, codex]
 current_aal: 1
 target_aal: 2
