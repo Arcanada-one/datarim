@@ -43,7 +43,7 @@ Separator: `·` (U+00B7 MIDDLE DOT). Arrow: `→` (U+2192). Title: 1–80 chars,
 Example:
 <!-- gate:history-allowed -->
 ```
-- TUNE-0071 · in_progress · P1 · L3 · Index-Style Refactor → tasks/TUNE-0071-task-description.md
+- <TASK-ID> · in_progress · P1 · L3 · <Title> → tasks/<TASK-ID>-task-description.md
 ```
 <!-- /gate:history-allowed -->
 
@@ -164,7 +164,7 @@ structure (literal `Edit` operations against the plan-quoted code).
 working context window if loaded raw, and forces re-reads at every
 verification stage. One delegated call returns a stable specification that
 anchors every subsequent decision and survives session compaction. This
-pattern was canonicalised after TUNE-0164 (775-line plan, 436-line PRD,
+pattern was canonicalised in v2 of the orchestrator plan (775-line plan, 436-line PRD,
 431-line INSIGHTS) shipped end-to-end without ever reading the plan body
 into the main context, with zero V-AC misses.
 

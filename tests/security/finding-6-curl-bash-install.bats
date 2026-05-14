@@ -6,6 +6,8 @@
 # Datarim § Security Mandate S4 forbids unfenced `curl ... | bash` (or sh) in
 # any shipped artifact. Pedagogical counter-examples must be wrapped in
 # <!-- security:counter-example --> ... <!-- /security:counter-example -->.
+# Canonical rule-statement text that cites the forbidden literal pattern is
+# wrapped in <!-- security:rule-statement --> ... <!-- /security:rule-statement -->.
 
 setup() {
   REPO_ROOT="$(git -C "$BATS_TEST_DIRNAME" rev-parse --show-toplevel)"
@@ -27,6 +29,10 @@ for root in roots:
         cleaned = re.sub(
             r'<!-- security:counter-example -->.*?<!-- /security:counter-example -->',
             '', text, flags=re.S,
+        )
+        cleaned = re.sub(
+            r'<!-- security:rule-statement -->.*?<!-- /security:rule-statement -->',
+            '', cleaned, flags=re.S,
         )
         for m in pattern.finditer(cleaned):
             line = cleaned[:m.start()].count('\n') + 1

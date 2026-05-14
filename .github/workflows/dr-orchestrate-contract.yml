@@ -34,18 +34,22 @@ jobs:
           DR_ORCH_INBOUND_TOKEN: ${{ secrets.DR_ORCH_INBOUND_TOKEN || 'ci-test-token' }}
           DR__ORCH_DIR: ${{ github.workspace }}/plugins/dr-orchestrate
         run: |
-          export DR_ORCH_DIR="$(pwd)"
+          DR_ORCH_DIR="$(pwd)"
+          export DR_ORCH_DIR
           webhook \
             -hooks config/hooks.yaml \
             -port 8090 \
             -verbose \
             &
+          webhook_pid=$!
           # Wait for listener to be ready
-          for i in $(seq 1 10); do
-            curl -fsS http://127.0.0.1:8090 >/dev/null 2>&1 && break || true
+          for _ in $(seq 1 10); do
+            if curl -fsS http://127.0.0.1:8090 >/dev/null 2>&1; then
+              break
+            fi
             sleep 0.5
           done
-          echo "WEBHOOK_PID=$!" >> "$GITHUB_ENV"
+          echo "WEBHOOK_PID=${webhook_pid}" >> "$GITHUB_ENV"
 
       - name: Run schemathesis
         working-directory: plugins/dr-orchestrate
