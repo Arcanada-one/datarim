@@ -175,6 +175,34 @@ A FAIL at Layer 3b makes the overall verdict **BLOCKED** regardless of other lay
 - Read DoD from `datarim/tasks.md` or `datarim/prd/*.md`
 - Check each criterion
 
+### 4f. Browser-based Frontend QA (Playwright pass)
+
+**Condition:** Execute only when the changed-files set for the task contains frontend markup per `$HOME/.claude/skills/playwright-qa.md` § Frontend touch detection. Skip silently otherwise.
+
+**Steps:**
+
+1.  Read the init-task frontmatter for `qa_browser_mode` (`headed` | `headed-strict` | `skip`); honour the CLI flags `--headed` / `--headed-strict` if present in the operator invocation.
+2.  Acquire the per-task lock at `datarim/qa/playwright-{TASK-ID}/.lock` (`flock --timeout 30`, fallback to atomic `mkdir`). Lock-timeout ⇒ finding `playwright-lock-timeout`, continue without the pass.
+3.  Resolve the tool:
+    ```bash
+    dev-tools/detect-playwright-tooling.sh [--headed | --headed-strict] --json
+    ```
+    Parse `tool` / `headed` / `display` / optional `finding` from the JSON line. Exit code 2 ⇒ FAIL (strict headed without display); exit code 1 ⇒ should not occur here (no `--require`); exit code 0 with `tool: none` ⇒ finding `playwright-tooling-missing`, skip the pass.
+4.  Create the per-run directory `datarim/qa/playwright-{TASK-ID}/run-$(date -u +%Y%m%dT%H%M%SZ)/`.
+5.  Invoke the resolved tool against the project's local dev surface (default) or a static fixture identified in the init-task. Capture `screenshot.png` + `trace.zip` (CLI/MCP only) + combined stdout/stderr to `run.log`.
+6.  Write `summary.md` per the shape defined in `$HOME/.claude/skills/playwright-qa.md` § Artifact layout (tool / headed mode / display / target URL / viewport / exit code / findings list).
+7.  Update the `latest` symlink (copy-fallback on filesystems without symlink support).
+8.  Release the lock.
+
+**Record in QA report:** add a line under Layer 4 with `Playwright pass:` followed by the resolved tool, headed mode, exit code, and path to the `run-<ts>/` directory. List any findings (`playwright-tooling-missing`, `playwright-lock-timeout`, `headed-requested-but-no-display`, `headed-strict-no-display`) under § Layer 4 / 4f.
+
+**Verdict contribution:**
+
+- `tool: none` ⇒ finding only, no verdict change.
+- `--headed-strict` + no display ⇒ Layer 4 = FAIL.
+- Browser invocation non-zero exit ⇒ Layer 4 = FAIL.
+- Otherwise ⇒ Layer 4 contribution = PASS (the pass succeeded; visual review is the operator's responsibility).
+
 **Verdict:** PASS | PASS_WITH_NOTES | FAIL
 
 ```markdown
@@ -183,6 +211,7 @@ A FAIL at Layer 3b makes the overall verdict **BLOCKED** regardless of other lay
 **Tests:** {X passed, Y failed, Z skipped}
 **Security issues:** {count — list if any}
 **Anti-patterns:** {count — list if any}
+**Playwright pass:** {SKIPPED (no frontend touch) | tool=<t>, headed=<m>, exit=<n>, dir=<path> | FAIL (<reason>)}
 
 | DoD Criterion | Status |
 |--------------|--------|

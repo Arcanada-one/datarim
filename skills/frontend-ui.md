@@ -140,8 +140,32 @@ Before generating lists of framework components (agents, skills, commands, use c
 
 ---
 
+## 9. Browser-Based Verification at `/dr-qa`
+
+When the task changes any file under § 1–4 above, `/dr-qa` runs an
+automated Playwright pass against the local dev surface or a static
+fixture. Contract: `$HOME/.claude/skills/playwright-qa.md` (resolution
+chain CLI → MCP → env-browser, three headed states, per-task flock,
+`datarim/qa/playwright-{ID}/run-<ts>/` artifact layout). Missing tooling
+is a finding, not a block; `--headed-strict` without a display fails the
+QA pass.
+
+Two operator-facing knobs:
+
+- CLI: `/dr-qa --headed` (lenient) or `/dr-qa --headed-strict` (fail-fast)
+- Init-task frontmatter: `qa_browser_mode: headed | headed-strict | skip`
+
+Inspect `datarim/qa/playwright-{ID}/latest/summary.md` for the most
+recent pass. Visual review (does the screenshot match intent?) remains an
+operator step — the automated pass captures evidence, it does not
+adjudicate aesthetic correctness.
+
+---
+
 ## Integration
 
 - `tester` agent: include this checklist in Web UI testing mode
 - `developer` agent: consult before completing frontend tasks
 - `reviewer` agent: verify compliance during `/dr-qa`
+- `playwright-qa.md`: detailed contract for the automated browser pass
+  invoked at `/dr-qa` Step 4f
