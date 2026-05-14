@@ -79,6 +79,37 @@ entry to `documentation/archive/{area or cancelled}/archive-{ID}.md` with
 per-task content-presence assertion, then deletes the file. `pre-archive-check.sh`
 blocks when the file exists.
 
+### Init-Task File Contract
+
+`datarim/tasks/{TASK-ID}-init-task.md` is the verbatim record of the operator's
+original `/dr-init` prompt. Sibling to the description file (same `{TASK-ID}`),
+but answers a different question:
+
+- **Description** (agent-authored) — what the agent plans to do.
+- **Init-task** (operator-authored, captured at `/dr-init`) — what the operator
+  literally asked for. Append-only by convention; readable by every pipeline
+  command per `skills/init-task-persistence.md`.
+
+Required frontmatter (8 fields, closed schema):
+
+```yaml
+---
+task_id: <TASK-ID>           # ^[A-Z]{2,10}-[0-9]{4}$
+artifact: init-task          # literal
+schema_version: 1            # integer
+captured_at: <YYYY-MM-DD>
+captured_by: /dr-init        # literal
+operator: <name>
+status: canonical            # canonical | amended
+source: /dr-init             # /dr-init | backlog
+---
+```
+
+Two mandatory body headings: `## Operator brief (verbatim)`, `## Append-log
+(operator amendments)`. Validator: `dev-tools/check-init-task-presence.sh
+--task <ID>`. Multi-task scan with soft 30-day window:
+`... --all`. Full contract: `skills/init-task-persistence.md`.
+
 ### Description File Contract
 
 `datarim/tasks/{TASK-ID}-task-description.md` is the **only** place for task content. Required 12-key YAML frontmatter (closed schema):

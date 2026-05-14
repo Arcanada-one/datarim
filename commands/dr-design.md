@@ -12,7 +12,7 @@ description: Explore architectural and design decisions for complex features (Le
 
 1.  **LOAD**: Read `$HOME/.claude/agents/architect.md` and adopt that persona.
 2.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system.md` § Path Resolution Rule.
-3.  **CONTEXT**: Read `datarim/tasks.md` and `datarim/systemPatterns.md`.
+3.  **CONTEXT**: Read `datarim/tasks.md` and `datarim/systemPatterns.md`. Additionally, read `datarim/tasks/{TASK-ID}-init-task.md` if present (mandatory per `$HOME/.claude/skills/init-task-persistence.md`): the verbatim operator brief + every append-log block. Any divergence between the operator's stated intent and the design proposals MUST be recorded in each creative doc's § Decisions. Missing init-task is non-blocking — flag as advisory and continue.
 
 4.  **DETERMINE DESIGN TYPE**: Classify each component needing design into one of these types:
 

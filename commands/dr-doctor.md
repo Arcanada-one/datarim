@@ -66,6 +66,14 @@ Not a periodic cleanup. Idempotent: a second run on a compliant tree is a no-op.
     - `progress.md`: deleted (if existed) — last-completed entries promoted to `activeContext.md` § «Последние завершённые».
     - Idempotency confirmed (second dry-run exit 0).
 
+11. **INIT-TASK PRESENCE ADVISORY** (orthogonal content validator, MUST run after the migration summary; never blocks):
+    - Invoke `dev-tools/check-init-task-presence.sh --all --root "$DATARIM_ROOT"`.
+    - Stream the findings list to the operator. Each line carries the severity prefix and the task ID:
+      - `info: <ID> init-task missing (task age <30d; rolling 30d soft window)` — fresh task without init-task, soft-window protected.
+      - `warn: <ID> init-task missing (task age ≥30d; rolling 30d soft window)` — stale task without init-task, operator may retro-backfill.
+    - `--all` mode is **advisory-only** — exit code is always 0; never block `/dr-init` Step 2.4 self-heal or `/dr-doctor` itself.
+    - The validator is the canonical Init-Task Presence pass per `skills/init-task-persistence.md` § Validation. Kept orthogonal to `scripts/datarim-doctor.sh` per CLAUDE.md § Validation Discipline (operational-file migration ↔ content validation are separate concerns).
+
 ## Read
 
 - `datarim/tasks.md`, `datarim/backlog.md`, `datarim/progress.md`, `datarim/activeContext.md`
