@@ -155,6 +155,23 @@ description: Multi-layer quality verification — checks PRD alignment, design c
 
 A FAIL at Layer 3b makes the overall verdict **BLOCKED** regardless of other layers; the FAIL-Routing CTA (see § Verdict Logic) MUST surface the focus-items line verbatim. The classical Layer 1–4 verdicts are computed independently; Layer 3b is an additional gate that runs in parallel.
 
+### Q&A round-trip verification (additional sub-check)
+
+When `datarim/tasks/{TASK-ID}-init-task.md § Append-log` contains one or more `### <ISO> — Q&A by /dr-<stage> (round N)` blocks (contract: `$HOME/.claude/skills/init-task-persistence.md` § Q&A round-trip contract), Layer 3b extends its verification with two additional checks. The Q&A pass runs after the per-item expectation walk above and is gated on the same Layer 3b verdict ladder.
+
+1. **Agent-decision implementation grep.** For every block whose `**Decided by:** agent` line is present, extract the `Summary` text and grep the implementation surface (changed files for this task, the task description, the archive draft if any) for the salient token(s) of the summary. The decision is **reflected** when a textual or semantic match exists in the implementation artefacts; **not reflected** otherwise. Findings format: `Q&A round-trip: agent-decision <round-N> not reflected in implementation`.
+2. **Conflict closure verification.** For every block carrying `**Conflict with existing wish:** <wish_id> — …` (non-`none`), the Append-log MUST also contain a closure entry — either an operator amendment (`amendment by …`) or a later Q&A round on the same `wish_id` that resolves the contradiction. An **unclosed Conflict** raises Layer 3b verdict **BLOCKED**; finding format: `Q&A round-trip: unclosed Conflict on <wish_id> — operator returns task via /dr-do --focus-items <wish_id>`.
+
+Both checks are **fail-soft when no Q&A blocks exist** (legacy tasks). Both contribute to the same Layer 3b verdict — an unreflected agent-decision raises **FAIL** (operator can override via amendment); an unclosed Conflict raises **BLOCKED** without override.
+
+The Q&A round-trip findings appear in the same Layer 3b table under a dedicated row group:
+
+```markdown
+**Q&A round-trip rounds verified:** {N}
+**Agent-decisions reflected:** {N_ok} / {N_total}
+**Unclosed Conflict findings:** {list of wish_ids}  (BLOCKED if non-empty)
+```
+
 ---
 
 ## Layer 4: Code Quality
