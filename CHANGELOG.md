@@ -4,6 +4,19 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.9.0] — 2026-05-14
+
+**Init-task Q&A auto-append.** Extends the v2.8.0 init-task persistence contract: every operator clarification round captured by a pipeline command now lands in `tasks/{TASK-ID}-init-task.md § Append-log` as a structured Q&A block. When the operator does not answer, the agent decides autonomously (FB-1..FB-5 of the Autonomous Agent Operating Rules) and records the rationale alongside the decision; `/dr-qa` Layer 3b verifies every agent-decision against the implementation and blocks the overall verdict on any unclosed cross-wish conflict.
+
+### Added — Q&A round-trip contract (init-task auto-append)
+
+- Extended skill `init-task-persistence` with a new `## Q&A round-trip contract` section (block format, mandatory subheadings, `Decided by: operator|agent` semantics, ≥50-char rationale on agent decisions, conflict-routing rules, legacy fallback).
+- New utility `dev-tools/append-init-task-qa.sh` — atomic Q&A block append with mkdir-based per-task lock (macOS-portable), temp-file + `mv` write, realpath boundary check, 100 KB per-file size cap, and Security Mandate § S1 file-only free-form input contract.
+- Extended validator `dev-tools/check-init-task-presence.sh` with `validate_qa_blocks` — finds `### <ISO> — Q&A by /dr-<stage> (round N)` blocks, asserts five mandatory subheadings, allowed `Decided by` enum, and ≥50-char `Decision rationale` body when `Decided by: agent`.
+- Six pipeline commands wired with an `APPEND Q&A IF ANY` step (`/dr-prd`, `/dr-plan`, `/dr-design`, `/dr-do`, `/dr-qa`, `/dr-compliance`); `/dr-init` and `/dr-archive` stay read-only by contract.
+- `/dr-qa` Layer 3b gains a `Q&A round-trip verification` sub-section with two checks: agent-decision implementation grep + Conflict closure verification; an unclosed Conflict raises Layer 3b verdict BLOCKED and routes the task to `/dr-do --focus-items <wish_id>`.
+- Regression coverage: 18 bats cases in `tests/tune-0216-qa-roundtrip.bats` (six phases — skill / validator / utility / commands / Layer 3b / legacy fallback).
+
 ## [2.8.0] — 2026-05-14
 
 **Operator-memory pipeline upgrade.** Seven related improvements ship together under the umbrella of «remember what the operator asked for, across the full pipeline»: verbatim init-task persistence, operator wishlist with verification gate, browser-based frontend QA, plain-language operator recap on three commands, archive section that mirrors the wishlist outcome, refreshed visual maps, and a coherent docs/site fanout. Backwards-compatible for legacy tasks via a 30-day rolling soft window; the new gates default to `info`-severity advisories that never block legacy pipelines.
