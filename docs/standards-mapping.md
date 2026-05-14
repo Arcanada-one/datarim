@@ -43,7 +43,9 @@ A Datarim-managed project that wants ASVS v5 Level 2 must add an application-lev
 
 Datarim baseline aligns with the **Common Criteria** (CC1–CC9), specifically:
 
+<!-- security:rule-statement -->
 - **CC6 — Logical & Physical Access:** S3 (credentials), S2 (atomic mode-0o600 writes), S1 (no `StrictHostKeyChecking=no`).
+<!-- /security:rule-statement -->
 - **CC7 — System Operations:** S7 (CI verification gate), S9 (incident response).
 - **CC8 — Change Management:** S4 (supply chain), S5 (docs-as-code), S6 (repo hygiene).
 - **CC9 — Risk Mitigation:** S4 (signed releases, SBOM), S6 (CODEOWNERS, branch protection).

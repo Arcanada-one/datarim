@@ -258,6 +258,7 @@ Register `close_client()` in FastAPI lifespan `yield` block.
 Never use `except Exception: pass` in production code. Always log with `exc_info=True`:
 
 ```python
+# nosec-extract -- pedagogical except-fragment, intentionally non-parsable
 # BAD
 except Exception:
     pass

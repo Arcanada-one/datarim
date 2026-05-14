@@ -346,6 +346,8 @@ jobs:
             awk '
               /^[[:space:]]*<!--[[:space:]]*security:counter-example[[:space:]]*-->[[:space:]]*$/ { skip=1; next }
               /^[[:space:]]*<!--[[:space:]]*\/security:counter-example[[:space:]]*-->[[:space:]]*$/ { skip=0; next }
+              /^[[:space:]]*<!--[[:space:]]*security:rule-statement[[:space:]]*-->[[:space:]]*$/ { skip=1; next }
+              /^[[:space:]]*<!--[[:space:]]*\/security:rule-statement[[:space:]]*-->[[:space:]]*$/ { skip=0; next }
               skip == 1 { next }
               /StrictHostKeyChecking=no/ { printf "%s:%d:[ssh-disable] %s\n", FILENAME, NR, $0; found=1 }
               /curl[[:space:]]+[^|]*\|[[:space:]]*bash([[:space:]]|$)/ { printf "%s:%d:[curl-bash] %s\n", FILENAME, NR, $0; found=1 }
