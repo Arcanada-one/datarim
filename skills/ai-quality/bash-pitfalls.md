@@ -234,7 +234,7 @@ require GNU coreutils — most dev hosts in this ecosystem are macOS.
 
 ### Why this matters in practice
 
-TUNE-0164 plan §5.4 originally specified `date +%s%N` for the security-floor
+An earlier orchestrator plan §5.4 originally specified `date +%s%N` for the security-floor
 cooldown clock. The first smoke run on the mac dev box produced timestamps
 ending in literal `%N`, breaking the cooldown arithmetic without any error.
 The fix above was applied during `/dr-do` and is now the canonical recipe.
@@ -279,7 +279,7 @@ echo 'foo: "bar"' | sed -E 's/^foo: "(.*)"$/\1/'
 
 ### Why this matters in practice
 
-TUNE-0164 plan §5.5 used `awk '... sub(/^"(.*)"$/, "\\1") ...'` for stripping
+An earlier orchestrator plan §5.5 used `awk '... sub(/^"(.*)"$/, "\\1") ...'` for stripping
 quotes around YAML scalar values. First smoke test produced `\1` literal in
 the output instead of the quoted contents. Replaced with `match()` +
 `substr()` and the fixture cleared.
