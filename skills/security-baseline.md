@@ -137,9 +137,10 @@ Corrected:
 
 ```python
 import os, requests
+CRED_PATH = os.environ["CREDS_PATH"]
 resp = requests.get(url, timeout=10)  # verify=True by default
 resp.raise_for_status()
-fd = os.open("/tmp/cred.txt", os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+fd = os.open(CRED_PATH, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
 with os.fdopen(fd, "w") as f:
     f.write(resp.text)
 ```
