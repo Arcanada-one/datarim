@@ -539,6 +539,9 @@ mkdir -p "$BACKUP_DIR"
     tar -czf "$BACKUP_TARBALL" -C "$(dirname "$ROOT_ABS")" "$(basename "$ROOT_ABS")" 2>/dev/null
 ) || { log "ERROR: backup tarball failed: $BACKUP_TARBALL"; exit 2; }
 [ -s "$BACKUP_TARBALL" ] || { log "ERROR: backup tarball empty: $BACKUP_TARBALL"; exit 2; }
+# Explicit chmod — some tar implementations override umask on the output file
+# (observed on GitHub Actions ubuntu-latest GNU tar). Backup is private.
+chmod 0600 "$BACKUP_TARBALL"
 
 # Capture pre-fix parsed-block count (single source of truth for invariant)
 PARSED_COUNT=0
