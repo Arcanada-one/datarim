@@ -16,7 +16,12 @@ paths:
     post:
       operationId: orchestratorInput
       summary: Submit a command to the orchestrator
+      # The bundled adnanh/webhook reference impl does not enforce
+      # auth — production deployments wrap it behind a reverse-proxy.
+      # An empty entry alongside bearerAuth makes auth optional in
+      # the contract, matching the impl behaviour.
       security:
+        - {}
         - bearerAuth: []
       parameters:
         - name: X-Sync-Timeout
