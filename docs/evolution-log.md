@@ -31,6 +31,42 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
   - **Class:** A.
   - **Source:** CONN-0096 reflection Proposal 3.
   - **Stack-agnostic gate:** N/A (ecosystem-side memory; framework gate does not apply).
+## 2026-05-14 — TUNE-0209 — Soak verdict-gate hardening (2 Class A proposals applied; 1 Class B held)
+
+### Class A Applied
+
+- **`skills/testing.md` — `## Producer-Side Smoke Verification for Verdict Gates` subsection (NEW, 13 lines).** When a Definition-of-Done acceptance criterion is a numerical threshold computed by a verdict script over event records emitted by a producer (a daemon, soak harness, ingest pipeline, audit emitter), validate **both halves** in the same pre-archive gate — consumer-side smoke (verdict script over synthetic input) plus producer-side smoke (capture one actual event record from the producer's normal output stream and confirm every verdict-script-consumed field is present). Synthetic-only validation is the recurring trap that surfaced TUNE-0209: TUNE-0165 archive deferred V-AC-22 with smoke-validated synthetic JSONL, but the producer side (legacy `/usr/local/bin/dr-orchestrate-soak.sh`) was never exercised — 48h later the verdict gate failed on «no schema_v2 events» despite passing all unit assertions on synthetic input.
+  - **File:** `code/datarim/skills/testing.md` (subsection inserted between «Reporting Test Counts in Audit Output» and «Discipline»).
+  - **Class:** A.
+  - **Source:** TUNE-0209 reflection Proposal 1 (`Projects/Datarim/datarim/reflection/reflection-TUNE-0209.md`).
+  - **Stack-agnostic gate:** PASS (`scripts/stack-agnostic-gate.sh --diff-only skills/testing.md`).
+  - **Bats regression:** framework bats 494 total, 5 pre-existing fails (same baseline as TUNE-0165 archive — T11/T12 task-id-gate against legacy task IDs in `skills/datarim-doctor.md` + `skills/ai-quality/bash-pitfalls.md`, plus 3 other unrelated pre-existing fails). Zero new regressions attributable to this apply.
+
+- **`skills/infra-automation.md` — `## Tracked Deploy Artefact Rule` subsection (NEW, 12 lines).** Any script, config, systemd unit, or shell wrapper installed under a production path AND referenced downstream as a verification surface MUST be tracked in the framework or project repository before the referencing acceptance criterion ships. Untracked operator-authored artefacts have no diff history, no review trail, no code-review gate — drift propagates invisibly. Source incident: TUNE-0209 root-caused that the legacy `/usr/local/bin/dr-orchestrate-soak.sh` wrapper (created at INFRA-0137 launch) was never tracked in the Datarim repo; V-AC-22 ACs referencing the wrapper's behaviour shipped without a canonical surface to validate against.
+  - **File:** `code/datarim/skills/infra-automation.md` (subsection inserted between «Remote Measurement» and «Reusable Templates»).
+  - **Class:** A.
+  - **Source:** TUNE-0209 reflection Proposal 2.
+  - **Stack-agnostic gate:** PASS (`scripts/stack-agnostic-gate.sh --diff-only skills/infra-automation.md`).
+  - **Bats regression:** same 494/5 baseline; zero new regressions.
+
+### Class B Held
+
+- **Proposal 3 — PRD-TUNE-0165 amendment for V-AC-22 traffic-mix specification.** Soak corpus design materially influences `false_escalate_rate = escalated / (resolved + escalated)`; threshold `< 0.15` without explicit mix-spec is semantically ambiguous. Class B because it changes the PRD's acceptance-criterion contract.
+- **Status:** HELD. Spawned as backlog item `TUNE-0212` (P3 L2) with PRD-TUNE-0165 amendment as the gate.
+
+### Health-metrics
+
+- Skills 41, commands 22 + 1 plugin, agents 18 — thresholds not exceeded; `/dr-optimize` not auto-suggested.
+
+### Provenance
+
+- Reflection: `Projects/Datarim/datarim/reflection/reflection-TUNE-0209.md`
+- Archive doc: `documentation/archive/framework/archive-TUNE-0209.md` (workspace commit `e84a947`)
+- Framework code commit (pre-evolution-apply): `2e2dfa8` (`code/datarim/dev-tools/dr-orchestrate-soak.sh` + bats); NOT yet pushed to `Arcanada-one/datarim main` — operator approval gate.
+- Spawned follow-ups: `INFRA-0199` (48h re-soak on new harness), `TUNE-0212` (PRD-TUNE-0165 amendment).
+
+---
+
 ## 2026-05-13 — INFRA-0192 — Live Smoke-Test Gates: Current-State Auth Probe subsection (INFRA-0191 follow-up F-1)
 
 ### Class A Applied
