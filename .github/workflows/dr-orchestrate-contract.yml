@@ -8,6 +8,9 @@ on:
     paths:
       - 'plugins/dr-orchestrate/**'
 
+permissions:
+  contents: read
+
 jobs:
   schemathesis:
     name: Schemathesis contract tests

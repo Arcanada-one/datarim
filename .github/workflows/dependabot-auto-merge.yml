@@ -10,6 +10,10 @@ name: dependabot-auto-merge
 # the checks pass.
 
 on:
+  # zizmor: ignore[dangerous-triggers] — pull_request_target is the canonical
+  # Dependabot auto-merge pattern. The workflow runs with the base-ref code,
+  # not PR code; only metadata is inspected by the action. Branch protection
+  # required-status-checks guard the actual merge.
   pull_request_target:
     branches: [main]
 
