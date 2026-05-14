@@ -383,6 +383,20 @@ if [ -n "$SHARED_REPO" ]; then
                 block=1
                 hit_unattributed=1
             fi
+        elif [ -z "$diff_changes" ] && [ -z "$diff_changes_cached" ] \
+             && printf ',%s,' "$body_ids" | grep -q ",$TASK_ID,"; then
+            # Untracked file fallback: no diff exists, fall back to body
+            # scan. If TASK_ID is present in the body, classify as "own"
+            # (mixed when other IDs are also present). Preserves the
+            # legacy body-scan behaviour for ad-hoc untracked notes.
+            if [ "$body_ids" = "$TASK_ID" ]; then
+                klass="own"
+                hit_own=1
+            else
+                klass="mixed"
+                hit_mixed=1
+            fi
+            block=1
         elif printf ',%s,' "$diff_line_ids" | grep -q ",$TASK_ID,"; then
             # TUNE-0068: own/mixed gate considers only IDs on actual diff lines
             # (`^[+-][^+-]`). Committed-body and hunk-context IDs no longer
@@ -402,7 +416,7 @@ if [ -n "$SHARED_REPO" ]; then
             saw_foreign=1
         fi
         printf '%s\t%s\t%s\n' "$file" "$klass" "$found_ids"
-    done < <(git -C "$SHARED_REPO" status --porcelain 2>/dev/null)
+    done < <(git -C "$SHARED_REPO" status --porcelain --untracked-files=all 2>/dev/null)
 
     if [ "$block" -eq 0 ]; then
         # Schema-compliance gate (TUNE-0071) runs after clean-git success.

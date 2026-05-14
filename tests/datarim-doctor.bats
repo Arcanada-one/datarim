@@ -186,7 +186,10 @@ teardown() {
     mkdir -p "$BACKUP_DIR"
     DATARIM_DOCTOR_BACKUP_DIR="$BACKUP_DIR" "$DOCTOR" --root="$TMPROOT/datarim" --fix >/dev/null
     tarball="$(find "$BACKUP_DIR" -name 'datarim-backup-*.tgz')"
-    mode="$(stat -f '%Lp' "$tarball" 2>/dev/null || stat -c '%a' "$tarball" 2>/dev/null)"
+    # Try GNU stat first (Linux: `-c %a`), fall back to BSD/macOS stat
+    # (`-f %Lp`). The reverse order silently mis-reports on Linux because
+    # GNU `stat -f` switches the command into file-system-status mode.
+    mode="$(stat -c '%a' "$tarball" 2>/dev/null || stat -f '%Lp' "$tarball" 2>/dev/null)"
     [ "$mode" = "600" ]
 }
 
