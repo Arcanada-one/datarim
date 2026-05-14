@@ -94,6 +94,15 @@ disable-model-invocation: true
     - **If new project/service**: Load `$HOME/.claude/skills/tech-stack.md` and identify required stack.
     - Create/Update `datarim/tasks.md` with new task.
     - **Append** new task to `## Active Tasks` in `datarim/activeContext.md`. Do NOT remove existing active tasks. If `activeContext.md` uses legacy format (`**Current Task:**` single line), convert to `## Active Tasks` list first. See `$HOME/.claude/skills/datarim-system.md` § activeContext.md Write Rules.
+4.6. **WRITE INIT-TASK FILE** (mandatory, F1 contract — see `$HOME/.claude/skills/init-task-persistence.md`):
+    - Compute `INIT_TASK_FILE="datarim/tasks/{TASK-ID}-init-task.md"`.
+    - Determine the source flow:
+      - **Operator prompt flow** (default): the `ARGUMENTS` variable (the text the operator typed after `/dr-init`) becomes the body of `## Operator brief (verbatim)`. Frontmatter `source: /dr-init`.
+      - **Backlog selection flow** (the task was picked from `backlog.md` in Step 3): copy the matched backlog item's description block verbatim into `## Operator brief (verbatim)`. Frontmatter `source: backlog`, `source_backlog_ref: backlog.md#{TASK-ID}`.
+    - Write the file with the canonical 8-field frontmatter (`task_id`, `artifact: init-task`, `schema_version: 1`, `captured_at`, `captured_by: /dr-init`, `operator`, `status: canonical`, `source`) + two mandatory headings: `## Operator brief (verbatim)` and `## Append-log (operator amendments)` (empty placeholder `_(пусто на момент создания)_`). Optional `## Source command` block above the brief is recommended when the exact invocation differs from `ARGUMENTS` raw text.
+    - Probe: `dev-tools/check-init-task-presence.sh --task {TASK-ID} --root "$DATARIM_ROOT"` (where `$DATARIM_ROOT` is the parent of `datarim/`). Exit 0 = OK; non-zero = print warning and continue (operator may amend manually).
+    - Skip silently when re-running `/dr-init` on an existing backlog ID whose init-task already exists — preserve the verbatim history.
+
 5.  **SUBTASK BACKLOG** (Level 3-4 only):
     - If analysis reveals distinct subtasks or phases, present them to user:
       "This task has N identifiable subtasks. Add them to backlog for independent tracking?"
