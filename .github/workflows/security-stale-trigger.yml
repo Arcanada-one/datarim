@@ -1,0 +1,135 @@
+# Stale-trigger watcher for accepted-risk.yml registers across the Arcanada
+# ecosystem. Cron Monday 09:00 UTC; POSTs to Ops Bot /events when an entry's
+# re_review date has passed.
+#
+# Canonical contract: consumer ecosystem CLAUDE.md
+# § Arcanada Ecosystem Security Policy Mandate.
+#
+# Severity ladder:
+#   re_review <= today           -> warn
+#   re_review <= today - 30d     -> fatal
+#
+# Fail-soft on Ops Bot non-2xx and on missing OPS_BOT_API_KEY: emit
+# `::warning::` annotations and exit 0 so the cron does not page on its own
+# pipeline outages.
+#
+name: security-stale-trigger
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+    inputs:
+      target_repos:
+        description: 'Space-separated owner/name list (overrides org var)'
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-stale-trigger
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    name: scan accepted-risk registers
+    runs-on: ubuntu-latest
+    env:
+      OPS_BOT_ENDPOINT: 'https://ops.arcanada.one/events'
+      OPS_BOT_API_KEY: ${{ secrets.OPS_BOT_API_KEY }}
+      TARGET_REPOS_INPUT: ${{ inputs.target_repos }}
+      TARGET_REPOS_ORG: ${{ vars.SECURITY_POLICY_REPOS }}
+    steps:
+      - name: Checkout Datarim
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Install yq
+        run: |
+          set -euo pipefail
+          if ! command -v yq >/dev/null 2>&1; then
+            sudo wget -qO /usr/local/bin/yq \
+              https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
+            sudo chmod +x /usr/local/bin/yq
+          fi
+          yq --version
+
+      - name: Resolve target repos
+        id: targets
+        run: |
+          set -euo pipefail
+          if [ -n "${TARGET_REPOS_INPUT:-}" ]; then
+            echo "list=$TARGET_REPOS_INPUT" >> "$GITHUB_OUTPUT"
+          else
+            echo "list=${TARGET_REPOS_ORG:-}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Scan registers and emit events
+        env:
+          REPOS: ${{ steps.targets.outputs.list }}
+        run: |
+          set -uo pipefail
+          if [ -z "${REPOS:-}" ]; then
+            echo "::warning::no target repos configured (set SECURITY_POLICY_REPOS org var or pass target_repos input)"
+            exit 0
+          fi
+          if [ -z "${OPS_BOT_API_KEY:-}" ]; then
+            echo "::warning::OPS_BOT_API_KEY not set — running in dry-run mode"
+          fi
+          today_epoch=$(date -u +%s)
+          day=$((24 * 3600))
+          for repo in $REPOS; do
+            yml_url="https://raw.githubusercontent.com/${repo}/main/accepted-risk.yml"
+            tmp="$(mktemp)"
+            http_code=$(curl -sS -o "$tmp" -w '%{http_code}' "$yml_url" || echo "000")
+            if [ "$http_code" != "200" ]; then
+              echo "::warning::${repo}: accepted-risk.yml not reachable (HTTP $http_code) — skipping"
+              rm -f "$tmp"
+              continue
+            fi
+            count=$(yq '.entries | length' "$tmp" 2>/dev/null || echo 0)
+            for i in $(seq 0 $((count - 1))); do
+              re_review=$(yq -r ".entries[$i].re_review" "$tmp")
+              id=$(yq -r ".entries[$i].id" "$tmp")
+              pkg=$(yq -r ".entries[$i].pkg" "$tmp")
+              re_epoch=$(date -u -d "$re_review" +%s 2>/dev/null || echo 0)
+              if [ "$re_epoch" -eq 0 ]; then
+                continue
+              fi
+              if [ "$re_epoch" -gt "$today_epoch" ]; then
+                continue
+              fi
+              overdue_days=$(( (today_epoch - re_epoch) / day ))
+              category="warning"
+              if [ "$overdue_days" -ge 30 ]; then
+                category="fatal"
+              fi
+              dedup_key="security-stale:${repo}:${id}"
+              payload=$(jq -nc \
+                --arg repo "$repo" \
+                --arg id "$id" \
+                --arg pkg "$pkg" \
+                --arg re_review "$re_review" \
+                --argjson overdue "$overdue_days" \
+                --arg category "$category" \
+                --arg dedup "$dedup_key" \
+                '{category: $category, agent: "security-stale-trigger", dedup_key: $dedup, body: ("accepted-risk entry overdue: " + $repo + " " + $id + " (" + $pkg + "), re_review=" + $re_review + ", overdue=" + ($overdue|tostring) + "d")}')
+              if [ -z "${OPS_BOT_API_KEY:-}" ]; then
+                echo "DRY-RUN: $payload"
+                continue
+              fi
+              http=$(curl -sS -o /dev/null -w '%{http_code}' \
+                -X POST "$OPS_BOT_ENDPOINT" \
+                -H "Authorization: Bearer $OPS_BOT_API_KEY" \
+                -H 'Content-Type: application/json' \
+                -d "$payload" || echo "000")
+              if [ "$http" != "200" ] && [ "$http" != "201" ] && [ "$http" != "202" ]; then
+                echo "::warning::Ops Bot POST failed for $dedup_key (HTTP $http)"
+              fi
+            done
+            rm -f "$tmp"
+          done
+          exit 0

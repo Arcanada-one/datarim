@@ -1,0 +1,14 @@
+# Caller-fixture: invokes the reusable security-audit workflow with the
+# rust_cargo stack profile. Drives `act --dryrun` for V-AC-9.
+name: caller-rust-cargo
+
+on:
+  workflow_dispatch:
+
+jobs:
+  audit:
+    uses: ./.github/workflows/reusable-security-audit.yml
+    with:
+      stack: rust_cargo
+      audit_level: high
+      accepted_risk_path: accepted-risk.yml

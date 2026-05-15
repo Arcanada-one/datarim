@@ -1,0 +1,36 @@
+# Arcanada Ecosystem accepted-risk register — schema v1.
+#
+# Source-of-truth: this YAML file in the consumer repo root.
+# Validator: dev-tools/check-security-policy.sh --validate-yaml <this-file>
+#
+# Schema rules (enforced by check-security-policy.sh):
+#   schema_version: 1                  (required, must be integer 1)
+#   entries[].id:           required, pattern ^(GHSA|RUSTSEC|CVE)-
+#   entries[].pkg:          required string
+#   entries[].severity:     required enum {critical, high, medium, low}
+#   entries[].scope:        required enum {runtime, devdep, transitive}
+#   entries[].reason:       required, >= 20 non-whitespace characters
+#   entries[].last_review:  required ISO 8601 date (YYYY-MM-DD)
+#   entries[].re_review:    required ISO 8601 date, <= last_review + 90 days
+#   entries[].reviewed_by:  required enum {agent, human}
+#   entries[].upstream_tracking_url:  optional string URL
+#   entries[].ticket:                  optional internal task reference
+#
+# Public Surface Hygiene Mandate: strip `ticket` field on public republish
+# of consumer repo if it contains an internal task ID.
+#
+# Rendered projection: SECURITY.md § Accepted Risks. Re-render manually or
+# via tooling; YAML stays source-of-truth.
+
+schema_version: 1
+
+entries:
+  - id: GHSA-XXXX-YYYY-ZZZZ
+    pkg: "example-package"
+    severity: medium
+    scope: devdep
+    reason: "Dev-dependency only, never reaches a runtime path in this repo. Upstream tracker linked below; revisit when patched release lands."
+    last_review: 2026-05-15
+    re_review: 2026-06-09
+    reviewed_by: human
+    upstream_tracking_url: "https://github.com/example-org/example-package/issues/123"

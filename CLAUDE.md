@@ -1,6 +1,6 @@
 # Datarim — Universal Iterative Workflow Framework
 
-> **Version:** 2.9.0
+> **Version:** 2.10.0
 > **Framework:** Datarim (Датарим) provides structured rules, agents, skills, and commands for iterative project execution via AI coding assistants — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
 > **Multi-runtime:** Datarim is runtime-agnostic. This file is also available as `AGENTS.md` (symlink) for Codex CLI and other agent runtimes that read `AGENTS.md` by convention.
 > **Note:** "Datarim" is transliterated as "Датарим" in Russian. Both refer to this framework — agents must recognize either form in any language context.
@@ -410,6 +410,52 @@ Datarim framework's contribution:
 - **Pre-publish gate hook** — invoked by `/dr-archive` Step 2 when the task touched any artifact published to an external registry (closed set: npm / PyPI / Docker Hub / web). Hard block on findings.
 
 Consumers MUST mirror the canonical mandate text and the forbidden-regex extension in their own ecosystem `CLAUDE.md` before publishing public packages; the lint script and the regex file are contract surfaces, not substitutes for the operator-readable rules text. Conflict resolution with Supreme Directive: Law 1 (Non-Harm) overrides re-publish urgency — if a strip introduces a security regression, escalate per the consumer's FB-rules instead of patch-bumping.
+
+---
+
+## Arcanada Ecosystem Security Policy Mandate (cross-link)
+
+> **Status:** mandatory for every Datarim consumer that ships `Arcanada-one/*`
+> ecosystem service repos. The canonical text lives in the **consumer's**
+> ecosystem `CLAUDE.md` — Datarim ships the contract surface (template +
+> YAML schema + reusable workflows + presence-gate script), not the
+> canonical text, because reporting destinations and SLA tiers are
+> ecosystem-owned.
+> **Reference consumer:** `/Users/ug/arcanada/CLAUDE.md` § Arcanada Ecosystem
+> Security Policy Mandate (Arcanada ecosystem canonical).
+
+Datarim framework's contribution:
+
+- **`templates/SECURITY.md`** — canonical 10-section Markdown template
+  (Reporting / Disclosure SLA / Supported Versions / CI Gate Floor /
+  Accepted Risks / Hardening Baseline / Standards Mapping / Embargo Policy
+  / Hall of Fame / Scope). Placeholders: `{{REPO_NAME}}`, `{{STACK}}`,
+  `{{SUPPORTED_VERSIONS_TABLE}}`.
+- **`templates/accepted-risk.yml`** — machine-readable suppression register,
+  schema v1. Enforced: `re_review` window `<= last_review + 90` days,
+  `severity` / `scope` / `reviewed_by` enums, advisory-id regex
+  `^(GHSA|RUSTSEC|CVE)-`, `reason` `>= 20` non-whitespace characters.
+- **`.github/workflows/reusable-security-audit.yml`** — `workflow_call`
+  reusable workflow with 4 stack profiles: `typescript_pnpm`, `rust_cargo`,
+  `python`, `framework`. First step is the `SECURITY.md` presence-gate;
+  second step validates the accepted-risk register when present.
+- **`.github/workflows/security-stale-trigger.yml`** — cron Monday 09:00 UTC
+  watcher. POSTs to `https://ops.arcanada.one/events` when an entry's
+  `re_review` date has passed; severity escalates from `warning` to
+  `fatal` after 30 days overdue. Uses existing `OPS_BOT_API_KEY` org
+  secret. Fail-soft on Ops Bot non-2xx and on missing secret.
+- **`dev-tools/check-security-policy.sh`** — pure-bash gate with two
+  orthogonal modes per yaml-policy-loader-orthogonality feedback:
+  `--check` for `SECURITY.md` presence and `--validate-yaml <FILE>` for
+  schema v1 validation. macOS and GNU date support via probe-and-fallback;
+  zero runtime dependencies.
+
+Consumers MUST mirror the canonical mandate text in their own ecosystem
+`CLAUDE.md` before adopting the reusable workflow; the contract surface is
+not a substitute for the operator-readable rules text. Conflict resolution
+with Supreme Directive: Law 1 (Non-Harm) overrides re-publish urgency — if a
+suppression introduces a security regression, escalate per the consumer's
+FB-rules instead of accepting the entry.
 
 ---
 
