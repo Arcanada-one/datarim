@@ -17,7 +17,7 @@ Complete and archive current task.
 
 0. **TASK RESOLUTION**: Apply Task Resolution Rule from `$HOME/.claude/skills/datarim-system.md` § Task Resolution Rule. Resolve which task is being archived (from argument or disambiguation). Use the resolved task ID for all subsequent steps.
 
-0.05. **READ INIT-TASK** (mandatory per `$HOME/.claude/skills/init-task-persistence.md`): Open `datarim/tasks/{TASK-ID}-init-task.md` if present. Read the full `## Operator brief (verbatim)` section AND every `## Append-log` entry. The archive document MUST include a `## Выполнение ожиданий оператора` section (F6 of TUNE-0210 contract) that reflects how each operator-stated expectation was met. Missing init-task is non-blocking on archive — note its absence under § Legacy and continue.
+0.05. **READ INIT-TASK** (mandatory per `$HOME/.claude/skills/init-task-persistence.md`): Open `datarim/tasks/{TASK-ID}-init-task.md` if present. Read the full `## Operator brief (verbatim)` section AND every `## Append-log` entry. The archive document MUST include a `## Выполнение ожиданий оператора` section (F6 of init-task contract) that reflects how each operator-stated expectation was met. Missing init-task is non-blocking on archive — note its absence under § Legacy and continue.
 
 0.1. **PRE-ARCHIVE CLEAN-GIT CHECK** (MANDATORY):
 
@@ -182,7 +182,7 @@ Complete and archive current task.
    - Task summary
    - Implementation details
    - Reflection insights
-   - **`## Выполнение ожиданий оператора` section (MANDATORY when `datarim/tasks/{TASK-ID}-expectations.md` exists, per F6 of TUNE-0210 contract):**
+   - **`## Выполнение ожиданий оператора` section (MANDATORY when `datarim/tasks/{TASK-ID}-expectations.md` exists, per F6 of the init-task contract):**
      - Read `datarim/tasks/{TASK-ID}-expectations.md` and render every item from `## Ожидания` in its original order.
      - Each rendered bullet: bold operator-words formulation, followed by the final `/dr-qa` status word (one of «выполнено», «частично», «не выполнено», «неприменимо» — never the schema enum `met`/`partial`/`missed`/`n-a`) and one or two plain-language sentences of comment sourced from the item's most recent `#### История статусов` line (`reason: …`).
      - **No tables in this section.** Bullet list only (single-level allowed; nested bullets forbidden).
