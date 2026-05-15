@@ -25,6 +25,7 @@ pointing into the cloned Datarim repo. The result:
 The installer probes for symlink support before choosing a mode:
 
 ```bash
+# noshellcheck-extract
 # inside install.sh (simplified)
 if ln -s /tmp/.symlink-probe-target /tmp/.symlink-probe-link 2>/dev/null; then
     rm -f /tmp/.symlink-probe-link
@@ -70,6 +71,7 @@ Drift is then expected and `check-drift.sh` becomes the recommended cadence.
 If `~/.claude/` already holds copied files from an older install:
 
 ```bash
+# noshellcheck-extract
 # 1. Backup the existing directory
 mv ~/.claude ~/.claude.bak-$(date +%Y%m%d)
 
