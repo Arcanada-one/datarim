@@ -45,6 +45,7 @@ Stop. Don't proceed to Step 2.
 **Determine workspace state before presenting options:**
 
 ```bash
+# nosec-extract
 GIT_DIR=$(cd "$(git rev-parse --git-dir)" 2>/dev/null && pwd -P)
 GIT_COMMON=$(cd "$(git rev-parse --git-common-dir)" 2>/dev/null && pwd -P)
 ```
@@ -100,6 +101,7 @@ Which option?
 #### Option 1: Merge Locally
 
 ```bash
+# nosec-extract
 # Get main repo root for CWD safety
 MAIN_ROOT=$(git -C "$(git rev-parse --git-common-dir)/.." rev-parse --show-toplevel)
 cd "$MAIN_ROOT"
@@ -118,12 +120,14 @@ git merge <feature-branch>
 Then: Cleanup worktree (Step 6), then delete branch:
 
 ```bash
+# nosec-extract
 git branch -d <feature-branch>
 ```
 
 #### Option 2: Push and Create PR
 
 ```bash
+# nosec-extract
 # Push branch
 git push -u origin <feature-branch>
 
@@ -162,12 +166,14 @@ Wait for exact confirmation.
 
 If confirmed:
 ```bash
+# nosec-extract
 MAIN_ROOT=$(git -C "$(git rev-parse --git-common-dir)/.." rev-parse --show-toplevel)
 cd "$MAIN_ROOT"
 ```
 
 Then: Cleanup worktree (Step 6), then force-delete branch:
 ```bash
+# nosec-extract
 git branch -D <feature-branch>
 ```
 
@@ -176,6 +182,7 @@ git branch -D <feature-branch>
 **Only runs for Options 1 and 4.** Options 2 and 3 always preserve the worktree.
 
 ```bash
+# nosec-extract
 GIT_DIR=$(cd "$(git rev-parse --git-dir)" 2>/dev/null && pwd -P)
 GIT_COMMON=$(cd "$(git rev-parse --git-common-dir)" 2>/dev/null && pwd -P)
 WORKTREE_PATH=$(git rev-parse --show-toplevel)
@@ -186,6 +193,7 @@ WORKTREE_PATH=$(git rev-parse --show-toplevel)
 **If worktree path is under `.worktrees/` or `worktrees/`:** an agent-created scratch worktree — we own cleanup. (External worktree-manager paths under `~/.config/<tool>/worktrees/` are owned by that tool; do not touch.)
 
 ```bash
+# nosec-extract
 MAIN_ROOT=$(git -C "$(git rev-parse --git-common-dir)/.." rev-parse --show-toplevel)
 cd "$MAIN_ROOT"
 git worktree remove "$WORKTREE_PATH"

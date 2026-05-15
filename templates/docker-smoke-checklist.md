@@ -80,6 +80,7 @@ the script ran but produced no output. Verify post-conditions independently.
 ## Step 5 — Rollback Verification
 
 ```bash
+# nosec-extract
 # Dry-run revert in a scratch worktree to confirm it would apply cleanly
 git revert --no-commit <commit-sha> && git revert --abort
 ```

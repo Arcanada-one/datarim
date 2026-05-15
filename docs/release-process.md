@@ -39,6 +39,7 @@ If any pre-flight check fails, abort and fix on a feature branch first.
 ### 1. Bump VERSION and CHANGELOG
 
 ```bash
+# nosec-extract
 # On a feature branch off main:
 echo "X.Y.Z" > VERSION
 $EDITOR CHANGELOG.md   # add a section for the new tag

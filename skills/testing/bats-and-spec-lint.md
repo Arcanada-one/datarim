@@ -115,6 +115,7 @@ For TTY-only paths (interactive `read` prompts), use `printf 'yes\n' | ...` or `
 For operations that must complete fully or not at all (backup + overwrite, copy + chmod, ingest + commit), write a terminal marker file *last*. Tests assert the marker's presence as proof of a complete run; operators rely on it as a restore-readiness signal:
 
 ```bash
+# nosec-extract
 # in the script under test:
 cp -R ... "$backup_dir/"          # phase 1
 echo "backup_created_at=$ts" > "$backup_dir/SUCCESS"   # phase 2 (last)
@@ -153,6 +154,7 @@ Redirect `HOME` (see above) so these tests cannot accidentally hit the operator'
 When asserting that a phrase is **absent** from output (or a fixture file), prefer the explicit quiet form:
 
 ```bash
+# nosec-extract
 # Correct: negate exit code AND silence matcher output
 run some-script
 [ "$status" -eq 0 ]

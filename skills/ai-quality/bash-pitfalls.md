@@ -12,6 +12,7 @@ Source incidents: a prior incident Phase 8 Step 1 (BUG #1, BUG #2 — both High,
 ### 1. `grep -F` makes EVERY meta character literal
 
 ```bash
+# nosec-extract
 # WRONG — `^` is treated as a literal caret, never matches line-start.
 grep -Fq "^${d} " "$file"
 
@@ -24,6 +25,7 @@ awk -v d="$d" '$1 == d { found=1; exit } END { exit !found }' "$file"
 ### 2. Boundary-alternation regex `(^|[[:space:]])X` — fails on the typical case
 
 ```bash
+# nosec-extract
 # WRONG — fails for the most common single-token line `server_name example.com;`.
 grep -E "^[[:space:]]*server_name[[:space:]].*(^|[[:space:]])${d}([[:space:]]|;|$)"
 
@@ -43,6 +45,7 @@ The `(^|[[:space:]])` boundary doesn't behave like `\b`: `^` matches only the ve
 ### 3. `${var}` interpolated into `sed`/`grep` is **regex**, not literal
 
 ```bash
+# nosec-extract
 # WRONG — `.` in $d matches any char; `example.com` ALSO matches `examplexcom`.
 sed -i "s|root /var/www/${d}|root /data/www/${d}|g" "$cfg"
 grep -q "root[[:space:]]\\+/var/www/${d}" "$cfg"
@@ -59,6 +62,7 @@ Strict input validation (e.g. domain charset `[a-z0-9.-]+\.[a-z]{2,}`) reduces e
 ### 4. `mysql … -p"$pass"` exposes the password to `ps`
 
 ```bash
+# nosec-extract
 # WRONG — visible in `ps -ef` to every user on a multi-tenant box.
 mysqldump -h"$h" -u"$user" -p"$pass" "$db"
 
@@ -93,6 +97,7 @@ mysqldump … | mysql …
 ### 6. Single-status smoke is too narrow for cutover regressions
 
 ```bash
+# nosec-extract
 # WRONG — only HTTP code; misses content / length / redirect-target shifts.
 post=$(curl -sw '%{http_code}\n' -o /dev/null -H "Host: $d" "$url")
 
@@ -161,6 +166,7 @@ A heredoc replaces the command's stdin entirely. Writing `interpreter - <<'EOF' 
 ### Trap
 
 ```bash
+# nosec-extract
 echo "$payload" | python3 - <<'PY'
 import sys
 data = sys.stdin.read()  # gets the heredoc body, NOT "$payload"
@@ -174,6 +180,7 @@ The pipe is silently ignored. Tests built around this pattern can pass for the w
 Pass payload via environment variable, read with `os.environ`:
 
 ```bash
+# nosec-extract
 PAYLOAD="$payload" python3 -c '
 import os
 data = os.environ["PAYLOAD"]
@@ -183,6 +190,7 @@ data = os.environ["PAYLOAD"]
 Or use a here-string for stdin alongside an inline `-c` script (no heredoc):
 
 ```bash
+# nosec-extract
 python3 -c 'import sys; data = sys.stdin.read()' <<<"$payload"
 ```
 

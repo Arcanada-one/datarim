@@ -40,6 +40,7 @@ Run a command on all (or selected) servers (relies on default
 prompt never fires; an unknown host fails fast in batch mode):
 
 ```bash
+# nosec-extract
 for host in <HOST_LIST>; do
   echo "=== $host ==="
   ssh -o BatchMode=yes -o ConnectTimeout=5 "deploy@$host" "<COMMAND>" 2>&1 | head -20

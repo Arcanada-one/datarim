@@ -186,6 +186,7 @@ runtime bind argument.
 Пример вызова из pipeline-команды:
 
 ```bash
+# nosec-extract
 decision=$(dev-tools/network-exposure-gate.sh \
     --task-description datarim/tasks/<TASK-ID>-task-description.md \
     --network-diff \
