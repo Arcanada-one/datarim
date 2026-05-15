@@ -21,6 +21,7 @@ A naive `grep -oE 'PATTERN' <(git diff)` matches inside file headers (`---`/`+++
 ## Canonical Filter — Real Additions/Removals Only
 
 ```bash
+# nosec-extract
 git diff -- "$file" \
   | grep -E '^[+-]' \
   | grep -vE '^(\+\+\+|---)' \

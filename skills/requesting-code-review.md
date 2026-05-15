@@ -28,6 +28,7 @@ Dispatch a code reviewer with isolated context to catch issues before they casca
 
 **1. Get git SHAs:**
 ```bash
+# nosec-extract
 BASE_SHA=$(git rev-parse HEAD~1)  # or origin/main
 HEAD_SHA=$(git rev-parse HEAD)
 ```
