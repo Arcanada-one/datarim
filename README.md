@@ -272,6 +272,17 @@ The scope list (`SCOPES=(agents skills commands templates)`) mirrors
 runtime. See [docs/getting-started.md](docs/getting-started.md#installer-contract)
 for the full installer contract.
 
+### Symlink-default operating model
+
+Since v1.17.0, `install.sh` defaults to **symlink** mode — the
+`symlink-default` operating model. It links
+`~/.claude/{agents,skills,commands,templates}/` into the cloned Datarim
+repo, so every `git pull` instantly refreshes runtime with no copy step
+and no drift. Copy mode (`install.sh --copy`) is the documented fallback
+for filesystems without symlink support (FAT, exFAT, Windows native
+without Developer Mode). See [`docs/symlinks.md`](docs/symlinks.md) for
+the full operating model, copy-mode migration recipe, and limitations.
+
 ### Windows (WSL / Git Bash)
 
 ```bash
@@ -777,7 +788,13 @@ at every step.
 
 2. **Propose** — Based on the reflection, the evolution skill generates concrete
    proposals: update a skill's instructions, adjust an agent's behavior, add a new
-   pattern to CLAUDE.md, modify complexity routing thresholds.
+   pattern to CLAUDE.md, modify complexity routing thresholds. For **Class B
+   proposals** (operating-model / contract-change), an entry is automatically
+   spawned in `backlog.md` so the change goes through a full `/dr-prd` →
+   `/dr-plan` → `/dr-do` review rather than landing as an inline tweak. The
+   reflection → propose → approval → log → backlog-spawn circuit is what keeps
+   the framework grounded in real usage; see [`skills/evolution.md`](skills/evolution.md)
+   for the Class A / Class B gate detail.
 
 3. **Approve** — Every proposal is presented to the human operator. Nothing changes
    without explicit approval. The human can accept, reject, or modify any proposal.
@@ -814,6 +831,37 @@ templates. `/dr-optimize` proposes cleanup — pruning unused components, mergin
 duplicates, fixing broken references. Together, they keep the framework growing in
 capability while staying lean in size. See the [Framework Optimization](#framework-optimization)
 section for details.
+
+---
+
+## Documentation
+
+Datarim documentation follows the [Diátaxis](https://diataxis.fr) taxonomy —
+four orthogonal categories: tutorials (learning), how-to guides
+(problem-solving), reference (lookup), explanation (understanding). The
+framework's own docs live in `docs/`; consumer projects bootstrap
+`docs/{tutorials,how-to,reference,explanation}/` per the Documentation
+Taxonomy Mandate (mandate text in the consumer's ecosystem CLAUDE.md;
+the contract surface ships with the framework as `skills/diataxis-docs.md`).
+
+### Reference docs
+
+- [`docs/getting-started.md`](docs/getting-started.md) — first-run tutorial and installer contract.
+- [`docs/commands.md`](docs/commands.md) — slash-command reference, including `/dr-verify` tri-layer self-verification.
+- [`docs/skills.md`](docs/skills.md), [`docs/agents.md`](docs/agents.md), [`docs/pipeline.md`](docs/pipeline.md) — runtime catalogues and pipeline flow.
+- [`docs/symlinks.md`](docs/symlinks.md) — symlink-default operating model, copy-mode fallback, migration recipe.
+- [`docs/standards-mapping.md`](docs/standards-mapping.md) — OWASP ASVS v5 / SOC 2 Common Criteria / ISO 27001 Annex A / CIS v8 control mapping, plus § SOC 2 Progress for the Q3 2026 Type II readiness roadmap.
+- [`docs/evolution-log.md`](docs/evolution-log.md), [`docs/release-process.md`](docs/release-process.md), [`docs/release-verification.md`](docs/release-verification.md) — provenance and supply-chain hardening.
+
+### SOC 2 baseline
+
+Datarim's 9-cluster security baseline (S1–S9) maps 9/9 to SOC 2 Common
+Criteria (CC6 / CC7 / CC8 / CC9). The framework is a dev-tool baseline,
+not an applicative SOC 2 control set — operational evidence collection
+remains the consumer project's responsibility. See
+[`docs/standards-mapping.md`](docs/standards-mapping.md) § SOC 2 Progress
+for covered controls, outstanding evidence, and the Q3 2026 Type II
+readiness roadmap.
 
 ---
 

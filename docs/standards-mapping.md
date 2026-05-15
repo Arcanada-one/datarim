@@ -89,6 +89,46 @@ Aggregate: every S* cluster has a non-empty mapping to at least three of the fou
 
 ---
 
+## SOC 2 Progress
+
+> **Status:** In progress toward SOC 2 Type II — target readiness Q3 2026.
+
+### Covered (9/9 baseline → SOC 2 Common Criteria)
+
+All 9 S-clusters (S1–S9) map to ≥1 SOC 2 Common Criterion in the table above:
+CC6 (Logical & Physical Access), CC7 (System Operations), CC8 (Change
+Management), CC9 (Risk Mitigation). The baseline is technical scaffolding —
+secure-by-default code, signed releases, drift detection, public-surface
+hygiene, network-exposure tiering.
+
+### Outstanding (operational evidence)
+
+Datarim is a **dev-tool baseline**, not an applicative SOC 2 control set.
+The following are outstanding and remain the consumer project's
+responsibility — not in scope of the framework:
+
+- Formal SOC 2 Type I readiness review (control-design walkthrough with an
+  external auditor) is outstanding; not yet scheduled.
+- Evidence-collection workflow (ticketing trail, access reviews, vendor
+  management register) is outstanding at the framework layer.
+- Operational artefacts also outstanding for consumer adoption: incident-
+  response runbooks, business-continuity / disaster-recovery exercises,
+  HR controls, vendor risk register.
+
+### Roadmap (Q3 2026 Type II readiness)
+
+- **Q2 2026:** finalise control-design mapping; close gaps where applicable
+  (e.g. structured audit-log retention with tamper-evidence).
+- **Q3 2026:** internal Type I readiness review; engage external auditor;
+  enter the Type II observation window.
+- **Q4 2026 / H1 2027:** Type II observation window completes; report issued.
+
+The framework provides the technical baseline; consumers running SOC 2
+audits provide the operational evidence trail. See
+[`README.md`](../README.md) § Documentation for the cross-link.
+
+---
+
 ## Limitations (transparent)
 
 Datarim S1–S9 baseline does **not** address:

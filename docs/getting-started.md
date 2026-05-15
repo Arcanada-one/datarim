@@ -151,6 +151,24 @@ The installer has a deliberately narrow contract — review a diff of `install.s
 
 **Drift between repo and runtime.** Under symlink mode, drift is impossible by definition — runtime IS the repo. `./scripts/check-drift.sh` exits 0 in that case (and is itself deprecated since v1.17, planned for removal in v1.18 along with `curate-runtime.sh`). Under copy mode, the script behaves as before.
 
+### SOC 2 baseline
+
+The framework's 9-cluster security baseline (S1–S9) maps 9/9 to SOC 2 Common
+Criteria (CC6 / CC7 / CC8 / CC9). See
+[`docs/standards-mapping.md`](standards-mapping.md) § SOC 2 Progress for the
+current coverage, outstanding evidence, and the Q3 2026 Type II readiness
+roadmap. Operational evidence collection (Type I review, vendor management,
+incident-response runbooks) remains the consumer project's responsibility —
+Datarim provides the technical scaffolding only.
+
+### Symlink-default operating model
+
+The default install mode is symlink (`install.sh` with no flags) — the
+`symlink-default` operating model since v1.17.0. Copy mode
+(`install.sh --copy`) is the documented fallback for filesystems without
+symlink support. See [`docs/symlinks.md`](symlinks.md) for the full operating
+model, copy-mode migration recipe, and limitations.
+
 ---
 
 ## Updating Datarim
