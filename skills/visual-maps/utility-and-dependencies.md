@@ -165,7 +165,7 @@ graph LR
     researcher_agent --> sys & research_wf & tech
 ```
 
-## New v2.8.0 Skills (TUNE-0210)
+## New v2.8.0 Skills
 
 Four operator-facing skills introduced in v2.8.0 augment the canonical agent ↔ skill graph above:
 
