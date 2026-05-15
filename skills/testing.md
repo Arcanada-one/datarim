@@ -107,6 +107,59 @@ Validating only the consumer half against synthetic events is a recurring trap: 
 
 ---
 
+## Self-Validating UI Assertions
+
+Existence assertions ("element renders any text", "counter is non-empty") pass even when the system under test is broken — they only catch the «nothing rendered at all» case. Prefer **self-validating** assertions that poll the *flipped* target state after the triggering interaction. Self-validation catches three failure modes in one shape:
+
+1. Nothing happened — old state still shown.
+2. Wrong thing happened — state changed to an unexpected value.
+3. Right thing eventually happened — the assertion times out only on real regressions, not on transient renders.
+
+Pattern (CDP-driven browser test runners like Playwright / Cypress / WebdriverIO):
+
+```
+await control.click()
+await expect.poll(() => readActualState()).toBe(targetState)
+```
+
+`readActualState` returns the *flipped* property of the control (a checkbox's checked-ness, a toggle's aria-pressed, a select's value), not "is text non-empty". `targetState` is the known opposite of the pre-click state. The poll budget is the same number the perf-budget AC declares (commonly 500-1000 ms for a single DOM commit).
+
+**Pitfall — native input vs ARIA attributes.** A native `<input type="checkbox">` does not set `aria-checked` (the attribute is meaningful only on `role="checkbox"` custom controls); query the native `checked` property instead. Component-library wrappers (MUI / Chakra / Mantine / etc.) vary — confirm by inspecting the rendered DOM once before authoring the spec, not after the spec flakes in CI.
+
+**Source.** A perf-budget assertion was first authored as «counter renders any text» and passed even when the toggle was visibly broken; rewriting it as «poll `isChecked()` against the flipped target» surfaced the regression class deterministically.
+
+**When to apply.** Any browser-driven E2E that asserts «interaction X commits state Y within budget Z». Skip for purely visual assertions (computed style audits, screenshot regression) — those are their own pattern.
+
+---
+
+## Defensive-Gate Path Enumeration
+
+When a diff introduces or modifies a defensive write-gate guarding a shared target (column, field, document property, in-memory key — any sink that more than one code path can write to), the gate is not safe in isolation. Enumerate every other writer in the surrounding scope that can land a value at the same key, and add one regression test per distinct writer-pair semantic.
+
+**Rule.** For each writer-pair (gate writer plus one other writer in scope), the regression test must seed the case where writer A produces a non-trivial value X and the gate writer B fires on the same key in the same pass. The assertion checks (a) the documented winner is written, (b) no silent clobber of the loser, (c) no false-fire on the gate's diagnostic emissions. A defensive gate accepted on single-writer coverage alone will silently overwrite the parallel writer's fresh value the first time the two paths converge in production.
+
+**Why this matters.** A silent operator-data-loss regression of this exact shape — gate writer unconditionally assigns into a shared key, the parallel writer's value lost — is invisible to any test that only exercises the gate's intended path. Single-writer coverage proves the gate fires; it does not prove the gate respects concurrent writers. The class is structurally invisible to per-method unit tests; only writer-pair tests catch it.
+
+**When to apply.** Any change to a write-gate, sanitizer, repair pass, or boundary-defence layer where two or more code paths in the same scope can write to the target key. Skip only when the gate's target key is provably write-once (e.g. immutable after first assignment, enforced by language or schema). Document the disjointness claim in a code comment so future readers can re-verify when the surrounding code shifts.
+
+**Where it lives in the diff.** Plan-time: enumerate writers in the implementation note before code. Code-time: add one spec block per writer-pair. Review-time: a reviewer scanning the diff should be able to read the writer-pair list and match each pair to a spec block.
+
+---
+
+## Stubbing Fidelity For Defensive-Gate Tests
+
+When writing a test for a defensive gate, identify every upstream layer (sanitizer, transform, boundary-defence pass, normaliser, validator) that would have already handled the defended-against state before the gate ran in production. Stub those layers to passthrough, not to reproduce the problematic state the gate is defending against.
+
+**Rule.** A defensive-gate test must exercise the gate against a realistic production-failure input — the shape that actually reaches the gate when an upstream layer is failing, absent, or out of date. If the test setup seeds the problematic state upstream of the gate, the test passes through layers that would have already normalised the input in production, and the gate is never genuinely exercised against the failure mode it is designed to catch.
+
+**Why this matters.** A test that seeds a residual literal at the top of an extraction chain and lets the production sanitizer strip it before the gate runs will pass without ever testing the gate. The gate could be removed entirely and the test would still pass. The failure mode the gate is designed to catch — residue surviving the sanitizer chain and arriving at the write boundary — only appears when the sanitizer-chain stub is passthrough, i.e. when the test reproduces the production-stuck shape, not the dev-happy-path shape.
+
+**When to apply.** Any unit test of a defensive gate (repair pass, write-boundary defence, normalisation guard) where one or more upstream layers in the production pipeline would have already handled the defended-against state. Stub each upstream layer to passthrough and seed the problematic value directly at the gate's input boundary. Skip when the gate has no upstream layers (the gate is the first stage in the pipeline); in that case the dev-happy-path input shape coincides with the prod-stuck shape.
+
+**How to identify the right stub layer.** Walk the call chain from request entry to the gate. List every transform that would touch the gate's input slot. Stub each transform to identity. Run the test once with the stubs in place and verify the gate's input matches the prod-stuck observation that motivated the gate's existence in the first place.
+
+---
+
 ## Discipline
 
 For test-first discipline (RED-GREEN-REFACTOR cycle, the Iron Law that no production code ships without a failing test first, the rationalization table that pre-answers "I'll test after / it's too simple / TDD is dogmatic"), load `skills/testing/tdd-discipline.md`. Apply when implementing any feature or bugfix in a context that warrants TDD — see the entry skill's Mocking Rules and § Live Smoke-Test Gates for what counts as a real test.

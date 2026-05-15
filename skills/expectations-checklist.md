@@ -126,6 +126,31 @@ _(empty on first write)_
 | `n-a` | item became inapplicable (scope changed, environment drift) | non-blocking |
 | `deleted` | operator dropped the wish (history retained) | non-blocking |
 
+### Numeric literals in success criteria
+
+Avoid hardcoded counts in success criteria when the count is derived from
+the codebase (skill count, line count, test count, file count). A literal
+number locks the AC to plan-time arithmetic and drifts when implementation
+revises the scope — for example, when a phase absorbs an unmerged branch
+and adds an extra artefact.
+
+Prefer one of two formulations:
+
+- **Formula.** «Counter X equals the number of files matching pattern Y
+  plus the agreed delta Z.» Verification is `find ... | wc -l` plus an
+  inline comparison, which stays correct under scope revisions.
+- **Re-derive at /dr-do time.** When the literal is genuinely required
+  (e.g. user-visible counter on a landing page), record the actual
+  implementation count in the expectations item's История статусов as a
+  one-line `stage: implementation-count` entry, and treat that line as
+  the authoritative target. PRD-side AC remains an estimate.
+
+Drift on a literal is recorded as «implemented with documented drift»
+rather than `missed`; the verify verdict still PASSes because operator
+intent (counter reflects new artefacts) is satisfied. Repeated occurrences
+of the same drift class across tasks indicate the AC was authored as a
+literal where a formula would have served.
+
 ## Mandatory read by pipeline commands
 
 After the file is created, every later pipeline command MUST read it and
