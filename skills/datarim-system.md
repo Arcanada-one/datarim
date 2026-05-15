@@ -199,6 +199,24 @@ pattern was canonicalised in v2 of the orchestrator plan (775-line plan, 436-lin
 431-line INSIGHTS) shipped end-to-end without ever reading the plan body
 into the main context, with zero V-AC misses.
 
+## Upstream API Audit Before Code Hardening
+
+When the question is «is THIS code generating bad data?» for an integration that ingests payloads from an external API with a queryable list endpoint, audit the upstream payload corpus FIRST — before adding instrumentation, hardening code, or another round of defensive coercion.
+
+**Steps.**
+
+1. Identify the upstream list endpoint and the field shapes the integration extracts (e.g. `custom_fields[*].some_array_field`).
+2. Paginate the relevant scope end-to-end with a single offline script. Authenticated read-only call; respect rate limits.
+3. For each item, classify the field shape against the «abnormal» pattern you are hardening against (bracketed string literal, wrapped object, type mismatch).
+4. If the count of abnormal payloads is **zero**, the bug class cannot be in the live ingest path. The residue source is downstream: orphan rows (records the API no longer returns), an external mutator (another writer to the same DB), or historical residue (pre-fix code state).
+5. If the count is **non-zero**, capture the matching payloads as test fixtures and replay through the ingest pipeline locally. The first reproducer dictates the fix.
+
+**Why this saves rounds.** A multi-round hardening sequence on the ingest code path is the natural reflex — but if upstream payloads are clean, every additional defensive layer is dead code by construction. One pagination scan over the full corpus rules out an entire bug class at the cost of an offline script, no rollout coordination, and no operator toll. Reserve cron-side / service-side instrumentation for cases where the audit confirms abnormal payloads exist.
+
+**When to apply.** L3+ tasks investigating «output column carries malformed data» against an integration whose source API exposes a queryable list endpoint. Skip when the upstream API only supports push-based delivery or when the abnormal-shape question can be answered cheaper from internal logs.
+
+---
+
 ## Runtime / Canonical Identity (symlink-default)
 
 Under the default install (v1.17.0+ symlink mode), `$HOME/.claude/{skills,agents,commands,templates}/{name}.md` and the corresponding `code/datarim/<scope>/{name}.md` in the cloned framework repo are **the same file** — same inode, same content, same writes. Verify with `stat -f %i <runtime-path> <repo-path>` (macOS) or `stat -c %i` (GNU); identical inode numbers confirm symlink-mode.
