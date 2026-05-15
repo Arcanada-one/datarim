@@ -21,6 +21,7 @@ Ensure work happens in an isolated workspace. Prefer your runtime's native workt
 **Before creating anything, check if you are already in an isolated workspace.**
 
 ```bash
+# nosec-extract
 GIT_DIR=$(cd "$(git rev-parse --git-dir)" 2>/dev/null && pwd -P)
 GIT_COMMON=$(cd "$(git rev-parse --git-common-dir)" 2>/dev/null && pwd -P)
 BRANCH=$(git branch --show-current)
@@ -102,6 +103,7 @@ Global directories (`~/.worktrees/`) need no per-repo ignore verification.
 #### Create the Worktree
 
 ```bash
+# nosec-extract
 project=$(basename "$(git rev-parse --show-toplevel)")
 
 # Determine path based on chosen location

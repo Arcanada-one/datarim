@@ -17,6 +17,7 @@ This guide walks you through installing the Datarim framework, initializing it i
 ### Quick start (symlink mode — default since v1.17.0)
 
 ```bash
+# nosec-extract
 git clone https://github.com/Arcanada-one/datarim.git
 cd datarim
 chmod +x install.sh
@@ -157,6 +158,7 @@ The installer has a deliberately narrow contract — review a diff of `install.s
 If you have Datarim installed and want to get the latest version:
 
 ```bash
+# nosec-extract
 cd /path/to/datarim              # your cloned repo
 ./update.sh                      # pull + verify — one command
 ```
@@ -173,6 +175,7 @@ Use `./update.sh --dry-run` to preview what would change without writing anythin
 Symlink mode:
 
 ```bash
+# nosec-extract
 cd /path/to/datarim
 git pull origin main
 ```
@@ -211,6 +214,7 @@ This file contains the framework rules that Claude Code reads on startup. The to
 Navigate to your project root and start Claude Code:
 
 ```bash
+# nosec-extract
 cd your-project
 claude
 ```

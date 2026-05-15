@@ -77,6 +77,7 @@ When QA / Compliance reports cite per-spec test counts (e.g. "added 28 tests" or
 Illustrative extractors (replace with whatever matches the project's test framework):
 
 ```bash
+# nosec-extract
 # JS/TS Jest/Mocha-style declaration syntax
 grep -cE '^[[:space:]]*(it|test)\(' <spec>
 

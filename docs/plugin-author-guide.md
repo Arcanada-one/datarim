@@ -167,6 +167,7 @@ All symlinks created by `dr-plugin` are verified to point inside the resolved pl
 You can test without polluting your production `~/.claude/local` tree.
 
 ```bash
+# nosec-extract
 export DR_PLUGIN_WORKSPACE=/tmp/test-workspace
 export DR_PLUGIN_RUNTIME_ROOT=/tmp/test-claude-local
 
