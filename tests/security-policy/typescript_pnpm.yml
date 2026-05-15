@@ -1,0 +1,14 @@
+# Caller-fixture: invokes the reusable security-audit workflow with the
+# typescript_pnpm stack profile. Drives `act --dryrun` for V-AC-9.
+name: caller-typescript-pnpm
+
+on:
+  workflow_dispatch:
+
+jobs:
+  audit:
+    uses: ./.github/workflows/reusable-security-audit.yml
+    with:
+      stack: typescript_pnpm
+      audit_level: high
+      accepted_risk_path: accepted-risk.yml
