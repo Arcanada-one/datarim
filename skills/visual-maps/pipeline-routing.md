@@ -108,7 +108,7 @@ graph LR
     style QA fill:#fbbf24,stroke:#d97706,color:#1f2937
 ```
 
-Three artefact nodes were introduced in v2.8.0 (TUNE-0210):
+Three artefact nodes were introduced in v2.8.0:
 
 - **`init-task`** — `datarim/tasks/{TASK-ID}-init-task.md`. Verbatim operator brief captured at `/dr-init`; appended (never overwritten) by the operator across the lifecycle. Read mandatorily by every pipeline command.
 - **`expectations`** — `datarim/tasks/{TASK-ID}-expectations.md`. Operator-readable wishlist of «what to verify after the work is done». Written at `/dr-prd` (or `/dr-plan` for L2 without PRD). Verified at `/dr-qa` and `/dr-compliance` via `dev-tools/check-expectations-checklist.sh --verify`.

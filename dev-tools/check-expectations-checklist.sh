@@ -382,7 +382,7 @@ verify_routing() {
 
     if [ "${#blocking[@]}" -gt 0 ]; then
         local focus
-        focus=$(IFS=,; echo "${blocking[*]}")
+        focus=$(IFS=,; echo "${blocking[*]}")  # nosemgrep: bash.lang.security.ifs-tampering.ifs-tampering
         echo "BLOCKED: ${#blocking[@]} expectation(s) require resolution"
         echo "Focus items: $focus"
         echo "Next step:   /dr-do $id --focus-items $focus"

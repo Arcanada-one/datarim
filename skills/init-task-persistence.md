@@ -1,6 +1,6 @@
 ---
 name: init-task-persistence
-description: Init-task artifact contract — verbatim operator brief + append-log, mandatory read by every pipeline command. Source of truth for operator intent across the task lifecycle.
+description: Init-task artefact: verbatim operator brief + append-log, mandatory read by every pipeline command. Source of truth for operator intent.
 runtime: [claude, codex]
 current_aal: 1
 target_aal: 2
@@ -42,7 +42,7 @@ captured_by: /dr-init         # literal — required
 operator: <name>              # operator identifier — required
 status: canonical             # canonical | amended — required (transitions on first append)
 source: /dr-init              # /dr-init | backlog — recommended
-source_backlog_ref: <ref>     # only when source: backlog (e.g. backlog.md#TUNE-0042)
+source_backlog_ref: <ref>     # only when source: backlog (e.g. backlog.md#<backlog-id>)
 ---
 ```
 
@@ -87,7 +87,7 @@ _(пусто на момент создания)_
 - **Append-only by convention.** Operators may delete or edit prior entries;
   the validator does not enforce that. The convention exists so reviewers can
   trust the log as a chronological record.
-- **One entry per amendment.** Each block starts with `### <ISO-8601 timestamp>
+- **One entry per amendment.** Each block starts with `### <ISO 8601 timestamp>
   — amendment by <author>` and lists the changes as plain prose or a
   short bullet list. No tables.
 - **Reading order.** Agents read the verbatim brief first, then every
@@ -180,7 +180,7 @@ follows the `### <ISO> — amendment by …` convention but uses a distinct
 marker so `grep` and the validator can tell the two apart.
 
 ```markdown
-### <ISO-8601 timestamp> — Q&A by /dr-<stage> (round <N>)
+### <ISO 8601 timestamp> — Q&A by /dr-<stage> (round <N>)
 
 **Question (verbatim, asked by <agent role>):**
 
