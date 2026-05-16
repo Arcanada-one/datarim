@@ -4,6 +4,25 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.11.0] — 2026-05-16
+
+**Agent autonomy restored on `/dr-init` and `/dr-archive`.** Symmetric revert of the operator-only contract introduced in 2.10.0: the `disable-model-invocation: true` frontmatter flag, the 🔒 lock-emoji in H1 and table rows, the Operator-only marker blockquote, the planner/compliance STOP-rule, the `cta-format.md § Operator-only commands` section, and the Mermaid `classDef operatorOnly` styling have all been removed on both commands per the FB-rules (Autonomous Agent Operating Rules) mandate. Structural guards — the `pre-archive-check.sh` schema gate + staged-diff audit at Step 0.1, the `datarim-doctor.sh --quiet` probe at `/dr-init` Step 2.4, the blob-swap recipe, the prefix → archive-subdir routing, and the Operator Handoff section template — remain enforced in code and are verified by a new regression bats.
+
+### Changed
+
+- `commands/dr-archive.md`, `commands/dr-init.md`: frontmatter flag removed; H1 dropped the 🔒 prefix and the «(Operator-only)» suffix; the Operator-only marker blockquote was rewritten as a neutral «Contract» blockquote that names the in-code guards.
+- `commands/dr-help.md`: the 🔒 badge and «operator-only (agents cannot invoke)» annotation removed from both pipeline-table rows.
+- `commands/dr-compliance.md`: Next-Steps CTA now points to plain `/dr-archive {TASK-ID}` without the operator-only sentence.
+- `agents/planner.md`, `agents/compliance.md`: the «Operator-only gates (STOP rule)» paragraphs were removed without replacement; agents now treat both lifecycle commands as regular slash commands invokable via the Skill tool.
+- `skills/cta-format.md`: the «Operator-only commands» section and the 🔒 badge convention were removed.
+- `skills/visual-maps/pipeline-routing.md`: the Mermaid `classDef operatorOnly`, the `class Init,Archive… operatorOnly` binding, and the node-colour legend paragraph were removed.
+- `docs/pipeline.md`: Stage 1 and Stage 8 headers dropped the 🔒 prefix and the «(operator-only)» suffix; the Operator-only blockquotes were removed.
+
+### Tests
+
+- `tests/operator-only-commands.bats` renamed to `tests/no-operator-only-on-init-archive.bats`; all 13 assertions inverted from «marker present» to «marker absent» so the same surfaces stay tracked and a red test fires if the operator-only contract drifts back in.
+- New `tests/init-archive-structural-guards.bats` (9 invariants) — asserts that `pre-archive-check.sh`, `datarim-doctor.sh`, PRE-ARCHIVE CLEAN-GIT CHECK header, blob-swap recipe, Archive Area Mapping, Operator Handoff section, STRUCTURAL COMPLIANCE CHECK and WORKSPACE CROSS-TASK HYGIENE CHECK references remain in place after the relaxation.
+
 ## [2.9.0] — 2026-05-14
 
 **Init-task Q&A auto-append.** Extends the v2.8.0 init-task persistence contract: every operator clarification round captured by a pipeline command now lands in `tasks/{TASK-ID}-init-task.md § Append-log` as a structured Q&A block. When the operator does not answer, the agent decides autonomously (FB-1..FB-5 of the Autonomous Agent Operating Rules) and records the rationale alongside the decision; `/dr-qa` Layer 3b verifies every agent-decision against the implementation and blocks the overall verdict on any unclosed cross-wish conflict.
