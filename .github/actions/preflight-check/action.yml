@@ -34,7 +34,19 @@ inputs:
   ops-bot-url:
     required: false
     default: https://ops.arcanada.one/events
-    description: Ops Bot events endpoint.
+    description: Ops Bot events endpoint. Validated against canonical allowlist in PROD trigger contexts (strict reject; non-PROD WARN-only).
+  ops-bot-key:
+    required: false
+    default: ""
+    description: Ops Bot Vault-issued API key. If empty, falls back to runner env OPSBOT_KEY. Explicit input eliminates the job-vs-step env-scope footgun.
+  severity-overrides:
+    required: false
+    default: ""
+    description: |
+      Optional JSON object of severity-threshold overrides, e.g. '{"min_free_disk_gb": 5}'. Schema-validated
+      via jq before export (object type, allowlisted keys, integer values). Each entry exported as
+      PREFLIGHT_<UPPERCASE_KEY>=value into $GITHUB_ENV for the downstream Run step. Empty ⇒ skip.
+      Allowlist: min_free_disk_gb, disk_warn_percent, disk_fail_percent, ram_warn_percent, ram_fail_percent, loadavg_fatal_multiplier.
 outputs:
   status:
     description: ok | warn | fail
@@ -51,6 +63,30 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Reject fork PR triggers
+      id: fork-guard
+      if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true
+      shell: bash
+      run: |
+        echo "ERR: preflight-check forbidden on fork PR (head.repo.fork=true)" >&2
+        exit 1
+    - name: Validate ops-bot-url against PROD allowlist
+      id: validate-url
+      if: inputs.ops-bot-emit == 'true'
+      shell: bash
+      env:
+        PREFLIGHT_OPS_BOT_URL: ${{ inputs.ops-bot-url }}
+        PREFLIGHT_IS_PROD_CONTEXT: ${{ github.event_name == 'push' && (endsWith(github.ref, '/main') || endsWith(github.ref, '/master') || contains(github.ref, '/release/')) }}
+      run: |
+        "${{ github.action_path }}/../../../dev-tools/preflight-validate-url.sh"
+    - name: Validate and export severity-overrides
+      id: validate-overrides
+      if: inputs.severity-overrides != ''
+      shell: bash
+      env:
+        PREFLIGHT_SEVERITY_OVERRIDES: ${{ inputs.severity-overrides }}
+      run: |
+        "${{ github.action_path }}/../../../dev-tools/preflight-validate-overrides.sh"
     - name: Run preflight checks
       id: run
       shell: bash
@@ -64,6 +100,7 @@ runs:
         PREFLIGHT_OPS_BOT_EMIT: ${{ inputs.ops-bot-emit }}
         PREFLIGHT_OPS_BOT_URL: ${{ inputs.ops-bot-url }}
         PREFLIGHT_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        OPSBOT_KEY: ${{ inputs.ops-bot-key != '' && inputs.ops-bot-key || env.OPSBOT_KEY }}
       run: |
         "${{ github.action_path }}/../../../dev-tools/preflight-check.sh"
     - name: Upload report

@@ -432,7 +432,7 @@ EOF
     grep -q "^status=fail$" "$GITHUB_OUTPUT"
 }
 
-@test "T26 e2e: warn-only exits 0, status=warn" {
+@test "T34 e2e: warn-only exits 0, status=warn" {
     mock_cmd_file df "$FIX/df-warn.txt"
     mock_cmd_file tailscale "$FIX/tailscale-ok.json"
     mock_cmd_file vault "$FIX/vault-ok.json"
@@ -450,4 +450,80 @@ EOF
     grep -q "^failures=0$" "$GITHUB_OUTPUT"
     warns=$(grep "^warnings=" "$GITHUB_OUTPUT" | cut -d= -f2)
     [ "$warns" -gt 0 ]
+}
+
+# ---------- INFRA-0201: action.yml input-validation hardening ----------
+#
+# T23a/T23b — ops-bot-url allowlist guard (PROD strict, non-PROD WARN)
+# T26-T29   — severity-overrides jq schema gate
+# T30       — ops-bot-key → OPSBOT_KEY env propagation (action.yml literal)
+#
+# Validation logic lives in dev-tools/preflight-validate-{url,overrides}.sh
+# (extracted from action.yml composite steps for testability).
+
+VAL_URL="$BATS_TEST_DIRNAME/../dev-tools/preflight-validate-url.sh"
+VAL_OVR="$BATS_TEST_DIRNAME/../dev-tools/preflight-validate-overrides.sh"
+ACTION_YML="$BATS_TEST_DIRNAME/../.github/actions/preflight-check/action.yml"
+
+@test "T23a ops-bot-url allowlist: PROD + canonical accepts (exit 0)" {
+    run env \
+        PREFLIGHT_OPS_BOT_URL=https://ops.arcanada.one/events \
+        PREFLIGHT_IS_PROD_CONTEXT=true \
+        bash "$VAL_URL"
+    [ "$status" -eq 0 ]
+}
+
+@test "T23b ops-bot-url allowlist: PROD + non-canonical rejects (exit 1)" {
+    run env \
+        PREFLIGHT_OPS_BOT_URL=https://evil.example.com/events \
+        PREFLIGHT_IS_PROD_CONTEXT=true \
+        bash "$VAL_URL"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"must match canonical"* ]]
+}
+
+@test "T26 severity-overrides: valid JSON exports PREFLIGHT_<KEY>=val to GITHUB_ENV" {
+    GITHUB_ENV_FILE="$TMPROOT/github_env"
+    : > "$GITHUB_ENV_FILE"
+    run env \
+        PREFLIGHT_SEVERITY_OVERRIDES="$(cat "$FIX/severity-overrides-valid.json")" \
+        GITHUB_ENV="$GITHUB_ENV_FILE" \
+        bash "$VAL_OVR"
+    [ "$status" -eq 0 ]
+    grep -q '^PREFLIGHT_MIN_FREE_DISK_GB=5$' "$GITHUB_ENV_FILE"
+    grep -q '^PREFLIGHT_DISK_WARN_PERCENT=75$' "$GITHUB_ENV_FILE"
+    grep -q '^PREFLIGHT_DISK_FAIL_PERCENT=85$' "$GITHUB_ENV_FILE"
+}
+
+@test "T27 severity-overrides: non-object JSON rejects (exit 1)" {
+    run env \
+        PREFLIGHT_SEVERITY_OVERRIDES="$(cat "$FIX/severity-overrides-non-object.json")" \
+        GITHUB_ENV=/dev/null \
+        bash "$VAL_OVR"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"must be a JSON object"* ]]
+}
+
+@test "T28 severity-overrides: non-allowlisted key rejects (exit 1)" {
+    run env \
+        PREFLIGHT_SEVERITY_OVERRIDES="$(cat "$FIX/severity-overrides-invalid-key.json")" \
+        GITHUB_ENV=/dev/null \
+        bash "$VAL_OVR"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"not in allowlist"* ]]
+}
+
+@test "T29 severity-overrides: non-integer value rejects (exit 1)" {
+    run env \
+        PREFLIGHT_SEVERITY_OVERRIDES='{"min_free_disk_gb": 5.5}' \
+        GITHUB_ENV=/dev/null \
+        bash "$VAL_OVR"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"must be integer"* ]]
+}
+
+@test "T30 ops-bot-key: action.yml declares input + env-override expression" {
+    [ -f "$ACTION_YML" ]
+    grep -qE '^  ops-bot-key:' "$ACTION_YML"
+    grep -qE 'OPSBOT_KEY: \$\{\{ inputs\.ops-bot-key != .. && inputs\.ops-bot-key \|\| env\.OPSBOT_KEY \}\}' "$ACTION_YML"
 }
