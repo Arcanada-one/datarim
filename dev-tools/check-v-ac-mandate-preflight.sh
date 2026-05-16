@@ -117,7 +117,7 @@ while IFS=$'\t' read -r line_no line_text; do
     [ -z "$line_no" ] && continue
     candidate_count=$((candidate_count + 1))
     for pattern in "${patterns[@]}"; do
-        if printf '%s' "$line_text" | grep -E -q -- "$pattern"; then
+        if printf '%s' "$line_text" | grep -E -q -- "$pattern" 2>/dev/null; then
             excerpt="${line_text:0:120}"
             printf 'WARNING: %s:%s: V-AC text matches mandate pattern «%s»: %s\n' \
                 "$prd_basename" "$line_no" "$pattern" "$excerpt"
