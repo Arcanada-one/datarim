@@ -1,12 +1,11 @@
 ---
 name: dr-init
 description: Initialize a new Datarim task or scaffold a new project. Auto-detects intent from prompt context.
-disable-model-invocation: true
 ---
 
-# 🔒 /dr-init — Initialize New Task or Project (Operator-only)
+# /dr-init — Initialize New Task or Project
 
-> **🔒 Operator-only command.** The `disable-model-invocation: true` flag in the frontmatter above hides this command from the Skill tool enumeration by design — agents cannot invoke it. This is intentional: initialisation creates `datarim/` (only this command may), wires prefix→subdir mapping, and selects task IDs that propagate through the whole pipeline. If an agent reaches a state where a new task should be opened, it MUST stop and surface a slash-CTA to the operator (e.g. `**рекомендуется** /dr-init {DESCRIPTION}`) rather than spawning a subagent to create files manually — manual paths skip the structural compliance probe (Step 2.4), workspace cross-task hygiene check (Step 2.5), and PRD-waiver gate.
+> **Contract.** Initialisation is the only command that may create `datarim/`, wires prefix → archive-subdir mapping, and selects task IDs that propagate through the rest of the pipeline. The structural compliance probe (Step 2.4 — `datarim-doctor.sh --quiet`), the workspace cross-task hygiene check (Step 2.5), and the PRD-waiver gate are enforced in code, independent of how the command is invoked. Prefer the canonical slash form (`/dr-init {DESCRIPTION}`) over manually creating `datarim/` artefacts: the slash command threads through every guard described in this file; ad-hoc paths skip them.
 
 **Role**: Planner Agent (Initial)
 **Source**: `$HOME/.claude/agents/planner.md`

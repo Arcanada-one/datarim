@@ -66,7 +66,7 @@ After verdict, the compliance agent MUST emit a CTA block per `$HOME/.claude/ski
 
 **Routing logic for `/dr-compliance`:**
 
-- COMPLIANT or COMPLIANT_WITH_NOTES → primary `/dr-archive 🔒 {TASK-ID}` — **operator-only** (the Skill tool does not enumerate it by design). Surface as slash-CTA for the operator to invoke from the TTY; MUST NOT attempt `Skill(/dr-archive)`, MUST NOT spawn a subagent to "do the archive manually" — manual paths skip the schema gate, staged-diff audit, prefix→subdir mapping, and Operator-Handoff section. See `skills/cta-format.md` § Operator-only commands.
+- COMPLIANT or COMPLIANT_WITH_NOTES → primary `/dr-archive {TASK-ID}` (reflection runs internally as Step 0.5).
 - NON-COMPLIANT, PRD/task alignment gap → primary `/dr-prd {TASK-ID}` (FAIL-Routing Layer 1; update requirements, resume forward)
 - NON-COMPLIANT, expectations BLOCKED → primary `/dr-do {TASK-ID} --focus-items <wish_ids>` (FAIL-Routing Layer 3b; resolve operator-expectation misses listed by the validator, then re-run `/dr-qa` and `/dr-compliance` — new report gets `-v2` suffix)
 - NON-COMPLIANT, code/test/lint/CI issues → primary `/dr-do {TASK-ID}` (FAIL-Routing Layer 4; fix, re-run `/dr-compliance` — new report gets `-v2` suffix)

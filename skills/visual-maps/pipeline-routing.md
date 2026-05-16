@@ -32,9 +32,6 @@ graph TD
     QA4 --> Comp4["/dr-compliance"]
     Comp4 --> Archive4["/dr-archive<br>(Step 0.5: reflect)"]
 
-    classDef operatorOnly fill:#7c2d12,stroke:#ff6b35,stroke-width:3px,color:white
-    class Init,Archive1,Archive2,Archive3,Archive4 operatorOnly
-
     style L1 fill:#10b981,stroke:#059669,color:white
     style L2 fill:#f59e0b,stroke:#d97706,color:white
     style L3 fill:#f97316,stroke:#ea580c,color:white
@@ -42,8 +39,6 @@ graph TD
 ```
 
 Brackets `[]` indicate stages that are conditional at that complexity level. `/dr-archive` always runs **Step 0.5 reflection** internally (non-skippable, mandatory since v1.10.0); this is not shown as a separate pipeline node because it cannot be skipped.
-
-**Node colour legend:** the dark-orange-outlined nodes (`/dr-init`, `/dr-archive`) are **operator-only** commands — their frontmatter carries `disable-model-invocation: true` and they are intentionally invisible to the Skill tool. Agents must surface them as slash-CTAs for the operator and MUST NOT attempt to invoke them via Skill or via a subagent dispatched to do the work manually. See `skills/cta-format.md` § Operator-only commands.
 
 ## CTA Decision Points (v1.16.0)
 
