@@ -1099,3 +1099,36 @@ None (TUNE-0091's currently-failing tests will surface organically on its PR via
 ### In-flight Scope Addition (folded into `/dr-do` framework commit)
 
 - **`skills/security-baseline.md` doc-refs.** 3 references to relocated `documentation/archive/security/findings-2026-04-28.md` updated to workspace path. Required to keep `check-doc-refs.sh` green after relocation. Direct consequence of Step 9 — not a scope expansion. Lesson → Class A 1 (above).
+
+---
+
+## 2026-05-16 — CONN-0103 STT Phase 1b multi-provider cascade
+
+### Class A (APPLIED, Pavel approved 2026-05-16)
+
+- **File:** `Areas/Architecture/internal-http-patterns.md` + `~/arcanada/CLAUDE.md` § Internal HTTP Integration Patterns (ecosystem-canonical, NOT Datarim runtime).
+- **Class:** A (claude-md-update + ecosystem-doc-update)
+- **What:** Rule 6 — «Error envelope shape-symmetry across multi-error families». Multi-error codes одного семейства MUST экспонировать shared semantic field во ВСЕХ codes с каноническим default empty value (`[]` для arrays, `null` для optional scalars); НЕ conditional / undefined.
+- **Why:** QA v1 on a child task of an STT cascade epic flagged asymmetric envelope (`providers_tried` present in one code, omitted in another) — consumer reads field unconditionally, conditional surface produces runtime TypeError or inline fallback in every call site. Reference impl: Model Connector PR landed 2026-05-16 (controller mapper exposes `details.providers_tried` for both `stt_budget_exhausted` and `stt_all_providers_exhausted`).
+- **Stack-agnostic gate:** N/A — file lives in `Areas/Architecture/` (Arcanada-specific Obsidian vault); ecosystem-canonical surface, not Datarim runtime. CLAUDE.md update mirrors the rule to project-root canonical instructions.
+- **Approved:** Pavel, 2026-05-16.
+
+### Class A (ATTEMPTED, reverted by runtime hook — re-spawned as follow-up TUNE-*)
+
+- **File:** `Projects/Datarim/code/datarim/commands/dr-plan.md` § Symbol Existence Check sub-section.
+- **Class:** A (command-update)
+- **What:** New bullet — «V-Plan grep-text case-sensitivity audit (MANDATORY when V-Plan / Validation row uses literal grep against an append-log / markdown heading / status word)». Trigger heuristic on common headline words (partial, closure, pending, done, met, missed, deferred) → suggest case-insensitive flag or quote exact heading from source-of-truth.
+- **Why:** Recurring narrow defect class: literal-case grep returns 0 against capital-first heading, semantic match exists — wastes a QA failure-routing cycle on a non-defect.
+- **Inline apply outcome:** Edit applied successfully (bats `task-id-gate.bats` T12 passed at the time), then auto-reverted by a runtime hook (working tree returned to HEAD state, `git diff` empty). Root cause TBD — possibly history-agnostic gate post-edit catch or coworker-guard policy on commands/* direct edits. **Net runtime state: unchanged** (zero diff from HEAD).
+- **Resolution:** Spawned as backlog `TUNE-* V-Plan grep validator with case-insensitivity warning` (P3 L1) — proper task supervision will land the edit with full pre/post checks, identify the reverting hook, and gate the bullet against framework's history-agnostic gate.
+- **Approved:** Pavel, 2026-05-16 (operator selected both «Apply inline» and «Spawn TUNE-*» as parallel options; latter now sole carrier).
+
+### Class B (HELD — pending PRD draft)
+
+- **Pattern: Partial Milestone Closure** for AAL Mandate. Parent task `§ Append-log` carries «Partial M{N} closure через {CHILD-ID}» entry с разложением ✓ closed / ✗ deferred + cross-link на closing task; AAL bump frontmatter применяется ТОЛЬКО когда последний component shipped. Reference impl: ecosystem parent task append-log shipped 2026-05-16. Class B because changes AAL Mandate operational semantics (multi-task milestone tracking, parent/child responsibility split). Backlog spawn: `PRD-AAL-* Partial Milestone Closure Pattern` (P3 L1, prerequisite).
+
+### Follow-Up Tasks (spawned per operator approval)
+
+1. `TUNE-* V-Plan grep validator + case-insensitivity warning` (Class A pending; replaces the auto-reverted inline apply).
+2. `PRD-AAL-* Partial Milestone Closure Pattern` (Class B prerequisite for the AAL Mandate amendment).
+3. `TUNE-* /dr-doctor --fix workspace activeContext schema-drift cleanup` (pre-existing legacy `## Last Completed` section blocks `pre-archive-check` schema gate without `--no-schema-check`).
