@@ -1527,3 +1527,14 @@ Source: `documentation/archive/framework/archive-TUNE-0183.md` § Lessons Learne
 - **Class B (none for this archive).**
 - **Health-metrics**: skills 41 → 42, commands 22, agents 18 — thresholds not exceeded; `/dr-optimize` not auto-suggested.
 - **Provenance**: reflection `datarim/reflection/reflection-TUNE-0183.md` + archive `documentation/archive/framework/archive-TUNE-0183.md` + framework commit pending (this session, `scope: TUNE-0183 evolution-apply`).
+
+## 2026-05-17 — ARAS-0005 PRD-ARAS-0001 § 6.5 CancellationToken path correction (Class A applied)
+
+Source: `documentation/archive/arcana-agent-system/archive-ARAS-0005.md` § Lessons Learned + `reflection-ARAS-0005.md` § Evolution Proposals. Class A approved at archive-time (low-risk 1-line doc fix).
+
+- **Proposal 1 — claude-md-update (applied):** `datarim/prd/PRD-ARAS-0001.md` § 6.5 line 372 — `tokio::sync::CancellationToken` → `tokio_util::sync::CancellationToken`. `CancellationToken` lives in `tokio_util::sync` (crate `tokio-util`), not `tokio::sync`. Stop-the-bleed correction so ARAS-0006 (Permission system Layer 2 = pre_tool hook) downstream reader cites the canonical crate path. Stack-agnostic gate N/A (PRD is project-specific document, not framework runtime).
+- **Proposal 2 — skill-update (pending spawn):** new `TUNE-*` backlog item — extend `/dr-plan` Step 11 Live Audit Checkpoint Rust recipe with `cargo deny check licenses` alongside `cargo audit --deny warnings`. Reason: ARAS-0005 plan added `directories = 6`, transitive `option-ext` (MPL-2.0); `cargo audit` advisory-only, license-policy mismatch surfaced at /dr-do `cargo deny check licenses` step. Plan-time check closes the gap. Stack-agnostic gate PASS (formulation about «package-manager-native license checker», rephrasable across pnpm/pip/cargo/gem).
+- **Proposal 3 — skill-update (pending spawn):** new `TUNE-*` backlog item — coworker draft type-signature mirror guard в `code/datarim/skills/coworker-delegation.md` (or `dr-plan.md` § coworker write spec rules). Reason: coworker first draft § Overview для ARAS-0005 фабриковал `&mut PostHookContext` signature, `HashMap<String, Value>` variants, `sha256` algorithm — surgical-edit pass на /dr-plan fixed all, но прошло surface через /dr-init. Memory `feedback_coworker_draft_fabrication` covers phantom artefacts (PODs, releases), не type signature drift. Stack-agnostic gate PASS.
+- **Class B (none for this archive).**
+- **Health-metrics**: no skill/agent/command count changes; thresholds not exceeded; `/dr-optimize` not warranted.
+- **Provenance**: reflection `datarim/reflection/reflection-ARAS-0005.md` + archive `documentation/archive/arcana-agent-system/archive-ARAS-0005.md` (to be written by `/dr-archive` Step 2) + PRD diff one line in `datarim/prd/PRD-ARAS-0001.md`. Project commit `fb883d8` on branch `aras-0005-hooks` (`Arcanada-one/arcana-agent-system`).
