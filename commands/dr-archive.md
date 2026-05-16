@@ -1,12 +1,11 @@
 ---
 name: dr-archive
 description: Archive completed task with comprehensive documentation and Datarim updates
-disable-model-invocation: true
 ---
 
-# 🔒 /dr-archive — Archive Task (Operator-only)
+# /dr-archive — Archive Task
 
-> **🔒 Operator-only command.** The `disable-model-invocation: true` flag in the frontmatter above hides this command from the Skill tool enumeration by design — agents cannot invoke it. This is intentional: archival performs irreversible workspace mutations (blob-swap, foreign-hunk audit prefix→subdir routing, Operator-Handoff section) and requires operator authorisation each time. If an agent reaches a lifecycle gate that needs archival, it MUST stop and surface a slash-CTA to the operator (e.g. `**рекомендуется** /dr-archive {TASK-ID}`) rather than spawning a subagent to perform the archive manually — manual paths skip the schema gate, staged-diff audit (Step 0.1), and canonical archive placement, all of which the slash command enforces.
+> **Contract.** Archival performs irreversible workspace mutations — schema-gate validation of the thin-index files, staged-diff audit of foreign task-ID hunks, blob-swap recipe for non-interactive shells, prefix → archive-subdir routing, and the mandatory Operator Handoff section in the archive document. All of these protections are enforced in code (`pre-archive-check.sh`, `datarim-doctor.sh`, and the steps below), independent of how the command is invoked. Prefer the canonical slash form (`/dr-archive {TASK-ID}`) over manually staging archive files: the slash command threads through every guard described in this file; ad-hoc paths skip them.
 
 Complete and archive current task.
 
