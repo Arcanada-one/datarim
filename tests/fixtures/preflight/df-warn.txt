@@ -1,0 +1,4 @@
+Filesystem     1024-blocks      Used  Available Capacity Mounted on
+/dev/sda2        209715200 174483456   35231744      83% /
+/dev/sdb1        524288000 461373440   62914560      88% /var/lib/docker
+/dev/sdc1        209715200 174483456   35231744      83% /srv/apps

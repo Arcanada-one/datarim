@@ -1,0 +1,76 @@
+name: Pre-deploy Preflight Check
+description: Validate target host health before deploy; block on FATAL, emit Ops Bot warning/fatal events
+author: Arcanada-one
+inputs:
+  target-host:
+    required: true
+    description: Logical host name (arcana-prod, arcana-ai, etc) — used in metric keys and Ops Bot meta.
+  service-name:
+    required: true
+    description: Service name being deployed (opsbot, auth-arcana, etc).
+  min-free-disk-gb:
+    required: false
+    default: "2"
+    description: Minimum free disk GB on key paths.
+  disk-warn-percent:
+    required: false
+    default: "80"
+    description: Disk-used percentage triggering WARN.
+  disk-fail-percent:
+    required: false
+    default: "90"
+    description: Disk-used percentage triggering FATAL (block deploy).
+  extra-checks:
+    required: false
+    default: |
+      vault
+      tailscale
+      time-skew
+    description: Newline-separated optional checks (vault, tailscale, time-skew, docker-pressure, ram-swap, loadavg, health-pre-probe).
+  ops-bot-emit:
+    required: false
+    default: "true"
+    description: Emit warning/fatal events to Ops Bot.
+  ops-bot-url:
+    required: false
+    default: https://ops.arcanada.one/events
+    description: Ops Bot events endpoint.
+outputs:
+  status:
+    description: ok | warn | fail
+    value: ${{ steps.run.outputs.status }}
+  report-path:
+    description: Path to JSON report artifact
+    value: ${{ steps.run.outputs.report-path }}
+  warnings:
+    description: Number of warnings
+    value: ${{ steps.run.outputs.warnings }}
+  failures:
+    description: Number of FATAL failures
+    value: ${{ steps.run.outputs.failures }}
+runs:
+  using: composite
+  steps:
+    - name: Run preflight checks
+      id: run
+      shell: bash
+      env:
+        PREFLIGHT_TARGET_HOST: ${{ inputs.target-host }}
+        PREFLIGHT_SERVICE_NAME: ${{ inputs.service-name }}
+        PREFLIGHT_MIN_FREE_DISK_GB: ${{ inputs.min-free-disk-gb }}
+        PREFLIGHT_DISK_WARN_PERCENT: ${{ inputs.disk-warn-percent }}
+        PREFLIGHT_DISK_FAIL_PERCENT: ${{ inputs.disk-fail-percent }}
+        PREFLIGHT_EXTRA_CHECKS: ${{ inputs.extra-checks }}
+        PREFLIGHT_OPS_BOT_EMIT: ${{ inputs.ops-bot-emit }}
+        PREFLIGHT_OPS_BOT_URL: ${{ inputs.ops-bot-url }}
+        PREFLIGHT_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: |
+        "${{ github.action_path }}/../../../dev-tools/preflight-check.sh"
+    - name: Upload report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: preflight-report-${{ inputs.service-name }}-${{ inputs.target-host }}
+        path: ${{ steps.run.outputs.report-path }}
+        if-no-files-found: warn
+        retention-days: 7
