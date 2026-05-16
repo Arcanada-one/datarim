@@ -1516,3 +1516,14 @@ None (TUNE-0091's currently-failing tests will surface organically on its PR via
 - **Class B (HELD, PRD-gated)**: B1 `/dr-do` phase-completion version-bump gate (re-run `version-consistency-check.sh` inside `/dr-do` when phase touches `VERSION` — catches «claimed updated, actually not» earlier than `/dr-archive`); B2 `/dev/fd/` process-substitution path handling в `check-topic-overlap.py` (silent-skip vs stdin-alias contract decision).
 - **Health-metrics**: skills 41, commands 22 + 1 plugin, agents 18 — thresholds not exceeded; `/dr-optimize` not auto-suggested.
 - **Provenance**: reflection `Projects/Datarim/datarim/reflection/reflection-TUNE-0202.md` + compliance report `Projects/Datarim/datarim/reports/compliance-report-TUNE-0202.md` + framework commits `f11a2b3` (feat) + `604e12c` (refactor) + `76fb48a` (CLAUDE.md version fix) + site commit `7489123`.
+
+## 2026-05-16 — TUNE-0183 V-AC-axis-split skill (Class A applied)
+
+Source: `documentation/archive/framework/archive-TUNE-0183.md` § Lessons Learned + `reflection-TUNE-0183.md` § Evolution Proposals. Class A approved by operator 2026-05-16.
+
+- **Proposal 1 — skill-update (applied):** new skill `skills/v-ac-axis-split.md` (≤30 lines body) documenting pattern: when a V-AC group mixes deterministic axis (rule match / shape check / type assertion) and statistical axis (live-rate threshold / SLA percentile / soak distribution), split upfront into two V-AC groups. Loaded by `/dr-prd` (V-AC drafting) and `/dr-plan` (V-AC review). Stack-agnostic gate PASS (formulation about PRD/Plan workflow, not stack).
+- **Proposal 2 — claude-md-update (applied):** added one-line cross-link in `code/datarim/CLAUDE.md` § Skills (after `human-summary.md` entry) referencing the new skill with citation to TUNE-0183 V-AC-14.11 reclassification as the canonical reference case.
+- **Class A scope applied minimally:** skill file + CLAUDE.md cross-link + this evolution-log entry. Full TUNE-0090 public-surface sync (`docs/skills.md` count update + `README.md` skill mention + `datarim.club/data/skills/v-ac-axis-split.php` EN+RU page + bats test in `tests/`) deferred to follow-up TUNE-* per asymmetric-drift detector contract.
+- **Class B (none for this archive).**
+- **Health-metrics**: skills 41 → 42, commands 22, agents 18 — thresholds not exceeded; `/dr-optimize` not auto-suggested.
+- **Provenance**: reflection `datarim/reflection/reflection-TUNE-0183.md` + archive `documentation/archive/framework/archive-TUNE-0183.md` + framework commit pending (this session, `scope: TUNE-0183 evolution-apply`).
