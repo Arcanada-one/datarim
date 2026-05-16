@@ -4,6 +4,19 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.11.1] — 2026-05-16
+
+**Advisory V-AC pre-flight against ecosystem mandates.** `/dr-prd` Step 5 (pre-save validation gates) gains a third bullet that runs `dev-tools/check-v-ac-mandate-preflight.sh` against the draft PRD. The script extracts V-AC / Verification / Success Criteria lines and greps each against `dev-tools/public-surface-forbidden.regex` (the same contract surface consumed by `public-surface-lint.sh`). On match — advisory `WARNING:` line on stdout; the gate is non-blocking (always exits 0). Surfaces a V-AC ↔ Public Surface Hygiene conflict at PRD-time, not later in the pipeline.
+
+### Added
+
+- `dev-tools/check-v-ac-mandate-preflight.sh` — pure-bash advisory linter. Args: `--prd FILE` (required), `--regex FILE` (default sibling contract surface), `--report`, `--help`. Exit codes: 0 = scan complete, 2 = usage error. No mutation, no network, no `eval`.
+- `commands/dr-prd.md` Step 5 — third pre-save bullet "V-AC ecosystem-mandate alignment" wired into the existing two-bullet gate sequence.
+
+### Tests
+
+- `tests/tune-0228-prd-v-ac-mandate-preflight.bats` — eight scenarios: forbidden literal in V-AC (exit 0 + WARNING), forbidden literal in `reflection-*` form, safe V-AC content (silent), PRD without Success Criteria section (silent no-op), missing PRD path (exit 2), missing regex path (exit 2), forbidden literal outside V-AC scope (silent), consumer-extended regex via `--regex` override (WARNING — proves contract surface reuse).
+
 ## [2.11.0] — 2026-05-16
 
 **Agent autonomy restored on `/dr-init` and `/dr-archive`.** Symmetric revert of the operator-only contract introduced in 2.10.0: the `disable-model-invocation: true` frontmatter flag, the 🔒 lock-emoji in H1 and table rows, the Operator-only marker blockquote, the planner/compliance STOP-rule, the `cta-format.md § Operator-only commands` section, and the Mermaid `classDef operatorOnly` styling have all been removed on both commands per the FB-rules (Autonomous Agent Operating Rules) mandate. Structural guards — the `pre-archive-check.sh` schema gate + staged-diff audit at Step 0.1, the `datarim-doctor.sh --quiet` probe at `/dr-init` Step 2.4, the blob-swap recipe, the prefix → archive-subdir routing, and the Operator Handoff section template — remain enforced in code and are verified by a new regression bats.
