@@ -4,6 +4,36 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ---
 
+## 2026-05-17 — CONN-0098 — `skills/testing.md` § Reporting Test Counts extended to commit messages (Class A)
+
+### Class A Applied
+
+- **`code/datarim/skills/testing.md` § Reporting Test Counts in Audit Output** — appended paragraph explicitly extending the mechanical-extractor contract to commit-message bodies. Recommended canonical form for commit-message test deltas: `tests: +N (baseline→total)`, both numbers produced by the extractor against pre/post revisions. Source incident: a CONN-0098 commit body cited «13 new spec cases (sub-totals 7+3+6)» where the sub-totals themselves sum to 16, and «Full suite: N passed (was K)» where K was off by 3 against actual pre-commit baseline. The rule already covered audit docs / QA reports but did not explicitly mention commit messages — git history is part of the durable audit trail too, and post-push rewrites are destructive.
+
+### Stack-agnostic gate
+
+`scripts/stack-agnostic-gate.sh --diff-only skills/testing.md` → **PASS** (clean).
+
+### Bats regression
+
+Pre-edit fail count = 2 (`368: no skill description exceeds 155 chars`, `470: T11: skills/ scope is gate-clean`). Post-edit fail count = 2 (same two tests; both pre-existing, not caused by this change). Verified via stash/restore cycle on the same revision.
+
+### Class B Held
+
+- **`Projects/Model Connector/CLAUDE.md` § Plan LoC estimate calibration** — tightening to require reference-by-name in plan text on every spec-LoC estimate over 30 LoC, with `/dr-qa` Layer 3 auto-flag for missing reference. Consumer-side `CLAUDE.md` operating-model change, not Datarim framework runtime; held pending operator review on the Model Connector side per `skills/evolution.md` § Operating-Model Gate.
+
+### Health-metrics
+
+Skills ~80 / agents 22 / commands 24 / templates ~25 — all under thresholds; no `/dr-optimize` suggestion emitted.
+
+### Provenance
+
+- Reflection: `Projects/Datarim/datarim/reflection/reflection-CONN-0098.md` § Evolution Proposals → Proposal 1
+- Archive: `documentation/archive/connectors/archive-CONN-0098.md`
+- Commit: `66b55b5` (main) — `scope: CONN-0098 evolution-apply — testing.md § Reporting Test Counts extended to commit messages (Class A)`
+
+---
+
 ## 2026-05-13 — CONN-0096 — Public Surface Hygiene Mandate cross-link + lint contract surface
 
 ### Class A Applied
