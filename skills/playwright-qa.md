@@ -1,6 +1,6 @@
 ---
 name: playwright-qa
-description: Browser-based QA contract for frontend-touching tasks — resolution chain CLI→MCP→env-browser, headed/headless modes, artifact layout under datarim/qa/.
+description: Browser-based QA contract for frontend tasks — resolution chain CLI→MCP→env-browser, headed/headless modes, artifact layout under datarim/qa/.
 runtime: [claude, codex]
 current_aal: 1
 target_aal: 2
