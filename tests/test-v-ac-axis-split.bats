@@ -68,10 +68,17 @@ EXPECTATIONS="${REPO_ROOT}/skills/expectations-checklist.md"
     [ "$status" -eq 0 ]
 }
 
+# <!-- gate:example-only -->
+# The grep pattern below intentionally enumerates stack-agnostic-gate
+# denylist terms as a regression-test proxy. Wrapped in the gate's
+# example-only escape hatch (skills/evolution/stack-agnostic-gate.md) so
+# the gate itself does not flag this test's pattern as stack-specific.
 @test "skill body has no stack-specific terms (stack-agnostic proxy)" {
     run grep -iE "nestjs|npm install|pnpm install|prisma|fastapi|cargo build|vitest" "$SKILL"
     [ "$status" -ne 0 ]
 }
+# <!-- /gate:example-only -->
+
 
 # ---------- public-surface fanout (TUNE-0090) ----------
 
