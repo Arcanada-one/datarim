@@ -224,3 +224,15 @@ expectations file lives at `datarim/tasks/{TASK-ID}-expectations.md` of the
 framework workspace; `/dr-qa` and `/dr-compliance` invoked on that task
 exercise the verify-routing path against the contract itself before the
 rest of the framework adopts it.
+
+## Related skills
+
+See also `skills/v-ac-axis-split.md` for V-AC group composition rule
+(deterministic vs statistical axis separation). When drafting success
+criteria, identify whether each axis is rule-based (deterministic — single
+bats assertion or grep evidence) or rate-based (statistical — threshold over
+a measurement window with sample size and confidence interval). Mixing the
+two in one wish item masks which axis is the actual uncertainty source and
+yields false confidence at `/dr-qa` time. Split early; cite the measurement
+window for statistical criteria; cite the assertion evidence for
+deterministic criteria.

@@ -127,6 +127,7 @@ Skills are reusable knowledge modules loaded on demand. They provide rules, patt
 - `expectations-checklist.md` — Operator wishlist artefact (Option B flat markdown) — wish_id slug + История статусов + Текущий статус + override semantics. Written at PRD/PLAN, verified at QA/COMPLIANCE.
 - `playwright-qa.md` — Browser-based frontend QA contract — CLI / MCP / env-browser resolution chain + headed / headed-strict modes + per-task flock lock + run-{ISO-ts}/ artefact layout. Loaded by `/dr-qa` Layer 4f on frontend touch.
 - `human-summary.md` — Plain-language operator recap (`/dr-qa`, `/dr-compliance`, `/dr-archive` Step 8) — four sub-sections + banlist + whitelist + per-paragraph escape hatch + 150–400 word budget.
+- `v-ac-axis-split.md` — V-AC group axis-split pattern: when group mixes deterministic axis (rule match / shape check / type assertion) and statistical axis (live-rate threshold / SLA percentile / soak distribution), split upfront into two V-AC groups (loaded by: /dr-prd V-AC drafting, /dr-plan V-AC review). Source: TUNE-0183 V-AC-14.11 reclassification.
 
 Skill files: `$HOME/.claude/skills/{name}.md` (45 skills, 10 with supporting fragment directories)
 
