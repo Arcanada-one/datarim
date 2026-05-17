@@ -91,6 +91,8 @@ grep -cE '^func Test' <spec>
 
 If the audit cites a count that does not match the extractor output for the same revision, treat that as a finding (drift between operator memory and source-of-truth). Source: prior incident — a per-spec count off-by-one in a QA report was caught only by independent re-execution at Compliance.
 
+**Commit messages are part of the audit trail too.** When a commit-message body cites added test counts (e.g. `Tests: N new spec cases` or `Full suite: M passed (was K)`), the numbers MUST come from the same mechanical extractor, not operator memory. Commit messages persist in git history and become the durable record once the branch is pushed; rewriting them after push is destructive (force-push) and after merge is impossible. The recommended canonical form for commit-message test deltas is `tests: +N (baseline→total)`, both numbers produced by running the extractor against the pre-commit and post-commit revisions. Source: prior incident — a commit body cited «13 new spec cases (sub-totals 7+3+6)» where the sub-totals themselves summed to 16, and «Full suite: N passed (was K)» where K was off by 3; both arithmetic mistakes surfaced only at the next pipeline gate. Two-second arithmetic checks belong in the extractor pipeline, not in the operator's head.
+
 ---
 
 ## Producer-Side Smoke Verification for Verdict Gates
