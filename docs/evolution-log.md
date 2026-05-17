@@ -1526,7 +1526,7 @@ Source: `documentation/archive/framework/archive-TUNE-0183.md` § Lessons Learne
 - **Class A scope applied minimally:** skill file + CLAUDE.md cross-link + this evolution-log entry. Full TUNE-0090 public-surface sync (`docs/skills.md` count update + `README.md` skill mention + `datarim.club/data/skills/v-ac-axis-split.php` EN+RU page + bats test in `tests/`) deferred to follow-up TUNE-* per asymmetric-drift detector contract.
 - **Class B (none for this archive).**
 - **Health-metrics**: skills 41 → 42, commands 22, agents 18 — thresholds not exceeded; `/dr-optimize` not auto-suggested.
-- **Provenance**: reflection `datarim/reflection/reflection-TUNE-0183.md` + archive `documentation/archive/framework/archive-TUNE-0183.md` + framework commit pending (this session, `scope: TUNE-0183 evolution-apply`).
+- **Provenance**: reflection `datarim/reflection/reflection-TUNE-0183.md` + archive `documentation/archive/framework/archive-TUNE-0183.md` + framework commit `cdce669` (`scope: TUNE-0183 evolution-apply — v-ac-axis-split skill (Class A)`, local-only, push deferred to operator).
 
 ## 2026-05-17 — ARAS-0005 PRD-ARAS-0001 § 6.5 CancellationToken path correction (Class A applied)
 
