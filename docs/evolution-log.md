@@ -1516,3 +1516,25 @@ None (TUNE-0091's currently-failing tests will surface organically on its PR via
 - **Class B (HELD, PRD-gated)**: B1 `/dr-do` phase-completion version-bump gate (re-run `version-consistency-check.sh` inside `/dr-do` when phase touches `VERSION` — catches «claimed updated, actually not» earlier than `/dr-archive`); B2 `/dev/fd/` process-substitution path handling в `check-topic-overlap.py` (silent-skip vs stdin-alias contract decision).
 - **Health-metrics**: skills 41, commands 22 + 1 plugin, agents 18 — thresholds not exceeded; `/dr-optimize` not auto-suggested.
 - **Provenance**: reflection `Projects/Datarim/datarim/reflection/reflection-TUNE-0202.md` + compliance report `Projects/Datarim/datarim/reports/compliance-report-TUNE-0202.md` + framework commits `f11a2b3` (feat) + `604e12c` (refactor) + `76fb48a` (CLAUDE.md version fix) + site commit `7489123`.
+
+## 2026-05-16 — TUNE-0183 V-AC-axis-split skill (Class A applied)
+
+Source: `documentation/archive/framework/archive-TUNE-0183.md` § Lessons Learned + `reflection-TUNE-0183.md` § Evolution Proposals. Class A approved by operator 2026-05-16.
+
+- **Proposal 1 — skill-update (applied):** new skill `skills/v-ac-axis-split.md` (≤30 lines body) documenting pattern: when a V-AC group mixes deterministic axis (rule match / shape check / type assertion) and statistical axis (live-rate threshold / SLA percentile / soak distribution), split upfront into two V-AC groups. Loaded by `/dr-prd` (V-AC drafting) and `/dr-plan` (V-AC review). Stack-agnostic gate PASS (formulation about PRD/Plan workflow, not stack).
+- **Proposal 2 — claude-md-update (applied):** added one-line cross-link in `code/datarim/CLAUDE.md` § Skills (after `human-summary.md` entry) referencing the new skill with citation to TUNE-0183 V-AC-14.11 reclassification as the canonical reference case.
+- **Class A scope applied minimally:** skill file + CLAUDE.md cross-link + this evolution-log entry. Full TUNE-0090 public-surface sync (`docs/skills.md` count update + `README.md` skill mention + `datarim.club/data/skills/v-ac-axis-split.php` EN+RU page + bats test in `tests/`) deferred to follow-up TUNE-* per asymmetric-drift detector contract.
+- **Class B (none for this archive).**
+- **Health-metrics**: skills 41 → 42, commands 22, agents 18 — thresholds not exceeded; `/dr-optimize` not auto-suggested.
+- **Provenance**: reflection `datarim/reflection/reflection-TUNE-0183.md` + archive `documentation/archive/framework/archive-TUNE-0183.md` + framework commit `cdce669` (`scope: TUNE-0183 evolution-apply — v-ac-axis-split skill (Class A)`, local-only, push deferred to operator).
+
+## 2026-05-17 — ARAS-0005 PRD-ARAS-0001 § 6.5 CancellationToken path correction (Class A applied)
+
+Source: `documentation/archive/arcana-agent-system/archive-ARAS-0005.md` § Lessons Learned + `reflection-ARAS-0005.md` § Evolution Proposals. Class A approved at archive-time (low-risk 1-line doc fix).
+
+- **Proposal 1 — claude-md-update (applied):** `datarim/prd/PRD-ARAS-0001.md` § 6.5 line 372 — `tokio::sync::CancellationToken` → `tokio_util::sync::CancellationToken`. `CancellationToken` lives in `tokio_util::sync` (crate `tokio-util`), not `tokio::sync`. Stop-the-bleed correction so ARAS-0006 (Permission system Layer 2 = pre_tool hook) downstream reader cites the canonical crate path. Stack-agnostic gate N/A (PRD is project-specific document, not framework runtime).
+- **Proposal 2 — skill-update (pending spawn):** new `TUNE-*` backlog item — extend `/dr-plan` Step 11 Live Audit Checkpoint Rust recipe with `cargo deny check licenses` alongside `cargo audit --deny warnings`. Reason: ARAS-0005 plan added `directories = 6`, transitive `option-ext` (MPL-2.0); `cargo audit` advisory-only, license-policy mismatch surfaced at /dr-do `cargo deny check licenses` step. Plan-time check closes the gap. Stack-agnostic gate PASS (formulation about «package-manager-native license checker», rephrasable across pnpm/pip/cargo/gem).
+- **Proposal 3 — skill-update (pending spawn):** new `TUNE-*` backlog item — coworker draft type-signature mirror guard в `code/datarim/skills/coworker-delegation.md` (or `dr-plan.md` § coworker write spec rules). Reason: coworker first draft § Overview для ARAS-0005 фабриковал `&mut PostHookContext` signature, `HashMap<String, Value>` variants, `sha256` algorithm — surgical-edit pass на /dr-plan fixed all, но прошло surface через /dr-init. Memory `feedback_coworker_draft_fabrication` covers phantom artefacts (PODs, releases), не type signature drift. Stack-agnostic gate PASS.
+- **Class B (none for this archive).**
+- **Health-metrics**: no skill/agent/command count changes; thresholds not exceeded; `/dr-optimize` not warranted.
+- **Provenance**: reflection `datarim/reflection/reflection-ARAS-0005.md` + archive `documentation/archive/arcana-agent-system/archive-ARAS-0005.md` (to be written by `/dr-archive` Step 2) + PRD diff one line in `datarim/prd/PRD-ARAS-0001.md`. Project commit `fb883d8` on branch `aras-0005-hooks` (`Arcanada-one/arcana-agent-system`).
