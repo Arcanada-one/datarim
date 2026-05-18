@@ -139,7 +139,7 @@ Found: Jest (from package.json devDependencies and existing test files in __test
 
 Before proposing a port number or infra-level value, verify against existing allocations:
 
-- **Ports:** check the project's port-allocation memory or infra doc (e.g. `reference_port_allocation.md` in auto-memory, or `Areas/Infrastructure/Servers.md`). Port-conflict surprises late in deploy are expensive to unwind.
+- **Ports:** check the project's port-allocation memory or infra doc (e.g. `reference_port_allocation.md` in auto-memory, or `documentation/infrastructure/Servers.md`). Port-conflict surprises late in deploy are expensive to unwind.
 - **Subdomains:** check DNS records via `dig` or the project's DNS inventory before proposing new subdomain.
 - **Database names / schemas / namespaces:** check the project's existing resources before proposing a new one.
 
