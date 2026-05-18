@@ -22,10 +22,12 @@ Guide completion of development work by presenting clear options and handling ch
 
 **Before presenting options, verify tests pass:**
 
+<!-- gate:example-only -->
 ```bash
 # Run project's test suite
 npm test / cargo test / pytest / go test ./...
 ```
+<!-- /gate:example-only -->
 
 **If tests fail:**
 ```
