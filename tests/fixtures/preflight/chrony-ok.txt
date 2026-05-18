@@ -1,0 +1,13 @@
+Reference ID    : C0248F8A (ntp.example.com)
+Stratum         : 2
+Ref time (UTC)  : Sun May 10 17:00:00 2026
+System time     : 0.000123456 seconds slow of NTP time
+Last offset     : -0.000045678 seconds
+RMS offset      : 0.000123000 seconds
+Frequency       : 0.123 ppm slow
+Residual freq   : -0.001 ppm
+Skew            : 0.456 ppm
+Root delay      : 0.012345 seconds
+Root dispersion : 0.001234 seconds
+Update interval : 64.0 seconds
+Leap status     : Normal
