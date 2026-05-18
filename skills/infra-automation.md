@@ -27,7 +27,7 @@ Reusable patterns for SSH-based operations across Arcana servers.
 > **Bootstrap once** (Datarim § Security Mandate S1, host-key verification):
 > add the host key to `~/.ssh/known_hosts` on the operator machine before any
 > batch SSH automation. Document the exact bootstrap event in
-> `Areas/Infrastructure/known-hosts-rotation.md`.
+> `documentation/infrastructure/known-hosts-rotation.md`.
 >
 > ```bash
 > for host in <HOST_LIST>; do

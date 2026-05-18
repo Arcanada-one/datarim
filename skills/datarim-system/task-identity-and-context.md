@@ -64,10 +64,10 @@ When a pipeline command needs a task ID, apply this logic:
 - `## Archived Tasks` table (one row per archived task)
 
 **Prohibited content** — must go to dedicated files:
-- Credentials, secrets, access policies → `Areas/Credentials/`
+- Credentials, secrets, access policies → `documentation/credentials/`
 - Specification templates, conventions → `skills/` or `docs/`
 - Audit reports → `datarim/docs/` or `documentation/`
-- Infrastructure runbooks → `Areas/Infrastructure/`
+- Infrastructure runbooks → `documentation/infrastructure/`
 - Code blocks > 50 lines → external file with link
 
 ### File Size Guards

@@ -232,7 +232,7 @@ Source: https://docs.syncthing.net/users/ignoring.html
 
 Если ты исключил `/Projects/*/code` из sync, нужен alternate update mechanism для второй ноды:
 
-1. **Cron `git pull` script** — рекомендую `Areas/Infrastructure/scripts/arcanada-pull.sh` pattern:
+1. **Cron `git pull` script** — рекомендую `documentation/infrastructure/scripts/arcanada-pull.sh` pattern:
    - `git fetch` upstream
    - skip if local==remote
    - skip if branch ≠ main/master (агент в feature ветке)
@@ -259,7 +259,7 @@ Source: https://docs.syncthing.net/users/ignoring.html
 
 ## Related
 
-- `Areas/Architecture/file-sync-policy.md` (ADR) — vault-level convention для Arcanada ecosystem
-- `Areas/Infrastructure/Syncthing.md` — Syncthing deployment runbook
-- `Areas/Infrastructure/scripts/arcanada-pull.sh` — git-pull cron с CLI Claude conflict resolver
+- `documentation/architecture/file-sync-policy.md` (ADR) — vault-level convention для Arcanada ecosystem
+- `documentation/infrastructure/Syncthing.md` — Syncthing deployment runbook
+- `documentation/infrastructure/scripts/arcanada-pull.sh` — git-pull cron с CLI Claude conflict resolver
 - `templates/cli-conflict-resolver-prompt.md` — reusable Claude promp для conflict resolution
