@@ -40,7 +40,7 @@ Quick fixes do not need research. Skip entirely.
 | 7 | **Security Advisories** | Known CVEs, npm/pip advisories, GitHub security alerts for dependencies. | WebSearch (`"CVE" + library name`) | Full |
 | 8 | **RAG/LTM Context** | Query Scrutator LTM API for relevant experience from past tasks. | `POST /v1/ltm/recall` (if MCP/API available) | Full |
 | 9 | **Existing Codebase** | Search project for reusable components, established patterns, similar implementations. | Grep, Glob, Read | Full, Lite |
-| 10 | **Infrastructure Constraints** | Check server resources, port allocation, disk/memory limits, network topology. | Read (`Areas/Infrastructure/Servers.md`, port allocation memory) | Full |
+| 10 | **Infrastructure Constraints** | Check server resources, port allocation, disk/memory limits, network topology. | Read (`documentation/infrastructure/Servers.md`, port allocation memory) | Full |
 
 ---
 
