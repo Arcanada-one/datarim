@@ -2,10 +2,9 @@
 # Datarim Framework Updater
 # Updates an existing installation to the latest version from GitHub.
 #
-# Behaviour by runtime topology (v1.17.0, TUNE-0033):
+# Behaviour by runtime topology:
 #   - symlink mode (default): git pull only — runtime IS the repo.
-#   - copy    mode:           git pull + ./install.sh --copy --force --yes
-#                             + ./scripts/check-drift.sh --quiet (verify)
+#   - copy    mode:           git pull + ./install.sh --copy --force --yes.
 #
 # Usage:
 #   ./update.sh              # update to latest
@@ -51,8 +50,8 @@ Usage:
 
 Steps performed:
   1. git pull origin main
-  2. ./install.sh --force --yes (overwrite ~/.claude/ with latest)
-  3. Verify sync with check-drift.sh
+  2. Symlink mode: nothing more — runtime IS the repo.
+  3. Copy mode:    ./install.sh --copy --force --yes (overwrite ~/.claude/).
 
 To install for the first time, use ./install.sh instead.
 USAGE
@@ -110,9 +109,9 @@ else
 fi
 echo ""
 
-# --- Symlink mode short-circuit (v1.17.0 TUNE-0033 AC-6) --------------------
+# --- Symlink mode short-circuit ---------------------------------------------
 # Under symlink topology runtime IS the repo: git pull above already updated
-# the runtime. Skip the install + verify steps, exit cleanly.
+# the runtime. Skip the install step, exit cleanly.
 if [ "$RUNTIME_MODE" = "symlink" ]; then
     if [ "$DRY_RUN" = false ]; then
         echo "Symlink mode: install step not needed (runtime IS repo)."
@@ -128,23 +127,8 @@ fi
 echo "Installing to ~/.claude/..."
 if [ "$DRY_RUN" = true ]; then
     echo "(dry-run: install skipped — run without --dry-run to apply)"
-    echo ""
-    echo "Files that would be updated:"
-    "$SCRIPT_DIR/scripts/check-drift.sh" 2>/dev/null || true
 else
     "$SCRIPT_DIR/install.sh" --copy --force --yes 2>&1
-fi
-
-echo ""
-
-# --- Step 3: verify ---------------------------------------------------------
-
-if [ "$DRY_RUN" = false ]; then
-    if "$SCRIPT_DIR/scripts/check-drift.sh" --quiet 2>/dev/null; then
-        echo "Verified: runtime and repo are in sync."
-    else
-        echo "WARNING: drift detected after install. Run ./scripts/check-drift.sh for details."
-    fi
 fi
 
 echo ""

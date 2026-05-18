@@ -15,7 +15,7 @@
 2. Extract the body text verbatim. Strip the surrounding `<system-reminder>...</system-reminder>` wrapping; keep the inner markdown.
 3. Validate the extracted content: check frontmatter opens with `---` / closes with `---`, sections are intact, no truncation markers (`... (truncated`).
 4. Write back with the Write tool to `$HOME/.claude/{agents,skills,commands,templates}/<name>.md`.
-5. Curate runtime → repo via selective `cp`, then `scripts/check-drift.sh` to verify in-sync state.
+5. Under symlink mode the write IS the commit-ready edit (runtime IS the repo by inode); under copy mode rebuild the runtime via `./install.sh --copy --force --yes` after committing the repo copy.
 
 **Limits:**
 

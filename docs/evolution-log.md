@@ -4,6 +4,22 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ---
 
+## 2026-05-18 — TUNE-0251 — Final removal of copy-mode helper scripts (v2.12.0)
+
+Removed `scripts/curate-runtime.sh` + `scripts/check-drift.sh` along with their regression bats coverage (`tests/check-drift.bats`, `tests/curate-runtime.bats`, `tests/deprecation-banners.bats`). Both scripts were DEPRECATED in v1.17.0 when the symlink-default operating model landed — under symlink topology runtime IS the repo by inode, so the parallel drift-detection and curation helpers no longer carried operational value. Copy-mode users keep `git pull && ./install.sh --copy --force --yes` as the canonical resync recipe.
+
+Six documentation surfaces cleaned of references: `docs/getting-started.md` § Updating + § Drift; `docs/symlinks.md` § How install.sh detects support + § Migration + § Verification; `README.md` § Drift check renamed to § Verifying the install with `./validate.sh` as the canonical command; `skills/datarim-system.md` Loading order copy-mode paragraph; `skills/utilities/recovery.md` Step 5 recovery recipe; `skills/testing/bats-and-spec-lint.md` static-grep exemplar + Exemplar reference. Project-level CLAUDE.md + README.md in `Projects/Datarim/` mirrored.
+
+`update.sh` simplified: drops the post-install verify step and the dry-run drift listing. Symlink mode exits early after `git pull` (unchanged contract); copy mode runs `install.sh --copy --force --yes` only. Help text + step-list synchronised. `install.sh` INSTALL_SCOPES comment anchors the scope contract to `tests/install.bats T34/T35/T36`.
+
+Class: maintenance / chore. No new behaviour, no new tests required beyond the removed regression set. Reversible via `git revert`.
+
+**ID re-allocation note.** Originally reserved as TUNE-0044 in v1.17.0 release notes; the ID was reused on 2026-04-29 for the multi-agent workspace archive-semantics task (PRD approved, archived, this log § 2026-04-29). Re-allocated at `/dr-do` entry to TUNE-0251 (next free; highest used = TUNE-0250 on 2026-05-18) to preserve `grep -E 'TUNE-0044'` audit-trail unambiguity. Decision audit in `datarim/tasks/TUNE-0251-init-task.md` § Append-log Round 1.
+
+Reflection deferred to `/dr-archive` Step 0.5.
+
+---
+
 ## 2026-05-17 — CONN-0098 — `skills/testing.md` § Reporting Test Counts extended to commit messages (Class A)
 
 ### Class A Applied

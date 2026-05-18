@@ -107,7 +107,7 @@ After skill creation, the skill-creator agent MUST emit a CTA block per `$HOME/.
 **Routing logic for `/dr-addskill`:**
 
 - New skill needs testing → primary "ask user to invoke and review output" + alternative `/dr-qa {TASK-ID}` if part of TUNE task
-- Updating Datarim source → primary "update counts in CLAUDE.md, README.md, dr-help.md" + reminder to curate via `scripts/curate-runtime.sh`
+- Updating Datarim source → primary "update counts in CLAUDE.md, README.md, dr-help.md" + reminder to `git diff` and commit in the canonical repo
 - Need more domain expertise → alternative `/dr-prd {TASK-ID}` (research-phase) before iterating
 - Always include `/dr-status` as escape hatch
 

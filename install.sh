@@ -50,7 +50,7 @@ DATARIM_INSTALL_YES="${DATARIM_INSTALL_YES:-}"
 DATARIM_FORCE_UNAME="${DATARIM_FORCE_UNAME:-}"
 DATARIM_MIGRATION_CHOICE="${DATARIM_MIGRATION_CHOICE:-}"
 
-# Install scopes — must match scripts/check-drift.sh SCOPES (AC-3).
+# Install scopes — canonical list, asserted by tests/install.bats T34/T35/T36.
 # v1.20.0 (TUNE-0077): scripts and tests added — uniform whole-directory symlink
 # semantics. Eliminates drift between canonical Datarim repo and ~/.claude/
 # runtime (a 730-LoC rogue datarim-doctor.sh placed directly into ~/.claude/

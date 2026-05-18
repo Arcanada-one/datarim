@@ -2,7 +2,7 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 2.9.0](https://img.shields.io/badge/Version-2.11.0-green.svg)](VERSION)
+[![Version: 2.12.0](https://img.shields.io/badge/Version-2.12.0-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Arcanada-one/datarim/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Arcanada-one/datarim)
 
@@ -221,7 +221,7 @@ back into this repo so the next person who clones it gets the current state.
    this happens through `/dr-archive` Step 0.5 after a task surfaces a lesson.
 2. After the human approves the change, commit it in this repository by
    copying the updated file from `~/.claude/` into the repo tree.
-3. Run `./scripts/check-drift.sh` to confirm runtime and repo match.
+3. Run `./validate.sh` to confirm runtime symlinks point at the repo.
 4. Bump `VERSION` if the change is significant enough to warrant a release.
 
 `install.sh` is for seeding a fresh machine — it installs this repo's content
@@ -251,25 +251,20 @@ Merge mode — copies agents, skills, commands, templates, and supporting
 subdirectories into `~/.claude/`, skipping any file that already exists. Safe
 to run on a system that already has customizations.
 
-### Drift check
+### Verifying the install
 
 ```bash
-./scripts/check-drift.sh
+./validate.sh
 ```
 
-Advisory — compares `~/.claude/` against the repo across agents, skills,
-commands, and templates. Shows files that differ or exist on only one side.
-Useful for spotting **curation candidates**: files where `~/.claude/` has
-evolved beyond the repo snapshot and may be ready to land upstream.
+Verifies that `~/.claude/{agents,skills,commands,templates}/` resolve to the
+canonical Datarim repo (symlink mode) or contain the expected fileset (copy
+mode). Under symlink topology drift is impossible by construction — runtime
+IS the repo by inode.
 
-Exits `0` if no drift, `1` if drift found (normal — most living systems
-diverge), `2` on error. Exit `1` is not a failure; it is a prompt to review
-what has changed.
-
-The scope list (`SCOPES=(agents skills commands templates)`) mirrors
-`install.sh INSTALL_SCOPES` exactly; dev-tooling directories (`scripts/`,
-`tests/`) are deliberately excluded because they are not distributed to
-runtime. See [docs/getting-started.md](docs/getting-started.md#installer-contract)
+The scope list lives in `install.sh INSTALL_SCOPES`; dev-tooling directories
+(`scripts/`, `tests/`, `dev-tools/`) are deliberately excluded because they
+are not distributed to runtime. See [docs/getting-started.md](docs/getting-started.md#installer-contract)
 for the full installer contract.
 
 ### Symlink-default operating model

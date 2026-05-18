@@ -1,14 +1,14 @@
 # install_fixture.bash
-# Shared setup for install.bats and check-drift.bats tests (TUNE-0004).
+# Shared setup for install.bats and adjacent topology tests.
 #
 # Builds a minimal fake repo under $BATS_TEST_TMPDIR/fake-repo/ that mirrors
 # the real framework layout (4 install scopes + VERSION + install.sh) and a
 # clean fake CLAUDE_DIR under $BATS_TEST_TMPDIR/fake-claude/.
 #
-# The real install.sh and check-drift.sh under test are copied in at setup
-# time — each test is isolated. HOME is redirected to a tmpdir so that any
-# accidental fallback to "$HOME/.claude" cannot touch the operator's real
-# runtime (defense in depth, Law 1).
+# The real install.sh under test is copied in at setup time — each test is
+# isolated. HOME is redirected to a tmpdir so that any accidental fallback to
+# "$HOME/.claude" cannot touch the operator's real runtime (defense in depth,
+# Law 1).
 
 REPO_ROOT="$(cd "${BATS_TEST_DIRNAME}/.." && pwd)"
 
@@ -42,15 +42,10 @@ SH
     # Copy scripts under test.
     cp "$REPO_ROOT/install.sh" "$FAKE_REPO/install.sh"
     chmod +x "$FAKE_REPO/install.sh"
-
-    if [ -f "$REPO_ROOT/scripts/check-drift.sh" ]; then
-        cp "$REPO_ROOT/scripts/check-drift.sh" "$FAKE_REPO/scripts/check-drift.sh"
-        chmod +x "$FAKE_REPO/scripts/check-drift.sh"
-    fi
 }
 
-# TUNE-0033: copy update.sh, validate.sh, curate-runtime.sh into FAKE_REPO.
-# Called separately so existing tests (that don't need these) stay light.
+# Copy update.sh + validate.sh into FAKE_REPO. Called separately so existing
+# tests (that don't need these) stay light.
 setup_full_scripts() {
     if [ -f "$REPO_ROOT/update.sh" ]; then
         cp "$REPO_ROOT/update.sh" "$FAKE_REPO/update.sh"
@@ -59,10 +54,6 @@ setup_full_scripts() {
     if [ -f "$REPO_ROOT/validate.sh" ]; then
         cp "$REPO_ROOT/validate.sh" "$FAKE_REPO/validate.sh"
         chmod +x "$FAKE_REPO/validate.sh"
-    fi
-    if [ -f "$REPO_ROOT/scripts/curate-runtime.sh" ]; then
-        cp "$REPO_ROOT/scripts/curate-runtime.sh" "$FAKE_REPO/scripts/curate-runtime.sh"
-        chmod +x "$FAKE_REPO/scripts/curate-runtime.sh"
     fi
     # validate.sh greps CLAUDE.md for skill names — provide a minimal one
     # mentioning all fixture file basenames so warnings stay quiet.

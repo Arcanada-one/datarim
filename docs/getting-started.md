@@ -130,7 +130,7 @@ The installer has a deliberately narrow contract — review a diff of `install.s
 
 **Repo-only** (intentionally NOT installed):
 
-- `scripts/` — dev tooling (`check-drift.sh`, `pre-archive-check.sh`, `curate-runtime.sh` — both `check-drift` and `curate-runtime` are deprecated since v1.17 and will be removed in v1.18, TUNE-0044). These run from the cloned repo.
+- `scripts/` — dev tooling (`pre-archive-check.sh`, `datarim-doctor.sh`, `version-consistency-check.sh`, ...). These run from the cloned repo.
 - `tests/` — bats tests for the repo's own scripts.
 - `install.sh`, `update.sh`, `validate.sh`, `VERSION`, `CLAUDE.md`, `README.md`, `LICENSE` — repo artefacts.
 
@@ -149,7 +149,7 @@ The installer has a deliberately narrow contract — review a diff of `install.s
 | `1` | Migration aborted, `--force` declined, or non-TTY without `--yes` |
 | `2` | Invalid arguments, or `CLAUDE_DIR` sanity guard tripped |
 
-**Drift between repo and runtime.** Under symlink mode, drift is impossible by definition — runtime IS the repo. `./scripts/check-drift.sh` exits 0 in that case (and is itself deprecated since v1.17, planned for removal in v1.18 along with `curate-runtime.sh`). Under copy mode, the script behaves as before.
+**Drift between repo and runtime.** Under symlink mode drift is impossible by definition — runtime IS the repo (same inode). Under copy mode resync is `git pull && ./install.sh --copy --force --yes`.
 
 ### SOC 2 baseline
 
@@ -178,13 +178,13 @@ If you have Datarim installed and want to get the latest version:
 ```bash
 # nosec-extract
 cd /path/to/datarim              # your cloned repo
-./update.sh                      # pull + verify — one command
+./update.sh                      # pull + (copy-mode) reinstall — one command
 ```
 
 `update.sh` branches on the runtime topology it detects:
 
 - **Symlink mode (default):** runs `git pull origin main` and exits. The runtime is the repo, so the pull IS the install.
-- **Copy mode:** `git pull origin main` then `./install.sh --copy --force --yes` then `./scripts/check-drift.sh --quiet`.
+- **Copy mode:** `git pull origin main` then `./install.sh --copy --force --yes`.
 
 Use `./update.sh --dry-run` to preview what would change without writing anything.
 
@@ -203,7 +203,6 @@ Copy mode:
 ```bash
 git pull origin main
 ./install.sh --copy --force      # overwrites all (backup taken on live system)
-./scripts/check-drift.sh         # verify sync (deprecated, removal v1.18)
 ```
 
 ### What stays unchanged
