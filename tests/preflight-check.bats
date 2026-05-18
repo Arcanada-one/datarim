@@ -67,19 +67,33 @@ EOF
     chmod +x "$MOCK_BIN/$name"
 }
 
-# Build a curl mock that logs args + stdin and emits OK by default.
+# Build a curl mock that logs args + payload and simulates HTTP responses.
+# Usage: mock_curl [http_code] [response_body]
+# Default: HTTP 200 + {"event_id":"<uuid-zero>"} body.
+# Honours `--output <file>` and `--write-out '%{http_code}'` semantics used by
+# emit_ops_bot's observability path (INFRA-0228).
 mock_curl() {
+    local code="${1:-200}"
+    local body="${2:-{\"event_id\":\"00000000-0000-0000-0000-000000000000\"}}"
     cat > "$MOCK_BIN/curl" <<EOF
 #!/usr/bin/env bash
 echo "ARGS:" "\$@" >> "$CURL_LOG"
-# Capture --data payload (next arg after -d)
 prev=""
+output_file=""
 for a in "\$@"; do
     if [[ "\$prev" == "-d" || "\$prev" == "--data" ]]; then
         echo "PAYLOAD:" "\$a" >> "$CURL_LOG"
     fi
+    if [[ "\$prev" == "--output" ]]; then
+        output_file="\$a"
+    fi
     prev="\$a"
 done
+if [[ -n "\$output_file" ]]; then
+    printf '%s' '${body}' > "\$output_file"
+fi
+# Emit http_code via --write-out
+printf '%s' '${code}'
 exit 0
 EOF
     chmod +x "$MOCK_BIN/curl"
@@ -341,6 +355,37 @@ EOF
     [ "$service" = "opsbot" ]
     [ "$audit" = "https://example/run/1" ]
     [ "$checks_len" -ge 1 ]
+}
+
+@test "T19a emit_ops_bot: WARN logs HTTP code + body excerpt on 4xx" {
+    mock_curl 401 '{"error":"invalid_api_key"}'
+    prepend_path
+    export OPSBOT_KEY="testkey"
+    export PREFLIGHT_RUN_URL="https://example/run/2"
+    source_script
+    append_finding "disk" "fatal" "free_gb" "1.2" "2.0"
+    run emit_ops_bot "fail" "$REPORT_FILE"
+    [ "$status" -eq 0 ]  # fail-soft preserved
+    [[ "$output" == *"HTTP 401"* ]]
+    [[ "$output" == *"invalid_api_key"* ]]
+    [[ "$output" == *"not blocking deploy"* ]]
+}
+
+@test "T19b emit_ops_bot: WARN logs HTTP 000 fallback on curl network failure" {
+    cat > "$MOCK_BIN/curl" <<'EOF'
+#!/usr/bin/env bash
+# Simulate curl exit 6 (DNS resolution failure); no http_code output
+exit 6
+EOF
+    chmod +x "$MOCK_BIN/curl"
+    prepend_path
+    export OPSBOT_KEY="testkey"
+    source_script
+    append_finding "disk" "fatal" "free_gb" "1.2" "2.0"
+    run emit_ops_bot "fail" "$REPORT_FILE"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"HTTP 000"* ]]
+    [[ "$output" == *"not blocking deploy"* ]]
 }
 
 @test "T20 emit_ops_bot: fail-soft when OPSBOT_KEY unset" {

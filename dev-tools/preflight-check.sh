@@ -287,13 +287,21 @@ emit_ops_bot() {
           dedup_key:$dedup,
           meta:{host:$host, service:$service, audit_ref:$audit, checks:$checks[0]}}')"
     # NB: never `set -x` around this curl; OPSBOT_KEY would leak.
-    if ! curl -fsS -X POST "$PREFLIGHT_OPS_BOT_URL" \
+    # Drop `-f`: keep response body on 4xx/5xx for diagnostics (INFRA-0228).
+    local resp_file http_code resp_body
+    resp_file="$(mktemp -t preflight-opsbot-resp.XXXXXX 2>/dev/null || echo "/tmp/preflight-opsbot-resp.$$")"
+    http_code="$(curl -sS -X POST "$PREFLIGHT_OPS_BOT_URL" \
         -H "Authorization: Bearer ${key}" \
         -H "Content-Type: application/json" \
         --max-time 10 \
-        -d "$payload" >/dev/null 2>&1; then
-        echo "WARN: Ops Bot emit failed (network/auth); not blocking deploy" >&2
+        -d "$payload" \
+        --output "$resp_file" \
+        --write-out '%{http_code}' 2>/dev/null || echo "000")"
+    if [[ ! "$http_code" =~ ^2[0-9]{2}$ ]]; then
+        resp_body="$(head -c 200 "$resp_file" 2>/dev/null | tr -d '\0\r' || true)"
+        echo "WARN: Ops Bot emit failed (HTTP ${http_code}); body: ${resp_body:-<empty>}; not blocking deploy" >&2
     fi
+    rm -f "$resp_file"
 }
 
 # === MAIN ===
