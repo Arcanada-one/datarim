@@ -1,0 +1,12 @@
+schema_version: 1
+
+entries:
+  - id: GHSA-aaaa-bbbb-cccc
+    pkg: "demo-package"
+    severity: medium
+    scope: devdep
+    reason: "Dev-dependency only; never reaches runtime code path in this repo. Upstream patch pending."
+    last_review: 2026-05-01
+    re_review: 2026-05-31
+    reviewed_by: human
+    upstream_tracking_url: "https://example.com/issues/1"

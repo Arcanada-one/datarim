@@ -1,0 +1,128 @@
+# Reusable workflow — Arcanada Ecosystem security-audit gate.
+# Canonical contract: consumer ecosystem CLAUDE.md
+# § Arcanada Ecosystem Security Policy Mandate.
+#
+# Drop into consumer .github/workflows/ci.yml:
+#
+#   jobs:
+#     security-audit:
+#       uses: Arcanada-one/datarim/.github/workflows/reusable-security-audit.yml@main
+#       with:
+#         stack: typescript_pnpm        # one of: typescript_pnpm | rust_cargo | python | framework
+#         audit_level: high             # high (default) | moderate | critical
+#         accepted_risk_path: accepted-risk.yml
+#
+name: reusable-security-audit
+
+on:
+  workflow_call:
+    inputs:
+      stack:
+        description: 'Stack profile: typescript_pnpm | rust_cargo | python | framework'
+        type: string
+        required: true
+      audit_level:
+        description: 'Audit severity floor: high (default) | moderate | critical'
+        type: string
+        required: false
+        default: 'high'
+      accepted_risk_path:
+        description: 'Path to accepted-risk.yml within consumer repo'
+        type: string
+        required: false
+        default: 'accepted-risk.yml'
+      datarim_ref:
+        description: 'Datarim ref to checkout the gate scripts from'
+        type: string
+        required: false
+        default: 'main'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-audit-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    name: security-audit (${{ inputs.stack }})
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout consumer repo
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Checkout Datarim gate scripts
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: Arcanada-one/datarim
+          ref: ${{ inputs.datarim_ref }}
+          path: .datarim
+          persist-credentials: false
+
+      - name: Presence-gate (SECURITY.md at repo root)
+        run: |
+          set -euo pipefail
+          bash ./.datarim/dev-tools/check-security-policy.sh --check --repo .
+
+      - name: Validate accepted-risk.yml schema (if present)
+        env:
+          ACCEPTED_RISK_PATH: ${{ inputs.accepted_risk_path }}
+        run: |
+          set -euo pipefail
+          if [ -f "$ACCEPTED_RISK_PATH" ]; then
+            bash ./.datarim/dev-tools/check-security-policy.sh \
+              --validate-yaml "$ACCEPTED_RISK_PATH"
+          else
+            echo "accepted-risk.yml not present at $ACCEPTED_RISK_PATH — skipping schema validation"
+          fi
+
+      - name: Run stack-specific audit
+        env:
+          STACK: ${{ inputs.stack }}
+          AUDIT_LEVEL: ${{ inputs.audit_level }}
+        run: |
+          set -euo pipefail
+          case "$STACK" in
+            typescript_pnpm)
+              echo "::group::typescript_pnpm audit"
+              corepack enable
+              pnpm install --frozen-lockfile --ignore-scripts
+              pnpm audit --audit-level="$AUDIT_LEVEL" --prod
+              echo "::endgroup::"
+              ;;
+            rust_cargo)
+              echo "::group::rust_cargo audit"
+              cargo install --locked cargo-audit cargo-deny
+              cargo audit --deny warnings
+              cargo deny check advisories licenses
+              echo "::endgroup::"
+              ;;
+            python)
+              echo "::group::python audit"
+              python -m pip install --upgrade pip pip-audit
+              pip-audit -s osv --strict
+              echo "::endgroup::"
+              ;;
+            framework)
+              echo "::group::framework audit"
+              if [ -f package.json ] || [ -f Cargo.toml ] || [ -f requirements.txt ] || [ -f pyproject.toml ]; then
+                echo "framework profile selected but stack manifest detected — choose a stack profile"
+                exit 1
+              fi
+              echo "no runtime manifests — shellcheck sweep only"
+              if command -v shellcheck >/dev/null 2>&1; then
+                find . -type f -name '*.sh' -not -path './.datarim/*' \
+                  -print0 | xargs -0 -r shellcheck -S warning
+              fi
+              ;;
+            *)
+              echo "ERROR: unknown stack profile: $STACK" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: audit complete
+        run: echo "audit complete"

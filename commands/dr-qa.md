@@ -14,9 +14,23 @@ description: Multi-layer quality verification — checks PRD alignment, design c
 2.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system.md` § Path Resolution Rule.
 3.  **TASK RESOLUTION**: Apply Task Resolution Rule from `$HOME/.claude/skills/datarim-system.md` § Task Resolution Rule. Use the resolved task ID for all subsequent steps.
 4.  **SKILL**: Read `$HOME/.claude/skills/security.md` and `$HOME/.claude/skills/testing.md`.
-5.  **CONTEXT**: Read `datarim/tasks.md` to get the resolved task's implementation plan. Read `datarim/activeContext.md` for current state.
-6.  **ACTION**: Execute the 4 verification layers below, in order, based on available artifacts. Skip layers whose artifacts do not exist.
+5.  **CONTEXT**: Read `datarim/tasks.md` to get the resolved task's implementation plan. Read `datarim/activeContext.md` for current state. Additionally, read `datarim/tasks/{TASK-ID}-init-task.md` if present (mandatory per `$HOME/.claude/skills/init-task-persistence.md`): the verbatim operator brief + every append-log block. Any divergence between the operator's stated intent and the implementation MUST be flagged in the QA report § Expectations / § Plain-language summary. Missing init-task is non-blocking — flag as advisory and continue.
+6.  **ACTION**: Execute the verification layers below in order. Layers 1, 2, 3, 4 are the classical multi-layer review; Layer 3b is the expectations-verification gate (runs after Layer 3 when `datarim/tasks/{TASK-ID}-expectations.md` exists). Skip layers whose artifacts do not exist.
+6.5. **APPEND Q&A IF ANY** (mandatory per `$HOME/.claude/skills/init-task-persistence.md` § Q&A round-trip contract): for every operator clarification round captured during the review — either operator answer or autonomous agent-decision under FB-1..FB-5 — invoke `dev-tools/append-init-task-qa.sh` to persist the round into `datarim/tasks/{TASK-ID}-init-task.md § Append-log` before emitting the QA report.
+    -   Write the question, answer, and rationale (when applicable) to temp files first; free-form text MUST come via `--*-file <path>` per Security Mandate § S1.
+    -   Required flags: `--root <repo-root> --task {TASK-ID} --stage qa --round <N> --question-file <path> --answer-file <path> --decided-by <operator|agent> --summary "<one-line>"`.
+    -   When `--decided-by agent`: `--rationale-file <path>` MUST contain ≥ 50 non-whitespace characters of best-practice rationale. Layer 3b will verify each agent-decision against the implementation.
+    -   On contradiction with an expectation: add `--conflict-with <wish_id>` (+ optional `--conflict-detail-file`); CTA MUST route back to `/dr-do --focus-items <wish_id>` for closure.
+    -   Skip if no clarification rounds occurred.
 7.  **OUTPUT**: Write `datarim/qa/qa-report-{task-id}.md` with results.
+8.  **HUMAN SUMMARY**:
+    - Load `$HOME/.claude/skills/human-summary.md`.
+    - Emit the `## Отчёт оператору` (RU) / `## Operator summary` (EN) section, with the four mandated sub-sections, between the QA-report write and the CTA block. Language follows the most recent operator message.
+    - Source material: § Overview of the task description, per-layer verdicts, expectations checklist statuses (if Layer 3b ran), and the overall verdict.
+    - Runs on every overall verdict (ALL_PASS, CONDITIONAL_PASS, BLOCKED). On BLOCKED the «Что не получилось» sub-section carries the failure detail in plain language and «Что дальше» paraphrases the FAIL-Routing target layer name (without command syntax — the CTA below carries that verbatim).
+    - The summary MUST honour the banlist + whitelist + per-paragraph escape-hatch contract from the skill (`<!-- gate:literal -->` … `<!-- /gate:literal -->` for verbatim quoted blocks only; max two fenced paragraphs per summary).
+    - Output: chat. If `datarim/qa/qa-report-{task-id}.md` was written, append the same section at the end of that file under `## Plain-language summary`.
+    - Length budget: 150–400 words **total across the four sub-sections** (not per sub-section). Hard upper bound.
 
 ---
 
@@ -101,6 +115,65 @@ description: Multi-layer quality verification — checks PRD alignment, design c
 
 ---
 
+## Layer 3b: Expectations Verification
+
+**Condition:** Execute when `datarim/tasks/{TASK-ID}-expectations.md` exists (mandatory for L3-L4 tasks per `$HOME/.claude/skills/expectations-checklist.md`; optional for L1-L2 within the 30-day soft window).
+
+**Checks:**
+
+- Read the file. For each item under `## Ожидания`:
+  - read `wish_id`, `Что хочу проверить`, `Как проверить (success criterion)`, current `#### Текущий статус`, and any existing `override:` line;
+  - run the success criterion against the implementation and decide one of `met` / `partial` / `missed` / `n-a`;
+  - append one line to that item's `#### История статусов` with the canonical format `<ISO> / <local> · /dr-qa · <prior> → <new> · reason: <one-sentence plain ru>`;
+  - update the item's `#### Текущий статус` to the new value.
+- After all items are updated, invoke the routing validator:
+  ```bash
+  dev-tools/check-expectations-checklist.sh --verify {TASK-ID}
+  ```
+  - Exit 0 + stdout marker `PASS` ⇒ Layer 3b verdict **PASS**;
+  - Exit 0 + stdout marker `CONDITIONAL_PASS` ⇒ Layer 3b verdict **PASS_WITH_NOTES** (every partial/missed item carries an operator override ≥10 chars);
+  - Exit 1 + stdout marker `BLOCKED` ⇒ Layer 3b verdict **FAIL**. Capture the validator's `Focus items:` and `Next step:` lines verbatim into the QA report.
+
+**Verdict:** PASS | PASS_WITH_NOTES | FAIL
+
+```markdown
+### Layer 3b: Expectations Verification — {VERDICT}
+
+**Items verified:** {N}
+**Status transitions written:** {N} (one История статусов line per item)
+
+| # | wish_id | Текущий статус | Override present? | Notes |
+|---|---------|----------------|-------------------|-------|
+| 1 | {slug}  | met            | n/a               | — |
+| 2 | {slug}  | partial        | yes (≥10 chars)   | conditional pass |
+| 3 | {slug}  | missed         | no                | BLOCKED |
+
+**Validator verdict:** {PASS | CONDITIONAL_PASS | BLOCKED}
+**Focus items (if BLOCKED):** {comma-separated wish_ids}
+**Next step (if BLOCKED):** `/dr-do {TASK-ID} --focus-items <wish_ids>`
+```
+
+A FAIL at Layer 3b makes the overall verdict **BLOCKED** regardless of other layers; the FAIL-Routing CTA (see § Verdict Logic) MUST surface the focus-items line verbatim. The classical Layer 1–4 verdicts are computed independently; Layer 3b is an additional gate that runs in parallel.
+
+### Q&A round-trip verification (additional sub-check)
+
+When `datarim/tasks/{TASK-ID}-init-task.md § Append-log` contains one or more `### <ISO> — Q&A by /dr-<stage> (round N)` blocks (contract: `$HOME/.claude/skills/init-task-persistence.md` § Q&A round-trip contract), Layer 3b extends its verification with two additional checks. The Q&A pass runs after the per-item expectation walk above and is gated on the same Layer 3b verdict ladder.
+
+1. **Agent-decision implementation grep.** For every block whose `**Decided by:** agent` line is present, extract the `Summary` text and grep the implementation surface (changed files for this task, the task description, the archive draft if any) for the salient token(s) of the summary. The decision is **reflected** when a textual or semantic match exists in the implementation artefacts; **not reflected** otherwise. Findings format: `Q&A round-trip: agent-decision <round-N> not reflected in implementation`.
+2. **Conflict closure verification.** For every block carrying `**Conflict with existing wish:** <wish_id> — …` (non-`none`), the Append-log MUST also contain a closure entry — either an operator amendment (`amendment by …`) or a later Q&A round on the same `wish_id` that resolves the contradiction. An **unclosed Conflict** raises Layer 3b verdict **BLOCKED**; finding format: `Q&A round-trip: unclosed Conflict on <wish_id> — operator returns task via /dr-do --focus-items <wish_id>`.
+
+Both checks are **fail-soft when no Q&A blocks exist** (legacy tasks). Both contribute to the same Layer 3b verdict — an unreflected agent-decision raises **FAIL** (operator can override via amendment); an unclosed Conflict raises **BLOCKED** without override.
+
+The Q&A round-trip findings appear in the same Layer 3b table under a dedicated row group:
+
+```markdown
+**Q&A round-trip rounds verified:** {N}
+**Agent-decisions reflected:** {N_ok} / {N_total}
+**Unclosed Conflict findings:** {list of wish_ids}  (BLOCKED if non-empty)
+```
+
+---
+
 ## Layer 4: Code Quality
 
 **Condition:** Always executed.
@@ -133,6 +206,34 @@ description: Multi-layer quality verification — checks PRD alignment, design c
 - Read DoD from `datarim/tasks.md` or `datarim/prd/*.md`
 - Check each criterion
 
+### 4f. Browser-based Frontend QA (Playwright pass)
+
+**Condition:** Execute only when the changed-files set for the task contains frontend markup per `$HOME/.claude/skills/playwright-qa.md` § Frontend touch detection. Skip silently otherwise.
+
+**Steps:**
+
+1.  Read the init-task frontmatter for `qa_browser_mode` (`headed` | `headed-strict` | `skip`); honour the CLI flags `--headed` / `--headed-strict` if present in the operator invocation.
+2.  Acquire the per-task lock at `datarim/qa/playwright-{TASK-ID}/.lock` (`flock --timeout 30`, fallback to atomic `mkdir`). Lock-timeout ⇒ finding `playwright-lock-timeout`, continue without the pass.
+3.  Resolve the tool:
+    ```bash
+    dev-tools/detect-playwright-tooling.sh [--headed | --headed-strict] --json
+    ```
+    Parse `tool` / `headed` / `display` / optional `finding` from the JSON line. Exit code 2 ⇒ FAIL (strict headed without display); exit code 1 ⇒ should not occur here (no `--require`); exit code 0 with `tool: none` ⇒ finding `playwright-tooling-missing`, skip the pass.
+4.  Create the per-run directory `datarim/qa/playwright-{TASK-ID}/run-$(date -u +%Y%m%dT%H%M%SZ)/`.
+5.  Invoke the resolved tool against the project's local dev surface (default) or a static fixture identified in the init-task. Capture `screenshot.png` + `trace.zip` (CLI/MCP only) + combined stdout/stderr to `run.log`.
+6.  Write `summary.md` per the shape defined in `$HOME/.claude/skills/playwright-qa.md` § Artifact layout (tool / headed mode / display / target URL / viewport / exit code / findings list).
+7.  Update the `latest` symlink (copy-fallback on filesystems without symlink support).
+8.  Release the lock.
+
+**Record in QA report:** add a line under Layer 4 with `Playwright pass:` followed by the resolved tool, headed mode, exit code, and path to the `run-<ts>/` directory. List any findings (`playwright-tooling-missing`, `playwright-lock-timeout`, `headed-requested-but-no-display`, `headed-strict-no-display`) under § Layer 4 / 4f.
+
+**Verdict contribution:**
+
+- `tool: none` ⇒ finding only, no verdict change.
+- `--headed-strict` + no display ⇒ Layer 4 = FAIL.
+- Browser invocation non-zero exit ⇒ Layer 4 = FAIL.
+- Otherwise ⇒ Layer 4 contribution = PASS (the pass succeeded; visual review is the operator's responsibility).
+
 **Verdict:** PASS | PASS_WITH_NOTES | FAIL
 
 ```markdown
@@ -141,6 +242,7 @@ description: Multi-layer quality verification — checks PRD alignment, design c
 **Tests:** {X passed, Y failed, Z skipped}
 **Security issues:** {count — list if any}
 **Anti-patterns:** {count — list if any}
+**Playwright pass:** {SKIPPED (no frontend touch) | tool=<t>, headed=<m>, exit=<n>, dir=<path> | FAIL (<reason>)}
 
 | DoD Criterion | Status |
 |--------------|--------|
@@ -171,6 +273,10 @@ Write to `datarim/qa/qa-report-{task-id}.md`:
 ---
 
 {Layer 3 section — or "Layer 3: Plan Completeness — SKIPPED (no implementation plan)"}
+
+---
+
+{Layer 3b section — or "Layer 3b: Expectations Verification — SKIPPED (no expectations checklist)"}
 
 ---
 
@@ -225,9 +331,10 @@ After verdict, the reviewer agent MUST emit a CTA block per `$HOME/.claude/skill
 | Layer 1 (PRD Alignment) | `/dr-prd {TASK-ID}` | Requirements incomplete or wrong — update PRD first |
 | Layer 2 (Design Conformance) | `/dr-design {TASK-ID}` | Architecture decisions violated — revise design |
 | Layer 3 (Plan Completeness) | `/dr-plan {TASK-ID}` | Steps skipped or plan outdated — update plan |
+| Layer 3b (Expectations) | `/dr-do {TASK-ID} --focus-items <wish_ids>` | Operator expectations missed/partial without override — return to implementation focused on the listed `wish_id`s |
 | Layer 4 (Code Quality) | `/dr-do {TASK-ID}` | Code bugs, security, anti-patterns — fix code |
 
-Multi-layer FAIL: route to **earliest** failed layer (Layer 1 > 2 > 3 > 4). Earlier failures are root causes.
+Multi-layer FAIL: route to **earliest** failed layer (Layer 1 > 2 > 3 > 3b > 4). Earlier failures are root causes. Layer 3b sits between plan completeness and code quality because operator-expectation misses indicate scope-drift; they are higher-level than code defects but presuppose the plan was executed.
 
 The FAIL-Routing CTA header MUST read: `**QA failed для {TASK-ID} — earliest failed layer: Layer N (Layer name)**`. Variant B menu when >1 active tasks.
 

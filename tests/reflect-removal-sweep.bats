@@ -31,6 +31,9 @@
 #                                 commands/dr-reflect.md removal example
 #                                 (added by TUNE-0034 — fragment split; v1.10.0
 #                                 / TUNE-0013 mentioned inline)
+#   - docs/evolution-log.md       evolution-log records prior bats-baseline
+#                                 entries that mention the historical
+#                                 /dr-reflect command — read-only ledger.
 #   - changelog.php (website)     v1.10.0 release entry — not in framework
 #                                 repo; covered by Phase 5 website sweep.
 #   - documentation/archive/framework/  historical task archives
@@ -43,6 +46,7 @@ REPO="${BATS_TEST_DIRNAME}/.."
 WHITELIST=(
     "CLAUDE.md"
     "docs/pipeline.md"
+    "docs/evolution-log.md"
     "commands/dr-archive.md"
     "skills/reflecting.md"
     "skills/evolution.md"

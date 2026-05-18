@@ -2,6 +2,9 @@
 name: infra-automation
 description: Infrastructure ops — SSH batch execution, health checks, network debugging, pre-migration inventory. Use for Arcana server ops.
 model: sonnet
+runtime: [claude, codex]
+current_aal: 1
+target_aal: 2
 ---
 
 # Infrastructure Automation
@@ -24,7 +27,7 @@ Reusable patterns for SSH-based operations across Arcana servers.
 > **Bootstrap once** (Datarim § Security Mandate S1, host-key verification):
 > add the host key to `~/.ssh/known_hosts` on the operator machine before any
 > batch SSH automation. Document the exact bootstrap event in
-> `Areas/Infrastructure/known-hosts-rotation.md`.
+> `documentation/infrastructure/known-hosts-rotation.md`.
 >
 > ```bash
 > for host in <HOST_LIST>; do
@@ -37,6 +40,7 @@ Run a command on all (or selected) servers (relies on default
 prompt never fires; an unknown host fails fast in batch mode):
 
 ```bash
+# nosec-extract
 for host in <HOST_LIST>; do
   echo "=== $host ==="
   ssh -o BatchMode=yes -o ConnectTimeout=5 "deploy@$host" "<COMMAND>" 2>&1 | head -20
@@ -164,6 +168,23 @@ scp -r user@host:/tmp/out/ /local/reports/
 **Killing leaked processes:** target the process group: `kill -TERM -- -$PGID` (not just PID).
 
 **Anti-patterns:** nested SSH per item, backgrounded SSH loops, `sudo -n` without pre-check.
+
+---
+
+## Tracked Deploy Artefact Rule
+
+Any script, config, systemd unit, or shell wrapper installed under a production path (e.g. `/usr/local/bin/`, `/etc/systemd/system/`, container image layer) AND referenced downstream as a verification surface — a task's acceptance criterion runs it, a verdict gate executes it, a smoke test invokes it — MUST be tracked in the framework or project repository before the referencing acceptance criterion ships.
+
+**Rationale.** An untracked operator-authored artefact has no diff history, no review trail, and no code-review gate. Drift propagates invisibly: a verdict gate written against the artefact's expected behaviour can pass at design time and silently mismeasure later because the on-server artefact diverged from the operator's mental model. Tracking the artefact in a repository provides four anchors:
+
+1. **Source-of-truth diff** — version-control history shows every change to the artefact since deploy time.
+2. **Review gate** — the canonical surface goes through whatever quality gates the repo enforces (lint, tests, stack-agnostic checks).
+3. **Re-deploy reproducibility** — disaster recovery installs the tracked source via the project's standard deploy channel (`scp` / install script / CI deploy), not by reconstructing intent from server state.
+4. **Acceptance criterion grounding** — the AC text can cite the tracked path (e.g. `dev-tools/<artefact>`) and any reader can resolve what the AC means by reading the canonical source.
+
+**Rule.** Before any acceptance criterion ships that references an on-server operator-authored artefact, add the canonical version of the artefact to the repository, mark the deploy path in a deploy comment or install script, and cite the tracked path (not the on-server path) in the AC text.
+
+**When to apply.** L2+ tasks where the deliverable includes both new on-server tooling AND a verdict gate / acceptance criterion that consumes that tooling. Skip for one-shot artefacts with no downstream verification consumer.
 
 ## Reusable Templates
 

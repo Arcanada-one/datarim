@@ -1,0 +1,15 @@
+# Caller-fixture: invokes the reusable security-audit workflow with the
+# framework stack profile (no runtime manifests). Drives `act --dryrun`
+# for V-AC-9.
+name: caller-framework
+
+on:
+  workflow_dispatch:
+
+jobs:
+  audit:
+    uses: ./.github/workflows/reusable-security-audit.yml
+    with:
+      stack: framework
+      audit_level: high
+      accepted_risk_path: accepted-risk.yml

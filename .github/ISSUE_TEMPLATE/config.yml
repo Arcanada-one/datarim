@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security Vulnerability (private)
+    url: https://github.com/Arcanada-one/datarim/security/advisories/new
+    about: Report a security vulnerability through GitHub's private advisory channel.
+  - name: Security Vulnerability (email)
+    url: mailto:mail@veritasarcana.ai
+    about: Alternative private channel for security disclosures.

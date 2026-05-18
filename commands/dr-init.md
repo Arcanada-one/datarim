@@ -1,10 +1,11 @@
 ---
 name: dr-init
 description: Initialize a new Datarim task or scaffold a new project. Auto-detects intent from prompt context.
-disable-model-invocation: true
 ---
 
-# /dr-init - Initialize New Task or Project
+# /dr-init — Initialize New Task or Project
+
+> **Contract.** Initialisation is the only command that may create `datarim/`, wires prefix → archive-subdir mapping, and selects task IDs that propagate through the rest of the pipeline. The structural compliance probe (Step 2.4 — `datarim-doctor.sh --quiet`), the workspace cross-task hygiene check (Step 2.5), and the PRD-waiver gate are enforced in code, independent of how the command is invoked. Prefer the canonical slash form (`/dr-init {DESCRIPTION}`) over manually creating `datarim/` artefacts: the slash command threads through every guard described in this file; ad-hoc paths skip them.
 
 **Role**: Planner Agent (Initial)
 **Source**: `$HOME/.claude/agents/planner.md`
@@ -54,6 +55,26 @@ disable-model-invocation: true
     - **Non-blocking** — operator proceeds at will. Skip silently if the workspace is clean or no `datarim/*.md` exist yet.
     - The staged-diff audit at `/dr-archive` already catches the tangle but only after the carry-over has already cost a session; surfacing it at `/dr-init` lets the operator clean state proactively.
 
+2.5b. **TOPIC OVERLAP ADVISORY** (advisory, non-blocking; framework v2.7.0+):
+    - Catches topic-overlap with **pending backlog items** — orthogonal to Step 2.5, which catches foreign task IDs in pending diffs. Recurrence motivating this gate: two backlog IDs spawned for one deliverable when an earlier pending item escaped notice during fresh `/dr-init`.
+    - Skip silently when any of the following holds:
+      - `datarim/backlog.md` absent or empty of `pending` items.
+      - `python3` not on `PATH` (echo single-line `"python3 not available — topic-overlap check skipped"` and continue; framework dependency floor stays Bash-only).
+      - The runtime root is missing `dev-tools/check-topic-overlap.py` (older install, advisory deferred until upgrade).
+    - Otherwise invoke:
+      ```bash
+      printf '%s\n' "$USER_TASK_DESCRIPTION" | \
+        python3 "$DATARIM_RUNTIME/dev-tools/check-topic-overlap.py" \
+          --task-description - \
+          --backlog "$DATARIM_ROOT/backlog.md" \
+          --top-n 5 --min-overlap 2
+      ```
+      `$DATARIM_RUNTIME` is the framework code root (`code/datarim` in the framework repo, `~/.claude` after install).
+    - Stream stdout straight to the operator. The script is **exit 0 by contract** — exit code is ignored even on parse anomalies.
+    - In non-tty / CI runs (`DATARIM_NONINTERACTIVE=1` or `! [ -t 0 ]`): capture stdout into the step report, never prompt.
+    - When the advisory surfaces matches, operator chooses: `duplicate` (abort + `/dr-init {EXISTING-ID}`), `refine-scope` (narrow new task to avoid collision), or `orthogonal` (continue — overlap is incidental). Default on no operator input: continue.
+    - Performance contract: completes ≤300 ms on a 500-item backlog (regression-gated by `tests/dr-init-topic-overlap-latency.bats`); false-positive rate <10% on a 30-item orthogonal corpus (`tests/dr-init-topic-overlap-fp-budget.bats`).
+
 3.  **CHECK BACKLOG**: If `datarim/backlog.md` exists and contains pending items:
     - Display pending items as a numbered list (ID, title, priority, complexity).
     - **If user provided a `BACKLOG-XXXX` ID**: Select that item directly.
@@ -72,6 +93,15 @@ disable-model-invocation: true
     - **If new project/service**: Load `$HOME/.claude/skills/tech-stack.md` and identify required stack.
     - Create/Update `datarim/tasks.md` with new task.
     - **Append** new task to `## Active Tasks` in `datarim/activeContext.md`. Do NOT remove existing active tasks. If `activeContext.md` uses legacy format (`**Current Task:**` single line), convert to `## Active Tasks` list first. See `$HOME/.claude/skills/datarim-system.md` § activeContext.md Write Rules.
+4.6. **WRITE INIT-TASK FILE** (mandatory, F1 contract — see `$HOME/.claude/skills/init-task-persistence.md`):
+    - Compute `INIT_TASK_FILE="datarim/tasks/{TASK-ID}-init-task.md"`.
+    - Determine the source flow:
+      - **Operator prompt flow** (default): the `ARGUMENTS` variable (the text the operator typed after `/dr-init`) becomes the body of `## Operator brief (verbatim)`. Frontmatter `source: /dr-init`.
+      - **Backlog selection flow** (the task was picked from `backlog.md` in Step 3): copy the matched backlog item's description block verbatim into `## Operator brief (verbatim)`. Frontmatter `source: backlog`, `source_backlog_ref: backlog.md#{TASK-ID}`.
+    - Write the file with the canonical 8-field frontmatter (`task_id`, `artifact: init-task`, `schema_version: 1`, `captured_at`, `captured_by: /dr-init`, `operator`, `status: canonical`, `source`) + two mandatory headings: `## Operator brief (verbatim)` and `## Append-log (operator amendments)` (empty placeholder `_(пусто на момент создания)_`). Optional `## Source command` block above the brief is recommended when the exact invocation differs from `ARGUMENTS` raw text.
+    - Probe: `dev-tools/check-init-task-presence.sh --task {TASK-ID} --root "$DATARIM_ROOT"` (where `$DATARIM_ROOT` is the parent of `datarim/`). Exit 0 = OK; non-zero = print warning and continue (operator may amend manually).
+    - Skip silently when re-running `/dr-init` on an existing backlog ID whose init-task already exists — preserve the verbatim history.
+
 5.  **SUBTASK BACKLOG** (Level 3-4 only):
     - If analysis reveals distinct subtasks or phases, present them to user:
       "This task has N identifiable subtasks. Add them to backlog for independent tracking?"

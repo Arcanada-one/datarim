@@ -1,0 +1,11 @@
+schema_version: 1
+
+entries:
+  - id: GHSA-aaaa-bbbb-cccc
+    pkg: "demo-package"
+    severity: medium
+    scope: devdep
+    reason: "Re-review window exceeds 90 day cap, validator must reject this fixture."
+    last_review: 2026-01-01
+    re_review: 2026-04-02
+    reviewed_by: human

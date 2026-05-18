@@ -14,7 +14,7 @@ description: Implement planned changes using TDD and AI quality principles
 2.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system.md` § Path Resolution Rule.
 3.  **TASK RESOLUTION**: Apply Task Resolution Rule from `$HOME/.claude/skills/datarim-system.md` § Task Resolution Rule. Use the resolved task ID for all subsequent steps.
 4.  **SKILL**: Read `$HOME/.claude/skills/ai-quality.md` (apply rules #2, #3, #8, #9 — see § Stage-Rule Mapping).
-5.  **CONTEXT**: Read `datarim/tasks.md` (Implementation Plan for the resolved task).
+5.  **CONTEXT**: Read `datarim/tasks.md` (Implementation Plan for the resolved task). Additionally, read `datarim/tasks/{TASK-ID}-init-task.md` if present (mandatory per `$HOME/.claude/skills/init-task-persistence.md`): the verbatim operator brief + every append-log block. Any divergence between the operator's stated intent and the planned implementation MUST be recorded in `datarim/tasks/{TASK-ID}-task-description.md` § Implementation Notes. Missing init-task is non-blocking — flag as advisory and continue.
 
 6.  **PRE-FLIGHT CHECK** (L3-L4 code tasks only):
     Before writing any code, verify readiness:
@@ -89,6 +89,13 @@ description: Implement planned changes using TDD and AI quality principles
     -   The gate is fail-closed: missing/malformed `priority`/`type`
         frontmatter resolves to `hard_block` regardless of the
         `--skip-exposure-gate` flag.
+
+8.6. **APPEND Q&A IF ANY** (mandatory per `$HOME/.claude/skills/init-task-persistence.md` § Q&A round-trip contract): for every operator clarification round captured during implementation — either operator answer or autonomous agent-decision under FB-1..FB-5 — invoke `dev-tools/append-init-task-qa.sh` to persist the round into `datarim/tasks/{TASK-ID}-init-task.md § Append-log`.
+    -   Write the question, answer, and rationale (when applicable) to temp files first; free-form text MUST come via `--*-file <path>` per Security Mandate § S1.
+    -   Required flags: `--root <repo-root> --task {TASK-ID} --stage do --round <N> --question-file <path> --answer-file <path> --decided-by <operator|agent> --summary "<one-line>"`.
+    -   When `--decided-by agent`: `--rationale-file <path>` MUST contain ≥ 50 non-whitespace characters of justification.
+    -   On contradiction with an expectation discovered mid-implementation: add `--conflict-with <wish_id>`; CTA MUST route back to `/dr-do --focus-items <wish_id>` after the conflict closure entry lands.
+    -   Skip if no clarification rounds occurred.
 
 9.  **OUTPUT** (thin-index schema):
     -   Code changes (committed per Workspace Discipline rules in CLAUDE.md).

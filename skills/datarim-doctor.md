@@ -1,6 +1,9 @@
 ---
 name: datarim-doctor
 description: Schema and migration semantics for /dr-doctor — thin one-liner contract, 6-pass migration, data-loss safety, conflict resolution. Loaded by self-heal.
+runtime: [claude, codex]
+current_aal: 2
+target_aal: 3
 ---
 
 # Datarim Doctor — Schema and Migration Semantics
@@ -46,8 +49,8 @@ Examples (compliant):
 
 <!-- gate:history-allowed -->
 ```
-- TUNE-0071 · in_progress · P1 · L3 · Index-Style Refactor → tasks/TUNE-0071-task-description.md
-- INFRA-0099 · pending · P2 · L2 · Vault MFA Rollout → tasks/INFRA-0099-task-description.md
+- <TASK-ID-A> · in_progress · P1 · L3 · <Title> → tasks/<TASK-ID-A>-task-description.md
+- <TASK-ID-B> · pending · P2 · L2 · <Title> → tasks/<TASK-ID-B>-task-description.md
 ```
 <!-- /gate:history-allowed -->
 
@@ -64,7 +67,7 @@ Section headers (`## Active`, `## Pending`, etc.) and blank lines are allowed �
 ## Active Tasks
 <!-- strict mirror of tasks.md § Active — identical lines, identical order -->
 
-- TUNE-0071 · in_progress · P1 · L3 · Index-Style Refactor → tasks/TUNE-0071-task-description.md
+- <TASK-ID-A> · in_progress · P1 · L3 · <Title> → tasks/<TASK-ID-A>-task-description.md
 
 ## Last Updated
 YYYY-MM-DD HH:MM · short summary
@@ -130,13 +133,19 @@ Discussion / decisions log MAY follow as `## Decisions`.
 
 Anything beyond ~250 lines is a smell — split into a PRD or design doc.
 
-## Migration Algorithm (`--fix`) — 6 passes
+## Migration Algorithm (`--fix`) — 8 passes
 
 Applied by `scripts/datarim-doctor.sh --fix`. Single transactional sequence guarded by the data-loss safety contract (see next section). Atomic per file via `mv tmp file`.
 
+### Pass 0 — `## Backlog` section reject in `tasks.md`
+
+1. If `tasks.md` contains a top-level `## Backlog` header, emit finding `'## Backlog' section forbidden in tasks.md — move bullets manually to backlog.md` and exit 1 in dry-run mode.
+2. `--fix` does NOT auto-migrate the section (cross-task hunk corruption risk). The section is preserved verbatim; the operator manually relocates bullets to `backlog.md` with correct task IDs and statuses.
+3. Rationale: bullets nested inside a wrong file have unknown semantic intent (pending vs in-progress, target prefix project) — schema-level reject is safer than guessing.
+
 ### Pass 1 — Description files (build cache)
 
-1. Walk `datarim/tasks.md` and `datarim/backlog.md` for legacy block-style headings: `^### ([A-Z]+-[0-9]+):\s*(.+)$`.
+1. Walk `datarim/tasks.md` and `datarim/backlog.md` for legacy block-style headings: `^### ([A-Z]{2,10}-[0-9]{4}(?:-[A-Za-z0-9]+)*):?\s*(.*)$`. Trailing colon is optional; compound IDs (e.g. `PREFIX-NNNN-FOLLOWUP-slug`) accepted.
 2. For each legacy block, extract the body until the next `### ID:` heading or section break.
 3. Parse known fields (case-insensitive, leading `- ` or `* ` allowed):
     - **Status / Status:** → frontmatter `status`
@@ -148,7 +157,7 @@ Applied by `scripts/datarim-doctor.sh --fix`. Single transactional sequence guar
     - **Related / Связанные:** → frontmatter `related`
     - **PRD:** → frontmatter `prd`
     - **Plan:** → frontmatter `plan`
-4. Heading first capture group → `id`. Second capture group → `title` (truncated to 80 chars on word boundary).
+4. Heading first capture group → `id`. Second capture group → `title` (truncated to 80 chars on word boundary). If title text is empty (e.g. `### PREFIX-NNNN-FOLLOWUP-slug` with no trailing text), synthesise title from the compound suffix: strip the literal `FOLLOWUP-` token, replace remaining hyphens with spaces, sentence-case the first character; append « follow-up » suffix when the literal `FOLLOWUP` appeared in the ID.
 5. Remaining body → write under `## Overview` (until first sub-heading) and pass through other sub-headings unchanged.
 6. Normalize fields:
     - Status case-folded; alias `pending` ↔ `not_started` resolved by source file (tasks.md → `not_started`/`in_progress`/`blocked`; backlog.md → `pending`/`blocked-pending`/`cancelled`).
@@ -178,7 +187,7 @@ Applied by `scripts/datarim-doctor.sh --fix`. Single transactional sequence guar
 17. Conflict policy is configurable via `--conflict-policy=prompt|keep|overwrite|skip|abort` (default `prompt`; auto-`skip` in non-TTY); `--no-prompt` is the canonical CI alias for `skip`.
 18. The legacy `backlog-archive.md` is preserved in-tree as `backlog-archive.md.pre-v2.bak` (sidecar; operator-visible).
 
-### Pass 6 — Operational-files archive section migration (TUNE-0085 v1.21.5, hardened TUNE-0088 v1.21.6)
+### Pass 6 — Operational-files archive section migration
 
 Strips legacy archive sections (`## Archived` in `tasks.md` / `backlog.md`; `### Archived`, `### Recently Archived`, `## Последние завершённые` in `activeContext.md`) and migrates each archive bullet to a canonical `documentation/archive/{area}/archive-{TASK-ID}.md` doc. The canonical thin-index contract (§ activeContext.md thin contract above, § Operational File Schema) prohibits archive sections in operational files: completion history lives in `documentation/archive/`, recency hint is computed at runtime via `/dr-status --recent N`. Pass 6 enforces that contract.
 
@@ -189,12 +198,12 @@ Four archive-bullet shapes are recognised (priority S1 → S2 → S4 → S3):
 - **S4 (mid-bold-context):** `- **TASK-ID** context-words — title` (context word(s) between `**ID**` and em-dash)
 - **S3 (plain-bold):** `- **TASK-ID** — title` (no date, no link, no mid-bold context)
 
-Task IDs may be **compound** — `DEV-1226`, `DEV-1212-S8`, `DEV-1196-FOLLOWUP-lock-ownership-doc`. Numeric component (`-[0-9]{4}`) is required; suffix `(-[A-Za-z0-9]+)*` is optional.
+Task IDs may be **compound** — `<PREFIX-NNNN>`, `<PREFIX-NNNN>-<SUFFIX>`, `<PREFIX-NNNN>-<FOLLOWUP-SLUG>`. Numeric component (`-[0-9]{4}`) is required; suffix `(-[A-Za-z0-9]+)*` is optional.
 
 Per bullet:
 
 1. Validate task ID matches `^[A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*$`. Invalid → preserve in operational file with manual-migration marker.
-2. **Explicit-pointer dispatch:** if bullet body contains `→ documentation/archive/{path}.md`, prefer that path as canonical; otherwise fall back to `prefix_to_area()` (TUNE-0076 mapping) → `documentation/archive/{area}/archive-{ID}.md`.
+2. **Explicit-pointer dispatch:** if bullet body contains `→ documentation/archive/{path}.md`, prefer that path as canonical; otherwise fall back to `prefix_to_area()` (prefix→area mapping) → `documentation/archive/{area}/archive-{ID}.md`.
 3. Path-traversal safety: canonical path MUST stay under `documentation/archive/`; violation rejects explicit pointer and falls back to `prefix_to_area`. If fallback also escapes → preserve, warn.
 4. **Verified case** — canonical archive exists with `{ID}` literal inside → strip bullet from operational file.
 5. **Missing case** — canonical absent at computed path → defensive `find documentation/archive/ -name "archive-{ID}.md"` (depth ≤ 3) checks every area subdir; if found with ID literal, strip bullet with warning `archive at unexpected area`. Otherwise synthesise stub with frontmatter (`id`, `title`, `status`, `{status}_at`, `source: synthesised from operational-file by datarim-doctor.sh Pass 6`, `original_block_sha`) + body = original bullet content; strip bullet.
@@ -204,13 +213,35 @@ Per bullet:
 
 Unparseable bullets (no shape match) → preserve with warning `Pass 6: unparseable archive bullet`. Operator fixes manually.
 
-After per-file processing, Doctor logs a one-line summary: `Pass 6 {file}: parsed={N} stripped={M} synthesised={K} skipped={L}`. Distributed users see exactly what migrated; tarball backup (TUNE-0077) covers rollback.
+After per-file processing, Doctor logs a one-line summary: `Pass 6 {file}: parsed={N} stripped={M} synthesised={K} skipped={L}`. Distributed users see exactly what migrated; tarball backup covers rollback.
 
 **Idempotent:** files without any archive header early-return; second `--fix` on a migrated tree produces zero changes.
 
 <!-- security:counter-example -->
-*Counter-example — what Doctor MUST NOT do (Approach D, rejected by QA TUNE-0085):* add a whitelist exception that preserves archive sections by design. This would legalise non-compliant pattern, accumulate token-bloat in operational files (12-18 KB on typical installations × 10-30 reads per session = 120-540 KB lost tokens), and contradict the canonical contract `datarim-system.md § activeContext.md thin contract` («one section only», v1.19.1). Migration, not preservation, is the correct enforcement.
+*Counter-example — what Doctor MUST NOT do (Approach D, rejected on QA):* add a whitelist exception that preserves archive sections by design. This would legalise non-compliant pattern, accumulate token-bloat in operational files (12-18 KB on typical installations × 10-30 reads per session = 120-540 KB lost tokens), and contradict the canonical contract `datarim-system.md § activeContext.md thin contract` («one section only», v1.19.1). Migration, not preservation, is the correct enforcement.
 <!-- /security:counter-example -->
+
+### Pass 7 — HTML-comment archive notes (verified-strip)
+
+Repo-local convention emits a one-line HTML comment after each archival:
+
+```
+<!-- {ID} {verb} {YYYY-MM-DD} → documentation/archive/{area}/archive-{ID}.md ({optional context}) -->
+```
+
+Recognised status verbs: `archived` | `cancelled` | `superseded` | `closed` | `dropped`. Both arrow forms accepted: `→` and `->`.
+
+Algorithm per operational file (`tasks.md`, `backlog.md`, `activeContext.md`):
+
+1. Line-by-line scan. Match the canonical regex (compound ID + verb + ISO date + relpath to `documentation/archive/...md`).
+2. Path-traversal guard: `validate_relpath` against `documentation/archive/` root rejects `..` segments.
+3. Filename match guard: basename of the cited relpath MUST equal `archive-{ID}.md` (no cross-ID strip).
+4. Existence check: `[ -f "{ROOT_ABS}/../{relpath}" ]`.
+5. **Verified-strip:** file exists → omit the comment line; counter `stripped++`.
+6. **Preserve + WARN:** archive file missing → keep the comment line + emit `Pass 7: archive file missing for {ID}: {relpath} (preserving comment)`; counter `preserved++`.
+7. Atomic write via `mv tmpfile target` only when `stripped > 0`.
+
+Log line: `Pass 7 {file}: stripped={N} preserved={M}`. **Idempotent:** second `--fix` finds the same set of comments minus the previously-stripped lines; `stripped=0` on second run.
 
 ### Pass 5 — Post-fix re-scan
 

@@ -2,6 +2,9 @@
 name: publishing
 description: Technical rules for publishing content to social media and websites — platform limits, formatting, API patterns, OG tags, multi-platform workflow.
 model: haiku
+runtime: [claude, codex]
+current_aal: 1
+target_aal: 2
 ---
 
 # Publishing — Technical Rules for Content Distribution

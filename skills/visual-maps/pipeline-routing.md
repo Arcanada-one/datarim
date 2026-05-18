@@ -32,7 +32,6 @@ graph TD
     QA4 --> Comp4["/dr-compliance"]
     Comp4 --> Archive4["/dr-archive<br>(Step 0.5: reflect)"]
 
-    style Init fill:#4da6ff,stroke:#0066cc,color:white
     style L1 fill:#10b981,stroke:#059669,color:white
     style L2 fill:#f59e0b,stroke:#d97706,color:white
     style L3 fill:#f97316,stroke:#ea580c,color:white
@@ -83,3 +82,31 @@ graph LR
 ```
 
 Source: prior incident — unified CTA spec, v1.16.0.
+
+## Artifact Flow Across the Pipeline (v2.8.0)
+
+```mermaid
+graph LR
+    Init["/dr-init"] --> InitTask[("init-task<br>(verbatim brief)")]
+    InitTask --> PRD["/dr-prd"]
+    PRD --> Expect[("expectations<br>(operator wishlist)")]
+    Expect --> Plan["/dr-plan"]
+    Plan --> Do["/dr-do"]
+    Do --> QA["/dr-qa"]
+    QA --> Playwright[("playwright-run<br>(browser pass)")]
+    Playwright --> Compliance["/dr-compliance"]
+    Compliance --> Archive["/dr-archive"]
+
+    style InitTask fill:#0ea5e9,stroke:#0369a1,color:white
+    style Expect fill:#0ea5e9,stroke:#0369a1,color:white
+    style Playwright fill:#0ea5e9,stroke:#0369a1,color:white
+    style QA fill:#fbbf24,stroke:#d97706,color:#1f2937
+```
+
+Three artefact nodes were introduced in v2.8.0:
+
+- **`init-task`** — `datarim/tasks/{TASK-ID}-init-task.md`. Verbatim operator brief captured at `/dr-init`; appended (never overwritten) by the operator across the lifecycle. Read mandatorily by every pipeline command.
+- **`expectations`** — `datarim/tasks/{TASK-ID}-expectations.md`. Operator-readable wishlist of «what to verify after the work is done». Written at `/dr-prd` (or `/dr-plan` for L2 without PRD). Verified at `/dr-qa` and `/dr-compliance` via `dev-tools/check-expectations-checklist.sh --verify`.
+- **`playwright-run`** — `datarim/qa/playwright-{TASK-ID}/run-<ISO-ts>/`. Browser pass artefacts (screenshot + trace + summary) written by `/dr-qa` Layer 4f when the task changes any frontend markup. Skipped silently for non-frontend tasks.
+
+Solid arrows = control flow. Brackets `(())` mark the new operator-facing artefacts; the orange-outlined `/dr-qa` node is the gate that consumes all three (init-task as input, expectations as the Layer 3b verifier, playwright-run as the Layer 4f side-effect).

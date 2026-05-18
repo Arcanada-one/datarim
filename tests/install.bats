@@ -214,7 +214,7 @@ setup() {
 @test "T33-4 AC-3 MSYSTEM=MINGW64 forces copy mode (Windows fallback)" {
     run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" \
         DATARIM_FORCE_UNAME=MINGW64_NT-10 \
-        "$FAKE_REPO/install.sh"
+        "$FAKE_REPO/install.sh" --with-claude
     [ "$status" -eq 0 ]
     [ ! -L "$FAKE_CLAUDE/agents" ]
     [ -f "$FAKE_CLAUDE/agents/planner.md" ]
@@ -246,7 +246,7 @@ setup() {
     echo "# user content" > "$FAKE_CLAUDE/skills/testing.md"
     run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" \
         DATARIM_MIGRATION_CHOICE=k \
-        "$FAKE_REPO/install.sh"
+        "$FAKE_REPO/install.sh" --with-claude
     [ "$status" -eq 0 ]
     # Skills remains a real dir (not symlink)
     [ ! -L "$FAKE_CLAUDE/skills" ]
@@ -261,7 +261,7 @@ setup() {
     seed_existing_copy_install
     run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" \
         DATARIM_MIGRATION_CHOICE=a \
-        "$FAKE_REPO/install.sh"
+        "$FAKE_REPO/install.sh" --with-claude
     [ "$status" -eq 1 ]
     # No symlinks, no backups
     [ ! -L "$FAKE_CLAUDE/skills" ]

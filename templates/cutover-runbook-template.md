@@ -78,6 +78,7 @@ Re-read the active artefact and grep for the directive(s) the cutover was suppos
 Defined once at the top of the script:
 
 ```bash
+# nosec-extract
 rollback() {
     echo "[rollback] restoring active config from $BACKUP" >&2
     sudo cp -a "$BACKUP" "$ACTIVE"

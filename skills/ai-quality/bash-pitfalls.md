@@ -12,6 +12,7 @@ Source incidents: a prior incident Phase 8 Step 1 (BUG #1, BUG #2 — both High,
 ### 1. `grep -F` makes EVERY meta character literal
 
 ```bash
+# nosec-extract
 # WRONG — `^` is treated as a literal caret, never matches line-start.
 grep -Fq "^${d} " "$file"
 
@@ -24,6 +25,7 @@ awk -v d="$d" '$1 == d { found=1; exit } END { exit !found }' "$file"
 ### 2. Boundary-alternation regex `(^|[[:space:]])X` — fails on the typical case
 
 ```bash
+# nosec-extract
 # WRONG — fails for the most common single-token line `server_name example.com;`.
 grep -E "^[[:space:]]*server_name[[:space:]].*(^|[[:space:]])${d}([[:space:]]|;|$)"
 
@@ -43,6 +45,7 @@ The `(^|[[:space:]])` boundary doesn't behave like `\b`: `^` matches only the ve
 ### 3. `${var}` interpolated into `sed`/`grep` is **regex**, not literal
 
 ```bash
+# nosec-extract
 # WRONG — `.` in $d matches any char; `example.com` ALSO matches `examplexcom`.
 sed -i "s|root /var/www/${d}|root /data/www/${d}|g" "$cfg"
 grep -q "root[[:space:]]\\+/var/www/${d}" "$cfg"
@@ -59,6 +62,7 @@ Strict input validation (e.g. domain charset `[a-z0-9.-]+\.[a-z]{2,}`) reduces e
 ### 4. `mysql … -p"$pass"` exposes the password to `ps`
 
 ```bash
+# nosec-extract
 # WRONG — visible in `ps -ef` to every user on a multi-tenant box.
 mysqldump -h"$h" -u"$user" -p"$pass" "$db"
 
@@ -93,6 +97,7 @@ mysqldump … | mysql …
 ### 6. Single-status smoke is too narrow for cutover regressions
 
 ```bash
+# nosec-extract
 # WRONG — only HTTP code; misses content / length / redirect-target shifts.
 post=$(curl -sw '%{http_code}\n' -o /dev/null -H "Host: $d" "$url")
 
@@ -161,6 +166,7 @@ A heredoc replaces the command's stdin entirely. Writing `interpreter - <<'EOF' 
 ### Trap
 
 ```bash
+# nosec-extract
 echo "$payload" | python3 - <<'PY'
 import sys
 data = sys.stdin.read()  # gets the heredoc body, NOT "$payload"
@@ -174,6 +180,7 @@ The pipe is silently ignored. Tests built around this pattern can pass for the w
 Pass payload via environment variable, read with `os.environ`:
 
 ```bash
+# nosec-extract
 PAYLOAD="$payload" python3 -c '
 import os
 data = os.environ["PAYLOAD"]
@@ -183,6 +190,7 @@ data = os.environ["PAYLOAD"]
 Or use a here-string for stdin alongside an inline `-c` script (no heredoc):
 
 ```bash
+# nosec-extract
 python3 -c 'import sys; data = sys.stdin.read()' <<<"$payload"
 ```
 
@@ -191,6 +199,98 @@ python3 -c 'import sys; data = sys.stdin.read()' <<<"$payload"
 prior incident — initial `post-deploy-verify.sh` evaluator used the heredoc-with-stdin shadow pattern. Tests appeared to pass because the script processed the heredoc body (a leftover `data = sys.stdin.read()` line plus the JSON parsing template) — not the captured PROD snapshot. Caught only when fixture content was actually inspected against parser output.
 
 **Rule:** any inline interpreter that needs caller-supplied data should receive it through an environment variable or a here-string, not through a heredoc-and-pipe combination. The heredoc body is the script source — it cannot also be the input stream.
+
+## Pitfall: `date +%s%N` is GNU-only — silent breakage on macOS / BSD
+
+### Trap
+
+```bash
+# WRONG — works on Linux (GNU coreutils), prints literal "%N" on macOS BSD date.
+now_ms=$(date +%s%N)
+echo "${now_ms:0:-6}"   # garbage on mac: e.g. "1715000000%N" -> empty
+```
+
+`date +%N` is a GNU-only format token. macOS / FreeBSD `date(1)` prints it
+verbatim, so the timestamp silently becomes wrong. No exit error, no warning —
+just a non-numeric trailing `%N` that downstream arithmetic discards or
+mangles. Cross-platform shell scripts that need millisecond precision MUST NOT
+rely on `date +%s%N`.
+
+### Right
+
+```bash
+# Portable millisecond clock: prefer bash 5's $EPOCHREALTIME, fall back to
+# perl (present on macOS by default and on every Ubuntu base image).
+now_ms() {
+  if [[ -n "${EPOCHREALTIME:-}" ]]; then
+    local r="$EPOCHREALTIME"
+    local sec="${r%.*}"
+    local frac="${r#*.}"
+    frac="${frac:0:3}"
+    while [[ ${#frac} -lt 3 ]]; do frac="${frac}0"; done
+    echo "$(( 10#$sec * 1000 + 10#$frac ))"
+  else
+    perl -MTime::HiRes=time -e 'printf "%d\n", time()*1000'
+  fi
+}
+```
+
+Bash 5 exposes `$EPOCHREALTIME` as `<seconds>.<fractional>` — fast (no fork),
+no external dependency. Bash 3.2 / 4 paths fall back to perl, which is on
+every supported runner and the macOS base install. Avoid the temptation to
+require GNU coreutils — most dev hosts in this ecosystem are macOS.
+
+### Why this matters in practice
+
+An earlier orchestrator plan §5.4 originally specified `date +%s%N` for the security-floor
+cooldown clock. The first smoke run on the mac dev box produced timestamps
+ending in literal `%N`, breaking the cooldown arithmetic without any error.
+The fix above was applied during `/dr-do` and is now the canonical recipe.
+
+## Pitfall: `awk` `sub()` does NOT support capture groups — that's `sed`-only
+
+### Trap
+
+```bash
+# WRONG — awk's sub()/gsub() do not interpret `\1` as a backreference.
+# It just substitutes the literal two characters "\" and "1".
+echo 'foo: "bar"' | awk '/^foo:/ { sub(/"(.*)"/, "\\1"); print }'
+# Prints:  foo: \1            (NOT  foo: bar)
+```
+
+`awk`'s `sub()` and `gsub()` accept an ERE pattern but the replacement string
+treats `\1..\9` as literal text — there are no capture groups. The behaviour
+is silently wrong: no syntax error, just the wrong substitution. People hit
+this every time they translate a working `sed s/(.*)/\1/` into awk «because
+awk feels cleaner here».
+
+### Right
+
+Use `match()` + `substr()` for capture-equivalent extraction inside awk:
+
+```bash
+echo 'foo: "bar"' | awk '
+  /^foo:/ {
+    if (match($0, /"[^"]*"/)) {
+      print substr($0, RSTART + 1, RLENGTH - 2)
+    }
+  }
+'
+# Prints:  bar
+```
+
+Or stay in `sed` / `perl` for backreference-heavy replacements:
+
+```bash
+echo 'foo: "bar"' | sed -E 's/^foo: "(.*)"$/\1/'
+```
+
+### Why this matters in practice
+
+An earlier orchestrator plan §5.5 used `awk '... sub(/^"(.*)"$/, "\\1") ...'` for stripping
+quotes around YAML scalar values. First smoke test produced `\1` literal in
+the output instead of the quoted contents. Replaced with `match()` +
+`substr()` and the fixture cleared.
 
 ## Why this fragment exists
 

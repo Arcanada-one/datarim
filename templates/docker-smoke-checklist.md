@@ -11,7 +11,8 @@ Reference: `$HOME/.claude/skills/testing.md` § Live Docker Smoke Test Before Ar
 ## Step 1 — Compose Validity
 
 ```bash
-cd <repo>/_docker && docker compose config --quiet && echo VALID || echo INVALID
+# noshellcheck-extract
+cd "$REPO_DIR/_docker" && docker compose config --quiet && echo VALID || echo INVALID
 ```
 
 **PASS**: `VALID` printed. **FAIL**: any YAML parse / schema error.
@@ -79,6 +80,7 @@ the script ran but produced no output. Verify post-conditions independently.
 ## Step 5 — Rollback Verification
 
 ```bash
+# nosec-extract
 # Dry-run revert in a scratch worktree to confirm it would apply cleanly
 git revert --no-commit <commit-sha> && git revert --abort
 ```

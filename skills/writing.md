@@ -2,6 +2,9 @@
 name: writing
 description: Content creation + go-to-market — research, drafting, editing, publication, SEO, analytics, launch. Loaded by writer and editor agents.
 model: sonnet
+runtime: [claude, codex]
+current_aal: 1
+target_aal: 2
 ---
 
 # Writing Workflow

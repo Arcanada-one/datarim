@@ -1,0 +1,38 @@
+# dr-orchestrate user config template
+# Copy to user-config.yaml, chmod 600, then edit.
+# user-config.yaml is gitignored — see code/datarim/.gitignore.
+
+key_injection: false   # MUST be set to true to allow send-keys; default fail-closed.
+session_name: datarim
+audit_dir: ~/.local/share/datarim-orchestrate
+state_dir: ~/.local/share/datarim-orchestrate/state
+
+# Phase 2 (TUNE-0165): subagent inference layer (autonomy L2 assisted).
+subagent:
+  # Fallback chain tried in order. First parseable JSON response wins.
+  # Recognised backends: coworker-deepseek, coworker-groq, claude, codex.
+  fallback_chain: ["coworker-deepseek", "claude", "codex"]
+  # Per-backend wall-clock budget. Chain continues on timeout.
+  timeout_s: 15
+  # Caller-side gate. Below this, escalation_backend.sh is invoked.
+  confidence_threshold: 0.80
+
+# Phase 2 (TUNE-0165): escalation routing.
+escalation:
+  # backend ∈ {mock, dev-bot}. mock writes JSONL locally; dev-bot is stub
+  # until AGENT-0017/0018 lands the real consumer.
+  backend: "mock"
+  # JSONL ledger for mock escalations. Append-only.
+  mock_log: ~/.local/share/dr-orchestrate/escalation.jsonl
+
+# Bot-Interaction Interface dispatcher (Datarim v2.5.0+).
+# Routes orchestrator IO either through terminal (current behaviour) or
+# through a bot proxy (e.g. AGENT-0017) via the plugin v0.3.0+ interface.
+bot_interaction:
+  provider: terminal              # terminal | agent0017
+  endpoint: ""                    # required iff provider=agent0017 (e.g. http://localhost:3010/prompts)
+  shared_secret_ref: ""           # required iff provider=agent0017 (vault:secret/datarim/orchestrator/hmac_secret or env:NAME)
+  outbound_backend: callback      # callback | redis (relevant when provider=agent0017)
+  redis_url: ""                   # required iff outbound_backend=redis (e.g. redis://arcana-db:6379/0)
+  inbound_bind: 127.0.0.1:8090    # advisory — adnanh/webhook bind from CLI flag
+  bearer_secret_ref: ""           # vault:secret/datarim/orchestrator/bearer or env:NAME

@@ -1,0 +1,53 @@
+# Human-summary whitelist — universally accepted technical terms.
+#
+# These tokens have NO stable Russian-language equivalent and are accepted
+# orthographic forms in modern Russian technical literature.
+#
+# Format mirrors banlist.txt:
+#   - One ASCII token per line.
+#   - `#` starts a comment to end-of-line.
+#   - Trailing whitespace stripped; empty lines allowed.
+#
+# Whitelist is evaluated BEFORE banlist. A token listed here is allowed
+# unconditionally even if orthographically similar to a banned term.
+
+# section: protocols & data formats
+JSON
+YAML
+HTTP
+HTTPS
+URL
+API
+REST
+gRPC
+WebSocket
+RFC
+
+# section: auth & security
+OAuth
+OAuth2
+OIDC
+JWT
+PASETO
+SSH
+TLS
+
+# section: networking & infrastructure
+DNS
+IP
+TCP
+UDP
+
+# section: hardware
+CPU
+RAM
+GPU
+SSD
+OS
+
+# section: devtools & platforms
+CLI
+GUI
+SDK
+IDE
+CI/CD

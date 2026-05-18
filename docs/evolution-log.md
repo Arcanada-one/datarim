@@ -4,6 +4,177 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ---
 
+## 2026-05-13 — CONN-0096 — Public Surface Hygiene Mandate cross-link + lint contract surface
+
+### Class A Applied
+
+- **`CLAUDE.md` § Public Surface Hygiene Mandate (cross-link) (NEW section).** CONN-0096 Proposal 1. Inserted between Documentation Taxonomy Mandate and Defensive Invariants. Mirrors the Autonomous Agent Operating Rules cross-link pattern — canonical mandate text lives in the consumer's ecosystem `CLAUDE.md`; framework ships the contract surface only. References `~/arcanada/CLAUDE.md` § Public Surface Hygiene Mandate as the Arcanada-ecosystem canonical source.
+  - **File:** `CLAUDE.md` (~+18 prose lines inserted before § Defensive Invariants).
+  - **Class:** A.
+  - **Source:** CONN-0096 reflection Proposal 1.
+  - **Stack-agnostic gate:** PASS (mode: `--diff-only`, no stack terms).
+  - **Summary:** consumers shipping public packages MUST mirror canonical mandate in own ecosystem CLAUDE.md; framework ships lint script + regex file as contract surface, not the rules text.
+
+- **`dev-tools/public-surface-lint.sh` + `dev-tools/public-surface-forbidden.regex` + `dev-tools/tests/public-surface-lint.bats` (NEW files).** CONN-0096 Proposal 2. Pure-shell linter greps supplied paths for forbidden references (PRD-/creative-/plans-/insights- patterns, internal-datarim-repo paths, milestone-code references) loaded from a sibling `.regex` file. Single `--check` mode: exit 0 = clean, exit 1 = found, exit 2 = usage error. Skips `dist/` / `build/` / `node_modules/` / `.venv/` / `.git/` / `__pycache__/` / `.pytest_cache/` by default. Per `dev-tools/` orthogonal-tool rule — content validation lives outside `datarim-doctor.sh`. Bats spec covers 14 cases (clean, all 4 forbidden-prefix variants, internal-link variant, milestone-code variant, skip-dist variant, report mode positive + negative, missing/empty regex error paths, unknown-argument error path).
+  - **Files:** `dev-tools/public-surface-lint.sh` (~135 LoC including spec comments), `dev-tools/public-surface-forbidden.regex` (~25 LoC including comment header), `dev-tools/tests/public-surface-lint.bats` (~110 LoC, 14 test cases).
+  - **Class:** A.
+  - **Source:** CONN-0096 reflection Proposal 2.
+  - **Stack-agnostic gate:** PASS (pure bash + grep, no stack terms in script body or docs).
+  - **Bats verification:** 14/14 pass. Pre-existing framework bats failures (T11, T12, D5, 336, 384) are baseline regressions on origin/main, not caused by these additions (verified via `git stash` + `bats tests/` → identical failure set).
+  - **Summary:** contract-surface lint that consumers wire into their CI / pre-publish hook; consumers extend the regex set with their own task-prefix patterns at install time.
+
+### Class A Applied (consumer-side, not framework runtime)
+
+- **Auto-memory `feedback_token_health_probe_before_publish.md`.** CONN-0096 Proposal 3. New ecosystem-side memory: every CI workflow depending on a long-lived token (npm/PyPI/Docker/CF) MUST health-probe the token at job start, not at the publish step. Distinct exit code on expiry distinguishes "rotate token" from "investigate publish failure". Pattern mirrors `feedback_openrouter_key_revoke_probe` for OpenRouter — generalised across token providers.
+  - **File:** `~/.claude/projects/-Users-ug-arcanada/memory/feedback_token_health_probe_before_publish.md` (ecosystem-side, not framework runtime).
+  - **MEMORY.md index updated** with one-line pointer.
+  - **Class:** A.
+  - **Source:** CONN-0096 reflection Proposal 3.
+  - **Stack-agnostic gate:** N/A (ecosystem-side memory; framework gate does not apply).
+## 2026-05-14 — TUNE-0209 — Soak verdict-gate hardening (2 Class A proposals applied; 1 Class B held)
+
+### Class A Applied
+
+- **`skills/testing.md` — `## Producer-Side Smoke Verification for Verdict Gates` subsection (NEW, 13 lines).** When a Definition-of-Done acceptance criterion is a numerical threshold computed by a verdict script over event records emitted by a producer (a daemon, soak harness, ingest pipeline, audit emitter), validate **both halves** in the same pre-archive gate — consumer-side smoke (verdict script over synthetic input) plus producer-side smoke (capture one actual event record from the producer's normal output stream and confirm every verdict-script-consumed field is present). Synthetic-only validation is the recurring trap that surfaced TUNE-0209: TUNE-0165 archive deferred V-AC-22 with smoke-validated synthetic JSONL, but the producer side (legacy `/usr/local/bin/dr-orchestrate-soak.sh`) was never exercised — 48h later the verdict gate failed on «no schema_v2 events» despite passing all unit assertions on synthetic input.
+  - **File:** `code/datarim/skills/testing.md` (subsection inserted between «Reporting Test Counts in Audit Output» and «Discipline»).
+  - **Class:** A.
+  - **Source:** TUNE-0209 reflection Proposal 1 (`Projects/Datarim/datarim/reflection/reflection-TUNE-0209.md`).
+  - **Stack-agnostic gate:** PASS (`scripts/stack-agnostic-gate.sh --diff-only skills/testing.md`).
+  - **Bats regression:** framework bats 494 total, 5 pre-existing fails (same baseline as TUNE-0165 archive — T11/T12 task-id-gate against legacy task IDs in `skills/datarim-doctor.md` + `skills/ai-quality/bash-pitfalls.md`, plus 3 other unrelated pre-existing fails). Zero new regressions attributable to this apply.
+
+- **`skills/infra-automation.md` — `## Tracked Deploy Artefact Rule` subsection (NEW, 12 lines).** Any script, config, systemd unit, or shell wrapper installed under a production path AND referenced downstream as a verification surface MUST be tracked in the framework or project repository before the referencing acceptance criterion ships. Untracked operator-authored artefacts have no diff history, no review trail, no code-review gate — drift propagates invisibly. Source incident: TUNE-0209 root-caused that the legacy `/usr/local/bin/dr-orchestrate-soak.sh` wrapper (created at INFRA-0137 launch) was never tracked in the Datarim repo; V-AC-22 ACs referencing the wrapper's behaviour shipped without a canonical surface to validate against.
+  - **File:** `code/datarim/skills/infra-automation.md` (subsection inserted between «Remote Measurement» and «Reusable Templates»).
+  - **Class:** A.
+  - **Source:** TUNE-0209 reflection Proposal 2.
+  - **Stack-agnostic gate:** PASS (`scripts/stack-agnostic-gate.sh --diff-only skills/infra-automation.md`).
+  - **Bats regression:** same 494/5 baseline; zero new regressions.
+
+### Class B Held
+
+- **Proposal 3 — PRD-TUNE-0165 amendment for V-AC-22 traffic-mix specification.** Soak corpus design materially influences `false_escalate_rate = escalated / (resolved + escalated)`; threshold `< 0.15` without explicit mix-spec is semantically ambiguous. Class B because it changes the PRD's acceptance-criterion contract.
+- **Status:** HELD. Spawned as backlog item `TUNE-0212` (P3 L2) with PRD-TUNE-0165 amendment as the gate.
+
+### Health-metrics
+
+- Skills 41, commands 22 + 1 plugin, agents 18 — thresholds not exceeded; `/dr-optimize` not auto-suggested.
+
+### Provenance
+
+- Reflection: `Projects/Datarim/datarim/reflection/reflection-TUNE-0209.md`
+- Archive doc: `documentation/archive/framework/archive-TUNE-0209.md` (workspace commit `e84a947`)
+- Framework code commit (pre-evolution-apply): `2e2dfa8` (`code/datarim/dev-tools/dr-orchestrate-soak.sh` + bats); NOT yet pushed to `Arcanada-one/datarim main` — operator approval gate.
+- Spawned follow-ups: `INFRA-0199` (48h re-soak on new harness), `TUNE-0212` (PRD-TUNE-0165 amendment).
+
+---
+
+## 2026-05-13 — INFRA-0192 — Live Smoke-Test Gates: Current-State Auth Probe subsection (INFRA-0191 follow-up F-1)
+
+### Class A Applied
+
+- **`skills/testing/live-smoke-gates.md` — `## Current-State Auth Probe` subsection (NEW, 22 lines).** Pre-flight requirement for every gate below; prescribes hitting an auth-scoped capability-cheap endpoint with the same credential before the capability test, a distinct sentinel/exit code on auth failure, and recording the probe result alongside the smoke result in the QA report.
+  - **File:** `code/datarim/skills/testing/live-smoke-gates.md` (subsection inserted between the intro paragraph and `## Gate 1`).
+  - **Class:** A (closes the Class A Deferred entry from the 2026-05-13 INFRA-0191 section below).
+  - **Source:** INFRA-0191 reflection Proposal A1 + backlog INFRA-0192.
+  - **Stack-agnostic gate:** PASS (`scripts/stack-agnostic-gate.sh --diff-only skills/testing.md` and `--diff-only skills/testing/live-smoke-gates.md` both clean).
+  - **Regression spec:** `code/datarim/tests/skill-testing-current-state-auth-probe.bats` (5 assertions — file presence, header presence, ordering after `# Live Smoke-Test Gates`, stack-neutral wording, ≤30-line body).
+  - **Reword applied:** "migration roadmap toward a centralised identity provider" replaces the original draft phrasing that referenced an ecosystem-specific migration list.
+
+---
+
+## 2026-05-13 — INFRA-0191 — Cron-agent multi-provider memory rule (1 of 2 Class A proposals applied; 1 deferred + 1 Class B held)
+
+### Class A Applied
+
+- **Memory rule `feedback_cron_agent_multi_provider.md` (NEW).** INFRA-0191 Proposal A2. Documents PRIMARY (subscription/free-tier subprocess) → FALLBACK (Model Connector universal `/execute`) pattern with fail-soft sentinels for cron-style AI agents. Applies to Email Agent / Inbox Organizer / Twitter Collector / Screen Reader / Agent Dreamer. Sentinel strings (`<svc>-disabled`, `<svc>-http-XXX`, `<svc>-skipped`) used вместо exceptions so cron cycles degrade to `no-ai` notification instead of crashing.
+  - **File:** `~/.claude/projects/-Users-ug-arcanada/memory/feedback_cron_agent_multi_provider.md` (NEW) + `MEMORY.md` index entry.
+  - **Class:** A.
+  - **Source:** INFRA-0191 reflection Proposal A2 + archive (commit `5485569` workspace).
+  - **Stack-agnostic gate:** N/A — local user memory file (project-scoped, not framework runtime).
+  - **Summary:** Cron agents with external LLM API deps adopt multi-provider chain with fail-soft sentinels at each layer; restores availability при quota exhaust без новых secrets.
+
+### Class A Deferred (Pending Stack-Agnostic Rewording)
+
+- **`skills/testing.md` § Live Smoke-Test Gate — Current-State Auth Probe** (Proposal A1). Текущая draft формулировка cites «Auth Arcana migration list (Phase 5+)», что fails `scripts/stack-agnostic-gate.sh`. Reword stack-neutral («migration roadmap toward centralised IdP») перед apply. Deferred to follow-up task F-1 (backlog spawn).
+
+### Class B Held (PRD Required)
+
+- **Project repo sync policy (Proposal B1).** INFRA-0189 + INFRA-0191 landed только в workspace `~/arcanada/.git`, не в `Arcanada-one/email-agent`. Per Operational Resilience Mandate Principle 1 — PRD-INFRA-XXXX needs to define canonical repo + sync direction + cadence. Deferred to follow-up F-4.
+
+---
+
+## 2026-05-11 — TUNE-0164 — Apply 4 Class A proposals to runtime (Phase 1 dr-orchestrate reflection)
+
+### Class A Applied
+
+- **`skills/datarim-system.md` § Large-Plan Read Strategy (L3+ tasks) (NEW section).** TUNE-0164 Proposal 1. Codifies the «coworker structured-summary on plans ≥ 600 lines» default for L3+ tasks: one delegated call returns per-step / per-V-AC / per-file specification that anchors implementation order, V-AC mapping, MOD touchpoints; QA and compliance reuse the same summary. Stack-neutral wording: «external-context delegation channel» / «runtime's external-LLM contract» — no vendor lock. References CLAUDE.md § Coworker Delegation for the concrete channel.
+  - **File:** `skills/datarim-system.md` (~+30 prose lines inserted after § Quick Path Resolution Rule).
+  - **Class:** A.
+  - **Source:** TUNE-0164 reflection Proposal 1.
+  - **Stack-agnostic gate:** PASS (mode: `--diff-only`).
+  - **Summary:** L3+ tasks with PRD+plan+INSIGHTS ≥ 600 lines delegate the bulk read to an external-context channel; main context consumes the structured summary, not the raw artefacts.
+
+- **`skills/ai-quality/bash-pitfalls.md` § «`date +%s%N` is GNU-only» + «`awk sub()` does NOT support capture groups» (TWO NEW sections).** TUNE-0164 Proposals 2 + 3. First section: portable millisecond clock recipe (Bash 5 `$EPOCHREALTIME` → `perl Time::HiRes` fallback); flags `date +%s%N` as silently broken on macOS / BSD. Second section: awk `sub()` / `gsub()` accept ERE pattern but treat `\1..\9` as literal text, no capture groups; canonical alternative is `match()` + `substr()` or sed/perl. Both pitfalls were hit during TUNE-0164 `/dr-do` and would have shipped silently broken on mac.
+  - **File:** `skills/ai-quality/bash-pitfalls.md` (~+90 prose lines inserted before § Why this fragment exists).
+  - **Class:** A.
+  - **Source:** TUNE-0164 reflection Proposals 2 + 3.
+  - **Stack-agnostic gate:** PASS (mode: `--diff-only`).
+  - **Summary:** portable `now_ms` recipe (Bash 5 EPOCHREALTIME → perl); awk `sub()` capture-group trap with `match()` + `substr()` alternative.
+
+### Class A Applied (consumer-side, not framework runtime)
+
+- **`~/.claude/projects/-Users-ug-arcanada/memory/feedback_foreign_path_args_disambiguation.md` (NEW feedback memory).** TUNE-0164 Proposal 4. Auto-memory entry: when `/dr-*` invocation arguments include a filesystem path outside `~/arcanada/` or the active framework root, treat as a candidate parallel ask and confirm scope before touching the foreign repo. Indexed in `MEMORY.md`. Stack-neutral by virtue of living in personal auto-memory (consumer-side), not in framework runtime. Not in `code/datarim/{skills,agents,commands,templates}/`.
+
+### Class A Applied (backlog spawn, no runtime change)
+
+- **`datarim/backlog.md` — INFRA-* — TUNE-0101 plugin-system gitignore drift.** TUNE-0164 Proposal 5. Backlog entry only; no framework runtime change. Description: `dr-plugin enable/list/doctor` creates `enabled-plugins.md` and `plugin-storage/` at the framework repo root on first invocation; neither is gitignored. Surfaced during TUNE-0164 plugin-system smoke; cleaned post-smoke. Follow-up requires one-line `.gitignore` patch on the framework repo (and optionally a `dr-plugin clean` subcommand). Spawned in `/dr-archive` Step 4.
+
+### Decisions Locked
+
+- **D-1 (Proposal 4 routing):** Foreign-path argument disambiguation lives as a personal auto-memory entry (`memory/feedback_foreign_path_args_disambiguation.md`), NOT as a framework skill or CLAUDE.md amendment. Rationale: the rule is about how an agent interprets an operator's slash-command invocation — operator-specific workflow guidance, not framework contract. Auto-memory is the right surface; multiple operators may interpret foreign-path args differently.
+- **D-2 (Proposals 2 + 3 colocated):** Both new pitfalls land in the same skill file (`skills/ai-quality/bash-pitfalls.md`) because they share the same audience (bash script authors / shell-pipeline reviewers) and the same recovery shape (canonical-recipe alternative). Splitting would duplicate the «Why this matters in practice» framing.
+
+### Verification
+
+- Stack-agnostic gate: `bash scripts/stack-agnostic-gate.sh --diff-only skills/datarim-system.md` → PASS clean. `bash scripts/stack-agnostic-gate.sh --diff-only skills/ai-quality/bash-pitfalls.md` → PASS clean.
+- `bats tests/` after applies: 402 active passes, 5 pre-existing failures (D5 check-drift, 277 marketing description length, T3a dr-reflect whitelist, T11/T12 task-id-gate skills/commands scope). Pre-edit baseline identical 5/5; **zero new regressions attributable to TUNE-0164 Class A applies.**
+- Provenance: this evolution-log entry + `datarim/reflection/reflection-TUNE-0164.md` + git log (commit `evolution(TUNE-0164): apply 4 Class A proposals to runtime`).
+
+---
+
+## 2026-05-09 — AUTH-0072 — Pipeline-position-aware AC formulation в `skills/ai-quality.md` (Class A)
+
+### Class A Applied
+
+- **Target:** `skills/ai-quality.md` — new section «Pipeline-Position-Aware AC Formulation» inserted before § Fragment Routing (~24 lines).
+- **What changed:** added a rule that ACs asserting HTTP status code MUST trace request through full middleware/filter chain; if asserted source is downstream of any validator, phrase as **semantic gate** (`not <failure_class>`) instead of literal status. Includes failure-mode example, 3-step rule, semantic-gate template, applicability scope, anti-pattern.
+- **Why:** AUTH-0072 cycle-1 finding #1 — PRD AC-11 declared «→ 401» without tracing pipeline; reality `Zod` validator runs *before* auth and short-circuits to `400`. Cost: PRD/plan/QA all required amendment under self-review (~30 min). Pattern is recurring across HTTP-routed code.
+- **Verification:**
+  - Stack-agnostic gate: PASS clean (stack-specific framework names wrapped in `<!-- gate:example-only -->` markers).
+  - Bats `tests/`: 4 pre-existing baseline failures (D5 check-drift, T277 description-length, T325 dr-reflect whitelist, T11/T12 task-id-gate from `security-baseline.md` + untracked `self-verification.md`) — UNRELATED to this proposal. `task-id-gate` on `ai-quality.md` itself: PASS clean. No new failures introduced.
+
+### Class B (HELD — pending PRD)
+
+- **Proposal 2 — `/dr-archive` unpushed-commits = 0 gate.** Per project repo touched: `git rev-list --count origin/<default-branch>..HEAD` MUST = 0 OR explicit accept-loss in archive doc. Source: AUTH-0065 «code-complete» archive shipped with commit `81fc3ccab` only on local main → +1 day cycle (AUTH-0072). Modifies archive command contract → requires PRD draft before apply (suggested TUNE prefix).
+- **Proposal 3 — `/dr-do` staging-not-stale pre-check.** Before any AC requiring staging E2E: `docker compose ps` + health-curl on staging host. Halt if dead/stale. Source: AUTH-0072 AC-10/11 partially blocked by INFRA-0111 compose collision. Modifies dr-do contract → requires PRD draft before apply.
+
+---
+
+## 2026-05-09 — INFRA-0078 — Architectural-superseding probe в `/dr-plan` Phase 4 (Class A)
+
+### Class A Applied
+
+- **`commands/dr-plan.md` § Detailed Design (Phase 4)** — добавлен mandatory first sub-step «Architectural-superseding probe». Перед component breakdown планер должен прочитать архивы, на которые ссылается `Spawned from` / `Source:` в задаче, и явно ответить: решена ли архитектурная проблема уже соседней задачей? Если да — рекомендовать cancellation / scope-reduction / re-framing как redundancy. Документировать ответ inline в Overview/Decisions секции плана.
+
+### Why
+
+INFRA-0078 был полностью спланирован как «выделенный RPi/NUC subnet router host» (Phase 4-6 + Appendix A Security написаны), прежде чем в фазе implementation выяснилось что INFRA-0073 уже сделал NAS прямым tailnet peer'ом — subnet router из primary path стал redundancy-only. Один grep по `Spawned from` ссылке (archive-INFRA-0072 → archive-INFRA-0073) на этапе /dr-plan вытащил бы этот факт за 30 секунд. Cost = тривиальный; saving = 1-2h plan churn + €100 averted hardware procurement + 3-7 day procurement loop avoided. Stack-agnostic gate PASS (clean diff).
+
+### Held Class B (deferred)
+
+- **Mandatory strategist gate для redundancy-only tasks** — proposal сделать L2 strategist gate non-skippable когда задача содержит keywords `fallback` / `redundancy` / `backup-of-backup` или `Spawned from` archive с completed primary path. Class B (operating-model change) — отложен до накопления N≥3 incidents (сейчас N=1). PRD draft потребуется для apply.
+
+---
+
 ## 2026-05-04 — INFRA-0015 — research-workflow.md § Pre-Flight Artifact Discovery (Class A)
 
 ### Class A Applied
@@ -1100,6 +1271,263 @@ None (TUNE-0091's currently-failing tests will surface organically on its PR via
 
 - **`skills/security-baseline.md` doc-refs.** 3 references to relocated `documentation/archive/security/findings-2026-04-28.md` updated to workspace path. Required to keep `check-doc-refs.sh` green after relocation. Direct consequence of Step 9 — not a scope expansion. Lesson → Class A 1 (above).
 
+## TUNE-0101 reflection (2026-05-06)
+
+### Class A — Spawned to backlog (NOT applied here, separate /dr-do tasks)
+
+- **TUNE-0110 — `skills/plan-path-validator.md`** (new-skill). Pre-flight exists-check для file-paths в `/dr-plan` output; catches deprecated/missing tooling references. Spawned потому что Plan TUNE-0101 step E4 цитировал deprecated `dev-tools/scripts/check-drift.sh` (DEPRECATED v1.17), не обнаружено до /dr-do.
+- **TUNE-0111 — `templates/shell-helper-template.sh`** (new-template). Conventions: `printf '%s\n'` newline-separated output, `while IFS= read -r x; do ... done < <(cmd)` iteration, `LC_ALL=C` scoping для regex. Spawned после двукратного word-splitting bug fix (R2 → R5).
+
+### Class B — Held (PRD required)
+
+- **PRD-revision gate at design pivot during `/dr-do`.** Когда implementation выбирает решение, отличное от PRD (e.g., flock → mkdir-lock platform substitution), агент обязан сделать inline ADR note в PRD § Alternatives Considered ИЛИ обновить PRD до merge. Drift PRD ↔ implementation в TUNE-0101 (flock cited, mkdir-lock implemented) был замечен только в `/dr-qa`. Class B (operating-model change to /dr-do contract). Awaiting PRD draft.
+
+### Decisions Logged (TUNE-0101 implementation)
+
+- **mkdir-lock vs flock substitution** (Round 2). PRD цитирует `flock`; macOS bash не поставляет `flock`. mkdir-based atomic mutex выбран как POSIX cross-platform substitute. Class B follow-up captures the workflow gap.
+- **Plan E4 skip** (Round 6). `dev-tools/scripts/check-drift.sh` — deprecated v1.17, удаляется v1.18. Step moot; symlink-mode пользователи не имеют drift по определению.
+- **+1 unplanned skill-registry check** (Round 5). Check 9 добавлен поверх 8 plan'ом checks как закрытие Round 4 side-observation про `dr-archive` симптом. Improvement, not scope creep.
+
+
+---
+
+## TUNE-0137 — Self-Verification v1 (v2.0.0)
+
+**Date:** 2026-05-09
+**Complexity:** L3
+**Outcome:** v1 tri-layer architecture research + PRD v2 pivot. Phase 1 shipped: `skills/self-verification.md` + `commands/dr-verify.md` + `dev-tools/measure-verify-effectiveness.sh` + `dev-tools/test-self-verification-claude.sh` + `dev-tools/measure-verify-cost.sh`. AC-7 hit-rate 7.7% literal / 15.4% semantic on n=13 known gaps → R-5 KILL_OR_PIVOT triggered. Research dimensions consensus: vanity metric (retrospective recall), not feature failure. PRD v2 pivot to tri-layer (Layer 1 deterministic floor + Layer 2 cross-model peer-review + Layer 3 native dispatch). TUNE-0144 spawned for Phase 2 implementation.
+
+### Class A Applied
+
+- **`skills/self-verification.md` initial draft** — v1 single-pass Codex prompt path, basic findings schema, audit log spec.
+- **`commands/dr-verify.md` initial draft** — Layer 3 native dispatch only; `--max-iter`, `--stage` args.
+- **`dev-tools/measure-verify-{cost,effectiveness}.sh`** — v1 measurement harness; broken data-source path (`~/.local/share/coworker/log.jsonl` phantom). Deprecated in TUNE-0144.
+- **`dev-tools/test-self-verification-claude.sh`** — AC-10 integration test harness (contract validator, not executable test).
+
+### Class B (HELD — addressed in TUNE-0144 / gated tasks)
+
+- **Layer 1 deterministic floor** → TUNE-0144 Phase 2.
+- **Layer 2 cross-model peer-review** → TUNE-0144 Phase 2.
+- **Post-step hook auto-trigger** → TUNE-0138 (gated on Phase 3-4 dogfood ≥1 per 5 tasks).
+
+---
+
+## TUNE-0144 — Self-Verification v2 tri-layer + tagging schema + token-cost tooling (v2.1.0)
+
+**Date:** 2026-05-10
+**Complexity:** L3
+**Outcome:** Phase 2 PRD-TUNE-0137 v2 shipped. 6 deliverables: (1) Layer 1 deterministic floor `dev-tools/dr-verify-floor.sh` (340 LoC, shellcheck-clean, JSONL findings with `source_layer: floor`); (2) Layer 2 cross-model peer-review path wired into `commands/dr-verify.md` (`--peer-provider`, `--floor-only`, `--task-id` propagation); (3) `skills/self-verification.md` tri-layer sections + extended findings schema; (4) `dev-tools/measure-invocation-token-cost.sh` (XDG_STATE_HOME, OpenTelemetry dotted-key JSONL, per-task token aggregation); (5) `dev-tools/measure-prospective-rate.sh` (archive frontmatter walker, R-5 v2 decision_hint); (6) `templates/archive-template.md` canonical NEW with `verification_outcome` schema + `commands/dr-archive.md` MANDATORY filling instruction. Public-surface 4-way: `data/commands/dr-verify.php` (EN+RU), `docs/commands.md` row, `README.md` bullet, `code/datarim/CLAUDE.md` tri-layer rewrite. Old `measure-verify-cost.sh` deprecated side-by-side. Version 2.0.0 → 2.1.0 across 6 files.
+
+### Class A Applied
+
+- **`dev-tools/dr-verify-floor.sh`** (NEW) — Layer 1 deterministic floor shell pipeline. Checks: AC coverage grep, file-touched audit, test-presence parse (manifest-agnostic), shellcheck recursive. JSONL output with `source_layer: "floor"`, `check_name`, `severity`. Exit = count of `severity=high` findings.
+- **`dev-tools/measure-invocation-token-cost.sh`** (NEW) — per-task coworker token cost aggregator. XDG_STATE_HOME resolution, daily-rotated JSONL, OpenTelemetry dotted-key dict access, provider breakdown.
+- **`dev-tools/measure-prospective-rate.sh`** (NEW) — Phase 3 dogfood rate tracker. Walks `documentation/archive/**/archive-*.md`, extracts `verification_outcome` frontmatter, computes `caught_per_5_tasks`. `decision_hint` drives R-5 v2 kill-gate verdict.
+- **`templates/archive-template.md`** (NEW canonical) — formal YAML frontmatter schema including closed `verification_outcome` block: `caught_by_verify`, `missed_by_verify`, `false_positive`, `n_a`, `dogfood_window`.
+- **`commands/dr-archive.md` Step 2 extension** — MANDATORY `verification_outcome` fill instruction with pointer to template.
+- **`code/datarim/CLAUDE.md` § /dr-verify rewrite** — tri-layer description + verification tagging workflow at archive time.
+- **`data/commands/dr-verify.php`** (NEW) — public-surface EN+RU page on datarim.club.
+- **`dev-tools/measure-verify-cost.sh` deprecation** — DEPRECATED header + stderr warning; side-by-side preserve; data-source path phantom corrected.
+
+### Class B (HELD — gated tasks)
+
+- **Post-step hook auto-trigger (TUNE-0138)** — gated on Phase 3-4 prospective dogfood verdict ≥1 per 5 tasks.
+- **Auto-fix policy (TUNE-0140)** — gated on TUNE-0138 ship + FP rate <30%.
+- **Cost-adaptive L4 self-degradation (TUNE-0139)** — gated on TUNE-0138 ship.
+- **`dev-tools/check-version-consistency.sh`** — mechanical CI enforcer for TUNE-0019 version consistency rule. Optional follow-up backlog item.
+
+### Decisions Logged (TUNE-0144 implementation)
+
+- **D-4 (coworker log truth path):** `~/.local/state/coworker/log/<YYYY-MM-DD>.jsonl` (XDG_STATE_HOME, daily-rotated, OpenTelemetry keys) — NOT `~/.local/share/coworker/log.jsonl` as cited in PRD line 186. PRD edit deferred to TUNE-0137 parent archive.
+- **D-5 (archive template phantom):** `templates/archive-template.md` did not exist; created as NEW canonical file.
+- **D-6 (measure-prospective-rate.sh):** added as 6th deliverable beyond PRD 5-item roadmap — needed immediately for Phase 3 measurement.
+- **D-7 (deprecated side-by-side):** `measure-verify-cost.sh` deprecated in-place; removal deferred 30 days via backlog.
+
+---
+
+## AUTH-0061 — Reflection-driven Class A skill updates (2026-05-10)
+
+**Date:** 2026-05-10
+**Source task:** AUTH-0061 (Auth Arcana Phase 2A — admin OIDC clients API + Redis cache + seed CLI). Reflection at `~/arcanada/datarim/reflection/reflection-AUTH-0061.md`.
+**Outcome:** Two Class A skill updates accepted by operator and applied to runtime; one Class A project-CLAUDE.md update applied to consumer; one Class B proposal HELD pending PRD update. Stack-agnostic gate `--diff-only`: PASS clean on both runtime files.
+
+### Class A Applied (framework runtime)
+
+- **`skills/testing.md` — Reporting Test Counts in Audit Output (NEW section).** Mandates that QA/Compliance reports derive per-spec test counts via a mechanical extractor of the test-runner's case-declaration syntax (framework-neutral contract; per-language regex examples behind `<!-- gate:example-only -->`). Drift between operator memory and extractor output = finding. Source: a per-spec count off-by-one was caught only by independent re-execution at Compliance; mechanical derivation removes the drift class.
+- **`skills/compliance.md` § Software Checklist Step 7 — Stale-base merge-result gate (`git`-only).** Adds an inline rule that before reporting a "regression" from a PR diff vs `origin/<base>`, the auditor MUST check whether the diff is a side-effect of `origin/<base>` advancing past the branch's merge-base (i.e. `git diff <merge-base>..HEAD -- <file>` empty), and if so, simulate the actual 3-way merge via `git merge-tree $(git merge-base HEAD origin/<base>) HEAD origin/<base>` before flagging. Source: a feature PR appeared to revert an upstream baseline-hardening fix that landed mid-flight; merge-tree simulation confirmed the fix was preserved by 3-way merge — a needless rebase cycle was avoided.
+
+### Class A Applied (consumer CLAUDE.md, not framework runtime)
+
+- **`~/arcanada/CLAUDE.md` § Backend Stack Standards — Devdep audit cadence.** Adds a quarterly `pnpm audit --audit-level=moderate` review on top of the existing `--audit-level=high` merge gate; moderate findings either patched or recorded as explicit waivers in the repo's SECURITY.md / `Areas/Credentials` note with reason + revisit date. First sweep due 2026-08-10. **Stack-specific (pnpm) — correctly placed in consumer CLAUDE.md, not framework runtime, per `feedback_datarim_stack_agnostic` memory.** Not part of `code/datarim/{skills,agents,commands,templates}/`.
+
+### Class B (HELD — pending PRD)
+
+- **Auth Arcana seed-CLI default-flip.** Until AUTH-0074 ships (P1 L3 — static OIDC `client_secret_basic` verification path on `/token`), the seed CLI MUST default `tokenEndpointAuthMethod='private_key_jwt'` (or refuse `client_secret_basic` without explicit env opt-in). Today's default ships static clients with an end-to-end-broken `/oidc/token` exchange. Modifies the default contract for shipping OIDC clients in the ecosystem and touches AUTH-0062 sequencing → requires PRD-AUTH-0002 amendment before approval. **HOLD until PRD update lands.**
+
+### Verification
+
+- `task-id-gate.sh` on `skills/testing.md`, `skills/compliance.md`: PASS clean (no task-IDs leaked into runtime artefacts; provenance lives here only).
+- `stack-agnostic-gate.sh --diff-only` on both files: PASS clean (no stack-specific terms added to runtime).
+- `bats tests/` baseline failures (T11/T12 skills/commands gate-clean, T17 brainstorming description >155, T26 check-drift SCOPES, T325 dr-reflect whitelist) confirmed pre-existing via stash-and-re-run on the canonical repo (Datarim framework); not regressions from this change.
+
+---
+
+## TUNE-0155 — /dr-verify provider auto-resolution + Class A reflection apply (2026-05-10)
+
+**Date:** 2026-05-10
+**Source task:** TUNE-0155 (zero-flag UX for /dr-verify Layer 2 peer-review provider). Reflection at `~/arcanada/datarim/reflection/reflection-TUNE-0155.md`. Audit logs at `datarim/qa/verify-TUNE-0155-do-{1,2}.md`. Compliance report at `datarim/reports/compliance-report-TUNE-0155.md`.
+**Outcome:** Three Class A skill/command updates applied to runtime; zero Class B proposals (all changes are prompt/rule extensions, no operating-model contract change). Both runtime gates GREEN: stack-agnostic-gate.sh `PASS: clean` on changed files; history-agnostic gate `0 TUNE-* refs added` in diff.
+
+### Class A Applied (framework runtime)
+
+- **`skills/self-verification.md` § Layer 2 — JSONL emission discipline (NEW subsection at ~line 161).** Mandates suppression of PASS-as-finding entries: findings array carries only defects or incorrect-premise items, never «cleared»/«verified»/«no finding» confirmations. Compress confirmations into the final-line summary. Source: across iter 1 + iter 2 deepseek peer-reviewer emitted 8 of 15 raw findings as PASS-as-finding despite explicit prose rule — a structural prompt constraint with concrete correct/incorrect examples is needed.
+- **`commands/dr-plan.md` Step 6.5 — Symbol Existence Check extension (PRD AC verification commands).** Adds requirement that every PRD AC `**Verification:**` line is smoke-checked at plan time against the implemented CLI surface (or pre-implementation skeleton). Phantom flags, positional-args invocations against named-flag contracts, and misnamed env vars caught here, not at /dr-verify post-/dr-do. Cost: ~5s per AC; saving: a full pipeline cycle. Source: TUNE-0155 PRD had 6 phantom AC verification commands (`--dry-run` flag, positional args, `dr-verify --dry-run`, `CLAUDE_RUNTIME` env var) discovered only at /dr-verify iter 1.
+- **`commands/dr-plan.md` Step 6.5 — AC ↔ V-AC semantic match check.** Adds requirement that Validation Checklist rows verify what the AC actually asserts, not just verbatim mirror the AC number. Failure mode: PRD AC «cost-cap soft enforcement, exit 2 on breach» mirrored by V-AC `for f in ...; test -f $f` (file presence) — verbatim cite of AC, but verification tests something else. Source: TUNE-0155 V-AC-12 ↔ AC-12 mismatch surfaced only at /dr-verify iter 2 reviewer, then patched in /dr-compliance.
+
+### Decisions Locked
+
+- **D-1 (Layer 2 reviewer prompts):** structural rule with concrete examples wins over abstract prose rule. Applied with both correct (suppression) and incorrect (PASS-as-finding) JSONL examples inline.
+- **D-2 (combined Step 6.5 extension):** AC verification command smoke + AC↔V-AC semantic match are sibling rules under same Symbol Existence Check umbrella — single docstring expansion preserves locality.
+- **D-3 (Class B deferred):** none. All TUNE-0155 reflection proposals are prompt/rule extensions; operating-model contract unchanged.
+
+### Verification
+
+- Stack-agnostic gate: `bash scripts/stack-agnostic-gate.sh skills/self-verification.md` → PASS clean. `bash scripts/stack-agnostic-gate.sh commands/dr-plan.md` → PASS clean.
+- History-agnostic gate: `git diff -- skills/self-verification.md commands/dr-plan.md | grep -E '^\+' | grep -cE 'TUNE-[0-9]+'` → 0.
+- Provenance lives in this evolution-log entry + archive + git log per Datarim Rule #8.
+
+
+---
+
+## AUTH-0057 + AUTH-0075 — 5 Class A proposals applied (2026-05-10)
+
+**Date:** 2026-05-10
+**Source tasks:** AUTH-0057 (Phase 2A slice 0057a — OIDC interactions API core) + AUTH-0075 (Phase 2A slice 0057b — interactions API hardening). Reflections at `~/arcanada/datarim/reflection/reflection-AUTH-0057.md` and `reflection-AUTH-0075.md`.
+**Outcome:** 4 framework-runtime updates + 1 consumer-CLAUDE.md update. Both runtime-runtime gates GREEN: stack-agnostic-gate.sh `PASS: clean` (`--diff-only` mode) on both `skills/testing.md` and `skills/ai-quality.md`. Workspace `~/arcanada/CLAUDE.md` is stack-specific by design (Backend Stack Standards) — gate exempt per `feedback_datarim_stack_agnostic` precedent.
+
+### Class A Applied (framework runtime)
+
+- **`skills/testing.md` § Coverage Instrumenter Blind-Spot Awareness (NEW section).** Merged AUTH-0057 P4.1 (detection: pre-flight discrepancy check at 20pp threshold) with AUTH-0075 P1 (remediation hierarchy: refactor-lift > switch instrumenter > ignore comments). Stack-neutral wording: «raw runtime hooks», «framework-internal pass-through», «framework-instrumented layers» — no `Fastify`/`v8`/`Istanbul`/`vitest`/`NestJS` literal terms. Documents the architectural-improvement rationale for refactor-lift and the «document the decision» discipline at every level of the hierarchy.
+  - **File:** `skills/testing.md` (~+22 prose lines inserted before § Reporting Test Counts in Audit Output).
+  - **Class:** A.
+  - **Source:** AUTH-0057 reflection §4.1 + AUTH-0075 reflection §5 P1 (deduped + merged into single coherent section per evolution-apply procedure).
+  - **Stack-agnostic gate:** PASS (mode: `--diff-only`).
+  - **Summary:** detection rule + 3-level remediation hierarchy for coverage instrumenter blind spots through framework-internal pass-through code.
+
+- **`skills/ai-quality.md` § RFC 7807 Problem-Details Envelope for Programmatic API Errors (NEW section).** AUTH-0075 P2 applied. Mandates RFC 7807 `application/problem+json` as the ecosystem standard for HTTP error responses on services with programmatic consumers; concentrates mapping in a single global error-mapping seam at the framework boundary; defines frozen title table, typed exception class, 5xx detail discipline, no-per-handler-error-JSON anti-pattern. Stack-neutral wording: «framework's idiomatic global exception filter, error middleware, or top-level handler» — no `NestJS`/`APP_FILTER`/`Fastify`/`Express` literal terms. RFC 7807 itself is a published standard, cited by number.
+  - **File:** `skills/ai-quality.md` (~+24 prose lines inserted before § Atomic Multi-Surface Plan Amendment).
+  - **Class:** A.
+  - **Source:** AUTH-0075 reflection §5 P2.
+  - **Stack-agnostic gate:** PASS (mode: `--diff-only`).
+  - **Summary:** RFC 7807 envelope as ecosystem standard for HTTP errors on programmatic-consumer services; single global exit-point seam, frozen title table, 5xx detail suppression.
+
+- **`skills/ai-quality.md` § Atomic Multi-Surface Plan Amendment (NEW section).** AUTH-0057 P4.2 applied verbatim per AUTH-0057 archive note (gate PASS, plan-time concept, no stack terms). Mandates atomic update of all parallel artefacts (PRD §2 + plan + task description Implementation Notes + Implementation Steps locus) within the same revision cycle when an AC's location moves mid-implementation. Cross-check via grep across surfaces; ship in same commit/branch push as the code; one operator-approval reference per amendment.
+  - **File:** `skills/ai-quality.md` (~+18 prose lines inserted before § Fragment Routing).
+  - **Class:** A.
+  - **Source:** AUTH-0057 reflection §4.2.
+  - **Stack-agnostic gate:** PASS (mode: `--diff-only`).
+  - **Summary:** atomic multi-surface AC-amendment protocol — one revision cycle, cross-check after edit, ship-with-code, step-locus precision.
+
+### Class A Applied (consumer CLAUDE.md, not framework runtime)
+
+- **`~/arcanada/CLAUDE.md` § Backend Stack Standards — CSP / security-header decision matrix (narrow-prefix vs ecosystem-wide).** AUTH-0075 P3 applied. Decision rule for new ecosystem services: hand-rolled Fastify `onSend` hook when target is a single URL prefix + ≤6 static headers + no nonce/hash; `@fastify/helmet` (or equivalent middleware package) when ecosystem-wide / multi-prefix / dynamic / >6 headers / collision-with-other-module. Mandates inline prefix-guard-assumption comment in hand-rolled hooks. **Stack-specific by design (Fastify reference) — correctly placed in consumer CLAUDE.md, not framework runtime, per `feedback_datarim_stack_agnostic` memory.** Not part of `code/datarim/{skills,agents,commands,templates}/`.
+
+### Decisions Locked
+
+- **D-1 (P1 ↔ P4.1 dedup):** P4.1 (detection) and P1 (remediation hierarchy) live as a single section in `skills/testing.md` rather than two adjacent sections. Detection without remediation is incomplete; remediation without detection has no trigger. Combined section keeps the rule's full lifecycle in one place. Stack-neutral wording common to both sources is unified; AUTH-0075-specific «refactor-lift superior to instrumenter switch» framing wins because it captures the architectural-improvement rationale that AUTH-0057 wording lacked.
+- **D-2 (P3 routing):** P3 (CSP decision matrix) deliberately bypasses the framework runtime and lands in `~/arcanada/CLAUDE.md`. The matrix names `Fastify` and `@fastify/helmet` as concrete artefacts — the rule cannot be useful without those names. Per `feedback_datarim_stack_agnostic`, stack-specific guidance lives in consumer CLAUDE.md, not framework runtime. Workspace CLAUDE.md gate is exempt by precedent (already contains Fastify/Prisma/pnpm references).
+- **D-3 (P4 reject):** AUTH-0075 P4 («new skill `rfc7807-error-handling.md`») rejected by AUTH-0075 reflection itself as subset of P2; ai-quality.md is the canonical home for API contract patterns; a separate skill would create duplication. No action taken.
+
+### Verification
+
+- Stack-agnostic gate: `bash scripts/stack-agnostic-gate.sh skills/testing.md --diff-only` → PASS clean. `bash scripts/stack-agnostic-gate.sh skills/ai-quality.md --diff-only` → PASS clean.
+- Workspace `~/arcanada/CLAUDE.md` is stack-specific by design — gate not applied (consumer config, not runtime artefact).
+- Provenance lives in this evolution-log entry + reflection files + git log.
+
+---
+
+## 2026-05-11 — DEV-1362 Class A applied
+
+### Proposal A1 (skill-update)
+
+- **Target:** `skills/testing/live-smoke-gates.md`
+- **What:** Added `Gate 6: UI Trigger → Cross-Datasource Write` — fires when a UI affordance triggers a server-side write to a data store that unit tests do not bind. Mandates live click + post-condition read in the target store, recorded in the QA report.
+- **Why:** DEV-1362 round-5 QA — operator surfaced the gap that vitest mock at API boundary + jest mock at repository boundary leaves the click→row path uncovered. Asana-sync manual buttons only verified end-to-end via live DB row read in `bi_aggregate.tbl_asana_sync_runs`.
+- **Impact:** Medium — affects any UI-write task across the framework. Generalises beyond Asana-sync to any audit-trail, event-log, or status-column write.
+
+### Proposal A2 (skill-update)
+
+- **Target:** `skills/evolution.md`
+- **What:** Added `Pattern: Helper Extends Doctrine — Same-Task Reconcile`. When a runtime helper covers a wider set of conditions than the doctrine that documents it, the same task MUST update the doctrine OR record `narrower-doctrine-intentional` inline next to the helper. `/dr-compliance` Step 3 FAILs Layer 4 when both states co-exist.
+- **Why:** DEV-1362 `isAbortError` doctrine looped twice — helper accepted both native + library-specific cancel-marker names, project convention file named only the native one. Doctrine was amended, reverted, re-amended; two QA rounds + one compliance round wasted on the loop.
+- **Impact:** Medium — affects future helper-vs-doctrine drift across any project. Reusable for error-name normalizers, MIME-type allowlists, dialect-flag fallbacks, locale-tag aliases, soft-delete predicates, transitional schema shapes.
+
+### Verification
+
+- Stack-agnostic gate: `bash scripts/stack-agnostic-gate.sh --diff-only HEAD skills/testing/live-smoke-gates.md` → PASS clean. `bash scripts/stack-agnostic-gate.sh --diff-only HEAD skills/evolution.md` → PASS clean (after one rewrite: initial draft cited a specific HTTP-client library name, reworded to stack-neutral «library-specific cancel-marker name»).
+- Provenance: this evolution-log entry + reflection `~/code/aether/local-env/datarim/reflection/reflection-DEV-1362.md` + git log on the canonical Datarim repo.
+
+---
+
+## 2026-05-11 — TUNE-0165 Class A applied
+
+### Proposal B1 (template-update + command-update)
+
+- **Target:** `templates/prd-template.md` + `commands/dr-prd.md` (Step 5 pre-save gates).
+- **What:** Added `ships_in:` derivation rule. PRDs that ship framework / library releases MUST derive `ships_in:` from the canonical version source (`code/datarim/VERSION` or project equivalent) at PRD-draft time. `/dr-prd` Step 5 reads the current version and pre-fills `ships_in: <next-minor-or-patch>`. Manual override requires an inline justification comment. Drift between PRD-declared and actual release version becomes an explicit pre-save gate.
+- **Why:** TUNE-0165 PRD shipped with `ships_in: Datarim v1.25.0` while framework was advancing v2.3.0 → v2.4.0; 5 body refs to the stale version drifted with the frontmatter and only surfaced at `/dr-compliance`, requiring an extra patch round.
+- **Impact:** Medium — closes a recurring class of «PRD ships-version drift» defects across every framework / plugin / library release PRD.
+
+### Proposal B2 (template-update + command-update)
+
+- **Target:** `templates/prd-template.md` + `commands/dr-prd.md` (Step 5 pre-save gates).
+- **What:** Added V-AC path live-validation gate. Every AC / V-AC line that cites a script / binary / spec file / directory MUST be live-validated (`command -v <bin>` / `test -f <path>` / dry-run exit code) before PRD approval. Cites intentionally produced by the plan must be marked `[to-be-created]` inline; everything else without a successful probe blocks save.
+- **Why:** TUNE-0165 PRD shipped with 2 phantom-path cites — `tests/test_plugin_dispatch.bats` (real implementation: case in `test_plugin_register.bats`) + `dev-tools/check-version-consistency.sh` (real path: `scripts/version-consistency-check.sh`). Both survived `/dr-qa` and surfaced at `/dr-compliance`. Similar phantom in earlier TUNE-0164 PRD. `[to-be-created]` marker preserves compatibility with PRDs whose plans create new tooling.
+- **Impact:** Medium — closes a recurring class of «PRD cites non-existent path» defects across all PRD-time artefacts.
+
+### Verification
+
+- Stack-agnostic gate: `bash scripts/stack-agnostic-gate.sh templates/prd-template.md` → PASS clean. `bash scripts/stack-agnostic-gate.sh commands/dr-prd.md` → PASS clean.
+- Bats: `bats tests/` → 402 ok + 5 pre-existing not_ok (T11/T12 skill-scope gate, D5 SCOPES list, skill description >155 chars, dr-reflect whitelist). 0 new regressions — same baseline as before TUNE-0165 archive.
+- Provenance: this evolution-log entry + reflection `~/arcanada/datarim/reflection/reflection-TUNE-0165.md` + git log on the canonical Datarim repo.
+
+### Class B Held — Proposal B3 (deferral clause template)
+
+- **Target (planned):** `templates/coverage-deferral-clause.md` + reference in `skills/compliance.md` § Step 4.
+- **What:** Standardise «deferred V-AC» waiver template — explicit fields for measured-vs-deferred status, gating dependency (e.g. `INFRA-0137`), follow-up condition, timestamp + operator initials.
+- **Why:** TUNE-0165 V-AC-22 (48h soak `false_escalate_rate < 0.15`) deferred to Linux runtime without a structured waiver — opens a class of «deferred-AC forgotten» defects across autonomy / quality-baseline metrics.
+- **Class:** B — change in `skills/compliance.md` § Step 4 «Quantitative-threshold AC enforcement» is an operating-model contract change; requires a PRD draft before apply.
+- **Status:** HELD. Spawned as backlog item `TUNE-0182` (P2 L2) with PRD draft as the gate.
+
+## 2026-05-12 · TUNE-0185 Phase 4 archive — Class A applied
+
+- **A1 — `feedback_rank1_mandate_canonical_text_split.md`**: rank-1 ecosystem mandates keep canonical rule text in consumer ecosystem `CLAUDE.md`; framework runtime ships only contract surface (yaml policy + loader entry-points + cross-link section). Stack-agnostic gate PASS. Pattern previously applied implicitly across AAL / Auth Arcana / File Sync / Operational Resilience / Documentation Taxonomy mandates — now explicit.
+- **A2 — `feedback_yaml_policy_loader_orthogonality.md`**: new policy schemas in shared loader scripts get their own `load_<name>()` entry-point — never merge into the existing unified stream. Different cardinality + semantics make merge a maintenance liability. Smoke = `yq` pipeline + `shellcheck` clean.
+- **Stack-agnostic gate**: PASS on both memory entries + reflection doc.
+- **Class B (HELD, PRD-gated)**: B1 `/dr-orchestrate` consumer wiring full integration suite (extends TUNE-0187); B2 mandate drift detector automation via GH Actions (extends TUNE-0186).
+- **Health-metrics**: 14-task backlog spawn fanout ≥10 target; 3-way cross-correlation INSIGHTS↔mandate↔yaml zero drift at archive time; framework `code/datarim/` repo 4 unpushed commits (operator push gate); workspace shared schema gate FAIL bypassed via `--no-schema-check` (root cause: 12 sibling active tasks + 50+ backlog legacy lines — `/dr-doctor` migration sweep deferred as separate task).
+- **Provenance**: `documentation/archive/framework/archive-TUNE-0185.md` + reflection `Projects/Datarim/datarim/reflection/reflection-TUNE-0185.md` + framework commit `d5ef079` (`code/datarim/` repo) + workspace commit `689c210` (`~/arcanada/`).
+
+## 2026-05-13 — TUNE-0202 Step 0.5 reflection (Class A applied)
+
+- **A1 — `code/datarim/.gitignore` += `__pycache__/` + `*.pyc`**: cosmetic residue from any Python-based `dev-tools/*` debug session (importlib spec-load, ad-hoc test) leaked into `git status` as untracked. One-line addition under existing «Node» block, stack-agnostic per the framework's existing Python-runtime assumption. Smoke = `git status --porcelain` clean after `find . -name __pycache__ -type d -delete && rm -rf …`.
+- **Stack-agnostic gate**: PASS on `.gitignore` diff (`scripts/stack-agnostic-gate.sh --diff-only .gitignore`).
+- **A2 (DEFERRED, not applied this session)**: «portable latency measurement в bats» snippet for `skills/testing.md` — recommend `python3 -c 'import time; time.perf_counter()'` over `date +%s%N` (BSD macOS strips `%N`). Deferred because `skills/testing.md` is mid-flight in a parallel TUNE-0164 evolution-apply session (foreign `M` hunk at archive time); appending now would mix scopes. Surface as a backlog item for next-session apply.
+- **Class B (HELD, PRD-gated)**: B1 `/dr-do` phase-completion version-bump gate (re-run `version-consistency-check.sh` inside `/dr-do` when phase touches `VERSION` — catches «claimed updated, actually not» earlier than `/dr-archive`); B2 `/dev/fd/` process-substitution path handling в `check-topic-overlap.py` (silent-skip vs stdin-alias contract decision).
+- **Health-metrics**: skills 41, commands 22 + 1 plugin, agents 18 — thresholds not exceeded; `/dr-optimize` not auto-suggested.
+- **Provenance**: reflection `Projects/Datarim/datarim/reflection/reflection-TUNE-0202.md` + compliance report `Projects/Datarim/datarim/reports/compliance-report-TUNE-0202.md` + framework commits `f11a2b3` (feat) + `604e12c` (refactor) + `76fb48a` (CLAUDE.md version fix) + site commit `7489123`.
+
+## 2026-05-16 — TUNE-0183 V-AC-axis-split skill (Class A applied)
+
+Source: `documentation/archive/framework/archive-TUNE-0183.md` § Lessons Learned + `reflection-TUNE-0183.md` § Evolution Proposals. Class A approved by operator 2026-05-16.
+
+- **Proposal 1 — skill-update (applied):** new skill `skills/v-ac-axis-split.md` (≤30 lines body) documenting pattern: when a V-AC group mixes deterministic axis (rule match / shape check / type assertion) and statistical axis (live-rate threshold / SLA percentile / soak distribution), split upfront into two V-AC groups. Loaded by `/dr-prd` (V-AC drafting) and `/dr-plan` (V-AC review). Stack-agnostic gate PASS (formulation about PRD/Plan workflow, not stack).
+- **Proposal 2 — claude-md-update (applied):** added one-line cross-link in `code/datarim/CLAUDE.md` § Skills (after `human-summary.md` entry) referencing the new skill with citation to TUNE-0183 V-AC-14.11 reclassification as the canonical reference case.
+- **Class A scope applied minimally:** skill file + CLAUDE.md cross-link + this evolution-log entry. Full TUNE-0090 public-surface sync (`docs/skills.md` count update + `README.md` skill mention + `datarim.club/data/skills/v-ac-axis-split.php` EN+RU page + bats test in `tests/`) deferred to follow-up TUNE-* per asymmetric-drift detector contract.
+- **Class B (none for this archive).**
+- **Health-metrics**: skills 41 → 42, commands 22, agents 18 — thresholds not exceeded; `/dr-optimize` not auto-suggested.
+- **Provenance**: reflection `datarim/reflection/reflection-TUNE-0183.md` + archive `documentation/archive/framework/archive-TUNE-0183.md` + framework commit `cdce669` (`scope: TUNE-0183 evolution-apply — v-ac-axis-split skill (Class A)`, local-only, push deferred to operator).
+
 ---
 
 ## 2026-05-16 — CONN-0103 STT Phase 1b multi-provider cascade
@@ -1132,3 +1560,14 @@ None (TUNE-0091's currently-failing tests will surface organically on its PR via
 1. `TUNE-* V-Plan grep validator + case-insensitivity warning` (Class A pending; replaces the auto-reverted inline apply).
 2. `PRD-AAL-* Partial Milestone Closure Pattern` (Class B prerequisite for the AAL Mandate amendment).
 3. `TUNE-* /dr-doctor --fix workspace activeContext schema-drift cleanup` (pre-existing legacy `## Last Completed` section blocks `pre-archive-check` schema gate without `--no-schema-check`).
+
+## 2026-05-17 — ARAS-0005 PRD-ARAS-0001 § 6.5 CancellationToken path correction (Class A applied)
+
+Source: `documentation/archive/arcana-agent-system/archive-ARAS-0005.md` § Lessons Learned + `reflection-ARAS-0005.md` § Evolution Proposals. Class A approved at archive-time (low-risk 1-line doc fix).
+
+- **Proposal 1 — claude-md-update (applied):** `datarim/prd/PRD-ARAS-0001.md` § 6.5 line 372 — `tokio::sync::CancellationToken` → `tokio_util::sync::CancellationToken`. `CancellationToken` lives in `tokio_util::sync` (crate `tokio-util`), not `tokio::sync`. Stop-the-bleed correction so ARAS-0006 (Permission system Layer 2 = pre_tool hook) downstream reader cites the canonical crate path. Stack-agnostic gate N/A (PRD is project-specific document, not framework runtime).
+- **Proposal 2 — skill-update (pending spawn):** new `TUNE-*` backlog item — extend `/dr-plan` Step 11 Live Audit Checkpoint Rust recipe with `cargo deny check licenses` alongside `cargo audit --deny warnings`. Reason: ARAS-0005 plan added `directories = 6`, transitive `option-ext` (MPL-2.0); `cargo audit` advisory-only, license-policy mismatch surfaced at /dr-do `cargo deny check licenses` step. Plan-time check closes the gap. Stack-agnostic gate PASS (formulation about «package-manager-native license checker», rephrasable across pnpm/pip/cargo/gem).
+- **Proposal 3 — skill-update (pending spawn):** new `TUNE-*` backlog item — coworker draft type-signature mirror guard в `code/datarim/skills/coworker-delegation.md` (or `dr-plan.md` § coworker write spec rules). Reason: coworker first draft § Overview для ARAS-0005 фабриковал `&mut PostHookContext` signature, `HashMap<String, Value>` variants, `sha256` algorithm — surgical-edit pass на /dr-plan fixed all, но прошло surface через /dr-init. Memory `feedback_coworker_draft_fabrication` covers phantom artefacts (PODs, releases), не type signature drift. Stack-agnostic gate PASS.
+- **Class B (none for this archive).**
+- **Health-metrics**: no skill/agent/command count changes; thresholds not exceeded; `/dr-optimize` not warranted.
+- **Provenance**: reflection `datarim/reflection/reflection-ARAS-0005.md` + archive `documentation/archive/arcana-agent-system/archive-ARAS-0005.md` (to be written by `/dr-archive` Step 2) + PRD diff one line in `datarim/prd/PRD-ARAS-0001.md`. Project commit `fb883d8` on branch `aras-0005-hooks` (`Arcanada-one/arcana-agent-system`).

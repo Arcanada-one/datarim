@@ -1,10 +1,11 @@
 ---
 name: dr-archive
 description: Archive completed task with comprehensive documentation and Datarim updates
-disable-model-invocation: true
 ---
 
-# /dr-archive - Archive Task
+# /dr-archive — Archive Task
+
+> **Contract.** Archival performs irreversible workspace mutations — schema-gate validation of the thin-index files, staged-diff audit of foreign task-ID hunks, blob-swap recipe for non-interactive shells, prefix → archive-subdir routing, and the mandatory Operator Handoff section in the archive document. All of these protections are enforced in code (`pre-archive-check.sh`, `datarim-doctor.sh`, and the steps below), independent of how the command is invoked. Prefer the canonical slash form (`/dr-archive {TASK-ID}`) over manually staging archive files: the slash command threads through every guard described in this file; ad-hoc paths skip them.
 
 Complete and archive current task.
 
@@ -14,6 +15,8 @@ Complete and archive current task.
 ## Steps
 
 0. **TASK RESOLUTION**: Apply Task Resolution Rule from `$HOME/.claude/skills/datarim-system.md` § Task Resolution Rule. Resolve which task is being archived (from argument or disambiguation). Use the resolved task ID for all subsequent steps.
+
+0.05. **READ INIT-TASK** (mandatory per `$HOME/.claude/skills/init-task-persistence.md`): Open `datarim/tasks/{TASK-ID}-init-task.md` if present. Read the full `## Operator brief (verbatim)` section AND every `## Append-log` entry. The archive document MUST include a `## Выполнение ожиданий оператора` section (F6 of init-task contract) that reflects how each operator-stated expectation was met. Missing init-task is non-blocking on archive — note its absence under § Legacy and continue.
 
 0.1. **PRE-ARCHIVE CLEAN-GIT CHECK** (MANDATORY):
 
@@ -168,9 +171,23 @@ Complete and archive current task.
    - If prefix not in mapping → use `general/`
    - Create `documentation/archive/{area}/` directory if it doesn't exist
 2. Create archive document with:
+   - **Frontmatter from canonical template** `templates/archive-template.md` — copy YAML schema (`id`, `title`, `status`, `completed_date`, `complexity`, `type`, `project`, `related`, `archive_doc`, `verification_outcome`). Schema is closed; do not add custom keys.
+   - **`verification_outcome` block — MANDATORY at archive time.** Triage the audit log under `datarim/qa/verify-{TASK-ID}-*.md` (if `/dr-verify` ran) and fill the four counters + `dogfood_window` per template comment block:
+     - `caught_by_verify` — high/medium gaps that `/dr-verify` surfaced and the operator fixed BEFORE this archive.
+     - `missed_by_verify` — initially `0`; updated retroactively if a post-archive follow-up reveals a gap that should have been caught.
+     - `false_positive` — `/dr-verify` findings the operator triaged as not real.
+     - `n_a: true` — when `/dr-verify` was not invoked (L1 trivial fix or pre-tri-layer task).
+     - `dogfood_window` — operator-supplied window-id grouping key consumed by `dev-tools/measure-prospective-rate.sh`.
    - Task summary
    - Implementation details
    - Reflection insights
+   - **`## Выполнение ожиданий оператора` section (MANDATORY when `datarim/tasks/{TASK-ID}-expectations.md` exists, per F6 of the init-task contract):**
+     - Read `datarim/tasks/{TASK-ID}-expectations.md` and render every item from `## Ожидания` in its original order.
+     - Each rendered bullet: bold operator-words formulation, followed by the final `/dr-qa` status word (one of «выполнено», «частично», «не выполнено», «неприменимо» — never the schema enum `met`/`partial`/`missed`/`n-a`) and one or two plain-language sentences of comment sourced from the item's most recent `#### История статусов` line (`reason: …`).
+     - **No tables in this section.** Bullet list only (single-level allowed; nested bullets forbidden).
+     - **No anglicisms** — apply the banlist rules from `skills/human-summary.md` to the comment text (Russian prose only; ASCII tokens of length ≥3 from `skills/human-summary/banlist.txt` MUST NOT appear unless wrapped in the per-paragraph escape-hatch fence). The two-paragraph fenced budget from `human-summary.md` § Per-paragraph escape hatch applies here as well.
+     - Placement: between `## Final Acceptance Criteria` and `## Known Outstanding State / Operator Handoff` (see `templates/archive-template.md`).
+     - Missing expectations file ⇒ render a single line «Чек-лист ожиданий не заводился» under the heading and proceed; do not skip the heading entirely (the section is part of the archive's canonical shape).
    - **Known Loss Verification Gate (MANDATORY when archive will include any "Known Loss" / "Unrecoverable" / "Content lost" statement):**
      Before recording that any file, section, decision, or piece of work is permanently lost, run the Disaster Recovery Checklist from `$HOME/.claude/skills/evolution.md` § Disaster Recovery for Lost Runtime Files. Record in the archive document which channels were checked (grep reflections by filename, compacted session context, cross-references, git history of consumer projects, external backups) and what each returned. If the checklist takes >30 minutes, defer the archive, open a follow-up recovery task, do not record the loss yet. Only after all 5 channels are exhausted may a loss claim enter the archive. Rationale: an archive that records files as "text reconstruction is not possible" after 0 minutes of discovery has historically been recovered 100% in <30 minutes using channels 1-3. Always run the checklist first.
 3. **BACKLOG UPDATE** (if task existed in backlog):
@@ -203,6 +220,13 @@ Complete and archive current task.
      directly; remove from `backlog.md`.
    - Legacy state (any of those files present): `/dr-doctor --fix` migrates and
      deletes; `/dr-init` Step 2.4 self-heal probe surfaces this on next session.
+8. **HUMAN SUMMARY**:
+   - Load `$HOME/.claude/skills/human-summary.md`.
+   - Emit the `## Отчёт оператору` (RU) / `## Operator summary` (EN) section, with the four mandated sub-sections, between the archive-mutation block and the CTA block. Language follows the most recent operator message.
+   - Source material: the just-written archive document (§ Overview / § Outcome / § Known Outstanding State / § Выполнение ожиданий оператора) plus the reflection file from Step 0.5.
+   - Do NOT mutate the archive document or the reflection file — the summary is chat-only; the archive remains the permanent record.
+   - The summary MUST honour the banlist + whitelist + per-paragraph escape-hatch contract from the skill (`<!-- gate:literal -->` … `<!-- /gate:literal -->` for verbatim quoted blocks only; max two fenced paragraphs per summary).
+   - Length budget: 150–400 words **total across the four sub-sections** (not per sub-section). Hard upper bound. If sources are bigger, compress.
 
 ## Read
 - `datarim/tasks.md` (thin index — one-liner for the archived task)

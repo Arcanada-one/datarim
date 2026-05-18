@@ -1,12 +1,15 @@
 ---
 name: security-baseline
 description: Canonical S1–S9 security rule reference cited from CLAUDE.md § Security Mandate. Load for plan/qa/compliance/do touching shipped artefacts.
+runtime: [claude, codex]
+current_aal: 1
+target_aal: 2
 ---
 
 # Security Baseline (S1–S9)
 
 > **Authority:** RFC 2119 keywords (MUST / MUST NOT / SHOULD / MAY) apply throughout this document.
-> **Origin:** corporate security audit, 2026-04-28 — full audit log: `~/arcanada/documentation/archive/security/findings-2026-04-28.md` (relocated from framework repo by TUNE-0090, 2026-05-03). Research baseline: `~/arcanada/datarim/insights/INSIGHTS-security-baseline-oss-cli-2026.md`.
+> **Origin:** corporate security audit, 2026-04-28 — full audit log: `~/arcanada/documentation/archive/security/findings-2026-04-28.md` . Research baseline: `~/arcanada/datarim/insights/INSIGHTS-security-baseline-oss-cli-2026.md`.
 > **Companion skills:** [`skills/security.md`](security.md) (operational recipes — git history scrub, Tailscale+VPN coexistence, recon-vs-compromise heuristics, cross-stack relative-path includes) and [`skills/release-verify.md`](release-verify.md) (S4 consumer-side verify entry point).
 > **CI baseline:** [`tests/security/baseline.json`](../tests/security/baseline.json) — machine-readable suppressions registry + required-jobs status.
 > **Standards mapping:** [`docs/standards-mapping.md`](../docs/standards-mapping.md) (S8 — full ASVS / SOC 2 / ISO 27001 / CIS table).
@@ -31,7 +34,9 @@ description: Canonical S1–S9 security rule reference cited from CLAUDE.md § S
 
 ## Threat model
 
-Datarim ships skills, templates, agents, and commands that AI agents copy into runtime and execute, often with elevated privileges (root SSH, OAuth tokens with write scope, package installation). A vulnerable line in a shipped script is replicated into every consumer's production runbook. A documented `curl | bash` recipe in a skill becomes the canonical install pattern across the ecosystem. **Every shipped artefact is production code under attack.**
+Datarim ships skills, templates, agents, and commands that AI agents copy into runtime and execute, often with elevated privileges (root SSH, OAuth tokens with write scope, package installation). A vulnerable line in a shipped script is replicated into every consumer's production runbook. <!-- security:rule-statement -->
+A documented `curl | bash` recipe in a skill becomes the canonical install pattern across the ecosystem.
+<!-- /security:rule-statement --> **Every shipped artefact is production code under attack.**
 
 The kill chain to defend against:
 
@@ -60,15 +65,19 @@ The baseline therefore optimises for **shipped-artefact correctness** over local
    ```
 4. **Heredoc terminators MUST be quoted** (`<<'EOF'`) to suppress shell expansion when the heredoc carries variables that must reach the consumer literally (e.g. installer recipes, snippet generators). Unquoted heredocs (`<<EOF`) are allowed only when expansion is the explicit intent — document inline.
 5. **No `eval`** on user-controlled or filesystem-derived input.
+<!-- security:rule-statement -->
 6. **No `curl | bash`** install recipes. Hash-pinned tarballs or package-manager installs only. See S4 for supply-chain detail.
 7. **No `ssh -o StrictHostKeyChecking=no`** in any canonical recipe. Bootstrap host keys via `ssh-keyscan -H "$host" >> ~/.ssh/known_hosts` and document key-rotation policy.
+<!-- /security:rule-statement -->
 8. **`shellcheck -S warning` clean** for committed `*.sh`. Suppression via `# shellcheck disable=...` MUST cite reason + finding-ID + reviewer in an adjacent comment (see § Suppression policy).
 
 ### MUST NOT
 
 - Embed `set -e` without `-u` and `-o pipefail` (silent unset-var bugs).
 - Use `cd` without `cd "$dir" || exit 1` (or strict-mode equivalent).
+<!-- security:rule-statement -->
 - Pipe-source untrusted content into a shell (`bash <(curl ...)` is `curl | bash` in disguise).
+<!-- /security:rule-statement -->
 
 ### Counter-example fence demonstration
 
@@ -128,9 +137,10 @@ Corrected:
 
 ```python
 import os, requests
+CRED_PATH = os.environ["CREDS_PATH"]
 resp = requests.get(url, timeout=10)  # verify=True by default
 resp.raise_for_status()
-fd = os.open("/tmp/cred.txt", os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+fd = os.open(CRED_PATH, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
 with os.fdopen(fd, "w") as f:
     f.write(resp.text)
 ```
@@ -164,7 +174,9 @@ with os.fdopen(fd, "w") as f:
 
 ### Required rules
 
+<!-- security:rule-statement -->
 1. **No `curl | bash`** install recipes anywhere — neither prescribed nor demonstrated outside a counter-example fence.
+<!-- /security:rule-statement -->
 2. **Hash-pinned installs** — direct downloads MUST verify SHA-256 against a checksum sourced from a separate channel (release notes, signed manifest, official mirror). Do not derive the checksum from the same URL as the artefact.
 3. **GitHub Actions pinned to commit SHA** — never tag-pinned (`@v4`), never branch-pinned (`@main`). Each `uses:` line MUST resolve to a 40-char SHA, with a comment naming the human-readable version for auditability.
 4. **Explicit `permissions:` block** at workflow or job level — least privilege by default (`permissions: { contents: read }`), elevate only where required.
@@ -200,7 +212,9 @@ Corrected: download the tarball, verify SHA-256 against a separately-sourced che
 ### Required rules
 
 1. **Placeholders, not real IDs** — examples MUST use `<PLACEHOLDER>`, `${ENV_VAR}`, or obviously synthetic strings (`example.com`, `acme-corp`). Real OAuth client IDs, real tenant IDs, real internal hostnames in shipped docs are S3 violations.
+<!-- security:rule-statement -->
 2. **Never prescribe an unsafe pattern** outside a counter-example fence. A skill that says "this is the canonical install — `curl | bash`" silently authorises every consumer to ship that recipe. Reword OR fence.
+<!-- /security:rule-statement -->
 3. **Counter-example fence syntax is mandatory** for any block teaching what NOT to do (see canonical syntax below).
 4. **Scope-aware claims** — a skill that names a stack (NestJS, Django, etc.) MUST live behind `<!-- gate:example-only -->` or be relocated to a project's `CLAUDE.md`. Framework runtime stays stack-agnostic per [`skills/evolution/stack-agnostic-gate.md`](evolution/stack-agnostic-gate.md).
 
@@ -406,7 +420,7 @@ Both skills cross-link freely; neither replaces the other. CLAUDE.md § Security
 
 ## Source artefacts
 
-- Corporate audit, 2026-04-28: `~/arcanada/documentation/archive/security/findings-2026-04-28.md` (relocated from framework repo by TUNE-0090, 2026-05-03)
+- Corporate audit, 2026-04-28: `~/arcanada/documentation/archive/security/findings-2026-04-28.md` 
 - Audit baseline (machine-readable): [`tests/security/baseline.json`](../tests/security/baseline.json)
 - Research baseline: `~/arcanada/datarim/insights/INSIGHTS-security-baseline-oss-cli-2026.md` (575 LoC OSS CLI security research, 2026-04-28)
 - Recovery archive (incident → rule expansion): security incident archive at `documentation/archive/security/`

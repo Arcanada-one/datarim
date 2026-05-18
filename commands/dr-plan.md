@@ -16,6 +16,8 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
 
 1.  **TASK RESOLUTION**: Apply Task Resolution Rule from `$HOME/.claude/skills/datarim-system.md` § Task Resolution Rule. Use the resolved task ID for all subsequent steps.
 
+1.5. **READ INIT-TASK** (mandatory per `$HOME/.claude/skills/init-task-persistence.md`): Open `datarim/tasks/{TASK-ID}-init-task.md` if present. Read the full `## Operator brief (verbatim)` section AND every `## Append-log` entry. Any divergence between the operator's stated intent and the planned scope MUST be recorded in the plan's § Notes / § Risks. Missing init-task is non-blocking — flag as advisory and continue.
+
 2.  **Analyze Context**:
     -   Read `datarim/tasks.md` (Complexity, Requirements for the resolved task).
     -   Read `datarim/activeContext.md` (Active Tasks list).
@@ -31,6 +33,7 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
     -   If strategist recommends pivot or cheaper alternative, present to user before proceeding.
 
 4.  **Detailed Design (Phase 4)**:
+    -   **Architectural-superseding probe (MANDATORY first sub-step before any component breakdown)**: if the task description carries a `Spawned from` / `Source:` reference to a prior archive, OR addresses a problem class that other recent archives may have already solved, read those references and answer one question: *has any recent task already resolved the architectural problem this task addresses?* If yes — recommend cancellation, scope reduction, or re-framing as redundancy/follow-up BEFORE proceeding to component breakdown. Document the answer (and the archives consulted) inline in the plan's Overview / Decisions section. Cost: a single grep + skim. Saving: avoids designing infrastructure that has been obsoleted by a sibling task whose archive the operator has not yet internalised.
     -   **Component Breakdown**: List every modified and new file.
     -   **Interface Design**: Define function signatures, API contracts.
     -   **Data Flow**: Trace input -> processing -> output.
@@ -47,6 +50,21 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
     -   Both formats use the same **Design Document Template** (Phase 5 below).
     -   Include: **Security Summary** (Attack Surface, Risks), **Architecture Impact**, **Detailed Design** (API, DB, Config), **Security Design** (Threats, Controls), **Implementation Steps**, **Test Plan** (Unit/Integration/Security), **Rollback Strategy**, **Validation Checklist**.
 
+5b. **Seed expectations checklist (L2 without PRD only)** per `$HOME/.claude/skills/expectations-checklist.md`:
+    -   Skip this step when a PRD exists — `/dr-prd` Step 5.5b already seeded the file.
+    -   For L2 tasks without a PRD, the planner MUST create or update `datarim/tasks/{TASK-ID}-expectations.md` from `$HOME/.claude/templates/expectations-template.md`.
+    -   **Source of items.** Each operator wish becomes one item. Derive items from:
+        (a) the init-task `## Operator brief (verbatim)` plus every `## Append-log` entry (one wish per distinct intent), and
+        (b) the plan's § Validation Checklist when it asserts operator-observable outcomes.
+    -   **Per-item shape** (Option B; full contract in `expectations-checklist.md`): title in plain Russian ending with a period; `wish_id` = kebab-slug of the title (cyrillic allowed); `Что хочу проверить:`; `Как проверить (success criterion):`; `Связанный AC из PRD:` set to «—» (no PRD); `#### История статусов` with one initial line `<ISO> / <local> · /dr-plan · pending → pending · reason: пункт создан при формировании плана`; `#### Текущий статус: pending`.
+    -   **Append-merge if the file already exists.** Same contract as `/dr-prd` Step 5.5b — match by `wish_id`, append new wishes at the bottom, never rewrite existing items.
+    -   **Post-write validation gate.** Invoke:
+        ```bash
+        dev-tools/check-expectations-checklist.sh --task {TASK-ID}
+        ```
+        Exit code `1` ⇒ STOP and fix the file before continuing.
+    -   For L1 tasks this step is skipped entirely; for L3-L4 tasks the PRD step seeded the file already.
+
 6.  **Technology Validation**:
     -   Document technology stack selection.
     -   Verify dependencies and build configuration.
@@ -56,6 +74,8 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
     -   The plan MUST cite the file:line where each named target lives. Phantom targets (named in the plan but absent from the code) are a planning defect — fix the plan or fix the code, then re-grep.
     -   If a target is intentionally to be created, the plan MUST say so explicitly and justify the new surface (one sentence: why does this need to exist?). Otherwise, redirect the fix to the actual surface that owns the behaviour.
     -   Apply to all references: not just function names, but also config keys, CLI sub-commands, file paths, env vars, and HTTP routes.
+    -   **PRD AC verification commands MUST also be smoke-checked at plan time.** For every PRD AC `**Verification:**` line, run the verification command against the implemented CLI surface OR its pre-implementation skeleton. Verify: all flags exist with the documented argument shape; positional vs named args match the contract; env vars referenced are documented; expected exit code matches. Phantom flags (e.g. `--dry-run` when script accepts only named flags), positional-args invocations against named-flag contracts, and misnamed env vars (e.g. `CLAUDE_RUNTIME` when impl reads `CODEX_RUNTIME`) are caught here, not at `/dr-verify` post-`/dr-do`. Cost: ~5 seconds per AC; saving: a full pipeline cycle (do + verify + reconciliation).
+    -   **AC ↔ V-AC semantic match (not just verbatim text mirror).** For every Validation Checklist row, verify that the V-AC verification command empirically tests the specific contract the corresponding PRD AC asserts. Example failure mode: PRD AC «cost-cap soft enforcement, exit 2 on breach» but V-AC row tests `for f in ...; test -f $f` (file presence) — verbatim cite of AC number, but verification tests something else entirely. Verbatim mirror is necessary but not sufficient — meaning must align.
     -   Rationale: a 30-second grep at planning time prevents 10–30 minute investigations during `/dr-do`. A plan that names a method as the fix surface but the method does not exist (e.g. behaviour was implemented inline in a different module) requires in-flight redirect — a single grep at `/dr-plan` time would have caught it.
 
 7.  **Installer / Deploy-Script Content-Type Audit (MANDATORY when plan touches install.sh, sync-script, or any deploy/copy tool)**:
@@ -151,6 +171,13 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
     -   For EACH surface in the list, plan §5 MUST include an explicit affected-files entry AND PRD MUST include a corresponding acceptance criterion (e.g. `AC-NN: live curl /docs/getting-started \| grep <new-term>` for live verification).
     -   Deferring a surface to /dr-qa or /dr-archive is a **Class B contract violation** — Class B tasks ship with their full public surface coverage in /dr-do, not «minor скорректируем потом».
     -   When a Class B operating-model AC (e.g. `pages/getting-started.php` symlink content) is deferred from `/dr-do`, it surfaces only at `/dr-archive` live deploy verification. Surface scan checkpoint prevents recurrence.
+
+12.5. **APPEND Q&A IF ANY** (mandatory per `$HOME/.claude/skills/init-task-persistence.md` § Q&A round-trip contract): for every operator clarification round captured during this stage — either operator answer or autonomous agent-decision under FB-1..FB-5 — invoke `dev-tools/append-init-task-qa.sh` to persist the round into `datarim/tasks/{TASK-ID}-init-task.md § Append-log`.
+    -   Write the question and answer (and rationale, when applicable) to temp files first; free-form text MUST come via `--*-file <path>` per Security Mandate § S1.
+    -   Required flags: `--root <repo-root> --task {TASK-ID} --stage plan --round <N> --question-file <path> --answer-file <path> --decided-by <operator|agent> --summary "<one-line>"`.
+    -   When `--decided-by agent`: `--rationale-file <path>` MUST contain ≥ 50 non-whitespace characters of reasoning.
+    -   On contradiction with an expectation: add `--conflict-with <wish_id>`; CTA MUST route work back to `/dr-prd` (revise discovery) or `/dr-do --focus-items <wish_id>` (when the conflict is implementation-detail level).
+    -   Skip if no clarification rounds occurred. Utility exit 0 = appended; 1 = IO/validation error; 2 = usage error.
 
 13.  **Output Summary**:
     -   Confirm task status update.

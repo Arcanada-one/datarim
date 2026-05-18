@@ -2,6 +2,9 @@
 name: research-workflow
 description: Structured external research — checklist, tool selection, insights document. Used by researcher agent in /dr-prd and /dr-do.
 model: sonnet
+runtime: [claude, codex]
+current_aal: 1
+target_aal: 2
 ---
 
 # Research Workflow
@@ -37,7 +40,7 @@ Quick fixes do not need research. Skip entirely.
 | 7 | **Security Advisories** | Known CVEs, npm/pip advisories, GitHub security alerts for dependencies. | WebSearch (`"CVE" + library name`) | Full |
 | 8 | **RAG/LTM Context** | Query Scrutator LTM API for relevant experience from past tasks. | `POST /v1/ltm/recall` (if MCP/API available) | Full |
 | 9 | **Existing Codebase** | Search project for reusable components, established patterns, similar implementations. | Grep, Glob, Read | Full, Lite |
-| 10 | **Infrastructure Constraints** | Check server resources, port allocation, disk/memory limits, network topology. | Read (`Areas/Infrastructure/Servers.md`, port allocation memory) | Full |
+| 10 | **Infrastructure Constraints** | Check server resources, port allocation, disk/memory limits, network topology. | Read (`documentation/infrastructure/Servers.md`, port allocation memory) | Full |
 
 ---
 
@@ -140,7 +143,7 @@ The plan was written within the last 24 hours, no parallel sessions touched the 
 
 ### Source
 
-INFRA-0015 Phase 1 (2026-05-04): plan called for one integration approach; pre-flight discovery showed that an earlier task in the same project had already shipped the alternative approach (a substantial body of working code). Following the plan would have discarded shipped work. Pivot to the rejected-but-now-correct alternative was captured in `INSIGHTS-INFRA-0015.md` § GD-01. Phase 1 effort dropped from a planned 1-2 days to ~2 hours by following the plan's already-rejected alternative — with a concrete reason for the pivot rather than blind execution.
+Example — past task Phase 1: plan called for one integration approach; pre-flight discovery showed that an earlier task in the same project had already shipped the alternative approach (a substantial body of working code). Following the plan would have discarded shipped work. Pivot to the rejected-but-now-correct alternative was captured in the corresponding `INSIGHTS-<TASK-ID>.md` § GD-01. Phase 1 effort dropped from a planned 1-2 days to ~2 hours by following the plan's already-rejected alternative — with a concrete reason for the pivot rather than blind execution.
 
 ---
 

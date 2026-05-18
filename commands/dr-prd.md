@@ -15,6 +15,8 @@ This command generates a structured Product Requirements Document (PRD) followin
 
 0.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system.md` § Path Resolution Rule.
 
+0.5. **READ INIT-TASK** (mandatory per `$HOME/.claude/skills/init-task-persistence.md`): Open `datarim/tasks/{TASK-ID}-init-task.md` if present. Read the full `## Operator brief (verbatim)` section AND every `## Append-log` entry. Any divergence between the operator's stated intent and the discovery scope MUST be surfaced in PRD § Discovery / § Constraints. Missing init-task is non-blocking — flag as advisory and continue.
+
 1.  **Analyze Context (Phase 1)**:
     -   Read `datarim/projectbrief.md`, `techContext.md`, and `systemPatterns.md`.
     -   Identify affected components and constraints (Security, Performance).
@@ -49,7 +51,32 @@ This command generates a structured Product Requirements Document (PRD) followin
     -   Use the structure from `$HOME/.claude/templates/prd-template.md`.
     -   Include: Problem Statement, Scope, Context Analysis, Technical Approach (Selected + Alternatives), Success Criteria, Risks.
     -   If insights document was created in Phase 1.3, add a reference in the PRD header: `**Research:** [INSIGHTS-{task-id}](../insights/INSIGHTS-{task-id}.md)`
+    -   **Pre-save validation gates (MANDATORY before write):**
+        - **`ships_in:` derivation.** If the PRD ships a framework / library release, read the canonical version source (e.g. `code/datarim/VERSION` or project equivalent) and pre-fill `ships_in: <next-minor-or-patch>`. Operator-supplied override requires an inline justification comment in the PRD body. Do not echo the value from memory or from the parent PRD verbatim — version drift between PRD draft and release is a recurring defect class.
+        - **V-AC path live-validation.** For every AC / V-AC line citing a script, binary, spec file, or directory path: run `command -v <bin>` / `test -f <path>` / dry-run probe and confirm exit 0 before save. Cites that do not exist yet MUST be marked `[to-be-created]` inline so the gate distinguishes intentional plan-deliverables from typos / phantom paths. Block save if a non-`[to-be-created]` cite fails the probe.
+        - **V-AC ecosystem-mandate alignment.** Run `dev-tools/check-v-ac-mandate-preflight.sh --prd "$PRD_FILE"`. Advisory gate: the script extracts V-AC / Verification / Success Criteria lines and greps each against the forbidden-pattern set in `dev-tools/public-surface-forbidden.regex` (the same contract surface consumed by `public-surface-lint.sh`). Goal — surface a V-AC ↔ Public Surface Hygiene Mandate conflict at PRD-time, not at `/dr-qa`. The script always exits 0; on match it prints `WARNING:` lines to stdout for operator review. Optional `--regex <FILE>` override loads a consumer-extended pattern set without script changes.
     -   Save to `datarim/prd/PRD-{slug}.md`.
+
+5.5b. **Seed expectations checklist (L3-L4, mandatory)** per `$HOME/.claude/skills/expectations-checklist.md`:
+    -   For tasks with `complexity: L3` or `L4`, the architect MUST create or update `datarim/tasks/{TASK-ID}-expectations.md` from `$HOME/.claude/templates/expectations-template.md`.
+    -   **Source of items.** Each operator wish becomes one item. Derive items from:
+        (a) the init-task `## Operator brief (verbatim)` plus every `## Append-log` entry (one wish per distinct intent), and
+        (b) the PRD § Success Criteria list (one wish per V-AC where the criterion reflects an operator-observable outcome — internal-only AC stays in PRD).
+    -   **Per-item shape** (Option B schema; full contract in `expectations-checklist.md`):
+        - title in plain Russian, ending with a period;
+        - `wish_id` = kebab-slug of the title (cyrillic allowed);
+        - `Что хочу проверить:` one or two sentences;
+        - `Как проверить (success criterion):` one concrete signal;
+        - `Связанный AC из PRD:` `V-AC-<N>` или «—»;
+        - `#### История статусов` with one initial line `<ISO> / <local> · /dr-prd · pending → pending · reason: пункт создан при формировании PRD`;
+        - `#### Текущий статус` set to `pending`.
+    -   **Append-merge if the file already exists.** Load existing items by `wish_id`. New PRD-derived wishes whose slug does not match any existing item are appended at the bottom; existing items are not rewritten. If a previously-linked AC was renamed, append one `stage: append-merge` History line to the affected item.
+    -   **Post-write validation gate.** Invoke:
+        ```bash
+        dev-tools/check-expectations-checklist.sh --task {TASK-ID}
+        ```
+        Exit code `1` ⇒ STOP and fix the file before continuing. Exit code `2` ⇒ usage error in the invocation, not in the file.
+    -   For `complexity: L1` or `L2` this step is skipped here; `/dr-plan` handles L2 without PRD.
 
 5.5. **Network Exposure Baseline (tiered gate)**:
     -   Read `$HOME/.claude/skills/network-exposure-baseline.md` § Tier Model + § Tiered Gate Rules.
@@ -90,6 +117,13 @@ This command generates a structured Product Requirements Document (PRD) followin
     -   Scan existing tasks and backlog to determine next sequential number per prefix.
     -   Present to user: "PRD identifies N potential backlog items: [numbered list with proposed IDs, titles, complexity]"
     -   If approved: create entries in `datarim/backlog.md` with status `pending` and a reference to PRD in the description (e.g., `Source: PRD-{ID}`).
+
+6.5. **APPEND Q&A IF ANY** (mandatory per `$HOME/.claude/skills/init-task-persistence.md` § Q&A round-trip contract): for every operator clarification round captured during this stage — either operator answer or autonomous agent-decision under FB-1..FB-5 — invoke `dev-tools/append-init-task-qa.sh` to persist the round into `datarim/tasks/{TASK-ID}-init-task.md § Append-log`.
+    -   Write the question and answer (and rationale, when applicable) to temp files first; free-form text MUST come via `--*-file <path>` per Security Mandate § S1 (do not pass operator text as literal CLI strings).
+    -   Required flags: `--root <repo-root> --task {TASK-ID} --stage prd --round <N> --question-file <path> --answer-file <path> --decided-by <operator|agent> --summary "<one-line>"`.
+    -   When `--decided-by agent`: `--rationale-file <path>` is required and its body MUST contain ≥ 50 non-whitespace characters explaining the choice (best-practice reference, prior archive, FB-rules link).
+    -   On contradiction with an expectation: add `--conflict-with <wish_id>` (+ optional `--conflict-detail-file`); CTA MUST route work back to `/dr-prd` (current stage — revise discovery) for closure.
+    -   Skip the step entirely if no clarification rounds occurred. Utility exit 0 = appended; 1 = IO/validation error; 2 = usage error.
 
 7.  **Output Summary**:
     -   Confirm file location.

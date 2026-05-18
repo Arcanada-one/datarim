@@ -1,6 +1,9 @@
 ---
 name: datarim-system
 description: Core Datarim rules. Load this entry first, then only the fragment needed for paths, storage, numbering, backlog, routing, or archive behavior.
+runtime: [claude, codex]
+current_aal: 1
+target_aal: 2
 ---
 
 # Datarim System Rules
@@ -40,7 +43,7 @@ Separator: `·` (U+00B7 MIDDLE DOT). Arrow: `→` (U+2192). Title: 1–80 chars,
 Example:
 <!-- gate:history-allowed -->
 ```
-- TUNE-0071 · in_progress · P1 · L3 · Index-Style Refactor → tasks/TUNE-0071-task-description.md
+- <TASK-ID> · in_progress · P1 · L3 · <Title> → tasks/<TASK-ID>-task-description.md
 ```
 <!-- /gate:history-allowed -->
 
@@ -75,6 +78,37 @@ Notes or in the archive doc.
 entry to `documentation/archive/{area or cancelled}/archive-{ID}.md` with
 per-task content-presence assertion, then deletes the file. `pre-archive-check.sh`
 blocks when the file exists.
+
+### Init-Task File Contract
+
+`datarim/tasks/{TASK-ID}-init-task.md` is the verbatim record of the operator's
+original `/dr-init` prompt. Sibling to the description file (same `{TASK-ID}`),
+but answers a different question:
+
+- **Description** (agent-authored) — what the agent plans to do.
+- **Init-task** (operator-authored, captured at `/dr-init`) — what the operator
+  literally asked for. Append-only by convention; readable by every pipeline
+  command per `skills/init-task-persistence.md`.
+
+Required frontmatter (8 fields, closed schema):
+
+```yaml
+---
+task_id: <TASK-ID>           # ^[A-Z]{2,10}-[0-9]{4}$
+artifact: init-task          # literal
+schema_version: 1            # integer
+captured_at: <YYYY-MM-DD>
+captured_by: /dr-init        # literal
+operator: <name>
+status: canonical            # canonical | amended
+source: /dr-init             # /dr-init | backlog
+---
+```
+
+Two mandatory body headings: `## Operator brief (verbatim)`, `## Append-log
+(operator amendments)`. Validator: `dev-tools/check-init-task-presence.sh
+--task <ID>`. Multi-task scan with soft 30-day window:
+`... --all`. Full contract: `skills/init-task-persistence.md`.
 
 ### Description File Contract
 
@@ -134,6 +168,55 @@ Before writing any file to `datarim/`:
 2. If not, walk up the directory tree until a parent containing `datarim/` is found.
 3. If no such directory exists, stop and instruct the user to run `/dr-init`.
 
+## Large-Plan Read Strategy (L3+ tasks)
+
+When `/dr-do` enters an L3+ task whose plan, PRD, and supporting INSIGHTS read
+together exceed ~600 lines, the default first move SHOULD be a single
+external-context delegation rather than a sequential read of every artefact:
+
+1. **Delegate the bulk read.** Issue one `coworker ask` call (or the project's
+   equivalent external-context channel — see CLAUDE.md § Coworker Delegation /
+   the runtime's external-LLM contract) against PRD + plan + INSIGHTS, with a
+   question that asks for per-step / per-V-AC / per-file structured output.
+2. **Read the structured summary, not the raw artefacts.** Apply the summary
+   to drive implementation order, file paths, V-AC ↔ step mapping, and MOD
+   touchpoints. Re-enter the raw artefacts only when the summary is
+   ambiguous on a specific point.
+3. **Re-use the same summary at `/dr-qa` and `/dr-compliance`.** The QA and
+   compliance layers should reuse the structured spec — re-delegating
+   produces drift between the implementation summary and the verification
+   summary.
+
+**When NOT to apply:** plans under 600 lines (direct read is cheaper);
+tasks where exact line numbers and code-block fidelity matter more than
+structure (literal `Edit` operations against the plan-quoted code).
+
+**Rationale.** A 1.6k-line plan + PRD + INSIGHTS read costs ~50% of a
+working context window if loaded raw, and forces re-reads at every
+verification stage. One delegated call returns a stable specification that
+anchors every subsequent decision and survives session compaction. This
+pattern was canonicalised in v2 of the orchestrator plan (775-line plan, 436-line PRD,
+431-line INSIGHTS) shipped end-to-end without ever reading the plan body
+into the main context, with zero V-AC misses.
+
+## Upstream API Audit Before Code Hardening
+
+When the question is «is THIS code generating bad data?» for an integration that ingests payloads from an external API with a queryable list endpoint, audit the upstream payload corpus FIRST — before adding instrumentation, hardening code, or another round of defensive coercion.
+
+**Steps.**
+
+1. Identify the upstream list endpoint and the field shapes the integration extracts (e.g. `custom_fields[*].some_array_field`).
+2. Paginate the relevant scope end-to-end with a single offline script. Authenticated read-only call; respect rate limits.
+3. For each item, classify the field shape against the «abnormal» pattern you are hardening against (bracketed string literal, wrapped object, type mismatch).
+4. If the count of abnormal payloads is **zero**, the bug class cannot be in the live ingest path. The residue source is downstream: orphan rows (records the API no longer returns), an external mutator (another writer to the same DB), or historical residue (pre-fix code state).
+5. If the count is **non-zero**, capture the matching payloads as test fixtures and replay through the ingest pipeline locally. The first reproducer dictates the fix.
+
+**Why this saves rounds.** A multi-round hardening sequence on the ingest code path is the natural reflex — but if upstream payloads are clean, every additional defensive layer is dead code by construction. One pagination scan over the full corpus rules out an entire bug class at the cost of an offline script, no rollout coordination, and no operator toll. Reserve cron-side / service-side instrumentation for cases where the audit confirms abnormal payloads exist.
+
+**When to apply.** L3+ tasks investigating «output column carries malformed data» against an integration whose source API exposes a queryable list endpoint. Skip when the upstream API only supports push-based delivery or when the abnormal-shape question can be answered cheaper from internal logs.
+
+---
+
 ## Runtime / Canonical Identity (symlink-default)
 
 Under the default install (v1.17.0+ symlink mode), `$HOME/.claude/{skills,agents,commands,templates}/{name}.md` and the corresponding `code/datarim/<scope>/{name}.md` in the cloned framework repo are **the same file** — same inode, same content, same writes. Verify with `stat -f %i <runtime-path> <repo-path>` (macOS) or `stat -c %i` (GNU); identical inode numbers confirm symlink-mode.
@@ -181,6 +264,35 @@ shadowing is rejected by design.
 (`local/skills/my-org-style.md`) to avoid accidental overrides of framework
 skills you actually wanted to keep tracking upstream.
 
+## Skill Discovery
+
+Skills push the agent out of default behavior into a disciplined process. They only help if loaded *before* you act.
+
+**The Rule:** invoke relevant skills BEFORE any response or action — including clarifying questions. Even a 1% chance a skill applies means check first; an unfit skill can be dropped, but decisions made without one cannot be undone. Discovery: `$HOME/.claude/skills/` (or the runtime's skill tool); `/dr-help` lists `dr-*` commands.
+
+**Instruction Priority** when skills, project memory, and default behavior conflict:
+1. User's explicit instructions (`CLAUDE.md` / `AGENTS.md` / conversation) — highest. The user is in control.
+2. Datarim skills and framework rules — override default behavior in their domain.
+3. Default runtime behavior — lowest.
+
+If `CLAUDE.md` says "don't use TDD" and a skill says "always use TDD", follow `CLAUDE.md`.
+
+**Skill Priority** when multiple apply: process skills first (`brainstorming`, `systematic-debugging`, `writing-plans`) decide *how*; implementation skills (`frontend-ui`, `infra-automation`, `ai-quality`) execute under that process. "Let's build X" → brainstorming first; "Fix this bug" → systematic-debugging first.
+
+**Skill Types:** rigid (TDD, debugging, security gates) — follow exactly, the discipline is the value. Flexible (patterns, heuristics) — adapt principles to context. The skill itself declares which.
+
+**Red Flags — rationalizations that mean STOP and check for skills:**
+
+| Thought | Reality |
+|---------|---------|
+| "Simple question / quick check / not really a task" | Questions and actions are tasks. Check for skills. |
+| "I need more context / let me explore first" | Skills tell you HOW to gather context. Check first. |
+| "I remember this / I know what that means" | Skills evolve. Knowing ≠ invoking. Read current version. |
+| "Doesn't need a skill / overkill / one thing first" | If a skill exists, use it. Simple things become complex. |
+| "This feels productive" | Undisciplined action wastes time. Skills prevent that. |
+
+User instructions describe goal (*what*), not workflow (*how*). "Just commit this" still requires TDD / verification / commit-message discipline — unless explicitly waived.
+
 ## Task Disposition Patterns
 
 When closing a task, choose the disposition that matches the actual outcome:
@@ -194,13 +306,3 @@ When closing a task, choose the disposition that matches the actual outcome:
 
 Source: prior incident — an `update.sh` deliverable was shipped inside a different task's scope; `cancelled` was inaccurate (deliverable existed) and `completed` was inaccurate (no separate archive). `absorbed` captures the reality and preserves audit trail.
 
-## Quick Routing Heuristic
-
-- Need file placement or archive destination? Load `path-and-storage.md` or `command-and-archive-rules.md`.
-- Need task ID, active task, or backlog lifecycle logic? Load `task-identity-and-context.md` and `backlog-and-routing.md`.
-- Need complexity-driven stage routing? Load `backlog-and-routing.md`.
-- Need `model` or `effort` guidance for agents/skills? Load `model-assignment.md`.
-
-## Why This Skill Is Split
-
-This skill is always in the hot path, so the entry file stays short and routing-focused. Detailed rules now live in focused supporting fragments to reduce context waste while preserving the full system contract.

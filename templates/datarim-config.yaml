@@ -1,0 +1,31 @@
+# Datarim project configuration template.
+#
+# Copy this file to one or both of:
+#   ./datarim/config.yaml           — per-project (team-shared, git-tracked)
+#   ~/.config/datarim/config.yaml   — per-user (XDG, gitignored)
+#
+# Per-project wins on conflict.
+#
+# Reference: skills/self-verification.md § Peer Review Provider Resolution
+
+peer_review:
+  # Provider for Layer 2 cross-model peer-review in /dr-verify.
+  #
+  # Whitelist (enforced by dev-tools/resolve-peer-provider.sh):
+  #   deepseek    — cross_vendor mode (recommended OOTB; ~14× cheaper than Sonnet)
+  #   moonshot    — cross_vendor mode
+  #   openrouter  — cross_vendor mode
+  #   sonnet      — cross_claude_family mode (via Claude Code subagent dispatch)
+  #   haiku       — cross_claude_family mode (200K context — verify PRD/plan size)
+  #   none        — disables Layer 2 entirely (Layer 1 floor + Layer 3 only)
+  #
+  # Unknown values → resolve-peer-provider.sh exits 1 (supply-chain mitigation).
+  provider: deepseek
+
+  # Model used when chain reaches step #5 (cross-Claude-family subagent fallback).
+  # Triggered when no provider is configured anywhere in the chain.
+  #
+  # Whitelist:
+  #   sonnet  — default; 1M context; safe for large PRDs/plans
+  #   haiku   — cheaper but 200K context; truncation risk on artifacts >200K tokens
+  fallback_model: sonnet

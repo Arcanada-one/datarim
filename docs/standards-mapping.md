@@ -43,7 +43,9 @@ A Datarim-managed project that wants ASVS v5 Level 2 must add an application-lev
 
 Datarim baseline aligns with the **Common Criteria** (CC1–CC9), specifically:
 
+<!-- security:rule-statement -->
 - **CC6 — Logical & Physical Access:** S3 (credentials), S2 (atomic mode-0o600 writes), S1 (no `StrictHostKeyChecking=no`).
+<!-- /security:rule-statement -->
 - **CC7 — System Operations:** S7 (CI verification gate), S9 (incident response).
 - **CC8 — Change Management:** S4 (supply chain), S5 (docs-as-code), S6 (repo hygiene).
 - **CC9 — Risk Mitigation:** S4 (signed releases, SBOM), S6 (CODEOWNERS, branch protection).
@@ -84,6 +86,46 @@ Out of 9 S* clusters:
 - **7/9** map to ≥1 CIS Controls v8 control (S8 and S2 are meta / partial)
 
 Aggregate: every S* cluster has a non-empty mapping to at least three of the four frameworks. The two CIS gaps reflect framework intent — CIS v8 is operations-centric, while S8 (this mapping) is a meta-cluster about traceability and S2 (Python rules) is finer-grained than CIS's IG1/IG2 application-software family.
+
+---
+
+## SOC 2 Progress
+
+> **Status:** In progress toward SOC 2 Type II — target readiness Q3 2026.
+
+### Covered (9/9 baseline → SOC 2 Common Criteria)
+
+All 9 S-clusters (S1–S9) map to ≥1 SOC 2 Common Criterion in the table above:
+CC6 (Logical & Physical Access), CC7 (System Operations), CC8 (Change
+Management), CC9 (Risk Mitigation). The baseline is technical scaffolding —
+secure-by-default code, signed releases, drift detection, public-surface
+hygiene, network-exposure tiering.
+
+### Outstanding (operational evidence)
+
+Datarim is a **dev-tool baseline**, not an applicative SOC 2 control set.
+The following are outstanding and remain the consumer project's
+responsibility — not in scope of the framework:
+
+- Formal SOC 2 Type I readiness review (control-design walkthrough with an
+  external auditor) is outstanding; not yet scheduled.
+- Evidence-collection workflow (ticketing trail, access reviews, vendor
+  management register) is outstanding at the framework layer.
+- Operational artefacts also outstanding for consumer adoption: incident-
+  response runbooks, business-continuity / disaster-recovery exercises,
+  HR controls, vendor risk register.
+
+### Roadmap (Q3 2026 Type II readiness)
+
+- **Q2 2026:** finalise control-design mapping; close gaps where applicable
+  (e.g. structured audit-log retention with tamper-evidence).
+- **Q3 2026:** internal Type I readiness review; engage external auditor;
+  enter the Type II observation window.
+- **Q4 2026 / H1 2027:** Type II observation window completes; report issued.
+
+The framework provides the technical baseline; consumers running SOC 2
+audits provide the operational evidence trail. See
+[`README.md`](../README.md) § Documentation for the cross-link.
 
 ---
 

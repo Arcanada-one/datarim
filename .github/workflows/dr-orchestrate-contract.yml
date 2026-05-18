@@ -1,0 +1,69 @@
+name: dr-orchestrate contract
+
+on:
+  push:
+    paths:
+      - 'plugins/dr-orchestrate/**'
+  pull_request:
+    paths:
+      - 'plugins/dr-orchestrate/**'
+
+permissions:
+  contents: read
+
+jobs:
+  schemathesis:
+    name: Schemathesis contract tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install Python + schemathesis
+        run: pip install schemathesis
+
+      - name: Download adnanh/webhook reference impl
+        run: |
+          WEBHOOK_VER=2.8.3
+          wget -q "https://github.com/adnanh/webhook/releases/download/${WEBHOOK_VER}/webhook-linux-amd64.tar.gz" \
+            -O /tmp/webhook.tar.gz
+          tar -xzf /tmp/webhook.tar.gz -C /tmp
+          chmod +x /tmp/webhook-linux-amd64/webhook
+          sudo mv /tmp/webhook-linux-amd64/webhook /usr/local/bin/webhook
+
+      - name: Start reference impl on ephemeral port
+        working-directory: plugins/dr-orchestrate
+        env:
+          DR_ORCH_INBOUND_TOKEN: ${{ secrets.DR_ORCH_INBOUND_TOKEN || 'ci-test-token' }}
+          DR__ORCH_DIR: ${{ github.workspace }}/plugins/dr-orchestrate
+        run: |
+          DR_ORCH_DIR="$(pwd)"
+          export DR_ORCH_DIR
+          webhook \
+            -hooks config/hooks.yaml \
+            -port 8090 \
+            -verbose \
+            &
+          webhook_pid=$!
+          # Wait for listener to be ready
+          for _ in $(seq 1 10); do
+            if curl -fsS http://127.0.0.1:8090 >/dev/null 2>&1; then
+              break
+            fi
+            sleep 0.5
+          done
+          echo "WEBHOOK_PID=${webhook_pid}" >> "$GITHUB_ENV"
+
+      - name: Run schemathesis
+        working-directory: plugins/dr-orchestrate
+        env:
+          DR_ORCH_INBOUND_TOKEN: ${{ secrets.DR_ORCH_INBOUND_TOKEN || 'ci-test-token' }}
+        run: |
+          bash tests/contract/run-schemathesis.sh \
+            --base-url http://127.0.0.1:8090 \
+            --max-examples 20
+
+      - name: Teardown reference impl
+        if: always()
+        run: |
+          kill "$WEBHOOK_PID" 2>/dev/null || pkill -f "webhook.*8090" 2>/dev/null || true

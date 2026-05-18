@@ -9,6 +9,7 @@ Pattern derived from a multi-host git-pull resolver script. Smoke-tested: 3/3 su
 ## Invocation Pattern
 
 ```bash
+# nosec-extract
 CLAUDE_BIN=/home/dev/.local/bin/claude
 CLAUDE_TIMEOUT=300
 CLAUDE_MODEL=sonnet  # или opus для сложных конфликтов
@@ -112,6 +113,7 @@ Hard constraints:
 ## Failure Handling Pattern
 
 ```bash
+# nosec-extract
 if [[ "$last_line" == "RESOLVED" ]]; then
     log "✅ Claude resolved"
 elif [[ "$last_line" == FAILED:* ]]; then

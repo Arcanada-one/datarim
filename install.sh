@@ -79,20 +79,31 @@ COPIED=0
 LINKED=0
 SKIPPED=0
 
+# TUNE-0114 Phase 2: multi-runtime fanout + project mode
+FANOUT_CLAUDE=false
+FANOUT_CODEX=false
+PROJECT_DIR=''
+DRY_RUN=false
+LOCKFILE=''
+
 print_usage() {
     cat <<'USAGE'
 Datarim Framework Installer
 
 Usage:
-  install.sh                 Symlink mode (default, repo == runtime)
-  install.sh --copy          Legacy copy mode (real files instead of symlinks)
-  install.sh --force         Force re-install (copy mode only — no-op on symlinks)
-  install.sh --force --yes   Overwrite without prompt (CI / scripted)
-  install.sh --help          Show this message
+  install.sh --with-claude          Install for Claude runtime (symlink default)
+  install.sh --with-codex           Install for Codex runtime
+  install.sh --project DIR          Project-local copy install (no symlinks)
+  install.sh --with-claude --with-codex  Multi-runtime install
+  install.sh --dry-run              Show planned mutations without applying
+  install.sh --copy                 Legacy copy mode (real files instead of symlinks)
+  install.sh --force                Legacy force re-install (copy mode only — no-op on symlinks)
+  install.sh --force --yes          Overwrite without prompt (CI / scripted)
+  install.sh --help                 Show this message
 
 Environment:
-  CLAUDE_DIR                 Target directory (default: $HOME/.claude)
-  DATARIM_INSTALL_YES=1      Equivalent to --yes (also auto-converts copy → symlink)
+  CLAUDE_DIR                        Target directory (default: $HOME/.claude)
+  DATARIM_INSTALL_YES=1             Equivalent to --yes (also auto-converts copy → symlink)
 
 Migration:
   Existing copy-mode installs upgrade to symlinks via interactive prompt
@@ -106,6 +117,16 @@ parse_args() {
             --force)     FORCE=true; shift ;;
             --copy)      FORCE_COPY=true; shift ;;
             --yes|-y)    ASSUME_YES=true; shift ;;
+            --with-claude) FANOUT_CLAUDE=true; shift ;;
+            --with-codex)  FANOUT_CODEX=true; shift ;;
+            --project)
+                if [ $# -lt 2 ]; then
+                    echo "ERROR: --project requires an argument" >&2
+                    exit 2
+                fi
+                PROJECT_DIR="$2"; shift 2
+                ;;
+            --dry-run)   DRY_RUN=true; shift ;;
             --help|-h)   print_usage; exit 0 ;;
             *)
                 echo "ERROR: unknown argument: $1" >&2
@@ -498,12 +519,199 @@ EOF
     esac
 }
 
+# --- TUNE-0114 Phase 2 additions -------------------------------------------
+
+validate_project_dir() {
+    local path="$1"
+    if [[ "$path" =~ ^/(etc|usr|bin|sbin|System)(/|$) ]]; then
+        echo "ERROR: project dir is unsafe: $path" >&2
+        exit 3
+    fi
+    if ! mkdir -p "$path" 2>/dev/null; then
+        echo "ERROR: cannot create project dir: $path" >&2
+        exit 3
+    fi
+}
+
+dry_or_run() {
+    local description="$1"
+    shift
+    if [ "$DRY_RUN" = true ]; then
+        echo "DRY: $description"
+    else
+        "$@"
+    fi
+}
+
+acquire_lock() {
+    local target_dir="$1"
+    mkdir -p "$target_dir"
+    LOCKFILE="$target_dir/.install.lock"
+    if ! ( set -C; echo $$ > "$LOCKFILE" ) 2>/dev/null; then
+        echo "ERROR: lockfile busy: $LOCKFILE" >&2
+        exit 4
+    fi
+    trap 'rm -f "$LOCKFILE"' EXIT INT TERM
+}
+
+release_lock() {
+    if [ -n "$LOCKFILE" ]; then
+        rm -f "$LOCKFILE"
+        LOCKFILE=''
+    fi
+    trap - EXIT INT TERM
+}
+
+fanout_runtime() {
+    local runtime_name="$1"
+    # claude: respect external CLAUDE_DIR (test fixtures, custom installs).
+    # codex: derive ~/.codex (introduce CODEX_DIR env hook if needed).
+    if [ "$runtime_name" = "claude" ]; then
+        # `=` (no colon): unset CLAUDE_DIR gets default; empty stays empty so
+        # assert_claude_dir_safe can reject it (T12b contract).
+        : "${CLAUDE_DIR=$HOME/.claude}"
+    else
+        CLAUDE_DIR="${CODEX_DIR-$HOME/.$runtime_name}"
+    fi
+    # Validate target safety BEFORE acquiring lockfile — the lockfile path
+    # depends on CLAUDE_DIR; if CLAUDE_DIR is /, /, $HOME, or empty we must
+    # reject *before* writing files anywhere (T11/T12/T12b contract).
+    assert_claude_dir_safe
+
+    echo "Target:  $CLAUDE_DIR"
+    case "$INSTALL_MODE" in
+        symlink)
+            echo "Mode:    symlink (default — repo is runtime)"
+            ;;
+        copy)
+            if [ "$FORCE_COPY" = true ]; then
+                echo "Mode:    copy (--copy)"
+            else
+                echo "Mode:    copy (auto-detected: symlinks not available)"
+            fi
+            ;;
+    esac
+    if [ "$FORCE" = true ]; then
+        echo "Force:   on"
+    fi
+    echo ""
+
+    acquire_lock "$CLAUDE_DIR"
+
+    if [ "$DRY_RUN" = true ]; then
+        echo "DRY: mkdir -p $CLAUDE_DIR"
+        local scope
+        for scope in "${INSTALL_SCOPES[@]}"; do
+            echo "DRY: ln -sfn $SCRIPT_DIR/$scope $CLAUDE_DIR/$scope"
+        done
+        echo "DRY: setup_local_overlay $CLAUDE_DIR/local"
+        echo ""
+        release_lock
+        return
+    fi
+
+    if [ "$FORCE" = true ]; then
+        force_safety_guard
+    fi
+    # assert_claude_dir_safe already called above (pre-lockfile gate)
+
+    if [ "$INSTALL_MODE" = "symlink" ]; then
+        local topology
+        topology=$(detect_existing_topology)
+        case "$topology" in
+            copy)
+                migration_prompt
+                ;;
+            mixed)
+                echo "ERROR: mixed topology in $CLAUDE_DIR (some symlinks + some real dirs)." >&2
+                echo "       Please clean up manually before re-running install.sh." >&2
+                exit 1
+                ;;
+            symlink|none)
+                : ;;
+        esac
+    fi
+
+    # migration_prompt may have flipped INSTALL_MODE to copy (user picked [k]).
+    if [ "$INSTALL_MODE" = "symlink" ]; then
+        for scope in "${INSTALL_SCOPES[@]}"; do
+            link_scope_tree "$SCRIPT_DIR/$scope" "$CLAUDE_DIR/$scope"
+        done
+    else
+        for scope in "${INSTALL_SCOPES[@]}"; do
+            mkdir -p "$CLAUDE_DIR/$scope"
+        done
+        for scope in "${INSTALL_SCOPES[@]}"; do
+            echo "Installing $scope..."
+            copy_scope_tree "$SCRIPT_DIR/$scope" "$CLAUDE_DIR/$scope"
+            echo ""
+        done
+    fi
+
+    setup_local_overlay
+
+    echo "================================="
+    echo "Done! Linked: $LINKED, Copied: $COPIED, Skipped: $SKIPPED"
+    echo "Local overlay: $CLAUDE_DIR/local/{skills,agents,commands,templates}/  (gitignored)"
+    echo ""
+    echo "Next steps:"
+    echo "  1. Copy CLAUDE.md to your project root:"
+    echo "     cp $SCRIPT_DIR/CLAUDE.md /path/to/your/project/"
+    echo ""
+    echo "  2. Customize the project-specific section at the bottom of CLAUDE.md"
+    echo ""
+    echo "  3. Start Claude Code and run: /dr-init <task description>"
+    echo ""
+
+    if [ "$SKIPPED" -gt 0 ] && [ "$FORCE" = false ] && [ "$INSTALL_MODE" = "copy" ]; then
+        echo "Note: $SKIPPED file(s) were skipped because they already exist."
+        echo "      Use --force to overwrite (safe: a backup is taken automatically"
+        echo "      on live systems): ./install.sh --copy --force"
+        echo ""
+    fi
+
+    release_lock
+}
+
+project_install() {
+    validate_project_dir "$PROJECT_DIR"
+    local datarim_dir="$PROJECT_DIR/.datarim"
+    acquire_lock "$datarim_dir"
+    if [ "$DRY_RUN" = true ]; then
+        echo "DRY: mkdir -p $datarim_dir"
+        local scope
+        for scope in "${INSTALL_SCOPES[@]}"; do
+            echo "DRY: cp -R $SCRIPT_DIR/$scope $datarim_dir/$scope"
+        done
+        echo "DRY: cp $SCRIPT_DIR/CLAUDE.md $datarim_dir/CLAUDE.md"
+        echo "DRY: AGENTS.md symlink TBD Phase 3"
+        release_lock
+        return
+    fi
+    mkdir -p "$datarim_dir"
+    for scope in "${INSTALL_SCOPES[@]}"; do
+        cp -R "$SCRIPT_DIR/$scope" "$datarim_dir/"
+    done
+    cp "$SCRIPT_DIR/CLAUDE.md" "$datarim_dir/CLAUDE.md"
+    # AGENTS.md symlink TBD Phase 3
+    release_lock
+}
+
 # --- Main -------------------------------------------------------------------
 
 parse_args "$@"
 
-# Decide install mode (symlink vs copy) before any guard runs — the guard
-# itself now branches on INSTALL_MODE.
+# Backwards-compat: legacy flags without explicit --with-claude imply claude
+if [ "$FANOUT_CLAUDE" = false ] && [ "$FANOUT_CODEX" = false ] && [ -z "$PROJECT_DIR" ]; then
+    if [ "$FORCE" = true ] || [ "$FORCE_COPY" = true ] || [ "$ASSUME_YES" = true ]; then
+        FANOUT_CLAUDE=true
+        echo "WARN: implicit --with-claude for legacy flags (deprecated: use --with-claude)" >&2
+    else
+        print_usage
+        exit 0
+    fi
+fi
+
 INSTALL_MODE=$(detect_install_mode)
 
 VERSION=$(cat "$SCRIPT_DIR/VERSION" 2>/dev/null || echo "unknown")
@@ -511,86 +719,19 @@ echo "Datarim Framework Installer v$VERSION"
 echo "================================="
 echo ""
 echo "Source:  $SCRIPT_DIR"
-echo "Target:  $CLAUDE_DIR"
-case "$INSTALL_MODE" in
-    symlink)
-        echo "Mode:    symlink (default — repo is runtime)"
-        ;;
-    copy)
-        if [ "$FORCE_COPY" = true ]; then
-            echo "Mode:    copy (--copy)"
-        else
-            echo "Mode:    copy (auto-detected: symlinks not available)"
-        fi
-        ;;
-esac
-if [ "$FORCE" = true ]; then
-    echo "Force:   on"
-fi
 echo ""
 
-if [ "$FORCE" = true ]; then
-    force_safety_guard
-else
-    # In merge mode we still want CLAUDE_DIR to be non-catastrophic, but we
-    # do not need --force-class confirmation because nothing gets overwritten.
-    if [ -z "$CLAUDE_DIR" ]; then
-        echo "ERROR: CLAUDE_DIR is empty." >&2
-        exit 2
-    fi
-    assert_claude_dir_safe
-fi
-
-if [ "$INSTALL_MODE" = "symlink" ]; then
-    topology=$(detect_existing_topology)
-    case "$topology" in
-        copy)
-            migration_prompt
-            ;;
-        mixed)
-            echo "ERROR: mixed topology in $CLAUDE_DIR (some symlinks + some real dirs)." >&2
-            echo "       Please clean up manually before re-running install.sh." >&2
-            exit 1
-            ;;
-        symlink|none)
-            : ;;  # ready for link_scope_tree
-    esac
-fi
-
-# migration_prompt may have flipped INSTALL_MODE to copy (user picked [k]).
-if [ "$INSTALL_MODE" = "symlink" ]; then
-    for scope in "${INSTALL_SCOPES[@]}"; do
-        link_scope_tree "$SCRIPT_DIR/$scope" "$CLAUDE_DIR/$scope"
-    done
-else
-    for scope in "${INSTALL_SCOPES[@]}"; do
-        mkdir -p "$CLAUDE_DIR/$scope"
-    done
-    for scope in "${INSTALL_SCOPES[@]}"; do
-        echo "Installing $scope..."
-        copy_scope_tree "$SCRIPT_DIR/$scope" "$CLAUDE_DIR/$scope"
-        echo ""
-    done
-fi
-
-setup_local_overlay
-
-echo "================================="
-echo "Done! Linked: $LINKED, Copied: $COPIED, Skipped: $SKIPPED"
-echo "Local overlay: $CLAUDE_DIR/local/{skills,agents,commands,templates}/  (gitignored)"
-echo ""
-echo "Next steps:"
-echo "  1. Copy CLAUDE.md to your project root:"
-echo "     cp $SCRIPT_DIR/CLAUDE.md /path/to/your/project/"
-echo ""
-echo "  2. Customize the project-specific section at the bottom of CLAUDE.md"
-echo ""
-echo "  3. Start Claude Code and run: /dr-init <task description>"
-echo ""
-
-if [ "$SKIPPED" -gt 0 ] && [ "$FORCE" = false ] && [ "$INSTALL_MODE" = "copy" ]; then
-    echo "Note: $SKIPPED file(s) were skipped because they already exist."
-    echo "      Use --force to overwrite (safe: a backup is taken automatically"
-    echo "      on live systems): ./install.sh --copy --force"
+if [ -n "$PROJECT_DIR" ]; then
+    echo "Target:  $PROJECT_DIR/.datarim"
+    echo "Mode:    project copy"
     echo ""
+    project_install
+fi
+
+if [ "$FANOUT_CLAUDE" = true ]; then
+    fanout_runtime claude
+fi
+
+if [ "$FANOUT_CODEX" = true ]; then
+    fanout_runtime codex
 fi
