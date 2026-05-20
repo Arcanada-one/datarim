@@ -34,7 +34,7 @@ argument-hint: [file path to approved content]
     - Convert formatting (HTML for Telegram, plain text for LinkedIn/FB/X, etc.).
     - Prepare images/media in platform-optimal dimensions if applicable.
     - For websites: verify OG tags, meta description, canonical URL, heading hierarchy.
-    - For Telegram: if text >1024 and needs photo → plan photo+reply pattern.
+    - For Telegram: use UTF-16 unit counter from `publishing.md` § Character counting. For photo + text >1024 → photo+reply Pattern A (≤5096 total) or Pattern C (>5096 → photo + N text parts, each `[i/N]`-prefixed). For comments on channel posts → use `forward_origin.message_id` polling recipe.
     - Present each platform version to the user for approval.
 7.  **PRE-PUBLISH CHECKLIST**:
     - [ ] Text within platform limits

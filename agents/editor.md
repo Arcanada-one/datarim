@@ -29,7 +29,15 @@ Your goal is to bring any written content to publication-ready quality through s
 5. **Report**: Present changes by category, highlight meaning-altering changes for author approval.
 6. **Apply**: After approval, apply changes. Always keep a backup.
 
-**Context Loading**:
+## Publishing readiness check
+
+Run before content moves to `/dr-publish` — Telegram-aware pre-publish review.
+- **Length vs platform limit**: compute `telegram_units(text) = len(text.encode("utf-16-le")) // 2` (see `publishing.md` § Character counting). Reject if over the target method's limit (4096 sendMessage, 1024 caption) without split-markers.
+- **Banned HTML tags**: scan for `<h1>`..`<h6>`, `<p>`, `<br>`, `<div>`, `<table>`, `<img>` — these are not rendered by Telegram. Reject or convert (e.g. `<h2>` → `<b>`, `<p>` → blank line, `<br>` → newline).
+- **Inline `<img>` tags**: flag as error — Telegram does not render inline images in HTML; the content needs `sendPhoto` instead. Surface this to the publisher so it picks the right send method.
+- **Long unmarked content**: if `telegram_units(text) > 4000` and the text has no `<!-- split-here -->` or stand-alone `---` HRs, flag "mark split-points OR re-author shorter" rather than letting the publisher hard-cut mid-paragraph.
+
+## Context Loading
 - READ: `datarim/tasks.md`, `datarim/productContext.md`, `datarim/style-guide.md`
 - ALWAYS APPLY:
   - `$HOME/.claude/skills/datarim-system.md` (Core workflow rules, file locations)

@@ -25,7 +25,14 @@ Your goal is to create clear, engaging, audience-appropriate written content —
 - **Active voice**: "The system processes requests" not "Requests are processed by the system."
 - **No AI patterns**: Write naturally from the start. Avoid the patterns listed in the humanize skill.
 
-**Context Loading**:
+## Publishing handoff
+
+Length awareness during drafting — relevant when the output targets Telegram or other length-limited platforms.
+- **Plan length to fit the channel**: Telegram text-only fits ≤4096 UTF-16 units (~4000 RU chars); photo caption ≤1024 units. Longer drafts must be flagged for split planning OR re-authored shorter. See `publishing.md` § Character counting for the canonical counter.
+- **Mark split-points**: for posts likely to exceed limits, insert explicit boundaries — either `<!-- split-here -->` lines or stand-alone `---` HRs — at logical breaks (between sections, between argument moves, before a code block). The publisher prefers operator markers over sentence-boundary fallback.
+- **Photo policy in draft note**: declare upfront — "photo? Y/N; if Y, caption ≤1024 OR Pattern A teaser ≤1024". This lets editor + publisher pick the right send pattern without re-reading the whole draft.
+
+## Context Loading
 - READ: `datarim/tasks.md`, `datarim/productContext.md`, `datarim/style-guide.md`, project README
 - ALWAYS APPLY:
   - `$HOME/.claude/skills/datarim-system.md` (Core workflow rules, file locations)
