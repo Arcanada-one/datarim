@@ -67,6 +67,17 @@ When code under test executes through a framework-internal pass-through — raw 
 
 **Document the decision.** Whichever level of the hierarchy is chosen, record the rationale in the test file or module preamble: which raw-pass call site, which instrumenter behaviour, which remediation level, and (for ignore comments) what the test surface actually exercises. Prevents future contributors from re-litigating the trade-off blind.
 
+### Variant — script-style module blind spot (test-include / coverage-exclude symmetry)
+
+A related variant of the same blind spot surfaces when the test runner's `include` glob is extended to a new directory (e.g. one-off seed / migration / admin scripts living outside the runtime source tree) without a mirroring update to the coverage tool's `exclude` glob. The test runner correctly executes the spec files (correctness verification works); the coverage tool then measures the source files those specs imply, but cannot instrument the top-level execution path of a script-style module — the file reports zero covered lines even though internal functions are tested. Symptom: a global lines-coverage threshold that passed yesterday fails today by a small fraction (e.g. 79.66% vs 80% gate) immediately after the `include` glob change; per-file coverage on runtime modules is unchanged.
+
+**Rule.** Whenever the test runner's `include` configuration is extended with a path glob outside the runtime source tree, audit the coverage tool's `exclude` configuration in the same change. Pick one of:
+
+1. **Exclude the script source files from coverage measurement.** Add the same path glob to the coverage `exclude` list. Spec files keep running (correctness preserved); only the coverage stat is excluded. Document with one line citing the instrumenter blind spot.
+2. **Refactor the script for instrumentable shape.** Extract the inner work into named exports the spec calls directly, leaving only an irreducible top-level invocation. The exports are instrumented normally.
+
+Discover this gate locally by running the project's coverage command after the `include` change — never let the coverage threshold fail at the next archive gate as the first signal.
+
 ---
 
 ## Reporting Test Counts in Audit Output
@@ -162,6 +173,16 @@ When writing a test for a defensive gate, identify every upstream layer (sanitiz
 **How to identify the right stub layer.** Walk the call chain from request entry to the gate. List every transform that would touch the gate's input slot. Stub each transform to identity. Run the test once with the stubs in place and verify the gate's input matches the prod-stuck observation that motivated the gate's existence in the first place.
 
 ---
+
+## Documentation Runtime-Probe Rule
+
+When a skill, agent, command, or in-code docstring documents the behaviour of a parser, library, or runtime quirk — especially edge cases or fail-soft caveats — runtime-probe every claim before commit. A one-line CLI invocation that demonstrates each documented case takes about 30 seconds; the cost of detect-correct at iteration N during a multi-iter verification cycle is hours. The class extends beyond any single library — operator-facing precision matters even for fail-soft caveats, because an inaccurate caveat produces wrong-shaped operator mitigation.
+
+**Rule.** For every behavioural claim in a docstring or skill paragraph that describes how a third-party parser, library, or runtime behaves on edge input (`<!-- example: empty marker `<!-->` is parsed as comment `-->`), demonstrate the claim with a runnable probe. Capture two cases minimum: one that confirms the claim, one that contrasts an adjacent shape the reader might confuse with the documented case. Document the contrast inline so the docstring tells the reader where the boundary actually lies.
+
+**Why this matters.** A docstring whose claim was never runtime-verified at write-time will surface as a finding at the next peer-review pass — sometimes many iterations later, with the inaccurate guidance already shipped to consumers in the meantime. The remediation also costs more: by the time a reviewer flags it, the surrounding context has shifted and the author has lost the mental model of the original probe.
+
+**When to apply.** Any new or modified docstring, skill paragraph, or command instruction whose body asserts how an external parser/library/runtime behaves. Skip only when the claim is purely procedural ("call function X with arguments Y") with no behavioural assertion about a third-party surface.
 
 ## Discipline
 
