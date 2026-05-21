@@ -361,3 +361,14 @@ Before proceeding to next stage:
 [ ] Security issues addressed (or documented as accepted risk)?
 [ ] QA report written to datarim/qa/?
 ```
+
+## Stage Snapshot Emission (Mandatory Terminal Step)
+
+After the `## Next Steps (CTA)` block above, the agent MUST perform snapshot emission per `$HOME/.claude/skills/cta-format.md` § Snapshot Emission. Parameters bound for this command:
+
+- `stage`: `qa`
+- `command`: `/dr-qa`
+- `captured-by`: `agent`
+- `recommended-next`: primary CTA option (slash-prefixed `/dr-*` form)
+
+Fail-closed: on non-zero writer exit, emit a single stderr warning line and continue (V-AC-7 contract). Kill switch `DATARIM_DISABLE_SNAPSHOT=1` is handled inside the library; under the switch the writer is a no-op without warning.

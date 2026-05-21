@@ -99,7 +99,7 @@ description: Initialize a new Datarim task or scaffold a new project. Auto-detec
       - **Operator prompt flow** (default): the `ARGUMENTS` variable (the text the operator typed after `/dr-init`) becomes the body of `## Operator brief (verbatim)`. Frontmatter `source: /dr-init`.
       - **Backlog selection flow** (the task was picked from `backlog.md` in Step 3): copy the matched backlog item's description block verbatim into `## Operator brief (verbatim)`. Frontmatter `source: backlog`, `source_backlog_ref: backlog.md#{TASK-ID}`.
     - Write the file with the canonical 8-field frontmatter (`task_id`, `artifact: init-task`, `schema_version: 1`, `captured_at`, `captured_by: /dr-init`, `operator`, `status: canonical`, `source`) + two mandatory headings: `## Operator brief (verbatim)` and `## Append-log (operator amendments)` (empty placeholder `_(пусто на момент создания)_`). Optional `## Source command` block above the brief is recommended when the exact invocation differs from `ARGUMENTS` raw text.
-    - Probe: `dev-tools/check-init-task-presence.sh --task {TASK-ID} --root "$DATARIM_ROOT"` (where `$DATARIM_ROOT` is the parent of `datarim/`). Exit 0 = OK; non-zero = print warning and continue (operator may amend manually).
+    - Probe: `bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-init-task-presence.sh" --task {TASK-ID} --root "$DATARIM_ROOT"` (where `$DATARIM_ROOT` is the parent of `datarim/` and `$DATARIM_RUNTIME` is the installed runtime root; falls back to `~/.claude` for default-symlinked installs that include `dev-tools/` in `INSTALL_SCOPES`). Exit 0 = OK; non-zero = print warning and continue (operator may amend manually).
     - Skip silently when re-running `/dr-init` on an existing backlog ID whose init-task already exists — preserve the verbatim history.
 
 5.  **SUBTASK BACKLOG** (Level 3-4 only):
@@ -126,3 +126,14 @@ After completing initialization, the planner agent MUST emit a CTA block per `$H
 - Always include `/dr-status` as escape hatch
 
 The CTA block MUST: (a) include resolved task ID, (b) mark exactly one `**рекомендуется**`, (c) list ≤5 numbered options, (d) be wrapped in `---` HR. If >1 active tasks in `datarim/activeContext.md`, append `**Другие активные задачи:**` menu (Variant B).
+
+## Stage Snapshot Emission (Mandatory Terminal Step)
+
+After the `## Next Steps (CTA)` block above, the agent MUST perform snapshot emission per `$HOME/.claude/skills/cta-format.md` § Snapshot Emission. Parameters bound for this command:
+
+- `stage`: `init`
+- `command`: `/dr-init`
+- `captured-by`: `agent`
+- `recommended-next`: primary CTA option (slash-prefixed `/dr-*` form)
+
+Fail-closed: on non-zero writer exit, emit a single stderr warning line and continue (V-AC-7 contract). Kill switch `DATARIM_DISABLE_SNAPSHOT=1` is handled inside the library; under the switch the writer is a no-op without warning.

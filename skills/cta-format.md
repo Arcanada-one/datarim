@@ -214,26 +214,33 @@ Referenced from all 15 `/dr-*` command files in `commands/dr-*.md`.
 
 ## Snapshot Emission
 
-**Terminal step (mandatory).** After emitting the CTA block, every `/dr-*` agent persists the final operator-visible response (Summary + Gate Results + CTA block) to `datarim/snapshots/{TASK-ID}.snapshot.md` via `scripts/lib/snapshot-writer.sh::write_stage_snapshot`. Contract: `skills/stage-snapshot-writer.md`. The snapshot serves as primary context for `/dr-continue` and `/dr-orchestrate` after `/clear` or terminal close.
+**Terminal step (mandatory).** After emitting the CTA block, every `/dr-*` command MUST persist the final operator-visible response (Summary + Gate Results + CTA block) to `datarim/snapshots/{TASK-ID}.snapshot.md` via `scripts/lib/snapshot-writer.sh::write_stage_snapshot`. Contract: `skills/stage-snapshot-writer.md`. The snapshot serves as primary context for `/dr-continue` and `/dr-orchestrate` after `/clear` or terminal close.
 
-Invocation pattern:
+Stage value and command literal are bound by the invoking command file (not inferred by the agent) — see each `commands/dr-*.md` § Stage Snapshot Emission for the literal stage/command pair.
+
+Executable recipe (shellcheck-clean):
 
 ```bash
-# After CTA emission, the agent writes the rendered response to a tempfile
-# and calls the writer once. The writer overwrites any prior snapshot for
+# After CTA emission, compose the rendered response once into a tempfile
+# and call the writer once. The writer overwrites any prior snapshot for
 # this TASK-ID (overwrite-not-append; old stage state is no longer current).
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+BODY_TMP="$(mktemp)"; OPTIONS_TMP="$(mktemp)"
+trap 'rm -f "$BODY_TMP" "$OPTIONS_TMP"' EXIT
+# … render CTA block into "$BODY_TMP"; one option-per-line into "$OPTIONS_TMP" …
 write_stage_snapshot \
     --root "$REPO_ROOT" \
     --task "$TASK_ID" \
-    --stage <plan|prd|do|...> \
+    --stage <plan|prd|do|init|design|qa|compliance> \
     --command </dr-name> \
     --captured-by agent \
     --recommended-next "$CTA_PRIMARY" \
     --options-file "$OPTIONS_TMP" \
-    --body-file "$BODY_TMP"
+    --body-file "$BODY_TMP" \
+  || echo "warn: snapshot-writer failed for $TASK_ID (continuing per V-AC-7)" >&2
 ```
 
-Fail-closed semantics: writer non-zero exit MUST surface one stderr warning line; do not silently swallow. Kill switch — env `DATARIM_DISABLE_SNAPSHOT=1` makes the writer no-op (documented in `docs/how-to/stage-snapshots.md`).
+Fail-closed semantics: writer non-zero exit MUST surface a single stderr warning line; do not silently swallow, do not abort the surrounding command. Kill switch — env `DATARIM_DISABLE_SNAPSHOT=1` makes the writer a no-op (documented in `docs/how-to/stage-snapshots.md`); the warning line is suppressed under the kill switch.
 
 Consumer side: `commands/dr-continue.md` § Step 2.5 «Snapshot-First Read» and `plugins/dr-orchestrate/commands/dr-orchestrate.md` § Snapshot-First Resume read the file before falling through to task-description / init-task / activeContext. Replay-prompt template in `skills/dr-continue-snapshot-replay.md` § Replay-prompt template.
 

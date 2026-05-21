@@ -80,3 +80,14 @@ After verdict, the compliance agent MUST emit a CTA block per `$HOME/.claude/ski
 - Loop guard: 3 same-layer fails → escalate to user
 
 The CTA block MUST follow canonical FAIL-Routing format when NON-COMPLIANT (header changes to `**Compliance NON-COMPLIANT для {TASK-ID} — earliest failed layer: Layer N (Layer name)**`). Variant B menu when >1 active tasks.
+
+## Stage Snapshot Emission (Mandatory Terminal Step)
+
+After the `## Next Steps (CTA)` block above, the agent MUST perform snapshot emission per `$HOME/.claude/skills/cta-format.md` § Snapshot Emission. Parameters bound for this command:
+
+- `stage`: `compliance`
+- `command`: `/dr-compliance`
+- `captured-by`: `agent`
+- `recommended-next`: primary CTA option (slash-prefixed `/dr-*` form)
+
+Fail-closed: on non-zero writer exit, emit a single stderr warning line and continue (V-AC-7 contract). Kill switch `DATARIM_DISABLE_SNAPSHOT=1` is handled inside the library; under the switch the writer is a no-op without warning.

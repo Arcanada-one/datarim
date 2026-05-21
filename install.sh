@@ -57,10 +57,12 @@ DATARIM_MIGRATION_CHOICE="${DATARIM_MIGRATION_CHOICE:-}"
 # scripts/ destroyed 30 task entries on aether/local-env 2026-04-30). With
 # dir-symlink, ~/.claude/scripts/datarim-doctor.sh is the canonical file by
 # inode — no possibility of divergence. Symmetric with skills/agents pattern.
-# Note: 'dev-tools' is intentionally NOT in this list — see
-# code/datarim/dev-tools/README.md (developer-only tooling, not shipped
-# to consumers; TUNE-0091).
-INSTALL_SCOPES=(agents skills commands templates scripts tests)
+# Note: 'dev-tools' is runtime-required as of v2.15.0 (TUNE-0259). The
+# following /dr-* commands invoke scripts from dev-tools/ at runtime:
+# dr-init (check-init-task-presence.sh), dr-doctor, dr-archive, dr-verify,
+# dr-qa, dr-plan, dr-compliance, dr-design. The directory remains
+# maintainer-stewarded — no user-facing CLI; see dev-tools/README.md.
+INSTALL_SCOPES=(agents skills commands templates scripts tests dev-tools)
 
 # v1.17.0: local/ overlay scope dirs (TUNE-0033). Local overlay applies only to
 # user-extensible scopes (skills/agents/commands/templates) — scripts/tests are
