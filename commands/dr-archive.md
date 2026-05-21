@@ -16,7 +16,7 @@ Complete and archive current task.
 
 0. **TASK RESOLUTION**: Apply Task Resolution Rule from `$HOME/.claude/skills/datarim-system.md` § Task Resolution Rule. Resolve which task is being archived (from argument or disambiguation). Use the resolved task ID for all subsequent steps.
 
-0.05. **READ INIT-TASK** (mandatory per `$HOME/.claude/skills/init-task-persistence.md`): Open `datarim/tasks/{TASK-ID}-init-task.md` if present. Read the full `## Operator brief (verbatim)` section AND every `## Append-log` entry. The archive document MUST include a `## Выполнение ожиданий оператора` section (F6 of init-task contract) that reflects how each operator-stated expectation was met. Missing init-task is non-blocking on archive — note its absence under § Legacy and continue.
+0.05. **READ INIT-TASK** (mandatory per `$HOME/.claude/skills/init-task-persistence.md`): Open `datarim/tasks/{TASK-ID}-init-task.md` if present. Read the full `## Operator brief (verbatim)` section AND every `## Append-log` entry. The archive document MUST render every brief bullet inside `## Как решили` (one bullet per brief item, original order; expectations folded as `(уточнение брифа)` markers — see Step 2 below). Missing init-task is non-blocking on archive — note its absence under `### Operator Handoff` and continue.
 
 0.1. **PRE-ARCHIVE CLEAN-GIT CHECK** (MANDATORY):
 
@@ -185,16 +185,23 @@ Complete and archive current task.
      - `false_positive` — `/dr-verify` findings the operator triaged as not real.
      - `n_a: true` — when `/dr-verify` was not invoked (L1 trivial fix or pre-tri-layer task).
      - `dogfood_window` — operator-supplied window-id grouping key consumed by `dev-tools/measure-prospective-rate.sh`.
-   - Task summary
-   - Implementation details
-   - Reflection insights
-   - **`## Выполнение ожиданий оператора` section (MANDATORY when `datarim/tasks/{TASK-ID}-expectations.md` exists, per F6 of the init-task contract):**
-     - Read `datarim/tasks/{TASK-ID}-expectations.md` and render every item from `## Ожидания` in its original order.
-     - Each rendered bullet: bold operator-words formulation, followed by the final `/dr-qa` status word (one of «выполнено», «частично», «не выполнено», «неприменимо» — never the schema enum `met`/`partial`/`missed`/`n-a`) and one or two plain-language sentences of comment sourced from the item's most recent `#### История статусов` line (`reason: …`).
-     - **No tables in this section.** Bullet list only (single-level allowed; nested bullets forbidden).
-     - **No anglicisms** — apply the banlist rules from `skills/human-summary.md` to the comment text (Russian prose only; ASCII tokens of length ≥3 from `skills/human-summary/banlist.txt` MUST NOT appear unless wrapped in the per-paragraph escape-hatch fence). The two-paragraph fenced budget from `human-summary.md` § Per-paragraph escape hatch applies here as well.
-     - Placement: between `## Final Acceptance Criteria` and `## Known Outstanding State / Operator Handoff` (see `templates/archive-template.md`).
-     - Missing expectations file ⇒ render a single line «Чек-лист ожиданий не заводился» under the heading and proceed; do not skip the heading entirely (the section is part of the archive's canonical shape).
+   - **Top-layer business-facing sections — MANDATORY, exact order, exact headings** (see `templates/archive-template.md`):
+     1. `## Начальная задача` — one Russian sentence describing what the operator asked for. Source: `datarim/tasks/{TASK-ID}-init-task.md` § Operator brief (verbatim), compressed to a single phrase.
+     2. `## Как решили` — single-level bullet list, one item per bullet in the operator brief (in original order). Each rendered bullet: bold operator-words quotation, followed by the final `/dr-qa` status word (one of «выполнено», «частично», «не выполнено», «неприменимо» — never the schema enum `met`/`partial`/`missed`/`n-a`) and one or two plain-language sentences sourced from the item's most recent `#### История статусов` line (`reason: …`).
+        - **Fold expectations into the same list (MANDATORY when `datarim/tasks/{TASK-ID}-expectations.md` exists, per F6 of the init-task contract):** every item from `## Ожидания` is added to the same bullet list, in original order, with the marker `(уточнение брифа)` appended to the operator-words quotation. Do NOT render a separate `## Выполнение ожиданий оператора` section — that top-level heading was retired and its content folded into «Как решили».
+        - Missing expectations file ⇒ render only brief items; no fallback line is needed (the «Как решили» section already exists because the brief itself does).
+        - **No tables in this section.** Bullet list only (single-level allowed; nested bullets forbidden).
+        - **No anglicisms** — apply the banlist rules from `skills/human-summary.md` to the comment text (Russian prose only; ASCII tokens of length ≥3 from `skills/human-summary/banlist.txt` MUST NOT appear unless wrapped in the per-paragraph escape-hatch fence). The two-paragraph fenced budget from `human-summary.md` § Per-paragraph escape hatch applies here as well.
+     3. `## Артефакты задачи` — what was produced or changed. Free prose + bullets allowed. File references as relative paths. No verdict tables in this top section.
+     4. `## Следующие шаги` — either «всё закрыто» or a bullet list of concrete `/dr-*` commands / operator actions.
+   - **Audit addendum under a `---` horizontal rule — MANDATORY, exact order:**
+     - `## Дополнительно для аудита` (top-level heading after `---`).
+     - `### verification_outcome` — human-readable mirror of the YAML frontmatter counters (`caught_by_verify`, `missed_by_verify`, `false_positive`, `n_a`, `dogfood_window`), one bullet per counter.
+     - `### Acceptance Criteria` — verdict table (AC / Status / Evidence), one row per AC.
+     - `### Lessons Learned` — short ≤3-bullet digest; the full text lives in `reflection-{ID}.md`.
+     - `### Operator Handoff` — residual technical debt, deferred improvements, configuration steps for the next operator. «всё закрыто» if empty.
+     - `### Related` — Parent PRD / Plan / Reflection / Follow-ups.
+   - The audit addendum carries the technical surface; the top four sections carry the operator-facing answer to «что я просил и что вы сделали». Banlist applies to the prose in the top four sections; tables and YAML mirrors in the addendum MAY be wrapped in `<!-- gate:literal -->` fence when they include ASCII technical terms.
    - **Known Loss Verification Gate (MANDATORY when archive will include any "Known Loss" / "Unrecoverable" / "Content lost" statement):**
      Before recording that any file, section, decision, or piece of work is permanently lost, run the Disaster Recovery Checklist from `$HOME/.claude/skills/evolution.md` § Disaster Recovery for Lost Runtime Files. Record in the archive document which channels were checked (grep reflections by filename, compacted session context, cross-references, git history of consumer projects, external backups) and what each returned. If the checklist takes >30 minutes, defer the archive, open a follow-up recovery task, do not record the loss yet. Only after all 5 channels are exhausted may a loss claim enter the archive. Rationale: an archive that records files as "text reconstruction is not possible" after 0 minutes of discovery has historically been recovered 100% in <30 minutes using channels 1-3. Always run the checklist first.
 3. **BACKLOG UPDATE** (if task existed in backlog):
@@ -230,7 +237,7 @@ Complete and archive current task.
 8. **HUMAN SUMMARY**:
    - Load `$HOME/.claude/skills/human-summary.md`.
    - Emit the `## Отчёт оператору` (RU) / `## Operator summary` (EN) section, with the four mandated sub-sections, between the archive-mutation block and the CTA block. Language follows the most recent operator message.
-   - Source material: the just-written archive document (§ Overview / § Outcome / § Known Outstanding State / § Выполнение ожиданий оператора) plus the reflection file from Step 0.5.
+   - Source material: the just-written archive document (§ Начальная задача / § Как решили / § Артефакты задачи / § Следующие шаги, plus the audit addendum’s § Operator Handoff) and the reflection file from Step 0.5.
    - Do NOT mutate the archive document or the reflection file — the summary is chat-only; the archive remains the permanent record.
    - The summary MUST honour the banlist + whitelist + per-paragraph escape-hatch contract from the skill (`<!-- gate:literal -->` … `<!-- /gate:literal -->` for verbatim quoted blocks only; max two fenced paragraphs per summary).
    - Length budget: 150–400 words **total across the four sub-sections** (not per sub-section). Hard upper bound. If sources are bigger, compress.

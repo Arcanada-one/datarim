@@ -4,6 +4,36 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.14.0] — 2026-05-22
+
+**Business-facing archive and compliance report contract (TUNE-0255).** The archive and `/dr-compliance` report templates now answer the operator's question «что я просил и что вы сделали» in plain Russian, in four mandatory top-level sections in strict order — «Начальная задача», «Как решили», «Артефакты задачи», «Следующие шаги» — followed by an audit addendum under a `---` horizontal rule that carries the technical surface (`verification_outcome` mirror, AC table, lessons learned, operator handoff, related). The «Как решили» section is a single-level bullet list that maps every operator-brief bullet (in original order) to a quoted item + Russian status word («выполнено» / «частично» / «не выполнено» / «неприменимо» — never the schema enum) + one or two plain-language sentences; expectations from `tasks/{ID}-expectations.md` fold into the same list with marker «(уточнение брифа)». The previous top-level `## Выполнение ожиданий оператора` heading is retired — its content is folded into «Как решили». The same contract applies to `/dr-compliance` via a new canonical template.
+
+### Added
+
+- `templates/compliance-report-template.md` — new canonical template mirroring the archive shape (four operator-facing top sections + audit addendum carrying the 7-step verdict table, remaining risks, related links). Frontmatter: `task_id`, `date`, `verdict` (COMPLIANT / COMPLIANT_WITH_NOTES / NON-COMPLIANT), optional `scope`.
+- `dev-tools/check-banlist-on-prose.sh` — fence-aware awk one-shot validator. Bash wrapper does argparse + path-traversal regex (`^[A-Za-z0-9._/-]+\.md$`). Awk one-shot skips YAML frontmatter (first `---` block) and honours `<!-- gate:literal -->` and `<!-- gate:example-only -->` fence markers; tokenises ASCII tokens of length ≥3, lowercases, looks up `skills/human-summary/whitelist.txt` then `skills/human-summary/banlist.txt`. Exit 0 clean / 1 offences (`file:line:token`) / 2 usage. Shellcheck `-S warning` clean.
+- `tests/tune-0255-archive-business-structure.bats` — 10 cases. Guard the four-section canonical order in `archive-template.md`, the `dr-archive.md` Step 2 mapping instructions, the expectations-fold marker, audit-addendum invariants, the four Russian status words, the schema-enum prohibition, the no-tables / single-level-bullets rules, the banlist-clean check on the template, and the validator's exit-0 contract.
+- `tests/tune-0255-compliance-template-shape.bats` — 4 cases. Guard the compliance template shape, the skill/command cross-link, the validator pass on the template, and the frontmatter fields.
+
+### Changed
+
+- `templates/archive-template.md` — rewritten under the four-section + audit-addendum layout. Frontmatter and `verification_outcome` contract unchanged. The top layer carries «Начальная задача», «Как решили», «Артефакты задачи», «Следующие шаги»; the audit addendum below the `---` rule carries `### verification_outcome`, `### Acceptance Criteria`, `### Lessons Learned`, `### Operator Handoff`, `### Related`. The `Operator Handoff` section moved from a top-level placement to the audit addendum (the existing structural guard on the `Operator Handoff` heading remains green).
+- `commands/dr-archive.md` Step 2 — rewritten under the new contract. The placeholder strings «Task summary / Implementation details / Reflection insights» and the explicit `## Выполнение ожиданий оператора` block were removed. The new block enumerates the four top sections in strict order, the audit addendum with its five sub-sections, the expectations fold-into-«Как решили» semantics with the «(уточнение брифа)» marker, and the no-tables / no-anglicisms rules. Status-word translations preserved. Step 0.05 and Step 8 (Human Summary) updated to reference the new source sections.
+- `commands/dr-compliance.md` Step 7 — rewritten to reference `templates/compliance-report-template.md`. The same four-section + audit-addendum contract applies; the 7-step verdict table inside the addendum is wrapped in `<!-- gate:literal -->` so English column headings bypass the banlist.
+- `skills/compliance.md § Output` — rewritten to reference the new template and the four-section contract.
+- `skills/human-summary.md` — new `## See also` section linking the shared banlist to the archive and compliance templates and to `dev-tools/check-banlist-on-prose.sh`.
+- `VERSION` 2.13.0 → 2.14.0; touchpoints across `CLAUDE.md`, `README.md`, `Projects/Datarim/{CLAUDE,README}.md`, `Projects/Websites/datarim.club/config.php` aligned (zero residual `2.13.0` outside the historical changelog entry).
+
+### Removed
+
+- `tests/tune-0210-archive-expectations-section.bats` — retired. T6-T10 ported into `tests/tune-0255-archive-business-structure.bats` (status-word / no-tables / banlist / forbid-enum guards). T1-T5 retired because the `## Выполнение ожиданий оператора` heading was removed from the template.
+
+### Migration notes
+
+- Existing `archive-*.md` documents under `documentation/archive/` are grandfathered — no rewrite is required, the new contract applies to archives written after 2.14.0.
+- Consumers reading the archive shape should switch their parsers to expect the new top four sections; the legacy `## Outcome / ## Verification Summary / ## Final Acceptance Criteria` placement is no longer present in the canonical template.
+- Operators who relied on the explicit `## Выполнение ожиданий оператора` heading will now find the same content folded into the «Как решили» list with the marker «(уточнение брифа)» appended to each expectation-derived item.
+
 ## [2.13.0] — 2026-05-21
 
 **Per-task stage snapshots (TUNE-0254).** Every `/dr-*` command now persists its final operator-visible response (Summary + Gate Results + CTA) to `datarim/snapshots/{TASK-ID}.snapshot.md` with overwrite semantics, mkdir-based atomic lock, `chmod 600`, and an 8 KB hard cap with explicit truncation marker. Producer side wired through a single touchpoint — `skills/cta-format.md § Snapshot Emission` — instead of per-command patches. Consumer side: `/dr-continue` Step 2.5 (`SNAPSHOT-FIRST READ`) and `/dr-orchestrate` Step 2 (`Snapshot-First Resume`) read the snapshot before any other context and emit a replay-prompt with the recommended CTA + bilingual (RU + EN) autonomy reminder + literal `done before:` block. At `/dr-archive` Step 0.95 the snapshot is moved (not deleted) to `documentation/archive/<subdir>/snapshots/{TASK-ID}-final-stage.md` via the existing `prefix_to_area()` resolver, so the final stage card remains grep-able in the archive.

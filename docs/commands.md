@@ -1,6 +1,6 @@
 # Commands Reference
 
-Datarim provides 18 slash commands for Claude Code. Commands are grouped by category.
+Datarim provides 20 slash commands for Claude Code. Commands are grouped by category.
 
 ## Unified CTA Block (v1.16.0)
 
@@ -44,8 +44,8 @@ Source: TUNE-0032. Spec: `skills/cta-format.md`. Template: `templates/cta-templa
 | `/dr-do` | Execution | developer | TDD development, one method at a time. Emits CTA. |
 | `/dr-qa` | Quality | reviewer | Multi-layer verification (PRD, design, plan, code). Emits CTA (FAIL-Routing variant on BLOCKED). |
 | `/dr-verify` | Verification | -- | Standalone tri-layer self-verification (on-demand). Layer 1 deterministic floor + Layer 2 cross-model peer-review (provider auto-resolves via 6-step chain — zero-flag UX, cross-Claude-family fallback when no external API key) + Layer 3 native runtime dispatch. Findings carry `source_layer` + `peer_review_mode` (`cross_vendor` / `cross_claude_family` / `same_model_isolated`); findings-only mode; emits CTA (FAIL-Routing variant on BLOCKED). |
-| `/dr-compliance` | Hardening | compliance | 7-step post-QA hardening workflow. Emits CTA (FAIL-Routing variant on NON-COMPLIANT). |
-| `/dr-archive` | Archive | reviewer (Step 0.5 reflection) + planner (Steps 1-7) | Reflection + evolution proposals + complete task + update backlog + reset context. Emits CTA. |
+| `/dr-compliance` | Hardening | compliance | 7-step post-QA hardening workflow. Compliance report follows `templates/compliance-report-template.md` (v2.14.0+): four top sections in strict order — «Начальная задача», «Как решили», «Артефакты задачи», «Следующие шаги» — plus an audit addendum under `---` carrying `### Step-by-step verdicts`, `### Remaining risks`, `### Related`. Emits CTA (FAIL-Routing variant on NON-COMPLIANT). |
+| `/dr-archive` | Archive | reviewer (Step 0.5 reflection) + planner (Steps 1-7) | Reflection + evolution proposals + complete task + update backlog + reset context. Archive doc follows `templates/archive-template.md` (v2.14.0+): four top sections in strict order — «Начальная задача», «Как решили», «Артефакты задачи», «Следующие шаги» — plus an audit addendum under `---` carrying `### verification_outcome`, `### Acceptance Criteria`, `### Lessons Learned`, `### Operator Handoff`, `### Related`. The «Как решили» section is a single-level bullet list that maps each operator-brief bullet to a quoted item + Russian status word (выполнено / частично / не выполнено / неприменимо) + one or two plain-language sentences; expectations fold into the same list with marker «(уточнение брифа)». Emits CTA. |
 
 ## Content Commands (3)
 

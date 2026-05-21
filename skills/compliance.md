@@ -170,6 +170,12 @@ Read `datarim/tasks.md` and `datarim/activeContext.md` to determine task type:
 
 ## Output
 
-Report with: type detected, per-step results (PASS/FAIL/N/A), overall verdict (COMPLIANT / NON-COMPLIANT / COMPLIANT_WITH_NOTES), remaining risks.
+Render the compliance report via the canonical structure declared in `templates/compliance-report-template.md`. The report carries:
 
-Save to `datarim/reports/compliance-report-{task_id}.md` if directory exists, otherwise present in chat.
+- Frontmatter: `task_id`, `date`, `verdict` (COMPLIANT / COMPLIANT_WITH_NOTES / NON-COMPLIANT), optional `scope`.
+- Four operator-facing top sections in strict order — «Начальная задача», «Как решили», «Артефакты задачи», «Следующие шаги».
+- An audit addendum under a `---` horizontal rule carrying `### Step-by-step verdicts` (the 7-step per-step table), `### Remaining risks`, `### Related`.
+
+The four top sections answer «что просил оператор» and «что подтвердили / что осталось» in plain Russian — apply the banlist from `skills/human-summary/banlist.txt`. The audit addendum carries the technical surface (status table, risk list, cross-links) and MAY wrap ASCII-heavy lines in `<!-- gate:literal -->` fence.
+
+Save to `datarim/reports/compliance-report-{task_id}.md` if the directory exists, otherwise present in chat. Filename suffix on re-runs: `-v2`, `-v3`, … (one new file per `/dr-compliance` invocation).

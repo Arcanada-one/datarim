@@ -203,3 +203,8 @@ If the skill cannot be loaded (missing file), the caller proceeds without the su
 > - A strict runtime validator that scans the emitted text against the lists is not wired yet — for now the contract is fixed in prose and in the guard test; the validator itself ships in a follow-up.
 >
 > **What's next.** The work can move on to the post-verification step. The first run of that step will itself emit this recap, which doubles as a live check that the wiring works.
+
+## See also
+
+- Архивный и compliance-отчёт используют тот же банлист (`skills/human-summary/banlist.txt` + `skills/human-summary/whitelist.txt`). См. `templates/archive-template.md` § «Как решили» и `templates/compliance-report-template.md` § «Как решили» — банлист применяется к прозе четырёх верхних разделов; аудит-аддендум обёрнут в `<!-- gate:literal -->` fence для технических таблиц.
+- Канонический валидатор для прозы шаблонов — `dev-tools/check-banlist-on-prose.sh` (awk one-shot, поддерживает YAML frontmatter skip + `<!-- gate:literal -->` / `<!-- gate:example-only -->` fence-блоки).
