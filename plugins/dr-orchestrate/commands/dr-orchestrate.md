@@ -25,14 +25,15 @@ Phase 2 — Subagent Inference Layer (v2.4.0).
 ## Цикл
 
 1. `tmux capture-pane -p -t <pane>` — снимает текущий буфер.
-2. `semantic_parser.sh parse` — rule-based pass возвращает `{command, confidence, source}`.
-3. **Hit (confidence > 0)** — Phase 1 path: лог `make_event` v1, JSONL append.
-4. **Miss (confidence == 0)** — Phase 2 path:
+2. **Snapshot-First Resume.** Если в буфере или job-queue определён active TASK-ID и `datarim/snapshots/{TASK-ID}.snapshot.md` валиден (`dev-tools/check-stage-snapshot-on-exit.sh --validate-frontmatter --task <ID>` → exit 0) — прочитать снапшот ДО `semantic_parser.sh` и передать `recommended_next` в `subagent_resolver.sh` как `--hint <command>`. Snapshot read происходит до resolver dispatch, так что resolver всё ещё может вернуть иной command — snapshot это hint, не constraint. Если снапшот отсутствует / malformed — пропустить шаг без warning (V-AC-7) и продолжить со старым поведением. Контракт consumer-стороны: `skills/dr-continue-snapshot-replay.md`.
+3. `semantic_parser.sh parse` — rule-based pass возвращает `{command, confidence, source}`.
+4. **Hit (confidence > 0)** — Phase 1 path: лог `make_event` v1, JSONL append.
+5. **Miss (confidence == 0)** — Phase 2 path:
    - `subagent_resolver.sh resolve` — multi-backend chain (coworker → claude → codex), 15s per backend, lenient JSON parse, FD-3 close.
    - Confidence threshold gate (default `0.80`):
      - Pass → audit `outcome: resolved` (schema v2); decision-cooldown 60s enforces single autonomous decision per pane per minute.
      - Fail / chain_exhausted → `escalation_backend.sh emit` (mock JSONL по умолчанию; `dev-bot` backend остаётся stub до появления реального consumer-сервиса) + audit `outcome: escalated`.
-5. Любой `tmux send-keys` всё так же проходит security-floor: whitelist → escape-block → micro-cooldown (500ms) + decision-cooldown (60s) → fail-closed.
+6. Любой `tmux send-keys` всё так же проходит security-floor: whitelist → escape-block → micro-cooldown (500ms) + decision-cooldown (60s) → fail-closed.
 
 ## Конфигурация (user-config.yaml)
 

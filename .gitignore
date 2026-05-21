@@ -32,3 +32,8 @@ documentation/
 # TUNE-0164: dr-orchestrate plugin operator config (mode-0600 secrets via secrets_backend.sh).
 # Template ships at plugins/dr-orchestrate/user-config.template.yaml.
 plugins/dr-orchestrate/user-config.yaml
+
+# TUNE-0254: stage-snapshot ephemeral state — overwritten per /dr-* run.
+# Snapshot at datarim/snapshots/{TASK-ID}.snapshot.md, gitignored; /dr-archive
+# Step 0.95 moves the final snapshot to documentation/archive/<subdir>/snapshots/.
+datarim/snapshots/

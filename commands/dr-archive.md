@@ -165,6 +165,13 @@ Complete and archive current task.
    - On failure (skill load error / user rejects Class A): STOP archive; do NOT proceed to Step 1. Archive is idempotent — re-running re-enters Step 0.5.
    - Historical: prior to Datarim v1.10.0, this ran as a separate `/dr-reflect` command; consolidated here because an "optional mandatory gate" is the defect.
 
+0.95. **STAGE-SNAPSHOT MOVE-TO-ARCHIVE** (MANDATORY when `datarim/snapshots/{TASK-ID}.snapshot.md` exists):
+   - Resolve archive subdir via `prefix_to_area()` from `scripts/datarim-doctor.sh` (same helper used by Step 1 below).
+   - `mkdir -p documentation/archive/<subdir>/snapshots/` if absent.
+   - `mv datarim/snapshots/{TASK-ID}.snapshot.md documentation/archive/<subdir>/snapshots/{TASK-ID}-final-stage.md` (move-not-delete — final snapshot is a compact task card, useful for grep-search through the archive).
+   - If snapshot absent → skip without warning (V-AC-9 fallback branch).
+   - Contract: `skills/stage-snapshot-writer.md` § Outputs; producer side `skills/cta-format.md` § Snapshot Emission.
+
 1. **DETERMINE ARCHIVE AREA**:
    - Extract prefix from task ID (everything before the first `-`)
    - Map prefix to area subdirectory using `$HOME/.claude/skills/datarim-system.md` § Archive Area Mapping

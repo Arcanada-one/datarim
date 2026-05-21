@@ -458,6 +458,16 @@ After running `/dr-init` for the first time, verify:
 
 ---
 
+## Context Management (v2.13.0+)
+
+Every `/dr-*` command persists its final operator-visible response (Summary + Gate Results + CTA) to `datarim/snapshots/{TASK-ID}.snapshot.md` with overwrite semantics. After `/clear` or a closed terminal, `/dr-continue {TASK-ID}` (and `/dr-orchestrate` resume) reads this snapshot FIRST — before task-description, init-task, activeContext — and emits a replay-prompt with the recommended CTA plus a bilingual autonomy reminder. If no snapshot exists, both commands fall through to legacy behaviour without warning lines.
+
+- Storage: `datarim/snapshots/` (gitignored; archived snapshot lands in `documentation/archive/<subdir>/snapshots/{TASK-ID}-final-stage.md` at `/dr-archive`).
+- Kill-switch: `export DATARIM_DISABLE_SNAPSHOT=1` makes the writer no-op.
+- How-to with full reference: [`docs/how-to/stage-snapshots.md`](how-to/stage-snapshots.md).
+
+---
+
 ## Framework Maintenance Commands
 
 Three commands help you keep the framework itself healthy over time:

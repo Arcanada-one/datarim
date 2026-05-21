@@ -212,8 +212,35 @@ Referenced from all 15 `/dr-*` command files in `commands/dr-*.md`.
 
 - `templates/cta-template.md` — fill-in-the-blank Markdown snippet with placeholder tables for the three CTA shapes (Single Active Task, Multiple Active Tasks, FAIL-Routing). Use when generating a CTA block in agent / command output; copy the appropriate snippet and substitute placeholders. Update both files together if the format changes.
 
+## Snapshot Emission
+
+**Terminal step (mandatory).** After emitting the CTA block, every `/dr-*` agent persists the final operator-visible response (Summary + Gate Results + CTA block) to `datarim/snapshots/{TASK-ID}.snapshot.md` via `scripts/lib/snapshot-writer.sh::write_stage_snapshot`. Contract: `skills/stage-snapshot-writer.md`. The snapshot serves as primary context for `/dr-continue` and `/dr-orchestrate` after `/clear` or terminal close.
+
+Invocation pattern:
+
+```bash
+# After CTA emission, the agent writes the rendered response to a tempfile
+# and calls the writer once. The writer overwrites any prior snapshot for
+# this TASK-ID (overwrite-not-append; old stage state is no longer current).
+write_stage_snapshot \
+    --root "$REPO_ROOT" \
+    --task "$TASK_ID" \
+    --stage <plan|prd|do|...> \
+    --command </dr-name> \
+    --captured-by agent \
+    --recommended-next "$CTA_PRIMARY" \
+    --options-file "$OPTIONS_TMP" \
+    --body-file "$BODY_TMP"
+```
+
+Fail-closed semantics: writer non-zero exit MUST surface one stderr warning line; do not silently swallow. Kill switch — env `DATARIM_DISABLE_SNAPSHOT=1` makes the writer no-op (documented in `docs/how-to/stage-snapshots.md`).
+
+Consumer side: `commands/dr-continue.md` § Step 2.5 «Snapshot-First Read» and `plugins/dr-orchestrate/commands/dr-orchestrate.md` § Snapshot-First Resume read the file before falling through to task-description / init-task / activeContext. Replay-prompt template in `skills/dr-continue-snapshot-replay.md` § Replay-prompt template.
+
 ## Versioning
 
 Introduced in Datarim v1.16.0. See `docs/evolution-log.md` for provenance and source research.
+
+Stage-snapshot terminal step added in v2.13.0 — `§ Snapshot Emission` above.
 
 Future changes to this format MUST update golden fixtures in `tests/cta-format/` and `evolution-log.md`.

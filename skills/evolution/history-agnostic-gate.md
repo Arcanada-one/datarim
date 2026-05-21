@@ -51,7 +51,7 @@ Any text about to be written to:
 **Out of scope** (history surfaces by definition — gate must NOT scan them):
 
 - `scripts/` (source code with conventional in-comment provenance)
-- `tests/`, `tests/security/` (regression tests reference findings by ID)
+- `tests/`, `tests/security/`, `tests/*.bats` (regression tests reference findings by ID — `.bats` test data and fixture body may contain TASK-ID literals by design)
 - `docs/`, `docs/evolution-log.md` (the canonical evolution surface)
 - `datarim/`, `datarim/reflection/` (workflow state)
 - `documentation/archive/` (long-term task archives)

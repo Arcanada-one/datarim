@@ -44,8 +44,10 @@ Skills are split into two categories:
 | expectations-checklist | Reference | inherit | Operator wishlist artefact (Option B flat markdown) — wish_id slug + История статусов + Текущий статус + override semantics | /dr-prd, /dr-plan (write); /dr-qa, /dr-compliance (verify) |
 | playwright-qa | Task | sonnet | Browser-based frontend QA — CLI / MCP / env-browser resolution chain + headed / headed-strict + per-task flock + run-`<ISO-ts>`/ artefacts | /dr-qa Layer 4f on frontend touch |
 | human-summary | Reference | inherit | Plain-language operator recap — four sub-sections + banlist + whitelist + per-paragraph escape hatch + 150–400 word budget | /dr-qa, /dr-compliance, /dr-archive (Step 8) |
+| stage-snapshot-writer | Reference | inherit | Producer contract for per-task stage snapshots — final operator-visible `/dr-*` response persisted to `datarim/snapshots/{TASK-ID}.snapshot.md` with overwrite semantics, mkdir-based atomic lock, 8 KB hard cap (v2.13.0, TUNE-0254) | invoked from `cta-format.md` § Snapshot Emission by every `/dr-*` |
+| dr-continue-snapshot-replay | Reference | inherit | Consumer contract — `/dr-continue` and `/dr-orchestrate` read snapshot first, emit replay-prompt with CTA + bilingual autonomy reminder + `done before:` body; CTA-selection heuristic with ≥3 worked examples (v2.13.0, TUNE-0254) | `/dr-continue` Step 2.5, `/dr-orchestrate` Snapshot-First Resume |
 
-**Distribution:** 12 reference (inherit), 3 opus, 13 sonnet, 4 haiku.
+**Distribution:** 14 reference (inherit), 3 opus, 13 sonnet, 4 haiku.
 
 ## Loading Hierarchy
 

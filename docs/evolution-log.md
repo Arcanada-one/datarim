@@ -4,6 +4,20 @@ Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflec
 
 ---
 
+## 2026-05-21 — TUNE-0254 reflection — Evolution Proposals 1+2 applied (Class A)
+
+### Proposal 2 (skill-update, low impact) — `skills/evolution/history-agnostic-gate.md § Scope`
+
+Out-of-scope line for `tests/` expanded to explicitly mention `tests/*.bats` and the rationale that test data / fixture bodies may contain TASK-ID literals by design. Closes recurring advisory FAIL noise seen during `/dr-qa`, `/dr-compliance`, `/dr-archive` on new `.bats` files. The gate already excluded directory-level `tests/`; the change is documentation-only (no scanner behaviour change) but removes the operator-side confusion about whether bats fixtures need escape-hatch markup.
+
+### Proposal 1 (command-update, medium impact) — `commands/dr-do.md` Step 8.6 re-entry emphasis
+
+Original proposal text in the TUNE-0254 reflection asked to "add Step 6.5 APPEND Q&A". Structurally the step already exists at position 8.6 (added in `ceafe36`, TUNE-0216 Phase 3) — same canonical position relative to OUTPUT as `dr-prd:6.5 → 7`, `dr-qa:6.5 → 7`, `dr-compliance:6.5 → 7`, `dr-plan:12.5 → 13`. The TUNE-0254 runtime gap was NOT structural absence; the agent in `/dr-do` round 2 simply forgot to invoke `append-init-task-qa.sh` and `/dr-qa` v2 Layer 3b retroactively appended as round 4. The structural fix is to make the re-entry case (post-`/dr-verify` triage, `--focus=` re-entry) impossible to miss. Step 8.6 now carries an explicit "Applies to every round" sub-bullet plus the monotonic-round constraint and the process-cost regression warning. No new gate, no contract surface change.
+
+Both proposals are Class A (skill / command surface), operator-approved at apply time (2026-05-21). No version bump (continuing 2.13.0 line).
+
+---
+
 ## 2026-05-18 — TUNE-0251 — Final removal of copy-mode helper scripts (v2.12.0)
 
 Removed `scripts/curate-runtime.sh` + `scripts/check-drift.sh` along with their regression bats coverage (`tests/check-drift.bats`, `tests/curate-runtime.bats`, `tests/deprecation-banners.bats`). Both scripts were DEPRECATED in v1.17.0 when the symlink-default operating model landed — under symlink topology runtime IS the repo by inode, so the parallel drift-detection and curation helpers no longer carried operational value. Copy-mode users keep `git pull && ./install.sh --copy --force --yes` as the canonical resync recipe.

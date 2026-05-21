@@ -4,6 +4,37 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.13.0] — 2026-05-21
+
+**Per-task stage snapshots (TUNE-0254).** Every `/dr-*` command now persists its final operator-visible response (Summary + Gate Results + CTA) to `datarim/snapshots/{TASK-ID}.snapshot.md` with overwrite semantics, mkdir-based atomic lock, `chmod 600`, and an 8 KB hard cap with explicit truncation marker. Producer side wired through a single touchpoint — `skills/cta-format.md § Snapshot Emission` — instead of per-command patches. Consumer side: `/dr-continue` Step 2.5 (`SNAPSHOT-FIRST READ`) and `/dr-orchestrate` Step 2 (`Snapshot-First Resume`) read the snapshot before any other context and emit a replay-prompt with the recommended CTA + bilingual (RU + EN) autonomy reminder + literal `done before:` block. At `/dr-archive` Step 0.95 the snapshot is moved (not deleted) to `documentation/archive/<subdir>/snapshots/{TASK-ID}-final-stage.md` via the existing `prefix_to_area()` resolver, so the final stage card remains grep-able in the archive.
+
+### Added
+
+- `scripts/lib/snapshot-writer.sh` — producer library with `write_stage_snapshot`. Concurrent-safe via `acquire_plugin_lock` mkdir-based atomic lock (env-var `DR_SNAPSHOT_LOCK_TIMEOUT`, default 60). Byte-accurate truncation via `wc -c` + `head -c`; UTF-8 codepoint safety preserved by piping the truncated chunk through `iconv -c` to drop any trailing partial multibyte sequence (final size may shrink by ≤3 bytes — well within the 8192 cap). TASK-ID regex anchor `^[A-Z][A-Z0-9-]+-[0-9]{4,5}$` for path-traversal defence.
+- `dev-tools/check-stage-snapshot-on-exit.sh` — validator with three modes (`--task`, `--validate-frontmatter`, `--self-test`); exit codes 0/1/2/3. Rejects symlinks at the snapshot path (exit 2 «malformed») symmetric with writer-side T-7 pre-unlink — closes shared-workspace attack surface where a co-agent could substitute a symlink to inline arbitrary file contents into the replay-prompt.
+- `skills/stage-snapshot-writer.md` — producer contract (invoked from `cta-format.md § Snapshot Emission`).
+- `skills/dr-continue-snapshot-replay.md` — consumer contract with three worked examples covering CTA selection (L3+ few checks → `/dr-verify`; L3+ saturated → `/dr-do`; L1/L2 do_done → `/dr-archive`).
+- `docs/how-to/stage-snapshots.md` — operator how-to (first Diátaxis how-to category file in `docs/`).
+- 12 new bats suites (51 cases): `stage-snapshot-{writer-overwrite, frontmatter-schema, size-cap, flock-race, shellcheck, cta-format-integration, cleanup-on-archive, utf8-truncation, symlink-rejection}`, `dr-{continue,orchestrate}-snapshot-replay`, `dr-archive-snapshot-move`. Combined with the 39 regression cases in `tests/cta-format.bats`, the snapshot-touched sweep totals 90/90 green.
+
+### Changed
+
+- `skills/cta-format.md` — new terminal sub-section `§ Snapshot Emission` (single producer touchpoint for all 15 `/dr-*` commands). All 39 existing `cta-format.bats` cases unchanged (additive contract).
+- `commands/dr-continue.md` — new Step 2.5 `SNAPSHOT-FIRST READ` that stops the downstream Read pipeline when a valid snapshot is present and silently falls through to legacy behaviour otherwise (no warning lines).
+- `plugins/dr-orchestrate/commands/dr-orchestrate.md` — `Snapshot-First Resume` block ahead of `semantic_parser.sh`; `recommended_next` passed to `subagent_resolver.sh` as `--hint` (hint, not constraint). Цикл renumbered 1 → 6.
+- `commands/dr-archive.md` — new Step 0.95 `STAGE-SNAPSHOT MOVE-TO-ARCHIVE` (move-not-delete via `prefix_to_area`).
+- `skills/init-task-persistence.md` — `stage-snapshot` added to the per-task artefact roster (sibling to init-task + expectations-checklist).
+- `.gitignore` — `datarim/snapshots/` added (mirrors `datarim/qa/` pattern).
+- `docs/getting-started.md` — new `§ Context Management (v2.13.0+)` block; `docs/skills.md` skill count 45 → 47; `docs/commands.md` `/dr-continue` row mentions Step 2.5.
+- `VERSION` 2.12.0 → 2.13.0; touchpoints across `CLAUDE.md`, `README.md`, `Projects/Datarim/{CLAUDE,README}.md`, `Projects/Websites/datarim.club/config.php` aligned (zero residual `2.12.0` outside the historical `docs/evolution-log.md` entry).
+
+### Class B (public surface — `datarim.club`)
+
+- `pages/changelog.php` v2.13.0 entry (feat × 4 + notes).
+- `data/skills/stage-snapshot-writer.php`, `data/skills/dr-continue-snapshot-replay.php` (EN + RU short + body).
+- `content/en.php`, `content/ru.php` — skill counts and UI strings updated.
+- Deploy via `cd Projects/Websites && ./deploy.sh datarim.club` remains an operator step (hard-gated cross-org rsync).
+
 ## [2.11.1] — 2026-05-16
 
 **Advisory V-AC pre-flight against ecosystem mandates.** `/dr-prd` Step 5 (pre-save validation gates) gains a third bullet that runs `dev-tools/check-v-ac-mandate-preflight.sh` against the draft PRD. The script extracts V-AC / Verification / Success Criteria lines and greps each against `dev-tools/public-surface-forbidden.regex` (the same contract surface consumed by `public-surface-lint.sh`). On match — advisory `WARNING:` line on stdout; the gate is non-blocking (always exits 0). Surfaces a V-AC ↔ Public Surface Hygiene conflict at PRD-time, not later in the pipeline.

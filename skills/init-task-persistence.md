@@ -28,6 +28,18 @@ One file per task. Same `{TASK-ID}` as the corresponding
 `{TASK-ID}-task-description.md`. The two files are siblings: description is
 the agent's interpretation, init-task is the operator's untouched source.
 
+### Per-task artefact roster (cross-link)
+
+The init-task file is one of three per-task artefacts that share the `{TASK-ID}` namespace; each has a distinct lifetime and semantics:
+
+| Artefact | Semantics | Location | Contract |
+|----------|-----------|----------|----------|
+| `tasks/{TASK-ID}-init-task.md` | canonical, append-only (operator brief + Q&A log) | committed via task lifecycle | this skill |
+| `tasks/{TASK-ID}-task-description.md` | canonical, agent-mutated | committed via task lifecycle | `skills/datarim-system.md` § Description File Contract |
+| `snapshots/{TASK-ID}.snapshot.md` | ephemeral, overwrite-on-retry (final operator-visible `/dr-*` response) | `datarim/snapshots/` (gitignored); moved to `documentation/archive/<subdir>/snapshots/{TASK-ID}-final-stage.md` at `/dr-archive` | `skills/stage-snapshot-writer.md` (producer) + `skills/dr-continue-snapshot-replay.md` (consumer) |
+
+The stage-snapshot is a sibling, not a replacement — init-task captures *what the operator asked for*; snapshot captures *what the agent last reported*. `/dr-continue` and `/dr-orchestrate` read the snapshot first for context-resume after `/clear`.
+
 ## Artifact schema
 
 Required YAML frontmatter (closed schema):

@@ -96,6 +96,7 @@ description: Implement planned changes using TDD and AI quality principles
     -   When `--decided-by agent`: `--rationale-file <path>` MUST contain ≥ 50 non-whitespace characters of justification.
     -   On contradiction with an expectation discovered mid-implementation: add `--conflict-with <wish_id>`; CTA MUST route back to `/dr-do --focus-items <wish_id>` after the conflict closure entry lands.
     -   Skip if no clarification rounds occurred.
+    -   **Applies to every round** (round 1, round 2, …) of `/dr-do` invocation — including post-`/dr-verify` triage and `--focus=` re-entry. Round number MUST monotonically increase; do not reuse `--round N` from a prior call. Missing append triggers `/dr-qa` Layer 3b retroactive backfill (a process-cost regression).
 
 9.  **OUTPUT** (thin-index schema):
     -   Code changes (committed per Workspace Discipline rules in CLAUDE.md).
