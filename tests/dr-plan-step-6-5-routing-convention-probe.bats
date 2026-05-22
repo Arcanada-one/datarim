@@ -66,11 +66,13 @@ bullet_block() {
     [ "$n" -le 8 ]
 }
 
-@test "Routing probe bullet names a concrete redaction token (S3 binding to falsifiable check)" {
+@test "Routing probe bullet names the canonical redaction token (S3 binding to falsifiable check)" {
     local block; block=$(bullet_block)
     [ -n "$block" ]
-    # S3 redaction MUST cite a concrete placeholder (ellipsis '…' is the canonical
-    # token per the dr-plan.md routing bullet) — without a named token, the redaction
-    # clause is prose-only and reviewers cannot falsify a generated plan's compliance.
-    [[ "$block" =~ (…|\<REDACTED\>|\<\*\*\*\>) ]]
+    # S3 redaction: the canonical token in dr-plan.md is the ellipsis '…' (single
+    # source of truth — «redact to `…` and reference `file:line` only»). Asserting
+    # ONLY the canonical token avoids contract/test asymmetry: if doc drift adds
+    # alternative tokens, the doc must change first, then this regex tightens to
+    # match. Single-token assertion = single source of truth = no ambiguity.
+    [[ "$block" =~ … ]]
 }
