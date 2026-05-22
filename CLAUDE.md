@@ -1,6 +1,6 @@
 # Datarim — Universal Iterative Workflow Framework
 
-> **Version:** 2.15.0
+> **Version:** 2.16.1
 > **Framework:** Datarim (Датарим) provides structured rules, agents, skills, and commands for iterative project execution via AI coding assistants — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
 > **Multi-runtime:** Datarim is runtime-agnostic. This file is also available as `AGENTS.md` (symlink) for Codex CLI and other agent runtimes that read `AGENTS.md` by convention.
 > **Note:** "Datarim" is transliterated as "Датарим" in Russian. Both refer to this framework — agents must recognize either form in any language context.
@@ -325,7 +325,7 @@ Each new validator follows a simple contract:
 1. **Datarim is truth** — `datarim/` for workflow state, `documentation/archive/` for completed task archives
 2. **Task ID required** — All reports must include task ID in filename
 3. **Path resolution first** — Always find `datarim/` before writing
-4. **No absolute paths** — Use `$HOME/.claude/` or project-relative paths only
+4. **No absolute filesystem paths in runtime** — Use `$HOME/.claude/` or project-relative paths only. **Corollary for template refs in `commands/*.md`, `skills/**/*.md`, `agents/*.md`:** every `templates/<name>.<ext>` reference MUST be qualified with `$HOME/.claude/templates/...` (or `${DATARIM_RUNTIME:-$HOME/.claude}/templates/...` in shell contexts). Bare `templates/X` resolves to the agent's cwd and breaks LLM-copied invocations (e.g. `coworker write --context`) in any consumer project. Explicit `datarim/templates/X` is reserved for project-local overlay refs. Detector: `dev-tools/check-template-path-convention.sh` (regression: `tests/check-template-path-convention.bats`).
 5. **Context before code** — Gather requirements before implementing
 6. **One thing at a time** — Implement one method/stub per iteration
 7. **Human in the loop** — Evolution proposals need approval

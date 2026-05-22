@@ -133,5 +133,5 @@ If you must keep a remote ref pointing at pre-scrub HEAD as a convenience marker
 
 ## Reusable Templates
 
-- `templates/security-deps-upgrade-plan.md` — stack-neutral plan for dependency-CVE / framework-version-bump / transitive-override tasks. Sections: baseline audit snapshot, target version selection, breaking-change diff, lockfile/peer-dep impact, regression test scope, rollback. Use during `/dr-plan` for any maintenance task closing security advisories.
-- `templates/cutover-runbook-template.md` — stack-neutral atomic 8-phase cutover pattern with auto-rollback. Use during `/dr-plan` for any live-service config flip / deployment / mount-point migration where pre/post smoke comparison can guard the change.
+- `$HOME/.claude/templates/security-deps-upgrade-plan.md` — stack-neutral plan for dependency-CVE / framework-version-bump / transitive-override tasks. Sections: baseline audit snapshot, target version selection, breaking-change diff, lockfile/peer-dep impact, regression test scope, rollback. Use during `/dr-plan` for any maintenance task closing security advisories.
+- `$HOME/.claude/templates/cutover-runbook-template.md` — stack-neutral atomic 8-phase cutover pattern with auto-rollback. Use during `/dr-plan` for any live-service config flip / deployment / mount-point migration where pre/post smoke comparison can guard the change.

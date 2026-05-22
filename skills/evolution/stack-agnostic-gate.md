@@ -178,7 +178,7 @@ advisory into enforceable.
 
 - **Historical content cleanup** — the gate is forward-looking. Pre-existing
   stack-specific content in framework files (e.g. `skills/ai-quality/deployment-patterns.md`,
-  `templates/docker-smoke-checklist.md`) is tracked as separate backlog items;
+  `$HOME/.claude/templates/docker-smoke-checklist.md`) is tracked as separate backlog items;
   the gate surfaces them but does not auto-fix.
 - **Whitespace / Unicode bypass** — accepted residual risk. Bypass requires
   intentional malice; reflection follow-up + memory rule provide redundancy.

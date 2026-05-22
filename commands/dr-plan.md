@@ -236,11 +236,11 @@ Run: `/dr-plan`
 
 ## Reusable Templates
 
-- `templates/integration-checklist.md` — third-party-integration checklist for any task that adds, replaces, or modifies an integration with an external HTTP API, SDK, webhook target, OAuth provider, payment gateway, message queue, storage API, or LLM/STT/TTS endpoint. Reference from Step 6 (Technology Validation) when the task contains the `external API` keyword or introduces a new third-party dependency.
-- `templates/security-deps-upgrade-plan.md` — see `skills/security.md`. Reference during Step 6 for dependency-CVE / framework-bump tasks.
-- `templates/infra-cost-reduction-checklist.md` — see `skills/infra-automation.md`. Reference during Step 6 for VM/storage right-sizing or unused-resource cleanup.
+- `$HOME/.claude/templates/integration-checklist.md` — third-party-integration checklist for any task that adds, replaces, or modifies an integration with an external HTTP API, SDK, webhook target, OAuth provider, payment gateway, message queue, storage API, or LLM/STT/TTS endpoint. Reference from Step 6 (Technology Validation) when the task contains the `external API` keyword or introduces a new third-party dependency.
+- `$HOME/.claude/templates/security-deps-upgrade-plan.md` — see `skills/security.md`. Reference during Step 6 for dependency-CVE / framework-bump tasks.
+- `$HOME/.claude/templates/infra-cost-reduction-checklist.md` — see `skills/infra-automation.md`. Reference during Step 6 for VM/storage right-sizing or unused-resource cleanup.
 <!-- gate:example-only -->
-- For stack-specific scaffolds (e.g. NestJS, Django, Rails): see the relevant project's `CLAUDE.md` or its per-project `templates/` directory. The Datarim framework `templates/` dir remains stack-agnostic — see `skills/evolution/stack-agnostic-gate.md`.
+- For stack-specific scaffolds (e.g. NestJS, Django, Rails): see the relevant project's `CLAUDE.md` or its per-project `$HOME/.claude/templates/` directory. The Datarim framework `$HOME/.claude/templates/` dir remains stack-agnostic — see `skills/evolution/stack-agnostic-gate.md`.
 <!-- /gate:example-only -->
 
 ## Next Steps (CTA)
