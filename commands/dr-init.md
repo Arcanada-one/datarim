@@ -88,11 +88,13 @@ description: Initialize a new Datarim task or scaffold a new project. Auto-detec
     - Analyze the user request (or backlog item context from step 3).
     - Determine complexity level (1-4). If from backlog, use the item's complexity as starting estimate.
     - **Determine Task ID** (if NOT from backlog): select prefix per Unified Task Numbering (`$HOME/.claude/skills/datarim-system.md`) — project prefix first, then area prefix, `TASK` as fallback. Scan existing tasks for next sequential number.
+    - **ID-collision probe (MANDATORY)**: Before committing to the chosen `{TASK-ID}`, probe the full ID surface for prior usage: `grep -lE "^- {TASK-ID} ·" datarim/backlog.md datarim/tasks.md 2>/dev/null` AND `ls documentation/archive/*/archive-{TASK-ID}.md 2>/dev/null`. If ANY match appears — STOP and present a 3-way prompt to the operator: **(a) reassign the prior backlog/queued entry to the next free ID** (update both occurrence + any cross-references; recommended when the prior entry is `pending` and lower-priority); **(b) cancel the prior entry** (delete from backlog with a one-line rationale); **(c) operator picks a different ID for the new task**. Do not proceed with `{TASK-ID}` until the collision is closed. Rationale: backlog ID-uniqueness ≠ tasks.md ID-uniqueness — gates downstream `/dr-archive` Step 3 against silent overwrite of an unrelated queued unit of work.
     - **Context Gathering**: For complex tasks, ensure context is gathered (via `/dr-prd`) before planning.
     - **PRD Waiver Check** (Level 3-4 only): If no PRD exists for this task (check `datarim/prd/PRD-{task-id}*.md` and parent PRD within 30 days), prompt: "No PRD found for this L3+ task. Options: (a) Run `/dr-prd` first, (b) State waiver reason (will be recorded as `**PRD waived:**` in tasks.md)." If user chooses (b), record the waiver in the task's Overview section. Retroactive-only enforcement is insufficient — the prompt at `/dr-init` is the canonical gate.
     - **If new project/service**: Load `$HOME/.claude/skills/tech-stack.md` and identify required stack.
     - Create/Update `datarim/tasks.md` with new task.
     - **Append** new task to `## Active Tasks` in `datarim/activeContext.md`. Do NOT remove existing active tasks. If `activeContext.md` uses legacy format (`**Current Task:**` single line), convert to `## Active Tasks` list first. See `$HOME/.claude/skills/datarim-system.md` § activeContext.md Write Rules.
+    - **Stage Header (header after Step 4)**: From this point onward in the response (after the TASK-ID has been determined), emit `**{TASK-ID} · {title}**` as the first line of the post-Step-4 message block per `$HOME/.claude/skills/cta-format.md` § Stage Header. Do NOT emit the header during Steps 0-3 (TASK-ID is not yet known). Single occurrence per command invocation.
 4.6. **WRITE INIT-TASK FILE** (mandatory, F1 contract — see `$HOME/.claude/skills/init-task-persistence.md`):
     - Compute `INIT_TASK_FILE="datarim/tasks/{TASK-ID}-init-task.md"`.
     - Determine the source flow:
@@ -101,6 +103,21 @@ description: Initialize a new Datarim task or scaffold a new project. Auto-detec
     - Write the file with the canonical 8-field frontmatter (`task_id`, `artifact: init-task`, `schema_version: 1`, `captured_at`, `captured_by: /dr-init`, `operator`, `status: canonical`, `source`) + two mandatory headings: `## Operator brief (verbatim)` and `## Append-log (operator amendments)` (empty placeholder `_(пусто на момент создания)_`). Optional `## Source command` block above the brief is recommended when the exact invocation differs from `ARGUMENTS` raw text.
     - Probe: `bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-init-task-presence.sh" --task {TASK-ID} --root "$DATARIM_ROOT"` (where `$DATARIM_ROOT` is the parent of `datarim/` and `$DATARIM_RUNTIME` is the installed runtime root; falls back to `~/.claude` for default-symlinked installs that include `dev-tools/` in `INSTALL_SCOPES`). Exit 0 = OK; non-zero = print warning and continue (operator may amend manually).
     - Skip silently when re-running `/dr-init` on an existing backlog ID whose init-task already exists — preserve the verbatim history.
+
+4.7. **WRITE EXPECTATIONS SKELETON** (mandatory for all complexity levels L1-L4 — see `$HOME/.claude/skills/expectations-checklist.md` § When the file is created):
+    - Compute `EXPECTATIONS_FILE="datarim/tasks/{TASK-ID}-expectations.md"`.
+    - Skip silently when `EXPECTATIONS_FILE` already exists (re-run `/dr-init` on backlog ID, or operator-amended skeleton from a prior cycle) — preserve operator edits.
+    - Else: extract N wishes from `## Operator brief (verbatim)` in the init-task.md file just written by Step 4.6:
+      - **L1:** 1 wish — the primary operator goal (single most prominent intent).
+      - **L2-L4:** 2-5 wishes — distinct operator intents enumerated separately.
+      - Extraction approach: LLM extraction via the agent's own model context (consistent with `/dr-prd` Step 5.5b pattern). Quote operator wording where possible; default `evidence_type: empirical` per wish (operator corrects via amendment if `static` or `measurement` is more appropriate).
+      - Hallucination mitigation: wish title MUST trace back to a phrase or paraphrasable concept in the brief; do NOT invent goals the operator did not state. Vague brief → use the fallback skeleton below.
+    - Write the file from `${DATARIM_RUNTIME:-$HOME/.claude}/templates/expectations-template.md` with:
+      - **Frontmatter (canonical):** `task_id`, `artifact: expectations`, `schema_version: 2`, `captured_at`, `captured_by: /dr-init`, `agent: planner`, `status: canonical`, `parent_init_task: {TASK-ID}-init-task.md`.
+      - **Per-wish item:** title (plain Russian, ending with «.»), `wish_id` (kebab-slug, cyrillic allowed), `Что хочу проверить:` (1-2 sentences), `Как проверить (success criterion):` (concrete signal — file path, command, visible behaviour), `Связанный AC из PRD: «—»` (no PRD yet), `evidence_type: empirical` (default), `#### История статусов` one initial line `<ISO> / <local> · /dr-init · pending → pending · reason: пункт создан при инициализации задачи`, `#### Текущий статус: pending`.
+    - Probe: `bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --task {TASK-ID} --root "$DATARIM_ROOT"`. Exit 0 = OK; non-zero = print warning + continue (fail-soft — operator may amend manually).
+    - **Fallback (empty / diffuse brief or LLM extraction failure):** write 1-wish skeleton with title «Цель задачи — TBD (оператор уточняет).», `wish_id: tsel-zadachi-tbd`, `evidence_type: empirical`, and an inline HTML comment `<!-- TODO: operator fills concrete wish at next /dr-prd or /dr-plan amendment -->`. This satisfies the L1+ mandate floor and surfaces the gap to the operator at the next pipeline step.
+    - This step applies to **all complexity levels L1-L4** (mandate scope — operator decision: «жёсткое требование без исключений»).
 
 5.  **SUBTASK BACKLOG** (Level 3-4 only):
     - If analysis reveals distinct subtasks or phases, present them to user:

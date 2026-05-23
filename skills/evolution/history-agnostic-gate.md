@@ -208,3 +208,30 @@ identical: a known-leak class with a clean separation between the rule
  redundancy.
 - **Source-code provenance** (`scripts/*.sh` headers) — conventional and not
  user-facing rule. Out of gate scope by directory exclusion.
+
+## Anti-patterns
+
+**Forward-reference to follow-up task ID before assignment.** When a skill
+paragraph references a future task whose ID has not yet been issued (e.g.
+«programmatic enforcement is queued as the next hook task»), the author
+MUST NOT bake a guessed placeholder numeric into the runtime text. The
+guessed ID decays into a stale reference the moment the actual follow-up
+receives a different number; the drift then surfaces only at that
+follow-up's `/dr-do`, after the text contract is already frozen and
+mirrored downstream.
+
+Two safer authoring forms:
+
+1. **Defer the reference.** Add the paragraph only when the follow-up ID
+   is bound — the prose lands together with the work it describes.
+2. **Use an unassigned-marker.** When the paragraph must ship now, write
+   <!-- gate:history-allowed -->
+   `<TASK-PREFIX>-XXXX (заполняется при назначении)`
+   <!-- /gate:history-allowed -->
+   inside the per-block escape hatch above. The marker is grep-detectable
+   at the follow-up's `/dr-do` and signals «replace me» rather than
+   masquerading as a real reference.
+
+Detection: at `/dr-archive` Step 0.5 run `grep -rn "XXXX (заполняется"` over
+the touched skills/agents/commands/templates; any non-zero count is a
+pending follow-up obligation, not a drift.

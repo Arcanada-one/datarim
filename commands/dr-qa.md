@@ -10,6 +10,8 @@ description: Multi-layer quality verification — checks PRD alignment, design c
 
 ## Instructions
 
+
+**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format.md` § Stage Header.
 1.  **LOAD**: Read `$HOME/.claude/agents/reviewer.md` and adopt that persona.
 2.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system.md` § Path Resolution Rule.
 3.  **TASK RESOLUTION**: Apply Task Resolution Rule from `$HOME/.claude/skills/datarim-system.md` § Task Resolution Rule. Use the resolved task ID for all subsequent steps.
@@ -122,10 +124,15 @@ description: Multi-layer quality verification — checks PRD alignment, design c
 **Checks:**
 
 - Read the file. For each item under `## Ожидания`:
-  - read `wish_id`, `Что хочу проверить`, `Как проверить (success criterion)`, current `#### Текущий статус`, and any existing `override:` line;
+  - read `wish_id`, `Что хочу проверить`, `Как проверить (success criterion)`, `evidence_type` (v2 schema, required: `empirical | static | measurement`), current `#### Текущий статус`, and any existing `override:` line;
   - run the success criterion against the implementation and decide one of `met` / `partial` / `missed` / `n-a`;
   - append one line to that item's `#### История статусов` with the canonical format `<ISO> / <local> · /dr-qa · <prior> → <new> · reason: <one-sentence plain ru>`;
-  - update the item's `#### Текущий статус` to the new value.
+  - update the item's `#### Текущий статус` to the new value;
+  - **(Per-wish report contract, mandatory for schema_version=2)** write a detailed per-wish block to `datarim/qa/qa-report-{TASK-ID}.md` per the **Per-Wish Detailed Block Template** below. The block records what was tested + what command was run + what was measured, so the operator can audit «как реализована эта задача, какие тесты + замеры были проведены, какой получен результат» without re-running QA. Evidence_type rules:
+    - `empirical` — block MUST contain a runtime command invocation <!-- gate:example-only -->(curl, bats, pytest, docker exec, sample-tool execution)<!-- /gate:example-only --> + actual stdout/stderr/exit code. Static grep alone does NOT satisfy `empirical`.
+    - `measurement` — block MUST contain a numeric value + comparison to expected (e.g. «latency p95 = 87ms < budget 100ms»). Plain prose alone does NOT satisfy `measurement`.
+    - `static` — block MAY contain only `grep` / `test -f` / `wc -l` / file-presence checks. Validator emits an advisory warning if ALL wishes in a task are `static` (per `dev-tools/check-expectations-checklist.sh --all`).
+    - Legacy `schema_version=1` items: write the block on best-effort basis (no evidence_type rule enforcement); validator deprecation warning surfaces the migration prompt.
 - After all items are updated, invoke the routing validator:
   ```bash
   dev-tools/check-expectations-checklist.sh --verify {TASK-ID}
@@ -152,6 +159,41 @@ description: Multi-layer quality verification — checks PRD alignment, design c
 **Focus items (if BLOCKED):** {comma-separated wish_ids}
 **Next step (if BLOCKED):** `/dr-do {TASK-ID} --focus-items <wish_ids>`
 ```
+
+### Per-Wish Detailed Block Template (schema_version=2)
+
+For every wish item in `## Ожидания`, append one block to the QA report under a top-level `## Layer 3b — Per-Wish Detailed Report` section. The order of blocks matches the order of items in `expectations.md`.
+
+```markdown
+#### Wish {N} — {wish_id}: {title verbatim from expectations.md}
+
+**Evidence type:** {empirical | static | measurement}
+
+**Что было сделано для проверки:**
+{Одно-два предложения plain ru: какой test/probe/measurement выполнен, против какого артефакта/окружения, на каком SHA / commit / environment snapshot.}
+
+**Команда + результат:**
+```
+$ {actual command — exact invocation, copy-pasteable}
+{stdout/stderr — abbreviated к first/last 10 lines если длиннее; full output в run.log если применимо;
+ для measurement — numeric value на отдельной строке;
+ для static — grep output / file existence check;
+ для empirical — runtime тест invocation output + exit code}
+Exit code: {N}
+```
+
+**Verdict:** {met | partial | missed | n-a} — {one-sentence reason citing the measured value vs expected; для measurement — формат «X = {value} {comparison-op} {expected}», e.g. «latency p95 = 87ms < budget 100ms»; для static — «{file-path}:{line} contains {token}»; для empirical — «exit 0 + stdout contains «{marker}»»}.
+```
+
+**Rationale (operator goal per the original wish-list brief):** «по каждому пункту отчёт о том что было сделано для тестирования и какой получен результат». Каждый wish получает отдельный отчётный блок — 1-к-1 mapping operator-goal → per-goal evidence. Без этого блока Layer 3b verdict снижается до **PASS_WITH_NOTES** с finding `per-wish-block-missing: <wish_id>`.
+
+**Evidence-type contract enforcement (advisory at Layer 3b, hard gate at /dr-compliance):**
+
+- `empirical` без runtime command → finding `evidence-type-mismatch: <wish_id> declared empirical but block contains only grep`.
+- `measurement` без numeric value → finding `evidence-type-mismatch: <wish_id> declared measurement but block lacks numeric value`.
+- `static` accepted as-is (lowest tier).
+
+Findings at Layer 3b are advisory (PASS_WITH_NOTES); `/dr-compliance` may upgrade to BLOCKED if the operator brief explicitly required practical measurements (per task `expectations.md` § evidence_type distribution).
 
 A FAIL at Layer 3b makes the overall verdict **BLOCKED** regardless of other layers; the FAIL-Routing CTA (see § Verdict Logic) MUST surface the focus-items line verbatim. The classical Layer 1–4 verdicts are computed independently; Layer 3b is an additional gate that runs in parallel.
 

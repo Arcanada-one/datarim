@@ -21,7 +21,9 @@ init → prd → plan → design → do → qa → compliance → archive
 1. Analyze the user's task description
 2. Determine complexity level (L1-L4) based on scope, files, and architecture impact
 3. Create/update `datarim/tasks.md` and `datarim/activeContext.md`
-4. If `datarim/` doesn't exist, create it (this is the only command that may do so)
+4. Write the verbatim operator brief to `datarim/tasks/{TASK-ID}-init-task.md`
+5. **Step 4.7 — WRITE EXPECTATIONS SKELETON (mandatory L1-L4, v2.17.1):** extract operator goals from the brief into `datarim/tasks/{TASK-ID}-expectations.md` skeleton (schema v2, evidence_type per wish). L1 — 1-wish skeleton; L2-L4 — 2-5 wishes; fallback skeleton on vague brief. `/dr-prd` and `/dr-plan` later append-merge PRD/plan-derived wishes.
+6. If `datarim/` doesn't exist, create it (this is the only command that may do so)
 
 **Routing after init:**
 - L1 → `/dr-do`

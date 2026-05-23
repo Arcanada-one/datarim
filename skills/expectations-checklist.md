@@ -62,15 +62,25 @@ Required YAML frontmatter (closed schema):
 ---
 task_id: <TASK-ID>          # ^[A-Z]{2,10}-[0-9]{4}$ — required
 artifact: expectations      # literal — required
-schema_version: 1           # integer — required
+schema_version: 2           # integer — required (current: 2; legacy: 1, sunset 2027-05-23)
 captured_at: <YYYY-MM-DD>   # date of first write — required
-captured_by: /dr-prd        # /dr-prd | /dr-plan — required
+captured_by: /dr-init       # /dr-init | /dr-prd | /dr-plan — required
 status: canonical           # canonical | amended — required (flips on first append)
-agent: architect            # architect | planner — recommended
+agent: planner              # architect | planner — recommended
 parent_init_task: <path>    # relative path to init-task file — recommended
 parent_prd: <path>          # relative path to PRD file when one exists
 ---
 ```
+
+**Schema v2 (current):** adds required `evidence_type` field per wish item
+(enum: `empirical | static | measurement`). Validator
+(`dev-tools/check-expectations-checklist.sh`) rejects items without
+`evidence_type` in v2 mode.
+
+**Schema v1 (legacy):** accepted by validator until **2027-05-23** (12 months
+from the v1→v2 migration archive). Deprecation warning emitted on every validator
+invocation. Migration recipe: add `evidence_type: empirical` (or
+`static`/`measurement`) to each wish; bump `schema_version: 2`.
 
 ## Body shape
 
@@ -85,6 +95,7 @@ parent_prd: <path>          # relative path to PRD file when one exists
   - Как проверить (success criterion): <one concrete signal — file path,
     command output, visible behaviour>
   - Связанный AC из PRD: V-AC-<N> или «—»
+  - evidence_type: <empirical | static | measurement>  # v2 — required
   - override: <optional reason text, only used when status flips to
     partial/missed and the operator decides to ship anyway>
   - #### История статусов
@@ -114,6 +125,19 @@ _(empty on first write)_
   three `·` separators and the literal `reason:` token are required.
 - **`#### Текущий статус`** carries the current enum value. Allowed values:
   `pending`, `met`, `partial`, `missed`, `n-a`, `deleted`.
+- **`evidence_type`** (schema v2, required) declares what kind of evidence
+  `/dr-qa` must produce for this wish at Layer 3b. Allowed enum:
+  - **`empirical`** — runtime check: command invocation, smoke test, E2E
+    test, integration probe. Per-wish QA report MUST contain actual
+    command + stdout/exit-code, not only a grep-against-markdown.
+  - **`static`** — static check: `grep`, `test -f`, line-count, regex match
+    against the source tree or a documentation file. Cheapest tier; if all
+    wishes in a task are `static`, the validator emits an advisory warning
+    (`--all` mode) because the task likely lacks runtime evidence.
+  - **`measurement`** — numeric measurement: latency p95, throughput,
+    coverage %, token cost, file count vs target. Per-wish QA report MUST
+    contain the measured value + comparison to expected (`X = 87ms <
+    budget 100ms`).
 
 ### Status semantics
 
@@ -177,6 +201,32 @@ an expectations file:
      `stage: append-merge` only if the linked AC reference changed.
 3. Do not rewrite, reorder, or delete existing items. Operators control
    pruning via explicit `Текущий статус: deleted`.
+
+## Multi-phase umbrellas (phase-level verify)
+
+When the task being verified is one phase of a multi-phase umbrella whose
+expectations file lives at the **umbrella** task ID (no separate
+`{PHASE-ID}-expectations.md` exists), `/dr-qa` and `/dr-compliance` invoked
+on the phase ID MAY legitimately:
+
+- Update `#### Текущий статус` only for wish-ids that fall in the phase's
+  scope (e.g. flip from `pending` to `met` when the phase delivers the
+  underlying success criterion).
+- Leave umbrella close-gate wish-ids and later-phase wish-ids as
+  `pending`. These are not `n-a` (the wish remains in scope; it is just
+  not yet verifiable) and not `partial`/`missed` (no failure to record at
+  this point in the pipeline).
+- Append one `История статусов` line per touched item with `reason:` text
+  that names the phase scope explicitly (e.g. «ожидание относится к
+  фазе 3 (audit coverage); в фазе 1 не реализуется»). The phase mention
+  in the reason is what lets the umbrella close-gate auditor distinguish
+  «pending because phase X hasn't run» from «pending because no one looked».
+
+The validator still PASSes when `Текущий статус` is `pending` for these
+items; the audit clarity comes from the History entry, not the status enum.
+On umbrella close (the last phase's `/dr-archive` or a follow-up umbrella
+QA pass), the remaining `pending` items are reconciled to `met` /
+`partial` / `missed` per the actual umbrella-wide outcome.
 
 ## Verify-routing contract
 
