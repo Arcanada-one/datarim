@@ -128,6 +128,7 @@ Consumed at `/dr-archive` Step 0.5 (pre-reflection): inline-log surfaces as «In
 - **Coworker context leak (L4)**: bulk-read paths случайно включают credentials. **Mitigation:** reuse существующий coworker safety contract — пути из `~/arcanada/config/credentials/` excluded. Ladder L4 invokes `coworker ask` с explicit path list, не wildcard.
 - **Cross-project unauthorized writes**: агент edit'ит repo за пределами task's project scope. **Mitigation:** hard-gated cross-project boundary; runtime check before file write.
 - **L1 Inline Rule mis-classification**: L2 action классифицирован как L1 → silent contract drift. **Mitigation:** «when in doubt → classify up» в decision tree. Auto-inline-log mandatory для audit.
+- **Pre-archive workspace gate over-strict on foreign untracked files**: `scripts/pre-archive-check.sh` treats parallel-session untracked files (foreign social posts, sibling-project site, framework test fixtures под другими TASK-ID) как `unattributed = default-deny` и блокирует archive. **Mitigation:** для own files с foreign-mixed diff — HEAD-restore + reapply technique (restore HEAD version, apply only own changes, re-stage); для truly foreign untracked artefacts — manual override (skip script gate) + documented entry в archive § Operator Handoff с file list. Long-term fix tracked as Class B backlog item.
 
 ## How commands consume this skill
 
