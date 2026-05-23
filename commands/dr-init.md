@@ -75,6 +75,30 @@ description: Initialize a new Datarim task or scaffold a new project. Auto-detec
     - When the advisory surfaces matches, operator chooses: `duplicate` (abort + `/dr-init {EXISTING-ID}`), `refine-scope` (narrow new task to avoid collision), or `orthogonal` (continue — overlap is incidental). Default on no operator input: continue.
     - Performance contract: completes ≤300 ms on a 500-item backlog (regression-gated by `tests/dr-init-topic-overlap-latency.bats`); false-positive rate <10% on a 30-item orthogonal corpus (`tests/dr-init-topic-overlap-fp-budget.bats`).
 
+2.5c. **MISPLACED-DATARIM ADVISORY** (advisory, non-blocking; framework v2.19.0+):
+    - Detects fragmented KB: more than one `datarim/` directory visible in the parent chain below the git-root, where the extra ones lack their own `.git/` boundary (i.e. they belong to the same repo as the canonical KB but live in a sub-path — a misplaced KB written by a parallel session that walked upward to the wrong anchor).
+    - Skip silently when:
+      - `pwd` is outside any git repository (no toplevel to anchor against).
+      - The git toplevel has no `datarim/` (resolver falls back to walk-upward; no canonical anchor to compare against).
+    - Otherwise run:
+      ```bash
+      DR_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+      if [ -n "$DR_ROOT" ] && [ -d "$DR_ROOT/datarim" ]; then
+          MISPLACED=$(find "$DR_ROOT" -mindepth 2 -type d -name datarim \
+              -not -path '*/.git/*' -not -path '*/code/datarim*' 2>/dev/null \
+              | while read -r dir; do
+                  parent_root=$(cd "$dir/.." && git rev-parse --show-toplevel 2>/dev/null)
+                  [ "$parent_root" = "$DR_ROOT" ] && printf '%s\n' "$dir"
+              done)
+          if [ -n "$MISPLACED" ]; then
+              printf 'ADVISORY: misplaced datarim/ detected under %s (canonical is %s/datarim):\n%s\nConsider consolidating — see skills/datarim-system/path-and-storage.md § Path Resolution Rule.\n' \
+                  "$DR_ROOT" "$DR_ROOT" "$MISPLACED" >&2
+          fi
+      fi
+      ```
+    - **Non-blocking** — operator proceeds at will. The advisory exists so misplaced KB directories are noticed at `/dr-init` rather than discovered after parallel sessions have already accumulated artefacts in the wrong place.
+    - Excludes `code/datarim` paths (framework source-tree, not KB) and any sub-directory that is itself a git toplevel (legitimate sub-repo with its own canonical KB).
+
 3.  **CHECK BACKLOG**: If `datarim/backlog.md` exists and contains pending items:
     - Display pending items as a numbered list (ID, title, priority, complexity).
     - **If user provided a `BACKLOG-XXXX` ID**: Select that item directly.
@@ -114,7 +138,8 @@ description: Initialize a new Datarim task or scaffold a new project. Auto-detec
       - Hallucination mitigation: wish title MUST trace back to a phrase or paraphrasable concept in the brief; do NOT invent goals the operator did not state. Vague brief → use the fallback skeleton below.
     - Write the file from `${DATARIM_RUNTIME:-$HOME/.claude}/templates/expectations-template.md` with:
       - **Frontmatter (canonical):** `task_id`, `artifact: expectations`, `schema_version: 2`, `captured_at`, `captured_by: /dr-init`, `agent: planner`, `status: canonical`, `parent_init_task: {TASK-ID}-init-task.md`.
-      - **Per-wish item:** title (plain Russian, ending with «.»), `wish_id` (kebab-slug, cyrillic allowed), `Что хочу проверить:` (1-2 sentences), `Как проверить (success criterion):` (concrete signal — file path, command, visible behaviour), `Связанный AC из PRD: «—»` (no PRD yet), `evidence_type: empirical` (default), `#### История статусов` one initial line `<ISO> / <local> · /dr-init · pending → pending · reason: пункт создан при инициализации задачи`, `#### Текущий статус: pending`.
+      - **Per-wish item:** title (plain Russian, ending with «.»), `wish_id` (kebab-slug, cyrillic allowed), `Что хочу проверить:` (1-2 sentences), `Как проверить (success criterion):` (concrete signal — file path, command, visible behaviour), `Связанный AC из PRD: «—»` (no PRD yet), `evidence_type: empirical` (default), `#### История статусов` one initial line `<ISO> / <local> · /dr-init · pending → pending · reason: пункт создан при инициализации задачи`, `#### Текущий статус` followed by a single bullet line carrying the value (`pending` on first write).
+      - **Schema (mandatory).** Items MUST use the canonical bullet-list shape from `skills/expectations-checklist.md` § Body shape — i.e. one top-level bullet per wish (`- **<N>. <Title>**`) with **nested bullets** (`  - wish_id:`, `  - Что хочу проверить:`, …) and a two-line `Текущий статус` block (`  - #### Текущий статус` followed by `    - <value>`). Do **NOT** use heading-style items (`### N. Title`) or single-line «inline» status (`#### Текущий статус: pending`) — the validator parses only the bullet-list shape, and heading-style files are rejected on the very next pipeline step (see `dev-tools/check-expectations-checklist.sh --task {TASK-ID} --report` for the exact errors emitted on schema drift).
     - Probe: `bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --task {TASK-ID} --root "$DATARIM_ROOT"`. Exit 0 = OK; non-zero = print warning + continue (fail-soft — operator may amend manually).
     - **Fallback (empty / diffuse brief or LLM extraction failure):** write 1-wish skeleton with title «Цель задачи — TBD (оператор уточняет).», `wish_id: tsel-zadachi-tbd`, `evidence_type: empirical`, and an inline HTML comment `<!-- TODO: operator fills concrete wish at next /dr-prd or /dr-plan amendment -->`. This satisfies the L1+ mandate floor and surfaces the gap to the operator at the next pipeline step.
     - This step applies to **all complexity levels L1-L4** (mandate scope — operator decision: «жёсткое требование без исключений»).
