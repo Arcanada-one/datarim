@@ -29,7 +29,7 @@ description: Initialize a new Datarim task or scaffold a new project. Auto-detec
     - If the project uses submodules, use the **outermost** repo root (e.g., `local-env/`, not `aio-v2/`).
     - Create `datarim/` there ONLY if it does not already exist.
     - If creating for the first time:
-      a. Create `backlog.md` and `backlog-archive.md` from templates at `$HOME/.claude/templates/backlog-template.md` and `$HOME/.claude/templates/backlog-archive-template.md`.
+      a. Create `backlog.md` and `backlog-archive.md` from templates at `${DATARIM_RUNTIME:-$HOME/.claude}/templates/backlog-template.md` and `${DATARIM_RUNTIME:-$HOME/.claude}/templates/backlog-archive-template.md`.
       b. Create `documentation/archive/` directory (for long-term task archives).
       c. If `.gitignore` exists and does not contain `datarim/` → append `datarim/` to it.
       d. If `.gitignore` does not exist → ask user: "Create `.gitignore` with `datarim/`? (recommended — keeps workflow state local)"
@@ -110,7 +110,7 @@ description: Initialize a new Datarim task or scaffold a new project. Auto-detec
 
 ## Reusable Templates
 
-- `$HOME/.claude/templates/task-template.md` — minimal Implementation-Plan scaffold (`Overview` / `Architecture Impact` / `Implementation Steps` / `Test Plan` / `Rollback Strategy` / `Validation Checklist`). Use when bootstrapping `datarim/tasks/{TASK-ID}-task-description.md` for L1-L2 tasks where the heavier `prd-template.md` would be overkill.
+- `${DATARIM_RUNTIME:-$HOME/.claude}/templates/task-template.md` — minimal Implementation-Plan scaffold (`Overview` / `Architecture Impact` / `Implementation Steps` / `Test Plan` / `Rollback Strategy` / `Validation Checklist`). Use when bootstrapping `datarim/tasks/{TASK-ID}-task-description.md` for L1-L2 tasks where the heavier `prd-template.md` would be overkill.
 
 ## Next Steps (CTA)
 

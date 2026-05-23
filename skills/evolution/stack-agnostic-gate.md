@@ -31,7 +31,7 @@ Any text about to be written to:
 - `$HOME/.claude/skills/*.md` and `$HOME/.claude/skills/*/*.md`
 - `$HOME/.claude/agents/*.md`
 - `$HOME/.claude/commands/*.md`
-- `$HOME/.claude/templates/*.md`
+- `${DATARIM_RUNTIME:-$HOME/.claude}/templates/*.md`
 
 …with the exceptions listed in Whitelist below.
 
@@ -178,7 +178,7 @@ advisory into enforceable.
 
 - **Historical content cleanup** — the gate is forward-looking. Pre-existing
   stack-specific content in framework files (e.g. `skills/ai-quality/deployment-patterns.md`,
-  `$HOME/.claude/templates/docker-smoke-checklist.md`) is tracked as separate backlog items;
+  `${DATARIM_RUNTIME:-$HOME/.claude}/templates/docker-smoke-checklist.md`) is tracked as separate backlog items;
   the gate surfaces them but does not auto-fix.
 - **Whitespace / Unicode bypass** — accepted residual risk. Bypass requires
   intentional malice; reflection follow-up + memory rule provide redundancy.

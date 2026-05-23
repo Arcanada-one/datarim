@@ -170,7 +170,7 @@ Read `datarim/tasks.md` and `datarim/activeContext.md` to determine task type:
 
 ## Output
 
-Render the compliance report via the canonical structure declared in `$HOME/.claude/templates/compliance-report-template.md`. The report carries:
+Render the compliance report via the canonical structure declared in `${DATARIM_RUNTIME:-$HOME/.claude}/templates/compliance-report-template.md`. The report carries:
 
 - Frontmatter: `task_id`, `date`, `verdict` (COMPLIANT / COMPLIANT_WITH_NOTES / NON-COMPLIANT), optional `scope`.
 - Four operator-facing top sections in strict order — «Начальная задача», «Как решили», «Артефакты задачи», «Следующие шаги».

@@ -11,7 +11,7 @@ Two manifest layers:
 - `plugin-storage/<id>/plugin.yaml` — static, per-plugin (under git in plugin repo).
 - `datarim/enabled-plugins.md` — runtime, per-workspace (under git in workspace).
 
-Templates: `$HOME/.claude/templates/plugin.yaml.template`, `$HOME/.claude/templates/enabled-plugins.md.template`.
+Templates: `${DATARIM_RUNTIME:-$HOME/.claude}/templates/plugin.yaml.template`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/enabled-plugins.md.template`.
 
 ## Subcommands
 

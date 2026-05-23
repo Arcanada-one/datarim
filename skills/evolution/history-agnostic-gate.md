@@ -44,7 +44,7 @@ Any text about to be written to:
 - `$HOME/.claude/skills/*.md` and `$HOME/.claude/skills/*/*.md`
 - `$HOME/.claude/agents/*.md`
 - `$HOME/.claude/commands/*.md`
-- `$HOME/.claude/templates/*.md`
+- `${DATARIM_RUNTIME:-$HOME/.claude}/templates/*.md`
 
 …with the exceptions listed in Whitelist below.
 

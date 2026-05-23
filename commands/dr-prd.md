@@ -26,7 +26,7 @@ This command generates a structured Product Requirements Document (PRD) followin
     -   Determine research mode: **Lite** (L2, 5 checkpoints) or **Full** (L3-L4, 10 checkpoints). Skip entirely for L1.
     -   Load `$HOME/.claude/skills/research-workflow.md`.
     -   Spawn researcher agent (`$HOME/.claude/agents/researcher.md`) with task context: task ID, description, identified stack/dependencies from Phase 1.
-    -   Agent creates `datarim/insights/INSIGHTS-{task-id}.md` from template `$HOME/.claude/templates/insights-template.md`.
+    -   Agent creates `datarim/insights/INSIGHTS-{task-id}.md` from template `${DATARIM_RUNTIME:-$HOME/.claude}/templates/insights-template.md`.
     -   Agent runs research checklist per mode, using available tools adaptively (context7, WebSearch, LTM API, codebase analysis).
     -   If insights document already exists (e.g., from a previous `/dr-prd` run), update rather than overwrite.
 
@@ -48,7 +48,7 @@ This command generates a structured Product Requirements Document (PRD) followin
     -   Wait for user approval on the selected approach.
 
 5.  **Generate PRD**:
-    -   Use the structure from `$HOME/.claude/templates/prd-template.md`.
+    -   Use the structure from `${DATARIM_RUNTIME:-$HOME/.claude}/templates/prd-template.md`.
     -   Include: Problem Statement, Scope, Context Analysis, Technical Approach (Selected + Alternatives), Success Criteria, Risks.
     -   If insights document was created in Phase 1.3, add a reference in the PRD header: `**Research:** [INSIGHTS-{task-id}](../insights/INSIGHTS-{task-id}.md)`
     -   **Pre-save validation gates (MANDATORY before write):**

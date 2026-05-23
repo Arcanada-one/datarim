@@ -178,7 +178,7 @@ Real incident: ~30 minutes of Groq integration test scaffolding had to be redone
 
 ## Output Format
 
-Use the insights template at `$HOME/.claude/templates/insights-template.md`.
+Use the insights template at `${DATARIM_RUNTIME:-$HOME/.claude}/templates/insights-template.md`.
 
 Create the document at: `datarim/insights/INSIGHTS-{task-id}.md`
 

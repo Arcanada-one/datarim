@@ -188,5 +188,5 @@ Any script, config, systemd unit, or shell wrapper installed under a production 
 
 ## Reusable Templates
 
-- `$HOME/.claude/templates/infra-cost-reduction-checklist.md` — pre-execution checklist for any VM/storage right-sizing, server consolidation, or unused-resource cleanup task. Distilled from prior infra cost-reduction tasks (SWC, Azure unused disks, memory guardrails). Use during `/dr-plan` when the task touches infrastructure costs.
-- `$HOME/.claude/templates/infra-artifact-checklist.md` — local-artifact + commit + checkpoint + operator-remote-execution flow for infra deliverables that the operator runs on production. Use when the task ships scripts/configs operators will execute, not code we deploy via CI.
+- `${DATARIM_RUNTIME:-$HOME/.claude}/templates/infra-cost-reduction-checklist.md` — pre-execution checklist for any VM/storage right-sizing, server consolidation, or unused-resource cleanup task. Distilled from prior infra cost-reduction tasks (SWC, Azure unused disks, memory guardrails). Use during `/dr-plan` when the task touches infrastructure costs.
+- `${DATARIM_RUNTIME:-$HOME/.claude}/templates/infra-artifact-checklist.md` — local-artifact + commit + checkpoint + operator-remote-execution flow for infra deliverables that the operator runs on production. Use when the task ships scripts/configs operators will execute, not code we deploy via CI.

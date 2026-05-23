@@ -206,5 +206,5 @@ If the skill cannot be loaded (missing file), the caller proceeds without the su
 
 ## See also
 
-- Архивный и compliance-отчёт используют тот же банлист (`skills/human-summary/banlist.txt` + `skills/human-summary/whitelist.txt`). См. `$HOME/.claude/templates/archive-template.md` § «Как решили» и `$HOME/.claude/templates/compliance-report-template.md` § «Как решили» — банлист применяется к прозе четырёх верхних разделов; аудит-аддендум обёрнут в `<!-- gate:literal -->` fence для технических таблиц.
+- Архивный и compliance-отчёт используют тот же банлист (`skills/human-summary/banlist.txt` + `skills/human-summary/whitelist.txt`). См. `${DATARIM_RUNTIME:-$HOME/.claude}/templates/archive-template.md` § «Как решили» и `${DATARIM_RUNTIME:-$HOME/.claude}/templates/compliance-report-template.md` § «Как решили» — банлист применяется к прозе четырёх верхних разделов; аудит-аддендум обёрнут в `<!-- gate:literal -->` fence для технических таблиц.
 - Канонический валидатор для прозы шаблонов — `dev-tools/check-banlist-on-prose.sh` (awk one-shot, поддерживает YAML frontmatter skip + `<!-- gate:literal -->` / `<!-- gate:example-only -->` fence-блоки).

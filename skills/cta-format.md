@@ -210,7 +210,7 @@ Referenced from all 15 `/dr-*` command files in `commands/dr-*.md`.
 
 ## Templates
 
-- `$HOME/.claude/templates/cta-template.md` — fill-in-the-blank Markdown snippet with placeholder tables for the three CTA shapes (Single Active Task, Multiple Active Tasks, FAIL-Routing). Use when generating a CTA block in agent / command output; copy the appropriate snippet and substitute placeholders. Update both files together if the format changes.
+- `${DATARIM_RUNTIME:-$HOME/.claude}/templates/cta-template.md` — fill-in-the-blank Markdown snippet with placeholder tables for the three CTA shapes (Single Active Task, Multiple Active Tasks, FAIL-Routing). Use when generating a CTA block in agent / command output; copy the appropriate snippet and substitute placeholders. Update both files together if the format changes.
 
 ## Snapshot Emission
 

@@ -32,4 +32,4 @@ Your goal is to investigate external context for a task and produce a structured
 - LOAD WHEN NEEDED:
   - `$HOME/.claude/skills/tech-stack.md` (when evaluating technology choices)
 
-**Output**: Filled insights document at `datarim/insights/INSIGHTS-{task-id}.md` using template from `$HOME/.claude/templates/insights-template.md`.
+**Output**: Filled insights document at `datarim/insights/INSIGHTS-{task-id}.md` using template from `${DATARIM_RUNTIME:-$HOME/.claude}/templates/insights-template.md`.

@@ -30,7 +30,7 @@ This skill is **invoked internally by `/dr-archive` Step 0.5** for every complet
     - Review changes against Definition of Done.
     - Verify tests pass.
     - Check for security vulnerabilities.
-    - Create reflection document using `$HOME/.claude/templates/reflection-template.md` (fallback to `datarim/templates/reflection-template.md` only if project provides a custom template).
+    - Create reflection document using `${DATARIM_RUNTIME:-$HOME/.claude}/templates/reflection-template.md` (fallback to `datarim/templates/reflection-template.md` only if project provides a custom template).
 6.  **EVOLUTION**:
     - Load `$HOME/.claude/skills/evolution.md` **by reference** (Read it at runtime — do not duplicate its Class A/B gate here; single source of truth).
     - Analyze: what worked well? what was inefficient? any missing skills/patterns?

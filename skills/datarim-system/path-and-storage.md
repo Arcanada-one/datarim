@@ -80,7 +80,7 @@ The framework runtime directories in `$HOME/.claude/` are **symlinks** pointing 
 | `$HOME/.claude/skills/` | `Projects/Datarim/code/datarim/skills/` |
 | `$HOME/.claude/commands/` | `Projects/Datarim/code/datarim/commands/` |
 | `$HOME/.claude/agents/` | `Projects/Datarim/code/datarim/agents/` |
-| `$HOME/.claude/templates/` | `Projects/Datarim/code/datarim/templates/` |
+| `${DATARIM_RUNTIME:-$HOME/.claude}/templates/` | `Projects/Datarim/code/datarim/templates/` |
 
 **Implications:**
 - `git diff` in the Datarim repo shows runtime changes to skills/commands/agents/templates

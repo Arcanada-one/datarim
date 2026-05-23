@@ -262,4 +262,4 @@ Source: https://docs.syncthing.net/users/ignoring.html
 - `Areas/Architecture/file-sync-policy.md` (ADR) — vault-level convention для Arcanada ecosystem
 - `Areas/Infrastructure/Syncthing.md` — Syncthing deployment runbook
 - `Areas/Infrastructure/scripts/arcanada-pull.sh` — git-pull cron с CLI Claude conflict resolver
-- `$HOME/.claude/templates/cli-conflict-resolver-prompt.md` — reusable Claude promp для conflict resolution
+- `${DATARIM_RUNTIME:-$HOME/.claude}/templates/cli-conflict-resolver-prompt.md` — reusable Claude promp для conflict resolution
