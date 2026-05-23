@@ -9,6 +9,8 @@ description: Adaptive post-QA hardening. Detects task type and applies matching 
 **Source**: `$HOME/.claude/agents/compliance.md`
 
 ## Instructions
+
+**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format.md` § Stage Header.
 1.  **LOAD**: Read `$HOME/.claude/agents/compliance.md` and adopt that persona.
 2.  **RESOLVE PATH**: Find `datarim/` using standard path resolution.
 3.  **TASK RESOLUTION**: Apply Task Resolution Rule from `$HOME/.claude/skills/datarim-system.md` § Task Resolution Rule. Use the resolved task ID for all subsequent steps.
@@ -65,6 +67,18 @@ description: Adaptive post-QA hardening. Detects task type and applies matching 
 - **COMPLIANT** — all checks pass
 - **COMPLIANT_WITH_NOTES** — passes with minor observations
 - **NON-COMPLIANT** — critical issues found, fix before archiving
+
+## /dr-auto Mode (when `DATARIM_AUTO_MODE=1`)
+
+When auto-mode is active (env var `DATARIM_AUTO_MODE=1` AND matching marker `datarim/.auto-mode-active` containing this TASK-ID), this command:
+
+1. Consults `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode.md` § Question Suppression Ladder before any `AskUserQuestion` or equivalent operator prompt at this stage.
+2. Stage-specific suppression hooks:
+   - Hardening decision points (apply Class A inline vs defer) — auto-apply L1 Class A per L1 Inline Rule; defer L2+/B with backlog item.
+   - 7-step hardening readiness gates — proceed if Ladder L1-L2 confirm cleanliness; L5 only on contradictory signals.
+3. Discovered gaps → apply L1 Inline Resolution Rule per `skills/autonomous-mode.md`; log in `datarim/tasks/{TASK-ID}-auto-inline-log.md` if applied inline.
+4. Hard-gated actions → escalate to operator through Ladder L5; log via `dev-tools/append-init-task-qa.sh --decided-by operator` per `skills/init-task-persistence.md` § Q&A round-trip.
+5. Mismatch (env var set, marker absent OR marker contains different TASK-ID) → emit single-line warning, treat as non-auto (fail-safe per `skills/autonomous-mode.md` § When this skill is active).
 
 ## Next Steps (CTA)
 

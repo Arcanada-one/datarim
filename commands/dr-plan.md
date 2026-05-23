@@ -258,6 +258,18 @@ Run: `/dr-plan`
 - For stack-specific scaffolds (e.g. NestJS, Django, Rails): see the relevant project's `CLAUDE.md` or its per-project `${DATARIM_RUNTIME:-$HOME/.claude}/templates/` directory. The Datarim framework `${DATARIM_RUNTIME:-$HOME/.claude}/templates/` dir remains stack-agnostic — see `skills/evolution/stack-agnostic-gate.md`.
 <!-- /gate:example-only -->
 
+## /dr-auto Mode (when `DATARIM_AUTO_MODE=1`)
+
+When auto-mode is active (env var `DATARIM_AUTO_MODE=1` AND matching marker `datarim/.auto-mode-active` containing this TASK-ID), this command:
+
+1. Consults `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode.md` § Question Suppression Ladder before any `AskUserQuestion` or equivalent operator prompt at this stage.
+2. Stage-specific suppression hooks:
+   - Step 3 Strategist Gate (L3-4 only) — pivot suggestion resolved through Ladder; suggest pivot inline, escalate to L5 only if it changes scope materially.
+   - Step 4 Architectural-superseding probe — operator decision (proceed / cancel / reframe) resolved through Ladder L1-L2 (read sibling archives).
+3. Discovered gaps → apply L1 Inline Resolution Rule per `skills/autonomous-mode.md`; log in `datarim/tasks/{TASK-ID}-auto-inline-log.md` if applied inline.
+4. Hard-gated actions → escalate to operator through Ladder L5; log via `dev-tools/append-init-task-qa.sh --decided-by operator` per `skills/init-task-persistence.md` § Q&A round-trip.
+5. Mismatch (env var set, marker absent OR marker contains different TASK-ID) → emit single-line warning, treat as non-auto (fail-safe per `skills/autonomous-mode.md` § When this skill is active).
+
 ## Next Steps (CTA)
 
 After plan generation, the planner agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format.md`.

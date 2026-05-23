@@ -16,7 +16,7 @@ reflection. The result is inconsistent quality, skipped steps, and zero institut
 learning. Every task starts from scratch, repeating the same mistakes from yesterday.
 
 Datarim fixes this by providing a complete iterative pipeline for any project type.
-It includes 18 specialized agents, 45 reusable skills, and 22 commands that guide
+It includes 18 specialized agents, 45 reusable skills, and 23 commands that guide
 work through a structured process: requirements gathering, planning, design,
 execution, quality assurance, compliance, reflection, and archival. The pipeline is
 complexity-aware — a quick fix does not go through the same process as a major
@@ -98,7 +98,7 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   covering everything from testing methodology to security hardening to content
   creation workflows and structured research.
 
-- **22 commands** — 8 pipeline stages + /dr-verify standalone, 3 content (write, edit, publish), 5 framework
+- **23 commands** — 8 pipeline stages + /dr-auto autonomous mode + /dr-verify standalone, 3 content (write, edit, publish), 5 framework
   and knowledge management (addskill, doctor, optimize, dream, **plugin** v1.23.0+), 3 utilities (status, continue,
   help), and 2 standalone tools (factcheck, humanize).
 
@@ -460,6 +460,7 @@ specific capabilities. You can add custom skills by placing `.md` files in
 | `/dr-qa` | Quality | Run quality checks. PRD alignment, design conformance, plan completeness, output quality. |
 | `/dr-compliance` | Compliance | Post-QA hardening. Validates against PRD, checks for regressions, security audit. |
 | `/dr-archive` | Archive | Archive the task. Step 0.5 runs reflection (analyze, propose framework updates). Steps 1-7 store context, update backlog, reset for the next task. |
+| `/dr-auto` | Autonomous | Meta-command for autonomous execution. Activates FB-1..8 mandate + L1 Inline Resolution Rule as default-on via env var + file marker. Question Suppression Ladder (5 levels) suppresses pipeline Q&A; L1 Class A gaps close inline; hard-gated actions escalate to operator. Two modes — Continue (`/dr-auto {TASK-ID}` resume) / Bootstrap (`/dr-auto "<free-text>"` full pipeline). |
 | `/dr-write` | Content | Create written content — articles, docs, research, posts. Uses the writer agent. |
 | `/dr-edit` | Content | Editorial review — fact-check, AI pattern removal, style, publication quality. Uses the editor agent. |
 | `/dr-publish` | Content | Adapt and publish content to multiple platforms (Telegram, LinkedIn, blog, etc.). Uses the writer agent. |
@@ -970,7 +971,7 @@ and why it exists.
 datarim/
   agents/            # Agent personas (18 agents)
   skills/            # Knowledge modules (41 skills)
-  commands/          # Slash commands (22 commands)
+  commands/          # Slash commands (23 commands)
   templates/         # Task and document templates (19 templates)
   docs/              # Extended documentation and use cases
   CLAUDE.md          # Framework rules (copy to your project)

@@ -4,6 +4,34 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Documentation
+
+- `README.md` § Activate in Your Project — new subsection **«Optional: External CLI (`datarim` binary)»** (TUNE-0271 v2 doc-fanout). Explains that `./install.sh --with-claude` does **NOT** symlink the `datarim` binary used by non-interactive agents; the standalone CLI installer at `code/datarim/cli/install.sh` is opt-in (AAL 3) and must be run separately. Resolves the `zsh: command not found: datarim` discoverability gap reported post-archive.
+- `docs/getting-started.md` § Installation — new subsection **«Optional: external `datarim` CLI»** mirroring the README pointer at the tutorial-mode reader funnel. Cross-link to `docs/cli.md` for the full reference (subcommands, exit codes, AAL 3 mitigations, kill-switch sentinel, audit retention).
+- `docs/cli.md` — new section **«Backend listener requirement»** explaining that `datarim run` is an HTTP client only and the `127.0.0.1:8090` backend is `adnanh/webhook` (open-source Go binary, MIT, **not bundled**) reachable via the `dr-orchestrate` plugin. Documents the loopback-only (Tier 1) bind, the three-step stand-up recipe (`/dr-plugin enable dr-orchestrate` + install `webhook` + start with `-hooks ... -port 8090`), and clarifies that the listener is optional for Claude-Code-session users. Resolves the operator-discoverability gap surfaced post-archive («что это за сервер и почему я о нём не знаю»).
+- `README.md` § Optional: External CLI — added heads-up block pointing at `docs/cli.md § Backend listener requirement` to close the same gap at the entry-level reader funnel.
+
+## [2.19.0] — 2026-05-24
+
+**Autonomous execution mode (`/dr-auto`).** New meta-command activates `documentation/mandates/autonomous-agents.md` (FB-1..8) + the L1 Inline Resolution Rule + autonomous-ops scope as default-on for the duration of one task cycle. Question Suppression Ladder (5 levels — codebase grep → runtime probe → MEMORY.md feedback → coworker delegation → operator) suppresses pipeline Q&A. L1 Class A gaps discovered mid-cycle close inline; L2+ / Class B gaps spawn backlog items; hard-gated actions (verbatim `autonomous-agents.md:30-32`) escalate to operator. Activated via env var `DATARIM_AUTO_MODE=1` + per-task file marker `datarim/.auto-mode-active`. Two modes: Continue (`/dr-auto {TASK-ID}` resume from snapshot) and Bootstrap (`/dr-auto "<free-text>"` full pipeline from `/dr-init`). Class B operating-model change — does not introduce new rules, only changes activation default of existing mandates.
+
+### Added
+
+- `commands/dr-auto.md` — canonical command, 8-step instructions, Continue + Bootstrap modes, hard-gated escalation contract.
+- `skills/autonomous-mode.md` — canonical contract: Question Suppression Ladder + L1 Inline Resolution Rule decision tree + Hard-gated Action Boundary (verbatim cite + cross-project boundary) + Failure modes.
+- `dev-tools/classify-inline-gap.sh` — L1 Inline classifier (--files / --loc / --contract / --hard-gated → L1-A | L2+/B | HARD). Used by `/dr-do` under auto-mode.
+- `tests/dr-auto-l1-inline-classifier.bats` — 11 test cases covering boundary at 50 LoC, multi-file, contract change, hard-gated override, usage errors.
+
+### Changed
+
+- All 7 pipeline commands (`dr-init`, `dr-prd`, `dr-plan`, `dr-do`, `dr-qa`, `dr-compliance`, `dr-archive`) — added `## /dr-auto Mode` section after `## Instructions`. Section describes stage-specific Q&A suppression hooks and references `skills/autonomous-mode.md` § Question Suppression Ladder as canonical source.
+- `commands/dr-help.md` — added `/dr-auto` row in the Pipeline Commands table.
+- `docs/commands.md` — added `/dr-auto` row.
+- `docs/getting-started.md` — new `## Autonomous Mode (/dr-auto)` section with Continue/Bootstrap modes, Ladder summary, L1 Inline Rule overview, when-to-use guidance, failure modes.
+- `CLAUDE.md` — added `/dr-auto` row to commands table; updated command count `22 → 23 commands core`.
+- `README.md` — added `/dr-auto` row to Commands section; updated count references `22 → 23 commands`.
+- `VERSION` — `2.18.0 → 2.19.0`.
+
 ## [2.14.0] — 2026-05-22
 
 **Business-facing archive and compliance report contract (TUNE-0255).** The archive and `/dr-compliance` report templates now answer the operator's question «что я просил и что вы сделали» in plain Russian, in four mandatory top-level sections in strict order — «Начальная задача», «Как решили», «Артефакты задачи», «Следующие шаги» — followed by an audit addendum under a `---` horizontal rule that carries the technical surface (`verification_outcome` mirror, AC table, lessons learned, operator handoff, related). The «Как решили» section is a single-level bullet list that maps every operator-brief bullet (in original order) to a quoted item + Russian status word («выполнено» / «частично» / «не выполнено» / «неприменимо» — never the schema enum) + one or two plain-language sentences; expectations from `tasks/{ID}-expectations.md` fold into the same list with marker «(уточнение брифа)». The previous top-level `## Выполнение ожиданий оператора` heading is retired — its content is folded into «Как решили». The same contract applies to `/dr-compliance` via a new canonical template.

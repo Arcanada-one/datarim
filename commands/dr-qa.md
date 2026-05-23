@@ -331,6 +331,18 @@ Write to `datarim/qa/qa-report-{task-id}.md`:
 **Layers executed:** {N of 4}
 **Results:** {list of layer verdicts}
 
+## /dr-auto Mode (when `DATARIM_AUTO_MODE=1`)
+
+When auto-mode is active (env var `DATARIM_AUTO_MODE=1` AND matching marker `datarim/.auto-mode-active` containing this TASK-ID), this command:
+
+1. Consults `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode.md` § Question Suppression Ladder before any `AskUserQuestion` or equivalent operator prompt at this stage.
+2. Stage-specific suppression hooks:
+   - Stage failure routing (back to /dr-do vs proceed with caveats) — resolved through Ladder L2 (re-run test, runtime probe) before L5 escalation.
+   - V-AC ambiguity (partial pass vs full pass) — strict ambiguity rule applies: ≥2 plausible verdicts → L5.
+3. Discovered gaps → apply L1 Inline Resolution Rule per `skills/autonomous-mode.md`; log in `datarim/tasks/{TASK-ID}-auto-inline-log.md` if applied inline.
+4. Hard-gated actions → escalate to operator through Ladder L5; log via `dev-tools/append-init-task-qa.sh --decided-by operator` per `skills/init-task-persistence.md` § Q&A round-trip.
+5. Mismatch (env var set, marker absent OR marker contains different TASK-ID) → emit single-line warning, treat as non-auto (fail-safe per `skills/autonomous-mode.md` § When this skill is active).
+
 ## Next Steps
 
 {Based on overall verdict — see routing below}

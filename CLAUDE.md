@@ -200,6 +200,7 @@ Before writing ANY file to `datarim/`:
 | `/dr-verify` | Verification | Standalone self-verification (on-demand). Tri-layer: Layer 1 deterministic floor + Layer 2 cross-model peer-review (DeepSeek default) + Layer 3 native runtime dispatch. Findings-only mode. |
 | `/dr-compliance` | Hardening | 7-step post-QA hardening |
 | `/dr-archive` | Archive | Reflection (Step 0.5: lessons learned + framework evolution proposals) + complete task + update backlog + reset context |
+| `/dr-auto` | Autonomous | Мета-команда автономного исполнения. Активирует FB-1..8 mandate + L1 Inline Resolution Rule + autonomous-ops scope как default-on через env var `DATARIM_AUTO_MODE=1` + file marker `datarim/.auto-mode-active`. Question Suppression Ladder (5 levels) suppresses pipeline Q&A; L1 Class A gaps закрываются inline; hard-gated actions escalate to operator. Two modes — Continue (`/dr-auto {TASK-ID}` resume) / Bootstrap (`/dr-auto "<free-text>"` full pipeline). Canonical contract в `skills/autonomous-mode.md` |
 | `/dr-status` | Utility | Check current task and backlog status |
 | `/dr-continue` | Utility | Resume from last checkpoint |
 | `/dr-write` | Content | Create written content — articles, docs, research, posts |
@@ -215,7 +216,7 @@ Before writing ANY file to `datarim/`:
 | `/factcheck` | Standalone | Fact-check articles and posts before publication |
 | `/humanize` | Standalone | Remove AI writing patterns from text |
 
-Command files: `$HOME/.claude/commands/{name}.md` (22 commands core + 1 plugin)
+Command files: `$HOME/.claude/commands/{name}.md` (23 commands core + 1 plugin)
 
 ### /dr-verify (on-demand, tri-layer architecture)
 

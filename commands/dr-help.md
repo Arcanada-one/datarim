@@ -29,6 +29,7 @@ Not every task goes through every stage. Datarim routes tasks based on complexit
 | `/dr-qa` | Quality | Multi-layer quality verification: PRD alignment, design conformance, plan completeness, output quality. |
 | `/dr-compliance` | Hardening | Post-QA hardening. 7-step workflow: revalidate, simplify, check references, coverage, lint, tests, harden. |
 | `/dr-archive` | Archive | Archive the completed task. Performs reflection (Step 0.5) + evolution proposals, then stores context and updates backlog. |
+| `/dr-auto` | Autonomous | Мета-команда автономного исполнения. Активирует FB-1..8 mandate + L1 Inline Resolution Rule + autonomous-ops scope как default-on. Two modes — Continue (resume task) / Bootstrap (full pipeline from /dr-init). Подавляет уточняющие вопросы через 5-уровневую Question Suppression Ladder. |
 
 ### Content Commands (2)
 

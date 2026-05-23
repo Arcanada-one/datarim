@@ -33,6 +33,18 @@ Datarim v2.0+ is **multi-runtime (Claude + Codex)**. Without flags, `install.sh`
 
 The installer also creates `~/.claude/local/{skills,agents,commands,templates}/` (real directories, gitignored) for personal additions and overrides that you do not want committed upstream. See [Local Overlay](#local-overlay) below.
 
+### Optional: external `datarim` CLI
+
+The main `./install.sh` symlinks runtime scopes (agents/skills/commands/…) into `~/.claude/`, but does **NOT** install the standalone `datarim` binary used by non-interactive agents (Codex, Cursor, cron, custom). If you try `datarim run /dr-status` without this extra step, the shell answers `command not found: datarim`. Run the dedicated CLI installer once per machine:
+
+```bash
+cd cli && ./install.sh
+```
+
+It prints the bilingual AAL 3 warning, validates `accepted-risk-aal.yml` entry `tune-0268-aal3-cli`, and symlinks `cli/datarim` → `/usr/local/bin/datarim` (falls back to `$HOME/.local/bin/datarim` when `/usr/local/bin` is not writable). Set `DATARIM_CLI_AGENT_ID` to a UUID v7 before the first `datarim run` invocation — generate via `cli/lib/uuid7-gen.sh`. Full reference: [docs/cli.md](cli.md).
+
+The CLI is opt-in. Slash commands inside a Claude Code session work without it.
+
 ### Copy mode (legacy / Windows)
 
 If symlinks are not available — typical on Windows Git Bash, FAT32/exFAT volumes, or restricted shells — pass `--copy` (or let the installer auto-detect):
@@ -483,6 +495,51 @@ Three commands help you keep the framework itself healthy over time:
 Run `/dr-doctor` if you are upgrading from a pre-v1.19.0 installation or if `/dr-status` reports structural anomalies.
 
 ---
+
+## Autonomous Mode (`/dr-auto`)
+
+Когда операторские уточнения дороже агентского исследования — `/dr-auto` активирует **autonomous mode** на стадии одного цикла. Команда не вводит новых правил: она активирует существующий `documentation/mandates/autonomous-agents.md` (FB-1..8) + L1 Inline Resolution Rule + autonomous-ops scope как **default-on**, пока маркер `datarim/.auto-mode-active` существует.
+
+### Two modes
+
+- **Continue** — `/dr-auto {TASK-ID}` поднимает task через snapshot-first read (как `/dr-continue`) и продолжает её до полного закрытия или hard-gated stop.
+- **Bootstrap** — `/dr-auto "<free-text description>"` запускает full pipeline `/dr-init → /dr-prd? → /dr-plan → /dr-do → /dr-qa → /dr-compliance → /dr-archive` с активным question-suppression.
+
+### Question Suppression Ladder
+
+Перед каждым `AskUserQuestion` агент проходит 5 уровней (останавливается на первом, который даёт unambiguous answer):
+
+| L | Источник | Когда применимо |
+|---|----------|-----------------|
+| 1 | Codebase grep / file read | Технический вопрос про код, конфиг, версии |
+| 2 | Runtime probe (curl, docker, git, gh, vault) | Состояние сервиса, БД, CI, secrets-схема |
+| 3 | MEMORY.md feedback lookup | Operator preferences, prior decisions |
+| 4 | Coworker delegation | Bulk-context, docs across repos |
+| 5 | Operator ask | True ambiguity OR hard-gated OR business strategy |
+
+Канонический контракт — `skills/autonomous-mode.md`. Бизнес-стратегические вопросы сразу идут к L5 (narrow mode) — safe-defaults не применяются.
+
+### L1 Inline Resolution Rule
+
+Discovered mid-cycle gaps классифицируются: single file × ≤50 LoC × no contract change × not hard-gated → **L1 Class A**, фиксится inline и логируется в `datarim/tasks/{TASK-ID}-auto-inline-log.md`. Всё остальное (multi-file / contract change / operating-model shift) → backlog item с источником `discovered-during-auto-{TASK-ID}`. Hard-gated actions (`autonomous-agents.md:30-32`) escalate to operator через L5 даже под /dr-auto.
+
+### When to use
+
+- Backlog items L1-L2 с явным acceptance criteria.
+- Resume interrupted task (после crash или `/clear`).
+- Pipeline dogfood и benchmarks — measure Q&A suppression rate.
+
+### When NOT to use
+
+- Exploratory задачи где operator intent нужно frequently refine.
+- High-stakes Class B изменения framework operating-model — operator presence нужно на каждом stage gate.
+- Cross-project orchestration — используй `/dr-orchestrate` plugin вместо.
+
+### Failure modes
+
+- **Env-var leak** после `/clear` — mismatch detection (env set, marker absent) → treat as non-auto с warning.
+- **Marker stale** от crashed session — 24h TTL → silent purge.
+- **Ladder false-confident** (L1-L4 нашли не тот answer) — ambiguity rule strict: ≥2 candidates → escalate up.
 
 ## Next Steps
 
