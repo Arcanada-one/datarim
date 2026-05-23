@@ -267,6 +267,14 @@ validator's stdout markers):
 - `--all`: advisory scan for L3+ tasks without expectations. Always exit 0;
   severity ladder `info` (<30d) → `warn` (≥30d).
 
+**Full verdict requires both passes.** `--task` exit 0 is necessary but
+not sufficient for `--verify` PASS — `--task` checks schema validity and
+status presence; `--verify` additionally parses verdict routing
+(PASS / CONDITIONAL_PASS / BLOCKED) and enumerates focus-items on block.
+For complete pre-archive verdict, run both in sequence: first
+`--task <ID>` to confirm schema/status, then `--verify <ID>` to obtain the
+routing verdict.
+
 ## Dogfooding
 
 The first task to use this contract is the task that defines it. Its own

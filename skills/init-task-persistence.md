@@ -185,6 +185,37 @@ before the stage emits its CTA. `/dr-init` (which creates the file) and
 `/dr-archive` (read-only consumer for "operator expectations" recap) do
 not write Q&A blocks.
 
+### Canonical 5-round decomposition pattern
+
+For a contract-defining L3 task, a high-quality append-log typically has
+**five rounds**: four operator-answered + one agent-decided under
+FB-1..FB-5 chain. The shape:
+
+1. **D-1 (operator)** — *moment of artefact creation* ("create the file
+   at `/dr-init`, `/dr-plan`, or `/dr-prd`?"). Locks the pipeline-stage
+   contract.
+2. **D-2 (operator)** — *scope of mandate* ("which complexity levels
+   does this apply to — L1+L2+L3+L4 or only L3-L4?"). Locks the
+   completeness contract.
+3. **D-3 (operator)** — *schema upgrade shape* ("new required field,
+   enum values, validator semantics?"). Locks the data-model contract.
+4. **D-4 (operator)** — *report location* ("status flag in
+   `expectations.md` + extended block in `qa-report.md` — or new
+   artefact?"). Locks the single-responsibility split.
+5. **D-5 (agent under FB-1..FB-5)** — *backward compat default* when the
+   operator's parallel-question slot was already full (four-question
+   `AskUserQuestion` cap). Agent applies the existing pattern from a
+   prior expectation-checklist rollout (pivot date + `legacy: true`
+   marker), cites it in `Decision rationale` (≥50 chars), and leaves
+   the operator an override hook (env-var on the pivot, marker on the
+   task).
+
+Hallmarks of a high-quality append-log: every round carries verbatim
+question + verbatim answer; every `decided_by: agent` round carries a
+≥50-char rationale that names the prior pattern / FB-rule it inherits
+from; no round contradicts an existing wish without a `--conflict-with`
+flag.
+
 ### Block format (canonical)
 
 Each round is a single Markdown block under § Append-log. The block

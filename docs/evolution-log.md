@@ -18,6 +18,21 @@ Both proposals are Class A (skill / command surface), operator-approved at apply
 
 ---
 
+## 2026-05-23 — TUNE-0266 — Per-goal verification hardening: expectations on /dr-init L1-L4 + schema v2 + per-wish qa-report (Class A × 2 applied)
+
+`/dr-init` mandate расширен на все уровни L1-L4 (без soft-window) — `tasks/{TASK-ID}-expectations.md` создаётся сразу при инициализации. Schema поднят до v2 с обязательным полем `evidence_type` per wish (empirical | static | measurement); legacy v1 принят с DEPRECATION warning, sunset 2027-05-23. `/dr-qa` Layer 3b пишет per-wish детальный блок в `qa-report-{TASK-ID}.md` (4 sub-headings: «Что было сделано», «Команда + результат», «Verdict», evidence_type) вместо строки в таблице. Validator (`dev-tools/check-expectations-checklist.sh`) advisory-warns при all-static; legacy:true skip + pivot-date auto-legacy (env-override `DATARIM_TUNE_0266_PIVOT_DATE`). VERSION 2.17.1 live на datarim.club; ≥3 docs упоминают evidence_type. 42 контрактных bats green. Dogfooding замкнут: TUNE-0266 первой прошла через свой собственный контракт — validator `--task` exit 0 zero-DEPRECATION, `--verify` PASS, qa-report-v2 содержит 8 per-wish blocks. Framework commit `d2edb3d`.
+
+**Class A applied from reflection (× 2):**
+
+1. `skills/expectations-checklist.md` § Validation — добавлен параграф «Full verdict requires both passes»: `--task` exit 0 необходимо но не достаточно для `--verify` PASS; контракт асимметричен (task-mode = schema validity + status presence; verify-mode = verdict routing). Документация описывает существующее поведение, API не меняется.
+2. `skills/init-task-persistence.md` § Q&A round-trip contract — добавлена под-секция «Canonical 5-round decomposition pattern»: 4 operator-answered + 1 agent-decided под FB-1..FB-5 (D-1 artefact creation moment, D-2 mandate scope, D-3 schema upgrade shape, D-4 report location, D-5 backward compat default). Hallmarks of high-quality append-log: verbatim Q+A, ≥50-char rationale for agent-decided rounds, no contradiction без `--conflict-with`.
+
+**Class B held (× 1):** `skills/v-ac-axis-split.md` extension OR new `skills/runtime-probe-history-agnostic.md` — `/dr-plan` Step 6 (Plan Completeness) должен runtime-probe history-agnostic gate ДО approve. Holding pending separate PRD draft (контракт routing semantics + CI impact). Tracked в backlog как «PRD: /dr-plan Step 6 history-agnostic probe».
+
+**Lessons applied to evolution-log itself:** dogfooding-as-V-AC работает (включай в plan как явный Phase, не как Phase-N-completion-test); pivot-date + env-override = soft cutover pattern для schema migrations; selective restage > broad attribution (Step 0.1.4 cross-task leakage audit отверг broad attribution оператора — это правильное поведение контракта).
+
+---
+
 ## 2026-05-18 — TUNE-0251 — Final removal of copy-mode helper scripts (v2.12.0)
 
 Removed `scripts/curate-runtime.sh` + `scripts/check-drift.sh` along with their regression bats coverage (`tests/check-drift.bats`, `tests/curate-runtime.bats`, `tests/deprecation-banners.bats`). Both scripts were DEPRECATED in v1.17.0 when the symlink-default operating model landed — under symlink topology runtime IS the repo by inode, so the parallel drift-detection and curation helpers no longer carried operational value. Copy-mode users keep `git pull && ./install.sh --copy --force --yes` as the canonical resync recipe.
