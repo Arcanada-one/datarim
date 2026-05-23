@@ -12,6 +12,8 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
 
 ## Instructions
 
+
+**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format.md` § Stage Header.
 0.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system.md` § Path Resolution Rule.
 
 1.  **TASK RESOLUTION**: Apply Task Resolution Rule from `$HOME/.claude/skills/datarim-system.md` § Task Resolution Rule. Use the resolved task ID for all subsequent steps.
@@ -50,20 +52,28 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
     -   Both formats use the same **Design Document Template** (Phase 5 below).
     -   Include: **Security Summary** (Attack Surface, Risks), **Architecture Impact**, **Detailed Design** (API, DB, Config), **Security Design** (Threats, Controls), **Implementation Steps**, **Test Plan** (Unit/Integration/Security), **Rollback Strategy**, **Validation Checklist**.
 
-5b. **Seed expectations checklist (L2 without PRD only)** per `$HOME/.claude/skills/expectations-checklist.md`:
-    -   Skip this step when a PRD exists — `/dr-prd` Step 5.5b already seeded the file.
-    -   For L2 tasks without a PRD, the planner MUST create or update `datarim/tasks/{TASK-ID}-expectations.md` from `$HOME/.claude/templates/expectations-template.md`.
-    -   **Source of items.** Each operator wish becomes one item. Derive items from:
-        (a) the init-task `## Operator brief (verbatim)` plus every `## Append-log` entry (one wish per distinct intent), and
-        (b) the plan's § Validation Checklist when it asserts operator-observable outcomes.
-    -   **Per-item shape** (Option B; full contract in `expectations-checklist.md`): title in plain Russian ending with a period; `wish_id` = kebab-slug of the title (cyrillic allowed); `Что хочу проверить:`; `Как проверить (success criterion):`; `Связанный AC из PRD:` set to «—» (no PRD); `#### История статусов` with one initial line `<ISO> / <local> · /dr-plan · pending → pending · reason: пункт создан при формировании плана`; `#### Текущий статус: pending`.
-    -   **Append-merge if the file already exists.** Same contract as `/dr-prd` Step 5.5b — match by `wish_id`, append new wishes at the bottom, never rewrite existing items.
+5b. **Append-merge expectations checklist (L2 without PRD, plan-driven additions only)** per `$HOME/.claude/skills/expectations-checklist.md` § Append-merge contract:
+    -   **Expectations creation contract:** the expectations file is **created at `/dr-init` Step 4.7** for all tasks (L1-L4). This step does NOT create the file from scratch — it **append-merges** plan-derived wishes that augment the init-task skeleton (L2 without PRD only).
+    -   Skip this step when a PRD exists — `/dr-prd` Step 5.5b already handled the PRD-driven append-merge.
+    -   For L2 tasks without a PRD, the planner MUST load existing `datarim/tasks/{TASK-ID}-expectations.md` (already seeded at `/dr-init`) and append any plan-derived wishes the init-task skeleton did not cover.
+    -   **Source of new items (append candidates).** Each plan § Validation Checklist row that asserts an operator-observable outcome → one candidate wish. Compare candidate's semantic content with existing items by `wish_id`:
+        - **Match (semantic equivalence with existing wish):** do not append; add one `stage: append-merge` line to existing wish's `#### История статусов` (reason: «уточнено в плане»).
+        - **No match (genuinely new operator-observable outcome):** append at the bottom as a new item:
+            - title in plain Russian ending with a period;
+            - `wish_id` = kebab-slug of the title (cyrillic allowed);
+            - `Что хочу проверить:` one or two sentences;
+            - `Как проверить (success criterion):` one concrete signal;
+            - `Связанный AC из PRD: «—»` (no PRD);
+            - `evidence_type:` (default `empirical`; choose `static` or `measurement` per validation nature);
+            - `#### История статусов` with one initial line `<ISO> / <local> · /dr-plan · pending → pending · reason: пункт добавлен из плана § Validation Checklist`;
+            - `#### Текущий статус: pending`.
+    -   **Do not rewrite, reorder, or delete existing items.** Operator controls pruning via explicit `Текущий статус: deleted`.
     -   **Post-write validation gate.** Invoke:
         ```bash
         dev-tools/check-expectations-checklist.sh --task {TASK-ID}
         ```
         Exit code `1` ⇒ STOP and fix the file before continuing.
-    -   For L1 tasks this step is skipped entirely; for L3-L4 tasks the PRD step seeded the file already.
+    -   For L1 tasks this step is skipped entirely; the init-task skeleton from `/dr-init` Step 4.7 is sufficient. For L3-L4 tasks the PRD step (Step 5.5b in `/dr-prd`) handled the append-merge already.
 
 6.  **Technology Validation**:
     -   Document technology stack selection.
@@ -76,6 +86,7 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
     -   Apply to all references: not just function names, but also config keys, CLI sub-commands, file paths, env vars, and HTTP routes.
     -   **PRD AC verification commands MUST also be smoke-checked at plan time.** For every PRD AC `**Verification:**` line, run the verification command against the implemented CLI surface OR its pre-implementation skeleton. Verify: all flags exist with the documented argument shape; positional vs named args match the contract; env vars referenced are documented; expected exit code matches. Phantom flags (e.g. `--dry-run` when script accepts only named flags), positional-args invocations against named-flag contracts, and misnamed env vars (e.g. `CLAUDE_RUNTIME` when impl reads `CODEX_RUNTIME`) are caught here, not at `/dr-verify` post-`/dr-do`. Cost: ~5 seconds per AC; saving: a full pipeline cycle (do + verify + reconciliation).
     -   **AC ↔ V-AC semantic match (not just verbatim text mirror).** For every Validation Checklist row, verify that the V-AC verification command empirically tests the specific contract the corresponding PRD AC asserts. Example failure mode: PRD AC «cost-cap soft enforcement, exit 2 on breach» but V-AC row tests `for f in ...; test -f $f` (file presence) — verbatim cite of AC number, but verification tests something else entirely. Verbatim mirror is necessary but not sufficient — meaning must align.
+    -   **V-Plan grep-text case-sensitivity audit (MANDATORY when V-Plan / Validation row uses `grep -E "<text>"` against an append-log / markdown heading / status word).** Literal `grep` is case-sensitive by default; markdown headings often capitalise the first word (e.g. heading «Partial closure» vs grep pattern `"partial closure"` → 0 matches, semantic match exists). For every literal-string grep in the V-Plan, either: (a) add `-i` flag for case-insensitive match, OR (b) quote the exact heading/status word from the source-of-truth as the grep pattern. Trigger heuristic: if the grep text contains common headline words (`partial`, `closure`, `pending`, `done`, `met`, `missed`, `deferred`), warn the operator that case-sensitivity is a likely defect class — literal-grep can report FAIL while semantic intent is satisfied, wasting a QA-failure-routing cycle on a non-defect.
     -   **Git topology probe (MANDATORY when Implementation Steps name a file as edit / rollback target)**: for every named file path in Implementation Steps, disambiguate gitignored-vs-non-git via two steps — first probe the working tree by exit code: `if git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then ... else <non-git branch> fi` (non-zero exit ⇒ path is non-git, use alt rollback); inside a working tree, run `git -C "$dir" check-ignore -v -- "$path"` (quote BOTH `"$dir"` and `"$path"` — directories or files with whitespace / backticks / `$(...)` break unquoted; `--` terminates option parsing — planner-emitted paths are untrusted input per Security Mandate S1/S5). If the path is gitignored OR lives outside any git working tree:
         -   The Rollback Strategy MUST cite a non-git restore mechanism (backup-then-overwrite, `cp` from snapshot, deploy-script re-run) — `git checkout` / `git revert` are unavailable for gitignored or untracked paths.
         -   Flag the file explicitly in the plan's § Rollback Strategy with a one-line annotation: `<path> — gitignored (or non-git); rollback via <mechanism>`.
@@ -91,6 +102,10 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
             -   Slug regex — accepted character set for dynamic path segments.
         -   Cite the router file:line where the convention is defined inline in the plan (V-AC reviewers verify without re-grepping). When citing, quote ONLY the route-pattern / param-name tokens needed to verify the convention — NEVER cite full lines containing DSNs, tokens, secrets, or internal hostnames (Security Mandate S3); redact to `…` and reference `file:line` only.
         -   Rationale: a V-AC `curl https://example.com/blog?page=2` (or equivalently `Playwright page.goto('/blog?page=2')`) against a router that maps only `/blog/page/N` returns 404 at deploy verification — the V-AC is unexecutable as written regardless of HTTP client. A 30-second router grep at plan time catches this before `/dr-do` produces a failing smoke.
+    -   **External target reality-probe (MANDATORY when an agent-decision under FB-4/FB-5 cites a specific filesystem path or external URL — `Projects/<repo>/`, `Projects/Websites/<site>/`, `https://<domain>/<path>` — as a deploy / write / lookup target).** Memory and INSIGHTS files can reference never-provisioned resources or paths that drifted away from canonical. Before locking the target into the plan: `ls "<path>"` MUST return a real entry; for any web target, `curl -fsSL -o /dev/null -w '%{http_code}\n' https://<domain>/' MUST return `200` (or a justified non-200 — e.g. `404` is expected for a path that this plan will create on deploy). Non-existent path or HTTP `000` (DNS does not resolve) ⇒ memory stale; pause and ask the operator to confirm the canonical target before continuing.
+        -   Cost: ~5 seconds per cited target. Saving: one extra QA cycle where the gap surfaces as a `partial` expectation entry that has to be re-routed back to `/dr-do`.
+        -   Quote the probe result inline in the plan (`<path> — ls confirms`, `https://<domain>/ — HTTP 200`) so reviewers can replay without re-querying.
+    -   **Install-topology survey gate (MANDATORY when the plan fixates a path-resolution canon — env-var, runtime root, install path, template ref, config-file location — that consumer agents will copy literally from runtime markdown).** A canon that works for the default install can silently miss every other install mode. Before locking the canonical form into the plan, survey ALL install topologies the runtime supports and verify the proposed canon resolves correctly in each. For frameworks (e.g. Datarim under `code/datarim/install.sh`), this means: (a) default symlink install (`./install.sh` no flags → runtime at `$HOME/.claude/`); (b) per-project install (`./install.sh --project DIR` → runtime at custom location); (c) copy-mode with custom `CLAUDE_DIR` env override; (d) plugin overlays mounting under a runtime root. Cite the survey result inline in the plan (`canon X works for default symlink ✓ / fails for --project DIR ✗ → escalate to env-var fallback form Y`). Heuristic: if the existing canonical pattern for adjacent surfaces uses an env-var fallback (e.g. `${RUNTIME_VAR:-$HOME/.claude}/...`), prefer that form for new path refs too — silent precedent is canonical. Source: TUNE-0267 v1 → v2 canon-correction (v1 `$HOME/.claude/templates/X` worked only for default symlink; v2 migrated 41 refs to `${DATARIM_RUNTIME:-$HOME/.claude}/templates/X` after operator Q&A surfaced the blind spot). Cost: ~30 seconds (grep install script for mode flags + grep adjacent surfaces for existing env-var patterns). Saving: avoids a full canon-correction cycle.
     -   Rationale: a 30-second grep at planning time prevents 10–30 minute investigations during `/dr-do`. A plan that names a method as the fix surface but the method does not exist (e.g. behaviour was implemented inline in a different module) requires in-flight redirect — a single grep at `/dr-plan` time would have caught it.
 
 7.  **Installer / Deploy-Script Content-Type Audit (MANDATORY when plan touches install.sh, sync-script, or any deploy/copy tool)**:
