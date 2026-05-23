@@ -1650,3 +1650,14 @@ Reflection on TUNE-0267 (template-path canon-correction) surfaced two universal 
 - **Provenance:** `Projects/Datarim/datarim/reflection/reflection-TUNE-0267.md` § Evolution proposals / Class A; `feedback_l1_proposals_close_in_cycle.md` (new memory rule: L1 Class A proposals MUST apply in-cycle, FU only for Class B / L2+).
 
 ---
+
+## 2026-05-23 — TUNE-0280 Class A apply (P1: ID-collision rename procedure skill)
+
+Reflection on TUNE-0280 (`/dr-continue` + stage-snapshot replay verification) surfaced one Class A proposal applied in the same `/dr-archive` cycle per `feedback_l1_proposals_close_in_cycle.md`. Stack-agnostic gate PASS.
+
+- **P1 applied — new skill `skills/dr-init-id-collision-window.md`.** Trigger: two parallel agent sessions on a shared workspace reserve the same `TASK-PREFIX-NNNN` value during the TOCTOU window between `/dr-init` Step 2.5 probe and `/dr-archive` commit. Procedure: (1) detection — grep across thin-index files, per-task artifact set, AND `documentation/archive/*/archive-${TASK_ID}.md` across all subdirs; (2) rename — sed-batch across artifact bodies, `git mv` per filename, thin-index re-anchor on `^- ${OLD} ·` prefix, chmod a-w restore on verify audit logs that were already hardened, Append-log line on the new ID; (3) anti-patterns — no mid-`/dr-do` rename, no `git mv` without body update, no silent delete. Provenance: TUNE-0280 hit this exact collision on its `/dr-archive` step (parallel session reserved the colliding ID and committed first), resolution required mid-archive rename of the whole derived chain.
+- **Stack-agnostic verdict:** PASS (`scripts/stack-agnostic-gate.sh skills/dr-init-id-collision-window.md` → `PASS: clean`).
+- **Class B held — P2: `/dr-init Step 2.5` probe scope extension.** Backlog entry queued (TUNE-0284 in active workspace KB) for separate PRD draft. Class B because it changes pipeline-step semantics.
+- **Provenance:** `Projects/Datarim/datarim.locked-20260523T161746Z/reflection/reflection-TUNE-0280.md` § Evolution proposals / Class A; archive doc `documentation/archive/framework/archive-TUNE-0280.md`.
+
+---
