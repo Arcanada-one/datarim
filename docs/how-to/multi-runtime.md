@@ -62,6 +62,21 @@ The output should cite at least one task from `datarim/tasks.md`. If you see «f
 
 Slash-command auto-complete is a feature of the **host runtime** (Claude Code), not of the Datarim symlinks. Claude Code scans `~/.claude/commands/*.md` and registers each file as a UI command; Codex CLI has no equivalent indexing layer in 0.130.0. The markdown files are still reachable — Codex reads them on demand when you reference them by path or name — but they will not surface in a `/`-typed menu. UI parity for Codex is an upstream concern (Codex CLI feature request), not a Datarim runtime gap. Recommended pattern under Codex: name the command explicitly in the prompt (e.g. «follow `commands/dr-do.md` for TUNE-0123») so the LLM loads the instructions on first turn.
 
+### Why no Datarim skills in the Codex skill-list?
+
+Codex CLI ships its own native skill-discovery mechanism for the bundled `.system/` skills it places under `~/.codex/skills/.system/` (`imagegen`, `plugin-creator`, `skill-creator`, `openai-docs`, `skill-installer`). The same indexing layer that registers those bundled skills does **not** crawl Datarim's symlinked `~/.codex/skills/` for `*.md` files — Datarim skills are reachable as markdown but do not surface in Codex CLI's skill-list UX.
+
+This is the same UX-divergence as the slash-command case, applied to skills. There are four candidate paths to fix it permanently, tracked as a Class B follow-up in `datarim/backlog.md` (`TUNE-NNNN · ... Codex CLI bundled .system/ skills integration with Datarim skills/ symlink topology (Source: TUNE-0296)`):
+
+- **A — overlay** through `~/.codex/local/skills/.system/` mirroring Datarim's local-overlay pattern.
+- **B — namespace** `skills/<plugin-id>/` mirroring the `dr-plugin` layout (requires Codex CLI to descend into subdirs).
+- **C — native `skills_local` override** if Codex CLI 0.130.0+ exposes one (upstream feature probe needed).
+- **D — hardcoded-path workaround** in `~/.codex/rules/default.rules` to point at Datarim skills directly.
+
+Until that design lands, invoke Datarim skills under Codex the same way as commands — by name in the prompt: «load `skills/datarim-system.md` and follow § Path Resolution Rule». The skill content is read on demand, identical behaviour to how Claude Code loads it under the hood; only the discovery UX differs.
+
+The lossless backup of the original Codex `.system/` skills lives at `~/.codex/skills.bundled-backup-TUNE-0296-<ts>/` — restore via `rm ~/.codex/skills && mv ~/.codex/skills.bundled-backup-TUNE-0296-* ~/.codex/skills` if you need the native skill-list back temporarily (this gives up Datarim skill discovery in Codex until you re-run `./install.sh --with-codex`).
+
 ## Optional: Coworker `codex` profile
 
 If you use `coworker` to delegate bulk I/O to an external LLM, register a `codex` profile so the system prompt is aware of Codex CLI conventions (slash-commands are pipeline commands, not shell input; YAML frontmatter is byte-exact).
