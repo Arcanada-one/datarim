@@ -11,6 +11,8 @@ source "$LIB_DIR/exit-codes.sh"
 source "$LIB_DIR/output.sh"
 # shellcheck source=../lib/markdown-parser.sh
 source "$LIB_DIR/markdown-parser.sh"
+# shellcheck source=../lib/workspace.sh
+source "$LIB_DIR/workspace.sh"
 
 OUTPUT_MODE="plain"
 SUBCMD=""
@@ -51,23 +53,7 @@ if [[ -z "$SUBCMD" ]]; then
 fi
 
 # Resolve workspace.
-_ws_resolve() {
-    if [[ -n "${DATARIM_WORKSPACE_ROOT:-}" ]]; then
-        printf '%s' "$DATARIM_WORKSPACE_ROOT"
-        return
-    fi
-    local d="$PWD"
-    while [[ "$d" != "/" ]]; do
-        if [[ -d "$d/datarim" ]]; then
-            printf '%s' "$d"
-            return
-        fi
-        d="$(dirname "$d")"
-    done
-    printf '%s' "$HOME/arcanada"
-}
-
-WS="$(_ws_resolve)"
+WS="$(ws_resolve)"
 TASKS_MD="$WS/datarim/tasks.md"
 
 if [[ "$SUBCMD" == "list" ]]; then
@@ -86,6 +72,7 @@ fi
 # show <ID>
 export DATARIM_CLI_CMD="tasks show"
 [[ -n "$TARGET_ID" ]] || output_emit_error 2 MISUSE "tasks show requires TASK-ID"
+ws_validate_task_id "$TARGET_ID" || output_emit_error 2 MISUSE "invalid TASK-ID '$TARGET_ID' (expected PREFIX-NNNN[A])"
 
 # Candidate files (in canonical order).
 candidates=(

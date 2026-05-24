@@ -26,6 +26,8 @@ source "$LIB_DIR/exit-codes.sh"
 source "$LIB_DIR/output.sh"
 # shellcheck source=../lib/markdown-parser.sh
 source "$LIB_DIR/markdown-parser.sh"
+# shellcheck source=../lib/workspace.sh
+source "$LIB_DIR/workspace.sh"
 
 OUTPUT_MODE="plain"
 while (( $# > 0 )); do
@@ -54,23 +56,7 @@ export OUTPUT_MODE
 export DATARIM_CLI_CMD="status"
 
 # Resolve workspace root (walk-up from cwd; env override wins).
-_ws_resolve() {
-    if [[ -n "${DATARIM_WORKSPACE_ROOT:-}" ]]; then
-        printf '%s' "$DATARIM_WORKSPACE_ROOT"
-        return
-    fi
-    local d="$PWD"
-    while [[ "$d" != "/" ]]; do
-        if [[ -d "$d/datarim" ]]; then
-            printf '%s' "$d"
-            return
-        fi
-        d="$(dirname "$d")"
-    done
-    printf '%s' "$HOME/arcanada"
-}
-
-WS="$(_ws_resolve)"
+WS="$(ws_resolve)"
 ACTIVE_CTX="$WS/datarim/activeContext.md"
 BACKLOG_MD="$WS/datarim/backlog.md"
 ARCHIVE_DIR="$WS/documentation/archive"

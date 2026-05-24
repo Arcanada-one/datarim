@@ -9,6 +9,8 @@ LIB_DIR="$_SNAP_DIR/../lib"
 source "$LIB_DIR/exit-codes.sh"
 # shellcheck source=../lib/output.sh
 source "$LIB_DIR/output.sh"
+# shellcheck source=../lib/workspace.sh
+source "$LIB_DIR/workspace.sh"
 
 OUTPUT_MODE="plain"
 SUBCMD=""
@@ -37,18 +39,9 @@ export OUTPUT_MODE
 export DATARIM_CLI_CMD="snapshot show"
 
 [[ "$SUBCMD" == "show" && -n "$TARGET_ID" ]] || output_emit_error 2 MISUSE "snapshot show <TASK-ID> required"
+ws_validate_task_id "$TARGET_ID" || output_emit_error 2 MISUSE "invalid TASK-ID '$TARGET_ID' (expected PREFIX-NNNN[A])"
 
-_ws_resolve() {
-    if [[ -n "${DATARIM_WORKSPACE_ROOT:-}" ]]; then printf '%s' "$DATARIM_WORKSPACE_ROOT"; return; fi
-    local d="$PWD"
-    while [[ "$d" != "/" ]]; do
-        [[ -d "$d/datarim" ]] && { printf '%s' "$d"; return; }
-        d="$(dirname "$d")"
-    done
-    printf '%s' "$HOME/arcanada"
-}
-
-WS="$(_ws_resolve)"
+WS="$(ws_resolve)"
 SNAP="$WS/datarim/snapshots/${TARGET_ID}.snapshot.md"
 
 [[ -f "$SNAP" ]] || output_emit_error 31 NOT_FOUND "snapshot not found at $SNAP"
