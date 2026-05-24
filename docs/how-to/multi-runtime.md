@@ -64,18 +64,59 @@ Slash-command auto-complete is a feature of the **host runtime** (Claude Code), 
 
 ### Why no Datarim skills in the Codex skill-list?
 
-Codex CLI ships its own native skill-discovery mechanism for the bundled `.system/` skills it places under `~/.codex/skills/.system/` (`imagegen`, `plugin-creator`, `skill-creator`, `openai-docs`, `skill-installer`). The same indexing layer that registers those bundled skills does **not** crawl Datarim's symlinked `~/.codex/skills/` for `*.md` files — Datarim skills are reachable as markdown but do not surface in Codex CLI's skill-list UX.
+Codex CLI ships its own native skill-discovery mechanism for the bundled `.system/` skills it places under `~/.codex/skills/.system/` (`imagegen`, `plugin-creator`, `skill-creator`, `openai-docs`, `skill-installer`). The same indexing layer that registers those bundled skills does **not** crawl flat `*.md` files at the top of `~/.codex/skills/` — Codex expects each skill to live as `<name>/SKILL.md` with valid YAML frontmatter.
 
-This is the same UX-divergence as the slash-command case, applied to skills. There are four candidate paths to fix it permanently, tracked as a Class B follow-up in `datarim/backlog.md` (`TUNE-NNNN · ... Codex CLI bundled .system/ skills integration with Datarim skills/ symlink topology (Source: TUNE-0296)`):
+This discovery gap is resolved by `./install.sh --with-codex` (default behaviour as of v2.21.0). See § Codex UX integration below for the topology and verification recipes. Opt-out via `--no-codex-ux` if you need the TUNE-0114 baseline (uniform symlink topology) — useful for CI or debugging.
 
-- **A — overlay** through `~/.codex/local/skills/.system/` mirroring Datarim's local-overlay pattern.
-- **B — namespace** `skills/<plugin-id>/` mirroring the `dr-plugin` layout (requires Codex CLI to descend into subdirs).
-- **C — native `skills_local` override** if Codex CLI 0.130.0+ exposes one (upstream feature probe needed).
-- **D — hardcoded-path workaround** in `~/.codex/rules/default.rules` to point at Datarim skills directly.
+## Codex UX integration
 
-Until that design lands, invoke Datarim skills under Codex the same way as commands — by name in the prompt: «load `skills/datarim-system.md` and follow § Path Resolution Rule». The skill content is read on demand, identical behaviour to how Claude Code loads it under the hood; only the discovery UX differs.
+Default behaviour of `./install.sh --with-codex` is to make Datarim commands, skills, and agents discoverable through Codex CLI's native UI conventions. This is layered on top of the TUNE-0114 multi-runtime baseline and the TUNE-0296 `AGENTS.md` symlink.
 
-The lossless backup of the original Codex `.system/` skills lives at `~/.codex/skills.bundled-backup-TUNE-0296-<ts>/` — restore via `rm ~/.codex/skills && mv ~/.codex/skills.bundled-backup-TUNE-0296-* ~/.codex/skills` if you need the native skill-list back temporarily (this gives up Datarim skill discovery in Codex until you re-run `./install.sh --with-codex`).
+### What gets installed
+
+| Artefact | Path | Purpose |
+|----------|------|---------|
+| SKILL.md wrappers | `~/.codex/skills/<name>/SKILL.md` (one per top-level source skill) | Codex CLI's `<name>/SKILL.md` shape; YAML frontmatter carries `name:` + `description:` extracted from the source file; body links back to `code/datarim/skills/<name>.md`. |
+| Restored bundled skills | `~/.codex/skills/.system/{imagegen,plugin-creator,skill-creator,openai-docs,skill-installer}/` | Codex CLI's own pre-shipped skills, restored from the TUNE-0296 backup directory so `~/.codex/rules/default.rules` keeps resolving. |
+| AGENTS override | `~/.codex/AGENTS.override.md` | Codex-only manifest with three H2 sections — Available Datarim Commands / Skills / Agents — auto-generated from `code/datarim/{commands,skills,agents}/*.md`. |
+
+The canonical AGENTS.md symlink chain (`~/.codex/AGENTS.md` → source `AGENTS.md` → source `CLAUDE.md`) is untouched by design — the override file is the only place where Codex-specific catalogue text lives, so the shared router stays byte-stable for Claude.
+
+### Topology note: `~/.codex/skills/` becomes a real directory
+
+Under TUNE-0114 baseline `~/.codex/skills/` was a symlink to `code/datarim/skills/`. Under the new UX default it is a **real directory** containing the wrapper subdirs and the restored `.system/`. Other scopes (`agents`, `commands`, `templates`, `scripts`, `tests`, `dev-tools`) remain symlinks to source. The mixed-topology guard in `detect_existing_topology` is aware of this divergence and does not error on re-runs.
+
+To go back to the baseline uniform-symlink topology temporarily:
+
+```bash
+rm -rf ~/.codex/skills ~/.codex/AGENTS.override.md
+./install.sh --with-codex --no-codex-ux
+```
+
+The bundled `.system/` backup at `~/.codex/skills.bundled-backup-TUNE-0296-*/` is preserved across runs — restore is sourced from there each time, so wiping `~/.codex/skills/` and re-running `--with-codex` is safe.
+
+### Verification
+
+```bash
+# count wrappers — should match source skill count
+find ~/.codex/skills -maxdepth 2 -name SKILL.md -not -path '*.system*' | wc -l
+
+# manifest is Codex-only — AGENTS.md remains byte-stable
+shasum -a 256 ~/.codex/AGENTS.md ~/.codex/AGENTS.override.md
+
+# .system/ restored and default.rules path resolves
+test -r "$(grep -oE '/[^"]*list-skills\.py' ~/.codex/rules/default.rules | head -1)" && echo OK
+```
+
+### When to opt out
+
+Pass `--no-codex-ux` when:
+
+- you are running install.sh under CI and only want the symlink baseline,
+- you need to bisect a Codex discovery issue (compare with-UX vs without-UX behaviour),
+- you are intentionally testing the TUNE-0114 baseline topology.
+
+The flag composes with all other flags (`--with-codex --no-codex-ux`, `--with-claude --with-codex --no-codex-ux`, `--with-codex --no-codex-ux --dry-run`).
 
 ## Optional: Coworker `codex` profile
 

@@ -35,7 +35,10 @@ teardown() {
 
 @test "TUNE-0114 --with-codex creates ~/.codex with all 6 scopes (symlink mode)" {
     local fake_codex="$FAKE_HOME/.codex"
-    run env HOME="$FAKE_HOME" CODEX_DIR="$fake_codex" "$FAKE_REPO/install.sh" --with-codex
+    # --no-codex-ux preserves TUNE-0114 baseline contract (uniform symlinks).
+    # Default (with TUNE-0297 fanout_codex_ux) converts skills/ to a real dir;
+    # TUNE-0297 T42 covers that contract.
+    run env HOME="$FAKE_HOME" CODEX_DIR="$fake_codex" "$FAKE_REPO/install.sh" --with-codex --no-codex-ux
     [ "$status" -eq 0 ]
     assert_symlink_to "$fake_codex/agents"    "$FAKE_REPO/agents"
     assert_symlink_to "$fake_codex/skills"    "$FAKE_REPO/skills"
@@ -48,7 +51,7 @@ teardown() {
 @test "TUNE-0114 --with-claude --with-codex installs both runtimes" {
     local fake_codex="$FAKE_HOME/.codex"
     run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" CODEX_DIR="$fake_codex" \
-        "$FAKE_REPO/install.sh" --with-claude --with-codex
+        "$FAKE_REPO/install.sh" --with-claude --with-codex --no-codex-ux
     [ "$status" -eq 0 ]
     assert_symlink_to "$FAKE_CLAUDE/skills" "$FAKE_REPO/skills"
     assert_symlink_to "$fake_codex/skills"  "$FAKE_REPO/skills"
@@ -161,6 +164,130 @@ teardown() {
         "$FAKE_REPO/install.sh" --with-claude --dry-run
     [ "$status" -eq 0 ]
     [[ "$output" != *"AGENTS.md"* ]]
+}
+
+# ---------- TUNE-0297: Codex UX parity (SKILL.md wrappers + AGENTS.override) ----
+
+@test "TUNE-0297 T42 --with-codex generates SKILL.md wrapper for each source skill" {
+    local fake_codex="$FAKE_HOME/.codex"
+    echo "# datarim AGENTS" > "$FAKE_REPO/AGENTS.md"
+    cat > "$FAKE_REPO/skills/testing.md" <<'MD'
+---
+name: testing
+description: Testing pyramid and mocking rules
+---
+
+# Testing
+
+Body.
+MD
+    run env HOME="$FAKE_HOME" CODEX_DIR="$fake_codex" "$FAKE_REPO/install.sh" --with-codex
+    [ "$status" -eq 0 ]
+    [ -f "$fake_codex/skills/testing/SKILL.md" ]
+    # Frontmatter contains name + description (always double-quoted post YAML-safe fix)
+    grep -qE '^name: "?testing"?' "$fake_codex/skills/testing/SKILL.md"
+    grep -qE '^description: "' "$fake_codex/skills/testing/SKILL.md"
+    # Body references source path
+    grep -q 'code/datarim/skills/' "$fake_codex/skills/testing/SKILL.md"
+    # Sub-dir source (skills/sub-dir/frag.md) does NOT get a wrapper at top level
+    [ ! -e "$fake_codex/skills/frag/SKILL.md" ]
+    [ ! -e "$fake_codex/skills/sub-dir/SKILL.md" ]
+}
+
+@test "TUNE-0297 T43 --with-claude does NOT create SKILL.md wrappers under fake_codex" {
+    local fake_codex="$FAKE_HOME/.codex"
+    echo "# datarim AGENTS" > "$FAKE_REPO/AGENTS.md"
+    cat > "$FAKE_REPO/skills/testing.md" <<'MD'
+---
+name: testing
+description: t
+---
+body
+MD
+    run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" "$FAKE_REPO/install.sh" --with-claude
+    [ "$status" -eq 0 ]
+    # claude install must not touch ~/.codex at all
+    [ ! -e "$fake_codex/skills/testing/SKILL.md" ]
+    [ ! -e "$fake_codex/AGENTS.override.md" ]
+}
+
+@test "TUNE-0297 T44 --with-codex writes AGENTS.override.md and leaves AGENTS.md byte-stable" {
+    local fake_codex="$FAKE_HOME/.codex"
+    cat > "$FAKE_REPO/AGENTS.md" <<'AG'
+# datarim AGENTS canonical
+
+Stable router content.
+AG
+    local src_sha
+    src_sha="$(shasum -a 256 "$FAKE_REPO/AGENTS.md" | awk '{print $1}')"
+    cat > "$FAKE_REPO/skills/testing.md" <<'MD'
+---
+name: testing
+description: t
+---
+MD
+    run env HOME="$FAKE_HOME" CODEX_DIR="$fake_codex" "$FAKE_REPO/install.sh" --with-codex
+    [ "$status" -eq 0 ]
+    [ -f "$fake_codex/AGENTS.override.md" ]
+    grep -q '^## Available Datarim Commands' "$fake_codex/AGENTS.override.md"
+    grep -q '^## Available Datarim Skills' "$fake_codex/AGENTS.override.md"
+    grep -q '^## Available Datarim Agents' "$fake_codex/AGENTS.override.md"
+    # Manifest has at least one /dr- entry (fixture seeds commands/dr-init.md)
+    local entries
+    entries="$(grep -c '^- ' "$fake_codex/AGENTS.override.md" || true)"
+    [ "$entries" -ge 3 ]
+    # AGENTS.md (the symlink) resolves to the source file — content must match byte-for-byte
+    [ -L "$fake_codex/AGENTS.md" ]
+    local post_sha
+    post_sha="$(shasum -a 256 "$fake_codex/AGENTS.md" | awk '{print $1}')"
+    [ "$src_sha" = "$post_sha" ] || { echo "AGENTS.md drifted: pre=$src_sha post=$post_sha" >&2; false; }
+}
+
+@test "TUNE-0297 T45 --with-codex restores .system/ from bundled-backup when present" {
+    local fake_codex="$FAKE_HOME/.codex"
+    local backup="$fake_codex/skills.bundled-backup-TUNE-0296-20260524T195336Z"
+    mkdir -p "$backup/.system/skill-installer/scripts"
+    echo "# skill-installer source" > "$backup/.system/skill-installer/SKILL.md"
+    echo "print('list')" > "$backup/.system/skill-installer/scripts/list-skills.py"
+    mkdir -p "$backup/.system/imagegen"
+    echo "# imagegen" > "$backup/.system/imagegen/SKILL.md"
+    echo "# datarim AGENTS" > "$FAKE_REPO/AGENTS.md"
+    cat > "$FAKE_REPO/skills/testing.md" <<'MD'
+---
+name: testing
+description: t
+---
+MD
+    run env HOME="$FAKE_HOME" CODEX_DIR="$fake_codex" "$FAKE_REPO/install.sh" --with-codex
+    [ "$status" -eq 0 ]
+    [ -f "$fake_codex/skills/.system/skill-installer/SKILL.md" ]
+    [ -f "$fake_codex/skills/.system/skill-installer/scripts/list-skills.py" ]
+    [ -f "$fake_codex/skills/.system/imagegen/SKILL.md" ]
+    # idempotency — rerun shouldn't change shasum of the resulting tree
+    local sum1 sum2
+    sum1="$(find "$fake_codex/skills" -type f | sort | xargs shasum -a 256 | shasum -a 256 | awk '{print $1}')"
+    run env HOME="$FAKE_HOME" CODEX_DIR="$fake_codex" "$FAKE_REPO/install.sh" --with-codex
+    [ "$status" -eq 0 ]
+    sum2="$(find "$fake_codex/skills" -type f | sort | xargs shasum -a 256 | shasum -a 256 | awk '{print $1}')"
+    [ "$sum1" = "$sum2" ] || { echo "idempotency broken: $sum1 != $sum2" >&2; false; }
+}
+
+@test "TUNE-0297 T46 --with-codex --no-codex-ux opts out of wrapper generation" {
+    local fake_codex="$FAKE_HOME/.codex"
+    echo "# datarim AGENTS" > "$FAKE_REPO/AGENTS.md"
+    cat > "$FAKE_REPO/skills/testing.md" <<'MD'
+---
+name: testing
+description: t
+---
+MD
+    run env HOME="$FAKE_HOME" CODEX_DIR="$fake_codex" "$FAKE_REPO/install.sh" --with-codex --no-codex-ux
+    [ "$status" -eq 0 ]
+    # AGENTS.md symlink still set (TUNE-0296 baseline)
+    [ -L "$fake_codex/AGENTS.md" ]
+    # But no UX artefacts
+    [ ! -e "$fake_codex/skills/testing/SKILL.md" ]
+    [ ! -e "$fake_codex/AGENTS.override.md" ]
 }
 
 # ---------- backwards-compat layer ----------------------------------------

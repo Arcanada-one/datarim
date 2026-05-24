@@ -84,6 +84,7 @@ SKIPPED=0
 # TUNE-0114 Phase 2: multi-runtime fanout + project mode
 FANOUT_CLAUDE=false
 FANOUT_CODEX=false
+FANOUT_CODEX_UX=true       # TUNE-0297: generate SKILL.md wrappers + AGENTS.override.md; --no-codex-ux opts out
 PROJECT_DIR=''
 DRY_RUN=false
 LOCKFILE=''
@@ -95,6 +96,7 @@ Datarim Framework Installer
 Usage:
   install.sh --with-claude          Install for Claude runtime (symlink default)
   install.sh --with-codex           Install for Codex runtime
+  install.sh --with-codex --no-codex-ux  Codex install without UX wrappers/manifest
   install.sh --project DIR          Project-local copy install (no symlinks)
   install.sh --with-claude --with-codex  Multi-runtime install
   install.sh --dry-run              Show planned mutations without applying
@@ -119,8 +121,9 @@ parse_args() {
             --force)     FORCE=true; shift ;;
             --copy)      FORCE_COPY=true; shift ;;
             --yes|-y)    ASSUME_YES=true; shift ;;
-            --with-claude) FANOUT_CLAUDE=true; shift ;;
-            --with-codex)  FANOUT_CODEX=true; shift ;;
+            --with-claude)  FANOUT_CLAUDE=true; shift ;;
+            --with-codex)   FANOUT_CODEX=true; shift ;;
+            --no-codex-ux)  FANOUT_CODEX_UX=false; shift ;;
             --project)
                 if [ $# -lt 2 ]; then
                     echo "ERROR: --project requires an argument" >&2
@@ -181,8 +184,12 @@ detect_install_mode() {
 #   copy     all 4 scopes are real directories
 #   mixed    some symlinks + some real dirs (abort signal)
 detect_existing_topology() {
+    # Optional $1 = scope to exclude (used under codex + FANOUT_CODEX_UX where
+    # skills/ is intentionally a real dir alongside symlinks for the other scopes).
+    local exclude_scope="${1:-}"
     local scope present_count=0 symlink_count=0 dir_count=0
     for scope in "${INSTALL_SCOPES[@]}"; do
+        [ "$scope" = "$exclude_scope" ] && continue
         if [ -L "$CLAUDE_DIR/$scope" ]; then
             symlink_count=$((symlink_count + 1))
             present_count=$((present_count + 1))
@@ -564,6 +571,280 @@ release_lock() {
     trap - EXIT INT TERM
 }
 
+# --- TUNE-0297: Codex UX parity helpers -------------------------------------
+#
+# Codex CLI 0.130+ enumerates skills only for entries shaped as
+# <name>/SKILL.md with valid YAML frontmatter, and exposes slash-commands /
+# agents discoverable purely via AGENTS.md instructional text. Datarim source
+# layout is flat `.md` files, so we generate adapter wrappers + a Codex-only
+# manifest at install time. AGENTS.md (symlink chain to source CLAUDE.md)
+# stays byte-stable — the manifest lives in AGENTS.override.md.
+
+# Extract a frontmatter scalar field from a Datarim source `.md`. Echoes the
+# trimmed value, or empty string if absent. Stops at the closing `---`.
+extract_frontmatter_field() {
+    local src="$1" field="$2"
+    awk -v field="$field" '
+        BEGIN { in_fm = 0; fm_count = 0; collecting = 0; block_indent = 0; out = "" }
+        /^---[[:space:]]*$/ {
+            fm_count++
+            if (fm_count == 1) { in_fm = 1; next }
+            if (fm_count == 2) { if (collecting) print out; exit }
+        }
+        in_fm == 1 && collecting == 1 {
+            # Read indented continuation of a block scalar started by `|` or `>`.
+            if (match($0, "^[[:space:]]+")) {
+                if (block_indent == 0) block_indent = RLENGTH
+                line = substr($0, block_indent + 1)
+                # > folds newlines into spaces; | preserves but we still want a
+                # single-line scalar for the wrapper — collapse uniformly.
+                sub(/[[:space:]]+$/, "", line)
+                if (out == "") out = line
+                else out = out " " line
+                next
+            }
+            # First non-indented line ends the block scalar — emit and stop.
+            print out
+            exit
+        }
+        in_fm == 1 {
+            if (match($0, "^" field ":[[:space:]]*")) {
+                val = substr($0, RLENGTH + 1)
+                sub(/[[:space:]]+$/, "", val)
+                if (val == "|" || val == ">" || val == "|-" || val == ">-" || val == "|+" || val == ">+") {
+                    collecting = 1
+                    block_indent = 0
+                    next
+                }
+                # Inline scalar: strip matching outer quotes if both present.
+                # Keep the body verbatim — emission re-quotes safely.
+                if (val ~ /^".*"$/) val = substr(val, 2, length(val) - 2)
+                else if (val ~ /^'\''.*'\''$/) val = substr(val, 2, length(val) - 2)
+                print val
+                exit
+            }
+        }
+    ' "$src" 2>/dev/null || true
+}
+
+# Fallback: first non-empty non-frontmatter paragraph, trimmed to 200 chars.
+extract_first_paragraph() {
+    local src="$1"
+    awk '
+        BEGIN { in_fm = 0; fm_count = 0; out = "" }
+        /^---[[:space:]]*$/ {
+            fm_count++
+            if (fm_count == 1) { in_fm = 1; next }
+            if (fm_count == 2) { in_fm = 0; next }
+        }
+        in_fm == 1 { next }
+        /^[[:space:]]*$/ { if (out != "") exit; else next }
+        /^#/ { next }
+        {
+            line = $0
+            sub(/^[[:space:]]+/, "", line)
+            sub(/[[:space:]]+$/, "", line)
+            if (out == "") out = line
+            else out = out " " line
+        }
+        END {
+            if (length(out) > 200) out = substr(out, 1, 197) "..."
+            print out
+        }
+    ' "$src" 2>/dev/null || true
+}
+
+# Sanitise a YAML scalar so it is safe to inline after `field:`. Collapses
+# whitespace; returns the raw text without re-quoting (the caller decides
+# inline-vs-quoted-vs-folded). Internal `"` are preserved so the quoter can
+# escape them — do not strip here.
+yaml_safe_scalar() {
+    local raw="$1"
+    raw=${raw//$'\n'/ }
+    raw=${raw//$'\r'/ }
+    printf '%s' "$raw" | tr -s '[:space:]' ' ' | sed -e 's/^ *//' -e 's/ *$//'
+}
+
+# Render a scalar safely for a YAML mapping value. Output is always
+# double-quoted with backslash + double-quote escaped. Empty/blank values
+# fall back to a hardcoded placeholder so the YAML key is never bare.
+yaml_quote_scalar() {
+    local raw
+    raw=$(yaml_safe_scalar "$1")
+    if [ -z "$raw" ]; then
+        raw="Datarim artefact."
+    fi
+    # Escape backslashes first, then double-quotes.
+    raw=${raw//\\/\\\\}
+    raw=${raw//\"/\\\"}
+    printf '"%s"' "$raw"
+}
+
+# Generate one SKILL.md wrapper for a source skill .md.
+#   $1 — source path (absolute, must be a regular file in $SCRIPT_DIR/skills/)
+#   $2 — destination SKILL.md path
+generate_skill_wrapper() {
+    local src="$1" dst="$2"
+    local name desc rel
+    name=$(extract_frontmatter_field "$src" "name")
+    desc=$(extract_frontmatter_field "$src" "description")
+    if [ -z "$name" ]; then
+        name=$(basename "$src" .md)
+        echo "  WARN: $src has no frontmatter 'name:' — falling back to basename '$name'" >&2
+    fi
+    if [ -z "$desc" ]; then
+        desc=$(extract_first_paragraph "$src")
+        if [ -z "$desc" ]; then
+            desc="Datarim skill (source: $(basename "$src"))."
+        fi
+    fi
+    local name_q desc_q
+    name_q=$(yaml_quote_scalar "$name")
+    desc_q=$(yaml_quote_scalar "$desc")
+    rel="code/datarim/skills/$(basename "$src")"
+    mkdir -p "$(dirname "$dst")"
+    cat > "$dst" <<WRAP
+---
+name: $name_q
+description: $desc_q
+---
+
+This skill is provided by the Datarim framework.
+
+Source: $rel
+
+Read the source file at \`$rel\` for full instructions. This wrapper exists
+so that Codex CLI's skill discovery (which expects \`<name>/SKILL.md\`
+shape) can index Datarim skills alongside its bundled \`.system/\` skills.
+WRAP
+}
+
+# Restore Codex bundled `.system/` skills from the TUNE-0296 backup directory.
+# Idempotent: cleans `<codex_dir>/skills/.system/` first.
+restore_codex_system_skills() {
+    local codex_dir="$1"
+    local backup=""
+    # set +e locally because globbing for the newest backup is best-effort
+    # under `set -euo pipefail`: zero matches is normal, not an error.
+    if compgen -G "$codex_dir/skills.bundled-backup-TUNE-0296-*" >/dev/null 2>&1; then
+        # Pick newest by mtime (BSD/GNU portable: -1 -d -t)
+        backup=$(ls -1dt "$codex_dir"/skills.bundled-backup-TUNE-0296-* 2>/dev/null | head -1 || true)
+    fi
+    if [ -z "$backup" ] || [ ! -d "$backup/.system" ]; then
+        echo "  NOTE: no .system/ backup found under $codex_dir/skills.bundled-backup-TUNE-0296-* — skipping restore" >&2
+        return 0
+    fi
+    rm -rf "$codex_dir/skills/.system"
+    cp -a "$backup/.system" "$codex_dir/skills/.system"
+    echo "  RESTORE: .system/ ← $(basename "$backup")"
+}
+
+# Emit a Markdown bullet line for one source artefact.
+#   $1 — source .md path
+#   $2 — display prefix to apply to the basename (e.g. `/` for commands, '' for skills)
+emit_manifest_entry() {
+    local src="$1" prefix="$2"
+    local name desc base
+    base=$(basename "$src" .md)
+    name=$(extract_frontmatter_field "$src" "name")
+    [ -z "$name" ] && name="$base"
+    desc=$(extract_frontmatter_field "$src" "description")
+    if [ -z "$desc" ]; then
+        desc=$(extract_first_paragraph "$src")
+    fi
+    desc=$(yaml_safe_scalar "$desc")
+    if [ -n "$desc" ]; then
+        printf -- '- `%s%s` — %s\n' "$prefix" "$name" "$desc"
+    else
+        printf -- '- `%s%s`\n' "$prefix" "$name"
+    fi
+}
+
+# Generate ~/.codex/AGENTS.override.md with commands / skills / agents catalogue.
+# Overwrite-by-design — wrappers are ephemeral generated artefacts.
+generate_codex_agents_manifest() {
+    local src_dir="$1" dst="$2"
+    local f
+    {
+        echo "<!-- AUTO-GENERATED by install.sh fanout_codex_ux (TUNE-0297). DO NOT EDIT MANUALLY. -->"
+        echo "<!-- Source: $src_dir/{commands,skills,agents}/ -->"
+        echo ""
+        echo "## Available Datarim Commands"
+        echo ""
+        if [ -d "$src_dir/commands" ]; then
+            for f in "$src_dir/commands"/*.md; do
+                [ -f "$f" ] || continue
+                emit_manifest_entry "$f" "/"
+            done
+        fi
+        echo ""
+        echo "## Available Datarim Skills"
+        echo ""
+        if [ -d "$src_dir/skills" ]; then
+            for f in "$src_dir/skills"/*.md; do
+                [ -f "$f" ] || continue
+                emit_manifest_entry "$f" ""
+            done
+        fi
+        echo ""
+        echo "## Available Datarim Agents"
+        echo ""
+        if [ -d "$src_dir/agents" ]; then
+            for f in "$src_dir/agents"/*.md; do
+                [ -f "$f" ] || continue
+                emit_manifest_entry "$f" ""
+            done
+        fi
+        echo ""
+        echo "<!-- Regenerate via: install.sh --with-codex. Skip via: --no-codex-ux. -->"
+    } > "$dst"
+}
+
+# Orchestrator: convert ~/.codex/skills/ from symlink → real dir, regenerate
+# SKILL.md wrappers, restore .system/, emit AGENTS.override.md manifest.
+fanout_codex_ux() {
+    local codex_dir="$1" src_dir="$2"
+    if [ "$DRY_RUN" = true ]; then
+        echo "DRY: convert $codex_dir/skills symlink → real dir if symlinked"
+        echo "DRY: generate SKILL.md wrappers under $codex_dir/skills/<name>/"
+        echo "DRY: restore .system/ from $codex_dir/skills.bundled-backup-TUNE-0296-*"
+        echo "DRY: write $codex_dir/AGENTS.override.md (commands + skills + agents manifest)"
+        return 0
+    fi
+
+    # 1. Convert skills/ symlink to real directory (idempotent)
+    if [ -L "$codex_dir/skills" ]; then
+        rm "$codex_dir/skills"
+        mkdir -p "$codex_dir/skills"
+    fi
+    mkdir -p "$codex_dir/skills"
+
+    # 2. Clean stale wrappers (preserve `.system/`)
+    if [ -d "$codex_dir/skills" ]; then
+        find "$codex_dir/skills" -mindepth 1 -maxdepth 1 -type d \
+            ! -name '.system' -exec rm -rf {} +
+    fi
+
+    # 3. Generate wrappers for top-level source skills (`skills/<basename>.md`).
+    #    Skip subdir-fragment files (those live under `skills/<topic>/`).
+    local src_skill name
+    local generated=0
+    for src_skill in "$src_dir/skills"/*.md; do
+        [ -f "$src_skill" ] || continue
+        name=$(basename "$src_skill" .md)
+        generate_skill_wrapper "$src_skill" "$codex_dir/skills/$name/SKILL.md"
+        generated=$((generated + 1))
+    done
+    echo "  WRAP: generated $generated SKILL.md adapter(s) under $codex_dir/skills/"
+
+    # 4. Restore .system/ from backup
+    restore_codex_system_skills "$codex_dir"
+
+    # 5. Generate AGENTS.override.md
+    generate_codex_agents_manifest "$src_dir" "$codex_dir/AGENTS.override.md"
+    echo "  MANIFEST: $codex_dir/AGENTS.override.md"
+}
+
 fanout_runtime() {
     local runtime_name="$1"
     # claude: respect external CLAUDE_DIR (test fixtures, custom installs).
@@ -608,6 +889,9 @@ fanout_runtime() {
         done
         if [ "$runtime_name" = "codex" ]; then
             echo "DRY: ln -sfn $SCRIPT_DIR/AGENTS.md $CLAUDE_DIR/AGENTS.md"
+            if [ "$FANOUT_CODEX_UX" = true ]; then
+                fanout_codex_ux "$CLAUDE_DIR" "$SCRIPT_DIR"
+            fi
         fi
         echo "DRY: setup_local_overlay $CLAUDE_DIR/local"
         echo ""
@@ -621,8 +905,14 @@ fanout_runtime() {
     # assert_claude_dir_safe already called above (pre-lockfile gate)
 
     if [ "$INSTALL_MODE" = "symlink" ]; then
-        local topology
-        topology=$(detect_existing_topology)
+        local topology topo_exclude=""
+        # TUNE-0297: under codex + FANOUT_CODEX_UX skills/ is intentionally a
+        # real dir while the other scopes stay symlinks — exclude it from the
+        # mixed-topology gate so a re-run does not blow up.
+        if [ "$runtime_name" = "codex" ] && [ "$FANOUT_CODEX_UX" = true ]; then
+            topo_exclude="skills"
+        fi
+        topology=$(detect_existing_topology "$topo_exclude")
         case "$topology" in
             copy)
                 migration_prompt
@@ -640,6 +930,13 @@ fanout_runtime() {
     # migration_prompt may have flipped INSTALL_MODE to copy (user picked [k]).
     if [ "$INSTALL_MODE" = "symlink" ]; then
         for scope in "${INSTALL_SCOPES[@]}"; do
+            # TUNE-0297: under codex + FANOUT_CODEX_UX skip the skills/ symlink;
+            # fanout_codex_ux will materialise it as a real dir with wrappers.
+            if [ "$scope" = "skills" ] && \
+               [ "$runtime_name" = "codex" ] && \
+               [ "$FANOUT_CODEX_UX" = true ]; then
+                continue
+            fi
             link_scope_tree "$SCRIPT_DIR/$scope" "$CLAUDE_DIR/$scope"
         done
         # TUNE-0296: Codex CLI reads ~/.codex/AGENTS.md as ecosystem-router entry.
@@ -648,6 +945,9 @@ fanout_runtime() {
             ln -sfn "$SCRIPT_DIR/AGENTS.md" "$CLAUDE_DIR/AGENTS.md"
             echo "  LINK: AGENTS.md → $SCRIPT_DIR/AGENTS.md"
             LINKED=$((LINKED + 1))
+            if [ "$FANOUT_CODEX_UX" = true ]; then
+                fanout_codex_ux "$CLAUDE_DIR" "$SCRIPT_DIR"
+            fi
         fi
     else
         for scope in "${INSTALL_SCOPES[@]}"; do
@@ -662,6 +962,9 @@ fanout_runtime() {
             cp -f "$SCRIPT_DIR/AGENTS.md" "$CLAUDE_DIR/AGENTS.md"
             echo "  COPY: AGENTS.md → $CLAUDE_DIR/AGENTS.md"
             COPIED=$((COPIED + 1))
+            if [ "$FANOUT_CODEX_UX" = true ]; then
+                fanout_codex_ux "$CLAUDE_DIR" "$SCRIPT_DIR"
+            fi
         fi
     fi
 
