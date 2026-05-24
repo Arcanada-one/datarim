@@ -1,5 +1,6 @@
 # dr-orchestrate-server.yaml — TUNE-0295 Phase A
-# Configuration manifest for the bash HTTP server (replaces adnanh/webhook).
+# Configuration manifest for the bash HTTP server (own listener,
+# replaces the prior third-party webhook reference impl).
 # Consumed by dr_orchestrate_server.sh + dr_orchestrate_router.sh as
 # documentation; runtime overrides via env-vars take precedence.
 #

@@ -11,9 +11,9 @@
 #        $1 is HTTP method [A-Z], $2 is path, $3 is body-file, $4 is headers-file.
 #        Output: handler-protocol envelope "<status>\r\n<headers>\r\n\r\n<body>".
 #
-#   3. Positional legacy (adnanh/webhook pre-TUNE-0295):
+#   3. Positional legacy (pre-TUNE-0295 third-party webhook bridge):
 #        $1 is raw body, $2 is optional X-Sync-Timeout ms.
-#        Output: JSON event document, exit 0/1. Auth via trigger-rule.
+#        Output: JSON event document, exit 0/1. Auth pre-validated upstream.
 #
 # Sync shortcut: commands in SYNC_WHITELIST + X-Sync-Timeout <=2000ms
 #   → executes inline and returns JSON result on stdout.
