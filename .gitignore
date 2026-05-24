@@ -40,3 +40,9 @@ datarim/snapshots/
 
 # TUNE-0268 Phase 2: backlog.md.lock — flock guard для datarim backlog add.
 *.lock
+
+# TUNE-0296: Codex CLI auto-recreates bundled skills under skills/.system/ when
+# ~/.codex/skills → datarim/skills/ symlink is in place (--with-codex install
+# path). These are runtime artefacts owned by Codex CLI, not Datarim source.
+# Permanent integration design tracked in backlog (Source: TUNE-0296).
+skills/.system/
