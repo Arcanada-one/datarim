@@ -46,14 +46,21 @@ readlink -f ~/.codex/AGENTS.md     # → <repo>/CLAUDE.md (through AGENTS.md →
 head -1 ~/.codex/AGENTS.md         # → "# Datarim — Universal Iterative Workflow Framework"
 ```
 
-When you launch Codex CLI inside an Arcanada-managed workspace, the slash-command catalogue (`~/.codex/commands/dr-*.md`) is now visible to the runtime exactly like under Claude Code.
+When you launch Codex CLI inside an Arcanada-managed workspace, the slash-command catalogue (`~/.codex/commands/dr-*.md`) is reachable on disk through the symlink, **but Codex CLI does not auto-discover slash commands the way Claude Code does** — there is no `/`-prefix popup menu in the REPL.
+
+To invoke a Datarim command under Codex, reference its markdown file by name in your prompt:
 
 ```bash
 cd ~/arcanada
-codex exec --skip-git-repo-check "запусти /dr-status и верни TASK-ID + статус 3 активных задач"
+codex exec --skip-git-repo-check \
+    "Выполни workflow /dr-status — прочитай commands/dr-status.md и следуй инструкциям, верни TASK-ID + статус 3 активных задач"
 ```
 
 The output should cite at least one task from `datarim/tasks.md`. If you see «file not found» on `commands/dr-status.md`, the `~/.codex/commands/` symlink was not created — re-run `./install.sh --with-codex` from the canonical source path.
+
+### Why no `/`-popup menu in Codex?
+
+Slash-command auto-complete is a feature of the **host runtime** (Claude Code), not of the Datarim symlinks. Claude Code scans `~/.claude/commands/*.md` and registers each file as a UI command; Codex CLI has no equivalent indexing layer in 0.130.0. The markdown files are still reachable — Codex reads them on demand when you reference them by path or name — but they will not surface in a `/`-typed menu. UI parity for Codex is an upstream concern (Codex CLI feature request), not a Datarim runtime gap. Recommended pattern under Codex: name the command explicitly in the prompt (e.g. «follow `commands/dr-do.md` for TUNE-0123») so the LLM loads the instructions on first turn.
 
 ## Optional: Coworker `codex` profile
 
