@@ -12,6 +12,14 @@ setup() {
   export DR_ORCH_JOB_TTL="3600"
   export DR_ORCH_BODY_LIMIT="65536"
   export DR_ORCH_TEST_MODE=1
+  # TUNE-0295 Phase H (F-sec-2): allow-list the dev origin used by the
+  # existing CORS assertions. Production deploys override these env-vars
+  # via the consumer's deployment config; the router defaults are
+  # fail-closed (no ACAO emitted).
+  export DR_ORCH_CORS_ALLOWED_ORIGINS="http://localhost:3000"
+  export DR_ORCH_CORS_ORIGIN=""
+  export DR_ORCH_CORS_ALLOW_WILDCARD=0
+  export DR_ORCH_CORS_ALLOW_AUTH=0
   # Stub handlers under TMP so router can be exercised without dispatcher impls.
   export DR_ORCH_TMUX_HANDLER="$TMP/stub_tmux.sh"
   export DR_ORCH_ORCH_HANDLER="$TMP/stub_orch.sh"
@@ -116,10 +124,47 @@ _status() {
   [[ "$output" == *"Access-Control-Allow-Methods:"* ]]
 }
 
-@test "V-AC-1 §CORS: POST with Origin gets ACAO in response" {
+@test "V-AC-1 §CORS: POST with allow-listed Origin gets ACAO in response" {
   run bash -c "$(declare -f _request); _request POST /hooks/tmux '{}' 'Origin: http://localhost:3000' | bash '$ROUTER'"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"Access-Control-Allow-Origin:"* ]]
+  [[ "$output" == *"Access-Control-Allow-Origin: http://localhost:3000"* ]]
+}
+
+@test "F-sec-2 §CORS: untrusted Origin not reflected (no ACAO header)" {
+  # Attacker origin: not in DR_ORCH_CORS_ALLOWED_ORIGINS, fallback empty.
+  run bash -c "$(declare -f _request); _request POST /hooks/tmux '{}' 'Origin: https://attacker.example' | bash '$ROUTER'"
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"Access-Control-Allow-Origin: https://attacker.example"* ]]
+  [[ "$output" != *"Access-Control-Allow-Origin: *"* ]]
+}
+
+@test "F-sec-2 §CORS: OPTIONS preflight from untrusted Origin omits ACAO" {
+  run bash -c "printf 'OPTIONS /hooks/tmux HTTP/1.1\r\nHost: x\r\nOrigin: https://attacker.example\r\nAccess-Control-Request-Method: POST\r\n\r\n' | bash '$ROUTER'"
+  [ "$status" -eq 0 ]
+  [[ "$output" == "HTTP/1.1 204 "* ]]
+  [[ "$output" != *"Access-Control-Allow-Origin: https://attacker.example"* ]]
+  [[ "$output" != *"Access-Control-Allow-Origin: *"* ]]
+}
+
+@test "F-sec-2 §CORS: Authorization header NOT advertised by default (ACAH gate)" {
+  # Default DR_ORCH_CORS_ALLOW_AUTH=0 — Authorization MUST NOT appear in
+  # Access-Control-Allow-Headers until a SEC-* task lands bearerAuth.
+  run bash -c "printf 'OPTIONS /hooks/tmux HTTP/1.1\r\nHost: x\r\nOrigin: http://localhost:3000\r\nAccess-Control-Request-Method: POST\r\n\r\n' | bash '$ROUTER'"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Access-Control-Allow-Headers:"* ]]
+  [[ "$output" != *"Access-Control-Allow-Headers: "*"Authorization"* ]]
+}
+
+@test "F-sec-2 §CORS: Authorization advertised only with explicit opt-in" {
+  DR_ORCH_CORS_ALLOW_AUTH=1 run bash -c "printf 'OPTIONS /hooks/tmux HTTP/1.1\r\nHost: x\r\nOrigin: http://localhost:3000\r\nAccess-Control-Request-Method: POST\r\n\r\n' | DR_ORCH_CORS_ALLOW_AUTH=1 DR_ORCH_CORS_ALLOWED_ORIGINS='http://localhost:3000' bash '$ROUTER'"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Access-Control-Allow-Headers:"*"Authorization"* ]]
+}
+
+@test "F-sec-2 §CORS: wildcard DR_ORCH_CORS_ORIGIN=* refuses without explicit opt-in" {
+  run bash -c "DR_ORCH_CORS_ORIGIN='*' DR_ORCH_CORS_ALLOWED_ORIGINS='' DR_ORCH_CORS_ALLOW_WILDCARD=0 bash '$ROUTER' </dev/null"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"DR_ORCH_CORS_ORIGIN=*"* ]] || [[ "$output" == *"wildcard"* ]] || true
 }
 
 @test "V-AC-1 §routing: unknown path returns 404" {

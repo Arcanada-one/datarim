@@ -27,7 +27,7 @@ _start_mock() {
     # bound assertions skip via mode != caller-controlled).
     if [ "${DATARIM_CLI_USE_REAL_DISPATCHER:-}" = "1" ]; then
         [ -n "${DATARIM_CLI_WEBHOOK_URL:-}" ] || skip "real-dispatcher mode requires DATARIM_CLI_WEBHOOK_URL"
-        skip "real-dispatcher mode: fixture-bound assertion not portable (Phase G PROD smoke covers)"
+        skip "real-dispatcher mode: fixture-bound assertion not portable on live tmux state — wish_id phase4-cli-bats-not-regressed § V-AC-5 deferred to Phase G PROD smoke runbook"
     fi
     MOCK_PORT="$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()')"
     export DATARIM_CLI_WEBHOOK_URL="http://127.0.0.1:$MOCK_PORT"

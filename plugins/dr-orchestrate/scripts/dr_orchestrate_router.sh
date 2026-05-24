@@ -6,23 +6,47 @@
 # tests directly via pipe.
 #
 # Env:
-#   DR_ORCH_BODY_LIMIT    — max body bytes (default 65536)
-#   DR_ORCH_TMUX_HANDLER  — script for /hooks/tmux*  (4-arg signature)
-#   DR_ORCH_ORCH_HANDLER  — script for /hooks/orchestrator-input
-#   DR_ORCH_CORS_ORIGIN   — ACAO value (default *) — echoes request Origin
+#   DR_ORCH_BODY_LIMIT          — max body bytes (default 65536)
+#   DR_ORCH_TMUX_HANDLER        — script for /hooks/tmux*  (4-arg signature)
+#   DR_ORCH_ORCH_HANDLER        — script for /hooks/orchestrator-input
+#   DR_ORCH_CORS_ORIGIN         — fallback ACAO value when request has no Origin
+#                                 OR Origin is not in allow-list. Default empty
+#                                 (no ACAO emitted → cross-origin blocked).
+#                                 Wildcard `*` requires DR_ORCH_CORS_ALLOW_WILDCARD=1.
+#   DR_ORCH_CORS_ALLOWED_ORIGINS — whitespace-separated exact-match allow-list of
+#                                  Origins permitted to be reflected verbatim in
+#                                  ACAO. Default empty.
+#   DR_ORCH_CORS_ALLOW_WILDCARD  — set to `1` to permit `DR_ORCH_CORS_ORIGIN=*`.
+#                                  Default 0 (hard reject).
+#   DR_ORCH_CORS_ALLOW_AUTH      — set to `1` to advertise `Authorization` in
+#                                  Access-Control-Allow-Headers. Default 0 —
+#                                  bearerAuth is deferred to a SEC-* task per
+#                                  TUNE-0295 PRD Debate 1.
 #
 # Handler signature: <method> <path> <body-file> <headers-file>
 # Handler stdout shape: <status>\r\n<header-lines>\r\n\r\n<body>
 #
 # V-AC: V-AC-1 (endpoint live), R6 (URI control-char defence),
-#       R8 (header CRLF rejection), oversized body → 413.
+#       R8 (header CRLF rejection), oversized body → 413,
+#       F-sec-2 (CORS reflection hardening, TUNE-0295 Phase H).
 
 set -o pipefail
 
 : "${DR_ORCH_BODY_LIMIT:=65536}"
-: "${DR_ORCH_CORS_ORIGIN:=*}"
+: "${DR_ORCH_CORS_ORIGIN:=}"
+: "${DR_ORCH_CORS_ALLOWED_ORIGINS:=}"
+: "${DR_ORCH_CORS_ALLOW_WILDCARD:=0}"
+: "${DR_ORCH_CORS_ALLOW_AUTH:=0}"
 : "${DR_ORCH_TMUX_HANDLER:=}"
 : "${DR_ORCH_ORCH_HANDLER:=}"
+
+# Fail-closed on wildcard CORS unless explicitly opted in. Bare `*` ACAO
+# with Authorization in ACAH is a credentials-bearing wildcard which the
+# Fetch spec forbids; the gate exists to prevent foot-gun configuration.
+if [[ "$DR_ORCH_CORS_ORIGIN" == "*" ]] && [[ "$DR_ORCH_CORS_ALLOW_WILDCARD" != "1" ]]; then
+  printf 'FATAL: DR_ORCH_CORS_ORIGIN=* requires DR_ORCH_CORS_ALLOW_WILDCARD=1 (TUNE-0295 F-sec-2)\n' >&2
+  exit 6
+fi
 
 CRLF=$'\r\n'
 
@@ -64,13 +88,40 @@ _emit() {
   printf '%s' "$body"
 }
 
+# Resolve the ACAO value. Reflection happens ONLY when the request Origin
+# matches an entry in DR_ORCH_CORS_ALLOWED_ORIGINS (whitespace-separated
+# exact-match). Otherwise fall back to DR_ORCH_CORS_ORIGIN literal.
+# Empty result ⇒ omit CORS headers entirely (cross-origin blocked).
+_resolve_acao() {
+  local origin="${1:-}"
+  if [[ -n "$origin" ]] && [[ -n "$DR_ORCH_CORS_ALLOWED_ORIGINS" ]]; then
+    local entry
+    for entry in $DR_ORCH_CORS_ALLOWED_ORIGINS; do
+      if [[ "$origin" == "$entry" ]]; then
+        printf '%s' "$origin"
+        return 0
+      fi
+    done
+  fi
+  # No reflection — emit static fallback (may be empty).
+  printf '%s' "$DR_ORCH_CORS_ORIGIN"
+}
+
 _cors_headers() {
   local origin="${1:-}"
-  local acao="$DR_ORCH_CORS_ORIGIN"
-  [[ -n "$origin" ]] && acao="$origin"
+  local acao
+  acao="$(_resolve_acao "$origin")"
+  # Empty ACAO ⇒ omit all CORS headers (fail-closed default).
+  if [[ -z "$acao" ]]; then
+    return 0
+  fi
+  local acah='Content-Type, X-Sync-Timeout'
+  if [[ "$DR_ORCH_CORS_ALLOW_AUTH" == "1" ]]; then
+    acah="$acah, Authorization"
+  fi
   printf 'Access-Control-Allow-Origin: %s\r\n' "$acao"
   printf 'Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n'
-  printf 'Access-Control-Allow-Headers: Content-Type, X-Sync-Timeout, Authorization\r\n'
+  printf 'Access-Control-Allow-Headers: %s\r\n' "$acah"
   printf 'Access-Control-Max-Age: 600\r\n'
   printf 'Vary: Origin\r\n'
 }

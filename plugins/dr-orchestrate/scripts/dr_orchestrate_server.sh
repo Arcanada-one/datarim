@@ -10,9 +10,16 @@
 #   dr_orchestrate_server.sh --once     — accept exactly one connection (smoke)
 #
 # Env overrides:
-#   DR_ORCH_BIND       — bind address (default 127.0.0.1)
-#   DR_ORCH_PORT       — listen port  (default 31415)
-#   DR_ORCH_MAX_CHILDREN — socat max-children (default 50)
+#   DR_ORCH_BIND                  — bind address (default 127.0.0.1). Non-
+#                                   loopback values require explicit
+#                                   DR_ORCH_ALLOW_EXTERNAL_BIND=1 opt-in
+#                                   (TUNE-0295 F-sec-6 fail-closed gate).
+#   DR_ORCH_PORT                  — listen port  (default 31415)
+#   DR_ORCH_MAX_CHILDREN          — socat max-children (default 50)
+#   DR_ORCH_ALLOW_EXTERNAL_BIND   — set to `1` to opt out of the loopback-
+#                                   only guard. Operator MUST pair this with
+#                                   a network-exposure justification entry
+#                                   per skills/network-exposure-baseline.md.
 #   DR_ORCH_BODY_LIMIT, DR_ORCH_TMUX_HANDLER, DR_ORCH_ORCH_HANDLER —
 #       forwarded to router.
 
@@ -21,9 +28,32 @@ set -uo pipefail
 : "${DR_ORCH_BIND:=127.0.0.1}"
 : "${DR_ORCH_PORT:=31415}"
 : "${DR_ORCH_MAX_CHILDREN:=50}"
+: "${DR_ORCH_ALLOW_EXTERNAL_BIND:=0}"
+
+# F-sec-6: refuse non-loopback bind unless operator explicitly opts in.
+# The V-AC-8 verifier classifies the YAML config; runtime env-var override
+# would otherwise bypass that gate without leaving an audit trail.
+case "$DR_ORCH_BIND" in
+  127.0.0.1|127.0.0.1:*|::1|"[::1]"|"[::1]:"*) ;;
+  *)
+    if [[ "$DR_ORCH_ALLOW_EXTERNAL_BIND" != "1" ]]; then
+      printf 'FATAL: non-loopback bind %q requires DR_ORCH_ALLOW_EXTERNAL_BIND=1 (TUNE-0295 F-sec-6)\n' "$DR_ORCH_BIND" >&2
+      exit 4
+    fi
+    printf 'WARN: non-loopback bind %q permitted via DR_ORCH_ALLOW_EXTERNAL_BIND=1 — operator MUST log justification per skills/network-exposure-baseline.md\n' "$DR_ORCH_BIND" >&2
+    ;;
+esac
 
 PLUGIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ROUTER="$PLUGIN_DIR/scripts/dr_orchestrate_router.sh"
+
+# F-sec-1: $ROUTER is interpolated into the socat EXEC argument, which is
+# tokenised on whitespace before exec. Refuse any path that would not
+# survive a literal exec — no spaces, no shell metacharacters.
+if [[ ! "$ROUTER" =~ ^[A-Za-z0-9_./+-]+$ ]]; then
+  printf 'FATAL: ROUTER path contains unsafe characters: %q (TUNE-0295 F-sec-1)\n' "$ROUTER" >&2
+  exit 5
+fi
 
 : "${DR_ORCH_TMUX_HANDLER:=$PLUGIN_DIR/scripts/tmux_dispatcher.sh}"
 : "${DR_ORCH_ORCH_HANDLER:=$PLUGIN_DIR/scripts/orchestrator-input-handler.sh}"
@@ -55,6 +85,10 @@ _preflight() {
   fi
 }
 
+# socat's EXEC tokenises its argument on whitespace via execvp; embedded
+# shell quoting would survive into argv and break the exec. We therefore
+# constrain $ROUTER above with a strict regex (no whitespace, no shell
+# metacharacters) instead of trying to quote at this layer.
 case "${1:-start}" in
   --check) _check; exit 0 ;;
   --once)
