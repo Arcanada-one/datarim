@@ -37,3 +37,6 @@ plugins/dr-orchestrate/user-config.yaml
 # Snapshot at datarim/snapshots/{TASK-ID}.snapshot.md, gitignored; /dr-archive
 # Step 0.95 moves the final snapshot to documentation/archive/<subdir>/snapshots/.
 datarim/snapshots/
+
+# TUNE-0268 Phase 2: backlog.md.lock — flock guard для datarim backlog add.
+*.lock

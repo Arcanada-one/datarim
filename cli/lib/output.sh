@@ -77,6 +77,29 @@ output_emit_error() {
     exit "$exit_code"
 }
 
+# Hybrid emit — error envelope с partial data (e.g. collisions list для
+# ID_COLLISION_DETECTED). Foundation line 146 разрешает data ≠ null когда
+# вызывающий передаёт partial-data context.
+output_emit_error_with_data() {
+    local exit_code="${1:?output_emit_error_with_data: exit code required}"
+    local err_name="${2:?output_emit_error_with_data: error name required}"
+    local message="${3:?output_emit_error_with_data: message required}"
+    local data_json="${4:?output_emit_error_with_data: data JSON required}"
+
+    if [[ "$OUTPUT_MODE" == "json" ]]; then
+        local err_json
+        err_json="$(jq -n \
+            --arg code "$err_name" \
+            --argjson exit "$exit_code" \
+            --arg msg "$message" \
+            '{code: $code, exit: $exit, message: $msg}')"
+        _output_envelope "$data_json" "$err_json"
+    else
+        printf '%s: %s\n' "$err_name" "$message" >&2
+    fi
+    exit "$exit_code"
+}
+
 output_emit_warn() {
     local text="${1-}"
     printf '%s\n' "$text" >&2
