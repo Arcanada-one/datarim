@@ -127,6 +127,42 @@ teardown() {
     [[ "$output" == *"lockfile busy"* ]] || [[ "$output" == *"lockfile"* ]]
 }
 
+# ---------- TUNE-0296: AGENTS.md routing for Codex CLI --------------------
+
+@test "TUNE-0296 T40 --with-codex creates AGENTS.md symlink to Datarim source" {
+    local fake_codex="$FAKE_HOME/.codex"
+    echo "# datarim AGENTS" > "$FAKE_REPO/AGENTS.md"
+    run env HOME="$FAKE_HOME" CODEX_DIR="$fake_codex" "$FAKE_REPO/install.sh" --with-codex
+    [ "$status" -eq 0 ]
+    [ -L "$fake_codex/AGENTS.md" ]
+    local actual expected
+    actual="$(readlink "$fake_codex/AGENTS.md")"
+    expected="$FAKE_REPO/AGENTS.md"
+    [ "$actual" = "$expected" ] || { echo "AGENTS.md symlink target: '$actual' != '$expected'" >&2; false; }
+    [ "$(cat "$fake_codex/AGENTS.md")" = "# datarim AGENTS" ]
+}
+
+@test "TUNE-0296 T41 --with-claude does NOT create AGENTS.md (regression guard)" {
+    echo "# datarim AGENTS" > "$FAKE_REPO/AGENTS.md"
+    run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" "$FAKE_REPO/install.sh" --with-claude
+    [ "$status" -eq 0 ]
+    [ ! -e "$FAKE_CLAUDE/AGENTS.md" ]
+}
+
+@test "TUNE-0296 T40b --with-codex --dry-run mentions AGENTS.md, --with-claude --dry-run does not" {
+    local fake_codex="$FAKE_HOME/.codex"
+    echo "# datarim AGENTS" > "$FAKE_REPO/AGENTS.md"
+    run env HOME="$FAKE_HOME" CODEX_DIR="$fake_codex" \
+        "$FAKE_REPO/install.sh" --with-codex --dry-run
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"AGENTS.md"* ]]
+
+    run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" \
+        "$FAKE_REPO/install.sh" --with-claude --dry-run
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"AGENTS.md"* ]]
+}
+
 # ---------- backwards-compat layer ----------------------------------------
 
 @test "TUNE-0114 legacy --copy without --with-claude implies claude with WARN" {

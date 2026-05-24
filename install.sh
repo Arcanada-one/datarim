@@ -606,6 +606,9 @@ fanout_runtime() {
         for scope in "${INSTALL_SCOPES[@]}"; do
             echo "DRY: ln -sfn $SCRIPT_DIR/$scope $CLAUDE_DIR/$scope"
         done
+        if [ "$runtime_name" = "codex" ]; then
+            echo "DRY: ln -sfn $SCRIPT_DIR/AGENTS.md $CLAUDE_DIR/AGENTS.md"
+        fi
         echo "DRY: setup_local_overlay $CLAUDE_DIR/local"
         echo ""
         release_lock
@@ -639,6 +642,13 @@ fanout_runtime() {
         for scope in "${INSTALL_SCOPES[@]}"; do
             link_scope_tree "$SCRIPT_DIR/$scope" "$CLAUDE_DIR/$scope"
         done
+        # TUNE-0296: Codex CLI reads ~/.codex/AGENTS.md as ecosystem-router entry.
+        # Symlink to Datarim source so Codex sees the same router as Claude (via CLAUDE.md chain).
+        if [ "$runtime_name" = "codex" ]; then
+            ln -sfn "$SCRIPT_DIR/AGENTS.md" "$CLAUDE_DIR/AGENTS.md"
+            echo "  LINK: AGENTS.md → $SCRIPT_DIR/AGENTS.md"
+            LINKED=$((LINKED + 1))
+        fi
     else
         for scope in "${INSTALL_SCOPES[@]}"; do
             mkdir -p "$CLAUDE_DIR/$scope"
@@ -648,6 +658,11 @@ fanout_runtime() {
             copy_scope_tree "$SCRIPT_DIR/$scope" "$CLAUDE_DIR/$scope"
             echo ""
         done
+        if [ "$runtime_name" = "codex" ]; then
+            cp -f "$SCRIPT_DIR/AGENTS.md" "$CLAUDE_DIR/AGENTS.md"
+            echo "  COPY: AGENTS.md → $CLAUDE_DIR/AGENTS.md"
+            COPIED=$((COPIED + 1))
+        fi
     fi
 
     setup_local_overlay

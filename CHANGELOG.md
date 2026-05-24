@@ -4,6 +4,12 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Multi-runtime parity for Codex CLI (TUNE-0296).** `./install.sh --with-codex` now symlinks `~/.codex/AGENTS.md → <repo>/AGENTS.md` (which is itself a symlink to `CLAUDE.md`), in addition to the existing seven directory symlinks (`agents/`, `skills/`, `commands/`, `templates/`, `scripts/`, `tests/`, `dev-tools/`). Codex CLI now reads the canonical Datarim ecosystem-router from the same source repo as Claude Code. The patch is gated on `runtime_name=codex` — `--with-claude` topology is unchanged (T41 regression guard in `tests/install-tune-0114.bats`).
+- `tests/install-tune-0114.bats` — three new tests (T40 / T41 / T40b) covering AGENTS.md install / non-install and dry-run wording for both runtimes.
+- `docs/how-to/multi-runtime.md` — operator-facing how-to: install both runtimes, verify topology, register the Coworker `codex` profile, and the troubleshooting recipe for the pre-existing `~/.codex/skills/.system/` bundled-skills conflict.
+
 ### Documentation
 
 - `README.md` § Activate in Your Project — new subsection **«Optional: External CLI (`datarim` binary)»** (TUNE-0271 v2 doc-fanout). Explains that `./install.sh --with-claude` does **NOT** symlink the `datarim` binary used by non-interactive agents; the standalone CLI installer at `code/datarim/cli/install.sh` is opt-in (AAL 3) and must be run separately. Resolves the `zsh: command not found: datarim` discoverability gap reported post-archive.
