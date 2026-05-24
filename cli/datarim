@@ -72,6 +72,13 @@ Read-only state surface (Phase 1):
   snapshot show <TASK-ID> [--json]      Emit stage snapshot body
   active [--json]                       § Active Tasks from activeContext.md
 
+Tmux pane control (Phase 4, /hooks/tmux HTTP-proxy):
+  tmux ls [--json]
+  tmux attach <pane> [--task <TASK-ID>] [--json]
+  tmux new --task <TASK-ID> --cmd "<allowed-cmd>" [--json]
+  tmux kill <pane> [--force] [--json]
+  tmux read <pane> [--lines N] [--json]
+
 Slash dispatch + audit (Phase 3 baseline):
   run <slash-cmd> [args]                Dispatch slash command to /dr-orchestrate
   audit log [--day YYYY-MM-DD]
@@ -138,6 +145,18 @@ main() {
                 exec "$script" "$@"
             else
                 printf '[datarim] %s subcommand not installed (cli/subcommands/%s.sh missing or not executable)\n' "$sub" "$sub" >&2
+                exit 2
+            fi
+            ;;
+        tmux)
+            # Phase 4 — HTTP dispatch via /hooks/tmux; agent_id required (V-AC-23).
+            validate_agent_id || exit $?
+            if [ -f "$SUBCMD_DIR/tmux.sh" ]; then
+                # shellcheck source=cli/subcommands/tmux.sh
+                . "$SUBCMD_DIR/tmux.sh"
+                tmux_subcommand "$@"
+            else
+                printf '[datarim] tmux subcommand not installed (cli/subcommands/tmux.sh missing)\n' >&2
                 exit 2
             fi
             ;;
