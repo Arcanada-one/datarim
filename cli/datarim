@@ -22,8 +22,16 @@
 #   25  HTTP 5xx body received
 #   26  non-idempotent command on sync path
 #   27  async timeout (3600s ceiling)
+#   28  ID_COLLISION_DETECTED (Phase 2)
+#   29  COLLISION_TIMEOUT (Phase 2)
+#   30  STATE_MISMATCH (Phase 1)
+#   31  NOT_FOUND (Phase 1)
+#   32  INVALID_COMMAND (Phase 4)
+#   33  DEPENDENCY_MISSING (Phase 5)
+#   34  WORKSPACE_DISCIPLINE_VIOLATION (Phase 2)
 #
-# Per TUNE-0271 plan § Detailed Design 4.1-4.6.
+# Per TUNE-0271 plan § Detailed Design 4.1-4.6 (Phase 3 baseline).
+# Phase 1 read-only state surface (TUNE-0268 plan): status / tasks / backlog / snapshot / active.
 
 set -u
 
@@ -56,10 +64,20 @@ usage() {
     cat <<'EOF'
 Usage: datarim <subcommand> [args]
 
-Subcommands:
-  run <slash-cmd> [args]    Dispatch slash command to /dr-orchestrate.
+Read-only state surface (Phase 1):
+  status [--json]                       Snapshot of workspace (active, backlog, recent, next)
+  tasks list [--json]                   List active tasks from tasks.md
+  tasks show <TASK-ID> [--json]         Concatenate init-task + PRD + plan + reflection
+  backlog list [--prefix PFX] [--json]  List backlog entries (optional prefix filter)
+  snapshot show <TASK-ID> [--json]      Emit stage snapshot body
+  active [--json]                       § Active Tasks from activeContext.md
+
+Slash dispatch + audit (Phase 3 baseline):
+  run <slash-cmd> [args]                Dispatch slash command to /dr-orchestrate
   audit log [--day YYYY-MM-DD]
   audit halt | resume | purge | stats
+
+Other:
   version
   help
 
@@ -110,6 +128,16 @@ main() {
                 audit_subcommand "$@"
             else
                 printf '[datarim] audit subcommand not installed (cli/subcommands/audit.sh missing)\n' >&2
+                exit 2
+            fi
+            ;;
+        status|tasks|backlog|snapshot|active)
+            # Phase 1 read-only state surface — no agent_id check (no HTTP dispatch).
+            local script="$SUBCMD_DIR/${sub}.sh"
+            if [ -x "$script" ]; then
+                exec "$script" "$@"
+            else
+                printf '[datarim] %s subcommand not installed (cli/subcommands/%s.sh missing or not executable)\n' "$sub" "$sub" >&2
                 exit 2
             fi
             ;;
