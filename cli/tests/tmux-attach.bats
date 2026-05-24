@@ -20,6 +20,13 @@ teardown() {
 
 _start_mock() {
     local mode="$1"
+    # TUNE-0295 V-AC-5 dual-mode toggle: when real dispatcher is active, skip
+    # mock spawn (caller runs dr_orchestrate_server.sh externally; fixture-
+    # bound assertions skip via mode != caller-controlled).
+    if [ "${DATARIM_CLI_USE_REAL_DISPATCHER:-}" = "1" ]; then
+        [ -n "${DATARIM_CLI_WEBHOOK_URL:-}" ] || skip "real-dispatcher mode requires DATARIM_CLI_WEBHOOK_URL"
+        skip "real-dispatcher mode: fixture-bound assertion not portable (Phase G PROD smoke covers)"
+    fi
     MOCK_PORT="$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()')"
     export DATARIM_CLI_WEBHOOK_URL="http://127.0.0.1:$MOCK_PORT"
     MOCK_MODE="$mode" MOCK_PORT="$MOCK_PORT" python3 "$MOCK" &
