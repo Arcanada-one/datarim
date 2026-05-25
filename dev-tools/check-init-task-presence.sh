@@ -18,7 +18,7 @@
 #                   Exit code is **always 0** in `--all` mode — findings are
 #                   advisory (never block CI/pre-commit).
 #
-# Source-of-truth contract: skills/init-task-persistence.md.
+# Source-of-truth contract: skills/init-task-persistence/SKILL.md.
 #
 # Exit codes:
 #   0 — clean (or only advisory findings in --all mode)
@@ -221,7 +221,7 @@ validate_single_task() {
     fi
 
     # --- Q&A round-trip blocks (TUNE-0216) ---------------------------------
-    # Contract: skills/init-task-persistence.md § Q&A round-trip contract.
+    # Contract: skills/init-task-persistence/SKILL.md § Q&A round-trip contract.
     local qa_errors
     qa_errors=$(validate_qa_blocks "$file") || true
     if [ -n "$qa_errors" ]; then
@@ -233,7 +233,7 @@ validate_single_task() {
     if [ "$errors" -gt 0 ]; then
         if [ "$REPORT" -eq 1 ]; then
             echo "  $errors validation error(s) — see canonical contract in"
-            echo "  skills/init-task-persistence.md § Artifact Schema."
+            echo "  skills/init-task-persistence/SKILL.md § Artifact Schema."
         fi
         return 1
     fi

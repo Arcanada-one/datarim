@@ -7,7 +7,7 @@ Stack-neutral pattern for any live-service config flip, mount-point migration, o
 - a smoke-test pair that gates auto-rollback;
 - byte-level traceability of what changed.
 
-Use during `/dr-plan` or `/dr-do` for tasks that touch a live request path. Reference: `skills/security.md` § Cross-Stack Relative-Path Includes (companion threat-model recipe).
+Use during `/dr-plan` or `/dr-do` for tasks that touch a live request path. Reference: `skills/security/SKILL.md` § Cross-Stack Relative-Path Includes (companion threat-model recipe).
 
 ---
 

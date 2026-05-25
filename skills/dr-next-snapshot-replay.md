@@ -90,8 +90,8 @@ Heuristic выбирает `/dr-archive`. Rationale: L1/L2 после `/dr-do` �
 
 ## Related
 
-- `skills/stage-snapshot-writer.md` — producer-сторона
-- `skills/cta-format.md` — формат CTA-блока, который попадает в `<recommended-CTA>`
+- `skills/stage-snapshot-writer/SKILL.md` — producer-сторона
+- `skills/cta-format/SKILL.md` — формат CTA-блока, который попадает в `<recommended-CTA>`
 - `dev-tools/check-stage-snapshot-on-exit.sh` — обязательный validator перед эмиссией промпта
 - `commands/dr-next.md` § Step 2.5 — consumer-точка
 - `plugins/dr-orchestrate/commands/dr-orchestrate.md` § Snapshot-First Resume — orchestrator-точка

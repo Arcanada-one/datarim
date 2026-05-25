@@ -14,7 +14,7 @@ target_aal: 2
 
 | Aspect | Value |
 |--------|-------|
-| Producer touchpoint | `skills/cta-format.md` § Snapshot Emission (1 место, не N) |
+| Producer touchpoint | `skills/cta-format/SKILL.md` § Snapshot Emission (1 место, не N) |
 | Implementation | `scripts/lib/snapshot-writer.sh::write_stage_snapshot` |
 | Path | `datarim/snapshots/{TASK-ID}.snapshot.md` |
 | Lock | `datarim/snapshots/.lock.{TASK-ID}` (mkdir-based, reuses `acquire_plugin_lock`) |
@@ -101,8 +101,8 @@ write_stage_snapshot \
 
 ## Related
 
-- `skills/cta-format.md` § Snapshot Emission — единственная producer touchpoint
-- `skills/dr-next-snapshot-replay.md` — consumer-сторона
+- `skills/cta-format/SKILL.md` § Snapshot Emission — единственная producer touchpoint
+- `skills/dr-next-snapshot-replay/SKILL.md` — consumer-сторона
 - `dev-tools/check-stage-snapshot-on-exit.sh` — post-CTA advisory gate
 - `scripts/lib/plugin-system.sh::acquire_plugin_lock` — lock primitive (reused)
 - `feedback memory feedback_no_flock_on_macos` — обоснование mkdir-lock (POSIX flock ненадёжен на macOS через NFS/SMB)

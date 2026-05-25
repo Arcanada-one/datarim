@@ -38,7 +38,7 @@ The ID is assigned once — when the item is added to the backlog — and never 
 2. **Area prefix** — `INFRA`, `WEB`, `DEV`, `DEVOPS`, `CONTENT`, `RESEARCH`, `AGENT`, `BENCH`, `MAINT`, `FIN`, `QA`, `TUNE` — if the task is cross-project or general.
 3. **`TASK`** — fallback, avoid if possible.
 
-See the full prefix registry in `$HOME/.claude/skills/datarim-system.md` § Unified Task Numbering.
+See the full prefix registry in `$HOME/.claude/skills/datarim-system/SKILL.md` § Unified Task Numbering.
 
 > **Note:** The generic `BACKLOG-XXXX` format is deprecated. Older entries in `backlog-archive.md` may still use it for historical accuracy.
 

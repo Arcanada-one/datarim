@@ -14,7 +14,7 @@
 
 set -euo pipefail
 
-# Mandatory frontmatter fields per skills/stage-snapshot-writer.md § Outputs.
+# Mandatory frontmatter fields per skills/stage-snapshot-writer/SKILL.md § Outputs.
 # `options` validated separately (list, not scalar).
 readonly REQUIRED_SCALAR_FIELDS=(
     task_id

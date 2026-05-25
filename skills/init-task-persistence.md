@@ -35,8 +35,8 @@ The init-task file is one of three per-task artefacts that share the `{TASK-ID}`
 | Artefact | Semantics | Location | Contract |
 |----------|-----------|----------|----------|
 | `tasks/{TASK-ID}-init-task.md` | canonical, append-only (operator brief + Q&A log) | committed via task lifecycle | this skill |
-| `tasks/{TASK-ID}-task-description.md` | canonical, agent-mutated | committed via task lifecycle | `skills/datarim-system.md` § Description File Contract |
-| `snapshots/{TASK-ID}.snapshot.md` | ephemeral, overwrite-on-retry (final operator-visible `/dr-*` response) | `datarim/snapshots/` (gitignored); moved to `documentation/archive/<subdir>/snapshots/{TASK-ID}-final-stage.md` at `/dr-archive` | `skills/stage-snapshot-writer.md` (producer) + `skills/dr-next-snapshot-replay.md` (consumer) |
+| `tasks/{TASK-ID}-task-description.md` | canonical, agent-mutated | committed via task lifecycle | `skills/datarim-system/SKILL.md` § Description File Contract |
+| `snapshots/{TASK-ID}.snapshot.md` | ephemeral, overwrite-on-retry (final operator-visible `/dr-*` response) | `datarim/snapshots/` (gitignored); moved to `documentation/archive/<subdir>/snapshots/{TASK-ID}-final-stage.md` at `/dr-archive` | `skills/stage-snapshot-writer/SKILL.md` (producer) + `skills/dr-next-snapshot-replay/SKILL.md` (consumer) |
 
 The stage-snapshot is a sibling, not a replacement — init-task captures *what the operator asked for*; snapshot captures *what the agent last reported*. `/dr-next` and `/dr-orchestrate` read the snapshot first for context-resume after `/clear`.
 

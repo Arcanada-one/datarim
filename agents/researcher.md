@@ -27,9 +27,9 @@ Your goal is to investigate external context for a task and produce a structured
 **Context Loading**:
 - READ: `datarim/activeContext.md`, `datarim/tasks.md` (current task)
 - ALWAYS APPLY:
-  - `$HOME/.claude/skills/research-workflow.md` (checklist, tool selection, output format)
-  - `$HOME/.claude/skills/datarim-system.md` (file locations, path resolution)
+  - `$HOME/.claude/skills/research-workflow/SKILL.md` (checklist, tool selection, output format)
+  - `$HOME/.claude/skills/datarim-system/SKILL.md` (file locations, path resolution)
 - LOAD WHEN NEEDED:
-  - `$HOME/.claude/skills/tech-stack.md` (when evaluating technology choices)
+  - `$HOME/.claude/skills/tech-stack/SKILL.md` (when evaluating technology choices)
 
 **Output**: Filled insights document at `datarim/insights/INSIGHTS-{task-id}.md` using template from `${DATARIM_RUNTIME:-$HOME/.claude}/templates/insights-template.md`.

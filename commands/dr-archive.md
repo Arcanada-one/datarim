@@ -10,15 +10,15 @@ description: Archive completed task with comprehensive documentation and Datarim
 Complete and archive current task.
 
 ## Path Resolution
-**RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system.md` § Path Resolution Rule.
+**RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system/SKILL.md` § Path Resolution Rule.
 
 ## Steps
 
 
-**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format.md` § Stage Header.
-0. **TASK RESOLUTION**: Apply Task Resolution Rule from `$HOME/.claude/skills/datarim-system.md` § Task Resolution Rule. Resolve which task is being archived (from argument or disambiguation). Use the resolved task ID for all subsequent steps.
+**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header.
+0. **TASK RESOLUTION**: Apply Task Resolution Rule from `$HOME/.claude/skills/datarim-system/SKILL.md` § Task Resolution Rule. Resolve which task is being archived (from argument or disambiguation). Use the resolved task ID for all subsequent steps.
 
-0.05. **READ INIT-TASK** (mandatory per `$HOME/.claude/skills/init-task-persistence.md`): Open `datarim/tasks/{TASK-ID}-init-task.md` if present. Read the full `## Operator brief (verbatim)` section AND every `## Append-log` entry. The archive document MUST render every brief bullet inside `## Как решили` (one bullet per brief item, original order; expectations folded as `(уточнение брифа)` markers — see Step 2 below). Missing init-task is non-blocking on archive — note its absence under `### Operator Handoff` and continue.
+0.05. **READ INIT-TASK** (mandatory per `$HOME/.claude/skills/init-task-persistence/SKILL.md`): Open `datarim/tasks/{TASK-ID}-init-task.md` if present. Read the full `## Operator brief (verbatim)` section AND every `## Append-log` entry. The archive document MUST render every brief bullet inside `## Как решили` (one bullet per brief item, original order; expectations folded as `(уточнение брифа)` markers — see Step 2 below). Missing init-task is non-blocking on archive — note its absence under `### Operator Handoff` and continue.
 
 0.1. **PRE-ARCHIVE CLEAN-GIT CHECK** (MANDATORY):
 
@@ -154,11 +154,11 @@ Complete and archive current task.
    forbidden when the network gate is red.
 
 0.5. **REFLECT** (MANDATORY, non-skippable):
-   - Load `$HOME/.claude/skills/reflecting.md`.
+   - Load `$HOME/.claude/skills/reflecting/SKILL.md`.
    - Execute the reflect workflow per that skill:
      a. Create `datarim/reflection/reflection-[task_id].md`.
      b. Generate evolution proposals (categories: skill-update, agent-update, claude-md-update, new-template, new-skill).
-     c. Classify Class A / Class B per `skills/evolution.md`.
+     c. Classify Class A / Class B per `skills/evolution/SKILL.md`.
      d. Present Class A for approval; hold Class B (require PRD update before apply).
 <!-- gate:history-allowed -->
      e. Apply approved Class A to runtime (stack-agnostic gate MUST PASS per `$HOME/.claude/skills/evolution/stack-agnostic-gate.md`; gate FAIL → reject the proposal and ask user to either reword stack-neutral or relocate to project's `CLAUDE.md`); log applied changes in `datarim/docs/evolution-log.md`. **Recommended invocation for shared-history files** (`docs/evolution-log.md`, README, changelog and any file that already carries pre-existing baseline matches): `scripts/stack-agnostic-gate.sh --diff-only <path>` — scans only lines added by the current task (`git diff HEAD -- <path>`), ignoring legacy baseline content. Default full-file mode remains correct for newly-touched skills/agents/commands/templates. **Doc-reference advisory (non-blocking)**: when the task touched any markdown under `code/datarim/{CLAUDE.md,skills,agents,commands,templates,docs}/`, run `scripts/check-doc-refs.sh --root code/datarim/` to detect broken markdown links and bare-path mentions against the `.docrefignore` baseline (orphans → exit 1; clean → exit 0). Advisory-only at this step. **Template-path convention advisory (non-blocking)**: when the task touched any markdown under `code/datarim/{commands,skills,agents}/`, run `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-template-path-convention.sh --root code/datarim/` to detect bare relative `templates/<name>.<ext>` refs that resolve cwd-relative and break LLM-copied invocations (e.g. `coworker write --context`). Accepted prefixes: `$HOME/.claude/templates/`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/`, `datarim/templates/` (project-local overlay). Hits → emit warning with file:line list; advisory-only (do NOT block archive). Source: TUNE-0267 root case.
@@ -174,11 +174,11 @@ Complete and archive current task.
    - `mkdir -p documentation/archive/<subdir>/snapshots/` if absent.
    - `mv datarim/snapshots/{TASK-ID}.snapshot.md documentation/archive/<subdir>/snapshots/{TASK-ID}-final-stage.md` (move-not-delete — final snapshot is a compact task card, useful for grep-search through the archive).
    - If snapshot absent → skip without warning (V-AC-9 fallback branch).
-   - Contract: `skills/stage-snapshot-writer.md` § Outputs; producer side `skills/cta-format.md` § Snapshot Emission.
+   - Contract: `skills/stage-snapshot-writer/SKILL.md` § Outputs; producer side `skills/cta-format/SKILL.md` § Snapshot Emission.
 
 1. **DETERMINE ARCHIVE AREA**:
    - Extract prefix from task ID (everything before the first `-`)
-   - Map prefix to area subdirectory using `$HOME/.claude/skills/datarim-system.md` § Archive Area Mapping
+   - Map prefix to area subdirectory using `$HOME/.claude/skills/datarim-system/SKILL.md` § Archive Area Mapping
    - If prefix not in mapping → use `general/`
    - Create `documentation/archive/{area}/` directory if it doesn't exist
 2. Create archive document with:
@@ -195,7 +195,7 @@ Complete and archive current task.
         - **Fold expectations into the same list (MANDATORY when `datarim/tasks/{TASK-ID}-expectations.md` exists, per F6 of the init-task contract):** every item from `## Ожидания` is added to the same bullet list, in original order, with the marker `(уточнение брифа)` appended to the operator-words quotation. Do NOT render a separate `## Выполнение ожиданий оператора` section — that top-level heading was retired and its content folded into «Как решили».
         - Missing expectations file ⇒ render only brief items; no fallback line is needed (the «Как решили» section already exists because the brief itself does).
         - **No tables in this section.** Bullet list only (single-level allowed; nested bullets forbidden).
-        - **No anglicisms** — apply the banlist rules from `skills/human-summary.md` to the comment text (Russian prose only; ASCII tokens of length ≥3 from `skills/human-summary/banlist.txt` MUST NOT appear unless wrapped in the per-paragraph escape-hatch fence). The two-paragraph fenced budget from `human-summary.md` § Per-paragraph escape hatch applies here as well.
+        - **No anglicisms** — apply the banlist rules from `skills/human-summary/SKILL.md` to the comment text (Russian prose only; ASCII tokens of length ≥3 from `skills/human-summary/banlist.txt` MUST NOT appear unless wrapped in the per-paragraph escape-hatch fence). The two-paragraph fenced budget from `human-summary.md` § Per-paragraph escape hatch applies here as well.
      3. `## Артефакты задачи` — what was produced or changed. Free prose + bullets allowed. File references as relative paths. No verdict tables in this top section.
      4. `## Следующие шаги` — either «всё закрыто» or a bullet list of concrete `/dr-*` commands / operator actions.
    - **Audit addendum under a `---` horizontal rule — MANDATORY, exact order:**
@@ -207,7 +207,7 @@ Complete and archive current task.
      - `### Related` — Parent PRD / Plan / Reflection / Follow-ups.
    - The audit addendum carries the technical surface; the top four sections carry the operator-facing answer to «что я просил и что вы сделали». Banlist applies to the prose in the top four sections; tables and YAML mirrors in the addendum MAY be wrapped in `<!-- gate:literal -->` fence when they include ASCII technical terms.
    - **Known Loss Verification Gate (MANDATORY when archive will include any "Known Loss" / "Unrecoverable" / "Content lost" statement):**
-     Before recording that any file, section, decision, or piece of work is permanently lost, run the Disaster Recovery Checklist from `$HOME/.claude/skills/evolution.md` § Disaster Recovery for Lost Runtime Files. Record in the archive document which channels were checked (grep reflections by filename, compacted session context, cross-references, git history of consumer projects, external backups) and what each returned. If the checklist takes >30 minutes, defer the archive, open a follow-up recovery task, do not record the loss yet. Only after all 5 channels are exhausted may a loss claim enter the archive. Rationale: an archive that records files as "text reconstruction is not possible" after 0 minutes of discovery has historically been recovered 100% in <30 minutes using channels 1-3. Always run the checklist first.
+     Before recording that any file, section, decision, or piece of work is permanently lost, run the Disaster Recovery Checklist from `$HOME/.claude/skills/evolution/SKILL.md` § Disaster Recovery for Lost Runtime Files. Record in the archive document which channels were checked (grep reflections by filename, compacted session context, cross-references, git history of consumer projects, external backups) and what each returned. If the checklist takes >30 minutes, defer the archive, open a follow-up recovery task, do not record the loss yet. Only after all 5 channels are exhausted may a loss claim enter the archive. Rationale: an archive that records files as "text reconstruction is not possible" after 0 minutes of discovery has historically been recovered 100% in <30 minutes using channels 1-3. Always run the checklist first.
 3. **BACKLOG UPDATE** (if task existed in backlog):
    - Use the resolved task ID from Step 0
    - If the same ID exists in `datarim/backlog.md` (as `in_progress` or `pending`):
@@ -218,7 +218,7 @@ Complete and archive current task.
 4. **FOLLOW-UP TASKS** (from reflection):
    - Read `datarim/reflection/reflection-[task_id].md` for "Next Steps" section
    - If follow-up items exist, ask user: "Add these as new backlog items?"
-   - If yes: add each as new `{PREFIX}-XXXX` entry in `datarim/backlog.md` with status `pending`. Choose prefix per Unified Task Numbering (`$HOME/.claude/skills/datarim-system.md`) — project or area prefix relevant to the follow-up item
+   - If yes: add each as new `{PREFIX}-XXXX` entry in `datarim/backlog.md` with status `pending`. Choose prefix per Unified Task Numbering (`$HOME/.claude/skills/datarim-system/SKILL.md`) — project or area prefix relevant to the follow-up item
 5. **REMOVE FROM tasks.md** (thin-index schema):
    - Delete the one-liner for `{TASK-ID}` from `## Active` in `datarim/tasks.md`. Match by exact `^- {TASK-ID} ·` prefix.
    - Keep all other active task one-liners intact.
@@ -239,7 +239,7 @@ Complete and archive current task.
    - Legacy state (any of those files present): `/dr-doctor --fix` migrates and
      deletes; `/dr-init` Step 2.4 self-heal probe surfaces this on next session.
 8. **HUMAN SUMMARY**:
-   - Load `$HOME/.claude/skills/human-summary.md`.
+   - Load `$HOME/.claude/skills/human-summary/SKILL.md`.
    - Emit the `## Отчёт оператору` (RU) / `## Operator summary` (EN) section, with the four mandated sub-sections, between the archive-mutation block and the CTA block. Language follows the most recent operator message.
    - Source material: the just-written archive document (§ Начальная задача / § Как решили / § Артефакты задачи / § Следующие шаги, plus the audit addendum’s § Operator Handoff) and the reflection file from Step 0.5.
    - Do NOT mutate the archive document or the reflection file — the summary is chat-only; the archive remains the permanent record.
@@ -254,9 +254,9 @@ Complete and archive current task.
 - `datarim/plans/{TASK-ID}-plan.md` (L3-4)
 - `datarim/backlog.md` (to find and remove completed/cancelled item)
 - `datarim/activeContext.md` (Active Tasks list — strict mirror of tasks.md)
-- `$HOME/.claude/skills/datarim-system.md` (Operational File Schema, Archive Area Mapping)
-- `$HOME/.claude/skills/reflecting.md` (loaded by Step 0.5)
-- `$HOME/.claude/skills/evolution.md` (loaded by Step 0.5 for Class A/B gate)
+- `$HOME/.claude/skills/datarim-system/SKILL.md` (Operational File Schema, Archive Area Mapping)
+- `$HOME/.claude/skills/reflecting/SKILL.md` (loaded by Step 0.5)
+- `$HOME/.claude/skills/evolution/SKILL.md` (loaded by Step 0.5 for Class A/B gate)
 
 ## Write
 - `documentation/archive/[area]/archive-[task_id].md` (NEW — permanent record)
@@ -281,18 +281,18 @@ If user says "cancel task" or "cancel {TASK-ID}":
 
 When auto-mode is active (env var `DATARIM_AUTO_MODE=1` AND matching marker `datarim/.auto-mode-active` containing this TASK-ID), this command:
 
-1. Consults `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode.md` § Question Suppression Ladder before any `AskUserQuestion` or equivalent operator prompt at this stage.
+1. Consults `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode/SKILL.md` § Question Suppression Ladder before any `AskUserQuestion` or equivalent operator prompt at this stage.
 2. Stage-specific suppression hooks:
    - Step 0.5 reflection apply gate — Class A L1 proposals applied in-cycle per L1 Inline Resolution Rule; Class B requires L5.
    - Consume `datarim/tasks/{TASK-ID}-auto-inline-log.md` (if present) into Reflection § «Inline-resolved gaps» section.
    - Operator handoff items list — auto-skip items resolved through Ladder during cycle; surface only true L5 escalations.
-3. Discovered gaps → apply L1 Inline Resolution Rule per `skills/autonomous-mode.md`; log in `datarim/tasks/{TASK-ID}-auto-inline-log.md` if applied inline.
-4. Hard-gated actions → escalate to operator through Ladder L5; log via `dev-tools/append-init-task-qa.sh --decided-by operator` per `skills/init-task-persistence.md` § Q&A round-trip.
-5. Mismatch (env var set, marker absent OR marker contains different TASK-ID) → emit single-line warning, treat as non-auto (fail-safe per `skills/autonomous-mode.md` § When this skill is active).
+3. Discovered gaps → apply L1 Inline Resolution Rule per `skills/autonomous-mode/SKILL.md`; log in `datarim/tasks/{TASK-ID}-auto-inline-log.md` if applied inline.
+4. Hard-gated actions → escalate to operator through Ladder L5; log via `dev-tools/append-init-task-qa.sh --decided-by operator` per `skills/init-task-persistence/SKILL.md` § Q&A round-trip.
+5. Mismatch (env var set, marker absent OR marker contains different TASK-ID) → emit single-line warning, treat as non-auto (fail-safe per `skills/autonomous-mode/SKILL.md` § When this skill is active).
 
 ## Next Steps (CTA)
 
-After archive, the planner agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format.md`. After archiving, the just-archived task is removed from `## Active Tasks`; CTA reflects the new state of activeContext.
+After archive, the planner agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format/SKILL.md`. After archiving, the just-archived task is removed from `## Active Tasks`; CTA reflects the new state of activeContext.
 
 **Routing logic for `/dr-archive`:**
 

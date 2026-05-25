@@ -106,7 +106,7 @@ Each proposal is a self-contained block.
 ## Evolution Proposal
 
 - **Category:** skill-update
-- **Target:** skills/testing.md
+- **Target:** skills/testing/SKILL.md
 - **What:** Add property-based testing section with hypothesis/fast-check examples
 - **Why:** Discovered during a prior incident that property tests caught edge cases unit tests missed.
 - **Impact:** Medium — affects testing strategy for all future tasks
@@ -202,7 +202,7 @@ All approved changes are logged in `datarim/docs/evolution-log.md`. Create this 
 
 | Date | Task ID | Category | Target | Change | Rationale |
 |------|---------|----------|--------|--------|-----------|
-| 2026-04-11 | OPT-001 | prune-skill | skills/old-unused.md | Removed unused skill | No agent references it |
+| 2026-04-11 | OPT-001 | prune-skill | skills/old-unused/SKILL.md | Removed unused skill | No agent references it |
 ```
 
 For optimization runs, use `OPT-NNN` as the task ID. For growth proposals from `/dr-archive` Step 0.5 reflection, use the current task ID.

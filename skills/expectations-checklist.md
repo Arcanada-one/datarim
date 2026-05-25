@@ -289,7 +289,7 @@ rest of the framework adopts it.
 
 ## Related skills
 
-See also `skills/v-ac-axis-split.md` for V-AC group composition rule
+See also `skills/v-ac-axis-split/SKILL.md` for V-AC group composition rule
 (deterministic vs statistical axis separation). When drafting success
 criteria, identify whether each axis is rule-based (deterministic — single
 bats assertion or grep evidence) or rate-based (statistical — threshold over

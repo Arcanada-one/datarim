@@ -140,9 +140,9 @@ treat it as blocking.
 
 ## Cross-references
 
-- `skills/frontend-ui.md` § Visual Verification — pre-existing UI checks
+- `skills/frontend-ui/SKILL.md` § Visual Verification — pre-existing UI checks
   that complement the browser pass.
-- `skills/cta-format.md` — when the operator wants a re-run, the CTA
+- `skills/cta-format/SKILL.md` — when the operator wants a re-run, the CTA
   points at the per-task lock file path so re-entry is unambiguous.
 - `dev-tools/detect-playwright-tooling.sh` — single source of truth for
   the resolution chain; this skill is its operator-facing contract.

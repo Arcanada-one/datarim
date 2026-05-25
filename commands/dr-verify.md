@@ -6,13 +6,13 @@ description: Standalone self-verification of a Datarim artifact (PRD/plan/do out
 # /dr-verify - Standalone Self-Verification (Tri-Layer)
 
 **Role**: Verifier (orchestrated via self-verification skill)
-**Source**: skill `code/datarim/skills/self-verification.md`
+**Source**: skill `code/datarim/skills/self-verification/SKILL.md`
 
 ## Instructions
 
 
-**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format.md` § Stage Header.
-1. **LOAD**: Read skill file `~/.claude/skills/self-verification.md` (symlink) или canonical `Projects/Datarim/code/datarim/skills/self-verification.md`. Adopt orchestrator persona.
+**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header.
+1. **LOAD**: Read skill file `~/.claude/skills/self-verification/SKILL.md` (symlink) или canonical `Projects/Datarim/code/datarim/skills/self-verification/SKILL.md`. Adopt orchestrator persona.
 2. **RESOLVE PATH**: Walk up directories from cwd to find `datarim/`. STOP if not found, tell user to run `/dr-init`.
 3. **TASK RESOLUTION**: Apply Task Resolution Rule from `datarim-system.md`. Use resolved task ID for all subsequent steps.
 4. **ARGUMENT PARSING**:
@@ -197,7 +197,7 @@ Before exiting `/dr-verify`:
 
 ## Next Steps (CTA)
 
-After verdict, MUST emit CTA block per `$HOME/.claude/skills/cta-format.md`.
+After verdict, MUST emit CTA block per `$HOME/.claude/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-verify`**:
 - **PASS / CONDITIONAL** → primary `/dr-compliance {TASK-ID}` (proceed to final hardening) или `/dr-archive {TASK-ID}` если already compliance done

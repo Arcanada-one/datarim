@@ -16,15 +16,15 @@ target_aal: 3
 This skill is **invoked internally by `/dr-archive` Step 0.5** for every completed task. It is **not a standalone command** — the former `/dr-reflect` command was retired in v1.10.0 because reflection must run on every archive, not optionally.
 
 **Trigger:** `/dr-archive` Step 0.5 loads this skill.
-**Input:** resolved task state (from Task Resolution Rule in `$HOME/.claude/skills/datarim-system.md` § Task Resolution Rule) via `datarim/tasks.md` + `datarim/activeContext.md`. The task ID is already resolved by `/dr-archive` Step 0.
+**Input:** resolved task state (from Task Resolution Rule in `$HOME/.claude/skills/datarim-system/SKILL.md` § Task Resolution Rule) via `datarim/tasks.md` + `datarim/activeContext.md`. The task ID is already resolved by `/dr-archive` Step 0.
 **Output:** `datarim/reflection/reflection-{task-id}.md` + (optional) applied Class A evolution changes + follow-up-task list returned to `/dr-archive` Step 4.
 **Failure mode:** if skill load fails or user rejects Class A proposals → STOP archive; do NOT proceed to Step 1 of `/dr-archive`. Archive is idempotent — re-running re-enters Step 0.5.
 
 ## Instructions
 
 1.  **LOAD**: Read `$HOME/.claude/agents/reviewer.md` and adopt that persona.
-2.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system.md` § Path Resolution Rule.
-3.  **SKILL**: Read `$HOME/.claude/skills/security.md` and `$HOME/.claude/skills/testing.md`.
+2.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system/SKILL.md` § Path Resolution Rule.
+3.  **SKILL**: Read `$HOME/.claude/skills/security/SKILL.md` and `$HOME/.claude/skills/testing/SKILL.md`.
 4.  **CONTEXT**: Read `datarim/tasks.md` and `datarim/style-guide.md`.
 5.  **ACTION**:
     - Review changes against Definition of Done.
@@ -32,7 +32,7 @@ This skill is **invoked internally by `/dr-archive` Step 0.5** for every complet
     - Check for security vulnerabilities.
     - Create reflection document using `${DATARIM_RUNTIME:-$HOME/.claude}/templates/reflection-template.md` (fallback to `datarim/templates/reflection-template.md` only if project provides a custom template).
 6.  **EVOLUTION**:
-    - Load `$HOME/.claude/skills/evolution.md` **by reference** (Read it at runtime — do not duplicate its Class A/B gate here; single source of truth).
+    - Load `$HOME/.claude/skills/evolution/SKILL.md` **by reference** (Read it at runtime — do not duplicate its Class A/B gate here; single source of truth).
     - Analyze: what worked well? what was inefficient? any missing skills/patterns?
     - Generate evolution proposals (categories: `skill-update`, `agent-update`, `claude-md-update`, `new-template`, `new-skill`).
     - **Classify each proposal as Class A or Class B** per `evolution.md` § "Class A vs Class B — Operating-Model Gate". Class A = content changes (approval-ready). Class B = operating-model / contract changes (source-of-truth direction, sync semantics, pipeline routing, core contract, command semantics). Class B proposals **must not be presented for user approval** until a PRD update (or project-level contract equivalent) is drafted; pause and request the PRD draft instead.

@@ -346,4 +346,4 @@ Escape hatch: `pre-archive-check.sh --no-schema-check` (used during in-flight mi
 - `commands/dr-doctor.md` — operator-facing wrapper.
 - `scripts/datarim-doctor.sh` — implementation.
 - `tests/datarim-doctor.bats` — covers compliance detection, 6-pass migration, safety contract (tarball + invariant + restore), conflict policies, regex compliance, CLI/UX.
-- `skills/datarim-system.md` — broader Datarim file layout and path resolution.
+- `skills/datarim-system/SKILL.md` — broader Datarim file layout and path resolution.

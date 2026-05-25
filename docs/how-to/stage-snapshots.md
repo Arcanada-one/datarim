@@ -17,7 +17,7 @@ Each file is small (≤ 8 KB), `chmod 600`, gitignored, and overwritten on the n
 
 ## How is it produced?
 
-Every `/dr-*` command runs through `skills/cta-format.md` § Snapshot Emission as its terminal step. There is **one producer touchpoint** — adding a new `/dr-*` command automatically inherits snapshot emission without per-command patches. Producer contract: `skills/stage-snapshot-writer.md`. Implementation: `scripts/lib/snapshot-writer.sh`.
+Every `/dr-*` command runs through `skills/cta-format/SKILL.md` § Snapshot Emission as its terminal step. There is **one producer touchpoint** — adding a new `/dr-*` command automatically inherits snapshot emission without per-command patches. Producer contract: `skills/stage-snapshot-writer/SKILL.md`. Implementation: `scripts/lib/snapshot-writer.sh`.
 
 ## How is it consumed?
 
@@ -35,7 +35,7 @@ done before:
 
 `/dr-orchestrate` does the same in its resume-from-queue path before invoking `subagent_resolver.sh`, passing `recommended_next` as a `--hint`.
 
-Consumer contract (including the natural-language CTA-selection heuristic with three worked examples): `skills/dr-next-snapshot-replay.md`.
+Consumer contract (including the natural-language CTA-selection heuristic with three worked examples): `skills/dr-next-snapshot-replay/SKILL.md`.
 
 ## Fallback when no snapshot exists
 
@@ -76,9 +76,9 @@ For audited-redaction guarantees, set `DATARIM_DISABLE_SNAPSHOT=1` before invoki
 
 ## Reference
 
-- `skills/stage-snapshot-writer.md` — producer contract
-- `skills/dr-next-snapshot-replay.md` — consumer contract
-- `skills/cta-format.md` § Snapshot Emission — invocation pattern
+- `skills/stage-snapshot-writer/SKILL.md` — producer contract
+- `skills/dr-next-snapshot-replay/SKILL.md` — consumer contract
+- `skills/cta-format/SKILL.md` § Snapshot Emission — invocation pattern
 - `scripts/lib/snapshot-writer.sh` — implementation
 - `dev-tools/check-stage-snapshot-on-exit.sh` — validator
 - `commands/dr-next.md` § Step 2.5 — consumer touchpoint

@@ -18,7 +18,7 @@ for d in agents skills commands templates; do
   diff -rq "$DR_REPO/$d/" "$HOME/.claude/$d/" 2>/dev/null | grep "differ\|Only"
 done
 # Then copy changed files:
-# cp $DR_REPO/skills/datarim-system.md $HOME/.claude/skills/
+# cp $DR_REPO/skills/datarim-system/SKILL.md $HOME/.claude/skills/
 
 # Full sync TO repo (overwrite all)
 for d in agents skills commands templates; do

@@ -8,7 +8,7 @@ target_aal: 2
 
 # Security Guidelines
 
-> **Companion:** canonical S1–S9 rule reference lives in [`skills/security-baseline.md`](security-baseline.md) — single source of truth per CLAUDE.md § Security Mandate. This skill complements the baseline with operational recipes (git history scrub, Tailscale + VPN coexistence, recon-vs-compromise heuristics, cross-stack relative-path includes, stack-neutral phrasing for dependency audit). Load both together when planning security-relevant changes; load this one alone when investigating a live incident.
+> **Companion:** canonical S1–S9 rule reference lives in [`skills/security-baseline/SKILL.md`](security-baseline.md) — single source of truth per CLAUDE.md § Security Mandate. This skill complements the baseline with operational recipes (git history scrub, Tailscale + VPN coexistence, recon-vs-compromise heuristics, cross-stack relative-path includes, stack-neutral phrasing for dependency audit). Load both together when planning security-relevant changes; load this one alone when investigating a live incident.
 
 ## Authentication & Authorization
 - Never hardcode secrets/keys. Use `.env`.
@@ -44,8 +44,8 @@ Concrete forms across ecosystems: `npm audit`, `pnpm audit`, `yarn audit`,
 `pip-audit`, `cargo audit`, `bundle audit`, `govulncheck`, `composer audit`.
 <!-- /gate:example-only -->
 
-Source: prior incident — emerged 4× as canonical reword across `skills/security.md`,
-`skills/project-init.md`, `agents/researcher.md`, `commands/dr-qa.md`. Locking
+Source: prior incident — emerged 4× as canonical reword across `skills/security/SKILL.md`,
+`skills/project-init/SKILL.md`, `agents/researcher.md`, `commands/dr-qa.md`. Locking
 the phrasing prevents the same reword cycle in future Class A applies.
 
 ## Reconnaissance vs Compromise

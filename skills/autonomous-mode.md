@@ -139,12 +139,12 @@ Consumed at `/dr-archive` Step 0.5 (pre-reflection): inline-log surfaces as «In
 
 When auto-mode is active (env var + matching marker), this command:
 
-1. Consult `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode.md` § Question Suppression Ladder before any `AskUserQuestion` or equivalent operator prompt.
+1. Consult `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode/SKILL.md` § Question Suppression Ladder before any `AskUserQuestion` or equivalent operator prompt.
 2. Stage-specific suppression hooks:
    - <stage-specific list: e.g. для /dr-init: skip Discovery Interview round 2 if all questions resolved through L1-L4>
    - <для /dr-do: apply L1 Inline Rule on discovered gaps during execution>
    - <для /dr-archive: consume auto-inline-log.md before reflection>
-3. Discovered gaps → apply L1 Inline Rule per `skills/autonomous-mode.md`; log в `datarim/tasks/{TASK-ID}-auto-inline-log.md` if resolved inline.
+3. Discovered gaps → apply L1 Inline Rule per `skills/autonomous-mode/SKILL.md`; log в `datarim/tasks/{TASK-ID}-auto-inline-log.md` if resolved inline.
 4. Hard-gated actions → escalate to operator через Ladder L5, log through `dev-tools/append-init-task-qa.sh --decided-by operator`.
 ```
 
@@ -152,7 +152,7 @@ When auto-mode is active (env var + matching marker), this command:
 
 - `commands/dr-auto.md` (caller — activates this skill and sets env var + marker)
 - `documentation/mandates/autonomous-agents.md` (FB-1..8 mandate — source-of-truth for all rules activated here)
-- `skills/cta-format.md` § Snapshot Emission (terminal step contract at end of each stage)
-- `skills/init-task-persistence.md` § Q&A round-trip (L5 logging mechanism via `append-init-task-qa.sh`)
+- `skills/cta-format/SKILL.md` § Snapshot Emission (terminal step contract at end of each stage)
+- `skills/init-task-persistence/SKILL.md` § Q&A round-trip (L5 logging mechanism via `append-init-task-qa.sh`)
 - Memory: `feedback_l1_proposals_close_in_cycle` (L1 rule precedent, originally scoped to /dr-archive only)
 - Memory: `feedback_autonomous_ops` (infra-side autonomy scope — SSH/Cloudflare/Vault/docker/git on Arcanada resources)

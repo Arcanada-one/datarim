@@ -192,7 +192,7 @@ Source: prior incident — a multi-repo task ran compliance v1+v2 within 23 minu
 - Flag as Open Item if any nested repo has uncommitted changes or unpushed commits — they may be invisible production fixes that file-sync silently propagated (see evolution-log: Email Agent had 7 file deltas + 1 unpushed commit invisible until `/dr-archive` clean-git check).
 
 ### 7. File-Sync Configuration Audit (when task touches Syncthing/rclone/rsync/Dropbox/Disk Arcana setup)
-- Load `$HOME/.claude/skills/file-sync-config.md`.
+- Load `$HOME/.claude/skills/file-sync-config/SKILL.md`.
 - Run pre-flight inventory `find` per the skill's checklist BEFORE confirming compliant.
 - Verify ignore patterns cover ALL discovered classes (.venv/__pycache__/target/*.db/.next/.build/etc.).
 - Verify nested git repos either fully excluded or documented as «read-only mirror».

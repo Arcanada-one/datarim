@@ -64,9 +64,9 @@ if [ -d "$LOCAL_DIR" ]; then
             bname=$(basename "$f")
             if [ -f "$SCRIPT_DIR/$scope/$bname" ]; then
                 # Critical-skill blocklist: shadowing security-contract surfaces is rejected (exit 1).
-                # Source list locked: skills/datarim-system.md § Loading Order; docs/getting-started.md § Personal additions.
+                # Source list locked: skills/datarim-system/SKILL.md § Loading Order; docs/getting-started.md § Personal additions.
                 case "$scope/$bname" in
-                    skills/security.md|skills/security-baseline.md|skills/compliance.md|skills/datarim-system.md|skills/ai-quality.md|skills/evolution.md)
+                    skills/security/SKILL.md|skills/security-baseline/SKILL.md|skills/compliance/SKILL.md|skills/datarim-system/SKILL.md|skills/ai-quality/SKILL.md|skills/evolution/SKILL.md)
                         echo "  ERROR: critical skill '$scope/$bname' cannot be overridden via local/ overlay (security contract). Remove $LOCAL_DIR/$scope/$bname or rename it."
                         CRITICAL_OVERRIDE_COUNT=$((CRITICAL_OVERRIDE_COUNT + 1))
                         ERRORS=$((ERRORS + 1))

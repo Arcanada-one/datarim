@@ -4,7 +4,7 @@ Datarim includes 51 reusable skill modules. Skills provide rules, patterns, and 
 
 Skills are split into two categories:
 - **Reference skills** — rules and patterns the caller applies inline. Inherit caller's model (no `model` field).
-- **Task skills** — perform an action when invoked. Have explicit `model` field per [Model Assignment Convention](../skills/datarim-system.md).
+- **Task skills** — perform an action when invoked. Have explicit `model` field per [Model Assignment Convention](../skills/datarim-system/SKILL.md).
 
 ## Skill Catalog
 
@@ -84,4 +84,4 @@ model: sonnet  # or opus / haiku per Model Assignment Convention
 (Step-by-step instructions, checklists, workflows — performs an action when invoked)
 ```
 
-See [Model Assignment Convention](../skills/datarim-system.md) in `datarim-system.md` for choosing the right model.
+See [Model Assignment Convention](../skills/datarim-system/SKILL.md) in `datarim-system.md` for choosing the right model.

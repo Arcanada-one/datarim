@@ -44,10 +44,10 @@ Run before content moves to `/dr-publish` — Telegram-aware pre-publish review.
 ## Context Loading
 - READ: `datarim/tasks.md`, `datarim/productContext.md`, `datarim/style-guide.md`
 - ALWAYS APPLY:
-  - `$HOME/.claude/skills/datarim-system.md` (Core workflow rules, file locations)
+  - `$HOME/.claude/skills/datarim-system/SKILL.md` (Core workflow rules, file locations)
 - LOAD (mandatory for editorial work):
-  - `$HOME/.claude/skills/factcheck.md` (Fact verification methodology)
-  - `$HOME/.claude/skills/humanize.md` (AI pattern detection and removal)
+  - `$HOME/.claude/skills/factcheck/SKILL.md` (Fact verification methodology)
+  - `$HOME/.claude/skills/humanize/SKILL.md` (AI pattern detection and removal)
 
 **When invoked:** `/dr-edit` (editorial review), in consilium for content decisions.
 **In consilium:** Voice of editorial quality and reader trust.

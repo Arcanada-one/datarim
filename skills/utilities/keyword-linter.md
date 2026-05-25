@@ -5,7 +5,7 @@ scans markdown (or any text) for forbidden terms and exits non-zero on
 match. Source pattern: `scripts/stack-agnostic-gate.sh`.
 
 Use when promoting a recurring user-memory rule to an executable gate at
-an apply step (see `skills/evolution.md` § Pattern: Memory Rule →
+an apply step (see `skills/evolution/SKILL.md` § Pattern: Memory Rule →
 Executable Gate at Apply Step).
 
 ## Anatomy

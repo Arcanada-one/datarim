@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # append-init-task-qa.sh — atomic Q&A round-trip append to init-task file.
 #
-# Source-of-truth contract: skills/init-task-persistence.md § Q&A round-trip
+# Source-of-truth contract: skills/init-task-persistence/SKILL.md § Q&A round-trip
 # contract. Six pipeline commands invoke this utility at the "APPEND Q&A IF
 # ANY" step (/dr-prd, /dr-plan, /dr-design, /dr-do, /dr-qa, /dr-compliance).
 #

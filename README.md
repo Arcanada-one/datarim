@@ -803,7 +803,7 @@ at every step.
    spawned in `backlog.md` so the change goes through a full `/dr-prd` →
    `/dr-plan` → `/dr-do` review rather than landing as an inline tweak. The
    reflection → propose → approval → log → backlog-spawn circuit is what keeps
-   the framework grounded in real usage; see [`skills/evolution.md`](skills/evolution.md)
+   the framework grounded in real usage; see [`skills/evolution/SKILL.md`](skills/evolution/SKILL.md)
    for the Class A / Class B gate detail.
 
 3. **Approve** — Every proposal is presented to the human operator. Nothing changes
@@ -852,7 +852,7 @@ four orthogonal categories: tutorials (learning), how-to guides
 framework's own docs live in `docs/`; consumer projects bootstrap
 `docs/{tutorials,how-to,reference,explanation}/` per the Documentation
 Taxonomy Mandate (mandate text in the consumer's ecosystem CLAUDE.md;
-the contract surface ships with the framework as `skills/diataxis-docs.md`).
+the contract surface ships with the framework as `skills/diataxis-docs/SKILL.md`).
 
 ### Reference docs
 

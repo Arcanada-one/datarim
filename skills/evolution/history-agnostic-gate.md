@@ -26,7 +26,7 @@ runtime. It is the executable enforcement of the rule documented in
 
 Load and run this gate at the apply step of:
 
-- `skills/reflecting.md` — Class A apply (post-archive evolution proposals)
+- `skills/reflecting/SKILL.md` — Class A apply (post-archive evolution proposals)
 - `commands/dr-archive.md` Step 0.5(e) — runtime apply of approved Class A
 - `commands/dr-optimize.md` — apply of approved optimization proposals
 - `commands/dr-addskill.md` — write of newly created skill/agent/command/template

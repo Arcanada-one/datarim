@@ -31,7 +31,7 @@ Capture full output to `datarim/qa/qa-{TASK-ID}-baseline.txt` (gitignored).
 
 ## Live Audit Checkpoint (mandatory before commit-ing plan)
 
-Per `$HOME/.claude/skills/ai-quality.md` § Live Audit Checkpoint — verify the proposed lock against a disposable manifest BEFORE touching production.
+Per `$HOME/.claude/skills/ai-quality/SKILL.md` § Live Audit Checkpoint — verify the proposed lock against a disposable manifest BEFORE touching production.
 
 ```
 1. mkdir -p /tmp/dr-plan-audit-{TASK-ID}

@@ -42,7 +42,7 @@ Brackets `[]` indicate stages that are conditional at that complexity level. `/d
 
 ## CTA Decision Points (v1.16.0)
 
-Every transition between stages MUST emit a canonical CTA block per `$HOME/.claude/skills/cta-format.md`. Diagram representation:
+Every transition between stages MUST emit a canonical CTA block per `$HOME/.claude/skills/cta-format/SKILL.md`. Diagram representation:
 
 <!-- gate:history-allowed -->
 ```mermaid

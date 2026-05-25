@@ -138,6 +138,6 @@ fi
 
 ## Related Skills
 
-- `skills/file-sync-config.md` — full file-sync setup (где этот pattern впервые применён)
-- `skills/security.md` — почему `bypassPermissions` mode нужен hard constraints
-- `skills/devops.md` — cron-driven self-healing infrastructure
+- `skills/file-sync-config/SKILL.md` — full file-sync setup (где этот pattern впервые применён)
+- `skills/security/SKILL.md` — почему `bypassPermissions` mode нужен hard constraints
+- `skills/devops/SKILL.md` — cron-driven self-healing infrastructure

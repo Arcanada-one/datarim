@@ -29,7 +29,7 @@ Ask the user (if not already provided in the prompt):
 
 1. **Project name** — used in CLAUDE.md header and directory name
 2. **One-line description** — what the project does
-3. **Project type** — determines tech stack (see `$HOME/.claude/skills/tech-stack.md` § Stack Selection Decision Tree)
+3. **Project type** — determines tech stack (see `$HOME/.claude/skills/tech-stack/SKILL.md` § Stack Selection Decision Tree)
 
 If the user provided enough context in the initial prompt, extract these values without asking. Only ask for what is missing.
 
@@ -43,7 +43,7 @@ Verify the target exists or create it.
 
 ### Step 3: Determine Tech Stack
 
-Load `$HOME/.claude/skills/tech-stack.md` and match the project type to the required stack. This determines:
+Load `$HOME/.claude/skills/tech-stack/SKILL.md` and match the project type to the required stack. This determines:
 - `.gitignore` contents
 - Build commands for CLAUDE.md
 - Dependencies and toolchain
@@ -52,14 +52,14 @@ If the project type is unclear, ask the user. If the project is documentation/re
 
 ### Step 4: Create Project Structure
 
-Create the following structure following the **Diátaxis Documentation Taxonomy Mandate** (`skills/diataxis-docs.md`). **Idempotency rule:** check if each file/directory exists before creating. If it exists, skip it and report "skipped: already exists". Never overwrite existing files.
+Create the following structure following the **Diátaxis Documentation Taxonomy Mandate** (`skills/diataxis-docs/SKILL.md`). **Idempotency rule:** check if each file/directory exists before creating. If it exists, skip it and report "skipped: already exists". Never overwrite existing files.
 
 ```
 <project-root>/
 ├── CLAUDE.md                    # From template: $HOME/.claude/templates/project-claude-md.md
 ├── .gitignore                   # Standard for detected stack
 │
-├── docs/                        # Diátaxis 4-category split (mandate per skills/diataxis-docs.md)
+├── docs/                        # Diátaxis 4-category split (mandate per skills/diataxis-docs/SKILL.md)
 │   ├── tutorials/               # Learning-oriented (newcomer end-to-end)
 │   │   └── README.md            # From template: $HOME/.claude/templates/docs-diataxis/tutorials/README.md
 │   ├── how-to/                  # Problem-solving (task recipes)
@@ -121,7 +121,7 @@ Project scaffolded: <project-name>
 Location: <target-path>
 Stack: <detected-stack or "none (documentation project)">
 
-Created (Diátaxis 4-category split per skills/diataxis-docs.md):
+Created (Diátaxis 4-category split per skills/diataxis-docs/SKILL.md):
   ✓ CLAUDE.md
   ✓ docs/tutorials/README.md         (learning-oriented)
   ✓ docs/how-to/README.md            (problem-solving)

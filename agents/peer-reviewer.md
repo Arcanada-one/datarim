@@ -33,7 +33,7 @@ Look HARD at:
 
 ## Output Contract
 
-Output ONLY valid JSON matching the findings schema (canonical: `skills/self-verification.md § Findings Schema`).
+Output ONLY valid JSON matching the findings schema (canonical: `skills/self-verification/SKILL.md § Findings Schema`).
 
 Every excerpt MUST come **verbatim** from cited source — re-read or re-grep before quoting. Hallucinated quotes will be auto-discarded by the audit-log writer's `evidence_verified` post-write check.
 

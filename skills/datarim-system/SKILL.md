@@ -23,7 +23,7 @@ target_aal: 2
 
 ## Operational File Schema (v1.19.0+)
 
-Operational files are **indexes**, not content. Each line answers: which task, what state, where the description lives. Detailed contract: `skills/datarim-doctor.md`.
+Operational files are **indexes**, not content. Each line answers: which task, what state, where the description lives. Detailed contract: `skills/datarim-doctor/SKILL.md`.
 
 ### `tasks.md` and `backlog.md` line format
 
@@ -87,7 +87,7 @@ but answers a different question:
 - **Description** (agent-authored) — what the agent plans to do.
 - **Init-task** (operator-authored, captured at `/dr-init`) — what the operator
   literally asked for. Append-only by convention; readable by every pipeline
-  command per `skills/init-task-persistence.md`.
+  command per `skills/init-task-persistence/SKILL.md`.
 
 Required frontmatter (8 fields, closed schema):
 
@@ -107,7 +107,7 @@ source: /dr-init             # /dr-init | backlog
 Two mandatory body headings: `## Operator brief (verbatim)`, `## Append-log
 (operator amendments)`. Validator: `dev-tools/check-init-task-presence.sh
 --task <ID>`. Multi-task scan with soft 30-day window:
-`... --all`. Full contract: `skills/init-task-persistence.md`.
+`... --all`. Full contract: `skills/init-task-persistence/SKILL.md`.
 
 ### Description File Contract
 
@@ -244,12 +244,12 @@ local overlay wins. `validate.sh` emits a WARN line per detected override.
 **Critical-skill blocklist (security contract).** Six skills carry the framework's
 security and workflow invariants and MUST NOT be shadowed from `local/`:
 
-- `skills/security.md`
-- `skills/security-baseline.md`
-- `skills/compliance.md`
-- `skills/datarim-system.md`
-- `skills/ai-quality.md`
-- `skills/evolution.md`
+- `skills/security/SKILL.md`
+- `skills/security-baseline/SKILL.md`
+- `skills/compliance/SKILL.md`
+- `skills/datarim-system/SKILL.md`
+- `skills/ai-quality/SKILL.md`
+- `skills/evolution/SKILL.md`
 
 If `$HOME/.claude/local/skills/<name>.md` matches any of the above, `validate.sh`
 emits `ERROR: critical skill ... cannot be overridden via local/ overlay
@@ -260,7 +260,7 @@ a critical skill, fork the framework or contribute upstream — silent local
 shadowing is rejected by design.
 
 **Convention:** prefix local files with a personal namespace
-(`local/skills/my-org-style.md`) to avoid accidental overrides of framework
+(`local/skills/my-org-style/SKILL.md`) to avoid accidental overrides of framework
 skills you actually wanted to keep tracking upstream.
 
 ## Skill Discovery

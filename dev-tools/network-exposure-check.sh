@@ -8,7 +8,7 @@
 #   Tier 2: 100.64.0.0/10 (Tailscale) (allowed)
 #   Tier 3: 0.0.0.0 / [::] / public   (allowed iff x-exposure-justification + x-exposure-expires <= 90d)
 #
-# Source-of-truth contract: skills/network-exposure-baseline.md.
+# Source-of-truth contract: skills/network-exposure-baseline/SKILL.md.
 #
 # Exit codes:
 #   0 — clean

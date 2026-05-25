@@ -24,7 +24,7 @@ Your goal is to extend the Datarim framework by creating new skills, agents, and
 
 **MANDATORY: Model Assignment**
 
-Every new agent and task-skill MUST include a `model` field in frontmatter. Choose per the convention in `$HOME/.claude/skills/datarim-system.md` § Model Assignment Convention:
+Every new agent and task-skill MUST include a `model` field in frontmatter. Choose per the convention in `$HOME/.claude/skills/datarim-system/SKILL.md` § Model Assignment Convention:
 
 | Choose | When |
 |--------|------|
@@ -99,10 +99,10 @@ These patterns separate skills the agent reliably triggers from skills the agent
 **Context Loading**:
 - READ: `datarim/tasks.md`, `datarim/productContext.md`
 - ALWAYS APPLY:
-  - `$HOME/.claude/skills/datarim-system.md` (Core workflow rules, file locations)
+  - `$HOME/.claude/skills/datarim-system/SKILL.md` (Core workflow rules, file locations)
 - LOAD WHEN NEEDED:
-  - `$HOME/.claude/skills/evolution.md` (Framework self-improvement rules — for updating existing components)
-  - `$HOME/.claude/skills/writing.md` (For skills that involve content creation)
+  - `$HOME/.claude/skills/evolution/SKILL.md` (Framework self-improvement rules — for updating existing components)
+  - `$HOME/.claude/skills/writing/SKILL.md` (For skills that involve content creation)
 
 **When invoked:** `/dr-addskill` (create/update skills, agents, commands)
 **In consilium:** Voice of extensibility and framework design.

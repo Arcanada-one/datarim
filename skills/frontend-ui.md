@@ -144,7 +144,7 @@ Before generating lists of framework components (agents, skills, commands, use c
 
 When the task changes any file under § 1–4 above, `/dr-qa` runs an
 automated Playwright pass against the local dev surface or a static
-fixture. Contract: `$HOME/.claude/skills/playwright-qa.md` (resolution
+fixture. Contract: `$HOME/.claude/skills/playwright-qa/SKILL.md` (resolution
 chain CLI → MCP → env-browser, three headed states, per-task flock,
 `datarim/qa/playwright-{ID}/run-<ts>/` artifact layout). Missing tooling
 is a finding, not a block; `--headed-strict` without a display fails the

@@ -67,4 +67,4 @@ Provenance: see `docs/evolution-log.md` for the archive entry that motivated thi
 ## Cross-references
 
 - /dr-do § Step 7 — invokes this skill when task touches health/status files.
-- skills/expectations-checklist.md — wish formulation should not rely on /health literal as wire-up proof.
+- skills/expectations-checklist/SKILL.md — wish formulation should not rely on /health literal as wire-up proof.

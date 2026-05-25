@@ -200,7 +200,7 @@ Before writing ANY file to `datarim/`:
 | `/dr-verify` | Verification | Standalone self-verification (on-demand). Tri-layer: Layer 1 deterministic floor + Layer 2 cross-model peer-review (DeepSeek default) + Layer 3 native runtime dispatch. Findings-only mode. |
 | `/dr-compliance` | Hardening | 7-step post-QA hardening |
 | `/dr-archive` | Archive | Reflection (Step 0.5: lessons learned + framework evolution proposals) + complete task + update backlog + reset context |
-| `/dr-auto` | Autonomous | Мета-команда автономного исполнения. Активирует FB-1..8 mandate + L1 Inline Resolution Rule + autonomous-ops scope как default-on через env var `DATARIM_AUTO_MODE=1` + file marker `datarim/.auto-mode-active`. Question Suppression Ladder (5 levels) suppresses pipeline Q&A; L1 Class A gaps закрываются inline; hard-gated actions escalate to operator. Two modes — Continue (`/dr-auto {TASK-ID}` resume) / Bootstrap (`/dr-auto "<free-text>"` full pipeline). Canonical contract в `skills/autonomous-mode.md` |
+| `/dr-auto` | Autonomous | Мета-команда автономного исполнения. Активирует FB-1..8 mandate + L1 Inline Resolution Rule + autonomous-ops scope как default-on через env var `DATARIM_AUTO_MODE=1` + file marker `datarim/.auto-mode-active`. Question Suppression Ladder (5 levels) suppresses pipeline Q&A; L1 Class A gaps закрываются inline; hard-gated actions escalate to operator. Two modes — Continue (`/dr-auto {TASK-ID}` resume) / Bootstrap (`/dr-auto "<free-text>"` full pipeline). Canonical contract в `skills/autonomous-mode/SKILL.md` |
 | `/dr-status` | Utility | Check current task and backlog status |
 | `/dr-next` | Utility | Resume from last checkpoint |
 | `/dr-write` | Content | Create written content — articles, docs, research, posts |
@@ -242,7 +242,7 @@ Findings carry an explicit `source_layer` tag (`floor` / `peer_review` / `dispat
 
 **Args:** `/dr-verify {TASK-ID} [--stage={prd,plan,do,all}] [--max-iter=N] [--no-fix] [--floor-only] [--peer-provider={deepseek,groq,openrouter,...}] [--runtime={claude,codex}] [--external-verifier=PASS] [--cost-cap=N]`
 
-**Findings schema:** `{finding_id, source_layer ∈ {floor, peer_review, dispatch}, artifact_ref, ac_criteria[], severity (high/medium/low), category (correctness/completeness/consistency/safety), drift_subtype (optional), evidence (file_quote/test_output/absent), suggested_fix, check_name (Layer 1), peer_review_provider (Layer 2)}`. 7 validator rules + 3 severity anchors + 4 category anchors + 3 evidence types + auto-discard + verifiability + secret redaction. Canonical in `skills/self-verification.md` § Findings Schema.
+**Findings schema:** `{finding_id, source_layer ∈ {floor, peer_review, dispatch}, artifact_ref, ac_criteria[], severity (high/medium/low), category (correctness/completeness/consistency/safety), drift_subtype (optional), evidence (file_quote/test_output/absent), suggested_fix, check_name (Layer 1), peer_review_provider (Layer 2)}`. 7 validator rules + 3 severity anchors + 4 category anchors + 3 evidence types + auto-discard + verifiability + secret redaction. Canonical in `skills/self-verification/SKILL.md` § Findings Schema.
 
 **Verdict logic:** BLOCKED (≥1 high) / CONDITIONAL (≥1 medium, 0 high) / PASS (only low or empty).
 
@@ -265,7 +265,7 @@ verification_outcome:
 
 Aggregator `dev-tools/measure-prospective-rate.sh --since <YYYY-MM-DD>` walks all `archive-*.md` files, computes `caught_per_5_tasks`, and emits a `decision_hint` for the next pipeline gate. The `verification_outcome` block is the single source of truth for the prospective measurement campaign.
 
-**Status:** tri-layer canonical, findings-only at all layers (no auto-fix). Cross-link: skill `skills/self-verification.md` · floor script `dev-tools/dr-verify-floor.sh` · template `templates/archive-template.md`.
+**Status:** tri-layer canonical, findings-only at all layers (no auto-fix). Cross-link: skill `skills/self-verification/SKILL.md` · floor script `dev-tools/dr-verify-floor.sh` · template `templates/archive-template.md`.
 
 ---
 
@@ -317,7 +317,7 @@ Each new validator follows a simple contract:
 - Pure shell, no dependencies beyond what bash + grep + the framework's own `dev-tools/` provide.
 - Single `--check` mode: exit 0 = PASS, exit 1 = FAIL. Optional `--report` for human-readable detail.
 - Self-documents target scope in the script header.
-- Referenced directly by PRD AC text (so the gate is falsifiable; see `skills/evolution.md` § Pattern: Split-Architecture Metrics).
+- Referenced directly by PRD AC text (so the gate is falsifiable; see `skills/evolution/SKILL.md` § Pattern: Split-Architecture Metrics).
 
 ---
 
@@ -349,18 +349,18 @@ Any code that lives in `code/datarim/{scripts,tests,skills,agents,commands,templ
 > **Status:** mandatory for every Datarim artifact (skill, agent, command, template, script, doc).
 > **Origin:** corporate security audit, 2026-04-28 (6 findings: 2× HIGH command injection, 4× MEDIUM SSH/credentials/supply-chain). Full audit log: `documentation/archive/security/findings-2026-04-28.md`.
 > **Authority:** RFC 2119 keywords (MUST / MUST NOT / SHOULD / MAY) apply throughout.
-> **Single source of truth:** `skills/security-baseline.md` § S1–S9 — full rules, suppression policy, counter-example fence syntax, standards mapping. This CLAUDE.md section is the entry point.
+> **Single source of truth:** `skills/security-baseline/SKILL.md` § S1–S9 — full rules, suppression policy, counter-example fence syntax, standards mapping. This CLAUDE.md section is the entry point.
 
 ### Threat model (one paragraph)
 
 Datarim ships skills, templates, agents, and commands that AI agents copy into runtime and execute, often with elevated privileges (root SSH, OAuth tokens with write scope, package installation). A vulnerable line in a shipped script is replicated into every consumer's production runbook. A documented `curl | bash` recipe in a skill becomes the canonical install pattern across the ecosystem. **Every shipped artifact is production code under attack.**
 
-### Rule clusters (details in `skills/security-baseline.md`)
+### Rule clusters (details in `skills/security-baseline/SKILL.md`)
 
 - **S1** — Shell scripts and embedded shell blocks (strict mode, quoting, input regex, heredoc terminators, no eval/curl|bash, no SSH `StrictHostKeyChecking=no`, `shellcheck` clean)
 - **S2** — Python and python-fenced blocks (no `shell=True`, atomic mode-0o600 credential writes via `O_EXCL`, no `eval`/`pickle.loads`/`yaml.load`, `requests verify=True`, SHA-256+, `bandit -ll -ii` clean)
 - **S3** — Credentials, secrets, tenant identifiers (no hardcoded IDs, generic env-var paths via `${PROJECT_CREDS_DIR}`, secrets via env/Vault/prompt only, `.gitignore` coverage, rotation policy on accidental commit)
-- **S4** — Supply chain (no `curl | bash`, hash-pinned installs, GitHub Actions pinned to commit SHA + explicit `permissions:`, SBOM, signed releases, SLSA L2, Dependabot/Renovate). Consumer-side verify recipe: [`docs/release-verification.md`](docs/release-verification.md) (canonical) + [`skills/release-verify.md`](skills/release-verify.md) (AI-agent loadable entry point). Implementation: `.github/workflows/release.yml` (cosign sign-blob + `actions/attest-build-provenance` for SLSA L2).
+- **S4** — Supply chain (no `curl | bash`, hash-pinned installs, GitHub Actions pinned to commit SHA + explicit `permissions:`, SBOM, signed releases, SLSA L2, Dependabot/Renovate). Consumer-side verify recipe: [`docs/release-verification.md`](docs/release-verification.md) (canonical) + [`skills/release-verify/SKILL.md`](skills/release-verify/SKILL.md) (AI-agent loadable entry point). Implementation: `.github/workflows/release.yml` (cosign sign-blob + `actions/attest-build-provenance` for SLSA L2).
 - **S5** — Markdown documentation as executable instructions (placeholders not real IDs, never prescribe unsafe patterns, `<!-- security:counter-example -->` fence syntax for teaching counter-examples)
 - **S6** — Repo hygiene (LICENSE, SECURITY.md, CODE_OF_CONDUCT, CONTRIBUTING, CODEOWNERS, dependabot.yml, branch + tag protection)
 - **S7** — CI verification gate (`shellcheck`, `bandit`, `semgrep`, `gitleaks`, `trufflehog`, `actionlint`, `zizmor`, `osv-scanner`, regression `bats`)
@@ -378,7 +378,7 @@ Every Datarim-managed project SHOULD run `templates/security-workflow.yml` (drop
 ## Documentation Taxonomy Mandate
 
 > **Status:** mandatory for every Datarim-managed repo and product site.
-> **Single source of truth:** `skills/diataxis-docs.md` (4 closed categories — tutorials / how-to / reference / explanation; mapping table; exemption list; anti-patterns).
+> **Single source of truth:** `skills/diataxis-docs/SKILL.md` (4 closed categories — tutorials / how-to / reference / explanation; mapping table; exemption list; anti-patterns).
 
 Every Datarim-managed repo and product site MUST organise its documentation per **Diátaxis** (https://diataxis.fr) — four orthogonal categories:
 
@@ -387,7 +387,7 @@ Every Datarim-managed repo and product site MUST organise its documentation per 
 - **Reference** — information-oriented (lookup, catalogue).
 - **Explanation** — understanding-oriented (background, why).
 
-Closed set: `faq`, `glossary`, `troubleshooting`, `examples`, `overview`, `samples` are mappable to one of the four categories — never separate top-level types. See `skills/diataxis-docs.md` § Mapping Table.
+Closed set: `faq`, `glossary`, `troubleshooting`, `examples`, `overview`, `samples` are mappable to one of the four categories — never separate top-level types. See `skills/diataxis-docs/SKILL.md` § Mapping Table.
 
 Mandate level:
 
@@ -395,7 +395,7 @@ Mandate level:
 2. **Existing repos** — soft audit via `/dr-optimize` Step 6a (filesystem-presence + threshold ≥3 docs files); on drift the audit proposes `INFRA-* — Diátaxis docs reorg для <repo>` in backlog.
 3. **Stack-agnostic** — taxonomy contract only. SSG/CMS choice (any static-site generator) is per-project and outside the mandate.
 4. **Hard CI gate deferred** — backlog item activates the same detector at `exit 1` after the mandate is adopted on ≥3 live consumers.
-5. **Exemptions** — research-only repos, archive-only repos, Obsidian vault PARA, single-file inbox notes, temporary scratch paths. See `skills/diataxis-docs.md` § Exemption List.
+5. **Exemptions** — research-only repos, archive-only repos, Obsidian vault PARA, single-file inbox notes, temporary scratch paths. See `skills/diataxis-docs/SKILL.md` § Exemption List.
 6. **Brand layer is out of scope** — Datarim defines the taxonomy structure (four categories + exemptions). Slogans, footers, brand assets are ecosystem-specific and defined by the consumer's own CLAUDE.md.
 
 ---

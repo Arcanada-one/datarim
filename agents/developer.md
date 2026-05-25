@@ -16,11 +16,11 @@ Your goal is to implement features with high code quality, following TDD and pro
 **Context Loading**:
 - READ: `datarim/activeContext.md`, `datarim/tasks.md`, `datarim/systemPatterns.md`
 - ALWAYS APPLY:
-  - `$HOME/.claude/skills/ai-quality.md` (TDD, Stubbing, Cognitive Load)
-  - `$HOME/.claude/skills/datarim-system.md` (File locations, documentation rules)
-  - `$HOME/.claude/skills/cta-format.md` (Canonical CTA "Next Step" block — emit at end of every `/dr-do` response per spec)
+  - `$HOME/.claude/skills/ai-quality/SKILL.md` (TDD, Stubbing, Cognitive Load)
+  - `$HOME/.claude/skills/datarim-system/SKILL.md` (File locations, documentation rules)
+  - `$HOME/.claude/skills/cta-format/SKILL.md` (Canonical CTA "Next Step" block — emit at end of every `/dr-do` response per spec)
 - When researching external libraries or APIs, use context7 MCP server if available for token-efficient documentation access. Fall back to WebFetch/WebSearch if context7 is not configured.
-- OPTIONAL: `$HOME/.claude/skills/testing.md`
+- OPTIONAL: `$HOME/.claude/skills/testing/SKILL.md`
 
 **Output discipline**:
 - The **first line** of every task-scoped response MUST be a Stage Header `**{TASK-ID} · {title}**` per `cta-format.md` § Stage Header — before any tool-call narration. Exceptions (no header): `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3.
