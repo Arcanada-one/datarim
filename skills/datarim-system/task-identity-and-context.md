@@ -201,3 +201,21 @@ Each ecosystem (or each project that owns a registry) declares its own prefixes 
 ### Rename Policy
 
 A task ID changes only by explicit request. If renamed, update all references atomically.
+
+### Pre-Spawn ID-Claim Probe
+
+When a PRD's «Spawned Backlog Items» table assigns sequential IDs to a batch <!-- gate:history-allowed -->(e.g. `XYZ-0011..XYZ-0015`)<!-- /gate:history-allowed -->, probe ALL THREE claim surfaces before finalising the assignment — do not rely on an archive-only «next free» calculation captured at `/dr-init` time.
+
+**Required surfaces:**
+
+1. `documentation/archive/<area>/archive-<PREFIX>-*.md` — historical completions.
+2. `datarim/tasks.md` — active in-progress / not-started one-liners.
+3. `datarim/backlog.md` — pending / blocked-pending one-liners.
+
+The first free ID is `max(claimed across all three) + 1`. Archive-only probe is insufficient: a pending row in `backlog.md` from a parallel session, added between `/dr-init` and `/dr-plan`, will claim an ID that the archive does not yet know about. The collision becomes visible only when `/dr-do` is invoked against the colliding ID, by which time downstream artefacts (PRD spawned-items table, plan dependency graph, sibling task `Depends:` references) have all baked in the wrong number.
+
+**When to apply.** Any agent finalising a multi-ID spawn from a PRD — typically `/dr-plan` for L4 epics with a Spawned Backlog Items table. The probe is a 3-file `grep` + `sort -V` + max-pick; cost is sub-second.
+
+**Anti-pattern.** Treating the `Next free: <PREFIX>-NNNN` line written at `/dr-init` time as authoritative N days later. That line is a snapshot, not a contract; the registry mutates between captures.
+
+**Recovery.** If a collision is discovered post-spawn, the canonical fix is atomic multi-surface amendment (see `skills/ai-quality.md` § Atomic Multi-Surface Plan Amendment): rename the newer batch in `backlog.md`, the owning PRD's Spawned Backlog Items table (with `AMENDED YYYY-MM-DD` marker), the plan's dependency graph + critical path + V-AC mapping, the init-task append-log, and every sibling `Depends:` / `Concurrent with` reference — all in the same revision cycle, with grep cross-check to prove zero stale residue.

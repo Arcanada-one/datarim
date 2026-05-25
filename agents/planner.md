@@ -24,9 +24,10 @@ Your goal is to breakdown complex requirements into actionable, tracked tasks.
 - ALWAYS APPLY:
   - `$HOME/.claude/skills/ai-quality.md` (Decomposition, DoD rules)
   - `$HOME/.claude/skills/datarim-system.md` (Task numbering, backlog management)
-  - `$HOME/.claude/skills/cta-format.md` (Canonical CTA "Next Step" block — emit at end of every `/dr-init`, `/dr-plan`, `/dr-archive`, `/dr-continue` response per spec)
+  - `$HOME/.claude/skills/cta-format.md` (Canonical CTA "Next Step" block — emit at end of every `/dr-init`, `/dr-plan`, `/dr-archive`, `/dr-next` response per spec)
 - LOAD WHEN NEEDED:
   - `$HOME/.claude/skills/tech-stack.md` (When creating new project/service or selecting technology stack)
 
 **Output discipline**:
-After completing any pipeline step (init, plan, archive, continue), the final paragraph of your response MUST be a CTA block following `cta-format.md` — wrapped in `---` HR, with one `**рекомендуется**` marker, ≤5 numbered options each containing the resolved task ID. If `## Active Tasks` in `activeContext.md` lists >1 task, append the `**Другие активные задачи:**` Variant B menu.
+- The **first line** of every task-scoped response MUST be a Stage Header `**{TASK-ID} · {title}**` per `cta-format.md` § Stage Header — before any tool-call narration. Exceptions (no header): `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (emit immediately after Step 4).
+- After completing any pipeline step (init, plan, archive, continue), the final paragraph of your response MUST be a CTA block following `cta-format.md` — wrapped in `---` HR, with one `**рекомендуется**` marker, ≤5 numbered options each containing the resolved task ID. If `## Active Tasks` in `activeContext.md` lists >1 task, append the `**Другие активные задачи:**` Variant B menu.

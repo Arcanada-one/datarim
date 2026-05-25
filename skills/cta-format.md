@@ -21,6 +21,51 @@ It exists because free-form Next-Step prose forces operators to mentally map tas
 
 If a command intentionally produces no actionable next step (e.g. `/dr-help`, `/dr-status` in read-only mode), it MUST still emit a CTA block listing pipeline-entry commands.
 
+## Stage Header (canonical for /dr-* responses)
+
+Every task-scoped `/dr-*` command and CTA-emitting agent MUST begin its operator-visible response with a one-line **Stage Header** so the operator can immediately tell which task the output belongs to. The header sits at the *opposite* end of the response from the CTA block: CTA = footer (what to do next), Stage Header = banner (what we are working on right now). Operators run 40+ concurrent tasks; without the header, multi-task context is ambiguous.
+
+### Format
+
+```
+**{TASK-ID} · {title}**
+```
+
+| Element | Rule |
+|---------|------|
+| `{TASK-ID}` | Full prefix-number form, e.g. `ARCA-0001`, `TUNE-0262`. Never a short form, never paraphrased. |
+| Separator | U+00B7 MIDDLE DOT `·` (the same character used in `tasks.md` one-liners). Surround with single ASCII spaces. |
+| `{title}` | Title verbatim from the `tasks.md` one-liner — the substring between `L{N} · ` and ` → tasks/`. No truncation, no paraphrase. Schema cap ≤80 chars. |
+| Markdown | Bold inline (`**…**`) — matches the CTA footer convention (`**Следующий шаг — {ID}**`). No additional formatting, no headers, no surrounding blockquote. |
+
+### Placement
+
+- **First line** of the operator-visible response — before any tool-call narration, summary, or prose.
+- Emitted exactly **once per command invocation**. Do not repeat in subsequent tool responses, follow-ups, or after each phase boundary inside the same invocation.
+- If the command produces purely silent tool execution with no text output, the header MAY be skipped — there is nothing to label.
+
+### Exception List
+
+The following commands/contexts MUST NOT emit a Stage Header:
+
+| Command | Rationale | Handling |
+|---------|-----------|----------|
+| `/dr-help` | No single-task context. | Skip header entirely. |
+| `/dr-status` | Multi-task list; the command itself prints every ID. | Skip header entirely. |
+| `/dr-doctor` | Framework operation, not task-scoped. | Skip header entirely. |
+| `/dr-init` (Steps 1-3, pre-ID) | TASK-ID not yet assigned. | Emit header on the first line *after* Step 4 completes (i.e. once the TASK-ID has been determined — header after Step 4). |
+
+### Edge Cases
+
+- **Empty title** — impossible per schema; `tasks.md` one-liners always carry a title.
+- **Title > 80 chars** — schema cap upstream prevents this; total header length ≤ ~99 chars worst case.
+- **TASK-ID assignment mid-execution** — only `/dr-init` is in this state; all other commands have a pre-bound ID before they emit any text.
+- **Multi-step / multi-message commands** — header is emitted once, in the very first message; do not re-emit per phase.
+
+### Enforcement
+
+Programmatic enforcement is opt-in via a Claude Code Stop hook (TUNE-0264) at `dev-tools/hooks/dr-output-stop.sh`. When registered in `~/.claude/settings.json § hooks.Stop[]`, the hook checks the first non-empty line of every assistant response against `^\*\*[A-Z]{2,10}-\d{4} · .+\*\*$` (Exception List above honoured: `/dr-help`, `/dr-status`, `/dr-doctor`, plus `/dr-init` until Step 4 emits the TASK-ID). Missing header on first occurrence → stdout JSON `{"decision":"block","reason":"..."}`; retry (`stop_hook_active=true`) degrades to stderr advisory (retry budget = 1). The same hook also enforces `human-summary.md § Output contract` when the user invoked `/dr-archive`, `/dr-compliance`, or `/dr-qa`. Opt-in instructions and the canonical `settings.json` snippet: `docs/how-to/dr-output-hook.md`.
+
 ## Canonical Block — Single Active Task
 
 ```markdown
@@ -214,7 +259,7 @@ Referenced from all 15 `/dr-*` command files in `commands/dr-*.md`.
 
 ## Snapshot Emission
 
-**Terminal step (mandatory).** After emitting the CTA block, every `/dr-*` command MUST persist the final operator-visible response (Summary + Gate Results + CTA block) to `datarim/snapshots/{TASK-ID}.snapshot.md` via `scripts/lib/snapshot-writer.sh::write_stage_snapshot`. Contract: `skills/stage-snapshot-writer.md`. The snapshot serves as primary context for `/dr-continue` and `/dr-orchestrate` after `/clear` or terminal close.
+**Terminal step (mandatory).** After emitting the CTA block, every `/dr-*` command MUST persist the final operator-visible response (Summary + Gate Results + CTA block) to `datarim/snapshots/{TASK-ID}.snapshot.md` via `dev-tools/snapshot-writer-wrapper.sh`. The wrapper forces bash execution; direct `source scripts/lib/snapshot-writer.sh && write_stage_snapshot` invocation fails silently under zsh-parent shells (`BASH_SOURCE[0]: parameter not set`) — agents invoking via the Bash tool inherit the user's login shell. Contract: `skills/stage-snapshot-writer.md`. The snapshot serves as primary context for `/dr-next` and `/dr-orchestrate` after `/clear` or terminal close.
 
 Stage value and command literal are bound by the invoking command file (not inferred by the agent) — see each `commands/dr-*.md` § Stage Snapshot Emission for the literal stage/command pair.
 
@@ -228,7 +273,7 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 BODY_TMP="$(mktemp)"; OPTIONS_TMP="$(mktemp)"
 trap 'rm -f "$BODY_TMP" "$OPTIONS_TMP"' EXIT
 # … render CTA block into "$BODY_TMP"; one option-per-line into "$OPTIONS_TMP" …
-write_stage_snapshot \
+bash dev-tools/snapshot-writer-wrapper.sh \
     --root "$REPO_ROOT" \
     --task "$TASK_ID" \
     --stage <plan|prd|do|init|design|qa|compliance> \
@@ -237,12 +282,14 @@ write_stage_snapshot \
     --recommended-next "$CTA_PRIMARY" \
     --options-file "$OPTIONS_TMP" \
     --body-file "$BODY_TMP" \
-  || echo "warn: snapshot-writer failed for $TASK_ID (continuing per V-AC-7)" >&2
+  || echo "warn: snapshot-writer-wrapper failed for $TASK_ID (continuing per V-AC-7)" >&2
 ```
 
-Fail-closed semantics: writer non-zero exit MUST surface a single stderr warning line; do not silently swallow, do not abort the surrounding command. Kill switch — env `DATARIM_DISABLE_SNAPSHOT=1` makes the writer a no-op (documented in `docs/how-to/stage-snapshots.md`); the warning line is suppressed under the kill switch.
+Fail-closed semantics: wrapper non-zero exit MUST surface a single stderr warning line; do not silently swallow, do not abort the surrounding command. Kill switch — env `DATARIM_DISABLE_SNAPSHOT=1` makes the writer a no-op (documented in `docs/how-to/stage-snapshots.md`); the warning line is suppressed under the kill switch.
 
-Consumer side: `commands/dr-continue.md` § Step 2.5 «Snapshot-First Read» and `plugins/dr-orchestrate/commands/dr-orchestrate.md` § Snapshot-First Resume read the file before falling through to task-description / init-task / activeContext. Replay-prompt template in `skills/dr-continue-snapshot-replay.md` § Replay-prompt template.
+**Harness journal side-effect.** When `/tmp/datarim-test-{TASK-ID}/` exists (created by `dev-tools/datarim-stage-probe-init.sh`), the writer additionally appends one journal line per call to `/tmp/datarim-test-{TASK-ID}/journal.md` in the contract format `<stage> · <ISO-ts> · header-present:<y|n> · snapshot-written:y · cta-footer:<y|n> · snapshot-sha:<12-hex>`. Auto-detection by directory presence; absent harness directory = no-op. See `docs/how-to/datarim-harness.md` for end-to-end harness usage.
+
+Consumer side: `commands/dr-next.md` § Step 2.5 «Snapshot-First Read» and `plugins/dr-orchestrate/commands/dr-orchestrate.md` § Snapshot-First Resume read the file before falling through to task-description / init-task / activeContext. Replay-prompt template in `skills/dr-next-snapshot-replay.md` § Replay-prompt template.
 
 ## Versioning
 

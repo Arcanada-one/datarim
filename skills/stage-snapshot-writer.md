@@ -8,7 +8,7 @@ target_aal: 2
 
 # Stage Snapshot Writer
 
-Каждая `/dr-*` команда, эмитирующая CTA-блок, как терминальный шаг пишет финальный operator-visible ответ в `datarim/snapshots/{TASK-ID}.snapshot.md`. Снапшот служит primary context-source для `/dr-continue` и `/dr-orchestrate` после `/clear` или закрытия терминала.
+Каждая `/dr-*` команда, эмитирующая CTA-блок, как терминальный шаг пишет финальный operator-visible ответ в `datarim/snapshots/{TASK-ID}.snapshot.md`. Снапшот служит primary context-source для `/dr-next` и `/dr-orchestrate` после `/clear` или закрытия терминала.
 
 ## Contract
 
@@ -102,7 +102,7 @@ write_stage_snapshot \
 ## Related
 
 - `skills/cta-format.md` § Snapshot Emission — единственная producer touchpoint
-- `skills/dr-continue-snapshot-replay.md` — consumer-сторона
+- `skills/dr-next-snapshot-replay.md` — consumer-сторона
 - `dev-tools/check-stage-snapshot-on-exit.sh` — post-CTA advisory gate
 - `scripts/lib/plugin-system.sh::acquire_plugin_lock` — lock primitive (reused)
 - `feedback memory feedback_no_flock_on_macos` — обоснование mkdir-lock (POSIX flock ненадёжен на macOS через NFS/SMB)

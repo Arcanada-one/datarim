@@ -1,9 +1,9 @@
-# How-to: Stage Snapshots for `/dr-continue` Context Resume
+# How-to: Stage Snapshots for `/dr-next` Context Resume
 
 **Audience:** operators returning to a Datarim task after `/clear` or a closed terminal.
 **Introduced in:** v2.13.0 (TUNE-0254).
 
-This how-to explains the per-task stage-snapshot mechanism: what gets persisted, where, how `/dr-continue` and `/dr-orchestrate` consume it, and how to disable / inspect it.
+This how-to explains the per-task stage-snapshot mechanism: what gets persisted, where, how `/dr-next` and `/dr-orchestrate` consume it, and how to disable / inspect it.
 
 ## What is a snapshot?
 
@@ -21,7 +21,7 @@ Every `/dr-*` command runs through `skills/cta-format.md` § Snapshot Emission a
 
 ## How is it consumed?
 
-`/dr-continue {TASK-ID}` reads the snapshot **first** (Step 2.5 «Snapshot-First Read» — before task-description / init-task / activeContext). If valid, it emits a replay-prompt with the canonical template:
+`/dr-next {TASK-ID}` reads the snapshot **first** (Step 2.5 «Snapshot-First Read» — before task-description / init-task / activeContext). If valid, it emits a replay-prompt with the canonical template:
 
 ```
 <recommended-CTA>
@@ -35,11 +35,11 @@ done before:
 
 `/dr-orchestrate` does the same in its resume-from-queue path before invoking `subagent_resolver.sh`, passing `recommended_next` as a `--hint`.
 
-Consumer contract (including the natural-language CTA-selection heuristic with three worked examples): `skills/dr-continue-snapshot-replay.md`.
+Consumer contract (including the natural-language CTA-selection heuristic with three worked examples): `skills/dr-next-snapshot-replay.md`.
 
 ## Fallback when no snapshot exists
 
-If the snapshot file is missing or its frontmatter fails validation (`dev-tools/check-stage-snapshot-on-exit.sh --validate-frontmatter --task <ID>` exit ≠ 0), the consumer **silently** falls through to the legacy Read pipeline — no warning lines, no behaviour change for first-time `/dr-continue` invocations.
+If the snapshot file is missing or its frontmatter fails validation (`dev-tools/check-stage-snapshot-on-exit.sh --validate-frontmatter --task <ID>` exit ≠ 0), the consumer **silently** falls through to the legacy Read pipeline — no warning lines, no behaviour change for first-time `/dr-next` invocations.
 
 ## Concurrency & locks
 
@@ -69,7 +69,7 @@ For audited-redaction guarantees, set `DATARIM_DISABLE_SNAPSHOT=1` before invoki
 
 | Symptom | Diagnosis | Fix |
 |---------|-----------|-----|
-| `/dr-continue` keeps reading task-description instead of snapshot | snapshot missing or malformed | `dev-tools/check-stage-snapshot-on-exit.sh --task <ID>` — exit 1 = missing, exit 2 = malformed |
+| `/dr-next` keeps reading task-description instead of snapshot | snapshot missing or malformed | `dev-tools/check-stage-snapshot-on-exit.sh --task <ID>` — exit 1 = missing, exit 2 = malformed |
 | `/dr-*` returns exit 3 from writer | lock contention | another agent holds the lock; wait or increase `DR_SNAPSHOT_LOCK_TIMEOUT` |
 | Body shows `<!-- snapshot-truncated, ...` | response > 8 KB cap | truncated by design; full body remains in session jsonl |
 | File survives `/dr-archive` in `datarim/snapshots/` | move step skipped or failed | check `documentation/archive/<subdir>/snapshots/` — file may already be there; otherwise re-run `/dr-archive` |
@@ -77,10 +77,10 @@ For audited-redaction guarantees, set `DATARIM_DISABLE_SNAPSHOT=1` before invoki
 ## Reference
 
 - `skills/stage-snapshot-writer.md` — producer contract
-- `skills/dr-continue-snapshot-replay.md` — consumer contract
+- `skills/dr-next-snapshot-replay.md` — consumer contract
 - `skills/cta-format.md` § Snapshot Emission — invocation pattern
 - `scripts/lib/snapshot-writer.sh` — implementation
 - `dev-tools/check-stage-snapshot-on-exit.sh` — validator
-- `commands/dr-continue.md` § Step 2.5 — consumer touchpoint
+- `commands/dr-next.md` § Step 2.5 — consumer touchpoint
 - `plugins/dr-orchestrate/commands/dr-orchestrate.md` § Snapshot-First Resume — orchestrator touchpoint
 - `commands/dr-archive.md` § Step 0.95 — cleanup-on-archive

@@ -225,6 +225,36 @@ write_stage_snapshot() {
     # safe-on-overwrite for regular files. Pre-unlink symlink already handled.
     mv -f "$tmp_path" "$final_path"
 
+    # Harness journal hook — auto-detect /tmp/datarim-test-{task_id}.
+    # If the operator initialised the test harness for this TASK-ID
+    # via dev-tools/datarim-stage-probe-init.sh, append one journal line
+    # per writer call. Fail-soft per V-AC-7 contract — never abort snapshot.
+    # Detection heuristics: header-present = body_file first line matches
+    # ^**{task_id} · ; cta-footer = body contains Cyrillic CTA marker
+    # or /dr-* {task_id} primary line.
+    local journal_dir="/tmp/datarim-test-${task_id}"
+    if [ -d "$journal_dir" ] && [ ! -L "$journal_dir" ]; then
+        local _first _hdr_y _cta_y _sha
+        _first="$(head -1 "$body_file" 2>/dev/null || true)"
+        if printf '%s\n' "$_first" | grep -qE "^\\*\\*${task_id} · "; then
+            _hdr_y=y
+        else
+            _hdr_y=n
+        fi
+        if grep -qE "Следующий шаг — ${task_id}|/dr-[a-z]+ ${task_id}|primary CTA" \
+                "$body_file" 2>/dev/null; then
+            _cta_y=y
+        else
+            _cta_y=n
+        fi
+        _sha="$(shasum -a 256 "$final_path" 2>/dev/null \
+            | awk '{print substr($1,1,12)}' || echo "------------")"
+        {
+            printf '%s · %s · header-present:%s · snapshot-written:y · cta-footer:%s · snapshot-sha:%s\n' \
+                "$stage" "$captured_at" "$_hdr_y" "$_cta_y" "$_sha"
+        } >> "${journal_dir}/journal.md" 2>/dev/null || true
+    fi
+
     release_plugin_lock "$lock_dir"
     trap - EXIT INT TERM
     return 0

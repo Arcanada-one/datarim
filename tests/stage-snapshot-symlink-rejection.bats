@@ -9,7 +9,7 @@
 # file (e.g. /etc/passwd) and the replay-prompt would inline its content.
 #
 # Fix: dev-tools/check-stage-snapshot-on-exit.sh rejects symlinks at the
-# snapshot path with exit 2 (malformed). Consumer /dr-continue Step 2.5
+# snapshot path with exit 2 (malformed). Consumer /dr-next Step 2.5
 # fallbacks silently to legacy behaviour on validator non-zero, so reject
 # == "no replay" which is the safe default.
 
