@@ -199,7 +199,9 @@ For L1-L2 tasks, by contrast, ≥4 rounds usually IS a signal — either
 scope was misestimated (should be L3) or the agent is asking questions
 the brief / FB-rules already answered.
 
+<!-- gate:history-allowed -->
 Reference: ARCA-0009 (L3 epic, 7 rounds total across 5 `/dr-do`
+<!-- /gate:history-allowed -->
 sessions over 2 days) — round count flagged in reflection but
 re-classified as expected behaviour for L3+ decomposition.
 
@@ -234,9 +236,13 @@ choice — that is *inheritance*, not a round. No append-log entry is
 required, and the stage's "APPEND Q&A IF ANY" step correctly skips.
 Inheritance MUST be acknowledged in the stage's primary artefact
 (implementation notes, plan body, design rationale, etc.) by citing the
+<!-- gate:history-allowed -->
 ISO timestamp of the originating append-log entry. AUTH-0081 (2026-05-20)
+<!-- /gate:history-allowed -->
 is a worked example: `/dr-do` round 1 inherited the
+<!-- gate:history-allowed -->
 `2026-05-20T16:10:03Z` discharge condition («Ожидать AUTH-0074 merge»)
+<!-- /gate:history-allowed -->
 without re-asking and without writing a new append-log block.
 
 ### Canonical 5-round decomposition pattern

@@ -81,7 +81,9 @@ A raw-query `SELECT 1` (or an equivalent vendor liveness ping such as Redis `PIN
 
 **This is NOT a waiver for** any query that selects from a user table, parses a payload field, or depends on schema shape — those remain under Gate 1 mandatory.
 
+<!-- gate:history-allowed -->
 Reference incident: opsbot `CommandsService.healthProbe()` uses `$queryRaw\`SELECT 1\`` as the canonical liveness check; the Prisma client running this call is the same one exercised by `GET /health` before any command is dispatched (ARCA-0009 M2). Strict Gate 1 would have FAILed `/dr-compliance` for canonical liveness — the exception lets the trivial sentinel pass while still gating real raw-SQL paths.
+<!-- /gate:history-allowed -->
 
 ---
 

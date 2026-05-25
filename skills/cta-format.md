@@ -33,7 +33,9 @@ Every task-scoped `/dr-*` command and CTA-emitting agent MUST begin its operator
 
 | Element | Rule |
 |---------|------|
+<!-- gate:history-allowed -->
 | `{TASK-ID}` | Full prefix-number form, e.g. `ARCA-0001`, `TUNE-0262`. Never a short form, never paraphrased. |
+<!-- /gate:history-allowed -->
 | Separator | U+00B7 MIDDLE DOT `·` (the same character used in `tasks.md` one-liners). Surround with single ASCII spaces. |
 | `{title}` | Title verbatim from the `tasks.md` one-liner — the substring between `L{N} · ` and ` → tasks/`. No truncation, no paraphrase. Schema cap ≤80 chars. |
 | Markdown | Bold inline (`**…**`) — matches the CTA footer convention (`**Следующий шаг — {ID}**`). No additional formatting, no headers, no surrounding blockquote. |
@@ -64,7 +66,9 @@ The following commands/contexts MUST NOT emit a Stage Header:
 
 ### Enforcement
 
+<!-- gate:history-allowed -->
 Programmatic enforcement is opt-in via a Claude Code Stop hook (TUNE-0264) at `dev-tools/hooks/dr-output-stop.sh`. When registered in `~/.claude/settings.json § hooks.Stop[]`, the hook checks the first non-empty line of every assistant response against `^\*\*[A-Z]{2,10}-\d{4} · .+\*\*$` (Exception List above honoured: `/dr-help`, `/dr-status`, `/dr-doctor`, plus `/dr-init` until Step 4 emits the TASK-ID). Missing header on first occurrence → stdout JSON `{"decision":"block","reason":"..."}`; retry (`stop_hook_active=true`) degrades to stderr advisory (retry budget = 1). The same hook also enforces `human-summary.md § Output contract` when the user invoked `/dr-archive`, `/dr-compliance`, or `/dr-qa`. Opt-in instructions and the canonical `settings.json` snippet: `docs/how-to/dr-output-hook.md`.
+<!-- /gate:history-allowed -->
 
 ## Canonical Block — Single Active Task
 

@@ -195,7 +195,9 @@ If `banlist.txt` or `whitelist.txt` is absent at runtime, the caller MUST emit a
 
 If the skill cannot be loaded (missing file), the caller proceeds without the summary section. The technical output and the CTA block remain unchanged. The bats spec-regression test guards against silent removal of the skill, its sub-headings, the banlist / whitelist, and the escape-hatch contract.
 
+<!-- gate:history-allowed -->
 In addition to the markdown contract, the severity ladder above is also checked by a programmatic validator — the opt-in Claude Code `Stop` hook `dev-tools/hooks/dr-output-stop.sh` (TUNE-0264). When the user invoked `/dr-archive`, `/dr-compliance`, or `/dr-qa`, the hook extracts the `## Отчёт оператору` / `## Operator summary` section and emits a block finding for any of `missing_section`, `missing_preamble`, `missing_subheading_<1..4>`, `fifth_subheading`, or `wrong_order`. On first occurrence the hook returns stdout JSON `{"decision":"block","reason":"..."}` so the model regenerates the summary; on retry (`stop_hook_active=true`) the same findings are emitted to stderr as advisory and exit 0 (retry budget = 1). The hook is opt-in via `~/.claude/settings.json § hooks.Stop[]` per `docs/how-to/dr-output-hook.md`.
+<!-- /gate:history-allowed -->
 
 ## Example (RU)
 

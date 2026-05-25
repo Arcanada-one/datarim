@@ -28,7 +28,9 @@ OpenAI) via the OpenAI-compatible API. Provider/model switchable per call.
 - `archive-{TASK-ID}.md` and `reflection-{TASK-ID}.md` — generated at the
   end of the pipeline (`/dr-archive`), when the agent already holds full
   context from the current cycle. Coworker does not save tokens here (spec
+<!-- gate:history-allowed -->
   ≈ final text) and has repeatedly fabricated (CONN-0213 / AUTH-0084
+<!-- /gate:history-allowed -->
   precedent). Direct `Write` allowed. If context is empty (recovering a
   stale archive months later) the operator picks coworker manually.
 

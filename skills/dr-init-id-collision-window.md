@@ -9,7 +9,9 @@ applicability: framework
 loaded_by:
   - commands/dr-init.md (probe step)
   - commands/dr-archive.md (collision-detection branch)
+<!-- gate:history-allowed -->
 source: TUNE-0280 reflection § Class A P1
+<!-- /gate:history-allowed -->
 ---
 
 # Task-ID Collision Window — Detection & Rename Procedure
@@ -163,7 +165,11 @@ ID. Procedure:
 
 ## Provenance
 
+<!-- gate:history-allowed -->
 TUNE-0280 (`/dr-continue` + stage-snapshot replay verification) hit this exact
+<!-- /gate:history-allowed -->
+<!-- gate:history-allowed -->
 collision on its `/dr-archive` step — parallel session had reserved TUNE-0269
+<!-- /gate:history-allowed -->
 and committed first. Resolution required renaming the whole derived chain
 mid-archive, which is what this skill codifies as a standard procedure.
