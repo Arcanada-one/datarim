@@ -60,7 +60,7 @@ The output should cite at least one task from `datarim/tasks.md`. If you see «f
 
 ### Why no `/`-popup menu in Codex?
 
-Slash-command auto-complete is a feature of the **host runtime** (Claude Code), not of the Datarim symlinks. Claude Code scans `~/.claude/commands/*.md` and registers each file as a UI command; Codex CLI has no equivalent indexing layer in 0.130.0. The markdown files are still reachable — Codex reads them on demand when you reference them by path or name — but they will not surface in a `/`-typed menu. UI parity for Codex is an upstream concern (Codex CLI feature request), not a Datarim runtime gap. Recommended pattern under Codex: name the command explicitly in the prompt (e.g. «follow `commands/dr-do.md` for TUNE-0123») so the LLM loads the instructions on first turn.
+Slash-command auto-complete is a feature of the **host runtime** (Claude Code), not of the Datarim symlinks. Claude Code scans `~/.claude/commands/*.md` and registers each file as a UI command; Codex CLI has no equivalent indexing layer in 0.133.0. The markdown files are still reachable — Codex reads them on demand when you reference them by path or name — but they will not surface in a `/`-typed menu. UI parity for Codex is an upstream concern (Codex CLI feature request), not a Datarim runtime gap. Recommended pattern under Codex: name the command explicitly in the prompt (e.g. «follow `commands/dr-do.md` for TUNE-0123») so the LLM loads the instructions on first turn.
 
 ### Why no Datarim skills in the Codex skill-list?
 
