@@ -1,6 +1,6 @@
 ---
 name: dr-auto
-description: Мета-команда автономного исполнения — активирует FB-1..8 mandate + L1 Inline Resolution Rule + autonomous-ops scope как default-on. Подавляет уточняющие вопросы через 5-уровневую Question Suppression Ladder. Two modes — Continue (resume task) / Bootstrap (full pipeline).
+description: Meta-command for autonomous execution. Activates FB-1..8 mandate + L1 Inline Resolution Rule + autonomous-ops scope as default-on. Suppresses clarifying questions via the 5-level Question Suppression Ladder. Two modes — Continue (resume task) / Bootstrap (full pipeline).
 model: inherit
 metadata:
   model_tier: reasoning

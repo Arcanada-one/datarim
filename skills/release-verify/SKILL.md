@@ -1,6 +1,6 @@
 ---
 name: release-verify
-description: Consumer-side recipe для Datarim release — sha256 → cosign verify-blob → gh attestation verify. Load при install/update из GitHub Release.
+description: Consumer-side recipe for Datarim release — sha256 → cosign verify-blob → gh attestation verify. Load on install/update from a GitHub Release.
 current_aal: 1
 target_aal: 2
 ---

@@ -1,6 +1,6 @@
 ---
 name: autonomous-mode
-description: Question Suppression Ladder (5 levels) + L1 Inline Resolution Rule + Hard-gated Action Boundary. Активируется через DATARIM_AUTO_MODE=1 + datarim/.auto-mode-active marker под /dr-auto.
+description: Question Suppression Ladder (5 levels) + L1 Inline Resolution Rule + Hard-gated Action Boundary. Activated via DATARIM_AUTO_MODE=1 + datarim/.auto-mode-active marker under /dr-auto.
 model: inherit
 current_aal: 2
 target_aal: 2
