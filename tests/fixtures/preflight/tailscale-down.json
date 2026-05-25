@@ -1,0 +1,11 @@
+{
+  "Version": "1.96.5-t4ee448d3a-g74ffbefc2",
+  "BackendState": "Stopped",
+  "Self": {
+    "ID": "n6azheccQp11CNTRL",
+    "HostName": "arcana-prod",
+    "DNSName": "arcana-prod.tailb1f805.ts.net.",
+    "TailscaleIPs": ["100.87.118.10"],
+    "Online": false
+  }
+}

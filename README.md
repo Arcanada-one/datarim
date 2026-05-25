@@ -94,7 +94,7 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   cross-Claude-family fallback). Each agent has a defined role, capabilities,
   and the stages where it operates.
 
-- **45 reusable skills** — modular knowledge units that agents load on demand,
+- **46 reusable skills** — modular knowledge units that agents load on demand,
   covering everything from testing methodology to security hardening to content
   creation workflows and structured research.
 

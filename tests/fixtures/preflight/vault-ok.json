@@ -1,0 +1,8 @@
+{
+  "type": "shamir",
+  "initialized": true,
+  "sealed": false,
+  "version": "1.18.2",
+  "cluster_name": "vault-cluster-arcana-prod",
+  "ha_enabled": false
+}

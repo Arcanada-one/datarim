@@ -232,7 +232,7 @@ Source: https://docs.syncthing.net/users/ignoring.html
 
 Если ты исключил `/Projects/*/code` из sync, нужен alternate update mechanism для второй ноды:
 
-1. **Cron `git pull` script** — рекомендую `Areas/Infrastructure/scripts/arcanada-pull.sh` pattern:
+1. **Cron `git pull` script** — рекомендую `documentation/infrastructure/scripts/arcanada-pull.sh` pattern:
    - `git fetch` upstream
    - skip if local==remote
    - skip if branch ≠ main/master (агент в feature ветке)

@@ -1,0 +1,113 @@
+name: Pre-deploy Preflight Check
+description: Validate target host health before deploy; block on FATAL, emit Ops Bot warning/fatal events
+author: Arcanada-one
+inputs:
+  target-host:
+    required: true
+    description: Logical host name (arcana-prod, arcana-ai, etc) — used in metric keys and Ops Bot meta.
+  service-name:
+    required: true
+    description: Service name being deployed (opsbot, auth-arcana, etc).
+  min-free-disk-gb:
+    required: false
+    default: "2"
+    description: Minimum free disk GB on key paths.
+  disk-warn-percent:
+    required: false
+    default: "80"
+    description: Disk-used percentage triggering WARN.
+  disk-fail-percent:
+    required: false
+    default: "90"
+    description: Disk-used percentage triggering FATAL (block deploy).
+  extra-checks:
+    required: false
+    default: |
+      vault
+      tailscale
+      time-skew
+    description: Newline-separated optional checks (vault, tailscale, time-skew, docker-pressure, ram-swap, loadavg, health-pre-probe).
+  ops-bot-emit:
+    required: false
+    default: "true"
+    description: Emit warning/fatal events to Ops Bot.
+  ops-bot-url:
+    required: false
+    default: https://ops.arcanada.one/events
+    description: Ops Bot events endpoint. Validated against canonical allowlist in PROD trigger contexts (strict reject; non-PROD WARN-only).
+  ops-bot-key:
+    required: false
+    default: ""
+    description: Ops Bot Vault-issued API key. If empty, falls back to runner env OPSBOT_KEY. Explicit input eliminates the job-vs-step env-scope footgun.
+  severity-overrides:
+    required: false
+    default: ""
+    description: |
+      Optional JSON object of severity-threshold overrides, e.g. '{"min_free_disk_gb": 5}'. Schema-validated
+      via jq before export (object type, allowlisted keys, integer values). Each entry exported as
+      PREFLIGHT_<UPPERCASE_KEY>=value into $GITHUB_ENV for the downstream Run step. Empty ⇒ skip.
+      Allowlist: min_free_disk_gb, disk_warn_percent, disk_fail_percent, ram_warn_percent, ram_fail_percent, loadavg_fatal_multiplier.
+outputs:
+  status:
+    description: ok | warn | fail
+    value: ${{ steps.run.outputs.status }}
+  report-path:
+    description: Path to JSON report artifact
+    value: ${{ steps.run.outputs.report-path }}
+  warnings:
+    description: Number of warnings
+    value: ${{ steps.run.outputs.warnings }}
+  failures:
+    description: Number of FATAL failures
+    value: ${{ steps.run.outputs.failures }}
+runs:
+  using: composite
+  steps:
+    - name: Reject fork PR triggers
+      id: fork-guard
+      if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true
+      shell: bash
+      run: |
+        echo "ERR: preflight-check forbidden on fork PR (head.repo.fork=true)" >&2
+        exit 1
+    - name: Validate ops-bot-url against PROD allowlist
+      id: validate-url
+      if: inputs.ops-bot-emit == 'true'
+      shell: bash
+      env:
+        PREFLIGHT_OPS_BOT_URL: ${{ inputs.ops-bot-url }}
+        PREFLIGHT_IS_PROD_CONTEXT: ${{ github.event_name == 'push' && (endsWith(github.ref, '/main') || endsWith(github.ref, '/master') || contains(github.ref, '/release/')) }}
+      run: |
+        "${{ github.action_path }}/../../../dev-tools/preflight-validate-url.sh"
+    - name: Validate and export severity-overrides
+      id: validate-overrides
+      if: inputs.severity-overrides != ''
+      shell: bash
+      env:
+        PREFLIGHT_SEVERITY_OVERRIDES: ${{ inputs.severity-overrides }}
+      run: |
+        "${{ github.action_path }}/../../../dev-tools/preflight-validate-overrides.sh"
+    - name: Run preflight checks
+      id: run
+      shell: bash
+      env:
+        PREFLIGHT_TARGET_HOST: ${{ inputs.target-host }}
+        PREFLIGHT_SERVICE_NAME: ${{ inputs.service-name }}
+        PREFLIGHT_MIN_FREE_DISK_GB: ${{ inputs.min-free-disk-gb }}
+        PREFLIGHT_DISK_WARN_PERCENT: ${{ inputs.disk-warn-percent }}
+        PREFLIGHT_DISK_FAIL_PERCENT: ${{ inputs.disk-fail-percent }}
+        PREFLIGHT_EXTRA_CHECKS: ${{ inputs.extra-checks }}
+        PREFLIGHT_OPS_BOT_EMIT: ${{ inputs.ops-bot-emit }}
+        PREFLIGHT_OPS_BOT_URL: ${{ inputs.ops-bot-url }}
+        PREFLIGHT_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        OPSBOT_KEY: ${{ inputs.ops-bot-key != '' && inputs.ops-bot-key || env.OPSBOT_KEY }}
+      run: |
+        "${{ github.action_path }}/../../../dev-tools/preflight-check.sh"
+    - name: Upload report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: preflight-report-${{ inputs.service-name }}-${{ inputs.target-host }}
+        path: ${{ steps.run.outputs.report-path }}
+        if-no-files-found: warn
+        retention-days: 7
