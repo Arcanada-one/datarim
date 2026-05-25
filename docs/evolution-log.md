@@ -24,6 +24,23 @@ TUNE-0303 (extend `coworker-hook-guard` to Codex CLI native tool names — `view
 
 ---
 
+## 2026-05-25 — TUNE-0303 reflection — git workflow Class A × 2 applied
+
+TUNE-0303 round 3 (foreign-hunks audit + 11 retroactive task commits + PR #45 squash-merge) выявил две L1 inline-резолюции на git workflow boundary, пригодные к закреплению как operator-memory feedback rules.
+
+**Class A applied (× 2, operator-memory scope):**
+
+1. `~/.claude/projects/-Users-ug-arcanada/memory/feedback_merge_ours_for_long_rebase.md` — Rule: `git rebase` против upstream с N≥10 absorbed PRs И append-only ledger files → expect conflict-per-commit storm. Switch to `git merge -X ours origin/main` после первых 2 conflict'ов с identical-content resolutions. Concrete trigger: TUNE-0303 первый commit (1/57) hit evolution-log conflict; merge -X ours произвёл same end-state в 5 conflict'ах one-pass. Stack-agnostic gate N/A (operator memory, not framework runtime).
+2. `~/.claude/projects/-Users-ug-arcanada/memory/feedback_squash_merge_for_signed_only.md` — Rule: branch protection с `required_signatures: true` AND `enforce_admins: true` блокирует local push без GPG; PR + `gh pr merge --squash --admin` использует GitHub web-flow auto-sign. Extends [[squash-merge-auto-signs]] на admin-merge case. Concrete trigger: TUNE-0303 PR #45 squash-merge произвёл `5cf271d` signed satisfying protection. Stack-agnostic gate N/A.
+
+**Class B held (× 1):** retroactive-commit detector — script + `/dr-archive` Step 1.5 gate (OR `/dr-doctor` periodic sweep) проверяющий что для каждого archive doc существует matching code-changes commit в `code/datarim/` дереве. Pattern surfaced: 11 archived task IDs (TUNE-0264/0262/0253/0298/0267/0268/0271/0286/0297 + DISK-0037) имели archive docs committed но code-changes никогда не пушились. Class B потому что меняет operating model (archive-time gate vs periodic sweep). Spawn as `TUNE-* retroactive-commit detector` после second-incidence trigger.
+
+**Health-metrics:** skills 46 (unchanged), agents 18, commands 23. `/dr-optimize` not warranted.
+
+**Provenance:** reflection `datarim/reflection/reflection-TUNE-0303.md` + archive `documentation/archive/framework/archive-TUNE-0303.md` + PR `https://github.com/Arcanada-one/datarim/pull/45` squash-merged as `5cf271d`.
+
+---
+
 ## 2026-05-24 — DISK-0037 — Pipeline-position-aware AC + Q&A bundling (Class A × 2 applied)
 
 DISK-0037 (EnrollmentService listener split) выявил две L1 inline-резолюции, пригодные к закреплению как фреймворковые правила.
