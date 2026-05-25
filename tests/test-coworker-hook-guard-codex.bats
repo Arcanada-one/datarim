@@ -48,6 +48,19 @@ run_hook_shell() {
     printf '%s' "$payload" | "$HOOK"
 }
 
+# Codex CLI 0.133 actual emission. tool_name="exec_command" — verified via
+# ~/.codex/logs_2.sqlite (DISTINCT tool names in custom_tool_call events).
+run_hook_exec_command() {
+    local cmd="$1"
+    local payload
+    payload=$(jq -nc --arg c "$cmd" '{
+        hook_event_name: "PreToolUse",
+        tool_name: "exec_command",
+        tool_input: { command: $c }
+    }')
+    printf '%s' "$payload" | "$HOOK"
+}
+
 # Build a PreToolUse payload for a codex `apply_patch` call. $1 = raw patch body.
 run_hook_apply_patch() {
     local patch="$1"
@@ -133,6 +146,29 @@ make_long_file() {
 @test "Case H — apply_patch Add archive-FOO-0001.md → silent pass (S8, exempt)" {
     patch=$'*** Begin Patch\n*** Add File: archive-FOO-0001.md\n+content\n*** End Patch'
     run run_hook_apply_patch "$patch"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
+
+# Codex CLI 0.133 native — verified through live ~/.codex/logs_2.sqlite.
+# Mirrors Case C but uses the actual tool_name codex emits.
+
+@test "Case I — exec_command 'git diff main..HEAD' → deny (live codex 0.133 emission)" {
+    run run_hook_exec_command "git diff main..HEAD"
+    [ "$status" -eq 0 ]
+    decision=$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')
+    [ "$decision" = "deny" ]
+}
+
+@test "Case J — exec_command bare 'git checkout -b foo' → deny (HEAD-blind via codex native)" {
+    run run_hook_exec_command "git checkout -b foo"
+    [ "$status" -eq 0 ]
+    decision=$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')
+    [ "$decision" = "deny" ]
+}
+
+@test "Case K — exec_command 'wc -l /tmp/long.txt' → silent pass (benign summary)" {
+    run run_hook_exec_command "wc -l /tmp/long.txt"
     [ "$status" -eq 0 ]
     [ -z "$output" ]
 }

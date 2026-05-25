@@ -3,8 +3,17 @@
 # bulk I/O to the coworker tool.
 #
 #   - PreToolUse on Claude tools  : Read | Write | Bash
-#   - PreToolUse on Codex tools   : view | apply_patch | shell
+#   - PreToolUse on Codex tools   : view | apply_patch | shell | exec_command
 #   - SessionStart                : Moonshot balance probe (canary)
+#
+# Codex CLI 0.133 native tool names (verified via ~/.codex/logs_2.sqlite —
+# 83 apply_patch events, exec_command frequent, no `shell`/`view`):
+#   apply_patch    — patch-format file create/update/delete
+#   exec_command   — shell-style command invocation
+#   update_plan    — planning UI tool (not bulk-I/O, passed through)
+#   write_stdin    — interactive stdin (not bulk-I/O, passed through)
+# `shell` and `view` are retained as defensive aliases in case a future
+# codex version normalises tool names to those Claude-equivalent labels.
 #
 # emit_deny → permissionDecision="deny" + reason. Silent (exit 0 with no
 # stdout) means "no opinion, continue normal flow".
@@ -121,8 +130,10 @@ case "$tool" in
     done < <(printf '%s' "$body" | sed -n 's/^\*\*\* Add File: //p')
     exit 0
     ;;
-  Bash|shell)
-    # Claude Bash and codex shell both expose tool_input.command.
+  Bash|shell|exec_command)
+    # Claude Bash, codex shell (alias), codex exec_command all expose
+    # tool_input.command. exec_command is the actual codex 0.133 emission;
+    # shell is reserved for forward-compat / alias.
     cmd=$(printf '%s' "$input" | jq -r '.tool_input.command // empty')
     [ -n "$cmd" ] || exit 0
     # TUNE-0156: HEAD-blind branch creation gate.
