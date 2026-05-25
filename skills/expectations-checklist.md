@@ -150,6 +150,8 @@ _(empty on first write)_
 | `n-a` | item became inapplicable (scope changed, environment drift) | non-blocking |
 | `deleted` | operator dropped the wish (history retained) | non-blocking |
 
+> **Glossary note.** `closed` is NOT an enum value here, although the word often appears in QA/PRD prose to mean "success criterion verified". The correct enum for that semantics is `met`. The validator (`dev-tools/check-expectations-checklist.sh --task <ID>`) rejects `closed` as a structural error; pipelines fail late at `/dr-compliance --verify` rather than at write time. Source: TUNE-0295 Phase H L2-F-8 wrote `closed`, surfaced only at `/dr-compliance` re-validation.
+
 ### Numeric literals in success criteria
 
 Avoid hardcoded counts in success criteria when the count is derived from

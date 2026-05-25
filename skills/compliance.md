@@ -11,6 +11,27 @@ target_aal: 3
 
 Compliance is the final quality gate before archiving. It verifies that the work meets all stated requirements and standards. The checklist adapts to the task type.
 
+## Deferral vs Inline-Ship Decision Heuristic
+
+When a finding (Low / Medium severity) surfaces during compliance and a clean deferral target exists (a successor task that already owns the same surface), the default reflex is Path A: «document as caller-side contract, hand off to successor». This is the safe choice for high-blast-radius findings or those without a clean inline reduction.
+
+But Path A carries a hidden cost: **caller-side contract is invisible closure debt**. The successor task carries the obligation, but the obligation is no longer linked to the original finding's context — the operator has to re-derive why the caller-side handoff exists when the successor task starts. If the successor expands into a multi-finding scope, the original handoff item silently grows in importance.
+
+**Rule of thumb — prefer Path B (inline-ship) when ALL of the following hold:**
+
+1. The fix is **≤100 LoC** of production code + tests (no architectural displacement).
+2. The fix adds **≥2 behavioural tests** that exercise the previously-uncovered path.
+3. The successor task has **no other depends-on** beyond this single obligation (so closing the handoff also closes a real downstream dependency, not just one of many).
+4. The fix is **reversible by single-commit revert** (FB-6) and **does not change public API contracts** that other consumers depend on.
+
+When any condition fails, Path A is correct. When all four hold, Path B is the lower-friction path — the operator gets one fewer cross-task handoff to track, and the successor task's scope is provably narrower at archive time.
+
+**Operator override is the canonical escape hatch.** If compliance default-routes to Path A but the operator wants Path B (or vice versa), the override carries via `--focus-items` invocation of `/dr-do` — see Layer 3b FAIL-Routing CTA. Each override round MUST land in the init-task append-log (FB-2 / FB-5 traceability).
+
+Source: ARAS-0006 archive — F-2 (ReadlinePrompt deferral) and F-3 (caller-side canonicalize) initially Path A at compliance v1/v2; both operator-overridden to Path B in subsequent /dr-do rounds, closing ARAS-0024 obligations #1 and #2. Net effect: successor task's scope reduced from 3 items to 1. Second source: TUNE-0264 archive — PASS_WITH_NOTES (two functions slightly over 50-line cap) closed inline at /dr-compliance under Path B; accepted-risk register stayed empty by design.
+
+---
+
 ## Step 0: Detect Task Type
 
 Read `datarim/tasks.md` and `datarim/activeContext.md` to determine task type:
@@ -57,6 +78,22 @@ Read `datarim/tasks.md` and `datarim/activeContext.md` to determine task type:
 - Detect: new dependencies, changed env vars, new build steps
 - Flag: breaking changes to build pipeline, missing migration steps
 - **Stale-base merge-result gate (`git`-only).** Before reporting any apparent change in PR diff vs `origin/<base>` as a "regression", check whether the diff is a side-effect of `origin/<base>` advancing past the branch's merge-base rather than a branch-side edit. If `git diff <merge-base>..HEAD -- <file>` is empty for a file that nonetheless appears in `git diff origin/<base>..HEAD -- <file>`, simulate the actual 3-way merge: `git merge-tree $(git merge-base HEAD origin/<base>) HEAD origin/<base>`. If the simulated tree preserves the upstream change in question, the apparent diff is a no-op on merge — record this in the report and do NOT block the archive on a rebase requirement. Source: prior incident — a feature PR appeared to revert an upstream baseline-hardening fix that landed mid-flight; merge-tree simulation confirmed the fix was preserved by 3-way merge, deflating a needless rebase cycle.
+
+### Loop-guard pre-emptive operator handoff (attempt 2 vs attempt 3)
+
+`cta-format` § Loop guard escalates after **3 same-layer fails**. The default automatic re-run between attempts 1 and 2 is appropriate only when the verdict could plausibly change without external action — for example, when a flaky test was re-run, when an upstream timing dependency might have caught up, or when the operator may have acted between attempts.
+
+When a probe set is **deterministic** (`gh pr view` PR states, `git rev-parse origin/main` HEAD, live `/health` endpoints, validator stdout) AND **state delta vs the previous attempt is empty across all probes**, attempt 2 carries zero information. The verdict cannot change without operator action.
+
+In that case Compliance MUST, on attempt 2:
+
+1. Capture the empty-delta finding in the v2 report (one-line delta table is sufficient).
+2. Pre-emptively formulate a handoff question to the operator (FB-8 — surface only the question that actually blocks safe forward progress), **rather than** running attempt 3 with the same probe set.
+3. Loop-guard counter remains at 2/3 until external action (operator or autonomous-by-delegation) produces a real state delta.
+
+Anti-pattern caught by this rule: identical NON-COMPLIANT verdicts at v1 + v2 produced by re-running the same `gh pr view` / `curl /health` set 23 minutes apart with no merge in between. The runtime probes are cheap, but the compliance turn (context, narration, validator append-log) is not — and the operator gets a noisy «attempt 2 of 3» banner that obscures the actual blocker.
+
+Source: prior incident — a multi-repo task ran compliance v1+v2 within 23 minutes; both returned identical Layer-4 NON-COMPLIANT verdicts with state delta ∅ on all 5 runtime probes (PR states, main HEAD, live `/health`, expectations validator). Attempt 3 resolved only when the operator explicitly delegated the blocking mechanical action under FB-1..FB-5 + autonomous-ops authorization, not via further probe re-runs. Provenance: see `docs/evolution-log.md` for the archive entry that motivated this rule.
 
 ---
 
