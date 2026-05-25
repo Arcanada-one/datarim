@@ -31,7 +31,12 @@ setup() {
     echo "$out" | jq -e '.confidence > 0'
 }
 
-@test "TUNE-0183: parser hits /dr-continue from yaml rules" {
+@test "TUNE-0183: parser hits /dr-next from yaml rules" {
+    out=$(bash "$DR_ORCH_DIR/scripts/semantic_parser.sh" parse "/dr-next ARCA-0034")
+    echo "$out" | jq -e '.confidence > 0'
+}
+
+@test "TUNE-0298: parser still hits deprecated /dr-continue alias" {
     out=$(bash "$DR_ORCH_DIR/scripts/semantic_parser.sh" parse "/dr-continue ARCA-0034")
     echo "$out" | jq -e '.confidence > 0'
 }

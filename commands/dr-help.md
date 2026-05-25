@@ -51,7 +51,7 @@ Not every task goes through every stage. Datarim routes tasks based on complexit
 | Command | Description |
 |---------|-------------|
 | `/dr-status` | Check current task status, pipeline progress, and backlog summary. Read-only. |
-| `/dr-continue` | Resume work from the last checkpoint. Restores context and picks up where you left off. |
+| `/dr-next` | Resume work from the last checkpoint. Restores context and picks up where you left off. |
 | `/dr-help` | Show this command reference. |
 
 ### Standalone Commands (2)
@@ -136,7 +136,7 @@ Idempotent — safe to run on existing projects (skips existing files, creates o
 - Start with `/dr-init <task description>` — the framework handles routing.
 - Use `/dr-init create project "Name"` to scaffold a new project with full structure.
 - Use `/dr-status` at any time to see where you are.
-- Use `/dr-continue` after a break to resume with full context.
+- Use `/dr-next` after a break to resume with full context.
 - Datarim works for any project type: software, research, documentation, legal, project management.
 <!-- gate:history-allowed -->
 - Each task gets a unique ID (e.g., `TASK-0001`) for tracking across the pipeline.
@@ -149,7 +149,7 @@ After showing the help reference, MUST emit a CTA block per `$HOME/.claude/skill
 
 **Routing logic for `/dr-help`:**
 
-- Active tasks exist → primary `/dr-continue` (resume work) + alternative `/dr-status` for overview
+- Active tasks exist → primary `/dr-next` (resume work) + alternative `/dr-status` for overview
 - No active tasks, backlog has items → primary `/dr-init` (pick from backlog)
 - No active tasks, empty backlog → primary `/dr-init "<description>"` (start new task)
 - Always include `/dr-status` as escape hatch

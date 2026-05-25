@@ -25,7 +25,7 @@ Phase 2 — Subagent Inference Layer (v2.4.0).
 ## Цикл
 
 1. `tmux capture-pane -p -t <pane>` — снимает текущий буфер.
-2. **Snapshot-First Resume.** Если в буфере или job-queue определён active TASK-ID и `datarim/snapshots/{TASK-ID}.snapshot.md` валиден (`dev-tools/check-stage-snapshot-on-exit.sh --validate-frontmatter --task <ID>` → exit 0) — прочитать снапшот ДО `semantic_parser.sh` и передать `recommended_next` в `subagent_resolver.sh` как `--hint <command>`. Snapshot read происходит до resolver dispatch, так что resolver всё ещё может вернуть иной command — snapshot это hint, не constraint. Если снапшот отсутствует / malformed — пропустить шаг без warning (V-AC-7) и продолжить со старым поведением. Контракт consumer-стороны: `skills/dr-continue-snapshot-replay.md`.
+2. **Snapshot-First Resume.** Если в буфере или job-queue определён active TASK-ID и `datarim/snapshots/{TASK-ID}.snapshot.md` валиден (`dev-tools/check-stage-snapshot-on-exit.sh --validate-frontmatter --task <ID>` → exit 0) — прочитать снапшот ДО `semantic_parser.sh` и передать `recommended_next` в `subagent_resolver.sh` как `--hint <command>`. Snapshot read происходит до resolver dispatch, так что resolver всё ещё может вернуть иной command — snapshot это hint, не constraint. Если снапшот отсутствует / malformed — пропустить шаг без warning (V-AC-7) и продолжить со старым поведением. Контракт consumer-стороны: `skills/dr-next-snapshot-replay.md`.
 3. `semantic_parser.sh parse` — rule-based pass возвращает `{command, confidence, source}`.
 4. **Hit (confidence > 0)** — Phase 1 path: лог `make_event` v1, JSONL append.
 5. **Miss (confidence == 0)** — Phase 2 path:

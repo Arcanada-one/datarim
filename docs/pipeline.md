@@ -158,7 +158,7 @@ init → prd → plan → design → do → qa → compliance → archive
 ### /dr-status
 Read-only check of current task, progress, and backlog.
 
-### /dr-continue
+### /dr-next
 Resume work from the last checkpoint. Reads `activeContext.md` to determine current phase and routes to the appropriate stage.
 
 ---

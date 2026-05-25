@@ -294,7 +294,7 @@ After archive, the planner agent MUST emit a CTA block per `$HOME/.claude/skills
 
 **Routing logic for `/dr-archive`:**
 
-- Archive completed, other active tasks remain → primary `/dr-continue` (resume the next active task) + alternative `/dr-status`
+- Archive completed, other active tasks remain → primary `/dr-next` (resume the next active task) + alternative `/dr-status`
 - Archive completed, no other active tasks → primary `/dr-init` (start new work) + alternative "pick from backlog"
 - Knowledge base grew >5 docs since last maintenance → alternative `/dr-dream` (housekeeping)
 - Always include `/dr-status` as escape hatch

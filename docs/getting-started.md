@@ -454,7 +454,7 @@ After initialization, the pipeline depends on the task's complexity level. Datar
 
 You do not need to memorize these routes. After each stage, Datarim tells you what comes next. Run `/dr-status` at any time to see where you are in the pipeline.
 
-If you take a break and come back later, `/dr-continue` reads your `activeContext.md` and picks up where you left off.
+If you take a break and come back later, `/dr-next` reads your `activeContext.md` and picks up where you left off.
 
 ---
 
@@ -474,7 +474,7 @@ After running `/dr-init` for the first time, verify:
 
 ## Context Management (v2.13.0+)
 
-Every `/dr-*` command persists its final operator-visible response (Summary + Gate Results + CTA) to `datarim/snapshots/{TASK-ID}.snapshot.md` with overwrite semantics. After `/clear` or a closed terminal, `/dr-continue {TASK-ID}` (and `/dr-orchestrate` resume) reads this snapshot FIRST — before task-description, init-task, activeContext — and emits a replay-prompt with the recommended CTA plus a bilingual autonomy reminder. If no snapshot exists, both commands fall through to legacy behaviour without warning lines.
+Every `/dr-*` command persists its final operator-visible response (Summary + Gate Results + CTA) to `datarim/snapshots/{TASK-ID}.snapshot.md` with overwrite semantics. After `/clear` or a closed terminal, `/dr-next {TASK-ID}` (and `/dr-orchestrate` resume) reads this snapshot FIRST — before task-description, init-task, activeContext — and emits a replay-prompt with the recommended CTA plus a bilingual autonomy reminder. If no snapshot exists, both commands fall through to legacy behaviour without warning lines.
 
 - Storage: `datarim/snapshots/` (gitignored; archived snapshot lands in `documentation/archive/<subdir>/snapshots/{TASK-ID}-final-stage.md` at `/dr-archive`).
 - Kill-switch: `export DATARIM_DISABLE_SNAPSHOT=1` makes the writer no-op.
@@ -502,7 +502,7 @@ Run `/dr-doctor` if you are upgrading from a pre-v1.19.0 installation or if `/dr
 
 ### Two modes
 
-- **Continue** — `/dr-auto {TASK-ID}` поднимает task через snapshot-first read (как `/dr-continue`) и продолжает её до полного закрытия или hard-gated stop.
+- **Continue** — `/dr-auto {TASK-ID}` поднимает task через snapshot-first read (как `/dr-next`) и продолжает её до полного закрытия или hard-gated stop.
 - **Bootstrap** — `/dr-auto "<free-text description>"` запускает full pipeline `/dr-init → /dr-prd? → /dr-plan → /dr-do → /dr-qa → /dr-compliance → /dr-archive` с активным question-suppression.
 
 ### Question Suppression Ladder

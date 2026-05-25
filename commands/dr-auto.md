@@ -38,7 +38,7 @@ target_aal: 2
 3. **LOAD CONTRACT**: Read `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode.md` — Question Suppression Ladder + L1 Inline Resolution Rule + Hard-gated Action Boundary + Failure modes.
 
 4. **DISPATCH**:
-   - **Continue mode**: invoke `/dr-continue {TASK-ID}` semantics (snapshot-first read), затем resume pipeline from last stage indicated by snapshot.
+   - **Continue mode**: invoke `/dr-next {TASK-ID}` semantics (snapshot-first read), затем resume pipeline from last stage indicated by snapshot.
    - **Bootstrap mode**: sequential stages `/dr-init → /dr-prd (если L3+ или Class B) → /dr-plan → /dr-do → /dr-qa → /dr-compliance → /dr-archive`. После каждой стадии: проверить exit condition.
 
 5. **PER-STAGE SUPPRESSION**: каждая dispatched stage видит `DATARIM_AUTO_MODE=1` + matching marker, применяет `## /dr-auto Mode` block из своего commands/dr-*.md, который ссылается на Question Suppression Ladder в skills/autonomous-mode.md. Q&A point reached → consult Ladder L1-L4, escalate to L5 (operator) только если все mute.
@@ -108,4 +108,4 @@ Fail-closed: non-zero writer exit → single stderr warning, continue. Kill swit
 
 - Skill: `skills/autonomous-mode.md` — canonical contract loaded by this command.
 - Mandate: `documentation/mandates/autonomous-agents.md` — FB-1..8 rules source-of-truth.
-- Sibling commands: `/dr-continue` (Continue mode underlying mechanism), `/dr-orchestrate` (parallel multi-task, orthogonal).
+- Sibling commands: `/dr-next` (Continue mode underlying mechanism), `/dr-orchestrate` (parallel multi-task, orthogonal).

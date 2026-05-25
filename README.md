@@ -99,7 +99,7 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   creation workflows and structured research.
 
 - **23 commands** — 8 pipeline stages + /dr-auto autonomous mode + /dr-verify standalone, 3 content (write, edit, publish), 5 framework
-  and knowledge management (addskill, doctor, optimize, dream, **plugin** v1.23.0+), 3 utilities (status, continue,
+  and knowledge management (addskill, doctor, optimize, dream, **plugin** v1.23.0+), utilities (status, next,
   help), and 2 standalone tools (factcheck, humanize).
 
 - **8-stage complexity-aware pipeline** — tasks flow through exactly the stages they
@@ -362,7 +362,7 @@ claude
 /dr-status
 
 # Resume after a break
-/dr-continue
+/dr-next
 ```
 
 Each command guides you through its stage. The framework tracks state between
@@ -470,13 +470,13 @@ specific capabilities. You can add custom skills by placing `.md` files in
 | `/dr-optimize` | Maintenance | Audit framework health, prune unused components, merge duplicates, fix references, sync documentation. |
 | `/dr-plugin` | Maintenance | Manage opt-in plugins (v1.23.0+, TUNE-0101). `list/enable/disable/sync/doctor` over a manifest-driven runtime. Symlinks plugin sources into `~/.claude/{cat}/{plugin-id}/` namespaces; supports root-position `overrides:`; pre-mutation snapshot/rollback. |
 | `/dr-status` | Any | Check current task status, pipeline progress, and backlog summary. |
-| `/dr-continue` | Any | Resume work from the last checkpoint. Restores context and picks up where you left off. |
+| `/dr-next` | Any | Resume work from the last checkpoint. Restores context and picks up where you left off. |
 | `/dr-help` | Any | List all available commands with descriptions, pipeline flow, and complexity routing. |
 | `/factcheck` | Standalone | Fact-check articles and posts. Extracts claims, verifies against sources, corrects errors. |
 | `/humanize` | Standalone | Remove AI writing patterns from text. Fixes vocabulary, structure, and formatting artifacts. |
 
 Commands are sequential within a pipeline but you can always check `/dr-status`,
-`/dr-continue`, or `/dr-help` at any point.
+`/dr-next`, or `/dr-help` at any point.
 
 ---
 

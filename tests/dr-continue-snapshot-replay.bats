@@ -1,25 +1,25 @@
 #!/usr/bin/env bats
 #
-# TUNE-0254 — dr-continue snapshot replay:
-#   (1) Step 2.5 present in commands/dr-continue.md and references validator + replay skill
+# TUNE-0254/TUNE-0298 — next snapshot replay:
+#   (1) Step 2.5 present in commands/dr-next.md and references validator + replay skill
 #   (2) replay-prompt template carries CTA + bilingual autonomy + done before:
 #   (3) fallback when snapshot absent — silent (no warning lines)
 
 REPO_ROOT="$(cd "${BATS_TEST_DIRNAME}/.." && pwd)"
-CMD="${REPO_ROOT}/commands/dr-continue.md"
-REPLAY="${REPO_ROOT}/skills/dr-continue-snapshot-replay.md"
+CMD="${REPO_ROOT}/commands/dr-next.md"
+REPLAY="${REPO_ROOT}/skills/dr-next-snapshot-replay.md"
 VALIDATOR="${REPO_ROOT}/dev-tools/check-stage-snapshot-on-exit.sh"
 
-@test "dr-continue.md carries SNAPSHOT-FIRST READ step (V-AC-5)" {
+@test "dr-next.md carries SNAPSHOT-FIRST READ step (V-AC-5)" {
     grep -q 'SNAPSHOT-FIRST READ' "$CMD"
 }
 
-@test "dr-continue.md references check-stage-snapshot-on-exit.sh validator" {
+@test "dr-next.md references check-stage-snapshot-on-exit.sh validator" {
     grep -F 'check-stage-snapshot-on-exit.sh' "$CMD" >/dev/null
 }
 
-@test "dr-continue.md references replay skill (skills/dr-continue-snapshot-replay.md)" {
-    grep -F 'dr-continue-snapshot-replay.md' "$CMD" >/dev/null
+@test "dr-next.md references replay skill (skills/dr-next-snapshot-replay.md)" {
+    grep -F 'dr-next-snapshot-replay.md' "$CMD" >/dev/null
 }
 
 @test "replay skill carries canonical RU autonomy line (V-AC-11 RU)" {
