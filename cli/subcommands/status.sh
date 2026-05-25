@@ -115,8 +115,8 @@ fi
 # --- Section 4: Next step (fixed CTA based on active task count) ---
 active_count="$(echo "$active_json" | jq 'length')"
 if [[ "$active_count" -gt 0 ]]; then
-    next_cmd="/dr-continue"
-    next_msg="$active_count active task(s) — resume via /dr-continue or /dr-status"
+    next_cmd="/dr-next"
+    next_msg="$active_count active task(s) — resume via /dr-next or /dr-status"
 else
     next_cmd="/dr-init"
     next_msg="no active tasks — start one via /dr-init"
