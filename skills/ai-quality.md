@@ -217,6 +217,8 @@ When an Acceptance Criterion asserts an HTTP status code (e.g. `→ 401`, `shoul
 
 **Stack-agnostic:** applies to any HTTP framework with a middleware/filter chain. <!-- gate:example-only -->Concrete examples: Express, Fastify, NestJS, Koa, Hapi, Django, Flask, FastAPI, Rails, Spring Boot, ASP.NET Core, Phoenix, Gin.<!-- /gate:example-only -->
 
+**Applies equally to non-HTTP protocols with a layered guard chain.** The same trace-step / literal-vs-semantic gate / template rule covers gRPC interceptors, message-broker authorizers, and any RPC pipeline that emits a typed status code. <!-- gate:example-only -->Concrete example: an Acceptance Criterion that asserts `→ PermissionDenied` on a guarded RPC may instead surface as `Unauthenticated` if the service-layer `require_admin()` predicate distinguishes "no bearer" from "wrong role". Both codes communicate the same intent ("admin RPC denied"); a literal-status AC trips on a no-op refactor of the predicate. Phrase as semantic gate: `code ∈ {Unauthenticated, PermissionDenied}`.<!-- /gate:example-only -->
+
 **Anti-pattern:** copying the literal status from upstream PRD without re-tracing when middleware order changes (e.g. switching framework, adding rate limiter, moving validator). Re-trace on every PRD that touches HTTP routing.
 
 ---

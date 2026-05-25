@@ -36,9 +36,9 @@ The init-task file is one of three per-task artefacts that share the `{TASK-ID}`
 |----------|-----------|----------|----------|
 | `tasks/{TASK-ID}-init-task.md` | canonical, append-only (operator brief + Q&A log) | committed via task lifecycle | this skill |
 | `tasks/{TASK-ID}-task-description.md` | canonical, agent-mutated | committed via task lifecycle | `skills/datarim-system.md` § Description File Contract |
-| `snapshots/{TASK-ID}.snapshot.md` | ephemeral, overwrite-on-retry (final operator-visible `/dr-*` response) | `datarim/snapshots/` (gitignored); moved to `documentation/archive/<subdir>/snapshots/{TASK-ID}-final-stage.md` at `/dr-archive` | `skills/stage-snapshot-writer.md` (producer) + `skills/dr-continue-snapshot-replay.md` (consumer) |
+| `snapshots/{TASK-ID}.snapshot.md` | ephemeral, overwrite-on-retry (final operator-visible `/dr-*` response) | `datarim/snapshots/` (gitignored); moved to `documentation/archive/<subdir>/snapshots/{TASK-ID}-final-stage.md` at `/dr-archive` | `skills/stage-snapshot-writer.md` (producer) + `skills/dr-next-snapshot-replay.md` (consumer) |
 
-The stage-snapshot is a sibling, not a replacement — init-task captures *what the operator asked for*; snapshot captures *what the agent last reported*. `/dr-continue` and `/dr-orchestrate` read the snapshot first for context-resume after `/clear`.
+The stage-snapshot is a sibling, not a replacement — init-task captures *what the operator asked for*; snapshot captures *what the agent last reported*. `/dr-next` and `/dr-orchestrate` read the snapshot first for context-resume after `/clear`.
 
 ## Artifact schema
 
@@ -175,6 +175,34 @@ question the agent asks the operator during a pipeline stage and its
 matching answer. The mechanism makes the source-of-truth for operator
 intent grow with the work; no clarification is ever lost between sessions.
 
+### Round count for L3+ epics — what's normal
+
+For L3+ tasks (epics that decompose across multiple `/dr-do` sessions),
+the canonical decomposition pattern is:
+
+1. **Round 1** — `/dr-init` scope clarification (1-3 questions on intent,
+   boundary, MUST-haves vs nice-to-haves).
+2. **Round 2** — `/dr-prd` decomposition into milestones / sub-tasks
+   (3-5 questions on cuts, sequencing, deferred axes).
+3. **Round 3+** — one round per `/dr-do` session (mid-implementation
+   pivots, scope adjustments revealed by code reality, deferred
+   sub-decisions).
+
+**Total rounds ≥5 is normal for L3+ work, not a trigger for concern.**
+A 7-round trail across a 5-session L3 epic indicates healthy
+incremental clarification, not analysis paralysis. The concern signal
+is the *opposite*: an L3+ epic that ships with ≤2 Q&A rounds typically
+hides implicit decisions that should have been surfaced (and is more
+likely to need a rework cycle later).
+
+For L1-L2 tasks, by contrast, ≥4 rounds usually IS a signal — either
+scope was misestimated (should be L3) or the agent is asking questions
+the brief / FB-rules already answered.
+
+Reference: ARCA-0009 (L3 epic, 7 rounds total across 5 `/dr-do`
+sessions over 2 days) — round count flagged in reflection but
+re-classified as expected behaviour for L3+ decomposition.
+
 ### When a Q&A round MUST be appended
 
 Six pipeline commands write Q&A blocks: `/dr-prd`, `/dr-plan`,
@@ -184,6 +212,32 @@ clarification an agent obtained during the stage MUST end up in the file
 before the stage emits its CTA. `/dr-init` (which creates the file) and
 `/dr-archive` (read-only consumer for "operator expectations" recap) do
 not write Q&A blocks.
+
+**Bundling thematically related inline decisions into one round is
+permitted.** When a single stage surfaces several small inline-decisions
+that share a common topic (e.g. multiple implementation deltas vs the
+plan during one `/dr-do` pass — alternative library choice, scope
+trim-down on a deferred branch, status-code reconciliation), they MAY be
+grouped into a single `--round N` invocation. Format: numbered list of
+questions in the `--question-file` body, matching numbered list of
+answers in the `--answer-file` body, one `--summary` covering the bundle.
+Use the bundle only when the topic is genuinely shared; unrelated
+clarifications still warrant separate rounds. Bundling lowers the
+cognitive cost of dense `/dr-do` rounds without diluting the audit
+trail.
+
+**Inheritance is not a new round.** If `/dr-do` (or any downstream stage)
+simply acts on decisions already captured in an earlier `/dr-init` /
+`/dr-prd` / `/dr-plan` append-log entry — without surfacing a new
+question to the operator and without making an autonomous FB-1..FB-5
+choice — that is *inheritance*, not a round. No append-log entry is
+required, and the stage's "APPEND Q&A IF ANY" step correctly skips.
+Inheritance MUST be acknowledged in the stage's primary artefact
+(implementation notes, plan body, design rationale, etc.) by citing the
+ISO timestamp of the originating append-log entry. AUTH-0081 (2026-05-20)
+is a worked example: `/dr-do` round 1 inherited the
+`2026-05-20T16:10:03Z` discharge condition («Ожидать AUTH-0074 merge»)
+without re-asking and without writing a new append-log block.
 
 ### Canonical 5-round decomposition pattern
 
