@@ -148,15 +148,15 @@ When mutating `## Active Tasks`:
 
 Load only the fragment needed for the current sub-problem:
 
-- `skills/datarim-system/path-and-storage.md`
+- `path-and-storage.md`
   Use for path resolution, core file locations, report storage, and archive/documentation boundaries.
-- `skills/datarim-system/task-identity-and-context.md`
+- `task-identity-and-context.md`
   Use for task numbering, active task tracking, prefix rules, and rename policy.
-- `skills/datarim-system/model-assignment.md`
+- `model-assignment.md`
   Use for `model` / `effort` frontmatter rules and agent-skill assignment policy.
-- `skills/datarim-system/backlog-and-routing.md`
+- `backlog-and-routing.md`
   Use for backlog architecture, complexity levels, date handling, and mode transitions.
-- `skills/datarim-system/command-and-archive-rules.md`
+- `command-and-archive-rules.md`
   Use for `/dr-` namespace rules, archive area mapping, project setup, and critical invariants.
 
 ## Quick Path Resolution Rule

@@ -4,6 +4,34 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.21.0] — 2026-05-25
+
+### Added
+
+- **Universal directory-per-skill layout (TUNE-0304).** Все 55 skills переведены из flat `skills/<name>.md` в canonical agentskills.io v1.0.0 формат `skills/<name>/SKILL.md`. Layout совместим с Claude Code, Codex CLI и Cursor IDE. 11 split-architecture skills (datarim-system, evolution, ai-quality, testing, utilities, visual-maps, и др.) теперь имеют router `SKILL.md` рядом с fragment'ами в одной директории. 55 устаревших flat-источников удалены (Phase 5 contract removal).
+- **Runtime-agnostic frontmatter (TUNE-0304).** Поле `runtime:` (52 файла) удалено целиком — datarim-private convention, никем не читалось. Hardcode `model: sonnet|opus|haiku` (15 skills + 18 agents) заменён на `model: inherit` как default + опциональный `metadata.model_tier: reasoning|balanced|fast|cheap` для аудита. Маппинг tier→model вынесен в новый `config/model-tiers.yaml` (current Claude 4.x + OpenAI/Google equivalents).
+- **`install.sh --with-cursor` (TUNE-0304).** Новый target: mirror каждого `skills/<name>/SKILL.md` → `$CURSOR_DIR/skills/<name>.md` (flat copy, не symlink — Windows + FAT + R7 deferred-validation posture). `CURSOR_DIR` env var (default `$HOME/.cursor`). Композиция с `--with-claude` / `--with-codex`. Bats T47-T50 + T48b (.system exclusion). **[deferred-validation]** — live smoke в Cursor IDE откладывается до получения operator licence; R7 accepted-risk в PRD.
+- **Sibling-reference contract (TUNE-0304).** Внутри SKILL.md ссылки на co-located bundle-файлы переписаны на sibling-relative форму (`pipeline-routing.md` вместо `skills/visual-maps/pipeline-routing.md`). 38 refs across 6 split-arch skills (ai-quality, datarim-system, evolution, testing, utilities, visual-maps). Per agentskills.io v1.0.0 SKILL.md + ассеты считаются единым bundle'ом, переносимым как блок. Новый `dev-tools/check-skill-sibling-refs.sh` enforce'ит invariant (6/6 bats green).
+- **Dev-tools для миграции (TUNE-0304).** Пять новых script + 48 bats: `check-skill-layout.sh` (V-AC-1 strict + `--allow-flat-coexistence` hybrid mode), `check-skill-frontmatter.sh` (rewritten under new schema), `migrate-skill.sh` (per-skill flat→nested migrator, idempotent), `rewrite-skill-refs.sh` (repo-wide `skills/<name>.md` → `skills/<name>/SKILL.md` rewriter for `.md/.sh/.yaml/.yml`), `check-skill-sibling-refs.sh` (sibling-ref invariant).
+- **Migration runbook (TUNE-0304).** `docs/how-to/migrate-to-skill-md-layout.md` — operator runbook (Steps 1–5 + rollback + frontmatter normalisation contract).
+- **Evolution log entry (TUNE-0304).** `docs/evolution/2026-Q2-TUNE-0304-universal-skills.md` — rationale, migration matrix, deferred items.
+
+### Changed
+
+- **VERSION 2.20.0 → 2.21.0** (minor — schema migration, no breaking runtime change для consumer'ов на symlink-default operating model; copy-mode users — прогнать `git pull && ./install.sh --copy --force --yes` для resync).
+- **`dev-tools/hooks/dr-output-stop.py`** — 4 residual reference на legacy `skills/cta-format.md` / `skills/human-summary.md` обновлены до canonical `skills/cta-format/SKILL.md` / `skills/human-summary/SKILL.md`.
+- **`config/model-tiers.yaml` location.** Per Constraint C3 — Codex `.system/` namespace зарезервирован под bundled skills (imagegen, openai-docs, plugin-creator, skill-creator, skill-installer); Datarim runtime configuration живёт в `config/model-tiers.yaml` at repo root. PRD V-AC-5 draft path переопределён task-description C3 (init-task Q&A round 1).
+
+### Deferred
+
+- **Codex 55→1 dir-symlink collapse** — direct conflict между PRD V-AC-7 (`~/.agents/skills/<name>`) и plan §6.5 (`~/.codex/skills/datarim`) + Constraint C5 «existing paths must remain resolvable during transition». Operator-decision L5 architectural pick откладывается; existing TUNE-0297 `fanout_codex_ux` wrappers продолжают работать (Codex live smoke 2026-05-25 confirms discovery через `~/.codex/skills/`).
+
+### Operator action required
+
+- **Symlink-default users**: после `git pull` рестарт Claude Code session обязателен для подхвата нового layout.
+- **Copy-mode users**: `git pull && ./install.sh --copy --force --yes`.
+- **Cursor users**: добавить `--with-cursor` к invocation для нового target (`$HOME/.cursor/skills/`).
+
 ### Added
 
 - **Codex CLI UX parity — native discoverability of Datarim artefacts (TUNE-0297).** `./install.sh --with-codex` now generates SKILL.md adapter wrappers (`~/.codex/skills/<name>/SKILL.md`) for every top-level source skill, restores Codex's bundled `.system/` skills from the TUNE-0296 backup, and emits a Codex-only catalogue manifest at `~/.codex/AGENTS.override.md` with three sections (Available Datarim Commands / Skills / Agents). `~/.codex/skills/` flips from symlink to a real directory under the new UX default; `detect_existing_topology` is now scope-aware so repeat runs do not trip the mixed-topology guard. The shared AGENTS.md symlink chain (~/.codex/AGENTS.md → source AGENTS.md → CLAUDE.md) is byte-stable by design — Codex-specific catalogue text lives only in the override file. Opt-out via the new `--no-codex-ux` flag (CI / bisect / baseline-topology debugging). Five new bats tests (T42 wrapper generation, T43 negative regression under `--with-claude`, T44 manifest + AGENTS.md byte-stability, T45 `.system/` restore + idempotency, T46 opt-out).

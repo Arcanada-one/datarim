@@ -50,7 +50,7 @@ When creating new components, the skill-creator agent:
 
 **No automatic modifications.** Every change requires explicit human approval across all paths.
 
-> **Historical note (v1.10.0):** the standalone `/dr-reflect` command was retired and consolidated into `/dr-archive` Step 0.5 via the `reflecting` skill — reflection must run on every archive, not optionally. Disaster-recovery procedures for runtime files live in `skills/utilities/recovery.md` (cross-referenced from `skills/evolution/disaster-recovery.md`).
+> **Historical note (v1.10.0):** the standalone `/dr-reflect` command was retired and consolidated into `/dr-archive` Step 0.5 via the `reflecting` skill — reflection must run on every archive, not optionally. Disaster-recovery procedures for runtime files live in `skills/utilities/recovery.md` (cross-referenced from `disaster-recovery.md`).
 
 ---
 
@@ -58,13 +58,13 @@ When creating new components, the skill-creator agent:
 
 Load only the fragment needed for the current sub-problem:
 
-- `skills/evolution/class-ab-gate.md`
+- `class-ab-gate.md`
   Use when evaluating whether a proposal changes the framework contract (Class A vs B operating-model gate, founding incident, decision aid, atomicity rule).
-- `skills/evolution/disaster-recovery.md`
+- `disaster-recovery.md`
   Use when runtime files in `$HOME/.claude/` are lost or corrupted. 5-channel recovery checklist.
-- `skills/evolution/examples-and-patterns.md`
+- `examples-and-patterns.md`
   Use for reference when writing proposals or applying the deprecation pattern (forward-pointer annotations).
-- `skills/evolution/stack-agnostic-gate.md`
+- `stack-agnostic-gate.md`
   MANDATORY pre-apply check before writing any approved Class A proposal to runtime. Rejects stack-specific content; whitelists `tech-stack.md` and the gate skill itself. CI helper at `scripts/stack-agnostic-gate.sh`.
 
 ---

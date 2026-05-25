@@ -14,33 +14,33 @@ target_aal: 2
 
 Load only the fragment relevant to the task:
 
-- `skills/utilities/datetime.md`
+- `datetime.md`
   Use for date/time formatting, epoch conversion, timezone conversion, date arithmetic.
-- `skills/utilities/system-info.md`
+- `system-info.md`
   Use for OS detection, architecture, hostname, and math operations (bc, python3).
-- `skills/utilities/crypto.md`
+- `crypto.md`
   Use for hashing (SHA-256/512, MD5), UUID generation, random strings, password generation.
-- `skills/utilities/encoding.md`
+- `encoding.md`
   Use for Base64 encode/decode and URL encoding/decoding.
-- `skills/utilities/text-transform.md`
+- `text-transform.md`
   Use for case conversion (camelCase, snake_case, kebab-case, PascalCase) and slug generation.
-- `skills/utilities/validation.md`
+- `validation.md`
   Use for validating email, URL, IPv4, UUID formats.
-- `skills/utilities/json.md`
+- `json.md`
   Use for JSON pretty-print, minify, validate, and field extraction via jq.
-- `skills/utilities/formatting.md`
+- `formatting.md`
   Use for byte humanization, number formatting (thousands, currency, percentage), and color conversion (hex/RGB/HSL).
-- `skills/utilities/datarim-sync.md`
+- `datarim-sync.md`
   Use for synchronizing framework files between `$HOME/.claude/` and the Datarim repo.
-- `skills/utilities/ga4-admin.md`
+- `ga4-admin.md`
   Use for Google Analytics 4 Admin API operations (list/create data streams, OAuth setup).
-- `skills/utilities/ssh-deploy.md`
+- `ssh-deploy.md`
   Use for running scripts on remote servers via SSH without heredoc corruption (base64 pattern).
-- `skills/utilities/recovery.md`
+- `recovery.md`
   Use for recovering lost runtime files from compacted session context (disaster recovery).
-- `skills/utilities/keyword-linter.md`
+- `keyword-linter.md`
   Use when building a keyword-denylist linter — bash recipe with whole-word grep, escape-hatch markers, whitelist mechanic, bats fixture pattern. Pattern source: stack-agnostic gate.
-- `skills/utilities/git-diff-parsing.md`
+- `git-diff-parsing.md`
   Use when a shell recipe extracts data from `git diff` / `git diff --cached`. Canonical filter chain (`^[+-]` excluding `+++/---`) for separating real additions/removals from hunk-context noise; covers the markdown-bullet edge case and untracked-file fallback.
 
 ## Quick Selection Guide

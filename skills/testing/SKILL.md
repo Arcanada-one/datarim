@@ -185,25 +185,25 @@ When a skill, agent, command, or in-code docstring documents the behaviour of a 
 
 ## Discipline
 
-For test-first discipline (RED-GREEN-REFACTOR cycle, the Iron Law that no production code ships without a failing test first, the rationalization table that pre-answers "I'll test after / it's too simple / TDD is dogmatic"), load `skills/testing/tdd-discipline.md`. Apply when implementing any feature or bugfix in a context that warrants TDD — see the entry skill's Mocking Rules and § Live Smoke-Test Gates for what counts as a real test.
+For test-first discipline (RED-GREEN-REFACTOR cycle, the Iron Law that no production code ships without a failing test first, the rationalization table that pre-answers "I'll test after / it's too simple / TDD is dogmatic"), load `tdd-discipline.md`. Apply when implementing any feature or bugfix in a context that warrants TDD — see the entry skill's Mocking Rules and § Live Smoke-Test Gates for what counts as a real test.
 
 ## Fragment Routing
 
 Load only the fragment needed for the current sub-problem:
 
-- `skills/testing/tdd-discipline.md`
+- `tdd-discipline.md`
   Use whenever you would otherwise write production code without a failing test first. Mandates the RED-GREEN-REFACTOR cycle, captures the common rationalizations and the canonical responses, and lists the red-flag phrases that mean STOP and start over.
 
-- `skills/testing/live-smoke-gates.md`
+- `live-smoke-gates.md`
   Use for raw-SQL / cross-datasource Live Smoke-Test Gate, cross-container Docker smoke, user-switch deployment gates, and N=1 smoke validation before bulk ingest/transform. Trigger when the change touches `$queryRaw`, multi-datasource code, Docker orchestration, container health, runtime user/permissions, or any bulk run that depends on entity resolution / record linkage / normalization.
 
-- `skills/testing/silent-failure-detection.md`
+- `silent-failure-detection.md`
   Use for wrappers around CLIs/subprocesses that exit `0` on error and write error sentences to stdout (LLM CLIs, cloud tools). Mandates structured-output parsing, raise-inside-wrapper, and testing both exit-code scenarios.
 
-- `skills/testing/bats-and-spec-lint.md`
+- `bats-and-spec-lint.md`
   Use for shell-script testing with bats-core (isolation, fixtures, alignment tests, SUCCESS markers, sanity guards) and for spec-lint regex assertions over markdown prose contracts.
 
-- `skills/testing/triaging-legacy-failures.md`
+- `triaging-legacy-failures.md`
   Use when inheriting a test suite with pre-existing failures. Three-bucket triage: stale-delete, fixable-patch, rephrase-the-content.
 
 ## Reusable Templates

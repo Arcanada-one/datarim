@@ -14,15 +14,15 @@ target_aal: 2
 
 Load only the fragment relevant to the question:
 
-- `skills/visual-maps/pipeline-routing.md`
+- `pipeline-routing.md`
   Use for complexity-based routing across `init → archive` and the artefact flow (`init-task`, `expectations`, `playwright-run` nodes since v2.8.0).
-- `skills/visual-maps/stage-process-flows.md`
+- `stage-process-flows.md`
   Use for stage-specific flows from `/dr-init` through `/dr-archive`, including Layer 3b expectations verification and Layer 4f `playwright-run` in `/dr-qa`.
-- `skills/visual-maps/content-and-management-flows.md`
+- `content-and-management-flows.md`
   Use for `/dr-write`, `/dr-edit`, `/factcheck`, `/humanize`, `/dr-addskill`, `/dr-optimize`, and `/dr-dream`.
-- `skills/visual-maps/utility-and-dependencies.md`
+- `utility-and-dependencies.md`
   Use for utility command flows, command-agent relationships, and agent-skill dependencies (includes `init-task-persistence`, `expectations-checklist`, `playwright-qa`, `human-summary` nodes since v2.8.0).
-- `skills/visual-maps/panels-and-quality.md`
+- `panels-and-quality.md`
   Use for Consilium panel layouts and stage-to-quality rule mapping.
 
 ## Quick Selection Guide
