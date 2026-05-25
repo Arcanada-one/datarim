@@ -25,6 +25,35 @@ The installer: (a) prints the bilingual AAL 3 warning, (b) validates that `accep
 - Uninstall: `./install.sh --uninstall`
 - Dry-run: `./install.sh --dry-run`
 
+## Backend listener requirement
+
+`datarim run <slash-cmd>` is an HTTP client only — it dispatches requests to a separately-running webhook listener and does **NOT** ship that listener itself. By default the client targets `http://127.0.0.1:8090/hooks/orchestrator-input` (override via `DATARIM_CLI_WEBHOOK_URL`). Without a listener you will see:
+
+```
+[http] connect-failed-after-retries http://127.0.0.1:8090/hooks/orchestrator-input
+Exit code: 21
+```
+
+This is documented behaviour, not a defect. The listener is the **reference implementation of the `dr-orchestrate` plugin** — open-source [`adnanh/webhook`](https://github.com/adnanh/webhook) v2.8.3 (Go single-binary, MIT-licensed). It maps incoming HTTP requests to shell commands declared in `plugins/dr-orchestrate/config/hooks.yaml`. **It is not part of the Datarim framework runtime** — it is a single small external binary that you start manually when you want to expose `/dr-*` to non-interactive agents (Codex CLI, Cursor, cron, custom HTTP clients).
+
+To stand up the listener:
+
+```bash
+# 1. Activate the plugin (creates ~/.claude/plugins/dr-orchestrate symlinks).
+/dr-plugin enable dr-orchestrate
+
+# 2. Install adnanh/webhook (one option — see https://github.com/adnanh/webhook for others).
+brew install webhook                  # macOS
+# go install github.com/adnanh/webhook@v2.8.3   # any platform with Go
+
+# 3. Start the listener (foreground; use launchd/systemd/tmux for daemonisation).
+webhook -hooks plugins/dr-orchestrate/config/hooks.yaml -port 8090 -verbose
+```
+
+Security boundary: the bind `127.0.0.1:8090` is **loopback-only (Tier 1 single-tenant)**. The listener does not expose any external network interface; only processes on the same machine can reach it. Auth is Bearer token (Vault ref `vault:secret/datarim/orchestrator/bearer`); outbound emissions are HMAC-SHA256 signed with a 300-second replay window (Vault ref `vault:secret/datarim/orchestrator/hmac_secret`). Activation is gated — when `DR_ORCH_ESCALATION_DEVBOT_URL` is unset, outbound `_emit_devbot` is a no-op.
+
+If you only ever drive `/dr-*` from a Claude Code session, you do not need the listener. The CLI is the alternative path, not the default.
+
 ## Agent identity
 
 The `$DATARIM_CLI_AGENT_ID` environment variable is mandatory and must be a UUID v7. A missing or malformed value exits 22. Generate a compliant ID with `code/datarim/cli/lib/uuid7-gen.sh`. UUID v7 is time-sortable and considered GDPR-low-risk.
