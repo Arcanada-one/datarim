@@ -2,19 +2,38 @@
 
 Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflection or curated runtime → repo updates.
 
+## 2026-05-24 — DISK-0037 — Pipeline-position-aware AC + Q&A bundling (Class A × 2 applied)
+
+DISK-0037 (EnrollmentService listener split) выявил две L1 inline-резолюции, пригодные к закреплению как фреймворковые правила.
+
+**Class A applied from reflection (× 2):**
+
+1. `skills/ai-quality.md` § Pipeline-Position-Aware AC Formulation — добавлен параграф «Applies equally to non-HTTP protocols with a layered guard chain» с конкретным `<!-- gate:example-only -->` примером про `Unauthenticated` vs `PermissionDenied`. Контракт rule statement остался stack-нейтральным; гэйт `scripts/stack-agnostic-gate.sh --diff-only` → PASS clean.
+2. `skills/init-task-persistence.md` § Q&A round-trip contract — добавлен параграф «Bundling thematically related inline decisions into one round is permitted». Формализует уже применённую DISK-0037 round 2 практику: три тематически связанных delta vs plan (shutdown fan-out, disk-cli mTLS gap, denial code) сгруппированы в один round с пронумерованными вопросами/ответами и одним summary'ем. Концепт process-discipline-only, no stack tokens; гэйт → PASS clean.
+
+**Class B held (× 0):** структурных изменений фреймворка задачей не выявлено.
+
+**Lessons applied to verification methodology:** semantic-gate AC formulation работает и для gRPC, не только HTTP — что хорошо иллюстрируется DISK-0037 AC-3 (PRD пишет PermissionDenied, реальный код возвращает Unauthenticated, оба коммуницируют admin-RPC denied). Тест ассертит broader denial class — устойчив к refactor'у в обе стороны.
+
 ---
 
-## 2026-05-21 — TUNE-0254 reflection — Evolution Proposals 1+2 applied (Class A)
+---
 
-### Proposal 2 (skill-update, low impact) — `skills/evolution/history-agnostic-gate.md § Scope`
+## 2026-05-24 — TUNE-0137 — Self-Verification tri-layer v2 R-5 GATE PASS (Class A × 1 applied)
 
-Out-of-scope line for `tests/` expanded to explicitly mention `tests/*.bats` and the rationale that test data / fixture bodies may contain TASK-ID literals by design. Closes recurring advisory FAIL noise seen during `/dr-qa`, `/dr-compliance`, `/dr-archive` on new `.bats` files. The gate already excluded directory-level `tests/`; the change is documentation-only (no scanner behaviour change) but removes the operator-side confusion about whether bats fixtures need escape-hatch markup.
+30-day prospective dogfood window закрылся досрочно на 15-м дне (≥10 tagged tasks условие сработало раньше календарного 2026-06-09). Final replay `dev-tools/measure-prospective-rate.sh --since 2026-05-09` → `rate_per_5_tasks: 23.10` (порог ≥1.0 — превышен 23×), `decision_hint: spawn automated post-step hook`. Все 17 AC v2 closed (включая AC-7 v2 prospective rate, AC-8 v2 per-invocation token cost tooling, AC-10 v2 multi-agent на real dogfood, AC-16 cross-model peer-review LIVE, AC-17 deterministic floor LIVE). Замер: 162 архива с `verification_outcome:` frontmatter, 21 с `n_a:false`, 97 caught_by_verify, 2 missed_by_verify, 23 false_positive (FP rate ≈19%), 37 audit logs в `datarim/qa/verify-*.md`. Peer-review modes: 32 cross_vendor / 0 cross_claude_family / 0 same_model_isolated — Layer 2 фактически работает через DeepSeek, Claude-family fallback оставлен как контракт. R-5 v2 hard kill-gate явно прошёл — спавн TUNE-0138 (post-step hook integration) unblocked.
 
-### Proposal 1 (command-update, medium impact) — `commands/dr-do.md` Step 8.6 re-entry emphasis
+**Class A applied from reflection (× 1):**
 
-Original proposal text in the TUNE-0254 reflection asked to "add Step 6.5 APPEND Q&A". Structurally the step already exists at position 8.6 (added in `ceafe36`, TUNE-0216 Phase 3) — same canonical position relative to OUTPUT as `dr-prd:6.5 → 7`, `dr-qa:6.5 → 7`, `dr-compliance:6.5 → 7`, `dr-plan:12.5 → 13`. The TUNE-0254 runtime gap was NOT structural absence; the agent in `/dr-do` round 2 simply forgot to invoke `append-init-task-qa.sh` and `/dr-qa` v2 Layer 3b retroactively appended as round 4. The structural fix is to make the re-entry case (post-`/dr-verify` triage, `--focus=` re-entry) impossible to miss. Step 8.6 now carries an explicit "Applies to every round" sub-bullet plus the monotonic-round constraint and the process-cost regression warning. No new gate, no contract surface change.
+1. `docs/evolution-log.md` — этот блок (запись R-5 v2 GATE PASS verdict с numeric thresholds для будущей археологии решения).
 
-Both proposals are Class A (skill / command surface), operator-approved at apply time (2026-05-21). No version bump (continuing 2.13.0 line).
+**Class A withdrawn after re-read (× 1):**
+
+1. Proposal «add cross-claude-family fallback paragraph to skills/self-verification.md» — отозвано: skill уже содержит детальный 6-step resolution chain (D-5 chain step 5 = `cross-Claude-family subagent` через `agents/peer-reviewer.md` at `model: sonnet`), а также 3-tier `peer_review_mode` taxonomy с описанием cross_claude_family case. Empirical `rate: 0.0` объясняется тем, что chain step 1 (coworker default) каждый раз резолвится в DeepSeek — это операционная реальность, не документационный gap.
+
+**Class B held (× 3):** см. `reflection-TUNE-0137.md` § Evolution Proposals — Layer 2 cross-vendor default policy, FP filtering pass, adaptive `n_a` policy. Все три меняют contract surface (pipeline shape / template contract) и требуют отдельного PRD — отложены до TUNE-0138.
+
+**Lessons applied to verification methodology:** synthetic retrospective baseline на n=13 даёт noise-dominated signal (v1 AC-7 15.4%); prospective operator-confirmed-novel-findings rate на n=21 real tasks даёт production-grade signal (v2 AC-7 23.10× over threshold). Methodology fix > kill on first noisy gate.
 
 ---
 
@@ -30,6 +49,83 @@ Both proposals are Class A (skill / command surface), operator-approved at apply
 **Class B held (× 1):** `skills/v-ac-axis-split.md` extension OR new `skills/runtime-probe-history-agnostic.md` — `/dr-plan` Step 6 (Plan Completeness) должен runtime-probe history-agnostic gate ДО approve. Holding pending separate PRD draft (контракт routing semantics + CI impact). Tracked в backlog как «PRD: /dr-plan Step 6 history-agnostic probe».
 
 **Lessons applied to evolution-log itself:** dogfooding-as-V-AC работает (включай в plan как явный Phase, не как Phase-N-completion-test); pivot-date + env-override = soft cutover pattern для schema migrations; selective restage > broad attribution (Step 0.1.4 cross-task leakage audit отверг broad attribution оператора — это правильное поведение контракта).
+
+---
+
+## 2026-05-18 — CONN-0208 — Container-name race fix on Model Connector deploy (Class A × 1 applied)
+
+`Arcanada-one/model-connector` post-merge `CI & Deploy` workflow deploy job intermittently failed with «Container `model-connector-model-connector-1 ... already in use`» after CONN-0104 tightened the healthcheck/`start_period`. Root cause: `docker compose up -d --build` allocated the new container name before the previous instance (`restart: unless-stopped` policy) finished transitioning to a clean stopped state. Fix: two-line edit to `.github/workflows/ci.yml` deploy job — one inline comment + `$COMPOSE down --remove-orphans || true` before `$COMPOSE up -d --build` — plus a new `docs/how-to/deploy-runbook.md` (~70 LoC, Diátaxis how-to). PR #18 squash-merged to `main@1e34c029`; post-merge run `26047683199` deploy ✅ 47s (baseline failed-jobs `{deploy}` → post-fix `{}`); PROD smoke confirmed: `https://connector.arcanada.one/health` 200 ok, all five named volumes (`claude-auth`, `codex-bin`, `cursor-auth`, `cursor-config`, `gemini-auth`) preserved, `CODEX_BINARY_PATH=/codex-sidecar/bin/codex` regression-check green. All eight V-AC gates passed. The cleanup is idempotent on cold-start (`|| true`) and named volumes survive because `down` is invoked without `-v`. `--remove-orphans` is scoped to the current compose project — foreign containers are untouched even when they share networks.
+
+One Class A evolution proposal applied with operator approval:
+
+- **Proposal 2 — skill-update (applied):** `code/datarim/skills/infra-automation.md` gained a new top-level section «## Compose Deploy Race Pattern» between «Tracked Deploy Artefact Rule» and «Reusable Templates». The section codifies the canonical fix (`$COMPOSE down --remove-orphans || true` before `up -d --build`) with the «Why» rationale (container-name race after healthcheck tightening), blast-radius note (orphan removal scoped to current compose project), volume-preservation contract (`down` without `-v` keeps named volumes), and an anti-pattern note against per-service `docker rm -f`. Bash example is wrapped in `<!-- gate:example-only -->` fence. Both stack-agnostic-gate and task-id-gate PASS on the edit.
+
+Three follow-up backlog items spawned during /dr-do (Proposal 1 is documentation of work already done):
+
+- `CONN-* — MC blue-green deploy migration` (L3 P3) — addresses the ~3-5 s availability dip between `down` and `up -d --build` (mitigated today by Cloudflare retry + client-side retry on 502/503, but eliminated by zero-downtime deploys).
+- `INFRA-* — Ecosystem-wide compose deploy race audit` — symmetric apply of the CONN-0208 fix to Transcribator, Munera, OpsBot, Status, and any other ecosystem service using `docker compose up -d --build` with `restart: unless-stopped`.
+- `INFRA-* — MC deploy runbook Tailscale-form update` (L1 P3) — the new runbook references `ssh root@arcana-prod` (MagicDNS form); per the `feedback_tailscale_magicdns_not_default` rule this resolves to a public Hetzner IP on ecosystem hosts unless the operator has a `/etc/hosts` override. Switch the runbook to the Tailscale IP literal.
+
+Health-metrics: no thresholds exceeded — one paragraph + one new section in an existing skill. `/dr-optimize` not warranted. Provenance: reflection `datarim/reflection/reflection-CONN-0208.md` + QA report `datarim/qa/qa-report-CONN-0208.md` + task description `datarim/tasks/CONN-0208-task-description.md` § Implementation Notes + project-repo commit `1e34c029` on `main` (`Arcanada-one/model-connector`).
+
+---
+
+## 2026-05-22 — TUNE-0264 — Programmatic Stop hook with Stage Header + human-summary validators (Class A × 2 applied)
+
+Added Claude Code `Stop` hook layered over the markdown contract closed in TUNE-0262. Single entry point `dev-tools/hooks/dr-output-stop.sh` (+ Python helper `dr-output-stop.py`) runs two sequential validators against the last assistant response in the JSONL transcript: (1) Stage Header preamble — first non-empty line MUST match `^\*\*[A-Z]{2,10}-\d{4} · .+\*\*$` for any task-scoped `/dr-*` command outside the exception list (`/dr-help`, `/dr-status`, `/dr-doctor`, `/dr-init` pre-Step 4); (2) human-summary contract — when the user invoked `/dr-archive`, `/dr-compliance`, or `/dr-qa`, the response MUST contain `## Отчёт оператору` / `## Operator summary` section with the self-identifier preamble + four canonical sub-headings verbatim per `skills/human-summary.md` lines 44-56. Block-then-advisory hybrid: first occurrence (`stop_hook_active=false`) → stdout JSON `{"decision":"block","reason":"…"}`; retry (`stop_hook_active=true`) → stderr advisory + exit 0 (retry budget = 1 per validator). Hook is opt-in via copy-paste snippet in `~/.claude/settings.json § hooks.Stop[]` per `docs/how-to/dr-output-hook.md`; framework install/update flow does NOT mutate operator settings (V-AC-14 invariant). Fail-soft contract — any internal error (corrupt JSONL, missing transcript, path-traversal attempt) → exit 0 without stdout (workflow never breaks on hook bug). Stack: bash wrapper + Python stdlib only (`json`, `re`, `pathlib`, `argparse`) — no external deps. Eighteen bats integration cases + ten Python self-test cases all pass; bandit + shellcheck + stack-agnostic gate clean; live smoke against operator's last session returns `header_found:y; human_summary:ok`.
+
+Scope expansion captured: operator override D-5b at `/dr-init` round 6 folded the previously-deferred Proposal 6 (human-summary validator) into the same task, lifting complexity L1 → L2 — single transcript parser + single opt-in snippet + single bats suite serves both validators. Drift fix: `skills/cta-format.md` line 67 forward-reference to `TUNE-0263` corrected to `TUNE-0264` + § Enforcement paragraph rewritten with live hook contract. PASS_WITH_NOTES at `/dr-qa` (two functions over 50-line cap — `_run` 51, `_self_test` 60) closed inline at `/dr-compliance` under Path B (Deferral vs Inline-Ship heuristic in `skills/compliance.md`): extracted `_check_stage_header` (19) + `_check_human_summary` (19) + `_selftest_cases` (27); `_run` → 19 lines, `_self_test` → 14 lines, max function size 40 lines. Accepted-risk register stayed empty by design.
+
+Two Class A evolution proposals applied with operator approval:
+
+- **Proposal 1 — skill-update (applied):** `code/datarim/skills/compliance.md § Deferral vs Inline-Ship` — appended second source incident («Second source: TUNE-0264 archive — PASS_WITH_NOTES closed inline at /dr-compliance under Path B; accepted-risk register stayed empty by design.») to the existing source paragraph anchored on ARAS-0006. Two cases now ground the pattern. Stack-agnostic gate PASS (--diff-only mode).
+- **Proposal 2 — skill-update (applied):** `code/datarim/skills/evolution/history-agnostic-gate.md` — new top-level section «## Anti-patterns» with the «forward-reference to follow-up task ID before assignment» anti-pattern + two safer authoring forms (defer the reference, or use the unassigned-marker `<TASK-PREFIX>-XXXX (заполняется при назначении)` inside the per-block escape hatch) + grep-based detection at `/dr-archive` Step 0.5. Codifies the lesson behind the `TUNE-0263 → TUNE-0264` drift fixed in this task. Both gates (stack-agnostic + task-id) PASS.
+
+Class B HELD: `code/datarim/skills/runtime-topology-probe.md` — single-incident evidence (D-9 bats fixture crash under `Path.resolve()` symlink-mode), not yet promoted. Re-presented after second occurrence or PRD update authorising the new `/dr-plan` step.
+
+Health-metrics: no thresholds exceeded — 1 new skill section + 1 paragraph append + 1 new top-level section (`## Anti-patterns` in existing skill). `/dr-optimize` not warranted. Bats: 5 pre-existing failures in workspace (TUNE-0114 D4 install-project, TUNE-0091 dev-tools install gates, workflow lint) — verified independent of Class A applies via stash/pop baseline check. Provenance: reflection `datarim/reflection/reflection-TUNE-0264.md` + compliance report `datarim/reports/compliance-report-TUNE-0264.md` + QA report `datarim/qa/qa-report-TUNE-0264.md`.
+
+---
+
+## 2026-05-22 — TUNE-0262 Phase 2 — Empirical harness + snapshot-writer-wrapper + coworker context propagation (Class A)
+
+Reopened TUNE-0262 after `/dr-qa v2 BLOCKED` (wish 1 `stage-header-task-id-i-title` empirically missed; Findings B + C from expanded operator brief). Phase 2 adds three orthogonal capabilities:
+
+1. **`dev-tools/snapshot-writer-wrapper.sh`** — bash-shebang wrapper that forces bash execution of `write_stage_snapshot`. Root cause of Finding B: `scripts/lib/snapshot-writer.sh` uses `BASH_SOURCE[0]` for sibling-script resolution; under zsh-parent shells (default on macOS) the array is unset, writer fails silently with «BASH_SOURCE[0]: parameter not set» + «no such file or directory: plugin-system.sh» + «command not found: write_stage_snapshot» (exit 127). Wrapper invokes via `bash -c`. `skills/cta-format.md § Snapshot Emission` recipe updated to use wrapper instead of direct `source && write_stage_snapshot`.
+
+2. **Auto-detect journal hook in `write_stage_snapshot`** — post-atomic-rename block appends one line per call to `/tmp/datarim-test-{TASK-ID}/journal.md` when that directory exists. Line format: `<stage> · <ISO-ts> · header-present:<y|n> · snapshot-written:y · cta-footer:<y|n> · snapshot-sha:<12-hex>`. Detection by directory presence — zero cost when harness inactive. Fail-soft per V-AC-7. Three new probe scripts complete the harness: `datarim-stage-probe-init.sh` (creates dir 0700, idempotent, symlink-safe), `datarim-stage-probe-coworker-echo.sh` (sends fixed question to `coworker --profile datarim`, counts mandate keywords, sensitive-marker refusal), `datarim-stage-probe-cleanup.sh` (idempotent removal). Operator-facing how-to: `docs/how-to/datarim-harness.md`.
+
+3. **`skills/coworker-context.md` + enriched coworker profile** — Finding C: `~/.config/coworker/profiles.yaml::datarim.system_prompt` was 56 words of generic prose, missing every Datarim mandate (Stage Header, append-log, expectations, snapshot frontmatter, history-agnostic, Supreme Directive). Profile rewritten to ~300 words with 9-of-10 mandate keywords explicit. New skill `coworker-context.md` is the canonical entry point that the profile references (history-agnostic — no task IDs in skill body). External LLMs invoked via `coworker --profile datarim` now receive explicit convention instructions.
+
+`tests/stage-probe-harness.bats` covers 10 cases (U1-U9 + I1): init dir-mode/regex/symlink, writer header/cta detection in body, cleanup idempotence/symlink-safety, wrapper under bash. All 10 PASS locally. `shellcheck -S warning` clean on all four new scripts.
+
+VERSION 2.15.0 → 2.16.0 (minor: new skill, new dev-tools, contract extension of writer with backwards-compatible auto-detection, no breaking change).
+
+---
+
+## 2026-05-22 — TUNE-0262 — Stage Header convention added to /dr-* responses (Class A)
+
+New top-level section `## Stage Header (canonical for /dr-* responses)` added to `skills/cta-format.md` between `## When to Apply` and `## Canonical Block — Single Active Task`. Defines the one-line banner `**{TASK-ID} · {title}**` that every task-scoped `/dr-*` command and CTA-emitting agent MUST emit as the first line of its operator-visible response. Bold inline format (matches the CTA footer convention), U+00B7 middle-dot separator, title verbatim from `tasks.md` one-liner. Single emission per command invocation. Four exceptions (no header): `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit the header on the first message after Step 4 once the TASK-ID is determined).
+
+Five CTA-emitting agents (`planner`, `architect`, `developer`, `reviewer`, `compliance`) got a Stage-Header bullet in their `**Output discipline**` block referencing `cta-format.md § Stage Header`. Sixteen non-exception `dr-*` command files (`addskill`, `archive`, `compliance`, `continue`, `design`, `do`, `dream`, `edit`, `optimize`, `plan`, `plugin`, `prd`, `publish`, `qa`, `verify`, `write`) got an identical `**Stage Header (mandatory)**` paragraph inserted after the structural anchor of each (`## Instructions` / `## Steps` / `## Purpose`). `commands/dr-init.md` Step 4 carries a header-after-Step-4 emission rule.
+
+Enforcement is **advisory only** at this stage — agent compliance ≈ 95% via the markdown instruction. Hook-based programmatic enforcement queued as **TUNE-0264** (Class A, low impact). Stack-agnostic gate: PASS on all 22 touched files. No state-machine, DSL schema, snapshot writer, or CTA block format changes — purely cosmetic markdown convention.
+
+Motivation: operator routinely runs 40+ concurrent active tasks; without a header, `/dr-*` output is ambiguous about which task it pertains to. The Stage Header sits at the *opposite* end of the response from the CTA block (footer = "what to do next"; banner = "what we're working on right now"). No version bump (continuing 2.13.0 line).
+
+---
+
+## 2026-05-21 — TUNE-0254 reflection — Evolution Proposals 1+2 applied (Class A)
+
+### Proposal 2 (skill-update, low impact) — `skills/evolution/history-agnostic-gate.md § Scope`
+
+Out-of-scope line for `tests/` expanded to explicitly mention `tests/*.bats` and the rationale that test data / fixture bodies may contain TASK-ID literals by design. Closes recurring advisory FAIL noise seen during `/dr-qa`, `/dr-compliance`, `/dr-archive` on new `.bats` files. The gate already excluded directory-level `tests/`; the change is documentation-only (no scanner behaviour change) but removes the operator-side confusion about whether bats fixtures need escape-hatch markup.
+
+### Proposal 1 (command-update, medium impact) — `commands/dr-do.md` Step 8.6 re-entry emphasis
+
+Original proposal text in the TUNE-0254 reflection asked to "add Step 6.5 APPEND Q&A". Structurally the step already exists at position 8.6 (added in `ceafe36`, TUNE-0216 Phase 3) — same canonical position relative to OUTPUT as `dr-prd:6.5 → 7`, `dr-qa:6.5 → 7`, `dr-compliance:6.5 → 7`, `dr-plan:12.5 → 13`. The TUNE-0254 runtime gap was NOT structural absence; the agent in `/dr-do` round 2 simply forgot to invoke `append-init-task-qa.sh` and `/dr-qa` v2 Layer 3b retroactively appended as round 4. The structural fix is to make the re-entry case (post-`/dr-verify` triage, `--focus=` re-entry) impossible to miss. Step 8.6 now carries an explicit "Applies to every round" sub-bullet plus the monotonic-round constraint and the process-cost regression warning. No new gate, no contract surface change.
+
+Both proposals are Class A (skill / command surface), operator-approved at apply time (2026-05-21). No version bump (continuing 2.13.0 line).
 
 ---
 
@@ -1624,6 +1720,18 @@ Source: `documentation/archive/status/archive-STATUS-0012.md` § Lessons Learned
 - **Health-metrics**: no skill / agent / command count changes; thresholds not exceeded; `/dr-optimize` not warranted.
 - **Provenance**: reflection `datarim/reflection/reflection-STATUS-0012.md` + archive `documentation/archive/status/archive-STATUS-0012.md` + project repo commit `6c83a70` on `main` (`Arcanada-one/arcanada-status`) + workspace commit pending (this session).
 
+## 2026-05-18 — ARCA-0011 multi-modal Telegram + vision wire-up (2× Class A applied, 1× Class B HELD)
+
+Source: `documentation/archive/arcanada-ecosystem/archive-ARCA-0011.md` § Lessons Learned + `reflection-ARCA-0011.md` § Evolution Proposals. Class A approved by operator 2026-05-19 (multiSelect: P1 + P2).
+
+- **Proposal 1 — skill-update (applied):** `code/datarim/skills/compliance.md` — new subsection «Loop-guard pre-emptive operator handoff (attempt 2 vs attempt 3)» after § 7 CI/CD Impact Analysis. Rule: on loop-guard attempt 2, if probe set is deterministic AND state delta vs the previous attempt is empty across all probes, Compliance MUST formulate a pre-emptive handoff question (FB-8) rather than running attempt 3 with the same probe set. Caught anti-pattern: identical NON-COMPLIANT verdicts produced by re-running `gh pr view` / `curl /health` minutes apart with no operator merge in between. Stack-agnostic gate PASS; task-id-gate PASS (provenance moved to evolution-log per S5).
+- **Proposal 2 — new-skill (applied):** `code/datarim/skills/health-controller-stub-detector.md` (new file, ~68 lines). Detector skill loaded by `/dr-do` Step 7 when task touches health/status controller files. Grep on diff added lines for stub literals (`'pending-integration'`, `'not-implemented'`, `'not_implemented'`, `'stub'`, `'unimplemented'`). Three disposition rules: implement now, defer with inline backlog tag, or explicit § Out of Scope. Catches the class where hard-coded health controller literals create contract gaps with wish gating downstream. Stack-agnostic gate PASS; task-id-gate PASS; bats `optimize-merge.bats T343 description-length` PASS (157 char description — within 155-char body budget after `description: ` prefix strip).
+- **Proposal 3 — claude-md-update (HELD, Class B):** `~/arcanada/CLAUDE.md` § Internal HTTP Integration Patterns rule 7 — add sub-rule «open both sender + receiver PR with `--auto` merge flag (squash, delete-branch) by default». Class B (operating-model change for ecosystem PR workflow); requires PRD diff or ADR before approval. Pavel can re-present after drafting PRD in `Arcanada-one/datarim` operations docs or new ADR.
+- **Class A scope applied minimally:** 2 skill files + this evolution-log entry. TUNE-0090 public-surface sync (`docs/skills.md` count update + `datarim.club/data/skills/health-controller-stub-detector.php` EN+RU + bats `tests/skill-registry.bats` health entry + README) deferred as a follow-up TUNE-* per asymmetric-drift detector contract.
+- **Class B (1 HELD).** See Proposal 3.
+- **Health-metrics**: skills 45 → 46, commands 22, agents 18 — thresholds not exceeded; `/dr-optimize` not auto-suggested.
+- **Provenance**: reflection `datarim/reflection/reflection-ARCA-0011.md` + archive `documentation/archive/arcanada-ecosystem/archive-ARCA-0011.md` (written by `/dr-archive` Step 2 below). Project commits: MC `Arcanada-one/model-connector` main `a3355b0`; Assistant `Arcanada-one/arcanada-assistant` main `f8a3231`.
+
 ## 2026-05-22 — v2.15.0 — TUNE-0259 — Stage-snapshot wiring (command-bound) + dev-tools/ runtime scope
 
 Pipeline contract from TUNE-0254 (`skills/cta-format.md § Snapshot Emission`) declared a mandatory terminal step for every CTA-emitting `/dr-*` command, but the runtime contained zero invocations of `write_stage_snapshot`. `/dr-continue` consequently always fell through to the legacy fallback. Architectural review (creative-TUNE-0259) pivoted the wiring shape away from the plan's default (Variant 1 — duplicate a ~30-line invocation block across 5 agent files) to Variant 2 — a 5-line directive bound to each of the 7 CTA-emitting **command** files, referencing the single executable recipe in `skills/cta-format.md`.
@@ -1636,6 +1744,28 @@ Pipeline contract from TUNE-0254 (`skills/cta-format.md § Snapshot Emission`) d
 - **Out-of-scope follow-ups (backlog):** snapshot wiring for `/dr-verify`, `/dr-write`, `/dr-edit`, `/dr-publish`, `/dr-doctor`, `/dr-dream`, `/dr-optimize`; `dev-tools/{runtime,maintainer}/` subdir split (Option C deferred).
 - **Health-metrics:** skills 46 (unchanged); commands 22 (unchanged); agents 18 (unchanged); thresholds not exceeded; `/dr-optimize` not warranted.
 - **Provenance:** creative doc `Projects/Datarim/datarim/creative/creative-TUNE-0259-architecture-snapshot-wiring.md` + task description `Projects/Datarim/datarim/tasks/TUNE-0259-task-description.md` + QA report ancestor `Projects/Datarim/datarim/qa/qa-report-TUNE-0254-continue-bug.md`. AC-1 verified: `grep -l 'snapshot emission per' commands/dr-*.md` = 7; `grep -c write_stage_snapshot skills/cta-format.md` = 2.
+
+## 2026-05-22 — TUNE-0259 reflection Class A A1 — `/dr-init` ID-collision probe (no version bump)
+
+Reflection on TUNE-0259 surfaced an ID collision: `datarim/backlog.md` carried `TUNE-0259 · pending · P3 · L1 · /dr-plan Exit-code namespace probe` (queued from reflection-TUNE-0258 § Class A A1), while the active `datarim/tasks.md` used the same ID for the snapshot-wiring task. Two unrelated units of work shared one ID; detection occurred only at `/dr-archive` Step 3.
+
+- **Class A applied:** `commands/dr-init.md` Step 4 (Action) extended with an **ID-collision probe** immediately after Task-ID determination. Probe: `grep -lE "^- {TASK-ID} ·" datarim/backlog.md datarim/tasks.md` AND `ls documentation/archive/*/archive-{TASK-ID}.md`. On any match — STOP and present a 3-way prompt: (a) reassign prior backlog entry to next free ID, (b) cancel prior entry, (c) operator picks different ID. Stack-agnostic gate: PASS. History-agnostic gate: PASS.
+- **Resolution for this incident:** backlog entry reassigned `TUNE-0259 → TUNE-0263` (operator-approved 2026-05-22). The snapshot-wiring task retains TUNE-0259 ID and is archived per usual flow.
+- **Provenance:** `Projects/Datarim/datarim/reflection/reflection-TUNE-0259.md` § Evolution proposals / Class A A1.
+
+
+## 2026-05-22 — TUNE-0271 reflection Class A P-A1 + P-A2 (no version bump)
+
+Reflection on TUNE-0271 (Coworker × RTK opt-in plugin) surfaced two universal predicates eligible for runtime apply. Both passed `scripts/stack-agnostic-gate.sh --diff-only`.
+
+- **P-A1 applied — External target reality-probe in `/dr-plan` Step 6.5.** Trigger: agent-decision (FB-4/FB-5) cites a specific filesystem path (`Projects/<repo>/`, `Projects/Websites/<site>/`) or external URL as deploy/write/lookup target. Rule: `ls "<path>"` MUST return a real entry; for any web target, `curl -fsSL -o /dev/null -w '%{http_code}\n' https://<domain>/` MUST return `200` (or a justified non-200). Non-existent path or HTTP `000` (DNS does not resolve) ⇒ memory stale; pause and ask the operator. Provenance: TUNE-0271 /dr-plan round 3 D3 cited `Projects/Websites/arcanada.club/` as blog deploy target; arcanada.club never existed (no DNS, no local dir); incident surfaced as `partial` expectation in `/dr-qa` and required a full re-plan to arcanada.one in `/dr-qa` v2.
+- **P-A2 applied — Operator-mandated delegation flow in `/dr-do` Step 5.5.** Trigger: operator's project/global CLAUDE.md declares a hook-enforced delegation rule for the artefact type being produced. Rule: use the delegated flow for the first draft; record the invocation in § Implementation Notes (provider + profile + target path); silent bypass = process regression flagged by `/dr-compliance`. Provenance: TUNE-0271 /dr-do — the `coworker write` mandate hook fired twice (blog draft + reflection draft), correctly routing the artefact through the delegated flow; documenting this as an actionable rule converts the implicit «mandate exists» into an explicit «recorded invocation expected by Layer 3b».
+- **Stack-agnostic verdict:** both edits PASS `scripts/stack-agnostic-gate.sh --diff-only` (POSIX shell only: `ls`, `curl`; no stack-specific terms).
+- **History-agnostic verdict:** both edits PASS — no task IDs in runtime files.
+- **Tests deferred:** bats regression coverage candidate for `commands/dr-plan.md` + `commands/dr-do.md` step ordering listed as TUNE-0276 (P-A1) and TUNE-0277 (P-A2) in backlog.
+- **Provenance:** `datarim/reflection/reflection-TUNE-0271.md` § Evolution proposals / Class A.
+
+---
 
 
 ## 2026-05-23 — TUNE-0267 reflection Class A A1 + A3 (no version bump)
