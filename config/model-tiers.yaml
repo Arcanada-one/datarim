@@ -1,0 +1,65 @@
+# Datarim model-tier configuration — TUNE-0304 V-AC-5.
+#
+# Maps abstract capability tiers to concrete provider model IDs. Skills and
+# agents declare intent via `metadata.model_tier:` in their frontmatter; the
+# runtime resolves the tier here to pick an actual model. Top-level `model:`
+# in a skill/agent file SHOULD be `inherit` unless the skill has a hard
+# capability requirement (consilium / evolution / deep-analysis) that
+# justifies an explicit override.
+#
+# Schema version 1. Validators: dev-tools/check-skill-frontmatter.sh
+# (model: + metadata.model_tier:), dev-tools/check-model-tiers.sh
+# (this file's structural integrity, to-be-added in Phase 1 follow-up).
+#
+# Provider IDs are pinned per `feedback_latest_deps_rule.md` — latest stable
+# major as of 2026-Q2. Update via PR with a model-deprecation note in
+# CHANGELOG.md when providers ship a new generation.
+
+schema_version: 1
+
+# Default for skills/agents without explicit `model:` in their frontmatter.
+runtime_default: inherit
+
+# Tier → provider → concrete model ID mapping.
+#
+# Tier semantics:
+#   reasoning — architectural decisions, consilium panels, evolution proposals,
+#               deep analysis. Highest capability, highest cost. Default
+#               for the architect/strategist agent stack.
+#   balanced  — workhorse for normal coding, planning, review. Most skills
+#               and agents fall here. Usually expressed via `model: inherit`
+#               so the operator's session model wins; this row exists for
+#               documentation and for non-interactive resolution paths.
+#   fast      — routine ops, formatting, validation, status reports. Low
+#               latency, cheap. Default for status/help/utility skills.
+#   cheap     — explicit cost-driven equivalent of `fast`; separate name so
+#               callers can express intent ("save money" vs "save time").
+#               Maps to the same concrete model as `fast` today; reserved
+#               for future divergence.
+tiers:
+  reasoning:
+    anthropic: claude-opus-4-7
+    openai: o3
+    google: gemini-2.5-pro
+  balanced:
+    anthropic: claude-sonnet-4-6
+    openai: gpt-5
+    google: gemini-2.5-flash
+  fast:
+    anthropic: claude-haiku-4-5
+    openai: gpt-5-mini
+    google: gemini-2.5-flash-lite
+  cheap:
+    anthropic: claude-haiku-4-5
+    openai: gpt-5-mini
+    google: gemini-2.5-flash-lite
+
+# Provider env-var convention — used by runtime adapters to discover keys.
+# Datarim does not embed keys; adapters read from environment or Vault.
+providers:
+  anthropic:
+    api_env_var: ANTHROPIC_API_KEY
+  openai:
+    api_env_var: OPENAI_API_KEY
+  google:
+    api_env_var: GOOGLE_AI_API_KEY
