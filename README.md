@@ -131,6 +131,20 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   invariant preserved. Install via `dr-plugin enable dr-orchestrate`. See
   `plugins/dr-orchestrate/README.md`.
 
+- **Multi-runtime coworker delegation enforcement** — `dev-tools/coworker-hook-guard.sh`
+  is a PreToolUse hook that denies direct bulk I/O when the MANDATORY
+  delegation rules apply (>400-line reads, ≥3-file ask, bootstrap
+  multi-file load, `git diff`/`git log -p` over ~200 lines, protected
+  write paths). Covers Claude tool names (`Read`, `Write`, `Bash`) AND
+  Codex CLI native tool names (`view`, `apply_patch`, `shell`,
+  `exec_command`). Single source of truth for the delegation rules text
+  is `templates/coworker-delegation-fragment.md`; `install.sh
+  --with-codex` prepends it into `~/.codex/AGENTS.override.md`. Codex
+  hooks.json wiring is operator-maintained per machine — see
+  `docs/how-to/codex-cli-coworker-hooks.md`. Companion Stop-side
+  validator: `dev-tools/hooks/dr-output-stop.{py,sh}` enforces Stage
+  Header + human-summary structure on `/dr-do` transcripts.
+
 - **Autonomous Agent Operating Rules contract** — `dr-orchestrate` ships
   `rules/fb-rules.yaml` (FB-1..FB-8 policy block with `enforcement_layer` /
   `tier` / `default_action` / `reversibility_required` / `audit_required` /
