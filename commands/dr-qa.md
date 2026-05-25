@@ -27,9 +27,9 @@ description: Multi-layer quality verification — checks PRD alignment, design c
 7.  **OUTPUT**: Write `datarim/qa/qa-report-{task-id}.md` with results.
 8.  **HUMAN SUMMARY**:
     - Load `$HOME/.claude/skills/human-summary/SKILL.md`.
-    - Emit the `## Отчёт оператору` (RU) / `## Operator summary` (EN) section, with the four mandated sub-sections, between the QA-report write and the CTA block. Language follows the most recent operator message.
+    - Emit the `## Отчёт оператору` (RU) / `## Operator summary` (EN) section, with the four mandated sub-sections, between the QA-report write and the CTA block. Language follows the most recent operator message. <!-- allow-non-ascii: literal-russian-section-name-token-from-human-summary-skill -->
     - Source material: § Overview of the task description, per-layer verdicts, expectations checklist statuses (if Layer 3b ran), and the overall verdict.
-    - Runs on every overall verdict (ALL_PASS, CONDITIONAL_PASS, BLOCKED). On BLOCKED the «Что не получилось» sub-section carries the failure detail in plain language and «Что дальше» paraphrases the FAIL-Routing target layer name (without command syntax — the CTA below carries that verbatim).
+    - Runs on every overall verdict (ALL_PASS, CONDITIONAL_PASS, BLOCKED). On BLOCKED the «Что не получилось» sub-section carries the failure detail in plain language and «Что дальше» paraphrases the FAIL-Routing target layer name (without command syntax — the CTA below carries that verbatim). <!-- allow-non-ascii: literal-russian-section-name-token-from-human-summary-skill -->
     - The summary MUST honour the banlist + whitelist + per-paragraph escape-hatch contract from the skill (`<!-- gate:literal -->` … `<!-- /gate:literal -->` for verbatim quoted blocks only; max two fenced paragraphs per summary).
     - Output: chat. If `datarim/qa/qa-report-{task-id}.md` was written, append the same section at the end of that file under `## Plain-language summary`.
     - Length budget: 150–400 words **total across the four sub-sections** (not per sub-section). Hard upper bound.
@@ -123,12 +123,12 @@ description: Multi-layer quality verification — checks PRD alignment, design c
 
 **Checks:**
 
-- Read the file. For each item under `## Ожидания`:
-  - read `wish_id`, `Что хочу проверить`, `Как проверить (success criterion)`, `evidence_type` (v2 schema, required: `empirical | static | measurement`), current `#### Текущий статус`, and any existing `override:` line;
+- Read the file. For each item under `## Ожидания`: <!-- allow-non-ascii: literal-russian-section-name-tokens-from-expectations-template -->
+  - read `wish_id`, `Что хочу проверить`, `Как проверить (success criterion)`, `evidence_type` (v2 schema, required: `empirical | static | measurement`), current `#### Текущий статус`, and any existing `override:` line; <!-- allow-non-ascii: literal-russian-field-name-tokens-from-expectations-template -->
   - run the success criterion against the implementation and decide one of `met` / `partial` / `missed` / `n-a`;
-  - append one line to that item's `#### История статусов` with the canonical format `<ISO> / <local> · /dr-qa · <prior> → <new> · reason: <one-sentence plain ru>`;
-  - update the item's `#### Текущий статус` to the new value;
-  - **(Per-wish report contract, mandatory for schema_version=2)** write a detailed per-wish block to `datarim/qa/qa-report-{TASK-ID}.md` per the **Per-Wish Detailed Block Template** below. The block records what was tested + what command was run + what was measured, so the operator can audit «как реализована эта задача, какие тесты + замеры были проведены, какой получен результат» without re-running QA. Evidence_type rules:
+  - append one line to that item's `#### История статусов` with the canonical format `<ISO> / <local> · /dr-qa · <prior> → <new> · reason: <one-sentence plain ru>`; <!-- allow-non-ascii: literal-russian-field-name-tokens-from-expectations-template -->
+  - update the item's `#### Текущий статус` to the new value; <!-- allow-non-ascii: literal-russian-field-name-tokens-from-expectations-template -->
+  - **(Per-wish report contract, mandatory for schema_version=2)** write a detailed per-wish block to `datarim/qa/qa-report-{TASK-ID}.md` per the **Per-Wish Detailed Block Template** below. The block records what was tested + what command was run + what was measured, so the operator can audit «как реализована эта задача, какие тесты + замеры были проведены, какой получен результат» without re-running QA. Evidence_type rules: <!-- allow-non-ascii: literal-russian-field-name-tokens-from-expectations-template -->
     - `empirical` — block MUST contain a runtime command invocation <!-- gate:example-only -->(curl, bats, pytest, docker exec, sample-tool execution)<!-- /gate:example-only --> + actual stdout/stderr/exit code. Static grep alone does NOT satisfy `empirical`.
     - `measurement` — block MUST contain a numeric value + comparison to expected (e.g. «latency p95 = 87ms < budget 100ms»). Plain prose alone does NOT satisfy `measurement`.
     - `static` — block MAY contain only `grep` / `test -f` / `wc -l` / file-presence checks. Validator emits an advisory warning if ALL wishes in a task are `static` (per `dev-tools/check-expectations-checklist.sh --all`).
@@ -147,9 +147,9 @@ description: Multi-layer quality verification — checks PRD alignment, design c
 ### Layer 3b: Expectations Verification — {VERDICT}
 
 **Items verified:** {N}
-**Status transitions written:** {N} (one История статусов line per item)
+**Status transitions written:** {N} (one История статусов line per item) <!-- allow-non-ascii: literal-russian-field-name-tokens-from-expectations-template -->
 
-| # | wish_id | Текущий статус | Override present? | Notes |
+| # | wish_id | Текущий статус | Override present? | Notes | <!-- allow-non-ascii: literal-russian-field-name-tokens-from-expectations-template -->
 |---|---------|----------------|-------------------|-------|
 | 1 | {slug}  | met            | n/a               | — |
 | 2 | {slug}  | partial        | yes (≥10 chars)   | conditional pass |
@@ -162,8 +162,9 @@ description: Multi-layer quality verification — checks PRD alignment, design c
 
 ### Per-Wish Detailed Block Template (schema_version=2)
 
-For every wish item in `## Ожидания`, append one block to the QA report under a top-level `## Layer 3b — Per-Wish Detailed Report` section. The order of blocks matches the order of items in `expectations.md`.
+For every wish item in `## Ожидания`, append one block to the QA report under a top-level `## Layer 3b — Per-Wish Detailed Report` section. The order of blocks matches the order of items in `expectations.md`. <!-- allow-non-ascii: literal-russian-section-name-token-from-expectations-template -->
 
+<!-- allow-non-ascii-block: russian-per-wish-qa-template-fixture-required-by-contract -->
 ```markdown
 #### Wish {N} — {wish_id}: {title verbatim from expectations.md}
 
@@ -186,11 +187,12 @@ Exit code: {N}
 ```
 
 **Rationale (operator goal per the original wish-list brief):** «по каждому пункту отчёт о том что было сделано для тестирования и какой получен результат». Каждый wish получает отдельный отчётный блок — 1-к-1 mapping operator-goal → per-goal evidence. Без этого блока Layer 3b verdict снижается до **PASS_WITH_NOTES** с finding `per-wish-block-missing: <wish_id>`.
+<!-- /allow-non-ascii-block -->
 
 **Evidence-type contract enforcement (advisory at Layer 3b, hard gate at /dr-compliance):**
 
-- `empirical` без runtime command → finding `evidence-type-mismatch: <wish_id> declared empirical but block contains only grep`.
-- `measurement` без numeric value → finding `evidence-type-mismatch: <wish_id> declared measurement but block lacks numeric value`.
+- `empirical` без runtime command → finding `evidence-type-mismatch: <wish_id> declared empirical but block contains only grep`. <!-- allow-non-ascii: literal-russian-mixed-prose-with-evidence-type-mismatch-finding-token -->
+- `measurement` без numeric value → finding `evidence-type-mismatch: <wish_id> declared measurement but block lacks numeric value`. <!-- allow-non-ascii: literal-russian-mixed-prose-with-evidence-type-mismatch-finding-token -->
 - `static` accepted as-is (lowest tier).
 
 Findings at Layer 3b are advisory (PASS_WITH_NOTES); `/dr-compliance` may upgrade to BLOCKED if the operator brief explicitly required practical measurements (per task `expectations.md` § evidence_type distribution).
@@ -390,7 +392,7 @@ After verdict, the reviewer agent MUST emit a CTA block per `$HOME/.claude/skill
 
 Multi-layer FAIL: route to **earliest** failed layer (Layer 1 > 2 > 3 > 3b > 4). Earlier failures are root causes. Layer 3b sits between plan completeness and code quality because operator-expectation misses indicate scope-drift; they are higher-level than code defects but presuppose the plan was executed.
 
-The FAIL-Routing CTA header MUST read: `**QA failed для {TASK-ID} — earliest failed layer: Layer N (Layer name)**`. Variant B menu when >1 active tasks.
+The FAIL-Routing CTA header MUST read: `**QA failed для {TASK-ID} — earliest failed layer: Layer N (Layer name)**`. Variant B menu when >1 active tasks. <!-- allow-non-ascii: literal-russian-fail-routing-cta-header-template-token -->
 
 ## Loop Guard
 

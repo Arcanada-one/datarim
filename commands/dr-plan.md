@@ -57,17 +57,17 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
     -   Skip this step when a PRD exists — `/dr-prd` Step 5.5b already handled the PRD-driven append-merge.
     -   For L2 tasks without a PRD, the planner MUST load existing `datarim/tasks/{TASK-ID}-expectations.md` (already seeded at `/dr-init`) and append any plan-derived wishes the init-task skeleton did not cover.
     -   **Source of new items (append candidates).** Each plan § Validation Checklist row that asserts an operator-observable outcome → one candidate wish. Compare candidate's semantic content with existing items by `wish_id`:
-        - **Match (semantic equivalence with existing wish):** do not append; add one `stage: append-merge` line to existing wish's `#### История статусов` (reason: «уточнено в плане»).
+        - **Match (semantic equivalence with existing wish):** do not append; add one `stage: append-merge` line to existing wish's `#### История статусов` (reason: "refined in the plan"). <!-- allow-non-ascii: literal-russian-status-history-section-name-from-expectations-template -->
         - **No match (genuinely new operator-observable outcome):** append at the bottom as a new item:
             - title in plain Russian ending with a period;
             - `wish_id` = kebab-slug of the title (cyrillic allowed);
-            - `Что хочу проверить:` one or two sentences;
-            - `Как проверить (success criterion):` one concrete signal;
-            - `Связанный AC из PRD: «—»` (no PRD);
+            - `Что хочу проверить:` one or two sentences; <!-- allow-non-ascii: literal-russian-field-name-from-expectations-template -->
+            - `Как проверить (success criterion):` one concrete signal; <!-- allow-non-ascii: literal-russian-field-name-from-expectations-template -->
+            - `Связанный AC из PRD: «—»` (no PRD); <!-- allow-non-ascii: literal-russian-field-name-from-expectations-template -->
             - `evidence_type:` (default `empirical`; choose `static` or `measurement` per validation nature);
-            - `#### История статусов` with one initial line `<ISO> / <local> · /dr-plan · pending → pending · reason: пункт добавлен из плана § Validation Checklist`;
-            - `#### Текущий статус: pending`.
-    -   **Do not rewrite, reorder, or delete existing items.** Operator controls pruning via explicit `Текущий статус: deleted`.
+            - `#### История статусов` with one initial line `<ISO> / <local> · /dr-plan · pending → pending · reason: пункт добавлен из плана § Validation Checklist`; <!-- allow-non-ascii: literal-russian-field-name-from-expectations-template -->
+            - `#### Текущий статус: pending`. <!-- allow-non-ascii: literal-russian-field-name-from-expectations-template -->
+    -   **Do not rewrite, reorder, or delete existing items.** Operator controls pruning via explicit `Текущий статус: deleted`. <!-- allow-non-ascii: literal-russian-field-name-from-expectations-template -->
     -   **Post-write validation gate.** Invoke:
         ```bash
         dev-tools/check-expectations-checklist.sh --task {TASK-ID}
@@ -186,7 +186,7 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
             the skill. Do not block.
         -   **`skip`** → no plan section required.
     -   When justifications are needed, provide concrete mitigation language —
-        not «потому что надо». TTL ≤ 90 days from plan authorship, in the
+        not "because we have to". TTL ≤ 90 days from plan authorship, in the
         future. The gate is fail-closed on missing/malformed
         `priority`/`type`.
 
@@ -202,12 +202,12 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
         -   `Projects/Websites/datarim.club/config.php` (version)
     -   **n-way runtime↔site sync (when task adds a NEW command/skill/agent)** — for every NEW artifact, public surface coverage MUST include:
         -   `Projects/Websites/datarim.club/data/{commands,skills,agents}/<name>.php` (EN + RU short + body — site discoverability surface)
-        -   `Projects/Datarim/code/datarim/docs/{commands,skills,agents}.md` (catalogue row, update count в heading)
+        -   `Projects/Datarim/code/datarim/docs/{commands,skills,agents}.md` (catalogue row, update count in the heading)
         -   `Projects/Datarim/code/datarim/CLAUDE.md` (commands/skills/agents table row, update count footer)
-        -   `Projects/Datarim/code/datarim/README.md` (commands list mention, update count в badge / description)
-        These are the 4 surfaces required by the Public-surface ↔ runtime sync mandate (consumer CLAUDE.md § Public-surface ↔ runtime sync). Asymmetric drift («site впереди фреймворка» or vice versa) = discoverability gap. Detector: `dev-tools/doc-fanout-lint.sh` + `tests/test-command-doc-coverage.bats`.
+        -   `Projects/Datarim/code/datarim/README.md` (commands list mention, update count in the badge / description)
+        These are the 4 surfaces required by the Public-surface ↔ runtime sync mandate (consumer CLAUDE.md § Public-surface ↔ runtime sync). Asymmetric drift ("site is ahead of the framework" or vice versa) = a discoverability gap. Detector: `dev-tools/doc-fanout-lint.sh` + `tests/test-command-doc-coverage.bats`.
     -   For EACH surface in the list, plan §5 MUST include an explicit affected-files entry AND PRD MUST include a corresponding acceptance criterion (e.g. `AC-NN: live curl /docs/getting-started \| grep <new-term>` for live verification).
-    -   Deferring a surface to /dr-qa or /dr-archive is a **Class B contract violation** — Class B tasks ship with their full public surface coverage in /dr-do, not «minor скорректируем потом».
+    -   Deferring a surface to /dr-qa or /dr-archive is a **Class B contract violation** — Class B tasks ship with their full public surface coverage in /dr-do, not "minor — we will tidy this up later".
     -   When a Class B operating-model AC (e.g. `pages/getting-started.php` symlink content) is deferred from `/dr-do`, it surfaces only at `/dr-archive` live deploy verification. Surface scan checkpoint prevents recurrence.
 
 12.5. **APPEND Q&A IF ANY** (mandatory per `$HOME/.claude/skills/init-task-persistence/SKILL.md` § Q&A round-trip contract): for every operator clarification round captured during this stage — either operator answer or autonomous agent-decision under FB-1..FB-5 — invoke `dev-tools/append-init-task-qa.sh` to persist the round into `datarim/tasks/{TASK-ID}-init-task.md § Append-log`.
@@ -290,7 +290,7 @@ After plan generation, the planner agent MUST emit a CTA block per `$HOME/.claud
 - Plan incomplete or strategist suggests pivot → primary `/dr-prd {TASK-ID}` (revise scope)
 - Always include `/dr-status` as escape hatch
 
-The CTA block MUST follow the canonical format (numbered, one `**рекомендуется**`, `---` HR). Variant B menu when >1 active tasks.
+The CTA block MUST follow the canonical format (numbered, one `**рекомендуется**`, `---` HR). Variant B menu when >1 active tasks. <!-- allow-non-ascii: literal-russian-cta-marker-from-cta-format-skill -->
 
 ## Stage Snapshot Emission (Mandatory Terminal Step)
 

@@ -18,7 +18,7 @@ Complete and archive current task.
 **Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header.
 0. **TASK RESOLUTION**: Apply Task Resolution Rule from `$HOME/.claude/skills/datarim-system/SKILL.md` § Task Resolution Rule. Resolve which task is being archived (from argument or disambiguation). Use the resolved task ID for all subsequent steps.
 
-0.05. **READ INIT-TASK** (mandatory per `$HOME/.claude/skills/init-task-persistence/SKILL.md`): Open `datarim/tasks/{TASK-ID}-init-task.md` if present. Read the full `## Operator brief (verbatim)` section AND every `## Append-log` entry. The archive document MUST render every brief bullet inside `## Как решили` (one bullet per brief item, original order; expectations folded as `(уточнение брифа)` markers — see Step 2 below). Missing init-task is non-blocking on archive — note its absence under `### Operator Handoff` and continue.
+0.05. **READ INIT-TASK** (mandatory per `$HOME/.claude/skills/init-task-persistence/SKILL.md`): Open `datarim/tasks/{TASK-ID}-init-task.md` if present. Read the full `## Operator brief (verbatim)` section AND every `## Append-log` entry. The archive document MUST render every brief bullet inside `## Как решили` (one bullet per brief item, original order; expectations folded as `(уточнение брифа)` markers — see Step 2 below). Missing init-task is non-blocking on archive — note its absence under `### Operator Handoff` and continue. <!-- allow-non-ascii: literal-russian-archive-section-names-from-template-contract -->
 
 0.1. **PRE-ARCHIVE CLEAN-GIT CHECK** (MANDATORY):
 
@@ -190,22 +190,22 @@ Complete and archive current task.
      - `n_a: true` — when `/dr-verify` was not invoked (L1 trivial fix or pre-tri-layer task).
      - `dogfood_window` — operator-supplied window-id grouping key consumed by `dev-tools/measure-prospective-rate.sh`.
    - **Top-layer business-facing sections — MANDATORY, exact order, exact headings** (see `${DATARIM_RUNTIME:-$HOME/.claude}/templates/archive-template.md`):
-     1. `## Начальная задача` — one Russian sentence describing what the operator asked for. Source: `datarim/tasks/{TASK-ID}-init-task.md` § Operator brief (verbatim), compressed to a single phrase.
-     2. `## Как решили` — single-level bullet list, one item per bullet in the operator brief (in original order). Each rendered bullet: bold operator-words quotation, followed by the final `/dr-qa` status word (one of «выполнено», «частично», «не выполнено», «неприменимо» — never the schema enum `met`/`partial`/`missed`/`n-a`) and one or two plain-language sentences sourced from the item's most recent `#### История статусов` line (`reason: …`).
-        - **Fold expectations into the same list (MANDATORY when `datarim/tasks/{TASK-ID}-expectations.md` exists, per F6 of the init-task contract):** every item from `## Ожидания` is added to the same bullet list, in original order, with the marker `(уточнение брифа)` appended to the operator-words quotation. Do NOT render a separate `## Выполнение ожиданий оператора` section — that top-level heading was retired and its content folded into «Как решили».
-        - Missing expectations file ⇒ render only brief items; no fallback line is needed (the «Как решили» section already exists because the brief itself does).
+     1. `## Начальная задача` — one Russian sentence describing what the operator asked for. Source: `datarim/tasks/{TASK-ID}-init-task.md` § Operator brief (verbatim), compressed to a single phrase. <!-- allow-non-ascii: literal-russian-archive-section-name-from-template -->
+     2. `## Как решили` — single-level bullet list, one item per bullet in the operator brief (in original order). Each rendered bullet: bold operator-words quotation, followed by the final `/dr-qa` status word (one of «выполнено», «частично», «не выполнено», «неприменимо» — never the schema enum `met`/`partial`/`missed`/`n-a`) and one or two plain-language sentences sourced from the item's most recent `#### История статусов` line (`reason: …`). <!-- allow-non-ascii: literal-russian-archive-section-name-from-template -->
+        - **Fold expectations into the same list (MANDATORY when `datarim/tasks/{TASK-ID}-expectations.md` exists, per F6 of the init-task contract):** every item from `## Ожидания` is added to the same bullet list, in original order, with the marker `(уточнение брифа)` appended to the operator-words quotation. Do NOT render a separate `## Выполнение ожиданий оператора` section — that top-level heading was retired and its content folded into «Как решили». <!-- allow-non-ascii: literal-russian-archive-section-name-from-template -->
+        - Missing expectations file ⇒ render only brief items; no fallback line is needed (the «Как решили» section already exists because the brief itself does). <!-- allow-non-ascii: literal-russian-archive-section-name-from-template -->
         - **No tables in this section.** Bullet list only (single-level allowed; nested bullets forbidden).
         - **No anglicisms** — apply the banlist rules from `skills/human-summary/SKILL.md` to the comment text (Russian prose only; ASCII tokens of length ≥3 from `skills/human-summary/banlist.txt` MUST NOT appear unless wrapped in the per-paragraph escape-hatch fence). The two-paragraph fenced budget from `human-summary.md` § Per-paragraph escape hatch applies here as well.
-     3. `## Артефакты задачи` — what was produced or changed. Free prose + bullets allowed. File references as relative paths. No verdict tables in this top section.
-     4. `## Следующие шаги` — either «всё закрыто» or a bullet list of concrete `/dr-*` commands / operator actions.
+     3. `## Артефакты задачи` — what was produced or changed. Free prose + bullets allowed. File references as relative paths. No verdict tables in this top section. <!-- allow-non-ascii: literal-russian-archive-section-name-from-template -->
+     4. `## Следующие шаги` — either «всё закрыто» or a bullet list of concrete `/dr-*` commands / operator actions. <!-- allow-non-ascii: literal-russian-archive-section-name-and-section-content-from-template -->
    - **Audit addendum under a `---` horizontal rule — MANDATORY, exact order:**
-     - `## Дополнительно для аудита` (top-level heading after `---`).
+     - `## Дополнительно для аудита` (top-level heading after `---`). <!-- allow-non-ascii: literal-russian-archive-section-name-from-template -->
      - `### verification_outcome` — human-readable mirror of the YAML frontmatter counters (`caught_by_verify`, `missed_by_verify`, `false_positive`, `n_a`, `dogfood_window`), one bullet per counter.
      - `### Acceptance Criteria` — verdict table (AC / Status / Evidence), one row per AC.
      - `### Lessons Learned` — short ≤3-bullet digest; the full text lives in `reflection-{ID}.md`.
-     - `### Operator Handoff` — residual technical debt, deferred improvements, configuration steps for the next operator. «всё закрыто» if empty.
+     - `### Operator Handoff` — residual technical debt, deferred improvements, configuration steps for the next operator. «всё закрыто» if empty. <!-- allow-non-ascii: literal-russian-archive-section-name-from-template -->
      - `### Related` — Parent PRD / Plan / Reflection / Follow-ups.
-   - The audit addendum carries the technical surface; the top four sections carry the operator-facing answer to «что я просил и что вы сделали». Banlist applies to the prose in the top four sections; tables and YAML mirrors in the addendum MAY be wrapped in `<!-- gate:literal -->` fence when they include ASCII technical terms.
+   - The audit addendum carries the technical surface; the top four sections carry the operator-facing answer to «что я просил и что вы сделали». Banlist applies to the prose in the top four sections; tables and YAML mirrors in the addendum MAY be wrapped in `<!-- gate:literal -->` fence when they include ASCII technical terms. <!-- allow-non-ascii: literal-russian-archive-section-name-from-template -->
    - **Known Loss Verification Gate (MANDATORY when archive will include any "Known Loss" / "Unrecoverable" / "Content lost" statement):**
      Before recording that any file, section, decision, or piece of work is permanently lost, run the Disaster Recovery Checklist from `$HOME/.claude/skills/evolution/SKILL.md` § Disaster Recovery for Lost Runtime Files. Record in the archive document which channels were checked (grep reflections by filename, compacted session context, cross-references, git history of consumer projects, external backups) and what each returned. If the checklist takes >30 minutes, defer the archive, open a follow-up recovery task, do not record the loss yet. Only after all 5 channels are exhausted may a loss claim enter the archive. Rationale: an archive that records files as "text reconstruction is not possible" after 0 minutes of discovery has historically been recovered 100% in <30 minutes using channels 1-3. Always run the checklist first.
 3. **BACKLOG UPDATE** (if task existed in backlog):
@@ -227,7 +227,7 @@ Complete and archive current task.
 6. **UPDATE activeContext.md** (thin-index schema, v1.19.1):
    - **Remove** the archived task's one-liner from `## Active Tasks` (keep all others).
    - The Active section is **strict mirror** of `tasks.md § Active` — after removal, both files share the same line set.
-   - Do NOT write any `## Последние завершённые` / `## Last Completed` /
+   - Do NOT write any `## Последние завершённые` / `## Last Completed` / <!-- allow-non-ascii: literal-russian-active-context-section-name-from-canonical-schema -->
      `## Last Updated` section: those were retired in v1.19.1.
      Recency is computed runtime by `/dr-status --recent N` from
      `documentation/archive/**/archive-*.md` mtime-sort.
@@ -240,8 +240,8 @@ Complete and archive current task.
      deletes; `/dr-init` Step 2.4 self-heal probe surfaces this on next session.
 8. **HUMAN SUMMARY**:
    - Load `$HOME/.claude/skills/human-summary/SKILL.md`.
-   - Emit the `## Отчёт оператору` (RU) / `## Operator summary` (EN) section, with the four mandated sub-sections, between the archive-mutation block and the CTA block. Language follows the most recent operator message.
-   - Source material: the just-written archive document (§ Начальная задача / § Как решили / § Артефакты задачи / § Следующие шаги, plus the audit addendum’s § Operator Handoff) and the reflection file from Step 0.5.
+   - Emit the `## Отчёт оператору` (RU) / `## Operator summary` (EN) section, with the four mandated sub-sections, between the archive-mutation block and the CTA block. Language follows the most recent operator message. <!-- allow-non-ascii: literal-russian-section-name-token-from-human-summary-skill -->
+   - Source material: the just-written archive document (§ Начальная задача / § Как решили / § Артефакты задачи / § Следующие шаги, plus the audit addendum’s § Operator Handoff) and the reflection file from Step 0.5. <!-- allow-non-ascii: literal-russian-archive-section-names-from-template -->
    - Do NOT mutate the archive document or the reflection file — the summary is chat-only; the archive remains the permanent record.
    - The summary MUST honour the banlist + whitelist + per-paragraph escape-hatch contract from the skill (`<!-- gate:literal -->` … `<!-- /gate:literal -->` for verbatim quoted blocks only; max two fenced paragraphs per summary).
    - Length budget: 150–400 words **total across the four sub-sections** (not per sub-section). Hard upper bound. If sources are bigger, compress.
@@ -301,4 +301,4 @@ After archive, the planner agent MUST emit a CTA block per `$HOME/.claude/skills
 - Knowledge base grew >5 docs since last maintenance → alternative `/dr-dream` (housekeeping)
 - Always include `/dr-status` as escape hatch
 
-The CTA block MUST follow the canonical format. If multiple tasks remain active after this archive, render Variant B menu (`**Другие активные задачи:**`).
+The CTA block MUST follow the canonical format. If multiple tasks remain active after this archive, render Variant B menu (`**Другие активные задачи:**`). <!-- allow-non-ascii: literal-russian-variant-b-menu-token-from-cta-format-skill -->

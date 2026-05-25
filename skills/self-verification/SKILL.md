@@ -8,13 +8,13 @@ target_aal: 2
 ## Purpose & When to Apply
 
 - Manual `/dr-verify {TASK-ID}` invocation — cold-path skill loaded on-demand.
-- Verifies pipeline artifact (PRD / plan / do-output / archive) на: factual correctness, AC coverage completeness, cross-artifact consistency, security/safety gaps.
-- **НЕ** замена `/dr-qa` (manual single-agent post-completion review без runtime-aware dispatch).
-- **НЕ** автоматический pipeline hook (manual on-demand only — automated post-step hook is a future evolution gated by dogfood verdict).
+- Verifies pipeline artifact (PRD / plan / do-output / archive) for: factual correctness, AC coverage completeness, cross-artifact consistency, security/safety gaps.
+- **NOT** a replacement for `/dr-qa` (manual single-agent post-completion review without runtime-aware dispatch).
+- **NOT** an automatic pipeline hook (manual on-demand only — automated post-step hook is a future evolution gated by dogfood verdict).
 
 ## When NOT to Apply
 
-- L1 trivial tasks (skill overhead больше value).
+- L1 trivial tasks (skill overhead exceeds value).
 - Already archived tasks (immutable artifacts).
 - During `/dr-prd` / `/dr-plan` / `/dr-do` active session — use post-completion only (pre-emptive verify hook is a deferred future evolution).
 
@@ -22,25 +22,25 @@ target_aal: 2
 
 ### 1. State-Diff (light v1)
 
-Сравнение указанного артефакта vs AC list per-stage. Heuristic comparison, no NLP:
+Comparison of the named artefact against the AC list per stage. Heuristic comparison, no NLP:
 
-- **prd** → grep AC list, проверить что каждый AC имеет (a) verification command или test, (b) success criterion measurable.
-- **plan** → grep step list, проверить что каждый AC mapped к минимум 1 plan step.
-- **do** → grep evidence sections, проверить что каждый AC имеет evidence (test output / file_quote / artifact reference).
+- **prd** → grep the AC list, verify that every AC has (a) a verification command or a test and (b) a measurable success criterion.
+- **plan** → grep the step list, verify that every AC maps to at least one plan step.
+- **do** → grep the evidence sections, verify that every AC has evidence (test output / file_quote / artifact reference).
 
 ### 2. Per-Phase Validation Schemas
 
 Stage-specific gates:
 
-- **prd-stage:** AC coverage completeness, falsifiability requirement (each AC has concrete verification cmd), risk identification (минимум 3 risks с mitigations).
-- **plan-stage:** Step coverage (каждый AC ↔ минимум 1 step), security design (STRIDE coverage), rollback strategy explicit.
+- **prd-stage:** AC coverage completeness, falsifiability requirement (each AC has a concrete verification command), risk identification (at least 3 risks with mitigations).
+- **plan-stage:** Step coverage (every AC maps to at least one step), security design (STRIDE coverage), rollback strategy explicit.
 - **do-stage:** Evidence coverage per AC, no orphaned AC items, claims supported by verifiable output (not 'logged' alone).
 
 ### 3. Single-Prompt Loop Mechanics (Codex path)
 
-**MIXED verdict** from Step 1 validation (`datarim/qa/codex-path-validation.md`): Codex single-prompt path работает **ТОЛЬКО** с canonical adversarial framing. Без adversarial frame — silent false-PASS observed (29 completion tokens, empty findings). Adversarial framing → 3 substantive findings, all schema-compliant, verbatim quotes.
+**MIXED verdict** from Step 1 validation (`datarim/qa/codex-path-validation.md`): the Codex single-prompt path works **ONLY** with canonical adversarial framing. Without an adversarial frame — silent false-PASS observed (29 completion tokens, empty findings). Adversarial framing → 3 substantive findings, all schema-compliant, verbatim quotes.
 
-**Canonical adversarial frame template (MANDATORY, не optional):**
+**Canonical adversarial frame template (MANDATORY, not optional):**
 
 ```
 You are an ADVERSARIAL reviewer. Your job: find weaknesses, NOT bless the doc.
@@ -51,23 +51,23 @@ Look HARD at:
 3. Reflection coverage — narrating success vs surfacing root cause
 4. Followup spawns — silently moved must-fix issues
 5. Reproducibility — re-verifiable from scratch by outsider
-6. Out-of-scope drift — exceeds PRD scope или quietly drops PRD items
+6. Out-of-scope drift — exceeds PRD scope or quietly drops PRD items
 
 Output ONLY valid JSON matching findings schema. No hallucinated quotes — every excerpt MUST come verbatim from cited source.
 ```
 
-**Loop:** emit prompt → parse JSON → validate schema (7 rules from creative doc) → if `status=FAIL` и `iter < max-iter` → re-emit с findings as context → repeat. Stop on PASS / max-iter / cost ceiling.
+**Loop:** emit prompt → parse JSON → validate schema (7 rules from creative doc) → if `status=FAIL` and `iter < max-iter` → re-emit with findings as context → repeat. Stop on PASS / max-iter / cost ceiling.
 
 ### 4. Drift Taxonomy
 
-4 sub-types для `category=consistency` (per creative doc Dim 2):
+4 sub-types for `category=consistency` (per creative doc Dim 2):
 
 | drift_subtype | Defines | Example |
 |--------------|---------|---------|
 | `scope_creep` | Implementation extends past PRD/plan scope | Added file outside Surface Scan |
-| `spec_decay` | PRD/plan modified post-approval без re-review trail | PRD version changed silently |
-| `execution_skew` | Code/output deviates от plan steps без justification | `/dr-do` ignored Step 4 |
-| `orphaned_requirements` | AC declared в PRD but no plan step / no evidence | AC-7 exists in PRD, absent from plan |
+| `spec_decay` | PRD/plan modified post-approval without a re-review trail | PRD version changed silently |
+| `execution_skew` | Code/output deviates from plan steps without justification | `/dr-do` ignored Step 4 |
+| `orphaned_requirements` | AC declared in PRD but no plan step and no evidence | AC-7 exists in PRD, absent from plan |
 
 ### 5. Loop Exit Criteria (4-level hierarchy)
 
@@ -188,10 +188,10 @@ Default when runtime detected as claude.
 
 1. Load skill `dispatching-parallel-agents` (Datarim runtime; lineage in CHANGELOG).
 2. Spawn 3 parallel subagents via `Agent` tool:
-   - **reviewer** (model: opus или sonnet): focus correctness + completeness.
+   - **reviewer** (model: opus or sonnet): focus correctness + completeness.
    - **tester** (model: sonnet): focus do-stage evidence coverage + reproducibility.
    - **security** (model: opus): focus safety category + Appendix A controls.
-3. Каждый subagent получает self-contained context package: `artifact_path`, `ac_list`, `constraints`, `drift_taxonomy_hints`, `adversarial_frame_template`.
+3. Each subagent receives a self-contained context package: `artifact_path`, `ac_list`, `constraints`, `drift_taxonomy_hints`, `adversarial_frame_template`.
 4. **Tool whitelist (read-only):** Read, Grep, Glob, Bash (read-only commands grep/wc/test/cat). **NO** Write, Edit, NotebookEdit.
 5. Aggregate findings from all 3 streams.
 6. Conflict resolution: union findings, dedupe by tuple `(artifact_ref, ac_criteria, category)`. Higher severity wins on collision. Cross-layer dedupe prefers earlier-layer findings (floor → peer_review → dispatch).
@@ -238,7 +238,7 @@ agent_origin: reviewer | tester | security | codex_single | floor_pipeline | pee
 
 ### 7 Validator Rules
 
-1. `category=consistency` ⟺ `drift_subtype` может быть set; иначе `drift_subtype` MUST be absent.
+1. `category=consistency` ⟺ `drift_subtype` may be set; otherwise `drift_subtype` MUST be absent.
 2. `evidence.type=absent` ⟹ `source` AND `excerpt` MUST be absent → `discarded=true, discard_reason=no_evidence_provided`.
 3. `evidence.type ∈ {file_quote, test_output}` ⟹ `source` AND `excerpt` MUST be present.
 4. `excerpt` length ≤200 chars (truncate with suffix `"[truncated]"`).
@@ -250,8 +250,8 @@ agent_origin: reviewer | tester | security | codex_single | floor_pipeline | pee
 
 | Severity | Definition | Operator Action | Example |
 |----------|------------|----------------|---------|
-| `high` | AC violated с verifiable evidence; merge MUST be blocked | Fix перед merge/archive | PRD states AC-7 target ≥40%, archive shows 0% measured |
-| `medium` | Substantive gap (incomplete coverage / drift) с evidence; threatens DoD | Fix перед archive (или document waiver) | AC verification command checks syntax not semantics |
+| `high` | AC violated with verifiable evidence; merge MUST be blocked | Fix before merge / archive | PRD states AC-7 target ≥40%, archive shows 0% measured |
+| `medium` | Substantive gap (incomplete coverage / drift) with evidence; threatens DoD | Fix before archive (or document waiver) | AC verification command checks syntax not semantics |
 | `low` | Observation / improvement; no AC violation | Optional fix | Function exceeds 50 LOC threshold |
 
 ## Category Anchors
@@ -273,22 +273,22 @@ agent_origin: reviewer | tester | security | codex_single | floor_pipeline | pee
 
 ### Auto-Discard Rule
 
-`type=absent` → finding logged with `discarded=true, discard_reason=no_evidence_provided`, NOT counted в summary verdict.
+`type=absent` → finding logged with `discarded=true, discard_reason=no_evidence_provided`; it is NOT counted in the summary verdict.
 
 ### Verifiability Rule (post-write)
 
-- `type=file_quote` → audit writer runs `grep -F "<excerpt>" <source>`. Match → `evidence_verified=true`. Mismatch → `evidence_verified=false`, diagnostic `"excerpt not found in source: suspect hallucinated_quote"`. **На v1 не discard, только warn** — operator triage решает.
-- `type=test_output` → no auto-verify на v1 (expensive commands); `evidence_verified=unchecked`.
+- `type=file_quote` → audit writer runs `grep -F "<excerpt>" <source>`. Match → `evidence_verified=true`. Mismatch → `evidence_verified=false`, diagnostic `"excerpt not found in source: suspect hallucinated_quote"`. **In v1 do not discard, just warn** — operator triage decides.
+- `type=test_output` → no auto-verify in v1 (expensive commands); `evidence_verified=unchecked`.
 
 ### Secret Redaction (Appendix A)
 
-Перед write, audit writer scrubs excerpt + source через regex: `(secret|password|key|token|credential)\w*\s*[:=]\s*\S+` → replace value with `<redacted>`. **Best-effort на v1.**
+Before write, the audit writer scrubs excerpt + source via regex: `(secret|password|key|token|credential)\w*\s*[:=]\s*\S+` → replace value with `<redacted>`. **Best-effort in v1.**
 
 ## Verdict Logic
 
-- **BLOCKED:** ≥1 non-discarded finding с `severity=high`
-- **CONDITIONAL:** ≥1 non-discarded finding с `severity=medium` AND zero `high`
-- **PASS:** только `severity=low` non-discarded findings (или no findings)
+- **BLOCKED:** ≥1 non-discarded finding with `severity=high`
+- **CONDITIONAL:** ≥1 non-discarded finding with `severity=medium` AND zero `high`
+- **PASS:** only `severity=low` non-discarded findings (or no findings)
 
 ## Audit Log Writer (pseudocode)
 
