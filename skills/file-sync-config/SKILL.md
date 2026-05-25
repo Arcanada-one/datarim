@@ -9,34 +9,34 @@ target_aal: 2
 
 ## When To Use
 
-Загружай этот skill перед настройкой ЛЮБОГО двустороннего файлового синка между несколькими хостами:
+Load this skill before configuring ANY two-way file-sync between multiple hosts:
 
 - Syncthing folder setup
 - rclone bisync
-- Dropbox/iCloud/Google Drive shared folder
-- rsync периодический job
+- Dropbox / iCloud / Google Drive shared folder
+- rsync periodic job
 - Disk Arcana sync (planned)
-- Любой custom sync layer
+- Any custom sync layer
 
-**НЕ загружай** для одностороннего бэкапа или CI artifact transfer — там risk model другой.
+**Do NOT load** this skill for one-way backup or CI artifact transfer — the risk model is different.
 
 ## Why It Matters (founding incident)
 
-Founding incident (2026-04-25): первая версия `.stignore` для Syncthing содержала 28 patterns и не покрывала `.venv`, `__pycache__`, `target/`, `*.db`, плюс не исключала вложенные git-репо целиком. Результат:
+Founding incident (2026-04-25): the first `.stignore` for Syncthing had 28 patterns and did not cover `.venv`, `__pycache__`, `target/`, `*.db`, and did not exclude nested git repositories entirely. The result:
 
-- 1 материализованный sync-conflict в production (`AI_agents/Email Agent/CLAUDE.md`) — потеряли бы deploy-документацию если бы Syncthing не сохранил .sync-conflict копию.
-- 60+ sync-conflict файлов накопилось в vault за неделю.
-- 14 git-репо с разными checkout-ветками синкались как plain working trees → working tree drift между mac и DEV.
-- Cross-platform breakage риск: Python `.venv` (macOS Mach-O) vs Linux ELF binaries.
+- 1 materialised sync-conflict in production (`AI_agents/Email Agent/CLAUDE.md`) — deploy documentation would have been lost if Syncthing had not preserved a `.sync-conflict` copy.
+- 60+ sync-conflict files accumulated in the vault over one week.
+- 14 git repositories with different checked-out branches synced as plain working trees → working-tree drift between the Mac and the DEV box.
+- Cross-platform breakage risk: Python `.venv` (macOS Mach-O) vs Linux ELF binaries.
 
-После расширения patterns с 28 → 66 файловый счёт упал с 40,361 → 2,206 (−95%).
+After expanding the pattern list from 28 → 66, the file count dropped from 40,361 → 2,206 (−95%).
 
 ## Pre-Flight Inventory (MANDATORY before sync setup)
 
-Прежде чем включать sync, **запусти `find` по каждому классу проблемных файлов** на источнике:
+Before turning sync on, **run `find` against every class of problematic files** on the source host:
 
 ```sh
-SYNC_ROOT=/Users/me/myvault   # или другой источник
+SYNC_ROOT=/Users/me/myvault   # or another source root
 
 # Vendored / build artifacts
 find "$SYNC_ROOT" -maxdepth 6 \( \
@@ -61,7 +61,7 @@ find "$SYNC_ROOT" -maxdepth 6 \( \
   -name ".ruff_cache" \
 \) -type d 2>/dev/null
 
-# Vложенные git-репо (КРИТИЧНО)
+# Nested git repositories (CRITICAL)
 find "$SYNC_ROOT" -maxdepth 6 -name ".git" -type d 2>/dev/null
 
 # Local DB / state files
@@ -81,7 +81,7 @@ find "$SYNC_ROOT" -maxdepth 6 \( \
   -name "*.exe" \
 \) -type f 2>/dev/null
 
-# IDE / OS junk (обычно меньший risk, но засоряют index)
+# IDE / OS junk (lower risk but clutters the index)
 find "$SYNC_ROOT" -maxdepth 6 \( \
   -name ".idea" -o \
   -name ".vscode" -o \
@@ -90,34 +90,36 @@ find "$SYNC_ROOT" -maxdepth 6 \( \
 \) 2>/dev/null
 ```
 
-**Что увидел в результате — то ОБЯЗАТЕЛЬНО исключи в ignore patterns ДО первого sync.**
+**Every class the inventory surfaces MUST be added to your ignore patterns BEFORE the first sync.**
 
 ## Decision Tree: Sync Working Trees vs Git Pull
 
-Для каждой обнаруженной `.git/` папки внутри sync root задай вопрос:
+For every `.git/` directory inside the sync root, answer one question:
 
 ```
-Есть ли на ВТОРОЙ ноде live edits / агенты / production runtime в этом репо?
-├── ДА → НЕ синкай working tree.
-│        Исключи /path/to/repo целиком из sync.
-│        Используй `git pull` cron на второй ноде (см. arcanada-pull.sh pattern).
-└── НЕТ → working tree можно синкать (read-only сторона)
-         Но всё равно исключи .git/ — каждая нода свой commit history.
+Does the SECOND node have live edits, agents, or production runtime in this repo?
+├── YES → DO NOT sync the working tree.
+│        Exclude the entire /path/to/repo from sync.
+│        Use a `git pull` cron on the second node
+│        (see the arcanada-pull.sh pattern).
+└── NO  → The working tree can be synced (read-only side).
+         Still exclude .git/ — every node keeps its own commit history.
 ```
 
-**По умолчанию выбирай ДА** — почти всегда вторая нода рано или поздно станет «активной» (новый агент, deploy script, manual edit). Лучше overprotection.
+**Default to YES** — almost always the second node will eventually become "active" (a new agent appears, a deploy script lands, a manual edit happens). Over-protection is cheaper than recovery.
 
 ## Reusable .stignore Template (Syncthing)
 
 ```gitignore
-# === КРИТИЧНО: Project source code (separate git repos) ===
-# Каждая нода держит свою checkout-ветку, обновляется через `git pull` независимо.
-# НЕ синкается file-sync'ом — иначе working tree конфликты ломают агентов.
+# === CRITICAL: project source code (separate git repos) ===
+# Each node keeps its own checked-out branch and updates via
+# independent `git pull`. Never sync these via file-sync — otherwise
+# working-tree conflicts break the agents.
 /Projects/*/code
 /Projects/Datarim/sources
 /Projects/Rules of Robotics/Code
 
-# === КРИТИЧНО: AI agents с собственными git/venv ===
+# === CRITICAL: AI agents with their own git/venv ===
 /AI_agents/Email Agent
 /AI_agents/Screen reader
 /AI_agents/Remove-Watermark
@@ -193,72 +195,72 @@ Thumbs.db
 
 | Pattern | Matches |
 |---|---|
-| `node_modules` | каждая `node_modules/` папка на любом уровне |
-| `/Projects/*/code` | path-anchored (`/` префикс) — только конкретный путь |
-| `*.db` | каждый `.db` файл на любом уровне |
-| `.git/**` | всё внутри `.git` (но не сама папка) |
-| `(?d)pattern` | удалить если уже синкнулось (carefuly!) |
-| `(?i)pattern` | case-insensitive |
-| `!important.log` | negation — НЕ игнорировать (override) |
+| `node_modules` | every `node_modules/` directory at any depth |
+| `/Projects/*/code` | path-anchored (`/` prefix) — only this exact path |
+| `*.db` | every `.db` file at any depth |
+| `.git/**` | everything inside `.git` (but not the directory itself) |
+| `(?d)pattern` | delete the file if it has already been synced (use with care) |
+| `(?i)pattern` | case-insensitive match |
+| `!important.log` | negation — do NOT ignore (override of a previous rule) |
 
 Source: https://docs.syncthing.net/users/ignoring.html
 
-### rclone (`--exclude` или `.rcignore`)
+### rclone (`--exclude` or `.rcignore`)
 
 | Pattern | Matches |
 |---|---|
-| `node_modules/` | trailing `/` = только папки |
-| `**/*.db` | `**` = recurse через папки |
-| `/path/to/exclude/**` | path-anchored с / в начале |
+| `node_modules/` | trailing `/` = directories only |
+| `**/*.db` | `**` = recurse through directories |
+| `/path/to/exclude/**` | path-anchored with leading `/` |
 
-### rsync (`--exclude=` или `--exclude-from=file`)
+### rsync (`--exclude=` or `--exclude-from=file`)
 
 | Pattern | Matches |
 |---|---|
-| `node_modules` | не разделяет file/dir |
-| `/relative/path` | от start dir |
+| `node_modules` | does not distinguish file from directory |
+| `/relative/path` | relative to the start directory |
 | `**/*.tmp` | recursive glob |
 
-### gitignore (для контекста)
+### gitignore (for context)
 
 | Pattern | Matches |
 |---|---|
-| `node_modules` | папка/файл с этим именем на любом уровне |
-| `/node_modules` | только в root |
-| `**/build` | каждая build папка |
+| `node_modules` | directory or file with this name at any depth |
+| `/node_modules` | match only at the repo root |
+| `**/build` | every `build` directory anywhere |
 
-## Workflow для git-managed репо (когда file-sync исключён)
+## Workflow for git-managed repos (when file-sync is excluded)
 
-Если ты исключил `/Projects/*/code` из sync, нужен alternate update mechanism для второй ноды:
+If you excluded `/Projects/*/code` from sync, the second node needs an alternate update mechanism:
 
-1. **Cron `git pull` script** — рекомендую `documentation/infrastructure/scripts/arcanada-pull.sh` pattern:
-   - `git fetch` upstream
-   - skip if local==remote
-   - skip if branch ≠ main/master (агент в feature ветке)
-   - stash локальных edits → ff-only pull → fallback merge → fallback CLI Claude conflict resolver → unresolved alert via Ops Bot
-   - pop stash → если конфликт, снова Claude
+1. **Cron `git pull` script** — recommended pattern: `documentation/infrastructure/scripts/arcanada-pull.sh`:
+   - `git fetch` upstream.
+   - Skip if local == remote.
+   - Skip if the branch is not `main` / `master` (an agent is on a feature branch).
+   - Stash local edits → ff-only pull → fall back to merge → fall back to a CLI Claude conflict resolver → unresolved-state alert via Ops Bot.
+   - Pop the stash → if conflict, invoke Claude again.
 
-2. **CI/CD self-hosted runner** — GitHub Actions runner на второй ноде делает pull при push в main (event-driven вместо cron polling).
+2. **CI/CD self-hosted runner** — a GitHub Actions runner on the second node pulls when `main` is pushed (event-driven instead of cron polling).
 
-3. **Manual** — пользователь делает `git pull` сам когда нужно. Подходит для редко обновляемых репо.
+3. **Manual** — the user runs `git pull` themselves when needed. Suitable for rarely-updated repos.
 
-## Compliance Check (для `/dr-compliance` infrastructure type)
+## Compliance Check (for `/dr-compliance` infrastructure tasks)
 
-При configuring file-sync обязательно verify:
+When configuring file-sync, verify each item:
 
-- [ ] Pre-flight inventory выполнен (`find` для каждого класса)
-- [ ] Каждый обнаруженный класс есть в ignore patterns
-- [ ] Все вложенные `.git/` директории — либо целиком исключены либо документированы как «read-only mirror»
-- [ ] Cross-platform binary классы (`.venv`, `target`, `*.so`/`*.dylib`/`*.dll`) исключены если sync между разными ОС
-- [ ] DB файлы (`*.db`, `*.sqlite`) исключены (host-local state)
-- [ ] Lockdown настроек применён (`globalAnnounce=false`, no public discovery, transport-only-tailnet)
-- [ ] Backup конфигурации сохранён (`config.xml.pre-{TASK-ID}`)
-- [ ] Runbook документирован (топология, ops, rollback)
-- [ ] Smoke test выполнен (file flow обоими направлениями)
+- [ ] Pre-flight inventory completed (`find` for every class).
+- [ ] Every class the inventory surfaced is in the ignore patterns.
+- [ ] Every nested `.git/` directory is either fully excluded or explicitly documented as a "read-only mirror".
+- [ ] Cross-platform binary classes (`.venv`, `target`, `*.so` / `*.dylib` / `*.dll`) are excluded if the sync spans different operating systems.
+- [ ] DB files (`*.db`, `*.sqlite`) are excluded (they are host-local state).
+- [ ] Lockdown settings are applied (`globalAnnounce=false`, no public discovery, transport-only-tailnet).
+- [ ] A configuration backup is stored (`config.xml.pre-{TASK-ID}`).
+- [ ] The runbook is documented (topology, ops, rollback).
+- [ ] A smoke test ran in both directions (file flow source → target and target → source).
 
 ## Related
 
-- `Areas/Architecture/file-sync-policy.md` (ADR) — vault-level convention для Arcanada ecosystem
-- `Areas/Infrastructure/Syncthing.md` — Syncthing deployment runbook
-- `Areas/Infrastructure/scripts/arcanada-pull.sh` — git-pull cron с CLI Claude conflict resolver
-- `${DATARIM_RUNTIME:-$HOME/.claude}/templates/cli-conflict-resolver-prompt.md` — reusable Claude promp для conflict resolution
+- `Areas/Architecture/file-sync-policy.md` (ADR) — vault-level convention for the Arcanada ecosystem.
+- `Areas/Infrastructure/Syncthing.md` — Syncthing deployment runbook.
+- `Areas/Infrastructure/scripts/arcanada-pull.sh` — git-pull cron with the CLI Claude conflict resolver.
+- `${DATARIM_RUNTIME:-$HOME/.claude}/templates/cli-conflict-resolver-prompt.md` — reusable Claude prompt for conflict resolution.

@@ -13,11 +13,11 @@ target_aal: 2
 
 You are a meticulous human editor whose job is to make text read as if a real person wrote it from scratch. You work with both English and Russian texts.
 
-**Core principle**: Do not rewrite the text. Surgically remove AI patterns while keeping the author's message, structure, and intent intact. The result should feel like a polished draft by a skilled human writer, not a sanitized AI output.
+**Core principle**: Do not rewrite the text. Surgically remove AI patterns while keeping the author's message, structure, and intent intact. The result should feel like a polished draft by a skilled human writer, not a sanitised AI output.
 
 ## Input
 
-The user provides `$ARGUMENTS` — path to the file. If no path given, ask for it.
+The user provides `$ARGUMENTS` — path to the file. If no path is given, ask for it.
 
 ## Workflow
 
@@ -25,8 +25,8 @@ The user provides `$ARGUMENTS` — path to the file. If no path given, ask for i
 
 1. Read the source file.
 2. Detect the primary language (English, Russian, or mixed).
-3. Save a backup next to the original: `{name}.backup-{timestamp}.{ext}`
-4. Create working copy at `/tmp/humanize-{timestamp}/draft.{ext}`
+3. Save a backup next to the original: `{name}.backup-{timestamp}.{ext}`.
+4. Create a working copy at `/tmp/humanize-{timestamp}/draft.{ext}`.
 
 ### Phase 1: AI Pattern Scan
 
@@ -86,6 +86,8 @@ Save the report to `/tmp/humanize-{timestamp}/scan-report.md` with counts per ca
 | At this point in time | now |
 | A testament to | shows, proves |
 
+<!-- allow-non-ascii-block: russian-ai-pattern-fixture-data-required-by-skill-purpose -->
+
 **Russian Tier 1 — replace on sight:**
 
 | AI-phrase | Replace with |
@@ -109,11 +111,11 @@ Save the report to `/tmp/humanize-{timestamp}/scan-report.md` with counts per ca
 | оптимизация | улучшение, доработка |
 | маяк в океане возможностей | (delete — absurd metaphor) |
 
-**Russian Tier 1b — англицизмы и кальки (заменять при любом упоминании):**
+**Russian Tier 1b — anglicisms and calques (replace on every occurrence):**
 
-Заимствования из английского, для которых есть точный русский эквивалент. Английский корень в русском тексте читается как небрежность или жаргон — заменять в редактуре, кроме случаев, когда термин является именем собственным (название библиотеки, протокола, языкового конструкта).
+These are borrowings from English that have an exact Russian equivalent. An English root inside Russian prose reads as careless or as slang — replace them in editing, except when the term is a proper noun (a library name, a protocol, a language construct).
 
-| Калька / англицизм | Заменить на |
+| Anglicism / calque | Replace with |
 |---|---|
 | ретраить, ретрай | повторить запрос, повторный запрос |
 | ретраят, ретраите | повторяют, повторяете (запрос) |
@@ -133,10 +135,12 @@ Save the report to `/tmp/humanize-{timestamp}/scan-report.md` with counts per ca
 | мерджить (в свободной речи) | сливать, объединять ветки |
 | депрекейтить | помечать устаревшим, выводить из обращения |
 
-Исключения (оставлять английский корень):
-- Имена собственные: названия библиотек, тестовых раннеров, менеджеров пакетов, форматов данных и протоколов оставляем как есть.
-- Технические термины внутри блоков кода и аргументов API.
-- Цитаты и устойчивые сочетания, где замена меняет смысл.
+<!-- /allow-non-ascii-block -->
+
+Exceptions (keep the English root):
+- Proper nouns: names of libraries, test runners, package managers, data formats, and protocols are kept as is.
+- Technical terms inside code blocks and API arguments.
+- Quotes and idiomatic phrases where replacement would change the meaning.
 
 **Tier 2 — flag when 2+ appear in one paragraph:**
 harness, navigate, foster, elevate, unleash, streamline, empower, bolster, catalyze, synergy, ecosystem, holistic, transformative, innovative, dynamic, compelling, unprecedented, exceptional, sophisticated
@@ -149,8 +153,8 @@ significant, innovative, dynamic, compelling, unprecedented, exceptional, sophis
 #### B. Structural Patterns (fix these)
 
 1. **Bullet list overuse** — If >40% of the text is bullet points, convert some to flowing prose. Keep lists only where they genuinely help (steps, specs, comparisons).
-2. **Uniform paragraph length** — If paragraphs are all ~same length (within 15% variance), vary them. Mix 1-sentence paragraphs with 4-5 sentence ones.
-3. **Formulaic structure** — "intro -> body -> challenges -> future outlook" — break the formula. Not every piece needs a "challenges" or "future" section.
+2. **Uniform paragraph length** — If paragraphs are all about the same length (within 15% variance), vary them. Mix 1-sentence paragraphs with 4-5 sentence ones.
+3. **Formulaic structure** — "intro → body → challenges → future outlook" — break the formula. Not every piece needs a "challenges" or "future" section.
 4. **Title Case overuse** — In headings, use sentence case unless the style guide requires title case.
 5. **Numbered list inflation** — "5 key takeaways", "3 things to know" — remove the counting if it feels forced.
 6. **Signposting** — "In this article, we will explore..." — delete. Just start.
@@ -160,11 +164,11 @@ significant, innovative, dynamic, compelling, unprecedented, exceptional, sophis
 
 #### C. Formatting Artifacts (fix these)
 
-1. **Em dash abuse** — AI loves em dashes (—) where commas, periods, or parentheses would be more natural. Reduce em dash usage to max 1-2 per 500 words. In Russian, replace the glued em dashes (word—word) with proper spacing (word — word) or rewrite the sentence with commas/periods.
-2. **Curly quotes** — Normalize to the language-appropriate standard. In code/technical contexts, use straight quotes.
+1. **Em dash abuse** — AI loves em dashes (—) where commas, periods, or parentheses would be more natural. Reduce em dash usage to a maximum of 1-2 per 500 words. In Russian, replace glued em dashes (word—word) with proper spacing (word — word) or rewrite the sentence with commas/periods.
+2. **Curly quotes** — Normalise to the language-appropriate standard. In code/technical contexts, use straight quotes.
 3. **Excessive bold** — Remove bold emphasis that highlights every key term. Bold should be rare and meaningful.
-4. **Emoji in non-casual text** — Remove unless the text is explicitly casual/social media.
-5. **Markdown bleeding** — Remove stray asterisks, hashes, or other markup that doesn't belong in the output format.
+4. **Emoji in non-casual text** — Remove unless the text is explicitly casual / social media.
+5. **Markdown bleeding** — Remove stray asterisks, hashes, or other markup that does not belong in the output format.
 6. **Horizontal rules** — Remove decorative `---` between sections.
 
 ---
@@ -182,7 +186,7 @@ significant, innovative, dynamic, compelling, unprecedented, exceptional, sophis
 
 #### E. Linguistic Patterns (fix these)
 
-1. **Copula avoidance** — "serves as" -> "is"; "features" -> "has"; "boasts" -> "has". AI avoids simple verbs. Use them.
+1. **Copula avoidance** — "serves as" → "is"; "features" → "has"; "boasts" → "has". AI avoids simple verbs. Use them.
 2. **Synonym cycling** — Calling the same thing by 3 different names in 3 sentences. Pick one name and stick with it.
 3. **Significance inflation** — "marks a pivotal moment", "represents a paradigm shift" — use proportionate language.
 4. **False concession** — "While X is impressive, Y remains a challenge" — restructure or remove if the concession adds nothing.
@@ -200,18 +204,18 @@ significant, innovative, dynamic, compelling, unprecedented, exceptional, sophis
 1. **Textbook tone** — Russian AI text reads like a university textbook. Add conversational constructions where appropriate.
 2. **Restating the same idea** — The same thought in different words within 2-3 sentences. Cut the repeats.
 3. **"Room temperature" text** — No position, no emotion, no authorial voice. Add a point of view where the topic warrants it.
-4. **Stating the obvious** — "Важно понимать, что вода мокрая" — remove self-evident statements.
-5. **Generic phrases instead of specifics** — "современные технологии позволяют" — name the specific technology.
+4. **Stating the obvious** — for example "Important to understand that water is wet" — remove self-evident statements.
+5. **Generic phrases instead of specifics** — "modern technology allows us to..." — name the specific technology.
 6. **Absurd metaphors** — AI in Russian produces bizarre metaphors that no native speaker would write. Remove them.
 7. **Uniform sentence rhythm** — Vary: short declarative. Then a longer one with a subordinate clause, maybe a dash for emphasis. Fragment for effect. Then back to medium.
-8. **Несогласованные заголовки** — Когда h2 задаёт рамку ("С чем путают X", "Где используется Y"), а h3 под ним начинаются с "Не..." или иной формы, не связанной с рамкой h2. Подзаголовки должны логически следовать из заголовка. "С чем путают" → подзаголовки называют то, с чем путают (без "Не").
+8. **Heading-subheading mismatch** — When an h2 sets a frame (for example "Things X is confused with", "Where Y is used"), the h3 headings underneath must follow that frame. If the h2 is "Things X is confused with", every h3 under it names the thing it is confused with — never starts with "Not..." or another form that breaks the parent frame.
 
 ---
 
 ### Phase 2: Fix (3 passes)
 
 **Pass 1 — Vocabulary and formatting cleanup:**
-- Replace all Tier 1 words/phrases with natural alternatives.
+- Replace all Tier 1 words and phrases with natural alternatives.
 - Fix all formatting artifacts (em dashes, bold, quotes, etc.).
 - Remove chatbot artifacts and signposting.
 
@@ -221,16 +225,16 @@ significant, innovative, dynamic, compelling, unprecedented, exceptional, sophis
 - Vary sentence length and structure.
 - Fix synonym cycling (pick one term, repeat it).
 - Remove significance inflation and hollow intensifiers.
-- Simplify copula ("serves as" -> "is").
+- Simplify copula ("serves as" → "is").
 
 **Pass 3 — Anti-AI audit:**
-Re-read the entire text with fresh eyes. Ask for each paragraph:
+Re-read the entire text with fresh eyes. Ask, for each paragraph:
 > "Would a human editor flag this as AI-generated?"
 
 If yes, identify what still triggers the feeling and fix it. Common residuals:
 - Text is "too clean" — add a natural imperfection: a sentence-starting conjunction, a fragment, an informal word.
 - Text is "too balanced" — humans take sides. Let the text have a perspective.
-- Transitions are "too smooth" — sometimes a paragraph break is enough. No transition needed.
+- Transitions are "too smooth" — sometimes a paragraph break is enough; no transition needed.
 
 ---
 
@@ -238,13 +242,13 @@ If yes, identify what still triggers the feeling and fix it. Common residuals:
 
 1. Show the user a summary of changes by category (how many vocabulary replacements, structural fixes, etc.).
 2. Highlight any changes that altered meaning (not just style) for review.
-3. After user approval, apply changes to the original file.
-4. Confirm backup location.
+3. After user approval, apply the changes to the original file.
+4. Confirm the backup location.
 
 ## Rules
 
 - **Preserve meaning**: Every factual claim must survive intact. You are editing style, not content.
-- **Preserve voice**: If the author has a distinctive style visible through the AI patterns, amplify it. Don't replace AI voice with your own AI voice.
+- **Preserve voice**: If the author has a distinctive style visible through the AI patterns, amplify it. Do not replace AI voice with your own AI voice.
 - **Language match**: All replacements must be in the same language as the surrounding text.
 - **No over-correction**: Not every em dash is bad. Not every bullet list is wrong. Use judgment — fix the pattern, not every instance.
 - **Context-aware**: A technical doc can be more formal than a blog post. A social media post should be more casual than an article. Match the register.

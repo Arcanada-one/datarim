@@ -14,6 +14,11 @@
 #   - A line carrying `<!-- allow-non-ascii: <reason> -->` is skipped when
 #     <reason> contains >= 10 non-whitespace characters; shorter reasons
 #     are rejected (FAIL — marker abuse guard).
+#   - Block scope: a line carrying `<!-- allow-non-ascii-block: <reason> -->`
+#     (with reason >= 10 non-whitespace chars) enters skip mode for all
+#     subsequent lines until a closing `<!-- /allow-non-ascii-block -->`.
+#     Use sparingly for fixture content (e.g. a skill that documents
+#     non-English text patterns inside a markdown table).
 #
 # Detection: LC_ALL=C byte regex over the UTF-8 Cyrillic block
 # U+0400-U+04FF (bytes 0xD0..0xD3 followed by 0x80..0xBF).
@@ -125,6 +130,7 @@ scan_file() {
     local seen_first_delim=0
     local in_fence=0
     local fence_marker=""
+    local in_block_skip=0
     local lineno=0
     local file_failed=0
 
@@ -163,7 +169,29 @@ scan_file() {
             continue
         fi
 
-        # Allow-non-ascii marker handling.
+        # Allow-non-ascii block-scope handling.
+        if [ "$in_block_skip" -eq 1 ]; then
+            if [[ "$line" == *'<!-- /allow-non-ascii-block -->'* ]]; then
+                in_block_skip=0
+            fi
+            continue
+        fi
+        if [[ "$line" == *'<!-- allow-non-ascii-block:'* ]]; then
+            local block_reason
+            block_reason="$(printf '%s' "$line" | sed -E 's/.*<!-- allow-non-ascii-block:[[:space:]]*([^>]*[^->[:space:]])[[:space:]]*-->.*/\1/')"
+            local block_stripped
+            block_stripped="$(printf '%s' "$block_reason" | tr -d '[:space:]')"
+            if [ "${#block_stripped}" -ge 10 ]; then
+                in_block_skip=1
+                continue
+            else
+                echo "FAIL: $file:$lineno: allow-non-ascii-block reason too short (<10 non-whitespace chars): '$block_reason'" >&2
+                file_failed=1
+                continue
+            fi
+        fi
+
+        # Allow-non-ascii marker handling (line-scope).
         if [[ "$line" == *'<!-- allow-non-ascii:'* ]]; then
             # Extract reason between `allow-non-ascii:` and the closing `-->`.
             local reason

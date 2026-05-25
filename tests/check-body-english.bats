@@ -135,3 +135,45 @@ write_file() {
     run "$SCRIPT" --root "$TMPROOT" --scope nonsense
     [ "$status" -eq 2 ]
 }
+
+@test "13 PASS when Cyrillic appears inside allow-non-ascii-block region" {
+    write_file "commands/dr-foo.md" \
+        "---" "name: dr-foo" "description: Foo." "---" "" \
+        "English prose before." \
+        "<!-- allow-non-ascii-block: russian-ai-pattern-fixture-data-required-by-skill -->" \
+        "| AI phrase | replacement |" \
+        "|---|---|" \
+        "| следует отметить | (remove) |" \
+        "| таким образом | so, thus |" \
+        "<!-- /allow-non-ascii-block -->" \
+        "English prose after."
+    run "$SCRIPT" --root "$TMPROOT"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"PASS"* ]]
+}
+
+@test "14 FAIL when allow-non-ascii-block reason is too short" {
+    write_file "commands/dr-foo.md" \
+        "---" "name: dr-foo" "description: Foo." "---" "" \
+        "<!-- allow-non-ascii-block: short -->" \
+        "Любой текст." \
+        "<!-- /allow-non-ascii-block -->"
+    run "$SCRIPT" --root "$TMPROOT"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"FAIL"* ]]
+}
+
+@test "15 FAIL when allow-non-ascii-block is not closed (Cyrillic after open still ignored, end-of-file safe)" {
+    # Unclosed block: behaviour is to remain in skip mode until EOF.
+    # This is acceptable — a missing close marker is a content authoring
+    # error, not a validator bypass attack (the marker still requires a
+    # >=10-char reason at the open).
+    write_file "commands/dr-foo.md" \
+        "---" "name: dr-foo" "description: Foo." "---" "" \
+        "English." \
+        "<!-- allow-non-ascii-block: documented-fixture-data-block-no-close-marker -->" \
+        "Текст." "Ещё текст." "И ещё."
+    run "$SCRIPT" --root "$TMPROOT"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"PASS"* ]]
+}
