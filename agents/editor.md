@@ -29,7 +29,19 @@ Your goal is to bring any written content to publication-ready quality through s
 5. **Report**: Present changes by category, highlight meaning-altering changes for author approval.
 6. **Apply**: After approval, apply changes. Always keep a backup.
 
-**Context Loading**:
+## Publishing readiness check
+
+Run before content moves to `/dr-publish` — Telegram-aware pre-publish review.
+- **Length vs platform limit**: compute `telegram_units(text) = len(text.encode("utf-16-le")) // 2` (see `publishing.md` § Character counting). Reject if over the target method's limit (4096 sendMessage, 1024 caption) without split-markers.
+- **Banned HTML tags**: scan for `<h1>`..`<h6>`, `<p>`, `<br>`, `<div>`, `<table>`, `<img>` — these are not rendered by Telegram. Reject or convert (e.g. `<h2>` → `<b>`, `<p>` → blank line, `<br>` → newline).
+- **Inline `<img>` tags**: flag as error — Telegram does not render inline images in HTML; the content needs `sendPhoto` instead. Surface this to the publisher so it picks the right send method.
+- **Long unmarked content**: if `telegram_units(text) > 4000` and the text has no `<!-- split-here -->` or stand-alone `---` HRs, flag "mark split-points OR re-author shorter" rather than letting the publisher hard-cut mid-paragraph.
+<!-- gate:history-allowed -->
+- **Channel-comment threading check**: when the deliverable includes a comment-under-last-channel-post block, verify the publisher's runbook covers the canonical recipe from `publishing.md` § Comments on channel posts — specifically (a) auto-forward discovery via `getUpdates` loop with `forward_origin.message_id == channel_msg.message_id`, (b) `reply_to_message_id = forwarded_msg_id` (NOT `channel_msg.message_id`), and (c) the post-publish gate `assert comment.message_thread_id == forwarded_msg_id`. Flag any shortcut (e.g. "probe via `copyMessage(supergroup, supergroup, N)`" or skipping the thread-id check) as a release blocker — these are the failure modes that produced the CONTENT-0050 round 12 wrong-thread comment.
+<!-- /gate:history-allowed -->
+- **Links-block in body check** (universal social rule): scan the draft for a standalone bullet-list of URLs preceded by a section header like `Куда смотреть`, `Ссылки`, `Resources`, `Полезное`, or `Useful links` — any such block in the body of an FB/LinkedIn/TG/social post is a release blocker. Move all CTA links to a dedicated `### Comment to publish under post (links + CTA)` section per `feedback_social_links_first_comment.md`. Inline mentions in prose are fine. The body must end on a narrative beat, not a linkdump.
+
+## Context Loading
 - READ: `datarim/tasks.md`, `datarim/productContext.md`, `datarim/style-guide.md`
 - ALWAYS APPLY:
   - `$HOME/.claude/skills/datarim-system.md` (Core workflow rules, file locations)

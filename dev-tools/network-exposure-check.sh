@@ -24,6 +24,7 @@ usage() {
     cat <<EOF
 Usage: $SCRIPT_NAME [--compose PATH]... [--redis-conf PATH]... \\
                     [--postgres-conf PATH]... [--systemd-socket PATH]... \\
+                    [--runtime-bind addr:port]... \\
                     [--strict] [--format text|sarif] [--today YYYY-MM-DD]
 
 Options:
@@ -31,6 +32,9 @@ Options:
   --redis-conf PATH      Redis configuration file (repeatable).
   --postgres-conf PATH   PostgreSQL configuration file (repeatable).
   --systemd-socket PATH  systemd .socket unit (repeatable).
+  --runtime-bind ADDR:PORT  Classify a runtime listener bind directly
+                          (TUNE-0295 — for socat / dr_orchestrate_server).
+                          Exit 0 = tier1/tier2, 1 = tier3, 2 = malformed.
   --strict               Treat warnings as failures (default ON).
   --format FMT           text (default) | sarif.
   --today YYYY-MM-DD     Override "today" date for TTL test fixtures.
@@ -309,8 +313,35 @@ emit_error()     { printf 'ERROR %s:%s: %s\n' "$1" "$2" "$3" >&2; }
 # Main.
 # ---------------------------------------------------------------------------
 
+# TUNE-0295 V-AC-8: runtime-bind classifier
+# Parse "<addr>:<port>" or "[<ipv6>]:<port>"; classify_bind on addr; emit
+# verdict + tier; return 0 for tier1/tier2, 1 for tier3, 2 for malformed.
+lint_runtime_bind() {
+    local raw="$1"
+    [[ -z "$raw" ]] && { echo "ERR: --runtime-bind requires <addr:port>" >&2; return 2; }
+    local addr port
+    if [[ "$raw" =~ ^\[([0-9a-fA-F:]+)\]:([0-9]+)$ ]]; then
+        addr="${BASH_REMATCH[1]}"
+        port="${BASH_REMATCH[2]}"
+    elif [[ "$raw" =~ ^([^:]+):([0-9]+)$ ]]; then
+        addr="${BASH_REMATCH[1]}"
+        port="${BASH_REMATCH[2]}"
+    else
+        echo "runtime-bind '$raw' malformed (expected <addr:port>)" >&2
+        return 2
+    fi
+    local tier
+    tier="$(classify_bind "$addr")"
+    case "$tier" in
+        tier1)        echo "runtime-bind ${addr}:${port} classified tier1 loopback — PASS"; return 0 ;;
+        tier2)        echo "runtime-bind ${addr}:${port} classified tier2 tailscale — PASS"; return 0 ;;
+        tier3_public) echo "runtime-bind ${addr}:${port} classified tier3 public — FAIL (needs justification)"; return 1 ;;
+        *)            echo "runtime-bind ${addr}:${port} malformed addr"; return 2 ;;
+    esac
+}
+
 main() {
-    local -a composes=() redises=() postgreses=() sockets=()
+    local -a composes=() redises=() postgreses=() sockets=() runtime_binds=()
     local strict=1 format=text
     VERBOSE=0
     TODAY_OVERRIDE=""
@@ -321,6 +352,7 @@ main() {
             --redis-conf)      redises+=("$2"); shift 2 ;;
             --postgres-conf)   postgreses+=("$2"); shift 2 ;;
             --systemd-socket)  sockets+=("$2"); shift 2 ;;
+            --runtime-bind)    runtime_binds+=("$2"); shift 2 ;;
             --strict)          strict=1; shift ;;
             --no-strict)       strict=0; shift ;;
             --format)          format="$2"; shift 2 ;;
@@ -337,6 +369,11 @@ main() {
     for path in ${redises[@]+"${redises[@]}"};       do lint_redis           "$path" || rc=1; done
     for path in ${postgreses[@]+"${postgreses[@]}"}; do lint_postgres        "$path" || rc=1; done
     for path in ${sockets[@]+"${sockets[@]}"};       do lint_systemd_socket  "$path" || rc=1; done
+    for path in ${runtime_binds[@]+"${runtime_binds[@]}"}; do
+        local sub_rc=0
+        lint_runtime_bind "$path" || sub_rc=$?
+        (( sub_rc != 0 )) && rc=$sub_rc
+    done
 
     if [[ "$format" != "text" ]]; then
         echo "format '$format' not implemented (only 'text' supported)" >&2

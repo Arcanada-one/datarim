@@ -20,6 +20,12 @@ target_aal: 2
 - Encrypt sensitive data at rest and in transit.
 - Do not log PII (Personally Identifiable Information).
 
+### Cached secrets in hot data stores
+
+When secret-bearing payload is cached in a hot data store (Redis / Memcached / in-process map) — even with a bounded TTL and a network-isolated bind — record the cache surface in the project's accepted-risk register. The TTL bound and network isolation are mitigations, not a cancellation of the residual risk: any operator with read access to the cache during the TTL window can extract the plaintext secret without going through the primary secret store's audit trail. Re-review on the register's standard cadence (90 days by default).
+
+This applies to any caching layer that holds raw API keys, OIDC client secrets, session tokens, PATs, or any other bearer credential whose primary store enforces stricter access controls than the cache layer. The register entry should cite the cache surface, the TTL bound, the network isolation control, and the next re-review date.
+
 ## Dependency Safety
 - Audit dependencies for known vulnerabilities using the project's package-manager-native audit command at the declared severity threshold.
 - Pin dependency versions.
@@ -133,5 +139,5 @@ If you must keep a remote ref pointing at pre-scrub HEAD as a convenience marker
 
 ## Reusable Templates
 
-- `templates/security-deps-upgrade-plan.md` — stack-neutral plan for dependency-CVE / framework-version-bump / transitive-override tasks. Sections: baseline audit snapshot, target version selection, breaking-change diff, lockfile/peer-dep impact, regression test scope, rollback. Use during `/dr-plan` for any maintenance task closing security advisories.
-- `templates/cutover-runbook-template.md` — stack-neutral atomic 8-phase cutover pattern with auto-rollback. Use during `/dr-plan` for any live-service config flip / deployment / mount-point migration where pre/post smoke comparison can guard the change.
+- `${DATARIM_RUNTIME:-$HOME/.claude}/templates/security-deps-upgrade-plan.md` — stack-neutral plan for dependency-CVE / framework-version-bump / transitive-override tasks. Sections: baseline audit snapshot, target version selection, breaking-change diff, lockfile/peer-dep impact, regression test scope, rollback. Use during `/dr-plan` for any maintenance task closing security advisories.
+- `${DATARIM_RUNTIME:-$HOME/.claude}/templates/cutover-runbook-template.md` — stack-neutral atomic 8-phase cutover pattern with auto-rollback. Use during `/dr-plan` for any live-service config flip / deployment / mount-point migration where pre/post smoke comparison can guard the change.

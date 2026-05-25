@@ -136,7 +136,7 @@ Mandate compliance is verified by `/dr-optimize` Step 6 using a filesystem-prese
 ## Cross-References
 
 - Mandate section in `~/arcanada/CLAUDE.md` (workspace contract, after Operational Resilience Mandate).
-- Scaffold templates at `templates/docs-diataxis/{tutorials,how-to,reference,explanation}/README.md`.
+- Scaffold templates at `${DATARIM_RUNTIME:-$HOME/.claude}/templates/docs-diataxis/{tutorials,how-to,reference,explanation}/README.md`.
 - Bootstrap implementation in `skills/project-init.md` Step 4.
 - Drift detector in `commands/dr-optimize.md` Step 6.
 - Canonical Diátaxis specification: https://diataxis.fr

@@ -17,8 +17,8 @@ pointing into the cloned Datarim repo. The result:
 - **Live edits flow back.** Editing a skill in `~/.claude/skills/foo.md`
   edits the repo file directly; the change can be inspected with `git diff`
   and shipped as a PR.
-- **No drift surface.** `check-drift.sh` becomes a no-op assertion rather
-  than a routine cleanup tool.
+- **No drift surface.** Drift is impossible by definition — runtime IS the
+  repo (same inode); inspection is just `git diff` in the repo.
 
 ## How `install.sh` detects support
 
@@ -64,7 +64,8 @@ cloned repo:
 ```
 
 Copy mode replicates files into `~/.claude/` and leaves the repo untouched.
-Drift is then expected and `check-drift.sh` becomes the recommended cadence.
+Drift is then expected; the canonical resync recipe in that mode is to
+re-run `./install.sh --copy --force --yes` after every `git pull`.
 
 ## Migration from copy mode
 
@@ -92,8 +93,8 @@ in the local copy.
 ## Verification
 
 ```bash
-./scripts/check-drift.sh     # exits 0 when every scope is a symlink at the repo
 ls -la ~/.claude/skills      # confirm `->` arrow pointing at the repo path
+readlink ~/.claude/skills    # absolute path to code/datarim/skills (single source)
 ```
 
 ## Limitations

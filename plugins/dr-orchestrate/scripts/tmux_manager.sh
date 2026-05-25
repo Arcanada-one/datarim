@@ -44,6 +44,43 @@ pane_send() {
   tmux send-keys -t "$target" -- "$text" Enter
 }
 
+# TUNE-0295 Phase B: list/attach/new + *_safe wrappers for tmux_dispatcher.
+
+list() {
+  tmux list-panes -a -F '#{pane_id}|#{session_name}|#{pane_current_command}|#{pane_pid}' 2>/dev/null || return 1
+}
+
+attach() {
+  local pane="$1" task_id="$2"
+  printf 'tmux attach-session -t %s \\; select-pane -t %s\n' "datarim" "$pane"
+  : "$task_id"
+}
+
+new() {
+  local task_id="$1" cmd="$2"
+  tmux new-session -d -s "$task_id" "$cmd"
+}
+
+tmux_list_panes_safe() {
+  command -v tmux >/dev/null 2>&1 || return 1
+  list
+}
+
+tmux_new_session_safe() {
+  command -v tmux >/dev/null 2>&1 || return 1
+  new "$1" "$2"
+}
+
+tmux_kill_pane_safe() {
+  command -v tmux >/dev/null 2>&1 || return 1
+  tmux kill-pane -t "$1" 2>/dev/null
+}
+
+tmux_capture_pane_safe() {
+  command -v tmux >/dev/null 2>&1 || return 1
+  tmux capture-pane -p -t "$1" 2>/dev/null
+}
+
 # V-AC adjacency: floor = tmux 1.7 (capture-pane). Plan §5.3 / fixtures F3.
 tmux_version_check() {
   local v

@@ -1,0 +1,52 @@
+# dr-orchestrate-server.yaml — TUNE-0295 Phase A
+# Configuration manifest for the bash HTTP server (own listener,
+# replaces the prior third-party webhook reference impl).
+# Consumed by dr_orchestrate_server.sh + dr_orchestrate_router.sh as
+# documentation; runtime overrides via env-vars take precedence.
+#
+# Network tier: Tier 1 loopback (per skills/network-exposure-baseline.md).
+# Justification: single-operator dev-loop dispatcher; no external listener.
+#
+# Port choice: 31415 — chosen as a memorable π-prefix outside the
+# 8000-9000 "common-service" range that Tailscale exit-node probes scan.
+
+schema_version: 1
+server:
+  bind: 127.0.0.1
+  port: 31415
+  max_children: 50
+  body_limit_bytes: 65536
+  job_ttl_seconds: 3600
+  connection_timeout_seconds: 30
+
+network_exposure:
+  tier: 1
+  rationale: "loopback-only dev-loop dispatcher; no exposure delta vs 8090 baseline"
+
+routes:
+  - method: POST
+    path: /hooks/tmux
+    handler: scripts/tmux_dispatcher.sh
+    notes: "5-op dispatcher (list|attach|new|kill|read); async returns 202+job_id"
+
+  - method: GET
+    path: /hooks/tmux/job/<job_id>
+    handler: scripts/tmux_dispatcher.sh
+    notes: "polling endpoint; pending=202, complete=200, missing=404, expired=410"
+
+  - method: POST
+    path: /hooks/orchestrator-input
+    handler: scripts/orchestrator-input-handler.sh
+    notes: "uniform 4-arg signature: method path body-file headers-file"
+
+cors:
+  allow_origin: "*"
+  allow_methods: ["GET", "POST", "OPTIONS"]
+  allow_headers: ["Content-Type", "X-Sync-Timeout", "Authorization"]
+  max_age_seconds: 600
+
+security:
+  uri_control_char_reject: true
+  header_crlf_injection_reject: true
+  oversized_body_413: true
+  chunked_decoder_enabled: true

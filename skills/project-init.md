@@ -91,7 +91,7 @@ Create the following structure following the **Diátaxis Documentation Taxonomy 
 
 ### Step 5: Fill CLAUDE.md Template
 
-Read `$HOME/.claude/templates/project-claude-md.md` and replace placeholders:
+Read `${DATARIM_RUNTIME:-$HOME/.claude}/templates/project-claude-md.md` and replace placeholders:
 
 | Placeholder | Source |
 |-------------|--------|

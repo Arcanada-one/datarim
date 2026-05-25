@@ -110,8 +110,8 @@ FIXTURES_DIR="${BATS_TEST_DIRNAME}/cta-format/fixtures"
     [ "$status" -eq 0 ]
 }
 
-@test "command dr-continue.md references cta-format" {
-    run grep -F "cta-format.md" "${COMMANDS_DIR}/dr-continue.md"
+@test "command dr-next.md references cta-format" {
+    run grep -F "cta-format.md" "${COMMANDS_DIR}/dr-next.md"
     [ "$status" -eq 0 ]
 }
 

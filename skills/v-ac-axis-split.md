@@ -1,6 +1,6 @@
 ---
 name: v-ac-axis-split
-description: "Pattern guidance — when V-AC group mixes deterministic axis (rule match / shape check / type assertion) and statistical axis (live-rate threshold / SLA percentile / soak distribution), split upfront into two V-AC groups; loaded by /dr-prd and /dr-plan during V-AC generation"
+description: "Pattern guidance: split V-AC groups mixing deterministic axis (rule match) and statistical axis (rate threshold); loaded by /dr-prd and /dr-plan."
 ---
 
 V-AC groups must not commingle validation that passes by invariant rule with validation that passes by observed rate. Each axis answers a fundamentally different question.
@@ -9,7 +9,7 @@ V-AC groups must not commingle validation that passes by invariant rule with val
 When a single V-AC group contains both deterministic entries (e.g., "schema matches XSD", "status code is 200") and statistical entries (e.g., "p99 latency < 500ms", "error rate < 1% over 1h"), split into two separate V-AC groups before finalising the specification.
 
 ## Why
-Deterministic and statistical validity rely on different evidence chains. TUNE-0183 V-AC-14.11 was reclassified from "flaky test" to "design error" precisely because a rate-based pass criterion was grouped with rule-based checks, masking the fact that the deterministic checks always passed while the statistical check was the actual uncertainty source.
+Deterministic and statistical validity rely on different evidence chains. A pipeline-level retrospective reclassified a mixed V-AC entry from "flaky test" to "design error" precisely because a rate-based pass criterion was grouped with rule-based checks, masking the fact that the deterministic checks always passed while the statistical check was the actual uncertainty source.
 
 ## How to apply
 1. Identify each V-AC entry as either deterministic (unambiguous rule) or statistical (threshold over a window).  
@@ -18,5 +18,5 @@ Deterministic and statistical validity rely on different evidence chains. TUNE-0
 4. Deterministic V-AC MUST be tied to bats/spec/grep evidence or an equivalent monotonic assertion.
 
 ## Reference case
-- TUNE-0183 — V-AC-14.11 reclassification: mixed deterministic + statistical axis caused false confidence.
-- Source of truth: `verify-INFRA-0199-soak.md` documents the split pattern and evidence requirements.
+- A pipeline-level retrospective on a V-AC entry where a mixed deterministic + statistical axis caused false confidence.
+- A soak-test verification document captures the split pattern and evidence requirements.

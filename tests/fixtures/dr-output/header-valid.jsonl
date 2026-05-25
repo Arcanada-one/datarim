@@ -1,0 +1,2 @@
+{"type":"user","message":{"content":"/dr-do TUNE-0264 implement hook"}}
+{"type":"assistant","message":{"content":[{"type":"text","text":"**TUNE-0264 · Programmatic hook-enforce Stage Header preamble**\n\nImplementing the validator."}]}}

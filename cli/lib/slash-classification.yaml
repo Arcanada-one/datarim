@@ -1,0 +1,27 @@
+# cli/lib/slash-classification.yaml — sync/async routing for datarim CLI.
+# Source: TUNE-0271 plan § Decisions D-B; OpenAPI orchestrator-interface.yaml.
+#
+# Contract:
+#   sync_whitelist  — slash-commands eligible for synchronous dispatch
+#                     (≤2000ms X-Sync-Timeout, idempotent reads).
+#   async_default   — anything not in sync_whitelist routes through async
+#                     (HTTP 202 + job_id → Redis Sub / webhook GET poll).
+#   non_idempotent  — slash-commands that MUST refuse the sync path with
+#                     exit 26 even when explicitly requested by --sync.
+#
+# Aligned with /dr-orchestrate v2.5.0 OpenAPI § /hooks/orchestrator-input.
+schema_version: 1
+
+sync_whitelist:
+  - dr-status
+  - dr-help
+
+non_idempotent:
+  - dr-do
+  - dr-prd
+  - dr-plan
+  - dr-design
+  - dr-archive
+  - dr-qa
+  - dr-compliance
+  - dr-verify

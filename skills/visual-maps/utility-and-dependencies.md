@@ -11,7 +11,7 @@ graph LR
     C --> D["Display summary"]
 ```
 
-### /dr-continue
+### /dr-next
 
 ```mermaid
 graph LR
@@ -50,7 +50,7 @@ graph TD
 
     subgraph "Utility Commands"
         status["/dr-status"]
-        continue_cmd["/dr-continue"]
+        continue_cmd["/dr-next"]
         help["/dr-help"]
     end
 

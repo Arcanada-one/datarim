@@ -1,11 +1,11 @@
 ---
 task_id: {TASK-ID}
 artifact: expectations
-schema_version: 1
+schema_version: 2
 captured_at: {YYYY-MM-DD}
-captured_by: {/dr-prd | /dr-plan}
+captured_by: {/dr-init | /dr-prd | /dr-plan}
 status: canonical
-agent: {architect | planner}
+agent: {planner | architect}
 parent_init_task: {TASK-ID}-init-task.md
 parent_prd: ../prd/PRD-{TASK-ID}.md
 ---
@@ -29,8 +29,9 @@ parent_prd: ../prd/PRD-{TASK-ID}.md
   - Как проверить (success criterion): {конкретный сигнал — путь к файлу,
     вывод команды, видимое поведение}
   - Связанный AC из PRD: {V-AC-N или «—»}
+  - evidence_type: {empirical | static | measurement}
   - #### История статусов
-    - {ISO 8601} / {local-time} · {/dr-prd | /dr-plan} · pending → pending · reason: пункт создан при формировании контракта ожиданий
+    - {ISO 8601} / {local-time} · {/dr-init | /dr-prd | /dr-plan} · pending → pending · reason: пункт создан при формировании контракта ожиданий
   - #### Текущий статус
     - pending
 
@@ -39,8 +40,9 @@ parent_prd: ../prd/PRD-{TASK-ID}.md
   - Что хочу проверить: {…}
   - Как проверить (success criterion): {…}
   - Связанный AC из PRD: {V-AC-N или «—»}
+  - evidence_type: {empirical | static | measurement}
   - #### История статусов
-    - {ISO 8601} / {local-time} · {/dr-prd | /dr-plan} · pending → pending · reason: пункт создан при формировании контракта ожиданий
+    - {ISO 8601} / {local-time} · {/dr-init | /dr-prd | /dr-plan} · pending → pending · reason: пункт создан при формировании контракта ожиданий
   - #### Текущий статус
     - pending
 

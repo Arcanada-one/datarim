@@ -1,0 +1,12 @@
+# cli/lib/tmux-command-whitelist.txt — exact regex entries for `datarim tmux new --cmd`.
+# Source: TUNE-0268 Phase 4 plan § D6 (full-match regex; no prefix glob).
+#
+# One entry per line. Lines starting with `#` are comments. Empty lines ignored.
+# Each entry MUST be anchored with `^` and `$`; the dispatcher rejects anything else.
+# Override path via DATARIM_CLI_TMUX_WHITELIST env var (used by bats).
+^claude -p$
+^python3$
+^bash$
+^make$
+^npm run (build|test|dev)$
+^curl$

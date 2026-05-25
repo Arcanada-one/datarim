@@ -1,0 +1,171 @@
+#!/usr/bin/env bash
+# datarim — Datarim CLI dispatch (Phase 3, TUNE-0271).
+# Source-of-truth: $DATARIM_ROOT (defaults to repo root via symlink resolution).
+#
+# Subcommands:
+#   run <slash-cmd> [args]    — dispatch to /dr-orchestrate webhook
+#   audit log                 — print today's audit JSONL
+#   audit halt                — engage kill-switch
+#   audit resume              — disengage kill-switch
+#   audit purge               — gzip/delete per retention
+#   audit stats               — summary counts
+#   version                   — print VERSION
+#
+# Exit codes (canonical):
+#   0   success
+#   17  kill-switch HALT engaged
+#   18  notifier fail-closed (no backend ACK in 3000ms)
+#   21  HTTP connect-failed-after-retries
+#   22  DATARIM_CLI_AGENT_ID invalid/missing
+#   23  accepted-risk-aal entry missing/expired
+#   24  HTTP 4xx body received
+#   25  HTTP 5xx body received
+#   26  non-idempotent command on sync path
+#   27  async timeout (3600s ceiling)
+#   28  ID_COLLISION_DETECTED (Phase 2)
+#   29  COLLISION_TIMEOUT (Phase 2)
+#   30  STATE_MISMATCH (Phase 1)
+#   31  NOT_FOUND (Phase 1)
+#   32  INVALID_COMMAND (Phase 4)
+#   33  DEPENDENCY_MISSING (Phase 5)
+#   34  WORKSPACE_DISCIPLINE_VIOLATION (Phase 2)
+#
+# Per TUNE-0271 plan § Detailed Design 4.1-4.6 (Phase 3 baseline).
+# Phase 1 read-only state surface (TUNE-0268 plan): status / tasks / backlog / snapshot / active.
+
+set -u
+
+# --- Locate self + lib -----------------------------------------------------
+
+cli_self_path() {
+    # POSIX-ish self-resolution; follows one level of symlink.
+    local src="$0" dir
+    while [ -h "$src" ]; do
+        dir="$(cd "$(dirname "$src")" && pwd)"
+        src="$(readlink "$src")"
+        case "$src" in /*) ;; *) src="$dir/$src" ;; esac
+    done
+    cd "$(dirname "$src")" && pwd
+}
+
+CLI_DIR="$(cli_self_path)"
+LIB_DIR="$CLI_DIR/lib"
+SUBCMD_DIR="$CLI_DIR/subcommands"
+
+# Load minimal libs unconditionally (every subcommand needs kill-switch + agent-id).
+# shellcheck source=cli/lib/kill-switch.sh
+. "$LIB_DIR/kill-switch.sh"
+# shellcheck source=cli/lib/agent-id.sh
+. "$LIB_DIR/agent-id.sh"
+
+# --- Dispatch -------------------------------------------------------------
+
+usage() {
+    cat <<'EOF'
+Usage: datarim <subcommand> [args]
+
+Read-only state surface (Phase 1):
+  status [--json]                       Snapshot of workspace (active, backlog, recent, next)
+  tasks list [--json]                   List active tasks from tasks.md
+  tasks show <TASK-ID> [--json]         Concatenate init-task + PRD + plan + reflection
+  backlog list [--prefix PFX] [--json]  List backlog entries (optional prefix filter)
+  snapshot show <TASK-ID> [--json]      Emit stage snapshot body
+  active [--json]                       § Active Tasks from activeContext.md
+
+Tmux pane control (Phase 4, /hooks/tmux HTTP-proxy):
+  tmux ls [--json]
+  tmux attach <pane> [--task <TASK-ID>] [--json]
+  tmux new --task <TASK-ID> --cmd "<allowed-cmd>" [--json]
+  tmux kill <pane> [--force] [--json]
+  tmux read <pane> [--lines N] [--json]
+
+Slash dispatch + audit (Phase 3 baseline):
+  run <slash-cmd> [args]                Dispatch slash command to /dr-orchestrate
+  audit log [--day YYYY-MM-DD]
+  audit halt | resume | purge | stats
+
+Other:
+  version
+  help
+
+See docs/cli.md for full reference.
+EOF
+}
+
+cmd_version() {
+    local version_file="${CLI_DIR%/cli}/VERSION"
+    if [ -f "$version_file" ]; then
+        cat "$version_file"
+    else
+        printf 'unknown\n'
+    fi
+}
+
+main() {
+    # First line of every subcommand: kill-switch check (V-AC-6).
+    check_kill_switch || exit $?
+
+    local sub="${1:-help}"
+    shift || true
+
+    case "$sub" in
+        version|--version|-V)
+            cmd_version
+            ;;
+        help|--help|-h|"")
+            usage
+            ;;
+        run)
+            # Agent identity required for any HTTP dispatch (V-AC-23).
+            validate_agent_id || exit $?
+            if [ -f "$SUBCMD_DIR/run.sh" ]; then
+                # shellcheck source=cli/subcommands/run.sh
+                . "$SUBCMD_DIR/run.sh"
+                run_subcommand "$@"
+            else
+                printf '[datarim] run subcommand not installed (cli/subcommands/run.sh missing)\n' >&2
+                exit 2
+            fi
+            ;;
+        audit)
+            validate_agent_id || exit $?
+            if [ -f "$SUBCMD_DIR/audit.sh" ]; then
+                # shellcheck source=cli/subcommands/audit.sh
+                . "$SUBCMD_DIR/audit.sh"
+                audit_subcommand "$@"
+            else
+                printf '[datarim] audit subcommand not installed (cli/subcommands/audit.sh missing)\n' >&2
+                exit 2
+            fi
+            ;;
+        status|tasks|backlog|snapshot|active)
+            # Phase 1 read-only state surface — no agent_id check (no HTTP dispatch).
+            local script="$SUBCMD_DIR/${sub}.sh"
+            if [ -x "$script" ]; then
+                exec "$script" "$@"
+            else
+                printf '[datarim] %s subcommand not installed (cli/subcommands/%s.sh missing or not executable)\n' "$sub" "$sub" >&2
+                exit 2
+            fi
+            ;;
+        tmux)
+            # Phase 4 — HTTP dispatch via /hooks/tmux; agent_id required (V-AC-23).
+            validate_agent_id || exit $?
+            if [ -f "$SUBCMD_DIR/tmux.sh" ]; then
+                # shellcheck source=cli/subcommands/tmux.sh
+                . "$SUBCMD_DIR/tmux.sh"
+                tmux_subcommand "$@"
+            else
+                printf '[datarim] tmux subcommand not installed (cli/subcommands/tmux.sh missing)\n' >&2
+                exit 2
+            fi
+            ;;
+        *)
+            printf '[datarim] unknown subcommand: %s\n' "$sub" >&2
+            usage >&2
+            exit 2
+            ;;
+    esac
+}
+
+main "$@"

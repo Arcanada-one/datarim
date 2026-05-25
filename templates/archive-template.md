@@ -17,52 +17,63 @@ verification_outcome:
 ---
 <!--
 verification_outcome field semantics:
-- caught_by_verify: integer count of high/medium gaps caught BEFORE /dr-archive (i.e., problems found during /dr-verify that were fixed or documented before archival)
-- missed_by_verify: integer count of gaps that escaped /dr-verify and required post-archive followup (tracked in a new task or bug report)
-- false_positive: integer count of findings flagged by /dr-verify that were triaged as not real (e.g., misunderstanding, tool error, already addressed)
-- n_a: boolean, set to true when /dr-verify was NOT run (e.g., task abandoned, dry run, or emergency close). When true, the three counts above should be 0.
-- dogfood_window: string, active prospective-measurement window identifier (placeholder `{window-id}`). Used by aggregation tool dev-tools/measure-prospective-rate.sh as a grouping key.
+- caught_by_verify: integer count of high/medium gaps caught BEFORE /dr-archive
+- missed_by_verify: integer count of gaps that escaped /dr-verify and required post-archive followup
+- false_positive: integer count of findings flagged by /dr-verify that were triaged as not real
+- n_a: boolean, true when /dr-verify was NOT run; when true, the three counts above MUST be 0
+- dogfood_window: active prospective-measurement window identifier; grouping key for measure-prospective-rate.sh
+Канонический контракт — skills/self-verification.md § Findings Schema.
 -->
 
-# Archive: {TASK-ID} -- {Title}
+# Архив: {TASK-ID} — {Title}
 
-## Outcome
+## Начальная задача
 
-(What was delivered. Concise 2-5 sentences matching task overview.)
+{Одно предложение обычным языком, что требовалось сделать. Источник — `tasks/{TASK-ID}-init-task.md` § Operator brief (verbatim), сжатое до одной фразы.}
 
-## Verification Summary
+## Как решили
 
-- **Layers run:** {list of verification layers, e.g., /dr-verify, /av sync, manual QA}
-- **Highest severity:** {none | low | medium | high}
-- **Verdict:** {pass | pass_with_notes | fail | not_run}
-- **Audit log path:** {path to /dr-verify output or N/A}
+{Маркированный список, по одному пункту на каждый bullet операторского брифа из `tasks/{TASK-ID}-init-task.md` в исходном порядке. Если есть `tasks/{TASK-ID}-expectations.md` — каждый пункт § Ожидания добавляется в тот же список с пометкой «(уточнение брифа)». Без таблиц, без вложенных bullet. Банлист `skills/human-summary/banlist.txt` применяется к комментариям.}
 
-## Final Acceptance Criteria
+- **«{цитата пункта 1 из брифа}».** {выполнено / частично / не выполнено / неприменимо.} {Одно-два предложения обычным языком: что сделано, какие доказательства, что осталось.}
+- **«{цитата пункта 2 из брифа}».** {статус.} {комментарий.}
+- **«{цитата пункта из expectations (уточнение брифа)}».** {статус.} {комментарий.}
+- _(и так по каждому пункту в исходном порядке)_
+
+## Артефакты задачи
+
+{Что появилось или изменилось. Свободная проза + bullet. Файлы — относительные пути. Без verdict-таблиц.}
+
+## Следующие шаги
+
+{Либо «всё закрыто», либо bullet/проза. Указывать конкретные команды `/dr-*` или операторские действия.}
+
+---
+
+## Дополнительно для аудита
+
+### verification_outcome
+
+{Дублирует YAML frontmatter в человеческом представлении: по одному bullet на каждый счётчик (`caught_by_verify`, `missed_by_verify`, `false_positive`, `n_a`) + `dogfood_window`.}
+
+### Acceptance Criteria
 
 | AC | Status | Evidence |
 |---|---|---|
 | AC-1: {description} | {pass/fail/partial} | {link or summary} |
 | AC-2: {description} | {pass/fail/partial} | {link or summary} |
 
-## Выполнение ожиданий оператора
+### Lessons Learned
 
-(Для каждого пункта из `datarim/tasks/{TASK-ID}-expectations.md` — статус и одно-два предложения комментария обычным языком. Без таблиц. Без англицизмов. Если файла ожиданий не было — короткая строка «Чек-лист ожиданий не заводился» и переход к следующей секции.)
+{Короткая выжимка ≤3 bullet. Полный текст — `reflection-{ID}.md`.}
 
-- **{пункт 1 из expectations — формулировка операторскими словами}.** {Статус: выполнено / частично / не выполнено / неприменимо.} {Одно-два предложения комментария: что именно сделано, какие доказательства, что осталось.}
-- **{пункт 2}.** {статус.} {комментарий.}
-- _(и так по каждому пункту в исходном порядке)_
+### Operator Handoff
 
-## Known Outstanding State / Operator Handoff
+{Любые остаточные следы, отложенные улучшения или операторские шаги для следующего исполнителя. Если пусто — одна строка «всё закрыто».}
 
-(Any residual technical debt, deferred improvements, or configuration steps the next operator should know. Empty if none.)
-
-## Related
+### Related
 
 - Parent PRD: (path or none)
 - Plan: (path or none)
 - Reflection: (path or none)
 - Follow-ups: (task IDs or none)
-
-## Lessons Learned
-
-(Compact 3-5 bullet mirror of reflection. Focus on what to repeat, what to avoid, and what to apply to future tasks.)

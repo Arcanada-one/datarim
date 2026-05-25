@@ -186,7 +186,27 @@ Any script, config, systemd unit, or shell wrapper installed under a production 
 
 **When to apply.** L2+ tasks where the deliverable includes both new on-server tooling AND a verdict gate / acceptance criterion that consumes that tooling. Skip for one-shot artefacts with no downstream verification consumer.
 
+## Compose Deploy Race Pattern
+
+When a CI deploy job uses `docker compose up -d --build` against services declaring `restart: unless-stopped`, prepend an explicit teardown:
+
+<!-- gate:example-only -->
+```bash
+COMPOSE="docker compose -f docker-compose.yml -f docker-compose.codex.yml"
+$COMPOSE down --remove-orphans || true
+$COMPOSE up -d --build
+```
+<!-- /gate:example-only -->
+
+**Why.** `up -d --build` allocates a container name before the previous instance fully transitions to a clean stopped state. After a healthcheck or `start_period` tightening, the previous container may still hold the name when the new one tries to claim it — the deploy job fails with «Container `<project>-<service>-1` already in use». The cleanup is idempotent on cold-start (`|| true` handles the empty-state case) and named volumes survive (`down` without `-v` does not touch them). The orphan removal is defensive against future drift where a service is removed from the compose file.
+
+**Blast radius.** `--remove-orphans` only touches containers owned by the current compose project; foreign containers from other compose projects are untouched, even when they share networks.
+
+**Smoke gate.** After applying, the deploy job must verify named-volume preservation (`docker volume ls | grep -E '<known-volume-names>' | wc -l` matches the expected count) before declaring the deploy clean.
+
+**Anti-pattern.** Targeted `docker rm -f <container-name>` per service — duplicated work for multi-service compose projects and brittle against future service additions.
+
 ## Reusable Templates
 
-- `templates/infra-cost-reduction-checklist.md` — pre-execution checklist for any VM/storage right-sizing, server consolidation, or unused-resource cleanup task. Distilled from prior infra cost-reduction tasks (SWC, Azure unused disks, memory guardrails). Use during `/dr-plan` when the task touches infrastructure costs.
-- `templates/infra-artifact-checklist.md` — local-artifact + commit + checkpoint + operator-remote-execution flow for infra deliverables that the operator runs on production. Use when the task ships scripts/configs operators will execute, not code we deploy via CI.
+- `${DATARIM_RUNTIME:-$HOME/.claude}/templates/infra-cost-reduction-checklist.md` — pre-execution checklist for any VM/storage right-sizing, server consolidation, or unused-resource cleanup task. Distilled from prior infra cost-reduction tasks (SWC, Azure unused disks, memory guardrails). Use during `/dr-plan` when the task touches infrastructure costs.
+- `${DATARIM_RUNTIME:-$HOME/.claude}/templates/infra-artifact-checklist.md` — local-artifact + commit + checkpoint + operator-remote-execution flow for infra deliverables that the operator runs on production. Use when the task ships scripts/configs operators will execute, not code we deploy via CI.

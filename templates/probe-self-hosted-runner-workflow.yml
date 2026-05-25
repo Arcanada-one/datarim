@@ -1,0 +1,134 @@
+# Reusable workflow_dispatch probe for self-hosted runner discovery.
+#
+# Drop into .github/workflows/probe-self-hosted-runner.yml in any repo that
+# is about to migrate workflows from a hosted runner to a self-hosted runner.
+# Trigger once via `gh workflow run probe-self-hosted-runner.yml -f labels='...'`
+# to capture: runner uid, hostname, RUNNER_* env, sudo policy, tooling
+# availability, webroot (or any well-known deploy target) ownership +
+# write-probe, network egress to configurable endpoints, optional VPN state.
+#
+# Discardable: delete the workflow file after the migration stabilises.
+# Pair with the runner-discovery contract documented in the project's CLAUDE.md.
+#
+# Replace the inputs.* defaults and the egress/webroot lists with values
+# appropriate to the project. The workflow is stack-neutral — it only
+# enumerates POSIX tooling and uses `bash {0}` (no `set -e`) so probe steps
+# tolerate non-zero rc and capture the full diagnostic surface in one run.
+
+name: probe-self-hosted-runner
+
+on:
+  workflow_dispatch:
+    inputs:
+      runner_labels:
+        description: 'Self-hosted runner labels (JSON array as string, e.g. ["self-hosted","linux","my-runner"])'
+        required: true
+        default: '["self-hosted","linux"]'
+      tooling_list:
+        description: 'Space-separated CLI tools to probe via `command -v`'
+        required: false
+        default: 'jq yq bats shellcheck rsync curl git wget node npm python3 docker ssh'
+      webroot_paths:
+        description: 'Space-separated filesystem paths to inspect (ownership + write-probe)'
+        required: false
+        default: '/var/www /tmp'
+      egress_urls:
+        description: 'Space-separated HTTPS URLs to probe via curl (HTTP status only)'
+        required: false
+        default: 'https://github.com/ https://raw.githubusercontent.com/'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    # runs-on is plumbed through an input so a single template fits any runner.
+    # GitHub Actions does NOT support expressions in `runs-on`, so the operator
+    # MUST edit this line after copying — replace with literal label set
+    # matching `inputs.runner_labels`.
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 3
+    steps:
+      - name: Runner identity
+        shell: bash {0}
+        run: |
+          echo "=== id ==="
+          id
+          echo "=== hostname ==="
+          hostname -f 2>/dev/null || hostname
+          echo "=== uname ==="
+          uname -a
+          echo "=== pwd ==="
+          pwd
+          echo "=== RUNNER env ==="
+          env | grep -E '^RUNNER_' | sort
+
+      - name: Sudo policy
+        shell: bash {0}
+        run: |
+          echo "=== sudo -n true (passwordless?) ==="
+          sudo -n true 2>&1
+          echo "exit_code=$?"
+          echo "=== sudo -n -l (allowed commands) ==="
+          sudo -n -l 2>&1
+          echo "=== /etc/sudoers.d for runner user ==="
+          ls -la /etc/sudoers.d/ 2>&1
+          for f in /etc/sudoers.d/*; do
+            [ -r "$f" ] && { echo "--- $f ---"; cat "$f"; }
+          done 2>&1
+          true
+
+      - name: Tooling availability
+        shell: bash {0}
+        run: |
+          for tool in ${{ inputs.tooling_list }}; do
+            path=$(command -v "$tool" 2>/dev/null || true)
+            if [ -n "$path" ]; then
+              ver=$("$tool" --version 2>&1 | head -1 || echo '?')
+              echo "$tool: $path | $ver"
+            else
+              echo "$tool: MISSING"
+            fi
+          done
+
+      - name: Webroot / target-path inspection
+        shell: bash {0}
+        run: |
+          for path in ${{ inputs.webroot_paths }}; do
+            if [ -e "$path" ]; then
+              ls -ld "$path"
+              [ -f "$path" ] && stat -c 'owner=%U:%G mode=%a size=%s mtime=%y' "$path"
+            else
+              echo "$path: ABSENT"
+            fi
+          done
+
+      - name: Write probe (target paths)
+        shell: bash {0}
+        run: |
+          for target in ${{ inputs.webroot_paths }}; do
+            [ -d "$target" ] || { echo "$target: SKIP (not a directory)"; continue; }
+            probe="$target/.probe-$$"
+            if : > "$probe" 2>/dev/null; then
+              echo "WRITE_OK $target"
+              rm -f "$probe"
+            else
+              echo "WRITE_DENIED $target"
+            fi
+          done
+
+      - name: Network egress probe
+        shell: bash {0}
+        run: |
+          for url in ${{ inputs.egress_urls }}; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 5 "$url" 2>&1 || echo "ERR")
+            echo "$url -> $code"
+          done
+
+      - name: SSH state on runner
+        shell: bash {0}
+        run: |
+          echo "=== ~/.ssh ==="
+          ls -la ~/.ssh 2>&1 || echo "no ~/.ssh"
+          echo "=== existing known_hosts (first 5 lines) ==="
+          [ -r ~/.ssh/known_hosts ] && head -5 ~/.ssh/known_hosts || echo "no known_hosts"

@@ -18,4 +18,6 @@ Your goal is to run the post-QA hardening workflow: re-validate changes vs PRD/t
 - READ: project context (activeContext, tasks, PRD) when present
 - For step 2: principles in skill; optionally `$HOME/.claude/agents/code-simplifier.md`
 
-**Output**: Report (file if datarim/reports/ exists, else chat) + chat summary, then a CTA block per `cta-format.md`. COMPLIANT / COMPLIANT_WITH_NOTES → primary `/dr-archive {TASK-ID}` (reflection runs internally as Step 0.5). NON-COMPLIANT → FAIL-Routing variant: header reads `**Compliance NON-COMPLIANT для {TASK-ID} — earliest failed layer: Layer N (Layer name)**`, primary is `/dr-do {TASK-ID}` (default) or earlier stage if PRD/plan gap identified. Variant B menu when >1 active tasks.
+**Output discipline**:
+- The **first line** of every task-scoped response MUST be a Stage Header `**{TASK-ID} · {title}**` per `cta-format.md` § Stage Header — before any tool-call narration. Exceptions (no header): `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3.
+- Report (file if datarim/reports/ exists, else chat) + chat summary, then a CTA block per `cta-format.md`. COMPLIANT / COMPLIANT_WITH_NOTES → primary `/dr-archive {TASK-ID}` (reflection runs internally as Step 0.5). NON-COMPLIANT → FAIL-Routing variant: header reads `**Compliance NON-COMPLIANT для {TASK-ID} — earliest failed layer: Layer N (Layer name)**`, primary is `/dr-do {TASK-ID}` (default) or earlier stage if PRD/plan gap identified. Variant B menu when >1 active tasks.

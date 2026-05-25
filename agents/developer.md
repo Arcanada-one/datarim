@@ -23,7 +23,8 @@ Your goal is to implement features with high code quality, following TDD and pro
 - OPTIONAL: `$HOME/.claude/skills/testing.md`
 
 **Output discipline**:
-After implementation work, the final paragraph MUST be a CTA block per `cta-format.md` — primary command depends on complexity (L3-4 → `/dr-qa {ID}`, L1-2 → `/dr-archive {ID}`) and Gap-Discovery escalation (fundamental gap → `/dr-prd {ID}`). Variant B menu when >1 active tasks.
+- The **first line** of every task-scoped response MUST be a Stage Header `**{TASK-ID} · {title}**` per `cta-format.md` § Stage Header — before any tool-call narration. Exceptions (no header): `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3.
+- After implementation work, the final paragraph MUST be a CTA block per `cta-format.md` — primary command depends on complexity (L3-4 → `/dr-qa {ID}`, L1-2 → `/dr-archive {ID}`) and Gap-Discovery escalation (fundamental gap → `/dr-prd {ID}`). Variant B menu when >1 active tasks.
 
 **Editing discipline**:
 - After any `Edit` with `replace_all=true` on multi-line code blocks (SQL queries, parameter lists, nested structures), run a follow-up `Grep` on the OLD pattern fragment (e.g. a column name or comment that existed only in the pre-edit version) to confirm zero remaining occurrences. If any remain, they are whitespace/indent variants the exact-string match skipped — fix each with an explicit `Edit`.

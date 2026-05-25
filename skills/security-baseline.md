@@ -51,7 +51,7 @@ The baseline therefore optimises for **shipped-artefact correctness** over local
 
 ## S1 — Shell scripts and embedded shell blocks
 
-**Applies to:** every `*.sh` file, every <code>```bash</code> / <code>```sh</code> / <code>```shell</code> fenced block in `skills/`, `agents/`, `commands/`, `templates/`, `docs/`, every `templates/*.sh.j2`-style scaffold.
+**Applies to:** every `*.sh` file, every <code>```bash</code> / <code>```sh</code> / <code>```shell</code> fenced block in `skills/`, `agents/`, `commands/`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/`, `docs/`, every `${DATARIM_RUNTIME:-$HOME/.claude}/templates/*.sh.j2`-style scaffold.
 
 ### Required rules (MUST)
 
@@ -166,7 +166,7 @@ with os.fdopen(fd, "w") as f:
 ### Cross-references
 
 - [`skills/security.md`](security.md) § Git History Scrub Recipe — post-leak rotation playbook.
-- `templates/security-deps-upgrade-plan.md` — vault rotation cadence template.
+- `${DATARIM_RUNTIME:-$HOME/.claude}/templates/security-deps-upgrade-plan.md` — vault rotation cadence template.
 
 ---
 
@@ -257,7 +257,7 @@ Every shipped repo (Datarim itself + every consumer project the framework scaffo
 
 ### Sample `.github/dependabot.yml` shape
 
-The shipped baseline (`templates/security-workflow.yml` family) carries a Dependabot stub; consumer projects extend the manifest list to match their stack. The minimum shape:
+The shipped baseline (`${DATARIM_RUNTIME:-$HOME/.claude}/templates/security-workflow.yml` family) carries a Dependabot stub; consumer projects extend the manifest list to match their stack. The minimum shape:
 
 ```yaml
 version: 2
@@ -273,7 +273,7 @@ updates:
 
 Consumer projects add their language ecosystem (e.g. one `package-ecosystem` block per dependency manifest). Datarim itself ships only the `github-actions` ecosystem block — the framework has no language manifests in scope.
 
-`templates/security-workflow.yml` is the canonical drop-in for consumer projects. Reusable workflow path: `Arcanada-one/datarim/.github/workflows/reusable-security.yml@<tag>` (preferred — single source of truth, version-pinned).
+`${DATARIM_RUNTIME:-$HOME/.claude}/templates/security-workflow.yml` is the canonical drop-in for consumer projects. Reusable workflow path: `Arcanada-one/datarim/.github/workflows/reusable-security.yml@<tag>` (preferred — single source of truth, version-pinned).
 
 ---
 
@@ -354,7 +354,7 @@ Suppression markers (`# shellcheck disable=...`, `# nosec`, `# nosemgrep: <rule>
 
 - **shellcheck:** `# shellcheck disable=SC2086 # reason: deliberate word-splitting per S1 exception, reviewer: <name>, expires: 2026-12-31`
 - **bandit:** `# nosec B602 # reason: shell=True required for inherited PATH, sanitised via shlex.quote at line N, reviewer: <name>`
-- **semgrep:** `# nosemgrep: <rule-id> -- <one-line reason>` (matches existing `templates/cloudflare-nginx-setup.sh` form per `tests/security/baseline.json`)
+- **semgrep:** `# nosemgrep: <rule-id> -- <one-line reason>` (matches existing `${DATARIM_RUNTIME:-$HOME/.claude}/templates/cloudflare-nginx-setup.sh` form per `tests/security/baseline.json`)
 
 ### Review cadence
 
@@ -375,7 +375,7 @@ Watch for:
 
 ### Worked example — accepted suppression
 
-Concrete entry shape in `tests/security/baseline.json` § `suppressions[]` (mirrors the existing form for `templates/cloudflare-nginx-setup.sh`):
+Concrete entry shape in `tests/security/baseline.json` § `suppressions[]` (mirrors the existing form for `${DATARIM_RUNTIME:-$HOME/.claude}/templates/cloudflare-nginx-setup.sh`):
 
 ```json
 {
@@ -412,8 +412,8 @@ Both skills cross-link freely; neither replaces the other. CLAUDE.md § Security
 
 ## Reusable Templates
 
-- [`templates/security-workflow.yml`](../templates/security-workflow.yml) — drop-in CI gate for consumer projects.
-- [`templates/security-deps-upgrade-plan.md`](../templates/security-deps-upgrade-plan.md) — stack-neutral plan for dependency-CVE / framework-bump tasks. See [`skills/security.md`](security.md) § Reusable Templates.
+- [`${DATARIM_RUNTIME:-$HOME/.claude}/templates/security-workflow.yml`](../templates/security-workflow.yml) — drop-in CI gate for consumer projects.
+- [`${DATARIM_RUNTIME:-$HOME/.claude}/templates/security-deps-upgrade-plan.md`](../templates/security-deps-upgrade-plan.md) — stack-neutral plan for dependency-CVE / framework-bump tasks. See [`skills/security.md`](security.md) § Reusable Templates.
 - `tests/security/finding-<N>-<slug>.bats` — regression test scaffold (S9 obligation: every fixed finding gets a regression test).
 
 ---

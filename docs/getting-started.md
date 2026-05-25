@@ -33,6 +33,18 @@ Datarim v2.0+ is **multi-runtime (Claude + Codex)**. Without flags, `install.sh`
 
 The installer also creates `~/.claude/local/{skills,agents,commands,templates}/` (real directories, gitignored) for personal additions and overrides that you do not want committed upstream. See [Local Overlay](#local-overlay) below.
 
+### Optional: external `datarim` CLI
+
+The main `./install.sh` symlinks runtime scopes (agents/skills/commands/…) into `~/.claude/`, but does **NOT** install the standalone `datarim` binary used by non-interactive agents (Codex, Cursor, cron, custom). If you try `datarim run /dr-status` without this extra step, the shell answers `command not found: datarim`. Run the dedicated CLI installer once per machine:
+
+```bash
+cd cli && ./install.sh
+```
+
+It prints the bilingual AAL 3 warning, validates `accepted-risk-aal.yml` entry `tune-0268-aal3-cli`, and symlinks `cli/datarim` → `/usr/local/bin/datarim` (falls back to `$HOME/.local/bin/datarim` when `/usr/local/bin` is not writable). Set `DATARIM_CLI_AGENT_ID` to a UUID v7 before the first `datarim run` invocation — generate via `cli/lib/uuid7-gen.sh`. Full reference: [docs/cli.md](cli.md).
+
+The CLI is opt-in. Slash commands inside a Claude Code session work without it.
+
 ### Copy mode (legacy / Windows)
 
 If symlinks are not available — typical on Windows Git Bash, FAT32/exFAT volumes, or restricted shells — pass `--copy` (or let the installer auto-detect):
@@ -130,7 +142,7 @@ The installer has a deliberately narrow contract — review a diff of `install.s
 
 **Repo-only** (intentionally NOT installed):
 
-- `scripts/` — dev tooling (`check-drift.sh`, `pre-archive-check.sh`, `curate-runtime.sh` — both `check-drift` and `curate-runtime` are deprecated since v1.17 and will be removed in v1.18, TUNE-0044). These run from the cloned repo.
+- `scripts/` — dev tooling (`pre-archive-check.sh`, `datarim-doctor.sh`, `version-consistency-check.sh`, ...). These run from the cloned repo.
 - `tests/` — bats tests for the repo's own scripts.
 - `install.sh`, `update.sh`, `validate.sh`, `VERSION`, `CLAUDE.md`, `README.md`, `LICENSE` — repo artefacts.
 
@@ -149,7 +161,7 @@ The installer has a deliberately narrow contract — review a diff of `install.s
 | `1` | Migration aborted, `--force` declined, or non-TTY without `--yes` |
 | `2` | Invalid arguments, or `CLAUDE_DIR` sanity guard tripped |
 
-**Drift between repo and runtime.** Under symlink mode, drift is impossible by definition — runtime IS the repo. `./scripts/check-drift.sh` exits 0 in that case (and is itself deprecated since v1.17, planned for removal in v1.18 along with `curate-runtime.sh`). Under copy mode, the script behaves as before.
+**Drift between repo and runtime.** Under symlink mode drift is impossible by definition — runtime IS the repo (same inode). Under copy mode resync is `git pull && ./install.sh --copy --force --yes`.
 
 ### SOC 2 baseline
 
@@ -178,13 +190,13 @@ If you have Datarim installed and want to get the latest version:
 ```bash
 # nosec-extract
 cd /path/to/datarim              # your cloned repo
-./update.sh                      # pull + verify — one command
+./update.sh                      # pull + (copy-mode) reinstall — one command
 ```
 
 `update.sh` branches on the runtime topology it detects:
 
 - **Symlink mode (default):** runs `git pull origin main` and exits. The runtime is the repo, so the pull IS the install.
-- **Copy mode:** `git pull origin main` then `./install.sh --copy --force --yes` then `./scripts/check-drift.sh --quiet`.
+- **Copy mode:** `git pull origin main` then `./install.sh --copy --force --yes`.
 
 Use `./update.sh --dry-run` to preview what would change without writing anything.
 
@@ -203,7 +215,6 @@ Copy mode:
 ```bash
 git pull origin main
 ./install.sh --copy --force      # overwrites all (backup taken on live system)
-./scripts/check-drift.sh         # verify sync (deprecated, removal v1.18)
 ```
 
 ### What stays unchanged
@@ -244,6 +255,8 @@ Then run:
 ```
 
 During Step 2.5b (added in v2.7.0) `/dr-init` runs a non-blocking topic-overlap advisory: if your description shares ≥2 keyword stems with a **pending** backlog item, the matching IDs are printed so you can catch potential duplicates before committing to a fresh task. The check is silent when no overlap is found, when `backlog.md` carries no pending items, or when `python3` is unavailable. RU + EN input both work — tokenisation is language-aware.
+
+During Step 4.7 (added in v2.17.1) `/dr-init` writes a mandatory expectations skeleton to `datarim/tasks/{TASK-ID}-expectations.md`. The skeleton extracts your operator goals into individual wishes (L1 — 1 wish; L2-L4 — 2-5 wishes), each carrying an explicit `evidence_type: empirical | static | measurement`. The downstream `/dr-qa` Layer 3b verifies each wish individually and writes a per-wish detailed report block. The mandate applies to all complexity levels (no soft window); legacy tasks (`legacy: true` or pre-pivot captured_at) are exempt.
 
 If `datarim/` does not exist yet, `/dr-init` creates it along with the documentation directory structure. After initialization, your project looks like this:
 
@@ -441,7 +454,7 @@ After initialization, the pipeline depends on the task's complexity level. Datar
 
 You do not need to memorize these routes. After each stage, Datarim tells you what comes next. Run `/dr-status` at any time to see where you are in the pipeline.
 
-If you take a break and come back later, `/dr-continue` reads your `activeContext.md` and picks up where you left off.
+If you take a break and come back later, `/dr-next` reads your `activeContext.md` and picks up where you left off.
 
 ---
 
@@ -459,6 +472,16 @@ After running `/dr-init` for the first time, verify:
 
 ---
 
+## Context Management (v2.13.0+)
+
+Every `/dr-*` command persists its final operator-visible response (Summary + Gate Results + CTA) to `datarim/snapshots/{TASK-ID}.snapshot.md` with overwrite semantics. After `/clear` or a closed terminal, `/dr-next {TASK-ID}` (and `/dr-orchestrate` resume) reads this snapshot FIRST — before task-description, init-task, activeContext — and emits a replay-prompt with the recommended CTA plus a bilingual autonomy reminder. If no snapshot exists, both commands fall through to legacy behaviour without warning lines.
+
+- Storage: `datarim/snapshots/` (gitignored; archived snapshot lands in `documentation/archive/<subdir>/snapshots/{TASK-ID}-final-stage.md` at `/dr-archive`).
+- Kill-switch: `export DATARIM_DISABLE_SNAPSHOT=1` makes the writer no-op.
+- How-to with full reference: [`docs/how-to/stage-snapshots.md`](how-to/stage-snapshots.md).
+
+---
+
 ## Framework Maintenance Commands
 
 Three commands help you keep the framework itself healthy over time:
@@ -472,6 +495,51 @@ Three commands help you keep the framework itself healthy over time:
 Run `/dr-doctor` if you are upgrading from a pre-v1.19.0 installation or if `/dr-status` reports structural anomalies.
 
 ---
+
+## Autonomous Mode (`/dr-auto`)
+
+Когда операторские уточнения дороже агентского исследования — `/dr-auto` активирует **autonomous mode** на стадии одного цикла. Команда не вводит новых правил: она активирует существующий `documentation/mandates/autonomous-agents.md` (FB-1..8) + L1 Inline Resolution Rule + autonomous-ops scope как **default-on**, пока маркер `datarim/.auto-mode-active` существует.
+
+### Two modes
+
+- **Continue** — `/dr-auto {TASK-ID}` поднимает task через snapshot-first read (как `/dr-next`) и продолжает её до полного закрытия или hard-gated stop.
+- **Bootstrap** — `/dr-auto "<free-text description>"` запускает full pipeline `/dr-init → /dr-prd? → /dr-plan → /dr-do → /dr-qa → /dr-compliance → /dr-archive` с активным question-suppression.
+
+### Question Suppression Ladder
+
+Перед каждым `AskUserQuestion` агент проходит 5 уровней (останавливается на первом, который даёт unambiguous answer):
+
+| L | Источник | Когда применимо |
+|---|----------|-----------------|
+| 1 | Codebase grep / file read | Технический вопрос про код, конфиг, версии |
+| 2 | Runtime probe (curl, docker, git, gh, vault) | Состояние сервиса, БД, CI, secrets-схема |
+| 3 | MEMORY.md feedback lookup | Operator preferences, prior decisions |
+| 4 | Coworker delegation | Bulk-context, docs across repos |
+| 5 | Operator ask | True ambiguity OR hard-gated OR business strategy |
+
+Канонический контракт — `skills/autonomous-mode.md`. Бизнес-стратегические вопросы сразу идут к L5 (narrow mode) — safe-defaults не применяются.
+
+### L1 Inline Resolution Rule
+
+Discovered mid-cycle gaps классифицируются: single file × ≤50 LoC × no contract change × not hard-gated → **L1 Class A**, фиксится inline и логируется в `datarim/tasks/{TASK-ID}-auto-inline-log.md`. Всё остальное (multi-file / contract change / operating-model shift) → backlog item с источником `discovered-during-auto-{TASK-ID}`. Hard-gated actions (`autonomous-agents.md:30-32`) escalate to operator через L5 даже под /dr-auto.
+
+### When to use
+
+- Backlog items L1-L2 с явным acceptance criteria.
+- Resume interrupted task (после crash или `/clear`).
+- Pipeline dogfood и benchmarks — measure Q&A suppression rate.
+
+### When NOT to use
+
+- Exploratory задачи где operator intent нужно frequently refine.
+- High-stakes Class B изменения framework operating-model — operator presence нужно на каждом stage gate.
+- Cross-project orchestration — используй `/dr-orchestrate` plugin вместо.
+
+### Failure modes
+
+- **Env-var leak** после `/clear` — mismatch detection (env set, marker absent) → treat as non-auto с warning.
+- **Marker stale** от crashed session — 24h TTL → silent purge.
+- **Ladder false-confident** (L1-L4 нашли не тот answer) — ambiguity rule strict: ≥2 candidates → escalate up.
 
 ## Next Steps
 

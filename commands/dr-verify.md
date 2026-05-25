@@ -10,6 +10,8 @@ description: Standalone self-verification of a Datarim artifact (PRD/plan/do out
 
 ## Instructions
 
+
+**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format.md` § Stage Header.
 1. **LOAD**: Read skill file `~/.claude/skills/self-verification.md` (symlink) или canonical `Projects/Datarim/code/datarim/skills/self-verification.md`. Adopt orchestrator persona.
 2. **RESOLVE PATH**: Walk up directories from cwd to find `datarim/`. STOP if not found, tell user to run `/dr-init`.
 3. **TASK RESOLUTION**: Apply Task Resolution Rule from `datarim-system.md`. Use resolved task ID for all subsequent steps.
