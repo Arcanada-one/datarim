@@ -69,6 +69,22 @@ Before marking a change with raw SQL / cross-datasource semantics as done, the d
 - Gate required + gate not run → **Layer 4 FAIL**, not `PASS_WITH_NOTES`. This is the whole point.
 - Gate required + gate failed (unexpected result) → stop, diagnose, do not merge.
 
+### Allowed exception — canonical liveness probe
+
+A raw-query `SELECT 1` (or an equivalent vendor liveness ping such as Redis `PING`, Kafka `metadata` fetch, or a no-op gRPC `Health/Check`) qualifies for a **waiver** from Gate 1 when ALL of the following hold:
+
+1. The query is **read-only and non-parametric** — a fixed sentinel that returns one constant row / value, no user input, no schema dependency.
+2. The **same client instance** (same DI binding, same datasource URL, same auth credentials) is already exercised end-to-end by a passing `/health` (or equivalent liveness) endpoint in the deploy pipeline (post-deploy smoke or pre-archive health curl).
+3. The dependency on the liveness endpoint is **documented** in the task-description's § Implementation Notes or § Known Outstanding State / Operator Handoff with a one-line cross-reference.
+
+**Rationale.** A 1-row sentinel against a connection that is already validated by a green `/health` probe in the deploy pipeline does not add new contract surface. Re-running the full Gate 1 ritual (record exact command, host, datasource, row count) would be process-tax without incremental signal — the liveness endpoint already records all four with stronger semantics (real DI graph, real network path).
+
+**This is NOT a waiver for** any query that selects from a user table, parses a payload field, or depends on schema shape — those remain under Gate 1 mandatory.
+
+<!-- gate:history-allowed -->
+Reference incident: opsbot `CommandsService.healthProbe()` uses `$queryRaw\`SELECT 1\`` as the canonical liveness check; the Prisma client running this call is the same one exercised by `GET /health` before any command is dispatched (ARCA-0009 M2). Strict Gate 1 would have FAILed `/dr-compliance` for canonical liveness — the exception lets the trivial sentinel pass while still gating real raw-SQL paths.
+<!-- /gate:history-allowed -->
+
 ---
 
 ## Gate 2: Live Docker Smoke Test Before Archive

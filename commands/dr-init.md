@@ -29,7 +29,7 @@ description: Initialize a new Datarim task or scaffold a new project. Auto-detec
     - If the project uses submodules, use the **outermost** repo root (e.g., `local-env/`, not `aio-v2/`).
     - Create `datarim/` there ONLY if it does not already exist.
     - If creating for the first time:
-      a. Create `backlog.md` and `backlog-archive.md` from templates at `$HOME/.claude/templates/backlog-template.md` and `$HOME/.claude/templates/backlog-archive-template.md`.
+      a. Create `backlog.md` and `backlog-archive.md` from templates at `${DATARIM_RUNTIME:-$HOME/.claude}/templates/backlog-template.md` and `${DATARIM_RUNTIME:-$HOME/.claude}/templates/backlog-archive-template.md`.
       b. Create `documentation/archive/` directory (for long-term task archives).
       c. If `.gitignore` exists and does not contain `datarim/` → append `datarim/` to it.
       d. If `.gitignore` does not exist → ask user: "Create `.gitignore` with `datarim/`? (recommended — keeps workflow state local)"
@@ -75,6 +75,30 @@ description: Initialize a new Datarim task or scaffold a new project. Auto-detec
     - When the advisory surfaces matches, operator chooses: `duplicate` (abort + `/dr-init {EXISTING-ID}`), `refine-scope` (narrow new task to avoid collision), or `orthogonal` (continue — overlap is incidental). Default on no operator input: continue.
     - Performance contract: completes ≤300 ms on a 500-item backlog (regression-gated by `tests/dr-init-topic-overlap-latency.bats`); false-positive rate <10% on a 30-item orthogonal corpus (`tests/dr-init-topic-overlap-fp-budget.bats`).
 
+2.5c. **MISPLACED-DATARIM ADVISORY** (advisory, non-blocking; framework v2.19.0+):
+    - Detects fragmented KB: more than one `datarim/` directory visible in the parent chain below the git-root, where the extra ones lack their own `.git/` boundary (i.e. they belong to the same repo as the canonical KB but live in a sub-path — a misplaced KB written by a parallel session that walked upward to the wrong anchor).
+    - Skip silently when:
+      - `pwd` is outside any git repository (no toplevel to anchor against).
+      - The git toplevel has no `datarim/` (resolver falls back to walk-upward; no canonical anchor to compare against).
+    - Otherwise run:
+      ```bash
+      DR_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+      if [ -n "$DR_ROOT" ] && [ -d "$DR_ROOT/datarim" ]; then
+          MISPLACED=$(find "$DR_ROOT" -mindepth 2 -type d -name datarim \
+              -not -path '*/.git/*' -not -path '*/code/datarim*' 2>/dev/null \
+              | while read -r dir; do
+                  parent_root=$(cd "$dir/.." && git rev-parse --show-toplevel 2>/dev/null)
+                  [ "$parent_root" = "$DR_ROOT" ] && printf '%s\n' "$dir"
+              done)
+          if [ -n "$MISPLACED" ]; then
+              printf 'ADVISORY: misplaced datarim/ detected under %s (canonical is %s/datarim):\n%s\nConsider consolidating — see skills/datarim-system/path-and-storage.md § Path Resolution Rule.\n' \
+                  "$DR_ROOT" "$DR_ROOT" "$MISPLACED" >&2
+          fi
+      fi
+      ```
+    - **Non-blocking** — operator proceeds at will. The advisory exists so misplaced KB directories are noticed at `/dr-init` rather than discovered after parallel sessions have already accumulated artefacts in the wrong place.
+    - Excludes `code/datarim` paths (framework source-tree, not KB) and any sub-directory that is itself a git toplevel (legitimate sub-repo with its own canonical KB).
+
 3.  **CHECK BACKLOG**: If `datarim/backlog.md` exists and contains pending items:
     - Display pending items as a numbered list (ID, title, priority, complexity).
     - **If user provided a `BACKLOG-XXXX` ID**: Select that item directly.
@@ -88,19 +112,37 @@ description: Initialize a new Datarim task or scaffold a new project. Auto-detec
     - Analyze the user request (or backlog item context from step 3).
     - Determine complexity level (1-4). If from backlog, use the item's complexity as starting estimate.
     - **Determine Task ID** (if NOT from backlog): select prefix per Unified Task Numbering (`$HOME/.claude/skills/datarim-system.md`) — project prefix first, then area prefix, `TASK` as fallback. Scan existing tasks for next sequential number.
+    - **ID-collision probe (MANDATORY)**: Before committing to the chosen `{TASK-ID}`, probe the full ID surface for prior usage: `grep -lE "^- {TASK-ID} ·" datarim/backlog.md datarim/tasks.md 2>/dev/null` AND `ls documentation/archive/*/archive-{TASK-ID}.md 2>/dev/null`. If ANY match appears — STOP and present a 3-way prompt to the operator: **(a) reassign the prior backlog/queued entry to the next free ID** (update both occurrence + any cross-references; recommended when the prior entry is `pending` and lower-priority); **(b) cancel the prior entry** (delete from backlog with a one-line rationale); **(c) operator picks a different ID for the new task**. Do not proceed with `{TASK-ID}` until the collision is closed. Rationale: backlog ID-uniqueness ≠ tasks.md ID-uniqueness — gates downstream `/dr-archive` Step 3 against silent overwrite of an unrelated queued unit of work.
     - **Context Gathering**: For complex tasks, ensure context is gathered (via `/dr-prd`) before planning.
     - **PRD Waiver Check** (Level 3-4 only): If no PRD exists for this task (check `datarim/prd/PRD-{task-id}*.md` and parent PRD within 30 days), prompt: "No PRD found for this L3+ task. Options: (a) Run `/dr-prd` first, (b) State waiver reason (will be recorded as `**PRD waived:**` in tasks.md)." If user chooses (b), record the waiver in the task's Overview section. Retroactive-only enforcement is insufficient — the prompt at `/dr-init` is the canonical gate.
     - **If new project/service**: Load `$HOME/.claude/skills/tech-stack.md` and identify required stack.
     - Create/Update `datarim/tasks.md` with new task.
     - **Append** new task to `## Active Tasks` in `datarim/activeContext.md`. Do NOT remove existing active tasks. If `activeContext.md` uses legacy format (`**Current Task:**` single line), convert to `## Active Tasks` list first. See `$HOME/.claude/skills/datarim-system.md` § activeContext.md Write Rules.
+    - **Stage Header (header after Step 4)**: From this point onward in the response (after the TASK-ID has been determined), emit `**{TASK-ID} · {title}**` as the first line of the post-Step-4 message block per `$HOME/.claude/skills/cta-format.md` § Stage Header. Do NOT emit the header during Steps 0-3 (TASK-ID is not yet known). Single occurrence per command invocation.
 4.6. **WRITE INIT-TASK FILE** (mandatory, F1 contract — see `$HOME/.claude/skills/init-task-persistence.md`):
     - Compute `INIT_TASK_FILE="datarim/tasks/{TASK-ID}-init-task.md"`.
     - Determine the source flow:
       - **Operator prompt flow** (default): the `ARGUMENTS` variable (the text the operator typed after `/dr-init`) becomes the body of `## Operator brief (verbatim)`. Frontmatter `source: /dr-init`.
       - **Backlog selection flow** (the task was picked from `backlog.md` in Step 3): copy the matched backlog item's description block verbatim into `## Operator brief (verbatim)`. Frontmatter `source: backlog`, `source_backlog_ref: backlog.md#{TASK-ID}`.
     - Write the file with the canonical 8-field frontmatter (`task_id`, `artifact: init-task`, `schema_version: 1`, `captured_at`, `captured_by: /dr-init`, `operator`, `status: canonical`, `source`) + two mandatory headings: `## Operator brief (verbatim)` and `## Append-log (operator amendments)` (empty placeholder `_(пусто на момент создания)_`). Optional `## Source command` block above the brief is recommended when the exact invocation differs from `ARGUMENTS` raw text.
-    - Probe: `dev-tools/check-init-task-presence.sh --task {TASK-ID} --root "$DATARIM_ROOT"` (where `$DATARIM_ROOT` is the parent of `datarim/`). Exit 0 = OK; non-zero = print warning and continue (operator may amend manually).
+    - Probe: `bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-init-task-presence.sh" --task {TASK-ID} --root "$DATARIM_ROOT"` (where `$DATARIM_ROOT` is the parent of `datarim/` and `$DATARIM_RUNTIME` is the installed runtime root; falls back to `~/.claude` for default-symlinked installs that include `dev-tools/` in `INSTALL_SCOPES`). Exit 0 = OK; non-zero = print warning and continue (operator may amend manually).
     - Skip silently when re-running `/dr-init` on an existing backlog ID whose init-task already exists — preserve the verbatim history.
+
+4.7. **WRITE EXPECTATIONS SKELETON** (mandatory for all complexity levels L1-L4 — see `$HOME/.claude/skills/expectations-checklist.md` § When the file is created):
+    - Compute `EXPECTATIONS_FILE="datarim/tasks/{TASK-ID}-expectations.md"`.
+    - Skip silently when `EXPECTATIONS_FILE` already exists (re-run `/dr-init` on backlog ID, or operator-amended skeleton from a prior cycle) — preserve operator edits.
+    - Else: extract N wishes from `## Operator brief (verbatim)` in the init-task.md file just written by Step 4.6:
+      - **L1:** 1 wish — the primary operator goal (single most prominent intent).
+      - **L2-L4:** 2-5 wishes — distinct operator intents enumerated separately.
+      - Extraction approach: LLM extraction via the agent's own model context (consistent with `/dr-prd` Step 5.5b pattern). Quote operator wording where possible; default `evidence_type: empirical` per wish (operator corrects via amendment if `static` or `measurement` is more appropriate).
+      - Hallucination mitigation: wish title MUST trace back to a phrase or paraphrasable concept in the brief; do NOT invent goals the operator did not state. Vague brief → use the fallback skeleton below.
+    - Write the file from `${DATARIM_RUNTIME:-$HOME/.claude}/templates/expectations-template.md` with:
+      - **Frontmatter (canonical):** `task_id`, `artifact: expectations`, `schema_version: 2`, `captured_at`, `captured_by: /dr-init`, `agent: planner`, `status: canonical`, `parent_init_task: {TASK-ID}-init-task.md`.
+      - **Per-wish item:** title (plain Russian, ending with «.»), `wish_id` (kebab-slug, cyrillic allowed), `Что хочу проверить:` (1-2 sentences), `Как проверить (success criterion):` (concrete signal — file path, command, visible behaviour), `Связанный AC из PRD: «—»` (no PRD yet), `evidence_type: empirical` (default), `#### История статусов` one initial line `<ISO> / <local> · /dr-init · pending → pending · reason: пункт создан при инициализации задачи`, `#### Текущий статус` followed by a single bullet line carrying the value (`pending` on first write).
+      - **Schema (mandatory).** Items MUST use the canonical bullet-list shape from `skills/expectations-checklist.md` § Body shape — i.e. one top-level bullet per wish (`- **<N>. <Title>**`) with **nested bullets** (`  - wish_id:`, `  - Что хочу проверить:`, …) and a two-line `Текущий статус` block (`  - #### Текущий статус` followed by `    - <value>`). Do **NOT** use heading-style items (`### N. Title`) or single-line «inline» status (`#### Текущий статус: pending`) — the validator parses only the bullet-list shape, and heading-style files are rejected on the very next pipeline step (see `dev-tools/check-expectations-checklist.sh --task {TASK-ID} --report` for the exact errors emitted on schema drift).
+    - Probe: `bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --task {TASK-ID} --root "$DATARIM_ROOT"`. Exit 0 = OK; non-zero = print warning + continue (fail-soft — operator may amend manually).
+    - **Fallback (empty / diffuse brief or LLM extraction failure):** write 1-wish skeleton with title «Цель задачи — TBD (оператор уточняет).», `wish_id: tsel-zadachi-tbd`, `evidence_type: empirical`, and an inline HTML comment `<!-- TODO: operator fills concrete wish at next /dr-prd or /dr-plan amendment -->`. This satisfies the L1+ mandate floor and surfaces the gap to the operator at the next pipeline step.
+    - This step applies to **all complexity levels L1-L4** (mandate scope — operator decision: «жёсткое требование без исключений»).
 
 5.  **SUBTASK BACKLOG** (Level 3-4 only):
     - If analysis reveals distinct subtasks or phases, present them to user:
@@ -110,7 +152,19 @@ description: Initialize a new Datarim task or scaffold a new project. Auto-detec
 
 ## Reusable Templates
 
-- `templates/task-template.md` — minimal Implementation-Plan scaffold (`Overview` / `Architecture Impact` / `Implementation Steps` / `Test Plan` / `Rollback Strategy` / `Validation Checklist`). Use when bootstrapping `datarim/tasks/{TASK-ID}-task-description.md` for L1-L2 tasks where the heavier `prd-template.md` would be overkill.
+- `${DATARIM_RUNTIME:-$HOME/.claude}/templates/task-template.md` — minimal Implementation-Plan scaffold (`Overview` / `Architecture Impact` / `Implementation Steps` / `Test Plan` / `Rollback Strategy` / `Validation Checklist`). Use when bootstrapping `datarim/tasks/{TASK-ID}-task-description.md` for L1-L2 tasks where the heavier `prd-template.md` would be overkill.
+
+## /dr-auto Mode (when `DATARIM_AUTO_MODE=1`)
+
+When auto-mode is active (env var `DATARIM_AUTO_MODE=1` AND matching marker `datarim/.auto-mode-active` containing this TASK-ID), this command:
+
+1. Consults `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode.md` § Question Suppression Ladder before any `AskUserQuestion` or equivalent operator prompt at this stage.
+2. Stage-specific suppression hooks:
+   - Step 3 backlog item selection prompt — resolve через Ladder L1 (grep backlog by description match) before AskUserQuestion.
+   - Step 4 PRD waiver gate (L3-4) — resolve через Ladder L3 (operator-preference lookup in MEMORY.md feedback).
+3. Discovered gaps → apply L1 Inline Resolution Rule per `skills/autonomous-mode.md`; log in `datarim/tasks/{TASK-ID}-auto-inline-log.md` if applied inline.
+4. Hard-gated actions → escalate to operator through Ladder L5; log via `dev-tools/append-init-task-qa.sh --decided-by operator` per `skills/init-task-persistence.md` § Q&A round-trip.
+5. Mismatch (env var set, marker absent OR marker contains different TASK-ID) → emit single-line warning, treat as non-auto (fail-safe per `skills/autonomous-mode.md` § When this skill is active).
 
 ## Next Steps (CTA)
 
@@ -126,3 +180,14 @@ After completing initialization, the planner agent MUST emit a CTA block per `$H
 - Always include `/dr-status` as escape hatch
 
 The CTA block MUST: (a) include resolved task ID, (b) mark exactly one `**рекомендуется**`, (c) list ≤5 numbered options, (d) be wrapped in `---` HR. If >1 active tasks in `datarim/activeContext.md`, append `**Другие активные задачи:**` menu (Variant B).
+
+## Stage Snapshot Emission (Mandatory Terminal Step)
+
+After the `## Next Steps (CTA)` block above, the agent MUST perform snapshot emission per `$HOME/.claude/skills/cta-format.md` § Snapshot Emission. Parameters bound for this command:
+
+- `stage`: `init`
+- `command`: `/dr-init`
+- `captured-by`: `agent`
+- `recommended-next`: primary CTA option (slash-prefixed `/dr-*` form)
+
+Fail-closed: on non-zero writer exit, emit a single stderr warning line and continue (V-AC-7 contract). Kill switch `DATARIM_DISABLE_SNAPSHOT=1` is handled inside the library; under the switch the writer is a no-op without warning.

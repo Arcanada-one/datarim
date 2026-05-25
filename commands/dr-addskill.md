@@ -13,6 +13,8 @@ effort: high
 
 ## Instructions
 
+
+**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format.md` § Stage Header.
 1.  **LOAD**: Read `$HOME/.claude/agents/skill-creator.md` and adopt that persona.
 2.  **LOAD SKILLS**:
     - `$HOME/.claude/skills/datarim-system.md` (Always)
@@ -107,7 +109,7 @@ After skill creation, the skill-creator agent MUST emit a CTA block per `$HOME/.
 **Routing logic for `/dr-addskill`:**
 
 - New skill needs testing → primary "ask user to invoke and review output" + alternative `/dr-qa {TASK-ID}` if part of TUNE task
-- Updating Datarim source → primary "update counts in CLAUDE.md, README.md, dr-help.md" + reminder to curate via `scripts/curate-runtime.sh`
+- Updating Datarim source → primary "update counts in CLAUDE.md, README.md, dr-help.md" + reminder to `git diff` and commit in the canonical repo
 - Need more domain expertise → alternative `/dr-prd {TASK-ID}` (research-phase) before iterating
 - Always include `/dr-status` as escape hatch
 

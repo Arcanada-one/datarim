@@ -13,6 +13,8 @@ effort: high
 
 ## Instructions
 
+
+**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format.md` § Stage Header.
 1.  **LOAD**: Read `$HOME/.claude/agents/editor.md` and adopt that persona.
 2.  **LOAD SKILLS** (all mandatory for editorial work):
     - `$HOME/.claude/skills/datarim-system.md` (Always)

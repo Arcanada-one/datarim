@@ -85,12 +85,12 @@ Each `@test` calls builders at the top, invokes, asserts. No cross-test state.
 
 ### Static-grep alignment tests
 
-When two files must stay in lock-step (a constant in code vs a table in docs, `INSTALL_SCOPES` in one script vs `SCOPES` in another, a flag list in `parse_args` vs the `--help` output), write a one-line bats test that greps both and asserts structural equality. This is cheaper and more readable than parameterization or DRY-abstraction:
+When two files must stay in lock-step (a constant in code vs a table in docs, a scope list in one script vs the equivalent list in another, a flag list in `parse_args` vs the `--help` output), write a one-line bats test that greps both and asserts structural equality. This is cheaper and more readable than parameterization or DRY-abstraction:
 
 ```bash
-@test "scope contract: install.sh INSTALL_SCOPES matches check-drift.sh SCOPES" {
-    grep -E "^INSTALL_SCOPES=\\(agents skills commands templates\\)" "$FAKE_REPO/install.sh"
-    grep -E "^SCOPES=\\(agents skills commands templates\\)" "$FAKE_REPO/scripts/check-drift.sh"
+@test "scope contract: install.sh INSTALL_SCOPES matches the documented set" {
+    grep -E "^INSTALL_SCOPES=\\(agents skills commands templates" "$FAKE_REPO/install.sh"
+    grep -F "agents/, skills/, commands/, templates/" "$FAKE_REPO/docs/getting-started.md"
 }
 ```
 
@@ -147,7 +147,7 @@ Redirect `HOME` (see above) so these tests cannot accidentally hit the operator'
 
 ### Exemplar
 
-`tests/install.bats` + `tests/check-drift.bats`: 23 tests covering content-type whitelisting, `--force` safety (live detect, sanity guards, non-TTY, backup+SUCCESS), idempotency, scope-contract alignment, and `.md`-only regression. Shared helper at `tests/helpers/install_fixture.bash`.
+`tests/install.bats`: ~30 tests covering content-type whitelisting, `--force` safety (live detect, sanity guards, non-TTY, backup+SUCCESS), idempotency, scope-contract alignment, and `.md`-only regression. Shared helper at `tests/helpers/install_fixture.bash`.
 
 ### Negated grep assertions: always quiet the matcher
 

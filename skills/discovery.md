@@ -108,7 +108,7 @@ Source: prior incident — PRD § Scope said "15 commands"; actual count was 17 
 
 If an AC is not currently reachable due to operating-model state (e.g. symlinks vs real copies, git submodules vs flat repos, container vs host runtime), reformulate as **"X OR documented invariant satisfied by construction"** with the documented exception path.
 
-Source: prior incident PRD AC-8 required `check-drift.sh exit 0`. Under the symlink-first operating model used in arcanada workspace, `check-drift.sh` returns 1 (symlink-guard signal, not real drift). The AC was technically unreachable but semantically over-satisfied. The mismatch surfaced in QA only — should have been caught in PRD Phase 3.
+Source: a prior incident formulated an AC as "drift-detector exits 0" under a tool that returned a non-zero symlink-guard signal under the symlink-first operating model. The AC was technically unreachable but semantically over-satisfied; the mismatch surfaced in QA only and should have been caught in PRD Phase 3.
 
 ---
 

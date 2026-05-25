@@ -1,26 +1,58 @@
-# dev-tools/ — Developer-only tooling for Datarim framework
+# dev-tools/ — Maintainer-stewarded tooling, runtime-shipped (no user CLI)
 
-> **NOT shipped to consumers.** This directory is intentionally excluded
-> from `INSTALL_SCOPES` in `install.sh`. Consumer projects
-> of Datarim never see it. No supply-chain footprint on user side.
+> **Runtime-shipped since v2.15.0 (TUNE-0259).** `dev-tools/` is included
+> in `INSTALL_SCOPES` and symlinked into `~/.claude/dev-tools/` on default
+> installs (copy-mode also copies it). However, the directory remains
+> **maintainer-stewarded** — it does NOT expose a user-facing CLI surface.
+> Scripts here are invoked exclusively by `/dr-*` commands at runtime (see
+> § Runtime consumers below). Treat any direct operator invocation as a
+> defect signal.
 
 ## Purpose
 
-Maintainer-side utilities for keeping the framework itself in shape.
-Currently provides one tool: a doc-fanout linter that detects asymmetric
-drift between canonical artefacts (`commands/`, `skills/`, `agents/`)
-and N consumer surfaces (CLAUDE.md, README.md, docs/, sister-site PHP).
+Maintainer-side utilities for keeping the framework itself in shape, plus
+runtime helpers that `/dr-*` commands shell out to (input validation,
+schema checks, presence gates, network-exposure verifier, peer-provider
+resolver, etc.). Originally a doc-fanout linter only; expanded over
+v1.21+ to a broader set of orthogonal pure-shell tools (see § Validation
+Discipline in `code/datarim/CLAUDE.md`).
 
-## Why dev-only / not shipped
+## Runtime consumers (incomplete list)
 
-1. The drift it detects is between **framework-internal** state and
-   **framework-internal** documentation/site surfaces. Consumers ship
-   their own projects with their own catalogs.
-2. The tool reads the entire framework tree at every run. Its
-   correctness depends on assumptions that are private to the maintainer
-   (relative paths, directory layout, count regexes).
-3. Shipping it would create false expectations of public stability for
-   a config schema that may evolve fast in v1.
+| Script | Invoked by |
+|--------|-----------|
+| `check-init-task-presence.sh` | `commands/dr-init.md` Step 4.6 |
+| `check-expectations-checklist.sh` | `commands/dr-qa.md`, `commands/dr-compliance.md`, `commands/dr-archive.md` |
+| `check-stage-snapshot-on-exit.sh` | `commands/dr-continue.md`, `commands/dr-archive.md`, validator suite |
+| `check-skill-frontmatter.sh` | `/dr-plugin doctor` § skill-registry check |
+| `check-security-policy.sh` | `/dr-qa` ecosystem security gate, `/dr-compliance` |
+| `check-topic-overlap.py` | `commands/dr-init.md` Step 3.5 (backlog similarity) |
+| `network-exposure-check.sh`, `network-exposure-gate.sh` | `commands/dr-do.md` Step 8.5 |
+| `resolve-peer-provider.sh` | `commands/dr-verify.md` Layer 2 |
+| `dr-verify-floor.sh` | `commands/dr-verify.md` Layer 1 |
+| `append-init-task-qa.sh` | `commands/dr-{init,prd,plan,design,do,qa,compliance}.md` § Q&A round-trip |
+
+## Why runtime-shipped but no user CLI
+
+1. The scripts encode framework invariants — argument shapes, regex
+   schemas, exit-code contracts — that are co-versioned with the `/dr-*`
+   commands invoking them. Operator-direct invocation of a stale script
+   against a newer command (or vice versa) is a contract-breakage class
+   we do not want to expose.
+2. Each script self-documents its target scope in its header and is
+   pure shell (no runtime deps beyond bash + grep + dev-tools sibling
+   scripts). Per § Validation Discipline in `CLAUDE.md`, orthogonal
+   concerns get orthogonal tools — no `dev-tools/` script is added as a
+   branch inside `datarim-doctor.sh`.
+3. Shipping the directory closes a defect class where consumer installs
+   via `curl | bash` or `./install.sh --copy` would lack scripts that
+   `/dr-*` commands cite as required (e.g. TUNE-0259: 7+ commands
+   referenced `dev-tools/check-*` but the directory was unreachable on
+   consumer disks).
+4. Schema stability is **still** maintainer-internal — relative paths,
+   directory layout, count regexes evolve under TUNE-* changes without
+   semver guarantees. Consumers MUST NOT script against these tools
+   directly.
 
 ## Files
 

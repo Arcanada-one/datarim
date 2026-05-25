@@ -227,7 +227,7 @@ Implications when editing a runtime artefact:
 - `git diff` in the canonical repo immediately shows the change — that is the single source of truth for review and commit.
 - A double-write (edit runtime, then `cp` to repo) is a no-op at best and an inode-detaching footgun at worst. If `cp` reports `are identical (not copied)`, the install is symlinked and the cp was unnecessary.
 
-Copy-mode installs (`./install.sh --copy`, Windows / FAT) keep the legacy two-file topology; in that mode the curate-runtime / check-drift dance still applies. Detect copy-mode by `stat`-ing the inodes: divergent inode numbers = copy-mode = manual sync needed.
+Copy-mode installs (`./install.sh --copy`, Windows / FAT) keep the legacy two-file topology; in that mode the canonical resync recipe is `git pull && ./install.sh --copy --force --yes`. Detect copy-mode by `stat`-ing the inodes: divergent inode numbers = copy-mode = manual sync needed.
 
 ## Loading Order (v1.17.0+)
 

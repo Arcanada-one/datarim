@@ -1,0 +1,2 @@
+{"type":"user","message":{"content":"/dr-help"}}
+{"type":"assistant","message":{"content":[{"type":"text","text":"Help text — no header expected."}]}}

@@ -1,6 +1,6 @@
 # Commands Reference
 
-Datarim provides 18 slash commands for Claude Code. Commands are grouped by category.
+Datarim provides 20 slash commands for Claude Code. Commands are grouped by category.
 
 ## Unified CTA Block (v1.16.0)
 
@@ -44,8 +44,9 @@ Source: TUNE-0032. Spec: `skills/cta-format.md`. Template: `templates/cta-templa
 | `/dr-do` | Execution | developer | TDD development, one method at a time. Emits CTA. |
 | `/dr-qa` | Quality | reviewer | Multi-layer verification (PRD, design, plan, code). Emits CTA (FAIL-Routing variant on BLOCKED). |
 | `/dr-verify` | Verification | -- | Standalone tri-layer self-verification (on-demand). Layer 1 deterministic floor + Layer 2 cross-model peer-review (provider auto-resolves via 6-step chain — zero-flag UX, cross-Claude-family fallback when no external API key) + Layer 3 native runtime dispatch. Findings carry `source_layer` + `peer_review_mode` (`cross_vendor` / `cross_claude_family` / `same_model_isolated`); findings-only mode; emits CTA (FAIL-Routing variant on BLOCKED). |
-| `/dr-compliance` | Hardening | compliance | 7-step post-QA hardening workflow. Emits CTA (FAIL-Routing variant on NON-COMPLIANT). |
-| `/dr-archive` | Archive | reviewer (Step 0.5 reflection) + planner (Steps 1-7) | Reflection + evolution proposals + complete task + update backlog + reset context. Emits CTA. |
+| `/dr-compliance` | Hardening | compliance | 7-step post-QA hardening workflow. Compliance report follows `templates/compliance-report-template.md` (v2.14.0+): four top sections in strict order — «Начальная задача», «Как решили», «Артефакты задачи», «Следующие шаги» — plus an audit addendum under `---` carrying `### Step-by-step verdicts`, `### Remaining risks`, `### Related`. Emits CTA (FAIL-Routing variant on NON-COMPLIANT). |
+| `/dr-archive` | Archive | reviewer (Step 0.5 reflection) + planner (Steps 1-7) | Reflection + evolution proposals + complete task + update backlog + reset context. Archive doc follows `templates/archive-template.md` (v2.14.0+): four top sections in strict order — «Начальная задача», «Как решили», «Артефакты задачи», «Следующие шаги» — plus an audit addendum under `---` carrying `### verification_outcome`, `### Acceptance Criteria`, `### Lessons Learned`, `### Operator Handoff`, `### Related`. The «Как решили» section is a single-level bullet list that maps each operator-brief bullet to a quoted item + Russian status word (выполнено / частично / не выполнено / неприменимо) + one or two plain-language sentences; expectations fold into the same list with marker «(уточнение брифа)». Emits CTA. |
+| `/dr-auto` | Autonomous | adaptive (per dispatched stage) | Meta-command для autonomous execution. Активирует skill `autonomous-mode.md` через env var `DATARIM_AUTO_MODE=1` + file marker `datarim/.auto-mode-active`. Question Suppression Ladder (5 levels: codebase grep → runtime probe → MEMORY.md feedback → coworker delegation → operator) подавляет уточняющие вопросы. L1 Inline Resolution Rule закрывает L1 Class A gaps в текущем cycle; L2+/B → backlog; hard-gated per `autonomous-agents.md:30-32` → operator escalate. Two modes — Continue (`/dr-auto {TASK-ID}` resume from snapshot) / Bootstrap (`/dr-auto "<free-text>"` full pipeline). Emits CTA + stage snapshot `stage: auto`. |
 
 ## Content Commands (3)
 
@@ -70,7 +71,7 @@ Source: TUNE-0032. Spec: `skills/cta-format.md`. Template: `templates/cta-templa
 | Command | Stage | Agent | Description |
 |---------|-------|-------|-------------|
 | `/dr-status` | Utility | -- | Check current task and backlog status (read-only). Emits CTA — discovery surface for parallel work. |
-| `/dr-continue` | Utility | varies | Resume from last checkpoint. Emits CTA per resumed phase. |
+| `/dr-next` | Utility | varies | Resume from last checkpoint. Step 2.5 reads `datarim/snapshots/{TASK-ID}.snapshot.md` first (v2.13.0+) and emits replay-prompt with bilingual autonomy reminder + `done before:` body. Falls back silently to legacy Read pipeline when snapshot is absent. Emits CTA per resumed phase. |
 | `/dr-help` | Utility | -- | List all commands with descriptions and usage guidance. Emits CTA. |
 
 ## Standalone Commands (2)
@@ -123,7 +124,7 @@ description: {one-line description}
 /dr-status
 
 # Resume after a break
-/dr-continue
+/dr-next
 
 # Write a blog post
 /dr-write Create a blog post about our new API versioning strategy

@@ -4,6 +4,102 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Codex CLI UX parity — native discoverability of Datarim artefacts (TUNE-0297).** `./install.sh --with-codex` now generates SKILL.md adapter wrappers (`~/.codex/skills/<name>/SKILL.md`) for every top-level source skill, restores Codex's bundled `.system/` skills from the TUNE-0296 backup, and emits a Codex-only catalogue manifest at `~/.codex/AGENTS.override.md` with three sections (Available Datarim Commands / Skills / Agents). `~/.codex/skills/` flips from symlink to a real directory under the new UX default; `detect_existing_topology` is now scope-aware so repeat runs do not trip the mixed-topology guard. The shared AGENTS.md symlink chain (~/.codex/AGENTS.md → source AGENTS.md → CLAUDE.md) is byte-stable by design — Codex-specific catalogue text lives only in the override file. Opt-out via the new `--no-codex-ux` flag (CI / bisect / baseline-topology debugging). Five new bats tests (T42 wrapper generation, T43 negative regression under `--with-claude`, T44 manifest + AGENTS.md byte-stability, T45 `.system/` restore + idempotency, T46 opt-out).
+- **Multi-runtime parity for Codex CLI (TUNE-0296).** `./install.sh --with-codex` now symlinks `~/.codex/AGENTS.md → <repo>/AGENTS.md` (which is itself a symlink to `CLAUDE.md`), in addition to the existing seven directory symlinks (`agents/`, `skills/`, `commands/`, `templates/`, `scripts/`, `tests/`, `dev-tools/`). Codex CLI now reads the canonical Datarim ecosystem-router from the same source repo as Claude Code. The patch is gated on `runtime_name=codex` — `--with-claude` topology is unchanged (T41 regression guard in `tests/install-tune-0114.bats`).
+- `tests/install-tune-0114.bats` — three new tests (T40 / T41 / T40b) covering AGENTS.md install / non-install and dry-run wording for both runtimes.
+- `docs/how-to/multi-runtime.md` — operator-facing how-to: install both runtimes, verify topology, register the Coworker `codex` profile, and the troubleshooting recipe for the pre-existing `~/.codex/skills/.system/` bundled-skills conflict.
+
+### Documentation
+
+- `README.md` § Activate in Your Project — new subsection **«Optional: External CLI (`datarim` binary)»** (TUNE-0271 v2 doc-fanout). Explains that `./install.sh --with-claude` does **NOT** symlink the `datarim` binary used by non-interactive agents; the standalone CLI installer at `code/datarim/cli/install.sh` is opt-in (AAL 3) and must be run separately. Resolves the `zsh: command not found: datarim` discoverability gap reported post-archive.
+- `docs/getting-started.md` § Installation — new subsection **«Optional: external `datarim` CLI»** mirroring the README pointer at the tutorial-mode reader funnel. Cross-link to `docs/cli.md` for the full reference (subcommands, exit codes, AAL 3 mitigations, kill-switch sentinel, audit retention).
+- `docs/cli.md` — new section **«Backend listener requirement»** explaining that `datarim run` is an HTTP client only and the `127.0.0.1:8090` backend is `adnanh/webhook` (open-source Go binary, MIT, **not bundled**) reachable via the `dr-orchestrate` plugin. Documents the loopback-only (Tier 1) bind, the three-step stand-up recipe (`/dr-plugin enable dr-orchestrate` + install `webhook` + start with `-hooks ... -port 8090`), and clarifies that the listener is optional for Claude-Code-session users. Resolves the operator-discoverability gap surfaced post-archive («что это за сервер и почему я о нём не знаю»).
+- `README.md` § Optional: External CLI — added heads-up block pointing at `docs/cli.md § Backend listener requirement` to close the same gap at the entry-level reader funnel.
+
+## [2.19.0] — 2026-05-24
+
+**Autonomous execution mode (`/dr-auto`).** New meta-command activates `documentation/mandates/autonomous-agents.md` (FB-1..8) + the L1 Inline Resolution Rule + autonomous-ops scope as default-on for the duration of one task cycle. Question Suppression Ladder (5 levels — codebase grep → runtime probe → MEMORY.md feedback → coworker delegation → operator) suppresses pipeline Q&A. L1 Class A gaps discovered mid-cycle close inline; L2+ / Class B gaps spawn backlog items; hard-gated actions (verbatim `autonomous-agents.md:30-32`) escalate to operator. Activated via env var `DATARIM_AUTO_MODE=1` + per-task file marker `datarim/.auto-mode-active`. Two modes: Continue (`/dr-auto {TASK-ID}` resume from snapshot) and Bootstrap (`/dr-auto "<free-text>"` full pipeline from `/dr-init`). Class B operating-model change — does not introduce new rules, only changes activation default of existing mandates.
+
+### Added
+
+- `commands/dr-auto.md` — canonical command, 8-step instructions, Continue + Bootstrap modes, hard-gated escalation contract.
+- `skills/autonomous-mode.md` — canonical contract: Question Suppression Ladder + L1 Inline Resolution Rule decision tree + Hard-gated Action Boundary (verbatim cite + cross-project boundary) + Failure modes.
+- `dev-tools/classify-inline-gap.sh` — L1 Inline classifier (--files / --loc / --contract / --hard-gated → L1-A | L2+/B | HARD). Used by `/dr-do` under auto-mode.
+- `tests/dr-auto-l1-inline-classifier.bats` — 11 test cases covering boundary at 50 LoC, multi-file, contract change, hard-gated override, usage errors.
+
+### Changed
+
+- All 7 pipeline commands (`dr-init`, `dr-prd`, `dr-plan`, `dr-do`, `dr-qa`, `dr-compliance`, `dr-archive`) — added `## /dr-auto Mode` section after `## Instructions`. Section describes stage-specific Q&A suppression hooks and references `skills/autonomous-mode.md` § Question Suppression Ladder as canonical source.
+- `commands/dr-help.md` — added `/dr-auto` row in the Pipeline Commands table.
+- `docs/commands.md` — added `/dr-auto` row.
+- `docs/getting-started.md` — new `## Autonomous Mode (/dr-auto)` section with Continue/Bootstrap modes, Ladder summary, L1 Inline Rule overview, when-to-use guidance, failure modes.
+- `CLAUDE.md` — added `/dr-auto` row to commands table; updated command count `22 → 23 commands core`.
+- `README.md` — added `/dr-auto` row to Commands section; updated count references `22 → 23 commands`.
+- `VERSION` — `2.18.0 → 2.19.0`.
+
+## [2.14.0] — 2026-05-22
+
+**Business-facing archive and compliance report contract (TUNE-0255).** The archive and `/dr-compliance` report templates now answer the operator's question «что я просил и что вы сделали» in plain Russian, in four mandatory top-level sections in strict order — «Начальная задача», «Как решили», «Артефакты задачи», «Следующие шаги» — followed by an audit addendum under a `---` horizontal rule that carries the technical surface (`verification_outcome` mirror, AC table, lessons learned, operator handoff, related). The «Как решили» section is a single-level bullet list that maps every operator-brief bullet (in original order) to a quoted item + Russian status word («выполнено» / «частично» / «не выполнено» / «неприменимо» — never the schema enum) + one or two plain-language sentences; expectations from `tasks/{ID}-expectations.md` fold into the same list with marker «(уточнение брифа)». The previous top-level `## Выполнение ожиданий оператора` heading is retired — its content is folded into «Как решили». The same contract applies to `/dr-compliance` via a new canonical template.
+
+### Added
+
+- `templates/compliance-report-template.md` — new canonical template mirroring the archive shape (four operator-facing top sections + audit addendum carrying the 7-step verdict table, remaining risks, related links). Frontmatter: `task_id`, `date`, `verdict` (COMPLIANT / COMPLIANT_WITH_NOTES / NON-COMPLIANT), optional `scope`.
+- `dev-tools/check-banlist-on-prose.sh` — fence-aware awk one-shot validator. Bash wrapper does argparse + path-traversal regex (`^[A-Za-z0-9._/-]+\.md$`). Awk one-shot skips YAML frontmatter (first `---` block) and honours `<!-- gate:literal -->` and `<!-- gate:example-only -->` fence markers; tokenises ASCII tokens of length ≥3, lowercases, looks up `skills/human-summary/whitelist.txt` then `skills/human-summary/banlist.txt`. Exit 0 clean / 1 offences (`file:line:token`) / 2 usage. Shellcheck `-S warning` clean.
+- `tests/tune-0255-archive-business-structure.bats` — 10 cases. Guard the four-section canonical order in `archive-template.md`, the `dr-archive.md` Step 2 mapping instructions, the expectations-fold marker, audit-addendum invariants, the four Russian status words, the schema-enum prohibition, the no-tables / single-level-bullets rules, the banlist-clean check on the template, and the validator's exit-0 contract.
+- `tests/tune-0255-compliance-template-shape.bats` — 4 cases. Guard the compliance template shape, the skill/command cross-link, the validator pass on the template, and the frontmatter fields.
+
+### Changed
+
+- `templates/archive-template.md` — rewritten under the four-section + audit-addendum layout. Frontmatter and `verification_outcome` contract unchanged. The top layer carries «Начальная задача», «Как решили», «Артефакты задачи», «Следующие шаги»; the audit addendum below the `---` rule carries `### verification_outcome`, `### Acceptance Criteria`, `### Lessons Learned`, `### Operator Handoff`, `### Related`. The `Operator Handoff` section moved from a top-level placement to the audit addendum (the existing structural guard on the `Operator Handoff` heading remains green).
+- `commands/dr-archive.md` Step 2 — rewritten under the new contract. The placeholder strings «Task summary / Implementation details / Reflection insights» and the explicit `## Выполнение ожиданий оператора` block were removed. The new block enumerates the four top sections in strict order, the audit addendum with its five sub-sections, the expectations fold-into-«Как решили» semantics with the «(уточнение брифа)» marker, and the no-tables / no-anglicisms rules. Status-word translations preserved. Step 0.05 and Step 8 (Human Summary) updated to reference the new source sections.
+- `commands/dr-compliance.md` Step 7 — rewritten to reference `templates/compliance-report-template.md`. The same four-section + audit-addendum contract applies; the 7-step verdict table inside the addendum is wrapped in `<!-- gate:literal -->` so English column headings bypass the banlist.
+- `skills/compliance.md § Output` — rewritten to reference the new template and the four-section contract.
+- `skills/human-summary.md` — new `## See also` section linking the shared banlist to the archive and compliance templates and to `dev-tools/check-banlist-on-prose.sh`.
+- `VERSION` 2.13.0 → 2.14.0; touchpoints across `CLAUDE.md`, `README.md`, `Projects/Datarim/{CLAUDE,README}.md`, `Projects/Websites/datarim.club/config.php` aligned (zero residual `2.13.0` outside the historical changelog entry).
+
+### Removed
+
+- `tests/tune-0210-archive-expectations-section.bats` — retired. T6-T10 ported into `tests/tune-0255-archive-business-structure.bats` (status-word / no-tables / banlist / forbid-enum guards). T1-T5 retired because the `## Выполнение ожиданий оператора` heading was removed from the template.
+
+### Migration notes
+
+- Existing `archive-*.md` documents under `documentation/archive/` are grandfathered — no rewrite is required, the new contract applies to archives written after 2.14.0.
+- Consumers reading the archive shape should switch their parsers to expect the new top four sections; the legacy `## Outcome / ## Verification Summary / ## Final Acceptance Criteria` placement is no longer present in the canonical template.
+- Operators who relied on the explicit `## Выполнение ожиданий оператора` heading will now find the same content folded into the «Как решили» list with the marker «(уточнение брифа)» appended to each expectation-derived item.
+
+## [2.13.0] — 2026-05-21
+
+**Per-task stage snapshots (TUNE-0254).** Every `/dr-*` command now persists its final operator-visible response (Summary + Gate Results + CTA) to `datarim/snapshots/{TASK-ID}.snapshot.md` with overwrite semantics, mkdir-based atomic lock, `chmod 600`, and an 8 KB hard cap with explicit truncation marker. Producer side wired through a single touchpoint — `skills/cta-format.md § Snapshot Emission` — instead of per-command patches. Consumer side: `/dr-continue` Step 2.5 (`SNAPSHOT-FIRST READ`) and `/dr-orchestrate` Step 2 (`Snapshot-First Resume`) read the snapshot before any other context and emit a replay-prompt with the recommended CTA + bilingual (RU + EN) autonomy reminder + literal `done before:` block. At `/dr-archive` Step 0.95 the snapshot is moved (not deleted) to `documentation/archive/<subdir>/snapshots/{TASK-ID}-final-stage.md` via the existing `prefix_to_area()` resolver, so the final stage card remains grep-able in the archive.
+
+### Added
+
+- `scripts/lib/snapshot-writer.sh` — producer library with `write_stage_snapshot`. Concurrent-safe via `acquire_plugin_lock` mkdir-based atomic lock (env-var `DR_SNAPSHOT_LOCK_TIMEOUT`, default 60). Byte-accurate truncation via `wc -c` + `head -c`; UTF-8 codepoint safety preserved by piping the truncated chunk through `iconv -c` to drop any trailing partial multibyte sequence (final size may shrink by ≤3 bytes — well within the 8192 cap). TASK-ID regex anchor `^[A-Z][A-Z0-9-]+-[0-9]{4,5}$` for path-traversal defence.
+- `dev-tools/check-stage-snapshot-on-exit.sh` — validator with three modes (`--task`, `--validate-frontmatter`, `--self-test`); exit codes 0/1/2/3. Rejects symlinks at the snapshot path (exit 2 «malformed») symmetric with writer-side T-7 pre-unlink — closes shared-workspace attack surface where a co-agent could substitute a symlink to inline arbitrary file contents into the replay-prompt.
+- `skills/stage-snapshot-writer.md` — producer contract (invoked from `cta-format.md § Snapshot Emission`).
+- `skills/dr-continue-snapshot-replay.md` — consumer contract with three worked examples covering CTA selection (L3+ few checks → `/dr-verify`; L3+ saturated → `/dr-do`; L1/L2 do_done → `/dr-archive`).
+- `docs/how-to/stage-snapshots.md` — operator how-to (first Diátaxis how-to category file in `docs/`).
+- 12 new bats suites (51 cases): `stage-snapshot-{writer-overwrite, frontmatter-schema, size-cap, flock-race, shellcheck, cta-format-integration, cleanup-on-archive, utf8-truncation, symlink-rejection}`, `dr-{continue,orchestrate}-snapshot-replay`, `dr-archive-snapshot-move`. Combined with the 39 regression cases in `tests/cta-format.bats`, the snapshot-touched sweep totals 90/90 green.
+
+### Changed
+
+- `skills/cta-format.md` — new terminal sub-section `§ Snapshot Emission` (single producer touchpoint for all 15 `/dr-*` commands). All 39 existing `cta-format.bats` cases unchanged (additive contract).
+- `commands/dr-continue.md` — new Step 2.5 `SNAPSHOT-FIRST READ` that stops the downstream Read pipeline when a valid snapshot is present and silently falls through to legacy behaviour otherwise (no warning lines).
+- `plugins/dr-orchestrate/commands/dr-orchestrate.md` — `Snapshot-First Resume` block ahead of `semantic_parser.sh`; `recommended_next` passed to `subagent_resolver.sh` as `--hint` (hint, not constraint). Цикл renumbered 1 → 6.
+- `commands/dr-archive.md` — new Step 0.95 `STAGE-SNAPSHOT MOVE-TO-ARCHIVE` (move-not-delete via `prefix_to_area`).
+- `skills/init-task-persistence.md` — `stage-snapshot` added to the per-task artefact roster (sibling to init-task + expectations-checklist).
+- `.gitignore` — `datarim/snapshots/` added (mirrors `datarim/qa/` pattern).
+- `docs/getting-started.md` — new `§ Context Management (v2.13.0+)` block; `docs/skills.md` skill count 45 → 47; `docs/commands.md` `/dr-continue` row mentions Step 2.5.
+- `VERSION` 2.12.0 → 2.13.0; touchpoints across `CLAUDE.md`, `README.md`, `Projects/Datarim/{CLAUDE,README}.md`, `Projects/Websites/datarim.club/config.php` aligned (zero residual `2.12.0` outside the historical `docs/evolution-log.md` entry).
+
+### Class B (public surface — `datarim.club`)
+
+- `pages/changelog.php` v2.13.0 entry (feat × 4 + notes).
+- `data/skills/stage-snapshot-writer.php`, `data/skills/dr-continue-snapshot-replay.php` (EN + RU short + body).
+- `content/en.php`, `content/ru.php` — skill counts and UI strings updated.
+- Deploy via `cd Projects/Websites && ./deploy.sh datarim.club` remains an operator step (hard-gated cross-org rsync).
+
 ## [2.11.1] — 2026-05-16
 
 **Advisory V-AC pre-flight against ecosystem mandates.** `/dr-prd` Step 5 (pre-save validation gates) gains a third bullet that runs `dev-tools/check-v-ac-mandate-preflight.sh` against the draft PRD. The script extracts V-AC / Verification / Success Criteria lines and greps each against `dev-tools/public-surface-forbidden.regex` (the same contract surface consumed by `public-surface-lint.sh`). On match — advisory `WARNING:` line on stdout; the gate is non-blocking (always exits 0). Surfaces a V-AC ↔ Public Surface Hygiene conflict at PRD-time, not later in the pipeline.

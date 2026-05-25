@@ -357,3 +357,59 @@ Any secret used in critical-path notifications: incident-bot API tokens, paging-
 ### Source
 
 A drill on a service with a previously-validated rollback contract. The workflow correctly fired the fatal-notify path on rollback failure, but the request was rejected with `curl: (22) ... 401` because `Authorization: Bearer ` was empty — the GitHub Secret holding the token had been removed or never set on this repo. The alert never reached the receiver. Silent-alerting failure window: unknown duration before the drill caught it.
+
+---
+
+## Entrypoint Existence Probe
+
+Every container service in a compose / orchestrator manifest that overrides the image's default command with `command: ["<binary>", "<path>", ...]` (or equivalent `entrypoint:`, k8s `args:`, etc.) MUST be smoke-validated at deploy time: the referenced path actually exists inside the image.
+
+### Rule
+
+Before the first `compose up -d` (or rollout) of a new service, OR whenever the `command:` / build pipeline / Dockerfile multi-stage `COPY` list changes, run:
+
+```bash
+docker run --rm <image>:<tag> sh -c "test -f <command[0]>" || { echo "FAIL: entrypoint <command[0]> missing in <image>:<tag>"; exit 1; }
+```
+
+For a non-shell ENTRYPOINT image, wrap the probe in a throwaway `--entrypoint sh` override:
+
+```bash
+docker run --rm --entrypoint sh <image>:<tag> -c "test -f <command[0]>"
+```
+
+Exit 0 — proceed with deploy. Exit non-zero — the compose service references a binary that the build never produced. Either remove the service from the manifest until the binary lands, or fix the build/COPY chain. Do NOT deploy a known-broken service.
+
+### Failure mode the rule prevents
+
+A compose service whose `command:` references an entrypoint that never exists in the image becomes a silent restart loop after deploy: the container ExitCodes 1 every few seconds, Docker keeps restarting it under `restart: unless-stopped`, and the daemon accumulates restartCount without any user-facing impact. Sibling services that are healthy mask the failure entirely — the project looks fine externally, while one container churns indefinitely.
+
+This is exactly the «aspirational scaffold» anti-pattern: a future feature was scaffolded into the deploy manifest before the code for it was written. The scaffold then rots in production.
+
+### When to apply
+
+- Every new compose service that overrides `command:`.
+- Every change to the multi-stage `COPY` chain in a Dockerfile that builds the image those services run on (the surface where the entrypoint can silently disappear from the final image).
+- Every CI deploy pipeline that pulls a `latest` image and runs `compose up -d` without explicit version pinning (the image content can drift between deploys).
+
+### When NOT to apply
+
+- Services that use the image's default `CMD` / `ENTRYPOINT` (no override) — the image itself guarantees the entrypoint exists.
+- Read-only sidecars whose only job is to mount a volume (no binary to run).
+
+### Anti-pattern
+
+Adding a compose service with `command: ["node", "dist/<future-feature>.js"]` as scaffolding for planned work. If the binary does not exist yet, prefer:
+
+```yaml
+# TODO: <future-feature> worker — re-enable once dist/<future-feature>.js lands (SUP-XX).
+# worker:
+#   image: ...
+#   command: ["node", "dist/<future-feature>.js"]
+```
+
+Commented blocks rot at the same rate as live scaffolds, but they do not burn CPU and produce restart noise.
+
+### Source
+
+A worker container was scaffolded into a compose manifest on day 1 of the project, referencing an entrypoint that the build never produced. It ran in a boot-and-die loop for 37 days; restartCount climbed past 25 000 before the loop was noticed during an unrelated pre-flight audit. Removing the unused scaffold closed the incident. Adding a 1-line entrypoint probe to deploy would have caught it on day 1.

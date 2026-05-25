@@ -26,7 +26,7 @@ This command generates a structured Product Requirements Document (PRD) followin
     -   Determine research mode: **Lite** (L2, 5 checkpoints) or **Full** (L3-L4, 10 checkpoints). Skip entirely for L1.
     -   Load `$HOME/.claude/skills/research-workflow.md`.
     -   Spawn researcher agent (`$HOME/.claude/agents/researcher.md`) with task context: task ID, description, identified stack/dependencies from Phase 1.
-    -   Agent creates `datarim/insights/INSIGHTS-{task-id}.md` from template `$HOME/.claude/templates/insights-template.md`.
+    -   Agent creates `datarim/insights/INSIGHTS-{task-id}.md` from template `${DATARIM_RUNTIME:-$HOME/.claude}/templates/insights-template.md`.
     -   Agent runs research checklist per mode, using available tools adaptively (context7, WebSearch, LTM API, codebase analysis).
     -   If insights document already exists (e.g., from a previous `/dr-prd` run), update rather than overwrite.
 
@@ -48,7 +48,7 @@ This command generates a structured Product Requirements Document (PRD) followin
     -   Wait for user approval on the selected approach.
 
 5.  **Generate PRD**:
-    -   Use the structure from `$HOME/.claude/templates/prd-template.md`.
+    -   Use the structure from `${DATARIM_RUNTIME:-$HOME/.claude}/templates/prd-template.md`.
     -   Include: Problem Statement, Scope, Context Analysis, Technical Approach (Selected + Alternatives), Success Criteria, Risks.
     -   If insights document was created in Phase 1.3, add a reference in the PRD header: `**Research:** [INSIGHTS-{task-id}](../insights/INSIGHTS-{task-id}.md)`
     -   **Pre-save validation gates (MANDATORY before write):**
@@ -141,6 +141,18 @@ The PRD MUST include:
 
 Run: `/dr-prd "Brief description of the task"`
 
+## /dr-auto Mode (when `DATARIM_AUTO_MODE=1`)
+
+When auto-mode is active (env var `DATARIM_AUTO_MODE=1` AND matching marker `datarim/.auto-mode-active` containing this TASK-ID), this command:
+
+1. Consults `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode.md` § Question Suppression Ladder before any `AskUserQuestion` or equivalent operator prompt at this stage.
+2. Stage-specific suppression hooks:
+   - Step 2 Discovery Interview — каждый Q resolved through Ladder L1-L4 before falling through to Discovery prompt; business-strategy Qs go straight to L5.
+   - Step 4 Consult User gate — proposed approach + alternatives auto-selected if Ladder unambiguous; L5 only for true cross-cutting trade-offs.
+3. Discovered gaps → apply L1 Inline Resolution Rule per `skills/autonomous-mode.md`; log in `datarim/tasks/{TASK-ID}-auto-inline-log.md` if applied inline.
+4. Hard-gated actions → escalate to operator through Ladder L5; log via `dev-tools/append-init-task-qa.sh --decided-by operator` per `skills/init-task-persistence.md` § Q&A round-trip.
+5. Mismatch (env var set, marker absent OR marker contains different TASK-ID) → emit single-line warning, treat as non-auto (fail-safe per `skills/autonomous-mode.md` § When this skill is active).
+
 ## Next Steps (CTA)
 
 After PRD save, the architect agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format.md`.
@@ -154,3 +166,14 @@ After PRD save, the architect agent MUST emit a CTA block per `$HOME/.claude/ski
 - Always include `/dr-status` as escape hatch
 
 The CTA block MUST follow the canonical format (numbered, one `**рекомендуется**`, `---` HR). Variant B menu when >1 active tasks.
+
+## Stage Snapshot Emission (Mandatory Terminal Step)
+
+After the `## Next Steps (CTA)` block above, the agent MUST perform snapshot emission per `$HOME/.claude/skills/cta-format.md` § Snapshot Emission. Parameters bound for this command:
+
+- `stage`: `prd`
+- `command`: `/dr-prd`
+- `captured-by`: `agent`
+- `recommended-next`: primary CTA option (slash-prefixed `/dr-*` form)
+
+Fail-closed: on non-zero writer exit, emit a single stderr warning line and continue (V-AC-7 contract). Kill switch `DATARIM_DISABLE_SNAPSHOT=1` is handled inside the library; under the switch the writer is a no-op without warning.

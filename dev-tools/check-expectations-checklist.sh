@@ -33,6 +33,12 @@ set -uo pipefail
 VERSION="1.0.0"
 SCRIPT_NAME="check-expectations-checklist.sh"
 
+# TUNE-0266 Phase 4: pivot date for "all wishes evidence_type=static" advisory.
+# Tasks whose expectations frontmatter carries captured_at < this date are
+# treated as legacy and skipped by the warn-all-static check. Override via
+# DATARIM_TUNE_0266_PIVOT_DATE env var (ISO YYYY-MM-DD).
+TUNE_0266_PIVOT_DATE="2026-05-23"
+
 usage() {
     cat <<EOF
 Usage:
@@ -166,10 +172,11 @@ days_between() {
 
 parse_items() {
     local file="$1"
-    awk -v f="$file" '
+    local schema="${2:-1}"
+    awk -v f="$file" -v schema="$schema" '
         BEGIN {
             in_section = 0; current_item = 0; total_items = 0; errors = 0
-            wish_id = ""; status = ""; override_text = ""
+            wish_id = ""; status = ""; override_text = ""; evidence_type = ""
             history_count = 0; has_history_heading = 0; has_status_heading = 0
             in_history = 0; in_status = 0
         }
@@ -191,7 +198,7 @@ parse_items() {
                 if (current_item) emit_item()
                 total_items++
                 current_item = total_items
-                wish_id = ""; status = ""; override_text = ""
+                wish_id = ""; status = ""; override_text = ""; evidence_type = ""
                 history_count = 0; has_history_heading = 0; has_status_heading = 0
                 in_history = 0; in_status = 0
                 next
@@ -200,6 +207,11 @@ parse_items() {
                 if (match($0, /^  - wish_id:[ \t]*/)) {
                     wish_id = substr($0, RLENGTH + 1)
                     sub(/[ \t]+$/, "", wish_id)
+                    in_history = 0; in_status = 0; next
+                }
+                if (match($0, /^  - evidence_type:[ \t]*/)) {
+                    evidence_type = substr($0, RLENGTH + 1)
+                    sub(/[ \t]+$/, "", evidence_type)
                     in_history = 0; in_status = 0; next
                 }
                 if (match($0, /^  - override:[ \t]*/)) {
@@ -264,6 +276,18 @@ parse_items() {
                 printf "ERROR: %s: item %d status not in enum: %s\n", f, current_item, status > "/dev/stderr"
                 errors++
             }
+            # v2 schema: evidence_type required + enum (empirical|static|measurement).
+            # See skills/expectations-checklist.md § Item rules.
+            if (schema == "2") {
+                if (evidence_type == "") {
+                    printf "ERROR: %s: item %d missing evidence_type (required in schema_version=2)\n", f, current_item > "/dev/stderr"
+                    errors++
+                } else if (evidence_type != "empirical" && evidence_type != "static" \
+                       && evidence_type != "measurement") {
+                    printf "ERROR: %s: item %d evidence_type not in enum: %s (allowed: empirical|static|measurement)\n", f, current_item, evidence_type > "/dev/stderr"
+                    errors++
+                }
+            }
             ovr_len = length(override_text)
             printf "%d|%s|%s|%d\n", current_item, wish_id, status, ovr_len
         }
@@ -305,9 +329,15 @@ validate_single_task() {
     fi
 
     val=$(extract_frontmatter_field "$file" "schema_version")
-    if [ -n "$val" ] && [ "$val" != "1" ]; then
-        echo "ERROR: $file: schema_version must be '1', got '$val'" >&2
+    schema_v="$val"
+    if [ -n "$val" ] && [ "$val" != "1" ] && [ "$val" != "2" ]; then
+        echo "ERROR: $file: schema_version must be '1' or '2', got '$val'" >&2
         errors=$(( errors + 1 ))
+    fi
+    # v1 legacy deprecation warning (TUNE-0266: 12-month sunset, see
+    # skills/expectations-checklist.md § Backwards-compatibility window).
+    if [ "$val" = "1" ]; then
+        echo "DEPRECATION: $file: schema_version=1 — upgrade to v2 at next edit. Sunset: 2027-05-23 (12 months from TUNE-0266 archive). See docs/migration-v1-v2.md." >&2
     fi
 
     val=$(extract_frontmatter_field "$file" "task_id")
@@ -322,7 +352,8 @@ validate_single_task() {
     fi
 
     # Item-level parse — emits to stdout (discarded here) + stderr.
-    if ! parse_items "$file" >/dev/null; then
+    # schema_v passed through to enable evidence_type check in v2 mode.
+    if ! parse_items "$file" "${schema_v:-1}" >/dev/null; then
         errors=$(( errors + 1 ))
     fi
 
@@ -406,12 +437,34 @@ scan_all_tasks() {
     [ ! -d "$TASKS_DIR" ] && return 0
 
     local desc id complexity status legacy created exp_file age severity
+    local pivot captured_at total_wishes static_wishes
+    pivot="${DATARIM_TUNE_0266_PIVOT_DATE:-$TUNE_0266_PIVOT_DATE}"
     shopt -s nullglob
     for desc in "$TASKS_DIR"/*-task-description.md; do
         id="$(basename "$desc")"
         id="${id%-task-description.md}"
         exp_file="$TASKS_DIR/${id}-expectations.md"
-        [ -f "$exp_file" ] && continue
+
+        # TUNE-0266 Phase 4: tasks WITH expectations — advisory warn when every
+        # wish carries evidence_type: static. Single-wish skeletons (L1) and
+        # legacy tasks are exempt. Legacy = legacy:true in description frontmatter
+        # OR expectations captured_at strictly before TUNE_0266_PIVOT_DATE.
+        if [ -f "$exp_file" ]; then
+            legacy=$(extract_frontmatter_field "$desc" "legacy")
+            [ "$legacy" = "true" ] && continue
+
+            captured_at=$(extract_frontmatter_field "$exp_file" "captured_at")
+            if [ -n "$captured_at" ] && [[ "$captured_at" < "$pivot" ]]; then
+                continue
+            fi
+
+            total_wishes=$(grep -cE '^  - wish_id:' "$exp_file" || true)
+            static_wishes=$(grep -cE '^  - evidence_type:[[:space:]]*static[[:space:]]*$' "$exp_file" || true)
+            if [ "$total_wishes" -ge 2 ] && [ "$total_wishes" -eq "$static_wishes" ]; then
+                echo "WARNING: $id all wishes have evidence_type: static — consider adding empirical/measurement evidence"
+            fi
+            continue
+        fi
 
         complexity=$(extract_frontmatter_field "$desc" "complexity")
         case "$complexity" in

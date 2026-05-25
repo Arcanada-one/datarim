@@ -2,7 +2,7 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 2.9.0](https://img.shields.io/badge/Version-2.11.0-green.svg)](VERSION)
+[![Version: 2.20.0](https://img.shields.io/badge/Version-2.20.0-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Arcanada-one/datarim/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Arcanada-one/datarim)
 
@@ -16,7 +16,7 @@ reflection. The result is inconsistent quality, skipped steps, and zero institut
 learning. Every task starts from scratch, repeating the same mistakes from yesterday.
 
 Datarim fixes this by providing a complete iterative pipeline for any project type.
-It includes 18 specialized agents, 46 reusable skills, and 22 commands that guide
+It includes 18 specialized agents, 45 reusable skills, and 23 commands that guide
 work through a structured process: requirements gathering, planning, design,
 execution, quality assurance, compliance, reflection, and archival. The pipeline is
 complexity-aware — a quick fix does not go through the same process as a major
@@ -98,8 +98,8 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   covering everything from testing methodology to security hardening to content
   creation workflows and structured research.
 
-- **22 commands** — 8 pipeline stages + /dr-verify standalone, 3 content (write, edit, publish), 5 framework
-  and knowledge management (addskill, doctor, optimize, dream, **plugin** v1.23.0+), 3 utilities (status, continue,
+- **23 commands** — 8 pipeline stages + /dr-auto autonomous mode + /dr-verify standalone, 3 content (write, edit, publish), 5 framework
+  and knowledge management (addskill, doctor, optimize, dream, **plugin** v1.23.0+), utilities (status, next,
   help), and 2 standalone tools (factcheck, humanize).
 
 - **8-stage complexity-aware pipeline** — tasks flow through exactly the stages they
@@ -130,6 +130,20 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   schema v2 with confidence + backend metadata, hash-only matched text
   invariant preserved. Install via `dr-plugin enable dr-orchestrate`. See
   `plugins/dr-orchestrate/README.md`.
+
+- **Multi-runtime coworker delegation enforcement** — `dev-tools/coworker-hook-guard.sh`
+  is a PreToolUse hook that denies direct bulk I/O when the MANDATORY
+  delegation rules apply (>400-line reads, ≥3-file ask, bootstrap
+  multi-file load, `git diff`/`git log -p` over ~200 lines, protected
+  write paths). Covers Claude tool names (`Read`, `Write`, `Bash`) AND
+  Codex CLI native tool names (`view`, `apply_patch`, `shell`,
+  `exec_command`). Single source of truth for the delegation rules text
+  is `templates/coworker-delegation-fragment.md`; `install.sh
+  --with-codex` prepends it into `~/.codex/AGENTS.override.md`. Codex
+  hooks.json wiring is operator-maintained per machine — see
+  `docs/how-to/codex-cli-coworker-hooks.md`. Companion Stop-side
+  validator: `dev-tools/hooks/dr-output-stop.{py,sh}` enforces Stage
+  Header + human-summary structure on `/dr-do` transcripts.
 
 - **Autonomous Agent Operating Rules contract** — `dr-orchestrate` ships
   `rules/fb-rules.yaml` (FB-1..FB-8 policy block with `enforcement_layer` /
@@ -221,7 +235,7 @@ back into this repo so the next person who clones it gets the current state.
    this happens through `/dr-archive` Step 0.5 after a task surfaces a lesson.
 2. After the human approves the change, commit it in this repository by
    copying the updated file from `~/.claude/` into the repo tree.
-3. Run `./scripts/check-drift.sh` to confirm runtime and repo match.
+3. Run `./validate.sh` to confirm runtime symlinks point at the repo.
 4. Bump `VERSION` if the change is significant enough to warrant a release.
 
 `install.sh` is for seeding a fresh machine — it installs this repo's content
@@ -251,25 +265,20 @@ Merge mode — copies agents, skills, commands, templates, and supporting
 subdirectories into `~/.claude/`, skipping any file that already exists. Safe
 to run on a system that already has customizations.
 
-### Drift check
+### Verifying the install
 
 ```bash
-./scripts/check-drift.sh
+./validate.sh
 ```
 
-Advisory — compares `~/.claude/` against the repo across agents, skills,
-commands, and templates. Shows files that differ or exist on only one side.
-Useful for spotting **curation candidates**: files where `~/.claude/` has
-evolved beyond the repo snapshot and may be ready to land upstream.
+Verifies that `~/.claude/{agents,skills,commands,templates}/` resolve to the
+canonical Datarim repo (symlink mode) or contain the expected fileset (copy
+mode). Under symlink topology drift is impossible by construction — runtime
+IS the repo by inode.
 
-Exits `0` if no drift, `1` if drift found (normal — most living systems
-diverge), `2` on error. Exit `1` is not a failure; it is a prompt to review
-what has changed.
-
-The scope list (`SCOPES=(agents skills commands templates)`) mirrors
-`install.sh INSTALL_SCOPES` exactly; dev-tooling directories (`scripts/`,
-`tests/`) are deliberately excluded because they are not distributed to
-runtime. See [docs/getting-started.md](docs/getting-started.md#installer-contract)
+The scope list lives in `install.sh INSTALL_SCOPES`; dev-tooling directories
+(`scripts/`, `tests/`, `dev-tools/`) are deliberately excluded because they
+are not distributed to runtime. See [docs/getting-started.md](docs/getting-started.md#installer-contract)
 for the full installer contract.
 
 ### Symlink-default operating model
@@ -367,7 +376,7 @@ claude
 /dr-status
 
 # Resume after a break
-/dr-continue
+/dr-next
 ```
 
 Each command guides you through its stage. The framework tracks state between
@@ -465,6 +474,7 @@ specific capabilities. You can add custom skills by placing `.md` files in
 | `/dr-qa` | Quality | Run quality checks. PRD alignment, design conformance, plan completeness, output quality. |
 | `/dr-compliance` | Compliance | Post-QA hardening. Validates against PRD, checks for regressions, security audit. |
 | `/dr-archive` | Archive | Archive the task. Step 0.5 runs reflection (analyze, propose framework updates). Steps 1-7 store context, update backlog, reset for the next task. |
+| `/dr-auto` | Autonomous | Meta-command for autonomous execution. Activates FB-1..8 mandate + L1 Inline Resolution Rule as default-on via env var + file marker. Question Suppression Ladder (5 levels) suppresses pipeline Q&A; L1 Class A gaps close inline; hard-gated actions escalate to operator. Two modes — Continue (`/dr-auto {TASK-ID}` resume) / Bootstrap (`/dr-auto "<free-text>"` full pipeline). |
 | `/dr-write` | Content | Create written content — articles, docs, research, posts. Uses the writer agent. |
 | `/dr-edit` | Content | Editorial review — fact-check, AI pattern removal, style, publication quality. Uses the editor agent. |
 | `/dr-publish` | Content | Adapt and publish content to multiple platforms (Telegram, LinkedIn, blog, etc.). Uses the writer agent. |
@@ -474,13 +484,13 @@ specific capabilities. You can add custom skills by placing `.md` files in
 | `/dr-optimize` | Maintenance | Audit framework health, prune unused components, merge duplicates, fix references, sync documentation. |
 | `/dr-plugin` | Maintenance | Manage opt-in plugins (v1.23.0+, TUNE-0101). `list/enable/disable/sync/doctor` over a manifest-driven runtime. Symlinks plugin sources into `~/.claude/{cat}/{plugin-id}/` namespaces; supports root-position `overrides:`; pre-mutation snapshot/rollback. |
 | `/dr-status` | Any | Check current task status, pipeline progress, and backlog summary. |
-| `/dr-continue` | Any | Resume work from the last checkpoint. Restores context and picks up where you left off. |
+| `/dr-next` | Any | Resume work from the last checkpoint. Restores context and picks up where you left off. |
 | `/dr-help` | Any | List all available commands with descriptions, pipeline flow, and complexity routing. |
 | `/factcheck` | Standalone | Fact-check articles and posts. Extracts claims, verifies against sources, corrects errors. |
 | `/humanize` | Standalone | Remove AI writing patterns from text. Fixes vocabulary, structure, and formatting artifacts. |
 
 Commands are sequential within a pipeline but you can always check `/dr-status`,
-`/dr-continue`, or `/dr-help` at any point.
+`/dr-next`, or `/dr-help` at any point.
 
 ---
 
@@ -975,7 +985,7 @@ and why it exists.
 datarim/
   agents/            # Agent personas (18 agents)
   skills/            # Knowledge modules (41 skills)
-  commands/          # Slash commands (22 commands)
+  commands/          # Slash commands (23 commands)
   templates/         # Task and document templates (19 templates)
   docs/              # Extended documentation and use cases
   CLAUDE.md          # Framework rules (copy to your project)

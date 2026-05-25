@@ -1,0 +1,59 @@
+# Arcanada Datarim accepted-risk-aal register — schema v1.
+#
+# Orthogonal to templates/accepted-risk.yml (CVE-only register).
+# This file tracks AAL mandate-override approvals — operator-accepted
+# deviations from the AAL ceiling declared in
+# documentation/mandates/aal-mandate.md.
+#
+# Source-of-truth: this YAML file at code/datarim repo root.
+# Validator: dev-tools/check-accepted-risk-aal.sh
+#
+# Schema rules:
+#   schema_version: integer == 1
+#   entries[].id:                  string, kebab-case, unique
+#   entries[].title:               string
+#   entries[].accepted_at:         ISO-8601 date
+#   entries[].expires:             ISO-8601 date, >= today
+#   entries[].review_required_by:  ISO-8601 date, == expires
+#   entries[].operator:            string (human handle / agent id)
+#   entries[].mandate_overridden:  path to mandate file
+#   entries[].mandate_ceiling:     integer (AAL level enforced by mandate)
+#   entries[].declared_level:      integer (level operator is opting into)
+#   entries[].scope:               list of strings (prd refs, cli_subcommands, …)
+#   entries[].mitigations:         list of strings (V-AC names)
+#   entries[].risk_summary:        free-text
+#   entries[].rollback:            string (one-line restore procedure)
+#
+schema_version: 1
+
+entries:
+  - id: tune-0268-aal3-cli
+    title: "Datarim CLI AAL 3 full autonomous — mandate override"
+    accepted_at: 2026-05-23
+    expires: 2026-08-21
+    review_required_by: 2026-08-21
+    operator: paxbeach
+    mandate_overridden: documentation/mandates/aal-mandate.md
+    mandate_ceiling: 2
+    declared_level: 3
+    scope:
+      - "prd:PRD-TUNE-0268"
+      - "prd:PRD-TUNE-0271"
+      - "cli_subcommand:run"
+      - "cli_subcommand:audit halt"
+      - "cli_subcommand:audit resume"
+      - "cli_subcommand:audit purge"
+    mitigations:
+      - dual_channel_notifier_fail_closed
+      - jsonl_audit_log_with_flock
+      - kill_switch_sentinel_file
+      - bilingual_install_warning
+      - retention_90d_aligned_with_review
+    risk_summary: >
+      External AI agents driving Datarim pipeline via `datarim` CLI may
+      trigger irreversible actions (`/dr-archive`, `git push`, `tmux kill`,
+      `config set aal_*`) without interactive confirmation. The five
+      mitigations above ensure all such actions are observable in real
+      time (notifier) and reconstructable post-hoc (JSONL audit) with an
+      instant operator-controlled freeze mechanism (kill-switch).
+    rollback: "Remove this entry → CLI's invocation-time gate refuses AAL 3 actions (exit 23)."

@@ -9,6 +9,9 @@
 #       confidence: <float 0..1>                   # 0.95 = exact-match anchor
 
 patterns:
+  - match: "/dr-next"
+    action: "/dr-next"
+    confidence: 0.95
   - match: "/dr-init"
     action: "/dr-init"
     confidence: 0.95
@@ -37,5 +40,5 @@ patterns:
     action: "/dr-status"
     confidence: 0.90
   - match: "/dr-continue"
-    action: "/dr-continue"
+    action: "/dr-next"
     confidence: 0.90

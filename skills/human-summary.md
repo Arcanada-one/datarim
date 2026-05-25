@@ -39,8 +39,10 @@ The summary is emitted in chat as a markdown section:
 ## Отчёт оператору        # if operator language is Russian
 ## Operator summary       # if operator language is English
 
+**{TASK-ID} · {title}**     # MANDATORY self-identifier preamble (see § Self-identifier preamble)
+
 **Что было сделано / What was done**
-... 1-3 sentences ...
+... operator brief (paraphrased from § Operator brief verbatim) + which of those goals were achieved (1-3 sentences) ...
 
 **Что получилось / What worked**
 - bullet
@@ -55,7 +57,30 @@ The summary is emitted in chat as a markdown section:
 ... 1-2 sentences ...
 ```
 
-Sub-section order is fixed. The four sub-headings are mandatory even when one is a single line.
+**Sub-section order is fixed and exhaustive.** The self-identifier preamble + four sub-headings are the entire shape. **Adding** a fifth sub-section (e.g. «Где это видно» / «References» / «Source files» / «Audit trail» / «Links») is a `block` finding — references go inside the technical block above the summary or as a single sentence inside «Что дальше», not as their own sub-section. **Dropping** any of the four sub-headings (most often the writer dives straight into results and silently skips «Что было сделано») is also a `block` finding. Empty sub-section ⇒ emit a single-line placeholder («всё закрыто» / «nothing outstanding» / «нет открытых пунктов») — never omit the heading itself.
+
+### Self-identifier preamble
+
+The first non-empty line after the section header MUST be `**{TASK-ID} · {title}**` (same one-liner form as the Stage Header in `cta-format.md` § Stage Header). Rationale: the Stage Header at the top of the full `/dr-*` response identifies the task while the operator reads in-context. But the Human Summary section is **also read standalone** — operators scroll back the chat log and read the last summary chunk out of context. Without the self-identifier, a finished summary is unattributable: «Что получилось» + «Что не получилось» bullets describe results of *some* task without saying which.
+
+Format rules are identical to Stage Header:
+
+- `**{TASK-ID} · {title}**` with U+00B7 MIDDLE DOT separator surrounded by single ASCII spaces.
+- Title verbatim from `tasks.md` one-liner; when the task is already in the archive document, take the title from `archive-{ID}.md` frontmatter `title:` field.
+- Bold inline only — no surrounding heading, no blockquote, no italics.
+
+The preamble is **mandatory for all callers** (`/dr-qa`, `/dr-compliance`, `/dr-archive`, and any future caller). Duplication with the Stage Header at the top of the response is **acceptable** — the two surfaces serve different reading modes (in-context first-line vs standalone section header).
+
+### «Что было сделано» — explicit definition
+
+This sub-section is the operator-facing answer to **«Что я просил и что вы для этого сделали?»** It MUST surface two facts in one to three sentences:
+
+1. **What the operator asked for** — paraphrase from `datarim/tasks/{TASK-ID}-init-task.md` § Operator brief (verbatim) (or the resolved § Source command if init-task absent). For `/dr-archive` also cross-reference `archive-{ID}.md` § Начальная задача. Stay close to the operator's own words — this is not the place for technical jargon.
+2. **Which of those goals were achieved** — one-sentence outcome summary keyed to the brief. For `/dr-archive` cross-reference `archive-{ID}.md` § Как решили (без копирования всего списка — извлечение).
+
+Pure descriptions of the *artifact-mutation process* («архив обновлён», «секции добавлены», «cleanup PASS») are **insufficient** — they describe what was *written about* the task, not what was *done for* the task. The latter is what the operator needs to see. A summary whose «Что было сделано» starts with «Архив дополнен …» / «Секции обновлены …» fails this rule and is a `block` finding (per § Severity ladder).
+
+When init-task brief is unavailable (legacy task predating the init-task contract): paraphrase from `tasks/{TASK-ID}-task-description.md` § Overview and label as «(brief восстановлен из § Overview — оригинальный operator brief отсутствует)» so the operator sees the source explicitly.
 
 Language detection: choose the language of the most recent operator message. Default for Russian-speaking operators is Russian.
 
@@ -170,6 +195,10 @@ If `banlist.txt` or `whitelist.txt` is absent at runtime, the caller MUST emit a
 
 If the skill cannot be loaded (missing file), the caller proceeds without the summary section. The technical output and the CTA block remain unchanged. The bats spec-regression test guards against silent removal of the skill, its sub-headings, the banlist / whitelist, and the escape-hatch contract.
 
+<!-- gate:history-allowed -->
+In addition to the markdown contract, the severity ladder above is also checked by a programmatic validator — the opt-in Claude Code `Stop` hook `dev-tools/hooks/dr-output-stop.sh` (TUNE-0264). When the user invoked `/dr-archive`, `/dr-compliance`, or `/dr-qa`, the hook extracts the `## Отчёт оператору` / `## Operator summary` section and emits a block finding for any of `missing_section`, `missing_preamble`, `missing_subheading_<1..4>`, `fifth_subheading`, or `wrong_order`. On first occurrence the hook returns stdout JSON `{"decision":"block","reason":"..."}` so the model regenerates the summary; on retry (`stop_hook_active=true`) the same findings are emitted to stderr as advisory and exit 0 (retry budget = 1). The hook is opt-in via `~/.claude/settings.json § hooks.Stop[]` per `docs/how-to/dr-output-hook.md`.
+<!-- /gate:history-allowed -->
+
 ## Example (RU)
 
 > ## Отчёт оператору
@@ -203,3 +232,8 @@ If the skill cannot be loaded (missing file), the caller proceeds without the su
 > - A strict runtime validator that scans the emitted text against the lists is not wired yet — for now the contract is fixed in prose and in the guard test; the validator itself ships in a follow-up.
 >
 > **What's next.** The work can move on to the post-verification step. The first run of that step will itself emit this recap, which doubles as a live check that the wiring works.
+
+## See also
+
+- Архивный и compliance-отчёт используют тот же банлист (`skills/human-summary/banlist.txt` + `skills/human-summary/whitelist.txt`). См. `${DATARIM_RUNTIME:-$HOME/.claude}/templates/archive-template.md` § «Как решили» и `${DATARIM_RUNTIME:-$HOME/.claude}/templates/compliance-report-template.md` § «Как решили» — банлист применяется к прозе четырёх верхних разделов; аудит-аддендум обёрнут в `<!-- gate:literal -->` fence для технических таблиц.
+- Канонический валидатор для прозы шаблонов — `dev-tools/check-banlist-on-prose.sh` (awk one-shot, поддерживает YAML frontmatter skip + `<!-- gate:literal -->` / `<!-- gate:example-only -->` fence-блоки).

@@ -10,11 +10,20 @@ description: Implement planned changes using TDD and AI quality principles
 
 ## Instructions
 
+
+**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format.md` § Stage Header.
 1.  **LOAD**: Read `$HOME/.claude/agents/developer.md` and adopt that persona.
 2.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system.md` § Path Resolution Rule.
 3.  **TASK RESOLUTION**: Apply Task Resolution Rule from `$HOME/.claude/skills/datarim-system.md` § Task Resolution Rule. Use the resolved task ID for all subsequent steps.
 4.  **SKILL**: Read `$HOME/.claude/skills/ai-quality.md` (apply rules #2, #3, #8, #9 — see § Stage-Rule Mapping).
 5.  **CONTEXT**: Read `datarim/tasks.md` (Implementation Plan for the resolved task). Additionally, read `datarim/tasks/{TASK-ID}-init-task.md` if present (mandatory per `$HOME/.claude/skills/init-task-persistence.md`): the verbatim operator brief + every append-log block. Any divergence between the operator's stated intent and the planned implementation MUST be recorded in `datarim/tasks/{TASK-ID}-task-description.md` § Implementation Notes. Missing init-task is non-blocking — flag as advisory and continue.
+
+5.5. **OPERATOR-MANDATED DELEGATION FLOW** (MANDATORY when the operator's project / global CLAUDE.md declares a hook-enforced delegation rule for the artefact type being produced — e.g. «always delegate first, then edit» for archive docs, blog posts, PRD drafts, reflection files):
+    -   Use the delegated flow for the first draft. If the harness has a hook that hard-blocks direct write of the target path, the block is the contract working as intended — do not retry with a different write mechanism or argue with the hook output.
+    -   After the delegated generator completes, apply surgical edits to the produced file (judgment-parts only — verbatim copy of generated content is forbidden per the mandate's «never accept blindly» clause).
+    -   Record the delegation invocation in `datarim/tasks/{TASK-ID}-task-description.md` § Implementation Notes — one line per delegated artefact, citing the provider + profile + target path. `/dr-qa` Layer 3b cross-checks this line against the touched files.
+    -   Bypass is permitted ONLY when (a) the harness hook explicitly returned an allow decision (operator override at runtime) AND (b) the override reason is recorded in the same § Implementation Notes line. Silent bypass = process regression; `/dr-compliance` will surface it.
+    -   Rationale: hook-enforced mandates exist because the operator decided the delegation matters — for token economics, for content review discipline, or for security. Working around the hook to save time negates the operator's design decision and creates inconsistent artefact provenance across the task lifecycle.
 
 6.  **PRE-FLIGHT CHECK** (L3-L4 code tasks only):
     Before writing any code, verify readiness:
@@ -96,6 +105,7 @@ description: Implement planned changes using TDD and AI quality principles
     -   When `--decided-by agent`: `--rationale-file <path>` MUST contain ≥ 50 non-whitespace characters of justification.
     -   On contradiction with an expectation discovered mid-implementation: add `--conflict-with <wish_id>`; CTA MUST route back to `/dr-do --focus-items <wish_id>` after the conflict closure entry lands.
     -   Skip if no clarification rounds occurred.
+    -   **Applies to every round** (round 1, round 2, …) of `/dr-do` invocation — including post-`/dr-verify` triage and `--focus=` re-entry. Round number MUST monotonically increase; do not reuse `--round N` from a prior call. Missing append triggers `/dr-qa` Layer 3b retroactive backfill (a process-cost regression).
 
 9.  **OUTPUT** (thin-index schema):
     -   Code changes (committed per Workspace Discipline rules in CLAUDE.md).
@@ -115,6 +125,19 @@ Before proceeding to `/dr-qa` or `/dr-archive`:
 [ ] If staged changes touch any networking surface, `dev-tools/network-exposure-check.sh` exited 0 against the staged set and the tiered-gate verdict was honoured (or an `advisory_warn` override was logged with Ops Bot event + § Decisions note)?
 ```
 
+## /dr-auto Mode (when `DATARIM_AUTO_MODE=1`)
+
+When auto-mode is active (env var `DATARIM_AUTO_MODE=1` AND matching marker `datarim/.auto-mode-active` containing this TASK-ID), this command:
+
+1. Consults `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode.md` § Question Suppression Ladder before any `AskUserQuestion` or equivalent operator prompt at this stage.
+2. Stage-specific suppression hooks:
+   - TDD red→green transitions — design choices между equivalent implementations resolved through Ladder L1 (existing pattern grep) before L5.
+   - L1 inline gap classifier — discovered gap routed per skills/autonomous-mode.md § L1 Inline Resolution Rule decision tree (L1 Class A → inline; L2+/B → backlog; HARD → L5).
+   - Append every inline-resolved gap to `datarim/tasks/{TASK-ID}-auto-inline-log.md`.
+3. Discovered gaps → apply L1 Inline Resolution Rule per `skills/autonomous-mode.md`; log in `datarim/tasks/{TASK-ID}-auto-inline-log.md` if applied inline.
+4. Hard-gated actions → escalate to operator through Ladder L5; log via `dev-tools/append-init-task-qa.sh --decided-by operator` per `skills/init-task-persistence.md` § Q&A round-trip.
+5. Mismatch (env var set, marker absent OR marker contains different TASK-ID) → emit single-line warning, treat as non-auto (fail-safe per `skills/autonomous-mode.md` § When this skill is active).
+
 ## Next Steps (CTA)
 
 After implementation, the developer agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format.md`.
@@ -127,3 +150,14 @@ After implementation, the developer agent MUST emit a CTA block per `$HOME/.clau
 - Fundamental gap discovered (Gap Discovery escalation) → primary `/dr-prd {TASK-ID}` (revise requirements)
 
 The CTA block MUST follow the canonical format (numbered list, one `**рекомендуется**`, `---` HR wrapping, task ID included). Variant B menu when >1 active tasks.
+
+## Stage Snapshot Emission (Mandatory Terminal Step)
+
+After the `## Next Steps (CTA)` block above, the agent MUST perform snapshot emission per `$HOME/.claude/skills/cta-format.md` § Snapshot Emission. Parameters bound for this command:
+
+- `stage`: `do`
+- `command`: `/dr-do`
+- `captured-by`: `agent`
+- `recommended-next`: primary CTA option (slash-prefixed `/dr-*` form)
+
+Fail-closed: on non-zero writer exit, emit a single stderr warning line and continue (V-AC-7 contract). Kill switch `DATARIM_DISABLE_SNAPSHOT=1` is handled inside the library; under the switch the writer is a no-op without warning.

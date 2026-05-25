@@ -67,6 +67,17 @@ When code under test executes through a framework-internal pass-through — raw 
 
 **Document the decision.** Whichever level of the hierarchy is chosen, record the rationale in the test file or module preamble: which raw-pass call site, which instrumenter behaviour, which remediation level, and (for ignore comments) what the test surface actually exercises. Prevents future contributors from re-litigating the trade-off blind.
 
+### Variant — script-style module blind spot (test-include / coverage-exclude symmetry)
+
+A related variant of the same blind spot surfaces when the test runner's `include` glob is extended to a new directory (e.g. one-off seed / migration / admin scripts living outside the runtime source tree) without a mirroring update to the coverage tool's `exclude` glob. The test runner correctly executes the spec files (correctness verification works); the coverage tool then measures the source files those specs imply, but cannot instrument the top-level execution path of a script-style module — the file reports zero covered lines even though internal functions are tested. Symptom: a global lines-coverage threshold that passed yesterday fails today by a small fraction (e.g. 79.66% vs 80% gate) immediately after the `include` glob change; per-file coverage on runtime modules is unchanged.
+
+**Rule.** Whenever the test runner's `include` configuration is extended with a path glob outside the runtime source tree, audit the coverage tool's `exclude` configuration in the same change. Pick one of:
+
+1. **Exclude the script source files from coverage measurement.** Add the same path glob to the coverage `exclude` list. Spec files keep running (correctness preserved); only the coverage stat is excluded. Document with one line citing the instrumenter blind spot.
+2. **Refactor the script for instrumentable shape.** Extract the inner work into named exports the spec calls directly, leaving only an irreducible top-level invocation. The exports are instrumented normally.
+
+Discover this gate locally by running the project's coverage command after the `include` change — never let the coverage threshold fail at the next archive gate as the first signal.
+
 ---
 
 ## Reporting Test Counts in Audit Output
@@ -90,6 +101,8 @@ grep -cE '^func Test' <spec>
 <!-- /gate:example-only -->
 
 If the audit cites a count that does not match the extractor output for the same revision, treat that as a finding (drift between operator memory and source-of-truth). Source: prior incident — a per-spec count off-by-one in a QA report was caught only by independent re-execution at Compliance.
+
+**Commit messages are part of the audit trail too.** When a commit-message body cites added test counts (e.g. `Tests: N new spec cases` or `Full suite: M passed (was K)`), the numbers MUST come from the same mechanical extractor, not operator memory. Commit messages persist in git history and become the durable record once the branch is pushed; rewriting them after push is destructive (force-push) and after merge is impossible. The recommended canonical form for commit-message test deltas is `tests: +N (baseline→total)`, both numbers produced by running the extractor against the pre-commit and post-commit revisions. Source: prior incident — a commit body cited «13 new spec cases (sub-totals 7+3+6)» where the sub-totals themselves summed to 16, and «Full suite: N passed (was K)» where K was off by 3; both arithmetic mistakes surfaced only at the next pipeline gate. Two-second arithmetic checks belong in the extractor pipeline, not in the operator's head.
 
 ---
 
@@ -161,6 +174,16 @@ When writing a test for a defensive gate, identify every upstream layer (sanitiz
 
 ---
 
+## Documentation Runtime-Probe Rule
+
+When a skill, agent, command, or in-code docstring documents the behaviour of a parser, library, or runtime quirk — especially edge cases or fail-soft caveats — runtime-probe every claim before commit. A one-line CLI invocation that demonstrates each documented case takes about 30 seconds; the cost of detect-correct at iteration N during a multi-iter verification cycle is hours. The class extends beyond any single library — operator-facing precision matters even for fail-soft caveats, because an inaccurate caveat produces wrong-shaped operator mitigation.
+
+**Rule.** For every behavioural claim in a docstring or skill paragraph that describes how a third-party parser, library, or runtime behaves on edge input (`<!-- example: empty marker `<!-->` is parsed as comment `-->`), demonstrate the claim with a runnable probe. Capture two cases minimum: one that confirms the claim, one that contrasts an adjacent shape the reader might confuse with the documented case. Document the contrast inline so the docstring tells the reader where the boundary actually lies.
+
+**Why this matters.** A docstring whose claim was never runtime-verified at write-time will surface as a finding at the next peer-review pass — sometimes many iterations later, with the inaccurate guidance already shipped to consumers in the meantime. The remediation also costs more: by the time a reviewer flags it, the surrounding context has shifted and the author has lost the mental model of the original probe.
+
+**When to apply.** Any new or modified docstring, skill paragraph, or command instruction whose body asserts how an external parser/library/runtime behaves. Skip only when the claim is purely procedural ("call function X with arguments Y") with no behavioural assertion about a third-party surface.
+
 ## Discipline
 
 For test-first discipline (RED-GREEN-REFACTOR cycle, the Iron Law that no production code ships without a failing test first, the rationalization table that pre-answers "I'll test after / it's too simple / TDD is dogmatic"), load `skills/testing/tdd-discipline.md`. Apply when implementing any feature or bugfix in a context that warrants TDD — see the entry skill's Mocking Rules and § Live Smoke-Test Gates for what counts as a real test.
@@ -186,7 +209,7 @@ Load only the fragment needed for the current sub-problem:
 
 ## Reusable Templates
 
-- `templates/docker-smoke-checklist.md` — 5-step reusable checklist for cross-container smoke (Compose validity → container health → endpoint smoke → end-to-end action with post-conditions → rollback). Reference this when applying the Live Docker Smoke gate.
+- `${DATARIM_RUNTIME:-$HOME/.claude}/templates/docker-smoke-checklist.md` — 5-step reusable checklist for cross-container smoke (Compose validity → container health → endpoint smoke → end-to-end action with post-conditions → rollback). Reference this when applying the Live Docker Smoke gate.
 
 ## Quick Routing Heuristic
 

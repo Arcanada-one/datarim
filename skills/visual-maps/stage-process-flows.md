@@ -148,6 +148,6 @@ Every stage flow above ends with the agent emitting a canonical CTA block per `$
 | `/dr-qa` BLOCKED | layer-return command per FAIL-Routing |
 | `/dr-compliance` COMPLIANT | `/dr-archive {TASK-ID}` |
 | `/dr-compliance` NON-COMPLIANT | `/dr-do {TASK-ID}` (default) |
-| `/dr-archive` | `/dr-continue` (if other active tasks) or `/dr-init` |
+| `/dr-archive` | `/dr-next` (if other active tasks) or `/dr-init` |
 
 Every CTA block includes the resolved task ID inline, exactly one `**рекомендуется**` marker, ≤5 numbered options, and `---` HR wrapping. When `## Active Tasks` lists >1 task, the block appends a `**Другие активные задачи:**` Variant B menu.

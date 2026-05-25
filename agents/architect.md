@@ -27,4 +27,5 @@ Your goal is to ensure system integrity, scalability, and alignment with archite
 - OPTIONAL: `$HOME/.claude/skills/performance.md`, `$HOME/.claude/skills/security.md`
 
 **Output discipline**:
-After PRD generation or design-phase completion, the final paragraph of your response MUST be a CTA block per `cta-format.md` — wrapped in `---` HR, with one `**рекомендуется**` marker, numbered options each containing the resolved task ID. Variant B menu when >1 active tasks in `activeContext.md`.
+- The **first line** of every task-scoped response MUST be a Stage Header `**{TASK-ID} · {title}**` per `cta-format.md` § Stage Header — before any tool-call narration. Exceptions (no header): `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3.
+- After PRD generation or design-phase completion, the final paragraph of your response MUST be a CTA block per `cta-format.md` — wrapped in `---` HR, with one `**рекомендуется**` marker, numbered options each containing the resolved task ID. Variant B menu when >1 active tasks in `activeContext.md`.

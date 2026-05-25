@@ -6,19 +6,53 @@
 
 ### Path Resolution Rule
 
-Before writing any file to `datarim/`, you MUST resolve the correct path:
+Before writing any file to `datarim/`, you MUST resolve the correct path. The contract is **«one KB per git repository»** — the canonical `datarim/` lives at the git-root of the current repository and is identifiable by KB markers (`tasks.md`, `backlog.md`).
 
-1. Check whether `datarim/` exists in the current working directory.
-2. If not found, walk up the directory tree until you find a parent containing `datarim/`.
+1. If `pwd` is inside a git repository, prefer `<toplevel>/datarim/` when it both (a) exists and (b) carries at least one KB marker (`tasks.md` OR `backlog.md`). This is the **canonical anchor** — it returns the KB of the current repo regardless of nested or sibling `datarim/` directories.
+2. Otherwise (outside git, or the git-root has no KB-marked `datarim/`), walk up the directory tree from `pwd` and use the **first** parent containing a KB-marked `datarim/` (must have `tasks.md` or `backlog.md`). A plain `datarim/` directory without markers is **not** a KB — most commonly this is the framework source-tree (`code/datarim/skills/...`), which must not be mistaken for a KB.
 3. If still not found, stop. Do not create the directory unless you are explicitly running `/dr-init`.
+4. If more than one KB-marked `datarim/` is found in the parent chain **above** the resolved one (without each having its own `.git/` boundary), emit a `WARN:` line to stderr listing both paths — this signals a misplaced KB and should be reported to the operator.
 
-**Why:** In monorepos and nested repos, creating `datarim/` in the wrong directory pollutes the subproject and breaks archive/state consistency.
+**Why:** In monorepos and nested workspaces with multiple projects under one `.git/`, the historical walk-upward («first match wins») resolved to whichever `datarim/` happened to be closest to `pwd` — that picked up rogue/per-project `datarim/` directories instead of the canonical root one, fragmenting the KB. Anchoring to the git toplevel restores «one KB per git repo» and makes the resolver deterministic regardless of CWD inside the tree. Sub-projects with their own `.git/` (sub-repo / sibling clone) retain their own canonical `datarim/` — the git-root anchor naturally respects that boundary. The KB-marker check (`tasks.md` / `backlog.md` presence) disambiguates an actual KB from a same-named source-tree directory (e.g. `code/datarim/` contains the framework's `skills/agents/commands/templates/` source, not workflow state).
 
 ### Quick Shell Check
 
 ```bash
-DR_DIR=$(pwd); while [ "$DR_DIR" != "/" ]; do [ -d "$DR_DIR/datarim" ] && break; DR_DIR=$(dirname "$DR_DIR"); done
-if [ "$DR_DIR" = "/" ]; then print "ERROR: datarim/ not found"; else print "$DR_DIR/datarim"; fi
+_dr_is_kb() {
+    # A real KB carries at least one of the canonical operational files.
+    [ -d "$1" ] && { [ -f "$1/tasks.md" ] || [ -f "$1/backlog.md" ]; }
+}
+
+DR_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+DR_DIR=""
+if [ -n "$DR_ROOT" ] && _dr_is_kb "$DR_ROOT/datarim"; then
+    DR_DIR="$DR_ROOT"
+else
+    CUR=$(pwd)
+    while [ "$CUR" != "/" ]; do
+        if _dr_is_kb "$CUR/datarim"; then
+            DR_DIR="$CUR"
+            break
+        fi
+        CUR=$(dirname "$CUR")
+    done
+fi
+
+if [ -z "$DR_DIR" ]; then
+    printf 'ERROR: datarim/ not found (no directory with tasks.md or backlog.md)\n' >&2
+    exit 1
+fi
+
+# advisory: warn if more than one KB-marked datarim/ is visible below the chosen anchor
+EXTRA=$(find "$DR_DIR" -mindepth 2 -maxdepth 5 -type d -name datarim \
+    -not -path '*/.git/*' 2>/dev/null \
+    | while read -r d; do _dr_is_kb "$d" && printf '%s\n' "$d"; done | head -n 5)
+if [ -n "$EXTRA" ]; then
+    printf 'WARN: multiple KB-marked datarim/ visible — using %s/datarim; also seen:\n%s\n' \
+        "$DR_DIR" "$EXTRA" >&2
+fi
+
+printf '%s/datarim\n' "$DR_DIR"
 ```
 
 ## Core Files
@@ -80,7 +114,7 @@ The framework runtime directories in `$HOME/.claude/` are **symlinks** pointing 
 | `$HOME/.claude/skills/` | `Projects/Datarim/code/datarim/skills/` |
 | `$HOME/.claude/commands/` | `Projects/Datarim/code/datarim/commands/` |
 | `$HOME/.claude/agents/` | `Projects/Datarim/code/datarim/agents/` |
-| `$HOME/.claude/templates/` | `Projects/Datarim/code/datarim/templates/` |
+| `${DATARIM_RUNTIME:-$HOME/.claude}/templates/` | `Projects/Datarim/code/datarim/templates/` |
 
 **Implications:**
 - `git diff` in the Datarim repo shows runtime changes to skills/commands/agents/templates

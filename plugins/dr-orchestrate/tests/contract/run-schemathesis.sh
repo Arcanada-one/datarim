@@ -45,7 +45,7 @@ fi
 # Check base URL reachability.
 if ! curl -fsS --max-time 5 "$BASE_URL" >/dev/null 2>&1; then
   printf 'ERR: reference impl not reachable at %s\n' "$BASE_URL" >&2
-  printf 'Start with: webhook -hooks %s/config/hooks.yaml -port 8090 -verbose\n' "$PLUGIN_ROOT" >&2
+  printf 'Start with: bash %s/scripts/dr_orchestrate_server.sh start\n' "$PLUGIN_ROOT" >&2
   exit 3
 fi
 
@@ -60,11 +60,11 @@ fi
 # Schemathesis >=3.30 renamed --base-url -> --url and --hypothesis-max-examples -> --max-examples.
 # Schemathesis 4.x: LOCATION (schema path) is positional after the options.
 # --phases=examples: gate the documented success-path examples only.
-# Reference impl (adnanh/webhook) is intentionally permissive on unknown
+# Bundled bash HTTP server is intentionally permissive on unknown
 # headers, methods, content types, and missing auth — production wraps
-# webhook behind a reverse proxy that handles those concerns. Coverage
-# and Fuzzing phases generate synthetic edge cases that are out-of-scope
-# for this contract surface.
+# the listener behind a reverse proxy that handles those concerns.
+# Coverage and Fuzzing phases generate synthetic edge cases that are
+# out-of-scope for this contract surface.
 schemathesis run \
   --url "$BASE_URL" \
   --checks all \
