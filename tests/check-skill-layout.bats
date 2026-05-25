@@ -91,6 +91,14 @@ EOF
     [ "$status" -eq 0 ]
 }
 
+@test "PASS with --allow-flat-coexistence (Phase 2-4 hybrid window)" {
+    write_skill "alpha" "alpha"
+    echo "---" >"$TMPROOT/skills/alpha.md"
+    run "$SCRIPT" --root "$TMPROOT" --allow-flat-coexistence
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"OK-HYBRID"* ]] || [[ "$output" == *"alpha"* ]]
+}
+
 @test "PASS on multiple valid skills" {
     write_skill "alpha" "alpha"
     write_skill "beta-one" "beta-one"

@@ -10,16 +10,24 @@
 #
 # Reserved namespace skills/.system/ is skipped (Constraint C3 — Codex bundled).
 #
-# Usage: check-skill-layout.sh [--root <repo-root>]
+# Usage: check-skill-layout.sh [--root <repo-root>] [--allow-flat-coexistence]
+#
+# --allow-flat-coexistence tolerates skills/<name>.md alongside
+#   skills/<name>/SKILL.md (the Phase 2-4 hybrid window). Phase 5 contract
+#   removal is verified by running this script WITHOUT the flag — at that
+#   point all flat originals must be gone.
+#
 # Exit 0 on PASS, 1 on FAIL.
 
 set -euo pipefail
 
 ROOT=""
+ALLOW_FLAT=0
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --root) ROOT="$2"; shift 2 ;;
-        -h|--help) sed -n '2,15p' "$0"; exit 0 ;;
+        --allow-flat-coexistence) ALLOW_FLAT=1; shift ;;
+        -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
 done
@@ -91,9 +99,13 @@ for skill_dir in "$SKILLS_DIR"/*/; do
 
     flat_md="$SKILLS_DIR/$base.md"
     if [[ -f "$flat_md" ]]; then
-        echo "FAIL ($base): flat .md coexists with directory ($flat_md)"
-        fail=1
-        continue
+        if [[ "$ALLOW_FLAT" -eq 1 ]]; then
+            echo "OK-HYBRID ($base): flat .md coexists with directory ($flat_md) — tolerated under --allow-flat-coexistence"
+        else
+            echo "FAIL ($base): flat .md coexists with directory ($flat_md)"
+            fail=1
+            continue
+        fi
     fi
 done
 
