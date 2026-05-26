@@ -943,6 +943,19 @@ setup_cursor_runtime() {
     done
     echo "  CURSOR: mirrored $copied skill(s) into $cursor_dir/skills/ (flat .md layout)"
     echo "  NOTE: Cursor skill discovery is operator-validated — R7 (deferred-validation)."
+
+    # Install coworker delegation rule into ~/.cursor/rules/. Cursor reads
+    # *.mdc files from rules/ with frontmatter `alwaysApply: true` and
+    # auto-loads them. Parity with Claude (~/.claude/CLAUDE.md § Coworker
+    # Delegation) and Codex (~/.codex/AGENTS.override.md prepend).
+    local cw_rule_src="$src_dir/templates/coworker-delegation.mdc"
+    if [ -f "$cw_rule_src" ]; then
+        mkdir -p "$cursor_dir/rules"
+        cp "$cw_rule_src" "$cursor_dir/rules/coworker-delegation.mdc"
+        echo "  CURSOR: installed coworker delegation rule → $cursor_dir/rules/coworker-delegation.mdc"
+    else
+        echo "  CURSOR: SKIP coworker-delegation.mdc (template missing — non-fatal)"
+    fi
 }
 
 fanout_runtime() {

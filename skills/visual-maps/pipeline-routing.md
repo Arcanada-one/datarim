@@ -42,7 +42,7 @@ Brackets `[]` indicate stages that are conditional at that complexity level. `/d
 
 ## CTA Decision Points (v1.16.0)
 
-Every transition between stages MUST emit a canonical CTA block per `$HOME/.claude/skills/cta-format/SKILL.md`. Diagram representation:
+Every transition between stages MUST emit a canonical CTA block ([definition](../cta-format.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`. Diagram representation:
 
 <!-- gate:history-allowed -->
 ```mermaid
@@ -60,9 +60,9 @@ graph LR
 The CTA block always includes:
 1. Resolved task ID
 2. ≤5 numbered options (sweet spot 3)
-3. Exactly one `**рекомендуется**` primary marker
+3. Exactly one primary recommendation marker (exact token in `cta-format.md`)
 4. `---` HR wrapping (top + bottom)
-5. `**Другие активные задачи:**` Variant B menu when >1 active tasks
+5. Variant-B menu of other active tasks when more than one is active (exact token in `cta-format.md`)
 
 ### Failure Routing Decision Point
 

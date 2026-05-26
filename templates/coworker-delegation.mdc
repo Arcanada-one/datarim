@@ -1,0 +1,85 @@
+---
+description: Mandatory coworker delegation rules for bulk I/O — token saving via external LLM
+globs: "**/*"
+alwaysApply: true
+---
+
+# MANDATORY: Coworker Delegation Rule for Cursor
+
+## Rule of thumb
+
+Cursor agent = thinking. Coworker = I/O.
+
+## Tools
+
+CLI binary: `~/.local/bin/coworker`. Four subcommands:
+
+- `coworker ask --provider <p> --profile <pr> --paths <f1> <f2> ... --question "<q>"`
+- `coworker write --provider <p> --profile <pr> --spec "<what>" --context <ref1> ... --target <out>`
+- `coworker stats --since 7d --by profile`
+- `coworker rtk {install|enable|disable|status}` (optional plugin — see RTK section)
+
+Profiles: `code` (default, generic analysis), `datarim` (Datarim artifacts), `social` (posts), `write` (boilerplate). Cost-sensitive tasks → `--provider deepseek` (~14x cheaper output vs Moonshot).
+
+## ALWAYS delegate via coworker ask when ANY trigger fires
+
+- Total lines to read >600 (sum across files, not per file).
+- ≥3 files for one question.
+- Any read from `wiki/_raw_/`.
+- Bootstrap reads (tasks.md + backlog.md + CLAUDE.md + PRD + plan) — one call, not per-file Read.
+- `git diff` / `git log -p` output >~200 lines.
+
+## ALWAYS write through coworker write first, then surgical edit
+
+- First draft of PRD, plan, design docs, task-description.
+- Articles in `wiki/`, posts in `Social Media/`, ecosystem-site docs.
+- Never accept blindly — after `coworker write`, read output and edit judgment-parts only.
+
+## File-type policy (critical — common friction point)
+
+By default `coworker ask` accepts ONLY `.md`, `.markdown`, `.txt` files. Passing `.py`/`.ts`/`.js`/`.rs`/`.go`/`.sh`/`.mdc` exits 6 with: 'file X (extension .y) is not in the allowed list'.
+
+For code delegation, explicitly add ONE of:
+
+- `--allow-code` flag, OR
+- `COWORKER_ALLOW_CODE=1` environment variable prefix.
+
+Example:
+
+```
+coworker ask --allow-code --provider deepseek --profile code --paths src/foo.py src/bar.py --question "..."
+```
+
+Do NOT retry after exit 6 — use the flag from the first invocation when reading code files. Prefer the explicit `--allow-code` flag (override stays visible in shell history).
+
+## RTK plugin (opt-in, Rust Token Killer)
+
+RTK is an OPTIONAL coworker plugin for extra token savings via local `rtk` rust binary (https://github.com/Arcanada-one/rtk). Default-OFF; explicit opt-in required.
+
+Commands:
+
+- `coworker rtk install` — prints OS-specific install instructions (macOS / Linux / Windows)
+- `coworker rtk enable` — adds idempotent hook to `~/.claude/settings.json` (marker `_managed_by: coworker-rtk`)
+- `coworker rtk disable` — removes hook, settings.json back to pre-enable state
+- `coworker rtk status` — shows binary path/version + hook on/off
+
+Enable when bulk reads regularly exceed ~5k tokens (logs, code dumps, long diffs). Skip for short tasks.
+
+## NEVER delegate
+
+- Tasks under ~2000 tokens (overhead exceeds savings).
+- Debugging, root-cause analysis, race conditions, safety-critical logic.
+- Architectural decisions and trade-offs.
+- When exact line numbers are needed for Edit (coworker summaries lose them).
+- Reasoning about user intent.
+
+## Failure modes
+
+If provider API key unset / out of balance: scripts fail loudly. Fallback to native Read for that turn only. Switch provider with `--provider <other>`.
+
+## References
+
+- Canonical mandate: `code/datarim/templates/coworker-delegation-fragment.md`
+- Operator-facing doc: `documentation/infrastructure/Coworker.md`
+- OSS upstream: https://github.com/Arcanada-one/coworker (MIT)
+- RTK upstream: https://github.com/Arcanada-one/rtk (MIT)

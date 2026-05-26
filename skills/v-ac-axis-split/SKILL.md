@@ -20,3 +20,16 @@ Deterministic and statistical validity rely on different evidence chains. A pipe
 ## Reference case
 - A pipeline-level retrospective on a V-AC entry where a mixed deterministic + statistical axis caused false confidence.
 - A soak-test verification document captures the split pattern and evidence requirements.
+
+## Pattern 2: gate-activation axis dry-run
+
+When a task ships a new validator gate, or flips an existing gate from advisory to fail-hard (the «gate-activation axis»), `/dr-plan` Component Breakdown MUST include a validator dry-run row enumerating every file that currently fails under the gate's invocation `--scope`. Any file the PRD declares Out-of-Scope but that falls under the gate's `--scope` MUST be either (a) rewritten in-task or (b) explicitly waived with a documented `--scope` reduction in the plan.
+
+### Why
+A validator-activation task that defers files under the same scope is self-blocking — the gate runs against the deferred files at `/dr-archive` time and rejects the archive that activated it. Sizing the gate scope in plan-time absorbs the surprise into the rewrite plan or shrinks the gate to match the rewrite, rather than discovering the contradiction inside `/dr-archive`.
+
+### How to apply
+1. Identify any V-AC that activates a validator gate (`--scope X,Y,Z` in the gate's invocation surface).
+2. Run the gate against each declared scope in dry-run mode during `/dr-plan` Phase 4.
+3. List every failing file in the Component Breakdown.
+4. For each failing file: classify as (rewrite-in-task) or (waiver-shrinks-scope). PRD Out-of-Scope declarations that conflict with the gate scope MUST be resolved one of these two ways — not deferred to archive time.

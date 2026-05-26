@@ -9,7 +9,7 @@ target_aal: 2
 
 This skill is the **single source of truth** for the "Next Step" Call-to-Action block (the numbered Next-Step menu at the end of every pipeline command, one entry marked recommended) produced by every `/dr-*` command and every pipeline agent (`planner`, `architect`, `developer`, `reviewer`, `compliance`).
 
-It exists because free-form Next-Step prose forces operators to mentally map task IDs to commands, especially when two or more tasks are active. The fix: every command output ends with a structured, predictable CTA block with explicit task IDs and one marked primary action.
+It exists because free-form Next-Step prose forces operators to mentally map task IDs to commands, especially when two or more tasks are active. The fix: every command output ends with a structured, predictable CTA block ([definition](../cta-format.md)) with explicit task IDs and one marked primary action.
 
 ## When to Apply
 

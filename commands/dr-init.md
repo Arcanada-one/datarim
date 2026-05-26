@@ -158,17 +158,17 @@ description: Initialize a new Datarim task or scaffold a new project. Auto-detec
 
 When auto-mode is active (env var `DATARIM_AUTO_MODE=1` AND matching marker `datarim/.auto-mode-active` containing this TASK-ID), this command:
 
-1. Consults `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode/SKILL.md` § Question Suppression Ladder before any `AskUserQuestion` or equivalent operator prompt at this stage.
+1. Consults `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode/SKILL.md` § Question Suppression Ladder ([definition](../skills/autonomous-mode/SKILL.md)) before any `AskUserQuestion` or equivalent operator prompt at this stage.
 2. Stage-specific suppression hooks:
    - Step 3 backlog item selection prompt — resolve via Ladder L1 (grep backlog by description match) before AskUserQuestion.
    - Step 4 PRD waiver gate (L3-4) — resolve via Ladder L3 (operator-preference lookup in MEMORY.md feedback).
-3. Discovered gaps → apply L1 Inline Resolution Rule per `skills/autonomous-mode/SKILL.md`; log in `datarim/tasks/{TASK-ID}-auto-inline-log.md` if applied inline.
+3. Discovered gaps → apply L1 Inline Resolution Rule ([definition](../skills/autonomous-mode/SKILL.md)) per `skills/autonomous-mode/SKILL.md`; log in `datarim/tasks/{TASK-ID}-auto-inline-log.md` if applied inline.
 4. Hard-gated actions → escalate to operator through Ladder L5; log via `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/append-init-task-qa.sh" --decided-by operator` per `skills/init-task-persistence/SKILL.md` § Q&A round-trip.
 5. Mismatch (env var set, marker absent OR marker contains different TASK-ID) → emit single-line warning, treat as non-auto (fail-safe per `skills/autonomous-mode/SKILL.md` § When this skill is active).
 
 ## Next Steps (CTA)
 
-After completing initialization, the planner agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format/SKILL.md`.
+After completing initialization, the planner agent MUST emit a CTA block ([definition](../skills/cta-format.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-init`:**
 
@@ -183,7 +183,7 @@ The CTA block MUST: (a) include resolved task ID, (b) mark exactly one `**рек
 
 ## Stage Snapshot Emission (Mandatory Terminal Step)
 
-After the `## Next Steps (CTA)` block above, the agent MUST perform snapshot emission per `$HOME/.claude/skills/cta-format/SKILL.md` § Snapshot Emission. Parameters bound for this command:
+After the `## Next Steps (CTA)` block above, the agent MUST perform snapshot emission ([definition](../skills/stage-snapshot-writer/SKILL.md)) per `$HOME/.claude/skills/cta-format/SKILL.md` § Snapshot Emission. Parameters bound for this command:
 
 - `stage`: `init`
 - `command`: `/dr-init`

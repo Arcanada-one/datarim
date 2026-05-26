@@ -197,7 +197,7 @@ Before exiting `/dr-verify`:
 
 ## Next Steps (CTA)
 
-After verdict, MUST emit CTA block per `$HOME/.claude/skills/cta-format/SKILL.md`.
+After verdict, MUST emit CTA block ([definition](../skills/cta-format.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-verify`**:
 - **PASS / CONDITIONAL** → primary `/dr-compliance {TASK-ID}` (proceed to final hardening) or `/dr-archive {TASK-ID}` if compliance already done

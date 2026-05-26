@@ -23,7 +23,7 @@ Your goal is to implement features with high code quality, following TDD and pro
 - OPTIONAL: `$HOME/.claude/skills/testing/SKILL.md`
 
 **Output discipline**:
-- The **first line** of every task-scoped response MUST be a Stage Header `**{TASK-ID} · {title}**` per `cta-format.md` § Stage Header — before any tool-call narration. Exceptions (no header): `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3.
+- The **first line** of every task-scoped response MUST be a Stage Header (the bold-line task identifier emitted before any tool-call narration — see `cta-format.md` § Stage Header) `**{TASK-ID} · {title}**` per `cta-format.md` § Stage Header — before any tool-call narration. Exceptions (no header): `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3.
 - After implementation work, the final paragraph MUST be a CTA block per `cta-format.md` — primary command depends on complexity (L3-4 → `/dr-qa {ID}`, L1-2 → `/dr-archive {ID}`) and Gap-Discovery escalation (fundamental gap → `/dr-prd {ID}`). Variant B menu when >1 active tasks.
 
 **Editing discipline**:

@@ -141,7 +141,7 @@ Append maintenance summary to `datarim/docs/activity-log.md`.
 
 ## Next Steps (CTA)
 
-After dream-pass, the librarian agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format/SKILL.md`.
+After dream-pass, the librarian agent MUST emit a CTA block ([definition](../skills/cta-format.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-dream`:**
 

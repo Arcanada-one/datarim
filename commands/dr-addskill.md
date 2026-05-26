@@ -104,7 +104,7 @@ effort: high
 
 ## Next Steps (CTA)
 
-After skill creation, the skill-creator agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format/SKILL.md`.
+After skill creation, the skill-creator agent MUST emit a CTA block ([definition](../skills/cta-format.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-addskill`:**
 
@@ -113,4 +113,4 @@ After skill creation, the skill-creator agent MUST emit a CTA block per `$HOME/.
 - Need more domain expertise → alternative `/dr-prd {TASK-ID}` (research-phase) before iterating
 - Always include `/dr-status` as escape hatch
 
-The CTA block MUST follow the canonical format (numbered, one `**рекомендуется**`, `---` HR). Variant B menu when >1 active tasks.
+The CTA block MUST follow the canonical format (numbered list, one primary recommendation marker, `---` HR). Variant-B menu of other active tasks when more than one is active. Exact marker tokens live in `cta-format.md`.

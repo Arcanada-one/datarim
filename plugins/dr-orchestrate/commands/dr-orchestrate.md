@@ -22,20 +22,20 @@ task: TUNE-0165
 
 Phase 2 — Subagent Inference Layer (v2.4.0).
 
-## Цикл
+## Cycle
 
-1. `tmux capture-pane -p -t <pane>` — снимает текущий буфер.
-2. **Snapshot-First Resume.** Если в буфере или job-queue определён active TASK-ID и `datarim/snapshots/{TASK-ID}.snapshot.md` валиден (`dev-tools/check-stage-snapshot-on-exit.sh --validate-frontmatter --task <ID>` → exit 0) — прочитать снапшот ДО `semantic_parser.sh` и передать `recommended_next` в `subagent_resolver.sh` как `--hint <command>`. Snapshot read происходит до resolver dispatch, так что resolver всё ещё может вернуть иной command — snapshot это hint, не constraint. Если снапшот отсутствует / malformed — пропустить шаг без warning (V-AC-7) и продолжить со старым поведением. Контракт consumer-стороны: `skills/dr-next-snapshot-replay/SKILL.md`.
-3. `semantic_parser.sh parse` — rule-based pass возвращает `{command, confidence, source}`.
-4. **Hit (confidence > 0)** — Phase 1 path: лог `make_event` v1, JSONL append.
+1. `tmux capture-pane -p -t <pane>` — captures the current pane buffer.
+2. **Snapshot-First Resume.** If the buffer or job-queue identifies an active TASK-ID and `datarim/snapshots/{TASK-ID}.snapshot.md` is valid (`dev-tools/check-stage-snapshot-on-exit.sh --validate-frontmatter --task <ID>` returns exit 0), read the snapshot before invoking `semantic_parser.sh` and pass `recommended_next` to `subagent_resolver.sh` as `--hint <command>`. The snapshot read happens before resolver dispatch, so the resolver can still return a different command — the snapshot is a hint, not a constraint. If the snapshot is absent or malformed, skip this step without warning (V-AC-7 — the seventh verification acceptance criterion) and continue with prior behaviour. Consumer-side contract: `skills/dr-next-snapshot-replay/SKILL.md`.
+3. `semantic_parser.sh parse` — rule-based pass returns `{command, confidence, source}`.
+4. **Hit (confidence > 0)** — Phase 1 path: log `make_event` v1, JSONL append.
 5. **Miss (confidence == 0)** — Phase 2 path:
    - `subagent_resolver.sh resolve` — multi-backend chain (coworker → claude → codex), 15s per backend, lenient JSON parse, FD-3 close.
    - Confidence threshold gate (default `0.80`):
-     - Pass → audit `outcome: resolved` (schema v2); decision-cooldown 60s enforces single autonomous decision per pane per minute.
-     - Fail / chain_exhausted → `escalation_backend.sh emit` (mock JSONL по умолчанию; `dev-bot` backend остаётся stub до появления реального consumer-сервиса) + audit `outcome: escalated`.
-6. Любой `tmux send-keys` всё так же проходит security-floor: whitelist → escape-block → micro-cooldown (500ms) + decision-cooldown (60s) → fail-closed.
+     - Pass → audit `outcome: resolved` (schema v2); decision-cooldown 60s enforces a single autonomous decision per pane per minute.
+     - Fail / chain_exhausted → `escalation_backend.sh emit` (mock JSONL by default; the `dev-bot` backend remains a stub until a real consumer service exists) + audit `outcome: escalated`.
+6. Every `tmux send-keys` still passes through the security floor: whitelist → escape-block → micro-cooldown (500 ms) + decision-cooldown (60 s) → fail-closed.
 
-## Конфигурация (user-config.yaml)
+## Configuration (user-config.yaml)
 
 ```yaml
 subagent:
@@ -47,18 +47,18 @@ escalation:
   mock_log: ~/.local/share/dr-orchestrate/escalation.jsonl
 ```
 
-## Аудит (schema v2)
+## Audit (schema v2)
 
-- `make_event_v2` — добавляет поля `schema_version: 2`, `confidence`, `subagent_model`, `backend_used`, `escalation_backend`, `stage` (parse / resolve / escalate), `outcome` (matched / resolved / escalated / blocked_decision_cooldown), `reason` (grep-redacted).
-- Phase 1 v1 события сохраняются для rule-hit пути — обратная совместимость.
-- `matched_text_hash` (sha256) — V-AC-12 инвариант сохраняется; raw pane text никогда не попадает в лог.
+- `make_event_v2` — adds fields `schema_version: 2`, `confidence`, `subagent_model`, `backend_used`, `escalation_backend`, `stage` (parse / resolve / escalate), `outcome` (matched / resolved / escalated / blocked_decision_cooldown), `reason` (grep-redacted).
+- Phase 1 v1 events are preserved for the rule-hit path — backwards compatibility.
+- `matched_text_hash` (sha256) — V-AC-12 (the twelfth verification acceptance criterion — pane-text never logged in raw form) invariant preserved; raw pane text never reaches the log.
 
-## Security Floor (расширения Phase 2)
+## Security Floor (Phase 2 extensions)
 
-- `flock -n` обёртка вокруг cooldown read-write на Linux хостах (V-AC-21 race-safe).
-- macOS fallback: one-time WARN, non-atomic semantics (Phase 1 поведение).
-- Decision-cooldown (60s) — отдельный гейт для autonomous decisions через resolver path.
-- Reason-redaction: `password=`, `token=`, `secret=`, `credential=`, `api_key=` элидятся в `<REDACTED>` до записи.
+- `flock -n` wrapper around cooldown read-write on Linux hosts (V-AC-21 — twenty-first verification acceptance criterion — race-safe cooldown).
+- macOS fallback: one-time WARN, non-atomic semantics (Phase 1 behaviour).
+- Decision-cooldown (60 s) — separate gate for autonomous decisions through the resolver path.
+- Reason-redaction: `password=`, `token=`, `secret=`, `credential=`, `api_key=` elided to `<REDACTED>` before write.
 
 <!-- gate:example-only -->
 

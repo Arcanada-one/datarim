@@ -69,7 +69,7 @@ This allows parallel local workflow state with committed shared archives.
 
 ### Project Mode (scaffolding)
 
-When `/dr-init` detects project creation intent (keywords: "create project", "new project", "создай проект", etc.):
+When `/dr-init` detects project-creation intent (English keywords "create project" / "new project" or their Russian equivalents — full trigger list lives in `skills/project-init/SKILL.md`):
 
 1. Load `$HOME/.claude/skills/project-init/SKILL.md`.
 2. Create full project structure: `CLAUDE.md`, `docs/`, `docs/ephemeral/`, `datarim/`, `documentation/archive/`, `.gitignore`.

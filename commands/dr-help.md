@@ -29,7 +29,7 @@ Not every task goes through every stage. Datarim routes tasks based on complexit
 | `/dr-qa` | Quality | Multi-layer quality verification: PRD alignment, design conformance, plan completeness, output quality. |
 | `/dr-compliance` | Hardening | Post-QA hardening. 7-step workflow: revalidate, simplify, check references, coverage, lint, tests, harden. |
 | `/dr-archive` | Archive | Archive the completed task. Performs reflection (Step 0.5) + evolution proposals, then stores context and updates backlog. |
-| `/dr-auto` | Autonomous | Мета-команда автономного исполнения. Активирует FB-1..8 mandate + L1 Inline Resolution Rule + autonomous-ops scope как default-on. Two modes — Continue (resume task) / Bootstrap (full pipeline from /dr-init). Подавляет уточняющие вопросы через 5-уровневую Question Suppression Ladder. |
+| `/dr-auto` | Autonomous | Autonomous execution meta-command. Turns on the FB-1..8 mandate (eight feedback-rules — see autonomous-agents.md), the L1 Inline Resolution Rule (close small gaps in-line rather than asking), and the autonomous-ops scope by default. Two modes — Continue (resume an existing task) and Bootstrap (full pipeline starting from /dr-init). Suppresses clarification questions through the five-level Question Suppression Ladder ([definition](../skills/autonomous-mode/SKILL.md)). |
 
 ### Content Commands (2)
 
@@ -145,7 +145,7 @@ Idempotent — safe to run on existing projects (skips existing files, creates o
 
 ## Next Steps (CTA)
 
-After showing the help reference, MUST emit a CTA block per `$HOME/.claude/skills/cta-format/SKILL.md`.
+After showing the help reference, MUST emit a CTA block ([definition](../skills/cta-format.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-help`:**
 
@@ -154,4 +154,4 @@ After showing the help reference, MUST emit a CTA block per `$HOME/.claude/skill
 - No active tasks, empty backlog → primary `/dr-init "<description>"` (start new task)
 - Always include `/dr-status` as escape hatch
 
-The CTA block MUST follow the canonical format (numbered, one `**рекомендуется**`, `---` HR). Variant B menu when >1 active tasks.
+The CTA block MUST follow the canonical format (numbered list, one primary recommendation marker, `---` HR). Variant-B menu of other active tasks when more than one is active. Exact marker tokens live in `cta-format.md`.

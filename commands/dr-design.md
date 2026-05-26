@@ -67,7 +67,7 @@ Before proceeding to `/dr-do`:
 
 ## Next Steps (CTA)
 
-After design phase, the architect agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format/SKILL.md`.
+After design phase, the architect agent MUST emit a CTA block ([definition](../skills/cta-format.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-design`:**
 
@@ -75,11 +75,11 @@ After design phase, the architect agent MUST emit a CTA block per `$HOME/.claude
 - Missing items in design → primary `/dr-design {TASK-ID}` (continue) + alternative `/dr-prd {TASK-ID}` if requirements gap
 - Always include `/dr-status` as escape hatch
 
-The CTA block MUST follow the canonical format (numbered list, one `**рекомендуется**`, `---` HR wrapping, task ID included). Variant B menu when >1 active tasks.
+The CTA block MUST follow the canonical format (numbered list, one primary recommendation marker, `---` HR wrapping, task ID included). Variant-B menu of other active tasks when more than one is active. Exact marker tokens live in `cta-format.md`.
 
 ## Stage Snapshot Emission (Mandatory Terminal Step)
 
-After the `## Next Steps (CTA)` block above, the agent MUST perform snapshot emission per `$HOME/.claude/skills/cta-format/SKILL.md` § Snapshot Emission. Parameters bound for this command:
+After the `## Next Steps (CTA)` block above, the agent MUST perform snapshot emission ([definition](../skills/stage-snapshot-writer/SKILL.md)) per `$HOME/.claude/skills/cta-format/SKILL.md` § Snapshot Emission. Parameters bound for this command:
 
 - `stage`: `design`
 - `command`: `/dr-design`
