@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 #
-# T2 (TUNE-0013): spec-regression tests for skills/reflecting.md.
+# T2 (TUNE-0013): spec-regression tests for skills/reflecting/SKILL.md.
 #
 # Contract under test (v1.10.0 pipeline):
 #   AC-3 / AC-4: the reflection workflow must exist as a skill (not as a
@@ -10,7 +10,7 @@
 #   Content parity with the retired /dr-reflect command (sections 3-7) is
 #   required so reflection behavior is preserved across the refactor.
 
-SKILL="${BATS_TEST_DIRNAME}/../skills/reflecting.md"
+SKILL="${BATS_TEST_DIRNAME}/../skills/reflecting/SKILL.md"
 
 @test "skill file exists" {
     [ -f "$SKILL" ]

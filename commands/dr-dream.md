@@ -32,11 +32,11 @@ effort: high
 ## Instructions
 
 
-**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format.md` § Stage Header.
+**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header.
 1.  **LOAD**: Read `$HOME/.claude/agents/librarian.md` and adopt that persona.
 2.  **LOAD SKILLS**:
-    - `$HOME/.claude/skills/datarim-system.md` (Always — file locations and naming rules)
-    - `$HOME/.claude/skills/dream.md` (Knowledge base maintenance rules)
+    - `$HOME/.claude/skills/datarim-system/SKILL.md` (Always — file locations and naming rules)
+    - `$HOME/.claude/skills/dream/SKILL.md` (Knowledge base maintenance rules)
 3.  **RESOLVE PATH**: Find `datarim/` using standard path resolution. If not found, STOP.
 4.  **DETERMINE MODE**: Parse `$ARGUMENTS`:
     - `lint` → Quick lint only (step 5)
@@ -141,7 +141,7 @@ Append maintenance summary to `datarim/docs/activity-log.md`.
 
 ## Next Steps (CTA)
 
-After dream-pass, the librarian agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format.md`.
+After dream-pass, the librarian agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-dream`:**
 

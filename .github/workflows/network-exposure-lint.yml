@@ -1,5 +1,5 @@
 # Reusable workflow — secure-by-default network-exposure lint for Datarim
-# consumers. See ~/.claude/skills/network-exposure-baseline.md for the
+# consumers. See ~/.claude/skills/network-exposure-baseline/SKILL.md for the
 # decision contract; rationale lives in docs/evolution-log.md.
 # Drop into Arcanada-one/<repo>/.github/workflows/network-exposure-lint.yml
 # Or call from another workflow:

@@ -73,7 +73,7 @@ setup() {
     seed_live_runtime
     run_install --copy
     [ "$status" -eq 0 ]
-    [ -f "$FAKE_CLAUDE/skills/testing.md" ]
+    [ -f "$FAKE_CLAUDE/skills/testing/SKILL.md" ]
     [ -f "$FAKE_CLAUDE/templates/deploy.sh" ]
 }
 
@@ -151,7 +151,7 @@ setup() {
     run_install
     [ "$status" -eq 0 ]
     [ -f "$FAKE_CLAUDE/agents/planner.md" ]
-    [ -f "$FAKE_CLAUDE/skills/testing.md" ]
+    [ -f "$FAKE_CLAUDE/skills/testing/SKILL.md" ]
     [ -f "$FAKE_CLAUDE/commands/dr-init.md" ]
     [ -f "$FAKE_CLAUDE/templates/prd-template.md" ]
 }
@@ -226,7 +226,8 @@ setup() {
 @test "T33-5 AC-4(c) migration --yes converts copy → symlinks with backup" {
     seed_existing_copy_install
     # Mark with a unique edit we can recognise in the backup.
-    echo "# user edit before migrate" > "$FAKE_CLAUDE/skills/testing.md"
+    mkdir -p "$(dirname "$FAKE_CLAUDE/skills/testing/SKILL.md")"
+    echo "# user edit before migrate" > "$FAKE_CLAUDE/skills/testing/SKILL.md"
     run_install --yes
     [ "$status" -eq 0 ]
     # Result: symlinks now in place
@@ -238,12 +239,13 @@ setup() {
     [ -f "$backup/SUCCESS" ]
     grep -q "scopes_migrated=" "$backup/SUCCESS"
     # Original user content preserved in backup
-    grep -q "user edit before migrate" "$backup/skills/testing.md"
+    grep -q "user edit before migrate" "$backup/skills/testing/SKILL.md"
 }
 
 @test "T33-6 AC-4(k) migration with INSTALL_CHOICE=k keeps copy mode" {
     seed_existing_copy_install
-    echo "# user content" > "$FAKE_CLAUDE/skills/testing.md"
+    mkdir -p "$(dirname "$FAKE_CLAUDE/skills/testing/SKILL.md")"
+    echo "# user content" > "$FAKE_CLAUDE/skills/testing/SKILL.md"
     run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" \
         DATARIM_MIGRATION_CHOICE=k \
         "$FAKE_REPO/install.sh" --with-claude
@@ -252,7 +254,7 @@ setup() {
     [ ! -L "$FAKE_CLAUDE/skills" ]
     [ -d "$FAKE_CLAUDE/skills" ]
     # User content preserved (merge mode, no overwrite)
-    grep -q "user content" "$FAKE_CLAUDE/skills/testing.md"
+    grep -q "user content" "$FAKE_CLAUDE/skills/testing/SKILL.md"
     # No migration backup created
     [ ! -d "$FAKE_CLAUDE/backups" ] || ! ls "$FAKE_CLAUDE"/backups/migrate-* >/dev/null 2>&1
 }

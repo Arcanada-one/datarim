@@ -33,7 +33,7 @@ FIXTURES="$REPO_ROOT/tests/fixtures/stack-agnostic-gate"
 }
 
 @test "T4: whitelist mechanism — tech-stack.md exempt by default" {
-    run "$GATE" "$REPO_ROOT/skills/tech-stack.md"
+    run "$GATE" "$REPO_ROOT/skills/tech-stack/SKILL.md"
     [ "$status" -eq 0 ]
 }
 

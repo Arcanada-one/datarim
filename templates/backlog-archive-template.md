@@ -23,7 +23,7 @@ Format:
 
 ### [PREFIX]-XXXX: Task Title
 
-(PREFIX follows Unified Task Numbering — same ID as in active backlog and active task. See $HOME/.claude/skills/datarim-system.md.)
+(PREFIX follows Unified Task Numbering — same ID as in active backlog and active task. See $HOME/.claude/skills/datarim-system/SKILL.md.)
 
 | Field | Value |
 |-------|-------|

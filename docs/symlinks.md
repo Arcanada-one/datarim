@@ -14,7 +14,7 @@ pointing into the cloned Datarim repo. The result:
 - **Instant refresh.** `git pull` updates every skill, agent, command, and
   template the next time a runtime invokes them — no install step, no copy
   step, no merge.
-- **Live edits flow back.** Editing a skill in `~/.claude/skills/foo.md`
+- **Live edits flow back.** Editing a skill in `~/.claude/skills/foo/SKILL.md`
   edits the repo file directly; the change can be inspected with `git diff`
   and shipped as a PR.
 - **No drift surface.** Drift is impossible by definition — runtime IS the

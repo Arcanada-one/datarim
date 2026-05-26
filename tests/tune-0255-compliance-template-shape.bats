@@ -2,7 +2,7 @@
 # tune-0255-compliance-template-shape.bats — Phase 1 compliance template shape guards.
 
 TEMPLATE="$BATS_TEST_DIRNAME/../templates/compliance-report-template.md"
-SKILL="$BATS_TEST_DIRNAME/../skills/compliance.md"
+SKILL="$BATS_TEST_DIRNAME/../skills/compliance/SKILL.md"
 COMMAND="$BATS_TEST_DIRNAME/../commands/dr-compliance.md"
 VALIDATOR="$BATS_TEST_DIRNAME/../dev-tools/check-banlist-on-prose.sh"
 
@@ -25,7 +25,7 @@ VALIDATOR="$BATS_TEST_DIRNAME/../dev-tools/check-banlist-on-prose.sh"
 
 # ---------- T2 cross-link from skill/command to new template ----------
 
-@test "T2 skills/compliance.md and commands/dr-compliance.md reference the new template" {
+@test "T2 skills/compliance/SKILL.md and commands/dr-compliance.md reference the new template" {
     grep -q 'compliance-report-template' "$SKILL"
     grep -q 'compliance-report-template' "$COMMAND"
 }

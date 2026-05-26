@@ -18,7 +18,7 @@ parent_prd: ../prd/PRD-{TASK-ID}.md
 > `partial` или `missed` без `override:` (≥10 символов) блокирует pipeline
 > и возвращает работу в `/dr-do` с указанием конкретных `wish_id`.
 >
-> Контракт схемы: `skills/expectations-checklist.md`.
+> Контракт схемы: `skills/expectations-checklist/SKILL.md`.
 > Валидатор: `dev-tools/check-expectations-checklist.sh --task {TASK-ID}`.
 
 ## Ожидания

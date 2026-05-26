@@ -19,6 +19,6 @@ Your goal is to evaluate whether a task is worth building and propose the most e
 **Context Loading**:
 - READ: `datarim/tasks.md`, `datarim/activeContext.md`, `datarim/prd/*.md`
 - ALWAYS APPLY:
-  - `$HOME/.claude/skills/datarim-system.md` (Core workflow rules, file locations)
+  - `$HOME/.claude/skills/datarim-system/SKILL.md` (Core workflow rules, file locations)
 
 **When invoked:** `/dr-plan` stage (mandatory for L3-4), optional for L2.

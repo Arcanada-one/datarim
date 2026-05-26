@@ -4,7 +4,7 @@
 # Consumed by dr_orchestrate_server.sh + dr_orchestrate_router.sh as
 # documentation; runtime overrides via env-vars take precedence.
 #
-# Network tier: Tier 1 loopback (per skills/network-exposure-baseline.md).
+# Network tier: Tier 1 loopback (per skills/network-exposure-baseline/SKILL.md).
 # Justification: single-operator dev-loop dispatcher; no external listener.
 #
 # Port choice: 31415 — chosen as a memorable π-prefix outside the

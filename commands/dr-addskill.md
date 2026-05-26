@@ -14,11 +14,11 @@ effort: high
 ## Instructions
 
 
-**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format.md` § Stage Header.
+**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header.
 1.  **LOAD**: Read `$HOME/.claude/agents/skill-creator.md` and adopt that persona.
 2.  **LOAD SKILLS**:
-    - `$HOME/.claude/skills/datarim-system.md` (Always)
-    - `$HOME/.claude/skills/evolution.md` (Framework modification rules)
+    - `$HOME/.claude/skills/datarim-system/SKILL.md` (Always)
+    - `$HOME/.claude/skills/evolution/SKILL.md` (Framework modification rules)
 3.  **PARSE REQUEST**: Analyze `$ARGUMENTS` to understand:
     - What domain or capability is needed?
     - What concrete actions should the new skill/agent perform?
@@ -43,7 +43,7 @@ effort: high
     - Commands: Frontmatter (name, description, argument-hint) + Instructions + Next Steps
     - Keep descriptions under 250 characters for reliable skill triggering
     - Refer to existing skills in Context Loading where relevant
-    - **Determine model per `$HOME/.claude/skills/datarim-system.md` § Model Assignment Convention:**
+    - **Determine model per `$HOME/.claude/skills/datarim-system/SKILL.md` § Model Assignment Convention:**
       - Agents: REQUIRED (opus / sonnet / haiku)
       - Task skills: REQUIRED (opus / sonnet / haiku)
       - Reference skills (rules/patterns only): omit `model` (inherits from caller)
@@ -104,7 +104,7 @@ effort: high
 
 ## Next Steps (CTA)
 
-After skill creation, the skill-creator agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format.md`.
+After skill creation, the skill-creator agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-addskill`:**
 

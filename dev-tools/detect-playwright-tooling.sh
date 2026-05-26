@@ -40,7 +40,7 @@
 #   without touching the host environment. Production callers MUST NOT set
 #   DATARIM_TEST_MOCK.
 #
-# Canonical contract: skills/playwright-qa.md § Resolution Chain.
+# Canonical contract: skills/playwright-qa/SKILL.md § Resolution Chain.
 
 set -uo pipefail
 

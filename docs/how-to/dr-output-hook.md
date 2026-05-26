@@ -5,8 +5,8 @@
 
 The `dr-output-stop` Claude Code `Stop` hook adds programmatic enforcement on top of two markdown contracts that are otherwise advisory:
 
-1. **Stage Header** (`skills/cta-format.md § Stage Header`) — every task-scoped `/dr-*` response must begin with `**{TASK-ID} · {title}**`.
-2. **Human Summary contract** (`skills/human-summary.md § Output contract`) — `/dr-archive`, `/dr-compliance`, and `/dr-qa` responses must carry the canonical `## Отчёт оператору` / `## Operator summary` section with self-identifier preamble + four canonical sub-headings in order.
+1. **Stage Header** (`skills/cta-format/SKILL.md § Stage Header`) — every task-scoped `/dr-*` response must begin with `**{TASK-ID} · {title}**`.
+2. **Human Summary contract** (`skills/human-summary/SKILL.md § Output contract`) — `/dr-archive`, `/dr-compliance`, and `/dr-qa` responses must carry the canonical `## Отчёт оператору` / `## Operator summary` section with self-identifier preamble + four canonical sub-headings in order.
 
 ## What the hook does
 
@@ -20,7 +20,7 @@ Exception List (skipped by validator #1): `/dr-help`, `/dr-status`, `/dr-doctor`
 
 Trigger list for validator #2: `/dr-archive`, `/dr-compliance`, `/dr-qa`. Other `/dr-*` commands skip validator #2 silently.
 
-The hook is **fail-soft**: any internal error (corrupt transcript, missing file, regex crash, path outside `~/.claude`) degrades to exit 0 (allow). It is not a security gate — the text contracts in `skills/cta-format.md` and `skills/human-summary.md` are the canonical surface.
+The hook is **fail-soft**: any internal error (corrupt transcript, missing file, regex crash, path outside `~/.claude`) degrades to exit 0 (allow). It is not a security gate — the text contracts in `skills/cta-format/SKILL.md` and `skills/human-summary/SKILL.md` are the canonical surface.
 
 ## How to opt in
 
@@ -84,4 +84,4 @@ For a full clean removal: `git revert` the framework commit that introduced `dev
 - The hook reads the transcript JSONL written by Claude Code. If CC switches transcript schema, the parser may need an update. Current support: `{type:"user"|"assistant", message:{content: str | [{type:"text",text:str}]}}` shapes.
 - `transcript_path` is validated to live under `$HOME/.claude/` (literal path, no symlink resolution). Paths containing `..` segments or pointing outside `~/.claude/` are silently refused.
 - Retry budget is one per validator per session-stop chain — if the model fails to comply on retry, the hook degrades to advisory rather than locking the operator into an infinite block loop.
-- The hook is not a substitute for the markdown contracts. If `skills/cta-format.md` or `skills/human-summary.md` is removed, the hook still fires but its `reason` references will become stale.
+- The hook is not a substitute for the markdown contracts. If `skills/cta-format/SKILL.md` or `skills/human-summary/SKILL.md` is removed, the hook still fires but its `reason` references will become stale.

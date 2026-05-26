@@ -5,7 +5,7 @@
 # Concurrent-safe via mkdir-based atomic lock (acquire_plugin_lock pattern).
 # File hard-capped at 8192 bytes; oversize bodies receive a truncation marker.
 #
-# Contract: see skills/stage-snapshot-writer.md.
+# Contract: see skills/stage-snapshot-writer/SKILL.md.
 
 set -euo pipefail
 

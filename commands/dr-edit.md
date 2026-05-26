@@ -14,13 +14,13 @@ effort: high
 ## Instructions
 
 
-**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format.md` § Stage Header.
+**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header.
 1.  **LOAD**: Read `$HOME/.claude/agents/editor.md` and adopt that persona.
 2.  **LOAD SKILLS** (all mandatory for editorial work):
-    - `$HOME/.claude/skills/datarim-system.md` (Always)
-    - `$HOME/.claude/skills/factcheck.md` (Fact verification methodology)
-    - `$HOME/.claude/skills/humanize.md` (AI pattern detection and removal)
-    - `$HOME/.claude/skills/writing.md` (Quality checklist and editorial standards)
+    - `$HOME/.claude/skills/datarim-system/SKILL.md` (Always)
+    - `$HOME/.claude/skills/factcheck/SKILL.md` (Fact verification methodology)
+    - `$HOME/.claude/skills/humanize/SKILL.md` (AI pattern detection and removal)
+    - `$HOME/.claude/skills/writing/SKILL.md` (Quality checklist and editorial standards)
 3.  **READ THE CONTENT**: Read the file at the path provided in `$ARGUMENTS`. If no path given, ask the user.
 4.  **SETUP**:
     - Detect the primary language (English, Russian, or mixed).
@@ -61,7 +61,7 @@ effort: high
 
 ## Next Steps (CTA)
 
-After edit pass, the editor agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format.md`.
+After edit pass, the editor agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-edit`:**
 
@@ -71,4 +71,4 @@ After edit pass, the editor agent MUST emit a CTA block per `$HOME/.claude/skill
 - Targeted micro-check only → alternative `/factcheck` or `/humanize`
 - Always include `/dr-status` as escape hatch
 
-The CTA block MUST follow the canonical format (numbered, one `**рекомендуется**`, `---` HR). Variant B menu when >1 active tasks.
+The CTA block MUST follow the canonical format defined in `skills/cta-format/SKILL.md` (numbered options, exactly one primary marker, `---` HR). Variant B menu when >1 active tasks.

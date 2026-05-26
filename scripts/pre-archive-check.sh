@@ -108,7 +108,7 @@ is_whitelisted_path() {
 # ---------- TUNE-0071 schema-compliance gate ----------
 #
 # After clean-git classification, every bullet line in datarim/{tasks,backlog}.md
-# MUST match the canonical thin-index regex defined in skills/datarim-doctor.md.
+# MUST match the canonical thin-index regex defined in skills/datarim-doctor/SKILL.md.
 # Block on first violation with a pointer to /dr-doctor.
 #
 # Bypass: --no-schema-check (set NO_SCHEMA_CHECK=1) during in-flight migration.

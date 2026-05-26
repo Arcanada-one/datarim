@@ -19,7 +19,7 @@
 #   DR_ORCH_ALLOW_EXTERNAL_BIND   — set to `1` to opt out of the loopback-
 #                                   only guard. Operator MUST pair this with
 #                                   a network-exposure justification entry
-#                                   per skills/network-exposure-baseline.md.
+#                                   per skills/network-exposure-baseline/SKILL.md.
 #   DR_ORCH_BODY_LIMIT, DR_ORCH_TMUX_HANDLER, DR_ORCH_ORCH_HANDLER —
 #       forwarded to router.
 
@@ -40,7 +40,7 @@ case "$DR_ORCH_BIND" in
       printf 'FATAL: non-loopback bind %q requires DR_ORCH_ALLOW_EXTERNAL_BIND=1 (TUNE-0295 F-sec-6)\n' "$DR_ORCH_BIND" >&2
       exit 4
     fi
-    printf 'WARN: non-loopback bind %q permitted via DR_ORCH_ALLOW_EXTERNAL_BIND=1 — operator MUST log justification per skills/network-exposure-baseline.md\n' "$DR_ORCH_BIND" >&2
+    printf 'WARN: non-loopback bind %q permitted via DR_ORCH_ALLOW_EXTERNAL_BIND=1 — operator MUST log justification per skills/network-exposure-baseline/SKILL.md\n' "$DR_ORCH_BIND" >&2
     ;;
 esac
 

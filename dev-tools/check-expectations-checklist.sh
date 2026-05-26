@@ -26,7 +26,7 @@
 #                     L3+ tasks that lack an expectations file. Severity
 #                     ladder: info (<30d) → warn (≥30d). Exit code is always 0.
 #
-# Source-of-truth contract: skills/expectations-checklist.md.
+# Source-of-truth contract: skills/expectations-checklist/SKILL.md.
 #
 set -uo pipefail
 
@@ -277,7 +277,7 @@ parse_items() {
                 errors++
             }
             # v2 schema: evidence_type required + enum (empirical|static|measurement).
-            # See skills/expectations-checklist.md § Item rules.
+            # See skills/expectations-checklist/SKILL.md § Item rules.
             if (schema == "2") {
                 if (evidence_type == "") {
                     printf "ERROR: %s: item %d missing evidence_type (required in schema_version=2)\n", f, current_item > "/dev/stderr"
@@ -307,7 +307,7 @@ validate_single_task() {
         if [ "$REPORT" -eq 1 ]; then
             echo "  Run /dr-prd or /dr-plan to seed expectations from PRD"
             echo "  acceptance criteria + init-task. Contract in"
-            echo "  skills/expectations-checklist.md."
+            echo "  skills/expectations-checklist/SKILL.md."
         fi
         return 1
     fi
@@ -335,7 +335,7 @@ validate_single_task() {
         errors=$(( errors + 1 ))
     fi
     # v1 legacy deprecation warning (TUNE-0266: 12-month sunset, see
-    # skills/expectations-checklist.md § Backwards-compatibility window).
+    # skills/expectations-checklist/SKILL.md § Backwards-compatibility window).
     if [ "$val" = "1" ]; then
         echo "DEPRECATION: $file: schema_version=1 — upgrade to v2 at next edit. Sunset: 2027-05-23 (12 months from TUNE-0266 archive). See docs/migration-v1-v2.md." >&2
     fi
@@ -360,7 +360,7 @@ validate_single_task() {
     if [ "$errors" -gt 0 ]; then
         if [ "$REPORT" -eq 1 ]; then
             echo "  $errors validation error(s) — see contract in"
-            echo "  skills/expectations-checklist.md § Item Schema."
+            echo "  skills/expectations-checklist/SKILL.md § Item Schema."
         fi
         return 1
     fi

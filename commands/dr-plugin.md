@@ -6,7 +6,7 @@
 ## Purpose
 
 
-**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format.md` § Stage Header.
+**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header.
 Manage opt-in plugins for the Datarim framework. The current Datarim shipping set (skills, agents, commands, templates) is migrated into a single protected `datarim-core` entry on first run. Third-party plugins are installed as symlinks from `datarim/plugin-storage/<id>/` into `~/.claude/local/{skills,agents,commands,templates}/<plugin-id>/`.
 
 Two manifest layers:

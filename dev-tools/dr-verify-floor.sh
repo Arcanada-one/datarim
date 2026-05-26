@@ -21,7 +21,7 @@
 #   1-N count of high-severity findings (capped at 250)
 #   2   invocation error (bad args, missing datarim/)
 #
-# See: skills/self-verification.md § Layer 1.
+# See: skills/self-verification/SKILL.md § Layer 1.
 
 # strict-mode rationale: -e omitted intentionally (not sloppy). emit_finding calls python3 as its
 # last statement in the function; under -e a single encoding error would abort the entire findings

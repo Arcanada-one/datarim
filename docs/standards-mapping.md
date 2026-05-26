@@ -1,6 +1,6 @@
 # Standards Mapping — Datarim Security Baseline (S1–S9)
 
-> **Source skill:** [`skills/security-baseline.md`](../skills/security-baseline.md)
+> **Source skill:** [`skills/security-baseline/SKILL.md`](../skills/security-baseline/SKILL.md)
 > **Authoritative versions:**
 > - OWASP ASVS v5.0.0 (2025)
 > - SOC 2 Trust Services Criteria 2017 (revised 2022)
@@ -157,7 +157,7 @@ Datarim baseline = **developer-tool security floor**. Consumer projects layer th
 
 **Source artefacts feeding this document:**
 
-- `skills/security-baseline.md` § S1–S9 (canonical rule reference)
+- `skills/security-baseline/SKILL.md` § S1–S9 (canonical rule reference)
 - `documentation/archive/security/findings-2026-04-28.md` (corporate audit baseline)
 - `~/arcanada/datarim/insights/INSIGHTS-security-baseline-oss-cli-2026.md` (research baseline)
 - `tests/security/baseline.json` (machine-readable suppressions registry)

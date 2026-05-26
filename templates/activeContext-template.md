@@ -15,7 +15,7 @@ Removed in v1.19.1:
   - `progress.md` — abolished v1.19.0
   - `backlog-archive.md` — abolished v1.19.1
 
-Schema reference: skills/datarim-system.md § Operational File Schema.
+Schema reference: skills/datarim-system/SKILL.md § Operational File Schema.
 -->
 
 ## Active Tasks

@@ -1,6 +1,6 @@
 # CTA Template — Reusable Snippet
 
-Reusable Markdown snippet for the canonical "Next Step" CTA block. The authoritative specification lives in `$HOME/.claude/skills/cta-format.md`. This template provides fill-in-the-blank examples for agents/commands; update both files together if either changes.
+Reusable Markdown snippet for the canonical "Next Step" CTA block. The authoritative specification lives in `$HOME/.claude/skills/cta-format/SKILL.md`. This template provides fill-in-the-blank examples for agents/commands; update both files together if either changes.
 
 ---
 
@@ -79,5 +79,5 @@ Placeholders:
 
 ## Reference
 
-- **Spec:** `skills/cta-format.md` — single source of truth
+- **Spec:** `skills/cta-format/SKILL.md` — single source of truth
 - **Tests:** `tests/cta-format.bats` (spec-regression suite) and golden fixtures in `tests/cta-format/fixtures/`

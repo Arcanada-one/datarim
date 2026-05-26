@@ -11,6 +11,16 @@ HOOK="${BATS_TEST_DIRNAME}/../dev-tools/hooks/dr-output-stop.sh"
 FIXDIR_REAL="${BATS_TEST_DIRNAME}/fixtures/dr-output"
 FIXDIR_HOME="${HOME}/.claude/tests/fixtures/dr-output"
 
+# Ensure $HOME/.claude/tests points at the repo's tests/ tree so the hook's
+# home-relative path validation accepts the fixture paths. Idempotent.
+setup_file() {
+    local repo_tests="$(cd "${BATS_TEST_DIRNAME}" && pwd)"
+    mkdir -p "${HOME}/.claude"
+    if [ ! -e "${HOME}/.claude/tests" ]; then
+        ln -s "${repo_tests}" "${HOME}/.claude/tests"
+    fi
+}
+
 # Returns home-relative fixture path; falls back to real path when symlink absent.
 _fix() {
     local name="$1"

@@ -12,11 +12,11 @@ argument-hint: [file path to approved content]
 ## Instructions
 
 
-**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format.md` § Stage Header.
+**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header.
 1.  **LOAD**: Read `$HOME/.claude/agents/writer.md` and adopt that persona.
 2.  **LOAD SKILLS**:
-    - `$HOME/.claude/skills/datarim-system.md` (Always)
-    - `$HOME/.claude/skills/publishing.md` (Platform rules, limits, formatting, workflow)
+    - `$HOME/.claude/skills/datarim-system/SKILL.md` (Always)
+    - `$HOME/.claude/skills/publishing/SKILL.md` (Platform rules, limits, formatting, workflow)
 3.  **READ THE CONTENT**: Read the file at the path provided in `$ARGUMENTS`. If no path given, ask the user.
 4.  **CONFIRM READINESS**:
     - Has the content been through `/dr-edit`? If not, warn: "This content hasn't been editorially reviewed. Proceed anyway or run `/dr-edit` first?"
@@ -60,7 +60,7 @@ argument-hint: [file path to approved content]
 
 ## Next Steps (CTA)
 
-After publish, the writer/editor agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format.md`.
+After publish, the writer/editor agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-publish`:**
 
@@ -69,4 +69,4 @@ After publish, the writer/editor agent MUST emit a CTA block per `$HOME/.claude/
 - Need to edit before re-publishing → primary `/dr-edit {TASK-ID}`
 - Always include `/dr-status` as escape hatch
 
-The CTA block MUST follow the canonical format (numbered, one `**рекомендуется**`, `---` HR). Variant B menu when >1 active tasks.
+The CTA block MUST follow the canonical format defined in `skills/cta-format/SKILL.md` (numbered options, exactly one primary marker, `---` HR). Variant B menu when >1 active tasks.

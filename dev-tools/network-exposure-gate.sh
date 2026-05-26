@@ -4,7 +4,7 @@
 # Reads the YAML frontmatter of a task description file (priority + type) and
 # emits one of: hard_block | advisory_warn | skip.  Implements the Option C
 # tiered-gate algorithm (P0 absolute floor + type refinement + fail-closed on
-# malformed).  Source-of-truth contract: skills/network-exposure-baseline.md
+# malformed).  Source-of-truth contract: skills/network-exposure-baseline/SKILL.md
 # § Tiered Gate Rules.
 #
 # Inputs:

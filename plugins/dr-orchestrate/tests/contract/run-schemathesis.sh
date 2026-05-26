@@ -42,8 +42,10 @@ if ! command -v schemathesis >/dev/null 2>&1 && ! python3 -m schemathesis --vers
   exit 2
 fi
 
-# Check base URL reachability.
-if ! curl -fsS --max-time 5 "$BASE_URL" >/dev/null 2>&1; then
+# Check base URL reachability — accept any HTTP response (the internal bash
+# server returns 404 on the root path because handlers live under /hooks/*).
+# A failed connection or timeout still trips the check via curl's exit code.
+if ! curl -sS -o /dev/null --max-time 5 "$BASE_URL" 2>/dev/null; then
   printf 'ERR: reference impl not reachable at %s\n' "$BASE_URL" >&2
   printf 'Start with: bash %s/scripts/dr_orchestrate_server.sh start\n' "$PLUGIN_ROOT" >&2
   exit 3

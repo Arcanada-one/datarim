@@ -1,6 +1,6 @@
 # Agents Reference
 
-Datarim includes 18 specialized agents. Each agent is a persona with defined capabilities, context requirements, and skill dependencies. Each agent runs on a specific Claude model — see [Model Assignment Convention](../skills/datarim-system.md) (in skill `datarim-system.md`) for the rationale.
+Datarim includes 18 specialized agents. Each agent is a persona with defined capabilities, context requirements, and skill dependencies. Each agent runs on a specific Claude model — see [Model Assignment Convention](../skills/datarim-system/SKILL.md) (in skill `datarim-system.md`) for the rationale.
 
 ## Agent Roster
 
@@ -49,7 +49,7 @@ Your goal is to {primary goal}.
 - LOAD WHEN NEEDED: $HOME/.claude/skills/{optional-skills}
 ```
 
-The `model` field is required for all agents. Choose per [Model Assignment Convention](../skills/datarim-system.md).
+The `model` field is required for all agents. Choose per [Model Assignment Convention](../skills/datarim-system/SKILL.md).
 
 ## Consilium Panels
 
@@ -63,4 +63,4 @@ Agents can be assembled into panels for multi-perspective analysis:
 - **Knowledge panel:** librarian + architect + writer
 - **Custom:** any 3-7 agents based on the question
 
-See `skills/consilium.md` for the full panel discussion protocol.
+See `skills/consilium/SKILL.md` for the full panel discussion protocol.

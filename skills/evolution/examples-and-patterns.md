@@ -13,7 +13,7 @@ description: Good/bad evolution proposal examples and deprecation pattern. Refer
 <!-- gate:history-allowed -->
 ```
 Category: skill-update
-Target: skills/security.md
+Target: skills/security/SKILL.md
 What: Add rate limiting section with token bucket and sliding window patterns
 Why: TASK-0051 required rate limiting on 3 endpoints; had to research patterns from scratch each time
 Impact: Medium
@@ -36,7 +36,7 @@ Impact: High
 **Good — prune with evidence:**
 ```
 Category: prune-skill
-Target: skills/deprecated-helper.md
+Target: skills/deprecated-helper/SKILL.md
 What: Remove deprecated helper skill
 Why: Not referenced by any agent or command. Last used 40+ tasks ago. Functionality absorbed into utilities.md.
 Impact: Low
@@ -46,7 +46,7 @@ Risk: Low
 **Good — merge with clear rationale:**
 ```
 Category: merge-skills
-Target: skills/testing.md (absorb skills/test-helpers.md)
+Target: skills/testing/SKILL.md (absorb skills/test-helpers/SKILL.md)
 What: Merge test-helpers.md into testing.md
 Why: 80% topic overlap. Both cover mocking patterns and test organization. Separate files cause confusion about where to look.
 Impact: Medium
@@ -58,7 +58,7 @@ Risk: Medium — need to update 2 agent references
 **Bad — vague, no evidence:**
 ```
 Category: skill-update
-Target: skills/ai-quality.md
+Target: skills/ai-quality/SKILL.md
 What: Make it better
 Why: Felt incomplete
 Impact: Low
@@ -100,4 +100,4 @@ When a concept, command, or convention is removed or renamed, historical referen
 
 ### Exemplar
 
-Example (v1.10.0): removal of `/dr-reflect` command. Whitelist: `CLAUDE.md`, `docs/pipeline.md`, `commands/dr-archive.md`, `skills/reflecting.md`, `skills/evolution.md`. Sweep-test: `tests/reflect-removal-sweep.bats` (4 assertions: T3a whitelist, T3b forward-pointer, T3c file-deleted, T3d visual-maps clean).
+Example (v1.10.0): removal of `/dr-reflect` command. Whitelist: `CLAUDE.md`, `docs/pipeline.md`, `commands/dr-archive.md`, `skills/reflecting/SKILL.md`, `skills/evolution/SKILL.md`. Sweep-test: `tests/reflect-removal-sweep.bats` (4 assertions: T3a whitelist, T3b forward-pointer, T3c file-deleted, T3d visual-maps clean).

@@ -6,7 +6,7 @@
 #
 # Per-project wins on conflict.
 #
-# Reference: skills/self-verification.md § Peer Review Provider Resolution
+# Reference: skills/self-verification/SKILL.md § Peer Review Provider Resolution
 
 peer_review:
   # Provider for Layer 2 cross-model peer-review in /dr-verify.

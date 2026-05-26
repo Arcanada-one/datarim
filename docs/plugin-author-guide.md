@@ -95,7 +95,7 @@ categories:
   - commands
 ```
 
-`skills/hello-world.md`:
+`skills/hello-world/SKILL.md`:
 
 ```markdown
 ---

@@ -6,7 +6,7 @@
 #   (c) writer failure surfaces stderr warning (fail-closed)
 
 REPO_ROOT="$(cd "${BATS_TEST_DIRNAME}/.." && pwd)"
-SKILL="${REPO_ROOT}/skills/cta-format.md"
+SKILL="${REPO_ROOT}/skills/cta-format/SKILL.md"
 WRITER_LIB="${REPO_ROOT}/scripts/lib/snapshot-writer.sh"
 FIXTURE="${BATS_TEST_DIRNAME}/cta-format/fixtures/snapshot-emission-l3-plan.md"
 
@@ -16,7 +16,7 @@ FIXTURE="${BATS_TEST_DIRNAME}/cta-format/fixtures/snapshot-emission-l3-plan.md"
 }
 
 @test "cta-format.md references stage-snapshot-writer skill" {
-    run grep -F 'skills/stage-snapshot-writer.md' "$SKILL"
+    run grep -F 'skills/stage-snapshot-writer/SKILL.md' "$SKILL"
     [ "$status" -eq 0 ]
 }
 

@@ -4,7 +4,7 @@ Datarim improves itself based on real project experience. This document explains
 
 ## How It Works
 
-1. After completing a task, `/dr-archive` Step 0.5 (invoking `skills/reflecting.md`) analyzes what worked and what didn't
+1. After completing a task, `/dr-archive` Step 0.5 (invoking `skills/reflecting/SKILL.md`) analyzes what worked and what didn't
 2. The agent proposes framework updates (new patterns, improved skills, refined agent behaviors)
 3. **Human reviews and approves** each proposal -- no automatic changes
 4. Approved changes are applied and logged in `datarim/docs/evolution-log.md`
@@ -75,6 +75,6 @@ Prefer updating existing files over creating new ones. The framework should stay
 
 Every evolution change is a discrete file edit. Use git history to revert any change:
 ```bash
-git log --oneline -- skills/testing.md
-git checkout <commit> -- skills/testing.md
+git log --oneline -- skills/testing/SKILL.md
+git checkout <commit> -- skills/testing/SKILL.md
 ```

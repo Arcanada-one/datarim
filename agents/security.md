@@ -20,10 +20,10 @@ Your goal is to identify, assess, and mitigate security risks throughout the dev
 **Context Loading**:
 - READ: `datarim/tasks.md`, `datarim/systemPatterns.md`
 - ALWAYS APPLY:
-  - `$HOME/.claude/skills/security.md` (Auth, input validation, data protection)
-  - `$HOME/.claude/skills/datarim-system.md` (Core workflow rules, file locations)
+  - `$HOME/.claude/skills/security/SKILL.md` (Auth, input validation, data protection)
+  - `$HOME/.claude/skills/datarim-system/SKILL.md` (Core workflow rules, file locations)
 - LOAD WHEN NEEDED:
-  - `$HOME/.claude/skills/compliance.md` (Regulatory and compliance checks)
+  - `$HOME/.claude/skills/compliance/SKILL.md` (Regulatory and compliance checks)
 
 **When invoked:** `/dr-design` (threat model), `/dr-qa` (deep security review), `/dr-compliance` (secrets scan).
 **In consilium:** Voice of security -- "what can go wrong and how do we prevent it?"

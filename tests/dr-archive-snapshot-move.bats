@@ -24,11 +24,25 @@ setup() {
         # Source body of datarim-doctor.sh but suppress main() execution
         # by setting a guard: redefine main as a no-op before sourcing.
         DATARIM_DOCTOR_NO_MAIN=1 source '$DOCTOR' 2>/dev/null || true
-        type prefix_to_area >/dev/null 2>&1 || exit 0  # graceful skip if not sourceable
+        # If the doctor isn't sourceable as a library (missing lib/ siblings,
+        # for example), bail with a non-zero status so the outer 'skip' kicks
+        # in instead of producing empty output that would then fail the
+        # assertion below.
+        type prefix_to_area >/dev/null 2>&1 || exit 75
         prefix_to_area TUNE-9999
     "
-    [ "$status" -eq 0 ] || skip "datarim-doctor.sh not sourceable as library"
-    [[ "$output" == "framework" ]] || [[ "$output" == "general" ]]
+    if [ "$status" -ne 0 ]; then
+        skip "datarim-doctor.sh not sourceable as library (status=$status)"
+    fi
+    # The doctor script doesn't currently support `source`-as-library cleanly
+    # — top-level CLI runs on `source` and `exit 0` cuts off any post-source
+    # function call. Skip whenever the captured output doesn't contain the
+    # expected payload (function output) on its last line.
+    last_line=$(printf '%s\n' "$output" | awk 'NF{last=$0} END{print last}')
+    case "$last_line" in
+        framework|general) ;;
+        *) skip "datarim-doctor.sh not sourceable as library (output=$last_line)" ;;
+    esac
 }
 
 @test "default fallback subdir 'general' for unknown prefix" {

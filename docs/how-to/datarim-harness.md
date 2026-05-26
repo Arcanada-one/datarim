@@ -109,6 +109,6 @@ If you want the harness directory preserved across the archive boundary (e.g. fo
 
 ## Related
 
-- `skills/cta-format.md § Snapshot Emission` — canonical writer recipe and journal-hook documentation.
-- `skills/coworker-context.md` — what coworker MUST know when generating Datarim artifacts (the V-AC-5 / V-AC-12 acceptance reference).
+- `skills/cta-format/SKILL.md § Snapshot Emission` — canonical writer recipe and journal-hook documentation.
+- `skills/coworker-context/SKILL.md` — what coworker MUST know when generating Datarim artifacts (the V-AC-5 / V-AC-12 acceptance reference).
 - `dev-tools/check-stage-snapshot-on-exit.sh` — snapshot frontmatter validator (separate from harness).

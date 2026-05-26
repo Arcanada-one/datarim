@@ -60,7 +60,7 @@ When asked to verify a deployed service:
 
 **Web UI Testing** (website projects):
 
-Load `$HOME/.claude/skills/frontend-ui.md` when the project is a website. Run all four sub-checks in order — a green HTTP status is necessary but **not sufficient**.
+Load `$HOME/.claude/skills/frontend-ui/SKILL.md` when the project is a website. Run all four sub-checks in order — a green HTTP status is necessary but **not sufficient**.
 
 1. **Smoke** — `curl -sf -o /dev/null -w "%{http_code}" <url>` for every public URL (including lang variants `/en/*`, `/ru/*`). All must return `200` (or expected `301/302` for redirects). Report failures with URL and status.
 2. **Content parity** — for multi-language sites, diff the key set between translation files (`content/en.php` vs `content/ru.php`, `en.json` vs `ru.json`). Report missing keys, placeholder strings (`TODO`, `FIXME`, `{{`), or orphaned keys. All content files must have the same key count and no placeholders.
@@ -97,10 +97,10 @@ For failures: include test name, error message, and file location.
 **Context Loading**:
 - READ: `CLAUDE.md` (project-specific test commands and setup)
 - ALWAYS APPLY:
-  - `$HOME/.claude/skills/testing.md` (Testing pyramid, mocking rules, Live Smoke-Test Gate)
-  - `$HOME/.claude/skills/datarim-system.md` (File locations)
+  - `$HOME/.claude/skills/testing/SKILL.md` (Testing pyramid, mocking rules, Live Smoke-Test Gate)
+  - `$HOME/.claude/skills/datarim-system/SKILL.md` (File locations)
 - LOAD WHEN NEEDED:
-  - `$HOME/.claude/skills/frontend-ui.md` (Web UI tasks — CSS, visual, a11y, i18n)
+  - `$HOME/.claude/skills/frontend-ui/SKILL.md` (Web UI tasks — CSS, visual, a11y, i18n)
 - OPTIONAL:
   - `documentation/archive/` (Completed task context for regression testing)
 

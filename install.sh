@@ -62,7 +62,10 @@ DATARIM_MIGRATION_CHOICE="${DATARIM_MIGRATION_CHOICE:-}"
 # dr-init (check-init-task-presence.sh), dr-doctor, dr-archive, dr-verify,
 # dr-qa, dr-plan, dr-compliance, dr-design. The directory remains
 # maintainer-stewarded — no user-facing CLI; see dev-tools/README.md.
-INSTALL_SCOPES=(agents skills commands templates scripts tests dev-tools)
+# Note: 'dev-tools' is intentionally NOT in this list — see
+# code/datarim/dev-tools/README.md (developer-only tooling, not shipped
+# to consumers; TUNE-0091).
+INSTALL_SCOPES=(agents skills commands templates scripts tests)
 
 # v1.17.0: local/ overlay scope dirs (TUNE-0033). Local overlay applies only to
 # user-extensible scopes (skills/agents/commands/templates) — scripts/tests are
@@ -85,6 +88,7 @@ SKIPPED=0
 FANOUT_CLAUDE=false
 FANOUT_CODEX=false
 FANOUT_CODEX_UX=true       # TUNE-0297: generate SKILL.md wrappers + AGENTS.override.md; --no-codex-ux opts out
+FANOUT_CURSOR=false        # TUNE-0304: Cursor IDE skill mirroring (--with-cursor)
 PROJECT_DIR=''
 DRY_RUN=false
 LOCKFILE=''
@@ -97,6 +101,10 @@ Usage:
   install.sh --with-claude          Install for Claude runtime (symlink default)
   install.sh --with-codex           Install for Codex runtime
   install.sh --with-codex --no-codex-ux  Codex install without UX wrappers/manifest
+  install.sh --with-cursor          Install for Cursor IDE (flat .md mirror of each SKILL.md;
+                                    target: $CURSOR_DIR/skills/ — default ~/.cursor/skills/.
+                                    Cursor's skill discovery is not yet officially documented;
+                                    this layout is operator-validated — accepted risk per TUNE-0304 R7)
   install.sh --project DIR          Project-local copy install (no symlinks)
   install.sh --with-claude --with-codex  Multi-runtime install
   install.sh --dry-run              Show planned mutations without applying
@@ -107,6 +115,7 @@ Usage:
 
 Environment:
   CLAUDE_DIR                        Target directory (default: $HOME/.claude)
+  CURSOR_DIR                        Cursor target directory (default: $HOME/.cursor)
   DATARIM_INSTALL_YES=1             Equivalent to --yes (also auto-converts copy → symlink)
 
 Migration:
@@ -124,6 +133,7 @@ parse_args() {
             --with-claude)  FANOUT_CLAUDE=true; shift ;;
             --with-codex)   FANOUT_CODEX=true; shift ;;
             --no-codex-ux)  FANOUT_CODEX_UX=false; shift ;;
+            --with-cursor)  FANOUT_CURSOR=true; shift ;;
             --project)
                 if [ $# -lt 2 ]; then
                     echo "ERROR: --project requires an argument" >&2
@@ -433,7 +443,7 @@ This directory holds personal additions and overrides for the four scopes:
 `local/skills/`, `local/agents/`, `local/commands/`, `local/templates/`.
 
 Files here override framework files of the same name. Convention: prefix
-filenames with your namespace (e.g. `local/skills/my-company-style.md`)
+filenames with your namespace (e.g. `local/skills/my-company-style/SKILL.md`)
 to avoid accidental overrides.
 
 Document any deliberate override here so future-you can tell what was intended.
@@ -818,7 +828,13 @@ generate_codex_agents_manifest() {
         echo "## Available Datarim Skills"
         echo ""
         if [ -d "$src_dir/skills" ]; then
+            # Flat-layout legacy skills.
             for f in "$src_dir/skills"/*.md; do
+                [ -f "$f" ] || continue
+                emit_manifest_entry "$f" ""
+            done
+            # Directory-per-skill layout (TUNE-0304).
+            for f in "$src_dir/skills"/*/SKILL.md; do
                 [ -f "$f" ] || continue
                 emit_manifest_entry "$f" ""
             done
@@ -862,13 +878,20 @@ fanout_codex_ux() {
             ! -name '.system' -exec rm -rf {} +
     fi
 
-    # 3. Generate wrappers for top-level source skills (`skills/<basename>.md`).
-    #    Skip subdir-fragment files (those live under `skills/<topic>/`).
+    # 3. Generate wrappers for top-level source skills.
+    #    Supports both legacy flat layout (`skills/<name>.md`) and the
+    #    directory-per-skill layout (`skills/<name>/SKILL.md`, TUNE-0304).
     local src_skill name
     local generated=0
     for src_skill in "$src_dir/skills"/*.md; do
         [ -f "$src_skill" ] || continue
         name=$(basename "$src_skill" .md)
+        generate_skill_wrapper "$src_skill" "$codex_dir/skills/$name/SKILL.md"
+        generated=$((generated + 1))
+    done
+    for src_skill in "$src_dir/skills"/*/SKILL.md; do
+        [ -f "$src_skill" ] || continue
+        name=$(basename "$(dirname "$src_skill")")
         generate_skill_wrapper "$src_skill" "$codex_dir/skills/$name/SKILL.md"
         generated=$((generated + 1))
     done
@@ -880,6 +903,43 @@ fanout_codex_ux() {
     # 5. Generate AGENTS.override.md
     generate_codex_agents_manifest "$src_dir" "$codex_dir/AGENTS.override.md"
     echo "  MANIFEST: $codex_dir/AGENTS.override.md"
+}
+
+# setup_cursor_runtime — TUNE-0304 Phase 4.
+#
+# Mirrors each migrated `skills/<name>/SKILL.md` from the source repo into
+# `$CURSOR_DIR/skills/<name>.md` (flat layout). Cursor's official skill-
+# discovery contract is not published as of 2026-Q2 (R7 risk: deferred
+# Cursor-runtime smoke; operator validates on real install). Files are
+# copies, not symlinks, because Cursor user installs may be on filesystems
+# without symlink support (Windows + FAT) and the deferred-validation
+# posture argues for the more conservative on-disk shape.
+#
+# Source layout: $src_dir/skills/<name>/SKILL.md  →
+# Target layout: $cursor_dir/skills/<name>.md
+#
+# Excludes skills/.system/ (Codex bundled, Constraint C3).
+setup_cursor_runtime() {
+    local cursor_dir="$1" src_dir="$2"
+    if [ "$DRY_RUN" = true ]; then
+        echo "DRY: mkdir -p $cursor_dir/skills"
+        echo "DRY: copy each $src_dir/skills/<name>/SKILL.md → $cursor_dir/skills/<name>.md"
+        echo "DRY: cursor support is operator-validated (R7 deferred-validation)"
+        return 0
+    fi
+
+    mkdir -p "$cursor_dir/skills"
+    local skill_md name copied=0
+    for skill_md in "$src_dir"/skills/*/SKILL.md; do
+        [ -f "$skill_md" ] || continue
+        name=$(basename "$(dirname "$skill_md")")
+        # Skip reserved Codex bundled namespace.
+        [ "$name" = ".system" ] && continue
+        cp "$skill_md" "$cursor_dir/skills/$name.md"
+        copied=$((copied + 1))
+    done
+    echo "  CURSOR: mirrored $copied skill(s) into $cursor_dir/skills/ (flat .md layout)"
+    echo "  NOTE: Cursor skill discovery is operator-validated — R7 (deferred-validation)."
 }
 
 fanout_runtime() {
@@ -1095,4 +1155,12 @@ fi
 
 if [ "$FANOUT_CODEX" = true ]; then
     fanout_runtime codex
+fi
+
+if [ "$FANOUT_CURSOR" = true ]; then
+    cursor_dir="${CURSOR_DIR-$HOME/.cursor}"
+    src_dir="$SCRIPT_DIR"
+    echo "Cursor:  $cursor_dir/skills"
+    echo "Source:  $src_dir/skills"
+    setup_cursor_runtime "$cursor_dir" "$src_dir"
 fi

@@ -145,7 +145,7 @@ Idempotent — safe to run on existing projects (skips existing files, creates o
 
 ## Next Steps (CTA)
 
-After showing the help reference, MUST emit a CTA block per `$HOME/.claude/skills/cta-format.md`.
+After showing the help reference, MUST emit a CTA block per `$HOME/.claude/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-help`:**
 

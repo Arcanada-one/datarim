@@ -21,11 +21,11 @@ effort: high
 ## Instructions
 
 
-**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format.md` § Stage Header.
+**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header.
 1.  **LOAD**: Read `$HOME/.claude/agents/optimizer.md` and adopt that persona.
 2.  **LOAD SKILLS**:
-    - `$HOME/.claude/skills/datarim-system.md` (Always)
-    - `$HOME/.claude/skills/evolution.md` (Evolution proposal format and approval gate)
+    - `$HOME/.claude/skills/datarim-system/SKILL.md` (Always)
+    - `$HOME/.claude/skills/evolution/SKILL.md` (Evolution proposal format and approval gate)
 3.  **DETERMINE SCOPE**: What to audit?
     - If user said "project" → scan project `.claude/` directory
     - If user said "global" or "user" → scan `$HOME/.claude/`
@@ -72,18 +72,18 @@ effort: high
     | Description budget | Any description `>160` chars or total `>8K` chars | Propose `fix-description` |
     | Selective-loading candidate | Monolithic file with mixed subdomains | Propose split into entry + supporting files |
     | Low-value provenance comments | Task-origin or migration notes that do not affect usage/policy | Propose rewrite cleanup |
-    | Diátaxis docs drift | repo with ≥3 `docs/*.md` files but missing the 4-category split (`docs/{tutorials,how-to,reference,explanation}/`) per `skills/diataxis-docs.md` | Propose `spawn-diataxis-reorg` (creates `INFRA-* — Diátaxis docs reorg для <repo>` in backlog, soft warning only) |
+    | Diátaxis docs drift | repo with ≥3 `docs/*.md` files but missing the 4-category split (`docs/{tutorials,how-to,reference,explanation}/`) per `skills/diataxis-docs/SKILL.md` | Propose `spawn-diataxis-reorg` (creates `INFRA-* — Diátaxis docs reorg для <repo>` in backlog, soft warning only) |
 
 6a. **DIÁTAXIS DOCS DRIFT DETECTOR** (filesystem-presence + threshold, soft warning):
     - Run for the audited repo root (or for each consumer repo when scanning ecosystem-wide).
-    - Skip if path matches exemption pattern from `skills/diataxis-docs.md` § Exemption List (research-only, archive, vault, inbox, daily-notes, templates, scratch).
+    - Skip if path matches exemption pattern from `skills/diataxis-docs/SKILL.md` § Exemption List (research-only, archive, vault, inbox, daily-notes, templates, scratch).
     - Filesystem check (Bash):
       ```bash
       diataxis_drift_check() {
         local repo="$1"
         local docs="$repo/docs"
         [ ! -d "$docs" ] && return 1
-        # Exemption pattern (mirrors skills/diataxis-docs.md § Exemption List)
+        # Exemption pattern (mirrors skills/diataxis-docs/SKILL.md § Exemption List)
         echo "$repo" | grep -qE '(research-only|archive|vault|inbox|daily-notes|templates|scratch)' && return 1
         # Threshold: ≥3 .md files at maxdepth 1 under docs/
         local doc_count
@@ -140,7 +140,7 @@ effort: high
 
 ## Next Steps (CTA)
 
-After optimize-pass, the optimizer agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format.md`.
+After optimize-pass, the optimizer agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-optimize`:**
 

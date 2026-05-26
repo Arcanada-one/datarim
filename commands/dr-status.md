@@ -8,7 +8,7 @@ description: Check current Datarim task status, progress, and Backlog summary
 Show current task and Backlog status.
 
 ## Path Resolution
-**RESOLVE PATH**: Before any read from `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, tell user to run `/dr-init`. See `$HOME/.claude/skills/datarim-system.md` § Path Resolution Rule.
+**RESOLVE PATH**: Before any read from `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, tell user to run `/dr-init`. See `$HOME/.claude/skills/datarim-system/SKILL.md` § Path Resolution Rule.
 
 ## Display (thin-index schema)
 1. **All active tasks** — parse one-liner format from `## Active Tasks` in `activeContext.md` (or `## Active` in `tasks.md`):
@@ -53,7 +53,7 @@ None (read-only)
 
 ## Next Steps (CTA)
 
-After printing status, MUST emit a CTA block per `$HOME/.claude/skills/cta-format.md`. Since `/dr-status` is read-only, the CTA is purely navigational.
+After printing status, MUST emit a CTA block per `$HOME/.claude/skills/cta-format/SKILL.md`. Since `/dr-status` is read-only, the CTA is purely navigational.
 
 **Routing logic for `/dr-status`:**
 

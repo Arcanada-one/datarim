@@ -124,7 +124,7 @@ Source: prior incident reflection §2.4 — 10 phases (model upgrade → knowled
 
 ## Mode Transition Optimization
 
-Every transition listed below MUST be surfaced to the user as a canonical CTA block per `$HOME/.claude/skills/cta-format.md`. The text in this section defines WHICH command becomes the primary CTA at each transition; the FORMAT of the CTA block is owned by `cta-format.md` (single source of truth).
+Every transition listed below MUST be surfaced to the user as a canonical CTA block per `$HOME/.claude/skills/cta-format/SKILL.md`. The text in this section defines WHICH command becomes the primary CTA at each transition; the FORMAT of the CTA block is owned by `cta-format.md` (single source of truth).
 
 ### Automatic Transitions (primary CTA after each stage)
 

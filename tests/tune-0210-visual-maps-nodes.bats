@@ -8,14 +8,14 @@
 #     /dr-prd and /dr-plan stages, and Layer 4f playwright-run in /dr-qa.
 #   - skills/visual-maps/utility-and-dependencies.md carries the four new
 #     skill nodes in the Agent — Skill Dependencies map.
-#   - skills/visual-maps.md index mentions the new artefact and skill nodes
+#   - skills/visual-maps/SKILL.md index mentions the new artefact and skill nodes
 #     in its fragment descriptions.
 #   - Every touched mermaid block stays under 25 nodes per PRD Q6.
 
 PIPELINE="$BATS_TEST_DIRNAME/../skills/visual-maps/pipeline-routing.md"
 STAGES="$BATS_TEST_DIRNAME/../skills/visual-maps/stage-process-flows.md"
 DEPS="$BATS_TEST_DIRNAME/../skills/visual-maps/utility-and-dependencies.md"
-INDEX="$BATS_TEST_DIRNAME/../skills/visual-maps.md"
+INDEX="$BATS_TEST_DIRNAME/../skills/visual-maps/SKILL.md"
 
 # --- Pipeline-routing fragment ---------------------------------------------
 

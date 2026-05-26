@@ -13,8 +13,8 @@ dr-output-stop — Claude Code Stop hook with two validators:
    sub-headings in order.
 
 Contract sources (canonical):
-- skills/cta-format.md § Stage Header + § Exception List
-- skills/human-summary.md § Output contract + § Self-identifier preamble
+- skills/cta-format/SKILL.md § Stage Header + § Exception List
+- skills/human-summary/SKILL.md § Output contract + § Self-identifier preamble
                           + § Sub-section order is fixed and exhaustive
 
 Fail-soft by design — any internal error → exit 0 (allow). Rationale: text
@@ -232,7 +232,7 @@ def _check_stage_header(user_cmd: str, assistant: str, stop_hook_active: bool) -
         return False
     if not stop_hook_active:
         _emit_block(
-            "Stage Header missing per skills/cta-format.md § Stage Header. "
+            "Stage Header missing per skills/cta-format/SKILL.md § Stage Header. "
             "Prepend **{TASK-ID} · {title}** as the first line of the response."
         )
         return True
@@ -254,7 +254,7 @@ def _check_human_summary(user_cmd: str, assistant: str, stop_hook_active: bool) 
     reason = (
         "human-summary contract violations: "
         + ", ".join(findings)
-        + " — see skills/human-summary.md § Output contract."
+        + " — see skills/human-summary/SKILL.md § Output contract."
     )
     if not stop_hook_active:
         _emit_block(reason)

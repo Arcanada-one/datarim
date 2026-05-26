@@ -86,7 +86,7 @@ Options:
 └── README.md      # convention notes
 ```
 
-Loader order (`skills/datarim-system.md` § Loading Order): the framework layer loads first, then files in `local/<scope>/<name>.md` override framework files of the same name. `validate.sh` emits a `WARN: override detected: …` line per shadow.
+Loader order (`skills/datarim-system/SKILL.md` § Loading Order): the framework layer loads first, then files in `local/<scope>/<name>.md` override framework files of the same name. `validate.sh` emits a `WARN: override detected: …` line per shadow.
 
 **Critical-skill blocklist.** Six skills cannot be shadowed from `local/skills/`:
 `security.md`, `security-baseline.md`, `compliance.md`, `datarim-system.md`,
@@ -296,7 +296,7 @@ your-project/
 
 ## Project Scaffolding — Diátaxis Documentation Structure
 
-When `/dr-init` is invoked with a project-creation intent (e.g. `/dr-init create project "Foo"`), the scaffolder follows the **Documentation Taxonomy Mandate** (`skills/diataxis-docs.md`). The default `docs/` layout is the four Diátaxis categories with auto-mapped legacy stubs:
+When `/dr-init` is invoked with a project-creation intent (e.g. `/dr-init create project "Foo"`), the scaffolder follows the **Documentation Taxonomy Mandate** (`skills/diataxis-docs/SKILL.md`). The default `docs/` layout is the four Diátaxis categories with auto-mapped legacy stubs:
 
 ```
 your-project/docs/
@@ -314,7 +314,7 @@ your-project/docs/
     └── README.md
 ```
 
-The four categories are a **closed set** — `faq`, `glossary`, `troubleshooting`, `examples`, `overview`, `samples` are mappable to one of the four canonical buckets, never separate top-level types. See `skills/diataxis-docs.md` § Mapping Table for the full mapping (architecture / testing / deployment / gotchas / api / cli / config / concepts / design / tutorial / quickstart / faq / troubleshooting / examples / glossary).
+The four categories are a **closed set** — `faq`, `glossary`, `troubleshooting`, `examples`, `overview`, `samples` are mappable to one of the four canonical buckets, never separate top-level types. See `skills/diataxis-docs/SKILL.md` § Mapping Table for the full mapping (architecture / testing / deployment / gotchas / api / cli / config / concepts / design / tutorial / quickstart / faq / troubleshooting / examples / glossary).
 
 **Idempotency:** `/dr-init` never overwrites existing files. If `docs/` already exists with files, the scaffolder skips them and reports "skipped: already exists" per file.
 
@@ -517,7 +517,7 @@ Run `/dr-doctor` if you are upgrading from a pre-v1.19.0 installation or if `/dr
 | 4 | Coworker delegation | Bulk-context, docs across repos |
 | 5 | Operator ask | True ambiguity OR hard-gated OR business strategy |
 
-Канонический контракт — `skills/autonomous-mode.md`. Бизнес-стратегические вопросы сразу идут к L5 (narrow mode) — safe-defaults не применяются.
+Канонический контракт — `skills/autonomous-mode/SKILL.md`. Бизнес-стратегические вопросы сразу идут к L5 (narrow mode) — safe-defaults не применяются.
 
 ### L1 Inline Resolution Rule
 

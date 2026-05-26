@@ -21,8 +21,8 @@ Not a periodic cleanup. Idempotent: a second run on a compliant tree is a no-op.
 ## Instructions
 
 1. **LOAD**: Read `$HOME/.claude/agents/planner.md` and adopt that persona.
-2. **RESOLVE PATH**: Walk up from cwd to find `datarim/`. If not found anywhere → tell user to run `/dr-init`. Do NOT create. See `$HOME/.claude/skills/datarim-system.md` § Path Resolution Rule.
-3. **LOAD SKILL**: Read `$HOME/.claude/skills/datarim-doctor.md` for schema spec, conflict resolution, and edge-case handling.
+2. **RESOLVE PATH**: Walk up from cwd to find `datarim/`. If not found anywhere → tell user to run `/dr-init`. Do NOT create. See `$HOME/.claude/skills/datarim-system/SKILL.md` § Path Resolution Rule.
+3. **LOAD SKILL**: Read `$HOME/.claude/skills/datarim-doctor/SKILL.md` for schema spec, conflict resolution, and edge-case handling.
 4. **PARSE ARGS** (passed by user or by `/dr-init` Step 0.6):
     - `--fix` — apply migration. Default: dry-run (report findings only).
     - `--scope=<scope>` — `tasks|backlog|active|progress|descriptions|all`. Default `all`.
@@ -72,7 +72,7 @@ Not a periodic cleanup. Idempotent: a second run on a compliant tree is a no-op.
       - `info: <ID> init-task missing (task age <30d; rolling 30d soft window)` — fresh task without init-task, soft-window protected.
       - `warn: <ID> init-task missing (task age ≥30d; rolling 30d soft window)` — stale task without init-task, operator may retro-backfill.
     - `--all` mode is **advisory-only** — exit code is always 0; never block `/dr-init` Step 2.4 self-heal or `/dr-doctor` itself.
-    - The validator is the canonical Init-Task Presence pass per `skills/init-task-persistence.md` § Validation. Kept orthogonal to `scripts/datarim-doctor.sh` per CLAUDE.md § Validation Discipline (operational-file migration ↔ content validation are separate concerns).
+    - The validator is the canonical Init-Task Presence pass per `skills/init-task-persistence/SKILL.md` § Validation. Kept orthogonal to `scripts/datarim-doctor.sh` per CLAUDE.md § Validation Discipline (operational-file migration ↔ content validation are separate concerns).
 
 ## Read
 
@@ -108,7 +108,7 @@ Never touches `documentation/archive/`, `datarim/prd/`, `datarim/plans/`, `datar
 
 ## Next Steps (CTA)
 
-After `/dr-doctor` finishes, emit a CTA block per `$HOME/.claude/skills/cta-format.md`.
+After `/dr-doctor` finishes, emit a CTA block per `$HOME/.claude/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-doctor`:**
 

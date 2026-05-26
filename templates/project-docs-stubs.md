@@ -1,7 +1,7 @@
 # Project Documentation Stubs
 
 > This is a meta-template used by `/dr-init` project scaffolding (skill: `project-init.md`).
-> Each section below is a separate file to be created under `docs/` per the **Diátaxis Documentation Taxonomy Mandate** (`skills/diataxis-docs.md`).
+> Each section below is a separate file to be created under `docs/` per the **Diátaxis Documentation Taxonomy Mandate** (`skills/diataxis-docs/SKILL.md`).
 > The agent reads this template and creates individual files from each section. Category READMEs (`docs/{tutorials,how-to,reference,explanation}/README.md`) come from `templates/docs-diataxis/<category>/README.md` (separate stubs, not duplicated here).
 >
 > **Mapping (per skill § Mapping Table):** architecture → reference (system map); testing / deployment / gotchas → how-to (problem-solving recipes).

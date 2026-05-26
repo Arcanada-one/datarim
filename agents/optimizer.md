@@ -41,8 +41,8 @@ Your goal is to keep the Datarim framework lean, efficient, and well-organized b
 - READ: All files in the target scope (agents/, skills/, commands/, templates/)
 - READ: `CLAUDE.md`, `README.md`, `datarim/docs/evolution-log.md`
 - ALWAYS APPLY:
-  - `$HOME/.claude/skills/datarim-system.md` (Core workflow rules)
-  - `$HOME/.claude/skills/evolution.md` (Evolution proposal format and rules)
+  - `$HOME/.claude/skills/datarim-system/SKILL.md` (Core workflow rules)
+  - `$HOME/.claude/skills/evolution/SKILL.md` (Evolution proposal format and rules)
 
 When the framework uses supporting directories, read the short entry file first and then only the supporting fragments relevant to the current audit question.
 

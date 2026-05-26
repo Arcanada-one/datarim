@@ -22,7 +22,7 @@ verification_outcome field semantics:
 - false_positive: integer count of findings flagged by /dr-verify that were triaged as not real
 - n_a: boolean, true when /dr-verify was NOT run; when true, the three counts above MUST be 0
 - dogfood_window: active prospective-measurement window identifier; grouping key for measure-prospective-rate.sh
-Канонический контракт — skills/self-verification.md § Findings Schema.
+Канонический контракт — skills/self-verification/SKILL.md § Findings Schema.
 -->
 
 # Архив: {TASK-ID} — {Title}

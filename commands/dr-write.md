@@ -12,12 +12,12 @@ argument-hint: [topic or file path]
 ## Instructions
 
 
-**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format.md` § Stage Header.
+**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header.
 1.  **LOAD**: Read `$HOME/.claude/agents/writer.md` and adopt that persona.
 2.  **LOAD SKILLS**:
-    - `$HOME/.claude/skills/datarim-system.md` (Always)
-    - `$HOME/.claude/skills/writing.md` (Writing workflow and quality checklist)
-    - `$HOME/.claude/skills/humanize.md` (Reference for avoiding AI patterns from the start)
+    - `$HOME/.claude/skills/datarim-system/SKILL.md` (Always)
+    - `$HOME/.claude/skills/writing/SKILL.md` (Writing workflow and quality checklist)
+    - `$HOME/.claude/skills/humanize/SKILL.md` (Reference for avoiding AI patterns from the start)
 3.  **RESOLVE PATH**: Find `datarim/` directory using standard path resolution. If not found, content work can proceed without it — not all writing requires a Datarim project context.
 4.  **UNDERSTAND THE REQUEST**:
     - What type of content? (article, blog post, docs, research, social media, legal, report)
@@ -34,7 +34,7 @@ argument-hint: [topic or file path]
 
 ## Next Steps (CTA)
 
-After draft, the writer agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format.md`.
+After draft, the writer agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-write`:**
 
@@ -43,4 +43,4 @@ After draft, the writer agent MUST emit a CTA block per `$HOME/.claude/skills/ct
 - Standalone piece, only targeted check needed → alternative `/factcheck` or `/humanize`
 - Always include `/dr-status` as escape hatch
 
-The CTA block MUST follow the canonical format (numbered, one `**рекомендуется**`, `---` HR). Variant B menu when >1 active tasks.
+The CTA block MUST follow the canonical format defined in `skills/cta-format/SKILL.md` (numbered options, exactly one primary marker, `---` HR). Variant B menu when >1 active tasks.

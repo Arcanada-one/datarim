@@ -34,7 +34,7 @@ Body sections (markdown, ≤ 250 lines total):
 If the body grows beyond ~250 lines → split into a PRD (datarim/prd/) or design
 doc (datarim/creative/).
 
-Schema reference: skills/datarim-system.md § Description File Contract.
+Schema reference: skills/datarim-system/SKILL.md § Description File Contract.
 -->
 
 ## Overview

@@ -7,9 +7,9 @@
 # the agent file (which is reused across multiple stages). Each of the 7
 # CTA-emitting `commands/dr-*.md` declares a `## Stage Snapshot Emission`
 # section carrying (a) a reference to the canonical recipe in
-# `skills/cta-format.md § Snapshot Emission`, (b) the literal stage value,
+# `skills/cta-format/SKILL.md § Snapshot Emission`, (b) the literal stage value,
 # and (c) the literal command value. The body of the writer recipe lives
-# in `skills/cta-format.md` (single source of truth).
+# in `skills/cta-format/SKILL.md` (single source of truth).
 #
 # This suite enforces 3 checks per command × 7 commands = 21 tests.
 
@@ -104,37 +104,37 @@ COMMAND_PAIRS=(
 # ---------- Check 3: reference to canonical recipe in cta-format.md ----------
 
 @test "dr-init.md references cta-format.md § Snapshot Emission" {
-    run grep -F 'skills/cta-format.md` § Snapshot Emission' "${REPO_ROOT}/commands/dr-init.md"
+    run grep -F 'skills/cta-format/SKILL.md` § Snapshot Emission' "${REPO_ROOT}/commands/dr-init.md"
     [ "$status" -eq 0 ]
 }
 
 @test "dr-prd.md references cta-format.md § Snapshot Emission" {
-    run grep -F 'skills/cta-format.md` § Snapshot Emission' "${REPO_ROOT}/commands/dr-prd.md"
+    run grep -F 'skills/cta-format/SKILL.md` § Snapshot Emission' "${REPO_ROOT}/commands/dr-prd.md"
     [ "$status" -eq 0 ]
 }
 
 @test "dr-plan.md references cta-format.md § Snapshot Emission" {
-    run grep -F 'skills/cta-format.md` § Snapshot Emission' "${REPO_ROOT}/commands/dr-plan.md"
+    run grep -F 'skills/cta-format/SKILL.md` § Snapshot Emission' "${REPO_ROOT}/commands/dr-plan.md"
     [ "$status" -eq 0 ]
 }
 
 @test "dr-design.md references cta-format.md § Snapshot Emission" {
-    run grep -F 'skills/cta-format.md` § Snapshot Emission' "${REPO_ROOT}/commands/dr-design.md"
+    run grep -F 'skills/cta-format/SKILL.md` § Snapshot Emission' "${REPO_ROOT}/commands/dr-design.md"
     [ "$status" -eq 0 ]
 }
 
 @test "dr-do.md references cta-format.md § Snapshot Emission" {
-    run grep -F 'skills/cta-format.md` § Snapshot Emission' "${REPO_ROOT}/commands/dr-do.md"
+    run grep -F 'skills/cta-format/SKILL.md` § Snapshot Emission' "${REPO_ROOT}/commands/dr-do.md"
     [ "$status" -eq 0 ]
 }
 
 @test "dr-qa.md references cta-format.md § Snapshot Emission" {
-    run grep -F 'skills/cta-format.md` § Snapshot Emission' "${REPO_ROOT}/commands/dr-qa.md"
+    run grep -F 'skills/cta-format/SKILL.md` § Snapshot Emission' "${REPO_ROOT}/commands/dr-qa.md"
     [ "$status" -eq 0 ]
 }
 
 @test "dr-compliance.md references cta-format.md § Snapshot Emission" {
-    run grep -F 'skills/cta-format.md` § Snapshot Emission' "${REPO_ROOT}/commands/dr-compliance.md"
+    run grep -F 'skills/cta-format/SKILL.md` § Snapshot Emission' "${REPO_ROOT}/commands/dr-compliance.md"
     [ "$status" -eq 0 ]
 }
 
@@ -146,6 +146,6 @@ COMMAND_PAIRS=(
 }
 
 @test "AC-1 — cta-format.md carries write_stage_snapshot recipe (>=1 hit)" {
-    count="$(grep -c 'write_stage_snapshot' "${REPO_ROOT}/skills/cta-format.md" || true)"
+    count="$(grep -c 'write_stage_snapshot' "${REPO_ROOT}/skills/cta-format/SKILL.md" || true)"
     [ "$count" -ge 1 ]
 }

@@ -22,7 +22,7 @@ usage() {
     cat >&2 <<EOF
 Usage: classify-inline-gap.sh --files <int> --loc <int> --contract <true|false> --hard-gated <true|false>
 
-Classifies a discovered gap per skills/autonomous-mode.md § L1 Inline Resolution Rule.
+Classifies a discovered gap per skills/autonomous-mode/SKILL.md § L1 Inline Resolution Rule.
 EOF
     exit 2
 }

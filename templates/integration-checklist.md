@@ -6,7 +6,7 @@
 
 ## 1. Endpoint Shape Verification (mandatory, before any code is written)
 
-Per `$HOME/.claude/skills/research-workflow.md` § Empirical Provider Verification — documentation drifts, SDKs paper over differences, and "this worked elsewhere" memories are not evidence. Confirm the contract against the live endpoint.
+Per `$HOME/.claude/skills/research-workflow/SKILL.md` § Empirical Provider Verification — documentation drifts, SDKs paper over differences, and "this worked elsewhere" memories are not evidence. Confirm the contract against the live endpoint.
 
 ```
 1. Send the smallest valid request that exercises the *real* input shape (curl / httpx / fetch / equivalent).

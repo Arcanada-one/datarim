@@ -132,11 +132,11 @@ init → prd → plan → design → do → qa → compliance → archive
 
 **What happens:**
 0. Pre-archive clean-git check (mandatory gate)
-0.5. **Reflect (mandatory, non-skippable)** — invokes `skills/reflecting.md`:
+0.5. **Reflect (mandatory, non-skippable)** — invokes `skills/reflecting/SKILL.md`:
    - Review completed task against Definition of Done
    - Document what worked, what didn't, lessons learned → `datarim/reflection/reflection-{id}.md`
    - Generate evolution proposals (skill/agent/claude-md/template updates + new components)
-   - Class A vs Class B classification per `skills/evolution.md`
+   - Class A vs Class B classification per `skills/evolution/SKILL.md`
    - Human approval gate for Class A; hold Class B until PRD update
    - Apply approved changes to runtime; log in `datarim/docs/evolution-log.md`
    - Health-metrics check; suggest `/dr-optimize` if thresholds exceeded

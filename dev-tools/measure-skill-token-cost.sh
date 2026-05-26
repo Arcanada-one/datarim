@@ -7,7 +7,7 @@
 #                        Capture once into .datarim/baseline-v1.23.0.tokens.
 #   --check              Verify current state against captured baseline; exit 0 / 1.
 #                        Gates per PRD-TUNE-0114 §11 AC-4 (revised 2026-05-09):
-#                          AC-4a  idle hot-path: skills/datarim-system.md ≤ +15% chars
+#                          AC-4a  idle hot-path: skills/datarim-system/SKILL.md ≤ +15% chars
 #                          AC-4b  per-existing-file: every file in baseline ≤ +30% chars
 #                          AC-4c  new absorbed files: exempt (counted, not gated)
 #   --report             Human-readable summary (no exit-code gate).
@@ -21,7 +21,7 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
 BASELINE_FILE=".datarim/baseline-v1.23.0.tokens"
-HOT_PATH_FILE="skills/datarim-system.md"
+HOT_PATH_FILE="skills/datarim-system/SKILL.md"
 HOT_PATH_LIMIT_PCT=16
 PER_FILE_LIMIT_PCT=30
 

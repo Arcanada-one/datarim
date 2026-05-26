@@ -4,7 +4,7 @@ Datarim provides 20 slash commands for Claude Code. Commands are grouped by cate
 
 ## Unified CTA Block (v1.16.0)
 
-Every `/dr-*` command terminates its response with a canonical "Next Step" CTA block defined in `skills/cta-format.md`. The block contains:
+Every `/dr-*` command terminates its response with a canonical "Next Step" CTA block defined in `skills/cta-format/SKILL.md`. The block contains:
 
 1. The resolved task ID (so you always know which task this CTA applies to)
 2. ≤5 numbered options (sweet spot: 3) — each with an exact command, task ID, and one-sentence purpose
@@ -31,7 +31,7 @@ Example:
 
 When `/dr-qa` returns BLOCKED or `/dr-compliance` returns NON-COMPLIANT, the CTA uses the FAIL-Routing variant: header changes to `**QA failed для {ID} — earliest failed layer: Layer N (Layer name)**` and the primary CTA points to the layer-return command (`/dr-prd`, `/dr-design`, `/dr-plan`, `/dr-do`).
 
-Source: TUNE-0032. Spec: `skills/cta-format.md`. Template: `templates/cta-template.md`. Tests: `tests/cta-format.bats` (39 spec-regression tests + 3 fixtures).
+Source: TUNE-0032. Spec: `skills/cta-format/SKILL.md`. Template: `templates/cta-template.md`. Tests: `tests/cta-format.bats` (39 spec-regression tests + 3 fixtures).
 
 ## Pipeline Commands (8)
 
@@ -72,6 +72,7 @@ Source: TUNE-0032. Spec: `skills/cta-format.md`. Template: `templates/cta-templa
 |---------|-------|-------|-------------|
 | `/dr-status` | Utility | -- | Check current task and backlog status (read-only). Emits CTA — discovery surface for parallel work. |
 | `/dr-next` | Utility | varies | Resume from last checkpoint. Step 2.5 reads `datarim/snapshots/{TASK-ID}.snapshot.md` first (v2.13.0+) and emits replay-prompt with bilingual autonomy reminder + `done before:` body. Falls back silently to legacy Read pipeline when snapshot is absent. Emits CTA per resumed phase. |
+| `/dr-continue` | Utility | -- | Deprecated alias for `/dr-next`. Kept for backwards compatibility; new invocations should use `/dr-next` directly. |
 | `/dr-help` | Utility | -- | List all commands with descriptions and usage guidance. Emits CTA. |
 
 ## Standalone Commands (2)
