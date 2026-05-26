@@ -10,13 +10,13 @@
 #            closure verification.
 #   Phase 6: legacy fallback — task without init-task has no Q&A blockers.
 #
-# Source-of-truth contracts: skills/init-task-persistence.md § Q&A round-trip,
+# Source-of-truth contracts: skills/init-task-persistence/SKILL.md § Q&A round-trip,
 # plans/TUNE-0216-plan.md.
 
 ROOT_DIR="$BATS_TEST_DIRNAME/.."
 CHECK="$ROOT_DIR/dev-tools/check-init-task-presence.sh"
 APPEND="$ROOT_DIR/dev-tools/append-init-task-qa.sh"
-SKILL_FILE="$ROOT_DIR/skills/init-task-persistence.md"
+SKILL_FILE="$ROOT_DIR/skills/init-task-persistence/SKILL.md"
 QA_COMMAND_FILE="$ROOT_DIR/commands/dr-qa.md"
 
 setup() {

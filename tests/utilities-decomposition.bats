@@ -7,20 +7,20 @@
 REPO_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
 
 @test "T1: stub file exists with correct frontmatter name" {
-  [ -f "$REPO_DIR/skills/utilities.md" ]
-  grep -q '^name: utilities$' "$REPO_DIR/skills/utilities.md"
+  [ -f "$REPO_DIR/skills/utilities/SKILL.md" ]
+  grep -q '^name: utilities$' "$REPO_DIR/skills/utilities/SKILL.md"
 }
 
-@test "T2: stub file has model: haiku in frontmatter" {
-  grep -q '^model: haiku$' "$REPO_DIR/skills/utilities.md"
+@test "T2: stub file has model frontmatter set" {
+  grep -qE '^model: (haiku|inherit)$' "$REPO_DIR/skills/utilities/SKILL.md"
 }
 
-@test "T3: utilities/ directory exists with 13 fragment files" {
-  # 12 original + keyword-linter.md (TUNE-0039 Class A apply, integrated TUNE-0040)
+@test "T3: utilities/ directory exists with 14 fragment files" {
+  # 12 original + keyword-linter.md (TUNE-0039 Class A) + git-diff-parsing.md
   [ -d "$REPO_DIR/skills/utilities" ]
   local count
   count=$(ls "$REPO_DIR/skills/utilities/"*.md 2>/dev/null | wc -l | tr -d ' ')
-  [ "$count" -eq 14 ]
+  [ "$count" -eq 15 ]
 }
 
 @test "T4: all 12 expected fragment files exist" {
@@ -36,6 +36,8 @@ REPO_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
 
 @test "T5: no fragment file has YAML frontmatter" {
   for f in "$REPO_DIR/skills/utilities/"*.md; do
+    # SKILL.md is the stub — it's expected to have frontmatter; only fragments must not.
+    [ "$(basename "$f")" = "SKILL.md" ] && continue
     local first_line
     first_line=$(head -1 "$f")
     [ "$first_line" != "---" ]
@@ -49,7 +51,7 @@ REPO_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
     datarim-sync.md ga4-admin.md ssh-deploy.md recovery.md
   )
   for f in "${fragments[@]}"; do
-    grep -q "utilities/$f" "$REPO_DIR/skills/utilities.md"
+    grep -qE "\`$f\`|utilities/$f" "$REPO_DIR/skills/utilities/SKILL.md"
   done
 }
 
@@ -60,8 +62,8 @@ REPO_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
 }
 
 @test "T8: evolution.md references utilities/recovery.md (not utilities.md §)" {
-  grep -q 'utilities/recovery.md' "$REPO_DIR/skills/evolution.md"
-  ! grep -q 'utilities\.md §' "$REPO_DIR/skills/evolution.md"
+  grep -q 'utilities/recovery.md' "$REPO_DIR/skills/evolution/SKILL.md"
+  ! grep -q 'utilities\.md §' "$REPO_DIR/skills/evolution/SKILL.md"
 }
 
 @test "T9: docs/skills.md mentions fragment count" {

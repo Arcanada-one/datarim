@@ -17,7 +17,7 @@ Example:
 <!-- /gate:history-allowed -->
 
 Validation: scripts/datarim-doctor.sh / pre-archive-check.sh. Self-heal: /dr-doctor --fix.
-Schema reference: skills/datarim-system.md § Operational File Schema.
+Schema reference: skills/datarim-system/SKILL.md § Operational File Schema.
 -->
 
 ## Pending

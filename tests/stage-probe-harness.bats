@@ -50,8 +50,16 @@ teardown() {
     [ -d "$HARNESS_DIR" ]
     [ -f "$HARNESS_DIR/payload.txt" ]
     [ -f "$HARNESS_DIR/journal.md" ]
-    mode=$(stat -f '%Lp' "$HARNESS_DIR" 2>/dev/null || stat -c '%a' "$HARNESS_DIR")
-    [ "$mode" = "700" ]
+    # GNU stat (`-c`) and BSD stat (`-f`) take different format flags. On
+    # Linux, `stat -f '%Lp'` silently means `--file-system '%Lp'` and prints
+    # a multi-line filesystem dump with exit 0, so a naive OR-chain never
+    # reaches `-c`. Pick the right flavour by OS first.
+    if stat --version >/dev/null 2>&1; then
+        mode=$(stat -c '%a' "$HARNESS_DIR")
+    else
+        mode=$(stat -f '%Lp' "$HARNESS_DIR")
+    fi
+    case "$mode" in 700|0700) ;; *) printf 'unexpected mode %s\n' "$mode" >&2; false ;; esac
     grep -q "^init · .* · TASK-ID=${TASK_ID}\$" "$HARNESS_DIR/journal.md"
 }
 

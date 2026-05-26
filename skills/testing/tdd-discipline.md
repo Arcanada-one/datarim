@@ -5,7 +5,7 @@ description: Test-Driven Development discipline — RED-GREEN-REFACTOR cycle, Ir
 
 # Test-Driven Development — Discipline Fragment
 
-> Loaded from `skills/testing.md` § Discipline. Apply alongside testing-pyramid and mocking rules from the entry skill.
+> Loaded from `skills/testing/SKILL.md` § Discipline. Apply alongside testing-pyramid and mocking rules from the entry skill.
 
 ## Core Principle
 

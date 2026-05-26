@@ -15,7 +15,7 @@
 # Inputs:
 #   <file-or-dir>   Path to scan. File → single-file mode. Directory →
 #                   recursive *.md scan (excluding tests/fixtures/).
-#   --whitelist     Optional, repeatable. Default whitelist: skills/tech-stack.md.
+#   --whitelist     Optional, repeatable. Default whitelist: skills/tech-stack/SKILL.md.
 #                   Whitelist match is suffix-based (path ends with the value).
 #   --diff-only     Scan only lines added in `git diff <base> -- <file>` —
 #                   ignore pre-existing baseline matches (TUNE-0058). Default
@@ -95,7 +95,7 @@ DENYLIST=(
 # Defaults
 # ---------------------------------------------------------------------------
 WHITELIST=(
-    "skills/tech-stack.md"
+    "skills/tech-stack/SKILL.md"
     "skills/evolution/stack-agnostic-gate.md"
     "skills/ai-quality/deployment-patterns.md"
     "skills/testing/live-smoke-gates.md"

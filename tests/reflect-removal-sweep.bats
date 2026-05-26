@@ -18,13 +18,13 @@
 #   - CLAUDE.md                   "/dr-reflect command no longer exists"
 #   - docs/pipeline.md            "Historical note: prior to v1.10.0..."
 #   - commands/dr-archive.md      "Historical: prior to v1.10.0..."
-#   - skills/reflecting.md        "former /dr-reflect command was retired..."
-#   - skills/evolution.md         forward-pointer note + utilities/recovery ref
+#   - skills/reflecting/SKILL.md        "former /dr-reflect command was retired..."
+#   - skills/evolution/SKILL.md         forward-pointer note + utilities/recovery ref
 #                                 (plan §D5 2c: "keep historical changelog
 #                                 paragraph annotated 'prior to v1.10.0'")
 #   - skills/evolution/class-ab-gate.md           TUNE-0002/0003 incident
 #                                 reconstruction (added by TUNE-0034 — fragment
-#                                 split from skills/evolution.md per
+#                                 split from skills/evolution/SKILL.md per
 #                                 utilities-decomposition; v1.10.0/TUNE-0013
 #                                 mentioned inline)
 #   - skills/evolution/examples-and-patterns.md   TUNE-0013 case-study +
@@ -48,8 +48,8 @@ WHITELIST=(
     "docs/pipeline.md"
     "docs/evolution-log.md"
     "commands/dr-archive.md"
-    "skills/reflecting.md"
-    "skills/evolution.md"
+    "skills/reflecting/SKILL.md"
+    "skills/evolution/SKILL.md"
     "skills/evolution/class-ab-gate.md"
     "skills/evolution/examples-and-patterns.md"
 )

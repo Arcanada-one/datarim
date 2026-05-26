@@ -4,7 +4,7 @@ Datarim includes 51 reusable skill modules. Skills provide rules, patterns, and 
 
 Skills are split into two categories:
 - **Reference skills** — rules and patterns the caller applies inline. Inherit caller's model (no `model` field).
-- **Task skills** — perform an action when invoked. Have explicit `model` field per [Model Assignment Convention](../skills/datarim-system.md).
+- **Task skills** — perform an action when invoked. Have explicit `model` field per [Model Assignment Convention](../skills/datarim-system/SKILL.md).
 
 ## Skill Catalog
 
@@ -46,6 +46,7 @@ Skills are split into two categories:
 | human-summary | Reference | inherit | Plain-language operator recap — four sub-sections + banlist + whitelist + per-paragraph escape hatch + 150–400 word budget | /dr-qa, /dr-compliance, /dr-archive (Step 8) |
 | stage-snapshot-writer | Reference | inherit | Producer contract for per-task stage snapshots — final operator-visible `/dr-*` response persisted to `datarim/snapshots/{TASK-ID}.snapshot.md` with overwrite semantics, mkdir-based atomic lock, 8 KB hard cap (v2.13.0, TUNE-0254) | invoked from `cta-format.md` § Snapshot Emission by every `/dr-*` |
 | dr-next-snapshot-replay | Reference | inherit | Consumer contract — `/dr-next` and `/dr-orchestrate` read snapshot first, emit replay-prompt with CTA + bilingual autonomy reminder + `done before:` body; CTA-selection heuristic with ≥3 worked examples (v2.13.0, TUNE-0254) | `/dr-next` Step 2.5, `/dr-orchestrate` Snapshot-First Resume |
+| v-ac-axis-split | Reference | inherit | Pattern guidance: split V-AC groups mixing a deterministic axis (rule match / shape check / type assertion) and a statistical axis (live-rate threshold / SLA percentile / soak distribution) into two distinct V-AC groups upfront. | `/dr-prd` V-AC drafting, `/dr-plan` V-AC review |
 
 **Distribution:** 14 reference (inherit), 3 opus, 13 sonnet, 4 haiku.
 
@@ -84,4 +85,4 @@ model: sonnet  # or opus / haiku per Model Assignment Convention
 (Step-by-step instructions, checklists, workflows — performs an action when invoked)
 ```
 
-See [Model Assignment Convention](../skills/datarim-system.md) in `datarim-system.md` for choosing the right model.
+See [Model Assignment Convention](../skills/datarim-system/SKILL.md) in `datarim-system.md` for choosing the right model.

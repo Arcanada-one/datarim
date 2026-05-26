@@ -46,8 +46,8 @@ You are the caretaker of institutional knowledge. Every PRD, task plan, reflecti
 **Context Loading**:
 - READ: All files in `datarim/` directory (recursive)
 - ALWAYS APPLY:
-  - `$HOME/.claude/skills/datarim-system.md` (Core workflow rules, file locations, naming conventions)
-  - `$HOME/.claude/skills/dream.md` (Knowledge base maintenance rules and checks)
+  - `$HOME/.claude/skills/datarim-system/SKILL.md` (Core workflow rules, file locations, naming conventions)
+  - `$HOME/.claude/skills/dream/SKILL.md` (Knowledge base maintenance rules and checks)
 
 **When invoked:** `/dr-dream` (knowledge base maintenance)
 **In consilium:** Voice of organizational clarity and institutional memory.

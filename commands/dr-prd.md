@@ -13,9 +13,9 @@ This command generates a structured Product Requirements Document (PRD) followin
 
 ## Instructions
 
-0.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system.md` § Path Resolution Rule.
+0.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system/SKILL.md` § Path Resolution Rule.
 
-0.5. **READ INIT-TASK** (mandatory per `$HOME/.claude/skills/init-task-persistence.md`): Open `datarim/tasks/{TASK-ID}-init-task.md` if present. Read the full `## Operator brief (verbatim)` section AND every `## Append-log` entry. Any divergence between the operator's stated intent and the discovery scope MUST be surfaced in PRD § Discovery / § Constraints. Missing init-task is non-blocking — flag as advisory and continue.
+0.5. **READ INIT-TASK** (mandatory per `$HOME/.claude/skills/init-task-persistence/SKILL.md`): Open `datarim/tasks/{TASK-ID}-init-task.md` if present. Read the full `## Operator brief (verbatim)` section AND every `## Append-log` entry. Any divergence between the operator's stated intent and the discovery scope MUST be surfaced in PRD § Discovery / § Constraints. Missing init-task is non-blocking — flag as advisory and continue.
 
 1.  **Analyze Context (Phase 1)**:
     -   Read `datarim/projectbrief.md`, `techContext.md`, and `systemPatterns.md`.
@@ -24,7 +24,7 @@ This command generates a structured Product Requirements Document (PRD) followin
 
 1.5. **Research External Context (Phase 1.3)** (L2+ only):
     -   Determine research mode: **Lite** (L2, 5 checkpoints) or **Full** (L3-L4, 10 checkpoints). Skip entirely for L1.
-    -   Load `$HOME/.claude/skills/research-workflow.md`.
+    -   Load `$HOME/.claude/skills/research-workflow/SKILL.md`.
     -   Spawn researcher agent (`$HOME/.claude/agents/researcher.md`) with task context: task ID, description, identified stack/dependencies from Phase 1.
     -   Agent creates `datarim/insights/INSIGHTS-{task-id}.md` from template `${DATARIM_RUNTIME:-$HOME/.claude}/templates/insights-template.md`.
     -   Agent runs research checklist per mode, using available tools adaptively (context7, WebSearch, LTM API, codebase analysis).
@@ -32,11 +32,11 @@ This command generates a structured Product Requirements Document (PRD) followin
 
 2.  **Discovery Interview (Phase 1.5)**:
     -   If `datarim/insights/INSIGHTS-{task-id}.md` exists, read it before starting the interview — use research findings to inform questions and proposals.
-    -   Load `$HOME/.claude/skills/discovery.md`.
+    -   Load `$HOME/.claude/skills/discovery/SKILL.md`.
     -   Run a focused interview (mode based on complexity: Quick for L1-2, Standard for L2-3, Deep for L3-4).
     -   Apply codebase-first rule: prioritize existing code patterns and constraints over assumptions.
     -   Output structured requirements summary into the PRD discovery section.
-    -   For L3-4 tasks, optionally invoke consilium skill (`$HOME/.claude/skills/consilium.md`) for multi-perspective analysis of requirements.
+    -   For L3-4 tasks, optionally invoke consilium skill (`$HOME/.claude/skills/consilium/SKILL.md`) for multi-perspective analysis of requirements.
 
 3.  **Explore Solutions (Phase 2)**:
     -   Generate **3+ distinct technical approaches**.
@@ -57,8 +57,8 @@ This command generates a structured Product Requirements Document (PRD) followin
         - **V-AC ecosystem-mandate alignment.** Run `dev-tools/check-v-ac-mandate-preflight.sh --prd "$PRD_FILE"`. Advisory gate: the script extracts V-AC / Verification / Success Criteria lines and greps each against the forbidden-pattern set in `dev-tools/public-surface-forbidden.regex` (the same contract surface consumed by `public-surface-lint.sh`). Goal — surface a V-AC ↔ Public Surface Hygiene Mandate conflict at PRD-time, not at `/dr-qa`. The script always exits 0; on match it prints `WARNING:` lines to stdout for operator review. Optional `--regex <FILE>` override loads a consumer-extended pattern set without script changes.
     -   Save to `datarim/prd/PRD-{slug}.md`.
 
-5.5b. **Seed expectations checklist (L3-L4, mandatory)** per `$HOME/.claude/skills/expectations-checklist.md`:
-    -   For tasks with `complexity: L3` or `L4`, the architect MUST create or update `datarim/tasks/{TASK-ID}-expectations.md` from `$HOME/.claude/templates/expectations-template.md`.
+5.5b. **Append-merge expectations checklist (L3-L4, mandatory)** per `$HOME/.claude/skills/expectations-checklist/SKILL.md`:
+    -   The checklist file `datarim/tasks/{TASK-ID}-expectations.md` is created by `/dr-init` at Step 4.7. At `/dr-prd`, the architect MUST append-merge any new wishes derived from the PRD § Success Criteria block — never create the file from scratch, and never replace existing operator-derived wishes.
     -   **Source of items.** Each operator wish becomes one item. Derive items from:
         (a) the init-task `## Operator brief (verbatim)` plus every `## Append-log` entry (one wish per distinct intent), and
         (b) the PRD § Success Criteria list (one wish per V-AC where the criterion reflects an operator-observable outcome — internal-only AC stays in PRD).
@@ -79,7 +79,7 @@ This command generates a structured Product Requirements Document (PRD) followin
     -   For `complexity: L1` or `L2` this step is skipped here; `/dr-plan` handles L2 without PRD.
 
 5.5. **Network Exposure Baseline (tiered gate)**:
-    -   Read `$HOME/.claude/skills/network-exposure-baseline.md` § Tier Model + § Tiered Gate Rules.
+    -   Read `$HOME/.claude/skills/network-exposure-baseline/SKILL.md` § Tier Model + § Tiered Gate Rules.
     -   Decide gate disposition by invoking the canonical executor:
         ```bash
         decision=$(dev-tools/network-exposure-gate.sh \
@@ -108,7 +108,7 @@ This command generates a structured Product Requirements Document (PRD) followin
 
 6.  **Backlog Generation** (optional):
     -   Extract actionable items from PRD sections (features, components, migrations, integrations).
-    -   **Determine prefix for generated items** per Unified Task Numbering (`$HOME/.claude/skills/datarim-system.md`):
+    -   **Determine prefix for generated items** per Unified Task Numbering (`$HOME/.claude/skills/datarim-system/SKILL.md`):
         - If PRD is scoped to one project → use that project's prefix.
           <!-- gate:history-allowed -->
           Example: PRD-SUP-0001 → items are `SUP-0002`, `SUP-0003`, ...
@@ -118,7 +118,7 @@ This command generates a structured Product Requirements Document (PRD) followin
     -   Present to user: "PRD identifies N potential backlog items: [numbered list with proposed IDs, titles, complexity]"
     -   If approved: create entries in `datarim/backlog.md` with status `pending` and a reference to PRD in the description (e.g., `Source: PRD-{ID}`).
 
-6.5. **APPEND Q&A IF ANY** (mandatory per `$HOME/.claude/skills/init-task-persistence.md` § Q&A round-trip contract): for every operator clarification round captured during this stage — either operator answer or autonomous agent-decision under FB-1..FB-5 — invoke `dev-tools/append-init-task-qa.sh` to persist the round into `datarim/tasks/{TASK-ID}-init-task.md § Append-log`.
+6.5. **APPEND Q&A IF ANY** (mandatory per `$HOME/.claude/skills/init-task-persistence/SKILL.md` § Q&A round-trip contract): for every operator clarification round captured during this stage — either operator answer or autonomous agent-decision under FB-1..FB-5 — invoke `dev-tools/append-init-task-qa.sh` to persist the round into `datarim/tasks/{TASK-ID}-init-task.md § Append-log`.
     -   Write the question and answer (and rationale, when applicable) to temp files first; free-form text MUST come via `--*-file <path>` per Security Mandate § S1 (do not pass operator text as literal CLI strings).
     -   Required flags: `--root <repo-root> --task {TASK-ID} --stage prd --round <N> --question-file <path> --answer-file <path> --decided-by <operator|agent> --summary "<one-line>"`.
     -   When `--decided-by agent`: `--rationale-file <path>` is required and its body MUST contain ≥ 50 non-whitespace characters explaining the choice (best-practice reference, prior archive, FB-rules link).
@@ -145,17 +145,17 @@ Run: `/dr-prd "Brief description of the task"`
 
 When auto-mode is active (env var `DATARIM_AUTO_MODE=1` AND matching marker `datarim/.auto-mode-active` containing this TASK-ID), this command:
 
-1. Consults `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode.md` § Question Suppression Ladder before any `AskUserQuestion` or equivalent operator prompt at this stage.
+1. Consults `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode/SKILL.md` § Question Suppression Ladder before any `AskUserQuestion` or equivalent operator prompt at this stage.
 2. Stage-specific suppression hooks:
    - Step 2 Discovery Interview — каждый Q resolved through Ladder L1-L4 before falling through to Discovery prompt; business-strategy Qs go straight to L5.
    - Step 4 Consult User gate — proposed approach + alternatives auto-selected if Ladder unambiguous; L5 only for true cross-cutting trade-offs.
-3. Discovered gaps → apply L1 Inline Resolution Rule per `skills/autonomous-mode.md`; log in `datarim/tasks/{TASK-ID}-auto-inline-log.md` if applied inline.
-4. Hard-gated actions → escalate to operator through Ladder L5; log via `dev-tools/append-init-task-qa.sh --decided-by operator` per `skills/init-task-persistence.md` § Q&A round-trip.
-5. Mismatch (env var set, marker absent OR marker contains different TASK-ID) → emit single-line warning, treat as non-auto (fail-safe per `skills/autonomous-mode.md` § When this skill is active).
+3. Discovered gaps → apply L1 Inline Resolution Rule per `skills/autonomous-mode/SKILL.md`; log in `datarim/tasks/{TASK-ID}-auto-inline-log.md` if applied inline.
+4. Hard-gated actions → escalate to operator through Ladder L5; log via `dev-tools/append-init-task-qa.sh --decided-by operator` per `skills/init-task-persistence/SKILL.md` § Q&A round-trip.
+5. Mismatch (env var set, marker absent OR marker contains different TASK-ID) → emit single-line warning, treat as non-auto (fail-safe per `skills/autonomous-mode/SKILL.md` § When this skill is active).
 
 ## Next Steps (CTA)
 
-After PRD save, the architect agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format.md`.
+After PRD save, the architect agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-prd`:**
 
@@ -169,7 +169,7 @@ The CTA block MUST follow the canonical format (numbered, one `**рекомен�
 
 ## Stage Snapshot Emission (Mandatory Terminal Step)
 
-After the `## Next Steps (CTA)` block above, the agent MUST perform snapshot emission per `$HOME/.claude/skills/cta-format.md` § Snapshot Emission. Parameters bound for this command:
+After the `## Next Steps (CTA)` block above, the agent MUST perform snapshot emission per `$HOME/.claude/skills/cta-format/SKILL.md` § Snapshot Emission. Parameters bound for this command:
 
 - `stage`: `prd`
 - `command`: `/dr-prd`

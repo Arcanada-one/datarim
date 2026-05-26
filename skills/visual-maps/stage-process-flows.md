@@ -131,7 +131,7 @@ graph TD
 
 ## CTA Emission per Stage (v1.16.0)
 
-Every stage flow above ends with the agent emitting a canonical CTA block per `$HOME/.claude/skills/cta-format.md`. The CTA is part of the response — not a separate stage. Mapping of stage end → primary CTA command:
+Every stage flow above ends with the agent emitting a canonical CTA block per `$HOME/.claude/skills/cta-format/SKILL.md`. The CTA is part of the response — not a separate stage. Mapping of stage end → primary CTA command:
 
 | Stage end | Primary CTA in block |
 |-----------|----------------------|

@@ -13,12 +13,12 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
 ## Instructions
 
 
-**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format.md` § Stage Header.
-0.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system.md` § Path Resolution Rule.
+**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header.
+0.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system/SKILL.md` § Path Resolution Rule.
 
-1.  **TASK RESOLUTION**: Apply Task Resolution Rule from `$HOME/.claude/skills/datarim-system.md` § Task Resolution Rule. Use the resolved task ID for all subsequent steps.
+1.  **TASK RESOLUTION**: Apply Task Resolution Rule from `$HOME/.claude/skills/datarim-system/SKILL.md` § Task Resolution Rule. Use the resolved task ID for all subsequent steps.
 
-1.5. **READ INIT-TASK** (mandatory per `$HOME/.claude/skills/init-task-persistence.md`): Open `datarim/tasks/{TASK-ID}-init-task.md` if present. Read the full `## Operator brief (verbatim)` section AND every `## Append-log` entry. Any divergence between the operator's stated intent and the planned scope MUST be recorded in the plan's § Notes / § Risks. Missing init-task is non-blocking — flag as advisory and continue.
+1.5. **READ INIT-TASK** (mandatory per `$HOME/.claude/skills/init-task-persistence/SKILL.md`): Open `datarim/tasks/{TASK-ID}-init-task.md` if present. Read the full `## Operator brief (verbatim)` section AND every `## Append-log` entry. Any divergence between the operator's stated intent and the planned scope MUST be recorded in the plan's § Notes / § Risks. Missing init-task is non-blocking — flag as advisory and continue.
 
 2.  **Analyze Context**:
     -   Read `datarim/tasks.md` (Complexity, Requirements for the resolved task).
@@ -42,32 +42,32 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
     -   **Security Design**: Perform **Threat Modeling** and map to **Security Controls** (Appendix A).
 
 5.  **Create Implementation Plan (Phase 5)** — thin-index schema:
-    -   **`datarim/tasks.md`** carries ONLY the one-liner pointer (canonical regex per `skills/datarim-system.md` § Operational File Schema):
+    -   **`datarim/tasks.md`** carries ONLY the one-liner pointer (canonical regex per `skills/datarim-system/SKILL.md` § Operational File Schema):
         ```
         - {TASK-ID} · in_progress · P{n} · L{n} · {title} → tasks/{TASK-ID}-task-description.md
         ```
         Never write plan content directly into `tasks.md`.
-    -   **L1-L2 tasks:** plan body lives in `datarim/tasks/{TASK-ID}-task-description.md` § Implementation Notes (or a dedicated `## Implementation Plan` section). Description file MUST have the 12-key YAML frontmatter (see `skills/datarim-system.md` § Description File Contract).
+    -   **L1-L2 tasks:** plan body lives in `datarim/tasks/{TASK-ID}-task-description.md` § Implementation Notes (or a dedicated `## Implementation Plan` section). Description file MUST have the 12-key YAML frontmatter (see `skills/datarim-system/SKILL.md` § Description File Contract).
     -   **L3-L4 tasks:** plan body lives in `datarim/plans/{TASK-ID}-plan.md`. The description file's frontmatter sets `plan: plans/{TASK-ID}-plan.md`. The description body's `## Related` section points readers there.
     -   Both formats use the same **Design Document Template** (Phase 5 below).
     -   Include: **Security Summary** (Attack Surface, Risks), **Architecture Impact**, **Detailed Design** (API, DB, Config), **Security Design** (Threats, Controls), **Implementation Steps**, **Test Plan** (Unit/Integration/Security), **Rollback Strategy**, **Validation Checklist**.
 
-5b. **Append-merge expectations checklist (L2 without PRD, plan-driven additions only)** per `$HOME/.claude/skills/expectations-checklist.md` § Append-merge contract:
+5b. **Append-merge expectations checklist (L2 without PRD, plan-driven additions only)** per `$HOME/.claude/skills/expectations-checklist/SKILL.md` § Append-merge contract:
     -   **Expectations creation contract:** the expectations file is **created at `/dr-init` Step 4.7** for all tasks (L1-L4). This step does NOT create the file from scratch — it **append-merges** plan-derived wishes that augment the init-task skeleton (L2 without PRD only).
     -   Skip this step when a PRD exists — `/dr-prd` Step 5.5b already handled the PRD-driven append-merge.
     -   For L2 tasks without a PRD, the planner MUST load existing `datarim/tasks/{TASK-ID}-expectations.md` (already seeded at `/dr-init`) and append any plan-derived wishes the init-task skeleton did not cover.
     -   **Source of new items (append candidates).** Each plan § Validation Checklist row that asserts an operator-observable outcome → one candidate wish. Compare candidate's semantic content with existing items by `wish_id`:
-        - **Match (semantic equivalence with existing wish):** do not append; add one `stage: append-merge` line to existing wish's `#### История статусов` (reason: «уточнено в плане»).
+        - **Match (semantic equivalence with existing wish):** do not append; add one `stage: append-merge` line to existing wish's `#### История статусов` (reason: "refined in the plan"). <!-- allow-non-ascii: literal-russian-status-history-section-name-from-expectations-template -->
         - **No match (genuinely new operator-observable outcome):** append at the bottom as a new item:
             - title in plain Russian ending with a period;
             - `wish_id` = kebab-slug of the title (cyrillic allowed);
-            - `Что хочу проверить:` one or two sentences;
-            - `Как проверить (success criterion):` one concrete signal;
-            - `Связанный AC из PRD: «—»` (no PRD);
+            - `Что хочу проверить:` one or two sentences; <!-- allow-non-ascii: literal-russian-field-name-from-expectations-template -->
+            - `Как проверить (success criterion):` one concrete signal; <!-- allow-non-ascii: literal-russian-field-name-from-expectations-template -->
+            - `Связанный AC из PRD: «—»` (no PRD); <!-- allow-non-ascii: literal-russian-field-name-from-expectations-template -->
             - `evidence_type:` (default `empirical`; choose `static` or `measurement` per validation nature);
-            - `#### История статусов` with one initial line `<ISO> / <local> · /dr-plan · pending → pending · reason: пункт добавлен из плана § Validation Checklist`;
-            - `#### Текущий статус: pending`.
-    -   **Do not rewrite, reorder, or delete existing items.** Operator controls pruning via explicit `Текущий статус: deleted`.
+            - `#### История статусов` with one initial line `<ISO> / <local> · /dr-plan · pending → pending · reason: пункт добавлен из плана § Validation Checklist`; <!-- allow-non-ascii: literal-russian-field-name-from-expectations-template -->
+            - `#### Текущий статус: pending`. <!-- allow-non-ascii: literal-russian-field-name-from-expectations-template -->
+    -   **Do not rewrite, reorder, or delete existing items.** Operator controls pruning via explicit `Текущий статус: deleted`. <!-- allow-non-ascii: literal-russian-field-name-from-expectations-template -->
     -   **Post-write validation gate.** Invoke:
         ```bash
         dev-tools/check-expectations-checklist.sh --task {TASK-ID}
@@ -172,7 +172,7 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
         firewall/UFW rules, or a runtime bind argument. If yes, set the
         `--network-diff` signal for the gate executor.
     -   Run `dev-tools/network-exposure-gate.sh --task-description datarim/tasks/{TASK-ID}-task-description.md [--network-diff] --quiet`
-        and apply the verdict per `$HOME/.claude/skills/network-exposure-baseline.md` § Tiered Gate Rules:
+        and apply the verdict per `$HOME/.claude/skills/network-exposure-baseline/SKILL.md` § Tiered Gate Rules:
         -   **`hard_block`** → the plan MUST include a section
             **«Network Exposure»** that lists every touched listener with
             target Tier (0/1/2/3) and, for Tier 3, the proposed
@@ -186,11 +186,11 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
             the skill. Do not block.
         -   **`skip`** → no plan section required.
     -   When justifications are needed, provide concrete mitigation language —
-        not «потому что надо». TTL ≤ 90 days from plan authorship, in the
+        not "because we have to". TTL ≤ 90 days from plan authorship, in the
         future. The gate is fail-closed on missing/malformed
         `priority`/`type`.
 
-12.  **Class B Public Surface Scan** (MANDATORY when Class A/B gate per `$HOME/.claude/skills/evolution.md` classifies the task as **Class B** — operating-model / contract change):
+12.  **Class B Public Surface Scan** (MANDATORY when Class A/B gate per `$HOME/.claude/skills/evolution/SKILL.md` classifies the task as **Class B** — operating-model / contract change):
     -   Enumerate ALL user-facing surfaces that reflect the new operating model. Minimum:
         -   `code/datarim/docs/getting-started.md`
         -   `code/datarim/README.md`
@@ -202,15 +202,15 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
         -   `Projects/Websites/datarim.club/config.php` (version)
     -   **n-way runtime↔site sync (when task adds a NEW command/skill/agent)** — for every NEW artifact, public surface coverage MUST include:
         -   `Projects/Websites/datarim.club/data/{commands,skills,agents}/<name>.php` (EN + RU short + body — site discoverability surface)
-        -   `Projects/Datarim/code/datarim/docs/{commands,skills,agents}.md` (catalogue row, update count в heading)
+        -   `Projects/Datarim/code/datarim/docs/{commands,skills,agents}.md` (catalogue row, update count in the heading)
         -   `Projects/Datarim/code/datarim/CLAUDE.md` (commands/skills/agents table row, update count footer)
-        -   `Projects/Datarim/code/datarim/README.md` (commands list mention, update count в badge / description)
-        These are the 4 surfaces required by the Public-surface ↔ runtime sync mandate (consumer CLAUDE.md § Public-surface ↔ runtime sync). Asymmetric drift («site впереди фреймворка» or vice versa) = discoverability gap. Detector: `dev-tools/doc-fanout-lint.sh` + `tests/test-command-doc-coverage.bats`.
+        -   `Projects/Datarim/code/datarim/README.md` (commands list mention, update count in the badge / description)
+        These are the 4 surfaces required by the Public-surface ↔ runtime sync mandate (consumer CLAUDE.md § Public-surface ↔ runtime sync). Asymmetric drift ("site is ahead of the framework" or vice versa) = a discoverability gap. Detector: `dev-tools/doc-fanout-lint.sh` + `tests/test-command-doc-coverage.bats`.
     -   For EACH surface in the list, plan §5 MUST include an explicit affected-files entry AND PRD MUST include a corresponding acceptance criterion (e.g. `AC-NN: live curl /docs/getting-started \| grep <new-term>` for live verification).
-    -   Deferring a surface to /dr-qa or /dr-archive is a **Class B contract violation** — Class B tasks ship with their full public surface coverage in /dr-do, not «minor скорректируем потом».
+    -   Deferring a surface to /dr-qa or /dr-archive is a **Class B contract violation** — Class B tasks ship with their full public surface coverage in /dr-do, not "minor — we will tidy this up later".
     -   When a Class B operating-model AC (e.g. `pages/getting-started.php` symlink content) is deferred from `/dr-do`, it surfaces only at `/dr-archive` live deploy verification. Surface scan checkpoint prevents recurrence.
 
-12.5. **APPEND Q&A IF ANY** (mandatory per `$HOME/.claude/skills/init-task-persistence.md` § Q&A round-trip contract): for every operator clarification round captured during this stage — either operator answer or autonomous agent-decision under FB-1..FB-5 — invoke `dev-tools/append-init-task-qa.sh` to persist the round into `datarim/tasks/{TASK-ID}-init-task.md § Append-log`.
+12.5. **APPEND Q&A IF ANY** (mandatory per `$HOME/.claude/skills/init-task-persistence/SKILL.md` § Q&A round-trip contract): for every operator clarification round captured during this stage — either operator answer or autonomous agent-decision under FB-1..FB-5 — invoke `dev-tools/append-init-task-qa.sh` to persist the round into `datarim/tasks/{TASK-ID}-init-task.md § Append-log`.
     -   Write the question and answer (and rationale, when applicable) to temp files first; free-form text MUST come via `--*-file <path>` per Security Mandate § S1.
     -   Required flags: `--root <repo-root> --task {TASK-ID} --stage plan --round <N> --question-file <path> --answer-file <path> --decided-by <operator|agent> --summary "<one-line>"`.
     -   When `--decided-by agent`: `--rationale-file <path>` MUST contain ≥ 50 non-whitespace characters of reasoning.
@@ -260,8 +260,8 @@ Run: `/dr-plan`
 ## Reusable Templates
 
 - `${DATARIM_RUNTIME:-$HOME/.claude}/templates/integration-checklist.md` — third-party-integration checklist for any task that adds, replaces, or modifies an integration with an external HTTP API, SDK, webhook target, OAuth provider, payment gateway, message queue, storage API, or LLM/STT/TTS endpoint. Reference from Step 6 (Technology Validation) when the task contains the `external API` keyword or introduces a new third-party dependency.
-- `${DATARIM_RUNTIME:-$HOME/.claude}/templates/security-deps-upgrade-plan.md` — see `skills/security.md`. Reference during Step 6 for dependency-CVE / framework-bump tasks.
-- `${DATARIM_RUNTIME:-$HOME/.claude}/templates/infra-cost-reduction-checklist.md` — see `skills/infra-automation.md`. Reference during Step 6 for VM/storage right-sizing or unused-resource cleanup.
+- `${DATARIM_RUNTIME:-$HOME/.claude}/templates/security-deps-upgrade-plan.md` — see `skills/security/SKILL.md`. Reference during Step 6 for dependency-CVE / framework-bump tasks.
+- `${DATARIM_RUNTIME:-$HOME/.claude}/templates/infra-cost-reduction-checklist.md` — see `skills/infra-automation/SKILL.md`. Reference during Step 6 for VM/storage right-sizing or unused-resource cleanup.
 <!-- gate:example-only -->
 - For stack-specific scaffolds (e.g. NestJS, Django, Rails): see the relevant project's `CLAUDE.md` or its per-project `${DATARIM_RUNTIME:-$HOME/.claude}/templates/` directory. The Datarim framework `${DATARIM_RUNTIME:-$HOME/.claude}/templates/` dir remains stack-agnostic — see `skills/evolution/stack-agnostic-gate.md`.
 <!-- /gate:example-only -->
@@ -270,17 +270,17 @@ Run: `/dr-plan`
 
 When auto-mode is active (env var `DATARIM_AUTO_MODE=1` AND matching marker `datarim/.auto-mode-active` containing this TASK-ID), this command:
 
-1. Consults `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode.md` § Question Suppression Ladder before any `AskUserQuestion` or equivalent operator prompt at this stage.
+1. Consults `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode/SKILL.md` § Question Suppression Ladder before any `AskUserQuestion` or equivalent operator prompt at this stage.
 2. Stage-specific suppression hooks:
    - Step 3 Strategist Gate (L3-4 only) — pivot suggestion resolved through Ladder; suggest pivot inline, escalate to L5 only if it changes scope materially.
    - Step 4 Architectural-superseding probe — operator decision (proceed / cancel / reframe) resolved through Ladder L1-L2 (read sibling archives).
-3. Discovered gaps → apply L1 Inline Resolution Rule per `skills/autonomous-mode.md`; log in `datarim/tasks/{TASK-ID}-auto-inline-log.md` if applied inline.
-4. Hard-gated actions → escalate to operator through Ladder L5; log via `dev-tools/append-init-task-qa.sh --decided-by operator` per `skills/init-task-persistence.md` § Q&A round-trip.
-5. Mismatch (env var set, marker absent OR marker contains different TASK-ID) → emit single-line warning, treat as non-auto (fail-safe per `skills/autonomous-mode.md` § When this skill is active).
+3. Discovered gaps → apply L1 Inline Resolution Rule per `skills/autonomous-mode/SKILL.md`; log in `datarim/tasks/{TASK-ID}-auto-inline-log.md` if applied inline.
+4. Hard-gated actions → escalate to operator through Ladder L5; log via `dev-tools/append-init-task-qa.sh --decided-by operator` per `skills/init-task-persistence/SKILL.md` § Q&A round-trip.
+5. Mismatch (env var set, marker absent OR marker contains different TASK-ID) → emit single-line warning, treat as non-auto (fail-safe per `skills/autonomous-mode/SKILL.md` § When this skill is active).
 
 ## Next Steps (CTA)
 
-After plan generation, the planner agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format.md`.
+After plan generation, the planner agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-plan`:**
 
@@ -290,11 +290,11 @@ After plan generation, the planner agent MUST emit a CTA block per `$HOME/.claud
 - Plan incomplete or strategist suggests pivot → primary `/dr-prd {TASK-ID}` (revise scope)
 - Always include `/dr-status` as escape hatch
 
-The CTA block MUST follow the canonical format (numbered, one `**рекомендуется**`, `---` HR). Variant B menu when >1 active tasks.
+The CTA block MUST follow the canonical format (numbered, one `**рекомендуется**`, `---` HR). Variant B menu when >1 active tasks. <!-- allow-non-ascii: literal-russian-cta-marker-from-cta-format-skill -->
 
 ## Stage Snapshot Emission (Mandatory Terminal Step)
 
-After the `## Next Steps (CTA)` block above, the agent MUST perform snapshot emission per `$HOME/.claude/skills/cta-format.md` § Snapshot Emission. Parameters bound for this command:
+After the `## Next Steps (CTA)` block above, the agent MUST perform snapshot emission per `$HOME/.claude/skills/cta-format/SKILL.md` § Snapshot Emission. Parameters bound for this command:
 
 - `stage`: `plan`
 - `command`: `/dr-plan`

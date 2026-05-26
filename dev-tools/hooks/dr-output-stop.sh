@@ -4,8 +4,8 @@
 # Claude Code Stop hook entry point. Forwards stdin JSON to the Python
 # helper which runs two validators (Stage Header + Human Summary contract).
 # Fail-soft: any unexpected error from the wrapper or the helper degrades to
-# exit 0 (allow) — the text contract (skills/cta-format.md +
-# skills/human-summary.md) is the canonical surface, this hook is the final
+# exit 0 (allow) — the text contract (skills/cta-format/SKILL.md +
+# skills/human-summary/SKILL.md) is the canonical surface, this hook is the final
 # defensive layer per TUNE-0264.
 #
 # Usage (registered in ~/.claude/settings.json):

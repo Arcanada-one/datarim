@@ -27,7 +27,7 @@
 #
 # Stderr: warnings on Codex degraded mode, on per-user/per-project conflict.
 #
-# See: skills/self-verification.md § Peer Review Provider Resolution
+# See: skills/self-verification/SKILL.md § Peer Review Provider Resolution
 #
 # strict-mode rationale: -e omitted intentionally. The chain MUST always emit a
 # resolution (or explicit exit 1/2) — under -e an awk parse error would kill the

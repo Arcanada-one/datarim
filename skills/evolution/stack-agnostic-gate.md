@@ -19,7 +19,7 @@ runtime. It is the executable enforcement of `feedback_datarim_stack_agnostic.md
 
 Load and run this gate at the apply step of:
 
-- `skills/reflecting.md` Step 6 — Class A apply (post-archive evolution proposals)
+- `skills/reflecting/SKILL.md` Step 6 — Class A apply (post-archive evolution proposals)
 - `commands/dr-archive.md` Step 0.5(e) — runtime apply of approved Class A
 - `commands/dr-optimize.md` Step 8 — apply of approved optimization proposals
 - `commands/dr-addskill.md` Step 9 — write of newly created skill/agent/command/template
@@ -57,7 +57,7 @@ False-positive recovery uses the escape hatch below.
 
 ## Whitelist
 
-- **`skills/tech-stack.md`** — explicitly stack-aware by design. The whole
+- **`skills/tech-stack/SKILL.md`** — explicitly stack-aware by design. The whole
   file is exempt; the gate skips it entirely.
 - **`skills/evolution/stack-agnostic-gate.md`** (this file) — the gate's
   own contract document MUST enumerate the denylist verbatim, so it cannot
@@ -150,7 +150,7 @@ reachable from the current working directory):
 2. For each entry in the Denylist above, run `grep -wEi -- "<keyword>"` over
    the content (case-insensitive whole-word match).
 3. Skip lines between `<!-- gate:example-only -->` markers.
-4. If the file path ends with `skills/tech-stack.md`, skip entirely (PASS).
+4. If the file path ends with `skills/tech-stack/SKILL.md`, skip entirely (PASS).
 5. **Decision:**
    - 0 hits → PASS. Proceed with the write.
    - 1+ hits → FAIL. **Do not write the file.** Two outcomes:

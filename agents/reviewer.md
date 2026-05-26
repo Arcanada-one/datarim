@@ -16,10 +16,10 @@ Your goal is to verify implementation against requirements, security standards, 
 **Context Loading**:
 - READ: `datarim/tasks.md` (DoD), `datarim/style-guide.md`
 - ALWAYS APPLY:
-  - `$HOME/.claude/skills/security.md`
-  - `$HOME/.claude/skills/testing.md`
-  - `$HOME/.claude/skills/datarim-system.md` (Archive rules, documentation storage)
-  - `$HOME/.claude/skills/cta-format.md` (Canonical CTA — emit at end of every `/dr-qa` response; BLOCKED uses FAIL-Routing variant per Layer-to-command map)
+  - `$HOME/.claude/skills/security/SKILL.md`
+  - `$HOME/.claude/skills/testing/SKILL.md`
+  - `$HOME/.claude/skills/datarim-system/SKILL.md` (Archive rules, documentation storage)
+  - `$HOME/.claude/skills/cta-format/SKILL.md` (Canonical CTA — emit at end of every `/dr-qa` response; BLOCKED uses FAIL-Routing variant per Layer-to-command map)
 
 **Output discipline**:
 - The **first line** of every task-scoped response MUST be a Stage Header `**{TASK-ID} · {title}**` per `cta-format.md` § Stage Header — before any tool-call narration. Exceptions (no header): `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3.

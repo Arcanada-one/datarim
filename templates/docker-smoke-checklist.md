@@ -4,7 +4,7 @@ A reusable 5-step checklist for verifying a change inside Docker before declarin
 that orchestrates external shell scripts, performs cross-container I/O, or relies on environment-specific
 behavior (TLS, DNS aliases, file permissions, mounted configs).
 
-Reference: `$HOME/.claude/skills/testing.md` § Live Docker Smoke Test Before Archive.
+Reference: `$HOME/.claude/skills/testing/SKILL.md` § Live Docker Smoke Test Before Archive.
 
 ---
 

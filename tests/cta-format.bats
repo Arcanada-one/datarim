@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 #
-# Spec-regression tests for skills/cta-format.md (TUNE-0032 / v1.16.0).
+# Spec-regression tests for skills/cta-format/SKILL.md (TUNE-0032 / v1.16.0).
 #
 # These tests guard the canonical CTA "Next Step" block contract:
 #   - cta-format.md exists and declares the canonical format
@@ -16,7 +16,7 @@
 # and the canonical-spec contract is broken.
 
 REPO_ROOT="${BATS_TEST_DIRNAME}/.."
-SKILL="${REPO_ROOT}/skills/cta-format.md"
+SKILL="${REPO_ROOT}/skills/cta-format/SKILL.md"
 TEMPLATE="${REPO_ROOT}/templates/cta-template.md"
 ROUTING="${REPO_ROOT}/skills/datarim-system/backlog-and-routing.md"
 COMMANDS_DIR="${REPO_ROOT}/commands"
@@ -66,121 +66,121 @@ FIXTURES_DIR="${BATS_TEST_DIRNAME}/cta-format/fixtures"
 # ---------- command files reference cta-format ----------
 
 @test "command dr-init.md references cta-format" {
-    run grep -F "cta-format.md" "${COMMANDS_DIR}/dr-init.md"
+    run grep -F "cta-format/SKILL.md" "${COMMANDS_DIR}/dr-init.md"
     [ "$status" -eq 0 ]
 }
 
 @test "command dr-prd.md references cta-format" {
-    run grep -F "cta-format.md" "${COMMANDS_DIR}/dr-prd.md"
+    run grep -F "cta-format/SKILL.md" "${COMMANDS_DIR}/dr-prd.md"
     [ "$status" -eq 0 ]
 }
 
 @test "command dr-plan.md references cta-format" {
-    run grep -F "cta-format.md" "${COMMANDS_DIR}/dr-plan.md"
+    run grep -F "cta-format/SKILL.md" "${COMMANDS_DIR}/dr-plan.md"
     [ "$status" -eq 0 ]
 }
 
 @test "command dr-design.md references cta-format" {
-    run grep -F "cta-format.md" "${COMMANDS_DIR}/dr-design.md"
+    run grep -F "cta-format/SKILL.md" "${COMMANDS_DIR}/dr-design.md"
     [ "$status" -eq 0 ]
 }
 
 @test "command dr-do.md references cta-format" {
-    run grep -F "cta-format.md" "${COMMANDS_DIR}/dr-do.md"
+    run grep -F "cta-format/SKILL.md" "${COMMANDS_DIR}/dr-do.md"
     [ "$status" -eq 0 ]
 }
 
 @test "command dr-qa.md references cta-format" {
-    run grep -F "cta-format.md" "${COMMANDS_DIR}/dr-qa.md"
+    run grep -F "cta-format/SKILL.md" "${COMMANDS_DIR}/dr-qa.md"
     [ "$status" -eq 0 ]
 }
 
 @test "command dr-compliance.md references cta-format" {
-    run grep -F "cta-format.md" "${COMMANDS_DIR}/dr-compliance.md"
+    run grep -F "cta-format/SKILL.md" "${COMMANDS_DIR}/dr-compliance.md"
     [ "$status" -eq 0 ]
 }
 
 @test "command dr-archive.md references cta-format" {
-    run grep -F "cta-format.md" "${COMMANDS_DIR}/dr-archive.md"
+    run grep -F "cta-format/SKILL.md" "${COMMANDS_DIR}/dr-archive.md"
     [ "$status" -eq 0 ]
 }
 
 @test "command dr-status.md references cta-format" {
-    run grep -F "cta-format.md" "${COMMANDS_DIR}/dr-status.md"
+    run grep -F "cta-format/SKILL.md" "${COMMANDS_DIR}/dr-status.md"
     [ "$status" -eq 0 ]
 }
 
 @test "command dr-next.md references cta-format" {
-    run grep -F "cta-format.md" "${COMMANDS_DIR}/dr-next.md"
+    run grep -F "cta-format/SKILL.md" "${COMMANDS_DIR}/dr-next.md"
     [ "$status" -eq 0 ]
 }
 
 @test "command dr-help.md references cta-format" {
-    run grep -F "cta-format.md" "${COMMANDS_DIR}/dr-help.md"
+    run grep -F "cta-format/SKILL.md" "${COMMANDS_DIR}/dr-help.md"
     [ "$status" -eq 0 ]
 }
 
 @test "command dr-write.md references cta-format" {
-    run grep -F "cta-format.md" "${COMMANDS_DIR}/dr-write.md"
+    run grep -F "cta-format/SKILL.md" "${COMMANDS_DIR}/dr-write.md"
     [ "$status" -eq 0 ]
 }
 
 @test "command dr-edit.md references cta-format" {
-    run grep -F "cta-format.md" "${COMMANDS_DIR}/dr-edit.md"
+    run grep -F "cta-format/SKILL.md" "${COMMANDS_DIR}/dr-edit.md"
     [ "$status" -eq 0 ]
 }
 
 @test "command dr-publish.md references cta-format" {
-    run grep -F "cta-format.md" "${COMMANDS_DIR}/dr-publish.md"
+    run grep -F "cta-format/SKILL.md" "${COMMANDS_DIR}/dr-publish.md"
     [ "$status" -eq 0 ]
 }
 
 @test "command dr-addskill.md references cta-format" {
-    run grep -F "cta-format.md" "${COMMANDS_DIR}/dr-addskill.md"
+    run grep -F "cta-format/SKILL.md" "${COMMANDS_DIR}/dr-addskill.md"
     [ "$status" -eq 0 ]
 }
 
 @test "command dr-optimize.md references cta-format" {
-    run grep -F "cta-format.md" "${COMMANDS_DIR}/dr-optimize.md"
+    run grep -F "cta-format/SKILL.md" "${COMMANDS_DIR}/dr-optimize.md"
     [ "$status" -eq 0 ]
 }
 
 @test "command dr-dream.md references cta-format" {
-    run grep -F "cta-format.md" "${COMMANDS_DIR}/dr-dream.md"
+    run grep -F "cta-format/SKILL.md" "${COMMANDS_DIR}/dr-dream.md"
     [ "$status" -eq 0 ]
 }
 
 # ---------- agents load cta-format ----------
 
 @test "agent planner.md loads cta-format skill" {
-    run grep -F "cta-format.md" "${AGENTS_DIR}/planner.md"
+    run grep -F "cta-format/SKILL.md" "${AGENTS_DIR}/planner.md"
     [ "$status" -eq 0 ]
 }
 
 @test "agent architect.md loads cta-format skill" {
-    run grep -F "cta-format.md" "${AGENTS_DIR}/architect.md"
+    run grep -F "cta-format/SKILL.md" "${AGENTS_DIR}/architect.md"
     [ "$status" -eq 0 ]
 }
 
 @test "agent developer.md loads cta-format skill" {
-    run grep -F "cta-format.md" "${AGENTS_DIR}/developer.md"
+    run grep -F "cta-format/SKILL.md" "${AGENTS_DIR}/developer.md"
     [ "$status" -eq 0 ]
 }
 
 @test "agent reviewer.md loads cta-format skill" {
-    run grep -F "cta-format.md" "${AGENTS_DIR}/reviewer.md"
+    run grep -F "cta-format/SKILL.md" "${AGENTS_DIR}/reviewer.md"
     [ "$status" -eq 0 ]
 }
 
 @test "agent compliance.md loads cta-format skill" {
-    run grep -F "cta-format.md" "${AGENTS_DIR}/compliance.md"
+    run grep -F "cta-format/SKILL.md" "${AGENTS_DIR}/compliance.md"
     [ "$status" -eq 0 ]
 }
 
 # ---------- routing skill references cta-format ----------
 
 @test "backlog-and-routing.md references cta-format for transitions" {
-    run grep -F "cta-format.md" "$ROUTING"
+    run grep -F "cta-format/SKILL.md" "$ROUTING"
     [ "$status" -eq 0 ]
 }
 

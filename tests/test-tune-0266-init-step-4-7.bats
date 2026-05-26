@@ -26,7 +26,7 @@ CMDS_DIR="$BATS_TEST_DIRNAME/../commands"
 
 @test "dr-init.md Step 4.7 references expectations-checklist.md skill" {
     grep -A 1 "^4\.7\. \*\*WRITE EXPECTATIONS SKELETON\*\*" "$CMDS_DIR/dr-init.md" \
-        | grep -q "expectations-checklist.md"
+        | grep -q "expectations-checklist/SKILL.md"
 }
 
 @test "dr-init.md Step 4.7 mandates all complexity levels L1-L4" {
