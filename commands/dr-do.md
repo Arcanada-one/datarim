@@ -129,7 +129,7 @@ Before proceeding to `/dr-qa` or `/dr-archive`:
 
 When auto-mode is active (env var `DATARIM_AUTO_MODE=1` AND matching marker `datarim/.auto-mode-active` containing this TASK-ID), this command:
 
-1. Consults `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode/SKILL.md` § Question Suppression Ladder before any `AskUserQuestion` or equivalent operator prompt at this stage.
+1. Consults `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode/SKILL.md` § Question Suppression Ladder ([definition](../skills/autonomous-mode/SKILL.md)) before any `AskUserQuestion` or equivalent operator prompt at this stage.
 2. Stage-specific suppression hooks:
    - TDD red→green transitions — design choices among equivalent implementations resolved through Ladder L1 (existing pattern grep) before L5.
    - L1 inline gap classifier — discovered gap routed per skills/autonomous-mode/SKILL.md § L1 Inline Resolution Rule decision tree (L1 Class A → inline; L2+/B → backlog; HARD → L5).
@@ -140,7 +140,7 @@ When auto-mode is active (env var `DATARIM_AUTO_MODE=1` AND matching marker `dat
 
 ## Next Steps (CTA)
 
-After implementation, the developer agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format/SKILL.md`.
+After implementation, the developer agent MUST emit a CTA block ([definition](../skills/cta-format.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-do`:**
 
@@ -153,7 +153,7 @@ The CTA block MUST follow the canonical format (numbered list, one `**реком
 
 ## Stage Snapshot Emission (Mandatory Terminal Step)
 
-After the `## Next Steps (CTA)` block above, the agent MUST perform snapshot emission per `$HOME/.claude/skills/cta-format/SKILL.md` § Snapshot Emission. Parameters bound for this command:
+After the `## Next Steps (CTA)` block above, the agent MUST perform snapshot emission ([definition](../skills/stage-snapshot-writer/SKILL.md)) per `$HOME/.claude/skills/cta-format/SKILL.md` § Snapshot Emission. Parameters bound for this command:
 
 - `stage`: `do`
 - `command`: `/dr-do`

@@ -10,7 +10,7 @@ replacement: /dr-next
 `/dr-continue` is retained as a deprecated compatibility alias for `/dr-next`
 through the Datarim 2.21.x line.
 
-Use `/dr-next` for all new instructions, CTA blocks, examples, and public
+Use `/dr-next` for all new instructions, CTA block ([definition](../skills/cta-format.md))s, examples, and public
 documentation. The alias preserves existing operator muscle memory and older
 automation while the command surface transitions.
 

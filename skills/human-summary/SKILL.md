@@ -62,7 +62,7 @@ of those goals were achieved (1-3 sentences) ...
 
 ### Self-identifier preamble
 
-The first non-empty line after the section header MUST be `**{TASK-ID} · {title}**` (same one-liner form as the Stage Header — the one-line `**{TASK-ID} · {title}**` banner emitted at the start of every pipeline command, defined in `cta-format.md` § Stage Header). Rationale: the Stage Header at the top of the full `/dr-*` response identifies the task while the operator reads in context. But the Human Summary section is **also read standalone** — operators scroll back through the chat log and read the last summary chunk out of context. Without the self-identifier, a finished summary is unattributable: bullets describe the results of *some* task without saying which.
+The first non-empty line after the section header MUST be `**{TASK-ID} · {title}**` (same one-liner form as the Stage Header ([definition](../cta-format.md)) — the one-line `**{TASK-ID} · {title}**` banner emitted at the start of every pipeline command, defined in `cta-format.md` § Stage Header). Rationale: the Stage Header at the top of the full `/dr-*` response identifies the task while the operator reads in context. But the Human Summary section is **also read standalone** — operators scroll back through the chat log and read the last summary chunk out of context. Without the self-identifier, a finished summary is unattributable: bullets describe the results of *some* task without saying which.
 
 Format rules are identical to the Stage Header:
 

@@ -226,12 +226,12 @@ Two safer authoring forms:
    is bound — the prose lands together with the work it describes.
 2. **Use an unassigned-marker.** When the paragraph must ship now, write
    <!-- gate:history-allowed -->
-   `<TASK-PREFIX>-XXXX (заполняется при назначении)`
+   `<TASK-PREFIX>-XXXX (fill in at assignment)`
    <!-- /gate:history-allowed -->
    inside the per-block escape hatch above. The marker is grep-detectable
-   at the follow-up's `/dr-do` and signals «replace me» rather than
+   at the follow-up's `/dr-do` and signals "replace me" rather than
    masquerading as a real reference.
 
-Detection: at `/dr-archive` Step 0.5 run `grep -rn "XXXX (заполняется"` over
+Detection: at `/dr-archive` Step 0.5 run `grep -rn "XXXX (fill in"` over
 the touched skills/agents/commands/templates; any non-zero count is a
 pending follow-up obligation, not a drift.

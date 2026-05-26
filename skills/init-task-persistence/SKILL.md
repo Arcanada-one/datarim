@@ -120,7 +120,7 @@ execution and reconcile any divergence in their output document:
 | `/dr-do` | verbatim brief + every append-log block | task-description § Implementation Notes |
 | `/dr-qa` | verbatim brief + every append-log block | QA report § Expectations / Plain-language summary |
 | `/dr-compliance` | verbatim brief + every append-log block | compliance report § Plain-language summary |
-| `/dr-archive` | verbatim brief + every append-log block | archive doc § Выполнение ожиданий оператора |
+| `/dr-archive` | verbatim brief + every append-log block | archive doc (section name in `templates/archive-template.md` — folded into the "how we solved it" section per the current template) |
 
 `/dr-doctor` reads init-task **presence** (via `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-init-task-presence.sh"
 --all`) but not content; absent init-task on a non-archived task surfaces as a
@@ -267,7 +267,7 @@ ISO timestamp of the originating append-log entry. AUTH-0081 (2026-05-20)
 <!-- /gate:history-allowed -->
 is a worked example: `/dr-do` round 1 inherited the
 <!-- gate:history-allowed -->
-`2026-05-20T16:10:03Z` discharge condition («Ожидать AUTH-0074 merge»)
+`<ISO-timestamp>` discharge condition (e.g. "wait for an upstream merge")
 <!-- /gate:history-allowed -->
 without re-asking and without writing a new append-log block.
 

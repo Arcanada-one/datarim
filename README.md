@@ -474,7 +474,7 @@ specific capabilities. You can add custom skills by placing `.md` files in
 | `/dr-qa` | Quality | Run quality checks. PRD alignment, design conformance, plan completeness, output quality. |
 | `/dr-compliance` | Compliance | Post-QA hardening. Validates against PRD, checks for regressions, security audit. |
 | `/dr-archive` | Archive | Archive the task. Step 0.5 runs reflection (analyze, propose framework updates). Steps 1-7 store context, update backlog, reset for the next task. |
-| `/dr-auto` | Autonomous | Meta-command for autonomous execution. Activates FB-1..8 mandate + L1 Inline Resolution Rule as default-on via env var + file marker. Question Suppression Ladder (5 levels) suppresses pipeline Q&A; L1 Class A gaps close inline; hard-gated actions escalate to operator. Two modes — Continue (`/dr-auto {TASK-ID}` resume) / Bootstrap (`/dr-auto "<free-text>"` full pipeline). |
+| `/dr-auto` | Autonomous | Meta-command for autonomous execution. Activates FB-1..8 ([definition](skills/autonomous-mode/SKILL.md)) mandate + L1 Inline Resolution Rule as default-on via env var + file marker. Question Suppression Ladder (5 levels) suppresses pipeline Q&A; L1 Class A gaps close inline; hard-gated actions escalate to operator. Two modes — Continue (`/dr-auto {TASK-ID}` resume) / Bootstrap (`/dr-auto "<free-text>"` full pipeline). |
 | `/dr-write` | Content | Create written content — articles, docs, research, posts. Uses the writer agent. |
 | `/dr-edit` | Content | Editorial review — fact-check, AI pattern removal, style, publication quality. Uses the editor agent. |
 | `/dr-publish` | Content | Adapt and publish content to multiple platforms (Telegram, LinkedIn, blog, etc.). Uses the writer agent. |

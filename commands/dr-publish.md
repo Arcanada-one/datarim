@@ -60,7 +60,7 @@ argument-hint: [file path to approved content]
 
 ## Next Steps (CTA)
 
-After publish, the writer/editor agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format/SKILL.md`.
+After publish, the writer/editor agent MUST emit a CTA block ([definition](../skills/cta-format.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-publish`:**
 

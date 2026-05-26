@@ -14,8 +14,8 @@ target_aal: 2
 
 `/dr-init` loads this skill when the user's input contains project creation signals:
 - Keywords: "create project", "new project", "init project", "scaffold project"
-- Update keywords: "update project structure", "re-scaffold", "обнови структуру проекта"
-- Russian: "создай проект", "новый проект", "инициализируй проект"
+- Update keywords: "update project structure", "re-scaffold", "обнови структуру проекта" <!-- allow-non-ascii: literal-russian-intent-trigger-phrase-required-by-classifier -->
+- Russian: "создай проект", "новый проект", "инициализируй проект" <!-- allow-non-ascii: literal-russian-intent-trigger-phrases-required-by-classifier -->
 - Pattern: `/dr-init create project "Name"`
 
 If none of these signals are present, `/dr-init` follows the standard task flow.

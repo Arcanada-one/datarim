@@ -65,7 +65,7 @@ For major features, new systems, or anything with business impact.
 
 Do NOT rely on session memory or your own enumeration. The user pointed at specific files for a reason — they contain candidates, context, or constraints you may miss otherwise.
 
-Source: prior incident reflection — Hindsight (a top-3 candidate) was in the user's source file (`wiki/AI/Long Term Memory/_raw_/Системы долгосрочной памяти - Сравнение.md`) but omitted from the 12-candidate list because the agent built it from memory instead of re-reading the file.
+Source: prior incident reflection — a top-3 candidate was in a user-supplied source file but omitted from the candidate list because the agent built the list from memory instead of re-reading the file.
 
 ---
 
