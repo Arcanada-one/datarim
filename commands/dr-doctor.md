@@ -63,7 +63,7 @@ Not a periodic cleanup. Idempotent: a second run on a compliant tree is a no-op.
 10. **REPORT**: Produce a migration summary:
     - Files rewritten: `tasks.md`, `backlog.md`, `activeContext.md` (if touched).
     - Description files created: count.
-    - `progress.md`: deleted (if existed) — last-completed entries promoted to `activeContext.md` § «Последние завершённые».
+    - `progress.md`: deleted (if existed) — last-completed entries promoted to `activeContext.md` § «Последние завершённые». <!-- allow-non-ascii: literal-russian-active-context-section-name-cited-from-canonical-schema -->
     - Idempotency confirmed (second dry-run exit 0).
 
 11. **INIT-TASK PRESENCE ADVISORY** (orthogonal content validator, MUST run after the migration summary; never blocks):
@@ -108,7 +108,7 @@ Never touches `documentation/archive/`, `datarim/prd/`, `datarim/plans/`, `datar
 
 ## Next Steps (CTA)
 
-After `/dr-doctor` finishes, emit a CTA block per `$HOME/.claude/skills/cta-format/SKILL.md`.
+After `/dr-doctor` finishes, emit a CTA block ([definition](../skills/cta-format.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-doctor`:**
 
@@ -118,4 +118,4 @@ After `/dr-doctor` finishes, emit a CTA block per `$HOME/.claude/skills/cta-form
 - Migration error (exit 2) → primary `/dr-status` (inspect partial state) + alternative `/dr-doctor` (retry after cleanup).
 - Always include `/dr-status` as escape hatch.
 
-The CTA block MUST follow the canonical format (numbered, one `**рекомендуется**`, `---` HR). Variant B menu when >1 active tasks.
+The CTA block MUST follow the canonical format (numbered list, one primary recommendation marker, `---` HR). Variant-B menu of other active tasks when more than one is active. Exact marker tokens live in `cta-format.md`.

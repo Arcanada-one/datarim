@@ -131,7 +131,7 @@ graph TD
 
 ## CTA Emission per Stage (v1.16.0)
 
-Every stage flow above ends with the agent emitting a canonical CTA block per `$HOME/.claude/skills/cta-format/SKILL.md`. The CTA is part of the response — not a separate stage. Mapping of stage end → primary CTA command:
+Every stage flow above ends with the agent emitting a canonical CTA block ([definition](../cta-format.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`. The CTA is part of the response — not a separate stage. Mapping of stage end → primary CTA command:
 
 | Stage end | Primary CTA in block |
 |-----------|----------------------|
@@ -150,4 +150,4 @@ Every stage flow above ends with the agent emitting a canonical CTA block per `$
 | `/dr-compliance` NON-COMPLIANT | `/dr-do {TASK-ID}` (default) |
 | `/dr-archive` | `/dr-next` (if other active tasks) or `/dr-init` |
 
-Every CTA block includes the resolved task ID inline, exactly one `**рекомендуется**` marker, ≤5 numbered options, and `---` HR wrapping. When `## Active Tasks` lists >1 task, the block appends a `**Другие активные задачи:**` Variant B menu.
+Every CTA block includes the resolved task ID inline, exactly one primary recommendation marker, ≤5 numbered options, and `---` HR wrapping. When `## Active Tasks` lists >1 task, the block appends a variant-B menu of other active tasks. Exact marker tokens are defined in `cta-format.md`.

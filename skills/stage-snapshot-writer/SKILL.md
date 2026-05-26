@@ -7,7 +7,7 @@ target_aal: 2
 
 # Stage Snapshot Writer
 
-Every `/dr-*` command that emits a CTA block writes its final operator-visible response to `datarim/snapshots/{TASK-ID}.snapshot.md` as its terminal step. The snapshot is the primary context source for `/dr-next` and `/dr-orchestrate` after `/clear` or after the terminal is closed.
+Every `/dr-*` command that emits a CTA block ([definition](../cta-format.md)) writes its final operator-visible response to `datarim/snapshots/{TASK-ID}.snapshot.md` as its terminal step. The snapshot is the primary context source for `/dr-next` and `/dr-orchestrate` after `/clear` or after the terminal is closed.
 
 ## Contract
 

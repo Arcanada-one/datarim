@@ -140,7 +140,7 @@ effort: high
 
 ## Next Steps (CTA)
 
-After optimize-pass, the optimizer agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format/SKILL.md`.
+After optimize-pass, the optimizer agent MUST emit a CTA block ([definition](../skills/cta-format.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-optimize`:**
 

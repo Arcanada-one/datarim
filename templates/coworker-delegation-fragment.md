@@ -1,12 +1,16 @@
 # Coworker Delegation — runtime mandate fragment
 
 > **Source of truth.** This fragment is generated/copied into every agent
-> runtime that supports `coworker` (Claude Code via `~/.claude/CLAUDE.md` §
-> Coworker Delegation; Codex CLI via `~/.codex/AGENTS.override.md` prepend
-> emitted by `install.sh generate_codex_agents_manifest`).
+> runtime that supports `coworker`:
+> - Claude Code → `~/.claude/CLAUDE.md` § Coworker Delegation.
+> - Codex CLI → `~/.codex/AGENTS.override.md` prepend emitted by
+>   `install.sh generate_codex_agents_manifest`.
+> - Cursor IDE → `~/.cursor/rules/coworker-delegation.mdc` mirrored from
+>   `templates/coworker-delegation.mdc` by `install.sh --with-cursor`.
 >
-> Edit this file → re-run `install.sh --with-codex` (or equivalent fanout)
-> → consumers regenerate. Do NOT hand-edit downstream copies.
+> Edit this file → re-run `install.sh --with-claude --with-codex --with-cursor`
+> (or equivalent fanout) → consumers regenerate. Do NOT hand-edit downstream
+> copies.
 
 ## Rule of thumb
 
@@ -61,6 +65,54 @@ Profiles: `code` (default, generic), `datarim` (artifacts schema-aware),
 
 After `coworker write`: read the output and edit judgment-parts. **Never
 accept blindly.**
+
+## File-type policy
+
+`coworker ask` accepts only `.md`, `.markdown`, `.txt` files by default.
+Passing any other extension (`.py`, `.ts`, `.js`, `.rs`, `.go`, `.sh`, …)
+exits `6` with:
+
+```text
+ERROR: file 'X' (extension '.py') is not in the allowed list (.markdown, .md, .txt).
+Use Claude's Read tool for code analysis, or pass --allow-code / COWORKER_ALLOW_CODE=1 to override.
+```
+
+To delegate **code** reads (>600 lines / ≥3 files), opt in explicitly with
+ONE of:
+
+```bash
+coworker ask --allow-code --paths src/foo.py src/bar.py --question "..."
+# or:
+COWORKER_ALLOW_CODE=1 coworker ask --paths src/foo.py --question "..."
+```
+
+The override demotes the block to a per-file `WARNING (override)` line on
+stderr and proceeds. Do not retry after `exit 6` — use the flag from the
+first call when the trigger fires on code files. Prefer the explicit
+`--allow-code` flag over the env var so the override stays visible in
+shell history.
+
+`coworker write --context <path>` and `--target <path>` accept any
+extension (no allowlist on write paths).
+
+## RTK plugin (opt-in)
+
+`coworker rtk` is an opt-in token-reduction plugin backed by the local
+`rtk` binary ([github.com/Arcanada-one/rtk](https://github.com/Arcanada-one/rtk)).
+Default-off — installing coworker does NOT activate RTK; explicit opt-in
+required.
+
+```text
+coworker rtk install   # OS-specific install instructions (macOS/Linux/Windows)
+coworker rtk enable    # add idempotent hook to ~/.claude/settings.json
+coworker rtk disable   # remove hook
+coworker rtk status    # binary path/version + hook on/off
+```
+
+Enable when bulk reads exceed ~5k tokens regularly (logs, code dumps,
+long diffs). Skip for short tasks — overhead exceeds savings. Full
+operator-facing reference: `documentation/infrastructure/Coworker.md`
+§ RTK plugin (opt-in).
 
 ## Do NOT delegate
 

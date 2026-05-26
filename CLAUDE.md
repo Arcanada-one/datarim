@@ -1,9 +1,9 @@
 # Datarim — Universal Iterative Workflow Framework
 
-> **Version:** 2.21.0
-> **Framework:** Datarim (Датарим) provides structured rules, agents, skills, and commands for iterative project execution via AI coding assistants — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
+> **Version:** 2.22.0
+> **Framework:** Datarim provides structured rules, agents, skills, and commands for iterative project execution via AI coding assistants — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
 > **Multi-runtime:** Datarim is runtime-agnostic. This file is also available as `AGENTS.md` (symlink) for Codex CLI and other agent runtimes that read `AGENTS.md` by convention.
-> **Note:** "Datarim" is transliterated as "Датарим" in Russian. Both refer to this framework — agents must recognize either form in any language context.
+> **Note:** "Datarim" has a Russian transliteration «Датарим» — agents must recognise either form in any language context. <!-- allow-non-ascii: literal-transliteration-pair-for-agent-name-recognition -->
 
 ---
 
@@ -124,7 +124,7 @@ Skills are reusable knowledge modules loaded on demand. They provide rules, patt
 - `frontend-ui.md` — Frontend UI checklist: CSS specificity, dark/light themes, visual testing, mobile responsiveness, i18n parity (loaded when editing HTML/CSS)
 - `infra-automation.md` — Infrastructure ops: SSH batch execution, health checks, network debugging, pre-migration inventory (loaded for server ops)
 - `init-task-persistence.md` — Verbatim operator brief artefact contract — frontmatter + append-log + mandatory read by every pipeline command. Source of truth for operator intent across the task lifecycle. **v2.9.0** extends the contract with the `Q&A round-trip` section: six pipeline commands auto-append `Q&A by /dr-<stage>` blocks to the Append-log via `dev-tools/append-init-task-qa.sh`; `decided_by: agent` rounds carry ≥50-char `Decision rationale` and are verified by `/dr-qa` Layer 3b against the implementation.
-- `expectations-checklist.md` — Operator wishlist artefact (Option B flat markdown) — wish_id slug + История статусов + Текущий статус + override semantics. Written at PRD/PLAN, verified at QA/COMPLIANCE.
+- `expectations-checklist.md` — Operator wishlist artefact (Option B flat markdown) — wish_id slug + status-history block + current-status block + override semantics (canonical headings live in the skill's own template). Written at PRD/PLAN, verified at QA/COMPLIANCE.
 - `playwright-qa.md` — Browser-based frontend QA contract — CLI / MCP / env-browser resolution chain + headed / headed-strict modes + per-task flock lock + run-{ISO-ts}/ artefact layout. Loaded by `/dr-qa` Layer 4f on frontend touch.
 - `human-summary.md` — Plain-language operator recap (`/dr-qa`, `/dr-compliance`, `/dr-archive` Step 8) — four sub-sections + banlist + whitelist + per-paragraph escape hatch + 150–400 word budget.
 - `v-ac-axis-split.md` — V-AC group axis-split pattern: when group mixes deterministic axis (rule match / shape check / type assertion) and statistical axis (live-rate threshold / SLA percentile / soak distribution), split upfront into two V-AC groups (loaded by: /dr-prd V-AC drafting, /dr-plan V-AC review). Source: TUNE-0183 V-AC-14.11 reclassification.
@@ -200,7 +200,7 @@ Before writing ANY file to `datarim/`:
 | `/dr-verify` | Verification | Standalone self-verification (on-demand). Tri-layer: Layer 1 deterministic floor + Layer 2 cross-model peer-review (DeepSeek default) + Layer 3 native runtime dispatch. Findings-only mode. |
 | `/dr-compliance` | Hardening | 7-step post-QA hardening |
 | `/dr-archive` | Archive | Reflection (Step 0.5: lessons learned + framework evolution proposals) + complete task + update backlog + reset context |
-| `/dr-auto` | Autonomous | Мета-команда автономного исполнения. Активирует FB-1..8 mandate + L1 Inline Resolution Rule + autonomous-ops scope как default-on через env var `DATARIM_AUTO_MODE=1` + file marker `datarim/.auto-mode-active`. Question Suppression Ladder (5 levels) suppresses pipeline Q&A; L1 Class A gaps закрываются inline; hard-gated actions escalate to operator. Two modes — Continue (`/dr-auto {TASK-ID}` resume) / Bootstrap (`/dr-auto "<free-text>"` full pipeline). Canonical contract в `skills/autonomous-mode/SKILL.md` |
+| `/dr-auto` | Autonomous | Autonomous-execution meta-command. Turns on the FB-1..8 mandate (eight feedback-rules — see `skills/autonomous-agents/`), the L1 Inline Resolution Rule (close small gaps in-line rather than asking), and the autonomous-ops scope ([definition](skills/autonomous-mode/SKILL.md)) by default through env var `DATARIM_AUTO_MODE=1` + file marker `datarim/.auto-mode-active`. The five-level Question Suppression Ladder ([definition](skills/autonomous-mode/SKILL.md)) suppresses pipeline clarification questions; L1 Class A gaps close inline; hard-gated actions still escalate to the operator. Two modes — Continue (`/dr-auto {TASK-ID}` resume) / Bootstrap (`/dr-auto "<free-text>"` full pipeline). Canonical contract in `skills/autonomous-mode/SKILL.md`. |
 | `/dr-status` | Utility | Check current task and backlog status |
 | `/dr-next` | Utility | Resume from last checkpoint |
 | `/dr-continue` | Utility | Deprecated alias for `/dr-next` (kept for backwards compatibility) |
@@ -235,11 +235,11 @@ Manual self-verification command (post-completion review of any pipeline artifac
 
 Findings carry an explicit `source_layer` tag (`floor` / `peer_review` / `dispatch`) and dedupe across layers prefers earlier-source findings. NOT a replacement for `/dr-qa` — `/dr-qa` is a manual single-agent multi-layer review; `/dr-verify` is a runtime-dispatch structured-findings loop.
 
-**Когда использовать:**
-- Перед merge / archive — sanity check на final PRD/plan/code state
-- Retrospective validation — проверка завершённой задачи на пропущенные gaps
+**When to use:**
+- Before merge / archive — sanity check on final PRD/plan/code state
+- Retrospective validation — review a completed task for missed gaps
 - Fast pre-merge gating: `--floor-only` (Layer 1 only, zero LLM cost)
-- Не входит в default pipeline (manual on-demand only — automated post-step hook is a deferred future evolution)
+- Not part of the default pipeline (manual on-demand only — an automated post-step hook is a deferred future evolution)
 
 **Args:** `/dr-verify {TASK-ID} [--stage={prd,plan,do,all}] [--max-iter=N] [--no-fix] [--floor-only] [--peer-provider={deepseek,groq,openrouter,...}] [--runtime={claude,codex}] [--external-verifier=PASS] [--cost-cap=N]`
 
@@ -322,6 +322,20 @@ Each new validator follows a simple contract:
 
 ---
 
+## English-Only Shipped Instruction Surface
+
+Shipped artefacts under `code/datarim/{commands,skills,agents,CLAUDE.md,README.md}/` MUST be English-only. Non-ASCII characters (Cyrillic, etc.) are permitted only when the skill's meaning literally requires the foreign-language string:
+
+- **Content-work files** whose purpose is to operate on Russian-language content: `skills/humanize/`, `skills/publishing/`, `skills/writing/`, `skills/factcheck/`, `commands/dr-write.md`, `commands/dr-edit.md`, `commands/dr-publish.md`, `commands/dr-humanize.md`.
+- **Canonical schema field/section names** cited verbatim — e.g. the `activeContext.md` recent-archives section heading the doctor migrates to/from. The literal heading lives in `templates/activeContext-template.md`; cite the name only when the validator or doctor requires a string-equal match. <!-- allow-non-ascii: literal-canonical-schema-section-name-cited-from-template -->
+- **Operator-output tokens** whose source-of-truth file defines them in that language — e.g. CTA marker tokens live only in `skills/cta-format/SKILL.md`. Every other file describing the CTA contract MUST use abstract prose (such as "the primary recommendation marker per `cta-format.md`" or "the variant-B menu of other active tasks"), never literal-quote the marker.
+
+The `<!-- allow-non-ascii: <reason >=10 chars> -->` validator marker is the last resort, not a default. If the foreign-language string can be paraphrased to English without losing precision, paraphrase. Wrapping casual prose in `allow-non-ascii` because it cites a Russian phrase is process regression — the validator's purpose is to police shipped content, not to grant amnesty to lazy translation.
+
+Enforced by `dev-tools/check-body-english.sh` (advisory in `/dr-archive` Step 0.5 sub-step (e); flips to fail-hard at the end of the Wave 3 rewrite).
+
+---
+
 ## Critical Rules
 
 1. **Datarim is truth** — `datarim/` for workflow state, `documentation/archive/` for completed task archives
@@ -393,7 +407,7 @@ Closed set: `faq`, `glossary`, `troubleshooting`, `examples`, `overview`, `sampl
 Mandate level:
 
 1. **New repos / sites** — `/dr-init` scaffolds `docs/{tutorials,how-to,reference,explanation}/` by default with category README stubs from `templates/docs-diataxis/`.
-2. **Existing repos** — soft audit via `/dr-optimize` Step 6a (filesystem-presence + threshold ≥3 docs files); on drift the audit proposes `INFRA-* — Diátaxis docs reorg для <repo>` in backlog.
+2. **Existing repos** — soft audit via `/dr-optimize` Step 6a (filesystem-presence + threshold ≥3 docs files); on drift the audit proposes an `INFRA-*` "Diátaxis docs reorg for `<repo>`" entry in the backlog.
 3. **Stack-agnostic** — taxonomy contract only. SSG/CMS choice (any static-site generator) is per-project and outside the mandate.
 4. **Hard CI gate deferred** — backlog item activates the same detector at `exit 1` after the mandate is adopted on ≥3 live consumers.
 5. **Exemptions** — research-only repos, archive-only repos, Obsidian vault PARA, single-file inbox notes, temporary scratch paths. See `skills/diataxis-docs/SKILL.md` § Exemption List.

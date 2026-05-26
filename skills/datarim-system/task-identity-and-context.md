@@ -45,8 +45,7 @@ When a pipeline command needs a task ID, apply this logic:
 2. Read `## Active Tasks` from `datarim/activeContext.md`.
 3. If 0 active tasks → STOP, suggest `/dr-init`.
 4. If 1 active task → use it (backward compatible, no prompt).
-5. If >1 active tasks → prompt user:
-   `"Несколько активных задач: [list]. По какой задаче? (укажите ID)"`
+5. If >1 active tasks → prompt the operator with a multiple-active-tasks disambiguation message that lists the candidates and asks which task ID to resume. The exact wording follows the operator's interaction language; the contract is the disambiguation, not the literal phrasing.
 
 ### activeContext.md Write Rules
 
@@ -77,7 +76,7 @@ Before writing to `tasks.md` or `activeContext.md`, check file size:
 | File | Warn threshold | Hard limit | Action at limit |
 |------|---------------|------------|-----------------|
 | `tasks.md` | 3,000 lines | 5,000 lines | STOP writing. Inform user: "tasks.md exceeds 5K lines. Run `/dr-optimize` or archive completed tasks before proceeding." |
-| `activeContext.md` | 100 lines | 200 lines | Prune "Последние завершённые" to 5 most recent entries. |
+| `activeContext.md` | 100 lines | 200 lines | Prune the recent-archives section (canonical heading in `templates/activeContext-template.md`) to 5 most recent entries. |
 
 Check command: `wc -l < datarim/tasks.md`
 
