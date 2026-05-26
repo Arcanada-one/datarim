@@ -54,7 +54,7 @@ This command generates a structured Product Requirements Document (PRD) followin
     -   **Pre-save validation gates (MANDATORY before write):**
         - **`ships_in:` derivation.** If the PRD ships a framework / library release, read the canonical version source (e.g. `code/datarim/VERSION` or project equivalent) and pre-fill `ships_in: <next-minor-or-patch>`. Operator-supplied override requires an inline justification comment in the PRD body. Do not echo the value from memory or from the parent PRD verbatim — version drift between PRD draft and release is a recurring defect class.
         - **V-AC path live-validation.** For every AC / V-AC line citing a script, binary, spec file, or directory path: run `command -v <bin>` / `test -f <path>` / dry-run probe and confirm exit 0 before save. Cites that do not exist yet MUST be marked `[to-be-created]` inline so the gate distinguishes intentional plan-deliverables from typos / phantom paths. Block save if a non-`[to-be-created]` cite fails the probe.
-        - **V-AC ecosystem-mandate alignment.** Run `dev-tools/check-v-ac-mandate-preflight.sh --prd "$PRD_FILE"`. Advisory gate: the script extracts V-AC / Verification / Success Criteria lines and greps each against the forbidden-pattern set in `dev-tools/public-surface-forbidden.regex` (the same contract surface consumed by `public-surface-lint.sh`). Goal — surface a V-AC ↔ Public Surface Hygiene Mandate conflict at PRD-time, not at `/dr-qa`. The script always exits 0; on match it prints `WARNING:` lines to stdout for operator review. Optional `--regex <FILE>` override loads a consumer-extended pattern set without script changes.
+        - **V-AC ecosystem-mandate alignment.** Run `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-v-ac-mandate-preflight.sh" --prd "$PRD_FILE"`. Advisory gate: the script extracts V-AC / Verification / Success Criteria lines and greps each against the forbidden-pattern set in `dev-tools/public-surface-forbidden.regex` (the same contract surface consumed by `public-surface-lint.sh`). Goal — surface a V-AC ↔ Public Surface Hygiene Mandate conflict at PRD-time, not at `/dr-qa`. The script always exits 0; on match it prints `WARNING:` lines to stdout for operator review. Optional `--regex <FILE>` override loads a consumer-extended pattern set without script changes.
     -   Save to `datarim/prd/PRD-{slug}.md`.
 
 5.5b. **Append-merge expectations checklist (L3-L4, mandatory)** per `$HOME/.claude/skills/expectations-checklist/SKILL.md`:
@@ -73,7 +73,7 @@ This command generates a structured Product Requirements Document (PRD) followin
     -   **Append-merge if the file already exists.** Load existing items by `wish_id`. New PRD-derived wishes whose slug does not match any existing item are appended at the bottom; existing items are not rewritten. If a previously-linked AC was renamed, append one `stage: append-merge` History line to the affected item.
     -   **Post-write validation gate.** Invoke:
         ```bash
-        dev-tools/check-expectations-checklist.sh --task {TASK-ID}
+        "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --task {TASK-ID}
         ```
         Exit code `1` ⇒ STOP and fix the file before continuing. Exit code `2` ⇒ usage error in the invocation, not in the file.
     -   For `complexity: L1` or `L2` this step is skipped here; `/dr-plan` handles L2 without PRD.
@@ -82,7 +82,7 @@ This command generates a structured Product Requirements Document (PRD) followin
     -   Read `$HOME/.claude/skills/network-exposure-baseline/SKILL.md` § Tier Model + § Tiered Gate Rules.
     -   Decide gate disposition by invoking the canonical executor:
         ```bash
-        decision=$(dev-tools/network-exposure-gate.sh \
+        decision=$("${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/network-exposure-gate.sh" \
             --task-description datarim/tasks/{TASK-ID}-task-description.md \
             --quiet)
         ```
@@ -118,7 +118,7 @@ This command generates a structured Product Requirements Document (PRD) followin
     -   Present to user: "PRD identifies N potential backlog items: [numbered list with proposed IDs, titles, complexity]"
     -   If approved: create entries in `datarim/backlog.md` with status `pending` and a reference to PRD in the description (e.g., `Source: PRD-{ID}`).
 
-6.5. **APPEND Q&A IF ANY** (mandatory per `$HOME/.claude/skills/init-task-persistence/SKILL.md` § Q&A round-trip contract): for every operator clarification round captured during this stage — either operator answer or autonomous agent-decision under FB-1..FB-5 — invoke `dev-tools/append-init-task-qa.sh` to persist the round into `datarim/tasks/{TASK-ID}-init-task.md § Append-log`.
+6.5. **APPEND Q&A IF ANY** (mandatory per `$HOME/.claude/skills/init-task-persistence/SKILL.md` § Q&A round-trip contract): for every operator clarification round captured during this stage — either operator answer or autonomous agent-decision under FB-1..FB-5 — invoke `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/append-init-task-qa.sh"` to persist the round into `datarim/tasks/{TASK-ID}-init-task.md § Append-log`.
     -   Write the question and answer (and rationale, when applicable) to temp files first; free-form text MUST come via `--*-file <path>` per Security Mandate § S1 (do not pass operator text as literal CLI strings).
     -   Required flags: `--root <repo-root> --task {TASK-ID} --stage prd --round <N> --question-file <path> --answer-file <path> --decided-by <operator|agent> --summary "<one-line>"`.
     -   When `--decided-by agent`: `--rationale-file <path>` is required and its body MUST contain ≥ 50 non-whitespace characters explaining the choice (best-practice reference, prior archive, FB-rules link).
@@ -150,7 +150,7 @@ When auto-mode is active (env var `DATARIM_AUTO_MODE=1` AND matching marker `dat
    - Step 2 Discovery Interview — each Q resolved through Ladder L1-L4 before falling through to Discovery prompt; business-strategy Qs go straight to L5.
    - Step 4 Consult User gate — proposed approach + alternatives auto-selected if Ladder unambiguous; L5 only for true cross-cutting trade-offs.
 3. Discovered gaps → apply L1 Inline Resolution Rule per `skills/autonomous-mode/SKILL.md`; log in `datarim/tasks/{TASK-ID}-auto-inline-log.md` if applied inline.
-4. Hard-gated actions → escalate to operator through Ladder L5; log via `dev-tools/append-init-task-qa.sh --decided-by operator` per `skills/init-task-persistence/SKILL.md` § Q&A round-trip.
+4. Hard-gated actions → escalate to operator through Ladder L5; log via `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/append-init-task-qa.sh" --decided-by operator` per `skills/init-task-persistence/SKILL.md` § Q&A round-trip.
 5. Mismatch (env var set, marker absent OR marker contains different TASK-ID) → emit single-line warning, treat as non-auto (fail-safe per `skills/autonomous-mode/SKILL.md` § When this skill is active).
 
 ## Next Steps (CTA)

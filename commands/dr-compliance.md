@@ -22,7 +22,7 @@ description: Adaptive post-QA hardening. Detects task type and applies matching 
     -   Re-read the file. For each item under `## Ожидания`, run its `Как проверить (success criterion)` against the implementation and append one transition line to `#### История статусов` in the canonical format `<ISO> / <local> · /dr-compliance · <prior> → <new> · reason: <one-sentence plain ru>`. Update the item's `#### Текущий статус`. <!-- allow-non-ascii: russian-expectations-section-and-field-names-cited-from-canonical-schema -->
     -   Invoke the routing validator:
         ```bash
-        dev-tools/check-expectations-checklist.sh --verify {TASK-ID}
+        "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --verify {TASK-ID}
         ```
         -   Exit 0 + stdout marker `PASS` ⇒ proceed.
         -   Exit 0 + stdout marker `CONDITIONAL_PASS` ⇒ proceed; record «conditional» disposition in the compliance report § Plain-language summary.
@@ -37,7 +37,7 @@ description: Adaptive post-QA hardening. Detects task type and applies matching 
     - **Content** → factcheck, humanize, platform requirements, editorial standards
     - **Infrastructure** → configuration, rollback plan, monitoring, security
     - **Mixed** → apply relevant sections from each matching type
-6.5. **APPEND Q&A IF ANY** (mandatory per `$HOME/.claude/skills/init-task-persistence/SKILL.md` § Q&A round-trip contract): for every operator clarification round captured during compliance verification — either operator answer or autonomous agent-decision under FB-1..FB-5 — invoke `dev-tools/append-init-task-qa.sh` to persist the round into `datarim/tasks/{TASK-ID}-init-task.md § Append-log` before emitting the report.
+6.5. **APPEND Q&A IF ANY** (mandatory per `$HOME/.claude/skills/init-task-persistence/SKILL.md` § Q&A round-trip contract): for every operator clarification round captured during compliance verification — either operator answer or autonomous agent-decision under FB-1..FB-5 — invoke `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/append-init-task-qa.sh"` to persist the round into `datarim/tasks/{TASK-ID}-init-task.md § Append-log` before emitting the report.
     -   Write the question, answer, and rationale (when applicable) to temp files first; free-form text MUST come via `--*-file <path>` per Security Mandate § S1.
     -   Required flags: `--root <repo-root> --task {TASK-ID} --stage compliance --round <N> --question-file <path> --answer-file <path> --decided-by <operator|agent> --summary "<one-line>"`.
     -   When `--decided-by agent`: `--rationale-file <path>` MUST contain ≥ 50 non-whitespace characters citing the compliance-standard rationale.
@@ -77,7 +77,7 @@ When auto-mode is active (env var `DATARIM_AUTO_MODE=1` AND matching marker `dat
    - Hardening decision points (apply Class A inline vs defer) — auto-apply L1 Class A per L1 Inline Rule; defer L2+/B with backlog item.
    - 7-step hardening readiness gates — proceed if Ladder L1-L2 confirm cleanliness; L5 only on contradictory signals.
 3. Discovered gaps → apply L1 Inline Resolution Rule per `skills/autonomous-mode/SKILL.md`; log in `datarim/tasks/{TASK-ID}-auto-inline-log.md` if applied inline.
-4. Hard-gated actions → escalate to operator through Ladder L5; log via `dev-tools/append-init-task-qa.sh --decided-by operator` per `skills/init-task-persistence/SKILL.md` § Q&A round-trip.
+4. Hard-gated actions → escalate to operator through Ladder L5; log via `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/append-init-task-qa.sh" --decided-by operator` per `skills/init-task-persistence/SKILL.md` § Q&A round-trip.
 5. Mismatch (env var set, marker absent OR marker contains different TASK-ID) → emit single-line warning, treat as non-auto (fail-safe per `skills/autonomous-mode/SKILL.md` § When this skill is active).
 
 ## Next Steps (CTA)

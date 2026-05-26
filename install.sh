@@ -57,15 +57,18 @@ DATARIM_MIGRATION_CHOICE="${DATARIM_MIGRATION_CHOICE:-}"
 # scripts/ destroyed 30 task entries on aether/local-env 2026-04-30). With
 # dir-symlink, ~/.claude/scripts/datarim-doctor.sh is the canonical file by
 # inode — no possibility of divergence. Symmetric with skills/agents pattern.
-# Note: 'dev-tools' is runtime-required as of v2.15.0 (TUNE-0259). The
+# 'dev-tools' is runtime-required as of v2.15.0 (TUNE-0259). The
 # following /dr-* commands invoke scripts from dev-tools/ at runtime:
-# dr-init (check-init-task-presence.sh), dr-doctor, dr-archive, dr-verify,
-# dr-qa, dr-plan, dr-compliance, dr-design. The directory remains
-# maintainer-stewarded — no user-facing CLI; see dev-tools/README.md.
-# Note: 'dev-tools' is intentionally NOT in this list — see
-# code/datarim/dev-tools/README.md (developer-only tooling, not shipped
-# to consumers; TUNE-0091).
-INSTALL_SCOPES=(agents skills commands templates scripts tests)
+# dr-init (check-init-task-presence.sh, check-expectations-checklist.sh),
+# dr-doctor, dr-archive, dr-verify, dr-qa, dr-plan, dr-compliance,
+# dr-design. Operator-facing /dr-* docs invoke these scripts via the
+# runtime-prefixed form `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/<script>`
+# so consumer workspaces (cwd != framework repo) find the runtime
+# symlink instead of a missing cwd-relative path. The earlier TUNE-0091
+# exclusion ("developer-only, not shipped") was retired because runtime
+# callers across the /dr-* pipeline outnumber the few maintainer-only
+# scripts; the rest stay invisible behind the runtime root anyway.
+INSTALL_SCOPES=(agents skills commands templates scripts tests dev-tools)
 
 # v1.17.0: local/ overlay scope dirs (TUNE-0033). Local overlay applies only to
 # user-extensible scopes (skills/agents/commands/templates) — scripts/tests are

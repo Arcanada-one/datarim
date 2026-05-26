@@ -113,7 +113,7 @@ Under `/dr-auto`, these actions **never auto-execute**:
 
 1. The agent recognises the action as hard-gated (against the verbatim list or as a cross-project boundary crossing).
 2. Escalate via Ladder L5: call `AskUserQuestion` and state explicitly "This action is hard-gated per autonomous-agents.md:32. Operator approval required before execution."
-3. Log the operator response via `dev-tools/append-init-task-qa.sh --decided-by operator --question "<question text>" --answer "<operator response>"`.
+3. Log the operator response via `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/append-init-task-qa.sh" --decided-by operator --question "<question text>" --answer "<operator response>"`.
 
 **Cross-project boundary (additional rule):** any action that touches repositories outside the task's project scope (the scope is defined by the Task Prefix Registry — `Arcanada/CLAUDE.md` or `documentation/architecture/task-prefix-registry.md`) is also hard-gated. Example: a task with prefix `SUP-` tries to edit `Projects/Verdicus/` → hard-gated.
 
@@ -144,7 +144,7 @@ When auto-mode is active (env var + matching marker), this command:
    - <for /dr-do: apply the L1 Inline Rule against gaps discovered during execution>
    - <for /dr-archive: consume auto-inline-log.md before reflection>
 3. For any discovered gap: apply the L1 Inline Rule per `skills/autonomous-mode/SKILL.md`; log to `datarim/tasks/{TASK-ID}-auto-inline-log.md` when resolved inline.
-4. For hard-gated actions: escalate to the operator via Ladder L5, log through `dev-tools/append-init-task-qa.sh --decided-by operator`.
+4. For hard-gated actions: escalate to the operator via Ladder L5, log through `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/append-init-task-qa.sh" --decided-by operator`.
 ```
 
 ## Related

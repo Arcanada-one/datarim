@@ -136,12 +136,12 @@ bind 100.64.1.5
 
 ## Verifier Integration
 
-Verification program: `dev-tools/network-exposure-check.sh` parses `docker-compose.yml` / `redis.conf` / `postgresql.conf` / systemd `.socket`; reads `x-exposure-justification` + `x-exposure-expires`; applies the classification from this skill. Drift between the skill and the script is a defect — update both at the same time.
+Verification program: `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/network-exposure-check.sh"` parses `docker-compose.yml` / `redis.conf` / `postgresql.conf` / systemd `.socket`; reads `x-exposure-justification` + `x-exposure-expires`; applies the classification from this skill. Drift between the skill and the script is a defect — update both at the same time.
 
 Invocation:
 
 ```bash
-dev-tools/network-exposure-check.sh --compose path/to/docker-compose.yml
+"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/network-exposure-check.sh" --compose path/to/docker-compose.yml
 ```
 
 Exit codes:
@@ -174,13 +174,13 @@ Pipeline commands read the task-description frontmatter and pick one of three de
 
 "Network surface touched" means that the diff (for `/dr-plan`) or the staged change (for `/dr-do`) touches one of the verifier's sources: docker-compose, `redis.conf`, `postgresql.conf`, systemd `.socket`, firewall / UFW rules, or a runtime bind argument.
 
-The canonical executor is `dev-tools/network-exposure-gate.sh`. Drift between this skill and the script is a defect — update both at the same time. Every gate decision is reported as telemetry to Ops Bot (`category: info, agent: dr-prd|dr-plan|dr-do|dr-archive, body: gate=<decision> task=<id>`) for quarterly tuning via `/dr-optimize`.
+The canonical executor is `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/network-exposure-gate.sh"`. Drift between this skill and the script is a defect — update both at the same time. Every gate decision is reported as telemetry to Ops Bot (`category: info, agent: dr-prd|dr-plan|dr-do|dr-archive, body: gate=<decision> task=<id>`) for quarterly tuning via `/dr-optimize`.
 
 Example invocation from a pipeline command:
 
 ```bash
 # nosec-extract
-decision=$(dev-tools/network-exposure-gate.sh \
+decision=$("${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/network-exposure-gate.sh" \
     --task-description datarim/tasks/<TASK-ID>-task-description.md \
     --network-diff \
     --quiet)

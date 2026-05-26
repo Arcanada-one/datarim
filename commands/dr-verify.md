@@ -32,7 +32,7 @@ description: Standalone self-verification of a Datarim artifact (PRD/plan/do out
    - `all` → all of above + AC list extracted from PRD
 6. **TRI-LAYER DISPATCH** (canonical v2 order — fastest+cheapest first, fail-fast on Layer 1):
    - **6.1 Layer 1 — Deterministic floor.** Invoke `bash code/datarim/dev-tools/dr-verify-floor.sh --task {TASK-ID} --stage {stage} --workspace <project-root>`. Capture JSONL findings on stdout, progress on stderr. Each finding carries `source_layer: "floor"`. If `--floor-only` passed, skip 6.2 and 6.3.
-   - **6.2 Layer 2 — Provider resolution + cross-model peer-review.** First invoke `bash dev-tools/resolve-peer-provider.sh [--peer-provider <flag>] [--project-config ./datarim/config.yaml] [--user-config ~/.config/datarim/config.yaml]` to resolve `provider`, `peer_review_mode`, `source_layer` (3 lines on stdout; exit 0 success / 1 invalid / 2 cost-cap). Then dispatch by mode:
+   - **6.2 Layer 2 — Provider resolution + cross-model peer-review.** First invoke `bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/resolve-peer-provider.sh" [--peer-provider <flag>] [--project-config ./datarim/config.yaml] [--user-config ~/.config/datarim/config.yaml]` to resolve `provider`, `peer_review_mode`, `source_layer` (3 lines on stdout; exit 0 success / 1 invalid / 2 cost-cap). Then dispatch by mode:
      - `cross_vendor` → `coworker ask --provider <p> --profile code --task-id {TASK-ID} --paths <artifact-paths> --question "<adversarial-frame-template>"`
      - `cross_claude_family` → spawn `agents/peer-reviewer.md` subagent (model: sonnet, readonly tools)
      - `same_model_isolated` → fall through to Layer 3 single-prompt loop (or Codex degraded path)
