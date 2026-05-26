@@ -94,9 +94,9 @@ Pre-LLM shell pipeline. Implemented in `code/datarim/dev-tools/dr-verify-floor.s
 - **File-touched audit** — files referenced in `plans/{TASK-ID}-plan.md` (backticked paths with known extensions) resolve in workspace. Unresolved → `severity=low, category=completeness` (NEW pre-/dr-do is benign; phantom is the real risk).
 - **Test-presence parse** — heuristic manifest detection (`package.json`/`pyproject.toml`/`Cargo.toml`/`go.mod`/`composer.json`/`Gemfile`). Informational only on v1.
 - **shellcheck recursive** — runs `shellcheck -S warning` against `dev-tools/*.sh` and `scripts/*.sh`. `error:` → `severity=high`; `warning:` → `severity=medium`.
-- **init-task presence** — for the current `{TASK-ID}`, runs `dev-tools/check-init-task-presence.sh --task {TASK-ID}`. Missing file or malformed frontmatter → `severity=medium, category=completeness, check_name=init_task_presence`. Subject to the per-task 30-day soft window enforced by the script itself; outside the window the floor demotes to `severity=low` (`check_name` unchanged).
-- **expectations presence (L3+)** — when `datarim/tasks/{TASK-ID}-task-description.md` frontmatter declares `complexity: L3` or `L4`, runs `dev-tools/check-expectations-checklist.sh --task {TASK-ID}`. Missing or malformed file → `severity=medium, category=completeness, check_name=expectations_presence`. Skipped silently for L1/L2 (the contract is L3+ mandatory; below that, expectations are advisory).
-- **expectations status block** — when an expectations file exists, runs `dev-tools/check-expectations-checklist.sh --verify {TASK-ID}` and parses the verdict marker on stdout. `BLOCKED` ⇒ one finding per blocking wish_id: `severity=high, category=completeness, check_name=expectations_status, evidence=<wish_id and current status>`. `CONDITIONAL_PASS` ⇒ a single low-severity informational finding noting how many items carry an override. `PASS` ⇒ no findings emitted.
+- **init-task presence** — for the current `{TASK-ID}`, runs `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-init-task-presence.sh" --task {TASK-ID}`. Missing file or malformed frontmatter → `severity=medium, category=completeness, check_name=init_task_presence`. Subject to the per-task 30-day soft window enforced by the script itself; outside the window the floor demotes to `severity=low` (`check_name` unchanged).
+- **expectations presence (L3+)** — when `datarim/tasks/{TASK-ID}-task-description.md` frontmatter declares `complexity: L3` or `L4`, runs `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --task {TASK-ID}`. Missing or malformed file → `severity=medium, category=completeness, check_name=expectations_presence`. Skipped silently for L1/L2 (the contract is L3+ mandatory; below that, expectations are advisory).
+- **expectations status block** — when an expectations file exists, runs `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --verify {TASK-ID}` and parses the verdict marker on stdout. `BLOCKED` ⇒ one finding per blocking wish_id: `severity=high, category=completeness, check_name=expectations_status, evidence=<wish_id and current status>`. `CONDITIONAL_PASS` ⇒ a single low-severity informational finding noting how many items carry an override. `PASS` ⇒ no findings emitted.
 
 **Output:** JSONL findings on stdout (one per line), schema fields per §Findings Schema with `source_layer: "floor"`. Stderr carries progress lines (`[check_name] PASS|SKIP|...`).
 
@@ -156,9 +156,9 @@ coworker ask --provider {peer-provider} --profile code \
 - `peer_review_mode: <enum>` — taxonomy tag
 - `peer_review_provider_source_layer: <enum>` — chain step that resolved
 
-These enable per-mode rate aggregation in `dev-tools/measure-prospective-rate.sh --verify-dir <path>`, which emits `cross_vendor_rate`, `cross_claude_family_rate`, `same_model_isolated_rate` keys for per-mode dogfood measurement.
+These enable per-mode rate aggregation in `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/measure-prospective-rate.sh" --verify-dir <path>`, which emits `cross_vendor_rate`, `cross_claude_family_rate`, `same_model_isolated_rate` keys for per-mode dogfood measurement.
 
-**Reference contract:** `dev-tools/resolve-peer-provider.sh --help` prints the canonical output schema and exit codes (0 success / 1 invalid provider / 2 cost-cap breach).
+**Reference contract:** `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/resolve-peer-provider.sh" --help` prints the canonical output schema and exit codes (0 success / 1 invalid provider / 2 cost-cap breach).
 
 #### JSONL emission discipline (Layer 2 reviewer prompts)
 

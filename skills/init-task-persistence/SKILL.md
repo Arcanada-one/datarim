@@ -122,7 +122,7 @@ execution and reconcile any divergence in their output document:
 | `/dr-compliance` | verbatim brief + every append-log block | compliance report § Plain-language summary |
 | `/dr-archive` | verbatim brief + every append-log block | archive doc § Выполнение ожиданий оператора |
 
-`/dr-doctor` reads init-task **presence** (via `dev-tools/check-init-task-presence.sh
+`/dr-doctor` reads init-task **presence** (via `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-init-task-presence.sh"
 --all`) but not content; absent init-task on a non-archived task surfaces as a
 finding scaled by per-task soft window.
 
@@ -141,7 +141,7 @@ finding scaled by per-task soft window.
 
 ## Validation
 
-`dev-tools/check-init-task-presence.sh` is the canonical validator.
+`"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-init-task-presence.sh"` is the canonical validator.
 
 - `--task <ID>`: validate one file. Exit 0 = OK, 1 = malformed/missing, 2 = usage.
 - `--all`: scan all task-descriptions for missing init-tasks. Always exit 0;
@@ -162,7 +162,7 @@ the init-task file. Two source flows:
 Empty `## Append-log` placeholder is always written.
 
 After writing, `/dr-init` invokes
-`dev-tools/check-init-task-presence.sh --task <ID>` and surfaces non-zero
+`"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-init-task-presence.sh" --task <ID>` and surfaces non-zero
 exit as a warning (the description and operational-file work still
 continues — operator may fix the init-task manually).
 
@@ -170,7 +170,7 @@ continues — operator may fix the init-task manually).
 
 If the operator skipped `/dr-init` at task start (e.g. opened with
 `/dr-plan` directly) and a later stage needs to call
-`dev-tools/append-init-task-qa.sh`, the tool exits 1 with
+`"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/append-init-task-qa.sh"`, the tool exits 1 with
 `init-task file does not exist`. The agent MUST seed the file inline
 before retrying, not block on the operator. Recipe:
 
@@ -361,7 +361,7 @@ prior wish; the stage's CTA must route work back to either
 design). A matching closure entry — operator amendment or follow-up Q&A
 that resolves the conflict — is what the Layer 3b checker looks for.
 
-### Utility — `dev-tools/append-init-task-qa.sh`
+### Utility — `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/append-init-task-qa.sh"`
 
 Pipeline commands do not write the block by hand. They invoke the
 utility:
@@ -388,7 +388,7 @@ temp-file, then `mv`-s it into place.
 
 ### Validation extension
 
-`dev-tools/check-init-task-presence.sh --task <ID>` extends the existing
+`"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-init-task-presence.sh" --task <ID>` extends the existing
 structural validator with a Q&A pass. For every block whose heading
 matches `^### .+ — Q&A by /dr-[a-z-]+ \(round [0-9]+\)$`, the validator
 asserts:

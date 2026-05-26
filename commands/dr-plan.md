@@ -70,7 +70,7 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
     -   **Do not rewrite, reorder, or delete existing items.** Operator controls pruning via explicit `Текущий статус: deleted`. <!-- allow-non-ascii: literal-russian-field-name-from-expectations-template -->
     -   **Post-write validation gate.** Invoke:
         ```bash
-        dev-tools/check-expectations-checklist.sh --task {TASK-ID}
+        "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --task {TASK-ID}
         ```
         Exit code `1` ⇒ STOP and fix the file before continuing.
     -   For L1 tasks this step is skipped entirely; the init-task skeleton from `/dr-init` Step 4.7 is sufficient. For L3-L4 tasks the PRD step (Step 5.5b in `/dr-prd`) handled the append-merge already.
@@ -171,7 +171,7 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
         `ports`/`expose`, `redis.conf`, `postgresql.conf`, systemd `.socket`,
         firewall/UFW rules, or a runtime bind argument. If yes, set the
         `--network-diff` signal for the gate executor.
-    -   Run `dev-tools/network-exposure-gate.sh --task-description datarim/tasks/{TASK-ID}-task-description.md [--network-diff] --quiet`
+    -   Run `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/network-exposure-gate.sh" --task-description datarim/tasks/{TASK-ID}-task-description.md [--network-diff] --quiet`
         and apply the verdict per `$HOME/.claude/skills/network-exposure-baseline/SKILL.md` § Tiered Gate Rules:
         -   **`hard_block`** → the plan MUST include a section
             **«Network Exposure»** that lists every touched listener with
@@ -210,7 +210,7 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
     -   Deferring a surface to /dr-qa or /dr-archive is a **Class B contract violation** — Class B tasks ship with their full public surface coverage in /dr-do, not "minor — we will tidy this up later".
     -   When a Class B operating-model AC (e.g. `pages/getting-started.php` symlink content) is deferred from `/dr-do`, it surfaces only at `/dr-archive` live deploy verification. Surface scan checkpoint prevents recurrence.
 
-12.5. **APPEND Q&A IF ANY** (mandatory per `$HOME/.claude/skills/init-task-persistence/SKILL.md` § Q&A round-trip contract): for every operator clarification round captured during this stage — either operator answer or autonomous agent-decision under FB-1..FB-5 — invoke `dev-tools/append-init-task-qa.sh` to persist the round into `datarim/tasks/{TASK-ID}-init-task.md § Append-log`.
+12.5. **APPEND Q&A IF ANY** (mandatory per `$HOME/.claude/skills/init-task-persistence/SKILL.md` § Q&A round-trip contract): for every operator clarification round captured during this stage — either operator answer or autonomous agent-decision under FB-1..FB-5 — invoke `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/append-init-task-qa.sh"` to persist the round into `datarim/tasks/{TASK-ID}-init-task.md § Append-log`.
     -   Write the question and answer (and rationale, when applicable) to temp files first; free-form text MUST come via `--*-file <path>` per Security Mandate § S1.
     -   Required flags: `--root <repo-root> --task {TASK-ID} --stage plan --round <N> --question-file <path> --answer-file <path> --decided-by <operator|agent> --summary "<one-line>"`.
     -   When `--decided-by agent`: `--rationale-file <path>` MUST contain ≥ 50 non-whitespace characters of reasoning.
@@ -250,7 +250,7 @@ Before proceeding to `/dr-design` or `/dr-do`:
 [ ] For TDD sections of the plan: each test assertion traced through *current* (pre-fix) code state before being labelled expected-pass or expected-fail? (A plan predicting «N of M tests pass before fix» is wrong if the predictions are not checked against the actual code path with the bug still present.)
 [ ] Every test-count baseline claim (e.g. «X/Y tests pass») cites the branch and HEAD SHA the count was measured on? (Prior incident: a plan captured a green/red split on a feature branch and framed it as the main baseline; first action of /dr-do — `git checkout origin/main` — revealed the actual baseline differed because the failures belonged to an unmerged sibling branch. A `git rev-parse HEAD` next to the count would have caught it before the remediation tree was drafted.)
 [ ] tasks.md updated with implementation plan?
-[ ] If the plan touches a networking surface (compose ports / redis / postgres / systemd socket / firewall), `dev-tools/network-exposure-gate.sh` was invoked and its verdict was applied: `hard_block` ⇒ § Network Exposure section present with Tier classification + verifier-pass AC; `advisory_warn` ⇒ § Risks one-liner; `skip` ⇒ nothing.
+[ ] If the plan touches a networking surface (compose ports / redis / postgres / systemd socket / firewall), `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/network-exposure-gate.sh"` was invoked and its verdict was applied: `hard_block` ⇒ § Network Exposure section present with Tier classification + verifier-pass AC; `advisory_warn` ⇒ § Risks one-liner; `skip` ⇒ nothing.
 ```
 
 ## Usage
@@ -275,7 +275,7 @@ When auto-mode is active (env var `DATARIM_AUTO_MODE=1` AND matching marker `dat
    - Step 3 Strategist Gate (L3-4 only) — pivot suggestion resolved through Ladder; suggest pivot inline, escalate to L5 only if it changes scope materially.
    - Step 4 Architectural-superseding probe — operator decision (proceed / cancel / reframe) resolved through Ladder L1-L2 (read sibling archives).
 3. Discovered gaps → apply L1 Inline Resolution Rule per `skills/autonomous-mode/SKILL.md`; log in `datarim/tasks/{TASK-ID}-auto-inline-log.md` if applied inline.
-4. Hard-gated actions → escalate to operator through Ladder L5; log via `dev-tools/append-init-task-qa.sh --decided-by operator` per `skills/init-task-persistence/SKILL.md` § Q&A round-trip.
+4. Hard-gated actions → escalate to operator through Ladder L5; log via `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/append-init-task-qa.sh" --decided-by operator` per `skills/init-task-persistence/SKILL.md` § Q&A round-trip.
 5. Mismatch (env var set, marker absent OR marker contains different TASK-ID) → emit single-line warning, treat as non-auto (fail-safe per `skills/autonomous-mode/SKILL.md` § When this skill is active).
 
 ## Next Steps (CTA)

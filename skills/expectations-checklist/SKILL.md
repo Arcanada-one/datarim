@@ -73,7 +73,7 @@ parent_prd: <path>          # relative path to PRD file when one exists
 
 **Schema v2 (current):** adds required `evidence_type` field per wish item
 (enum: `empirical | static | measurement`). Validator
-(`dev-tools/check-expectations-checklist.sh`) rejects items without
+(`"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh"`) rejects items without
 `evidence_type` in v2 mode.
 
 **Schema v1 (legacy):** accepted by validator until **2027-05-23** (12 months
@@ -150,7 +150,7 @@ _(empty on first write)_
 | `deleted` | operator dropped the wish (history retained) | non-blocking |
 
 <!-- gate:history-allowed -->
-> **Glossary note.** `closed` is NOT an enum value here, although the word often appears in QA/PRD prose to mean "success criterion verified". The correct enum for that semantics is `met`. The validator (`dev-tools/check-expectations-checklist.sh --task <ID>`) rejects `closed` as a structural error; pipelines fail late at `/dr-compliance --verify` rather than at write time. Source: TUNE-0295 Phase H L2-F-8 wrote `closed`, surfaced only at `/dr-compliance` re-validation.
+> **Glossary note.** `closed` is NOT an enum value here, although the word often appears in QA/PRD prose to mean "success criterion verified". The correct enum for that semantics is `met`. The validator (`"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --task <ID>`) rejects `closed` as a structural error; pipelines fail late at `/dr-compliance --verify` rather than at write time. Source: TUNE-0295 Phase H L2-F-8 wrote `closed`, surfaced only at `/dr-compliance` re-validation.
 <!-- /gate:history-allowed -->
 
 ### Numeric literals in success criteria
@@ -234,7 +234,7 @@ QA pass), the remaining `pending` items are reconciled to `met` /
 ## Verify-routing contract
 
 `/dr-qa` and `/dr-compliance` both invoke
-`dev-tools/check-expectations-checklist.sh --verify <ID>` after running
+`"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --verify <ID>` after running
 their own structural checks. Three verdicts (single source of truth: the
 validator's stdout markers):
 
@@ -262,7 +262,7 @@ validator's stdout markers):
 
 ## Validation
 
-`dev-tools/check-expectations-checklist.sh` is the canonical validator.
+`"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh"` is the canonical validator.
 
 - `--task <ID>`: structural validation. Exit 0 / 1 / 2.
 - `--verify <ID>`: verdict mode. Exit 0 (PASS / CONDITIONAL_PASS) /

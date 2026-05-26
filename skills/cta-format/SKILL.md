@@ -157,7 +157,7 @@ Layer-to-command map (mirrors `skills/datarim-system/backlog-and-routing.md` § 
 | Layer 1 (PRD) | `/dr-prd {TASK-ID}` |
 | Layer 2 (Design) | `/dr-design {TASK-ID}` |
 | Layer 3 (Plan) | `/dr-plan {TASK-ID}` |
-| Layer 3b (Expectations) | `/dr-do {TASK-ID} --focus-items <wish_id_1,...,N>` (the focus arg lists only the wish_ids flagged BLOCKED by `dev-tools/check-expectations-checklist.sh --verify`) |
+| Layer 3b (Expectations) | `/dr-do {TASK-ID} --focus-items <wish_id_1,...,N>` (the focus arg lists only the wish_ids flagged BLOCKED by `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --verify`) |
 | Layer 4 (Code) | `/dr-do {TASK-ID}` |
 | Compliance NON-COMPLIANT | `/dr-do {TASK-ID}` (default) or an earlier stage if a PRD / plan gap is identified |
 
@@ -285,7 +285,7 @@ Referenced from all 15 `/dr-*` command files in `commands/dr-*.md`.
 
 ## Snapshot Emission
 
-**Terminal step (mandatory).** After emitting the CTA block, every `/dr-*` command MUST persist the final operator-visible response (Summary + Gate Results + CTA block) to `datarim/snapshots/{TASK-ID}.snapshot.md` via the runtime-resolved wrapper `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/snapshot-writer-wrapper.sh`. The wrapper forces bash execution; a direct `source scripts/lib/snapshot-writer.sh && write_stage_snapshot` invocation fails silently under zsh-parent shells (`BASH_SOURCE[0]: parameter not set`) — agents invoking via the Bash tool inherit the user's login shell. The runtime-prefixed path is mandatory: a bare relative `dev-tools/snapshot-writer-wrapper.sh` resolves against the agent's cwd, which is frequently the consumer workspace root (for example `~/arcanada/`) where the wrapper is absent — invocation then fails closed with a misleading "not found in repo" warning. Contract: `skills/stage-snapshot-writer/SKILL.md`. The snapshot serves as primary context for `/dr-next` and `/dr-orchestrate` after `/clear` or terminal close.
+**Terminal step (mandatory).** After emitting the CTA block, every `/dr-*` command MUST persist the final operator-visible response (Summary + Gate Results + CTA block) to `datarim/snapshots/{TASK-ID}.snapshot.md` via the runtime-resolved wrapper `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/snapshot-writer-wrapper.sh`. The wrapper forces bash execution; a direct `source scripts/lib/snapshot-writer.sh && write_stage_snapshot` invocation fails silently under zsh-parent shells (`BASH_SOURCE[0]: parameter not set`) — agents invoking via the Bash tool inherit the user's login shell. The runtime-prefixed path is mandatory: a bare relative `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/snapshot-writer-wrapper.sh"` resolves against the agent's cwd, which is frequently the consumer workspace root (for example `~/arcanada/`) where the wrapper is absent — invocation then fails closed with a misleading "not found in repo" warning. Contract: `skills/stage-snapshot-writer/SKILL.md`. The snapshot serves as primary context for `/dr-next` and `/dr-orchestrate` after `/clear` or terminal close.
 
 The stage value and the command literal are bound by the invoking command file (not inferred by the agent) — see each `commands/dr-*.md` § Stage Snapshot Emission for the literal stage / command pair.
 
@@ -313,7 +313,7 @@ bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/snapshot-writer-wrapper.sh" \
 
 Fail-closed semantics: a non-zero wrapper exit MUST surface a single stderr warning line; do not silently swallow, do not abort the surrounding command. Kill switch — env `DATARIM_DISABLE_SNAPSHOT=1` makes the writer a no-op (documented in `docs/how-to/stage-snapshots.md`); the warning line is suppressed under the kill switch.
 
-**Harness journal side-effect.** When `/tmp/datarim-test-{TASK-ID}/` exists (created by `dev-tools/datarim-stage-probe-init.sh`), the writer additionally appends one journal line per call to `/tmp/datarim-test-{TASK-ID}/journal.md` in the contract format `<stage> · <ISO-ts> · header-present:<y|n> · snapshot-written:y · cta-footer:<y|n> · snapshot-sha:<12-hex>`. Auto-detection is by directory presence; an absent harness directory is a no-op. See `docs/how-to/datarim-harness.md` for end-to-end harness usage.
+**Harness journal side-effect.** When `/tmp/datarim-test-{TASK-ID}/` exists (created by `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/datarim-stage-probe-init.sh"`), the writer additionally appends one journal line per call to `/tmp/datarim-test-{TASK-ID}/journal.md` in the contract format `<stage> · <ISO-ts> · header-present:<y|n> · snapshot-written:y · cta-footer:<y|n> · snapshot-sha:<12-hex>`. Auto-detection is by directory presence; an absent harness directory is a no-op. See `docs/how-to/datarim-harness.md` for end-to-end harness usage.
 
 Consumer side: `commands/dr-next.md` § Step 2.5 "Snapshot-First Read" and `plugins/dr-orchestrate/commands/dr-orchestrate.md` § Snapshot-First Resume read the file before falling through to task-description / init-task / activeContext. The replay-prompt template lives in `skills/dr-next-snapshot-replay/SKILL.md` § Replay-prompt template.
 

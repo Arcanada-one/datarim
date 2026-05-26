@@ -71,7 +71,7 @@ description: Implement planned changes using TDD and AI quality principles
     -   Run the verifier on every modified networking-config file in the
         staged set:
         ```bash
-        dev-tools/network-exposure-check.sh \
+        "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/network-exposure-check.sh" \
             --compose <staged-compose>... \
             --redis-conf <staged-redis>... \
             --postgres-conf <staged-postgres>... \
@@ -83,7 +83,7 @@ description: Implement planned changes using TDD and AI quality principles
         + `x-exposure-expires` ≤ 90 d).
     -   Run the tiered gate to confirm enforcement strictness:
         ```bash
-        decision=$(dev-tools/network-exposure-gate.sh \
+        decision=$("${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/network-exposure-gate.sh" \
             --task-description datarim/tasks/{TASK-ID}-task-description.md \
             --network-diff --quiet)
         ```
@@ -99,7 +99,7 @@ description: Implement planned changes using TDD and AI quality principles
         frontmatter resolves to `hard_block` regardless of the
         `--skip-exposure-gate` flag.
 
-8.6. **APPEND Q&A IF ANY** (mandatory per `$HOME/.claude/skills/init-task-persistence/SKILL.md` § Q&A round-trip contract): for every operator clarification round captured during implementation — either operator answer or autonomous agent-decision under FB-1..FB-5 — invoke `dev-tools/append-init-task-qa.sh` to persist the round into `datarim/tasks/{TASK-ID}-init-task.md § Append-log`.
+8.6. **APPEND Q&A IF ANY** (mandatory per `$HOME/.claude/skills/init-task-persistence/SKILL.md` § Q&A round-trip contract): for every operator clarification round captured during implementation — either operator answer or autonomous agent-decision under FB-1..FB-5 — invoke `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/append-init-task-qa.sh"` to persist the round into `datarim/tasks/{TASK-ID}-init-task.md § Append-log`.
     -   Write the question, answer, and rationale (when applicable) to temp files first; free-form text MUST come via `--*-file <path>` per Security Mandate § S1.
     -   Required flags: `--root <repo-root> --task {TASK-ID} --stage do --round <N> --question-file <path> --answer-file <path> --decided-by <operator|agent> --summary "<one-line>"`.
     -   When `--decided-by agent`: `--rationale-file <path>` MUST contain ≥ 50 non-whitespace characters of justification.
@@ -122,7 +122,7 @@ Before proceeding to `/dr-qa` or `/dr-archive`:
 [ ] Tests written and passing?
 [ ] tasks/{TASK-ID}-task-description.md updated with implementation notes?
 [ ] No known regressions introduced?
-[ ] If staged changes touch any networking surface, `dev-tools/network-exposure-check.sh` exited 0 against the staged set and the tiered-gate verdict was honoured (or an `advisory_warn` override was logged with Ops Bot event + § Decisions note)?
+[ ] If staged changes touch any networking surface, `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/network-exposure-check.sh"` exited 0 against the staged set and the tiered-gate verdict was honoured (or an `advisory_warn` override was logged with Ops Bot event + § Decisions note)?
 ```
 
 ## /dr-auto Mode (when `DATARIM_AUTO_MODE=1`)
@@ -135,7 +135,7 @@ When auto-mode is active (env var `DATARIM_AUTO_MODE=1` AND matching marker `dat
    - L1 inline gap classifier — discovered gap routed per skills/autonomous-mode/SKILL.md § L1 Inline Resolution Rule decision tree (L1 Class A → inline; L2+/B → backlog; HARD → L5).
    - Append every inline-resolved gap to `datarim/tasks/{TASK-ID}-auto-inline-log.md`.
 3. Discovered gaps → apply L1 Inline Resolution Rule per `skills/autonomous-mode/SKILL.md`; log in `datarim/tasks/{TASK-ID}-auto-inline-log.md` if applied inline.
-4. Hard-gated actions → escalate to operator through Ladder L5; log via `dev-tools/append-init-task-qa.sh --decided-by operator` per `skills/init-task-persistence/SKILL.md` § Q&A round-trip.
+4. Hard-gated actions → escalate to operator through Ladder L5; log via `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/append-init-task-qa.sh" --decided-by operator` per `skills/init-task-persistence/SKILL.md` § Q&A round-trip.
 5. Mismatch (env var set, marker absent OR marker contains different TASK-ID) → emit single-line warning, treat as non-auto (fail-safe per `skills/autonomous-mode/SKILL.md` § When this skill is active).
 
 ## Next Steps (CTA)
