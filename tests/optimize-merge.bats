@@ -18,11 +18,14 @@ REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
 
 @test "no skill description exceeds 155 chars" {
   over=0
-  for f in "$REPO_ROOT"/skills/*.md; do
+  # Walk both legacy flat-layout (skills/*.md) and directory-per-skill
+  # layout (skills/*/SKILL.md, TUNE-0304).
+  for f in "$REPO_ROOT"/skills/*.md "$REPO_ROOT"/skills/*/SKILL.md; do
+    [ -f "$f" ] || continue
     desc=$(awk '/^---$/{c++; next} c==1 && /^description:/{sub(/^description: */, ""); print; exit}' "$f")
     len=${#desc}
     if [ "$len" -gt 155 ]; then
-      echo "OVER $len $(basename "$f"): $desc"
+      echo "OVER $len $f: $desc"
       over=$((over + 1))
     fi
   done

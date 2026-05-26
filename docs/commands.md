@@ -72,6 +72,7 @@ Source: TUNE-0032. Spec: `skills/cta-format/SKILL.md`. Template: `templates/cta-
 |---------|-------|-------|-------------|
 | `/dr-status` | Utility | -- | Check current task and backlog status (read-only). Emits CTA — discovery surface for parallel work. |
 | `/dr-next` | Utility | varies | Resume from last checkpoint. Step 2.5 reads `datarim/snapshots/{TASK-ID}.snapshot.md` first (v2.13.0+) and emits replay-prompt with bilingual autonomy reminder + `done before:` body. Falls back silently to legacy Read pipeline when snapshot is absent. Emits CTA per resumed phase. |
+| `/dr-continue` | Utility | -- | Deprecated alias for `/dr-next`. Kept for backwards compatibility; new invocations should use `/dr-next` directly. |
 | `/dr-help` | Utility | -- | List all commands with descriptions and usage guidance. Emits CTA. |
 
 ## Standalone Commands (2)

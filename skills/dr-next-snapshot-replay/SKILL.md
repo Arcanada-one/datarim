@@ -1,6 +1,6 @@
 ---
 name: dr-next-snapshot-replay
-description: Consumer contract for stage snapshots — /dr-next and /dr-orchestrate read datarim/snapshots/{TASK-ID}.snapshot.md first, emit replay-prompt with CTA + bilingual autonomy reminder + `done before:` body.
+description: Consumer contract for stage snapshots — /dr-next and /dr-orchestrate read datarim/snapshots/{TASK-ID}.snapshot.md first and emit a replay prompt.
 current_aal: 1
 target_aal: 2
 ---

@@ -1,6 +1,6 @@
 ---
 name: coworker-context
-description: Canonical conventions an external LLM (via coworker delegation) must follow when generating or editing Datarim artifacts — Stage Header, YAML frontmatter, Append-log Q&A, Expectations checklist, snapshot frontmatter, PRD↔archive mirror, Diátaxis, history-agnostic, Supreme Directive.
+description: Canonical conventions an external LLM (via coworker delegation) must follow when generating or editing Datarim artifacts (stage header, frontmatter, etc.).
 loaded_by: coworker-profile-datarim, /dr-write, /dr-archive
 ---
 

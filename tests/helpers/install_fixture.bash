@@ -23,7 +23,8 @@ setup_fixture() {
 
     # Seed each install scope with one canonical .md file.
     echo "# planner" > "$FAKE_REPO/agents/planner.md"
-    echo "# testing" > "$FAKE_REPO/skills/testing.md"
+    mkdir -p "$FAKE_REPO/skills/testing"
+    echo "# testing" > "$FAKE_REPO/skills/testing/SKILL.md"
     echo "# dr-init"  > "$FAKE_REPO/commands/dr-init.md"
     echo "# prd"     > "$FAKE_REPO/templates/prd-template.md"
 
@@ -68,7 +69,8 @@ CLAUDE
 seed_existing_copy_install() {
     mkdir -p "$FAKE_CLAUDE"/{agents,skills,commands,templates}
     echo "# pre-existing planner" > "$FAKE_CLAUDE/agents/planner.md"
-    echo "# pre-existing testing" > "$FAKE_CLAUDE/skills/testing.md"
+    mkdir -p "$FAKE_CLAUDE/skills/testing"
+    echo "# pre-existing testing" > "$FAKE_CLAUDE/skills/testing/SKILL.md"
     echo "# pre-existing dr-init" > "$FAKE_CLAUDE/commands/dr-init.md"
     echo "# pre-existing prd-template" > "$FAKE_CLAUDE/templates/prd-template.md"
 }

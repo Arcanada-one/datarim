@@ -1,6 +1,6 @@
 ---
 name: stage-snapshot-writer
-description: Producer contract for per-task stage snapshots — final operator-visible /dr-* response persisted to datarim/snapshots/{TASK-ID}.snapshot.md with overwrite semantics, mkdir-based atomic lock, 8 KB hard cap.
+description: Producer contract for per-task stage snapshots written to datarim/snapshots/{TASK-ID}.snapshot.md with overwrite semantics and an 8 KB hard cap.
 current_aal: 1
 target_aal: 2
 ---

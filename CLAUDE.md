@@ -203,6 +203,7 @@ Before writing ANY file to `datarim/`:
 | `/dr-auto` | Autonomous | Мета-команда автономного исполнения. Активирует FB-1..8 mandate + L1 Inline Resolution Rule + autonomous-ops scope как default-on через env var `DATARIM_AUTO_MODE=1` + file marker `datarim/.auto-mode-active`. Question Suppression Ladder (5 levels) suppresses pipeline Q&A; L1 Class A gaps закрываются inline; hard-gated actions escalate to operator. Two modes — Continue (`/dr-auto {TASK-ID}` resume) / Bootstrap (`/dr-auto "<free-text>"` full pipeline). Canonical contract в `skills/autonomous-mode/SKILL.md` |
 | `/dr-status` | Utility | Check current task and backlog status |
 | `/dr-next` | Utility | Resume from last checkpoint |
+| `/dr-continue` | Utility | Deprecated alias for `/dr-next` (kept for backwards compatibility) |
 | `/dr-write` | Content | Create written content — articles, docs, research, posts |
 | `/dr-edit` | Content | Editorial review — fact-check, humanize, style, polish |
 | `/dr-publish` | Content | Adapt and publish content to multiple platforms |

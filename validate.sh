@@ -16,6 +16,11 @@ echo "Cross-Reference Checks:"
 
 for dir in agents skills commands templates; do
     count=$(find "$SCRIPT_DIR/$dir" -maxdepth 1 -name "*.md" -type f 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$dir" = "skills" ]; then
+        # Directory-per-skill layout: also count subdir-shaped skills/<name>/SKILL.md.
+        sub_count=$(find "$SCRIPT_DIR/$dir" -maxdepth 2 -name "SKILL.md" -type f 2>/dev/null | wc -l | tr -d ' ')
+        count=$((count + sub_count))
+    fi
     if [ "$count" -gt 0 ]; then
         echo "  PASS: $dir/ contains $count files"
     else
@@ -59,9 +64,21 @@ if [ -d "$LOCAL_DIR" ]; then
     CRITICAL_OVERRIDE_COUNT=0
     for scope in skills agents commands templates; do
         [ -d "$LOCAL_DIR/$scope" ] || continue
+        # Collect both flat-layout (scope/*.md) and directory-per-skill (skills/*/SKILL.md) overrides.
+        candidates=()
         for f in "$LOCAL_DIR/$scope"/*.md; do
-            [ -f "$f" ] || continue
-            bname=$(basename "$f")
+            [ -f "$f" ] && candidates+=("$f|$(basename "$f")")
+        done
+        if [ "$scope" = "skills" ]; then
+            for f in "$LOCAL_DIR/$scope"/*/SKILL.md; do
+                [ -f "$f" ] || continue
+                dname=$(basename "$(dirname "$f")")
+                candidates+=("$f|$dname/SKILL.md")
+            done
+        fi
+        for entry in "${candidates[@]}"; do
+            f="${entry%%|*}"
+            bname="${entry##*|}"
             if [ -f "$SCRIPT_DIR/$scope/$bname" ]; then
                 # Critical-skill blocklist: shadowing security-contract surfaces is rejected (exit 1).
                 # Source list locked: skills/datarim-system/SKILL.md § Loading Order; docs/getting-started.md § Personal additions.

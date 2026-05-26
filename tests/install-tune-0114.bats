@@ -171,6 +171,7 @@ teardown() {
 @test "TUNE-0297 T42 --with-codex generates SKILL.md wrapper for each source skill" {
     local fake_codex="$FAKE_HOME/.codex"
     echo "# datarim AGENTS" > "$FAKE_REPO/AGENTS.md"
+    mkdir -p "$(dirname "$FAKE_REPO/skills/testing/SKILL.md")"
     cat > "$FAKE_REPO/skills/testing/SKILL.md" <<'MD'
 ---
 name: testing
@@ -197,6 +198,7 @@ MD
 @test "TUNE-0297 T43 --with-claude does NOT create SKILL.md wrappers under fake_codex" {
     local fake_codex="$FAKE_HOME/.codex"
     echo "# datarim AGENTS" > "$FAKE_REPO/AGENTS.md"
+    mkdir -p "$(dirname "$FAKE_REPO/skills/testing/SKILL.md")"
     cat > "$FAKE_REPO/skills/testing/SKILL.md" <<'MD'
 ---
 name: testing
@@ -220,6 +222,7 @@ Stable router content.
 AG
     local src_sha
     src_sha="$(shasum -a 256 "$FAKE_REPO/AGENTS.md" | awk '{print $1}')"
+    mkdir -p "$(dirname "$FAKE_REPO/skills/testing/SKILL.md")"
     cat > "$FAKE_REPO/skills/testing/SKILL.md" <<'MD'
 ---
 name: testing
@@ -252,6 +255,7 @@ MD
     mkdir -p "$backup/.system/imagegen"
     echo "# imagegen" > "$backup/.system/imagegen/SKILL.md"
     echo "# datarim AGENTS" > "$FAKE_REPO/AGENTS.md"
+    mkdir -p "$(dirname "$FAKE_REPO/skills/testing/SKILL.md")"
     cat > "$FAKE_REPO/skills/testing/SKILL.md" <<'MD'
 ---
 name: testing
@@ -275,6 +279,7 @@ MD
 @test "TUNE-0297 T46 --with-codex --no-codex-ux opts out of wrapper generation" {
     local fake_codex="$FAKE_HOME/.codex"
     echo "# datarim AGENTS" > "$FAKE_REPO/AGENTS.md"
+    mkdir -p "$(dirname "$FAKE_REPO/skills/testing/SKILL.md")"
     cat > "$FAKE_REPO/skills/testing/SKILL.md" <<'MD'
 ---
 name: testing
@@ -285,8 +290,13 @@ MD
     [ "$status" -eq 0 ]
     # AGENTS.md symlink still set (TUNE-0296 baseline)
     [ -L "$fake_codex/AGENTS.md" ]
-    # But no UX artefacts
-    [ ! -e "$fake_codex/skills/testing/SKILL.md" ]
+    # No UX artefacts:
+    #   - skills/ is a plain symlink to the source tree (uniform Datarim
+    #     baseline), NOT a real directory populated with generated wrappers
+    #     (which is what fanout_codex_ux would produce under TUNE-0297).
+    [ -L "$fake_codex/skills" ]
+    # AGENTS.override.md is the canonical fanout_codex_ux artefact — absent
+    # under --no-codex-ux.
     [ ! -e "$fake_codex/AGENTS.override.md" ]
 }
 

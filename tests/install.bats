@@ -226,6 +226,7 @@ setup() {
 @test "T33-5 AC-4(c) migration --yes converts copy → symlinks with backup" {
     seed_existing_copy_install
     # Mark with a unique edit we can recognise in the backup.
+    mkdir -p "$(dirname "$FAKE_CLAUDE/skills/testing/SKILL.md")"
     echo "# user edit before migrate" > "$FAKE_CLAUDE/skills/testing/SKILL.md"
     run_install --yes
     [ "$status" -eq 0 ]
@@ -243,6 +244,7 @@ setup() {
 
 @test "T33-6 AC-4(k) migration with INSTALL_CHOICE=k keeps copy mode" {
     seed_existing_copy_install
+    mkdir -p "$(dirname "$FAKE_CLAUDE/skills/testing/SKILL.md")"
     echo "# user content" > "$FAKE_CLAUDE/skills/testing/SKILL.md"
     run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" \
         DATARIM_MIGRATION_CHOICE=k \

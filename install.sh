@@ -62,7 +62,10 @@ DATARIM_MIGRATION_CHOICE="${DATARIM_MIGRATION_CHOICE:-}"
 # dr-init (check-init-task-presence.sh), dr-doctor, dr-archive, dr-verify,
 # dr-qa, dr-plan, dr-compliance, dr-design. The directory remains
 # maintainer-stewarded — no user-facing CLI; see dev-tools/README.md.
-INSTALL_SCOPES=(agents skills commands templates scripts tests dev-tools)
+# Note: 'dev-tools' is intentionally NOT in this list — see
+# code/datarim/dev-tools/README.md (developer-only tooling, not shipped
+# to consumers; TUNE-0091).
+INSTALL_SCOPES=(agents skills commands templates scripts tests)
 
 # v1.17.0: local/ overlay scope dirs (TUNE-0033). Local overlay applies only to
 # user-extensible scopes (skills/agents/commands/templates) — scripts/tests are
@@ -825,7 +828,13 @@ generate_codex_agents_manifest() {
         echo "## Available Datarim Skills"
         echo ""
         if [ -d "$src_dir/skills" ]; then
+            # Flat-layout legacy skills.
             for f in "$src_dir/skills"/*.md; do
+                [ -f "$f" ] || continue
+                emit_manifest_entry "$f" ""
+            done
+            # Directory-per-skill layout (TUNE-0304).
+            for f in "$src_dir/skills"/*/SKILL.md; do
                 [ -f "$f" ] || continue
                 emit_manifest_entry "$f" ""
             done
@@ -869,13 +878,20 @@ fanout_codex_ux() {
             ! -name '.system' -exec rm -rf {} +
     fi
 
-    # 3. Generate wrappers for top-level source skills (`skills/<basename>.md`).
-    #    Skip subdir-fragment files (those live under `skills/<topic>/`).
+    # 3. Generate wrappers for top-level source skills.
+    #    Supports both legacy flat layout (`skills/<name>.md`) and the
+    #    directory-per-skill layout (`skills/<name>/SKILL.md`, TUNE-0304).
     local src_skill name
     local generated=0
     for src_skill in "$src_dir/skills"/*.md; do
         [ -f "$src_skill" ] || continue
         name=$(basename "$src_skill" .md)
+        generate_skill_wrapper "$src_skill" "$codex_dir/skills/$name/SKILL.md"
+        generated=$((generated + 1))
+    done
+    for src_skill in "$src_dir/skills"/*/SKILL.md; do
+        [ -f "$src_skill" ] || continue
+        name=$(basename "$(dirname "$src_skill")")
         generate_skill_wrapper "$src_skill" "$codex_dir/skills/$name/SKILL.md"
         generated=$((generated + 1))
     done

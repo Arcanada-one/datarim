@@ -57,8 +57,8 @@ This command generates a structured Product Requirements Document (PRD) followin
         - **V-AC ecosystem-mandate alignment.** Run `dev-tools/check-v-ac-mandate-preflight.sh --prd "$PRD_FILE"`. Advisory gate: the script extracts V-AC / Verification / Success Criteria lines and greps each against the forbidden-pattern set in `dev-tools/public-surface-forbidden.regex` (the same contract surface consumed by `public-surface-lint.sh`). Goal — surface a V-AC ↔ Public Surface Hygiene Mandate conflict at PRD-time, not at `/dr-qa`. The script always exits 0; on match it prints `WARNING:` lines to stdout for operator review. Optional `--regex <FILE>` override loads a consumer-extended pattern set without script changes.
     -   Save to `datarim/prd/PRD-{slug}.md`.
 
-5.5b. **Seed expectations checklist (L3-L4, mandatory)** per `$HOME/.claude/skills/expectations-checklist/SKILL.md`:
-    -   For tasks with `complexity: L3` or `L4`, the architect MUST create or update `datarim/tasks/{TASK-ID}-expectations.md` from `$HOME/.claude/templates/expectations-template.md`.
+5.5b. **Append-merge expectations checklist (L3-L4, mandatory)** per `$HOME/.claude/skills/expectations-checklist/SKILL.md`:
+    -   The checklist file `datarim/tasks/{TASK-ID}-expectations.md` is created by `/dr-init` at Step 4.7. At `/dr-prd`, the architect MUST append-merge any new wishes derived from the PRD § Success Criteria block — never create the file from scratch, and never replace existing operator-derived wishes.
     -   **Source of items.** Each operator wish becomes one item. Derive items from:
         (a) the init-task `## Operator brief (verbatim)` plus every `## Append-log` entry (one wish per distinct intent), and
         (b) the PRD § Success Criteria list (one wish per V-AC where the criterion reflects an operator-observable outcome — internal-only AC stays in PRD).
