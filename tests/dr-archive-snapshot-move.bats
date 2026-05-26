@@ -24,10 +24,16 @@ setup() {
         # Source body of datarim-doctor.sh but suppress main() execution
         # by setting a guard: redefine main as a no-op before sourcing.
         DATARIM_DOCTOR_NO_MAIN=1 source '$DOCTOR' 2>/dev/null || true
-        type prefix_to_area >/dev/null 2>&1 || exit 0  # graceful skip if not sourceable
+        # If the doctor isn't sourceable as a library (missing lib/ siblings,
+        # for example), bail with a non-zero status so the outer 'skip' kicks
+        # in instead of producing empty output that would then fail the
+        # assertion below.
+        type prefix_to_area >/dev/null 2>&1 || exit 75
         prefix_to_area TUNE-9999
     "
-    [ "$status" -eq 0 ] || skip "datarim-doctor.sh not sourceable as library"
+    if [ "$status" -ne 0 ]; then
+        skip "datarim-doctor.sh not sourceable as library (status=$status)"
+    fi
     # Use the last non-empty line — when the doctor sources cleanly some
     # versions emit a single value, others emit warning lines first. Either
     # the canonical 'framework' (preferred) or the 'general' fallback is
