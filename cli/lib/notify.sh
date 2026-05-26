@@ -72,11 +72,13 @@ _notify_stub_fail() {
 
 notify_irreversible() {
     local severity="$1" title="$2" body="$3"
-    local targets IFS_BAK acked=0 target fn
+    local targets acked=0 target fn
+    local arr
     targets="$(_notifier_targets)"
-    IFS_BAK="$IFS"
+    # Split on comma without touching the global IFS — the IFS= prefix on the
+    # `read` command binds IFS only for that single invocation, so the parent
+    # shell's IFS is never mutated (semgrep bash.ifs-tampering safe).
     IFS=',' read -ra arr <<<"$targets"
-    IFS="$IFS_BAK"
     for target in "${arr[@]}"; do
         target="$(printf '%s' "$target" | tr -d '[:space:]')"
         [ -z "$target" ] && continue

@@ -80,8 +80,10 @@ jobs:
 
       - name: Tooling availability
         shell: bash {0}
+        env:
+          TOOLING_LIST: ${{ inputs.tooling_list }}
         run: |
-          for tool in ${{ inputs.tooling_list }}; do
+          for tool in $TOOLING_LIST; do
             path=$(command -v "$tool" 2>/dev/null || true)
             if [ -n "$path" ]; then
               ver=$("$tool" --version 2>&1 | head -1 || echo '?')
@@ -93,8 +95,10 @@ jobs:
 
       - name: Webroot / target-path inspection
         shell: bash {0}
+        env:
+          WEBROOT_PATHS: ${{ inputs.webroot_paths }}
         run: |
-          for path in ${{ inputs.webroot_paths }}; do
+          for path in $WEBROOT_PATHS; do
             if [ -e "$path" ]; then
               ls -ld "$path"
               [ -f "$path" ] && stat -c 'owner=%U:%G mode=%a size=%s mtime=%y' "$path"
@@ -105,8 +109,10 @@ jobs:
 
       - name: Write probe (target paths)
         shell: bash {0}
+        env:
+          WEBROOT_PATHS: ${{ inputs.webroot_paths }}
         run: |
-          for target in ${{ inputs.webroot_paths }}; do
+          for target in $WEBROOT_PATHS; do
             [ -d "$target" ] || { echo "$target: SKIP (not a directory)"; continue; }
             probe="$target/.probe-$$"
             if : > "$probe" 2>/dev/null; then
@@ -119,8 +125,10 @@ jobs:
 
       - name: Network egress probe
         shell: bash {0}
+        env:
+          EGRESS_URLS: ${{ inputs.egress_urls }}
         run: |
-          for url in ${{ inputs.egress_urls }}; do
+          for url in $EGRESS_URLS; do
             code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 5 "$url" 2>&1 || echo "ERR")
             echo "$url -> $code"
           done
