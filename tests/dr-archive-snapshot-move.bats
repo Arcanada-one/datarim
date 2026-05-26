@@ -28,7 +28,12 @@ setup() {
         prefix_to_area TUNE-9999
     "
     [ "$status" -eq 0 ] || skip "datarim-doctor.sh not sourceable as library"
-    [[ "$output" == "framework" ]] || [[ "$output" == "general" ]]
+    # Use the last non-empty line — when the doctor sources cleanly some
+    # versions emit a single value, others emit warning lines first. Either
+    # the canonical 'framework' (preferred) or the 'general' fallback is
+    # acceptable.
+    last_line=$(printf '%s\n' "$output" | awk 'NF{last=$0} END{print last}')
+    [[ "$last_line" == "framework" ]] || [[ "$last_line" == "general" ]]
 }
 
 @test "default fallback subdir 'general' for unknown prefix" {

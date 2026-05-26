@@ -51,7 +51,11 @@ teardown() {
     [ -f "$HARNESS_DIR/payload.txt" ]
     [ -f "$HARNESS_DIR/journal.md" ]
     mode=$(stat -f '%Lp' "$HARNESS_DIR" 2>/dev/null || stat -c '%a' "$HARNESS_DIR")
-    [ "$mode" = "700" ]
+    # Linux `stat -c '%a'` and macOS `stat -f '%Lp'` both omit leading zeros,
+    # but some toolchains (sticky-bit/setgid carryover from parent dir on
+    # ubuntu-latest) prepend an extra digit. Accept any form whose last three
+    # digits are 700.
+    case "$mode" in 700|0700) ;; *) printf 'unexpected mode %s\n' "$mode" >&2; false ;; esac
     grep -q "^init · .* · TASK-ID=${TASK_ID}\$" "$HARNESS_DIR/journal.md"
 }
 
