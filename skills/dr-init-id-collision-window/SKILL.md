@@ -39,7 +39,7 @@ This skill is invoked by:
   the full canonical set in § Detection BEFORE running
   `git checkout -b <candidate>-...`. If any artifact or backlog entry exists
   for the candidate ID, the candidate is reserved — pick the next free ID
-  (highest ID in workspace + 1, skipping the `TASK-9999` sentinel) and proceed.
+  (highest existing ID in workspace + 1, skipping reserved sentinel values) and proceed.
   Catches the false-free case where the ID looks unused in the agent's
   conversation context but is actually already filed in `backlog.md` as a
   follow-up from a sibling task.
