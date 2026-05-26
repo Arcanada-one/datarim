@@ -141,7 +141,7 @@ Every transition listed below MUST be surfaced to the user as a canonical CTA bl
 
 ### FAIL Return Routing (FAIL-Routing CTA variant)
 
-QA BLOCKED → header `**QA failed для {TASK-ID} — earliest failed layer: Layer N (Layer name)**`, primary CTA per Layer-to-command map:
+QA BLOCKED → header `**QA failed for {TASK-ID} — earliest failed layer: Layer N (Layer name)**`, primary CTA per Layer-to-command map:
 
 | Failed Layer | Primary CTA |
 |---|---|
@@ -150,9 +150,9 @@ QA BLOCKED → header `**QA failed для {TASK-ID} — earliest failed layer: L
 | Layer 3 (Plan) | `/dr-plan {TASK-ID}` |
 | Layer 4 (Code) | `/dr-do {TASK-ID}` |
 
-Compliance NON-COMPLIANT → header `**Compliance NON-COMPLIANT для {TASK-ID} — ...**`, primary `/dr-do {TASK-ID}` (default) or earlier stage if PRD/plan gap identified.
+Compliance NON-COMPLIANT → header `**Compliance NON-COMPLIANT for {TASK-ID} — ...**`, primary `/dr-do {TASK-ID}` (default) or earlier stage if PRD/plan gap identified.
 
-After fix: resume forward, re-run QA/compliance. Loop guard: 3 same-layer fails → escalate to user via CTA option `Эскалация` (see `cta-format.md` § FAIL-Routing).
+After fix: resume forward, re-run QA/compliance. Loop guard: 3 same-layer fails → escalate to user via CTA option `Эскалация` (see `cta-format.md` § FAIL-Routing). <!-- allow-non-ascii: russian-cta-option-token-cited-from-cta-format-skill -->
 
 ### Manual Transitions
 
@@ -164,4 +164,4 @@ After fix: resume forward, re-run QA/compliance. Loop guard: 3 same-layer fails 
 
 ### Multi-task awareness (Variant B)
 
-Whenever `## Active Tasks` in `datarim/activeContext.md` lists >1 task, the CTA block MUST append a `**Другие активные задачи:**` menu listing each parallel task with its own recommended next command. This is mandatory for `/dr-status`, `/dr-next`, `/dr-archive`; agents on other commands MAY append it when context permits. See `cta-format.md` § Canonical Block — Multiple Active Tasks.
+Whenever `## Active Tasks` in `datarim/activeContext.md` lists >1 task, the CTA block MUST append a `**Другие активные задачи:**` menu listing each parallel task with its own recommended next command. This is mandatory for `/dr-status`, `/dr-next`, `/dr-archive`; agents on other commands MAY append it when context permits. See `cta-format.md` § Canonical Block — Multiple Active Tasks. <!-- allow-non-ascii: russian-cta-variant-b-menu-header-cited-from-cta-format-skill -->

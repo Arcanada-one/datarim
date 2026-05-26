@@ -7,36 +7,36 @@ target_aal: 2
 
 # Stage Snapshot Writer
 
-Каждая `/dr-*` команда, эмитирующая CTA-блок, как терминальный шаг пишет финальный operator-visible ответ в `datarim/snapshots/{TASK-ID}.snapshot.md`. Снапшот служит primary context-source для `/dr-next` и `/dr-orchestrate` после `/clear` или закрытия терминала.
+Every `/dr-*` command that emits a CTA block writes its final operator-visible response to `datarim/snapshots/{TASK-ID}.snapshot.md` as its terminal step. The snapshot is the primary context source for `/dr-next` and `/dr-orchestrate` after `/clear` or after the terminal is closed.
 
 ## Contract
 
 | Aspect | Value |
 |--------|-------|
-| Producer touchpoint | `skills/cta-format/SKILL.md` § Snapshot Emission (1 место, не N) |
+| Producer touchpoint | `skills/cta-format/SKILL.md` § Snapshot Emission (single producer, not N) |
 | Implementation | `scripts/lib/snapshot-writer.sh::write_stage_snapshot` |
 | Path | `datarim/snapshots/{TASK-ID}.snapshot.md` |
 | Lock | `datarim/snapshots/.lock.{TASK-ID}` (mkdir-based, reuses `acquire_plugin_lock`) |
 | Lock timeout | env `DR_SNAPSHOT_LOCK_TIMEOUT` (default 60 s) |
 | File size cap | 8192 bytes total (frontmatter + body); body truncated with marker on overflow |
-| Truncation marker | `<!-- snapshot-truncated, full ответ см. session jsonl -->` |
+| Truncation marker | `<!-- snapshot-truncated, full response in session jsonl -->` |
 | Permissions | snapshot file `chmod 600`, lock dir `chmod 700` |
-| Semantics | overwrite — повторный вызов той же стадии полностью замещает файл |
-| Kill switch | `DATARIM_DISABLE_SNAPSHOT=1` → writer становится no-op |
+| Semantics | overwrite — a second call for the same stage replaces the file in full |
+| Kill switch | `DATARIM_DISABLE_SNAPSHOT=1` → writer becomes a no-op |
 
 ## Inputs
 
-Все аргументы — named (`--flag value`):
+All arguments are named (`--flag value`):
 
 ```
 write_stage_snapshot \
-    --root <DATARIM_ROOT> \             # абсолютный путь до repo root
+    --root <DATARIM_ROOT> \             # absolute path to repo root
     --task <TASK-ID> \                  # ^[A-Z][A-Z0-9-]+-[0-9]{4,5}$
     --stage <plan|prd|do|qa|verify|...> \
-    --command </dr-name> \              # литерал «/dr-<name>»
+    --command </dr-name> \              # literal "/dr-<name>"
     --captured-by <agent|operator> \
     --recommended-next </dr-name> \     # primary CTA option, slash-prefixed
-    --options-file <path> \             # newline-separated «</dr-*> | <purpose>»
+    --options-file <path> \             # newline-separated "</dr-*> | <purpose>"
     --body-file <path> \                # rendered Summary + CTA (≤ 8 KB after trim)
     [--captured-at <ISO8601 UTC>]       # default $(date -u +%FT%TZ)
 ```
@@ -56,7 +56,7 @@ captured_at: 2026-05-21T13:45:00Z
 captured_by: agent
 recommended_next: /dr-do
 options:
-  - "/dr-do <TASK-ID> | реализация плана"
+  - "/dr-do <TASK-ID> | execute the plan"
   - "/dr-design <TASK-ID> | ratify writer API"
   - "/dr-status | escape hatch"
 size_bytes: 6432
@@ -73,7 +73,7 @@ truncated: false
 | 0 | snapshot written |
 | 1 | IO error / argument validation failure |
 | 2 | usage error (missing flag) |
-| 3 | lock-timeout (см. `DR_SNAPSHOT_LOCK_TIMEOUT`) |
+| 3 | lock-timeout (see `DR_SNAPSHOT_LOCK_TIMEOUT`) |
 
 ## Security controls (Appendix A cross-link)
 
@@ -100,8 +100,8 @@ write_stage_snapshot \
 
 ## Related
 
-- `skills/cta-format/SKILL.md` § Snapshot Emission — единственная producer touchpoint
-- `skills/dr-next-snapshot-replay/SKILL.md` — consumer-сторона
+- `skills/cta-format/SKILL.md` § Snapshot Emission — the only producer touchpoint
+- `skills/dr-next-snapshot-replay/SKILL.md` — consumer side
 - `dev-tools/check-stage-snapshot-on-exit.sh` — post-CTA advisory gate
 - `scripts/lib/plugin-system.sh::acquire_plugin_lock` — lock primitive (reused)
-- `feedback memory feedback_no_flock_on_macos` — обоснование mkdir-lock (POSIX flock ненадёжен на macOS через NFS/SMB)
+- `feedback memory feedback_no_flock_on_macos` — rationale for mkdir-lock (POSIX flock is unreliable on macOS over NFS/SMB)

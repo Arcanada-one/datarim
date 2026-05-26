@@ -57,15 +57,15 @@ Real incident: a plan predicted fp16 would reduce RAM from 914MB to ~450MB. Actu
 
 ## NODE_ENV in Container Environments — Anti-Pattern
 
-`NODE_ENV=development` в Docker container'е (compose, Dockerfile `ENV`, docker run `-e`) — это анти-pattern. Контейнер не знает дев-режима.
+Setting `NODE_ENV=development` inside a Docker container (compose, Dockerfile `ENV`, `docker run -e`) is an anti-pattern. The container has no notion of a developer machine — it ships a production image.
 
 ### Rule
 
-**Container default = `NODE_ENV=production`.** Dev-mode-only зависимости (pino-pretty, ts-node, source-map-support, error-stack-with-context, etc.) живут в `devDependencies`. Production Dockerfile делает `npm ci --omit=dev` → эти пакеты физически отсутствуют в image. Любой код, который их `require()` при `NODE_ENV=development`, упадёт с `Cannot find module ...` на старте.
+**Container default = `NODE_ENV=production`.** Dev-mode-only dependencies (pino-pretty, ts-node, source-map-support, error-stack-with-context, etc.) live under `devDependencies`. A production Dockerfile runs `npm ci --omit=dev`, so those packages are physically absent from the image. Any code path that `require()`s them under `NODE_ENV=development` will crash at startup with `Cannot find module ...`.
 
 ### Why
 
-Real incident: Dockerfile корректно делал `npm ci --omit=dev`, но `docker-compose.yml` выставлял `NODE_ENV=development`. Pino logger conditionally подключал `pino-pretty` транспорт при dev-режиме. Контейнер crashed at startup (`unable to determine transport target for "pino-pretty"`). 5 минут диагностики + 1 цикл compose rebuild.
+Real incident: the Dockerfile correctly ran `npm ci --omit=dev`, but `docker-compose.yml` set `NODE_ENV=development`. The Pino logger conditionally enabled the `pino-pretty` transport under dev mode. The container crashed at startup with `unable to determine transport target for "pino-pretty"`. Five minutes of diagnosis plus one compose rebuild cycle.
 
 ### Pattern
 
@@ -86,12 +86,12 @@ transport: process.env.LOG_PRETTY === '1'
   : undefined
 ```
 
-Локальный dev (host machine, `npm run start:dev`) сохраняет `NODE_ENV=development` через npm scripts — там devDeps присутствуют. Container никогда.
+Local dev on the host machine (`npm run start:dev`) keeps `NODE_ENV=development` via npm scripts — devDeps are installed there. The container, never.
 
 ### When to apply
 
-- Любой Dockerfile + docker-compose.yml для Node.js / Python / Ruby сервиса.
-- Общий принцип: «container env mirrors prod», даже если container запущен на dev-машине.
+- Any Dockerfile + docker-compose.yml for a Node.js / Python / Ruby service.
+- General principle: «container env mirrors prod», even when the container runs on a developer machine.
 
 ---
 

@@ -112,7 +112,7 @@ description: Implement planned changes using TDD and AI quality principles
     -   Update `datarim/tasks/{TASK-ID}-task-description.md` § Implementation Notes with implementation log (or `## Decisions` for design choices). Description file frontmatter `status` stays `in_progress` until `/dr-archive`.
     -   Update `datarim/tasks.md` one-liner if status transitions (e.g. `in_progress` → `blocked`); the line itself stays in canonical thin-index format.
     -   Backlog updates if subtasks discovered (new `pending` one-liners in `datarim/backlog.md`).
-    -   **Never write `datarim/progress.md`** (abolished as of v1.19.0). Per-task notes go in the description file; cross-task completion log is `activeContext.md` § «Последние завершённые», populated by `/dr-archive`.
+    -   **Never write `datarim/progress.md`** (abolished as of v1.19.0). Per-task notes go in the description file; cross-task completion log is `activeContext.md` § «Последние завершённые», populated by `/dr-archive`. <!-- allow-non-ascii: russian-active-context-section-name-cited-from-canonical-schema -->
 
 ## Transition Checkpoint
 
@@ -131,7 +131,7 @@ When auto-mode is active (env var `DATARIM_AUTO_MODE=1` AND matching marker `dat
 
 1. Consults `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode/SKILL.md` § Question Suppression Ladder before any `AskUserQuestion` or equivalent operator prompt at this stage.
 2. Stage-specific suppression hooks:
-   - TDD red→green transitions — design choices между equivalent implementations resolved through Ladder L1 (existing pattern grep) before L5.
+   - TDD red→green transitions — design choices among equivalent implementations resolved through Ladder L1 (existing pattern grep) before L5.
    - L1 inline gap classifier — discovered gap routed per skills/autonomous-mode/SKILL.md § L1 Inline Resolution Rule decision tree (L1 Class A → inline; L2+/B → backlog; HARD → L5).
    - Append every inline-resolved gap to `datarim/tasks/{TASK-ID}-auto-inline-log.md`.
 3. Discovered gaps → apply L1 Inline Resolution Rule per `skills/autonomous-mode/SKILL.md`; log in `datarim/tasks/{TASK-ID}-auto-inline-log.md` if applied inline.
@@ -149,7 +149,7 @@ After implementation, the developer agent MUST emit a CTA block per `$HOME/.clau
 - Checks incomplete → primary `/dr-do {TASK-ID}` (continue) + alternative `/dr-status`
 - Fundamental gap discovered (Gap Discovery escalation) → primary `/dr-prd {TASK-ID}` (revise requirements)
 
-The CTA block MUST follow the canonical format (numbered list, one `**рекомендуется**`, `---` HR wrapping, task ID included). Variant B menu when >1 active tasks.
+The CTA block MUST follow the canonical format (numbered list, one `**рекомендуется**`, `---` HR wrapping, task ID included). Variant B menu when >1 active tasks. <!-- allow-non-ascii: russian-canonical-cta-marker-tokens-cited-from-cta-format-skill -->
 
 ## Stage Snapshot Emission (Mandatory Terminal Step)
 

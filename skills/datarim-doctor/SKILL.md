@@ -26,7 +26,7 @@ Goals:
 - **Greppable state** — line format is machine-parseable; status changes are 1-line diffs.
 - **Idempotent migrations** — `/dr-doctor` can run any number of times without drift.
 
-`progress.md` is **abolished**, and the legacy `activeContext.md § Последние завершённые` rolling log is **abolished** as well. Completion history lives only in `documentation/archive/{area}/archive-{TASK-ID}.md` and git log.
+`progress.md` is **abolished**, and the legacy `activeContext.md § Последние завершённые` rolling log is **abolished** as well. Completion history lives only in `documentation/archive/{area}/archive-{TASK-ID}.md` and git log. <!-- allow-non-ascii: russian-legacy-section-name-cited-from-prior-schema -->
 
 ## Operational File Schema
 
@@ -73,7 +73,7 @@ YYYY-MM-DD HH:MM · short summary
 ```
 <!-- /gate:history-allowed -->
 
-The legacy `## Последние завершённые` section is **abolished** — `/dr-doctor` removes it during Pass 3. Completion history must be looked up in `documentation/archive/` or git log instead of being mirrored into a rolling section.
+The legacy `## Последние завершённые` section is **abolished** — `/dr-doctor` removes it during Pass 3. Completion history must be looked up in `documentation/archive/` or git log instead of being mirrored into a rolling section. <!-- allow-non-ascii: russian-legacy-section-name-cited-from-prior-schema -->
 
 ### `progress.md`
 
@@ -148,12 +148,12 @@ Applied by `scripts/datarim-doctor.sh --fix`. Single transactional sequence guar
 2. For each legacy block, extract the body until the next `### ID:` heading or section break.
 3. Parse known fields (case-insensitive, leading `- ` or `* ` allowed):
     - **Status / Status:** → frontmatter `status`
-    - **Priority / Приоритет:** → frontmatter `priority`
-    - **Complexity / Уровень / Level:** → frontmatter `complexity`
-    - **Type / Тип:** → frontmatter `type`
-    - **Started / Дата / Date / Date Started:** → frontmatter `started`
-    - **Parent / Родитель / Parent task:** → frontmatter `parent`
-    - **Related / Связанные:** → frontmatter `related`
+    - **Priority / Приоритет:** → frontmatter `priority` <!-- allow-non-ascii: russian-bilingual-frontmatter-key-mapping-cited-from-doctor-rule -->
+    - **Complexity / Уровень / Level:** → frontmatter `complexity` <!-- allow-non-ascii: russian-bilingual-frontmatter-key-mapping-cited-from-doctor-rule -->
+    - **Type / Тип:** → frontmatter `type` <!-- allow-non-ascii: russian-bilingual-frontmatter-key-mapping-cited-from-doctor-rule -->
+    - **Started / Дата / Date / Date Started:** → frontmatter `started` <!-- allow-non-ascii: russian-bilingual-frontmatter-key-mapping-cited-from-doctor-rule -->
+    - **Parent / Родитель / Parent task:** → frontmatter `parent` <!-- allow-non-ascii: russian-bilingual-frontmatter-key-mapping-cited-from-doctor-rule -->
+    - **Related / Связанные:** → frontmatter `related` <!-- allow-non-ascii: russian-bilingual-frontmatter-key-mapping-cited-from-doctor-rule -->
     - **PRD:** → frontmatter `prd`
     - **Plan:** → frontmatter `plan`
 4. Heading first capture group → `id`. Second capture group → `title` (truncated to 80 chars on word boundary). If title text is empty (e.g. `### PREFIX-NNNN-FOLLOWUP-slug` with no trailing text), synthesise title from the compound suffix: strip the literal `FOLLOWUP-` token, replace remaining hyphens with spaces, sentence-case the first character; append « follow-up » suffix when the literal `FOLLOWUP` appeared in the ID.
@@ -175,7 +175,7 @@ Applied by `scripts/datarim-doctor.sh --fix`. Single transactional sequence guar
 ### Pass 3 — `activeContext.md` + `progress.md` retirement
 
 11. Convert any legacy `**Current Task:** {ID}` line into `## Active Tasks` list with the corresponding one-liner; mirror is bounded to ≤ 30 lines.
-12. Strip the `## Последние завершённые` section if present (abolished — see § activeContext.md thin contract above).
+12. Strip the `## Последние завершённые` section if present (abolished — see § activeContext.md thin contract above). <!-- allow-non-ascii: russian-legacy-section-name-cited-from-prior-schema -->
 13. Delete `progress.md` if it exists.
 
 ### Pass 4 — `backlog-archive.md` migration
@@ -188,7 +188,7 @@ Applied by `scripts/datarim-doctor.sh --fix`. Single transactional sequence guar
 
 ### Pass 6 — Operational-files archive section migration
 
-Strips legacy archive sections (`## Archived` in `tasks.md` / `backlog.md`; `### Archived`, `### Recently Archived`, `## Последние завершённые` in `activeContext.md`) and migrates each archive bullet to a canonical `documentation/archive/{area}/archive-{TASK-ID}.md` doc. The canonical thin-index contract (§ activeContext.md thin contract above, § Operational File Schema) prohibits archive sections in operational files: completion history lives in `documentation/archive/`, recency hint is computed at runtime via `/dr-status --recent N`. Pass 6 enforces that contract.
+Strips legacy archive sections (`## Archived` in `tasks.md` / `backlog.md`; `### Archived`, `### Recently Archived`, `## Последние завершённые` in `activeContext.md`) and migrates each archive bullet to a canonical `documentation/archive/{area}/archive-{TASK-ID}.md` doc. The canonical thin-index contract (§ activeContext.md thin contract above, § Operational File Schema) prohibits archive sections in operational files: completion history lives in `documentation/archive/`, recency hint is computed at runtime via `/dr-status --recent N`. Pass 6 enforces that contract. <!-- allow-non-ascii: russian-legacy-archive-section-name-cited-from-prior-schema -->
 
 Four archive-bullet shapes are recognised (priority S1 → S2 → S4 → S3):
 
@@ -250,7 +250,7 @@ Log line: `Pass 7 {file}: stripped={N} preserved={M}`. **Idempotent:** second `-
 
 ### Idempotency Guard
 
-Before Pass 1: if every operational file is already in canonical shape — zero `### TASK-ID:` headings in `tasks.md` / `backlog.md`, no legacy `backlog-archive.md` (or only the `.pre-v2.bak` sidecar remains), `progress.md` does not exist, no `## Последние завершённые` section in `activeContext.md`, and every bullet line matches the canonical regex — exit 0 immediately. Cheap probe used by `/dr-init` self-heal.
+Before Pass 1: if every operational file is already in canonical shape — zero `### TASK-ID:` headings in `tasks.md` / `backlog.md`, no legacy `backlog-archive.md` (or only the `.pre-v2.bak` sidecar remains), `progress.md` does not exist, no `## Последние завершённые` section in `activeContext.md`, and every bullet line matches the canonical regex — exit 0 immediately. Cheap probe used by `/dr-init` self-heal. <!-- allow-non-ascii: russian-legacy-section-marker-cited-from-prior-schema -->
 
 ## Data-Loss Safety Contract
 

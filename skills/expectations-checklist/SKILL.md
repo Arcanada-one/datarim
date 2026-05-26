@@ -112,17 +112,17 @@ _(empty on first write)_
 - **`wish_id`** is a kebab-slug derived from the title. Cyrillic letters,
   ASCII letters, digits, and hyphens are allowed. Used as the focus key in
   FAIL-Routing CTA (`/dr-do <ID> --focus-items <wish_id_1,...,N>`).
-- **`Связанный AC из PRD`** is advisory. When the PRD has no matching AC,
+- **`Связанный AC из PRD`** is advisory. When the PRD has no matching AC, <!-- allow-non-ascii: russian-expectations-field-name-cited-from-canonical-schema -->
   use the em-dash «—». Renames in the PRD are recorded in the item's
-  История статусов with `stage: append-merge`.
+  История статусов with `stage: append-merge`. <!-- allow-non-ascii: russian-status-history-section-name-from-canonical-schema -->
 - **`override`** is plain prose, optional. When the current status is
   `partial` or `missed`, an override of fewer than 10 characters is treated
   as absent and the verify mode emits `BLOCKED`.
-- **`#### История статусов`** is append-only by convention. One line per
+- **`#### История статусов`** is append-only by convention. One line per <!-- allow-non-ascii: russian-status-history-section-name-from-canonical-schema -->
   status transition. Canonical line format:
   `<ISO> / <local> · <stage> · <prior> → <new> · reason: <plain ru>`. The
   three `·` separators and the literal `reason:` token are required.
-- **`#### Текущий статус`** carries the current enum value. Allowed values:
+- **`#### Текущий статус`** carries the current enum value. Allowed values: <!-- allow-non-ascii: russian-current-status-section-name-from-canonical-schema -->
   `pending`, `met`, `partial`, `missed`, `n-a`, `deleted`.
 - **`evidence_type`** (schema v2, required) declares what kind of evidence
   `/dr-qa` must produce for this wish at Layer 3b. Allowed enum:
@@ -168,7 +168,7 @@ Prefer one of two formulations:
   inline comparison, which stays correct under scope revisions.
 - **Re-derive at /dr-do time.** When the literal is genuinely required
   (e.g. user-visible counter on a landing page), record the actual
-  implementation count in the expectations item's История статусов as a
+  implementation count in the expectations item's История статусов as a <!-- allow-non-ascii: russian-status-history-section-name-from-canonical-schema -->
   one-line `stage: implementation-count` entry, and treat that line as
   the authoritative target. PRD-side AC remains an estimate.
 
@@ -187,9 +187,9 @@ reconcile any divergence in its own output document:
 |--------|---------------|------------------------------|
 | `/dr-design` | wish bodies | design doc § Decisions |
 | `/dr-do` | wish bodies; `--focus-items` ⇒ those wish-ids first | task-description § Implementation Notes |
-| `/dr-qa` | wish bodies; writes per-item Текущий статус | QA report § Expectations + History entries |
-| `/dr-compliance` | wish bodies; writes per-item Текущий статус | compliance report § Expectations + History entries |
-| `/dr-archive` | wish bodies; writes final per-item summary | archive doc § Выполнение ожиданий оператора |
+| `/dr-qa` | wish bodies; writes per-item Текущий статус | QA report § Expectations + History entries | <!-- allow-non-ascii: russian-current-status-field-cited-in-table-row -->
+| `/dr-compliance` | wish bodies; writes per-item Текущий статус | compliance report § Expectations + History entries | <!-- allow-non-ascii: russian-current-status-field-cited-in-table-row -->
+| `/dr-archive` | wish bodies; writes final per-item summary | archive doc § Выполнение ожиданий оператора | <!-- allow-non-ascii: russian-archive-section-name-cited-in-table-row -->
 
 ## Append-merge contract
 
@@ -203,7 +203,7 @@ an expectations file:
    - **Match** → leave the item body untouched; record a History line
      `stage: append-merge` only if the linked AC reference changed.
 3. Do not rewrite, reorder, or delete existing items. Operators control
-   pruning via explicit `Текущий статус: deleted`.
+   pruning via explicit `Текущий статус: deleted`. <!-- allow-non-ascii: russian-current-status-enum-value-cited-from-canonical-schema -->
 
 ## Multi-phase umbrellas (phase-level verify)
 
@@ -212,20 +212,20 @@ expectations file lives at the **umbrella** task ID (no separate
 `{PHASE-ID}-expectations.md` exists), `/dr-qa` and `/dr-compliance` invoked
 on the phase ID MAY legitimately:
 
-- Update `#### Текущий статус` only for wish-ids that fall in the phase's
+- Update `#### Текущий статус` only for wish-ids that fall in the phase's <!-- allow-non-ascii: russian-current-status-field-cited-in-bullet -->
   scope (e.g. flip from `pending` to `met` when the phase delivers the
   underlying success criterion).
 - Leave umbrella close-gate wish-ids and later-phase wish-ids as
   `pending`. These are not `n-a` (the wish remains in scope; it is just
   not yet verifiable) and not `partial`/`missed` (no failure to record at
   this point in the pipeline).
-- Append one `История статусов` line per touched item with `reason:` text
-  that names the phase scope explicitly (e.g. «ожидание относится к
-  фазе 3 (audit coverage); в фазе 1 не реализуется»). The phase mention
+- Append one `История статусов` line per touched item with `reason:` text <!-- allow-non-ascii: russian-status-history-section-name-cited-in-bullet -->
+  that names the phase scope explicitly (e.g. «ожидание относится к <!-- allow-non-ascii: russian-example-status-reason-illustrating-phase-scope -->
+  фазе 3 (audit coverage); в фазе 1 не реализуется»). The phase mention <!-- allow-non-ascii: russian-example-status-reason-illustrating-phase-scope -->
   in the reason is what lets the umbrella close-gate auditor distinguish
   «pending because phase X hasn't run» from «pending because no one looked».
 
-The validator still PASSes when `Текущий статус` is `pending` for these
+The validator still PASSes when `Текущий статус` is `pending` for these <!-- allow-non-ascii: russian-current-status-field-cited-in-prose -->
 items; the audit clarity comes from the History entry, not the status enum.
 On umbrella close (the last phase's `/dr-archive` or a follow-up umbrella
 QA pass), the remaining `pending` items are reconciled to `met` /

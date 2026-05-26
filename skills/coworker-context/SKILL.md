@@ -62,11 +62,11 @@ Agent-decided rounds also carry **Decision rationale** (≥ 50 non-whitespace ch
 Each operator wish becomes one item with:
 
 - `wish_id` — kebab-case slug, Cyrillic allowed.
-- `Что хочу проверить:` — plain-language operator wish.
-- `Как проверить (success criterion):` — falsifiable verification.
-- `Связанный AC из PRD:` — PRD AC reference or `—`.
-- `#### История статусов` — one line per status transition: `<ISO> / <local> · /dr-<stage> · <prior> → <new> · reason: <one sentence>`.
-- `#### Текущий статус` — one of `pending`, `met`, `partial`, `missed`, `n-a`, `deleted`.
+- `Что хочу проверить:` — plain-language operator wish. <!-- allow-non-ascii: russian-expectations-field-name-cited-from-canonical-schema -->
+- `Как проверить (success criterion):` — falsifiable verification. <!-- allow-non-ascii: russian-expectations-field-name-cited-from-canonical-schema -->
+- `Связанный AC из PRD:` — PRD AC reference or `—`. <!-- allow-non-ascii: russian-expectations-field-name-cited-from-canonical-schema -->
+- `#### История статусов` — one line per status transition: `<ISO> / <local> · /dr-<stage> · <prior> → <new> · reason: <one sentence>`. <!-- allow-non-ascii: russian-status-history-section-name-cited-from-canonical-schema -->
+- `#### Текущий статус` — one of `pending`, `met`, `partial`, `missed`, `n-a`, `deleted`. <!-- allow-non-ascii: russian-current-status-section-name-cited-from-canonical-schema -->
 - Optional `override:` line (≥ 10 chars) — escalates `partial` / `missed` to `CONDITIONAL_PASS`.
 
 ## 6. Snapshot Frontmatter (10 Mandatory Scalar Fields)
