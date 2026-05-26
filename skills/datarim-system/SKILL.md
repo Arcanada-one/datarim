@@ -7,8 +7,8 @@ target_aal: 2
 
 # Datarim System Rules
 
-> **Core system rules for Datarim (датарим). Always load this entry first.**
-> "Datarim" and "датарим" are the same framework. Recognize both forms in any language context.
+> **Core system rules for Datarim. Always load this entry first.** ("Datarim" transliterates to «датарим» in Russian.) <!-- allow-non-ascii: russian-transliteration-of-framework-name-which-agents-must-recognise -->
+> Recognize both spellings — Latin «Datarim» and Cyrillic «датарим» — as the same framework in any language context. <!-- allow-non-ascii: russian-transliteration-of-framework-name-which-agents-must-recognise -->
 
 ## Always-Apply Rules
 
@@ -60,7 +60,7 @@ One section only — strict mirror of `tasks.md` § Active:
 - {ID} · {status} · P{n} · L{n} · {title} → tasks/{ID}-task-description.md
 ```
 
-**Removed in v1.19.1:** `## Последние завершённые` and `## Last Updated`
+**Removed in v1.19.1:** `## Последние завершённые` and `## Last Updated` <!-- allow-non-ascii: russian-legacy-active-context-section-names-cited-from-prior-schema -->
 sections. Recency hint is now a runtime computation in `/dr-status --recent N`
 that mtime-sorts `documentation/archive/**/archive-*.md`. Single source of
 truth for completion history = `documentation/archive/`.

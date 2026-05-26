@@ -72,7 +72,7 @@ effort: high
     | Description budget | Any description `>160` chars or total `>8K` chars | Propose `fix-description` |
     | Selective-loading candidate | Monolithic file with mixed subdomains | Propose split into entry + supporting files |
     | Low-value provenance comments | Task-origin or migration notes that do not affect usage/policy | Propose rewrite cleanup |
-    | Diátaxis docs drift | repo with ≥3 `docs/*.md` files but missing the 4-category split (`docs/{tutorials,how-to,reference,explanation}/`) per `skills/diataxis-docs/SKILL.md` | Propose `spawn-diataxis-reorg` (creates `INFRA-* — Diátaxis docs reorg для <repo>` in backlog, soft warning only) |
+    | Diátaxis docs drift | repo with ≥3 `docs/*.md` files but missing the 4-category split (`docs/{tutorials,how-to,reference,explanation}/`) per `skills/diataxis-docs/SKILL.md` | Propose `spawn-diataxis-reorg` (creates `INFRA-* — Diátaxis docs reorg for <repo>` in backlog, soft warning only) |
 
 6a. **DIÁTAXIS DOCS DRIFT DETECTOR** (filesystem-presence + threshold, soft warning):
     - Run for the audited repo root (or for each consumer repo when scanning ecosystem-wide).
@@ -97,7 +97,7 @@ effort: high
         return 0
       }
       ```
-    - On drift: propose `spawn-diataxis-reorg` — adds `INFRA-<next-num> · pending · P4 · L2 · Diátaxis docs reorg для <repo-name>` to `datarim/backlog.md`, with `Source: TUNE-* (diataxis-drift-detector)` annotation.
+    - On drift: propose `spawn-diataxis-reorg` — adds `INFRA-<next-num> · pending · P4 · L2 · Diátaxis docs reorg for <repo-name>` to `datarim/backlog.md`, with `Source: TUNE-* (diataxis-drift-detector)` annotation.
     - **Soft only** — never block build. Hard CI gate is deferred (separate backlog item: `INFRA-* — Diátaxis CI gate enforcement`, trigger: ≥3 live consumers post-mandate). When activated, the same detector flips to `exit 1` on drift.
 
 6b. **DATARIM STATE HYGIENE** (always run):
@@ -149,4 +149,4 @@ After optimize-pass, the optimizer agent MUST emit a CTA block per `$HOME/.claud
 - Need deeper restructuring → primary `/dr-design {TASK-ID}` (consilium panel)
 - Always include `/dr-status` as escape hatch
 
-The CTA block MUST follow the canonical format (numbered, one `**рекомендуется**`, `---` HR). Variant B menu when >1 active tasks.
+The CTA block MUST follow the canonical format (numbered, one `**рекомендуется**`, `---` HR). Variant B menu when >1 active tasks. <!-- allow-non-ascii: russian-canonical-cta-marker-tokens-cited-from-cta-format-skill -->
