@@ -25,7 +25,7 @@ Show current task and Backlog status.
    filename (strip `archive-` prefix and `.md` suffix); read first matching
    `^# Archive — {ID}` heading or first `^# ` line for `{title}`; date = mtime
    formatted `YYYY-MM-DD`. Render `{date · ID · title}`. The legacy
-   `activeContext.md § Последние завершённые` was retired in v1.19.1 — single
+   `activeContext.md § Recently completed` (legacy Russian section name «Последние завершённые») was retired in v1.19.1 — single <!-- allow-non-ascii: russian-legacy-section-name-cited-from-prior-schema -->
    source of truth = `documentation/archive/`.
 
    POSIX recipe (illustrative):
@@ -58,9 +58,9 @@ After printing status, MUST emit a CTA block per `$HOME/.claude/skills/cta-forma
 **Routing logic for `/dr-status`:**
 
 - One active task → primary command for that task's current pipeline phase (resolved from `progress.md`/`tasks.md`)
-- Multiple active tasks → CTA picks the highest-priority task as primary; surfaces all others in Variant B menu (`**Другие активные задачи:**`)
+- Multiple active tasks → CTA picks the highest-priority task as primary; surfaces all others in Variant B menu (`**Другие активные задачи:**`) <!-- allow-non-ascii: russian-canonical-cta-variant-b-menu-header-cited-from-cta-format-skill -->
 - No active tasks, backlog has items → primary `/dr-init` (pick from backlog)
 - No active tasks, empty backlog → primary `/dr-init "<description>"` (start new task)
 - Always include `/dr-help` as escape hatch (command reference)
 
-The CTA block MUST follow the canonical format (numbered, one `**рекомендуется**`, `---` HR). Variant B is mandatory for `/dr-status` whenever ≥2 active tasks exist — `/dr-status` is the discovery surface for parallel work.
+The CTA block MUST follow the canonical format (numbered, one `**рекомендуется**`, `---` HR). Variant B is mandatory for `/dr-status` whenever ≥2 active tasks exist — `/dr-status` is the discovery surface for parallel work. <!-- allow-non-ascii: russian-canonical-cta-marker-tokens-cited-from-cta-format-skill -->

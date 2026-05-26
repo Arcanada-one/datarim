@@ -65,11 +65,11 @@ This command generates a structured Product Requirements Document (PRD) followin
     -   **Per-item shape** (Option B schema; full contract in `expectations-checklist.md`):
         - title in plain Russian, ending with a period;
         - `wish_id` = kebab-slug of the title (cyrillic allowed);
-        - `Что хочу проверить:` one or two sentences;
-        - `Как проверить (success criterion):` one concrete signal;
-        - `Связанный AC из PRD:` `V-AC-<N>` или «—»;
-        - `#### История статусов` with one initial line `<ISO> / <local> · /dr-prd · pending → pending · reason: пункт создан при формировании PRD`;
-        - `#### Текущий статус` set to `pending`.
+        - `Что хочу проверить:` one or two sentences; <!-- allow-non-ascii: russian-expectations-field-name-cited-from-canonical-schema -->
+        - `Как проверить (success criterion):` one concrete signal; <!-- allow-non-ascii: russian-expectations-field-name-cited-from-canonical-schema -->
+        - `Связанный AC из PRD:` `V-AC-<N>` или «—»; <!-- allow-non-ascii: russian-expectations-field-name-cited-from-canonical-schema -->
+        - `#### История статусов` with one initial line `<ISO> / <local> · /dr-prd · pending → pending · reason: пункт создан при формировании PRD`; <!-- allow-non-ascii: russian-status-history-section-name-cited-from-canonical-schema -->
+        - `#### Текущий статус` set to `pending`. <!-- allow-non-ascii: russian-current-status-section-name-cited-from-canonical-schema -->
     -   **Append-merge if the file already exists.** Load existing items by `wish_id`. New PRD-derived wishes whose slug does not match any existing item are appended at the bottom; existing items are not rewritten. If a previously-linked AC was renamed, append one `stage: append-merge` History line to the affected item.
     -   **Post-write validation gate.** Invoke:
         ```bash
@@ -147,7 +147,7 @@ When auto-mode is active (env var `DATARIM_AUTO_MODE=1` AND matching marker `dat
 
 1. Consults `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode/SKILL.md` § Question Suppression Ladder before any `AskUserQuestion` or equivalent operator prompt at this stage.
 2. Stage-specific suppression hooks:
-   - Step 2 Discovery Interview — каждый Q resolved through Ladder L1-L4 before falling through to Discovery prompt; business-strategy Qs go straight to L5.
+   - Step 2 Discovery Interview — each Q resolved through Ladder L1-L4 before falling through to Discovery prompt; business-strategy Qs go straight to L5.
    - Step 4 Consult User gate — proposed approach + alternatives auto-selected if Ladder unambiguous; L5 only for true cross-cutting trade-offs.
 3. Discovered gaps → apply L1 Inline Resolution Rule per `skills/autonomous-mode/SKILL.md`; log in `datarim/tasks/{TASK-ID}-auto-inline-log.md` if applied inline.
 4. Hard-gated actions → escalate to operator through Ladder L5; log via `dev-tools/append-init-task-qa.sh --decided-by operator` per `skills/init-task-persistence/SKILL.md` § Q&A round-trip.
@@ -165,7 +165,7 @@ After PRD save, the architect agent MUST emit a CTA block per `$HOME/.claude/ski
 - Backlog items proposed and accepted → mention "N items added to backlog" + primary `/dr-plan {TASK-ID}`
 - Always include `/dr-status` as escape hatch
 
-The CTA block MUST follow the canonical format (numbered, one `**рекомендуется**`, `---` HR). Variant B menu when >1 active tasks.
+The CTA block MUST follow the canonical format (numbered, one `**рекомендуется**`, `---` HR). Variant B menu when >1 active tasks. <!-- allow-non-ascii: russian-canonical-cta-marker-tokens-cited-from-cta-format-skill -->
 
 ## Stage Snapshot Emission (Mandatory Terminal Step)
 

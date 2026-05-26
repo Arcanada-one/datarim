@@ -166,6 +166,33 @@ After writing, `/dr-init` invokes
 exit as a warning (the description and operational-file work still
 continues — operator may fix the init-task manually).
 
+## Retroactive backfill (when /dr-init was skipped)
+
+If the operator skipped `/dr-init` at task start (e.g. opened with
+`/dr-plan` directly) and a later stage needs to call
+`dev-tools/append-init-task-qa.sh`, the tool exits 1 with
+`init-task file does not exist`. The agent MUST seed the file inline
+before retrying, not block on the operator. Recipe:
+
+1. Render minimal frontmatter mirroring the canonical schema, with
+   `source: retroactive-backfill` and
+   `captured_by: /dr-<current-stage> (retroactive seed)` so the
+   provenance is obvious to future readers.
+2. Compress the operator's intent to one phrase, sourced from
+   `datarim/tasks/{TASK-ID}-task-description.md § Overview`, and write it
+   as `## Operator brief (verbatim)`. The «verbatim» label survives
+   because the task-description Overview is the closest persisted record
+   of what the operator asked for.
+3. Write an empty `## Append-log (operator amendments)` placeholder so
+   `append-init-task-qa.sh` has a section to append into.
+4. Retry the original `append-init-task-qa.sh` call. The first appended
+   round documents the retroactive context.
+
+This is a write-once recovery — once the file exists, subsequent stages
+treat it as a normal canonical init-task. Do not delete it at archive
+time; the audit trail (when /dr-init was skipped, when the recovery
+happened, by which stage) is part of the task's history.
+
 ## Q&A round-trip contract
 
 The append-log captures two kinds of entries: operator-authored amendments
