@@ -143,7 +143,7 @@ treat it as blocking.
   that complement the browser pass.
 - `skills/cta-format/SKILL.md` — when the operator wants a re-run, the CTA
   points at the per-task lock file path so re-entry is unambiguous.
-- `dev-tools/detect-playwright-tooling.sh` — single source of truth for
+- `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/detect-playwright-tooling.sh"` — single source of truth for
   the resolution chain; this skill is its operator-facing contract.
 
 ## When NOT to apply

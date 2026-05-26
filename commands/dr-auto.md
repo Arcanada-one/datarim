@@ -56,7 +56,7 @@ target_aal: 2
    - The stage's resolution rules above did not produce an unambiguous answer.
    - The action falls into the **always-gated** list (see below).
 
-   When this happens, the stage uses `AskUserQuestion` to prompt the operator, and records the round in the task's init-task append-log via `dev-tools/append-init-task-qa.sh --decided-by operator --stage <current-stage>`.
+   When this happens, the stage uses `AskUserQuestion` to prompt the operator, and records the round in the task's init-task append-log via `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/append-init-task-qa.sh" --decided-by operator --stage <current-stage>`.
 
 9. **Terminal cleanup.** On success or a hard stop:
    - Remove `datarim/.auto-mode-active`.

@@ -80,7 +80,7 @@ with `--provider` if one is down.
 ## Runtime enforcement
 
 A per-machine hook script (`~/.local/bin/coworker-hook-guard`, canonical
-source `dev-tools/coworker-hook-guard.sh`) inspects every `PreToolUse`
+source `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/coworker-hook-guard.sh"`) inspects every `PreToolUse`
 event and emits `permissionDecision=deny` when the agent attempts a direct
 `Read`/`Write`/`Bash` (Claude) or `view`/`apply_patch`/`shell` (Codex) call
 that violates the rules above. The hook is registered via

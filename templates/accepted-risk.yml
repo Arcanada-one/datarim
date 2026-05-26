@@ -1,7 +1,7 @@
 # Arcanada Ecosystem accepted-risk register — schema v1.
 #
 # Source-of-truth: this YAML file in the consumer repo root.
-# Validator: dev-tools/check-security-policy.sh --validate-yaml <this-file>
+# Validator: ${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-security-policy.sh --validate-yaml <this-file>
 #
 # Schema rules (enforced by check-security-policy.sh):
 #   schema_version: 1                  (required, must be integer 1)

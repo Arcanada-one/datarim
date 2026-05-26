@@ -11,7 +11,7 @@
 peer_review:
   # Provider for Layer 2 cross-model peer-review in /dr-verify.
   #
-  # Whitelist (enforced by dev-tools/resolve-peer-provider.sh):
+  # Whitelist (enforced by ${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/resolve-peer-provider.sh):
   #   deepseek    — cross_vendor mode (recommended OOTB; ~14× cheaper than Sonnet)
   #   moonshot    — cross_vendor mode
   #   openrouter  — cross_vendor mode

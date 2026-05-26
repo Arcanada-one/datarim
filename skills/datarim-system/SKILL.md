@@ -105,7 +105,7 @@ source: /dr-init             # /dr-init | backlog
 ```
 
 Two mandatory body headings: `## Operator brief (verbatim)`, `## Append-log
-(operator amendments)`. Validator: `dev-tools/check-init-task-presence.sh
+(operator amendments)`. Validator: `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-init-task-presence.sh"
 --task <ID>`. Multi-task scan with soft 30-day window:
 `... --all`. Full contract: `skills/init-task-persistence/SKILL.md`.
 

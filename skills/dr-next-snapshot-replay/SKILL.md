@@ -15,7 +15,7 @@ target_aal: 2
 |--------|-------|
 | Consumer touchpoints | `commands/dr-next.md` § Step 2.5, `plugins/dr-orchestrate/commands/dr-orchestrate.md` § Snapshot-First Resume |
 | Snapshot path | `datarim/snapshots/{TASK-ID}.snapshot.md` |
-| Validator | `dev-tools/check-stage-snapshot-on-exit.sh --validate-frontmatter --task <ID>` (exit 0 = ok) |
+| Validator | `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-stage-snapshot-on-exit.sh" --validate-frontmatter --task <ID>` (exit 0 = ok) |
 | Fallback policy | snapshot absent OR validator exit ≠ 0 → legacy Read pipeline, **no warning** (V-AC-7) |
 | Prompt template | see § Replay-prompt template below |
 

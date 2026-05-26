@@ -67,7 +67,7 @@ Not a periodic cleanup. Idempotent: a second run on a compliant tree is a no-op.
     - Idempotency confirmed (second dry-run exit 0).
 
 11. **INIT-TASK PRESENCE ADVISORY** (orthogonal content validator, MUST run after the migration summary; never blocks):
-    - Invoke `dev-tools/check-init-task-presence.sh --all --root "$DATARIM_ROOT"`.
+    - Invoke `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-init-task-presence.sh" --all --root "$DATARIM_ROOT"`.
     - Stream the findings list to the operator. Each line carries the severity prefix and the task ID:
       - `info: <ID> init-task missing (task age <30d; rolling 30d soft window)` — fresh task without init-task, soft-window protected.
       - `warn: <ID> init-task missing (task age ≥30d; rolling 30d soft window)` — stale task without init-task, operator may retro-backfill.

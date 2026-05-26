@@ -241,4 +241,4 @@ In addition to the markdown contract, the severity ladder above is also checked 
 ## See also
 
 - Archive and compliance reports use the same banlist (`skills/human-summary/banlist.txt` + `skills/human-summary/whitelist.txt`). See `${DATARIM_RUNTIME:-$HOME/.claude}/templates/archive-template.md` § "Как решили" and `${DATARIM_RUNTIME:-$HOME/.claude}/templates/compliance-report-template.md` § "Как решили" — the banlist applies to the prose of the four top sub-sections; the audit addendum is wrapped in a `<!-- gate:literal -->` fence for technical tables. <!-- allow-non-ascii: literal-russian-heading-identifier-from-template-file -->
-- The canonical validator for template prose is `dev-tools/check-banlist-on-prose.sh` (a single awk pass; supports YAML frontmatter skip plus `<!-- gate:literal -->` / `<!-- gate:example-only -->` fence blocks).
+- The canonical validator for template prose is `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-banlist-on-prose.sh"` (a single awk pass; supports YAML frontmatter skip plus `<!-- gate:literal -->` / `<!-- gate:example-only -->` fence blocks).

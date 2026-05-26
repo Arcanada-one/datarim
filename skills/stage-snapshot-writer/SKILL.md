@@ -102,6 +102,6 @@ write_stage_snapshot \
 
 - `skills/cta-format/SKILL.md` § Snapshot Emission — the only producer touchpoint
 - `skills/dr-next-snapshot-replay/SKILL.md` — consumer side
-- `dev-tools/check-stage-snapshot-on-exit.sh` — post-CTA advisory gate
+- `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-stage-snapshot-on-exit.sh"` — post-CTA advisory gate
 - `scripts/lib/plugin-system.sh::acquire_plugin_lock` — lock primitive (reused)
 - `feedback memory feedback_no_flock_on_macos` — rationale for mkdir-lock (POSIX flock is unreliable on macOS over NFS/SMB)

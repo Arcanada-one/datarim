@@ -19,7 +19,7 @@ parent_prd: ../prd/PRD-{TASK-ID}.md
 > и возвращает работу в `/dr-do` с указанием конкретных `wish_id`.
 >
 > Контракт схемы: `skills/expectations-checklist/SKILL.md`.
-> Валидатор: `dev-tools/check-expectations-checklist.sh --task {TASK-ID}`.
+> Валидатор: `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --task {TASK-ID}`.
 
 ## Ожидания
 
