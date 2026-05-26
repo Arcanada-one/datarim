@@ -12,7 +12,7 @@ description: Standalone self-verification of a Datarim artifact (PRD/plan/do out
 
 
 **Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header.
-1. **LOAD**: Read skill file `~/.claude/skills/self-verification/SKILL.md` (symlink) или canonical `Projects/Datarim/code/datarim/skills/self-verification/SKILL.md`. Adopt orchestrator persona.
+1. **LOAD**: Read skill file `~/.claude/skills/self-verification/SKILL.md` (symlink) or canonical `Projects/Datarim/code/datarim/skills/self-verification/SKILL.md`. Adopt orchestrator persona.
 2. **RESOLVE PATH**: Walk up directories from cwd to find `datarim/`. STOP if not found, tell user to run `/dr-init`.
 3. **TASK RESOLUTION**: Apply Task Resolution Rule from `datarim-system.md`. Use resolved task ID for all subsequent steps.
 4. **ARGUMENT PARSING**:
@@ -25,7 +25,7 @@ description: Standalone self-verification of a Datarim artifact (PRD/plan/do out
    - `--runtime={claude,codex}` optional, auto-detect via env (`CODEX_RUNTIME=1` → codex, else claude); affects Layer 3 only
    - `--external-verifier=PASS` optional override (Loop Exit Criteria level 1)
    - `--cost-cap=N` optional token ceiling, default = baseline `/dr-do` tokens × 1.25
-5. **CONTEXT GATHERING**: Read артефакты per `--stage`:
+5. **CONTEXT GATHERING**: Read artifacts per `--stage`:
    - `prd` → `datarim/prd/PRD-{TASK-ID}.md` + `datarim/tasks/{TASK-ID}-task-description.md`
    - `plan` → `datarim/plans/{TASK-ID}-plan.md` + `creative/creative-{TASK-ID}-*.md` (if exist)
    - `do` → `datarim/qa/qa-report-{TASK-ID}.md` (if exists) + `datarim/tasks/{TASK-ID}-task-description.md` § Implementation Notes
@@ -43,13 +43,13 @@ description: Standalone self-verification of a Datarim artifact (PRD/plan/do out
    - **Findings dedupe across layers**: tuple `(artifact_ref, ac_criteria, category)`. First-source wins in priority order: floor → peer_review → dispatch.
 7. **ITERATE**: `max-iter` cap, stop-condition checks per Loop Exit Criteria 4-level hierarchy (skill §5).
 8. **WRITE AUDIT LOG**: Append-only file `datarim/qa/verify-{task-id}-{stage}-{iter}.md` per skill §Audit Log Writer pseudocode. Apply `chmod a-w` post-write. Include: validated findings, malformed section, verdict, raw outputs (truncated if >2k chars), and `source_layer_breakdown: {floor: N, peer_review: M, dispatch: K}` summary header field.
-9. **EMIT VERDICT**: BLOCKED / CONDITIONAL / PASS per skill §Verdict Logic. CTA per `cta-format.md` (FAIL-routing для BLOCKED).
+9. **EMIT VERDICT**: BLOCKED / CONDITIONAL / PASS per skill §Verdict Logic. CTA per `cta-format.md` (FAIL-routing for BLOCKED).
 
 ## Stages
 
 | Stage | Artifacts checked | Validation focus |
 |-------|-------------------|------------------|
-| prd | PRD + task-description | AC coverage completeness, falsifiability, ≥3 risks с mitigations |
+| prd | PRD + task-description | AC coverage completeness, falsifiability, ≥3 risks with mitigations |
 | plan | plan + creative docs | Step coverage (every AC ↔ ≥1 step), security design (STRIDE), rollback explicit |
 | do | qa-report + Implementation Notes | Evidence coverage per AC, no orphan AC items, claims supported by output |
 | all | all above + cross-artifact diff | All above + drift taxonomy (`scope_creep`, `spec_decay`, `execution_skew`, `orphaned_requirements`) |
@@ -75,15 +75,15 @@ Refer skill §Verdict Logic:
 
 **Malformed section** (if any): list of agent-emitted findings that failed schema validation, raw form preserved.
 
-**Raw outputs** (truncated if >2k chars): per-agent raw response для audit trail.
+**Raw outputs** (truncated if >2k chars): per-agent raw response for audit trail.
 
 ## Loop Guard
 
-If same finding emerges on **3 consecutive iterations** with same `artifact_ref` + `ac_criteria` + `category` — flag as `persistent_finding` и exit with `verdict=BLOCKED`. Prevents infinite-loop bug.
+If same finding emerges on **3 consecutive iterations** with same `artifact_ref` + `ac_criteria` + `category` — flag as `persistent_finding` and exit with `verdict=BLOCKED`. Prevents infinite-loop bug.
 
 ## Re-entry After Fix
 
-После `/dr-do` (or manual operator fix) addressing findings:
+After `/dr-do` (or manual operator fix) addressing findings:
 - Re-run `/dr-verify {TASK-ID} --stage=<stage>`
 - Previous audit log preserved for trail; new file gets `-v2`, `-v3` suffix
 - Findings should diminish (recall@previous-findings = how many fixed)
@@ -95,7 +95,7 @@ If same finding emerges on **3 consecutive iterations** with same `artifact_ref`
 - **Read-only** subagent tool whitelist (Read, Grep, Glob, Bash read-only). **NO** Write, Edit, NotebookEdit at all layers.
 - **Cost budget cap**: `--cost-cap=N` (default 1.25× baseline `/dr-do`). If Layer 2 + Layer 3 combined cost exceeds cap, warn operator and continue (do not auto-degrade — operator decides).
 - **Append-only audit log** (`chmod a-w` post-write).
-- **Findings-only mode**: NO automatic fix application. Operator triage all findings вручную.
+- **Findings-only mode**: NO automatic fix application. Operator triage all findings manually.
 - **`coworker --task-id <ID>` propagation MANDATORY** at Layer 2 — otherwise downstream token-cost measurement (`dev-tools/measure-invocation-token-cost.sh`) cannot filter logs by task.
 
 ## Examples
@@ -200,7 +200,7 @@ Before exiting `/dr-verify`:
 After verdict, MUST emit CTA block per `$HOME/.claude/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-verify`**:
-- **PASS / CONDITIONAL** → primary `/dr-compliance {TASK-ID}` (proceed to final hardening) или `/dr-archive {TASK-ID}` если already compliance done
+- **PASS / CONDITIONAL** → primary `/dr-compliance {TASK-ID}` (proceed to final hardening) or `/dr-archive {TASK-ID}` if compliance already done
 - **BLOCKED** — FAIL-Routing variant per highest-severity-category map:
 
 | Highest finding category | Return Command (primary in CTA) | Rationale |
@@ -212,8 +212,8 @@ After verdict, MUST emit CTA block per `$HOME/.claude/skills/cta-format/SKILL.md
 
 Multi-category BLOCKED: route to earliest pipeline stage affected (PRD > plan > do).
 
-The FAIL-Routing CTA header MUST read: `**Verify failed для {TASK-ID} — verdict: BLOCKED, highest severity: high, category: <X>**`.
+The FAIL-Routing CTA header MUST read: `**Verify failed for {TASK-ID} — verdict: BLOCKED, highest severity: high, category: <X>**`.
 
-Variant B menu when >1 active tasks в `activeContext.md`.
+Variant B menu when >1 active tasks in `activeContext.md`.
 
 **ARGUMENTS**: `{TASK-ID} [--stage={prd,plan,do,all}] [--max-iter=N] [--no-fix] [--runtime={claude,codex}] [--external-verifier=PASS] [--cost-cap=N]`

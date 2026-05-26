@@ -14,7 +14,7 @@ description: Initialize a new Datarim task or scaffold a new project. Auto-detec
 0.  **INTENT DETECTION** — Determine whether the user wants to create a **project** or a **task**:
     - Scan the user's input for project creation signals:
       - English keywords: "create project", "new project", "init project", "scaffold project", "setup project"
-      - Russian keywords: "создай проект", "новый проект", "инициализируй проект", "создать проект"
+      - Russian keywords: "создай проект", "новый проект", "инициализируй проект", "создать проект" <!-- allow-non-ascii: russian-trigger-phrases-detected-by-the-intent-classifier -->
       - Pattern: `/dr-init create project "Name"`
       - Pattern: `/dr-init new project for <description>`
     - **If project intent detected:**
@@ -124,7 +124,7 @@ description: Initialize a new Datarim task or scaffold a new project. Auto-detec
     - Determine the source flow:
       - **Operator prompt flow** (default): the `ARGUMENTS` variable (the text the operator typed after `/dr-init`) becomes the body of `## Operator brief (verbatim)`. Frontmatter `source: /dr-init`.
       - **Backlog selection flow** (the task was picked from `backlog.md` in Step 3): copy the matched backlog item's description block verbatim into `## Operator brief (verbatim)`. Frontmatter `source: backlog`, `source_backlog_ref: backlog.md#{TASK-ID}`.
-    - Write the file with the canonical 8-field frontmatter (`task_id`, `artifact: init-task`, `schema_version: 1`, `captured_at`, `captured_by: /dr-init`, `operator`, `status: canonical`, `source`) + two mandatory headings: `## Operator brief (verbatim)` and `## Append-log (operator amendments)` (empty placeholder `_(пусто на момент создания)_`). Optional `## Source command` block above the brief is recommended when the exact invocation differs from `ARGUMENTS` raw text.
+    - Write the file with the canonical 8-field frontmatter (`task_id`, `artifact: init-task`, `schema_version: 1`, `captured_at`, `captured_by: /dr-init`, `operator`, `status: canonical`, `source`) + two mandatory headings: `## Operator brief (verbatim)` and `## Append-log (operator amendments)` (empty placeholder `_(пусто на момент создания)_`). Optional `## Source command` block above the brief is recommended when the exact invocation differs from `ARGUMENTS` raw text. <!-- allow-non-ascii: russian-literal-template-placeholder-text-cited-verbatim -->
     - Probe: `bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-init-task-presence.sh" --task {TASK-ID} --root "$DATARIM_ROOT"` (where `$DATARIM_ROOT` is the parent of `datarim/` and `$DATARIM_RUNTIME` is the installed runtime root; falls back to `~/.claude` for default-symlinked installs that include `dev-tools/` in `INSTALL_SCOPES`). Exit 0 = OK; non-zero = print warning and continue (operator may amend manually).
     - Skip silently when re-running `/dr-init` on an existing backlog ID whose init-task already exists — preserve the verbatim history.
 
@@ -138,11 +138,11 @@ description: Initialize a new Datarim task or scaffold a new project. Auto-detec
       - Hallucination mitigation: wish title MUST trace back to a phrase or paraphrasable concept in the brief; do NOT invent goals the operator did not state. Vague brief → use the fallback skeleton below.
     - Write the file from `${DATARIM_RUNTIME:-$HOME/.claude}/templates/expectations-template.md` with:
       - **Frontmatter (canonical):** `task_id`, `artifact: expectations`, `schema_version: 2`, `captured_at`, `captured_by: /dr-init`, `agent: planner`, `status: canonical`, `parent_init_task: {TASK-ID}-init-task.md`.
-      - **Per-wish item:** title (plain Russian, ending with «.»), `wish_id` (kebab-slug, cyrillic allowed), `Что хочу проверить:` (1-2 sentences), `Как проверить (success criterion):` (concrete signal — file path, command, visible behaviour), `Связанный AC из PRD: «—»` (no PRD yet), `evidence_type: empirical` (default), `#### История статусов` one initial line `<ISO> / <local> · /dr-init · pending → pending · reason: пункт создан при инициализации задачи`, `#### Текущий статус` followed by a single bullet line carrying the value (`pending` on first write).
-      - **Schema (mandatory).** Items MUST use the canonical bullet-list shape from `skills/expectations-checklist/SKILL.md` § Body shape — i.e. one top-level bullet per wish (`- **<N>. <Title>**`) with **nested bullets** (`  - wish_id:`, `  - Что хочу проверить:`, …) and a two-line `Текущий статус` block (`  - #### Текущий статус` followed by `    - <value>`). Do **NOT** use heading-style items (`### N. Title`) or single-line «inline» status (`#### Текущий статус: pending`) — the validator parses only the bullet-list shape, and heading-style files are rejected on the very next pipeline step (see `dev-tools/check-expectations-checklist.sh --task {TASK-ID} --report` for the exact errors emitted on schema drift).
+      - **Per-wish item:** title (plain Russian, ending with «.»), `wish_id` (kebab-slug, cyrillic allowed), `Что хочу проверить:` (1-2 sentences), `Как проверить (success criterion):` (concrete signal — file path, command, visible behaviour), `Связанный AC из PRD: «—»` (no PRD yet), `evidence_type: empirical` (default), `#### История статусов` one initial line `<ISO> / <local> · /dr-init · pending → pending · reason: пункт создан при инициализации задачи`, `#### Текущий статус` followed by a single bullet line carrying the value (`pending` on first write). <!-- allow-non-ascii: russian-expectations-field-names-and-status-history-cited-from-canonical-schema -->
+      - **Schema (mandatory).** Items MUST use the canonical bullet-list shape from `skills/expectations-checklist/SKILL.md` § Body shape — i.e. one top-level bullet per wish (`- **<N>. <Title>**`) with **nested bullets** (`  - wish_id:`, `  - Что хочу проверить:`, …) and a two-line `Текущий статус` block (`  - #### Текущий статус` followed by `    - <value>`). Do **NOT** use heading-style items (`### N. Title`) or single-line «inline» status (`#### Текущий статус: pending`) — the validator parses only the bullet-list shape, and heading-style files are rejected on the very next pipeline step (see `dev-tools/check-expectations-checklist.sh --task {TASK-ID} --report` for the exact errors emitted on schema drift). <!-- allow-non-ascii: russian-expectations-field-names-cited-from-canonical-schema -->
     - Probe: `bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --task {TASK-ID} --root "$DATARIM_ROOT"`. Exit 0 = OK; non-zero = print warning + continue (fail-soft — operator may amend manually).
-    - **Fallback (empty / diffuse brief or LLM extraction failure):** write 1-wish skeleton with title «Цель задачи — TBD (оператор уточняет).», `wish_id: tsel-zadachi-tbd`, `evidence_type: empirical`, and an inline HTML comment `<!-- TODO: operator fills concrete wish at next /dr-prd or /dr-plan amendment -->`. This satisfies the L1+ mandate floor and surfaces the gap to the operator at the next pipeline step.
-    - This step applies to **all complexity levels L1-L4** (mandate scope — operator decision: «жёсткое требование без исключений»).
+    - **Fallback (empty / diffuse brief or LLM extraction failure):** write 1-wish skeleton with title «Цель задачи — TBD (оператор уточняет).», `wish_id: tsel-zadachi-tbd`, `evidence_type: empirical`, and an inline HTML comment `<!-- TODO: operator fills concrete wish at next /dr-prd or /dr-plan amendment -->`. This satisfies the L1+ mandate floor and surfaces the gap to the operator at the next pipeline step. <!-- allow-non-ascii: russian-fallback-skeleton-title-cited-from-template -->
+    - This step applies to **all complexity levels L1-L4** (mandate scope — operator decision: «жёсткое требование без исключений»). <!-- allow-non-ascii: russian-operator-quoted-policy-cited-verbatim -->
 
 5.  **SUBTASK BACKLOG** (Level 3-4 only):
     - If analysis reveals distinct subtasks or phases, present them to user:
@@ -160,8 +160,8 @@ When auto-mode is active (env var `DATARIM_AUTO_MODE=1` AND matching marker `dat
 
 1. Consults `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode/SKILL.md` § Question Suppression Ladder before any `AskUserQuestion` or equivalent operator prompt at this stage.
 2. Stage-specific suppression hooks:
-   - Step 3 backlog item selection prompt — resolve через Ladder L1 (grep backlog by description match) before AskUserQuestion.
-   - Step 4 PRD waiver gate (L3-4) — resolve через Ladder L3 (operator-preference lookup in MEMORY.md feedback).
+   - Step 3 backlog item selection prompt — resolve via Ladder L1 (grep backlog by description match) before AskUserQuestion.
+   - Step 4 PRD waiver gate (L3-4) — resolve via Ladder L3 (operator-preference lookup in MEMORY.md feedback).
 3. Discovered gaps → apply L1 Inline Resolution Rule per `skills/autonomous-mode/SKILL.md`; log in `datarim/tasks/{TASK-ID}-auto-inline-log.md` if applied inline.
 4. Hard-gated actions → escalate to operator through Ladder L5; log via `dev-tools/append-init-task-qa.sh --decided-by operator` per `skills/init-task-persistence/SKILL.md` § Q&A round-trip.
 5. Mismatch (env var set, marker absent OR marker contains different TASK-ID) → emit single-line warning, treat as non-auto (fail-safe per `skills/autonomous-mode/SKILL.md` § When this skill is active).
@@ -179,7 +179,7 @@ After completing initialization, the planner agent MUST emit a CTA block per `$H
 - Backlog had pending items shown → alternative `/dr-init {BACKLOG-ID}` for any other listed item
 - Always include `/dr-status` as escape hatch
 
-The CTA block MUST: (a) include resolved task ID, (b) mark exactly one `**рекомендуется**`, (c) list ≤5 numbered options, (d) be wrapped in `---` HR. If >1 active tasks in `datarim/activeContext.md`, append `**Другие активные задачи:**` menu (Variant B).
+The CTA block MUST: (a) include resolved task ID, (b) mark exactly one `**рекомендуется**`, (c) list ≤5 numbered options, (d) be wrapped in `---` HR. If >1 active tasks in `datarim/activeContext.md`, append `**Другие активные задачи:**` menu (Variant B). <!-- allow-non-ascii: russian-canonical-cta-marker-tokens-cited-from-cta-format-skill -->
 
 ## Stage Snapshot Emission (Mandatory Terminal Step)
 
