@@ -171,7 +171,7 @@ teardown() {
 @test "TUNE-0297 T42 --with-codex generates SKILL.md wrapper for each source skill" {
     local fake_codex="$FAKE_HOME/.codex"
     echo "# datarim AGENTS" > "$FAKE_REPO/AGENTS.md"
-    cat > "$FAKE_REPO/skills/testing.md" <<'MD'
+    cat > "$FAKE_REPO/skills/testing/SKILL.md" <<'MD'
 ---
 name: testing
 description: Testing pyramid and mocking rules
@@ -197,7 +197,7 @@ MD
 @test "TUNE-0297 T43 --with-claude does NOT create SKILL.md wrappers under fake_codex" {
     local fake_codex="$FAKE_HOME/.codex"
     echo "# datarim AGENTS" > "$FAKE_REPO/AGENTS.md"
-    cat > "$FAKE_REPO/skills/testing.md" <<'MD'
+    cat > "$FAKE_REPO/skills/testing/SKILL.md" <<'MD'
 ---
 name: testing
 description: t
@@ -220,7 +220,7 @@ Stable router content.
 AG
     local src_sha
     src_sha="$(shasum -a 256 "$FAKE_REPO/AGENTS.md" | awk '{print $1}')"
-    cat > "$FAKE_REPO/skills/testing.md" <<'MD'
+    cat > "$FAKE_REPO/skills/testing/SKILL.md" <<'MD'
 ---
 name: testing
 description: t
@@ -252,7 +252,7 @@ MD
     mkdir -p "$backup/.system/imagegen"
     echo "# imagegen" > "$backup/.system/imagegen/SKILL.md"
     echo "# datarim AGENTS" > "$FAKE_REPO/AGENTS.md"
-    cat > "$FAKE_REPO/skills/testing.md" <<'MD'
+    cat > "$FAKE_REPO/skills/testing/SKILL.md" <<'MD'
 ---
 name: testing
 description: t
@@ -275,7 +275,7 @@ MD
 @test "TUNE-0297 T46 --with-codex --no-codex-ux opts out of wrapper generation" {
     local fake_codex="$FAKE_HOME/.codex"
     echo "# datarim AGENTS" > "$FAKE_REPO/AGENTS.md"
-    cat > "$FAKE_REPO/skills/testing.md" <<'MD'
+    cat > "$FAKE_REPO/skills/testing/SKILL.md" <<'MD'
 ---
 name: testing
 description: t

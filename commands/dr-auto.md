@@ -21,7 +21,7 @@ target_aal: 2
 /dr-auto "<free-text brief>" # Bootstrap a brand-new task (runs /dr-init first).
 ```
 
-`TASK-ID` is matched by the pattern `^[A-Z]{2,10}-[0-9]{4}$` (e.g. `TUNE-0304`, `AUTH-0042`). Anything else is treated as a free-text brief for a new task.
+`TASK-ID` is matched by the pattern `^[A-Z]{2,10}-[0-9]{4}$` — two to ten upper-case letters, a hyphen, then four digits. Anything else is treated as a free-text brief for a new task.
 
 ## What happens, step by step
 
@@ -36,7 +36,7 @@ target_aal: 2
    - Write a marker file at `datarim/.auto-mode-active` containing:
      ```yaml
      task_id: "<TASK-ID>"
-     activated_at: "<ISO-8601 timestamp>"
+     activated_at: "<ISO 8601 timestamp>"
      activated_by: /dr-auto
      mode: resume | bootstrap
      ```

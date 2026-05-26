@@ -28,7 +28,7 @@ Credentials, channel URLs, bot tokens, and site-specific config live outside thi
 
 **Character counting (CRITICAL)**:
 Telegram counts limits in **UTF-16 code units**, not Unicode codepoints, not bytes. Practical impact:
-- RU Cyrillic в BMP = 1 unit per char → `len(text)` in Python matches 1:1. <!-- allow-non-ascii: russian-language-utf16-counting-rule-for-publishing-skill -->
+- RU Cyrillic in BMP = 1 unit per char → `len(text)` in Python matches 1:1.
 - Most emoji (`😀`, `🚀`, `🇷🇺` flags) = 2 units each (surrogate pair).
 - ZWJ family emoji (`👨‍👩‍👧`) = 2+N units (multiple surrogate pairs + ZWJ joiners).
 - Naive `len(text)` underestimates the count for any text with emoji/symbols outside BMP.

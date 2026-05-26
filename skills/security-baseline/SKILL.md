@@ -9,9 +9,9 @@ target_aal: 2
 
 > **Authority:** RFC 2119 keywords (MUST / MUST NOT / SHOULD / MAY) apply throughout this document.
 > **Origin:** corporate security audit, 2026-04-28 — full audit log: `~/arcanada/documentation/archive/security/findings-2026-04-28.md` . Research baseline: `~/arcanada/datarim/insights/INSIGHTS-security-baseline-oss-cli-2026.md`.
-> **Companion skills:** [`skills/security/SKILL.md`](security.md) (operational recipes — git history scrub, Tailscale+VPN coexistence, recon-vs-compromise heuristics, cross-stack relative-path includes) and [`skills/release-verify/SKILL.md`](release-verify.md) (S4 consumer-side verify entry point).
-> **CI baseline:** [`tests/security/baseline.json`](../tests/security/baseline.json) — machine-readable suppressions registry + required-jobs status.
-> **Standards mapping:** [`docs/standards-mapping.md`](../docs/standards-mapping.md) (S8 — full ASVS / SOC 2 / ISO 27001 / CIS table).
+> **Companion skills:** [`skills/security/SKILL.md`](../security/SKILL.md) (operational recipes — git history scrub, Tailscale+VPN coexistence, recon-vs-compromise heuristics, cross-stack relative-path includes) and [`skills/release-verify/SKILL.md`](../release-verify/SKILL.md) (S4 consumer-side verify entry point).
+> **CI baseline:** [`tests/security/baseline.json`](../../tests/security/baseline.json) — machine-readable suppressions registry + required-jobs status.
+> **Standards mapping:** [`docs/standards-mapping.md`](../../docs/standards-mapping.md) (S8 — full ASVS / SOC 2 / ISO 27001 / CIS table).
 
 ---
 
@@ -159,12 +159,12 @@ with os.fdopen(fd, "w") as f:
 2. **Generic env-var paths** for credential discovery: `${PROJECT_CREDS_DIR}/<service>/<file>` is the canonical reference shape in shipped templates. Project-specific locations live in the project's `CLAUDE.md`, not in framework runtime.
 3. **Secrets sources** in declared order of preference: secret manager / Vault → process environment → operator prompt. **Never:** committed file, command-line argument visible to `ps`, container build-arg.
 4. **`.gitignore` coverage** — every shipped template's deployment recipe MUST list candidate secret-bearing paths (`.env`, `*.pem`, `*.key`, `*.token`, `**/Credentials/**`).
-5. **Rotation policy on accidental commit** — within 24h: rotate at the issuing system, scrub git history (see [`skills/security/SKILL.md`](security.md) § Git History Scrub Recipe), force-push, notify clones, document the incident in `documentation/archive/security/`.
+5. **Rotation policy on accidental commit** — within 24h: rotate at the issuing system, scrub git history (see [`skills/security/SKILL.md`](../security/SKILL.md) § Git History Scrub Recipe), force-push, notify clones, document the incident in `documentation/archive/security/`.
 6. **Never log** secrets, full tokens, full bearer headers, full session IDs. Redact to first 8 chars + last 4 chars at most for debugging.
 
 ### Cross-references
 
-- [`skills/security/SKILL.md`](security.md) § Git History Scrub Recipe — post-leak rotation playbook.
+- [`skills/security/SKILL.md`](../security/SKILL.md) § Git History Scrub Recipe — post-leak rotation playbook.
 - `${DATARIM_RUNTIME:-$HOME/.claude}/templates/security-deps-upgrade-plan.md` — vault rotation cadence template.
 
 ---
@@ -180,15 +180,15 @@ with os.fdopen(fd, "w") as f:
 3. **GitHub Actions pinned to commit SHA** — never tag-pinned (`@v4`), never branch-pinned (`@main`). Each `uses:` line MUST resolve to a 40-char SHA, with a comment naming the human-readable version for auditability.
 4. **Explicit `permissions:` block** at workflow or job level — least privilege by default (`permissions: { contents: read }`), elevate only where required.
 5. **SBOM** — every release tarball ships a CycloneDX or SPDX SBOM enumerating dependency tree at build time.
-6. **Signed releases** — release artefacts MUST be cosign-signed (keyless OIDC preferred). Consumer-side verify recipe: [`docs/release-verification.md`](../docs/release-verification.md) (canonical) + [`skills/release-verify/SKILL.md`](release-verify.md) (AI-agent loadable entry point).
+6. **Signed releases** — release artefacts MUST be cosign-signed (keyless OIDC preferred). Consumer-side verify recipe: [`docs/release-verification.md`](../../docs/release-verification.md) (canonical) + [`skills/release-verify/SKILL.md`](../release-verify/SKILL.md) (AI-agent loadable entry point).
 7. **SLSA Level 2 provenance** — release workflow MUST emit `actions/attest-build-provenance` attestation linkable to the source commit.
 8. **Dependency monitoring** — Dependabot or Renovate MUST be configured for the repo; advisories at the declared severity threshold block merge.
 
 ### Implementation reference
 
-- Release workflow: [`.github/workflows/release.yml`](../.github/workflows/release.yml) — supply-chain security implementation.
-- Verify recipe (consumer-side): [`docs/release-verification.md`](../docs/release-verification.md), [`skills/release-verify/SKILL.md`](release-verify.md).
-- Stack-agnostic phrasing for dependency-audit references: see [`skills/security/SKILL.md`](security.md) § Stack-neutral phrasing.
+- Release workflow: [`.github/workflows/release.yml`](../../.github/workflows/release.yml) — supply-chain security implementation.
+- Verify recipe (consumer-side): [`docs/release-verification.md`](../../docs/release-verification.md), [`skills/release-verify/SKILL.md`](../release-verify/SKILL.md).
+- Stack-agnostic phrasing for dependency-audit references: see [`skills/security/SKILL.md`](../security/SKILL.md) § Stack-neutral phrasing.
 
 ### Counter-example fence demonstration
 
@@ -215,7 +215,7 @@ Corrected: download the tarball, verify SHA-256 against a separately-sourced che
 2. **Never prescribe an unsafe pattern** outside a counter-example fence. A skill that says "this is the canonical install — `curl | bash`" silently authorises every consumer to ship that recipe. Reword OR fence.
 <!-- /security:rule-statement -->
 3. **Counter-example fence syntax is mandatory** for any block teaching what NOT to do (see canonical syntax below).
-4. **Scope-aware claims** — a skill that names a stack (NestJS, Django, etc.) MUST live behind `<!-- gate:example-only -->` or be relocated to a project's `CLAUDE.md`. Framework runtime stays stack-agnostic per [`skills/evolution/stack-agnostic-gate.md`](evolution/stack-agnostic-gate.md).
+4. **Scope-aware claims** — a skill that names a stack (NestJS, Django, etc.) MUST live behind `<!-- gate:example-only -->` or be relocated to a project's `CLAUDE.md`. Framework runtime stays stack-agnostic per [`skills/evolution/stack-agnostic-gate.md`](../evolution/stack-agnostic-gate.md).
 
 ### Counter-example fence syntax (canonical)
 
@@ -237,7 +237,7 @@ Rules:
 
 ### `<!-- gate:example-only -->` fence (cross-reference)
 
-Used for stack-specific examples inside framework runtime artefacts. See [`skills/evolution/stack-agnostic-gate.md`](evolution/stack-agnostic-gate.md). Distinct in **purpose** from the security counter-example fence; they MAY co-occur but never substitute for each other.
+Used for stack-specific examples inside framework runtime artefacts. See [`skills/evolution/stack-agnostic-gate.md`](../evolution/stack-agnostic-gate.md). Distinct in **purpose** from the security counter-example fence; they MAY co-occur but never substitute for each other.
 
 ---
 
@@ -306,7 +306,7 @@ Promotion path: tag each illustrative block with the appropriate counter-example
 
 ## S8 — Standards mapping
 
-Each S* cluster maps to ≥1 control in OWASP ASVS v5 / SOC 2 CC / ISO 27001:2022 Annex A / CIS Controls v8. The full table lives in [`docs/standards-mapping.md`](../docs/standards-mapping.md) — that document is repo-only (not installed to runtime) because the table is too large for inline reading and AI agents fetch it on demand when scoping certification work.
+Each S* cluster maps to ≥1 control in OWASP ASVS v5 / SOC 2 CC / ISO 27001:2022 Annex A / CIS Controls v8. The full table lives in [`docs/standards-mapping.md`](../../docs/standards-mapping.md) — that document is repo-only (not installed to runtime) because the table is too large for inline reading and AI agents fetch it on demand when scoping certification work.
 
 The mapping is **informative**, not certificative — Datarim baseline is a developer-tool floor; consumer projects layer their own application-level baseline on top.
 
@@ -319,7 +319,7 @@ The mapping is **informative**, not certificative — Datarim baseline is a deve
 1. **No relaxation without architect approval** — softening any S1–S8 rule in shipped artefacts requires explicit architect-agent sign-off, recorded in `documentation/archive/security/triage-YYYY-MM.md`.
 2. **New finding → rule update + regression test within 7 days** — a security finding (internal audit, external report, CVE in dependency, incident postmortem) MUST produce either (a) a rule clarification in this document with a `tests/security/finding-<N>-<slug>.bats` regression test, or (b) an explicit accepted-risk entry in `tests/security/baseline.json` § `suppressions[]` with reason, expiry, and reviewer.
 3. **Suppression registry has authority** — `tests/security/baseline.json` § `suppressions[]` is the canonical record of every active suppression. CI validates that every inline `# shellcheck disable=...`, `# nosec`, `# nosemgrep` marker has a corresponding entry.
-4. **Evolution proposals route through `/dr-archive` Step 0.5** — see [`skills/reflecting/SKILL.md`](reflecting.md) and the Class A/B gate in [`skills/evolution/SKILL.md`](evolution.md). Class A applies to rule-text expansion (this doc); Class B applies to operating-model change (out of S9 scope).
+4. **Evolution proposals route through `/dr-archive` Step 0.5** — see [`skills/reflecting/SKILL.md`](../reflecting/SKILL.md) and the Class A/B gate in [`skills/evolution/SKILL.md`](../evolution/SKILL.md). Class A applies to rule-text expansion (this doc); Class B applies to operating-model change (out of S9 scope).
 
 ### Incident response template
 
@@ -333,7 +333,7 @@ Triage doc location: `documentation/archive/security/triage-YYYY-MM.md`. Require
 6. **Follow-up backlog items** — task IDs for any work deferred, with concrete triggers for closure.
 7. **Lessons** — single section feeding back into S1–S9 rule expansion or `tests/security/baseline.json` § `suppressions[]` if accepted-risk.
 
-Reference: a prior security incident (public framework repo carried a leaked OAuth Client ID for 11 days); the recovery added `git filter-repo` two-flag form + pre-push grep gate to [`skills/security/SKILL.md`](security.md) § Git History Scrub Recipe. The template above is the postmortem shape from that incident.
+Reference: a prior security incident (public framework repo carried a leaked OAuth Client ID for 11 days); the recovery added `git filter-repo` two-flag form + pre-push grep gate to [`skills/security/SKILL.md`](../security/SKILL.md) § Git History Scrub Recipe. The template above is the postmortem shape from that incident.
 
 ---
 
@@ -393,7 +393,7 @@ Every active suppression has a corresponding `suppressions[]` entry; CI validate
 
 ## Relationship to skills/security/SKILL.md
 
-[`skills/security/SKILL.md`](security.md) (132 LoC) — **operational recipes** for real-world incidents:
+[`skills/security/SKILL.md`](../security/SKILL.md) (132 LoC) — **operational recipes** for real-world incidents:
 
 - Git history scrub (post-leak rotation, `--replace-text + --replace-message` two-flag form, pre-push grep gate)
 - Tailscale + VPN coexistence (macOS, daemon ordering, `--accept-dns=false`)
@@ -411,8 +411,8 @@ Both skills cross-link freely; neither replaces the other. CLAUDE.md § Security
 
 ## Reusable Templates
 
-- [`${DATARIM_RUNTIME:-$HOME/.claude}/templates/security-workflow.yml`](../templates/security-workflow.yml) — drop-in CI gate for consumer projects.
-- [`${DATARIM_RUNTIME:-$HOME/.claude}/templates/security-deps-upgrade-plan.md`](../templates/security-deps-upgrade-plan.md) — stack-neutral plan for dependency-CVE / framework-bump tasks. See [`skills/security/SKILL.md`](security.md) § Reusable Templates.
+- [`${DATARIM_RUNTIME:-$HOME/.claude}/templates/security-workflow.yml`](../../templates/security-workflow.yml) — drop-in CI gate for consumer projects.
+- [`${DATARIM_RUNTIME:-$HOME/.claude}/templates/security-deps-upgrade-plan.md`](../../templates/security-deps-upgrade-plan.md) — stack-neutral plan for dependency-CVE / framework-bump tasks. See [`skills/security/SKILL.md`](../security/SKILL.md) § Reusable Templates.
 - `tests/security/finding-<N>-<slug>.bats` — regression test scaffold (S9 obligation: every fixed finding gets a regression test).
 
 ---
@@ -420,9 +420,9 @@ Both skills cross-link freely; neither replaces the other. CLAUDE.md § Security
 ## Source artefacts
 
 - Corporate audit, 2026-04-28: `~/arcanada/documentation/archive/security/findings-2026-04-28.md` 
-- Audit baseline (machine-readable): [`tests/security/baseline.json`](../tests/security/baseline.json)
+- Audit baseline (machine-readable): [`tests/security/baseline.json`](../../tests/security/baseline.json)
 - Research baseline: `~/arcanada/datarim/insights/INSIGHTS-security-baseline-oss-cli-2026.md` (575 LoC OSS CLI security research, 2026-04-28)
 - Recovery archive (incident → rule expansion): security incident archive at `documentation/archive/security/`
-- Companion operational recipes: [`skills/security/SKILL.md`](security.md)
-- Consumer-side verify entry: [`skills/release-verify/SKILL.md`](release-verify.md), [`docs/release-verification.md`](../docs/release-verification.md)
-- Standards mapping (S8): [`docs/standards-mapping.md`](../docs/standards-mapping.md)
+- Companion operational recipes: [`skills/security/SKILL.md`](../security/SKILL.md)
+- Consumer-side verify entry: [`skills/release-verify/SKILL.md`](../release-verify/SKILL.md), [`docs/release-verification.md`](../../docs/release-verification.md)
+- Standards mapping (S8): [`docs/standards-mapping.md`](../../docs/standards-mapping.md)

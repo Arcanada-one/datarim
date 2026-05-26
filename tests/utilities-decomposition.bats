@@ -7,12 +7,12 @@
 REPO_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
 
 @test "T1: stub file exists with correct frontmatter name" {
-  [ -f "$REPO_DIR/skills/utilities.md" ]
-  grep -q '^name: utilities$' "$REPO_DIR/skills/utilities.md"
+  [ -f "$REPO_DIR/skills/utilities/SKILL.md" ]
+  grep -q '^name: utilities$' "$REPO_DIR/skills/utilities/SKILL.md"
 }
 
 @test "T2: stub file has model: haiku in frontmatter" {
-  grep -q '^model: haiku$' "$REPO_DIR/skills/utilities.md"
+  grep -q '^model: haiku$' "$REPO_DIR/skills/utilities/SKILL.md"
 }
 
 @test "T3: utilities/ directory exists with 13 fragment files" {
@@ -49,7 +49,7 @@ REPO_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
     datarim-sync.md ga4-admin.md ssh-deploy.md recovery.md
   )
   for f in "${fragments[@]}"; do
-    grep -q "utilities/$f" "$REPO_DIR/skills/utilities.md"
+    grep -q "utilities/$f" "$REPO_DIR/skills/utilities/SKILL.md"
   done
 }
 
@@ -60,8 +60,8 @@ REPO_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
 }
 
 @test "T8: evolution.md references utilities/recovery.md (not utilities.md §)" {
-  grep -q 'utilities/recovery.md' "$REPO_DIR/skills/evolution.md"
-  ! grep -q 'utilities\.md §' "$REPO_DIR/skills/evolution.md"
+  grep -q 'utilities/recovery.md' "$REPO_DIR/skills/evolution/SKILL.md"
+  ! grep -q 'utilities\.md §' "$REPO_DIR/skills/evolution/SKILL.md"
 }
 
 @test "T9: docs/skills.md mentions fragment count" {

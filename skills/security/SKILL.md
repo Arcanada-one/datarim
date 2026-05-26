@@ -7,7 +7,7 @@ target_aal: 2
 
 # Security Guidelines
 
-> **Companion:** canonical S1–S9 rule reference lives in [`skills/security-baseline/SKILL.md`](security-baseline.md) — single source of truth per CLAUDE.md § Security Mandate. This skill complements the baseline with operational recipes (git history scrub, Tailscale + VPN coexistence, recon-vs-compromise heuristics, cross-stack relative-path includes, stack-neutral phrasing for dependency audit). Load both together when planning security-relevant changes; load this one alone when investigating a live incident.
+> **Companion:** canonical S1–S9 rule reference lives in [`skills/security-baseline/SKILL.md`](../security-baseline/SKILL.md) — single source of truth per CLAUDE.md § Security Mandate. This skill complements the baseline with operational recipes (git history scrub, Tailscale + VPN coexistence, recon-vs-compromise heuristics, cross-stack relative-path includes, stack-neutral phrasing for dependency audit). Load both together when planning security-relevant changes; load this one alone when investigating a live incident.
 
 ## Authentication & Authorization
 - Never hardcode secrets/keys. Use `.env`.

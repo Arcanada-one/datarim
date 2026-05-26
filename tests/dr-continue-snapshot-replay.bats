@@ -7,7 +7,7 @@
 
 REPO_ROOT="$(cd "${BATS_TEST_DIRNAME}/.." && pwd)"
 CMD="${REPO_ROOT}/commands/dr-next.md"
-REPLAY="${REPO_ROOT}/skills/dr-next-snapshot-replay.md"
+REPLAY="${REPO_ROOT}/skills/dr-next-snapshot-replay/SKILL.md"
 VALIDATOR="${REPO_ROOT}/dev-tools/check-stage-snapshot-on-exit.sh"
 
 @test "dr-next.md carries SNAPSHOT-FIRST READ step (V-AC-5)" {
@@ -18,7 +18,7 @@ VALIDATOR="${REPO_ROOT}/dev-tools/check-stage-snapshot-on-exit.sh"
     grep -F 'check-stage-snapshot-on-exit.sh' "$CMD" >/dev/null
 }
 
-@test "dr-next.md references replay skill (skills/dr-next-snapshot-replay.md)" {
+@test "dr-next.md references replay skill (skills/dr-next-snapshot-replay/SKILL.md)" {
     grep -F 'dr-next-snapshot-replay.md' "$CMD" >/dev/null
 }
 

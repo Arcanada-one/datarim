@@ -77,7 +77,7 @@ fi
 
 # Resolve absolute path; reject roots outside any git toplevel.
 ROOT_ABS="$(cd "$ROOT" && pwd -P)"
-if ! TOPLEVEL="$(git -C "$ROOT_ABS" rev-parse --show-toplevel 2>/dev/null)"; then
+if ! git -C "$ROOT_ABS" rev-parse --show-toplevel >/dev/null 2>&1; then
     echo "ERROR: --root '$ROOT_ABS' is outside any git toplevel" >&2; exit 2
 fi
 
@@ -127,7 +127,6 @@ CYRILLIC_BYTES=$'\xD0[\x80-\xBF]|\xD1[\x80-\xBF]|\xD2[\x80-\xBF]|\xD3[\x80-\xBF]
 scan_file() {
     local file="$1"
     local in_frontmatter=0
-    local seen_first_delim=0
     local in_fence=0
     local fence_marker=""
     local in_block_skip=0
@@ -137,7 +136,7 @@ scan_file() {
     # Detect leading YAML frontmatter: starts with `---` on line 1.
     local first_line
     first_line="$(head -n 1 "$file" 2>/dev/null || true)"
-    [ "$first_line" = "---" ] && in_frontmatter=1 && seen_first_delim=1
+    [ "$first_line" = "---" ] && in_frontmatter=1
 
     while IFS= read -r line || [ -n "$line" ]; do
         lineno=$((lineno + 1))

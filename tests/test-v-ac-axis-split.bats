@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 #
-# Spec-regression tests for skills/v-ac-axis-split.md.
+# Spec-regression tests for skills/v-ac-axis-split/SKILL.md.
 #
 # Guards two contracts:
 #   1. Skill-internal shape (frontmatter / required headings / reference case /
@@ -17,10 +17,10 @@
 # consumers.
 
 REPO_ROOT="${BATS_TEST_DIRNAME}/.."
-SKILL="${REPO_ROOT}/skills/v-ac-axis-split.md"
+SKILL="${REPO_ROOT}/skills/v-ac-axis-split/SKILL.md"
 DOCS_SKILLS="${REPO_ROOT}/docs/skills.md"
 README="${REPO_ROOT}/README.md"
-EXPECTATIONS="${REPO_ROOT}/skills/expectations-checklist.md"
+EXPECTATIONS="${REPO_ROOT}/skills/expectations-checklist/SKILL.md"
 
 # ---------- skill-internal shape ----------
 
@@ -103,7 +103,7 @@ EXPECTATIONS="${REPO_ROOT}/skills/expectations-checklist.md"
     [ "$output" -ge 2 ]
 }
 
-@test "skills/expectations-checklist.md cross-links v-ac-axis-split" {
+@test "skills/expectations-checklist/SKILL.md cross-links v-ac-axis-split" {
     run grep -E "v-ac-axis-split" "$EXPECTATIONS"
     [ "$status" -eq 0 ]
 }

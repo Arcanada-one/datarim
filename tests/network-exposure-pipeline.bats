@@ -57,7 +57,7 @@ setup() {
 }
 
 @test "skill references gate executor and rule table" {
-    SKILL="$REPO_ROOT/skills/network-exposure-baseline.md"
+    SKILL="$REPO_ROOT/skills/network-exposure-baseline/SKILL.md"
     grep -q "network-exposure-gate.sh" "$SKILL"
     grep -q "Tiered Gate Rules" "$SKILL"
 }

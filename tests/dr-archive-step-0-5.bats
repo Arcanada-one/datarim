@@ -4,7 +4,7 @@
 #
 # Contract under test (v1.10.0 pipeline):
 #   AC-1 / AC-2: /dr-archive gains a mandatory non-skippable Step 0.5 that
-#   loads skills/reflecting.md and performs reflection for every archived task.
+#   loads skills/reflecting/SKILL.md and performs reflection for every archived task.
 #
 # Guards against silent weakening of the mandatory-reflection contract.
 
@@ -19,8 +19,8 @@ SPEC="${BATS_TEST_DIRNAME}/../commands/dr-archive.md"
     [ "$status" -eq 0 ]
 }
 
-@test "spec references skills/reflecting.md as the loaded skill" {
-    run grep -F "skills/reflecting.md" "$SPEC"
+@test "spec references skills/reflecting/SKILL.md as the loaded skill" {
+    run grep -F "skills/reflecting/SKILL.md" "$SPEC"
     [ "$status" -eq 0 ]
 }
 
@@ -40,7 +40,7 @@ SPEC="${BATS_TEST_DIRNAME}/../commands/dr-archive.md"
 }
 
 @test "spec references evolution.md for Class A/B gate" {
-    run grep -F "evolution.md" "$SPEC"
+    run grep -F "evolution/SKILL.md" "$SPEC"
     [ "$status" -eq 0 ]
 }
 

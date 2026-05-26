@@ -9,7 +9,7 @@
 #
 # Coverage target: ≥16 cases.
 
-SKILL="${BATS_TEST_DIRNAME}/../skills/human-summary.md"
+SKILL="${BATS_TEST_DIRNAME}/../skills/human-summary/SKILL.md"
 BANLIST="${BATS_TEST_DIRNAME}/../skills/human-summary/banlist.txt"
 WHITELIST="${BATS_TEST_DIRNAME}/../skills/human-summary/whitelist.txt"
 CMD_QA="${BATS_TEST_DIRNAME}/../commands/dr-qa.md"

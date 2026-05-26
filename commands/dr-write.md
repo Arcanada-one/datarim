@@ -43,4 +43,4 @@ After draft, the writer agent MUST emit a CTA block per `$HOME/.claude/skills/ct
 - Standalone piece, only targeted check needed → alternative `/factcheck` or `/humanize`
 - Always include `/dr-status` as escape hatch
 
-The CTA block MUST follow the canonical format (numbered, one `**рекомендуется**`, `---` HR). Variant B menu when >1 active tasks. <!-- allow-non-ascii: literal-russian-cta-marker-token-required-by-canonical-format -->
+The CTA block MUST follow the canonical format defined in `skills/cta-format/SKILL.md` (numbered options, exactly one primary marker, `---` HR). Variant B menu when >1 active tasks.
