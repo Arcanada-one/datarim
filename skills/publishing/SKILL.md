@@ -28,7 +28,7 @@ Credentials, channel URLs, bot tokens, and site-specific config live outside thi
 
 **Character counting (CRITICAL)**:
 Telegram counts limits in **UTF-16 code units**, not Unicode codepoints, not bytes. Practical impact:
-- RU Cyrillic в BMP = 1 unit per char → `len(text)` in Python matches 1:1.
+- RU Cyrillic в BMP = 1 unit per char → `len(text)` in Python matches 1:1. <!-- allow-non-ascii: russian-language-utf16-counting-rule-for-publishing-skill -->
 - Most emoji (`😀`, `🚀`, `🇷🇺` flags) = 2 units each (surrogate pair).
 - ZWJ family emoji (`👨‍👩‍👧`) = 2+N units (multiple surrogate pairs + ZWJ joiners).
 - Naive `len(text)` underestimates the count for any text with emoji/symbols outside BMP.
@@ -333,7 +333,7 @@ Caching: `linked_chat_id` is stable per channel — store it in credentials alon
 
 ## Universal rule — links go in the first comment, not the body
 
-For **all** social platforms (FB, LinkedIn, Telegram, VK, Twitter/X threads, etc.) the **post body must not contain a standalone "links block"** — a section header like `Куда смотреть` / `Ссылки` / `Resources` / `Полезное` followed by a bullet-list of URLs is forbidden in the body. All such CTA-links (blog URL, dashboards, repositories, doc cross-refs) MUST be published as the **author's first comment** under the post.
+For **all** social platforms (FB, LinkedIn, Telegram, VK, Twitter/X threads, etc.) the **post body must not contain a standalone "links block"** — a section header like `Куда смотреть` / `Ссылки` / `Resources` / `Полезное` followed by a bullet-list of URLs is forbidden in the body. All such CTA-links (blog URL, dashboards, repositories, doc cross-refs) MUST be published as the **author's first comment** under the post. <!-- allow-non-ascii: literal-russian-section-headers-fixture-for-publishing-rule -->
 
 Rationale:
 - **FB & LinkedIn algorithms** downrank posts that contain external links in the body — comment-level links bypass that penalty.
@@ -342,7 +342,7 @@ Rationale:
 
 Inline mentions in prose are fine (`Datarim (github.com/Arcanada-one/datarim, MIT) is open-source`, `Munera on muneral.com`). The rule targets **standalone link sections**, not contextual references.
 
-Publisher pattern: immediately after `POST_URL` is captured, post the first-comment with the CTA-links block. On FB and LinkedIn that is a normal `Прокомментировать` action under the post; on Telegram it is the discussion-thread comment under the channel post (see canonical recipe above). If the platform's comment size is smaller than the link list, keep blog URL + 2–3 anchor links and rely on the website (`arcanada.one`) for the full directory.
+Publisher pattern: immediately after `POST_URL` is captured, post the first-comment with the CTA-links block. On FB and LinkedIn that is a normal `Прокомментировать` action under the post; on Telegram it is the discussion-thread comment under the channel post (see canonical recipe above). If the platform's comment size is smaller than the link list, keep blog URL + 2–3 anchor links and rely on the website (`arcanada.one`) for the full directory. <!-- allow-non-ascii: literal-russian-fb-action-token-required-for-publisher-pattern -->
 
 <!-- gate:history-allowed -->
 **Retrofit tools (FB):** `Projects/FB Publish/code/fb-publish/bin/fb-edit-post.sh` removes a links-block from an existing post body; `bin/fb-edit-comment.sh --match-prefix <text>` rewrites an existing first-comment to extend the link list. Verified working 2026-05-20 on CONTENT-0050.

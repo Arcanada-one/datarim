@@ -71,4 +71,4 @@ After edit pass, the editor agent MUST emit a CTA block per `$HOME/.claude/skill
 - Targeted micro-check only → alternative `/factcheck` or `/humanize`
 - Always include `/dr-status` as escape hatch
 
-The CTA block MUST follow the canonical format (numbered, one `**рекомендуется**`, `---` HR). Variant B menu when >1 active tasks.
+The CTA block MUST follow the canonical format (numbered, one `**рекомендуется**`, `---` HR). Variant B menu when >1 active tasks. <!-- allow-non-ascii: literal-russian-cta-marker-token-required-by-canonical-format -->
