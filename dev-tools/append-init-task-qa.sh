@@ -60,16 +60,19 @@ usage() {
 Usage:
   $SCRIPT_NAME --root <path> --task <ID> --stage <stage> --round <N> \\
                --question-file <path> --answer-file <path> \\
-               --decided-by <operator|agent> [--rationale-file <path>] \\
+               --decided-by <operator|agent|process-rule-artefact> [--rationale-file <path>] \\
                --summary "<one-line>" \\
                [--asked-by "<agent role>"] \\
                [--conflict-with <wish_id>] [--conflict-detail-file <path>] \\
                [--timestamp <ISO-8601>]
 
 Allowed --stage values: prd | plan | design | do | qa | compliance.
-Allowed --decided-by values: operator | agent.
+Allowed --decided-by values: operator | agent | process-rule-artefact.
 
 Required when --decided-by is agent: --rationale-file (body >= 50 chars).
+Required when --decided-by is process-rule-artefact: --rationale-file
+  enumerating at least one persisted-artefact path token (e.g. CLAUDE.md,
+  feedback_*.md, mandates/*.md, ~/.claude/...). No 50-char floor.
 
 Environment:
   DATARIM_QA_MAX_INPUT_BYTES   per-file size cap (default 102400 bytes)
@@ -136,8 +139,8 @@ if ! [[ "$ROUND" =~ ^[0-9]+$ ]]; then
 fi
 
 case "$DECIDED_BY" in
-    operator|agent) ;;
-    *) fail_usage "--decided-by must be 'operator' or 'agent', got '$DECIDED_BY'";;
+    operator|agent|process-rule-artefact) ;;
+    *) fail_usage "--decided-by must be 'operator', 'agent', or 'process-rule-artefact', got '$DECIDED_BY'";;
 esac
 
 if [ -n "$CONFLICT_WITH" ]; then
@@ -185,6 +188,13 @@ if [ "$DECIDED_BY" = "agent" ] && [ -z "$RATIONALE_FILE" ]; then
     fail_io "--decided-by agent requires --rationale-file (body >= 50 chars)"
 fi
 
+if [ "$DECIDED_BY" = "process-rule-artefact" ]; then
+    [ -n "$RATIONALE_FILE" ] || fail_io "process-rule-artefact requires --rationale-file enumerating artefact paths"
+    if ! grep -qE '(\.md\b|\.txt\b|/|~/|CLAUDE)' "$RATIONALE_FILE"; then
+        fail_io "process-rule-artefact rationale must contain at least one artefact path (e.g. CLAUDE.md, feedback_*.md, ~/.claude/...)"
+    fi
+fi
+
 # ---------------------------------------------------------------------------
 # Lock acquisition (mkdir-based, macOS-portable)
 # ---------------------------------------------------------------------------
@@ -221,7 +231,11 @@ TMP_FILE="$(mktemp "$TASKS_DIR_ABS/.${TASK_ID}.qa.append.XXXXXX")"
     printf '%s\n\n' "$(cat "$ANSWER_FILE")"
     printf '**Decided by:** %s\n\n' "$DECIDED_BY"
     if [ -n "$RATIONALE_FILE" ]; then
-        printf '**Decision rationale:**\n\n'
+        if [ "$DECIDED_BY" = "process-rule-artefact" ]; then
+            printf '**Process-rule artefacts:**\n\n'
+        else
+            printf '**Decision rationale:**\n\n'
+        fi
         printf '%s\n\n' "$(cat "$RATIONALE_FILE")"
     fi
     printf '**Summary (how it changes initial conditions):**\n\n'

@@ -336,19 +336,33 @@ FB-rules link)>
 
 Six fixed subheadings are required on every block: `Question`,
 `Answer`, `Decided by`, `Summary`, and `Conflict with existing wish`.
-`Decision rationale` is required only when `Decided by: agent`; when
-present, its body MUST contain at least 50 non-whitespace characters.
+`Decision rationale` (or `Process-rule artefacts` for the
+`process-rule-artefact` disposition) is required when the decision is
+not a verbatim operator answer.
 
-### Operator answer vs agent decision
+### Operator answer vs agent decision vs process-rule artefact
 
 - `Decided by: operator` — the operator responded; `Answer` carries the
   verbatim response. `Decision rationale` is not required.
 - `Decided by: agent` — no operator answer was available in a reasonable
   window OR the question was non-critical; the agent chose the option by
   best practices. `Decision rationale` is mandatory and must reference
-  the basis of the choice (FB-1..FB-5, archive precedent, framework
-  contract). These autonomous decisions are verified at `/dr-qa`
-  Layer 3b the same way operator answers are.
+  the basis of the choice (FB-1..FB-5 — the eight feedback-rules, archive
+  precedent, framework contract). Its body MUST contain at least 50
+  non-whitespace characters. These autonomous decisions are verified at
+  `/dr-qa` Layer 3b the same way operator answers are.
+- `Decided by: process-rule-artefact` — the operator clarification did
+  not produce a verbatim answer or a code-pointing agent decision; it
+  produced one or more persisted rule documents (memory files, CLAUDE.md
+  additions, mandate docs). `Decision rationale` is replaced by a
+  `Process-rule artefacts:` block enumerating each artefact path (one
+  per line). The 50-character floor does not apply — artefact paths are
+  terse by design. Used when the clarification's value is the rule
+  itself, not the answer to one question (e.g. an operator remark that
+  becomes a canonical English-only mandate across four CLAUDE.md
+  surfaces). Required: `--rationale-file` whose body contains at least
+  one path-like token (`CLAUDE.md`, `feedback_*.md`, `~/.claude/...`,
+  `mandates/*.md`).
 
 ### Conflict handling
 
