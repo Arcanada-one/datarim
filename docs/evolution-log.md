@@ -1830,3 +1830,16 @@ Reflection on TUNE-0280 (`/dr-continue` + stage-snapshot replay verification) su
 - **Provenance:** `Projects/Datarim/datarim.locked-20260523T161746Z/reflection/reflection-TUNE-0280.md` § Evolution proposals / Class A; archive doc `documentation/archive/framework/archive-TUNE-0280.md`.
 
 ---
+
+## TUNE-0311 (2026-05-26) — Wave 3 final + L1 Class A applied
+
+- **P-1 (skill-update, Class A inline applied):** `skills/v-ac-axis-split/SKILL.md` gains Pattern 2 — gate-activation axis dry-run during `/dr-plan` Component Breakdown. Closes the PRD Out-of-Scope vs gate-activation contradiction surfaced when the body-english fail-hard flip caught `plugins/dr-orchestrate/commands/dr-orchestrate.md` at `/dr-archive` time.
+- **P-2 (claude-md-update, already applied in Wave 3 itself):** English-Only Shipped Instruction Surface rule encoded in 4 CLAUDE.md (`~/.claude/CLAUDE.md`, `~/arcanada/CLAUDE.md`, `Projects/Datarim/CLAUDE.md`, `code/datarim/CLAUDE.md`). No further apply.
+- **P-3 (new-skill, Class B HELD):** init-task Q&A round-trip — third disposition «process-rule-artefact». Initially HELD; resolved as TUNE-0319 in the same /dr-auto session (PRD-TUNE-0319 + dev-tools/append-init-task-qa.sh extension + skill doc + bats coverage).
+
+## TUNE-0320 — Datarim v2.22.0 release (2026-05-26)
+
+- VERSION 2.21.0 → 2.22.0 (TUNE-0308 epic completion + TUNE-0319 follow-up).
+- Surfaces synced: `code/datarim/VERSION`, `code/datarim/CLAUDE.md` (Version line), `code/datarim/README.md` (badge ×2), `Projects/Datarim/CLAUDE.md` (Текущая версия), `Projects/Datarim/README.md` (Версия), `Projects/Websites/datarim.club/config.php` (version key).
+- Site `datarim.club/pages/changelog.php` — new 2.22.0 release entry: outsider-friendly English instruction surface (164 files), `check-jargon-gloss.sh` validator + manifest, `/dr-archive` body-english fail-hard flip, English-Only mandate in 4 CLAUDE.md, init-task Q&A process-rule disposition, V-AC axis-split Pattern 2.
+- Deploy: `./deploy.sh datarim.club` (operator-authorized via /dr-auto session).
