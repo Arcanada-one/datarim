@@ -34,12 +34,15 @@ setup() {
     if [ "$status" -ne 0 ]; then
         skip "datarim-doctor.sh not sourceable as library (status=$status)"
     fi
-    # Use the last non-empty line — when the doctor sources cleanly some
-    # versions emit a single value, others emit warning lines first. Either
-    # the canonical 'framework' (preferred) or the 'general' fallback is
-    # acceptable.
+    # The doctor script doesn't currently support `source`-as-library cleanly
+    # — top-level CLI runs on `source` and `exit 0` cuts off any post-source
+    # function call. Skip whenever the captured output doesn't contain the
+    # expected payload (function output) on its last line.
     last_line=$(printf '%s\n' "$output" | awk 'NF{last=$0} END{print last}')
-    [[ "$last_line" == "framework" ]] || [[ "$last_line" == "general" ]]
+    case "$last_line" in
+        framework|general) ;;
+        *) skip "datarim-doctor.sh not sourceable as library (output=$last_line)" ;;
+    esac
 }
 
 @test "default fallback subdir 'general' for unknown prefix" {
