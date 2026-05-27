@@ -125,8 +125,8 @@ done
 [ -z "$DECIDED_BY" ]    && fail_usage "--decided-by is required"
 [ -z "$SUMMARY" ]       && fail_usage "--summary is required"
 
-if ! [[ "$TASK_ID" =~ ^[A-Z]{2,10}-[0-9]{4}$ ]]; then
-    fail_usage "--task must match {PREFIX-NNNN}, got '$TASK_ID'"
+if ! [[ "$TASK_ID" =~ ^[A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*$ ]]; then
+    fail_usage "--task must match {PREFIX-NNNN} or compound {PREFIX-NNNN-suffix...}, got '$TASK_ID'"
 fi
 
 case "$STAGE" in

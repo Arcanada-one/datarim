@@ -118,8 +118,8 @@ is_whitelisted_path() {
 # Canonical line regex (single-line, anchored). Status sets:
 #   tasks.md   : in_progress|blocked|not_started
 #   backlog.md : pending|blocked-pending|cancelled
-SCHEMA_TASKS_RE='^- [A-Z]{2,10}-[0-9]{4} · (in_progress|blocked|not_started) · P[0-3] · L[1-4] · .{1,80} → tasks/[A-Z]{2,10}-[0-9]{4}-task-description\.md$'
-SCHEMA_BACKLOG_RE='^- [A-Z]{2,10}-[0-9]{4} · (pending|blocked-pending|cancelled) · P[0-3] · L[1-4] · .{1,80} → tasks/[A-Z]{2,10}-[0-9]{4}-task-description\.md$'
+SCHEMA_TASKS_RE='^- [A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)* · (in_progress|blocked|not_started) · P[0-3] · L[1-4] · .{1,80} → tasks/[A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*-task-description\.md$'
+SCHEMA_BACKLOG_RE='^- [A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)* · (pending|blocked-pending|cancelled) · P[0-3] · L[1-4] · .{1,80} → tasks/[A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*-task-description\.md$'
 
 # check_schema_compliance REPO_PATH → exit 0 (clean) | 1 (violations printed to stderr)
 check_schema_compliance() {
@@ -287,8 +287,8 @@ fi
 
 if [ -n "$SHARED_REPO" ]; then
     # Strict regex validation per CLAUDE.md S1: anchored, no metacharacters.
-    if ! printf '%s' "$TASK_ID" | grep -qE '^[A-Z]+-[0-9]{4}$'; then
-        echo "ERROR: invalid --task-id (expected ^[A-Z]+-[0-9]{4}$): $TASK_ID" >&2
+    if ! printf '%s' "$TASK_ID" | grep -qE '^[A-Z]+-[0-9]{4}(-[A-Za-z0-9]+)*$'; then
+        echo "ERROR: invalid --task-id (expected ^[A-Z]+-[0-9]{4}(-[A-Za-z0-9]+)*\$): $TASK_ID" >&2
         exit 2
     fi
     if [ -z "$SHARED_REPO" ]; then
