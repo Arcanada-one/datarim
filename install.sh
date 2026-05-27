@@ -1138,8 +1138,13 @@ project_install() {
 
 parse_args "$@"
 
-# Backwards-compat: legacy flags without explicit --with-claude imply claude
-if [ "$FANOUT_CLAUDE" = false ] && [ "$FANOUT_CODEX" = false ] && [ -z "$PROJECT_DIR" ]; then
+# Backwards-compat: legacy flags without explicit --with-claude imply claude.
+# Guard against silent claude fanout when ANY explicit runtime flag is given —
+# `--with-cursor --yes` should ONLY touch the cursor scope, not also reach
+# into $CLAUDE_DIR. Without the FANOUT_CURSOR guard the conditional triggered
+# implicit FANOUT_CLAUDE=true, which fanned the operator's real ~/.claude/*
+# scopes onto a test-fixture tmp source dir and broke runtime on teardown.
+if [ "$FANOUT_CLAUDE" = false ] && [ "$FANOUT_CODEX" = false ] && [ "$FANOUT_CURSOR" = false ] && [ -z "$PROJECT_DIR" ]; then
     if [ "$FORCE" = true ] || [ "$FORCE_COPY" = true ] || [ "$ASSUME_YES" = true ]; then
         FANOUT_CLAUDE=true
         echo "WARN: implicit --with-claude for legacy flags (deprecated: use --with-claude)" >&2
