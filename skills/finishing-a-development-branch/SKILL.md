@@ -145,6 +145,23 @@ EOF
 
 **Do NOT clean up worktree** — user needs it alive to iterate on PR feedback.
 
+##### Verify push by state, not by stdout
+
+After `git push`, the canonical `To <repo>\n  abc..def main -> main` line in stdout is a contract surface that hook wrappers (token reducers, lint filters, terminal multiplexers) frequently rewrite or truncate. Never gate next-step decisions on the stdout text — verify the push succeeded by comparing local HEAD against the upstream tracking ref:
+
+```bash
+# nosec-extract
+git push -u origin <feature-branch>
+local_sha=$(git rev-parse HEAD)
+upstream_sha=$(git rev-parse "@{u}")
+if [ "$local_sha" != "$upstream_sha" ]; then
+    echo "push verification failed: HEAD=$local_sha @{u}=$upstream_sha" >&2
+    exit 1
+fi
+```
+
+The same SHA-equality check applies to `git pull` and `git fetch`. If the upstream tracking ref is not configured (first push of a new branch), use `git ls-remote origin <branch>` to read the remote SHA directly and compare against `git rev-parse HEAD`. Source: agents repeatedly waited 15+ minutes on already-successful pushes because a hook truncated the canonical marker; SHA-equality is invariant under any stdout transformation.
+
 #### Option 3: Keep As-Is
 
 Report: "Keeping branch <name>. Worktree preserved at <path>."
