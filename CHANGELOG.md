@@ -14,9 +14,9 @@ All notable changes to the Datarim framework are documented here. Format follows
 ### Changed
 
 - **VERSION 2.22.0 → 2.23.0** (minor — documentation refresh + multi-agent narrative correction; no breaking runtime change).
-- **CLAUDE.md skill count** corrected from «45 skills, 10 with supporting fragment directories» to live inventory «56 skills, 11 with supporting fragment directories» (drift accumulated across TUNE-0304 universal-layout migration + downstream skill additions through v2.22.0).
+- **CLAUDE.md skill count** corrected from «45 skills, 10 with supporting fragment directories» to live inventory «55 skills, 11 with supporting fragment directories» (drift accumulated across TUNE-0304 universal-layout migration + downstream skill additions through v2.22.0).
 - **CLAUDE.md command count** corrected from «23 commands core + 1 plugin» to «24 commands core + 1 plugin».
-- **README.md badge + Features section counts** synced to live inventory (18 agents, 56 skills, 24 commands).
+- **README.md badge + Features section counts** synced to live inventory (18 agents, 55 skills, 24 commands).
 - **`docs/getting-started.md` § Choose your runtime** rewritten to enumerate Claude Code / Codex CLI / Cursor with the honest Cursor disclaimer and a link to the canonical matrix in `use-cases.md`.
 
 ## [2.22.0] — 2026-05-26
