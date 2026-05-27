@@ -1,8 +1,8 @@
 # Datarim — Universal Iterative Workflow Framework
 
-> **Version:** 2.22.0
+> **Version:** 2.23.0
 > **Framework:** Datarim provides structured rules, agents, skills, and commands for iterative project execution via AI coding assistants — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
-> **Multi-runtime:** Datarim is runtime-agnostic. This file is also available as `AGENTS.md` (symlink) for Codex CLI and other agent runtimes that read `AGENTS.md` by convention.
+> **Multi-runtime:** Datarim is runtime-agnostic. This file is also available as `AGENTS.md` (symlink) for Codex CLI and other agent runtimes that read `AGENTS.md` by convention. See `docs/use-cases.md#runtime-support` for the canonical Claude Code / Codex CLI / Cursor support matrix.
 > **Note:** "Datarim" has a Russian transliteration «Датарим» — agents must recognise either form in any language context. <!-- allow-non-ascii: literal-transliteration-pair-for-agent-name-recognition -->
 
 ---
@@ -129,7 +129,7 @@ Skills are reusable knowledge modules loaded on demand. They provide rules, patt
 - `human-summary.md` — Plain-language operator recap (`/dr-qa`, `/dr-compliance`, `/dr-archive` Step 8) — four sub-sections + banlist + whitelist + per-paragraph escape hatch + 150–400 word budget.
 - `v-ac-axis-split.md` — V-AC group axis-split pattern: when group mixes deterministic axis (rule match / shape check / type assertion) and statistical axis (live-rate threshold / SLA percentile / soak distribution), split upfront into two V-AC groups (loaded by: /dr-prd V-AC drafting, /dr-plan V-AC review). Source: TUNE-0183 V-AC-14.11 reclassification.
 
-Skill files: `$HOME/.claude/skills/{name}.md` (45 skills, 10 with supporting fragment directories)
+Skill files: `$HOME/.claude/skills/{name}/SKILL.md` (55 skills, 11 with supporting fragment directories)
 
 > **v1.16.0 addition:** `cta-format.md` — canonical CTA "Next Step" block specification, loaded by `planner`, `architect`, `developer`, `reviewer`, `compliance` agents. Defines structure, separators, primary marker, multi-task menu (Variant B), and FAIL-Routing variant. Source: TUNE-0032.
 
@@ -217,7 +217,7 @@ Before writing ANY file to `datarim/`:
 | `/factcheck` | Standalone | Fact-check articles and posts before publication |
 | `/humanize` | Standalone | Remove AI writing patterns from text |
 
-Command files: `$HOME/.claude/commands/{name}.md` (23 commands core + 1 plugin)
+Command files: `$HOME/.claude/commands/{name}.md` (24 commands core + 1 plugin)
 
 ### /dr-verify (on-demand, tri-layer architecture)
 

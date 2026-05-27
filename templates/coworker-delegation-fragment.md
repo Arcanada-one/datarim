@@ -114,6 +114,29 @@ long diffs). Skip for short tasks — overhead exceeds savings. Full
 operator-facing reference: `documentation/infrastructure/Coworker.md`
 § RTK plugin (opt-in).
 
+**Out-of-box `rtk` vs `coworker rtk` plugin — why the plugin matters.**
+The standalone `rtk` binary, when activated as a global git/shell hook
+without the coworker passthrough allowlist, produces measurable
+token savings on bulk reads but also drops or rewrites the textual
+markers that Claude Code and Codex CLI rely on to confirm command
+completion. Measured impact on macOS (upstream issue
+[rtk-ai/rtk#2121](https://github.com/rtk-ai/rtk/issues/2121)): `git
+status` output grew by +108% (the marker bloated rather than
+shrank), `git log --oneline -50` by +6924%, and the `git push`
+completion marker was lost entirely on some repos, making the agent
+think the push had not happened. The `coworker rtk` plugin guards
+against this by wrapping `rtk` invocations in a passthrough
+allowlist for signal-bearing commands (`git status`, `git log`,
+`git push`, `gh release`, `gh pr`, and 8 others by default) while
+still applying bulk-read economy to log dumps, file content reads,
+and `git diff` outputs. The plugin also installs a Codex CLI shim so
+multi-runtime parity is preserved. Operators who want token-economy
+benefits should enable RTK via the plugin (`coworker rtk install`
++ `coworker rtk enable`) rather than wiring the raw binary into
+`~/.claude/settings.json` directly. The default 13-pattern
+passthrough store and CRUD workflow are documented in
+`docs/rtk-plugin.md` § Signal/bulk passthrough.
+
 ## Do NOT delegate
 
 - Tasks under ~2 000 tokens (overhead not worth it).
