@@ -4,6 +4,36 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.23.0] — 2026-05-28
+
+### Added
+
+- **Canonical Runtime Support Matrix in `docs/use-cases.md`.** New § Runtime support documents the three supported runtimes (Claude Code primary, Codex CLI parity via `coworker rtk` shim, Cursor limited) with a 5-column matrix (Runtime / Install command / Pre-tool hook integration / Bulk-read economy via RTK / Status) and an explicit honesty paragraph explaining why Cursor is «limited» (no native `PreToolUse` hook surface; bulk-read commands incur full token cost; the prior «inherited» framing was inaccurate). All shipped surfaces (`README.md`, `docs/getting-started.md`, `CLAUDE.md`, `templates/coworker-delegation-fragment.md`) link back to this matrix as the single source of truth — zero claim drift across surfaces.
+- **RTK realities documented in `templates/coworker-delegation-fragment.md`.** New paragraph in § RTK plugin (opt-in) cites the measured impact of out-of-box `rtk` on macOS (`git status` +108%, `git log --oneline -50` +6924%, lost `git push` completion marker on some repos — upstream issue rtk-ai/rtk#2121) and contrasts it with the `coworker rtk` plugin, which guards signal-bearing git/gh commands via a 13-pattern passthrough allowlist while still applying bulk-read economy to log dumps, file content reads, and `git diff`. Multi-runtime parity preserved via the bundled Codex CLI shim.
+
+### Changed
+
+- **VERSION 2.22.0 → 2.23.0** (minor — documentation refresh + multi-agent narrative correction; no breaking runtime change).
+- **CLAUDE.md skill count** corrected from «45 skills, 10 with supporting fragment directories» to live inventory «56 skills, 11 with supporting fragment directories» (drift accumulated across TUNE-0304 universal-layout migration + downstream skill additions through v2.22.0).
+- **CLAUDE.md command count** corrected from «23 commands core + 1 plugin» to «24 commands core + 1 plugin».
+- **README.md badge + Features section counts** synced to live inventory (18 agents, 56 skills, 24 commands).
+- **`docs/getting-started.md` § Choose your runtime** rewritten to enumerate Claude Code / Codex CLI / Cursor with the honest Cursor disclaimer and a link to the canonical matrix in `use-cases.md`.
+
+## [2.22.0] — 2026-05-26
+
+### Added
+
+- **TUNE-0308 epic completion.** Outsider-friendly English instruction surface refresh across 164 shipped files; `dev-tools/check-jargon-gloss.sh` validator + jargon manifest enforcing first-use glosses for in-house terms.
+- **TUNE-0319 init-task Q&A round-trip extension.** `dev-tools/append-init-task-qa.sh` extended with `--decided-by agent` rationale-length gate (≥50 non-whitespace chars), `--conflict-with <wish_id>` flag, and `/dr-qa` Layer 3b retroactive backfill detector. Skill `skills/init-task-persistence/SKILL.md` § Q&A round-trip contract; bats coverage in `tests/append-init-task-qa.bats`.
+- **`/dr-archive` body-english fail-hard flip.** `dev-tools/check-body-english.sh` flips from advisory warning to fail-hard block at archive time on any shipped artefact carrying non-allowlisted non-ASCII without the `<!-- allow-non-ascii: <reason> -->` marker.
+- **English-Only mandate in 4 CLAUDE.md.** `~/.claude/CLAUDE.md`, `~/arcanada/CLAUDE.md`, `Projects/Datarim/CLAUDE.md`, `code/datarim/CLAUDE.md` carry the same English-Only Shipped Instruction Surface rule with shared allowlist and validator-marker contract.
+- **V-AC axis-split Pattern 2.** `skills/v-ac-axis-split/SKILL.md` gains Pattern 2 — gate-activation axis dry-run during `/dr-plan` Component Breakdown.
+
+### Changed
+
+- **VERSION 2.21.0 → 2.22.0** (TUNE-0308 epic completion + TUNE-0319 follow-up).
+- Surfaces synced: `code/datarim/VERSION`, `code/datarim/CLAUDE.md` (Version line), `code/datarim/README.md` (badge ×2), `Projects/Datarim/CLAUDE.md` (Текущая версия), `Projects/Datarim/README.md` (Версия), `Projects/Websites/datarim.club/config.php` (version key), `Projects/Websites/datarim.club/pages/changelog.php` (new release entry).
+
 ## [2.21.0] — 2026-05-25
 
 ### Added

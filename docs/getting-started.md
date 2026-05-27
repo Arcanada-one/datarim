@@ -23,11 +23,20 @@ cd datarim
 chmod +x install.sh
 ./install.sh --with-claude              # Claude Code runtime (symlink, default since v1.17)
 ./install.sh --with-codex               # Codex CLI runtime (multi-runtime, v2.0+)
-./install.sh --with-claude --with-codex # both runtimes at once
+./install.sh --with-cursor              # Cursor IDE runtime (limited, see runtime support matrix)
+./install.sh --with-claude --with-codex # multiple runtimes at once
 ./install.sh --project /path/to/project # project-local copy mode (no symlinks)
 ```
 
-Datarim v2.0+ is **multi-runtime (Claude + Codex)**. Without flags, `install.sh` prints help and exits 0 — you must choose at least one runtime or `--project DIR`. The installer creates 6 scope symlinks in `~/.${runtime}/` — `agents`, `skills`, `commands`, `templates`, `scripts`, `tests` — each pointing at the matching directory inside the cloned repo. The runtime IS the repo: any edit you make in either place lands in the same file, so `git diff` shows your changes immediately and there is no separate "curate" step. **Codex disclaimer:** Codex experience may differ — no `Task` / `TodoWrite` primitives; intent-layer rewrites in absorbed superpowers skills preserve runtime-agnostic readability.
+### Choose your runtime
+
+Datarim v2.0+ is **multi-runtime**. Three runtimes are supported with different integration levels — see the canonical [Runtime support matrix in docs/use-cases.md](use-cases.md#runtime-support) for the full picture. Short version:
+
+- **Claude Code** — primary; native `PreToolUse` hook integration; full `coworker rtk` token-economy plugin support.
+- **Codex CLI** — parity via the `coworker rtk` shim for `view` / `apply_patch` / `shell` / `exec_command`. **Codex disclaimer:** no `Task` / `TodoWrite` primitives; intent-layer rewrites in absorbed superpowers skills preserve runtime-agnostic readability.
+- **Cursor** — limited: no native `PreToolUse` hook integration; bulk-read commands incur full token cost with no RTK token-economy bypass. Datarim commands and skills still work; size your token budget accordingly. See release notes for v2.23.0 for the full disclosure.
+
+Without flags, `install.sh` prints help and exits 0 — you must choose at least one runtime or `--project DIR`. The installer creates 6 scope symlinks in `~/.${runtime}/` — `agents`, `skills`, `commands`, `templates`, `scripts`, `tests` — each pointing at the matching directory inside the cloned repo. The runtime IS the repo: any edit you make in either place lands in the same file, so `git diff` shows your changes immediately and there is no separate "curate" step.
 
 `AGENTS.md` (a symlink to `CLAUDE.md`) is shipped at the repo root so Codex CLI and other runtimes that read `AGENTS.md` by convention work out of the box.
 

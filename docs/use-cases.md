@@ -247,6 +247,22 @@ Pre-launch checklist for websites — from domain configuration to analytics to 
 
 ---
 
+## Runtime support
+
+Datarim is runtime-agnostic. The same framework runs under three AI coding runtimes today, with different levels of integration:
+
+| Runtime       | Install command              | Pre-tool hook integration | Bulk-read economy via RTK | Status        |
+|---------------|------------------------------|---------------------------|---------------------------|---------------|
+| Claude Code   | `install.sh`                 | Native                    | Full                      | Primary       |
+| Codex CLI     | `install.sh --with-codex`    | Shim via `coworker rtk`   | Full (with shim)          | Parity        |
+| Cursor        | `install.sh --with-cursor`   | Not available             | Not applicable            | Limited       |
+
+**Why Cursor is limited.** Cursor does not expose the `PreToolUse` hook surface that Claude Code and Codex CLI rely on for runtime delegation enforcement and bulk-read passthrough. As a result, the `coworker rtk` token-economy plugin has no insertion point on Cursor, and bulk-read commands (`git status`, `git log`, repeat file reads) incur full token cost on every cycle. Cursor still works for Project Files and non-hook workflows; the limitation is published honestly so operators can size token budgets correctly. See release notes for v2.23.0 for the full disclosure.
+
+**Picking a runtime.** Use Claude Code if you want the primary path with everything wired in. Use Codex CLI if you prefer the OpenAI-side toolchain and accept the small bookkeeping of the `coworker rtk` shim. Use Cursor if Cursor is your existing editor — Datarim commands and skills work, you just pay full bulk-read costs.
+
+---
+
 ## Key Takeaway
 
 The pipeline stages map to universal project phases:
