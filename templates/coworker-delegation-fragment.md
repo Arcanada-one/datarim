@@ -122,6 +122,19 @@ operator-facing reference: `documentation/infrastructure/Coworker.md`
 - When exact line numbers are needed for `Edit` (coworker summaries lose
   them).
 - Reasoning about user intent.
+- **Appending to an existing file via `coworker write --target Y` without
+  `--append`.** Bare `coworker write --target Y` truncate-writes Y
+  (`Path.write_text()`, Python `'w'` mode). A spec like `--spec "append
+  section X to file Y" --target Y` overwrites Y with only the new section
+  and destroys everything else (frontmatter, prior sections). Since
+  coworker v0.4.0 the canonical fix is the `--append` flag:
+  `coworker write --append --target Y --spec "..."` — opens Y in `'a'`
+  mode, inserts a separator newline if Y's tail is non-terminated, falls
+  back to write when Y does not yet exist, and is mutually exclusive with
+  `--stdout`. Reach for the legacy workarounds only when the target's
+  byte-exact tail matters: (1) `--stdout` and concatenate captured body
+  manually; (2) feed Y as `--context` and write to a fresh `--target`;
+  (3) native surgical edit.
 
 ## Failure modes
 

@@ -72,6 +72,7 @@ Enable when bulk reads regularly exceed ~5k tokens (logs, code dumps, long diffs
 - Architectural decisions and trade-offs.
 - When exact line numbers are needed for Edit (coworker summaries lose them).
 - Reasoning about user intent.
+- Appending to an existing file via `coworker write --target Y` without `--append`. Bare `coworker write --target Y` truncate-writes Y (Python `'w'` mode) — a spec like `--spec "append section X to file Y" --target Y` overwrites Y with only the new section and destroys everything else (frontmatter, prior sections). Since coworker v0.4.0 the canonical fix is the `--append` flag: `coworker write --append --target Y --spec "..."` (mutually exclusive with `--stdout`, falls back to write if Y does not yet exist, inserts separator newline when needed). Legacy workarounds (`--stdout` + manual concat, or feed Y as `--context` to a fresh `--target`, or native surgical edit) only when byte-exact tail handling matters.
 
 ## Failure modes
 
