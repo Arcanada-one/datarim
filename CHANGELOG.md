@@ -4,6 +4,26 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.24.0] — 2026-05-28
+
+### Changed
+
+- **coworker-hook-guard Read gate: line-count → estimated-token model.** The `Read`/`view` gate no longer counts lines (`wc -l`, blind to per-line density — a 1-line minified/base64 file read as "1 line"). It now estimates tokens as `wc -c / divisor` (divisor by extension, conservative-downward: `.b64`/`.base64` → 1, `.min.js`/`.min.css` → 2, otherwise → 3) — pure bash, ~1 ms, zero model, zero network. Two env-tunable thresholds: delegation `COWORKER_GUARD_DELEGATE_TOKENS` (default 10000) and a hard ceiling `COWORKER_GUARD_CEILING_TOKENS` (default 100000) that routes to grep-only and never to any LLM. Opt-in fail-soft tokenizer behind `COWORKER_GUARD_USE_TOKENIZER=1` (`COWORKER_GUARD_TOKENIZER_BIN`); absent/erroring binary silently falls back to the heuristic.
+- **Legacy line-count vars deprecated, never reinterpreted.** `COWORKER_GUARD_READ_THRESHOLD` / `KIMI_GUARD_READ_THRESHOLD` are ignored under the token model; if set, the guard emits a single SessionStart deprecation note naming the new vars (it does NOT silently reinterpret a stale `=700` as 700 bytes).
+- **Two deny messages bound to the crossed threshold, guarded by a defensive invariant.** The delegation deny leads with the Bash-native edit hatch (`python3`/`sed` are not gated, so the `Edit` Read-precondition is moot), then `coworker ask`, then a relaunch-only env-override note (an in-session `! export` never reaches the hook). The ceiling deny steers to `sed`/`grep -n`/`head` windows and MUST NOT suggest `coworker ask`. A § Defensive Invariants precondition guard exits 2 if a future refactor decouples the wording from the crossed tier.
+- **Delegation mandate harmonized to the token unit across all surfaces.** The written ">600 lines summed" trigger became ">15000 estimated tokens summed" across the canonical fragment, the Cursor `.mdc`, the regenerated Codex `AGENTS.override.md`, the Cursor rule, and `~/.claude/CLAUDE.md`. The git-diff/log trigger stays line-based (diffs are uniform prose).
+- **RTK upgraded 0.40.0 → 0.42.0** and the signal/bulk passthrough re-validated (passthrough/plugin + live pytest green; `git push` passes through with its completion marker intact while bulk reads are still RTK-reduced). Upstream `rtk-ai/rtk#2121` ("built-in signal/bulk classifier") remains OPEN, so the local `rtk-signal-guard.sh` passthrough store is retained, not simplified.
+
+### Fixed
+
+- **`git show <ref>:<path>` blob-read false-positive in the Bash branch.** The guard conflated `git show <commit>` (diff/log dump, delegation-worthy) with `git show <ref>:<path>` (blob read — small, signal not bulk). A colon-shape probe now passes the blob form through, and the reset-case was extended to cover `| sed`, `| awk`, `--no-pager`, and a stdout redirect (`X > file` yields no stdout to pipe into `coworker ask`).
+
+### Added
+
+- **Guard regression suites.** `tests/test-coworker-hook-guard-token-threshold.bats` (delegate/ceiling bands, divisor classes, legacy-var ignore, opt-in tokenizer fail-soft, deny-wording invariant) and `tests/test-coworker-hook-guard-git-show.bats` (blob passthrough vs diff delegation, extended reset-case). The Codex parity suite's Read fixture was re-based on byte size rather than line count.
+
+- **`documentation/infrastructure/Coworker.md` § Hook enforcement — escape-hatch.** Documents the catch-22 Read→Edit unblock (Bash `python3`/`sed`/`grep -n` are not gated), that the deny "approve" is dead in accept-edits / autonomous mode, the in-session `! export` footgun, and the ceiling → grep-only path.
+
 ## [2.23.0] — 2026-05-28
 
 ### Added
