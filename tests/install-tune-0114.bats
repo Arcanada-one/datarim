@@ -33,7 +33,7 @@ teardown() {
 
 # ---------- --with-codex --------------------------------------------------
 
-@test "TUNE-0114 --with-codex creates ~/.codex with all 6 scopes (symlink mode)" {
+@test "TUNE-0114 --with-codex creates ~/.codex with all 7 scopes (symlink mode)" {
     local fake_codex="$FAKE_HOME/.codex"
     # --no-codex-ux preserves TUNE-0114 baseline contract (uniform symlinks).
     # Default (with TUNE-0297 fanout_codex_ux) converts skills/ to a real dir;
@@ -46,6 +46,7 @@ teardown() {
     assert_symlink_to "$fake_codex/templates" "$FAKE_REPO/templates"
     assert_symlink_to "$fake_codex/scripts"   "$FAKE_REPO/scripts"
     assert_symlink_to "$fake_codex/tests"     "$FAKE_REPO/tests"
+    assert_symlink_to "$fake_codex/dev-tools" "$FAKE_REPO/dev-tools"
 }
 
 @test "TUNE-0114 --with-claude --with-codex installs both runtimes" {
@@ -59,7 +60,7 @@ teardown() {
 
 # ---------- --project copy mode -------------------------------------------
 
-@test "TUNE-0114 --project copies all 6 scopes + CLAUDE.md into DIR/.datarim" {
+@test "TUNE-0114 --project copies all 7 scopes + CLAUDE.md into DIR/.datarim" {
     local proj="$FAKE_HOME/myproj"
     mkdir -p "$proj"
     # fixture seeds scope dirs but not CLAUDE.md; project_install copies it.
@@ -72,6 +73,7 @@ teardown() {
     [ -d "$proj/.datarim/templates" ]
     [ -d "$proj/.datarim/scripts" ]
     [ -d "$proj/.datarim/tests" ]
+    [ -d "$proj/.datarim/dev-tools" ]
     [ -f "$proj/.datarim/CLAUDE.md" ]
     # Real files, not symlinks
     [ ! -L "$proj/.datarim/skills" ]

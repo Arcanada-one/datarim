@@ -67,7 +67,7 @@ Before proceeding to `/dr-do`:
 
 ## Next Steps (CTA)
 
-After design phase, the architect agent MUST emit a CTA block ([definition](../skills/cta-format.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
+After design phase, the architect agent MUST emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-design`:**
 

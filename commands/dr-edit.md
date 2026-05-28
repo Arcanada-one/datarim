@@ -61,7 +61,7 @@ effort: high
 
 ## Next Steps (CTA)
 
-After edit pass, the editor agent MUST emit a CTA block ([definition](../skills/cta-format.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
+After edit pass, the editor agent MUST emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-edit`:**
 

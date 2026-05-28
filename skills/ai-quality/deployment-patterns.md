@@ -368,13 +368,13 @@ Every container service in a compose / orchestrator manifest that overrides the 
 
 Before the first `compose up -d` (or rollout) of a new service, OR whenever the `command:` / build pipeline / Dockerfile multi-stage `COPY` list changes, run:
 
-```bash
+```text
 docker run --rm <image>:<tag> sh -c "test -f <command[0]>" || { echo "FAIL: entrypoint <command[0]> missing in <image>:<tag>"; exit 1; }
 ```
 
 For a non-shell ENTRYPOINT image, wrap the probe in a throwaway `--entrypoint sh` override:
 
-```bash
+```text
 docker run --rm --entrypoint sh <image>:<tag> -c "test -f <command[0]>"
 ```
 

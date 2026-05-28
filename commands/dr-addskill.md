@@ -104,7 +104,7 @@ effort: high
 
 ## Next Steps (CTA)
 
-After skill creation, the skill-creator agent MUST emit a CTA block ([definition](../skills/cta-format.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
+After skill creation, the skill-creator agent MUST emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-addskill`:**
 

@@ -9,7 +9,7 @@ target_aal: 2
 
 This skill is the **single source of truth** for the "Next Step" Call-to-Action block (the numbered Next-Step menu at the end of every pipeline command, one entry marked recommended) produced by every `/dr-*` command and every pipeline agent (`planner`, `architect`, `developer`, `reviewer`, `compliance`).
 
-It exists because free-form Next-Step prose forces operators to mentally map task IDs to commands, especially when two or more tasks are active. The fix: every command output ends with a structured, predictable CTA block ([definition](../cta-format.md)) with explicit task IDs and one marked primary action.
+It exists because free-form Next-Step prose forces operators to mentally map task IDs to commands, especially when two or more tasks are active. The fix: every command output ends with a structured, predictable CTA block ([definition](../cta-format/SKILL.md)) with explicit task IDs and one marked primary action.
 
 ## When to Apply
 
@@ -295,6 +295,9 @@ Executable recipe (shellcheck-clean):
 # After CTA emission, compose the rendered response once into a tempfile
 # and call the writer once. The writer overwrites any prior snapshot for
 # this TASK-ID (overwrite-not-append; old stage state is no longer current).
+# Fill-ins bound by the invoking command: $STAGE is one of
+# init prd plan design do qa compliance auto; $COMMAND is the slash-command
+# literal (e.g. /dr-plan); $TASK_ID and $CTA_PRIMARY are likewise set by the caller.
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 BODY_TMP="$(mktemp)"; OPTIONS_TMP="$(mktemp)"
 trap 'rm -f "$BODY_TMP" "$OPTIONS_TMP"' EXIT
@@ -302,8 +305,8 @@ trap 'rm -f "$BODY_TMP" "$OPTIONS_TMP"' EXIT
 bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/snapshot-writer-wrapper.sh" \
     --root "$REPO_ROOT" \
     --task "$TASK_ID" \
-    --stage <plan|prd|do|init|design|qa|compliance> \
-    --command </dr-name> \
+    --stage "$STAGE" \
+    --command "$COMMAND" \
     --captured-by agent \
     --recommended-next "$CTA_PRIMARY" \
     --options-file "$OPTIONS_TMP" \

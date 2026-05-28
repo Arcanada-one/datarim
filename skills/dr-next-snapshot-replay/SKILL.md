@@ -94,7 +94,7 @@ The heuristic picks `/dr-archive`. Rationale: per `cta-format.md` § Authoring R
 ## Related
 
 - `skills/stage-snapshot-writer/SKILL.md` — the producer side.
-- `skills/cta-format/SKILL.md` — the CTA block ([definition](../cta-format.md)) format that fills `<recommended-CTA>`.
+- `skills/cta-format/SKILL.md` — the CTA block ([definition](../cta-format/SKILL.md)) format that fills `<recommended-CTA>`.
 - `dev-tools/check-stage-snapshot-on-exit.sh` — the mandatory validator that runs before the prompt is emitted.
 - `commands/dr-next.md` § Step 2.5 — consumer touchpoint.
 - `plugins/dr-orchestrate/commands/dr-orchestrate.md` § Snapshot-First Resume — orchestrator touchpoint.

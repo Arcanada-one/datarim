@@ -140,7 +140,7 @@ When auto-mode is active (env var `DATARIM_AUTO_MODE=1` AND matching marker `dat
 
 ## Next Steps (CTA)
 
-After implementation, the developer agent MUST emit a CTA block ([definition](../skills/cta-format.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
+After implementation, the developer agent MUST emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-do`:**
 
