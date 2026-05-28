@@ -90,6 +90,17 @@ Even under `/dr-auto`, the following actions never run automatically. They come 
 - High-risk changes to the framework's operating model, where each stage gate is genuinely a decision point that needs the operator present.
 - Coordinating work across multiple repositories. Use `/dr-orchestrate` for that — it is built for parallel multi-task execution and `/dr-auto` is not.
 
+## Stage Snapshot Emission (Mandatory Terminal Step)
+
+At the terminal cleanup step (step 9 above), after emitting the CTA block, the agent MUST perform snapshot emission ([definition](../skills/stage-snapshot-writer/SKILL.md)) per `$HOME/.claude/skills/cta-format/SKILL.md` § Snapshot Emission. Parameters bound for this command:
+
+- `stage`: `auto`
+- `command`: `/dr-auto`
+- `captured-by`: `agent`
+- `recommended-next`: primary CTA option (slash-prefixed `/dr-*` form)
+
+This snapshot overwrites the last delegated sub-stage snapshot — the intended behaviour: it records the autonomous run as the canonical resume point. Fail-closed: on non-zero writer exit, emit a single stderr warning line and continue (V-AC-7 contract). Kill switch `DATARIM_DISABLE_SNAPSHOT=1` is handled inside the library; under the switch the writer is a no-op without warning.
+
 ## Related
 
 - Skill: `skills/autonomous-mode/SKILL.md` — the operating rules every stage loads.
