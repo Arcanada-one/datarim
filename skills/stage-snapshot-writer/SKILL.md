@@ -32,7 +32,7 @@ All arguments are named (`--flag value`):
 write_stage_snapshot \
     --root <DATARIM_ROOT> \             # absolute path to repo root
     --task <TASK-ID> \                  # ^[A-Z][A-Z0-9-]+-[0-9]{4,5}$
-    --stage <plan|prd|do|qa|verify|...> \
+    --stage <plan|prd|do|qa|verify|auto|...> \
     --command </dr-name> \              # literal "/dr-<name>"
     --captured-by <agent|operator> \
     --recommended-next </dr-name> \     # primary CTA option, slash-prefixed
