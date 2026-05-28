@@ -23,7 +23,7 @@ cd datarim
 chmod +x install.sh
 ./install.sh --with-claude              # Claude Code runtime (symlink, default since v1.17)
 ./install.sh --with-codex               # Codex CLI runtime (multi-runtime, v2.0+)
-./install.sh --with-cursor              # Cursor IDE runtime (limited, see runtime support matrix)
+./install.sh --with-cursor              # Cursor runtime (skills + delegation; coworker rtk enable adds RTK hook)
 ./install.sh --with-claude --with-codex # multiple runtimes at once
 ./install.sh --project /path/to/project # project-local copy mode (no symlinks)
 ```
@@ -34,7 +34,7 @@ Datarim v2.0+ is **multi-runtime**. Three runtimes are supported with different 
 
 - **Claude Code** — primary; native `PreToolUse` hook integration; full `coworker rtk` token-economy plugin support.
 - **Codex CLI** — parity via the `coworker rtk` shim for `view` / `apply_patch` / `shell` / `exec_command`. **Codex disclaimer:** no `Task` / `TodoWrite` primitives; intent-layer rewrites in absorbed superpowers skills preserve runtime-agnostic readability.
-- **Cursor** — limited: no native `PreToolUse` hook integration; bulk-read commands incur full token cost with no RTK token-economy bypass. Datarim commands and skills still work; size your token budget accordingly. See release notes for v2.23.0 for the full disclosure.
+- **Cursor** — parity: Cursor Agent has no Claude-style `PreToolUse` hook, but `coworker rtk enable` (Coworker v0.6.2+) wires its native `beforeShellExecution` hook (`rtk hook cursor`), giving the same RTK token economy as Claude Code and Codex CLI. `install.sh --with-cursor` mirrors Datarim skills and the delegation rule; RTK is opt-in. See the runtime support matrix for details.
 
 Without flags, `install.sh` prints help and exits 0 — you must choose at least one runtime or `--project DIR`. The installer creates 6 scope symlinks in `~/.${runtime}/` — `agents`, `skills`, `commands`, `templates`, `scripts`, `tests` — each pointing at the matching directory inside the cloned repo. The runtime IS the repo: any edit you make in either place lands in the same file, so `git diff` shows your changes immediately and there is no separate "curate" step.
 

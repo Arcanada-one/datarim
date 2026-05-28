@@ -208,7 +208,7 @@ Stages in `[brackets]` are conditional — included when the agent determines th
 
 ## Runtimes
 
-Datarim is runtime-agnostic. Three AI coding runtimes are supported with different integration levels: Claude Code (primary, native hook integration, full `coworker rtk` token-economy support), Codex CLI (parity via shim), and Cursor (limited — no native `PreToolUse` hook, full bulk-read token cost). See the canonical [Runtime support matrix](docs/use-cases.md#runtime-support) for details.
+Datarim is runtime-agnostic. Three AI coding runtimes are supported with different integration levels: Claude Code (primary, native hook integration, full `coworker rtk` token-economy support), Codex CLI (parity via shim), and Cursor (parity — native `beforeShellExecution` hook via `coworker rtk enable`). See the canonical [Runtime support matrix](docs/use-cases.md#runtime-support) for details.
 
 ---
 
