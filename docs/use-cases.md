@@ -251,15 +251,15 @@ Pre-launch checklist for websites — from domain configuration to analytics to 
 
 Datarim is runtime-agnostic. The same framework runs under three AI coding runtimes today, with different levels of integration:
 
-| Runtime       | Install command              | Pre-tool hook integration | Bulk-read economy via RTK | Status        |
+| Runtime       | Install command              | Hook integration                                  | Bulk-read economy via RTK | Status        |
 |---------------|------------------------------|---------------------------|---------------------------|---------------|
 | Claude Code   | `install.sh`                 | Native                    | Full                      | Primary       |
 | Codex CLI     | `install.sh --with-codex`    | Shim via `coworker rtk`   | Full (with shim)          | Parity        |
-| Cursor        | `install.sh --with-cursor`   | Not available             | Not applicable            | Limited       |
+| Cursor        | `install.sh --with-cursor`   | Native `beforeShellExecution` hook (`rtk hook cursor`) | Full (via `coworker rtk`) | Parity        |
 
-**Why Cursor is limited.** Cursor does not expose the `PreToolUse` hook surface that Claude Code and Codex CLI rely on for runtime delegation enforcement and bulk-read passthrough. As a result, the `coworker rtk` token-economy plugin has no insertion point on Cursor, and bulk-read commands (`git status`, `git log`, repeat file reads) incur full token cost on every cycle. Cursor still works for Project Files and non-hook workflows; the limitation is published honestly so operators can size token budgets correctly. See release notes for v2.23.0 for the full disclosure.
+**Cursor parity via a native hook.** Cursor Agent has no Claude-style `PreToolUse` hook, but it exposes a native `beforeShellExecution` hook. `coworker rtk enable` (Coworker v0.6.2+) registers `rtk hook cursor` in `~/.cursor/hooks.json`; cursor-agent pipes each shell command to it and honours the rewritten `rtk <cmd>` form, so bulk-read output is compacted exactly as on Claude Code and Codex CLI. Verified live: inside cursor-agent, `ls -la` returns the rtk-compacted form rather than raw bytes — no shell-rc mutation involved. `install.sh --with-cursor` mirrors Datarim skills and the delegation rule; `coworker rtk enable` opts into the RTK token economy (default-off, all runtimes). An earlier «no native hook / inherited» framing was inaccurate; this matrix is the corrected source of truth.
 
-**Picking a runtime.** Use Claude Code if you want the primary path with everything wired in. Use Codex CLI if you prefer the OpenAI-side toolchain and accept the small bookkeeping of the `coworker rtk` shim. Use Cursor if Cursor is your existing editor — Datarim commands and skills work, you just pay full bulk-read costs.
+**Picking a runtime.** Use Claude Code if you want the primary path with everything wired in. Use Codex CLI if you prefer the OpenAI-side toolchain and accept the small bookkeeping of the `coworker rtk` shim. Use Cursor if Cursor is your existing editor — `install.sh --with-cursor` mirrors skills and the delegation rule, and `coworker rtk enable` wires the native `beforeShellExecution` hook for full RTK parity.
 
 ---
 
