@@ -65,7 +65,7 @@ Rotation keeps the most-recent 10 copies per basename (configurable via `DR_KB_B
 
 ```sh
 # 1. Go to the repo root (the parent of datarim/).
-cd /path/to/repo-root
+cd /path/to/repo-root || exit 1
 
 # 2. List backups for the damaged file, newest first.
 ls -t datarim/.backups/backlog.md.*.bak | head -5
