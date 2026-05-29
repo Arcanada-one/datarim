@@ -39,6 +39,8 @@ The init-task file is one of three per-task artefacts that share the `{TASK-ID}`
 
 The stage-snapshot is a sibling, not a replacement — init-task captures *what the operator asked for*; snapshot captures *what the agent last reported*. `/dr-next` and `/dr-orchestrate` read the snapshot first for context-resume after `/clear`.
 
+**Deferred-operator-step handoff artefacts MUST live in a durable per-task path, never `/tmp`.** When an agent prepares a file for a step the operator will run later (a privileged config swap, a sudo-only edit, a manual deploy input), write it to `datarim/tasks/{TASK-ID}-handoff.<ext>`, not `/tmp/`. Session-scratch directories are cleared between sessions: a handoff file written to `/tmp` can vanish before the operator runs the command, silently breaking a `cp`/apply chain whose source no longer exists. The durable path survives the gap between the agent preparing the artefact and the operator applying it, and is greppable from the archive later.
+
 ## Artifact schema
 
 Required YAML frontmatter (closed schema):

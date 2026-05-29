@@ -38,7 +38,7 @@ description: Implement planned changes using TDD and AI quality principles
 7.  **ACTION**:
     - **TDD Loop**: Write test -> Fail -> Code -> Pass.
     - Implement one stub/method at a time.
-    - Follow `datarim/patterns.md` and `datarim/style-guide.md`.
+    - Follow `datarim/history/patterns.md` and `datarim/style-guide.md`.
     - Apply quality rules: max 50 lines/method, max 7-9 objects in scope, tests before code.
 
 7.5 **GAP DISCOVERY** (during implementation):

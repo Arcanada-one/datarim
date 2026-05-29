@@ -55,6 +55,8 @@ fi
 printf '%s/datarim\n' "$DR_DIR"
 ```
 
+This rule is implemented once, canonically, in `scripts/lib/resolve-datarim-root.sh` — `resolve_datarim_root [start]` echoes the **repo-root** (the parent of the KB-marked `datarim/`), and `assert_not_nested_datarim <root>` rejects a root already inside a `datarim/` (the `datarim/datarim/` nesting vector). Every consumer that needs the KB location (the snapshot writer, `datarim-doctor.sh`, the `dev-tools/check-*.sh` validators) sources this file rather than re-implementing the walk-up — three divergent re-implementations were the root cause of nested directories and a missed `docs→history` migration. The `--root` argument means **repo-root** everywhere.
+
 ## Core Files
 
 - `tasks.md` — active task tracking
@@ -76,7 +78,7 @@ printf '%s/datarim\n' "$DR_DIR"
 - `reflection/` — reflection documents
 - `qa/` — QA reports
 - `reports/` — debug, diagnostic, and compliance reports
-- `docs/` — framework evolution log and related documentation
+- `history/` — append-only KB ledgers (evolution-log, activity-log, patterns); committed via `.gitignore` negation
 - `insights/` — research insights documents (created by /dr-prd Phase 1.3, updated by /dr-do gap discovery)
 
 ## Documentation Boundary
@@ -84,7 +86,18 @@ printf '%s/datarim\n' "$DR_DIR"
 Completed task archives live outside `datarim/`, in `documentation/archive/{area}/`.
 
 - `datarim/` = local workflow state, normally ignored by git
+- `datarim/history/` = committed append-only KB ledgers (the exception inside the otherwise-ignored `datarim/`)
 - `documentation/archive/` = committed long-term project knowledge
+
+`datarim/history/` holds the append-only ledgers (`evolution-log.md`, `activity-log.md`, `patterns.md`) that the framework writes across tasks. They are knowledge-base content, so they are **committed** even though the rest of `datarim/` is gitignored. Because the consumer `.gitignore` ignores `/datarim/` wholesale, git never descends into it — so a bare `!/datarim/history/` does NOT un-ignore the contents. The negation MUST re-include the directory **and** its contents:
+
+```gitignore
+/datarim/
+!/datarim/history/
+!/datarim/history/**
+```
+
+`datarim-doctor.sh --fix` migrates a legacy `datarim/docs/` ledger directory to `datarim/history/`, relocates any `ADR-*.md` to `documentation/architecture/`, and writes this negation block automatically.
 
 ```text
 documentation/

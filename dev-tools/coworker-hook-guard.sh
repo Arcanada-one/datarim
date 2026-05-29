@@ -28,6 +28,72 @@
 # Backwards-compat: KIMI_GUARD_* env vars still honoured as fallback.
 set -euo pipefail
 
+# --- KB pre-overwrite backup side-effect -------------------------------------
+# The guard is the only universal enforcement point in front of BOTH the Write
+# tool and Bash overwrites (awk/tee/redirect), on every machine. When a write
+# targets a critical KB file under a resolved datarim/, take a fail-soft
+# pre-overwrite backup so a stray truncation or inter-agent race is recoverable.
+# Source the resolver + backup primitive from the canonical repo (this script
+# is symlinked into ~/.local/bin; follow the link to find the lib dir). Any
+# sourcing failure leaves the backup hooks as no-ops — the guard's primary
+# delegation behaviour is unaffected.
+# Resolve this script's real path, following a one-level symlink (the install
+# topology: ~/.local/bin/coworker-hook-guard → canonical dev-tools/…). Avoids
+# `readlink -f` which is not portable to stock macOS.
+_GUARD_SRC="${BASH_SOURCE[0]}"
+if [ -L "$_GUARD_SRC" ]; then
+  _GUARD_TGT="$(readlink "$_GUARD_SRC" 2>/dev/null || true)"
+  case "$_GUARD_TGT" in
+    /*) _GUARD_SRC="$_GUARD_TGT" ;;
+    ?*) _GUARD_SRC="$(dirname "$_GUARD_SRC")/$_GUARD_TGT" ;;
+  esac
+fi
+_GUARD_LIB="$(cd "$(dirname "$_GUARD_SRC")/../scripts/lib" 2>/dev/null && pwd || true)"
+_KB_BACKUP_READY=0
+if [ -n "$_GUARD_LIB" ] && [ -f "$_GUARD_LIB/kb-backup.sh" ] && [ -f "$_GUARD_LIB/resolve-datarim-root.sh" ]; then
+  # shellcheck source=../scripts/lib/resolve-datarim-root.sh
+  if . "$_GUARD_LIB/resolve-datarim-root.sh" 2>/dev/null; then
+    # shellcheck source=../scripts/lib/kb-backup.sh
+    if . "$_GUARD_LIB/kb-backup.sh" 2>/dev/null; then
+      _KB_BACKUP_READY=1
+    fi
+  fi
+fi
+
+# Back up <target> if it is an existing critical KB file under a datarim/.
+# Always returns 0 (fail-soft) - must never block the write it precedes.
+#
+# <target> may be RELATIVE: a Bash redirect (awk ... > backlog.md) or a Write
+# file_path carries whatever the agent typed, which is relative when the
+# session cwd is already inside the KB - the exact original incident shape.
+# The second arg <base_cwd> is the PreToolUse payload's cwd (the directory the
+# command runs in); a relative target is canonicalised against it before the
+# repo-root resolve + datarim/ membership match. Without this, the bare-name
+# incident vector silently skipped the backup.
+kb_backup_if_critical() {
+  [ "$_KB_BACKUP_READY" = 1 ] || return 0
+  local target="$1" base_cwd="${2:-$PWD}" abs base repo_root rel
+  [ -n "$target" ] || return 0
+  # Canonicalise a relative target against the session cwd.
+  case "$target" in
+    /*) abs="$target" ;;
+    *)  abs="$base_cwd/$target" ;;
+  esac
+  [ -f "$abs" ] || return 0
+  base="$(basename "$abs")"
+  kb_is_critical_basename "$base" || return 0
+  # Resolve the repo-root from the file's own directory.
+  repo_root="$(resolve_datarim_root "$(dirname "$abs")" 2>/dev/null || true)"
+  [ -n "$repo_root" ] || return 0
+  # relpath under datarim/ - the target must live inside <repo_root>/datarim/.
+  case "$abs" in
+    "$repo_root"/datarim/*) rel="${abs#"$repo_root"/datarim/}" ;;
+    *) return 0 ;;
+  esac
+  backup_critical_kb_file "$repo_root" "$rel" 2>/dev/null || true
+  return 0
+}
+
 # Read gate is token-estimation based: est_tokens = wc -c / divisor (divisor
 # by extension), with a delegation point and a hard ceiling that routes to
 # grep-only. Legacy line-count vars (COWORKER_GUARD_READ_THRESHOLD /
@@ -115,6 +181,12 @@ emit_read_deny() {
 
 input=$(cat)
 event=$(printf '%s' "$input" | jq -r '.hook_event_name // empty')
+# Session cwd from the PreToolUse payload (Claude Code includes it). It anchors
+# the canonicalisation of RELATIVE Write/Bash-redirect targets to the right KB
+# - the bare-name incident vector (awk ... > backlog.md run inside datarim/).
+# Fall back to the hook process $PWD when the field is absent.
+session_cwd=$(printf '%s' "$input" | jq -r '.cwd // empty')
+[ -n "$session_cwd" ] || session_cwd="$PWD"
 
 if [ "$event" = "SessionStart" ] || [ -z "$(printf '%s' "$input" | jq -r '.tool_name // empty')" ]; then
   if [ "$event" = "SessionStart" ]; then
@@ -183,6 +255,8 @@ case "$tool" in
     ;;
   Write)
     f=$(printf '%s' "$input" | jq -r '.tool_input.file_path // empty')
+    # Pre-overwrite backup side-effect (fail-soft, never blocks the write).
+    kb_backup_if_critical "$f" "$session_cwd"
     if check_write_protected "$f"; then
       emit_write_deny "$f"
     fi
@@ -210,6 +284,23 @@ case "$tool" in
     # shell is reserved for forward-compat / alias.
     cmd=$(printf '%s' "$input" | jq -r '.tool_input.command // empty')
     [ -n "$cmd" ] || exit 0
+    # Pre-overwrite backup side-effect for the awk/tee/redirect class (the
+    # actual incident: `awk … > backlog.md`). Best-effort: extract `> TARGET`,
+    # `>> TARGET`, and `tee TARGET` operands and back up any that are critical
+    # KB files. Obfuscated/computed redirects are out of scope (documented in
+    # the recovery how-to). $cmd is never eval'd — operands are matched, not run.
+    if [ "$_KB_BACKUP_READY" = 1 ]; then
+      # `>`/`>>` redirect targets (may be relative - resolved against cwd)
+      printf '%s\n' "$cmd" \
+        | grep -oE '>>?[[:space:]]*[^[:space:]|;&<>]+' 2>/dev/null \
+        | sed -E 's/^>>?[[:space:]]*//' \
+        | while IFS= read -r _rt; do [ -n "$_rt" ] && kb_backup_if_critical "$_rt" "$session_cwd"; done || true
+      # `tee [-a] TARGET...` operands (may be relative - resolved against cwd)
+      printf '%s\n' "$cmd" \
+        | grep -oE 'tee([[:space:]]+-a)?[[:space:]]+[^[:space:]|;&<>]+' 2>/dev/null \
+        | sed -E 's/^tee([[:space:]]+-a)?[[:space:]]+//' \
+        | while IFS= read -r _rt; do [ -n "$_rt" ] && kb_backup_if_critical "$_rt" "$session_cwd"; done || true
+    fi
     # TUNE-0156: HEAD-blind branch creation gate.
     # Deny `git checkout -b NAME` / `git switch -c NAME` without 4th positional
     # start-point (`main` / SHA / explicit `HEAD`). Compound commands fall

@@ -125,7 +125,7 @@ SNAP
 main() {
     local mode=""
     local task_id=""
-    local root="$PWD"
+    local root=""
 
     if [ $# -eq 0 ]; then
         usage
@@ -142,6 +142,19 @@ main() {
             *) usage; return 3 ;;
         esac
     done
+
+    # Default --root via the canonical resolver so a nested cwd still finds the
+    # repo-root. Fail-soft: fall back to $PWD if the resolver is absent.
+    if [ -z "$root" ]; then
+        local _css_lib
+        _css_lib="$(cd "$(dirname "${BASH_SOURCE[0]}")/../scripts/lib" 2>/dev/null && pwd)"
+        if [ -n "$_css_lib" ] && [ -f "$_css_lib/resolve-datarim-root.sh" ]; then
+            # shellcheck source=../scripts/lib/resolve-datarim-root.sh
+            . "$_css_lib/resolve-datarim-root.sh"
+            root="$(resolve_datarim_root 2>/dev/null || true)"
+        fi
+        [ -z "$root" ] && root="$PWD"
+    fi
 
     if [ "$mode" = "selftest" ]; then
         if self_test; then

@@ -119,7 +119,7 @@ effort: high
     - Update CLAUDE.md if counts, behavior descriptions, or references became stale
     - Update README.md if install flow, counts, or structure documentation became stale
     - Update dr-help.md if command behavior or command lists changed
-    - Log all changes in `datarim/docs/evolution-log.md`
+    - Log all changes in `datarim/history/evolution-log.md`
 
 10. **VERIFY**: Run final check:
     - All counts in docs match actual files

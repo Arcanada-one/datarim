@@ -110,7 +110,17 @@ while [ $# -gt 0 ]; do
 done
 
 [ -z "$MODE" ] && { echo "ERROR: one of --task, --verify or --all is required" >&2; exit 2; }
-[ -z "$ROOT" ] && ROOT="$(pwd)"
+# Default --root via the canonical resolver so a nested cwd still finds the
+# repo-root. Fail-soft: fall back to $PWD if the resolver is absent.
+if [ -z "$ROOT" ]; then
+    _exp_lib="$(cd "$(dirname "${BASH_SOURCE[0]}")/../scripts/lib" 2>/dev/null && pwd)"
+    if [ -n "$_exp_lib" ] && [ -f "$_exp_lib/resolve-datarim-root.sh" ]; then
+        # shellcheck source=../scripts/lib/resolve-datarim-root.sh
+        . "$_exp_lib/resolve-datarim-root.sh"
+        ROOT="$(resolve_datarim_root 2>/dev/null || true)"
+    fi
+    [ -z "$ROOT" ] && ROOT="$(pwd)"
+fi
 [ -z "$TODAY" ] && TODAY="$(date +%Y-%m-%d)"
 
 TASKS_DIR="$ROOT/datarim/tasks"

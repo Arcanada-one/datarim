@@ -38,7 +38,7 @@ This skill is **invoked internally by `/dr-archive` Step 0.5** for every complet
     - Present Class A proposals to user for approval. Hold Class B until PRD is updated, then re-present.
     - **Stack-agnostic gate (MANDATORY before write):** before applying any approved Class A proposal that writes to `$HOME/.claude/{skills,agents,commands,templates}/`, load `$HOME/.claude/skills/evolution/stack-agnostic-gate.md` and run the gate against the proposal text (script form: `scripts/stack-agnostic-gate.sh <target>`). FAIL → reject the proposal, do NOT write; reword to stack-neutral or escalate to user as «belongs in project's CLAUDE.md, not framework runtime».
     - **Bats verification (MANDATORY after write):** after applying any approved Class A proposal that touches `skills/`, `agents/`, `commands/`, `templates/`, or `tests/` in the framework repo, run `bats tests/` from the repo root. Failed tests = re-open the proposal as REJECTED with the diff and failing-test names; do NOT log as APPLIED in `evolution-log.md`. Source: prior incident — a Class A apply (`keyword-linter.md` added) silently broke `tests/utilities-decomposition.bats:T3` (hardcoded count 12 → actual 13); regression detected 1 day late only at the subsequent /dr-do.
-    - Log approved changes in `datarim/docs/evolution-log.md`.
+    - Log approved changes in `datarim/history/evolution-log.md`.
 7.  **HEALTH CHECK**:
     - Count total skills, agents, commands in the active scope.
     - Check against Health Metrics thresholds (see `evolution.md`).
