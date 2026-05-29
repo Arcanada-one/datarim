@@ -134,3 +134,19 @@ EOF
     run "$SCRIPT" --root nonexistent-dir --no-baseline
     [ "$status" -eq 2 ]
 }
+
+# T11 scope: vendored skills/.system/ content is not scanned → exit 0
+@test "T11 skills/.system/ vendored content pruned from scan → exit 0" {
+    mkdir -p tree/skills/.system/openai-docs
+    # Vendored doc with an absolute API-path link that would trip the
+    # path-traversal guard if scanned. It must be pruned, not flagged.
+    cat > tree/skills/.system/openai-docs/guide.md <<'EOF'
+# Vendored OpenAI reference.
+See [the guide](/api/docs/guides/prompting) for details.
+Bare mention skills/does-not-exist.md should also be ignored here.
+EOF
+    run "$SCRIPT" --root tree --no-baseline
+    [ "$status" -eq 0 ]
+    # No error/orphan referencing the vendored file.
+    ! echo "$output" | grep -qE '\.system'
+}
