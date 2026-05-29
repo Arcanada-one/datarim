@@ -45,7 +45,9 @@ _count_baks() {
 @test "B3 backup dir is created chmod 700" {
     bash -c '. "$1"; backup_critical_kb_file "$2" backlog.md' _ "$BACKUP_LIB" "$TMPROOT"
     local mode
-    mode="$(stat -f '%Lp' "$TMPROOT/datarim/.backups" 2>/dev/null || stat -c '%a' "$TMPROOT/datarim/.backups")"
+    # GNU stat (-c) first; BSD/macOS stat (-f) fallback. On Linux `stat -f`
+    # silently switches into file-system-status mode and prints garbage.
+    mode="$(stat -c '%a' "$TMPROOT/datarim/.backups" 2>/dev/null || stat -f '%Lp' "$TMPROOT/datarim/.backups")"
     [ "$mode" = "700" ]
 }
 
