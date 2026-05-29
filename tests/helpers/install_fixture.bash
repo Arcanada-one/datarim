@@ -2,7 +2,7 @@
 # Shared setup for install.bats and adjacent topology tests.
 #
 # Builds a minimal fake repo under $BATS_TEST_TMPDIR/fake-repo/ that mirrors
-# the real framework layout (4 install scopes + VERSION + install.sh) and a
+# the real framework layout (7 install scopes + VERSION + install.sh) and a
 # clean fake CLAUDE_DIR under $BATS_TEST_TMPDIR/fake-claude/.
 #
 # The real install.sh under test is copied in at setup time — each test is
@@ -16,7 +16,7 @@ setup_fixture() {
     export FAKE_REPO="$BATS_TEST_TMPDIR/fake-repo"
     export FAKE_CLAUDE="$BATS_TEST_TMPDIR/fake-claude"
     export FAKE_HOME="$BATS_TEST_TMPDIR/fake-home"
-    mkdir -p "$FAKE_REPO"/{agents,skills,commands,templates,scripts,tests}
+    mkdir -p "$FAKE_REPO"/{agents,skills,commands,templates,scripts,tests,dev-tools}
     mkdir -p "$FAKE_HOME"
 
     echo "1.9.0-test" > "$FAKE_REPO/VERSION"
@@ -27,6 +27,12 @@ setup_fixture() {
     echo "# testing" > "$FAKE_REPO/skills/testing/SKILL.md"
     echo "# dr-init"  > "$FAKE_REPO/commands/dr-init.md"
     echo "# prd"     > "$FAKE_REPO/templates/prd-template.md"
+
+    # dev-tools/ is a first-class install scope. install.sh's INSTALL_SCOPES
+    # loop does `cp -R "$SRC/dev-tools"` (project mode) and `ln -sfn` (fanout);
+    # a missing source dir makes project mode error out and fanout dangle, so
+    # the fixture must mirror it like every other scope.
+    echo '#!/bin/sh' > "$FAKE_REPO/dev-tools/doc-fanout-lint.sh"
 
     # Supporting subdirectory in skills/ (mimics skills/datarim-system/).
     mkdir -p "$FAKE_REPO/skills/sub-dir"

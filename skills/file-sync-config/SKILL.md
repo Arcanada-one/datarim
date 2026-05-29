@@ -132,6 +132,15 @@ Does the SECOND node have live edits, agents, or production runtime in this repo
 .claude
 .githooks
 
+# === Datarim pre-overwrite backups — host-local, MUST NOT sync ===
+# The KB backup primitive writes pre-overwrite copies under datarim/.backups/.
+# They are recovery ground-truth for ONE host's agent↔agent races; syncing
+# them across machines would spawn the very .sync-conflict-* files they exist
+# to protect against. Keep them out of every sync set (they are also gitignored
+# by the wholesale datarim/ ignore).
+datarim/.backups
+.backups
+
 # === Build / deps (cross-platform unsafe) ===
 node_modules
 dist

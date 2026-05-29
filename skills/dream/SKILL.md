@@ -148,7 +148,7 @@ Dream maintains `datarim/index.md` — a navigable catalog of the knowledge base
 
 ## Activity Log
 
-Dream appends to `datarim/docs/activity-log.md`:
+Dream appends to `datarim/history/activity-log.md`:
 
 ```markdown
 # Activity Log

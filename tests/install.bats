@@ -285,9 +285,9 @@ setup() {
     [ ! -d "$FAKE_CLAUDE/backups" ] || ! ls "$FAKE_CLAUDE"/backups/force-* >/dev/null 2>&1
 }
 
-# ---------- TUNE-0091: dev-tools/ excluded from install ----------
+# ---------- dev-tools/ is a first-class install scope ----------
 
-@test "T34 TUNE-0091 dev-tools/ is NOT installed (symlink mode)" {
+@test "T34 dev-tools/ is installed as a symlink (symlink mode)" {
     # Create a fake dev-tools/ tree in the source repo (mirrors real layout).
     mkdir -p "$FAKE_REPO/dev-tools/tests"
     echo '#!/bin/sh' > "$FAKE_REPO/dev-tools/doc-fanout-lint.sh"
@@ -295,20 +295,23 @@ setup() {
     echo "# bats" > "$FAKE_REPO/dev-tools/tests/doc-fanout-lint.bats"
     run_install
     [ "$status" -eq 0 ]
-    # Post-install: dev-tools must not appear under CLAUDE_DIR.
-    [ ! -e "$FAKE_CLAUDE/dev-tools" ]
+    # Post-install: dev-tools resolves to the source tree (runtime IS repo).
+    assert_symlink_to "$FAKE_CLAUDE/dev-tools" "$FAKE_REPO/dev-tools"
 }
 
-@test "T35 TUNE-0091 dev-tools/ is NOT installed (copy mode)" {
+@test "T35 dev-tools/ is installed as a real dir (copy mode)" {
     mkdir -p "$FAKE_REPO/dev-tools"
     echo '#!/bin/sh' > "$FAKE_REPO/dev-tools/doc-fanout-lint.sh"
     run_install --copy
     [ "$status" -eq 0 ]
-    [ ! -e "$FAKE_CLAUDE/dev-tools" ]
+    # Copy mode materialises dev-tools as a real directory, not a symlink.
+    [ -d "$FAKE_CLAUDE/dev-tools" ]
+    [ ! -L "$FAKE_CLAUDE/dev-tools" ]
+    [ -f "$FAKE_CLAUDE/dev-tools/doc-fanout-lint.sh" ]
 }
 
-@test "T36 TUNE-0091 INSTALL_SCOPES whitelist excludes dev-tools" {
-    # Static contract assertion: dev-tools must not appear in INSTALL_SCOPES.
-    grep -E '^INSTALL_SCOPES=' "$FAKE_REPO/install.sh" | grep -qv 'dev-tools'
+@test "T36 INSTALL_SCOPES whitelist includes dev-tools" {
+    # Static contract assertion: dev-tools is a member of INSTALL_SCOPES.
+    grep -E '^INSTALL_SCOPES=' "$FAKE_REPO/install.sh" | grep -q 'dev-tools'
     [ "$?" -eq 0 ]
 }

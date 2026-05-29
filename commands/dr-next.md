@@ -38,7 +38,7 @@ Depends on current phase
 
 ## Next Steps (CTA)
 
-After resolving the current phase, the planner/architect/developer agent (whichever owns the resumed phase) MUST emit a CTA block ([definition](../skills/cta-format.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
+After resolving the current phase, the planner/architect/developer agent (whichever owns the resumed phase) MUST emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-next`:**
 

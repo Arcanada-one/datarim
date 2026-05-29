@@ -4,6 +4,50 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.26.0] — 2026-05-29
+
+A KB-integrity protection bundle. One architectural defect produced three symptoms — a lost `backlog.md` (overwritten via an `awk … > file` redirect with no pre-write backup), a nested `datarim/datarim/`, and append-only ledgers landing in a legacy `datarim/docs/`. Root cause: no shared path resolver, and `--root` meant the `datarim/` dir in the doctor but the repo-root everywhere else.
+
+### Added
+
+- **Canonical KB-root resolver** `scripts/lib/resolve-datarim-root.sh`. `resolve_datarim_root [start]` echoes the **repo-root** (the parent of the KB-marked `datarim/`) using the documented git-toplevel-anchor + walk-up rule; `assert_not_nested_datarim <root>` rejects a root already inside a `datarim/` (the `datarim/datarim/` vector). Replaces three divergent walk-up re-implementations with one source of truth. `--root` now means repo-root everywhere.
+- **Pre-overwrite backup primitive** `scripts/lib/kb-backup.sh`. `backup_critical_kb_file <repo-root> <relpath>` copies a critical KB file to `datarim/.backups/<basename>.<ISO-ts>.bak` before it is overwritten, with FIFO rotation (`DR_KB_BACKUP_KEEP`, default 10), `chmod 700` dir / `chmod 600` files, and strict fail-soft semantics (a failed backup never blocks the write). Reuses the portable `acquire_plugin_lock`. Critical allowlist: `backlog.md backlog-archive.md tasks.md activeContext.md progress.md`.
+- **Hook-level enforcement.** `coworker-hook-guard.sh` PreToolUse `Write` and `Bash` branches take a fail-soft pre-overwrite backup when the target is a critical KB file — catching both the Write tool and `awk`/`tee`/`>`/`>>` redirect overwrites, on every machine, since neither calls a framework shell library. `datarim/.backups/` is gitignored by the wholesale `datarim/` ignore and added to the `file-sync-config` Syncthing/iCloud/rclone ignore set (host-local recovery ground-truth, never replicated).
+- **Recovery how-to** `docs/how-to/recover-datarim-files.md` — per-file source-of-truth priority table (backup → sync-conflict → task artefacts → archive frontmatter → transcripts), restore recipes, and the `datarim-doctor --fix` repair recipe.
+- **`datarim-doctor.sh` migration pass** (`--scope=history`, also runs under `--scope=all`/`--fix`): moves the ledgers to `datarim/history/`, relocates any architecture ADR to `documentation/architecture/` (task-id prefix stripped → `ADR-0002-`), rewrites the consumer `.gitignore` to the glob+negation form, and removes the empty `docs/` — idempotently and losslessly. Auto-heals on `/dr-init` Step 2.4. Reuses the existing lock + pre-write backup tarball; leaves the `EMITTED_COUNT` invariant untouched (orthogonal to the ledger move).
+- **Regression suites** `tests/resolve-datarim-root.bats` (11), `tests/kb-backup.bats` (13), `tests/datarim-datarim-nesting-regression.bats` (4), `tests/doctor-root-contract.bats` (8), `tests/coworker-guard-kb-backup.bats` (9), plus `tests/datarim-doctor-history-migration.bats` (13) and `tests/datarim-history-gitignore-negation.bats` (5).
+
+### Changed
+
+- **`--root` is repo-root canonical.** `datarim-doctor.sh` now treats `--root` as the repo-root (deriving `<repo-root>/datarim` internally), matching how `/dr-init` Step 2.4 and `/dr-doctor` already invoke it — this is why the `docs→history` migration silently never fired through the pipeline before. A one-release transition shim normalises a legacy `datarim/`-dir argument and warns. The snapshot writer and the `dev-tools/check-*.sh` validators source the resolver so a nested cwd still finds the repo-root.
+- **Consumer knowledge bases retire the misleadingly-named `datarim/docs/` ledger directory.** Append-only ledgers (`evolution-log.md`, `activity-log.md`, `patterns.md`) now live in `datarim/history/`, committed to git via a `.gitignore` negation block (`/datarim/*` + `!/datarim/history/` + `!/datarim/history/**`). The generic «docs» name — copied from the framework source-tree — had caused a near-miss deletion when a cleanup agent mistook the live ledgers for duplicate documentation.
+- **All framework write-instructions** (`/dr-archive`, `/dr-optimize`, `/dr-dream`, reflecting/evolution/dream skills, optimizer/librarian agents, `/dr-do` patterns reference) now target `datarim/history/`.
+- **Storage-contract docs** (`skills/datarim-system/path-and-storage.md`, `CLAUDE.md` state tree, `docs/getting-started.md`) describe `history/`, the gitignore-negation gotcha, and point at the resolver as the canonical implementation of the path rule.
+
+### Note
+
+- The framework source-tree `code/datarim/docs/` (real user documentation + product evolution ledger) is unchanged — only consumer knowledge bases migrate. Bash-redirect backup detection is best-effort (literal `>`/`>>`/`tee` targets); obfuscated/computed redirects are documented as out of scope in the recovery how-to.
+
+## [2.24.0] — 2026-05-28
+
+### Changed
+
+- **coworker-hook-guard Read gate: line-count → estimated-token model.** The `Read`/`view` gate no longer counts lines (`wc -l`, blind to per-line density — a 1-line minified/base64 file read as "1 line"). It now estimates tokens as `wc -c / divisor` (divisor by extension, conservative-downward: `.b64`/`.base64` → 1, `.min.js`/`.min.css` → 2, otherwise → 3) — pure bash, ~1 ms, zero model, zero network. Two env-tunable thresholds: delegation `COWORKER_GUARD_DELEGATE_TOKENS` (default 10000) and a hard ceiling `COWORKER_GUARD_CEILING_TOKENS` (default 100000) that routes to grep-only and never to any LLM. Opt-in fail-soft tokenizer behind `COWORKER_GUARD_USE_TOKENIZER=1` (`COWORKER_GUARD_TOKENIZER_BIN`); absent/erroring binary silently falls back to the heuristic.
+- **Legacy line-count vars deprecated, never reinterpreted.** `COWORKER_GUARD_READ_THRESHOLD` / `KIMI_GUARD_READ_THRESHOLD` are ignored under the token model; if set, the guard emits a single SessionStart deprecation note naming the new vars (it does NOT silently reinterpret a stale `=700` as 700 bytes).
+- **Two deny messages bound to the crossed threshold, guarded by a defensive invariant.** The delegation deny leads with the Bash-native edit hatch (`python3`/`sed` are not gated, so the `Edit` Read-precondition is moot), then `coworker ask`, then a relaunch-only env-override note (an in-session `! export` never reaches the hook). The ceiling deny steers to `sed`/`grep -n`/`head` windows and MUST NOT suggest `coworker ask`. A § Defensive Invariants precondition guard exits 2 if a future refactor decouples the wording from the crossed tier.
+- **Delegation mandate harmonized to the token unit across all surfaces.** The written ">600 lines summed" trigger became ">15000 estimated tokens summed" across the canonical fragment, the Cursor `.mdc`, the regenerated Codex `AGENTS.override.md`, the Cursor rule, and `~/.claude/CLAUDE.md`. The git-diff/log trigger stays line-based (diffs are uniform prose).
+- **RTK upgraded 0.40.0 → 0.42.0** and the signal/bulk passthrough re-validated (passthrough/plugin + live pytest green; `git push` passes through with its completion marker intact while bulk reads are still RTK-reduced). Upstream `rtk-ai/rtk#2121` ("built-in signal/bulk classifier") remains OPEN, so the local `rtk-signal-guard.sh` passthrough store is retained, not simplified.
+
+### Fixed
+
+- **`git show <ref>:<path>` blob-read false-positive in the Bash branch.** The guard conflated `git show <commit>` (diff/log dump, delegation-worthy) with `git show <ref>:<path>` (blob read — small, signal not bulk). A colon-shape probe now passes the blob form through, and the reset-case was extended to cover `| sed`, `| awk`, `--no-pager`, and a stdout redirect (`X > file` yields no stdout to pipe into `coworker ask`).
+
+### Added
+
+- **Guard regression suites.** `tests/test-coworker-hook-guard-token-threshold.bats` (delegate/ceiling bands, divisor classes, legacy-var ignore, opt-in tokenizer fail-soft, deny-wording invariant) and `tests/test-coworker-hook-guard-git-show.bats` (blob passthrough vs diff delegation, extended reset-case). The Codex parity suite's Read fixture was re-based on byte size rather than line count.
+
+- **`documentation/infrastructure/Coworker.md` § Hook enforcement — escape-hatch.** Documents the catch-22 Read→Edit unblock (Bash `python3`/`sed`/`grep -n` are not gated), that the deny "approve" is dead in accept-edits / autonomous mode, the in-session `! export` footgun, and the ceiling → grep-only path.
+
 ## [2.23.0] — 2026-05-28
 
 ### Added

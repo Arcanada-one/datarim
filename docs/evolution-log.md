@@ -1843,3 +1843,7 @@ Reflection on TUNE-0280 (`/dr-continue` + stage-snapshot replay verification) su
 - Surfaces synced: `code/datarim/VERSION`, `code/datarim/CLAUDE.md` (Version line), `code/datarim/README.md` (badge ×2), `Projects/Datarim/CLAUDE.md` (Текущая версия), `Projects/Datarim/README.md` (Версия), `Projects/Websites/datarim.club/config.php` (version key).
 - Site `datarim.club/pages/changelog.php` — new 2.22.0 release entry: outsider-friendly English instruction surface (164 files), `check-jargon-gloss.sh` validator + manifest, `/dr-archive` body-english fail-hard flip, English-Only mandate in 4 CLAUDE.md, init-task Q&A process-rule disposition, V-AC axis-split Pattern 2.
 - Deploy: `./deploy.sh datarim.club` (operator-authorized via /dr-auto session).
+
+## SPACE-0003 reflection — durable handoff-artefact path (2026-05-29)
+
+- **P-1 (skill-update, Class A APPLIED):** `skills/init-task-persistence/SKILL.md` — added rule: deferred-operator-step handoff artefacts MUST live in `datarim/tasks/{TASK-ID}-handoff.<ext>`, never `/tmp/`. Source: SPACE-0003 (Arcanada ecosystem) — a `/tmp/hosts.SPACE-0003-new` handoff file vanished between /dr-qa and /dr-archive (session-scratch cleared), breaking the operator's `cp` apply chain on a missing source; second attempt needed after regeneration. Gates: stack-agnostic PASS (--diff-only), body-english clean, init-task bats green (32 tests across 3 files). Cross-ecosystem apply: SPACE task surfaced a framework-runtime improvement.

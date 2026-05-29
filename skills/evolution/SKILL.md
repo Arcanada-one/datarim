@@ -193,7 +193,7 @@ Framework bloat degrades agent performance. Every new file adds to context loadi
 
 ## Evolution Log
 
-All approved changes are logged in `datarim/docs/evolution-log.md`. Create this file if it does not exist.
+All approved changes are logged in `datarim/history/evolution-log.md`. Create this file if it does not exist.
 
 ### Log Format
 

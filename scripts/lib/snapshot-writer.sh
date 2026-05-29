@@ -13,6 +13,8 @@ SNAPSHOT_WRITER_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # shellcheck source=plugin-system.sh
 . "${SNAPSHOT_WRITER_LIB_DIR}/plugin-system.sh"
+# shellcheck source=resolve-datarim-root.sh
+. "${SNAPSHOT_WRITER_LIB_DIR}/resolve-datarim-root.sh"
 
 readonly SNAPSHOT_TASK_ID_RE='^[A-Z][A-Z0-9-]+-[0-9]{4,5}$'
 readonly SNAPSHOT_STAGE_RE='^(init|prd|plan|design|do|qa|verify|compliance|archive|edit|publish|write|dream|doctor|optimize|auto)$'
@@ -128,6 +130,14 @@ write_stage_snapshot() {
 
     if [ ! -d "$root" ]; then
         printf 'write_stage_snapshot: root not a directory: %s\n' "$root" >&2
+        return 1
+    fi
+
+    # --root is repo-root by canon (resolve-datarim-root.sh). Refuse a root that
+    # is itself inside a datarim/ — building "$root/datarim/snapshots" from such
+    # a root is the datarim/datarim/ nesting vector (PRD V-AC-5). Reject loudly
+    # rather than silently writing a misplaced KB.
+    if ! assert_not_nested_datarim "$root"; then
         return 1
     fi
 

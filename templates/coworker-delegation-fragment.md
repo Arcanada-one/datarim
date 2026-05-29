@@ -40,7 +40,11 @@ OpenAI) via the OpenAI-compatible API. Provider/model switchable per call.
 
 ### Always `coworker ask` if ANY trigger fires
 
-- Total lines to read **>600** (sum across files, not per file).
+- Total estimated tokens to read **>15000** (sum across files — roughly a
+  single large file the read-guard already flags at ~10k est-tokens, or
+  several mid-size files together). The guard estimates tokens as
+  `wc -c / divisor`; you do not have to compute it precisely — if a file
+  looks large or dense (minified JS, long JSON, base64), assume it trips.
 - **≥3 files** for one question.
 - Any read from `wiki/_raw_/`.
 - `/dr-do`, `/dr-prd`, `/dr-plan`, `/dr-archive`, `/dr-dream`, `/dr-qa`
@@ -77,8 +81,8 @@ ERROR: file 'X' (extension '.py') is not in the allowed list (.markdown, .md, .t
 Use Claude's Read tool for code analysis, or pass --allow-code / COWORKER_ALLOW_CODE=1 to override.
 ```
 
-To delegate **code** reads (>600 lines / ≥3 files), opt in explicitly with
-ONE of:
+To delegate **code** reads (>15000 est-tokens / ≥3 files), opt in explicitly
+with ONE of:
 
 ```bash
 coworker ask --allow-code --paths src/foo.py src/bar.py --question "..."

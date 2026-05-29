@@ -29,7 +29,7 @@ Enable when validating a new convention rolled across multiple `/dr-*` commands,
 
 ## Enabling the harness
 
-```bash
+```text
 dev-tools/datarim-stage-probe-init.sh <TASK-ID>
 # ok: harness ready at /tmp/datarim-test-<TASK-ID>
 ```
@@ -56,7 +56,7 @@ Fail-soft: a journal-write failure never aborts the snapshot itself (V-AC-7 cont
 
 To verify the `coworker --profile datarim` system_prompt actually transmits Datarim conventions to the external LLM:
 
-```bash
+```text
 dev-tools/datarim-stage-probe-coworker-echo.sh <TASK-ID>
 # ok: keywords=4 (response saved to /tmp/datarim-test-<TASK-ID>/coworker-echo.txt)
 ```
@@ -67,7 +67,7 @@ The probe sends a fixed question (`List 3 Datarim conventions you must follow wh
 
 ## Cleanup
 
-```bash
+```text
 dev-tools/datarim-stage-probe-cleanup.sh <TASK-ID>
 # ok: removed /tmp/datarim-test-<TASK-ID>
 ```

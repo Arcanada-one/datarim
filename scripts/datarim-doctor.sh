@@ -29,6 +29,8 @@ IFS=$'\n\t'
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/canonicalise.sh
 . "$SCRIPT_DIR/lib/canonicalise.sh"
+# shellcheck source=lib/resolve-datarim-root.sh
+. "$SCRIPT_DIR/lib/resolve-datarim-root.sh"
 
 # --- defaults ---------------------------------------------------------------
 ROOT=""
@@ -48,7 +50,7 @@ USAGE:
 
 OPTIONS:
   --fix               Apply fixes (default: dry-run)
-  --scope=<scope>     One of: tasks|backlog|active|backlog-archive|progress|descriptions|all (default: all)
+  --scope=<scope>     One of: tasks|backlog|active|backlog-archive|progress|descriptions|history|all (default: all)
   --root=<path>       Datarim root (default: walk up from $PWD)
   --quiet             Exit-code only (no stdout)
   --no-prompt         Skip conflicts in Pass 4 backlog-archive migration (alias for --conflict-policy=skip)
@@ -81,29 +83,55 @@ for arg in "$@"; do
     esac
 done
 
+# --- helpers (defined before root resolution so the shim can warn) ----------
+log() { if [ "$QUIET" -eq 0 ]; then echo "$@"; fi; }
+warn() { if [ "$QUIET" -eq 0 ]; then echo "WARN: $*" >&2; fi; }
+
 # --- root resolution --------------------------------------------------------
-if [ -z "$ROOT" ]; then
-    cur="$PWD"
-    while [ "$cur" != "/" ]; do
-        if [ -d "$cur/datarim" ]; then ROOT="$cur/datarim"; break; fi
-        cur="$(dirname "$cur")"
-    done
-fi
-if [ -z "$ROOT" ] || [ ! -d "$ROOT" ]; then
-    # TUNE-0030: probe-prefix can run without datarim/ (uses $PWD walk-up only).
-    if [ -n "$PROBE_PREFIX" ]; then
-        ROOT_ABS="$PWD"
-    else
+# Contract: --root is the REPO-ROOT (the parent of datarim/), the
+# way /dr-init Step 2.4 and /dr-doctor invoke this script. $ROOT_ABS is derived
+# internally as <repo-root>/datarim, which the rest of the script treats as the
+# KB directory. A one-release transition shim accepts a legacy datarim/-dir
+# argument (the historical meaning), normalises it, and warns.
+#
+# $PROBE_PREFIX runs without a datarim/ (pure $PWD walk-up for prefix lookup).
+if [ -n "$PROBE_PREFIX" ] && { [ -z "$ROOT" ] || [ ! -d "$ROOT" ]; }; then
+    ROOT_ABS="$PWD"
+else
+    if [ -z "$ROOT" ]; then
+        # Default: resolve the repo-root from $PWD via the canonical resolver
+        # (nesting-safe; finds the repo-root from any nested cwd). Fail-soft to
+        # the legacy walk-up if the resolver yields nothing.
+        ROOT="$(resolve_datarim_root 2>/dev/null || true)"
+        if [ -z "$ROOT" ]; then
+            cur="$PWD"
+            while [ "$cur" != "/" ]; do
+                if [ -d "$cur/datarim" ]; then ROOT="$cur"; break; fi
+                cur="$(dirname "$cur")"
+            done
+        fi
+    fi
+    if [ -z "$ROOT" ] || [ ! -d "$ROOT" ]; then
         [ "$QUIET" -eq 0 ] && echo "ERROR: --root not specified or not a directory" >&2
         exit 64
     fi
-else
-    ROOT_ABS="$(cd "$ROOT" && pwd)"
+    ROOT_ABS_GIVEN="$(cd "$ROOT" && pwd)"
+    if _dr_is_kb "$ROOT_ABS_GIVEN/datarim"; then
+        # Canonical repo-root form: derive the datarim/ dir.
+        ROOT_ABS="$ROOT_ABS_GIVEN/datarim"
+    elif _dr_is_kb "$ROOT_ABS_GIVEN"; then
+        # Legacy datarim/-dir form (transition shim): the argument IS the KB dir.
+        ROOT_ABS="$ROOT_ABS_GIVEN"
+        warn "--root=$ROOT_ABS_GIVEN is the legacy datarim/-dir form; --root is now the repo-root (normalised this run). Pass the parent directory instead."
+    else
+        # Neither a repo-root with a KB nor a KB dir. Preserve the historical
+        # behaviour of trusting the path as the datarim/ dir (lets callers point
+        # at a not-yet-populated dir, e.g. fresh /dr-init scaffolding).
+        ROOT_ABS="$ROOT_ABS_GIVEN"
+    fi
 fi
 
 # --- helpers ----------------------------------------------------------------
-log() { if [ "$QUIET" -eq 0 ]; then echo "$@"; fi; }
-warn() { if [ "$QUIET" -eq 0 ]; then echo "WARN: $*" >&2; fi; }
 
 # --- TUNE-0030: prefix → archive area resolution ----------------------------
 # Two-tier lookup:
@@ -500,6 +528,33 @@ if [ "$SCOPE" = "all" ]; then
     scan_routing_drift
 fi
 
+# --- ledger-history retire pass: detect docs/ ledger directory ---------------
+# Consumer KBs accumulate append-only ledgers (evolution-log, activity-log,
+# patterns) under datarim/docs/ — a cargo-culted name copied from the framework
+# source-tree. The honest home is datarim/history/ (committed via .gitignore
+# negation). $ROOT_ABS IS the datarim/ directory, so the ledger dir is
+# $ROOT_ABS/docs and the repo root is $(dirname "$ROOT_ABS").
+scan_docs_dir() {
+    local old_dir="$ROOT_ABS/docs"
+    [ -d "$old_dir" ] || return 0
+    local f
+    for f in evolution-log.md activity-log.md patterns.md; do
+        if [ -f "$old_dir/$f" ]; then
+            FINDINGS=$((FINDINGS + 1))
+            FINDING_LINES+=("$old_dir/$f: ledger must migrate to history/ (run --fix)")
+        fi
+    done
+    local adr
+    for adr in "$old_dir"/ADR-*.md; do
+        [ -e "$adr" ] || continue
+        FINDINGS=$((FINDINGS + 1))
+        FINDING_LINES+=("$adr: ADR must relocate to documentation/architecture/ (run --fix)")
+    done
+}
+if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "history" ]; then
+    scan_docs_dir
+fi
+
 # --- dry-run ----------------------------------------------------------------
 if [ "$MODE" = "dry-run" ]; then
     if [ "$FINDINGS" -eq 0 ]; then
@@ -695,6 +750,102 @@ EOF
     fi
     mkdir -p "$(dirname "$target")"
     printf '%s\n' "$content" > "$target"
+}
+
+# Portable in-place sed (BSD sed on macOS needs an explicit backup suffix arg
+# after -i; GNU sed treats it as the file). tmp-file rewrite works on both,
+# leaves no backup residue.
+sed_inplace() {
+    local expr="$1" file="$2" tmp
+    tmp="$(mktemp)"
+    sed "$expr" "$file" > "$tmp" && cat "$tmp" > "$file"
+    rm -f "$tmp"
+}
+
+# --- ledger-history retire pass: move docs/ ledgers → history/ ---------------
+# git mv when the path is tracked, else plain mv. Consumer ledgers are
+# gitignored pre-migration so plain mv is the live path; the bats fixture
+# tracks files to exercise the git-mv branch.
+git_mv_or_mv() {
+    local src="$1" dst="$2"
+    local dir; dir="$(dirname "$src")"
+    if git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
+       && git -C "$dir" ls-files --error-unmatch "$src" >/dev/null 2>&1; then
+        git -C "$dir" mv "$src" "$dst"
+    else
+        mv "$src" "$dst"
+    fi
+}
+
+# Move the three ledgers into datarim/history/, relocate any ADR-*.md under
+# docs/ to documentation/architecture/ADR-0002-<rest> (history-agnostic: the
+# task-id prefix is stripped), extend the consumer .gitignore negation block,
+# and remove the now-empty docs/. Idempotent. Loss-safety is provided by the
+# pre-write backup tarball (TUNE-0077) + atomic per-file mv; on any error
+# set -e aborts and the restore trap fires. MUST NOT touch EMITTED_COUNT /
+# PARSED_COUNT — that invariant counts operational-file one-liners only.
+migrate_ledger_history() {
+    local src_dir="$ROOT_ABS/docs"
+    local dst_dir="$ROOT_ABS/history"
+    local repo_root; repo_root="$(dirname "$ROOT_ABS")"
+    local adr_dst="$repo_root/documentation/architecture"
+    local gitignore="$repo_root/.gitignore"
+
+    [ -d "$src_dir" ] || return 0   # idempotent — nothing to migrate
+
+    mkdir -p "$dst_dir"
+
+    local f
+    for f in evolution-log.md activity-log.md patterns.md; do
+        [ -f "$src_dir/$f" ] && git_mv_or_mv "$src_dir/$f" "$dst_dir/$f"
+    done
+
+    local adr base rest
+    for adr in "$src_dir"/ADR-*.md; do
+        [ -e "$adr" ] || continue
+        mkdir -p "$adr_dst"
+        base="$(basename "$adr")"
+        # strip leading ADR-, then a leading <PREFIX>-<NNNN>- task-id segment
+        # if present (history-agnostic — no task id leaks into the new name).
+        rest="${base#ADR-}"
+        case "$rest" in
+            [A-Z][A-Z]*-[0-9][0-9][0-9][0-9]-*)
+                rest="$(printf '%s' "$rest" | sed -E 's/^[A-Z]{2,10}-[0-9]{4}-//')" ;;
+        esac
+        git_mv_or_mv "$adr" "$adr_dst/ADR-0002-$rest"
+    done
+
+    # Extend the consumer .gitignore so datarim/history/ is committed.
+    #
+    # git gotcha: a directory ignored with a TRAILING SLASH (`/datarim/`) cannot
+    # be re-included by negating a sub-path — git never descends into it. The
+    # ignore must use the glob form `/datarim/*` (ignore the ENTRIES, not the
+    # directory) so a later `!/datarim/history/` can re-include nested files.
+    # We therefore rewrite a wholesale `/datarim/` line to `/datarim/*` (once),
+    # then append the negation. Idempotent on the negation marker.
+    if [ -f "$gitignore" ]; then
+        # Rewrite the wholesale-ignore line to the glob form if present and not
+        # already converted. POSIX sed in-place (portable form with backup).
+        if grep -qxF '/datarim/' "$gitignore" && ! grep -qxF '/datarim/*' "$gitignore"; then
+            sed_inplace 's|^/datarim/$|/datarim/*|' "$gitignore"
+        fi
+        if ! grep -qF '!/datarim/history/' "$gitignore"; then
+            printf '\n# un-ignore history/ ledgers (append-only KB, committed)\n!/datarim/history/\n!/datarim/history/**\n' >> "$gitignore"
+        fi
+        # Explicitly ignore the pre-overwrite backup dir. The wholesale
+        # /datarim/* rule already covers it, but an explicit line keeps it
+        # ignored even if a consumer later adds a negation under the glob form.
+        if ! grep -qxF '/datarim/.backups/' "$gitignore"; then
+            printf '# host-local pre-overwrite KB backups (never committed)\n/datarim/.backups/\n' >> "$gitignore"
+        fi
+    else
+        printf '/datarim/*\n!/datarim/history/\n!/datarim/history/**\n# host-local pre-overwrite KB backups (never committed)\n/datarim/.backups/\n' > "$gitignore"
+    fi
+
+    # Remove now-empty docs/ (succeeds only if truly empty; residual files stay).
+    rmdir "$src_dir" 2>/dev/null || true
+
+    log "history: migrated docs/ ledgers → history/ (root=$ROOT_ABS)"
 }
 
 migrate_backlog_archive() {
@@ -1177,6 +1328,10 @@ if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "active" ]; then
 fi
 if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "backlog-archive" ]; then
     migrate_backlog_archive
+fi
+
+if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "history" ]; then
+    migrate_ledger_history
 fi
 
 if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "progress" ]; then

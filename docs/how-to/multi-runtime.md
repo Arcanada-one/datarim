@@ -15,7 +15,7 @@ This guide configures one workstation so that **Claude Code** (`~/.claude/`) and
 
 From the Datarim source repo:
 
-```bash
+```text
 cd ~/arcanada/Projects/Datarim/code/datarim
 ./install.sh --with-claude --with-codex
 ```
@@ -50,7 +50,7 @@ When you launch Codex CLI inside an Arcanada-managed workspace, the slash-comman
 
 To invoke a Datarim command under Codex, reference its markdown file by name in your prompt:
 
-```bash
+```text
 cd ~/arcanada
 codex exec --skip-git-repo-check \
     "Выполни workflow /dr-status — прочитай commands/dr-status.md и следуй инструкциям, верни TASK-ID + статус 3 активных задач"

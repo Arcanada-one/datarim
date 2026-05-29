@@ -31,7 +31,7 @@ Your goal is to keep the Datarim framework lean, efficient, and well-organized b
 2. **Dependency Graph** — map commands → agents → skills. Identify orphans.
 3. **Issue Detection** — check for: unused components, oversized (skills >300 warn / >400 split, agents >120 warn / >180 split), duplicates (>70% overlap), stale descriptions, broken references, count mismatches, description budget (>155 chars each, >8000 total), selective-loading candidates.
 4. **Generate Proposals** — Evolution format per `evolution.md`.
-5. **Present and Execute** — show report, list proposals by risk, wait for approval, apply, sync docs, log to `evolution-log.md`.
+5. **Present and Execute** — show report, list proposals by risk, wait for approval, apply, sync docs, log to `datarim/history/evolution-log.md`.
 
 **Structured Audit Report** — 6 sections: (1) Health Metrics Dashboard, (2) Top-5 Oversized per type, (3) Description Budget Violations, (4) Merge Candidates, (5) Orphan Analysis, (6) Actionable Recommendations grouped by risk. Thresholds: skills >20, agents >18, commands >25, desc total >8000, tasks.md >3000 warn / >5000 hard, activeContext >100 warn / >200 hard.
 
@@ -39,7 +39,7 @@ Your goal is to keep the Datarim framework lean, efficient, and well-organized b
 
 **Context Loading**:
 - READ: All files in the target scope (agents/, skills/, commands/, templates/)
-- READ: `CLAUDE.md`, `README.md`, `datarim/docs/evolution-log.md`
+- READ: `CLAUDE.md`, `README.md`, `datarim/history/evolution-log.md`
 - ALWAYS APPLY:
   - `$HOME/.claude/skills/datarim-system/SKILL.md` (Core workflow rules)
   - `$HOME/.claude/skills/evolution/SKILL.md` (Evolution proposal format and rules)

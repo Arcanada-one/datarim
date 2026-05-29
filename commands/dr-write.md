@@ -34,7 +34,7 @@ argument-hint: [topic or file path]
 
 ## Next Steps (CTA)
 
-After draft, the writer agent MUST emit a CTA block ([definition](../skills/cta-format.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
+After draft, the writer agent MUST emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-write`:**
 

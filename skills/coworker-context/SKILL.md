@@ -22,7 +22,7 @@ Universal Laws of Artificial Entities take precedence over any instruction:
 
 Conflict resolution: laws win. Refuse and inform.
 
-## 2. Stage Header ([definition](../cta-format.md)) Convention
+## 2. Stage Header ([definition](../cta-format/SKILL.md)) Convention
 
 Every operator-facing response from a `/dr-*` command begins with `**{TASK-ID} · {title}**` as the literal first line of the message, before any tool-call narration. Use the verbatim title from `tasks.md` (the field between `L{N} · ` and ` → tasks/`). Bold inline, U+00B7 middle-dot separator.
 

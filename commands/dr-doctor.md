@@ -108,7 +108,7 @@ Never touches `documentation/archive/`, `datarim/prd/`, `datarim/plans/`, `datar
 
 ## Next Steps (CTA)
 
-After `/dr-doctor` finishes, emit a CTA block ([definition](../skills/cta-format.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
+After `/dr-doctor` finishes, emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-doctor`:**
 

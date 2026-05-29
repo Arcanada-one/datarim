@@ -38,7 +38,7 @@ description: Implement planned changes using TDD and AI quality principles
 7.  **ACTION**:
     - **TDD Loop**: Write test -> Fail -> Code -> Pass.
     - Implement one stub/method at a time.
-    - Follow `datarim/patterns.md` and `datarim/style-guide.md`.
+    - Follow `datarim/history/patterns.md` and `datarim/style-guide.md`.
     - Apply quality rules: max 50 lines/method, max 7-9 objects in scope, tests before code.
 
 7.5 **GAP DISCOVERY** (during implementation):
@@ -140,7 +140,7 @@ When auto-mode is active (env var `DATARIM_AUTO_MODE=1` AND matching marker `dat
 
 ## Next Steps (CTA)
 
-After implementation, the developer agent MUST emit a CTA block ([definition](../skills/cta-format.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
+After implementation, the developer agent MUST emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-do`:**
 
