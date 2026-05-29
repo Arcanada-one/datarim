@@ -23,7 +23,7 @@ Profiles: `code` (default, generic analysis), `datarim` (Datarim artifacts), `so
 
 ## ALWAYS delegate via coworker ask when ANY trigger fires
 
-- Total lines to read >600 (sum across files, not per file).
+- Total estimated tokens to read >15000 (sum across files — roughly a single large file the read-guard flags at ~10k est-tokens, or several mid-size files together; the guard estimates tokens as `wc -c / divisor`, so assume large/dense files trip it).
 - ≥3 files for one question.
 - Any read from `wiki/_raw_/`.
 - Bootstrap reads (tasks.md + backlog.md + CLAUDE.md + PRD + plan) — one call, not per-file Read.
@@ -37,7 +37,7 @@ Profiles: `code` (default, generic analysis), `datarim` (Datarim artifacts), `so
 
 ## File-type policy (critical — common friction point)
 
-By default `coworker ask` accepts ONLY `.md`, `.markdown`, `.txt` files. Passing `.py`/`.ts`/`.js`/`.rs`/`.go`/`.sh`/`.mdc` exits 6 with: 'file X (extension .y) is not in the allowed list'.
+By default `coworker ask` accepts ONLY `.md`, `.markdown`, `.txt` files. Passing `.py`/`.ts`/`.js`/`.rs`/`.go`/`.sh`/`.mdc` exits 6 with: 'file X (extension .y) is not in the allowed list'. For code reads that trip a trigger (>15000 est-tokens / ≥3 files), opt in with `--allow-code` or `COWORKER_ALLOW_CODE=1`.
 
 For code delegation, explicitly add ONE of:
 

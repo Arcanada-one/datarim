@@ -290,7 +290,7 @@ your-project/
 │   ├── reflection/         # Reflection documents
 │   ├── qa/                 # QA reports
 │   ├── reports/            # Diagnostic reports
-│   └── docs/               # Evolution log
+│   └── history/            # Committed KB ledgers (evolution-log, activity-log, patterns)
 └── documentation/          # Project documentation (COMMITTED)
     └── archive/            # Completed task archives
         ├── infrastructure/

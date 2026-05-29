@@ -89,7 +89,7 @@ Create or update `datarim/index.md`:
 ### Step 9: Consolidate (full mode only)
 Propose structural improvements:
 - **Merge duplicates** — combine documents with >70% content overlap
-- **Extract patterns** — recurring themes across reflections → create `docs/patterns.md`
+- **Extract patterns** — recurring themes across reflections → create `datarim/history/patterns.md`
 - **Archive stale** — move completed/obsolete docs to `archive/`
 - **Add cross-references** — bidirectional links between related documents
 - **Add frontmatter** — fill in missing metadata where inferable
@@ -130,7 +130,7 @@ Which proposals should I apply? (all / none / comma-separated numbers)
 Wait for approval. Apply only approved changes.
 
 ### Step 11: Log
-Append maintenance summary to `datarim/docs/activity-log.md`.
+Append maintenance summary to `datarim/history/activity-log.md`.
 
 ## Output
 - Knowledge base inventory
@@ -141,7 +141,7 @@ Append maintenance summary to `datarim/docs/activity-log.md`.
 
 ## Next Steps (CTA)
 
-After dream-pass, the librarian agent MUST emit a CTA block ([definition](../skills/cta-format.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
+After dream-pass, the librarian agent MUST emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-dream`:**
 

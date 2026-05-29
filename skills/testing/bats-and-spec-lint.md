@@ -145,6 +145,25 @@ For any flag that can do wide damage (`--force`, `--delete-all`, `--reset`), wri
 
 Redirect `HOME` (see above) so these tests cannot accidentally hit the operator's real filesystem even if the guard is buggy.
 
+### Path-matched write gates: test both absolute AND relative target shapes
+
+When the script under test is a write gate that decides whether to act by matching the target path (a backup-before-overwrite hook, a redirect interceptor, a path allowlist), the test suite MUST exercise BOTH the absolute-path and the relative (cwd-relative, bare-name) target shapes. A gate that matches only an absolute pattern silently skips a relative target — and a suite that only ever passes absolute paths cannot catch that skip. The gate could be removed for the relative case and every absolute-only test would still pass.
+
+```bash
+# absolute target — the easy case the author reaches for first
+@test "redirect to ABSOLUTE critical path is intercepted" {
+    run run_gate "echo x > $TMPROOT/datarim/backlog.md"
+    [ "$status" -eq 0 ]; [ "$(_count_baks backlog.md)" -eq 1 ]
+}
+# relative target — the real incident shape (cwd already inside the guarded tree)
+@test "redirect to RELATIVE critical path is intercepted (incident vector)" {
+    run run_gate "echo x > backlog.md" "$TMPROOT/datarim"   # 2nd arg = payload cwd
+    [ "$status" -eq 0 ]; [ "$(_count_baks backlog.md)" -eq 1 ]
+}
+```
+
+Pair this with the RED-proof discipline: revert the gate's path-canonicalisation and confirm the relative-target test goes RED, proving it is load-bearing rather than vacuous. A relative target reaches the gate whenever the invoking process's cwd is already inside the guarded directory — the most common real-world shape, and the one absolute-only fixtures never produce.
+
 ### Exemplar
 
 `tests/install.bats`: ~30 tests covering content-type whitelisting, `--force` safety (live detect, sanity guards, non-TTY, backup+SUCCESS), idempotency, scope-contract alignment, and `.md`-only regression. Shared helper at `tests/helpers/install_fixture.bash`.

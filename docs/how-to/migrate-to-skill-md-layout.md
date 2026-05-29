@@ -33,7 +33,7 @@ are preserved verbatim.
 
 ## Step 2 — Migrate the skill
 
-```bash
+```text
 dev-tools/migrate-skill.sh --root . --skill <name>
 ```
 
@@ -94,7 +94,7 @@ output under `datarim/qa/qa-report-TUNE-0304-live-smoke.md` (V-AC-11).
 
 Per-skill rollback is trivial because the flat originals are preserved:
 
-```bash
+```text
 rm -rf skills/<name>/SKILL.md
 rmdir skills/<name>/ 2>/dev/null || true   # only if dir is empty
 ```

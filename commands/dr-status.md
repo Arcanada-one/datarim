@@ -53,7 +53,7 @@ None (read-only)
 
 ## Next Steps (CTA)
 
-After printing status, MUST emit a CTA block ([definition](../skills/cta-format.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`. Since `/dr-status` is read-only, the CTA is purely navigational.
+After printing status, MUST emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`. Since `/dr-status` is read-only, the CTA is purely navigational.
 
 **Routing logic for `/dr-status`:**
 

@@ -166,7 +166,7 @@ Before proceeding, ask:
 
 ## Spec-First with Golden Fixtures (Format-Change Pattern)
 
-When a task changes **output format, structure, or contract across multiple files** (e.g. CTA block ([definition](../cta-format.md))s across 17 commands + 5 agents, response envelopes across N services, log fields across handlers), apply this pattern as a default rule for L3+ tasks:
+When a task changes **output format, structure, or contract across multiple files** (e.g. CTA block ([definition](../cta-format/SKILL.md))s across 17 commands + 5 agents, response envelopes across N services, log fields across handlers), apply this pattern as a default rule for L3+ tasks:
 
 ```
 SEQUENCE:

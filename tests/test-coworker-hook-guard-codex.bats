@@ -73,11 +73,13 @@ run_hook_apply_patch() {
     printf '%s' "$payload" | "$HOOK"
 }
 
-# Materialise a 500-line tmp file for the >400-line threshold cases.
+# Materialise a tmp file that exceeds the token delegation threshold. The Read
+# gate is byte/token-based (~40 KB ÷ 3 ≈ 13k est-tokens > the 10k default), not
+# line-based — a 500-line seq file is only ~630 est-tokens and correctly passes.
 make_long_file() {
     local f
     f=$(mktemp -t cw-hook-codex-long.XXXXXX)
-    seq 1 500 > "$f"
+    head -c 40000 < /dev/zero | tr '\0' a > "$f"
     printf '%s' "$f"
 }
 
@@ -85,7 +87,7 @@ make_long_file() {
 # Cases
 # ----------------------------------------------------------------------
 
-@test "Case A — view 500-line file → deny (S2 parity with Read S1)" {
+@test "Case A — view over-token file → deny (S2 parity with Read S1)" {
     f=$(make_long_file)
     run run_hook_view "$f"
     rm -f "$f"

@@ -1,0 +1,236 @@
+#!/usr/bin/env bats
+#
+# Read-branch token-estimation gate for coworker-hook-guard.
+#
+# Replaces the legacy `wc -l` line-count gate with an estimated-token gate:
+# est_tokens = wc -c / divisor (divisor by extension, conservative-downward).
+# Two thresholds — delegation (default 10000 est-tokens, route to coworker ask
+# or a Bash-native edit) and a hard ceiling (default 100000 est-tokens, route
+# to grep-only / sed / head, never to any LLM). Optional fail-soft tokenizer
+# behind COWORKER_GUARD_USE_TOKENIZER=1.
+#
+# Synthetic fixtures are generated in-test (no committed large blobs).
+#
+# Tests run against the canonical Datarim source by default so they exercise
+# the freshly-edited script without requiring a relink of ~/.local/bin first.
+
+HOOK="${HOOK:-${BATS_TEST_DIRNAME}/../dev-tools/coworker-hook-guard.sh}"
+
+setup() {
+    [ -x "$HOOK" ] || skip "coworker-hook-guard not executable at $HOOK"
+    command -v jq >/dev/null || skip "jq required"
+}
+
+# ----------------------------------------------------------------------
+# Helpers
+# ----------------------------------------------------------------------
+
+# Invoke the hook with a PreToolUse Read payload carrying $1 as file_path.
+run_hook_read() {
+    local path="$1"
+    local payload
+    payload=$(jq -nc --arg p "$path" '{
+        hook_event_name: "PreToolUse",
+        tool_name: "Read",
+        tool_input: { file_path: $p }
+    }')
+    printf '%s' "$payload" | "$HOOK"
+}
+
+# Make a file of exactly $1 bytes of a single repeated char, NO newline
+# (so `wc -l` reports 0 lines — the minified/single-line blind spot).
+make_dense_file() {
+    local bytes="$1" ext="${2:-}"
+    local f
+    f=$(mktemp -t cw-hook-dense.XXXXXX)
+    if [ -n "$ext" ]; then
+        mv "$f" "$f$ext"
+        f="$f$ext"
+    fi
+    head -c "$bytes" < /dev/zero | tr '\0' a > "$f"
+    printf '%s' "$f"
+}
+
+# Many short numeric lines: high line-count, low token density.
+make_short_lines() {
+    local n="$1"
+    local f
+    f=$(mktemp -t cw-hook-short.XXXXXX)
+    seq 1 "$n" > "$f"
+    printf '%s' "$f"
+}
+
+decision_of() { printf '%s' "$1" | jq -r '.hookSpecificOutput.permissionDecision'; }
+reason_of()   { printf '%s' "$1" | jq -r '.hookSpecificOutput.permissionDecisionReason'; }
+
+# ----------------------------------------------------------------------
+# Core token-vs-line cases
+# ----------------------------------------------------------------------
+
+@test "delegate-zone single-line dense file (60KB, 0 newlines) → deny" {
+    f=$(make_dense_file 60000)            # est = 60000/3 = 20000 > 10000
+    run run_hook_read "$f"
+    rm -f "$f"
+    [ "$status" -eq 0 ]
+    [ "$(decision_of "$output")" = "deny" ]
+}
+
+@test "delegate deny message routes to coworker ask, NOT to ceiling grep-only" {
+    f=$(make_dense_file 60000)
+    run run_hook_read "$f"
+    rm -f "$f"
+    reason=$(reason_of "$output")
+    case "$reason" in
+        *"coworker ask"*) : ;;
+        *) printf 'delegate reason lacked coworker ask: %s\n' "$reason" >&2; return 1 ;;
+    esac
+}
+
+@test "700-line short file → silent pass (many lines, few tokens)" {
+    f=$(make_short_lines 700)             # ~2.7KB → est ~900 < 10000
+    run run_hook_read "$f"
+    rm -f "$f"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
+
+@test "ceiling file (360KB) → deny, grep-only wording, NOT coworker ask" {
+    f=$(make_dense_file 360000)           # est = 120000 > 100000
+    run run_hook_read "$f"
+    rm -f "$f"
+    [ "$status" -eq 0 ]
+    [ "$(decision_of "$output")" = "deny" ]
+    reason=$(reason_of "$output")
+    # Must steer to byte-window tools …
+    case "$reason" in *sed*) : ;; *) printf 'ceiling reason lacked sed: %s\n' "$reason" >&2; return 1 ;; esac
+    case "$reason" in *grep*) : ;; *) printf 'ceiling reason lacked grep: %s\n' "$reason" >&2; return 1 ;; esac
+    case "$reason" in *head*) : ;; *) printf 'ceiling reason lacked head: %s\n' "$reason" >&2; return 1 ;; esac
+    # … and MUST NOT suggest sending the blob to a provider.
+    case "$reason" in *"coworker ask"*) printf 'ceiling reason wrongly suggested coworker ask: %s\n' "$reason" >&2; return 1 ;; esac
+}
+
+@test "tiny file → silent pass (below delegate)" {
+    f=$(make_dense_file 1200)             # est = 400 < 10000
+    run run_hook_read "$f"
+    rm -f "$f"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
+
+# ----------------------------------------------------------------------
+# Divisor model (dense extension classes)
+# ----------------------------------------------------------------------
+
+@test ".min.js uses divisor 2 (25KB → est 12500 → delegate deny)" {
+    f=$(make_dense_file 25000 .min.js)    # 25000/2 = 12500 > 10000
+    run run_hook_read "$f"
+    rm -f "$f"
+    [ "$status" -eq 0 ]
+    [ "$(decision_of "$output")" = "deny" ]
+}
+
+@test ".b64 uses divisor 1 (10001 bytes → est 10001 → delegate deny)" {
+    f=$(make_dense_file 10001 .b64)       # 10001/1 = 10001 > 10000
+    run run_hook_read "$f"
+    rm -f "$f"
+    [ "$status" -eq 0 ]
+    [ "$(decision_of "$output")" = "deny" ]
+}
+
+@test ".b64 just under (9000 bytes → est 9000 → pass)" {
+    f=$(make_dense_file 9000 .b64)        # 9000/1 = 9000 < 10000
+    run run_hook_read "$f"
+    rm -f "$f"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
+
+# ----------------------------------------------------------------------
+# Env-var migration & legacy footgun
+# ----------------------------------------------------------------------
+
+@test "legacy COWORKER_GUARD_READ_THRESHOLD is ignored (no line gating)" {
+    # A 700-line file would have tripped the old line gate at 400; under the
+    # token model it must pass (legacy line var must not reinterpret as bytes).
+    f=$(make_short_lines 700)
+    COWORKER_GUARD_READ_THRESHOLD=1 run run_hook_read "$f"
+    rm -f "$f"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
+
+@test "env-tunable delegate threshold lifts the gate" {
+    f=$(make_dense_file 60000)            # est 20000 — would deny at default
+    COWORKER_GUARD_DELEGATE_TOKENS=999999 COWORKER_GUARD_CEILING_TOKENS=9999999 \
+        run run_hook_read "$f"
+    rm -f "$f"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
+
+# ----------------------------------------------------------------------
+# Opt-in tokenizer (fail-soft)
+# ----------------------------------------------------------------------
+
+@test "USE_TOKENIZER=1 with absent binary falls back to heuristic (no crash)" {
+    f=$(make_short_lines 700)             # heuristic est ~900 → pass
+    COWORKER_GUARD_USE_TOKENIZER=1 COWORKER_GUARD_TOKENIZER_BIN=definitely-no-such-binary-xyz \
+        run run_hook_read "$f"
+    rm -f "$f"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
+
+@test "USE_TOKENIZER=1 with a fake tokenizer overrides the heuristic" {
+    # Fake tokenizer reports a huge count for a tiny file → ceiling deny.
+    bindir=$(mktemp -d -t cw-hook-bin.XXXXXX)
+    cat > "$bindir/faketok" <<'EOF'
+#!/usr/bin/env bash
+echo 200000
+EOF
+    chmod +x "$bindir/faketok"
+    f=$(make_dense_file 1200)             # heuristic est 400 — would pass
+    PATH="$bindir:$PATH" COWORKER_GUARD_USE_TOKENIZER=1 COWORKER_GUARD_TOKENIZER_BIN=faketok \
+        run run_hook_read "$f"
+    rm -f "$f"; rm -rf "$bindir"
+    [ "$status" -eq 0 ]
+    [ "$(decision_of "$output")" = "deny" ]
+    reason=$(reason_of "$output")
+    case "$reason" in *sed*) : ;; *) printf 'tokenizer ceiling reason lacked sed: %s\n' "$reason" >&2; return 1 ;; esac
+}
+
+@test "USE_TOKENIZER=1 with non-numeric tokenizer output fails soft to heuristic" {
+    bindir=$(mktemp -d -t cw-hook-bin.XXXXXX)
+    cat > "$bindir/faketok" <<'EOF'
+#!/usr/bin/env bash
+echo "error: model not found"
+EOF
+    chmod +x "$bindir/faketok"
+    f=$(make_short_lines 700)             # heuristic est ~900 → pass
+    PATH="$bindir:$PATH" COWORKER_GUARD_USE_TOKENIZER=1 COWORKER_GUARD_TOKENIZER_BIN=faketok \
+        run run_hook_read "$f"
+    rm -f "$f"; rm -rf "$bindir"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
+
+# ----------------------------------------------------------------------
+# Defensive invariant — deny wording bound to the crossed threshold
+# ----------------------------------------------------------------------
+
+@test "deny-wording invariant: corrupted tier mapping exits 2" {
+    mut="$BATS_TMPDIR/guard-mut-$$.sh"
+    cp "$HOOK" "$mut"
+    # Corrupt the caller so the delegate band emits the CEILING tier. The
+    # ceiling precondition (est must exceed CEILING) then fails for a
+    # delegate-band file → exit 2 (invariant fires).
+    sed -i.bak 's/emit_read_deny delegate/emit_read_deny ceiling/' "$mut"
+    grep -q 'emit_read_deny ceiling "$f" "$est"' "$mut" || skip "mutation point not found (structure changed)"
+    chmod +x "$mut"
+    f=$(make_dense_file 60000)            # delegate band (est 20000 <= ceiling)
+    pf="$BATS_TMPDIR/payload-$$.json"
+    jq -nc --arg p "$f" '{hook_event_name:"PreToolUse",tool_name:"Read",tool_input:{file_path:$p}}' > "$pf"
+    run bash -c "'$mut' < '$pf'"
+    rm -f "$f" "$mut" "$mut.bak" "$pf"
+    [ "$status" -eq 2 ]
+}
