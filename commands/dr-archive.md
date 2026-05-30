@@ -178,6 +178,14 @@ Complete and archive current task.
      Print the findings and: "Self-inflicted gap detected. Finish the work in
      this branch/cycle. Do NOT absorb it via a self-filed backlog item." Route
      back to `/dr-do {TASK-ID}`.
+   - **Dual-repo tasks:** when the touched code lives in a repository nested
+     under the workspace root (e.g. a framework task whose reports sit in the
+     outer workspace repo while the code sits in a nested repo), add
+     `--extra-repo <nested-repo-path>` to each scan so the touched-set covers
+     the nested repo's `merge-base..HEAD`. Without it the scanner sees an empty
+     touched-set from the outer root and fail-opens (advisory), making the gate
+     a no-op for that class. `--extra-repo` is repeatable and additive; an
+     unreadable path warns and is skipped (fail-open preserved).
    - A legitimate deferral (time-dependent or hard external blocker) clears the
      gate ONLY by citing a follow-up ID / `blocked_by` reference that exists in
      `backlog.md` / `tasks.md`. Both scanners are fail-open on their own

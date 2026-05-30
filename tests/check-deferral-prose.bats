@@ -113,6 +113,115 @@ EOF
     [[ "$output" == *"WARNING"* ]] || [[ "$output" == *"merge-base unavailable"* ]] || [[ "$output" == *"touched-file set empty"* ]]
 }
 
+# ---------- fenced-block / blockquote exclusion: a QUOTED detection-target
+# phrase is not self-deferral. A report ABOUT the anti-deferral gate inevitably
+# quotes the tell-phrases next to the gate's own touched filenames; those quotes
+# must not BLOCK. The same phrase as live prose still BLOCKs. ----------
+
+@test "PASS: deferral phrase inside a fenced code block is a quote, not self-deferral" {
+    cat > "$REPORT" <<'EOF'
+## Layer 3b
+The gate output below is a sample, not a live claim about my own work:
+
+```
+spaces/aether/runbook.md:5: "informational" on touched file 'runbook.md'
+out of scope, not a blocker, will fix later
+```
+
+All wishes met; nothing deferred.
+EOF
+    run "$SCRIPT" --file "$REPORT" --touched-files "$TOUCHED"
+    [ "$status" -eq 0 ]
+}
+
+@test "PASS: deferral phrase inside a blockquote is a quote, not self-deferral" {
+    cat > "$REPORT" <<'EOF'
+## Layer 3b
+Quoting the original incident for context:
+
+> The stale counter in spaces/aether/runbook.md is informational, not a blocker,
+> out of scope for this task. Will fix later.
+
+That pattern is exactly what this gate now blocks. All my own wishes are met.
+EOF
+    run "$SCRIPT" --file "$REPORT" --touched-files "$TOUCHED"
+    [ "$status" -eq 0 ]
+}
+
+@test "BLOCK: live-prose deferral still blocks even when the report also quotes phrases in a fence" {
+    cat > "$REPORT" <<'EOF'
+## Layer 3b
+Sample gate output for reference:
+
+```
+out of scope, not a blocker
+```
+
+But really, the stale counter in spaces/aether/runbook.md is informational and
+out of scope for this task — I will fix it later.
+EOF
+    run "$SCRIPT" --file "$REPORT" --touched-files "$TOUCHED"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"runbook.md"* ]]
+}
+
+# ---------- dual-repo: --extra-repo augments the touched-set from a nested
+# repository. For a framework (TUNE-*) task the workflow-state report lives in
+# the outer workspace repo while the touched code lives in a separate nested
+# repo (code/datarim/.git). Without --extra-repo the scanner fail-opens from the
+# outer root and the gate is a no-op for that class; --extra-repo teaches it the
+# nested repo's touched-set so a genuine self-deferral on framework code BLOCKs.
+# ----------
+
+@test "dual-repo: --extra-repo adds nested-repo touched files so a self-deferral on framework code BLOCKs" {
+    NESTED="$WORK/nested"
+    mkdir -p "$NESTED"
+    git -C "$NESTED" init -q
+    git -C "$NESTED" config user.email t@t.t
+    git -C "$NESTED" config user.name t
+    echo "base" > "$NESTED/scanner.sh"
+    git -C "$NESTED" add scanner.sh
+    git -C "$NESTED" commit -qm base
+    # Realistic dual-repo topology: origin/main exists (fetched) and the feature
+    # branch is ahead by one touched commit, so merge-base..HEAD resolves the set.
+    git -C "$NESTED" update-ref refs/remotes/origin/main HEAD
+    echo "changed" >> "$NESTED/scanner.sh"
+    git -C "$NESTED" commit -qam change
+    # report (outer repo) defers a self-inflicted gap in the nested file scanner.sh
+    cat > "$REPORT" <<'EOF'
+## Layer 3b
+The edge case in scanner.sh is informational, not a blocker, out of scope — will fix later.
+EOF
+    # Without --touched-files; outer root has no useful diff. Pass the nested set explicitly.
+    NESTED_TOUCHED="$WORK/nested-touched.txt"
+    echo "scanner.sh" > "$NESTED_TOUCHED"
+    run "$SCRIPT" --file "$REPORT" --touched-files "$NESTED_TOUCHED"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"scanner.sh"* ]]
+    # Now via --extra-repo (auto-derive nested touched-set), no explicit list:
+    run "$SCRIPT" --file "$REPORT" --root "$WORK" --extra-repo "$NESTED"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"scanner.sh"* ]]
+}
+
+@test "dual-repo: --extra-repo with a clean nested set does not false-block a quoted phrase" {
+    NESTED="$WORK/nested2"
+    mkdir -p "$NESTED"
+    git -C "$NESTED" init -q
+    git -C "$NESTED" config user.email t@t.t
+    git -C "$NESTED" config user.name t
+    echo "base" > "$NESTED/other.sh"
+    git -C "$NESTED" add other.sh
+    git -C "$NESTED" commit -qm base
+    # report mentions a file NOT touched in the nested repo → foreign scope → PASS
+    cat > "$REPORT" <<'EOF'
+## Layer 3b
+The legacy module unrelated.sh is out of scope for this task. All my own wishes met.
+EOF
+    run "$SCRIPT" --file "$REPORT" --root "$WORK" --extra-repo "$NESTED"
+    [ "$status" -eq 0 ]
+}
+
 # ---------- usage / shape guards ----------
 
 @test "usage: missing --file → exit 2" {
