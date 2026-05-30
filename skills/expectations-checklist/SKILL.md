@@ -96,7 +96,10 @@ invocation. Migration recipe: add `evidence_type: empirical` (or
   - Связанный AC из PRD: V-AC-<N> или «—»
   - evidence_type: <empirical | static | measurement>  # v2 — required
   - override: <optional reason text, only used when status flips to
-    partial/missed and the operator decides to ship anyway>
+    partial/missed and the deferral is genuinely legitimate>
+  - override_by: <agent | operator>            # who authored the override
+  - override_class: <time-dependent | external-blocker | operator-authorized | plan-scope-boundary>
+  - override_artifact: <follow-up ID or blocked_by reference verifiable in the KB>
   - #### История статусов
     - <ISO 8601> / <local time> · <stage> · <prior> → <new> · reason: <plain ru>
   - #### Текущий статус
@@ -118,6 +121,25 @@ _(empty on first write)_
 - **`override`** is plain prose, optional. When the current status is
   `partial` or `missed`, an override of fewer than 10 characters is treated
   as absent and the verify mode emits `BLOCKED`.
+- **`override_by`** records who authored the override (`agent` | `operator`).
+  This closes the self-certification loophole: an agent cannot wave its own
+  `partial`/`missed` wish through with prose alone.
+  - `operator` — accepted unconditionally (the operator may authorise any
+    deferral; the ≥10-char floor still applies).
+  - `agent` — accepted ONLY when the deferral is genuinely legitimate, proven
+    by `override_class` ∈ {`time-dependent`, `external-blocker`,
+    `operator-authorized`, `plan-scope-boundary`} AND an `override_artifact`
+    that names a follow-up ID or `blocked_by` reference which the verifier
+    confirms EXISTS in `backlog.md` / `tasks.md`. Prose without a verifiable
+    artefact → `BLOCKED`.
+  - Absent `override_by` on a `partial`/`missed` item defaults to `agent`
+    (most restrictive) for back-compat — i.e. a legacy prose-only override
+    now `BLOCKED`. Add `override_by: operator` (or a verifiable artefact) to
+    clear it.
+- **`override_class`** / **`override_artifact`** — only meaningful for an
+  `agent`-authored override. A legitimate deferral is time-dependent (result
+  physically unverifiable now, needs ≥1 day) or hard-external-blocker; the
+  artefact makes that claim falsifiable rather than self-asserted.
 - **`#### История статусов`** is append-only by convention. One line per <!-- allow-non-ascii: russian-status-history-section-name-from-canonical-schema -->
   status transition. Canonical line format:
   `<ISO> / <local> · <stage> · <prior> → <new> · reason: <plain ru>`. The
@@ -241,10 +263,14 @@ validator's stdout markers):
 - **`PASS`** — every item is `met`, `n-a`, `pending`, or `deleted`. The
   command proceeds.
 - **`CONDITIONAL_PASS`** — at least one `partial`/`missed` item, but every
-  such item carries an operator override ≥10 characters. The command
-  proceeds; the report records the conditional state.
+  such item carries a valid override ≥10 characters that is either
+  operator-authored (`override_by: operator`) or agent-authored with a
+  verifiable legitimate-deferral artefact (`override_class` in the allowed
+  enum + an `override_artifact` ID present in the KB). The command proceeds;
+  the report records the conditional state.
 - **`BLOCKED`** — at least one `partial`/`missed` item without a valid
-  override. The validator prints `Focus items: <wish_id_1,...,N>` and
+  override, OR with an agent-authored prose-only override that names no
+  verifiable artefact (the self-certification loophole). The validator prints `Focus items: <wish_id_1,...,N>` and
   `Next step: /dr-do <ID> --focus-items <wish_id_1,...,N>`. The command
   refuses to continue and emits a FAIL-Routing CTA (see `cta-format.md`).
 
