@@ -1,0 +1,46 @@
+# deferral-phrases.txt — seed FLOOR for check-deferral-prose.sh.
+# One phrase per line, matched case-insensitively as a substring.
+# This list is a FLOOR, not a ceiling: rephrasings are caught structurally by
+# the legitimate-deferral artefact requirement, by principle FB-5a, and by the
+# compliance human-summary. Extend freely; do not treat absence as permission.
+
+# scope-minimization
+out of scope
+out-of-scope
+вне scope
+вне рамок задачи
+
+# severity-minimization
+not a blocker
+non-blocking
+не блокер
+не критично
+low risk deferral
+
+# informational-labelling
+informational
+informational only
+информационно
+
+# cosmetic-labelling
+cosmetic
+just cosmetic
+косметика
+косметический
+
+# temporal-deferral
+will fix later
+fix it later
+fix later
+доделаю позже
+доделаем позже
+поправлю позже
+post-archive
+follow-up later
+can revisit
+next cycle
+
+# self-exculpation
+pre-existing
+was already like this
+уже было так

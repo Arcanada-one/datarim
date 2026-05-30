@@ -187,6 +187,7 @@ parse_items() {
         BEGIN {
             in_section = 0; current_item = 0; total_items = 0; errors = 0
             wish_id = ""; status = ""; override_text = ""; evidence_type = ""
+            override_by = ""; override_class = ""; override_artifact = ""
             history_count = 0; has_history_heading = 0; has_status_heading = 0
             in_history = 0; in_status = 0
         }
@@ -209,6 +210,7 @@ parse_items() {
                 total_items++
                 current_item = total_items
                 wish_id = ""; status = ""; override_text = ""; evidence_type = ""
+                override_by = ""; override_class = ""; override_artifact = ""
                 history_count = 0; has_history_heading = 0; has_status_heading = 0
                 in_history = 0; in_status = 0
                 next
@@ -227,6 +229,21 @@ parse_items() {
                 if (match($0, /^  - override:[ \t]*/)) {
                     override_text = substr($0, RLENGTH + 1)
                     sub(/[ \t]+$/, "", override_text)
+                    in_history = 0; in_status = 0; next
+                }
+                if (match($0, /^  - override_by:[ \t]*/)) {
+                    override_by = substr($0, RLENGTH + 1)
+                    sub(/[ \t]+$/, "", override_by)
+                    in_history = 0; in_status = 0; next
+                }
+                if (match($0, /^  - override_class:[ \t]*/)) {
+                    override_class = substr($0, RLENGTH + 1)
+                    sub(/[ \t]+$/, "", override_class)
+                    in_history = 0; in_status = 0; next
+                }
+                if (match($0, /^  - override_artifact:[ \t]*/)) {
+                    override_artifact = substr($0, RLENGTH + 1)
+                    sub(/[ \t]+$/, "", override_artifact)
                     in_history = 0; in_status = 0; next
                 }
                 if ($0 ~ /^  - #### История статусов/) {
@@ -299,7 +316,10 @@ parse_items() {
                 }
             }
             ovr_len = length(override_text)
-            printf "%d|%s|%s|%d\n", current_item, wish_id, status, ovr_len
+            if (override_by == "") override_by = "-"
+            if (override_class == "") override_class = "-"
+            if (override_artifact == "") override_artifact = "-"
+            printf "%d|%s|%s|%d|%s|%s|%s\n", current_item, wish_id, status, ovr_len, override_by, override_class, override_artifact
         }
     ' "$file"
 }
@@ -402,17 +422,54 @@ verify_routing() {
 
     local blocking=()
     local has_partial_or_missed=0
+    local backlog_idx="$ROOT/datarim/backlog.md"
+    local tasks_idx="$ROOT/datarim/tasks.md"
 
-    while IFS='|' read -r _idx wish_id status ovr_len; do
+    # A legitimate-deferral artefact is a follow-up / blocked_by ID that actually
+    # exists in the knowledge base. Prose is not an artefact.
+    artefact_exists() {
+        local art="$1"
+        local id
+        # extract the first TASK-ID-shaped token (e.g. ABC-1234, optional -FU-slug)
+        id="$(printf '%s' "$art" | grep -oiE '[A-Z]+-[0-9]{4}' | head -n1 || true)"
+        [ -z "$id" ] && return 1
+        if [ -f "$backlog_idx" ] && grep -qiE "(^|[^A-Za-z0-9-])${id}([^A-Za-z0-9-]|$)" "$backlog_idx"; then return 0; fi
+        if [ -f "$tasks_idx" ]   && grep -qiE "(^|[^A-Za-z0-9-])${id}([^A-Za-z0-9-]|$)" "$tasks_idx";   then return 0; fi
+        return 1
+    }
+
+    while IFS='|' read -r _idx wish_id status ovr_len ovr_by ovr_class ovr_artifact; do
         [ -z "$status" ] && continue
         case "$status" in
             met|n-a|pending|deleted)
                 ;;
             partial|missed)
                 has_partial_or_missed=1
+                # Floor: an override must still carry >=10 chars of reason.
                 if [ "${ovr_len:-0}" -lt 10 ]; then
                     blocking+=("$wish_id")
+                    continue
                 fi
+                # Authorship gate (anti-self-certification):
+                #   operator-authored  -> accept (operator may authorise anything)
+                #   agent-authored      -> require an allowed class AND a verifiable artefact
+                #   absent override_by  -> treat as agent (most restrictive; back-compat)
+                case "${ovr_by:--}" in
+                    operator)
+                        ;;  # accept
+                    agent|-|"")
+                        case "${ovr_class:--}" in
+                            time-dependent|external-blocker|operator-authorized|plan-scope-boundary) : ;;
+                            *) blocking+=("$wish_id"); continue ;;
+                        esac
+                        if ! artefact_exists "${ovr_artifact:--}"; then
+                            blocking+=("$wish_id"); continue
+                        fi
+                        ;;
+                    *)
+                        blocking+=("$wish_id"); continue
+                        ;;
+                esac
                 ;;
             *)
                 # Already caught by structural validation; defensive guard.
@@ -431,7 +488,7 @@ verify_routing() {
     fi
 
     if [ "$has_partial_or_missed" -eq 1 ]; then
-        echo "CONDITIONAL_PASS: all partial/missed items carry valid operator override"
+        echo "CONDITIONAL_PASS: all partial/missed items carry an operator-authored or artefact-backed override"
         return 0
     fi
 
