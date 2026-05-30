@@ -44,6 +44,9 @@ usage: check-deferral-prose.sh --file <report.md> [--touched-files <list>]
   --backlog        backlog index for artefact verification (default: <root>/datarim/backlog.md)
   --tasks          tasks index for blocked_by verification (default: <root>/datarim/tasks.md)
   --phrases        override the seed deferral-phrase floor (one pattern per line)
+  --extra-repo     nested git repo whose merge-base..HEAD touched-set is added
+                   to the scope (repeatable; for dual-repo framework tasks where
+                   the report and the touched code live in different repos)
   --report         print machine-readable findings even when clean
 exit codes:
   0 PASS (clean or fail-open advisory), 1 BLOCKED (findings on stdout), 2 usage error
@@ -58,6 +61,7 @@ BACKLOG=""
 TASKS=""
 PHRASES=""
 REPORT=0
+EXTRA_REPOS=()
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -67,6 +71,7 @@ while [ $# -gt 0 ]; do
         --backlog)        [ $# -ge 2 ] || usage; BACKLOG="$2"; shift 2 ;;
         --tasks)          [ $# -ge 2 ] || usage; TASKS="$2"; shift 2 ;;
         --phrases)        [ $# -ge 2 ] || usage; PHRASES="$2"; shift 2 ;;
+        --extra-repo)     [ $# -ge 2 ] || usage; EXTRA_REPOS+=("$2"); shift 2 ;;
         --report)         REPORT=1; shift ;;
         -h|--help)        usage ;;
         *)                usage ;;
@@ -129,6 +134,34 @@ elif git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     fi
 fi
 
+# Dual-repo augmentation: for a framework (TUNE-*) task the report lives in the
+# outer workspace repo while the touched code lives in a nested repo. Each
+# --extra-repo contributes its own merge-base..HEAD touched-set (staged+working
+# fallback) so a genuine self-deferral on nested code is not invisible. This is
+# additive, never a replacement — the fail-open contract is preserved: an
+# unreadable extra-repo warns and is skipped, it never hard-blocks.
+for er in ${EXTRA_REPOS[@]+"${EXTRA_REPOS[@]}"}; do
+    if ! git -C "$er" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        echo "WARNING: --extra-repo not a git work tree, skipped: $er" >&2
+        continue
+    fi
+    er_base="$(git -C "$er" merge-base HEAD origin/main 2>/dev/null || true)"
+    er_set=""
+    if [ -n "$er_base" ]; then
+        er_set="$(git -C "$er" diff "$er_base"..HEAD --name-only 2>/dev/null || true)"
+    fi
+    if [ -z "$er_set" ]; then
+        er_set="$(
+            { git -C "$er" diff --cached --name-only 2>/dev/null
+              git -C "$er" diff --name-only 2>/dev/null; } | sort -u || true
+        )"
+    fi
+    if [ -n "$er_set" ]; then
+        TOUCHED_SET="$(printf '%s\n%s\n' "$TOUCHED_SET" "$er_set" | grep -v '^[[:space:]]*$' | sort -u)"
+        [ "$touched_source" = "none" ] && touched_source="extra-repo"
+    fi
+done
+
 if [ -z "$TOUCHED_SET" ]; then
     echo "WARNING: touched-file set empty (no --touched-files and git probe yielded nothing). Deferral scan is advisory only; not blocking." >&2
     touched_source="empty"
@@ -153,8 +186,12 @@ fi
 # the artefact ID against the KB. A paragraph = run of non-blank lines.
 # Output line shape:  <lineno>\t<phrase>\t<touched-basename-or->\t<artefact-id-or->
 # ---------------------------------------------------------------------------
+# Markdown fenced-code marker (three back-ticks), built from octal so no literal
+# back-tick run appears in this file — a literal run inside the $(...) below
+# would be mis-parsed by the shell as a nested command substitution.
+FENCE_MARKER="$(printf '\140\140\140')"
 candidates="$(
-    awk -v PHRASES="$PHRASES" -v BN_FILE="$BN_FILE" '
+    awk -v PHRASES="$PHRASES" -v BN_FILE="$BN_FILE" -v FENCE="$FENCE_MARKER" '
     function lc(s) { return tolower(s) }
     BEGIN {
         np = 0
@@ -181,6 +218,25 @@ candidates="$(
     { lines[NR] = $0; ln = NR }
     END {
         total = ln
+        # Mark quoted lines: a deferral-tell phrase inside a fenced code block
+        # or a Markdown blockquote (leading ">") is a QUOTATION of the detection
+        # target, not a self-deferral claim. A report ABOUT the anti-deferral
+        # gate inevitably quotes the tell-phrases next to the gate own filenames;
+        # those quotes must not BLOCK. Live prose on its own line still scans
+        # normally. The fence marker (three back-ticks) is passed in via FENCE to
+        # avoid embedding a literal back-tick run inside this $(...)-wrapped awk
+        # program (a literal run would be parsed by the shell as a nested command
+        # substitution). A fence line is one whose first non-space run equals the
+        # marker (bare or marker+language). This pass runs in file order.
+        fence_re = "^" FENCE
+        in_fence = 0
+        for (i = 1; i <= total; i++) {
+            stripped = lines[i]; gsub(/^[ \t]+/, "", stripped)
+            if (stripped ~ fence_re) { quoted[i] = 1; in_fence = !in_fence; continue }
+            if (in_fence)            { quoted[i] = 1; continue }
+            if (stripped ~ /^>/)     { quoted[i] = 1; continue }
+            quoted[i] = 0
+        }
         # Compute paragraph id per line (blank line separates paragraphs).
         pid = 0; prev_blank = 1
         for (i = 1; i <= total; i++) {
@@ -208,6 +264,7 @@ candidates="$(
         # Emit one candidate per LINE that contains a deferral phrase.
         for (i = 1; i <= total; i++) {
             if (para[i] == 0) continue
+            if (quoted[i]) continue   # quoted phrase != self-deferral claim
             l = lc(lines[i])
             for (k = 1; k <= np; k++) {
                 if (index(l, phrases[k]) > 0) {
