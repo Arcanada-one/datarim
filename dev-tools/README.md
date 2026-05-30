@@ -23,6 +23,7 @@ Discipline in `code/datarim/CLAUDE.md`).
 |--------|-----------|
 | `check-init-task-presence.sh` | `commands/dr-init.md` Step 4.6 |
 | `check-expectations-checklist.sh` | `commands/dr-qa.md`, `commands/dr-compliance.md`, `commands/dr-archive.md` |
+| `check-deferral-prose.sh` | `commands/dr-qa.md` Layer 3b (advisory), `commands/dr-compliance.md` Step 5c (hard), `commands/dr-archive.md` Step 0.4 |
 | `check-stage-snapshot-on-exit.sh` | `commands/dr-continue.md`, `commands/dr-archive.md`, validator suite |
 | `check-skill-frontmatter.sh` | `/dr-plugin doctor` § skill-registry check |
 | `check-security-policy.sh` | `/dr-qa` ecosystem security gate, `/dr-compliance` |
