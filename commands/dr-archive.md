@@ -153,6 +153,38 @@ Complete and archive current task.
    blast-radius, and the remediation owner + ETA. «DoD met» framing is
    forbidden when the network gate is red.
 
+0.4. **EXPECTATIONS RE-VALIDATION + ANTI-DEFERRAL GATE** (MANDATORY):
+   - This gate runs BEFORE Step 0.5 (reflection) on purpose: reflection's
+     follow-up-suggestion heuristic would otherwise let a self-inflicted loose
+     end be laundered into a backlog item before any gate inspected it. The
+     gate inspects the closed state first.
+   - **(a) Re-validate expectations.** Re-run the routing validator:
+     ```bash
+     "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --verify {TASK-ID}
+     ```
+     Exit 1 + `BLOCKED` ⇒ **STOP** the archive. A `partial`/`missed` wish lacks
+     a valid override (operator-authored, or agent-authored with a verifiable
+     follow-up/`blocked_by` artefact). Route back to
+     `/dr-do {TASK-ID} --focus-items <...>` and finish the work in this cycle.
+   - **(b) Anti-deferral prose scan.** Scan the QA and compliance reports for
+     self-deferral language about touched files:
+     ```bash
+     "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-deferral-prose.sh" \
+         --file datarim/qa/qa-report-{TASK-ID}.md --task {TASK-ID} --root <repo-root>
+     "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-deferral-prose.sh" \
+         --file datarim/reports/compliance-report-{TASK-ID}.md --task {TASK-ID} --root <repo-root>
+     ```
+     (Skip a report path that does not exist.) Exit 1 from either ⇒ **STOP**.
+     Print the findings and: "Self-inflicted gap detected. Finish the work in
+     this branch/cycle. Do NOT absorb it via a self-filed backlog item." Route
+     back to `/dr-do {TASK-ID}`.
+   - A legitimate deferral (time-dependent or hard external blocker) clears the
+     gate ONLY by citing a follow-up ID / `blocked_by` reference that exists in
+     `backlog.md` / `tasks.md`. Both scanners are fail-open on their own
+     git-probe failure (warn, do not block) — an infrastructure hiccup never
+     hard-blocks an otherwise-clean archive. Archive is idempotent; a fixed gap
+     re-enters cleanly on the next `/dr-archive` run.
+
 0.5. **REFLECT** (MANDATORY, non-skippable):
    - Load `$HOME/.claude/skills/reflecting/SKILL.md`.
    - Execute the reflect workflow per that skill:

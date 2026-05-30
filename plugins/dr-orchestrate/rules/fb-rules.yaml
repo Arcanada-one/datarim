@@ -68,6 +68,16 @@ rules:
     audit_required: true
     conflicts_with_law: 1
 
+  - rule_id: FB-5a
+    title: "Не перекладывать на оператора обратимую работу; не отсрочивать без артефакта"
+    enforcement_layer: 2
+    tier: rule-based
+    default_action: auto
+    reversibility_required: true
+    audit_required: true
+    conflicts_with_law: 1
+    anti_deferral: true
+
   - rule_id: FB-6
     title: "Делать решения обратимыми при неопределённости"
     enforcement_layer: 6
