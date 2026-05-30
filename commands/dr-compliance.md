@@ -28,6 +28,17 @@ description: Adaptive post-QA hardening. Detects task type and applies matching 
         -   Exit 0 + stdout marker `CONDITIONAL_PASS` ⇒ proceed; record «conditional» disposition in the compliance report § Plain-language summary.
         -   Exit 1 + stdout marker `BLOCKED` ⇒ compliance verdict is **NON-COMPLIANT** regardless of the rest of the checklist. Capture the validator's `Focus items:` and `Next step:` lines verbatim into the report and surface them in the FAIL-Routing CTA.
     -   Missing expectations file on L3-L4: surface as advisory finding in the report; on L1-L2 within the 30-day soft window: non-blocking.
+5c. **ANTI-DEFERRAL PROSE GATE (HARD)** per `$HOME/.claude/skills/expectations-checklist/SKILL.md`:
+    -   Scan the QA report and the compliance report for self-deferral language — the failure mode where the agent labels its own incomplete work "out of scope / informational / not a blocker / will fix later" instead of finishing it. Unlike `/dr-qa` (advisory), at compliance this is a **hard** gate (mirrors the evidence-type advisory-at-QA / hard-at-compliance escalation):
+        ```bash
+        "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-deferral-prose.sh" \
+            --file datarim/qa/qa-report-{TASK-ID}.md --task {TASK-ID} --root <repo-root>
+        "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-deferral-prose.sh" \
+            --file datarim/reports/compliance-report-{TASK-ID}.md --task {TASK-ID} --root <repo-root>
+        ```
+        (Skip the compliance-report scan on the first pass if the report is not yet written; run it after the report exists.)
+    -   Exit 1 from either scan ⇒ compliance verdict is **NON-COMPLIANT**. The agent labelled self-inflicted incomplete work as deferrable without a verifiable follow-up/`blocked_by` artefact. Capture the findings verbatim into the report and route via the FAIL-Routing CTA to `/dr-do {TASK-ID} --focus-items <...>` — the gap MUST be finished in the same git branch and the same cycle, not absorbed into a self-filed backlog item. A legitimate deferral (time-dependent or hard external blocker) clears the gate only by citing a follow-up ID / `blocked_by` reference that exists in the KB.
+    -   The scanner is fail-open on its own git-probe failure (warns, does not block) — an infrastructure hiccup never hard-blocks an otherwise-clean task.
 
 6.  **APPLY CHECKLIST**: Execute the appropriate checklist(s) from the compliance skill:
     - **Code** → 7-step software checklist (lint, tests, coverage, CI/CD)
