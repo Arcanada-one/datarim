@@ -204,6 +204,15 @@ Source: prior incident — a multi-repo task ran compliance v1+v2 within 23 minu
 - Recommend smoke procedure via the timer interface (start the timer, let it trigger the unit) rather than starting the work-unit directly — the latter can mask the antipattern above.
 - Source: prior incident — three production hosts shipped scheduler timers with the antipattern; daily fire missed on one host, detected only via downstream artefact count (snapshot count on the storage target), not via any in-host alert.
 
+### 9. Multi-Root Success-Criterion Verification (when a wish / AC names ≥2 filesystem roots)
+
+When an expectation's success criterion or an acceptance criterion names two or more distinct filesystem roots that must all satisfy the same property (e.g. a code repository AND a separate registry/docs tree, or a service tree AND its sibling configuration tree), the verification MUST grep every named root independently. A repo-local helper script proves only the repo it scans; it is not evidence for the other roots.
+
+- Enumerate the roots the criterion names. Run the criterion's check against each root separately and record per-root evidence (one grep/probe result per root).
+- Do NOT accept a single repo-local helper (a checker shipped inside one of the roots) as proof for the whole criterion — that helper is blind to the other roots by construction.
+- A clean result on root A plus an unchecked root B is a partial verification, not a pass. Surface root B explicitly as unverified rather than inferring it from root A.
+- Source: prior incident — a "no working-branch-X references anywhere in trees A and B" criterion was verified only by the in-repo checker living in tree A; tree B (a separate registry) still carried working references and reached QA as a blocker.
+
 ---
 
 ## Output
