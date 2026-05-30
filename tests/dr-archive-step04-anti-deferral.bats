@@ -1,8 +1,8 @@
 #!/usr/bin/env bats
 #
-# Integration test for /dr-archive Step 0.4 (Expectations re-validation +
+# Integration test for /dr-archive Step 0.45 (Expectations re-validation +
 # anti-deferral gate). The command is markdown instruction; this test verifies
-# the deterministic surfaces it wires in produce the BLOCK that Step 0.4
+# the deterministic surfaces it wires in produce the BLOCK that Step 0.45
 # instructs the agent to honour — on a synthetic scenario modelled on the
 # triggering incident (agent-edited runbook, stale counter labelled
 # "informational, out of scope"). A FICTIONAL task ID is used (no real task IDs
@@ -26,7 +26,7 @@ teardown() {
     rm -rf "$WORK"
 }
 
-# Step 0.4(a): a partial wish with an agent prose-only override BLOCKS archive.
+# Step 0.45(a): a partial wish with an agent prose-only override BLOCKS archive.
 @test "0.4(a) BLOCK: partial wish, agent prose-only override → expectations --verify exit 1" {
     cat > "$WORK/datarim/tasks/FAKE-9200-expectations.md" <<'EOF'
 ---
@@ -64,7 +64,7 @@ EOF
     [[ "$output" == *"BLOCKED"* ]]
 }
 
-# Step 0.4(b): a deferral phrase on a touched file in the QA report BLOCKS archive.
+# Step 0.45(b): a deferral phrase on a touched file in the QA report BLOCKS archive.
 @test "0.4(b) BLOCK: deferral on touched runbook in QA report → prose scan exit 1" {
     cat > "$WORK/datarim/qa/qa-report-FAKE-9200.md" <<'EOF'
 ## Layer 3b
