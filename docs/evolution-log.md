@@ -1859,3 +1859,15 @@ Reflection on TUNE-0280 (`/dr-continue` + stage-snapshot replay verification) su
 ## TUNE-0345 — bats top-level-source false-green + sourced-lib SC2034 pitfalls (2026-05-31)
 
 - **P-1 (skill-update, Class A APPLIED):** `skills/ai-quality/bash-pitfalls.md` gains two pitfalls surfaced while extracting `scripts/lib/schema-regex.sh`. (1) A top-level `. "$lib"` of a missing/about-to-be-created file in a bats suite aborts the entire file at load time and reports `1..0` with exit code 0 — a false green that masks the honest TDD-red; the fix is to source inside `setup()` so a missing dependency fails the individual tests visibly. (2) `shellcheck` without `-x` flags every constant in a sourced-only `lib/*.sh` as SC2034 (unused) because it cannot see the consumers; a file-level `# shellcheck disable=SC2034` is the canonical fix for a constants/regex library. Source: TUNE-0345 — the first TDD-red run reported rc=0 (false green) until the source moved into `setup()`, and the new fragment failed the required CI `shellcheck` job on all four constants until the disable comment was added. Gates: stack-agnostic PASS (--diff-only), body-english PASS, skill-validators green (layout 9 / frontmatter 13 / jargon 7 / reflecting 10), datarim-doctor bats 54/54. A framework-internal refactor surfaced two reusable shell-script pitfalls.
+
+## 2026-05-31 — Class A skill-update: verify committed blob in shared working tree (TUNE-0356, from TUNE-0350 reflection)
+
+`skills/verification-before-completion/SKILL.md` gains § "Shared Working Tree —
+Verify the Committed Blob, Not the Tree". In a shared multi-session git working
+tree, a parallel session can checkout a different branch after you commit;
+verifying via a direct working-tree grep/cat then measures the wrong branch.
+Rule: probe `git rev-parse --abbrev-ref HEAD`; if it differs from the task
+branch, read committed state via `git cat-file blob <branch>:<path>`. Applies at
+self-review / QA / compliance / archive. Stack-agnostic gate: PASS. Source:
+TUNE-0350 — a foreign-branch checkout (TUNE-0351) almost produced two false
+NON-COMPLIANT findings at /dr-qa + /dr-compliance.
