@@ -3,10 +3,18 @@
 
 DOCTOR="$BATS_TEST_DIRNAME/../scripts/datarim-doctor.sh"
 FIXTURES="$BATS_TEST_DIRNAME/fixtures/datarim-doctor"
+SCHEMA_REGEX_LIB="$BATS_TEST_DIRNAME/../scripts/lib/schema-regex.sh"
+
+# Single source of truth for the thin-index schema regexes. The doctor and the
+# pre-archive gate source this same fragment; the assertion in T13 matches the
+# generated output against the sourced ONELINER_RE constant, not an inline
+# literal — so a future relaxation cannot drift the test away from the validator.
 
 setup() {
     TMPROOT="$(mktemp -d)"
     mkdir -p "$TMPROOT/datarim/tasks" "$TMPROOT/documentation/archive/framework"
+    # shellcheck source=../scripts/lib/schema-regex.sh
+    . "$SCHEMA_REGEX_LIB"
 }
 
 teardown() {
@@ -144,9 +152,10 @@ teardown() {
 @test "T13 generated lines match canonical regex" {
     cp "$FIXTURES/legacy-tasks.md" "$TMPROOT/datarim/tasks.md"
     "$DOCTOR" --root="$TMPROOT/datarim" --fix >/dev/null
-    # Every non-empty bullet line must match the canonical schema
+    # Every non-empty bullet line must match the canonical schema (sourced
+    # constant — single source of truth, see SCHEMA_REGEX_LIB at file top).
     while IFS= read -r line; do
-        [[ "$line" =~ ^-\ [A-Z]{2,10}-[0-9]{4}\ ·\ (in_progress|blocked|not_started|pending|blocked-pending|cancelled)\ ·\ P[0-3]\ ·\ L[1-4]\ ·\ .+\ →\ tasks/[A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*-(task-description|init-task)\.md$ ]]
+        [[ "$line" =~ $ONELINER_RE ]]
     done < <(grep -E '^- [A-Z]+-' "$TMPROOT/datarim/tasks.md")
 }
 
@@ -1003,4 +1012,29 @@ EOF
     run "$DOCTOR" --root="$TMPROOT/datarim" --fix --no-prompt
     run grep -qE '^## Backlog$' "$TMPROOT/datarim/tasks.md"
     [ "$status" -eq 0 ] || { echo "## Backlog section was migrated (should be preserved)"; false; }
+}
+
+# --- Single source of truth for the schema regex (DRY contract) -------------
+
+@test "T-single-source schema-regex.sh is the only home for the schema constants" {
+    # The fragment exists and defines each constant exactly once.
+    [ -f "$SCHEMA_REGEX_LIB" ]
+    [ "$(grep -cE '^ONELINER_RE=' "$SCHEMA_REGEX_LIB")" -eq 1 ]
+    [ "$(grep -cE '^BACKLOG_ITEM_RE=' "$SCHEMA_REGEX_LIB")" -eq 1 ]
+    [ "$(grep -cE '^SCHEMA_TASKS_RE=' "$SCHEMA_REGEX_LIB")" -eq 1 ]
+    [ "$(grep -cE '^SCHEMA_BACKLOG_RE=' "$SCHEMA_REGEX_LIB")" -eq 1 ]
+}
+
+@test "T-single-source both consumers source the fragment, none redefine it" {
+    local doctor="$BATS_TEST_DIRNAME/../scripts/datarim-doctor.sh"
+    local prearchive="$BATS_TEST_DIRNAME/../scripts/pre-archive-check.sh"
+    # Each consumer sources the fragment.
+    grep -q 'lib/schema-regex.sh' "$doctor"
+    grep -q 'lib/schema-regex.sh' "$prearchive"
+    # Neither consumer carries a local literal assignment of the constants
+    # (they must come from the sourced fragment only).
+    [ "$(grep -cE '^ONELINER_RE=' "$doctor")" -eq 0 ]
+    [ "$(grep -cE '^BACKLOG_ITEM_RE=' "$doctor")" -eq 0 ]
+    [ "$(grep -cE '^SCHEMA_TASKS_RE=' "$prearchive")" -eq 0 ]
+    [ "$(grep -cE '^SCHEMA_BACKLOG_RE=' "$prearchive")" -eq 0 ]
 }

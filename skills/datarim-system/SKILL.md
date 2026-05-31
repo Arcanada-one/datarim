@@ -30,7 +30,7 @@ Operational files are **indexes**, not content. Each line answers: which task, w
 Canonical regex (anchored, single-line):
 
 ```
-^- ([A-Z]{2,10}-[0-9]{4}) · (STATUS) · P[0-3] · L[1-4] · (.{1,80}) → tasks/\1-task-description\.md$
+^- ([A-Z]{2,10}-[0-9]{4}) · (STATUS) · P[0-3] · L[1-4] · (.+) → tasks/\1-(task-description|init-task)\.md$
 ```
 
 `STATUS` ∈

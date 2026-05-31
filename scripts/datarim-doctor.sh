@@ -31,6 +31,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/lib/canonicalise.sh"
 # shellcheck source=lib/resolve-datarim-root.sh
 . "$SCRIPT_DIR/lib/resolve-datarim-root.sh"
+# shellcheck source=lib/schema-regex.sh
+. "$SCRIPT_DIR/lib/schema-regex.sh"
 
 # --- defaults ---------------------------------------------------------------
 ROOT=""
@@ -205,13 +207,11 @@ prefix_to_area() {
     echo "general"
 }
 
-# Canonical regex for one-liner entries.
-ONELINER_RE='^- [A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)* · (in_progress|blocked|not_started|pending|blocked-pending|cancelled) · P[0-3] · L[1-4] · .+ → tasks/[A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*-(task-description|init-task)\.md$'
-# Backlog-item regex (TUNE-0344): backlog bullets are pending-work descriptions,
-# not thin-index task pointers — the → tasks/...md pointer is OPTIONAL, the status
-# vocabulary is wider (superseded/absorbed/deferred), priority allows P4 and may be
-# **bold**-wrapped. Applied to backlog.md in scan_file instead of ONELINER_RE.
-BACKLOG_ITEM_RE='^- [A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)* · (in_progress|blocked|not_started|pending|blocked-pending|cancelled|superseded|absorbed|deferred) · [*]{0,2}P[0-4][*]{0,2} · [*]{0,2}L[1-4][*]{0,2} · .+$'
+# Canonical schema regexes (ONELINER_RE, BACKLOG_ITEM_RE) are sourced from
+# lib/schema-regex.sh — the single source of truth shared with pre-archive-check.sh.
+# ONELINER_RE: strict thin-index form for tasks.md / activeContext.md.
+# BACKLOG_ITEM_RE: backlog.md form (pointer optional, wider status vocab, P[0-4],
+# optional **bold**). Applied to backlog.md in scan_file instead of ONELINER_RE.
 
 validate_task_id() {
     local id="$1"
