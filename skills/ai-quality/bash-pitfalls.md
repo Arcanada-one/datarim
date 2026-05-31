@@ -299,3 +299,82 @@ a prior phase shipped two High-severity bugs to QA, both of which are textbook r
 The pipe-blindness pitfall above was added in prior reflection after the same operator (me) violated the existing «check exit code carefully» rule during a prior incident final validation — concrete example with task IDs is more memorable than abstract warning.
 
 The heredoc-IS-stdin pitfall was added in prior reflection after the same shadow caused tests to pass on incorrect data flow in `post-deploy-verify.sh`. Concrete recovery recipe (env-var pass-through) included so future inline-interpreter work doesn't repeat it.
+## Pitfall: top-level `source` of a missing lib in bats aborts the file as `1..0`
+
+### Trap
+
+```bash
+# nosec-extract
+# WRONG — at bats file top-level. If the lib is missing/not-yet-created, bats
+# aborts the ENTIRE file at load time and reports `1..0` with exit code 0 — a
+# false green that looks like "no tests ran" but passes any gate that only
+# checks the exit code.
+. "$BATS_TEST_DIRNAME/../scripts/lib/schema-regex.sh"
+
+@test "T1 …" { … }
+```
+
+A TDD-red run that should fail (the lib does not exist yet) instead reports rc=0,
+because the failed top-level `source` kills test registration before any `@test`
+runs. The honest red is masked.
+
+### Right
+
+```bash
+# nosec-extract
+# Source the lib INSIDE setup() (runs before each test). A missing file then
+# fails the individual tests (real red), not the file load.
+setup() {
+    TMPROOT="$(mktemp -d)"
+    # shellcheck source=../scripts/lib/schema-regex.sh
+    . "$SCHEMA_REGEX_LIB"
+}
+```
+
+### Why this matters in practice
+
+A prior task extracted a sourced schema-regex fragment and wrote the TDD-red
+tests first. The first red run reported rc=0 / `1..0` (false green) because the
+top-level `source` of the not-yet-created fragment aborted the file. Moving the
+source into `setup()` produced the honest all-red, then all-green after the
+fragment landed.
+
+**Rule:** never `source` an optional / about-to-be-created dependency at a bats
+file's top level. Put it in `setup()` (or guard it) so a missing dependency
+fails tests visibly instead of silently zeroing the test count.
+
+## Pitfall: `shellcheck` without `-x` flags every constant in a sourced lib as SC2034
+
+### Trap
+
+A `lib/*.sh` that only defines constants for consumers to `source` looks entirely
+unused to `shellcheck` when it is linted in isolation (no `-x` to follow sources):
+
+```text
+SC2034 (warning): ONELINER_RE appears unused. Verify use (or export if used externally).
+```
+
+CI typically runs `shellcheck -S warning <file>` per file without `-x`, so a
+constants-only library fails the required `shellcheck` check even though every
+constant is used by a consumer that sources the file.
+
+### Right
+
+```bash
+# nosec-extract
+# shellcheck shell=bash
+# shellcheck disable=SC2034  # constants are sourced by <consumer>.sh; shellcheck cannot see the consumers.
+ONELINER_RE='…'
+SCHEMA_TASKS_RE='…'
+```
+
+A file-level `# shellcheck disable=SC2034` near the top is the canonical fix for a
+sourced constants/regex library. Pair it with `# shellcheck shell=bash` so the
+linter treats the no-shebang fragment as a bash library.
+
+### Why this matters in practice
+
+A prior task's sourced regex-constant library (four constants) failed
+`shellcheck -S warning` on all four with SC2034 until the file-level disable was
+added. The CI `shellcheck` job runs without `-x`, so the disable is load-bearing,
+not cosmetic.
