@@ -7,9 +7,9 @@ Each line is a one-liner pointer to a description file. NO task content here.
 Full task body lives in datarim/tasks/{TASK-ID}-task-description.md.
 
 Canonical regex (single-line, anchored):
-  ^- ([A-Z]{2,10}-[0-9]{4}) · (pending|blocked-pending|cancelled) · P[0-3] · L[1-4] · (.{1,80}) → tasks/\1-task-description\.md$
+  ^- ([A-Z]{2,10}-[0-9]{4}) · (pending|blocked-pending|cancelled) · P[0-3] · L[1-4] · (.+) → tasks/\1-(task-description|init-task)\.md$
 
-Separator: · (U+00B7 MIDDLE DOT). Arrow: → (U+2192). Title: 1–80 chars.
+Separator: · (U+00B7 MIDDLE DOT). Arrow: → (U+2192). Title: free-form (single line).
 
 Example:
 <!-- gate:history-allowed -->
