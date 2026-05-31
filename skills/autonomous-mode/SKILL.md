@@ -109,7 +109,9 @@ Consumed by `/dr-archive` Step 0.5 (pre-reflection): the inline-log surfaces as 
 
 > Production deploys, secret rotation, irreversible DB operations (DROP / TRUNCATE without backup), public communications (Telegram channel posts, blog posts, social media), finance / legal actions, force-push to `main` / `master`, deletion of git history, and any action affecting > 1 human user.
 
-Under `/dr-auto`, these actions **never auto-execute**:
+**Carve-out (consumer mandate § Carve-out):** the consumer's `autonomous-agents.md` MAY define narrowly-scoped exceptions to this list. The reference Arcanada mandate carves out **autonomous public-package release of patch / minor versions** when every fail-closed pre-publish gate is green (`escalate=false`); `major` and any `0.x` breaking change still escalate, with a GitHub conditional `environment` as a second backstop. The machine-readable shape is `plugins/dr-orchestrate/rules/fb-rules.yaml` § `hard_gate_carve_outs`. Read the consumer mandate's carve-out section before treating a release action as hard-gated — do not quote the carve-out from memory.
+
+Under `/dr-auto`, these actions **never auto-execute** (except where a consumer-mandate carve-out applies and all its preconditions are met):
 
 1. The agent recognises the action as hard-gated (against the verbatim list or as a cross-project boundary crossing).
 2. Escalate via Ladder L5: call `AskUserQuestion` and state explicitly "This action is hard-gated per autonomous-agents.md:32. Operator approval required before execution."

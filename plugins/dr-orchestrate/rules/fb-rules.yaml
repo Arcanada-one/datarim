@@ -107,3 +107,19 @@ hard_gated_actions:
   - force_push_main
   - git_history_delete
   - multi_user_visible_action
+
+# Carve-out (set 2026-05-31): the public_package_release sub-case is autonomous
+# for patch/minor ONLY when escalate=false (all fail-closed gates green). A major
+# bump and any 0.x breaking change still escalate. Consumers comparing an
+# action.kind of public_package_release MUST also read action.bump_level +
+# action.escalate before treating it as gated. Canonical text lives in the
+# consumer ecosystem mandate (autonomous-agents.md § Carve-out).
+hard_gate_carve_outs:
+  - id: public_package_release
+    autonomous_when:
+      bump_level_in: [patch, minor]
+      escalate: false
+    always_gated_when:
+      bump_level: major
+      zero_x_breaking: true
+    second_backstop: github_conditional_environment   # release-auto vs release-manual
