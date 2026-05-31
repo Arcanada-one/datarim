@@ -132,6 +132,32 @@ From 24 failure memories:
 - Implications of success
 - ANY communication suggesting completion/correctness
 
+## Shared Working Tree — Verify the Committed Blob, Not the Tree
+
+In a **shared** git working tree (a framework or workspace repo touched by
+multiple parallel agent sessions), another session may `git checkout` a
+different branch in the same tree *after* you committed your work. A direct
+`grep` / `cat` / `Read` of the working tree then measures the WRONG branch —
+you can read a sibling task's pre-fix state and raise a false failure against
+your own already-correct commit.
+
+**Rule:** before verifying a task's output, probe the tree's current branch:
+
+```bash
+git -C <repo> rev-parse --abbrev-ref HEAD
+```
+
+If it differs from your task branch, read your committed state directly from
+your branch instead of the working tree:
+
+```bash
+git -C <repo> cat-file blob <task-branch>:<path>   # or: git show <task-branch>:<path>
+```
+
+This applies at every verification gate (self-review, QA, compliance,
+archive). The working tree is shared state; your branch is the source of
+truth for what you shipped.
+
 ## The Bottom Line
 
 **No shortcuts for verification.**
