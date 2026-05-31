@@ -2,7 +2,8 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 2.26.0](https://img.shields.io/badge/Version-2.26.0-green.svg)](VERSION)
+[![Version: 2.27.0](https://img.shields.io/badge/Version-2.27.0-green.svg)](VERSION)
+[![Website](https://img.shields.io/website?url=https%3A%2F%2Fdatarim.club)](https://datarim.club)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Arcanada-one/datarim/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Arcanada-one/datarim)
 
@@ -30,9 +31,12 @@ to the domain. The process stays the same.
 Built for Claude Code, Datarim works for any project and any domain. There are no
 hardcoded paths, no vendor lock-in, no project-specific assumptions. And it is
 self-evolving: after every completed task, the framework analyzes what worked, what
-failed, and proposes improvements to its own agents, skills, and rules. The name
-"Datarim" comes from *data + rim* — the edge where structured data meets creative
-work.
+failed, and proposes improvements to its own agents, skills, and rules.
+
+Datarim takes its name from the Latin root behind both *datarium* ("a store of
+data, a place for data") and *dator* ("a giver, one who gives"). The name holds
+both senses at once: not a passive vault of knowledge, but a store that gives the
+right data at the right moment. **A store that gives.**
 
 ---
 
@@ -990,7 +994,7 @@ and why it exists.
 ```
 datarim/
   agents/            # Agent personas (18 agents)
-  skills/            # Knowledge modules (41 skills)
+  skills/            # Knowledge modules (55 skills)
   commands/          # Slash commands (24 commands)
   templates/         # Task and document templates (19 templates)
   docs/              # Extended documentation and use cases
@@ -1025,6 +1029,13 @@ Contributions are welcome. To contribute:
   technology assumptions.
 
 ---
+
+## Links
+
+- Website and documentation: https://datarim.club
+- Source: https://github.com/Arcanada-one/datarim
+
+Datarim is part of the Arcanada ecosystem (https://arcanada.one) — a set of tools for building, orchestrating, and scaling AI agents.
 
 ## License
 
