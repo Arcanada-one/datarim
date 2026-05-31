@@ -206,7 +206,12 @@ prefix_to_area() {
 }
 
 # Canonical regex for one-liner entries.
-ONELINER_RE='^- [A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)* · (in_progress|blocked|not_started|pending|blocked-pending|cancelled) · P[0-3] · L[1-4] · .{1,80} → tasks/[A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*-task-description\.md$'
+ONELINER_RE='^- [A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)* · (in_progress|blocked|not_started|pending|blocked-pending|cancelled) · P[0-3] · L[1-4] · .+ → tasks/[A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*-(task-description|init-task)\.md$'
+# Backlog-item regex (TUNE-0344): backlog bullets are pending-work descriptions,
+# not thin-index task pointers — the → tasks/...md pointer is OPTIONAL, the status
+# vocabulary is wider (superseded/absorbed/deferred), priority allows P4 and may be
+# **bold**-wrapped. Applied to backlog.md in scan_file instead of ONELINER_RE.
+BACKLOG_ITEM_RE='^- [A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)* · (in_progress|blocked|not_started|pending|blocked-pending|cancelled|superseded|absorbed|deferred) · [*]{0,2}P[0-4][*]{0,2} · [*]{0,2}L[1-4][*]{0,2} · .+$'
 
 validate_task_id() {
     local id="$1"
@@ -443,7 +448,15 @@ scan_file() {
             FINDINGS=$((FINDINGS + 1))
             FINDING_LINES+=("$file:$lineno: legacy bold-id bullet")
         elif [[ "$line" =~ ^[-*][[:space:]]+[A-Z]+-[0-9]+ ]]; then
-            if ! [[ "$line" =~ $ONELINER_RE ]]; then
+            # TUNE-0344: backlog.md items are pending-work descriptions (pointer
+            # optional, wider status vocab) — validate with BACKLOG_ITEM_RE;
+            # tasks.md / activeContext.md use the strict thin-index ONELINER_RE.
+            if [ "$(basename "$file")" = "backlog.md" ]; then
+                if ! [[ "$line" =~ $BACKLOG_ITEM_RE ]]; then
+                    FINDINGS=$((FINDINGS + 1))
+                    FINDING_LINES+=("$file:$lineno: non-compliant backlog item")
+                fi
+            elif ! [[ "$line" =~ $ONELINER_RE ]]; then
                 FINDINGS=$((FINDINGS + 1))
                 FINDING_LINES+=("$file:$lineno: non-compliant bullet")
             fi

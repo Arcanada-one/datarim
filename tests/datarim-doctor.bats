@@ -146,7 +146,7 @@ teardown() {
     "$DOCTOR" --root="$TMPROOT/datarim" --fix >/dev/null
     # Every non-empty bullet line must match the canonical schema
     while IFS= read -r line; do
-        [[ "$line" =~ ^-\ [A-Z]{2,10}-[0-9]{4}\ ·\ (in_progress|blocked|not_started|pending|blocked-pending|cancelled)\ ·\ P[0-3]\ ·\ L[1-4]\ ·\ .{1,80}\ →\ tasks/[A-Z]{2,10}-[0-9]{4}-task-description\.md$ ]]
+        [[ "$line" =~ ^-\ [A-Z]{2,10}-[0-9]{4}\ ·\ (in_progress|blocked|not_started|pending|blocked-pending|cancelled)\ ·\ P[0-3]\ ·\ L[1-4]\ ·\ .+\ →\ tasks/[A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*-(task-description|init-task)\.md$ ]]
     done < <(grep -E '^- [A-Z]+-' "$TMPROOT/datarim/tasks.md")
 }
 
