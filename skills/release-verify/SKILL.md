@@ -125,6 +125,35 @@ cosign verify-blob \
 
 If `cosign verify-blob` or `gh attestation verify` fails on an official release tag — **do not install it**. Open an issue at `https://github.com/Arcanada-one/datarim/issues` with the tag, the command, and the command's output. This is a potential supply-chain incident.
 
+## Adapting release.yml to a Packaged Artifact
+
+The reference `release.yml` signs a source tarball produced by `git archive`,
+where the version string in the artefact name is whatever the tag carries. When
+a consumer adapts this workflow to a **registry-packaged artifact** instead of a
+source tarball, the build backend **normalizes the version** baked into the
+artefact filename. Two traps follow:
+
+1. **Tag-vs-built version assert MUST compare canonical forms, not raw strings.**
+   The build backend rewrites the version in the artefact name to its canonical
+   form, so a tag like `v1.2.0-rc1` yields an artefact whose embedded version
+   differs from the raw tag by punctuation. A literal `tag != built` comparison
+   then false-fails on every prerelease, blocking the release before it
+   publishes. Canonicalize **both** sides with the ecosystem's own version
+   library before comparing.
+2. **Any prerelease tag-suffix set MUST be re-validated as buildable for the
+   target ecosystem.** A suffix that is meaningless for a source tarball (any
+   string works) may be an invalid version segment for the registry — the build
+   step rejects it and no artefact is produced. Only advertise suffixes the
+   target ecosystem's version spec accepts.
+
+<!-- gate:example-only -->
+Concrete: Python `setuptools`/`build` normalizes per PEP 440 (`0.7.0-rc1` →
+`0.7.0rc1`; `test` is not a valid segment and fails to build); npm coerces per
+semver; cargo canonicalizes per its own version grammar. Use the matching
+canonicaliser (`packaging.utils.canonicalize_version`, `semver`, `cargo` metadata)
+on both the tag-derived and the built version.
+<!-- /gate:example-only -->
+
 ## Source of Truth
 
 - Canonical recipe: [`docs/release-verification.md`](../../docs/release-verification.md) (the user-facing page).
