@@ -32,6 +32,12 @@
 
 set -u
 
+# Schema regexes (SCHEMA_TASKS_RE, SCHEMA_BACKLOG_RE) are sourced from
+# lib/schema-regex.sh — the single source of truth shared with datarim-doctor.sh.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=lib/schema-regex.sh
+. "$SCRIPT_DIR/lib/schema-regex.sh"
+
 print_usage() {
     cat >&2 <<'EOF'
 Usage:
@@ -115,11 +121,6 @@ is_whitelisted_path() {
 # Auto-skip: if the repo has no datarim/ subdirectory, the gate is a no-op
 # (project repos vs. workspace).
 
-# Canonical line regex (single-line, anchored). Status sets:
-#   tasks.md   : in_progress|blocked|not_started
-#   backlog.md : pending|blocked-pending|cancelled
-SCHEMA_TASKS_RE='^- [A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)* · (in_progress|blocked|not_started) · P[0-3] · L[1-4] · .{1,80} → tasks/[A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*-task-description\.md$'
-SCHEMA_BACKLOG_RE='^- [A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)* · (pending|blocked-pending|cancelled) · P[0-3] · L[1-4] · .{1,80} → tasks/[A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*-task-description\.md$'
 
 # check_schema_compliance REPO_PATH → exit 0 (clean) | 1 (violations printed to stderr)
 check_schema_compliance() {
@@ -167,6 +168,13 @@ check_schema_compliance() {
     for forbidden in progress.md backlog-archive.md; do
         local fp="$repo/datarim/$forbidden"
         if [ -f "$fp" ]; then
+            # TUNE-0344: a backlog-archive.md carrying a recovery-marker header
+            # ("reconstructed ... data-loss") is a deliberate disaster-recovery
+            # artefact, not stale residue — tolerate it (do not block archive).
+            if [ "$forbidden" = "backlog-archive.md" ] \
+               && grep -qiE 'reconstructed.*data-loss' "$fp" 2>/dev/null; then
+                continue
+            fi
             echo "BLOCK: $fp exists — abolished operational file (run /dr-doctor --fix)" >&2
             violations=1
         fi
