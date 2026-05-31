@@ -31,6 +31,7 @@ Discipline in `code/datarim/CLAUDE.md`).
 | `resolve-peer-provider.sh` | `commands/dr-verify.md` Layer 2 |
 | `dr-verify-floor.sh` | `commands/dr-verify.md` Layer 1 |
 | `append-init-task-qa.sh` | `commands/dr-{init,prd,plan,design,do,qa,compliance}.md` § Q&A round-trip |
+| `check-repo-site-sync.sh` | ecosystem repo↔site drift gate against a consumer-owned `registry.yml`; invoked by the consumer's site-sync deploy gate + archive sub-step |
 
 ## Why runtime-shipped but no user CLI
 
