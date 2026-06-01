@@ -1,0 +1,33 @@
+# drift-sweep.service — oneshot unit for the ecosystem site-drift sweep.
+#
+# Host-agnostic template. The sweep's canonical host is the Mac primary (it
+# needs the full working-tree coverage that servers lack per ADR-0001); this
+# unit ships for a future server move only. Install:
+#
+#   cp drift-sweep.service drift-sweep.timer /etc/systemd/system/
+#   # edit WorkingDirectory + the OPSBOT_KEY EnvironmentFile path below
+#   systemctl daemon-reload && systemctl enable --now drift-sweep.timer
+#
+# Intentionally NO `Requires=` / `After=` on a long-running service: this is a
+# self-contained oneshot with no service dependency (precedent: a timer that
+# couples Requires= to a unit is restarted whenever that unit cycles, which is
+# wrong for an idempotent periodic sweep).
+
+[Unit]
+Description=Datarim ecosystem site-drift sweep (level 3)
+Documentation=https://datarim.club
+
+[Service]
+Type=oneshot
+# Point WorkingDirectory at the KB root that holds documentation/ecosystem-sync/registry.yml.
+WorkingDirectory=%h/arcanada
+# OPSBOT_KEY is read from an operator-managed EnvironmentFile (mode 0600), never
+# inlined here. Missing key → sweep fail-soft-warns and still generates tasks.
+EnvironmentFile=-%h/.config/datarim/drift-sweep.env
+ExecStart=%h/.claude/dev-tools/check-site-drift-sweep.sh
+# Hardening floor.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.local/state/datarim

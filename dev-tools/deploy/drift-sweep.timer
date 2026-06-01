@@ -1,0 +1,22 @@
+# drift-sweep.timer — daily schedule for the site-drift sweep (level 3).
+#
+# Cadence: daily, per the consilium decision. The sweep itself stamp-guards a
+# 24h window, so an over-eager timer cannot double-run. Persistent=true catches
+# up one missed run after the host was asleep/off (the Mac primary sleeps).
+#
+# NO `Requires=` — see drift-sweep.service header. A timer must not hard-require
+# its service unit; the [Install] WantedBy + the implicit Unit= binding are
+# sufficient and avoid restart-storm coupling.
+
+[Unit]
+Description=Daily Datarim site-drift sweep
+Documentation=https://datarim.club
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=900
+Unit=drift-sweep.service
+
+[Install]
+WantedBy=timers.target
