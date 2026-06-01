@@ -1,0 +1,8 @@
+version: "3.9"
+services:
+  app:
+    image: arcanada/app:latest
+    x-exposure-justification: "bridged docker network on private VLAN, host firewall DROP on eth0"
+    x-exposure-expires: "2026-08-04"
+    ports:
+      - "172.20.0.5:80:80"

@@ -1,0 +1,6 @@
+version: "3.9"
+services:
+  traefik:
+    image: traefik:3
+    ports:
+      - "${TAILNET_IP:?tailnet ip required}:443:443"

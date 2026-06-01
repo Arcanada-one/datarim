@@ -1,0 +1,6 @@
+version: "3.9"
+services:
+  app:
+    image: arcanada/app:latest
+    ports:
+      - "${BIND_HOST:?$(id > /tmp/network-exposure-injection-canary)}:8080:8080"

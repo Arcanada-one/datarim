@@ -26,7 +26,9 @@ The goal of this baseline: make a restricted bind the default; public exposure i
 | Tier 0 | unix socket / no port published | not required | `/run/redis/redis.sock` |
 | Tier 1 | `127.0.0.1`, `::1`, `::ffff:127.0.0.1` | not required | `127.0.0.1:5432` |
 | Tier 2 | Tailscale CGNAT `100.64.0.0/10` + `::ffff:100.64.0.0/10` | not required (mesh-only by definition) | `100.65.1.5:5432` |
-| Tier 3 | `0.0.0.0`, `::`, public IPs, mapped public IPv6, `*`, `listen_addresses='*'` | REQUIRED — `x-exposure-justification` + `x-exposure-expires` (≤90 days) | `0.0.0.0:443` + Cloudflare ACL |
+| Tier 3 | `0.0.0.0`, `::`, public IPs, mapped public IPv6, `*`, `listen_addresses='*'`, **any specific public IPv4**, **RFC1918 private (`10/8`, `172.16/12`, `192.168/16`)**, **link-local (`169.254/16`)** | REQUIRED — `x-exposure-justification` + `x-exposure-expires` (≤90 days) | `203.0.113.10:443`, `192.168.1.50:5432`, `0.0.0.0:443` + Cloudflare ACL |
+
+> **Why specific public AND private IPv4 are both Tier 3.** A static linter cannot read the host routing table, so it cannot prove that a private RFC1918 (or link-local) bind is mesh-only the way a loopback bind is safe-by-construction — a private address bridged onto a public-routed interface is a real exposure. Block-by-default folds all of them into Tier 3: the justification forces a human to record *why* the bind is safe, and the TTL forces re-review. Only loopback and Tailscale CGNAT are pass-by-construction. A genuinely unparseable bind string (not a dotted-quad, not a recognised IPv6) remains `malformed` (exit 2) — distinct from a Tier-3 violation (exit 1), which is a valid bind missing its annotation.
 
 ## Decision Tree
 
@@ -43,9 +45,11 @@ flowchart TD
     G -->|127.0.0.1 / ::1 /<br/>::ffff:127.0.0.1| H[Tier 1 PASS]
     G -->|100.64.0.0/10 /<br/>::ffff:100.64.0.0/10| I[Tier 2 PASS]
     G -->|0.0.0.0 / :: / [::] /<br/>* / listen_addresses=*| J[Tier 3]
+    G -->|Specific public IPv4| J
+    G -->|RFC1918 private /<br/>169.254 link-local| J
     G -->|Other mapped IPv6| J
     G -->|Other IPv6| J
-    G -->|Malformed| F
+    G -->|Not an IP at all| F
     J --> K{Justification + TTL valid?<br/>expires ≤90d, in future}
     K -->|Yes| L[Tier 3 PASS]
     K -->|No| F
@@ -103,6 +107,20 @@ bind 100.64.1.5
 - The `expires` date MUST be in the future and ≤90 days from the file's last modification date.
 - Missing or expired (when required) → FAIL.
 - Rationale: waivers accumulate and are forgotten; the TTL forces a quarterly review.
+
+## Compose variable interpolation (`${VAR}` in a bind host)
+
+A docker-compose bind host is often a shell-style parameter expansion — e.g. a mesh bind `${TAILNET_IP:?tailnet ip required}:443:443`. The linter reads the string verbatim (it never shell-expands it) and resolves it with the **B3 hybrid** strategy, in order:
+
+1. **env-resolve** — if the named environment variable is set, its value is classified. (Resolution is `printenv`-only; the value is never executed.)
+2. **default-extract** — for the `${VAR:-D}` / `${VAR-D}` forms with the variable unset, the default literal `D` is classified. So `${BIND_HOST:-0.0.0.0}` with no env is a Tier-3 violation, and `${BIND_HOST:-127.0.0.1}` passes.
+3. **unresolved residual** — for `${VAR:?msg}` or bare `${VAR}` with the variable unset and no default, the linter emits a **WARN naming the variable + `file:line` and PASSES** (exit 0). It cannot know the runtime value in CI where the variable is intentionally unset, and false-failing every legitimate mesh bind would make the linter a CI nuisance.
+
+**Recommendation:** for a required mesh variable use the `${VAR:?reason}` form — it both documents intent and forces compose itself to fail fast if the variable is missing at deploy time. Avoid `${VAR:-default}` where the default would classify into a different (weaker) tier than the intended runtime value.
+
+**Residual accepted risk.** An unresolved `${UNKNOWN_PUBLIC_IP}` passes with a WARN even if its runtime value would be a public bind. The residual is *deliberate, greppable, and reviewer-visible*: every such WARN names the variable and `file:line`, so a reviewer scanning the linter output sees exactly which binds were accepted unresolved. Resolve the variable in the environment (or pin it via `:-default`) to get a hard classification.
+
+**Security boundary.** The `${...}` body is untrusted compose input. The variable name is regex-validated (`^[A-Za-z_][A-Za-z0-9_]*$`) as the trust boundary before any environment read; resolution is `printenv`-only — no `eval`, no `source`, no indirect expansion, no shell expansion. A token whose body carries command-substitution or shell metacharacters (`$(...)`, backtick, `;`, `|`, `&`, `<`, `>`) is rejected outright as an injection attempt (violation, exit 1) and is never resolved.
 
 ## Examples Gallery
 

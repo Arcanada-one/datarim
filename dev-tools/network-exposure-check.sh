@@ -57,6 +57,14 @@ readonly RX_TAILSCALE_V6_MAPPED='^::ffff:100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0
 readonly RX_PUBLIC_V4='^0\.0\.0\.0$'
 readonly RX_UNSPECIFIED_V6='^(::|0:0:0:0:0:0:0:0)$'
 
+# Dotted-quad IPv4 shape (any specific address). A static linter cannot read
+# the host routing table, so a non-loopback, non-mesh specific IPv4 — public
+# OR RFC1918 private OR link-local — is block-by-default (tier3_public): it
+# requires an explicit justification + TTL. Loopback / Tailscale branches run
+# ahead of this and short-circuit; only genuinely unparseable strings fall
+# through to "malformed".
+readonly RX_IPV4_DOTTED_QUAD='^([0-9]{1,3}\.){3}[0-9]{1,3}$'
+
 # classify_bind <bind-string-without-brackets>
 # Echoes one of: tier1 | tier2 | tier3_public | malformed
 classify_bind() {
@@ -79,6 +87,14 @@ classify_bind() {
     fi
     # Any other IPv6 (global unicast, link-local, ULA) → treat as public, demand justification.
     if [[ "$raw" =~ ^[0-9a-fA-F:]+$ ]] && [[ "$raw" == *:* ]]; then
+        echo tier3_public; return
+    fi
+    # Any other specific IPv4 — public, RFC1918 private (10/8, 172.16/12,
+    # 192.168/16), or link-local (169.254/16) — is block-by-default. The linter
+    # cannot prove a private bind is mesh-only the way loopback is safe-by-
+    # construction, so it demands a justification + TTL (tier3_public) instead
+    # of failing as malformed. Loopback / Tailscale already returned above.
+    if [[ "$raw" =~ $RX_IPV4_DOTTED_QUAD ]]; then
         echo tier3_public; return
     fi
     echo malformed
@@ -163,6 +179,80 @@ lint_compose() {
     return "$rc"
 }
 
+# ---------------------------------------------------------------------------
+# Compose ${VAR} interpolation (B3 hybrid).
+#
+# A compose bind host may be a shell-style parameter expansion that the linter
+# sees verbatim (yq does not interpolate). B3 strategy, in order:
+#   1. env-resolve   — if the named env var is set, use its value
+#   2. default-extract — ${VAR:-D} / ${VAR-D} → classify the default literal D
+#   3. unresolved ${VAR:?} / bare ${VAR} → WARN-but-PASS, naming var + file:line
+# Security (Mandate S1/S5): the ${...} body is untrusted compose input. The var
+# name is regex-validated as the trust boundary; resolution reads the value with
+# printenv exclusively — no shell expansion, no indirect expansion, no dynamic
+# code execution. Anything failing the gate is a violation, never resolved. A
+# token whose body carries command-substitution metacharacters is rejected
+# outright as an injection attempt.
+RX_VAR_NAME='^[A-Za-z_][A-Za-z0-9_]*$'
+# Metacharacters that have no place in a compose bind host and signal an
+# injection attempt inside a ${...} body: command substitution, chaining, pipes,
+# redirection, backgrounding.
+RX_VAR_DANGEROUS='[`;&|<>]|\$\('
+
+# _compose_var_name <full-expansion> → echoes the var name, returns 0 if the
+# token is a well-formed ${NAME...} with a regex-valid NAME, else returns 1.
+_compose_var_name() {
+    local expansion="$1" inner name
+    [[ "$expansion" =~ ^\$\{(.*)\}$ ]] || return 1
+    inner="${BASH_REMATCH[1]}"
+    # NAME is everything up to the first modifier char (: - ? + =) or end.
+    name="${inner%%[:?=+-]*}"
+    [[ "$name" =~ $RX_VAR_NAME ]] || return 1
+    echo "$name"
+}
+
+# _compose_var_default <full-expansion> → echoes the default literal for the
+# :-/- forms (${VAR:-D}, ${VAR-D}); returns 1 when there is no default form.
+_compose_var_default() {
+    local expansion="$1" inner
+    [[ "$expansion" =~ ^\$\{[^}]*\}$ ]] || return 1
+    inner="${expansion#\$\{}"; inner="${inner%\}}"
+    if [[ "$inner" =~ ^[A-Za-z_][A-Za-z0-9_]*:?-(.*)$ ]]; then
+        echo "${BASH_REMATCH[1]}"
+        return 0
+    fi
+    return 1
+}
+
+# resolve_compose_host <full-${...}-token> <file> <line> <svc>
+# Echoes a resolved host literal on stdout when B3 produces one (env value or
+# default-extract). Returns:
+#   0 + host echoed     — caller classifies the host
+#   10 (no stdout)      — unresolved ${VAR:?}/bare ${VAR}: WARN-but-PASS
+#   1  (no stdout)      — malformed token / bad var name: violation
+resolve_compose_host() {
+    local token="$1" file="$2" line="$3" svc="$4"
+    local name def
+    if [[ "$token" =~ $RX_VAR_DANGEROUS ]]; then
+        emit_violation "$file" "$line" "compose:$svc rejected unsafe variable token '$token' (command-substitution / shell metacharacters)"
+        return 1
+    fi
+    if ! name="$(_compose_var_name "$token")"; then
+        emit_violation "$file" "$line" "compose:$svc malformed/invalid variable token '$token'"
+        return 1
+    fi
+    if printenv -- "$name" >/dev/null 2>&1; then
+        printenv -- "$name"
+        return 0
+    fi
+    if def="$(_compose_var_default "$token")"; then
+        echo "$def"
+        return 0
+    fi
+    emit_warn "$file" "$line" "compose:$svc unresolved \${$name} (env unset, no default) — accepted with WARN (B3 residual)"
+    return 10
+}
+
 # Parse one compose port string, classify, emit verdict.
 check_compose_port() {
     local file="$1" line="$2" svc="$3" raw="$4"
@@ -172,6 +262,20 @@ check_compose_port() {
     # Strip outer quotes.
     raw="${raw#\"}"; raw="${raw%\"}"
     raw="${raw#\'}"; raw="${raw%\'}"
+
+    # B3 interpolation: a host segment written as ${VAR...} is resolved before
+    # classification. Match "${...}:rest" — the ${...} token is the host; the
+    # remainder is the port mapping. printenv-only resolution, no shell expand.
+    if [[ "$raw" =~ ^(\$\{[^}]*\})(:.*)?$ ]]; then
+        local var_token="${BASH_REMATCH[1]}" port_rest="${BASH_REMATCH[2]}"
+        local resolved rrc=0
+        resolved="$(resolve_compose_host "$var_token" "$file" "$line" "$svc")" || rrc=$?
+        case "$rrc" in
+            0)  raw="${resolved}${port_rest}" ;;     # rewrite + classify below
+            10) return 0 ;;                            # unresolved → WARN-but-PASS
+            *)  return 1 ;;                            # bad token → violation emitted
+        esac
+    fi
 
     if [[ "$raw" =~ ^\[([0-9a-fA-F:.%]+)\]:[0-9]+(:[0-9]+)?$ ]]; then
         host="${BASH_REMATCH[1]}"
