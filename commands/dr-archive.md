@@ -91,6 +91,41 @@ Complete and archive current task.
    **0.1.5 Project repo check** (per repo classified as single-agent — i.e., no `.datarim-shared` marker):
    Run `scripts/pre-archive-check.sh <project-repo-path>` (legacy mode). Exit 1 → STOP and present the 3-way prompt (Commit now / Accept pending / Abort). Applied ≠ committed ≠ canonical.
 
+0.15. **DRIFT SITE-UPDATE GATE** (MANDATORY when the task's commits touched a path under a registered product's `repo_local` in `documentation/ecosystem-sync/registry.yml`):
+
+   When an archived task changed a registered product's repository, the deployed
+   site may now lag the repo. This sub-step turns that drift into a tracked
+   backlog task — **repo-first**: the repo change is already landing, so the
+   spawned task tracks the *site catch-up*, never an autonomous site edit.
+
+   **0.15.1 Applicability.** Skip silently if `dev-tools/check-repo-site-sync.sh`
+   is absent (a Datarim consumer without the ecosystem-sync system). Otherwise,
+   for each registered product whose `repo_local` path was touched by this
+   task's commits:
+
+   ```bash
+   . "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/lib/backlog-sink.sh"
+   "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-repo-site-sync.sh" \
+       --check --product <product-id> --root <kb-root>
+   ```
+
+   **0.15.2 On drift (detector exit 1).** Resolve the backlog sink, then append
+   one deduped site-update task using the shared helper (same dedup/append logic
+   the level-3 sweep uses — DRY):
+
+   ```bash
+   if backlog="$(resolve_backlog_sink --root <kb-root>)"; then
+       append_site_update_task "$backlog" <product-id> <severity> "<one-line detail>"
+   else
+       echo "WARN: no file backlog sink (non-file backend or consumer machine); skipping append" >&2
+   fi
+   ```
+
+   `append_site_update_task` is idempotent (anchored on `drift-site-update-<product>`),
+   atomic (temp-then-rename), and injection-gated. Detector exit 0 (clean) or a
+   SKIP finding (source unavailable) ⇒ no-op. Quote the detector command and the
+   appended backlog anchor (if any) in the archive doc § Verification.
+
 0.2. **VERSION CONSISTENCY CHECK** (framework repo only, MANDATORY when `VERSION` changed):
 
    When the framework repo's `VERSION` file changed in HEAD->working-tree, all consumer files (CLAUDE.md, README.md, docs/) must reference the new version. Catches the recurring class «VERSION bumped but README/CLAUDE.md left stale».
