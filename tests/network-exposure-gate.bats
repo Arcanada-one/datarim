@@ -35,6 +35,12 @@ setup() {
     [ "$output" = "hard_block" ]
 }
 
+@test "gate: P1 + infra -> hard_block" {
+    run "$SCRIPT" --task-description "$F/p1-infra.md" --quiet
+    [ "$status" -eq 0 ]
+    [ "$output" = "hard_block" ]
+}
+
 @test "gate: P1 + framework-hardening -> hard_block" {
     run "$SCRIPT" --task-description "$F/p1-framework-hardening.md" --quiet
     [ "$status" -eq 0 ]
