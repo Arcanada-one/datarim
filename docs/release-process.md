@@ -24,8 +24,12 @@ consumer-facing verification recipe lives in
 > **Autonomous patch/minor (v2.27.0+).** For Arcanada-owned packages the agent
 > MAY drive a `patch`/`minor` release end-to-end without an operator prompt when
 > every fail-closed gate is green — `dev-tools/release-classify.sh` (verdict
-> `escalate=false`) then `dev-tools/release-gate.sh` (CI green / `/dr-qa`
-> ALL_PASS / signed pipeline / branch == main / version not published). The
+> `escalate=false`) then `dev-tools/release-gate.sh` (manifest version ==
+> target / CI green / `/dr-qa` ALL_PASS / signed pipeline / branch == main /
+> version not published). The bump (`pyproject.toml` / `VERSION` + CHANGELOG)
+> MUST land before the gate runs — `release-gate.sh` fails closed (no tag) if the
+> manifest version does not already equal the target, so an unbumped manifest is
+> caught locally instead of after the tag fires in CI. The
 > annotated tag carries the bump level; the `release.yml` `classify` job
 > re-verifies in CI and routes a `major` bump to the `release-manual` environment
 > (operator approval). `major` and any `0.x` breaking change always escalate. See
