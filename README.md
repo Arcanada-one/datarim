@@ -6,6 +6,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Arcanada-one/datarim/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Arcanada-one/datarim)
 
+**Website:** [datarim.club](https://datarim.club) — releases, changelog, and the full command/skill/agent catalogue.
+
 ---
 
 ## What is Datarim?
