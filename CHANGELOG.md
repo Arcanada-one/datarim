@@ -4,6 +4,21 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.27.0] — 2026-05-31
+
+Autonomous release policy with fail-closed safety rails (Class B). The agent may now publish `patch`/`minor` versions of Arcanada-owned packages to public registries (PyPI / GitHub Releases / npm) end-to-end without an operator prompt, while `major` and any `0.x` breaking change always escalate. Publication is irreversible (PyPI yank ≠ delete; Rekor entries are permanent), so autonomy ships with designed rails, not a one-line mandate edit.
+
+### Added
+
+- `dev-tools/release-classify.sh` — deterministic SemVer bump classifier (Conventional Commits + optional structural API-diff override). `--stamp` mode emits the verdict into an annotated tag; `--test` self-runs fixtures. The API-diff override is fail-closed on tool-absence (`api_diff=unavailable` never downgrades a bump).
+- `dev-tools/release-gate.sh` — fail-closed pre-publish gate chain (CI green / `/dr-qa` ALL_PASS / signed pipeline present / branch == main / version not already published / classifier `escalate=false`). Any red aborts before the tag; `major`/`0.x`-breaking exits 10 (escalate); a post-publish install-smoke failure exits non-zero after the tag for rollback. Writes a per-release audit record to `docs/release-audit/`.
+- `.github/workflows/release.yml` — a `classify` predecessor job reads the agent-stamped bump level, re-classifies in CI (`max(stamped, ci)`), and the `release` job selects a conditional `environment` (`release-auto` for patch/minor, `release-manual` requiring an operator reviewer for major).
+- `docs/how-to/{pypi-first-publish,release-rollback,version-0x-policy}.md` — operator playbooks.
+
+### Changed
+
+- Autonomous-agents mandate gains a narrowly-scoped carve-out for autonomous patch/minor public-package release; every other hard-gated action is unchanged. Machine-readable mirror in `plugins/dr-orchestrate/rules/fb-rules.yaml` (`hard_gate_carve_outs`).
+
 ## [2.26.0] — 2026-05-29
 
 A KB-integrity protection bundle. One architectural defect produced three symptoms — a lost `backlog.md` (overwritten via an `awk … > file` redirect with no pre-write backup), a nested `datarim/datarim/`, and append-only ledgers landing in a legacy `datarim/docs/`. Root cause: no shared path resolver, and `--root` meant the `datarim/` dir in the doctor but the repo-root everywhere else.
