@@ -14,7 +14,10 @@ setup() {
     git -C "$REPO" config commit.gpgsign false
     git -C "$REPO" config tag.gpgsign false
     git -C "$REPO" branch -m main
-    echo "0.6.3" > "$REPO/VERSION"
+    # Manifest version starts at the release target 0.6.4 — i.e. the realistic
+    # post-bump state the gate expects (G0 version-assert). Tests that exercise a
+    # different --version flip the manifest via _set_manifest_version.
+    echo "0.6.4" > "$REPO/VERSION"
     # A signed-pipeline marker the gate greps for (G3).
     mkdir -p "$REPO/.github/workflows"
     printf 'jobs:\n  release:\n    steps:\n      - uses: actions/attest-build-provenance@x\n' \
@@ -36,6 +39,7 @@ teardown() { rm -rf "$REPO"; }
 
 _run_gate() { run "$SCRIPT" --repo "$REPO" --version "${1:-0.6.4}" --registry pypi "${@:2}"; }
 _tag_exists() { git -C "$REPO" tag -l "v${1}" | grep -q "v${1}"; }
+_set_manifest_version() { echo "$1" > "$REPO/VERSION"; }
 
 @test "all gates green + patch bump -> tag created, exit 0, audit record written" {
     _run_gate 0.6.4
@@ -116,4 +120,35 @@ _tag_exists() { git -C "$REPO" tag -l "v${1}" | grep -q "v${1}"; }
 @test "missing --repo exits 2" {
     run "$SCRIPT" --version 0.6.4 --registry pypi
     [ "$status" -eq 2 ]
+}
+
+@test "G0 manifest version != --version -> exit 1, NO tag, clear message (the dogfood loop)" {
+    _set_manifest_version 0.6.3        # manifest stale, requesting 0.6.4
+    _run_gate 0.6.4
+    [ "$status" -eq 1 ]
+    ! _tag_exists 0.6.4
+    echo "$output" | grep -qiE "version mismatch|bump .*pyproject|manifest"
+}
+
+@test "G0 fires BEFORE the tag side-effect (no tag on mismatch even with all gates green)" {
+    _set_manifest_version 0.5.0
+    _run_gate 0.6.4
+    [ "$status" -eq 1 ]
+    ! _tag_exists 0.6.4
+    [ ! -d "$AUDIT_DIR" ] || ! grep -rq "0.6.4" "$AUDIT_DIR"   # no audit record either
+}
+
+@test "G0 reads pyproject.toml when present (takes precedence over VERSION)" {
+    printf '[project]\nname = "x"\nversion = "0.6.4"\n' > "$REPO/pyproject.toml"
+    _set_manifest_version 0.1.0         # VERSION stale, but pyproject matches
+    _run_gate 0.6.4
+    [ "$status" -eq 0 ]
+    _tag_exists 0.6.4
+}
+
+@test "G0 passes when manifest matches --version (normal post-bump path)" {
+    _set_manifest_version 0.6.4
+    _run_gate 0.6.4
+    [ "$status" -eq 0 ]
+    _tag_exists 0.6.4
 }

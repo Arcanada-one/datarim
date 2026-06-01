@@ -9,6 +9,8 @@
 # tag so the operator can roll back (the publish already fired).
 #
 # Gates (fail-closed — any red aborts before the tag):
+#   G0 manifest version == --version (bump must precede the tag; mirrors the CI
+#      version-assert locally so an unbumped manifest fails here, not after the tag)
 #   G1 CI green on the default branch
 #   G2 /dr-qa ALL_PASS
 #   G3 signed pipeline present (release.yml with attest-build-provenance)
@@ -45,6 +47,18 @@ usage() {
     exit 2
 }
 die_gate() { echo "GATE FAILED: $1" >&2; exit 1; }
+
+# Resolve the manifest version (pyproject first, then VERSION). Mirrors the same
+# resolution order as release-classify.sh resolve_version() so the gate and the
+# classifier agree on which file is authoritative.
+resolve_manifest_version() {
+    local repo="$1" v=""
+    if [ -f "$repo/pyproject.toml" ]; then
+        v="$(sed -n 's/^version *= *"\([0-9][0-9.]*\).*/\1/p' "$repo/pyproject.toml" | head -1)"
+    fi
+    [ -z "$v" ] && [ -f "$repo/VERSION" ] && v="$(tr -d ' \t\n' < "$repo/VERSION")"
+    printf '%s' "$v"
+}
 
 # --- external-gate hooks (env override first, else live probe) ------------------
 probe_ci_status() {
@@ -117,7 +131,15 @@ main() {
     [ "$cur_branch" = "$allow_branch" ] || die_gate "G4 branch '$cur_branch' != '$allow_branch'"
     [ "$(probe_version_published)" = false ] || die_gate "G5 version $version already published"
 
-    local gates="G1,G2,G3,G4,G5,G6"
+    # G0 manifest-version assert: the built artifact will be named from the repo
+    # manifest, so the manifest version MUST already equal --version before we tag.
+    # This mirrors the CI release.yml version-assert locally so an unbumped manifest
+    # fails HERE (no tag) instead of after the tag fires in CI. Run `bump` first:
+    # bump pyproject.toml / VERSION + CHANGELOG to <version>, then invoke this gate.
+    local manifest_ver; manifest_ver="$(resolve_manifest_version "$repo")"
+    [ "$manifest_ver" = "$version" ] || die_gate "G0 manifest version '$manifest_ver' != --version '$version' — bump pyproject.toml / VERSION (and CHANGELOG) to $version before tagging"
+
+    local gates="G0,G1,G2,G3,G4,G5,G6"
     if [ "$dry_run" = true ]; then
         echo "DRY-RUN: all gates green for v${version} (bump=${bump}); no tag created."
         exit 0
