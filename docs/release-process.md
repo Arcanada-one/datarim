@@ -21,6 +21,19 @@ consumer-facing verification recipe lives in
   (e.g. operating model, mandatory skill schema). Major bumps require
   a written migration note in `CHANGELOG.md`.
 
+> **Autonomous patch/minor (v2.27.0+).** For Arcanada-owned packages the agent
+> MAY drive a `patch`/`minor` release end-to-end without an operator prompt when
+> every fail-closed gate is green — `dev-tools/release-classify.sh` (verdict
+> `escalate=false`) then `dev-tools/release-gate.sh` (CI green / `/dr-qa`
+> ALL_PASS / signed pipeline / branch == main / version not published). The
+> annotated tag carries the bump level; the `release.yml` `classify` job
+> re-verifies in CI and routes a `major` bump to the `release-manual` environment
+> (operator approval). `major` and any `0.x` breaking change always escalate. See
+> `docs/how-to/version-0x-policy.md` and the consumer mandate
+> `documentation/mandates/autonomous-agents.md` § Carve-out. The manual steps
+> below remain the operator path for major releases and for any release the agent
+> escalates.
+
 ## Pre-flight (manual, fail-closed)
 
 1. `main` is green on all required checks.

@@ -32,9 +32,52 @@ env:
   SYFT_SHA256: 7b98251d2d08926bb5d4639b56b1f0996a58ef6667c5830e3fe3cd3ad5f4214a
 
 jobs:
+  # Major-gate backstop (TUNE-0351). Reads the bump level the agent stamped into
+  # the annotated tag, re-classifies in CI (authoritative API-diff surface), and
+  # takes max(stamped, ci) so the GitHub environment gate does not trust the
+  # agent's stamp. The release job selects its environment from this output.
+  classify:
+    name: classify-bump
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      bump_level: ${{ steps.read.outputs.bump_level }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0           # full history — the CI re-classify walks a commit range
+          persist-credentials: false
+      - name: Read and re-classify bump from annotated tag
+        id: read
+        run: |
+          set -euo pipefail
+          # Bump level the agent stamped into the annotated tag message.
+          msg="$(git for-each-ref "refs/tags/${GITHUB_REF_NAME}" --format='%(contents)')"
+          stamped="$(printf '%s\n' "$msg" | sed -n 's/^bump_level=//p' | head -1)"
+          : "${stamped:=minor}"     # missing stamp => safe autonomous default
+          # Re-run the classifier in CI (where API-diff tooling is pinned).
+          ci="$(dev-tools/release-classify.sh --repo . --api-diff auto \
+                  | sed -n 's/^bump_level=//p' | head -1)"
+          : "${ci:=minor}"
+          rank() { case "$1" in patch) echo 1;; minor) echo 2;; major) echo 3;; *) echo 0;; esac; }
+          if [ "$(rank "$ci")" -ge "$(rank "$stamped")" ]; then final="$ci"; else final="$stamped"; fi
+          echo "bump_level=${final}" >> "$GITHUB_OUTPUT"
+          # Hard guard: CI says major but the tag stamped lower => abort (never
+          # route a CI-detected major into release-auto).
+          if [ "$ci" = "major" ] && [ "$stamped" != "major" ]; then
+            echo "::error::CI classified MAJOR but the tag stamped '${stamped}' — aborting" >&2
+            exit 1
+          fi
+
   release:
     name: build-sign-attest-publish
+    needs: [classify]
     runs-on: ubuntu-latest
+    # Conditional environment (TUNE-0351): a major bump routes to release-manual
+    # (required reviewer); patch/minor flows through release-auto (no reviewer).
+    environment:
+      name: ${{ (needs.classify.outputs.bump_level == 'major' && 'release-manual') || 'release-auto' }}
     permissions:
       contents: write       # required to create the GitHub Release
       id-token: write       # required for cosign keyless OIDC + attestations
