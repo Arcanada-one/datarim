@@ -58,15 +58,15 @@ The script:
 
 The GitHub API requires a **numeric** ID for `required_reviewers`, not a slug.
 
-**User:**
+**User:** (replace `LOGIN` with the GitHub handle)
 ```bash
-gh api users/<login> --jq .id
+gh api "users/LOGIN" --jq .id
 # Returns: 123456
 ```
 
-**Team:**
+**Team:** (replace `ORG` and `SLUG`)
 ```bash
-gh api orgs/<org>/teams/<slug> --jq .id
+gh api "orgs/ORG/teams/SLUG" --jq .id
 # Returns: 789012
 ```
 
