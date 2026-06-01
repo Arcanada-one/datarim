@@ -183,3 +183,21 @@ run some-script
 Dropping `-q` (`! grep -F "..."`) leaves matched lines on stdout/stderr, which (a) pollutes test output and obscures real failures, (b) under some bats runners interacts with output capture in surprising ways. Use `-F` (fixed-string) by default; reach for `-E`/`-P` only when phrasing legitimately varies.
 
 The same rule applies to spec-lint contracts asserting a removed clause — `! grep -qF "old wording" "$SPEC"` is the canonical shape. Pair it with a positive `grep -qF "new wording"` test on the same line range to make the replacement contract explicit.
+
+### Injection-inertness tests: assert a canary side-effect, not just the exit code
+
+When the script under test resolves untrusted input (compose `${VAR}` tokens, a config value, any string an attacker could shape), an injection-attempt regression test MUST assert that the dangerous *side-effect did not happen* — not merely that the script exited non-zero. A script can exit non-zero while still having executed the injected command, and it can also reject the input cleanly with exit 0; the exit code alone proves neither inertness nor rejection. The load-bearing assertion is the absence of a **canary side-effect**.
+
+```bash
+@test "injection token does not execute the embedded command" {
+    rm -f "$BATS_TEST_TMPDIR/canary"
+    # payload embeds: $(touch $BATS_TEST_TMPDIR/canary)
+    run run_under_test "$F/inject-fixture"
+    [ ! -f "$BATS_TEST_TMPDIR/canary" ]      # PRIMARY: command did not run
+    [ "$status" -ne 0 ]                       # SECONDARY: input was rejected
+}
+```
+
+Pair the canary check with a **battery of distinct injection vectors** — command substitution `$(…)`, backticks, statement chaining `;`, pipes `|`, redirection `>`/`<`, backgrounding `&` — because a guard that blocks one metacharacter often misses another. One `@test` (or a `for`-loop inside one) per vector, each re-arming and re-checking the canary.
+
+Source: a first-draft injection test asserted only `status -ne 0`; the script was already inert but happened to exit 0 with a warning, so the exit-code assertion was simultaneously wrong AND weaker than the real security property. The canary-absence assertion is what actually proves the command never ran.

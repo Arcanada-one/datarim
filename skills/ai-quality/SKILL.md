@@ -26,6 +26,8 @@ KEY LIMITS:
 
 **Separate-signals rule.** When a single variable answers two semantically distinct questions (e.g. "what to display" AND "is body non-empty"), refactoring one role silently breaks the other. Always extract independent signals for independent questions, even if they currently compute from the same source. The cost is one extra line at definition; the saving is not chasing regressions through downstream branches that read the variable as a proxy for something it no longer represents.
 
+**Measuring the 50-line limit — discount template-literals and object-literal method blocks.** A naive `awk`/regex heuristic that spans "from one function keyword to the next" over-counts badly: it swallows a trailing object-literal whose methods follow the function, and it counts a function defined *inside* a `page.evaluate('...')` (or any embedded-script) template-literal string as part of the host method. Before flagging a >50-line finding, cross-check the actual brace span by reading the file — an orchestrator that hands work to a step-object below it, or one that embeds a DOM-walker as a string for the browser to run, is usually far shorter than the heuristic reports. Flag on the real span, not the keyword-to-keyword distance.
+
 ---
 
 ### 2. TEST-FIRST (Rules #2, #5, #6)
