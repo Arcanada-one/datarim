@@ -1,0 +1,6 @@
+version: "3.9"
+services:
+  api:
+    image: arcanada/api:latest
+    ports:
+      - "203.0.113.10:443:443"
