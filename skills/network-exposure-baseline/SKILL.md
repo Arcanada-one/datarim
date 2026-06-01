@@ -184,7 +184,7 @@ Pipeline commands read the task-description frontmatter and pick one of three de
 | Priority | Type                                                                                    | Network surface touched? | Decision        |
 |----------|-----------------------------------------------------------------------------------------|--------------------------|-----------------|
 | `P0`     | (any)                                                                                   | (any)                    | `hard_block`    |
-| `P1`     | `security-incident` / `infrastructure` / `framework-hardening` / `security-baseline` / `auth-mandate` | (any)         | `hard_block`    |
+| `P1`     | `security-incident` / `infrastructure` / `infra` / `framework-hardening` / `security-baseline` / `auth-mandate` | (any)         | `hard_block`    |
 | `P1`     | others                                                                                  | (any)                    | `advisory_warn` |
 | `P2`/`P3`| (any)                                                                                   | yes                      | `advisory_warn` |
 | `P2`/`P3`| (any)                                                                                   | no                       | `skip`          |

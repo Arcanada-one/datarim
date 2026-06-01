@@ -32,6 +32,7 @@ SCRIPT_NAME="network-exposure-gate.sh"
 SEC_INFRA_TYPES=(
     security-incident
     infrastructure
+    infra
     framework-hardening
     security-baseline
     auth-mandate
