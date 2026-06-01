@@ -38,6 +38,13 @@ consumer-facing verification recipe lives in
 > below remain the operator path for major releases and for any release the agent
 > escalates.
 
+> **One-time environment provisioning.** For a tag-driven publish, every GitHub
+> deployment environment the publish job routes to (`release-auto`,
+> `release-manual`) MUST allow the `v*` tag pattern — GitHub's default
+> `protected_branches=true` policy silently excludes tags. Provision once per new
+> repo before the first publish: see
+> [How to provision a tag-driven release deployment environment](how-to/provision-release-environment.md).
+
 ## Pre-flight (manual, fail-closed)
 
 1. `main` is green on all required checks.

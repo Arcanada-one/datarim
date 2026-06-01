@@ -9,6 +9,7 @@ PyPI pending-publisher registration has **no API** — it is web-UI only. This s
 - PyPI account with owner/owner-level access to the project (or create the project during pending-publisher registration)
 - GitHub repository exists under the `Arcanada-one` organization
 - Workflow file that will publish (e.g., `.github/workflows/release.yml`) already exists on the default branch
+- **The deployment environment(s) the publish job routes to are provisioned with a tag-allowing policy.** GitHub's default environment policy (`protected_branches=true`) silently excludes tags, so a tag-driven publish (`on: push: tags: ['v*']`) is rejected on the first run. Provision the environment **before** the first publish — see [How to provision a tag-driven release deployment environment](./provision-release-environment.md).
 
 ---
 
@@ -48,6 +49,7 @@ Each pending publisher is uniquely identified by the tuple `(owner, repo, workfl
 
 ## Cross-references
 
+- [How to provision a tag-driven release deployment environment](./provision-release-environment.md)
 - [How to roll back a broken registry release](./release-rollback.md)
 - [How to handle 0.x version regime](./version-0x-policy.md)
 

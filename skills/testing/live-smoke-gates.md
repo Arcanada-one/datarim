@@ -278,3 +278,21 @@ A click that yields a 2xx response means the API accepted the request, not that 
 - Gate required + only mocked tests run → **Layer 4 FAIL**. The button works on every machine that has no database; that is the whole point of the gate.
 - Gate required + live click without the target-store read-back → **Layer 4 FAIL**. The badge can lie; the row cannot.
 - Gate required + read-back reveals missing or wrong row → diagnose before marking done; do not paper over with a UI-only retry that masks the data-layer regression.
+
+---
+
+## Measurement hygiene: a trailing pipe masks the binary's exit code
+
+When a live smoke verifies a **CLI binary's exit code** (e.g. «281-char input → non-zero exit, 279-char → exit 0»), do NOT pipe the binary's output to `tail` / `head` / `grep` while reading `$?` — the shell reports the exit status of the **last** command in the pipeline, which is the pager, not the binary. A genuinely-failing case then reads as exit 0 and the gate passes on a false negative.
+
+```sh
+# WRONG — $? is tail's status, always 0
+mybin --reject-case | tail -5; echo "exit=$?"
+
+# RIGHT — redirect, then read the binary's own status
+mybin --reject-case > /tmp/out 2>&1; echo "exit=$?"
+# or, if you must pipe:
+mybin --reject-case | tail -5; echo "exit=${PIPESTATUS[0]}"   # bash/zsh
+```
+
+This is the silent-failure-detection class turned inward: the same «exit 0 hides a real failure» trap that the gate exists to catch in the code under test also bites the reviewer's own measurement. Always re-run a surprising «exit 0» without the pipe before recording a PASS. Source: a reviewer-side `… --dry-run | tail` reported exit 0 for a known-reject CLI case; the no-pipe re-run showed the correct exit 1.
