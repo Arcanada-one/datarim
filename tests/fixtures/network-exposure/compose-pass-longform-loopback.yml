@@ -1,0 +1,10 @@
+version: "3.9"
+services:
+  traefik:
+    image: traefik
+    ports:
+      - mode: ingress
+        host_ip: "127.0.0.1"
+        target: 8080
+        published: "28080"
+        protocol: tcp

@@ -1,0 +1,7 @@
+version: "3.9"
+services:
+  coredns:
+    image: coredns/coredns:1.14.3
+    ports:
+      - "100.106.20.101:53:53/udp"
+      - "100.106.20.101:53:53/tcp"
