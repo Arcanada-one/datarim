@@ -79,6 +79,15 @@ jobs:
             echo "accepted-risk.yml not present at $ACCEPTED_RISK_PATH — skipping schema validation"
           fi
 
+      # Self-hosted runners do not ship a Rust toolchain the way GitHub-hosted
+      # images did, so the rust_cargo branch below would fail with
+      # "cargo: command not found" (exit 127). Provision the toolchain in-workflow
+      # for the rust_cargo profile only — other profiles rely on node/pnpm/python,
+      # which are present on the runner.
+      - name: Setup Rust toolchain (rust_cargo profile only)
+        if: inputs.stack == 'rust_cargo'
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+
       - name: Run stack-specific audit
         env:
           STACK: ${{ inputs.stack }}
