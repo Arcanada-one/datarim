@@ -167,8 +167,30 @@ lint_compose() {
         local ports_count
         ports_count="$(yq -r ".services.\"$svc\".ports // [] | length" "$file" 2>/dev/null)"
         while (( idx < ports_count )); do
-            local raw line
-            raw="$(yq -r ".services.\"$svc\".ports[$idx]" "$file" 2>/dev/null)"
+            local raw line ptype
+            # docker-compose `config` expands ports into long-form mapping
+            # objects ({mode, host_ip, target, published, protocol}); yq dumps
+            # them as multi-line YAML, which check_compose_port cannot parse.
+            # Detect the mapping (yq prints "!!map") and reconstruct the
+            # canonical host:port:port[/proto] string before classification.
+            ptype="$(yq -r ".services.\"$svc\".ports[$idx] | type" "$file" 2>/dev/null)"
+            if [[ "$ptype" == "!!map" || "$ptype" == "map" ]]; then
+                local host_ip published target proto
+                host_ip="$(yq -r ".services.\"$svc\".ports[$idx].host_ip // \"\"" "$file" 2>/dev/null)"
+                published="$(yq -r ".services.\"$svc\".ports[$idx].published // \"\"" "$file" 2>/dev/null)"
+                target="$(yq -r ".services.\"$svc\".ports[$idx].target // \"\"" "$file" 2>/dev/null)"
+                proto="$(yq -r ".services.\"$svc\".ports[$idx].protocol // \"\"" "$file" 2>/dev/null)"
+                [[ "$host_ip" == "null" ]] && host_ip=""
+                [[ "$proto" == "null" || "$proto" == "tcp" ]] && proto=""
+                if [[ -n "$host_ip" ]]; then
+                    raw="${host_ip}:${published}:${target}"
+                else
+                    raw="${published}:${target}"
+                fi
+                [[ -n "$proto" ]] && raw="${raw}/${proto}"
+            else
+                raw="$(yq -r ".services.\"$svc\".ports[$idx]" "$file" 2>/dev/null)"
+            fi
             line="$(grep -nF -- "$raw" "$file" | head -1 | cut -d: -f1)"
             line="${line:-0}"
             check_compose_port "$file" "$line" "$svc" "$raw" "$has_justification" "$ttl_ok" "$ttl_reason" || rc=1
@@ -277,11 +299,14 @@ check_compose_port() {
         esac
     fi
 
-    if [[ "$raw" =~ ^\[([0-9a-fA-F:.%]+)\]:[0-9]+(:[0-9]+)?$ ]]; then
+    # Optional /(udp|tcp|sctp) protocol suffix on long-form host:port:port
+    # binds (compose ports may carry a protocol, e.g. "100.64.1.5:53:53/udp");
+    # captured into a trailing group so BASH_REMATCH[1] (host) is unaffected.
+    if [[ "$raw" =~ ^\[([0-9a-fA-F:.%]+)\]:[0-9]+(:[0-9]+)?(/(udp|tcp|sctp))?$ ]]; then
         host="${BASH_REMATCH[1]}"
-    elif [[ "$raw" =~ ^([0-9.]+):[0-9]+:[0-9]+$ ]]; then
+    elif [[ "$raw" =~ ^([0-9.]+):[0-9]+:[0-9]+(/(udp|tcp|sctp))?$ ]]; then
         host="${BASH_REMATCH[1]}"
-    elif [[ "$raw" =~ ^[0-9]+:[0-9]+$ ]] || [[ "$raw" =~ ^[0-9]+$ ]]; then
+    elif [[ "$raw" =~ ^[0-9]+:[0-9]+(/(udp|tcp|sctp))?$ ]] || [[ "$raw" =~ ^[0-9]+(/(udp|tcp|sctp))?$ ]]; then
         host=""  # short-form ⇒ implicit 0.0.0.0
     else
         emit_warn "$file" "$line" "compose:$svc unrecognized port form: '$raw'"

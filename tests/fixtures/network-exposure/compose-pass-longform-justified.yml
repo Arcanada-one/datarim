@@ -1,0 +1,12 @@
+version: "3.9"
+services:
+  traefik:
+    image: traefik
+    x-exposure-justification: "public HTTPS edge behind Cloudflare WAF + mesh-host pinning"
+    x-exposure-expires: "2026-08-04"
+    ports:
+      - mode: ingress
+        host_ip: "178.105.250.27"
+        target: 80
+        published: "80"
+        protocol: tcp
