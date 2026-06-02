@@ -220,3 +220,25 @@ run_lint() {
     run grep -nE 'eval|\$\{!' "$SCRIPT"
     [ "$status" -ne 0 ]
 }
+
+# --- Fix B: protocol suffix (/udp /tcp /sctp) on long-form host:port:port ---
+@test "compose: Tailscale-IP DNS with /udp /tcp suffix passes tier2" {
+    run_lint --compose "$F/compose-pass-coredns-proto.yml"
+    [ "$status" -eq 0 ]
+}
+
+# --- Fix C: long-form port object (docker compose config shape) ---
+@test "compose: long-form object loopback passes tier1" {
+    run_lint --compose "$F/compose-pass-longform-loopback.yml"
+    [ "$status" -eq 0 ]
+}
+
+@test "compose: long-form object public + justification passes" {
+    run_lint --compose "$F/compose-pass-longform-justified.yml"
+    [ "$status" -eq 0 ]
+}
+
+@test "compose: long-form object without host_ip fails (implicit 0.0.0.0)" {
+    run_lint --compose "$F/compose-fail-longform-no-hostip.yml"
+    [ "$status" -eq 1 ]
+}
