@@ -95,7 +95,7 @@ decide() {
             echo advisory_warn
             return
             ;;
-        P2|P3)
+        P2|P3|P4)
             if [[ "$network_diff" == "1" ]]; then
                 echo advisory_warn
             else
