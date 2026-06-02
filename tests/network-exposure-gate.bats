@@ -87,6 +87,18 @@ setup() {
     [ "$output" = "skip" ]
 }
 
+@test "gate: P4 + feature without --network-diff -> skip" {
+    run "$SCRIPT" --task-description "$F/p4-feature.md" --quiet
+    [ "$status" -eq 0 ]
+    [ "$output" = "skip" ]
+}
+
+@test "gate: P4 + feature + --network-diff -> advisory_warn" {
+    run "$SCRIPT" --task-description "$F/p4-feature.md" --network-diff --quiet
+    [ "$status" -eq 0 ]
+    [ "$output" = "advisory_warn" ]
+}
+
 @test "gate: P3 + research without --network-diff -> skip" {
     run "$SCRIPT" --task-description "$F/p3-research.md" --quiet
     [ "$status" -eq 0 ]
