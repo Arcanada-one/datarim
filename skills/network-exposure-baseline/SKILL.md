@@ -186,8 +186,8 @@ Pipeline commands read the task-description frontmatter and pick one of three de
 | `P0`     | (any)                                                                                   | (any)                    | `hard_block`    |
 | `P1`     | `security-incident` / `infrastructure` / `infra` / `framework-hardening` / `security-baseline` / `auth-mandate` | (any)         | `hard_block`    |
 | `P1`     | others                                                                                  | (any)                    | `advisory_warn` |
-| `P2`/`P3`| (any)                                                                                   | yes                      | `advisory_warn` |
-| `P2`/`P3`| (any)                                                                                   | no                       | `skip`          |
+| `P2`/`P3`/`P4`| (any)                                                                              | yes                      | `advisory_warn` |
+| `P2`/`P3`/`P4`| (any)                                                                              | no                       | `skip`          |
 | missing/malformed | —                                                                              | —                        | `hard_block` (fail-closed) |
 
 "Network surface touched" means that the diff (for `/dr-plan`) or the staged change (for `/dr-do`) touches one of the verifier's sources: docker-compose, `redis.conf`, `postgresql.conf`, systemd `.socket`, firewall / UFW rules, or a runtime bind argument.
