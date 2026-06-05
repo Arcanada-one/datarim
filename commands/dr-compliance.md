@@ -59,6 +59,12 @@ description: Adaptive post-QA hardening. Detects task type and applies matching 
     - Output: chat. If `datarim/reports/compliance-report-{task_id}.md` exists, append the same section at the end of that file.
     - Length budget: 150–400 words **total across the four sub-sections** (not per sub-section). Hard upper bound.
 
+8.5. **REFLECT ON A PASSING VERDICT** (runs only when the Step 7 verdict is COMPLIANT or COMPLIANT_WITH_NOTES; skipped on NON-COMPLIANT):
+    - Reflection now happens here, at the point of a successful compliance pass, rather than being deferred to `/dr-archive`. This makes `/dr-compliance` the stage that captures lessons-learned + evolution proposals, so they are not lost when a task is hardened but the operator does not archive immediately.
+    - Load `$HOME/.claude/skills/reflecting/SKILL.md` and execute its workflow (single source of truth — do NOT inline the reflection steps here). It writes `datarim/reflection/reflection-{task_id}.md` and stamps `reflection_basis` from the just-written compliance report via `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/reflection-freshness.sh --emit-basis datarim/reports/compliance-report-{task_id}.md`.
+    - Class A / Class B evolution gate applies exactly as in the skill (Class A → operator approval; Class B → hold for PRD update). If the operator rejects a Class A proposal, surface it but do NOT fail the compliance verdict — reflection rejection is not a compliance failure.
+    - On NON-COMPLIANT this step does not run; `/dr-archive` Step 0.5 will force-generate reflection later (the file stays absent), preserving the mandatory-reflection guarantee.
+
 ## Output
 - `datarim/reports/compliance-report-{task_id}.md` (if directory exists)
 - Otherwise: report in chat

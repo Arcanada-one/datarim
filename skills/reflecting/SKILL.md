@@ -12,12 +12,16 @@ target_aal: 3
 
 ## Invocation Contract
 
-This skill is **invoked internally by `/dr-archive` Step 0.5** for every completed task. It is **not a standalone command** — the former `/dr-reflect` command was retired in v1.10.0 because reflection must run on every archive, not optionally.
+This skill is invoked from **two call-sites**, and is the **single source of truth** for the reflection workflow (never duplicate its steps into either caller):
 
-**Trigger:** `/dr-archive` Step 0.5 loads this skill.
-**Input:** resolved task state (from Task Resolution Rule in `$HOME/.claude/skills/datarim-system/SKILL.md` § Task Resolution Rule) via `datarim/tasks.md` + `datarim/activeContext.md`. The task ID is already resolved by `/dr-archive` Step 0.
-**Output:** `datarim/reflection/reflection-{task-id}.md` + (optional) applied Class A evolution changes + follow-up-task list returned to `/dr-archive` Step 4.
-**Failure mode:** if skill load fails or user rejects Class A proposals → STOP archive; do NOT proceed to Step 1 of `/dr-archive`. Archive is idempotent — re-running re-enters Step 0.5.
+1. **`/dr-compliance` (primary, on a passing verdict)** — when the compliance verdict is COMPLIANT or COMPLIANT_WITH_NOTES, compliance loads this skill and writes the reflection, stamping `reflection_basis` with the truncated sha256 of the compliance report (`${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/reflection-freshness.sh --emit-basis <report>`). This makes `/dr-compliance` the place reflection normally happens, so it is not lost when a task is hardened but not yet archived.
+2. **`/dr-archive` Step 0.5 (conditional fallback)** — archive runs the freshness check (`${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/reflection-freshness.sh --task <ID> --root <root>`) and re-invokes this skill ONLY when the helper exits 1 (reflection absent, `reflection_basis` absent, compliance report absent, or basis stale vs the current compliance report). On exit 0 (basis matches) archive reuses the existing reflection and does NOT re-run this workflow.
+
+The former standalone `/dr-reflect` command was retired in v1.10.0 — do not resurrect it. The mandatory-reflection guarantee is preserved by the four-branch freshness decision: a task that reached archive with no prior `/dr-compliance` still has no reflection file, so the helper exits 1 and archive force-generates.
+
+**Input:** resolved task state (from Task Resolution Rule in `$HOME/.claude/skills/datarim-system/SKILL.md` § Task Resolution Rule) via `datarim/tasks.md` + `datarim/activeContext.md`. The task ID is already resolved by the caller.
+**Output:** `datarim/reflection/reflection-{task-id}.md` (with `reflection_basis` frontmatter) + (optional) applied Class A evolution changes + follow-up-task list returned to the caller.
+**Failure mode:** if skill load fails or user rejects Class A proposals → STOP the caller; when invoked from `/dr-archive`, do NOT proceed to Step 1. Reflection is idempotent — re-running re-enters this workflow.
 
 ## Instructions
 
@@ -30,6 +34,7 @@ This skill is **invoked internally by `/dr-archive` Step 0.5** for every complet
     - Verify tests pass.
     - Check for security vulnerabilities.
     - Create reflection document using `${DATARIM_RUNTIME:-$HOME/.claude}/templates/reflection-template.md` (fallback to `datarim/templates/reflection-template.md` only if project provides a custom template).
+    - **Stamp `reflection_basis`** in the frontmatter: when a compliance report exists at `datarim/reports/compliance-report-{task-id}.md`, set it to `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/reflection-freshness.sh --emit-basis <report>` output (16-hex). When no compliance report exists (archive-fallback path with a skipped `/dr-compliance`), leave `reflection_basis` empty — archive will then always treat the file as needing regeneration on any later compliance pass, which is the correct conservative behaviour.
 6.  **EVOLUTION**:
     - Load `$HOME/.claude/skills/evolution/SKILL.md` **by reference** (Read it at runtime — do not duplicate its Class A/B gate here; single source of truth).
     - Analyze: what worked well? what was inefficient? any missing skills/patterns?

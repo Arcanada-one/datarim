@@ -188,8 +188,13 @@ Complete and archive current task.
    blast-radius, and the remediation owner + ETA. «DoD met» framing is
    forbidden when the network gate is red.
 
-0.5. **REFLECT** (MANDATORY, non-skippable):
-   - Load `$HOME/.claude/skills/reflecting/SKILL.md`.
+0.5. **REFLECT** (MANDATORY — runs at least once per task, via a conditional freshness gate):
+   - **Freshness gate (decides whether to re-run reflection):** invoke
+     `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/reflection-freshness.sh --task {TASK-ID} --root "$DATARIM_ROOT"`.
+     - **exit 0** (reflection present AND `reflection_basis` matches the current compliance report) → reflection is current; REUSE the existing `datarim/reflection/reflection-{task_id}.md`, SKIP the workflow below, and continue to Step 1. Reflection was already written by `/dr-compliance`.
+     - **exit 1** (reflection file absent, OR `reflection_basis` field absent, OR compliance report absent, OR basis stale vs the current report) → run the reflect workflow below to (re)generate it. This is the path that preserves the mandatory-reflection guarantee: a task archived without a prior `/dr-compliance` has no reflection file, so the gate forces generation here.
+     - The two "absent" cases (no file vs no field) are distinct exit-1 branches inside the helper — they MUST both force-generate; do NOT special-case one as "skip".
+   - When the gate says regenerate, load `$HOME/.claude/skills/reflecting/SKILL.md`.
    - Execute the reflect workflow per that skill:
      a. Create `datarim/reflection/reflection-[task_id].md`.
      b. Generate evolution proposals (categories: skill-update, agent-update, claude-md-update, new-template, new-skill).
