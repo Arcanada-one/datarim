@@ -203,6 +203,7 @@ Before writing ANY file to `datarim/`:
 | `/dr-auto` | Autonomous | Autonomous-execution meta-command. Turns on the FB-1..8 mandate (eight feedback-rules — see `skills/autonomous-agents/`), the L1 Inline Resolution Rule (close small gaps in-line rather than asking), and the autonomous-ops scope ([definition](skills/autonomous-mode/SKILL.md)) by default through env var `DATARIM_AUTO_MODE=1` + file marker `datarim/.auto-mode-active`. The five-level Question Suppression Ladder ([definition](skills/autonomous-mode/SKILL.md)) suppresses pipeline clarification questions; L1 Class A gaps close inline; hard-gated actions still escalate to the operator. Two modes — Continue (`/dr-auto {TASK-ID}` resume) / Bootstrap (`/dr-auto "<free-text>"` full pipeline). Canonical contract in `skills/autonomous-mode/SKILL.md`. |
 | `/dr-status` | Utility | Check current task and backlog status |
 | `/dr-next` | Utility | Resume from last checkpoint |
+| `/dr-quick` | Utility | Fast-lane for trivial fixes / quick lookups — `QCK-XXXX`, weak-model KB scan, short `quick/` archive. Skips PRD/plan/design/QA/compliance |
 | `/dr-write` | Content | Create written content — articles, docs, research, posts |
 | `/dr-edit` | Content | Editorial review — fact-check, humanize, style, polish |
 | `/dr-publish` | Content | Adapt and publish content to multiple platforms |
@@ -216,7 +217,7 @@ Before writing ANY file to `datarim/`:
 | `/factcheck` | Standalone | Fact-check articles and posts before publication |
 | `/humanize` | Standalone | Remove AI writing patterns from text |
 
-Command files: `$HOME/.claude/commands/{name}.md` (24 commands core + 1 plugin)
+Command files: `$HOME/.claude/commands/{name}.md` (25 commands core + 1 plugin)
 
 ### /dr-verify (on-demand, tri-layer architecture)
 
@@ -537,7 +538,7 @@ Everything below this line is project-specific. When installing Datarim in a new
 
 ### Task Prefix Registry
 
-Project-local task prefixes for `datarim-doctor.sh` archive routing. The doctor walks up the directory tree, parses the first `## Task Prefix Registry` section it finds, and resolves the prefix to its Archive Subdir. Universal area prefixes (`INFRA`, `WEB`, `DEV`, `DEVOPS`, `CONTENT`, `RESEARCH`, `AGENT`, `BENCH`, `MAINT`, `FIN`, `QA`, `SEC`, `TUNE`, `ROB`) live in the Datarim runtime and apply automatically — do not repeat them here.
+Project-local task prefixes for `datarim-doctor.sh` archive routing. The doctor walks up the directory tree, parses the first `## Task Prefix Registry` section it finds, and resolves the prefix to its Archive Subdir. Universal area prefixes (`INFRA`, `WEB`, `DEV`, `DEVOPS`, `CONTENT`, `RESEARCH`, `AGENT`, `BENCH`, `MAINT`, `FIN`, `QA`, `SEC`, `QCK`, `TUNE`, `ROB`) live in the Datarim runtime and apply automatically — do not repeat them here.
 
 Schema: `| Prefix | Project | Archive Subdir |`. Archive Subdir MUST match `^[a-z][a-z0-9-]*$` (single path component, no `/`, no `..`).
 
