@@ -1,0 +1,26 @@
+# coworker-delegation exempt patterns
+#
+# A creative-*.md whose BASENAME matches ANY glob below is written DIRECTLY by
+# the agent (NOT delegated to `coworker write`), per the global delegation rule
+# "Do NOT delegate -> Architectural decisions and trade-offs"
+# (~/.claude/CLAUDE.md § Coworker Delegation).
+#
+# These docs are judgment-heavy (threat models, ADRs, design contracts) where a
+# cheap external LLM both fails to save tokens and tends to fabricate. The hook
+# (coworker-hook-guard.sh) reads this file at Write time and silently allows a
+# matching creative-doc instead of denying it.
+#
+# Format: one shell glob per line, matched case-insensitively against the
+# lowercased basename. Lines starting with '#' and blank lines are ignored.
+# Patterns are used ONLY as `case` glob operands -- never eval'd or sourced.
+#
+# Per-project: append your own patterns here, or point the hook at a different
+# file via the COWORKER_GUARD_EXEMPT_FILE env var. Missing file = no exemptions
+# (every creative-doc stays gated -- the prior behaviour).
+#
+# Default architecture-document globs:
+creative-*architecture*.md
+creative-*algorithm*.md
+creative-*-design*.md
+creative-*threat-model*.md
+creative-*-adr*.md

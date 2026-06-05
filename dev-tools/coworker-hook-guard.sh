@@ -26,6 +26,7 @@
 #     install.sh fanout_runtime.
 #
 # Backwards-compat: KIMI_GUARD_* env vars still honoured as fallback.
+# shellcheck shell=bash
 set -euo pipefail
 
 # --- KB pre-overwrite backup side-effect -------------------------------------
@@ -126,6 +127,48 @@ emit_session_message() {
 # Protected: wiki/*, Social Media/*, prd-*.md, plan-*.md, creative-*.md,
 # *-task-description.md. Exempt by omission: archive-*.md, reflection-*.md
 # (operator decision 2026-05-24 — see CLAUDE.md § Exempt).
+# Resolve the exempt-patterns allowlist path. Default: sibling of this script's
+# real path (works under symlink/copy/project-install — _GUARD_SRC is already
+# readlink-resolved above). Per-project override via COWORKER_GUARD_EXEMPT_FILE.
+exempt_file_path() {
+  if [ -n "${COWORKER_GUARD_EXEMPT_FILE:-}" ]; then
+    printf '%s' "$COWORKER_GUARD_EXEMPT_FILE"
+  else
+    printf '%s' "$(dirname "$_GUARD_SRC")/coworker-delegation-exempt.patterns"
+  fi
+}
+
+# Returns 0 if <basename> matches an exempt glob in the allowlist (the doc is an
+# architectural decision the global rule says to write directly, NOT delegate).
+# Returns 1 otherwise — including when the allowlist is absent/unreadable
+# (fail-soft toward the gate: no file ⇒ no exemptions ⇒ prior deny behaviour).
+#
+# S1: pattern lines are used ONLY as `case` glob operands. Never eval'd, never
+# sourced, never command-substituted. Matching is case-insensitive via tr
+# (portable to macOS bash 3.2 — no `shopt nocasematch`, no `${var,,}`).
+is_delegation_exempt() {
+  local base="$1" ef lc_base lc_pat line
+  ef=$(exempt_file_path)
+  [ -f "$ef" ] && [ -r "$ef" ] || return 1
+  lc_base=$(printf '%s' "$base" | tr '[:upper:]' '[:lower:]')
+  while IFS= read -r line || [ -n "$line" ]; do
+    # trim leading/trailing whitespace
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
+    case "$line" in ''|'#'*) continue ;; esac
+    lc_pat=$(printf '%s' "$line" | tr '[:upper:]' '[:lower:]')
+    # SC2254 intentionally NOT silenced by quoting: $lc_pat MUST expand as a
+    # glob pattern (e.g. creative-*architecture*.md), not match literally. The
+    # value is an allowlist glob, never user file content, and is used only as a
+    # case operand — never eval'd/sourced (S1). Quoting it would break the gate.
+    # shellcheck disable=SC2254
+    case "$lc_base" in
+      $lc_pat) return 0 ;;
+    esac
+  done < "$ef"
+  return 1
+}
+
 check_write_protected() {
   local f="$1"
   [ -n "$f" ] || return 1
@@ -136,7 +179,12 @@ check_write_protected() {
     */wiki/*|*/Social\ Media/*) return 0 ;;
   esac
   case "$base" in
-    prd-*.md|plan-*.md|creative-*.md|*-task-description.md) return 0 ;;
+    prd-*.md|plan-*.md|*-task-description.md) return 0 ;;
+    creative-*.md)
+      # Architectural creative-docs are exempt from delegation (write directly).
+      is_delegation_exempt "$base" && return 1
+      return 0
+      ;;
   esac
   return 1
 }
@@ -145,7 +193,7 @@ emit_write_deny() {
   local f="$1"
   local base
   base=$(basename "$f")
-  emit_deny "Создаёшь $base — это документационный артефакт. Per CLAUDE.md MANDATORY: первый draft через coworker write --profile datarim --spec \"...\" --context <refs> --target \"$f\", потом surgical edits. Approve только если уже сгенерирован coworker'ом."
+  emit_deny "Создаёшь $base — это документационный артефакт. Per CLAUDE.md MANDATORY: первый draft через coworker write --profile datarim --spec \"...\" --context <refs> --target \"$f\", потом surgical edits. Approve только если уже сгенерирован coworker'ом. Если это АРХИТЕКТУРНОЕ решение (ADR / threat-model / design) — global rule «Do NOT delegate → Architectural decisions» разрешает писать напрямую: добавь glob имени в coworker-delegation-exempt.patterns (рядом с хуком) ИЛИ пиши через Bash heredoc (хук не гейтит Bash). Делегируй coworker'у только настоящие черновики, НЕ имитируй compliance пустышкой."
 }
 
 # Read-branch deny wording, bound to the crossed token threshold. The wording

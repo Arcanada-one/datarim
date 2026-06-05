@@ -1,0 +1,6 @@
+# Shell scripts and data files shipped to consumers must use LF line endings.
+# On Windows (Git Bash / MSYS2) a CRLF shebang breaks the interpreter line and
+# CRLF in `case` glob operands breaks pattern matching in coworker-hook-guard.sh.
+*.sh text eol=lf
+*.bats text eol=lf
+*.patterns text eol=lf
