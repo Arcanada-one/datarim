@@ -4,6 +4,36 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.29.0] — 2026-06-06
+
+Command-surface hygiene plus two workflow reworks. A new `/dr-quick` fast-lane handles trivial fixes without the full pipeline; `/dr-auto` becomes a subagent orchestrator; and reflection moves from archive to the compliance gate with a freshness marker.
+
+### Added
+
+- **`/dr-quick` fast-lane** — a lightweight command for trivial fixes or quick lookups that skips the heavy `init → prd → plan` pipeline. It assigns a `QCK-XXXX` task id (new universal area-prefix, archived under `quick/`), runs a fast context scan on the runtime's cheapest reasoning tier to locate where the change belongs, applies the fix, and writes a short archive entry — no PRD, plan, QA, or compliance. For one-file edits where waiting for full analysis is pure overhead.
+- **`dev-tools/reflection-freshness.sh`** — a four-branch freshness helper (absent file / absent marker / stale marker / fresh) backing the reflection-reuse gate, with an 11-case bats regression suite.
+
+### Changed
+
+- **Reflection moves to `/dr-compliance`.** Reflection (lessons-learned + evolution proposals) now runs at a passing `/dr-compliance` verdict and stamps the reflection with a `reflection_basis` marker derived from the compliance report. `/dr-archive` Step 0.5 becomes a freshness gate: it re-runs reflection only when the file is absent, the marker is absent, or the marker is stale versus the current compliance report — otherwise it reuses the existing reflection. The mandatory-reflection guarantee is preserved: a task archived without a prior compliance pass still force-generates. The `reflection_basis` is stamped last, after the compliance report's human-summary append, so the hash matches the final report.
+- **`/dr-auto` is now a subagent orchestrator.** Instead of chaining slash commands, `/dr-auto` spawns the matching agent per stage (planner / architect / developer / reviewer / compliance), summarises each result, and routes to the next stage. It drives a task to a passing `/dr-compliance` + reflection and stops there — archival stays an explicit operator step. Re-entering an already-completed stage after a review finding is first-class (the artefact is updated, not recreated).
+
+### Removed
+
+- **Deprecated command aliases.** The `/dr-continue` alias and the `dr-continue-snapshot-replay` skill alias were removed — one canonical name per concept (`/dr-next` and `dr-next-snapshot-replay`). Live inventory is now 24 commands and 54 skills.
+
+## [2.28.0] — 2026-06-01
+
+Tag-driven release environment provisioning, closing a first-publish gap in the autonomous release rails shipped in 2.27.0.
+
+### Added
+
+- **`dev-tools/provision-release-env.sh`** sets up a GitHub deployment environment for a tag-driven publish (`on: push: tags: [v*]`). GitHub creates environments with a default policy that matches protected *branches* and silently excludes *tags*, so the first tag-driven publish of a brand-new package is rejected. The provisioner sets `custom_branch_policies=true` plus a `{name: v*, type: tag}` deployment-branch-policy, and preserves required reviewers on the manual-approval environment. Dry-run by default (only prints planned GitHub API calls unless `--apply`), idempotent (re-running skips a tag policy already present), with the GitHub API edge injected for deterministic testing (13 new regression cases).
+
+### Changed
+
+- **Release docs.** A new how-to walks through provisioning (script quick-path, reviewer-id resolution, manual API equivalent, verification commands). The PyPI first-publish how-to and the release-process playbook now cross-reference it as a one-time prerequisite before the first publish.
+
 ## [2.27.0] — 2026-05-31
 
 Autonomous release policy with fail-closed safety rails (Class B). The agent may now publish `patch`/`minor` versions of Arcanada-owned packages to public registries (PyPI / GitHub Releases / npm) end-to-end without an operator prompt, while `major` and any `0.x` breaking change always escalate. Publication is irreversible (PyPI yank ≠ delete; Rekor entries are permanent), so autonomy ships with designed rails, not a one-line mandate edit.

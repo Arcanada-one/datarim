@@ -1,6 +1,6 @@
 # Datarim — Universal Iterative Workflow Framework
 
-> **Version:** 2.28.0
+> **Version:** 2.29.0
 > **Framework:** Datarim provides structured rules, agents, skills, and commands for iterative project execution via AI coding assistants — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
 > **Multi-runtime:** Datarim is runtime-agnostic. This file is also available as `AGENTS.md` (symlink) for Codex CLI and other agent runtimes that read `AGENTS.md` by convention. See `docs/use-cases.md#runtime-support` for the canonical Claude Code / Codex CLI / Cursor support matrix.
 > **Note:** "Datarim" has a Russian transliteration «Датарим» — agents must recognise either form in any language context. <!-- allow-non-ascii: literal-transliteration-pair-for-agent-name-recognition -->
@@ -129,7 +129,7 @@ Skills are reusable knowledge modules loaded on demand. They provide rules, patt
 - `human-summary.md` — Plain-language operator recap (`/dr-qa`, `/dr-compliance`, `/dr-archive` Step 8) — four sub-sections + banlist + whitelist + per-paragraph escape hatch + 150–400 word budget.
 - `v-ac-axis-split.md` — V-AC group axis-split pattern: when group mixes deterministic axis (rule match / shape check / type assertion) and statistical axis (live-rate threshold / SLA percentile / soak distribution), split upfront into two V-AC groups (loaded by: /dr-prd V-AC drafting, /dr-plan V-AC review). Source: TUNE-0183 V-AC-14.11 reclassification.
 
-Skill files: `$HOME/.claude/skills/{name}/SKILL.md` (55 skills, 11 with supporting fragment directories)
+Skill files: `$HOME/.claude/skills/{name}/SKILL.md` (54 skills, 11 with supporting fragment directories)
 
 > **v1.16.0 addition:** `cta-format.md` — canonical CTA "Next Step" block specification, loaded by `planner`, `architect`, `developer`, `reviewer`, `compliance` agents. Defines structure, separators, primary marker, multi-task menu (Variant B), and FAIL-Routing variant. Source: TUNE-0032.
 
@@ -200,10 +200,10 @@ Before writing ANY file to `datarim/`:
 | `/dr-verify` | Verification | Standalone self-verification (on-demand). Tri-layer: Layer 1 deterministic floor + Layer 2 cross-model peer-review (DeepSeek default) + Layer 3 native runtime dispatch. Findings-only mode. |
 | `/dr-compliance` | Hardening | 7-step post-QA hardening |
 | `/dr-archive` | Archive | Reflection (Step 0.5: lessons learned + framework evolution proposals) + complete task + update backlog + reset context |
-| `/dr-auto` | Autonomous | Autonomous-execution meta-command. Turns on the FB-1..8 mandate (eight feedback-rules — see `skills/autonomous-agents/`), the L1 Inline Resolution Rule (close small gaps in-line rather than asking), and the autonomous-ops scope ([definition](skills/autonomous-mode/SKILL.md)) by default through env var `DATARIM_AUTO_MODE=1` + file marker `datarim/.auto-mode-active`. The five-level Question Suppression Ladder ([definition](skills/autonomous-mode/SKILL.md)) suppresses pipeline clarification questions; L1 Class A gaps close inline; hard-gated actions still escalate to the operator. Two modes — Continue (`/dr-auto {TASK-ID}` resume) / Bootstrap (`/dr-auto "<free-text>"` full pipeline). Canonical contract in `skills/autonomous-mode/SKILL.md`. |
+| `/dr-auto` | Autonomous | Autonomous-execution meta-command. Turns on the FB-1..8 mandate (eight feedback-rules — see `skills/autonomous-agents/`), the L1 Inline Resolution Rule (close small gaps in-line rather than asking), and the autonomous-ops scope ([definition](skills/autonomous-mode/SKILL.md)) by default through env var `DATARIM_AUTO_MODE=1` + file marker `datarim/.auto-mode-active`. The five-level Question Suppression Ladder ([definition](skills/autonomous-mode/SKILL.md)) suppresses pipeline clarification questions; L1 Class A gaps close inline; hard-gated actions still escalate to the operator. Subagent orchestrator: spawns the matching agent per stage (planner/architect/developer/reviewer/compliance) via the Agent tool and summarises each result. Terminal point is a passing `/dr-compliance` + reflection — it does NOT run the final `/dr-archive`. Stage-replay allowed (re-entering a stage updates its artefact). Two modes — Continue (`/dr-auto {TASK-ID}` resume) / Bootstrap (`/dr-auto "<free-text>"`). Canonical contract in `skills/autonomous-mode/SKILL.md`. |
 | `/dr-status` | Utility | Check current task and backlog status |
 | `/dr-next` | Utility | Resume from last checkpoint |
-| `/dr-continue` | Utility | Deprecated alias for `/dr-next` (kept for backwards compatibility) |
+| `/dr-quick` | Utility | Fast-lane for trivial fixes / quick lookups — `QCK-XXXX`, weak-model KB scan, short `quick/` archive. Skips PRD/plan/design/QA/compliance |
 | `/dr-write` | Content | Create written content — articles, docs, research, posts |
 | `/dr-edit` | Content | Editorial review — fact-check, humanize, style, polish |
 | `/dr-publish` | Content | Adapt and publish content to multiple platforms |
@@ -217,7 +217,7 @@ Before writing ANY file to `datarim/`:
 | `/factcheck` | Standalone | Fact-check articles and posts before publication |
 | `/humanize` | Standalone | Remove AI writing patterns from text |
 
-Command files: `$HOME/.claude/commands/{name}.md` (24 commands core + 1 plugin)
+Command files: `$HOME/.claude/commands/{name}.md` (24 commands, including the plugin command)
 
 ### /dr-verify (on-demand, tri-layer architecture)
 
@@ -538,7 +538,7 @@ Everything below this line is project-specific. When installing Datarim in a new
 
 ### Task Prefix Registry
 
-Project-local task prefixes for `datarim-doctor.sh` archive routing. The doctor walks up the directory tree, parses the first `## Task Prefix Registry` section it finds, and resolves the prefix to its Archive Subdir. Universal area prefixes (`INFRA`, `WEB`, `DEV`, `DEVOPS`, `CONTENT`, `RESEARCH`, `AGENT`, `BENCH`, `MAINT`, `FIN`, `QA`, `SEC`, `TUNE`, `ROB`) live in the Datarim runtime and apply automatically — do not repeat them here.
+Project-local task prefixes for `datarim-doctor.sh` archive routing. The doctor walks up the directory tree, parses the first `## Task Prefix Registry` section it finds, and resolves the prefix to its Archive Subdir. Universal area prefixes (`INFRA`, `WEB`, `DEV`, `DEVOPS`, `CONTENT`, `RESEARCH`, `AGENT`, `BENCH`, `MAINT`, `FIN`, `QA`, `SEC`, `QCK`, `TUNE`, `ROB`) live in the Datarim runtime and apply automatically — do not repeat them here.
 
 Schema: `| Prefix | Project | Archive Subdir |`. Archive Subdir MUST match `^[a-z][a-z0-9-]*$` (single path component, no `/`, no `..`).
 
