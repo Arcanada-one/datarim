@@ -1,6 +1,6 @@
 ---
 name: dr-auto
-description: Run a task end-to-end with minimal operator interruption. Either resume a known task from its last checkpoint, or kick off a fresh task from a free-text brief. Reversible actions proceed automatically; irreversible actions (production deploys, secret rotation, force-push to main, public messages) still ask the operator.
+description: Orchestrate a task to a passing /dr-compliance + reflection (not final archive) by spawning per-stage subagents and summarising their results. Resume a known task from its checkpoint or bootstrap a new one from a brief. Stage-replay allowed. Reversible actions proceed automatically; irreversible actions (production deploys, secret rotation, force-push to main, public messages) still ask the operator.
 model: inherit
 metadata:
   model_tier: reasoning
@@ -10,9 +10,9 @@ target_aal: 2
 
 # /dr-auto — Autonomous Execution
 
-`/dr-auto` runs the full Datarim pipeline on a single task with reduced operator prompting. It is a thin orchestrator: it decides whether to resume or bootstrap, sets an autonomous-mode flag, and then delegates each stage to its existing command (`/dr-init`, `/dr-prd`, `/dr-plan`, `/dr-do`, `/dr-qa`, `/dr-compliance`, `/dr-archive`). Stages see the flag and skip clarifying questions whose answers can be derived from the existing artefacts, memory, or a quick probe.
+`/dr-auto` drives a single task from its current status through to a successful `/dr-compliance` + reflection, with reduced operator prompting. It is a **subagent orchestrator**: for each pipeline stage it spawns the matching Datarim agent via the Agent tool (`planner` for plan, `architect` for prd/design, `developer` for do, `reviewer` for qa, `compliance` for compliance), summarises that subagent's returned result, and decides the next stage. It does **not** run the final `/dr-archive` — archival stays an explicit operator step. Stages run under the autonomous-mode flag and skip clarifying questions whose answers can be derived from the existing artefacts, memory, or a quick probe.
 
-**Role:** Adaptive (planner / architect / developer / reviewer / compliance — whichever the dispatched stage requires).
+**Role:** Orchestrator (spawns and summarises planner / architect / developer / reviewer / compliance subagents per stage; does not itself perform the stage work).
 
 ## Usage
 
@@ -40,13 +40,15 @@ target_aal: 2
      activated_by: /dr-auto
      mode: resume | bootstrap
      ```
-   - The marker is removed at the terminal step (successful archive, or a hard stop that surrenders control to the operator). If the env var is set without a matching marker, downstream stages treat the session as non-autonomous (fail-safe).
+   - The marker is removed at the terminal step (successful `/dr-compliance` + reflection, or a hard stop that surrenders control to the operator). If the env var is set without a matching marker, downstream stages treat the session as non-autonomous (fail-safe).
 
 4. **Load the operating rules.** Read the autonomous-mode skill at `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode/SKILL.md`. It defines the decision rules every stage uses: how to handle minor gaps inline, when to walk through the question-suppression checks before prompting the operator, and which actions are always operator-gated regardless of mode.
 
-5. **Dispatch the pipeline.**
-   - **Resume mode:** read the last stage snapshot for the task (via `/dr-next` semantics) and continue from there to `/dr-archive`.
-   - **Bootstrap mode:** run the stages in order, applying the complexity routing from the framework's CLAUDE.md: `/dr-init` always runs; `/dr-prd` and `/dr-design` are added for L3+ tasks; `/dr-plan`, `/dr-do`, `/dr-qa`, `/dr-compliance`, `/dr-archive` run as their gates require.
+5. **Dispatch the pipeline as subagents.** For each stage that needs running, spawn the matching agent via the Agent tool, pass it the resolved task state, wait for its result, then summarise that result and decide the next stage. Stage → agent map: prd/design → `architect`, plan → `planner`, do → `developer`, qa → `reviewer`, compliance → `compliance`. The orchestrator itself does not perform stage work — it dispatches, summarises, and routes.
+   - **Resume mode:** read the last stage snapshot for the task (via `/dr-next` semantics) and continue from there.
+   - **Bootstrap mode:** run the stages in order, applying the complexity routing from the framework's CLAUDE.md: `/dr-init` always runs; prd/design are added for L3+ tasks; plan/do/qa/compliance run as their gates require.
+   - **Terminal point:** the pipeline stops after a **successful `/dr-compliance`** (COMPLIANT or COMPLIANT_WITH_NOTES), which now writes the reflection internally (see `commands/dr-compliance.md` Step 8.5). `/dr-auto` does **not** dispatch an archive subagent — archival is left to the operator.
+   - **Stage-replay is normal.** Re-entering an already-completed stage (e.g. after a `/dr-qa` or `/dr-compliance` finding routes work back) updates or append-merges the existing stage artefact rather than failing "already done". The same task may pass through the same stage many times across review rounds; treat each pass as an update to that stage's artefact, not a fresh creation.
 
 6. **Stage-level question suppression.** Each stage that supports autonomous mode has its own `## /dr-auto Mode` block. When a stage reaches a point where it would normally ask the operator a question, it first tries to resolve the answer from documentation, a quick re-run of the relevant test or probe, prior memory, or matching patterns in the codebase. Only when none of those work does it actually prompt the operator.
 
@@ -58,7 +60,7 @@ target_aal: 2
 
    When this happens, the stage uses `AskUserQuestion` to prompt the operator, and records the round in the task's init-task append-log via `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/append-init-task-qa.sh" --decided-by operator --stage <current-stage>`.
 
-9. **Terminal cleanup.** On success or a hard stop:
+9. **Terminal cleanup.** On success (a passing `/dr-compliance` + reflection) or a hard stop:
    - Remove `datarim/.auto-mode-active`.
    - Emit the standard call-to-action block defined in the cta-format skill.
    - Emit the stage snapshot defined in the cta-format skill (`stage: auto`, `command: /dr-auto`).

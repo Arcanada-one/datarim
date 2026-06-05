@@ -42,6 +42,7 @@ When archiving a task, map the prefix to the destination subdirectory.
 | `FIN` | `finance/` |
 | `QA` | `qa/` |
 | `SEC` | `security/` |
+| `QCK` | `quick/` |
 | *(unknown)* | resolved via Project Prefix lookup, else `general/` |
 
 **Project prefixes** (ecosystem- or project-specific) are NOT defined in the Datarim runtime. They are declared by the consumer in the nearest `CLAUDE.md` `## Task Prefix Registry` section and resolved by `scripts/datarim-doctor.sh` walking up from the Datarim root. See `skills/datarim-system/task-identity-and-context.md` § Project Prefix Resolution.

@@ -156,6 +156,7 @@ area_prefix_to_subdir() {
         FIN) echo "finance" ;;
         QA) echo "qa" ;;
         SEC) echo "security" ;;
+        QCK) echo "quick" ;;
         *) return 1 ;;
     esac
 }
