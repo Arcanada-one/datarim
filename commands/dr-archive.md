@@ -188,6 +188,37 @@ Complete and archive current task.
    blast-radius, and the remediation owner + ETA. «DoD met» framing is
    forbidden when the network gate is red.
 
+0.4. **Prod-Merge Verification Gate** (MANDATORY when the task is deploy-class):
+   - **Condition:** the task is deploy-class —
+     `bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-deploy-class.sh" --task-description datarim/tasks/{TASK-ID}-task-description.md`
+     exits 0 (touches a deploy surface: systemd units, sudoers, CI cutover,
+     `.env-deploy`). On exit 1 → SKIP this step silently.
+   - **Block:** archive MUST NOT proceed until the production merge is **both
+     done AND verified**. A green test-runner pipeline and a passing `/dr-qa`
+     Gate 4g (pre-merge readiness) are necessary but NOT sufficient — this step
+     confirms the change is actually live and healthy on prod after merge.
+   - **Verification (read-only):** confirm the merged artifact is live on prod —
+     e.g. the running systemd unit reports the expected version, the
+     local==origin==PROD image/SHA chain matches (see
+     `feedback_archive_prod_deployed_runtime_probe`), and a post-deploy
+     health/log probe shows the new code actually serving (not merely a green
+     `/health` — re-load `$HOME/.claude/skills/prod-readiness-probe/SKILL.md`
+     for the verdict vocabulary and the read-only allow-list).
+   - **Verdict → action:**
+     - `PASS` (prod-merge live + verified) → archive MAY proceed.
+     - `FAIL` (deploy failed / drift / unhealthy) → archive **BLOCKED**; return
+       the task to `/dr-do` (or surface the operator remediation). «DoD met»
+       framing is forbidden while prod is unverified.
+     - `BLOCKED` (prod unreachable, cannot verify) → archive **BLOCKED** until
+       the operator explicitly confirms out-of-band verification. Never
+       auto-archive on an unverifiable prod.
+   - **prod is hard-gated:** this step researches read-only and predicts impact;
+     it performs NO prod mutation. Any required prod action is an explicit
+     operator step.
+   - **Rationale:** a task cannot be archived/closed while its production
+     rollout is incomplete or unverified. Archive closes the audit trail —
+     closing it on an unverified prod records a false «done».
+
 0.5. **REFLECT** (MANDATORY — runs at least once per task, via a conditional freshness gate):
    - **Freshness gate (decides whether to re-run reflection):** invoke
      `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/reflection-freshness.sh --task {TASK-ID} --root "$DATARIM_ROOT"`.

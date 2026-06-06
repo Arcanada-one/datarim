@@ -81,6 +81,45 @@ referencing the shared task ID. See `datarim/docs/ADR-cross-repo-atomicity.md` f
 
 ---
 
+## Anti-self-suppression rule (recurring incidents MUST be promoted)
+
+A reflection can fail not by proposing the wrong change, but by proposing **no**
+change when it should. The failure mode: a lesson about a **recurring** incident
+is declined with the rationale "redundant with existing contract" (or any
+synonym — "already mandated", "existing skills already cover this") and demoted
+to a memory note instead of being promoted into a blocking gate. The known risk
+then recurs, because the existing contract was advisory, not enforced.
+
+**Rule.** When a reflection lesson **matches a prior reflection's lesson OR
+describes a recurrence** of a previously-noted incident-class, the decline
+reason "redundant with existing contract" is **forbidden**. The proposal MUST be
+promoted via the evolution category `promote-recurring-incident-to-gate`
+(turning the advisory lesson into an enforced gate). A recurrence is not
+evidence that the contract is sufficient — it is evidence that the contract
+failed to prevent the failure.
+
+**Detecting recurrence (the check `reflecting` runs before any decline).**
+
+1. **Deterministic first pass.** Tag each lesson with an `incident_class` key
+   (a stable kebab-slug naming the failure class, e.g. `prod-runner-sudoers-gap`).
+   Before declining, grep prior reflection lesson-lines for the same key:
+   `grep -REl "incident_class: <key>" datarim/reflection/`. A hit proves
+   recurrence.
+2. **Escalation pass.** If the grep is ambiguous (no key match but the prose
+   describes a clearly-similar failure), do a lightweight semantic check against
+   the last several reflections.
+3. **Trigger.** If **either** pass signals recurrence → the decline is blocked;
+   promote via `promote-recurring-incident-to-gate`.
+
+**False-positive bound.** The rule fires **only when recurrence is
+demonstrated**. A genuinely **novel** lesson — one that has never appeared before
+— may still be declined with any valid rationale, including redundancy. To keep
+the decision auditable, the reflection MUST cite the specific prior reflection
+(file path or excerpt) that constitutes the recurrence evidence when it promotes
+under this rule.
+
+---
+
 ## Founding incident
 
 Prior research concluded "repo-first operating model should replace runtime-first" based on research-level reasoning. This was treated as a regular proposal and approved through the normal reflection gate. A follow-up execution task then applied it — bumping VERSION, rewriting README Operating Model section, rewriting wrapper CLAUDE.md to a repo-first workflow — without reconciling against `PRD-datarim-sdlc-framework.md`, which explicitly specified runtime-first via `/dr-reflect` (the command existing at the time; consolidated into `/dr-archive` Step 0.5 in v1.10.0).

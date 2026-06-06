@@ -1,6 +1,6 @@
 # Skills Reference
 
-Datarim includes 55 reusable skill modules. Skills provide rules, patterns, and guidelines loaded on demand by agents and commands.
+Datarim includes 56 reusable skill modules. Skills provide rules, patterns, and guidelines loaded on demand by agents and commands.
 
 Skills are split into two categories:
 - **Reference skills** — rules and patterns the caller applies inline. Inherit caller's model (no `model` field).
@@ -47,8 +47,9 @@ Skills are split into two categories:
 | stage-snapshot-writer | Reference | inherit | Producer contract for per-task stage snapshots — final operator-visible `/dr-*` response persisted to `datarim/snapshots/{TASK-ID}.snapshot.md` with overwrite semantics, mkdir-based atomic lock, 8 KB hard cap (v2.13.0, TUNE-0254) | invoked from `cta-format.md` § Snapshot Emission by every `/dr-*` |
 | dr-next-snapshot-replay | Reference | inherit | Consumer contract — `/dr-next` and `/dr-orchestrate` read snapshot first, emit replay-prompt with CTA + bilingual autonomy reminder + `done before:` body; CTA-selection heuristic with ≥3 worked examples (v2.13.0, TUNE-0254) | `/dr-next` Step 2.5, `/dr-orchestrate` Snapshot-First Resume |
 | v-ac-axis-split | Reference | inherit | Pattern guidance: split V-AC groups mixing a deterministic axis (rule match / shape check / type assertion) and a statistical axis (live-rate threshold / SLA percentile / soak distribution) into two distinct V-AC groups upfront. | `/dr-prd` V-AC drafting, `/dr-plan` V-AC review |
+| prod-readiness-probe | Reference | inherit | Deploy-class prod-readiness gate — read-only test↔prod runner symmetry probe (sudoers, PATH, ports, units, runtime versions); blocks merge-proposal at `/dr-qa` Gate 4g and archive at `/dr-archive` Step 0.4 until prod is verified; hybrid deterministic (`deploy-readiness.yml`) / agent-checklist | `/dr-qa` Gate 4g, `/dr-archive` Step 0.4 |
 
-**Distribution:** 14 reference (inherit), 3 opus, 13 sonnet, 4 haiku.
+**Distribution:** 15 reference (inherit), 3 opus, 13 sonnet, 4 haiku.
 
 ## Loading Hierarchy
 
