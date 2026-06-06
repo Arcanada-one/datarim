@@ -1,6 +1,6 @@
 ---
 name: prod-readiness-probe
-description: Deploy-class prod-readiness gate — read-only test↔prod runner symmetry probe (sudoers, PATH, ports, units, runtime versions). Blocks merge-proposal at /dr-qa and archive at /dr-archive until prod is verified. Hybrid — deterministic when a project authors deploy-readiness.yml, agent-checklist otherwise.
+description: Deploy-class prod-readiness gate: read-only test/prod runner symmetry probe; blocks merge at /dr-qa and archive at /dr-archive until prod is verified.
 current_aal: 1
 target_aal: 2
 ---

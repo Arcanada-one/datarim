@@ -80,7 +80,7 @@ Load only the fragment needed for the current sub-problem:
 | `claude-md-update` | `CLAUDE.md` | Update project-level rules, pipeline definitions, or conventions |
 | `new-template` | `templates/{name}.md` | Create template for a recurring pattern |
 | `new-skill` | `skills/{name}.md` | Create entirely new skill for an uncovered domain |
-| `promote-recurring-incident-to-gate` | a blocking gate in a `commands/{name}.md` or `skills/{name}.md` | Promote a **recurring** incident-class into a blocking pipeline gate. Use when a lesson recurs (matches a prior reflection or describes a repeat of a known failure) and the existing contracts demonstrably did not prevent it. See the anti-self-suppression rule in `skills/evolution/class-ab-gate.md`. |
+| `promote-recurring-incident-to-gate` | a blocking gate in a `commands/{name}.md` or `skills/{name}.md` | Promote a **recurring** incident-class into a blocking pipeline gate. Use when a lesson recurs (matches a prior reflection or describes a repeat of a known failure) and the existing contracts demonstrably did not prevent it. See the anti-self-suppression rule in `class-ab-gate.md`. |
 
 ### Optimization Categories (from `/dr-optimize`)
 
