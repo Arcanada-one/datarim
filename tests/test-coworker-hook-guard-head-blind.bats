@@ -10,7 +10,7 @@
 # Cases follow PRD-TUNE-0156 § Success Criteria (AC-2..AC-7).
 # Fixtures: datarim/tasks/TUNE-0156-fixtures.md.
 
-HOOK="${HOOK:-$HOME/.local/bin/coworker-hook-guard}"
+HOOK="${HOOK:-${BATS_TEST_DIRNAME}/../dev-tools/coworker-hook-guard.sh}"
 
 setup() {
     [ -x "$HOOK" ] || skip "coworker-hook-guard not executable at $HOOK"
