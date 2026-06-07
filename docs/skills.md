@@ -29,7 +29,7 @@ Skills are split into two categories:
 | go-to-market | Task | sonnet | SEO, analytics, ad campaigns, launch checklists | on demand |
 | visual-maps | Task | sonnet | Mermaid workflow diagrams | on demand |
 | writing | Task | sonnet | Content creation and editorial workflow | writer, editor |
-| utilities | Task | haiku | Native shell recipes for common operations (12 fragment files) | Any agent (on demand) |
+| utilities | Task | haiku | Native shell recipes for common operations (15 fragment files) | Any agent (on demand) |
 | datarim-doctor | Task | sonnet | /dr-doctor schema and migration semantics (thin one-liner contract) | /dr-doctor, /dr-init self-heal, /dr-archive line-format gate |
 | file-sync-config | Reference | inherit | Pre-flight checklist + ignore patterns for file-sync (Syncthing/rclone) | on demand for sync setup |
 | frontend-ui | Task | sonnet | CSS specificity, dark/light themes, visual testing, mobile responsiveness | when editing HTML/CSS |
