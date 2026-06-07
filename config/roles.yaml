@@ -1,0 +1,95 @@
+# Datarim Fleet Role Registry — fleet orchestration model, role catalog.
+#
+# Machine-readable catalog of agent roles for the fleet orchestration model.
+# The orchestrator selects a role per task by (complexity, domain), then launches
+# a live interactive CLI agent (tmux session) with the role's starter skill and
+# permissions.
+#
+# TWO ORTHOGONAL AXES:
+#   complexity_levels — which task-difficulty tiers (1..5) this role handles;
+#                       picks the starter skill + context budget.
+#   default_aal       — autonomy level (1..4) the agent runs at; what it may do
+#                       without operator approval. Governed by the AAL mandate,
+#                       SEPARATE from complexity.
+#
+# Invariants enforced by dev-tools/check-role-registry.sh (beyond JSON schema):
+#   - max_parallel <= global_max_parallel.
+#   - autonomous roles (default_aal >= 3) MUST forbid the Layer-6 floor
+#     {prod-deploy, secret-rotation}.
+#   - starter_skill MUST resolve to an existing skills/fleet/* directory.
+#
+# No secrets here — declarative permissions only. Schema: role-registry.schema.json.
+
+schema_version: 1
+global_max_parallel: 8
+
+roles:
+  - id: architect
+    description: "System design, ADRs, 3+ option exploration with tradeoffs."
+    allowed_tools: [Read, Grep, Glob, Write]
+    allowed_paths: ["datarim/creative/**", "datarim/prd/**", "datarim/plans/**"]
+    forbidden_actions: [prod-deploy, secret-rotation, code-merge]
+    max_parallel: 2
+    complexity_levels: [3, 4, 5]
+    default_aal: 2
+    starter_skill: "skills/fleet/l3-analyst"
+
+  - id: developer
+    description: "TDD implementation of code per an approved plan."
+    allowed_tools: [Read, Write, Edit, Bash, Grep, Glob]
+    allowed_paths: ["Projects/*/code/**"]
+    forbidden_actions: [prod-deploy, secret-rotation, dns-change]
+    max_parallel: 8
+    complexity_levels: [2, 3, 4]
+    default_aal: 2
+    starter_skill: "skills/fleet/l3-analyst"
+
+  - id: reviewer
+    description: "QA and security review of completed work; read + test only."
+    allowed_tools: [Read, Grep, Glob, Bash]
+    allowed_paths: ["Projects/*/code/**"]
+    forbidden_actions: [prod-deploy, secret-rotation, code-write]
+    max_parallel: 8
+    complexity_levels: [2, 3, 4]
+    default_aal: 2
+    starter_skill: "skills/fleet/l2-structured"
+
+  - id: security
+    description: "Threat assessment, secrets audit, dependency safety."
+    allowed_tools: [Read, Grep, Glob, Bash]
+    allowed_paths: ["Projects/*/code/**", "documentation/**"]
+    forbidden_actions: [prod-deploy, secret-rotation, secret-write]
+    max_parallel: 4
+    complexity_levels: [3, 4, 5]
+    default_aal: 3
+    starter_skill: "skills/fleet/l4-expert"
+
+  - id: sre
+    description: "Incident response and self-healing on dev surfaces."
+    allowed_tools: [Read, Bash, Grep]
+    allowed_paths: ["Projects/*/code/**"]
+    forbidden_actions: [prod-deploy, secret-rotation, prod-config-change]
+    max_parallel: 4
+    complexity_levels: [2, 3, 4]
+    default_aal: 3
+    starter_skill: "skills/fleet/l4-expert"
+
+  - id: project-manager
+    description: "Tracks task status, unblocks, reassigns level; coordinates fleet."
+    allowed_tools: [Read, Bash]
+    allowed_paths: ["datarim/**"]
+    forbidden_actions: [prod-deploy, secret-rotation, code-write]
+    max_parallel: 1
+    complexity_levels: [4, 5]
+    default_aal: 3
+    starter_skill: "skills/fleet/l5-autonomous"
+
+  - id: monitor
+    description: "Observes the data bus, CI pipelines, and sites; no mutations."
+    allowed_tools: [Read, Bash, Grep]
+    allowed_paths: ["datarim/**"]
+    forbidden_actions: [prod-deploy, secret-rotation, prod-config-change, code-write]
+    max_parallel: 8
+    complexity_levels: [1, 2]
+    default_aal: 2
+    starter_skill: "skills/fleet/l1-basic"
