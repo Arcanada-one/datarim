@@ -106,6 +106,12 @@ teardown() {
 
 # ── obs consumer ─────────────────────────────────────────────────────────────
 
+@test "V-AC-6: index.html contains force-graph token (V-AC-6 success criterion)" {
+  local html="$PLUGIN_ROOT/web/fleet-dashboard/index.html"
+  [ -f "$html" ]
+  grep -q 'force-graph' "$html"
+}
+
 @test "V-AC-6: fleet_audit_consumer.sh is executable" {
   [ -x "$PLUGIN_ROOT/scripts/fleet_audit_consumer.sh" ]
 }

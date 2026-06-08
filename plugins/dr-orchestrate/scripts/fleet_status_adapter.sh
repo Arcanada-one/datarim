@@ -28,6 +28,7 @@ set -uo pipefail
 _self="${BASH_SOURCE[0]:-$0}"
 PLUGIN_DIR="$(cd "$(dirname "$_self")/.." && pwd)"
 BUS_ADAPTER="$PLUGIN_DIR/scripts/bus_adapter.sh"
+AUDIT_SINK="$PLUGIN_DIR/scripts/audit_sink.sh"
 
 : "${DR_ORCH_REDIS_URL:=redis://127.0.0.1:6379}"
 : "${DR_FLEET_BUS_BACKEND:=redis}"
@@ -102,15 +103,21 @@ status_get() {
 status_update() {
   local task_id="$1" new_status="$2" reason="${3:-}"
 
-  # Source bus adapter for publishing
+  # Source bus adapter for publishing and audit sink for redaction
   # shellcheck source=scripts/bus_adapter.sh
   source "$BUS_ADAPTER"
+  # shellcheck source=scripts/audit_sink.sh
+  source "$AUDIT_SINK"
+
+  # Redact reason before it enters the fleet event stream (PRD § Security)
+  local safe_reason
+  safe_reason="$(redact_reason "$reason")"
 
   # Generate message ID
   local msg_id
   msg_id="status-$(date +%s%3N)-$$"
 
-  # Publish to fleet:task-events
+  # Publish to fleet:task-events (reason is redacted)
   bus_publish "fleet:task-events" \
     id          "$msg_id" \
     ts          "$(date -u +%FT%TZ)" \
@@ -119,7 +126,7 @@ status_update() {
     to          "fleet-daemon" \
     task_id     "$task_id" \
     status      "$new_status" \
-    reason      "$reason" \
+    reason      "$safe_reason" \
     >/dev/null
 
   # Munera stub (future integration point)

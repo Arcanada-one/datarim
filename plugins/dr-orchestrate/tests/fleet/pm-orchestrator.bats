@@ -154,3 +154,21 @@ teardown() {
   run bash "$PM" timeout-check --dry-run
   [ "$status" -eq 0 ]
 }
+
+# ── redaction on fleet write-path (PRD § Security) ───────────────────────────
+
+@test "security: status_update redacts secret-bearing reason before bus publish" {
+  run bash -c "
+    export DR_FLEET_TASKS_FILE='$TMP/tasks.md'
+    export DR_FLEET_BUS_BACKEND=mock
+    export DR_FLEET_MOCK_LOG='$TMP/mock-redact.log'
+    source '$STATUS'
+    status_update 'TUNE-0001' 'blocked' 'token=supersecret123 deploy failed'
+  "
+  [ "$status" -eq 0 ]
+  # raw secret must not appear in the bus payload
+  run grep 'supersecret123' "$TMP/mock-redact.log"
+  [ "$status" -ne 0 ]
+  # REDACTED placeholder must appear
+  grep -q 'REDACTED' "$TMP/mock-redact.log"
+}
