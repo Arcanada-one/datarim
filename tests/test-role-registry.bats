@@ -165,3 +165,18 @@ EOF
     run "$VALIDATOR" --file "$ROLES"
     [ "$status" -eq 0 ]
 }
+
+@test "V-AC-1: all five fleet level skills declare an integer context_budget_tokens" {
+    # Direct enumeration of the per-level fleet starter skills (independent of
+    # role references) — the budget gate's coverage floor for fleet spawn.
+    for lvl in l1-basic l2-structured l3-analyst l4-expert l5-autonomous; do
+        skill_md="$REPO/skills/fleet/$lvl/SKILL.md"
+        [ -f "$skill_md" ] || { echo "missing: $skill_md"; return 1; }
+        # frontmatter-only extraction (body breaks a full-file YAML parse)
+        budget="$(awk '/^---$/{c++;next} c==1' "$skill_md" \
+            | grep -E '^\s*context_budget_tokens:' \
+            | head -1 | sed -E 's/.*context_budget_tokens:[[:space:]]*//')"
+        [ -n "$budget" ] || { echo "$lvl: no context_budget_tokens"; return 1; }
+        [[ "$budget" =~ ^[0-9]+$ ]] || { echo "$lvl: budget not integer: '$budget'"; return 1; }
+    done
+}
