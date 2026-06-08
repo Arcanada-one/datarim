@@ -25,13 +25,21 @@
 set -eu
 
 TASK_FILE=""
+OVERRIDE_DIR=""
 
 usage() {
     cat <<'EOF'
 level_resolver.sh — classify a fleet task into (complexity, aal).
 
 Usage:
-  level_resolver.sh --task-file PATH [--help]
+  level_resolver.sh --task-file PATH [--override-dir DIR] [--help]
+
+PM-override: if --override-dir is given and DIR/<task-basename>.json exists with
+{"complexity": N, "aal": M}, those values win (misclassification recovery).
+
+LLM fallback: when the heuristic confidence < 0.5 and FLEET_RESOLVER_NO_LLM is
+unset, the resolver runs FLEET_RESOLVER_LLM_CMD (default: a coworker DeepSeek
+call) and adopts its JSON verdict {complexity, aal, confidence, reason}.
 
 Exit codes: 0 classified | 1 task-file not found | 2 usage error.
 EOF
@@ -40,6 +48,7 @@ EOF
 while [ $# -gt 0 ]; do
     case "$1" in
         --task-file) TASK_FILE="${2:-}"; shift 2 ;;
+        --override-dir) OVERRIDE_DIR="${2:-}"; shift 2 ;;
         --help) usage; exit 0 ;;
         *) echo "ERROR: unknown argument: $1" >&2; usage >&2; exit 2 ;;
     esac
@@ -48,8 +57,39 @@ done
 [ -n "$TASK_FILE" ] || { echo "ERROR: --task-file is required" >&2; usage >&2; exit 2; }
 [ -f "$TASK_FILE" ] || { echo "ERROR: task-file not found: $TASK_FILE" >&2; exit 1; }
 
+# Default LLM-fallback command (cheap model via coworker). Overridable for tests.
+# Reads the brief on stdin; MUST emit JSON {complexity, aal, confidence, reason}.
+: "${FLEET_RESOLVER_LLM_CMD:=coworker ask --provider deepseek --profile code --question}"
+
+# --- PM-override (highest precedence): DIR/<task-basename>.json wins outright. ---
+if [ -n "$OVERRIDE_DIR" ]; then
+    base="$(basename "$TASK_FILE")"; base="${base%.*}"
+    override_file="$OVERRIDE_DIR/${base}.json"
+    if [ -f "$override_file" ]; then
+        # Validate + normalise via python (only complexity/aal int fields trusted).
+        if ov="$(python3 - "$override_file" <<'PY'
+import sys, json
+try:
+    d = json.load(open(sys.argv[1], encoding="utf-8"))
+    c = int(d["complexity"]); a = int(d["aal"])
+    assert 1 <= c <= 5 and 1 <= a <= 4
+except Exception as e:
+    print(f"ERROR: invalid override file: {e}", file=sys.stderr); sys.exit(1)
+print(json.dumps({"complexity": c, "aal": a, "confidence": 1.0,
+                  "reason": "PM-override (misclassification recovery)"}))
+PY
+        )"; then
+            printf '%s\n' "$ov"
+            exit 0
+        else
+            echo "ERROR: override file present but invalid: $override_file" >&2
+            exit 2
+        fi
+    fi
+fi
+
 # Heuristic classification in Python (case-insensitive keyword + structural signals).
-python3 - "$TASK_FILE" <<'PY'
+HEURISTIC_JSON="$(python3 - "$TASK_FILE" <<'PY'
 import sys, json, re
 
 text = open(sys.argv[1], encoding="utf-8", errors="replace").read()
@@ -109,11 +149,6 @@ else:
 # (Real AAL is governed by the AAL mandate + role default_aal; this is a hint.)
 aal_hint = {1: 1, 2: 2, 3: 2, 4: 2, 5: 3}[complexity]
 
-no_llm = bool(__import__("os").environ.get("FLEET_RESOLVER_NO_LLM"))
-if confidence < 0.5 and not no_llm:
-    reason_bits.append("low confidence — LLM fallback would run here (coworker/DeepSeek)")
-    # In a wired runtime this path calls coworker; heuristic value retained as seed.
-
 print(json.dumps({
     "complexity": complexity,
     "aal": aal_hint,
@@ -121,3 +156,46 @@ print(json.dumps({
     "reason": "; ".join(reason_bits),
 }))
 PY
+)"
+
+# --- LLM fallback: low heuristic confidence + fallback enabled → real call. ---
+heur_conf="$(printf '%s' "$HEURISTIC_JSON" | python3 -c 'import sys,json; print(json.load(sys.stdin)["confidence"])')"
+fallback_fired=0
+if [ -z "${FLEET_RESOLVER_NO_LLM:-}" ] \
+   && python3 -c "import sys; sys.exit(0 if float('$heur_conf') < 0.5 else 1)"; then
+    # Run the cheap-model command with the brief as its final argument
+    # (matches `coworker ask --question "<text>"`); adopt its JSON verdict.
+    brief_text="$(cat "$TASK_FILE")"
+    # shellcheck disable=SC2086  # FLEET_RESOLVER_LLM_CMD is an intentional command vector
+    llm_raw="$($FLEET_RESOLVER_LLM_CMD "$brief_text" 2>/dev/null || true)"
+    if [ -n "$llm_raw" ]; then
+        llm_json="$(python3 - "$llm_raw" <<'PY'
+import sys, json, re
+raw = sys.argv[1]
+# Lenient extraction: accept bare JSON or a fenced/embedded object.
+def try_load(s):
+    try:
+        d = json.loads(s)
+        c = int(d["complexity"]); a = int(d["aal"])
+        assert 1 <= c <= 5 and 1 <= a <= 4
+        return {"complexity": c, "aal": a,
+                "confidence": float(d.get("confidence", 0.7)),
+                "reason": "llm-fallback: " + str(d.get("reason", "deepseek verdict"))}
+    except Exception:
+        return None
+out = try_load(raw)
+if out is None:
+    m = re.search(r'\{.*\}', raw, re.S)
+    if m:
+        out = try_load(m.group(0))
+if out is None:
+    sys.exit(1)
+print(json.dumps(out))
+PY
+        )" && [ -n "$llm_json" ] && { printf '%s\n' "$llm_json"; fallback_fired=1; }
+    fi
+fi
+
+if [ "$fallback_fired" -eq 0 ]; then
+    printf '%s\n' "$HEURISTIC_JSON"
+fi

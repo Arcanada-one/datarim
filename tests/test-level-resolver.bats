@@ -71,3 +71,59 @@ EOF
     run "$RESOLVER" --task-file "$TMP/nope.md"
     [ "$status" -eq 1 ]
 }
+
+@test "V-AC-7: known-input returns BOTH axes (complexity and aal) as separate fields" {
+    echo "Rename variable foo to bar." > "$TMP/t.md"
+    run "$RESOLVER" --task-file "$TMP/t.md"
+    [ "$status" -eq 0 ]
+    # both axes present and independently typed
+    echo "$output" | jq -e '(.complexity | type == "number") and (.aal | type == "number")' >/dev/null
+}
+
+@test "V-AC-7: PM-override file reassigns complexity and aal" {
+    echo "Rename variable foo to bar." > "$TMP/job-42.md"
+    mkdir -p "$TMP/overrides"
+    printf '{"complexity": 4, "aal": 3}\n' > "$TMP/overrides/job-42.json"
+    run "$RESOLVER" --task-file "$TMP/job-42.md" --override-dir "$TMP/overrides"
+    [ "$status" -eq 0 ]
+    [ "$(echo "$output" | jq -r '.complexity')" -eq 4 ]
+    [ "$(echo "$output" | jq -r '.aal')" -eq 3 ]
+    echo "$output" | jq -e '.reason | test("override")' >/dev/null
+}
+
+@test "V-AC-7: PM-override ignored when no override file for this task" {
+    echo "Rename variable foo to bar." > "$TMP/job-99.md"
+    mkdir -p "$TMP/overrides"
+    run "$RESOLVER" --task-file "$TMP/job-99.md" --override-dir "$TMP/overrides"
+    [ "$status" -eq 0 ]
+    [ "$(echo "$output" | jq -r '.complexity')" -eq 1 ]
+}
+
+@test "V-AC-7: ambiguous input triggers a REAL LLM-fallback call (not a stub)" {
+    # Ambiguous brief → confidence < 0.5 → fallback. Inject a mock LLM command
+    # that returns a structured complexity verdict; resolver must USE it.
+    cat > "$TMP/ambig.md" <<'EOF'
+something or other about a thing maybe
+EOF
+    MOCK="$TMP/mock_llm.sh"
+    cat > "$MOCK" <<'MOCKEOF'
+#!/usr/bin/env bash
+# Emit a JSON complexity verdict regardless of args (stand-in for coworker/DeepSeek).
+echo '{"complexity": 3, "aal": 2, "confidence": 0.7, "reason": "llm-mock verdict"}'
+MOCKEOF
+    chmod +x "$MOCK"
+    # Enable fallback (unset NO_LLM) and point the resolver at the mock.
+    run env -u FLEET_RESOLVER_NO_LLM FLEET_RESOLVER_LLM_CMD="bash $MOCK" \
+        "$RESOLVER" --task-file "$TMP/ambig.md"
+    [ "$status" -eq 0 ]
+    # The verdict came from the mock, proving a real call path (not "would run here").
+    echo "$output" | jq -e '.reason | test("llm")' >/dev/null
+}
+
+@test "V-AC-7: low-confidence with NO_LLM does NOT emit the old stub phrase" {
+    echo "something or other about a thing maybe" > "$TMP/ambig2.md"
+    run "$RESOLVER" --task-file "$TMP/ambig2.md"
+    [ "$status" -eq 0 ]
+    # The retired stub literal must be gone.
+    ! echo "$output" | grep -q "would run here"
+}
