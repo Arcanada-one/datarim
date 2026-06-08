@@ -69,6 +69,64 @@ _backend_present() {
   command -v "$first" >/dev/null 2>&1
 }
 
+# --- Fleet interactive backend selection (design 3b) ---------------------------
+# Distinct from resolve()'s headless inference path: fleet spawns a LIVE
+# interactive CLI agent in tmux (operator correction A2 — NO `claude --print`).
+# _resolve_fleet_backend prints the interactive launch command vector (one arg
+# per line). ARAS is a deferred slot (never resolves until implemented).
+
+# Fleet backend chain (priority): Claude → Codex → Cursor → Gemini → Coworker.
+: "${DR_FLEET_BACKEND_CHAIN:=claude codex cursor gemini coworker}"
+
+_resolve_fleet_backend() {
+  case "$1" in
+    claude)   echo claude ;;
+    codex)    echo codex ;;
+    cursor)   echo cursor ;;
+    gemini)   echo gemini ;;
+    coworker) echo coworker ;;   # bulk-I/O L1/L2 delegated call (not a live REPL)
+    aras)     return 2 ;;        # deferred slot — treated as unavailable
+    *)        return 2 ;;
+  esac
+}
+
+_fleet_backend_present() {
+  local first; first="$(_resolve_fleet_backend "$1")" || return 1
+  command -v "$first" >/dev/null 2>&1
+}
+
+# select_fleet_backend — walk DR_FLEET_BACKEND_CHAIN, return the first backend
+# whose binary is present (health-check). Echoes the backend NAME on success.
+# CONN wiring is OFF by default (DR_FLEET_CONN_ENABLED unset → contract-first
+# stub: pure `command -v` health-check). When the real CONN-0088 fallback ships,
+# the enabled branch routes through its contract without changing this interface.
+select_fleet_backend() {
+  local backend
+  for backend in $DR_FLEET_BACKEND_CHAIN; do
+    # Health-check. Default (stub) path = local `command -v`. When CONN-0088
+    # ships, DR_FLEET_CONN_ENABLED routes the check through the Model-Connector
+    # fallback contract; the loop interface stays identical.
+    if [ -n "${DR_FLEET_CONN_ENABLED:-}" ]; then
+      _fleet_backend_present_conn "$backend" || continue
+    else
+      _fleet_backend_present "$backend" || continue
+    fi
+    printf '%s\n' "$backend"
+    return 0
+  done
+  echo "ERROR: no fleet backend available in chain: $DR_FLEET_BACKEND_CHAIN" >&2
+  return 1
+}
+
+# CONN-0088 contract-first stub. Until the Model Connector fallback-chain ships,
+# this defers to the local health-check. Replace the body with the real CONN
+# probe (HTTP /health against the connector) when DR_FLEET_CONN_ENABLED is the
+# documented production path.
+_fleet_backend_present_conn() {
+  # Contract: returns 0 if the backend is reachable via CONN, non-zero otherwise.
+  _fleet_backend_present "$1"
+}
+
 _warn_missing_once() {
   local backend="$1"
   local sentinel="$STATE_DIR/.warned.${backend}"

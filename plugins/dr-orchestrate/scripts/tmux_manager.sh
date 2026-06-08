@@ -81,6 +81,75 @@ tmux_capture_pane_safe() {
   tmux capture-pane -p -t "$1" 2>/dev/null
 }
 
+# --- Fleet interactive spawn (design 3a) --------------------------------------
+# session_spawn_interactive launches a LIVE interactive CLI agent in a detached
+# tmux session (operator correction A2 — NOT `claude --print` / headless). The
+# orchestrator then drives it via pane_send (brief) + pane_capture_tail
+# (targeted suffix) + pane_idle_check (hang detection).
+
+session_spawn_interactive() {
+  local session="$1" agent_cmd="$2"
+  command -v tmux >/dev/null 2>&1 || { echo "ERR: tmux not installed" >&2; return 1; }
+  [ -n "$session" ] && [ -n "$agent_cmd" ] || { echo "ERR: usage: session_spawn_interactive <session> <agent-cmd>" >&2; return 2; }
+  if tmux has-session -t "$session" 2>/dev/null; then
+    return 0   # reuse existing session (PM decision)
+  fi
+  # remain-on-exit keeps the pane inspectable if the agent exits early.
+  tmux new-session -d -s "$session" "$agent_cmd"
+  tmux set-option -t "$session" remain-on-exit on 2>/dev/null || true
+}
+
+# pane_capture_tail <target> <n_lines> — targeted suffix of the pane buffer
+# (NOT the full scrollback — anti-pattern transcript-passthrough). Reads the
+# last n_lines non-blank visible lines.
+#
+# Capture into a variable first, then slice in-process: piping `tmux
+# capture-pane` directly into `tail` lets `tail` close the pipe early, which
+# raises SIGPIPE on tmux and — under `set -o pipefail` — yields an empty
+# command substitution. Buffering the full output sidesteps that entirely.
+pane_capture_tail() {
+  local target="$1" n="${2:-10}" buf
+  command -v tmux >/dev/null 2>&1 || return 1
+  buf="$(tmux capture-pane -p -t "$target" 2>/dev/null)" || return 1
+  printf '%s\n' "$buf" | awk 'NF' | tail -n "$n"
+}
+
+# pane_idle_check <target> <idle_secs> <deadline_secs> — buffer-diff hang
+# detection. Polls the pane suffix; if it stops changing for idle_secs, report
+# idle (rc 0). If it keeps changing up to deadline_secs, report not-idle (rc 1)
+# — a slow-but-LIVE agent must not be killed (R-1). rc 2 = hung past deadline.
+pane_idle_check() {
+  local target="$1" idle_secs="$2" deadline="$3"
+  command -v tmux >/dev/null 2>&1 || return 1
+  local prev cur elapsed=0 unchanged=0
+  # Buffer-then-slice (see pane_capture_tail) to survive SIGPIPE under pipefail.
+  prev="$(pane_capture_tail "$target" 5)"
+  while [ "$elapsed" -lt "$deadline" ]; do
+    sleep 1
+    elapsed=$((elapsed + 1))
+    cur="$(pane_capture_tail "$target" 5)"
+    if [ "$cur" = "$prev" ]; then
+      unchanged=$((unchanged + 1))
+      if [ "$unchanged" -ge "$idle_secs" ]; then
+        return 0   # idle (agent done or genuinely stuck-but-quiet)
+      fi
+    else
+      unchanged=0   # output changed → still live
+      return 1      # not idle within the observation window (R-1: do not kill)
+    fi
+    prev="$cur"
+  done
+  return 2   # never went idle and never produced fresh output → hung past deadline
+}
+
+# session_close <session> — terminate a fleet session (PM decision after result
+# extraction). Reuse is the alternative (session_spawn_interactive is idempotent).
+session_close() {
+  local session="$1"
+  command -v tmux >/dev/null 2>&1 || return 1
+  tmux kill-session -t "$session" 2>/dev/null || true
+}
+
 # V-AC adjacency: floor = tmux 1.7 (capture-pane). Plan §5.3 / fixtures F3.
 tmux_version_check() {
   local v
