@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fleet Dashboard</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; background: #0d1117; color: #c9d1d9; }
+  header { padding: 12px 20px; background: #161b22; border-bottom: 1px solid #30363d;
+           display: flex; align-items: center; gap: 16px; }
+  header h1 { font-size: 1rem; font-weight: 600; color: #f0f6fc; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #3fb950; }
+  .status-dot.stale { background: #f85149; }
+  #last-updated { font-size: 0.75rem; color: #8b949e; margin-left: auto; }
+  .layout { display: grid; grid-template-columns: 1fr 320px; height: calc(100vh - 49px); }
+  #graph-container { position: relative; border-right: 1px solid #30363d; }
+  #graph-canvas { width: 100%; height: 100%; }
+  .sidebar { overflow-y: auto; padding: 16px; background: #0d1117; }
+  .sidebar h2 { font-size: 0.8rem; font-weight: 600; color: #8b949e;
+                text-transform: uppercase; letter-spacing: .08em; margin-bottom: 12px; }
+  .metric-row { display: flex; justify-content: space-between; padding: 6px 0;
+                border-bottom: 1px solid #21262d; font-size: 0.875rem; }
+  .metric-row .val { color: #3fb950; font-variant-numeric: tabular-nums; }
+  .agents-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; margin-top: 8px; }
+  .agents-table th { text-align: left; padding: 4px 8px; color: #8b949e;
+                     border-bottom: 1px solid #30363d; }
+  .agents-table td { padding: 4px 8px; border-bottom: 1px solid #21262d; }
+  .badge { display: inline-block; padding: 1px 6px; border-radius: 2em; font-size: 0.7rem; }
+  .badge.active { background: #1a3a2a; color: #3fb950; }
+  .badge.inactive { background: #2a1a1a; color: #f85149; }
+  #error-bar { display: none; padding: 8px 20px; background: #2d1f1f; color: #f85149;
+               font-size: 0.8rem; border-bottom: 1px solid #f85149; }
+</style>
+</head>
+<body>
+<header>
+  <span class="status-dot" id="status-dot"></span>
+  <h1>Fleet Dashboard</h1>
+  <span id="last-updated">Loading...</span>
+</header>
+<div id="error-bar" role="alert"></div>
+<div class="layout">
+  <div id="graph-container">
+    <canvas id="graph-canvas"></canvas>
+  </div>
+  <aside class="sidebar">
+    <h2>Metrics</h2>
+    <div class="metric-row"><span>Total messages</span><span class="val" id="m-total">—</span></div>
+    <div class="metric-row"><span>Active agents</span><span class="val" id="m-agents">—</span></div>
+    <div class="metric-row"><span>Source</span><span class="val" id="m-source">—</span></div>
+    <h2 style="margin-top:20px">Agents</h2>
+    <table class="agents-table">
+      <thead><tr><th>ID</th><th>Role</th><th>Status</th></tr></thead>
+      <tbody id="agents-tbody"></tbody>
+    </table>
+  </aside>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
