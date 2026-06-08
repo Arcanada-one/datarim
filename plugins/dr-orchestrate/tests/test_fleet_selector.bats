@@ -69,3 +69,29 @@ _fake_bin() { printf '#!/usr/bin/env bash\nexit 0\n' > "$TMP_BIN/$1"; chmod +x "
     run env DR_FLEET_BACKEND_CHAIN="aras claude" bash "$RESOLVER" _resolve_fleet_backend aras
     [ "$status" -ne 0 ]
 }
+
+# --- wish-2: per-role starter skill + allowed-tools injected at session start ---
+
+@test "fleet_role_session_init emits the role's starter_skill and allowed_tools" {
+    run bash "$RESOLVER" fleet_role_session_init developer
+    [ "$status" -eq 0 ]
+    echo "$output" | grep -q '^STARTER_SKILL=skills/fleet/l3-analyst$'
+    echo "$output" | grep -q '^ALLOWED_TOOLS=Read,Write,Edit,Bash,Grep,Glob$'
+}
+
+@test "fleet_role_session_init reads allowed_tools per-role (reviewer differs from developer)" {
+    run bash "$RESOLVER" fleet_role_session_init reviewer
+    [ "$status" -eq 0 ]
+    echo "$output" | grep -q '^STARTER_SKILL=skills/fleet/l2-structured$'
+    echo "$output" | grep -q '^ALLOWED_TOOLS=Read,Grep,Glob,Bash$'
+}
+
+@test "fleet_role_session_init fails closed on an unknown role" {
+    run bash "$RESOLVER" fleet_role_session_init no-such-role
+    [ "$status" -ne 0 ]
+}
+
+@test "fleet_role_session_init rejects a role id that is not a safe slug" {
+    run bash "$RESOLVER" fleet_role_session_init '../etc/passwd'
+    [ "$status" -ne 0 ]
+}

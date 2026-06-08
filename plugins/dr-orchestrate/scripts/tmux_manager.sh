@@ -88,15 +88,42 @@ tmux_capture_pane_safe() {
 # (targeted suffix) + pane_idle_check (hang detection).
 
 session_spawn_interactive() {
-  local session="$1" agent_cmd="$2"
+  local session="$1" agent_cmd="$2" role="${3:-}"
   command -v tmux >/dev/null 2>&1 || { echo "ERR: tmux not installed" >&2; return 1; }
-  [ -n "$session" ] && [ -n "$agent_cmd" ] || { echo "ERR: usage: session_spawn_interactive <session> <agent-cmd>" >&2; return 2; }
+  [ -n "$session" ] && [ -n "$agent_cmd" ] || { echo "ERR: usage: session_spawn_interactive <session> <agent-cmd> [role]" >&2; return 2; }
   if tmux has-session -t "$session" 2>/dev/null; then
     return 0   # reuse existing session (PM decision)
   fi
   # remain-on-exit keeps the pane inspectable if the agent exits early.
-  tmux new-session -d -s "$session" "$agent_cmd"
+  # A wide detached window keeps long session-start lines from wrapping (a
+  # narrow default pane splits an injected allowlist mid-token on capture).
+  tmux new-session -d -s "$session" -x "${DR_FLEET_PANE_COLS:-220}" -y "${DR_FLEET_PANE_ROWS:-50}" "$agent_cmd"
   tmux set-option -t "$session" remain-on-exit on 2>/dev/null || true
+  # Per-role session-start injection (design 3b): when a role is given, scope the
+  # live agent to its starter skill + allowed-tools, read from the role registry.
+  # Plain `[ -n "$role" ] && ...` as the last statement would return 1 under
+  # `set -e` when role is empty (the no-role path is valid) — use a full `if`.
+  if [ -n "$role" ]; then
+    _inject_role_context "$session" "$role"
+  fi
+}
+
+# _inject_role_context <session> <role> — fetch the role's starter_skill +
+# allowed_tools (subagent_resolver fleet_role_session_init) and deliver them to
+# the live pane as ONE session-start message, through the same security pipeline
+# as any other send (whitelist + escape-block + cooldown). A single send avoids
+# the micro-cooldown that would block a second back-to-back send. Tools are
+# space-joined because the send-keys whitelist forbids commas; the CSV form
+# remains available to non-pane consumers via fleet_role_session_init directly.
+_inject_role_context() {
+  local session="$1" role="$2" raw skill tools
+  raw="$(bash "$DR_ORCH_DIR/scripts/subagent_resolver.sh" fleet_role_session_init "$role" 2>/dev/null)" || {
+    echo "ERR: cannot resolve role context: $role" >&2; return 1; }
+  skill="$(printf '%s\n' "$raw" | grep '^STARTER_SKILL=' | head -1)"
+  tools="$(printf '%s\n' "$raw" | grep '^ALLOWED_TOOLS=' | head -1 | tr ',' ' ')"
+  if [ -n "$skill" ] || [ -n "$tools" ]; then
+    pane_send "$session" "$skill $tools"
+  fi
 }
 
 # pane_capture_tail <target> <n_lines> — targeted suffix of the pane buffer

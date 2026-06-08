@@ -67,3 +67,27 @@ teardown() {
     session_close "$SESSION"
     ! tmux has-session -t "$SESSION" 2>/dev/null
 }
+
+@test "wish-2: spawn with a role injects per-role starter skill + allowed-tools at session start" {
+    source "$DR_ORCH_DIR/scripts/tmux_manager.sh"
+    # Third arg = role → spawn pipes the role's starter_skill + allowed_tools
+    # into the live pane as the first session-start message.
+    session_spawn_interactive "$SESSION" "bash --norc -i" developer
+    sleep 1
+    run pane_capture_tail "$SESSION" 12
+    [ "$status" -eq 0 ]
+    echo "$output" | grep -q 'STARTER_SKILL=skills/fleet/l3-analyst'
+    # Tools are space-separated in the pane injection (the send-keys whitelist
+    # forbids commas); the canonical CSV form stays available via
+    # fleet_role_session_init for non-pane consumers.
+    echo "$output" | grep -q 'ALLOWED_TOOLS=Read Write Edit Bash Grep Glob'
+}
+
+@test "wish-2: spawn without a role omits the injection (backward-compatible)" {
+    source "$DR_ORCH_DIR/scripts/tmux_manager.sh"
+    session_spawn_interactive "$SESSION" "bash --norc -i"
+    sleep 1
+    run pane_capture_tail "$SESSION" 12
+    [ "$status" -eq 0 ]
+    ! echo "$output" | grep -q 'ALLOWED_TOOLS='
+}
