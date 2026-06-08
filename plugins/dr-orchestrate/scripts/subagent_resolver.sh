@@ -127,6 +127,40 @@ _fleet_backend_present_conn() {
   _fleet_backend_present "$1"
 }
 
+# fleet_role_session_init <role> — emit the per-role session-start injection a
+# live fleet agent receives at spawn (design 3b): its starter skill pointer and
+# its allowed-tools allowlist, both read from the role registry. The orchestrator
+# pipes these into the spawned session so the agent starts scoped to its role.
+# Output (one key per line, machine-readable):
+#   STARTER_SKILL=<skills/fleet/...>
+#   ALLOWED_TOOLS=<comma-separated tool names>
+# Unknown role or unsafe id ⇒ fail closed (non-zero, nothing emitted).
+# DR_ORCH_DIR is the plugin root (plugins/dr-orchestrate); the role registry
+# lives at the framework repo root (two levels up), matching fleet_concurrency.sh.
+: "${DR_FLEET_REPO:=$(cd "$DR_ORCH_DIR/../.." && pwd)}"
+: "${DR_FLEET_ROLES:=$DR_FLEET_REPO/config/roles.yaml}"
+
+fleet_role_session_init() {
+  local role="${1:-}"
+  [[ "$role" =~ ^[A-Za-z0-9_-]+$ ]] || { echo "ERROR: invalid role id" >&2; return 2; }
+  [ -f "$DR_FLEET_ROLES" ] || { echo "ERROR: roles file not found: $DR_FLEET_ROLES" >&2; return 1; }
+  python3 - "$DR_FLEET_ROLES" "$role" <<'PY' || { echo "ERROR: unknown role: $role" >&2; return 1; }
+import sys, yaml
+doc = yaml.safe_load(open(sys.argv[1], encoding="utf-8")) or {}
+role = sys.argv[2]
+for r in (doc.get("roles") or []):
+    if r.get("id") == role:
+        skill = r.get("starter_skill")
+        tools = r.get("allowed_tools") or []
+        if not skill or not isinstance(tools, list):
+            sys.exit(3)   # malformed role entry → fail closed
+        print(f"STARTER_SKILL={skill}")
+        print("ALLOWED_TOOLS=" + ",".join(str(t) for t in tools))
+        sys.exit(0)
+sys.exit(4)   # role not found
+PY
+}
+
 _warn_missing_once() {
   local backend="$1"
   local sentinel="$STATE_DIR/.warned.${backend}"
