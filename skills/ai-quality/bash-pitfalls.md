@@ -378,3 +378,46 @@ A prior task's sourced regex-constant library (four constants) failed
 `shellcheck -S warning` on all four with SC2034 until the file-level disable was
 added. The CI `shellcheck` job runs without `-x`, so the disable is load-bearing,
 not cosmetic.
+
+## Pitfall: `test && cmd` as the LAST line of a function under `set -e` returns 1 on a false test
+
+### Trap
+
+```bash
+# nosec-extract
+# WRONG — when $role is empty (a VALID path), the test fails, the && short-circuits,
+# and the function's exit status IS that failed test → rc 1. Under `set -e` the
+# CALLER then aborts, even though doing nothing was the intended behaviour.
+spawn() {
+  new_session "$@"
+  [ -n "$role" ] && inject_role "$role"   # <- last statement; rc 1 when role empty
+}
+```
+
+### Right
+
+```bash
+# nosec-extract
+spawn() {
+  new_session "$@"
+  if [ -n "$role" ]; then
+    inject_role "$role"
+  fi
+}
+# or, if you must keep the one-liner, neutralise the false branch:
+#   [ -n "$role" ] && inject_role "$role" || true
+```
+
+A function's exit status is the status of its last executed command. A trailing
+`test && cmd` evaluates to the test's status whenever the test is false — so an
+optional action expressed as a one-liner silently turns "nothing to do" into a
+failure the caller propagates. Use a full `if … fi` (or append `|| true`) for any
+conditional whose false branch is a legitimate no-op.
+
+### Why this matters in practice
+
+A prior task wired an optional injection as `[ -n "$role" ] && _inject … ` on the
+last line of the spawn function. Every test that called spawn WITHOUT the optional
+argument failed under `set -euo pipefail` — the valid no-op path returned 1. The
+whole suite went red until the line became a full `if`. Caught only by regression,
+not by review.
