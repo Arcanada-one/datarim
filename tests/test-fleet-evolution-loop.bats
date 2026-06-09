@@ -129,6 +129,29 @@ EOF
     grep -qE '\.txt( |$)' "$CTX_LOG"
 }
 
+@test "loop does NOT execute injection payloads in adapters.conf source-path (Security S1)" {
+    # A malicious source-path must not be eval'd. Canary file must NOT appear.
+    local canary="$TMP/pwned"
+    rm -f "$canary"
+    local evil="$TMP/evil.conf"
+    printf 'adapters/archive-adapter.sh|$(touch %s)/x|archive\n' "$canary" > "$evil"
+    run "$LOOP" --skill "$SKILLDIR" --adapters-conf "$evil" --threshold 1 --dry-run
+    # loop runs (skips the bad source as missing), but the payload never fired
+    [ ! -e "$canary" ]
+}
+
+@test "loop expands the whitelisted env-var + default in a source-path" {
+    # archive adapter pointed at fixtures via ${DR_FLEET_ARCHIVE_DIR:-...}.
+    local envconf="$TMP/env.conf"
+    printf 'adapters/archive-adapter.sh|${DR_FLEET_ARCHIVE_DIR:-/nope}|archive\n' > "$envconf"
+    DR_FLEET_ARCHIVE_DIR="$FIX/archive" run "$LOOP" \
+        --skill "$SKILLDIR" --adapters-conf "$envconf" \
+        --threshold 1 --candidates 1 --dry-run
+    [ "$status" -eq 0 ]
+    # collected count must be > 0 (env-var expanded to the fixtures dir)
+    echo "$output" | grep -qE "collected [1-9]"
+}
+
 @test "loop exits 1 when all candidates fail the gates" {
     # Mock that emits an over-budget, Cyrillic candidate (fails gates).
     BADMOCK="$TMP/coworker-bad.sh"
