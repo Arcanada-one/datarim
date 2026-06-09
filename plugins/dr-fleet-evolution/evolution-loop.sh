@@ -109,7 +109,10 @@ main() {
     trap 'rm -rf "$work"' EXIT
 
     # Stage 1: collect.
-    local dataset="$work/eval.jsonl"
+    # NOTE: .txt extension (not .jsonl) is mandatory — `coworker` rejects
+    # non-text extensions in --context/--paths (file-type policy, exit 6).
+    # The content is JSONL; the extension only satisfies the coworker gate.
+    local dataset="$work/eval.txt"
     collect_dataset "$conf" "$dataset"
     local n; n=$(grep -c . "$dataset" 2>/dev/null || echo 0)
     log "collected $n eval records"

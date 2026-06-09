@@ -89,6 +89,46 @@ EOF
     grep -q "evolved" "$SKILLDIR/SKILL.md"
 }
 
+@test "loop passes the eval dataset with a .txt extension (coworker file-type policy)" {
+    # coworker rejects non-text extensions (.jsonl) in --context with exit 6.
+    # This mock records the --context args so we can assert the extension.
+    RECMOCK="$TMP/coworker-rec.sh"
+    cat > "$RECMOCK" <<'EOF'
+#!/usr/bin/env bash
+cmd=$1; shift
+target=""; prev=""; ctx=""
+collect=0
+for a in "$@"; do
+    case "$a" in --context) collect=1; prev=$a; continue ;; esac
+    case "$a" in --*) collect=0 ;; esac
+    [ "$collect" = 1 ] && ctx="$ctx $a"
+    case "$prev" in --target) target=$a ;; esac
+    prev=$a
+done
+if [ "$cmd" = "write" ]; then
+    echo "$ctx" >> "$CTX_LOG"
+    cat > "$target" <<'SKILL'
+---
+name: fleet-l1-basic
+metadata:
+  context_budget_tokens: 200
+---
+# Fleet L1 — Basic (evolved)
+One step only.
+SKILL
+elif [ "$cmd" = "ask" ]; then echo "0.7"; fi
+EOF
+    chmod +x "$RECMOCK"
+    export CTX_LOG="$TMP/ctx.log"
+    : > "$CTX_LOG"
+    COWORKER_BIN="$RECMOCK" run "$LOOP" --skill "$SKILLDIR" --adapters-conf "$CONF" --threshold 1 --candidates 1 --dry-run
+    [ "$status" -eq 0 ]
+    # the dataset path passed to --context must NOT end in .jsonl
+    ! grep -qE '\.jsonl( |$)' "$CTX_LOG"
+    # and it must include a .txt dataset
+    grep -qE '\.txt( |$)' "$CTX_LOG"
+}
+
 @test "loop exits 1 when all candidates fail the gates" {
     # Mock that emits an over-budget, Cyrillic candidate (fails gates).
     BADMOCK="$TMP/coworker-bad.sh"
