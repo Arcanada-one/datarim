@@ -48,10 +48,25 @@ _coworker() {
     fi
 }
 
-# Expand ~ and ${VAR} in a config source-path.
+# Expand ~ and a whitelisted set of ${VAR}/${VAR:-default} in a config
+# source-path. Security S1: NEVER `eval` config-file content — a crafted
+# source-adapters.conf line (e.g. `$(rm -rf ~)`) would otherwise execute.
+# Only the two known fleet env-vars are substituted; everything else is left
+# literal.
 _expand_path() {
     local p=$1
-    p=$(eval echo "$p")  # expands ${VAR} and ~
+    # ${VAR:-default} → value of VAR or the default, for the two known vars.
+    p=$(printf '%s' "$p" | sed -E \
+        -e "s|\\\$\{DR_FLEET_ARCHIVE_DIR:-([^}]*)\}|${DR_FLEET_ARCHIVE_DIR:-\1}|g" \
+        -e "s|\\\$\{DR_FLEET_DREAM_DIR:-([^}]*)\}|${DR_FLEET_DREAM_DIR:-\1}|g" \
+        -e "s|\\\$\{DR_FLEET_ARCHIVE_DIR\}|${DR_FLEET_ARCHIVE_DIR:-}|g" \
+        -e "s|\\\$\{DR_FLEET_DREAM_DIR\}|${DR_FLEET_DREAM_DIR:-}|g")
+    # Leading ~ → $HOME. (Literal tilde test; shellcheck SC2088 is a
+    # false positive here — we are matching a literal ~, not expanding one.)
+    local tilde='~'
+    case "$p" in
+        "$tilde"|"$tilde"/*) p="${HOME}${p#\~}" ;;
+    esac
     printf '%s' "$p"
 }
 
