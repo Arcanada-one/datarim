@@ -141,6 +141,14 @@ description: Multi-layer quality verification — checks PRD alignment, design c
   - Exit 0 + stdout marker `CONDITIONAL_PASS` ⇒ Layer 3b verdict **PASS_WITH_NOTES** (every partial/missed item carries an operator override ≥10 chars);
   - Exit 1 + stdout marker `BLOCKED` ⇒ Layer 3b verdict **FAIL**. Capture the validator's `Focus items:` and `Next step:` lines verbatim into the QA report.
 
+- **Anti-deferral prose scan (ADVISORY at QA).** After the routing validator, scan the QA report just written for self-deferral language — the failure mode where the agent labels its own incomplete work "out of scope / informational / not a blocker / will fix later" instead of finishing it:
+  ```bash
+  "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-deferral-prose.sh" \
+      --file datarim/qa/qa-report-{TASK-ID}.md --task {TASK-ID} --root <repo-root>
+  ```
+  - Exit 0 ⇒ no self-inflicted deferral; no action.
+  - Exit 1 ⇒ deferral on a touched file without a verifiable follow-up/blocked_by artefact. At QA this is **advisory**: keep the Layer 3b verdict at most **PASS_WITH_NOTES**, record the findings in the QA report, and warn the operator that `/dr-compliance` will treat the same finding as a hard block. (This mirrors the evidence-type advisory-at-QA / hard-at-compliance escalation.) The scanner is fail-open: a git-probe failure warns and passes, never false-blocks.
+
 **Verdict:** PASS | PASS_WITH_NOTES | FAIL
 
 ```markdown

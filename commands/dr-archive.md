@@ -219,6 +219,46 @@ Complete and archive current task.
      rollout is incomplete or unverified. Archive closes the audit trail —
      closing it on an unverified prod records a false «done».
 
+0.45. **EXPECTATIONS RE-VALIDATION + ANTI-DEFERRAL GATE** (MANDATORY):
+   - This gate runs BEFORE Step 0.5 (reflection) on purpose: reflection's
+     follow-up-suggestion heuristic would otherwise let a self-inflicted loose
+     end be laundered into a backlog item before any gate inspected it. The
+     gate inspects the closed state first.
+   - **(a) Re-validate expectations.** Re-run the routing validator:
+     ```bash
+     "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --verify {TASK-ID}
+     ```
+     Exit 1 + `BLOCKED` ⇒ **STOP** the archive. A `partial`/`missed` wish lacks
+     a valid override (operator-authored, or agent-authored with a verifiable
+     follow-up/`blocked_by` artefact). Route back to
+     `/dr-do {TASK-ID} --focus-items <...>` and finish the work in this cycle.
+   - **(b) Anti-deferral prose scan.** Scan the QA and compliance reports for
+     self-deferral language about touched files:
+     ```bash
+     "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-deferral-prose.sh" \
+         --file datarim/qa/qa-report-{TASK-ID}.md --task {TASK-ID} --root <repo-root>
+     "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-deferral-prose.sh" \
+         --file datarim/reports/compliance-report-{TASK-ID}.md --task {TASK-ID} --root <repo-root>
+     ```
+     (Skip a report path that does not exist.) Exit 1 from either ⇒ **STOP**.
+     Print the findings and: "Self-inflicted gap detected. Finish the work in
+     this branch/cycle. Do NOT absorb it via a self-filed backlog item." Route
+     back to `/dr-do {TASK-ID}`.
+   - **Dual-repo tasks:** when the touched code lives in a repository nested
+     under the workspace root (e.g. a framework task whose reports sit in the
+     outer workspace repo while the code sits in a nested repo), add
+     `--extra-repo <nested-repo-path>` to each scan so the touched-set covers
+     the nested repo's `merge-base..HEAD`. Without it the scanner sees an empty
+     touched-set from the outer root and fail-opens (advisory), making the gate
+     a no-op for that class. `--extra-repo` is repeatable and additive; an
+     unreadable path warns and is skipped (fail-open preserved).
+   - A legitimate deferral (time-dependent or hard external blocker) clears the
+     gate ONLY by citing a follow-up ID / `blocked_by` reference that exists in
+     `backlog.md` / `tasks.md`. Both scanners are fail-open on their own
+     git-probe failure (warn, do not block) — an infrastructure hiccup never
+     hard-blocks an otherwise-clean archive. Archive is idempotent; a fixed gap
+     re-enters cleanly on the next `/dr-archive` run.
+
 0.5. **REFLECT** (MANDATORY — runs at least once per task, via a conditional freshness gate):
    - **Freshness gate (decides whether to re-run reflection):** invoke
      `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/reflection-freshness.sh --task {TASK-ID} --root "$DATARIM_ROOT"`.
