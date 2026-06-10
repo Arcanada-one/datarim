@@ -76,9 +76,14 @@ run_hook_apply_patch() {
 # Materialise a tmp file that exceeds the token delegation threshold. The Read
 # gate is byte/token-based (~40 KB ÷ 3 ≈ 13k est-tokens > the 10k default), not
 # line-based — a 500-line seq file is only ~630 est-tokens and correctly passes.
+# The gate applies ONLY to documentation extensions (.md / .markdown / .txt), so
+# the fixture carries a `.md` suffix to exercise the view-over-token deny path;
+# a code/extension-less file would (correctly) pass through.
 make_long_file() {
     local f
     f=$(mktemp -t cw-hook-codex-long.XXXXXX)
+    mv "$f" "$f.md"
+    f="$f.md"
     head -c 40000 < /dev/zero | tr '\0' a > "$f"
     printf '%s' "$f"
 }
@@ -96,9 +101,20 @@ make_long_file() {
     [ "$decision" = "deny" ]
 }
 
-@test "Case B — view 100-line file → silent pass (below threshold)" {
+@test "Case B — view 100-line .md file → silent pass (below threshold)" {
     f=$(mktemp -t cw-hook-codex-short.XXXXXX)
+    mv "$f" "$f.md"; f="$f.md"
     seq 1 100 > "$f"
+    run run_hook_view "$f"
+    rm -f "$f"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
+
+@test "Case B2 — view over-token .py code file → silent pass (doc-only gate)" {
+    f=$(mktemp -t cw-hook-codex-code.XXXXXX)
+    mv "$f" "$f.py"; f="$f.py"
+    head -c 360000 < /dev/zero | tr '\0' a > "$f"
     run run_hook_view "$f"
     rm -f "$f"
     [ "$status" -eq 0 ]
