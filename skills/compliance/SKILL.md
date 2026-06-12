@@ -116,6 +116,12 @@ Source: prior incident — a multi-repo task ran compliance v1+v2 within 23 minu
 ### 5. Audience Appropriateness
 - Language matches audience, prerequisites stated, examples progressive
 
+### 6. Operator-Only Runbooks
+- A runbook whose steps are operator-only (hard-gated actions: store consoles, production deploys, secret rotation) carries an explicit HARD-GATED marker on its first content line
+
+### 6. Operator-Only Runbooks
+- A runbook whose steps are operator-only (hard-gated actions: store consoles, production deploys, secret rotation) carries an explicit HARD-GATED marker on its first content line
+
 ---
 
 ## Research Checklist
