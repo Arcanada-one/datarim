@@ -130,6 +130,22 @@ When a site or endpoint is "not working", investigate in this order BEFORE touch
 
 **Red herrings:** expired SSL cert (irrelevant if DNS points elsewhere), web server config (irrelevant if requests don't reach server), file permissions (check only after confirming requests arrive).
 
+## CDN-Proxied Origin Discrimination
+
+Before removing a suspected-stale copy of a web origin that sits behind a CDN proxy (Cloudflare-style "orange cloud"), a naive DNS pre-check is invalid: `dig A <domain>` returns the CDN's anycast IPs, never the origin, so it cannot prove which server actually serves traffic.
+
+Prove the live origin by querying each candidate server directly with the production Host header and comparing response bodies:
+
+```bash
+for ip in <candidate-ip-1> <candidate-ip-2>; do
+  echo "== $ip"
+  curl -s --resolve <domain>:443:$ip https://<domain>/ -o /tmp/body-$ip --write-out '%{http_code} %{size_download}\n'
+done
+# Compare /tmp/body-* against the public CDN response (curl -s https://<domain>/ | wc -c)
+```
+
+The candidate whose body matches the public CDN response byte-for-byte (or by size) is the real origin; a candidate returning a default web-server placeholder page is a dead copy and safe to remove. Body size is a reliable first discriminator (e.g. real site 40 KB vs default page 600 B); confirm with content diff when sizes are close. After removal, re-check the public domain end-to-end.
+
 ## Pre-Migration Service Inventory
 
 Before migrating a server, enumerate ALL services:
