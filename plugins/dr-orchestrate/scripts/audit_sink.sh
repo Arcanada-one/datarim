@@ -53,6 +53,10 @@ make_event() {
 # Phase-2 schema-v2 event. Adds confidence + resolver/escalation metadata +
 # stage/outcome tags. `reason` field is grep-redacted via redact_reason.
 # Empty positional values yield empty JSON strings (preserved shape).
+# `expected_outcome` is an additive optional field read from
+# DR_ORCH_EXPECTED_OUTCOME env var (null when unset). Old consumers that do
+# not set this env var get null, which the measure script treats as "no label"
+# and excludes from the refined metric — backward-compatible.
 make_event_v2() {
   local matched_text="$1"; local command="$2"; local exit_code="$3"
   local duration_ms="$4"; local pane_id="$5"
@@ -60,6 +64,7 @@ make_event_v2() {
   local backend_used="${8:-}"; local escalation_backend="${9:-}"
   local stage="${10:-}"; local outcome="${11:-}"
   local reason; reason="$(redact_reason "${12:-}")"
+  local expected_outcome="${DR_ORCH_EXPECTED_OUTCOME:-}"
   local h; h="$(hash_sha256 "$matched_text")"
   jq -n -c \
     --arg ts   "$(now_iso)" \
@@ -75,6 +80,7 @@ make_event_v2() {
     --arg stg  "$stage" \
     --arg oc   "$outcome" \
     --arg rsn  "$reason" \
+    --arg eo   "$expected_outcome" \
     '{schema_version: 2,
       timestamp: $ts,
       matched_text_hash: $h,
@@ -88,7 +94,8 @@ make_event_v2() {
       escalation_backend: $eb,
       stage: $stg,
       outcome: $oc,
-      reason: $rsn}'
+      reason: $rsn,
+      expected_outcome: (if $eo == "" then null else $eo end)}'
 }
 
 # OpsBot sink remains a Phase-3+ stub. Phase 2 does not wire it.
