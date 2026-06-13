@@ -1,7 +1,17 @@
 #!/usr/bin/env bash
-# measure-orchestrator-soak.sh — V-AC-22 soak verdict gate for /dr-orchestrate
-# Phase 2. Computes false-escalation rate from schema_version=2 audit events:
-#   false_escalate_rate = escalated / (resolved + escalated)
+# measure-orchestrator-soak.sh — V-AC-22 soak verdict gate for /dr-orchestrate.
+# Computes refined false-escalation rate from schema_version=2 audit events:
+#
+#   false_escalate_rate =
+#       escalated WHERE expected_outcome=="resolved" AND outcome != "blocked_decision_cooldown"
+#     / events   WHERE expected_outcome=="resolved" AND outcome != "blocked_decision_cooldown"
+#
+# Events without expected_outcome (null/"") are excluded from the metric —
+# backward-compatible with older audit files that pre-date the label field.
+# Designed escalations (expected_outcome=="escalated") are never false-positives
+# and are not counted. blocked_decision_cooldown entries are excluded from both
+# numerator and denominator.
+#
 # Exit 0 if rate < threshold (default 0.15), exit 1 if >= threshold or no data,
 # exit 2 on usage error.
 set -euo pipefail
@@ -61,7 +71,12 @@ while IFS= read -r line; do
   ts_epoch=$(date -u -j -f %Y-%m-%dT%H:%M:%SZ "$ts_iso" +%s 2>/dev/null \
              || date -u -d "$ts_iso" +%s 2>/dev/null || echo 0)
   (( ts_epoch >= cutoff_ts )) || continue
+  expected=$(jq -r '.expected_outcome // ""' <<<"$line")
   outcome=$(jq -r '.outcome // ""' <<<"$line")
+  # Refined metric: only count events where expected_outcome=="resolved"
+  # and outcome is not blocked_decision_cooldown.
+  [[ "$expected" == "resolved" ]] || continue
+  [[ "$outcome" == "blocked_decision_cooldown" ]] && continue
   case "$outcome" in
     resolved)  resolved=$((resolved+1)) ;;
     escalated) escalated=$((escalated+1)) ;;
@@ -70,7 +85,7 @@ done < <(cat "${files[@]}")
 
 total=$((resolved + escalated))
 if (( total == 0 )); then
-  echo "soak: no schema_v2 resolved/escalated events within $SINCE in $AUDIT_DIR" >&2
+  echo "soak: no schema_v2 resolved-expected events within $SINCE in $AUDIT_DIR" >&2
   exit 1
 fi
 

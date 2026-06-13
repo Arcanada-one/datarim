@@ -42,6 +42,9 @@ CMD="${DR_SOAK_CMD:-/opt/datarim/plugins/dr-orchestrate/scripts/cmd_run.sh}"
 
 if [[ -n "${DR_SOAK_AUDIT_DIR:-}" ]]; then
   export DR_ORCH_AUDIT_DIR="$DR_SOAK_AUDIT_DIR"
+  # cmd_run.sh reads AUDIT_DIR (its own default); export it too so audit
+  # files land in the soak-specified directory during local smoke runs.
+  export AUDIT_DIR="$DR_SOAK_AUDIT_DIR"
 fi
 
 W_SUM=$((W_RESOLVED + W_ESCALATED + W_NOOP))
@@ -114,10 +117,18 @@ while [ "$(date +%s)" -lt "$DEADLINE_EPOCH" ]; do
 
   echo "[soak] $ts cycle-begin n=$cycle mode=$mode"
   if [[ "$mode" == "noop" ]]; then
-    "$CMD" >/dev/null 2>&1
+    DR_ORCH_EXPECTED_OUTCOME="noop" "$CMD" >/dev/null 2>&1
+    ec=$?
+  elif [[ "$mode" == "resolved" ]] && [[ "$prompt" == /dr-* ]]; then
+    # Seed /dr-* prompts through the rule-parser path via the test seam.
+    # DR_ORCH_PANE_CAPTURE_OVERRIDE causes pane_capture() to return the prompt
+    # text directly, so cmd_run.sh default path hits semantic_parser.parse().
+    DR_ORCH_PANE_CAPTURE_OVERRIDE="$prompt" DR_ORCH_EXPECTED_OUTCOME="resolved" \
+      "$CMD" >/dev/null 2>&1
     ec=$?
   else
-    "$CMD" --unknown-prompt "$prompt" >/dev/null 2>&1
+    # Non-slash resolved prompts and all escalated prompts use --unknown-prompt.
+    DR_ORCH_EXPECTED_OUTCOME="$mode" "$CMD" --unknown-prompt "$prompt" >/dev/null 2>&1
     ec=$?
   fi
   echo "[soak] $(date -u +%FT%TZ) cycle-end n=$cycle mode=$mode exit=$ec"
