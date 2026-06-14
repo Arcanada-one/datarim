@@ -14,6 +14,8 @@
 #   3. subagent activates without env-var (env DATARIM_AUTO_MODE unset)
 #   4. fail-safe preserved on true mismatch (no marker + no auto-signal)
 #   5. subagent non-auto when marker holds a different task_id
+#   6. subagent non-auto with a valid marker but auto-signal=false
+#      (pins the auto-signal requirement against regression)
 
 HELPER="$BATS_TEST_DIRNAME/../dev-tools/auto-mode-marker.sh"
 
@@ -107,6 +109,20 @@ YAML
     _seed_marker "FAKE-9099"
 
     run "$HELPER" subagent-active --root "$FAKE_ROOT" --task-id "$TASK_ID" --auto-signal true
+    [ "$status" -eq 0 ]
+    [ "$output" = "non-auto" ]
+}
+
+# ─────────────────────────────────────────────────────────────────
+# Test 6: subagent non-auto with a valid marker but auto-signal=false
+# A valid marker alone MUST NOT activate a subagent — the explicit
+# prompt auto-signal is a required condition. Pins the auto-signal
+# requirement so a future regression that drops it is caught.
+# ─────────────────────────────────────────────────────────────────
+@test "subagent non-auto with valid marker but auto-signal false" {
+    _seed_marker "$TASK_ID"
+
+    run "$HELPER" subagent-active --root "$FAKE_ROOT" --task-id "$TASK_ID" --auto-signal false
     [ "$status" -eq 0 ]
     [ "$output" = "non-auto" ]
 }
