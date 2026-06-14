@@ -254,6 +254,14 @@ The Q&A round-trip findings appear in the same Layer 3b table under a dedicated 
 - In multi-datasource projects (e.g. aio-v2: `PrismaService` → `stats` mysql5 vs `PrismaBiService` → `bi_aggregate` mysql8), verify the correct client is injected for the target table. A wrong-client `$queryRaw` compiles clean and fails at runtime.
 - **Record in QA report:** the exact smoke-test command, the datasource hit, and the result (row count / expected empty / error). No smoke test ⇒ Layer 4 verdict is **FAIL**, not PASS_WITH_NOTES.
 
+### 4d-bis. Agentic Entrypoint Wiring + Live-Run Gate
+
+**Condition:** the task ships a service/daemon/cron/agent whose declared purpose is to invoke an external CLI/LLM/subprocess (e.g. `claude -p`, `gh`, `aws`) and act on its output. Apply per `$HOME/.claude/skills/testing/live-smoke-gates.md` § Gate 7.
+
+- **Entrypoint-reachability (both ways):** prove the *real* entrypoint (`__main__` / systemd `ExecStart` / cron command / queue consumer) actually calls the declared function — static call-graph grep (entrypoint imports AND invokes the orchestrator/lane, not merely that it exists) **and** a runtime probe showing the function was entered. An orchestrator/lane reachable only from tests is **dead code in prod**: the wish is **missed**, Layer 4 = **FAIL** → `/dr-do`.
+- **One live tool-run:** run the agent **once for real** with the feature enabled and the tool present, against realistic input; capture the real tool's stdout/exit + the resulting side-effect (audit record / notification / MR / file change). Pair with the Auth Probe and PATH check (the tool must be on the *service's* PATH, not just the login shell's).
+- **Record in QA report:** the exact run command, tool version, captured real output, and the observed side-effect. A mock assertion does NOT satisfy this. An `evidence_type: empirical` wish marked **met** on mocks alone (no live tool-run) is a Layer 3b/4 finding ⇒ **FAIL** — never PASS_WITH_NOTES. A kill-switch-OFF exit-0 probe proves the agent does *nothing*; it does not satisfy this gate.
+
 ### 4e. Definition of Done
 - Read DoD from `datarim/tasks.md` or `datarim/prd/*.md`
 - Check each criterion

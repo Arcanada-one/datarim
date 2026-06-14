@@ -281,6 +281,46 @@ A click that yields a 2xx response means the API accepted the request, not that 
 
 ---
 
+## Gate 7: Agentic Entrypoint Wiring + Live-Run
+
+**Who this applies to:** any task that ships a service/daemon/cron/agent whose declared purpose is to *invoke an external CLI, LLM, or subprocess and act on its output* — code reviewers, self-healing agents, ingest workers, orchestrators that spawn `claude -p` / `gh` / `aws` / any tool. The canonical trigger is "an agent that runs a tool and does something with the result."
+
+### The two failure modes this gate catches
+
+A unit suite with injected/mocked dependencies can be 100% green while the shipped artifact does **nothing** in production, via two distinct gaps:
+
+1. **Unwired entrypoint (dead-code-in-prod).** The orchestrator / repair-lane / business-logic module is written and unit-tested, but the actual entrypoint the runtime invokes (`__main__`, the systemd `ExecStart`, the cron command, the queue consumer) never *calls* it. The module is reachable only from tests. Production runs the entrypoint, the entrypoint runs a thin stub, and the declared function never executes. Mocks cannot catch this because the test imports the module directly — it never goes through the real entrypoint.
+
+2. **Never-run-live (the LLM/CLI is always mocked).** Every test injects a fake `spawn_fn` / mock subprocess, so the *real* `claude -p` (or `gh`, `aws`, etc.) is never invoked even once. The silent-failure class these agents exist to surface (CLI exits 0 on error, stdout-error sentences, missing PATH, missing credential, wrong working dir) lives entirely in the real invocation. A green mock suite proves the *logic* around the tool, never that the tool runs.
+
+### Why mocks structurally cannot satisfy this
+
+The whole point of an agent that drives a CLI/LLM is the integration boundary. Mocking `spawn_fn` is mocking the thing under test (violates the entry skill's Mocking Rules). And importing the orchestrator in a test proves the orchestrator works — it says nothing about whether `main()` reaches the orchestrator. Both gaps are invisible to the test suite by construction.
+
+### What a passing gate looks like
+
+Before any wish/AC of the form "the agent diagnoses/repairs/processes via <tool>" may be marked **met** (and before `/dr-qa` Layer 4 or `/dr-compliance` may pass an agentic task):
+
+1. **Entrypoint-reachability proof.** Trace the *real* entrypoint to the declared function with a static call-graph walk AND a runtime probe. Concretely: `grep` that the entrypoint module imports and calls the orchestrator/lane (not just that the orchestrator exists), AND run the real entrypoint with the feature enabled and confirm — via logs/audit/side-effect — that the declared function was actually entered. If `main → run_pass` and `run_pass` never calls `orchestrator.run_loop`, the wish is **missed**, not met, regardless of how many orchestrator unit tests pass.
+
+2. **One live invocation against the real tool.** Run the agent **once, for real**, with the kill-switch ON and the tool actually present, against a realistic input. Capture the real tool's stdout/exit and the agent's resulting side-effect (audit record, notification, MR, file change). A `claude -p`/CLI agent must show one real `[CLI_START]`→result→action cycle in the captured run. Record the exact command, the tool version, the captured output, and the side-effect in the QA report. Pair with the **Current-State Auth Probe** above (the tool's credential must be live) and **Gate 3 / PATH** (the tool must be on the service's PATH, not just the login shell's).
+
+### Verdict
+
+- Entrypoint reaches the function (proven both ways) + one live tool-run with the real side-effect observed → gate PASS, wish may be **met**.
+- Entrypoint does NOT reach the function (orchestrator/lane unwired) → wish **missed**; `/dr-qa` Layer 4 = FAIL, route to `/dr-do`. This is not a partial — the declared capability does not exist in prod.
+- Entrypoint reaches it but no live tool-run was performed (only mocks) → wish at most **partial** with the gap stated; an `empirical` evidence_type wish is **not met** on mocks alone (the per-wish block must carry a real command + real tool output, never a mock assertion).
+
+### Caution — live-run on prod fans real notifications
+
+A live agentic run on a host whose notification channels are configured will send **real** messages to the operator's production Slack/Telegram. A verification ESCALATION (e.g. a deliberately low budget exhausting) lands in the live operator channel and reads as an incident. Before a live agentic run on prod: (a) prefer a test channel / dry-run flag, or (b) warn the operator first, and (c) post a clarification to the same channel afterward. The notification *is* a real outward-facing action (init-task Hard-gated Action Boundary), not a local side-effect. Source: DEV-1462-FU — a `MAX_ITERS=2` verification run emitted a real `[ESCALATION] budget exhausted` to the Aether Code Review Slack channel; harmless but noisy, required an operator-facing clarification.
+
+### Reference incident
+
+DEV-1462-FU self-healing reviewer technician: orchestrator + KB/config/service/code repair lanes were fully written and unit-tested (115+ green tests, all with injected `spawn_fn`/mock GitLab), but `cli.main → run_pass` only performed the Phase-1 snapshot diagnose+notify — `orchestrator.run_loop` and every `repair_*` lane were **never called from the entrypoint**, and `claude -p` was **never invoked in prod** even with `ENABLED=1` + `LANES=all`. QA marked the `empirical` "cron agent diagnoses via claude -p and heals" wish **met** on the mock suite + a kill-switch-OFF exit-0 probe (which proves the agent does *nothing*), and proposed archive. The operator caught it: "ты даже агента не включил, ни одного тестового запуска". Root cause: no gate required (a) entrypoint→function reachability or (b) one live `claude -p` run before an agentic wish could pass.
+
+---
+
 ## Measurement hygiene: a trailing pipe masks the binary's exit code
 
 When a live smoke verifies a **CLI binary's exit code** (e.g. «281-char input → non-zero exit, 279-char → exit 0»), do NOT pipe the binary's output to `tail` / `head` / `grep` while reading `$?` — the shell reports the exit status of the **last** command in the pipeline, which is the pager, not the binary. A genuinely-failing case then reads as exit 0 and the gate passes on a false negative.
@@ -296,3 +336,15 @@ mybin --reject-case | tail -5; echo "exit=${PIPESTATUS[0]}"   # bash/zsh
 ```
 
 This is the silent-failure-detection class turned inward: the same «exit 0 hides a real failure» trap that the gate exists to catch in the code under test also bites the reviewer's own measurement. Always re-run a surprising «exit 0» without the pipe before recording a PASS. Source: a reviewer-side `… --dry-run | tail` reported exit 0 for a known-reject CLI case; the no-pipe re-run showed the correct exit 1.
+
+
+## Tag-triggered workflows ship unexercised — load-lint + one live tag-run
+
+A CI workflow gated on `on: push: tags: ['v*.*.*']` is never exercised by branch pushes or PRs — only an actual version tag triggers it. Such a workflow can ship completely broken and sit unused until the first real release, then fail when it matters most.
+
+Before archiving a task that authors or edits a tag-triggered workflow:
+
+1. **Load-lint with `actionlint`.** GitHub reports a workflow that fails to load only as a generic "This run likely failed because of a workflow file issue" with no line number, and registers phantom `failure`-in-0s runs on every push. `actionlint` names the exact rule and line. The recurring fatal class: a **job-level `name:` referencing the `env` context** — `env` is not in the availability list for `jobs.<id>.name` (only `github`/`inputs`/`matrix`/`needs`/`strategy`/`vars`), and using it breaks the whole workflow's load. Declare custom self-hosted runner labels in `.github/actionlint.yaml` so label warnings don't mask real errors.
+2. **Run it once live.** Push a throwaway test tag (or exercise the `workflow_dispatch` path) and confirm the workflow actually loads, the intended jobs run, and gated jobs (prod deploy) correctly skip. A clean local lint is necessary but not sufficient — runner availability, missing CLIs on self-hosted runners (`gh`/`aws`/`jq` not installed → `command not found`, exit 127), and secret wiring only surface in a real run.
+
+**When to apply.** Any task that ships or edits a workflow triggered only by tags / releases / schedules — events that normal CI (branch push / PR) never fires. Skip for `push`/`pull_request` workflows, which every commit already exercises.

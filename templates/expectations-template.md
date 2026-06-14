@@ -17,6 +17,9 @@ parent_prd: ../prd/PRD-{TASK-ID}.md
 > `/dr-compliance`, `/dr-archive` каждому пункту присваивается статус;
 > `partial` или `missed` без `override:` (≥10 символов) блокирует pipeline
 > и возвращает работу в `/dr-do` с указанием конкретных `wish_id`.
+> Строка `override:` — child wish-bullet с отступом **ровно 2 пробела**
+> (`  - override: <текст ≥10 символов>`), на одном уровне с `wish_id`/`evidence_type`,
+> НЕ вложена под `#### Текущий статус` (4 пробела) — иначе валидатор её не видит и держит BLOCKED.
 >
 > Контракт схемы: `skills/expectations-checklist/SKILL.md`.
 > Валидатор: `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --task {TASK-ID}`.

@@ -76,7 +76,7 @@ Before concluding "vendor bug" / "framework limitation" / "integration floor":
 a prior incident first run ($20.32 wasted) blamed OpenRouter for Cognee's embedding failure, Claude Sonnet for JSON parse errors, and laptop RAM for Graphiti's absence. All three were operator errors:
 - `curl` proved OpenRouter embeddings work (wrong LiteLLM prefix, not vendor protocol)
 - Document pre-processing fixed JSON parse failures (not a language-level ceiling)
-- arcana-dev has 62 Gi RAM (self-imposed laptop constraint)
+- the dev host has 62 Gi RAM (self-imposed laptop constraint)
 
 ### When to apply
 
