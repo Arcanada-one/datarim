@@ -76,6 +76,15 @@ jobs:
     runs-on: ubuntu-latest
     # Conditional environment (TUNE-0351): a major bump routes to release-manual
     # (required reviewer); patch/minor flows through release-auto (no reviewer).
+    #
+    # REQUIRED ENVIRONMENT POLICY (repo Settings → Environments, not in this file):
+    # both `release-auto` and `release-manual` MUST allow deployments from the
+    # `v*` tag pattern. This workflow triggers on tag pushes (`on: push: tags`),
+    # and a tag is NOT a protected branch — so an environment whose deployment
+    # branch policy is "Protected branches only" rejects every tagged release at
+    # job start (~2s, no steps run). Set deployment_branch_policy to
+    # custom_branch_policies and add a `v*` tag rule. Tracked for IaC by a
+    # follow-up backlog task (see CHANGELOG / evolution-log).
     environment:
       name: ${{ (needs.classify.outputs.bump_level == 'major' && 'release-manual') || 'release-auto' }}
     permissions:
