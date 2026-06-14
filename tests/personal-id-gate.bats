@@ -53,3 +53,29 @@ teardown() {
     run bash "$GATE" --regex "$REGEX" --paths "$TMP_DIR/emdash.txt" --check
     [ "$status" -eq 0 ]
 }
+
+@test "prose mention of gate:example-only marker with forbidden token → exit 1 (regression: fence-masking bug)" {
+    # A line that MENTIONS the marker substring inside backticks or prose must NOT
+    # open the fence. Only a whole-line <!-- gate:example-only --> should do so.
+    # This test guards the fix for the fence-masking bug where a narrative mention
+    # would set $in_fence=1 with no matching closing line, silently skipping EOF.
+    cat > "$TMP_DIR/prose-mention.txt" << 'FIXTURE'
+This document explains how `<!-- gate:example-only -->` markers work in the framework.
+Pavel Valentov paxbeach is a personal identifier that should be caught.
+FIXTURE
+    run bash "$GATE" --regex "$REGEX" --paths "$TMP_DIR/prose-mention.txt" --check
+    [ "$status" -eq 1 ]
+}
+
+@test "whole-line gate:example-only fence still excludes content → exit 0" {
+    # A proper whole-line fence should still work after the anchoring fix.
+    cat > "$TMP_DIR/proper-fence.txt" << 'FIXTURE'
+Text before fence.
+<!-- gate:example-only -->
+Pavel Valentov paxbeach inside proper whole-line fence
+<!-- /gate:example-only -->
+Text after fence.
+FIXTURE
+    run bash "$GATE" --regex "$REGEX" --paths "$TMP_DIR/proper-fence.txt" --check
+    [ "$status" -eq 0 ]
+}
