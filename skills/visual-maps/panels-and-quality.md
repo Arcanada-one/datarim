@@ -40,4 +40,5 @@ See `ai-quality.md` for the full stage-rule mapping.
 | `/dr-design` | #6, #7, #9, #13 | Design quality, cognitive load |
 | `/dr-do` | #2, #3, #8, #9 | TDD, method size, iteration |
 | `/dr-qa` | #5, #10 | DoD verification, focused review |
+| `/dr-compliance` (L3-4) | #5, #10, +hardening checklist | PRD re-validation, test coverage, post-QA hardening |
 | `/dr-archive` (Step 0.5 reflect) | #8, #10 | Process verification, lessons learned |
