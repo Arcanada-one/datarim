@@ -68,6 +68,10 @@ target_aal: 2
 
 9. **Terminal cleanup.** On success (a passing `/dr-compliance` + reflection) or a hard stop:
    - Remove `datarim/.auto-mode-active`.
+   - **Surface the compliance outcome before the CTA.** Print one line stating how compliance resolved, so the operator can see it ran rather than inferring it from a bare archive CTA:
+     - When the run reached a passing compliance stage, print the verdict the orchestrator already summarised from the `compliance` subagent — e.g. `Compliance: COMPLIANT — ready to archive` or `Compliance: COMPLIANT_WITH_NOTES — ready to archive`.
+     - When compliance was skipped by design (a complexity level whose routing has no compliance stage, e.g. L1's init → do → archive), print the skip reason instead — e.g. `Compliance skipped by design at this complexity level`.
+     - This line is emitted after the marker is removed and immediately before the call-to-action block below.
    - Emit the standard call-to-action block defined in the cta-format skill.
    - Emit the stage snapshot defined in the cta-format skill (`stage: auto`, `command: /dr-auto`).
    - The operator may explicitly `unset DATARIM_AUTO_MODE` in the shell. Otherwise, the next `/dr-*` invocation will detect that the env var is set but the marker is gone, log a single warning, and continue as a normal (non-autonomous) run.
