@@ -1,6 +1,6 @@
 # Datarim — Universal Iterative Workflow Framework
 
-> **Version:** 2.31.0
+> **Version:** 2.32.0
 > **Framework:** Datarim provides structured rules, agents, skills, and commands for iterative project execution via AI coding assistants — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
 > **Multi-runtime:** Datarim is runtime-agnostic. This file is also available as `AGENTS.md` (symlink) for Codex CLI and other agent runtimes that read `AGENTS.md` by convention. See `docs/use-cases.md#runtime-support` for the canonical Claude Code / Codex CLI / Cursor support matrix.
 > **Note:** "Datarim" has a Russian transliteration «Датарим» — agents must recognise either form in any language context. <!-- allow-non-ascii: literal-transliteration-pair-for-agent-name-recognition -->
@@ -375,6 +375,7 @@ Datarim ships skills, templates, agents, and commands that AI agents copy into r
 - **S1** — Shell scripts and embedded shell blocks (strict mode, quoting, input regex, heredoc terminators, no eval/curl|bash, no SSH `StrictHostKeyChecking=no`, `shellcheck` clean)
 - **S2** — Python and python-fenced blocks (no `shell=True`, atomic mode-0o600 credential writes via `O_EXCL`, no `eval`/`pickle.loads`/`yaml.load`, `requests verify=True`, SHA-256+, `bandit -ll -ii` clean)
 - **S3** — Credentials, secrets, tenant identifiers (no hardcoded IDs, generic env-var paths via `${PROJECT_CREDS_DIR}`, secrets via env/Vault/prompt only, `.gitignore` coverage, rotation policy on accidental commit)
+- **S3.1** — Personal data in shipped artefacts (personal names, handles, hostnames, numeric GIDs, and ecosystem-specific Vault paths MUST NOT appear in any shipped artefact under `cli/`, `skills/`, `agents/`, `commands/`, `templates/`, `scripts/`, `dev-tools/`, `CLAUDE.md`, `README.md`, `docs/`; operator-specific config belongs in `${DATARIM_LOCAL:-$HOME/.claude/local}/config/personal.env` loaded by `cli/lib/load-local-config.sh`; enforced by `scripts/personal-id-gate.sh` + CI `.github/workflows/personal-id-lint.yml`)
 - **S4** — Supply chain (no `curl | bash`, hash-pinned installs, GitHub Actions pinned to commit SHA + explicit `permissions:`, SBOM, signed releases, SLSA L2, Dependabot/Renovate). Consumer-side verify recipe: [`docs/release-verification.md`](docs/release-verification.md) (canonical) + [`skills/release-verify/SKILL.md`](skills/release-verify/SKILL.md) (AI-agent loadable entry point). Implementation: `.github/workflows/release.yml` (cosign sign-blob + `actions/attest-build-provenance` for SLSA L2).
 - **S5** — Markdown documentation as executable instructions (placeholders not real IDs, never prescribe unsafe patterns, `<!-- security:counter-example -->` fence syntax for teaching counter-examples)
 - **S6** — Repo hygiene (LICENSE, SECURITY.md, CODE_OF_CONDUCT, CONTRIBUTING, CODEOWNERS, dependabot.yml, branch + tag protection)

@@ -1,0 +1,171 @@
+schema_version: 1
+# Command dependency graph for the Datarim framework.
+# Source of truth — the derived Mermaid diagram in
+# skills/visual-maps/command-dependencies.md is generated from this file.
+# Keep in sync: when adding or changing command relationships here,
+# update the Mermaid diagram in that file as well.
+#
+# Fields per command:
+#   stage:       pipeline stage this command belongs to
+#   requires:    commands that MUST have been run before this one (non-empty means ordered)
+#   precedes:    commands that typically follow this one
+#   optional_at: complexity levels (L1/L2/L3/L4) where this command may be skipped
+#   entry:       true if the command can be invoked at any time without prerequisites
+
+commands:
+  dr-init:
+    stage: init
+    requires: []
+    precedes: [dr-prd, dr-plan, dr-do]
+    optional_at: []
+
+  dr-prd:
+    stage: requirements
+    requires: [dr-init]
+    precedes: [dr-plan]
+    optional_at: [L1, L2]
+
+  dr-plan:
+    stage: planning
+    requires: [dr-init]
+    precedes: [dr-design, dr-do]
+    optional_at: [L1]
+
+  dr-design:
+    stage: design
+    requires: [dr-plan]
+    precedes: [dr-do]
+    optional_at: [L1, L2]
+
+  dr-do:
+    stage: execution
+    requires: [dr-plan]
+    precedes: [dr-qa, dr-archive]
+    optional_at: []
+
+  dr-qa:
+    stage: quality
+    requires: [dr-do]
+    precedes: [dr-compliance, dr-archive]
+    optional_at: [L1, L2]
+
+  dr-compliance:
+    stage: hardening
+    requires: [dr-qa]
+    precedes: [dr-archive]
+    optional_at: [L1, L2]
+
+  dr-archive:
+    stage: archive
+    requires: [dr-do]
+    precedes: []
+    optional_at: []
+
+  dr-verify:
+    stage: quality
+    requires: [dr-do]
+    precedes: []
+    optional_at: [L1, L2]
+    entry: true
+
+  dr-status:
+    stage: utility
+    requires: []
+    precedes: []
+    optional_at: []
+    entry: true
+
+  dr-next:
+    stage: utility
+    requires: [dr-init]
+    precedes: []
+    optional_at: []
+    entry: true
+
+  dr-help:
+    stage: utility
+    requires: []
+    precedes: []
+    optional_at: []
+    entry: true
+
+  dr-doctor:
+    stage: maintenance
+    requires: []
+    precedes: []
+    optional_at: []
+    entry: true
+
+  dr-auto:
+    stage: meta
+    requires: []
+    precedes: []
+    optional_at: []
+    entry: true
+
+  dr-quick:
+    stage: meta
+    requires: [dr-init]
+    precedes: []
+    optional_at: []
+    entry: true
+
+  dr-write:
+    stage: content
+    requires: [dr-init]
+    precedes: [dr-edit, dr-publish]
+    optional_at: []
+
+  dr-edit:
+    stage: content
+    requires: [dr-write]
+    precedes: [dr-publish]
+    optional_at: [L1]
+
+  dr-publish:
+    stage: content
+    requires: [dr-write]
+    precedes: []
+    optional_at: []
+
+  dr-addskill:
+    stage: extension
+    requires: []
+    precedes: []
+    optional_at: []
+    entry: true
+
+  dr-dream:
+    stage: maintenance
+    requires: []
+    precedes: []
+    optional_at: []
+    entry: true
+
+  dr-optimize:
+    stage: maintenance
+    requires: []
+    precedes: []
+    optional_at: []
+    entry: true
+
+  dr-plugin:
+    stage: extension
+    requires: []
+    precedes: []
+    optional_at: []
+    entry: true
+
+  dr-orchestrate:
+    stage: plugin
+    requires: []
+    precedes: []
+    optional_at: []
+    entry: true
+
+  factcheck:
+    stage: standalone
+    requires: []
+    precedes: []
+    optional_at: []
+    entry: true

@@ -40,3 +40,23 @@ Reference incident: a code-review bot where `claude -p` exits `0` when the 5-hou
 
 - Gate required + structured-output parsing + raise-inside-wrapper → **Layer 4 PASS**.
 - Gate required + returncode-only detection → **Layer 4 FAIL**, even if unit tests pass with mocks that pre-return "valid" stdout.
+
+## Fail-soft tool output is not a self-test pass
+
+A self-test that asserts only "stdout is non-empty" treats a tool's fail-soft error line as a
+pass. Example: `coworker ask --paths /nonexistent` prints `[coworker] cannot read /nonexistent`
+with **rc=0** (fail-soft by design) — a non-empty check accepts it, so a post-upgrade self-test
+goes green on a tool that is actually broken, blinding the rollback gate.
+
+**Assert on the expected token, or reject known error markers:**
+
+```bash
+out="$(run_tool 2>&1)"                                         # capture tool stdout+stderr
+printf '%s' "$out" | grep -q '[^[:space:]]' || return 1        # non-empty
+! printf '%s' "$out" | grep -qi 'cannot read'                  # not a fail-soft read error
+```
+
+<!-- gate:history-allowed -->
+Source: prior incident — toolchain-freshness self-test false-passed on a host where the probe path
+resolved to a nonexistent file.
+<!-- /gate:history-allowed -->

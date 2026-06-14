@@ -54,6 +54,7 @@ Read `datarim/tasks.md` and `datarim/activeContext.md` to determine task type:
 ### 1. Change Set & PRD/Task Alignment
 - Compare diff against PRD requirements and task acceptance criteria
 - Flag: unimplemented requirements, out-of-scope changes, missing edge cases
+- When a task's backlog entry states a root cause explicitly (e.g. "fixed-port collision", "missing index", "race on shutdown"), verify the stated cause against a live repro **before** accepting the implemented fix. A misidentified root cause in the backlog leads to misdirected rounds: the fix targets the wrong axis, passes a weak gate, and the real defect survives. A short manual repro at re-validate time surfaces the mismatch cheaply.
 
 ### 2. Code Simplification
 - Check: functions >50 lines, deeply nested logic, duplicate code
@@ -76,6 +77,9 @@ Read `datarim/tasks.md` and `datarim/activeContext.md` to determine task type:
 ### 6. Test Execution
 - Run the full test suite, report pass/fail counts
 - **Pre-existing branch failure discrimination.** When tests fail in a CI-faithful run, check whether each failure was present before the task's commit: `git log --oneline <base>..HEAD -- <failing-test-file>`. If the violation predates the task (none of the task's commits touched the failing file), document it as "pre-existing branch issue, not introduced by task commit" and do NOT treat it as a task-scope blocking verdict. The task's own diff must be clean — failures from unrelated branch history or parallel-session dirty files are advisory, not verdicts.
+<!-- gate:history-allowed -->
+Prior incident: two test failures traced to pre-task commits and foreign dirty hunks — neither introduced by the task under compliance review.
+<!-- /gate:history-allowed -->
 
 ### 7. CI/CD Impact Analysis
 - Detect: new dependencies, changed env vars, new build steps

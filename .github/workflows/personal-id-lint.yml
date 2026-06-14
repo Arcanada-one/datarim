@@ -1,0 +1,56 @@
+# Personal-identifier hygiene gate.
+# Scans the shipped framework surface for personal names, handles, hostnames,
+# numeric GIDs, and Vault paths that must not appear in public artefacts.
+# See Security Mandate § S3 (personal data) in CLAUDE.md for the canonical
+# policy text; the machine-readable contract surface lives in
+# dev-tools/personal-id-forbidden.regex + scripts/personal-id-gate.sh.
+
+name: personal-id-lint
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'cli/**'
+      - 'skills/**'
+      - 'agents/**'
+      - 'commands/**'
+      - 'templates/**'
+      - 'scripts/**'
+      - 'dev-tools/**'
+      - 'CLAUDE.md'
+      - 'README.md'
+      - 'docs/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'cli/**'
+      - 'skills/**'
+      - 'agents/**'
+      - 'commands/**'
+      - 'templates/**'
+      - 'scripts/**'
+      - 'dev-tools/**'
+      - 'CLAUDE.md'
+      - 'README.md'
+      - 'docs/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  personal-id-lint:
+    name: personal-id-lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Run personal-id gate
+        run: |
+          set -euo pipefail
+          chmod +x scripts/personal-id-gate.sh
+          bash scripts/personal-id-gate.sh --report

@@ -184,6 +184,39 @@ Dropping `-q` (`! grep -F "..."`) leaves matched lines on stdout/stderr, which (
 
 The same rule applies to spec-lint contracts asserting a removed clause — `! grep -qF "old wording" "$SPEC"` is the canonical shape. Pair it with a positive `grep -qF "new wording"` test on the same line range to make the replacement contract explicit.
 
+### Multi-assertion `@test`: only the LAST command sets the verdict
+
+A bats `@test` passes **iff its last command exits 0**. Intermediate `[ … ]` / `[[ … ]]` assertions earlier in the body are *advisory* — bats does not abort the test on their failure unless they are chained with `&&`, made the final command, or `bats_require 'bats_assert'`-style helpers are loaded. So a test that asserts several things in sequence silently ignores every assertion except the last:
+
+```bash
+# BROKEN: the mode-string assertion is dead — only the RESULT check decides the verdict
+@test "post-dedup: re-exports correct" {
+    run bash "$SCRIPT"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Post-dedup mode"* ]]   # ← can be false; test still passes
+    [[ "$output" == *"RESULT: OK"* ]]         # ← only THIS line sets the verdict
+}
+```
+
+The failure mode is insidious: a suite reporting **"9 / 11 passing"** can hide additional broken assertions inside the *passing* 9. Any case whose false `[[ … ]]` is not the final command goes green. A reviewer trusting the pass-count — or an automated review that does not even execute bats — ships the latent defect.
+
+**Rules:**
+
+1. **One assertion per `@test`** wherever practical — a failure then pinpoints exactly the broken contract clause (same discipline as spec-lint § Rule 1).
+2. When a test must check several conditions, **`&&`-chain them into one command** so every link is load-bearing:
+   ```bash
+   @test "post-dedup: re-exports correct" {
+       run bash "$SCRIPT"
+       [ "$status" -eq 0 ] \
+         && [[ "$output" == *"Post-dedup mode"* ]] \
+         && [[ "$output" == *"RESULT: OK"* ]]
+   }
+   ```
+   (or `load 'bats-assert'` and use `assert_output --partial`, which aborts on the first failure.)
+3. **Never trust a bats pass-count alone for the changed surface.** At a verdict gate, read the bodies of the bats tests touching the change and confirm each non-final `[[ … ]]` is actually reachable as a verdict — or re-run after deliberately breaking the asserted condition (RED-proof) to prove the assertion is load-bearing, not vacuous.
+
+Source: a drift-guard suite reported 9/11; the 2 reds were real, but 3 of the "green" cases asserted an output-mode string the script never printed — false-green because the assertion was not the final command, so the latent reached QA. An automated review that did not run bats passed the merge with it.
+
 ### Injection-inertness tests: assert a canary side-effect, not just the exit code
 
 When the script under test resolves untrusted input (compose `${VAR}` tokens, a config value, any string an attacker could shape), an injection-attempt regression test MUST assert that the dangerous *side-effect did not happen* — not merely that the script exited non-zero. A script can exit non-zero while still having executed the injected command, and it can also reject the input cleanly with exit 0; the exit code alone proves neither inertness nor rejection. The load-bearing assertion is the absence of a **canary side-effect**.

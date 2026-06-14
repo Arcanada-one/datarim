@@ -171,6 +171,29 @@ with os.fdopen(fd, "w") as f:
 
 ---
 
+## S3.1 — Personal data in shipped artefacts
+
+Personal names, handles, hostnames, numeric GIDs (e.g. Asana workspace/user IDs), and
+ecosystem-specific Vault paths MUST NOT appear in any shipped framework artefact.
+
+### Required rules
+
+1. **No operator identity in shipped files** — personal names, usernames, handles, email addresses, and personal tool GIDs are operator-private and belong in the operator's personal config, not in framework runtime.
+2. **No ecosystem-specific hostnames** — server names, internal network aliases, and infrastructure hostnames must be parameterised via env vars with generic defaults (e.g. `${DR_SOAK_HOST:-<ops-host>}`).
+3. **No ecosystem-specific Vault paths** — Vault path templates must use generic placeholders (e.g. `kv/<tenant>/<service>/api_token`) so the framework works for any operator.
+4. **Personal config location** — operator-specific tokens and settings live in `${DATARIM_LOCAL:-$HOME/.claude/local}/config/personal.env`, loaded by `cli/lib/load-local-config.sh`. This path is gitignored and never shipped.
+5. **Enforcement** — `scripts/personal-id-gate.sh` scans the shipped surface against `dev-tools/personal-id-forbidden.regex`. Run on every PR via `.github/workflows/personal-id-lint.yml`. Exit 0 = clean; exit 1 = block.
+6. **Inline exemption** — teaching counter-examples and synthetic fixtures may use the fence `<!-- gate:example-only --> ... <!-- /gate:example-only -->` to exclude specific lines from the scan.
+
+### Cross-references
+
+- `scripts/personal-id-gate.sh` — scanner (engine: `perl -CSD`, UTF-8-safe, BSD-compatible).
+- `dev-tools/personal-id-forbidden.regex` — machine-readable pattern set.
+- `.github/workflows/personal-id-lint.yml` — CI gate.
+- `cli/lib/load-local-config.sh` — generic personal-config loader.
+
+---
+
 ## S4 — Supply chain
 
 ### Required rules
