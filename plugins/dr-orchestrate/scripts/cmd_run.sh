@@ -154,11 +154,19 @@ confidence="$(printf '%s' "$decision" | jq -r '.confidence')"
 end_ms=$(now_ms)
 dur=$(( end_ms - start_ms ))
 
-# Phase-1 rule-hit path: emit v1 event (backward compatible).
+# Rule-hit path: emit schema-v2 event so resolved rule-hits enter the
+# label-aware metric (schema_version==2 filter in measure script).
+# stage=parse, outcome=resolved. expected_outcome read from env (soak driver).
+# Routing unchanged — rule-hit still resolves locally without subagent call.
 if [[ "$confidence" != "0" ]]; then
-  evt="$(make_event "$text" "dr-orchestrate run" 0 "$dur" "$PANE_ID")"
+  local_outcome="resolved"
+  if ! check_cooldown "$PANE_ID" decision 2>/dev/null; then
+    local_outcome="blocked_decision_cooldown"
+  fi
+  evt="$(make_event_v2 "$text" "dr-orchestrate run" 0 "$dur" "$PANE_ID" \
+          "$confidence" "" "" "" "parse" "$local_outcome" "rule_hit")"
   emit "$AUDIT_FILE" "$evt"
-  echo "dr-orchestrate run | confidence=$confidence | pane=$PANE_ID | dur=${dur}ms | $(date -u +%FT%TZ)"
+  echo "dr-orchestrate run | confidence=$confidence | pane=$PANE_ID | dur=${dur}ms | outcome=$local_outcome | $(date -u +%FT%TZ)"
   exit 0
 fi
 

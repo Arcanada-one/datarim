@@ -130,6 +130,45 @@ When a site or endpoint is "not working", investigate in this order BEFORE touch
 
 **Red herrings:** expired SSL cert (irrelevant if DNS points elsewhere), web server config (irrelevant if requests don't reach server), file permissions (check only after confirming requests arrive).
 
+## CDN-Proxied Origin Discrimination
+
+Before removing a suspected-stale copy of a web origin that sits behind a CDN proxy (Cloudflare-style "orange cloud"), a naive DNS pre-check is invalid: `dig A <domain>` returns the CDN's anycast IPs, never the origin, so it cannot prove which server actually serves traffic.
+
+Prove the live origin by querying each candidate server directly with the production Host header and comparing response bodies:
+
+```bash
+for ip in <candidate-ip-1> <candidate-ip-2>; do
+  echo "== $ip"
+  curl -s --resolve <domain>:443:$ip https://<domain>/ -o /tmp/body-$ip --write-out '%{http_code} %{size_download}\n'
+done
+# Compare /tmp/body-* against the public CDN response (curl -s https://<domain>/ | wc -c)
+```
+
+The candidate whose body matches the public CDN response byte-for-byte (or by size) is the real origin; a candidate returning a default web-server placeholder page is a dead copy and safe to remove. Body size is a reliable first discriminator (e.g. real site 40 KB vs default page 600 B); confirm with content diff when sizes are close. After removal, re-check the public domain end-to-end.
+
+## Backup-Tool Secret Handling
+
+Never pass a backup-repository password as an inline environment assignment on the command line — `SOMETOOL_PASSWORD=value sometool ...` lands verbatim in shell history and journald the moment the unit/exec is logged. Use a password file instead:
+
+```bash
+# Correct: secret never transits the command line
+export RESTIC_PASSWORD_FILE=/root/.restic-env   # file mode 0600 root:root
+restic -r <repo> snapshots
+
+# Incorrect: secret recoverable from journald/history
+RESTIC_PASSWORD="secretvalue" restic -r <repo> snapshots
+```
+
+If a secret did transit a logged command line, treat it as exposed: record the incident and schedule rotation (`restic key passwd`, or the tool's equivalent).
+
+## Decommission Data-Inventory Rule
+
+When a host is being decommissioned, every non-empty dataset on it (databases, file stores, dashboards, configs) is a migration candidate **by default**. Excluding anything requires an explicit operator decision with a recorded reason (empty schema, intentional size-based skip). Enumerate from the engines themselves (`listDatabases`, `\l`, du over data dirs) — never from the consumer configs you already know about: known consumers see only part of the data, and after teardown there is no way back.
+
+## Acceptance-Criterion Authoring (infra)
+
+When a success criterion is verified by a shell command, record TWO fields, not one: the state-of-system intent ("no active connection strings reference host X") and the verification command (`grep -rE 'X' <files>` + expected exit code). A literal command alone is brittle — commented-out lines, renamed files, or unrelated matches flip its exit code while the intent stays satisfied. The intent field is what QA judges; the command is one way to check it.
+
 ## Pre-Migration Service Inventory
 
 Before migrating a server, enumerate ALL services:

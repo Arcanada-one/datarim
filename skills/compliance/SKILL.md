@@ -67,6 +67,7 @@ Read `datarim/tasks.md` and `datarim/activeContext.md` to determine task type:
 - Verify tests exist for all changed code paths
 - Check: edge cases, error paths, boundary conditions
 - **Quantitative-threshold AC enforcement.** When an Acceptance Criterion declares a numeric threshold (coverage %, latency budget, RPS, error rate, etc.), Compliance Step 4 (or Step 6 for runtime metrics) MUST execute the measurement tool and record the actual number. «Presumed met» is not an acceptable verdict for thresholded AC. If the measurement tool is absent on the host, install it (typically a one-line install via the project's package-manager-native tooling) before claiming PASS, or escalate the AC as BLOCKED back to `/dr-do`. Source: prior incident — AC-7 (≥80% line coverage) was carried as «presumed met» through `/dr-qa` PASS_WITH_NOTES; Compliance had to install the coverage tool and measure (actual 91.5%) to close the gap.
+- **Agentic Entrypoint Wiring + Live-Run gate.** When the task ships a service/daemon/cron/agent whose declared purpose is to invoke an external CLI/LLM/subprocess (`claude -p`, `gh`, `aws`, …) and act on its output, Compliance MUST NOT pass it on a mock-only suite. Verify per `$HOME/.claude/skills/testing/live-smoke-gates.md` § Gate 7: (a) the *real* entrypoint (`__main__`/systemd `ExecStart`/cron) actually reaches the declared function — call-graph grep + runtime probe, an orchestrator/lane reachable only from tests is dead-code-in-prod ⇒ **NON-COMPLIANT** → `/dr-do`; (b) one **live** run of the agent against the real tool was performed, with the captured real output + observed side-effect recorded in the report. A kill-switch-OFF exit-0 probe proves the agent does *nothing* and does NOT satisfy this gate; an `evidence_type: empirical` wish marked met on mocks alone is a hard finding. Source: prior incident — orchestrator + repair lanes fully unit-tested but never wired to `cli.main`; `claude -p` never ran in prod; QA passed on mocks and proposed archive; operator caught the unwired entrypoint.
 
 ### 5. Linters and Formatters
 - Run project linters and formatters
@@ -74,6 +75,7 @@ Read `datarim/tasks.md` and `datarim/activeContext.md` to determine task type:
 
 ### 6. Test Execution
 - Run the full test suite, report pass/fail counts
+- **Pre-existing branch failure discrimination.** When tests fail in a CI-faithful run, check whether each failure was present before the task's commit: `git log --oneline <base>..HEAD -- <failing-test-file>`. If the violation predates the task (none of the task's commits touched the failing file), document it as "pre-existing branch issue, not introduced by task commit" and do NOT treat it as a task-scope blocking verdict. The task's own diff must be clean — failures from unrelated branch history or parallel-session dirty files are advisory, not verdicts.
 
 ### 7. CI/CD Impact Analysis
 - Detect: new dependencies, changed env vars, new build steps
@@ -114,6 +116,12 @@ Source: prior incident — a multi-repo task ran compliance v1+v2 within 23 minu
 
 ### 5. Audience Appropriateness
 - Language matches audience, prerequisites stated, examples progressive
+
+### 6. Operator-Only Runbooks
+- A runbook whose steps are operator-only (hard-gated actions: store consoles, production deploys, secret rotation) carries an explicit HARD-GATED marker on its first content line
+
+### 6. Operator-Only Runbooks
+- A runbook whose steps are operator-only (hard-gated actions: store consoles, production deploys, secret rotation) carries an explicit HARD-GATED marker on its first content line
 
 ---
 
@@ -181,6 +189,7 @@ Source: prior incident — a multi-repo task ran compliance v1+v2 within 23 minu
 
 ### 5. Discovery Probe Verification
 - For infra tasks referencing external state (GitHub org contents, DNS records, server inventory, cloud project structure) — verify assumptions against the **live API** during `/dr-prd`, NOT at `/dr-do`. Inventory mismatches caught late cost creative/planning effort. Example: `.meta` planned 13 repos when only 7 existed in the GitHub org.
+- For tasks planning DNS/CDN provider rule changes: probe the provider's **zone inventory AND plan-tier feature availability** at `/dr-prd` before writing the solution section. Structural assumptions that look like subdomains may be separate zones (each needing its own rule), and a rule-expression function available on one plan tier may be absent on another — both invalidate a written plan in one API call's worth of discovery. Also probe the **API token's permission scopes** against the exact endpoints the plan intends to call; a token valid for reads may lack the edit scope for the rule phase, forcing an architecture change mid-execution.
 
 ### 6. Nested Git Repos Cleanliness
 - For workspace-level infra tasks (file-sync, backup, mass-rename) scan ALL nested git repos, not only the workspace root:
@@ -196,6 +205,11 @@ Source: prior incident — a multi-repo task ran compliance v1+v2 within 23 minu
 - Verify ignore patterns cover ALL discovered classes (.venv/__pycache__/target/*.db/.next/.build/etc.).
 - Verify nested git repos either fully excluded or documented as «read-only mirror».
 - Source: prior incident — first .stignore set (28 patterns) missed 11 classes; 1 sync-conflict materialized + 60+ accumulated before audit caught it.
+
+### 7b. Bulk-Replace Token-Collision Pre-Scan (when task performs bulk text replacement across ≥10 files)
+- BEFORE executing the replacement, run a token-collision pre-scan: grep the target file set for every substring of the replacement source/target that could collide with unrelated entity names (product names, service names, acronyms sharing a stem). A replacement of a domain suffix or brand stem can silently corrupt look-alike tokens (one extra/missing character class of defects).
+- Any collision found → HIGH finding: switch to surgical per-file replacement with explicit per-file diff verification; never a single global substitution.
+- AFTER the replacement, verify with a residual-diff audit: normalize the intended swap out of the diff and confirm zero residual added/removed lines (content comparison, not just exit codes).
 
 ### 8. Scheduler-Unit Antipattern Check (when task deploys recurring scheduler units — e.g. systemd timers, cron entries, launchd plists)
 - Validate every modified scheduler unit on the host with the OS's native validator (e.g. `systemd-analyze verify <unit>`, `crontab -T`, `plutil -lint`). Non-zero exit → block compliant.

@@ -28,6 +28,12 @@ pane_kill() {
 
 pane_capture() {
   local target="$1"
+  # Test seam: when DR_ORCH_PANE_CAPTURE_OVERRIDE is set, emit its value instead
+  # of invoking tmux. Default-off — zero impact on production when unset.
+  if [[ -n "${DR_ORCH_PANE_CAPTURE_OVERRIDE:-}" ]]; then
+    printf '%s\n' "$DR_ORCH_PANE_CAPTURE_OVERRIDE"
+    return 0
+  fi
   tmux capture-pane -p -t "$target"
 }
 
