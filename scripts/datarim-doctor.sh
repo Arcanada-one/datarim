@@ -569,6 +569,35 @@ if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "history" ]; then
     scan_docs_dir
 fi
 
+# --- phantom-snapshot advisory pass -----------------------------------------
+# A stage snapshot (snapshots/<ID>.snapshot.md) records the recommended next
+# step and the artefact a stage produced. The prd/ directory is gitignored, so
+# a snapshot may outlive the PRD it points at (accidental delete, failed sync,
+# disk reset) — leaving a "phantom" snapshot whose stage:prd resume would drive
+# work over a non-existent concept. Flag when a snapshot references
+# prd/PRD-<ID>.md but that file is absent on disk. Advisory only; fix is to
+# re-run /dr-prd to regenerate from the init-task/expectations/insights context.
+scan_phantom_prd_snapshot() {
+    local snap_dir="$ROOT_ABS/snapshots"
+    [ -d "$snap_dir" ] || return 0
+    local snap base id
+    for snap in "$snap_dir"/*.snapshot.md; do
+        [ -e "$snap" ] || continue
+        base="$(basename "$snap")"
+        id="${base%.snapshot.md}"
+        validate_task_id "$id" || continue
+        # Only act when the snapshot actually names a prd/ artefact for this ID.
+        grep -q "prd/PRD-$id.md" "$snap" 2>/dev/null || continue
+        if [ ! -f "$ROOT_ABS/prd/PRD-$id.md" ]; then
+            FINDINGS=$((FINDINGS + 1))
+            FINDING_LINES+=("snapshots/$base: references prd/PRD-$id.md but file not found on disk — possible data loss; re-run /dr-prd $id to regenerate")
+        fi
+    done
+}
+if [ "$SCOPE" = "all" ]; then
+    scan_phantom_prd_snapshot
+fi
+
 # --- dry-run ----------------------------------------------------------------
 if [ "$MODE" = "dry-run" ]; then
     if [ "$FINDINGS" -eq 0 ]; then

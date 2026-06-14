@@ -107,6 +107,29 @@ Skip any step = lying, not verifying
 ❌ Trust agent report
 ```
 
+## Prototype-Patch Verification Gate
+
+When a fix monkey-patches a shared runtime object (a class prototype, a module
+export, an interpreter-level hook), test-runner evidence is structurally
+insufficient: test runners commonly deduplicate module instances into one graph,
+while the production runtime may load two or more independent copies of the
+same library (e.g. dual-build packages resolved differently by different
+consumers). The patch then works in every test and never fires in production.
+
+**Gate:** before claiming a prototype/module-patch fix complete, run a probe in
+the production-like runtime (container, deployed process — not the test runner)
+that asserts the patched object is the SAME instance every consumer uses. If
+the library ships multiple builds, resolve it through each loading mechanism
+the runtime uses and compare identities:
+
+```
+✅ [Probe in target runtime] [See: patched object identity === consumer's object identity] "Patch covers production"
+❌ "All specs green" (test runner deduped the module graph; production splits it)
+```
+
+If identities differ, the fix must patch every reachable instance, and the
+probe becomes part of the verification suite.
+
 ## Why This Matters
 
 From 24 failure memories:

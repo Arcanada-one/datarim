@@ -452,6 +452,33 @@ to avoid accidental overrides.
 Document any deliberate override here so future-you can tell what was intended.
 MD
     fi
+
+    # Personal config scope — separate from LOCAL_SCOPES (not subject to
+    # skill/agent/command/template loader logic). Provides a gitignored home
+    # for operator personal tokens and settings via load-local-config.sh.
+    mkdir -p "$local_root/config" || return 1
+    if [ ! -f "$local_root/config/README.md" ]; then
+        cat > "$local_root/config/README.md" <<'CFG'
+# Personal config (gitignored, never shipped)
+
+Place KEY=value pairs in `personal.env` (one per line). The framework reads
+this file via `cli/lib/load-local-config.sh`. Values are parsed literally —
+no shell execution, no eval, no source.
+
+Lines starting with `#` are treated as comments and ignored.
+Keys must match `[A-Za-z_][A-Za-z0-9_]*`; invalid keys are silently skipped.
+
+## Example personal.env
+
+```
+# Use <PLACEHOLDER> — replace with your actual value at runtime.
+MY_TOOL_PAT=<PLACEHOLDER>
+MY_WORKSPACE_ID=<PLACEHOLDER>
+```
+
+Never commit real credentials here. This directory is gitignored.
+CFG
+    fi
 }
 
 # TUNE-0303: symlink ~/.local/bin/coworker-hook-guard → canonical Datarim

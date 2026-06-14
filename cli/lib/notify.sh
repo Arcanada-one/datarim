@@ -21,7 +21,7 @@ set -u
 CLI_NOTIFY_EXIT_FAILCLOSED=18
 
 # Vault path for the operator-acknowledged bot.
-CLI_NOTIFY_TG_VAULT_PATH="${DATARIM_CLI_TG_VAULT_PATH:-kv/arcanada/auth/arcanada-assistant-bot/api_token}"
+CLI_NOTIFY_TG_VAULT_PATH="${DATARIM_CLI_TG_VAULT_PATH:-kv/<tenant>/<bot>/api_token}"
 CLI_NOTIFY_TG_CHAT_ID_ENV="${DATARIM_CLI_TG_CHAT_ID:-}"
 
 # Backends list — comma-separated; defaults to "telegram".

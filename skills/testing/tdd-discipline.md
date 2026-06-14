@@ -93,6 +93,27 @@ Run the test. Confirm:
 
 **Test errors?** Fix the error, re-run until it fails *correctly*.
 
+### Anti-Tautological Test Gate
+
+**MANDATORY at code review (`/dr-do`).** A test must be able to fail. Any `it()` / `test()` whose body branches on a mock call or a stubbed result with a different assertion per branch is a tautology — it passes in every branch and so proves nothing.
+
+```
+if (transitSign.mock.calls.length > 0) {
+  expect(usedVaultKey).toBe(true)     // passes when bridge intercepted
+} else {
+  expect(usedPlaceholder).toBe(true)  // passes when it did not
+}
+```
+
+Both branches green ⇒ the defect (bridge silently using the placeholder key) survives the suite. Reject and rewrite to an **unconditional** assertion that fails when the system misbehaves:
+
+```
+expect(transitSign.mock.calls.length).toBeGreaterThan(0)  // fails if bridge did not intercept
+await compactVerify(token, realPublicKey)                  // throws if signature invalid
+```
+
+**The rule:** remove the conditional. If the test cannot fail without the `if`, it is a tautology — delete the branching and assert the one expected outcome. Verify-RED (above) catches this for the AC-1 happy path; this gate extends the same discipline to every test, especially severity/partition probes where the `if/else` shape is tempting.
+
 ### GREEN — Minimal Code
 
 Write the simplest code that makes the test pass.

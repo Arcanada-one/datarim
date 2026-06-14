@@ -39,6 +39,9 @@ patterns:
   - match: "/dr-status"
     action: "/dr-status"
     confidence: 0.90
+  - match: "/dr-help"
+    action: "/dr-help"
+    confidence: 0.95
   - match: "/dr-continue"
     action: "/dr-next"
     confidence: 0.90

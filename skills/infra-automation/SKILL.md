@@ -116,6 +116,7 @@ ssh root@65.108.236.39 "nginx -t" 2>&1
 3. **Verify command on one server first** before running batch across all.
 4. **Keep SSH sessions short** — run command and exit, don't keep persistent sessions.
 5. **Log operations** — pipe output to file for audit trail when making changes.
+6. **Live-label probe before authoring runbooks** — any runbook or handoff document that references OS-managed service labels (launchd/systemd) MUST inline labels verified by a live probe at authoring time (`launchctl list | grep -i <service>` / `systemctl list-units | grep <service>`), never placeholders or from-memory labels. A mismatched label turns a one-command cutover into a debugging session.
 
 ---
 
