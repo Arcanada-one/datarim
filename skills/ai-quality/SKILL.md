@@ -69,6 +69,10 @@ PRACTICES:
 |- Verify AI can solve before starting
 |- Wire ALL planned features in first pass — if code/prompts are ready
    and wiring is <30 min, do it. "Low risk deferral" is still deferral.
+|- Decompose multi-clause success criteria — a criterion joined by "and"
+   or listing N independent requirements is N checks. Close each sub-clause
+   with its own named test and verify each before marking the wish done.
+   One green test on the first clause does NOT satisfy a two-clause wish.
 |- Authorization prompts to user: 1 sentence risk + 1 yes/no question.
    Threat models → docs, not interactive prompt.
 ```
@@ -76,6 +80,7 @@ PRACTICES:
 **Why:** Broad context = scattered results. Focus = precision.
 Source (auth UX): prior incident — user requested simpler prompts after a 7-option authorization table.
 Source (wire-all): prior incident — dedup/rerank deferred as "low risk", user challenged, wiring took <15 min.
+Source (decompose): prior incident — a "select backend AND inject per-role allowed-tools" wish had its first clause implemented and the second silently skipped (the registry declared the tools but no consumer read them); the partial surfaced only at the expectations gate, costing one extra implement→review round.
 
 ---
 

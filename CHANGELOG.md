@@ -4,6 +4,24 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.31.0] — 2026-06-10
+
+An anti-deferral gate. The framework let an agent label its own unfinished work "out of scope / informational / not a blocker / I'll fix later" and still pass QA, compliance, and archive — discipline-reliance that demonstrably failed (an agent left a stale counter in a runbook paragraph it had just rewritten, called it informational, and moved to archive). The fix is deterministic: prose is not trusted; the touched-file set is the ownership boundary; a deferral is only legitimate when time-dependent or hard-external-blocked AND backed by a verifiable follow-up / `blocked_by` artefact.
+
+### Added
+
+- **`dev-tools/check-deferral-prose.sh`** — scans a QA / compliance report for deferral-tell phrases (a documented, extensible floor) and cross-checks each hit against the touched-file set derived from `git merge-base HEAD origin/main..HEAD`. A deferral phrase co-located with a file the agent touched, lacking a verifiable follow-up / `blocked_by` artefact, exits 1 (BLOCKED). Foreign-scope phrases and artefact-backed deferrals pass. Fail-open-with-warning when the touched set cannot be computed — an infra hiccup never false-blocks. Modelled on `check-banlist-on-prose.sh`; pure shell; exit 0/1/2.
+- **Override authorship** in `dev-tools/check-expectations-checklist.sh` — new `override_by` / `override_class` / `override_artifact` fields. `verify_routing` now rejects an agent-authored prose-only override on a `partial`/`missed` wish (the self-certification loophole): an agent override requires an allowed class (`time-dependent` / `external-blocker` / `operator-authorized` / `plan-scope-boundary`) plus an artefact ID that exists in `backlog.md` / `tasks.md`. Operator-authored overrides are accepted unconditionally. Absent `override_by` defaults to `agent` (back-compat, most restrictive). New columns are appended to the emit row — old readers are unaffected.
+- **`/dr-archive` Step 0.45** — mandatory "Expectations re-validation + anti-deferral gate", inserted between the network gate (0.3) and reflection (0.5). Placed before reflection on purpose: reflection's follow-up heuristic must not launder a self-inflicted loose end into a backlog item ahead of the gate.
+- **Operating rule FB-5a** — canonical text in the consumer mandate (`documentation/mandates/autonomous-agents.md`), machine-readable mirror in `plugins/dr-orchestrate/rules/fb-rules.yaml`: complete reversible authorized work yourself (e.g. an authorized `git push`), do not hand it back; defer only when time-dependent or hard-external-blocked, and only with a traceable artefact.
+- **Quoted-phrase exclusion + dual-repo scope** in `dev-tools/check-deferral-prose.sh`. The scanner now ignores deferral-tell phrases inside fenced code blocks or Markdown blockquotes — a report *about* the gate inevitably quotes the tell-phrases next to the gate's own filenames, and the hard compliance gate must not false-block on a quotation; live prose on its own line still scans. New repeatable `--extra-repo <path>` flag adds a nested repository's `merge-base..HEAD` touched-set (additive, fail-open preserved) so the gate is no longer a no-op for dual-repo framework tasks whose reports and code live in different repos; `/dr-compliance` Step 5c and `/dr-archive` Step 0.45 instruct passing it.
+- **Regression suites** `tests/check-deferral-prose.bats` (14), `tests/check-expectations-override-authorship.bats` (6), `tests/dr-archive-step04-anti-deferral.bats` (3), `tests/dr-compliance-deferral-gate.bats` (3).
+
+### Changed
+
+- **`/dr-qa` Layer 3b** runs the deferral scan as an advisory (PASS_WITH_NOTES, warns that compliance will hard-block). **`/dr-compliance` Step 5c** runs it as a hard gate → NON-COMPLIANT on a finding. Mirrors the existing evidence-type advisory-at-QA / hard-at-compliance escalation.
+- **`skills/expectations-checklist/SKILL.md`** documents the new override fields and the updated CONDITIONAL_PASS / BLOCKED semantics.
+
 ## [2.29.0] — 2026-06-06
 
 Command-surface hygiene plus two workflow reworks. A new `/dr-quick` fast-lane handles trivial fixes without the full pipeline; `/dr-auto` becomes a subagent orchestrator; and reflection moves from archive to the compliance gate with a freshness marker.

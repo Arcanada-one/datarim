@@ -28,6 +28,8 @@ Load only the fragment relevant to the task:
   Use for validating email, URL, IPv4, UUID formats.
 - `json.md`
   Use for JSON pretty-print, minify, validate, and field extraction via jq.
+- `yaml.md`
+  Use for reading YAML and extracting YAML frontmatter from markdown (frontmatter-only parse).
 - `formatting.md`
   Use for byte humanization, number formatting (thousands, currency, percentage), and color conversion (hex/RGB/HSL).
 - `datarim-sync.md`

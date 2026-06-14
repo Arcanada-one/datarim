@@ -70,6 +70,7 @@ The baseline therefore optimises for **shipped-artefact correctness** over local
 <!-- /security:rule-statement -->
 8. **`shellcheck -S warning` clean** for committed `*.sh`. Suppression via `# shellcheck disable=...` MUST cite reason + finding-ID + reviewer in an adjacent comment (see § Suppression policy).
 9. **Line-injection gate for free-text written into a UTF-8 content file** (a backlog line, a commit-message body, a log record, any append target where one logical record is one line): reject embedded newlines/carriage-returns AND C0/C1 control bytes — `printf '%s' "$s" | LC_ALL=C grep -q '[[:cntrl:]]'` plus a `case "$s" in *$'\n'*|*$'\r'*)` guard. Do **NOT** gate with `[[:print:]]`-only under `LC_ALL=C`: that rejects every legitimate printable multibyte UTF-8 character (Cyrillic, arrows like `↔`, em-dashes) because each lead/continuation byte is ≥ 0x80 and fails the ASCII `[[:print:]]` class. The injection vector is the control byte (forged record, ANSI escape), not the printable non-ASCII glyph. Probe the gate against a non-ASCII sample at write-time.
+10. **Word-boundary in anti-pattern greps over prose.** When grepping shipped files (markdown, configs with descriptions) for dangerous short tokens (`eval`, `exec`, `raw`, `tmp`), anchor with `grep -w` or `\b<token>\b`. A bare `grep 'eval '` matches the substring inside ordinary words (e.g. "retri**eval** on demand"), producing false-positive security findings that waste a triage cycle. Anchor short tokens; reserve unanchored matches for tokens that cannot appear inside a word.
 
 ### MUST NOT
 
