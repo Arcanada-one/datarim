@@ -4,6 +4,20 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.33.0] — 2026-06-14
+
+Autonomous-mode marker resilience. The `/dr-auto` orchestration marker `.auto-mode-active` could vanish mid-cycle during subagent dispatch (a spawned subagent then ran in fail-safe non-auto, correctly but unexpectedly), and the `DATARIM_AUTO_MODE` env-var is not inherited by Agent-tool subagents — so even an intact marker file did not activate the mode for a spawned subagent. This release closes both root causes (Class B — auto-mode activation contract change).
+
+### Added
+
+- **`dev-tools/auto-mode-marker.sh`** — pure-shell helper with two verbs: `reassert` (idempotently restores a vanished or stale marker before a dispatch; a true no-op on a valid marker, so TTL-staleness checks are not perturbed) and `subagent-active` (decides whether a spawned subagent should run autonomously from a valid marker file + task-id match + an explicit prompt auto-signal, without requiring the inherited env-var). The marker path is centralised in a single `MARKER_RELPATH` constant for forward-compatibility with per-task namespacing.
+- **`tests/dr-auto-marker-resilience.bats`** — six regression tests: re-assert restores a vanished marker; re-assert is idempotent; a subagent activates without the env-var; fail-safe is preserved on a true mismatch (no marker and no signal); non-auto on a different task-id; non-auto with a valid marker but no auto-signal.
+
+### Changed
+
+- **`skills/autonomous-mode/SKILL.md`** § "When this skill is active" — adds a "Spawned subagents (relaxed activation)" sub-rule: a spawned subagent whose prompt carries an explicit auto-signal activates from a valid marker file + task-id match alone, no inherited env-var required. The top-level cycle still requires all three conditions.
+- **`commands/dr-auto.md`** Step 5 — the dispatcher re-asserts the marker before each subagent dispatch and carries the auto-signal into the subagent prompt.
+
 ## [2.31.0] — 2026-06-10
 
 An anti-deferral gate. The framework let an agent label its own unfinished work "out of scope / informational / not a blocker / I'll fix later" and still pass QA, compliance, and archive — discipline-reliance that demonstrably failed (an agent left a stale counter in a runbook paragraph it had just rewritten, called it informational, and moved to archive). The fix is deterministic: prose is not trusted; the touched-file set is the ownership boundary; a deferral is only legitimate when time-dependent or hard-external-blocked AND backed by a verifiable follow-up / `blocked_by` artefact.
