@@ -14,7 +14,7 @@ Every `/dr-*` command that emits a CTA block ([definition](../cta-format/SKILL.m
 | Aspect | Value |
 |--------|-------|
 | Producer touchpoint | `skills/cta-format/SKILL.md` § Snapshot Emission (single producer, not N) |
-| Entry point (canonical) | `dev-tools/snapshot-writer-wrapper.sh` — invoke as `bash dev-tools/snapshot-writer-wrapper.sh <flags>`. The wrapper forces a bash interpreter; the underlying function relies on `BASH_SOURCE[0]` and dies silently under a zsh-parent shell (the default on macOS), so agents MUST call the wrapper, not the function directly. |
+| Entry point (canonical) | `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/snapshot-writer-wrapper.sh` — invoke as `bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/snapshot-writer-wrapper.sh" <flags>`. The wrapper forces a bash interpreter; the underlying function relies on `BASH_SOURCE[0]` and dies silently under a zsh-parent shell (the default on macOS), so agents MUST call the wrapper, not the function directly. |
 | Underlying function | `scripts/lib/snapshot-writer.sh::write_stage_snapshot` — requires `source` under bash; do NOT exec or invoke directly from a zsh-spawned Bash-tool call. |
 | Path | `datarim/snapshots/{TASK-ID}.snapshot.md` |
 | Lock | `datarim/snapshots/.lock.{TASK-ID}` (mkdir-based, reuses `acquire_plugin_lock`) |
