@@ -1,0 +1,19 @@
+# Gitleaks configuration for the Datarim framework repo.
+# Extends the upstream default ruleset and adds an allowlist for synthetic
+# secrets that live in security regression tests by design — the gate-under-test
+# embeds a deliberately fake key to prove the detector rejects it.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Synthetic secrets in security test fixtures (not real credentials)"
+# Test files whose purpose is to feed a fake secret to a no-secrets gate and
+# assert it is rejected. The fake key is part of the test contract, not a leak.
+paths = [
+  '''tests/test-fleet-evolution-gates\.bats''',
+]
+# Belt-and-suspenders: the specific synthetic key literal used in fixtures.
+regexes = [
+  '''sk-live-abc123def456''',
+]
