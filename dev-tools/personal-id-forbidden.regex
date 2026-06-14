@@ -1,0 +1,37 @@
+# personal-id-forbidden.regex
+#
+# Patterns that MUST NOT appear in any shipped framework artefact
+# (cli/, skills/, agents/, commands/, templates/, scripts/, dev-tools/,
+# CLAUDE.md, README.md, docs/).
+#
+# Format: one extended-regex pattern per non-empty, non-comment line.
+# Lines starting with `#` are comments. Each pattern is matched
+# case-insensitively via perl -CSD (UTF-8-safe; BSD-compatible).
+#
+# Inline exclusion fence: lines between
+#   <!-- gate:example-only -->
+# and
+#   <!-- /gate:example-only -->
+# are exempt (counter-examples and teaching content).
+#
+# Consumers may extend this by pointing --regex at their own merged file.
+# Do NOT add ecosystem-specific entries here — keep the framework contract
+# neutral. Consumer extensions belong in the consumer's local copy.
+
+# Operator personal handles / names (word-boundary, case-insensitive)
+\bpavel\b
+\bvalentov\b
+\bpaxbeach\b
+\byuval\b
+
+# Ecosystem-specific hostnames / project names
+\barcana-dev\b
+
+# Ecosystem-specific Vault/credential paths
+arcanada/aether
+
+# Personal Asana PAT variable names (any ASANA_*_PAT pattern)
+ASANA_[A-Z_]*PAT
+
+# 16-digit numeric IDs (Asana workspace/user GIDs)
+\b[0-9]{16}\b

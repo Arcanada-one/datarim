@@ -32,7 +32,7 @@ entries:
     accepted_at: 2026-05-23
     expires: 2026-08-21
     review_required_by: 2026-08-21
-    operator: paxbeach
+    operator: <operator-id>
     mandate_overridden: documentation/mandates/aal-mandate.md
     mandate_ceiling: 2
     declared_level: 3

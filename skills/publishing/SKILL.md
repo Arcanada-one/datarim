@@ -344,6 +344,10 @@ Inline mentions in prose are fine (`Datarim (github.com/Arcanada-one/datarim, MI
 
 Publisher pattern: immediately after `POST_URL` is captured, post the first-comment with the CTA-links block. On FB and LinkedIn that is a normal `Прокомментировать` action under the post; on Telegram it is the discussion-thread comment under the channel post (see canonical recipe above). If the platform's comment size is smaller than the link list, keep blog URL + 2–3 anchor links and rely on the website (`arcanada.one`) for the full directory. <!-- allow-non-ascii: literal-russian-fb-action-token-required-for-publisher-pattern -->
 
+**Attach the hero image to image-capable posts.** When the post promotes an article that has a hero image, attach that image to the post itself — FB `--image-file`, LinkedIn `--image-file`, TG `sendPhoto`. A bare text post with no image loses badly in the feed, and an article's OG-preview from a *comment* link is not a substitute (the body shows no image). A FB post published text-only loses badly in the feed — there is no way to add media retroactively (UI edit replaces text only), so you must delete and re-publish, then re-add the first comment. Get the image right on the first publish.
+
+**Telegram first-comment — one link, the article in the post's language.** On a Telegram channel post, the comment links to the full article in the **same language as the post** — a single URL, nothing else. Do NOT add the other-language version (an RU post links the RU article only, not the EN one), and do NOT link the channel itself — the reader is already in it. This is narrower than the multi-link FB/LinkedIn comment; keep the TG comment minimal.
+
 <!-- gate:history-allowed -->
 **Retrofit tools (FB):** `Projects/FB Publish/code/fb-publish/bin/fb-edit-post.sh` removes a links-block from an existing post body; `bin/fb-edit-comment.sh --match-prefix <text>` rewrites an existing first-comment to extend the link list. Verified working 2026-05-20 on CONTENT-0050.
 <!-- /gate:history-allowed -->
@@ -377,13 +381,26 @@ Publisher pattern: immediately after `POST_URL` is captured, post the first-comm
 
 | Field | Max length | Formatting |
 |-------|-----------|------------|
-| Tweet | 280 chars (free) / 25,000 (Premium+) | No HTML, no Markdown |
+| Tweet | 280 chars (free) / 25,000 (any Premium tier) | No HTML, no Markdown |
 | Thread | Unlimited tweets | Each ≤280/25,000 |
 | DM | 10,000 chars | Plain text |
+| Alt-text (per image) | ~1,000 chars | Plain text — separate budget |
+
+**Premium character limit (the Arcanada accounts are Premium):** the long-post limit is **25,000 characters** and it is the **same across every Premium tier — Basic, Premium, Premium+**. Do not gate it on Premium+ only, and do not say "Premium+" when the rule is just "Premium". A free (non-Premium) account is still capped at 280.
+
+**Attaching media does NOT reduce the character budget.** A photo, video, GIF, or poll leaves the full 25,000-char text limit intact — media does not eat into the count. So on a Premium account, prefer the full post text in the tweet body (with the image attached) over a 280-char teaser, unless brevity is the deliberate goal. The teaser-plus-link pattern is a *free-account* constraint, not a Premium one.
+
+**Reach/UX nuances:** posts over 280 chars render in the feed collapsed behind a "Show more" link — so still front-load the hook in the first ~280 chars. The 25,000 limit applies identically to original posts and to replies/quotes. Alt-text has its own ~1,000-char budget that does not touch the main text count.
 
 **Formatting**: No rich text. Links count as 23 chars (t.co wrapping). Up to 4 images, 1 video, or 1 GIF per tweet.
 **Images**: 1600×900 px optimal. Max 5 MB (JPG/PNG), 15 MB (GIF).
 **Video**: Max 2:20 (free) / 60 min (Premium), 512 MB.
+
+**Premium UI is NOT the API — two separate products (verified 2026-06-05):**
+- **X Premium subscription** (~$8/mo Premium, ~$16/mo Premium+) unlocks *in-app/in-browser* features: 25,000-char long posts, Articles editor, analytics, reply-boost. It grants **no API access**. Our accounts (e.g. `@VeritasArcanaAI`) are Premium → publish via the **web UI** (manual or browser automation), not the API.
+- **X API** (programmatic posting) is a *separate paid product*. As of Feb 2026 the free/Basic/Pro tiers are closed to new signups — default is **pay-per-use**: ~$0.015 per standard post, **~$0.20 per post containing a URL** (link posts are 13× the price), 2M reads/mo cap before Enterprise. So API auto-posting of link-bearing announcements is expensive; the UI route (Premium, no per-post cost) is preferred for our volume.
+
+**X Articles** (long-form editor, `x.com/compose/articles`): since Jan 2026 available to **all Premium tiers** (was Premium+ only). Up to **100,000 chars**, rich formatting (headings, bold/italic/strikethrough, lists, indentation), embeds images/video/GIF/posts/links. Desktop-web only; lands in a dedicated "Articles" tab on the profile + in follower timelines. **Caveat — reach:** Articles often behave like external links algorithmically (click-through friction) and may get *less* distribution than a native long post. For announcing a blog article, a native long post (≤25K, image attached, hook in first 280) usually out-reaches an X Article. Use Articles only when the X-native long-form artefact itself is the goal.
 
 ### VK
 
@@ -473,7 +490,7 @@ Required for proper link previews on all social platforms:
 | Line breaks preserved | Yes | Yes | Yes | Yes | Yes | Via API only |
 | Rich text | HTML subset | No | No | No | HTML subset | No |
 | Link preview card | Yes | Yes | Yes | Yes | Yes | No |
-| Best post length | 500-2000 chars | 1000-2000 chars | 500-3000 chars | 100-280 chars | 500-2000 chars | 500-1500 chars |
+| Best post length | 500-2000 chars | 1000-2000 chars | 500-3000 chars | hook in first 280, up to 25K (Premium) | 500-2000 chars | 500-1500 chars |
 
 ### Publication Order
 

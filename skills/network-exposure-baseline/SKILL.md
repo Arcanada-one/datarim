@@ -101,6 +101,10 @@ services:
 bind 100.64.1.5
 ```
 
+### Authorship-time rule
+
+When writing any wildcard bind (`0.0.0.0:PORT`, `[::]:PORT`) into a config file, env template, or systemd/launchd unit, the inline `# exposure:` justification annotation MUST be added in the SAME edit that introduces the bind. Do not defer the annotation to a review or compliance stage — it is zero-logic, zero-risk, and always knowable at authorship time; deferring it just converts a free fix into a review finding.
+
 ### TTL rule
 
 - Mandatory for Tier 3.

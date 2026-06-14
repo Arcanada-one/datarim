@@ -120,6 +120,19 @@ Validating only the consumer half against synthetic events is a recurring trap: 
 
 ---
 
+## Stability Gate for Spawned-Process / Daemon Integration Tests
+
+An integration test that spawns a real service process (daemon, server, worker) and connects to it over a socket has a timing surface that a whole-suite run can mask. The canonical stability-verification command is the **scoped, repeated** run, not the whole-workspace pass:
+
+- Run the single package/module containing the daemon tests in a tight repeat loop (e.g. ×5–10), AND under the coverage-instrumented binary if the project has a coverage gate. Instrumentation slows process startup/teardown and widens timing windows that a normal build never exposes.
+- A whole-workspace run passing N/N is **not** evidence of flake-freedom. The scheduler interleaving under a busy full-suite run differs from the tighter timing under a scoped or instrumented run — a busy machine can accidentally avoid the race window. A "10/10 under the full suite" claim is scheduler luck until reproduced under the scoped + instrumented gate.
+
+**Common root cause — listen-vs-accept race.** A spawned server often prints a "listening on …" / ready line *before* its accept loop is actually polling. A client that does one cold single-shot connect immediately after reading that line can get an instant connection-refused. Widening timeouts does **not** fix this (the failure is instant, not a timeout expiry). The structural fix is either a true readiness contract (signal ready only after the accept loop is live) or a bounded client-side connect-retry on connection errors — the latter also hardens the real CLI/client UX against a just-started service.
+
+**When to apply.** Any task that stabilises or adds a test which spawns a service process and connects to it. Skip for pure in-process unit tests with no spawned subprocess.
+
+---
+
 ## Self-Validating UI Assertions
 
 Existence assertions ("element renders any text", "counter is non-empty") pass even when the system under test is broken — they only catch the «nothing rendered at all» case. Prefer **self-validating** assertions that poll the *flipped* target state after the triggering interaction. Self-validation catches three failure modes in one shape:
@@ -213,6 +226,7 @@ Load only the fragment needed for the current sub-problem:
 ## Quick Routing Heuristic
 
 - Touching raw SQL, cross-datasource, Docker orchestration, or user-switch deploy? → `live-smoke-gates.md`.
+- Shipping an agent/daemon/cron that drives a CLI/LLM/subprocess and acts on its output? → `live-smoke-gates.md` § Gate 7 (Agentic Entrypoint Wiring + Live-Run): prove the real entrypoint reaches the declared function AND run it once live against the real tool before any "the agent does X via <tool>" wish can be marked met.
 - Wrapping a CLI / subprocess that exits 0 on error? → `silent-failure-detection.md`.
 - Writing or maintaining bats tests, or regex-asserting markdown prose? → `bats-and-spec-lint.md`.
 - Inherited a red test suite? → `triaging-legacy-failures.md`.

@@ -138,12 +138,12 @@ done
 
 echo "[soak] $(date -u +%FT%TZ) deadline reached, exiting after $cycle cycles"
 
-# Deploy:
-#   scp dev-tools/dr-orchestrate-soak.sh root@arcana-dev:/usr/local/bin/
-#   ssh root@arcana-dev 'chmod 0755 /usr/local/bin/dr-orchestrate-soak.sh'
+# Deploy (set DR_SOAK_HOST to your ops server hostname or IP):
+#   scp dev-tools/dr-orchestrate-soak.sh root@${DR_SOAK_HOST:-<ops-host>}:/usr/local/bin/
+#   ssh root@${DR_SOAK_HOST:-<ops-host>} 'chmod 0755 /usr/local/bin/dr-orchestrate-soak.sh'
 # Launch (detached):
-#   ssh root@arcana-dev 'setsid /usr/local/bin/dr-orchestrate-soak.sh \
+#   ssh root@${DR_SOAK_HOST:-<ops-host>} 'setsid /usr/local/bin/dr-orchestrate-soak.sh \
 #       >>/var/log/dr-orchestrate-soak.log 2>&1 </dev/null & disown'
 # Verdict after window:
-#   ssh root@arcana-dev '/opt/datarim/dev-tools/measure-orchestrator-soak.sh \
+#   ssh root@${DR_SOAK_HOST:-<ops-host>} '/opt/datarim/dev-tools/measure-orchestrator-soak.sh \
 #       --since 48h --max-false-escalate 0.15 --verbose'
