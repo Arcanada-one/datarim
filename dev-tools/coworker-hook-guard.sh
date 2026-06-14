@@ -273,6 +273,17 @@ case "$tool" in
     # Claude Read uses tool_input.file_path; codex view uses tool_input.path.
     f=$(printf '%s' "$input" | jq -r '.tool_input.file_path // .tool_input.path // empty')
     [ -n "$f" ] && [ -f "$f" ] || exit 0
+    # Read-gate applies ONLY to documentation (.md / .markdown / .txt). Coworker
+    # saves tokens on prose + RTK; program code the agent reads natively (Read
+    # offset/limit, sed windows, grep), and `coworker ask` rejects non-doc
+    # extensions with exit 6 anyway — gating code here is a dead-end deny. Any
+    # other extension AND extension-less files pass through silently before any
+    # byte/token estimation. Allowlist by operator decision; case-sensitive by
+    # design (an uppercase .MD passing through is safer than a wrong deny).
+    case "$f" in
+      *.md|*.markdown|*.txt) ;;   # doc → fall through to token estimation
+      *) exit 0 ;;                 # code / blob / no-extension → agent handles it
+    esac
     bytes=$(wc -c < "$f" 2>/dev/null | tr -d ' ' || echo 0)
     bytes="${bytes:-0}"
     est=""

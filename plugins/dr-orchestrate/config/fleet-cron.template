@@ -1,0 +1,24 @@
+# fleet-cron.template — Fleet mini-agent cron schedule template.
+#
+# Usage: copy to /etc/cron.d/fleet-mini-agents (or user crontab) and
+# substitute DR_ORCHESTRATE_PLUGIN_DIR with the absolute plugin path.
+#
+# Operator MUST set DR_ORCHESTRATE_PLUGIN_DIR before applying:
+#   export DR_ORCHESTRATE_PLUGIN_DIR=/path/to/plugins/dr-orchestrate
+#   envsubst < fleet-cron.template > /etc/cron.d/fleet-mini-agents
+#
+# All jobs run as the CI runner user (adjust USER below).
+
+# ── health check every 5 minutes ─────────────────────────────────────────────
+# Subscribes one batch of monitoring-alerts and updates obs snapshot.
+*/5 * * * * USER ${DR_ORCHESTRATE_PLUGIN_DIR}/scripts/fleet_obs_aggregator.sh --snapshot >/dev/null 2>&1
+
+# ── PM timeout scan every 2 minutes ──────────────────────────────────────────
+*/2 * * * * USER ${DR_ORCHESTRATE_PLUGIN_DIR}/scripts/fleet_pm_orchestrator.sh timeout-check --dry-run >/dev/null 2>&1
+
+# ── audit log trim every 24 hours at 03:00 UTC ───────────────────────────────
+# Archives stream:fleet:audit-log entries to JSONL.GZ before XTRIM.
+0 3 * * * USER DR_FLEET_AUDIT_ARCHIVE_DIR=${DR_ORCHESTRATE_PLUGIN_DIR}/var/fleet/audit-archive ${DR_ORCHESTRATE_PLUGIN_DIR}/scripts/fleet_audit_trim.sh >/dev/null 2>&1
+
+# ── log rotation every 6 hours ───────────────────────────────────────────────
+0 */6 * * * USER find ${DR_ORCHESTRATE_PLUGIN_DIR}/var -name '*.log' -mtime +7 -delete 2>/dev/null || true

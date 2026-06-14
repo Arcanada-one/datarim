@@ -14,7 +14,8 @@ Every `/dr-*` command that emits a CTA block ([definition](../cta-format/SKILL.m
 | Aspect | Value |
 |--------|-------|
 | Producer touchpoint | `skills/cta-format/SKILL.md` § Snapshot Emission (single producer, not N) |
-| Implementation | `scripts/lib/snapshot-writer.sh::write_stage_snapshot` |
+| Entry point (canonical) | `dev-tools/snapshot-writer-wrapper.sh` — invoke as `bash dev-tools/snapshot-writer-wrapper.sh <flags>`. The wrapper forces a bash interpreter; the underlying function relies on `BASH_SOURCE[0]` and dies silently under a zsh-parent shell (the default on macOS), so agents MUST call the wrapper, not the function directly. |
+| Underlying function | `scripts/lib/snapshot-writer.sh::write_stage_snapshot` — requires `source` under bash; do NOT exec or invoke directly from a zsh-spawned Bash-tool call. |
 | Path | `datarim/snapshots/{TASK-ID}.snapshot.md` |
 | Lock | `datarim/snapshots/.lock.{TASK-ID}` (mkdir-based, reuses `acquire_plugin_lock`) |
 | Lock timeout | env `DR_SNAPSHOT_LOCK_TIMEOUT` (default 60 s) |
@@ -26,10 +27,10 @@ Every `/dr-*` command that emits a CTA block ([definition](../cta-format/SKILL.m
 
 ## Inputs
 
-All arguments are named (`--flag value`):
+All arguments are named (`--flag value`) and forwarded verbatim by the wrapper:
 
-```
-write_stage_snapshot \
+```bash
+bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/snapshot-writer-wrapper.sh" \
     --root <DATARIM_ROOT> \             # absolute path to repo root
     --task <TASK-ID> \                  # ^[A-Z][A-Z0-9-]+-[0-9]{4,5}$
     --stage <plan|prd|do|qa|verify|auto|...> \
@@ -40,6 +41,9 @@ write_stage_snapshot \
     --body-file <path> \                # rendered Summary + CTA (≤ 8 KB after trim)
     [--captured-at <ISO8601 UTC>]       # default $(date -u +%FT%TZ)
 ```
+
+Call the wrapper, never the bare `write_stage_snapshot` function — see § Contract
+(Entry point) for why the function dies silently under a zsh-parent shell.
 
 ## Outputs
 
@@ -87,7 +91,7 @@ truncated: false
 
 ```bash
 # From a /dr-* command after emitting the CTA block:
-write_stage_snapshot \
+bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/snapshot-writer-wrapper.sh" \
     --root "$REPO_ROOT" \
     --task "<TASK-ID>" \
     --stage plan \
@@ -97,6 +101,23 @@ write_stage_snapshot \
     --options-file /tmp/options.$$ \
     --body-file /tmp/body.$$
 ```
+
+## Fail-closed contract
+
+The snapshot is a **code-managed artefact** — overwrite semantics, the 8 KB cap,
+the mkdir lock, frontmatter validation, and `chmod 600` are all enforced by the
+writer. If the wrapper (or its underlying library) cannot be located or invoked,
+the correct fail-closed behaviour is to **emit a single stderr warning line and
+continue** (V-AC-7) — the snapshot is best-effort context for `/dr-next`, never a
+blocker.
+
+Do **NOT** hand-write `datarim/snapshots/{TASK-ID}.snapshot.md` "to the known
+schema" as a substitute. A hand-authored file bypasses every guarantee above
+(no atomic rename, no lock, no size cap, no permission hardening, no frontmatter
+validation) and silently diverges from the contract the consumers
+(`/dr-next`, `/dr-orchestrate`) rely on. Writer unreachable ⇒ warn-and-skip, not
+imitate. Resolve the wrapper via `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/snapshot-writer-wrapper.sh`
+(falls back to the default symlinked runtime when `DATARIM_RUNTIME` is unset).
 
 ## Related
 

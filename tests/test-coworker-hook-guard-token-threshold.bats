@@ -9,6 +9,13 @@
 # to grep-only / sed / head, never to any LLM). Optional fail-soft tokenizer
 # behind COWORKER_GUARD_USE_TOKENIZER=1.
 #
+# Documentation-only gate: the deny path applies ONLY to .md / .markdown / .txt.
+# Code, dense blobs, and extension-less files pass through unconditionally —
+# coworker saves tokens on prose + RTK; program code the agent reads natively,
+# and `coworker ask` rejects non-doc extensions (exit 6) anyway. Fixtures
+# default to a `.md` extension so the threshold/wording/tier cases still
+# exercise estimation; passthrough cases pass an explicit code extension.
+#
 # Synthetic fixtures are generated in-test (no committed large blobs).
 #
 # Tests run against the canonical Datarim source by default so they exercise
@@ -39,8 +46,17 @@ run_hook_read() {
 
 # Make a file of exactly $1 bytes of a single repeated char, NO newline
 # (so `wc -l` reports 0 lines — the minified/single-line blind spot).
+#
+# $2 = extension (default `.md`). The read-gate applies ONLY to documentation
+# extensions (.md / .markdown / .txt); any other extension passes through
+# unconditionally. Threshold / wording / tier tests therefore use a doc
+# extension so they still exercise the estimation logic; pass an explicit code
+# extension (.py / .ts / …) to assert the passthrough behaviour.
+# NB: `${2-.md}` (no colon) defaults ONLY when $2 is *unset* — an explicit
+# empty string ("") is honoured as "no extension at all", distinct from the
+# default. `${2:-.md}` would wrongly coerce "" back to .md.
 make_dense_file() {
-    local bytes="$1" ext="${2:-}"
+    local bytes="$1" ext="${2-.md}"
     local f
     f=$(mktemp -t cw-hook-dense.XXXXXX)
     if [ -n "$ext" ]; then
@@ -51,11 +67,16 @@ make_dense_file() {
     printf '%s' "$f"
 }
 
-# Many short numeric lines: high line-count, low token density.
+# Many short numeric lines: high line-count, low token density. $2 = extension
+# (default `.md`, same rationale as make_dense_file).
 make_short_lines() {
-    local n="$1"
+    local n="$1" ext="${2-.md}"
     local f
     f=$(mktemp -t cw-hook-short.XXXXXX)
+    if [ -n "$ext" ]; then
+        mv "$f" "$f$ext"
+        f="$f$ext"
+    fi
     seq 1 "$n" > "$f"
     printf '%s' "$f"
 }
@@ -118,31 +139,81 @@ reason_of()   { printf '%s' "$1" | jq -r '.hookSpecificOutput.permissionDecision
 }
 
 # ----------------------------------------------------------------------
-# Divisor model (dense extension classes)
+# Documentation-only gate: code / blobs / extension-less pass through
+# regardless of size (operator decision — coworker saves tokens on docs +
+# RTK, code the agent reads natively). The deny path is reachable ONLY for
+# .md / .markdown / .txt.
 # ----------------------------------------------------------------------
 
-@test ".min.js uses divisor 2 (25KB → est 12500 → delegate deny)" {
-    f=$(make_dense_file 25000 .min.js)    # 25000/2 = 12500 > 10000
-    run run_hook_read "$f"
-    rm -f "$f"
-    [ "$status" -eq 0 ]
-    [ "$(decision_of "$output")" = "deny" ]
-}
-
-@test ".b64 uses divisor 1 (10001 bytes → est 10001 → delegate deny)" {
-    f=$(make_dense_file 10001 .b64)       # 10001/1 = 10001 > 10000
-    run run_hook_read "$f"
-    rm -f "$f"
-    [ "$status" -eq 0 ]
-    [ "$(decision_of "$output")" = "deny" ]
-}
-
-@test ".b64 just under (9000 bytes → est 9000 → pass)" {
-    f=$(make_dense_file 9000 .b64)        # 9000/1 = 9000 < 10000
+@test "code .py far above ceiling → silent pass (agent reads natively)" {
+    f=$(make_dense_file 360000 .py)       # 120000 est would ceiling-deny IF gated
     run run_hook_read "$f"
     rm -f "$f"
     [ "$status" -eq 0 ]
     [ -z "$output" ]
+}
+
+@test "code .ts in delegate band → silent pass (no coworker-ask dead-end)" {
+    f=$(make_dense_file 60000 .ts)        # 20000 est would delegate-deny IF gated
+    run run_hook_read "$f"
+    rm -f "$f"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
+
+@test "code .sh / .json / .go above ceiling → silent pass" {
+    for ext in .sh .json .go; do
+        f=$(make_dense_file 360000 "$ext")
+        run run_hook_read "$f"
+        rm -f "$f"
+        [ "$status" -eq 0 ]
+        [ -z "$output" ] || { printf '%s wrongly gated: %s\n' "$ext" "$output" >&2; return 1; }
+    done
+}
+
+@test "former dense class .min.js → silent pass (divisor model retired for deny)" {
+    f=$(make_dense_file 25000 .min.js)    # once divisor-2 → delegate deny; now passthrough
+    run run_hook_read "$f"
+    rm -f "$f"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
+
+@test "former dense class .b64 above former gate → silent pass" {
+    f=$(make_dense_file 10001 .b64)       # once divisor-1 → delegate deny; now passthrough
+    run run_hook_read "$f"
+    rm -f "$f"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
+
+@test "extension-less file far above ceiling → silent pass (Dockerfile/LICENSE class)" {
+    f=$(make_dense_file 360000 "")        # no extension at all
+    run run_hook_read "$f"
+    rm -f "$f"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
+
+@test "doc gate still alive: .markdown above ceiling → deny grep-only wording" {
+    f=$(make_dense_file 360000 .markdown) # est 120000 > ceiling
+    run run_hook_read "$f"
+    rm -f "$f"
+    [ "$status" -eq 0 ]
+    [ "$(decision_of "$output")" = "deny" ]
+    reason=$(reason_of "$output")
+    case "$reason" in *sed*) : ;; *) printf '.markdown ceiling reason lacked sed: %s\n' "$reason" >&2; return 1 ;; esac
+    case "$reason" in *"coworker ask"*) printf '.markdown ceiling wrongly suggested coworker ask: %s\n' "$reason" >&2; return 1 ;; esac
+}
+
+@test "doc gate still alive: .txt in delegate band → deny coworker-ask wording" {
+    f=$(make_dense_file 60000 .txt)       # est 20000 → delegate band
+    run run_hook_read "$f"
+    rm -f "$f"
+    [ "$status" -eq 0 ]
+    [ "$(decision_of "$output")" = "deny" ]
+    reason=$(reason_of "$output")
+    case "$reason" in *"coworker ask"*) : ;; *) printf '.txt delegate reason lacked coworker ask: %s\n' "$reason" >&2; return 1 ;; esac
 }
 
 # ----------------------------------------------------------------------

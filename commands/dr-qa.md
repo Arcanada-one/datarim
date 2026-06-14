@@ -141,6 +141,14 @@ description: Multi-layer quality verification — checks PRD alignment, design c
   - Exit 0 + stdout marker `CONDITIONAL_PASS` ⇒ Layer 3b verdict **PASS_WITH_NOTES** (every partial/missed item carries an operator override ≥10 chars);
   - Exit 1 + stdout marker `BLOCKED` ⇒ Layer 3b verdict **FAIL**. Capture the validator's `Focus items:` and `Next step:` lines verbatim into the QA report.
 
+- **Anti-deferral prose scan (ADVISORY at QA).** After the routing validator, scan the QA report just written for self-deferral language — the failure mode where the agent labels its own incomplete work "out of scope / informational / not a blocker / will fix later" instead of finishing it:
+  ```bash
+  "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-deferral-prose.sh" \
+      --file datarim/qa/qa-report-{TASK-ID}.md --task {TASK-ID} --root <repo-root>
+  ```
+  - Exit 0 ⇒ no self-inflicted deferral; no action.
+  - Exit 1 ⇒ deferral on a touched file without a verifiable follow-up/blocked_by artefact. At QA this is **advisory**: keep the Layer 3b verdict at most **PASS_WITH_NOTES**, record the findings in the QA report, and warn the operator that `/dr-compliance` will treat the same finding as a hard block. (This mirrors the evidence-type advisory-at-QA / hard-at-compliance escalation.) The scanner is fail-open: a git-probe failure warns and passes, never false-blocks.
+
 **Verdict:** PASS | PASS_WITH_NOTES | FAIL
 
 ```markdown
@@ -279,6 +287,47 @@ The Q&A round-trip findings appear in the same Layer 3b table under a dedicated 
 - Otherwise ⇒ Layer 4 contribution = PASS (the pass succeeded; visual review is the operator's responsibility).
 
 **Verdict:** PASS | PASS_WITH_NOTES | FAIL
+
+### 4g. Prod-Readiness Gate (deploy-class tasks — blocking before merge)
+
+**Condition:** Execute only when the task is **deploy-class**, i.e.
+`bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-deploy-class.sh" --task-description datarim/tasks/{TASK-ID}-task-description.md`
+exits 0 (the task touches a deploy surface — systemd units, sudoers, CI cutover,
+`.env-deploy`). On exit 1 the gate verdict is **SKIP** and this layer is a no-op.
+
+**Why this gate exists:** a deploy/cutover change can pass every test on the
+test runner and still fail on the first production command because the prod
+runner is not symmetric (the classic case: prod sudoers lacks the NOPASSWD rules
+the test runner already has). This gate forces verification of test↔prod runner
+symmetry **before the pipeline may propose merge** — the framework must not
+recommend merging an unverified cutover.
+
+**Steps:**
+
+1.  Load `$HOME/.claude/skills/prod-readiness-probe/SKILL.md` and run the probe
+    in read-only mode against the test and prod runners.
+2.  **Hybrid:** if the project authored `datarim/deploy-readiness.yml` (validate
+    with `dev-tools/check-deploy-readiness.sh --validate-yaml`), run the
+    deterministic three-way comparison (test actual vs prod actual vs declared);
+    otherwise fall back to the skill's agent-checklist investigation.
+3.  Verify: sudoers symmetry, PATH parity, listening ports, systemd units,
+    runtime version floors.
+4.  **prod is hard-gated** — the probe is read-only (`sudo -l`,
+    `systemctl status`, `ss`, `redis-cli info server`, `node --version`); it
+    performs NO writes. A required prod mutation is **predicted and reported**,
+    never executed by the framework — remediation is an explicit operator action.
+
+**Verdict → action:**
+
+- `SKIP` / `PASS` ⇒ Layer 4g contribution = PASS; the pipeline **MAY propose merge**.
+- `FAIL` (asymmetry found) ⇒ Layer 4g = **FAIL**; the pipeline **MUST NOT propose merge** until resolved. Overall QA verdict is **BLOCKED**.
+- `BLOCKED` (probe could not run, e.g. prod unreachable, and no operator confirmation) ⇒ Layer 4g = **FAIL**; **MUST NOT propose merge**. `BLOCKED` never auto-resolves to PASS — the operator must confirm out-of-band verification.
+
+**Record in QA report:** the verdict, the runner pair probed, the exact
+read-only commands run, captured output, and — on FAIL — the asymmetry plus the
+predicted production impact and the operator remediation required.
+
+**Verdict:** SKIP | PASS | FAIL
 
 ```markdown
 ### Layer 4: Code Quality — {VERDICT}

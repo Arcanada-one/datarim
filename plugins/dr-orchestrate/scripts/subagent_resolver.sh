@@ -69,6 +69,98 @@ _backend_present() {
   command -v "$first" >/dev/null 2>&1
 }
 
+# --- Fleet interactive backend selection (design 3b) ---------------------------
+# Distinct from resolve()'s headless inference path: fleet spawns a LIVE
+# interactive CLI agent in tmux (operator correction A2 — NO `claude --print`).
+# _resolve_fleet_backend prints the interactive launch command vector (one arg
+# per line). ARAS is a deferred slot (never resolves until implemented).
+
+# Fleet backend chain (priority): Claude → Codex → Cursor → Gemini → Coworker.
+: "${DR_FLEET_BACKEND_CHAIN:=claude codex cursor gemini coworker}"
+
+_resolve_fleet_backend() {
+  case "$1" in
+    claude)   echo claude ;;
+    codex)    echo codex ;;
+    cursor)   echo cursor ;;
+    gemini)   echo gemini ;;
+    coworker) echo coworker ;;   # bulk-I/O L1/L2 delegated call (not a live REPL)
+    aras)     return 2 ;;        # deferred slot — treated as unavailable
+    *)        return 2 ;;
+  esac
+}
+
+_fleet_backend_present() {
+  local first; first="$(_resolve_fleet_backend "$1")" || return 1
+  command -v "$first" >/dev/null 2>&1
+}
+
+# select_fleet_backend — walk DR_FLEET_BACKEND_CHAIN, return the first backend
+# whose binary is present (health-check). Echoes the backend NAME on success.
+# CONN wiring is OFF by default (DR_FLEET_CONN_ENABLED unset → contract-first
+# stub: pure `command -v` health-check). When the real CONN-0088 fallback ships,
+# the enabled branch routes through its contract without changing this interface.
+select_fleet_backend() {
+  local backend
+  for backend in $DR_FLEET_BACKEND_CHAIN; do
+    # Health-check. Default (stub) path = local `command -v`. When CONN-0088
+    # ships, DR_FLEET_CONN_ENABLED routes the check through the Model-Connector
+    # fallback contract; the loop interface stays identical.
+    if [ -n "${DR_FLEET_CONN_ENABLED:-}" ]; then
+      _fleet_backend_present_conn "$backend" || continue
+    else
+      _fleet_backend_present "$backend" || continue
+    fi
+    printf '%s\n' "$backend"
+    return 0
+  done
+  echo "ERROR: no fleet backend available in chain: $DR_FLEET_BACKEND_CHAIN" >&2
+  return 1
+}
+
+# CONN-0088 contract-first stub. Until the Model Connector fallback-chain ships,
+# this defers to the local health-check. Replace the body with the real CONN
+# probe (HTTP /health against the connector) when DR_FLEET_CONN_ENABLED is the
+# documented production path.
+_fleet_backend_present_conn() {
+  # Contract: returns 0 if the backend is reachable via CONN, non-zero otherwise.
+  _fleet_backend_present "$1"
+}
+
+# fleet_role_session_init <role> — emit the per-role session-start injection a
+# live fleet agent receives at spawn (design 3b): its starter skill pointer and
+# its allowed-tools allowlist, both read from the role registry. The orchestrator
+# pipes these into the spawned session so the agent starts scoped to its role.
+# Output (one key per line, machine-readable):
+#   STARTER_SKILL=<skills/fleet/...>
+#   ALLOWED_TOOLS=<comma-separated tool names>
+# Unknown role or unsafe id ⇒ fail closed (non-zero, nothing emitted).
+# DR_ORCH_DIR is the plugin root (plugins/dr-orchestrate); the role registry
+# lives at the framework repo root (two levels up), matching fleet_concurrency.sh.
+: "${DR_FLEET_REPO:=$(cd "$DR_ORCH_DIR/../.." && pwd)}"
+: "${DR_FLEET_ROLES:=$DR_FLEET_REPO/config/roles.yaml}"
+
+fleet_role_session_init() {
+  local role="${1:-}"
+  [[ "$role" =~ ^[A-Za-z0-9_-]+$ ]] || { echo "ERROR: invalid role id" >&2; return 2; }
+  [ -f "$DR_FLEET_ROLES" ] || { echo "ERROR: roles file not found: $DR_FLEET_ROLES" >&2; return 1; }
+  python3 - "$DR_FLEET_ROLES" "$role" <<'PY' || { echo "ERROR: unknown role: $role" >&2; return 1; }
+import sys, yaml
+doc = yaml.safe_load(open(sys.argv[1], encoding="utf-8")) or {}
+role = sys.argv[2]
+for r in (doc.get("roles") or []):
+    if r.get("id") == role:
+        skill = r.get("starter_skill")
+        tools = r.get("allowed_tools") or []
+        if not skill or not isinstance(tools, list):
+            sys.exit(3)   # malformed role entry → fail closed
+        print(f"STARTER_SKILL={skill}")
+        print("ALLOWED_TOOLS=" + ",".join(str(t) for t in tools))
+        sys.exit(0)
+sys.exit(4)   # role not found
+PY
+}
+
 _warn_missing_once() {
   local backend="$1"
   local sentinel="$STATE_DIR/.warned.${backend}"

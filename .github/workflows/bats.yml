@@ -23,12 +23,21 @@ jobs:
     name: bats tests/ (full)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           persist-credentials: false
 
       - name: Install bats
         run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends bats
+
+      # Fleet role-registry + level-resolver tests need yq, jq, and python
+      # jsonschema. jq ships on the runner; yq and jsonschema do not.
+      - name: Install test dependencies (yq, jq, jsonschema)
+        run: |
+          sudo apt-get install -y --no-install-recommends jq
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+          python3 -m pip install --quiet jsonschema pyyaml
 
       - name: Run full bats suite
         run: bats tests/
