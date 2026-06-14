@@ -120,7 +120,14 @@ _regex_basename="${regex_file##*/}"
 _self_basename="${0##*/}"
 whitelist_paths=("$regex_file" "$0" "$_regex_basename" "$_self_basename"
     "personal-id-forbidden.regex" "personal-id-gate.sh"
-    "dev-tools/personal-id-forbidden.regex" "scripts/personal-id-gate.sh")
+    "dev-tools/personal-id-forbidden.regex" "scripts/personal-id-gate.sh"
+    # Intentional historical ecosystem narrative — frozen append-only record.
+    # Names appear as "approved by <human>" attribution markers; rewriting
+    # them would destroy the record's historical fidelity. Frozen, not leaked.
+    "docs/evolution-log.md"
+    # Supreme Directive canonical Source-of-Truth URL — public canon, not a
+    # personal data leak. The URL is the published identifier of the spec.
+    "templates/project-claude-md.md")
 
 # Load additional whitelist paths (one prefix per line, # comments ok).
 if [ -n "$whitelist_file" ] && [ -f "$whitelist_file" ]; then
@@ -179,8 +186,10 @@ for my $file (@scan_files) {
     open(my $fh, '<:encoding(UTF-8)', $file) or next;
     my $in_fence = 0;
     while (<$fh>) {
-        if (/<!--\s*gate:example-only\s*-->/) { $in_fence = 1; next; }
-        if (/<!--\s*\/gate:example-only\s*-->/) { $in_fence = 0; next; }
+        # Fence markers must occupy the ENTIRE line (anchored).
+        # A prose/code mention of the marker string must NOT toggle the fence.
+        if (/^\s*<!--\s*gate:example-only\s*-->\s*$/) { $in_fence = 1; next; }
+        if (/^\s*<!--\s*\/gate:example-only\s*-->\s*$/) { $in_fence = 0; next; }
         next if $in_fence;
         if (/$re/) {
             chomp(my $line = $_);
