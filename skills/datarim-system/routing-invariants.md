@@ -68,6 +68,12 @@ skills/visual-maps/pipeline-routing.md	L4	design→do	Design4 --> Do4
 skills/visual-maps/pipeline-routing.md	L4	do→qa	Do4 --> QA4
 skills/visual-maps/pipeline-routing.md	L4	qa→compliance	QA4 --> Comp4
 skills/visual-maps/pipeline-routing.md	L4	compliance→archive	Comp4 --> Archive4
+# command-dependencies.md — Pipeline Flow Mermaid graph (level-agnostic edges; optionality lives in a side table)
+skills/visual-maps/command-dependencies.md	L1-4	do→qa	dr-do --> dr-qa
+skills/visual-maps/command-dependencies.md	L1-4	do→archive	dr-do --> dr-archive
+skills/visual-maps/command-dependencies.md	L1-4	qa→compliance	dr-qa --> dr-compliance
+skills/visual-maps/command-dependencies.md	L1-4	qa→archive	dr-qa --> dr-archive
+skills/visual-maps/command-dependencies.md	L1-4	compliance→archive	dr-compliance --> dr-archive
 # stage-process-flows.md — stage-end → primary CTA table
 skills/visual-maps/stage-process-flows.md	L3-4	plan→design	`/dr-plan` (L3-4) | `/dr-design
 skills/visual-maps/stage-process-flows.md	L1-2	plan→do	`/dr-plan` (L1-2) | `/dr-do
