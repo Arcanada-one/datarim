@@ -51,6 +51,7 @@ goes green on a tool that is actually broken, blinding the rollback gate.
 **Assert on the expected token, or reject known error markers:**
 
 ```bash
+out="$(run_tool 2>&1)"                                         # capture tool stdout+stderr
 printf '%s' "$out" | grep -q '[^[:space:]]' || return 1        # non-empty
 ! printf '%s' "$out" | grep -qi 'cannot read'                  # not a fail-soft read error
 ```
