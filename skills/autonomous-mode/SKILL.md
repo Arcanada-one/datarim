@@ -18,6 +18,8 @@ The skill is active if and only if **all three conditions** hold:
 2. The file marker `datarim/.auto-mode-active` exists and parses as YAML.
 3. The `task_id` field inside that marker matches the current TASK-ID (regex `^[A-Z]{2,10}-[0-9]{4}$`).
 
+**Spawned subagents (relaxed activation).** A subagent dispatched by `/dr-auto` does NOT inherit the `DATARIM_AUTO_MODE` environment variable (the Agent tool does not propagate the parent environment). For such a subagent the skill is active when its dispatch prompt carries an explicit auto-signal (a line naming the current stage and "autonomous mode for `<TASK-ID>`") AND conditions 2 and 3 hold (the marker file exists, parses, and its `task_id` matches the current TASK-ID). The environment variable (condition 1) is NOT required in this branch. The top-level `/dr-auto` cycle still requires all three conditions. The auto-signal only removes the env-var requirement — it never substitutes for a missing or mismatched marker file.
+
 **Mismatch** (the env var is set but the marker is missing OR the marker holds a different TASK-ID) → emit one warning line: `auto-mode: DATARIM_AUTO_MODE=1 but marker absent/mismatch — treat as non-auto (fail-safe)`. Continue as if the mode were off.
 
 **Marker file structure** (`datarim/.auto-mode-active`):
