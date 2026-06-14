@@ -55,5 +55,7 @@ printf '%s' "$out" | grep -q '[^[:space:]]' || return 1        # non-empty
 ! printf '%s' "$out" | grep -qi 'cannot read'                  # not a fail-soft read error
 ```
 
-Source: INFRA-0267 — toolchain-freshness self-test false-passed on a host where the probe path
+<!-- gate:history-allowed -->
+Source: prior incident — toolchain-freshness self-test false-passed on a host where the probe path
 resolved to a nonexistent file.
+<!-- /gate:history-allowed -->
