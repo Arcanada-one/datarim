@@ -75,6 +75,7 @@ Read `datarim/tasks.md` and `datarim/activeContext.md` to determine task type:
 
 ### 6. Test Execution
 - Run the full test suite, report pass/fail counts
+- **Pre-existing branch failure discrimination.** When tests fail in a CI-faithful run, check whether each failure was present before the task's commit: `git log --oneline <base>..HEAD -- <failing-test-file>`. If the violation predates the task (none of the task's commits touched the failing file), document it as "pre-existing branch issue, not introduced by task commit" and do NOT treat it as a task-scope blocking verdict. The task's own diff must be clean — failures from unrelated branch history or parallel-session dirty files are advisory, not verdicts.
 
 ### 7. CI/CD Impact Analysis
 - Detect: new dependencies, changed env vars, new build steps
