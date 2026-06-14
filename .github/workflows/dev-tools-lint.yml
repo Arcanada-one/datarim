@@ -54,3 +54,6 @@ jobs:
                --config dev-tools/.doc-fanout.yml \
                --allow-cross-root || \
           echo "::warning::doc-fanout-lint reported issues (cross-root surfaces are expected to be missing in single-repo CI checkout)"
+
+      - name: Run dr-auto reassert-wiring lint
+        run: bash dev-tools/check-dr-auto-reassert-wiring.sh --root .
