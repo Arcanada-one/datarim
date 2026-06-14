@@ -23,12 +23,12 @@ setup() {
     FAKE_ROOT="$BATS_TEST_TMPDIR/fake-workspace"
     mkdir -p "$FAKE_ROOT/datarim"
     MARKER="$FAKE_ROOT/datarim/.auto-mode-active"
-    TASK_ID="TEST-0001"
+    TASK_ID="FAKE-9001"
 }
 
 # Helper: write a valid marker for the given task-id
 _seed_marker() {
-    local task_id="${1:-TEST-0001}"
+    local task_id="${1:-FAKE-9001}"
     cat > "$MARKER" <<YAML
 task_id: ${task_id}
 activated_at: $(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -104,7 +104,7 @@ YAML
 # ─────────────────────────────────────────────────────────────────
 @test "subagent non-auto when marker holds a different task_id" {
     # Seed a marker for a DIFFERENT task
-    _seed_marker "OTHER-0099"
+    _seed_marker "FAKE-9099"
 
     run "$HELPER" subagent-active --root "$FAKE_ROOT" --task-id "$TASK_ID" --auto-signal true
     [ "$status" -eq 0 ]
