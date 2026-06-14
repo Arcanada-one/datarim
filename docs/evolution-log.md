@@ -1890,3 +1890,10 @@ Reflection on TUNE-0280 (`/dr-continue` + stage-snapshot replay verification) su
 - **New bats (APPLIED):** `tests/check-dr-auto-reassert-wiring.bats` — 3 tests: (1) lint passes (exit 0) on the wired `dr-auto.md`, (2) lint fails (exit 1) on a prose-only synthetic fixture where the call has no adjacent mandatory cue, (3) lint exits 2 on usage error. Fixture built as a synthetic minimal markdown file (not `git archive` — no `.git` breaks clone-faithful setup).
 - **Reused untouched:** `dev-tools/auto-mode-marker.sh` + `tests/dr-auto-marker-resilience.bats` (6 tests, already green) — not duplicated, re-verified as V-AC-4.
 - **Gates:** task-id PASS, stack-agnostic PASS, body-english PASS (commands scope), shellcheck exit 0, all 9 new+existing tests green. VERSION 2.33.0 → 2.34.0.
+
+### TUNE-0413 archive — Class A applied (plan site-sync presumptive note)
+
+- **Category:** claude-md-update (command-spec) — `commands/dr-plan.md` § Template Structure.
+- **What:** Added a presumptive site-sync call requirement to the plan's Out-of-Scope contract: when a task touches a command/skill/agent with a public docs-site counterpart, the plan MUST pre-resolve `[skip — internal-mechanics | update — user-facing]` so `/dr-compliance` verifies a decision rather than making one from scratch.
+- **Why:** Both TUNE-0411 and TUNE-0413 deferred the site-sync decision to compliance, forcing a last-gate re-read of the site file. The pattern is recognizable at plan time. Source: reflection-TUNE-0413 Proposal 2 (Class A), operator-approved at archive.
+- **Gates:** task-id / stack-agnostic (diff-only) / english-body — all PASS.
