@@ -57,6 +57,15 @@ QA4 --> Comp4
 Comp4 --> Archive4
 EOF
 
+    cat > "$FAKE_REPO/skills/visual-maps/command-dependencies.md" <<'EOF'
+# command-dependencies fixture
+dr-do --> dr-qa
+dr-do --> dr-archive
+dr-qa --> dr-compliance
+dr-qa --> dr-archive
+dr-compliance --> dr-archive
+EOF
+
     cat > "$FAKE_REPO/skills/visual-maps/stage-process-flows.md" <<'EOF'
 # stage-process-flows fixture
 | `/dr-plan` (L3-4) | `/dr-design {TASK-ID}` |
@@ -96,7 +105,7 @@ run_check() {
 @test "R1 sync baseline: clean fixture → exit 0" {
     run_check
     [ "$status" -eq 0 ]
-    [[ "$output" == *"all 35 routing tokens in sync"* ]]
+    [[ "$output" == *"all 40 routing tokens in sync"* ]]
 }
 
 # ---------- R2-R4: drift injection per surface family ----------
