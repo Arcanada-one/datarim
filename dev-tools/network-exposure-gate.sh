@@ -79,6 +79,23 @@ decide() {
     local priority="$1"
     local task_type="$2"
     local network_diff="$3"
+    local artifact="$4"
+
+    # Init-task artefacts use a different schema (no priority/type by design).
+    # Early pipeline stages (/dr-prd, /dr-plan) probe the init-task before a
+    # task-description exists. Such a file is NOT a malformed task-description, so
+    # fail-closing to hard_block is a false positive. Resolve to skip (no
+    # networking surface to gate) unless an explicit --network-diff signal is
+    # present, in which case advisory_warn. The real gate runs later against the
+    # task-description, where priority/type drive the verdict.
+    if [[ "$artifact" == "init-task" && -z "$priority" && -z "$task_type" ]]; then
+        if [[ "$network_diff" == "1" ]]; then
+            echo advisory_warn
+        else
+            echo skip
+        fi
+        return
+    fi
 
     case "$priority" in
         P0)
@@ -164,11 +181,13 @@ main() {
 
     local priority
     local task_type
+    local artifact
     priority=$(extract_frontmatter_field "$task_file" priority)
     task_type=$(extract_frontmatter_field "$task_file" type)
+    artifact=$(extract_frontmatter_field "$task_file" artifact)
 
     local decision
-    decision=$(decide "$priority" "$task_type" "$network_diff")
+    decision=$(decide "$priority" "$task_type" "$network_diff" "$artifact")
 
     if [[ "$quiet" != "1" && "$decision" != "skip" ]]; then
         echo "gate: priority=${priority:-<missing>} type=${task_type:-<missing>} network_diff=${network_diff} -> ${decision}" >&2

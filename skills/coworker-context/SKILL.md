@@ -126,3 +126,9 @@ This skill itself complies — only contract surfaces named, not history.
 - Reply with surgical edits (`file:line` + replacement) when reading existing docs.
 - Avoid restating context the operator already knows.
 - When a convention listed here conflicts with the operator's brief, refuse-and-inform — do not silently comply.
+
+## 12. Artifact Language Default
+
+The free-generated body of a Datarim artefact (creative / PRD / plan / the analytical body of archive / reflection / compliance-report) defaults to **English**, unless the operator-facing call site states another language in the `--spec`. This mirrors the canonical Artifact Language Policy in `CLAUDE.md` (the single source of truth — coworker only mirrors it).
+
+Preserve verbatim, in their original language, the sections that policy excludes from the English default: the verbatim operator brief and append-log, the canonical operator-facing section headings the policy names, and any user-project content quoted into the artefact. When in doubt about a section's language, defer to the cited template / skill rather than translate.

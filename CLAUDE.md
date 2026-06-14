@@ -1,6 +1,6 @@
 # Datarim — Universal Iterative Workflow Framework
 
-> **Version:** 2.36.0
+> **Version:** 2.37.0
 > **Framework:** Datarim provides structured rules, agents, skills, and commands for iterative project execution via AI coding assistants — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
 > **Multi-runtime:** Datarim is runtime-agnostic. This file is also available as `AGENTS.md` (symlink) for Codex CLI and other agent runtimes that read `AGENTS.md` by convention. See `docs/use-cases.md#runtime-support` for the canonical Claude Code / Codex CLI / Cursor support matrix.
 > **Note:** "Datarim" has a Russian transliteration «Датарим» — agents must recognise either form in any language context. <!-- allow-non-ascii: literal-transliteration-pair-for-agent-name-recognition -->
@@ -336,6 +336,26 @@ Enforced by `dev-tools/check-body-english.sh` (advisory in `/dr-archive` Step 0.
 
 ---
 
+## Artifact Language Policy
+
+This governs the language of **runtime artefacts** Datarim generates per task — distinct from the shipped instruction surface above. It closes the gap the English-Only section does not cover: the free-generated body of `creative-*`, `PRD-*`, `plan-*`, and the analytical body of `archive-*` / reflection / compliance-report documents.
+
+**Default rule.** The free-generated body and analysis of those runtime artefacts default to **English**. This file is auto-loaded into the agent's context every turn, so the directive is in-context at generation time; the coworker delegation path mirrors it (see `skills/coworker-context/SKILL.md`).
+
+**Hard exclusions — the English default does NOT touch these; they keep their existing language:**
+
+- **Verbatim operator input.** The init-task `## Operator brief (verbatim)` section and its `## Append-log` entries are never translated — they carry the operator's own wording.
+- **Intentionally operator-facing sections** defined by their canonical templates and kept in the operator's language by deliberate decision: the archive / compliance-report sections «Начальная задача» and «Как решили», and the `human-summary` recap «Отчёт оператору». The latter follows the `human-summary` skill's own banlist/whitelist — this policy defers to that skill, it does not override it. <!-- allow-non-ascii: canonical-russian-template-section-names-cited-verbatim-from-archive-compliance-and-human-summary-schema -->
+- **Ordinary user-project content** — the operator's own articles, posts, and prose are never auto-translated. Content-work skills and commands (`humanize`, `publishing`, `writing`, `factcheck`, `dr-write`, `dr-edit`, `dr-publish`, `dr-humanize`) stay exempt, consistent with the English-Only carve-out above.
+
+**Override.** The default is overridable with **no code, no new file, and no schema change**: set one documented line in the consuming project's own `CLAUDE.md` § Project-Specific Configuration (`Artifact language: <lang>`). Because `CLAUDE.md` is auto-loaded, the override reaches the agent in-context. For shell-aware coworker call sites a secondary convention `DATARIM_ARTIFACT_LANG=<lang>` is documented — a command that already shells out passes the resolved language into the coworker `--spec`. The override deliberately does **not** add a field to the closed init-task frontmatter schema.
+
+**Canonical home.** This policy is the single source of truth, read by everyone who uses the framework. Coworker (the optional external-LLM delegate) mirrors it; coworker is never the source of truth.
+
+**No enforcement gate.** The load-bearing mechanism is the in-context directive, not a post-hoc validator — runtime `datarim/` artefacts are gitignored, ephemeral, and regenerable, so a gate would be false-positive-prone (against legitimate operator-facing strings) for no proportional benefit. If a future task shows artefacts drifting back to non-English despite this directive, the remedy is to reuse `dev-tools/check-body-english.sh` with a new scope token — not to write a new script.
+
+---
+
 ## Critical Rules
 
 1. **Datarim is truth** — `datarim/` for workflow state, `documentation/archive/` for completed task archives
@@ -520,6 +540,16 @@ For external library and API documentation, use `context7` MCP server when avail
 Everything below this line is project-specific. When installing Datarim in a new project, keep everything above and customize below.
 
 ---
+
+### Artifact Language
+
+Per § Artifact Language Policy, the free-generated body of runtime artefacts defaults to English. To override for this project, set one line here:
+
+```
+Artifact language: <lang>   # e.g. ru — applies to the free-generated artefact body only; operator-facing and verbatim sections are unaffected
+```
+
+Leave it unset to keep the English default. (Shell-aware coworker call sites may also read `DATARIM_ARTIFACT_LANG=<lang>`.)
 
 ### What This Project Is
 

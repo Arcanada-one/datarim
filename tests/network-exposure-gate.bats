@@ -129,6 +129,33 @@ setup() {
         [[ "$output" == *"hard_block"* ]]  # stderr capture varies; decision is the contract
 }
 
+# --- Init-task artefact: skip, not fail-closed hard_block ---
+# An init-task is a different schema (no priority/type by design). Early pipeline
+# stages (/dr-prd, /dr-plan) probe it before the task-description exists; the gate
+# must resolve to skip, not fail-closed hard_block, for a non-networking task.
+
+@test "gate: init-task-only (no priority/type) -> skip (not fail-closed)" {
+    run "$SCRIPT" --task-description "$F/init-task-only.md" --quiet
+    [ "$status" -eq 0 ]
+    last_line="${lines[${#lines[@]}-1]}"
+    [ "$last_line" = "skip" ]
+}
+
+@test "gate: init-task-only + --network-diff -> advisory_warn (real networking signal not suppressed)" {
+    run "$SCRIPT" --task-description "$F/init-task-only.md" --network-diff --quiet
+    [ "$status" -eq 0 ]
+    last_line="${lines[${#lines[@]}-1]}"
+    [ "$last_line" = "advisory_warn" ]
+}
+
+@test "gate: missing-priority on a NON-init-task still fail-closes (regression guard)" {
+    # missing-priority.md has type: feature but no artifact: init-task → still hard_block.
+    run "$SCRIPT" --task-description "$F/missing-priority.md" --quiet
+    [ "$status" -eq 0 ]
+    last_line="${lines[${#lines[@]}-1]}"
+    [ "$last_line" = "hard_block" ]
+}
+
 # --- Usage ---
 
 @test "gate: --version emits version" {

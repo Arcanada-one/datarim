@@ -192,9 +192,13 @@ Pipeline commands read the task-description frontmatter and pick one of three de
 | `P1`     | others                                                                                  | (any)                    | `advisory_warn` |
 | `P2`/`P3`/`P4`| (any)                                                                              | yes                      | `advisory_warn` |
 | `P2`/`P3`/`P4`| (any)                                                                              | no                       | `skip`          |
-| missing/malformed | —                                                                              | —                        | `hard_block` (fail-closed) |
+| init-task artefact (`artifact: init-task`, no priority/type) | —                                                       | no                       | `skip`          |
+| init-task artefact (`artifact: init-task`, no priority/type) | —                                                       | yes                      | `advisory_warn` |
+| missing/malformed (non-init-task) | —                                                              | —                        | `hard_block` (fail-closed) |
 
 "Network surface touched" means that the diff (for `/dr-plan`) or the staged change (for `/dr-do`) touches one of the verifier's sources: docker-compose, `redis.conf`, `postgresql.conf`, systemd `.socket`, firewall / UFW rules, or a runtime bind argument.
+
+An **init-task artefact** uses a different frontmatter schema (no `priority`/`type` by design). Early pipeline stages (`/dr-prd`, `/dr-plan`) may probe the init-task before a task-description exists; the gate resolves to `skip` (no networking surface to gate) rather than fail-closing, unless an explicit network-diff signal is present. The fail-closed `hard_block` is reserved for a genuinely malformed *task-description* (a file that is not an init-task yet lacks a valid priority).
 
 The canonical executor is `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/network-exposure-gate.sh"`. Drift between this skill and the script is a defect — update both at the same time. Every gate decision is reported as telemetry to Ops Bot (`category: info, agent: dr-prd|dr-plan|dr-do|dr-archive, body: gate=<decision> task=<id>`) for quarterly tuning via `/dr-optimize`.
 
