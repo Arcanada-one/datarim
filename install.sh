@@ -954,6 +954,8 @@ setup_cursor_runtime() {
     if [ "$DRY_RUN" = true ]; then
         echo "DRY: mkdir -p $cursor_dir/skills"
         echo "DRY: copy each $src_dir/skills/<name>/SKILL.md → $cursor_dir/skills/<name>.md"
+        echo "DRY: mkdir -p $cursor_dir/commands"
+        echo "DRY: copy each $src_dir/commands/dr-*.md → $cursor_dir/commands/dr-<name>.md"
         echo "DRY: cursor support is operator-validated (R7 deferred-validation)"
         return 0
     fi
@@ -970,6 +972,21 @@ setup_cursor_runtime() {
     done
     echo "  CURSOR: mirrored $copied skill(s) into $cursor_dir/skills/ (flat .md layout)"
     echo "  NOTE: Cursor skill discovery is operator-validated — R7 (deferred-validation)."
+
+    # Mirror Datarim commands/*.md into $cursor_dir/commands/ with the dr-
+    # prefix intact (namespace isolation from any legacy bare-name files).
+    # Cursor reads slash-commands from ~/.cursor/commands/. The dr- prefix
+    # ensures no collision with legacy bare-name files (e.g. continue.md).
+    local cmd_md cmd_name cmds_copied=0
+    mkdir -p "$cursor_dir/commands"
+    for cmd_md in "$src_dir"/commands/dr-*.md; do
+        [ -f "$cmd_md" ] || continue
+        cmd_name="$(basename "$cmd_md")"
+        cp "$cmd_md" "$cursor_dir/commands/$cmd_name"
+        cmds_copied=$((cmds_copied + 1))
+    done
+    echo "  CURSOR: mirrored $cmds_copied dr-* command(s) into $cursor_dir/commands/"
+    echo "  NOTE: Cursor command fanout is operator-validated — R7 (deferred-validation)."
 
     # Install coworker delegation rule into ~/.cursor/rules/. Cursor reads
     # *.mdc files from rules/ with frontmatter `alwaysApply: true` and

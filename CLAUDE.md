@@ -1,6 +1,6 @@
 # Datarim — Universal Iterative Workflow Framework
 
-> **Version:** 2.37.0
+> **Version:** 2.38.0
 > **Framework:** Datarim provides structured rules, agents, skills, and commands for iterative project execution via AI coding assistants — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
 > **Multi-runtime:** Datarim is runtime-agnostic. This file is also available as `AGENTS.md` (symlink) for Codex CLI and other agent runtimes that read `AGENTS.md` by convention. See `docs/use-cases.md#runtime-support` for the canonical Claude Code / Codex CLI / Cursor support matrix.
 > **Note:** "Datarim" has a Russian transliteration «Датарим» — agents must recognise either form in any language context. <!-- allow-non-ascii: literal-transliteration-pair-for-agent-name-recognition -->
@@ -128,8 +128,10 @@ Skills are reusable knowledge modules loaded on demand. They provide rules, patt
 - `playwright-qa.md` — Browser-based frontend QA contract — CLI / MCP / env-browser resolution chain + headed / headed-strict modes + per-task flock lock + run-{ISO-ts}/ artefact layout. Loaded by `/dr-qa` Layer 4f on frontend touch.
 - `human-summary.md` — Plain-language operator recap (`/dr-qa`, `/dr-compliance`, `/dr-archive` Step 8) — four sub-sections + banlist + whitelist + per-paragraph escape hatch + 150–400 word budget.
 - `v-ac-axis-split.md` — V-AC group axis-split pattern: when group mixes deterministic axis (rule match / shape check / type assertion) and statistical axis (live-rate threshold / SLA percentile / soak distribution), split upfront into two V-AC groups (loaded by: /dr-prd V-AC drafting, /dr-plan V-AC review). Source: TUNE-0183 V-AC-14.11 reclassification.
+- `session-handoff-writer.md` — Producer contract for `/dr-save`: write `datarim/sessions/SESSION-{YYYYMMDD-HHMMSS}.session.md` with 5-layer body, 32 KB cap (L1/L5 non-truncatable), append-only semantics, claim-provenance enforcement (exit 1 on untagged claims), T-8 secret redaction, mkdir-based atomic lock, chmod 600. (loaded by: /dr-save)
+- `session-handoff-replay.md` — Consumer contract for `/dr-continue`: read session artefact in clean window, re-verify every claim via live probes (STALE SNAPSHOT / CLAIM-UNVERIFIED / FILE-MISSING banners), downgrade provenance tags, route to `/dr-next` or `/dr-auto`. Squash-collision detection via `git merge-base --is-ancestor`. Shares bilingual replay renderer with `/dr-next` via `skills/dr-next-snapshot-replay/SKILL.md § Shared Replay Renderer`. (loaded by: /dr-continue)
 
-Skill files: `$HOME/.claude/skills/{name}/SKILL.md` (54 skills, 11 with supporting fragment directories)
+Skill files: `$HOME/.claude/skills/{name}/SKILL.md` (56 skills, 11 with supporting fragment directories)
 
 > **v1.16.0 addition:** `cta-format.md` — canonical CTA "Next Step" block specification, loaded by `planner`, `architect`, `developer`, `reviewer`, `compliance` agents. Defines structure, separators, primary marker, multi-task menu (Variant B), and FAIL-Routing variant. Source: TUNE-0032.
 
@@ -155,6 +157,7 @@ datarim/                          # Workflow state (LOCAL — in .gitignore)
 ├── reflection/                  # Reflection documents
 ├── qa/                          # QA reports
 ├── reports/                     # Compliance/diagnostic reports
+├── sessions/                    # Session-handoff artefacts (gitignored; written by /dr-save)
 └── history/                     # Committed KB ledgers (evolution-log, activity-log, patterns)
 
 documentation/                    # Project documentation (COMMITTED to git)
@@ -213,11 +216,13 @@ Before writing ANY file to `datarim/`:
 | `/dr-optimize` | Maintenance | Audit framework, prune unused, merge duplicates, sync docs |
 | `/dr-plugin` | Extension | Manage opt-in plugin system (list/enable/disable/sync/doctor — TUNE-0101 v1.23.0). Manifest-driven runtime symlinks, snapshot/rollback, dependency-graph + skill-registry health checks |
 | `/dr-orchestrate run` | Plugin | Self-driving Datarim pipeline runner (v2.5.0). Phase 1 lean rule-based tmux runner; Phase 2 adds multi-backend subagent inference (coworker → claude → codex) for unknown prompts, autonomy L1 → L2 (assisted), flock-race-safe cooldown, audit schema v2. v2.5.0 adds bot-interaction interface (OpenAPI 3.1 + adnanh/webhook reference impl + HMAC-SHA256 / Redis pub/sub outbound emitter, gated activation). Install via `dr-plugin enable dr-orchestrate`. Security floor: whitelist + 0x1b escape-block + 500 ms micro + 60 s decision cooldown + 5-violations/hr 1 h pane block. JSONL audit, hash-only credentials. |
+| `/dr-save` | Utility | Capture current session to `datarim/sessions/SESSION-{YYYYMMDD-HHMMSS}.session.md` before context is destroyed. 5-layer body, 32 KB cap (L1/L5 non-truncatable), append-only, claim-provenance enforcement, secret redaction. Cross-runtime: Claude Code / Codex CLI / Cursor. |
+| `/dr-continue` | Utility | Resume from session artefact in a **clean context window**. Re-verifies every claim (STALE SNAPSHOT / CLAIM-UNVERIFIED / FILE-MISSING banners), downgrades provenance, routes to `/dr-next` or `/dr-auto`. Squash-collision detection via `git merge-base --is-ancestor`. |
 | `/dr-help` | Utility | List all commands with descriptions and usage guidance |
 | `/factcheck` | Standalone | Fact-check articles and posts before publication |
 | `/humanize` | Standalone | Remove AI writing patterns from text |
 
-Command files: `$HOME/.claude/commands/{name}.md` (24 commands, including the plugin command)
+Command files: `$HOME/.claude/commands/{name}.md` (26 commands, including the plugin command)
 
 ### /dr-verify (on-demand, tri-layer architecture)
 
