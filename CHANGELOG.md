@@ -59,6 +59,24 @@ Autonomous-mode marker resilience. The `/dr-auto` orchestration marker `.auto-mo
 - **`skills/autonomous-mode/SKILL.md`** § "When this skill is active" — adds a "Spawned subagents (relaxed activation)" sub-rule: a spawned subagent whose prompt carries an explicit auto-signal activates from a valid marker file + task-id match alone, no inherited env-var required. The top-level cycle still requires all three conditions.
 - **`commands/dr-auto.md`** Step 5 — the dispatcher re-asserts the marker before each subagent dispatch and carries the auto-signal into the subagent prompt.
 
+## [2.32.0] — 2026-06-14
+
+Public-surface de-personalisation (Class A — shipped-surface privacy gate).
+
+### Security
+
+- **Public-surface de-personalisation** — personal names, handles, ecosystem hostnames, numeric GIDs, and Vault paths are removed from all shipped framework artefacts. A new CI gate `scripts/personal-id-gate.sh` scans the shipped surface against `dev-tools/personal-id-forbidden.regex` on every PR, blocking any artefact that carries operator-private data. Operator-specific configuration now lives exclusively in the gitignored `${DATARIM_LOCAL}/config/personal.env`, loaded by a new generic `cli/lib/load-local-config.sh` (fail-soft, key-validated, no `eval`/`source`).
+- **Security Mandate extended with S3.1** — a new sub-rule in `CLAUDE.md` § Security Mandate and `skills/security-baseline/SKILL.md` § S3.1 codifies the no-personal-data policy for shipped artefacts, references the gate and loader, and defines the inline exemption fence (`<!-- gate:example-only -->`).
+
+### Added
+
+- **Personal config overlay (`~/.claude/local/config/`)** — `install.sh` now creates a `config/` sub-directory inside the local overlay with a self-documenting `README.md` template. The generic loader reads `personal.env` from that path and exports valid keys into the shell environment — without executing any value. Four bats tests cover the injection-safety, bad-key, valid-key, and missing-file contracts.
+- **Command-dependency graph** — a machine-readable YAML source of truth (`dev-tools/command-graph.yaml`, 24 commands) records every command's stage, prerequisites, successors, and optional-at complexity levels. A derived Mermaid diagram (`skills/visual-maps/command-dependencies.md`) provides the human-readable view. Four bats tests validate YAML integrity, minimum command count, core-command presence, and diagram content.
+
+### Changed
+
+- **OG-1 resolved: `/dr-help` added to orchestrator rules** — the single outlier in `plugins/dr-orchestrate/rules/default.yaml` is closed; `/dr-help` is now a resolvable pattern (confidence 0.95), aligning the classifier with the soak corpus, three existing surfaces, and the contract test. All 8 rules-loader tests pass.
+
 ## [2.31.0] — 2026-06-10
 
 An anti-deferral gate. The framework let an agent label its own unfinished work "out of scope / informational / not a blocker / I'll fix later" and still pass QA, compliance, and archive — discipline-reliance that demonstrably failed (an agent left a stale counter in a runbook paragraph it had just rewritten, called it informational, and moved to archive). The fix is deterministic: prose is not trusted; the touched-file set is the ownership boundary; a deferral is only legitimate when time-dependent or hard-external-blocked AND backed by a verifiable follow-up / `blocked_by` artefact.
@@ -76,6 +94,19 @@ An anti-deferral gate. The framework let an agent label its own unfinished work 
 
 - **`/dr-qa` Layer 3b** runs the deferral scan as an advisory (PASS_WITH_NOTES, warns that compliance will hard-block). **`/dr-compliance` Step 5c** runs it as a hard gate → NON-COMPLIANT on a finding. Mirrors the existing evidence-type advisory-at-QA / hard-at-compliance escalation.
 - **`skills/expectations-checklist/SKILL.md`** documents the new override fields and the updated CONDITIONAL_PASS / BLOCKED semantics.
+
+## [2.30.0] — 2026-06-06
+
+Prod-readiness gate for deploy-class tasks + anti-self-suppression in self-evolution.
+
+### Added
+
+- **Prod-readiness gate for deploy-class tasks** — a two-stage blocking gate verifies that the production runner is symmetric to the test runner before the pipeline recommends a merge, and again before a task can be archived. `/dr-qa` gains Layer 4g (a read-only test↔prod probe of sudoers, PATH, ports, systemd units, and runtime versions) and `/dr-archive` gains Step 0.4 (archive is blocked until the production merge is done *and* verified). The gate arms only for deploy-class work — tasks touching systemd units, sudoers, CI cutover jobs, or `.env-deploy` templates — detected by a new classifier `dev-tools/check-deploy-class.sh`. Production stays hard-gated: the probe is strictly read-only and predicts impact; any mutation is an explicit operator action.
+- **New skill: prod-readiness-probe** — defines what the gate checks and how it reports, with a four-verdict vocabulary (`SKIP` / `PASS` / `FAIL` / `BLOCKED`; `BLOCKED` never auto-resolves to `PASS` on an unreachable host). Hybrid execution: a project may author an optional `datarim/deploy-readiness.yml` contract (validated by `dev-tools/check-deploy-readiness.sh`) for a deterministic probe, or the probe falls back to an agent-driven checklist. The framework core stays stack-agnostic.
+
+### Changed
+
+- **Self-evolution gains an anti-self-suppression rule** — a reflection lesson that recurs (matching a prior reflection or describing a repeat of a known failure) can no longer be declined as "redundant with existing contract" and demoted to a memory note. A new evolution category `promote-recurring-incident-to-gate` turns such a recurring advisory lesson into an enforced gate. The rule fires only on demonstrated recurrence, with cited evidence; genuinely novel lessons may still be declined.
 
 ## [2.29.0] — 2026-06-06
 
