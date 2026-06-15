@@ -4,6 +4,47 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.37.0] — 2026-06-14
+
+Artifact Language Policy. The free-generated body of runtime artefacts (creative / PRD / plan / the analytical body of archive / reflection / compliance-report) now defaults to English, with an operator-configurable per-project override. (Version 2.35.0 was a parallel-session duplicate of this entry and is intentionally skipped — see the version note under 2.36.0.)
+
+### Added
+
+- **`CLAUDE.md` § Artifact Language Policy** — declares the English default for the free-generated body of runtime artefacts, adjacent to the English-Only shipped-surface section. The directive is auto-loaded into context at generation time; the coworker delegation path mirrors it via a new §12 in `skills/coworker-context/SKILL.md`.
+- **Operator-configurable language override, no code** — the default is overridable per project with a single documented line in the consumer's own `CLAUDE.md` § Project-Specific Configuration (`Artifact language: <lang>`); a secondary `DATARIM_ARTIFACT_LANG` convention is documented for shell-aware coworker call sites. No new validator, no config file, no change to the closed init-task schema.
+
+### Fixed
+
+- **network-exposure gate no longer false-blocks init-task-only tasks** — at early pipeline stages a task may have only an init-task artefact (no priority/type by schema); the tiered gate now resolves to `skip` (or `advisory_warn` when a network-diff signal is present) instead of fail-closing to `hard_block`. Fail-closed is preserved for genuinely malformed task descriptions. Three new regression tests pin the contract.
+
+### Excluded
+
+- The English default never touches verbatim operator input (init-task brief and append-log), the intentionally operator-facing canonical sections, or ordinary user-project content — content-work skills and commands stay exempt.
+
+## [2.36.0] — 2026-06-14
+
+`/dr-auto` surfaces the compliance outcome before the CTA.
+
+### Changed
+
+- **`commands/dr-auto.md`** terminal-cleanup step now prints one line stating how `/dr-compliance` resolved — the verdict (`COMPLIANT` / `COMPLIANT_WITH_NOTES`) when a compliance stage ran, or a skip-by-design reason at complexity levels whose routing has no compliance stage — immediately before the call-to-action block. Previously the operator saw only a bare archive CTA, which read as "compliance is never proposed".
+
+> Version note: 2.35.0 was assigned in a parallel session to an earlier draft of the Artifact Language Policy and superseded by 2.37.0; the number is intentionally not reused.
+
+## [2.34.0] — 2026-06-14
+
+Self-enforcing `/dr-auto` dispatch contract + navigation-map drift fixes.
+
+### Added
+
+- **Self-enforcing `/dr-auto` dispatch contract** — the `commands/dr-auto.md` Step 5 re-assert sub-bullet is promoted from advisory prose to a mandatory pre-dispatch MUST-gate. Before spawning any stage subagent the orchestrator MUST run `auto-mode-marker.sh reassert` as the first action of every per-stage dispatch.
+- **Regression lint `check-dr-auto-reassert-wiring.sh`** — a deterministic shell lint scans `commands/dr-auto.md` Step 5 and exits 1 whenever the executable `auto-mode-marker.sh reassert` invocation regresses to prose-only. Registered in CI (`.github/workflows/dev-tools-lint.yml`). Fence-exclusion logic ensures illustrative fenced blocks do not false-pass.
+- **`tests/check-dr-auto-reassert-wiring.bats`** — 3 tests pinning the lint contract: passes on the wired spec, fails on a prose-only synthetic fixture, exits 2 on a usage error.
+
+### Changed
+
+- **Visual-map drift fixes** — `command-dependencies.md` is registered in the routing-invariants drift-mapping, and a `/dr-compliance` row is added to the panels-and-quality Quality Rules table.
+
 ## [2.33.0] — 2026-06-14
 
 Autonomous-mode marker resilience. The `/dr-auto` orchestration marker `.auto-mode-active` could vanish mid-cycle during subagent dispatch (a spawned subagent then ran in fail-safe non-auto, correctly but unexpectedly), and the `DATARIM_AUTO_MODE` env-var is not inherited by Agent-tool subagents — so even an intact marker file did not activate the mode for a spawned subagent. This release closes both root causes (Class B — auto-mode activation contract change).
