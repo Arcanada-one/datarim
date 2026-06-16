@@ -46,3 +46,8 @@ datarim/snapshots/
 # path). These are runtime artefacts owned by Codex CLI, not Datarim source.
 # Permanent integration design tracked in backlog (Source: TUNE-0296).
 skills/.system/
+
+# Session-handoff artefacts — cross-runtime, append-only, ephemeral.
+# Written by /dr-save, consumed by /dr-continue in a new window.
+# These are transient per-session files; not committed to git.
+datarim/sessions/

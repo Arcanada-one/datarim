@@ -91,10 +91,34 @@ The heuristic picks `/dr-archive`. Rationale: per `cta-format.md` § Authoring R
 
 `/dr-orchestrate` integrates the snapshot-first read **before** `subagent_resolver.sh`; `recommended_next` is passed to the resolver as `--hint <command>`. The resolver may still return a different command — the snapshot is a hint, not a constraint.
 
+## Shared Replay Renderer
+
+This section is the **single canonical source** for the bilingual replay-prompt
+template. Both `/dr-next` (via § Replay-prompt template above) and
+`/dr-continue` (via `skills/session-handoff-replay/SKILL.md`) cite this section
+to stay in lockstep. Do not duplicate the template elsewhere — reference this
+section by name.
+
+The renderer contract:
+1. Consume a `recommended_next` value from the artefact frontmatter.
+2. Emit the bilingual block verbatim (see § Replay-prompt template).
+3. Append the `done before:` header followed by the artefact body content.
+4. Any changes to wording or structure of the bilingual block MUST be made
+   here first; all consumers pick them up automatically.
+
+`/dr-continue` uses this renderer for session-scoped handoff artefacts; the
+source artefact is `datarim/sessions/{SESSION-ID}.session.md` (validated by
+`dev-tools/check-session-handoff.sh`) rather than the per-task snapshot, but
+the rendered replay-prompt template is identical.
+
 ## Related
 
-- `skills/stage-snapshot-writer/SKILL.md` — the producer side.
+- `skills/stage-snapshot-writer/SKILL.md` — the producer side (per-task snapshots).
+- `skills/session-handoff-writer/SKILL.md` — the producer side (session handoff artefacts).
+- `skills/session-handoff-replay/SKILL.md` — consumer side for session handoff, cites § Shared Replay Renderer.
 - `skills/cta-format/SKILL.md` — the CTA block ([definition](../cta-format/SKILL.md)) format that fills `<recommended-CTA>`.
-- `dev-tools/check-stage-snapshot-on-exit.sh` — the mandatory validator that runs before the prompt is emitted.
+- `dev-tools/check-stage-snapshot-on-exit.sh` — the mandatory validator that runs before the per-task prompt is emitted.
+- `dev-tools/check-session-handoff.sh` — the mandatory validator that runs before the session replay prompt is emitted.
 - `commands/dr-next.md` § Step 2.5 — consumer touchpoint.
+- `commands/dr-continue.md` — session-handoff consumer touchpoint.
 - `plugins/dr-orchestrate/commands/dr-orchestrate.md` § Snapshot-First Resume — orchestrator touchpoint.
