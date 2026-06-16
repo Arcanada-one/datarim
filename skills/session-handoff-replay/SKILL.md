@@ -1,6 +1,6 @@
 ---
 name: session-handoff-replay
-description: Consumer contract for session-handoff artefacts — /dr-continue reads datarim/sessions/{SESSION-ID}.session.md first and re-verifies every claim before routing to /dr-next or /dr-auto.
+description: Consumer contract for /dr-continue — reads the session artefact, re-verifies every claim, then routes to /dr-next or /dr-auto.
 current_aal: 1
 target_aal: 2
 ---
