@@ -4,6 +4,17 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.39.0] — 2026-06-16
+
+Pre-archive unpushed-commits gate. `/dr-archive` now stops when a touched repository has committed-but-unpushed commits and the task type is `bugfix`/`feature`/`refactor`, closing the archived-but-unmerged gap (Step 0.1 covered only the dirty working tree).
+
+### Added
+
+- **`/dr-archive` Step 0.12 — Pre-Archive Unpushed-Commits Gate** — a sibling sub-step of Step 0.1 (not a rewrite). Per touched repo it runs the new detector and, on committed-but-unpushed commits for an in-scope task type, halts with a three-way prompt: Push / Verify cherry-picked or merged elsewhere / Accept loss (recorded in the archive doc Known Outstanding State section, never a silent continue).
+- **`dev-tools/check-unpushed-commits.sh`** — detection helper emitting `stop` / `advisory` / `clean`. Comparison base resolves `@{u}` then `origin/<default-branch>` via `git symbolic-ref` then last-resort `origin/main`; fail-open on an unresolvable base (detached HEAD, no origin, shallow clone) so it never false-STOPs an archive.
+- **`tests/check-unpushed-commits.bats`** — 20 contract cases (trigger set, base-resolution chain, fail-open edge cases, spec-lint of the Step 0.12 prose).
+
+
 ## [2.37.0] — 2026-06-14
 
 Artifact Language Policy. The free-generated body of runtime artefacts (creative / PRD / plan / the analytical body of archive / reflection / compliance-report) now defaults to English, with an operator-configurable per-project override. (Version 2.35.0 was a parallel-session duplicate of this entry and is intentionally skipped — see the version note under 2.36.0.)
