@@ -32,6 +32,7 @@ all claims as unverified until re-probed.
 ### Step 2 — Locate the session artefact
 
 ```bash
+# noshellcheck-extract
 SESSIONS_DIR="$(git rev-parse --show-toplevel 2>/dev/null || echo "$PWD")/datarim/sessions"
 
 # Latest artefact (when no explicit ID given):
@@ -63,6 +64,7 @@ unreachable due to time limits, proceed on a readable artefact (log a warning).
 Read the artefact. For every repo in Layer 1:
 
 ```bash
+# noshellcheck-extract
 git -C <repo> rev-parse HEAD
 git -C <repo> status --porcelain
 ```
@@ -70,12 +72,14 @@ git -C <repo> status --porcelain
 For every `verified: pushed/merged` claim, run the SHA-presence check:
 
 ```bash
+# noshellcheck-extract
 git -C <repo> cherry -v origin/main <saved-sha> 2>/dev/null
 ```
 
 For every path in Layer 3:
 
 ```bash
+# noshellcheck-extract
 stat <path> 2>/dev/null || echo "FILE-MISSING: <path>"
 ```
 
@@ -83,6 +87,7 @@ Emit the banners through the deterministic emitter (one call per claim/repo/file
 so the "report claim as unverified" property is deterministic, not free-prose:
 
 ```bash
+# noshellcheck-extract
 EMITTER="${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/reverify-session-claims.sh"
 bash "$EMITTER" --sha-presence --repo <repo> --sha <saved-sha> --files <files…>
 bash "$EMITTER" --stale        --repo <repo> --saved-sha <saved-sha>
