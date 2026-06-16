@@ -68,15 +68,23 @@ EOF
 }
 
 # set_upstream_tracking <repo_dir> <branch>
-# Records HEAD as origin/<branch> and configures upstream tracking.
+# Attaches a REAL bare remote at <dir>.origin.git, pushes the current branch to
+# it, and sets upstream tracking via `git push -u`. This freezes
+# refs/remotes/origin/<branch> at the pushed commit, so `@{u}..HEAD` counts only
+# commits added AFTER this call — identical behaviour across git versions.
+#
+# A real bare remote is used deliberately instead of `update-ref` +
+# branch.*.merge config: the latter leaves `@{u}` resolution dependent on
+# git-version-specific handling of branch.<b>.merge=refs/heads/<b>, which made
+# count drop to 0 on the CI git while passing locally. The push-based setup is
+# version-stable.
 set_upstream_tracking() {
     local dir="$1"
     local branch="$2"
-    local head_sha
-    head_sha="$(git -C "$dir" rev-parse HEAD)"
-    git -C "$dir" update-ref "refs/remotes/origin/${branch}" "$head_sha"
-    git -C "$dir" config "branch.${branch}.remote" "origin"
-    git -C "$dir" config "branch.${branch}.merge" "refs/heads/${branch}"
+    local bare="${dir}.origin.git"
+    git init -q --bare "$bare"
+    git -C "$dir" remote add origin "$bare"
+    git -C "$dir" push -q -u origin "$branch"
 }
 
 # add_commit <repo_dir>
