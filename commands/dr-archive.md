@@ -91,6 +91,57 @@ Complete and archive current task.
    **0.1.5 Project repo check** (per repo classified as single-agent — i.e., no `.datarim-shared` marker):
    Run `scripts/pre-archive-check.sh <project-repo-path>` (legacy mode). Exit 1 → STOP and present the 3-way prompt (Commit now / Accept pending / Abort). Applied ≠ committed ≠ canonical.
 
+0.12. **PRE-ARCHIVE UNPUSHED-COMMITS GATE** (MANDATORY for every git repository touched by the task):
+
+   After confirming the working tree is clean (Step 0.1), verify that all local commits are present
+   on the remote. A task whose only copy is a local commit can be silently lost if the clone is
+   overwritten or the branch is force-pushed — the archive then records a false "done".
+
+   **0.12.1 Detection per repo.**
+   For each git repository classified in Step 0.1.1, run:
+
+   ```bash
+   token=$("${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-unpushed-commits.sh" \
+       --repo <repo-path> \
+       --task-description "<path-to-TASK-ID-task-description.md>")
+   ```
+
+   The helper resolves the comparison base in order: configured `@{u}` upstream →
+   `origin/<default-branch>` via `git symbolic-ref refs/remotes/origin/HEAD` → last-resort
+   `origin/main`. On unresolvable base (detached HEAD, no `origin` remote, shallow clone) the
+   helper emits `clean` with an advisory note and does NOT block — fail-open, never false-STOP.
+
+   Token semantics:
+   - `stop` — unpushed commits exist AND task `type:` ∈ {bugfix, feature, refactor}. **STOP the archive** and present the 3-way prompt below.
+   - `advisory` — unpushed commits exist AND task type is NOT in the trigger set (docs, research, content, chore, etc.). Log the advisory and continue; do not block.
+   - `clean` — no unpushed commits (or base unresolvable). Archive proceeds.
+
+   **0.12.2 Three-way prompt (on STOP).**
+   When any touched repo yields `stop`, halt archiving and present the operator with exactly these
+   three branches. Silent continuation is forbidden — the archive MUST NOT proceed until one
+   branch is chosen and its completion condition is satisfied:
+
+   **(a) Push** — push the local commits to the remote branch. Feature-branch `git push` is a
+   permitted reversible operation. After push, re-run the helper; `clean` confirms the gate is
+   satisfied and the archive may proceed. Under `/dr-auto` autonomous mode, a feature-branch push
+   MAY be performed without operator escalation; a force-push to `main`/`master` remains
+   hard-gated per `autonomous-agents.md`.
+
+   **(b) Verify cherry-picked or merged elsewhere** — attest that the commits have already landed
+   on the remote default branch under a different SHA (squash-merge, cherry-pick, or equivalent).
+   Record in the archive document the landing ref/SHA and the verification command used (for
+   example `git cherry -v origin/main <sha>` or `git diff <sha> origin/main -- <files>`; see
+   the squash-collision caveat in the framework’s `CLAUDE.md` for the full procedure). Archive
+   proceeds once the attestation is recorded.
+
+   **(c) Accept loss — record in § Known Outstanding State** — explicitly accept that the local
+   commits will not be pushed. This branch MUST be recorded in the archive document’s
+   **§ Known Outstanding State** section as a paragraph that lists: each unpushed commit SHA,
+   the repository path, the commit count, and the operator’s stated reason for accepting the
+   loss. The archive MUST NOT proceed until this paragraph is written. No silent "accept loss"
+   is permitted.
+
+
 0.15. **DRIFT SITE-UPDATE GATE** (MANDATORY when the task's commits touched a path under a registered product's `repo_local` in `documentation/ecosystem-sync/registry.yml`):
 
    When an archived task changed a registered product's repository, the deployed

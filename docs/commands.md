@@ -1,6 +1,6 @@
 # Commands Reference
 
-Datarim provides 25 slash commands for Claude Code (plus 2 standalone /factcheck /humanize). Commands are grouped by category.
+Datarim provides 27 slash commands for Claude Code (plus 2 standalone /factcheck /humanize). Commands are grouped by category.
 
 ## Unified CTA Block (v1.16.0)
 
@@ -66,13 +66,15 @@ Source: TUNE-0032. Spec: `skills/cta-format/SKILL.md`. Template: `templates/cta-
 | `/dr-optimize` | Maintenance | optimizer | Audit framework, prune unused, merge duplicates, sync docs. Emits CTA. |
 | `/dr-plugin` | Extension | -- | Manage opt-in plugin system: list active plugins, enable/disable third-party modules. Phase A (TUNE-0101). Emits CTA. |
 
-## Utility Commands (3)
+## Utility Commands (5)
 
 | Command | Stage | Agent | Description |
 |---------|-------|-------|-------------|
 | `/dr-status` | Utility | -- | Check current task and backlog status (read-only). Emits CTA — discovery surface for parallel work. |
 | `/dr-next` | Utility | varies | Resume from last checkpoint. Step 2.5 reads `datarim/snapshots/{TASK-ID}.snapshot.md` first (v2.13.0+) and emits replay-prompt with bilingual autonomy reminder + `done before:` body. Falls back silently to legacy Read pipeline when snapshot is absent. Emits CTA per resumed phase. |
 | `/dr-quick` | Utility | developer (lightweight) | Fast-lane for trivial fixes / quick lookups — assigns `QCK-XXXX`, weak-model KB scan, applies the change, writes a short `quick/` archive. Skips PRD / plan / design / QA / compliance. Emits CTA. |
+| `/dr-save` | Utility | developer | Capture current session to `datarim/sessions/SESSION-{YYYYMMDD-HHMMSS}.session.md` before context is destroyed. 5-layer body (git state / active tasks / related files / open questions / failed approaches), 32 KB cap with non-truncatable L1/L5, append-only semantics, claim-provenance enforcement (exit 1 on untagged claims), T-8 secret redaction. Works identically in Claude Code, Codex CLI, and Cursor. Emits resume block. |
+| `/dr-continue` | Utility | developer | Resume from session artefact written by `/dr-save` in a **clean context window**. Re-verifies every claim via live probes (STALE SNAPSHOT / CLAIM-UNVERIFIED / FILE-MISSING banners), downgrades provenance tags from the artefact, then routes to `/dr-next` or `/dr-auto`. Squash-collision detection via `git merge-base --is-ancestor`. |
 | `/dr-help` | Utility | -- | List all commands with descriptions and usage guidance. Emits CTA. |
 
 ## Standalone Commands (2)
