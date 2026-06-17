@@ -1,0 +1,108 @@
+# content-consilium-vendors.template.yaml
+#
+# Template for the operator-local vendor configuration used by the Content
+# Consilium multi-vendor orchestration scripts.
+#
+# USAGE:
+#   Copy this file to your workspace datarim/ directory:
+#     cp content-consilium-vendors.template.yaml \
+#        <project>/datarim/pub-consilium/content-consilium-vendors.yaml
+#   Then fill in the vendor CLI binaries appropriate to your local setup.
+#   The YAML file must be gitignored — it contains CLI invocations that are
+#   installation-specific and may reference local paths.
+#
+# SECURITY:
+#   - NO tokens, API keys, or auth credentials belong in this file.
+#     Use environment variables or your credential store instead.
+#   - NO personal names, hostnames, or tenant identifiers in this template.
+#   - The template uses only generic slot labels (A, B, C) and placeholder
+#     CLI names. Actual CLI names are set by the operator in their private copy.
+#
+# SCHEMA:
+#   vendors[]:
+#     slot:  Single uppercase letter identifying this vendor's position (A/B/C).
+#            Used as the draft file suffix (draft-A.md, draft-B.md, etc.)
+#     cmd:   The CLI binary to invoke. Must be on PATH or an absolute path.
+#            The CLI is expected to read the brief from stdin (or a file arg)
+#            and write the draft to stdout.
+#     args:  List of arguments passed before the brief. Vendor-specific flags
+#            such as model selection, temperature, or output format go here.
+#            No auth tokens — those should be in env vars loaded by the CLI.
+#
+#   hang_idle_secs:     Seconds of pane inactivity that triggers "idle" detection.
+#                       Increase for slow models; decrease for fast local models.
+#   hang_deadline_secs: Total seconds before a vendor is classified as hung.
+#                       Should be >> hang_idle_secs to allow output bursts.
+#
+#   per_stage_criteria: Optional per-stage scoring criteria for the judge.
+#     stage:  "write", "edit", or "publish"
+#     criteria[]:
+#       id:          Short kebab-case identifier for this criterion.
+#       weight:      Integer relative weight (higher = more important in scoring).
+#       description: Human-readable description of what the judge evaluates.
+
+# ---------------------------------------------------------------------------
+# Vendor slots
+# ---------------------------------------------------------------------------
+vendors:
+  - slot: A
+    cmd: "vendor-cli-a"
+    args: []
+
+  - slot: B
+    cmd: "vendor-cli-b"
+    args: []
+
+  - slot: C
+    cmd: "vendor-cli-c"
+    args: []
+
+# ---------------------------------------------------------------------------
+# Hang detection thresholds
+# ---------------------------------------------------------------------------
+hang_idle_secs: 120
+hang_deadline_secs: 300
+
+# ---------------------------------------------------------------------------
+# Per-stage scoring criteria
+# ---------------------------------------------------------------------------
+per_stage_criteria:
+
+  - stage: write
+    criteria:
+      - id: specificity
+        weight: 2
+        description: "Uses concrete examples, numbers, and specific claims rather than generalities"
+      - id: naturalness
+        weight: 2
+        description: "Reads as natural human prose — no AI artifacts, no empty phrases"
+      - id: structure
+        weight: 1
+        description: "Logical flow: hook, body, close; sections balanced"
+      - id: voice_fit
+        weight: 1
+        description: "Tone and register match the brief's target audience"
+
+  - stage: edit
+    criteria:
+      - id: factual_accuracy
+        weight: 3
+        description: "All claims verifiable; incorrect facts corrected with source"
+      - id: ai_pattern_removal
+        weight: 2
+        description: "AI writing artifacts removed (banned vocabulary, structural tells)"
+      - id: naturalness_after_edit
+        weight: 1
+        description: "Edited text retains human voice; no introduced awkwardness"
+
+  - stage: publish
+    criteria:
+      - id: platform_compliance
+        weight: 3
+        description: "Text within platform limits; formatting correct for each target"
+      - id: hook_strength
+        weight: 2
+        description: "Opening line grabs attention within the first scroll position"
+      - id: link_validity
+        weight: 1
+        description: "All URLs present and resolve to correct destinations"

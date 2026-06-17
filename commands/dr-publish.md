@@ -58,6 +58,33 @@ argument-hint: [file path to approved content]
 - Pre-publish checklist (passed/failed)
 - Publication instructions or applied changes
 
+## Multi-Vendor Consilium Mode
+
+When `--consilium` is passed as an argument (or `DATARIM_CONSILIUM=1` is set),
+`/dr-publish` activates the multi-vendor publish-adaptation path before the
+standard pre-publish checklist.
+
+**Activation:** `dr-publish --consilium [file-path]`
+
+**What changes:**
+1. Before Step 6 (ADAPT PER PLATFORM), the `dr-orchestrate` plugin fan-out
+   script is invoked with stage label `"publish"`.
+2. Each vendor independently produces platform-adapted versions of the content.
+3. The judge scores adaptations on publish-stage criteria: platform compliance,
+   formatting accuracy, and hook strength.
+4. The best adaptation set is forwarded to Step 7 (PRE-PUBLISH CHECKLIST).
+
+**Hard gate:** regardless of consilium mode, Step 7 (PRE-PUBLISH CHECKLIST)
+is always performed and Step 8 (PUBLISH) is always dry-run-default. An explicit
+`--publish` flag plus operator confirmation is required to execute a real post.
+This gate is enforced by the `dr-orchestrate` plugin FB-rules hard-gate entry
+(`content_consilium_publish`) and cannot be bypassed in consilium mode.
+
+**Degradation:** same rules as `/dr-write --consilium`.
+
+See `$HOME/.claude/skills/consilium/SKILL.md` § Real Multi-Vendor Mode for the full protocol.
+See `$HOME/.claude/skills/publishing/SKILL.md` § Recurring-mistakes pre-publish checklist before every publish.
+
 ## Next Steps (CTA)
 
 After publish, the writer/editor agent MUST emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
