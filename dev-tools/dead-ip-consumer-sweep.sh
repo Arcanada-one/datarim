@@ -153,18 +153,12 @@ validate_audit() {
     # Audit must exist
     if [ ! -f "$afile" ]; then
         printf '%s: BLOCK — audit file not found: %s\n' "$SCRIPT_NAME" "$afile" >&2
-        # Defensive invariant guard
-        local _inv=1
-        [ "$_inv" -ne 0 ] || { printf '%s: ERROR: internal invariant violated: BLOCK path reached exit 0\n' "$SCRIPT_NAME" >&2; exit 2; }
         printf 'BLOCK: audit document absent — cannot confirm zero live consumers.\n'
         exit 1
     fi
     # Audit must contain a zero-live-consumer assertion
     if ! grep -qi 'zero live consumers\|live_consumers:[[:space:]]*0\|assertion:.*zero' "$afile"; then
         printf '%s: BLOCK — audit file does not assert zero live consumers: %s\n' "$SCRIPT_NAME" "$afile" >&2
-        # Defensive invariant guard
-        local _inv=1
-        [ "$_inv" -ne 0 ] || { printf '%s: ERROR: internal invariant violated: BLOCK path reached exit 0\n' "$SCRIPT_NAME" >&2; exit 2; }
         printf 'BLOCK: audit document present but does not assert zero live consumers.\n'
         exit 1
     fi
@@ -189,10 +183,11 @@ class_b_pattern_for() {
     printf '%s' "(^|[[:space:]])(bind|listen|ListenAddress|host-address)[[:space:]]+${escaped_ip}([[:space:]]|$)"
 }
 
-# Class-d pattern: spaces/*/space.yml IP field
+# Class-d pattern: spaces/*/space.yml IP field or bare-IP list item.
+# Matches: "ip: <IP>", "address: <IP>", or "  - <IP>" (keyless YAML list entry).
 class_d_pattern_for() {
     local escaped_ip="$1"
-    printf '%s' "(^|[[:space:]])[-]?[[:space:]]*(ip|address)[[:space:]]*:[[:space:]]*${escaped_ip}([[:space:]]|$)"
+    printf '%s' "(^|[[:space:]])[-]?[[:space:]]*(ip|address)[[:space:]]*:[[:space:]]*${escaped_ip}([[:space:]]|$)|(^|[[:space:]])-[[:space:]]+${escaped_ip}([[:space:]]|$)"
 }
 
 # Scan all surfaces for live references to the given IP.
@@ -272,8 +267,6 @@ done
 validate_audit "$audit_file"
 
 if [ "$blocked" -ne 0 ]; then
-    # Defensive invariant: BLOCK wording must accompany non-zero exit
-    [ "$blocked" -ne 0 ] || { printf '%s: ERROR: internal invariant violated: blocked=0 after live hit\n' "$SCRIPT_NAME" >&2; exit 2; }
     exit 1
 fi
 

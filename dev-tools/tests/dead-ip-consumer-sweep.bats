@@ -212,3 +212,24 @@ EOF
     [ "$status" -eq 1 ]
     [[ "$output" == *"BLOCK"* ]]
 }
+
+# ---------------------------------------------------------------------------
+# 13. d-bare-ip-in-list-block — bare keyless IP list item in space.yml blocked
+# ---------------------------------------------------------------------------
+@test "d-bare-ip-in-list-block — bare IP list item in space.yml exits 1" {
+    mkdir -p "$WORK/spaces/cluster"
+    cat >"$WORK/spaces/cluster/space.yml" <<'EOF'
+name: cluster
+cluster_hosts:
+  - 23.88.34.218
+  - 10.0.0.2
+EOF
+    cat >"$WORK/audit.md" <<'EOF'
+dead_ip: 23.88.34.218
+live_consumers: 0
+assertion: zero live consumers confirmed
+EOF
+    run "$SCRIPT" --dead-ip 23.88.34.218 --workspace-root "$WORK" --audit "$WORK/audit.md"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"BLOCK"* ]]
+}
