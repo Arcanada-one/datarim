@@ -39,6 +39,7 @@ Tailscale reachability for each node. Unreachable nodes fall back to public IP o
 are deferred — never silently skipped without a log entry:
 
 ```bash
+# nosec-extract
 for host in <MESH_IP_LIST>; do
   if ping -c1 -W2 "$host" >/dev/null 2>&1; then
     echo "mesh-ok: $host"
