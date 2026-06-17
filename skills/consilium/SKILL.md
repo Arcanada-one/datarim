@@ -181,3 +181,87 @@ Produce the final output.
 3. **Each agent speaks once per round, max 2 rounds.** Prevents circular debate.
 4. **If unanimous after ANALYZE — skip DEBATE.** Agreement is a valid outcome. Proceed directly to DELIVER.
 5. **Time-box:** If you cannot converge in 2 rounds, deliver with unresolved conflicts noted as open questions for the human to decide.
+
+---
+
+## Real Multi-Vendor Mode
+
+This section describes how to run a Consilium panel where each position is drafted
+by a **distinct vendor CLI** running as a live interactive agent — not simulated
+by a single model adopting different personas. Use it when you need true
+stylistic independence and provenance-traceable authorship across drafts.
+
+### When to use
+
+- Content creation tasks where voice diversity matters (articles, social posts, long-form)
+- Quality-lift validation: confirm that multi-vendor output is measurably better than
+  single-model output before committing to the orchestration overhead
+- Any context where a single model's priors could dominate all "perspectives"
+
+### How it differs from single-agent Consilium
+
+| Dimension | Single-agent Consilium | Real Multi-Vendor Mode |
+|-----------|------------------------|------------------------|
+| Who generates each position | One model role-playing multiple agents | One distinct vendor CLI per position |
+| Voice independence | Structural (persona prompts) | True (different model weights) |
+| Provenance | Implied by role label | Recorded in run-log per vendor slot |
+| Overhead | Low (one model call) | Higher (N parallel CLI sessions) |
+| Degradation | No — single point of failure | Yes — 2-of-N graceful degradation |
+
+### 3-tier architecture
+
+Real Multi-Vendor Mode is implemented across three tiers:
+
+- **Tier-1 (this skill):** Protocol contract only. No vendor names, no CLI
+  literals, no hostnames. The skill describes the _what_ and _why_.
+- **Tier-2 (dr-orchestrate plugin):** Fan-out + judge scripts. Vendor CLI
+  invocations, run-log format, scoring matrix, degradation logic. Install via
+  `/dr-plugin enable dr-orchestrate`. Scripts: `content_consilium_fanout.sh`
+  and `content_consilium_judge.sh`.
+- **Tier-3 (workspace config):** Operator-local vendor map. Which CLI binary
+  maps to which slot. Lives in `datarim/pub-consilium/` (gitignored).
+
+### Fan-out protocol
+
+1. The orchestrator reads the brief and vendor config.
+2. It spawns one tmux session per vendor using the `dr-orchestrate` plugin
+   helpers (`session_spawn_interactive` / `pane_send` / `pane_capture_tail`).
+3. Each vendor receives the identical brief plus its role label ("Vendor A",
+   "Vendor B", "Vendor C") — no cross-vendor information leaks.
+4. The orchestrator polls each session for completion using `pane_idle_check`.
+5. Completed drafts are written to `datarim/pub-consilium/{RUN-ID}/draft-*.md`.
+6. A run-log entry is appended for each vendor: `{vendor_slot, status, elapsed_s}`.
+
+### Degradation rules
+
+- **3-of-3 available:** full fan-out, judge receives all three drafts.
+- **2-of-3 available (one vendor timed out or errored):** fan-out proceeds
+  with the two healthy vendors; the run-log records the degraded vendor and
+  reason; the judge output includes a `degradation_note` field.
+- **Fewer than 2 available:** the fan-out script exits non-zero; the operator
+  is notified; no draft is selected.
+- **Hang detection:** if a vendor pane produces no new output for the
+  configured `HANG_IDLE_SECS` (default 120), it is classified as hung,
+  its session is closed, and it counts as unavailable.
+
+### Judge protocol
+
+After fan-out, the judge script reads all available drafts and:
+
+1. Scores each draft on the per-stage criteria defined in the vendor config.
+2. Produces a `judge-decision.md` with the scoring matrix, rationale, and
+   a pointer to the winning draft.
+3. Copies the winning draft to `final.md` in the run directory.
+4. Records traceability: which vendor slot produced the selected draft.
+
+The judge runs natively (same session) and MUST NOT delegate draft generation to
+an external writing assistant — the point is to evaluate vendor-authored text,
+not to generate a new synthesis.
+
+### Invoking via content commands
+
+When the `--consilium` flag (or `DATARIM_CONSILIUM=1`) is passed to
+`/dr-write`, `/dr-edit`, or `/dr-publish`, those commands activate the
+multi-vendor branch described in their own `## Multi-Vendor Consilium Mode`
+section and delegate to the `dr-orchestrate` plugin. The single-agent
+default path is unchanged when the flag is absent.

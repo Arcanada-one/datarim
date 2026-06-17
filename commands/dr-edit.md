@@ -59,6 +59,27 @@ effort: high
 - Corrected document (after approval)
 - Backup of the original
 
+## Multi-Vendor Consilium Mode
+
+When `--consilium` is passed as an argument (or `DATARIM_CONSILIUM=1` is set),
+`/dr-edit` activates the multi-vendor editorial path instead of the standard single-editor pipeline.
+
+**Activation:** `dr-edit --consilium [file-path]`
+
+**What changes:**
+1. Phases 1-3 above run for each vendor independently in parallel tmux sessions via
+   `content_consilium_fanout.sh` with stage label `"edit"`.
+2. Each vendor produces an independently edited version of the input content.
+3. The judge script scores edits on edit-stage criteria: factual accuracy, AI-pattern
+   removal completeness, and naturalness of the resulting prose.
+4. The best edit is selected; its diff summary becomes the editorial report.
+5. Run artefacts go to `datarim/pub-consilium/{RUN-ID}/`.
+
+**Degradation:** same rules as `/dr-write --consilium` — 2-of-3 proceeds with
+a `degradation_note`; fewer than 2 falls back to single-editor path with a warning.
+
+See `$HOME/.claude/skills/consilium/SKILL.md` § Real Multi-Vendor Mode for the full protocol.
+
 ## Next Steps (CTA)
 
 After edit pass, the editor agent MUST emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.

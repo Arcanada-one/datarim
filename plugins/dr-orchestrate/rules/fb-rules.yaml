@@ -117,6 +117,10 @@ hard_gated_actions:
   - force_push_main
   - git_history_delete
   - multi_user_visible_action
+  # content_consilium_publish: hard-gated publish of consilium-selected content.
+  # Requires explicit --publish flag. Dry-run is the default mode.
+  # Enforced by: scripts/content_consilium_gate.sh.
+  - content_consilium_publish
 
 # Carve-out (set 2026-05-31): the public_package_release sub-case is autonomous
 # for patch/minor ONLY when escalate=false (all fail-closed gates green). A major
