@@ -32,6 +32,29 @@ argument-hint: [topic or file path]
     - **Mark for editorial review**: Flag sections that need fact-checking or style review.
 6.  **OUTPUT**: Draft content with editorial notes. Suggest `/dr-edit` for fact-checking and AI pattern review.
 
+## Multi-Vendor Consilium Mode
+
+When `--consilium` is passed as an argument (or `DATARIM_CONSILIUM=1` is set),
+`/dr-write` activates the multi-vendor draft path instead of the standard single-agent pipeline.
+
+**Activation:** `dr-write --consilium [brief-file]`
+
+**What changes:**
+1. Steps 4-5 above are skipped for the initial draft phase.
+2. The `dr-orchestrate` plugin fan-out script (`content_consilium_fanout.sh`)
+   is invoked with the brief and the stage label `"write"`.
+3. Three vendor CLIs each produce an independent draft in parallel tmux sessions.
+4. The judge script (`content_consilium_judge.sh`) scores all drafts and
+   selects the best one using the write-stage scoring criteria.
+5. The selected draft is placed at the standard output path; the judge decision
+   and run-log are written to `datarim/pub-consilium/{RUN-ID}/`.
+6. Execution resumes at Step 6 (OUTPUT) with the selected draft.
+
+**Degradation:** if fewer than 3 vendors complete, 2-of-3 proceeds; fewer than 2
+exits non-zero and falls back to the standard single-agent path with a warning.
+
+See `$HOME/.claude/skills/consilium/SKILL.md` § Real Multi-Vendor Mode for the full protocol.
+
 ## Next Steps (CTA)
 
 After draft, the writer agent MUST emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
