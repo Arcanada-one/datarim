@@ -135,6 +135,8 @@ Under `/dr-auto`, these actions **never auto-execute** (except where a consumer-
 
 **Cross-project boundary (additional rule):** any action that touches repositories outside the task's project scope (the scope is defined by the Task Prefix Registry — `Arcanada/CLAUDE.md` or `documentation/architecture/task-prefix-registry.md`) is also hard-gated. Example: a task with prefix `SUP-` tries to edit `Projects/Verdicus/` → hard-gated.
 
+**Workspace branch discipline (pre-file-edit check):** before editing any file in a workspace-root repository (one outside the task's own code repo — e.g. a shared mandate or doc tree), confirm `git branch --show-current` matches the active task. In a shared workspace with several parallel task branches checked out, a routine edit otherwise lands on whichever branch happens to be current and travels with the wrong merge. If the current branch does not match the task, create a task-named branch (or escalate) before writing — do not edit on a sibling task's branch.
+
 **Not hard-gated:** infra-side actions on Arcanada-owned resources (SSH, `docker restart`, `git push` on a feature branch, Vault read, Cloudflare API read) — these are permitted per `feedback_autonomous_ops`.
 
 ## Failure modes
