@@ -59,3 +59,38 @@ teardown() {
     run pane_send "$target" 'rm -rf /; cat /etc/passwd'
     [ "$status" -eq 1 ]
 }
+
+@test "PUB-0025: pane_send_content delivers a cyrillic+HTML brief the command whitelist would block" {
+    source "$DR_ORCH_DIR/scripts/tmux_manager.sh"
+    session_init "$SESSION"
+    target=$(tmux list-panes -t "$SESSION" -F '#{pane_id}' | head -1)
+    brief="$STATE_DIR/brief.txt"
+    printf '%s\n' '<p>Второй месяц Арканады: переезд на железо</p>' > "$brief"
+    # Sanity: this exact text fails the command-channel whitelist.
+    run pane_send "$target" "$(cat "$brief")"
+    [ "$status" -eq 1 ]
+    # But the content channel delivers it.
+    run pane_send_content "$target" "$brief"
+    [ "$status" -eq 0 ]
+    sleep 0.3
+    run tmux capture-pane -p -t "$target"
+    echo "$output" | grep -q 'Второй месяц'
+}
+
+@test "PUB-0025: pane_send_content still blocks escape-sequence injection (CVE-2019-9535)" {
+    source "$DR_ORCH_DIR/scripts/tmux_manager.sh"
+    session_init "$SESSION"
+    target=$(tmux list-panes -t "$SESSION" -F '#{pane_id}' | head -1)
+    brief="$STATE_DIR/evil.txt"
+    printf 'safe text \x1b]0;pwned\x07 more' > "$brief"
+    run pane_send_content "$target" "$brief"
+    [ "$status" -eq 1 ]
+}
+
+@test "PUB-0025: pane_send_content rejects a missing content file" {
+    source "$DR_ORCH_DIR/scripts/tmux_manager.sh"
+    session_init "$SESSION"
+    target=$(tmux list-panes -t "$SESSION" -F '#{pane_id}' | head -1)
+    run pane_send_content "$target" "$STATE_DIR/does-not-exist.txt"
+    [ "$status" -eq 1 ]
+}

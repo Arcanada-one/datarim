@@ -135,7 +135,11 @@ run_vendor_tmux() {
   local session="consilium-${slot}-$$"
   LAST_SESSION_NAME="$session"   # exported for run-log provenance
   session_spawn_interactive "$session" "$cmd" "" || return 1
-  pane_send "$session" "$(cat "$BRIEF")" || { session_close "$session"; return 1; }
+  # The brief is content (cyrillic + markup), not a control command — deliver it
+  # over the content channel (load-buffer/paste-buffer), which keeps the
+  # escape-injection + cooldown guards but does not apply the ASCII command
+  # whitelist. Using pane_send here would block any non-ASCII brief.
+  pane_send_content "$session" "$BRIEF" || { session_close "$session"; return 1; }
 
   local result=0
   pane_idle_check "$session" "$HANG_IDLE" "$HANG_DEADLINE" || result=$?
