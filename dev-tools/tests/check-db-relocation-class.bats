@@ -95,6 +95,47 @@ EOF
 }
 
 # ---------------------------------------------------------------------------
+# 8. classifier-skip-meta-task — describes a relocation gate but performs no
+#    relocation: prose mentions relocate/decommission + :5432 but the
+#    frontmatter declares no type:db-relocation and carries no
+#    decommissioned_ip field. A gate/runbook task that only documents the
+#    pattern must NOT arm the sweep against itself.
+# ---------------------------------------------------------------------------
+@test "classifier-skip-meta-task — gate-describing task without real-relocation signal exits 1" {
+    cat >"$WORK/task.md" <<'EOF'
+---
+type: infra
+title: Build the dead-IP sweep gate for DB relocation tasks
+---
+
+This task builds a gate that fires when a DB relocation or decommission task
+is archived. The gate scans for a decommissioned DB_HOST on :5432 and blocks
+the archive if a live consumer of the old host still exists. It does not
+relocate or migrate any database itself.
+EOF
+    run "$SCRIPT" --task-description "$WORK/task.md"
+    [ "$status" -eq 1 ]
+}
+
+# ---------------------------------------------------------------------------
+# 9. classifier-arm-decommissioned-ip-field — explicit frontmatter field is
+#    the authoritative real-relocation signal even without a type field.
+# ---------------------------------------------------------------------------
+@test "classifier-arm-decommissioned-ip-field — decommissioned_ip frontmatter exits 0" {
+    cat >"$WORK/task.md" <<'EOF'
+---
+type: infra
+title: Repoint consumers off the old DB host
+decommissioned_ip: 23.88.34.218
+---
+
+Relocate consumers from the old host to the new database server.
+EOF
+    run "$SCRIPT" --task-description "$WORK/task.md"
+    [ "$status" -eq 0 ]
+}
+
+# ---------------------------------------------------------------------------
 # 6. classifier-usage-missing-td — no --task-description provided
 # ---------------------------------------------------------------------------
 @test "classifier-usage-missing-td — missing flag exits 2" {

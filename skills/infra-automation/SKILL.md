@@ -182,6 +182,17 @@ If a secret did transit a logged command line, treat it as exposed: record the i
 
 When a host is being decommissioned, every non-empty dataset on it (databases, file stores, dashboards, configs) is a migration candidate **by default**. Excluding anything requires an explicit operator decision with a recorded reason (empty schema, intentional size-based skip). Enumerate from the engines themselves (`listDatabases`, `\l`, du over data dirs) — never from the consumer configs you already know about: known consumers see only part of the data, and after teardown there is no way back.
 
+## IP-Scanning Script Test Matrix
+
+Any script that greps config surfaces for an IP address MUST cover, in its
+test suite, every common form the address takes — missing one creates a
+silent false-negative path. At minimum: (1) key-value `ip: <IP>` /
+`address: <IP>`, (2) bare YAML list item `  - <IP>` (common in
+`cluster_hosts:`, `allowed_ips:` inventories), (3) connection string
+`host=<IP>` / DSN, (4) URI scheme `scheme://<IP>`, and (5) `<IP>:<port>`.
+The bare-list form (2) is the one most often forgotten because it carries no
+key to anchor the pattern on.
+
 ## Acceptance-Criterion Authoring (infra)
 
 When a success criterion is verified by a shell command, record TWO fields, not one: the state-of-system intent ("no active connection strings reference host X") and the verification command (`grep -rE 'X' <files>` + expected exit code). A literal command alone is brittle — commented-out lines, renamed files, or unrelated matches flip its exit code while the intent stays satisfied. The intent field is what QA judges; the command is one way to check it.

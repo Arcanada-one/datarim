@@ -52,13 +52,16 @@ if grep -Eiq -- "$type_pattern" "$td"; then
 fi
 
 # ---------------------------------------------------------------------------
-# Prong 2: keyword + DB-host signal co-occurrence.
-# Both must match anywhere in the file.
+# Prong 2: explicit decommissioned_ip frontmatter field.
+# This is the authoritative real-relocation signal. A task that genuinely
+# retires a DB host declares the dead address as structured frontmatter, and
+# the sweep needs that field anyway (Step 0.35.1). Keying arming on the field
+# — rather than on relocate/decommission keywords co-occurring with a port in
+# free prose — prevents a gate/runbook task that merely *describes* the
+# relocation pattern from arming the sweep against itself (false positive).
 # ---------------------------------------------------------------------------
-keyword_pattern='relocate|repoint|decommission|migrate'
-dbhost_pattern='[Dd][Bb]_[Hh][Oo][Ss][Tt]|decommissioned_ip|dead\.ip|old\.db\.host|:5432|:27017|connection string'
-
-if grep -Eiq -- "$keyword_pattern" "$td" && grep -Eiq -- "$dbhost_pattern" "$td"; then
+decommissioned_ip_pattern='^decommissioned_ip:[[:space:]]*[^[:space:]]'
+if grep -Eiq -- "$decommissioned_ip_pattern" "$td"; then
     exit 0
 fi
 
