@@ -135,19 +135,97 @@ run_vendor_tmux() {
   local session="consilium-${slot}-$$"
   LAST_SESSION_NAME="$session"   # exported for run-log provenance
   session_spawn_interactive "$session" "$cmd" "" || return 1
-  # The brief is content (cyrillic + markup), not a control command — deliver it
-  # over the content channel (load-buffer/paste-buffer), which keeps the
-  # escape-injection + cooldown guards but does not apply the ASCII command
-  # whitelist. Using pane_send here would block any non-ASCII brief.
-  pane_send_content "$session" "$BRIEF" || { session_close "$session"; return 1; }
 
-  local result=0
-  pane_idle_check "$session" "$HANG_IDLE" "$HANG_DEADLINE" || result=$?
-  if [[ "$result" -eq 2 ]]; then
-    session_close "$session"
-    return 99
+  # File-reference delivery (not a big inline paste). Pasting a large brief into
+  # an interactive vendor TUI is unreliable: some vendors fold a large paste into
+  # a collapsed "[Pasted Content N chars]" multi-line buffer that Enter will not
+  # submit. Instead, the brief lives in a file the vendor pane can read ($BRIEF
+  # is an absolute path), and we paste a SHORT instruction that tells the vendor
+  # to read that file and do the task. A short single-line prompt submits cleanly
+  # across vendors. The instruction is generated in the brief's own language by
+  # the caller via FANOUT_FILEREF_PROMPT; default is English.
+  # File-out harvesting: the vendor WRITES its draft to a file, and we read that
+  # file — rather than scraping the pane. An interactive TUI redraws an ANSI
+  # interface (splash, boxes, footers) and scrolls the answer out of the captured
+  # viewport, so capture-pane is unreliable for harvesting a long structured
+  # answer; it is only used here for liveness/idle detection. The instruction
+  # tells the vendor to read the brief file and write the result to OUTFILE.
+  local outfile="$RUN_DIR/draft-${slot}.out"
+  rm -f "$outfile"
+  local instr="${FANOUT_FILEREF_PROMPT:-Read the file at the first path below and carry out the task described in it in full.}"
+  instr+=" Write the finished result (and nothing else — no preamble, no commentary) to this exact file path: ${outfile}"
+  local fileref="${instr}"$'\n'"brief: $BRIEF"$'\n'"output: $outfile"
+  local refpath
+  refpath="$(mktemp)"
+  printf '%s' "$fileref" > "$refpath"
+  pane_send_content "$session" "$refpath" || { rm -f "$refpath"; session_close "$session"; return 1; }
+  rm -f "$refpath"
+
+  # Settle gate: an interactive vendor TUI needs a moment to ingest the pasted
+  # brief and start thinking before idle-detection is meaningful. Without it,
+  # idle-detection can fire on the pre-answer prompt.
+  sleep "${FANOUT_SETTLE_SECS:-8}"
+
+  # First-output gate. With file-reference delivery the vendor reads the brief
+  # file silently for a while before emitting anything; that silent gap can be
+  # longer than idle_secs and would trip a FALSE idle (capturing only the echoed
+  # prompt). So before the idle loop, wait until the pane content has GROWN
+  # beyond the post-settle baseline (real generation started) — or a bounded
+  # first-output deadline elapses (the vendor may legitimately answer tersely).
+  local baseline_lines fo_waited=0
+  baseline_lines="$(pane_capture_tail "$session" "${FANOUT_CAPTURE_LINES:-600}" 2>/dev/null | wc -l | tr -d ' ')"
+  while [[ "$fo_waited" -lt "${FANOUT_FIRST_OUTPUT_DEADLINE:-180}" ]]; do
+    sleep "${FANOUT_POLL_SECS:-5}"
+    fo_waited=$((fo_waited + ${FANOUT_POLL_SECS:-5}))
+    local cur_lines
+    cur_lines="$(pane_capture_tail "$session" "${FANOUT_CAPTURE_LINES:-600}" 2>/dev/null | wc -l | tr -d ' ')"
+    [[ "$cur_lines" -gt "$baseline_lines" ]] && break   # generation has begun
+  done
+
+  # Wait-for-stabilisation loop. pane_idle_check returns:
+  #   0 — output unchanged for idle_secs (the agent finished) → capture
+  #   1 — output still changing within the window (agent is writing) → keep waiting
+  #   2 — never went idle and never produced fresh output before deadline → hung
+  # A long content generation legitimately keeps changing for minutes, so a
+  # single idle_check (which returns 1 the instant output changes) must not be
+  # treated as "done" — loop until the agent actually goes quiet or the overall
+  # deadline elapses.
+  local poll="${FANOUT_POLL_SECS:-5}"
+  local waited=0 result=0
+  while [[ "$waited" -lt "$HANG_DEADLINE" ]]; do
+    result=0
+    pane_idle_check "$session" "$HANG_IDLE" "$HANG_DEADLINE" || result=$?
+    if [[ "$result" -eq 0 ]]; then
+      break                       # stabilised → agent done
+    elif [[ "$result" -eq 2 ]]; then
+      session_close "$session"
+      return 99                   # hung past deadline with no output
+    fi
+    # result == 1: still actively writing — wait a slice and re-check.
+    sleep "$poll"
+    waited=$((waited + poll + 1))
+  done
+
+  # Harvest from the file the vendor was told to write, not from the pane. Give
+  # the write a brief grace window (the agent may finish thinking and flush the
+  # file a moment after the pane goes idle). If the file never appears, fall back
+  # to a chrome-stripped pane capture so the run still yields *something* the
+  # judge can see (and the run-log will show the weaker provenance).
+  local harvest_waited=0
+  while [[ "$harvest_waited" -lt "${FANOUT_HARVEST_GRACE:-30}" ]]; do
+    [[ -s "$outfile" ]] && break
+    sleep 3
+    harvest_waited=$((harvest_waited + 3))
+  done
+  if [[ -s "$outfile" ]]; then
+    cp "$outfile" "$out"
+  else
+    # Fallback: pane scrape with chrome stripped (best-effort; unreliable).
+    pane_capture_tail "$session" "${FANOUT_CAPTURE_LINES:-600}" 2>&1 \
+      | grep -vE '^[[:space:]]*[─╭╰│╮╯>❯]' \
+      | grep -vE 'gpt-[0-9]|Claude Code v|Tip:|/model to change|ctx [0-9]|accept edits|Esc to|Enter to|Press enter|[Pp]asted Content|/fast|to interrupt' \
+      > "$out" 2>/dev/null || true
   fi
-  pane_capture_tail "$session" 100 > "$out" 2>&1
   session_close "$session"
   return 0
 }
