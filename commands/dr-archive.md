@@ -239,6 +239,49 @@ Complete and archive current task.
    blast-radius, and the remediation owner + ETA. «DoD met» framing is
    forbidden when the network gate is red.
 
+
+0.35. **DEAD-IP CONSUMER SWEEP GATE** (MANDATORY when the task is db-relocation-class):
+
+   Arm condition: run the DB-relocation classifier. On exit 1 (not this class),
+   skip this step silently.
+
+   ```bash
+   "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-db-relocation-class.sh" \
+       --task-description datarim/tasks/{TASK-ID}-task-description.md
+   ```
+
+   On exit 0 (db-relocation-class):
+
+   **0.35.1 Required input check.** Read the `decommissioned_ip:` field from the
+   task-description frontmatter. If the field is absent or blank on a
+   relocation-class task, the gate fails closed — archive BLOCKED.
+
+   **0.35.2 Fleet sweep.** Run the verifier for each decommissioned IP:
+
+   ```bash
+   "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/dead-ip-consumer-sweep.sh" \
+       --dead-ip <each decommissioned_ip> \
+       --workspace-root "${WORKSPACE_ROOT:-.}" \
+       --audit datarim/tasks/{TASK-ID}-audit.md
+   ```
+
+   Exit code 1 ⇒ STOP archive. Quote the verifier command and exit code in
+   the archive doc § Verification. Resolve all live consumers (update config,
+   open a follow-up task) before re-running.
+
+   **0.35.3 Audit document requirement.** The file
+   `datarim/tasks/{TASK-ID}-audit.md` MUST exist, name the dead IP(s), and
+   assert zero live consumers. Absent or non-asserting audit ⇒ BLOCK.
+
+   **0.35.4 Failed gate ⇒ explicit operator handoff.** If the sweep is red at
+   archive time (operator chose to accept pending state at Step 0.1), the
+   archive doc § Known Outstanding State / Operator Handoff MUST list each
+   live consumer, the file path and line, and the remediation owner + ETA.
+   «DoD met» framing is forbidden while the sweep gate is red.
+
+   **/dr-auto note:** this gate is read-only (no network, no side-effects) and
+   runs without operator prompt. Only a genuine BLOCK surfaces to the operator.
+
 0.4. **Prod-Merge Verification Gate** (MANDATORY when the task is deploy-class):
    - **Condition:** the task is deploy-class —
      `bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-deploy-class.sh" --task-description datarim/tasks/{TASK-ID}-task-description.md`
