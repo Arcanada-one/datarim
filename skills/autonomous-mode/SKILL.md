@@ -44,6 +44,20 @@ Before every `AskUserQuestion` call (or any equivalent operator prompt — phras
 | 4 | **Coworker delegation** (`coworker ask --paths <list> --question "<question>"` — offload bulk I/O to an external LLM to save Claude tokens; see `documentation/infrastructure/Coworker.md`) | Bulk-context lookup: docs across repos, multiple large files, external-LLM reasoning over >10k tokens | <30s | External LLM does not give an unambiguous answer (or says "unknown") → L5 |
 | 5 | **Operator ask** (`AskUserQuestion`) | True ambiguity, hard-gated bypass, business strategy | a minute+ | Operator answer is the source of truth; log via `append-init-task-qa.sh --decided-by operator` |
 
+### Pre-resolved decisions (never an operator ask)
+
+Some recurring decisions are pre-resolved by policy and MUST NOT be surfaced as an
+`AskUserQuestion`, even when the agent feels uncertain. Treat these as L1-decided:
+
+- **Test on the test environment before prod / archive.** If the project space has a
+  test environment (per [[test-env-verification]] resolution chain), the answer to
+  "should I deploy to test and verify backend + frontend before preparing for prod or
+  archiving?" is always **yes** — do it autonomously. Asking the operator "did we test
+  on the test env?" each task is the exact anti-pattern this rule removes. The only
+  related escalation permitted is a billable/destructive external action on the test
+  env with no safe-mode (`dry_run` / read-only / content-only) equivalent — that
+  hits the Hard-gated Action Boundary below.
+
 ### Ambiguity definition
 
 Two or more plausible candidate answers at the **same level** with no deterministic tie-breaker (for example, two `package.json` files with different `version` fields) → **escalate to the next level**. If a tie-breaker is possible (for example, grep against an explicit path instead of a wildcard) — apply the tie-breaker; do not escalate.
