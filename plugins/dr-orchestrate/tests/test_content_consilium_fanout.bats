@@ -61,7 +61,11 @@ teardown() {
   run bash "$FANOUT" --brief "$RUN_DIR/brief.md" --run-dir "$RUN_DIR" --config "$CONSILIUM_CONFIG"
   [ "$status" -eq 0 ]
   grep -q '"vendor_slot"' "$RUN_DIR/run-log.jsonl"
-  grep -q '"status"' "$RUN_DIR/run-log.jsonl"
+  grep -q '"status"'      "$RUN_DIR/run-log.jsonl"
+  # F4: run-log must also carry vendor, cli, session to prove vendor-distinctness (plan §4.2)
+  grep -q '"vendor"'      "$RUN_DIR/run-log.jsonl"
+  grep -q '"cli"'         "$RUN_DIR/run-log.jsonl"
+  grep -q '"session"'     "$RUN_DIR/run-log.jsonl"
 }
 
 # --- Test 2: 2-of-3 degradation (one vendor unavailable) ---

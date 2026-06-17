@@ -92,15 +92,25 @@ HANG_DEADLINE="${HANG_DEADLINE:-300}"
 
 # ---------------------------------------------------------------------------
 # JSON log helper
+#
+# Emits one JSONL entry per vendor run. Fields:
+#   vendor_slot  — uppercase slot label (A/B/C)
+#   vendor       — CLI binary name (proves vendor-distinctness per plan §4.2)
+#   cli          — same as vendor: the CLI command string (slot ≠ CLI; proves no aliasing)
+#   session      — tmux session name in interactive mode; "direct" in test mode
+#   status       — ok | error | hung
+#   elapsed_s    — wall-clock seconds
+#   reason       — optional failure reason
 # ---------------------------------------------------------------------------
 json_log_entry() {
-  local slot="$1" status="$2" elapsed="$3" reason="${4:-}"
+  local slot="$1" status="$2" elapsed="$3"
+  local vendor="${4:-unknown}" cli="${5:-unknown}" session="${6:-unknown}" reason="${7:-}"
   if [[ -n "$reason" ]]; then
-    printf '{"vendor_slot":"%s","status":"%s","elapsed_s":%s,"reason":"%s"}\n' \
-      "$slot" "$status" "$elapsed" "$reason"
+    printf '{"vendor_slot":"%s","vendor":"%s","cli":"%s","session":"%s","status":"%s","elapsed_s":%s,"reason":"%s"}\n' \
+      "$slot" "$vendor" "$cli" "$session" "$status" "$elapsed" "$reason"
   else
-    printf '{"vendor_slot":"%s","status":"%s","elapsed_s":%s}\n' \
-      "$slot" "$status" "$elapsed"
+    printf '{"vendor_slot":"%s","vendor":"%s","cli":"%s","session":"%s","status":"%s","elapsed_s":%s}\n' \
+      "$slot" "$vendor" "$cli" "$session" "$status" "$elapsed"
   fi
 }
 
@@ -123,6 +133,7 @@ run_vendor_tmux() {
   # shellcheck source=../scripts/tmux_manager.sh
   source "$SCRIPT_DIR/tmux_manager.sh"
   local session="consilium-${slot}-$$"
+  LAST_SESSION_NAME="$session"   # exported for run-log provenance
   session_spawn_interactive "$session" "$cmd" "" || return 1
   pane_send "$session" "$(cat "$BRIEF")" || { session_close "$session"; return 1; }
 
@@ -156,6 +167,8 @@ else
   TIMEOUT_BIN=""
 fi
 
+LAST_SESSION_NAME=""   # set by run_vendor_tmux per invocation
+
 while IFS=$'\t' read -r slot cmd args_str; do
   [[ -z "$slot" ]] && continue
   (( vendor_count++ )) || true
@@ -163,6 +176,9 @@ while IFS=$'\t' read -r slot cmd args_str; do
   start_ts="$(date +%s)"
   hung=0
   vendor_rc=0
+  # Derive vendor name from CLI binary basename (no path, no args)
+  vendor_name="$(basename "$cmd")"
+  LAST_SESSION_NAME="direct"   # default; overridden by run_vendor_tmux
 
   if [[ "${DR_FANOUT_TEST_MODE:-0}" == "1" ]]; then
     # Test mode: run directly, optionally under timeout for hang detection
@@ -194,17 +210,21 @@ while IFS=$'\t' read -r slot cmd args_str; do
 
   end_ts="$(date +%s)"
   elapsed=$((end_ts - start_ts))
+  session_label="${LAST_SESSION_NAME:-direct}"
 
   if [[ "$hung" -eq 1 ]]; then
-    json_log_entry "$slot" "hung" "$elapsed" "hang timeout exceeded" >> "$RUN_LOG"
+    json_log_entry "$slot" "hung" "$elapsed" \
+      "$vendor_name" "$cmd" "$session_label" "hang timeout exceeded" >> "$RUN_LOG"
     rm -f "$local_out"
     (( degraded++ )) || true
   elif [[ "$vendor_rc" -ne 0 ]]; then
-    json_log_entry "$slot" "error" "$elapsed" "exit $vendor_rc" >> "$RUN_LOG"
+    json_log_entry "$slot" "error" "$elapsed" \
+      "$vendor_name" "$cmd" "$session_label" "exit $vendor_rc" >> "$RUN_LOG"
     rm -f "$local_out"
     (( degraded++ )) || true
   else
-    json_log_entry "$slot" "ok" "$elapsed" >> "$RUN_LOG"
+    json_log_entry "$slot" "ok" "$elapsed" \
+      "$vendor_name" "$cmd" "$session_label" >> "$RUN_LOG"
     (( success_count++ )) || true
   fi
 done < <(parse_vendors "$CONFIG")
