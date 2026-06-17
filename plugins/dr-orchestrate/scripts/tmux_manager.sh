@@ -50,6 +50,38 @@ pane_send() {
   tmux send-keys -t "$target" -- "$text" Enter
 }
 
+# pane_send_content — deliver an arbitrary content payload (a brief, an article
+# body, any non-command text that may contain non-ASCII and markup) to a pane.
+#
+# This is the content channel, distinct from pane_send (the command channel).
+# The command-channel whitelist (`^[a-zA-Z0-9 _./:=@-]+$`) exists to keep
+# orchestrator control commands ASCII-only; it deliberately does NOT apply here,
+# because content legitimately carries cyrillic / markup / punctuation. The
+# escape-injection guard (check_escape — the CVE-2019-9535 mitigation) and the
+# cooldown / pane-blocked guards STILL apply: those are about safety, not
+# alphabet. Delivery uses tmux load-buffer + paste-buffer rather than send-keys,
+# so the payload is pasted as literal text and never interpreted as keystrokes.
+#
+# Args: <target-pane> <content-file>  (the brief is read from a file, never a
+# shell arg, to avoid argv-length limits and quoting hazards on large bodies).
+pane_send_content() {
+  local target="$1"
+  local content_file="$2"
+  [[ -f "$content_file" ]] || { echo "ERR: content file not found: $content_file" >&2; return 1; }
+  # Escape-injection guard stays (reads the payload from the file).
+  bash "$DR_ORCH_DIR/scripts/security.sh" check_escape "$(cat "$content_file")" || return 1
+  bash "$DR_ORCH_DIR/scripts/security.sh" check_cooldown "$target" micro || return 1
+  if bash "$DR_ORCH_DIR/scripts/security.sh" is_pane_blocked "$target"; then
+    echo "ERR: pane $target is blocked" >&2
+    return 1
+  fi
+  # Load the file into a private tmux buffer, paste it into the pane, then submit.
+  local buf="dr-content-$$-${RANDOM}"
+  tmux load-buffer -b "$buf" "$content_file" || return 1
+  tmux paste-buffer -d -b "$buf" -t "$target" || { tmux delete-buffer -b "$buf" 2>/dev/null; return 1; }
+  tmux send-keys -t "$target" Enter
+}
+
 # TUNE-0295 Phase B: list/attach/new + *_safe wrappers for tmux_dispatcher.
 
 list() {

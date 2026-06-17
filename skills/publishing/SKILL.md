@@ -584,3 +584,31 @@ If content was produced via `--consilium` multi-vendor mode:
 - [ ] `final.md` is the file being published — not one of the raw `draft-*.md` files.
 - [ ] If degradation occurred (`degradation_note.txt` present), the operator has
   acknowledged the reduced vendor count before publishing.
+
+### Multi-vendor execution mode — interactive tmux only
+
+The multi-vendor fan-out runs each vendor as an **interactive tmux pane** and
+delivers the brief via the pane (the `run_vendor_tmux` path). It MUST NOT run
+the vendor CLIs in headless / print mode (`-p` / `exec` / `--print`).
+
+- [ ] Vendor agents run in interactive panes, not headless. Subscription-based
+  CLIs are authenticated in their interactive TUI; headless mode requires a
+  separate per-vendor API key (API-billing), which is out of scope for a
+  subscription-only setup — one vendor CLI rejects headless invocation outright
+  even where it is interactively signed in.
+- [ ] The brief is sent to each pane and the reply is captured after the pane
+  goes idle — never piped to a non-interactive subprocess.
+- [ ] Direct-subprocess / test-mode execution is reserved for the test suite
+  only; it is never the path for a live content run.
+
+The orchestrator pane and the vendor panes run with **different contexts**:
+
+- [ ] The **orchestrator** pane (the pane that drives the run, judges drafts,
+  and synthesises the final) runs as a full framework agent — it uses the
+  framework rules and the delegation tooling.
+- [ ] The **vendor** panes (the per-vendor draft authors) run as **bare agents**
+  with **no framework context**. The orchestrator/operator sends them the raw
+  content brief directly through the pane — no framework commands, no skills,
+  no project instruction file in their working context. The goal is each
+  vendor's **native voice** on the same brief; loading framework context into a
+  vendor pane contaminates the voice comparison and is a defect.
