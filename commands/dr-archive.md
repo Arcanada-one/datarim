@@ -270,6 +270,29 @@ Complete and archive current task.
      rollout is incomplete or unverified. Archive closes the audit trail —
      closing it on an unverified prod records a false «done».
 
+0.43. **Test-Environment Verification Gate** (MANDATORY when the task ships runtime behaviour AND the project space has a test environment):
+   - **Condition:** the task ships code/config/migration behaviour (not docs-only /
+     framework-only) AND a test environment is registered or discoverable per
+     `$HOME/.claude/skills/test-env-verification/SKILL.md` § When this skill is active
+     (resolution: `spaces/<space>/space.yml` → `test_environments[]` → CI `deploy:test`
+     heuristic → else `NO-TEST-ENV`).
+   - **Contract:** the change MUST have been verified on the test environment —
+     **backend AND frontend** — before archive. Archive is a HARD BLOCK without a
+     `PASS` / `PASS_WITH_NOTES` / `SKIP` / `NO-TEST-ENV` record for this gate (from
+     `/dr-qa` Layer 4h or re-asserted here). `NO-TEST-ENV` and `SKIP` are recorded
+     verbatim in the archive doc § Operator Handoff; they are not a verification pass.
+   - **Re-assert, do not re-deploy blindly:** read the `/dr-qa` Layer 4h record. If
+     present and `PASS`/`PASS_WITH_NOTES`, confirm the test-env deploy SHA still
+     matches the archived commits and proceed. If absent (task reached archive without
+     the gate), run the autonomous procedure now per the skill: ship to test via
+     `deploy:test`, exercise backend + frontend, record the result.
+   - **Order:** this gate runs alongside Step 0.4 (prod-merge readiness) — both must
+     be satisfied before reflection (Step 0.5) and the final archive write. A
+     production deploy MUST NOT precede a green test-env verification.
+   - **Autonomous (`DATARIM_AUTO_MODE=1`):** the gate runs without asking; "test on
+     the test env first" is pre-resolved to yes. Only a billable/destructive external
+     action on test with no safe-mode equivalent escalates to the operator.
+
 0.45. **EXPECTATIONS RE-VALIDATION + ANTI-DEFERRAL GATE** (MANDATORY):
    - This gate runs BEFORE Step 0.5 (reflection) on purpose: reflection's
      follow-up-suggestion heuristic would otherwise let a self-inflicted loose

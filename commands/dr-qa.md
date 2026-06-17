@@ -337,6 +337,48 @@ predicted production impact and the operator remediation required.
 
 **Verdict:** SKIP | PASS | FAIL
 
+### 4h. Test-Environment Verification Gate (behaviour-shipping tasks — blocking before prod prep / archive)
+
+**Condition:** Execute when the task ships runtime behaviour (code/config/migration —
+not docs-only or framework-only) AND the project space has a test environment, per
+`$HOME/.claude/skills/test-env-verification/SKILL.md` § When this skill is active.
+Resolution chain: space registry `spaces/<space>/space.yml` → `test_environments[]`
+(authoritative) → CI `deploy:test` heuristic (fallback) → else `NO-TEST-ENV`.
+
+**Why this gate exists:** a change can pass every component/unit/Playwright test in
+an isolated worktree and still have never run on a real deployed environment.
+Operator mandate (DEV-1530): when a test environment exists, the change MUST be
+verified on it — **backend AND frontend** — **autonomously**, before the task is
+prepared for prod or archived. Do not ask the operator each task whether to test;
+this skill pre-resolves that decision to "yes".
+
+**Steps (autonomous):**
+
+1.  Load `$HOME/.claude/skills/test-env-verification/SKILL.md`.
+2.  Resolve the test environment(s) + record the source that resolved them.
+3.  Ship the change to the test env via the project's `deploy:test` CI (integrate
+    onto the triggering branch — cherry-pick-onto-`dev` when the feature was cut
+    from `main` and `dev` ≫ `main`; never a blind feature→dev merge). Poll CI until
+    `deploy:test` is green.
+4.  Exercise **backend** (health + ≥1 behaviour-bearing call on the changed path;
+    safe-mode / `dry_run` when the env can mutate real external systems — never a
+    billable/destructive external action on test without operator sign-off).
+5.  Exercise **frontend** (load the affected flow on the deployed test build; if the
+    test env disables the agent's auth path, record the limitation and fall back to
+    the deployed-bundle check + the Layer 4f component/live-render Playwright — do
+    NOT silently skip the frontend).
+6.  **Record in QA report** under `### Layer 4h — Test-Environment Verification`: the
+    resolved env + source, CI deploy pipeline + job result, exact backend/frontend
+    commands, captured output, per-surface verdict.
+
+**Verdict → action:**
+
+- `PASS` / `PASS_WITH_NOTES` ⇒ Layer 4h contribution = PASS; the pipeline MAY propose prod prep / archive.
+- `SKIP` (docs/framework-only) / `NO-TEST-ENV` (none registered or discoverable) ⇒ no-op; recorded verbatim (NO-TEST-ENV is NOT a verification pass).
+- `FAIL` (not shipped to test, or exercised and broken) ⇒ Layer 4h = **FAIL**; the pipeline **MUST NOT propose prod prep / archive**. Overall QA verdict is **BLOCKED**; route to `/dr-do` (broken) or back to the deploy step (not shipped).
+
+**Verdict:** PASS | PASS_WITH_NOTES | SKIP | NO-TEST-ENV | FAIL
+
 ```markdown
 ### Layer 4: Code Quality — {VERDICT}
 

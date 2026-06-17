@@ -99,6 +99,20 @@ description: Initialize a new Datarim task or scaffold a new project. Auto-detec
     - **Non-blocking** — operator proceeds at will. The advisory exists so misplaced KB directories are noticed at `/dr-init` rather than discovered after parallel sessions have already accumulated artefacts in the wrong place.
     - Excludes `code/datarim` paths (framework source-tree, not KB) and any sub-directory that is itself a git toplevel (legitimate sub-repo with its own canonical KB).
 
+2.5d. **KB-PUSH SENTINEL AGE ADVISORY** (advisory, non-blocking; framework v2.40.0+):
+    - Surfaces cross-host sync drift: when the workspace carries a `datarim/.kb-last-push` sentinel, print its age so the operator sees at a glance whether the local KB is freshly synced or stale. A frequent root cause of "the artefacts disappeared" is a Mac↔VM sync lag; one read-only line saves a diagnostic round-trip.
+    - Skip silently when `datarim/.kb-last-push` does not exist (most installs have no sentinel; absence is not an error).
+    - Otherwise run (GNU `stat -c` first, BSD `stat -f` fallback — the binary differs by platform):
+      ```bash
+      if [ -f datarim/.kb-last-push ]; then
+          mtime=$(stat -c %Y datarim/.kb-last-push 2>/dev/null || stat -f %m datarim/.kb-last-push 2>/dev/null)
+          if [ -n "$mtime" ]; then
+              printf 'KB-push sentinel age: %ss (datarim/.kb-last-push)\n' "$(( $(date +%s) - mtime ))"
+          fi
+      fi
+      ```
+    - **Non-blocking** — purely informational; the operator proceeds at will. No threshold, no failure mode: a large age is context, not a gate.
+
 3.  **CHECK BACKLOG**: If `datarim/backlog.md` exists and contains pending items:
     - Display pending items as a numbered list (ID, title, priority, complexity).
     - **If user provided a `BACKLOG-XXXX` ID**: Select that item directly.
