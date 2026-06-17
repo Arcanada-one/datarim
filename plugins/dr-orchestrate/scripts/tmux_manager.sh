@@ -76,9 +76,15 @@ pane_send_content() {
     return 1
   fi
   # Load the file into a private tmux buffer, paste it into the pane, then submit.
+  # A small settle delay between the paste and the Enter is required: an
+  # interactive TUI ingests a paste asynchronously (echo, re-wrap, fold large
+  # pastes into a placeholder), and an Enter sent back-to-back races that ingest
+  # and is dropped — leaving the prompt unsubmitted in the input box. The delay
+  # lets the paste land before the submit keystroke.
   local buf="dr-content-$$-${RANDOM}"
   tmux load-buffer -b "$buf" "$content_file" || return 1
   tmux paste-buffer -d -b "$buf" -t "$target" || { tmux delete-buffer -b "$buf" 2>/dev/null; return 1; }
+  sleep "${DR_PANE_SUBMIT_DELAY:-2}"
   tmux send-keys -t "$target" Enter
 }
 
