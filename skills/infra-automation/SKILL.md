@@ -34,6 +34,22 @@ Reusable patterns for SSH-based operations across Arcana servers.
 > done
 > ```
 
+**Mesh-health pre-check.** Before running a fleet sweep or batch command, verify
+Tailscale reachability for each node. Unreachable nodes fall back to public IP or
+are deferred — never silently skipped without a log entry:
+
+```bash
+for host in <MESH_IP_LIST>; do
+  if ping -c1 -W2 "$host" >/dev/null 2>&1; then
+    echo "mesh-ok: $host"
+  else
+    echo "mesh-unreachable: $host — falling back to public IP or deferring" >&2
+  fi
+done
+```
+
+Record the reachability result in the sweep log before proceeding.
+
 Run a command on all (or selected) servers (relies on default
 `StrictHostKeyChecking=ask` — bootstrap above pre-populates `known_hosts` so the
 prompt never fires; an unknown host fails fast in batch mode):
