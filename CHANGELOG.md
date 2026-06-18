@@ -4,6 +4,10 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.41.0] — 2026-06-18
+
+**POSIX re-exec preamble + multi-distro Docker install-matrix harness.** install.sh now includes a POSIX-safe re-exec preamble (before `set -euo pipefail`) that transparently re-execs under bash when invoked via `sh`; prints an actionable error and exits 2 when bash is absent. Verified across 7 Docker images (rockylinux:9, almalinux:9, fedora:latest, redhat/ubi9-minimal, debian:stable-slim, ubuntu:latest, alpine:latest) via the new `dev-tools/install-matrix.sh` harness. RedHat family installs — previously broken when invoked via `sh` — now pass. Added 5 TDD preflight bats tests and 15 post-install container assertions. Docs updated: bash≥4 prerequisite in README and getting-started.md; OS matrix in use-cases.md.
+
 ## [2.40.1] — 2026-06-18
 
 **Snapshot-writer TASK-ID regex broadened to accept slug-suffix IDs.** The regex that validates TASK-IDs before writing a snapshot file was too strict: it required the ID to end immediately after 4–5 digits, so any ID with a follow-up segment (e.g. `DEV-1438-FU-engage-generator-perf`) was rejected with exit 1 and no snapshot was written. The canonical pattern used everywhere else in the framework now aligns the writer.
