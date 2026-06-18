@@ -6,9 +6,13 @@ This guide walks you through installing the Datarim framework, initializing it i
 
 ## Prerequisites
 
+- **bash ≥ 4** — install.sh requires bash (not sh/dash/ash). On macOS install via `brew install bash`; on RedHat/Alpine ensure `bash` is in PATH. `sh install.sh` works if bash is anywhere on PATH (the installer self-re-execs); if bash is absent you get an actionable error and exit 2.
+- **git** — required to clone the framework repo.
 - [Claude Code](https://code.claude.com/docs/en/overview) CLI installed and authenticated. Install: `curl -fsSL https://claude.ai/install.sh | bash` (macOS/Linux/WSL) or `irm https://claude.ai/install.ps1 | iex` (Windows PowerShell)
 - A git repository for your project (Datarim uses `.gitignore` to separate workflow state from project documentation)
 - **Recommended:** [context7](https://github.com/upstash/context7) MCP server for token-efficient documentation access when looking up library docs
+
+> **Run via bash, not sh.** Prefer `bash install.sh` to `sh install.sh` to be explicit. The installer detects a non-bash shell and re-execs under bash automatically when bash is on PATH, so `sh install.sh` also works — but `bash install.sh` skips the detection step and is slightly faster.
 
 ---
 

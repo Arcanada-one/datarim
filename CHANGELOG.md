@@ -4,6 +4,10 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.41.0] — 2026-06-18
+
+**POSIX re-exec preamble + multi-distro Docker install-matrix harness.** install.sh now includes a POSIX-safe re-exec preamble (before `set -euo pipefail`) that transparently re-execs under bash when invoked via `sh`; prints an actionable error and exits 2 when bash is absent. Verified across 7 Docker images (rockylinux:9, almalinux:9, fedora:latest, redhat/ubi9-minimal, debian:stable-slim, ubuntu:latest, alpine:latest) via the new `dev-tools/install-matrix.sh` harness — claude, codex and cursor vendors all install (vendor-aware post-install assertions). RedHat family installs — previously broken when invoked via `sh` — now pass. Codex install on Windows (Git Bash) is fixed: an unmaterialised `AGENTS.md` symlink now falls back to copying `CLAUDE.md`. Added TDD preflight bats and per-vendor post-install container assertions. Docs updated: bash + git prerequisites and "run via bash, not sh" in README and getting-started.md; OS matrix in use-cases.md.
+
 ## [2.39.0] — 2026-06-16
 
 Pre-archive unpushed-commits gate. `/dr-archive` now stops when a touched repository has committed-but-unpushed commits and the task type is `bugfix`/`feature`/`refactor`, closing the archived-but-unmerged gap (Step 0.1 covered only the dirty working tree).
