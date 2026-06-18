@@ -23,8 +23,15 @@ bats_require_minimum_version 1.5.0
 # ---------- setup: resolve paths ----------------------------------------------
 
 setup() {
-    CLAUDE_DIR="${CLAUDE_DIR:-/tmp/fake-claude}"
-    INSTALL_REPO="${INSTALL_REPO:-/opt/datarim}"
+    # These assertions run INSIDE a matrix container, after install.sh has
+    # populated CLAUDE_DIR from a clone at INSTALL_REPO. When invoked directly
+    # on a host (naive `bats tests/`) neither is set up, so skip rather than
+    # false-fail — the matrix driver exports both before calling.
+    if [ -z "${CLAUDE_DIR:-}" ] || [ -z "${INSTALL_REPO:-}" ]; then
+        skip "matrix-only: set CLAUDE_DIR and INSTALL_REPO (driven by install-matrix.sh inside a container)"
+    fi
+    [ -d "$CLAUDE_DIR" ] || skip "CLAUDE_DIR ($CLAUDE_DIR) absent — run via install-matrix.sh"
+    [ -d "$INSTALL_REPO" ] || skip "INSTALL_REPO ($INSTALL_REPO) absent — run via install-matrix.sh"
 }
 
 # ---------- scope presence ---------------------------------------------------
