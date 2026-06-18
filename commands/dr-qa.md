@@ -347,7 +347,7 @@ Resolution chain: space registry `spaces/<space>/space.yml` → `test_environmen
 
 **Why this gate exists:** a change can pass every component/unit/Playwright test in
 an isolated worktree and still have never run on a real deployed environment.
-Operator mandate (DEV-1530): when a test environment exists, the change MUST be
+Operator mandate: when a test environment exists, the change MUST be
 verified on it — **backend AND frontend** — **autonomously**, before the task is
 prepared for prod or archived. Do not ask the operator each task whether to test;
 this skill pre-resolves that decision to "yes".
