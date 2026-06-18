@@ -263,6 +263,25 @@ Datarim is runtime-agnostic. The same framework runs under three AI coding runti
 
 ---
 
+## OS / platform support
+
+install.sh is verified across the following OS families via the Docker install-matrix harness (`dev-tools/install-matrix.sh`):
+
+| OS family | Example images | Notes |
+|-----------|---------------|-------|
+| **RedHat / RPM** | `rockylinux:9`, `almalinux:9`, `fedora:latest`, `redhat/ubi9-minimal` | `sh install.sh` re-execs under bash; install git + bash before running |
+| **Debian / Ubuntu** | `debian:stable-slim`, `ubuntu:latest` | `apt-get install -y git bash` then `bash install.sh` |
+| **Alpine** | `alpine:latest` | `apk add git bash` then `bash install.sh` |
+| **macOS** | macOS 14+ (Apple Silicon + Intel) | Homebrew bash (`brew install bash`) recommended over the system bash 3.2 |
+| **Windows — WSL** | Ubuntu 22.04+ under WSL2 | Same as Debian/Ubuntu lane above |
+| **Windows — Git Bash** | Git for Windows (MSYS2) | Copy mode (`--copy`) used automatically; symlinks not supported on NTFS |
+
+**Key requirement: bash must be available.** install.sh starts with a POSIX re-exec guard — if invoked via `sh`, it re-execs itself under bash transparently. If bash is absent on PATH, it prints an actionable error and exits 2. Explicit `bash install.sh` is always safe and slightly faster.
+
+**Windows PowerShell is not supported.** Use WSL or Git Bash instead.
+
+---
+
 ## Key Takeaway
 
 The pipeline stages map to universal project phases:

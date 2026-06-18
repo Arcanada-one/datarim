@@ -216,6 +216,8 @@ Datarim is runtime-agnostic. Three AI coding runtimes are supported with differe
 
 ## Prerequisites
 
+- **bash ≥ 4** — install.sh requires bash. Invoke it as `bash install.sh` (explicit) or `sh install.sh` (auto-re-execs under bash when bash is on PATH). If bash is absent you get an actionable error and exit 2.
+- **git** — required for cloning the repo.
 - [Claude Code](https://code.claude.com/docs/en/overview) CLI installed and authenticated. Install: `curl -fsSL https://claude.ai/install.sh | bash` (macOS/Linux/WSL) or `irm https://claude.ai/install.ps1 | iex` (Windows PowerShell)
 - **Recommended:** [context7](https://github.com/upstash/context7) MCP server for
   token-efficient documentation access (reduces context usage when looking up library
