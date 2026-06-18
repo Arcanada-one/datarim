@@ -101,6 +101,41 @@ OPT
     [ ! -f "$TMPROOT/datarim/snapshots/TUNE-0254.snapshot.md" ]
 }
 
+@test "missing --body-file names the specific flag on stderr, still exit 2" {
+    run write_stage_snapshot \
+        --root "$TMPROOT" --task TUNE-0254 --stage plan --command /dr-plan \
+        --captured-by agent --recommended-next /dr-do \
+        --options-file "$OPTIONS"
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"missing required flag(s):"* ]]
+    [[ "$output" == *"--body-file"* ]]
+    # still prints the full usage block after the named-flag line
+    [[ "$output" == *"Usage: write_stage_snapshot"* ]]
+}
+
+@test "multiple missing flags are all named on stderr, exit 2" {
+    run write_stage_snapshot --root "$TMPROOT" --task TUNE-0254
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"--stage"* ]]
+    [[ "$output" == *"--command"* ]]
+    [[ "$output" == *"--captured-by"* ]]
+    [[ "$output" == *"--recommended-next"* ]]
+    [[ "$output" == *"--body-file"* ]]
+}
+
+@test "full flag set path is byte-identical (no missing-flag line)" {
+    run write_stage_snapshot \
+        --root "$TMPROOT" --task TUNE-0254 --stage plan --command /dr-plan \
+        --captured-by agent --recommended-next /dr-do \
+        --options-file "$OPTIONS" --body-file "$BODY1"
+    [ "$status" -eq 0 ]
+    # the success path must NEVER emit the missing-flag diagnostic
+    [[ "$output" != *"missing required flag(s)"* ]]
+    local snap="$TMPROOT/datarim/snapshots/TUNE-0254.snapshot.md"
+    [ -f "$snap" ]
+    grep -q 'first stage body — round 1' "$snap"
+}
+
 @test "snapshot file is chmod 600 (least-privilege Appendix A control)" {
     write_stage_snapshot \
         --root "$TMPROOT" --task TUNE-0254 --stage plan --command /dr-plan \
