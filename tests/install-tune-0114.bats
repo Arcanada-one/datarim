@@ -168,6 +168,53 @@ teardown() {
     [[ "$output" != *"AGENTS.md"* ]]
 }
 
+# ---------- AGENTS.md Windows-stub fallback (Windows copy-mode) ---------------
+#
+# On Windows, git does not materialise symlinks (core.symlinks=false).
+# AGENTS.md is a symlink → CLAUDE.md in the repo, so after a Windows clone it
+# is either absent or a text stub containing the literal path "CLAUDE.md".
+# The codex copy-mode branch must fall back to copying CLAUDE.md in both cases.
+# These tests exercise that path using DATARIM_FORCE_UNAME=MINGW64_NT-10 to
+# force copy mode without needing a real Windows host.
+
+@test "TUNE-0296 T40c --with-codex copy-mode: absent AGENTS.md falls back to CLAUDE.md content" {
+    local fake_codex="$FAKE_HOME/.codex"
+    # AGENTS.md deliberately absent (Windows git-clone without core.symlinks)
+    rm -f "$FAKE_REPO/AGENTS.md"
+    echo "# real CLAUDE.md content" > "$FAKE_REPO/CLAUDE.md"
+    run env HOME="$FAKE_HOME" CODEX_DIR="$fake_codex" \
+        DATARIM_FORCE_UNAME=MINGW64_NT-10.0-26200 \
+        "$FAKE_REPO/install.sh" --with-codex --yes
+    [ "$status" -eq 0 ]
+    [ -f "$fake_codex/AGENTS.md" ]
+    grep -q "real CLAUDE.md content" "$fake_codex/AGENTS.md"
+}
+
+@test "TUNE-0296 T40d --with-codex copy-mode: stub AGENTS.md (contains 'CLAUDE.md') falls back to CLAUDE.md content" {
+    local fake_codex="$FAKE_HOME/.codex"
+    # Windows git stub: file exists but contains only the symlink-target path
+    printf 'CLAUDE.md' > "$FAKE_REPO/AGENTS.md"
+    echo "# real CLAUDE.md content" > "$FAKE_REPO/CLAUDE.md"
+    run env HOME="$FAKE_HOME" CODEX_DIR="$fake_codex" \
+        DATARIM_FORCE_UNAME=MINGW64_NT-10.0-26200 \
+        "$FAKE_REPO/install.sh" --with-codex --yes
+    [ "$status" -eq 0 ]
+    [ -f "$fake_codex/AGENTS.md" ]
+    grep -q "real CLAUDE.md content" "$fake_codex/AGENTS.md"
+}
+
+@test "TUNE-0296 T40e --with-codex copy-mode: real AGENTS.md (Linux/macOS) uses its own content (no regression)" {
+    local fake_codex="$FAKE_HOME/.codex"
+    echo "# real AGENTS.md content (materialized symlink)" > "$FAKE_REPO/AGENTS.md"
+    echo "# CLAUDE.md separate" > "$FAKE_REPO/CLAUDE.md"
+    run env HOME="$FAKE_HOME" CODEX_DIR="$fake_codex" \
+        DATARIM_FORCE_UNAME=MINGW64_NT-10.0-26200 \
+        "$FAKE_REPO/install.sh" --with-codex --yes
+    [ "$status" -eq 0 ]
+    [ -f "$fake_codex/AGENTS.md" ]
+    grep -q "real AGENTS.md content" "$fake_codex/AGENTS.md"
+}
+
 # ---------- TUNE-0297: Codex UX parity (SKILL.md wrappers + AGENTS.override) ----
 
 @test "TUNE-0297 T42 --with-codex generates SKILL.md wrapper for each source skill" {
