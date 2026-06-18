@@ -42,6 +42,29 @@
 #                             exercise the Windows copy-fallback path
 #   DATARIM_MIGRATION_CHOICE  pre-answer the c|k|a migration prompt
 
+## POSIX re-exec preamble — must appear before `set -euo pipefail` and before
+## any bash-only syntax (arrays, [[ ]], (( ))).  This block is valid POSIX sh.
+##
+## Why: on RedHat (UBI/minimal), Alpine, and some Debian slim images the
+## /bin/sh is dash or ash — POSIX-only shells that cannot parse bash arrays.
+## Invoking `sh install.sh` on these systems fails immediately at the
+## `set -euo pipefail` or `INSTALL_SCOPES=(...)` line.
+##
+## Resolution: if $BASH_VERSION is unset we are running in a non-bash shell.
+## When bash is on PATH we transparently re-exec this exact script under bash.
+## When bash is absent we print one actionable error and exit 2.
+## When $BASH_VERSION is already set (normal `bash install.sh` invocation) the
+## block is a no-op — no re-exec loop.
+if [ -z "${BASH_VERSION:-}" ]; then
+    _bash_bin="$(command -v bash 2>/dev/null || true)"
+    if [ -n "$_bash_bin" ]; then
+        exec "$_bash_bin" "$0" "$@"
+    fi
+    printf 'error: Datarim install.sh requires bash but bash was not found on PATH.\n' >&2
+    printf 'Install bash and re-run:  bash install.sh %s\n' "$*" >&2
+    exit 2
+fi
+
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
