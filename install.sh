@@ -42,6 +42,29 @@
 #                             exercise the Windows copy-fallback path
 #   DATARIM_MIGRATION_CHOICE  pre-answer the c|k|a migration prompt
 
+## POSIX re-exec preamble — must appear before `set -euo pipefail` and before
+## any bash-only syntax (arrays, [[ ]], (( ))).  This block is valid POSIX sh.
+##
+## Why: on RedHat (UBI/minimal), Alpine, and some Debian slim images the
+## /bin/sh is dash or ash — POSIX-only shells that cannot parse bash arrays.
+## Invoking `sh install.sh` on these systems fails immediately at the
+## `set -euo pipefail` or `INSTALL_SCOPES=(...)` line.
+##
+## Resolution: if $BASH_VERSION is unset we are running in a non-bash shell.
+## When bash is on PATH we transparently re-exec this exact script under bash.
+## When bash is absent we print one actionable error and exit 2.
+## When $BASH_VERSION is already set (normal `bash install.sh` invocation) the
+## block is a no-op — no re-exec loop.
+if [ -z "${BASH_VERSION:-}" ]; then
+    _bash_bin="$(command -v bash 2>/dev/null || true)"
+    if [ -n "$_bash_bin" ]; then
+        exec "$_bash_bin" "$0" "$@"
+    fi
+    printf 'error: Datarim install.sh requires bash but bash was not found on PATH.\n' >&2
+    printf 'Install bash and re-run:  bash install.sh %s\n' "$*" >&2
+    exit 2
+fi
+
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -1116,7 +1139,27 @@ fanout_runtime() {
             echo ""
         done
         if [ "$runtime_name" = "codex" ]; then
-            cp -f "$SCRIPT_DIR/AGENTS.md" "$CLAUDE_DIR/AGENTS.md"
+            # AGENTS.md is a symlink → CLAUDE.md on Linux/macOS.  On Windows
+            # (core.symlinks=false) git does not materialise symlinks — the file
+            # is absent or a 9-byte text stub containing the literal path
+            # "CLAUDE.md".  Detect both cases and fall back to CLAUDE.md (they
+            # are identical by design).
+            _agents_src="$SCRIPT_DIR/AGENTS.md"
+            _agents_ok=false
+            if [ -f "$_agents_src" ] && [ -s "$_agents_src" ]; then
+                _content="$(cat "$_agents_src")"
+                # A Windows stub is the bare symlink target text, e.g. "CLAUDE.md"
+                # with optional trailing newline.  Anything longer is real content.
+                case "$_content" in
+                    CLAUDE.md|./CLAUDE.md) ;;          # stub — fall through
+                    *) _agents_ok=true ;;
+                esac
+            fi
+            if [ "$_agents_ok" = true ]; then
+                cp -f "$_agents_src" "$CLAUDE_DIR/AGENTS.md"
+            else
+                cp -f "$SCRIPT_DIR/CLAUDE.md" "$CLAUDE_DIR/AGENTS.md"
+            fi
             echo "  COPY: AGENTS.md → $CLAUDE_DIR/AGENTS.md"
             COPIED=$((COPIED + 1))
             if [ "$FANOUT_CODEX_UX" = true ]; then
