@@ -1139,7 +1139,27 @@ fanout_runtime() {
             echo ""
         done
         if [ "$runtime_name" = "codex" ]; then
-            cp -f "$SCRIPT_DIR/AGENTS.md" "$CLAUDE_DIR/AGENTS.md"
+            # AGENTS.md is a symlink → CLAUDE.md on Linux/macOS.  On Windows
+            # (core.symlinks=false) git does not materialise symlinks — the file
+            # is absent or a 9-byte text stub containing the literal path
+            # "CLAUDE.md".  Detect both cases and fall back to CLAUDE.md (they
+            # are identical by design).
+            _agents_src="$SCRIPT_DIR/AGENTS.md"
+            _agents_ok=false
+            if [ -f "$_agents_src" ] && [ -s "$_agents_src" ]; then
+                _content="$(cat "$_agents_src")"
+                # A Windows stub is the bare symlink target text, e.g. "CLAUDE.md"
+                # with optional trailing newline.  Anything longer is real content.
+                case "$_content" in
+                    CLAUDE.md|./CLAUDE.md) ;;          # stub — fall through
+                    *) _agents_ok=true ;;
+                esac
+            fi
+            if [ "$_agents_ok" = true ]; then
+                cp -f "$_agents_src" "$CLAUDE_DIR/AGENTS.md"
+            else
+                cp -f "$SCRIPT_DIR/CLAUDE.md" "$CLAUDE_DIR/AGENTS.md"
+            fi
             echo "  COPY: AGENTS.md → $CLAUDE_DIR/AGENTS.md"
             COPIED=$((COPIED + 1))
             if [ "$FANOUT_CODEX_UX" = true ]; then
