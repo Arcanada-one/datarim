@@ -111,7 +111,7 @@ run safe backend + frontend smoke — proceeds autonomously and is logged.
 
 ## Reference incident
 
-DEV-1530 (aether): a 3-repo editable-budget feature reached COMPLIANT with green
+A multi-repo feature once reached COMPLIANT with green
 component/Playwright tests, but had **never** been merged to `dev` nor deployed to
 the test environment — every prior "test" ran in isolated worktrees / throwaway
 containers. The operator caught it at archive time and mandated this gate:
