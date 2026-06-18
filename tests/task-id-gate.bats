@@ -116,6 +116,40 @@ EOF
     [ "$status" -eq 2 ]
 }
 
+# -----------------------------------------------------------------------------
+# --base-commit mode (TUNE-0425: named-flag variant of --diff-only).
+# These three tests cover: (a) pre-existing foreign ID ignored, (b) newly-added
+# foreign ID caught, (c) no-flag full-file scan unchanged (regression guard).
+# -----------------------------------------------------------------------------
+
+@test "T15: --base-commit ignores pre-existing foreign TASK-ID (added-lines-only pass)" {
+    setup_diff_repo
+    BASE_SHA="$(git -C "$DIFF_REPO" rev-parse HEAD)"
+    # Add a clean line — no new task-ID introduced.
+    printf '\n## Update\n\n- Minor clarification.\n' >> "$DIFF_REPO/runtime.md"
+    run "$GATE" --base-commit "$BASE_SHA" "$DIFF_REPO/runtime.md"
+    teardown_diff_repo
+    [ "$status" -eq 0 ]
+}
+
+@test "T16: --base-commit catches newly-added foreign TASK-ID" {
+    setup_diff_repo
+    BASE_SHA="$(git -C "$DIFF_REPO" rev-parse HEAD)"
+    # Introduce a new task-ID reference in an uncommitted edit.
+    printf '\n## Follow-up\n\n- See ABCD-0001 for context.\n' >> "$DIFF_REPO/runtime.md"
+    run "$GATE" --base-commit "$BASE_SHA" "$DIFF_REPO/runtime.md"
+    teardown_diff_repo
+    [ "$status" -eq 1 ]
+}
+
+@test "T17: no-flag full-file scan still fails on pre-existing foreign TASK-ID (byte-identical regression)" {
+    setup_diff_repo
+    # runtime.md at baseline already contains TUNE-0042 and DEV-1183.
+    run "$GATE" "$DIFF_REPO/runtime.md"
+    teardown_diff_repo
+    [ "$status" -eq 1 ]
+}
+
 @test "T11: skills/ scope is gate-clean (regression invariant)" {
     run "$GATE" "$REPO_ROOT/skills"
     [ "$status" -eq 0 ]
