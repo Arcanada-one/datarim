@@ -162,16 +162,47 @@ else
     echo "[lane] repo copied from mount: $(ls /opt/datarim/install.sh)"
 fi
 
+# ---- vendor-aware target dir setup ----
+# Each vendor installs into a different directory.  The harness must set the
+# correct env var so install.sh writes to a known scratch path, then expose
+# TARGET_DIR so post-install.bats knows where to look.
+VENDOR_FLAG_VALUE="VENDOR_FLAG_PLACEHOLDER"
+case "$VENDOR_FLAG_VALUE" in
+    --with-claude)
+        export CLAUDE_DIR=/tmp/fake-claude
+        mkdir -p "$CLAUDE_DIR"
+        export TARGET_DIR="$CLAUDE_DIR"
+        ;;
+    --with-codex)
+        # fanout_runtime codex resolves the target as: ${CODEX_DIR:-~/.codex}.
+        # Set CODEX_DIR to a scratch path and leave CLAUDE_DIR unset (or
+        # pointing elsewhere) so the two runtimes never share a dir.
+        export CODEX_DIR=/tmp/fake-codex
+        mkdir -p "$CODEX_DIR"
+        export TARGET_DIR="$CODEX_DIR"
+        ;;
+    --with-cursor)
+        # setup_cursor_runtime uses ${CURSOR_DIR:-~/.cursor}.
+        export CURSOR_DIR=/tmp/fake-cursor
+        mkdir -p "$CURSOR_DIR"
+        export TARGET_DIR="$CURSOR_DIR"
+        ;;
+    *)
+        # Unknown vendor — fall back to claude semantics.
+        export CLAUDE_DIR=/tmp/fake-claude
+        mkdir -p "$CLAUDE_DIR"
+        export TARGET_DIR="$CLAUDE_DIR"
+        ;;
+esac
+
 # ---- run install ----
-export CLAUDE_DIR=/tmp/fake-claude
-mkdir -p "$CLAUDE_DIR"
 bash /opt/datarim/install.sh VENDOR_FLAG_PLACEHOLDER
 echo "[lane] install.sh exited: $?"
 
 # ---- run post-install assertions ----
 export INSTALL_REPO=/opt/datarim
-export CLAUDE_DIR=/tmp/fake-claude
 export VENDOR_FLAG="VENDOR_FLAG_PLACEHOLDER"
+# TARGET_DIR already exported above — bats reads it instead of CLAUDE_DIR.
 bats /opt/datarim/tests/install-matrix/post-install.bats
 CONTAINERSCRIPT
 )
