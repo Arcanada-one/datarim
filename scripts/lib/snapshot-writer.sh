@@ -104,10 +104,20 @@ write_stage_snapshot() {
         esac
     done
 
-    # Argument validation.
-    if [ -z "$root" ] || [ -z "$task_id" ] || [ -z "$stage" ] \
-       || [ -z "$command" ] || [ -z "$captured_by" ] \
-       || [ -z "$recommended_next" ] || [ -z "$body_file" ]; then
+    # Argument validation. Name the specific missing flag(s) before the usage
+    # block so callers do not have to re-read the whole usage to find the gap.
+    # --options-file is intentionally NOT required (defaults to an empty options
+    # list); only these seven flags are mandatory.
+    local missing=""
+    [ -z "$root" ]             && missing="$missing --root"
+    [ -z "$task_id" ]          && missing="$missing --task"
+    [ -z "$stage" ]            && missing="$missing --stage"
+    [ -z "$command" ]          && missing="$missing --command"
+    [ -z "$captured_by" ]      && missing="$missing --captured-by"
+    [ -z "$recommended_next" ] && missing="$missing --recommended-next"
+    [ -z "$body_file" ]        && missing="$missing --body-file"
+    if [ -n "$missing" ]; then
+        printf 'write_stage_snapshot: missing required flag(s):%s\n' "$missing" >&2
         snapshot_writer_usage
         return 2
     fi
