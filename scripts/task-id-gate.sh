@@ -14,6 +14,7 @@
 # Usage:
 #   scripts/task-id-gate.sh <file-or-dir> [--whitelist <path>] ...
 #                           [--diff-only [<base>]]
+#                           [--base-commit <sha>]
 #
 # Inputs:
 #   <file-or-dir>   Path to scan. File → single-file mode. Directory →
@@ -28,6 +29,10 @@
 #                   not exist as a filesystem path. Single-file target outside
 #                   a git repo or untracked → exit 2; directory scan silently
 #                   skips untracked files.
+#   --base-commit   Like --diff-only but with an explicit required SHA/ref
+#                   argument. Scans only lines added since <sha>; pre-existing
+#                   task-ID references that were present at <sha> are ignored.
+#                   Equivalent to: --diff-only <sha>.
 #
 # Output (stderr):
 #   Per match: "<path>:<line>:<id>"
@@ -88,6 +93,13 @@ while [ $# -gt 0 ]; do
                 DIFF_BASE="$1"
                 shift
             fi
+            ;;
+        --base-commit)
+            shift
+            [ $# -gt 0 ] || { echo "task-id-gate: --base-commit requires a SHA/ref argument" >&2; exit 2; }
+            DIFF_ONLY=1
+            DIFF_BASE="$1"
+            shift
             ;;
         --help|-h)
             sed -n '2,40p' "$0" | sed 's/^# \{0,1\}//'
