@@ -102,7 +102,7 @@ while [ $# -gt 0 ]; do
             shift
             ;;
         --help|-h)
-            sed -n '2,40p' "$0" | sed 's/^# \{0,1\}//'
+            sed -n '2,53p' "$0" | sed 's/^# \{0,1\}//'
             exit 0
             ;;
         --*)
