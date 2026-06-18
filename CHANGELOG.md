@@ -4,6 +4,19 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.40.1] — 2026-06-18
+
+**Snapshot-writer TASK-ID regex broadened to accept slug-suffix IDs.** The regex that validates TASK-IDs before writing a snapshot file was too strict: it required the ID to end immediately after 4–5 digits, so any ID with a follow-up segment (e.g. `DEV-1438-FU-engage-generator-perf`) was rejected with exit 1 and no snapshot was written. The canonical pattern used everywhere else in the framework now aligns the writer.
+
+### Fixed
+
+- `scripts/lib/snapshot-writer.sh` — `SNAPSHOT_TASK_ID_RE` changed from `^[A-Z][A-Z0-9-]+-[0-9]{4,5}$` to `^[A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*$`. The new pattern: (a) requires a 2–10 uppercase-letter prefix (dropping the unbounded `[A-Z0-9-]+` that allowed mixed case and no upper limit); (b) requires exactly 4 digits (removing the 5-digit relaxation that was unneeded); (c) allows zero or more alphanumeric suffix segments separated by hyphens, so slug-suffix IDs are now accepted. T-1 path-traversal safety is preserved — the suffix charclass `[A-Za-z0-9]` excludes `/`, `.`, and control characters.
+- `skills/stage-snapshot-writer/SKILL.md` — two occurrences of the old regex (in the `--task` argument comment and in the T-1 security control row) updated to the canonical pattern.
+
+### Tests
+
+- `tests/stage-snapshot-id-regex.bats` — 13 new regression cases: 4 accepted IDs (canonical, slug-suffix FU, multi-segment suffix, max-length prefix), 8 rejected IDs (path traversal `../etc/passwd`, slash, single-char prefix, lowercase prefix, 3-digit number, dot in suffix, space, oversized prefix), 1 frontmatter-content sanity case for slug-suffix IDs.
+
 ## [2.39.0] — 2026-06-16
 
 Pre-archive unpushed-commits gate. `/dr-archive` now stops when a touched repository has committed-but-unpushed commits and the task type is `bugfix`/`feature`/`refactor`, closing the archived-but-unmerged gap (Step 0.1 covered only the dirty working tree).
