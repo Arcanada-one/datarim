@@ -26,6 +26,7 @@ bats --version
 ## Smoke procedure
 
 ```bash
+# noshellcheck-extract
 # 1. Start a Redis server in foreground (or as a service):
 redis-server --daemonize yes
 redis-cli ping     # expect PONG
