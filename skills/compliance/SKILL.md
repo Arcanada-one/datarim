@@ -54,6 +54,7 @@ Read `datarim/tasks.md` and `datarim/activeContext.md` to determine task type:
 ### 1. Change Set & PRD/Task Alignment
 - Compare diff against PRD requirements and task acceptance criteria
 - Flag: unimplemented requirements, out-of-scope changes, missing edge cases
+- **Unlogged out-of-plan change check.** When the task's diff contains files NOT mentioned in the plan or task-description AND NOT recorded in the task's inline-log or `## Decisions` section, flag each as an "unlogged out-of-plan change". Resolution requires EITHER (a) a retroactive inline-log or `## Decisions` entry with a one-line rationale explaining why the change was made, OR (b) revert of the out-of-plan change. Correct-but-unlogged changes erode the audit trail; logging is trivial, chasing provenance later is not.
 - When a task's backlog entry states a root cause explicitly (e.g. "fixed-port collision", "missing index", "race on shutdown"), verify the stated cause against a live repro **before** accepting the implemented fix. A misidentified root cause in the backlog leads to misdirected rounds: the fix targets the wrong axis, passes a weak gate, and the real defect survives. A short manual repro at re-validate time surfaces the mismatch cheaply.
 
 ### 2. Code Simplification

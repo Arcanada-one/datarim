@@ -63,6 +63,19 @@ description: Implement planned changes using TDD and AI quality principles
     feedback was processed, not silently ignored. Commit code changes and backlog additions together in the
     same review round.
 
+8.4. **STATIC-ANALYSIS / LINT PRE-COMMIT GATE** (when the project defines a linter or static-analysis step):
+    -   Before invoking `git commit`, detect whether the project has a configured linter or static-analysis tool. Signals: a lint config file present in the repo root (e.g. a linter-specific config), a documented lint command in the project's `CLAUDE.md` or package manifest, or a CI lint step in the project's workflow configuration.
+    -   If no linter is configured, skip this gate entirely — do not block the commit.
+    -   If a linter is detected, run it scoped to the staged changes:
+        ```
+        <!-- gate:example-only -->
+        # Generic example only — substitute the project's configured tool and lint command:
+        <project-lint-tool> --changed-only
+        <!-- /gate:example-only -->
+        ```
+        Run the project's configured linter / static-analysis tool on the staged files. A non-zero exit code means lint failure — **STOP**, do not commit. Fix the reported violations first, re-stage, then re-run the gate.
+    -   Lint failures are never advisory at commit time: a failure ⇒ block and fix, not ⇒ flag and continue. This gate runs before the network exposure gate (8.5) so that a lint-clean diff is what reaches the network check.
+
 8.5. **NETWORK EXPOSURE PRE-COMMIT GATE** (MANDATORY when staged changes touch a networking surface):
     -   Before invoking `git commit`, scan the staged diff for changes to:
         docker-compose `ports`/`expose`, `redis.conf`, `postgresql.conf`,
@@ -122,6 +135,7 @@ Before proceeding to `/dr-qa` or `/dr-archive`:
 [ ] Tests written and passing?
 [ ] tasks/{TASK-ID}-task-description.md updated with implementation notes?
 [ ] No known regressions introduced?
+[ ] If the project defines a linter, the project's configured linter / static-analysis tool was run on staged changes and exited 0 (gate 8.4)?
 [ ] If staged changes touch any networking surface, `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/network-exposure-check.sh"` exited 0 against the staged set and the tiered-gate verdict was honoured (or an `advisory_warn` override was logged with Ops Bot event + § Decisions note)?
 ```
 
