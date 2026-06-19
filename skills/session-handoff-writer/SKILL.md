@@ -139,6 +139,23 @@ Those rehydrate a stale context. A fresh session + /dr-continue is the
 only safe resume path.
 ```
 
+## Stale-runtime reminder (advisory)
+
+Before printing the resume block, run the shared stale-runtime detector against
+the session's framework-repo changes so a resumed session is reminded that a
+shipped script or skill edited this session is live only on the committing box:
+
+```bash
+bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-stale-runtime.sh" --repo <framework-repo> --range <base>..HEAD
+```
+
+When the range touched a shipped script (`scripts/lib/*.sh`) or skill
+(`skills/*/SKILL.md`) the script prints the generic, infra-agnostic «update your
+Datarim install(s) per your topology» advisory; otherwise it is silent. This is
+the same single-source-of-truth detector used by `/dr-archive` Step 0.48 and the
+`/dr-compliance` Software Checklist. Surface its output verbatim; it is advisory
+only and never blocks the handoff write.
+
 ## Related
 
 - `skills/session-handoff-replay/SKILL.md` — the consumer side.
