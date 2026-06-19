@@ -348,3 +348,20 @@ Before archiving a task that authors or edits a tag-triggered workflow:
 2. **Run it once live.** Push a throwaway test tag (or exercise the `workflow_dispatch` path) and confirm the workflow actually loads, the intended jobs run, and gated jobs (prod deploy) correctly skip. A clean local lint is necessary but not sufficient — runner availability, missing CLIs on self-hosted runners (`gh`/`aws`/`jq` not installed → `command not found`, exit 127), and secret wiring only surface in a real run.
 
 **When to apply.** Any task that ships or edits a workflow triggered only by tags / releases / schedules — events that normal CI (branch push / PR) never fires. Skip for `push`/`pull_request` workflows, which every commit already exercises.
+
+
+## Idempotency skip predicates must assert integrity, not mere presence
+
+A batch generator that produces concatenated or streamed output (audio, video, multi-part documents) and skips an item because its output file "exists and is non-empty" will silently protect a **partially-failed** artefact from regeneration. A run that died mid-concatenation leaves a short-but-non-empty file; every later idempotent pass skips it, and the gap survives to final review.
+
+The skip predicate MUST assert *integrity*, not presence: compare the produced item against an expected duration / size / chunk-count (or a checksum of a known-good reference), and only skip when the existing artefact passes that assertion. Pair it with a homogeneous-set outlier scan at review time — flag any item below roughly 60% of the per-group maximum (duration or byte size) — as a cheap completeness probe that finds the single truncated item in a large set in one pass.
+
+
+## Verify the deployed artefact and grep the specific marker, not a generic element
+
+When a wish depends on a deployed config/manifest driving a rendered UI element, two failure modes produce a false PASS:
+
+1. **Wrong artefact verified.** The objects (e.g. uploaded media) may be complete while the *manifest that wires them into the page* was never deployed. Diff the deployed artefact against the local source (compare a checksum of the on-host file vs the local file) — never assume "uploaded" implies "wired".
+2. **Wrong DOM marker grepped.** A generic element such as a `<select>` dropdown is often present for unrelated reasons (a language switcher). Grep the *specific* marker the feature emits (the component's own class / a dedicated element), and bypass any edge cache (cache-bust query or no-cache header) so the probe reads the live render, not a cached copy.
+
+Run both checks at review time, before claiming the rendered feature is live.
