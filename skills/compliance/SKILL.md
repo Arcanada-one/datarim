@@ -77,8 +77,14 @@ Read `datarim/tasks.md` and `datarim/activeContext.md` to determine task type:
 ### 6. Test Execution
 - Run the full test suite, report pass/fail counts
 - **Pre-existing branch failure discrimination.** When tests fail in a CI-faithful run, check whether each failure was present before the task's commit: `git log --oneline <base>..HEAD -- <failing-test-file>`. If the violation predates the task (none of the task's commits touched the failing file), document it as "pre-existing branch issue, not introduced by task commit" and do NOT treat it as a task-scope blocking verdict. The task's own diff must be clean — failures from unrelated branch history or parallel-session dirty files are advisory, not verdicts.
+- **Workspace-hygiene auto-classification (regression-invariant tests).** A common failure shape in a shared workspace is a *regression-invariant* test — a test asserting that some scope directory is gate-clean (e.g. "`skills/` scope is English-only", "`agents/` scope has no private IDs"). When such a test fails, do not hand-write a discrimination note each time. Run the deterministic git-based classifier with the failing test's scope directory:
+  ```sh
+  bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/classify-bats-failure-scope.sh" \
+       --repo <framework-repo> --base <base-ref> --scope <scope-dir> [--scope <scope-dir> ...]
+  ```
+  The classifier runs `git log <merge-base>..HEAD -- <scope-dir>` per scope. A scope with **zero** task commits in the range is labelled `pre-existing` (exit 0) — the failure is foreign / parallel-session noise; record the classifier's verdict verbatim and do NOT treat it as a task-scope block. A scope that **did** receive task commits is labelled `regression` (exit 1) — it stays a real, blocking regression and a real regression is never masked. The helper fails **closed** (exit 2) when a scope's git range cannot be evaluated, so an undeterminable scope is never auto-classified as foreign. This replaces the per-archive manual discrimination note for regression-invariant failures; the per-file manual check above still applies to failures that are not scope-shaped.
 <!-- gate:history-allowed -->
-Prior incident: two test failures traced to pre-task commits and foreign dirty hunks — neither introduced by the task under compliance review.
+Prior incident: two test failures traced to pre-task commits and foreign dirty hunks — neither introduced by the task under compliance review. Recurrence: the same hand-written discrimination note for a regression-invariant test whose scope had no task commits surfaced repeatedly across tasks until it was made deterministic via the classifier above.
 <!-- /gate:history-allowed -->
 
 ### 7. CI/CD Impact Analysis
