@@ -48,16 +48,25 @@ setup() {
     if [ -z "$posix_sh" ]; then
         skip "dash not on PATH; T-P2 requires a POSIX-only sh"
     fi
-    # Restrict PATH so bash is fully unreachable — use ONLY our empty directory,
-    # not /bin (which on macOS contains /bin/bash).
+    # Restrict PATH so bash is fully unreachable, portably. We cannot just keep
+    # a system bin dir on PATH: on macOS bash is /bin/bash, on Linux it is
+    # /usr/bin/bash — excluding only one leaves bash reachable on the other and
+    # breaks the test's premise. Instead, build a curated bin dir that symlinks
+    # every non-bash utility install.sh's preamble might call (env, printf,
+    # dirname, …) and explicitly omits bash, then use ONLY that dir on PATH.
     local no_bash_dir="$BATS_TEST_TMPDIR/no-bash-bin"
     mkdir -p "$no_bash_dir"
-    # Make 'command' and 'printf' available — they are shell built-ins in dash,
-    # so no additional PATH entries needed.  We still need a minimal /usr/bin
-    # for sanity (e.g. env itself) but explicitly exclude /bin so /bin/bash
-    # is unreachable.
+    local util src
+    for util in env printf dirname basename uname cat mkdir rm ln cp chmod find sed grep; do
+        src="$(command -v "$util" 2>/dev/null || true)"
+        [ -n "$src" ] && ln -sf "$src" "$no_bash_dir/$util"
+    done
+    # Sanity: bash must NOT be reachable through the curated dir.
+    if PATH="$no_bash_dir" command -v bash >/dev/null 2>&1; then
+        skip "could not construct a bash-free PATH on this platform"
+    fi
     run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" \
-        PATH="$no_bash_dir:/usr/bin" \
+        PATH="$no_bash_dir" \
         "$posix_sh" "$FAKE_REPO/install.sh" --with-claude
     [ "$status" -eq 2 ]
     # Message must mention bash and give actionable guidance.
