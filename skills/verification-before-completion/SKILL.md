@@ -182,6 +182,7 @@ If it differs from your task branch, read your committed state directly from
 your branch instead of the working tree:
 
 ```bash
+# noshellcheck-extract
 git -C <repo> cat-file blob <task-branch>:<path>   # or: git show <task-branch>:<path>
 ```
 

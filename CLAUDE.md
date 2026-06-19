@@ -523,6 +523,7 @@ Consumers MUST mirror the canonical FB-rules text and the enforcement-mapping ta
 When a script's textual output is contractually paired with its exit code or internal state (e.g. "BLOCKED" message ↔ exit 1, "OK" message ↔ exit 0, "applied" flag ↔ side-effect performed), insert a precondition guard immediately before emitting the wording:
 
 ```bash
+# noshellcheck-extract
 if [ "$flag" -ne <expected> ]; then
     echo "ERROR: internal invariant violated: <description>" >&2
     exit 2
