@@ -376,6 +376,23 @@ Complete and archive current task.
      hard-blocks an otherwise-clean archive. Archive is idempotent; a fixed gap
      re-enters cleanly on the next `/dr-archive` run.
 
+0.48. **STALE-RUNTIME REMINDER** (advisory, non-blocking):
+   - Check whether the task's diff touched any shipped script (`scripts/lib/*.sh`) or
+     skill (`skills/*/SKILL.md`) in the framework repository.
+   - If yes, emit the following advisory before proceeding to reflection:
+
+     > **Advisory — update your Datarim installs.**
+     > This task changed one or more shipped scripts or skills. If you run Datarim on
+     > multiple machines, the fix is currently present only where you committed it.
+     > Update your Datarim install(s) on every machine per your topology so the change
+     > is not stranded on a single box. This reminder is non-blocking — proceed with
+     > the archive after noting it.
+
+   - Detection heuristic: `git -C <framework-repo> diff --name-only HEAD~1..HEAD | grep -E '(^|/)scripts/lib/[^/]+\.sh$|(^|/)skills/[^/]+/SKILL\.md$'`
+     (adapt the commit range to the task's actual merge-base if HEAD~1 does not cover
+     the full task diff). No match → skip silently.
+   - This step does NOT block or gate any subsequent step. It is a human reminder only.
+
 0.5. **REFLECT** (MANDATORY — runs at least once per task, via a conditional freshness gate):
    - **Freshness gate (decides whether to re-run reflection):** invoke
      `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/reflection-freshness.sh --task {TASK-ID} --root "$DATARIM_ROOT"`.

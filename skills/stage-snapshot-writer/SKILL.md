@@ -42,6 +42,12 @@ bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/snapshot-writer-wrapper.sh" \
     [--captured-at <ISO8601 UTC>]       # default $(date -u +%FT%TZ)
 ```
 
+> **All seven flags above are required** (`--root`, `--task`, `--stage`,
+> `--command`, `--captured-by`, `--recommended-next`, `--body-file`).
+> `--options-file` is optional. On a missing required flag the writer names
+> the specific flag(s) on stderr (`missing required flag(s): --body-file`) and
+> exits 2 — do not reconstruct the call from memory; copy the example below.
+
 Call the wrapper, never the bare `write_stage_snapshot` function — see § Contract
 (Entry point) for why the function dies silently under a zsh-parent shell.
 
