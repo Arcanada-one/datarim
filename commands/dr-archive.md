@@ -353,9 +353,9 @@ Complete and archive current task.
      self-deferral language about touched files:
      ```bash
      "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-deferral-prose.sh" \
-         --file datarim/qa/qa-report-{TASK-ID}.md --task {TASK-ID} --root <repo-root>
+         --file datarim/qa/qa-report-{TASK-ID}.md --root <repo-root>
      "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-deferral-prose.sh" \
-         --file datarim/reports/compliance-report-{TASK-ID}.md --task {TASK-ID} --root <repo-root>
+         --file datarim/reports/compliance-report-{TASK-ID}.md --root <repo-root>
      ```
      (Skip a report path that does not exist.) Exit 1 from either ⇒ **STOP**.
      Print the findings and: "Self-inflicted gap detected. Finish the work in
