@@ -29,8 +29,9 @@ documentation, legal documents, project management, content creation — any wor
 benefits from structured iteration can use the framework. The agents and skills adapt
 to the domain. The process stays the same.
 
-Built for Claude Code, Datarim works for any project and any domain. There are no
-hardcoded paths, no vendor lock-in, no project-specific assumptions. And it is
+Runtime-agnostic — Datarim runs under Claude Code, Codex CLI, and Cursor — it works
+for any project and any domain. There are no hardcoded paths, no vendor lock-in, no
+project-specific assumptions. And it is
 self-evolving: after every completed task, the framework analyzes what worked, what
 failed, and proposes improvements to its own agents, skills, and rules. The name
 "Datarim" comes from *data + rim* — the edge where structured data meets creative
@@ -218,7 +219,11 @@ Datarim is runtime-agnostic. Three AI coding runtimes are supported with differe
 
 - **bash ≥ 4** — install.sh requires bash. Invoke it as `bash install.sh` (explicit) or `sh install.sh` (auto-re-execs under bash when bash is on PATH). If bash is absent you get an actionable error and exit 2.
 - **git** — required for cloning the repo.
-- [Claude Code](https://code.claude.com/docs/en/overview) CLI installed and authenticated. Install: `curl -fsSL https://claude.ai/install.sh | bash` (macOS/Linux/WSL) or `irm https://claude.ai/install.ps1 | iex` (Windows PowerShell)
+- **At least one supported vendor agent**, installed and authenticated:
+  - [Claude Code](https://code.claude.com/docs/en/overview) (primary) — `curl -fsSL https://claude.ai/install.sh | bash` (macOS/Linux/WSL) or `irm https://claude.ai/install.ps1 | iex` (Windows PowerShell). Install with `./install.sh --with-claude`.
+  - [Codex CLI](https://developers.openai.com/codex/cli) — parity via the `coworker rtk` shim. Install with `./install.sh --with-codex`.
+  - [Cursor](https://cursor.com) — parity via the native `beforeShellExecution` hook. Install with `./install.sh --with-cursor`.
+  - See the [Runtime support matrix](docs/use-cases.md#runtime-support) for per-vendor hook integration and token-economy details.
 - **Recommended:** [context7](https://github.com/upstash/context7) MCP server for
   token-efficient documentation access (reduces context usage when looking up library
   docs)
