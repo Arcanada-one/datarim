@@ -377,21 +377,21 @@ Complete and archive current task.
      re-enters cleanly on the next `/dr-archive` run.
 
 0.48. **STALE-RUNTIME REMINDER** (advisory, non-blocking):
-   - Check whether the task's diff touched any shipped script (`scripts/lib/*.sh`) or
-     skill (`skills/*/SKILL.md`) in the framework repository.
-   - If yes, emit the following advisory before proceeding to reflection:
+   - Invoke the shared detector (single source of truth for this advisory):
 
-     > **Advisory — update your Datarim installs.**
-     > This task changed one or more shipped scripts or skills. If you run Datarim on
-     > multiple machines, the fix is currently present only where you committed it.
-     > Update your Datarim install(s) on every machine per your topology so the change
-     > is not stranded on a single box. This reminder is non-blocking — proceed with
-     > the archive after noting it.
+     ```bash
+     bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-stale-runtime.sh" --repo <framework-repo> --range <task-merge-base>..HEAD
+     ```
 
-   - Detection heuristic: `git -C <framework-repo> diff --name-only HEAD~1..HEAD | grep -E '(^|/)scripts/lib/[^/]+\.sh$|(^|/)skills/[^/]+/SKILL\.md$'`
-     (adapt the commit range to the task's actual merge-base if HEAD~1 does not cover
-     the full task diff). No match → skip silently.
-   - This step does NOT block or gate any subsequent step. It is a human reminder only.
+     Adapt the range to the task's actual merge-base if `HEAD~1..HEAD` (the script
+     default) does not cover the full task diff. When the range touched a shipped
+     script (`scripts/lib/*.sh`) or skill (`skills/*/SKILL.md`), the script prints the
+     generic, infra-agnostic «update your Datarim install(s) per your topology»
+     advisory; otherwise it is silent. Surface the script's output verbatim before
+     proceeding to reflection.
+   - This step does NOT block or gate any subsequent step. The script is fail-open
+     (a git probe failure exits 3 without emitting the advisory) and the reminder is
+     a human prompt only.
 
 0.5. **REFLECT** (MANDATORY — runs at least once per task, via a conditional freshness gate):
    - **Freshness gate (decides whether to re-run reflection):** invoke
