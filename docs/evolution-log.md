@@ -2,6 +2,22 @@
 
 Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflection or curated runtime → repo updates.
 
+## 2026-06-19 — v2.42.0 — Compliance unlogged-out-of-plan gate + do-stage lint gate (Class A + Class B applied)
+
+Source: email-agent provider-inversion reflection. Two recurring incident classes surfaced:
+1. **Unlogged out-of-plan changes** — correct changes made during `/dr-do` that were not mentioned in the plan and not recorded in the task's inline-log or Decisions section. These eroded the audit trail and required expensive post-hoc provenance reconstruction.
+2. **Lint regressions missed in do-stage** — linter violations introduced during implementation that slipped past the pre-commit step because no structured lint gate existed in `/dr-do`.
+
+**Class A applied — Compliance Step 1 unlogged-out-of-plan check** (`skills/compliance/SKILL.md` § Step 1):
+Added an explicit bullet to the "Change Set & PRD/Task Alignment" check: when the task diff contains files NOT mentioned in the plan/task-description AND NOT recorded in the inline-log or `## Decisions`, flag each as an "unlogged out-of-plan change". Resolution: (a) retroactive log entry with a one-line rationale, OR (b) revert. Rationale embedded in the check: correct-but-unlogged changes erode the audit trail; logging is trivial, chasing provenance later is not.
+
+**Class B applied directly (operator-approved) — Static-analysis / lint pre-commit gate** (`commands/dr-do.md` § 8.4):
+Added gate 8.4 (numbered before the existing network-exposure gate 8.5) titled "STATIC-ANALYSIS / LINT PRE-COMMIT GATE". Detects whether the project has a configured linter (via config file, CLAUDE.md, or CI workflow). If no linter configured: fail-soft (skip, no block). If linter detected: run it scoped to staged changes; non-zero exit ⇒ STOP, fix first. Stack-agnostic throughout — references "the project's configured linter / static-analysis tool"; one fenced illustrative example wrapped in `<!-- gate:example-only -->` markers. Transition Checkpoint updated with a corresponding checklist item.
+
+**Version bump:** 2.41.0 → 2.42.0 (minor — new feature gates in two shipped files).
+
+---
+
 ## 2026-05-25 — TUNE-0303 — Codex CLI coworker-hook coverage parity (Class A applied)
 
 TUNE-0303 (extend `coworker-hook-guard` to Codex CLI native tool names — `view`, `shell`, `apply_patch`, `exec_command`) closed the parity gap where codex sessions emitted 0 coworker calls on L3 cycles while Claude emitted hundreds. Root cause: hook script `case "$tool"` covered only `Read|Write|Bash`; codex 0.133 emits `apply_patch|exec_command|update_plan|write_stdin`. `~/.codex/hooks.json` matcher had only Claude names; `~/.codex/AGENTS.override.md` lacked MANDATORY delegation runtime instructions.
