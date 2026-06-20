@@ -2,7 +2,7 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 2.41.0](https://img.shields.io/badge/Version-2.41.0-green.svg)](VERSION)
+[![Version: 2.42.0](https://img.shields.io/badge/Version-2.42.0-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Arcanada-one/datarim/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Arcanada-one/datarim)
 
@@ -101,7 +101,7 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   covering everything from testing methodology to security hardening to content
   creation workflows and structured research.
 
-- **26 commands** — 8 pipeline stages + /dr-auto autonomous mode + /dr-verify standalone + /dr-quick fast-lane, 3 content (write, edit, publish), 5 framework
+- **27 commands** — 8 pipeline stages + /dr-auto autonomous mode + /dr-verify standalone + /dr-spec spec-traceability + /dr-quick fast-lane, 3 content (write, edit, publish), 5 framework
   and knowledge management (addskill, doctor, optimize, dream, **plugin** v1.23.0+), utilities (status, next,
   help), and 2 standalone tools (factcheck, humanize).
 
@@ -498,6 +498,7 @@ specific capabilities. You can add custom skills by placing `.md` files in
 | `/dr-dream` | Maintenance | Knowledge base maintenance: organize files, build index, cross-reference, flag contradictions, archive stale content. |
 | `/dr-optimize` | Maintenance | Audit framework health, prune unused components, merge duplicates, fix references, sync documentation. |
 | `/dr-plugin` | Maintenance | Manage opt-in plugins (v1.23.0+, TUNE-0101). `list/enable/disable/sync/doctor` over a manifest-driven runtime. Symlinks plugin sources into `~/.claude/{cat}/{plugin-id}/` namespaces; supports root-position `overrides:`; pre-mutation snapshot/rollback. |
+| `/dr-spec` | Verification | Spec-traceability façade (read-only). Validates the requirement graph `wish_id → D-REQ → V-AC → plan-step → evidence` via `dev-tools/{dr-spec-lint,dr-trace,dr-lint,dr-spec-grade}.sh` over one rule registry. Common contract `--format json` + exit `0/1/2`; mis-config = exit 2. Advisory-first; `dr-spec-grade` is a computed projection only. |
 | `/dr-status` | Any | Check current task status, pipeline progress, and backlog summary. |
 | `/dr-next` | Any | Resume work from the last checkpoint. Restores context and picks up where you left off. |
 | `/dr-help` | Any | List all available commands with descriptions, pipeline flow, and complexity routing. |
