@@ -1,0 +1,91 @@
+# dr-spec-rules.yaml — single source of truth for the spec-traceability rule set.
+#
+# Consumed by dr-spec-lint.sh, dr-lint.sh, dr-trace.sh, dr-spec-grade.sh through
+# the shared loader in scripts/lib/spec-graph.sh. There is exactly ONE registry
+# and ONE mandatory-rule configuration; CI and the opt-in pre-commit sample both
+# read this file (R8 requirement). Disabling a mandatory rule, naming an unknown
+# rule, or producing an empty effective set is a CONFIGURATION ERROR (exit 2),
+# never reported as "0 violations".
+#
+# Schema (one block per rule):
+#   id:          stable kebab-case rule id (referenced by --rules / --ignore)
+#   severity:    error | warning | info
+#   mandatory:   true | false  (mandatory rules cannot be --ignore'd)
+#   applies_to:  list of complexity levels the rule is enforced at (L2..L4)
+#   since:       framework version the rule was introduced
+#   desc:        one-line human description
+#
+# Parser note: this file is intentionally flat-and-regular so a pure-bash line
+# loader can read it without a YAML dependency (security S2: no external libs).
+# Keep each field on its own line; do not introduce nested maps or flow syntax.
+
+rules:
+  - id: dreq-id-format
+    severity: error
+    mandatory: true
+    applies_to: [L2, L3, L4]
+    since: 2.42.0
+    desc: D-REQ-NN heading matches the canonical two-digit machine-id form
+
+  - id: dreq-id-unique
+    severity: error
+    mandatory: true
+    applies_to: [L2, L3, L4]
+    since: 2.42.0
+    desc: no duplicate D-REQ-NN id within a single document
+
+  - id: covers-resolves
+    severity: error
+    mandatory: true
+    applies_to: [L2, L3, L4]
+    since: 2.42.0
+    desc: every Covers reference resolves to a declared D-REQ
+
+  - id: dreq-orphan
+    severity: warning
+    mandatory: false
+    applies_to: [L3, L4]
+    since: 2.42.0
+    desc: D-REQ referenced by no V-AC (orphan requirement)
+
+  - id: dreq-dangling
+    severity: error
+    mandatory: true
+    applies_to: [L2, L3, L4]
+    since: 2.42.0
+    desc: Covers points to a non-existent D-REQ (dangling reference)
+
+  - id: vac-covers-present
+    severity: warning
+    mandatory: false
+    applies_to: [L3, L4]
+    since: 2.42.0
+    desc: every V-AC declares a Covers line binding it to a D-REQ
+
+  - id: vac-binding-present
+    severity: warning
+    mandatory: false
+    applies_to: [L3, L4]
+    since: 2.42.0
+    desc: every V-AC binds to at least one plan-step / test / evidence cue
+
+  - id: binding-no-duplicate
+    severity: info
+    mandatory: false
+    applies_to: [L3, L4]
+    since: 2.42.0
+    desc: no duplicate (V-AC, binding) pairs
+
+  - id: axis-separation
+    severity: warning
+    mandatory: false
+    applies_to: [L3, L4]
+    since: 2.42.0
+    desc: deterministic and statistical axes are not mixed in one V-AC group
+
+  - id: graph-complete-l3
+    severity: error
+    mandatory: true
+    applies_to: [L3, L4]
+    since: 2.42.0
+    desc: full wish_id -> D-REQ -> V-AC -> plan-step -> evidence path resolvable

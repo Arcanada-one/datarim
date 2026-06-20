@@ -28,3 +28,21 @@ ONELINER_RE='^- [A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)* · (in_progress|blocked|not
 BACKLOG_ITEM_RE='^- [A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)* · (in_progress|blocked|not_started|pending|blocked-pending|cancelled|superseded|absorbed|deferred) · [*]{0,2}P[0-4][*]{0,2} · [*]{0,2}L[1-4][*]{0,2} · .+$'
 SCHEMA_TASKS_RE='^- [A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)* · (in_progress|blocked|not_started|pending|blocked-pending|cancelled) · [*]{0,2}P[0-4][*]{0,2} · [*]{0,2}L[1-4][*]{0,2} · .+ → tasks/[A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*-(task-description|init-task)\.md$'
 SCHEMA_BACKLOG_RE='^- [A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)* · (pending|blocked-pending|cancelled|superseded|absorbed|deferred|in_progress|blocked|not_started) · [*]{0,2}P[0-4][*]{0,2} · [*]{0,2}L[1-4][*]{0,2} · .+$'
+
+# ---------------------------------------------------------------------------
+# Spec-traceability regexes (the D-REQ addressing layer + Covers binding).
+#
+# Single source of truth for the spec-graph validators (dr-spec-lint.sh,
+# dr-trace.sh, dr-lint.sh). Consumers source these constants; they do NOT
+# redefine them. The D-REQ machine id is ALWAYS two digits (`D-REQ-NN`) so the
+# format check is unambiguous — a human-readable description may follow the id
+# on the heading line, but the id token itself is fixed-width.
+#
+#   - D_REQ_ID_RE   : a `#### D-REQ-NN: <description>` declaration heading.
+#   - COVERS_LINE_RE : a `Covers: D-REQ-NN[, D-REQ-NN ...]` binding line on a V-AC.
+#   - D_REQ_REF_RE  : a bare `D-REQ-NN` reference token (used to scan Covers values).
+# ---------------------------------------------------------------------------
+
+D_REQ_ID_RE='^#### D-REQ-[0-9]{2}: .+$'
+COVERS_LINE_RE='^[[:space:]]*Covers:[[:space:]]*D-REQ-[0-9]{2}([[:space:]]*,[[:space:]]*D-REQ-[0-9]{2})*[[:space:]]*$'
+D_REQ_REF_RE='D-REQ-[0-9]{2}'
