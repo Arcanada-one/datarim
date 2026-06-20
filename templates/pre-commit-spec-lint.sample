@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# pre-commit-spec-lint.sample — opt-in fast spec-traceability feedback.
+#
+# OPT-IN ONLY. This is fast local feedback, NOT the source of the verdict — CI
+# (the spec-traceability workflow) is the final gate. To enable, copy this file
+# to .git/hooks/pre-commit (or chain it from an existing hook) and make it
+# executable:
+#
+#   cp "$HOME/.claude/templates/pre-commit-spec-lint.sample" .git/hooks/pre-commit
+#   chmod +x .git/hooks/pre-commit
+#
+# It runs dr-lint scoped to changed artefacts (--scope git-diff). During the
+# rollout transition window keep ADVISORY=1 so the hook informs without blocking
+# the commit; flip to 0 once your project adopts the hard gate for L3+ work.
+#
+# Bypass a single commit with: git commit --no-verify
+#
+# Contract: docs/spec-traceability-rollout.md, docs/validator-contract.md.
+
+set -uo pipefail
+
+# Resolve the Datarim runtime (symlink-default install lives under ~/.claude).
+DATARIM_RUNTIME="${DATARIM_RUNTIME:-$HOME/.claude}"
+DR_LINT="${DATARIM_RUNTIME}/dev-tools/dr-lint.sh"
+
+# Advisory during the rollout window (1 = inform only; 0 = block on findings).
+ADVISORY="${SPEC_PRECOMMIT_ADVISORY:-1}"
+
+# The task id this working tree is implementing. Set SPEC_TASK_ID in your
+# environment, or edit the default below.
+TASK_ID="${SPEC_TASK_ID:-}"
+
+if [ -z "$TASK_ID" ]; then
+    echo "pre-commit-spec-lint: SPEC_TASK_ID not set — skipping spec graph check." >&2
+    exit 0
+fi
+
+if [ ! -f "$DR_LINT" ]; then
+    echo "pre-commit-spec-lint: dr-lint.sh not found at $DR_LINT — skipping." >&2
+    exit 0
+fi
+
+args=(--task "$TASK_ID" --scope git-diff --format text)
+[ "$ADVISORY" = "1" ] && args+=(--advisory)
+
+bash "$DR_LINT" "${args[@]}"
+rc=$?
+
+if [ "$rc" -ne 0 ] && [ "$ADVISORY" != "1" ]; then
+    echo "pre-commit-spec-lint: spec-traceability findings — commit blocked (use --no-verify to bypass)." >&2
+    exit "$rc"
+fi
+exit 0
