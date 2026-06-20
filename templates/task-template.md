@@ -46,6 +46,20 @@ Schema reference: skills/datarim-system/SKILL.md § Description File Contract.
 - [ ] AC-1:
 - [ ] AC-2:
 
+<!--
+Spec-traceability (L3+): when this task carries addressable requirements
+(`#### D-REQ-NN: ...` in the PRD), bind each V-AC to the D-REQ id(s) it verifies
+with a `Covers:` line, e.g.:
+
+  - [ ] V-AC-1: <criterion>
+        Covers: D-REQ-01, D-REQ-02
+
+`dr-spec-lint` resolves the path wish_id -> D-REQ -> V-AC -> plan-step ->
+evidence. Referenced ids must resolve to a declared D-REQ. See
+docs/validator-contract.md and docs/spec-traceability-rollout.md.
+-->
+
+
 ## Constraints
 
 - (Security, performance, compatibility, regulatory, etc.)
