@@ -32,8 +32,30 @@
 | Risk | Impact | Mitigation |
 |------|--------|------------|
 
+## Requirements (D-REQ)
+
+Addressable requirements for the spec-traceability graph. Each requirement gets a
+stable two-digit machine id `D-REQ-NN` (unique per document). The heading may
+carry a human-readable description after the id; the id token itself is
+fixed-width. V-AC items bind to these ids with a `Covers:` line (see below), so
+`dr-spec-lint` can resolve the path `wish_id → D-REQ → V-AC → plan-step →
+evidence`. `wish_id` (expectations-checklist) stays the canonical operator-intent
+id — `D-REQ` is an addressing layer on top, not a replacement.
+
+#### D-REQ-01: {requirement description}
+
+#### D-REQ-02: {requirement description}
+
 ## Success Criteria
 - [ ] (Measurable outcomes)
+
+> **V-AC `Covers:` binding (spec-traceability).** On L3+ tasks each V-AC item
+> SHOULD carry a `Covers:` line naming the `D-REQ` id(s) it verifies, for
+> example `Covers: D-REQ-01, D-REQ-02`. Every referenced id MUST resolve to a
+> declared `D-REQ` above (`dr-spec-lint` rule `covers-resolves` / `dreq-dangling`
+> catch typos and dangling refs). A `D-REQ` referenced by no V-AC is flagged as
+> an orphan (`dreq-orphan`). See `docs/validator-contract.md` and
+> `docs/spec-traceability-rollout.md`.
 
 > **Falsifiability requirement:** every quantitative AC (coverage %, latency budget, RPS, token delta, line count, etc.) MUST cite a concrete verification command and its exit-code contract inline — for example: `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/measure-foo.sh" --check` returns exit 0. No «presumed met» verdicts at QA / Compliance. If the measurement tool does not yet exist, declare its creation as part of the plan; do not approve the AC until it is falsifiable. See `skills/evolution/SKILL.md` § Pattern: Split-Architecture Metrics for the absorption-task variant.
 
