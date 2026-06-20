@@ -303,9 +303,11 @@ effective_ruleset() {
     SPEC_EFFECTIVE_RULES=()
     for r in "${want[@]}"; do
         local skip=0 d
-        for d in "${drop[@]}"; do
-            [ "$r" = "$d" ] && { skip=1; break; }
-        done
+        if [ "${#drop[@]}" -gt 0 ]; then
+            for d in "${drop[@]}"; do
+                [ "$r" = "$d" ] && { skip=1; break; }
+            done
+        fi
         [ "$skip" -eq 0 ] && SPEC_EFFECTIVE_RULES+=("$r")
     done
 
