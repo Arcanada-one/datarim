@@ -31,7 +31,11 @@ Phase 2 — Subagent Inference Layer (v2.4.0).
 5. **Miss (confidence == 0)** — Phase 2 path:
    - `subagent_resolver.sh resolve` — multi-backend chain (coworker → claude → codex), 15s per backend, lenient JSON parse, FD-3 close.
    - Confidence threshold gate (default `0.80`):
-     - Pass → audit `outcome: resolved` (schema v2); decision-cooldown 60s enforces a single autonomous decision per pane per minute.
+     - Pass → when resolver JSON includes `action_kind`, call
+       `scripts/action_gate.sh` before autonomous execution. Space-policy
+       `auto` proceeds; `operator` or invalid policy routes to escalation.
+       Then audit `outcome: resolved` (schema v2); decision-cooldown 60s
+       enforces a single autonomous decision per pane per minute.
      - Fail / chain_exhausted → `escalation_backend.sh emit` (mock JSONL by default; the `dev-bot` backend remains a stub until a real consumer service exists) + audit `outcome: escalated`.
 6. Every `tmux send-keys` still passes through the security floor: whitelist → escape-block → micro-cooldown (500 ms) + decision-cooldown (60 s) → fail-closed.
 

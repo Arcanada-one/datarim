@@ -39,7 +39,10 @@ target_aal: 2
      activated_at: "<ISO 8601 timestamp>"
      activated_by: /dr-auto
      mode: resume | bootstrap
+     space: "<resolved-space-name>"
      ```
+   - The `space` value is required when the active space cannot be derived
+     from the workspace path. An absent or invalid value remains fail-closed.
    - The marker is removed at the terminal step (successful `/dr-compliance` + reflection, or a hard stop that surrenders control to the operator). If the env var is set without a matching marker, downstream stages treat the session as non-autonomous (fail-safe).
 
 4. **Load the operating rules.** Read the autonomous-mode skill at `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode/SKILL.md`. It defines the decision rules every stage uses: how to handle minor gaps inline, when to walk through the question-suppression checks before prompting the operator, and which actions are always operator-gated regardless of mode.
@@ -47,7 +50,7 @@ target_aal: 2
 5. **Dispatch the pipeline as subagents.** For each stage that needs running, spawn the matching agent via the Agent tool, pass it the resolved task state, wait for its result, then summarise that result and decide the next stage. Stage → agent map: prd/design → `architect`, plan → `planner`, do → `developer`, qa → `reviewer`, compliance → `compliance`. The orchestrator itself does not perform stage work — it dispatches, summarises, and routes.
    - **Re-assert the marker before each dispatch (mandatory pre-dispatch gate).** Before spawning any stage subagent you MUST run the re-assert helper as the first action of every per-stage dispatch — skipping this step means skipping the dispatch gate:
      ```
-     ${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/auto-mode-marker.sh reassert --root <workspace> --task-id <TASK-ID>
+     ${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/auto-mode-marker.sh reassert --root <workspace> --task-id <TASK-ID> --space <resolved-space-name>
      ```
      If the marker file (located via the helper's `MARKER_RELPATH` constant — do not hard-code the filename) is absent, unparseable, holds a different task ID, or is stale, the helper rewrites it for the current task. If a valid current marker already exists the call is a no-op. The helper exits 0 when the marker is valid afterward; proceed to spawn the subagent only after exit 0.
    - **Carry the auto-signal in the subagent prompt.** Include an explicit line in every stage subagent's prompt: "You run stage `<stage>` in autonomous mode for `<TASK-ID>`." The spawned subagent activates the autonomous-mode skill from this signal plus the re-asserted marker, without the (un-inherited) environment variable — see `skills/autonomous-mode/SKILL.md` § When this skill is active, Spawned subagents (relaxed activation).
@@ -76,19 +79,18 @@ target_aal: 2
    - Emit the stage snapshot defined in the cta-format skill (`stage: auto`, `command: /dr-auto`).
    - The operator may explicitly `unset DATARIM_AUTO_MODE` in the shell. Otherwise, the next `/dr-*` invocation will detect that the env var is set but the marker is gone, log a single warning, and continue as a normal (non-autonomous) run.
 
-## Actions that always ask the operator
+## Actions that ask the operator
 
-Even under `/dr-auto`, the following actions never run automatically. They come from `documentation/mandates/autonomous-agents.md`; the autonomous-mode skill has the canonical, runtime-readable copy.
+Before asking, call `dev-tools/resolve-space-autonomy.sh gate` with the
+canonical action kind and any required discriminator payload. Exit `0` means
+execute autonomously; exit `10` means ask the operator; exit `2` means the
+policy is invalid and therefore also asks the operator.
 
-- Production deploys (any production environment).
-- Secret rotation: Vault keys, OAuth tokens, API keys, signing keys.
-- Irreversible database operations: `DROP`, `TRUNCATE`, schema migrations without a backup.
-- Public communications: posts to Telegram channels, blogs, social media, or any operator-fronting channel.
-- Finance or legal actions.
-- Force-push to `main` or `master`.
-- Deletion of git history (force-push that drops commits, `git reflog expire --expire=now`, `gc --prune=now`).
-- Actions that affect more than one human user (mass emails, broadcast notifications).
-- Cross-project boundary writes: edits to a repository whose task-prefix is not the current task's project.
+The always-gated floor never executes automatically in any space: finance or
+legal actions, irreversible database operations without a verified backup,
+git-history deletion, force-pushes that drop commits, and Supreme Directive
+violations. Other operational actions ask only when the resolved
+`autonomy.policy` value is `operator` or the space/policy cannot be resolved.
 
 ## When to use it
 

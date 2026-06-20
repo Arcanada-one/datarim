@@ -44,6 +44,8 @@ If none parses, the backend is treated as a miss and the chain continues.
   "action": "<slash-command-or-empty>",
   "confidence": 0.0,
   "reason": "<short-string>",
+  "action_kind": "<optional-operational-kind>",
+  "action_payload": {},
   "backend_used": "<backend-name-or-none>",
   "subagent_model": "<model-name-or-empty>"
 }
@@ -57,7 +59,11 @@ When the chain is exhausted without a successful parse, the resolver returns:
 
 ## Fail-Closed Semantics
 
-The resolver **never** decides to act. It is a classifier — the autonomous-vs-escalate decision belongs to `cmd_run.sh`:
+The resolver **never** decides to act. It is a classifier — the
+autonomous-vs-escalate decision belongs to `cmd_run.sh`. When a pane requests
+an operational action, the resolver also classifies `action_kind` and any
+required boolean discriminator payload; `cmd_run.sh` sends those fields through
+the per-space action gate before execution:
 
 - `confidence ≥ 0.80` ⇒ caller may pane-send the action via the Phase 1 security pipeline (whitelist + escape block + cooldown).
 - `confidence < 0.80` ⇒ caller routes the resolver output (including raw `confidence` and `reason`) to `escalation_backend.sh`.

@@ -126,3 +126,17 @@ YAML
     [ "$status" -eq 0 ]
     [ "$output" = "non-auto" ]
 }
+
+@test "reassert writes the resolved space binding" {
+    run "$HELPER" reassert --root "$FAKE_ROOT" --task-id "$TASK_ID" --space arcanada
+    [ "$status" -eq 0 ]
+    [ "$(yq eval -r '.space' "$MARKER")" = arcanada ]
+}
+
+@test "reassert replaces a marker with the wrong space binding" {
+    _seed_marker "$TASK_ID"
+    printf 'space: aether\n' >> "$MARKER"
+    run "$HELPER" reassert --root "$FAKE_ROOT" --task-id "$TASK_ID" --space arcanada
+    [ "$status" -eq 0 ]
+    [ "$(yq eval -r '.space' "$MARKER")" = arcanada ]
+}

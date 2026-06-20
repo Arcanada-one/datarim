@@ -2,10 +2,11 @@
 # auto-mode-marker.sh — manage the autonomous-mode marker file
 #
 # Verbs:
-#   reassert --root <DIR> --task-id <ID>
+#   reassert --root <DIR> --task-id <ID> [--space <NAME>]
 #     Idempotent. If <DIR>/datarim/.auto-mode-active is absent, unparseable,
 #     holds a different task_id, or is older than 24 hours, rewrite it with
-#     the given task_id. If a valid current marker already exists, no-op.
+#     the given task_id and optional space binding. If a valid current marker
+#     already exists, no-op.
 #     Exits 0 when the marker is valid for <ID> afterward; exits 2 on bad args.
 #
 #   subagent-active --root <DIR> --task-id <ID> --auto-signal <true|false>
@@ -35,12 +36,14 @@ shift || true
 ROOT=""
 TASK_ID=""
 AUTO_SIGNAL=""
+SPACE_NAME=""
 
 while [ $# -gt 0 ]; do
     case "$1" in
         --root)       ROOT="$2";        shift 2 ;;
         --task-id)    TASK_ID="$2";     shift 2 ;;
         --auto-signal) AUTO_SIGNAL="$2"; shift 2 ;;
+        --space)       SPACE_NAME="$2";  shift 2 ;;
         -h|--help)
             grep '^#' "$0" | head -30 | sed 's/^# \?//'
             exit 0
@@ -79,6 +82,10 @@ if ! [[ "$TASK_ID" =~ ^[A-Z]{2,10}-[0-9]{4}$ ]]; then
     usage_error "--task-id must match ^[A-Z]{2,10}-[0-9]{4}\$, got: ${TASK_ID}"
 fi
 
+if [ -n "$SPACE_NAME" ] && ! [[ "$SPACE_NAME" =~ ^[a-z0-9][a-z0-9_-]*$ ]]; then
+    usage_error "--space must be a safe lowercase slug, got: ${SPACE_NAME}"
+fi
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 MARKER_PATH="${ROOT}/${MARKER_RELPATH}"
@@ -99,6 +106,7 @@ task_id: ${task_id}
 activated_at: ${ts}
 activated_by: /dr-auto
 mode: resume
+space: ${SPACE_NAME}
 YAML
 }
 
@@ -113,6 +121,12 @@ _marker_is_valid() {
     local file_id
     file_id=$(grep -m1 '^task_id:' "${MARKER_PATH}" | sed 's/^task_id:[[:space:]]*//' 2>/dev/null) || return 1
     [ "${file_id}" = "${expected_id}" ] || return 1
+
+    if [ -n "$SPACE_NAME" ]; then
+        local file_space
+        file_space=$(grep -m1 '^space:' "${MARKER_PATH}" | sed 's/^space:[[:space:]]*//' 2>/dev/null) || return 1
+        [ "$file_space" = "$SPACE_NAME" ] || return 1
+    fi
 
     # Check age: accept marker only if it was written within 24 hours (86400 s).
     # Probe GNU date first; fall back to BSD stat.

@@ -52,6 +52,26 @@ load_fb_hard_gates() {
   yq eval -o=json '.hard_gated_actions // []' "$src" 2>/dev/null || echo '[]'
 }
 
+load_always_gated_floor() {
+  local src="${1:-$DR_ORCH_FB_RULES}"
+  [[ -f "$src" && -s "$src" ]] || return 2
+  yq eval -e -o=json '.always_gated_floor | select(type == "!!seq" and length > 0)' \
+    "$src" 2>/dev/null || return 2
+}
+
+load_action_autonomy_map() {
+  local src="${1:-$DR_ORCH_FB_RULES}"
+  [[ -f "$src" && -s "$src" ]] || return 2
+  yq eval -e -o=json '.action_autonomy_map | select(type == "!!map" and length > 0)' \
+    "$src" 2>/dev/null || return 2
+}
+
+resolve_space_autonomy() {
+  local resolver="$DR_ORCH_DIR/../../dev-tools/resolve-space-autonomy.sh"
+  [[ -x "$resolver" ]] || return 2
+  "$resolver" gate "$@"
+}
+
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   fn="${1:-}"; shift || true
   [[ -n "$fn" ]] || { echo "usage: rules_loader.sh <fn> [args]" >&2; exit 2; }
