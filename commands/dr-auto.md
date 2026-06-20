@@ -81,7 +81,7 @@ target_aal: 2
 
 ## Actions that ask the operator
 
-Before asking, call `dev-tools/resolve-space-autonomy.sh gate` with the
+Before asking, call `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/resolve-space-autonomy.sh gate` with the
 canonical action kind and any required discriminator payload. Exit `0` means
 execute autonomously; exit `10` means ask the operator; exit `2` means the
 policy is invalid and therefore also asks the operator.

@@ -133,7 +133,7 @@ Consumed by `/dr-archive` Step 0.5 (pre-reflection): the inline-log surfaces as 
 **Carve-out (consumer mandate § Carve-out):** the consumer's `autonomous-agents.md` MAY define narrowly-scoped exceptions to this list. The reference Arcanada mandate carves out **autonomous public-package release of patch / minor versions** when every fail-closed pre-publish gate is green (`escalate=false`); `major` and any `0.x` breaking change still escalate, with a GitHub conditional `environment` as a second backstop. The machine-readable shape is `plugins/dr-orchestrate/rules/fb-rules.yaml` § `hard_gate_carve_outs`. Read the consumer mandate's carve-out section before treating a release action as hard-gated — do not quote the carve-out from memory.
 
 Before escalation, resolve the action through
-`dev-tools/resolve-space-autonomy.sh gate --action <kind> --payload <json>`.
+`${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/resolve-space-autonomy.sh gate --action <kind> --payload <json>`.
 The resolver returns `0` for autonomous execution, `10` for operator
 escalation, and `2` for an invalid policy invariant. Missing or malformed
 policy always resolves to operator escalation.
