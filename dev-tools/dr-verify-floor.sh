@@ -327,14 +327,69 @@ check_shellcheck() {
 }
 
 # ---------------------------------------------------------------------------
+# Sub-check: spec-graph — shell dr-spec-lint and re-emit its JSONL findings into
+# the floor stream (R6). No new verdict enum: spec severities map onto the
+# floor's existing high/medium/low (error->high, warning->medium, info->low) and
+# the rule id is namespaced as `dr-spec-lint:<rule>` so dedupe stays trivial.
+# ---------------------------------------------------------------------------
+
+check_spec_graph() {
+    local lint="${SCRIPT_DIR:-$(cd "$(dirname "$0")" && pwd)}/dr-spec-lint.sh"
+    if [ ! -x "$lint" ] && [ ! -f "$lint" ]; then
+        echo "[spec_graph] SKIP: dr-spec-lint.sh not found" >&2
+        return 0
+    fi
+    local prd_file="$DATARIM_ROOT/prd/PRD-${TASK_ID}.md"
+    local plan_file="$DATARIM_ROOT/plans/${TASK_ID}-plan.md"
+    if [ ! -f "$prd_file" ] && [ ! -f "$plan_file" ]; then
+        echo "[spec_graph] SKIP: no PRD/plan for $TASK_ID" >&2
+        return 0
+    fi
+    echo "[spec_graph] running dr-spec-lint for $TASK_ID" >&2
+
+    # --advisory so dr-spec-lint always exits 0; the floor owns the verdict.
+    local lint_json
+    lint_json="$(bash "$lint" --task "$TASK_ID" --root "$(dirname "$DATARIM_ROOT")" \
+                     --format json --advisory 2>/dev/null || true)"
+    [ -n "$lint_json" ] || { echo "[spec_graph] clean" >&2; return 0; }
+
+    local line
+    while IFS= read -r line; do
+        [ -n "$line" ] || continue
+        # Map one spec finding -> floor emit_finding args via python (stable parse).
+        local mapped
+        mapped="$(printf '%s' "$line" | python3 -c '
+import json, sys
+f = json.loads(sys.stdin.read())
+sev_map = {"error": "high", "warning": "medium", "info": "low"}
+sev = sev_map.get(f.get("severity", "info"), "low")
+cat = f.get("category", "consistency")
+chk = "dr-spec-lint:" + f.get("check_name", "rule")
+art = f.get("artifact_ref", "")
+ac = ",".join(f.get("ac_criteria", []) or [])
+ev = f.get("evidence", {}) or {}
+ev_t = ev.get("type", "file_quote")
+ev_s = ev.get("source", "")
+ev_e = ev.get("excerpt", "")
+# tab-separated for the shell to split
+print("\t".join([sev, cat, chk, art, ac, ev_t, ev_s, ev_e]))
+' 2>/dev/null || true)"
+        [ -n "$mapped" ] || continue
+        local sev cat chk art ac ev_t ev_s ev_e
+        IFS=$'\t' read -r sev cat chk art ac ev_t ev_s ev_e <<< "$mapped"
+        emit_finding "$sev" "$cat" "$chk" "$art" "$ac" "$ev_t" "$ev_s" "$ev_e"
+    done <<< "$lint_json"
+}
+
+# ---------------------------------------------------------------------------
 # Main dispatch
 # ---------------------------------------------------------------------------
 
 case "$STAGE" in
     prd)  check_ac_coverage ;;
-    plan) check_ac_coverage; check_file_touched ;;
+    plan) check_ac_coverage; check_file_touched; check_spec_graph ;;
     do)   check_file_touched; check_test_presence; check_shellcheck ;;
-    all)  check_ac_coverage; check_file_touched; check_test_presence; check_shellcheck ;;
+    all)  check_ac_coverage; check_file_touched; check_test_presence; check_shellcheck; check_spec_graph ;;
 esac
 
 # Warn if zero findings were emitted AND shellcheck produced no hits (all checks were SKIP).
