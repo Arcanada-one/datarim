@@ -1,4 +1,5 @@
 # fb-rules.yaml — Autonomous Agent Operating Rules (FB-1..FB-8) policy block.
+# FB means Feedback Behaviour; it is unrelated to Facebook or Publisher.
 # Canonical text: /Users/ug/arcanada/CLAUDE.md § Autonomous Agent Operating Rules Mandate.
 # Source insight:  Projects/Datarim/datarim/insights/INSIGHTS-TUNE-0185-fb-rules.md.
 # Consumer: scripts/rules_loader.sh § load_fb_policy() (TUNE-0185 Phase 4).
@@ -24,7 +25,7 @@
 
 rules:
   - rule_id: FB-1
-    title: "Исследовать доступные варианты решения"
+    title: "Research available solution options"
     enforcement_layer: 2
     tier: rule-based
     default_action: auto
@@ -33,7 +34,7 @@ rules:
     conflicts_with_law: null
 
   - rule_id: FB-2
-    title: "Сравнить варианты по best practices / security / maintainability"
+    title: "Compare options for security and maintainability"
     enforcement_layer: 2
     tier: rule-based
     default_action: auto
@@ -42,7 +43,7 @@ rules:
     conflicts_with_law: null
 
   - rule_id: FB-3
-    title: "Консилиум по ролям (architect / dev / DevOps / security / QA / PO)"
+    title: "Run a role-based consilium when needed"
     enforcement_layer: 4
     tier: subagent
     default_action: auto
@@ -51,7 +52,7 @@ rules:
     conflicts_with_law: null
 
   - rule_id: FB-4
-    title: "Выбрать вариант и записать reason в audit log"
+    title: "Choose an option and record the reason"
     enforcement_layer: 2
     tier: rule-based
     default_action: auto
@@ -60,7 +61,7 @@ rules:
     conflicts_with_law: 5
 
   - rule_id: FB-5
-    title: "Выполнить безопасно-выполнимые части задачи без оператора"
+    title: "Execute safely reversible work without the operator"
     enforcement_layer: 2
     tier: rule-based
     default_action: auto
@@ -69,7 +70,7 @@ rules:
     conflicts_with_law: 1
 
   - rule_id: FB-5a
-    title: "Не перекладывать на оператора обратимую работу; не отсрочивать без артефакта"
+    title: "Do not defer reversible work without an artifact"
     enforcement_layer: 2
     tier: rule-based
     default_action: auto
@@ -79,7 +80,7 @@ rules:
     anti_deferral: true
 
   - rule_id: FB-6
-    title: "Делать решения обратимыми при неопределённости"
+    title: "Keep decisions reversible under uncertainty"
     enforcement_layer: 6
     tier: rule-based
     default_action: auto
@@ -88,7 +89,7 @@ rules:
     conflicts_with_law: 4
 
   - rule_id: FB-7
-    title: "Заложить корректировку / откат / переделку после тестов"
+    title: "Provide correction and rollback after testing"
     enforcement_layer: 3
     tier: rule-based
     default_action: auto
@@ -97,7 +98,7 @@ rules:
     conflicts_with_law: 4
 
   - rule_id: FB-8
-    title: "Эскалировать только реально блокирующие вопросы"
+    title: "Escalate only genuinely blocking questions"
     enforcement_layer: 6
     tier: escalation
     default_action: escalate
@@ -121,6 +122,30 @@ hard_gated_actions:
   # Requires explicit --publish flag. Dry-run is the default mode.
   # Enforced by: scripts/content_consilium_gate.sh.
   - content_consilium_publish
+
+# Immutable Supreme-Directive floor. Per-space policy can never lift these.
+always_gated_floor:
+  - finance_action
+  - legal_action
+  - git_history_delete
+  - force_push_drops_commits
+  - irreversible_db_no_backup
+  - supreme_directive_forbidden
+
+# Runtime action kind → spaces/{name}/space.yml autonomy.policy key.
+action_autonomy_map:
+  feature_branch_push: feature_branch_push
+  merge_main: merge_main
+  prod_deploy: prod_deploy
+  publish_public: publish_public
+  public_communication: publish_public
+  content_consilium_publish: publish_public
+  public_package_release: publish_public
+  secret_rotation: secret_rotation
+  verify: verify
+  cross_project_write: cross_project_write
+  force_push: merge_main
+  irreversible_db_op: prod_deploy
 
 # Carve-out (set 2026-05-31): the public_package_release sub-case is autonomous
 # for patch/minor ONLY when escalate=false (all fail-closed gates green). A major

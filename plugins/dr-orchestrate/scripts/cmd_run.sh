@@ -67,13 +67,15 @@ AUDIT_FILE="$AUDIT_DIR/audit-$(date -u +%Y-%m-%d).jsonl"
 # emits an audit v2 record with outcome=resolved or routes to escalation.
 resolve_and_route() {
   local text="$1"; local pane="$2"; local start_ms="$3"
-  local resolver_json conf action backend_used model end_ms dur
+  local resolver_json conf action action_kind action_payload backend_used model end_ms dur
   resolver_json="$(bash "$DR_ORCH_DIR/scripts/subagent_resolver.sh" resolve "$text" 2>/dev/null || true)"
   if [[ -z "$resolver_json" ]]; then
     resolver_json='{"action":"","confidence":0,"reason":"resolver_failed","backend_used":"none","subagent_model":""}'
   fi
   conf="$(printf '%s' "$resolver_json" | jq -r '.confidence // 0')"
   action="$(printf '%s' "$resolver_json" | jq -r '.action // ""')"
+  action_kind="$(printf '%s' "$resolver_json" | jq -r '.action_kind // ""')"
+  action_payload="$(printf '%s' "$resolver_json" | jq -c '.action_payload // {}')"
   backend_used="$(printf '%s' "$resolver_json" | jq -r '.backend_used // ""')"
   model="$(printf '%s' "$resolver_json" | jq -r '.subagent_model // ""')"
   end_ms="$(now_ms)"
@@ -84,6 +86,25 @@ resolve_and_route() {
   awk -v c="$conf" -v t="$CONFIDENCE_THRESHOLD" 'BEGIN{ exit !(c+0 >= t+0) }' && pass=1
 
   if (( pass )); then
+    if [[ -n "$action_kind" ]]; then
+      local gate_rc
+      set +e
+      bash "$DR_ORCH_DIR/scripts/action_gate.sh" gate \
+        --action "$action_kind" --payload "$action_payload" >/dev/null
+      gate_rc=$?
+      set -e
+      if (( gate_rc != 0 )); then
+        DR_ORCH_PROMPT_TEXT="$text" \
+          bash "$DR_ORCH_DIR/scripts/escalation_backend.sh" emit "$resolver_json" "$pane" || true
+        local gate_evt
+        gate_evt="$(make_event_v2 "$text" "$action" "$gate_rc" "$dur" "$pane" \
+          "$conf" "$model" "$backend_used" "${DR_ORCH_ESCALATION_BACKEND:-mock}" \
+          "escalate" "escalated_space_policy" "space autonomy gate denied action")"
+        emit "$AUDIT_FILE" "$gate_evt"
+        echo "dr-orchestrate: escalate | action_kind=$action_kind | reason=space_policy"
+        return 0
+      fi
+    fi
     local outcome="resolved"
     if ! check_cooldown "$pane" decision 2>/dev/null; then
       outcome="blocked_decision_cooldown"

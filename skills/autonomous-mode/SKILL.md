@@ -28,7 +28,12 @@ task_id: TUNE-XXXX
 activated_at: 2026-05-24T12:00:00Z
 activated_by: /dr-auto
 mode: continue|bootstrap
+space: arcanada
 ```
+
+`space` binds the cycle to a registered space for autonomy-policy resolution.
+If it is absent and no deterministic workspace match exists, operational
+actions remain operator-gated.
 
 **24h TTL.** If the marker was created more than 24 hours ago → silently purge it (the agent deletes the file or ignores it). Only `/dr-auto` re-creates the marker.
 
@@ -127,13 +132,25 @@ Consumed by `/dr-archive` Step 0.5 (pre-reflection): the inline-log surfaces as 
 
 **Carve-out (consumer mandate § Carve-out):** the consumer's `autonomous-agents.md` MAY define narrowly-scoped exceptions to this list. The reference Arcanada mandate carves out **autonomous public-package release of patch / minor versions** when every fail-closed pre-publish gate is green (`escalate=false`); `major` and any `0.x` breaking change still escalate, with a GitHub conditional `environment` as a second backstop. The machine-readable shape is `plugins/dr-orchestrate/rules/fb-rules.yaml` § `hard_gate_carve_outs`. Read the consumer mandate's carve-out section before treating a release action as hard-gated — do not quote the carve-out from memory.
 
-Under `/dr-auto`, these actions **never auto-execute** (except where a consumer-mandate carve-out applies and all its preconditions are met):
+Before escalation, resolve the action through
+`dev-tools/resolve-space-autonomy.sh gate --action <kind> --payload <json>`.
+The resolver returns `0` for autonomous execution, `10` for operator
+escalation, and `2` for an invalid policy invariant. Missing or malformed
+policy always resolves to operator escalation.
 
-1. The agent recognises the action as hard-gated (against the verbatim list or as a cross-project boundary crossing).
-2. Escalate via Ladder L5: call `AskUserQuestion` and state explicitly "This action is hard-gated per autonomous-agents.md:32. Operator approval required before execution."
-3. Log the operator response via `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/append-init-task-qa.sh" --decided-by operator --question "<question text>" --answer "<operator response>"`.
+The immutable floor is checked first and cannot be lifted by any space:
+finance/legal actions, irreversible database operations without a verified
+backup, git-history deletion, force-pushes that drop commits, and Supreme
+Directive violations. A signed fast-forward update to `main` is `merge_main`,
+not history deletion.
 
-**Cross-project boundary (additional rule):** any action that touches repositories outside the task's project scope (the scope is defined by the Task Prefix Registry — `Arcanada/CLAUDE.md` or `documentation/architecture/task-prefix-registry.md`) is also hard-gated. Example: a task with prefix `SUP-` tries to edit `Projects/Verdicus/` → hard-gated.
+When the resolver returns `0`, execute without `AskUserQuestion`; the
+write-ahead audit record is mandatory. When it returns `10` or `2`, escalate
+via Ladder L5 and log the response through `append-init-task-qa.sh`.
+
+**Cross-project boundary:** resolve `cross_project_write` through the same
+space policy. Unresolved ownership or an unknown target fails closed to the
+operator.
 
 **Workspace branch discipline (pre-file-edit check):** before editing any file in a workspace-root repository (one outside the task's own code repo — e.g. a shared mandate or doc tree), confirm `git branch --show-current` matches the active task. In a shared workspace with several parallel task branches checked out, a routine edit otherwise lands on whichever branch happens to be current and travels with the wrong merge. If the current branch does not match the task, create a task-named branch (or escalate) before writing — do not edit on a sibling task's branch.
 

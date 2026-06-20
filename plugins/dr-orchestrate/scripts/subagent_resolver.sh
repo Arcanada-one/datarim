@@ -207,15 +207,23 @@ _extract_json() {
 _build_prompt() {
   local pane_text="$1"
   local rules; rules="$(load)"
-  local actions
+  local actions action_kinds
   actions="$(printf '%s' "$rules" | jq -r '[.[].action] | unique | join(" ")')"
+  action_kinds="$(load_action_autonomy_map 2>/dev/null \
+    | jq -r 'keys | join(" ")' 2>/dev/null || true)"
   cat <<PROMPT
 You are a strict classifier for a Datarim CLI pipeline pane.
 Pick the single most likely intended slash-command from this closed set:
   ${actions}
 
 Respond with ONLY a JSON object — no prose, no markdown fences:
-  {"action":"/dr-...","confidence":<float 0..1>,"reason":"<short>"}
+  {"action":"/dr-...","confidence":<float 0..1>,"reason":"<short>",
+   "action_kind":"<optional operational kind>","action_payload":{}}
+
+When the pane requests a normally gated operational action, set action_kind
+from this closed set and include required booleans in action_payload:
+  ${action_kinds}
+Otherwise omit action_kind or set it to an empty string.
 
 If no command applies, set "confidence" to 0 and "action" to "".
 

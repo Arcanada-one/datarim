@@ -101,3 +101,31 @@ YAML
     n=$(echo "$output" | jq 'length')
     [ "$n" -ge 10 ]
 }
+
+@test "TUNE-0436: loader exposes immutable floor" {
+    export DR_ORCH_FB_RULES="$TMP_RULES_DIR/fb.yaml"
+    cat > "$DR_ORCH_FB_RULES" <<'YAML'
+always_gated_floor: [finance_action, legal_action]
+YAML
+    run bash "$DR_ORCH_DIR/scripts/rules_loader.sh" load_always_gated_floor
+    [ "$status" -eq 0 ] \
+      && [ "$(jq -r 'length' <<<"$output")" -eq 2 ]
+}
+
+@test "TUNE-0436: loader rejects missing immutable floor" {
+    export DR_ORCH_FB_RULES="$TMP_RULES_DIR/fb.yaml"
+    printf 'rules: []\n' > "$DR_ORCH_FB_RULES"
+    run bash "$DR_ORCH_DIR/scripts/rules_loader.sh" load_always_gated_floor
+    [ "$status" -eq 2 ]
+}
+
+@test "TUNE-0436: loader exposes action autonomy map" {
+    export DR_ORCH_FB_RULES="$TMP_RULES_DIR/fb.yaml"
+    cat > "$DR_ORCH_FB_RULES" <<'YAML'
+action_autonomy_map:
+  merge_main: merge_main
+YAML
+    run bash "$DR_ORCH_DIR/scripts/rules_loader.sh" load_action_autonomy_map
+    [ "$status" -eq 0 ] \
+      && [ "$(jq -r '.merge_main' <<<"$output")" = merge_main ]
+}

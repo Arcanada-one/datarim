@@ -59,6 +59,11 @@ Resolver outputs below the confidence threshold (or `chain_exhausted`) route to
 - **dev-bot** — stub returning exit 99 with WARN until a real consumer service
   lands.
 
+Resolver JSON may also include `action_kind` and `action_payload`.
+`cmd_run.sh` sends these through `scripts/action_gate.sh` before execution.
+The gate reads explicit per-space `autonomy.policy`, writes its audit record
+first, and fails closed on missing, malformed, unknown, or unresolved policy.
+
 ## Security Floor
 
 Перед любым `tmux send-keys` и перед любым autonomous decision выполняется
