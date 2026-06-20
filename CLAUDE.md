@@ -228,7 +228,7 @@ Command files: `$HOME/.claude/commands/{name}.md` (26 commands, including the pl
 
 Manual self-verification command (post-completion review of any pipeline artifact). **Tri-layer architecture (cheapest-first, fail-fast):**
 
-1. **Layer 1 — Deterministic floor.** `dev-tools/dr-verify-floor.sh` — pure shell pipeline (AC coverage grep, file-touched audit, test-presence parse, shellcheck). Zero LLM cost; runs in seconds.
+1. **Layer 1 — Deterministic floor.** `dev-tools/dr-verify-floor.sh` — pure shell pipeline (AC coverage grep, file-touched audit, test-presence parse, shellcheck, spec-traceability graph). Zero LLM cost; runs in seconds. On `--stage plan|all` it shells `dev-tools/dr-spec-lint.sh` (advisory) and re-emits the spec-graph findings into the floor stream with `source_layer: "floor"` and a `check_name: "dr-spec-lint:<rule>"` prefix — no new verdict enum (`error→high`, `warning→medium`, `info→low`).
 2. **Layer 2 — Cross-model peer-review.** `coworker ask --provider {peer-provider} --task-id <ID>` — adversarial reviewer in clean external context. Vendor-neutral via the coworker abstraction.
 
    **Provider auto-resolves** via 6-step resolution chain (`dev-tools/resolve-peer-provider.sh`):
