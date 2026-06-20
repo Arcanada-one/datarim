@@ -275,29 +275,30 @@ effective_ruleset() {
     local r tok
 
     if [ -n "$include" ]; then
-        local oldifs="$IFS"; IFS=','
-        for tok in $include; do
+        # IFS scoped to the read builtin only — never set globally (S1).
+        local -a _inc=()
+        IFS=',' read -ra _inc <<< "$include"
+        for tok in "${_inc[@]}"; do
             tok="${tok// /}"
             [ -n "$tok" ] || continue
-            rule_exists "$tok" || { IFS="$oldifs"; usage_die "unknown rule id in --rules: $tok"; }
+            rule_exists "$tok" || usage_die "unknown rule id in --rules: $tok"
             want+=("$tok")
         done
-        IFS="$oldifs"
     else
         want=("${SPEC_RULE_IDS[@]}")
     fi
 
     local -a drop=()
     if [ -n "$ignore" ]; then
-        local oldifs="$IFS"; IFS=','
-        for tok in $ignore; do
+        local -a _ign=()
+        IFS=',' read -ra _ign <<< "$ignore"
+        for tok in "${_ign[@]}"; do
             tok="${tok// /}"
             [ -n "$tok" ] || continue
-            rule_exists "$tok" || { IFS="$oldifs"; usage_die "unknown rule id in --ignore: $tok"; }
-            is_mandatory "$tok" && { IFS="$oldifs"; usage_die "cannot --ignore mandatory rule: $tok"; }
+            rule_exists "$tok" || usage_die "unknown rule id in --ignore: $tok"
+            is_mandatory "$tok" && usage_die "cannot --ignore mandatory rule: $tok"
             drop+=("$tok")
         done
-        IFS="$oldifs"
     fi
 
     SPEC_EFFECTIVE_RULES=()
