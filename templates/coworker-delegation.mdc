@@ -32,8 +32,8 @@ Profiles: `code` (default, generic analysis), `datarim` (Datarim artifacts), `so
 ## ALWAYS write through coworker write first, then surgical edit
 
 - First draft of PRD, plan, design docs, task-description.
-- Articles in `wiki/`, posts in `Social Media/`, ecosystem-site docs.
 - Never accept blindly — after `coworker write`, read output and edit judgment-parts only.
+- Published content (articles, social posts, ecosystem-site docs) is NOT in this list — see § NEVER delegate, "Voice-bearing and judgment content".
 
 ## File-type policy (critical — common friction point)
 
@@ -70,6 +70,7 @@ Enable when bulk reads regularly exceed ~5k tokens (logs, code dumps, long diffs
 - Tasks under ~2000 tokens (overhead exceeds savings).
 - Debugging, root-cause analysis, race conditions, safety-critical logic.
 - Architectural decisions and trade-offs.
+- Voice-bearing and judgment content — the assigned model writes it itself, never via `coworker`. Covers published articles, social posts, ecosystem-site docs, and consilium / panel reasoning. The point of running such work on a specific agent (e.g. a flagship reasoning model) is to get *that model's* voice and judgment; routing the draft through `coworker` silently substitutes the delegate LLM's prose and defeats the purpose — and, when several agents are compared on the same brief, invalidates the comparison. `coworker ask` for bulk *reading* of source material is still fine; only generation of the voice-bearing text and the reasoning steps must stay on the assigned model. (Content-work skills/commands — `dr-write`, `dr-edit`, `dr-publish`, `humanize`, `factcheck`, `writing`, `publishing` — and the `consilium` skill follow this rule.)
 - When exact line numbers are needed for Edit (coworker summaries lose them).
 - Reasoning about user intent.
 - Appending to an existing file via `coworker write --target Y` without `--append`. Bare `coworker write --target Y` truncate-writes Y (Python `'w'` mode) — a spec like `--spec "append section X to file Y" --target Y` overwrites Y with only the new section and destroys everything else (frontmatter, prior sections). Since coworker v0.4.0 the canonical fix is the `--append` flag: `coworker write --append --target Y --spec "..."` (mutually exclusive with `--stdout`, falls back to write if Y does not yet exist, inserts separator newline when needed). Legacy workarounds (`--stdout` + manual concat, or feed Y as `--context` to a fresh `--target`, or native surgical edit) only when byte-exact tail handling matters.
