@@ -230,7 +230,7 @@ The Q&A round-trip findings appear in the same Layer 3b table under a dedicated 
 
 Invoke:
 
-```bash
+```
 "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/spec-graph-gate.sh" \
     --task {TASK-ID} --stage qa --root <repo-root> --format json
 ```
