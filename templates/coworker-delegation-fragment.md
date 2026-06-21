@@ -25,7 +25,9 @@ OpenAI) via the OpenAI-compatible API. Provider/model switchable per call.
 ### Never write directly — always `coworker write --profile datarim` first, then edit
 
 - First draft of PRD, plan, design docs, task-description.
-- Articles in `wiki/`, posts in `Social Media/`, ecosystem-site docs.
+
+Published content (articles, social posts, ecosystem-site docs) is NOT in
+this list — see § Do NOT delegate, "Voice-bearing and judgment content".
 
 ### Exempt (operator decision, 2026-05-24)
 
@@ -146,6 +148,19 @@ passthrough store and CRUD workflow are documented in
 - Tasks under ~2 000 tokens (overhead not worth it).
 - Debugging, root-cause analysis, race conditions, safety-critical logic.
 - Architectural decisions and trade-offs.
+- **Voice-bearing and judgment content — the assigned model writes it
+  itself, never via `coworker`.** Covers published articles, social posts,
+  ecosystem-site docs, and consilium / panel reasoning. The point of
+  running such work on a specific agent (e.g. a flagship reasoning model)
+  is to get *that model's* voice and judgment; routing the draft through
+  `coworker` silently substitutes the delegate LLM's prose and defeats the
+  purpose — and, when several agents are compared on the same brief,
+  invalidates the comparison. `coworker ask` for bulk *reading* of source
+  material is still fine; only generation of the voice-bearing text and the
+  reasoning steps must stay on the assigned model. (Content-work
+  skills/commands — `dr-write`, `dr-edit`, `dr-publish`, `humanize`,
+  `factcheck`, `writing`, `publishing` — and the `consilium` skill follow
+  this rule.)
 - When exact line numbers are needed for `Edit` (coworker summaries lose
   them).
 - Reasoning about user intent.
