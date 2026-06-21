@@ -346,6 +346,14 @@ Publisher pattern: immediately after `POST_URL` is captured, post the first-comm
 
 **Attach the hero image to image-capable posts.** When the post promotes an article that has a hero image, attach that image to the post itself — FB `--image-file`, LinkedIn `--image-file`, TG `sendPhoto`. A bare text post with no image loses badly in the feed, and an article's OG-preview from a *comment* link is not a substitute (the body shows no image). A FB post published text-only loses badly in the feed — there is no way to add media retroactively (UI edit replaces text only), so you must delete and re-publish, then re-add the first comment. Get the image right on the first publish.
 
+**Video standard for social posts — animated cover (cover → cycling effects) over the article narration.** When a post has both a cover image AND article narration audio, the preferred attachment is NOT a static cover and NOT a plain cover+audio MP4, but an **animated screensaver video**: the post's cover shown clean for ~2 s, then a NEW visual effect every ~3 s cycling through a large randomly-shuffled pool, with smooth crossfades (~0.6 s) between effects, for the full length of the narration. The canonical generator is `Projects/Publisher/code/arcanada-publisher/dev-tools/video/make-cycle-video.sh <cover> <audio> <out.mp4> [intro_sec] [seg_sec] [seed]` — pure ffmpeg, no plugins. Rules:
+- Inputs come **from the post itself**: the cover is the article's hero cover (the post-level cover, not an in-article inline preview), the audio is the article's own narration in the post language. The intro frame is always that cover.
+- The effect order is **re-shuffled randomly every run** (Fisher-Yates over the pool) so two posts never get the same sequence; pass a fixed `seed` only to reproduce one.
+- Video length always equals the narration length; narration plays from t=0 (the 2 s intro is the cover held still, not silence).
+- **No audio?** Fall back to a ~30 s clip from the cover alone (the generator's no-audio path), still with cycling effects.
+- Do NOT use bare audio-waveform visualizers (showwaves/showcqt/showspectrum) as the post video — they look generic; the animated-cover cycle is the house style.
+- Per-platform attach: X long-form and LinkedIn take the MP4; Facebook feed forces video into Reels, so on FB use the static cover image instead (keep the video for X and LinkedIn); Telegram can take the MP4 via `sendVideo`.
+
 **Telegram first-comment — one link, the article in the post's language.** On a Telegram channel post, the comment links to the full article in the **same language as the post** — a single URL, nothing else. Do NOT add the other-language version (an RU post links the RU article only, not the EN one), and do NOT link the channel itself — the reader is already in it. This is narrower than the multi-link FB/LinkedIn comment; keep the TG comment minimal.
 
 <!-- gate:history-allowed -->
