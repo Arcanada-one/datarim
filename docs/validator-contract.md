@@ -3,15 +3,32 @@
 Canonical exit-code and JSON-shape reference for Datarim framework validators
 that participate in the spec-traceability layer. Adopting this one contract
 keeps the validators composable: `/dr-verify`'s deterministic floor can re-emit
-their findings without reshaping, and CI / pre-commit can branch purely on exit
-code without parsing prose.
+their findings without reshaping, and automatic pipeline stages can branch
+purely on exit code without parsing prose.
+
+## Automatic pipeline adapter
+
+`dev-tools/spec-graph-gate.sh` is the internal entry point used by `/dr-prd`,
+`/dr-plan`, `/dr-do`, `/dr-qa`, `/dr-compliance`, and `/dr-verify`. It is not an
+operator command.
+
+The adapter accepts `--task`, `--stage`, `--root`, and `--format`. It owns:
+
+- L1 skip, L2 advisory, and explicit L3-L4 hard-mode policy;
+- stage-appropriate graph requirements;
+- task-aware workflow-artifact scope;
+- lint, trace, and report-only grade orchestration;
+- normalized `0/1/2` exits.
+
+`DATARIM_SPEC_GRAPH_MODE=hard` explicitly activates hard mode. The default is
+`advisory`. The do stage remains advisory in both modes.
 
 ## Exit codes
 
 | Code | Meaning |
 |------|---------|
 | `0`  | Valid / clean — no violations. |
-| `1`  | Violations found (hard mode). In `--advisory` mode this is suppressed to `0`. |
+| `1`  | One or more violations found in hard mode. Finding count belongs in output, never in the exit status. |
 | `2`  | Usage or **configuration** error. |
 
 A configuration error (exit `2`) is **never** reported as "0 violations". The
@@ -64,7 +81,8 @@ Every spec validator accepts the shared flag vocabulary from
 | `--report` / `--report-file <path>` | Human report toggle / sink. |
 | `--dry-run` | Build the graph, report nothing, exit `0`. |
 | `--advisory` | Emit findings but always exit `0` (rollout window). |
-| `--scope all\|git-diff` | Limit to artefacts changed vs `origin/main`. |
+| `--scope all\|git-diff` | Compatibility flag reserved for validators that inspect tracked implementation files. Current graph validators evaluate canonical current-task workflow artefacts in both modes. |
+| `--stage prd\|plan\|do\|qa\|compliance\|verify\|all` | Select stage-appropriate graph edges. |
 | `--rules a,b` / `--ignore c,d` | Subset / suppress rules (registry-validated). |
 
 ## Strict mode

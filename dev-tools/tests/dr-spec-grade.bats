@@ -87,3 +87,8 @@ assert "computed_from" in o, o
     run "$SCRIPT" --findings "$WORK/findings-clean.jsonl" --bogus
     [ "$status" -eq 2 ]
 }
+
+@test "--task propagates lint configuration exit 2 instead of emitting grade A" {
+    run "$SCRIPT" --task ZZ-9999 --root "$WORK"
+    [ "$status" -eq 2 ]
+}

@@ -12,6 +12,7 @@ Your goal is to implement features with high code quality, following TDD and pro
 - Write tests (TDD).
 - Follow `datarim/systemPatterns.md` and `datarim/style-guide.md`.
 - Update `datarim/techContext.md`.
+- Record canonical `Evidence: V-AC-N — <command/test/artifact>` lines in the task implementation record and run the advisory do-stage spec-graph gate before handoff.
 
 **Context Loading**:
 - READ: `datarim/activeContext.md`, `datarim/tasks.md`, `datarim/systemPatterns.md`

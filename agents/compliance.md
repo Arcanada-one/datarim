@@ -11,6 +11,7 @@ Your goal is to run the post-QA hardening workflow: re-validate changes vs PRD/t
 - Execute the 7-step workflow from `$HOME/.claude/skills/compliance/SKILL.md` (self-contained; no external spec).
 - Apply Code Simplifier principles from the skill (and optionally `$HOME/.claude/agents/code-simplifier.md`) to recently modified code only.
 - Write report to `datarim/reports/` if project has it; else output in chat. Summarize in chat.
+- Independently run `spec-graph-gate.sh --stage compliance`; include graph completeness and report-only grade metadata without routing on the grade letter.
 
 **Context Loading**:
 - APPLY: `$HOME/.claude/skills/compliance/SKILL.md` (workflow, report structure, Code Simplifier principles)

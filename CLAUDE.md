@@ -1,6 +1,6 @@
 # Datarim — Universal Iterative Workflow Framework
 
-> **Version:** 2.42.0
+> **Version:** 2.43.0
 > **Framework:** Datarim provides structured rules, agents, skills, and commands for iterative project execution via AI coding assistants — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
 > **Multi-runtime:** Datarim is runtime-agnostic. This file is also available as `AGENTS.md` (symlink) for Codex CLI and other agent runtimes that read `AGENTS.md` by convention. See `docs/use-cases.md#runtime-support` for the canonical Claude Code / Codex CLI / Cursor support matrix.
 > **Note:** "Datarim" has a Russian transliteration «Датарим» — agents must recognise either form in any language context. <!-- allow-non-ascii: literal-transliteration-pair-for-agent-name-recognition -->
@@ -201,7 +201,6 @@ Before writing ANY file to `datarim/`:
 | `/dr-do` | Execution | Implement the plan: TDD for code, structured iteration for other work |
 | `/dr-qa` | Quality | Multi-layer verification (PRD, design, plan, output quality) |
 | `/dr-verify` | Verification | Standalone self-verification (on-demand). Tri-layer: Layer 1 deterministic floor + Layer 2 cross-model peer-review (DeepSeek default) + Layer 3 native runtime dispatch. Findings-only mode. |
-| `/dr-spec` | Verification | Spec-traceability façade (read-only). Validates the requirement graph `wish_id → D-REQ → V-AC → plan-step → evidence` via `dev-tools/{dr-spec-lint,dr-trace,dr-lint,dr-spec-grade}.sh` over one rule registry (`dr-spec-rules.yaml`). Common contract: `--format json`, exit `0/1/2`, mis-config = exit 2 (never "0 violations"). Advisory-first rollout; `dr-spec-grade` is a computed projection only (no routing). |
 | `/dr-compliance` | Hardening | 7-step post-QA hardening |
 | `/dr-archive` | Archive | Reflection (Step 0.5: lessons learned + framework evolution proposals) + complete task + update backlog + reset context |
 | `/dr-auto` | Autonomous | Autonomous-execution meta-command. Turns on the FB-1..8 mandate (eight feedback-rules — see `skills/autonomous-agents/`), the L1 Inline Resolution Rule (close small gaps in-line rather than asking), and the autonomous-ops scope ([definition](skills/autonomous-mode/SKILL.md)) by default through env var `DATARIM_AUTO_MODE=1` + file marker `datarim/.auto-mode-active`. The five-level Question Suppression Ladder ([definition](skills/autonomous-mode/SKILL.md)) suppresses pipeline clarification questions; L1 Class A gaps close inline; hard-gated actions still escalate to the operator. Subagent orchestrator: spawns the matching agent per stage (planner/architect/developer/reviewer/compliance) via the Agent tool and summarises each result. Terminal point is a passing `/dr-compliance` + reflection — it does NOT run the final `/dr-archive`. Stage-replay allowed (re-entering a stage updates its artefact). Two modes — Continue (`/dr-auto {TASK-ID}` resume) / Bootstrap (`/dr-auto "<free-text>"`). Canonical contract in `skills/autonomous-mode/SKILL.md`. |
@@ -223,13 +222,13 @@ Before writing ANY file to `datarim/`:
 | `/factcheck` | Standalone | Fact-check articles and posts before publication |
 | `/humanize` | Standalone | Remove AI writing patterns from text |
 
-Command files: `$HOME/.claude/commands/{name}.md` (27 commands, including the plugin command)
+Command files: `$HOME/.claude/commands/{name}.md` (26 commands, including the plugin command)
 
 ### /dr-verify (on-demand, tri-layer architecture)
 
 Manual self-verification command (post-completion review of any pipeline artifact). **Tri-layer architecture (cheapest-first, fail-fast):**
 
-1. **Layer 1 — Deterministic floor.** `dev-tools/dr-verify-floor.sh` — pure shell pipeline (AC coverage grep, file-touched audit, test-presence parse, shellcheck, spec-traceability graph). Zero LLM cost; runs in seconds. On `--stage plan|all` it shells `dev-tools/dr-spec-lint.sh` (advisory) and re-emits the spec-graph findings into the floor stream with `source_layer: "floor"` and a `check_name: "dr-spec-lint:<rule>"` prefix — no new verdict enum (`error→high`, `warning→medium`, `info→low`).
+1. **Layer 1 — Deterministic floor.** `dev-tools/dr-verify-floor.sh` — pure shell pipeline (AC coverage grep, file-touched audit, test-presence parse, shellcheck, spec-traceability graph). Zero LLM cost; runs in seconds. It delegates the graph to the same internal `dev-tools/spec-graph-gate.sh` adapter used automatically by normal pipeline stages, then re-emits findings with `source_layer: "floor"` and `check_name: "dr-spec-lint:<rule>"` (`error→high`, `warning→medium`, `info→low`).
 2. **Layer 2 — Cross-model peer-review.** `coworker ask --provider {peer-provider} --task-id <ID>` — adversarial reviewer in clean external context. Vendor-neutral via the coworker abstraction.
 
    **Provider auto-resolves** via 6-step resolution chain (`dev-tools/resolve-peer-provider.sh`):

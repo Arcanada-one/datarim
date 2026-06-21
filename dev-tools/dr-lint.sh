@@ -113,6 +113,7 @@ delegate=(--task "$SPEC_TASK" --format "$SPEC_FORMAT")
 [ "$SPEC_ADVISORY" -eq 1 ] && delegate+=(--advisory)
 [ "$SPEC_DRY_RUN" -eq 1 ] && delegate+=(--dry-run)
 [ "$SPEC_SCOPE" = "git-diff" ] && delegate+=(--scope git-diff)
+[ "$SPEC_STAGE" != "all" ] && delegate+=(--stage "$SPEC_STAGE")
 [ "$SPEC_REPORT" -eq 1 ] && delegate+=(--report)
 
 bash "$SPEC_LINT" "${delegate[@]}"

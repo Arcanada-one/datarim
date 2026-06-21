@@ -164,16 +164,18 @@ The schema (`version: 1`) is independent of framework VERSION. Schema
 changes that are not backwards-compatible bump to `version: 2` and must
 be documented in `docs/evolution-log.md` together with a migration note.
 
-## Spec-traceability validators (`dr-spec-lint`, `dr-trace`, `dr-lint`, `dr-spec-grade`)
+## Automatic spec-traceability (`spec-graph-gate`, internal validators)
 
-A deterministic, read-only spec-traceability layer. It addresses requirements
+A deterministic, read-only spec-traceability layer invoked automatically by
+existing pipeline stages through `spec-graph-gate.sh`. It addresses requirements
 with `D-REQ-NN` ids (in PRD/plan templates), binds V-AC items to them via a
 `Covers:` line, and validates the graph
 `wish_id → D-REQ → V-AC → plan-step → evidence`.
 
 | Tool | Role |
 |------|------|
-| `dr-spec-lint.sh` | Graph validator — per-rule findings over one task's artefacts. |
+| `spec-graph-gate.sh` | Internal stage adapter — complexity, rollout, task-aware scope, helper orchestration, normalized exits. |
+| `dr-spec-lint.sh` | Internal graph validator — per-rule findings over one task's artefacts. |
 | `dr-trace.sh` | Coverage report — covered / uncovered / dangling / orphaned / deferred. |
 | `dr-lint.sh` | Umbrella façade over the named-rule registry; `rules` introspection, `--rules`/`--ignore`. |
 | `dr-spec-grade.sh` | Read-only computed grade projection from findings (no writes, no routing). |
@@ -184,5 +186,5 @@ All four share one library (`scripts/lib/spec-graph.sh`) and one rule registry
 violations / `2` usage-or-configuration error. A mis-configured rule set
 (unknown rule, empty effective set, disabling a mandatory rule) is exit `2`,
 never "0 violations". Rollout is advisory-first
-(`docs/spec-traceability-rollout.md`): L1 skipped, L2 advisory, L3+ hard-gated
-after a transition window, scoped to changed artefacts (`--scope git-diff`).
+(`docs/spec-traceability-rollout.md`): L1 skipped, L2 advisory, L3+ hard only
+after explicit activation, with stage-appropriate task-aware scope.

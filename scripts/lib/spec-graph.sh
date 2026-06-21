@@ -51,6 +51,7 @@ SPEC_REPORT_FILE=""       # optional report sink
 SPEC_DRY_RUN=0            # build graph, report nothing, exit 0
 SPEC_ADVISORY=0           # findings emitted, always exit 0
 SPEC_SCOPE="all"          # all | git-diff
+SPEC_STAGE="all"          # prd | plan | do | qa | compliance | verify | all
 SPEC_RULES_INCLUDE=""     # comma list for --rules
 SPEC_RULES_IGNORE=""      # comma list for --ignore
 SPEC_REMAINING_ARGS=()    # args the caller still needs to handle
@@ -106,6 +107,14 @@ parse_common_flags() {
                 case "$1" in
                     all|git-diff) SPEC_SCOPE="$1" ;;
                     *) usage_die "invalid --scope value: $1 (all|git-diff)" ;;
+                esac
+                shift ;;
+            --stage)
+                shift
+                [ $# -gt 0 ] || usage_die "--stage requires a value"
+                case "$1" in
+                    prd|plan|do|qa|compliance|verify|all) SPEC_STAGE="$1" ;;
+                    *) usage_die "invalid --stage value: $1" ;;
                 esac
                 shift ;;
             --rules)
@@ -358,4 +367,95 @@ collect_vac() {
         | grep -oE '^[0-9]+:.*V-AC-[0-9]+(\.[0-9]+)?' \
         | sed -E 's/^([0-9]+):.*(V-AC-[0-9]+(\.[0-9]+)?).*$/\1\t\2/' \
         | sort -u
+}
+
+# collect_verifies <file> — print "lineno<TAB>V-AC-N" for explicit plan edges.
+collect_verifies() {
+    local file="$1"
+    [ -f "$file" ] || return 0
+    grep -nE "$VERIFIES_LINE_RE" "$file" 2>/dev/null | while IFS= read -r line; do
+        local lineno="${line%%:*}"
+        local body="${line#*:}"
+        printf '%s\n' "$body" | grep -oE "$V_AC_REF_RE" | while IFS= read -r ref; do
+            printf '%s\t%s\n' "$lineno" "$ref"
+        done
+    done
+}
+
+# collect_evidence <file...> — print "path:lineno<TAB>V-AC-N" for explicit evidence edges.
+collect_evidence() {
+    local file line lineno body ref
+    for file in "$@"; do
+        [ -f "$file" ] || continue
+        while IFS= read -r line; do
+            lineno="${line%%:*}"
+            body="${line#*:}"
+            while IFS= read -r ref; do
+                [ -n "$ref" ] && printf '%s:%s\t%s\n' "${file##*/}" "$lineno" "$ref"
+            done < <(printf '%s\n' "$body" | grep -oE "$V_AC_REF_RE")
+        done < <(grep -nE "$EVIDENCE_LINE_RE" "$file" 2>/dev/null)
+    done
+}
+
+# collect_expectation_links <file>
+# Prints: wish_id<TAB>linked_vac<TAB>status<TAB>valid_operator_override
+collect_expectation_links() {
+    local file="$1"
+    [ -f "$file" ] || return 0
+    python3 - "$file" <<'PYEOF'
+import re
+import sys
+
+path = sys.argv[1]
+items = []
+cur = None
+in_status = False
+
+def flush():
+    if cur and cur["wish"]:
+        valid_override = (
+            cur["status"] in {"partial", "missed"}
+            and len(cur["override"].strip()) >= 10
+            and cur["override_by"] == "operator"
+        )
+        print("\t".join((
+            cur["wish"],
+            cur["vac"],
+            cur["status"],
+            "yes" if valid_override else "no",
+        )))
+
+with open(path, encoding="utf-8") as fh:
+    for raw in fh:
+        line = raw.rstrip("\n")
+        m = re.search(r"\bwish_id:\s*(\S+)", line)
+        if m:
+            flush()
+            cur = {
+                "wish": m.group(1),
+                "vac": "",
+                "status": "pending",
+                "override": "",
+                "override_by": "",
+            }
+            in_status = False
+            continue
+        if not cur:
+            continue
+        if "Связанный AC из PRD:" in line:
+            vm = re.search(r"V-AC-\d+(?:\.\d+)?", line)
+            cur["vac"] = vm.group(0) if vm else ""
+        elif re.match(r"\s*-\s*override:\s*", line):
+            cur["override"] = line.split("override:", 1)[1].strip()
+        elif re.match(r"\s*-\s*override_by:\s*", line):
+            cur["override_by"] = line.split("override_by:", 1)[1].strip()
+        elif "Текущий статус" in line:
+            in_status = True
+        elif in_status:
+            sm = re.match(r"\s*-\s*(pending|met|partial|missed|n-a|deleted)\s*$", line)
+            if sm:
+                cur["status"] = sm.group(1)
+                in_status = False
+flush()
+PYEOF
 }

@@ -15,6 +15,7 @@ Your goal is to ensure system integrity, scalability, and alignment with archite
 - **User Consultation (Phase 3)**: Present alternatives and wait for approval.
 - Make architectural decisions (ADRs).
 - Update `datarim/systemPatterns.md` and `datarim/decisions.md`.
+- Author stable `D-REQ-NN` requirements and L3-L4 V-AC `Covers:` bindings, then run the automatic PRD-stage `spec-graph-gate.sh` check before recommending `/dr-plan`.
 
 **Context Loading**:
 - READ: `datarim/projectbrief.md`, `datarim/systemPatterns.md`, `datarim/decisions.md`

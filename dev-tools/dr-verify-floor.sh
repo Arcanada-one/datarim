@@ -327,16 +327,16 @@ check_shellcheck() {
 }
 
 # ---------------------------------------------------------------------------
-# Sub-check: spec-graph — shell dr-spec-lint and re-emit its JSONL findings into
+# Sub-check: spec-graph — shell the automatic adapter and re-emit its findings into
 # the floor stream (R6). No new verdict enum: spec severities map onto the
 # floor's existing high/medium/low (error->high, warning->medium, info->low) and
 # the rule id is namespaced as `dr-spec-lint:<rule>` so dedupe stays trivial.
 # ---------------------------------------------------------------------------
 
 check_spec_graph() {
-    local lint="${SCRIPT_DIR:-$(cd "$(dirname "$0")" && pwd)}/dr-spec-lint.sh"
-    if [ ! -x "$lint" ] && [ ! -f "$lint" ]; then
-        echo "[spec_graph] SKIP: dr-spec-lint.sh not found" >&2
+    local gate="${SCRIPT_DIR:-$(cd "$(dirname "$0")" && pwd)}/spec-graph-gate.sh"
+    if [ ! -x "$gate" ] && [ ! -f "$gate" ]; then
+        echo "[spec_graph] SKIP: spec-graph-gate.sh not found" >&2
         return 0
     fi
     local prd_file="$DATARIM_ROOT/prd/PRD-${TASK_ID}.md"
@@ -345,12 +345,30 @@ check_spec_graph() {
         echo "[spec_graph] SKIP: no PRD/plan for $TASK_ID" >&2
         return 0
     fi
-    echo "[spec_graph] running dr-spec-lint for $TASK_ID" >&2
+    echo "[spec_graph] running spec-graph-gate for $TASK_ID" >&2
 
-    # --advisory so dr-spec-lint always exits 0; the floor owns the verdict.
-    local lint_json
-    lint_json="$(bash "$lint" --task "$TASK_ID" --root "$(dirname "$DATARIM_ROOT")" \
-                     --format json --advisory 2>/dev/null || true)"
+    local gate_tmp gate_rc gate_json lint_json
+    gate_tmp="$(mktemp)"
+    local graph_stage="verify"
+    [ "$STAGE" = "plan" ] && graph_stage="plan"
+    bash "$gate" --task "$TASK_ID" --stage "$graph_stage" \
+        --root "$(dirname "$DATARIM_ROOT")" --format json >"$gate_tmp" 2>/dev/null
+    gate_rc=$?
+    if [ "$gate_rc" -eq 2 ]; then
+        emit_finding "high" "correctness" "spec-graph-gate:configuration" \
+            "${TASK_ID}" "" "absent" "${TASK_ID}" \
+            "spec-graph adapter failed with configuration/required-artifact exit 2"
+        rm -f "$gate_tmp"
+        return 0
+    fi
+    gate_json="$(cat "$gate_tmp")"
+    rm -f "$gate_tmp"
+    lint_json="$(printf '%s' "$gate_json" | python3 -c '
+import json, sys
+obj = json.load(sys.stdin)
+for finding in obj.get("findings", []):
+    print(json.dumps(finding))
+' 2>/dev/null || true)"
     [ -n "$lint_json" ] || { echo "[spec_graph] clean" >&2; return 0; }
 
     local line

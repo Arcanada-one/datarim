@@ -22,10 +22,19 @@ setup() {
   Covers: D-REQ-01
 EOF
     cat >"$WORK/datarim/plans/LN-0001-plan.md" <<'EOF'
-- V-AC-1 implemented with a test
+- Step 1: implement lint
+  Verifies: V-AC-1
+EOF
+    cat >"$WORK/datarim/tasks/LN-0001-task-description.md" <<'EOF'
+## Implementation Notes
+- Evidence: V-AC-1 — bats dev-tools/tests/dr-lint.bats
 EOF
     cat >"$WORK/datarim/tasks/LN-0001-expectations.md" <<'EOF'
-- wish_id: lint-wish
+- **1. Lint wish.**
+  - wish_id: lint-wish
+  - Связанный AC из PRD: V-AC-1
+  - #### Текущий статус
+    - pending
 EOF
 }
 

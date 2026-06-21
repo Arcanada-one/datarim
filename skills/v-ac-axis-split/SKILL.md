@@ -16,6 +16,8 @@ Deterministic and statistical validity rely on different evidence chains. A pipe
 2. If both axes exist in the same V-AC group, split into V-AC-N (deterministic) and V-AC-M (statistical).  
 3. Statistical V-AC MUST cite measurement window, sample size, and confidence interval in its specification.  
 4. Deterministic V-AC MUST be tied to bats/spec/grep evidence or an equivalent monotonic assertion.
+5. When a V-AC is split, preserve or reassign every `Covers:`, `Verifies:`, and
+   `Evidence:` binding so the automatic spec graph remains complete.
 
 ## Reference case
 - A pipeline-level retrospective on a V-AC entry where a mixed deterministic + statistical axis caused false confidence.

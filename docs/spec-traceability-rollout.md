@@ -15,12 +15,14 @@ flags encode it.
 2. **Baseline + legacy-debt inventory.** Run advisory and capture findings as a
    baseline. Pre-existing findings on untouched legacy artefacts are *debt*,
    tracked as a separate migration, not a blocker on current work.
-3. **Advisory window.** `dr-lint`/`dr-spec-lint --advisory` emit findings but
-   always exit `0`. Operators see the graph defects without the gate blocking
-   any pipeline. The window length is an operator decision.
-4. **Hard gate — new/changed artefacts only.** After the window, the gate goes
-   hard but scoped: `--scope git-diff` limits enforcement to artefacts touched
-   versus `origin/main`. Legacy artefacts stay advisory.
+3. **Advisory window.** Existing pipeline stages invoke
+   `spec-graph-gate.sh` automatically. Findings are visible, but the adapter
+   exits `0`. No operator command is required.
+4. **Hard gate — explicit activation.** Set
+   `DATARIM_SPEC_GRAPH_MODE=hard`. The adapter enforces only the graph edges
+   whose artefacts should exist at the current stage. Canonical current-task
+   workflow artefacts stay in scope even though `datarim/` is gitignored; Git
+   diff narrows tracked implementation files only.
 5. **Legacy debt — separate tracked migration.** Bringing the historical corpus
    into compliance is its own backlog item, not folded into feature work.
 
@@ -36,14 +38,20 @@ This maps to the `applies_to:` field in `dev-tools/dr-spec-rules.yaml`: the full
 `graph-complete-l3` rule applies to `[L3, L4]`; format/resolution rules apply
 from `L2` upward but are advisory at L2.
 
-## CI and pre-commit
+## Automatic stage matrix
 
-- **CI is the final verdict.** The CI step runs `dr-lint --scope git-diff`,
-  advisory first, hard once the window closes. CI reads the one registry and the
-  one mandatory-rule configuration.
-- **Pre-commit is opt-in fast feedback only.** The
-  `templates/pre-commit-spec-lint.sample` template gives developers a fast
-  `--scope git-diff` check locally; it is never the source of the verdict.
+| Stage | Required graph surface |
+|-------|------------------------|
+| PRD | wishes, D-REQ ids, V-AC ids, `Covers:` |
+| Plan | PRD surface plus explicit `Verifies:` plan edges |
+| Do | plan surface plus explicit `Evidence:`; advisory always |
+| QA | full graph plus QA evidence |
+| Compliance | full graph plus compliance confirmation |
+| Verify | requirements appropriate to the requested verify stage |
+
+Engine regressions run in the existing Bats CI. Consumer repositories that
+commit workflow artifacts may add their own automatic CI adapter later; Datarim
+does not ship a separate manual-dispatch workflow or hook-install ceremony.
 
 ## Relationship to existing gates
 

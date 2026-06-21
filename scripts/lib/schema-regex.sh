@@ -46,3 +46,6 @@ SCHEMA_BACKLOG_RE='^- [A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)* · (pending|blocked-p
 D_REQ_ID_RE='^#### D-REQ-[0-9]{2}: .+$'
 COVERS_LINE_RE='^[[:space:]]*Covers:[[:space:]]*D-REQ-[0-9]{2}([[:space:]]*,[[:space:]]*D-REQ-[0-9]{2})*[[:space:]]*$'
 D_REQ_REF_RE='D-REQ-[0-9]{2}'
+VERIFIES_LINE_RE='^[[:space:]]*Verifies:[[:space:]]*V-AC-[0-9]+(\.[0-9]+)?([[:space:]]*,[[:space:]]*V-AC-[0-9]+(\.[0-9]+)?)*[[:space:]]*$'
+EVIDENCE_LINE_RE='^[[:space:]]*(-[[:space:]]*)?Evidence:[[:space:]]*V-AC-[0-9]+(\.[0-9]+)?[[:space:]]+.+$'
+V_AC_REF_RE='V-AC-[0-9]+(\.[0-9]+)?'

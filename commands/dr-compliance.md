@@ -41,6 +41,15 @@ description: Adaptive post-QA hardening. Detects task type and applies matching 
     -   Exit 1 from either scan ⇒ compliance verdict is **NON-COMPLIANT**. The agent labelled self-inflicted incomplete work as deferrable without a verifiable follow-up/`blocked_by` artefact. Capture the findings verbatim into the report and route via the FAIL-Routing CTA to `/dr-do {TASK-ID} --focus-items <...>` — the gap MUST be finished in the same git branch and the same cycle, not absorbed into a self-filed backlog item. A legitimate deferral (time-dependent or hard external blocker) clears the gate only by citing a follow-up ID / `blocked_by` reference that exists in the KB.
     -   The scanner is fail-open on its own git-probe failure (warns, does not block) — an infrastructure hiccup never hard-blocks an otherwise-clean task.
 
+5d. **AUTOMATIC SPEC-GRAPH GATE**:
+    -   Invoke an independent final graph check:
+        ```bash
+        "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/spec-graph-gate.sh" \
+            --task {TASK-ID} --stage compliance --root <repo-root> --format json
+        ```
+    -   Include graph completeness, evaluated artifacts, trace buckets, and the report-only grade in the compliance audit addendum.
+    -   Exit `2` makes the verdict **NON-COMPLIANT**. In explicit hard mode, exit `1` also makes the verdict **NON-COMPLIANT**. The grade letter never changes routing.
+
 6.  **APPLY CHECKLIST**: Execute the appropriate checklist(s) from the compliance skill:
     - **Code** → 7-step software checklist (lint, tests, coverage, CI/CD)
     - **Documentation** → completeness, accuracy, consistency, cross-references, audience
