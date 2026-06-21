@@ -32,7 +32,7 @@ All arguments are named (`--flag value`) and forwarded verbatim by the wrapper:
 ```bash
 bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/snapshot-writer-wrapper.sh" \
     --root <DATARIM_ROOT> \             # absolute path to repo root
-    --task <TASK-ID> \                  # ^[A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*$
+    --task <TASK-ID> \                  # ^[A-Z][A-Z0-9-]+-[0-9]{4,5}$
     --stage <plan|prd|do|qa|verify|auto|...> \
     --command </dr-name> \              # literal "/dr-<name>"
     --captured-by <agent|operator> \
@@ -87,7 +87,7 @@ truncated: false
 
 ## Security controls (Appendix A cross-link)
 
-- **T-1 path traversal:** TASK-ID validated against `^[A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*$`; reject otherwise.
+- **T-1 path traversal:** TASK-ID validated against `^[A-Z][A-Z0-9-]+-[0-9]{4,5}$`; reject otherwise.
 - **T-2 shell injection:** body read via `--body-file` (no shell expansion); frontmatter via quoted heredoc (Security Mandate S1).
 - **T-3 concurrent writers:** mkdir lock, write-temp-rename (atomic on POSIX).
 - **T-5 secret leak:** `chmod 600` on snapshot file; `.gitignore` covers `datarim/snapshots/`.

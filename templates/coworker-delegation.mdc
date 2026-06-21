@@ -32,8 +32,18 @@ Profiles: `code` (default, generic analysis), `datarim` (Datarim artifacts), `so
 ## ALWAYS write through coworker write first, then surgical edit
 
 - First draft of PRD, plan, design docs, task-description.
-- Articles in `wiki/`, posts in `Social Media/`, ecosystem-site docs.
 - Never accept blindly — after `coworker write`, read output and edit judgment-parts only.
+
+## NEVER delegate — voice-bearing and judgment content (write it yourself)
+
+Published articles, social posts, ecosystem-site docs, and consilium / panel
+reasoning are written by the assigned model itself, NOT through `coworker`.
+Running such work on a specific agent is meant to capture *that model's* voice
+and judgment; routing the draft through `coworker` substitutes the delegate
+LLM's prose and defeats the purpose (and invalidates any model comparison on
+the same brief). `coworker ask` for bulk *reading* of source material is still
+fine — only the generation of the text and the reasoning must stay on the
+assigned model.
 
 ## File-type policy (critical — common friction point)
 
