@@ -31,4 +31,4 @@
 
 # Milestone-code references that leak phase / iteration internals. Use
 # version numbers in public copy instead.
-\b(?:M|Phase) ?[1-9][0-9]*\b
+\b(M|Phase) ?[1-9][0-9]*\b

@@ -78,6 +78,15 @@ This command generates a structured Product Requirements Document (PRD) followin
         Exit code `1` ⇒ STOP and fix the file before continuing. Exit code `2` ⇒ usage error in the invocation, not in the file.
     -   For `complexity: L1` or `L2` this step is skipped here; `/dr-plan` handles L2 without PRD.
 
+5.5c. **AUTOMATIC SPEC-GRAPH VALIDATION**:
+    -   After the PRD and expectations checklist are on disk, invoke:
+        ```bash
+        "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/spec-graph-gate.sh" \
+            --task {TASK-ID} --stage prd --root <repo-root> --format json
+        ```
+    -   The architect authors stable `D-REQ-NN` headings and L3-L4 V-AC `Covers:` bindings; this gate validates them automatically. Do not ask the operator to run a separate validator.
+    -   Exit `2` blocks the stage as a configuration or required-artifact failure. Exit `1` blocks only in explicit hard mode. Advisory findings are summarized before the CTA.
+
 5.5. **Network Exposure Baseline (tiered gate)**:
     -   Read `$HOME/.claude/skills/network-exposure-baseline/SKILL.md` § Tier Model + § Tiered Gate Rules.
     -   Decide gate disposition by invoking the canonical executor:

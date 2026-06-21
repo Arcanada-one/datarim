@@ -35,12 +35,28 @@ write_clean_fixture() {
 EOF
     cat >"$WORK/datarim/plans/EX-0001-plan.md" <<'EOF'
 # Plan: Example
-- V-AC-1 implemented in dr-spec-lint.sh with a bats test
-- V-AC-2 implemented with --format json and a bats test
+- Step 1: build the graph
+  Verifies: V-AC-1
+- Step 2: emit json
+  Verifies: V-AC-2
+EOF
+    cat >"$WORK/datarim/tasks/EX-0001-task-description.md" <<'EOF'
+# Implementation Notes
+
+- Evidence: V-AC-1 — bats dev-tools/tests/dr-spec-lint.bats
+- Evidence: V-AC-2 — bats dev-tools/tests/dr-spec-lint.bats
 EOF
     cat >"$WORK/datarim/tasks/EX-0001-expectations.md" <<'EOF'
-- wish_id: build-graph
-- wish_id: emit-json
+- **1. Build graph.**
+  - wish_id: build-graph
+  - Связанный AC из PRD: V-AC-1
+  - #### Текущий статус
+    - pending
+- **2. Emit json.**
+  - wish_id: emit-json
+  - Связанный AC из PRD: V-AC-2
+  - #### Текущий статус
+    - pending
 EOF
 }
 
@@ -128,4 +144,52 @@ EOF
 @test "nonexistent task artefacts — exit 2" {
     run "$SCRIPT" --task ZZ-9999 --root "$WORK"
     [ "$status" -eq 2 ]
+}
+
+@test "hard mode — exactly two findings exit 1, not reserved config exit 2" {
+    write_clean_fixture
+    sed -i.bak 's/Covers: D-REQ-02/Covers: D-REQ-77/' "$WORK/datarim/prd/PRD-EX-0001.md"
+    run "$SCRIPT" --task EX-0001 --root "$WORK" --format json
+    [ "$status" -eq 1 ]
+}
+
+@test "registry applies_to — L2 skips axis-separation rule" {
+    write_clean_fixture
+    sed -i.bak 's/Level 3/Level 2/' "$WORK/datarim/prd/PRD-EX-0001.md"
+    sed -i.bak 's/graph is built/exit code and p99 threshold are verified/' "$WORK/datarim/prd/PRD-EX-0001.md"
+    run "$SCRIPT" --task EX-0001 --root "$WORK" --format json --advisory
+    ! printf '%s\n' "$output" | grep -qF '"check_name": "axis-separation"'
+}
+
+@test "graph-complete-l3 — every current wish needs a linked V-AC path" {
+    write_clean_fixture
+    sed -i.bak 's/Связанный AC из PRD: V-AC-2/Связанный AC из PRD: —/' "$WORK/datarim/tasks/EX-0001-expectations.md"
+    run "$SCRIPT" --task EX-0001 --root "$WORK" --stage prd --format json --advisory
+    printf '%s\n' "$output" | grep -qF '"check_name": "graph-complete-l3"'
+}
+
+@test "vac-binding-present — incidental V-AC prose is not a plan edge" {
+    write_clean_fixture
+    cat >"$WORK/datarim/plans/EX-0001-plan.md" <<'EOF'
+# Plan: Example
+The prose mentions V-AC-1 and V-AC-2 but declares no graph markers.
+EOF
+    run "$SCRIPT" --task EX-0001 --root "$WORK" --stage plan --format json --advisory
+    printf '%s\n' "$output" | grep -qF '"check_name": "vac-binding-present"'
+}
+
+@test "graph-complete-l3 — QA requires explicit Evidence marker" {
+    write_clean_fixture
+    sed -i.bak '/Evidence: V-AC-2/d' "$WORK/datarim/tasks/EX-0001-task-description.md"
+    run "$SCRIPT" --task EX-0001 --root "$WORK" --stage qa --format json --advisory
+    printf '%s\n' "$output" | grep -qF '"check_name": "graph-complete-l3"'
+}
+
+@test "graph-complete-l3 — a wish-linked V-AC cannot borrow another V-AC Covers edge" {
+    write_clean_fixture
+    sed -i.bak '/Covers: D-REQ-02/d' "$WORK/datarim/prd/PRD-EX-0001.md"
+    run "$SCRIPT" --task EX-0001 --root "$WORK" --stage prd --format json --advisory
+    printf '%s\n' "$output" \
+      | grep -F '"check_name": "graph-complete-l3"' \
+      | grep -qF 'V-AC-2'
 }

@@ -226,6 +226,21 @@ The Q&A round-trip findings appear in the same Layer 3b table under a dedicated 
 
 ---
 
+## Layer 3c: Automatic Spec-Graph Verification
+
+Invoke:
+
+```bash
+"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/spec-graph-gate.sh" \
+    --task {TASK-ID} --stage qa --root <repo-root> --format json
+```
+
+- Include graph findings, evaluated artifacts, and the five `dr-trace` coverage buckets in `datarim/qa/qa-report-{TASK-ID}.md`.
+- L1 skips; L2 is advisory. L3-L4 is advisory by default and hard only when `DATARIM_SPEC_GRAPH_MODE=hard`.
+- Exit `2` is a QA **BLOCKED** configuration/required-artifact failure. Hard-mode exit `1` is a Layer 3c **FAIL** routed to `/dr-prd` or `/dr-plan` according to the earliest missing edge.
+
+---
+
 ## Layer 4: Code Quality
 
 **Condition:** Always executed.

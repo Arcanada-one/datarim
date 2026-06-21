@@ -25,7 +25,8 @@ setup() {
 EOF
     cat >"$WORK/datarim/plans/FL-0001-plan.md" <<'EOF'
 # Plan
-- V-AC-1 implemented with a test
+- Step 1: implement floor integration
+  Verifies: V-AC-1
 EOF
     cat >"$WORK/datarim/tasks/FL-0001-expectations.md" <<'EOF'
 - wish_id: floor-wish
@@ -78,8 +79,53 @@ teardown() {
   Covers: D-REQ-01
 EOF
     cat >"$WORK/datarim/plans/CLN-0001-plan.md" <<'EOF'
-- V-AC-1 implemented with a test
+- Step 1: implement clean graph
+  Verifies: V-AC-1
+EOF
+    cat >"$WORK/datarim/tasks/CLN-0001-expectations.md" <<'EOF'
+- **1. Clean graph.**
+  - wish_id: clean-graph
+  - Связанный AC из PRD: V-AC-1
+  - #### Текущий статус
+    - pending
 EOF
     run "$SCRIPT" --task CLN-0001 --stage plan --workspace "$WORK"
     [[ "$output" != *'dr-spec-lint:'* ]]
+}
+
+@test "adapter configuration failure is not converted to a clean floor" {
+    cat >"$WORK/datarim/prd/PRD-CFG-0001.md" <<'EOF'
+# PRD: Config
+**Complexity:** Level 2
+EOF
+    cat >"$WORK/datarim/plans/CFG-0001-plan.md" <<'EOF'
+# Plan
+EOF
+    run env DATARIM_SPEC_GRAPH_MODE=invalid "$SCRIPT" \
+        --task CFG-0001 --stage plan --workspace "$WORK"
+    [ "$status" -ge 1 ] \
+      && printf '%s\n' "$output" | grep -qF 'spec-graph-gate:configuration'
+}
+
+@test "retrospective all-stage verification does not require legacy expectations" {
+    cat >"$WORK/datarim/prd/PRD-LEG-0001.md" <<'EOF'
+# PRD: Legacy
+**Complexity:** Level 3
+
+## Requirements (D-REQ)
+
+#### D-REQ-01: legacy requirement
+
+## Success Criteria
+
+- V-AC-1: covers it
+  Covers: D-REQ-01
+EOF
+    cat >"$WORK/datarim/plans/LEG-0001-plan.md" <<'EOF'
+- Step 1: legacy implementation
+  Verifies: V-AC-1
+EOF
+    run "$SCRIPT" --task LEG-0001 --stage all --workspace "$WORK"
+    [ "$status" -eq 0 ] \
+      && [[ "$output" != *'spec-graph-gate:configuration'* ]]
 }

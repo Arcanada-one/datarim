@@ -115,8 +115,10 @@ _(empty on first write)_
 - **`wish_id`** is a kebab-slug derived from the title. Cyrillic letters,
   ASCII letters, digits, and hyphens are allowed. Used as the focus key in
   FAIL-Routing CTA (`/dr-do <ID> --focus-items <wish_id_1,...,N>`).
-- **`Связанный AC из PRD`** is advisory. When the PRD has no matching AC, <!-- allow-non-ascii: russian-expectations-field-name-cited-from-canonical-schema -->
-  use the em-dash «—». Renames in the PRD are recorded in the item's
+- **`Связанный AC из PRD`** is advisory for L1-L2. For L3-L4 current, <!-- allow-non-ascii: canonical-russian-expectations-field-name -->
+  non-overridden wishes it is required when spec-graph hard mode is active:
+  the value MUST be `V-AC-N`, not «—». Deleted, superseded, or operator-overridden
+  wishes retain the advisory form. Renames in the PRD are recorded in the item's <!-- allow-non-ascii: russian-expectations-field-name-cited-from-canonical-schema -->
   История статусов with `stage: append-merge`. <!-- allow-non-ascii: russian-status-history-section-name-from-canonical-schema -->
 - **`override`** is plain prose, optional. When the current status is
   `partial` or `missed`, an override of fewer than 10 characters is treated
@@ -313,6 +315,19 @@ exercise the verify-routing path against the contract itself before the
 rest of the framework adopts it.
 
 ## Related skills
+
+### Automatic spec-graph addressing
+
+The pipeline builds the requirement graph without an operator command:
+
+- `wish_id → V-AC` comes from `Связанный AC из PRD`; <!-- allow-non-ascii: canonical-russian-expectations-field-name -->
+- `V-AC → D-REQ` comes from the PRD `Covers:` line;
+- `V-AC → plan-step` comes from an explicit `Verifies: V-AC-N[, ...]` marker;
+- `V-AC → evidence` comes from `Evidence: V-AC-N — <command/test/artifact>`.
+
+`dev-tools/spec-graph-gate.sh` validates these bindings automatically at PRD,
+plan, do, QA, compliance, and verify stages. Source-code comments and incidental
+V-AC prose are not graph edges.
 
 See also `skills/v-ac-axis-split/SKILL.md` for V-AC group composition rule
 (deterministic vs statistical axis separation). When drafting success

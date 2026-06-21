@@ -49,6 +49,16 @@ description: Implement planned changes using TDD and AI quality principles
     -   If gap is fundamental (wrong stack, impossible requirement): STOP. Recommend operator run `/dr-prd` to revise requirements.
     -   Otherwise: continue implementation with updated context.
 
+7.6. **AUTOMATIC SPEC-GRAPH EVIDENCE CHECK**:
+    -   As tests and verification artifacts are produced, append canonical lines to the task implementation record:
+        `Evidence: V-AC-N — <exact command, test, measurement, or artifact path>`.
+    -   Before routing onward, invoke:
+        ```bash
+        "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/spec-graph-gate.sh" \
+            --task {TASK-ID} --stage do --root <repo-root> --format json
+        ```
+    -   The do-stage gate is advisory even when hard mode is active because evidence is still accruing. Exit `2` remains fail-closed.
+
 8.  **REVIEW-FEEDBACK HANDLING** (when an automated code review or human review returns findings):
     Classify each finding, then act:
     - **Critical / blocking** → fix in the current MR before merge. Non-negotiable.

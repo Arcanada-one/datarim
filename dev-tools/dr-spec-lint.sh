@@ -79,6 +79,9 @@ done
 PRD_FILE="$DATARIM_ROOT/prd/PRD-${SPEC_TASK}.md"
 PLAN_FILE="$DATARIM_ROOT/plans/${SPEC_TASK}-plan.md"
 EXP_FILE="$DATARIM_ROOT/tasks/${SPEC_TASK}-expectations.md"
+TASK_FILE="$DATARIM_ROOT/tasks/${SPEC_TASK}-task-description.md"
+QA_FILE="$DATARIM_ROOT/qa/qa-report-${SPEC_TASK}.md"
+COMPLIANCE_FILE="$DATARIM_ROOT/reports/compliance-report-${SPEC_TASK}.md"
 
 # The graph needs at least one source artefact (PRD or plan) to exist.
 if [ ! -f "$PRD_FILE" ] && [ ! -f "$PLAN_FILE" ]; then
@@ -90,12 +93,15 @@ SPEC_DOCS=()
 [ -f "$PRD_FILE" ] && SPEC_DOCS+=("$PRD_FILE")
 [ -f "$PLAN_FILE" ] && SPEC_DOCS+=("$PLAN_FILE")
 
-# Determine complexity level (default L3 — graph enforced) from the PRD.
+# Determine complexity from the canonical field, with task-description fallback.
 LEVEL="L3"
-if [ -f "$PRD_FILE" ]; then
-    if grep -qiE 'Level 4|complexity:[[:space:]]*L4' "$PRD_FILE"; then LEVEL="L4"
-    elif grep -qiE 'Level 2|complexity:[[:space:]]*L2' "$PRD_FILE"; then LEVEL="L2"
-    elif grep -qiE 'Level 1|complexity:[[:space:]]*L1' "$PRD_FILE"; then LEVEL="L1"
+if [ -f "$PRD_FILE" ] && grep -qiE '^[[:space:]]*(\*\*)?complexity[^:]*:[^[:alnum:]]*(Level[[:space:]]+4|L4)\b' "$PRD_FILE"; then LEVEL="L4"
+elif [ -f "$PRD_FILE" ] && grep -qiE '^[[:space:]]*(\*\*)?complexity[^:]*:[^[:alnum:]]*(Level[[:space:]]+2|L2)\b' "$PRD_FILE"; then LEVEL="L2"
+elif [ -f "$PRD_FILE" ] && grep -qiE '^[[:space:]]*(\*\*)?complexity[^:]*:[^[:alnum:]]*(Level[[:space:]]+1|L1)\b' "$PRD_FILE"; then LEVEL="L1"
+elif [ -f "$TASK_FILE" ]; then
+    if grep -qiE '^complexity:[[:space:]]*L4' "$TASK_FILE"; then LEVEL="L4"
+    elif grep -qiE '^complexity:[[:space:]]*L2' "$TASK_FILE"; then LEVEL="L2"
+    elif grep -qiE '^complexity:[[:space:]]*L1' "$TASK_FILE"; then LEVEL="L1"
     fi
 fi
 
@@ -112,6 +118,7 @@ VIOLATION_COUNT=0
 record() {
     # Honour the effective rule set: only emit findings for enabled rules.
     rule_enabled "$3" || return 0
+    rule_applies_to_level "$3" "$LEVEL" || return 0
     emit_finding "$@" >> "$FINDINGS_TMP"
     VIOLATION_COUNT=$((VIOLATION_COUNT + 1))
 }
@@ -161,6 +168,8 @@ DECLARED_UNIQUE="$(printf '%s' "$ALL_DECLARED" | grep -E "^${D_REQ_REF_RE}$" | s
 
 # Track which D-REQ ids are referenced by at least one Covers line.
 REFERENCED=""
+# Track explicit V-AC -> D-REQ pairs for per-wish path validation.
+VAC_REFERENCED=""
 
 # ---- V-AC items + their Covers binding ----
 # V-AC items are DECLARED in the PRD (with their Covers line); the plan only
@@ -205,6 +214,7 @@ for doc in "${VAC_DOCS[@]}"; do
             while IFS= read -r ref; do
                 [ -n "$ref" ] || continue
                 REFERENCED="${REFERENCED}${ref}"$'\n'
+                VAC_REFERENCED="${VAC_REFERENCED}${vac_label}"$'\t'"${ref}"$'\n'
                 if ! printf '%s\n' "$DECLARED_UNIQUE" | grep -qx "$ref"; then
                     record error consistency dreq-dangling "${base}:${vac_line}" "$vac_label" \
                         file_quote "${base}:${vac_line}" "Covers $ref does not resolve to a declared D-REQ"
@@ -214,13 +224,12 @@ for doc in "${VAC_DOCS[@]}"; do
             done <<< "$refs"
         fi
 
-        # vac-binding-present: a V-AC should bind to a plan-step/test/evidence cue.
-        if [ "$LEVEL" = "L3" ] || [ "$LEVEL" = "L4" ]; then
-            if ! grep -qE "${vac_label}\b" "$PLAN_FILE" 2>/dev/null; then
-                if ! printf '%s\n' "$covers_block" | grep -qiE '\btest\b|\bbats\b|\bevidence\b|\bVerify:|\bgrep\b|implemented'; then
-                    record warning completeness vac-binding-present "${base}:${vac_line}" "$vac_label" \
-                        absent "${base}:${vac_line}" "V-AC $vac_label has no plan-step/test/evidence binding"
-                fi
+        # vac-binding-present: plan edges are explicit, never inferred from prose.
+        if { [ "$LEVEL" = "L3" ] || [ "$LEVEL" = "L4" ]; } \
+            && [ "$SPEC_STAGE" != "prd" ]; then
+            if ! collect_verifies "$PLAN_FILE" | awk -F'\t' '{print $2}' | grep -qx "$vac_label"; then
+                record warning completeness vac-binding-present "${base}:${vac_line}" "$vac_label" \
+                    absent "${base}:${vac_line}" "V-AC $vac_label has no explicit Verifies plan binding"
             fi
         fi
     done < <(collect_vac "$doc")
@@ -267,16 +276,50 @@ for doc in "${SPEC_DOCS[@]}"; do
     done < <(collect_vac "$doc")
 done
 
-# ---- graph-complete-l3: every wish has a resolvable path on L3+ ----
+# ---- graph-complete-l3: every current wish has a stage-appropriate path ----
 if { [ "$LEVEL" = "L3" ] || [ "$LEVEL" = "L4" ]; } && [ -f "$EXP_FILE" ]; then
-    wish_ids="$(grep -oE 'wish_id:[[:space:]]*[A-Za-z0-9-]+' "$EXP_FILE" 2>/dev/null | awk '{print $2}' | sort -u)"
-    # The path is complete when there is at least one declared D-REQ that is
-    # referenced by a V-AC and that V-AC has a plan binding. If no D-REQ is
-    # referenced at all, every wish is unanchored.
-    if [ -z "$REFERENCED_UNIQUE" ] && [ -n "$wish_ids" ]; then
-        record error completeness graph-complete-l3 "${SPEC_TASK}-expectations.md" "" \
-            absent "${SPEC_TASK}-expectations.md" "no wish resolves a full D-REQ -> V-AC -> plan path"
-    fi
+    VAC_DECLARED="$(collect_vac "$PRD_FILE" | awk -F'\t' '{print $2}' | sort -u)"
+    PLAN_BOUND="$(collect_verifies "$PLAN_FILE" | awk -F'\t' '{print $2}' | sort -u)"
+    EVIDENCE_BOUND="$(collect_evidence "$TASK_FILE" "$QA_FILE" "$COMPLIANCE_FILE" \
+        | awk -F'\t' '{print $2}' | sort -u)"
+    while IFS=$'\t' read -r wish vac status valid_operator_override; do
+        [ -n "$wish" ] || continue
+        case "$status" in deleted|n-a) continue ;; esac
+        [ "$valid_operator_override" = "yes" ] && continue
+        if [ -z "$vac" ]; then
+            record error completeness graph-complete-l3 "${SPEC_TASK}-expectations.md" "" \
+                absent "${SPEC_TASK}-expectations.md" "wish $wish has no linked V-AC"
+            continue
+        fi
+        if ! printf '%s\n' "$VAC_DECLARED" | grep -qx "$vac"; then
+            record error completeness graph-complete-l3 "${SPEC_TASK}-expectations.md" "$vac" \
+                absent "${SPEC_TASK}-expectations.md" "wish $wish links to undeclared $vac"
+            continue
+        fi
+        if ! printf '%s' "$VAC_REFERENCED" | awk -F'\t' -v target="$vac" \
+            '$1 == target {found=1} END {exit(found ? 0 : 1)}'; then
+            record error completeness graph-complete-l3 "${SPEC_TASK}-expectations.md" "$vac" \
+                absent "$PRD_FILE" "wish $wish has no D-REQ coverage through $vac"
+            continue
+        fi
+        case "$SPEC_STAGE" in
+            plan|do|qa|compliance|verify|all)
+                if ! printf '%s\n' "$PLAN_BOUND" | grep -qx "$vac"; then
+                    record error completeness graph-complete-l3 "${SPEC_TASK}-expectations.md" "$vac" \
+                        absent "$PLAN_FILE" "wish $wish has no explicit plan binding for $vac"
+                    continue
+                fi
+                ;;
+        esac
+        case "$SPEC_STAGE" in
+            do|qa|compliance|all)
+                if ! printf '%s\n' "$EVIDENCE_BOUND" | grep -qx "$vac"; then
+                    record error completeness graph-complete-l3 "${SPEC_TASK}-expectations.md" "$vac" \
+                        absent "$TASK_FILE" "wish $wish has no explicit evidence for $vac"
+                fi
+                ;;
+        esac
+    done < <(collect_expectation_links "$EXP_FILE")
 fi
 
 # ---------------------------------------------------------------------------
@@ -324,8 +367,6 @@ if [ "$SPEC_ADVISORY" -eq 1 ]; then
 fi
 
 if [ "$VIOLATION_COUNT" -gt 0 ]; then
-    # Cap at 250 to stay in the 0..250 band (251..255 reserved).
-    if [ "$VIOLATION_COUNT" -gt 250 ]; then exit 250; fi
-    exit "$VIOLATION_COUNT"
+    exit 1
 fi
 exit 0

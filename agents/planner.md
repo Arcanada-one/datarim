@@ -18,6 +18,7 @@ Your goal is to breakdown complex requirements into actionable, tracked tasks.
 - **Documentation Updates (Phase 6)**: Identify docs to update.
 - Determine complexity levels (1-4).
 - Track project progress (`datarim/progress.md`).
+- Add explicit `Verifies: V-AC-N[, ...]` markers to plan steps and run the automatic plan-stage spec-graph gate before recommending `/dr-do`.
 
 **Context Loading**:
 - READ: `datarim/activeContext.md`, `datarim/tasks.md`, `datarim/backlog.md`

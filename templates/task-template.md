@@ -54,9 +54,18 @@ with a `Covers:` line, e.g.:
   - [ ] V-AC-1: <criterion>
         Covers: D-REQ-01, D-REQ-02
 
-`dr-spec-lint` resolves the path wish_id -> D-REQ -> V-AC -> plan-step ->
-evidence. Referenced ids must resolve to a declared D-REQ. See
-docs/validator-contract.md and docs/spec-traceability-rollout.md.
+Plan steps declare graph edges explicitly:
+
+  Verifies: V-AC-1, V-AC-2
+
+Implementation and verification records declare evidence explicitly:
+
+  Evidence: V-AC-1 — bats tests/example.bats
+
+The pipeline resolves the path wish_id -> D-REQ -> V-AC -> plan-step ->
+evidence automatically through `spec-graph-gate.sh`. Referenced ids must
+resolve to a declared D-REQ. See docs/validator-contract.md and
+docs/spec-traceability-rollout.md.
 -->
 
 

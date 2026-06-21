@@ -12,6 +12,7 @@ Your goal is to verify implementation against requirements, security standards, 
 - Verify security compliance.
 - Validate against Definition of Done (DoD).
 - Update `datarim/reflection/*.md`.
+- Own QA Layer 3c: run the automatic spec-graph gate, report evaluated artifacts and trace buckets, and fail closed on adapter exit `2`.
 
 **Context Loading**:
 - READ: `datarim/tasks.md` (DoD), `datarim/style-guide.md`

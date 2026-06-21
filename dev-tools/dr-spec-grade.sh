@@ -67,7 +67,12 @@ elif [ -n "$TASK" ]; then
     [ -f "$SPEC_LINT" ] || usage_die "dr-spec-lint.sh not found: $SPEC_LINT"
     lint_args=(--task "$TASK" --format json --advisory)
     [ -n "$ROOT" ] && lint_args+=(--root "$ROOT")
-    FINDINGS_JSON="$(bash "$SPEC_LINT" "${lint_args[@]}" 2>/dev/null || true)"
+    lint_tmp="$(mktemp)"
+    trap 'rm -f "$lint_tmp"' EXIT
+    bash "$SPEC_LINT" "${lint_args[@]}" >"$lint_tmp" 2>/dev/null
+    lint_rc=$?
+    [ "$lint_rc" -ne 2 ] || exit 2
+    FINDINGS_JSON="$(cat "$lint_tmp")"
     COMPUTED_FROM="dr-spec-lint:${TASK}"
 elif [ ! -t 0 ]; then
     FINDINGS_JSON="$(cat)"

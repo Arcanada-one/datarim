@@ -10,7 +10,9 @@ target_aal: 2
 - Manual `/dr-verify {TASK-ID}` invocation — cold-path skill loaded on-demand.
 - Verifies pipeline artifact (PRD / plan / do-output / archive) for: factual correctness, AC coverage completeness, cross-artifact consistency, security/safety gaps.
 - **NOT** a replacement for `/dr-qa` (manual single-agent post-completion review without runtime-aware dispatch).
-- **NOT** an automatic pipeline hook (manual on-demand only — automated post-step hook is a future evolution gated by dogfood verdict).
+- `/dr-verify` remains manual on-demand verification, while its deterministic
+  spec-graph sub-check is shared with the automatic pipeline through
+  `dev-tools/spec-graph-gate.sh`.
 
 ## When NOT to Apply
 

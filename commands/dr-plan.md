@@ -75,6 +75,15 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
         Exit code `1` ⇒ STOP and fix the file before continuing.
     -   For L1 tasks this step is skipped entirely; the init-task skeleton from `/dr-init` Step 4.7 is sufficient. For L3-L4 tasks the PRD step (Step 5.5b in `/dr-prd`) handled the append-merge already.
 
+5c. **AUTOMATIC SPEC-GRAPH VALIDATION**:
+    -   Every implementation or validation step that satisfies acceptance criteria MUST carry an explicit `Verifies: V-AC-N[, ...]` marker.
+    -   After the plan is written, invoke:
+        ```bash
+        "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/spec-graph-gate.sh" \
+            --task {TASK-ID} --stage plan --root <repo-root> --format json
+        ```
+    -   Exit `2` blocks the stage. In explicit hard mode, exit `1` blocks transition to `/dr-do`; otherwise findings are advisory and must be summarized in the plan response.
+
 6.  **Technology Validation**:
     -   Document technology stack selection.
     -   Verify dependencies and build configuration.

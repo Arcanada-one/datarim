@@ -86,3 +86,18 @@ match() {
     run bash -c "source '$REGEX_LIB'; printf '%s' 'D-REQ-7' | grep -oE \"\$D_REQ_REF_RE\""
     [ "$status" -ne 0 ]
 }
+
+@test "VERIFIES_LINE_RE accepts explicit multiple V-AC plan edge" {
+    run match VERIFIES_LINE_RE '  Verifies: V-AC-1, V-AC-2.1'
+    [ "$status" -eq 0 ]
+}
+
+@test "VERIFIES_LINE_RE rejects incidental V-AC prose" {
+    run match VERIFIES_LINE_RE 'This mentions V-AC-1 in prose.'
+    [ "$status" -ne 0 ]
+}
+
+@test "EVIDENCE_LINE_RE accepts canonical evidence edge" {
+    run match EVIDENCE_LINE_RE '- Evidence: V-AC-1 — bats tests/example.bats'
+    [ "$status" -eq 0 ]
+}
