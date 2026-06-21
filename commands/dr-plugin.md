@@ -1,7 +1,7 @@
 # /dr-plugin — Datarim Plugin System CLI
 
 **Source:** plugin-system core PRD and plan (see workspace `datarim/prd/` and `datarim/plans/` indexes).
-**Status (Phase A scaffold):** `list` + first-run bootstrap implemented; `enable`/`disable`/`sync`/`doctor` deferred to next iterations.
+**Status:** `list` + first-run bootstrap, `enable`, `disable`, `sync`, and `doctor` are all implemented and covered by `tests/dr-plugin.bats` + `tests/dr-plugin-coverage.bats`. Git-URL clone for `enable` (Phase A4) remains the only deferred path.
 
 ## Purpose
 
@@ -19,10 +19,10 @@ Templates: `${DATARIM_RUNTIME:-$HOME/.claude}/templates/plugin.yaml.template`, `
 
 ```
 /dr-plugin list                  # show active plugins (bootstraps datarim-core on first run)
-/dr-plugin enable <id|path|url>  # activate a plugin (Phase A3 — pending)
-/dr-plugin disable <id>          # deactivate (Phase A3 — pending; refuses datarim-core)
-/dr-plugin sync                  # reconcile filesystem with manifest (Phase C — pending)
-/dr-plugin doctor [--fix]        # diagnose inconsistent state (Phase D — pending)
+/dr-plugin enable <abs-path>     # activate a plugin from an absolute path (git-URL clone deferred — Phase A4)
+/dr-plugin disable <id>          # deactivate (refuses datarim-core)
+/dr-plugin sync                  # reconcile filesystem with manifest
+/dr-plugin doctor [--fix]        # diagnose inconsistent state (8 checks)
 /dr-plugin --help                # usage
 ```
 
@@ -43,7 +43,7 @@ Helpers in `scripts/lib/plugin-system.sh`:
 | 0 | success |
 | 1 | validation/conflict error |
 | 2 | I/O / filesystem error |
-| 3 | concurrent invocation (lock held; Phase A3+) |
+| 3 | concurrent invocation (lock held) |
 | 64 | usage error |
 
 ## Environment overrides (testing)
@@ -55,13 +55,14 @@ Helpers in `scripts/lib/plugin-system.sh`:
 
 ## Tests
 
-`tests/dr-plugin.bats` — 28 cases, GREEN on macOS bash 3.2 + Linux bash 5+.
+`tests/dr-plugin.bats` (77+ cases) + `tests/dr-plugin-coverage.bats` (4 reachability/coverage gates) — GREEN on macOS bash 3.2 + Linux bash 5+.
 
 ## Roadmap
 
-- **Phase A3** — `enable`/`disable` happy paths + first-run inventory backfill for `datarim-core`.
-- **Phase B** — `overrides:` mechanism + conflict pre-scan.
-- **Phase C** — snapshot/rollback + `sync`.
-- **Phase D** — `doctor` (8 checks).
+- **Phase A3** — ✅ done. `enable`/`disable` happy paths + first-run inventory backfill for `datarim-core`.
+- **Phase B** — ✅ done. `overrides:` mechanism + conflict pre-scan.
+- **Phase C** — ✅ done. snapshot/rollback + `sync`.
+- **Phase D** — ✅ done. `doctor` (8 checks).
+- **Phase A4** — `enable` from a git URL (clone-and-activate). Deferred.
 - **Phase E** — Class B public surface (CLAUDE.md, README, datarim.club).
 - **Phase F** — author guide + bats coverage ≥80%.

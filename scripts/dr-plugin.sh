@@ -82,10 +82,10 @@ USAGE:
 
 COMMANDS:
   list                  Show active plugins (bootstraps datarim-core on first run)
-  enable <id|path|url>  Activate a plugin (Phase A3 — not yet implemented)
-  disable <id>          Deactivate a plugin (Phase A3 — not yet implemented)
-  sync                  Reconcile filesystem with manifest (Phase C — not yet implemented)
-  doctor [--fix]        Diagnose inconsistent state (Phase D — not yet implemented)
+  enable <abs-path>     Activate a plugin from an absolute path (git-URL clone deferred — Phase A4)
+  disable <id>          Deactivate a plugin (refuses datarim-core)
+  sync                  Reconcile filesystem with manifest
+  doctor [--fix]        Diagnose inconsistent state (8 checks)
   --help                Show this message
 
 EXIT CODES:

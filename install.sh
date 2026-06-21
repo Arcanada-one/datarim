@@ -1187,6 +1187,22 @@ fanout_runtime() {
     echo "  3. Start Claude Code and run: /dr-init <task description>"
     echo ""
 
+    # Bundled opt-in plugins (TUNE-0439): install distributes only the canonical
+    # scopes; plugins under plugins/ are opt-in per-workspace via /dr-plugin enable
+    # and are deliberately NOT auto-distributed. Surface them so operators know the
+    # bundled commands (e.g. /dr-orchestrate) exist and how to activate them —
+    # otherwise a shipped-but-unactivated plugin reads as a missing command.
+    if [ -d "$SCRIPT_DIR/plugins" ]; then
+        bundled_plugins=$(find "$SCRIPT_DIR/plugins" -mindepth 2 -maxdepth 2 -name plugin.yaml 2>/dev/null | sed 's#/plugin.yaml$##' | sort)
+        if [ -n "$bundled_plugins" ]; then
+            echo "Bundled opt-in plugins (activate per-workspace with /dr-plugin enable):"
+            printf '%s\n' "$bundled_plugins" | while IFS= read -r p; do
+                [ -n "$p" ] && echo "  /dr-plugin enable $p"
+            done
+            echo ""
+        fi
+    fi
+
     if [ "$SKIPPED" -gt 0 ] && [ "$FORCE" = false ] && [ "$INSTALL_MODE" = "copy" ]; then
         echo "Note: $SKIPPED file(s) were skipped because they already exist."
         echo "      Use --force to overwrite (safe: a backup is taken automatically"
