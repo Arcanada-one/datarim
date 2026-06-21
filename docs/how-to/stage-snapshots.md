@@ -82,5 +82,5 @@ For audited-redaction guarantees, set `DATARIM_DISABLE_SNAPSHOT=1` before invoki
 - `scripts/lib/snapshot-writer.sh` — implementation
 - `dev-tools/check-stage-snapshot-on-exit.sh` — validator
 - `commands/dr-next.md` § Step 2.5 — consumer touchpoint
-- `plugins/dr-orchestrate/commands/dr-orchestrate.md` § Snapshot-First Resume — orchestrator touchpoint
+- `commands/dr-orchestrate.md` § Snapshot-First Resume — orchestrator touchpoint
 - `commands/dr-archive.md` § Step 0.95 — cleanup-on-archive

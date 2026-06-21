@@ -13,7 +13,7 @@ target_aal: 2
 
 | Aspect | Value |
 |--------|-------|
-| Consumer touchpoints | `commands/dr-next.md` § Step 2.5, `plugins/dr-orchestrate/commands/dr-orchestrate.md` § Snapshot-First Resume |
+| Consumer touchpoints | `commands/dr-next.md` § Step 2.5, `commands/dr-orchestrate.md` § Snapshot-First Resume |
 | Snapshot path | `datarim/snapshots/{TASK-ID}.snapshot.md` |
 | Validator | `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-stage-snapshot-on-exit.sh" --validate-frontmatter --task <ID>` (exit 0 = ok) |
 | Fallback policy | snapshot absent OR validator exit ≠ 0 → legacy Read pipeline, **no warning** (V-AC-7) |
@@ -121,4 +121,4 @@ the rendered replay-prompt template is identical.
 - `dev-tools/check-session-handoff.sh` — the mandatory validator that runs before the session replay prompt is emitted.
 - `commands/dr-next.md` § Step 2.5 — consumer touchpoint.
 - `commands/dr-continue.md` — session-handoff consumer touchpoint.
-- `plugins/dr-orchestrate/commands/dr-orchestrate.md` § Snapshot-First Resume — orchestrator touchpoint.
+- `commands/dr-orchestrate.md` § Snapshot-First Resume — orchestrator touchpoint.

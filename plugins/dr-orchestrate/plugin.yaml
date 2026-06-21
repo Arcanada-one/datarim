@@ -6,6 +6,10 @@ author: "Pavel Valentov / Arcanada"
 license: MIT
 description: "tmux-based self-driving Datarim pipeline runner — Phase 2 adds multi-backend subagent inference for unknown prompts (autonomy L1→L2). v0.3.0 adds bot-interaction interface: OpenAPI 3.1 inbound contract + adnanh/webhook reference impl + HMAC-SHA256 outbound emitter + Redis pub/sub opt-in backend."
 categories:
-  - commands
-  - agents
+  - scripts
+  - rules
+# NOTE (TUNE-0439): the /dr-orchestrate command + resolver agent were promoted to
+# core (commands/, agents/) so the Claude Code slash-picker discovers them
+# (it does not scan plugins/*/commands/ or ~/.claude/local/). This plugin now
+# ships the orchestration scripts, rules, openapi, and tests only.
 homepage: https://datarim.club/commands/dr-orchestrate

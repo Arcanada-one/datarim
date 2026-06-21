@@ -3,7 +3,7 @@
 # TUNE-0254 — dr-orchestrate snapshot-first resume (V-AC-8).
 
 REPO_ROOT="$(cd "${BATS_TEST_DIRNAME}/.." && pwd)"
-CMD="${REPO_ROOT}/plugins/dr-orchestrate/commands/dr-orchestrate.md"
+CMD="${REPO_ROOT}/commands/dr-orchestrate.md"
 VALIDATOR="${REPO_ROOT}/dev-tools/check-stage-snapshot-on-exit.sh"
 
 @test "dr-orchestrate.md carries Snapshot-First Resume section (V-AC-8)" {
