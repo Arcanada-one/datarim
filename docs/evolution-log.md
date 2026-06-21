@@ -1925,3 +1925,11 @@ A read-only spec-traceability layer native to Datarim. Native names only; no ext
 - **Rollout + CI (R3/R8, APPLIED):** `docs/spec-traceability-rollout.md` (advisory-first: L1 skip, L2 advisory, L3+ hard after window, `--scope git-diff`); `.github/workflows/spec-traceability.yml` (reusable, advisory-first, SHA-pinned actions); `templates/pre-commit-spec-lint.sample` (opt-in fast feedback). One registry, one mandatory-rule config across CI + pre-commit.
 - **New command doc:** `commands/dr-spec.md` thin façade. 4-surface sync: `docs/commands.md`, `CLAUDE.md`, `README.md` updated; site `data/commands/dr-spec.php` deferred (cross-repo, operator-gated).
 - **Gates:** 71/71 bats green across 8 new test files; shellcheck -S warning exit 0 on all new scripts; body-english PASS; no "SpecScore" string in shipped surface (the one occurrence is a pointer to the source research report path, permitted). VERSION 2.41.0 → 2.42.0.
+
+## 2026-06-21 — TUNE-0441 (v2.44.0)
+
+**/dr-save resume block now carries a deterministic resume command + a human task label.** The resume block prints `/dr-continue {SESSION-ID}` (the session id selects exactly one saved session, defeating the latest-by-mtime collision that let a bare `/dr-continue` resume a foreign agent's session in a shared workspace) with a `↳ {TASK-ID} — {title}` annotation read from the active-task index (truncated + sanitized; stricter than next-action: leading-`/` and newline stripped) and a saved-time derived from the session id. Multi-task saves list only the OTHER active ids; single-task suppresses the line.
+
+**Class A applied:** snapshot-writer ergonomics note in `skills/stage-snapshot-writer/SKILL.md` — invoke the wrapper without swallowing stderr, `--body-file` mandatory (the clear missing-flag message was being hidden by callers piping through a truncating tail).
+
+New: `dev-tools/check-resume-block-mirror.sh` byte-identity gate over the two resume-block mirrors (`commands/dr-save.md` ↔ `skills/session-handoff-writer/SKILL.md`) + bats. Producer-only: consumer `/dr-continue` already accepted `{SESSION-ID}`; no schema change.

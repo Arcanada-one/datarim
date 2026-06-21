@@ -121,6 +121,256 @@ _secret_redact() {
 }
 
 # ---------------------------------------------------------------------------
+# Sanitize annotation text (Security Mandate S1, R6 UX safety).
+#
+# _session_sanitize_annotation <raw-text>  ->  stdout: one-line, <=80 chars,
+#   control chars + backticks + $( ) stripped; ellipsis on overflow.
+# Pure bash + tr + sed (POSIX ERE). No grep -P. Empty input -> empty output.
+# ---------------------------------------------------------------------------
+
+_session_sanitize_annotation() {
+    local raw="$1"
+    if [ -z "$raw" ]; then
+        return 0
+    fi
+    # Strip control chars (except space/tab), backticks, and $( ) patterns.
+    # tr removes control chars (0x00-0x08, 0x0A-0x1F, 0x7F); sed strips $(..) and backticks.
+    local cleaned
+    cleaned="$(printf '%s' "$raw" \
+        | tr -d '\000-\010\012-\037\177' \
+        | sed -E 's/\$\([^)]*\)//g; s/`[^`]*`//g; s/`//g')"
+    # Collapse to first non-empty line (remove embedded newlines from printf).
+    # Take only the first 80 chars, add ellipsis if truncated.
+    local single_line="${cleaned%%$'\n'*}"
+    if [ "${#single_line}" -gt 80 ]; then
+        printf '%s…' "${single_line:0:79}"
+    else
+        printf '%s' "$single_line"
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# Sanitize a task title for the ↳ annotation line (R9 stricter rules).
+#
+# _session_sanitize_title <raw-text>  ->  stdout: one-line, <=55 chars,
+#   reuses _session_sanitize_annotation controls PLUS:
+#     - strips a leading '/' (prevents forging a command line)
+#     - strips embedded newlines (already done by the base helper via %%$'\n'*)
+#   Title is plain prose — NEVER backticked; displayed beside the TASK-ID.
+# Empty input -> empty output (caller must handle).
+# ---------------------------------------------------------------------------
+
+_session_sanitize_title() {
+    local raw="$1"
+    if [ -z "$raw" ]; then
+        return 0
+    fi
+    # Reuse base sanitizer (strips control chars, backticks, $(...), collapses newlines, 80-char).
+    local base_clean
+    base_clean="$(_session_sanitize_annotation "$raw")"
+    # Strip a leading '/' so a title starting with '/dr-foo' can't forge a command line.
+    local no_slash="${base_clean#/}"
+    # Truncate to <=55 chars on a word boundary + ellipsis if needed.
+    if [ "${#no_slash}" -le 55 ]; then
+        printf '%s' "$no_slash"
+        return 0
+    fi
+    # Find last space within first 55 chars to break on a word boundary.
+    local prefix="${no_slash:0:55}"
+    local trimmed="${prefix% *}"
+    if [ -z "$trimmed" ] || [ "${#trimmed}" -lt 5 ]; then
+        # No word boundary found (e.g. one long word) — hard truncate.
+        printf '%s…' "${no_slash:0:54}"
+    else
+        printf '%s…' "$trimmed"
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# Look up the human title for a TASK-ID from tasks.md (R9 — read-only probe).
+#
+# _session_lookup_task_title <task_id> <tasks_md_path>  ->  stdout: raw title
+#   (caller must sanitize via _session_sanitize_title).
+#
+# Parses the Active line format:
+#   - {TASK-ID} · {status} · {prio} · {level} · {TITLE} → tasks/...
+# The title is the 5th '·'-delimited field, before the ' → ' path suffix.
+#
+# Returns empty string (exit 0) on any failure — missing file, no match,
+# empty field. Never fails the save.
+# ---------------------------------------------------------------------------
+
+_session_lookup_task_title() {
+    local task_id="$1"
+    local tasks_md_path="$2"
+
+    if [ -z "$task_id" ] || [ -z "$tasks_md_path" ] || [ ! -f "$tasks_md_path" ]; then
+        return 0
+    fi
+
+    # Find the Active line for this TASK-ID.
+    # Line format: "- {TASK-ID} · {status} · {prio} · {level} · {TITLE} → tasks/..."
+    # Use awk: split on ' · ', 5th field, then strip ' → ...' suffix.
+    local title
+    title="$(grep -E "^- ${task_id} [·]" "$tasks_md_path" 2>/dev/null \
+        | awk -F' · ' '{
+            if (NF >= 5) {
+                # Title is field 5 (1-indexed); strip " → ..." suffix.
+                title = $5
+                sub(/ → .*$/, "", title)
+                # Trim leading/trailing whitespace.
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", title)
+                print title
+            }
+        }' | head -1)" || true
+
+    printf '%s' "$title"
+}
+
+# ---------------------------------------------------------------------------
+# Format a human-readable saved time from a SESSION-ID (R10).
+#
+# _session_format_saved_time <SESSION-YYYYMMDD-HHMMSS>  ->  "YYYY-MM-DD HH:MM"
+#
+# Parses the embedded timestamp — NEVER calls 'date'. Returns empty on
+# a non-conforming SESSION-ID (caller falls back to omitting the saved-time).
+# ---------------------------------------------------------------------------
+
+_session_format_saved_time() {
+    local session_id="$1"
+    # Expected format: SESSION-YYYYMMDD-HHMMSS
+    local ts_part
+    ts_part="$(printf '%s' "$session_id" | grep -oE '[0-9]{8}-[0-9]{6}$')" || true
+    if [ -z "$ts_part" ]; then
+        return 0
+    fi
+    local date_part="${ts_part%-*}"   # YYYYMMDD
+    local time_part="${ts_part#*-}"   # HHMMSS
+    local year="${date_part:0:4}"
+    local month="${date_part:4:2}"
+    local day="${date_part:6:2}"
+    local hour="${time_part:0:2}"
+    local min="${time_part:2:2}"
+    printf '%s-%s-%s %s:%s' "$year" "$month" "$day" "$hour" "$min"
+}
+
+# ---------------------------------------------------------------------------
+# Render the operator-facing resume block to stdout (R1-R12 contract).
+#
+# _session_render_resume_block <session_id> <recommended_next> <next_action> \
+#                              <active_tasks_file> [<tasks_md_path>]
+#
+# Rules enforced here:
+#   R2:  SESSION-ID is printed from the exact $session_id arg, never re-derived.
+#   R3:  TASK-ID from $recommended_next only — no new flags.
+#   R4:  Also-active line suppressed when no OTHER tasks (after excluding current).
+#   R5:  Fallback (no parseable TASK-ID) omits ↳ and Next: lines.
+#   R6:  $next_action is sanitized before printing.
+#   R7:  Anti-pattern warning preserved verbatim.
+#   R8:  No HR ---, no CTA marker, no Variant-B menu.
+#   R9:  Title read from tasks.md Active line; sanitized (strip leading /,
+#        newlines, 55-char truncation); missing title → bare ↳ TASK-ID only.
+#   R10: Saved-time derived from SESSION-ID embedded timestamp, never 'date'.
+#   R12: Also-active line lists OTHER task IDs only (exclude current TASK-ID);
+#        suppressed when no other tasks.
+# ---------------------------------------------------------------------------
+
+_session_render_resume_block() {
+    local session_id="$1"
+    local recommended_next="$2"
+    local next_action="$3"
+    local active_tasks_file="$4"
+    local tasks_md_path="${5:-}"
+
+    # Parse TASK-ID from recommended_next (ERE: one or more uppercase+digits segments).
+    local task_id=""
+    task_id="$(printf '%s' "$recommended_next" | grep -oE '[A-Z]+-[0-9]{4}' | head -1)" || true
+
+    # Collect active task IDs from the tasks file (one per line, TASK-ID first token).
+    local active_ids=""
+    if [ -n "$active_tasks_file" ] && [ -f "$active_tasks_file" ]; then
+        active_ids="$(awk -F'[| ]' '{gsub(/^[[:space:]]+|[[:space:]]+$/,"",$1); if($1!="") print $1}' \
+            "$active_tasks_file" | sort -u | tr '\n' ' ')"
+        active_ids="${active_ids% }"  # trim trailing space
+    fi
+
+    # Build other-task IDs list (R12: exclude current task_id).
+    local other_ids=""
+    if [ -n "$active_ids" ]; then
+        local id
+        for id in $active_ids; do
+            if [ "$id" != "$task_id" ]; then
+                other_ids="${other_ids:+$other_ids }$id"
+            fi
+        done
+    fi
+
+    local other_count=0
+    if [ -n "$other_ids" ]; then
+        # Count space-separated tokens.
+        # shellcheck disable=SC2086
+        set -- $other_ids
+        other_count=$#
+        set --
+    fi
+
+    # Header + command line (R2: exact $session_id — never date).
+    printf 'Session saved → datarim/sessions/%s.session.md\n' "$session_id"
+    printf '\n'
+    printf 'To resume in a fresh window, copy this line exactly:\n'
+    printf '\n'
+    printf '  /dr-continue %s\n' "$session_id"
+    printf '\n'
+
+    # Annotation lines — only when a TASK-ID parses from recommended_next (R5).
+    if [ -n "$task_id" ]; then
+        # R9: look up and sanitize title from tasks.md.
+        local raw_title=""
+        raw_title="$(_session_lookup_task_title "$task_id" "$tasks_md_path")"
+
+        local sanitized_title=""
+        if [ -n "$raw_title" ]; then
+            sanitized_title="$(_session_sanitize_title "$raw_title")"
+        fi
+
+        # R10: human-readable saved time from SESSION-ID (never 'date').
+        local saved_time
+        saved_time="$(_session_format_saved_time "$session_id")"
+
+        # Render ↳ line: with title+date when title found, bare ID otherwise.
+        if [ -n "$sanitized_title" ] && [ -n "$saved_time" ]; then
+            printf '  ↳ %s — %s   (saved %s UTC)\n' "$task_id" "$sanitized_title" "$saved_time"
+        elif [ -n "$sanitized_title" ]; then
+            printf '  ↳ %s — %s\n' "$task_id" "$sanitized_title"
+        elif [ -n "$saved_time" ]; then
+            printf '  ↳ %s   (saved %s UTC)\n' "$task_id" "$saved_time"
+        else
+            printf '  ↳ %s\n' "$task_id"
+        fi
+
+        # Next: line from sanitized next_action.
+        local sanitized_action
+        sanitized_action="$(_session_sanitize_annotation "$next_action")"
+        if [ -n "$sanitized_action" ]; then
+            printf '    Next: %s\n' "$sanitized_action"
+        fi
+    fi
+
+    # Also-active line — R12: list OTHER tasks only; suppressed when none.
+    if [ "$other_count" -gt 0 ]; then
+        printf '    Also active this session: %s\n' "$other_ids"
+    fi
+
+    printf '\n'
+    printf '%s is the only argument that selects this saved session — a bare\n' "$session_id"
+    printf '/dr-continue may grab another agent'"'"'s session in a shared workspace. The\n'
+    printf 'task name and date are labels for you, not command input.\n'
+    printf '\n'
+    printf 'Do NOT use claude --continue / codex resume / Cursor chat history.\n'
+    printf 'A fresh session + /dr-continue is the only safe resume path.\n'
+}
+
+# ---------------------------------------------------------------------------
 # Render YAML frontmatter block (Security Mandate S1 — quoted heredoc,
 # printf -- per field, no shell expansion).
 # ---------------------------------------------------------------------------
