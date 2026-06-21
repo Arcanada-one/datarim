@@ -31,6 +31,8 @@ For each task:
 3. Run verifications as specified
 4. Mark as `[✓]` completed only after the task's verification passes; record evidence (command output, file path, test result) inline
 
+**Refactor verification — scope the grep to definitions.** When a verification searches for a symbol (method, function, constant) that an extraction or dedup will remove from one site but keep as a call-site elsewhere, a bare name search matches the surviving call-sites and reports a false failure. Prefix the search with the language's definition keyword so it targets declarations only — e.g. `private\s+<name>` (TypeScript/Java methods), `def <name>` (Python), `fn <name>` (Rust), `function <name>` (JS). Verify "the old definition is gone", not "the name never appears".
+
 ### Step 3: Complete Development
 
 After all tasks complete and verified:

@@ -155,6 +155,7 @@ Before removing a suspected-stale copy of a web origin that sits behind a CDN pr
 Prove the live origin by querying each candidate server directly with the production Host header and comparing response bodies:
 
 ```bash
+# noshellcheck-extract
 for ip in <candidate-ip-1> <candidate-ip-2>; do
   echo "== $ip"
   curl -s --resolve <domain>:443:$ip https://<domain>/ -o /tmp/body-$ip --write-out '%{http_code} %{size_download}\n'

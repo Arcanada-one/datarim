@@ -63,7 +63,15 @@ Optional fields (used by later phases — F4 browser QA, etc.):
 
 ```yaml
 qa_browser_mode: headed       # headed | headless — F4 reference
+branch_topology: parallel     # parallel | chained | n/a — multi-phase epics only
+resolved_base_branch: <ref>   # the integration base branch (with branch_topology)
 ```
+
+`branch_topology` + `resolved_base_branch` are for an integration-boundary phase
+of a multi-phase epic whose earlier phases live on archived-but-unmerged feature
+branches: declare the topology and the resolved integration base here at init
+time, so the plan stage does not have to discover it via repeated branch-ancestry
+probes. Omit both for single-phase tasks.
 
 ## Body shape
 
