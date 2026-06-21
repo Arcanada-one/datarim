@@ -102,7 +102,7 @@ violations. Other operational actions ask only when the resolved
 
 - Exploratory work where the operator's intent is going to be refined as the task progresses.
 - High-risk changes to the framework's operating model, where each stage gate is genuinely a decision point that needs the operator present.
-- Coordinating work across multiple repositories. Use `/dr-orchestrate` for that — it is built for parallel multi-task execution and `/dr-auto` is not.
+- Coordinating work across multiple repositories. Use `/dr-orchestrate` for that — it is built for parallel multi-task execution and `/dr-auto` is not. **Note:** `/dr-orchestrate` ships as an opt-in plugin (`plugins/dr-orchestrate/`); it resolves only after `/dr-plugin enable <abs-path>/plugins/dr-orchestrate` in the workspace. If the command is unknown, enable the plugin first.
 
 ## Stage Snapshot Emission (Mandatory Terminal Step)
 
@@ -119,4 +119,4 @@ This snapshot overwrites the last delegated sub-stage snapshot — the intended 
 
 - Skill: `skills/autonomous-mode/SKILL.md` — the operating rules every stage loads.
 - Mandate: `documentation/mandates/autonomous-agents.md` — the source-of-truth rules for autonomous behaviour.
-- Commands: `/dr-next` (the underlying mechanism for resume mode), `/dr-orchestrate` (parallel multi-task, complementary).
+- Commands: `/dr-next` (the underlying mechanism for resume mode), `/dr-orchestrate` (parallel multi-task, complementary — opt-in plugin, enable via `/dr-plugin enable <abs-path>/plugins/dr-orchestrate`).
