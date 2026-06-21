@@ -22,9 +22,19 @@ dr-orchestrate run --unknown-prompt [text]
 
 ## Autonomy Levels
 
-- **Phase 1** → L1 (Manual cycle, rule-based confidence).
-- **Phase 2** → L2 (Assisted: multi-backend subagent inference + race-safe cooldown + audit v2).
-- Phase 3 (planned) → L4 (Auto-learning rules, Y/N callback, 24 h re-validation).
+The orchestrator's effective autonomy is **resolved per-space at runtime** via the following chain:
+
+1. `space.yml § autonomy.policy` — the active space's machine-readable policy (e.g. `spaces/arcanada/space.yml`).
+2. `dev-tools/resolve-space-autonomy.sh gate --action <kind>` — evaluates the policy, returns `auto` or `escalate`.
+3. `scripts/action_gate.sh gate --action <kind>` — thin wrapper that delegates to the resolver above.
+
+**In a full-autonomy (root-managing) space such as Arcanada, the orchestrator and its agents execute ALL reversible work autonomously and escalate ONLY hard-gated floor actions.** Do not ask the operator about reversible actions (rsync, git operations on feature branches, writing PRDs, conveying briefs, cloning repositories, or resetting a local clone). The hard-gated floor (`rules/fb-rules.yaml § hard_gated_actions`) — financial/legal operations, irreversible database mutations, git history rewrites, public publications without confirmation — always escalates regardless of per-space policy.
+
+Pipeline phases by feature set (not a fixed autonomy level):
+
+- **Phase 1** — lean rule-based tmux runner.
+- **Phase 2** — multi-backend subagent inference (coworker → claude → codex) + race-safe cooldown + audit schema v2.
+- Phase 3 (planned) — auto-learning rules, Y/N callback, 24 h re-validation.
 
 ## Subagent Inference (Phase 2)
 
