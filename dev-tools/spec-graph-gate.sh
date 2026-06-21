@@ -67,6 +67,24 @@ elif [ -f "$TASK_DESC" ]; then
     elif grep -qiE '^complexity:[[:space:]]*L2' "$TASK_DESC"; then LEVEL="L2"
     elif grep -qiE '^complexity:[[:space:]]*L4' "$TASK_DESC"; then LEVEL="L4"
     fi
+else
+    # Fallback: neither PRD nor task-description carries the complexity (e.g.
+    # an inline-executed L2 task whose PRD is legitimately waived). Read the
+    # level from the one-liner index rows (`- TASK · status · P · L<N> · ...`)
+    # in backlog.md, then the active tasks.md, before defaulting to L3 and
+    # fail-closing the no-PRD branch below. Backlog wins over tasks.md when both
+    # carry the row; PRD and task-description (handled above) still take
+    # precedence over this fallback. Source: TUNE-0444.
+    for _idx in "$DATARIM_ROOT/backlog.md" "$DATARIM_ROOT/tasks.md"; do
+        [ -f "$_idx" ] || continue
+        _row="$(grep -m1 -E "^- ${TASK} ·" "$_idx" || true)"
+        [ -n "$_row" ] || continue
+        if printf '%s' "$_row" | grep -qE '· L1 ·'; then LEVEL="L1"; break
+        elif printf '%s' "$_row" | grep -qE '· L2 ·'; then LEVEL="L2"; break
+        elif printf '%s' "$_row" | grep -qE '· L4 ·'; then LEVEL="L4"; break
+        elif printf '%s' "$_row" | grep -qE '· L3 ·'; then LEVEL="L3"; break
+        fi
+    done
 fi
 
 MODE="${DATARIM_SPEC_GRAPH_MODE:-advisory}"
