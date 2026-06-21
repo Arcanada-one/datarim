@@ -7,7 +7,8 @@ session_name: datarim
 audit_dir: ~/.local/share/datarim-orchestrate
 state_dir: ~/.local/share/datarim-orchestrate/state
 
-# Phase 2 (TUNE-0165): subagent inference layer (autonomy L2 assisted).
+# Phase 2 (TUNE-0165): subagent inference layer. Effective autonomy is resolved
+# per-space at runtime via action_gate.sh + space.yml § autonomy.policy.
 subagent:
   # Fallback chain tried in order. First parseable JSON response wins.
   # Recognised backends: coworker-deepseek, coworker-groq, claude, codex.

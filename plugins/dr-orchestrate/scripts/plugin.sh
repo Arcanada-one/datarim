@@ -35,7 +35,11 @@ dispatch() {
   esac
 }
 
-# Plugin autonomy level. TUNE-0165 bumps L1 (manual) → L2 (assisted).
+# Plugin autonomy level. Returns a baseline integer for legacy callers;
+# effective autonomy is resolved per-space at runtime via action_gate.sh
+# (which delegates to dev-tools/resolve-space-autonomy.sh + space.yml §
+# autonomy.policy). Full-autonomy spaces return "auto" from the gate and run
+# all reversible actions without asking. See README.md § Autonomy Levels.
 get_autonomy() { echo "2"; }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
