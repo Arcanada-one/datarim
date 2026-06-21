@@ -86,14 +86,22 @@ silently continue, and do NOT hand-author the artefact.
 After a successful write, print:
 
 ```
-Session artefact written: datarim/sessions/{SESSION-ID}.session.md
+Session saved → datarim/sessions/{SESSION-ID}.session.md
 
-To resume in a clean window:
-  /dr-continue
+To resume in a fresh window, copy this line exactly:
+
+  /dr-continue {SESSION-ID}
+
+  ↳ {TASK-ID} — {title}   (saved {human-date-from-SESSION-ID} UTC)
+    Next: {next-action}
+    Also active this session: {other-task-ids}
+
+{SESSION-ID} is the only argument that selects this saved session — a bare
+/dr-continue may grab another agent's session in a shared workspace. The
+task name and date are labels for you, not command input.
 
 Do NOT use claude --continue / codex resume / Cursor chat history.
-Those rehydrate a stale context. A fresh session + /dr-continue is the
-only safe resume path.
+A fresh session + /dr-continue is the only safe resume path.
 ```
 
 ## /dr-auto Mode (when DATARIM_AUTO_MODE=1)

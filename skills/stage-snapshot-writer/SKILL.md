@@ -51,6 +51,14 @@ bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/snapshot-writer-wrapper.sh" \
 Call the wrapper, never the bare `write_stage_snapshot` function — see § Contract
 (Entry point) for why the function dies silently under a zsh-parent shell.
 
+> **stderr must not be swallowed.** Invoke the wrapper WITHOUT piping through
+> `| tail`, `2>/dev/null`, or any stderr-suppressing construct. When a required
+> flag (such as `--body-file`) is absent, the writer prints the actionable error
+> to **stderr** (`missing required flag(s): --body-file`) and exits 2. If stderr
+> is swallowed the agent sees only silence or a truncated tail and cannot
+> diagnose the failure. On any non-zero exit, read the **full** stderr — the
+> writer's first stderr line names the missing flag(s) directly.
+
 ## Outputs
 
 `datarim/snapshots/{TASK-ID}.snapshot.md`:

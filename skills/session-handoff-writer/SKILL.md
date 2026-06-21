@@ -129,15 +129,48 @@ fi
 After a successful write, the agent MUST print the following block visibly:
 
 ```
-Session artefact written: datarim/sessions/{SESSION-ID}.session.md
+Session saved → datarim/sessions/{SESSION-ID}.session.md
 
-To resume in a clean window:
-  /dr-continue
+To resume in a fresh window, copy this line exactly:
+
+  /dr-continue {SESSION-ID}
+
+  ↳ {TASK-ID} — {title}   (saved {human-date-from-SESSION-ID} UTC)
+    Next: {next-action}
+    Also active this session: {other-task-ids}
+
+{SESSION-ID} is the only argument that selects this saved session — a bare
+/dr-continue may grab another agent's session in a shared workspace. The
+task name and date are labels for you, not command input.
 
 Do NOT use claude --continue / codex resume / Cursor chat history.
-Those rehydrate a stale context. A fresh session + /dr-continue is the
-only safe resume path.
+A fresh session + /dr-continue is the only safe resume path.
 ```
+
+Rendering rules (implemented in `_session_render_resume_block`,
+`scripts/lib/session-handoff-writer.sh`):
+
+- **`{title}`** is read live from `datarim/tasks.md` by the resolved TASK-ID (Active line
+  format: `- {TASK-ID} · {status} · {prio} · {level} · {TITLE} → tasks/...`; title is
+  the 5th `·`-delimited field). Sanitized via `_session_sanitize_title`: leading `/`
+  stripped, embedded newlines collapsed, truncated ≤ 55 chars on a word boundary + `…`.
+  Plain prose — never backticked. Missing or empty title → print `↳ {TASK-ID}` alone,
+  no em-dash, no invented title.
+- **`{human-date-from-SESSION-ID}`** is formatted as `YYYY-MM-DD HH:MM` from the embedded
+  SESSION-ID timestamp — **never a fresh `date` call** (that would create a second
+  identifier; R10 safety contract).
+- **`{other-task-ids}`** lists OTHER active task IDs only — the current TASK-ID (already
+  shown in `↳`) is excluded. The `Also active this session:` line is **suppressed** when
+  there are no other tasks.
+- The `↳` and `Next:` lines are **omitted** when no TASK-ID is resolvable from
+  `--recommended-next` — never invent a TASK-ID (R5).
+- Pass `"${REPO_ROOT}/datarim/tasks.md"` as the 5th arg to `_session_render_resume_block`
+  so title lookup can succeed. If the file is absent the function falls back silently to
+  bare `↳ TASK-ID`.
+
+Anti-pattern (do NOT hand-author the block): the render function is the single
+source of truth for all sanitization and fallback rules. Never substitute the
+template text manually — re-run the function instead.
 
 ## Stale-runtime reminder (advisory)
 
