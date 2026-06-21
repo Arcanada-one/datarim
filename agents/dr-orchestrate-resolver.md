@@ -18,7 +18,7 @@ The autonomous-vs-escalate boundary belongs to the caller — the resolver itsel
 
 ## Invocation Contract
 
-The shell driver `scripts/subagent_resolver.sh` owns the dispatch — this agent file is the declarative spec for the resolver subprocess.
+The shell driver `plugins/dr-orchestrate/scripts/subagent_resolver.sh` owns the dispatch — this agent file is the declarative spec for the resolver subprocess.
 
 **Backends are tried in order from `DR_ORCH_SUBAGENT_CHAIN`** (default: `coworker-deepseek claude codex`). The first backend that returns a parseable JSON object wins. Subsequent backends are not invoked.
 

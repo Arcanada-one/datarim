@@ -318,7 +318,7 @@ Fail-closed semantics: a non-zero wrapper exit MUST surface a single stderr warn
 
 **Harness journal side-effect.** When `/tmp/datarim-test-{TASK-ID}/` exists (created by `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/datarim-stage-probe-init.sh"`), the writer additionally appends one journal line per call to `/tmp/datarim-test-{TASK-ID}/journal.md` in the contract format `<stage> · <ISO-ts> · header-present:<y|n> · snapshot-written:y · cta-footer:<y|n> · snapshot-sha:<12-hex>`. Auto-detection is by directory presence; an absent harness directory is a no-op. See `docs/how-to/datarim-harness.md` for end-to-end harness usage.
 
-Consumer side: `commands/dr-next.md` § Step 2.5 "Snapshot-First Read" and `plugins/dr-orchestrate/commands/dr-orchestrate.md` § Snapshot-First Resume read the file before falling through to task-description / init-task / activeContext. The replay-prompt template lives in `skills/dr-next-snapshot-replay/SKILL.md` § Replay-prompt template.
+Consumer side: `commands/dr-next.md` § Step 2.5 "Snapshot-First Read" and `commands/dr-orchestrate.md` § Snapshot-First Resume read the file before falling through to task-description / init-task / activeContext. The replay-prompt template lives in `skills/dr-next-snapshot-replay/SKILL.md` § Replay-prompt template.
 
 ## Versioning
 

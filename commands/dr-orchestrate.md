@@ -32,7 +32,7 @@ Phase 2 — Subagent Inference Layer (v2.4.0).
    - `subagent_resolver.sh resolve` — multi-backend chain (coworker → claude → codex), 15s per backend, lenient JSON parse, FD-3 close.
    - Confidence threshold gate (default `0.80`):
      - Pass → when resolver JSON includes `action_kind`, call
-       `scripts/action_gate.sh` before autonomous execution. Space-policy
+       `plugins/dr-orchestrate/scripts/action_gate.sh` before autonomous execution. Space-policy
        `auto` proceeds; `operator` or invalid policy routes to escalation.
        Then audit `outcome: resolved` (schema v2); decision-cooldown 60s
        enforces a single autonomous decision per pane per minute.
@@ -91,4 +91,4 @@ tail -1 ~/.local/share/datarim-orchestrate/audit-$(date -u +%Y-%m-%d).jsonl | jq
 
 - Phase 2 PRD, plan, and reflection live under `datarim/prd/`, `datarim/plans/`, and `documentation/archive/framework/`.
 - Plugin README: `plugins/dr-orchestrate/README.md`
-- Resolver agent: `plugins/dr-orchestrate/agents/dr-orchestrate-resolver.md`
+- Resolver agent: `agents/dr-orchestrate-resolver.md` (promoted to core in TUNE-0439 so the slash-picker discovers it; orchestration scripts/rules/tests remain under `plugins/dr-orchestrate/`)
