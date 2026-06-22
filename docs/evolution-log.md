@@ -1933,3 +1933,24 @@ A read-only spec-traceability layer native to Datarim. Native names only; no ext
 **Class A applied:** snapshot-writer ergonomics note in `skills/stage-snapshot-writer/SKILL.md` — invoke the wrapper without swallowing stderr, `--body-file` mandatory (the clear missing-flag message was being hidden by callers piping through a truncating tail).
 
 New: `dev-tools/check-resume-block-mirror.sh` byte-identity gate over the two resume-block mirrors (`commands/dr-save.md` ↔ `skills/session-handoff-writer/SKILL.md`) + bats. Producer-only: consumer `/dr-continue` already accepted `{SESSION-ID}`; no schema change.
+
+## 2026-06-22 — TUNE-0445 + TUNE-0446 (v2.44.0 → v2.45.0)
+
+Two Class B follow-ups from reflection-VERD-0059, shipped together.
+
+**TUNE-0446** — `dev-tools/check-deferral-prose.sh` `--file` path guard widened to accept
+spaces in the path while preserving path-traversal protection. The single regex
+`^[A-Za-z0-9._/-]+\.md$` (which rejected any path with a space, e.g. a report under a
+directory name containing a space) was replaced with three explicit deny-checks:
+`..`-traversal segment reject, control-character reject, and `.md`-suffix require. Regression
+cases added to `tests/check-deferral-prose.bats` (space-accept + traversal-reject +
+control-reject); full suite green; `shellcheck -S warning` clean.
+
+**TUNE-0445** — `/dr-auto` L1 doc-only fast-path. For the narrow class of an L1 task whose
+diff touches a single markdown file with no runtime behaviour, the orchestrator now runs a
+lightweight style/banlist + cross-reference check that writes a minimal `qa-stub` artefact
+instead of silently skipping `/dr-qa`. `skills/compliance/SKILL.md` Documentation Checklist
+gained a "Doc-Only QA Stub" item stating the stub satisfies QA-presence, so compliance no
+longer emits a "QA report absent" advisory for that class; every other class still requires a
+full QA report. The edit also removed a pre-existing duplicate "Operator-Only Runbooks"
+heading in the same checklist (numbering now sequential).
