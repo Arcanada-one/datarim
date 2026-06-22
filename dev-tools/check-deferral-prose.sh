@@ -30,6 +30,8 @@
 #   check-deferral-prose.sh --file <report.md> [--touched-files <list>]
 #       [--root <repo-root>] [--backlog <path>] [--tasks <path>]
 #       [--phrases <path>] [--report]
+#   --file accepts any printable path ending in .md, including paths with
+#   spaces. Path-traversal (..) segments and control characters are rejected.
 
 set -euo pipefail
 
@@ -38,7 +40,7 @@ usage() {
 usage: check-deferral-prose.sh --file <report.md> [--touched-files <list>]
        [--root <repo-root>] [--backlog <path>] [--tasks <path>]
        [--phrases <path>] [--report]
-  --file           markdown report to scan (required; ^[A-Za-z0-9._/-]+\.md$)
+  --file           markdown report to scan (required; must end in .md, no .. traversal, no control chars)
   --touched-files  newline list of files the task touched (else derived from git)
   --root           repo root for git-derived touched set + KB lookups (default: .)
   --backlog        backlog index for artefact verification (default: <root>/datarim/backlog.md)
@@ -81,10 +83,21 @@ done
 [ -n "$FILE" ] || usage
 
 # Path-traversal / shape guard (Security Mandate § S1/S5). Untrusted planner input.
-if ! printf '%s' "$FILE" | grep -Eq '^[A-Za-z0-9._/-]+\.md$'; then
-    echo "ERROR: --file must match ^[A-Za-z0-9._/-]+\\.md\$ (got: $FILE)" >&2
+# Check 1: reject any .. traversal segment (e.g. ../x.md or a/../b.md).
+if printf '%s' "$FILE" | grep -Eq '(^|/)\.\.(/|$)'; then
+    echo "ERROR: --file must not contain path-traversal (..) segments (got: $FILE)" >&2
     exit 2
 fi
+# Check 2: reject control characters (NUL, tab, newline, etc.).
+if printf '%s' "$FILE" | LC_ALL=C grep -q '[[:cntrl:]]'; then
+    echo "ERROR: --file must not contain control characters (got: $FILE)" >&2
+    exit 2
+fi
+# Check 3: must end in .md.
+case "$FILE" in
+    *.md) ;;
+    *) echo "ERROR: --file must end in .md (got: $FILE)" >&2; exit 2 ;;
+esac
 if [ ! -f "$FILE" ]; then
     echo "ERROR: file not found: $FILE" >&2
     exit 2
