@@ -233,3 +233,41 @@ EOF
     run "$SCRIPT" --file "../../etc/passwd"
     [ "$status" -eq 2 ]
 }
+
+# ---------- AC-1..AC-2: space-in-path + traversal guard (TUNE-0446) ----------
+
+@test "AC-1: --file with a space in the path is NOT rejected with exit 2 (spaces accepted)" {
+    # Create a file whose path contains a space — the guard must not reject it
+    # with exit 2 for the space alone. The file exists, so the scanner proceeds
+    # to scan it (exit 0 on clean content or exit 1 on findings, never exit 2).
+    SPACE_DIR="$WORK/Long Term Memory"
+    mkdir -p "$SPACE_DIR"
+    SPACE_REPORT="$SPACE_DIR/report.md"
+    cat > "$SPACE_REPORT" <<'EOF'
+## QA Report
+All wishes met. Fix committed and tested.
+EOF
+    run "$SCRIPT" --file "$SPACE_REPORT" --touched-files "$TOUCHED"
+    # Must NOT be a usage error (exit 2). Exit 0 or 1 are both acceptable.
+    [ "$status" -ne 2 ]
+}
+
+@test "AC-2a: --file with a .. traversal segment is STILL rejected with exit 2" {
+    run "$SCRIPT" --file "../some/report.md"
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"traversal"* || "$output" == *"ERROR"* ]]
+}
+
+@test "AC-2b: --file with an embedded .. segment is STILL rejected with exit 2" {
+    run "$SCRIPT" --file "a/../../etc/report.md"
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"traversal"* || "$output" == *"ERROR"* ]]
+}
+
+@test "AC-2c: --file with a control character is STILL rejected with exit 2" {
+    # Pass a path containing a literal tab character.
+    TAB_PATH="$(printf 'some\treport.md')"
+    run "$SCRIPT" --file "$TAB_PATH"
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"control"* || "$output" == *"ERROR"* ]]
+}
