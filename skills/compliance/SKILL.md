@@ -131,8 +131,8 @@ Source: prior incident — a multi-repo task ran compliance v1+v2 within 23 minu
 ### 6. Operator-Only Runbooks
 - A runbook whose steps are operator-only (hard-gated actions: store consoles, production deploys, secret rotation) carries an explicit HARD-GATED marker on its first content line
 
-### 6. Operator-Only Runbooks
-- A runbook whose steps are operator-only (hard-gated actions: store consoles, production deploys, secret rotation) carries an explicit HARD-GATED marker on its first content line
+### 7. Doc-Only QA Stub (narrow class)
+When the task ran the `/dr-auto` L1 doc-only fast-path and produced a `qa-stub` artefact (`datarim/qa/qa-stub-{TASK-ID}.md`), that stub satisfies the QA-presence requirement for this compliance run. Compliance MUST NOT emit the "QA report absent" advisory for this class. Verify only that the stub file exists and records at least the style/banlist check and the cross-reference grep outcomes. Any other task class (code, infra, research, content, legal, or a doc task that did not go through the fast-path) still requires a full `/dr-qa` report; absence of that report remains an advisory as before.
 
 ---
 
