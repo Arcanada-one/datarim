@@ -1,7 +1,7 @@
 # fb-rules.yaml — Autonomous Agent Operating Rules (FB-1..FB-8) policy block.
 # FB means Feedback Behaviour; it is unrelated to Facebook or Publisher.
 # Canonical text: consumer ecosystem CLAUDE.md § Autonomous Agent Operating Rules Mandate.
-# Source insight:  Projects/Datarim/datarim/insights/INSIGHTS-TUNE-0185-fb-rules.md.
+# Source insight:  Projects/Datarim/datarim/insights/ (FB-rules autonomy research; see docs/evolution-log.md for provenance).
 # Consumer: dev-tools/fb-policy-loader.sh (core) + plugins/dr-orchestrate/scripts/rules_loader.sh (shim).
 # Location: dev-tools/rules/fb-rules.yaml (core path — see docs/evolution-log.md for provenance).
 #
