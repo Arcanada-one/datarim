@@ -4,6 +4,43 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.46.0] — 2026-06-23
+
+**Compliance Step 7 stale-test-count classification rule + deterministic classifier-script template.** Two Class-A evolution follow-ups from reflection-AGENT-0086 land in one release.
+
+### Added
+
+- **`skills/compliance/SKILL.md` Step 7 — stale test-count classification (non-blocking).** When a commit message claims N/N tests pass but a live re-run reports M/M with M > N, and the additional tests are grep-verifiable in the commit, the discrepancy is classified as informational non-blocking (a normal polish-test addition committed after the run that produced the message) — the live count is recorded as authoritative, not treated as a re-commit trigger or compliance failure. (TUNE-0433)
+- **`templates/classifier-script-template.sh`** — a minimal Bash template for a deterministic type-signal classifier: header, `--message-file` parse with an S1 guard, a `msg_matches()` helper, priority-ordered comment > question > task > ambiguous stubs, an exit-code table, and a mandatory-priority note. Generalises the AGENT-0086 `classify-message.sh`. (TUNE-0434)
+
+### Note
+
+- v2.45.0 → v2.46.0 also carries the already-merged **verification_mode durability mechanism** (TUNE-0454, commit `35a5f9a`): a per-wish `verification_mode ∈ {one-off, reproducible}` axis orthogonal to `evidence_type`, with a `verification-not-wired` gate (advisory at `/dr-qa`, hard at `/dr-compliance`) requiring a committed `evidence_artifact` for reproducible wishes. Schema is additive/opt-in (v1/v2 unaffected; absent → one-off). See expectations-checklist schema v3.
+
+## [2.45.0] — 2026-06-23
+
+**`/dr-auto` L1 doc-only fast-path + deferral-prose path guard.** Two Class-B follow-ups from reflection-VERD-0059.
+
+### Added
+
+- **`/dr-auto` L1 doc-only fast-path** — for a narrow class (one markdown file, small, no runtime behaviour) the orchestrator now runs a lightweight inline style/banlist + cross-reference check and writes a `qa-stub` artefact instead of silently skipping `/dr-qa`; the compliance Documentation Checklist recognises the stub (no spurious "QA report absent" advisory). (TUNE-0445)
+
+### Fixed
+
+- **`dev-tools/check-deferral-prose.sh` `--file` guard** now accepts paths containing spaces while keeping path-traversal protection (explicit `..` and control-character rejects); bats regression added. (TUNE-0446)
+
+## [2.44.0] — 2026-06-22
+
+**`/dr-save` resume block — `/dr-continue {SESSION-ID}` copy-paste command + task-name label.** The resume block prints `/dr-continue {SESSION-ID}` as the deterministic single-session selector (defeats latest-by-mtime foreign-session resume in a shared workspace), annotated with a sanitised task-name from the active-task index and a saved-time derived from the session id. Multi-task saves list only the other active ids; single-task suppresses the line. Producer-only — `/dr-continue` already accepts `{SESSION-ID}`, no schema change. New byte-identity mirror gate `dev-tools/check-resume-block-mirror.sh` locks the two resume-block fences. (TUNE-0441)
+
+## [2.43.0] — 2026-06-20
+
+**Spec-traceability embedded in the pipeline.** The spec-graph is now woven through the pipeline stages so PRD → plan → implementation traceability is carried structurally rather than reconstructed after the fact. (TUNE-0435)
+
+## [2.42.0] — 2026-06-19
+
+**Spec-traceability R8 — CI + pre-commit enforcement, `/dr-spec` command, 4-surface sync.** Adds CI and pre-commit enforcement of spec-traceability, documents the `/dr-spec` command, and synchronises the contract across its four surfaces. (TUNE-0432)
+
 ## [2.41.0] — 2026-06-18
 
 **POSIX re-exec preamble + multi-distro Docker install-matrix harness.** install.sh now includes a POSIX-safe re-exec preamble (before `set -euo pipefail`) that transparently re-execs under bash when invoked via `sh`; prints an actionable error and exits 2 when bash is absent. Verified across 7 Docker images (rockylinux:9, almalinux:9, fedora:latest, redhat/ubi9-minimal, debian:stable-slim, ubuntu:latest, alpine:latest) via the new `dev-tools/install-matrix.sh` harness — claude, codex and cursor vendors all install (vendor-aware post-install assertions). RedHat family installs — previously broken when invoked via `sh` — now pass. Codex install on Windows (Git Bash) is fixed: an unmaterialised `AGENTS.md` symlink now falls back to copying `CLAUDE.md`. Added TDD preflight bats and per-vendor post-install container assertions. Docs updated: bash + git prerequisites and "run via bash, not sh" in README and getting-started.md; OS matrix in use-cases.md.
