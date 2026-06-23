@@ -370,7 +370,7 @@ This governs the language of **runtime artefacts** Datarim generates per task �
 5. **Context before code** — Gather requirements before implementing
 6. **One thing at a time** — Implement one method/stub per iteration
 7. **Human in the loop** — Evolution proposals need approval
-8. **Rules are stack- AND history-agnostic** — Task IDs MUST NOT appear in `skills/*.md`, `agents/*.md`, `commands/*.md`, `templates/*.md`. Provenance lives in `docs/evolution-log.md`, `documentation/archive/`, git log. Gates: `scripts/stack-agnostic-gate.sh` (stack terms) and `scripts/task-id-gate.sh` (history). Contracts: `skills/evolution/stack-agnostic-gate.md` and `skills/evolution/history-agnostic-gate.md`.
+8. **Rules are stack- AND history-agnostic** — Task IDs MUST NOT appear in `skills/*.md`, `agents/*.md`, `commands/*.md`, `templates/*.md`. Provenance lives in `docs/evolution-log.md`, `documentation/archive/`, git log. Gates: `scripts/stack-agnostic-gate.sh` (stack terms) and `scripts/task-id-gate.sh` (history). Contracts: `skills/evolution/stack-agnostic-gate.md` and `skills/evolution/history-agnostic-gate.md`. **Corollary for shipped data files (`dev-tools/rules/*.yaml`):** header comments in shipped policy-data files MUST cite provenance via `docs/evolution-log.md`, never via an `insights/INSIGHTS-{TASK-ID}-*.md` filename — insight files are gitignored, ephemeral runtime artefacts, whereas a shipped file's header is a public contract and carrying a task ID in it is the same history leak the gate forbids elsewhere.
 
 ---
 
