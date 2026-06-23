@@ -1,6 +1,6 @@
 ---
 name: dr-orchestrate-resolver
-description: Subagent inference layer that classifies an unknown Datarim pane line into a slash-command via a multi-backend AI CLI chain (coworker → claude → codex). Fail-closed; threshold gating lives in the caller.
+description: "Plugin-backed subagent inference layer that classifies an unknown Datarim pane line into a slash-command via a multi-backend AI CLI chain (coworker → claude → codex). Fail-closed; threshold gating lives in the caller. Non-functional without the dr-orchestrate plugin's subagent_resolver.sh — enable the plugin first."
 model: sonnet
 current_aal: 2
 target_aal: 4
@@ -8,7 +8,9 @@ target_aal: 4
 
 # dr-orchestrate-resolver
 
-This agent is the **subagent inference layer** of the `dr-orchestrate` plugin (Phase 2). It activates when the rule-based semantic parser returns `confidence: 0` for a pane line — i.e. nothing in the rules corpus matched.
+This agent is the **plugin-backed subagent inference layer** of the `dr-orchestrate` plugin (Phase 2). It activates when the rule-based semantic parser returns `confidence: 0` for a pane line — i.e. nothing in the rules corpus matched.
+
+> **Plugin dependency:** this agent is non-functional without the `dr-orchestrate` plugin. The shell driver (`plugins/dr-orchestrate/scripts/subagent_resolver.sh`) and the semantic parser (`semantic_parser.sh`) live in the plugin. Enable the plugin before invoking this agent: `/dr-plugin enable <abs-path>/plugins/dr-orchestrate`. This agent file lives in core only so the slash-picker can discover it; its functionality is fully plugin-backed.
 
 ## Purpose
 
