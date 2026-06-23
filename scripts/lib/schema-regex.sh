@@ -38,14 +38,25 @@ SCHEMA_BACKLOG_RE='^- [A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)* · (pending|blocked-p
 # format check is unambiguous — a human-readable description may follow the id
 # on the heading line, but the id token itself is fixed-width.
 #
-#   - D_REQ_ID_RE   : a `#### D-REQ-NN: <description>` declaration heading.
-#   - COVERS_LINE_RE : a `Covers: D-REQ-NN[, D-REQ-NN ...]` binding line on a V-AC.
+#   - D_REQ_ID_RE   : a D-REQ-NN declaration. TWO canonical forms are accepted —
+#                     the `#### D-REQ-NN: <desc>` heading form AND the
+#                     `- **D-REQ-NN** — <desc>` bold-list form the /dr-prd
+#                     Requirements section emits. (DEV-1547 / DEV-1552-FU both
+#                     declared D-REQs as a bullet list and tripped a false grade-F.)
+#   - COVERS_LINE_RE : a `Covers: D-REQ-NN[, D-REQ-NN ...]` binding on a V-AC. The
+#                      binding may be inline (e.g. trailing a bullet) — leading
+#                      text/markup before `Covers:` is tolerated.
+#   - VERIFIES_LINE_RE : a `Verifies: V-AC-N[, V-AC-N ...]` plan-step binding. The
+#                        /dr-plan template emits this inline+italic at the end of a
+#                        numbered step (`… *Verifies: V-AC-1, V-AC-4*`), so leading
+#                        text and `*`/`_` emphasis markers before `Verifies:` are
+#                        tolerated.
 #   - D_REQ_REF_RE  : a bare `D-REQ-NN` reference token (used to scan Covers values).
 # ---------------------------------------------------------------------------
 
-D_REQ_ID_RE='^#### D-REQ-[0-9]{2}: .+$'
-COVERS_LINE_RE='^[[:space:]]*Covers:[[:space:]]*D-REQ-[0-9]{2}([[:space:]]*,[[:space:]]*D-REQ-[0-9]{2})*[[:space:]]*$'
+D_REQ_ID_RE='(^#### D-REQ-[0-9]{2}: .+$)|(^[[:space:]]*[-*][[:space:]]+\*\*D-REQ-[0-9]{2}\*\*)'
+COVERS_LINE_RE='Covers:[[:space:]]*D-REQ-[0-9]{2}([[:space:]]*,[[:space:]]*D-REQ-[0-9]{2})*[[:space:]]*$'
 D_REQ_REF_RE='D-REQ-[0-9]{2}'
-VERIFIES_LINE_RE='^[[:space:]]*Verifies:[[:space:]]*V-AC-[0-9]+(\.[0-9]+)?([[:space:]]*,[[:space:]]*V-AC-[0-9]+(\.[0-9]+)?)*[[:space:]]*$'
+VERIFIES_LINE_RE='Verifies:[[:space:]]*\**[[:space:]]*V-AC-[0-9]+(\.[0-9]+)?([[:space:]]*,[[:space:]]*V-AC-[0-9]+(\.[0-9]+)?)*'
 EVIDENCE_LINE_RE='^[[:space:]]*(-[[:space:]]*)?Evidence:[[:space:]]*V-AC-[0-9]+(\.[0-9]+)?[[:space:]]+.+$'
 V_AC_REF_RE='V-AC-[0-9]+(\.[0-9]+)?'
