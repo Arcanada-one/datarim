@@ -203,6 +203,14 @@ Exit code: {N}
 - `measurement` без numeric value → finding `evidence-type-mismatch: <wish_id> declared measurement but block lacks numeric value`. <!-- allow-non-ascii: literal-russian-mixed-prose-with-evidence-type-mismatch-finding-token -->
 - `static` accepted as-is (lowest tier).
 
+**Verification-mode enforcement (advisory at Layer 3b, hard at /dr-compliance):**
+
+- `verification_mode: reproducible` without `evidence_artifact` → finding `verification-not-wired: <wish_id>`. Advisory here (PASS_WITH_NOTES); the validator exits 1 at `/dr-compliance` (structural error).
+- `evidence_artifact` unresolvable (neither `test -f` nor grep-findable across `*.bats *.sh *.yml *.yaml`) → same finding.
+- `evidence_artifact` resolves to a stub-only file → advisory finding `evidence-artifact-is-stub: <wish_id>` (NEVER hard; document and proceed).
+- `verification_mode` absent on an `empirical` wish whose success criterion matches world-state predicates → advisory `verification-mode-suggested-reproducible: <wish_id>` (NEVER hard).
+- Sub-v2 files and explicit `verification_mode: one-off` → no finding.
+
 Findings at Layer 3b are advisory (PASS_WITH_NOTES); `/dr-compliance` may upgrade to BLOCKED if the operator brief explicitly required practical measurements (per task `expectations.md` § evidence_type distribution).
 
 A FAIL at Layer 3b makes the overall verdict **BLOCKED** regardless of other layers; the FAIL-Routing CTA (see § Verdict Logic) MUST surface the focus-items line verbatim. The classical Layer 1–4 verdicts are computed independently; Layer 3b is an additional gate that runs in parallel.

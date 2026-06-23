@@ -71,7 +71,12 @@ parent_prd: <path>          # relative path to PRD file when one exists
 ---
 ```
 
-**Schema v2 (current):** adds required `evidence_type` field per wish item
+**Schema v3 (opt-in):** adds optional per-wish `verification_mode` and
+`evidence_artifact` fields distinguishing a one-off manual check from a
+reproducible/wired check. See § `verification_mode` axis. Only active when the
+file declares `schema_version: 3`; all sub-v3 files are UNCHANGED.
+
+**Schema v2 (current default):** adds required `evidence_type` field per wish item
 (enum: `empirical | static | measurement`). Validator
 (`"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh"`) rejects items without
 `evidence_type` in v2 mode.
@@ -161,6 +166,55 @@ _(empty on first write)_
     coverage %, token cost, file count vs target. Per-wish QA report MUST
     contain the measured value + comparison to expected (`X = 87ms <
     budget 100ms`).
+
+- **`verification_mode`** (schema v3, optional per-wish) closes the
+  "manual-check ≠ coded verification" error class (the motivating incident:
+  an oral requirement closed by a one-off `curl` spot-check, never coded →
+  regression later). Allowed enum:
+  - **`one-off`** — manual or one-time check; no wired test required. This
+    is the implicit default when the field is absent. A `one-off` value on
+    a world-state-class wish (production URL, live HTTP status) SHOULD carry
+    the existing override triad (`override_by`, `override_class`,
+    `override_artifact` with a filed follow-up task) — the override creates
+    a falsifiable obligation that the operator consciously accepts regression
+    risk. No new validator enforcement for this; the obligation lives in
+    docs and `/dr-archive` recap (see § Recap obligation).
+  - **`reproducible`** — a wired, repeatable check exists: a committed test
+    path, a CI job name, or a test-id string findable in the source tree.
+    When `reproducible`, the wish block MUST also contain
+    `evidence_artifact:` (see below); the validator exits 1 on the
+    `verification-not-wired` error if it is missing.
+
+- **`evidence_artifact`** (schema v3, required when `verification_mode:
+  reproducible`) names the concrete check: a relative file path, an
+  absolute path, a test-id string, or a CI-job name. Resolution is
+  deterministic and repo-root anchored (two-tier):
+  1. `test -f` (absolute path, or `$repo_root/$value`) — file exists → OK.
+  2. `grep -rqF "$value"` across `*.bats *.sh *.yml *.yaml` under
+     `$repo_root` — string found → OK (covers test-id + CI-job-name without
+     needing to distinguish syntactically).
+  Missing or unresolvable artifact → ERROR `verification-not-wired:
+  <wish_id>` (hard at `/dr-compliance`, advisory at `/dr-qa` Layer 3b).
+
+  **Stub-literal guard (advisory, best-effort):** when `evidence_artifact`
+  resolves to an existing file, the validator scans for stub literals
+  (`it.skip`, `xit(`, `.todo`, `expect(true).toBe(true)`, `test.skip`,
+  `@pytest.mark.skip`). When every non-blank line is a stub → advisory
+  finding `evidence-artifact-is-stub: <wish_id>` to stderr; exit code
+  unchanged. Residual risk: the guard cannot reliably distinguish a
+  partially-implemented test file from a stub-only file. A file with mixed
+  real and stub tests passes the guard even when the relevant assertion is
+  the stub. Operator must verify stub coverage during `/dr-qa` review.
+
+  **Heuristic advisory (sub-v3 and v3, NEVER hard):** for schema v3
+  wishes where `verification_mode` is ABSENT and `evidence_type:
+  empirical`, the validator runs a narrow deterministic case-insensitive
+  regex over the "Как проверить (success criterion)" text for world-state
+  predicates: `https?://`, `\bHTTP\b`, `\bcurl\b`, `redirect`, `\bprod\b`,
+  `production`, `статус`, `status`, `перед тем как`, `/app/`-style endpoint
+  paths, `deploy`. On match → advisory warning
+  `verification-mode-suggested-reproducible: <wish_id>` to stderr; exit
+  code unchanged. Sub-v3 files are never checked.
 
 ### Status semantics
 
@@ -288,11 +342,39 @@ validator's stdout markers):
 - **Legacy marker.** Operators MAY set `legacy: true` in the description's
   frontmatter to suppress findings indefinitely.
 
+## Recap obligation (one-off wishes in /dr-archive)
+
+When `/dr-archive` writes the `## Как решили` section, it MUST list every
+wish closed as `verification_mode: one-off` (or whose `verification_mode` is
+absent on a world-state-class wish identified by the heuristic) so the
+operator consciously accepts regression risk. The listing format mirrors the
+existing expectations fold contract (see § Body shape → `## Как решили`
+bullet with `(уточнение брифа)` marker):
+
+- Append `(проверено вручную)` after the wish title when
+  `verification_mode: one-off` is explicit.
+- Append `(нет воспроизводимой проверки)` when verification_mode is absent
+  on a world-state-class wish.
+- No new override enforcement beyond existing `override_class`; the
+  obligation is editorial (human-in-loop boundary).
+
+The rationale: a one-off check closes the pipeline but creates no regression
+guard. Surfacing it explicitly in the archive document lets the operator
+decide whether to file a follow-up for a wired test, or accept the risk
+knowing the decision is recorded.
+
 ## Validation
 
 `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh"` is the canonical validator.
 
 - `--task <ID>`: structural validation. Exit 0 / 1 / 2.
+  - `verification-not-wired: <wish_id>` — `reproducible` wish whose
+    `evidence_artifact` is absent or unresolvable. Severity ladder:
+    advisory at `/dr-qa` Layer 3b (PASS_WITH_NOTES), HARD at
+    `/dr-compliance` (validator structural exit 1 enforces it).
+  - `evidence-artifact-is-stub: <wish_id>` — advisory only, never hard.
+  - `verification-mode-suggested-reproducible: <wish_id>` — heuristic
+    advisory, stderr only, never affects exit code.
 - `--verify <ID>`: verdict mode. Exit 0 (PASS / CONDITIONAL_PASS) /
   1 (BLOCKED or malformed) / 2 (usage).
 - `--all`: advisory scan for L3+ tasks without expectations. Always exit 0;
