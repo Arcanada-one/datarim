@@ -1,8 +1,7 @@
-<!-- gate:history-allowed -->
 ---
 id: dr-orchestrate
 title: /dr-orchestrate — Self-Driving Datarim Pipeline (Phase 2)
-description: "Tmux-based pipeline runner. Phase 2 adds multi-backend subagent inference for unknown prompts (autonomy L1→L2)."
+description: "Tmux-based pipeline runner. Phase 2 adds multi-backend subagent inference for unknown prompts (autonomy L1→L2). Command and autonomy policy are core; the tmux/bot transport runner is an opt-in plugin."
 usage: |
   dr-orchestrate run
   dr-orchestrate run --dry-run
@@ -13,10 +12,7 @@ options:
   --unknown-prompt: "Resolve a parser-miss prompt via the subagent inference chain"
 autonomy: L2
 phase: 2
-plugin: dr-orchestrate
-task: TUNE-0165
 ---
-<!-- /gate:history-allowed -->
 
 # /dr-orchestrate
 
@@ -87,8 +83,10 @@ tail -1 ~/.local/share/datarim-orchestrate/audit-$(date -u +%Y-%m-%d).jsonl | jq
 
 <!-- /gate:example-only -->
 
-## Referenced
+## Architecture boundary
 
-- Phase 2 PRD, plan, and reflection live under `datarim/prd/`, `datarim/plans/`, and `documentation/archive/framework/`.
+- **Core (no plugin needed):** this command file, `dev-tools/resolve-space-autonomy.sh`, `dev-tools/lib/space-autonomy.sh`, `dev-tools/fb-policy-loader.sh`, `dev-tools/rules/fb-rules.yaml` (autonomy floor + policy map). The autonomy floor and policy map resolve without enabling the plugin.
+- **Plugin (opt-in — `dr-plugin enable <path>/plugins/dr-orchestrate`):** tmux runner, subagent inference chain, bot/HTTP transport, Redis pub/sub, HMAC audit, fleet scripts, content-consilium fan-out. Enable the plugin to use `/dr-orchestrate run`.
+- Resolver agent: `agents/dr-orchestrate-resolver.md` — plugin-backed; non-functional without the `dr-orchestrate` plugin's `subagent_resolver.sh`. See plugin README for setup.
 - Plugin README: `plugins/dr-orchestrate/README.md`
-- Resolver agent: `agents/dr-orchestrate-resolver.md` (promoted to core in TUNE-0439 so the slash-picker discovers it; orchestration scripts/rules/tests remain under `plugins/dr-orchestrate/`)
+- Provenance: `docs/evolution-log.md`
