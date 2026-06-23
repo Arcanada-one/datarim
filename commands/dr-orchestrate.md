@@ -78,7 +78,7 @@ dr-orchestrate run --unknown-prompt "operator paste: > /dr-prd strategy gate"
 Inspect audit:
 
 ```bash
-tail -1 ~/.local/share/datarim-orchestrate/audit-$(date -u +%Y-%m-%d).jsonl | jq .
+tail -1 ~/.local/share/datarim-orchestrate/audit-"$(date -u +%Y-%m-%d)".jsonl | jq .
 ```
 
 <!-- /gate:example-only -->
