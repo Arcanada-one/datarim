@@ -1,5 +1,14 @@
 # Evolution Log
 
+## 2026-06-23 — TUNE-0449 — Orchestration autonomy policy → core (Option C) + provenance convention (Class A applied)
+
+- Promoted the autonomy policy data + loader from the opt-in `dr-orchestrate` plugin into core `dev-tools/` (Option C, consilium-decided, operator-approved). The hard-gated safety floor and action-autonomy map now resolve from core without enabling any plugin; the transport runner stays an opt-in plugin via thin shims.
+- `dev-tools/rules/fb-rules.yaml` (moved) + `dev-tools/fb-policy-loader.sh` (new); plugin `rules_loader.sh`/`action_gate.sh` → thin shims (prefer-core, one-cycle deprecation fallback).
+- Stripped `plugin:`/`task:` frontmatter from `commands/dr-orchestrate.md`; `dr-auto.md` + `autonomous-mode/SKILL.md` no longer tell the operator to enable the plugin for the core path.
+- **Class A applied (Critical Rule #8 corollary):** header comments in shipped `dev-tools/rules/*.yaml` MUST cite provenance via `docs/evolution-log.md`, never via an `insights/INSIGHTS-{TASK-ID}-*.md` filename (gitignored ephemeral artefact). Source: TUNE-0449 reflection F1.
+- Class B held for backlog: task-id-gate scope expansion to `dev-tools/rules/` (needs false-positive assessment); `/dr-auto` independent-compliance-agent guideline for framework self-modification.
+- VERSION 2.44.0 → 2.45.0. Archive: `documentation/archive/framework/archive-TUNE-0449.md`.
+
 Append-only log of framework changes accepted from `/dr-archive` Step 0.5 reflection or curated runtime → repo updates.
 
 ## 2026-05-25 — TUNE-0303 — Codex CLI coworker-hook coverage parity (Class A applied)
