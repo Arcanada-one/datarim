@@ -35,3 +35,18 @@ A validator-activation task that defers files under the same scope is self-block
 2. Run the gate against each declared scope in dry-run mode during `/dr-plan` Phase 4.
 3. List every failing file in the Component Breakdown.
 4. For each failing file: classify as (rewrite-in-task) or (waiver-shrinks-scope). PRD Out-of-Scope declarations that conflict with the gate scope MUST be resolved one of these two ways — not deferred to archive time.
+
+## Pattern 3: threshold-gate deterministic + statistical split
+
+When a task ships a threshold gate — an abstention gate, a confidence cutoff, a rate limiter, any «if metric `op` constant → branch» control — its acceptance MUST split into two V-AC entries on different axes:
+
+- **Deterministic axis:** does the gate read the *right field* and apply the *right constant*? (e.g. M3 reads `score_kind` and applies a scale-specific τ — `rrf`-scale τ is never compared against a `colbert_rerank`-scale score). Verified by a unit test with hand-picked inputs; falsifiable by a scale-swap test.
+- **Statistical axis:** is the *resulting rate* within a documented sane band? (e.g. shadow-mode abstain rate lands in a 5–40% band over a fixed datarim-kb sample). Verified by an eval/shadow script over a representative sample, not a unit test.
+
+### Why
+The two axes need different verification tools (unit test vs eval script) and different evidence types (a green assertion vs a measured rate inside a band). Folding them into one V-AC produces false confidence — a gate can apply the correct constant yet abstain on 95% of queries, or land a healthy rate while reading the wrong field. A motivating retrieval-abstention gate split this way — a deterministic V-AC for the field+constant logic plus a statistical V-AC for the resulting abstain rate — produced two genuinely independent, independently falsifiable checks.
+
+### How to apply
+1. Identify any V-AC describing a threshold/cutoff/rate gate.
+2. Split it: one V-AC asserts the field+constant logic (unit test); one asserts the resulting rate is inside a documented band (eval script).
+3. For shadow-first gates, the statistical band may be calibrated against a real shadow run — document the band and sample size in the eval script header at `/dr-do`, not deferred indefinitely.
