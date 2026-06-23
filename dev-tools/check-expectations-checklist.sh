@@ -30,7 +30,7 @@
 #
 set -uo pipefail
 
-VERSION="1.0.0"
+VERSION="1.1.0"
 SCRIPT_NAME="check-expectations-checklist.sh"
 
 # TUNE-0266 Phase 4: pivot date for "all wishes evidence_type=static" advisory.
@@ -55,6 +55,19 @@ Options:
   --today YYYY-MM-DD   Override today's date for soft-window tests.
   --help               Show this help and exit 0.
   --version            Print version and exit 0.
+
+Schema v3 fields (optional per-wish, opt-in — requires schema_version: 3 in frontmatter):
+  verification_mode: one-off | reproducible
+    Distinguishes a one-off manual check (default when absent) from a
+    reproducible/wired check. Bad enum value → ERROR.
+  evidence_artifact: <path | test-id | CI-job-name>
+    Required when verification_mode: reproducible. Resolved two ways:
+      1. test -f (absolute or repo-root-relative)
+      2. grep -rqF across *.bats *.sh *.yml *.yaml under repo root
+    Missing or unresolvable artifact → ERROR verification-not-wired.
+    Existing file scanned for stub literals (it.skip, xit(, .todo,
+    expect(true).toBe(true), test.skip, @pytest.mark.skip) — advisory
+    finding evidence-artifact-is-stub when file appears stub-only.
 
 Exit codes:
   0   PASS / OK / advisory findings only
@@ -174,7 +187,13 @@ days_between() {
 # mode and structural errors to stderr. Exit 0 if zero errors, 1 otherwise.
 #
 # Output stream (stdout):
-#   <item_num>|<wish_id>|<status>|<override_len>
+#   <item_num>|<wish_id>|<status>|<override_len>|<override_by>|<override_class>|<override_artifact>|<verification_mode>|<evidence_artifact>|<evidence_type>|<success_criterion>
+#
+# The verification_mode / evidence_artifact fields are emitted in the pipe-
+# separated row so that a bash post-parse loop (not awk system()) can do the
+# two-tier evidence_artifact resolution (test -f + grep). awk system() requires
+# shell escaping of arbitrary user-supplied paths and grep patterns; delegating
+# to a bash loop is safer and easier to maintain.
 #
 # Errors (stderr):
 #   ERROR: <file>: <item N | section> <reason>
@@ -188,6 +207,7 @@ parse_items() {
             in_section = 0; current_item = 0; total_items = 0; errors = 0
             wish_id = ""; status = ""; override_text = ""; evidence_type = ""
             override_by = ""; override_class = ""; override_artifact = ""
+            verification_mode = ""; evidence_artifact = ""; success_criterion = ""
             history_count = 0; has_history_heading = 0; has_status_heading = 0
             in_history = 0; in_status = 0
         }
@@ -211,6 +231,7 @@ parse_items() {
                 current_item = total_items
                 wish_id = ""; status = ""; override_text = ""; evidence_type = ""
                 override_by = ""; override_class = ""; override_artifact = ""
+                verification_mode = ""; evidence_artifact = ""; success_criterion = ""
                 history_count = 0; has_history_heading = 0; has_status_heading = 0
                 in_history = 0; in_status = 0
                 next
@@ -224,6 +245,22 @@ parse_items() {
                 if (match($0, /^  - evidence_type:[ \t]*/)) {
                     evidence_type = substr($0, RLENGTH + 1)
                     sub(/[ \t]+$/, "", evidence_type)
+                    in_history = 0; in_status = 0; next
+                }
+                if (match($0, /^  - verification_mode:[ \t]*/)) {
+                    verification_mode = substr($0, RLENGTH + 1)
+                    sub(/[ \t]+$/, "", verification_mode)
+                    in_history = 0; in_status = 0; next
+                }
+                if (match($0, /^  - evidence_artifact:[ \t]*/)) {
+                    evidence_artifact = substr($0, RLENGTH + 1)
+                    sub(/[ \t]+$/, "", evidence_artifact)
+                    in_history = 0; in_status = 0; next
+                }
+                # Capture success criterion for heuristic-advisory (v3 empirical wishes).
+                if (match($0, /^  - Как проверить \(success criterion\):[ \t]*/)) {
+                    success_criterion = substr($0, RLENGTH + 1)
+                    sub(/[ \t]+$/, "", success_criterion)
                     in_history = 0; in_status = 0; next
                 }
                 if (match($0, /^  - override:[ \t]*/)) {
@@ -305,9 +342,9 @@ parse_items() {
             }
             # v2 schema: evidence_type required + enum (empirical|static|measurement).
             # See skills/expectations-checklist/SKILL.md § Item rules.
-            if (schema == "2") {
+            if (schema == "2" || schema == "3") {
                 if (evidence_type == "") {
-                    printf "ERROR: %s: item %d missing evidence_type (required in schema_version=2)\n", f, current_item > "/dev/stderr"
+                    printf "ERROR: %s: item %d missing evidence_type (required in schema_version=2/3)\n", f, current_item > "/dev/stderr"
                     errors++
                 } else if (evidence_type != "empirical" && evidence_type != "static" \
                        && evidence_type != "measurement") {
@@ -315,11 +352,33 @@ parse_items() {
                     errors++
                 }
             }
+            # v3 schema: verification_mode optional enum; reproducible requires evidence_artifact.
+            # Hard error for bad enum and for reproducible-without-artifact.
+            # advisory heuristic (missing mode on empirical with world-state text) and
+            # stub-artifact check are done in the bash post-parse loop — they need file I/O.
+            if (schema == "3" && verification_mode != "") {
+                if (verification_mode != "one-off" && verification_mode != "reproducible") {
+                    printf "ERROR: %s: item %d verification_mode not in enum: %s (allowed: one-off|reproducible)\n", \
+                        f, current_item, verification_mode > "/dev/stderr"
+                    errors++
+                }
+                if (verification_mode == "reproducible" && evidence_artifact == "") {
+                    printf "ERROR: %s: item %d verification-not-wired: %s (reproducible requires evidence_artifact)\n", \
+                        f, current_item, wish_id > "/dev/stderr"
+                    errors++
+                }
+            }
             ovr_len = length(override_text)
             if (override_by == "") override_by = "-"
             if (override_class == "") override_class = "-"
             if (override_artifact == "") override_artifact = "-"
-            printf "%d|%s|%s|%d|%s|%s|%s\n", current_item, wish_id, status, ovr_len, override_by, override_class, override_artifact
+            if (verification_mode == "") verification_mode = "-"
+            if (evidence_artifact == "") evidence_artifact = "-"
+            # Encode success_criterion: replace | with \x01 so pipe-split is safe.
+            sc = success_criterion; gsub(/\|/, "\x01", sc)
+            printf "%d|%s|%s|%d|%s|%s|%s|%s|%s|%s|%s\n", \
+                current_item, wish_id, status, ovr_len, override_by, override_class, override_artifact, \
+                verification_mode, evidence_artifact, evidence_type, sc
         }
     ' "$file"
 }
@@ -360,8 +419,8 @@ validate_single_task() {
 
     val=$(extract_frontmatter_field "$file" "schema_version")
     schema_v="$val"
-    if [ -n "$val" ] && [ "$val" != "1" ] && [ "$val" != "2" ]; then
-        echo "ERROR: $file: schema_version must be '1' or '2', got '$val'" >&2
+    if [ -n "$val" ] && [ "$val" != "1" ] && [ "$val" != "2" ] && [ "$val" != "3" ]; then
+        echo "ERROR: $file: schema_version must be '1', '2', or '3', got '$val'" >&2
         errors=$(( errors + 1 ))
     fi
     # v1 legacy deprecation warning (TUNE-0266: 12-month sunset, see
@@ -381,10 +440,72 @@ validate_single_task() {
         errors=$(( errors + 1 ))
     fi
 
-    # Item-level parse — emits to stdout (discarded here) + stderr.
-    # schema_v passed through to enable evidence_type check in v2 mode.
-    if ! parse_items "$file" "${schema_v:-1}" >/dev/null; then
-        errors=$(( errors + 1 ))
+    # Item-level parse — emits to stdout (captured here for v3 post-parse) + stderr.
+    # schema_v passed through to enable evidence_type/verification_mode checks.
+    local items_out
+    items_out=$(parse_items "$file" "${schema_v:-1}" 2>/tmp/_cec_stderr_$$) || errors=$(( errors + 1 ))
+    # Pipe parse stderr to our stderr so callers see it.
+    cat /tmp/_cec_stderr_$$ >&2 2>/dev/null || true
+    rm -f /tmp/_cec_stderr_$$
+
+    # Post-parse bash loop: v3 evidence_artifact resolution + stub advisory + heuristic advisory.
+    # Done here (not in awk) because we need test -f, grep, and file scanning — unsafe inside awk system().
+    if [ "${schema_v:-1}" = "3" ] && [ -n "$items_out" ]; then
+        # Determine repo root for evidence_artifact resolution (two-tier: test -f, then grep).
+        local repo_root
+        repo_root=$(git -C "$(dirname "$file")" rev-parse --show-toplevel 2>/dev/null || echo "$ROOT")
+
+        while IFS='|' read -r _idx _wid _st _ovrl _ovby _ovcl _ovart vmode earl etype sc; do
+            [ -z "$_wid" ] && continue
+
+            # Two-tier evidence_artifact resolution for reproducible wishes.
+            if [ "$vmode" = "reproducible" ] && [ "$earl" != "-" ] && [ -n "$earl" ]; then
+                local resolved=0
+                # Tier 1: direct file existence (absolute or repo-root relative).
+                if [ -f "$earl" ] || [ -f "$repo_root/$earl" ]; then
+                    resolved=1
+                    # Stub-literal advisory: scan file for stub-only patterns.
+                    local target_file="$earl"
+                    [ ! -f "$target_file" ] && target_file="$repo_root/$earl"
+                    # grep -c prints a count (0 on no-match) AND exits non-zero on
+                    # no-match; `|| true` swallows the exit without the classic
+                    # `|| echo 0` double-zero bug (which yields "0\n0" → integer-
+                    # expression errors downstream).
+                    local stub_lines non_blank
+                    stub_lines=$(grep -cE '(it\.skip|xit\(|\.todo|expect\(true\)\.toBe\(true\)|test\.skip|@pytest\.mark\.skip)' "$target_file" 2>/dev/null || true)
+                    non_blank=$(grep -cE '\S' "$target_file" 2>/dev/null || true)
+                    [ -z "$stub_lines" ] && stub_lines=0
+                    [ -z "$non_blank" ] && non_blank=0
+                    [ "$non_blank" -eq 0 ] && non_blank=1
+                    # Advisory only when stub_lines makes up all non-blank content.
+                    if [ "$stub_lines" -gt 0 ] && [ "$stub_lines" -eq "$non_blank" ]; then
+                        echo "ADVISORY: $file: item ${_idx} evidence-artifact-is-stub: ${_wid} (all non-blank lines are stub literals)" >&2
+                    fi
+                else
+                    # Tier 2: grep -rqF across test/CI files under repo root.
+                    if grep -rqF "$earl" --include="*.bats" --include="*.sh" \
+                           --include="*.yml" --include="*.yaml" "$repo_root" 2>/dev/null; then
+                        resolved=1
+                    fi
+                fi
+                if [ "$resolved" -eq 0 ]; then
+                    echo "ERROR: $file: item ${_idx} verification-not-wired: ${_wid} (evidence_artifact '$earl' not found by file-path or grep)" >&2
+                    errors=$(( errors + 1 ))
+                fi
+            fi
+
+            # Heuristic advisory (v3, empirical, no verification_mode, world-state predicates in criterion).
+            # Best-effort only — NEVER a hard error. Suppressed when verification_mode is already set.
+            if [ "$vmode" = "-" ] && [ "$etype" = "empirical" ]; then
+                # Restore pipe-placeholder back to space for matching.
+                local criterion
+                criterion=$(printf '%s' "$sc" | tr '\x01' '|')
+                if printf '%s' "$criterion" | grep -qiE \
+                    'https?://|\bHTTP\b|\bcurl\b|redirect|\bprod\b|production|статус|status|перед тем как|before status|перед статусом|/app/|deploy'; then
+                    echo "ADVISORY: $file: item ${_idx} verification-mode-suggested-reproducible: ${_wid} (empirical wish with world-state criterion — consider verification_mode: reproducible + evidence_artifact)" >&2
+                fi
+            fi
+        done <<< "$items_out"
     fi
 
     if [ "$errors" -gt 0 ]; then
@@ -417,8 +538,10 @@ verify_routing() {
         return 1
     fi
 
+    local schema_v
+    schema_v=$(extract_frontmatter_field "$file" "schema_version")
     local items
-    items=$(parse_items "$file" 2>/dev/null) || true
+    items=$(parse_items "$file" "${schema_v:-1}" 2>/dev/null) || true
 
     local blocking=()
     local has_partial_or_missed=0
@@ -438,7 +561,7 @@ verify_routing() {
         return 1
     }
 
-    while IFS='|' read -r _idx wish_id status ovr_len ovr_by ovr_class ovr_artifact; do
+    while IFS='|' read -r _idx wish_id status ovr_len ovr_by ovr_class ovr_artifact _vmode _earl _etype _sc; do
         [ -z "$status" ] && continue
         case "$status" in
             met|n-a|pending|deleted)

@@ -195,6 +195,37 @@ treat it as a normal canonical init-task. Do not delete it at archive
 time; the audit trail (when /dr-init was skipped, when the recovery
 happened, by which stage) is part of the task's history.
 
+## Oral requirement materialisation rule (R4)
+
+An oral or chat requirement discovered at ANY stage of the pipeline MUST be
+materialised into the init-task append-log before that stage continues.
+
+**What counts as an oral requirement:** a constraint, preference, or
+acceptance criterion that the operator stated in chat (or in a Telegram
+message, a Slack reply, a code review comment) but that is NOT yet recorded
+in the init-task brief, the PRD, or the expectations file.
+
+**Procedure:**
+
+1. Stop the current stage.
+2. Invoke `append-init-task-qa.sh` with `--decided-by operator` and the
+   verbatim chat text as the answer-file.
+3. If the new requirement contradicts an existing wish in
+   `tasks/{TASK-ID}-expectations.md`, add `--conflict-with <wish_id>` and
+   record the contradiction as a new Q&A round (see § Q&A round-trip
+   contract). Route the CTA back to `/dr-do --focus-items <wish_id>` before
+   continuing.
+4. Resume the stage only after the append completes successfully.
+
+**Why this matters:** a requirement that lives only in chat is lost between
+sessions. The append-log is the single source of truth for operator intent
+across the pipeline; a missing materialisation silently allows the
+requirement to drift or be forgotten, which surfaces as a regression at
+`/dr-qa` or post-archive. The motivating incident is the canonical
+example: an oral endpoint-stability requirement was never coded or appended
+to the expectations file; the pipeline closed with a one-off `curl` check
+and the next deploy broke it (live HTTP 404 on a freshly provisioned site).
+
 ## Q&A round-trip contract
 
 The append-log captures two kinds of entries: operator-authored amendments

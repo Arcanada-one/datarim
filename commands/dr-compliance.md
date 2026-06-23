@@ -22,11 +22,17 @@ description: Adaptive post-QA hardening. Detects task type and applies matching 
     -   Re-read the file. For each item under `## Ожидания`, run its `Как проверить (success criterion)` against the implementation and append one transition line to `#### История статусов` in the canonical format `<ISO> / <local> · /dr-compliance · <prior> → <new> · reason: <one-sentence plain ru>`. Update the item's `#### Текущий статус`. <!-- allow-non-ascii: russian-expectations-section-and-field-names-cited-from-canonical-schema -->
     -   Invoke the routing validator:
         ```bash
+        "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --task {TASK-ID}
         "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --verify {TASK-ID}
         ```
-        -   Exit 0 + stdout marker `PASS` ⇒ proceed.
-        -   Exit 0 + stdout marker `CONDITIONAL_PASS` ⇒ proceed; record «conditional» disposition in the compliance report § Plain-language summary.
-        -   Exit 1 + stdout marker `BLOCKED` ⇒ compliance verdict is **NON-COMPLIANT** regardless of the rest of the checklist. Capture the validator's `Focus items:` and `Next step:` lines verbatim into the report and surface them in the FAIL-Routing CTA.
+        -   `--task` exit 1 (structural error, e.g. `verification-not-wired` from a
+            `reproducible` wish without a resolvable `evidence_artifact`) ⇒ compliance
+            verdict is **NON-COMPLIANT**. Capture the structural finding verbatim;
+            route back to `/dr-do {TASK-ID}` to wire the test.
+        -   `--verify` exit 0 + stdout marker `PASS` ⇒ proceed.
+        -   `--verify` exit 0 + stdout marker `CONDITIONAL_PASS` ⇒ proceed; record «conditional» disposition in the compliance report § Plain-language summary.
+        -   `--verify` exit 1 + stdout marker `BLOCKED` ⇒ compliance verdict is **NON-COMPLIANT** regardless of the rest of the checklist. Capture the validator's `Focus items:` and `Next step:` lines verbatim into the report and surface them in the FAIL-Routing CTA.
+    -   Advisory findings (`evidence-artifact-is-stub`, `verification-mode-suggested-reproducible`) appear in stderr; they do not affect the `--task` exit code and are surfaced as PASS_WITH_NOTES annotations in the compliance report.
     -   Missing expectations file on L3-L4: surface as advisory finding in the report; on L1-L2 within the 30-day soft window: non-blocking.
 5c. **ANTI-DEFERRAL PROSE GATE (HARD)** per `$HOME/.claude/skills/expectations-checklist/SKILL.md`:
     -   Scan the QA report and the compliance report for self-deferral language — the failure mode where the agent labels its own incomplete work "out of scope / informational / not a blocker / will fix later" instead of finishing it. Unlike `/dr-qa` (advisory), at compliance this is a **hard** gate (mirrors the evidence-type advisory-at-QA / hard-at-compliance escalation):

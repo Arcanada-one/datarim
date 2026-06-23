@@ -53,6 +53,21 @@ parent_prd: ../prd/PRD-{TASK-ID}.md
      валидатор проверяет наличие wish_id, формат строки История статусов и
      значение Текущий статус. -->
 
+<!-- OPTIONAL: verification_mode axis (schema v3 only).
+     Distinguishes a one-off manual check from a reproducible/wired check.
+     To opt in: bump schema_version to 3 in frontmatter, then add:
+
+  - verification_mode: reproducible          # one-off | reproducible
+  - evidence_artifact: tests/my-suite.bats   # path, test-id, or CI-job-name
+
+     When verification_mode: reproducible, the validator requires
+     evidence_artifact and resolves it two ways: (1) test -f, (2) grep -rqF
+     across *.bats / *.sh / *.yml / *.yaml under the repo root.
+     Missing or unresolvable → error verification-not-wired (advisory at
+     /dr-qa Layer 3b, hard at /dr-compliance).
+     See skills/expectations-checklist/SKILL.md § verification_mode axis.
+-->
+
 ## Append-log (operator amendments)
 
 > Дополнения добавляются хронологически. Каждое — отдельная подпись

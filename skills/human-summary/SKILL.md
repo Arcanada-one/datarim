@@ -238,6 +238,27 @@ In addition to the markdown contract, the severity ladder above is also checked 
 >
 > **What's next.** The work can move on to the post-verification step. The first run of that step will itself emit this recap, which doubles as a live check that the wiring works.
 
+## One-off wish disclosure in operator recap (R7)
+
+When emitting the operator recap (§ "What was done") for `/dr-archive`, the
+summary MUST surface any wish that was closed with `verification_mode:
+one-off` or that lacks a wired check on a world-state-class criterion
+(production URL, live HTTP status, deployed service behaviour) so the
+operator consciously accepts regression risk.
+
+Format: append a one-sentence disclosure after the outcome summary for any
+such wish, using plain language:
+
+- Wish closed as `one-off`: «Verified manually; no automated regression
+  guard. To wire a test, set verification_mode: reproducible + evidence_artifact.»
+- Wish without `verification_mode` on a world-state criterion (heuristic
+  match): «Success criterion involves a live system state; checked once, not
+  wired as a repeatable test.»
+
+This disclosure appears in the plain-language summary, not in the audit
+addendum (which is technical). The banlist applies; no anglicisms in the
+disclosure text when the operator language is Russian.
+
 ## See also
 
 - Archive and compliance reports use the same banlist (`skills/human-summary/banlist.txt` + `skills/human-summary/whitelist.txt`). See `${DATARIM_RUNTIME:-$HOME/.claude}/templates/archive-template.md` § "Как решили" and `${DATARIM_RUNTIME:-$HOME/.claude}/templates/compliance-report-template.md` § "Как решили" — the banlist applies to the prose of the four top sub-sections; the audit addendum is wrapped in a `<!-- gate:literal -->` fence for technical tables. <!-- allow-non-ascii: literal-russian-heading-identifier-from-template-file -->
