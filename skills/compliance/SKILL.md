@@ -87,6 +87,10 @@ Read `datarim/tasks.md` and `datarim/activeContext.md` to determine task type:
 <!-- gate:history-allowed -->
 Prior incident: two test failures traced to pre-task commits and foreign dirty hunks — neither introduced by the task under compliance review. Recurrence: the same hand-written discrimination note for a regression-invariant test whose scope had no task commits surfaced repeatedly across tasks until it was made deterministic via the classifier above.
 <!-- /gate:history-allowed -->
+- **Report-cited-SHA resolution probe (fabrication vs stale-clone).** When a QA or compliance report cites commit SHAs or merge-request numbers, do not trust them on faith nor reject them as fabricated without a probe. Run `git cat-file -t <sha>`; if the object is absent locally, run `git ls-remote origin` and `git fetch origin <branch>` read-only, then verify the diff against `FETCH_HEAD`. A SHA absent **both** locally and on the remote is a genuine fabrication finding — **NON-COMPLIANT**. A SHA absent locally but present on the remote branch is the expected stale-clone case in a remote-first project (the work was pushed from another machine and the local clone never fetched): fetch read-only and verify the actual diff — never block, never reject. Verify against `FETCH_HEAD`, do not check out, so a shared clone parked on another task's branch stays undisturbed.
+<!-- gate:history-allowed -->
+Prior incident: a QA report cited two commit SHAs invalid on the local clone (`git cat-file` reported them as unknown objects); both resolved on the remote feature branch and the implemented work was real — the local clone was simply stale in a remote-first workflow. Compliance fetched the branches read-only and verified the diffs against `FETCH_HEAD`.
+<!-- /gate:history-allowed -->
 
 ### 7. CI/CD Impact Analysis
 - Detect: new dependencies, changed env vars, new build steps

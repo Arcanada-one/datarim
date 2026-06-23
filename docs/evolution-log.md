@@ -1963,3 +1963,15 @@ gained a "Doc-Only QA Stub" item stating the stub satisfies QA-presence, so comp
 longer emits a "QA report absent" advisory for that class; every other class still requires a
 full QA report. The edit also removed a pre-existing duplicate "Operator-Only Runbooks"
 heading in the same checklist (numbering now sequential).
+
+**DEV-1547-FU-api-url-writeback** (Aether space; applied 2026-06-23) — `skills/compliance/SKILL.md`
+Software Checklist Step 6 (Test Execution) gained a **Report-cited-SHA resolution probe**. When a
+QA/compliance report cites commit SHAs or merge-request numbers, compliance must `git cat-file -t
+<sha>`; a SHA absent both locally and on the remote is a genuine fabrication finding (NON-COMPLIANT),
+while a SHA absent locally but present on the remote branch is the expected stale-clone case in a
+remote-first project — fetch read-only and verify the diff against `FETCH_HEAD` (no checkout, so a
+shared clone parked on another branch stays undisturbed). Class A (content-only, stack-neutral;
+stack-agnostic gate PASS). Recurrence-promoted (`incident_class: report-cites-sha-absent-on-local-clone`;
+prior occurrences in reflection-DEV-1476 / reflection-DEV-1517 fetch-remote-to-verify class). Operator-approved.
+Targeted bats green (check-skill-frontmatter, check-skill-layout, dr-compliance-deferral-gate,
+stack-agnostic-gate, tune-0255-compliance-template-shape, check-frontmatter-english).
