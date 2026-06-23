@@ -73,6 +73,7 @@ Read `datarim/tasks.md` and `datarim/activeContext.md` to determine task type:
 ### 5. Linters and Formatters
 - Run project linters and formatters
 - Flag: lint errors, formatting inconsistencies
+- **CI linter-scope check.** When the project's CI scopes the linter narrower than the full repo (e.g. `ruff check src/ scripts/` but not `tests/`), and compliance finds the unscoped directories dirty, recommend widening the CI scope to the full tree (`ruff check .` or explicit `src/ tests/ scripts/`) as part of the cleanup. Compliance is the wrong place to discover a narrowly-scoped linter — a narrow CI scope produces avoidable cosmetic notes in every QA cycle. Fix the scope at the source, not just the dirty files.
 
 ### 6. Test Execution
 - Run the full test suite, report pass/fail counts
