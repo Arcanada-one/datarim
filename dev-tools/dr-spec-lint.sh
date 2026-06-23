@@ -138,7 +138,12 @@ for doc in "${SPEC_DOCS[@]}"; do
     # ---- D-REQ declarations: format + uniqueness ----
     declared_in_doc=""
     seen_ids=""
-    # Scan every #### D-REQ-... heading (including malformed) to catch bad slugs.
+    # Scan every D-REQ declaration. Two canonical PRD forms are accepted:
+    #   (a) "#### D-REQ-NN" heading form, and
+    #   (b) "- **D-REQ-NN** — ..." bold-list form (the form the /dr-prd template's
+    #       Requirements section emits as a bullet list). Recognising both keeps the
+    #       Covers/dreq-dangling resolution from false-firing on a well-formed PRD
+    #       that declared its D-REQs as a bullet list (DEV-1547, DEV-1552-FU).
     while IFS= read -r hline; do
         [ -n "$hline" ] || continue
         lineno="${hline%%:*}"
@@ -160,7 +165,7 @@ for doc in "${SPEC_DOCS[@]}"; do
             record error correctness dreq-id-format "${base}:${lineno}" "" \
                 file_quote "${base}:${lineno}" "$(short "malformed D-REQ heading: $text")"
         fi
-    done < <(grep -nE '^#### D-REQ' "$doc" 2>/dev/null)
+    done < <(grep -nE '^#### D-REQ|^[[:space:]]*[-*][[:space:]]+\*\*D-REQ' "$doc" 2>/dev/null)
 done
 
 # Build a sorted-unique declared list for resolution checks.

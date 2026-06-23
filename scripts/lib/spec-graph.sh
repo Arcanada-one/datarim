@@ -337,12 +337,14 @@ rule_enabled() {
 # Graph helpers. Pure-text scan of a markdown artefact.
 # ---------------------------------------------------------------------------
 
-# collect_d_req <file> — print declared D-REQ-NN ids (one per line, in order).
+# collect_d_req <file> — print "lineno<TAB>D-REQ-NN" for each declaration, in order.
+# Accepts both canonical forms: the `#### D-REQ-NN: …` heading and the
+# `- **D-REQ-NN** — …` bold-list bullet (see schema-regex.sh D_REQ_ID_RE).
 collect_d_req() {
     local file="$1"
     [ -f "$file" ] || return 0
     grep -nE "$D_REQ_ID_RE" "$file" 2>/dev/null \
-        | sed -E 's/^([0-9]+):#### (D-REQ-[0-9]{2}):.*$/\1\t\2/'
+        | sed -E 's/^([0-9]+):.*(D-REQ-[0-9]{2}).*$/\1\t\2/'
 }
 
 # collect_covers <file> — print "lineno<TAB>D-REQ-NN" for each id in each Covers line.
