@@ -36,7 +36,7 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
 
 4.  **Detailed Design (Phase 4)**:
     -   **Architectural-superseding probe (MANDATORY first sub-step before any component breakdown)**: if the task description carries a `Spawned from` / `Source:` reference to a prior archive, OR addresses a problem class that other recent archives may have already solved, read those references and answer one question: *has any recent task already resolved the architectural problem this task addresses?* If yes — recommend cancellation, scope reduction, or re-framing as redundancy/follow-up BEFORE proceeding to component breakdown. Document the answer (and the archives consulted) inline in the plan's Overview / Decisions section. Cost: a single grep + skim. Saving: avoids designing infrastructure that has been obsoleted by a sibling task whose archive the operator has not yet internalised.
-    -   **Component Breakdown**: List every modified and new file.
+    -   **Component Breakdown**: List every modified and new file. If any component changes the timing, sequencing, or condition of a canonical interface (Stage Header, CTA block, pipeline routing markers, exemption lists), add the canonical contract file (`skills/cta-format/SKILL.md`, `skills/datarim-system/backlog-and-routing.md`, etc.) as an explicit component in the same step. PRD risk rows are not a substitute for plan component rows.
     -   **Interface Design**: Define function signatures, API contracts.
     -   **Data Flow**: Trace input -> processing -> output.
     -   **Security Design**: Perform **Threat Modeling** and map to **Security Controls** (Appendix A).
