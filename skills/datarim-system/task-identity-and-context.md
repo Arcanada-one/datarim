@@ -21,8 +21,13 @@ Examples:
 If the user does not provide a task ID, the system:
 
 1. Determines a prefix from the task content or project area.
-2. Scans existing tasks for the same prefix.
-3. Generates the next sequential 4-digit number.
+2. Computes the candidate ID using the deterministic formula:
+   `max(claimed across documentation/archive ∪ datarim/tasks.md ∪ datarim/backlog.md) + 1`
+   (max taken over all `PREFIX-NNNN` entries for the chosen prefix across all three claim surfaces — archive, active tasks, and backlog).
+3. **Do not emit or announce the chosen task ID — in reply text or in any artefact — until this 3-surface collision probe completes.**
+4. If the computed candidate is already claimed (a parallel-session race on the agent's own new ID), auto-bump to the next free ID and emit a warning — no operator prompt.
+
+This generalises § Pre-Spawn ID-Claim Probe (below) from multi-ID PRD spawns to every single-ID assignment.
 
 ### Task ID Extraction
 
