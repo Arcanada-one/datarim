@@ -55,18 +55,19 @@ The following commands and contexts MUST NOT emit a Stage Header:
 | `/dr-status` | Multi-task list; the command itself prints every ID. | Skip the header entirely. |
 | `/dr-doctor` | Framework operation, not task-scoped. | Skip the header entirely. |
 | `/dr-init` (Steps 1-3, pre-ID) | TASK-ID is not yet assigned. | Emit the header on the first line *after* Step 4 completes (once the TASK-ID has been determined). |
+| `/dr-quick` (Step 1, pre-ID) | TASK-ID is not yet assigned (3-surface collision probe in Step 2 must complete first). | Emit the header on the first line *after* Step 2's probe completes (once the TASK-ID has been determined). |
 
 ### Edge Cases
 
 - **Empty title** — impossible per schema; `tasks.md` one-liners always carry a title.
 - **Title > 80 chars** — the schema cap upstream prevents this; total header length is ≤ ~99 chars in the worst case.
-- **TASK-ID assignment mid-execution** — only `/dr-init` is in this state; every other command has a pre-bound ID before it emits any text.
+- **TASK-ID assignment mid-execution** — `/dr-init` and `/dr-quick` are in this state; every other command has a pre-bound ID before it emits any text. For both, the header is deferred until the TASK-ID is known (after the probe completes).
 - **Multi-step / multi-message commands** — emit the header once, in the very first message; do not re-emit per phase.
 
 ### Enforcement
 
 <!-- gate:history-allowed -->
-Programmatic enforcement is opt-in via a Claude Code Stop hook (TUNE-0264) at `dev-tools/hooks/dr-output-stop.sh`. When registered in `~/.claude/settings.json § hooks.Stop[]`, the hook checks the first non-empty line of every assistant response against `^\*\*[A-Z]{2,10}-\d{4} · .+\*\*$` (Exception List above honoured: `/dr-help`, `/dr-status`, `/dr-doctor`, plus `/dr-init` until Step 4 emits the TASK-ID). Missing header on first occurrence → stdout JSON `{"decision":"block","reason":"..."}`; retry (`stop_hook_active=true`) degrades to stderr advisory (retry budget = 1). The same hook also enforces `human-summary.md § Output contract` when the user invoked `/dr-archive`, `/dr-compliance`, or `/dr-qa`. Opt-in instructions and the canonical `settings.json` snippet live in `docs/how-to/dr-output-hook.md`.
+Programmatic enforcement is opt-in via a Claude Code Stop hook (TUNE-0264) at `dev-tools/hooks/dr-output-stop.sh`. When registered in `~/.claude/settings.json § hooks.Stop[]`, the hook checks the first non-empty line of every assistant response against `^\*\*[A-Z]{2,10}-\d{4} · .+\*\*$` (Exception List above honoured: `/dr-help`, `/dr-status`, `/dr-doctor`, plus `/dr-init` until Step 4 emits the TASK-ID, plus `/dr-quick` until Step 2's probe emits the TASK-ID). Missing header on first occurrence → stdout JSON `{"decision":"block","reason":"..."}`; retry (`stop_hook_active=true`) degrades to stderr advisory (retry budget = 1). The same hook also enforces `human-summary.md § Output contract` when the user invoked `/dr-archive`, `/dr-compliance`, or `/dr-qa`. Opt-in instructions and the canonical `settings.json` snippet live in `docs/how-to/dr-output-hook.md`.
 <!-- /gate:history-allowed -->
 
 ## Canonical Block — Single Active Task
