@@ -31,6 +31,9 @@ import sys
 from typing import Iterable
 
 STAGE_HEADER_EXCEPTIONS = frozenset({"/dr-help", "/dr-status", "/dr-doctor"})
+# Commands whose Stage Header legitimately appears after the TASK-ID is determined
+# (not as line 1 of the response) — the skip predicate below handles them.
+_DEFERRED_HEADER_CMDS = frozenset({"/dr-init", "/dr-quick"})
 HUMAN_SUMMARY_TRIGGERS = frozenset({"/dr-archive", "/dr-compliance", "/dr-qa"})
 
 HEADER_RE = re.compile(r"^\*\*[A-Z]{2,10}-\d{4} · .+\*\*$")
@@ -226,7 +229,7 @@ def _validate_path(path_str: str) -> pathlib.Path | None:
 def _check_stage_header(user_cmd: str, assistant: str, stop_hook_active: bool) -> bool:
     """Return True if a block JSON was emitted (caller MUST stop)."""
     skip = user_cmd in STAGE_HEADER_EXCEPTIONS or (
-        user_cmd == "/dr-init" and not TASK_ID_ANY_RE.search(assistant)
+        user_cmd in _DEFERRED_HEADER_CMDS and not TASK_ID_ANY_RE.search(assistant)
     )
     if skip or header_present(assistant):
         return False
