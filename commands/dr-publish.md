@@ -31,6 +31,8 @@ argument-hint: [file path to approved content]
     - Website / blog
     - Or: "all" / "social" / specific list
 6.  **ADAPT PER PLATFORM**:
+    - **FIXED PUBLISHING ORDER (mandatory):** when publishing to several social platforms, publish in this exact sequence — **(1) site (RU+EN) → (2) Telegram (canonical, RU) → (3) X/Twitter (EN premium full-article) → (4) Facebook / LinkedIn / VK**. X is published **before** FB/LI/VK on purpose: the FB/LI/VK first comments must cross-link **both** the canonical Telegram (RU) post **and** the X (EN) post, and those URLs only exist once TG and X are already live. Publishing FB/LI/VK before X forces a back-fill pass to add the X link to their comments (a recurring "missing X link" regression). Do not reorder. Canonical rule: `Projects/Publisher/code/arcanada-publisher/docs/explanation/social-links-and-comments-policy.md` §0 + `canonical-tg-link-policy.md` § Publishing order.
+    - **First-comment cross-link contract:** every FB / LinkedIn / VK first comment carries the blog link (platform language) **+ Telegram (RU) link + X (EN) link** (and the product site link for product/framework articles). X's first comment carries the EN blog link **+ Telegram (RU) link**. Telegram's own link lives at the end of its long-read, not in a comment.
     For each target platform:
     - Check text length against platform limits. If over limit → trim or split.
     - Convert formatting (HTML for Telegram, plain text for LinkedIn/FB/X, etc.).
@@ -55,7 +57,7 @@ argument-hint: [file path to approved content]
 9.  **POST-PUBLISH**:
     - Verify link previews render correctly (suggest debugger URLs per platform)
     - Note the publication date for the content record
-    - **Back-link the article to its social posts:** after the social posts exist, add the `social` block (telegram/x/linkedin/facebook real permalinks) to the blog article source and redeploy, so the article page links out to the posts on both languages. A published article with social posts but no `social` block is an incomplete publish.
+    - **Back-link the article to its social posts (CLOSING GATE — task does not close without it):** after the social posts exist, add the `social` block (telegram/x/linkedin/facebook real permalinks) to the blog article source and redeploy, so the article page links out to the posts on **both** RU and EN. Verify live (HTTP 200, every social link renders on each language version). A published article with social posts but no/incomplete `social` block is an **incomplete publish** — the publish task is NOT done (no `/dr-archive`) until this block is present on RU+EN, points at the real permalinks, and is verified live. Treat a missing block with the same severity as a missing first comment.
 
 ## Output
 - Per-platform formatted versions of the content

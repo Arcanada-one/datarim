@@ -354,7 +354,20 @@ Publisher pattern: immediately after `POST_URL` is captured, post the first-comm
 - Do NOT use bare audio-waveform visualizers (showwaves/showcqt/showspectrum) as the post video — they look generic; the animated-cover cycle is the house style.
 - Per-platform attach: X long-form and LinkedIn take the MP4; Facebook feed forces video into Reels, so on FB use the static cover image instead (keep the video for X and LinkedIn); Telegram can take the MP4 via `sendVideo`.
 
+**Blog audio narration — TTS text prep (Russian / Silero).** The RU narration engine (Silero, via the speech sidecar) is Cyrillic-only: it cannot pronounce Latin words, bare numbers, currency, fractions, or percentages, and on a digit/symbol "soup" it returns a hard HTTP 500. The narration text MUST therefore be **normalized before TTS, not stripped**. Stripping the problem tokens (the path of least resistance, fine for benchmark tables where raw figures carry no spoken value) silently drops meaning in a narrative article — the listener hears gaps where numbers and product names should be. Rules:
+
+- **Numbers -> Russian words** via `num2words(n, lang="ru")`: `340` -> "триста сорок", `33%` -> "тридцать три процентов", `5,1` -> "пять и одна десятых". For `$14` emit only the number when the source already says "долларов" right after (else you get a doubled "долларов долларов").
+- **Latin terms -> Cyrillic phonetics**, never left raw: product/brand names and abbreviations get a transliteration map (e.g. `Arcanada`->Арканада, `Datarim`->Датарим, `Muneral`->М+унерал, `Coworker`->Коворкер, `Telegram`->Телеграм, `Claude`->Клод, `README`->ридми, `PRD`->пи-эр-ди, `L4`->эль-четыре, `CLAUDE.md`->Клод точка эм-дэ). Drop any leftover Latin run to a space as a safety net.
+- **Stress markers for mis-stressed words.** Silero defaults to a wrong stress on many common words and you MUST force it with `+` placed **before** the stressed vowel: `второй`->`втор+ой` (Silero otherwise reads "вт-о-рой"), `месяц`->`м+есяц`, `уже` (adverb)->`уж+е`, `глаза`->`глаз+а`. Maintain a stress dictionary (stem-based, covers inflections) and extend it whenever a listen reveals a new wrong stress — common offenders are ordinals, homographs (за́мок/замо́к, у́же/уже́), names, and rare words.
+- **Verifying a stress marker without listening:** synthesize the word with and without the marker and compare the audio bytes (md5). Identical bytes mean Silero already stresses that syllable (your marker is redundant or misplaced); different bytes mean the marker moved the stress.
+- **Pauses — dashes and dotted filenames.** Silero renders an em/en dash (— / –) as a *long* pause; replace them with a hyphen `-` for a short break (measured: em-dash pause ~1.30 s vs hyphen ~1.16 s). Likewise a dotted filename like `CLAUDE.md` voiced as «Клод точка эм-дэ» inserts a heavy pause on «точка» — drop the «точка», use «Клод эм-дэ».
+- **EN narration (Kokoro) needs none of this** — it pronounces Latin and numbers in English natively. Normalize the RU text only.
+- **Chunking:** keep chunks small (<=600 chars, not the 900 default) — long chunks raise Silero's length-limit 500 even after a split. The chunker self-heals by recursively halving, but small chunks avoid the wasted retry rounds.
+- **Cache:** re-voiced MP3s live on Cloudflare R2 with a 1-year `immutable` cache. After overwriting an audio asset you MUST purge the Cloudflare cache for those URLs (and the listener should hard-refresh the browser), or the old narration keeps playing. Same rule as any content edit — see § Website Publishing.
+
 **Telegram first-comment — one link, the article in the post's language.** On a Telegram channel post, the comment links to the full article in the **same language as the post** — a single URL, nothing else. Do NOT add the other-language version (an RU post links the RU article only, not the EN one), and do NOT link the channel itself — the reader is already in it. This is narrower than the multi-link FB/LinkedIn comment; keep the TG comment minimal.
+
+**FB / LinkedIn / VK first-comment — must cross-link both Telegram (RU) and X (EN).** Because these are published **after** TG and X (see § Publication Order), their first comment carries the blog link in the platform's language **+ the canonical Telegram (RU) post link + the X (EN) post link** (plus the product/framework site link for product articles). Label the language on each link (`Telegram (RU)`, `X (EN)`, blog `(RU)`/`(EN)`) so the reader knows the destination language before clicking. This is the reason X is published before FB/LI/VK — those URLs must already exist when their comments are written. All cross-links go in ONE comment; do not post a second comment to add a link.
 
 <!-- gate:history-allowed -->
 **Retrofit tools (FB):** `Projects/FB Publish/code/fb-publish/bin/fb-edit-post.sh` removes a links-block from an existing post body; `bin/fb-edit-comment.sh --match-prefix <text>` rewrites an existing first-comment to extend the link list. Verified working 2026-05-20 on CONTENT-0050.
@@ -375,13 +388,11 @@ Publisher pattern: immediately after `POST_URL` is captured, post the first-comm
 
 #### Manual browser publishing via Claude-in-Chrome (no publisher script)
 
-When the `fb-publish` / `li-publish` / Publisher scripts are unavailable and you drive the post by hand through the browser-automation tools, three failure modes recur. Each has a deterministic workaround — apply it preemptively, do not rediscover it per session.
+When the `fb-publish` / `li-publish` / Publisher scripts are unavailable and you drive the post by hand through the browser-automation tools, several failure modes recur. Each has a deterministic workaround — apply it preemptively, do not rediscover it per session.
 
-1. **Image FIRST, then text (LinkedIn + Facebook).** Open the composer with the **Photo** affordance so the media editor (`Select files to begin`) opens before any text exists. Typing text first collapses the media affordance and the file input is never created. (Already canonical for the publisher adapters; it applies identically to the manual path.)
+1. **Media via clipboard FIRST, then text — NEVER the file-picker (mandatory, all browser composers).** ALL media (image OR video) AND the post text are attached **through the OS clipboard (paste)**, media first, then text. Put the file on the clipboard (`osascript -e 'set the clipboard to (POSIX file "/path/media.mp4")'` on macOS), open the composer, paste (Cmd/Ctrl+V), and **wait for the upload to finish** before typing. Then paste the text. Do **NOT** use the `Photo`/`Add media`/`Upload from computer` affordance or `file_upload`/`setInputFiles`: host filesystem paths are rejected, the OS picker is invisible to automation, and it is unreliable — this is the only sanctioned attach method (operator rule, reaffirmed 2026-06-26). If text was already typed into a media-less composer, clear it and restart media-first rather than retrofitting media around the text. (LinkedIn caveat: the `<video>` preview appears right after paste, but the real upload runs in the background **after** you click «Post» — do not tear down the browser until the upload bar hits 100% **and** a few seconds more, or the post publishes video-less.)
 
-2. **Image upload is the hard blocker — have the operator insert it.** The `file_upload` tool rejects host filesystem paths, the OS picker is invisible to automation, clipboard-paste of an image is accepted by X but NOT by LinkedIn, and a cross-origin `fetch` of the cover is blocked by the site CSP. The reliable path is to open the composer in media-upload mode, then ask the operator to click `Upload from computer` and pick the file themselves (the picker is visible to them). Surface the absolute cover path so they can paste it. Resume — set text — once they confirm the image is attached.
-
-3. **Multi-line comment paste flattens to the last line (LinkedIn).** Pasting a 3-line link block into the LinkedIn comment field via Cmd+V silently keeps only the **last** line. Do not trust a single paste. Instead type each line and insert line breaks with **Shift+Enter** (a bare Enter SUBMITS the comment on LinkedIn). Verify the field's `innerText` contains all lines before clicking `Comment`.
+2. **Multi-line comment paste flattens to the last line (LinkedIn).** Pasting a 3-line link block into the LinkedIn comment field via Cmd+V silently keeps only the **last** line. Do not trust a single paste. Instead type each line and insert line breaks with **Shift+Enter** (a bare Enter SUBMITS the comment on LinkedIn). Verify the field's `innerText` contains all lines before clicking `Comment`. When editing an existing comment, LinkedIn renders TWO contenteditable boxes (empty new-comment + the edit box) — select the edit box **by content**, not `.first()`, type (don't paste) the change, and re-read it to confirm the final text BEFORE clicking Save.
 
 **Post text via clipboard, not character-typing.** For long post bodies, `cat <file> | pbcopy` then Cmd+V is instant; a `type` action of ~10k chars times out at the CDP 30s limit (the text still lands, but the action reports failure). Clipboard paste of the post BODY works on every platform; only the LinkedIn comment field has the line-flattening quirk above.
 
@@ -490,6 +501,7 @@ Required for proper link previews on all social platforms:
 - [ ] Multi-language: `<link rel="alternate" hreflang="ru">` if applicable
 - [ ] RSS feed updated (if exists)
 - [ ] Sitemap regenerated (if static)
+- [ ] Audio narration (if the blog has a player): RU text normalized before Silero TTS — numbers→words, Latin→Cyrillic, stress markers on mis-stressed words (see § Blog audio narration); MP3s uploaded to R2 AND Cloudflare cache purged for the audio URLs
 
 ---
 
@@ -515,16 +527,23 @@ Required for proper link previews on all social platforms:
 | Link preview card | Yes | Yes | Yes | Yes | Yes | No |
 | Best post length | 500-2000 chars | 1000-2000 chars | 500-3000 chars | hook in first 280, up to 25K (Premium) | 500-2000 chars | 500-1500 chars |
 
-### Publication Order
+### Publication Order (FIXED — not just "for reach")
 
-Recommended sequence for maximum reach:
-1. **Website/blog** first (canonical URL, SEO indexing starts)
-2. **Telegram** (instant delivery to subscribers)
-3. **LinkedIn** (professional audience, slower feed)
-4. **Facebook** (broad audience)
-5. **X/Twitter** (hook + link to full post)
-6. **VK** (if relevant audience)
-7. **Instagram** (requires visual, last because most adaptation needed)
+The platform order is a **hard contract**, not a reach heuristic. Publish in this exact sequence:
+
+1. **Website/blog** first (RU+EN; canonical URL, SEO indexing starts). Capture both URLs.
+2. **Telegram** (RU canonical, instant delivery). Capture `t.me/<channel>/<msg_id>`.
+3. **X/Twitter** (EN premium full-article). Capture `x.com/<handle>/status/<id>`.
+4. **Facebook / LinkedIn / VK** (in any order among themselves) — all **after** X.
+5. **Instagram** (last — requires the most visual adaptation), when in scope.
+
+**Why X comes before FB/LinkedIn/VK (do not reorder).** The FB / LinkedIn / VK first
+comments must cross-link **both** the canonical **Telegram (RU)** post **and** the **X (EN)**
+post. Those two URLs only exist once TG and X are already published — so TG and X go first,
+and X is published **before** FB/LI/VK, not alongside or after them. Publishing FB/LI/VK
+before X forces a second pass to back-fill the X link into their comments (a recurring
+"missing X link in the FB/LI comment" regression). The full per-platform first-comment
+contract lives in `Projects/Publisher/code/arcanada-publisher/docs/explanation/social-links-and-comments-policy.md`.
 
 ---
 
