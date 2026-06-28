@@ -3,7 +3,7 @@
 # and the action gate (action_gate.sh) prefer the core path when it exists.
 # This copy will be removed in the next minor release; update any hard-coded
 # references to point at dev-tools/rules/fb-rules.yaml instead.
-# See docs/evolution-log.md for provenance.
+# See documentation/how-to/evolution-log.md for provenance.
 #
 # Schema (separate from default.yaml prompt-pattern schema):
 #   rules:

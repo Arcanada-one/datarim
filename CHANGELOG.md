@@ -4,6 +4,22 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.49.0] — 2026-06-28
+
+### Changed
+
+- **BREAKING (canon): the documentation root is renamed `docs/` → `documentation/`** and split
+  into the four Diátaxis categories (`tutorials/`, `how-to/`, `reference/`, `explanation/`),
+  with `archive/`, `evolution/`, `release-audit/`, `ephemeral/` as reserved sibling directories
+  (a Diátaxis category may NOT take these names). The framework's 19 root docs moved into their
+  categories; history is preserved via `git mv`. `documentation/` is now the single canonical
+  documentation root ecosystem-wide — the `diataxis-docs` mandate, the `/dr-init` scaffold, the
+  Documentation Taxonomy Mandate, and the `/dr-optimize` drift detector all target it.
+- **Hard-flip compatibility:** the drift detector now treats a repo still on legacy `docs/` as
+  drift. Consumer repos on `docs/` should self-migrate by running
+  `/dr-doctor --scope=docs-migration` (idempotent, opt-in, rollback-safe `git mv` + split +
+  reference rewrite).
+
 ## [2.48.0] — 2026-06-28
 
 **Stop the four shipped framework surfaces from writing the abolished `backlog-archive.md`; add a data-loss-safe terminal-task pruner wired into `/dr-doctor` and `/dr-dream`.** Root-cause fix for completed tasks accumulating in `backlog.md` (68 terminal entries / 107 KB found 2026-06-28). (TUNE-0462)

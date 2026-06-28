@@ -2,7 +2,7 @@
 # Write-ahead gate for operational actions before dr-orchestrate execution.
 # Thin plugin entry-point that delegates to the core resolver. Prefers the
 # core fb-rules.yaml; falls back to the local plugin copy during the
-# deprecation window (one minor cycle — see docs/evolution-log.md).
+# deprecation window (one minor cycle — see documentation/how-to/evolution-log.md).
 set -euo pipefail
 
 DR_ORCH_DIR="${DR_ORCH_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"

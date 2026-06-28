@@ -12,7 +12,7 @@
 #   fix: / perf:                              -> patch
 #   feat:                                     -> minor
 #   <type>!: (bang) OR `BREAKING CHANGE:` footer -> major
-#   chore/docs/ci/refactor/style/test/build:  -> no bump
+#   chore/documentation/ci/refactor/style/test/build:  -> no bump
 #
 # API:
 #   release-classify.sh --repo <path> [--from <tag>] [--to <ref>]

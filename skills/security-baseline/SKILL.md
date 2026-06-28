@@ -11,7 +11,7 @@ target_aal: 2
 > **Origin:** corporate security audit, 2026-04-28 — full audit log: `~/arcanada/documentation/archive/security/findings-2026-04-28.md` . Research baseline: `~/arcanada/datarim/insights/INSIGHTS-security-baseline-oss-cli-2026.md`.
 > **Companion skills:** [`skills/security/SKILL.md`](../security/SKILL.md) (operational recipes — git history scrub, Tailscale+VPN coexistence, recon-vs-compromise heuristics, cross-stack relative-path includes) and [`skills/release-verify/SKILL.md`](../release-verify/SKILL.md) (S4 consumer-side verify entry point).
 > **CI baseline:** [`tests/security/baseline.json`](../../tests/security/baseline.json) — machine-readable suppressions registry + required-jobs status.
-> **Standards mapping:** [`docs/standards-mapping.md`](../../docs/standards-mapping.md) (S8 — full ASVS / SOC 2 / ISO 27001 / CIS table).
+> **Standards mapping:** [`documentation/reference/standards-mapping.md`](../../documentation/reference/standards-mapping.md) (S8 — full ASVS / SOC 2 / ISO 27001 / CIS table).
 
 ---
 
@@ -50,7 +50,7 @@ The baseline therefore optimises for **shipped-artefact correctness** over local
 
 ## S1 — Shell scripts and embedded shell blocks
 
-**Applies to:** every `*.sh` file, every <code>```bash</code> / <code>```sh</code> / <code>```shell</code> fenced block in `skills/`, `agents/`, `commands/`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/`, `docs/`, every `${DATARIM_RUNTIME:-$HOME/.claude}/templates/*.sh.j2`-style scaffold.
+**Applies to:** every `*.sh` file, every <code>```bash</code> / <code>```sh</code> / <code>```shell</code> fenced block in `skills/`, `agents/`, `commands/`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/`, `documentation/`, every `${DATARIM_RUNTIME:-$HOME/.claude}/templates/*.sh.j2`-style scaffold.
 
 ### Required rules (MUST)
 
@@ -205,14 +205,14 @@ ecosystem-specific Vault paths MUST NOT appear in any shipped framework artefact
 3. **GitHub Actions pinned to commit SHA** — never tag-pinned (`@v4`), never branch-pinned (`@main`). Each `uses:` line MUST resolve to a 40-char SHA, with a comment naming the human-readable version for auditability.
 4. **Explicit `permissions:` block** at workflow or job level — least privilege by default (`permissions: { contents: read }`), elevate only where required.
 5. **SBOM** — every release tarball ships a CycloneDX or SPDX SBOM enumerating dependency tree at build time.
-6. **Signed releases** — release artefacts MUST be cosign-signed (keyless OIDC preferred). Consumer-side verify recipe: [`docs/release-verification.md`](../../docs/release-verification.md) (canonical) + [`skills/release-verify/SKILL.md`](../release-verify/SKILL.md) (AI-agent loadable entry point).
+6. **Signed releases** — release artefacts MUST be cosign-signed (keyless OIDC preferred). Consumer-side verify recipe: [`documentation/how-to/release-verification.md`](../../documentation/how-to/release-verification.md) (canonical) + [`skills/release-verify/SKILL.md`](../release-verify/SKILL.md) (AI-agent loadable entry point).
 7. **SLSA Level 2 provenance** — release workflow MUST emit `actions/attest-build-provenance` attestation linkable to the source commit.
 8. **Dependency monitoring** — Dependabot or Renovate MUST be configured for the repo; advisories at the declared severity threshold block merge.
 
 ### Implementation reference
 
 - Release workflow: [`.github/workflows/release.yml`](../../.github/workflows/release.yml) — supply-chain security implementation.
-- Verify recipe (consumer-side): [`docs/release-verification.md`](../../docs/release-verification.md), [`skills/release-verify/SKILL.md`](../release-verify/SKILL.md).
+- Verify recipe (consumer-side): [`documentation/how-to/release-verification.md`](../../documentation/how-to/release-verification.md), [`skills/release-verify/SKILL.md`](../release-verify/SKILL.md).
 - Stack-agnostic phrasing for dependency-audit references: see [`skills/security/SKILL.md`](../security/SKILL.md) § Stack-neutral phrasing.
 
 ### Counter-example fence demonstration
@@ -331,7 +331,7 @@ Promotion path: tag each illustrative block with the appropriate counter-example
 
 ## S8 — Standards mapping
 
-Each S* cluster maps to ≥1 control in OWASP ASVS v5 / SOC 2 CC / ISO 27001:2022 Annex A / CIS Controls v8. The full table lives in [`docs/standards-mapping.md`](../../docs/standards-mapping.md) — that document is repo-only (not installed to runtime) because the table is too large for inline reading and AI agents fetch it on demand when scoping certification work.
+Each S* cluster maps to ≥1 control in OWASP ASVS v5 / SOC 2 CC / ISO 27001:2022 Annex A / CIS Controls v8. The full table lives in [`documentation/reference/standards-mapping.md`](../../documentation/reference/standards-mapping.md) — that document is repo-only (not installed to runtime) because the table is too large for inline reading and AI agents fetch it on demand when scoping certification work.
 
 The mapping is **informative**, not certificative — Datarim baseline is a developer-tool floor; consumer projects layer their own application-level baseline on top.
 
@@ -449,5 +449,5 @@ Both skills cross-link freely; neither replaces the other. CLAUDE.md § Security
 - Research baseline: `~/arcanada/datarim/insights/INSIGHTS-security-baseline-oss-cli-2026.md` (575 LoC OSS CLI security research, 2026-04-28)
 - Recovery archive (incident → rule expansion): security incident archive at `documentation/archive/security/`
 - Companion operational recipes: [`skills/security/SKILL.md`](../security/SKILL.md)
-- Consumer-side verify entry: [`skills/release-verify/SKILL.md`](../release-verify/SKILL.md), [`docs/release-verification.md`](../../docs/release-verification.md)
-- Standards mapping (S8): [`docs/standards-mapping.md`](../../docs/standards-mapping.md)
+- Consumer-side verify entry: [`skills/release-verify/SKILL.md`](../release-verify/SKILL.md), [`documentation/how-to/release-verification.md`](../../documentation/how-to/release-verification.md)
+- Standards mapping (S8): [`documentation/reference/standards-mapping.md`](../../documentation/reference/standards-mapping.md)

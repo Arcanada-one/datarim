@@ -124,7 +124,7 @@ whitelist_paths=("$regex_file" "$0" "$_regex_basename" "$_self_basename"
     # Intentional historical ecosystem narrative — frozen append-only record.
     # Names appear as "approved by <human>" attribution markers; rewriting
     # them would destroy the record's historical fidelity. Frozen, not leaked.
-    "docs/evolution-log.md"
+    "documentation/how-to/evolution-log.md"
     # Supreme Directive canonical Source-of-Truth URL — public canon, not a
     # personal data leak. The URL is the published identifier of the spec.
     "templates/project-claude-md.md")

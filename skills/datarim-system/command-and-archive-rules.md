@@ -73,7 +73,7 @@ This allows parallel local workflow state with committed shared archives.
 When `/dr-init` detects project-creation intent (English keywords "create project" / "new project" or their Russian equivalents — full trigger list lives in `skills/project-init/SKILL.md`):
 
 1. Load `$HOME/.claude/skills/project-init/SKILL.md`.
-2. Create full project structure: `CLAUDE.md`, `docs/`, `docs/ephemeral/`, `datarim/`, `documentation/archive/`, `.gitignore`.
+2. Create full project structure: `CLAUDE.md`, `documentation/`, `documentation/ephemeral/`, `datarim/`, `documentation/archive/`, `.gitignore`.
 3. Fill `CLAUDE.md` from template `${DATARIM_RUNTIME:-$HOME/.claude}/templates/project-claude-md.md` with project-specific placeholders.
 4. Create doc stubs from template `${DATARIM_RUNTIME:-$HOME/.claude}/templates/project-docs-stubs.md`.
 5. Detect tech stack via `$HOME/.claude/skills/tech-stack/SKILL.md` and apply to templates.

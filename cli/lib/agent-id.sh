@@ -34,7 +34,7 @@ _cli_uuid7_extract_ms() {
 validate_agent_id() {
     local id="${DATARIM_CLI_AGENT_ID:-}"
     if [ -z "$id" ]; then
-        printf '[agent-id] DATARIM_CLI_AGENT_ID is unset or empty; set a UUID v7 (see docs/cli.md § Agent identity)\n' >&2
+        printf '[agent-id] DATARIM_CLI_AGENT_ID is unset or empty; set a UUID v7 (see documentation/reference/cli.md § Agent identity)\n' >&2
         return $CLI_AGENT_ID_EXIT_INVALID
     fi
     if ! printf '%s' "$id" | grep -Eq "$CLI_AGENT_ID_RE"; then

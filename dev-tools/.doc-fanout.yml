@@ -27,7 +27,7 @@ artifacts:
         severity: error
       - id: docs_commands_row
         kind: grep_in_file
-        file: docs/commands.md
+        file: documentation/reference/commands.md
         pattern: /{name}
         severity: error
       - id: site_data_php
@@ -46,7 +46,7 @@ artifacts:
         severity: error
       - id: docs_skills_row
         kind: grep_in_file
-        file: docs/skills.md
+        file: documentation/reference/skills.md
         pattern: "{name}"
         severity: error
       - id: site_data_php
@@ -65,7 +65,7 @@ artifacts:
         severity: error
       - id: docs_agents_row
         kind: grep_in_file
-        file: docs/agents.md
+        file: documentation/reference/agents.md
         pattern: "{name}"
         severity: error
       - id: site_data_php
@@ -77,16 +77,16 @@ artifacts:
 counts:
   - id: skill_count_docs
     source_glob: skills/*.md
-    consumer_file: docs/skills.md
+    consumer_file: documentation/reference/skills.md
     pattern: ([0-9]+) reusable skill
     severity: error
   - id: agent_count_docs
     source_glob: agents/*.md
-    consumer_file: docs/agents.md
+    consumer_file: documentation/reference/agents.md
     pattern: ([0-9]+) specialized agent
     severity: error
   - id: command_count_docs
     source_glob: commands/dr-*.md
-    consumer_file: docs/commands.md
+    consumer_file: documentation/reference/commands.md
     pattern: ([0-9]+) slash command
     severity: error

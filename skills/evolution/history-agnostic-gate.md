@@ -13,7 +13,7 @@ provenance — otherwise rules become coupled to ephemeral identifiers
 references it cannot resolve, and historical IDs risk leaking into AI outputs
 addressed to end users.
 
-History belongs to: `docs/evolution-log.md`, `documentation/archive/`,
+History belongs to: `documentation/how-to/evolution-log.md`, `documentation/archive/`,
 `datarim/reflection/`, git commit messages, and task description files. Not to
 runtime instructions.
 
@@ -52,7 +52,7 @@ Any text about to be written to:
 
 - `scripts/` (source code with conventional in-comment provenance)
 - `tests/`, `tests/security/`, `tests/*.bats` (regression tests reference findings by ID — `.bats` test data and fixture body may contain TASK-ID literals by design)
-- `docs/`, `docs/evolution-log.md` (the canonical evolution surface)
+- `documentation/`, `documentation/how-to/evolution-log.md` (the canonical evolution surface)
 - `datarim/`, `datarim/reflection/` (workflow state)
 - `documentation/archive/` (long-term task archives)
 - Top-level `CLAUDE.md` (project-wide rules; cite gate but are not in gate scope)
@@ -103,7 +103,7 @@ and closing marker are ignored by the gate. Use only when:
 - The surrounding prose remains history-neutral (no inline reference smuggled
  in adjacent paragraphs under the marker).
 - The escape block is small (rule of thumb: >3 escape blocks in one file →
- consider whether the file should be re-scoped to docs/ or tests/ instead).
+ consider whether the file should be re-scoped to documentation/ or tests/ instead).
 
 Reviewers should challenge any usage that smuggles prescriptive guidance
 under the marker.
@@ -154,7 +154,7 @@ reachable from the current working directory):
  - 0 hits → PASS. Proceed with the write.
  - 1+ hits → FAIL. **Do not write the file.** Two outcomes:
  - (a) Reword the proposal in history-neutral terms (delete pure provenance,
- migrate load-bearing rationale to `docs/evolution-log.md`, aggregate
+ migrate load-bearing rationale to `documentation/how-to/evolution-log.md`, aggregate
  counter-example incidents under a topic heading). Re-run the gate.
  - (b) Wrap a legitimate illustrative slot in the per-block escape hatch
  (separate-line form only).

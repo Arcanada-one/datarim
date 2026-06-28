@@ -54,8 +54,8 @@ id — `D-REQ` is an addressing layer on top, not a replacement.
 > example `Covers: D-REQ-01, D-REQ-02`. Every referenced id MUST resolve to a
 > declared `D-REQ` above. The pipeline validates this automatically through
 > `spec-graph-gate.sh` at PRD and downstream stages. A `D-REQ` referenced by no
-> V-AC is flagged as an orphan. See `docs/validator-contract.md` and
-> `docs/spec-traceability-rollout.md`.
+> V-AC is flagged as an orphan. See `documentation/reference/validator-contract.md` and
+> `documentation/explanation/spec-traceability-rollout.md`.
 
 > **Falsifiability requirement:** every quantitative AC (coverage %, latency budget, RPS, token delta, line count, etc.) MUST cite a concrete verification command and its exit-code contract inline — for example: `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/measure-foo.sh" --check` returns exit 0. No «presumed met» verdicts at QA / Compliance. If the measurement tool does not yet exist, declare its creation as part of the plan; do not approve the AC until it is falsifiable. See `skills/evolution/SKILL.md` § Pattern: Split-Architecture Metrics for the absorption-task variant.
 

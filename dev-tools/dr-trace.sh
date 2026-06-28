@@ -14,7 +14,7 @@
 #
 # Exit: 0 (report, not a gate). With --strict: exit 1 when uncovered OR dangling
 #       is non-empty. 2 = usage/configuration error.
-# Contract: docs/validator-contract.md.
+# Contract: documentation/reference/validator-contract.md.
 
 set -uo pipefail
 

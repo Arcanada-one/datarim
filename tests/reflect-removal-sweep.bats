@@ -16,7 +16,7 @@
 #
 # Whitelisted files (intentional historical forward-pointers):
 #   - CLAUDE.md                   "/dr-reflect command no longer exists"
-#   - docs/pipeline.md            "Historical note: prior to v1.10.0..."
+#   - documentation/explanation/pipeline.md            "Historical note: prior to v1.10.0..."
 #   - commands/dr-archive.md      "Historical: prior to v1.10.0..."
 #   - skills/reflecting/SKILL.md        "former /dr-reflect command was retired..."
 #   - skills/evolution/SKILL.md         forward-pointer note + utilities/recovery ref
@@ -31,7 +31,7 @@
 #                                 commands/dr-reflect.md removal example
 #                                 (added by TUNE-0034 — fragment split; v1.10.0
 #                                 / TUNE-0013 mentioned inline)
-#   - docs/evolution-log.md       evolution-log records prior bats-baseline
+#   - documentation/how-to/evolution-log.md       evolution-log records prior bats-baseline
 #                                 entries that mention the historical
 #                                 /dr-reflect command — read-only ledger.
 #   - changelog.php (website)     v1.10.0 release entry — not in framework
@@ -45,8 +45,8 @@ REPO="${BATS_TEST_DIRNAME}/.."
 # Files allowed to mention /dr-reflect (must all be forward-pointer annotations).
 WHITELIST=(
     "CLAUDE.md"
-    "docs/pipeline.md"
-    "docs/evolution-log.md"
+    "documentation/explanation/pipeline.md"
+    "documentation/how-to/evolution-log.md"
     "commands/dr-archive.md"
     "skills/reflecting/SKILL.md"
     "skills/evolution/SKILL.md"

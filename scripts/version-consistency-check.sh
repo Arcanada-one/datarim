@@ -2,7 +2,7 @@
 # version-consistency-check.sh — pre-archive version-consistency gate (TUNE-0080).
 #
 # Contract: when the framework's `VERSION` file changed in HEAD->working-tree,
-# all consumer files (CLAUDE.md, README.md, docs/) must reference the new
+# all consumer files (CLAUDE.md, README.md, documentation/) must reference the new
 # version. If any still cite the old version, archive is blocked.
 #
 # Source: recurring class — VERSION bumped but README/CLAUDE.md left stale
@@ -27,7 +27,7 @@ Usage:
   version-consistency-check.sh [--allow-version-lag] REPO_PATH
 
 If REPO_PATH/VERSION changed in HEAD->working-tree, scan
-REPO_PATH/{CLAUDE.md,README.md,docs/} for the old version string. Any hit
+REPO_PATH/{CLAUDE.md,README.md,documentation/} for the old version string. Any hit
 blocks the archive (exit 1). Use --allow-version-lag to override (exit 0
 with stderr warning).
 
@@ -90,7 +90,7 @@ fi
 
 # VERSION bumped. Scan consumers for the OLD version string.
 # Targets: CLAUDE.md, README.md (top-of-file version refs).
-# `docs/` is intentionally excluded: evolution-log / release-notes / changelog
+# `documentation/` is intentionally excluded: evolution-log / release-notes / changelog
 # legitimately reference historical versions — they're an append-only ledger,
 # not a current-state surface. The recurring drift class concerned CLAUDE.md
 # "Version:" line and README.md badge only.

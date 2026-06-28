@@ -131,7 +131,7 @@ Before generating lists of framework components (agents, skills, commands, use c
    ls $HOME/.claude/skills/*.md | wc -l    # actual skill count
    ```
 2. **Check source docs** for use cases, features, capabilities:
-   - `docs/use-cases.md` in the Datarim repo for the canonical use case list
+   - `documentation/tutorials/use-cases.md` in the Datarim repo for the canonical use case list
    - Agent/skill `.md` files for accurate capability descriptions
 3. **Never hardcode counts** — they drift as the framework evolves (e.g., 15→16 agents, 18→22 skills during v1.5→v1.6)
 

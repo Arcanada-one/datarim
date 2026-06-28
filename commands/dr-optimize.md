@@ -72,7 +72,7 @@ effort: high
     | Description budget | Any description `>160` chars or total `>8K` chars | Propose `fix-description` |
     | Selective-loading candidate | Monolithic file with mixed subdomains | Propose split into entry + supporting files |
     | Low-value provenance comments | Task-origin or migration notes that do not affect usage/policy | Propose rewrite cleanup |
-    | Diátaxis docs drift | repo with ≥3 `docs/*.md` files but missing the 4-category split (`docs/{tutorials,how-to,reference,explanation}/`) per `skills/diataxis-docs/SKILL.md` | Propose `spawn-diataxis-reorg` (creates `INFRA-* — Diátaxis docs reorg for <repo>` in backlog, soft warning only) |
+    | Diátaxis docs drift | repo with ≥3 `documentation/*.md` files but missing the 4-category split (`documentation/{tutorials,how-to,reference,explanation}/`) per `skills/diataxis-docs/SKILL.md` | Propose `spawn-diataxis-reorg` (creates `INFRA-* — Diátaxis docs reorg for <repo>` in backlog, soft warning only) |
 
 6a. **DIÁTAXIS DOCS DRIFT DETECTOR** (filesystem-presence + threshold, soft warning):
     - Run for the audited repo root (or for each consumer repo when scanning ecosystem-wide).
@@ -81,19 +81,28 @@ effort: high
       ```bash
       diataxis_drift_check() {
         local repo="$1"
-        local docs="$repo/docs"
-        [ ! -d "$docs" ] && return 1
+        # Canon (framework 2.49.0+): documentation/ is the single docs root.
+        # HARD-FLIP — a repo still on legacy docs/ is treated as DRIFT (it must migrate;
+        # run /dr-doctor --scope=docs-migration to self-heal).
+        local docroot="$repo/documentation"
+        # Legacy docs/ present without documentation/ → drift (downstream not yet migrated).
+        if [ -d "$repo/docs" ] && [ ! -d "$docroot" ]; then
+          echo "drift: $repo (legacy docs/ — migrate to documentation/ via /dr-doctor)"
+          return 0
+        fi
+        [ ! -d "$docroot" ] && return 1
         # Exemption pattern (mirrors skills/diataxis-docs/SKILL.md § Exemption List)
         echo "$repo" | grep -qE '(research-only|archive|vault|inbox|daily-notes|templates|scratch)' && return 1
-        # Threshold: ≥3 .md files at maxdepth 1 under docs/
+        # Threshold: ≥3 .md files anywhere under documentation/ (categories may be populated;
+        # reserved siblings archive/ evolution/ release-audit/ ephemeral/ are NOT categories).
         local doc_count
-        doc_count=$(find "$docs" -maxdepth 1 -name '*.md' 2>/dev/null | wc -l)
+        doc_count=$(find "$docroot" -name '*.md' 2>/dev/null | wc -l)
         [ "$doc_count" -lt 3 ] && return 1
         # Presence: all 4 canonical category dirs?
-        test -d "$docs/tutorials" && test -d "$docs/how-to" \
-          && test -d "$docs/reference" && test -d "$docs/explanation" \
+        test -d "$docroot/tutorials" && test -d "$docroot/how-to" \
+          && test -d "$docroot/reference" && test -d "$docroot/explanation" \
           && return 1
-        echo "drift: $repo ($doc_count docs files, missing 4-dir split)"
+        echo "drift: $repo ($doc_count documentation files, missing 4-dir split)"
         return 0
       }
       ```

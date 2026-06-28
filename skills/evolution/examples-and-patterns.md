@@ -100,4 +100,4 @@ When a concept, command, or convention is removed or renamed, historical referen
 
 ### Exemplar
 
-Example (v1.10.0): removal of `/dr-reflect` command. Whitelist: `CLAUDE.md`, `docs/pipeline.md`, `commands/dr-archive.md`, `skills/reflecting/SKILL.md`, `skills/evolution/SKILL.md`. Sweep-test: `tests/reflect-removal-sweep.bats` (4 assertions: T3a whitelist, T3b forward-pointer, T3c file-deleted, T3d visual-maps clean).
+Example (v1.10.0): removal of `/dr-reflect` command. Whitelist: `CLAUDE.md`, `documentation/explanation/pipeline.md`, `commands/dr-archive.md`, `skills/reflecting/SKILL.md`, `skills/evolution/SKILL.md`. Sweep-test: `tests/reflect-removal-sweep.bats` (4 assertions: T3a whitelist, T3b forward-pointer, T3c file-deleted, T3d visual-maps clean).

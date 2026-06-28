@@ -88,4 +88,4 @@ fi
 ln -sfn "$BIN_SRC" "$target_link"
 chmod +x "$BIN_SRC" 2>/dev/null || true
 printf '[install] symlinked: %s → %s\n' "$target_link" "$BIN_SRC"
-printf '[install] next: set DATARIM_CLI_AGENT_ID to a UUID v7 (see docs/cli.md)\n'
+printf '[install] next: set DATARIM_CLI_AGENT_ID to a UUID v7 (see documentation/reference/cli.md)\n'

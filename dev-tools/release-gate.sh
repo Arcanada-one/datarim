@@ -25,7 +25,7 @@
 #   GATE_QA_VERDICT        (ALL_PASS|...)      default: scan datarim/qa/ latest
 #   GATE_VERSION_PUBLISHED (true|false)        default: pip index / npm view / gh release
 #   GATE_SMOKE_STATUS      (success|failure)   default: clean-venv install probe
-#   GATE_AUDIT_DIR         (path)              default: <repo>/docs/release-audit
+#   GATE_AUDIT_DIR         (path)              default: <repo>/documentation/release-audit
 #
 # API:
 #   release-gate.sh --repo <path> --version <X.Y.Z> --registry pypi|npm|gh
@@ -150,7 +150,7 @@ main() {
     # exit code to the tag actually existing.
     local stamp audit_file
     stamp="$("$SCRIPT_DIR/release-classify.sh" --repo "$repo" --api-diff auto --stamp)"
-    audit_file="$(write_audit "${GATE_AUDIT_DIR:-$repo/docs/release-audit}" "$version" "$bump" "$registry" "$gates" "$verdict")"
+    audit_file="$(write_audit "${GATE_AUDIT_DIR:-$repo/documentation/release-audit}" "$version" "$bump" "$registry" "$gates" "$verdict")"
     git -C "$repo" tag -a "v${version}" -m "$(printf 'release %s\n\n%s' "$version" "$stamp")"
 
     # Defensive invariant: the tag MUST exist now (CLAUDE.md § Defensive Invariants).
@@ -163,7 +163,7 @@ main() {
 
     # G7 post-publish smoke (after the tag/publish). Non-zero lets the operator roll back.
     if [ "$(probe_smoke_status)" != success ]; then
-        echo "G7 post-publish install smoke FAILED for v${version} — roll back per docs/how-to/release-rollback.md" >&2
+        echo "G7 post-publish install smoke FAILED for v${version} — roll back per documentation/how-to/release-rollback.md" >&2
         exit 4
     fi
     exit 0

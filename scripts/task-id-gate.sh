@@ -8,7 +8,7 @@
 # Datarim runtime rules MUST be history-agnostic. Provenance ("Source: TUNE-0033",
 # "Per DEV-1183") couples rules to ephemeral identifiers (archived/renamed/cancelled
 # tasks), distracts the reading agent, and risks leaking into AI outputs. History
-# lives in docs/evolution-log.md, documentation/archive/, datarim/reflection/, and
+# lives in documentation/how-to/evolution-log.md, documentation/archive/, datarim/reflection/, and
 # git log — not in runtime instructions.
 #
 # Usage:

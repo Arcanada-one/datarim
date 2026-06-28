@@ -1,14 +1,14 @@
 # Project Documentation Stubs
 
 > This is a meta-template used by `/dr-init` project scaffolding (skill: `project-init.md`).
-> Each section below is a separate file to be created under `docs/` per the **Diátaxis Documentation Taxonomy Mandate** (`skills/diataxis-docs/SKILL.md`).
-> The agent reads this template and creates individual files from each section. Category READMEs (`docs/{tutorials,how-to,reference,explanation}/README.md`) come from `templates/docs-diataxis/<category>/README.md` (separate stubs, not duplicated here).
+> Each section below is a separate file to be created under `documentation/` per the **Diátaxis Documentation Taxonomy Mandate** (`skills/diataxis-docs/SKILL.md`).
+> The agent reads this template and creates individual files from each section. Category READMEs (`documentation/{tutorials,how-to,reference,explanation}/README.md`) come from `templates/documentation-diataxis/<category>/README.md` (separate stubs, not duplicated here).
 >
 > **Mapping (per skill § Mapping Table):** architecture → reference (system map); testing / deployment / gotchas → how-to (problem-solving recipes).
 
 ---
 
-## File: docs/reference/architecture.md
+## File: documentation/reference/architecture.md
 
 ```markdown
 # Architecture
@@ -36,7 +36,7 @@
 
 ---
 
-## File: docs/how-to/testing.md
+## File: documentation/how-to/testing.md
 
 ```markdown
 # Testing
@@ -66,7 +66,7 @@
 
 ---
 
-## File: docs/how-to/deployment.md
+## File: documentation/how-to/deployment.md
 
 ```markdown
 # Deployment
@@ -95,7 +95,7 @@
 
 ---
 
-## File: docs/how-to/gotchas.md
+## File: documentation/how-to/gotchas.md
 
 ```markdown
 # Gotchas

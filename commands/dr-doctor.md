@@ -86,6 +86,17 @@ Not a periodic cleanup. Idempotent: a second run on a compliant tree is a no-op.
     - `--all` mode is **advisory-only** — exit code is always 0; never block `/dr-init` Step 2.4 self-heal or `/dr-doctor` itself.
     - The validator is the canonical Init-Task Presence pass per `skills/init-task-persistence/SKILL.md` § Validation. Kept orthogonal to `scripts/datarim-doctor.sh` per CLAUDE.md § Validation Discipline (operational-file migration ↔ content validation are separate concerns).
 
+13. **DOCS-MIGRATION SELF-HEAL** (orthogonal pass, 2.49.0+; offers `docs/` → `documentation/` migration for a consumer repo that has not yet adopted the renamed canon):
+    - **Why:** as of 2.49.0 the canonical documentation root is `documentation/`, and the `/dr-optimize` drift detector hard-flips — a repo still on legacy `docs/` is flagged as drift. This pass is the remediation path so the operator is not merely told they "drift".
+    - **Boundary:** this is a SEPARATE concern from the `datarim/` operational-file migration above. It operates on the repo's product-docs (`<repo>/docs/`), which lives OUTSIDE `$DATARIM_ROOT`. Per CLAUDE.md § Validation Discipline it MUST stay a sibling executor — it is NOT a `--scope` of `scripts/datarim-doctor.sh`.
+    - Invoke the detector (dry-run): `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/docs-migrate.sh" --repo "<repo-root>" --check --quiet`.
+      - exit 0 → `documentation/` already canonical (or no docs) — no-op, say nothing.
+      - exit 1 → legacy `docs/` found. Report it in the findings table (`docs-migration: legacy docs/ → documentation/ available`).
+      - exit 2 → BOTH `docs/` and `documentation/` present — manual review required; report, do NOT offer auto-fix.
+    - **CONFIRMATION GATE** (interactive sessions only — `[ -t 0 ]`): on exit 1, prompt «Migrate `docs/` → `documentation/` now? (git mv + Diátaxis-split + reference rewrite, rollback-safe) [Y/n]» — default Y. On Y → re-invoke with `--fix`. On `n` or non-tty → report only, never mutate.
+    - **Idempotent + rollback-safe:** `--fix` tarball-backs-up before any write and restores on a reference-check failure (exit 2); a second `--fix` on a migrated repo is a no-op. Contract + fixtures: `tests/test-docs-migrate.bats`.
+    - Kept orthogonal to `scripts/datarim-doctor.sh` per CLAUDE.md § Validation Discipline.
+
 ## Read
 
 - `datarim/tasks.md`, `datarim/backlog.md`, `datarim/progress.md`, `datarim/activeContext.md`

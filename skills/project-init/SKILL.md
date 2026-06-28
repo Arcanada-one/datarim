@@ -1,6 +1,6 @@
 ---
 name: project-init
-description: Project scaffolding — creates CLAUDE.md, docs/, datarim/ structure for new or existing projects. Loaded by /dr-init when project intent is detected.
+description: Project scaffolding — creates CLAUDE.md, documentation/, datarim/ for new or existing projects. Loaded by /dr-init when project intent is detected.
 current_aal: 1
 target_aal: 2
 ---
@@ -58,21 +58,21 @@ Create the following structure following the **Diátaxis Documentation Taxonomy 
 ├── CLAUDE.md                    # From template: $HOME/.claude/templates/project-claude-md.md
 ├── .gitignore                   # Standard for detected stack
 │
-├── docs/                        # Diátaxis 4-category split (mandate per skills/diataxis-docs/SKILL.md)
+├── documentation/                        # Diátaxis 4-category split (mandate per skills/diataxis-docs/SKILL.md)
 │   ├── tutorials/               # Learning-oriented (newcomer end-to-end)
-│   │   └── README.md            # From template: $HOME/.claude/templates/docs-diataxis/tutorials/README.md
+│   │   └── README.md            # From template: $HOME/.claude/templates/documentation-diataxis/tutorials/README.md
 │   ├── how-to/                  # Problem-solving (task recipes)
-│   │   ├── README.md            # From template: $HOME/.claude/templates/docs-diataxis/how-to/README.md
+│   │   ├── README.md            # From template: $HOME/.claude/templates/documentation-diataxis/how-to/README.md
 │   │   ├── testing.md           # Legacy stub mapped to how-to per Diátaxis
 │   │   ├── deployment.md        # Legacy stub mapped to how-to
 │   │   └── gotchas.md           # Legacy stub mapped to how-to
 │   ├── reference/               # Information-oriented (lookup, catalogue)
-│   │   ├── README.md            # From template: $HOME/.claude/templates/docs-diataxis/reference/README.md
+│   │   ├── README.md            # From template: $HOME/.claude/templates/documentation-diataxis/reference/README.md
 │   │   └── architecture.md      # Legacy stub mapped to reference (system map)
 │   └── explanation/             # Understanding-oriented (background, why)
-│       └── README.md            # From template: $HOME/.claude/templates/docs-diataxis/explanation/README.md
+│       └── README.md            # From template: $HOME/.claude/templates/documentation-diataxis/explanation/README.md
 │
-├── docs/ephemeral/              # Transient working material (may be gitignored or committed per preference)
+├── documentation/ephemeral/              # Transient working material (may be gitignored or committed per preference)
 │   ├── plans/                   # Implementation plans
 │   ├── research/                # Research notes
 │   └── reviews/                 # QA reports and reviews
@@ -101,7 +101,7 @@ Read `${DATARIM_RUNTIME:-$HOME/.claude}/templates/project-claude-md.md` and repl
 | `__BUILD_COMMANDS__` | From tech-stack.md detection (Step 3) |
 | `__GITIGNORE_PATTERNS__` | From tech-stack.md detection (Step 3) |
 
-**Diátaxis taxonomy in CLAUDE.md.** When the project's CLAUDE.md is generated, include a one-liner reference to `docs/{tutorials,how-to,reference,explanation}/` so that future contributors discover the mandate from the project root, not only from Datarim framework docs.
+**Diátaxis taxonomy in CLAUDE.md.** When the project's CLAUDE.md is generated, include a one-liner reference to `documentation/{tutorials,how-to,reference,explanation}/` so that future contributors discover the mandate from the project root, not only from Datarim framework docs.
 
 For placeholders the agent cannot fill (components, terminology, gotchas), leave them as `[TODO: ...]` markers for the user.
 
@@ -122,15 +122,15 @@ Stack: <detected-stack or "none (documentation project)">
 
 Created (Diátaxis 4-category split per skills/diataxis-docs/SKILL.md):
   ✓ CLAUDE.md
-  ✓ docs/tutorials/README.md         (learning-oriented)
-  ✓ docs/how-to/README.md            (problem-solving)
-  ✓ docs/how-to/testing.md           (legacy stub mapped to how-to)
-  ✓ docs/how-to/deployment.md        (legacy stub mapped to how-to)
-  ✓ docs/how-to/gotchas.md           (legacy stub mapped to how-to)
-  ✓ docs/reference/README.md         (information-oriented)
-  ✓ docs/reference/architecture.md   (legacy stub mapped to reference — system map)
-  ✓ docs/explanation/README.md       (understanding-oriented)
-  ✓ docs/ephemeral/{plans,research,reviews}/
+  ✓ documentation/tutorials/README.md         (learning-oriented)
+  ✓ documentation/how-to/README.md            (problem-solving)
+  ✓ documentation/how-to/testing.md           (legacy stub mapped to how-to)
+  ✓ documentation/how-to/deployment.md        (legacy stub mapped to how-to)
+  ✓ documentation/how-to/gotchas.md           (legacy stub mapped to how-to)
+  ✓ documentation/reference/README.md         (information-oriented)
+  ✓ documentation/reference/architecture.md   (legacy stub mapped to reference — system map)
+  ✓ documentation/explanation/README.md       (understanding-oriented)
+  ✓ documentation/ephemeral/{plans,research,reviews}/
   ✓ datarim/ (workflow state)
   ✓ documentation/archive/
   ✓ .gitignore
@@ -157,7 +157,7 @@ Next steps:
 When run in an existing project (that already has some files):
 
 1. Scan for existing CLAUDE.md — if found, skip it
-2. Scan for existing docs/ — create only missing stubs
+2. Scan for existing documentation/ — create only missing stubs
 3. Scan for existing datarim/ — skip entirely (already initialized)
 4. Create only what is missing from the standard structure
 

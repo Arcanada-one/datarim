@@ -542,7 +542,7 @@ if [ "$SCOPE" = "all" ]; then
     scan_routing_drift
 fi
 
-# --- ledger-history retire pass: detect docs/ ledger directory ---------------
+# --- ledger-history retire pass: detect documentation/ ledger directory ---------------
 # Consumer KBs accumulate append-only ledgers (evolution-log, activity-log,
 # patterns) under datarim/docs/ — a cargo-culted name copied from the framework
 # source-tree. The honest home is datarim/history/ (committed via .gitignore
@@ -805,7 +805,7 @@ sed_inplace() {
     rm -f "$tmp"
 }
 
-# --- ledger-history retire pass: move docs/ ledgers → history/ ---------------
+# --- ledger-history retire pass: move documentation/ ledgers → history/ ---------------
 # git mv when the path is tracked, else plain mv. Consumer ledgers are
 # gitignored pre-migration so plain mv is the live path; the bats fixture
 # tracks files to exercise the git-mv branch.
@@ -821,9 +821,9 @@ git_mv_or_mv() {
 }
 
 # Move the three ledgers into datarim/history/, relocate any ADR-*.md under
-# docs/ to documentation/architecture/ADR-0002-<rest> (history-agnostic: the
+# documentation/ to documentation/architecture/ADR-0002-<rest> (history-agnostic: the
 # task-id prefix is stripped), extend the consumer .gitignore negation block,
-# and remove the now-empty docs/. Idempotent. Loss-safety is provided by the
+# and remove the now-empty documentation/. Idempotent. Loss-safety is provided by the
 # pre-write backup tarball (TUNE-0077) + atomic per-file mv; on any error
 # set -e aborts and the restore trap fires. MUST NOT touch EMITTED_COUNT /
 # PARSED_COUNT — that invariant counts operational-file one-liners only.
@@ -885,10 +885,10 @@ migrate_ledger_history() {
         printf '/datarim/*\n!/datarim/history/\n!/datarim/history/**\n# host-local pre-overwrite KB backups (never committed)\n/datarim/.backups/\n' > "$gitignore"
     fi
 
-    # Remove now-empty docs/ (succeeds only if truly empty; residual files stay).
+    # Remove now-empty documentation/ (succeeds only if truly empty; residual files stay).
     rmdir "$src_dir" 2>/dev/null || true
 
-    log "history: migrated docs/ ledgers → history/ (root=$ROOT_ABS)"
+    log "history: migrated documentation/ ledgers → history/ (root=$ROOT_ABS)"
 }
 
 migrate_backlog_archive() {

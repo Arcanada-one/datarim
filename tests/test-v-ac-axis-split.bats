@@ -7,7 +7,7 @@
 #      no stack-specific terms) — protects the skill body from accidental
 #      future edits that would erase the deterministic-vs-statistical axis
 #      guidance.
-#   2. Public-surface fanout — docs/skills.md catalog row + count bump,
+#   2. Public-surface fanout — documentation/reference/skills.md catalog row + count bump,
 #      README.md skill count, expectations-checklist.md cross-link.
 #      Asymmetric drift between framework runtime and consumer-facing surfaces
 #      would defeat the discoverability of the skill via main docs pages.
@@ -18,7 +18,7 @@
 
 REPO_ROOT="${BATS_TEST_DIRNAME}/.."
 SKILL="${REPO_ROOT}/skills/v-ac-axis-split/SKILL.md"
-DOCS_SKILLS="${REPO_ROOT}/docs/skills.md"
+DOCS_SKILLS="${REPO_ROOT}/documentation/reference/skills.md"
 README="${REPO_ROOT}/README.md"
 EXPECTATIONS="${REPO_ROOT}/skills/expectations-checklist/SKILL.md"
 
@@ -87,17 +87,17 @@ EXPECTATIONS="${REPO_ROOT}/skills/expectations-checklist/SKILL.md"
 
 # ---------- public-surface fanout (TUNE-0090) ----------
 
-@test "docs/skills.md contains catalog row for v-ac-axis-split" {
+@test "documentation/reference/skills.md contains catalog row for v-ac-axis-split" {
     run grep -E "^\| v-ac-axis-split " "$DOCS_SKILLS"
     [ "$status" -eq 0 ]
 }
 
-@test "docs/skills.md skill count is a plausible integer" {
+@test "documentation/reference/skills.md skill count is a plausible integer" {
     run grep -E "^Datarim includes [0-9]+ reusable skill modules" "$DOCS_SKILLS"
     [ "$status" -eq 0 ]
 }
 
-@test "docs/skills.md Distribution line exists" {
+@test "documentation/reference/skills.md Distribution line exists" {
     run grep -E "^\*\*Distribution:\*\*.*reference" "$DOCS_SKILLS"
     [ "$status" -eq 0 ]
 }

@@ -114,7 +114,7 @@ matches_baseline() {
 # `skills/.system/` is vendored external content (e.g. OpenAI reference docs
 # shipped for Codex parity, marked by `.codex-system-skills.marker`); Datarim
 # does not author or maintain those files, and their absolute API-path links
-# (`/api/docs/...`) are not file references — pruned to keep the linter scoped
+# (`/api/documentation/...`) are not file references — pruned to keep the linter scoped
 # to Datarim's own shipped surface.
 SCAN_TARGETS=()
 [ -f "$ROOT/CLAUDE.md" ] && SCAN_TARGETS+=("$ROOT/CLAUDE.md")

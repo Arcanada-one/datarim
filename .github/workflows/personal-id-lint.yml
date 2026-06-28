@@ -20,7 +20,7 @@ on:
       - 'dev-tools/**'
       - 'CLAUDE.md'
       - 'README.md'
-      - 'docs/**'
+      - 'documentation/**'
   pull_request:
     branches: [ main ]
     paths:
@@ -33,7 +33,7 @@ on:
       - 'dev-tools/**'
       - 'CLAUDE.md'
       - 'README.md'
-      - 'docs/**'
+      - 'documentation/**'
   workflow_dispatch:
 
 permissions:

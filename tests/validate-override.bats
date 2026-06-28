@@ -30,7 +30,7 @@ setup() {
 
 # Critical-skill blocklist: shadowing security-contract surfaces must ERROR + exit 1.
 # Blocklist: skills/{security,security-baseline,compliance,datarim-system,ai-quality,evolution}.md
-# Source: skills/datarim-system/SKILL.md § Loading Order, docs/getting-started.md § Personal additions.
+# Source: skills/datarim-system/SKILL.md § Loading Order, documentation/tutorials/getting-started.md § Personal additions.
 
 # Helper: seed a framework skill so override detection can fire.
 # validate.sh requires both $SCRIPT_DIR/$scope/$bname AND $LOCAL_DIR/$scope/$bname.

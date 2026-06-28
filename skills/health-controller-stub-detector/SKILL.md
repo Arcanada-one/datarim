@@ -61,7 +61,7 @@ For each stub literal found in NEW added lines (delta vs HEAD~1):
 
 Prior incident class: a multi-modal request-flow wire-up landed end-to-end in a downstream service, but its `/health.<downstreamName>` indicator remained a hard-coded `'pending-integration'` literal in the upstream health controller. Wish gating for the request flow incorrectly treated the `/health` indicator as proof of wire-up, when it was a separate (deferred) health-reporter integration. The contract gap surfaced only at the compliance gate — late in the pipeline — and blocked the verdict cycle until the operator reconciled the wording. This skill catches the pattern earlier (at /dr-do) by grepping added lines for known stub literals and prompting one of three explicit dispositions before the task advances.
 
-Provenance: see `docs/evolution-log.md` for the archive entry that motivated this skill.
+Provenance: see `documentation/how-to/evolution-log.md` for the archive entry that motivated this skill.
 
 ## Cross-references
 

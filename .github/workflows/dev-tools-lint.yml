@@ -10,7 +10,7 @@ on:
       - 'commands/**'
       - 'skills/**'
       - 'agents/**'
-      - 'docs/**'
+      - 'documentation/**'
       - 'CLAUDE.md'
       - 'README.md'
       - 'dev-tools/**'
