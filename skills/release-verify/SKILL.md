@@ -9,7 +9,7 @@ target_aal: 2
 
 Datarim releases are published from `Arcanada-one/datarim` via `release.yml` and signed with Sigstore cosign in keyless mode (GitHub OIDC). Each release ships a CycloneDX SBOM and a SLSA L2 build-provenance attestation. **Never install a tarball without verifying the signature.**
 
-This skill is the entry point for AI agents and operators consuming a Datarim release. The canonical source of truth is [`docs/release-verification.md`](../../docs/release-verification.md). This skill mirrors the core recipe so an agent can answer the user without an extra fetch.
+This skill is the entry point for AI agents and operators consuming a Datarim release. The canonical source of truth is [`documentation/how-to/release-verification.md`](../../documentation/how-to/release-verification.md). This skill mirrors the core recipe so an agent can answer the user without an extra fetch.
 
 ## When To Use
 
@@ -156,10 +156,10 @@ on both the tag-derived and the built version.
 
 ## Source of Truth
 
-- Canonical recipe: [`docs/release-verification.md`](../../docs/release-verification.md) (the user-facing page).
+- Canonical recipe: [`documentation/how-to/release-verification.md`](../../documentation/how-to/release-verification.md) (the user-facing page).
 - Workflow that produces the artefacts: [`.github/workflows/release.yml`](../../.github/workflows/release.yml).
 - Security Mandate § S4 (Supply Chain): [`CLAUDE.md`](../../CLAUDE.md#security-mandate).
 - Sigstore cosign docs: https://docs.sigstore.dev/cosign/
 - SLSA spec: https://slsa.dev/
 
-If this skill drifts from `docs/release-verification.md`, `docs/release-verification.md` wins — update the skill.
+If this skill drifts from `documentation/how-to/release-verification.md`, `documentation/how-to/release-verification.md` wins — update the skill.

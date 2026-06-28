@@ -371,7 +371,7 @@ Operations:
   kill <pane> [--force] [--json]
   read <pane> [--lines N] [--json]
 
-See docs/cli.md § tmux for the full surface.
+See documentation/reference/cli.md § tmux for the full surface.
 EOF
             ;;
         *)

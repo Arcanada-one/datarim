@@ -8,7 +8,7 @@ name: release
 #
 # Approach: Hybrid C — cosign sign-blob (portable verification) + GitHub
 # native attestations (SLSA L2). End-user verify recipe lives in
-# docs/release-verification.md.
+# documentation/how-to/release-verification.md.
 #
 # Tools install pattern (mirrors security.yml):
 #   - cosign + syft → standalone binaries, sha256-verified.
@@ -176,7 +176,7 @@ jobs:
           fail_on_unmatched_files: true
           body: |
             Verify this release before installing — see
-            [docs/release-verification.md](https://github.com/Arcanada-one/datarim/blob/${{ env.TAG }}/docs/release-verification.md).
+            [documentation/how-to/release-verification.md](https://github.com/Arcanada-one/datarim/blob/${{ env.TAG }}/documentation/how-to/release-verification.md).
           files: |
             ${{ env.TARBALL }}
             ${{ env.TARBALL }}.sha256

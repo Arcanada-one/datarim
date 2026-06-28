@@ -113,7 +113,7 @@ In that case Compliance MUST, on attempt 2:
 
 Anti-pattern caught by this rule: identical NON-COMPLIANT verdicts at v1 + v2 produced by re-running the same `gh pr view` / `curl /health` set 23 minutes apart with no merge in between. The runtime probes are cheap, but the compliance turn (context, narration, validator append-log) is not — and the operator gets a noisy «attempt 2 of 3» banner that obscures the actual blocker.
 
-Source: prior incident — a multi-repo task ran compliance v1+v2 within 23 minutes; both returned identical Layer-4 NON-COMPLIANT verdicts with state delta ∅ on all 5 runtime probes (PR states, main HEAD, live `/health`, expectations validator). Attempt 3 resolved only when the operator explicitly delegated the blocking mechanical action under FB-1..FB-5 + autonomous-ops authorization, not via further probe re-runs. Provenance: see `docs/evolution-log.md` for the archive entry that motivated this rule.
+Source: prior incident — a multi-repo task ran compliance v1+v2 within 23 minutes; both returned identical Layer-4 NON-COMPLIANT verdicts with state delta ∅ on all 5 runtime probes (PR states, main HEAD, live `/health`, expectations validator). Attempt 3 resolved only when the operator explicitly delegated the blocking mechanical action under FB-1..FB-5 + autonomous-ops authorization, not via further probe re-runs. Provenance: see `documentation/how-to/evolution-log.md` for the archive entry that motivated this rule.
 
 ---
 

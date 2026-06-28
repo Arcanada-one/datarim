@@ -78,7 +78,7 @@ Before requesting review, confirm:
 - [ ] `bats tests/` passes locally.
 - [ ] `pre-commit run --all-files` passes locally.
 - [ ] If the change touches shipped artifacts (`skills/`, `agents/`,
-      `commands/`, `templates/`), the corresponding `docs/*.md` index
+      `commands/`, `templates/`), the corresponding `documentation/*.md` index
       and `data/*.php` site entries are updated (see project docs on
       public-surface sync).
 - [ ] If the change introduces a new shipped artifact, the

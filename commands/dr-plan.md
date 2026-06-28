@@ -222,7 +222,7 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
         -   `Projects/Datarim/code/datarim/CLAUDE.md` (commands/skills/agents table row, update count footer)
         -   `Projects/Datarim/code/datarim/README.md` (commands list mention, update count in the badge / description)
         These are the 4 surfaces required by the Public-surface ↔ runtime sync mandate (consumer CLAUDE.md § Public-surface ↔ runtime sync). Asymmetric drift ("site is ahead of the framework" or vice versa) = a discoverability gap. Detector: `dev-tools/doc-fanout-lint.sh` + `tests/test-command-doc-coverage.bats`.
-    -   For EACH surface in the list, plan §5 MUST include an explicit affected-files entry AND PRD MUST include a corresponding acceptance criterion (e.g. `AC-NN: live curl /docs/getting-started \| grep <new-term>` for live verification).
+    -   For EACH surface in the list, plan §5 MUST include an explicit affected-files entry AND PRD MUST include a corresponding acceptance criterion (e.g. `AC-NN: live curl /documentation/getting-started \| grep <new-term>` for live verification).
     -   Deferring a surface to /dr-qa or /dr-archive is a **Class B contract violation** — Class B tasks ship with their full public surface coverage in /dr-do, not "minor — we will tidy this up later".
     -   When a Class B operating-model AC (e.g. `pages/getting-started.php` symlink content) is deferred from `/dr-do`, it surfaces only at `/dr-archive` live deploy verification. Surface scan checkpoint prevents recurrence.
 

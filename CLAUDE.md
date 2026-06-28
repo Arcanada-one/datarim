@@ -2,7 +2,7 @@
 
 > **Version:** 2.48.2
 > **Framework:** Datarim provides structured rules, agents, skills, and commands for iterative project execution via AI coding assistants — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
-> **Multi-runtime:** Datarim is runtime-agnostic. This file is also available as `AGENTS.md` (symlink) for Codex CLI and other agent runtimes that read `AGENTS.md` by convention. See `docs/use-cases.md#runtime-support` for the canonical Claude Code / Codex CLI / Cursor support matrix.
+> **Multi-runtime:** Datarim is runtime-agnostic. This file is also available as `AGENTS.md` (symlink) for Codex CLI and other agent runtimes that read `AGENTS.md` by convention. See `documentation/tutorials/use-cases.md#runtime-support` for the canonical Claude Code / Codex CLI / Cursor support matrix.
 > **Note:** "Datarim" has a Russian transliteration «Датарим» — agents must recognise either form in any language context. <!-- allow-non-ascii: literal-transliteration-pair-for-agent-name-recognition -->
 
 ---
@@ -116,7 +116,7 @@ Skills are reusable knowledge modules loaded on demand. They provide rules, patt
 - `humanize.md` — AI text pattern removal (loaded by: editor, on demand)
 - `visual-maps.md` — Mermaid workflow diagrams: pipeline routing, stage flows, agent-skill-command graphs (loaded on demand for navigation)
 - `telegram-publishing.md` — Telegram Bot API publishing rules, caption limits, discussion group comments (loaded on demand)
-- `project-init.md` — Project scaffolding: creates CLAUDE.md, docs/, datarim/ structure for new projects (loaded by: /dr-init when project intent detected)
+- `project-init.md` — Project scaffolding: creates CLAUDE.md, documentation/, datarim/ structure for new projects (loaded by: /dr-init when project intent detected)
 - `research-workflow.md` — Structured research methodology, checklist, tool selection, gap discovery protocol (loaded by: researcher)
 - `publishing.md` — Multi-platform publishing rules, formatting, platform limits, workflow (loaded by: writer, on demand)
 - `datarim-doctor.md` — Schema and migration semantics for /dr-doctor (thin one-liner contract, YAML description schema) (loaded by: /dr-doctor, /dr-init self-heal, /dr-archive line-format gate)
@@ -179,7 +179,7 @@ documentation/                    # Project documentation (COMMITTED to git)
     └── general/                 # Unmatched prefixes
 ```
 
-**Two-layer architecture:** `datarim/` is ephemeral workflow state (added to `.gitignore`). `documentation/archive/` is long-term project documentation (committed to git). See [Getting Started](docs/getting-started.md) for details.
+**Two-layer architecture:** `datarim/` is ephemeral workflow state (added to `.gitignore`). `documentation/archive/` is long-term project documentation (committed to git). See [Getting Started](documentation/tutorials/getting-started.md) for details.
 
 ### Path Resolution Rule
 
@@ -370,7 +370,7 @@ This governs the language of **runtime artefacts** Datarim generates per task �
 5. **Context before code** — Gather requirements before implementing
 6. **One thing at a time** — Implement one method/stub per iteration
 7. **Human in the loop** — Evolution proposals need approval
-8. **Rules are stack- AND history-agnostic** — Task IDs MUST NOT appear in `skills/*.md`, `agents/*.md`, `commands/*.md`, `templates/*.md`. Provenance lives in `docs/evolution-log.md`, `documentation/archive/`, git log. Gates: `scripts/stack-agnostic-gate.sh` (stack terms) and `scripts/task-id-gate.sh` (history). Contracts: `skills/evolution/stack-agnostic-gate.md` and `skills/evolution/history-agnostic-gate.md`. **Corollary for shipped data files (`dev-tools/rules/*.yaml`):** header comments in shipped policy-data files MUST cite provenance via `docs/evolution-log.md`, never via an `insights/INSIGHTS-{TASK-ID}-*.md` filename — insight files are gitignored, ephemeral runtime artefacts, whereas a shipped file's header is a public contract and carrying a task ID in it is the same history leak the gate forbids elsewhere.
+8. **Rules are stack- AND history-agnostic** — Task IDs MUST NOT appear in `skills/*.md`, `agents/*.md`, `commands/*.md`, `templates/*.md`. Provenance lives in `documentation/how-to/evolution-log.md`, `documentation/archive/`, git log. Gates: `scripts/stack-agnostic-gate.sh` (stack terms) and `scripts/task-id-gate.sh` (history). Contracts: `skills/evolution/stack-agnostic-gate.md` and `skills/evolution/history-agnostic-gate.md`. **Corollary for shipped data files (`dev-tools/rules/*.yaml`):** header comments in shipped policy-data files MUST cite provenance via `documentation/how-to/evolution-log.md`, never via an `insights/INSIGHTS-{TASK-ID}-*.md` filename — insight files are gitignored, ephemeral runtime artefacts, whereas a shipped file's header is a public contract and carrying a task ID in it is the same history leak the gate forbids elsewhere.
 
 ---
 
@@ -400,12 +400,12 @@ Datarim ships skills, templates, agents, and commands that AI agents copy into r
 - **S1** — Shell scripts and embedded shell blocks (strict mode, quoting, input regex, heredoc terminators, no eval/curl|bash, no SSH `StrictHostKeyChecking=no`, `shellcheck` clean)
 - **S2** — Python and python-fenced blocks (no `shell=True`, atomic mode-0o600 credential writes via `O_EXCL`, no `eval`/`pickle.loads`/`yaml.load`, `requests verify=True`, SHA-256+, `bandit -ll -ii` clean)
 - **S3** — Credentials, secrets, tenant identifiers (no hardcoded IDs, generic env-var paths via `${PROJECT_CREDS_DIR}`, secrets via env/Vault/prompt only, `.gitignore` coverage, rotation policy on accidental commit)
-- **S3.1** — Personal data in shipped artefacts (personal names, handles, hostnames, numeric GIDs, and ecosystem-specific Vault paths MUST NOT appear in any shipped artefact under `cli/`, `skills/`, `agents/`, `commands/`, `templates/`, `scripts/`, `dev-tools/`, `CLAUDE.md`, `README.md`, `docs/`; operator-specific config belongs in `${DATARIM_LOCAL:-$HOME/.claude/local}/config/personal.env` loaded by `cli/lib/load-local-config.sh`; enforced by `scripts/personal-id-gate.sh` + CI `.github/workflows/personal-id-lint.yml`)
-- **S4** — Supply chain (no `curl | bash`, hash-pinned installs, GitHub Actions pinned to commit SHA + explicit `permissions:`, SBOM, signed releases, SLSA L2, Dependabot/Renovate). Consumer-side verify recipe: [`docs/release-verification.md`](docs/release-verification.md) (canonical) + [`skills/release-verify/SKILL.md`](skills/release-verify/SKILL.md) (AI-agent loadable entry point). Implementation: `.github/workflows/release.yml` (cosign sign-blob + `actions/attest-build-provenance` for SLSA L2).
+- **S3.1** — Personal data in shipped artefacts (personal names, handles, hostnames, numeric GIDs, and ecosystem-specific Vault paths MUST NOT appear in any shipped artefact under `cli/`, `skills/`, `agents/`, `commands/`, `templates/`, `scripts/`, `dev-tools/`, `CLAUDE.md`, `README.md`, `documentation/`; operator-specific config belongs in `${DATARIM_LOCAL:-$HOME/.claude/local}/config/personal.env` loaded by `cli/lib/load-local-config.sh`; enforced by `scripts/personal-id-gate.sh` + CI `.github/workflows/personal-id-lint.yml`)
+- **S4** — Supply chain (no `curl | bash`, hash-pinned installs, GitHub Actions pinned to commit SHA + explicit `permissions:`, SBOM, signed releases, SLSA L2, Dependabot/Renovate). Consumer-side verify recipe: [`documentation/how-to/release-verification.md`](documentation/how-to/release-verification.md) (canonical) + [`skills/release-verify/SKILL.md`](skills/release-verify/SKILL.md) (AI-agent loadable entry point). Implementation: `.github/workflows/release.yml` (cosign sign-blob + `actions/attest-build-provenance` for SLSA L2).
 - **S5** — Markdown documentation as executable instructions (placeholders not real IDs, never prescribe unsafe patterns, `<!-- security:counter-example -->` fence syntax for teaching counter-examples)
 - **S6** — Repo hygiene (LICENSE, SECURITY.md, CODE_OF_CONDUCT, CONTRIBUTING, CODEOWNERS, dependabot.yml, branch + tag protection)
 - **S7** — CI verification gate (`shellcheck`, `bandit`, `semgrep`, `gitleaks`, `trufflehog`, `actionlint`, `zizmor`, `osv-scanner`, regression `bats`)
-- **S8** — Standards mapping (ASVS v5 / SOC 2 CC / ISO 27001 Annex A / CIS Controls v8 — see `docs/standards-mapping.md`)
+- **S8** — Standards mapping (ASVS v5 / SOC 2 CC / ISO 27001 Annex A / CIS Controls v8 — see `documentation/reference/standards-mapping.md`)
 - **S9** — Drift, evolution, incident response (no relaxation without architect approval; new findings → rule update + regression test within 7 days)
 
 ### CI verification (consumer projects)
@@ -432,7 +432,7 @@ Closed set: `faq`, `glossary`, `troubleshooting`, `examples`, `overview`, `sampl
 
 Mandate level:
 
-1. **New repos / sites** — `/dr-init` scaffolds `docs/{tutorials,how-to,reference,explanation}/` by default with category README stubs from `templates/docs-diataxis/`.
+1. **New repos / sites** — `/dr-init` scaffolds `documentation/{tutorials,how-to,reference,explanation}/` by default with category README stubs from `templates/docs-diataxis/`.
 2. **Existing repos** — soft audit via `/dr-optimize` Step 6a (filesystem-presence + threshold ≥3 docs files); on drift the audit proposes an `INFRA-*` "Diátaxis docs reorg for `<repo>`" entry in the backlog.
 3. **Stack-agnostic** — taxonomy contract only. SSG/CMS choice (any static-site generator) is per-project and outside the mandate.
 4. **Hard CI gate deferred** — backlog item activates the same detector at `exit 1` after the mandate is adopted on ≥3 live consumers.
@@ -509,7 +509,7 @@ FB-rules instead of accepting the entry.
 
 Datarim framework's contribution:
 
-- **`dev-tools/rules/fb-rules.yaml`** — core machine-readable policy block (FB-1..FB-8 with `enforcement_layer` / `tier` / `default_action` / `reversibility_required` / `audit_required` / `conflicts_with_law` + `hard_gated_actions:` list). Provenance in `docs/evolution-log.md`.
+- **`dev-tools/rules/fb-rules.yaml`** — core machine-readable policy block (FB-1..FB-8 with `enforcement_layer` / `tier` / `default_action` / `reversibility_required` / `audit_required` / `conflicts_with_law` + `hard_gated_actions:` list). Provenance in `documentation/how-to/evolution-log.md`.
 - **`dev-tools/fb-policy-loader.sh`** — core `load_fb_policy()`, `load_fb_hard_gates()`, `load_always_gated_floor()`, `load_action_autonomy_map()` entry points; orthogonal to the prompt-pattern `load()` stream (separate schema, separate consumers — do not merge). Plugin shim at `plugins/dr-orchestrate/scripts/rules_loader.sh` delegates here.
 - **Pipeline gates** — `/dr-prd` discovery decision-matrix enforces FB-2; `/dr-design` consilium enforces FB-3; `/dr-qa` + `/dr-verify` pre-archive enforce FB-7; reflection enforces FB-4 (`reason` field in audit log).
 - **Conflict resolution** — Supreme Directive (Laws 1-5) > Autonomous Agent Operating Rules > AAL Mandate > project-specific mandates. `hard_gated_actions:` NEVER auto-execute regardless of FB-5.

@@ -430,7 +430,7 @@ Final verdict: CONDITIONAL
 
 ## Cross-References
 
-Implementation lineage (PRDs, plans, creatives, baselines) is tracked in `docs/evolution-log.md` and `documentation/archive/framework/` — not in this skill body. Reusable upstream skills:
+Implementation lineage (PRDs, plans, creatives, baselines) is tracked in `documentation/how-to/evolution-log.md` and `documentation/archive/framework/` — not in this skill body. Reusable upstream skills:
 
 - `dispatching-parallel-agents` (Datarim runtime skill) — parallel-agent fan-out used by Layer 3 Claude path.
 - `verification-before-completion` (Datarim runtime skill) — evidence-before-assertion discipline applied to per-finding `evidence_verified` re-grep.

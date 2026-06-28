@@ -66,6 +66,6 @@ REPO_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
   ! grep -q 'utilities\.md §' "$REPO_DIR/skills/evolution/SKILL.md"
 }
 
-@test "T9: docs/skills.md mentions fragment count" {
-  grep -q 'fragment' "$REPO_DIR/docs/skills.md"
+@test "T9: documentation/reference/skills.md mentions fragment count" {
+  grep -q 'fragment' "$REPO_DIR/documentation/reference/skills.md"
 }

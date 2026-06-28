@@ -39,7 +39,7 @@ setup() {
 @test "operator catalogs no longer advertise /dr-spec" {
     ! grep -qF '| `/dr-spec` |' "$REPO_ROOT/CLAUDE.md" \
       && ! grep -qF '| `/dr-spec` |' "$REPO_ROOT/README.md" \
-      && ! grep -qF '| `/dr-spec` |' "$REPO_ROOT/docs/commands.md"
+      && ! grep -qF '| `/dr-spec` |' "$REPO_ROOT/documentation/reference/commands.md"
 }
 
 @test "internal engine helpers remain present" {

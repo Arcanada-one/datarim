@@ -127,7 +127,7 @@ Use `/dr-status` to see the backlog summary.
 /dr-init новый проект "Мой сервис"
 ```
 
-This creates: `CLAUDE.md`, `docs/` (architecture, testing, deployment, gotchas), `docs/ephemeral/` (plans, research, reviews), `datarim/` (workflow state), and `documentation/archive/`. Tech stack is auto-detected from project description via `tech-stack.md`.
+This creates: `CLAUDE.md`, `documentation/` (architecture, testing, deployment, gotchas), `documentation/ephemeral/` (plans, research, reviews), `datarim/` (workflow state), and `documentation/archive/`. Tech stack is auto-detected from project description via `tech-stack.md`.
 
 Idempotent — safe to run on existing projects (skips existing files, creates only what is missing).
 

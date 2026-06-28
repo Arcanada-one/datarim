@@ -12,7 +12,7 @@ target_aal: 2
 
 ## When This Skill Activates
 
-- During `/dr-init` project scaffolding — defines the default `docs/` directory structure with 4-category split.
+- During `/dr-init` project scaffolding — defines the default `documentation/` directory structure with 4-category split.
 - During `/dr-optimize` audit Step 6 — runs filesystem-presence check and detects repos without the mandated layout.
 - During `/dr-archive` surface verification — validates that site surfaces (public-facing pages) comply with the mandate.
 - When an operator or agent asks about documentation taxonomy rules — provides binding definitions and mapping.
@@ -46,7 +46,7 @@ Understanding-oriented category for deep comprehension. Reader intent: understan
 ## Repo Bootstrap Layout
 
 ```
-<project-root>/docs/
+<project-root>/documentation/
 ├── tutorials/
 │   └── README.md
 ├── how-to/
@@ -59,13 +59,32 @@ Understanding-oriented category for deep comprehension. Reader intent: understan
 │   └── architecture.md      (*)
 ├── explanation/
 │   └── README.md
+├── archive/                  (reserved sibling — task archives; NOT a Diátaxis category)
 ├── ephemeral/                (transient working material — unchanged)
 │   ├── plans/
 │   ├── research/
 │   └── reviews/
 ```
 
-(*) — legacy stubs auto-mapped from the pre-mandate flat scaffold for backwards compatibility. Idempotency rule: each file or directory is created only if it does not already exist. An optional `docs/index.md` may serve as an entry-point with links to the four categories — its presence or absence does not affect mandate compliance.
+(*) — legacy stubs auto-mapped from the pre-mandate flat scaffold for backwards compatibility. Idempotency rule: each file or directory is created only if it does not already exist. An optional `documentation/index.md` may serve as an entry-point with links to the four categories — its presence or absence does not affect mandate compliance.
+
+## Reserved Sibling Names
+
+`documentation/` is the single canonical documentation root ecosystem-wide. Beside the four
+Diátaxis categories it hosts **reserved sibling directories** that are NOT categories and that
+a Diátaxis category MUST NOT be named after:
+
+| Reserved sibling | Purpose |
+|------------------|---------|
+| `archive/` | Completed task archives (`documentation/archive/<area>/archive-<ID>.md`) — consumer-runtime, committed |
+| `evolution/` | Quarterly framework-evolution snapshots |
+| `release-audit/` | Per-release audit records |
+| `ephemeral/` | Transient working material (plans / research / reviews) — gitignored |
+
+A documentation type that collides with a reserved sibling name MUST be mapped into one of the
+four categories instead (e.g. an "archive how-to" is a `how-to/` file, never a top-level
+`archive/` category). The drift detector treats these siblings as expected presence — it neither
+requires them as categories nor flags them as stray.
 
 ## File-Naming Convention
 
@@ -107,7 +126,7 @@ This is a **closed set**. No new documentation types (FAQ, glossary, troubleshoo
 
 3. **Architecture always as reference.** Architecture content can be reference (information-oriented) or explanation (understanding-oriented). Content that describes design decisions, tradeoffs, and reasoning must live under `explanation/`. Mitigation: evaluate whether the reader looks up facts or seeks understanding — place accordingly.
 
-4. **Index page as separate category.** `docs/index.md` is an optional entry-point, not a documentation type. It does not create a fifth category. Mitigation: index is a navigation aid, not a container for content.
+4. **Index page as separate category.** `documentation/index.md` is an optional entry-point, not a documentation type. It does not create a fifth category. Mitigation: index is a navigation aid, not a container for content.
 
 5. **Troubleshooting as separate category.** Troubleshooting content is purely how-to — "when something breaks, do X". Mitigation: place under `how-to/` with clear problem-description titles.
 
@@ -119,10 +138,10 @@ This is a **closed set**. No new documentation types (FAQ, glossary, troubleshoo
 - Archive-only repos (snapshots, backups, historical records).
 - Obsidian vaults using PARA structure (Inbox / Daily Notes / Templates / Areas / Resources / Origins).
 - Single-file inbox notes or scratch documents (ephemeral, non-public).
-- Legacy repos created before the mandate soft-approval date (existing-as-of-mandate snapshot recorded in `datarim/docs/exemptions.json`).
+- Legacy repos created before the mandate soft-approval date (existing-as-of-mandate snapshot recorded in `datarim/documentation/exemptions.json`).
 - Temporary scratch paths (`temp/*`, `scratch/*`, `test-scaffold/*`).
 
-> **Operator override:** Any repo may be explicitly marked as "intentional — exemption pending review" in the exemption registry (`datarim/docs/exemptions.json`, future TUNE-*). Acknowledged repos are excluded from `/dr-optimize` drift detection until the override is revoked.
+> **Operator override:** Any repo may be explicitly marked as "intentional — exemption pending review" in the exemption registry (`datarim/documentation/exemptions.json`, future TUNE-*). Acknowledged repos are excluded from `/dr-optimize` drift detection until the override is revoked.
 
 ## Stack-Agnostic Boundary
 
@@ -135,7 +154,7 @@ Mandate compliance is verified by `/dr-optimize` Step 6 using a filesystem-prese
 ## Cross-References
 
 - Mandate section in `~/arcanada/CLAUDE.md` (workspace contract, after Operational Resilience Mandate).
-- Scaffold templates at `${DATARIM_RUNTIME:-$HOME/.claude}/templates/docs-diataxis/{tutorials,how-to,reference,explanation}/README.md`.
+- Scaffold templates at `${DATARIM_RUNTIME:-$HOME/.claude}/templates/documentation-diataxis/{tutorials,how-to,reference,explanation}/README.md`.
 - Bootstrap implementation in `skills/project-init/SKILL.md` Step 4.
 - Drift detector in `commands/dr-optimize.md` Step 6.
 - Canonical Diátaxis specification: https://diataxis.fr

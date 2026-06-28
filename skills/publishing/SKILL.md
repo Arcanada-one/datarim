@@ -545,7 +545,7 @@ post. Those two URLs only exist once TG and X are already published — so TG an
 and X is published **before** FB/LI/VK, not alongside or after them. Publishing FB/LI/VK
 before X forces a second pass to back-fill the X link into their comments (a recurring
 "missing X link in the FB/LI comment" regression). The full per-platform first-comment
-contract lives in `Projects/Publisher/code/arcanada-publisher/docs/explanation/social-links-and-comments-policy.md`.
+contract lives in `Projects/Publisher/code/arcanada-publisher/documentation/explanation/social-links-and-comments-policy.md`.
 
 ---
 

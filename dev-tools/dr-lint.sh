@@ -19,7 +19,7 @@
 # shared loader (effective_ruleset) so every façade caller inherits them.
 #
 # Exit: 0 clean / 1 violations (hard) / 2 usage-or-configuration error.
-# Contract: docs/validator-contract.md.
+# Contract: documentation/reference/validator-contract.md.
 
 set -uo pipefail
 

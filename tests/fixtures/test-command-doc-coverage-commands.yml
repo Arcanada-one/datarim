@@ -1,5 +1,5 @@
 # Fixture for test-command-doc-coverage.bats (assertion 1)
-# Asserts every commands/dr-*.md is mentioned in docs/commands.md.
+# Asserts every commands/dr-*.md is mentioned in documentation/reference/commands.md.
 
 version: 1
 
@@ -9,6 +9,6 @@ artifacts:
     consumers:
       - id: docs_commands_row
         kind: grep_in_file
-        file: docs/commands.md
+        file: documentation/reference/commands.md
         pattern: /{name}
         severity: error

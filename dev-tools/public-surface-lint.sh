@@ -3,7 +3,7 @@
 # public-surface-lint.sh — Public Surface Hygiene Mandate gate.
 #
 # Walks the supplied --paths (default: README.md CHANGELOG.md CONTRIBUTING.md
-# docs/ packages) and greps for forbidden references loaded from a sibling
+# documentation/ packages) and greps for forbidden references loaded from a sibling
 # `.regex` file (default: dev-tools/public-surface-forbidden.regex).
 #
 # Single mode: exit 0 on PASS (no findings), exit 1 on FAIL (>=1 finding),

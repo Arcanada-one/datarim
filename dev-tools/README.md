@@ -162,7 +162,7 @@ site paths. Bypass: `git commit --no-verify`.
 
 The schema (`version: 1`) is independent of framework VERSION. Schema
 changes that are not backwards-compatible bump to `version: 2` and must
-be documented in `docs/evolution-log.md` together with a migration note.
+be documented in `documentation/how-to/evolution-log.md` together with a migration note.
 
 ## Automatic spec-traceability (`spec-graph-gate`, internal validators)
 
@@ -182,9 +182,9 @@ with `D-REQ-NN` ids (in PRD/plan templates), binds V-AC items to them via a
 
 All four share one library (`scripts/lib/spec-graph.sh`) and one rule registry
 (`dev-tools/dr-spec-rules.yaml`). They obey the common validator contract
-(`docs/validator-contract.md`): `--format json` JSONL, exit `0` valid / `1`
+(`documentation/reference/validator-contract.md`): `--format json` JSONL, exit `0` valid / `1`
 violations / `2` usage-or-configuration error. A mis-configured rule set
 (unknown rule, empty effective set, disabling a mandatory rule) is exit `2`,
 never "0 violations". Rollout is advisory-first
-(`docs/spec-traceability-rollout.md`): L1 skipped, L2 advisory, L3+ hard only
+(`documentation/explanation/spec-traceability-rollout.md`): L1 skipped, L2 advisory, L3+ hard only
 after explicit activation, with stage-appropriate task-aware scope.

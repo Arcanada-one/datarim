@@ -141,7 +141,7 @@ benefits should enable RTK via the plugin (`coworker rtk install`
 + `coworker rtk enable`) rather than wiring the raw binary into
 `~/.claude/settings.json` directly. The default 13-pattern
 passthrough store and CRUD workflow are documented in
-`docs/rtk-plugin.md` § Signal/bulk passthrough.
+`documentation/rtk-plugin.md` § Signal/bulk passthrough.
 
 ## Do NOT delegate
 
@@ -193,4 +193,4 @@ event and emits `permissionDecision=deny` when the agent attempts a direct
 that violates the rules above. The hook is registered via
 `~/.claude/settings.json` (Claude) or `~/.codex/hooks.json` (Codex,
 operator-maintained per machine — see
-`docs/how-to/codex-cli-coworker-hooks.md`).
+`documentation/how-to/codex-cli-coworker-hooks.md`).

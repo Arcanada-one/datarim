@@ -117,7 +117,7 @@ Full ruleset: `skills/security-baseline/SKILL.md`.
 
 ## 10. History-Agnostic Gate
 
-Never name a specific task ID in `skills/*.md`, `agents/*.md`, `commands/*.md`, `templates/*.md`. Provenance lives in `docs/evolution-log.md`, `documentation/archive/`, git log.
+Never name a specific task ID in `skills/*.md`, `agents/*.md`, `commands/*.md`, `templates/*.md`. Provenance lives in `documentation/how-to/evolution-log.md`, `documentation/archive/`, git log.
 
 This skill itself complies — only contract surfaces named, not history.
 

@@ -24,7 +24,7 @@
 #                   target outside a git repo or untracked → exit 2; directory
 #                   scan silently skips untracked files. Source incident:
 #                   TUNE-0044 + TUNE-0056 self-dogfood operator-toll on
-#                   docs/evolution-log.md (pre-existing matches kept failing
+#                   documentation/how-to/evolution-log.md (pre-existing matches kept failing
 #                   the gate every archive even when the current task did not
 #                   touch them).
 #

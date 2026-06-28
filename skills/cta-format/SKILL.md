@@ -67,7 +67,7 @@ The following commands and contexts MUST NOT emit a Stage Header:
 ### Enforcement
 
 <!-- gate:history-allowed -->
-Programmatic enforcement is opt-in via a Claude Code Stop hook (TUNE-0264) at `dev-tools/hooks/dr-output-stop.sh`. When registered in `~/.claude/settings.json § hooks.Stop[]`, the hook checks the first non-empty line of every assistant response against `^\*\*[A-Z]{2,10}-\d{4} · .+\*\*$` (Exception List above honoured: `/dr-help`, `/dr-status`, `/dr-doctor`, plus `/dr-init` until Step 4 emits the TASK-ID, plus `/dr-quick` until Step 2's probe emits the TASK-ID). Missing header on first occurrence → stdout JSON `{"decision":"block","reason":"..."}`; retry (`stop_hook_active=true`) degrades to stderr advisory (retry budget = 1). The same hook also enforces `human-summary.md § Output contract` when the user invoked `/dr-archive`, `/dr-compliance`, or `/dr-qa`. Opt-in instructions and the canonical `settings.json` snippet live in `docs/how-to/dr-output-hook.md`.
+Programmatic enforcement is opt-in via a Claude Code Stop hook (TUNE-0264) at `dev-tools/hooks/dr-output-stop.sh`. When registered in `~/.claude/settings.json § hooks.Stop[]`, the hook checks the first non-empty line of every assistant response against `^\*\*[A-Z]{2,10}-\d{4} · .+\*\*$` (Exception List above honoured: `/dr-help`, `/dr-status`, `/dr-doctor`, plus `/dr-init` until Step 4 emits the TASK-ID, plus `/dr-quick` until Step 2's probe emits the TASK-ID). Missing header on first occurrence → stdout JSON `{"decision":"block","reason":"..."}`; retry (`stop_hook_active=true`) degrades to stderr advisory (retry budget = 1). The same hook also enforces `human-summary.md § Output contract` when the user invoked `/dr-archive`, `/dr-compliance`, or `/dr-qa`. Opt-in instructions and the canonical `settings.json` snippet live in `documentation/how-to/dr-output-hook.md`.
 <!-- /gate:history-allowed -->
 
 ## Canonical Block — Single Active Task
@@ -315,15 +315,15 @@ bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/snapshot-writer-wrapper.sh" \
   || echo "warn: snapshot-writer-wrapper failed for $TASK_ID (continuing per V-AC-7)" >&2
 ```
 
-Fail-closed semantics: a non-zero wrapper exit MUST surface a single stderr warning line; do not silently swallow, do not abort the surrounding command. Kill switch — env `DATARIM_DISABLE_SNAPSHOT=1` makes the writer a no-op (documented in `docs/how-to/stage-snapshots.md`); the warning line is suppressed under the kill switch.
+Fail-closed semantics: a non-zero wrapper exit MUST surface a single stderr warning line; do not silently swallow, do not abort the surrounding command. Kill switch — env `DATARIM_DISABLE_SNAPSHOT=1` makes the writer a no-op (documented in `documentation/how-to/stage-snapshots.md`); the warning line is suppressed under the kill switch.
 
-**Harness journal side-effect.** When `/tmp/datarim-test-{TASK-ID}/` exists (created by `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/datarim-stage-probe-init.sh"`), the writer additionally appends one journal line per call to `/tmp/datarim-test-{TASK-ID}/journal.md` in the contract format `<stage> · <ISO-ts> · header-present:<y|n> · snapshot-written:y · cta-footer:<y|n> · snapshot-sha:<12-hex>`. Auto-detection is by directory presence; an absent harness directory is a no-op. See `docs/how-to/datarim-harness.md` for end-to-end harness usage.
+**Harness journal side-effect.** When `/tmp/datarim-test-{TASK-ID}/` exists (created by `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/datarim-stage-probe-init.sh"`), the writer additionally appends one journal line per call to `/tmp/datarim-test-{TASK-ID}/journal.md` in the contract format `<stage> · <ISO-ts> · header-present:<y|n> · snapshot-written:y · cta-footer:<y|n> · snapshot-sha:<12-hex>`. Auto-detection is by directory presence; an absent harness directory is a no-op. See `documentation/how-to/datarim-harness.md` for end-to-end harness usage.
 
 Consumer side: `commands/dr-next.md` § Step 2.5 "Snapshot-First Read" and `commands/dr-orchestrate.md` § Snapshot-First Resume read the file before falling through to task-description / init-task / activeContext. The replay-prompt template lives in `skills/dr-next-snapshot-replay/SKILL.md` § Replay-prompt template.
 
 ## Versioning
 
-Introduced in Datarim v1.16.0. See `docs/evolution-log.md` for provenance and source research.
+Introduced in Datarim v1.16.0. See `documentation/how-to/evolution-log.md` for provenance and source research.
 
 The stage-snapshot terminal step was added in v2.13.0 — see § Snapshot Emission above.
 

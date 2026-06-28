@@ -70,7 +70,7 @@ In scope:
 - All published release artifacts (source tarballs, SBOMs, signatures,
   attestations).
 - Documentation files that contain executable code blocks
-  (`docs/`, `*.md` at repo root).
+  (`documentation/`, `*.md` at repo root).
 
 Out of scope:
 
@@ -99,15 +99,15 @@ This repository enforces a security baseline composed of:
   for release tags; `CODEOWNERS` routing critical paths to a security
   team.
 
-See `docs/release-verification.md` for downstream consumer verification
-recipe and `docs/release-process.md` for the maintainer release
+See `documentation/how-to/release-verification.md` for downstream consumer verification
+recipe and `documentation/how-to/release-process.md` for the maintainer release
 playbook.
 
 ## Standards Mapping
 
 The baseline maps to OWASP ASVS v5, OpenSSF Scorecard, SOC 2 CC,
 ISO 27001 Annex A, and CIS Controls v8. The full mapping is in
-`docs/standards-mapping.md` (when published).
+`documentation/reference/standards-mapping.md` (when published).
 
 ## Hall of Fame
 

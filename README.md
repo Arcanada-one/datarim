@@ -144,7 +144,7 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   is `templates/coworker-delegation-fragment.md`; `install.sh
   --with-codex` prepends it into `~/.codex/AGENTS.override.md`. Codex
   hooks.json wiring is operator-maintained per machine — see
-  `docs/how-to/codex-cli-coworker-hooks.md`. Companion Stop-side
+  `documentation/how-to/codex-cli-coworker-hooks.md`. Companion Stop-side
   validator: `dev-tools/hooks/dr-output-stop.{py,sh}` enforces Stage
   Header + human-summary structure on `/dr-do` transcripts.
 
@@ -198,7 +198,7 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   implementation resources.
 
 - **Project scaffolding** — `/dr-init create project "Name"` creates a complete
-  project structure: CLAUDE.md with Laws of Robotics and Datarim pipeline, docs/
+  project structure: CLAUDE.md with Laws of Robotics and Datarim pipeline, documentation/
   stubs (architecture, testing, deployment, gotchas), ephemeral working directories,
   and Datarim workflow state. Tech stack auto-detected. Idempotent — safe to run on
   existing projects.
@@ -211,7 +211,7 @@ Stages in `[brackets]` are conditional — included when the agent determines th
 
 ## Runtimes
 
-Datarim is runtime-agnostic. Three AI coding runtimes are supported with different integration levels: Claude Code (primary, native hook integration, full `coworker rtk` token-economy support), Codex CLI (parity via shim), and Cursor (parity — native `beforeShellExecution` hook via `coworker rtk enable`). See the canonical [Runtime support matrix](docs/use-cases.md#runtime-support) for details.
+Datarim is runtime-agnostic. Three AI coding runtimes are supported with different integration levels: Claude Code (primary, native hook integration, full `coworker rtk` token-economy support), Codex CLI (parity via shim), and Cursor (parity — native `beforeShellExecution` hook via `coworker rtk enable`). See the canonical [Runtime support matrix](documentation/tutorials/use-cases.md#runtime-support) for details.
 
 ---
 
@@ -220,10 +220,10 @@ Datarim is runtime-agnostic. Three AI coding runtimes are supported with differe
 - **bash ≥ 4** — install.sh requires bash. Invoke it as `bash install.sh` (explicit) or `sh install.sh` (auto-re-execs under bash when bash is on PATH). If bash is absent you get an actionable error and exit 2.
 - **git** — required for cloning the repo.
 - **At least one supported vendor agent**, installed and authenticated:
-  - [Claude Code](https://code.claude.com/docs/en/overview) (primary) — `curl -fsSL https://claude.ai/install.sh | bash` (macOS/Linux/WSL) or `irm https://claude.ai/install.ps1 | iex` (Windows PowerShell). Install with `./install.sh --with-claude`.
+  - [Claude Code](https://code.claude.com/documentation/en/overview) (primary) — `curl -fsSL https://claude.ai/install.sh | bash` (macOS/Linux/WSL) or `irm https://claude.ai/install.ps1 | iex` (Windows PowerShell). Install with `./install.sh --with-claude`.
   - [Codex CLI](https://developers.openai.com/codex/cli) — parity via the `coworker rtk` shim. Install with `./install.sh --with-codex`.
   - [Cursor](https://cursor.com) — parity via the native `beforeShellExecution` hook. Install with `./install.sh --with-cursor`.
-  - See the [Runtime support matrix](docs/use-cases.md#runtime-support) for per-vendor hook integration and token-economy details.
+  - See the [Runtime support matrix](documentation/tutorials/use-cases.md#runtime-support) for per-vendor hook integration and token-economy details.
 - **Recommended:** [context7](https://github.com/upstash/context7) MCP server for
   token-efficient documentation access (reduces context usage when looking up library
   docs)
@@ -265,7 +265,7 @@ previously destroyed 9 runtime evolutions during the TUNE-0003 incident.
 
 ## Installation
 
-> **Releases are signed.** Every tagged release ships a cosign-signed source tarball, a CycloneDX SBOM, and a SLSA L2 build provenance attestation. Verify before installing — see [`docs/release-verification.md`](docs/release-verification.md).
+> **Releases are signed.** Every tagged release ships a cosign-signed source tarball, a CycloneDX SBOM, and a SLSA L2 build provenance attestation. Verify before installing — see [`documentation/how-to/release-verification.md`](documentation/how-to/release-verification.md).
 
 ### First install on a new machine
 
@@ -293,7 +293,7 @@ IS the repo by inode.
 
 The scope list lives in `install.sh INSTALL_SCOPES`; dev-tooling directories
 (`scripts/`, `tests/`, `dev-tools/`) are deliberately excluded because they
-are not distributed to runtime. See [docs/getting-started.md](docs/getting-started.md#installer-contract)
+are not distributed to runtime. See [documentation/tutorials/getting-started.md](documentation/tutorials/getting-started.md#installer-contract)
 for the full installer contract.
 
 ### Symlink-default operating model
@@ -304,7 +304,7 @@ Since v1.17.0, `install.sh` defaults to **symlink** mode — the
 repo, so every `git pull` instantly refreshes runtime with no copy step
 and no drift. Copy mode (`install.sh --copy`) is the documented fallback
 for filesystems without symlink support (FAT, exFAT, Windows native
-without Developer Mode). See [`docs/symlinks.md`](docs/symlinks.md) for
+without Developer Mode). See [`documentation/explanation/symlinks.md`](documentation/explanation/symlinks.md) for
 the full operating model, copy-mode migration recipe, and limitations.
 
 ### Windows (WSL / Git Bash)
@@ -364,7 +364,7 @@ The file has two sections:
 # Navigate to your project
 cd your-project
 
-# Option A: Scaffold a new project (creates CLAUDE.md, docs/, datarim/ automatically)
+# Option A: Scaffold a new project (creates CLAUDE.md, documentation/, datarim/ automatically)
 claude
 /dr-init create project "My API Service"
 
@@ -467,7 +467,7 @@ involve all seventeen agents across different stages.
 | **humanize** | AI artifact removal, voice preservation, natural language patterns | Editor, Writer |
 | **publishing** | Multi-platform publishing rules, formatting, limits, workflow | Writer (on demand) |
 | **telegram-publishing** | Telegram Bot API publishing rules, caption limits, discussion group comments | On demand |
-| **project-init** | Project scaffolding: CLAUDE.md, docs/, datarim/ structure for new projects | /dr-init (project mode) |
+| **project-init** | Project scaffolding: CLAUDE.md, documentation/, datarim/ structure for new projects | /dr-init (project mode) |
 | **research-workflow** | Structured research methodology — checklist, tool selection, gap discovery protocol | Researcher |
 | **reflecting** | Post-task reflection: lessons learned, evolution proposals, Class A/B gate | /dr-archive (Step 0.5) |
 
@@ -864,19 +864,19 @@ section for details.
 Datarim documentation follows the [Diátaxis](https://diataxis.fr) taxonomy —
 four orthogonal categories: tutorials (learning), how-to guides
 (problem-solving), reference (lookup), explanation (understanding). The
-framework's own docs live in `docs/`; consumer projects bootstrap
-`docs/{tutorials,how-to,reference,explanation}/` per the Documentation
+framework's own docs live in `documentation/`; consumer projects bootstrap
+`documentation/{tutorials,how-to,reference,explanation}/` per the Documentation
 Taxonomy Mandate (mandate text in the consumer's ecosystem CLAUDE.md;
 the contract surface ships with the framework as `skills/diataxis-docs/SKILL.md`).
 
 ### Reference docs
 
-- [`docs/getting-started.md`](docs/getting-started.md) — first-run tutorial and installer contract.
-- [`docs/commands.md`](docs/commands.md) — slash-command reference, including `/dr-verify` tri-layer self-verification.
-- [`docs/skills.md`](docs/skills.md), [`docs/agents.md`](docs/agents.md), [`docs/pipeline.md`](docs/pipeline.md) — runtime catalogues and pipeline flow.
-- [`docs/symlinks.md`](docs/symlinks.md) — symlink-default operating model, copy-mode fallback, migration recipe.
-- [`docs/standards-mapping.md`](docs/standards-mapping.md) — OWASP ASVS v5 / SOC 2 Common Criteria / ISO 27001 Annex A / CIS v8 control mapping, plus § SOC 2 Progress for the Q3 2026 Type II readiness roadmap.
-- [`docs/evolution-log.md`](docs/evolution-log.md), [`docs/release-process.md`](docs/release-process.md), [`docs/release-verification.md`](docs/release-verification.md) — provenance and supply-chain hardening.
+- [`documentation/tutorials/getting-started.md`](documentation/tutorials/getting-started.md) — first-run tutorial and installer contract.
+- [`documentation/reference/commands.md`](documentation/reference/commands.md) — slash-command reference, including `/dr-verify` tri-layer self-verification.
+- [`documentation/reference/skills.md`](documentation/reference/skills.md), [`documentation/reference/agents.md`](documentation/reference/agents.md), [`documentation/explanation/pipeline.md`](documentation/explanation/pipeline.md) — runtime catalogues and pipeline flow.
+- [`documentation/explanation/symlinks.md`](documentation/explanation/symlinks.md) — symlink-default operating model, copy-mode fallback, migration recipe.
+- [`documentation/reference/standards-mapping.md`](documentation/reference/standards-mapping.md) — OWASP ASVS v5 / SOC 2 Common Criteria / ISO 27001 Annex A / CIS v8 control mapping, plus § SOC 2 Progress for the Q3 2026 Type II readiness roadmap.
+- [`documentation/how-to/evolution-log.md`](documentation/how-to/evolution-log.md), [`documentation/how-to/release-process.md`](documentation/how-to/release-process.md), [`documentation/how-to/release-verification.md`](documentation/how-to/release-verification.md) — provenance and supply-chain hardening.
 
 ### SOC 2 baseline
 
@@ -884,7 +884,7 @@ Datarim's 9-cluster security baseline (S1–S9) maps 9/9 to SOC 2 Common
 Criteria (CC6 / CC7 / CC8 / CC9). The framework is a dev-tool baseline,
 not an applicative SOC 2 control set — operational evidence collection
 remains the consumer project's responsibility. See
-[`docs/standards-mapping.md`](docs/standards-mapping.md) § SOC 2 Progress
+[`documentation/reference/standards-mapping.md`](documentation/reference/standards-mapping.md) § SOC 2 Progress
 for covered controls, outstanding evidence, and the Q3 2026 Type II
 readiness roadmap.
 
@@ -1002,7 +1002,7 @@ datarim/
   skills/            # Knowledge modules (59 skills)
   commands/          # Slash commands (27 commands)
   templates/         # Task and document templates (19 templates)
-  docs/              # Extended documentation and use cases
+  documentation/              # Extended documentation and use cases
   CLAUDE.md          # Framework rules (copy to your project)
   install.sh         # Automated installer
   LICENSE            # MIT license

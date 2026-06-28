@@ -3,7 +3,7 @@
 #
 # Detects asymmetric drift between a canonical artefact directory
 # (e.g. commands/dr-*.md) and N consumer surfaces (CLAUDE.md mention,
-# README.md mention, docs/ table row, sister-site PHP file existence,
+# README.md mention, documentation/ table row, sister-site PHP file existence,
 # count fields).
 #
 # Driven by .doc-fanout.yml v1 (block-style YAML, depth <=3).

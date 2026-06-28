@@ -17,7 +17,7 @@ set -euo pipefail
 # Resolve the core policy loader. Prefer the core path; fall back to a local
 # copy (deprecation shim) when the core path is absent (e.g. copy-mode installs
 # that have not yet synced the core tree). This one-cycle fallback window is
-# documented in docs/evolution-log.md.
+# documented in documentation/how-to/evolution-log.md.
 _CORE_FB_LOADER="${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/fb-policy-loader.sh"
 _LOCAL_FB_LOADER="$DR_ORCH_DIR/../../dev-tools/fb-policy-loader.sh"
 if [[ -x "$_CORE_FB_LOADER" ]]; then

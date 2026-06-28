@@ -40,7 +40,7 @@ A single top-level directory in the framework repo. Layout convention:
 ```
 code/datarim/
 ├── skills/, agents/, commands/, templates/    ← shipped (in INSTALL_SCOPES)
-├── docs/, scripts/, tests/                    ← shipped
+├── documentation/, scripts/, tests/                    ← shipped
 └── dev-tools/                                 ← NOT shipped
     ├── <tool-name>.sh
     ├── <tool-config>.<ext>           (if config-driven)

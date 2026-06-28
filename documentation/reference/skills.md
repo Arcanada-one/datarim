@@ -34,7 +34,7 @@ Skills are split into two categories:
 | file-sync-config | Reference | inherit | Pre-flight checklist + ignore patterns for file-sync (Syncthing/rclone) | on demand for sync setup |
 | frontend-ui | Task | sonnet | CSS specificity, dark/light themes, visual testing, mobile responsiveness | when editing HTML/CSS |
 | infra-automation | Task | sonnet | SSH batch execution, health checks, network debugging, pre-migration inventory | server ops tasks |
-| project-init | Task | sonnet | Project scaffolding (CLAUDE.md, docs/, datarim/ structure) | /dr-init when project intent detected |
+| project-init | Task | sonnet | Project scaffolding (CLAUDE.md, documentation/, datarim/ structure) | /dr-init when project intent detected |
 | publishing | Task | haiku | Multi-platform publishing rules, formatting, platform limits | writer, on demand |
 | release-verify | Reference | inherit | Consumer-side release verification (sha256 → cosign verify-blob → gh attestation) | on install/update from GitHub Release |
 | research-workflow | Task | sonnet | Structured external research methodology, checklist, tool selection | researcher agent in /dr-prd, /dr-do |

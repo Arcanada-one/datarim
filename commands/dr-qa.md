@@ -397,7 +397,7 @@ this skill pre-resolves that decision to "yes".
 **Verdict → action:**
 
 - `PASS` / `PASS_WITH_NOTES` ⇒ Layer 4h contribution = PASS; the pipeline MAY propose prod prep / archive.
-- `SKIP` (docs/framework-only) / `NO-TEST-ENV` (none registered or discoverable) ⇒ no-op; recorded verbatim (NO-TEST-ENV is NOT a verification pass).
+- `SKIP` (documentation/framework-only) / `NO-TEST-ENV` (none registered or discoverable) ⇒ no-op; recorded verbatim (NO-TEST-ENV is NOT a verification pass).
 - `FAIL` (not shipped to test, or exercised and broken) ⇒ Layer 4h = **FAIL**; the pipeline **MUST NOT propose prod prep / archive**. Overall QA verdict is **BLOCKED**; route to `/dr-do` (broken) or back to the deploy step (not shipped).
 
 **Verdict:** PASS | PASS_WITH_NOTES | SKIP | NO-TEST-ENV | FAIL

@@ -33,7 +33,7 @@ consumer-facing verification recipe lives in
 > annotated tag carries the bump level; the `release.yml` `classify` job
 > re-verifies in CI and routes a `major` bump to the `release-manual` environment
 > (operator approval). `major` and any `0.x` breaking change always escalate. See
-> `docs/how-to/version-0x-policy.md` and the consumer mandate
+> `documentation/how-to/version-0x-policy.md` and the consumer mandate
 > `documentation/mandates/autonomous-agents.md` § Carve-out. The manual steps
 > below remain the operator path for major releases and for any release the agent
 > escalates.

@@ -42,7 +42,7 @@ done
 # Docs directory check
 echo ""
 doc_count=$(find "$SCRIPT_DIR/docs" -maxdepth 1 -name "*.md" -type f 2>/dev/null | wc -l | tr -d ' ')
-echo "  INFO: docs/ contains $doc_count reference documents"
+echo "  INFO: documentation/ contains $doc_count reference documents"
 
 # Double-prefix check
 echo ""
@@ -81,7 +81,7 @@ if [ -d "$LOCAL_DIR" ]; then
             bname="${entry##*|}"
             if [ -f "$SCRIPT_DIR/$scope/$bname" ]; then
                 # Critical-skill blocklist: shadowing security-contract surfaces is rejected (exit 1).
-                # Source list locked: skills/datarim-system/SKILL.md § Loading Order; docs/getting-started.md § Personal additions.
+                # Source list locked: skills/datarim-system/SKILL.md § Loading Order; documentation/tutorials/getting-started.md § Personal additions.
                 case "$scope/$bname" in
                     skills/security/SKILL.md|skills/security-baseline/SKILL.md|skills/compliance/SKILL.md|skills/datarim-system/SKILL.md|skills/ai-quality/SKILL.md|skills/evolution/SKILL.md)
                         echo "  ERROR: critical skill '$scope/$bname' cannot be overridden via local/ overlay (security contract). Remove $LOCAL_DIR/$scope/$bname or rename it."

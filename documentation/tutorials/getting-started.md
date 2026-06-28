@@ -8,7 +8,7 @@ This guide walks you through installing the Datarim framework, initializing it i
 
 - **bash ≥ 4** — install.sh requires bash (not sh/dash/ash). On macOS install via `brew install bash`; on RedHat/Alpine ensure `bash` is in PATH. `sh install.sh` works if bash is anywhere on PATH (the installer self-re-execs); if bash is absent you get an actionable error and exit 2.
 - **git** — required to clone the framework repo.
-- [Claude Code](https://code.claude.com/docs/en/overview) CLI installed and authenticated. Install: `curl -fsSL https://claude.ai/install.sh | bash` (macOS/Linux/WSL) or `irm https://claude.ai/install.ps1 | iex` (Windows PowerShell)
+- [Claude Code](https://code.claude.com/documentation/en/overview) CLI installed and authenticated. Install: `curl -fsSL https://claude.ai/install.sh | bash` (macOS/Linux/WSL) or `irm https://claude.ai/install.ps1 | iex` (Windows PowerShell)
 - A git repository for your project (Datarim uses `.gitignore` to separate workflow state from project documentation)
 - **Recommended:** [context7](https://github.com/upstash/context7) MCP server for token-efficient documentation access when looking up library docs
 
@@ -34,7 +34,7 @@ chmod +x install.sh
 
 ### Choose your runtime
 
-Datarim v2.0+ is **multi-runtime**. Three runtimes are supported with different integration levels — see the canonical [Runtime support matrix in docs/use-cases.md](use-cases.md#runtime-support) for the full picture. Short version:
+Datarim v2.0+ is **multi-runtime**. Three runtimes are supported with different integration levels — see the canonical [Runtime support matrix in documentation/tutorials/use-cases.md](use-cases.md#runtime-support) for the full picture. Short version:
 
 - **Claude Code** — primary; native `PreToolUse` hook integration; full `coworker rtk` token-economy plugin support.
 - **Codex CLI** — parity via the `coworker rtk` shim for `view` / `apply_patch` / `shell` / `exec_command`. **Codex disclaimer:** no `Task` / `TodoWrite` primitives; intent-layer rewrites in absorbed superpowers skills preserve runtime-agnostic readability.
@@ -54,7 +54,7 @@ The main `./install.sh` symlinks runtime scopes (agents/skills/commands/…) int
 cd cli && ./install.sh
 ```
 
-It prints the bilingual AAL 3 warning, validates `accepted-risk-aal.yml` entry `tune-0268-aal3-cli`, and symlinks `cli/datarim` → `/usr/local/bin/datarim` (falls back to `$HOME/.local/bin/datarim` when `/usr/local/bin` is not writable). Set `DATARIM_CLI_AGENT_ID` to a UUID v7 before the first `datarim run` invocation — generate via `cli/lib/uuid7-gen.sh`. Full reference: [docs/cli.md](cli.md).
+It prints the bilingual AAL 3 warning, validates `accepted-risk-aal.yml` entry `tune-0268-aal3-cli`, and symlinks `cli/datarim` → `/usr/local/bin/datarim` (falls back to `$HOME/.local/bin/datarim` when `/usr/local/bin` is not writable). Set `DATARIM_CLI_AGENT_ID` to a UUID v7 before the first `datarim run` invocation — generate via `cli/lib/uuid7-gen.sh`. Full reference: [documentation/reference/cli.md](cli.md).
 
 The CLI is opt-in. Slash commands inside a Claude Code session work without it.
 
@@ -180,7 +180,7 @@ The installer has a deliberately narrow contract — review a diff of `install.s
 
 The framework's 9-cluster security baseline (S1–S9) maps 9/9 to SOC 2 Common
 Criteria (CC6 / CC7 / CC8 / CC9). See
-[`docs/standards-mapping.md`](standards-mapping.md) § SOC 2 Progress for the
+[`documentation/reference/standards-mapping.md`](standards-mapping.md) § SOC 2 Progress for the
 current coverage, outstanding evidence, and the Q3 2026 Type II readiness
 roadmap. Operational evidence collection (Type I review, vendor management,
 incident-response runbooks) remains the consumer project's responsibility —
@@ -191,7 +191,7 @@ Datarim provides the technical scaffolding only.
 The default install mode is symlink (`install.sh` with no flags) — the
 `symlink-default` operating model since v1.17.0. Copy mode
 (`install.sh --copy`) is the documented fallback for filesystems without
-symlink support. See [`docs/symlinks.md`](symlinks.md) for the full operating
+symlink support. See [`documentation/explanation/symlinks.md`](symlinks.md) for the full operating
 model, copy-mode migration recipe, and limitations.
 
 ---
@@ -309,10 +309,10 @@ your-project/
 
 ## Project Scaffolding — Diátaxis Documentation Structure
 
-When `/dr-init` is invoked with a project-creation intent (e.g. `/dr-init create project "Foo"`), the scaffolder follows the **Documentation Taxonomy Mandate** (`skills/diataxis-docs/SKILL.md`). The default `docs/` layout is the four Diátaxis categories with auto-mapped legacy stubs:
+When `/dr-init` is invoked with a project-creation intent (e.g. `/dr-init create project "Foo"`), the scaffolder follows the **Documentation Taxonomy Mandate** (`skills/diataxis-docs/SKILL.md`). The default `documentation/` layout is the four Diátaxis categories with auto-mapped legacy stubs:
 
 ```
-your-project/docs/
+your-project/documentation/
 ├── tutorials/              # Learning-oriented (newcomer end-to-end)
 │   └── README.md
 ├── how-to/                 # Problem-solving (task recipes)
@@ -329,11 +329,11 @@ your-project/docs/
 
 The four categories are a **closed set** — `faq`, `glossary`, `troubleshooting`, `examples`, `overview`, `samples` are mappable to one of the four canonical buckets, never separate top-level types. See `skills/diataxis-docs/SKILL.md` § Mapping Table for the full mapping (architecture / testing / deployment / gotchas / api / cli / config / concepts / design / tutorial / quickstart / faq / troubleshooting / examples / glossary).
 
-**Idempotency:** `/dr-init` never overwrites existing files. If `docs/` already exists with files, the scaffolder skips them and reports "skipped: already exists" per file.
+**Idempotency:** `/dr-init` never overwrites existing files. If `documentation/` already exists with files, the scaffolder skips them and reports "skipped: already exists" per file.
 
 **Stack-agnostic:** the mandate describes taxonomy only — your choice of static-site generator (any) is per-project and outside the contract.
 
-**Drift detection:** `/dr-optimize` Step 6 detects repos with ≥3 `docs/*.md` files but missing the 4-category split, and proposes `INFRA-* — Diátaxis docs reorg` in backlog. Soft warning only at this stage; a future hard CI gate is deferred to a separate backlog item.
+**Drift detection:** `/dr-optimize` Step 6 detects repos with ≥3 `documentation/*.md` files but missing the 4-category split, and proposes `INFRA-* — Diátaxis docs reorg` in backlog. Soft warning only at this stage; a future hard CI gate is deferred to a separate backlog item.
 
 ## Two-Layer Architecture
 
@@ -491,7 +491,7 @@ Every `/dr-*` command persists its final operator-visible response (Summary + Ga
 
 - Storage: `datarim/snapshots/` (gitignored; archived snapshot lands in `documentation/archive/<subdir>/snapshots/{TASK-ID}-final-stage.md` at `/dr-archive`).
 - Kill-switch: `export DATARIM_DISABLE_SNAPSHOT=1` makes the writer no-op.
-- How-to with full reference: [`docs/how-to/stage-snapshots.md`](how-to/stage-snapshots.md).
+- How-to with full reference: [`documentation/how-to/stage-snapshots.md`](how-to/stage-snapshots.md).
 
 ---
 

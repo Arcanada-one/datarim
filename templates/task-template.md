@@ -64,8 +64,8 @@ Implementation and verification records declare evidence explicitly:
 
 The pipeline resolves the path wish_id -> D-REQ -> V-AC -> plan-step ->
 evidence automatically through `spec-graph-gate.sh`. Referenced ids must
-resolve to a declared D-REQ. See docs/validator-contract.md and
-docs/spec-traceability-rollout.md.
+resolve to a declared D-REQ. See documentation/reference/validator-contract.md and
+documentation/explanation/spec-traceability-rollout.md.
 -->
 
 

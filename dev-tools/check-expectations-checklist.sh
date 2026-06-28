@@ -426,7 +426,7 @@ validate_single_task() {
     # v1 legacy deprecation warning (TUNE-0266: 12-month sunset, see
     # skills/expectations-checklist/SKILL.md § Backwards-compatibility window).
     if [ "$val" = "1" ]; then
-        echo "DEPRECATION: $file: schema_version=1 — upgrade to v2 at next edit. Sunset: 2027-05-23 (12 months from TUNE-0266 archive). See docs/migration-v1-v2.md." >&2
+        echo "DEPRECATION: $file: schema_version=1 — upgrade to v2 at next edit. Sunset: 2027-05-23 (12 months from TUNE-0266 archive). See documentation/migration-v1-v2.md." >&2
     fi
 
     val=$(extract_frontmatter_field "$file" "task_id")

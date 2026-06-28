@@ -138,7 +138,7 @@ submit prompts to the orchestrator and receive escalation / progress events.
 # coworker (OSS)
 curl -fsSL https://raw.githubusercontent.com/Arcanada-one/coworker/main/install.sh | bash
 
-# claude CLI — see https://docs.claude.com/en/docs/claude-code
+# claude CLI — see https://docs.claude.com/en/documentation/claude-code
 ```
 
 The chain falls through silently on missing backends; the resolver still emits

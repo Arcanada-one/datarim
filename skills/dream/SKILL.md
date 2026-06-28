@@ -66,7 +66,7 @@ Deep maintenance that restructures the knowledge base for clarity and efficiency
 | Action | Description |
 |--------|-------------|
 | **Merge duplicates** | Combine two documents covering the same topic into one |
-| **Extract patterns** | Find recurring themes across reflections and create a patterns page in `docs/` |
+| **Extract patterns** | Find recurring themes across reflections and create a patterns page in `documentation/` |
 | **Build index** | Create or update `datarim/index.md` — a catalog of all documents (from both `datarim/` and `documentation/archive/`) with one-line summaries |
 | **Update progress** | Sync `progress.md` with actual state of tasks, backlog, and archives |
 | **Archive stale** | Move completed/obsolete documents to `archive/` with proper metadata |

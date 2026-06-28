@@ -88,13 +88,13 @@ This project uses [Datarim](https://datarim.club) for structured task execution.
 
 | Document | Purpose |
 |----------|---------|
-| `docs/architecture.md` | System architecture, components, data flow |
-| `docs/testing.md` | Test strategy, coverage expectations, how to run |
-| `docs/deployment.md` | Deploy steps, environments, rollback |
-| `docs/gotchas.md` | Detailed lessons learned by category |
-| `docs/ephemeral/plans/` | Implementation plans (transient) |
-| `docs/ephemeral/research/` | Research notes (transient) |
-| `docs/ephemeral/reviews/` | QA reports and reviews (transient) |
+| `documentation/architecture.md` | System architecture, components, data flow |
+| `documentation/testing.md` | Test strategy, coverage expectations, how to run |
+| `documentation/deployment.md` | Deploy steps, environments, rollback |
+| `documentation/gotchas.md` | Detailed lessons learned by category |
+| `documentation/ephemeral/plans/` | Implementation plans (transient) |
+| `documentation/ephemeral/research/` | Research notes (transient) |
+| `documentation/ephemeral/reviews/` | QA reports and reviews (transient) |
 
 ## Key Files
 

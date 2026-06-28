@@ -89,4 +89,4 @@ tail -1 ~/.local/share/datarim-orchestrate/audit-"$(date -u +%Y-%m-%d)".jsonl | 
 - **Plugin (opt-in — `dr-plugin enable <path>/plugins/dr-orchestrate`):** tmux runner, subagent inference chain, bot/HTTP transport, Redis pub/sub, HMAC audit, fleet scripts, content-consilium fan-out. Enable the plugin to use `/dr-orchestrate run`.
 - Resolver agent: `agents/dr-orchestrate-resolver.md` — plugin-backed; non-functional without the `dr-orchestrate` plugin's `subagent_resolver.sh`. See plugin README for setup.
 - Plugin README: `plugins/dr-orchestrate/README.md`
-- Provenance: `docs/evolution-log.md`
+- Provenance: `documentation/how-to/evolution-log.md`

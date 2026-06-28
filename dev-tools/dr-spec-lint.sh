@@ -24,7 +24,7 @@
 #                   [--rules a,b] [--ignore c,d] [--report]
 #
 # Exit: 0 clean / 1 violations (hard mode) / 2 usage-or-configuration error.
-# Contract: docs/validator-contract.md. Rollout: docs/spec-traceability-rollout.md.
+# Contract: documentation/reference/validator-contract.md. Rollout: documentation/explanation/spec-traceability-rollout.md.
 
 set -uo pipefail
 

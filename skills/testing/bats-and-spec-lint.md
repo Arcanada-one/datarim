@@ -90,7 +90,7 @@ When two files must stay in lock-step (a constant in code vs a table in docs, a 
 ```bash
 @test "scope contract: install.sh INSTALL_SCOPES matches the documented set" {
     grep -E "^INSTALL_SCOPES=\\(agents skills commands templates" "$FAKE_REPO/install.sh"
-    grep -F "agents/, skills/, commands/, templates/" "$FAKE_REPO/docs/getting-started.md"
+    grep -F "agents/, skills/, commands/, templates/" "$FAKE_REPO/documentation/tutorials/getting-started.md"
 }
 ```
 

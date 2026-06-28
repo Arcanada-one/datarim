@@ -69,7 +69,7 @@ When a pipeline command needs a task ID, apply this logic:
 
 **Prohibited content** — must go to dedicated files:
 - Credentials, secrets, access policies → `documentation/credentials/`
-- Specification templates, conventions → `skills/` or `docs/`
+- Specification templates, conventions → `skills/` or `documentation/`
 - Audit reports → `datarim/docs/` or `documentation/`
 - Infrastructure runbooks → `documentation/infrastructure/`
 - Code blocks > 50 lines → external file with link
