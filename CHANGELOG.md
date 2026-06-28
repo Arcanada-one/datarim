@@ -4,6 +4,22 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.48.0] — 2026-06-28
+
+**Stop the four shipped framework surfaces from writing the abolished `backlog-archive.md`; add a data-loss-safe terminal-task pruner wired into `/dr-doctor` and `/dr-dream`.** Root-cause fix for completed tasks accumulating in `backlog.md` (68 terminal entries / 107 KB found 2026-06-28). (TUNE-0462)
+
+### Fixed
+
+- **`commands/dr-archive.md` — Step 3 + Cancellation no longer write `backlog-archive.md`.** Step 3b/3c and the Cancellation block told the archiver to write the abolished `backlog-archive.md` (`## Completed` / `## Cancelled`), directly contradicting the same file's Step 7 («abolished v1.19.1») and the canonical SKILL `datarim-system/backlog-and-routing.md`. Because «remove from backlog» was coupled to writing an abolished file, terminal tasks were marked `done` in place and never removed. Both paths now route completion prose to `documentation/archive/{area}/archive-{ID}.md` and cancellation to `documentation/archive/cancelled/archive-{ID}.md`; the `backlog.md` entry is simply removed. (TUNE-0462)
+- **`skills/datarim-system/SKILL.md` § Task Disposition Patterns — fourth contradiction removed.** The disposition table still routed `completed`/`cancelled`/`absorbed`/`superseded` prose to the abolished `backlog-archive.md`; all four rows now route to `documentation/archive/{area}/archive-{ID}.md`. (TUNE-0462)
+
+### Added
+
+- **`dev-tools/prune-backlog-terminal.sh`** — a standalone, data-loss-safe pruner that removes terminal-status (`done`/`archived`) entries from `backlog.md`. A terminal entry **with** a corresponding `documentation/archive/{area}/archive-{ID}.md` is pruned; a terminal entry **without** an archive doc is **preserved and surfaced** (never silently dropped — Supreme Directive Law 1). Dry-run by default (`--check`); writes only under `--fix`. Standalone tool, not a branch inside `datarim-doctor.sh` (Validation Discipline). (TUNE-0462)
+- **`/dr-doctor` backlog terminal-task cleanup pass** — invokes the pruner in its dry-run/`--fix` model; surfaced archive-less IDs route to a `MAINT-*` follow-up. (TUNE-0462)
+- **`/dr-dream` propose-then-apply terminal-task cleanup** — surfaces the terminal-entry count at Step 7 (Lint), proposes the prune at Step 9 (Consolidate), applies only on approval. (TUNE-0462)
+- **Tests** — `tests/pre-archive-check.bats` T48/T49 (archive removes the backlog line; never re-creates `backlog-archive.md`) and the new `tests/prune-backlog-terminal.bats` (12 cases covering the prune / preserve-and-surface / leave-pending matrix). (TUNE-0462)
+
 ## [2.46.0] — 2026-06-23
 
 **Compliance Step 7 stale-test-count classification rule + deterministic classifier-script template.** Two Class-A evolution follow-ups from reflection-AGENT-0086 land in one release.
