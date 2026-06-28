@@ -298,10 +298,10 @@ When closing a task, choose the disposition that matches the actual outcome:
 
 | Disposition | When | Action |
 |---|---|---|
-| `completed` | All ACs PASS, full archive done | Standard `/dr-archive` flow → `documentation/archive/{area}/archive-{ID}.md` + `backlog-archive.md` ## Completed |
-| `cancelled` | User abandoned the task; no deliverable shipped | `backlog-archive.md` ## Cancelled with status `cancelled`, date, **reason**. No archive document. |
-| `absorbed` | Scope and deliverable fully delivered **inside another task** | `backlog-archive.md` ## Completed with status `absorbed`, link to absorbing task ID, note `delivered as part of {OTHER-TASK}`. No separate archive document — reference the absorbing task's archive. |
-| `superseded` | Replaced by a newer task with broader/different scope; no deliverable from this ID | `backlog-archive.md` ## Cancelled with status `superseded`, link to replacing task. |
+| `completed` | All ACs PASS, full archive done | Standard `/dr-archive` flow → write `documentation/archive/{area}/archive-{ID}.md`; remove entry from `backlog.md`. |
+| `cancelled` | User abandoned the task; no deliverable shipped | Write `documentation/archive/cancelled/archive-{ID}.md` with status `cancelled`, date, and reason; remove entry from `backlog.md`. |
+| `absorbed` | Scope and deliverable fully delivered **inside another task** | Remove entry from `backlog.md`; note `delivered as part of {OTHER-TASK}` inside the absorbing task's archive doc `documentation/archive/{area}/archive-{OTHER-TASK}.md`. No separate archive document for this ID — reference the absorbing task's archive. |
+| `superseded` | Replaced by a newer task with broader/different scope; no deliverable from this ID | Write `documentation/archive/cancelled/archive-{ID}.md` with status `superseded` and a link to the replacing task; remove entry from `backlog.md`. |
 
 Source: prior incident — an `update.sh` deliverable was shipped inside a different task's scope; `cancelled` was inaccurate (deliverable existed) and `completed` was inaccurate (no separate archive). `absorbed` captures the reality and preserves audit trail.
 

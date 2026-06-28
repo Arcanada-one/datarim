@@ -78,6 +78,7 @@ Run all health checks from the dream skill:
 - Cross-reference symmetry (A→B but not B→A)
 - Empty directories
 - Oversized files (>500 lines)
+- **Terminal backlog entries still in `backlog.md`** — invoke `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/prune-backlog-terminal.sh" --root "$DATARIM_ROOT" --check` and record the `prunable` / `surfaced` counts. Report surfaced IDs (terminal with no archive doc) as `warn:` findings requiring a `MAINT-*` follow-up.
 
 ### Step 8: Build/Update Index
 Create or update `datarim/index.md`:
@@ -94,6 +95,7 @@ Propose structural improvements:
 - **Add cross-references** — bidirectional links between related documents
 - **Add frontmatter** — fill in missing metadata where inferable
 - **Fix naming** — rename files to match conventions
+- **[prune-backlog] Remove N terminal entries from `backlog.md`** (archive docs confirmed present for each) — if Step 7 found `prunable > 0`. Apply by invoking `prune-backlog-terminal.sh --root "$DATARIM_ROOT" --fix` on approval only. If Step 7 found `surfaced > 0`, include a separate `[maint] Create missing archive docs for M surfaced IDs` proposal (operator action — do NOT auto-apply).
 
 ### Step 10: Report and Apply
 
@@ -116,6 +118,7 @@ Issues found: N (critical: X, warning: Y, info: Z)
 - N broken links
 - N stale references
 - N duplicates
+- N terminal backlog entries (prunable: P / surfaced: S)
 
 === CONSOLIDATION PROPOSALS ===
 1. [merge] Merge duplicate-a.md and duplicate-b.md → single-doc.md
@@ -123,6 +126,8 @@ Issues found: N (critical: X, warning: Y, info: Z)
 3. [cross-ref] Add 8 bidirectional links
 4. [frontmatter] Add metadata to 5 documents
 5. [rename] Fix naming for 2 files
+6. [prune-backlog] Remove N terminal entries from backlog.md (archive docs confirmed)
+7. [maint] Create missing archive docs for M surfaced IDs (operator action)
 
 Which proposals should I apply? (all / none / comma-separated numbers)
 ```

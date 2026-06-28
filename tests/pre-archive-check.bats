@@ -730,3 +730,66 @@ EOF
     [[ "$output" == *"own"* ]]
     [[ "$output" == *"TUNE-0084"* ]]
 }
+
+# ---------- TUNE-0462 archive-removal + no-recreate contract ----------
+#
+# Founding incident: commands/dr-archive.md Step 3b/3c + Cancellation step 3
+# instructed writing the abolished datarim/backlog-archive.md, coupling the
+# "remove from backlog" step to a forbidden file. Completed tasks were marked
+# done in-place and never removed (68 terminal entries / ~107 KB accumulated).
+# These tests pin the post-archive-run state contract the fixed Step 3 produces:
+# (a) the archived ID line is removed from backlog.md, AND (b) backlog-archive.md
+# is never (re)created — the gate must pass exactly that state and block its
+# regression. The presence-half is also covered by T37; these tests add the
+# archive-OUTCOME half the brief requires.
+
+# T48 (AC-2): post-archive state — archived ID line removed from backlog.md +
+# no backlog-archive.md → gate exits 0 (archive may proceed).
+@test "post-archive: archived line removed + no backlog-archive.md → exit 0 (TUNE-0462)" {
+    make_clean_repo "$BATS_TEST_TMPDIR/ws"
+    mkdir -p "$BATS_TEST_TMPDIR/ws/datarim"
+    # Seed: backlog holds a soon-to-be-archived entry alongside a survivor.
+    cat > "$BATS_TEST_TMPDIR/ws/datarim/backlog.md" <<'EOF'
+# Backlog
+
+## Pending
+
+- INFRA-0099 · pending · P2 · L2 · Survivor → tasks/INFRA-0099-task-description.md
+EOF
+    cat > "$BATS_TEST_TMPDIR/ws/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+EOF
+    git -C "$BATS_TEST_TMPDIR/ws" add datarim/
+    git -C "$BATS_TEST_TMPDIR/ws" commit --quiet -m "seed post-archive state"
+    # Assert the contract Step 3 produces:
+    run grep -q "TUNE-0462" "$BATS_TEST_TMPDIR/ws/datarim/backlog.md"
+    [ "$status" -ne 0 ]                                   # archived line absent
+    [ ! -f "$BATS_TEST_TMPDIR/ws/datarim/backlog-archive.md" ]  # abolished file absent
+    run "$SCRIPT" "$BATS_TEST_TMPDIR/ws"
+    [ "$status" -eq 0 ]                                   # gate clean
+}
+
+# T49 (AC-3): regression guard — if backlog-archive.md is (re)created, the
+# forbidden-file presence gate blocks (exit 1). Proves the enforcement
+# mechanism for clause (b) actually fires (companion to T37).
+@test "post-archive: re-created backlog-archive.md → exit 1 (TUNE-0462)" {
+    make_clean_repo "$BATS_TEST_TMPDIR/ws"
+    mkdir -p "$BATS_TEST_TMPDIR/ws/datarim"
+    cat > "$BATS_TEST_TMPDIR/ws/datarim/tasks.md" <<'EOF'
+# Tasks
+
+## Active
+EOF
+    cat > "$BATS_TEST_TMPDIR/ws/datarim/backlog-archive.md" <<'EOF'
+# Backlog Archive (regression — must never exist)
+
+## Completed
+EOF
+    git -C "$BATS_TEST_TMPDIR/ws" add datarim/
+    git -C "$BATS_TEST_TMPDIR/ws" commit --quiet -m "seed regressed backlog-archive"
+    run "$SCRIPT" "$BATS_TEST_TMPDIR/ws"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"backlog-archive.md"* ]]
+}
