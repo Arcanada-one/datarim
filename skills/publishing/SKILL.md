@@ -603,6 +603,22 @@ if any item fails, fix it before publishing.
 - [ ] Images sized for the target platform; no text unreadable at thumbnail.
 - [ ] For Telegram: length measured in UTF-16 code units, not characters.
 
+### Publish order + cross-links + back-link gate (multi-platform)
+
+- [ ] Published in the FIXED order — site → Telegram (RU canonical) → X (EN) →
+  Facebook / LinkedIn / VK. X goes BEFORE FB/LI/VK so its URL exists for their
+  comments (see § Publication Order). Reordering is a defect.
+- [ ] FB / LinkedIn / VK first comment carries BOTH the Telegram (RU) link AND
+  the X (EN) link (plus the blog link in the platform language, plus the product
+  site for product/framework articles), all in ONE comment.
+- [ ] CLOSING GATE — the blog article's `social` back-link block is present on
+  RU+EN, points at the real permalinks, and is verified live. An article live
+  with social posts but no/incomplete `social` block is an incomplete publish;
+  the task does not close without it.
+- [ ] Post video uses the animated-cover cycle; when narration audio exists it
+  carries the bottom audio-amplitude strip (default-on). A bare full-frame
+  waveform as the whole video is forbidden (see § Video standard).
+
 ### Multi-vendor consilium post-publish
 
 If content was produced via `--consilium` multi-vendor mode:
