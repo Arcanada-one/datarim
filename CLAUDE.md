@@ -59,7 +59,7 @@ Agents are specialized personas loaded per pipeline stage. Each agent has define
 | **researcher** | Structured External Research | /dr-prd (Phase 1.3), /dr-do (Gap Discovery) |
 | **peer-reviewer** | Adversarial Peer Reviewer (Layer 2/3 fallback) | /dr-verify (cross-Claude-family fallback subagent) |
 
-Agent files: `$HOME/.claude/agents/{name}.md` (18 agents)
+Agent files: `$HOME/.claude/agents/{name}.md` (19 agents)
 
 ### Agent Loading Rules
 
@@ -131,7 +131,7 @@ Skills are reusable knowledge modules loaded on demand. They provide rules, patt
 - `session-handoff-writer.md` — Producer contract for `/dr-save`: write `datarim/sessions/SESSION-{YYYYMMDD-HHMMSS}.session.md` with 5-layer body, 32 KB cap (L1/L5 non-truncatable), append-only semantics, claim-provenance enforcement (exit 1 on untagged claims), T-8 secret redaction, mkdir-based atomic lock, chmod 600. (loaded by: /dr-save)
 - `session-handoff-replay.md` — Consumer contract for `/dr-continue`: read session artefact in clean window, re-verify every claim via live probes (STALE SNAPSHOT / CLAIM-UNVERIFIED / FILE-MISSING banners), downgrade provenance tags, route to `/dr-next` or `/dr-auto`. Squash-collision detection via `git merge-base --is-ancestor`. Shares bilingual replay renderer with `/dr-next` via `skills/dr-next-snapshot-replay/SKILL.md § Shared Replay Renderer`. (loaded by: /dr-continue)
 
-Skill files: `$HOME/.claude/skills/{name}/SKILL.md` (56 skills, 11 with supporting fragment directories)
+Skill files: `$HOME/.claude/skills/{name}/SKILL.md` (59 skills, 11 with supporting fragment directories)
 
 > **v1.16.0 addition:** `cta-format.md` — canonical CTA "Next Step" block specification, loaded by `planner`, `architect`, `developer`, `reviewer`, `compliance` agents. Defines structure, separators, primary marker, multi-task menu (Variant B), and FAIL-Routing variant. Source: TUNE-0032.
 
@@ -222,7 +222,7 @@ Before writing ANY file to `datarim/`:
 | `/factcheck` | Standalone | Fact-check articles and posts before publication |
 | `/humanize` | Standalone | Remove AI writing patterns from text |
 
-Command files: `$HOME/.claude/commands/{name}.md` (26 commands, including the plugin command)
+Command files: `$HOME/.claude/commands/{name}.md` (27 commands, including the plugin command)
 
 ### /dr-verify (on-demand, tri-layer architecture)
 
