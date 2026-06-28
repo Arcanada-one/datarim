@@ -458,8 +458,7 @@ Complete and archive current task.
    - Use the resolved task ID from Step 0
    - If the same ID exists in `datarim/backlog.md` (as `in_progress` or `pending`):
      a. **Remove** that entry from `datarim/backlog.md`
-     b. **Add** entry to `datarim/backlog-archive.md` under `## Completed` with status `completed`, completion date, and link to archive doc — keeping the same ID
-     c. Update Archive Statistics count in `backlog-archive.md`
+     b. Do **not** write `datarim/backlog-archive.md` — it was abolished in v1.19.1 (see Step 7). The completion record is the archive doc written above at `documentation/archive/{area}/archive-{ID}.md`; the `backlog.md` entry is simply removed (the single-file backlog holds only transient `pending` / `blocked-pending` / `cancelled` — per `skills/datarim-system/backlog-and-routing.md`). Removing the entry in (a) is the whole of the backlog update.
    - If the task ID does not appear in `backlog.md`: skip this step (task was ad hoc, not from backlog)
 4. **FOLLOW-UP TASKS** (from reflection):
    - Read `datarim/reflection/reflection-[task_id].md` for "Next Steps" section
@@ -518,10 +517,10 @@ Complete and archive current task.
 If user says "cancel task" or "cancel {TASK-ID}":
 1. Resolve task ID using Task Resolution Rule (argument or disambiguation).
 2. **Remove** the entry from `datarim/backlog.md` (if present)
-3. **Add** entry to `datarim/backlog-archive.md` under `## Cancelled` with status `cancelled`, date, and reason — keeping the same ID
+3. **Write** `documentation/archive/cancelled/archive-{ID}.md` recording status `cancelled`, date, and reason (per `skills/datarim-system/backlog-and-routing.md`). Do **not** write `datarim/backlog-archive.md` — abolished v1.19.1.
 4. **Remove** the cancelled task from `## Active Tasks` in `activeContext.md` (keep other active tasks)
 5. Clear task from `tasks.md`
-6. Do NOT create archive document (task was not completed)
+6. The cancelled-archive stub from step 3 is the only record (no full completion archive — task shipped no deliverable)
 
 ## /dr-auto Mode (when `DATARIM_AUTO_MODE=1`)
 

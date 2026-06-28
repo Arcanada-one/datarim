@@ -34,16 +34,17 @@ Not a periodic cleanup. Idempotent: a second run on a compliant tree is a no-op.
     - Legacy bold-id `- **TASK-ID** ...` entries
     - Non-compliant bullet lines (any `- TASK-XXXX` not matching the canonical regex)
     - `progress.md` existence (slated for deletion)
-6. **PRESENT REPORT**: Surface a 4-row count table to the operator:
+6. **PRESENT REPORT**: Surface a 5-row count table to the operator:
     ```
-    | Category                       | Count |
-    |--------------------------------|-------|
-    | Legacy block-style (### ID:)   | N     |
-    | Legacy bold-id (- **ID** ...)  | N     |
-    | Non-compliant bullet           | N     |
-    | progress.md exists             | 0/1   |
+    | Category                                       | Count |
+    |------------------------------------------------|-------|
+    | Legacy block-style (### ID:)                   | N     |
+    | Legacy bold-id (- **ID** ...)                  | N     |
+    | Non-compliant bullet                           | N     |
+    | progress.md exists                             | 0/1   |
+    | Terminal backlog entries (prunable / surfaced) | P / S |
     ```
-    If all zeros → `datarim/` is compliant; exit 0 silently (no migration to perform).
+    If all zeros and P=0 / S=0 → `datarim/` is compliant; exit 0 silently (no migration to perform).
 7. **CONFIRMATION GATE** (interactive sessions only — `[ -t 0 ]`):
     - If invoked **without** `--fix` and findings > 0: prompt «Run `/dr-doctor --fix` to apply migration? [Y/n]» — default Y.
     - Y → re-invoke `scripts/datarim-doctor.sh --root="$DATARIM_ROOT" --fix`.
@@ -60,13 +61,24 @@ Not a periodic cleanup. Idempotent: a second run on a compliant tree is a no-op.
     - Spot-check: list newly created `datarim/tasks/{TASK-ID}-task-description.md` files (count matches block-style legacy count).
     - Confirm `progress.md` is gone (if it existed before).
     - Confirm `tasks.md` and `backlog.md` line count shrank to one-liner-per-task.
-10. **REPORT**: Produce a migration summary:
+10. **BACKLOG TERMINAL-TASK CLEANUP** (orthogonal pass, separate from schema migration):
+    - Invoke `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/prune-backlog-terminal.sh" --root "$DATARIM_ROOT" --check`.
+    - The tool reports `prunable: P  surfaced: S  kept: K`:
+      - `prunable` — terminal entries (`done`/`archived`/`completed`, or `cancelled` with an archive doc) that can be safely removed.
+      - `surfaced` — terminal entries WITHOUT a corresponding `documentation/archive/{area}/archive-{ID}.md`; these are **never silently dropped** — preserved in `backlog.md` and reported here for operator attention. Route each surfaced ID as a `MAINT-*` follow-up to create the missing archive doc.
+      - `kept` — non-terminal entries (`pending`, `blocked-pending`, or transient `cancelled`) left untouched.
+    - **Dry-run only** (no `--fix`): report the counts in the 5-row table row; do NOT apply changes yet.
+    - **When `--fix` is set** (Step 8 apply path or user explicitly passes `--fix`): also invoke with `--fix` to atomically rewrite `backlog.md`, removing only the prunable entries. Surfaced entries are preserved; the tool emits one `surfaced: {ID}` line per preserved entry.
+    - The cleanup is kept **orthogonal** to `scripts/datarim-doctor.sh` (schema migrator) per CLAUDE.md § Validation Discipline — do NOT add prune logic inside `datarim-doctor.sh`.
+
+11. **REPORT**: Produce a migration summary:
     - Files rewritten: `tasks.md`, `backlog.md`, `activeContext.md` (if touched).
     - Description files created: count.
     - `progress.md`: deleted (if existed) — last-completed entries promoted to `activeContext.md` § «Последние завершённые». <!-- allow-non-ascii: literal-russian-active-context-section-name-cited-from-canonical-schema -->
+    - Terminal backlog entries pruned / surfaced counts from step 10.
     - Idempotency confirmed (second dry-run exit 0).
 
-11. **INIT-TASK PRESENCE ADVISORY** (orthogonal content validator, MUST run after the migration summary; never blocks):
+12. **INIT-TASK PRESENCE ADVISORY** (orthogonal content validator, MUST run after the migration summary; never blocks):
     - Invoke `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-init-task-presence.sh" --all --root "$DATARIM_ROOT"`.
     - Stream the findings list to the operator. Each line carries the severity prefix and the task ID:
       - `info: <ID> init-task missing (task age <30d; rolling 30d soft window)` — fresh task without init-task, soft-window protected.
@@ -84,6 +96,7 @@ Not a periodic cleanup. Idempotent: a second run on a compliant tree is a no-op.
 - Rewrites `datarim/tasks.md`, `datarim/backlog.md`, `datarim/activeContext.md` to thin one-liner schema.
 - Creates `datarim/tasks/{TASK-ID}-task-description.md` per legacy block-style entry (YAML frontmatter + body sections).
 - Deletes `datarim/progress.md` after preserving last-completed entries into `activeContext.md`.
+- Atomically rewrites `datarim/backlog.md` (via `prune-backlog-terminal.sh --fix`) to remove terminal entries whose archive doc exists. Terminal entries without an archive doc are preserved.
 - Writes `datarim/.dr-doctor.lock` (transient, auto-released).
 
 Never touches `documentation/archive/`, `datarim/prd/`, `datarim/plans/`, `datarim/creative/`, `datarim/reflection/`. Never touches anything outside `$DATARIM_ROOT`.
