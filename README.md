@@ -97,7 +97,7 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   cross-Claude-family fallback). Each agent has a defined role, capabilities,
   and the stages where it operates.
 
-- **59 reusable skills** — modular knowledge units that agents load on demand,
+- **60 reusable skills** — modular knowledge units that agents load on demand,
   covering everything from testing methodology to security hardening to content
   creation workflows and structured research.
 
@@ -999,7 +999,7 @@ and why it exists.
 ```
 datarim/
   agents/            # Agent personas (19 agents)
-  skills/            # Knowledge modules (59 skills)
+  skills/            # Knowledge modules (60 skills)
   commands/          # Slash commands (27 commands)
   templates/         # Task and document templates (19 templates)
   documentation/              # Extended documentation and use cases
