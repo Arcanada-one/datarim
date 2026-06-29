@@ -4,6 +4,16 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.50.0] — 2026-06-29
+
+### Added
+
+- **New Reference skill `image-prompting`** — a reusable playbook that turns a content brief into a precise, repeatable prompt for instruction-following image generators (the gpt-image family and equivalents): blog/article covers, video thumbnails, social-post images, illustrations, infographics/diagrams, logo marks, and edits of existing images. Covers the full method — intake → spec → prompt → verify loop, prompt anatomy, composition, style/medium, camera/lens, light, mood, palette, text-in-image constraints, negative constraints + invariants, native aspect/size handling for gpt-image-style tools, iterative refinement, editing existing images, plus a `prompt-templates.md` fragment with nine fill-in-the-blank templates and a ship-readiness verification checklist. Wired into the `writer` and `editor` agents (load-when-needed) and the agent↔skill dependency visual map. (TUNE-0466)
+
+### Changed
+
+- **Skill registries synced to 60 skills** (`CLAUDE.md`, `README.md`, `documentation/reference/skills.md`); the "with supporting fragment directories" count corrected to its live value (13) with an inline definition. The `/dr-addskill` APPLY step gained an explicit all-occurrences count-sync reminder. (TUNE-0466)
+
 ## [2.49.0] — 2026-06-28
 
 ### Changed

@@ -1,6 +1,6 @@
 # Datarim — Universal Iterative Workflow Framework
 
-> **Version:** 2.48.2
+> **Version:** 2.50.0
 > **Framework:** Datarim provides structured rules, agents, skills, and commands for iterative project execution via AI coding assistants — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
 > **Multi-runtime:** Datarim is runtime-agnostic. This file is also available as `AGENTS.md` (symlink) for Codex CLI and other agent runtimes that read `AGENTS.md` by convention. See `documentation/tutorials/use-cases.md#runtime-support` for the canonical Claude Code / Codex CLI / Cursor support matrix.
 > **Note:** "Datarim" has a Russian transliteration «Датарим» — agents must recognise either form in any language context. <!-- allow-non-ascii: literal-transliteration-pair-for-agent-name-recognition -->
@@ -132,7 +132,7 @@ Skills are reusable knowledge modules loaded on demand. They provide rules, patt
 - `session-handoff-replay.md` — Consumer contract for `/dr-continue`: read session artefact in clean window, re-verify every claim via live probes (STALE SNAPSHOT / CLAIM-UNVERIFIED / FILE-MISSING banners), downgrade provenance tags, route to `/dr-next` or `/dr-auto`. Squash-collision detection via `git merge-base --is-ancestor`. Shares bilingual replay renderer with `/dr-next` via `skills/dr-next-snapshot-replay/SKILL.md § Shared Replay Renderer`. (loaded by: /dr-continue)
 - `image-prompting.md` — Playbook for authoring image-generation prompts (covers, thumbnails, post visuals, illustrations, infographics, logos): intake → spec → prompt → verify loop, composition / camera / light / palette language, text-in-image constraints, negative constraints + invariants, native aspect/size handling for gpt-image-style tools, iterative refinement, reusable templates fragment (`prompt-templates.md`), verification checklist (loaded by: writer, editor, on demand for any visual asset).
 
-Skill files: `$HOME/.claude/skills/{name}/SKILL.md` (60 skills, 12 with supporting fragment directories)
+Skill files: `$HOME/.claude/skills/{name}/SKILL.md` (60 skills, 13 with supporting fragment directories — a "supporting fragment directory" is a skill folder that ships at least one sibling `.md` beside its `SKILL.md`)
 
 > **v1.16.0 addition:** `cta-format.md` — canonical CTA "Next Step" block specification, loaded by `planner`, `architect`, `developer`, `reviewer`, `compliance` agents. Defines structure, separators, primary marker, multi-task menu (Variant B), and FAIL-Routing variant. Source: TUNE-0032.
 

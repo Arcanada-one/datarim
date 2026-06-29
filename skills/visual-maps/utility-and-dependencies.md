@@ -146,6 +146,7 @@ graph LR
         expect_sk["expectations-checklist"]
         play_sk["playwright-qa"]
         human_sk["human-summary"]
+        imgp["image-prompting"]
     end
 
     planner --> sys & aiq & tech & init_task
@@ -153,8 +154,8 @@ graph LR
     developer --> sys & aiq & test & init_task
     reviewer --> sys & sec & test & refl & evo & init_task & expect_sk & play_sk & human_sk
     comp_agent --> sys & comp_sk & expect_sk & human_sk
-    writer_agent --> sys & writ & fc & pub
-    editor_agent --> sys & fc & hum & writ
+    writer_agent --> sys & writ & fc & pub & imgp
+    editor_agent --> sys & fc & hum & writ & imgp
     skill_creator --> sys & evo & writ
     optimizer_agent --> sys & evo
     librarian --> sys & drm
