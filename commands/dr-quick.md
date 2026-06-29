@@ -22,11 +22,14 @@ Note: title defaults to English unless the operator's configured content languag
 
 1. Resolve `datarim/` via standard path resolution (walk up; if absent, STOP and tell user to run `/dr-init` — only `/dr-init` creates `datarim/`).
 2. **Assign the next free `QCK-XXXX` id — probe-before-emit (MANDATORY):**
-   - Compute the candidate ID using the deterministic formula:
+   - Run the canonical helper (do NOT compute `max+1` mentally):
+     `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/next-free-id.sh" QCK "$DATARIM_ROOT"`
+     where `$DATARIM_ROOT` is the workspace root (parent of `datarim/`). The helper applies the canonical formula
      `max(claimed across documentation/archive ∪ datarim/tasks.md ∪ datarim/backlog.md) + 1`
-     (where the max is taken over all `QCK-NNNN` entries across all three claim surfaces).
-   - **Do not emit or announce the chosen task ID — in reply text or in any artefact — until this 3-surface collision probe completes.**
-   - If the computed candidate is already claimed (a parallel-session race on the agent's own new ID), auto-bump to the next free ID and emit a warning — no operator prompt.
+     over all three claim surfaces and auto-bumps on a parallel-session race, printing the chosen `QCK-NNNN` to stdout.
+     **Documented fallback** (helper unavailable in this runtime): compute the same formula by hand.
+   - **Do not emit or announce the chosen task ID — in reply text or in any artefact — until the helper has returned (its grep IS the 3-surface collision probe).**
+   - If the computed candidate is already claimed (a parallel-session race on the agent's own new ID), the helper auto-bumps to the next free ID and emits a warning — no operator prompt.
    - `QCK` is a universal area-prefix; its archive subdirectory is `quick/`.
 
 ## Stage Header (mandatory)
