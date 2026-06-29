@@ -1,5 +1,12 @@
 # Evolution Log
 
+## 2026-06-29 — TUNE-0464 — Reconcile $DATARIM_ROOT semantic in commands/dr-init.md (Class N/A bugfix)
+
+- The topic-overlap probe (Step 2.5b) passed `--backlog "$DATARIM_ROOT/backlog.md"`, treating `$DATARIM_ROOT` as the `datarim/` directory, while every other usage in the same file (the ID-assign helper call, the doctor `--root` contract at Steps 2.4/2.4-fix, the init-task and expectations probes) treats `$DATARIM_ROOT` as the workspace root (parent of `datarim/`). The probe therefore pointed at a non-existent `<workspace>/backlog.md`; `check-topic-overlap.py` reads `--backlog` as a full file path, so the advisory silently found nothing.
+- Fix: `--backlog "$DATARIM_ROOT/datarim/backlog.md"` + an inline note at the call-site pinning the workspace-root semantic, consistent with the helper and doctor contract.
+- Discovered during TUNE-0463 QA review (out-of-scope there; filed as follow-up).
+- VERSION 2.48.1 → 2.48.2. Archive: `documentation/archive/framework/archive-TUNE-0464.md`.
+
 ## 2026-06-23 — TUNE-0449 — Orchestration autonomy policy → core (Option C) + provenance convention (Class A applied)
 
 - Promoted the autonomy policy data + loader from the opt-in `dr-orchestrate` plugin into core `dev-tools/` (Option C, consilium-decided, operator-approved). The hard-gated safety floor and action-autonomy map now resolve from core without enabling any plugin; the transport runner stays an opt-in plugin via thin shims.

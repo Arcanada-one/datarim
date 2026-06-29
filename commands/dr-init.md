@@ -66,10 +66,10 @@ description: Initialize a new Datarim task or scaffold a new project. Auto-detec
       printf '%s\n' "$USER_TASK_DESCRIPTION" | \
         python3 "$DATARIM_RUNTIME/dev-tools/check-topic-overlap.py" \
           --task-description - \
-          --backlog "$DATARIM_ROOT/backlog.md" \
+          --backlog "$DATARIM_ROOT/datarim/backlog.md" \
           --top-n 5 --min-overlap 2
       ```
-      `$DATARIM_RUNTIME` is the framework code root (`code/datarim` in the framework repo, `~/.claude` after install).
+      `$DATARIM_RUNTIME` is the framework code root (`code/datarim` in the framework repo, `~/.claude` after install). `$DATARIM_ROOT` is the workspace root (the parent of `datarim/`), so the backlog resolves to `$DATARIM_ROOT/datarim/backlog.md` — same semantic the ID-assign helper and the doctor `--root` contract use.
     - Stream stdout straight to the operator. The script is **exit 0 by contract** — exit code is ignored even on parse anomalies.
     - In non-tty / CI runs (`DATARIM_NONINTERACTIVE=1` or `! [ -t 0 ]`): capture stdout into the step report, never prompt.
     - When the advisory surfaces matches, operator chooses: `duplicate` (abort + `/dr-init {EXISTING-ID}`), `refine-scope` (narrow new task to avoid collision), or `orthogonal` (continue — overlap is incidental). Default on no operator input: continue.
