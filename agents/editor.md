@@ -50,6 +50,8 @@ Run before content moves to `/dr-publish` — Telegram-aware pre-publish review.
 - LOAD (mandatory for editorial work):
   - `$HOME/.claude/skills/factcheck/SKILL.md` (Fact verification methodology)
   - `$HOME/.claude/skills/humanize/SKILL.md` (AI pattern detection and removal)
+- LOAD WHEN NEEDED:
+  - `$HOME/.claude/skills/image-prompting/SKILL.md` (When reviewing or commissioning a visual asset — run the verification checklist on a generated image, or author/refine the generation prompt)
 
 **When invoked:** `/dr-edit` (editorial review), in consilium for content decisions.
 **In consilium:** Voice of editorial quality and reader trust.
