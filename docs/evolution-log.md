@@ -1975,3 +1975,33 @@ stack-agnostic gate PASS). Recurrence-promoted (`incident_class: report-cites-sh
 prior occurrences in reflection-DEV-1476 / reflection-DEV-1517 fetch-remote-to-verify class). Operator-approved.
 Targeted bats green (check-skill-frontmatter, check-skill-layout, dr-compliance-deferral-gate,
 stack-agnostic-gate, tune-0255-compliance-template-shape, check-frontmatter-english).
+
+**TUNE-0463** — Wired `next-free-id.sh` into `/dr-init` and `/dr-quick` as the mandatory
+ID-assignment mechanism. Previously the helper (created by TUNE-0461) was orphaned: both
+command files instructed agents to compute `max+1` by hand (prose-only formula), which
+caused the TUNE-0461 class to recur on 2026-06-28 — an LLM skipped the archive grep and
+reused an already-archived ID. Fix: `commands/dr-init.md` Step 4 and `commands/dr-quick.md`
+Step 2 now instruct the agent to run
+`"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/next-free-id.sh" {PREFIX} "$DATARIM_ROOT"`
+as the canonical step; the prose formula is retained as a documented fallback (helper
+unavailable). The ID-collision probe block is preserved; a clarifying sentence distinguishes
+the helper-handled self-collision path from the prose-handled foreign-entry path. Added
+Group C to `tests/tune-0461-id-collision-autobump.bats`: C01/C02 assert an archived-only ID
+is not reused (AC-3 regression guard); C03 asserts fixture isolation — helper greps only the
+caller-supplied root, not the live workspace (AC-4). VERSION bumped 2.48.0 → 2.48.1 (patch:
+behaviour-correction of an existing mechanism, no new artefact). Second occurrence of the
+ID-collision class; first was TUNE-0461, which shipped the helper orphaned.
+
+**Follow-on within the same cycle (dogfooding the wired helper on the live workspace
+surfaced two latent defects in `next-free-id.sh` that small synthetic fixtures never hit):**
+(1) *octal parse* — the leading-zero strip + bare `(( 0058 ))` read zero-padded numerics
+whose digit is >= 8 as octal, erroring and silently dropping them from the max; fixed by
+pinning base-10 via `(( 10#$num ... ))`. (2) *prose-mention pollution* — Surface 1 used a
+content-grep over archive `.md` bodies, so illustrative IDs cited in archive prose (e.g. a
+fixture id like `TUNE-9999` documented in a write-up) inflated the max; the canonical claim
+surface is the `archive-{ID}.md` FILENAME, so both the max scan and the `is_claimed` probe
+now derive archive IDs from filenames via `find`. Both defects made the helper return
+`TUNE-10000` against the real archive (correct answer: the next free ID after the true max).
+Added Group D regression tests (D01 octal, D02 prose-pollution), mutation-verified to fail
+against the un-fixed helper. Without these the helper would have shipped wired-in but broken
+on any real archive — defeating the task's purpose.

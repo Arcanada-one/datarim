@@ -170,3 +170,94 @@ teardown() {
     # 10000 is 5 digits — the helper must handle this correctly
     [ "$output" = "TUNE-10000" ]
 }
+
+# ── Group C — archived-only ID not reused (AC-3, AC-4) ───────────────────────
+#
+# Regression for the archived-only-ID reuse class: when an ID exists ONLY in
+# documentation/archive/ and is absent from live tasks.md / backlog.md, the
+# helper must still treat it as claimed (include it in the max) and return the
+# next free ID rather than reusing the archived ID.
+#
+# C01 + C02 → AC-3. C03 → AC-4 (fixture isolation: helper greps only the
+# caller-supplied root; no leakage from the live workspace or cwd).
+
+@test "C01: next-free-id.sh does not reuse an archived-only ID" {
+    # Archive has TUNE-0461; tasks.md and backlog.md are absent (empty fixture).
+    # Helper must return TUNE-0462, not TUNE-0001 or TUNE-0461.
+    mkdir -p "${FIXTURE_DIR}/documentation/archive/framework"
+    printf '# archive-TUNE-0461.md\n' \
+        > "${FIXTURE_DIR}/documentation/archive/framework/archive-TUNE-0461.md"
+    # tasks.md and backlog.md intentionally absent — helper must tolerate missing files
+
+    run bash "${HELPER}" "TUNE" "${FIXTURE_DIR}"
+    [ "$status" -eq 0 ]
+    [ "$output" = "TUNE-0462" ]
+}
+
+@test "C02: archive max beats live tasks/backlog when higher; archived ID still not reused" {
+    # tasks.md: TUNE-0003, backlog.md: TUNE-0005 (both lower than archive max).
+    # Archive: TUNE-0461 — the overall max is 461, so the next free ID is TUNE-0462.
+    mkdir -p "${FIXTURE_DIR}/documentation/archive/framework"
+    printf -- '- TUNE-0003 · task\n' > "${FIXTURE_DIR}/datarim/tasks.md"
+    printf -- '- TUNE-0005 · backlog item\n' > "${FIXTURE_DIR}/datarim/backlog.md"
+    printf '# archive-TUNE-0461.md\n' \
+        > "${FIXTURE_DIR}/documentation/archive/framework/archive-TUNE-0461.md"
+
+    run bash "${HELPER}" "TUNE" "${FIXTURE_DIR}"
+    [ "$status" -eq 0 ]
+    [ "$output" = "TUNE-0462" ]
+}
+
+@test "C03: next-free-id.sh greps only the supplied root — no leakage from real workspace" {
+    # Supply a completely empty fixture root with an unrelated prefix (ZZ).
+    # Even if the real workspace has high TUNE IDs, the helper must return ZZ-0001
+    # because the fixture root has no ZZ entries at all.
+    # This proves fixture isolation: helper greps only $DATARIM_ROOT.
+    run bash "${HELPER}" "ZZ" "${FIXTURE_DIR}"
+    [ "$status" -eq 0 ]
+    [ "$output" = "ZZ-0001" ]
+}
+
+# ── Group D — real-workspace defects surfaced by dogfooding the wired helper ──
+#
+# Both regressions are invisible to small synthetic fixtures with clean IDs and
+# only appear against a real archive. They are guarded here directly.
+#
+# D01 → base-10 parse. A zero-padded numeric whose 3rd/4th digit is >= 8 (0058,
+# 0079, 0090) is read as OCTAL by a bare `(( 0058 ))`, errors, and is silently
+# skipped — corrupting the max. The `10#` pin fixes it. Without the fix this test
+# returns the wrong next-free ID (it skips 0058 from the max).
+# D02 → filename-based archive surface. Archived docs cite illustrative IDs in
+# their PROSE (e.g. a test write-up mentioning a fixture id like PREFIX-9999). A
+# content-grep over the archive scoops those up and inflates the max. The claim
+# surface is the `archive-{ID}.md` FILENAME, not body text.
+
+@test "D01: zero-padded ID with octal-trap digit (0058) is parsed base-10, not skipped" {
+    # tasks.md holds TUNE-0058. A bare octal parse of 0058 errors and skips it,
+    # leaving max=0 → wrong result TUNE-0001. With base-10 the answer is TUNE-0059.
+    printf -- '- TUNE-0058 · octal-trap watermark\n' > "${FIXTURE_DIR}/datarim/tasks.md"
+    STDOUT_FILE="$(mktemp)"
+    STDERR_FILE="$(mktemp)"
+    bash "${HELPER}" "TUNE" "${FIXTURE_DIR}" > "${STDOUT_FILE}" 2> "${STDERR_FILE}"
+    STATUS=$?
+    CHOSEN_ID="$(cat "${STDOUT_FILE}")"
+    # No octal arithmetic errors must reach stderr
+    run cat "${STDERR_FILE}"
+    rm -f "${STDOUT_FILE}" "${STDERR_FILE}"
+    [ "$STATUS" -eq 0 ]
+    [ "$CHOSEN_ID" = "TUNE-0059" ]
+    echo "$output" | grep -vqi "value too great for base" || { echo "octal error leaked to stderr"; false; }
+}
+
+@test "D02: archive ID cited only in PROSE does not pollute the max (filename surface)" {
+    # A genuinely-archived low task (archive-TUNE-0010.md) whose BODY happens to
+    # cite a high fixture ID in prose. The helper must claim 0010 (the filename)
+    # and ignore the prose mention → next free is TUNE-0011, never TUNE-10000.
+    mkdir -p "${FIXTURE_DIR}/documentation/archive/framework"
+    printf '# archive-TUNE-0010.md\n\nSee the test fixture TUNE-9999 documented below.\n' \
+        > "${FIXTURE_DIR}/documentation/archive/framework/archive-TUNE-0010.md"
+
+    run bash "${HELPER}" "TUNE" "${FIXTURE_DIR}"
+    [ "$status" -eq 0 ]
+    [ "$output" = "TUNE-0011" ]
+}

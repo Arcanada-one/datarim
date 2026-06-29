@@ -54,9 +54,15 @@ TMPFILE="$(mktemp)"
 # shellcheck disable=SC2064
 trap "rm -f '${TMPFILE}'" EXIT
 
-# Surface 1 — archive
+# Surface 1 — archive. The canonical claim for an archived task is its
+# `archive-{ID}.md` FILENAME, not arbitrary ID mentions in document bodies.
+# A prior content-grep (`grep -roh ... "$ARCHIVE_DIR"`) scooped up illustrative
+# IDs cited inside archive prose (e.g. fixture IDs like PREFIX-9999 documented in
+# a test write-up), inflating the max and excluding exactly the "test fixtures"
+# the canon says to ignore. Extract from filenames instead.
 if [[ -d "$ARCHIVE_DIR" ]]; then
-    grep -roh --include="*.md" "${PREFIX}-[0-9]\{4\}" "$ARCHIVE_DIR" 2>/dev/null >> "$TMPFILE" || true
+    find "$ARCHIVE_DIR" -type f -name "archive-${PREFIX}-[0-9][0-9][0-9][0-9].md" 2>/dev/null \
+        | grep -oh "${PREFIX}-[0-9]\{4\}" 2>/dev/null >> "$TMPFILE" || true
 fi
 
 # Surface 2 — tasks.md
@@ -75,10 +81,12 @@ MAX_NUM=0
 while IFS= read -r id; do
     # Extract the numeric portion (4 digits after the dash)
     num="${id#*-}"
-    num="${num#0*}"  # strip leading zeros for arithmetic — handle "0000" edge case
-    num="${num:-0}"
-    if [[ "$num" =~ ^[0-9]+$ ]] && (( num > MAX_NUM )); then
-        MAX_NUM="$num"
+    # Validate as 1+ digits, then force base-10 in arithmetic. A bare `(( 058 ))`
+    # is parsed as octal, so any zero-padded digit >= 8 (e.g. 0058, 0079, 0090)
+    # would error and be silently skipped — corrupting the max. `10#` pins base-10
+    # for any number of leading zeros, including the all-zero "0000" edge case.
+    if [[ "$num" =~ ^[0-9]+$ ]] && (( 10#$num > MAX_NUM )); then
+        MAX_NUM=$(( 10#$num ))
     fi
 done < "$TMPFILE"
 
@@ -92,7 +100,9 @@ CANDIDATE=$(( MAX_NUM + 1 ))
 
 is_claimed() {
     local id="$1"
-    grep -rqh --include="*.md" "${id}" "$ARCHIVE_DIR" 2>/dev/null && return 0
+    # Archive claim = an `archive-{id}.md` file exists (filename surface), not a
+    # prose mention of the id inside some other archive document. Mirror Surface 1.
+    find "$ARCHIVE_DIR" -type f -name "archive-${id}.md" 2>/dev/null | grep -q . && return 0
     [[ -f "$TASKS_FILE" ]] && grep -qh "${id}" "$TASKS_FILE" 2>/dev/null && return 0
     [[ -f "$BACKLOG_FILE" ]] && grep -qh "${id}" "$BACKLOG_FILE" 2>/dev/null && return 0
     return 1
