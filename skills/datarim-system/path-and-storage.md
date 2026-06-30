@@ -61,9 +61,7 @@ This rule is implemented once, canonically, in `scripts/lib/resolve-datarim-root
 
 - `tasks.md` — active task tracking
 - `backlog.md` — active task queue
-- `backlog-archive.md` — historical backlog items
 - `activeContext.md` — current task state
-- `progress.md` — overall progress
 - `projectbrief.md` — project overview
 - `productContext.md` — product requirements
 - `systemPatterns.md` — system patterns

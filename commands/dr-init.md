@@ -29,7 +29,7 @@ description: Initialize a new Datarim task or scaffold a new project. Auto-detec
     - If the project uses submodules, use the **outermost** repo root (e.g., `local-env/`, not `aio-v2/`).
     - Create `datarim/` there ONLY if it does not already exist.
     - If creating for the first time:
-      a. Create `backlog.md` and `backlog-archive.md` from templates at `${DATARIM_RUNTIME:-$HOME/.claude}/templates/backlog-template.md` and `${DATARIM_RUNTIME:-$HOME/.claude}/templates/backlog-archive-template.md`.
+      a. Create `backlog.md` from the template at `${DATARIM_RUNTIME:-$HOME/.claude}/templates/backlog-template.md`. (Create ONLY `backlog.md` — the separate completed/cancelled archive index was retired in v1.19.1; completed/cancelled prose now lives in `documentation/archive/{area|cancelled}/archive-{ID}.md`, and `backlog.md` carries only live items.)
       b. Create `documentation/archive/` directory (for long-term task archives).
       c. If `.gitignore` exists and does not contain `datarim/` → append `datarim/` to it.
       d. If `.gitignore` does not exist → ask user: "Create `.gitignore` with `datarim/`? (recommended — keeps workflow state local)"
