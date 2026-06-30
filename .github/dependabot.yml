@@ -17,6 +17,10 @@ updates:
       day: "monday"
       time: "06:00"
       timezone: "Etc/UTC"
+    # Delay PRs for freshly-released versions so a compromised release has time
+    # to be discovered and yanked before it reaches CI (supply-chain hardening).
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
@@ -43,6 +47,10 @@ updates:
       day: "monday"
       time: "06:00"
       timezone: "Etc/UTC"
+    # Delay PRs for freshly-released versions so a compromised release has time
+    # to be discovered and yanked before it reaches CI (supply-chain hardening).
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 3
     labels:
       - "dependencies"
