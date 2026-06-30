@@ -79,10 +79,8 @@ Create the following structure following the **Diátaxis Documentation Taxonomy 
 │
 ├── datarim/                     # Workflow state (created via standard /dr-init logic)
 │   ├── backlog.md               # From template: $HOME/.claude/templates/backlog-template.md
-│   ├── backlog-archive.md       # From template: $HOME/.claude/templates/backlog-archive-template.md
 │   ├── activeContext.md          # Active task tracking
-│   ├── tasks.md                 # Task details
-│   └── progress.md              # Progress tracking
+│   └── tasks.md                 # Task details
 │
 └── documentation/               # Long-term archives (committed to git)
     └── archive/                 # Completed task archives

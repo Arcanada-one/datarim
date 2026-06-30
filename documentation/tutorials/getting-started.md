@@ -281,8 +281,6 @@ your-project/
 │   ├── activeContext.md    # Current task state
 │   ├── tasks.md            # Active task tracking
 │   ├── backlog.md          # Pending tasks queue
-│   ├── backlog-archive.md  # Completed/cancelled task history
-│   ├── progress.md         # Overall progress
 │   ├── projectbrief.md     # Project overview
 │   ├── productContext.md   # Product requirements
 │   ├── systemPatterns.md   # Architecture patterns

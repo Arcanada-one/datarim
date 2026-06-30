@@ -111,9 +111,9 @@ Stages in `[brackets]` are optional — included when the agent determines they 
 
 ## Backlog
 
-Datarim tracks tasks in a two-file backlog system:
-- `datarim/backlog.md` — active items (pending + in progress)
-- `datarim/backlog-archive.md` — completed and cancelled items
+Datarim tracks tasks in `datarim/backlog.md` — live items only (pending + in progress).
+Completed and cancelled tasks are archived to `documentation/archive/{area|cancelled}/archive-{ID}.md`
+and their backlog line is removed (the separate completed/cancelled backlog index was retired in v1.19.1).
 
 Use `/dr-init` to pick a task from the backlog or create a new one.
 Use `/dr-status` to see the backlog summary.

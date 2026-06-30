@@ -1,5 +1,14 @@
 # Evolution Log
 
+## 2026-06-30 — MAINT-0022 + MAINT-0023 — Remove abolished operational files from the scaffolding/doctrine surface (Class N/A bugfix)
+
+- **MAINT-0022 (`backlog-archive.md`, retired v1.19.1):** the scaffolding surface still presented the file as live. `commands/dr-init.md` first-time creation seeded it from a template; the `skills/project-init/SKILL.md` and getting-started scaffold trees listed it; `commands/dr-help.md` Backlog section described a two-file backlog; `templates/backlog-archive-template.md` still existed. A freshly scaffolded project was born with a file `/dr-doctor --fix` immediately migrated away.
+- **MAINT-0023 (`progress.md`, abolished v1.19.0):** same defect class. The two scaffold trees listed `progress.md` as a created file, and the canonical `skills/datarim-system/path-and-storage.md` Core Files list presented BOTH abolished files as live — directly contradicting `datarim-system/SKILL.md`, which declares them abolished. This Core-Files drift was the root doctrine feeding the scaffolding bug.
+- Fix: create-step now creates only `backlog.md` (with a guard-rail caveat); both abolished files removed from both scaffold trees and from the Core Files list; `dr-help.md` Backlog rewritten to the one-file live-only model routing completions to `documentation/archive/{area|cancelled}/`; `templates/backlog-archive-template.md` deleted. Legitimate abolition doctrine (`datarim-system/SKILL.md`, `datarim-doctor/SKILL.md` Pass 4 + cheap-probe) and the backward-compat `git status ... progress.md "(those that exist)"` hygiene probe in `dr-init.md` are intentionally retained.
+- Regression: `tests/scaffolding-no-abolished-files.bats` (10 doc-contract grep cases) guards the create-step, both scaffold trees, the Core Files list, the help description, and the template's absence; `setup()` fails loudly if the migrated getting-started fixture moves again.
+- VERSION 2.49.0 -> 2.49.1 (framework-repo realigned with the ecosystem surface + site, which already carried 2.49.0). Archives: `documentation/archive/maintenance/archive-MAINT-0022.md`, `documentation/archive/maintenance/archive-MAINT-0023.md`.
+
+
 ## 2026-06-29 — TUNE-0464 — Reconcile $DATARIM_ROOT semantic in commands/dr-init.md (Class N/A bugfix)
 
 - The topic-overlap probe (Step 2.5b) passed `--backlog "$DATARIM_ROOT/backlog.md"`, treating `$DATARIM_ROOT` as the `datarim/` directory, while every other usage in the same file (the ID-assign helper call, the doctor `--root` contract at Steps 2.4/2.4-fix, the init-task and expectations probes) treats `$DATARIM_ROOT` as the workspace root (parent of `datarim/`). The probe therefore pointed at a non-existent `<workspace>/backlog.md`; `check-topic-overlap.py` reads `--backlog` as a full file path, so the advisory silently found nothing.
