@@ -1,10 +1,11 @@
 # Dependabot configuration.
 # Docs: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
 #
-# Scope: keep GitHub Actions pinned to verified SHAs and surface
-# vulnerabilities in any pip-managed tooling used by CI / pre-commit.
-# The framework itself ships no runtime package manifests; this stays
-# tight to CI/tooling surfaces.
+# Scope: keep GitHub Actions pinned to verified SHAs. The framework ships no
+# runtime package manifests, and CI/lint tooling (bandit, semgrep, etc.) is
+# installed inline in the workflows rather than from a pinned requirements file,
+# so there is no pip manifest for Dependabot to track — the pip ecosystem was
+# removed (it had no files to update and failed every run with "No files found").
 
 version: 2
 
@@ -35,36 +36,6 @@ updates:
           - "minor"
           - "patch"
       actions-security:
-        applies-to: security-updates
-        patterns:
-          - "*"
-
-  # Pip-managed CI/lint tooling (bandit, semgrep, pre-commit, etc.).
-  - package-ecosystem: "pip"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "06:00"
-      timezone: "Etc/UTC"
-    # Delay PRs for freshly-released versions so a compromised release has time
-    # to be discovered and yanked before it reaches CI (supply-chain hardening).
-    cooldown:
-      default-days: 7
-    open-pull-requests-limit: 3
-    labels:
-      - "dependencies"
-      - "python"
-    commit-message:
-      prefix: "deps"
-      include: "scope"
-    groups:
-      pip-minor-and-patch:
-        applies-to: version-updates
-        update-types:
-          - "minor"
-          - "patch"
-      pip-security:
         applies-to: security-updates
         patterns:
           - "*"
