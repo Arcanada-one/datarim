@@ -1,5 +1,13 @@
 # Evolution Log
 
+## 2026-07-01 — SEC-0015 + CI hygiene — Clean all non-required security-linter red on main (Class N/A)
+
+- **SEC-0015** (`6933cb2`): re-pinned `dtolnay/rust-toolchain@29eef336…` (commit absent from upstream — zizmor impostor-commit High) to `4be7066…` (live refs/heads/stable).
+- **semgrep follow-up #141** (`c89d60f`): SHA-pinned `actions/upload-artifact@v4` → `043fb46… # v7.0.1` in `.github/actions/preflight-check/action.yml` (github-actions-mutable-action-tag); added `cooldown: {default-days: 7}` to both `dependabot.yml` update groups (dependabot-missing-cooldown ×2).
+- **dependabot follow-up #142** (`69fd511`): removed dead `pip` ecosystem from `dependabot.yml` — pointed at `/` with no pip manifest (CI installs lint tooling inline), failed every Dependabot run with «No files found», a permanent red status. Retained the `github-actions` ecosystem.
+- **Result:** whole-CI on main is clean — 6/6 required + semgrep + zizmor all green; no pre-existing security-linter red remaining. All three delivered via signed fast-forward merges (linear-history + required-signatures branch protection; enforce_admins lifted only for each FF-push, restored immediately). Archive: `documentation/archive/security/archive-SEC-0015.md`.
+
+
 ## 2026-06-30 — MAINT-0022 + MAINT-0023 — Remove abolished operational files from the scaffolding/doctrine surface (Class N/A bugfix)
 
 - **MAINT-0022 (`backlog-archive.md`, retired v1.19.1):** the scaffolding surface still presented the file as live. `commands/dr-init.md` first-time creation seeded it from a template; the `skills/project-init/SKILL.md` and getting-started scaffold trees listed it; `commands/dr-help.md` Backlog section described a two-file backlog; `templates/backlog-archive-template.md` still existed. A freshly scaffolded project was born with a file `/dr-doctor --fix` immediately migrated away.
