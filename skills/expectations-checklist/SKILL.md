@@ -147,6 +147,18 @@ _(empty on first write)_
   `agent`-authored override. A legitimate deferral is time-dependent (result
   physically unverifiable now, needs ≥1 day) or hard-external-blocker; the
   artefact makes that claim falsifiable rather than self-asserted.
+- **Evidence-collector rule for deferred `empirical` wishes.** When an
+  `empirical` wish is deferred (`operator-deferral` or any agent-authored
+  legitimate-deferral class) because its evidence depends on a future event
+  (external input arriving, a scheduled window, a real-world trigger), the
+  override SHOULD cite a **ready-to-run evidence-collector command** — the
+  exact invocation plus its PASS criterion — recorded in the artefact the
+  `override_artifact` points to (task description section, follow-up task
+  body). Rationale: a deferral without a collector rots — by the time the
+  trigger fires, the verification recipe must be re-derived from context that
+  no longer exists. With a collector, anyone (or any later session) closes
+  the wish mechanically at the trigger event. Verifiers treat a missing
+  collector on such an override as an advisory note, not a block.
 - **`#### История статусов`** is append-only by convention. One line per <!-- allow-non-ascii: russian-status-history-section-name-from-canonical-schema -->
   status transition. Canonical line format:
   `<ISO> / <local> · <stage> · <prior> → <new> · reason: <plain ru>`. The
