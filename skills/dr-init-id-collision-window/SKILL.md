@@ -75,6 +75,33 @@ Distinguish «my own forgotten earlier session» from «parallel session» via
 frontmatter `operator:` / `captured_at:` / commit author, not by file presence
 alone.
 
+### External-ID-authority probe (tracker-owned prefixes)
+
+The workspace probe above is **structurally blind** to numbers assigned by an
+external tracker. When the task prefix is owned by an external ID authority —
+e.g. an issue tracker's custom field auto-numbers tasks on creation (check the
+project's memory/registry for a statement like «the board owns the id») — a
+locally-free number can still collide with a tracker-assigned one, and the
+collision surfaces only later in commit messages, MRs, and cross-links.
+
+Rule for tracker-owned prefixes:
+
+1. **Do not invent the number locally.** Create the tracker task first (or
+   locate the existing one) and adopt the id the tracker assigns.
+2. If a candidate id must be probed anyway (offline work, tracker unreachable),
+   query the tracker for that id BEFORE reserving it — a read-only search over
+   the id custom field / title. Tracker unreachable ⇒ treat the candidate as
+   UNCONFIRMED and re-verify before the first push/publish that embeds the id.
+3. On a discovered collision, the local session is ALWAYS the losing session
+   (the tracker is the authority) — apply § Resolution below, and also sweep
+   non-workspace surfaces the id leaked into: source-file comments, README
+   sections, commit messages not yet pushed.
+
+Provenance: a workspace-only probe passed on a locally-free `DEV-NNNN` while
+the tracker had already assigned that number to another person's task; the
+rename had to touch the whole derived artifact chain plus both copies of a
+shipped script.
+
 ## Resolution — retroactive rename
 
 The losing session (lower commit-time or operator-assigned) renames its task
