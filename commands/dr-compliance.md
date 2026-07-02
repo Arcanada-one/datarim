@@ -38,9 +38,9 @@ description: Adaptive post-QA hardening. Detects task type and applies matching 
     -   Scan the QA report and the compliance report for self-deferral language — the failure mode where the agent labels its own incomplete work "out of scope / informational / not a blocker / will fix later" instead of finishing it. Unlike `/dr-qa` (advisory), at compliance this is a **hard** gate (mirrors the evidence-type advisory-at-QA / hard-at-compliance escalation):
         ```bash
         "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-deferral-prose.sh" \
-            --file datarim/qa/qa-report-{TASK-ID}.md --task {TASK-ID} --root <repo-root>
+            --file datarim/qa/qa-report-{TASK-ID}.md --root <repo-root>
         "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-deferral-prose.sh" \
-            --file datarim/reports/compliance-report-{TASK-ID}.md --task {TASK-ID} --root <repo-root>
+            --file datarim/reports/compliance-report-{TASK-ID}.md --root <repo-root>
         ```
         (Skip the compliance-report scan on the first pass if the report is not yet written; run it after the report exists.)
     -   **Dual-repo tasks (workflow-state and touched code in different repos):** when the touched code lives in a repository nested under the workspace root (e.g. a framework task whose reports sit in the outer workspace repo while the code sits in a nested repo), add `--extra-repo <nested-repo-path>` to each scan so the touched-set covers the nested repo's `merge-base..HEAD`. Without it the scanner sees an empty touched-set from the outer root and fail-opens (advisory), making the gate a no-op for that class. `--extra-repo` is repeatable and additive; an unreadable path warns and is skipped (fail-open preserved).

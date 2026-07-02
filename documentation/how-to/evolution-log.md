@@ -1,5 +1,12 @@
 # Evolution Log
 
+## 2026-07-02 — FIX-testdb-local-dsn reflection — Align check-deferral-prose.sh invocations with shipped CLI (Class A applied)
+
+- Recurrence of `incident_class: command-template-flag-drift` (first recorded in the local Aether workspace's `reflection-DEV-1563.md`, which pre-committed to promotion on recurrence). The `/dr-qa` and `/dr-compliance` command templates invoked `dev-tools/check-deferral-prose.sh --file … --task {TASK-ID} --root …`, but the shipped script has NO `--task` long-opt (its opts are `--file --touched-files --root --backlog --tasks --phrases --extra-repo --report`). Passing `--task` triggers a usage error (exit 2) that reads as a hard-gate failure but is template↔script CLI skew.
+- Fix: dropped `--task {TASK-ID}` from all three `check-deferral-prose.sh` invocation sites — `commands/dr-qa.md` (1) + `commands/dr-compliance.md` (2). Now consistent with `commands/dr-archive.md`, whose invocation was already correct (`--file … --root`). The blocked_by lookup reads the `--tasks` index, so no functional loss. Other tools' legitimate `--task` uses (`check-expectations-checklist.sh`, `spec-graph-gate.sh`, `append-init-task-qa.sh`) are untouched.
+- Deferred (NOT this change): widening the `spec-graph-gate.sh` / snapshot-writer TASK-ID regexes to accept non-`PREFIX-NNNN` shapes (e.g. `FIX-<word>`). That is a behavioural change to shipped scripts, larger than a template-alignment; it belongs in its own task, not a P2 reflection apply.
+- Stack-agnostic gate PASS on both edited files; `bats tests/` 1652 ok / 0 not-ok. Source: local Aether workspace reflection `reflection-FIX-testdb-local-dsn.md` Proposal 1.
+
 ## 2026-07-01 — SEC-0015 + CI hygiene — Clean all non-required security-linter red on main (Class N/A)
 
 - **SEC-0015** (`6933cb2`): re-pinned `dtolnay/rust-toolchain@29eef336…` (commit absent from upstream — zizmor impostor-commit High) to `4be7066…` (live refs/heads/stable).
