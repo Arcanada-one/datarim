@@ -12,6 +12,16 @@ Rules for the **technical act** of publishing ready content to platforms. This s
 
 Credentials, channel URLs, bot tokens, and site-specific config live outside this skill (typically in credentials files or project config).
 
+## Publishing channel — one tool, no ad-hoc scripts
+
+When the deployment provides a **dedicated publishing application** (in the Arcanada ecosystem this is the Publisher at `Projects/Publisher/code/arcanada-publisher` — a browser-automation CLI + localhost HTTP API with per-platform adapters), ALL external publishing goes through it and nothing else:
+
+- **Social media and external sites** (Facebook, LinkedIn, X/Twitter, Reddit, VKontakte, any external destination) — publish ONLY through that application. Do NOT hand-roll one-off Playwright/`curl` scripts, do NOT post manually from an agent, do NOT stand up a parallel publisher. If the app fails, is not authenticated, or lacks a rule for the case at hand — **fix the app** (adapter, selector, docs rule, re-run its `login`), never route around it.
+- **Own/first-party sites** — publish ONLY via push to the repo's `main` on the code host (then CI/CD or the project's `deploy.sh` syncs to prod). Never edit files directly on a server.
+- Telegram Bot API remains a valid channel (it is one of the publisher's own transports / a first-party bot); its safety rules are in `Projects/Publisher/code/arcanada-publisher/docs/reference/telegram-bot-api-publish-safety.md`.
+
+Standalone per-platform publisher CLIs that predate the consolidated app are retired once their capability is absorbed — do not resurrect them.
+
 ---
 
 ## Platform Limits
