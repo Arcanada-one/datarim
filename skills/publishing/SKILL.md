@@ -331,6 +331,21 @@ Caching: `linked_chat_id` is stable per channel — store it in credentials alon
 **Test-channel smoke before prod (mandatory for new publisher code / first run after refactor):** before commenting on prod posts, replay the full sequence in `chat_id=-1003855619081` (Arcanada Test Channel) → `chat_id=-1003929851152` (Arcanada Test Comments). Reference smoke script: `/tmp/tg-smoke-correct-comment.py` (CONTENT-0050). Pass criterion: returned `comment.message_thread_id == forwarded_msg_id`.
 <!-- /gate:history-allowed -->
 
+## Post title — first line of the body on every platform
+
+The article's title (or a title-equivalent headline in the post's language)
+MUST be the **first line of the post body** on every social platform — X,
+Facebook, LinkedIn, VK, Telegram — followed by a blank line, then the lead
+paragraph. A post that opens straight into the lead (no title line) loses the
+hook and forces the operator to hand-fix it. The cycle posts (A2/A3/…) always
+lead with the title line — match that shape.
+
+- **Telegram:** the title is the **bold** first line of the video caption (post 1).
+- **X / FB / LinkedIn / VK:** the title is a **plain** first line (no `<b>` — those
+  surfaces flatten HTML; only Telegram renders `<b>`). Follow with a blank line.
+- Verify the title is present in the **read-back** content (not just the source
+  file) before declaring smoke.
+
 ## Universal rule — links go in the first comment, not the body
 
 For **all** social platforms (FB, LinkedIn, Telegram, VK, Twitter/X threads, etc.) the **post body must not contain a standalone "links block"** — a section header like `Куда смотреть` / `Ссылки` / `Resources` / `Полезное` followed by a bullet-list of URLs is forbidden in the body. All such CTA-links (blog URL, dashboards, repositories, doc cross-refs) MUST be published as the **author's first comment** under the post. <!-- allow-non-ascii: literal-russian-section-headers-fixture-for-publishing-rule -->
@@ -344,6 +359,10 @@ Inline mentions in prose are fine (`Datarim (github.com/Arcanada-one/datarim, MI
 
 Publisher pattern: immediately after `POST_URL` is captured, post the first-comment with the CTA-links block. On FB and LinkedIn that is a normal `Прокомментировать` action under the post; on Telegram it is the discussion-thread comment under the channel post (see canonical recipe above). If the platform's comment size is smaller than the link list, keep blog URL + 2–3 anchor links and rely on the website (`arcanada.one`) for the full directory. <!-- allow-non-ascii: literal-russian-fb-action-token-required-for-publisher-pattern -->
 
+**Verify the comment's parent post before commenting — never trust a returned URL blindly.** A browser publisher can return the feed's top post or an older post, not the one just created. Before attaching the first comment, read back the target post (its body/media) and confirm it is **this** article published **this** cycle; only then comment. A comment that lands on a stale post is a silent defect the operator finds later by hand.
+
+**The same "verify the target post" rule applies to the site's `social` back-link block.** Every permalink written into the article's `social` block (Telegram, X, LinkedIn, Facebook, VK) MUST be opened in a browser and confirmed to render OUR post of THIS cycle before deploy — a URL reused from a prepared `*-parent-url.txt`/memory can point at an unrelated older post, and `curl` HTTP 200 does not prove it (FB/LI/X serve 200 for wrong/deleted posts). Copy the working permalink verbatim; do not hand-build FB `pfbid`/LinkedIn `feed/update/urn:li:activity:` URLs. Source: CONTENT-0376, where a reused FB `pfbid…` back-link shipped pointing at a stranger's older post (operator: "the FB link goes to a different post — you must verify this after publishing").
+
 **Attach the hero image to image-capable posts.** When the post promotes an article that has a hero image, attach that image to the post itself — FB `--image-file`, LinkedIn `--image-file`, TG `sendPhoto`. A bare text post with no image loses badly in the feed, and an article's OG-preview from a *comment* link is not a substitute (the body shows no image). A FB post published text-only loses badly in the feed — there is no way to add media retroactively (UI edit replaces text only), so you must delete and re-publish, then re-add the first comment. Get the image right on the first publish.
 
 **Video standard for social posts — animated cover (cover → cycling effects) over the article narration.** When a post has both a cover image AND article narration audio, the preferred attachment is NOT a static cover and NOT a plain cover+audio MP4, but an **animated screensaver video**: the post's cover shown clean for ~2 s, then a NEW visual effect every ~3 s cycling through a large randomly-shuffled pool, with smooth crossfades (~0.6 s) between effects, for the full length of the narration. The canonical generator is `Projects/Publisher/code/arcanada-publisher/dev-tools/video/make-cycle-video.sh <cover> <audio> <out.mp4> [intro_sec] [seg_sec] [seed]` — pure ffmpeg, no plugins. Rules:
@@ -354,7 +373,9 @@ Publisher pattern: immediately after `POST_URL` is captured, post the first-comm
 - Do NOT use a bare audio-waveform visualizer (showwaves/showcqt/showspectrum) as the WHOLE post video — a full-frame visualizer looks generic; the animated-cover cycle stays the hero. A bottom audio-amplitude STRIP drawn ON TOP of the cycle is allowed and is the default house style (operator-approved): a showwaves oscilloscope with a horizontal gold→crimson gradient, ~180px tall, pinned to the bottom edge, shown only when narration audio exists. The distinction is overlay-strip (good) vs. whole-frame-visualizer (forbidden). The canonical generator draws it by default; disable with the `--no-waveform` CLI flag (or `WAVEFORM=0` for the bash reference engine).
 - Per-platform attach: X long-form and LinkedIn take the MP4; Facebook feed forces video into Reels, so on FB use the static cover image instead (keep the video for X and LinkedIn); Telegram can take the MP4 via `sendVideo`.
 
-**Blog audio narration — TTS text prep (Russian / Silero).** The RU narration engine (Silero, via the speech sidecar) is Cyrillic-only: it cannot pronounce Latin words, bare numbers, currency, fractions, or percentages, and on a digit/symbol "soup" it returns a hard HTTP 500. The narration text MUST therefore be **normalized before TTS, not stripped**. Stripping the problem tokens (the path of least resistance, fine for benchmark tables where raw figures carry no spoken value) silently drops meaning in a narrative article — the listener hears gaps where numbers and product names should be. Rules:
+**Blog audio narration — TTS text prep (Russian / Silero).** The RU narration engine (Silero, via the speech sidecar) is Cyrillic-only: it cannot pronounce Latin words, bare numbers, currency, fractions, or percentages, and on a digit/symbol "soup" it returns a hard HTTP 500. The narration text MUST therefore be **normalized before TTS, not stripped**. Stripping the problem tokens (the path of least resistance, fine for benchmark tables where raw figures carry no spoken value) silently drops meaning in a narrative article — the listener hears gaps where numbers and product names should be.
+
+> **MANDATE — normalize through the versioned lexicon, never ad-hoc scripts.** Blog narration MUST be run through a **single versioned lexicon-normalizer** committed to the site repo (a lexicon of acronym/name phonetics + stress overrides + pause rules, plus a normalizer that applies them automatically before TTS). Do NOT hand-write one-off normalization scripts per article — that path regresses the same pronunciation defects every time and forces the operator to proof-listen every word. When a word sounds wrong, add it to the lexicon (one line) rather than editing code. The normalizer runs automatically inside the audio generator; a deployment that provides one documents its exact module/lexicon paths and the RU-accent engine it uses (e.g. a neural accentuator as the homograph base plus an authoritative stress-override file for proper nouns) in that deployment's own runbook. The rules below are the *contract the lexicon must satisfy* — the deployment implements them once, in code, not per article:
 
 - **Numbers -> Russian words** via `num2words(n, lang="ru")`: `340` -> "триста сорок", `33%` -> "тридцать три процентов", `5,1` -> "пять и одна десятых". For `$14` emit only the number when the source already says "долларов" right after (else you get a doubled "долларов долларов").
 - **Latin terms -> Cyrillic phonetics**, never left raw: product/brand names and abbreviations get a transliteration map (e.g. `Arcanada`->Арканада, `Datarim`->Датарим, `Muneral`->М+унерал, `Coworker`->Коворкер, `Telegram`->Телеграм, `Claude`->Клод, `README`->ридми, `PRD`->пи-эр-ди, `L4`->эль-четыре, `CLAUDE.md`->Клод точка эм-дэ). Drop any leftover Latin run to a space as a safety net.
@@ -368,6 +389,16 @@ Publisher pattern: immediately after `POST_URL` is captured, post the first-comm
 - **Cache:** re-voiced MP3s live on Cloudflare R2 with a 1-year `immutable` cache. After overwriting an audio asset you MUST purge the Cloudflare cache for those URLs (and the listener should hard-refresh the browser), or the old narration keeps playing. Same rule as any content edit — see § Website Publishing.
 
 **Telegram first-comment — one link, the article in the post's language.** On a Telegram channel post, the comment links to the full article in the **same language as the post** — a single URL, nothing else. Do NOT add the other-language version (an RU post links the RU article only, not the EN one), and do NOT link the channel itself — the reader is already in it. This is narrower than the multi-link FB/LinkedIn comment; keep the TG comment minimal.
+
+**X (EN) first-comment — the EN article + the canonical Telegram (RU) post.**
+On an X post the first reply carries TWO links, each language-labelled: the full
+EN article (`blog (EN)`) and the canonical Telegram (RU) channel post (`Telegram (RU)`).
+The RU Telegram post already exists at this point (TG is published before X per
+§ Publication Order), so its URL is available. This is wider than the single-link
+Telegram comment and narrower than the FB/LI comment (no X-self link, since we ARE
+on X). Contextual links inside the post body (sources, prior article, standards
+bodies) are fine and are NOT the CTA block — only the CTA cross-links move to the
+first comment (see § Universal rule).
 
 **FB / LinkedIn / VK first-comment — must cross-link both Telegram (RU) and X (EN).** Because these are published **after** TG and X (see § Publication Order), their first comment carries the blog link in the platform's language **+ the canonical Telegram (RU) post link + the X (EN) post link** (plus the product/framework site link for product articles). Label the language on each link (`Telegram (RU)`, `X (EN)`, blog `(RU)`/`(EN)`) so the reader knows the destination language before clicking. This is the reason X is published before FB/LI/VK — those URLs must already exist when their comments are written. All cross-links go in ONE comment; do not post a second comment to add a link.
 
@@ -617,6 +648,16 @@ if any item fails, fix it before publishing.
   RU+EN, points at the real permalinks, and is verified live. An article live
   with social posts but no/incomplete `social` block is an incomplete publish;
   the task does not close without it.
+- [ ] Each back-link permalink in the `social` block was OPENED IN A BROWSER and
+  confirmed to render OUR post of THIS cycle (title/lead match, correct author,
+  publish date) BEFORE it was written into the article and deployed. Do not trust
+  a URL from a prepared `*-parent-url.txt`, from memory, from a `curl` HTTP 200
+  (FB/LI/X return 200 for a wrong/deleted/"not found" post too), or from a
+  first-line-of-file match. Do not hand-reconstruct FB `pfbid` / LinkedIn share
+  URLs — copy the working permalink verbatim (LinkedIn:
+  `posts/<vanity>_<slug>-share-<id>-<code>/`, NOT `feed/update/urn:li:activity:<id>/`;
+  Facebook: strip the `?__cft__=…&__tn__=…` tail). Deploy, then re-check the live
+  RU+EN pages that the hrefs shipped.
 - [ ] Post video uses the animated-cover cycle; when narration audio exists it
   carries the bottom audio-amplitude strip (default-on). A bare full-frame
   waveform as the whole video is forbidden (see § Video standard).

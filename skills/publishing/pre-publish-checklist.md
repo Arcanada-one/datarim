@@ -56,9 +56,77 @@ if any item fails, fix it before publishing.
   RU+EN, points at the real permalinks, and is verified live. An article live
   with social posts but no/incomplete `social` block is an incomplete publish;
   the task does not close without it.
+- [ ] Each back-link permalink in the `social` block was OPENED IN A BROWSER and
+  confirmed to render OUR post of THIS cycle (title/lead match, correct author,
+  publish date) BEFORE it was written into the article and deployed. Do not trust
+  a URL carried over from a prepared `*-parent-url.txt`, from memory, from a
+  `curl` HTTP 200 (FB/LI/X return 200 for a wrong/deleted/"not found" post too),
+  or from a first-line-of-file match. Do not hand-reconstruct FB `pfbid` or
+  LinkedIn share URLs — copy the working permalink verbatim from the post's own
+  "Copy link" (LinkedIn: `posts/<vanity>_<slug>-share-<id>-<code>/`, NOT
+  `feed/update/urn:li:activity:<id>/`; Facebook: strip the `?__cft__=…&__tn__=…`
+  tracking tail). After all links verify, deploy, then re-check the live RU+EN
+  pages that the hrefs shipped.
 - [ ] Post video uses the animated-cover cycle; when narration audio exists it
   carries the bottom audio-amplitude strip (default-on). A bare full-frame
   waveform as the whole video is forbidden (see § Video standard).
+
+### Post title / headline (every platform: X, FB, LinkedIn, VK, Telegram)
+
+The article's title MUST appear as the **first line of the post body** on every
+social platform, followed by a blank line, then the lead. A post that starts
+straight into the lead paragraph (no title line) loses the hook and forces the
+operator to hand-fix it. Cycle posts (A2/A3/...) always lead with the title
+line — match that shape.
+
+- [ ] The post body's first line is the article title (or a title-equivalent
+  headline in the post's language), then a blank line, then the lead.
+- [ ] Telegram: title is the bold first line of the video caption (post 1).
+- [ ] X / FB / LinkedIn / VK: title is the plain first line of the post body
+  (no `<b>` on FB/LI/VK/X — those flatten HTML; Telegram uses `<b>`).
+- [ ] The title is verified present in the read-back content (not just the
+  source file) before smoke is declared.
+
+### Publish via API  -  verify-after-publish (never trust the send call)
+
+Applies to every platform posted through an API/bot (Telegram Bot API first).
+The rule: **the word "published/verified/done" is earned only by reading the
+artifact back from the platform**  -  never from the local source file, the
+request code, structural metrics, or a bare HTTP 200. Source != result.
+
+- [ ] Caption/text passed via a safe multipart field (`--form-string`,
+  `--data-urlencode`), never a read-from-file operator (`-F caption="<file"`
+  silently corrupts the field).
+- [ ] A baseline `max(message_id)` was captured BEFORE publishing; any message
+  at or below it is foreign and cannot be this session's result.
+- [ ] The real `message_id` was captured from an `ok:true` response; an empty /
+  non-JSON / `ok:false` body is UNKNOWN  -  inspect, never treat as success,
+  never blind-retry (duplicate risk).
+- [ ] A two-message post threads the longread's `reply_to_message_id` on the
+  captured id of post 1; if post 1's id is UNKNOWN, post 2 is NOT sent.
+- [ ] Read each published message back from the platform and verify by CONTENT,
+  not metrics: actual media type (video/photo/text), first & last ~120 chars of
+  caption/text character-for-character, hidden-link `url`, reply linkage, and
+  target `chat.id`.
+- [ ] For a video post, the attached media is proven to be OUR freshly
+  generated file  -  `file_size` / `duration` / `width`x`height` / `file_name`
+  read from the platform match the file actually sent this cycle (guards against
+  a foreign/old video wearing the right caption).
+- [ ] Message identity is established ONLY by captured `message_id` +
+  bot-authorship (no `forward_origin`), never by caption-text match.
+- [ ] The whole test channel is inspected before declaring smoke  -  any foreign
+  video / foreign author / leftover message = smoke NOT passed -> stop and clean.
+- [ ] The smoke->prod gate presents the operator the actually read-back artifacts
+  (links + read-back content), not the agent's own summary; no prod publish
+  before an explicit operator "go" on those artifacts.
+- [ ] First-comment parent-URL is VERIFIED to be the post JUST published this
+  cycle - not the URL a publisher tool returned unchecked (a browser adapter can
+  return the feed's top post, an older post, not the new one). Before commenting:
+  read back the target post's body/media and confirm it matches THIS article,
+  then attach the comment. A comment landing on an old post is a silent defect.
+
+Publisher canonical reference (full 17-rule set + root-cause):
+`Projects/Publisher/.../docs/reference/telegram-bot-api-publish-safety.md`.
 
 ### Multi-vendor consilium post-publish
 
