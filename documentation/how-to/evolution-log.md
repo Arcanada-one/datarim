@@ -2036,3 +2036,29 @@ now derive archive IDs from filenames via `find`. Both defects made the helper r
 Added Group D regression tests (D01 octal, D02 prose-pollution), mutation-verified to fail
 against the un-fixed helper. Without these the helper would have shipped wired-in but broken
 on any real archive — defeating the task's purpose.
+
+---
+
+## 2026-07-04 — INFRA-0331 (Arcanada consumer): compliance §5 Discovery Probe — same-name-repo-is-not-source gate
+
+**Category:** promote-recurring-incident-to-gate · **Class:** A (approved by operator).
+**Target:** `skills/compliance/SKILL.md` § Infrastructure Checklist §5 (Discovery Probe Verification).
+
+**What:** Added a bullet: for site/service source-recovery tasks, the repo NAMED after the
+domain/service may NOT be its source. Prove source via a candidate build compared to the live
+target BEFORE plan-time; search by CONTENT (manifest name, asset set, deploy-script target,
+directory structure) across ALL org repos, not only the same-named one. A byte-identical
+content-hashed bundle filename (e.g. `main.<hash>.js`) shared between candidate build and live
+target is the strongest single parity signal for hash-named SPA output.
+
+**Why (evidence):** In INFRA-0331 the live `arbittrade.com` was built from a repo named
+`arbittrade-crm`, while the identically-named `arbittrade.com` repo was an abandoned 2022
+template. The do-stage candidate build from the wrong (same-named) repo produced a false
+"source-lost" verdict; a content-based org-wide hunt at QA time found the real source and proved
+byte-parity (identical `main.<hash>.js` sha256). This is a recurrence of the "repo ≠ live"
+verify-first lesson first flagged by the parent task INFRA-0327 (reflection-INFRA-0327.md) and
+seen again in INFRA-0330 — per the anti-self-suppression rule, promoted to a gate rather than
+declined as redundant.
+
+**Verification:** stack-agnostic-gate PASS, task-id-gate PASS, no Cyrillic introduced,
+`bats tests/` → 1652 tests, 0 failures.
