@@ -41,6 +41,6 @@ Required for proper link previews on all social platforms:
 - [ ] Multi-language: `<link rel="alternate" hreflang="ru">` if applicable
 - [ ] RSS feed updated (if exists)
 - [ ] Sitemap regenerated (if static)
-- [ ] Audio narration (if the blog has a player): RU text normalized before Silero TTS — numbers→words, Latin→Cyrillic, stress markers on mis-stressed words; every heading AND paragraph ends a sentence (extractor adds the period; headings get a doubled pause) so blocks do not glue together; the author's cloned voice available as an option if the deployment provides one (see § Blog audio narration); MP3s uploaded to R2 AND Cloudflare cache purged for the audio URLs
+- [ ] Audio narration (if the blog has a player): RU+EN text run through the versioned lexicon-normalizer before TTS (acronyms→phonetic, numbers→words, stress via accentuator+override, dash→comma) — never ad-hoc per-article scripts; every heading AND paragraph ends a sentence (extractor adds the period; headings get a doubled pause) so blocks do not glue together; the author's cloned voice available as an option if the deployment provides one (see § Blog audio narration); MP3s uploaded to R2 AND Cloudflare cache purged for the audio URLs
 
 ---

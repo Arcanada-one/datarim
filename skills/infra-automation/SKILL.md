@@ -92,6 +92,37 @@ for SRC in www prod db trading; do
 done
 ```
 
+## Tailscale Enrolment (auth-key liveness)
+
+An auth-key's `Expires:` date in the stored credentials is NOT proof of
+liveness — a key can be revoked/deleted in the admin before its expiry, and
+`tailscale up` then fails `invalid key: API key does not exist`. Do not assume
+a dated creds entry is usable.
+
+Recovery is autonomous when an API access token is stored: generate a fresh
+key and approve routes over the Tailscale API, no admin-UI step required.
+
+```bash
+# Generate a fresh reusable tagged auth-key (from stored tskey-api-... token):
+curl -s -X POST -H "Authorization: Bearer $TS_API" -H "Content-Type: application/json" \
+  https://api.tailscale.com/api/v2/tailnet/-/keys \
+  -d '{"capabilities":{"devices":{"create":{"reusable":true,"ephemeral":false,"preauthorized":true,"tags":["tag:server"]}}},"expirySeconds":7776000,"description":"<task-id> enrolment"}'
+# (description must be alphanumeric-ish — parentheses/special chars → "invalid characters")
+
+# Approve an exit-node's advertised routes (replaces admin-UI "approve exit node"):
+DEVID=$(curl -s -H "Authorization: Bearer $TS_API" https://api.tailscale.com/api/v2/tailnet/-/devices \
+  | python3 -c "import sys,json;print([d['id'] for d in json.load(sys.stdin)['devices'] if d['hostname']=='<name>'][0])")
+curl -s -X POST -H "Authorization: Bearer $TS_API" -H "Content-Type: application/json" \
+  "https://api.tailscale.com/api/v2/device/$DEVID/routes" -d '{"routes":["0.0.0.0/0","::/0"]}'
+```
+
+Also: a tagged device (`tag:server`) is NOT in `autogroup:self`, so a
+`--ssh`-enabled node has no Tailscale-SSH access under a `dst: autogroup:self`
+ACL — rely on ordinary key-based SSH as the floor, and drop `--ssh` to avoid a
+dangling health warning. On a cloud-image host, `PasswordAuthentication no` in a
+`99-` drop-in is overridden by `50-cloud-init.conf` (first value wins) — verify
+effective policy with `sshd -T`, not the drop-in.
+
 ## Health Check (HTTP services)
 
 Check all PROD services:
