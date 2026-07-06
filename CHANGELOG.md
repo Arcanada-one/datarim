@@ -4,6 +4,12 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.50.1] — 2026-07-06
+
+### Fixed
+
+- **Codex installer self-heals stale temporary probe hooks.** `install.sh --with-codex` now replaces missing `/tmp/*probe*` commands in `~/.codex/hooks.json` with the canonical `~/.local/bin/coworker-hook-guard`, preventing repeated `PreToolUse hook exited with code 127` failures after `/tmp` is cleaned. Valid custom hooks are preserved.
+
 ## [2.49.0] — 2026-06-28
 
 ### Changed

@@ -349,6 +349,91 @@ MD
     [ ! -e "$fake_codex/AGENTS.override.md" ]
 }
 
+@test "TUNE-0470 --with-codex self-heals missing /tmp probe hook target" {
+    local fake_codex="$FAKE_HOME/.codex"
+    mkdir -p "$fake_codex"
+    cat > "$fake_codex/hooks.json" <<'JSON'
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read|Write|Bash|shell|apply_patch|view|exec_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/tmp/codex-probe-hook.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
+JSON
+    run env HOME="$FAKE_HOME" CODEX_DIR="$fake_codex" "$FAKE_REPO/install.sh" --with-codex
+    [ "$status" -eq 0 ]
+    grep -q "\"command\": \"$FAKE_HOME/.local/bin/coworker-hook-guard\"" "$fake_codex/hooks.json"
+    ! grep -q "/tmp/codex-probe-hook.sh" "$fake_codex/hooks.json"
+}
+
+@test "TUNE-0470 --with-codex preserves existing valid custom hook commands" {
+    local fake_codex="$FAKE_HOME/.codex"
+    local custom_hook="$BATS_TEST_TMPDIR/custom-hook.sh"
+    mkdir -p "$fake_codex"
+    printf '#!/bin/sh\nexit 0\n' > "$custom_hook"
+    chmod +x "$custom_hook"
+    cat > "$fake_codex/hooks.json" <<JSON
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "shell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$custom_hook",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
+JSON
+    run env HOME="$FAKE_HOME" CODEX_DIR="$fake_codex" "$FAKE_REPO/install.sh" --with-codex
+    [ "$status" -eq 0 ]
+    grep -q "\"command\": \"$custom_hook\"" "$fake_codex/hooks.json"
+}
+
+@test "TUNE-0470 --with-codex parses probe hook command path before arguments" {
+    local fake_codex="$FAKE_HOME/.codex"
+    local probe_hook="/tmp/codex-probe-hook-$BATS_TEST_NUMBER.sh"
+    mkdir -p "$fake_codex"
+    printf '#!/bin/sh\nexit 0\n' > "$probe_hook"
+    chmod +x "$probe_hook"
+    cat > "$fake_codex/hooks.json" <<JSON
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "shell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$probe_hook --mode check",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
+JSON
+    run env HOME="$FAKE_HOME" CODEX_DIR="$fake_codex" "$FAKE_REPO/install.sh" --with-codex
+    [ "$status" -eq 0 ]
+    grep -q "\"command\": \"$probe_hook --mode check\"" "$fake_codex/hooks.json"
+}
+
 # ---------- backwards-compat layer ----------------------------------------
 
 @test "TUNE-0114 legacy --copy without --with-claude implies claude with WARN" {
