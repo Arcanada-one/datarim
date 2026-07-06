@@ -4,7 +4,11 @@
 #
 #   - PreToolUse on Claude tools  : Read | Write | Bash
 #   - PreToolUse on Codex tools   : view | apply_patch | shell | exec_command
-#   - SessionStart                : Moonshot balance probe (canary)
+#   - SessionStart                : balance canary — fires ONLY when the
+#                                   resolved coworker provider is Moonshot
+#                                   (profile.recommended_provider ->
+#                                   COWORKER_DEFAULT_PROVIDER -> literal
+#                                   moonshot; mirrors providers.py resolver)
 #
 # Codex CLI 0.133 native tool names (verified via ~/.codex/logs_2.sqlite —
 # 83 apply_patch events, exec_command frequent, no `shell`/`view`):
@@ -245,14 +249,39 @@ if [ "$event" = "SessionStart" ] || [ -z "$(printf '%s' "$input" | jq -r '.tool_
     if [ -n "${COWORKER_GUARD_READ_THRESHOLD:-}" ] || [ -n "${KIMI_GUARD_READ_THRESHOLD:-}" ]; then
       session_msg="⚠️  COWORKER_GUARD_READ_THRESHOLD / KIMI_GUARD_READ_THRESHOLD устарели (line-based) и игнорируются. Token-based пороги: COWORKER_GUARD_DELEGATE_TOKENS (default 10000), COWORKER_GUARD_CEILING_TOKENS (default 100000)."
     fi
-    if [ -n "${MOONSHOT_API_KEY:-}" ] && command -v curl >/dev/null && command -v jq >/dev/null; then
+    # Balance canary is provider-specific. Resolve the active coworker provider
+    # the way coworker itself does (providers.py resolve_provider_and_model):
+    #   profile.recommended_provider -> COWORKER_DEFAULT_PROVIDER -> "moonshot".
+    # SessionStart carries no --provider flag; the mandated default profile is
+    # `datarim`, so read that profile first. Reading the env var FIRST would
+    # reproduce the stale-Moonshot bug (env=moonshot masks the real deepseek
+    # default). Fail-soft: any lookup miss leaves coworker's own "moonshot"
+    # fallback in place — never block SessionStart.
+    active_provider=""
+    if command -v yq >/dev/null 2>&1 \
+       && [ -f "${XDG_CONFIG_HOME:-$HOME/.config}/coworker/profiles.yaml" ]; then
+      active_provider=$(yq -r '.datarim.recommended_provider // ""' \
+        "${XDG_CONFIG_HOME:-$HOME/.config}/coworker/profiles.yaml" 2>/dev/null || true)
+    fi
+    [ -n "$active_provider" ] || active_provider="${COWORKER_DEFAULT_PROVIDER:-}"
+    [ -n "$active_provider" ] || active_provider="moonshot"
+    active_provider=$(printf '%s' "$active_provider" | tr '[:upper:]' '[:lower:]')
+    # The hardcoded probe below only understands Moonshot's endpoint + JSON
+    # shape. Skip it unless Moonshot is the resolved provider — otherwise the
+    # mere presence of MOONSHOT_API_KEY (both keys are often exported) warns
+    # about a provider coworker is not actually using. (DeepSeek balance probe
+    # is intentionally out of scope here — see follow-up; providers.yaml zero
+    # pricing makes the DeepSeek balance endpoint the only live budget signal,
+    # a larger change with per-vendor JSON quirks incl. is_available:false.)
+    if [ "$active_provider" = "moonshot" ] && [ -n "${MOONSHOT_API_KEY:-}" ] \
+       && command -v curl >/dev/null && command -v jq >/dev/null; then
       bal=$(curl -sf --max-time 4 -H "Authorization: Bearer $MOONSHOT_API_KEY" \
         https://api.moonshot.ai/v1/users/me/balance 2>/dev/null \
         | jq -r '.data.available_balance // empty' 2>/dev/null || true)
       if [ -n "$bal" ]; then
         low=$(awk -v b="$bal" -v t="$THRESHOLD_BALANCE_USD" 'BEGIN { print (b+0 < t+0) ? 1 : 0 }')
         if [ "$low" = "1" ]; then
-          bal_msg="⚠️  Moonshot balance low: \$${bal} (<\$${THRESHOLD_BALANCE_USD}). Top up or switch to '--provider deepseek' before scripts start failing with 429."
+          bal_msg="⚠️  Moonshot balance low: \$${bal} (<\$${THRESHOLD_BALANCE_USD}) and Moonshot is the resolved coworker provider. Top up, or set a cheaper default (e.g. COWORKER_DEFAULT_PROVIDER=deepseek / --provider deepseek) before scripts start failing with 429."
           if [ -n "$session_msg" ]; then
             session_msg="${session_msg}"$'\n'"${bal_msg}"
           else
