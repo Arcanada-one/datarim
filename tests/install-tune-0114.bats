@@ -434,6 +434,24 @@ JSON
     grep -q "\"command\": \"$probe_hook --mode check\"" "$fake_codex/hooks.json"
 }
 
+@test "TUNE-0470 --with-codex bypasses PATH find shim for compound predicates" {
+    local fake_codex="$FAKE_HOME/.codex"
+    local fake_bin="$BATS_TEST_TMPDIR/fake-bin"
+    mkdir -p "$fake_codex" "$fake_bin"
+    cat > "$fake_bin/find" <<'SH'
+#!/bin/sh
+echo "fake find shim was invoked" >&2
+exit 64
+SH
+    chmod +x "$fake_bin/find"
+
+    run env HOME="$FAKE_HOME" CODEX_DIR="$fake_codex" PATH="$fake_bin:$PATH" \
+        "$FAKE_REPO/install.sh" --with-codex
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"fake find shim was invoked"* ]]
+    [ -f "$fake_codex/skills/testing/SKILL.md" ]
+}
+
 # ---------- backwards-compat layer ----------------------------------------
 
 @test "TUNE-0114 legacy --copy without --with-claude implies claude with WARN" {
