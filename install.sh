@@ -529,6 +529,68 @@ setup_coworker_hook_symlink() {
     echo "  LINK: coworker-hook-guard → $src"
 }
 
+# Codex hook self-heal: replace stale temporary probe hooks that no longer
+# exist (for example `/tmp/codex-probe-hook.sh`) with the canonical guard.
+# Existing non-stale custom hooks are left untouched.
+heal_codex_stale_probe_hooks() {
+    local codex_dir="$1"
+    local hooks_file="$codex_dir/hooks.json"
+    local guard="$HOME/.local/bin/coworker-hook-guard"
+    [ -f "$hooks_file" ] || return 0
+    if [ "$DRY_RUN" = true ]; then
+        echo "DRY: self-heal stale /tmp/*probe* Codex hooks in $hooks_file"
+        return 0
+    fi
+    if ! command -v python3 >/dev/null 2>&1; then
+        echo "  WARN: python3 missing — cannot self-heal Codex hooks.json" >&2
+        return 0
+    fi
+    HOOKS_FILE="$hooks_file" GUARD_CMD="$guard" python3 - <<'PY'
+import json
+import os
+import shlex
+from pathlib import Path
+
+path = Path(os.environ["HOOKS_FILE"])
+guard = os.environ["GUARD_CMD"]
+
+try:
+    data = json.loads(path.read_text())
+except Exception as exc:
+    print(f"  WARN: cannot parse {path}: {exc}", file=os.sys.stderr)
+    raise SystemExit(0)
+
+changed = 0
+hooks = data.get("hooks", {})
+for entries in hooks.values():
+    if not isinstance(entries, list):
+        continue
+    for entry in entries:
+        for hook in entry.get("hooks", []) if isinstance(entry, dict) else []:
+            if not isinstance(hook, dict):
+                continue
+            cmd = hook.get("command")
+            if not isinstance(cmd, str):
+                continue
+            try:
+                cmd_path = shlex.split(cmd)[0]
+            except (IndexError, ValueError):
+                cmd_path = cmd
+            p = Path(os.path.expanduser(cmd_path))
+            if (
+                cmd_path.startswith("/tmp/")
+                and "probe" in p.name
+                and not p.exists()
+            ):
+                hook["command"] = guard
+                changed += 1
+
+if changed:
+    path.write_text(json.dumps(data, indent=2) + "\n")
+    print(f"  HEAL: replaced {changed} stale Codex probe hook(s) in {path}")
+PY
+}
+
 # Move existing copy-mode scopes into a backup directory, write a SUCCESS
 # marker (with scopes_migrated field — see creative-TUNE-0033-migration-ux),
 # then return so the caller can create symlinks. mv is atomic per scope:
@@ -1173,6 +1235,9 @@ fanout_runtime() {
     # Idempotent on re-run; runs for both claude and codex fanouts so a
     # codex-only install still gets the hook symlink.
     setup_coworker_hook_symlink
+    if [ "$runtime_name" = "codex" ]; then
+        heal_codex_stale_probe_hooks "$CLAUDE_DIR"
+    fi
 
     echo "================================="
     echo "Done! Linked: $LINKED, Copied: $COPIED, Skipped: $SKIPPED"
