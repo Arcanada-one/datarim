@@ -73,6 +73,20 @@ DATARIM_INSTALL_YES="${DATARIM_INSTALL_YES:-}"
 DATARIM_FORCE_UNAME="${DATARIM_FORCE_UNAME:-}"
 DATARIM_MIGRATION_CHOICE="${DATARIM_MIGRATION_CHOICE:-}"
 
+resolve_find_bin() {
+    if [ -n "${DATARIM_FIND_BIN:-}" ]; then
+        printf '%s\n' "$DATARIM_FIND_BIN"
+        return 0
+    fi
+    if [ -x /usr/bin/find ]; then
+        printf '%s\n' "/usr/bin/find"
+        return 0
+    fi
+    command -v find
+}
+
+FIND_BIN="$(resolve_find_bin)"
+
 # Install scopes — canonical list, asserted by tests/install.bats T34/T35/T36.
 # v1.20.0 (TUNE-0077): scripts and tests added — uniform whole-directory symlink
 # semantics. Eliminates drift between canonical Datarim repo and ~/.claude/
@@ -989,7 +1003,7 @@ fanout_codex_ux() {
 
     # 2. Clean stale wrappers (preserve `.system/`)
     if [ -d "$codex_dir/skills" ]; then
-        find "$codex_dir/skills" -mindepth 1 -maxdepth 1 -type d \
+        "$FIND_BIN" "$codex_dir/skills" -mindepth 1 -maxdepth 1 -type d \
             ! -name '.system' -exec rm -rf {} +
     fi
 
@@ -1258,7 +1272,7 @@ fanout_runtime() {
     # bundled commands (e.g. /dr-orchestrate) exist and how to activate them —
     # otherwise a shipped-but-unactivated plugin reads as a missing command.
     if [ -d "$SCRIPT_DIR/plugins" ]; then
-        bundled_plugins=$(find "$SCRIPT_DIR/plugins" -mindepth 2 -maxdepth 2 -name plugin.yaml 2>/dev/null | sed 's#/plugin.yaml$##' | sort)
+        bundled_plugins=$("$FIND_BIN" "$SCRIPT_DIR/plugins" -mindepth 2 -maxdepth 2 -name plugin.yaml 2>/dev/null | sed 's#/plugin.yaml$##' | sort)
         if [ -n "$bundled_plugins" ]; then
             echo "Bundled opt-in plugins (activate per-workspace with /dr-plugin enable):"
             printf '%s\n' "$bundled_plugins" | while IFS= read -r p; do
