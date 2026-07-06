@@ -4,6 +4,12 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.50.2] — 2026-07-06
+
+### Fixed
+
+- **Installer bypasses RTK `find` shims for compound predicates.** `install.sh --with-codex` now resolves a real `find` binary (overrideable with `DATARIM_FIND_BIN`) before cleaning Codex skill wrappers and listing bundled plugins, preventing RTK shim failures when Codex launches the installer with RTK shims already in `PATH`.
+
 ## [2.50.1] — 2026-07-06
 
 ### Fixed
