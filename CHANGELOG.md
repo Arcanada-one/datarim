@@ -4,6 +4,14 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.51.0] — 2026-07-08
+
+### Fixed
+
+- **Coworker model routing is split by task semantics.** Runtime delegation now uses `doc-read` and `classifier` with `deepseek-v4-flash` for literal documentation extraction and short routing only, while meaningful Datarim draft generation uses `datarim-write` with `deepseek-v4-pro`.
+- **Adversarial verification no longer routes through Coworker.** `/dr-verify` rejects external coworker providers such as `deepseek`; AC verification, hidden-gap discovery, architecture judgment, root-cause analysis, and other semantic review stay in the selected agent runtime.
+- **Legacy Coworker profiles fail closed.** `code`, `codex`, `social`, and legacy `datarim` are documented as disabled Arcanada runtime defaults; source-code reading and voice-bearing content remain native to the selected agent model.
+
 ## [2.50.2] — 2026-07-06
 
 ### Fixed
