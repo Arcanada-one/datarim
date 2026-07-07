@@ -1,6 +1,6 @@
 # Datarim — Universal Iterative Workflow Framework
 
-> **Version:** 2.50.2
+> **Version:** 2.51.0
 > **Framework:** Datarim provides structured rules, agents, skills, and commands for iterative project execution via AI coding assistants — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
 > **Multi-runtime:** Datarim is runtime-agnostic. This file is also available as `AGENTS.md` (symlink) for Codex CLI and other agent runtimes that read `AGENTS.md` by convention. See `documentation/tutorials/use-cases.md#runtime-support` for the canonical Claude Code / Codex CLI / Cursor support matrix.
 > **Note:** "Datarim" has a Russian transliteration «Датарим» — agents must recognise either form in any language context. <!-- allow-non-ascii: literal-transliteration-pair-for-agent-name-recognition -->
@@ -229,11 +229,11 @@ Command files: `$HOME/.claude/commands/{name}.md` (27 commands, including the pl
 Manual self-verification command (post-completion review of any pipeline artifact). **Tri-layer architecture (cheapest-first, fail-fast):**
 
 1. **Layer 1 — Deterministic floor.** `dev-tools/dr-verify-floor.sh` — pure shell pipeline (AC coverage grep, file-touched audit, test-presence parse, shellcheck, spec-traceability graph). Zero LLM cost; runs in seconds. It delegates the graph to the same internal `dev-tools/spec-graph-gate.sh` adapter used automatically by normal pipeline stages, then re-emits findings with `source_layer: "floor"` and `check_name: "dr-spec-lint:<rule>"` (`error→high`, `warning→medium`, `info→low`).
-2. **Layer 2 — Cross-model peer-review.** `coworker ask --provider {peer-provider} --task-id <ID>` — adversarial reviewer in clean external context. Vendor-neutral via the coworker abstraction.
+2. **Layer 2 — Native peer-review.** `dev-tools/resolve-peer-provider.sh` selects a native peer-review model/runtime. Artifact review, AC verification, hidden-gap discovery, architecture judgment, and semantic QA MUST NOT use `coworker`; the selected agent runtime performs the thinking itself in a clean context.
 
-   **Provider auto-resolves** via 6-step resolution chain (`dev-tools/resolve-peer-provider.sh`):
+   **Provider auto-resolves** via native-only resolution chain (`dev-tools/resolve-peer-provider.sh`):
    - **zero-flag UX** when no provider configured anywhere — chain falls through to subagent dispatch
-   - resolution chain order: CLI → per-project datarim-config → per-user XDG datarim-config → coworker `--profile code` default → cross-Claude-family fallback → same-model isolated last resort
+   - resolution chain order: CLI → per-project datarim-config → per-user XDG datarim-config → cross-Claude-family fallback → same-model isolated last resort
    - cross-Claude-family fallback dispatches `agents/peer-reviewer.md` at `model: sonnet` (covered by Claude subscription, no external API key required)
    - audit-log records `peer_review_provider`, `peer_review_mode`, `peer_review_provider_source_layer` for unambiguous trace
 3. **Layer 3 — Native runtime dispatch.** Claude 3-agent parallel (reviewer + tester + security) is canonical; Codex single-prompt is `[experimental]` fallback retained for parity.
