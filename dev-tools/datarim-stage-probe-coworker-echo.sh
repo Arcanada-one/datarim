@@ -66,9 +66,9 @@ fi
 
 OUT="${DIR}/coworker-echo.txt"
 # --max-tokens 4096 — listing 3 rules with brief explanations against the
-# datarim profile (~300-word system_prompt) consumes ~2k+ tokens; lower caps
+# doc-read profile consumes enough prompt budget that lower caps
 # truncate mid-sentence and reduce keyword recall.
-coworker ask --profile datarim --paths "$TASK_DESC" \
+coworker ask --profile doc-read --paths "$TASK_DESC" \
     --question "List 3 Datarim conventions you must follow when editing this file." \
     --max-tokens 4096 > "$OUT" 2>&1 || true
 

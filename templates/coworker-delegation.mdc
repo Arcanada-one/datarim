@@ -14,8 +14,9 @@ Cursor agent = thinking. Coworker = I/O.
 
 CLI binary: `~/.local/bin/coworker`. Four subcommands:
 
-- `coworker ask --provider <p> --profile <pr> --paths <f1> <f2> ... --question "<q>"`
-- `coworker write --provider <p> --profile <pr> --spec "<what>" --context <ref1> ... --target <out>`
+- `coworker ask --provider <p> --profile doc-read --paths <f1> <f2> ... --question "<q>"`
+- `coworker ask --provider <p> --profile classifier --question "<routing/classification prompt>"`
+- `coworker write --provider <p> --profile datarim-write --spec "<what>" --context <ref1> ... --target <out>`
 - `coworker stats --since 7d --by profile`
 - `coworker rtk {install|enable|disable|status}` (optional plugin — see RTK section)
 
@@ -32,25 +33,14 @@ Profiles: `code` (default, generic analysis), `datarim` (Datarim artifacts), `so
 ## ALWAYS write through coworker write first, then surgical edit
 
 - First draft of PRD, plan, design docs, task-description.
-- Never accept blindly — after `coworker write`, read output and edit judgment-parts only.
+- Never accept blindly — after `coworker write --profile datarim-write`, read output and edit judgment-parts only.
 - Published content (articles, social posts, ecosystem-site docs) is NOT in this list — see § NEVER delegate, "Voice-bearing and judgment content".
 
 ## File-type policy (critical — common friction point)
 
-By default `coworker ask` accepts ONLY `.md`, `.markdown`, `.txt` files. Passing `.py`/`.ts`/`.js`/`.rs`/`.go`/`.sh`/`.mdc` exits 6 with: 'file X (extension .y) is not in the allowed list'. For code reads that trip a trigger (>15000 est-tokens / ≥3 files), opt in with `--allow-code` or `COWORKER_ALLOW_CODE=1`.
+By default `coworker ask` accepts ONLY `.md`, `.markdown`, `.txt` files. Passing `.py`/`.ts`/`.js`/`.rs`/`.go`/`.sh`/`.mdc` exits 6 with: 'file X (extension .y) is not in the allowed list'.
 
-For code delegation, explicitly add ONE of:
-
-- `--allow-code` flag, OR
-- `COWORKER_ALLOW_CODE=1` environment variable prefix.
-
-Example:
-
-```
-coworker ask --allow-code --provider deepseek --profile code --paths src/foo.py src/bar.py --question "..."
-```
-
-Do NOT retry after exit 6 — use the flag from the first invocation when reading code files. Prefer the explicit `--allow-code` flag (override stays visible in shell history).
+For Datarim/Claude/Codex runtime this is a policy stop: code reading and code analysis stay with the selected agent model directly (`Read`, `rg`, `sed`, `git diff`, etc.). Do not bypass the block with `--allow-code` or `COWORKER_ALLOW_CODE=1` in agent workflows. Those override mechanisms are only manual operator escape hatches outside normal Datarim policy.
 
 ## RTK plugin (opt-in, Rust Token Killer)
 
@@ -70,7 +60,7 @@ Enable when bulk reads regularly exceed ~5k tokens (logs, code dumps, long diffs
 - Tasks under ~2000 tokens (overhead exceeds savings).
 - Debugging, root-cause analysis, race conditions, safety-critical logic.
 - Architectural decisions and trade-offs.
-- Voice-bearing and judgment content — the assigned model writes it itself, never via `coworker`. Covers published articles, social posts, ecosystem-site docs, and consilium / panel reasoning. The point of running such work on a specific agent (e.g. a flagship reasoning model) is to get *that model's* voice and judgment; routing the draft through `coworker` silently substitutes the delegate LLM's prose and defeats the purpose — and, when several agents are compared on the same brief, invalidates the comparison. `coworker ask` for bulk *reading* of source material is still fine; only generation of the voice-bearing text and the reasoning steps must stay on the assigned model. (Content-work skills/commands — `dr-write`, `dr-edit`, `dr-publish`, `humanize`, `factcheck`, `writing`, `publishing` — and the `consilium` skill follow this rule.)
+- Voice-bearing and judgment content — the assigned model writes it itself, never via `coworker`. Covers published articles, social posts, ecosystem-site docs, consilium / panel reasoning, adversarial review, AC verification, root-cause analysis, architecture, and hidden-gap discovery. `coworker ask --profile doc-read` is only for literal bulk reading of source material; semantic judgment and reasoning stay on the selected agent model. (Content-work skills/commands — `dr-write`, `dr-edit`, `dr-publish`, `humanize`, `factcheck`, `writing`, `publishing` — and the `consilium` skill follow this rule.)
 - When exact line numbers are needed for Edit (coworker summaries lose them).
 - Reasoning about user intent.
 - Appending to an existing file via `coworker write --target Y` without `--append`. Bare `coworker write --target Y` truncate-writes Y (Python `'w'` mode) — a spec like `--spec "append section X to file Y" --target Y` overwrites Y with only the new section and destroys everything else (frontmatter, prior sections). Since coworker v0.4.0 the canonical fix is the `--append` flag: `coworker write --append --target Y --spec "..."` (mutually exclusive with `--stdout`, falls back to write if Y does not yet exist, inserts separator newline when needed). Legacy workarounds (`--stdout` + manual concat, or feed Y as `--context` to a fresh `--target`, or native surgical edit) only when byte-exact tail handling matters.

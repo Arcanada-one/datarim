@@ -21,7 +21,7 @@ description: Standalone self-verification of a Datarim artifact (PRD/plan/do out
    - `--max-iter=N` optional, default 3
    - `--no-fix` flag, default ON (findings-only mode)
    - `--floor-only` flag — skip Layer 2 + Layer 3 (deterministic checks only, fastest, zero LLM cost)
-   - `--peer-provider={deepseek,moonshot,openrouter,sonnet,haiku,...}` optional. When omitted, provider auto-resolves via 6-step chain in `dev-tools/resolve-peer-provider.sh` (CLI → per-project datarim-config → per-user XDG datarim-config → coworker `--profile code` default → cross-Claude-family subagent → same-model isolated last resort). See skill § Peer Review Provider Resolution.
+   - `--peer-provider={sonnet,haiku,opus,none}` optional. External coworker providers are not valid for adversarial verification; semantic review stays in the selected agent runtime. When omitted, provider auto-resolves via `dev-tools/resolve-peer-provider.sh` (CLI → per-project datarim-config → per-user XDG datarim-config → cross-Claude-family subagent → same-model isolated last resort). See skill § Peer Review Provider Resolution.
    - `--runtime={claude,codex}` optional, auto-detect via env (`CODEX_RUNTIME=1` → codex, else claude); affects Layer 3 only
    - `--external-verifier=PASS` optional override (Loop Exit Criteria level 1)
    - `--cost-cap=N` optional token ceiling, default = baseline `/dr-do` tokens × 1.25
@@ -33,7 +33,6 @@ description: Standalone self-verification of a Datarim artifact (PRD/plan/do out
 6. **TRI-LAYER DISPATCH** (canonical v2 order — fastest+cheapest first, fail-fast on Layer 1):
    - **6.1 Layer 1 — Deterministic floor.** Invoke `bash code/datarim/dev-tools/dr-verify-floor.sh --task {TASK-ID} --stage {stage} --workspace <project-root>`. Capture JSONL findings on stdout, progress on stderr. Each finding carries `source_layer: "floor"`. If `--floor-only` passed, skip 6.2 and 6.3. The floor delegates spec-traceability to `dev-tools/spec-graph-gate.sh`, which applies the requested verify stage automatically; findings are re-emitted with `source_layer: "floor"` and `check_name: "dr-spec-lint:<rule>"` (`error→high`, `warning→medium`, `info→low`). Adapter exit `2` is fail-closed, never a clean floor.
    - **6.2 Layer 2 — Provider resolution + cross-model peer-review.** First invoke `bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/resolve-peer-provider.sh" [--peer-provider <flag>] [--project-config ./datarim/config.yaml] [--user-config ~/.config/datarim/config.yaml]` to resolve `provider`, `peer_review_mode`, `source_layer` (3 lines on stdout; exit 0 success / 1 invalid / 2 cost-cap). Then dispatch by mode:
-     - `cross_vendor` → `coworker ask --provider <p> --profile code --task-id {TASK-ID} --paths <artifact-paths> --question "<adversarial-frame-template>"`
      - `cross_claude_family` → spawn `agents/peer-reviewer.md` subagent (model: sonnet, readonly tools)
      - `same_model_isolated` → fall through to Layer 3 single-prompt loop (or Codex degraded path)
      The `--task-id {TASK-ID}` propagation is **MANDATORY** at all dispatch paths — without it the token-cost tool cannot filter logs by task. Each finding tagged `source_layer: "peer_review"`, `peer_review_provider: <name>`, `peer_review_mode: <enum>`, `peer_review_provider_source_layer: <chain-step-tag>`.
@@ -91,28 +90,28 @@ After `/dr-do` (or manual operator fix) addressing findings:
 ## Constraints
 
 - **Stack-agnostic** mandate. All three layers run identically under any runtime; Layer 2 vendor-neutral via coworker abstraction.
-- **`--peer-provider` is now an override, not a default.** Provider auto-resolves via `dev-tools/resolve-peer-provider.sh` chain when flag is omitted. Backward-compat preserved: legacy `--peer-provider deepseek` invocation remains valid as chain step #1 (`source_layer: cli_flag`).
+- **`--peer-provider` is now an override, not a default.** Provider auto-resolves via `dev-tools/resolve-peer-provider.sh` chain when flag is omitted. External coworker providers (`deepseek`, `moonshot`, `openrouter`) are intentionally invalid for verification because adversarial review must be performed by the selected agent runtime, not delegated to coworker.
 - **Read-only** subagent tool whitelist (Read, Grep, Glob, Bash read-only). **NO** Write, Edit, NotebookEdit at all layers.
 - **Cost budget cap**: `--cost-cap=N` (default 1.25× baseline `/dr-do`). If Layer 2 + Layer 3 combined cost exceeds cap, warn operator and continue (do not auto-degrade — operator decides).
 - **Append-only audit log** (`chmod a-w` post-write).
 - **Findings-only mode**: NO automatic fix application. Operator triage all findings manually.
-- **`coworker --task-id <ID>` propagation MANDATORY** at Layer 2 — otherwise downstream token-cost measurement (`dev-tools/measure-invocation-token-cost.sh`) cannot filter logs by task.
+- **No coworker peer-review.** Layer 2 adversarial review, AC verification, and hidden-gap discovery stay in the selected agent runtime.
 
 ## Examples
 
 ### Example 1: Tri-layer canonical (Claude runtime, default)
 
 ```
-$ /dr-verify {TASK-ID} --stage all --max-iter 2 --peer-provider deepseek
+$ /dr-verify {TASK-ID} --stage all --max-iter 2 --peer-provider sonnet
 [Loading skill self-verification]
 [Detecting runtime: claude (default)]
 [Reading PRD + plan + creative + qa-report for {TASK-ID}]
 [Layer 1 — floor] dr-verify-floor.sh --task {TASK-ID} --stage all
   → 2 findings (medium, safety, check_name=shellcheck)
   → exit 0 (no high-severity, proceed)
-[Layer 2 — peer_review provider=deepseek]
-  coworker ask --provider deepseek --profile datarim --task-id {TASK-ID} ...
-  → 1 finding (medium, correctness, peer_review_provider=deepseek)
+[Layer 2 — peer_review provider=sonnet mode=cross_claude_family]
+  spawn agents/peer-reviewer.md (readonly)
+  → 1 finding (medium, correctness, peer_review_provider=sonnet)
 [Layer 3 — dispatch runtime=claude]
   3 parallel agents: reviewer / tester / security
   → reviewer: 1 finding (completeness)
@@ -141,7 +140,7 @@ Final verdict: PASS (deterministic floor clean; no LLM verification performed)
 ```
 $ /dr-verify {TASK-ID} --stage all --runtime codex
 [Layer 1 — floor]  → 0 findings (runtime-agnostic)
-[Layer 2 — peer_review provider=deepseek]  → 1 finding (correctness)
+[Layer 2 — peer_review provider=opus mode=same_model_isolated]  → 1 finding (correctness)
 [Layer 3 — dispatch runtime=codex] [EXPERIMENTAL fallback]
   single-prompt loop with adversarial framing
   → 1 finding (completeness)
@@ -158,21 +157,21 @@ $ /dr-verify {TASK-ID} --stage prd
   no --peer-provider flag
   no ./datarim/config.yaml
   no ~/.config/datarim/config.yaml
-  coworker --profile code default → deepseek
-  → provider=deepseek, mode=cross_vendor, source_layer=coworker_default
-[Layer 2 — peer_review provider=deepseek mode=cross_vendor]
-  coworker ask --provider deepseek --profile code --task-id {TASK-ID} ...
+  fallback subagent → sonnet
+  → provider=sonnet, mode=cross_claude_family, source_layer=fallback_subagent
+[Layer 2 — peer_review provider=sonnet mode=cross_claude_family]
+  spawn agents/peer-reviewer.md (readonly)
   → 1 finding (medium, correctness)
 [Layer 3 — dispatch runtime=claude]  → 0 findings
 [aggregate] 1 unique finding
   → verdict: CONDITIONAL
   → audit: datarim/qa/verify-{TASK-ID}-prd-1.md
-    peer_review_provider: deepseek
-    peer_review_mode: cross_vendor
-    peer_review_provider_source_layer: coworker_default
+    peer_review_provider: sonnet
+    peer_review_mode: cross_claude_family
+    peer_review_provider_source_layer: fallback_subagent
 ```
 
-If neither config nor coworker is set up (greenfield onboarding), chain step #5 dispatches `agents/peer-reviewer.md` (model: sonnet) — covered by Claude subscription, no external API key required:
+If no config is set up (greenfield onboarding), the chain dispatches `agents/peer-reviewer.md` (model: sonnet) — covered by Claude subscription, no external API key required:
 
 ```
 $ /dr-verify {TASK-ID} --stage prd

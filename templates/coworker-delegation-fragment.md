@@ -22,7 +22,7 @@ OpenAI) via the OpenAI-compatible API. Provider/model switchable per call.
 
 ## MANDATORY delegation (no exceptions, do not rationalize)
 
-### Never write directly — always `coworker write --profile datarim` first, then edit
+### Never write directly — always `coworker write --profile datarim-write` first, then edit
 
 - First draft of PRD, plan, design docs, task-description.
 
@@ -51,7 +51,10 @@ this list — see § Do NOT delegate, "Voice-bearing and judgment content".
 - Any read from `wiki/_raw_/`.
 - `/dr-do`, `/dr-prd`, `/dr-plan`, `/dr-archive`, `/dr-dream`, `/dr-qa`
   bootstrap (`tasks.md` + `backlog.md` + `CLAUDE.md` + PRD + plan) — ONE
-  call, not per-file `Read`.
+  `coworker ask --profile doc-read` call for literal extraction/summarization,
+  not per-file `Read`. Do not use coworker for semantic review, AC verification,
+  root-cause analysis, architecture, or hidden-gap discovery; the selected agent
+  handles those.
 - `git diff` / `git log -p` output >~200 lines.
 
 ## Tools
@@ -64,10 +67,12 @@ coworker debug  --hash <sha256-prefix>           # raises blob if COWORKER_LOG_C
 extract-chat    [path/to/session.jsonl -o out.txt]   # default: newest for cwd
 ```
 
-Profiles: `code` (default, generic), `datarim` (artifacts schema-aware),
-`social` (posts), `write` (boilerplate). Default provider per profile is in
-`~/.config/coworker/profiles.yaml` — for cost-sensitive generation prefer
-`--provider deepseek` (≈14× cheaper output than Moonshot).
+Profiles: `doc-read` (literal documentation extraction/summarization,
+DeepSeek v4-flash), `classifier` (short routing/classification, DeepSeek
+v4-flash), `datarim-write` (schema-aware Datarim drafts, DeepSeek v4-pro),
+and `write` (generic meaningful file generation, DeepSeek v4-pro). Legacy
+`code`, `codex`, `datarim`, and `social` profiles are fail-closed in Arcanada
+runtime config; do not use them as defaults.
 
 After `coworker write`: read the output and edit judgment-parts. **Never
 accept blindly.**
@@ -83,20 +88,11 @@ ERROR: file 'X' (extension '.py') is not in the allowed list (.markdown, .md, .t
 Use Claude's Read tool for code analysis, or pass --allow-code / COWORKER_ALLOW_CODE=1 to override.
 ```
 
-To delegate **code** reads (>15000 est-tokens / ≥3 files), opt in explicitly
-with ONE of:
-
-```bash
-coworker ask --allow-code --paths src/foo.py src/bar.py --question "..."
-# or:
-COWORKER_ALLOW_CODE=1 coworker ask --paths src/foo.py --question "..."
-```
-
-The override demotes the block to a per-file `WARNING (override)` line on
-stderr and proceeds. Do not retry after `exit 6` — use the flag from the
-first call when the trigger fires on code files. Prefer the explicit
-`--allow-code` flag over the env var so the override stays visible in
-shell history.
+For Datarim/Claude/Codex runtime this is a **policy stop**: code reading and
+code analysis stay with the selected agent model directly (`Read`, `rg`, `sed`,
+`git diff`, etc.). Do not bypass the block with `--allow-code` or
+`COWORKER_ALLOW_CODE=1` in agent workflows. Those override mechanisms are only
+manual operator escape hatches outside normal Datarim policy.
 
 `coworker write --context <path>` and `--target <path>` accept any
 extension (no allowlist on write paths).

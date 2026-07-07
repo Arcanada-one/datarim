@@ -8,13 +8,13 @@ description: Worked /dr-verify examples — tri-layer canonical, --floor-only fa
 ### Example 1: Tri-layer canonical (Claude runtime)
 
 ```
-$ /dr-verify <task-id> --stage all --max-iter 2 --peer-provider deepseek
+$ /dr-verify <task-id> --stage all --max-iter 2 --peer-provider sonnet
 [Layer 1 — floor] dr-verify-floor.sh --task <task-id> --stage all
   → 2 findings (severity=medium category=safety check_name=shellcheck)
   → exit 0 (no high-severity, proceed)
-[Layer 2 — peer_review provider=deepseek]
-  coworker ask --provider deepseek --profile datarim --task-id <task-id> ...
-  → 1 finding (severity=medium category=correctness peer_review_provider=deepseek)
+[Layer 2 — peer_review provider=sonnet mode=cross_claude_family]
+  spawn agents/peer-reviewer.md (readonly)
+  → 1 finding (severity=medium category=correctness peer_review_provider=sonnet)
 [Layer 3 — dispatch runtime=claude]
   3 parallel agents: reviewer / tester / security
   → reviewer: 1 finding (completeness)
@@ -45,7 +45,7 @@ Final verdict: PASS (deterministic floor clean; no LLM verification performed)
 $ /dr-verify <task-id> --stage all --runtime codex
 [Layer 1 — floor] (runtime-agnostic)
   → 0 findings
-[Layer 2 — peer_review provider=deepseek] (runtime-agnostic)
+[Layer 2 — peer_review provider=opus mode=same_model_isolated] (runtime-agnostic)
   → 1 finding (correctness)
 [Layer 3 — dispatch runtime=codex] [EXPERIMENTAL fallback]
   single-prompt loop with adversarial framing
