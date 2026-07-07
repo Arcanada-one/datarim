@@ -59,7 +59,7 @@ done
 
 # Default LLM-fallback command (cheap model via coworker). Overridable for tests.
 # Reads the brief on stdin; MUST emit JSON {complexity, aal, confidence, reason}.
-: "${FLEET_RESOLVER_LLM_CMD:=coworker ask --provider deepseek --profile code --question}"
+: "${FLEET_RESOLVER_LLM_CMD:=coworker ask --provider deepseek --profile classifier --question}"
 
 # --- PM-override (highest precedence): DIR/<task-basename>.json wins outright. ---
 if [ -n "$OVERRIDE_DIR" ]; then

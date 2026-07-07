@@ -55,8 +55,8 @@ _with_timeout() {
 # stdin and passed as the last argument by _invoke_backend.
 _resolve_backend() {
   case "$1" in
-    coworker-deepseek) echo coworker; echo ask; echo --provider; echo deepseek; echo --profile; echo code; echo --question ;;
-    coworker-groq)     echo coworker; echo ask; echo --provider; echo groq;     echo --profile; echo code; echo --question ;;
+    coworker-deepseek) echo coworker; echo ask; echo --provider; echo deepseek; echo --profile; echo classifier; echo --question ;;
+    coworker-groq)     echo coworker; echo ask; echo --provider; echo groq;     echo --profile; echo classifier; echo --question ;;
     claude)            echo claude; echo --print; echo --output-format=json ;;
     codex)             echo codex; echo exec; echo --output-last-message; echo - ;;
     mock-*)            echo "dr-orch-mock-${1#mock-}" ;;

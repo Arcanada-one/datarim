@@ -9,20 +9,21 @@
 # Reference: skills/self-verification/SKILL.md § Peer Review Provider Resolution
 
 peer_review:
-  # Provider for Layer 2 cross-model peer-review in /dr-verify.
+  # Provider for Layer 2 peer-review in /dr-verify.
   #
   # Whitelist (enforced by ${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/resolve-peer-provider.sh):
-  #   deepseek    — cross_vendor mode (recommended OOTB; ~14× cheaper than Sonnet)
-  #   moonshot    — cross_vendor mode
-  #   openrouter  — cross_vendor mode
   #   sonnet      — cross_claude_family mode (via Claude Code subagent dispatch)
   #   haiku       — cross_claude_family mode (200K context — verify PRD/plan size)
   #   none        — disables Layer 2 entirely (Layer 1 floor + Layer 3 only)
   #
+  # External coworker providers (deepseek/moonshot/openrouter/groq) are forbidden
+  # here: adversarial review, AC verification, and hidden-gap discovery stay on
+  # the selected agent runtime, not on coworker.
+  #
   # Unknown values → resolve-peer-provider.sh exits 1 (supply-chain mitigation).
-  provider: deepseek
+  provider: sonnet
 
-  # Model used when chain reaches step #5 (cross-Claude-family subagent fallback).
+  # Model used when chain reaches cross-Claude-family subagent fallback.
   # Triggered when no provider is configured anywhere in the chain.
   #
   # Whitelist:

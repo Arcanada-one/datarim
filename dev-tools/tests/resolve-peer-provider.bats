@@ -2,15 +2,15 @@
 # resolve-peer-provider.bats — TDD coverage for resolve-peer-provider.sh
 #
 # Coverage (9 chain branches T1-T9 + cost-cap + smoke):
-#   T1  CLI flag override wins (--peer-provider deepseek → cli_flag layer)
+#   T1  CLI flag override wins (--peer-provider sonnet → cli_flag layer)
 #   T2  per-project ./datarim/config.yaml wins over ~/.config/datarim/config.yaml
 #   T3  per-user ~/.config/datarim/config.yaml wins when per-project absent
-#   T4  coworker default (--profile code) when both configs absent → deepseek
-#   T5  subagent fallback (cross_claude_family / sonnet) when coworker disabled
+#   T4  no configs → subagent fallback (cross_claude_family / sonnet)
+#   T5  external coworker provider values are rejected
 #   T6  Codex degraded mode (CODEX_RUNTIME=1 → same_model_isolated + stderr warning)
 #   T7  invalid provider value → exit 1
 #   T8  cost-cap breach (PEER_REVIEW_COST_THRESHOLD=0.01 --estimate-cost 0.02 → exit 2)
-#   T9  peer_review_mode inferred per provider (cross_vendor / cross_claude_family / same_model_isolated)
+#   T9  peer_review_mode inferred per provider (cross_claude_family / same_model_isolated)
 #
 # Output contract: 3 lines on stdout — provider | mode | source_layer.
 # Exit codes: 0 success / 1 parse-or-validation error / 2 cost-cap breach.
@@ -30,7 +30,7 @@ setup() {
     cat > "$HOME_OVERRIDE/.config/coworker/profiles.yaml" <<'EOF'
 code:
   description: Generic code analysis
-  recommended_provider: deepseek
+  recommended_provider: none
 datarim:
   description: Datarim artifacts
   recommended_provider: moonshot
@@ -59,24 +59,24 @@ EOF
 
 # ---------- T1: CLI flag wins -------------------------------------------------
 
-@test "T1: CLI --peer-provider deepseek → exit 0, cli_flag source" {
-    write_per_project moonshot
+@test "T1: CLI --peer-provider sonnet → exit 0, cli_flag source" {
+    write_per_project haiku
     run env HOME="$HOME_OVERRIDE" \
         bash "$RESOLVE" \
-            --peer-provider deepseek \
+            --peer-provider sonnet \
             --project-config "$PROJECT_DIR/datarim/config.yaml" \
             --user-config "$HOME_OVERRIDE/.config/datarim/config.yaml"
     [ "$status" -eq 0 ]
-    [ "$(printf '%s\n' "$output" | sed -n '1p')" = "deepseek" ]
-    [ "$(printf '%s\n' "$output" | sed -n '2p')" = "cross_vendor" ]
+    [ "$(printf '%s\n' "$output" | sed -n '1p')" = "sonnet" ]
+    [ "$(printf '%s\n' "$output" | sed -n '2p')" = "cross_claude_family" ]
     [ "$(printf '%s\n' "$output" | sed -n '3p')" = "cli_flag" ]
 }
 
 # ---------- T2: per-project wins over per-user -------------------------------
 
-@test "T2: per-project sonnet over per-user deepseek → sonnet wins" {
+@test "T2: per-project sonnet over per-user haiku → sonnet wins" {
     write_per_project sonnet
-    write_per_user deepseek
+    write_per_user haiku
     run env HOME="$HOME_OVERRIDE" \
         bash "$RESOLVE" \
             --project-config "$PROJECT_DIR/datarim/config.yaml" \
@@ -89,34 +89,20 @@ EOF
 
 # ---------- T3: per-user when per-project absent -----------------------------
 
-@test "T3: per-user deepseek when per-project absent" {
-    write_per_user deepseek
+@test "T3: per-user haiku when per-project absent" {
+    write_per_user haiku
     run env HOME="$HOME_OVERRIDE" \
         bash "$RESOLVE" \
             --project-config "$PROJECT_DIR/datarim/config.yaml" \
             --user-config "$HOME_OVERRIDE/.config/datarim/config.yaml"
     [ "$status" -eq 0 ]
-    [ "$(printf '%s\n' "$output" | sed -n '1p')" = "deepseek" ]
+    [ "$(printf '%s\n' "$output" | sed -n '1p')" = "haiku" ]
     [ "$(printf '%s\n' "$output" | sed -n '3p')" = "per_user_config" ]
 }
 
-# ---------- T4: coworker default (--profile code) ----------------------------
+# ---------- T4: subagent fallback -------------------------------------------
 
-@test "T4: coworker --profile code default → deepseek (D-6)" {
-    run env HOME="$HOME_OVERRIDE" \
-        bash "$RESOLVE" \
-            --project-config "$PROJECT_DIR/datarim/config.yaml" \
-            --user-config "$HOME_OVERRIDE/.config/datarim/config.yaml"
-    [ "$status" -eq 0 ]
-    [ "$(printf '%s\n' "$output" | sed -n '1p')" = "deepseek" ]
-    [ "$(printf '%s\n' "$output" | sed -n '2p')" = "cross_vendor" ]
-    [ "$(printf '%s\n' "$output" | sed -n '3p')" = "coworker_default" ]
-}
-
-# ---------- T5: subagent fallback when coworker disabled ---------------------
-
-@test "T5: subagent fallback when no configs and no coworker profiles" {
-    rm "$HOME_OVERRIDE/.config/coworker/profiles.yaml"
+@test "T4: no configs → subagent fallback" {
     run env HOME="$HOME_OVERRIDE" \
         bash "$RESOLVE" \
             --project-config "$PROJECT_DIR/datarim/config.yaml" \
@@ -125,6 +111,18 @@ EOF
     [ "$(printf '%s\n' "$output" | sed -n '1p')" = "sonnet" ]
     [ "$(printf '%s\n' "$output" | sed -n '2p')" = "cross_claude_family" ]
     [ "$(printf '%s\n' "$output" | sed -n '3p')" = "fallback_subagent" ]
+}
+
+# ---------- T5: external coworker provider values rejected -------------------
+
+@test "T5: external provider deepseek rejected" {
+    run env HOME="$HOME_OVERRIDE" \
+        bash "$RESOLVE" \
+            --peer-provider deepseek \
+            --project-config "$PROJECT_DIR/datarim/config.yaml" \
+            --user-config "$HOME_OVERRIDE/.config/datarim/config.yaml"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"invalid provider 'deepseek'"* ]]
 }
 
 # ---------- T6: Codex degraded mode ------------------------------------------
@@ -184,31 +182,31 @@ EOF
 
 # ---------- T9: peer_review_mode inferred per provider ----------------------
 
-@test "T9a: provider=deepseek → mode=cross_vendor" {
+@test "T9a: provider=sonnet → mode=cross_claude_family" {
     run env HOME="$HOME_OVERRIDE" \
-        bash "$RESOLVE" --peer-provider deepseek \
+        bash "$RESOLVE" --peer-provider sonnet \
             --project-config "$PROJECT_DIR/datarim/config.yaml" \
             --user-config "$HOME_OVERRIDE/.config/datarim/config.yaml"
     [ "$status" -eq 0 ]
-    [ "$(printf '%s\n' "$output" | sed -n '2p')" = "cross_vendor" ]
+    [ "$(printf '%s\n' "$output" | sed -n '2p')" = "cross_claude_family" ]
 }
 
-@test "T9b: provider=moonshot → mode=cross_vendor" {
+@test "T9b: provider=haiku → mode=cross_claude_family" {
     run env HOME="$HOME_OVERRIDE" \
-        bash "$RESOLVE" --peer-provider moonshot \
+        bash "$RESOLVE" --peer-provider haiku \
             --project-config "$PROJECT_DIR/datarim/config.yaml" \
             --user-config "$HOME_OVERRIDE/.config/datarim/config.yaml"
     [ "$status" -eq 0 ]
-    [ "$(printf '%s\n' "$output" | sed -n '2p')" = "cross_vendor" ]
+    [ "$(printf '%s\n' "$output" | sed -n '2p')" = "cross_claude_family" ]
 }
 
-@test "T9c: provider=openrouter → mode=cross_vendor" {
+@test "T9c: provider=opus → mode=same_model_isolated" {
     run env HOME="$HOME_OVERRIDE" \
-        bash "$RESOLVE" --peer-provider openrouter \
+        bash "$RESOLVE" --peer-provider opus \
             --project-config "$PROJECT_DIR/datarim/config.yaml" \
             --user-config "$HOME_OVERRIDE/.config/datarim/config.yaml"
     [ "$status" -eq 0 ]
-    [ "$(printf '%s\n' "$output" | sed -n '2p')" = "cross_vendor" ]
+    [ "$(printf '%s\n' "$output" | sed -n '2p')" = "same_model_isolated" ]
 }
 
 @test "T9d: provider=sonnet → mode=cross_claude_family" {

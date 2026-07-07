@@ -2,7 +2,7 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 2.50.2](https://img.shields.io/badge/Version-2.50.2-green.svg)](VERSION)
+[![Version: 2.51.0](https://img.shields.io/badge/Version-2.51.0-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Arcanada-one/datarim/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Arcanada-one/datarim)
 
@@ -176,13 +176,14 @@ Stages in `[brackets]` are conditional — included when the agent determines th
 
 - **Tri-layer self-verification (`/dr-verify`)** — on-demand standalone verification
   of any pipeline artifact. Layer 1 deterministic floor (shell pipeline, no LLM
-  cost) → Layer 2 cross-model peer-review (cleanly external context) → Layer 3
+  cost) → Layer 2 native peer-review in a clean selected-agent context → Layer 3
   native runtime dispatch (Claude 3-agent parallel, Codex single-prompt fallback).
-  Layer 2 provider auto-resolves via a 6-step chain (CLI flag → per-project
-  `datarim/config.yaml` → per-user XDG → coworker `--profile code` default →
-  cross-Claude-family subagent fallback → same-model isolated last resort), so
-  `/dr-verify {TASK-ID}` works zero-flag without any external API key. Findings
-  carry `source_layer` + `peer_review_mode` (`cross_vendor` / `cross_claude_family` /
+  Layer 2 provider auto-resolves via a native-only chain (CLI flag → per-project
+  `datarim/config.yaml` → per-user XDG → cross-Claude-family subagent fallback →
+  same-model isolated last resort), so `/dr-verify {TASK-ID}` works zero-flag
+  without any external API key. Artifact review, AC verification, hidden-gap
+  discovery, architecture judgment, and semantic QA MUST NOT use `coworker`.
+  Findings carry `source_layer` + `peer_review_mode` (`cross_claude_family` /
   `same_model_isolated`) tags for tri-layer provenance and dispatch-class audit.
   `--floor-only` for fast pre-merge gating with zero LLM cost.
 

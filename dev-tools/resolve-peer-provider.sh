@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
-# resolve-peer-provider.sh — 6-step resolution chain for /dr-verify Layer 2
-# peer-review provider. Replaces hardcoded `--peer-provider deepseek` default
-# with declarative chain producing zero-flag UX.
+# resolve-peer-provider.sh — provider resolution for /dr-verify Layer 2
+# peer-review. External coworker providers are intentionally not used for
+# adversarial verification; semantic review stays in the primary runtime.
 #
 # Resolution chain (D-1):
 #   1. --peer-provider CLI flag         → cli_flag
@@ -10,15 +10,14 @@
 #                                         (caller-supplied; suggested ./datarim/config.yaml)
 #   3. --user-config <yaml>             → per_user_config
 #                                         (caller-supplied; suggested ~/.config/datarim/config.yaml)
-#   4. coworker --profile code default  → coworker_default
-#   5. cross-Claude-family subagent     → fallback_subagent (Claude runtime only)
-#   6. same-model isolated last resort  → fallback_isolated
+#   4. cross-Claude-family subagent     → fallback_subagent (Claude runtime only)
+#   5. same-model isolated last resort  → fallback_isolated
 #
 # Output (stdout, 3 lines):
-#   line 1: provider_name      (deepseek | moonshot | openrouter | sonnet | haiku | opus | none)
-#   line 2: peer_review_mode   (cross_vendor | cross_claude_family | same_model_isolated)
+#   line 1: provider_name      (sonnet | haiku | opus | none)
+#   line 2: peer_review_mode   (cross_claude_family | same_model_isolated)
 #   line 3: source_layer       (cli_flag | per_project_config | per_user_config |
-#                               coworker_default | fallback_subagent | fallback_isolated)
+#                               fallback_subagent | fallback_isolated)
 #
 # Exit codes:
 #   0 — resolution successful
@@ -35,7 +34,7 @@
 # every parser call handle non-zero. -u and pipefail are kept.
 set -uo pipefail
 
-PROVIDER_WHITELIST="deepseek moonshot openrouter sonnet haiku opus none"
+PROVIDER_WHITELIST="sonnet haiku opus none"
 PEER_REVIEW_COST_THRESHOLD="${PEER_REVIEW_COST_THRESHOLD:-0.10}"
 
 PROJECT_CFG=""
@@ -90,10 +89,9 @@ is_valid_provider() {
     return 1
 }
 
-# infer_mode <provider> → emits cross_vendor|cross_claude_family|same_model_isolated
+# infer_mode <provider> → emits cross_claude_family|same_model_isolated
 infer_mode() {
     case "$1" in
-        deepseek|moonshot|openrouter) printf 'cross_vendor\n' ;;
         sonnet|haiku)                 printf 'cross_claude_family\n' ;;
         opus|none)                    printf 'same_model_isolated\n' ;;
         *)                            printf 'same_model_isolated\n' ;;
@@ -111,21 +109,6 @@ parse_yaml_provider() {
         in_block && /^[[:space:]]+provider:[[:space:]]*/ {
             sub(/^[[:space:]]+provider:[[:space:]]*/, "", $0)
             sub(/[[:space:]]*#.*$/, "", $0)
-            gsub(/[[:space:]]/, "", $0)
-            print $0
-            exit
-        }
-    ' "$cfg"
-}
-
-# coworker_default_provider → emits provider for `code` profile, or empty
-coworker_default_provider() {
-    local cfg="$HOME/.config/coworker/profiles.yaml"
-    [ -f "$cfg" ] || return 0
-    awk -v p="^code:" '
-        /^[a-z]+:/         { cur = $0 }
-        cur ~ p && /recommended_provider/ {
-            sub(/^[[:space:]]+recommended_provider:[[:space:]]*/, "", $0)
             gsub(/[[:space:]]/, "", $0)
             print $0
             exit
@@ -186,17 +169,11 @@ if [ "$NO_CONFIG" -eq 0 ]; then
     fi
 fi
 
-# Step 4. Coworker default (--profile code per D-6)
-v="$(coworker_default_provider)"
-if [ -n "$v" ] && [ "$v" != "none" ]; then
-    emit "$v" "coworker_default"
-fi
-
-# Step 5. Cross-Claude-family fallback (Claude runtime only)
+# Step 4. Cross-Claude-family fallback (Claude runtime only)
 if [ -z "${CODEX_RUNTIME:-}" ]; then
     emit "sonnet" "fallback_subagent"
 fi
 
-# Step 6. Same-model isolated last resort (Codex degraded mode)
+# Step 5. Same-model isolated last resort (Codex degraded mode)
 echo "WARN: Codex runtime detected, falling back to same_model_isolated mode" >&2
 emit "opus" "fallback_isolated"

@@ -197,7 +197,7 @@ emit_write_deny() {
   local f="$1"
   local base
   base=$(basename "$f")
-  emit_deny "Создаёшь $base — это документационный артефакт. Per CLAUDE.md MANDATORY: первый draft через coworker write --profile datarim --spec \"...\" --context <refs> --target \"$f\", потом surgical edits. Approve только если уже сгенерирован coworker'ом. Если это АРХИТЕКТУРНОЕ решение (ADR / threat-model / design) — global rule «Do NOT delegate → Architectural decisions» разрешает писать напрямую: добавь glob имени в coworker-delegation-exempt.patterns (рядом с хуком) ИЛИ пиши через Bash heredoc (хук не гейтит Bash). Делегируй coworker'у только настоящие черновики, НЕ имитируй compliance пустышкой."
+  emit_deny "Создаёшь $base — это документационный артефакт. Per CLAUDE.md MANDATORY: первый draft через coworker write --profile datarim-write --spec \"...\" --context <refs> --target \"$f\", потом surgical edits. Approve только если уже сгенерирован coworker'ом. Если это АРХИТЕКТУРНОЕ решение (ADR / threat-model / design) — global rule «Do NOT delegate → Architectural decisions» разрешает писать напрямую: добавь glob имени в coworker-delegation-exempt.patterns (рядом с хуком) ИЛИ пиши через Bash heredoc (хук не гейтит Bash). Делегируй coworker'у только настоящие черновики, НЕ имитируй compliance пустышкой."
 }
 
 # Read-branch deny wording, bound to the crossed token threshold. The wording

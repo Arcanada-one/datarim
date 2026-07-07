@@ -44,7 +44,7 @@ configurable fallback chain of AI CLI backends:
 
 | Backend | Invocation | Notes |
 |---------|-----------|-------|
-| `coworker-deepseek` (default primary) | `coworker ask --provider deepseek --profile code` | OSS coworker CLI; vendor-neutral |
+| `coworker-deepseek` (default primary) | `coworker ask --provider deepseek --profile classifier` | OSS coworker CLI; vendor-neutral classifier, not artifact review |
 | `claude` | `claude --print --output-format=json` | Wrapper carries `{type, result}`; resolver re-parses `.result` |
 | `codex` | `codex exec --output-last-message -` | Best-effort; chain continues on parse fail |
 

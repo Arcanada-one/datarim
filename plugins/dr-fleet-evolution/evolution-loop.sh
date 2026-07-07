@@ -140,7 +140,7 @@ main() {
     local i passed=() cand
     for i in $(seq 1 "$candidates"); do
         cand="$work/candidate-$i.md"
-        if _coworker write --provider deepseek --profile datarim \
+        if _coworker write --provider deepseek --profile datarim-write \
                 --spec "$GEN_SPEC" \
                 --context "$skill_md" "$dataset" \
                 --target "$cand" >/dev/null 2>&1 && [ -s "$cand" ]; then
@@ -165,7 +165,7 @@ main() {
     # Stage 4: select best by judged success-rate; ties -> smaller size.
     local best="" best_score="-1" best_size="" c score size
     for c in "${passed[@]}"; do
-        score=$(_coworker ask --provider deepseek --profile datarim \
+        score=$(_coworker ask --provider deepseek --profile classifier \
                     --paths "$c" "$dataset" --question "$SCORE_Q" 2>/dev/null \
                 | grep -oE '[0-9]+\.[0-9]+|[0-9]+' | head -n1)
         [ -n "$score" ] || score="0"
