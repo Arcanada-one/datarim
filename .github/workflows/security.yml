@@ -342,7 +342,16 @@ jobs:
         with:
           persist-credentials: false
       - name: Install bats
-        run: sudo apt-get update && sudo apt-get install -y bats
+        run: |
+          set -euo pipefail
+          if command -v bats >/dev/null 2>&1; then
+            bats --version
+            exit 0
+          fi
+          sudo find /etc/apt/sources.list.d -type f \
+            \( -name '*microsoft*' -o -name '*azure-cli*' \) -delete
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends bats
       - name: Run security regression tests
         run: bash tests/security/run-all.sh
 
@@ -392,7 +401,16 @@ jobs:
         with:
           persist-credentials: false
       - name: Install bats
-        run: sudo apt-get update && sudo apt-get install -y bats
+        run: |
+          set -euo pipefail
+          if command -v bats >/dev/null 2>&1; then
+            bats --version
+            exit 0
+          fi
+          sudo find /etc/apt/sources.list.d -type f \
+            \( -name '*microsoft*' -o -name '*azure-cli*' \) -delete
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends bats
       - name: Run check-doc-refs bats fixtures
         run: bats tests/check-doc-refs.bats
       - name: Self-dogfood — run linter against repo HEAD with baseline applied
@@ -407,7 +425,16 @@ jobs:
         with:
           persist-credentials: false
       - name: Install bats
-        run: sudo apt-get update && sudo apt-get install -y bats
+        run: |
+          set -euo pipefail
+          if command -v bats >/dev/null 2>&1; then
+            bats --version
+            exit 0
+          fi
+          sudo find /etc/apt/sources.list.d -type f \
+            \( -name '*microsoft*' -o -name '*azure-cli*' \) -delete
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends bats
       - name: Run task-id-gate bats fixtures
         run: bats tests/task-id-gate.bats
       - name: Self-dogfood — gate against runtime scopes (full tree)
