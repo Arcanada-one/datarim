@@ -1,8 +1,8 @@
 name: scorecard
 
-# OpenSSF Scorecard: weekly score + on-demand runs. Results are pushed
-# to the OpenSSF dashboard (publish_results: true) and uploaded as
-# SARIF to the repository's code-scanning view.
+# OpenSSF Scorecard: weekly score + on-demand runs publish to the
+# OpenSSF dashboard. Push runs still upload SARIF, but skip dashboard
+# publishing so external Fulcio/OIDC publish outages do not block releases.
 
 on:
   branch_protection_rule:
@@ -41,7 +41,7 @@ jobs:
         with:
           results_file: results.sarif
           results_format: sarif
-          publish_results: true
+          publish_results: ${{ github.event_name != 'push' }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
