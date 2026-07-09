@@ -1,12 +1,14 @@
 ---
 name: coworker-context
 description: Canonical conventions an external LLM (via coworker delegation) must follow when generating or editing Datarim artifacts (stage header, frontmatter, etc.).
-loaded_by: coworker-profile-datarim, /dr-write, /dr-archive
+loaded_by: coworker-profile-datarim-write, /dr-write, /dr-archive
 ---
 
 # Coworker Context — Datarim Conventions Reference
 
-Single entry point for any external LLM invoked through `coworker ask` / `coworker write` with `--profile datarim`. The profile's `system_prompt` references this skill; read top-to-bottom before generating or editing any artifact under `datarim/`.
+Single entry point for any external LLM invoked through `coworker write` with
+`--profile datarim-write`. The profile's `system_prompt` references this skill;
+read top-to-bottom before generating or editing any artifact under `datarim/`.
 
 History-agnostic: this skill names contract surfaces, not specific task IDs.
 

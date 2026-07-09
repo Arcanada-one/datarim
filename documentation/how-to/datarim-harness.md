@@ -54,14 +54,19 @@ Fail-soft: a journal-write failure never aborts the snapshot itself (V-AC-7 cont
 
 ## Coworker echo probe
 
-To verify the `coworker --profile datarim` system_prompt actually transmits Datarim conventions to the external LLM:
+To verify that the lightweight `coworker ask --profile doc-read` path still
+surfaces Datarim conventions from the task-description context:
 
 ```text
 dev-tools/datarim-stage-probe-coworker-echo.sh <TASK-ID>
 # ok: keywords=4 (response saved to /tmp/datarim-test-<TASK-ID>/coworker-echo.txt)
 ```
 
-The probe sends a fixed question (`List 3 Datarim conventions you must follow when editing this file.`) with the task-description as `--paths`, captures the response, and counts how many mandate keywords appear (Stage Header, append-log, expectations, snapshot, frontmatter, mandate, Supreme Directive, Diátaxis, wish_id, history-agnostic).
+The probe sends a fixed question (`List 3 Datarim conventions you must follow
+when editing this file.`) with the task-description as `--paths`, captures the
+response, and counts how many mandate keywords appear (Stage Header,
+append-log, expectations, snapshot, frontmatter, mandate, Supreme Directive,
+Diátaxis, wish_id, history-agnostic).
 
 **Refusal on sensitive markers** — if the task-description contains tokens like `password`, `api_key`, `/etc/shadow`, `vault token`, `client_secret`, or `private_key`, the probe records `skipped:sensitive-markers` in the journal and exits 0 without invoking coworker.
 
