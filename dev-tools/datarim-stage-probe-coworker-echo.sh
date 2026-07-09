@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# datarim-stage-probe-coworker-echo.sh — probe coworker datarim profile awareness.
+# datarim-stage-probe-coworker-echo.sh — probe coworker doc-read context awareness.
 #
 # Sends a fixed question to coworker (`List 3 Datarim conventions you must
 # follow when editing this file.`) using the active profile, captures the

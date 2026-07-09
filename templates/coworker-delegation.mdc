@@ -20,7 +20,12 @@ CLI binary: `~/.local/bin/coworker`. Four subcommands:
 - `coworker stats --since 7d --by profile`
 - `coworker rtk {install|enable|disable|status}` (optional plugin — see RTK section)
 
-Profiles: `code` (default, generic analysis), `datarim` (Datarim artifacts), `social` (posts), `write` (boilerplate). Cost-sensitive tasks → `--provider deepseek` (~14x cheaper output vs Moonshot).
+Profiles: `doc-read` (literal documentation extraction/summarization,
+DeepSeek v4-flash), `classifier` (short routing/classification, DeepSeek
+v4-flash), `datarim-write` (schema-aware Datarim drafts, DeepSeek v4-pro),
+and `write` (generic meaningful file generation, DeepSeek v4-pro). Legacy
+`code`, `codex`, `datarim`, and `social` profiles are fail-closed in Arcanada
+runtime config; do not use them as defaults.
 
 ## ALWAYS delegate via coworker ask when ANY trigger fires
 

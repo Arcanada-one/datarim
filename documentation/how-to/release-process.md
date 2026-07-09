@@ -85,9 +85,33 @@ After merge, on a clean `main`:
 ```bash
 git checkout main
 git pull --ff-only
+
+# Preflight: `git tag -s` must be able to sign in the configured format.
+# SSH signing is valid when gpg.format=ssh and user.signingkey points at an
+# available private SSH key; GPG signing is valid when a matching GPG secret key
+# exists locally. Do not downgrade to an annotated-only tag silently.
+git config --get gpg.format
+git config --get user.signingkey
+git tag -s "vX.Y.Z-signing-probe" -m "release signing probe"
+git tag -v "vX.Y.Z-signing-probe"
+git tag -d "vX.Y.Z-signing-probe"
+
 git tag -s "vX.Y.Z" -m "release vX.Y.Z"   # signed tag
 git push origin "vX.Y.Z"
 ```
+
+If the signing probe fails, fix the maintainer machine first or have a
+maintainer with a working signing setup cut the tag. For SSH signing, the local
+minimum is:
+
+```bash
+git config gpg.format ssh
+git config user.signingkey /path/to/signing-key.ed25519
+git config gpg.ssh.allowedSignersFile /path/to/allowed_signers
+```
+
+The `allowed_signers` file must contain the public key identity Git should trust
+when `git tag -v` verifies the probe tag.
 
 For a release candidate, use a suffix accepted by the tag-format gate:
 
