@@ -4,6 +4,13 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.51.1] — 2026-07-09
+
+### Fixed
+
+- **Codex skill fanout is atomic.** `install.sh --with-codex` now builds generated `~/.codex/skills` adapters in a staging directory and swaps the completed tree into place, preventing transient `missing SKILL.md` startup warnings when Codex launches while the installer is regenerating wrappers.
+- **Codex skill wrapper source paths point at nested SKILL.md files.** Generated adapters for `skills/<name>/SKILL.md` now reference `code/datarim/skills/<name>/SKILL.md` instead of the invalid `code/datarim/skills/SKILL.md`, making diagnostics and manual source lookup accurate.
+
 ## [2.51.0] — 2026-07-08
 
 ### Fixed

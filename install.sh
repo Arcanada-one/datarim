@@ -865,7 +865,11 @@ generate_skill_wrapper() {
     local name_q desc_q
     name_q=$(yaml_quote_scalar "$name")
     desc_q=$(yaml_quote_scalar "$desc")
-    rel="code/datarim/skills/$(basename "$src")"
+    if [ "$(basename "$src")" = "SKILL.md" ]; then
+        rel="code/datarim/skills/$(basename "$(dirname "$src")")/SKILL.md"
+    else
+        rel="code/datarim/skills/$(basename "$src")"
+    fi
     mkdir -p "$(dirname "$dst")"
     cat > "$dst" <<WRAP
 ---
@@ -887,6 +891,7 @@ WRAP
 # Idempotent: cleans `<codex_dir>/skills/.system/` first.
 restore_codex_system_skills() {
     local codex_dir="$1"
+    local skills_dir="${2:-$codex_dir/skills}"
     local backup=""
     # set +e locally because globbing for the newest backup is best-effort
     # under `set -euo pipefail`: zero matches is normal, not an error.
@@ -898,8 +903,8 @@ restore_codex_system_skills() {
         echo "  NOTE: no .system/ backup found under $codex_dir/skills.bundled-backup-TUNE-0296-* — skipping restore" >&2
         return 0
     fi
-    rm -rf "$codex_dir/skills/.system"
-    cp -a "$backup/.system" "$codex_dir/skills/.system"
+    rm -rf "$skills_dir/.system"
+    cp -a "$backup/.system" "$skills_dir/.system"
     echo "  RESTORE: .system/ ← $(basename "$backup")"
 }
 
@@ -994,20 +999,18 @@ fanout_codex_ux() {
         return 0
     fi
 
-    # 1. Convert skills/ symlink to real directory (idempotent)
-    if [ -L "$codex_dir/skills" ]; then
-        rm "$codex_dir/skills"
-        mkdir -p "$codex_dir/skills"
-    fi
-    mkdir -p "$codex_dir/skills"
+    mkdir -p "$codex_dir"
 
-    # 2. Clean stale wrappers (preserve `.system/`)
-    if [ -d "$codex_dir/skills" ]; then
-        "$FIND_BIN" "$codex_dir/skills" -mindepth 1 -maxdepth 1 -type d \
-            ! -name '.system' -exec rm -rf {} +
-    fi
+    # Build a complete replacement tree first. Codex may read ~/.codex/skills
+    # while install.sh is running; cleaning the live directory before
+    # regeneration creates transient "missing SKILL.md" startup warnings.
+    local staged_skills old_skills
+    staged_skills="$codex_dir/.skills.fanout.$$"
+    old_skills="$codex_dir/.skills.previous.$$"
+    rm -rf "$staged_skills" "$old_skills"
+    mkdir -p "$staged_skills"
 
-    # 3. Generate wrappers for top-level source skills.
+    # 1. Generate wrappers for top-level source skills.
     #    Supports both legacy flat layout (`skills/<name>.md`) and the
     #    directory-per-skill layout (`skills/<name>/SKILL.md`, TUNE-0304).
     local src_skill name
@@ -1015,21 +1018,35 @@ fanout_codex_ux() {
     for src_skill in "$src_dir/skills"/*.md; do
         [ -f "$src_skill" ] || continue
         name=$(basename "$src_skill" .md)
-        generate_skill_wrapper "$src_skill" "$codex_dir/skills/$name/SKILL.md"
+        generate_skill_wrapper "$src_skill" "$staged_skills/$name/SKILL.md"
         generated=$((generated + 1))
     done
     for src_skill in "$src_dir/skills"/*/SKILL.md; do
         [ -f "$src_skill" ] || continue
         name=$(basename "$(dirname "$src_skill")")
-        generate_skill_wrapper "$src_skill" "$codex_dir/skills/$name/SKILL.md"
+        generate_skill_wrapper "$src_skill" "$staged_skills/$name/SKILL.md"
         generated=$((generated + 1))
     done
+
+    # 2. Restore .system/ from backup into the staged tree.
+    restore_codex_system_skills "$codex_dir" "$staged_skills"
+
+    # 3. Atomically swap the fully built tree into place. The live skills/
+    # path is only absent for the two rename operations, never during wrapper
+    # generation or .system restore.
+    if [ -e "$codex_dir/skills" ] || [ -L "$codex_dir/skills" ]; then
+        mv "$codex_dir/skills" "$old_skills"
+    fi
+    if ! mv "$staged_skills" "$codex_dir/skills"; then
+        if [ -e "$old_skills" ] || [ -L "$old_skills" ]; then
+            mv "$old_skills" "$codex_dir/skills"
+        fi
+        return 1
+    fi
+    rm -rf "$old_skills"
     echo "  WRAP: generated $generated SKILL.md adapter(s) under $codex_dir/skills/"
 
-    # 4. Restore .system/ from backup
-    restore_codex_system_skills "$codex_dir"
-
-    # 5. Generate AGENTS.override.md
+    # 4. Generate AGENTS.override.md
     generate_codex_agents_manifest "$src_dir" "$codex_dir/AGENTS.override.md"
     echo "  MANIFEST: $codex_dir/AGENTS.override.md"
 }
