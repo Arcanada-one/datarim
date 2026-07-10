@@ -294,7 +294,7 @@ confirm the check rejects it — this proves the gate is wired and not a
 silent no-op:
 
 ```bash
-TASK_ID="TUNE-0157"                       # substitute the current task id
+TASK_ID="TUNE-XXXX"                       # substitute the current task id
 NEG_DIR="/tmp/${TASK_ID}-negsmoke"
 rm -rf "$NEG_DIR" && mkdir -p "$NEG_DIR"
 cp docker-compose.yml "$NEG_DIR/docker-compose.yml"
