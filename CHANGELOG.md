@@ -7,6 +7,11 @@ All notable changes to the Datarim framework are documented here. Format follows
 ### Added
 
 - **`skills/testing/live-smoke-gates.md` § Gate 8: Recorded-Fixture Tests for HTTP Wrappers** — new subsection mandating that thin HTTP wrapper clients capture one real response into a consuming-project fixtures doc (`datarim/tasks/<TASK-ID>-fixtures.md`) before implementation, that the wrapper's spec include at least one integration-style test asserting against that recorded response (not a synthetic stub), and that the spec decode/validate through the real schema so a response-shape drift fails the test. Routing hints updated in `skills/testing/SKILL.md`. Site sync (`datarim.club/data/skills/testing.php`, EN+RU) deferred as an explicit cross-repo follow-up — out of scope for this repo. (TUNE-0162, source: reflection-ARCA-0008 § Class A Proposal 2)
+- **`/dr-doctor` `wiki/_raw_/` semantic-orphan check** — new advisory-only pass (`scan_wiki_raw_orphans`,
+  scope `all`) flags a file whose basename shares no token (≥4 chars, alnum-only) with the first 300 bytes
+  of its content — a signal of an accidental paste into the wrong file. Report-only; `--fix` does not touch
+  `wiki/_raw_/`. Class A evolution proposal from `reflection-RESEARCH-0003.md` Proposal 2 (approved
+  2026-05-07). New regression test `tests/tune-0121-wiki-raw-orphan-check.bats` (6 cases). (TUNE-0121)
 - **`templates/legacy-hardware-probe-checklist.md`** _(NEW)_ — 7-step probe checklist for legacy embedded
   Linux integrations (CPU architecture, `/dev/net/tun`, free RAM, OpenSSL PBKDF2 support, BusyBox applet
   availability, cron spool permissions, machine-identity sources). Run before committing to an architectural
