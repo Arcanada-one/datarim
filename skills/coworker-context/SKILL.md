@@ -134,3 +134,56 @@ This skill itself complies — only contract surfaces named, not history.
 The free-generated body of a Datarim artefact (creative / PRD / plan / the analytical body of archive / reflection / compliance-report) defaults to **English**, unless the operator-facing call site states another language in the `--spec`. This mirrors the canonical Artifact Language Policy in `CLAUDE.md` (the single source of truth — coworker only mirrors it).
 
 Preserve verbatim, in their original language, the sections that policy excludes from the English default: the verbatim operator brief and append-log, the canonical operator-facing section headings the policy names, and any user-project content quoted into the artefact. When in doubt about a section's language, defer to the cited template / skill rather than translate.
+
+## 13. Type-Signature Mirror Guard
+
+When a `coworker write` spec asks the delegate LLM to generate a document that
+**quotes named types, function signatures, or enum/union variants** from a PRD
+or any canonical source (a shared type model, an API contract, a schema), the
+delegate MUST reproduce those names exactly — it MUST NOT invent generics,
+rename fields, or paraphrase a signature into a plausible-but-wrong shape. A
+delegate LLM fabricates type signatures readily: a draft `## Overview` can
+substitute an invented borrow (`&mut SomeContext`), an invented collection
+variant (`HashMap<String, Value>`), or an invented hash name where the source
+declared something else. Prose is easy to skim past on early stages, so a
+silently wrong signature can survive to the plan before a surgical-edit pass
+catches it.
+
+To make the mirror reliable, a type-quoting spec MUST satisfy three conditions.
+The caller composing the `coworker write` invocation is responsible for (a) and
+(b); the caller running the post-generation pass is responsible for (c).
+
+**(a) Verbatim canonical block.** Embed the exact source excerpt — the type
+declaration, signature line, or variant list, copied byte-for-byte from the
+PRD/canonical source — inside a fenced marker pair so the delegate has the
+ground truth in-context and the post-pass has an anchor to grep:
+
+```
+<!-- canonical -->
+fn on_post_hook(ctx: &PostHookContext) -> Result<Vec<Event>, HookError>
+enum Payload { Text(String), Binary(Bytes) }
+<!-- /canonical -->
+```
+
+The block quotes the source; it is never re-typed from memory. If the spec
+quotes types but ships no `<!-- canonical -->` block, the guard is unmet.
+
+**(b) Explicit mirror instruction.** The spec text MUST instruct the delegate,
+in words, to mirror the canonical block exactly. Use an unambiguous directive,
+for example: "Mirror the named types, signatures, and variants from the
+`<!-- canonical -->` block exactly. Do not invent generics, do not rename
+fields, do not paraphrase a signature." A spec that embeds the block but never
+tells the delegate to honour it is unmet.
+
+**(c) Post-generation surgical-edit pass.** After the delegate returns, the
+caller MUST verify every name from the `<!-- canonical -->` block appears
+verbatim in the generated body — a regex/grep of each expected identifier
+against the draft — and surgically correct any drift before accepting the
+output. Never accept a type-quoting draft blind. When exact names are known
+ahead of time, `scripts/check-coworker-canonical-mirror.sh <draft>` automates
+the check: it fails when a `<!-- canonical -->` identifier is absent from the
+body, when the block is missing, or when the mirror instruction is absent.
+
+This guard applies only to specs that quote types/signatures/variants. Specs
+that generate free prose with no borrowed type surface are exempt — do not add
+empty `<!-- canonical -->` scaffolding where nothing is being mirrored.

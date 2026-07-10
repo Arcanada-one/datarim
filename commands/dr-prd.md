@@ -186,6 +186,41 @@ After PRD save, the architect agent MUST emit a CTA block ([definition](../skill
 
 The CTA block MUST follow the canonical format (numbered, one `**рекомендуется**`, `---` HR). Variant B menu when >1 active tasks. <!-- allow-non-ascii: russian-canonical-cta-marker-tokens-cited-from-cta-format-skill -->
 
+## Post-Step Self-Verification Hook (Automatic)
+
+After the `## Next Steps (CTA)` block and before Stage Snapshot Emission, the agent MUST run the automatic self-verification hook for this stage. This is the pipeline-integrated counterpart of the manual `/dr-verify` command ([definition](../skills/self-verification/SKILL.md)); it reuses the same tri-layer contract but is dispatched automatically, complexity-tiered, and findings-only.
+
+**Kill switch:** when `DATARIM_DISABLE_VERIFY_HOOK=1` is set, the whole hook is a no-op (no floor run, no dispatch, no warning). Use for cost-sensitive batch runs.
+
+**Complexity tiering (`L1 OFF / L2 = 1 agent / L3+ = 3 parallel`).** Read the resolved task's `complexity` from `datarim/tasks/{TASK-ID}-task-description.md` frontmatter (fallback: the `L{N}` field on the `tasks.md` one-liner). Dispatch scales with complexity:
+
+| Complexity | Layer 1 floor | Layer 2 peer-review | Layer 3 native dispatch |
+|------------|---------------|---------------------|--------------------------|
+| L1 | skipped (hook OFF — skill overhead exceeds value) | skipped | skipped |
+| L2 | run (deterministic, zero LLM cost) | 1 agent (`agents/peer-reviewer.md`, readonly) | skipped |
+| L3 / L4 | run | 1 agent | 3 parallel agents (reviewer / tester / security) |
+
+**Layer 1 floor invocation (L2+):**
+
+```text
+bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/dr-verify-floor.sh" \
+    --task {TASK-ID} --stage <stage> --workspace <project-root>
+```
+
+Capture JSONL findings on stdout (each carries `source_layer: "floor"`); stderr carries per-check progress. Bind `<stage>` to this command's stage literal declared in Stage Snapshot Emission below (`prd` / `plan` / `do`).
+
+**Layer 2 / Layer 3 dispatch (per tier above)** follow the manual `/dr-verify` steps 6.2 and 6.3 verbatim (provider resolution via `dev-tools/resolve-peer-provider.sh`, `--task-id {TASK-ID}` propagation MANDATORY, readonly tool whitelist Read / Grep / Glob / Bash-read-only — NO Write / Edit / NotebookEdit). Semantic review stays in the selected agent runtime; never route it through coworker.
+
+**Advisory vs blocking (`DATARIM_VERIFY_HOOK_MODE`, default advisory).**
+
+- **advisory (default):** findings are surfaced but the stage still completes. The CTA already emitted stays authoritative; append a one-line hook summary (`verdict + source_layer_breakdown`) so the next stage and the operator see the floor result. This matches the do-stage evidence-still-accruing rationale — an automatic post-step hook must not silently gate a stage the operator did not opt to hard-gate.
+- **hard (`DATARIM_VERIFY_HOOK_MODE=hard`):** a `BLOCKED` verdict (≥1 non-discarded `severity=high` finding) flips the CTA to the FAIL-Routing variant per the `/dr-verify` highest-severity-category map, so the operator is routed back to the earliest affected stage instead of forward.
+
+**Findings-only, always.** No layer auto-fixes. Operator triages. Audit trail follows the manual path — write `datarim/qa/verify-{TASK-ID}-<stage>-<iter>.md` (append-only, `chmod a-w`) per the skill's Audit Log Writer only when Layer 2/3 ran (L2+); a pure-floor L2-tier run may skip the file and fold the floor verdict into the CTA summary line.
+
+**Fail-closed on tooling error:** a non-zero floor *exit from a crash* (not the documented high-severity count) or a missing `dr-verify-floor.sh` emits a single stderr warning and the stage continues (advisory) — the hook never bricks the pipeline on its own infrastructure fault.
+
+
 ## Stage Snapshot Emission (Mandatory Terminal Step)
 
 After the `## Next Steps (CTA)` block above, the agent MUST perform snapshot emission ([definition](../skills/stage-snapshot-writer/SKILL.md)) per `$HOME/.claude/skills/cta-format/SKILL.md` § Snapshot Emission. Parameters bound for this command:

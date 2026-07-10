@@ -94,8 +94,17 @@ code analysis stay with the selected agent model directly (`Read`, `rg`, `sed`,
 `COWORKER_ALLOW_CODE=1` in agent workflows. Those override mechanisms are only
 manual operator escape hatches outside normal Datarim policy.
 
-`coworker write --context <path>` and `--target <path>` accept any
-extension (no allowlist on write paths).
+`coworker write` applies the same gate to its `--context` paths: a
+`--context <source>.py` (or any non-`.md`/`.markdown`/`.txt` file) exits `6`
+unless `--allow-code` / `COWORKER_ALLOW_CODE=1` is set. Only the `--target`
+output path is exempt — it accepts any extension. This matters for the
+**self-recursion doc-generation flow**: when a `/dr-*` command drafts an
+artifact and would pass a code source (`.py`, `.ts`, `.sh`, …) as `--context`
+grounding, the gate stops it. For Datarim/Claude/Codex runtime that stop is
+correct — read the code source with the agent's own `Read`/`rg`, distil the
+relevant facts into a `.md`/`.txt` note, and pass that note as `--context`.
+Do not reflexively add `--allow-code` to escape the block in agent workflows;
+those overrides are manual operator escape hatches outside normal policy.
 
 ## RTK plugin (opt-in)
 
