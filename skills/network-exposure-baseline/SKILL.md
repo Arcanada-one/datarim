@@ -112,15 +112,19 @@ When writing any wildcard bind (`0.0.0.0:PORT`, `[::]:PORT`) into a config file,
 - Missing or expired (when required) → FAIL.
 - Rationale: waivers accumulate and are forgotten; the TTL forces a quarterly review.
 
-## Compose variable interpolation (`${VAR}` in a bind host)
+## Compose variable interpolation (`${VAR}` in a port string)
 
-A docker-compose bind host is often a shell-style parameter expansion — e.g. a mesh bind `${TAILNET_IP:?tailnet ip required}:443:443`. The linter reads the string verbatim (it never shell-expands it) and resolves it with the **B3 hybrid** strategy, in order:
+A docker-compose port string is often a shell-style parameter expansion — e.g. a mesh bind `${TAILNET_IP:?tailnet ip required}:443:443`, or a dev-compose published port `${PORT:-3700}:3700`. The linter reads the string verbatim (it never shell-expands it) and resolves it with the **B3 hybrid** strategy, in order:
 
 1. **env-resolve** — if the named environment variable is set, its value is classified. (Resolution is `printenv`-only; the value is never executed.)
 2. **default-extract** — for the `${VAR:-D}` / `${VAR-D}` forms with the variable unset, the default literal `D` is classified. So `${BIND_HOST:-0.0.0.0}` with no env is a Tier-3 violation, and `${BIND_HOST:-127.0.0.1}` passes.
-3. **unresolved residual** — for `${VAR:?msg}` or bare `${VAR}` with the variable unset and no default, the linter emits a **WARN naming the variable + `file:line` and PASSES** (exit 0). It cannot know the runtime value in CI where the variable is intentionally unset, and false-failing every legitimate mesh bind would make the linter a CI nuisance.
+3. **unresolved residual** — for `${VAR:?msg}` or bare `${VAR}` in the **host** slot with the variable unset and no default, the linter first checks the variable *name* (see mesh var-name recognition below); if the name is not a tailnet name it emits a **WARN naming the variable + `file:line` and PASSES** (exit 0). It cannot know the runtime value in CI where the variable is intentionally unset, and false-failing every legitimate mesh bind would make the linter a CI nuisance.
 
-**Recommendation:** for a required mesh variable use the `${VAR:?reason}` form — it both documents intent and forces compose itself to fail fast if the variable is missing at deploy time. Avoid `${VAR:-default}` where the default would classify into a different (weaker) tier than the intended runtime value.
+**Interpolation applies to every port segment, not only the host**. Steps 1–2 resolve a `${VAR:-D}` / `${VAR}` in the published-port or target-port slot too: `127.0.0.1:${PORT:-3700}:3700` resolves to `127.0.0.1:3700:3700` (Tier 1 pass), and the short-form `${PORT:-3700}:3700` resolves to `3700:3700` — a genuine implicit-`0.0.0.0` short-form Tier-3 violation (no longer an "unrecognized port form"). The modifier colon of `${VAR:-D}` / `${VAR:?msg}` is not a segment separator; only the `:` between host / published / target ports splits segments.
+
+**Tailscale-mesh var-name recognition**. When an unresolved `${VAR}` / `${VAR:?}` sits in the host slot and its *name* matches the tailnet allowlist — case-insensitive `(TAILSCALE|TAILNET|TSNET|MESH)_?(IP|ADDR|HOST|BIND)`, e.g. `${TAILSCALE_IP}`, `${TAILNET_IP}` — the linter classifies it **Tier 2 (Tailscale-bound)** and PASSES with no WARN, instead of the anonymous residual WARN. The Observability Stack compose uses six `${TAILSCALE_IP}:PORT:PORT` binds; treating them as mesh-bound by name removes the CI noise while keeping intent greppable. Name recognition is the *unset fallback only* — if the variable IS set in the environment, its resolved value is classified normally (a tailnet-named var pointing at a public IP still fails Tier 3).
+
+**Recommendation:** for a required mesh variable use the `${VAR:?reason}` form — it both documents intent and forces compose itself to fail fast if the variable is missing at deploy time. Name it after the tailnet interface (`TAILSCALE_IP` / `TAILNET_IP`) to get the Tier-2 var-name pass. Avoid `${VAR:-default}` where the default would classify into a different (weaker) tier than the intended runtime value.
 
 **Residual accepted risk.** An unresolved `${UNKNOWN_PUBLIC_IP}` passes with a WARN even if its runtime value would be a public bind. The residual is *deliberate, greppable, and reviewer-visible*: every such WARN names the variable and `file:line`, so a reviewer scanning the linter output sees exactly which binds were accepted unresolved. Resolve the variable in the environment (or pin it via `:-default`) to get a hard classification.
 

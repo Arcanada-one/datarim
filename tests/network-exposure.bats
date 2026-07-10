@@ -174,10 +174,14 @@ run_lint() {
     [[ "$output" == *"Tier 3 public"* ]]
 }
 
-@test "compose: \${VAR:?} unresolved (no env) → WARN-but-PASS exit 0" {
-    run_lint --compose "$F/compose-var-required-mesh.yml"
+# TUNE-0123: TAILNET_IP is a tailnet-mesh var name; unresolved → Tier 2 pass
+# (mesh var-name recognition), NOT the anonymous residual WARN. See the dedicated
+# residual coverage below (compose-var-residual-nonmesh.yml) for the WARN path.
+@test "compose: \${TAILNET_IP:?} unresolved (no env) → tier2 mesh var-name pass" {
+    run "$SCRIPT" --compose "$F/compose-var-required-mesh.yml" --today "$TODAY" --verbose
     [ "$status" -eq 0 ]
-    [[ "$output" == *"unresolved"* ]] || [[ "$output" == *"TAILNET_IP"* ]]
+    [[ "$output" == *"tier2"* ]]
+    [[ "$output" == *"TAILNET_IP"* ]]
 }
 
 @test "compose: \${VAR:-default} default-extract public → fail" {
@@ -219,6 +223,61 @@ run_lint() {
 @test "script contains no eval or indirect-expansion of compose input" {
     run grep -nE 'eval|\$\{!' "$SCRIPT"
     [ "$status" -ne 0 ]
+}
+
+# --- TUNE-0122: ${VAR:-N} interpolation in a PORT segment (not just host) ---
+# The published/target port slot may hold ${VAR:-N}; the interpolation must
+# resolve the effective port and then apply Tier rules to the (real) host.
+
+@test "TUNE-0122: \${PORT:-N} in published-port slot, loopback host → tier1 pass" {
+    # 127.0.0.1:${PORT:-3700}:3700 → 127.0.0.1:3700:3700 → tier1
+    unset PORT
+    run_lint --compose "$F/compose-var-portpos-hostok.yml"
+    [ "$status" -eq 0 ]
+}
+
+@test "TUNE-0122: \${PORT:-N} short-form (no host) resolves default → Tier 3 short-form fail" {
+    # ${PORT:-3700}:3700 → 3700:3700 → implicit 0.0.0.0 short-form (NOT unrecognized)
+    unset PORT
+    run_lint --compose "$F/compose-var-portpos-shortform.yml"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"short-form"* ]]
+    [[ "$output" != *"unrecognized"* ]]
+}
+
+@test "TUNE-0122: \${VAR} in port slot resolved from env, loopback host → tier1 pass" {
+    HOST_PORT="3700" run_lint --compose "$F/compose-var-portpos-env.yml"
+    [ "$status" -eq 0 ]
+}
+
+# --- TUNE-0123: ${TAILSCALE_IP}:PORT:PORT recognized as Tier 2 (mesh-bound) ---
+
+@test "TUNE-0123: bare \${TAILSCALE_IP} host (unset) → tier2 pass, no unrecognized/WARN" {
+    run "$SCRIPT" --compose "$F/compose-var-tailscale-host.yml" --today "$TODAY" --verbose
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"tier2"* ]]
+    [[ "$output" != *"unrecognized"* ]]
+    [[ "$output" != *"WARN"* ]]
+}
+
+@test "TUNE-0123: \${TAILSCALE_IP} resolved from env to real mesh IP → tier2 pass" {
+    TAILSCALE_IP="100.100.1.1" run_lint --compose "$F/compose-var-tailscale-host.yml"
+    [ "$status" -eq 0 ]
+}
+
+@test "TUNE-0123: mesh var-name does NOT swallow a public env value → tier3 fail" {
+    # A tailnet-named var pointing at a public IP is still classified by its
+    # resolved value when env IS set — name recognition is only the unset fallback.
+    TAILSCALE_IP="203.0.113.10" run_lint --compose "$F/compose-var-tailscale-host.yml"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Tier 3 public"* ]]
+}
+
+@test "TUNE-0123 residual: non-mesh required var (unset) → B3 WARN-but-PASS" {
+    # \${CUSTOM_BIND:?} is NOT a tailnet name → residual WARN path preserved.
+    run_lint --compose "$F/compose-var-residual-nonmesh.yml"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"unresolved"* ]] || [[ "$output" == *"CUSTOM_BIND"* ]]
 }
 
 # --- Fix B: protocol suffix (/udp /tcp /sctp) on long-form host:port:port ---

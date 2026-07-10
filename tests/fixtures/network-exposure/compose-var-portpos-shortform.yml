@@ -1,0 +1,8 @@
+version: "3.9"
+# TUNE-0122: ${VAR:-N} default in the PUBLISHED-PORT slot, no host (short-form).
+# Effective mapping 3700:3700 → implicit 0.0.0.0 → Tier 3 short-form violation.
+services:
+  api:
+    image: arcanada/api:latest
+    ports:
+      - "${PORT:-3700}:3700"

@@ -204,11 +204,16 @@ lint_compose() {
 # ---------------------------------------------------------------------------
 # Compose ${VAR} interpolation (B3 hybrid).
 #
-# A compose bind host may be a shell-style parameter expansion that the linter
-# sees verbatim (yq does not interpolate). B3 strategy, in order:
+# A compose port string may carry shell-style parameter expansions in any of its
+# colon-separated segments — host slot and/or port slots — that the linter sees
+# verbatim (yq does not interpolate). B3 strategy, per segment, in order:
 #   1. env-resolve   — if the named env var is set, use its value
-#   2. default-extract — ${VAR:-D} / ${VAR-D} → classify the default literal D
-#   3. unresolved ${VAR:?} / bare ${VAR} → WARN-but-PASS, naming var + file:line
+#   2. default-extract — ${VAR:-D} / ${VAR-D} → use the default literal D
+#   3. unresolved ${VAR:?} / bare ${VAR} in the HOST slot →
+#        3a. Tailscale-mesh var-name (${TAILSCALE_IP} etc.) → Tier 2 pass (TUNE-0123)
+#        3b. otherwise → WARN-but-PASS, naming var + file:line
+# Segments 1–2 apply to host AND port slots (TUNE-0122: ${PORT:-3700}:3700 and
+# 127.0.0.1:${PORT:-3700}:3700 both resolve); step 3 applies to the host slot.
 # Security (Mandate S1/S5): the ${...} body is untrusted compose input. The var
 # name is regex-validated as the trust boundary; resolution reads the value with
 # printenv exclusively — no shell expansion, no indirect expansion, no dynamic
@@ -246,13 +251,37 @@ _compose_var_default() {
     return 1
 }
 
-# resolve_compose_host <full-${...}-token> <file> <line> <svc>
-# Echoes a resolved host literal on stdout when B3 produces one (env value or
-# default-extract). Returns:
-#   0 + host echoed     — caller classifies the host
-#   10 (no stdout)      — unresolved ${VAR:?}/bare ${VAR}: WARN-but-PASS
-#   1  (no stdout)      — malformed token / bad var name: violation
-resolve_compose_host() {
+# TUNE-0123: Tailscale-mesh variable-name allowlist.
+# A bare/required ${VAR} host token with an unset env and no default cannot be
+# resolved to a literal, but a variable *named* after the tailnet interface is a
+# strong, greppable signal of a mesh-only bind (Observability Stack compose uses
+# `${TAILSCALE_IP}:PORT:PORT` for 6 services). When such a token would otherwise
+# fall through to the anonymous B3 residual WARN, we instead classify it Tier 2
+# (Tailscale-bound) — no WARN, no unrecognized-form. This is name-only intent
+# recognition; it never reads or executes the variable value. A different tier
+# at runtime (someone points TAILSCALE_IP at a public IP) is the same residual
+# accepted risk the B3 WARN already carries — but here it is folded into an
+# explicit, documented Tier-2 pass rather than a WARN.
+RX_MESH_VAR_NAME='(^|_)(TAILSCALE|TAILNET|TSNET|MESH)_?(IP|ADDR|HOST|BIND)$'
+
+# _compose_var_is_mesh <var-name> → returns 0 if the name matches the
+# Tailscale-mesh allowlist, else 1. Matching is case-insensitive.
+_compose_var_is_mesh() {
+    local name_uc="${1^^}"
+    [[ "$name_uc" =~ $RX_MESH_VAR_NAME ]]
+}
+
+# _resolve_var_silent <full-${...}-token> <file> <line> <svc>
+# Env / default-extract resolver used by the segment walk. Same trust boundary
+# as resolve_compose_host (dangerous-token reject, regex-validated NAME,
+# printenv-only) but it does NOT emit the B3 residual WARN — an unresolved token
+# is reported to the caller so the host-position logic can choose between a
+# Tier-2 mesh-name pass (TUNE-0123) and the residual WARN. Echoes the resolved
+# literal on stdout when resolved. Returns:
+#   0 + literal echoed  — env value or default-extract
+#   10 (no stdout)      — unresolved (bare ${VAR} / ${VAR:?}, env unset, no default)
+#   1  (no stdout)      — unsafe / malformed token (violation emitted)
+_resolve_var_silent() {
     local token="$1" file="$2" line="$3" svc="$4"
     local name def
     if [[ "$token" =~ $RX_VAR_DANGEROUS ]]; then
@@ -264,15 +293,77 @@ resolve_compose_host() {
         return 1
     fi
     if printenv -- "$name" >/dev/null 2>&1; then
-        printenv -- "$name"
-        return 0
+        printenv -- "$name"; return 0
     fi
     if def="$(_compose_var_default "$token")"; then
-        echo "$def"
-        return 0
+        echo "$def"; return 0
     fi
-    emit_warn "$file" "$line" "compose:$svc unresolved \${$name} (env unset, no default) — accepted with WARN (B3 residual)"
     return 10
+}
+
+# TUNE-0122: interpolate ${VAR...} tokens in ANY port segment.
+# Docker-compose long/short-form port strings put a ${VAR} not only in the host
+# slot (${HOST:-127.0.0.1}:8080:8080) but also in the published/target port slot
+# (127.0.0.1:${PORT:-3700}:3700, or the Transcribator dev form ${PORT:-3700}:3700).
+# The original parser only resolved a leading ${...} host token, so a variable in
+# a port position fell through to "unrecognized port form". This walks each
+# colon-separated segment of the host:port[:port] body (the optional /proto
+# suffix is split off first and re-attached), resolving env-set and default
+# (${VAR:-D}/${VAR-D}) tokens in place. Unresolved residual tokens (bare ${VAR} /
+# ${VAR:?}) are LEFT verbatim so the host-position logic in check_compose_port
+# can still emit the B3 WARN or a Tier-2 mesh-name pass. Resolution is
+# printenv-only / default-literal only — no dynamic code execution, no shell
+# expansion.
+# Echoes the interpolated string. Returns:
+#   0 — interpolation done (string may still hold unresolved host token(s))
+#   1 — an unsafe/malformed token was found (violation emitted by resolver)
+_interpolate_compose_ports() {
+    local raw="$1" file="$2" line="$3" svc="$4"
+    local proto="" body="$raw"
+    # Split a trailing /proto suffix so the ':' walk sees only host:port[:port].
+    if [[ "$body" =~ ^(.*)(/(udp|tcp|sctp))$ ]]; then
+        body="${BASH_REMATCH[1]}"; proto="${BASH_REMATCH[2]}"
+    fi
+    # Bracketed IPv6 hosts ([::1]:8080) contain ':' inside the brackets; leave
+    # any such host untouched by the segment walk and only interpolate the tail.
+    local prefix=""
+    if [[ "$body" =~ ^(\[[0-9a-fA-F:.%]+\])(:.*)?$ ]]; then
+        prefix="${BASH_REMATCH[1]}"; body="${BASH_REMATCH[2]}"
+    fi
+    # Split the body on ':' — but a ':' inside a ${...} expansion (the modifier
+    # colon of ${VAR:-D} / ${VAR:?msg}) is NOT a segment separator. Walk char by
+    # char, tracking ${...} depth, so ${PORT:-3700} stays one segment.
+    local out="" seg first=1
+    local -a segs=()
+    local cur="" i ch depth=0 n=${#body}
+    for (( i=0; i<n; i++ )); do
+        ch="${body:i:1}"
+        if [[ "$ch" == '$' && "${body:i+1:1}" == '{' ]]; then
+            depth=$((depth+1)); cur+="$ch"; continue
+        fi
+        if (( depth > 0 )) && [[ "$ch" == '}' ]]; then
+            depth=$((depth-1)); cur+="$ch"; continue
+        fi
+        if (( depth == 0 )) && [[ "$ch" == ':' ]]; then
+            segs+=("$cur"); cur=""; continue
+        fi
+        cur+="$ch"
+    done
+    segs+=("$cur")
+    for seg in "${segs[@]}"; do
+        if [[ "$seg" =~ ^\$\{[^}]*\}$ ]]; then
+            local resolved rrc=0
+            resolved="$(_resolve_var_silent "$seg" "$file" "$line" "$svc")" || rrc=$?
+            case "$rrc" in
+                0)  seg="$resolved" ;;   # env or default-extract → literal
+                10) : ;;                 # unresolved → keep verbatim for residual
+                *)  return 1 ;;          # unsafe/malformed token → violation emitted
+            esac
+        fi
+        if (( first == 1 )); then out="$seg"; first=0; else out="${out}:${seg}"; fi
+    done
+    printf '%s%s%s\n' "$prefix" "$out" "$proto"
+    return 0
 }
 
 # Parse one compose port string, classify, emit verdict.
@@ -285,18 +376,34 @@ check_compose_port() {
     raw="${raw#\"}"; raw="${raw%\"}"
     raw="${raw#\'}"; raw="${raw%\'}"
 
-    # B3 interpolation: a host segment written as ${VAR...} is resolved before
-    # classification. Match "${...}:rest" — the ${...} token is the host; the
-    # remainder is the port mapping. printenv-only resolution, no shell expand.
-    if [[ "$raw" =~ ^(\$\{[^}]*\})(:.*)?$ ]]; then
-        local var_token="${BASH_REMATCH[1]}" port_rest="${BASH_REMATCH[2]}"
-        local resolved rrc=0
-        resolved="$(resolve_compose_host "$var_token" "$file" "$line" "$svc")" || rrc=$?
-        case "$rrc" in
-            0)  raw="${resolved}${port_rest}" ;;     # rewrite + classify below
-            10) return 0 ;;                            # unresolved → WARN-but-PASS
-            *)  return 1 ;;                            # bad token → violation emitted
-        esac
+    # B3 interpolation: resolve ${VAR...} tokens in every port segment (host and
+    # port positions) before classification (TUNE-0122). printenv / default-only
+    # resolution, no shell expand. A leftover unresolved ${VAR} token is then a
+    # host-position residual: either a Tier-2 Tailscale-mesh-named var (TUNE-0123)
+    # or the anonymous B3 residual WARN-but-PASS.
+    # shellcheck disable=SC2016  # single-quoted '${' is a deliberate literal match
+    if [[ "$raw" == *'${'* ]]; then
+        local interpolated irc=0
+        interpolated="$(_interpolate_compose_ports "$raw" "$file" "$line" "$svc")" || irc=$?
+        (( irc != 0 )) && return 1        # unsafe/malformed token → violation emitted
+        raw="$interpolated"
+        # If an unresolved ${VAR} token survived, it is the bind host (a port
+        # slot never legitimately stays a bare variable). Classify by var NAME:
+        # a tailnet-named var is Tier 2 (mesh-bound); anything else is the B3
+        # residual WARN-but-PASS naming the variable + file:line.
+        if [[ "$raw" =~ (\$\{[^}]*\}) ]]; then
+            local host_token="${BASH_REMATCH[1]}" host_name
+            if host_name="$(_compose_var_name "$host_token")"; then
+                if _compose_var_is_mesh "$host_name"; then
+                    emit_ok "$file" "$line" "compose:$svc \${$host_name} (tier2 Tailscale-mesh var-name)"
+                    return 0
+                fi
+                emit_warn "$file" "$line" "compose:$svc unresolved \${$host_name} (env unset, no default) — accepted with WARN (B3 residual)"
+                return 0
+            fi
+            emit_violation "$file" "$line" "compose:$svc malformed/invalid variable token '$host_token'"
+            return 1
+        fi
     fi
 
     # Optional /(udp|tcp|sctp) protocol suffix on long-form host:port:port

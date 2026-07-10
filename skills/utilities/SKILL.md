@@ -44,6 +44,8 @@ Load only the fragment relevant to the task:
   Use when building a keyword-denylist linter — bash recipe with whole-word grep, escape-hatch markers, whitelist mechanic, bats fixture pattern. Pattern source: stack-agnostic gate.
 - `git-diff-parsing.md`
   Use when a shell recipe extracts data from `git diff` / `git diff --cached`. Canonical filter chain (`^[+-]` excluding `+++/---`) for separating real additions/removals from hunk-context noise; covers the markdown-bullet edge case and untracked-file fallback.
+- `shell-conventions.md`
+  Use when writing or reviewing a shell helper that returns lists, iterates over them, splits on a delimiter, or runs a regex. Canonical IFS / word-splitting / locale rules (newline-separated `printf '%s\n'` returns, `while IFS= read -r` loops, narrow `IFS` scoping, `LC_ALL=C` for regex/sort) for cross-platform (macOS bash 3.2 / Linux) behaviour. Runnable skeleton: `templates/shell-helper-template.sh`.
 
 ## Quick Selection Guide
 
@@ -58,6 +60,7 @@ Load only the fragment relevant to the task:
 - Need GA4 API operations? Load `ga4-admin.md`.
 - Need SSH remote execution? Load `ssh-deploy.md`.
 - Need to recover a lost runtime file? Load `recovery.md`.
+- Writing or reviewing a shell helper (list returns, read loops, regex)? Load `shell-conventions.md`.
 
 ## Why This Skill Is Split
 
