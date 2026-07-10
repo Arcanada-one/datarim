@@ -16,7 +16,7 @@ REPO_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
 }
 
 @test "T3: utilities/ directory exists with 17 markdown files" {
-  # 12 original fragments + keyword-linter.md + git-diff-parsing.md + yaml.md + SKILL.md stub
+  # 12 original fragments + keyword-linter.md + git-diff-parsing.md + yaml.md + shell-conventions.md (TUNE-0480) + SKILL.md stub
   [ -d "$REPO_DIR/skills/utilities" ]
   local count
   count=$(ls "$REPO_DIR/skills/utilities/"*.md 2>/dev/null | wc -l | tr -d ' ')
