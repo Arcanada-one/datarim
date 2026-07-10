@@ -234,3 +234,20 @@ When the script under test resolves untrusted input (compose `${VAR}` tokens, a 
 Pair the canary check with a **battery of distinct injection vectors** — command substitution `$(…)`, backticks, statement chaining `;`, pipes `|`, redirection `>`/`<`, backgrounding `&` — because a guard that blocks one metacharacter often misses another. One `@test` (or a `for`-loop inside one) per vector, each re-arming and re-checking the canary.
 
 Source: a first-draft injection test asserted only `status -ne 0`; the script was already inert but happened to exit 0 with a warning, so the exit-code assertion was simultaneously wrong AND weaker than the real security property. The canary-absence assertion is what actually proves the command never ran.
+
+### Portable latency measurement
+
+`date +%s%N` is not portable — BSD `date` (macOS, and any Bats run on a Mac dev box) does not support the `%N` nanosecond directive and returns the literal string `N` instead of digits, silently corrupting any duration arithmetic built on it.
+
+Prefer a Python one-liner, which is portable across GNU and BSD environments:
+
+```bash
+start=$(python3 -c 'import time; print(time.perf_counter())')
+# ... operation under test ...
+end=$(python3 -c 'import time; print(time.perf_counter())')
+elapsed=$(python3 -c "print(${end} - ${start})")
+```
+
+Use this in any bats test that asserts a duration bound (timeout regression, performance-floor check) instead of `date +%s%N` subtraction.
+
+Source: deferred from TUNE-0202 Step 0.5 (Class A2).
