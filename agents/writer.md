@@ -45,6 +45,7 @@ Length awareness during drafting — relevant when the output targets Telegram o
 - LOAD WHEN NEEDED:
   - `$HOME/.claude/skills/humanize/SKILL.md` (Reference for avoiding AI patterns while writing)
   - `$HOME/.claude/skills/factcheck/SKILL.md` (When writing claims that need verification)
+  - `$HOME/.claude/skills/image-prompting/SKILL.md` (When the deliverable needs a visual asset — cover, thumbnail, post image, illustration, infographic, logo; authors the generation prompt + size/quality settings + verification checklist)
 
 **When invoked:** `/dr-write` (content creation), `/dr-archive` (final docs + Step 0.5 documentation review during reflection), `/dr-prd` (requirements clarity).
 **In consilium:** Voice of clarity, audience empathy, and communication effectiveness.
