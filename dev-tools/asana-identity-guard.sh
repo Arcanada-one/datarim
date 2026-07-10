@@ -94,8 +94,14 @@ printf '%s' "$cmd" | grep -qiE 'app\.asana\.com|/api/1\.0/' || exit 0
 is_write=0
 printf '%s' "$cmd" | grep -qiE -- '-X[[:space:]]*(POST|PUT|DELETE)|--request[[:space:]]*(POST|PUT|DELETE)' && is_write=1
 printf '%s' "$cmd" | grep -qiE -- '--data|--data-urlencode|--data-raw|[[:space:]]-d[[:space:]]' && is_write=1
-# write-only endpoints (a bare GET /tasks/N is read-only and must NOT trip this)
-printf '%s' "$cmd" | grep -qiE '/stories|/subtasks' && is_write=1
+# /stories and /subtasks are the comment/subtask endpoints. Creating one is
+# POST /tasks/<id>/stories|subtasks and ALWAYS carries a mutating verb or a data
+# body — both already detected above. So we do NOT treat a bare /stories|/subtasks
+# URL as a write by itself: a read (GET /stories/<id>, GET /tasks/<id>/stories list)
+# has neither a mutating verb nor a body and must stay allowed. This avoids denying
+# legitimate comment reads while still catching every real create/delete (which the
+# verb/-d checks above flag). DELETE /stories/<id> is caught by the -X DELETE check.
+:
 # python urllib / requests with an explicit mutating verb
 printf '%s' "$cmd" | grep -qiE 'method[[:space:]]*=[[:space:]]*.{0,2}(POST|PUT|DELETE)|requests\.(post|put|delete)' && is_write=1
 [ "$is_write" -eq 1 ] || exit 0
