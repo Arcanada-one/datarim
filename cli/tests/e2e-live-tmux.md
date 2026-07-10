@@ -92,6 +92,19 @@ tmux kill-session -t smoketest-2 2>/dev/null || true
 redis-cli shutdown
 ```
 
+## Production supervision (beyond one-off smoke)
+
+Step 3 above (`... start &`) is correct for this one-off smoke session — the
+server dies with the shell and there is no crash recovery, which is fine for
+a bounded manual verification run. For any long-running deployment, use the
+supervised units in `plugins/dr-orchestrate/deploy/` instead:
+`dr-orchestrate-server.service` (systemd, Linux) and
+`com.arcanada.dr-orchestrate-server.plist` (launchd, macOS) — both add
+graceful shutdown and an automatic restart-with-backoff on crash. See that
+directory's `README.md` for install steps and the backoff policy. Neither
+unit is installed or enabled by shipping these templates; installing one on
+a real host is a separate operator action.
+
 ## V-AC-7 acceptance
 
 The smoke is acceptable when:

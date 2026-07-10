@@ -1,0 +1,55 @@
+# dr-orchestrate-server.service — supervised unit for the dr-orchestrate
+# socat/HTTP bridge (plugins/dr-orchestrate/scripts/dr_orchestrate_server.sh).
+#
+# Replaces the foreground `... start &` invocation documented in
+# cli/tests/e2e-live-tmux.md § Smoke procedure (Phase G) for PROD reliability:
+# graceful shutdown on `systemctl stop` (SIGTERM to the exec'd socat process —
+# the launcher script itself `exec`s into socat, so no wrapper process lingers),
+# and an automatic restart-with-backoff on unexpected exit / crash.
+#
+# Host-agnostic template — this is authored tooling, NOT installed or enabled
+# on any host by this change. Install (operator action):
+#
+#   cp dr-orchestrate-server.service /etc/systemd/system/
+#   # edit WorkingDirectory + ExecStart below to the actual plugin install path
+#   systemctl daemon-reload && systemctl enable --now dr-orchestrate-server
+#
+# Verify: `systemctl status dr-orchestrate-server`; `kill -TERM $(systemctl show
+# -p MainPID --value dr-orchestrate-server)` should stop cleanly (no auto-restart —
+# `systemctl stop` marks the unit inactive first); a raw crash (`kill -KILL`) SHOULD
+# trigger the RestartSec-delayed restart below.
+#
+# Backoff: RestartSec is the fixed per-attempt delay; StartLimitIntervalSec +
+# StartLimitBurst cap retries at 5 within a rolling 5-minute window so a
+# persistently-crashing process does not restart-loop forever (systemd marks
+# the unit `failed` once the burst is exhausted — operator must investigate
+# and `systemctl reset-failed` + `start` manually). systemd >= 254 additionally
+# supports true exponential backoff via `RestartSteps=`/`RestartMaxDelaySec=`;
+# add those two keys under [Service] if the target host's systemd is new enough
+# (`systemctl --version`) and a smoother ramp than the fixed RestartSec is
+# desired.
+
+[Unit]
+Description=Datarim dr-orchestrate socat/HTTP bridge (tmux + orchestrator webhook router)
+Documentation=https://github.com/Arcanada-one/datarim
+After=network.target redis.service
+Wants=redis.service
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+# Edit to the actual plugin install path before enabling.
+WorkingDirectory=%h/.claude/plugins/dr-orchestrate
+ExecStart=%h/.claude/plugins/dr-orchestrate/scripts/dr_orchestrate_server.sh start
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=10
+# Hardening floor (mirrors dev-tools/deploy/drift-sweep.service).
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+
+[Install]
+WantedBy=multi-user.target
