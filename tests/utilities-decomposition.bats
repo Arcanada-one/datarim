@@ -15,12 +15,12 @@ REPO_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
   grep -qE '^model: (haiku|inherit)$' "$REPO_DIR/skills/utilities/SKILL.md"
 }
 
-@test "T3: utilities/ directory exists with 16 markdown files" {
+@test "T3: utilities/ directory exists with 17 markdown files" {
   # 12 original fragments + keyword-linter.md + git-diff-parsing.md + yaml.md + SKILL.md stub
   [ -d "$REPO_DIR/skills/utilities" ]
   local count
   count=$(ls "$REPO_DIR/skills/utilities/"*.md 2>/dev/null | wc -l | tr -d ' ')
-  [ "$count" -eq 16 ]
+  [ "$count" -eq 17 ]
 }
 
 @test "T4: all 12 expected fragment files exist" {
