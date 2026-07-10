@@ -12,6 +12,14 @@
 **Scope note:** the original backlog one-liner also asked for a version bump and a `datarim.club` site sync (`data/skills/testing.php` EN+RU). The site sync is explicitly OUT OF SCOPE for this PR — `Projects/Websites/datarim.club` lives in the separate, shared `Arcanada-one/arcanada` knowledge-base workspace, not this `datarim` framework repo, and this sweep is not permitted to touch that shared tree. Recorded here as a known follow-up for a future task in that workspace. On the version bump: this repo's live convention (verified via `git log` — e.g. `TUNE-0480` wave commits, `984f2e8`, `8c7bbf7`) is that individual task/PR commits do NOT bump `VERSION` directly; they add an entry to `CHANGELOG.md` § `[Unreleased]`, and `VERSION` + `CLAUDE.md` + `README.md` are bumped together only in a dedicated `release: vX.Y.Z` commit that promotes the accumulated `[Unreleased]` entries to a version section (see `2748f56`, `5dc01e0`). Following that live convention rather than the backlog one-liner's "bump VERSION" instruction: added the CHANGELOG entry under `[Unreleased]`, did not touch `VERSION`/`CLAUDE.md`/`README.md`.
 
 **Verification:** `scripts/stack-agnostic-gate.sh skills/testing/live-smoke-gates.md` → PASS (file is on the gate's whitelist — pre-existing, unrelated to this change — but the new prose was still authored stack-neutrally per the mandate, illustrative example wrapped in `<!-- gate:example-only -->`). `scripts/stack-agnostic-gate.sh skills/testing/SKILL.md` → PASS. `grep -RPn '[^\x00-\x7F]' <edited files>` → only pre-existing/added em-dash (—), arrow (→), and section-sign (§) typographic characters, consistent with the file's existing English-prose style; no Cyrillic. `bats tests/skill-testing-current-state-auth-probe.bats tests/stack-agnostic-gate.bats tests/check-frontmatter-english.bats tests/check-skill-frontmatter.bats tests/check-skill-layout.bats tests/check-doc-refs.bats tests/check-routing-drift.bats` → 63/63 pass.
+## 2026-07-10 — TUNE-0180 — Spike falsifiable thresholds must derive from consumer UX budget (Class A applied)
+
+- **Category:** promote-recurring-incident-to-gate · **Class:** A (approved — P3 backlog sweep, treated as operator-review-satisfied per sweep mandate).
+- **Target:** `skills/ai-quality/SKILL.md`, new subsection "Spike Falsifiable Thresholds Must Derive from the Consumer's UX Budget" (placed before `## Fragment Routing`).
+- **What:** A spike's falsifiable numeric thresholds (latency, cost, error rate) MUST be derived from the consuming surface's documented UX budget rather than generic latency folklore — e.g. async-tolerant surfaces: 10-30s; voice surfaces: must stay invisible inside the STT+TTS round-trip; interactive chat/UI surfaces: sub-2s. If no per-surface budget is documented, the spike's first deliverable is an operator interview that establishes it, before any numeric threshold is written.
+- **Why (source):** `reflection-AGENT-0018.md` Proposal 2 — AGENT-0018's Criterion 2 (`<2000ms`) was inherited from generic latency folklore rather than the actual consumer (AGENT-0017), whose surface tolerates 10-30s. Mis-scoping the threshold to the wrong consumer risks falsifying an otherwise-viable design (or the reverse: passing a design unusable on a stricter surface).
+- No pre-existing "Spike Contracts" section was found in `skills/evolution/` or `skills/ai-quality/` (searched both directories for `spike`/`falsifiable`/`threshold`); this is a net-new subsection rather than an amendment to an existing one, hosted in `ai-quality/SKILL.md` alongside its other AC/threshold-formulation patterns (`Pipeline-Position-Aware AC Formulation`, `Atomic Multi-Surface Plan Amendment`).
+- **Verification:** `scripts/stack-agnostic-gate.sh skills/ai-quality/SKILL.md` → PASS; no Cyrillic/non-ASCII introduced (diff-scoped grep, clean); added `tests/tune-0180-spike-budget-inheritance.bats` (5 new assertions: subsection presence, operator-interview rule, house ordering before Fragment Routing, stack-agnostic-gate PASS, no-Cyrillic) — 5/5 green; `bats tests/` full suite green (see PR for count).
 
 ## 2026-07-02 — FIX-testdb-local-dsn reflection — Align check-deferral-prose.sh invocations with shipped CLI (Class A applied)
 
@@ -2075,3 +2083,52 @@ declined as redundant.
 
 **Verification:** stack-agnostic-gate PASS, task-id-gate PASS, no Cyrillic introduced,
 `bats tests/` → 1652 tests, 0 failures.
+
+---
+
+## 2026-07-10 — TUNE-0174 — Framework component counts-drift enforcer (repo-self-consistency)
+
+**Category:** add-mechanical-ci-gate. **Target:** new `dev-tools/check-component-counts.sh`
++ `tests/check-component-counts.bats`.
+
+**Context:** TUNE-0154 ("mechanical CI enforcer for repo-vs-site count drift") was archived
+DONE but its scope narrowed during the ARCA-0142/ARCA-0143 consolidation into
+`dev-tools/check-repo-site-sync.sh`. That script's `feature_count_repo`/`feature_count_site`
+mechanism checks exactly one category (`commands`) against one external site page, driven by
+a cross-repo registry (`documentation/ecosystem-sync/registry.yml`) that lives outside this
+repo. It never checked `skills`/`agents`/`templates` counts, and it never checked this repo's
+OWN `CLAUDE.md`/`README.md` prose claims against the actual on-disk component counts — a
+different, repo-self-consistency class of drift, orthogonal to the repo-vs-site class.
+
+**What:** Added `dev-tools/check-component-counts.sh`, a self-contained (no registry, no
+cross-repo dependency) gate that: (1) counts on-disk components per category — `commands`/
+`agents`/`templates` via `find -maxdepth 1 -name '*.md' | wc -l`, `skills` via
+`find -maxdepth 1 -type d | wc -l` (one directory per skill, `SKILL.md` inside — verified
+this is how the repo actually lays out skills, unlike the flat-`.md` agents/commands/templates
+dirs); (2) extracts the parenthesized count-claim form (`"(NN category)"`, e.g. `(19 agents)`)
+from this repo's own `CLAUDE.md` and `README.md` — chosen over a bare `NN category` grep
+because the repo also uses that wording in illustrative/threshold prose that is NOT a count
+claim (e.g. README's optimizer-example table row "Documentation says 15 agents but disk has
+12", and the `>20 skills` / `>25 commands` health-metric threshold example — neither
+parenthesized, both would have been false positives under a naive grep); (3) exits 1 with a
+per-category diagnostic (file, category, claimed, actual) on any mismatch.
+
+**Found + fixed a real, pre-existing drift while building this:** README.md's Directory
+Structure block claimed `(19 templates)` but the on-disk `templates/` dir actually has 22
+`.md` files (drift accumulated silently — no gate existed to catch it). Fixed the claim to
+22 so the new gate starts green rather than immediately red on merge.
+
+**Explicitly out of scope for this PR (deferred, cross-repo):** extending the repo-vs-site
+check in `check-repo-site-sync.sh` to also compare `skills`/`agents`/`templates` counts
+against `datarim.club`'s `pages/about.php`/`content/en.php`/`content/ru.php`. That requires
+adding fields to `documentation/ecosystem-sync/registry.yml`, which lives in the separate
+`arcanada` workspace — out of reach for a sweep confined to a clone of this repo. Left a
+one-line comment in the new script pointing at the gap; flagged in the PR body as a follow-up
+candidate task.
+
+**Verification:** new `tests/check-component-counts.bats` — 10/10 green (fully-consistent
+fixture passes; one corrupted-claim-per-category fixture fails with exit 1 and the
+category/claimed/actual named in `--report` output, for each of the 4 categories; no-claim
+fixture is a no-op pass; `--root` auto-walk-up verified). `tests/check-repo-site-sync.bats` —
+12/12 green, no regression from the sibling script being read as prior art. Full `bats tests/`
+run — see PR body for the pass/fail count captured at PR-open time.

@@ -7,7 +7,17 @@ All notable changes to the Datarim framework are documented here. Format follows
 ### Added
 
 - **`skills/testing/live-smoke-gates.md` § Gate 8: Recorded-Fixture Tests for HTTP Wrappers** — new subsection mandating that thin HTTP wrapper clients capture one real response into a consuming-project fixtures doc (`datarim/tasks/<TASK-ID>-fixtures.md`) before implementation, that the wrapper's spec include at least one integration-style test asserting against that recorded response (not a synthetic stub), and that the spec decode/validate through the real schema so a response-shape drift fails the test. Routing hints updated in `skills/testing/SKILL.md`. Site sync (`datarim.club/data/skills/testing.php`, EN+RU) deferred as an explicit cross-repo follow-up — out of scope for this repo. (TUNE-0162, source: reflection-ARCA-0008 § Class A Proposal 2)
+- **`templates/legacy-hardware-probe-checklist.md`** _(NEW)_ — 7-step probe checklist for legacy embedded
+  Linux integrations (CPU architecture, `/dev/net/tun`, free RAM, OpenSSL PBKDF2 support, BusyBox applet
+  availability, cron spool permissions, machine-identity sources). Run before committing to an architectural
+  approach in `/dr-plan` — replaces speculative toolchain assumptions with a 30-minute probe. Class A
+  evolution proposal from `reflection-INFRA-0073` (approved 2026-05-08). New regression test
+  `tests/tune-0133-legacy-hardware-probe-checklist.bats` (5 cases). (TUNE-0133)
 - **`/dr-plan` Step 6.5 History-agnostic runtime-body probe** — shifts the history-agnostic gate (task-ID-provenance rejection on shipped `skills/` / `agents/` / `commands/` / `templates/` bodies) left from `/dr-qa` and `/dr-compliance` to plan review, before approve. When Implementation Steps name a framework runtime body as an edit/create target, the planner dry-runs `scripts/task-id-gate.sh` against the plan's cited paths and any example text it will ship, and resolves every cited path through the `skills/plan-path-validator/SKILL.md` exists + deprecation ladder — reusing both existing gates rather than re-deriving them. Adds a Transition Checkpoint item and a `commands/dr-plan.md` plan-time trigger to `skills/evolution/history-agnostic-gate.md`. New regression test `tests/dr-plan-step-6-5-history-agnostic-probe.bats` (8 cases). (TUNE-0283)
+
+### Changed
+
+- **Repo-root installer scripts scrubbed of task-ID citations** — `install.sh`/`update.sh`/`validate.sh` carried ~30 inline `TUNE-NNNN` provenance citations in comments (the history-agnostic gate already covers `skills/`/`agents`/`commands`/`templates`, not the root shell installers). Citations replaced with the version anchors already present alongside most of them (`v1.17.0`/`v1.20.0`/`v2.15.0`), or generic phrasing where no anchor existed. Two occurrences are intentionally untouched: the single-file backup suffix and the Codex `.system/` backup glob are literal on-disk naming tokens matched against backups already created by prior installer runs — renaming them would break restore compatibility. New regression test `tests/no-task-ids-in-shipped-shell.bats` (6 cases) pins both the cleanup and the two exemptions.
 
 ## [2.53.0] — 2026-07-10
 
