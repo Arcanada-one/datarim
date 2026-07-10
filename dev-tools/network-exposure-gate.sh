@@ -36,6 +36,7 @@ SEC_INFRA_TYPES=(
     framework-hardening
     security-baseline
     auth-mandate
+    security
 )
 
 usage() {
