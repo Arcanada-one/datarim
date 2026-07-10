@@ -106,3 +106,36 @@ EOF
     run "$SCRIPT" --root "$TMPROOT"
     [ "$status" -eq 0 ]
 }
+
+@test "PASS: nested-namespace container dir (no own SKILL.md, has sub-skills) is skipped" {
+    # e.g. skills/fleet/{l1-basic,l5-autonomous}/SKILL.md — the parent groups
+    # tiered sub-skills loaded by full path; it is not itself a loadable skill.
+    write_skill "alpha" "alpha"
+    mkdir -p "$TMPROOT/skills/fleet/l1-basic" "$TMPROOT/skills/fleet/l5-autonomous"
+    cat >"$TMPROOT/skills/fleet/l1-basic/SKILL.md" <<INNER
+---
+name: fleet-l1-basic
+description: tier-1 starter skill
+---
+body
+INNER
+    cat >"$TMPROOT/skills/fleet/l5-autonomous/SKILL.md" <<INNER
+---
+name: fleet-l5-autonomous
+description: tier-5 starter skill
+---
+body
+INNER
+    run "$SCRIPT" --root "$TMPROOT"
+    [ "$status" -eq 0 ]
+}
+
+@test "FAIL: empty dir with no own SKILL.md and no sub-skills is still flagged" {
+    # A directory that is neither a skill nor a namespace container must fail —
+    # the container-skip must not become a blanket amnesty for missing SKILL.md.
+    write_skill "alpha" "alpha"
+    mkdir -p "$TMPROOT/skills/orphan"
+    run "$SCRIPT" --root "$TMPROOT"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"orphan"* ]]
+}

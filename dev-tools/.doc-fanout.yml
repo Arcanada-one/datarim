@@ -76,7 +76,7 @@ artifacts:
 
 counts:
   - id: skill_count_docs
-    source_glob: skills/*.md
+    source_glob: skills/*/SKILL.md
     consumer_file: documentation/reference/skills.md
     pattern: ([0-9]+) reusable skill
     severity: error

@@ -70,6 +70,19 @@ for skill_dir in "$SKILLS_DIR"/*/; do
     # Skip reserved Codex bundled namespace.
     [[ "$base" == ".system" ]] && continue
 
+    # Skip nested-namespace container directories: a directory that has no
+    # top-level SKILL.md of its own but groups tiered sub-skills, each in its
+    # own child directory with a SKILL.md (e.g. skills/fleet/l1-basic/SKILL.md).
+    # The sub-skills are loaded individually by their full path; the parent is a
+    # grouping namespace, not a loadable skill, so it needs no own SKILL.md.
+    if [[ ! -f "$skill_dir/SKILL.md" ]]; then
+        has_child_skill=0
+        for child_dir in "$skill_dir"*/; do
+            [[ -f "$child_dir/SKILL.md" ]] && { has_child_skill=1; break; }
+        done
+        [[ "$has_child_skill" -eq 1 ]] && continue
+    fi
+
     checked=$((checked + 1))
 
     if ! [[ "$base" =~ $kebab_re ]]; then
