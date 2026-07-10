@@ -247,6 +247,14 @@ When an expectation's success criterion or an acceptance criterion names two or 
 - A clean result on root A plus an unchecked root B is a partial verification, not a pass. Surface root B explicitly as unverified rather than inferring it from root A.
 - Source: prior incident — a "no working-branch-X references anywhere in trees A and B" criterion was verified only by the in-repo checker living in tree A; tree B (a separate registry) still carried working references and reached QA as a blocker.
 
+### 10. Concurrent-Session Check (shared infra)
+
+When a task modifies access to a resource that parallel sessions might also touch (NAS, Vault, a shared CI runner, or any other credential/provisioning surface shared across sessions), grep for active `datarim/.auto-mode-active` markers across sibling workspaces before applying the change, and flag provisioning-conflict risk if any are found.
+
+- Two independent sessions restoring or rotating admin access to the same shared resource concurrently can race each other's provisioning steps (e.g. two SSH-key rotations against the same NAS), each assuming exclusive access.
+- Surface a hit as an Open Item rather than blocking outright — the operator or the concurrent session may already be coordinating.
+- Source: prior incident — two independent sessions restored admin access to the same shared NAS concurrently, an SSH-provisioning conflict risk that neither session's checklist caught (Multi-Agent Workspace Discipline mandate).
+
 ---
 
 ## Output
