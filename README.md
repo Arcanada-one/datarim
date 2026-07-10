@@ -501,6 +501,8 @@ specific capabilities. You can add custom skills by placing `.md` files in
 | `/dr-plugin` | Maintenance | Manage opt-in plugins (v1.23.0+, TUNE-0101). `list/enable/disable/sync/doctor` over a manifest-driven runtime. Symlinks plugin sources into `~/.claude/{cat}/{plugin-id}/` namespaces; supports root-position `overrides:`; pre-mutation snapshot/rollback. |
 | `/dr-status` | Any | Check current task status, pipeline progress, and backlog summary. |
 | `/dr-next` | Any | Resume work from the last checkpoint. Restores context and picks up where you left off. |
+| `/dr-continue` | Any | Resume from a saved session handoff. Re-verifies every claim, then routes to /dr-next or /dr-auto. |
+| `/dr-save` | Any | Save a session handoff before the session is destroyed, capturing state for a later /dr-continue. |
 | `/dr-help` | Any | List all available commands with descriptions, pipeline flow, and complexity routing. |
 | `/factcheck` | Standalone | Fact-check articles and posts. Extracts claims, verifies against sources, corrects errors. |
 | `/humanize` | Standalone | Remove AI writing patterns from text. Fixes vocabulary, structure, and formatting artifacts. |
