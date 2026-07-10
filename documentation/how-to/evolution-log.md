@@ -2062,3 +2062,52 @@ declined as redundant.
 
 **Verification:** stack-agnostic-gate PASS, task-id-gate PASS, no Cyrillic introduced,
 `bats tests/` → 1652 tests, 0 failures.
+
+---
+
+## 2026-07-10 — TUNE-0174 — Framework component counts-drift enforcer (repo-self-consistency)
+
+**Category:** add-mechanical-ci-gate. **Target:** new `dev-tools/check-component-counts.sh`
++ `tests/check-component-counts.bats`.
+
+**Context:** TUNE-0154 ("mechanical CI enforcer for repo-vs-site count drift") was archived
+DONE but its scope narrowed during the ARCA-0142/ARCA-0143 consolidation into
+`dev-tools/check-repo-site-sync.sh`. That script's `feature_count_repo`/`feature_count_site`
+mechanism checks exactly one category (`commands`) against one external site page, driven by
+a cross-repo registry (`documentation/ecosystem-sync/registry.yml`) that lives outside this
+repo. It never checked `skills`/`agents`/`templates` counts, and it never checked this repo's
+OWN `CLAUDE.md`/`README.md` prose claims against the actual on-disk component counts — a
+different, repo-self-consistency class of drift, orthogonal to the repo-vs-site class.
+
+**What:** Added `dev-tools/check-component-counts.sh`, a self-contained (no registry, no
+cross-repo dependency) gate that: (1) counts on-disk components per category — `commands`/
+`agents`/`templates` via `find -maxdepth 1 -name '*.md' | wc -l`, `skills` via
+`find -maxdepth 1 -type d | wc -l` (one directory per skill, `SKILL.md` inside — verified
+this is how the repo actually lays out skills, unlike the flat-`.md` agents/commands/templates
+dirs); (2) extracts the parenthesized count-claim form (`"(NN category)"`, e.g. `(19 agents)`)
+from this repo's own `CLAUDE.md` and `README.md` — chosen over a bare `NN category` grep
+because the repo also uses that wording in illustrative/threshold prose that is NOT a count
+claim (e.g. README's optimizer-example table row "Documentation says 15 agents but disk has
+12", and the `>20 skills` / `>25 commands` health-metric threshold example — neither
+parenthesized, both would have been false positives under a naive grep); (3) exits 1 with a
+per-category diagnostic (file, category, claimed, actual) on any mismatch.
+
+**Found + fixed a real, pre-existing drift while building this:** README.md's Directory
+Structure block claimed `(19 templates)` but the on-disk `templates/` dir actually has 22
+`.md` files (drift accumulated silently — no gate existed to catch it). Fixed the claim to
+22 so the new gate starts green rather than immediately red on merge.
+
+**Explicitly out of scope for this PR (deferred, cross-repo):** extending the repo-vs-site
+check in `check-repo-site-sync.sh` to also compare `skills`/`agents`/`templates` counts
+against `datarim.club`'s `pages/about.php`/`content/en.php`/`content/ru.php`. That requires
+adding fields to `documentation/ecosystem-sync/registry.yml`, which lives in the separate
+`arcanada` workspace — out of reach for a sweep confined to a clone of this repo. Left a
+one-line comment in the new script pointing at the gap; flagged in the PR body as a follow-up
+candidate task.
+
+**Verification:** new `tests/check-component-counts.bats` — 10/10 green (fully-consistent
+fixture passes; one corrupted-claim-per-category fixture fails with exit 1 and the
+category/claimed/actual named in `--report` output, for each of the 4 categories; no-claim
+fixture is a no-op pass; `--root` auto-walk-up verified). `tests/check-repo-site-sync.bats` —
+12/12 green, no regression from the sibling script being read as prior art. Full `bats tests/`
+run — see PR body for the pass/fail count captured at PR-open time.
