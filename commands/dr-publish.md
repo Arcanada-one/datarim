@@ -1,10 +1,12 @@
 ---
 name: dr-publish
-description: Format and publish approved content to target platforms. Loads publishing rules, adapts text per platform, runs pre-publish checks.
+description: Prepare ready-to-publish, platform-adapted payloads for approved content — does NOT dispatch them. Loads publishing rules, adapts text per platform, runs pre-publish checks. Actual sending is hard-gated and happens only via Publisher under operator approval.
 argument-hint: [file path to approved content]
 ---
 
-# /dr-publish — Publish Content
+# /dr-publish — Prepare Publish Payloads (does NOT dispatch)
+
+> **This command PREPARES ready-to-publish payloads (platform-adapted text, `sendMessage`/`sendPhoto` JSON bodies, curl recipes, Playwright steps) — it does NOT send anything.** Publishing to a channel, site, or social network is a **hard-gated action** under `documentation/mandates/autonomous-agents.md` § Hard-gated actions (NEVER auto-execute): public communications (Telegram posts, blog posts, social media) never auto-execute and stay operator-approved per Supreme Directive Law 2. The actual dispatch runs **only through Publisher** (`Projects/Publisher/code/arcanada-publisher` — the sole channel for all external publishing), never as an ad-hoc script from this command. `/dr-publish` stops at the payload; the operator gates the send.
 
 **Role**: Writer Agent
 **Source**: `$HOME/.claude/agents/writer.md`
@@ -50,10 +52,10 @@ argument-hint: [file path to approved content]
     - [ ] Images sized correctly for platform
     - [ ] OG tags present (for website/blog)
     - [ ] Test sent to private chat / staging (for Telegram, recommend testing first)
-8.  **PUBLISH**: After user approves each version:
-    - For Telegram Bot API: provide ready `sendMessage`/`sendPhoto` payloads
-    - For websites: apply content to the target file, update sitemap/RSS if applicable
-    - For other platforms: provide formatted text ready to paste, with platform-specific notes
+8.  **PREPARE PAYLOADS (does NOT dispatch)**: After user approves each version, produce — but do not send — the ready-to-publish artefacts. Dispatching is hard-gated and happens only through Publisher under operator approval (see the STOP indicator in Step 9 and the header note above).
+    - For Telegram Bot API: provide ready `sendMessage`/`sendPhoto` payloads (do not call the API).
+    - For social networks (X / Facebook / LinkedIn / VK / Instagram): provide the formatted text plus the Publisher invocation (`Projects/Publisher/code/arcanada-publisher` CLI or its localhost HTTP API) — do not post directly and do not write one-off Playwright/curl scripts.
+    - For websites: applying content to the source file and committing on a feature branch is preparation; the site only goes live via push to `main` → CI/CD (never edit on servers, never `rsync` by hand).
 9.  **POST-PUBLISH**:
     - Verify link previews render correctly (suggest debugger URLs per platform)
     - Note the publication date for the content record
@@ -62,7 +64,13 @@ argument-hint: [file path to approved content]
 ## Output
 - Per-platform formatted versions of the content
 - Pre-publish checklist (passed/failed)
-- Publication instructions or applied changes
+- Publication instructions / payloads (NOT a completed publish)
+
+**STOP indicator (mandatory — emit verbatim as the last line before the CTA block):**
+
+> ⛔ STOP — /dr-publish PREPARED the payloads above but did NOT send them. Nothing has been published yet. Sending is hard-gated (public communications never auto-execute — `documentation/mandates/autonomous-agents.md` § Hard-gated actions) and runs only via Publisher under operator approval. Run the Publisher invocation in CTA option 1 to actually publish.
+
+This indicator MUST appear whether or not `--consilium` mode ran, and regardless of platform. Do not omit it because the payload "looks done" — the whole point is to stop the operator-UX trap where seeing the recipes reads as a completed publish.
 
 ## Multi-Vendor Consilium Mode
 
@@ -97,9 +105,10 @@ After publish, the writer/editor agent MUST emit a CTA block ([definition](../sk
 
 **Routing logic for `/dr-publish`:**
 
-- Content task in Datarim pipeline → primary `/dr-archive {TASK-ID}` (final archive)
-- Need to write more content → primary `/dr-write {TASK-ID}`
-- Need to edit before re-publishing → primary `/dr-edit {TASK-ID}`
+- **CTA option 1 (primary) is ALWAYS the manual dispatch, not next-stage routing.** Because sending is hard-gated, the first numbered option MUST be the concrete operator action that actually publishes — the Publisher invocation for the prepared payload (`Projects/Publisher/code/arcanada-publisher` CLI / localhost HTTP API for social + external sites; `git push` to `main` → CI/CD for our own sites). Spell out the exact command/step, not a `/dr-*` route. The pipeline continues only **after** the operator has published.
+- Only after the content is actually live: content task in Datarim pipeline → `/dr-archive {TASK-ID}` (final archive)
+- Need to write more content → `/dr-write {TASK-ID}`
+- Need to edit before re-publishing → `/dr-edit {TASK-ID}`
 - Always include `/dr-status` as escape hatch
 
 The CTA block MUST follow the canonical format defined in `skills/cta-format/SKILL.md` (numbered options, exactly one primary marker, `---` HR). Variant B menu when >1 active tasks.

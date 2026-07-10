@@ -1,6 +1,6 @@
 # Skills Reference
 
-Datarim includes 62 reusable skill modules. Skills provide rules, patterns, and guidelines loaded on demand by agents and commands.
+Datarim includes 63 reusable skill modules. Skills provide rules, patterns, and guidelines loaded on demand by agents and commands.
 
 Skills are split into two categories:
 - **Reference skills** — rules and patterns the caller applies inline. Inherit caller's model (no `model` field).
@@ -53,8 +53,9 @@ Skills are split into two categories:
 | image-prompting | Reference | inherit | Playbook for authoring image-generation prompts (covers, thumbnails, post visuals, illustrations, infographics, logos) — intake → spec → prompt → verify loop, composition / camera / light / palette language, text-in-image constraints, negative constraints + invariants, native aspect/size handling for gpt-image-style tools, iterative refinement, reusable-templates fragment (`prompt-templates.md`), verification checklist | writer, editor, on demand for any visual asset |
 | cron-agent-patterns | Reference | inherit | Layered timeout defense for cron-orchestrated agents making external calls (LLM CLI / HTTP / subprocess) — strictly-nested tiers (per-call < cycle deadline < SIGALRM net < shell `timeout --kill-after`), anti-patterns (per-call==budget, `max(N, deadline-now)` floor, `except Exception: pass` swallowing SIGALRM), symmetric deadline guards + explicit next-tier headroom (`*_RESERVE_SEC`) | on demand for cron / timer agents with external API calls |
 | nginx-version-compat | Reference | inherit | Probe running nginx version (`nginx -v` / `nginx -V`) before editing config, then map directive syntax to that version (HTTP/2 `listen ... http2` legacy vs `http2 on;` from 1.25.1; HTTP/3 `quic`/`http3` from 1.25.0+) + common breaking-change traps | `/dr-plan` for any nginx-touching task |
+| plan-path-validator | Reference | inherit | Exists-check for file/script/path references in a plan output — flags MISSING (phantom) and DEPRECATED (stale) paths before /dr-do, via git-topology-aware `test -e` / `git cat-file` probes | /dr-plan Validation Checklist (companion to § 6.5 Symbol Existence Check), /dr-qa plan review |
 
-**Distribution:** 20 reference (inherit), 3 opus, 13 sonnet, 4 haiku.
+**Distribution:** 21 reference (inherit), 3 opus, 13 sonnet, 4 haiku.
 
 ## Loading Hierarchy
 

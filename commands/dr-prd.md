@@ -17,6 +17,16 @@ This command generates a structured Product Requirements Document (PRD) followin
 
 0.5. **READ INIT-TASK** (mandatory per `$HOME/.claude/skills/init-task-persistence/SKILL.md`): Open `datarim/tasks/{TASK-ID}-init-task.md` if present. Read the full `## Operator brief (verbatim)` section AND every `## Append-log` entry. Any divergence between the operator's stated intent and the discovery scope MUST be surfaced in PRD § Discovery / § Constraints. Missing init-task is non-blocking — flag as advisory and continue.
 
+0.7. **TASK-TYPE GUARD (research-task detection)**: Before running the product-PRD phases below, check whether this task is a **research / comparative-evaluation task** rather than a buildable product change. A PRD is a *product* requirements document; research tasks (technology selection, framework benchmarking, feasibility studies, literature surveys) produce an insights / decision artefact, not a shippable feature, and forcing them through the standard Problem→Scope→Technical-Approach→Success-Criteria structure yields a mis-shaped document.
+    -   **Detection signals** (any one is sufficient):
+        - the task ID uses the `RESEARCH` prefix (per `$HOME/.claude/skills/datarim-system/command-and-archive-rules.md` archive-subdir table);
+        - the task-description frontmatter declares `type: research` (or an equivalent research/evaluation/benchmark type);
+        - the operator brief in `datarim/tasks/{TASK-ID}-init-task.md` frames the work as *"compare / evaluate / survey / investigate / decide between"* candidates with no committed implementation target.
+    -   **On a positive detection**, emit a single advisory **WARNING** to the operator before continuing, and offer the **escalation hint**:
+        - WARNING: `This looks like a research task; the standard product-PRD structure (Problem → Scope → Technical Approach → Success Criteria) is a poor fit for comparative / feasibility research.`
+        - HINT: recommend the research path instead — run `/dr-plan` with the research-workflow skill (`$HOME/.claude/skills/research-workflow/SKILL.md`) so findings land in `datarim/insights/INSIGHTS-{task-id}.md`, and drive candidate elimination through `/dr-plan` § Research Kill-Criteria Checkpoint rather than a product Technical-Approach section. If the operator confirms a genuine product PRD is still wanted, proceed with the phases below.
+    -   The guard is **advisory-only**: it never blocks. In auto-mode (see § /dr-auto Mode) resolve the confirm/decline through the Question Suppression Ladder; log the decision per `$HOME/.claude/skills/init-task-persistence/SKILL.md` § Q&A round-trip. On no detection, continue silently to Step 1.
+
 1.  **Analyze Context (Phase 1)**:
     -   Read `datarim/projectbrief.md`, `techContext.md`, and `systemPatterns.md`.
     -   Identify affected components and constraints (Security, Performance).
