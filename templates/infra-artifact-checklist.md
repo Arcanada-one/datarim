@@ -8,6 +8,7 @@
 
 ## Phase A: Local Artifacts (agent-safe)
 
+- [ ] **Phase-0 (migration steps only):** for any step that runs a database/data migration inside a container, verify the *actual* entrypoint of that container's image before writing the step — `docker inspect <image> --format '{{.Config.Entrypoint}}'` — rather than assuming which service/container runs migrations from its name or role. A plan that assumes the wrong entrypoint (e.g. a worker image when the web image is what actually runs migrations) fails only when executed, not when reviewed.
 - [ ] All configs created (Docker Compose, HCL, YAML, JSON, etc.)
 - [ ] All scripts created and `chmod +x` (provision, bootstrap, migrate)
 - [ ] All scripts pass `bash -n` syntax check
