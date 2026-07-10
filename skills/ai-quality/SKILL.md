@@ -329,6 +329,14 @@ A spike (or any exploratory prototype meant to falsify a design hypothesis befor
 
 ---
 
+## Probe Before Harness
+
+Before writing a subprocess wrapper, sidecar, or pipeline adapter against an external CLI/API, run a manual probe (≤60 sec, representative input) against the real tool first — capture stdout/stderr/exit code — instead of assuming the interface and building a harness around a guess. Treat vendor documentation as a hypothesis until the probe confirms actual wire semantics (persistent pipe vs one-shot invocation, response schema, exit-code meaning, auth failure mode).
+
+**Why.** A harness built on an assumed interface fails silently or expensively once real output diverges from the guess — a 30-second manual probe against the real binary can disprove an assumed interface shape (e.g. "persistent stdin pipe" vs one-shot) before a day of false-build work goes into a harness that has to be thrown away.
+
+---
+
 ## Fragment Routing
 
 Load only the fragment needed for the current sub-problem:
