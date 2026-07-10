@@ -47,6 +47,8 @@ By default `coworker ask` accepts ONLY `.md`, `.markdown`, `.txt` files. Passing
 
 For Datarim/Claude/Codex runtime this is a policy stop: code reading and code analysis stay with the selected agent model directly (`Read`, `rg`, `sed`, `git diff`, etc.). Do not bypass the block with `--allow-code` or `COWORKER_ALLOW_CODE=1` in agent workflows. Those override mechanisms are only manual operator escape hatches outside normal Datarim policy.
 
+`coworker write` applies the same gate to its `--context` paths: `--context <source>.py` (or any non-text file) also exits 6 unless `--allow-code`/`COWORKER_ALLOW_CODE=1` is set — only the `--target` output path is exempt. This matters for the self-recursion doc-generation flow: when a `/dr-*` command drafts an artifact and would pass a code source as `--context` grounding, the gate stops it. Correct move: read the code with the agent's own `Read`/`rg`, distil the facts into a `.md`/`.txt` note, and pass that note as `--context` — do not reflexively add `--allow-code`.
+
 ## RTK plugin (opt-in, Rust Token Killer)
 
 RTK is an OPTIONAL coworker plugin for extra token savings via local `rtk` rust binary (https://github.com/Arcanada-one/rtk). Default-OFF; explicit opt-in required.

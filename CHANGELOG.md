@@ -4,6 +4,39 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **`skills/testing/live-smoke-gates.md` § Gate 8: Recorded-Fixture Tests for HTTP Wrappers** — new subsection mandating that thin HTTP wrapper clients capture one real response into a consuming-project fixtures doc (`datarim/tasks/<TASK-ID>-fixtures.md`) before implementation, that the wrapper's spec include at least one integration-style test asserting against that recorded response (not a synthetic stub), and that the spec decode/validate through the real schema so a response-shape drift fails the test. Routing hints updated in `skills/testing/SKILL.md`. Site sync (`datarim.club/data/skills/testing.php`, EN+RU) deferred as an explicit cross-repo follow-up — out of scope for this repo. (TUNE-0162, source: reflection-ARCA-0008 § Class A Proposal 2)
+- **`/dr-doctor` `wiki/_raw_/` semantic-orphan check** — new advisory-only pass (`scan_wiki_raw_orphans`,
+  scope `all`) flags a file whose basename shares no token (≥4 chars, alnum-only) with the first 300 bytes
+  of its content — a signal of an accidental paste into the wrong file. Report-only; `--fix` does not touch
+  `wiki/_raw_/`. Class A evolution proposal from `reflection-RESEARCH-0003.md` Proposal 2 (approved
+  2026-05-07). New regression test `tests/tune-0121-wiki-raw-orphan-check.bats` (6 cases). (TUNE-0121)
+- **`templates/legacy-hardware-probe-checklist.md`** _(NEW)_ — 7-step probe checklist for legacy embedded
+  Linux integrations (CPU architecture, `/dev/net/tun`, free RAM, OpenSSL PBKDF2 support, BusyBox applet
+  availability, cron spool permissions, machine-identity sources). Run before committing to an architectural
+  approach in `/dr-plan` — replaces speculative toolchain assumptions with a 30-minute probe. Class A
+  evolution proposal from `reflection-INFRA-0073` (approved 2026-05-08). New regression test
+  `tests/tune-0133-legacy-hardware-probe-checklist.bats` (5 cases). (TUNE-0133)
+- **`/dr-plan` Step 6.5 History-agnostic runtime-body probe** — shifts the history-agnostic gate (task-ID-provenance rejection on shipped `skills/` / `agents/` / `commands/` / `templates/` bodies) left from `/dr-qa` and `/dr-compliance` to plan review, before approve. When Implementation Steps name a framework runtime body as an edit/create target, the planner dry-runs `scripts/task-id-gate.sh` against the plan's cited paths and any example text it will ship, and resolves every cited path through the `skills/plan-path-validator/SKILL.md` exists + deprecation ladder — reusing both existing gates rather than re-deriving them. Adds a Transition Checkpoint item and a `commands/dr-plan.md` plan-time trigger to `skills/evolution/history-agnostic-gate.md`. New regression test `tests/dr-plan-step-6-5-history-agnostic-probe.bats` (8 cases). (TUNE-0283)
+
+- **`install.sh --with-claude` syncs the coworker-delegation fragment into the operator's `$CLAUDE_DIR/CLAUDE.md`** — mirrors what `--with-codex`'s `generate_codex_agents_manifest` already does for the Codex runtime, but for Claude's personal (hand-maintained, not framework-owned) `CLAUDE.md` only the block between `<!-- coworker-fragment:begin -->` / `<!-- coworker-fragment:end -->` sentinels is replaced — everything else in the file is preserved byte-exact. Idempotent (unchanged fragment + re-run = no write); fail-soft when sentinels are absent (prints the one-time opt-in recipe, does not touch the file) or when `CLAUDE.md` itself does not exist (install.sh never creates or reformats an operator's personal file). New regression test `tests/install-tune-0318-claude-fragment-sync.bats` (7 cases: inject, idempotent re-run, content-change re-sync, sentinel-absent fallback, missing-file fallback, dry-run no-op, missing-fragment-source no-op).
+### Changed
+
+- **Repo-root installer scripts scrubbed of task-ID citations** — `install.sh`/`update.sh`/`validate.sh` carried ~30 inline `TUNE-NNNN` provenance citations in comments (the history-agnostic gate already covers `skills/`/`agents`/`commands`/`templates`, not the root shell installers). Citations replaced with the version anchors already present alongside most of them (`v1.17.0`/`v1.20.0`/`v2.15.0`), or generic phrasing where no anchor existed. Two occurrences are intentionally untouched: the single-file backup suffix and the Codex `.system/` backup glob are literal on-disk naming tokens matched against backups already created by prior installer runs — renaming them would break restore compatibility. New regression test `tests/no-task-ids-in-shipped-shell.bats` (6 cases) pins both the cleanup and the two exemptions.
+
+## [2.53.0] — 2026-07-10
+
+### Added
+
+- **Automatic post-step Self-Verification Hook wired into `/dr-prd`, `/dr-plan`, `/dr-do`** — after every pipeline stage the command now runs the tri-layer self-verification contract automatically (the pipeline-integrated counterpart of manual `/dr-verify`), reusing `skills/self-verification/SKILL.md`. Complexity-tiered dispatch: L1 tasks skip the hook (skill overhead exceeds value), L2 runs the deterministic Layer 1 floor plus a single peer-review agent, L3/L4 add the 3-parallel native dispatch (reviewer / tester / security). Advisory and findings-only by default (`DATARIM_VERIFY_HOOK_MODE=hard` opt-in makes a floor `BLOCKED` verdict flip the CTA to FAIL-Routing); kill switch `DATARIM_DISABLE_VERIFY_HOOK=1`. Unblocked by the TUNE-0137 R-5 v2 prospective-dogfood gate (`rate_per_5_tasks=23.10 ≫ 1.0`, `decision_hint: spawn automated post-step hook`). New wiring test `tests/command-verify-hook.bats`. (TUNE-0138)
+- **Coworker type-signature mirror guard** — `skills/coworker-context` § Type-Signature Mirror Guard + `scripts/check-coworker-canonical-mirror.sh` linter: when a coworker draft cites types/variants from a canonical source, the spec must carry a verbatim canonical block, an exact-mirror instruction, and a post-generation regex-grep pass. Prevents fabricated type signatures. (TUNE-0248)
+- **`skills/fleet/SKILL.md` router entry** added (the five level fragments l1–l5 previously had no top-level SKILL.md), fixing the `check-skill-layout` failure. (TUNE-0160)
+
+### Fixed
+
+- **Coworker `write --context` file-type gate documented accurately** — the delegation fragment previously claimed write paths had no allowlist; corrected to describe the `--context` code-gate (needs `--allow-code`/`COWORKER_ALLOW_CODE=1`), the `--target`-only exemption, and the self-recursion doc-generation workaround. (TUNE-0261)
+
 ## [2.52.0] — 2026-07-10
 
 ### Added

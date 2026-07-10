@@ -247,6 +247,11 @@ When an expectation's success criterion or an acceptance criterion names two or 
 - A clean result on root A plus an unchecked root B is a partial verification, not a pass. Surface root B explicitly as unverified rather than inferring it from root A.
 - Source: prior incident — a "no working-branch-X references anywhere in trees A and B" criterion was verified only by the in-repo checker living in tree A; tree B (a separate registry) still carried working references and reached QA as a blocker.
 
+### 10. Concurrent-Session Check for Shared-Infra Mutation
+- Before mutating access to a resource that other sessions/agents may touch in parallel (shared DB, shared config, shared runner, shared NAS/Vault credential), check for concurrent activity first: `grep`/`ls` active `datarim/.auto-mode-active*` markers across sessions, and note any other in-flight task on the same resource (backlog/PRD cross-reference).
+- If a concurrent session is active on the same resource, surface the conflict risk before mutating rather than after — do not silently overwrite state a parallel session may depend on.
+- Rationale: real incidents motivated this step — a dev-compose cutover once killed prod because the mutation ran without checking for a concurrent session on the same shared DB; separately, two tasks restored admin access to the same NAS in parallel without a concurrent-session check, risking an SSH-provisioning conflict.
+
 ---
 
 ## Output

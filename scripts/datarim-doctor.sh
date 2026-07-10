@@ -598,6 +598,49 @@ if [ "$SCOPE" = "all" ]; then
     scan_phantom_prd_snapshot
 fi
 
+# --- wiki/_raw_ semantic-orphan advisory pass (TUNE-0121) -------------------
+# wiki/_raw_/ holds one markdown file per pasted source. A copy-paste mistake
+# (wrong buffer, wrong save-target) leaves a file whose basename names one
+# topic but whose body is about something else entirely — silent because
+# nothing else reads or cross-references these files. Heuristic: at least one
+# basename token (>=4 chars, alnum-only) must appear in the first 300 bytes of
+# content. Advisory only; fix is manual (rename or move to the intended file).
+scan_wiki_raw_orphans() {
+    local wiki_dir
+    wiki_dir="$(dirname "$ROOT_ABS")/wiki/_raw_"
+    [ -d "$wiki_dir" ] || return 0
+    local f base stem tokens content_lower tok has_token matched
+    local -a tok_array
+    for f in "$wiki_dir"/*.md; do
+        [ -e "$f" ] || continue
+        base="$(basename "$f")"
+        stem="${base%.md}"
+        tokens="$(printf '%s' "$stem" | tr '[:upper:]' '[:lower:]' | tr -c '[:alnum:]' ' ')"
+        content_lower="$(head -c 300 "$f" 2>/dev/null | tr '[:upper:]' '[:lower:]')"
+        has_token=0
+        matched=0
+        # Script-wide IFS is $'\n\t' (strict mode) — split on plain space
+        # explicitly rather than relying on unquoted word-splitting.
+        IFS=' ' read -ra tok_array <<< "$tokens"
+        for tok in "${tok_array[@]}"; do
+            [ "${#tok}" -ge 4 ] || continue
+            has_token=1
+            if [[ "$content_lower" == *"$tok"* ]]; then
+                matched=1
+                break
+            fi
+        done
+        # A basename with no token >=4 chars is inconclusive, not a match — skip.
+        if [ "$has_token" -eq 1 ] && [ "$matched" -eq 0 ]; then
+            FINDINGS=$((FINDINGS + 1))
+            FINDING_LINES+=("wiki/_raw_/$base: basename/content mismatch — no basename token found in first 300 bytes (possible orphan paste; verify manually)")
+        fi
+    done
+}
+if [ "$SCOPE" = "all" ]; then
+    scan_wiki_raw_orphans
+fi
+
 # --- dry-run ----------------------------------------------------------------
 if [ "$MODE" = "dry-run" ]; then
     if [ "$FINDINGS" -eq 0 ]; then

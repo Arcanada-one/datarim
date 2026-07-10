@@ -25,6 +25,8 @@ description: Implement planned changes using TDD and AI quality principles
     -   Bypass is permitted ONLY when (a) the harness hook explicitly returned an allow decision (operator override at runtime) AND (b) the override reason is recorded in the same § Implementation Notes line. Silent bypass = process regression; `/dr-compliance` will surface it.
     -   Rationale: hook-enforced mandates exist because the operator decided the delegation matters — for token economics, for content review discipline, or for security. Working around the hook to save time negates the operator's design decision and creates inconsistent artefact provenance across the task lifecycle.
 
+5.6. **PLAN-EXTRACT RECOMMENDATION (coworker, advisory)**: after reading the plan in Step 5, check its size — `datarim/tasks/{TASK-ID}-task-description.md` § Implementation Notes for L1-L2, or `datarim/plans/{TASK-ID}-plan.md` for L3-L4. When the plan exceeds **400 lines** AND this session is expected to cover **≥2 implementation phases** (a multi-phase plan, or an explicit multi-session plan), recommend — do not mandate — a `coworker ask --profile datarim` bulk-extract pass before starting the TDD loop: distill the plan into a phase-by-phase checklist so the working context is not dominated by the full plan text for the whole session. Skip silently when the plan is ≤400 lines or the session covers a single phase — the delegation overhead is not worth it for short/simple plans.
+
 6.  **PRE-FLIGHT CHECK** (L3-L4 code tasks only):
     Before writing any code, verify readiness:
     ```
@@ -40,6 +42,13 @@ description: Implement planned changes using TDD and AI quality principles
     - Implement one stub/method at a time.
     - Follow `datarim/history/patterns.md` and `datarim/style-guide.md`.
     - Apply quality rules: max 50 lines/method, max 7-9 objects in scope, tests before code.
+    - **Lint-on-the-spot (MANDATORY after each TDD Loop code-change step)**: auto-detect the project linter from the manifest present in the repo root (or nearest package boundary) and run it against the changed files before moving to the next stub/method. Fix findings immediately — do not carry lint debt forward to `/dr-compliance`; that stage assumes a clean baseline and is not a linter-fixup pass.
+    <!-- gate:example-only -->
+    -   Concrete recipes (illustrative — substitute the project's actual linter):
+        -   Rust ecosystem: `cargo clippy --all-targets -- -D warnings`
+        -   Node ecosystem: `eslint <changed-files>`
+        -   Python ecosystem: `ruff check <changed-files>`
+    <!-- /gate:example-only -->
 
 7.5 **GAP DISCOVERY** (during implementation):
     If you encounter an unknown that blocks progress (import failure, unexpected API behavior, docs ≠ reality, missing feature, compatibility issue):
@@ -160,6 +169,41 @@ After implementation, the developer agent MUST emit a CTA block ([definition](..
 - Fundamental gap discovered (Gap Discovery escalation) → primary `/dr-prd {TASK-ID}` (revise requirements)
 
 The CTA block MUST follow the canonical format (numbered list, one `**рекомендуется**`, `---` HR wrapping, task ID included). Variant B menu when >1 active tasks. <!-- allow-non-ascii: russian-canonical-cta-marker-tokens-cited-from-cta-format-skill -->
+
+## Post-Step Self-Verification Hook (Automatic)
+
+After the `## Next Steps (CTA)` block and before Stage Snapshot Emission, the agent MUST run the automatic self-verification hook for this stage. This is the pipeline-integrated counterpart of the manual `/dr-verify` command ([definition](../skills/self-verification/SKILL.md)); it reuses the same tri-layer contract but is dispatched automatically, complexity-tiered, and findings-only.
+
+**Kill switch:** when `DATARIM_DISABLE_VERIFY_HOOK=1` is set, the whole hook is a no-op (no floor run, no dispatch, no warning). Use for cost-sensitive batch runs.
+
+**Complexity tiering (`L1 OFF / L2 = 1 agent / L3+ = 3 parallel`).** Read the resolved task's `complexity` from `datarim/tasks/{TASK-ID}-task-description.md` frontmatter (fallback: the `L{N}` field on the `tasks.md` one-liner). Dispatch scales with complexity:
+
+| Complexity | Layer 1 floor | Layer 2 peer-review | Layer 3 native dispatch |
+|------------|---------------|---------------------|--------------------------|
+| L1 | skipped (hook OFF — skill overhead exceeds value) | skipped | skipped |
+| L2 | run (deterministic, zero LLM cost) | 1 agent (`agents/peer-reviewer.md`, readonly) | skipped |
+| L3 / L4 | run | 1 agent | 3 parallel agents (reviewer / tester / security) |
+
+**Layer 1 floor invocation (L2+):**
+
+```text
+bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/dr-verify-floor.sh" \
+    --task {TASK-ID} --stage <stage> --workspace <project-root>
+```
+
+Capture JSONL findings on stdout (each carries `source_layer: "floor"`); stderr carries per-check progress. Bind `<stage>` to this command's stage literal declared in Stage Snapshot Emission below (`prd` / `plan` / `do`).
+
+**Layer 2 / Layer 3 dispatch (per tier above)** follow the manual `/dr-verify` steps 6.2 and 6.3 verbatim (provider resolution via `dev-tools/resolve-peer-provider.sh`, `--task-id {TASK-ID}` propagation MANDATORY, readonly tool whitelist Read / Grep / Glob / Bash-read-only — NO Write / Edit / NotebookEdit). Semantic review stays in the selected agent runtime; never route it through coworker.
+
+**Advisory vs blocking (`DATARIM_VERIFY_HOOK_MODE`, default advisory).**
+
+- **advisory (default):** findings are surfaced but the stage still completes. The CTA already emitted stays authoritative; append a one-line hook summary (`verdict + source_layer_breakdown`) so the next stage and the operator see the floor result. This matches the do-stage evidence-still-accruing rationale — an automatic post-step hook must not silently gate a stage the operator did not opt to hard-gate.
+- **hard (`DATARIM_VERIFY_HOOK_MODE=hard`):** a `BLOCKED` verdict (≥1 non-discarded `severity=high` finding) flips the CTA to the FAIL-Routing variant per the `/dr-verify` highest-severity-category map, so the operator is routed back to the earliest affected stage instead of forward.
+
+**Findings-only, always.** No layer auto-fixes. Operator triages. Audit trail follows the manual path — write `datarim/qa/verify-{TASK-ID}-<stage>-<iter>.md` (append-only, `chmod a-w`) per the skill's Audit Log Writer only when Layer 2/3 ran (L2+); a pure-floor L2-tier run may skip the file and fold the floor verdict into the CTA summary line.
+
+**Fail-closed on tooling error:** a non-zero floor *exit from a crash* (not the documented high-severity count) or a missing `dr-verify-floor.sh` emits a single stderr warning and the stage continues (advisory) — the hook never bricks the pipeline on its own infrastructure fault.
+
 
 ## Stage Snapshot Emission (Mandatory Terminal Step)
 

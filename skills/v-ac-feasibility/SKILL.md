@@ -1,6 +1,6 @@
 ---
 name: v-ac-feasibility
-description: Pre-implementation feasibility gate for verifiable acceptance criteria — proves every V-AC with a runtime command can actually PASS under a correct implementation before /dr-do starts. Loaded by /dr-plan Step 5c / 6.5 V-AC review.
+description: Pre-implementation gate proving every runtime-command V-AC (docker exec / curl / kubectl / systemctl / live DB query) can actually PASS before /dr-do.
 metadata:
   current_aal: 1
   target_aal: 2
