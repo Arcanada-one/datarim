@@ -2,18 +2,18 @@
 # Datarim Framework Installer
 # Installs agents, skills, commands, and templates into $CLAUDE_DIR (~/.claude).
 #
-# Operating model (v1.17.0, TUNE-0033):
+# Operating model (v1.17.0):
 #   Default mode is SYMLINK — the four scope directories in $CLAUDE_DIR
 #   (agents/skills/commands/templates) become symlinks to $SCRIPT_DIR/<scope>/.
 #   This makes the repo the runtime: edits land in git tracking immediately
 #   and curation/drift detection are no-ops by definition. Use --copy to
 #   preserve the legacy v1.16 behaviour (real file copies).
 #
-# Contract (TUNE-0004 aligned with PRD-datarim-sdlc-framework §4 — copy mode):
+# Contract (aligned with PRD-datarim-sdlc-framework §4 — copy mode):
 #   - Install scopes (distributed to runtime): agents, skills, commands, templates.
 #   - Installed scopes (whole-dir symlink under default mode): agents/, skills/,
-#     commands/, templates/, scripts/ (since v1.20.0 TUNE-0077), tests/ (since
-#     v1.20.0 TUNE-0077). Repo-only: validate.sh (single root file).
+#     commands/, templates/, scripts/ (since v1.20.0), tests/ (since
+#     v1.20.0). Repo-only: validate.sh (single root file).
 #   - Content types copied: .md .sh .json .yaml .yml. Unknown extensions are
 #     logged (WARN) and skipped — never silently dropped.
 #   - .sh files receive +x after copy.
@@ -41,6 +41,12 @@
 #   DATARIM_FORCE_UNAME       override `uname -s` (e.g. MINGW64_NT-10) to
 #                             exercise the Windows copy-fallback path
 #   DATARIM_MIGRATION_CHOICE  pre-answer the c|k|a migration prompt
+#   DATARIM_ORCH_SECRETS_BACKEND, DATARIM_ORCH_AUDIT_SINK,
+#   DATARIM_ORCH_TELEGRAM_ENDPOINT
+#                             pre-answer the --profile orchestrator prompts
+#                             (mirrors DATARIM_MIGRATION_CHOICE)
+#   DATARIM_ORCH_CONFIG_DIR   override the --profile orchestrator config dir
+#                             (default: $HOME/.config/datarim-orchestrate)
 
 ## POSIX re-exec preamble — must appear before `set -euo pipefail` and before
 ## any bash-only syntax (arrays, [[ ]], (( ))).  This block is valid POSIX sh.
@@ -72,6 +78,7 @@ CLAUDE_DIR="${CLAUDE_DIR-$HOME/.claude}"
 DATARIM_INSTALL_YES="${DATARIM_INSTALL_YES:-}"
 DATARIM_FORCE_UNAME="${DATARIM_FORCE_UNAME:-}"
 DATARIM_MIGRATION_CHOICE="${DATARIM_MIGRATION_CHOICE:-}"
+DATARIM_ORCH_CONFIG_DIR="${DATARIM_ORCH_CONFIG_DIR:-$HOME/.config/datarim-orchestrate}"
 
 resolve_find_bin() {
     if [ -n "${DATARIM_FIND_BIN:-}" ]; then
@@ -88,26 +95,26 @@ resolve_find_bin() {
 FIND_BIN="$(resolve_find_bin)"
 
 # Install scopes — canonical list, asserted by tests/install.bats T34/T35/T36.
-# v1.20.0 (TUNE-0077): scripts and tests added — uniform whole-directory symlink
+# v1.20.0: scripts and tests added — uniform whole-directory symlink
 # semantics. Eliminates drift between canonical Datarim repo and ~/.claude/
 # runtime (a 730-LoC rogue datarim-doctor.sh placed directly into ~/.claude/
 # scripts/ destroyed 30 task entries on aether/local-env 2026-04-30). With
 # dir-symlink, ~/.claude/scripts/datarim-doctor.sh is the canonical file by
 # inode — no possibility of divergence. Symmetric with skills/agents pattern.
-# 'dev-tools' is runtime-required as of v2.15.0 (TUNE-0259). The
+# 'dev-tools' is runtime-required as of v2.15.0. The
 # following /dr-* commands invoke scripts from dev-tools/ at runtime:
 # dr-init (check-init-task-presence.sh, check-expectations-checklist.sh),
 # dr-doctor, dr-archive, dr-verify, dr-qa, dr-plan, dr-compliance,
 # dr-design. Operator-facing /dr-* docs invoke these scripts via the
 # runtime-prefixed form `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/<script>`
 # so consumer workspaces (cwd != framework repo) find the runtime
-# symlink instead of a missing cwd-relative path. The earlier TUNE-0091
+# symlink instead of a missing cwd-relative path. The earlier per-file
 # exclusion ("developer-only, not shipped") was retired because runtime
 # callers across the /dr-* pipeline outnumber the few maintainer-only
 # scripts; the rest stay invisible behind the runtime root anyway.
 INSTALL_SCOPES=(agents skills commands templates scripts tests dev-tools)
 
-# v1.17.0: local/ overlay scope dirs (TUNE-0033). Local overlay applies only to
+# v1.17.0: local/ overlay scope dirs. Local overlay applies only to
 # user-extensible scopes (skills/agents/commands/templates) — scripts/tests are
 # framework-internal and not extended via local/.
 LOCAL_SCOPES=(skills agents commands templates)
@@ -124,14 +131,23 @@ COPIED=0
 LINKED=0
 SKIPPED=0
 
-# TUNE-0114 Phase 2: multi-runtime fanout + project mode
+# Multi-runtime fanout + project mode
 FANOUT_CLAUDE=false
 FANOUT_CODEX=false
-FANOUT_CODEX_UX=true       # TUNE-0297: generate SKILL.md wrappers + AGENTS.override.md; --no-codex-ux opts out
-FANOUT_CURSOR=false        # TUNE-0304: Cursor IDE skill mirroring (--with-cursor)
+FANOUT_CODEX_UX=true       # generate SKILL.md wrappers + AGENTS.override.md; --no-codex-ux opts out
+FANOUT_CURSOR=false        # Cursor IDE skill mirroring (--with-cursor)
+
+# Sentinel markers delimiting the auto-synced coworker-delegation
+# block inside the operator's own $CLAUDE_DIR/CLAUDE.md. Everything outside
+# the markers is the operator's hand-written content and is never touched.
+CLAUDE_FRAGMENT_BEGIN='<!-- coworker-fragment:begin -->'
+CLAUDE_FRAGMENT_END='<!-- coworker-fragment:end -->'
 PROJECT_DIR=''
 DRY_RUN=false
 LOCKFILE=''
+
+# interactive orchestrator setup profile (--profile orchestrator)
+PROFILE_ORCHESTRATOR=false
 
 print_usage() {
     cat <<'USAGE'
@@ -144,19 +160,33 @@ Usage:
   install.sh --with-cursor          Install for Cursor IDE (flat .md mirror of each SKILL.md;
                                     target: $CURSOR_DIR/skills/ — default ~/.cursor/skills/.
                                     Cursor's skill discovery is not yet officially documented;
-                                    this layout is operator-validated — accepted risk per TUNE-0304 R7)
+                                    this layout is operator-validated — accepted risk, see documentation/archive/)
   install.sh --project DIR          Project-local copy install (no symlinks)
   install.sh --with-claude --with-codex  Multi-runtime install
   install.sh --dry-run              Show planned mutations without applying
   install.sh --copy                 Legacy copy mode (real files instead of symlinks)
   install.sh --force                Legacy force re-install (copy mode only — no-op on symlinks)
   install.sh --force --yes          Overwrite without prompt (CI / scripted)
+  install.sh --profile orchestrator Interactive setup for dr-orchestrate: prompts for
+                                    secrets backend / audit sink / telegram bridge
+                                    endpoint and writes
+                                    ~/.config/datarim-orchestrate/local.yaml (mode 0600).
+                                    Non-interactive (piped stdin / no TTY, no env
+                                    pre-answers) falls back to sane defaults
+                                    (yaml / jsonl / blank). Existing config is
+                                    preserved unless combined with --force.
   install.sh --help                 Show this message
 
 Environment:
   CLAUDE_DIR                        Target directory (default: $HOME/.claude)
   CURSOR_DIR                        Cursor target directory (default: $HOME/.cursor)
   DATARIM_INSTALL_YES=1             Equivalent to --yes (also auto-converts copy → symlink)
+  DATARIM_ORCH_CONFIG_DIR           --profile orchestrator config dir
+                                    (default: $HOME/.config/datarim-orchestrate)
+  DATARIM_ORCH_SECRETS_BACKEND,
+  DATARIM_ORCH_AUDIT_SINK,
+  DATARIM_ORCH_TELEGRAM_ENDPOINT    Pre-answer --profile orchestrator prompts
+                                    (CI / scripted; unsets fall back to defaults)
 
 Migration:
   Existing copy-mode installs upgrade to symlinks via interactive prompt
@@ -182,6 +212,20 @@ parse_args() {
                 PROJECT_DIR="$2"; shift 2
                 ;;
             --dry-run)   DRY_RUN=true; shift ;;
+            --profile)
+                if [ $# -lt 2 ]; then
+                    echo "ERROR: --profile requires an argument" >&2
+                    exit 2
+                fi
+                case "$2" in
+                    orchestrator) PROFILE_ORCHESTRATOR=true ;;
+                    *)
+                        echo "ERROR: unknown --profile value: $2 (expected: orchestrator)" >&2
+                        exit 2
+                        ;;
+                esac
+                shift 2
+                ;;
             --help|-h)   print_usage; exit 0 ;;
             *)
                 echo "ERROR: unknown argument: $1" >&2
@@ -282,7 +326,7 @@ assert_claude_dir_safe() {
 force_safety_guard() {
     assert_claude_dir_safe
 
-    # v1.17.0 (TUNE-0033 AC-5): under existing symlink topology --force is a
+    # v1.17.0: under existing symlink topology --force is a
     # semantic no-op — the runtime IS the repo. Bail out before any backup.
     local s already_symlinked=true
     for s in "${INSTALL_SCOPES[@]}"; do
@@ -308,7 +352,7 @@ force_safety_guard() {
     fi
 
     echo "WARNING: --force on a live system will overwrite $CLAUDE_DIR"
-    echo "         TUNE-0003 incident: --force previously destroyed 9 runtime evolutions."
+    echo "         prior incident: --force previously destroyed 9 runtime evolutions."
     echo ""
 
     if [ "$ASSUME_YES" = true ] || [ -n "$DATARIM_INSTALL_YES" ]; then
@@ -518,7 +562,7 @@ CFG
     fi
 }
 
-# TUNE-0303: symlink ~/.local/bin/coworker-hook-guard → canonical Datarim
+# Symlink ~/.local/bin/coworker-hook-guard → canonical Datarim
 # source. Backs up an existing real file once (idempotent — re-runs detect
 # the symlink target and skip). Honours DRY_RUN.
 setup_coworker_hook_symlink() {
@@ -530,7 +574,7 @@ setup_coworker_hook_symlink() {
         return 0
     fi
     mkdir -p "$(dirname "$dst")"
-    # If target is a regular file (operator's pre-TUNE-0303 hand-written
+    # If target is a regular file (operator's pre-migration hand-written
     # version), back it up exactly once.
     if [ -e "$dst" ] && [ ! -L "$dst" ]; then
         local ts bak
@@ -606,7 +650,7 @@ PY
 }
 
 # Move existing copy-mode scopes into a backup directory, write a SUCCESS
-# marker (with scopes_migrated field — see creative-TUNE-0033-migration-ux),
+# marker (with scopes_migrated field — see migration design notes),
 # then return so the caller can create symlinks. mv is atomic per scope:
 # if a power-cut interrupts mid-loop the marker absence signals partial.
 migrate_to_symlinks() {
@@ -639,7 +683,7 @@ MARKER
 # Non-TTY without any auto-consent → exit 1 with explicit error.
 migration_prompt() {
     cat <<EOF
-v1.17.0 introduces symlink-default install mode (TUNE-0033).
+v1.17.0 introduces symlink-default install mode.
 
 Found existing real-copy installation in $CLAUDE_DIR/.
 
@@ -692,7 +736,7 @@ EOF
     esac
 }
 
-# --- TUNE-0114 Phase 2 additions -------------------------------------------
+# --- Multi-runtime fanout additions ----------------------------------------
 
 validate_project_dir() {
     local path="$1"
@@ -735,7 +779,115 @@ release_lock() {
     trap - EXIT INT TERM
 }
 
-# --- TUNE-0297: Codex UX parity helpers -------------------------------------
+# --- --profile orchestrator interactive setup --------------------
+#
+# Generates $DATARIM_ORCH_CONFIG_DIR/local.yaml (default:
+# ~/.config/datarim-orchestrate/local.yaml) for the dr-orchestrate plugin.
+# Independent of the --with-claude/--with-codex/--with-cursor fanout: it does
+# not touch $CLAUDE_DIR at all.
+#
+# Answer resolution order (mirrors migration_prompt's DATARIM_MIGRATION_CHOICE
+# idiom):
+#   1. DATARIM_ORCH_* env pre-answers (CI / scripted, logged as AUTO-CONSENT).
+#   2. Interactive TTY prompt (stdin is a terminal) — sane defaults on Enter.
+#   3. Non-TTY with no env pre-answer: still attempt a `read` per field (so
+#      piped/heredoc stdin in tests round-trips correctly) but never block —
+#      EOF/empty input falls back to the same sane defaults as (2).
+#
+# Idempotency: an existing local.yaml is preserved by default (same "no
+# overwrite without --force" idiom as the scope-copy merge mode / T6).
+# --force reconfigures and overwrites.
+profile_orchestrator_setup() {
+    local config_dir="$DATARIM_ORCH_CONFIG_DIR"
+    local config_file="$config_dir/local.yaml"
+
+    echo "Datarim Orchestrator interactive setup (--profile orchestrator)"
+    echo "================================================================"
+    echo ""
+
+    if [ -f "$config_file" ] && [ "$FORCE" != true ]; then
+        echo "Existing config found: $config_file"
+        echo "Preserving existing values (no overwrite without --force)."
+        echo "Re-run: ./install.sh --profile orchestrator --force  to reconfigure."
+        return 0
+    fi
+
+    local secrets_backend='' audit_sink='' telegram_endpoint=''
+
+    if [ -n "${DATARIM_ORCH_SECRETS_BACKEND:-}" ] || [ -n "${DATARIM_ORCH_AUDIT_SINK:-}" ] \
+       || [ "${DATARIM_ORCH_TELEGRAM_ENDPOINT+set}" = "set" ]; then
+        echo "AUTO-CONSENT (DATARIM_ORCH_* env) — CI/scripted hook." >&2
+        secrets_backend="${DATARIM_ORCH_SECRETS_BACKEND:-yaml}"
+        audit_sink="${DATARIM_ORCH_AUDIT_SINK:-jsonl}"
+        telegram_endpoint="${DATARIM_ORCH_TELEGRAM_ENDPOINT:-}"
+    else
+        if [ -t 0 ]; then
+            printf 'Secrets backend [yaml/vault] (default: yaml): '
+        fi
+        read -r secrets_backend || true
+        secrets_backend="${secrets_backend:-yaml}"
+
+        if [ -t 0 ]; then
+            printf 'Audit sink [jsonl/opsbot] (default: jsonl): '
+        fi
+        read -r audit_sink || true
+        audit_sink="${audit_sink:-jsonl}"
+
+        if [ -t 0 ]; then
+            printf 'Telegram bridge endpoint (optional URL, blank to skip): '
+        fi
+        read -r telegram_endpoint || true
+    fi
+
+    case "$secrets_backend" in
+        yaml|vault) ;;
+        *)
+            echo "ERROR: invalid secrets backend '$secrets_backend' (expected: yaml|vault)" >&2
+            exit 2
+            ;;
+    esac
+    case "$audit_sink" in
+        jsonl|opsbot) ;;
+        *)
+            echo "ERROR: invalid audit sink '$audit_sink' (expected: jsonl|opsbot)" >&2
+            exit 2
+            ;;
+    esac
+
+    mkdir -p "$config_dir"
+    chmod 700 "$config_dir" 2>/dev/null || true
+
+    # Same convention as setup_local_overlay(): a self-contained .gitignore so
+    # this directory is never accidentally committed if it ever ends up inside
+    # a git-tracked tree (e.g. a sandboxed/consumer HOME override).
+    if [ ! -f "$config_dir/.gitignore" ]; then
+        cat > "$config_dir/.gitignore" <<'GI'
+# Datarim orchestrator local config — entire directory is user-private.
+# Contains secrets-backend/audit-sink/telegram-bridge settings. Never commit.
+*
+!.gitignore
+GI
+    fi
+
+    cat > "$config_file" <<YAML
+# Datarim Orchestrator local config — generated by install.sh --profile orchestrator.
+# DO NOT COMMIT. Lives under \$HOME/.config, outside any project repo tree.
+# Generated: $(date -u +%FT%TZ 2>/dev/null || date -u)
+
+secrets_backend: $secrets_backend
+audit_sink: $audit_sink
+telegram_bridge_endpoint: "$telegram_endpoint"
+YAML
+    chmod 600 "$config_file"
+
+    echo ""
+    echo "Written: $config_file (mode 0600)"
+    echo "  secrets_backend:          $secrets_backend"
+    echo "  audit_sink:               $audit_sink"
+    echo "  telegram_bridge_endpoint: ${telegram_endpoint:-<blank>}"
+}
+
+# --- Codex UX parity helpers -------------------------------------
 #
 # Codex CLI 0.130+ enumerates skills only for entries shaped as
 # <name>/SKILL.md with valid YAML frontmatter, and exposes slash-commands /
@@ -887,7 +1039,7 @@ shape) can index Datarim skills alongside its bundled \`.system/\` skills.
 WRAP
 }
 
-# Restore Codex bundled `.system/` skills from the TUNE-0296 backup directory.
+# Restore Codex bundled `.system/` skills from the timestamped backup directory.
 # Idempotent: cleans `<codex_dir>/skills/.system/` first.
 restore_codex_system_skills() {
     local codex_dir="$1"
@@ -929,16 +1081,80 @@ emit_manifest_entry() {
     fi
 }
 
+# Sync the canonical coworker-delegation fragment (templates/coworker-
+# delegation-fragment.md) into $CLAUDE_DIR/CLAUDE.md § Coworker Delegation,
+# between the CLAUDE_FRAGMENT_BEGIN/END sentinel lines.
+#
+# Unlike generate_codex_agents_manifest (whole-file overwrite of an ephemeral
+# generated artefact), $CLAUDE_DIR/CLAUDE.md is the operator's own
+# hand-maintained personal file — only the sentinel-delimited block is
+# replaced, everything else is preserved byte-exact. Idempotent: re-running
+# with an unchanged fragment source produces a byte-identical file (no
+# write, no mtime bump). Fail-soft when the file is missing or has no
+# sentinels — install.sh never creates or silently reformats an operator's
+# personal CLAUDE.md; it prints the one-time opt-in recipe instead.
+sync_claude_coworker_fragment() {
+    local claude_md="$CLAUDE_DIR/CLAUDE.md"
+    local fragment_src="$SCRIPT_DIR/templates/coworker-delegation-fragment.md"
+
+    [ -f "$fragment_src" ] || return 0
+
+    if [ ! -f "$claude_md" ]; then
+        echo "  SKIP: $claude_md not found — coworker-delegation fragment sync skipped." >&2
+        return 0
+    fi
+
+    if ! grep -qF "$CLAUDE_FRAGMENT_BEGIN" "$claude_md" || ! grep -qF "$CLAUDE_FRAGMENT_END" "$claude_md"; then
+        cat >&2 <<EOF
+  NOTE: $claude_md has no coworker-fragment sentinels — skipping auto-sync.
+        Opt in by wrapping your § Coworker Delegation section with:
+          $CLAUDE_FRAGMENT_BEGIN
+          ...section content...
+          $CLAUDE_FRAGMENT_END
+        Re-run install.sh --with-claude afterwards to sync.
+EOF
+        return 0
+    fi
+
+    local tmp
+    tmp="$claude_md.fragment-sync.$$"
+    if ! awk -v begin="$CLAUDE_FRAGMENT_BEGIN" -v end="$CLAUDE_FRAGMENT_END" -v fragfile="$fragment_src" '
+        $0 == begin {
+            print
+            while ((getline line < fragfile) > 0) print line
+            close(fragfile)
+            in_block = 1
+            next
+        }
+        $0 == end { in_block = 0 }
+        in_block { next }
+        { print }
+    ' "$claude_md" > "$tmp"; then
+        rm -f "$tmp"
+        echo "  WARN: coworker-delegation fragment sync failed (awk error) — $claude_md left untouched." >&2
+        return 0
+    fi
+
+    if cmp -s "$tmp" "$claude_md"; then
+        rm -f "$tmp"
+        echo "  SYNC: $claude_md coworker-delegation fragment already up to date."
+        return 0
+    fi
+
+    mv "$tmp" "$claude_md"
+    echo "  SYNC: $claude_md coworker-delegation fragment updated from $fragment_src"
+}
+
 # Generate ~/.codex/AGENTS.override.md with commands / skills / agents catalogue.
 # Overwrite-by-design — wrappers are ephemeral generated artefacts.
 generate_codex_agents_manifest() {
     local src_dir="$1" dst="$2"
     local f
     {
-        echo "<!-- AUTO-GENERATED by install.sh fanout_codex_ux (TUNE-0297). DO NOT EDIT MANUALLY. -->"
+        echo "<!-- AUTO-GENERATED by install.sh fanout_codex_ux. DO NOT EDIT MANUALLY. -->"
         echo "<!-- Source: $src_dir/{commands,skills,agents}/ -->"
         echo ""
-        # TUNE-0303: prepend MANDATORY delegation block from canonical mandate
+        # Prepend MANDATORY delegation block from canonical mandate
         # fragment so codex runtime sees the same rules as Claude (~/.claude/CLAUDE.md
         # § Coworker Delegation). Source: templates/coworker-delegation-fragment.md.
         local _mandate="$src_dir/templates/coworker-delegation-fragment.md"
@@ -967,7 +1183,7 @@ generate_codex_agents_manifest() {
                 [ -f "$f" ] || continue
                 emit_manifest_entry "$f" ""
             done
-            # Directory-per-skill layout (TUNE-0304).
+            # Directory-per-skill layout.
             for f in "$src_dir/skills"/*/SKILL.md; do
                 [ -f "$f" ] || continue
                 emit_manifest_entry "$f" ""
@@ -1012,7 +1228,7 @@ fanout_codex_ux() {
 
     # 1. Generate wrappers for top-level source skills.
     #    Supports both legacy flat layout (`skills/<name>.md`) and the
-    #    directory-per-skill layout (`skills/<name>/SKILL.md`, TUNE-0304).
+    #    directory-per-skill layout (`skills/<name>/SKILL.md`).
     local src_skill name
     local generated=0
     for src_skill in "$src_dir/skills"/*.md; do
@@ -1051,7 +1267,7 @@ fanout_codex_ux() {
     echo "  MANIFEST: $codex_dir/AGENTS.override.md"
 }
 
-# setup_cursor_runtime — TUNE-0304 Phase 4.
+# setup_cursor_runtime.
 #
 # Mirrors each migrated `skills/<name>/SKILL.md` from the source repo into
 # `$CURSOR_DIR/skills/<name>.md` (flat layout). Cursor's official skill-
@@ -1118,7 +1334,16 @@ setup_cursor_runtime() {
     fi
 }
 
-fanout_runtime() {
+# --- fanout_runtime helpers --------------------------------------------------
+# fanout_runtime was a 190-line straight-line block. It is split into cohesive
+# per-phase helpers so the top-level function reads as an ordered pipeline.
+# Behaviour is unchanged: helpers share the same script-level globals
+# (CLAUDE_DIR, INSTALL_MODE, LINKED, COPIED, SKIPPED, FANOUT_CODEX_UX, ...) and
+# run in the same order as before. runtime_name is passed explicitly because it
+# is local to the orchestrator.
+
+# Resolve $CLAUDE_DIR for the runtime, validate it is safe, print the banner.
+resolve_runtime_target() {
     local runtime_name="$1"
     # claude: respect external CLAUDE_DIR (test fixtures, custom installs).
     # codex: derive ~/.codex (introduce CODEX_DIR env hook if needed).
@@ -1151,125 +1376,128 @@ fanout_runtime() {
         echo "Force:   on"
     fi
     echo ""
+}
 
-    acquire_lock "$CLAUDE_DIR"
-
-    if [ "$DRY_RUN" = true ]; then
-        echo "DRY: mkdir -p $CLAUDE_DIR"
-        local scope
-        for scope in "${INSTALL_SCOPES[@]}"; do
-            echo "DRY: ln -sfn $SCRIPT_DIR/$scope $CLAUDE_DIR/$scope"
-        done
-        if [ "$runtime_name" = "codex" ]; then
-            echo "DRY: ln -sfn $SCRIPT_DIR/AGENTS.md $CLAUDE_DIR/AGENTS.md"
-            if [ "$FANOUT_CODEX_UX" = true ]; then
-                fanout_codex_ux "$CLAUDE_DIR" "$SCRIPT_DIR"
-            fi
-        fi
-        echo "DRY: setup_local_overlay $CLAUDE_DIR/local"
-        echo ""
-        release_lock
-        return
-    fi
-
-    if [ "$FORCE" = true ]; then
-        force_safety_guard
-    fi
-    # assert_claude_dir_safe already called above (pre-lockfile gate)
-
-    if [ "$INSTALL_MODE" = "symlink" ]; then
-        local topology topo_exclude=""
-        # TUNE-0297: under codex + FANOUT_CODEX_UX skills/ is intentionally a
-        # real dir while the other scopes stay symlinks — exclude it from the
-        # mixed-topology gate so a re-run does not blow up.
-        if [ "$runtime_name" = "codex" ] && [ "$FANOUT_CODEX_UX" = true ]; then
-            topo_exclude="skills"
-        fi
-        topology=$(detect_existing_topology "$topo_exclude")
-        case "$topology" in
-            copy)
-                migration_prompt
-                ;;
-            mixed)
-                echo "ERROR: mixed topology in $CLAUDE_DIR (some symlinks + some real dirs)." >&2
-                echo "       Please clean up manually before re-running install.sh." >&2
-                exit 1
-                ;;
-            symlink|none)
-                : ;;
-        esac
-    fi
-
-    # migration_prompt may have flipped INSTALL_MODE to copy (user picked [k]).
-    if [ "$INSTALL_MODE" = "symlink" ]; then
-        for scope in "${INSTALL_SCOPES[@]}"; do
-            # TUNE-0297: under codex + FANOUT_CODEX_UX skip the skills/ symlink;
-            # fanout_codex_ux will materialise it as a real dir with wrappers.
-            if [ "$scope" = "skills" ] && \
-               [ "$runtime_name" = "codex" ] && \
-               [ "$FANOUT_CODEX_UX" = true ]; then
-                continue
-            fi
-            link_scope_tree "$SCRIPT_DIR/$scope" "$CLAUDE_DIR/$scope"
-        done
-        # TUNE-0296: Codex CLI reads ~/.codex/AGENTS.md as ecosystem-router entry.
-        # Symlink to Datarim source so Codex sees the same router as Claude (via CLAUDE.md chain).
-        if [ "$runtime_name" = "codex" ]; then
-            ln -sfn "$SCRIPT_DIR/AGENTS.md" "$CLAUDE_DIR/AGENTS.md"
-            echo "  LINK: AGENTS.md → $SCRIPT_DIR/AGENTS.md"
-            LINKED=$((LINKED + 1))
-            if [ "$FANOUT_CODEX_UX" = true ]; then
-                fanout_codex_ux "$CLAUDE_DIR" "$SCRIPT_DIR"
-            fi
-        fi
-    else
-        for scope in "${INSTALL_SCOPES[@]}"; do
-            mkdir -p "$CLAUDE_DIR/$scope"
-        done
-        for scope in "${INSTALL_SCOPES[@]}"; do
-            echo "Installing $scope..."
-            copy_scope_tree "$SCRIPT_DIR/$scope" "$CLAUDE_DIR/$scope"
-            echo ""
-        done
-        if [ "$runtime_name" = "codex" ]; then
-            # AGENTS.md is a symlink → CLAUDE.md on Linux/macOS.  On Windows
-            # (core.symlinks=false) git does not materialise symlinks — the file
-            # is absent or a 9-byte text stub containing the literal path
-            # "CLAUDE.md".  Detect both cases and fall back to CLAUDE.md (they
-            # are identical by design).
-            _agents_src="$SCRIPT_DIR/AGENTS.md"
-            _agents_ok=false
-            if [ -f "$_agents_src" ] && [ -s "$_agents_src" ]; then
-                _content="$(cat "$_agents_src")"
-                # A Windows stub is the bare symlink target text, e.g. "CLAUDE.md"
-                # with optional trailing newline.  Anything longer is real content.
-                case "$_content" in
-                    CLAUDE.md|./CLAUDE.md) ;;          # stub — fall through
-                    *) _agents_ok=true ;;
-                esac
-            fi
-            if [ "$_agents_ok" = true ]; then
-                cp -f "$_agents_src" "$CLAUDE_DIR/AGENTS.md"
-            else
-                cp -f "$SCRIPT_DIR/CLAUDE.md" "$CLAUDE_DIR/AGENTS.md"
-            fi
-            echo "  COPY: AGENTS.md → $CLAUDE_DIR/AGENTS.md"
-            COPIED=$((COPIED + 1))
-            if [ "$FANOUT_CODEX_UX" = true ]; then
-                fanout_codex_ux "$CLAUDE_DIR" "$SCRIPT_DIR"
-            fi
-        fi
-    fi
-
-    setup_local_overlay
-    # TUNE-0303: link canonical coworker-hook-guard once per fanout call.
-    # Idempotent on re-run; runs for both claude and codex fanouts so a
-    # codex-only install still gets the hook symlink.
-    setup_coworker_hook_symlink
+# Print the DRY_RUN plan (no filesystem writes).
+print_dry_run_plan() {
+    local runtime_name="$1"
+    local scope
+    echo "DRY: mkdir -p $CLAUDE_DIR"
+    for scope in "${INSTALL_SCOPES[@]}"; do
+        echo "DRY: ln -sfn $SCRIPT_DIR/$scope $CLAUDE_DIR/$scope"
+    done
     if [ "$runtime_name" = "codex" ]; then
-        heal_codex_stale_probe_hooks "$CLAUDE_DIR"
+        echo "DRY: ln -sfn $SCRIPT_DIR/AGENTS.md $CLAUDE_DIR/AGENTS.md"
+        if [ "$FANOUT_CODEX_UX" = true ]; then
+            fanout_codex_ux "$CLAUDE_DIR" "$SCRIPT_DIR"
+        fi
     fi
+    if [ "$runtime_name" = "claude" ]; then
+        echo "DRY: sync coworker-delegation fragment into $CLAUDE_DIR/CLAUDE.md (sentinel block)"
+    fi
+    echo "DRY: setup_local_overlay $CLAUDE_DIR/local"
+    echo ""
+}
 
+# In symlink mode, gate on the existing on-disk topology (may run
+# migration_prompt, which can flip INSTALL_MODE to copy, or abort on mixed).
+check_symlink_topology() {
+    local runtime_name="$1"
+    local topology topo_exclude=""
+    # Under codex + FANOUT_CODEX_UX skills/ is intentionally a
+    # real dir while the other scopes stay symlinks — exclude it from the
+    # mixed-topology gate so a re-run does not blow up.
+    if [ "$runtime_name" = "codex" ] && [ "$FANOUT_CODEX_UX" = true ]; then
+        topo_exclude="skills"
+    fi
+    topology=$(detect_existing_topology "$topo_exclude")
+    case "$topology" in
+        copy)
+            migration_prompt
+            ;;
+        mixed)
+            echo "ERROR: mixed topology in $CLAUDE_DIR (some symlinks + some real dirs)." >&2
+            echo "       Please clean up manually before re-running install.sh." >&2
+            exit 1
+            ;;
+        symlink|none)
+            : ;;
+    esac
+}
+
+# Symlink each scope tree into $CLAUDE_DIR; for codex also link AGENTS.md.
+install_symlink_scopes() {
+    local runtime_name="$1"
+    local scope
+    for scope in "${INSTALL_SCOPES[@]}"; do
+        # Under codex + FANOUT_CODEX_UX skip the skills/ symlink;
+        # fanout_codex_ux will materialise it as a real dir with wrappers.
+        if [ "$scope" = "skills" ] && \
+           [ "$runtime_name" = "codex" ] && \
+           [ "$FANOUT_CODEX_UX" = true ]; then
+            continue
+        fi
+        link_scope_tree "$SCRIPT_DIR/$scope" "$CLAUDE_DIR/$scope"
+    done
+    # Codex CLI reads ~/.codex/AGENTS.md as ecosystem-router entry.
+    # Symlink to Datarim source so Codex sees the same router as Claude (via CLAUDE.md chain).
+    if [ "$runtime_name" = "codex" ]; then
+        ln -sfn "$SCRIPT_DIR/AGENTS.md" "$CLAUDE_DIR/AGENTS.md"
+        echo "  LINK: AGENTS.md → $SCRIPT_DIR/AGENTS.md"
+        LINKED=$((LINKED + 1))
+        if [ "$FANOUT_CODEX_UX" = true ]; then
+            fanout_codex_ux "$CLAUDE_DIR" "$SCRIPT_DIR"
+        fi
+    fi
+}
+
+# Copy each scope tree into $CLAUDE_DIR; for codex also copy AGENTS.md
+# (falling back to CLAUDE.md when the symlink is a Windows stub / missing).
+install_copy_scopes() {
+    local runtime_name="$1"
+    local scope
+    for scope in "${INSTALL_SCOPES[@]}"; do
+        mkdir -p "$CLAUDE_DIR/$scope"
+    done
+    for scope in "${INSTALL_SCOPES[@]}"; do
+        echo "Installing $scope..."
+        copy_scope_tree "$SCRIPT_DIR/$scope" "$CLAUDE_DIR/$scope"
+        echo ""
+    done
+    if [ "$runtime_name" = "codex" ]; then
+        # AGENTS.md is a symlink → CLAUDE.md on Linux/macOS.  On Windows
+        # (core.symlinks=false) git does not materialise symlinks — the file
+        # is absent or a 9-byte text stub containing the literal path
+        # "CLAUDE.md".  Detect both cases and fall back to CLAUDE.md (they
+        # are identical by design).
+        local _agents_src="$SCRIPT_DIR/AGENTS.md"
+        local _agents_ok=false
+        local _content
+        if [ -f "$_agents_src" ] && [ -s "$_agents_src" ]; then
+            _content="$(cat "$_agents_src")"
+            # A Windows stub is the bare symlink target text, e.g. "CLAUDE.md"
+            # with optional trailing newline.  Anything longer is real content.
+            case "$_content" in
+                CLAUDE.md|./CLAUDE.md) ;;          # stub — fall through
+                *) _agents_ok=true ;;
+            esac
+        fi
+        if [ "$_agents_ok" = true ]; then
+            cp -f "$_agents_src" "$CLAUDE_DIR/AGENTS.md"
+        else
+            cp -f "$SCRIPT_DIR/CLAUDE.md" "$CLAUDE_DIR/AGENTS.md"
+        fi
+        echo "  COPY: AGENTS.md → $CLAUDE_DIR/AGENTS.md"
+        COPIED=$((COPIED + 1))
+        if [ "$FANOUT_CODEX_UX" = true ]; then
+            fanout_codex_ux "$CLAUDE_DIR" "$SCRIPT_DIR"
+        fi
+    fi
+}
+
+# Print the completion banner: summary, next steps, bundled plugins, skip note.
+print_fanout_summary() {
+    local bundled_plugins p
     echo "================================="
     echo "Done! Linked: $LINKED, Copied: $COPIED, Skipped: $SKIPPED"
     echo "Local overlay: $CLAUDE_DIR/local/{skills,agents,commands,templates}/  (gitignored)"
@@ -1283,7 +1511,7 @@ fanout_runtime() {
     echo "  3. Start Claude Code and run: /dr-init <task description>"
     echo ""
 
-    # Bundled opt-in plugins (TUNE-0439): install distributes only the canonical
+    # Bundled opt-in plugins: install distributes only the canonical
     # scopes; plugins under plugins/ are opt-in per-workspace via /dr-plugin enable
     # and are deliberately NOT auto-distributed. Surface them so operators know the
     # bundled commands (e.g. /dr-orchestrate) exist and how to activate them —
@@ -1305,6 +1533,52 @@ fanout_runtime() {
         echo "      on live systems): ./install.sh --copy --force"
         echo ""
     fi
+}
+
+# Orchestrator: resolve target → lock → (dry-run | install) → overlay → summary.
+# Each phase is a helper above; this reads top-to-bottom as the install pipeline.
+fanout_runtime() {
+    local runtime_name="$1"
+
+    resolve_runtime_target "$runtime_name"
+
+    acquire_lock "$CLAUDE_DIR"
+
+    if [ "$DRY_RUN" = true ]; then
+        print_dry_run_plan "$runtime_name"
+        release_lock
+        return
+    fi
+
+    if [ "$FORCE" = true ]; then
+        force_safety_guard
+    fi
+    # assert_claude_dir_safe already called in resolve_runtime_target (pre-lock gate)
+
+    if [ "$INSTALL_MODE" = "symlink" ]; then
+        check_symlink_topology "$runtime_name"
+    fi
+
+    # migration_prompt may have flipped INSTALL_MODE to copy (user picked [k]).
+    if [ "$INSTALL_MODE" = "symlink" ]; then
+        install_symlink_scopes "$runtime_name"
+    else
+        install_copy_scopes "$runtime_name"
+    fi
+
+    setup_local_overlay
+    # Link canonical coworker-hook-guard once per fanout call.
+    # Idempotent on re-run; runs for both claude and codex fanouts so a
+    # codex-only install still gets the hook symlink.
+    setup_coworker_hook_symlink
+    if [ "$runtime_name" = "codex" ]; then
+        heal_codex_stale_probe_hooks "$CLAUDE_DIR"
+    fi
+    if [ "$runtime_name" = "claude" ]; then
+        sync_claude_coworker_fragment
+    fi
+
+    print_fanout_summary
 
     release_lock
 }
@@ -1336,6 +1610,14 @@ project_install() {
 # --- Main -------------------------------------------------------------------
 
 parse_args "$@"
+
+# --profile orchestrator is a standalone action (writes to
+# $HOME/.config, not $CLAUDE_DIR) — dispatch before the fanout-runtime guard
+# below so it works with no --with-* / --project flags, same as --help.
+if [ "$PROFILE_ORCHESTRATOR" = true ]; then
+    profile_orchestrator_setup
+    exit 0
+fi
 
 # Backwards-compat: legacy flags without explicit --with-claude imply claude.
 # Guard against silent claude fanout when ANY explicit runtime flag is given —

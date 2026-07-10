@@ -224,6 +224,52 @@ modify_with_task_id() {
     [[ "$output" == *"unattributed"* ]]
 }
 
+# ---------- TUNE-0291 --allow-foreign-untracked (shared multi-agent workspace) ----------
+#
+# Founding incident: TUNE-0286 /dr-archive hit 23 foreign untracked files
+# (scratch artefacts from parallel sessions carrying no task ID) that blocked
+# the gate as `unattributed`, forcing a manual override. The opt-in
+# --allow-foreign-untracked flag waves a truly foreign untracked file (`??`
+# with ZERO matching task IDs) through, while preserving strict default-deny
+# when the flag is absent and never touching tracked-but-modified files.
+
+# T-FU1: truly foreign untracked file (no task ID) + --allow-foreign-untracked
+# → klass=foreign-untracked, exit 0 (bypass).
+@test "shared mode: foreign untracked (no task id) + --allow-foreign-untracked → exit 0 (bypass)" {
+    make_clean_repo "$BATS_TEST_TMPDIR/ws"
+    mkdir -p "$BATS_TEST_TMPDIR/ws/datarim"
+    echo "scratch note from a parallel session, no task id" \
+        > "$BATS_TEST_TMPDIR/ws/datarim/parallel-scratch.md"
+    run "$SCRIPT" --task-id TUNE-0291 --allow-foreign-untracked \
+        --shared "$BATS_TEST_TMPDIR/ws"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"foreign-untracked"* ]]
+}
+
+# T-FU2: same foreign untracked file WITHOUT the flag → default-deny preserved
+# (klass=unattributed, exit 1).
+@test "shared mode: foreign untracked (no task id) without flag → exit 1 (default-deny preserved)" {
+    make_clean_repo "$BATS_TEST_TMPDIR/ws"
+    mkdir -p "$BATS_TEST_TMPDIR/ws/datarim"
+    echo "scratch note from a parallel session, no task id" \
+        > "$BATS_TEST_TMPDIR/ws/datarim/parallel-scratch.md"
+    run "$SCRIPT" --task-id TUNE-0291 --shared "$BATS_TEST_TMPDIR/ws"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"unattributed"* ]]
+}
+
+# T-FU3: scoping guard — a tracked-but-modified file with no task ID must NOT
+# be bypassed even when --allow-foreign-untracked is set (still unattributed).
+@test "shared mode: tracked-modified no-id file + --allow-foreign-untracked → exit 1 (not bypassed)" {
+    make_clean_repo "$BATS_TEST_TMPDIR/ws"
+    make_workflow_file "$BATS_TEST_TMPDIR/ws" "datarim/notes.md" "# notes"
+    echo "ad-hoc edit, no task id" >> "$BATS_TEST_TMPDIR/ws/datarim/notes.md"
+    run "$SCRIPT" --task-id TUNE-0291 --allow-foreign-untracked \
+        --shared "$BATS_TEST_TMPDIR/ws"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"unattributed"* ]]
+}
+
 @test "shared mode: invalid --task-id → exit 2" {
     make_clean_repo "$BATS_TEST_TMPDIR/ws"
     run "$SCRIPT" --task-id "not-an-id" --shared "$BATS_TEST_TMPDIR/ws"

@@ -13,3 +13,8 @@ categories:
 # (it does not scan plugins/*/commands/ or ~/.claude/local/). This plugin now
 # ships the orchestration scripts, rules, openapi, and tests only.
 homepage: https://datarim.club/commands/dr-orchestrate
+# Rollout gate (TUNE-0187): this plugin hosts autonomous agents, so `/dr-plugin
+# enable` refuses activation until the consumer ecosystem CLAUDE.md mirrors the
+# canonical Autonomous Agent Operating Rules (FB-1..FB-8) at rank-1 mandate
+# level. See documentation/reference/fb-rules-consumer-rollout.md.
+requires_fb_rules_mirror: true

@@ -25,7 +25,7 @@
 #
 # Output (shared mode):
 #   stdout — TAB-separated per-file classification: <file>\t<klass>\t<task-ids-csv>
-#            klass ∈ {own, foreign, mixed, unattributed}.
+#            klass ∈ {own, foreign, mixed, unattributed, foreign-untracked}.
 #   stderr — recipe pointer when blocking; OK summary when foreign-only.
 #
 # Read-only: runs `git status --porcelain` and `git diff` only. No mutation.
@@ -43,13 +43,22 @@ print_usage() {
 Usage:
   pre-archive-check.sh REPO_PATH [REPO_PATH...]
   pre-archive-check.sh --task-id <ID> --shared <REPO_PATH> [--no-whitelist]
-                       [--no-schema-check]
+                       [--no-schema-check] [--allow-foreign-untracked]
 
 Legacy mode: every REPO_PATH must be fully clean.
 Shared mode: classify hunks by task ID; only own/mixed/unattributed block.
   Whitelist: version-bump basenames (VERSION, CHANGELOG.md, package.json,
   Cargo.toml, pyproject.toml, .gitignore) bypass default-deny when --task-id
   is set. Use --no-whitelist to restore strict default-deny.
+Foreign-untracked bypass (TUNE-0291): --allow-foreign-untracked lets a
+  truly foreign *untracked* file (a `??` working-tree file from a parallel
+  session) pass instead of blocking as `unattributed`. Requires --task-id and
+  applies ONLY when the file carries ZERO matching task IDs — i.e. neither the
+  current --task-id nor any other task ID appears in its body. A file that is
+  untracked but does mention a task ID is still classified own/mixed/foreign as
+  usual. Tracked-but-modified files are never bypassed. Off by default;
+  opt-in per invocation (operator disposition), risk: a truly unattributed
+  *own* scratch file is let through.
 Schema check (TUNE-0071): after clean-git classification, every bullet line
   in REPO/datarim/{tasks,backlog}.md must match the canonical thin-index
   regex. Use --no-schema-check to bypass during in-flight migration.
@@ -240,6 +249,7 @@ TASK_ID=""
 SHARED_REPO=""
 NO_WHITELIST=0
 NO_SCHEMA_CHECK=0
+ALLOW_FOREIGN_UNTRACKED=0
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --task-id)
@@ -258,6 +268,10 @@ while [ "$#" -gt 0 ]; do
             ;;
         --no-schema-check)
             NO_SCHEMA_CHECK=1
+            shift
+            ;;
+        --allow-foreign-untracked)
+            ALLOW_FOREIGN_UNTRACKED=1
             shift
             ;;
         --)
@@ -321,7 +335,13 @@ if [ -n "$SHARED_REPO" ]; then
     while IFS= read -r line; do
         [ -z "$line" ] && continue
         # `git status --porcelain` format: XY␣<path>. Strip the 3-char prefix.
+        status_xy="${line:0:2}"
         file="${line:3}"
+        # TUNE-0291: `??` in the porcelain status marks a working-tree file git
+        # has never tracked. The --allow-foreign-untracked bypass is scoped to
+        # exactly these (a tracked-but-modified file must never be waved through).
+        is_untracked=0
+        [ "$status_xy" = "??" ] && is_untracked=1
         # TUNE-0060: capture the actual diff (additions/removals) so we can
         # distinguish IDs introduced by THIS edit from IDs that lived in the
         # committed body. Used by mine-by-elimination klass and (TUNE-0084) by
@@ -370,6 +390,18 @@ if [ -n "$SHARED_REPO" ]; then
                 klass="whitelisted"
                 # Operator-supplied --task-id is the disposition; surface in stdout
                 # so the bypass is visible (not silent).
+            elif [ "$ALLOW_FOREIGN_UNTRACKED" -eq 1 ] && [ -n "$TASK_ID" ] \
+                 && [ "$is_untracked" -eq 1 ]; then
+                # TUNE-0291: truly foreign untracked file (a `??` working-tree
+                # file that carries ZERO task IDs — neither the current TASK_ID
+                # nor any other). In a shared multi-agent workspace this is a
+                # scratch artefact from a parallel session, not the current
+                # task's forgotten work. Operator opted in via
+                # --allow-foreign-untracked, so wave it through instead of
+                # blocking as `unattributed`. Risk: a truly unattributed *own*
+                # scratch file is let through — that is the operator's call.
+                klass="foreign-untracked"
+                saw_foreign=1
             else
                 klass="unattributed"
                 block=1

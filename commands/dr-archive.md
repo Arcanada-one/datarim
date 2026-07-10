@@ -46,6 +46,7 @@ Complete and archive current task.
    - `mixed` — current + other IDs in the same diff → stage selectively (own only).
    - `unattributed` — no task ID present → require explicit user disposition (default-deny). **Expected for framework self-edits:** a task obeying the no-task-ids-in-shipped-surface rule ships ZERO task IDs in its own diff lines, so its OWN modified skills/agents/commands classify here. Confirm own-work by auditing the diff-LINES against the task scope (`git diff HEAD -- <file>`), not the file body; this is the active-edit sibling of the `mine-by-elimination` branch below, which only fires when the file body already carries foreign historical IDs.
    - `whitelisted` — basename is a known version-bump file (`VERSION`, `CHANGELOG.md`, `package.json`, `Cargo.toml`, `pyproject.toml`, `.gitignore`) AND `--task-id` is set → bypass default-deny (operator-supplied disposition is the attribution). Pass `--no-whitelist` to restore strict behaviour. **Project-specific extension:** set `DATARIM_PRE_ARCHIVE_WHITELIST=<basename>[:<basename>...]` (colon-separated, PATH-style) to extend the whitelist with project-specific version-bump basenames (e.g., `config.php` for a public-surface site) without modifying the framework. Path components are rejected (basename match only). `--no-whitelist` overrides both the hardcoded list and the env-var.
+   - `foreign-untracked` — an untracked (`??`) working-tree file carrying ZERO task IDs (neither the current `--task-id` nor any other) AND `--allow-foreign-untracked` is set → bypass default-deny for that file (operator opt-in for shared multi-agent workspaces where parallel sessions leave scratch artefacts). Requires `--task-id`. Scoped to untracked files only — a tracked-but-modified file with no task ID still classifies `unattributed`. Off by default; without the flag such a file blocks as `unattributed` (default-deny preserved).
    - `mine-by-elimination` — file body carries foreign historical task IDs but the actual diff lines (additions/removals) added by this session contain ZERO task IDs AND `--task-id` is set → attribute to the current task (operator-supplied disposition; nothing else to attribute it to). Closes the false-`foreign` misclassification of doc edits like CLAUDE.md/README.md/architectural docs where the committed body references many historical tasks but the current edit (e.g., a version bump) introduces none. Untracked files (no diff at all) skip this branch and fall through to `foreign` per safety guard.
 
    Exit 0 means archive may proceed. Exit 1 means apply recipe 0.1.3 below; STOP if the user declines.
@@ -189,6 +190,79 @@ Complete and archive current task.
    - **2** — usage error (path not a git repo). Investigate.
 
    Scope: only `CLAUDE.md` and `README.md` (current-state surfaces). `documentation/` is excluded by design — `evolution-log.md` / `release-notes.md` / `changelog.md` are append-only historical ledgers that reference past versions on purpose. This step is skipped automatically when `VERSION` is unchanged — most archives don't bump, so the check is a fast no-op outside framework releases.
+
+0.2.5. **PRE-ARCHIVE RUNTIME PROBE** (MANDATORY when the task-description frontmatter carries `requires_runtime_probe: true`):
+
+   Arm condition: read the `requires_runtime_probe:` field from
+   `datarim/tasks/{TASK-ID}-task-description.md` frontmatter. Absent or `false`
+   ⇒ SKIP this step silently. This gate is opt-in per task — it is NOT the
+   default for every archive; a task declares it when its Definition of Done
+   asserts «the change is live and running in production», not merely «the
+   commit exists locally».
+
+   **Why:** an archive doc that claims «PROD-deployed» while the change lives
+   only in a local working tree (or on an un-pushed branch, or on origin but
+   not yet on the running host) records a false «done». Three SHAs MUST agree
+   for a «PROD-deployed» claim to be true: the local `HEAD`, `origin`'s
+   default-branch tip, and the image/commit the production container is
+   actually running. A green unit suite proves none of these — this probe
+   closes the class «class exists ≠ wired into the production path».
+
+   **0.2.5.1 Local == origin.** Confirm the archived commit is on the remote:
+
+   <!-- gate:example-only -->
+   ```bash
+   LOCAL_HEAD=$(git -C <repo> rev-parse HEAD)
+   ORIGIN_HEAD=$(git -C <repo> ls-remote origin <default-branch> | cut -f1)
+   test "$LOCAL_HEAD" = "$ORIGIN_HEAD" \
+       || echo "STOP — local ahead of origin; push before archiving"
+   ```
+   <!-- /gate:example-only -->
+
+   A local commit ahead of `origin` ⇒ STOP: the work is one overwrite away from
+   loss and is not yet a canonical artefact (this overlaps Step 0.12; the probe
+   re-asserts it as the first link of the SHA chain).
+
+   **0.2.5.2 origin == PROD running image (read-only).** Confirm the production
+   host is running the code the archived commit describes:
+
+   <!-- gate:example-only -->
+   ```bash
+   PROD_IMAGE=$(ssh <deploy-user>@<host> \
+       'docker inspect <container> --format "{{.Config.Image}}"')
+   # assert PROD_IMAGE resolves to an <ORIGIN_HEAD>-derived tag / digest
+   ```
+   <!-- /gate:example-only -->
+
+   Match the production image tag/digest (or the running unit's reported
+   version) against an `$ORIGIN_HEAD`-derived value. Any deployment shape works
+   — the probe is stack-agnostic: `docker inspect`, `systemctl status <unit>`
+   version output, a `/version` health field, or a build-SHA label. This step
+   is **read-only research** (a sensor, never an actuator): it performs NO
+   restart, NO deploy, NO mutation of the host. When it finds drift it predicts
+   the impact and reports it; any remediation is an explicit operator step.
+
+   **0.2.5.3 Verdict → action.**
+   - `PASS` (local == origin == PROD) → the SHA chain is intact; archive MAY
+     proceed. Quote the three SHAs (or SHA-derived tags) in the archive doc
+     § Verification so a reviewer can replay the chain.
+   - `FAIL` (any link mismatched — local ahead, origin ahead of PROD, PROD
+     running a stale image) → archive **BLOCKED**. «DoD met» / «PROD-deployed»
+     framing is forbidden while the chain is broken; push / deploy / return the
+     task to `/dr-do`, or record the gap under § Known Outstanding State /
+     Operator Handoff with the remediation owner + ETA if the operator chose
+     «Accept pending state» at Step 0.1.
+   - `BLOCKED` (production unreachable — SSH timeout, host down — so the
+     origin==PROD link cannot be read) → archive **BLOCKED** until the operator
+     explicitly confirms out-of-band verification. Never auto-archive on an
+     unverifiable prod; silence is not a PASS.
+
+   **prod is hard-gated:** every action in this step is read-only; prod
+   mutation is an explicit operator step, never performed by the framework.
+   Overlap note: for deploy-class tasks Step 0.4 (Prod-Merge Verification Gate)
+   asserts the same live-on-prod contract from the deploy-surface classifier;
+   this probe is the frontmatter-opt-in twin for runtime tasks that do not trip
+   the deploy-class classifier but still assert a production-deployed DoD.
 
 0.3. **NETWORK EXPOSURE VALIDATION GATE** (MANDATORY when the task touched any networking surface):
 
