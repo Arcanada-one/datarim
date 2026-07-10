@@ -79,6 +79,7 @@ effort: high
     - Create necessary directories (`mkdir -p .claude/skills .claude/agents .claude/commands`)
     - Write the files
     - If updating Datarim source repo, also update CLAUDE.md counts and tables
+    - **All-occurrences discipline (count sync):** when bumping any count (skills/agents/commands, "N with supporting fragment directories", etc.), `grep` the WHOLE of each touched file for the OLD value first and update every hit — a count usually appears in more than one place (a headline plus a secondary mention). Verify cross-file agreement (`CLAUDE.md` ↔ `README.md` ↔ `documentation/reference/*.md` ↔ site `config.php`/counts) before committing; a single stale straggler is the most common registry-sync regression.
 10. **CONFIRM**: Tell the user:
     - What was installed and where
     - How to use it (slash command, auto-trigger, or both)

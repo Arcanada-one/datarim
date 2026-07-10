@@ -221,9 +221,9 @@ _(empty on first write)_
   **Heuristic advisory (sub-v3 and v3, NEVER hard):** for schema v3
   wishes where `verification_mode` is ABSENT and `evidence_type:
   empirical`, the validator runs a narrow deterministic case-insensitive
-  regex over the "Как проверить (success criterion)" text for world-state
+  regex over the "Как проверить (success criterion)" text for world-state <!-- allow-non-ascii: russian-expectations-field-name-cited-verbatim-as-validator-regex-target -->
   predicates: `https?://`, `\bHTTP\b`, `\bcurl\b`, `redirect`, `\bprod\b`,
-  `production`, `статус`, `status`, `перед тем как`, `/app/`-style endpoint
+  `production`, `статус`, `status`, `перед тем как`, `/app/`-style endpoint <!-- allow-non-ascii: russian-schema-token-literals-cited-as-validator-regex-target -->
   paths, `deploy`. On match → advisory warning
   `verification-mode-suggested-reproducible: <wish_id>` to stderr; exit
   code unchanged. Sub-v3 files are never checked.
@@ -356,16 +356,16 @@ validator's stdout markers):
 
 ## Recap obligation (one-off wishes in /dr-archive)
 
-When `/dr-archive` writes the `## Как решили` section, it MUST list every
+When `/dr-archive` writes the `## Как решили` section, it MUST list every <!-- allow-non-ascii: russian-canonical-section-name-kak-reshili-cited-verbatim -->
 wish closed as `verification_mode: one-off` (or whose `verification_mode` is
 absent on a world-state-class wish identified by the heuristic) so the
 operator consciously accepts regression risk. The listing format mirrors the
-existing expectations fold contract (see § Body shape → `## Как решили`
-bullet with `(уточнение брифа)` marker):
+existing expectations fold contract (see § Body shape → `## Как решили` <!-- allow-non-ascii: russian-canonical-section-name-kak-reshili-cited-verbatim -->
+bullet with `(уточнение брифа)` marker): <!-- allow-non-ascii: russian-operator-output-marker-utochnenie-brifa-cited-verbatim -->
 
-- Append `(проверено вручную)` after the wish title when
+- Append `(проверено вручную)` after the wish title when <!-- allow-non-ascii: russian-operator-output-marker-provereno-vruchnuyu-cited-verbatim -->
   `verification_mode: one-off` is explicit.
-- Append `(нет воспроизводимой проверки)` when verification_mode is absent
+- Append `(нет воспроизводимой проверки)` when verification_mode is absent <!-- allow-non-ascii: russian-operator-output-marker-net-vosproizvodimoy-proverki-cited-verbatim -->
   on a world-state-class wish.
 - No new override enforcement beyond existing `override_class`; the
   obligation is editorial (human-in-loop boundary).

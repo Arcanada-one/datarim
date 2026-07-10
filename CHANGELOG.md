@@ -4,6 +4,21 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.52.0] — 2026-07-10
+
+### Added
+
+- **New Reference skill `image-prompting`** — a reusable playbook that turns a content brief into a precise, repeatable prompt for instruction-following image generators (the gpt-image family and equivalents): blog/article covers, video thumbnails, social-post images, illustrations, infographics/diagrams, logo marks, and edits of existing images. Covers the full method — intake → spec → prompt → verify loop, prompt anatomy, composition, style/medium, camera/lens, light, mood, palette, text-in-image constraints, negative constraints + invariants, native aspect/size handling, iterative refinement, plus a `prompt-templates.md` fragment with nine fill-in-the-blank templates and a ship-readiness verification checklist. Wired into the `writer` and `editor` agents (load-when-needed) and the agent↔skill dependency visual map. Completes the deferred merge of TUNE-0466 (skill authored + archived COMPLIANT, branch merge was an outstanding operator action). (TUNE-0466, TUNE-0480)
+
+### Changed
+
+- **Skill registries synced to 60 skills** (`CLAUDE.md`, `README.md`, `documentation/reference/skills.md`) with the "supporting fragment directories" count corrected to 13 and an inline definition. (TUNE-0466, TUNE-0480)
+
+### Fixed
+
+- **English-only shipped surface passes cleanly.** Canonical Russian schema/section names and operator-output tokens cited verbatim in `skills/expectations-checklist/SKILL.md` and the RU TTS-normalization examples in `skills/publishing/SKILL.md` (a content-work skill) are now wrapped in `allow-non-ascii` markers, so `check-body-english.sh` reports PASS across the whole `commands`/`skills`/`agents` surface without relying on the validator's advisory tolerance. (TUNE-0480)
+
+
 ## [2.51.1] — 2026-07-09
 
 ### Fixed
