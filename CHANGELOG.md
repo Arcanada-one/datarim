@@ -6,6 +6,11 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ### Added
 
+- **`/dr-doctor` `wiki/_raw_/` semantic-orphan check** — new advisory-only pass (`scan_wiki_raw_orphans`,
+  scope `all`) flags a file whose basename shares no token (≥4 chars, alnum-only) with the first 300 bytes
+  of its content — a signal of an accidental paste into the wrong file. Report-only; `--fix` does not touch
+  `wiki/_raw_/`. Class A evolution proposal from `reflection-RESEARCH-0003.md` Proposal 2 (approved
+  2026-05-07). New regression test `tests/tune-0121-wiki-raw-orphan-check.bats` (6 cases). (TUNE-0121)
 - **`/dr-plan` Step 6.5 History-agnostic runtime-body probe** — shifts the history-agnostic gate (task-ID-provenance rejection on shipped `skills/` / `agents/` / `commands/` / `templates/` bodies) left from `/dr-qa` and `/dr-compliance` to plan review, before approve. When Implementation Steps name a framework runtime body as an edit/create target, the planner dry-runs `scripts/task-id-gate.sh` against the plan's cited paths and any example text it will ship, and resolves every cited path through the `skills/plan-path-validator/SKILL.md` exists + deprecation ladder — reusing both existing gates rather than re-deriving them. Adds a Transition Checkpoint item and a `commands/dr-plan.md` plan-time trigger to `skills/evolution/history-agnostic-gate.md`. New regression test `tests/dr-plan-step-6-5-history-agnostic-probe.bats` (8 cases). (TUNE-0283)
 
 ## [2.53.0] — 2026-07-10
