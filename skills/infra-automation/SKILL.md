@@ -305,6 +305,14 @@ $COMPOSE up -d --build
 
 **Anti-pattern.** Targeted `docker rm -f <container-name>` per service — duplicated work for multi-service compose projects and brittle against future service additions.
 
+## Cutover Re-sync Scope Rule
+
+The final re-sync inside a migration/cutover window MUST cover every stateful storage the service depends on (Postgres, Mongo, Vault data, any file-backend) — not just the primary database. Verify freshness of each store individually (e.g. compare a last-write timestamp or row/key count against the source) before declaring the new primary live.
+
+**Why.** A new primary can pass a DB-freshness check while a co-located stateful store (Vault's storage backend, a cache warm-set, a file-backend mirror) is still running off a stale snapshot. Vault re-issuing `secret_id`s against pre-cutover data while Postgres is current is invisible to a DB-only check — the failure only surfaces downstream as an auth 403, well after the window closed. Treat every stateful store as an independent freshness claim to verify, not an assumed side-effect of the DB sync.
+
+**Rule.** Before closing a cutover window, enumerate every stateful storage the migrating service(s) touch, and confirm each one's freshness explicitly. A cutover runbook or plan is incomplete if it names only the primary database as a verification target.
+
 ## Reusable Templates
 
 - `${DATARIM_RUNTIME:-$HOME/.claude}/templates/infra-cost-reduction-checklist.md` — pre-execution checklist for any VM/storage right-sizing, server consolidation, or unused-resource cleanup task. Distilled from prior infra cost-reduction tasks (SWC, Azure unused disks, memory guardrails). Use during `/dr-plan` when the task touches infrastructure costs.
