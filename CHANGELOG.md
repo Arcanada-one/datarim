@@ -6,6 +6,11 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ### Added
 
+- **`/dr-doctor` `wiki/_raw_/` semantic-orphan check** — new advisory-only pass (`scan_wiki_raw_orphans`,
+  scope `all`) flags a file whose basename shares no token (≥4 chars, alnum-only) with the first 300 bytes
+  of its content — a signal of an accidental paste into the wrong file. Report-only; `--fix` does not touch
+  `wiki/_raw_/`. Class A evolution proposal from `reflection-RESEARCH-0003.md` Proposal 2 (approved
+  2026-05-07). New regression test `tests/tune-0121-wiki-raw-orphan-check.bats` (6 cases). (TUNE-0121)
 - **`templates/legacy-hardware-probe-checklist.md`** _(NEW)_ — 7-step probe checklist for legacy embedded
   Linux integrations (CPU architecture, `/dev/net/tun`, free RAM, OpenSSL PBKDF2 support, BusyBox applet
   availability, cron spool permissions, machine-identity sources). Run before committing to an architectural
