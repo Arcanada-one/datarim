@@ -87,6 +87,14 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
 6.  **Technology Validation**:
     -   Document technology stack selection.
     -   Verify dependencies and build configuration.
+    -   **External-crate version probe (MANDATORY when the plan introduces a NEW external library dependency not already present in the workspace manifest — `Cargo.toml` / `package.json` / `pyproject.toml` / `Gemfile` / etc.)**: query the package registry for the latest stable version using the project's package-manager-native lookup, record the chosen version + a one-sentence rationale in the plan's Component Breakdown, and — when a non-default feature/extra is named — probe that the feature/extra exists in the registry metadata before locking it into the plan.
+    <!-- gate:example-only -->
+    -   Concrete recipes (illustrative — substitute the project's actual package manager):
+        -   Rust ecosystem: `cargo search <crate>` (or crates.io API when `cargo search` is disabled on the configured registry)
+        -   Node ecosystem: `pnpm view <pkg> versions`
+        -   Python ecosystem: `pip index versions <pkg>`
+        -   Ruby ecosystem: `gem list -r <gem>`
+    <!-- /gate:example-only -->
 
 6.5.  **Symbol Existence Check (MANDATORY when the plan names a method, function, file, flag, env var, or CLI command as a fix target)**:
     -   For every named code surface in the plan (e.g. `module.foo`, `path/to/file.ext`, `--flag-name`, `$ENV_VAR`), grep the project to confirm it exists.
