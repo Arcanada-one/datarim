@@ -280,6 +280,28 @@ When an Acceptance Criterion's location moves mid-implementation — different c
 
 ---
 
+## Spike Falsifiable Thresholds Must Derive from the Consumer's UX Budget
+
+A spike (or any exploratory prototype meant to falsify a design hypothesis before full build-out) needs a numeric pass/fail threshold — latency ceiling, cost ceiling, error-rate ceiling — to be falsifiable at all. That threshold MUST be derived from the **consuming surface's own documented UX budget**, never copied from generic latency folklore or from a different project's convention.
+
+**Rule.**
+
+1. **Locate the consumer's documented budget before writing any number.** Different surfaces tolerate wildly different delays for the same underlying operation. <!-- gate:example-only -->Illustrative bands: async-tolerant surfaces (batch jobs, background enrichment, email-triggered flows) — 10-30s; voice surfaces — must stay invisible inside the existing STT+TTS round-trip, i.e. no additional user-perceived delay; interactive chat/UI surfaces — sub-2s.<!-- /gate:example-only --> The spike's threshold must match the actual consumer, not an assumed one.
+2. **No documented budget → operator interview first, numbers second.** If the task lacks a documented per-surface UX budget, the spike's first deliverable is an operator interview that establishes it. Do not write a falsifiable numeric threshold before that interview closes.
+3. **Cite the source consumer in the write-up.** The threshold recorded in the spike's PRD/plan/report MUST name which consumer/surface it derives from (e.g. "≤2s, per the chat-surface budget confirmed with the operator on <date>"), so a reviewer can trace the number back to its source instead of trusting it as self-evident.
+
+**Why.** A threshold inherited from generic folklore rather than the actual consumer mis-scopes the whole exploration: a criterion tuned for an interactive chat surface (sub-2-second) will falsify a spike whose real consumer is an async-tolerant surface that comfortably absorbs 10-30 seconds — killing a viable design over a threshold nobody asked for. The reverse mistake is equally possible: a threshold borrowed from an async surface would wrongly pass a design that is unusable on an interactive surface. Both failures trace to the same root cause — writing the number before identifying the consumer.
+
+**When to apply.** Any spike/prototype task that sets a falsifiable numeric threshold (latency, cost, error rate, throughput) as its pass/fail gate.
+
+**Anti-patterns.**
+
+- Copying a latency/cost threshold from a template, a different project, or a previous unrelated spike without checking whether the current consumer's surface shares that budget.
+- Writing a specific number into the PRD/plan without naming which documented consumer budget it traces to.
+- Treating the operator interview as optional when no budget is on record, and proceeding with an invented number instead.
+
+---
+
 ## Fragment Routing
 
 Load only the fragment needed for the current sub-problem:
