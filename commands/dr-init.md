@@ -113,6 +113,17 @@ description: Initialize a new Datarim task or scaffold a new project. Auto-detec
       ```
     - **Non-blocking** — purely informational; the operator proceeds at will. No threshold, no failure mode: a large age is context, not a gate.
 
+2.5e. **SYMPTOM-FRESHNESS RE-PROBE** (advisory-but-actionable; framework v2.54.0+):
+    - Detects a stale ops-fire item: the symptom that motivated the task may already have been fixed in production between discovery and this `/dr-init` invocation, which would otherwise route it into the full `/dr-plan` pipeline for nothing.
+    - Triggers when the task description / backlog one-liner matches either signal:
+      - Live-fire wording — English keywords: "restart loop", "PROD fire", "prod fire", "active fire", "production down", "service down". Russian keywords: "рестарт-луп", "прод горит", "продакшн горит", "активный пожар" <!-- allow-non-ascii: russian-trigger-phrases-detected-by-the-intent-classifier -->
+      - A `Source:` / `Spawned from:` reference pointing at an ecosystem pre-flight/ops-fire task (same reference convention `/dr-plan`'s Architectural-superseding probe reads at its Step 4 first sub-step).
+    - Skip silently when neither signal matches — this step is scoped narrowly to ops-fire-shaped intake; ordinary feature/bugfix tasks are unaffected.
+    - **When triggered, BEFORE continuing to Step 3**: re-probe live container/service state per the project's own deploy/health-check convention — e.g. an orchestrator status query, a health-endpoint curl, or equivalent. Stack-agnostic by design — this step names no specific tool; use whatever the project's own runbook or CI already defines as its liveness check.
+    - **Probe shows the symptom already resolved** (fix landed in production between discovery and now): do NOT route to `/dr-plan`. Recommend closing the task as superseded/stale instead, and record the probe output as evidence in the task's Overview section.
+    - **Probe shows the symptom still live, or the probe cannot be run** (no deploy access, no runtime reachable from this session): continue to Step 3 unchanged — this step never blocks, it only redirects an already-fixed item away from the planning pipeline.
+    - Cost: one shell probe. Saving: avoids routing an already-fixed ops-fire item through the full `/dr-init` → `/dr-plan` pipeline. Source: `reflection-CONN-0078.md` proposal #1 — CONN-0078 lost 5h29m to staleness because the fix landed in production between discovery and `/dr-init` time, but `/dr-init` routed the task to `/dr-plan` as if the symptom were still live.
+
 3.  **CHECK BACKLOG**: If `datarim/backlog.md` exists and contains pending items:
     - Display pending items as a numbered list (ID, title, priority, complexity).
     - **If user provided a `BACKLOG-XXXX` ID**: Select that item directly.
