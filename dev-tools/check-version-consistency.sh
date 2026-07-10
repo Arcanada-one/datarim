@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# check-version-consistency.sh — static version-parity gate (TUNE-0154).
+# check-version-consistency.sh — static version-parity gate (TUNE-0154)
+#                                 + framework component counts-drift gate (TUNE-0174).
 #
 # PURPOSE
 #   Mechanical CI enforcer for TUNE-0019. Reads the canonical framework
@@ -16,7 +17,18 @@
 #   guarded only by a manual grep (see Projects/Datarim/CLAUDE.md § Version
 #   consistency check).
 #
-# SCANNED SURFACES (canonical = VERSION)
+#   TUNE-0174 extends the same gate with a second, isomorphic drift class:
+#   framework COMPONENT COUNTS (agents / skills / commands / templates).
+#   Ground truth is derived mechanically from disk (find under the repo's
+#   {agents,commands,skills,templates} directories); every doc/site surface
+#   that restates a count (README directory-tree comments, CLAUDE.md "Agent
+#   files:" / "Skill files:" / "Command files:" lines, the datarim.club
+#   hero copy in three locales) is checked against that ground truth. This
+#   absorbs TUNE-0154's original scope-target TUNE-0163 deferred and
+#   TUNE-0174 carries forward — one enforcer, two drift classes, zero new
+#   infrastructure (ARCA-0142 consolidation).
+#
+# SCANNED SURFACES — version (canonical = VERSION)
 #   In-repo (relative to repo root = this script's ../):
 #     CLAUDE.md                              > **Version:** X.Y.Z
 #     README.md                              [![Version: X.Y.Z]...badge/Version-X.Y.Z-...
@@ -25,6 +37,24 @@
 #     ../README.md                           - **Версия:** X.Y.Z
 #     ../../Websites/datarim.club/config.php 'version' => 'X.Y.Z',
 #
+# SCANNED SURFACES — component counts (canonical = find on disk)
+#   Ground truth (relative to repo root):
+#     agents/*.md          -> category "agents"
+#     commands/*.md        -> category "commands"
+#     skills/*/SKILL.md    -> category "skills"
+#     templates/*.md       -> category "templates"
+#   Claim surfaces (relative to repo root; skipped when absent):
+#     CLAUDE.md                                    "Agent files: ... (N agents)"
+#     CLAUDE.md                                    "Skill files: ... (N skills, ..."
+#     CLAUDE.md                                    "Command files: ... (N commands, ..."
+#     README.md                                    "agents/            # Agent personas (N agents)"
+#     README.md                                    "skills/             # Knowledge modules (N skills)"
+#     README.md                                    "commands/           # Slash commands (N commands)"
+#     README.md                                    "templates/          # Task and document templates (N templates)"
+#     ../../Websites/datarim.club/pages/about.php  "N specialized agents, N commands, N skills,"
+#     ../../Websites/datarim.club/content/en.php   "N agents, N commands, N skills,"
+#     ../../Websites/datarim.club/content/ru.php   "N агентов, N команд, N навыков,"
+#
 # USAGE
 #   check-version-consistency.sh [--root DIR] [-h|--help]
 #     --root DIR   Framework repo root holding VERSION. Default: script's ../
@@ -32,8 +62,10 @@
 #                  relative to this root.
 #
 # EXIT CODES
-#   0  all surfaces cite the canonical version (absent cross-root files ok)
-#   1  at least one present surface disagrees with VERSION
+#   0  all surfaces cite the canonical version AND all count claims match
+#      ground truth (absent cross-root files ok)
+#   1  at least one present surface disagrees with VERSION, or at least one
+#      present count claim disagrees with the on-disk ground truth
 #   2  usage error / missing VERSION / unreadable canonical version
 #
 # Read-only: plain text reads + grep. No mutation, no eval, no network.
@@ -46,10 +78,13 @@ Usage:
   check-version-consistency.sh [--root DIR]
 
 Reads DIR/VERSION (default: this script's parent repo root) and verifies that
-every version-bearing surface cites the same value. Cross-root surfaces that
-do not exist (single-repo CI checkout) are skipped, not failed.
+every version-bearing surface cites the same value, AND that every framework
+component-count claim (agents/skills/commands/templates) matches the on-disk
+ground truth. Cross-root surfaces that do not exist (single-repo CI checkout)
+are skipped, not failed.
 
-Exit: 0 all aligned / 1 drift found / 2 usage or missing VERSION.
+Exit: 0 all aligned / 1 drift found (version and/or counts) / 2 usage or
+missing VERSION.
 EOF
 }
 
@@ -113,10 +148,10 @@ extract_version() {
     printf '%s\n' "$line" \
         | LC_ALL=C sed -E "s@^.*${anchor}@@" \
         | LC_ALL=C grep -oE '^[0-9]+\.[0-9]+\.[0-9]+' \
-        | head -n1
+        | head -n1 || true
 }
 
-# --- Scan -------------------------------------------------------------------
+# --- Scan (version) ----------------------------------------------------------
 mismatches=""
 checked=0
 
@@ -138,15 +173,114 @@ while IFS='|' read -r rel regex; do
     fi
 done < <(surfaces)
 
-# --- Report -----------------------------------------------------------------
+# --- Ground truth (component counts) ----------------------------------------
+# One find per category, restricted to the in-repo directories. Categories
+# that do not exist at $root (e.g. a stripped-down checkout) count as 0 and
+# are still checked against any present claim — a claim citing a non-zero
+# count against a missing directory is real drift, not a skip condition.
+count_agents=$(find "$root/agents" -maxdepth 1 -name '*.md' 2>/dev/null | wc -l | tr -d '[:space:]')
+count_commands=$(find "$root/commands" -maxdepth 1 -name '*.md' 2>/dev/null | wc -l | tr -d '[:space:]')
+count_skills=$(find "$root/skills" -mindepth 2 -maxdepth 2 -iname 'SKILL.md' 2>/dev/null | wc -l | tr -d '[:space:]')
+count_templates=$(find "$root/templates" -maxdepth 1 -name '*.md' 2>/dev/null | wc -l | tr -d '[:space:]')
+
+ground_truth_for() {
+    case "$1" in
+        agents) printf '%s' "$count_agents" ;;
+        commands) printf '%s' "$count_commands" ;;
+        skills) printf '%s' "$count_skills" ;;
+        templates) printf '%s' "$count_templates" ;;
+        *) printf '' ;;
+    esac
+}
+
+# --- Count-claim surface table ------------------------------------------------
+# Each entry: <path-relative-to-root>|<category>|<anchor-extended-regex>
+# The anchor regex matches immediately BEFORE the count digits (same
+# convention as the version surfaces above); the digits that follow the
+# anchor are isolated and compared against ground_truth_for(category). Every
+# row uses a category-specific anchor so extraction never has to disambiguate
+# multiple numbers appearing on one shared line (e.g. the datarim.club hero
+# copy restates all three categories in a single sentence).
+count_surfaces() {
+    printf '%s\n' \
+        'CLAUDE.md|agents|Agent files: .*/agents/\{name\}\.md. \(' \
+        'CLAUDE.md|skills|Skill files: .*/skills/\{name\}/SKILL\.md. \(' \
+        'CLAUDE.md|commands|Command files: .*/commands/\{name\}\.md. \(' \
+        'README.md|agents|# Agent personas \(' \
+        'README.md|skills|# Knowledge modules \(' \
+        'README.md|commands|# Slash commands \(' \
+        'README.md|templates|# Task and document templates \(' \
+        '../../Websites/datarim.club/pages/about.php|agents|The framework includes ' \
+        '../../Websites/datarim.club/pages/about.php|commands|includes [0-9]+ specialized agents, ' \
+        '../../Websites/datarim.club/pages/about.php|skills|includes [0-9]+ specialized agents, [0-9]+ commands, ' \
+        '../../Websites/datarim.club/content/en.php|agents|Structure any project into iterative tasks\. ' \
+        '../../Websites/datarim.club/content/en.php|commands|iterative tasks\. [0-9]+ agents, ' \
+        '../../Websites/datarim.club/content/en.php|skills|iterative tasks\. [0-9]+ agents, [0-9]+ commands, ' \
+        '../../Websites/datarim.club/content/ru.php|agents|итерационные задачи\. ' \
+        '../../Websites/datarim.club/content/ru.php|commands|итерационные задачи\. [0-9]+ агентов, ' \
+        '../../Websites/datarim.club/content/ru.php|skills|итерационные задачи\. [0-9]+ агентов, [0-9]+ команд, '
+}
+
+# Extract the integer count that follows ANCHOR in FILE (first line matching
+# ANCHOR only). Same strip-then-isolate approach as extract_version, but
+# pulls a bare integer instead of an X.Y.Z token.
+extract_count() {
+    local file="$1" anchor="$2" line
+    line=$(LC_ALL=C grep -m1 -E "$anchor" "$file" 2>/dev/null) || return 0
+    printf '%s\n' "$line" \
+        | LC_ALL=C sed -E "s@^.*${anchor}@@" \
+        | LC_ALL=C grep -oE '^[0-9]+' \
+        | head -n1 || true
+}
+
+# --- Scan (component counts) -------------------------------------------------
+count_mismatches=""
+count_checked=0
+
+while IFS='|' read -r rel category anchor; do
+    [ -n "$rel" ] || continue
+    file="$root/$rel"
+    if [ ! -f "$file" ]; then
+        # Cross-root surface absent (e.g. single-repo CI). Skip, do not fail.
+        continue
+    fi
+    expected=$(ground_truth_for "$category")
+    found=$(extract_count "$file" "$anchor")
+    if [ -z "$found" ]; then
+        count_mismatches+="  $rel [$category] — no count matched (pattern drift?)"$'\n'
+        continue
+    fi
+    count_checked=$((count_checked + 1))
+    if [ "$found" != "$expected" ]; then
+        count_mismatches+="  $rel [$category] — claims $found, disk has $expected"$'\n'
+    fi
+done < <(count_surfaces)
+
+# --- Report -------------------------------------------------------------------
+fail=0
+
 if [ -n "$mismatches" ]; then
+    fail=1
     cat <<EOF
 FAIL: version drift against VERSION ($canonical):
 $mismatches
 Update the listed file(s) to $canonical (single source of truth: $version_file).
 EOF
+fi
+
+if [ -n "$count_mismatches" ]; then
+    fail=1
+    cat <<EOF
+FAIL: framework component-count drift against disk (agents=$count_agents, commands=$count_commands, skills=$count_skills, templates=$count_templates):
+$count_mismatches
+Update the listed file(s) to match the on-disk counts, or re-run this gate
+after the component addition/removal is complete.
+EOF
+fi
+
+if [ "$fail" -ne 0 ]; then
     exit 1
 fi
 
-echo "OK: all $checked version surface(s) cite $canonical."
+echo "OK: all $checked version surface(s) cite $canonical; all $count_checked component-count claim(s) match disk (agents=$count_agents, commands=$count_commands, skills=$count_skills, templates=$count_templates)."
 exit 0
