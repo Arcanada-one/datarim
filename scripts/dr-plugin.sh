@@ -210,6 +210,44 @@ _categories_allowed() {
     esac
 }
 
+# _fb_rules_mirror_preflight <plugin.yaml> <workspace-root>
+#
+# Rollout gate: a plugin whose manifest declares `requires_fb_rules_mirror: true`
+# hosts autonomous agents, so the consumer MUST first mirror the canonical
+# Autonomous Agent Operating Rules (FB-1..FB-8) into its own ecosystem CLAUDE.md
+# at rank-1 mandate level. This runs scripts/check-fb-rules-mirror.sh against the
+# consumer workspace CLAUDE.md and refuses enable on drift, with an operator
+# instruction. Stack-agnostic: the requirement is a manifest opt-in, the consumer
+# path is the resolved workspace — no consumer repo/IP is hard-coded.
+#
+# Returns 0 when the gate is satisfied (or not applicable), 1 when it refuses.
+_fb_rules_mirror_preflight() {
+    local yaml="$1" ws="$2"
+    local requires
+    requires="$(parse_plugin_yaml "$yaml" requires_fb_rules_mirror)"
+    [ "$requires" = "true" ] || return 0
+
+    local checker="$SCRIPT_DIR/check-fb-rules-mirror.sh"
+    if [ ! -x "$checker" ]; then
+        echo "dr-plugin enable: FB-rules mirror checker missing: $checker" >&2
+        return 1
+    fi
+
+    local consumer_claude="$ws/CLAUDE.md"
+    if [ ! -f "$consumer_claude" ]; then
+        echo "dr-plugin enable: consumer CLAUDE.md not found at $consumer_claude — cannot verify FB-rules mirror." >&2
+        echo "dr-plugin enable: mirror the canonical Autonomous Agent Operating Rules (FB-1..FB-8) into the consumer ecosystem CLAUDE.md at rank-1 mandate level, then retry." >&2
+        return 1
+    fi
+
+    if "$checker" --quiet "$consumer_claude"; then
+        return 0
+    fi
+    echo "dr-plugin enable: refused — consumer CLAUDE.md does not mirror canonical FB-rules." >&2
+    echo "dr-plugin enable: mirror the canonical Autonomous Agent Operating Rules (FB-1..FB-8) into $consumer_claude at rank-1 mandate level, then retry. Run scripts/check-fb-rules-mirror.sh \"$consumer_claude\" for the missing items." >&2
+    return 1
+}
+
 # Set of core skills/agents/commands whose override should warn the operator.
 # Override is allowed but flagged because shadowing these can break workflow
 # integrity (history-agnostic gate, evolution loop, archive contract).
@@ -352,6 +390,12 @@ cmd_enable() {
     repo="$(resolve_repo_root "$ws")"
     manifest="$ws/datarim/enabled-plugins.md"
     bootstrap_manifest_if_missing "$manifest" "$repo"
+
+    # Rollout gate (TUNE-0187): if the plugin declares requires_fb_rules_mirror,
+    # refuse enable until the consumer CLAUDE.md mirrors the canonical FB-rules.
+    if ! _fb_rules_mirror_preflight "$yaml" "$ws"; then
+        return 1
+    fi
 
     local lock_dir
     lock_dir="$(_lock_path "$ws")"
