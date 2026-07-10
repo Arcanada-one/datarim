@@ -309,6 +309,9 @@ Resolved by `--conflict-policy`:
 - **Read-only filesystem** — exit 2 on first write attempt; partial state preserved (atomic per file). Tarball restore covers the partial mutation.
 - **Missing `tasks/` subdirectory** — created with `mkdir -p` before any description file write.
 - **Missing `documentation/archive/{area}/`** — created with `mkdir -p` during Pass 4 dispatch.
+- **`wiki/_raw_/` semantic-orphan check** — advisory-only pass (scope `all`): flags a file whose basename
+  shares no token (≥4 chars, alnum-only) with its first 300 bytes of content — a signal of an accidental
+  paste into the wrong file. Report-only; `--fix` does not touch `wiki/_raw_/`.
 
 ## CLI Surface (reference)
 
