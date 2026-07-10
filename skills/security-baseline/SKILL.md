@@ -208,10 +208,12 @@ ecosystem-specific Vault paths MUST NOT appear in any shipped framework artefact
 6. **Signed releases** — release artefacts MUST be cosign-signed (keyless OIDC preferred). Consumer-side verify recipe: [`documentation/how-to/release-verification.md`](../../documentation/how-to/release-verification.md) (canonical) + [`skills/release-verify/SKILL.md`](../release-verify/SKILL.md) (AI-agent loadable entry point).
 7. **SLSA Level 2 provenance** — release workflow MUST emit `actions/attest-build-provenance` attestation linkable to the source commit.
 8. **Dependency monitoring** — Dependabot or Renovate MUST be configured for the repo; advisories at the declared severity threshold block merge.
+9. **Mandate-as-test** — every binary or library published to a public registry (crates.io / npm / PyPI / Docker Hub) MUST ship an integration test that encodes a shipped mandate as an executable assertion, so a mandate regression fails CI instead of reaching the registry. At minimum, assert the public output surface (`--help`, `--version`, banners, stdout, stderr) is free of internal task identifiers — grep it against the forbidden-identifier regex set (e.g. `\bARAS-\d{4}\b`, `\bAUTH-\d{4}\b`, one alternation per active task prefix). Extend the same shape to other shippable mandates (no-secrets-in-package, license-file-present, provenance-attestation-linkable). The test is the enforcement point; a prose rule alone is not sufficient.
 
 ### Implementation reference
 
 - Release workflow: [`.github/workflows/release.yml`](../../.github/workflows/release.yml) — supply-chain security implementation.
+- Reference implementation of Mandate-as-test: an ecosystem CLI asserts its `--version` / login output omits internal task identifiers — [`crates/cli/tests/version.rs`](https://github.com/Arcanada-one/arcana-agent-system/blob/c0573e6/crates/cli/tests/version.rs) (`Arcanada-one/arcana-agent-system` @ `c0573e6`).
 - Verify recipe (consumer-side): [`documentation/how-to/release-verification.md`](../../documentation/how-to/release-verification.md), [`skills/release-verify/SKILL.md`](../release-verify/SKILL.md).
 - Stack-agnostic phrasing for dependency-audit references: see [`skills/security/SKILL.md`](../security/SKILL.md) § Stack-neutral phrasing.
 
