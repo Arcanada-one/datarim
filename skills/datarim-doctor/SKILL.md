@@ -242,6 +242,10 @@ Algorithm per operational file (`tasks.md`, `backlog.md`, `activeContext.md`):
 
 Log line: `Pass 7 {file}: stripped={N} preserved={M}`. **Idempotent:** second `--fix` finds the same set of comments minus the previously-stripped lines; `stripped=0` on second run.
 
+**Pass 7 WARN is an observability rail, not a fallback.** The `preserved++` counter and the `Pass 7: archive file missing for {ID}: {relpath}` log line exist to surface a genuine data gap — an archive comment citing a file that does not exist on disk. When this WARN fires, the correct operator action is to file a fixture against the framework repo reproducing the gap, not to suppress or silence the WARN; treating it as noise defeats the purpose of the verified-strip contract.
+
+**Bats fixture marker discipline.** Every new bats fixture section that embeds TASK-ID-shaped literals (e.g. `TUNE-0197`, `ARCA-0001`) MUST wrap those literals in its own `<!-- gate:history-allowed -->` / `<!-- /gate:history-allowed -->` marker pair (`skills/evolution/history-agnostic-gate.md` § Escape Hatch). Do not rely on a marker pair added earlier in the file — the diff-only gate treats markers as line-scoped context, so a fixture section outside any marker pair of its own is not covered by one opened elsewhere in the same file.
+
 ### Pass 5 — Post-fix re-scan
 
 19. After `--fix` finishes the four mutating passes, the script composes the existing scan dispatch in dry-run mode and re-validates the tree.

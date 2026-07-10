@@ -1,6 +1,18 @@
 #!/usr/bin/env bash
 # audit_sink.sh — JSONL audit backend.
 # V-AC: 10 (emit), 11 (required fields), 12 (hash-only credentials), 18 (schema v2).
+#
+# Additive-nullable-field schema-extension pattern (TUNE-0410): to add a new
+# field to an existing schema-version event WITHOUT a schema_version bump,
+# make it optional and default it to JSON null when the producer/env var
+# supplying it is unset. Old consumers that predate the field simply see
+# null and treat it as "not set" — no schema_version gate, no consumer
+# migration required. Precedent: `expected_outcome` in make_event_v2 below,
+# sourced from the (optional) DR_ORCH_EXPECTED_OUTCOME env var — unset
+# yields `expected_outcome: null`, which the measure script excludes from
+# the refined metric rather than erroring. Reuse this pattern for future
+# additive fields; reserve a schema_version bump for changes that alter or
+# remove an existing field's meaning/shape.
 set -euo pipefail
 
 now_iso() { date -u +%FT%TZ; }

@@ -24,7 +24,7 @@ description: Multi-layer quality verification — checks PRD alignment, design c
     -   When `--decided-by agent`: `--rationale-file <path>` MUST contain ≥ 50 non-whitespace characters of best-practice rationale. Layer 3b will verify each agent-decision against the implementation.
     -   On contradiction with an expectation: add `--conflict-with <wish_id>` (+ optional `--conflict-detail-file`); CTA MUST route back to `/dr-do --focus-items <wish_id>` for closure.
     -   Skip if no clarification rounds occurred.
-7.  **OUTPUT**: Write `datarim/qa/qa-report-{task-id}.md` with results.
+7.  **OUTPUT**: Write `datarim/qa/qa-report-{task-id}.md` with results, including the § Deferred Items (session-scoped) table below (empty/`None` by default; populate whenever a layer identifies a gap that this pass is knowingly not fixing).
 8.  **HUMAN SUMMARY**:
     - Load `$HOME/.claude/skills/human-summary/SKILL.md`.
     - Emit the `## Отчёт оператору` (RU) / `## Operator summary` (EN) section, with the four mandated sub-sections, between the QA-report write and the CTA block ([definition](../skills/cta-format/SKILL.md)). Language follows the most recent operator message. <!-- allow-non-ascii: literal-russian-section-name-token-from-human-summary-skill -->
@@ -141,10 +141,12 @@ description: Multi-layer quality verification — checks PRD alignment, design c
   - Exit 0 + stdout marker `CONDITIONAL_PASS` ⇒ Layer 3b verdict **PASS_WITH_NOTES** (every partial/missed item carries an operator override ≥10 chars);
   - Exit 1 + stdout marker `BLOCKED` ⇒ Layer 3b verdict **FAIL**. Capture the validator's `Focus items:` and `Next step:` lines verbatim into the QA report.
 
-- **Anti-deferral prose scan (ADVISORY at QA).** After the routing validator, scan the QA report just written for self-deferral language — the failure mode where the agent labels its own incomplete work "out of scope / informational / not a blocker / will fix later" instead of finishing it:
+- **Anti-deferral prose scan (ADVISORY at QA).** After the routing validator, scan the QA report just written for self-deferral language — the failure mode where the agent labels its own incomplete work "out of scope / informational / not a blocker / will fix later" instead of finishing it.
+  - **Auto-derive `--extra-repo` for dual-repo topologies** (convenience — the flag itself already works when passed explicitly, per `/dr-compliance` Step 5c): before invoking the scanner, run `find <repo-root> -maxdepth 6 -name .git -type d` — the same nested-repo discovery `/dr-archive` Step 0.1 already performs — and, for every match other than `<repo-root>/.git` itself, pass its parent directory as one repeatable `--extra-repo <path>` flag. This keeps the QA-time advisory self-scan covering the same touched-set as the compliance-time hard gate without the agent having to notice the dual-repo topology by hand.
   ```bash
   "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-deferral-prose.sh" \
-      --file datarim/qa/qa-report-{TASK-ID}.md --root <repo-root>
+      --file datarim/qa/qa-report-{TASK-ID}.md --root <repo-root> \
+      [--extra-repo <nested-repo-path>]...
   ```
   - Exit 0 ⇒ no self-inflicted deferral; no action.
   - Exit 1 ⇒ deferral on a touched file without a verifiable follow-up/blocked_by artefact. At QA this is **advisory**: keep the Layer 3b verdict at most **PASS_WITH_NOTES**, record the findings in the QA report, and warn the operator that `/dr-compliance` will treat the same finding as a hard block. (This mirrors the evidence-type advisory-at-QA / hard-at-compliance escalation.) The scanner is fail-open: a git-probe failure warns and passes, never false-blocks.
@@ -454,6 +456,23 @@ Write to `datarim/qa/qa-report-{task-id}.md`:
 
 **Layers executed:** {N of 4}
 **Results:** {list of layer verdicts}
+
+## Deferred Items (session-scoped)
+
+Reviewer-identified gaps or defects that this QA pass is knowingly **not**
+fixing — a design fork, an out-of-scope finding, or an item blocked on an
+external dependency. Distinct from a Layer 3b `partial`/`missed` wish (those
+track operator-declared expectations, not reviewer-found gaps). Session-scoped:
+the table is cleared on the next `/dr-qa` re-run unless a row is carried
+forward into `datarim/backlog.md` as a fresh pending item — cite that
+TASK-ID in the last column so the deferral has a durable trail instead of
+evaporating with this report.
+
+| # | Item | Reason deferred | Blocked-by / follow-up | Carried to backlog.md? |
+|---|------|------------------|--------------------------|--------------------------|
+| 1 | {one-line gap} | {design-fork \| out-of-scope \| blocked-dependency} | {TASK-ID or "—"} | {yes → TASK-ID \| no} |
+
+`None — no deferrals this session` is the default and expected row when nothing was deferred.
 
 ## /dr-auto Mode (when `DATARIM_AUTO_MODE=1`)
 
