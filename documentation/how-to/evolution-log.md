@@ -1,5 +1,14 @@
 # Evolution Log
 
+## 2026-07-10 — TUNE-0179 — Probe Before Harness rule added to `skills/ai-quality/SKILL.md` (Class A applied)
+
+- **Target:** `skills/ai-quality/SKILL.md` — new top-level section «Probe Before Harness» inserted before § Fragment Routing.
+- **What changed:** codifies a pre-implementation rule for subprocess wrappers, sidecars, and pipeline adapters against external CLIs/APIs — run a ≤60-second probe with representative input, capture stdout/stderr/exit code, and treat documentation as a hypothesis until the probe confirms actual wire semantics. Enumerates what the probe catches: persistent-pipe vs one-shot process behavior, response schema gaps, exit-code semantics, auth failure modes.
+- **Why (source):** reflection-AGENT-0018.md Proposal 1 (Class A, backlog-deferred pending operator review, pulled off backlog this cycle as approved). An inline plan assumed a "persistent stdin pipe" for the target CLI based on its documentation; a 30-second probe with representative input disproved this immediately, saving ~200 lines of wrapper code and a day of false-build work.
+- **Self-caught defect:** first draft cited the source task literally ("In AGENT-0018, ...") in the skill body, which `scripts/task-id-gate.sh` (history-agnostic gate) correctly flagged — `skills/` runtime must not embed task-ID provenance. Reworded to "Source: prior incident — ..." matching the convention already used elsewhere in this file (e.g. § Focused Work, § Spec-First with Golden Fixtures).
+- **Verification:** `scripts/stack-agnostic-gate.sh skills/ai-quality/SKILL.md` → PASS clean. `scripts/task-id-gate.sh skills/` (full scope regression) → PASS clean. `grep -RPn '[\x{0400}-\x{04FF}]'` on the edited file → no Cyrillic (only pre-existing em-dash/arrow typography, consistent with the rest of the file). New light bats coverage `tests/tune-0179-probe-before-harness.bats` (3 cases: section presence, ordering before Fragment Routing, gate-cleanliness). Full suite `bats tests/` → 1737 total, 7 not-ok — identical to the pre-change baseline (verified via `git stash`/`bats tests/`/`git stash pop`), zero regressions attributable to this change.
+
+---
 ## 2026-07-10 — TUNE-0162 — Recorded-Fixture Tests for HTTP Wrappers (Class A applied)
 
 **Category:** growth (new testing-skill gate). **Class:** A (approved 2026-05-10, reflection-ARCA-0008 § Class A Proposal 2).
