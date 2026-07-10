@@ -305,6 +305,19 @@ $COMPOSE up -d --build
 
 **Anti-pattern.** Targeted `docker rm -f <container-name>` per service — duplicated work for multi-service compose projects and brittle against future service additions.
 
+## Compose Config-File Verification Before Cutover
+
+Before any `docker compose down` / `docker compose up` against a production container, verify the *running* container's compose config source, not the file you intend to pass:
+
+```bash
+# nosec-extract
+docker inspect <container> --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}'
+```
+
+**Why.** `docker compose` commands run without an explicit `-f` fall back to the default `docker-compose.yml` in the working directory. If the working container was actually started with an overlay (`-f docker-compose.yml -f docker-compose.prod.yml`), an unqualified `down`/`up` targets the wrong compose project definition and can bring up the container against dev-shaped config (e.g. default dev credentials, missing `env_file`/`VAULT_ADDR`) — silently replacing a working production container with a broken default one.
+
+**Rule.** Read the label above and pass the exact same `-f` file list back to `docker compose`, or use `docker compose -p <project>` to bind to the existing project name. Never assume the compose file list from memory or from a runbook written before the last config change.
+
 ## Reusable Templates
 
 - `${DATARIM_RUNTIME:-$HOME/.claude}/templates/infra-cost-reduction-checklist.md` — pre-execution checklist for any VM/storage right-sizing, server consolidation, or unused-resource cleanup task. Distilled from prior infra cost-reduction tasks (SWC, Azure unused disks, memory guardrails). Use during `/dr-plan` when the task touches infrastructure costs.
