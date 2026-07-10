@@ -30,6 +30,7 @@ Load and run this gate at the apply step of:
 - `commands/dr-archive.md` Step 0.5(e) — runtime apply of approved Class A
 - `commands/dr-optimize.md` — apply of approved optimization proposals
 - `commands/dr-addskill.md` — write of newly created skill/agent/command/template
+- `commands/dr-plan.md` § 6.5 History-agnostic runtime-body probe — **plan-time, before approve.** When Implementation Steps name a shipped runtime body (`skills/`/`agents/`/`commands/`/`templates/`) as an edit target, the planner dry-runs this gate against the plan's cited paths + any example text the plan will ship, so a prescribed provenance leak or phantom path is caught at plan review rather than at the downstream `/dr-do`/`/dr-qa` triggers below.
 - `commands/dr-do.md` — **after every phase commit** that touched files under
   `skills/`, `agents/`, `commands/`, `templates/`, or `dev-tools/` in the
   framework repo. Run as a fast pre-flight (`scripts/task-id-gate.sh <touched-paths>`);
