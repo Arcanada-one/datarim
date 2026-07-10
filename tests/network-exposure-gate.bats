@@ -59,6 +59,12 @@ setup() {
     [ "$output" = "hard_block" ]
 }
 
+@test "gate: P1 + security -> hard_block (TUNE-0407 short-form gap)" {
+    run "$SCRIPT" --task-description "$F/p1-security.md" --quiet
+    [ "$status" -eq 0 ]
+    [ "$output" = "hard_block" ]
+}
+
 # --- Advisory warn ---
 
 @test "gate: P1 + feature -> advisory_warn" {

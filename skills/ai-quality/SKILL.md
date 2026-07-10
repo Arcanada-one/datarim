@@ -298,6 +298,71 @@ For any task that implements a client, SDK wrapper, or adapter against an existi
 
 - Citing the upstream doc page or changelog instead of the actual source symbol — docs drift from shipped code.
 - Writing the plan step from memory of a similar prior integration without re-grepping the current upstream version.
+## Probe Before Harness
+
+Before writing a subprocess wrapper, sidecar, or pipeline adapter against an external CLI or API, run a **≤60-second probe** with representative input before committing to an implementation plan. Capture stdout, stderr, and exit code from the probe run. Treat the tool's documentation as a hypothesis, not a fact, until the probe confirms the actual wire semantics.
+
+**Rule.**
+
+1. **Probe first, plan second.** Spend at most 60 seconds invoking the real CLI/API with a representative input and capture all three channels: stdout, stderr, exit code.
+2. **Documentation is a hypothesis.** A man page, `--help` output, or README describing the tool's behavior is an untested claim until the probe reproduces it. Do not encode documented behavior into a wrapper's control flow before the probe confirms it.
+3. **What the probe catches.** A single short probe surfaces the failure modes a design built purely from documentation misses most often:
+   - **Persistent-pipe vs one-shot process behavior** — whether the target process holds a long-lived stdin pipe or exits after one request/response cycle.
+   - **Response schema gaps** — fields the docs promise but the real output omits, or extra fields the docs never mention.
+   - **Exit-code semantics** — whether non-zero exit reliably signals failure, or the tool exits 0 on partial/degraded success.
+   - **Auth failure modes** — what an expired/missing credential actually returns (silent empty response vs explicit error vs hang), which a docs-only design usually gets wrong.
+
+**Why.** Source: prior incident — an inline plan assumed the target CLI exposed a persistent stdin pipe for streaming requests, based solely on its documentation. A 30-second probe with representative input disproved this immediately — the process was one-shot per invocation. Catching this before the harness was written saved roughly 200 lines of wrapper code and a day of false-build work that a docs-only design would have produced and then had to unwind.
+
+**When to apply.** Any task that writes a subprocess wrapper, sidecar process, or pipeline adapter against an external CLI or API whose wire behavior is not already proven inside this codebase. Mandatory before `/dr-plan` locks the integration approach for such a task.
+
+**Anti-pattern:** designing the full wrapper/adapter surface (retry logic, streaming assumptions, schema parsing) from documentation alone, then discovering the real behavior diverges only once the harness is built and tests start failing in ways that don't match the design.
+## Task-Description Line-Reference Smoke Check
+
+When a task description cites a `<file>:<line>` reference (e.g. "CHANGELOG.md:45 templates 18→23"), the referenced line can drift between when the description was written and when `/dr-do` reads it — a prior step in the same task edits the file, a concurrent task touches it, or the claim is simply stale copy-paste. Editing against a stale line reference is worse than a clean failure: the agent edits the wrong line, or the wrong content at a coincidentally-valid line number, and the mistake surfaces only later.
+
+**Rule.**
+
+1. **Smoke-check every `<file>:<line>` claim before editing it.** At `/dr-do` startup (while reading the task description) AND at any mid-implementation point where a NEW `<file>:<line>` claim is introduced (Gap Discovery finding, review comment, self-authored note), run:
+   ```bash
+   grep -n '<expected-content>' <file>
+   ```
+   where `<expected-content>` is the literal text the claim asserts lives at that line.
+2. **Zero matches → ABORT the edit.** Emit a diagnostic in this shape:
+   ```
+   line-not-found: expected "<X>" at line N, found zero matches in <file>
+   ```
+3. **Correct before proceeding.** Re-locate the claim (grep for the expected content anywhere in the file, or ask the operator) and correct the task description before resuming. Do not silently proceed on a stale reference.
+
+**Why.** A line number is a snapshot, not a live pointer. Source: prior incident, recurring twice — a task description cited a stale line-count claim that no longer matched the file by the time implementation reached it. The smoke-check costs one `grep -n`; skipping it costs a revert-and-redo cycle when the edit lands on the wrong line or the wrong file region.
+
+**When to apply.** Any task description containing a `<file>:<line>` citation — mandatory at `/dr-do` startup for citations already present, and at the moment any new citation is introduced mid-implementation.
+
+**Stack-agnostic.** `grep -n` + line lookup is universal across languages and stacks; this is a workflow gate, not stack-specific content.
+
+**Anti-patterns.**
+- Trusting a line number without a content check "because it's probably still there."
+- Proceeding at the wrong line because *some* content exists there — a coincidental match is worse than a clean grep-miss.
+- Treating the check as a one-time `/dr-do`-startup gate only — a new file:line claim introduced mid-implementation needs the same check before it drives an edit.
+## Spike Falsifiable Thresholds Must Derive from the Consumer's UX Budget
+
+A spike (or any exploratory prototype meant to falsify a design hypothesis before full build-out) needs a numeric pass/fail threshold — latency ceiling, cost ceiling, error-rate ceiling — to be falsifiable at all. That threshold MUST be derived from the **consuming surface's own documented UX budget**, never copied from generic latency folklore or from a different project's convention.
+
+**Rule.**
+
+1. **Locate the consumer's documented budget before writing any number.** Different surfaces tolerate wildly different delays for the same underlying operation. <!-- gate:example-only -->Illustrative bands: async-tolerant surfaces (batch jobs, background enrichment, email-triggered flows) — 10-30s; voice surfaces — must stay invisible inside the existing STT+TTS round-trip, i.e. no additional user-perceived delay; interactive chat/UI surfaces — sub-2s.<!-- /gate:example-only --> The spike's threshold must match the actual consumer, not an assumed one.
+2. **No documented budget → operator interview first, numbers second.** If the task lacks a documented per-surface UX budget, the spike's first deliverable is an operator interview that establishes it. Do not write a falsifiable numeric threshold before that interview closes.
+3. **Cite the source consumer in the write-up.** The threshold recorded in the spike's PRD/plan/report MUST name which consumer/surface it derives from (e.g. "≤2s, per the chat-surface budget confirmed with the operator on <date>"), so a reviewer can trace the number back to its source instead of trusting it as self-evident.
+
+**Why.** A threshold inherited from generic folklore rather than the actual consumer mis-scopes the whole exploration: a criterion tuned for an interactive chat surface (sub-2-second) will falsify a spike whose real consumer is an async-tolerant surface that comfortably absorbs 10-30 seconds — killing a viable design over a threshold nobody asked for. The reverse mistake is equally possible: a threshold borrowed from an async surface would wrongly pass a design that is unusable on an interactive surface. Both failures trace to the same root cause — writing the number before identifying the consumer.
+
+**When to apply.** Any spike/prototype task that sets a falsifiable numeric threshold (latency, cost, error rate, throughput) as its pass/fail gate.
+
+**Anti-patterns.**
+
+- Copying a latency/cost threshold from a template, a different project, or a previous unrelated spike without checking whether the current consumer's surface shares that budget.
+- Writing a specific number into the PRD/plan without naming which documented consumer budget it traces to.
+- Treating the operator interview as optional when no budget is on record, and proceeding with an invented number instead.
 
 ---
 
