@@ -25,6 +25,8 @@ description: Implement planned changes using TDD and AI quality principles
     -   Bypass is permitted ONLY when (a) the harness hook explicitly returned an allow decision (operator override at runtime) AND (b) the override reason is recorded in the same § Implementation Notes line. Silent bypass = process regression; `/dr-compliance` will surface it.
     -   Rationale: hook-enforced mandates exist because the operator decided the delegation matters — for token economics, for content review discipline, or for security. Working around the hook to save time negates the operator's design decision and creates inconsistent artefact provenance across the task lifecycle.
 
+5.6. **PLAN-EXTRACT RECOMMENDATION (coworker, advisory)**: after reading the plan in Step 5, check its size — `datarim/tasks/{TASK-ID}-task-description.md` § Implementation Notes for L1-L2, or `datarim/plans/{TASK-ID}-plan.md` for L3-L4. When the plan exceeds **400 lines** AND this session is expected to cover **≥2 implementation phases** (a multi-phase plan, or an explicit multi-session plan), recommend — do not mandate — a `coworker ask --profile datarim` bulk-extract pass before starting the TDD loop: distill the plan into a phase-by-phase checklist so the working context is not dominated by the full plan text for the whole session. Skip silently when the plan is ≤400 lines or the session covers a single phase — the delegation overhead is not worth it for short/simple plans.
+
 6.  **PRE-FLIGHT CHECK** (L3-L4 code tasks only):
     Before writing any code, verify readiness:
     ```
