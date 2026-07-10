@@ -2,18 +2,18 @@
 # Datarim Framework Installer
 # Installs agents, skills, commands, and templates into $CLAUDE_DIR (~/.claude).
 #
-# Operating model (v1.17.0, TUNE-0033):
+# Operating model (v1.17.0):
 #   Default mode is SYMLINK — the four scope directories in $CLAUDE_DIR
 #   (agents/skills/commands/templates) become symlinks to $SCRIPT_DIR/<scope>/.
 #   This makes the repo the runtime: edits land in git tracking immediately
 #   and curation/drift detection are no-ops by definition. Use --copy to
 #   preserve the legacy v1.16 behaviour (real file copies).
 #
-# Contract (TUNE-0004 aligned with PRD-datarim-sdlc-framework §4 — copy mode):
+# Contract (aligned with PRD-datarim-sdlc-framework §4 — copy mode):
 #   - Install scopes (distributed to runtime): agents, skills, commands, templates.
 #   - Installed scopes (whole-dir symlink under default mode): agents/, skills/,
-#     commands/, templates/, scripts/ (since v1.20.0 TUNE-0077), tests/ (since
-#     v1.20.0 TUNE-0077). Repo-only: validate.sh (single root file).
+#     commands/, templates/, scripts/ (since v1.20.0), tests/ (since
+#     v1.20.0). Repo-only: validate.sh (single root file).
 #   - Content types copied: .md .sh .json .yaml .yml. Unknown extensions are
 #     logged (WARN) and skipped — never silently dropped.
 #   - .sh files receive +x after copy.
@@ -88,26 +88,26 @@ resolve_find_bin() {
 FIND_BIN="$(resolve_find_bin)"
 
 # Install scopes — canonical list, asserted by tests/install.bats T34/T35/T36.
-# v1.20.0 (TUNE-0077): scripts and tests added — uniform whole-directory symlink
+# v1.20.0: scripts and tests added — uniform whole-directory symlink
 # semantics. Eliminates drift between canonical Datarim repo and ~/.claude/
 # runtime (a 730-LoC rogue datarim-doctor.sh placed directly into ~/.claude/
 # scripts/ destroyed 30 task entries on aether/local-env 2026-04-30). With
 # dir-symlink, ~/.claude/scripts/datarim-doctor.sh is the canonical file by
 # inode — no possibility of divergence. Symmetric with skills/agents pattern.
-# 'dev-tools' is runtime-required as of v2.15.0 (TUNE-0259). The
+# 'dev-tools' is runtime-required as of v2.15.0. The
 # following /dr-* commands invoke scripts from dev-tools/ at runtime:
 # dr-init (check-init-task-presence.sh, check-expectations-checklist.sh),
 # dr-doctor, dr-archive, dr-verify, dr-qa, dr-plan, dr-compliance,
 # dr-design. Operator-facing /dr-* docs invoke these scripts via the
 # runtime-prefixed form `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/<script>`
 # so consumer workspaces (cwd != framework repo) find the runtime
-# symlink instead of a missing cwd-relative path. The earlier TUNE-0091
+# symlink instead of a missing cwd-relative path. The earlier per-file
 # exclusion ("developer-only, not shipped") was retired because runtime
 # callers across the /dr-* pipeline outnumber the few maintainer-only
 # scripts; the rest stay invisible behind the runtime root anyway.
 INSTALL_SCOPES=(agents skills commands templates scripts tests dev-tools)
 
-# v1.17.0: local/ overlay scope dirs (TUNE-0033). Local overlay applies only to
+# v1.17.0: local/ overlay scope dirs. Local overlay applies only to
 # user-extensible scopes (skills/agents/commands/templates) — scripts/tests are
 # framework-internal and not extended via local/.
 LOCAL_SCOPES=(skills agents commands templates)
@@ -124,11 +124,11 @@ COPIED=0
 LINKED=0
 SKIPPED=0
 
-# TUNE-0114 Phase 2: multi-runtime fanout + project mode
+# Multi-runtime fanout + project mode
 FANOUT_CLAUDE=false
 FANOUT_CODEX=false
-FANOUT_CODEX_UX=true       # TUNE-0297: generate SKILL.md wrappers + AGENTS.override.md; --no-codex-ux opts out
-FANOUT_CURSOR=false        # TUNE-0304: Cursor IDE skill mirroring (--with-cursor)
+FANOUT_CODEX_UX=true       # generate SKILL.md wrappers + AGENTS.override.md; --no-codex-ux opts out
+FANOUT_CURSOR=false        # Cursor IDE skill mirroring (--with-cursor)
 PROJECT_DIR=''
 DRY_RUN=false
 LOCKFILE=''
@@ -144,7 +144,7 @@ Usage:
   install.sh --with-cursor          Install for Cursor IDE (flat .md mirror of each SKILL.md;
                                     target: $CURSOR_DIR/skills/ — default ~/.cursor/skills/.
                                     Cursor's skill discovery is not yet officially documented;
-                                    this layout is operator-validated — accepted risk per TUNE-0304 R7)
+                                    this layout is operator-validated — accepted risk, see documentation/archive/)
   install.sh --project DIR          Project-local copy install (no symlinks)
   install.sh --with-claude --with-codex  Multi-runtime install
   install.sh --dry-run              Show planned mutations without applying
@@ -282,7 +282,7 @@ assert_claude_dir_safe() {
 force_safety_guard() {
     assert_claude_dir_safe
 
-    # v1.17.0 (TUNE-0033 AC-5): under existing symlink topology --force is a
+    # v1.17.0: under existing symlink topology --force is a
     # semantic no-op — the runtime IS the repo. Bail out before any backup.
     local s already_symlinked=true
     for s in "${INSTALL_SCOPES[@]}"; do
@@ -308,7 +308,7 @@ force_safety_guard() {
     fi
 
     echo "WARNING: --force on a live system will overwrite $CLAUDE_DIR"
-    echo "         TUNE-0003 incident: --force previously destroyed 9 runtime evolutions."
+    echo "         prior incident: --force previously destroyed 9 runtime evolutions."
     echo ""
 
     if [ "$ASSUME_YES" = true ] || [ -n "$DATARIM_INSTALL_YES" ]; then
@@ -518,7 +518,7 @@ CFG
     fi
 }
 
-# TUNE-0303: symlink ~/.local/bin/coworker-hook-guard → canonical Datarim
+# Symlink ~/.local/bin/coworker-hook-guard → canonical Datarim
 # source. Backs up an existing real file once (idempotent — re-runs detect
 # the symlink target and skip). Honours DRY_RUN.
 setup_coworker_hook_symlink() {
@@ -530,7 +530,7 @@ setup_coworker_hook_symlink() {
         return 0
     fi
     mkdir -p "$(dirname "$dst")"
-    # If target is a regular file (operator's pre-TUNE-0303 hand-written
+    # If target is a regular file (operator's pre-migration hand-written
     # version), back it up exactly once.
     if [ -e "$dst" ] && [ ! -L "$dst" ]; then
         local ts bak
@@ -606,7 +606,7 @@ PY
 }
 
 # Move existing copy-mode scopes into a backup directory, write a SUCCESS
-# marker (with scopes_migrated field — see creative-TUNE-0033-migration-ux),
+# marker (with scopes_migrated field — see migration design notes),
 # then return so the caller can create symlinks. mv is atomic per scope:
 # if a power-cut interrupts mid-loop the marker absence signals partial.
 migrate_to_symlinks() {
@@ -639,7 +639,7 @@ MARKER
 # Non-TTY without any auto-consent → exit 1 with explicit error.
 migration_prompt() {
     cat <<EOF
-v1.17.0 introduces symlink-default install mode (TUNE-0033).
+v1.17.0 introduces symlink-default install mode.
 
 Found existing real-copy installation in $CLAUDE_DIR/.
 
@@ -692,7 +692,7 @@ EOF
     esac
 }
 
-# --- TUNE-0114 Phase 2 additions -------------------------------------------
+# --- Multi-runtime fanout additions ----------------------------------------
 
 validate_project_dir() {
     local path="$1"
@@ -735,7 +735,7 @@ release_lock() {
     trap - EXIT INT TERM
 }
 
-# --- TUNE-0297: Codex UX parity helpers -------------------------------------
+# --- Codex UX parity helpers -------------------------------------------------
 #
 # Codex CLI 0.130+ enumerates skills only for entries shaped as
 # <name>/SKILL.md with valid YAML frontmatter, and exposes slash-commands /
@@ -887,7 +887,7 @@ shape) can index Datarim skills alongside its bundled \`.system/\` skills.
 WRAP
 }
 
-# Restore Codex bundled `.system/` skills from the TUNE-0296 backup directory.
+# Restore Codex bundled `.system/` skills from the timestamped backup directory.
 # Idempotent: cleans `<codex_dir>/skills/.system/` first.
 restore_codex_system_skills() {
     local codex_dir="$1"
@@ -935,10 +935,10 @@ generate_codex_agents_manifest() {
     local src_dir="$1" dst="$2"
     local f
     {
-        echo "<!-- AUTO-GENERATED by install.sh fanout_codex_ux (TUNE-0297). DO NOT EDIT MANUALLY. -->"
+        echo "<!-- AUTO-GENERATED by install.sh fanout_codex_ux. DO NOT EDIT MANUALLY. -->"
         echo "<!-- Source: $src_dir/{commands,skills,agents}/ -->"
         echo ""
-        # TUNE-0303: prepend MANDATORY delegation block from canonical mandate
+        # Prepend MANDATORY delegation block from canonical mandate
         # fragment so codex runtime sees the same rules as Claude (~/.claude/CLAUDE.md
         # § Coworker Delegation). Source: templates/coworker-delegation-fragment.md.
         local _mandate="$src_dir/templates/coworker-delegation-fragment.md"
@@ -967,7 +967,7 @@ generate_codex_agents_manifest() {
                 [ -f "$f" ] || continue
                 emit_manifest_entry "$f" ""
             done
-            # Directory-per-skill layout (TUNE-0304).
+            # Directory-per-skill layout.
             for f in "$src_dir/skills"/*/SKILL.md; do
                 [ -f "$f" ] || continue
                 emit_manifest_entry "$f" ""
@@ -1012,7 +1012,7 @@ fanout_codex_ux() {
 
     # 1. Generate wrappers for top-level source skills.
     #    Supports both legacy flat layout (`skills/<name>.md`) and the
-    #    directory-per-skill layout (`skills/<name>/SKILL.md`, TUNE-0304).
+    #    directory-per-skill layout (`skills/<name>/SKILL.md`).
     local src_skill name
     local generated=0
     for src_skill in "$src_dir/skills"/*.md; do
@@ -1051,7 +1051,7 @@ fanout_codex_ux() {
     echo "  MANIFEST: $codex_dir/AGENTS.override.md"
 }
 
-# setup_cursor_runtime — TUNE-0304 Phase 4.
+# setup_cursor_runtime.
 #
 # Mirrors each migrated `skills/<name>/SKILL.md` from the source repo into
 # `$CURSOR_DIR/skills/<name>.md` (flat layout). Cursor's official skill-
@@ -1118,7 +1118,7 @@ setup_cursor_runtime() {
     fi
 }
 
-# --- fanout_runtime helpers (TUNE-0136) -------------------------------------
+# --- fanout_runtime helpers --------------------------------------------------
 # fanout_runtime was a 190-line straight-line block. It is split into cohesive
 # per-phase helpers so the top-level function reads as an ordered pipeline.
 # Behaviour is unchanged: helpers share the same script-level globals
@@ -1185,7 +1185,7 @@ print_dry_run_plan() {
 check_symlink_topology() {
     local runtime_name="$1"
     local topology topo_exclude=""
-    # TUNE-0297: under codex + FANOUT_CODEX_UX skills/ is intentionally a
+    # Under codex + FANOUT_CODEX_UX skills/ is intentionally a
     # real dir while the other scopes stay symlinks — exclude it from the
     # mixed-topology gate so a re-run does not blow up.
     if [ "$runtime_name" = "codex" ] && [ "$FANOUT_CODEX_UX" = true ]; then
@@ -1211,7 +1211,7 @@ install_symlink_scopes() {
     local runtime_name="$1"
     local scope
     for scope in "${INSTALL_SCOPES[@]}"; do
-        # TUNE-0297: under codex + FANOUT_CODEX_UX skip the skills/ symlink;
+        # Under codex + FANOUT_CODEX_UX skip the skills/ symlink;
         # fanout_codex_ux will materialise it as a real dir with wrappers.
         if [ "$scope" = "skills" ] && \
            [ "$runtime_name" = "codex" ] && \
@@ -1220,7 +1220,7 @@ install_symlink_scopes() {
         fi
         link_scope_tree "$SCRIPT_DIR/$scope" "$CLAUDE_DIR/$scope"
     done
-    # TUNE-0296: Codex CLI reads ~/.codex/AGENTS.md as ecosystem-router entry.
+    # Codex CLI reads ~/.codex/AGENTS.md as ecosystem-router entry.
     # Symlink to Datarim source so Codex sees the same router as Claude (via CLAUDE.md chain).
     if [ "$runtime_name" = "codex" ]; then
         ln -sfn "$SCRIPT_DIR/AGENTS.md" "$CLAUDE_DIR/AGENTS.md"
@@ -1292,7 +1292,7 @@ print_fanout_summary() {
     echo "  3. Start Claude Code and run: /dr-init <task description>"
     echo ""
 
-    # Bundled opt-in plugins (TUNE-0439): install distributes only the canonical
+    # Bundled opt-in plugins: install distributes only the canonical
     # scopes; plugins under plugins/ are opt-in per-workspace via /dr-plugin enable
     # and are deliberately NOT auto-distributed. Surface them so operators know the
     # bundled commands (e.g. /dr-orchestrate) exist and how to activate them —
@@ -1348,7 +1348,7 @@ fanout_runtime() {
     fi
 
     setup_local_overlay
-    # TUNE-0303: link canonical coworker-hook-guard once per fanout call.
+    # Link canonical coworker-hook-guard once per fanout call.
     # Idempotent on re-run; runs for both claude and codex fanouts so a
     # codex-only install still gets the hook symlink.
     setup_coworker_hook_symlink
