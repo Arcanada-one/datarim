@@ -607,6 +607,18 @@ contract lives in `Projects/Publisher/code/arcanada-publisher/documentation/expl
 
 ---
 
+## DOM-Automation Selector Discipline
+
+When automating against opaque third-party DOMs (Facebook, X/Twitter, LinkedIn, Instagram, Gmail web, or any UI not under our control), default to **exact aria-name selectors** for action buttons — Publish, Submit, Delete, Confirm, Send.
+
+Reserve substring matching for personalized prompts (composer prompts that embed the user's name, greetings, or other per-account text that cannot be matched exactly).
+
+**Why.** Substring match on an action-button label has produced silent wrong-element clicks in adjacent compound labels — e.g. a short localized "Publish" label matching inside an unrelated, longer compound label such as "Schedule settings — Publish now" and clicking the wrong button. An exact match on the action label fails loudly (selector not found) instead of silently clicking a neighbor.
+
+Source: INFRA-0144 reflection Class A proposal NS2.
+
+---
+
 ## Recurring-mistakes pre-publish checklist
 
 Run through this checklist before every publish action. Each item consolidates
