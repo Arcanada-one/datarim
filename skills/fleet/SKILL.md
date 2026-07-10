@@ -1,6 +1,6 @@
 ---
 name: fleet
-description: Router for fleet worker starter skills by task complexity tier (L1 basic to L5 autonomous). Load this entry first, then the single level fragment matching the task's complexity.
+description: Router for the five-tier fleet starter skill (l1-basic..l5-autonomous) — selects the AAL/complexity level and its context budget for a spawned agent.
 model: inherit
 current_aal: 1
 target_aal: 2
