@@ -1,5 +1,14 @@
 # Evolution Log
 
+## 2026-07-10 — TUNE-0180 — Spike falsifiable thresholds must derive from consumer UX budget (Class A applied)
+
+- **Category:** promote-recurring-incident-to-gate · **Class:** A (approved — P3 backlog sweep, treated as operator-review-satisfied per sweep mandate).
+- **Target:** `skills/ai-quality/SKILL.md`, new subsection "Spike Falsifiable Thresholds Must Derive from the Consumer's UX Budget" (placed before `## Fragment Routing`).
+- **What:** A spike's falsifiable numeric thresholds (latency, cost, error rate) MUST be derived from the consuming surface's documented UX budget rather than generic latency folklore — e.g. async-tolerant surfaces: 10-30s; voice surfaces: must stay invisible inside the STT+TTS round-trip; interactive chat/UI surfaces: sub-2s. If no per-surface budget is documented, the spike's first deliverable is an operator interview that establishes it, before any numeric threshold is written.
+- **Why (source):** `reflection-AGENT-0018.md` Proposal 2 — AGENT-0018's Criterion 2 (`<2000ms`) was inherited from generic latency folklore rather than the actual consumer (AGENT-0017), whose surface tolerates 10-30s. Mis-scoping the threshold to the wrong consumer risks falsifying an otherwise-viable design (or the reverse: passing a design unusable on a stricter surface).
+- No pre-existing "Spike Contracts" section was found in `skills/evolution/` or `skills/ai-quality/` (searched both directories for `spike`/`falsifiable`/`threshold`); this is a net-new subsection rather than an amendment to an existing one, hosted in `ai-quality/SKILL.md` alongside its other AC/threshold-formulation patterns (`Pipeline-Position-Aware AC Formulation`, `Atomic Multi-Surface Plan Amendment`).
+- **Verification:** `scripts/stack-agnostic-gate.sh skills/ai-quality/SKILL.md` → PASS; no Cyrillic/non-ASCII introduced (diff-scoped grep, clean); added `tests/tune-0180-spike-budget-inheritance.bats` (5 new assertions: subsection presence, operator-interview rule, house ordering before Fragment Routing, stack-agnostic-gate PASS, no-Cyrillic) — 5/5 green; `bats tests/` full suite green (see PR for count).
+
 ## 2026-07-02 — FIX-testdb-local-dsn reflection — Align check-deferral-prose.sh invocations with shipped CLI (Class A applied)
 
 - Recurrence of `incident_class: command-template-flag-drift` (first recorded in the local Aether workspace's `reflection-DEV-1563.md`, which pre-committed to promotion on recurrence). The `/dr-qa` and `/dr-compliance` command templates invoked `dev-tools/check-deferral-prose.sh --file … --task {TASK-ID} --root …`, but the shipped script has NO `--task` long-opt (its opts are `--file --touched-files --root --backlog --tasks --phrases --extra-repo --report`). Passing `--task` triggers a usage error (exit 2) that reads as a hard-gate failure but is template↔script CLI skew.
