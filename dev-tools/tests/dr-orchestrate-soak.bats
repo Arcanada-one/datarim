@@ -9,8 +9,11 @@
 #   T5  weights bias is respected (W_RESOLVED=100 only emits resolved + noop=0)
 #   T6  prompts come from corpus (no empty/garbled prompts in resolved/escalated)
 #   T7  DR_SOAK_AUDIT_DIR exports DR_ORCH_AUDIT_DIR to child invocations
+#   T8-T11 seed-resolved routing + expected_outcome tagging (see inline comments)
+#   T12-T14 measure-orchestrator-soak.sh refined-formula functional coverage
+#   T15-T16 measure-orchestrator-soak.sh jq -s speedup contract + perf sanity
 #
-# Spec: TUNE-0209.
+# Spec: TUNE-0209, TUNE-0242 (V-AC-24.4 — measure-orchestrator-soak.sh speedup).
 
 SOAK="$BATS_TEST_DIRNAME/../dr-orchestrate-soak.sh"
 
@@ -257,4 +260,61 @@ MEOF
     # No expected_outcome=resolved events → should exit 1 (no data for refined metric)
     run "$MEASURE" --audit-dir "$AUDIT" --since 1h --max-false-escalate 0.15 --verbose
     [ "$status" -eq 1 ]
+}
+
+# ---------------------------------------------------------------------------
+# T15-T16  TUNE-0242 V-AC-24.4 — jq -s speedup contract + perf sanity
+# ---------------------------------------------------------------------------
+# The original script spawned ~4 jq subprocesses PER LINE inside a
+# `while IFS= read -r line` loop (schema_version, timestamp, expected_outcome,
+# outcome), which stalled the pipe on large audit logs (~7min per
+# verify-INFRA-0199-soak.md § Discrepancies #3). T15 is a contract
+# assertion that the antipattern is gone and a single slurp-mode jq
+# invocation is used instead. T16 is a perf sanity check on a synthetic
+# 1000-line fixture (functional correctness + a generous time budget —
+# not a brittle exact-multiplier assertion).
+
+# T15: contract — no per-line jq subprocess spawning
+@test "T15 jq_speedup_contract: single slurp-mode jq invocation, no per-line jq loop" {
+    MEASURE="$BATS_TEST_DIRNAME/../measure-orchestrator-soak.sh"
+    # The old antipattern: a while-read loop piping each line into jq via <<<.
+    run grep -c 'while IFS= read -r line' "$MEASURE"
+    [ "$output" -eq 0 ]
+    run grep -c '<<<"\$line"' "$MEASURE"
+    [ "$output" -eq 0 ]
+    # The new pattern: a single jq invocation reading raw lines via `inputs`
+    # (jq's slurp-equivalent for multi-file JSONL) rather than per-line jq -r.
+    grep -q -- '-R -r -n\|jq -s' "$MEASURE"
+    grep -q -- '\[inputs | fromjson?\]' "$MEASURE"
+}
+
+# T16: perf sanity — 1000-line fixture completes fast and produces correct rate
+@test "T16 jq_speedup_perf: 1000-line fixture is correct and completes well under old-approach time" {
+    MEASURE="$BATS_TEST_DIRNAME/../measure-orchestrator-soak.sh"
+    AUDIT="$TMPROOT/measure-perf-fixture"
+    mkdir -p "$AUDIT"
+    AFILE="$AUDIT/audit-2026-07-10.jsonl"
+    : > "$AFILE"
+    # 1000 synthetic schema_v2 events, deterministic modulo pattern:
+    # outcome escalated every 5th line, expected_outcome escalated every 7th
+    # line (so expected_outcome==resolved AND outcome==escalated — i.e. a
+    # false escalation — happens on lines where i%5==0 and i%7!=0).
+    for i in $(seq 0 999); do
+        sec=$((i % 60)); minute=$(( (i / 60) % 60 )); hour=$(( (i / 3600) % 24 ))
+        if (( i % 5 == 0 )); then outcome=escalated; else outcome=resolved; fi
+        if (( i % 7 == 0 )); then expected=escalated; else expected=resolved; fi
+        printf '{"schema_version":2,"timestamp":"2026-07-10T%02d:%02d:%02dZ","outcome":"%s","expected_outcome":"%s","stage":"parse","confidence":0.9}\n' \
+            "$hour" "$minute" "$sec" "$outcome" "$expected" >> "$AFILE"
+    done
+    start=$(date +%s%N)
+    run "$MEASURE" --audit-dir "$AUDIT" --since 90000h --max-false-escalate 0.99 --verbose
+    end=$(date +%s%N)
+    elapsed_ms=$(( (end - start) / 1000000 ))
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "resolved=686" ]]
+    [[ "$output" =~ "escalated=171" ]]
+    # Old per-line-jq approach took ~12s on this fixture in local timing;
+    # generous 5s ceiling to absorb slow/loaded CI runners while still
+    # catching a regression back to the per-line antipattern.
+    [ "$elapsed_ms" -lt 5000 ]
 }
