@@ -87,6 +87,7 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
 6.  **Technology Validation**:
     -   Document technology stack selection.
     -   Verify dependencies and build configuration.
+    -   **Reuse-first check (MANDATORY when the plan's Implementation Steps introduce a new non-secret, cross-project-reusable module)**: re-verify the `catalog.json` lookup from `/dr-prd` Step 3 — the catalog may have moved since PRD time. Consult `@arcanada/*` (`catalog.json` in `Arcanada-one/arcanada-shared`, generated via `pnpm catalog`; browse `arcanada-shared/packages/*` if the catalog isn't merged yet) before locking a new local implementation into Implementation Steps. Any step that consumes an existing `@arcanada/*` package MUST specify a `reuse: @arcanada/<pkg>` marker comment at the call site. See `documentation/mandates/reuse-first-mandate.md`.
 
 6.5.  **Symbol Existence Check (MANDATORY when the plan names a method, function, file, flag, env var, or CLI command as a fix target)**:
     -   For every named code surface in the plan (e.g. `module.foo`, `path/to/file.ext`, `--flag-name`, `$ENV_VAR`), grep the project to confirm it exists.
