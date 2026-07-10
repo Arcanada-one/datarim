@@ -29,7 +29,7 @@ description: Explore architectural and design decisions for complex features (Le
     - **Define problem** clearly and specifically.
     - **Explore 3+ options** with different approaches.
     - **Analyze tradeoffs** — pros, cons, complexity, effort for each option.
-    - **Make decision** with clear rationale.
+    - **Make decision** with clear rationale. If the decision only takes observable effect after a deploy/cutover (not merely after the code merges), mark it explicitly in the § Decision subsection — e.g. `**Deploy-gated:** yes — takes effect after <deploy step>` — so `/dr-plan` can cross-reference it via a `[deploy-gated — see creative-{TASK-ID}.md § Decision]` annotation on the dependent Implementation Step(s).
     - **Document implementation plan** — specific steps to realize the decision.
     - **Visualize** — include diagrams (mermaid) where helpful.
     - **Apply quality rules**: #6 Corner Cases, #7 Skeleton, #9 Cognitive Load, #13 Transactions (see `ai-quality.md` § Stage-Rule Mapping).

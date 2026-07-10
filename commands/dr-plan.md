@@ -42,6 +42,8 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
     -   **Data Flow**: Trace input -> processing -> output.
     -   **Security Design**: Perform **Threat Modeling** and map to **Security Controls** (Appendix A).
 
+4.5. **Plan ↔ Creative Deploy-Dependency Cross-Reference** (MANDATORY when this task has a companion `datarim/creative/creative-{TASK-ID}-*.md` design doc that marks any Decision as deploy-gated — i.e. the decision only takes observable effect after a deploy/cutover, not merely after the code merges): for every Implementation Step whose completion depends on such a decision, annotate the step inline with `[deploy-gated — see creative-{TASK-ID}.md § Decision]`. This makes the deploy dependency visible to `/dr-qa` Layer 3 (Plan Completeness) and to the operator reading the plan, instead of surfacing only when a step marked "done" turns out to still be waiting on a deploy. Cost: one grep of the creative doc's § Decision sections for a deploy-gated marker. Saving: avoids a `/dr-qa` false-positive on a step that is code-complete but not yet effective.
+
 5.  **Create Implementation Plan (Phase 5)** — thin-index schema:
     -   **`datarim/tasks.md`** carries ONLY the one-liner pointer (canonical regex per `skills/datarim-system/SKILL.md` § Operational File Schema):
         ```
