@@ -32,7 +32,7 @@ effort: high
     - Extract all verifiable factual claims.
     - Verify each claim against authoritative sources using WebSearch and WebFetch.
     - Assign verdicts: ACCURATE, INACCURATE, OUTDATED, MISLEADING, UNVERIFIABLE, NEEDS_CONTEXT.
-    - For critical claims, cross-reference with 2+ independent sources.
+    - Cross-reference source count per claim importance level — see `$HOME/.claude/skills/factcheck/SKILL.md` § Importance levels (do not restate the thresholds here; they drift independently otherwise).
 
     ### Phase 2: AI Pattern Removal
     - Scan for AI writing patterns: banned vocabulary, structural tells, formatting artifacts.
