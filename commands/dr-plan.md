@@ -130,6 +130,13 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
 <!-- /gate:history-allowed -->
     -   Rationale: a 30-second grep at planning time prevents 10–30 minute investigations during `/dr-do`. A plan that names a method as the fix surface but the method does not exist (e.g. behaviour was implemented inline in a different module) requires in-flight redirect — a single grep at `/dr-plan` time would have caught it.
 
+6.6.  **Auth-Parameter Widening Axis Enumeration (MANDATORY when the plan widens the accepted values of an authentication parameter — e.g. accepting a second `aud`, an additional `iss`, a broader `scope`, or an additional `alg`)**:
+    -   Enumerate every JWT claim the widened code path touches — `iss`, `aud`, `scope`, `alg`, `exp` — plus any additional claim the specific widening reads.
+    -   For each enumerated claim, confirm the plan documents how it is handled on BOTH the accept path and the reject path, not just the one axis being changed.
+    -   Add one dedicated spec case per axis variant to the Validation Checklist: an accept case for the newly-widened value, and a reject case for every other value on that axis.
+    -   Rationale: prevents pass-for-wrong-reason. A widening that touches only one axis (e.g. `aud`) can still ship a hole on an orthogonal axis (e.g. `iss`) if that axis is never independently exercised — a spec that only varies the changed axis passes while a token that is wrong on the untouched axis slips through unexamined.
+    -   Example: widening `aud` from `["auth.example.com"]` to `["auth.example.com", "auth.example.org"]` requires spec cases for `aud=.com` accept, `aud=.org` accept, `aud=other` reject, AND `iss=.com` / `iss=.org` verified independently on both accept paths — not assumed correct because the `aud` cases passed.
+
 7.  **Installer / Deploy-Script Content-Type Audit (MANDATORY when plan touches install.sh, sync-script, or any deploy/copy tool)**:
     -   Grep the file-type filter (`case "*.md"`, `find ... -name`, extension whitelist, etc.) in the target script.
     -   List every supported extension explicitly in the plan's Technology Validation or Architecture Impact section.
