@@ -90,3 +90,40 @@ counts:
     consumer_file: documentation/reference/commands.md
     pattern: ([0-9]+) slash command
     severity: error
+
+  # --- Site narrative-count sentinels (TUNE-0106, TUNE-0100 follow-up) ---
+  # The canonical live-inventory counts quoted in the datarim.club narrative
+  # surfaces (hero blurb, About page) must equal the live framework glob
+  # counts. Cross-root site paths are warning-only: they are absent in a
+  # single-repo CI checkout, but the local pre-commit hook (--strict) and the
+  # operator machine (where the site is checked out) enforce them for real.
+  - id: site_hero_agent_count
+    source_glob: agents/*.md
+    consumer_file: ../../../Websites/datarim.club/content/en.php
+    pattern: ([0-9]+) agents
+    severity: warning
+  - id: site_hero_command_count
+    source_glob: commands/dr-*.md
+    consumer_file: ../../../Websites/datarim.club/content/en.php
+    pattern: ([0-9]+) commands
+    severity: warning
+  - id: site_hero_skill_count
+    source_glob: skills/*/SKILL.md
+    consumer_file: ../../../Websites/datarim.club/content/en.php
+    pattern: ([0-9]+) skills
+    severity: warning
+  - id: site_about_agent_count
+    source_glob: agents/*.md
+    consumer_file: ../../../Websites/datarim.club/pages/about.php
+    pattern: ([0-9]+) specialized agents
+    severity: warning
+  - id: site_about_command_count
+    source_glob: commands/dr-*.md
+    consumer_file: ../../../Websites/datarim.club/pages/about.php
+    pattern: ([0-9]+) commands
+    severity: warning
+  - id: site_about_skill_count
+    source_glob: skills/*/SKILL.md
+    consumer_file: ../../../Websites/datarim.club/pages/about.php
+    pattern: ([0-9]+) skills
+    severity: warning
