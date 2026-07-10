@@ -55,7 +55,7 @@ else
     echo "PASS: no double-prefix (dr-dr-)"
 fi
 
-# v1.17.0 (TUNE-0033 AC-7): detect local/ overlay overrides
+# v1.17.0: detect local/ overlay overrides
 LOCAL_DIR="${CLAUDE_DIR:-$HOME/.claude}/local"
 if [ -d "$LOCAL_DIR" ]; then
     echo ""

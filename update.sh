@@ -18,7 +18,7 @@ VERSION_FILE="$SCRIPT_DIR/VERSION"
 DRY_RUN=false
 CLAUDE_DIR="${CLAUDE_DIR:-$HOME/.claude}"
 
-# v1.17.0 (TUNE-0033): inspect runtime topology so we can branch update logic.
+# v1.17.0: inspect runtime topology so we can branch update logic.
 # Returns "symlink" / "copy" / "mixed" / "none" on stdout.
 detect_runtime_mode() {
     local s symlink_count=0 dir_count=0 present=0
