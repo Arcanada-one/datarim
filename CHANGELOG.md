@@ -4,6 +4,18 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.53.0] — 2026-07-10
+
+### Added
+
+- **Automatic post-step Self-Verification Hook wired into `/dr-prd`, `/dr-plan`, `/dr-do`** — after every pipeline stage the command now runs the tri-layer self-verification contract automatically (the pipeline-integrated counterpart of manual `/dr-verify`), reusing `skills/self-verification/SKILL.md`. Complexity-tiered dispatch: L1 tasks skip the hook (skill overhead exceeds value), L2 runs the deterministic Layer 1 floor plus a single peer-review agent, L3/L4 add the 3-parallel native dispatch (reviewer / tester / security). Advisory and findings-only by default (`DATARIM_VERIFY_HOOK_MODE=hard` opt-in makes a floor `BLOCKED` verdict flip the CTA to FAIL-Routing); kill switch `DATARIM_DISABLE_VERIFY_HOOK=1`. Unblocked by the TUNE-0137 R-5 v2 prospective-dogfood gate (`rate_per_5_tasks=23.10 ≫ 1.0`, `decision_hint: spawn automated post-step hook`). New wiring test `tests/command-verify-hook.bats`. (TUNE-0138)
+- **Coworker type-signature mirror guard** — `skills/coworker-context` § Type-Signature Mirror Guard + `scripts/check-coworker-canonical-mirror.sh` linter: when a coworker draft cites types/variants from a canonical source, the spec must carry a verbatim canonical block, an exact-mirror instruction, and a post-generation regex-grep pass. Prevents fabricated type signatures. (TUNE-0248)
+- **`skills/fleet/SKILL.md` router entry** added (the five level fragments l1–l5 previously had no top-level SKILL.md), fixing the `check-skill-layout` failure. (TUNE-0160)
+
+### Fixed
+
+- **Coworker `write --context` file-type gate documented accurately** — the delegation fragment previously claimed write paths had no allowlist; corrected to describe the `--context` code-gate (needs `--allow-code`/`COWORKER_ALLOW_CODE=1`), the `--target`-only exemption, and the self-recursion doc-generation workaround. (TUNE-0261)
+
 ## [2.52.0] — 2026-07-10
 
 ### Added
