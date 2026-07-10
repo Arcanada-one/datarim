@@ -33,7 +33,7 @@ inputs:
     description: Emit warning/fatal events to Ops Bot.
   ops-bot-url:
     required: false
-    default: https://ops.arcanada.one/events
+    default: https://ops.arcanada.ai/events
     description: Ops Bot events endpoint. Validated against canonical allowlist in PROD trigger contexts (strict reject; non-PROD WARN-only).
   ops-bot-key:
     required: false

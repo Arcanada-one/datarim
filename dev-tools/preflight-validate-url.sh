@@ -10,14 +10,14 @@
 #   0  — URL canonical (PROD or non-PROD), or non-PROD non-canonical (WARN to stderr).
 #   1  — PROD non-canonical (block deploy).
 #
-# Canonical URL: https://ops.arcanada.one/events
+# Canonical URL: https://ops.arcanada.ai/events
 #
 # Used by .github/actions/preflight-check/action.yml composite step
 # "Validate ops-bot-url against PROD allowlist".
 
 set -euo pipefail
 
-readonly ALLOWLIST_REGEX='^https://ops\.arcanada\.one/events$'
+readonly ALLOWLIST_REGEX='^https://ops\.arcanada\.ai/events$'
 
 url="${PREFLIGHT_OPS_BOT_URL:-}"
 is_prod="${PREFLIGHT_IS_PROD_CONTEXT:-false}"
@@ -32,7 +32,7 @@ if [[ "$url" =~ $ALLOWLIST_REGEX ]]; then
 fi
 
 if [[ "$is_prod" == "true" ]]; then
-    echo "ERR: ops-bot-url must match canonical https://ops.arcanada.one/events for PROD trigger contexts (got: $url)" >&2
+    echo "ERR: ops-bot-url must match canonical https://ops.arcanada.ai/events for PROD trigger contexts (got: $url)" >&2
     exit 1
 fi
 

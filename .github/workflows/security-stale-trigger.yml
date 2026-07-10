@@ -37,7 +37,7 @@ jobs:
     name: scan accepted-risk registers
     runs-on: ubuntu-latest
     env:
-      OPS_BOT_ENDPOINT: 'https://ops.arcanada.one/events'
+      OPS_BOT_ENDPOINT: 'https://ops.arcanada.ai/events'
       OPS_BOT_API_KEY: ${{ secrets.OPS_BOT_API_KEY }}
       TARGET_REPOS_INPUT: ${{ inputs.target_repos }}
       TARGET_REPOS_ORG: ${{ vars.SECURITY_POLICY_REPOS }}

@@ -46,7 +46,7 @@ DETECTOR="${DRIFT_SWEEP_DETECTOR:-$SCRIPT_DIR/check-repo-site-sync.sh}"
 SINK_LIB="${DRIFT_SWEEP_SINK_LIB:-$SCRIPT_DIR/lib/backlog-sink.sh}"
 
 # Ops Bot egress — HTTPS-pinned constant host (never interpolated from input).
-OPS_BOT_URL="${DRIFT_SWEEP_OPS_BOT_URL:-https://ops.arcanada.one/events}"
+OPS_BOT_URL="${DRIFT_SWEEP_OPS_BOT_URL:-https://ops.arcanada.ai/events}"
 
 REGISTRY_REL="documentation/ecosystem-sync/registry.yml"
 

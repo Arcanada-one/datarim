@@ -42,7 +42,7 @@ setup() {
 
 @test "dr-do.md documents --skip-exposure-gate override + Ops Bot warning" {
     grep -q -- "--skip-exposure-gate" "$CMD/dr-do.md"
-    grep -q "ops.arcanada.one/events" "$CMD/dr-do.md"
+    grep -q "ops.arcanada.ai/events" "$CMD/dr-do.md"
 }
 
 @test "dr-archive.md references both verifier and gate executor" {

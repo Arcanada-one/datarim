@@ -483,7 +483,7 @@ Datarim framework's contribution:
   `python`, `framework`. First step is the `SECURITY.md` presence-gate;
   second step validates the accepted-risk register when present.
 - **`.github/workflows/security-stale-trigger.yml`** — cron Monday 09:00 UTC
-  watcher. POSTs to `https://ops.arcanada.one/events` when an entry's
+  watcher. POSTs to `https://ops.arcanada.ai/events` when an entry's
   `re_review` date has passed; severity escalates from `warning` to
   `fatal` after 30 days overdue. Uses existing `OPS_BOT_API_KEY` org
   secret. Fail-soft on Ops Bot non-2xx and on missing secret.

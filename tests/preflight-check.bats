@@ -512,7 +512,7 @@ ACTION_YML="$BATS_TEST_DIRNAME/../.github/actions/preflight-check/action.yml"
 
 @test "T23a ops-bot-url allowlist: PROD + canonical accepts (exit 0)" {
     run env \
-        PREFLIGHT_OPS_BOT_URL=https://ops.arcanada.one/events \
+        PREFLIGHT_OPS_BOT_URL=https://ops.arcanada.ai/events \
         PREFLIGHT_IS_PROD_CONTEXT=true \
         bash "$VAL_URL"
     [ "$status" -eq 0 ]
