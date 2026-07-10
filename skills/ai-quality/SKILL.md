@@ -280,6 +280,27 @@ When an Acceptance Criterion's location moves mid-implementation — different c
 
 ---
 
+## Wire-Shape Citation Gate (Client/SDK/Adapter Tasks)
+
+For any task that implements a client, SDK wrapper, or adapter against an existing upstream interface (REST/gRPC contract, third-party SDK, internal service client), the plan MUST cite the exact `file:line` of every upstream symbol (method name, field name, enum value, request/response shape) the new code will call or mirror — not just name it in prose.
+
+**Rule.**
+
+1. **Grep before you write the plan step.** For each wire-shape element the plan references, run a symbol-existence grep against the upstream source (vendored SDK, generated types, contract repo) and cite the hit as `file:line` next to the plan step.
+2. **A missing hit is a plan-time finding, not a code-time surprise.** If the grep comes back empty, the plan step names a symbol that does not exist upstream — stop and correct the plan before any code generation, not after a test fails.
+3. **Cite, don't paraphrase.** "Mirrors the upstream `sendMessage` method" is not a citation. `src/vendor/sdk/client.ts:142` is.
+
+**Why.** A 1:1 wire-shape mirror verified via cited `file:line` in the plan is the cheapest correctness gate for any client/SDK/adapter task — a symbol-existence grep at plan time catches shape drift (renamed field, removed method, changed enum) before code generation, instead of during implementation or QA when the fix is more expensive.
+
+**When to apply.** Any L2+ task whose Acceptance Criteria describe matching or wrapping an existing upstream interface. Evidence cohort: CONN-0093 (Class A) and parent CONN-0089.
+
+**Anti-patterns.**
+
+- Citing the upstream doc page or changelog instead of the actual source symbol — docs drift from shipped code.
+- Writing the plan step from memory of a similar prior integration without re-grepping the current upstream version.
+
+---
+
 ## Fragment Routing
 
 Load only the fragment needed for the current sub-problem:
