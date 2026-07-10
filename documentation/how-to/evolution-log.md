@@ -2062,3 +2062,40 @@ declined as redundant.
 
 **Verification:** stack-agnostic-gate PASS, task-id-gate PASS, no Cyrillic introduced,
 `bats tests/` → 1652 tests, 0 failures.
+
+---
+
+## 2026-07-10 — TUNE-0173 (P3 sweep, reflection-TUNE-0163.md Class A Proposal 1): task-description line-number smoke check
+
+**Category:** promote-recurring-incident-to-gate · **Class:** A.
+**Target:** `skills/ai-quality/SKILL.md` § Task-Description Line-Reference Smoke Check (new section).
+
+**What:** Added a pre-edit requirement: for every `<file>:<line>` reference cited in a task
+description, run `grep -n '<expected-content>' <file>` before editing — at `/dr-do` startup for
+citations already present, and at any mid-implementation point where a NEW citation is
+introduced (Gap Discovery finding, review comment). Zero matches → ABORT with a diagnostic in
+the shape `line-not-found: expected "<X>" at line N, found zero matches in <file>`; the
+operator/agent corrects the task description before resuming the edit. Chose `skills/ai-quality/`
+over `skills/datarim-system/` — `/dr-do` Step 4 already loads `ai-quality/SKILL.md` and applies
+its stage-mapped rules, and the new gate is a quality/verification practice in the same family
+as the file's existing patterns (Pipeline-Position-Aware AC Formulation, Atomic Multi-Surface
+Plan Amendment), not a path/storage/schema convention.
+
+**Why (evidence):** a task description citing `<file>:<line>` can drift stale between authoring
+and `/dr-do` execution (prior step in the same task, concurrent task, or copy-paste staleness).
+Seen twice: TUNE-0163 Step 4 and an INFRA-0134 reflection. Editing against a stale reference is
+worse than a clean failure — a coincidental match at the wrong line silently corrupts unrelated
+content instead of failing loudly.
+
+**Verification:** `scripts/stack-agnostic-gate.sh skills/ai-quality/SKILL.md` → PASS: clean.
+`scripts/task-id-gate.sh skills/ai-quality/SKILL.md` → PASS: clean (first draft inlined
+`TUNE-0163`/`INFRA-0134` as bare task-IDs in the shipped skill body — caught by
+`tests/task-id-gate.bats` T11 regression invariant on full-suite run; fixed by rephrasing the
+rationale as history-agnostic prose, consistent with sibling "Source: prior incident" patterns
+already in the same file). No Cyrillic introduced (`grep -RPn '[\x{0400}-\x{04FF}]'` → zero
+matches in the edited skill). New markdown-smoke bats `tests/ai-quality-line-reference-smoke-gate.bats`
+(8 tests) → all green, plus targeted existing bats (`check-skill-frontmatter`, `check-skill-layout`,
+`task-id-gate` T11) green and `dev-tools/check-body-english.sh` → PASS (171 files scanned).
+Full-suite `bats tests/` → 1735/1742 passing; the 7 non-passing are pre-existing failures on the
+unmodified branch tip (fleet-evolution / role-registry subsystems, unrelated to this change) —
+confirmed via `git stash` + targeted re-run against the clean baseline before attributing them.

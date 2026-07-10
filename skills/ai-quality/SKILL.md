@@ -280,6 +280,36 @@ When an Acceptance Criterion's location moves mid-implementation — different c
 
 ---
 
+## Task-Description Line-Reference Smoke Check
+
+When a task description cites a `<file>:<line>` reference (e.g. "CHANGELOG.md:45 templates 18→23"), the referenced line can drift between when the description was written and when `/dr-do` reads it — a prior step in the same task edits the file, a concurrent task touches it, or the claim is simply stale copy-paste. Editing against a stale line reference is worse than a clean failure: the agent edits the wrong line, or the wrong content at a coincidentally-valid line number, and the mistake surfaces only later.
+
+**Rule.**
+
+1. **Smoke-check every `<file>:<line>` claim before editing it.** At `/dr-do` startup (while reading the task description) AND at any mid-implementation point where a NEW `<file>:<line>` claim is introduced (Gap Discovery finding, review comment, self-authored note), run:
+   ```bash
+   grep -n '<expected-content>' <file>
+   ```
+   where `<expected-content>` is the literal text the claim asserts lives at that line.
+2. **Zero matches → ABORT the edit.** Emit a diagnostic in this shape:
+   ```
+   line-not-found: expected "<X>" at line N, found zero matches in <file>
+   ```
+3. **Correct before proceeding.** Re-locate the claim (grep for the expected content anywhere in the file, or ask the operator) and correct the task description before resuming. Do not silently proceed on a stale reference.
+
+**Why.** A line number is a snapshot, not a live pointer. Source: prior incident, recurring twice — a task description cited a stale line-count claim that no longer matched the file by the time implementation reached it. The smoke-check costs one `grep -n`; skipping it costs a revert-and-redo cycle when the edit lands on the wrong line or the wrong file region.
+
+**When to apply.** Any task description containing a `<file>:<line>` citation — mandatory at `/dr-do` startup for citations already present, and at the moment any new citation is introduced mid-implementation.
+
+**Stack-agnostic.** `grep -n` + line lookup is universal across languages and stacks; this is a workflow gate, not stack-specific content.
+
+**Anti-patterns.**
+- Trusting a line number without a content check "because it's probably still there."
+- Proceeding at the wrong line because *some* content exists there — a coincidental match is worse than a clean grep-miss.
+- Treating the check as a one-time `/dr-do`-startup gate only — a new file:line claim introduced mid-implementation needs the same check before it drives an edit.
+
+---
+
 ## Fragment Routing
 
 Load only the fragment needed for the current sub-problem:
