@@ -280,6 +280,28 @@ When an Acceptance Criterion's location moves mid-implementation — different c
 
 ---
 
+## Probe Before Harness
+
+Before writing a subprocess wrapper, sidecar, or pipeline adapter against an external CLI or API, run a **≤60-second probe** with representative input before committing to an implementation plan. Capture stdout, stderr, and exit code from the probe run. Treat the tool's documentation as a hypothesis, not a fact, until the probe confirms the actual wire semantics.
+
+**Rule.**
+
+1. **Probe first, plan second.** Spend at most 60 seconds invoking the real CLI/API with a representative input and capture all three channels: stdout, stderr, exit code.
+2. **Documentation is a hypothesis.** A man page, `--help` output, or README describing the tool's behavior is an untested claim until the probe reproduces it. Do not encode documented behavior into a wrapper's control flow before the probe confirms it.
+3. **What the probe catches.** A single short probe surfaces the failure modes a design built purely from documentation misses most often:
+   - **Persistent-pipe vs one-shot process behavior** — whether the target process holds a long-lived stdin pipe or exits after one request/response cycle.
+   - **Response schema gaps** — fields the docs promise but the real output omits, or extra fields the docs never mention.
+   - **Exit-code semantics** — whether non-zero exit reliably signals failure, or the tool exits 0 on partial/degraded success.
+   - **Auth failure modes** — what an expired/missing credential actually returns (silent empty response vs explicit error vs hang), which a docs-only design usually gets wrong.
+
+**Why.** Source: prior incident — an inline plan assumed the target CLI exposed a persistent stdin pipe for streaming requests, based solely on its documentation. A 30-second probe with representative input disproved this immediately — the process was one-shot per invocation. Catching this before the harness was written saved roughly 200 lines of wrapper code and a day of false-build work that a docs-only design would have produced and then had to unwind.
+
+**When to apply.** Any task that writes a subprocess wrapper, sidecar process, or pipeline adapter against an external CLI or API whose wire behavior is not already proven inside this codebase. Mandatory before `/dr-plan` locks the integration approach for such a task.
+
+**Anti-pattern:** designing the full wrapper/adapter surface (retry logic, streaming assumptions, schema parsing) from documentation alone, then discovering the real behavior diverges only once the harness is built and tests start failing in ways that don't match the design.
+
+---
+
 ## Fragment Routing
 
 Load only the fragment needed for the current sub-problem:
