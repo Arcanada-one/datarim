@@ -1,0 +1,7 @@
+version: "3.9"
+# TUNE-0122: ${VAR:-N} default in the PUBLISHED-PORT slot, explicit loopback host.
+services:
+  api:
+    image: arcanada/api:latest
+    ports:
+      - "127.0.0.1:${PORT:-3700}:3700"
