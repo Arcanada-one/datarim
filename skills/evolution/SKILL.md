@@ -183,6 +183,8 @@ Before proposing `new-skill`, `new-template`, or any new file:
 2. Check if an existing template could be extended
 3. Only create a new file if the content is clearly a distinct concern
 
+**Fragment-Resolution rule.** When a backlog item or proposal references `skills/<entry>.md § <section>` and `<entry>.md` is a thin router (no body content for that section — most split skills are a directory with a `SKILL.md` router plus sibling fragment files), the executing agent MUST `grep -rln "<section>" skills/<entry>/` for fragment files **before** choosing the insertion point. The router's own text rarely repeats section headings that live in a fragment; searching only the router file returns a false "not found" and risks either creating a duplicate section or inserting content into the wrong (router) file. Recurring papercut: INFRA-0192 backlog text said `skills/testing.md`, but the referenced content actually lived in the `skills/testing/live-smoke-gates.md` fragment.
+
 Before proposing a merge:
 1. Verify both components serve the same domain
 2. Check that no information is lost in the merge
