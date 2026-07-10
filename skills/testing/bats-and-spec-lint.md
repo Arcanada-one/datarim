@@ -246,8 +246,10 @@ start=$(python3 -c 'import time; print(time.perf_counter())')
 # ... operation under test ...
 end=$(python3 -c 'import time; print(time.perf_counter())')
 elapsed=$(python3 -c "print(${end} - ${start})")
+# assert the duration bound (this is what the measurement is for):
+awk "BEGIN { exit !(${elapsed} < 2.0) }" || echo "duration ${elapsed}s exceeded 2.0s bound"
 ```
 
 Use this in any bats test that asserts a duration bound (timeout regression, performance-floor check) instead of `date +%s%N` subtraction.
 
-Source: deferred from TUNE-0202 Step 0.5 (Class A2).
+Source: deferred from a prior task Step 0.5 (Class A2).
