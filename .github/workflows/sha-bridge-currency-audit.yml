@@ -1,0 +1,64 @@
+# INFRA-0202: weekly currency audit for the `preflight-check` SHA-bridge
+# (preflight-mandate.md § clause 8, CI-Runners.md § 3.5).
+#
+# Probes whether ecosystem consumer files still pin the transitional
+# `preflight-check@<baked-SHA>` bridge and, once tag v1 is published, runs
+# the 7-day OP-3 decommission clock (warning on window-open, fatal once
+# overdue, single info event + persisted state once fully removed).
+#
+# Deliberately NOT a runner-side systemd job on arcana-dev — Operational
+# Resilience Mandate Principle 2 treats the laptop-class runner as unfit for
+# production-critical drift detection. Mirrors security-stale-trigger.yml.
+#
+# Fail-soft: dev-tools/sha-bridge-audit.sh emits `::warning::`/`::error::`
+# annotations and always exits 0 on its own network/API errors so this cron
+# never pages on its own pipeline outages.
+#
+# Decommission state (decommissioned_at / window_opened_at) is Vault-backed
+# per the script's primary path once `vault` + VAULT_ADDR/auth are wired up
+# operator-side (not done here — real Vault auth provisioning is a
+# hard-gated follow-up). Until then the script falls back to a local state
+# file; this job commits that file back to the repo so the state survives
+# across ephemeral runner invocations without needing Vault secrets.
+
+name: sha-bridge-currency-audit
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sha-bridge-currency-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: probe SHA-bridge currency + decommission clock
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      OPS_BOT_API_KEY: ${{ secrets.OPSBOT_API_KEY }}
+      VAULT_ADDR: ${{ vars.VAULT_ADDR }}
+      SHA_BRIDGE_STATE_FILE: dev-tools/.state/sha-bridge-audit.state
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: true
+
+      - name: Run sha-bridge-audit.sh
+        run: |
+          mkdir -p dev-tools/.state
+          bash dev-tools/sha-bridge-audit.sh
+
+      - name: Persist state file (fallback path only — no-op once Vault-backed)
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add -A dev-tools/.state/
+          git diff --cached --quiet && exit 0
+          git commit -m 'chore(INFRA-0202): sha-bridge-audit state update [skip ci]'
+          git push
