@@ -1,7 +1,7 @@
 # /dr-plugin — Datarim Plugin System CLI
 
 **Source:** plugin-system core PRD and plan (see workspace `datarim/prd/` and `datarim/plans/` indexes).
-**Status:** `list` + first-run bootstrap, `enable`, `disable`, `sync`, and `doctor` are all implemented and covered by `tests/dr-plugin.bats` + `tests/dr-plugin-coverage.bats`. Git-URL clone for `enable` (Phase A4) remains the only deferred path.
+**Status:** `list` + first-run bootstrap, `enable`, `disable`, `sync`, and `doctor` are all implemented and covered by `tests/dr-plugin.bats` + `tests/dr-plugin-coverage.bats`. Git-URL clone for `enable` (Phase A4) remains the only deferred path. `enable dr-orchestrate` additionally refuses (exit 1) unless the consumer workspace's `CLAUDE.md` already contains the string "Autonomous Agent Operating Rules" — the plugin ships FB-rules enforcement and assumes the mandate text is already mirrored at rank-1 level (TUNE-0187).
 
 ## Purpose
 
