@@ -39,3 +39,10 @@ homepage: https://example.com/my-plugin
 # Plugins that MUST be enabled before this one:
 # depends_on:
 #   - other-plugin-id
+
+# Rollout gate — set to true for a plugin that hosts autonomous agents. When
+# true, `/dr-plugin enable` refuses activation until the consumer ecosystem
+# CLAUDE.md mirrors the canonical Autonomous Agent Operating Rules (FB-1..FB-8)
+# at rank-1 mandate level (checked by scripts/check-fb-rules-mirror.sh). Default:
+# unset (no gate). See documentation/reference/fb-rules-consumer-rollout.md.
+# requires_fb_rules_mirror: true
