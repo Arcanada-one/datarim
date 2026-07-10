@@ -73,7 +73,7 @@ When the operator references a deprecated, archived, or legacy tool by name, run
 
 A 5-minute docs-probe can save hours of unnecessary scaffolding: check whether the named tool already has a maintained successor, or whether the "missing" capability shipped as a built-in of the current major version, before scoping a replacement build.
 
-Source: INFRA-0144 reflection Class A proposal NS3.
+Source: a prior reflection Class A proposal (NS3).
 
 ---
 
