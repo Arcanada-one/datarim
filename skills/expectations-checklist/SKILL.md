@@ -115,6 +115,27 @@ invocation. Migration recipe: add `evidence_type: empirical` (or
 _(empty on first write)_
 ```
 
+### `override` indent — concrete syntax
+
+`dev-tools/check-expectations-checklist.sh` matches the override line with the
+exact regex `^  - override:` — 2 spaces, same indent level as `wish_id` /
+`Что хочу проверить` / `Связанный AC из PRD`. A misplaced `override` nested at
+the 4-space level (the indent used by `#### Текущий статус` sub-items) is
+invisible to the regex: the validator finds no override and silently returns
+`BLOCKED` for a partial/missed wish, with no diagnostic pointing at the indent.
+
+Correct (2-space, matches the regex):
+
+```markdown
+  - override: soak period not yet complete, see follow-up TASK-1234
+```
+
+Incorrect (4-space, silently ignored by the validator):
+
+```markdown
+    - override: soak period not yet complete, see follow-up TASK-1234
+```
+
 ### Item rules
 
 - **`wish_id`** is a kebab-slug derived from the title. Cyrillic letters,
