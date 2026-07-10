@@ -292,7 +292,7 @@ For any task that implements a client, SDK wrapper, or adapter against an existi
 
 **Why.** A 1:1 wire-shape mirror verified via cited `file:line` in the plan is the cheapest correctness gate for any client/SDK/adapter task — a symbol-existence grep at plan time catches shape drift (renamed field, removed method, changed enum) before code generation, instead of during implementation or QA when the fix is more expensive.
 
-**When to apply.** Any L2+ task whose Acceptance Criteria describe matching or wrapping an existing upstream interface. Evidence cohort: CONN-0093 (Class A) and parent CONN-0089.
+**When to apply.** Any L2+ task whose Acceptance Criteria describe matching or wrapping an existing upstream interface. Evidence cohort: a prior connector-integration incident (Class A).
 
 **Anti-patterns.**
 
