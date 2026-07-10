@@ -127,13 +127,13 @@ invisible to the regex: the validator finds no override and silently returns
 Correct (2-space, matches the regex):
 
 ```markdown
-  - override: soak period not yet complete, see follow-up TASK-1234
+  - override: soak period not yet complete, see follow-up TASK-XXXX
 ```
 
 Incorrect (4-space, silently ignored by the validator):
 
 ```markdown
-    - override: soak period not yet complete, see follow-up TASK-1234
+    - override: soak period not yet complete, see follow-up TASK-XXXX
 ```
 
 ### Item rules
