@@ -212,7 +212,7 @@ Load only the fragment needed for the current sub-problem:
   Use whenever you would otherwise write production code without a failing test first. Mandates the RED-GREEN-REFACTOR cycle, captures the common rationalizations and the canonical responses, and lists the red-flag phrases that mean STOP and start over.
 
 - `live-smoke-gates.md`
-  Use for raw-SQL / cross-datasource Live Smoke-Test Gate, cross-container Docker smoke, user-switch deployment gates, and N=1 smoke validation before bulk ingest/transform. Trigger when the change touches `$queryRaw`, multi-datasource code, Docker orchestration, container health, runtime user/permissions, or any bulk run that depends on entity resolution / record linkage / normalization.
+  Use for raw-SQL / cross-datasource Live Smoke-Test Gate, cross-container Docker smoke, user-switch deployment gates, N=1 smoke validation before bulk ingest/transform, and recorded-fixture tests for thin HTTP wrapper clients. Trigger when the change touches `$queryRaw`, multi-datasource code, Docker orchestration, container health, runtime user/permissions, any bulk run that depends on entity resolution / record linkage / normalization, or a new/changed wrapper client around an external/internal HTTP service.
 
 - `silent-failure-detection.md`
   Use for wrappers around CLIs/subprocesses that exit `0` on error and write error sentences to stdout (LLM CLIs, cloud tools). Mandates structured-output parsing, raise-inside-wrapper, and testing both exit-code scenarios.
@@ -229,7 +229,7 @@ Load only the fragment needed for the current sub-problem:
 
 ## Quick Routing Heuristic
 
-- Touching raw SQL, cross-datasource, Docker orchestration, or user-switch deploy? → `live-smoke-gates.md`.
+- Touching raw SQL, cross-datasource, Docker orchestration, user-switch deploy, or writing a thin HTTP wrapper client? → `live-smoke-gates.md`.
 - Shipping an agent/daemon/cron that drives a CLI/LLM/subprocess and acts on its output? → `live-smoke-gates.md` § Gate 7 (Agentic Entrypoint Wiring + Live-Run): prove the real entrypoint reaches the declared function AND run it once live against the real tool before any "the agent does X via <tool>" wish can be marked met.
 - Wrapping a CLI / subprocess that exits 0 on error? → `silent-failure-detection.md`.
 - Writing or maintaining bats tests, or regex-asserting markdown prose? → `bats-and-spec-lint.md`.

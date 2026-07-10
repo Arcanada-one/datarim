@@ -1,6 +1,6 @@
 ---
 name: testing/live-smoke-gates
-description: Live verification gates for raw SQL, cross-container orchestration, and user-switch deployments. Mocked tests cannot satisfy these.
+description: Live verification gates for raw SQL, cross-container orchestration, user-switch deployments, and recorded-fixture HTTP wrapper tests. Mocked tests cannot satisfy these.
 ---
 
 # Live Smoke-Test Gates
@@ -318,6 +318,42 @@ A live agentic run on a host whose notification channels are configured will sen
 ### Reference incident
 
 A self-healing reviewer agent: orchestrator and all repair lanes were fully written and unit-tested (115+ green tests, all with injected mock subprocess), but the real entrypoint (`cli.main → run_pass`) only performed a Phase-1 snapshot diagnose+notify — `orchestrator.run_loop` and every repair lane were **never called from the entrypoint**, and the external CLI was **never invoked in prod** even with the feature flag enabled. QA marked the `empirical` "cron agent diagnoses via CLI and heals" wish **met** on the mock suite plus a kill-switch-OFF exit-0 probe (which proves the agent does *nothing*), and proposed archive. The operator caught it: "you never even enabled the agent — not a single live test run". Root cause: no gate required (a) entrypoint→function reachability or (b) one live CLI run before an agentic wish could pass.
+
+---
+
+## Gate 8: Recorded-Fixture Tests for HTTP Wrappers
+
+**Who this applies to:** any thin wrapper client around an external or internal HTTP service (a REST/JSON API client, a webhook sender, a service-to-service call) whose correctness depends on the *real* shape of the counterparty's response — not on a hand-written stub the wrapper's own author invented.
+
+### Why hand-written stubs don't satisfy it
+
+A synthetic stub encodes what the author *believes* the response looks like at the time the wrapper is written. If that belief is wrong (a field renamed, an envelope wrapper the docs omit, a nullable field the happy-path sample never shows), the stub and the wrapper agree with each other and the test suite is green — while the wrapper silently mis-parses every real response in production. The bug class is invisible to a test built entirely from the same author's assumptions; only a recorded real response can contradict a wrong assumption.
+
+### When the gate is mandatory
+
+The gate **must** fire before a thin HTTP wrapper is considered done when:
+
+- The wrapper's job is to call a real external/internal HTTP endpoint and decode the response into a typed shape the rest of the codebase trusts.
+- No prior fixture for that endpoint/response-shape already exists in the consuming project's fixtures doc.
+
+### What a passing gate looks like
+
+1. **Capture one real response before writing the wrapper.** Before the client implementation exists, make one real call against the target service (or use the earliest available real occurrence) and record the exact response — status, load-bearing headers, full body — into a fixtures doc that lives in the **consuming project**, not in this framework repo: `datarim/tasks/<TASK-ID>-fixtures.md`. This mirrors the existing Fixture-Capture-for-External-Output convention (`commands/dr-plan.md` § Fixture Capture for External Output) applied specifically to HTTP wrapper clients.
+2. **The wrapper's spec/test file MUST include at least one integration-style test that asserts against the recorded fixture**, not a synthetic/hand-written stub. Load the fixture body into the test's HTTP-interception layer and assert the wrapper decodes it correctly.
+   <!-- gate:example-only -->
+   An "nock/msw-style" HTTP-mocking approach is a widely-known illustrative example of the interception mechanism — but the rule itself is stack-agnostic: intercept the outbound call and reply with the recorded body, don't fabricate a new one.
+   <!-- /gate:example-only -->
+3. **The spec MUST fail if the response shape drifts.** The recorded fixture is decoded/validated through the same schema/type boundary the production wrapper uses at runtime — the fixture is the source of truth the test decodes against, not a loosely-typed literal the test merely echoes back. If the counterparty renames a field or changes a type, the fixture-backed test must fail at the decode/validate step, not silently pass a permissive untyped comparison.
+
+### Why mocks alone don't satisfy it
+
+A hand-written stub and a hand-written wrapper share one author's mental model of the contract. Every layer of the test — request shape, response shape, decode logic — can be internally consistent and still be collectively wrong about what the real counterparty sends. Recording one real response before implementation, then asserting against it through the real decode path, is the only step in this workflow that introduces evidence external to the author's assumptions.
+
+### Verdict
+
+- Fixture captured before implementation, in the consuming project's fixtures doc, + spec asserts against the recorded fixture through the real decode boundary → **PASS**.
+- Wrapper spec uses only hand-written/synthetic stubs, no recorded real response → **FAIL** — the wrapper's belief about the shape was never checked against reality.
+- Fixture captured but the spec asserts on a loosened/re-typed copy of it (not decoded through the real schema) → **FAIL** — a shape drift would not trip the assertion.
 
 ---
 
