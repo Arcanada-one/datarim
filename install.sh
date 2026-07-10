@@ -543,6 +543,33 @@ setup_coworker_hook_symlink() {
     echo "  LINK: coworker-hook-guard → $src"
 }
 
+# DEV-1575 (2026-07-10): symlink ~/.local/bin/asana-identity-guard.sh → canonical
+# Datarim source. Mirrors setup_coworker_hook_symlink. This guard hard-denies any
+# Asana OR GitLab WRITE authenticated with a non-Pavel token (a *.env director
+# token) so agents act ONLY as Pavel Valentov on every machine. Operator-registered
+# in ~/.claude/settings.json (Claude) and ~/.codex/hooks.json (Codex) — see
+# documentation/how-to/codex-cli-coworker-hooks.md. Idempotent; honours DRY_RUN.
+setup_asana_identity_guard_symlink() {
+    local src="$SCRIPT_DIR/dev-tools/asana-identity-guard.sh"
+    local dst="$HOME/.local/bin/asana-identity-guard.sh"
+    [ -f "$src" ] || return 0
+    if [ "$DRY_RUN" = true ]; then
+        echo "DRY: ln -sfn $src $dst"
+        return 0
+    fi
+    mkdir -p "$(dirname "$dst")"
+    # Back up a pre-existing real (hand-installed) file exactly once.
+    if [ -e "$dst" ] && [ ! -L "$dst" ]; then
+        local ts bak
+        ts=$(date -u +%Y%m%dT%H%M%SZ)
+        bak="$dst.bak-DEV-1575-$ts"
+        mv "$dst" "$bak"
+        echo "  BACKUP: $dst → $bak"
+    fi
+    ln -sfn "$src" "$dst"
+    echo "  LINK: asana-identity-guard.sh → $src"
+}
+
 # Codex hook self-heal: replace stale temporary probe hooks that no longer
 # exist (for example `/tmp/codex-probe-hook.sh`) with the canonical guard.
 # Existing non-stale custom hooks are left untouched.
@@ -1352,6 +1379,9 @@ fanout_runtime() {
     # Idempotent on re-run; runs for both claude and codex fanouts so a
     # codex-only install still gets the hook symlink.
     setup_coworker_hook_symlink
+    # DEV-1575: link canonical asana-identity-guard.sh (Asana+GitLab Pavel-only
+    # write guard) alongside it, same idempotent per-fanout semantics.
+    setup_asana_identity_guard_symlink
     if [ "$runtime_name" = "codex" ]; then
         heal_codex_stale_probe_hooks "$CLAUDE_DIR"
     fi
