@@ -21,6 +21,17 @@ Reusable patterns for SSH-based operations across Arcana servers.
 
 > Always verify current IPs against `memory/reference_arcana_www_server.md` before use.
 
+## Post-Provision Checklist — Public IP
+
+Any server inventory record (this table, a project's `space.yml`, or equivalent) for a host with a routable public address MUST have that address recorded before the provisioning task is closed. Do not leave the field `null`/blank "for later" once a routable address exists.
+
+**Why.** A server bootstrapped without its public IP recorded reads as unreachable/dark to anyone consulting the inventory later — the address exists and is reachable, but the record gives no evidence of that, so an operator has no way to distinguish "not yet provisioned" from "provisioned, IP not written down". The gap surfaces only when someone happens to `ssh root@<ip>` from a stale note elsewhere and is surprised the host answers.
+
+**Rule.** As the last step of provisioning (or first step of onboarding an existing host into the inventory), confirm the host has a routable public interface (`ip -4 addr show` on the host, or the cloud provider's dashboard) and write the address into the inventory record in the same commit/change as the rest of the provisioning artefacts.
+
+**Optional lint.** A pre-commit or CI check MAY flag an inventory record where a public-interface field is `null`/empty while the host is reachable at a known address — treat this as a checklist reminder, not a hard gate, since some hosts are intentionally NAT-only.
+
+
 ## SSH Batch Execute
 
 > **Bootstrap once** (Datarim § Security Mandate S1, host-key verification):
@@ -317,6 +328,13 @@ docker inspect <container> --format '{{index .Config.Labels "com.docker.compose.
 **Why.** `docker compose` commands run without an explicit `-f` fall back to the default `docker-compose.yml` in the working directory. If the working container was actually started with an overlay (`-f docker-compose.yml -f docker-compose.prod.yml`), an unqualified `down`/`up` targets the wrong compose project definition and can bring up the container against dev-shaped config (e.g. default dev credentials, missing `env_file`/`VAULT_ADDR`) — silently replacing a working production container with a broken default one.
 
 **Rule.** Read the label above and pass the exact same `-f` file list back to `docker compose`, or use `docker compose -p <project>` to bind to the existing project name. Never assume the compose file list from memory or from a runbook written before the last config change.
+## Cutover Re-sync Scope Rule
+
+The final re-sync inside a migration/cutover window MUST cover every stateful storage the service depends on (Postgres, Mongo, Vault data, any file-backend) — not just the primary database. Verify freshness of each store individually (e.g. compare a last-write timestamp or row/key count against the source) before declaring the new primary live.
+
+**Why.** A new primary can pass a DB-freshness check while a co-located stateful store (Vault's storage backend, a cache warm-set, a file-backend mirror) is still running off a stale snapshot. Vault re-issuing `secret_id`s against pre-cutover data while Postgres is current is invisible to a DB-only check — the failure only surfaces downstream as an auth 403, well after the window closed. Treat every stateful store as an independent freshness claim to verify, not an assumed side-effect of the DB sync.
+
+**Rule.** Before closing a cutover window, enumerate every stateful storage the migrating service(s) touch, and confirm each one's freshness explicitly. A cutover runbook or plan is incomplete if it names only the primary database as a verification target.
 
 ## Reusable Templates
 
