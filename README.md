@@ -2,7 +2,7 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 2.52.0](https://img.shields.io/badge/Version-2.52.0-green.svg)](VERSION)
+[![Version: 2.53.0](https://img.shields.io/badge/Version-2.53.0-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Arcanada-one/datarim/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Arcanada-one/datarim)
 
@@ -1002,7 +1002,7 @@ datarim/
   agents/            # Agent personas (19 agents)
   skills/            # Knowledge modules (64 skills)
   commands/          # Slash commands (27 commands)
-  templates/         # Task and document templates (19 templates)
+  templates/         # Task and document templates (22 templates)
   documentation/              # Extended documentation and use cases
   CLAUDE.md          # Framework rules (copy to your project)
   install.sh         # Automated installer

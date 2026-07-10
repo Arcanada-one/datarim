@@ -24,6 +24,11 @@ setup() {
     [[ "$output" == *"sec"* ]]
 }
 
+@test "checker: exact 'security' type is no longer flagged (TUNE-0407 fix) -> exit 0" {
+    run "$SCRIPT" --gate "$GATE" --corpus-dir "$F/security-exact" --quiet
+    [ "$status" -eq 0 ]
+}
+
 @test "checker: unrelated free-form type is NOT flagged -> exit 0" {
     # a free-form type with no prefix relation to any gating token must be ignored
     run "$SCRIPT" --gate "$GATE" --corpus-dir "$F/unrelated" --quiet

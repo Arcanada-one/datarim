@@ -242,6 +242,10 @@ Algorithm per operational file (`tasks.md`, `backlog.md`, `activeContext.md`):
 
 Log line: `Pass 7 {file}: stripped={N} preserved={M}`. **Idempotent:** second `--fix` finds the same set of comments minus the previously-stripped lines; `stripped=0` on second run.
 
+**Pass 7 WARN is an observability rail, not a fallback.** The `preserved++` counter and the `Pass 7: archive file missing for {ID}: {relpath}` log line exist to surface a genuine data gap — an archive comment citing a file that does not exist on disk. When this WARN fires, the correct operator action is to file a fixture against the framework repo reproducing the gap, not to suppress or silence the WARN; treating it as noise defeats the purpose of the verified-strip contract.
+
+**Bats fixture marker discipline.** Every new bats fixture section that embeds TASK-ID-shaped literals (e.g. `TUNE-0197`, `ARCA-0001`) MUST wrap those literals in its own `<!-- gate:history-allowed -->` / `<!-- /gate:history-allowed -->` marker pair (`skills/evolution/history-agnostic-gate.md` § Escape Hatch). Do not rely on a marker pair added earlier in the file — the diff-only gate treats markers as line-scoped context, so a fixture section outside any marker pair of its own is not covered by one opened elsewhere in the same file.
+
 ### Pass 5 — Post-fix re-scan
 
 19. After `--fix` finishes the four mutating passes, the script composes the existing scan dispatch in dry-run mode and re-validates the tree.
@@ -305,6 +309,9 @@ Resolved by `--conflict-policy`:
 - **Read-only filesystem** — exit 2 on first write attempt; partial state preserved (atomic per file). Tarball restore covers the partial mutation.
 - **Missing `tasks/` subdirectory** — created with `mkdir -p` before any description file write.
 - **Missing `documentation/archive/{area}/`** — created with `mkdir -p` during Pass 4 dispatch.
+- **`wiki/_raw_/` semantic-orphan check** — advisory-only pass (scope `all`): flags a file whose basename
+  shares no token (≥4 chars, alnum-only) with its first 300 bytes of content — a signal of an accidental
+  paste into the wrong file. Report-only; `--fix` does not touch `wiki/_raw_/`.
 
 ## CLI Surface (reference)
 

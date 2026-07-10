@@ -12,7 +12,7 @@ description: Diagnose and repair Datarim operational files — migrate to thin o
 ## When to Run
 
 - **Manually** — when `tasks.md` / `backlog.md` / `progress.md` grow huge or mix block-style entries with thin one-liners.
-- **Auto-suggested by `/dr-init` Step 0.6** — when structural compliance probe (`datarim-doctor.sh --quiet`) returns exit 1.
+- **Auto-suggested by `/dr-init` Step 2.4** — when structural compliance probe (`datarim-doctor.sh --quiet`) returns exit 1.
 - **After upgrading to Datarim v1.19.0+** — first run migrates legacy block-style tasks to the canonical thin schema.
 - **Before `/dr-archive`** — `pre-archive-check.sh` line-format gate may direct here on non-compliant operational files.
 
@@ -23,7 +23,7 @@ Not a periodic cleanup. Idempotent: a second run on a compliant tree is a no-op.
 1. **LOAD**: Read `$HOME/.claude/agents/planner.md` and adopt that persona.
 2. **RESOLVE PATH**: Walk up from cwd to find `datarim/`. If not found anywhere → tell user to run `/dr-init`. Do NOT create. See `$HOME/.claude/skills/datarim-system/SKILL.md` § Path Resolution Rule.
 3. **LOAD SKILL**: Read `$HOME/.claude/skills/datarim-doctor/SKILL.md` for schema spec, conflict resolution, and edge-case handling.
-4. **PARSE ARGS** (passed by user or by `/dr-init` Step 0.6):
+4. **PARSE ARGS** (passed by user or by `/dr-init` Step 2.4):
     - `--fix` — apply migration. Default: dry-run (report findings only).
     - `--scope=<scope>` — `tasks|backlog|active|progress|descriptions|all`. Default `all`.
     - `--task-id=<id>` — limit to one task ID (debug).
@@ -50,7 +50,7 @@ Not a periodic cleanup. Idempotent: a second run on a compliant tree is a no-op.
     - Y → re-invoke `scripts/datarim-doctor.sh --root="$DATARIM_ROOT" --fix`.
     - n → print warning and exit 0.
     - Non-tty (`! [ -t 0 ]`) → never prompt; if invoked without `--fix`, just exit 1 with finding count.
-    - **`/dr-init` Step 0.6 path**: caller passes `--quiet`; this command must not prompt — it just runs the probe and reports exit code.
+    - **`/dr-init` Step 2.4 path**: caller passes `--quiet`; this command must not prompt — it just runs the probe and reports exit code.
 8. **APPLY** (when `--fix` is set):
     - Execute `scripts/datarim-doctor.sh --root="$DATARIM_ROOT" --fix`.
     - Tool acquires `flock` on `$DATARIM_ROOT/.dr-doctor.lock` (exit 3 if concurrent run).
@@ -125,7 +125,7 @@ Never touches `documentation/archive/`, `datarim/prd/`, `datarim/plans/`, `datar
 
 ## Failure Modes
 
-- **Lock held (exit 3)** → another `/dr-doctor` or `/dr-init` Step 0.6 probe is running. Wait, then retry.
+- **Lock held (exit 3)** → another `/dr-doctor` or `/dr-init` Step 2.4 probe is running. Wait, then retry.
 - **Migration error (exit 2)** → tool aborted mid-flight; partial writes are atomic per file. Inspect `git status -s datarim/`, `git restore datarim/{file}.md` to roll back individual files, then re-run.
 - **Path traversal (exit 4)** → `tasks.md` or similar contains a relative path that resolves outside `$DATARIM_ROOT`. Inspect the offending entry manually before re-running.
 - **All zeros, but `/dr-archive` still blocks** → file may have a non-compliant line that doctor's regex doesn't classify (e.g. comment line). Run `pre-archive-check.sh --no-schema-check` to surface the exact line.
