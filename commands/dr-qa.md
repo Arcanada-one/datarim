@@ -24,7 +24,7 @@ description: Multi-layer quality verification — checks PRD alignment, design c
     -   When `--decided-by agent`: `--rationale-file <path>` MUST contain ≥ 50 non-whitespace characters of best-practice rationale. Layer 3b will verify each agent-decision against the implementation.
     -   On contradiction with an expectation: add `--conflict-with <wish_id>` (+ optional `--conflict-detail-file`); CTA MUST route back to `/dr-do --focus-items <wish_id>` for closure.
     -   Skip if no clarification rounds occurred.
-7.  **OUTPUT**: Write `datarim/qa/qa-report-{task-id}.md` with results.
+7.  **OUTPUT**: Write `datarim/qa/qa-report-{task-id}.md` with results, including the § Deferred Items (session-scoped) table below (empty/`None` by default; populate whenever a layer identifies a gap that this pass is knowingly not fixing).
 8.  **HUMAN SUMMARY**:
     - Load `$HOME/.claude/skills/human-summary/SKILL.md`.
     - Emit the `## Отчёт оператору` (RU) / `## Operator summary` (EN) section, with the four mandated sub-sections, between the QA-report write and the CTA block ([definition](../skills/cta-format/SKILL.md)). Language follows the most recent operator message. <!-- allow-non-ascii: literal-russian-section-name-token-from-human-summary-skill -->
@@ -454,6 +454,23 @@ Write to `datarim/qa/qa-report-{task-id}.md`:
 
 **Layers executed:** {N of 4}
 **Results:** {list of layer verdicts}
+
+## Deferred Items (session-scoped)
+
+Reviewer-identified gaps or defects that this QA pass is knowingly **not**
+fixing — a design fork, an out-of-scope finding, or an item blocked on an
+external dependency. Distinct from a Layer 3b `partial`/`missed` wish (those
+track operator-declared expectations, not reviewer-found gaps). Session-scoped:
+the table is cleared on the next `/dr-qa` re-run unless a row is carried
+forward into `datarim/backlog.md` as a fresh pending item — cite that
+TASK-ID in the last column so the deferral has a durable trail instead of
+evaporating with this report.
+
+| # | Item | Reason deferred | Blocked-by / follow-up | Carried to backlog.md? |
+|---|------|------------------|--------------------------|--------------------------|
+| 1 | {one-line gap} | {design-fork \| out-of-scope \| blocked-dependency} | {TASK-ID or "—"} | {yes → TASK-ID \| no} |
+
+`None — no deferrals this session` is the default and expected row when nothing was deferred.
 
 ## /dr-auto Mode (when `DATARIM_AUTO_MODE=1`)
 
