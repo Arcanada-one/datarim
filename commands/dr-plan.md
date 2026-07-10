@@ -165,6 +165,15 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
         -   Python ecosystem: install runtime deps, then `pip-audit --strict`
         -   Rust ecosystem: `cargo audit --deny warnings`
     <!-- /gate:example-only -->
+    -   **License-policy checkpoint (alongside the audit gate, same stub)**: vulnerability audits are advisory-only and do not check license compatibility — a transitive dependency can carry a copyleft/restrictive license the plan never declared. Run the project's package-manager-native license checker against the same stub.
+    <!-- gate:example-only -->
+    -   Concrete recipes (illustrative — substitute the project's actual package manager and disallowed-license list):
+        -   Node ecosystem: `license-checker --production --failOn <disallowed-list>`
+        -   Python ecosystem: `pip-licenses --fail-on <disallowed-list>`
+        -   Rust ecosystem: `cargo deny check licenses`
+        -   Ruby ecosystem: `license_finder`
+    <!-- /gate:example-only -->
+    -   A license-policy mismatch is handled the same way as an audit failure below: re-pin to a compatible version, or open a backlog item with an explicit accepted-risk sign-off.
     -   **If the audit gate fails on the proposed lock**, before promoting the plan to `/dr-do`:
         -   (a) Bump version pins in the plan (and any cited PRD constraint) until the gate passes; OR
         -   (b) Open a backlog item describing the unfixable CVE chain and document it in the plan's Security Summary as an **explicit accepted risk** with sign-off line.
