@@ -1,6 +1,6 @@
 # Datarim — Universal Iterative Workflow Framework
 
-> **Version:** 2.52.0
+> **Version:** 2.53.0
 > **Framework:** Datarim provides structured rules, agents, skills, and commands for iterative project execution via AI coding assistants — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
 > **Multi-runtime:** Datarim is runtime-agnostic. This file is also available as `AGENTS.md` (symlink) for Codex CLI and other agent runtimes that read `AGENTS.md` by convention. See `documentation/tutorials/use-cases.md#runtime-support` for the canonical Claude Code / Codex CLI / Cursor support matrix.
 > **Note:** "Datarim" has a Russian transliteration «Датарим» — agents must recognise either form in any language context. <!-- allow-non-ascii: literal-transliteration-pair-for-agent-name-recognition -->
@@ -131,7 +131,7 @@ Skills are reusable knowledge modules loaded on demand. They provide rules, patt
 - `session-handoff-writer.md` — Producer contract for `/dr-save`: write `datarim/sessions/SESSION-{YYYYMMDD-HHMMSS}.session.md` with 5-layer body, 32 KB cap (L1/L5 non-truncatable), append-only semantics, claim-provenance enforcement (exit 1 on untagged claims), T-8 secret redaction, mkdir-based atomic lock, chmod 600. (loaded by: /dr-save)
 - `session-handoff-replay.md` — Consumer contract for `/dr-continue`: read session artefact in clean window, re-verify every claim via live probes (STALE SNAPSHOT / CLAIM-UNVERIFIED / FILE-MISSING banners), downgrade provenance tags, route to `/dr-next` or `/dr-auto`. Squash-collision detection via `git merge-base --is-ancestor`. Shares bilingual replay renderer with `/dr-next` via `skills/dr-next-snapshot-replay/SKILL.md § Shared Replay Renderer`. (loaded by: /dr-continue)
 
-Skill files: `$HOME/.claude/skills/{name}/SKILL.md` (63 skills, 16 with supporting fragment directories — a "supporting fragment directory" is a skill folder that ships at least one sibling `.md` beside its `SKILL.md`)
+Skill files: `$HOME/.claude/skills/{name}/SKILL.md` (64 skills, 17 with supporting fragment directories — a "supporting fragment directory" is a skill folder that ships at least one sibling `.md` beside its `SKILL.md`)
 
 > **v1.16.0 addition:** `cta-format.md` — canonical CTA "Next Step" block specification, loaded by `planner`, `architect`, `developer`, `reviewer`, `compliance` agents. Defines structure, separators, primary marker, multi-task menu (Variant B), and FAIL-Routing variant. Source: TUNE-0032.
 
@@ -515,6 +515,8 @@ Datarim framework's contribution:
 - **Conflict resolution** — Supreme Directive (Laws 1-5) > Autonomous Agent Operating Rules > AAL Mandate > project-specific mandates. `hard_gated_actions:` NEVER auto-execute regardless of FB-5.
 
 Consumers MUST mirror the canonical FB-rules text and the enforcement-mapping table in their own ecosystem `CLAUDE.md` before enabling the `dr-orchestrate` plugin; the YAML policy block is a contract surface, not a substitute for the operator-readable rules text.
+
+- **Rollout tracker / enable-time gate** — `scripts/check-fb-rules-mirror.sh <consumer-CLAUDE.md>` verifies a consumer mirror (anchor heading + every canonical `rule_id` cited). A plugin manifest declaring `requires_fb_rules_mirror: true` makes `/dr-plugin enable` run that check against the consumer workspace `CLAUDE.md` and refuse activation on drift. Rollout status + mechanism: `documentation/reference/fb-rules-consumer-rollout.md`.
 
 ---
 
