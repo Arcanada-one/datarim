@@ -1118,7 +1118,16 @@ setup_cursor_runtime() {
     fi
 }
 
-fanout_runtime() {
+# --- fanout_runtime helpers (TUNE-0136) -------------------------------------
+# fanout_runtime was a 190-line straight-line block. It is split into cohesive
+# per-phase helpers so the top-level function reads as an ordered pipeline.
+# Behaviour is unchanged: helpers share the same script-level globals
+# (CLAUDE_DIR, INSTALL_MODE, LINKED, COPIED, SKIPPED, FANOUT_CODEX_UX, ...) and
+# run in the same order as before. runtime_name is passed explicitly because it
+# is local to the orchestrator.
+
+# Resolve $CLAUDE_DIR for the runtime, validate it is safe, print the banner.
+resolve_runtime_target() {
     local runtime_name="$1"
     # claude: respect external CLAUDE_DIR (test fixtures, custom installs).
     # codex: derive ~/.codex (introduce CODEX_DIR env hook if needed).
@@ -1151,125 +1160,125 @@ fanout_runtime() {
         echo "Force:   on"
     fi
     echo ""
+}
 
-    acquire_lock "$CLAUDE_DIR"
-
-    if [ "$DRY_RUN" = true ]; then
-        echo "DRY: mkdir -p $CLAUDE_DIR"
-        local scope
-        for scope in "${INSTALL_SCOPES[@]}"; do
-            echo "DRY: ln -sfn $SCRIPT_DIR/$scope $CLAUDE_DIR/$scope"
-        done
-        if [ "$runtime_name" = "codex" ]; then
-            echo "DRY: ln -sfn $SCRIPT_DIR/AGENTS.md $CLAUDE_DIR/AGENTS.md"
-            if [ "$FANOUT_CODEX_UX" = true ]; then
-                fanout_codex_ux "$CLAUDE_DIR" "$SCRIPT_DIR"
-            fi
-        fi
-        echo "DRY: setup_local_overlay $CLAUDE_DIR/local"
-        echo ""
-        release_lock
-        return
-    fi
-
-    if [ "$FORCE" = true ]; then
-        force_safety_guard
-    fi
-    # assert_claude_dir_safe already called above (pre-lockfile gate)
-
-    if [ "$INSTALL_MODE" = "symlink" ]; then
-        local topology topo_exclude=""
-        # TUNE-0297: under codex + FANOUT_CODEX_UX skills/ is intentionally a
-        # real dir while the other scopes stay symlinks — exclude it from the
-        # mixed-topology gate so a re-run does not blow up.
-        if [ "$runtime_name" = "codex" ] && [ "$FANOUT_CODEX_UX" = true ]; then
-            topo_exclude="skills"
-        fi
-        topology=$(detect_existing_topology "$topo_exclude")
-        case "$topology" in
-            copy)
-                migration_prompt
-                ;;
-            mixed)
-                echo "ERROR: mixed topology in $CLAUDE_DIR (some symlinks + some real dirs)." >&2
-                echo "       Please clean up manually before re-running install.sh." >&2
-                exit 1
-                ;;
-            symlink|none)
-                : ;;
-        esac
-    fi
-
-    # migration_prompt may have flipped INSTALL_MODE to copy (user picked [k]).
-    if [ "$INSTALL_MODE" = "symlink" ]; then
-        for scope in "${INSTALL_SCOPES[@]}"; do
-            # TUNE-0297: under codex + FANOUT_CODEX_UX skip the skills/ symlink;
-            # fanout_codex_ux will materialise it as a real dir with wrappers.
-            if [ "$scope" = "skills" ] && \
-               [ "$runtime_name" = "codex" ] && \
-               [ "$FANOUT_CODEX_UX" = true ]; then
-                continue
-            fi
-            link_scope_tree "$SCRIPT_DIR/$scope" "$CLAUDE_DIR/$scope"
-        done
-        # TUNE-0296: Codex CLI reads ~/.codex/AGENTS.md as ecosystem-router entry.
-        # Symlink to Datarim source so Codex sees the same router as Claude (via CLAUDE.md chain).
-        if [ "$runtime_name" = "codex" ]; then
-            ln -sfn "$SCRIPT_DIR/AGENTS.md" "$CLAUDE_DIR/AGENTS.md"
-            echo "  LINK: AGENTS.md → $SCRIPT_DIR/AGENTS.md"
-            LINKED=$((LINKED + 1))
-            if [ "$FANOUT_CODEX_UX" = true ]; then
-                fanout_codex_ux "$CLAUDE_DIR" "$SCRIPT_DIR"
-            fi
-        fi
-    else
-        for scope in "${INSTALL_SCOPES[@]}"; do
-            mkdir -p "$CLAUDE_DIR/$scope"
-        done
-        for scope in "${INSTALL_SCOPES[@]}"; do
-            echo "Installing $scope..."
-            copy_scope_tree "$SCRIPT_DIR/$scope" "$CLAUDE_DIR/$scope"
-            echo ""
-        done
-        if [ "$runtime_name" = "codex" ]; then
-            # AGENTS.md is a symlink → CLAUDE.md on Linux/macOS.  On Windows
-            # (core.symlinks=false) git does not materialise symlinks — the file
-            # is absent or a 9-byte text stub containing the literal path
-            # "CLAUDE.md".  Detect both cases and fall back to CLAUDE.md (they
-            # are identical by design).
-            _agents_src="$SCRIPT_DIR/AGENTS.md"
-            _agents_ok=false
-            if [ -f "$_agents_src" ] && [ -s "$_agents_src" ]; then
-                _content="$(cat "$_agents_src")"
-                # A Windows stub is the bare symlink target text, e.g. "CLAUDE.md"
-                # with optional trailing newline.  Anything longer is real content.
-                case "$_content" in
-                    CLAUDE.md|./CLAUDE.md) ;;          # stub — fall through
-                    *) _agents_ok=true ;;
-                esac
-            fi
-            if [ "$_agents_ok" = true ]; then
-                cp -f "$_agents_src" "$CLAUDE_DIR/AGENTS.md"
-            else
-                cp -f "$SCRIPT_DIR/CLAUDE.md" "$CLAUDE_DIR/AGENTS.md"
-            fi
-            echo "  COPY: AGENTS.md → $CLAUDE_DIR/AGENTS.md"
-            COPIED=$((COPIED + 1))
-            if [ "$FANOUT_CODEX_UX" = true ]; then
-                fanout_codex_ux "$CLAUDE_DIR" "$SCRIPT_DIR"
-            fi
-        fi
-    fi
-
-    setup_local_overlay
-    # TUNE-0303: link canonical coworker-hook-guard once per fanout call.
-    # Idempotent on re-run; runs for both claude and codex fanouts so a
-    # codex-only install still gets the hook symlink.
-    setup_coworker_hook_symlink
+# Print the DRY_RUN plan (no filesystem writes).
+print_dry_run_plan() {
+    local runtime_name="$1"
+    local scope
+    echo "DRY: mkdir -p $CLAUDE_DIR"
+    for scope in "${INSTALL_SCOPES[@]}"; do
+        echo "DRY: ln -sfn $SCRIPT_DIR/$scope $CLAUDE_DIR/$scope"
+    done
     if [ "$runtime_name" = "codex" ]; then
-        heal_codex_stale_probe_hooks "$CLAUDE_DIR"
+        echo "DRY: ln -sfn $SCRIPT_DIR/AGENTS.md $CLAUDE_DIR/AGENTS.md"
+        if [ "$FANOUT_CODEX_UX" = true ]; then
+            fanout_codex_ux "$CLAUDE_DIR" "$SCRIPT_DIR"
+        fi
     fi
+    echo "DRY: setup_local_overlay $CLAUDE_DIR/local"
+    echo ""
+}
 
+# In symlink mode, gate on the existing on-disk topology (may run
+# migration_prompt, which can flip INSTALL_MODE to copy, or abort on mixed).
+check_symlink_topology() {
+    local runtime_name="$1"
+    local topology topo_exclude=""
+    # TUNE-0297: under codex + FANOUT_CODEX_UX skills/ is intentionally a
+    # real dir while the other scopes stay symlinks — exclude it from the
+    # mixed-topology gate so a re-run does not blow up.
+    if [ "$runtime_name" = "codex" ] && [ "$FANOUT_CODEX_UX" = true ]; then
+        topo_exclude="skills"
+    fi
+    topology=$(detect_existing_topology "$topo_exclude")
+    case "$topology" in
+        copy)
+            migration_prompt
+            ;;
+        mixed)
+            echo "ERROR: mixed topology in $CLAUDE_DIR (some symlinks + some real dirs)." >&2
+            echo "       Please clean up manually before re-running install.sh." >&2
+            exit 1
+            ;;
+        symlink|none)
+            : ;;
+    esac
+}
+
+# Symlink each scope tree into $CLAUDE_DIR; for codex also link AGENTS.md.
+install_symlink_scopes() {
+    local runtime_name="$1"
+    local scope
+    for scope in "${INSTALL_SCOPES[@]}"; do
+        # TUNE-0297: under codex + FANOUT_CODEX_UX skip the skills/ symlink;
+        # fanout_codex_ux will materialise it as a real dir with wrappers.
+        if [ "$scope" = "skills" ] && \
+           [ "$runtime_name" = "codex" ] && \
+           [ "$FANOUT_CODEX_UX" = true ]; then
+            continue
+        fi
+        link_scope_tree "$SCRIPT_DIR/$scope" "$CLAUDE_DIR/$scope"
+    done
+    # TUNE-0296: Codex CLI reads ~/.codex/AGENTS.md as ecosystem-router entry.
+    # Symlink to Datarim source so Codex sees the same router as Claude (via CLAUDE.md chain).
+    if [ "$runtime_name" = "codex" ]; then
+        ln -sfn "$SCRIPT_DIR/AGENTS.md" "$CLAUDE_DIR/AGENTS.md"
+        echo "  LINK: AGENTS.md → $SCRIPT_DIR/AGENTS.md"
+        LINKED=$((LINKED + 1))
+        if [ "$FANOUT_CODEX_UX" = true ]; then
+            fanout_codex_ux "$CLAUDE_DIR" "$SCRIPT_DIR"
+        fi
+    fi
+}
+
+# Copy each scope tree into $CLAUDE_DIR; for codex also copy AGENTS.md
+# (falling back to CLAUDE.md when the symlink is a Windows stub / missing).
+install_copy_scopes() {
+    local runtime_name="$1"
+    local scope
+    for scope in "${INSTALL_SCOPES[@]}"; do
+        mkdir -p "$CLAUDE_DIR/$scope"
+    done
+    for scope in "${INSTALL_SCOPES[@]}"; do
+        echo "Installing $scope..."
+        copy_scope_tree "$SCRIPT_DIR/$scope" "$CLAUDE_DIR/$scope"
+        echo ""
+    done
+    if [ "$runtime_name" = "codex" ]; then
+        # AGENTS.md is a symlink → CLAUDE.md on Linux/macOS.  On Windows
+        # (core.symlinks=false) git does not materialise symlinks — the file
+        # is absent or a 9-byte text stub containing the literal path
+        # "CLAUDE.md".  Detect both cases and fall back to CLAUDE.md (they
+        # are identical by design).
+        local _agents_src="$SCRIPT_DIR/AGENTS.md"
+        local _agents_ok=false
+        local _content
+        if [ -f "$_agents_src" ] && [ -s "$_agents_src" ]; then
+            _content="$(cat "$_agents_src")"
+            # A Windows stub is the bare symlink target text, e.g. "CLAUDE.md"
+            # with optional trailing newline.  Anything longer is real content.
+            case "$_content" in
+                CLAUDE.md|./CLAUDE.md) ;;          # stub — fall through
+                *) _agents_ok=true ;;
+            esac
+        fi
+        if [ "$_agents_ok" = true ]; then
+            cp -f "$_agents_src" "$CLAUDE_DIR/AGENTS.md"
+        else
+            cp -f "$SCRIPT_DIR/CLAUDE.md" "$CLAUDE_DIR/AGENTS.md"
+        fi
+        echo "  COPY: AGENTS.md → $CLAUDE_DIR/AGENTS.md"
+        COPIED=$((COPIED + 1))
+        if [ "$FANOUT_CODEX_UX" = true ]; then
+            fanout_codex_ux "$CLAUDE_DIR" "$SCRIPT_DIR"
+        fi
+    fi
+}
+
+# Print the completion banner: summary, next steps, bundled plugins, skip note.
+print_fanout_summary() {
+    local bundled_plugins p
     echo "================================="
     echo "Done! Linked: $LINKED, Copied: $COPIED, Skipped: $SKIPPED"
     echo "Local overlay: $CLAUDE_DIR/local/{skills,agents,commands,templates}/  (gitignored)"
@@ -1305,6 +1314,49 @@ fanout_runtime() {
         echo "      on live systems): ./install.sh --copy --force"
         echo ""
     fi
+}
+
+# Orchestrator: resolve target → lock → (dry-run | install) → overlay → summary.
+# Each phase is a helper above; this reads top-to-bottom as the install pipeline.
+fanout_runtime() {
+    local runtime_name="$1"
+
+    resolve_runtime_target "$runtime_name"
+
+    acquire_lock "$CLAUDE_DIR"
+
+    if [ "$DRY_RUN" = true ]; then
+        print_dry_run_plan "$runtime_name"
+        release_lock
+        return
+    fi
+
+    if [ "$FORCE" = true ]; then
+        force_safety_guard
+    fi
+    # assert_claude_dir_safe already called in resolve_runtime_target (pre-lock gate)
+
+    if [ "$INSTALL_MODE" = "symlink" ]; then
+        check_symlink_topology "$runtime_name"
+    fi
+
+    # migration_prompt may have flipped INSTALL_MODE to copy (user picked [k]).
+    if [ "$INSTALL_MODE" = "symlink" ]; then
+        install_symlink_scopes "$runtime_name"
+    else
+        install_copy_scopes "$runtime_name"
+    fi
+
+    setup_local_overlay
+    # TUNE-0303: link canonical coworker-hook-guard once per fanout call.
+    # Idempotent on re-run; runs for both claude and codex fanouts so a
+    # codex-only install still gets the hook symlink.
+    setup_coworker_hook_symlink
+    if [ "$runtime_name" = "codex" ]; then
+        heal_codex_stale_probe_hooks "$CLAUDE_DIR"
+    fi
+
+    print_fanout_summary
 
     release_lock
 }

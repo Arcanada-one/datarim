@@ -228,6 +228,62 @@ Implications when editing a runtime artefact:
 
 Copy-mode installs (`./install.sh --copy`, Windows / FAT) keep the legacy two-file topology; in that mode the canonical resync recipe is `git pull && ./install.sh --copy --force --yes`. Detect copy-mode by `stat`-ing the inodes: divergent inode numbers = copy-mode = manual sync needed.
 
+
+## Parent-Symlink Diagnostic (path resolution / git topology)
+
+When a parent directory is itself a symlink, `ls -la <child>` and `find`
+lie about link status. This trips agents into alleging "copy drift" against
+a symlinked runtime, or misreading git topology. Diagnose the parent first.
+
+**The trap.** `ls -la ~/.claude/commands/dr-verify.md` prints `-rw-r--r--`
+(a regular file) even when the file lives inside a symlinked tree. If
+`~/.claude/commands` is itself a symlink into the cloned framework repo,
+`ls -la` on the *child* path transparently resolves through the parent and
+shows the **target inode's** attributes, not the link status of the path you
+passed. The child looks like a plain regular file, so the muscle-memory
+conclusion "this is a copy, not a symlink" is wrong by construction. The
+canonical symlink-default install (v1.17.0+) uses one symlink per category —
+`~/.claude/{commands,skills,agents,templates}` are each parent-level symlinks
+into the repo; the files under them inherit resolution and need no per-file
+symlink. This saves dozens of inode-level links but defeats naive per-file
+checks.
+
+**What to check, in order.**
+
+1. Inspect the parent directory, never the child, first:
+   `ls -la ~/.claude/` — a `lrwxr-xr-x` line on `commands` / `skills` /
+   `agents` / `templates` proves the parent is a symlink.
+2. Or resolve it directly: `readlink ~/.claude/commands ~/.claude/skills
+   ~/.claude/agents`. A non-empty target means parent-level symlink.
+3. Only if the parents are real directories should you check individual
+   files with `ls -la <file>` and `readlink <file>`.
+4. `find` tell: `find ~/.claude/commands -maxdepth 1 -name 'dr-*.md' -type l`
+   returning zero **and** the same query with `-not -type l` also returning
+   zero means `find` never descended into the parent — because the parent is
+   a symlink and `find` does not traverse a symlinked dir without `-L`. Two
+   empty results is the signature of a symlinked parent, not an empty dir.
+5. `file <path>` follows symlinks by default and reports the resolved inode
+   type; use `file -h <path>` to test whether the path *itself* is a symlink.
+
+**Why it also breaks git topology.** Git records the symlink as a blob whose
+content is the link target, not the pointed-to tree. If a runtime tree is a
+symlink into a separate repo, `git status` / `git diff` run from the outer
+repo see only the link entry, while edits land in the *inner* repo's working
+tree. Confirm which repo owns a change with `git -C <resolved-target-dir>
+status` after `readlink`-ing the parent, rather than trusting the path you
+typed. Verify same-inode identity across the two paths with
+`stat -f %i <a> <b>` (macOS) / `stat -c %i <a> <b>` (GNU): identical inode
+numbers confirm the two paths are the same file through a symlink.
+
+**Fix.** There is usually nothing to "fix" — a symlinked parent is the
+intended install topology, not drift. The repair is to stop the false alarm:
+re-run the diagnosis on the parent, edit the file once at either path (the
+write lands in the single shared inode), and review the change from the repo
+that owns the resolved target. Only when `readlink` shows a **dangling**
+target (points at a moved or deleted clone) is real repair needed — re-point
+the parent symlink at the current framework clone
+(`ln -sfn <clone>/<category> ~/.claude/<category>`) or re-run the installer.
+
 ## Loading Order (v1.17.0+)
 
 Skills, agents, commands, and templates load from two layers:
