@@ -90,6 +90,7 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
 6.  **Technology Validation**:
     -   Document technology stack selection.
     -   Verify dependencies and build configuration.
+    -   **Reuse-first check (MANDATORY when the plan's Implementation Steps introduce a new non-secret, cross-project-reusable module)**: re-verify the `catalog.json` lookup from `/dr-prd` Step 3 — the catalog may have moved since PRD time. Consult `@arcanada/*` (`catalog.json` in `Arcanada-one/arcanada-shared`, generated via `pnpm catalog`; browse `arcanada-shared/packages/*` if the catalog isn't merged yet) before locking a new local implementation into Implementation Steps. Any step that consumes an existing `@arcanada/*` package MUST specify a `reuse: @arcanada/<pkg>` marker comment at the call site. See `documentation/mandates/reuse-first-mandate.md`.
     -   **External-crate version probe (MANDATORY when the plan introduces a NEW external library dependency not already present in the workspace manifest — `Cargo.toml` / `package.json` / `pyproject.toml` / `Gemfile` / etc.)**: query the package registry for the latest stable version using the project's package-manager-native lookup, record the chosen version + a one-sentence rationale in the plan's Component Breakdown, and — when a non-default feature/extra is named — probe that the feature/extra exists in the registry metadata before locking it into the plan.
     <!-- gate:example-only -->
     -   Concrete recipes (illustrative — substitute the project's actual package manager):
