@@ -129,6 +129,12 @@ FANOUT_CLAUDE=false
 FANOUT_CODEX=false
 FANOUT_CODEX_UX=true       # generate SKILL.md wrappers + AGENTS.override.md; --no-codex-ux opts out
 FANOUT_CURSOR=false        # Cursor IDE skill mirroring (--with-cursor)
+
+# Sentinel markers delimiting the auto-synced coworker-delegation
+# block inside the operator's own $CLAUDE_DIR/CLAUDE.md. Everything outside
+# the markers is the operator's hand-written content and is never touched.
+CLAUDE_FRAGMENT_BEGIN='<!-- coworker-fragment:begin -->'
+CLAUDE_FRAGMENT_END='<!-- coworker-fragment:end -->'
 PROJECT_DIR=''
 DRY_RUN=false
 LOCKFILE=''
@@ -929,6 +935,70 @@ emit_manifest_entry() {
     fi
 }
 
+# Sync the canonical coworker-delegation fragment (templates/coworker-
+# delegation-fragment.md) into $CLAUDE_DIR/CLAUDE.md § Coworker Delegation,
+# between the CLAUDE_FRAGMENT_BEGIN/END sentinel lines.
+#
+# Unlike generate_codex_agents_manifest (whole-file overwrite of an ephemeral
+# generated artefact), $CLAUDE_DIR/CLAUDE.md is the operator's own
+# hand-maintained personal file — only the sentinel-delimited block is
+# replaced, everything else is preserved byte-exact. Idempotent: re-running
+# with an unchanged fragment source produces a byte-identical file (no
+# write, no mtime bump). Fail-soft when the file is missing or has no
+# sentinels — install.sh never creates or silently reformats an operator's
+# personal CLAUDE.md; it prints the one-time opt-in recipe instead.
+sync_claude_coworker_fragment() {
+    local claude_md="$CLAUDE_DIR/CLAUDE.md"
+    local fragment_src="$SCRIPT_DIR/templates/coworker-delegation-fragment.md"
+
+    [ -f "$fragment_src" ] || return 0
+
+    if [ ! -f "$claude_md" ]; then
+        echo "  SKIP: $claude_md not found — coworker-delegation fragment sync skipped." >&2
+        return 0
+    fi
+
+    if ! grep -qF "$CLAUDE_FRAGMENT_BEGIN" "$claude_md" || ! grep -qF "$CLAUDE_FRAGMENT_END" "$claude_md"; then
+        cat >&2 <<EOF
+  NOTE: $claude_md has no coworker-fragment sentinels — skipping auto-sync.
+        Opt in by wrapping your § Coworker Delegation section with:
+          $CLAUDE_FRAGMENT_BEGIN
+          ...section content...
+          $CLAUDE_FRAGMENT_END
+        Re-run install.sh --with-claude afterwards to sync.
+EOF
+        return 0
+    fi
+
+    local tmp
+    tmp="$claude_md.fragment-sync.$$"
+    if ! awk -v begin="$CLAUDE_FRAGMENT_BEGIN" -v end="$CLAUDE_FRAGMENT_END" -v fragfile="$fragment_src" '
+        $0 == begin {
+            print
+            while ((getline line < fragfile) > 0) print line
+            close(fragfile)
+            in_block = 1
+            next
+        }
+        $0 == end { in_block = 0 }
+        in_block { next }
+        { print }
+    ' "$claude_md" > "$tmp"; then
+        rm -f "$tmp"
+        echo "  WARN: coworker-delegation fragment sync failed (awk error) — $claude_md left untouched." >&2
+        return 0
+    fi
+
+    if cmp -s "$tmp" "$claude_md"; then
+        rm -f "$tmp"
+        echo "  SYNC: $claude_md coworker-delegation fragment already up to date."
+        return 0
+    fi
+
+    mv "$tmp" "$claude_md"
+    echo "  SYNC: $claude_md coworker-delegation fragment updated from $fragment_src"
+}
+
 # Generate ~/.codex/AGENTS.override.md with commands / skills / agents catalogue.
 # Overwrite-by-design — wrappers are ephemeral generated artefacts.
 generate_codex_agents_manifest() {
@@ -1176,6 +1246,9 @@ print_dry_run_plan() {
             fanout_codex_ux "$CLAUDE_DIR" "$SCRIPT_DIR"
         fi
     fi
+    if [ "$runtime_name" = "claude" ]; then
+        echo "DRY: sync coworker-delegation fragment into $CLAUDE_DIR/CLAUDE.md (sentinel block)"
+    fi
     echo "DRY: setup_local_overlay $CLAUDE_DIR/local"
     echo ""
 }
@@ -1354,6 +1427,9 @@ fanout_runtime() {
     setup_coworker_hook_symlink
     if [ "$runtime_name" = "codex" ]; then
         heal_codex_stale_probe_hooks "$CLAUDE_DIR"
+    fi
+    if [ "$runtime_name" = "claude" ]; then
+        sync_claude_coworker_fragment
     fi
 
     print_fanout_summary
