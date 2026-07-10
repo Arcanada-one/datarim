@@ -21,6 +21,17 @@ Reusable patterns for SSH-based operations across Arcana servers.
 
 > Always verify current IPs against `memory/reference_arcana_www_server.md` before use.
 
+## Post-Provision Checklist — Public IP
+
+Any server inventory record (this table, a project's `space.yml`, or equivalent) for a host with a routable public address MUST have that address recorded before the provisioning task is closed. Do not leave the field `null`/blank "for later" once a routable address exists.
+
+**Why.** A server bootstrapped without its public IP recorded reads as unreachable/dark to anyone consulting the inventory later — the address exists and is reachable, but the record gives no evidence of that, so an operator has no way to distinguish "not yet provisioned" from "provisioned, IP not written down". The gap surfaces only when someone happens to `ssh root@<ip>` from a stale note elsewhere and is surprised the host answers.
+
+**Rule.** As the last step of provisioning (or first step of onboarding an existing host into the inventory), confirm the host has a routable public interface (`ip -4 addr show` on the host, or the cloud provider's dashboard) and write the address into the inventory record in the same commit/change as the rest of the provisioning artefacts.
+
+**Optional lint.** A pre-commit or CI check MAY flag an inventory record where a public-interface field is `null`/empty while the host is reachable at a known address — treat this as a checklist reminder, not a hard gate, since some hosts are intentionally NAT-only.
+
+
 ## SSH Batch Execute
 
 > **Bootstrap once** (Datarim § Security Mandate S1, host-key verification):
