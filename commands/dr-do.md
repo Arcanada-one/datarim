@@ -40,6 +40,13 @@ description: Implement planned changes using TDD and AI quality principles
     - Implement one stub/method at a time.
     - Follow `datarim/history/patterns.md` and `datarim/style-guide.md`.
     - Apply quality rules: max 50 lines/method, max 7-9 objects in scope, tests before code.
+    - **Lint-on-the-spot (MANDATORY after each TDD Loop code-change step)**: auto-detect the project linter from the manifest present in the repo root (or nearest package boundary) and run it against the changed files before moving to the next stub/method. Fix findings immediately — do not carry lint debt forward to `/dr-compliance`; that stage assumes a clean baseline and is not a linter-fixup pass.
+    <!-- gate:example-only -->
+    -   Concrete recipes (illustrative — substitute the project's actual linter):
+        -   Rust ecosystem: `cargo clippy --all-targets -- -D warnings`
+        -   Node ecosystem: `eslint <changed-files>`
+        -   Python ecosystem: `ruff check <changed-files>`
+    <!-- /gate:example-only -->
 
 7.5 **GAP DISCOVERY** (during implementation):
     If you encounter an unknown that blocks progress (import failure, unexpected API behavior, docs ≠ reality, missing feature, compatibility issue):
