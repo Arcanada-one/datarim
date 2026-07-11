@@ -165,3 +165,21 @@ After fix: resume forward, re-run QA/compliance. Loop guard: 3 same-layer fails 
 ### Multi-task awareness (Variant B)
 
 Whenever `## Active Tasks` in `datarim/activeContext.md` lists >1 task, the CTA block MUST append a `**Другие активные задачи:**` menu listing each parallel task with its own recommended next command. This is mandatory for `/dr-status`, `/dr-next`, `/dr-archive`; agents on other commands MAY append it when context permits. See `cta-format.md` § Canonical Block — Multiple Active Tasks. <!-- allow-non-ascii: russian-cta-variant-b-menu-header-cited-from-cta-format-skill -->
+
+### Pre-merge baseline cleanup spawn
+
+- When an unblocker PR carries baseline-red CI noise that is unrelated to
+  the delta it is actually shipping (a pre-existing lint/test/security
+  finding on `main` the PR did not introduce and does not touch), the CTA
+  MUST recommend spawning a **separate** cleanup task for that pre-existing
+  noise — not merging it silently bundled with the unblocker. Bundling
+  hides the true scope of the unblocker's diff from reviewers and makes a
+  future `git blame`/revert on the noise fix ambiguous about which task
+  owns it.
+- Recipe: before recommending the unblocker's own primary CTA (e.g.
+  `/dr-qa {TASK-ID}` or `/dr-archive {TASK-ID}`), diff the CI red against
+  `HEAD` baseline (`git stash && <test-cmd>` or equivalent) per the
+  «Avoid absolute test-count numbers in AC formulation» recipe above. If any
+  red predates the unblocker's own commits, add a secondary CTA line:
+  `/dr-init` (new cleanup task, same area prefix) alongside the unblocker's
+  primary CTA — do not fold the fix into the unblocker's own commit.
