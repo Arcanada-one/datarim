@@ -49,48 +49,48 @@ assert_blocked_before_calls() {
 # metacharacters at the validation gate.
 
 @test "Finding 1: rejects domain with command substitution \$()" {
-  run bash "$TEMPLATE" 'foo.com$(touch /tmp/pwned-fnd1)' 49.13.52.208 foo
+  run bash "$TEMPLATE" 'foo.com$(touch /tmp/pwned-fnd1)' 203.0.113.10 foo
   assert_blocked_before_calls
   [ ! -f /tmp/pwned-fnd1 ]
 }
 
 @test "Finding 1: rejects domain with semicolon" {
-  run bash "$TEMPLATE" 'foo.com;rm -rf /' 49.13.52.208 foo
+  run bash "$TEMPLATE" 'foo.com;rm -rf /' 203.0.113.10 foo
   assert_blocked_before_calls
 }
 
 @test "Finding 1: rejects domain with backticks" {
-  run bash "$TEMPLATE" 'foo.com`whoami`' 49.13.52.208 foo
+  run bash "$TEMPLATE" 'foo.com`whoami`' 203.0.113.10 foo
   assert_blocked_before_calls
 }
 
 @test "Finding 1: rejects domain with pipe" {
-  run bash "$TEMPLATE" 'foo.com|cat /etc/passwd' 49.13.52.208 foo
+  run bash "$TEMPLATE" 'foo.com|cat /etc/passwd' 203.0.113.10 foo
   assert_blocked_before_calls
 }
 
 @test "Finding 1: rejects domain with space" {
-  run bash "$TEMPLATE" 'foo.com bar' 49.13.52.208 foo
+  run bash "$TEMPLATE" 'foo.com bar' 203.0.113.10 foo
   assert_blocked_before_calls
 }
 
 @test "Finding 1: rejects server_ip with shell metacharacters" {
-  run bash "$TEMPLATE" foo.example.com '49.13.52.208;rm -rf /' foo
+  run bash "$TEMPLATE" foo.example.com '203.0.113.10;rm -rf /' foo
   assert_blocked_before_calls
 }
 
 @test "Finding 1: rejects webroot_name with path traversal" {
-  run bash "$TEMPLATE" foo.example.com 49.13.52.208 '../../etc'
+  run bash "$TEMPLATE" foo.example.com 203.0.113.10 '../../etc'
   assert_blocked_before_calls
 }
 
 @test "Finding 1: rejects webroot_name with shell metacharacters" {
-  run bash "$TEMPLATE" foo.example.com 49.13.52.208 'foo;rm -rf /'
+  run bash "$TEMPLATE" foo.example.com 203.0.113.10 'foo;rm -rf /'
   assert_blocked_before_calls
 }
 
 @test "Finding 1: accepts valid domain + ip + webroot_name (passes validation gate)" {
-  run bash "$TEMPLATE" foo.example.com 49.13.52.208 foo
+  run bash "$TEMPLATE" foo.example.com 203.0.113.10 foo
   [ -f "$TMPDIR_TEST/calls.log" ]
   grep -q '^MOCK_' "$TMPDIR_TEST/calls.log"
 }

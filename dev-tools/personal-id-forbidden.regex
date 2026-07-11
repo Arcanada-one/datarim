@@ -35,3 +35,18 @@ ASANA_[A-Z_]*PAT
 
 # 16-digit numeric IDs (Asana workspace/user GIDs)
 \b[0-9]{16}\b
+
+# Arcana production infrastructure — real public IPs (SEC-0015: never in shipped surface)
+\b49\.13\.52\.208\b
+\b65\.108\.236\.39\b
+\b135\.181\.222\.38\b
+\b37\.27\.107\.227\b
+
+# Arcana production infrastructure — Tailscale mesh IPs (SEC-0015)
+\b100\.78\.174\.28\b
+\b100\.121\.155\.54\b
+\b100\.70\.137\.104\b
+\b100\.90\.7\.20\b
+
+# ssh root@ to a literal IPv4 (entry-point leak — use ssh root@<host> placeholder instead)
+ssh root@[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}
