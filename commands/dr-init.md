@@ -133,6 +133,16 @@ description: Initialize a new Datarim task or scaffold a new project. Auto-detec
       b. Use its description, priority, complexity, and acceptance criteria as starting context.
       c. **Use the backlog item's existing ID as the task ID** (do NOT create a new one). The ID stays the same across lifecycle per Unified Task Numbering.
     - **If backlog is empty** or user provided a new task description: Proceed to step 4.
+
+3.5. **ARCHITECTURAL-SUPERSEDING PROBE** (mandatory when triggered; runs before any `tasks.md`/`activeContext.md` write):
+    - **Trigger**: the description in scope for this invocation — the operator's freshly-typed prompt (direct-prompt flow) or, when Step 3 selected a backlog item, that item's stored description (backlog flow) — contains a `Source:` or `Spawned from:` keyword pointing at another task: an archive under `documentation/archive/*/archive-<ID>.md`, or an in-flight sibling still listed in `datarim/tasks.md` / `datarim/activeContext.md`.
+    - Skip silently when no such reference is present, or the reference points only at a PRD (PRD ancestry is ordinary decomposition, not a supersession risk).
+    - **Action**: read the referenced archive(s) or in-flight sibling task-description(s) in full and answer one question — *has the architectural problem this new task addresses already been resolved by the referenced sibling?*
+        - **Yes, already resolved** → STOP before Step 4 creates `tasks.md`/`activeContext.md` entries. Present the operator a recommendation: cancel (do not create the task), reframe (narrow scope to whatever residual gap remains), or proceed anyway (operator confirms the sibling did not fully cover this problem). Do not write `datarim/tasks.md`, `datarim/activeContext.md`, or the init-task file until the operator resolves this prompt. Non-tty/CI (`! [ -t 0 ]` or `DATARIM_NONINTERACTIVE=1`): default to "proceed" and record the auto-decision in the init-task Append-log once Step 4.6 writes the file.
+        - **No, not resolved / orthogonal** → continue to Step 4; note the consulted archive(s) inline so `/dr-plan` can reuse the finding instead of re-grepping.
+    - Cost: one grep + skim of the referenced archive(s). Saving: avoids the full init → task-description → activeContext-entry cycle for a task later cancelled as redundant — catches supersession before any artefact exists, not after `/dr-plan` Phase 4 has already run.
+    - This is the same probe `/dr-plan` Phase 4 used to run as its mandatory first sub-step; running it here catches redundancy earlier. `/dr-plan` now re-runs only a narrow fallback for archives that land after this step already passed — see `/dr-plan` Phase 4.
+
 4.  **ACTION**:
     - Analyze the user request (or backlog item context from step 3).
     - Determine complexity level (1-4). If from backlog, use the item's complexity as starting estimate.
@@ -190,6 +200,7 @@ When auto-mode is active (env var `DATARIM_AUTO_MODE=1` AND matching marker `dat
 1. Consults `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode/SKILL.md` § Question Suppression Ladder ([definition](../skills/autonomous-mode/SKILL.md)) before any `AskUserQuestion` or equivalent operator prompt at this stage.
 2. Stage-specific suppression hooks:
    - Step 3 backlog item selection prompt — resolve via Ladder L1 (grep backlog by description match) before AskUserQuestion.
+   - Step 3.5 Architectural-superseding probe — cancel/reframe/proceed decision resolved through Ladder L1-L2 (read the referenced sibling archive(s)); non-tty/CI default remains "proceed", logged once the init-task file exists.
    - Step 4 PRD waiver gate (L3-4) — resolve via Ladder L3 (operator-preference lookup in MEMORY.md feedback).
 3. Discovered gaps → apply L1 Inline Resolution Rule ([definition](../skills/autonomous-mode/SKILL.md)) per `skills/autonomous-mode/SKILL.md`; log in `datarim/tasks/{TASK-ID}-auto-inline-log.md` if applied inline.
 4. Hard-gated actions → escalate to operator through Ladder L5; log via `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/append-init-task-qa.sh" --decided-by operator` per `skills/init-task-persistence/SKILL.md` § Q&A round-trip.
