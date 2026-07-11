@@ -202,6 +202,10 @@ cmd_validate_yaml() {
             in_entries = 1
             next
         }
+        /^entries:[[:space:]]*\[[[:space:]]*\][[:space:]]*$/ {
+            in_entries = 1
+            next
+        }
         /^[[:space:]]*-[[:space:]]+id:/ {
             close_entry()
             entry_idx++
@@ -225,8 +229,8 @@ cmd_validate_yaml() {
             if (!schema_seen) {
                 emit(file ": missing required top-level field: schema_version")
             }
-            if (entry_idx == 0) {
-                emit(file ": no entries found (schema requires entries[] list)")
+            if (!in_entries) {
+                emit(file ": missing required top-level field: entries[] (present-but-empty entries: [] is valid; the key must exist)")
             }
             exit (findings > 0 ? 1 : 0)
         }

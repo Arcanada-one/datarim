@@ -289,6 +289,24 @@ intent (counter reflects new artefacts) is satisfied. Repeated occurrences
 of the same drift class across tasks indicate the AC was authored as a
 literal where a formula would have served.
 
+### Live-endpoint AC verification commands must follow redirects
+
+When a success criterion's verification command asserts against a **live,
+reachable HTTP endpoint** (a wish or PRD AC of the form "curl ... returns
+X" / "curl ... | grep ..."), the command MUST be run against the real
+endpoint before the wish is marked `met` — never presumed from the page
+content alone. In addition, if the target site applies a lang-prefix or
+locale-detection redirect (bare `/privacy`, `/cookies`, `/terms` and
+similar routes that 302 to `/en/...` or `/ru/...`), the `curl` invocation
+MUST include `-L` (follow redirects) — e.g. `curl -fsSL`, not
+`curl -fsS`. Without `-L`, the bare path returns an empty 302 body and the
+grep silently fails, producing a false `missed` verdict even though the
+underlying content is correct. Author success criteria for such wishes as:
+"`curl -fsSL <URL> | grep '<expected text>'` matches" and record the actual
+executed command + exit code as the evidence, not just the expected text —
+this closes the gap between "AC text says curl should return X" and "an
+agent actually ran curl against a reachable endpoint and confirmed X".
+
 ## Mandatory read by pipeline commands
 
 After the file is created, every later pipeline command MUST read it and

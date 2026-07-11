@@ -143,6 +143,16 @@ description: Implement planned changes using TDD and AI quality principles
     -   Skip if no clarification rounds occurred.
     -   **Applies to every round** (round 1, round 2, …) of `/dr-do` invocation — including post-`/dr-verify` triage and `--focus=` re-entry. Round number MUST monotonically increase; do not reuse `--round N` from a prior call. Missing append triggers `/dr-qa` Layer 3b retroactive backfill (a process-cost regression).
 
+8.7. **V-CI GATE PRE-FLIGHT** (MANDATORY before any `gh run watch` / `gh run view` polling against a PR's `pull_request`-triggered CI checks — see `commands/dr-plan.md` § V-CI acceptance-bar framing):
+    -   Before polling CI, query the PR's merge readiness:
+        ```bash
+        gh pr view "$PR_NUMBER" --json mergeStateStatus,mergeable
+        ```
+    -   Evaluate `mergeStateStatus`:
+        -   `CONFLICTING` / `DIRTY` / `BEHIND` ⇒ the merge ref is unavailable — `pull_request`-triggered workflows will not fire on the new SHA. **Short-circuit**: do not invoke `gh run watch` / `gh run view`. Emit the advisory verbatim: `pull_request workflows will not trigger on the new SHA — V-CI gate deferred to operator.` Record the short-circuit and `mergeStateStatus` value in `datarim/tasks/{TASK-ID}-task-description.md` § Implementation Notes.
+        -   Any other `mergeStateStatus` value (`CLEAN`, `UNSTABLE`, `HAS_HOOKS`, `UNKNOWN`, etc.) ⇒ the merge ref is available — proceed with the normal `gh run watch` / `gh run view` polling loop for the V-CI acceptance bar.
+    -   Rationale: `gh run watch`/`gh run view` polling against a stale or non-existent merge-ref run silently waits on a CI run that was never triggered — the pre-flight check converts a hang/false-negative into an explicit operator-facing advisory.
+
 9.  **OUTPUT** (thin-index schema):
     -   Code changes (committed per Workspace Discipline rules in CLAUDE.md).
     -   Update `datarim/tasks/{TASK-ID}-task-description.md` § Implementation Notes with implementation log (or `## Decisions` for design choices). Description file frontmatter `status` stays `in_progress` until `/dr-archive`.
