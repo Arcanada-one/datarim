@@ -127,7 +127,14 @@ whitelist_paths=("$regex_file" "$0" "$_regex_basename" "$_self_basename"
     "documentation/how-to/evolution-log.md"
     # Supreme Directive canonical Source-of-Truth URL — public canon, not a
     # personal data leak. The URL is the published identifier of the spec.
-    "templates/project-claude-md.md")
+    "templates/project-claude-md.md"
+    # Dead-IP-sweep tooling embeds the decommissioned public IP it hunts — the
+    # IP is the detector's own needle (same rationale as the regex source file
+    # being exempt from its own scan). Flagging these would break the tool.
+    "dev-tools/dead-ip-consumer-sweep.sh"
+    "dev-tools/tests/dead-ip-consumer-sweep.bats"
+    "dev-tools/tests/dead-ip-sweep-wiring.bats"
+    "dev-tools/tests/check-db-relocation-class.bats")
 
 # Load additional whitelist paths (one prefix per line, # comments ok).
 if [ -n "$whitelist_file" ] && [ -f "$whitelist_file" ]; then
@@ -176,11 +183,58 @@ while (<$rfh>) {
 }
 close $rfh;
 
-exit 0 unless @patterns;
+# Build combined alternation regex (case-insensitive). May be undef when the
+# regex file has no active patterns — the match below is guarded accordingly.
+# The IP heuristic runs regardless, so we no longer early-exit on empty file.
+my $re;
+if (@patterns) {
+    my $combined = join('|', @patterns);
+    $re = qr/$combined/i;
+}
 
-# Build combined alternation regex (case-insensitive).
-my $combined = join('|', @patterns);
-my $re = qr/$combined/i;
+# --- Real-public-IPv4 heuristic (forward leak prevention) ------------------
+# Flags any routable public IPv4 in the shipped surface while preserving the
+# negative-space of legitimate documentation/example addresses. A flat regex
+# alternation cannot express the reserved-range *exclusion* cleanly, so octet
+# validation and reserved-block rejection live here in Perl.
+#
+# Reserved / non-flaggable blocks (an address inside ANY of these is ignored):
+#   0.0.0.0/8        this-network (also covers dotted section numbers like 0.2.5.1)
+#   10.0.0.0/8       RFC 1918 private
+#   100.64.0.0/10    CGNAT / Tailscale mesh (used as teaching content in-repo;
+#                    real mesh hosts stay individually denylisted for depth)
+#   127.0.0.0/8      loopback
+#   169.254.0.0/16   link-local
+#   172.16.0.0/12    RFC 1918 private
+#   192.0.2.0/24     RFC 5737 TEST-NET-1 (documentation)
+#   192.168.0.0/16   RFC 1918 private
+#   198.51.100.0/24  RFC 5737 TEST-NET-2 (documentation)
+#   203.0.113.0/24   RFC 5737 TEST-NET-3 (documentation)
+# Additionally, a 4th octet of 0 is treated as a network base / version string
+# (e.g. "1.0.0.0"), not a host entry-point, and is ignored.
+sub is_real_public_ipv4 {
+    my ($a, $b, $c, $d) = @_;
+    # Octet range validation — rejects 999-style and non-IP dotted quads.
+    for my $o ($a, $b, $c, $d) {
+        return 0 if $o < 0 || $o > 255;
+    }
+    # 4th octet 0 → network base / version string, not a host entry-point.
+    return 0 if $d == 0;
+
+    # Reserved / documentation blocks — NOT flagged.
+    return 0 if $a == 0;                             # 0.0.0.0/8
+    return 0 if $a == 10;                            # 10.0.0.0/8
+    return 0 if $a == 127;                           # 127.0.0.0/8
+    return 0 if $a == 169 && $b == 254;              # 169.254.0.0/16
+    return 0 if $a == 172 && $b >= 16 && $b <= 31;   # 172.16.0.0/12
+    return 0 if $a == 192 && $b == 168;              # 192.168.0.0/16
+    return 0 if $a == 192 && $b == 0 && $c == 2;     # 192.0.2.0/24 TEST-NET-1
+    return 0 if $a == 198 && $b == 51 && $c == 100;  # 198.51.100.0/24 TEST-NET-2
+    return 0 if $a == 203 && $b == 0 && $c == 113;   # 203.0.113.0/24 TEST-NET-3
+    return 0 if $a == 100 && $b >= 64 && $b <= 127;  # 100.64.0.0/10 CGNAT/Tailscale
+    return 1;
+}
+# ---------------------------------------------------------------------------
 
 for my $file (@scan_files) {
     open(my $fh, '<:encoding(UTF-8)', $file) or next;
@@ -191,9 +245,21 @@ for my $file (@scan_files) {
         if (/^\s*<!--\s*gate:example-only\s*-->\s*$/) { $in_fence = 1; next; }
         if (/^\s*<!--\s*\/gate:example-only\s*-->\s*$/) { $in_fence = 0; next; }
         next if $in_fence;
-        if (/$re/) {
-            chomp(my $line = $_);
+
+        chomp(my $line = $_);
+
+        # 1) Explicit denylist / handle patterns from the regex file.
+        if (defined $re && $line =~ /$re/) {
             print "$file:$.:$line\n";
+            next;
+        }
+
+        # 2) Heuristic real-public-IPv4 scan (dotted-quad extraction).
+        while ($line =~ /(?<![\d.])(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(?![\d.])/g) {
+            if (is_real_public_ipv4($1, $2, $3, $4)) {
+                print "$file:$.:$line\n";
+                last;
+            }
         }
     }
     close $fh;
