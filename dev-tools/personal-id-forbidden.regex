@@ -36,13 +36,22 @@ ASANA_[A-Z_]*PAT
 # 16-digit numeric IDs (Asana workspace/user GIDs)
 \b[0-9]{16}\b
 
-# Arcana production infrastructure — real public IPs (SEC-0015: never in shipped surface)
+# Real public IPv4 heuristic — forward leak prevention.
+# The specific IPs below stay as a defense-in-depth denylist, but the FLOOR is
+# now a heuristic in scripts/personal-id-gate.sh (sub is_real_public_ipv4): it
+# flags ANY routable public IPv4 in the shipped surface, so a NEW unlisted
+# ecosystem IP is caught without touching this file. Reserved/documentation
+# ranges (RFC 1918, RFC 5737 TEST-NET, loopback, link-local, 100.64/10 CGNAT,
+# 4th-octet-0 network/version strings) are excluded there. Keep this denylist
+# in sync when hosts change, but the heuristic no longer depends on it.
+
+# Arcana production infrastructure — real public IPs (never in shipped surface)
 \b49\.13\.52\.208\b
 \b65\.108\.236\.39\b
 \b135\.181\.222\.38\b
 \b37\.27\.107\.227\b
 
-# Arcana production infrastructure — Tailscale mesh IPs (SEC-0015)
+# Arcana production infrastructure — Tailscale mesh IPs
 \b100\.78\.174\.28\b
 \b100\.121\.155\.54\b
 \b100\.70\.137\.104\b

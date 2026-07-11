@@ -189,6 +189,32 @@ If the chosen provider's API key is unset / out of balance, scripts fail
 loudly — fall back to native `Read` for that turn only. Switch provider
 with `--provider` if one is down.
 
+### Retry policy
+
+Transient provider errors (network timeout, 5xx, rate-limit / 429) follow a
+global retry policy, not a per-caller improvisation:
+
+- **Exponential backoff.** Retry with increasing delay between attempts
+  (base delay doubling each retry, optionally jittered) rather than a fixed
+  interval or a tight loop.
+- **Max-retries cap.** Bounded number of attempts. Once the cap is reached,
+  stop retrying — do not loop indefinitely on a provider that is down.
+- **Fail loud, never silent.** After the cap is exhausted, surface the
+  underlying error (provider name, status/code, attempt count) and fall
+  back to the native tool (`Read`/`Write`/`Edit`) for that turn only. A
+  delegation call MUST NOT return empty or partial output and let the
+  caller mistake it for a valid (if thin) result — an exhausted retry
+  budget is a failure, reported as one, not a quiet content gap.
+- **Non-retryable errors skip the loop.** Config-class errors (missing /
+  invalid API key, out-of-balance account, `file-type policy` exit `6`)
+  are not transient — retrying them wastes the budget on a guaranteed
+  repeat failure. Fail loud immediately instead.
+
+Policy is provider-agnostic: it applies uniformly regardless of which
+backend (Moonshot / Groq / OpenRouter / DeepSeek / OpenAI) is selected via
+`--provider`. Switch provider with `--provider <other>` only after the
+current provider's retry budget is exhausted, not as a substitute for it.
+
 ## Runtime enforcement
 
 A per-machine hook script (`~/.local/bin/coworker-hook-guard`, canonical

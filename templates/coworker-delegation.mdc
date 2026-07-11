@@ -76,6 +76,15 @@ Enable when bulk reads regularly exceed ~5k tokens (logs, code dumps, long diffs
 
 If provider API key unset / out of balance: scripts fail loudly. Fallback to native Read for that turn only. Switch provider with `--provider <other>`.
 
+### Retry policy
+
+Transient errors (timeout, 5xx, rate-limit/429) retry with exponential
+backoff up to a max-retries cap, then fail loud (surface the error, fall
+back to native tool for that turn — never return empty/partial output
+silently). Config-class errors (bad key, out-of-balance, exit `6`) are not
+retryable — fail loud immediately. Provider-agnostic; see canonical mandate
+for full policy.
+
 ## References
 
 - Canonical mandate: `code/datarim/templates/coworker-delegation-fragment.md`

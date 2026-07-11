@@ -189,3 +189,33 @@ git -C <repo> cat-file blob <task-branch>:<path>   # or: git show <task-branch>:
 This applies at every verification gate (self-review, QA, compliance,
 archive). The working tree is shared state; your branch is the source of
 truth for what you shipped.
+
+## Shared Working Tree — Never Switch HEAD Out From Under a Sibling
+
+The rule above covers the *victim* side: another session's `checkout` yanked
+your tree, so verify against your committed blob. This rule covers the
+*actor* side: do not be the session that does the yanking.
+
+In a **shared** working tree, `git checkout <branch>` / `git switch` changes
+what every file on disk resolves to — for every process reading that tree,
+not just your own. If a sibling agent is mid-edit (uncommitted hunks, a
+long-running test run, a partially-written file), switching HEAD silently
+rewrites their in-progress files out from under them or drops their edits
+into the wrong branch's history when they eventually save.
+
+**Rule:** in a shared working tree, never `git checkout` / `git switch` to
+change the tree's HEAD. Use an isolated worktree instead:
+
+```bash
+# noshellcheck-extract
+git -C <repo> worktree add <path> <branch-or-ref>
+```
+
+This gets you an independent HEAD and working directory without touching the
+shared tree a sibling may depend on. See `skills/using-git-worktrees/SKILL.md`
+for the full isolated-workspace setup procedure.
+
+**Exception:** a workspace repo with a single canonical branch (e.g. `main`
+only, no feature branches ever checked out) has no sibling-HEAD hazard —
+there is nothing to switch away from. The hazard is specific to repos where
+different sessions work on different branches/tasks in the same tree.

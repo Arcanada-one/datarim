@@ -366,6 +366,29 @@ A spike (or any exploratory prototype meant to falsify a design hypothesis befor
 
 ---
 
+## Spike-Defer-to-Production Protocol
+
+A spike (or any isolated harness/prototype built to validate an approach outside the production codebase) proves feasibility — nothing more. Its output is a **go/no-go decision plus a follow-up production task**, never the spike's own code shipped directly into the production path. Treating a validated spike as "close enough to ship" smuggles unreviewed, unstubbed, untested exploratory code into production under the cover of the spike's validation result.
+
+**Rule.**
+
+1. **The spike's deliverable is a decision, not a diff.** When the isolated harness confirms (or falsifies) the approach, the spike concludes with a written go/no-go verdict — what was validated, what was NOT covered (error paths, scale, integration boundaries the harness stubbed out), and why the approach is or is not viable for production.
+2. **Productionization is always a separate follow-up task.** A go verdict opens a new task in the backlog scoped to implement the approach against production standards — full TDD, house style, error handling, the target codebase's actual architecture — not a copy-paste of the spike's exploratory code. The follow-up task cites the spike's verdict as its rationale, not as its implementation.
+3. **Spike code does NOT auto-promote.** Code written inside a spike/harness lives in its isolated location (a scratch directory, a throwaway branch, an isolated worktree) and is discarded or archived as reference once the go/no-go decision is recorded. It MUST NOT be merged, moved, or renamed into the production tree as the implementation — the follow-up task's implementation is written fresh against production quality gates (TDD, style guide, review), informed by what the spike learned.
+4. **State the boundary explicitly in the verdict.** The go/no-go write-up names what the harness deliberately did not exercise (concurrency, auth, persistence, the full error-handling surface) so the follow-up task's plan does not assume those are already covered.
+
+**Why.** A spike's isolation is what makes it fast and safe to falsify — it skips the review, testing, and architectural discipline that production code requires precisely because it is not meant to ship. If validated spike code is merged directly, all of that skipped discipline ships with it: no tests written against the target's real test suite, no adherence to the target's error-handling conventions, no review of the parts the spike stubbed out to stay fast. Separating "decision" from "implementation" keeps the spike's speed advantage without letting its shortcuts leak into production.
+
+**When to apply.** Any task that builds an isolated spike, prototype, or harness to validate a design or technical approach before committing to a full build-out.
+
+**Anti-patterns.**
+
+- Merging or renaming the spike's own files directly into the production path once the approach is validated, instead of opening a follow-up task with a fresh implementation.
+- Treating the spike's go verdict as a substitute for the follow-up task's own tests and review.
+- Omitting the "what the harness did not cover" note, leaving the follow-up task to silently assume untested paths are already handled.
+
+---
+
 ## Fragment Routing
 
 Load only the fragment needed for the current sub-problem:
