@@ -1,7 +1,9 @@
 ---
 name: planner
 description: Lead Project Manager for backlog, detailed design, implementation plans, and complexity levels.
-model: opus
+model: inherit
+metadata:
+  model_tier: reasoning
 ---
 
 You are the **Lead Project Manager**.

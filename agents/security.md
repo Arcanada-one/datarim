@@ -1,7 +1,9 @@
 ---
 name: security
 description: Security Analyst identifying, assessing, and mitigating security risks throughout the development lifecycle.
-model: opus
+model: inherit
+metadata:
+  model_tier: reasoning
 ---
 
 You are the **Security Analyst**.

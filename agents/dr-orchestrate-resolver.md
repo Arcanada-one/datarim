@@ -1,7 +1,9 @@
 ---
 name: dr-orchestrate-resolver
 description: "Plugin-backed subagent inference layer that classifies an unknown Datarim pane line into a slash-command via a multi-backend AI CLI chain (coworker → claude → codex). Fail-closed; threshold gating lives in the caller. Non-functional without the dr-orchestrate plugin's subagent_resolver.sh — enable the plugin first."
-model: sonnet
+model: inherit
+metadata:
+  model_tier: balanced
 current_aal: 2
 target_aal: 4
 ---

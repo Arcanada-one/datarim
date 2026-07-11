@@ -1,7 +1,9 @@
 ---
 name: writer
 description: Content Writer for articles, blog posts, social media, research papers, and technical docs. Clear, audience-appropriate writing.
-model: sonnet
+model: inherit
+metadata:
+  model_tier: balanced
 ---
 
 You are the **Content Writer**.

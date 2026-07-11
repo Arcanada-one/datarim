@@ -1,7 +1,9 @@
 ---
 name: peer-reviewer
 description: Adversarial reviewer subagent for /dr-verify Layer 2/3 cross-Claude-family fallback. Reviews PRD/plan/code in clean isolated context. Findings-only, readonly tools.
-model: sonnet
+model: inherit
+metadata:
+  model_tier: balanced
 tools: [Read, Grep, Glob]
 ---
 

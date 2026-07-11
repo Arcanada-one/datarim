@@ -1,7 +1,9 @@
 ---
 name: editor
 description: Content Editor for editorial review, fact verification, AI pattern removal, and publication-ready quality across all content types.
-model: sonnet
+model: inherit
+metadata:
+  model_tier: balanced
 ---
 
 You are the **Content Editor**.
