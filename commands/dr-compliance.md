@@ -12,7 +12,7 @@ description: Adaptive post-QA hardening. Detects task type and applies matching 
 
 **Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header.
 1.  **LOAD**: Read `$HOME/.claude/agents/compliance.md` and adopt that persona.
-2.  **RESOLVE PATH**: Find `datarim/` using standard path resolution.
+2.  **RESOLVE PATH**: Find `datarim/` using standard path resolution (see `$HOME/.claude/skills/datarim-system/SKILL.md` § Path Resolution Rule). **For a task whose code lives under `Projects/<name>/code/`, NEVER probe `Projects/<name>/code/datarim/` for workflow artefacts — that path exists only for the Datarim framework's own repo (§ Path Resolution Rule point 5). Resolve `--root` to the project's git-toplevel `datarim/`.**
 3.  **TASK RESOLUTION**: Apply Task Resolution Rule from `$HOME/.claude/skills/datarim-system/SKILL.md` § Task Resolution Rule. Use the resolved task ID for all subsequent steps.
 4.  **LOAD SKILLS**:
     - `$HOME/.claude/skills/datarim-system/SKILL.md` (Always)
