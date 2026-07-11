@@ -37,6 +37,23 @@ description: Implement planned changes using TDD and AI quality principles
     ```
     If any check fails — fix before implementing. Do not start coding on a broken foundation.
 
+6.5. **STAGING-NOT-STALE PRE-CHECK** (MANDATORY before executing any Acceptance Criterion whose E2E verification requires a non-prod / staging environment):
+    -   Identify whether the AC under execution needs a live non-prod target (staging host, compose project, or equivalent environment defined by the task/plan). If the AC's evidence can be produced with a unit/integration test or a semantic assertion against data already available, skip this step.
+    -   When a non-prod target is required, verify it is live and current — stack-agnostic, no hardcoded service names:
+        ```bash
+        staging_host="<staging host defined by the task/plan>"
+        health_url="<health endpoint defined by the task/plan>"
+        ssh "$staging_host" "docker compose -f <compose-file-defined-by-task> ps" 2>&1
+        curl -sS -o /dev/null -w '%{http_code}\n' "$health_url"
+        ```
+    -   Evaluate the result:
+        -   `docker compose ps` shows required services not `Up`/`running`, OR the health endpoint does not return a healthy status code, OR the target cannot be reached at all ⇒ staging is **dead or stale**.
+        -   Otherwise ⇒ staging is live; proceed with the AC's E2E step as planned.
+    -   On dead/stale staging: **STOP** executing that AC and surface operator guidance:
+        `Staging unavailable. Run INFRA-XYZ first OR use a semantic assertion on PROD-only.`
+        Record the STOP and its rationale in `datarim/tasks/{TASK-ID}-task-description.md` § Implementation Notes before moving to the next AC or escalating.
+    -   This check is advisory-blocking for the affected AC only — it does not halt the whole `/dr-do` run; other ACs not requiring a non-prod environment proceed normally.
+
 7.  **ACTION**:
     - **TDD Loop**: Write test -> Fail -> Code -> Pass.
     - Implement one stub/method at a time.
