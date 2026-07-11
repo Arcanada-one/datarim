@@ -54,7 +54,7 @@ tag (`@v1`) for automatic non-breaking updates.
 | `disk-fail-percent`   | `90`                                 | Disk used-% triggering FATAL (block deploy). |
 | `extra-checks`        | `vault\ntailscale\ntime-skew`        | Newline-separated optional checks. See list below. |
 | `ops-bot-emit`        | `true`                               | Emit warning/fatal events to Ops Bot. |
-| `ops-bot-url`         | `https://ops.arcanada.one/events`    | Ops Bot events endpoint. Validated against the canonical allowlist regex `^https://ops\.arcanada\.one/events$`; PROD trigger contexts (`push` on `main`/`master`/`release/*`) reject non-canonical with exit 1, non-PROD WARN-only. |
+| `ops-bot-url`         | `https://ops.arcanada.ai/events`    | Ops Bot events endpoint. Validated against the canonical allowlist regex `^https://ops\.arcanada\.ai/events$`; PROD trigger contexts (`push` on `main`/`master`/`release/*`) reject non-canonical with exit 1, non-PROD WARN-only. |
 | `ops-bot-key`         | `""`                                 | Ops Bot Vault-issued API key. When non-empty, the action's composite step exports it as `OPSBOT_KEY` for the underlying script, eliminating the consumer-side job-vs-step env-scope footgun. Empty (default) ⇒ falls back to runner env `OPSBOT_KEY`. |
 | `severity-overrides`  | `""`                                 | Optional JSON object of severity-threshold overrides, e.g. `{"min_free_disk_gb": 5}`. Schema-validated via `jq` before export (object type, allowlisted keys, integer values). Each entry exported as `PREFLIGHT_<UPPERCASE_KEY>=value` into `$GITHUB_ENV` for the downstream Run step. Empty ⇒ skip. Allowlist: `min_free_disk_gb`, `disk_warn_percent`, `disk_fail_percent`, `ram_warn_percent`, `ram_fail_percent`, `loadavg_fatal_multiplier`. |
 
@@ -156,7 +156,7 @@ script touches the host:
 | Guard | Trigger | Effect |
 |-------|---------|--------|
 | Fork-PR rejection | `github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true` | Fails fast (exit 1) before any host metric or secret is read. Prevents fork PR code from exfiltrating runner state or `OPSBOT_KEY`. |
-| `ops-bot-url` allowlist | Always (when `ops-bot-emit=true`) | Validates against `^https://ops\.arcanada\.one/events$`. PROD trigger contexts (`push` on `main`/`master`/`release/*`) reject non-canonical URLs with exit 1; non-PROD contexts WARN-only. Blocks event hijack via consumer-supplied URL. |
+| `ops-bot-url` allowlist | Always (when `ops-bot-emit=true`) | Validates against `^https://ops\.arcanada\.ai/events$`. PROD trigger contexts (`push` on `main`/`master`/`release/*`) reject non-canonical URLs with exit 1; non-PROD contexts WARN-only. Blocks event hijack via consumer-supplied URL. |
 | `severity-overrides` jq gate | When input non-empty | Top-level type must be `object`; keys must be in a hardcoded allowlist; values must be integers. `jq` parses the payload structurally — keys/values never reach the shell as unquoted tokens. Schema violation ⇒ exit 1 (invocation error). |
 | `OPSBOT_KEY` env propagation | Always | Composite-step `env:` resolves `inputs.ops-bot-key` first, then falls back to runner `env.OPSBOT_KEY`. Eliminates the job-vs-step env-scope footgun where a consumer sets `OPSBOT_KEY` at job level but the action's composite step does not inherit it. Key value never echoed to logs. |
 

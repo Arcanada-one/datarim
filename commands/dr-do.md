@@ -25,6 +25,8 @@ description: Implement planned changes using TDD and AI quality principles
     -   Bypass is permitted ONLY when (a) the harness hook explicitly returned an allow decision (operator override at runtime) AND (b) the override reason is recorded in the same § Implementation Notes line. Silent bypass = process regression; `/dr-compliance` will surface it.
     -   Rationale: hook-enforced mandates exist because the operator decided the delegation matters — for token economics, for content review discipline, or for security. Working around the hook to save time negates the operator's design decision and creates inconsistent artefact provenance across the task lifecycle.
 
+5.6. **PLAN-EXTRACT RECOMMENDATION (coworker, advisory)**: after reading the plan in Step 5, check its size — `datarim/tasks/{TASK-ID}-task-description.md` § Implementation Notes for L1-L2, or `datarim/plans/{TASK-ID}-plan.md` for L3-L4. When the plan exceeds **400 lines** AND this session is expected to cover **≥2 implementation phases** (a multi-phase plan, or an explicit multi-session plan), recommend — do not mandate — a `coworker ask --profile datarim` bulk-extract pass before starting the TDD loop: distill the plan into a phase-by-phase checklist so the working context is not dominated by the full plan text for the whole session. Skip silently when the plan is ≤400 lines or the session covers a single phase — the delegation overhead is not worth it for short/simple plans.
+
 6.  **PRE-FLIGHT CHECK** (L3-L4 code tasks only):
     Before writing any code, verify readiness:
     ```
@@ -40,6 +42,13 @@ description: Implement planned changes using TDD and AI quality principles
     - Implement one stub/method at a time.
     - Follow `datarim/history/patterns.md` and `datarim/style-guide.md`.
     - Apply quality rules: max 50 lines/method, max 7-9 objects in scope, tests before code.
+    - **Lint-on-the-spot (MANDATORY after each TDD Loop code-change step)**: auto-detect the project linter from the manifest present in the repo root (or nearest package boundary) and run it against the changed files before moving to the next stub/method. Fix findings immediately — do not carry lint debt forward to `/dr-compliance`; that stage assumes a clean baseline and is not a linter-fixup pass.
+    <!-- gate:example-only -->
+    -   Concrete recipes (illustrative — substitute the project's actual linter):
+        -   Rust ecosystem: `cargo clippy --all-targets -- -D warnings`
+        -   Node ecosystem: `eslint <changed-files>`
+        -   Python ecosystem: `ruff check <changed-files>`
+    <!-- /gate:example-only -->
 
 7.5 **GAP DISCOVERY** (during implementation):
     If you encounter an unknown that blocks progress (import failure, unexpected API behavior, docs ≠ reality, missing feature, compatibility issue):
@@ -100,7 +109,7 @@ description: Implement planned changes using TDD and AI quality principles
         On `hard_block` the verifier failure is non-overridable; on
         `advisory_warn` the operator MAY override with `--skip-exposure-gate`,
         which MUST emit an Ops Bot event:
-        `POST https://ops.arcanada.one/events` with
+        `POST https://ops.arcanada.ai/events` with
         `{category: warning, agent: dr-do, task: {TASK-ID}, body: "network-exposure-gate skipped"}`
         and a one-line note in
         `datarim/tasks/{TASK-ID}-task-description.md` § Decisions explaining

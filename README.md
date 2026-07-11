@@ -1002,7 +1002,7 @@ datarim/
   agents/            # Agent personas (19 agents)
   skills/            # Knowledge modules (64 skills)
   commands/          # Slash commands (27 commands)
-  templates/         # Task and document templates (19 templates)
+  templates/         # Task and document templates (24 templates)
   documentation/              # Extended documentation and use cases
   CLAUDE.md          # Framework rules (copy to your project)
   install.sh         # Automated installer

@@ -14,12 +14,23 @@ Reusable patterns for SSH-based operations across Arcana servers.
 
 | Name | Public IP | Tailscale IP | SSH |
 |------|-----------|-------------|-----|
-| Arcana WWW | 49.13.52.208 | 100.78.174.28 | `ssh root@49.13.52.208` |
-| Arcana PROD | 65.108.236.39 | 100.121.155.54 | `ssh root@65.108.236.39` |
-| Arcana DB | 135.181.222.38 | 100.70.137.104 | `ssh root@135.181.222.38` |
-| Arcana Trading | 37.27.107.227 | 100.90.7.20 | `ssh root@37.27.107.227` |
+| www | <www-public-ip> | <www-tailscale-ip> | `ssh root@<www-host>` |
+| prod | <prod-public-ip> | <prod-tailscale-ip> | `ssh root@<prod-host>` |
+| db | <db-public-ip> | <db-tailscale-ip> | `ssh root@<db-host>` |
+| trading | <trading-public-ip> | <trading-tailscale-ip> | `ssh root@<trading-host>` |
 
-> Always verify current IPs against `memory/reference_arcana_www_server.md` before use.
+> Always verify current IPs against your own private infrastructure inventory (never hardcode real addresses in this shipped skill) before use.
+
+## Post-Provision Checklist — Public IP
+
+Any server inventory record (this table, a project's `space.yml`, or equivalent) for a host with a routable public address MUST have that address recorded before the provisioning task is closed. Do not leave the field `null`/blank "for later" once a routable address exists.
+
+**Why.** A server bootstrapped without its public IP recorded reads as unreachable/dark to anyone consulting the inventory later — the address exists and is reachable, but the record gives no evidence of that, so an operator has no way to distinguish "not yet provisioned" from "provisioned, IP not written down". The gap surfaces only when someone happens to `ssh root@<ip>` from a stale note elsewhere and is surprised the host answers.
+
+**Rule.** As the last step of provisioning (or first step of onboarding an existing host into the inventory), confirm the host has a routable public interface (`ip -4 addr show` on the host, or the cloud provider's dashboard) and write the address into the inventory record in the same commit/change as the rest of the provisioning artefacts.
+
+**Optional lint.** A pre-commit or CI check MAY flag an inventory record where a public-interface field is `null`/empty while the host is reachable at a known address — treat this as a checklist reminder, not a hard gate, since some hosts are intentionally NAT-only.
+
 
 ## SSH Batch Execute
 
@@ -78,8 +89,8 @@ ssh -o StrictHostKeyChecking=no -o BatchMode=yes "$host" "<COMMAND>"
 Test NxN connectivity across all devices in mesh:
 
 ```bash
-declare -A TSIP=([www]=100.78.174.28 [prod]=100.121.155.54 [db]=100.70.137.104 [trading]=100.90.7.20)
-declare -A PUBIP=([www]=49.13.52.208 [prod]=65.108.236.39 [db]=135.181.222.38 [trading]=37.27.107.227)
+declare -A TSIP=([www]="$WWW_TS_IP" [prod]="$PROD_TS_IP" [db]="$DB_TS_IP" [trading]="$TRADING_TS_IP")
+declare -A PUBIP=([www]="$WWW_PUB_IP" [prod]="$PROD_PUB_IP" [db]="$DB_PUB_IP" [trading]="$TRADING_PUB_IP")
 
 for SRC in www prod db trading; do
   printf "%-10s" "$SRC"
@@ -131,7 +142,7 @@ Check all PROD services:
 for svc in "3400 support" "3500 muneral" "3600 opsbot"; do
   port=$(echo $svc | cut -d' ' -f1)
   name=$(echo $svc | cut -d' ' -f2)
-  STATUS=$(ssh root@65.108.236.39 "curl -sf -o /dev/null -w '%{http_code}' http://localhost:$port/health" 2>/dev/null)
+  STATUS=$(ssh root@"$PROD_PUB_IP" "curl -sf -o /dev/null -w '%{http_code}' http://localhost:$port/health" 2>/dev/null)
   echo "$name (:$port): ${STATUS:-UNREACHABLE}"
 done
 ```
@@ -140,21 +151,21 @@ done
 
 ```bash
 # Docker service status on PROD
-ssh root@65.108.236.39 "docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"
+ssh root@"$PROD_PUB_IP" "docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"
 
 # Tailscale status on all servers
-for host in 49.13.52.208 65.108.236.39 135.181.222.38 37.27.107.227; do
+for host in "${PUBIP[@]}"; do
   echo "=== $host ==="; ssh root@$host "tailscale status" 2>&1 | head -8
 done
 
 # Disk usage on all servers
-for host in 49.13.52.208 65.108.236.39 135.181.222.38 37.27.107.227; do
+for host in "${PUBIP[@]}"; do
   echo "=== $host ==="; ssh root@$host "df -h / | tail -1"
 done
 
 # Check nginx configs
-ssh root@49.13.52.208 "nginx -t" 2>&1
-ssh root@65.108.236.39 "nginx -t" 2>&1
+ssh root@"$WWW_PUB_IP" "nginx -t" 2>&1
+ssh root@"$PROD_PUB_IP" "nginx -t" 2>&1
 ```
 
 ## Safety Rules
@@ -304,6 +315,26 @@ $COMPOSE up -d --build
 **Smoke gate.** After applying, the deploy job must verify named-volume preservation (`docker volume ls | grep -E '<known-volume-names>' | wc -l` matches the expected count) before declaring the deploy clean.
 
 **Anti-pattern.** Targeted `docker rm -f <container-name>` per service — duplicated work for multi-service compose projects and brittle against future service additions.
+
+## Compose Config-File Verification Before Cutover
+
+Before any `docker compose down` / `docker compose up` against a production container, verify the *running* container's compose config source, not the file you intend to pass:
+
+```bash
+# nosec-extract
+docker inspect <container> --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}'
+```
+
+**Why.** `docker compose` commands run without an explicit `-f` fall back to the default `docker-compose.yml` in the working directory. If the working container was actually started with an overlay (`-f docker-compose.yml -f docker-compose.prod.yml`), an unqualified `down`/`up` targets the wrong compose project definition and can bring up the container against dev-shaped config (e.g. default dev credentials, missing `env_file`/`VAULT_ADDR`) — silently replacing a working production container with a broken default one.
+
+**Rule.** Read the label above and pass the exact same `-f` file list back to `docker compose`, or use `docker compose -p <project>` to bind to the existing project name. Never assume the compose file list from memory or from a runbook written before the last config change.
+## Cutover Re-sync Scope Rule
+
+The final re-sync inside a migration/cutover window MUST cover every stateful storage the service depends on (Postgres, Mongo, Vault data, any file-backend) — not just the primary database. Verify freshness of each store individually (e.g. compare a last-write timestamp or row/key count against the source) before declaring the new primary live.
+
+**Why.** A new primary can pass a DB-freshness check while a co-located stateful store (Vault's storage backend, a cache warm-set, a file-backend mirror) is still running off a stale snapshot. Vault re-issuing `secret_id`s against pre-cutover data while Postgres is current is invisible to a DB-only check — the failure only surfaces downstream as an auth 403, well after the window closed. Treat every stateful store as an independent freshness claim to verify, not an assumed side-effect of the DB sync.
+
+**Rule.** Before closing a cutover window, enumerate every stateful storage the migrating service(s) touch, and confirm each one's freshness explicitly. A cutover runbook or plan is incomplete if it names only the primary database as a verification target.
 
 ## Reusable Templates
 
