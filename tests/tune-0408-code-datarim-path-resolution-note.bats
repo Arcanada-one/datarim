@@ -15,8 +15,8 @@ DR_COMPLIANCE="$BATS_TEST_DIRNAME/../commands/dr-compliance.md"
     [ "$output" -ge 1 ]
 }
 
-@test "path-and-storage.md cites the VERD-0031 precedent" {
-    run grep -c 'VERD-0031' "$SKILL_DOC"
+@test "path-and-storage.md cites the code/datarim resolution precedent" {
+    run grep -c 'prior QA incident' "$SKILL_DOC"
     [ "$status" -eq 0 ]
     [ "$output" -ge 1 ]
 }
