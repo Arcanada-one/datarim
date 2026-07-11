@@ -111,7 +111,12 @@ def parse_backlog(
 ) -> list[tuple[str, str]]:
     """Return [(task_id, raw_title_text), …] for matching backlog lines."""
     out: list[tuple[str, str]] = []
-    if not path.is_file():
+    # Use exists() rather than is_file(): process-substitution paths like
+    # /dev/fd/63 (from `<(...)`) are symlinks to pipes, not regular files,
+    # so is_file() (which requires S_ISREG) rejects them even though they
+    # are readable. exists() + read_text() below correctly handles both
+    # regular files and /dev/fd/* readable descriptors.
+    if not path.exists():
         return out
     for line in path.read_text(encoding="utf-8").splitlines():
         m = PENDING_RE.match(line)
@@ -191,7 +196,10 @@ def _read_task_text(arg: str) -> str | None:
     if arg == "-":
         return sys.stdin.read()
     td_path = Path(arg)
-    if not td_path.is_file():
+    # See parse_backlog() comment: exists() (not is_file()) so process-
+    # substitution paths (/dev/fd/N from `<(...)`) are accepted as valid
+    # input, matching the stdin-alias UX documented in PRD-TUNE-0202 AC-8.
+    if not td_path.exists():
         return None
     return td_path.read_text(encoding="utf-8")
 
