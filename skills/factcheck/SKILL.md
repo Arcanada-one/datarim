@@ -168,5 +168,6 @@ After user approval:
 - **Show your work**: Every correction must cite a source.
 - **Ask when unsure**: If a correction would significantly change the article's argument, ask the user before applying.
 - **Temporal awareness**: Always note "as of {current date}" for facts that may change over time.
+- **Legal-doc effective dates — publication date, never future-dated**: when the article/document under review is a legal or policy artifact (privacy policy, terms of service, cookie notice, consent text) and states an "effective date" or "in force from" date, that date MUST equal the actual publication date, not a date in the future. A future-dated effective date creates a semantic defect: the live text implies measures (e.g. a data-erasure endpoint, a new hashing scheme) that do not exist yet on the day a reader sees the page. Treat any effective date more than 2 days ahead of the current date as INACCURATE and correct it to the publication date, citing this rule as the source rather than an external claim.
 - **No hallucinated sources**: If you cannot find a source, say so. Never fabricate URLs or citations.
 - **Language preservation**: Keep the article in its original language. If the article is in Russian, corrections and comments should also be in Russian.

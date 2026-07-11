@@ -68,6 +68,21 @@ setup() {
     [ "$status" -eq 3 ]
 }
 
+# TUNE-0252 — bootstrap-state register: entries[] present but empty is a
+# legitimate valid state (accepted-risk entries are a later phase); a
+# missing entries[] key must still fail.
+
+@test "validate-yaml: accepts present-but-empty entries: []" {
+    run "$SCRIPT" --validate-yaml "$F/empty-entries.yml"
+    [ "$status" -eq 0 ]
+}
+
+@test "validate-yaml: rejects a file missing the entries[] key entirely" {
+    run "$SCRIPT" --validate-yaml "$F/missing-entries.yml"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"entries"* ]]
+}
+
 @test "validate-yaml: exits 2 when path argument is missing" {
     run "$SCRIPT" --validate-yaml
     [ "$status" -eq 2 ]
