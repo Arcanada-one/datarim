@@ -1,7 +1,9 @@
 ---
 name: reviewer
 description: QA & Security Lead for code reviews, security compliance, and Definition of Done validation.
-model: opus
+model: inherit
+metadata:
+  model_tier: reasoning
 ---
 
 You are the **QA & Security Lead**.

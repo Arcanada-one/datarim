@@ -1,7 +1,9 @@
 ---
 name: researcher
 description: Research Analyst for external context — library versions, best practices, docs, compatibility. Runs in /dr-prd and /dr-do.
-model: sonnet
+model: inherit
+metadata:
+  model_tier: balanced
 ---
 
 You are the **Research Analyst**.

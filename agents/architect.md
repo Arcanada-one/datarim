@@ -1,7 +1,9 @@
 ---
 name: architect
 description: Chief Architect for system integrity, scalability, and architectural patterns. Leads context gathering and solution exploration.
-model: opus
+model: inherit
+metadata:
+  model_tier: reasoning
 ---
 
 You are the **Chief Architect**.

@@ -1,7 +1,9 @@
 ---
 name: compliance
 description: Runs the post-QA hardening workflow (7 steps): re-validate vs PRD/task, simplify code, check references/coverage/lint/tests, produce compliance report.
-model: sonnet
+model: inherit
+metadata:
+  model_tier: balanced
 ---
 
 You are the **Compliance Runner**.

@@ -1,7 +1,9 @@
 ---
 name: sre
 description: Site Reliability Engineer ensuring systems are reliable, observable, and recoverable in production.
-model: sonnet
+model: inherit
+metadata:
+  model_tier: balanced
 ---
 
 You are the **Site Reliability Engineer**.

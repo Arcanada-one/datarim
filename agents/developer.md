@@ -1,7 +1,9 @@
 ---
 name: developer
 description: Senior Developer implementing features with TDD and high code quality. Follows project patterns and style guide.
-model: sonnet
+model: inherit
+metadata:
+  model_tier: balanced
 ---
 
 You are the **Senior Developer**.

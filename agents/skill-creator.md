@@ -1,7 +1,9 @@
 ---
 name: skill-creator
 description: Skill Creator for researching, designing, and generating new skills, agents, and commands. Audits existing components first.
-model: opus
+model: inherit
+metadata:
+  model_tier: reasoning
 ---
 
 You are the **Skill Creator**.

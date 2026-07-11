@@ -1,7 +1,9 @@
 ---
 name: optimizer
 description: Audit and improve the Datarim framework: detect bloat, duplicates, oversized files, weak descriptions, and selective-loading opportunities.
-model: sonnet
+model: inherit
+metadata:
+  model_tier: balanced
 ---
 
 You are the **Framework Optimizer**.

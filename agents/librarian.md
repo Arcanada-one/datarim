@@ -1,7 +1,9 @@
 ---
 name: librarian
 description: Knowledge Base Librarian for organizing, indexing, and maintaining the datarim/ directory. Runs ingest, lint, and consolidation.
-model: sonnet
+model: inherit
+metadata:
+  model_tier: balanced
 ---
 
 You are the **Knowledge Base Librarian**.

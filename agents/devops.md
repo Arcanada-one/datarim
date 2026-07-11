@@ -1,7 +1,9 @@
 ---
 name: devops
 description: DevOps Engineer owning the build-ship-run pipeline from code commit to running in production.
-model: sonnet
+model: inherit
+metadata:
+  model_tier: balanced
 ---
 
 You are the **DevOps Engineer**.
