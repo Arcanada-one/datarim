@@ -1,5 +1,12 @@
 # Evolution Log
 
+## 2026-07-10 — TUNE-0159 — Promote architectural-superseding probe from /dr-plan Phase 4 to /dr-init (Class A applied)
+
+- **Recurrence source:** `reflection-CONN-0078.md` proposal #2 — CONN-0078 was closed as superseded only AFTER the full `/dr-init` flow had already run (task-description.md + activeContext entry created), because the architectural-superseding probe lived as the mandatory first sub-step of `/dr-plan` Phase 4. By the time `/dr-plan` ran, the redundant task had already accrued an init-task file, an expectations skeleton, and an activeContext entry — all wasted when the sibling archive turned out to have already resolved the problem.
+- **Fix:** added `/dr-init` Step 3.5 — Architectural-superseding probe. Triggers when the operator's brief (direct-prompt flow) or the selected backlog item's description (backlog flow, available after Step 3) carries a `Source:`/`Spawned from:` reference to a prior archive or in-flight sibling. Reads the referenced archive(s) and answers whether the architectural problem is already resolved; if yes, STOPS before Step 4 writes `tasks.md`/`activeContext.md`/the init-task file and presents cancel/reframe/proceed to the operator. Wired into the `/dr-auto` suppression-ladder table alongside the existing Step 3 and Step 4 hooks.
+- `/dr-plan` Phase 4's mandatory-first-substep was narrowed to a lightweight fallback re-check: only re-probes when a NEW sibling archive landed strictly after `/dr-init`'s `captured_at` timestamp (via `git log --since`), avoiding duplicate work for the common case already caught upstream. The `/dr-auto` suppression-hook line and the auto-mode Step reference were updated to point at the new primary location.
+- Both edited command bodies stay history-agnostic (no task-ID provenance embedded in the shipped rule text, per `skills/evolution/history-agnostic-gate.md`) — this log entry is the only place the source task ID is cited.
+- Verification: `scripts/stack-agnostic-gate.sh` PASS on both files; `scripts/task-id-gate.sh` PASS on both files; no unintended non-ASCII introduced (only pre-existing em-dash style); `bats tests/` full suite green (114/114 on the targeted dr-init/dr-plan/markdown-policy/frontmatter subset, full-suite run clean).
 ## 2026-07-10 — TUNE-0157: apply reflection-INFRA-0115 Class A proposals
 
 **Category:** apply-reflection-proposal · **Class:** A (P3 backlog sweep).
