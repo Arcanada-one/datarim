@@ -34,8 +34,8 @@ bullet_block() {
     [[ "$block" == *"flag"* ]]
 }
 
-@test "probe cites the VERD-0037 precedent" {
+@test "probe cites the resume-scope-drift precedent" {
     local block; block=$(bullet_block)
     [ -n "$block" ]
-    [[ "$block" == *"VERD-0037"* ]]
+    [[ "$block" == *"prior resume incident"* ]]
 }
