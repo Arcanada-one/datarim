@@ -28,3 +28,14 @@ FIXTURE="$BATS_TEST_DIRNAME/fixtures/topic-overlap/backlog-with-overlap.md"
     [ "$status" -eq 0 ]
     [[ "$output" == *"TST-0003"* ]]
 }
+
+@test "(d) TUNE-0207: /dev/fd process-substitution backlog path is accepted (not silently empty)" {
+    # Regression: Path.is_file() returned False for /dev/fd/N (pipe-backed symlink),
+    # making <(...) backlog args silently produce no output. exists() fixes it.
+    run python3 "$SCRIPT" --task-description - \
+        --backlog <(printf -- '- TUNE-0999 · pending · P3 · L1 · process substitution path handling script fixture\n') <<< \
+        "process substitution path handling script fixture test"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"TUNE-0999"* ]]
+    [[ "$output" == *"matched:"* ]]
+}

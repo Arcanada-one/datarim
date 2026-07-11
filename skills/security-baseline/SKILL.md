@@ -301,6 +301,18 @@ Consumer projects add their language ecosystem (e.g. one `package-ecosystem` blo
 
 `${DATARIM_RUNTIME:-$HOME/.claude}/templates/security-workflow.yml` is the canonical drop-in for consumer projects. Reusable workflow path: `Arcanada-one/datarim/.github/workflows/reusable-security.yml@<tag>` (preferred — single source of truth, version-pinned).
 
+### Pre-push local validation (advisory)
+
+For a brand-new repo wired to reusable CI workflows (per this section), run the local validators before the first `git push` to catch policy violations before CI does:
+
+```bash
+dev-tools/check-security-policy.sh --validate-yaml accepted-risk.yml
+dev-tools/check-expectations-checklist.sh --verify <TASK-ID>
+actionlint .github/workflows/*.yml
+```
+
+Advisory, not a merge gate — S7 CI remains the enforcement boundary; this step only shortens the feedback loop for a repo's first push.
+
 ---
 
 ## S7 — CI verification gate
