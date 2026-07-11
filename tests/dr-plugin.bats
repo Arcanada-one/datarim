@@ -283,6 +283,33 @@ EOF
     grep -q "id: demo" "$TMPROOT/datarim/enabled-plugins.md"
 }
 
+@test "T53a enable refuses dr-orchestrate when consumer CLAUDE.md lacks the FB-rules mandate text (TUNE-0187)" {
+    local src
+    src="$(make_plugin_source "dr-orchestrate" "alpha.md")"
+    echo "# Some workspace CLAUDE.md without the mandate" > "$TMPROOT/CLAUDE.md"
+    run "$PLUGIN_SH" enable "$src"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"Autonomous Agent Operating Rules"* ]]
+    [ ! -e "$TMPROOT/datarim/enabled-plugins.md" ] || ! grep -q "id: dr-orchestrate" "$TMPROOT/datarim/enabled-plugins.md"
+}
+
+@test "T53b enable allows dr-orchestrate once consumer CLAUDE.md mirrors the FB-rules mandate text (TUNE-0187)" {
+    local src
+    src="$(make_plugin_source "dr-orchestrate" "alpha.md")"
+    echo "# Autonomous Agent Operating Rules Mandate" > "$TMPROOT/CLAUDE.md"
+    run "$PLUGIN_SH" enable "$src"
+    [ "$status" -eq 0 ]
+    grep -q "id: dr-orchestrate" "$TMPROOT/datarim/enabled-plugins.md"
+}
+
+@test "T53c enable is unaffected by the dr-orchestrate preflight for other plugin ids" {
+    local src
+    src="$(make_plugin_source "demo" "alpha.md")"
+    rm -f "$TMPROOT/CLAUDE.md" 2>/dev/null || true
+    run "$PLUGIN_SH" enable "$src"
+    [ "$status" -eq 0 ]
+}
+
 @test "T54 enable second time is idempotent — no duplicate manifest entry" {
     local src
     src="$(make_plugin_source "demo" "alpha.md")"

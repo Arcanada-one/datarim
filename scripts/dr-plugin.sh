@@ -385,6 +385,19 @@ cmd_enable() {
         return 1
     fi
 
+    # TUNE-0187: dr-orchestrate ships fb-rules enforcement that assumes the
+    # consumer's own CLAUDE.md already mirrors the canonical Autonomous Agent
+    # Operating Rules mandate text at rank-1 level. Refuse enable rather than
+    # activate a plugin whose enforced rules the workspace hasn't adopted.
+    if [ "$id" = "dr-orchestrate" ]; then
+        local ws_preflight
+        ws_preflight="$(resolve_workspace)" || return 2
+        if ! grep -q "Autonomous Agent Operating Rules" "$ws_preflight/CLAUDE.md" 2>/dev/null; then
+            echo "dr-plugin enable: dr-orchestrate requires this workspace's CLAUDE.md to mirror the canonical Autonomous Agent Operating Rules mandate (see documentation/mandates/autonomous-agents.md) before enabling (TUNE-0187). Not found in $ws_preflight/CLAUDE.md." >&2
+            return 1
+        fi
+    fi
+
     local ws repo manifest
     ws="$(resolve_workspace)"
     repo="$(resolve_repo_root "$ws")"
