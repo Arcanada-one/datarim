@@ -14,12 +14,12 @@ Reusable patterns for SSH-based operations across Arcana servers.
 
 | Name | Public IP | Tailscale IP | SSH |
 |------|-----------|-------------|-----|
-| Arcana WWW | 49.13.52.208 | 100.78.174.28 | `ssh root@49.13.52.208` |
-| Arcana PROD | 65.108.236.39 | 100.121.155.54 | `ssh root@65.108.236.39` |
-| Arcana DB | 135.181.222.38 | 100.70.137.104 | `ssh root@135.181.222.38` |
-| Arcana Trading | 37.27.107.227 | 100.90.7.20 | `ssh root@37.27.107.227` |
+| www | <www-public-ip> | <www-tailscale-ip> | `ssh root@<www-host>` |
+| prod | <prod-public-ip> | <prod-tailscale-ip> | `ssh root@<prod-host>` |
+| db | <db-public-ip> | <db-tailscale-ip> | `ssh root@<db-host>` |
+| trading | <trading-public-ip> | <trading-tailscale-ip> | `ssh root@<trading-host>` |
 
-> Always verify current IPs against `memory/reference_arcana_www_server.md` before use.
+> Always verify current IPs against your own private infrastructure inventory (never hardcode real addresses in this shipped skill) before use.
 
 ## Post-Provision Checklist — Public IP
 
@@ -89,8 +89,8 @@ ssh -o StrictHostKeyChecking=no -o BatchMode=yes "$host" "<COMMAND>"
 Test NxN connectivity across all devices in mesh:
 
 ```bash
-declare -A TSIP=([www]=100.78.174.28 [prod]=100.121.155.54 [db]=100.70.137.104 [trading]=100.90.7.20)
-declare -A PUBIP=([www]=49.13.52.208 [prod]=65.108.236.39 [db]=135.181.222.38 [trading]=37.27.107.227)
+declare -A TSIP=([www]="$WWW_TS_IP" [prod]="$PROD_TS_IP" [db]="$DB_TS_IP" [trading]="$TRADING_TS_IP")
+declare -A PUBIP=([www]="$WWW_PUB_IP" [prod]="$PROD_PUB_IP" [db]="$DB_PUB_IP" [trading]="$TRADING_PUB_IP")
 
 for SRC in www prod db trading; do
   printf "%-10s" "$SRC"
@@ -142,7 +142,7 @@ Check all PROD services:
 for svc in "3400 support" "3500 muneral" "3600 opsbot"; do
   port=$(echo $svc | cut -d' ' -f1)
   name=$(echo $svc | cut -d' ' -f2)
-  STATUS=$(ssh root@65.108.236.39 "curl -sf -o /dev/null -w '%{http_code}' http://localhost:$port/health" 2>/dev/null)
+  STATUS=$(ssh root@"$PROD_PUB_IP" "curl -sf -o /dev/null -w '%{http_code}' http://localhost:$port/health" 2>/dev/null)
   echo "$name (:$port): ${STATUS:-UNREACHABLE}"
 done
 ```
@@ -151,21 +151,21 @@ done
 
 ```bash
 # Docker service status on PROD
-ssh root@65.108.236.39 "docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"
+ssh root@"$PROD_PUB_IP" "docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"
 
 # Tailscale status on all servers
-for host in 49.13.52.208 65.108.236.39 135.181.222.38 37.27.107.227; do
+for host in "${PUBIP[@]}"; do
   echo "=== $host ==="; ssh root@$host "tailscale status" 2>&1 | head -8
 done
 
 # Disk usage on all servers
-for host in 49.13.52.208 65.108.236.39 135.181.222.38 37.27.107.227; do
+for host in "${PUBIP[@]}"; do
   echo "=== $host ==="; ssh root@$host "df -h / | tail -1"
 done
 
 # Check nginx configs
-ssh root@49.13.52.208 "nginx -t" 2>&1
-ssh root@65.108.236.39 "nginx -t" 2>&1
+ssh root@"$WWW_PUB_IP" "nginx -t" 2>&1
+ssh root@"$PROD_PUB_IP" "nginx -t" 2>&1
 ```
 
 ## Safety Rules

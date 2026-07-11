@@ -8,7 +8,7 @@ triaged under the Arcanada Ecosystem Security Policy Mandate.
 Preferred channel for public repositories: **GitHub Private Vulnerability
 Reporting** (`Security` tab → `Report a vulnerability`).
 
-Alternative channel: **security@arcanada.one** with subject prefix
+Alternative channel: **security@arcanada.ai** with subject prefix
 `[security]`. Encrypt with the PGP key published on
 [keys.openpgp.org](https://keys.openpgp.org) when disclosing exploit
 details.
@@ -106,7 +106,7 @@ in repository documentation when published.
 ## Embargo Policy
 
 For pre-disclosure embargoes (e.g. downstream consumers needing time
-to patch before public disclosure), email **security@arcanada.one**
+to patch before public disclosure), email **security@arcanada.ai**
 with proposed embargo window. Default embargo length is 30 days from
 coordinated patch release.
 

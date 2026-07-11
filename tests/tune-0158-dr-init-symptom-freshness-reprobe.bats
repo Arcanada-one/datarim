@@ -60,7 +60,7 @@ DR_INIT_DOC="$REPO_ROOT/commands/dr-init.md"
     [ "$status" -eq 0 ]
 }
 
-@test "dr-init.md symptom-freshness step cites reflection-CONN-0078.md as source" {
-    run grep -F 'reflection-CONN-0078.md' "$DR_INIT_DOC"
+@test "dr-init.md symptom-freshness step cites the prior-reflection precedent" {
+    run grep -F 'a prior reflection proposal' "$DR_INIT_DOC"
     [ "$status" -eq 0 ]
 }

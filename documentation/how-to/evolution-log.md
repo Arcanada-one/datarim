@@ -8,6 +8,42 @@
 - New regression test `tests/tune-0158-dr-init-symptom-freshness-reprobe.bats` (9 cases) asserts step presence, both trigger classes, the pre-Step-3 re-probe ordering, the superseded/stale routing on resolved-symptom, the never-blocks contract on still-live/unreachable probe, the stack-agnostic phrasing, and the source citation.
 - Verification: `scripts/stack-agnostic-gate.sh commands/dr-init.md` → PASS: clean. `dev-tools/check-body-english.sh --root . --scope commands` → PASS (27 files). `grep -RPn '[^\x00-\x7F]' commands/dr-init.md` on added lines only (`git diff -U0`) shows no new non-ASCII beyond pre-existing em-dash/arrow punctuation already pervasive in the file; the one new Cyrillic line (Russian trigger keywords) carries a valid `allow-non-ascii` marker. Targeted `bats` run (dr-init suite + markdown-policy/frontmatter suites + new regression file): 135 tests, 0 failures.
 - Note for reviewers: this PR may textually overlap with a sibling PR for TUNE-0159, which per the sweep brief also touches `commands/dr-init.md` near Step 2.5/2.6 — flagged for sequential merge, not resolved here.
+## 2026-07-10 — TUNE-0157: apply reflection-INFRA-0115 Class A proposals
+
+**Category:** apply-reflection-proposal · **Class:** A (P3 backlog sweep).
+**Target:** `skills/network-exposure-baseline/SKILL.md`, `skills/datarim-system/backlog-and-routing.md`.
+
+**What:** Three Class A additions from `reflection-INFRA-0115`. (1)
+`network-exposure-baseline/SKILL.md` — new "Consumer Wiring Example" section
+with a minimal CI-job YAML snippet showing `needs` promoted from scalar to
+array form, plus a note to order independent jobs in parallel rather than
+force a sequential chain. (2) Same file — new "Local Pre-PR Smoke Recipe"
+subsection: a positive-case recipe against the live compose setup, and a
+negative-case recipe that copies the compose file to a synthetic Tier-3
+scratch copy under `/tmp/<task-id>-negsmoke`, breaks a bind via a portable
+`python3` one-liner (avoids GNU/BSD `sed -i` divergence), confirms the gate
+fires (exit 1), then `rm -rf`s the scratch copy. (3)
+`skills/datarim-system/backlog-and-routing.md` § Mode Transition
+Optimization — new "Pre-merge baseline cleanup spawn" subsection: when an
+unblocker PR carries baseline-red CI noise unrelated to the delta it ships,
+the CTA recommends spawning a separate cleanup task for that noise rather
+than merging it silently bundled with the unblocker.
+
+**Why:** Both proposals close gaps the reflection identified — the exposure
+baseline skill documented the gate contract but not how a caller wires it
+into CI nor how to smoke-test it before opening a PR; the CTA routing logic
+had no guidance distinguishing "this PR's own delta" from "pre-existing
+noise the PR happens to run past," which risks silently bundling unrelated
+fixes into an unblocker's diff.
+
+**Verification:** `scripts/stack-agnostic-gate.sh` PASS on both edited files;
+`bats tests/stack-agnostic-gate.bats tests/check-skill-frontmatter.bats
+tests/check-frontmatter-english.bats tests/check-skill-layout.bats
+tests/check-doc-refs.bats` → 60/60 passing; full `bats tests/` run for the
+whole-suite regression check (see PR body for count); no Cyrillic/non-ASCII
+introduced in added lines beyond the framework's existing em-dash/arrow
+typographic convention (verified via `grep -P` on the diff, restricted to
+Cyrillic code-point range).
 ## 2026-07-10 — TUNE-0179 — Probe Before Harness rule added to `skills/ai-quality/SKILL.md` (Class A applied)
 
 - **Target:** `skills/ai-quality/SKILL.md` — new top-level section «Probe Before Harness» inserted before § Fragment Routing.

@@ -52,7 +52,6 @@ case "$SINCE" in
 esac
 
 cutoff_ts=$(( $(date -u +%s) - secs ))
-resolved=0; escalated=0
 
 shopt -s nullglob
 files=( "$AUDIT_DIR"/audit-*.jsonl )
@@ -61,27 +60,29 @@ if (( ${#files[@]} == 0 )); then
   exit 1
 fi
 
-while IFS= read -r line; do
-  [[ -n "$line" ]] || continue
-  schema=$(jq -r '.schema_version // 0' <<<"$line" 2>/dev/null || echo 0)
-  [[ "$schema" -eq 2 ]] || continue
-  ts_iso=$(jq -r '.timestamp // .ts // ""' <<<"$line" 2>/dev/null || echo "")
-  [[ -n "$ts_iso" ]] || continue
-  # GNU and BSD date both accept ISO-8601 via -d (GNU) or -j -f (BSD)
-  ts_epoch=$(date -u -j -f %Y-%m-%dT%H:%M:%SZ "$ts_iso" +%s 2>/dev/null \
-             || date -u -d "$ts_iso" +%s 2>/dev/null || echo 0)
-  (( ts_epoch >= cutoff_ts )) || continue
-  expected=$(jq -r '.expected_outcome // ""' <<<"$line")
-  outcome=$(jq -r '.outcome // ""' <<<"$line")
-  # Refined metric: only count events where expected_outcome=="resolved"
-  # and outcome is not blocked_decision_cooldown.
-  [[ "$expected" == "resolved" ]] || continue
-  [[ "$outcome" == "blocked_decision_cooldown" ]] && continue
-  case "$outcome" in
-    resolved)  resolved=$((resolved+1)) ;;
-    escalated) escalated=$((escalated+1)) ;;
-  esac
-done < <(cat "${files[@]}")
+# Single jq -s (slurp) invocation over ALL audit files instead of one jq
+# subprocess per field per line (previous ~4 forks/line caused a 7-minute
+# stalled-pipe on large soak logs — V-AC-24.4 / TUNE-0242). `-R -n inputs`
+# reads raw lines across every file argument in order (same combined-stream
+# semantics as the old `cat "${files[@]}"`); `fromjson?` silently drops
+# empty/malformed lines exactly like the old `[[ -n "$line" ]] || continue`
+# guard. `fromdateiso8601` replaces the GNU/BSD `date` fallback chain for
+# the same strict `%Y-%m-%dT%H:%M:%SZ` UTC format, defaulting unparsable
+# timestamps to epoch 0 (always outside the window) via `try/catch`.
+read -r resolved escalated < <(
+  jq -R -r -n --argjson cutoff "$cutoff_ts" '
+    [inputs | fromjson?] as $events
+    | ($events | map(select(.schema_version == 2))) as $v2
+    | ($v2 | map(select((.timestamp // .ts // "") != ""))) as $timed
+    | ($timed | map(. + {_ts: ((.timestamp // .ts) | try fromdateiso8601 catch 0)})) as $tsed
+    | ($tsed | map(select(._ts >= $cutoff))) as $windowed
+    | ($windowed | map(select((.expected_outcome // "") == "resolved"))) as $expected_resolved
+    | ($expected_resolved | map(select((.outcome // "") != "blocked_decision_cooldown"))) as $filtered
+    | ($filtered | map(select(.outcome == "resolved")) | length) as $r
+    | ($filtered | map(select(.outcome == "escalated")) | length) as $e
+    | "\($r) \($e)"
+  ' "${files[@]}"
+)
 
 total=$((resolved + escalated))
 if (( total == 0 )); then

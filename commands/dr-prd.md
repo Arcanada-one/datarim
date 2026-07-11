@@ -52,6 +52,7 @@ This command generates a structured Product Requirements Document (PRD) followin
     -   Generate **3+ distinct technical approaches**.
     -   Evaluate each against criteria: Security, Pattern Alignment, DRY, Testability.
     -   Reject approaches with **Anti-Patterns** (e.g., hardcoded secrets, raw SQL).
+    -   **Reuse-first check (MANDATORY when any candidate approach introduces a new non-secret, cross-project-reusable module — backend guard/interceptor/schema, frontend component/hook/util, shared config, client SDK wrapper, etc.)**: before finalizing candidate approaches, consult the `@arcanada/*` package catalog — `catalog.json` in `Arcanada-one/arcanada-shared`, generated via `pnpm catalog` (schema in `catalog.schema.json`); if the catalog hasn't landed in the target repo yet, browse `arcanada-shared/packages/*` directly and flag the gap. An existing package that already covers the need wins over a new local implementation. If no package fits, say so explicitly in the PRD (functional gap, not an unchecked assumption). See `documentation/mandates/reuse-first-mandate.md`.
 
 4.  **Consult User (Phase 3)**:
     -   Present the alternatives clearly.

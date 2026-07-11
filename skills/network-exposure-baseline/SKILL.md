@@ -247,6 +247,76 @@ justification_required_tiers: [3]
 expired_justification: deny
 ```
 
+## Consumer Wiring Example
+
+A CI job that consumes this baseline is a normal job in the pipeline — it
+does not need to run last. Model the dependency explicitly with an array
+`needs`, not a forced sequential chain:
+
+```yaml
+jobs:
+  network-exposure-baseline:
+    needs: [lint, unit-tests]   # array form — list every real prerequisite
+    steps:
+      - run: "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/network-exposure-check.sh" --compose docker-compose.yml
+```
+
+`needs` accepts either a scalar (`needs: lint`) or an array (`needs: [lint,
+unit-tests]`); prefer the array form as soon as a second real dependency
+exists, so additional prior jobs can be listed without a syntax rewrite.
+Order jobs by their **actual** dependency graph, not by convenience: `lint`
+and `unit-tests` above have no dependency on each other and should run in
+parallel (both listed in `needs`, not chained `lint → unit-tests →
+network-exposure-baseline`); only declare a `needs` edge where one job's
+output is genuinely required as the other's input. A forced sequential
+chain between independent jobs adds wall-clock time with no correctness
+benefit.
+
+## Local Pre-PR Smoke Recipe
+
+Run both cases locally before opening a PR that touches a network bind —
+catching a Tier-3 regression here is cheaper than waiting for CI.
+
+### Positive case (current/live setup)
+
+Run the verifier against the live compose file as-is; it should PASS (or
+fail only on pre-existing, already-justified findings):
+
+```bash
+"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/network-exposure-check.sh" --compose docker-compose.yml
+echo "exit=$?"   # expect 0 (or the known-baseline exit code)
+```
+
+### Negative case (synthetic Tier-3 copy — prove the gate actually fires)
+
+Copy the compose file to a scratch location, break one bind on purpose, and
+confirm the check rejects it — this proves the gate is wired and not a
+silent no-op:
+
+```bash
+TASK_ID="TUNE-XXXX"                       # substitute the current task id
+NEG_DIR="/tmp/${TASK_ID}-negsmoke"
+rm -rf "$NEG_DIR" && mkdir -p "$NEG_DIR"
+cp docker-compose.yml "$NEG_DIR/docker-compose.yml"
+
+# Portable edit: replace a loopback bind with an unjustified Tier-3 bind.
+# sed -i differs between GNU/BSD; the python one-liner below is portable.
+python3 -c "
+import sys
+p = '$NEG_DIR/docker-compose.yml'
+s = open(p).read().replace('127.0.0.1:5432:5432', '0.0.0.0:5432:5432')
+open(p, 'w').write(s)
+"
+
+"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/network-exposure-check.sh" --compose "$NEG_DIR/docker-compose.yml"
+echo "exit=$?"   # expect 1 (Tier-3 violation, no justification) — gate fires
+
+rm -rf "$NEG_DIR"   # clean up the scratch copy, do not leave it behind
+```
+
+If the negative case does not fail, the gate is not actually wired into the
+path being tested — stop and investigate before opening the PR.
+
 ## References
 
 - `security-baseline.md` — Datarim Security Mandate (S1–S9), pre-commit gate.
