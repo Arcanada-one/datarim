@@ -1,0 +1,40 @@
+name: gate-token-registry-sync
+# TUNE-0366 — advisory check: cross-check task-description frontmatter
+# type:/priority: values used in the framework's own datarim/tasks corpus
+# against the network-exposure gate's recognised value-sets (see
+# dev-tools/check-gate-token-registry-sync.sh header for the defect class
+# this catches — the short-form-gap / unhandled-priority class).
+#
+# ADVISORY-ONLY (continue-on-error: true) per reflection-TUNE-0364 —
+# promote to a blocking job only after an adoption period confirms no
+# false positives against the live corpus.
+
+on:
+  pull_request:
+    paths:
+      - 'datarim/tasks/**'
+      - 'dev-tools/network-exposure-gate.sh'
+      - 'dev-tools/check-gate-token-registry-sync.sh'
+      - '.github/workflows/gate-token-registry-sync.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gate-token-registry-sync-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  registry-sync-check:
+    name: gate-token-registry-sync (advisory)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Run gate-token-registry-sync check against framework corpus
+        run: |
+          bash dev-tools/check-gate-token-registry-sync.sh --root . || \
+          echo "::warning::check-gate-token-registry-sync reported unhandled type:/priority: values — see job log above (advisory only, not yet blocking)"
