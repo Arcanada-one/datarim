@@ -29,6 +29,9 @@
 # repo and the link target returns 404 anyway.
 \bdatarim/(tasks|creative|plans|insights|reflection)/
 
-# Milestone-code references that leak phase / iteration internals. Use
-# version numbers in public copy instead.
-\b(M|Phase) ?[1-9][0-9]*\b
+# Milestone-code references (internal shorthand "M<n>") that leak
+# phase/iteration internals. Use version numbers in public copy instead.
+# Deliberately excludes the ordinary English word "Phase" (e.g. "Phase 1"
+# prose in READMEs) - only the M<n> shorthand is the leak (TUNE-0355).
+
+\bM[1-9][0-9]*\b
