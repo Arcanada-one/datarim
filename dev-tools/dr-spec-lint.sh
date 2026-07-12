@@ -123,7 +123,15 @@ record() {
     VIOLATION_COUNT=$((VIOLATION_COUNT + 1))
 }
 
-short() { printf '%s' "$1" | tr -d '\n' | cut -c1-120; }
+# short -- truncate to 120 CHARACTERS (not bytes). cut -c1-120 slices by byte
+# under some locales/inputs, which can cut a multibyte codepoint (e.g. Cyrillic)
+# in half and produce invalid UTF-8 that later crashes json.loads/UnicodeEncodeError
+# downstream (TUNE-0482). python3 is already a hard dependency of this script
+# (see emit_finding in spec-graph.sh and the FAIL-text heredoc below), so slicing
+# via sys.stdin.read()[:120] is codepoint-safe and adds no new dependency.
+short() {
+    printf '%s' "$1" | tr -d '\n' | python3 -c 'import sys; sys.stdout.write(sys.stdin.read()[:120])'
+}
 
 # ---------------------------------------------------------------------------
 # Build the graph from each spec doc.
@@ -354,7 +362,11 @@ else
         echo "FAIL: $VIOLATION_COUNT spec-graph finding(s) for $SPEC_TASK ($LEVEL)"
         python3 - "$FINDINGS_TMP" <<'PYEOF'
 import json, sys
-with open(sys.argv[1]) as fh:
+# Defensive: replace any lone surrogate that could still slip through (e.g. a
+# pre-existing findings file written before this fix) rather than crash on
+# print(). See TUNE-0482.
+sys.stdout.reconfigure(errors="replace")
+with open(sys.argv[1], encoding="utf-8") as fh:
     for line in fh:
         line = line.strip()
         if not line:

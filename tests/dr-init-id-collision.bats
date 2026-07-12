@@ -62,6 +62,10 @@ DR_INIT="${CMDS_DIR}/dr-init.md"
     grep -iE "Agent's OWN new-ID .parallel-session race." "$DR_INIT"
 }
 
+@test "A09: dr-init.md wires the dr-init-id-collision-window skill into the option-(a) reassign branch" {
+    grep -F "skills/dr-init-id-collision-window/SKILL.md" "$DR_INIT"
+}
+
 # ── Group B — functional grep-probe harness ──────────────────────────────────
 # Reproduces the exact probe dr-init.md Step 4 specifies:
 #   grep -lE "^- {TASK-ID} ·" datarim/backlog.md datarim/tasks.md
