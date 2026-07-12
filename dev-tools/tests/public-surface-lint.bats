@@ -76,6 +76,15 @@ EOF
     [ "$status" -eq 1 ]
 }
 
+@test "Phase N prose — exit 0 (not a milestone-code leak, TUNE-0355)" {
+    cat >README.md <<'EOF'
+Tmux-based self-driving Datarim pipeline runner. Phase 1 ships a lean
+core; Phase 2 (v2.4.0+) adds a multi-backend subagent inference.
+EOF
+    run "$SCRIPT" --regex "$REGEX" --paths README.md
+    [ "$status" -eq 0 ]
+}
+
 @test "skips dist/ build/ node_modules/" {
     mkdir -p dist node_modules
     echo "creative-CONN-0001 leak in dist" >dist/index.js

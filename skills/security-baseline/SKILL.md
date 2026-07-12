@@ -307,7 +307,7 @@ For a brand-new repo wired to reusable CI workflows (per this section), run the 
 
 ```bash
 dev-tools/check-security-policy.sh --validate-yaml accepted-risk.yml
-dev-tools/check-expectations-checklist.sh --verify <TASK-ID>
+dev-tools/check-expectations-checklist.sh --verify "$TASK_ID"
 actionlint .github/workflows/*.yml
 ```
 
