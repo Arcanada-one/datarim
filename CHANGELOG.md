@@ -6,6 +6,37 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ### Added
 
+- **`dev-tools/lib/execution-host.sh`** _(NEW)_ — shared, framework-native execution-host resolver
+  library (sourceable, no side-effects on source). One resolver, two consumers: the new Step-0
+  "EXECUTION HOST" block in executional `/dr-*` commands (`dr-init`, `dr-prd`, `dr-plan`, `dr-design`,
+  `dr-do`, `dr-qa`, `dr-compliance`, `dr-archive`, `dr-auto`, `dr-next`, `dr-quick`) and the
+  machine-local PreToolUse guard (`dev-tools/datarim-exec-guard.sh`, outside this repo — refactored
+  to `source` this library and call `eh_decision`, with a fallback to its embedded Phase-1 logic
+  when the library is not yet installed on a given machine). Contract: `eh_resolve_workspace_root`,
+  `eh_lookup_binding`, `eh_host_match`, `eh_decision` (exit 0 unconfigured/on-host, exit 10
+  off-host/delegate, exit 3 fail-closed on malformed YAML). New unit tests
+  `dev-tools/tests/execution-host.bats` (16 cases). Phase 2 of the TUNE-0471 hybrid execution-host
+  design (Phase 1 shipped the machine-local guard + dispatch client). (TUNE-0472)
+- **`/dr-*` Step-0 "EXECUTION HOST" contract** — after the existing RESOLVE PATH step, each
+  executional command now sources `dev-tools/lib/execution-host.sh` and calls `eh_decision`,
+  emitting a `dev-tools/datarim-dispatch.sh` delegation directive on an off-host verdict and
+  otherwise proceeding unchanged (fail-open when unconfigured). Cooperative soft layer; the
+  machine-local PreToolUse guard remains the hard floor. (TUNE-0472)
+- **`scripts/datarim-doctor.sh` `--local` flag** — official local-repair mode (operator amendment):
+  documents and audit-logs that the doctor may run on the control machine even inside a bound
+  workspace (already permitted as a Phase-1 guard exemption). When no `--scope` is given explicitly,
+  `--local` defaults `SCOPE` to the new `execution` scope; an explicit `--scope` is never overridden.
+  (TUNE-0472)
+- **`dev-tools/check-execution-host-drift.sh`** _(NEW)_ — standalone execution-host drift validator
+  (`--check`/`--report`) comparing canon `spaces/<space>/space.yml § execution` against the
+  machine-local `~/.claude/local/config/execution-hosts.yml` binding for the same space, plus TTL
+  staleness (map older than 90 days by `synced_at` or file mtime). Canon always wins; the script
+  only reports, it never rewrites `space.yml`. `scripts/datarim-doctor.sh`'s new `execution` scope
+  only invokes this script and aggregates its findings — the comparison logic itself lives entirely
+  in the standalone tool, per the framework's Validation Discipline (orthogonal concerns, orthogonal
+  tools) rather than growing another branch inside the doctor's migration logic. New tests
+  `tests/datarim-doctor-execution-drift.bats` (15 cases, covering both `--local` and the drift scope).
+  (TUNE-0472)
 - **`skills/testing/live-smoke-gates.md` § Gate 8: Recorded-Fixture Tests for HTTP Wrappers** — new subsection mandating that thin HTTP wrapper clients capture one real response into a consuming-project fixtures doc (`datarim/tasks/<TASK-ID>-fixtures.md`) before implementation, that the wrapper's spec include at least one integration-style test asserting against that recorded response (not a synthetic stub), and that the spec decode/validate through the real schema so a response-shape drift fails the test. Routing hints updated in `skills/testing/SKILL.md`. Site sync (`datarim.club/data/skills/testing.php`, EN+RU) deferred as an explicit cross-repo follow-up — out of scope for this repo. (TUNE-0162, source: reflection-ARCA-0008 § Class A Proposal 2)
 - **`/dr-doctor` `wiki/_raw_/` semantic-orphan check** — new advisory-only pass (`scan_wiki_raw_orphans`,
   scope `all`) flags a file whose basename shares no token (≥4 chars, alnum-only) with the first 300 bytes
