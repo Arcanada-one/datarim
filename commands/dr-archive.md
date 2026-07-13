@@ -500,6 +500,7 @@ Complete and archive current task.
    - Map prefix to area subdirectory using `$HOME/.claude/skills/datarim-system/SKILL.md` § Archive Area Mapping
    - If prefix not in mapping → use `general/`
    - Create `documentation/archive/{area}/` directory if it doesn't exist
+   - **Collision-detection branch (MANDATORY before Step 2 writes the archive doc):** check whether `documentation/archive/{area}/archive-{ID}.md` already exists. A pre-existing file at that exact path under a different task title means a parallel session reserved and archived the same `{TASK-ID}` first (the TOCTOU window between `/dr-init` reservation and this archive commit). Do NOT overwrite it silently. Run the detection probe and apply the retroactive-rename procedure from `$HOME/.claude/skills/dr-init-id-collision-window/SKILL.md` § Detection and § Resolution — retroactive rename before proceeding to Step 2.
 2. Create archive document with:
    - **Frontmatter from canonical template** `${DATARIM_RUNTIME:-$HOME/.claude}/templates/archive-template.md` — copy YAML schema (`id`, `title`, `status`, `completed_date`, `complexity`, `type`, `project`, `related`, `archive_doc`, `verification_outcome`). Schema is closed; do not add custom keys.
    - **`verification_outcome` block — MANDATORY at archive time.** Triage the audit log under `datarim/qa/verify-{TASK-ID}-*.md` (if `/dr-verify` ran) and fill the four counters + `dogfood_window` per template comment block:
