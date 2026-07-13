@@ -27,6 +27,7 @@
 CMDS_DIR="${BATS_TEST_DIRNAME}/../commands"
 HELPER="${BATS_TEST_DIRNAME}/../dev-tools/next-free-id.sh"
 DR_INIT="${CMDS_DIR}/dr-init.md"
+DR_ARCHIVE="${CMDS_DIR}/dr-archive.md"
 
 # ── Group A — markdown-contract assertions (commands/dr-init.md Step 4) ──────
 
@@ -64,6 +65,10 @@ DR_INIT="${CMDS_DIR}/dr-init.md"
 
 @test "A09: dr-init.md wires the dr-init-id-collision-window skill into the option-(a) reassign branch" {
     grep -F "skills/dr-init-id-collision-window/SKILL.md" "$DR_INIT"
+}
+
+@test "A10: dr-archive.md wires the dr-init-id-collision-window skill into the collision-detection branch" {
+    grep -F "skills/dr-init-id-collision-window/SKILL.md" "$DR_ARCHIVE"
 }
 
 # ── Group B — functional grep-probe harness ──────────────────────────────────
