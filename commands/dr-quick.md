@@ -21,6 +21,16 @@ Note: title defaults to English unless the operator's configured content languag
 ## What happens, step by step
 
 1. Resolve `datarim/` via standard path resolution (walk up; if absent, STOP and tell user to run `/dr-init` — only `/dr-init` creates `datarim/`).
+
+### EXECUTION HOST
+
+1. Source the resolver: `source "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/lib/execution-host.sh"`.
+2. Call `eh_decision <workspace-root> <execution-hosts-map-path>` (default map: `~/.claude/local/config/execution-hosts.yml`).
+3. On **off-host** (exit code 10): emit a delegation directive (`dev-tools/datarim-dispatch.sh --workspace <root> --task <TASK-ID>`) and STOP.
+4. On **unconfigured** (exit code 0, binding absent): proceed unchanged (fail-open).
+5. On **on-host** (exit code 0, binding present): proceed normally.
+
+Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 check is the cooperative soft layer sharing the same resolver library.
 2. **Assign the next free `QCK-XXXX` id — probe-before-emit (MANDATORY):**
    - Run the canonical helper (do NOT compute `max+1` mentally):
      `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/next-free-id.sh" QCK "$DATARIM_ROOT"`

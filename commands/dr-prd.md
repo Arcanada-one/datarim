@@ -15,6 +15,17 @@ This command generates a structured Product Requirements Document (PRD) followin
 
 0.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system/SKILL.md` § Path Resolution Rule.
 
+### EXECUTION HOST
+
+1. Source the resolver: `source "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/lib/execution-host.sh"`.
+2. Call `eh_decision <workspace-root> <execution-hosts-map-path>` (default map: `~/.claude/local/config/execution-hosts.yml`).
+3. On **off-host** (exit code 10): emit a delegation directive (`dev-tools/datarim-dispatch.sh --workspace <root> --task <TASK-ID>`) and STOP.
+4. On **unconfigured** (exit code 0, binding absent): proceed unchanged (fail-open).
+5. On **on-host** (exit code 0, binding present): proceed normally.
+
+Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 check is the cooperative soft layer sharing the same resolver library.
+
+
 0.5. **READ INIT-TASK** (mandatory per `$HOME/.claude/skills/init-task-persistence/SKILL.md`): Open `datarim/tasks/{TASK-ID}-init-task.md` if present. Read the full `## Operator brief (verbatim)` section AND every `## Append-log` entry. Any divergence between the operator's stated intent and the discovery scope MUST be surfaced in PRD § Discovery / § Constraints. Missing init-task is non-blocking — flag as advisory and continue.
 
 0.7. **TASK-TYPE GUARD (research-task detection)**: Before running the product-PRD phases below, check whether this task is a **research / comparative-evaluation task** rather than a buildable product change. A PRD is a *product* requirements document; research tasks (technology selection, framework benchmarking, feasibility studies, literature surveys) produce an insights / decision artefact, not a shippable feature, and forcing them through the standard Problem→Scope→Technical-Approach→Success-Criteria structure yields a mis-shaped document.

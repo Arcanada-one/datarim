@@ -34,6 +34,17 @@ description: Initialize a new Datarim task or scaffold a new project. Auto-detec
       c. If `.gitignore` exists and does not contain `datarim/` → append `datarim/` to it.
       d. If `.gitignore` does not exist → ask user: "Create `.gitignore` with `datarim/`? (recommended — keeps workflow state local)"
 
+### EXECUTION HOST
+
+1. Source the resolver: `source "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/lib/execution-host.sh"`.
+2. Call `eh_decision <workspace-root> <execution-hosts-map-path>` (default map: `~/.claude/local/config/execution-hosts.yml`).
+3. On **off-host** (exit code 10): emit a delegation directive (`dev-tools/datarim-dispatch.sh --workspace <root> --task <TASK-ID>`) and STOP.
+4. On **unconfigured** (exit code 0, binding absent): proceed unchanged (fail-open).
+5. On **on-host** (exit code 0, binding present): proceed normally.
+
+Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 check is the cooperative soft layer sharing the same resolver library.
+
+
 2.4. **STRUCTURAL COMPLIANCE CHECK** (runs only when `datarim/` already exists — skip on first-time creation in Step 2):
     - Probe: `scripts/datarim-doctor.sh --quiet --root="$DATARIM_ROOT"` (exit code only).
     - **exit 0** → silent, continue to Step 2.5.

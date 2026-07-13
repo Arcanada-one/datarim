@@ -27,6 +27,17 @@ target_aal: 2
 
 1. **Resolve the workspace.** Walk up from the current directory to find the `datarim/` workflow-state folder. If none is found, stop and tell the operator to run `/dr-init` — autonomous mode does not create state directories.
 
+### EXECUTION HOST
+
+1. Source the resolver: `source "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/lib/execution-host.sh"`.
+2. Call `eh_decision <workspace-root> <execution-hosts-map-path>` (default map: `~/.claude/local/config/execution-hosts.yml`).
+3. On **off-host** (exit code 10): emit a delegation directive (`dev-tools/datarim-dispatch.sh --workspace <root> --task <TASK-ID>`) and STOP.
+4. On **unconfigured** (exit code 0, binding absent): proceed unchanged (fail-open).
+5. On **on-host** (exit code 0, binding present): proceed normally.
+
+Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 check is the cooperative soft layer sharing the same resolver library.
+
+
 2. **Pick a mode.**
    - If the argument matches a task ID listed in `datarim/tasks.md`, the command is in **resume mode**.
    - Otherwise it is in **bootstrap mode**: the argument is treated as the operator brief for a new task and the pipeline starts at `/dr-init`.
