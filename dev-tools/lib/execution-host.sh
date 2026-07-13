@@ -112,9 +112,8 @@ eh_host_match() {
     [ -n "$tailscale_ip" ] && [ "$current" = "$tailscale_ip" ] && return 0
 
     if [ -n "$aliases_csv" ]; then
-        local IFS=','
         local -a aliases
-        read -ra aliases <<< "$aliases_csv"
+        IFS=',' read -ra aliases <<< "$aliases_csv"
         local a
         for a in "${aliases[@]}"; do
             [ "$current" = "$a" ] && return 0

@@ -678,19 +678,18 @@ scan_execution_drift() {
     [ -x "$drift_script" ] || drift_script="$SCRIPT_DIR/../dev-tools/check-execution-host-drift.sh"
     [ -f "$drift_script" ] || return 0
     local drift_out drift_rc
-    # Split DATARIM_EXECUTION_DRIFT_ARGS on spaces into positional params.
-    # A local IFS=' ' is required because the script sets IFS to newline
-    # and tab in strict mode near the top of the file, which would
-    # otherwise leave the whole string as a single unsplit token.
-    local IFS=' '
-    # shellcheck disable=SC2086
-    set -- $DATARIM_EXECUTION_DRIFT_ARGS
+    # Split DATARIM_EXECUTION_DRIFT_ARGS on spaces into an array. The IFS
+    # override is scoped to the `read` command only (the script sets IFS to
+    # newline and tab in strict mode near the top of the file, which would
+    # otherwise leave the whole string as a single unsplit token).
+    local -a drift_args
+    IFS=' ' read -ra drift_args <<< "$DATARIM_EXECUTION_DRIFT_ARGS"
     # drift_rc is captured via `|| drift_rc=$?` rather than a separate
     # `rc=$?` statement: under `set -e`, a non-zero command-substitution
     # exit status on a plain assignment aborts the function before a
     # following `rc=$?` line would run.
     drift_rc=0
-    drift_out="$(bash "$drift_script" --check "$@" 2>&1)" || drift_rc=$?
+    drift_out="$(bash "$drift_script" --check "${drift_args[@]}" 2>&1)" || drift_rc=$?
     if [ "$drift_rc" -ne 0 ]; then
         FINDINGS=$((FINDINGS + 1))
         FINDING_LINES+=("execution-host: ${drift_out}")
