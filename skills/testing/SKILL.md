@@ -137,6 +137,35 @@ An integration test that spawns a real service process (daemon, server, worker) 
 
 ---
 
+## Infrastructure-Gated Test Skips
+
+An integration test that needs a live broker, database, or external service is legitimate to skip when that dependency is absent — but a bare `skip` (no probe, no message) is indistinguishable from a bug swallowed behind an unconditional skip. A reviewer scanning a green suite with skips has to hand-audit every guard to tell the two apart, which is slow and erodes trust in the suite.
+
+**Rule.** Any test that needs a live broker/service MUST probe for it in `setup()` (or the framework's equivalent pre-test hook) and `skip` with an **explicit message naming the missing dependency** when the probe fails — never a bare skip, never a fail:
+
+- Redis / broker: `redis-cli -h "$HOST" ping` (expect `PONG`).
+- Postgres: `pg_isready -h "$HOST" -p "$PORT"`.
+- HTTP service: `curl -fsS "$HEALTH_URL"` (or the project's health-check convention).
+
+```bash
+setup() {
+    if ! redis-cli -h "${REDIS_HOST:-127.0.0.1}" ping >/dev/null 2>&1; then
+        skip "no live Redis at ${REDIS_HOST:-127.0.0.1} — start the broker to run this test"
+    fi
+}
+
+@test "queue consumer processes a job end-to-end" {
+    # exercises the real broker; only reached when setup() probed it live
+    ...
+}
+```
+
+**Why this matters.** An explicit probed skip is self-evidencing — the message names the exact dependency the reviewer would need to stand up to turn the skip green, so the skip reads as intentional environment-gating on sight. A bare or unconditional skip carries no such evidence; it looks identical whether the author deliberately gated on infrastructure or accidentally short-circuited a broken test, forcing the reviewer to read the guard logic line by line to tell the two apart.
+
+**When to apply.** Any test whose assertions require a live broker, database, or external service that may not be running in the current environment (local dev, CI runner, sandboxed agent host). Skip this pattern when the dependency is always available in every environment the suite runs in (e.g. an in-process fake or an embedded engine started by the test harness itself) — in that case there is nothing to probe and a missing-dependency skip would never legitimately fire.
+
+---
+
 ## Self-Validating UI Assertions
 
 Existence assertions ("element renders any text", "counter is non-empty") pass even when the system under test is broken — they only catch the «nothing rendered at all» case. Prefer **self-validating** assertions that poll the *flipped* target state after the triggering interaction. Self-validation catches three failure modes in one shape:
