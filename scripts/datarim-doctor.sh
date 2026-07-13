@@ -38,9 +38,11 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT=""
 MODE="dry-run"
 SCOPE="all"
+SCOPE_EXPLICIT=0            # TUNE-0472: tracks whether --scope was passed explicitly
 QUIET=0
 CONFLICT_POLICY="prompt"   # TUNE-0076: prompt|keep|overwrite|skip|abort
 PROBE_PREFIX=""            # TUNE-0030: --probe-prefix PREFIX → print area subdir
+LOCAL_MODE=0               # TUNE-0472: --local, official local-repair mode
 
 # --- usage ------------------------------------------------------------------
 usage() {
@@ -52,9 +54,14 @@ USAGE:
 
 OPTIONS:
   --fix               Apply fixes (default: dry-run)
-  --scope=<scope>     One of: tasks|backlog|active|backlog-archive|progress|descriptions|history|all (default: all)
+  --scope=<scope>     One of: tasks|backlog|active|backlog-archive|progress|descriptions|history|execution|all (default: all; execution-only when --local has no explicit --scope)
   --root=<path>       Datarim root (default: walk up from $PWD)
   --quiet             Exit-code only (no stdout)
+  --local             Official local-repair mode (TUNE-0472): permits running on the control
+                      machine even inside a bound workspace (already allowed as a Phase-1 guard
+                      exemption — this flag documents and audit-logs the intent). When no
+                      --scope is given, defaults SCOPE to execution (local-only checks); an
+                      explicit --scope is never overridden.
   --no-prompt         Skip conflicts in Pass 4 backlog-archive migration (alias for --conflict-policy=skip)
   --conflict-policy=<p>  One of: prompt|keep|overwrite|skip|abort (default: prompt; auto-skip in non-TTY)
   --probe-prefix=<P>  Print archive area subdir for prefix P and exit (TUNE-0030)
@@ -74,9 +81,10 @@ EOF
 for arg in "$@"; do
     case "$arg" in
         --fix) MODE="fix" ;;
-        --scope=*) SCOPE="${arg#--scope=}" ;;
+        --scope=*) SCOPE="${arg#--scope=}"; SCOPE_EXPLICIT=1 ;;
         --root=*) ROOT="${arg#--root=}" ;;
         --quiet) QUIET=1 ;;
+        --local) LOCAL_MODE=1 ;;
         --no-prompt) CONFLICT_POLICY="skip" ;;
         --conflict-policy=*) CONFLICT_POLICY="${arg#--conflict-policy=}" ;;
         --probe-prefix=*) PROBE_PREFIX="${arg#--probe-prefix=}" ;;
@@ -85,8 +93,19 @@ for arg in "$@"; do
     esac
 done
 
+# --- TUNE-0472: --local defaults SCOPE to execution unless --scope was given
+# explicitly. Behaviour otherwise unchanged (does not alter migration logic
+# or the Phase-1 guard's existing exemption for doctor invocations). The
+# audit-log INFO line is emitted just below, once log() is defined.
+if [ "$LOCAL_MODE" -eq 1 ] && [ "$SCOPE_EXPLICIT" -eq 0 ]; then
+    SCOPE="execution"
+fi
+
 # --- helpers (defined before root resolution so the shim can warn) ----------
 log() { if [ "$QUIET" -eq 0 ]; then echo "$@"; fi; }
+if [ "$LOCAL_MODE" -eq 1 ]; then
+    log "INFO: --local mode (official local-repair invocation, TUNE-0472)"
+fi
 warn() { if [ "$QUIET" -eq 0 ]; then echo "WARN: $*" >&2; fi; }
 
 # --- root resolution --------------------------------------------------------
@@ -639,6 +658,46 @@ scan_wiki_raw_orphans() {
 }
 if [ "$SCOPE" = "all" ]; then
     scan_wiki_raw_orphans
+fi
+
+# --- execution-host drift advisory pass (TUNE-0472, SCOPE=execution) --------
+# Validation Discipline (framework CLAUDE.md § Self-Evolution): the drift
+# comparison logic lives entirely in the standalone
+# dev-tools/check-execution-host-drift.sh — this pass only INVOKES it and
+# aggregates its findings, it never re-derives the canon<->map comparison
+# here. Configuration is machine-local (never a repo file): the caller sets
+# DATARIM_EXECUTION_DRIFT_ARGS to the drift script's --canon/--map/--space
+# arguments (and optional --ttl-days) for the space(s) this workspace binds
+# to. Unconfigured (var unset/empty) -> advisory no-op, exit 0 (fail-open;
+# this scope never blocks a workspace that has not opted into the
+# execution-host binding feature).
+scan_execution_drift() {
+    [ -n "${DATARIM_EXECUTION_DRIFT_ARGS:-}" ] || return 0
+    local drift_script
+    drift_script="$(dirname "$SCRIPT_DIR")/dev-tools/check-execution-host-drift.sh"
+    [ -x "$drift_script" ] || drift_script="$SCRIPT_DIR/../dev-tools/check-execution-host-drift.sh"
+    [ -f "$drift_script" ] || return 0
+    local drift_out drift_rc
+    # Split DATARIM_EXECUTION_DRIFT_ARGS on spaces into positional params.
+    # A local IFS=' ' is required because the script sets IFS to newline
+    # and tab in strict mode near the top of the file, which would
+    # otherwise leave the whole string as a single unsplit token.
+    local IFS=' '
+    # shellcheck disable=SC2086
+    set -- $DATARIM_EXECUTION_DRIFT_ARGS
+    # drift_rc is captured via `|| drift_rc=$?` rather than a separate
+    # `rc=$?` statement: under `set -e`, a non-zero command-substitution
+    # exit status on a plain assignment aborts the function before a
+    # following `rc=$?` line would run.
+    drift_rc=0
+    drift_out="$(bash "$drift_script" --check "$@" 2>&1)" || drift_rc=$?
+    if [ "$drift_rc" -ne 0 ]; then
+        FINDINGS=$((FINDINGS + 1))
+        FINDING_LINES+=("execution-host: ${drift_out}")
+    fi
+}
+if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "execution" ]; then
+    scan_execution_drift
 fi
 
 # --- dry-run ----------------------------------------------------------------
