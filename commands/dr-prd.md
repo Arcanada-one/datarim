@@ -61,6 +61,7 @@ This command generates a structured Product Requirements Document (PRD) followin
 5.  **Generate PRD**:
     -   Use the structure from `${DATARIM_RUNTIME:-$HOME/.claude}/templates/prd-template.md`.
     -   Include: Problem Statement, Scope, Context Analysis, Technical Approach (Selected + Alternatives), Success Criteria, Risks.
+    -   For infra/fleet PRDs, apply the `templates/prd-template.md` § Deploy-Phase Verification Items labelling — mark any AC whose e2e verification requires a live broker, deployed host, or external webhook as `deploy-deferred` so `/dr-qa` expects partial + operator-override instead of flagging a coverage gap.
     -   If insights document was created in Phase 1.3, add a reference in the PRD header: `**Research:** [INSIGHTS-{task-id}](../insights/INSIGHTS-{task-id}.md)`
     -   **Pre-save validation gates (MANDATORY before write):**
         - **`ships_in:` derivation.** If the PRD ships a framework / library release, read the canonical version source (e.g. `code/datarim/VERSION` or project equivalent) and pre-fill `ships_in: <next-minor-or-patch>`. Operator-supplied override requires an inline justification comment in the PRD body. Do not echo the value from memory or from the parent PRD verbatim — version drift between PRD draft and release is a recurring defect class.

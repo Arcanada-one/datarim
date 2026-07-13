@@ -47,6 +47,14 @@ id — `D-REQ` is an addressing layer on top, not a replacement.
 #### D-REQ-02: {requirement description}
 
 ## Success Criteria
+
+### Deploy-Phase Verification Items
+
+For infra/fleet PRDs, label any AC whose e2e verification structurally requires a live broker, a deployed host, or an external webhook as `deploy-deferred` at authoring time. This tells `/dr-qa` to expect a `partial` verdict plus an operator override for that AC, rather than flagging it as a coverage gap — the verification was never going to be possible on the authoring/dev host, by design, not by omission.
+
+Example:
+- [ ] `deploy-deferred` — consumer receives the queued event within 5s of publish, verified against the live Redis instance on the deployed host.
+
 - [ ] (Measurable outcomes)
 
 > **V-AC `Covers:` binding (spec‑traceability).** On L3+ tasks each V-AC item
