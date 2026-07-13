@@ -88,9 +88,11 @@ if [ ! -f "$MAP" ]; then
 fi
 
 if [ "$FINDINGS" -eq 0 ]; then
-    CANON_HOST="$(yq e '.execution.required_host // ""' "$CANON" 2>/dev/null || true)"
-    CANON_IP="$(yq e '.execution.tailscale_ip // ""' "$CANON" 2>/dev/null || true)"
-    CANON_ALIASES="$(yq e '.execution.host_aliases | join(",") // ""' "$CANON" 2>/dev/null || true)"
+    # Canon layout tolerance: fixtures use a top-level `execution:` block,
+    # real space.yml files nest it under the `space:` root key. Accept both.
+    CANON_HOST="$(yq e '(.execution // .space.execution).required_host // ""' "$CANON" 2>/dev/null || true)"
+    CANON_IP="$(yq e '(.execution // .space.execution).tailscale_ip // ""' "$CANON" 2>/dev/null || true)"
+    CANON_ALIASES="$(yq e '(.execution // .space.execution).host_aliases // [] | join(",")' "$CANON" 2>/dev/null || true)"
 
     # Find the binding index for --space in the map.
     n=$(yq e '.bindings | length' "$MAP" 2>/dev/null || echo 0)
