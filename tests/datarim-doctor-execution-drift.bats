@@ -94,6 +94,22 @@ EOF
     [ "$status" -eq 0 ]
 }
 
+@test "drift-check: nested space.execution canon layout -> exit 0 PASS (real space.yml shape)" {
+    cat > "$CANON" <<EOF
+space:
+  name: testspace
+  execution:
+    schema_version: 1
+    required_host: canon-host
+    host_aliases: [canon-host, Canon-Host]
+    tailscale_ip: "100.64.0.1"
+    ssh_user: dev
+EOF
+    write_map "canon-host" "100.64.0.1" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    run "$DRIFT_SCRIPT" --check --canon "$CANON" --map "$MAP" --space testspace
+    [ "$status" -eq 0 ]
+}
+
 @test "drift-check: canon != map required_host -> exit 1 FAIL (finding)" {
     write_map "stale-host" "100.64.0.1" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     run "$DRIFT_SCRIPT" --check --canon "$CANON" --map "$MAP" --space testspace
