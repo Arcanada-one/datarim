@@ -6,6 +6,10 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ### Added
 
+- **Dispatch monitoring layer (TUNE-0490 Phase 2).** A delegated agent now writes a synced heartbeat status file `datarim/runtime/<TASK-ID>.status` (via `dev-tools/lib/heartbeat-status.sh`), and the laptop-side monitor reads it to disambiguate a bare remote tmux prompt. `dev-tools/classify-pane.sh` joins pane liveness with status freshness into a read-only verdict (RUNNING / AWAITING / STALLED / DONE / DEAD-ORPHAN / HOLD) with safety invariants — awaiting_operator is never reaped, a live child blocks DEAD-ORPHAN, and DEAD-ORPHAN requires >=2 consecutive stale probes. `dev-tools/dispatch-digest.sh` aggregates all status files into one report (text or JSON), pinning actionable states first and flagging `SYNC STALE` so a stale-synced task is never falsely reported as done. Framework-only; the answer/kill-session dispatch verbs and the OpsBot/Telegram relay remain operator-gated live-host work.
+
+### Added
+
 - **`dev-tools/lib/execution-host.sh`** _(NEW)_ — shared, framework-native execution-host resolver
   library (sourceable, no side-effects on source). One resolver, two consumers: the new Step-0
   "EXECUTION HOST" block in executional `/dr-*` commands (`dr-init`, `dr-prd`, `dr-plan`, `dr-design`,
