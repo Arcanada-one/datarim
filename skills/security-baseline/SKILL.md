@@ -306,8 +306,8 @@ Consumer projects add their language ecosystem (e.g. one `package-ecosystem` blo
 For a brand-new repo wired to reusable CI workflows (per this section), run the local validators before the first `git push` to catch policy violations before CI does:
 
 ```bash
-dev-tools/check-security-policy.sh --validate-yaml accepted-risk.yml
-dev-tools/check-expectations-checklist.sh --verify "$TASK_ID"
+${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-security-policy.sh --validate-yaml accepted-risk.yml
+${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh --verify "$TASK_ID"
 actionlint .github/workflows/*.yml
 ```
 
