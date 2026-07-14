@@ -1,6 +1,6 @@
 ---
 name: autonomous-mode
-description: Question Suppression Ladder + L1 Inline Resolution Rule + Hard-gated Action Boundary. Activated via DATARIM_AUTO_MODE=1 + .auto-mode-active marker.
+description: Question Suppression Ladder + L1 Inline Resolution Rule + Hard-gated Action Boundary. Activated via DATARIM_AUTO_MODE=1 + a per-task autonomous-mode marker; a delegated bare task-id enters /dr-auto by reading that marker on startup.
 model: inherit
 current_aal: 2
 target_aal: 2
@@ -15,27 +15,82 @@ This skill activates the existing mandates (`documentation/mandates/autonomous-a
 The skill is active if and only if **all three conditions** hold:
 
 1. `DATARIM_AUTO_MODE=1` is set in the agent's environment.
-2. The file marker `datarim/.auto-mode-active` exists and parses as YAML.
+2. The effective autonomous-mode marker exists and parses as YAML. The marker is per-task at `datarim/.auto/<TASK-ID>.mode` (collision-safe in a shared parallel workspace); the legacy single file `datarim/.auto-mode-active` is still honoured as a fallback for a hand-run `/dr-auto`. Resolve the effective path with `dev-tools/auto-mode-marker.sh resolve --root <DIR> --task-id <ID>` rather than hardcoding either path.
 3. The `task_id` field inside that marker matches the current TASK-ID (regex `^[A-Z]{2,10}-[0-9]{4}$`).
 
 **Spawned subagents (relaxed activation).** A subagent dispatched by `/dr-auto` does NOT inherit the `DATARIM_AUTO_MODE` environment variable (the Agent tool does not propagate the parent environment). For such a subagent the skill is active when its dispatch prompt carries an explicit auto-signal (a line naming the current stage and "autonomous mode for `<TASK-ID>`") AND conditions 2 and 3 hold (the marker file exists, parses, and its `task_id` matches the current TASK-ID). The environment variable (condition 1) is NOT required in this branch. The top-level `/dr-auto` cycle still requires all three conditions. The auto-signal only removes the env-var requirement — it never substitutes for a missing or mismatched marker file.
 
 **Mismatch** (the env var is set but the marker is missing OR the marker holds a different TASK-ID) → emit one warning line: `auto-mode: DATARIM_AUTO_MODE=1 but marker absent/mismatch — treat as non-auto (fail-safe)`. Continue as if the mode were off.
 
-**Marker file structure** (`datarim/.auto-mode-active`):
+**Marker file structure** (per-task `datarim/.auto/<TASK-ID>.mode`):
 ```yaml
 task_id: TUNE-XXXX
 activated_at: 2026-05-24T12:00:00Z
 activated_by: /dr-auto
 mode: continue|bootstrap
 space: arcanada
+nonce: <hex>              # optional — present only for a delegated dispatch
+dispatch_session: dr-<space>-<TASK-ID>   # optional — the owning tmux session
 ```
 
 `space` binds the cycle to a registered space for autonomy-policy resolution.
 If it is absent and no deterministic workspace match exists, operational
 actions remain operator-gated.
 
+`dispatch_session` is written only when the marker was placed by a delegated
+dispatch. It is the **load-bearing** anti-forgery binding: a delegated agent
+honours the marker only if `dispatch_session` equals its own live tmux session
+(`tmux display-message -p '#S'`). The session name is freshly minted per
+dispatch (`dr-<space>-<TASK-ID>`), known only to the dispatcher, and meaningful
+only while an agent is actually running in it — so a planted or stale marker
+naming the wrong (or a non-live) session is rejected. `nonce` is accepted for
+forward compatibility but is NOT load-bearing on a single-operator private mesh
+(the session binding + the gitignored-marker rule below already close the
+planted-marker threat; a real out-of-band nonce is only revisited if the marker
+directory ever becomes writable by a less-trusted principal). A local hand-run
+of `/dr-auto` writes neither field and is unaffected.
+
+**Gitignored-marker rule.** The marker MUST be untracked by git (it lives under
+the gitignored `datarim/.auto/`). A delegated agent refuses a marker that is
+git-tracked (`git ls-files --error-unmatch <marker>` succeeds) — a committed
+marker is a supply-chain vector (a malicious PR could otherwise force unattended
+autonomous execution) and is never legitimate.
+
 **24h TTL.** If the marker was created more than 24 hours ago → silently purge it (the agent deletes the file or ignores it). Only `/dr-auto` re-creates the marker.
+
+## Delegated bootstrap — bare task-id enters /dr-auto on startup
+
+When a task is delegated to a remote executor, the agent starts in a fresh
+session and receives ONLY a bare task-id (`^[A-Z]{2,10}-[0-9]{4}$`) — there is
+no operator watching the remote pane to answer pipeline questions. The
+autonomy signal therefore travels through the synced marker, NOT through a live
+keystroke (a keystroke is racy and can be dropped before the CLI is ready).
+
+**Step-0 (before choosing `/dr-init` vs `/dr-auto`).** On receiving a bare
+task-id, the agent's first action is to resolve and read the marker:
+
+1. `path=$(dev-tools/auto-mode-marker.sh resolve --root <DIR> --task-id <ID>)`.
+2. If the marker is **valid and autonomous** for this task-id — it parses,
+   task_id matches, it is within TTL, it is untracked by git (gitignored-marker
+   rule), and (when `dispatch_session` is present) it equals the agent's own
+   live tmux session — → enter `/dr-auto <ID>` and drive the task autonomously.
+   Do NOT fall into interactive `/dr-init` and do NOT ask the operator obvious
+   next-step questions.
+3. If **no marker** (or a legacy non-delegated context) → default to
+   interactive `/dr-init <ID>` (fail-safe: never auto-drive on unproven intent).
+
+**STALE-AUTO-MARKER (loud, never a silent idle shell).** If a marker is present
+for this task-id but **invalid for autonomous entry** (dispatch_session does not
+match the live session, the marker is git-tracked, or it is past TTL), the agent
+MUST emit exactly one line `STALE-AUTO-MARKER <TASK-ID>: <reason>` and exit
+non-zero. It MUST NOT silently
+idle at an empty prompt (that is the orphaned-session failure this rule
+prevents) and MUST NOT proceed autonomously on an unverified marker. The
+delegator observes the loud exit and re-dispatches with a fresh marker.
+
+The live keystroke that carries the bare task-id is a best-effort **nudge**: if
+it is dropped, the marker-read on startup still enters the correct mode. The
+marker is the load-bearing signal; the keystroke is not.
 
 ## Question Suppression Ladder ([definition](../autonomous-mode/SKILL.md))
 

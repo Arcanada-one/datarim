@@ -51,3 +51,11 @@ skills/.system/
 # Written by /dr-save, consumed by /dr-continue in a new window.
 # These are transient per-session files; not committed to git.
 datarim/sessions/
+
+# Autonomous-mode markers — per-task at datarim/.auto/<TASK-ID>.mode and the
+# legacy single file datarim/.auto-mode-active. Runtime authorisation signals,
+# never committed. The delegated-bootstrap contract REQUIRES the marker to be
+# untracked (a git-tracked marker is refused as a supply-chain vector — see
+# skills/autonomous-mode/SKILL.md § Delegated bootstrap).
+datarim/.auto/
+datarim/.auto-mode-active

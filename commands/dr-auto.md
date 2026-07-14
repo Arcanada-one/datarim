@@ -44,7 +44,11 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
 
 3. **Turn on autonomous mode.**
    - Export `DATARIM_AUTO_MODE=1` for the rest of the session.
-   - Write a marker file at `datarim/.auto-mode-active` containing:
+   - Write the per-task marker at `datarim/.auto/<TASK-ID>.mode` (collision-safe in a shared workspace) by running the helper — do not hand-write the path:
+     ```
+     ${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/auto-mode-marker.sh reassert --root <workspace> --task-id <TASK-ID> --space <resolved-space-name>
+     ```
+     which produces a marker containing:
      ```yaml
      task_id: "<TASK-ID>"
      activated_at: "<ISO 8601 timestamp>"
@@ -83,7 +87,7 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
    When this happens, the stage uses `AskUserQuestion` to prompt the operator, and records the round in the task's init-task append-log via `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/append-init-task-qa.sh" --decided-by operator --stage <current-stage>`.
 
 9. **Terminal cleanup.** On success (a passing `/dr-compliance` + reflection) or a hard stop:
-   - Remove `datarim/.auto-mode-active`.
+   - Remove the per-task marker `datarim/.auto/<TASK-ID>.mode` (resolve via `auto-mode-marker.sh resolve --root <workspace> --task-id <TASK-ID>`; also clear the legacy `datarim/.auto-mode-active` if it was written by a hand-run for this task-id).
    - **Surface the compliance outcome before the CTA.** Print one line stating how compliance resolved, so the operator can see it ran rather than inferring it from a bare archive CTA:
      - When the run reached a passing compliance stage, print the verdict the orchestrator already summarised from the `compliance` subagent — e.g. `Compliance: COMPLIANT — ready to archive` or `Compliance: COMPLIANT_WITH_NOTES — ready to archive`.
      - When compliance was skipped by design (a complexity level whose routing has no compliance stage, e.g. L1's init → do → archive), print the skip reason instead — e.g. `Compliance skipped by design at this complexity level`.
