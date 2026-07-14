@@ -433,11 +433,16 @@ re-publishing, editing, or adding a corrective comment.
   receipt or any PASS verdict is absent. In the Arcanada deployment, the receipt is
   `~/.arcanada-publisher/policy/campaigns/<campaign-id>/evidence/media/<asset-id>/verification.json`
   with sibling `source.txt`, `audio-asr.txt`, `audio-alignment.md`,
-  `listening-checklist.md`, and (for MP4) `video-asr.txt`. The receipt binds campaign,
-  asset, language, voice, source/audio/video SHA-256 values, ASR/listening verdicts,
-  reviewer identity, and review timestamp. The operational schema is canonical in
-  Publisher's `docs/how-to/blog-audio-narration.md`; do not claim CLI enforcement
-  until a validator actually ships.
+  `listening-checklist.md`, and (for MP4) `video-asr.txt`. The receipt requires
+  `schemaVersion: 1` plus `campaignId`, `assetId`, `language`, `voice`,
+  `sourceSha256`, `audioSha256`, `videoSha256`, `audioAsrVerdict`,
+  `listeningVerdict`, `videoAsrVerdict`, `reviewedAt`, and `reviewer`; every
+  applicable verdict must be `PASS` (`videoAsrVerdict` may be `NOT_APPLICABLE`
+  only when no MP4 exists), and hashes are 64 lowercase hex. This required file
+  set and field list is the agent-facing enforcement contract. Publisher's
+  `docs/how-to/blog-audio-narration.md` carries the matching operational JSON example;
+  verify both committed versions before claiming cross-repository parity. Do not
+  claim CLI enforcement until a validator actually ships.
 - **Chunking:** keep chunks small (<=600 chars, not the 900 default) — long chunks raise Silero's length-limit 500 even after a split. The chunker self-heals by recursively halving, but small chunks avoid the wasted retry rounds.
 - **Cache:** re-voiced MP3s live on Cloudflare R2 with a 1-year `immutable` cache. After overwriting an audio asset you MUST purge the Cloudflare cache for those URLs (and the listener should hard-refresh the browser), or the old narration keeps playing. Same rule as any content edit — see § Website Publishing.
 
