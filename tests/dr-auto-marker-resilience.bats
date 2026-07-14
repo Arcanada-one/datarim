@@ -24,8 +24,12 @@ setup() {
     # Create a temporary fake workspace with a datarim/ subdir
     FAKE_ROOT="$BATS_TEST_TMPDIR/fake-workspace"
     mkdir -p "$FAKE_ROOT/datarim"
+    # Legacy single-file marker (still READ as a fallback for hand-run /dr-auto).
     MARKER="$FAKE_ROOT/datarim/.auto-mode-active"
     TASK_ID="FAKE-9001"
+    # Per-task marker is the WRITE target since the per-task migration — reassert
+    # writes here, and reads prefer it over the legacy file.
+    PER_TASK_MARKER="$FAKE_ROOT/datarim/.auto/${TASK_ID}.mode"
 }
 
 # Helper: write a valid marker for the given task-id
@@ -43,17 +47,18 @@ YAML
 # Test 1: reassert restores a vanished marker
 # ─────────────────────────────────────────────────────────────────
 @test "reassert restores a vanished marker" {
-    # Precondition: no marker exists
+    # Precondition: no marker exists (neither legacy nor per-task)
     [ ! -f "$MARKER" ]
+    [ ! -f "$PER_TASK_MARKER" ]
 
     run "$HELPER" reassert --root "$FAKE_ROOT" --task-id "$TASK_ID"
     [ "$status" -eq 0 ]
 
-    # Marker must now exist
-    [ -f "$MARKER" ]
+    # Per-task marker must now exist (the write target since the migration)
+    [ -f "$PER_TASK_MARKER" ]
 
     # task_id must match
-    run grep -q "task_id: ${TASK_ID}" "$MARKER"
+    run grep -q "task_id: ${TASK_ID}" "$PER_TASK_MARKER"
     [ "$status" -eq 0 ]
 }
 
@@ -130,13 +135,14 @@ YAML
 @test "reassert writes the resolved space binding" {
     run "$HELPER" reassert --root "$FAKE_ROOT" --task-id "$TASK_ID" --space arcanada
     [ "$status" -eq 0 ]
-    [ "$(yq eval -r '.space' "$MARKER")" = arcanada ]
+    [ "$(yq eval -r '.space' "$PER_TASK_MARKER")" = arcanada ]
 }
 
 @test "reassert replaces a marker with the wrong space binding" {
-    _seed_marker "$TASK_ID"
-    printf 'space: aether\n' >> "$MARKER"
+    # Seed a per-task marker with the wrong space, then reassert must rewrite it.
+    "$HELPER" reassert --root "$FAKE_ROOT" --task-id "$TASK_ID" --space aether
+    [ "$(yq eval -r '.space' "$PER_TASK_MARKER")" = aether ]
     run "$HELPER" reassert --root "$FAKE_ROOT" --task-id "$TASK_ID" --space arcanada
     [ "$status" -eq 0 ]
-    [ "$(yq eval -r '.space' "$MARKER")" = arcanada ]
+    [ "$(yq eval -r '.space' "$PER_TASK_MARKER")" = arcanada ]
 }

@@ -27,12 +27,22 @@ _autonomy_spaces_root() {
 }
 
 _autonomy_marker_name() {
-  local dir="${PWD:-.}" marker auto_marker
+  local dir="${PWD:-.}" marker auto_marker per_task
   while [[ "$dir" != "/" ]]; do
+    # Legacy single-file marker (hand-run /dr-auto).
     auto_marker="$dir/datarim/.auto-mode-active"
     if [[ -f "$auto_marker" ]]; then
       yq eval -r '.space // ""' "$auto_marker" 2>/dev/null
       return 0
+    fi
+    # Per-task markers under datarim/.auto/<TASK-ID>.mode — all per-task markers
+    # in one workspace carry the same space, so the first one resolves it.
+    if [[ -d "$dir/datarim/.auto" ]]; then
+      per_task="$(find "$dir/datarim/.auto" -maxdepth 1 -name '*.mode' -type f 2>/dev/null | head -n1)"
+      if [[ -n "$per_task" ]]; then
+        yq eval -r '.space // ""' "$per_task" 2>/dev/null
+        return 0
+      fi
     fi
     marker="$dir/datarim/.space"
     if [[ -f "$marker" ]]; then
