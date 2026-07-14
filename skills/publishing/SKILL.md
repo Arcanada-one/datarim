@@ -375,6 +375,12 @@ Publisher pattern: immediately after `POST_URL` is captured, post the first-comm
 
 **Attach the hero image to image-capable posts.** When the post promotes an article that has a hero image, attach that image to the post itself — FB `--image-file`, LinkedIn `--image-file`, TG `sendPhoto`. A bare text post with no image loses badly in the feed, and an article's OG-preview from a *comment* link is not a substitute (the body shows no image). A FB post published text-only loses badly in the feed — there is no way to add media retroactively (UI edit replaces text only), so you must delete and re-publish, then re-add the first comment. Get the image right on the first publish.
 
+Deletion and re-publication are separate irreversible public actions. Never infer
+permission for them from the original campaign approval. If media is missing or
+wrong after publication, freeze mutations, show the operator the exact post URL and
+read-back evidence, and obtain explicit platform-specific permission before deleting,
+re-publishing, editing, or adding a corrective comment.
+
 **Video standard for social posts — animated cover (cover → cycling effects) over the article narration.** When a post has both a cover image AND article narration audio, the preferred attachment is NOT a static cover and NOT a plain cover+audio MP4, but an **animated screensaver video**: the post's cover shown clean for ~2 s, then a NEW visual effect every ~3 s cycling through a large randomly-shuffled pool, with smooth crossfades (~0.6 s) between effects, for the full length of the narration. The canonical generator is `Projects/Publisher/code/arcanada-publisher/dev-tools/video/make-cycle-video.sh <cover> <audio> <out.mp4> [intro_sec] [seg_sec] [seed]` — pure ffmpeg, no plugins. Rules:
 - Inputs come **from the post itself**: the cover is the article's hero cover (the post-level cover, not an in-article inline preview), the audio is the article's own narration in the post language. The intro frame is always that cover.
 - The effect order is **re-shuffled randomly every run** (Fisher-Yates over the pool) so two posts never get the same sequence; pass a fixed `seed` only to reproduce one.
@@ -382,6 +388,12 @@ Publisher pattern: immediately after `POST_URL` is captured, post the first-comm
 - **No audio?** Fall back to a ~30 s clip from the cover alone (the generator's no-audio path), still with cycling effects.
 - Do NOT use a bare audio-waveform visualizer (showwaves/showcqt/showspectrum) as the WHOLE post video — a full-frame visualizer looks generic; the animated-cover cycle stays the hero. A bottom audio-amplitude STRIP drawn ON TOP of the cycle is allowed and is the default house style (operator-approved): a showwaves oscilloscope with a horizontal gold→crimson gradient, ~180px tall, pinned to the bottom edge, shown only when narration audio exists. The distinction is overlay-strip (good) vs. whole-frame-visualizer (forbidden). The canonical generator draws it by default; disable with the `--no-waveform` CLI flag (or `WAVEFORM=0` for the bash reference engine).
 - Per-platform attach: X long-form and LinkedIn take the MP4; Facebook feed forces video into Reels, so on FB use the static cover image instead (keep the video for X and LinkedIn); Telegram can take the MP4 via `sendVideo`.
+- **Approved-audio provenance is mandatory.** A narration-backed video may use only
+  an MP3 that passed the semantic fidelity gate below. Record the approved MP3
+  SHA-256 and frozen narration SHA-256 in the video generation evidence. After
+  muxing, extract and transcribe the final MP4 audio and compare it with the approved
+  narration. Codec, duration, dimensions, bitrate, waveform, and non-silence checks
+  do not prove spoken content.
 
 **Blog audio narration — TTS text prep (Russian / Silero).** The RU narration engine (Silero, via the speech sidecar) is Cyrillic-only: it cannot pronounce Latin words, bare numbers, currency, fractions, or percentages, and on a digit/symbol "soup" it returns a hard HTTP 500. The narration text MUST therefore be **normalized before TTS, not stripped**. Stripping the problem tokens (the path of least resistance, fine for benchmark tables where raw figures carry no spoken value) silently drops meaning in a narrative article — the listener hears gaps where numbers and product names should be.
 
@@ -397,6 +409,21 @@ Publisher pattern: immediately after `POST_URL` is captured, post the first-comm
 <!-- /allow-non-ascii-block -->
 - **Every block is its own sentence — headings AND paragraphs.** Our posts write headings (and some list items / lead lines) WITHOUT a trailing period, so once HTML tags are stripped a block glues onto the next one and the narrator reads them in one breath. The extractor (`extract_lang_text` in `gen-blog-audio.py`) now wraps `<h1-6>` and `<p>/<li>/<blockquote>` in sentinels BEFORE `strip_tags` and, in Python, appends terminal punctuation to any block that lacks `.!?…`: headings get a period **plus a doubled pause** (`. … ` on their own line) so they are set apart; paragraphs get a closing period. This is engine-independent (both Silero and F5 lengthen the gap on consecutive sentence terminators) and applies to RU and EN alike — content tasks do NOT need to hand-punctuate headings. TRAP: the article's main `<h1>` lives inside `<article>` together with the breadcrumb/date; a greedy `<p>(.*?)</p>` regex swallows it into one blob and the title glues onto the lead paragraph. Pull the `<h1>` out FIRST, cut everything up to `</h1>` (hero/nav), and replace `<a>` tags with their TEXT (do not delete — else a CTA like "... at cubrim.com" loses the domain and trails off as "... at .").
 - **Cloned author voice (optional, on-device).** A deployment may add the author's own cloned voice alongside the stock Silero/Kokoro voices. It is rendered ON-DEVICE (the author's machine, not the sidecar): RU via OpenVoice v2 (Silero base + tone-color conversion, fast ~30-40 s/article), EN via F5-TTS Base (Apache 2.0, zero-shot from a short reference clip, slow ~45-50 min/article on Apple MPS — batch it). The biometry (speaker embedding + reference WAV and its exact transcript) lives ONLY in a private voice vault referenced by an env var — never in the site repo and never on the CDN; only the finished MP3 is published. The RU text still needs the normalization pass above (the clone runs on top of Silero); the EN text does not. Register it in the manifest under its own voice id like any other voice. The deployment-specific voice id, vault path, and CLI flags are documented in that deployment's own runbook, not here.
+- **Semantic fidelity is a hard gate for every TTS engine and voice.** Treat the
+  final MP3 as untrusted even when generation exits zero and the file is decodable,
+  non-silent, and the expected duration. Freeze and hash the normalized narration;
+  transcribe the final MP3 with an independent ASR model in the correct language;
+  compare paragraph order and hard-fail on missing/reordered paragraphs, an inserted
+  sentence, a language mismatch, or an unexpected phrase of four or more words
+  repeated at least twice. Then proof-listen the complete MP3 at normal speed for
+  voice identity, pronunciation, repetitions, insertions, omissions, truncation,
+  silence, and chunk-boundary glitches. Record reviewer, timestamp, narration hash,
+  MP3 hash, and PASS/FAIL. Regeneration invalidates the approval.
+- **CONTENT-0377 precedent (2026-07-14).** An EN F5-TTS MP3 repeatedly inserted
+  “This recording is part of that same process.” It still passed hash, codec,
+  duration, waveform, non-silence, upload, and player checks, and the same bad audio
+  propagated into X and LinkedIn videos. Independent ASR plus proof-listening must
+  therefore happen before upload or video generation, not after publication.
 - **Chunking:** keep chunks small (<=600 chars, not the 900 default) — long chunks raise Silero's length-limit 500 even after a split. The chunker self-heals by recursively halving, but small chunks avoid the wasted retry rounds.
 - **Cache:** re-voiced MP3s live on Cloudflare R2 with a 1-year `immutable` cache. After overwriting an audio asset you MUST purge the Cloudflare cache for those URLs (and the listener should hard-refresh the browser), or the old narration keeps playing. Same rule as any content edit — see § Website Publishing.
 
@@ -441,7 +468,7 @@ When the publishing app is unavailable and you must drive the post by hand throu
 
 **Post text via clipboard, not character-typing.** For long post bodies, `cat <file> | pbcopy` then Cmd+V is instant; a `type` action of ~10k chars times out at the CDP 30s limit (the text still lands, but the action reports failure). Clipboard paste of the post BODY works on every platform; only the LinkedIn comment field has the line-flattening quirk above.
 
-**Verify both text and image before the irreversible Publish click, and re-verify the rendered post after.** A partial publish (image attached, text missing — or vice-versa) leaves a broken public post that cannot be fixed by retry without producing duplicates. Snapshot the composer (body present AND image preview present) before Publish; open the published post afterward and confirm both are there. On a timeout/modal error, check the profile for a partial publish BEFORE assuming nothing was posted.
+**Verify text and approved media before the irreversible Publish click, and re-verify the rendered post after.** A partial publish (media attached, text missing — or vice-versa) leaves a broken public post that cannot be fixed by retry without producing duplicates. Snapshot the composer (body present AND media preview present) before Publish. For narration-backed video, verify that the attached file hash matches the MP4 in the approved audio/video receipt; a visible preview proves attachment, not semantic correctness. Open the published post afterward and confirm both text and media are there. On a timeout/modal error, check the profile for a partial publish BEFORE assuming nothing was posted.
 
 
 ### Facebook
@@ -547,6 +574,11 @@ Required for proper link previews on all social platforms:
 - [ ] RSS feed updated (if exists)
 - [ ] Sitemap regenerated (if static)
 - [ ] Audio narration (if the blog has a player): RU text normalized before Silero TTS — numbers→words, Latin→Cyrillic, stress markers on mis-stressed words; every heading AND paragraph ends a sentence (extractor adds the period; headings get a doubled pause) so blocks do not glue together; the author's cloned voice available as an option if the deployment provides one (see § Blog audio narration); MP3s uploaded to R2 AND Cloudflare cache purged for the audio URLs
+- [ ] Every final narration MP3 has a content-verification receipt bound to the
+      frozen narration and MP3 hashes: correct-language independent ASR comparison,
+      no missing/reordered paragraph or unexpected repeated insertion, and complete
+      proof-listening with reviewer/timestamp/PASS. Every derived MP4 records that
+      approved MP3 hash and passes the same final-audio transcript check after muxing.
 
 ---
 
@@ -685,6 +717,14 @@ if any item fails, fix it before publishing.
 - [ ] Post video uses the animated-cover cycle; when narration audio exists it
   carries the bottom audio-amplitude strip (default-on). A bare full-frame
   waveform as the whole video is forbidden (see § Video standard).
+- [ ] Narration content itself is approved: the exact final MP3 and muxed MP4
+  passed correct-language ASR comparison against the frozen source, complete
+  proof-listening, and hash-bound evidence. Duration, codec, waveform, and a
+  visible player are not substitutes.
+- [ ] The operator has not been promised an automatic repair path that the
+  platform does not support. X/LinkedIn video is treated as immutable after
+  publish. Any discovered live defect freezes delete/edit/re-publish/comment
+  actions until the operator explicitly authorizes each named platform and URL.
 
 ### Multi-vendor consilium post-publish
 
