@@ -438,8 +438,9 @@ re-publishing, editing, or adding a corrective comment.
   `sourceSha256`, `audioSha256`, `videoSha256`, `audioAsrVerdict`,
   `listeningVerdict`, `videoAsrVerdict`, `reviewedAt`, and `reviewer`; every
   applicable verdict must be `PASS` (`videoAsrVerdict` may be `NOT_APPLICABLE`
-  only when no MP4 exists), and hashes are 64 lowercase hex. This required file
-  set and field list is the agent-facing enforcement contract. Publisher's
+  only when no MP4 exists), `videoSha256` must be `null` in that same audio-only
+  case, and every non-null hash must be 64 lowercase hex. This required file set
+  and field list is the agent-facing enforcement contract. Publisher's
   `docs/how-to/blog-audio-narration.md` carries the matching operational JSON example;
   verify both committed versions before claiming cross-repository parity. Do not
   claim CLI enforcement until a validator actually ships.
