@@ -100,6 +100,49 @@ if [ ! -f "$PRD" ]; then
         fi
         exit 0
     fi
+    # ---- Class B: documented PRD-waiver skip (TUNE-0473) ---------------------
+    # A follow-up L3/L4 task may legitimately run WITHOUT its own PRD when the
+    # operator records the canonical waiver line `**PRD waived:**` (mandated by
+    # the datarim-system task-identity contract: one scoped track from a parent
+    # PRD/archive, parent approved <30 days ago, no new requirements). Before
+    # emitting the hard usage-error, look for that marker on the task's
+    # authoritative surfaces (tasks.md is the mandated home; plan/task-description
+    # carry it in practice). When present, SKIP with an explicit reason instead
+    # of a usage-error -- this is the documented waiver path, NOT a silent bypass.
+    # Guard: the <30d age is only *asserted* in the reason when a parent PRD id
+    # in the marker resolves to a file whose mtime is within 30 days; otherwise
+    # the reason states the waiver is documented but the parent age is
+    # unverifiable (honest, non-fabricated). No invented marker: keyed strictly
+    # off the canonical `**PRD waived:**` token.
+    waiver_line=""
+    for _src in "$DATARIM_ROOT/tasks.md" "$PLAN" "$TASK_DESC" "$EXPECTATIONS"; do
+        [ -f "$_src" ] || continue
+        waiver_line="$(grep -m1 -F '**PRD waived:**' "$_src" 2>/dev/null || true)"
+        [ -n "$waiver_line" ] && break
+    done
+    if [ -n "$waiver_line" ]; then
+        # Best-effort parent-PRD age check: pull the first PRD id token from the
+        # marker line and, if the corresponding PRD file exists and is <=30 days
+        # old, assert the <30d claim; else fall back to an unverified reason.
+        waiver_reason="documented PRD-waiver (parent age unverified)"
+        _parent_id="$(printf '%s' "$waiver_line" | grep -oE 'PRD-[A-Z]+-[0-9]+' | head -1 | sed -E 's/^PRD-//')"
+        if [ -n "$_parent_id" ]; then
+            for _pprd in "$DATARIM_ROOT/prd/PRD-${_parent_id}.md" "$DATARIM_ROOT/prd/${_parent_id}-prd.md"; do
+                [ -f "$_pprd" ] || continue
+                if find "$_pprd" -mtime -30 2>/dev/null | grep -q .; then
+                    waiver_reason="documented PRD-waiver (parent <30d)"
+                fi
+                break
+            done
+        fi
+        if [ "$FORMAT" = "json" ]; then
+            printf '{"task":"%s","stage":"%s","complexity":"%s","mode":"%s","decision":"skip","reason":"%s","evaluated_artifacts":[],"excluded_artifacts":[{"path":"%s","reason":"%s"}],"findings":[]}\n' \
+                "$TASK" "$STAGE" "$LEVEL" "$MODE" "$waiver_reason" "$PRD" "$waiver_reason"
+        else
+            printf 'spec-graph: SKIP %s %s (%s, %s)\n' "$TASK" "$STAGE" "$LEVEL" "$waiver_reason"
+        fi
+        exit 0
+    fi
     usage_die "required PRD missing for $TASK"
 fi
 
