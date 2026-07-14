@@ -9,6 +9,17 @@ setup() {
     TMP="$BATS_TEST_TMPDIR"
 }
 
+# Infrastructure-Gated Test Skip (skills/testing/SKILL.md): the validator's
+# structural/cross-field checks run under python jsonschema, which CI
+# provisions (.github/workflows/bats.yml: pip install jsonschema pyyaml) but
+# which is absent on bare hosts. Probe for it and skip validator-dependent
+# tests with an explicit, self-evidencing message when it is missing.
+require_jsonschema() {
+    if ! python3 -c "import jsonschema" >/dev/null 2>&1; then
+        skip "no python jsonschema module — run 'python3 -m pip install jsonschema pyyaml' to exercise the role-registry validator"
+    fi
+}
+
 @test "validator script exists and is executable" {
     [ -x "$VALIDATOR" ]
 }
@@ -18,6 +29,7 @@ setup() {
 }
 
 @test "seed roles.yaml passes validation (exit 0)" {
+    require_jsonschema
     run "$VALIDATOR" --file "$ROLES"
     [ "$status" -eq 0 ]
 }
@@ -54,6 +66,7 @@ roles:
     default_aal: 1
     starter_skill: "skills/fleet/l3-analyst"
 EOF
+    require_jsonschema
     run "$VALIDATOR" --file "$TMP/bad.yaml"
     [ "$status" -eq 1 ]
 }
@@ -73,6 +86,7 @@ roles:
     default_aal: 1
     starter_skill: "skills/fleet/l2-structured"
 EOF
+    require_jsonschema
     run "$VALIDATOR" --file "$TMP/over.yaml"
     [ "$status" -eq 1 ]
 }
@@ -92,6 +106,7 @@ roles:
     default_aal: 3
     starter_skill: "skills/fleet/l4-expert"
 EOF
+    require_jsonschema
     run "$VALIDATOR" --file "$TMP/unsafe.yaml"
     [ "$status" -eq 1 ]
 }
@@ -111,6 +126,7 @@ roles:
     default_aal: 1
     starter_skill: "skills/fleet/does-not-exist"
 EOF
+    require_jsonschema
     run "$VALIDATOR" --file "$TMP/phantom.yaml"
     [ "$status" -eq 1 ]
 }
@@ -155,6 +171,7 @@ roles:
     default_aal: 1
     starter_skill: "skills/fleet/_test_no_budget"
 EOF
+    require_jsonschema
     run "$VALIDATOR" --file "$TMP/nb.yaml" --root "$REPO"
     rm -rf "$NB_DIR"
     [ "$status" -eq 1 ]
@@ -162,6 +179,7 @@ EOF
 }
 
 @test "seed roles all reference skills declaring context_budget_tokens" {
+    require_jsonschema
     run "$VALIDATOR" --file "$ROLES"
     [ "$status" -eq 0 ]
 }

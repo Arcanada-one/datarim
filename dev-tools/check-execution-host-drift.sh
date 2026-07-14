@@ -136,7 +136,15 @@ if [ "$FINDINGS" -eq 0 ]; then
             synced_epoch="$(date -u -j -f '%Y-%m-%dT%H:%M:%SZ' "$SYNCED_AT" +%s 2>/dev/null \
                 || date -u -d "$SYNCED_AT" +%s 2>/dev/null || echo 0)"
         else
-            synced_epoch="$(stat -f %m "$MAP" 2>/dev/null || stat -c %Y "$MAP" 2>/dev/null || echo "$now_epoch")"
+            # mtime fallback when synced_at is absent. Try GNU coreutils
+            # (stat -c %Y) FIRST, then BSD/macOS (stat -f %m): on GNU, `-f`
+            # means --file-system and prints multi-line FS info to stdout
+            # (non-numeric), which under set -u crashes the arithmetic below;
+            # so GNU must win the || chain on Linux. Numeric-guard the result.
+            synced_epoch="$(stat -c %Y "$MAP" 2>/dev/null || stat -f %m "$MAP" 2>/dev/null || echo "$now_epoch")"
+            case "$synced_epoch" in
+                *[!0-9]*|"") synced_epoch="$now_epoch" ;;
+            esac
         fi
         age_days=$(( (now_epoch - synced_epoch) / 86400 ))
         if [ "$age_days" -gt "$TTL_DAYS" ]; then
