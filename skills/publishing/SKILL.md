@@ -419,7 +419,7 @@ re-publishing, editing, or adding a corrective comment.
   voice identity, pronunciation, repetitions, insertions, omissions, truncation,
   silence, and chunk-boundary glitches. Record reviewer, timestamp, narration hash,
   MP3 hash, and PASS/FAIL. Regeneration invalidates the approval.
-- **CONTENT-0377 precedent (2026-07-14).** An EN F5-TTS MP3 repeatedly inserted
+- **Failure precedent (2026-07-14).** An EN F5-TTS MP3 repeatedly inserted
   “This recording is part of that same process.” It still passed hash, codec,
   duration, waveform, non-silence, upload, and player checks, and the same bad audio
   propagated into X and LinkedIn videos. Independent ASR plus proof-listening must
