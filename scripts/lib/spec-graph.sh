@@ -365,9 +365,12 @@ collect_covers() {
 collect_vac() {
     local file="$1"
     [ -f "$file" ] || return 0
-    grep -nE '\bV-AC-[0-9]+' "$file" 2>/dev/null \
-        | grep -oE '^[0-9]+:.*V-AC-[0-9]+(\.[0-9]+)?' \
-        | sed -E 's/^([0-9]+):.*(V-AC-[0-9]+(\.[0-9]+)?).*$/\1\t\2/' \
+    # Route the id grammar through the shared V_AC_REF_RE so a letter-prefixed
+    # axis id (V-AC-A1) declared in the PRD is collected on equal footing with
+    # the historical numeric id. Source: TUNE-0473.
+    grep -nE "\\b${V_AC_REF_RE}" "$file" 2>/dev/null \
+        | grep -oE "^[0-9]+:.*${V_AC_REF_RE}" \
+        | sed -E "s/^([0-9]+):.*(${V_AC_REF_RE}).*\$/\\1\t\\2/" \
         | sort -u
 }
 
@@ -444,8 +447,14 @@ with open(path, encoding="utf-8") as fh:
             continue
         if not cur:
             continue
+        # Wish->V-AC link on the schema-defined cite line. Accept a plain
+        # `V-AC-N`, a letter-prefixed axis id `V-AC-A1` (v-ac-axis-split, L4),
+        # or the deliberate no-link dash form (empty link). Widened to mirror
+        # the shared V_AC_REF_RE grammar so an axis id is no longer silently
+        # dropped into a false `no linked V-AC` / `undeclared` grade-F.
+        # Source: TUNE-0473.
         if "Связанный AC из PRD:" in line:
-            vm = re.search(r"V-AC-\d+(?:\.\d+)?", line)
+            vm = re.search(r"V-AC-[A-Z]?\d+(?:\.\d+)?", line)
             cur["vac"] = vm.group(0) if vm else ""
         elif re.match(r"\s*-\s*override:\s*", line):
             cur["override"] = line.split("override:", 1)[1].strip()

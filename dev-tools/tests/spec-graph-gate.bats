@@ -128,3 +128,44 @@ EOF
     [ "$status" -eq 0 ] \
       && printf '%s\n' "$output" | grep -qF '"decision":"clean"'
 }
+
+# ===========================================================================
+# TUNE-0473 (B): documented PRD-waiver skip. An L3/L4 follow-up task running
+# WITHOUT its own PRD but carrying the canonical `**PRD waived:**` marker must
+# SKIP with an explicit reason, not die with a usage-error (TUNE-0472
+# compliance got a usage-error instead of a graph verdict). No marker + no PRD
+# still dies (the waiver is documented, never a silent bypass).
+# ===========================================================================
+
+# L3 task with NO PRD file. Whether it skips or dies depends solely on the marker.
+write_noprd_fixture() {
+    mkdir -p "$WORK/datarim/prd" "$WORK/datarim/plans" "$WORK/datarim/tasks"
+    cat >"$WORK/datarim/plans/GT-0009-plan.md" <<'EOF'
+# Plan
+- Step 1: implement the follow-up
+  Verifies: V-AC-1
+EOF
+    cat >"$WORK/datarim/tasks/GT-0009-task-description.md" <<'EOF'
+## Implementation Notes
+- Evidence: V-AC-1 — bats
+EOF
+}
+
+@test "TUNE-0473-B: L3 follow-up with **PRD waived:** marker SKIPs with reason (not usage-error)" {
+    write_noprd_fixture
+    # Record the canonical waiver marker on the mandated surface (tasks.md).
+    printf '## GT-0009\n**PRD waived:** scoped follow-up of parent PRD-EX-0001, approved <30d, no new requirements.\n' \
+        >"$WORK/datarim/tasks.md"
+    run "$SCRIPT" --task GT-0009 --stage compliance --root "$WORK" --format json
+    [ "$status" -eq 0 ]
+    [[ "$output" == *'"decision":"skip"'* ]]
+    [[ "$output" == *"documented PRD-waiver"* ]]
+}
+
+@test "TUNE-0473-B-neg: L3 task with NO PRD and NO waiver marker still usage-dies (exit 2)" {
+    write_noprd_fixture
+    # No tasks.md waiver marker anywhere.
+    run "$SCRIPT" --task GT-0009 --stage compliance --root "$WORK" --format json
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"required PRD missing"* ]] || [[ "$output" == *"PRD"* ]]
+}

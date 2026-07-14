@@ -295,7 +295,18 @@ if { [ "$LEVEL" = "L3" ] || [ "$LEVEL" = "L4" ]; } && [ -f "$EXP_FILE" ]; then
     PLAN_BOUND="$(collect_verifies "$PLAN_FILE" | awk -F'\t' '{print $2}' | sort -u)"
     EVIDENCE_BOUND="$(collect_evidence "$TASK_FILE" "$QA_FILE" "$COMPLIANCE_FILE" \
         | awk -F'\t' '{print $2}' | sort -u)"
-    while IFS=$'\t' read -r wish vac status valid_operator_override; do
+    # Split the tab-separated record with parameter expansion, NOT
+    # `IFS=$'\t' read`: tab is IFS-whitespace, so a `read` collapses an empty
+    # middle field and shifts the columns. A wish with a deliberate no-link
+    # dash (empty vac) would then read `status` into `vac` and mis-route to the
+    # `undeclared` branch with a garbage id. Explicit `%%`/`##` trimming keeps
+    # the empty vac empty so it hits the correct `no linked V-AC` branch.
+    # Source: TUNE-0473.
+    while IFS= read -r _rec; do
+        wish="${_rec%%$'\t'*}"; _rest="${_rec#*$'\t'}"
+        vac="${_rest%%$'\t'*}"; _rest="${_rest#*$'\t'}"
+        status="${_rest%%$'\t'*}"
+        valid_operator_override="${_rest##*$'\t'}"
         [ -n "$wish" ] || continue
         case "$status" in deleted|n-a) continue ;; esac
         [ "$valid_operator_override" = "yes" ] && continue

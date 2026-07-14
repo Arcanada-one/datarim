@@ -57,6 +57,13 @@ SCHEMA_BACKLOG_RE='^- [A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)* · (pending|blocked-p
 D_REQ_ID_RE='(^#### D-REQ-[0-9]{2}: .+$)|(^[[:space:]]*[-*][[:space:]]+\*\*D-REQ-[0-9]{2}\*\*)'
 COVERS_LINE_RE='Covers:[[:space:]]*D-REQ-[0-9]{2}([[:space:]]*,[[:space:]]*D-REQ-[0-9]{2})*[[:space:]]*$'
 D_REQ_REF_RE='D-REQ-[0-9]{2}'
-VERIFIES_LINE_RE='Verifies:[[:space:]]*\**[[:space:]]*V-AC-[0-9]+(\.[0-9]+)?([[:space:]]*,[[:space:]]*V-AC-[0-9]+(\.[0-9]+)?)*'
-EVIDENCE_LINE_RE='^[[:space:]]*(-[[:space:]]*)?Evidence:[[:space:]]*V-AC-[0-9]+(\.[0-9]+)?[[:space:]]+.+$'
-V_AC_REF_RE='V-AC-[0-9]+(\.[0-9]+)?'
+VERIFIES_LINE_RE='Verifies:[[:space:]]*\**[[:space:]]*V-AC-[A-Z]?[0-9]+(\.[0-9]+)?([[:space:]]*,[[:space:]]*V-AC-[A-Z]?[0-9]+(\.[0-9]+)?)*'
+EVIDENCE_LINE_RE='^[[:space:]]*(-[[:space:]]*)?Evidence:[[:space:]]*V-AC-[A-Z]?[0-9]+(\.[0-9]+)?[[:space:]]+.+$'
+# V_AC_REF_RE — a bare V-AC reference token. Tolerates an OPTIONAL single
+# uppercase-letter axis prefix on the numeric core (V-AC-A1), the form the
+# v-ac-axis-split pattern emits when an L4 V-AC group is split across a
+# deterministic/statistical axis. Remains a strict superset of the historical
+# numeric-only id (V-AC-1, V-AC-12, V-AC-1.2), so every previously-matching
+# token still matches. Source: TUNE-0473 (letter-prefixed V-AC in an
+# expectations wish->V-AC cite was silently dropped, yielding a false grade-F).
+V_AC_REF_RE='V-AC-[A-Z]?[0-9]+(\.[0-9]+)?'

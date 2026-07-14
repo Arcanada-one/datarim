@@ -193,3 +193,74 @@ EOF
       | grep -F '"check_name": "graph-complete-l3"' \
       | grep -qF 'V-AC-2'
 }
+
+# ===========================================================================
+# TUNE-0473 (A): completeness scan must accept a letter-prefixed axis V-AC id
+# (V-AC-A1) cited via `Связанный AC из PRD:` in expectations.md on equal footing
+# with the numeric form — regression against a false `no linked V-AC` grade-F
+# when coverage is real (TUNE-0471: 7 false errors at 11/11 D-REQ covered).
+# ===========================================================================
+
+# Clean L3 fixture whose PRD declares LETTER-PREFIXED axis V-AC ids and whose
+# expectations.md links wishes to them. Pre-fix this graded F falsely.
+write_axis_fixture() {
+    cat >"$WORK/datarim/prd/PRD-EX-0002.md" <<'EOF'
+# PRD: Axis Example
+**Complexity:** Level 3
+
+## Requirements (D-REQ)
+
+#### D-REQ-01: the validator builds a graph
+
+#### D-REQ-02: the validator emits json
+
+## Success Criteria
+
+- V-AC-A1: graph is built
+  Covers: D-REQ-01
+- V-AC-A2: json is emitted
+  Covers: D-REQ-02
+EOF
+    cat >"$WORK/datarim/plans/EX-0002-plan.md" <<'EOF'
+# Plan: Axis Example
+- Step 1: build the graph
+  Verifies: V-AC-A1
+- Step 2: emit json
+  Verifies: V-AC-A2
+EOF
+    cat >"$WORK/datarim/tasks/EX-0002-task-description.md" <<'EOF'
+# Implementation Notes
+
+- Evidence: V-AC-A1 — bats dev-tools/tests/dr-spec-lint.bats
+- Evidence: V-AC-A2 — bats dev-tools/tests/dr-spec-lint.bats
+EOF
+    cat >"$WORK/datarim/tasks/EX-0002-expectations.md" <<'EOF'
+- **1. Build graph.**
+  - wish_id: build-graph
+  - Связанный AC из PRD: V-AC-A1
+  - #### Текущий статус
+    - pending
+- **2. Emit json.**
+  - wish_id: emit-json
+  - Связанный AC из PRD: V-AC-A2
+  - #### Текущий статус
+    - pending
+EOF
+}
+
+@test "TUNE-0473-A: axis-id V-AC (V-AC-A1) cited in expectations.md is NOT a false 'no linked V-AC'" {
+    write_axis_fixture
+    run "$SCRIPT" --task EX-0002 --root "$WORK" --format json
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"no linked V-AC"* ]]
+    [[ "$output" != *"undeclared"* ]]
+}
+
+@test "TUNE-0473-A-neg: a genuinely unlinked wish (dash cite) still flags 'no linked V-AC'" {
+    write_axis_fixture
+    # Break wish 1's link: replace the cite value with the deliberate no-link dash.
+    perl -0pi -e 's/Связанный AC из PRD: V-AC-A1/Связанный AC из PRD: —/' "$WORK/datarim/tasks/EX-0002-expectations.md"
+    run "$SCRIPT" --task EX-0002 --root "$WORK" --format json
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"no linked V-AC"* ]]
+}
