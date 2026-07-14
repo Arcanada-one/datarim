@@ -59,3 +59,10 @@ datarim/sessions/
 # skills/autonomous-mode/SKILL.md § Delegated bootstrap).
 datarim/.auto/
 datarim/.auto-mode-active
+
+# Dispatch heartbeat status files — per-task at datarim/runtime/<TASK-ID>.status
+# (TUNE-0490 Phase 2). Runtime state written by a delegated agent and read by
+# the laptop monitor; ephemeral, host-local, never committed. The digest and
+# pane classifier operate on these; the .answer channel (Phase 2 relay) lands
+# here too.
+datarim/runtime/
