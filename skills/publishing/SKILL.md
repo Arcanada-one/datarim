@@ -413,9 +413,12 @@ re-publishing, editing, or adding a corrective comment.
   final MP3 as untrusted even when generation exits zero and the file is decodable,
   non-silent, and the expected duration. Freeze and hash the normalized narration;
   transcribe the final MP3 with an independent ASR model in the correct language;
-  compare paragraph order and hard-fail on missing/reordered paragraphs, an inserted
-  sentence, a language mismatch, or an unexpected phrase of four or more words
-  repeated at least twice. Then proof-listen the complete MP3 at normal speed for
+  align source and transcript at paragraph, sentence, and phrase level in reading
+  order; and hard-fail every unreviewed missing/reordered paragraph, sentence, or
+  meaningful phrase, an inserted sentence, a language mismatch, or an unexpected
+  phrase of four or more words repeated at least twice. The alignment report must
+  surface every unmatched source/transcript span instead of accepting a paragraph
+  because some words matched. Then proof-listen the complete MP3 at normal speed for
   voice identity, pronunciation, repetitions, insertions, omissions, truncation,
   silence, and chunk-boundary glitches. Record reviewer, timestamp, narration hash,
   MP3 hash, and PASS/FAIL. Regeneration invalidates the approval.
@@ -424,6 +427,17 @@ re-publishing, editing, or adding a corrective comment.
   duration, waveform, non-silence, upload, and player checks, and the same bad audio
   propagated into X and LinkedIn videos. Independent ASR plus proof-listening must
   therefore happen before upload or video generation, not after publication.
+- **Current enforcement boundary.** Until the publishing application has a
+  code-level receipt validator, this is a manual fail-closed preflight. The agent
+  must inspect the campaign evidence and must not invoke a publish action when the
+  receipt or any PASS verdict is absent. In the Arcanada deployment, the receipt is
+  `~/.arcanada-publisher/policy/campaigns/<campaign-id>/evidence/media/<asset-id>/verification.json`
+  with sibling `source.txt`, `audio-asr.txt`, `audio-alignment.md`,
+  `listening-checklist.md`, and (for MP4) `video-asr.txt`. The receipt binds campaign,
+  asset, language, voice, source/audio/video SHA-256 values, ASR/listening verdicts,
+  reviewer identity, and review timestamp. The operational schema is canonical in
+  Publisher's `docs/how-to/blog-audio-narration.md`; do not claim CLI enforcement
+  until a validator actually ships.
 - **Chunking:** keep chunks small (<=600 chars, not the 900 default) — long chunks raise Silero's length-limit 500 even after a split. The chunker self-heals by recursively halving, but small chunks avoid the wasted retry rounds.
 - **Cache:** re-voiced MP3s live on Cloudflare R2 with a 1-year `immutable` cache. After overwriting an audio asset you MUST purge the Cloudflare cache for those URLs (and the listener should hard-refresh the browser), or the old narration keeps playing. Same rule as any content edit — see § Website Publishing.
 
@@ -576,9 +590,10 @@ Required for proper link previews on all social platforms:
 - [ ] Audio narration (if the blog has a player): RU text normalized before Silero TTS — numbers→words, Latin→Cyrillic, stress markers on mis-stressed words; every heading AND paragraph ends a sentence (extractor adds the period; headings get a doubled pause) so blocks do not glue together; the author's cloned voice available as an option if the deployment provides one (see § Blog audio narration); MP3s uploaded to R2 AND Cloudflare cache purged for the audio URLs
 - [ ] Every final narration MP3 has a content-verification receipt bound to the
       frozen narration and MP3 hashes: correct-language independent ASR comparison,
-      no missing/reordered paragraph or unexpected repeated insertion, and complete
-      proof-listening with reviewer/timestamp/PASS. Every derived MP4 records that
-      approved MP3 hash and passes the same final-audio transcript check after muxing.
+      no unreviewed missing/reordered paragraph, sentence, or meaningful phrase and
+      no unexpected repeated insertion, plus complete proof-listening with
+      reviewer/timestamp/PASS. Every derived MP4 records that approved MP3 hash and
+      passes the same final-audio transcript check after muxing.
 
 ---
 
@@ -722,9 +737,11 @@ if any item fails, fix it before publishing.
   proof-listening, and hash-bound evidence. Duration, codec, waveform, and a
   visible player are not substitutes.
 - [ ] The operator has not been promised an automatic repair path that the
-  platform does not support. X/LinkedIn video is treated as immutable after
-  publish. Any discovered live defect freezes delete/edit/re-publish/comment
-  actions until the operator explicitly authorizes each named platform and URL.
+  platform does not support. Every attached image/video is treated as immutable
+  after publish unless the adapter documents and tests exact replacement; X,
+  LinkedIn, and Facebook have no such general replacement path in this workflow.
+  Any discovered live defect freezes delete/edit/re-publish/comment actions until
+  the operator explicitly authorizes each named platform and URL.
 
 ### Multi-vendor consilium post-publish
 
