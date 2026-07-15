@@ -4,6 +4,10 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Off-host delegation is now autonomous (no operator round-trip).** The `/dr-*` Step-0 EXECUTION HOST contract previously told an off-host agent to "emit a delegation directive and STOP"; it now AUTO-DISPATCHES for mutating pipeline stages + the autonomous driver (the `required_host` binding is the operator's standing authorization and dispatch is reversible transport, with irreversible steps hard-gated on the remote agent), while read/utility stages stay local and never dispatch. Guards (3-way consilium): has-session attach-not-relaunch; host-key pinning replaces the removed human eyeball on the SSH target; exit 10 has exactly two outcomes (remote dispatch or STOP+report -- local execution is never an outcome, corrupted-map-under-exit-10 fails closed); bare-task-id payload only; read-only monitor with a 90s first-status deadline + single re-send + FAILED-LAUNCH escalation (no silent re-dispatch); hard-gates escalate as an option index, never proceed-on-silence. Contract text only in this release; the shared-fragment extraction, host-key/audit helper, and CI leak-gate are a Class-B follow-up.
+
 ### Added
 
 - **Branch-integration floor (`branch-integration-guard` PreToolUse hook).** Hard-blocks any direct merge/push of an integration branch (`dev`/`develop`/`integration`/...) into a protected branch (`main`/`master`/`trunk`/...); the only path to a protected branch is feature branch -> pull/merge request. Injection-resistant (reads only the structured command; heredoc/quoted bodies stripped; no env var, flag, or in-band text disables it), fails closed on ambiguous HEAD. Blocks `git merge/push/rebase` integration->protected shapes incl. force refspecs and the compound `checkout main && merge dev`; read-only look-alikes and reverse pulls (`git merge main`) pass. Widen/narrow the branch sets via `~/.claude/local/config/branch-integration-guard.conf`. Symlinked by `install.sh`, registered on the Bash matcher. 33 regression bats. Documented in CLAUDE.md / security-baseline S10 + finishing-a-development-branch.
