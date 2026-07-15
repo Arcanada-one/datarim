@@ -239,7 +239,9 @@ def _verify_tg_safe_html():
 
 Disallowed tags are dropped and their inner text is preserved as plain escaped data — `<script>alert(1)</script>` becomes `alert(1)`, with no execution path opened. The allowlist of href schemes MUST be enforced operator-side — Telegram's own filter is inconsistent across clients and is not a defence boundary.
 
-**Photo + caption decision tree** (input: `post_text`, optional `photo`):
+**Telegram article bundle (operator-approved contract):** publish exactly two sequential ordinary channel posts to the same `chat_id`. Post 1 is media plus the bold title only. Post 2 is the title, the complete RU article text, and a final linked CTA `Читать статью полностью на arcanada.ai` pointing to the RU URL. The link appears only in post 2. Never set `reply_to_message_id`, `message_thread_id`, discussion-group fields, or any comment/thread relationship. Validate that post 1 fits the media-caption limit and post 2 fits 4096 UTF-16 units before sending; otherwise stop instead of splitting or changing the approved shape. Treat the pair as one publish operation: preserve both ordered `message_id` values, read back both ordinary channel posts, and report partial/UNKNOWN state without blind retry if either request is ambiguous.
+
+**Generic photo + caption decision tree (non-article messages only)** (input: `post_text`, optional `photo`):
 
 ```
 units = telegram_units(post_text)
@@ -293,53 +295,7 @@ def split_into_parts(text: str, max_units: int = 4096) -> list[str]:
     return parts
 ```
 
-**Comments on channel posts** (canonical recipe, Bot API v10.0+):
-
-`reply_to_message_id` on a channel post creates ANOTHER channel post (a quote), NOT a comment.
-Anti-pattern: `message_thread_id` — that's for forum topics in supergroups, NOT channel comments.
-To post a real comment under a channel post:
-
-1. **Resolve linked group once and cache:** `linked = getChat(channel_id).linked_chat_id`.
-2. **Publish to channel:** `channel_msg = sendMessage(channel_id, …)` → capture `channel_msg.message_id`.
-3. **Poll for auto-forwarded copy** (Telegram auto-forwards channel posts into linked group within ~1 s). **Do NOT pass `offset` until a match is found** — `getUpdates(offset=N)` confirms (deletes from buffer) every earlier `update_id`, which can race-delete the forwarded copy before you scan it. Always poll with no offset; only confirm AFTER you have the match (or after the comment is posted, to drain the buffer):
-
-   ```
-   for attempt in 1..N:                       # N=10 recommended; ~1 s spacing
-       updates = getUpdates(timeout=2)        # NO offset — see warning above
-       for u in updates:
-           m = u.channel_post or u.message
-           if (m and m.chat.id == linked
-                  and m.forward_origin
-                  and m.forward_origin.type == "channel"
-                  and m.forward_origin.chat.id == channel_id
-                  and m.forward_origin.message_id == channel_msg.message_id):
-               forwarded_msg_id = m.message_id
-               # defensive (Bot API v6.2+): also require is_automatic_forward
-               if m.get("is_automatic_forward") is True:
-                   break-outer
-               # without v6.2+ flag, the forward_origin conjunction is still safe
-               break-outer
-       sleep(1)
-   ```
-
-   Legacy fallback (older Bot API responses without `forward_origin`): match on `forward_from_chat.id == channel_id` AND `forward_from_message_id == channel_msg.message_id`.
-4. **Reply in discussion group:** `comment = sendMessage(linked, reply_to_message_id=forwarded_msg_id, text=…)`.
-5. **Post-publish verification gate (MANDATORY):** `assert comment.message_thread_id == forwarded_msg_id`. If not equal, the comment landed in the WRONG thread (some unrelated supergroup msg whose id happened to collide with `forwarded_msg_id`'s coordinate). Immediately `deleteMessage(linked, comment.message_id)` and re-run step 3 — auto-forward likely hadn't arrived yet. Do NOT proceed without this check.
-
-<!-- gate:history-allowed -->
-**Anti-patterns (concrete failure modes — verified 2026-05-20, CONTENT-0050 round 12 bug):**
-<!-- /gate:history-allowed -->
-
-- ❌ `reply_to_message_id = channel_msg.message_id` against the supergroup. `reply_to_message_id` is resolved in the **target chat's** namespace. In the supergroup namespace `channel_msg.message_id` points to whatever supergroup message happens to have that id — almost certainly NOT the auto-forwarded copy. Real failure: channel post 95 was auto-forwarded as supergroup msg 167; `reply_to=95` resolved to a stale supergroup msg in the part-2 thread → `message_thread_id=93` → comment invisible under channel post 95.
-- ❌ Using `copyMessage(chat_id=supergroup, from_chat_id=supergroup, message_id=N)` as the "is the post forwarded?" probe. This returns success whenever supergroup msg N exists (regardless of whether N is an auto-forward or a regular user message). It also returns the **new copy** id, not the auto-forward id. Use the `getUpdates` discovery loop above — it is the only Bot-API path that yields the auto-forward msg id.
-- ❌ `message_thread_id` as a sendMessage parameter to thread a comment. `message_thread_id` is a forum-topic feature for supergroups; for channel-discussion threading, Telegram derives the thread automatically from `reply_to_message_id` pointing at the auto-forward.
-- ❌ Skipping step 5 verification. If the smoke run cannot be visually inspected in a Telegram client, `message_thread_id` returned by `sendMessage` is the only programmatic signal that threading worked.
-
-Caching: `linked_chat_id` is stable per channel — store it in credentials alongside the channel `chat_id` so step 1 runs once, not per publish.
-
-<!-- gate:history-allowed -->
-**Test-channel smoke before prod (mandatory for new publisher code / first run after refactor):** before commenting on prod posts, replay the full sequence in `chat_id=-1003855619081` (Arcanada Test Channel) → `chat_id=-1003929851152` (Arcanada Test Comments). Reference smoke script: `/tmp/tg-smoke-correct-comment.py` (CONTENT-0050). Pass criterion: returned `comment.message_thread_id == forwarded_msg_id`.
-<!-- /gate:history-allowed -->
+**Telegram article read-back gate:** both responses must belong to the requested channel and be returned in order. Accept real channel sender identity through `sender_chat.id == chat_id` as well as bot-authored responses where applicable. Verify post 1 media and exact bold title; verify post 2 title, complete RU text, final CTA URL, and absence of `reply_to_message`, `message_thread_id`, or discussion-group routing. Channel comments are not part of an article publication and must not be created.
 
 ## Post title — first line of the body on every platform
 
@@ -356,9 +312,9 @@ lead with the title line — match that shape.
 - Verify the title is present in the **read-back** content (not just the source
   file) before declaring smoke.
 
-## Universal rule — links go in the first comment, not the body
+## Universal rule — links go in the first comment on comment-capable platforms
 
-For **all** social platforms (FB, LinkedIn, Telegram, VK, Twitter/X threads, etc.) the **post body must not contain a standalone "links block"** — a section header like `Куда смотреть` / `Ссылки` / `Resources` / `Полезное` followed by a bullet-list of URLs is forbidden in the body. All such CTA-links (blog URL, dashboards, repositories, doc cross-refs) MUST be published as the **author's first comment** under the post. <!-- allow-non-ascii: literal-russian-section-headers-fixture-for-publishing-rule -->
+For **FB, LinkedIn, VK, and Twitter/X threads**, the **post body must not contain a standalone "links block"** — a section header like `Куда смотреть` / `Ссылки` / `Resources` / `Полезное` followed by a bullet-list of URLs is forbidden in the body. Put those CTA links in the the first comment by the author or reply according to the policy for that platform. **Telegram article publication is the explicit exception:** it has no comment/reply; its single RU article URL appears only in the final CTA of ordinary channel post 2. <!-- allow-non-ascii: literal-russian-section-headers-fixture-for-publishing-rule -->
 
 Rationale:
 - **FB & LinkedIn algorithms** downrank posts that contain external links in the body — comment-level links bypass that penalty.
@@ -367,7 +323,7 @@ Rationale:
 
 Inline mentions in prose are fine (`Datarim (github.com/Arcanada-one/datarim, MIT) is open-source`, `Munera on muneral.com`). The rule targets **standalone link sections**, not contextual references.
 
-Publisher pattern: immediately after `POST_URL` is captured, post the first-comment with the CTA-links block. On FB and LinkedIn that is a normal `Прокомментировать` action under the post; on Telegram it is the discussion-thread comment under the channel post (see canonical recipe above). If the platform's comment size is smaller than the link list, keep blog URL + 2–3 anchor links and rely on the website (`arcanada.one`) for the full directory. <!-- allow-non-ascii: literal-russian-fb-action-token-required-for-publisher-pattern -->
+Publisher pattern for FB, LinkedIn, VK, and X: immediately after `POST_URL` is captured, post the first comment/reply with the CTA-links block and then verify its parent post. Telegram does not use this pattern; use the two ordinary channel posts above. If the size limit on a comment-capable platform is smaller than the link list, keep the blog URL plus 2–3 anchor links and rely on the website (`arcanada.one`) for the full directory. <!-- allow-non-ascii: literal-russian-fb-action-token-required-for-publisher-pattern -->
 
 **Verify the comment's parent post before commenting — never trust a returned URL blindly.** A browser publisher can return the feed's top post or an older post, not the one just created. Before attaching the first comment, read back the target post (its body/media) and confirm it is **this** article published **this** cycle; only then comment. A comment that lands on a stale post is a silent defect the operator finds later by hand.
 
@@ -447,7 +403,7 @@ re-publishing, editing, or adding a corrective comment.
 - **Chunking:** keep chunks small (<=600 chars, not the 900 default) — long chunks raise Silero's length-limit 500 even after a split. The chunker self-heals by recursively halving, but small chunks avoid the wasted retry rounds.
 - **Cache:** re-voiced MP3s live on Cloudflare R2 with a 1-year `immutable` cache. After overwriting an audio asset you MUST purge the Cloudflare cache for those URLs (and the listener should hard-refresh the browser), or the old narration keeps playing. Same rule as any content edit — see § Website Publishing.
 
-**Telegram first-comment — one link, the article in the post's language.** On a Telegram channel post, the comment links to the full article in the **same language as the post** — a single URL, nothing else. Do NOT add the other-language version (an RU post links the RU article only, not the EN one), and do NOT link the channel itself — the reader is already in it. This is narrower than the multi-link FB/LinkedIn comment; keep the TG comment minimal.
+**Telegram article CTA — one link in ordinary channel post 2.** The final line of post 2 is the linked CTA `Читать статью полностью на arcanada.ai` to the RU article URL. Do not create a first comment, reply, discussion-group message, or thread; do not add the EN URL or a channel-self link.
 
 **X (EN) first-comment — the EN article + the canonical Telegram (RU) post.**
 On an X post the first reply carries TWO links, each language-labelled: the full

@@ -467,7 +467,7 @@ involve all seventeen agents across different stages.
 | **factcheck** | Claim extraction, source verification, accuracy scoring | Editor, Writer |
 | **humanize** | AI artifact removal, voice preservation, natural language patterns | Editor, Writer |
 | **publishing** | Multi-platform publishing rules, formatting, limits, workflow | Writer (on demand) |
-| **telegram-publishing** | Telegram Bot API publishing rules, caption limits, discussion group comments | On demand |
+| **telegram-publishing** | Telegram Bot API publishing rules, UTF-16 limits, atomic two-channel-post article readback | On demand |
 | **project-init** | Project scaffolding: CLAUDE.md, documentation/, datarim/ structure for new projects | /dr-init (project mode) |
 | **research-workflow** | Structured research methodology — checklist, tool selection, gap discovery protocol | Researcher |
 | **reflecting** | Post-task reflection: lessons learned, evolution proposals, Class A/B gate | /dr-archive (Step 0.5) |

@@ -81,7 +81,8 @@ line — match that shape.
 
 - [ ] The post body's first line is the article title (or a title-equivalent
   headline in the post's language), then a blank line, then the lead.
-- [ ] Telegram: title is the bold first line of the video caption (post 1).
+- [ ] Telegram post 1: title is the bold first line of the video caption.
+- [ ] Telegram post 2: title is first, the complete RU text follows, and the RU CTA link is the final line and the only link.
 - [ ] X / FB / LinkedIn / VK: title is the plain first line of the post body
   (no `<b>` on FB/LI/VK/X — those flatten HTML; Telegram uses `<b>`).
 - [ ] The title is verified present in the read-back content (not just the
@@ -102,28 +103,18 @@ request code, structural metrics, or a bare HTTP 200. Source != result.
 - [ ] The real `message_id` was captured from an `ok:true` response; an empty /
   non-JSON / `ok:false` body is UNKNOWN  -  inspect, never treat as success,
   never blind-retry (duplicate risk).
-- [ ] A two-message post threads the longread's `reply_to_message_id` on the
-  captured id of post 1; if post 1's id is UNKNOWN, post 2 is NOT sent.
-- [ ] Read each published message back from the platform and verify by CONTENT,
-  not metrics: actual media type (video/photo/text), first & last ~120 chars of
-  caption/text character-for-character, hidden-link `url`, reply linkage, and
-  target `chat.id`.
+- [ ] A Telegram article publish contains exactly two sequential ordinary channel posts in one `chat_id`: post 1 is media plus bold title; post 2 is title plus complete RU text plus the final linked RU CTA. Both ordered `message_id` values are captured. Neither request contains `reply_to_message_id`, `message_thread_id`, discussion-group, or comment fields. If either result is UNKNOWN, stop without blind retry.
+- [ ] Read both Telegram article messages back by their returned ordered IDs and verify CONTENT: post 1 media plus exact bold title; post 2 title, complete RU text, final hidden-link URL, and target `chat.id`. Verify no reply/thread linkage.
 - [ ] For a video post, the attached media is proven to be OUR freshly
   generated file  -  `file_size` / `duration` / `width`x`height` / `file_name`
   read from the platform match the file actually sent this cycle (guards against
   a foreign/old video wearing the right caption).
-- [ ] Message identity is established ONLY by captured `message_id` +
-  bot-authorship (no `forward_origin`), never by caption-text match.
-- [ ] The whole test channel is inspected before declaring smoke  -  any foreign
-  video / foreign author / leftover message = smoke NOT passed -> stop and clean.
+- [ ] Telegram message identity is established by each captured `message_id` plus either bot authorship or real channel identity (`sender_chat.id == chat_id`), never by caption-text match alone.
+- [ ] The test-channel baseline and both returned IDs are inspected. Pre-existing posts are not attributed to this run and are never deleted by a guessed ID; any unexpected new message after the baseline stops the smoke.
 - [ ] The smoke->prod gate presents the operator the actually read-back artifacts
   (links + read-back content), not the agent's own summary; no prod publish
   before an explicit operator "go" on those artifacts.
-- [ ] First-comment parent-URL is VERIFIED to be the post JUST published this
-  cycle - not the URL a publisher tool returned unchecked (a browser adapter can
-  return the feed's top post, an older post, not the new one). Before commenting:
-  read back the target post's body/media and confirm it matches THIS article,
-  then attach the comment. A comment landing on an old post is a silent defect.
+- [ ] On comment-capable platforms only, the first-comment parent URL is verified to be the post just published this cycle before commenting. Telegram article publication has no comment, reply, discussion group, or thread.
 
 Publisher canonical reference (full 17-rule set + root-cause):
 `Projects/Publisher/.../docs/reference/telegram-bot-api-publish-safety.md`.
