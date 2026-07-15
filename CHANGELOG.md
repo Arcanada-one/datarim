@@ -6,6 +6,10 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ### Added
 
+- **Branch-integration floor (`branch-integration-guard` PreToolUse hook).** Hard-blocks any direct merge/push of an integration branch (`dev`/`develop`/`integration`/...) into a protected branch (`main`/`master`/`trunk`/...); the only path to a protected branch is feature branch -> pull/merge request. Injection-resistant (reads only the structured command; heredoc/quoted bodies stripped; no env var, flag, or in-band text disables it), fails closed on ambiguous HEAD. Blocks `git merge/push/rebase` integration->protected shapes incl. force refspecs and the compound `checkout main && merge dev`; read-only look-alikes and reverse pulls (`git merge main`) pass. Widen/narrow the branch sets via `~/.claude/local/config/branch-integration-guard.conf`. Symlinked by `install.sh`, registered on the Bash matcher. 33 regression bats. Documented in CLAUDE.md / security-baseline S10 + finishing-a-development-branch.
+
+### Added
+
 - **Dispatch monitoring layer (TUNE-0490 Phase 2).** A delegated agent now writes a synced heartbeat status file `datarim/runtime/<TASK-ID>.status` (via `dev-tools/lib/heartbeat-status.sh`), and the laptop-side monitor reads it to disambiguate a bare remote tmux prompt. `dev-tools/classify-pane.sh` joins pane liveness with status freshness into a read-only verdict (RUNNING / AWAITING / STALLED / DONE / DEAD-ORPHAN / HOLD) with safety invariants — awaiting_operator is never reaped, a live child blocks DEAD-ORPHAN, and DEAD-ORPHAN requires >=2 consecutive stale probes. `dev-tools/dispatch-digest.sh` aggregates all status files into one report (text or JSON), pinning actionable states first and flagging `SYNC STALE` so a stale-synced task is never falsely reported as done. Framework-only; the answer/kill-session dispatch verbs and the OpsBot/Telegram relay remain operator-gated live-host work.
 
 ### Added
