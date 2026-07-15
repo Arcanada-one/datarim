@@ -26,7 +26,7 @@ Note: title defaults to English unless the operator's configured content languag
 
 1. Source the resolver: `source "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/lib/execution-host.sh"`.
 2. Call `eh_decision <workspace-root> <execution-hosts-map-path>` (default map: `~/.claude/local/config/execution-hosts.yml`).
-3. On **off-host** (exit code 10): emit a delegation directive (`dev-tools/datarim-dispatch.sh --workspace <root> --task <TASK-ID>`) and STOP.
+3. On **off-host** (exit code 10) for this read/utility command: proceed LOCALLY in read-only mode -- do NOT dispatch (dispatching an observational command to the very host the laptop is meant to monitor buys nothing). Surface the delegation directive (`dev-tools/datarim-dispatch.sh --workspace <root> --task <TASK-ID>`) as information only, never as a blocking question.
 4. On **unconfigured** (exit code 0, binding absent): proceed unchanged (fail-open).
 5. On **on-host** (exit code 0, binding present): proceed normally.
 
