@@ -36,8 +36,15 @@ td=""
 changed=""
 while [ $# -gt 0 ]; do
     case "$1" in
-        --task-description) td="${2:-}"; shift 2 ;;
-        --changed-paths) changed="${2:-}"; shift 2 ;;
+        --task-description)
+            # Fail loud on a missing value: without this guard `shift 2` dies
+            # under set -eu with exit 1, which callers read as "not
+            # deploy-class / gate SKIP" — a silent gate bypass on a typo.
+            [ $# -ge 2 ] || { printf 'check-deploy-class: --task-description requires a value\n' >&2; exit 2; }
+            td="$2"; shift 2 ;;
+        --changed-paths)
+            [ $# -ge 2 ] || { printf 'check-deploy-class: --changed-paths requires a value\n' >&2; exit 2; }
+            changed="$2"; shift 2 ;;
         --help|-h) usage; exit 0 ;;
         *) printf 'check-deploy-class: unknown arg: %s\n' "$1" >&2; usage >&2; exit 2 ;;
     esac
@@ -45,16 +52,40 @@ done
 
 [ -n "$td" ] || { printf 'check-deploy-class: --task-description is required\n' >&2; exit 2; }
 [ -f "$td" ] || { printf 'check-deploy-class: file not found: %s\n' "$td" >&2; exit 2; }
+# Fail loud on an unreadable file: a grep read error (exit 2) inside the
+# no-pipefail matches() pipeline is otherwise masked into exit 1 ("not
+# deploy-class"), silently skipping the gate on an I/O error.
+[ -r "$td" ] || { printf 'check-deploy-class: file not readable: %s\n' "$td" >&2; exit 2; }
 
 # Deploy-surface indicators (case-insensitive, fixed-string-ish ERE). Keep this
 # list in sync with the prod-readiness-probe skill's "deploy surface" definition.
 # Each pattern is a literal substring matched anywhere in the inspected text.
 indicators='sudoers|systemd|\.service\b|systemctl|\.env-deploy|deploy:production|cutover|deploy-runner|prod-runner|/etc/sudoers'
 
+# Negation-aware filter: an indicator hit on a line that itself carries a
+# negation marker is a narrative disclaimer ("this task does NOT touch
+# <unit-manager>"), not a deploy surface. Only non-negated lines arm the gate.
+# Cyrillic case folding is locale-dependent in grep -i: the particle is
+# class-protected ([Нн][Ее], byte-exact in any locale), while the verb stems
+# are lowercase literals that fold only under a UTF-8 locale. Under LC_ALL=C
+# an ALL-CAPS/mixed-case Cyrillic verb does not fold, the line is NOT
+# filtered, and the gate stays armed — fail-safe direction, pinned by a
+# dedicated locale test. Russian stems are required data: consumer
+# task-descriptions are written in the operator's language.
+# Vocabulary is deliberately minimal and fail-safe: an unmatched negation
+# phrasing merely leaves the gate armed (current behaviour). Broad stems like
+# "no deploy" or bare "not touch" are excluded on purpose — they over-match
+# assertive prose ("do not touch prod during the rollout window").
+# Known per-line limitation: a line mixing a negation marker with a REAL
+# deploy fact is skipped whole (pinned by a dedicated regression test).
+negations='[Нн][Ее][[:space:]]+(трогает|затрагивает|меняет|касается)|does[[:space:]]+not[[:space:]]+touch|doesn.?t[[:space:]]+touch'
+
 matches() {
-    # grep over a file as DATA (-F-like safety via -E with a fixed pattern var,
-    # no expansion of the file content as code). -i case-insensitive, -q quiet.
-    grep -Eiq -- "$indicators" "$1"
+    # grep over a file as DATA (-F-like safety via -E with fixed pattern vars,
+    # no expansion of the file content as code). -i case-insensitive.
+    # Pipeline status = final `grep -q .` (set -eu without pipefail): exit 0
+    # when at least one non-negated indicator line remains, 1 otherwise.
+    grep -Ei -- "$indicators" "$1" | grep -Eiv -- "$negations" | grep -q .
 }
 
 if matches "$td"; then
