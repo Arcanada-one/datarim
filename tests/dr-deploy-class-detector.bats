@@ -106,6 +106,18 @@ EOF
     [ "$status" -eq 1 ]
 }
 
+@test "classifier: ALL-CAPS RU negation under C locale => stays deploy-class (fail-safe, exit 0)" {
+    # Verb stems are lowercase literals; under LC_ALL=C Cyrillic does not
+    # case-fold, so an ALL-CAPS negation is NOT filtered and the gate arms —
+    # this pins the documented fail-safe direction of the locale contract.
+    cat > "$TMP/td.md" <<'EOF'
+## Overview
+ЗАДАЧА НЕ ТРОГАЕТ SYSTEMD — правится только документация.
+EOF
+    run env LC_ALL=C bash "$DETECT" --task-description "$TMP/td.md"
+    [ "$status" -eq 0 ]
+}
+
 # ---- check-deploy-readiness.sh --validate-yaml: contract validator ----
 
 write_valid_contract() {

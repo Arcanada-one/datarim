@@ -54,10 +54,13 @@ indicators='sudoers|systemd|\.service\b|systemctl|\.env-deploy|deploy:production
 # Negation-aware filter: an indicator hit on a line that itself carries a
 # negation marker is a narrative disclaimer ("this task does NOT touch
 # <unit-manager>"), not a deploy surface. Only non-negated lines arm the gate.
-# Cyrillic case folding is locale-dependent in grep -i, so the Russian
-# negation stem is spelled with an explicit character-class alternation.
-# Russian stems are required data: consumer task-descriptions are written in
-# the operator's language.
+# Cyrillic case folding is locale-dependent in grep -i: the particle is
+# class-protected ([Нн][Ее], byte-exact in any locale), while the verb stems
+# are lowercase literals that fold only under a UTF-8 locale. Under LC_ALL=C
+# an ALL-CAPS/mixed-case Cyrillic verb does not fold, the line is NOT
+# filtered, and the gate stays armed — fail-safe direction, pinned by a
+# dedicated locale test. Russian stems are required data: consumer
+# task-descriptions are written in the operator's language.
 # Vocabulary is deliberately minimal and fail-safe: an unmatched negation
 # phrasing merely leaves the gate armed (current behaviour). Broad stems like
 # "no deploy" or bare "not touch" are excluded on purpose — they over-match
