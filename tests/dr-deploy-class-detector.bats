@@ -52,6 +52,60 @@ EOF
     [ "$status" -eq 2 ]
 }
 
+# ---- negation-aware classifier cases ----
+# Cyrillic fixture prose is required data: consumer task-descriptions are
+# written in the operator's language, and the negation filter must be
+# exercised against exactly that prose.
+
+@test "classifier: negated RU mention only => NOT deploy-class (exit 1)" {
+    cat > "$TMP/td.md" <<'EOF'
+## Overview
+Задача не трогает systemd-socket и sudoers — она чинит их текстовый классификатор.
+EOF
+    run bash "$DETECT" --task-description "$TMP/td.md"
+    [ "$status" -eq 1 ]
+}
+
+@test "classifier: negated EN mention only => NOT deploy-class (exit 1)" {
+    cat > "$TMP/td.md" <<'EOF'
+## Overview
+This task does not touch systemd units or sudoers fragments; it edits docs only.
+EOF
+    run bash "$DETECT" --task-description "$TMP/td.md"
+    [ "$status" -eq 1 ]
+}
+
+@test "classifier: negated line plus real deploy line => deploy-class (exit 0)" {
+    cat > "$TMP/td.md" <<'EOF'
+## Overview
+Задача не трогает sudoers.
+Add _deploy/systemd/aio-worker.service and wire it via CI cutover.
+EOF
+    run bash "$DETECT" --task-description "$TMP/td.md"
+    [ "$status" -eq 0 ]
+}
+
+@test "classifier: negated description with deploy path in --changed-paths => deploy-class (exit 0)" {
+    cat > "$TMP/td.md" <<'EOF'
+## Overview
+Задача не трогает systemd — только документация.
+EOF
+    cat > "$TMP/paths.txt" <<'EOF'
+deploy/systemd/app-worker.service
+EOF
+    run bash "$DETECT" --task-description "$TMP/td.md" --changed-paths "$TMP/paths.txt"
+    [ "$status" -eq 0 ]
+}
+
+@test "classifier: same-line negation and deploy fact => NOT deploy-class (documented per-line limitation, exit 1)" {
+    cat > "$TMP/td.md" <<'EOF'
+## Overview
+Не меняет старый unit, но добавляет новый systemd unit для воркера.
+EOF
+    run bash "$DETECT" --task-description "$TMP/td.md"
+    [ "$status" -eq 1 ]
+}
+
 # ---- check-deploy-readiness.sh --validate-yaml: contract validator ----
 
 write_valid_contract() {

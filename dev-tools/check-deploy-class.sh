@@ -51,10 +51,27 @@ done
 # Each pattern is a literal substring matched anywhere in the inspected text.
 indicators='sudoers|systemd|\.service\b|systemctl|\.env-deploy|deploy:production|cutover|deploy-runner|prod-runner|/etc/sudoers'
 
+# Negation-aware filter: an indicator hit on a line that itself carries a
+# negation marker is a narrative disclaimer ("this task does NOT touch
+# <unit-manager>"), not a deploy surface. Only non-negated lines arm the gate.
+# Cyrillic case folding is locale-dependent in grep -i, so the Russian
+# negation stem is spelled with an explicit character-class alternation.
+# Russian stems are required data: consumer task-descriptions are written in
+# the operator's language.
+# Vocabulary is deliberately minimal and fail-safe: an unmatched negation
+# phrasing merely leaves the gate armed (current behaviour). Broad stems like
+# "no deploy" or bare "not touch" are excluded on purpose — they over-match
+# assertive prose ("do not touch prod during the rollout window").
+# Known per-line limitation: a line mixing a negation marker with a REAL
+# deploy fact is skipped whole (pinned by a dedicated regression test).
+negations='[Нн][Ее][[:space:]]+(трогает|затрагивает|меняет|касается)|does[[:space:]]+not[[:space:]]+touch|doesn.?t[[:space:]]+touch'
+
 matches() {
-    # grep over a file as DATA (-F-like safety via -E with a fixed pattern var,
-    # no expansion of the file content as code). -i case-insensitive, -q quiet.
-    grep -Eiq -- "$indicators" "$1"
+    # grep over a file as DATA (-F-like safety via -E with fixed pattern vars,
+    # no expansion of the file content as code). -i case-insensitive.
+    # Pipeline status = final `grep -q .` (set -eu without pipefail): exit 0
+    # when at least one non-negated indicator line remains, 1 otherwise.
+    grep -Ei -- "$indicators" "$1" | grep -Eiv -- "$negations" | grep -q .
 }
 
 if matches "$td"; then
