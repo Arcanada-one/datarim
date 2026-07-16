@@ -36,8 +36,15 @@ td=""
 changed=""
 while [ $# -gt 0 ]; do
     case "$1" in
-        --task-description) td="${2:-}"; shift 2 ;;
-        --changed-paths) changed="${2:-}"; shift 2 ;;
+        --task-description)
+            # Fail loud on a missing value: without this guard `shift 2` dies
+            # under set -eu with exit 1, which callers read as "not
+            # deploy-class / gate SKIP" — a silent gate bypass on a typo.
+            [ $# -ge 2 ] || { printf 'check-deploy-class: --task-description requires a value\n' >&2; exit 2; }
+            td="$2"; shift 2 ;;
+        --changed-paths)
+            [ $# -ge 2 ] || { printf 'check-deploy-class: --changed-paths requires a value\n' >&2; exit 2; }
+            changed="$2"; shift 2 ;;
         --help|-h) usage; exit 0 ;;
         *) printf 'check-deploy-class: unknown arg: %s\n' "$1" >&2; usage >&2; exit 2 ;;
     esac
@@ -45,6 +52,10 @@ done
 
 [ -n "$td" ] || { printf 'check-deploy-class: --task-description is required\n' >&2; exit 2; }
 [ -f "$td" ] || { printf 'check-deploy-class: file not found: %s\n' "$td" >&2; exit 2; }
+# Fail loud on an unreadable file: a grep read error (exit 2) inside the
+# no-pipefail matches() pipeline is otherwise masked into exit 1 ("not
+# deploy-class"), silently skipping the gate on an I/O error.
+[ -r "$td" ] || { printf 'check-deploy-class: file not readable: %s\n' "$td" >&2; exit 2; }
 
 # Deploy-surface indicators (case-insensitive, fixed-string-ish ERE). Keep this
 # list in sync with the prod-readiness-probe skill's "deploy surface" definition.

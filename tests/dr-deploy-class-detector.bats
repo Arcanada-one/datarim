@@ -52,6 +52,26 @@ EOF
     [ "$status" -eq 2 ]
 }
 
+@test "classifier: --task-description with no value => usage error (exit 2), not silent gate SKIP" {
+    run bash "$DETECT" --task-description
+    [ "$status" -eq 2 ]
+}
+
+@test "classifier: existing but unreadable file => usage error (exit 2), not silent gate SKIP" {
+    # Requires a non-root test runner: chmod 000 is not enforced for root.
+    if [ "$(id -u)" -eq 0 ]; then
+        skip "running as root — permission denial not enforceable"
+    fi
+    cat > "$TMP/td.md" <<'EOF'
+## Overview
+Add _deploy/systemd/aio-worker.service and wire it via CI cutover.
+EOF
+    chmod 000 "$TMP/td.md"
+    run bash "$DETECT" --task-description "$TMP/td.md"
+    chmod 644 "$TMP/td.md"
+    [ "$status" -eq 2 ]
+}
+
 # ---- negation-aware classifier cases ----
 # Cyrillic fixture prose is required data: consumer task-descriptions are
 # written in the operator's language, and the negation filter must be
