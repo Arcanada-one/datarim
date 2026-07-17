@@ -54,7 +54,7 @@ setup() {
     run yq -r '.jobs.lint."runs-on"' "$WF"
     [ "$status" -eq 0 ]
     case "$output" in
-        ubuntu-latest|"[self-hosted, linux]"|"[self-hosted, Linux]") ;;
+        ubuntu-latest|"[self-hosted, linux]"|"[self-hosted, Linux]"|'${{ fromJSON(inputs.runner_labels) }}') ;;
         *) echo "Unexpected runs-on: $output" >&2; false ;;
     esac
 }
