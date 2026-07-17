@@ -107,6 +107,7 @@ jobs:
               # /usr/bin) -> EACCES on runners where the runner user lacks that
               # write (e.g. arca-devs). Pin the shim dir to a runner-writable path
               # so the job is deterministic across runner variance.
+              mkdir -p "$RUNNER_TEMP/corepack-bin"
               corepack enable --install-directory "$RUNNER_TEMP/corepack-bin"
               export PATH="$RUNNER_TEMP/corepack-bin:$PATH"
               pnpm install --frozen-lockfile --ignore-scripts
