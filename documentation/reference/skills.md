@@ -1,6 +1,6 @@
 # Skills Reference
 
-Datarim includes 64 reusable skill modules. Skills provide rules, patterns, and guidelines loaded on demand by agents and commands.
+Datarim includes 67 reusable skill modules. Skills provide rules, patterns, and guidelines loaded on demand by agents and commands.
 
 Skills are split into two categories:
 - **Reference skills** — rules and patterns the caller applies inline. Inherit caller's model (no `model` field).
@@ -55,8 +55,11 @@ Skills are split into two categories:
 | nginx-version-compat | Reference | inherit | Probe running nginx version (`nginx -v` / `nginx -V`) before editing config, then map directive syntax to that version (HTTP/2 `listen ... http2` legacy vs `http2 on;` from 1.25.1; HTTP/3 `quic`/`http3` from 1.25.0+) + common breaking-change traps | `/dr-plan` for any nginx-touching task |
 | plan-path-validator | Reference | inherit | Exists-check for file/script/path references in a plan output — flags MISSING (phantom) and DEPRECATED (stale) paths before /dr-do, via git-topology-aware `test -e` / `git cat-file` probes | /dr-plan Validation Checklist (companion to § 6.5 Symbol Existence Check), /dr-qa plan review |
 | v-ac-feasibility | Reference | inherit | Pre-implementation gate proving every runtime-command V-AC (docker exec / curl / kubectl / systemctl / live DB query) can actually PASS under a correct implementation before /dr-do — dry-run against real/skeleton runtime or named observation path; infeasible-pattern table | /dr-plan Step 6.5 V-AC review |
+| adversarial-review | Reference | inherit | General adversarial-mindset review — attack an artifact (plan/PRD/code/design) to break it, not bless it: falsify the load-bearing assumption, attack premise/strongest-claim/seams/reversibility; "no findings" is an alarm, not an all-clear | `/dr-plan` Transition Checkpoint, `/dr-qa` Layer 4c-bis |
+| edge-case-hunter | Reference | inherit | Boundary/degenerate/failure-input enumeration — cardinality, emptiness, value bounds, ordering/timing, concurrency (TOCTOU), partial failure, malformed input, environment; distinguishability test; ranks silent-failure edges first | `/dr-plan` Validation Checklist, `/dr-qa` (sibling of adversarial-review) |
+| structure-review | Reference | inherit | Structural/editorial review — completeness against the artifact's own contract, internal consistency (section-vs-section contradiction), traceability, drifted counts, un-runnable step order; the "does it hold together" axis | `/dr-plan`, `/dr-qa` Layer 3 (sibling of adversarial-review) |
 
-**Distribution:** 22 reference (inherit), 3 opus, 13 sonnet, 4 haiku.
+**Distribution:** 25 reference (inherit), 3 opus, 13 sonnet, 4 haiku.
 
 ## Loading Hierarchy
 

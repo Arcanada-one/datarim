@@ -19,12 +19,30 @@ source: TUNE-0280 reflection § Class A P1
 ## When this skill is needed
 
 Two parallel agent sessions on the same shared workspace can reserve the same
-`TASK-PREFIX-NNNN` value during the TOCTOU window between `/dr-init` Step 2.5
+`TASK-PREFIX-NNNN` value during the TOCTOU window between `/dr-init` Step 4
 (probe) and `/dr-archive` (commit). The collision is invisible until one of the
 sessions writes an artifact whose path or content already exists. By that point
 the loser usually has a non-trivial chain of derived artifacts (PRD, plan,
 verify audit logs, reflection, snapshot) all stamped with the colliding ID and
 some of them already chmod a-w by post-stage hardening.
+
+## Prevention — atomic id-lock marker (closes the early window)
+
+`/dr-init` Step 4 acquires an atomic claim marker
+(`datarim/.locks/{TASK-ID}.init-lock`, via `dev-tools/dr-init-id-lock.sh`)
+between the collision probe and the first artifact write, and
+`next-free-id.sh` counts that marker as a claim surface. This closes the most
+common slice of the window — two sessions computing the same `max+1` and both
+writing `tasks.md` — because the marker `mkdir` is atomic: only one session
+acquires, the other gets a COLLISION exit and bumps.
+
+The retroactive-rename procedure below remains the fallback for the residual
+cases the marker cannot cover: the marker is released once the durable surfaces
+are written (so a collision arising later, up to `/dr-archive`, is still
+possible), a session running the documented no-helper fallback holds no marker,
+a crashed session's marker self-expires after `DR_INIT_LOCK_TTL`, and the
+external-ID-authority / hot-fix-branch paths below do not go through Step 4 at
+all. When a collision does surface, rename per § Resolution.
 
 This skill is invoked by:
 
@@ -175,7 +193,7 @@ ID. Procedure:
    `tasks/${NEW}-init-task.md § Append-log`:
 
    ```
-   - <ISO-ts> · collision-rename · old_id=${OLD} → new_id=${NEW}; reason: parallel session reserved same ID; ref: see /dr-init Step 2.5 probe
+   - <ISO-ts> · collision-rename · old_id=${OLD} → new_id=${NEW}; reason: parallel session reserved same ID; ref: see /dr-init Step 4 probe + id-lock
    ```
 
 ## Verification — collision closed
