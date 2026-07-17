@@ -1,6 +1,6 @@
 ---
 name: autonomous-mode
-description: Question Suppression Ladder + L1 Inline Resolution Rule + Hard-gated Action Boundary. Activated via DATARIM_AUTO_MODE=1 + a per-task autonomous-mode marker; a delegated bare task-id enters /dr-auto by reading that marker on startup.
+description: Question Suppression Ladder + L1 Inline Resolution Rule + Hard-gated Action Boundary. Activated by DATARIM_AUTO_MODE=1 + a per-task autonomous-mode marker.
 model: inherit
 current_aal: 2
 target_aal: 2
@@ -15,7 +15,7 @@ This skill activates the existing mandates (`documentation/mandates/autonomous-a
 The skill is active if and only if **all three conditions** hold:
 
 1. `DATARIM_AUTO_MODE=1` is set in the agent's environment.
-2. The effective autonomous-mode marker exists and parses as YAML. The marker is per-task at `datarim/.auto/<TASK-ID>.mode` (collision-safe in a shared parallel workspace); the legacy single file `datarim/.auto-mode-active` is still honoured as a fallback for a hand-run `/dr-auto`. Resolve the effective path with `dev-tools/auto-mode-marker.sh resolve --root <DIR> --task-id <ID>` rather than hardcoding either path.
+2. The effective autonomous-mode marker exists and parses as YAML. The marker is per-task at `datarim/.auto/<TASK-ID>.mode` (collision-safe in a shared parallel workspace); the legacy single file `datarim/.auto-mode-active` is still honoured as a fallback for a hand-run `/dr-auto`. Resolve the effective path with `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/auto-mode-marker.sh resolve --root <DIR> --task-id <ID>` rather than hardcoding either path.
 3. The `task_id` field inside that marker matches the current TASK-ID (regex `^[A-Z]{2,10}-[0-9]{4}$`).
 
 **Spawned subagents (relaxed activation).** A subagent dispatched by `/dr-auto` does NOT inherit the `DATARIM_AUTO_MODE` environment variable (the Agent tool does not propagate the parent environment). For such a subagent the skill is active when its dispatch prompt carries an explicit auto-signal (a line naming the current stage and "autonomous mode for `<TASK-ID>`") AND conditions 2 and 3 hold (the marker file exists, parses, and its `task_id` matches the current TASK-ID). The environment variable (condition 1) is NOT required in this branch. The top-level `/dr-auto` cycle still requires all three conditions. The auto-signal only removes the env-var requirement — it never substitutes for a missing or mismatched marker file.
@@ -69,7 +69,7 @@ keystroke (a keystroke is racy and can be dropped before the CLI is ready).
 **Step-0 (before choosing `/dr-init` vs `/dr-auto`).** On receiving a bare
 task-id, the agent's first action is to resolve and read the marker:
 
-1. `path=$(dev-tools/auto-mode-marker.sh resolve --root <DIR> --task-id <ID>)`.
+1. `path=$(${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/auto-mode-marker.sh resolve --root <DIR> --task-id <ID>)`.
 2. If the marker is **valid and autonomous** for this task-id — it parses,
    task_id matches, it is within TTL, it is untracked by git (gitignored-marker
    rule), and (when `dispatch_session` is present) it equals the agent's own
