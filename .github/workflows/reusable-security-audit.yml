@@ -36,6 +36,11 @@ on:
         type: string
         required: false
         default: 'main'
+      runner_labels:
+        description: 'JSON array string of runner labels to pin the job (workflow_call inputs cannot be arrays; consumed via fromJSON in runs-on)'
+        type: string
+        required: false
+        default: '["self-hosted","linux"]'
 
 permissions:
   contents: read
@@ -47,7 +52,7 @@ concurrency:
 jobs:
   audit:
     name: security-audit (${{ inputs.stack }})
-    runs-on: [self-hosted, linux]
+    runs-on: ${{ fromJSON(inputs.runner_labels) }}
     steps:
       - name: Checkout consumer repo
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -97,7 +102,13 @@ jobs:
           case "$STACK" in
             typescript_pnpm)
               echo "::group::typescript_pnpm audit"
-              corepack enable
+              # Provision pnpm WITHOUT a privileged global write. `corepack enable`
+              # (no args) writes shims into the node bin dir (often root-owned
+              # /usr/bin) -> EACCES on runners where the runner user lacks that
+              # write (e.g. arca-devs). Pin the shim dir to a runner-writable path
+              # so the job is deterministic across runner variance.
+              corepack enable --install-directory "$RUNNER_TEMP/corepack-bin"
+              export PATH="$RUNNER_TEMP/corepack-bin:$PATH"
               pnpm install --frozen-lockfile --ignore-scripts
               pnpm audit --audit-level="$AUDIT_LEVEL" --prod
               echo "::endgroup::"

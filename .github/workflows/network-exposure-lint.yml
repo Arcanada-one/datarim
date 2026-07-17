@@ -45,6 +45,11 @@ on:
         type: string
         required: false
         default: 'main'
+      runner_labels:
+        description: 'JSON array string of runner labels to pin the job (workflow_call inputs cannot be arrays; consumed via fromJSON in runs-on)'
+        type: string
+        required: false
+        default: '["self-hosted","linux"]'
   workflow_dispatch:
     inputs:
       compose_paths:
@@ -58,7 +63,7 @@ permissions:
 jobs:
   lint:
     name: network-exposure-lint
-    runs-on: [self-hosted, linux]
+    runs-on: ${{ fromJSON(inputs.runner_labels) }}
     steps:
       - name: Checkout target repo
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
