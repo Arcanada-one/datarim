@@ -239,6 +239,10 @@ When auto-mode is active (env var + matching marker), this command:
 4. For hard-gated actions: escalate to the operator via Ladder L5, log through `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/append-init-task-qa.sh" --decided-by operator`.
 ```
 
+## Framework self-modification — independent compliance verification
+
+When `/dr-auto` runs a **framework self-modification** task — one whose edit target is the shipped ruleset this very skill and its siblings live in (`skills/`, `agents/`, `commands/`, `templates/`, `scripts/`, `dev-tools/`, this `CLAUDE.md`) — the `/dr-compliance` stage MUST be executed by an **independent compliance agent in a clean context**, spawned without the `/dr-do` or `/dr-qa` session history. An agent that authored a rule change and then verifies that same change while still carrying the reasoning that produced it is prone to self-reflexive bias: it re-confirms its own framing instead of adversarially testing the new rule against the acceptance criteria. A fresh compliance agent reads only the artefacts and the criteria, so it holds the change to the bar any consumer would. This applies only when the task modifies the agent's own operating rules; ordinary product/code tasks (which do not) are unaffected.
+
 ## Related
 
 - `commands/dr-auto.md` (the caller — activates this skill, sets the env var, and writes the marker)

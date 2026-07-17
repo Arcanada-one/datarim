@@ -148,15 +148,16 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   validator: `dev-tools/hooks/dr-output-stop.{py,sh}` enforces Stage
   Header + human-summary structure on `/dr-do` transcripts.
 
-- **Autonomous Agent Operating Rules contract** — `dr-orchestrate` ships
-  `rules/fb-rules.yaml` (FB-1..FB-8 policy block with `enforcement_layer` /
+- **Autonomous Agent Operating Rules contract** — the core ships
+  `dev-tools/rules/fb-rules.yaml` (FB-1..FB-8 policy block with `enforcement_layer` /
   `tier` / `default_action` / `reversibility_required` / `audit_required` /
-  `conflicts_with_law` + `hard_gated_actions:` list) and a `rules_loader.sh`
-  `load_fb_policy()` entry point. Consumers mirror the canonical rule text in
-  their own ecosystem `CLAUDE.md` (Datarim ships the contract surface, not
-  the canonical text — the text is ecosystem-owned and audit-tagged per
-  consumer). See `plugins/dr-orchestrate/rules/fb-rules.yaml` header and the
-  framework's `CLAUDE.md` § Autonomous Agent Operating Rules (cross-link).
+  `conflicts_with_law` + `hard_gated_actions:` list), which `dr-orchestrate`
+  reads through its `rules_loader.sh` `load_fb_policy()` entry point. Consumers
+  mirror the canonical rule text in their own ecosystem `CLAUDE.md` (Datarim
+  ships the contract surface, not the canonical text — the text is
+  ecosystem-owned and audit-tagged per consumer). See
+  `dev-tools/rules/fb-rules.yaml` header and the framework's `CLAUDE.md`
+  § Autonomous Agent Operating Rules (cross-link).
 
 - **Self-evolving framework** — after every task, `/dr-archive` Step 0.5 (reflecting
   skill) analyzes outcomes and proposes improvements to agents, skills, and framework
