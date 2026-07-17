@@ -172,7 +172,7 @@ def run_bounded(executable: Path, query: str, limit: int) -> bytes | None:
         process.wait()
         return None
     output = bytearray()
-    deadline = time.monotonic() + 5
+    deadline = time.monotonic() + 3
     selector = selectors.DefaultSelector()
     selector.register(process.stdout, selectors.EVENT_READ)
     try:
@@ -280,7 +280,7 @@ def parser() -> argparse.ArgumentParser:
     query_parser = sub.add_parser("query")
     query_parser.add_argument("--root", type=Path, required=True)
     query_parser.add_argument("--query", required=True)
-    query_parser.add_argument("--limit", type=int, choices=range(1, 11), default=5)
+    query_parser.add_argument("--limit", type=int, choices=range(1, 6), default=5)
     query_parser.set_defaults(function=query_command)
     return result
 

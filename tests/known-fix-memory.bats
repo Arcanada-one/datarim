@@ -118,6 +118,12 @@ EOF
     [ "$status" -eq 2 ]
 }
 
+@test "query rejects remote result limits above five" {
+    write_insight
+    run python3 "$TOOL" query --root "$ROOT" --query "cache" --limit 6
+    [ "$status" -eq 2 ]
+}
+
 @test "dr-do performs bounded known-fix retrieval before Gap Discovery" {
     spec="$BATS_TEST_DIRNAME/../commands/dr-do.md"
     query_line=$(grep -n "known-fix-memory.py.*query" "$spec" | cut -d: -f1)
@@ -126,6 +132,7 @@ EOF
     [ "$query_line" -lt "$gap_line" ]
     grep -F "evidence only" "$spec"
     grep -F "fail-soft" "$spec"
+    grep -F "three-second timeout and a maximum limit of five" "$spec"
 }
 
 @test "reflection and archive require validated known_fix persistence" {
