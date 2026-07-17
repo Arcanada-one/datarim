@@ -91,7 +91,7 @@ jobs:
       # which are present on the runner.
       - name: Setup Rust toolchain (rust_cargo profile only)
         if: inputs.stack == 'rust_cargo'
-        uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
 
       - name: Run stack-specific audit
         env:
