@@ -39,6 +39,16 @@ this list — see § Do NOT delegate, "Voice-bearing and judgment content".
 <!-- /gate:history-allowed -->
   precedent). Direct `Write` allowed. If context is empty (recovering a
   stale archive months later) the operator picks coworker manually.
+- **Fact-verified architect creative / design documents** — a
+  `creative-{TASK-ID}.md` (or equivalent design doc) whose concrete facts
+  (IPs, hostnames, versions, interface specifics) the architect already
+  verified in the current cycle. The "always `coworker write` first" rule
+  above targets a *first draft*; once the facts are architect-verified
+  in-cycle the doc is past first-draft, the write-up spec ≈ the final text,
+  and delegation saves no tokens while the retell only adds fabrication risk
+  (same failure mode as the archive/reflection case). Direct `Write` allowed
+  for the verified sections. This exemption is narrow: an unverified
+  first-draft design doc stays in the MANDATORY-delegate list above.
 
 ### Always `coworker ask` if ANY trigger fires
 
