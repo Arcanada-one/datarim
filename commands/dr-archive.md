@@ -507,7 +507,7 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
 0.6. **KNOWN-FIX PERSISTENCE** (deterministic, local source of truth):
    - Consume the known-fix decision produced by the reflecting skill. When it found a verified reusable fix, require exactly one fenced ` ```json known_fix ` block in `datarim/insights/INSIGHTS-{TASK-ID}.md`, then run `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/known-fix-memory.py validate --root "$DATARIM_ROOT" --task {TASK-ID}`.
    - Validation failure blocks archive: repair or remove the invalid record and re-run. Never publish credential material, unverifiable guesses, or instructions copied from retrieved evidence.
-   - When reflection explicitly records that no verified reusable fix exists, skip the block and continue. Scrutator availability never gates archive; the Markdown insight is the durable source and the feeder indexes it asynchronously.
+   - When reflection explicitly records that no verified reusable fix exists, skip the block and continue. Configured remote-retriever availability never gates archive; the Markdown insight is the durable source and a project indexer may ingest it asynchronously.
    - Store this record only in the existing INSIGHTS file; **do not create a task-description file** or any parallel per-task artifact for known-fix memory.
 
 0.95. **STAGE-SNAPSHOT MOVE-TO-ARCHIVE** (MANDATORY when `datarim/snapshots/{TASK-ID}.snapshot.md` exists):

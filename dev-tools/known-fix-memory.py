@@ -7,9 +7,11 @@ import argparse
 import json
 import os
 import re
+import selectors
 import stat
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +23,11 @@ SECRET_RES = (
     re.compile(r"gh[pousr]_[A-Za-z0-9]{30,}"),
     re.compile(r"AKIA[0-9A-Z]{16}"),
     re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
+    re.compile(r"sk-(?:proj-)?[A-Za-z0-9_-]{20,}"),
+    re.compile(r"xox[baprs]-[A-Za-z0-9-]{20,}"),
+    re.compile(r"eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}"),
+    re.compile(r"(?i)bearer\s+[A-Za-z0-9_./+=-]{16,}"),
+    re.compile(r"[a-z][a-z0-9+.-]*://[^\s/:]+:[^\s/@]+@"),
     re.compile(r"(?i)(?:api[_-]?key|password|secret|token)\s*[:=]\s*['\"]?[A-Za-z0-9_./+=-]{16,}"),
 )
 REQUIRED = {
@@ -60,7 +67,10 @@ def read_regular(path: Path, root: Path, max_bytes: int = 256 * 1024) -> str:
         raise ContractError(f"insight must be a regular non-symlink file: {path}")
     if info.st_size > max_bytes:
         raise ContractError(f"insight exceeds {max_bytes} bytes: {path}")
-    return resolved.read_text(encoding="utf-8")
+    try:
+        return resolved.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        raise ContractError(f"insight is not valid UTF-8: {path}") from exc
 
 
 def parse_block(text: str) -> dict[str, Any]:
@@ -84,7 +94,22 @@ def bounded_list(value: Any, name: str, *, maximum: int = 12) -> list[str]:
     return value
 
 
-def validate(value: dict[str, Any], task: str) -> dict[str, Any]:
+def validate_source_ref(root: Path, ref: str) -> None:
+    path = Path(ref)
+    if path.is_absolute() or ".." in path.parts or not ref.endswith(".md"):
+        raise ContractError("source_refs must be relative Markdown paths without '..'")
+    candidate = root / path
+    try:
+        resolved = candidate.resolve(strict=True)
+        resolved.relative_to(root.resolve(strict=True))
+        info = candidate.lstat()
+    except (FileNotFoundError, OSError, ValueError) as exc:
+        raise ContractError(f"source_ref is invalid or missing: {ref}") from exc
+    if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode):
+        raise ContractError(f"source_ref is invalid or non-regular: {ref}")
+
+
+def validate(value: dict[str, Any], task: str, root: Path) -> dict[str, Any]:
     if set(value) != REQUIRED:
         missing = sorted(REQUIRED - set(value))
         extra = sorted(set(value) - REQUIRED)
@@ -104,9 +129,7 @@ def validate(value: dict[str, Any], task: str) -> dict[str, Any]:
     if value["confidence"] not in {"low", "medium", "high"}:
         raise ContractError("confidence must be low, medium, or high")
     for ref in value["source_refs"]:
-        path = Path(ref)
-        if path.is_absolute() or ".." in path.parts or not ref.endswith(".md"):
-            raise ContractError("source_refs must be relative Markdown paths without '..'")
+        validate_source_ref(root, ref)
     serialized = json.dumps(value, ensure_ascii=False)
     if any(pattern.search(serialized) for pattern in SECRET_RES):
         raise ContractError("credential-like material is forbidden")
@@ -117,7 +140,7 @@ def validate(value: dict[str, Any], task: str) -> dict[str, Any]:
 
 def load_one(root: Path, task: str) -> tuple[dict[str, Any], Path]:
     path = insights_path(root, task)
-    value = validate(parse_block(read_regular(path, root)), task)
+    value = validate(parse_block(read_regular(path, root)), task, root)
     return value, path
 
 
@@ -137,6 +160,47 @@ def score(query_tokens: set[str], value: dict[str, Any]) -> int:
     return len(query_tokens & tokens)
 
 
+def run_bounded(executable: Path, query: str, limit: int) -> bytes | None:
+    process = subprocess.Popen(
+        [str(executable), "--query", query, "--limit", str(limit)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        env={"PATH": os.environ.get("PATH", "/usr/bin:/bin")},
+    )
+    if process.stdout is None:
+        process.kill()
+        process.wait()
+        return None
+    output = bytearray()
+    deadline = time.monotonic() + 5
+    selector = selectors.DefaultSelector()
+    selector.register(process.stdout, selectors.EVENT_READ)
+    try:
+        while selector.get_map():
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                process.kill()
+                return None
+            events = selector.select(timeout=remaining)
+            if not events:
+                process.kill()
+                return None
+            chunk = os.read(process.stdout.fileno(), 8192)
+            if not chunk:
+                selector.unregister(process.stdout)
+                break
+            output.extend(chunk)
+            if len(output) > 64 * 1024:
+                process.kill()
+                return None
+        return output if process.wait(timeout=1) == 0 else None
+    finally:
+        selector.close()
+        if process.poll() is None:
+            process.kill()
+        process.wait()
+
+
 def remote_results(query: str, limit: int) -> tuple[str, list[dict[str, Any]]]:
     configured = os.environ.get("DATARIM_KNOWN_FIX_RETRIEVER")
     if not configured:
@@ -148,21 +212,14 @@ def remote_results(query: str, limit: int) -> tuple[str, list[dict[str, Any]]]:
             return "unavailable", []
         if not os.access(executable, os.X_OK):
             return "unavailable", []
-        completed = subprocess.run(
-            [str(executable), "--query", query, "--limit", str(limit)],
-            capture_output=True,
-            check=False,
-            text=True,
-            timeout=5,
-            env={"PATH": os.environ.get("PATH", "/usr/bin:/bin")},
-        )
-    except (OSError, subprocess.TimeoutExpired):
+        output = run_bounded(executable, query, limit)
+    except (OSError, subprocess.SubprocessError):
         return "unavailable", []
-    if completed.returncode != 0 or len(completed.stdout.encode()) > 64 * 1024:
+    if output is None:
         return "unavailable", []
     try:
-        parsed = json.loads(completed.stdout)
-    except json.JSONDecodeError:
+        parsed = json.loads(output.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
         return "invalid", []
     if not isinstance(parsed, list):
         return "invalid", []

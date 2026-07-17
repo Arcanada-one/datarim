@@ -2,7 +2,8 @@
 
 setup() {
     ROOT="$(mktemp -d)"
-    mkdir -p "$ROOT/datarim/insights"
+    mkdir -p "$ROOT/datarim/insights" "$ROOT/datarim/reflection"
+    printf '# Verified reflection\n' >"$ROOT/datarim/reflection/reflection-FIX-0001.md"
     TOOL="$BATS_TEST_DIRNAME/../dev-tools/known-fix-memory.py"
 }
 
@@ -57,6 +58,24 @@ EOF
     [[ "$output" == *"credential-like material"* ]]
 }
 
+@test "validate rejects a missing citation" {
+    write_insight
+    sed -i 's#datarim/reflection/reflection-FIX-0001.md#datarim/reflection/missing.md#' \
+        "$ROOT/datarim/insights/INSIGHTS-FIX-0001.md"
+    run python3 "$TOOL" validate --root "$ROOT" --task FIX-0001
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"source_ref is invalid"* ]]
+}
+
+@test "validate rejects JWT and modern API-key shapes" {
+    write_insight
+    sed -i 's/The cache key omitted tenant_id\./sk-proj-abcdefghijklmnopqrstuvwxyz0123456789/' \
+        "$ROOT/datarim/insights/INSIGHTS-FIX-0001.md"
+    run python3 "$TOOL" validate --root "$ROOT" --task FIX-0001
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"credential-like material"* ]]
+}
+
 @test "query returns ranked local evidence with citations" {
     write_insight
     run python3 "$TOOL" query --root "$ROOT" --query "tenant cache isolation" --limit 3
@@ -72,6 +91,25 @@ EOF
     [ "$status" -eq 0 ]
     [[ "$output" == *'"remote_status":"unavailable"'* ]]
     [[ "$output" == *'"task_id":"FIX-0001"'* ]]
+}
+
+@test "query skips invalid UTF-8 insights and remains fail-soft" {
+    write_insight
+    printf '\xff\xfe\n' >"$ROOT/datarim/insights/INSIGHTS-BAD-0001.md"
+    run python3 "$TOOL" query --root "$ROOT" --query "tenant cache" --limit 3
+    [ "$status" -eq 0 ]
+    [[ "$output" == *'"task_id":"FIX-0001"'* ]]
+}
+
+@test "query bounds configured retriever output" {
+    write_insight
+    retriever="$ROOT/retriever"
+    printf '%s\n' '#!/bin/sh' 'dd if=/dev/zero bs=1024 count=256 2>/dev/null' >"$retriever"
+    chmod 0755 "$retriever"
+    run env DATARIM_KNOWN_FIX_RETRIEVER="$retriever" \
+        python3 "$TOOL" query --root "$ROOT" --query "cache" --limit 3
+    [ "$status" -eq 0 ]
+    [[ "$output" == *'"remote_status":"unavailable"'* ]]
 }
 
 @test "query rejects control characters" {
