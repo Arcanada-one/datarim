@@ -154,6 +154,43 @@ After presenting proposals, the agent MUST:
 
 ---
 
+## Apply-Target Resolution (global vs project-local)
+
+The `Target` column in the Proposal Categories tables (`skills/{name}.md`,
+`agents/{name}.md`, …) is a path **relative to the active framework runtime**,
+not an absolute `$HOME/.claude/` path. Resolve the runtime root before writing
+any approved proposal:
+
+- **Runtime root** = `${DATARIM_RUNTIME:-$HOME/.claude}`. A symlink-default or
+  global install resolves to `$HOME/.claude/` (the shared, ecosystem-wide
+  runtime). A **project-local install** (`install.sh --project DIR`) resolves to
+  `DIR/.datarim/` — a copy runtime scoped to that one project.
+- **Detect project-local context:** the active runtime is project-local when
+  `DATARIM_RUNTIME` resolves to a path ending in `/.datarim`, **or** when
+  walking up from the working directory finds a `.datarim/` runtime dir at the
+  project root before it finds `$HOME/.claude`. In that case the write target
+  for `new-skill` / `skill-update` / `new-template` is `DIR/.datarim/skills/…`
+  (or `…/templates/…`), **not** the global `$HOME/.claude/skills/…`.
+
+**Routing rule — where an approved Class A learning lands:**
+
+| Lesson scope | Write target | Rationale |
+|--------------|--------------|-----------|
+| Project-specific (only meaningful inside this project's domain, stack, or conventions) | `DIR/.datarim/skills/…` when running in a `--project` context; otherwise the sole runtime | Keeps a narrow lesson out of every other consumer's session |
+| Ecosystem-general (a framework-wide pattern, gate, or contract) | Shared/global runtime (`$HOME/.claude/` or the framework repo) | A general lesson must reach all consumers |
+
+When running in a project-local context and the operator approves an
+**ecosystem-general** proposal, do not silently write it into the shared
+runtime — surface it as "this belongs in the shared framework runtime, not
+`DIR/.datarim/`; confirm promotion" and let the operator decide. Writing a
+project-scoped lesson into the shared runtime pollutes every other consumer;
+writing an ecosystem-general lesson into one project's `.datarim/` strands it.
+The stack-agnostic gate still runs on every write to a shared runtime target;
+a project-local `.datarim/` target MAY carry project-specific (stack-bound)
+content because it is not shipped to other consumers.
+
+---
+
 ## Health Metrics
 
 These thresholds trigger an optimization suggestion during `/dr-archive` Step 0.5 (reflecting skill):

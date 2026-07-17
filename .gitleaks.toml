@@ -12,6 +12,10 @@ description = "Synthetic secrets in security test fixtures (not real credentials
 # assert it is rejected. The fake key is part of the test contract, not a leak.
 paths = [
   '''tests/test-fleet-evolution-gates\.bats''',
+  # Audit-log adapter redaction fixture: synthetic traces carrying fake
+  # secrets/paths/hosts by design, so the redaction negative-test can prove
+  # they never reach the eval dataset. Not real credentials.
+  '''tests/fixtures/fleet-evolution/audit/.*''',
 ]
 # Belt-and-suspenders: the specific synthetic key literal used in fixtures.
 regexes = [

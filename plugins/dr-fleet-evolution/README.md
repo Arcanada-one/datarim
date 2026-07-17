@@ -34,6 +34,7 @@ collect signals  ->  generate variants  ->  constraint gates  ->  select best  -
 | `adapters/source-adapter-contract.md` | The JSONL record contract |
 | `adapters/archive-adapter.sh` | Signals from task archives |
 | `adapters/dr-dream-adapter.sh` | Gap signals from `/dr-dream` reflections |
+| `adapters/audit-log-adapter.sh` | Redacted signals from audit-log traces (paths/hosts/command-fragments/secrets stripped before the LLM); opt-in Redis replay via `DR_FLEET_AUDIT_REDIS=1`, skips when redis absent |
 | `adapters/source-adapters.conf` | Registered sources (extension-point) |
 | `gates/gate-english.sh` | English-only shipped-surface gate |
 | `gates/gate-size-budget.sh` | Per-candidate token-budget gate |
@@ -63,9 +64,14 @@ Add one line to `adapters/source-adapters.conf`:
 <adapter-script>|<source-path>|<label>
 ```
 
-The deferred **audit-log** source (Redis Stream traces) lands here once its
-redaction layer is built — a tracked follow-up, blocked on the Phase-3 event bus
-reaching `main`.
+The **audit-log** source (`adapters/audit-log-adapter.sh`) is registered by
+default against the on-disk audit sink (`${DR_FLEET_AUDIT_DIR:-~/.local/share/datarim/audit}`);
+the loop skips it cleanly when that dir does not exist. Because audit traces can
+carry sensitive material, every emitted field is passed through a redaction
+layer (key=value secrets, bearer tokens, absolute paths, IPs, `user@host`, and
+FQDN hostnames → typed placeholders) before it can reach the external LLM. Live
+Redis-stream replay of `fleet:audit-log` is opt-in via `DR_FLEET_AUDIT_REDIS=1`
+and skips when `redis-cli` / the redis backend is unavailable.
 
 ## Tests
 

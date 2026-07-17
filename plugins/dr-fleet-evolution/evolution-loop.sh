@@ -59,8 +59,10 @@ _expand_path() {
     p=$(printf '%s' "$p" | sed -E \
         -e "s|\\\$\{DR_FLEET_ARCHIVE_DIR:-([^}]*)\}|${DR_FLEET_ARCHIVE_DIR:-\1}|g" \
         -e "s|\\\$\{DR_FLEET_DREAM_DIR:-([^}]*)\}|${DR_FLEET_DREAM_DIR:-\1}|g" \
+        -e "s|\\\$\{DR_FLEET_AUDIT_DIR:-([^}]*)\}|${DR_FLEET_AUDIT_DIR:-\1}|g" \
         -e "s|\\\$\{DR_FLEET_ARCHIVE_DIR\}|${DR_FLEET_ARCHIVE_DIR:-}|g" \
-        -e "s|\\\$\{DR_FLEET_DREAM_DIR\}|${DR_FLEET_DREAM_DIR:-}|g")
+        -e "s|\\\$\{DR_FLEET_DREAM_DIR\}|${DR_FLEET_DREAM_DIR:-}|g" \
+        -e "s|\\\$\{DR_FLEET_AUDIT_DIR\}|${DR_FLEET_AUDIT_DIR:-}|g")
     # Leading ~ → $HOME. (Literal tilde test; shellcheck SC2088 is a
     # false positive here — we are matching a literal ~, not expanding one.)
     local tilde='~'

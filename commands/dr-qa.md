@@ -274,6 +274,15 @@ Invoke:
 - Missing error handling on async operations
 - Console.log / print statements left in production code
 
+### 4c-bis. Adversarial Review pass
+
+**Condition:** Always executed. Conformance layers (1-3) check the code against what was *promised*; this check attacks the code on its own terms.
+
+- Load `$HOME/.claude/skills/adversarial-review/SKILL.md` and run its whole-artifact attack against the changed code: falsify the single most load-bearing claim (idempotency / no-deadlock / gate-blocks-X), attack the seams between changed and unchanged code, and check reversibility (how is a wrong ship detected and undone).
+- For any changed parser, lock, retry loop, allocator, or state machine, load `$HOME/.claude/skills/edge-case-hunter/SKILL.md` and sweep the boundary/failure inputs; every UNHANDLED row that fails **silent** (wrong result / corrupt state, not a loud error) is a Layer 4 finding.
+- **"No findings" is an alarm, not an all-clear.** Record the falsification attempt (the assumption tested, the scenario traced) — a bare "clean" with no attack shown is an un-run check and does not satisfy this gate.
+- **Record in QA report:** the assumption(s) attacked and, for each confirmed defect, a concrete failure scenario (inputs/state → wrong outcome). Confirmed silent-failure defects ⇒ Layer 4 verdict **FAIL** → `/dr-do`.
+
 ### 4d. Live Smoke-Test Gate (raw SQL / cross-DB / cross-instance)
 - If the changed code uses `$queryRaw`, `raw()`, `sequelize.query()`, or any path that bypasses the ORM type-checker — a **live smoke test** against the actual target datasource is **mandatory**. Mocked/unit tests do not satisfy this gate (see `$HOME/.claude/skills/testing/SKILL.md` § Live Smoke-Test Gate).
 - In multi-datasource projects (e.g. aio-v2: `PrismaService` → `stats` mysql5 vs `PrismaBiService` → `bi_aggregate` mysql8), verify the correct client is injected for the target table. A wrong-client `$queryRaw` compiles clean and fails at runtime.
