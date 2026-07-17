@@ -450,6 +450,18 @@ Write to `datarim/qa/qa-report-{task-id}.md`:
 
 ---
 
+## Deferred Items (session-scoped)
+
+One row per piece of work consciously deferred during this session — "out of scope / not a blocker / will fix later" decisions surfaced by the Layer-4 anti-deferral prose scan, wish sub-clauses closed as partial, or gaps punted to a follow-up. The table is the structured companion to that prose scan: it gives the operator the full deferral surface at a glance instead of hunting through per-layer prose.
+
+| Deferred item | Why deferred | Follow-up (task-id / blocked_by / "none") |
+|---------------|--------------|-------------------------------------------|
+| {what was deferred} | {reason} | {tracking ref or "none"} |
+
+_No deferrals → write "No items deferred this session."_
+
+---
+
 ## Summary
 
 **Layers executed:** {N of 4}

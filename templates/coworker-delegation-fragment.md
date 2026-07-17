@@ -97,6 +97,15 @@ manual operator escape hatches outside normal Datarim policy.
 `coworker write --context <path>` and `--target <path>` accept any
 extension (no allowlist on write paths).
 
+**Doc-generation self-recursion.** A doc-generation flow — drafting a README,
+CHANGELOG, or reference page that has to describe code — usually needs the
+source as context. Route it through `coworker write --context <source>.<ext>`,
+which is exempt from the read allowlist above; do NOT reach for `coworker ask`
+over the code, which hits the default-deny gate and, in Datarim runtime, is a
+policy stop (the agent would then have to read the code natively). In short:
+generating docs *from* code is a `write --context` operation, not an
+`ask`-over-code operation — the extension allowlist only gates `ask`.
+
 ## RTK plugin (opt-in)
 
 `coworker rtk` is an opt-in token-reduction plugin backed by the local

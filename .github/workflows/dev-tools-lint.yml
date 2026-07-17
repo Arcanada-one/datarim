@@ -57,3 +57,15 @@ jobs:
 
       - name: Run dr-auto reassert-wiring lint
         run: bash dev-tools/check-dr-auto-reassert-wiring.sh --root .
+
+      # Advisory first (becomes a hard gate after adoption): cross-check the
+      # framework's own task-description corpus type:/priority: values against
+      # the network-exposure gate's recognised value-sets. Exits 0 on an
+      # absent/empty corpus (datarim/ is gitignored, so this is a no-op in a
+      # clean CI checkout and only flags when a real corpus is present).
+      - name: Run gate-token-registry-sync check (advisory)
+        run: |
+          bash dev-tools/check-gate-token-registry-sync.sh \
+               --gate dev-tools/network-exposure-gate.sh \
+               --corpus-dir datarim/tasks || \
+          echo "::warning::check-gate-token-registry-sync flagged an unhandled type:/priority: value (advisory — becomes a hard gate after adoption)"

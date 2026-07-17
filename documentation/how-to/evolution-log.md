@@ -2062,3 +2062,23 @@ declined as redundant.
 
 **Verification:** stack-agnostic-gate PASS, task-id-gate PASS, no Cyrillic introduced,
 `bats tests/` → 1652 tests, 0 failures.
+
+---
+
+## 2026-07-17 — BATCH-EPIC C: framework L1 rule/doc-additions + bats regressions (real-work triage)
+
+**Category:** batch-accumulate promote-triaged-backlog-to-runtime · **Class:** A (point-additions from the 2026-07-17 TUNE real-work triage register). Committed as one local batch commit; not released.
+
+Each item is a minimal surgical addition sourced from a prior reflection / QA finding recorded in the TUNE backlog.
+
+- **TUNE-0200** — `skills/ai-quality/SKILL.md` new § "Exact-Name Selectors for DOM Automation": default to exact accessible-name equality for action buttons on opaque third-party DOMs; reserve substring match for personalized prose. Prevents silent wrong-element clicks on compound labels. Source: INFRA-0144 reflection Class A proposal NS2.
+- **TUNE-0256** — `skills/ai-quality/SKILL.md` new § "Surface-Count vs Host-Count AC Disambiguation": resolve surface-count vs host-count for exact-match allowlists (OIDC/OAuth redirectUris, CORS origins, CSP sources, cookie domains) at `/dr-plan` before `/dr-do`; default to per-surface enumeration. Source: reflection-AUTH-0081 E-2 (PRD-ARCA-0135 "8 domains" vs 8 surfaces). A companion operator-side feedback memory was recorded outside the repo.
+- **TUNE-0261** — `templates/coworker-delegation-fragment.md` § File-type policy: documented coworker doc-generation self-recursion — generating docs *from* code is a `write --context` operation (no write-path allowlist), not an `ask`-over-code operation (default-deny gate, policy stop). Source: reflection-TUNE-0258 § Next Steps.
+- **TUNE-0338** — applied AGENT-0017 reflection Class A A1/A2/A3 to the command surface (there are no `skills/dr-*/SKILL.md` files — the canonical home for stage-local rules is `commands/*.md`): A1 session-scoped Deferred-Items table in the `commands/dr-qa.md` QA Report Template; A2 long-plan bulk-read extract recommendation (>400 lines + ≥2 phases) in `commands/dr-do.md` Step 5; A3 `[deploy-gated — see creative-{ID}.md § Decision]` plan↔creative cross-reference rule in `commands/dr-plan.md` Phase 4 + reciprocal marker in `commands/dr-design.md` Step 6. Source: reflection-AGENT-0017 § Class A.
+- **TUNE-0172** — audited `archive-TUNE-0161.md` re the Diátaxis live-deploy claim: NO correction needed / pre-satisfied. The archive already records the datarim.club live deploy as gated/outstanding (gated on INFRA-0132) and never claims the Diátaxis pages were live before the INFRA-0134 2026-05-10 rsync. Source: reflection-INFRA-0134 follow-up.
+- **TUNE-0276** — `tests/check-dr-plan-external-target-probe.bats` (new): regression locking the `/dr-plan` Step 6.5 External-target reality-probe contract — (a) `ls` existence check, (b) HTTP 200 web check, (c) HTTP 000 / DNS-not-found → operator block. Source: reflection-TUNE-0271 § Class A P-A1.
+- **TUNE-0277** — `tests/check-dr-do-delegation-flow.bats` (new): regression locking the `/dr-do` Step 5.5 Operator-mandated delegation flow contract — recorded delegation line + Layer 3b cross-check (PASS path) and silent-bypass = process regression (FAIL path). Source: reflection-TUNE-0271 § Class A P-A2.
+- **TUNE-0355** — `dev-tools/public-surface-forbidden.regex`: tightened the milestone-code pattern from `\b(M|Phase) ?[1-9][0-9]*\b` to `\b(M|Phase)[1-9][0-9]*\b` (compact ID shape, no interior space) so it flags `M1` / `Phase2` but not ordinary prose "Phase 1" / "M 4". Added regression tests in `dev-tools/tests/public-surface-lint.bats`. Source: TUNE-0350 /dr-qa Layer 4b finding.
+- **TUNE-0366** — `.github/workflows/dev-tools-lint.yml`: wired `check-gate-token-registry-sync.sh` into the warning-only `linter-run` job (advisory first; hard gate after adoption). Exits 0 on an absent/gitignored corpus in a clean CI checkout. Source: reflection-TUNE-0364 Proposal 1.
+
+**Verification:** stack-agnostic-gate --diff-only PASS on all touched `commands/*.md` + `skills/ai-quality/SKILL.md`; task-id-gate --diff-only PASS on all touched shipped files; check-body-english (commands,skills) PASS (149 files); new bats green — `public-surface-lint.bats` 16/16, `check-dr-plan-external-target-probe.bats` 4/4, `check-dr-do-delegation-flow.bats` 4/4; advisory CI step exits 0 on absent corpus; workflow YAML parses.

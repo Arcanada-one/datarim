@@ -229,6 +229,23 @@ When an Acceptance Criterion asserts an HTTP status code (e.g. `→ 401`, `shoul
 
 ---
 
+## Surface-Count vs Host-Count AC Disambiguation
+
+When an Acceptance Criterion enumerates "**N domains / N surfaces**" for a security-relevant, exact-match allowlist — OIDC/OAuth `redirectUris`, CORS allowed-origins, CSP source lists, cookie-domain scopes — resolve **surface count vs host count** at `/dr-plan`, *before* `/dr-do`. A single DNS host can serve several distinct surfaces (pages, routes, callback paths), so "8 domains" and "8 surfaces" are not interchangeable: collapsing per-surface entries onto their shared host silently under-provisions the allowlist, and the missing entry surfaces only as a runtime redirect / CORS / CSP rejection for a legitimate surface.
+
+**Rule.**
+1. **Disambiguate at plan time.** When an AC enumeration could mean either host count (distinct DNS names) or surface count (distinct pages / routes / callback URLs), state which one the plan implements — in the plan, before any code is written.
+2. **Default to per-surface enumeration.** Absent an explicit operator decision otherwise, emit **N entries, one per surface**, and do NOT collapse two surfaces that share a host into a single entry. Under-provisioning an allowlist fails closed at runtime for a real surface; per-surface over-enumeration is harmless.
+3. **Trigger.** The check fires whenever the AC's stated count conflicts with the host count — e.g. "8 ecosystem domains" where two of the surfaces live on the same host (8 surfaces across 7 hosts). Flag the conflict and choose per-surface unless the operator directs otherwise.
+
+**Why:** these allowlists are exact-match security gates. An entry that is present-but-collapsed is indistinguishable at review time from a correct per-host entry, yet behaves differently at runtime. Resolving the ambiguity at plan time turns a latent production redirect / CORS failure into a one-line planning decision.
+
+**When to apply:** any L2+ task whose PRD AC enumerates a count of domains / surfaces feeding an exact-match allowlist (redirect URIs, CORS origins, CSP sources, cookie domains). Mandatory when the enumerated count and the host count disagree.
+
+**Anti-pattern:** reading "N domains" as "N hosts" and writing one allowlist entry per host when the surfaces are per-route — the collapsed surface is rejected at runtime while the AC still looks satisfied on paper.
+
+---
+
 ## RFC 7807 Problem-Details Envelope for Programmatic API Errors
 
 For services with programmatic API consumers (SPA, mobile clients, server-to-server), HTTP error responses MUST be parseable by machines, not just by humans reading a log line. Standardize on **RFC 7807 `application/problem+json`** as the ecosystem error envelope and concentrate the mapping in a single seam, not scattered per-handler `try/catch` blocks.
@@ -277,6 +294,23 @@ When an Acceptance Criterion's location moves mid-implementation — different c
 - "I'll update the PRD after this commit lands" — the moment the commit lands, the PRD is wrong and CI/QA reads stale text.
 - Updating Implementation Notes only, leaving Implementation Steps locus pointing at the old module — reviewers reading only one section drift.
 - Multiple amendment markers with conflicting dates or no operator approval reference — provenance becomes unrecoverable.
+
+---
+
+## Exact-Name Selectors for DOM Automation
+
+When automating against an **opaque third-party DOM** the team does not own (social and webmail surfaces — Facebook, X/Twitter, LinkedIn, Instagram, Gmail web), select **action buttons** — Publish, Post, Submit, Send, Delete, Confirm, Save — by their **exact accessible name** (exact `aria-label` / role-name equality), never by a substring / contains match. Reserve substring matching for **personalized, free-form text** whose exact string is not knowable in advance: composer prompts that interpolate the user's name, greeting banners, dynamically localised placeholder copy.
+
+**Why:** a substring match on an action-button label silently clicks the wrong element when a longer compound label contains the target word. A selector that matches a button whose name *contains* "Publish" also matches an adjacent `Publish later` or `Publish settings` control; whichever the DOM returns first wins, and the automation commits the wrong action with no error. Exact-name matching fails *loudly* (element not found) instead of *silently* (wrong element clicked) when the DOM shifts — the safer failure mode for an outward-facing or destructive click.
+
+**Rule.**
+1. **Action buttons → exact name.** Any control that commits an irreversible or outward-facing action is selected by exact accessible-name equality. When two buttons share a name prefix, exact match is the only safe discriminator.
+2. **Personalized prose → substring is acceptable.** When the visible text is user-specific or localised and the exact string cannot be known ahead of time, a substring match on a stable fragment is fine — but scope it to the smallest container that isolates the element, not the whole page.
+3. **Prefer role + exact name over raw text.** Query by accessibility role plus exact accessible name where the driver supports it; fall back to a text selector only when no stable role/name exists.
+
+**When to apply:** any task that drives a browser against a DOM the team does not own (publishing automation, webmail automation, side-effecting scraping). Mandatory whenever the click is outward-facing or destructive.
+
+**Anti-pattern:** <!-- gate:example-only -->a contains/regex text selector such as `getByText(/Publish/)` or `contains("Publish")`<!-- /gate:example-only --> against a page that also renders `Publish later` or `Publishing settings` — a silent wrong-element click that only surfaces after the unintended action has already been taken.
 
 ---
 
