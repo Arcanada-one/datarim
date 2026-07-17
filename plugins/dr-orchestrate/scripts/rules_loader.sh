@@ -14,32 +14,24 @@ set -euo pipefail
 : "${DR_ORCH_RULES_USER:=$HOME/.config/dr-orchestrate/rules/user.yaml}"
 : "${DR_ORCH_RULES_LEARNED:=${STATE_DIR:-$HOME/.local/share/dr-orchestrate/state}/learned-rules.yaml}"
 
-# Resolve the core policy loader. Prefer the core path; fall back to a local
-# copy (deprecation shim) when the core path is absent (e.g. copy-mode installs
-# that have not yet synced the core tree). This one-cycle fallback window is
-# documented in documentation/how-to/evolution-log.md.
+# Resolve the core policy loader (dev-tools/fb-policy-loader.sh). Provenance in
+# documentation/how-to/evolution-log.md.
 _CORE_FB_LOADER="${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/fb-policy-loader.sh"
-_LOCAL_FB_LOADER="$DR_ORCH_DIR/../../dev-tools/fb-policy-loader.sh"
 if [[ -x "$_CORE_FB_LOADER" ]]; then
   _FB_LOADER="$_CORE_FB_LOADER"
-elif [[ -x "$_LOCAL_FB_LOADER" ]]; then
-  _FB_LOADER="$_LOCAL_FB_LOADER"
 else
   _FB_LOADER=""
 fi
 
 # Resolve the fb-rules.yaml source for accessors that accept an explicit src.
-# Prefer the core canonical; fall back to the local plugin copy during the
-# deprecation window (one minor cycle).
+# Prefer an explicit caller override (e.g. test fixtures), otherwise the core
+# canonical dev-tools/rules/fb-rules.yaml.
 _CORE_FB_RULES="${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/rules/fb-rules.yaml"
-_LOCAL_FB_RULES="$DR_ORCH_DIR/rules/fb-rules.yaml"
 if [[ -n "${DR_ORCH_FB_RULES:-}" ]]; then
   # Honour explicit caller override (e.g. test fixtures) unchanged.
   :
-elif [[ -f "$_CORE_FB_RULES" ]]; then
-  DR_ORCH_FB_RULES="$_CORE_FB_RULES"
 else
-  DR_ORCH_FB_RULES="$_LOCAL_FB_RULES"
+  DR_ORCH_FB_RULES="$_CORE_FB_RULES"
 fi
 
 _extract() {

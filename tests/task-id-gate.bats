@@ -19,6 +19,11 @@
 #   T10: --diff-only on non-git path → exit 2
 #   T11-T14: regression invariants — skills/, commands/, agents/, templates/
 #            scopes stay gate-clean (parallel to stack-agnostic-gate.bats T5)
+#   T18: policy-data yaml under a rules/ segment with an inline task-ID → exit 1
+#   T19: clean policy-data yaml under a rules/ segment → exit 0
+#   T20: scope precision — a *.yaml OUTSIDE any rules/ segment is NOT scanned
+#        (task-ID present but ignored) → exit 0
+#   T21: real dev-tools/rules/ scope is gate-clean (regression invariant)
 
 REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
 GATE="$REPO_ROOT/scripts/task-id-gate.sh"
@@ -167,5 +172,46 @@ EOF
 
 @test "T14: templates/ scope is gate-clean (regression invariant)" {
     run "$GATE" "$REPO_ROOT/templates"
+    [ "$status" -eq 0 ]
+}
+
+# -----------------------------------------------------------------------------
+# rules/*.yaml policy-data scope (shipped machine-readable policy files).
+# The gate now also scans *.yaml/*.yml under any rules/ path segment, while
+# leaving script bodies (dev-tools/*.sh) untouched. FB-N ids are not task IDs
+# (only one digit) so they never false-positive.
+# -----------------------------------------------------------------------------
+
+@test "T18: task-ID in policy-data yaml under rules/ is caught" {
+    TMPDIR_T18="$(mktemp -d)"
+    mkdir -p "$TMPDIR_T18/rules"
+    printf 'rules:\n  - rule_id: FB-1  # Source: TUNE-0042\n' > "$TMPDIR_T18/rules/policy.yaml"
+    run "$GATE" "$TMPDIR_T18"
+    rm -rf "$TMPDIR_T18"
+    [ "$status" -eq 1 ]
+}
+
+@test "T19: clean policy-data yaml under rules/ passes" {
+    TMPDIR_T19="$(mktemp -d)"
+    mkdir -p "$TMPDIR_T19/rules"
+    printf 'rules:\n  - rule_id: FB-1\n    title: no provenance leak\n' > "$TMPDIR_T19/rules/policy.yaml"
+    run "$GATE" "$TMPDIR_T19"
+    rm -rf "$TMPDIR_T19"
+    [ "$status" -eq 0 ]
+}
+
+@test "T20: a *.yaml outside any rules/ segment is not scanned (scope precision)" {
+    TMPDIR_T20="$(mktemp -d)"
+    printf 'key: value  # Source: TUNE-0042\n' > "$TMPDIR_T20/config.yaml"
+    run "$GATE" "$TMPDIR_T20"
+    rm -rf "$TMPDIR_T20"
+    [ "$status" -eq 0 ]
+}
+
+@test "T21: dev-tools/rules/ scope is gate-clean (regression invariant)" {
+    if [ ! -d "$REPO_ROOT/dev-tools/rules" ]; then
+        skip "dev-tools/rules not present"
+    fi
+    run "$GATE" "$REPO_ROOT/dev-tools/rules"
     [ "$status" -eq 0 ]
 }

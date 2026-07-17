@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # task-id-gate.sh — pre-apply linter rejecting task-ID provenance references
-# in Datarim runtime files (skills/agents/commands/templates).
+# in Datarim runtime files (skills/agents/commands/templates) and shipped
+# policy-data (rules/*.yaml).
 #
 # Source contract: skills/evolution/history-agnostic-gate.md.
 # Sibling precedent: scripts/stack-agnostic-gate.sh (denylist gate, same shape).
@@ -17,8 +18,17 @@
 #                           [--base-commit <sha>]
 #
 # Inputs:
-#   <file-or-dir>   Path to scan. File → single-file mode. Directory →
-#                   recursive *.md scan (excluding tests/fixtures/).
+#   <file-or-dir>   Path to scan. File → single-file mode (any extension).
+#                   Directory → recursive scan of *.md plus *.yaml/*.yml under
+#                   any rules/ path segment (shipped policy-data, e.g.
+#                   dev-tools/rules/*.yaml), excluding tests/fixtures/.
+#                   Scope note: dev-tools/*.sh (and script bodies generally) are
+#                   intentionally NOT scanned — operational scripts legitimately
+#                   cite task IDs as provenance in comments (and this gate's own
+#                   header carries one as an illustrative example). The
+#                   history-agnostic contract targets AI-read instruction files
+#                   (skills/agents/commands/templates) and shipped policy-data
+#                   (rules/*.yaml), not script source.
 #   --whitelist     Optional, repeatable. Suffix-based path match.
 #                   Default whitelist: skills/evolution/history-agnostic-gate.md
 #                   (the gate's own contract document — must enumerate the
@@ -234,7 +244,8 @@ scan_path() {
                 TOTAL_HITS=$((TOTAL_HITS + SCAN_FILE_HITS))
                 FILES_WITH_HITS=$((FILES_WITH_HITS + 1))
             fi
-        done < <(find "$path" -type f -name '*.md' \
+        done < <(find "$path" -type f \
+                    \( -name '*.md' -o \( -path '*/rules/*' -a \( -name '*.yaml' -o -name '*.yml' \) \) \) \
                     -not -path '*/tests/fixtures/*' \
                     -not -path '*/node_modules/*' \
                     -not -path '*/.git/*' \

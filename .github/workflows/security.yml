@@ -440,6 +440,6 @@ jobs:
       - name: Self-dogfood — gate against runtime scopes (full tree)
         run: |
           set -euo pipefail
-          for d in skills agents commands templates; do
+          for d in skills agents commands templates dev-tools/rules; do
             bash scripts/task-id-gate.sh "$d"
           done

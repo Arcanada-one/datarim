@@ -28,7 +28,7 @@ The orchestrator's effective autonomy is **resolved per-space at runtime** via t
 2. `dev-tools/resolve-space-autonomy.sh gate --action <kind>` — evaluates the policy, returns `auto` or `escalate`.
 3. `scripts/action_gate.sh gate --action <kind>` — thin wrapper that delegates to the resolver above.
 
-**In a full-autonomy (root-managing) space such as Arcanada, the orchestrator and its agents execute ALL reversible work autonomously and escalate ONLY hard-gated floor actions.** Do not ask the operator about reversible actions (rsync, git operations on feature branches, writing PRDs, conveying briefs, cloning repositories, or resetting a local clone). The hard-gated floor (`rules/fb-rules.yaml § hard_gated_actions`) — financial/legal operations, irreversible database mutations, git history rewrites, public publications without confirmation — always escalates regardless of per-space policy.
+**In a full-autonomy (root-managing) space such as Arcanada, the orchestrator and its agents execute ALL reversible work autonomously and escalate ONLY hard-gated floor actions.** Do not ask the operator about reversible actions (rsync, git operations on feature branches, writing PRDs, conveying briefs, cloning repositories, or resetting a local clone). The hard-gated floor (`dev-tools/rules/fb-rules.yaml § hard_gated_actions`) — financial/legal operations, irreversible database mutations, git history rewrites, public publications without confirmation — always escalates regardless of per-space policy.
 
 Pipeline phases by feature set (not a fixed autonomy level):
 
