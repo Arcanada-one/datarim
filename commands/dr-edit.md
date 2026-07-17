@@ -32,7 +32,7 @@ effort: high
     - Extract all verifiable factual claims.
     - Verify each claim against authoritative sources using WebSearch and WebFetch.
     - Assign verdicts: ACCURATE, INACCURATE, OUTDATED, MISLEADING, UNVERIFIABLE, NEEDS_CONTEXT.
-    - For critical claims, cross-reference with 2+ independent sources.
+    - For critical claims, cross-reference with 3+ independent sources (matches the factcheck skill's `critical` tier; `high`-tier claims need 2+).
 
     ### Phase 2: AI Pattern Removal
     - Scan for AI writing patterns: banned vocabulary, structural tells, formatting artifacts.

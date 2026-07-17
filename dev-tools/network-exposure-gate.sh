@@ -31,6 +31,7 @@ SCRIPT_NAME="network-exposure-gate.sh"
 # Canonical sec/infra type set.  Sync with skill rule table.
 SEC_INFRA_TYPES=(
     security-incident
+    security
     infrastructure
     infra
     framework-hardening
@@ -97,12 +98,16 @@ decide() {
         return
     fi
 
+    # Word-form aliases (critical/high) are accepted for the top two tiers so
+    # a real task-description using them is consciously handled, not fail-closed
+    # to hard_block as "malformed" (the latent-FP class). `critical` ≡ P0 floor;
+    # `high` ≡ P1 (type-refined). Keep in sync with the skill's decision table.
     case "$priority" in
-        P0)
+        P0|critical)
             echo hard_block
             return
             ;;
-        P1)
+        P1|high)
             for t in "${SEC_INFRA_TYPES[@]}"; do
                 if [[ "$task_type" == "$t" ]]; then
                     echo hard_block

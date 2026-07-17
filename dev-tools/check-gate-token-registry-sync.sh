@@ -136,15 +136,19 @@ main() {
             | tr -d ' \t' | grep -v '^$'
     )
 
-    # GATE_PRIO_SET: literal Pn tokens named in decide()'s case arms (excludes the
-    # empty "" arm and the *) malformed catch-all). Pattern: lines like `P0)` or
-    # `P2|P3|P4)` inside the case. Split on `|`, keep tokens matching ^P[0-9]+$.
+    # GATE_PRIO_SET: every priority token named in decide()'s case arms. Scans only
+    # the decide() function body so unrelated case blocks (main()'s flag parser) are
+    # ignored. Captures Pn tokens AND word-form aliases (e.g. `critical`, `high`),
+    # including `|`-merged arms like `P0|critical)` or `P2|P3|P4)`. Excludes the empty
+    # "" arm (starts with `"`) and the *) malformed catch-all (starts with `*`) by
+    # anchoring each token to an alnum first char. Split on `|`; keep bareword tokens.
     local gate_prio_set=()
     while IFS= read -r tok; do
         [ -n "$tok" ] && gate_prio_set+=("$tok")
     done < <(
-        grep -oE '^[[:space:]]*P[0-9]+(\|P[0-9]+)*\)' "$gate" \
-            | tr -d ' \t)' | tr '|' '\n' | grep -E '^P[0-9]+$' | sort -u
+        sed -n '/^decide() {/,/^}/p' "$gate" \
+            | grep -oE '^[[:space:]]*[A-Za-z][A-Za-z0-9-]*(\|[A-Za-z][A-Za-z0-9-]*)*\)' \
+            | tr -d ' \t)' | tr '|' '\n' | grep -E '^[A-Za-z][A-Za-z0-9-]*$' | sort -u
     )
 
     # Extra type allowlist from file (optional).
