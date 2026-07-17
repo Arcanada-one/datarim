@@ -30,5 +30,8 @@
 \bdatarim/(tasks|creative|plans|insights|reflection)/
 
 # Milestone-code references that leak phase / iteration internals. Use
-# version numbers in public copy instead.
-\b(M|Phase) ?[1-9][0-9]*\b
+# version numbers in public copy instead. Anchored to the compact ID shape
+# (letter immediately followed by the number, no space) so it flags the
+# milestone token `M1` / `Phase2` but NOT the ordinary English prose
+# "Phase 1" / "M 1" (spaced), which is legitimate on a public surface.
+\b(M|Phase)[1-9][0-9]*\b

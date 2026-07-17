@@ -36,6 +36,7 @@ description: Explore architectural and design decisions for complex features (Le
 
 6.  **CREATE DOCUMENT**: `datarim/creative/creative-[task_id]-[type]-[name].md`
     - Format: Problem → Options (3+) → Pros/Cons → Decision → Implementation Plan → Visualization
+    - **Deploy-gated cross-reference (when this Decision's rollout gates a plan step).** If a plan implementation step cannot run until this decision's deploy has landed, record the reciprocal marker in the § Decision section so the plan step and this creative Decision point at each other: the plan step carries `[deploy-gated — see creative-{ID}.md § Decision]` (see `/dr-plan`), and this Decision names the gated plan step. The cross-reference lets QA confirm neither side ships ahead of the deploy gate.
 
 7.  **CONSILIUM** (for L3-4 tasks):
     - Load `$HOME/.claude/skills/consilium/SKILL.md`.

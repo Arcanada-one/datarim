@@ -76,6 +76,26 @@ EOF
     [ "$status" -eq 1 ]
 }
 
+@test "Phase2 attached milestone code — exit 1" {
+    # compact milestone-ID shape (letter immediately followed by number) still flags
+    cat >README.md <<'EOF'
+Rollout tracked under Phase2 internal milestone.
+EOF
+    run "$SCRIPT" --regex "$REGEX" --paths README.md
+    [ "$status" -eq 1 ]
+}
+
+@test "\"Phase N\" prose (spaced) — exit 0" {
+    # the ordinary English word "Phase" followed by a space + number is legitimate
+    # public copy and MUST NOT be flagged as a milestone-code leak
+    cat >README.md <<'EOF'
+The rollout ships in three parts. Phase 1 delivers the CLI, Phase 2 the API,
+and Phase 3 the dashboard. See the roadmap for the M 4 timeline discussion.
+EOF
+    run "$SCRIPT" --regex "$REGEX" --paths README.md
+    [ "$status" -eq 0 ]
+}
+
 @test "skips dist/ build/ node_modules/" {
     mkdir -p dist node_modules
     echo "creative-CONN-0001 leak in dist" >dist/index.js
