@@ -60,6 +60,19 @@ validate_source() {
         return 0
     fi
 
+    # Manifest values are line-oriented Markdown. Reject all control bytes so
+    # an otherwise valid absolute path cannot inject fields or policy sections.
+    case "$src" in
+        *$'\n'*|*$'\r'*|*$'\t'*)
+            echo "validate_source: control characters not allowed in source" >&2
+            return 1
+            ;;
+    esac
+    if printf '%s' "$src" | LC_ALL=C grep -q '[[:cntrl:]]'; then
+        echo "validate_source: control characters not allowed in source" >&2
+        return 1
+    fi
+
     # Reject path traversal anywhere in the string.
     case "$src" in
         *..* )
@@ -180,6 +193,7 @@ manifest_field() {
             next
         }
         in_block {
+            if ($0 ~ /^## /) exit
             if (match($0, "^[[:space:]]+" field ":")) {
                 line = $0
                 sub("^[[:space:]]+" field ":[[:space:]]*", "", line)
@@ -194,15 +208,158 @@ manifest_remove_entry() {
     local manifest="$1" id="$2"
     [ -f "$manifest" ] || return 1
     local tmp
-    tmp="$(mktemp)"
+    tmp="$(mktemp "${manifest}.tmp.XXXXXX")" || return 2
+    cp -p "$manifest" "$tmp" || { rm -f "$tmp"; return 2; }
     awk -v id="$id" '
         /^- id: / {
             if ($0 == "- id: " id) { skipping = 1; next }
             skipping = 0
         }
+        skipping && /^## / { skipping = 0 }
         !skipping
-    ' "$manifest" > "$tmp"
-    mv "$tmp" "$manifest"
+    ' "$manifest" > "$tmp" || { rm -f "$tmp"; return 2; }
+    mv "$tmp" "$manifest" || { rm -f "$tmp"; return 2; }
+}
+
+manifest_insert_entry() {
+    # Insert a complete active-plugin record before the first policy section.
+    # This keeps `## Disabled Defaults` metadata outside ordinary entry blocks.
+    local manifest="$1" entry_file="$2"
+    [ -f "$manifest" ] && [ -f "$entry_file" ] || return 1
+    validate_disabled_defaults_section "$manifest" || return 1
+
+    local tmp
+    tmp="$(mktemp "${manifest}.tmp.XXXXXX")" || return 2
+    cp -p "$manifest" "$tmp" || { rm -f "$tmp"; return 2; }
+    awk '
+        NR == FNR { entry[++entry_count] = $0; next }
+        function emit_entry( i) {
+            for (i = 1; i <= entry_count; i++) print entry[i]
+        }
+        $0 == "## Disabled Defaults" && !inserted {
+            if (previous != "") print ""
+            emit_entry()
+            print ""
+            inserted = 1
+        }
+        { print; previous = $0 }
+        END {
+            if (!inserted) {
+                if (previous != "") print ""
+                emit_entry()
+            }
+        }
+    ' "$entry_file" "$manifest" > "$tmp" || { rm -f "$tmp"; return 2; }
+    mv "$tmp" "$manifest" || { rm -f "$tmp"; return 2; }
+}
+
+# --- trusted disabled-default policy ----------------------------------------
+#
+# `tdd-enforcement` is the sole core-owned default-on plugin. Its disabled
+# state is represented outside active `- id:` records so legacy parsers ignore
+# it. Any ambiguous section fails closed: callers must retain required TDD.
+
+validate_disabled_defaults_section() {
+    local manifest="$1"
+    [ -f "$manifest" ] || return 0
+
+    awk '
+        BEGIN { headings=0; entries=0; invalid=0; in_section=0 }
+        /^## Disabled Defaults/ && $0 != "## Disabled Defaults" {
+            invalid=1
+            next
+        }
+        /^## Disabled Defaults$/ {
+            headings++
+            in_section=1
+            next
+        }
+        in_section && /^## / {
+            in_section=0
+        }
+        in_section {
+            if ($0 == "") next
+            if ($0 == "- tdd-enforcement") {
+                entries++
+                next
+            }
+            invalid=1
+        }
+        END {
+            if (headings > 1 || entries > 1 || invalid) exit 1
+            exit 0
+        }
+    ' "$manifest"
+}
+
+manifest_default_is_disabled() {
+    local manifest="$1" id="$2"
+    [ "$id" = "tdd-enforcement" ] || return 1
+    validate_disabled_defaults_section "$manifest" || return 1
+    [ -f "$manifest" ] || return 1
+
+    awk -v wanted="- $id" '
+        /^## Disabled Defaults$/ { in_section=1; next }
+        in_section && /^## / { in_section=0 }
+        in_section && $0 == wanted { found=1 }
+        END { exit(found ? 0 : 1) }
+    ' "$manifest"
+}
+
+manifest_add_disabled_default() {
+    local manifest="$1" id="$2"
+    [ "$id" = "tdd-enforcement" ] || return 1
+    validate_disabled_defaults_section "$manifest" || return 1
+    manifest_default_is_disabled "$manifest" "$id" && return 0
+
+    local tmp
+    tmp="$(mktemp "${manifest}.tmp.XXXXXX")" || return 2
+    cp -p "$manifest" "$tmp" || { rm -f "$tmp"; return 2; }
+    if grep -q '^## Disabled Defaults$' "$manifest"; then
+        awk -v item="- $id" '
+            BEGIN { inserted=0; in_section=0 }
+            /^## Disabled Defaults$/ {
+                print
+                in_section=1
+                next
+            }
+            in_section && /^## / && !inserted {
+                print item
+                print ""
+                inserted=1
+                in_section=0
+            }
+            { print }
+            END {
+                if (in_section && !inserted) print item
+            }
+        ' "$manifest" > "$tmp" || { rm -f "$tmp"; return 2; }
+    else
+        awk '1; END { if (NR > 0) print "" }' "$manifest" > "$tmp" || {
+            rm -f "$tmp"
+            return 2
+        }
+        printf '## Disabled Defaults\n\n- %s\n' "$id" >> "$tmp"
+    fi
+    mv "$tmp" "$manifest" || { rm -f "$tmp"; return 2; }
+}
+
+manifest_remove_disabled_default() {
+    local manifest="$1" id="$2"
+    [ "$id" = "tdd-enforcement" ] || return 1
+    validate_disabled_defaults_section "$manifest" || return 1
+    [ -f "$manifest" ] || return 0
+
+    local tmp
+    tmp="$(mktemp "${manifest}.tmp.XXXXXX")" || return 2
+    cp -p "$manifest" "$tmp" || { rm -f "$tmp"; return 2; }
+    awk -v item="- $id" '
+        /^## Disabled Defaults$/ { in_section=1; print; next }
+        in_section && /^## / { in_section=0 }
+        in_section && $0 == item { next }
+        { print }
+    ' "$manifest" > "$tmp" || { rm -f "$tmp"; return 2; }
+    mv "$tmp" "$manifest" || { rm -f "$tmp"; return 2; }
 }
 
 manifest_dependents_of() {

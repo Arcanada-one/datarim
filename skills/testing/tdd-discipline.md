@@ -7,6 +7,10 @@ description: Test-Driven Development discipline — RED-GREEN-REFACTOR cycle, Ir
 
 > Loaded from `skills/testing/SKILL.md` § Discipline. Apply alongside testing-pyramid and mocking rules from the entry skill.
 
+## Enforcement State
+
+Before applying this fragment, run `bash "$(for root in "${DATARIM_RUNTIME:-}" "$HOME/.claude" "$HOME/.codex" "$HOME/.cursor"; do [ -n "$root" ] && [ -x "$root/scripts/tdd-enforcement-state.sh" ] && { printf '%s\n' "$root/scripts/tdd-enforcement-state.sh"; break; }; done)" --workspace "<workspace-root>"`. The lookup honors an explicit runtime first and otherwise finds an installed Claude, Codex, or Cursor resolver. If it returns `required`, every strict sequencing rule below is mandatory. If it returns `optional`, the RED-GREEN-REFACTOR sequence is recommended rather than compulsory. Automated tests remain mandatory, and regression coverage, Definition of Done, security, QA, compliance, and verification evidence are unchanged.
+
 ## Core Principle
 
 Write the test first. Watch it fail. Write minimal code to pass.
@@ -30,7 +34,7 @@ Write the test first. Watch it fail. Write minimal code to pass.
 
 Thinking "skip TDD just this once"? Stop. That's rationalization.
 
-## The Iron Law
+## The Iron Law (`required` state)
 
 ```
 NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST

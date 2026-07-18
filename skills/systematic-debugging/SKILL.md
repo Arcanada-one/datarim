@@ -7,6 +7,10 @@ target_aal: 3
 
 # Systematic Debugging
 
+## TDD Enforcement Boundary
+
+Root-cause investigation is mandatory in every state. Before Phase 4 implementation, run `bash "$(for root in "${DATARIM_RUNTIME:-}" "$HOME/.claude" "$HOME/.codex" "$HOME/.cursor"; do [ -n "$root" ] && [ -x "$root/scripts/tdd-enforcement-state.sh" ] && { printf '%s\n' "$root/scripts/tdd-enforcement-state.sh"; break; }; done)" --workspace "<workspace-root>"`. The lookup honors an explicit runtime first and otherwise finds an installed Claude, Codex, or Cursor resolver. `required` mandates a failing regression test before the fix; `optional` permits another test-writing sequence. Automated tests remain mandatory, and security, QA, compliance, and completion-evidence gates remain unchanged.
+
 ## Overview
 
 Random fixes waste time and create new bugs. Quick patches mask underlying issues.

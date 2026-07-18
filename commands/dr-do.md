@@ -5,6 +5,10 @@ description: Implement planned changes using TDD and AI quality principles
 
 # /dr-do - Implementation Mode
 
+## TDD Enforcement Boundary
+
+After resolving the workspace root, run `bash "$(for root in "${DATARIM_RUNTIME:-}" "$HOME/.claude" "$HOME/.codex" "$HOME/.cursor"; do [ -n "$root" ] && [ -x "$root/scripts/tdd-enforcement-state.sh" ] && { printf '%s\n' "$root/scripts/tdd-enforcement-state.sh"; break; }; done)" --workspace "<workspace-root>"` before selecting the implementation sequence. The lookup honors an explicit runtime first and otherwise finds an installed Claude, Codex, or Cursor resolver. A `required` result makes strict RED-GREEN-REFACTOR ordering mandatory. An `optional` result makes test timing an implementation choice. Automated tests remain mandatory, and Definition of Done, security, QA and compliance remain mandatory in both states.
+
 **Role**: Developer Agent
 **Source**: `$HOME/.claude/agents/developer.md`
 
@@ -15,7 +19,7 @@ description: Implement planned changes using TDD and AI quality principles
 1.  **LOAD**: Read `$HOME/.claude/agents/developer.md` and adopt that persona.
 2.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system/SKILL.md` § Path Resolution Rule.
 3.  **TASK RESOLUTION**: Apply Task Resolution Rule from `$HOME/.claude/skills/datarim-system/SKILL.md` § Task Resolution Rule. Use the resolved task ID for all subsequent steps.
-4.  **SKILL**: Read `$HOME/.claude/skills/ai-quality/SKILL.md` (apply rules #2, #3, #8, #9 — see § Stage-Rule Mapping).
+4.  **SKILL**: Read `$HOME/.claude/skills/ai-quality/SKILL.md` (apply rules #2, #3, #8, #9 — see § Stage-Rule Mapping). Apply rule #2's strict sequencing only when the TDD enforcement boundary returns `required`; its test-quality requirements apply in both states.
 5.  **CONTEXT**: Read `datarim/tasks.md` (Implementation Plan for the resolved task). Additionally, read `datarim/tasks/{TASK-ID}-init-task.md` if present (mandatory per `$HOME/.claude/skills/init-task-persistence/SKILL.md`): the verbatim operator brief + every append-log block. Any divergence between the operator's stated intent and the planned implementation MUST be recorded in `datarim/tasks/{TASK-ID}-task-description.md` § Implementation Notes. Missing init-task is non-blocking — flag as advisory and continue.
 
 5.5. **OPERATOR-MANDATED DELEGATION FLOW** (MANDATORY when the operator's project / global CLAUDE.md declares a hook-enforced delegation rule for the artefact type being produced — e.g. «always delegate first, then edit» for archive docs, blog posts, PRD drafts, reflection files):
@@ -36,10 +40,11 @@ description: Implement planned changes using TDD and AI quality principles
     If any check fails — fix before implementing. Do not start coding on a broken foundation.
 
 7.  **ACTION**:
-    - **TDD Loop**: Write test -> Fail -> Code -> Pass.
+    - If the effective state is `required`: **TDD Loop** — write test -> fail -> code -> pass.
+    - If the effective state is `optional`: choose the implementation/test-writing order, then produce meaningful automated regression evidence before completion.
     - Implement one stub/method at a time.
     - Follow `datarim/history/patterns.md` and `datarim/style-guide.md`.
-    - Apply quality rules: max 50 lines/method, max 7-9 objects in scope, tests before code.
+    - Apply quality rules: max 50 lines/method and max 7-9 objects in scope. Test-first order is additionally mandatory only in the `required` state.
 
 7.5 **GAP DISCOVERY** (during implementation):
     If you encounter an unknown that blocks progress (import failure, unexpected API behavior, docs ≠ reality, missing feature, compatibility issue):

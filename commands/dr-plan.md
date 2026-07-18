@@ -8,6 +8,10 @@ globs:
 
 # PLAN Command
 
+## TDD Enforcement Boundary
+
+After resolving the workspace root, run `bash "$(for root in "${DATARIM_RUNTIME:-}" "$HOME/.claude" "$HOME/.codex" "$HOME/.cursor"; do [ -n "$root" ] && [ -x "$root/scripts/tdd-enforcement-state.sh" ] && { printf '%s\n' "$root/scripts/tdd-enforcement-state.sh"; break; }; done)" --workspace "<workspace-root>"`. The lookup honors an explicit runtime first and otherwise finds an installed Claude, Codex, or Cursor resolver. A `required` result means implementation steps use strict RED-GREEN-REFACTOR ordering. An `optional` result permits a different test-writing sequence, but plans must still require meaningful automated tests, regression coverage, and every security, QA, compliance, and evidence gate.
+
 This command generates a detailed implementation plan in `datarim/tasks.md`, strictly following the **Enhanced Design Process** (Phases 4-6).
 
 ## Instructions

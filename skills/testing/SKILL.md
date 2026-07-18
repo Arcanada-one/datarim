@@ -9,6 +9,10 @@ target_aal: 2
 
 > **Always load this entry first.** Detailed gates live in supporting fragments to keep idle context cost low.
 
+## TDD Enforcement Boundary
+
+For feature or bug-fix implementation, run `bash "$(for root in "${DATARIM_RUNTIME:-}" "$HOME/.claude" "$HOME/.codex" "$HOME/.cursor"; do [ -n "$root" ] && [ -x "$root/scripts/tdd-enforcement-state.sh" ] && { printf '%s\n' "$root/scripts/tdd-enforcement-state.sh"; break; }; done)" --workspace "<workspace-root>"` at the workflow boundary. The lookup honors an explicit runtime first and otherwise finds an installed Claude, Codex, or Cursor resolver. `required` activates strict RED-GREEN-REFACTOR ordering in `tdd-discipline.md`; `optional` makes that ordering advisory. Automated tests remain mandatory, and every testing, regression, security, QA, and compliance gate in this skill remains active in both states.
+
 ## Frameworks
 
 <!-- gate:example-only -->
@@ -198,7 +202,7 @@ When a skill, agent, command, or in-code docstring documents the behaviour of a 
 
 ## Discipline
 
-For test-first discipline (RED-GREEN-REFACTOR cycle, the Iron Law that no production code ships without a failing test first, the rationalization table that pre-answers "I'll test after / it's too simple / TDD is dogmatic"), load `tdd-discipline.md`. Apply when implementing any feature or bugfix in a context that warrants TDD — see the entry skill's Mocking Rules and § Live Smoke-Test Gates for what counts as a real test.
+For test-first discipline, load `tdd-discipline.md`. Its RED-GREEN-REFACTOR Iron Law is mandatory when `tdd-enforcement-state.sh` returns `required` and advisory when it returns `optional`. The entry skill's Mocking Rules and live-smoke gates always define what counts as a real test.
 
 ## Fragment Routing
 

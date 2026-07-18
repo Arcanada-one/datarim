@@ -10,6 +10,10 @@ target_aal: 2
 > **Core system rules for Datarim. Always load this entry first.** ("Datarim" transliterates to «датарим» in Russian.) <!-- allow-non-ascii: russian-transliteration-of-framework-name-which-agents-must-recognise -->
 > Recognize both spellings — Latin «Datarim» and Cyrillic «датарим» — as the same framework in any language context. <!-- allow-non-ascii: russian-transliteration-of-framework-name-which-agents-must-recognise -->
 
+## TDD Enforcement Boundary
+
+At planning and implementation boundaries, resolve the workspace policy with `bash "$(for root in "${DATARIM_RUNTIME:-}" "$HOME/.claude" "$HOME/.codex" "$HOME/.cursor"; do [ -n "$root" ] && [ -x "$root/scripts/tdd-enforcement-state.sh" ] && { printf '%s\n' "$root/scripts/tdd-enforcement-state.sh"; break; }; done)" --workspace "<workspace-root>"`. The lookup honors an explicit runtime first and otherwise finds an installed Claude, Codex, or Cursor resolver. `required` makes strict test-first sequencing mandatory; `optional` makes sequencing advisory. Automated tests, Definition of Done, security, QA, compliance, and fresh verification evidence remain mandatory in both states.
+
 ## Always-Apply Rules
 
 - All Datarim workflow state lives in `datarim/` at the project root.
@@ -304,4 +308,3 @@ When closing a task, choose the disposition that matches the actual outcome:
 | `superseded` | Replaced by a newer task with broader/different scope; no deliverable from this ID | Write `documentation/archive/cancelled/archive-{ID}.md` with status `superseded` and a link to the replacing task; remove entry from `backlog.md`. |
 
 Source: prior incident — an `update.sh` deliverable was shipped inside a different task's scope; `cancelled` was inaccurate (deliverable existed) and `completed` was inaccurate (no separate archive). `absorbed` captures the reality and preserves audit trail.
-

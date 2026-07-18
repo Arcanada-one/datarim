@@ -1072,6 +1072,7 @@ setup_cursor_runtime() {
         echo "DRY: copy each $src_dir/skills/<name>/SKILL.md → $cursor_dir/skills/<name>.md"
         echo "DRY: mkdir -p $cursor_dir/commands"
         echo "DRY: copy each $src_dir/commands/dr-*.md → $cursor_dir/commands/dr-<name>.md"
+        echo "DRY: copy $src_dir/scripts/tdd-enforcement-state.sh + lib/plugin-system.sh → $cursor_dir/scripts/"
         echo "DRY: cursor support is operator-validated (R7 deferred-validation)"
         return 0
     fi
@@ -1103,6 +1104,21 @@ setup_cursor_runtime() {
     done
     echo "  CURSOR: mirrored $cmds_copied dr-* command(s) into $cursor_dir/commands/"
     echo "  NOTE: Cursor command fanout is operator-validated — R7 (deferred-validation)."
+
+    # The TDD policy is workspace state, not a Cursor-specific preference.
+    # Install the same resolver used by Claude and Codex so copied command and
+    # skill prompts can evaluate it when DATARIM_RUNTIME points at CURSOR_DIR.
+    local tdd_resolver_src="$src_dir/scripts/tdd-enforcement-state.sh"
+    local plugin_lib_src="$src_dir/scripts/lib/plugin-system.sh"
+    if [ -f "$tdd_resolver_src" ] && [ -f "$plugin_lib_src" ]; then
+        mkdir -p "$cursor_dir/scripts/lib"
+        cp "$tdd_resolver_src" "$cursor_dir/scripts/tdd-enforcement-state.sh"
+        cp "$plugin_lib_src" "$cursor_dir/scripts/lib/plugin-system.sh"
+        chmod +x "$cursor_dir/scripts/tdd-enforcement-state.sh"
+        echo "  CURSOR: installed TDD enforcement resolver → $cursor_dir/scripts/tdd-enforcement-state.sh"
+    else
+        echo "  CURSOR: SKIP TDD enforcement resolver (source missing — non-fatal)"
+    fi
 
     # Install coworker delegation rule into ~/.cursor/rules/. Cursor reads
     # *.mdc files from rules/ with frontmatter `alwaysApply: true` and

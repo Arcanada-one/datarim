@@ -214,7 +214,7 @@ Before writing ANY file to `datarim/`:
 | `/dr-doctor` | Maintenance | Diagnose and repair Datarim operational files — migrate to thin one-liner schema, externalize task descriptions, abolish progress.md |
 | `/dr-dream` | Maintenance | Knowledge base maintenance: organize, lint, index, cross-reference |
 | `/dr-optimize` | Maintenance | Audit framework, prune unused, merge duplicates, sync docs |
-| `/dr-plugin` | Extension | Manage opt-in plugin system (list/enable/disable/sync/doctor — TUNE-0101 v1.23.0). Manifest-driven runtime symlinks, snapshot/rollback, dependency-graph + skill-registry health checks |
+| `/dr-plugin` | Extension | Manage ordinary opt-in plugins plus default-on `tdd-enforcement` (list/enable/disable/sync/doctor). Manifest-driven runtime symlinks, workspace policy tombstones, snapshot/rollback, dependency-graph + skill-registry health checks |
 | `/dr-orchestrate run` | Core+Plugin | Self-driving Datarim pipeline runner (v2.5.0). **Command and autonomy policy are core** (no plugin needed — `dev-tools/rules/fb-rules.yaml` + `dev-tools/fb-policy-loader.sh`). Phase 1 lean rule-based tmux runner; Phase 2 adds multi-backend subagent inference (coworker → claude → codex) for unknown prompts, autonomy L1 → L2 (assisted), flock-race-safe cooldown, audit schema v2. v2.5.0 adds bot-interaction interface. **Tmux/bot transport runner is the opt-in plugin** — `dr-plugin enable <abs-path>/plugins/dr-orchestrate`. Security floor: whitelist + 0x1b escape-block + 500 ms micro + 60 s decision cooldown + 5-violations/hr 1 h pane block. JSONL audit, hash-only credentials. |
 | `/dr-save` | Utility | Capture current session to `datarim/sessions/SESSION-{YYYYMMDD-HHMMSS}.session.md` before context is destroyed. 5-layer body, 32 KB cap (L1/L5 non-truncatable), append-only, claim-provenance enforcement, secret redaction. Cross-runtime: Claude Code / Codex CLI / Cursor. |
 | `/dr-continue` | Utility | Resume from session artefact in a **clean context window**. Re-verifies every claim (STALE SNAPSHOT / CLAIM-UNVERIFIED / FILE-MISSING banners), downgrades provenance, routes to `/dr-next` or `/dr-auto`. Squash-collision detection via `git merge-base --is-ancestor`. |
@@ -284,20 +284,20 @@ Datarim ships with a built-in `datarim-core` set (skills/agents/commands/templat
 /dr-plugin enable /path/to/my-plugin         # absolute path to source dir
 /dr-plugin disable my-plugin
 /dr-plugin sync                              # reconcile runtime ↔ manifest (idempotent)
-/dr-plugin doctor [--fix]                    # 9 health checks
+/dr-plugin doctor [--fix]                    # 10 health checks
 ```
 
-**Manifest:** `datarim/enabled-plugins.md` — single source of truth (one entry per active plugin: `id`, `source`, `version`, `enabled_at`, optional `depends_on`, `overrides`, `file_inventory`).
+**Manifest:** `datarim/enabled-plugins.md` — single source of truth (one entry per active ordinary plugin plus the optional `## Disabled Defaults` policy section). The trusted metadata-only `tdd-enforcement` plugin is enabled by default. `dr-plugin disable tdd-enforcement` makes strict test-first sequencing optional; `dr-plugin enable tdd-enforcement` requires it again. Automated tests and downstream quality gates remain mandatory in both states.
 
 **Symlink layout:** plugin files link into `~/.claude/<category>/<plugin-id>/<basename>` for namespace isolation. Files declared under `overrides:` install at root position `~/.claude/<category>/<basename>` to win the local-overlay precedence. Root-position install is conflict-checked against existing symlinks and regular files.
 
 **Safety:**
 - Pre-mutation snapshot of `runtime/` + `manifest.md` on every `enable` (FIFO cap `DR_PLUGIN_SNAPSHOT_MAX=50`; age-based purge after `DR_PLUGIN_SNAPSHOT_AGE_DAYS=30`).
 - mkdir-based atomic lock (`DR_PLUGIN_LOCK_TIMEOUT=60`) — `flock` is not assumed (macOS portability).
-- Validation gate rejects: invalid plugin id (must be kebab-case, ≤32 chars), embedded credentials in URLs, CRLF in `plugin.yaml` (security), path traversal (`..`), schema_version drift (only `1` accepted).
+- Validation gate rejects: invalid plugin id (must be kebab-case, ≤32 chars), embedded credentials in URLs, control characters in sources, CRLF in `plugin.yaml` (security), path traversal (`..`), schema_version drift (only `1` accepted).
 - Critical-core overrides (`evolution`, `datarim-system`, `pre-archive-check`) emit a warning to stderr and proceed — operator decides.
 
-**Doctor checks (9):** manifest-syntax, inventory-consistency, broken-symlinks, orphan-files, override-integrity, dependency-graph (DFS cycle/dangling), git-state (uncommitted manifest), snapshot-cleanup (>30d), skill-registry (frontmatter `name:` ↔ basename — closes Skill-tool resolution gap).
+**Doctor checks (10):** manifest-syntax, inventory-consistency, broken-symlinks, orphan-files, override-integrity, dependency-graph (DFS cycle/dangling), git-state (uncommitted manifest), snapshot-cleanup (>30d), skill-registry (frontmatter `name:` ↔ basename — closes Skill-tool resolution gap), disabled-defaults (trusted default-policy syntax).
 
 **Personal additions vs plugins:** `~/.claude/local/{skills,agents,commands,templates}/` (gitignored overlay) is for one-off personal stuff. `/dr-plugin` is for shareable, versioned extensions distributed as a unit.
 

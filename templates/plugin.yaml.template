@@ -39,3 +39,8 @@ homepage: https://example.com/my-plugin
 # Plugins that MUST be enabled before this one:
 # depends_on:
 #   - other-plugin-id
+
+# Reserved core metadata --------------------------------------------------
+# `default_enabled` is accepted only for Datarim's bundled, trusted
+# `tdd-enforcement` policy plugin. Third-party plugins MUST NOT declare it;
+# ordinary plugins remain opt-in through `/dr-plugin enable <source>`.
