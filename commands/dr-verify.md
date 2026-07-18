@@ -1,12 +1,14 @@
 ---
 name: dr-verify
-description: Standalone self-verification of a Datarim artifact (PRD/plan/do output). Tri-layer architecture (v2): Layer 1 deterministic floor (shell pipeline, no LLM cost) + Layer 2 cross-model peer-review (DeepSeek via coworker, ~14× cheaper than Sonnet) + Layer 3 native runtime dispatch (Claude 3-agent parallel; Codex single-prompt retained as [experimental] fallback). Findings-only mode.
+description: Standalone manual self-verification of a Datarim artifact (PRD/plan/do output). Full tri-layer architecture: deterministic floor, native peer-review, and runtime dispatch. Findings-only mode.
 ---
 
 # /dr-verify - Standalone Self-Verification (Tri-Layer)
 
 **Role**: Verifier (orchestrated via self-verification skill)
 **Source**: skill `code/datarim/skills/self-verification/SKILL.md`
+
+This command is the manual consumer of the skill's full tri-layer profile. Automatic PRD/plan/do completion uses the skill's internal `post_step` profile inline from the parent stage; it is not exposed as a `/dr-verify` flag and does not change the arguments or behavior below.
 
 ## Instructions
 
@@ -89,7 +91,7 @@ After `/dr-do` (or manual operator fix) addressing findings:
 
 ## Constraints
 
-- **Stack-agnostic** mandate. All three layers run identically under any runtime; Layer 2 vendor-neutral via coworker abstraction.
+- **Stack-agnostic** mandate. All three logical layers apply under any supported runtime; semantic judgment stays in the selected native agent runtime.
 - **`--peer-provider` is now an override, not a default.** Provider auto-resolves via `dev-tools/resolve-peer-provider.sh` chain when flag is omitted. External coworker providers (`deepseek`, `moonshot`, `openrouter`) are intentionally invalid for verification because adversarial review must be performed by the selected agent runtime, not delegated to coworker.
 - **Read-only** subagent tool whitelist (Read, Grep, Glob, Bash read-only). **NO** Write, Edit, NotebookEdit at all layers.
 - **Cost budget cap**: `--cost-cap=N` (default 1.25× baseline `/dr-do`). If Layer 2 + Layer 3 combined cost exceeds cap, warn operator and continue (do not auto-degrade — operator decides).

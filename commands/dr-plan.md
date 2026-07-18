@@ -239,6 +239,8 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
     -   On contradiction with an expectation: add `--conflict-with <wish_id>`; CTA MUST route work back to `/dr-prd` (revise discovery) or `/dr-do --focus-items <wish_id>` (when the conflict is implementation-detail level).
     -   Skip if no clarification rounds occurred. Utility exit 0 = appended; 1 = IO/validation error; 2 = usage error.
 
+12.7. **AUTOMATIC POST-STEP SELF-VERIFICATION**: After the plan, expectations, spec-graph, symbol, security, network, Class B surface, and Q&A gates above have succeeded, apply `skills/self-verification/SKILL.md` § Automatic post_step profile inline with `{TASK-ID}` and `stage=plan`. Do not invoke `/dr-verify` or a shell semantic dispatcher. L1 performs no verification work; L2 uses exactly `peer-reviewer`; L3/L4 use exactly `reviewer`, `tester`, and `security` in parallel after the deterministic floor. Only a complete, non-blocking result may use the normal advancing route. Incomplete or blocking execution routes within the parent stage, and the parent alone owns the CTA and snapshot.
+
 13.  **Output Summary**:
     -   Confirm task status update.
     -   List next steps by complexity:
@@ -308,6 +310,8 @@ After plan generation, the planner agent MUST emit a CTA block ([definition](../
 
 **Routing logic for `/dr-plan`:**
 
+- Automatic `post_step` result `execution_status: incomplete` or verdict `BLOCKED` → primary `/dr-plan {TASK-ID}`; this overrides every normal advancing route.
+- Automatic `post_step` result `execution_status: complete` with verdict `CONDITIONAL` → retain the findings in the audit and use the normal non-blocking route below.
 - L3-4 with creative-phase needs → primary `/dr-design {TASK-ID}` (auto-transition for L3-4)
 - L3-4 without creative-phase needs → primary `/dr-do {TASK-ID}` (skip design)
 - L1-2 → primary `/dr-do {TASK-ID}` (begin TDD)

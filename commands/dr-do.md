@@ -122,9 +122,11 @@ After resolving the workspace root, run `bash "$(for root in "${DATARIM_RUNTIME:
     -   Skip if no clarification rounds occurred.
     -   **Applies to every round** (round 1, round 2, …) of `/dr-do` invocation — including post-`/dr-verify` triage and `--focus=` re-entry. Round number MUST monotonically increase; do not reuse `--round N` from a prior call. Missing append triggers `/dr-qa` Layer 3b retroactive backfill (a process-cost regression).
 
+8.7. **AUTOMATIC POST-STEP SELF-VERIFICATION**: After implementation, tests, spec-graph evidence, review-finding disposition, network checks when applicable, and Q&A persistence above have succeeded, first persist the current implementation notes and executable evidence in `datarim/tasks/{TASK-ID}-task-description.md`. Only after that write succeeds, apply `skills/self-verification/SKILL.md` § Automatic post_step profile inline with `{TASK-ID}` and `stage=do`. Supply the approved PRD, executable plan, persisted task-description implementation notes, task-owned diff or commit, and captured test evidence. A QA report is optional because `/dr-qa` follows this stage. Do not invoke `/dr-verify` or a shell semantic dispatcher. L1 performs no verification work; L2 uses exactly `peer-reviewer`; L3/L4 use exactly `reviewer`, `tester`, and `security` in parallel after the deterministic floor. Only a complete, non-blocking result may use the normal advancing route. Incomplete or blocking execution routes within the parent stage, and the parent alone owns the CTA and snapshot.
+
 9.  **OUTPUT** (thin-index schema):
     -   Code changes (committed per Workspace Discipline rules in CLAUDE.md).
-    -   Update `datarim/tasks/{TASK-ID}-task-description.md` § Implementation Notes with implementation log (or `## Decisions` for design choices). Description file frontmatter `status` stays `in_progress` until `/dr-archive`.
+    -   Confirm the implementation log already persisted before Step 8.7 remains current (or update `## Decisions` for later presentation-only choices). Description file frontmatter `status` stays `in_progress` until `/dr-archive`.
     -   Update `datarim/tasks.md` one-liner if status transitions (e.g. `in_progress` → `blocked`); the line itself stays in canonical thin-index format.
     -   Backlog updates if subtasks discovered (new `pending` one-liners in `datarim/backlog.md`).
     -   **Never write `datarim/progress.md`** (abolished as of v1.19.0). Per-task notes go in the description file; cross-task completion log is `activeContext.md` § «Последние завершённые», populated by `/dr-archive`. <!-- allow-non-ascii: russian-active-context-section-name-cited-from-canonical-schema -->
@@ -159,6 +161,8 @@ After implementation, the developer agent MUST emit a CTA block ([definition](..
 
 **Routing logic for `/dr-do`:**
 
+- Automatic `post_step` result `execution_status: incomplete` or verdict `BLOCKED` → primary `/dr-do {TASK-ID}`; this overrides every normal advancing route.
+- Automatic `post_step` result `execution_status: complete` with verdict `CONDITIONAL` → retain the findings in the audit and use the normal non-blocking route below.
 - All checks pass, L3-4 → primary `/dr-qa {TASK-ID}` (multi-layer verification)
 - All checks pass, L1-2 → primary `/dr-archive {TASK-ID}` (reflection runs as Step 0.5)
 - Checks incomplete → primary `/dr-do {TASK-ID}` (continue) + alternative `/dr-status`

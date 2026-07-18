@@ -10,6 +10,14 @@ init → prd → plan → design → do → qa → compliance → archive
 
 > **Visual navigation:** Load `visual-maps.md` skill for mermaid diagrams of pipeline routing, stage flows, and agent-skill-command relationships.
 
+### Automatic stage completion verification
+
+PRD, plan, and do have a shared completion boundary: save the artifact, run the stage's deterministic validators, apply the self-verification skill's internal `post_step` profile, then let the parent stage choose its CTA and write its snapshot. This ordering prevents an invalid artifact from spending model budget and prevents review output from creating a second routing block.
+
+The profile is complexity-tiered: L1 performs no verification work; L2 runs the deterministic floor and exactly one `peer-reviewer`; L3/L4 run the floor and exactly three independent roles (`reviewer`, `tester`, and `security`) in parallel. It is one-pass, read-only, and findings-only. Complete execution is separate from finding severity: a missing, malformed, timed-out, unsupported, provider-failed, or cost-stopped required review is incomplete and cannot PASS or advance.
+
+The automatic path is an inline skill profile, not a plugin, shell dispatcher, or recursive `/dr-verify` call. Standalone `/dr-verify` keeps its manual full tri-layer behavior for broader on-demand review.
+
 ---
 
 ## Stage 1: /dr-init — Task Initialization
@@ -43,6 +51,7 @@ init → prd → plan → design → do → qa → compliance → archive
 4. For L3-4: optional consilium panel review
 5. User consultation — present alternatives, wait for approval
 6. Generate PRD document in `datarim/prd/`
+7. After validators pass, run automatic post-step self-verification before CTA/snapshot routing
 
 ---
 
@@ -60,6 +69,7 @@ init → prd → plan → design → do → qa → compliance → archive
 6. Implementation steps with code examples
 7. Rollback strategy
 8. Validation checklist
+9. After validators pass, run automatic post-step self-verification before CTA/snapshot routing
 
 ---
 
@@ -88,7 +98,8 @@ init → prd → plan → design → do → qa → compliance → archive
 3. TDD loop: Write test → Fail → Code → Pass
 4. Implement one method/stub at a time (apply rules #2, #3, #8, #9)
 5. Follow project patterns and style guide
-6. Update `datarim/progress.md`
+6. Record implementation notes and executable evidence in the task description
+7. After tests and validators pass, run automatic post-step self-verification before QA routing
 
 **Note:** For content-focused tasks (articles, research, documentation), `/dr-write` replaces `/dr-do` as the execution stage.
 
