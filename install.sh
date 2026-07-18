@@ -135,6 +135,7 @@ SKIPPED=0
 FANOUT_CLAUDE=false
 FANOUT_CODEX=false
 FANOUT_CODEX_UX=true       # generate SKILL.md wrappers + AGENTS.override.md; --no-codex-ux opts out
+ENABLE_CODEX_PROMPTS=false # --enable-codex-prompts: mirror commands into ~/.codex/prompts/ for /prompts:dr-* (opt-in; R8 deferred-validation)
 FANOUT_CURSOR=false        # Cursor IDE skill mirroring (--with-cursor)
 
 # Sentinel markers delimiting the auto-synced coworker-delegation
@@ -157,6 +158,10 @@ Usage:
   install.sh --with-claude          Install for Claude runtime (symlink default)
   install.sh --with-codex           Install for Codex runtime
   install.sh --with-codex --no-codex-ux  Codex install without UX wrappers/manifest
+  install.sh --with-codex --enable-codex-prompts  Also mirror commands into ~/.codex/prompts/
+                                    so Codex exposes them as /prompts:dr-* (opt-in; the
+                                    /prompts: mechanism is a legacy Codex feature — R8
+                                    deferred-validation, operator-validated)
   install.sh --with-cursor          Install for Cursor IDE (flat .md mirror of each SKILL.md;
                                     target: $CURSOR_DIR/skills/ — default ~/.cursor/skills/.
                                     Cursor's skill discovery is not yet officially documented;
@@ -203,6 +208,7 @@ parse_args() {
             --with-claude)  FANOUT_CLAUDE=true; shift ;;
             --with-codex)   FANOUT_CODEX=true; shift ;;
             --no-codex-ux)  FANOUT_CODEX_UX=false; shift ;;
+            --enable-codex-prompts) ENABLE_CODEX_PROMPTS=true; shift ;;
             --with-cursor)  FANOUT_CURSOR=true; shift ;;
             --project)
                 if [ $# -lt 2 ]; then
@@ -1267,6 +1273,50 @@ fanout_codex_ux() {
     echo "  MANIFEST: $codex_dir/AGENTS.override.md"
 }
 
+# mirror_prompts_target — opt-in Codex CLI /prompts:<name> parity (--enable-codex-prompts).
+#
+# Flat-copies each commands/dr-<name>.md into $codex_dir/prompts/dr-<name>.md so
+# Codex CLI exposes them as `/prompts:dr-<name>` slash-commands (empirically
+# confirmed on codex-cli 0.133.0). Flat copy, not symlink: Windows/FAT support
+# plus the R8 deferred-validation posture — Codex documents the `/prompts:`
+# mechanism as legacy and may retire it in a future release, so the feature is
+# opt-in (default off) and the on-disk shape is deliberately conservative.
+#
+# Namespace-conflict guard: a pre-existing prompts/dr-<name>.md we did NOT write
+# (detected by the absence of the provenance marker on its first line) is left
+# untouched and reported, never overwritten. Files we did write carry the marker
+# and are refreshed idempotently.
+mirror_prompts_target() {
+    local codex_dir="$1" src_dir="$2"
+    local prompts_dir="$codex_dir/prompts"
+    if [ "$DRY_RUN" = true ]; then
+        echo "DRY: mkdir -p $prompts_dir"
+        echo "DRY: copy each $src_dir/commands/dr-*.md → $prompts_dir/dr-<name>.md (flat)"
+        echo "DRY: /prompts:dr-* parity is operator-validated (R8 deferred-validation)"
+        return 0
+    fi
+
+    mkdir -p "$prompts_dir"
+    local marker='<!-- datarim-managed prompt mirror — regenerate via install.sh --enable-codex-prompts -->'
+    local cmd_md name dst copied=0 skipped=0
+    for cmd_md in "$src_dir"/commands/dr-*.md; do
+        [ -f "$cmd_md" ] || continue
+        name=$(basename "$cmd_md")
+        dst="$prompts_dir/$name"
+        if [ -e "$dst" ] && ! head -n 1 "$dst" 2>/dev/null | grep -qF "$marker"; then
+            echo "  SKIP: $dst exists and is not Datarim-managed — left untouched (namespace conflict)" >&2
+            skipped=$((skipped + 1))
+            continue
+        fi
+        { printf '%s\n' "$marker"; cat "$cmd_md"; } > "$dst"
+        copied=$((copied + 1))
+    done
+    echo "  PROMPTS: mirrored $copied command(s) into $prompts_dir/ (/prompts:dr-* parity)"
+    [ "$skipped" -gt 0 ] && echo "  NOTE: skipped $skipped non-Datarim prompt file(s) — resolve manually." >&2
+    echo "  NOTE: /prompts: is a legacy Codex mechanism — R8 (deferred-validation), operator-validated."
+    return 0
+}
+
 # setup_cursor_runtime.
 #
 # Mirrors each migrated `skills/<name>/SKILL.md` from the source repo into
@@ -1391,6 +1441,9 @@ print_dry_run_plan() {
         if [ "$FANOUT_CODEX_UX" = true ]; then
             fanout_codex_ux "$CLAUDE_DIR" "$SCRIPT_DIR"
         fi
+        if [ "$ENABLE_CODEX_PROMPTS" = true ]; then
+            mirror_prompts_target "$CLAUDE_DIR" "$SCRIPT_DIR"
+        fi
     fi
     if [ "$runtime_name" = "claude" ]; then
         echo "DRY: sync coworker-delegation fragment into $CLAUDE_DIR/CLAUDE.md (sentinel block)"
@@ -1448,6 +1501,9 @@ install_symlink_scopes() {
         if [ "$FANOUT_CODEX_UX" = true ]; then
             fanout_codex_ux "$CLAUDE_DIR" "$SCRIPT_DIR"
         fi
+        if [ "$ENABLE_CODEX_PROMPTS" = true ]; then
+            mirror_prompts_target "$CLAUDE_DIR" "$SCRIPT_DIR"
+        fi
     fi
 }
 
@@ -1491,6 +1547,9 @@ install_copy_scopes() {
         COPIED=$((COPIED + 1))
         if [ "$FANOUT_CODEX_UX" = true ]; then
             fanout_codex_ux "$CLAUDE_DIR" "$SCRIPT_DIR"
+        fi
+        if [ "$ENABLE_CODEX_PROMPTS" = true ]; then
+            mirror_prompts_target "$CLAUDE_DIR" "$SCRIPT_DIR"
         fi
     fi
 }

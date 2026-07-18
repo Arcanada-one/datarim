@@ -118,6 +118,21 @@ Pass `--no-codex-ux` when:
 
 The flag composes with all other flags (`--with-codex --no-codex-ux`, `--with-claude --with-codex --no-codex-ux`, `--with-codex --no-codex-ux --dry-run`).
 
+### Optional: `/prompts:dr-*` slash-commands (`--enable-codex-prompts`)
+
+Codex CLI can also surface each Datarim command as a native `/prompts:<name>` slash-command by reading flat `.md` files from `~/.codex/prompts/`. This is **opt-in** (default off) — pass `--enable-codex-prompts`:
+
+```bash
+./install.sh --with-codex --enable-codex-prompts
+```
+
+It flat-copies every `commands/dr-*.md` into `~/.codex/prompts/dr-<name>.md`, after which Codex CLI exposes them as `/prompts:dr-status`, `/prompts:dr-do`, and so on (empirically confirmed on codex-cli 0.133.0). The copy is a **flat file, not a symlink** — safe on Windows / FAT and consistent with the conservative deferred-validation posture below.
+
+- **Namespace-conflict guard.** A pre-existing `~/.codex/prompts/dr-<name>.md` that Datarim did not write (its first line lacks the `datarim-managed prompt mirror` marker) is left untouched and reported — the installer never overwrites your own prompt files. Files Datarim wrote carry the marker and are refreshed idempotently on each run.
+- **Accepted risk R8 (deferred-validation).** Codex documents the `/prompts:` mechanism as a legacy feature that a future release may retire. Because of that, this parity is feature-flagged opt-in and operator-validated: run `/prompts:dr-status` in Codex CLI after install and confirm it returns the stage header. If Codex removes the mechanism, drop the flag — nothing else in the install depends on it.
+
+This composes with `--no-codex-ux` (the prompts mirror is independent of the SKILL.md-wrapper UX) and with `--dry-run` (prints the planned copies, mutates nothing).
+
 ## Optional: Coworker `codex` profile
 
 If you use `coworker` to delegate bulk I/O to an external LLM, register a `codex` profile so the system prompt is aware of Codex CLI conventions (slash-commands are pipeline commands, not shell input; YAML frontmatter is byte-exact).
@@ -155,6 +170,41 @@ Two practical checks before a parallel session:
 2. **No mutations from read-only Codex calls** — `git status --porcelain datarim/` should stay empty after `codex exec "ls datarim/"` or similar look-ups; mutations indicate a slash-command was triggered, not a lookup.
 
 The two runtimes do not interlock at the OS level — concurrency safety is enforced by the same `flock` + git-add-p discipline Claude Code already uses.
+
+## Cross-runtime `/dr-auto` smoke
+
+`/dr-auto` turns on autonomous mode through two pure-bash primitives, not a Claude-Code-only hook:
+
+- a marker file at `datarim/.auto-mode-active` (written and re-asserted by `dev-tools/auto-mode-marker.sh`), and
+- an explicit auto-signal carried in each stage subagent's prompt.
+
+Because a spawned Codex CLI or Cursor subagent does **not** inherit the shell's `DATARIM_AUTO_MODE` environment variable, the marker-plus-signal path must stand on its own — and it does. That makes the activation contract runtime-agnostic. Confirm it on any runtime before dogfooding a full autonomous cycle there.
+
+### Step 1 — preflight (any runtime shell)
+
+Run the pure-bash preflight from the runtime's own shell (Codex CLI's `codex exec` sandbox, a Cursor terminal, or Claude Code):
+
+```bash
+${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-dr-auto-cross-runtime.sh --report
+```
+
+It exercises three properties and exits 0 only when all hold:
+
+1. **Activation** — `auto-mode-marker.sh reassert` writes a parseable marker.
+2. **Env-var independence** — `subagent-active` returns `active` / `non-auto` correctly with `DATARIM_AUTO_MODE` unset (the cross-runtime property).
+3. **Hard-gate data** — `dev-tools/rules/fb-rules.yaml` declares a non-empty `hard_gated_actions` list (the actions that never auto-execute on any runtime).
+
+A green preflight is evidence the primitives are portable to that runtime. A red preflight means the activation contract would not hold there — fix it before the interactive smoke, do not proceed.
+
+### Step 2 — interactive full-cycle smoke (per runtime)
+
+After a full `/dr-auto` pipeline cycle has run cleanly on Claude Code in a fresh session, repeat it on the target runtime against a throwaway task:
+
+1. **Activation marker** — invoke `/dr-auto "<throwaway brief>"`; confirm `datarim/.auto-mode-active` appears with the task's `task_id`.
+2. **Ladder behaviour** — confirm the runtime suppresses pipeline clarification questions (Question Suppression Ladder engaged) and closes small Class-A gaps inline instead of asking.
+3. **Hard-gated escalation** — confirm a hard-gated action (e.g. a production deploy or a public message) still stops and escalates to the operator rather than auto-executing.
+
+Record the runtime, the task id, and the three outcomes. This is the manual half of the check the preflight cannot automate — actually spawning subagents under the target runtime.
 
 ## Troubleshooting
 

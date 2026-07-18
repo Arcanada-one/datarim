@@ -77,37 +77,15 @@ _snapshot_render_frontmatter() {
     printf -- '---\n\n'
 }
 
-# Public entry point.
-write_stage_snapshot() {
-    if [ "${DATARIM_DISABLE_SNAPSHOT:-0}" = "1" ]; then
-        return 0
-    fi
+# Validate collected arguments. Prints diagnostics to stderr and returns the
+# writer's canonical exit codes: 2 for missing flags / usage, 1 for an invalid
+# value (bad TASK-ID, bad stage, missing body, non-dir root, nested datarim/).
+# --options-file is intentionally NOT required (defaults to an empty options
+# list); only the seven flags below are mandatory.
+_snapshot_validate_inputs() {
+    local root="$1" task_id="$2" stage="$3" command="$4"
+    local captured_by="$5" recommended_next="$6" body_file="$7"
 
-    local root="" task_id="" stage="" command="" captured_by=""
-    local recommended_next="" options_file="" body_file=""
-    local captured_at=""
-
-    while [ $# -gt 0 ]; do
-        case "$1" in
-            --root) root="$2"; shift 2 ;;
-            --task) task_id="$2"; shift 2 ;;
-            --stage) stage="$2"; shift 2 ;;
-            --command) command="$2"; shift 2 ;;
-            --captured-by) captured_by="$2"; shift 2 ;;
-            --recommended-next) recommended_next="$2"; shift 2 ;;
-            --options-file) options_file="$2"; shift 2 ;;
-            --body-file) body_file="$2"; shift 2 ;;
-            --captured-at) captured_at="$2"; shift 2 ;;
-            -h|--help) snapshot_writer_usage; return 2 ;;
-            *) printf 'write_stage_snapshot: unknown arg %q\n' "$1" >&2
-               snapshot_writer_usage; return 2 ;;
-        esac
-    done
-
-    # Argument validation. Name the specific missing flag(s) before the usage
-    # block so callers do not have to re-read the whole usage to find the gap.
-    # --options-file is intentionally NOT required (defaults to an empty options
-    # list); only these seven flags are mandatory.
     local missing=""
     [ -z "$root" ]             && missing="$missing --root"
     [ -z "$task_id" ]          && missing="$missing --task"
@@ -127,29 +105,163 @@ write_stage_snapshot() {
             "$task_id" "$SNAPSHOT_TASK_ID_RE" >&2
         return 1
     fi
-
     if ! _snapshot_validate_stage "$stage"; then
         printf 'write_stage_snapshot: invalid stage %q\n' "$stage" >&2
         return 1
     fi
-
     if [ ! -f "$body_file" ]; then
         printf 'write_stage_snapshot: body file missing: %s\n' "$body_file" >&2
         return 1
     fi
-
     if [ ! -d "$root" ]; then
         printf 'write_stage_snapshot: root not a directory: %s\n' "$root" >&2
         return 1
     fi
-
-    # --root is repo-root by canon (resolve-datarim-root.sh). Refuse a root that
-    # is itself inside a datarim/ — building "$root/datarim/snapshots" from such
-    # a root is the datarim/datarim/ nesting vector (PRD V-AC-5). Reject loudly
-    # rather than silently writing a misplaced KB.
+    # --root is repo-root by canon. Refuse a root that is itself inside a
+    # datarim/ — building "$root/datarim/snapshots" from such a root is the
+    # datarim/datarim/ nesting vector (PRD V-AC-5). Reject loudly.
     if ! assert_not_nested_datarim "$root"; then
         return 1
     fi
+    return 0
+}
+
+# Copy the body into $out_tmp, truncating to fit under the byte cap if needed.
+# Echoes "true" when truncated, "false" otherwise. Byte counts use wc -c —
+# ${#var} counts characters and would undercount UTF-8 content.
+_snapshot_prepare_body() {
+    local body_file="$1" fm_bytes="$2" out_tmp="$3"
+    local body_bytes marker_bytes max_body
+    body_bytes="$(wc -c < "$body_file" | tr -d ' ')"
+    marker_bytes="$(printf '%s' "$SNAPSHOT_TRUNCATION_MARKER" | wc -c | tr -d ' ')"
+    # Reserve frontmatter + marker + leading newline + trailing newline.
+    max_body=$(( SNAPSHOT_MAX_BYTES - fm_bytes - marker_bytes - 2 ))
+    [ "$max_body" -lt 0 ] && max_body=0
+
+    if [ "$body_bytes" -gt "$max_body" ]; then
+        # Keep first $max_body bytes, then strip any trailing partial UTF-8
+        # codepoint via `iconv -c`. `head -c` is byte-accurate but
+        # codepoint-ignorant: a cut landing mid-sequence yields invalid UTF-8.
+        # macOS libiconv exits 1 + warns on incomplete trailing sequences (the
+        # very case we normalise), so absorb the exit code and silence stderr.
+        local raw_chunk="${out_tmp}.raw"
+        head -c "$max_body" "$body_file" > "$raw_chunk"
+        iconv -c -f UTF-8 -t UTF-8 "$raw_chunk" > "$out_tmp" 2>/dev/null || true
+        rm -f "$raw_chunk"
+        printf '\n%s\n' "$SNAPSHOT_TRUNCATION_MARKER" >> "$out_tmp"
+        echo "true"
+    else
+        cp "$body_file" "$out_tmp"
+        echo "false"
+    fi
+}
+
+# Compose the final snapshot at $final_path via a temp file and an atomic
+# rename: worst-case frontmatter probe, body sizing/truncation, real
+# frontmatter, fsync, chmod 600.
+_snapshot_render_and_write() {
+    local task_id="$1" stage="$2" command="$3" captured_at="$4"
+    local captured_by="$5" recommended_next="$6" options_file="$7"
+    local body_file="$8" tmp_path="$9" final_path="${10}"
+
+    # Worst-case probe (size_bytes at the cap width, truncated=true) so the real
+    # frontmatter is never longer than what we reserve for.
+    local fm_probe fm_bytes truncated fm_final
+    fm_probe="$(_snapshot_render_frontmatter \
+        "$task_id" "$stage" "$command" "$captured_at" "$captured_by" \
+        "$recommended_next" "$options_file" "$SNAPSHOT_MAX_BYTES" "true")"
+    fm_bytes="$(printf '%s' "$fm_probe" | wc -c | tr -d ' ')"
+
+    local body_tmp="${tmp_path}.body"
+    truncated="$(_snapshot_prepare_body "$body_file" "$fm_bytes" "$body_tmp")"
+
+    local final_body_bytes size_bytes
+    final_body_bytes="$(wc -c < "$body_tmp" | tr -d ' ')"
+    size_bytes=$(( fm_bytes + final_body_bytes ))
+
+    fm_final="$(_snapshot_render_frontmatter \
+        "$task_id" "$stage" "$command" "$captured_at" "$captured_by" \
+        "$recommended_next" "$options_file" "$size_bytes" "$truncated")"
+
+    {
+        printf '%s' "$fm_final"
+        cat "$body_tmp"
+    } > "$tmp_path"
+    rm -f "$body_tmp"
+
+    chmod 600 "$tmp_path" 2>/dev/null || true
+
+    # fsync via dd (POSIX-portable; older dd without conv=fsync falls through —
+    # mv is still atomic on POSIX).
+    if ! dd if="$tmp_path" of="$tmp_path" conv=notrunc,fsync count=0 2>/dev/null; then
+        :
+    fi
+
+    # Atomic rename. Pre-unlink of a symlink target is handled by the caller.
+    mv -f "$tmp_path" "$final_path"
+}
+
+# Harness journal hook — auto-detect /tmp/datarim-test-{task_id}. If the
+# operator initialised the test harness for this TASK-ID via
+# dev-tools/datarim-stage-probe-init.sh, append one journal line per writer
+# call. Fail-soft per V-AC-7 contract — never abort the snapshot.
+_snapshot_journal_hook() {
+    local journal_dir="$1" task_id="$2" stage="$3" captured_at="$4"
+    local body_file="$5" final_path="$6"
+    [ -d "$journal_dir" ] || return 0
+    [ -L "$journal_dir" ] && return 0
+
+    local _first _hdr_y _cta_y _sha
+    _first="$(head -1 "$body_file" 2>/dev/null || true)"
+    if printf '%s\n' "$_first" | grep -qE "^\\*\\*${task_id} · "; then
+        _hdr_y=y
+    else
+        _hdr_y=n
+    fi
+    if grep -qE "Следующий шаг — ${task_id}|/dr-[a-z]+ ${task_id}|primary CTA" \
+            "$body_file" 2>/dev/null; then
+        _cta_y=y
+    else
+        _cta_y=n
+    fi
+    _sha="$(shasum -a 256 "$final_path" 2>/dev/null \
+        | awk '{print substr($1,1,12)}' || echo "------------")"
+    {
+        printf '%s · %s · header-present:%s · snapshot-written:y · cta-footer:%s · snapshot-sha:%s\n' \
+            "$stage" "$captured_at" "$_hdr_y" "$_cta_y" "$_sha"
+    } >> "${journal_dir}/journal.md" 2>/dev/null || true
+    return 0
+}
+
+# Public entry point. Parses flags, then delegates validation, composition, the
+# atomic write, and the harness journal hook to the helpers above.
+write_stage_snapshot() {
+    if [ "${DATARIM_DISABLE_SNAPSHOT:-0}" = "1" ]; then
+        return 0
+    fi
+
+    local root="" task_id="" stage="" command="" captured_by=""
+    local recommended_next="" options_file="" body_file="" captured_at=""
+
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --root) root="$2"; shift 2 ;;
+            --task) task_id="$2"; shift 2 ;;
+            --stage) stage="$2"; shift 2 ;;
+            --command) command="$2"; shift 2 ;;
+            --captured-by) captured_by="$2"; shift 2 ;;
+            --recommended-next) recommended_next="$2"; shift 2 ;;
+            --options-file) options_file="$2"; shift 2 ;;
+            --body-file) body_file="$2"; shift 2 ;;
+            --captured-at) captured_at="$2"; shift 2 ;;
+            -h|--help) snapshot_writer_usage; return 2 ;;
+            *) printf 'write_stage_snapshot: unknown arg %q\n' "$1" >&2
+               snapshot_writer_usage; return 2 ;;
+        esac
+    done
+
+    _snapshot_validate_inputs "$root" "$task_id" "$stage" "$command" \
+        "$captured_by" "$recommended_next" "$body_file" || return $?
 
     if [ -z "$captured_at" ]; then
         captured_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -177,103 +289,12 @@ write_stage_snapshot() {
         rm -f "$final_path"
     fi
 
-    # Compose a worst-case frontmatter probe (size_bytes uses the cap width,
-    # truncated=true) so the real frontmatter is never longer. Byte counts use
-    # wc -c — ${#var} counts characters and would undercount UTF-8 content
-    # (option strings, the truncation marker itself).
-    local fm_probe fm_bytes body_bytes max_body marker_bytes fm_final
-    fm_probe="$(_snapshot_render_frontmatter \
+    _snapshot_render_and_write \
         "$task_id" "$stage" "$command" "$captured_at" "$captured_by" \
-        "$recommended_next" "$options_file" "$SNAPSHOT_MAX_BYTES" "true")"
-    fm_bytes="$(printf '%s' "$fm_probe" | wc -c | tr -d ' ')"
-    body_bytes="$(wc -c < "$body_file" | tr -d ' ')"
-    marker_bytes="$(printf '%s' "$SNAPSHOT_TRUNCATION_MARKER" | wc -c | tr -d ' ')"
+        "$recommended_next" "$options_file" "$body_file" "$tmp_path" "$final_path"
 
-    local truncated="false"
-    # Reserve frontmatter + marker + leading newline + trailing newline.
-    max_body=$(( SNAPSHOT_MAX_BYTES - fm_bytes - marker_bytes - 2 ))
-    if [ "$max_body" -lt 0 ]; then
-        max_body=0
-    fi
-
-    local body_tmp="${tmp_path}.body"
-    if [ "$body_bytes" -gt "$max_body" ]; then
-        # Keep first $max_body bytes, then strip any trailing partial UTF-8
-        # codepoint via `iconv -c` (POSIX; macOS libiconv + Linux glibc).
-        # `head -c` is byte-accurate but codepoint-ignorant: a cut landing
-        # mid-sequence yields invalid UTF-8 (TUNE-0254 F5 from /dr-verify).
-        # `iconv -c` drops invalid/incomplete sequences; final size may shrink
-        # by up to 3 bytes (max codepoint length - 1) below the nominal
-        # max_body, which is well within the SNAPSHOT_MAX_BYTES cap.
-        # macOS libiconv exits 1 + writes a stderr warning on incomplete
-        # trailing sequences (the very case we are normalising), so we
-        # absorb the exit code with `|| true` and silence stderr.
-        local raw_chunk="${body_tmp}.raw"
-        head -c "$max_body" "$body_file" > "$raw_chunk"
-        iconv -c -f UTF-8 -t UTF-8 "$raw_chunk" > "$body_tmp" 2>/dev/null || true
-        rm -f "$raw_chunk"
-        printf '\n%s\n' "$SNAPSHOT_TRUNCATION_MARKER" >> "$body_tmp"
-        truncated="true"
-    else
-        cp "$body_file" "$body_tmp"
-    fi
-
-    local final_body_bytes
-    final_body_bytes="$(wc -c < "$body_tmp" | tr -d ' ')"
-    local size_bytes=$(( fm_bytes + final_body_bytes ))
-
-    fm_final="$(_snapshot_render_frontmatter \
-        "$task_id" "$stage" "$command" "$captured_at" "$captured_by" \
-        "$recommended_next" "$options_file" "$size_bytes" "$truncated")"
-
-    {
-        printf '%s' "$fm_final"
-        cat "$body_tmp"
-    } > "$tmp_path"
-    rm -f "$body_tmp"
-
-    chmod 600 "$tmp_path" 2>/dev/null || true
-
-    # fsync via dd (POSIX-portable; Python fallback if dd lacks conv=fsync).
-    if ! dd if="$tmp_path" of="$tmp_path" conv=notrunc,fsync count=0 \
-        2>/dev/null; then
-        # Older dd without conv=fsync — skip; mv still atomic on POSIX.
-        :
-    fi
-
-    # Atomic rename. -T (no-target-directory) on GNU mv; macOS default mv is
-    # safe-on-overwrite for regular files. Pre-unlink symlink already handled.
-    mv -f "$tmp_path" "$final_path"
-
-    # Harness journal hook — auto-detect /tmp/datarim-test-{task_id}.
-    # If the operator initialised the test harness for this TASK-ID
-    # via dev-tools/datarim-stage-probe-init.sh, append one journal line
-    # per writer call. Fail-soft per V-AC-7 contract — never abort snapshot.
-    # Detection heuristics: header-present = body_file first line matches
-    # ^**{task_id} · ; cta-footer = body contains Cyrillic CTA marker
-    # or /dr-* {task_id} primary line.
-    local journal_dir="/tmp/datarim-test-${task_id}"
-    if [ -d "$journal_dir" ] && [ ! -L "$journal_dir" ]; then
-        local _first _hdr_y _cta_y _sha
-        _first="$(head -1 "$body_file" 2>/dev/null || true)"
-        if printf '%s\n' "$_first" | grep -qE "^\\*\\*${task_id} · "; then
-            _hdr_y=y
-        else
-            _hdr_y=n
-        fi
-        if grep -qE "Следующий шаг — ${task_id}|/dr-[a-z]+ ${task_id}|primary CTA" \
-                "$body_file" 2>/dev/null; then
-            _cta_y=y
-        else
-            _cta_y=n
-        fi
-        _sha="$(shasum -a 256 "$final_path" 2>/dev/null \
-            | awk '{print substr($1,1,12)}' || echo "------------")"
-        {
-            printf '%s · %s · header-present:%s · snapshot-written:y · cta-footer:%s · snapshot-sha:%s\n' \
-                "$stage" "$captured_at" "$_hdr_y" "$_cta_y" "$_sha"
-        } >> "${journal_dir}/journal.md" 2>/dev/null || true
-    fi
+    _snapshot_journal_hook "/tmp/datarim-test-${task_id}" "$task_id" "$stage" \
+        "$captured_at" "$body_file" "$final_path"
 
     release_plugin_lock "$lock_dir"
     trap - EXIT INT TERM
