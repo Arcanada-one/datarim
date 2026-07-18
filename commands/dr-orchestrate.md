@@ -1,7 +1,7 @@
 ---
 id: dr-orchestrate
-title: /dr-orchestrate — Self-Driving Datarim Pipeline (Phase 2)
-description: "Tmux-based pipeline runner. Phase 2 adds multi-backend subagent inference for unknown prompts (autonomy L1→L2). Command and autonomy policy are core; the tmux/bot transport runner is an opt-in plugin."
+title: /dr-orchestrate — Self-Driving Datarim Pipeline (Phase 3)
+description: "Tmux-based pipeline runner. Phase 3 adds operator-confirmed learned rules with a seven-day TTL and 24-hour re-validation (autonomy L4). Command and autonomy policy are core; the runner is an opt-in plugin."
 usage: |
   dr-orchestrate run
   dr-orchestrate run --dry-run
@@ -10,30 +10,34 @@ options:
   --dry-run: "Log decisions without executing"
   --interval: "Poll cycle interval in seconds (default: 5)"
   --unknown-prompt: "Resolve a parser-miss prompt via the subagent inference chain"
-autonomy: L2
-phase: 2
+autonomy: L4
+phase: 3
 ---
 
 # /dr-orchestrate
 
-Phase 2 — Subagent Inference Layer (v2.4.0).
+Phase 3 — Auto-learning with operator confirmation.
 
 ## Cycle
 
 1. `tmux capture-pane -p -t <pane>` — captures the current pane buffer.
 2. **Snapshot-First Resume.** If the buffer or job-queue identifies an active TASK-ID and `datarim/snapshots/{TASK-ID}.snapshot.md` is valid (`dev-tools/check-stage-snapshot-on-exit.sh --validate-frontmatter --task <ID>` returns exit 0), read the snapshot before invoking `semantic_parser.sh` and pass `recommended_next` to `subagent_resolver.sh` as `--hint <command>`. The snapshot read happens before resolver dispatch, so the resolver can still return a different command — the snapshot is a hint, not a constraint. If the snapshot is absent or malformed, skip this step without warning (V-AC-7 — the seventh verification acceptance criterion) and continue with prior behaviour. Consumer-side contract: `skills/dr-next-snapshot-replay/SKILL.md`.
-3. `semantic_parser.sh parse` — rule-based pass returns `{command, confidence, source}`.
-4. **Hit (confidence > 0)** — Phase 1 path: log `make_event` v1, JSONL append.
+3. `semantic_parser.sh parse` — rule-based pass returns the selected action, confidence, and provenance. Learned matches are exact and must still name an action in the bundled/user trust registry.
+4. **Hit (confidence > 0)** — apply the immutable action gate, write a cycle checkpoint, execute through the controlled pane seam, and append schema-v2 audit evidence.
 5. **Miss (confidence == 0)** — Phase 2 path:
    - `subagent_resolver.sh resolve` — multi-backend chain (coworker → claude → codex), 15s per backend, lenient JSON parse, FD-3 close.
    - Confidence threshold gate (default `0.80`):
-     - Pass → when resolver JSON includes `action_kind`, call
+     - Pass → derive `framework_command` for slash commands and call
        `plugins/dr-orchestrate/scripts/action_gate.sh` before autonomous execution. Space-policy
        `auto` proceeds; `operator` or invalid policy routes to escalation.
-       Then audit `outcome: resolved` (schema v2); decision-cooldown 60s
-       enforces a single autonomous decision per pane per minute.
+       Then checkpoint and execute once. A successful resolution emits a
+       `Save as rule? [Y/N]` proposal bound to the authenticated actor/session.
      - Fail / chain_exhausted → `escalation_backend.sh emit` (mock JSONL by default; the `dev-bot` backend remains a stub until a real consumer service exists) + audit `outcome: escalated`.
-6. Every `tmux send-keys` still passes through the security floor: whitelist → escape-block → micro-cooldown (500 ms) + decision-cooldown (60 s) → fail-closed.
+6. `Y` atomically persists or renews the exact learned match; `N`, replay,
+   expiry, wrong context, or malformed input fails closed. Rules become due
+   after 24 hours and expire after seven days; re-validation proposes confirmation
+   but never executes a due rule.
+7. Every `tmux send-keys` still passes through the security floor: whitelist → escape-block → micro-cooldown (500 ms) + decision-cooldown (60 s) → fail-closed. Per-space policy and the immutable hard-gated floor remain authoritative at L4.
 
 ## Configuration (user-config.yaml)
 
@@ -65,10 +69,10 @@ escalation:
 ## CLI examples
 
 ```bash
-# default Phase 2 cycle: parse → (rule-hit | resolver → autonomous-or-escalate)
+# default Phase 3 cycle: parse → gate → execute → optional Save-as-rule proposal
 dr-orchestrate run --pane "%5"
 
-# dry-run отображает baseline без mutation
+# dry-run reports the baseline without mutation
 dr-orchestrate run --dry-run
 
 # manual resolver invocation with inline text

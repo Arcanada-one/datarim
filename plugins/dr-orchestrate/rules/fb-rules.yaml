@@ -135,6 +135,7 @@ always_gated_floor:
 
 # Runtime action kind → spaces/{name}/space.yml autonomy.policy key.
 action_autonomy_map:
+  framework_command: cross_project_write
   feature_branch_push: feature_branch_push
   merge_main: merge_main
   prod_deploy: prod_deploy

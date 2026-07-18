@@ -55,20 +55,62 @@ YAML
 @test "M1: learned override wins over user for same match key" {
     cat > "$DR_ORCH_RULES_USER" <<'YAML'
 patterns:
-  - match: "/dr-plan"
+  - match: "run plan"
     action: "/dr-plan"
     confidence: 0.85
 YAML
     cat > "$DR_ORCH_RULES_LEARNED" <<'YAML'
 patterns:
-  - match: "/dr-plan"
+  - match: "run plan"
     action: "/dr-plan"
     confidence: 0.70
+    created_at: 100
+    last_validated_at: 100
+    expires_at: 604900
+    proposal_hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    generation: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 YAML
+    export DR_ORCH_NOW_EPOCH=101
     run bash "$DR_ORCH_DIR/scripts/rules_loader.sh" load
     [ "$status" -eq 0 ]
-    conf=$(echo "$output" | jq '.[] | select(.match == "/dr-plan") | .confidence')
+    conf=$(echo "$output" | jq '.[] | select(.match == "run plan") | .confidence')
     [ "$conf" = "0.7" ]
+}
+
+@test "V-AC-24: due learned rules fail closed" {
+    cat > "$DR_ORCH_RULES_LEARNED" <<'YAML'
+patterns:
+  - match: "run plan"
+    action: "/dr-plan"
+    confidence: 0.90
+    created_at: 100
+    last_validated_at: 100
+    expires_at: 604900
+    proposal_hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    generation: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+YAML
+    export DR_ORCH_NOW_EPOCH=86500
+    run bash "$DR_ORCH_DIR/scripts/rules_loader.sh" load
+    [ "$status" -eq 0 ]
+    [ "$(echo "$output" | jq '[.[] | select(.match == "run plan")] | length')" -eq 0 ]
+}
+
+@test "V-AC-29: malformed match, fractional epoch, and extended TTL fail closed" {
+    cat > "$DR_ORCH_RULES_LEARNED" <<'YAML'
+patterns:
+  - match: "bad;match"
+    action: "/dr-plan"
+    confidence: 0.9
+    created_at: 1.5
+    last_validated_at: 2
+    expires_at: 9999999999
+    proposal_hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    generation: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+YAML
+    export DR_ORCH_NOW_EPOCH=3
+    run bash "$DR_ORCH_DIR/scripts/rules_loader.sh" load
+    [ "$status" -eq 0 ]
+    [ "$(echo "$output" | jq '[.[] | select(.provenance=="learned")] | length')" -eq 0 ]
 }
 
 @test "M1: missing user/learned files do not fail" {
