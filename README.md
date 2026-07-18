@@ -139,6 +139,11 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   weakening automated tests, QA, compliance, or completion evidence. Re-enable
   strict RED-GREEN-REFACTOR sequencing with `dr-plugin enable tdd-enforcement`.
   See `documentation/how-to/tdd-enforcement-plugin.md`.
+- **LTM graph-memory toggle** — trusted metadata-only plugin disabled by
+  default. Use `dr-plugin enable ltm-graph-memory` to permit a separately
+  configured LTM adapter; disable it to forbid discovery, adapter invocation,
+  network calls, queues, and retries. It ships no engine or runtime symlink.
+  See `documentation/how-to/ltm-graph-memory-adapter.md`.
 
 - **Multi-runtime coworker delegation enforcement** — `dev-tools/coworker-hook-guard.sh`
   is a PreToolUse hook that denies direct bulk I/O when the MANDATORY

@@ -109,6 +109,26 @@ setup() {
     [ "$status" -eq 0 ] && [ "$output" = "required" ]
 }
 
+@test "LTM graph-memory resolver reachable after install" {
+    [ -x "$TARGET_DIR/scripts/ltm-graph-memory-state.sh" ] \
+        && [ -f "$TARGET_DIR/scripts/lib/plugin-system.sh" ]
+}
+
+@test "installed graph-memory consumer retains conditional contract" {
+    local consumer="$TARGET_DIR/commands/dr-prd.md"
+    [ -f "$consumer" ] \
+        && grep -qF 'ltm-graph-memory-state.sh' "$consumer" \
+        && grep -qiF 'enabled' "$consumer" \
+        && grep -qiF 'disabled' "$consumer"
+}
+
+@test "installed LTM resolver defaults a fresh workspace to disabled" {
+    local workspace="$BATS_TEST_TMPDIR/ltm-workspace"
+    mkdir -p "$workspace/datarim"
+    run bash "$TARGET_DIR/scripts/ltm-graph-memory-state.sh" --workspace "$workspace"
+    [ "$status" -eq 0 ] && [ "$output" = "disabled" ]
+}
+
 # ---------- key file reachability (claude + codex) ----------------------------
 
 @test "planner agent reachable via TARGET_DIR" {

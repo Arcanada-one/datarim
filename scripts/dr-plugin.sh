@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # dr-plugin.sh — Datarim Plugin System CLI.
 #
-# Includes ordinary plugin lifecycle plus the trusted metadata-only
-# `tdd-enforcement` default policy (TUNE-0102).
+# Includes ordinary plugin lifecycle plus trusted metadata-only policy toggles:
+# default-on `tdd-enforcement` (TUNE-0102) and opt-in `ltm-graph-memory`
+# (TUNE-0103).
 #
 # Environment:
 #   DR_PLUGIN_WORKSPACE     — workspace root containing datarim/ (default: cwd
@@ -78,9 +79,9 @@ USAGE:
 
 COMMANDS:
   list                  Show active plugins (bootstraps datarim-core on first run)
-  enable <abs-path|tdd-enforcement>
-                        Activate a plugin, or require strict TDD sequencing
-  disable <id>          Deactivate a plugin, or make TDD sequencing optional
+  enable <abs-path|tdd-enforcement|ltm-graph-memory>
+                        Activate a plugin or trusted workspace policy
+  disable <id>          Deactivate a plugin or trusted workspace policy
   sync                  Reconcile filesystem with manifest
   doctor [--fix]        Diagnose inconsistent state (10 checks)
   --help                Show this message
@@ -198,21 +199,27 @@ cmd_list() {
             }
             sub(/^- id:[[:space:]]*/, "")
             id = $0
+            if (id == "ltm-graph-memory") {
+                id=""
+                skip=1
+            } else {
+                skip=0
+            }
             next
         }
-        /^[[:space:]]+source:/ {
+        !skip && /^[[:space:]]+source:/ {
             line = $0
             sub(/^[[:space:]]+source:[[:space:]]*/, "", line)
             src = line
             next
         }
-        /^[[:space:]]+version:/ {
+        !skip && /^[[:space:]]+version:/ {
             line = $0
             sub(/^[[:space:]]+version:[[:space:]]*/, "", line)
             ver = line
             next
         }
-        /^[[:space:]]+protected:/ {
+        !skip && /^[[:space:]]+protected:/ {
             line = $0
             sub(/^[[:space:]]+protected:[[:space:]]*/, "", line)
             prot = line
@@ -233,6 +240,16 @@ cmd_list() {
     fi
     printf '  - %-24s  source=%-12s  version=%-12s  %s\n' \
         "tdd-enforcement" "builtin" "1.0.0" "$tdd_state"
+
+    local ltm_policy ltm_status=0 ltm_state="installed (disabled)"
+    ltm_policy="$(manifest_builtin_metadata_status "$manifest" ltm-graph-memory)" || ltm_status=$?
+    [ "$ltm_status" -eq 0 ] || return "$ltm_status"
+    case "$ltm_policy" in
+        enabled) ltm_state="installed (enabled)" ;;
+        invalid) ltm_state="installed (disabled, fail-safe: invalid state)" ;;
+    esac
+    printf '  - %-24s  source=%-12s  version=%-12s  %s\n' \
+        "ltm-graph-memory" "builtin" "1.0.0" "$ltm_state"
 }
 
 # --- enable subcommand ------------------------------------------------------
@@ -377,6 +394,50 @@ _set_tdd_enforcement_state() {
     return 0
 }
 
+_set_ltm_graph_memory_state() {
+    local state="$1"
+    local ws repo manifest lock_dir
+    ws="$(resolve_workspace)"
+    repo="$(resolve_repo_root "$ws")"
+    manifest="$ws/datarim/enabled-plugins.md"
+
+    lock_dir="$(_lock_path "$ws")"
+    mkdir -p "$(dirname "$lock_dir")"
+    if ! acquire_plugin_lock "$lock_dir" "$DR_PLUGIN_LOCK_TIMEOUT"; then
+        echo "dr-plugin $state: lock busy: $lock_dir" >&2
+        return 3
+    fi
+    set_plugin_lock_trap "$lock_dir"
+
+    bootstrap_manifest_if_missing "$manifest" "$repo" || return 2
+
+    local policy policy_status=0 now
+    policy="$(manifest_builtin_metadata_status "$manifest" ltm-graph-memory)" || policy_status=$?
+    [ "$policy_status" -eq 0 ] || return "$policy_status"
+    case "$state" in
+        enable)
+            if [ "$policy" = "invalid" ]; then
+                echo "dr-plugin enable: invalid ltm-graph-memory state; disable it or run doctor before enabling" >&2
+                return 1
+            fi
+            now="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+            manifest_set_builtin_metadata_state \
+                "$manifest" ltm-graph-memory 1.0.0 "$now" enabled || return $?
+            echo "dr-plugin: enabled ltm-graph-memory (adapter use permitted when configured)" >&2
+            ;;
+        disable)
+            manifest_set_builtin_metadata_state \
+                "$manifest" ltm-graph-memory 1.0.0 "" disabled || return $?
+            echo "dr-plugin: disabled ltm-graph-memory (no memory I/O authorized)" >&2
+            ;;
+        *)
+            echo "dr-plugin: invalid LTM graph-memory state: $state" >&2
+            return 64
+            ;;
+    esac
+    return 0
+}
+
 cmd_enable() {
     local src_arg="${1:-}"
     if [ -z "$src_arg" ]; then
@@ -386,6 +447,10 @@ cmd_enable() {
 
     if [ "$src_arg" = "tdd-enforcement" ]; then
         _set_tdd_enforcement_state enable
+        return $?
+    fi
+    if [ "$src_arg" = "ltm-graph-memory" ]; then
+        _set_ltm_graph_memory_state enable
         return $?
     fi
 
@@ -434,10 +499,12 @@ cmd_enable() {
     if ! validate_plugin_id "$id"; then
         return 1
     fi
-    if [ "$id" = "tdd-enforcement" ]; then
-        echo "dr-plugin enable: tdd-enforcement is a reserved trusted core plugin id" >&2
-        return 1
-    fi
+    case "$id" in
+        tdd-enforcement|ltm-graph-memory)
+            echo "dr-plugin enable: $id is a reserved trusted core plugin id" >&2
+            return 1
+            ;;
+    esac
 
     local ws repo manifest
     ws="$(resolve_workspace)"
@@ -650,6 +717,10 @@ cmd_disable() {
         _set_tdd_enforcement_state disable
         return $?
     fi
+    if [ "$id" = "ltm-graph-memory" ]; then
+        _set_ltm_graph_memory_state disable
+        return $?
+    fi
 
     local ws repo manifest
     ws="$(resolve_workspace)"
@@ -753,6 +824,14 @@ cmd_sync() {
     set_plugin_lock_trap "$lock_dir"
 
     bootstrap_manifest_if_missing "$manifest" "$repo" || return 2
+
+    local ltm_policy ltm_policy_status=0
+    ltm_policy="$(manifest_builtin_metadata_status "$manifest" ltm-graph-memory)" || ltm_policy_status=$?
+    [ "$ltm_policy_status" -eq 0 ] || return "$ltm_policy_status"
+    if [ "$ltm_policy" = "invalid" ]; then
+        echo "dr-plugin sync: invalid ltm-graph-memory metadata state; policy remains disabled" >&2
+        return 1
+    fi
 
     local active_ids active_ids_padded id
     active_ids="$(manifest_active_ids "$manifest")"
@@ -1217,9 +1296,18 @@ cmd_doctor() {
     c="$(_doctor_check_skill_registry "$runtime")"
     [ "$c" -gt 0 ] && warnings=$((warnings + c))
 
-    echo "[10/10] disabled-defaults" >&2
+    echo "[10/10] trusted-policy-state" >&2
     if ! validate_disabled_defaults_section "$manifest"; then
         _doctor_emit error "malformed ## Disabled Defaults section; TDD enforcement fails safe to required"
+        errors=$((errors + 1))
+    fi
+    local ltm_policy ltm_policy_status=0
+    ltm_policy="$(manifest_builtin_metadata_status "$manifest" ltm-graph-memory)" || ltm_policy_status=$?
+    if [ "$ltm_policy_status" -ne 0 ]; then
+        _doctor_emit error "ltm-graph-memory state could not be read"
+        errors=$((errors + 1))
+    elif [ "$ltm_policy" = "invalid" ]; then
+        _doctor_emit error "invalid ltm-graph-memory metadata state; graph memory fails safe to disabled"
         errors=$((errors + 1))
     fi
 
