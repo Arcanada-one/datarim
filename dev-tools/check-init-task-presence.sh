@@ -30,6 +30,11 @@ set -uo pipefail
 VERSION="1.0.0"
 SCRIPT_NAME="check-init-task-presence.sh"
 
+# Directory this script lives in — used to locate sibling awk programs under
+# lib/. Resolves through the symlink dir (~/.claude/dev-tools) to canonical.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LIB_DIR="$SCRIPT_DIR/lib"
+
 usage() {
     cat <<EOF
 Usage:
@@ -173,6 +178,55 @@ days_between() {
 # Single-task validator
 # ---------------------------------------------------------------------------
 
+# Validate the required frontmatter fields of an init-task file. Prints one
+# ERROR line per failure to stderr; echoes the failure count to stdout.
+_validate_init_frontmatter() {
+    local file="$1"
+    local errors=0 field val
+    for field in task_id artifact schema_version captured_at captured_by operator status; do
+        val=$(extract_frontmatter_field "$file" "$field")
+        if [ -z "$val" ]; then
+            echo "ERROR: $file: frontmatter missing required field '$field'" >&2
+            errors=$(( errors + 1 ))
+        fi
+    done
+    # `artifact:` MUST be literal `init-task`.
+    val=$(extract_frontmatter_field "$file" "artifact")
+    if [ -n "$val" ] && [ "$val" != "init-task" ]; then
+        echo "ERROR: $file: frontmatter artifact must be 'init-task', got '$val'" >&2
+        errors=$(( errors + 1 ))
+    fi
+    # `schema_version:` MUST be literal `1`.
+    val=$(extract_frontmatter_field "$file" "schema_version")
+    if [ -n "$val" ] && [ "$val" != "1" ]; then
+        echo "ERROR: $file: frontmatter schema_version must be '1', got '$val'" >&2
+        errors=$(( errors + 1 ))
+    fi
+    # task_id MUST match {PREFIX-NNNN} or compound {PREFIX-NNNN-suffix...} pattern.
+    val=$(extract_frontmatter_field "$file" "task_id")
+    if [ -n "$val" ] && ! [[ "$val" =~ ^[A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*$ ]]; then
+        echo "ERROR: $file: frontmatter task_id '$val' does not match {PREFIX-NNNN} or {PREFIX-NNNN-suffix...}" >&2
+        errors=$(( errors + 1 ))
+    fi
+    echo "$errors"
+}
+
+# Validate the two required headings. Prints ERROR lines to stderr; echoes the
+# failure count to stdout.
+_validate_init_headings() {
+    local file="$1"
+    local errors=0
+    if ! grep -q '^## Operator brief (verbatim)' "$file"; then
+        echo "ERROR: $file: missing required heading '## Operator brief (verbatim)'" >&2
+        errors=$(( errors + 1 ))
+    fi
+    if ! grep -q '^## Append-log' "$file"; then
+        echo "ERROR: $file: missing required heading '## Append-log (operator amendments)'" >&2
+        errors=$(( errors + 1 ))
+    fi
+    echo "$errors"
+}
+
 validate_single_task() {
     local id="$1"
     local file="$TASKS_DIR/${id}-init-task.md"
@@ -189,55 +243,15 @@ validate_single_task() {
     fi
 
     local errors=0
+    errors=$(( errors + $(_validate_init_frontmatter "$file") ))
+    errors=$(( errors + $(_validate_init_headings "$file") ))
 
-    # --- Required frontmatter fields ---------------------------------------
-    local field val
-    for field in task_id artifact schema_version captured_at captured_by operator status; do
-        val=$(extract_frontmatter_field "$file" "$field")
-        if [ -z "$val" ]; then
-            echo "ERROR: $file: frontmatter missing required field '$field'" >&2
-            errors=$(( errors + 1 ))
-        fi
-    done
-
-    # `artifact:` MUST be literal `init-task`.
-    val=$(extract_frontmatter_field "$file" "artifact")
-    if [ -n "$val" ] && [ "$val" != "init-task" ]; then
-        echo "ERROR: $file: frontmatter artifact must be 'init-task', got '$val'" >&2
-        errors=$(( errors + 1 ))
-    fi
-
-    # `schema_version:` MUST be literal `1`.
-    val=$(extract_frontmatter_field "$file" "schema_version")
-    if [ -n "$val" ] && [ "$val" != "1" ]; then
-        echo "ERROR: $file: frontmatter schema_version must be '1', got '$val'" >&2
-        errors=$(( errors + 1 ))
-    fi
-
-    # task_id MUST match {PREFIX-NNNN} or compound {PREFIX-NNNN-suffix...} pattern.
-    val=$(extract_frontmatter_field "$file" "task_id")
-    if [ -n "$val" ] && ! [[ "$val" =~ ^[A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*$ ]]; then
-        echo "ERROR: $file: frontmatter task_id '$val' does not match {PREFIX-NNNN} or {PREFIX-NNNN-suffix...}" >&2
-        errors=$(( errors + 1 ))
-    fi
-
-    # --- Required headings -------------------------------------------------
-    if ! grep -q '^## Operator brief (verbatim)' "$file"; then
-        echo "ERROR: $file: missing required heading '## Operator brief (verbatim)'" >&2
-        errors=$(( errors + 1 ))
-    fi
-    if ! grep -q '^## Append-log' "$file"; then
-        echo "ERROR: $file: missing required heading '## Append-log (operator amendments)'" >&2
-        errors=$(( errors + 1 ))
-    fi
-
-    # --- Q&A round-trip blocks (TUNE-0216) ---------------------------------
+    # --- Q&A round-trip blocks ---------------------------------------------
     # Contract: skills/init-task-persistence/SKILL.md § Q&A round-trip contract.
     local qa_errors
     qa_errors=$(validate_qa_blocks "$file") || true
     if [ -n "$qa_errors" ]; then
         printf '%s\n' "$qa_errors" >&2
-        # Each line in qa_errors is one finding.
         errors=$(( errors + $(printf '%s\n' "$qa_errors" | grep -c .) ))
     fi
 
@@ -268,135 +282,7 @@ validate_single_task() {
 # routes the lines to stderr and counts them.
 validate_qa_blocks() {
     local file="$1"
-    awk '
-        function trim(s) {
-            sub(/^[ \t\r\n]+/, "", s)
-            sub(/[ \t\r\n]+$/, "", s)
-            return s
-        }
-        function reset_block() {
-            in_block = 1
-            cur_heading = $0
-            has_question = 0
-            has_answer = 0
-            has_decided_by = 0
-            decided_by_val = ""
-            has_summary = 0
-            has_conflict = 0
-            has_rationale = 0
-            rationale_chars = 0
-            in_rationale_body = 0
-        }
-        function emit_findings() {
-            if (!in_block) return
-            if (!has_question) {
-                printf("ERROR: %s: Q&A block %q missing **Question (verbatim, asked by …):** subheading\n",
-                    FILE, cur_heading)
-            }
-            if (!has_answer) {
-                printf("ERROR: %s: Q&A block %q missing **Answer (verbatim, by …):** subheading\n",
-                    FILE, cur_heading)
-            }
-            if (!has_decided_by) {
-                printf("ERROR: %s: Q&A block %q missing **Decided by:** subheading\n",
-                    FILE, cur_heading)
-            } else if (decided_by_val != "operator" && decided_by_val != "agent") {
-                printf("ERROR: %s: Q&A block %q has invalid Decided by value %q (must be operator or agent)\n",
-                    FILE, cur_heading, decided_by_val)
-            }
-            if (!has_summary) {
-                printf("ERROR: %s: Q&A block %q missing **Summary (how it changes initial conditions):** subheading\n",
-                    FILE, cur_heading)
-            }
-            if (!has_conflict) {
-                printf("ERROR: %s: Q&A block %q missing **Conflict with existing wish:** subheading\n",
-                    FILE, cur_heading)
-            }
-            if (decided_by_val == "agent") {
-                if (!has_rationale) {
-                    printf("ERROR: %s: Q&A block %q with Decided by: agent missing **Decision rationale:** subheading\n",
-                        FILE, cur_heading)
-                } else if (rationale_chars < 50) {
-                    printf("ERROR: %s: Q&A block %q Decision rationale has %d non-whitespace characters; minimum is 50\n",
-                        FILE, cur_heading, rationale_chars)
-                }
-            }
-        }
-        BEGIN {
-            in_block = 0
-        }
-        # Detect a Q&A block heading.
-        /^### .+ — Q&A by \/dr-[a-z-]+ \(round [0-9]+\)$/ {
-            emit_findings()
-            reset_block()
-            next
-        }
-        # Any other `### ` heading closes the current block.
-        /^### / {
-            emit_findings()
-            in_block = 0
-            in_rationale_body = 0
-            next
-        }
-        in_block {
-            line = $0
-            stripped = line
-            sub(/^[ \t]+/, "", stripped)
-            if (stripped ~ /^\*\*Question \(verbatim/) {
-                has_question = 1
-                in_rationale_body = 0
-                next
-            }
-            if (stripped ~ /^\*\*Answer \(verbatim/) {
-                has_answer = 1
-                in_rationale_body = 0
-                next
-            }
-            if (stripped ~ /^\*\*Decided by:\*\*/) {
-                has_decided_by = 1
-                value = stripped
-                sub(/^\*\*Decided by:\*\*[ \t]*/, "", value)
-                decided_by_val = trim(value)
-                in_rationale_body = 0
-                next
-            }
-            if (stripped ~ /^\*\*Decision rationale:\*\*/) {
-                has_rationale = 1
-                in_rationale_body = 1
-                inline = stripped
-                sub(/^\*\*Decision rationale:\*\*[ \t]*/, "", inline)
-                gsub(/[ \t]/, "", inline)
-                rationale_chars += length(inline)
-                next
-            }
-            if (stripped ~ /^\*\*Summary \(how it changes/) {
-                has_summary = 1
-                in_rationale_body = 0
-                next
-            }
-            if (stripped ~ /^\*\*Conflict with existing wish:\*\*/) {
-                has_conflict = 1
-                in_rationale_body = 0
-                next
-            }
-            # While inside the rationale body, accumulate non-whitespace chars
-            # until a blank line or the next bold-prefixed subheading line.
-            if (in_rationale_body) {
-                if (stripped ~ /^\*\*/) {
-                    in_rationale_body = 0
-                } else if (stripped == "") {
-                    # Empty line — body continues but no chars to count.
-                } else {
-                    chars = stripped
-                    gsub(/[ \t]/, "", chars)
-                    rationale_chars += length(chars)
-                }
-            }
-        }
-        END {
-            emit_findings()
-        }
-    ' FILE="$file" "$file"
+    awk -f "$LIB_DIR/validate-qa-blocks.awk" -v FILE="$file" "$file"
 }
 
 # ---------------------------------------------------------------------------

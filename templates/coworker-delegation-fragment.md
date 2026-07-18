@@ -34,11 +34,10 @@ this list — see § Do NOT delegate, "Voice-bearing and judgment content".
 - `archive-{TASK-ID}.md` and `reflection-{TASK-ID}.md` — generated at the
   end of the pipeline (`/dr-archive`), when the agent already holds full
   context from the current cycle. Coworker does not save tokens here (spec
-<!-- gate:history-allowed -->
-  ≈ final text) and has repeatedly fabricated (CONN-0213 / AUTH-0084
-<!-- /gate:history-allowed -->
-  precedent). Direct `Write` allowed. If context is empty (recovering a
-  stale archive months later) the operator picks coworker manually.
+  ≈ final text) and has repeatedly fabricated content in prior incidents
+  (see `documentation/archive/`). Direct `Write` allowed. If context is
+  empty (recovering a stale archive months later) the operator picks
+  coworker manually.
 
 ### Always `coworker ask` if ANY trigger fires
 
