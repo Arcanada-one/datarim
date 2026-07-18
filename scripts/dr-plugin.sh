@@ -2,8 +2,8 @@
 # dr-plugin.sh — Datarim Plugin System CLI.
 #
 # Includes ordinary plugin lifecycle plus trusted metadata-only policy toggles:
-# default-on `tdd-enforcement` (TUNE-0102) and opt-in `ltm-graph-memory`
-# (TUNE-0103).
+# default-on `tdd-enforcement` (TUNE-0102), opt-in `ltm-graph-memory`
+# (TUNE-0103), and default-on `coworker-delegation` (TUNE-0105).
 #
 # Environment:
 #   DR_PLUGIN_WORKSPACE     — workspace root containing datarim/ (default: cwd
@@ -79,7 +79,7 @@ USAGE:
 
 COMMANDS:
   list                  Show active plugins (bootstraps datarim-core on first run)
-  enable <abs-path|tdd-enforcement|ltm-graph-memory>
+  enable <abs-path|tdd-enforcement|ltm-graph-memory|coworker-delegation>
                         Activate a plugin or trusted workspace policy
   disable <id>          Deactivate a plugin or trusted workspace policy
   sync                  Reconcile filesystem with manifest
@@ -241,6 +241,15 @@ cmd_list() {
     printf '  - %-24s  source=%-12s  version=%-12s  %s\n' \
         "tdd-enforcement" "builtin" "1.0.0" "$tdd_state"
 
+    local coworker_state="enabled (default)"
+    if manifest_default_is_disabled "$manifest" coworker-delegation; then
+        coworker_state="disabled (default)"
+    elif ! validate_disabled_defaults_section "$manifest"; then
+        coworker_state="enabled (default, fail-safe: invalid policy state)"
+    fi
+    printf '  - %-24s  source=%-12s  version=%-12s  %s\n' \
+        "coworker-delegation" "builtin" "1.0.0" "$coworker_state"
+
     local ltm_policy ltm_status=0 ltm_state="installed (disabled)"
     ltm_policy="$(manifest_builtin_metadata_status "$manifest" ltm-graph-memory)" || ltm_status=$?
     [ "$ltm_status" -eq 0 ] || return "$ltm_status"
@@ -354,8 +363,8 @@ _collect_inventory_for() {
     done
 }
 
-_set_tdd_enforcement_state() {
-    local state="$1"
+_set_default_on_plugin_state() {
+    local state="$1" id="$2"
     local ws repo manifest lock_dir
     ws="$(resolve_workspace)"
     repo="$(resolve_repo_root "$ws")"
@@ -373,21 +382,35 @@ _set_tdd_enforcement_state() {
     bootstrap_manifest_if_missing "$manifest" "$repo" || return 2
 
     if ! validate_disabled_defaults_section "$manifest"; then
-        echo "dr-plugin $state: malformed ## Disabled Defaults section; policy remains required" >&2
+        echo "dr-plugin $state: malformed ## Disabled Defaults section; $id remains enabled" >&2
         return 1
     fi
 
     case "$state" in
         enable)
-            manifest_remove_disabled_default "$manifest" tdd-enforcement || return $?
-            echo "dr-plugin: enabled tdd-enforcement (strict sequencing required)" >&2
+            manifest_remove_disabled_default "$manifest" "$id" || return $?
+            case "$id" in
+                tdd-enforcement)
+                    echo "dr-plugin: enabled tdd-enforcement (strict sequencing required)" >&2
+                    ;;
+                coworker-delegation)
+                    echo "dr-plugin: enabled coworker-delegation (delegation policy active)" >&2
+                    ;;
+            esac
             ;;
         disable)
-            manifest_add_disabled_default "$manifest" tdd-enforcement || return $?
-            echo "dr-plugin: disabled tdd-enforcement (test timing optional; tests remain mandatory)" >&2
+            manifest_add_disabled_default "$manifest" "$id" || return $?
+            case "$id" in
+                tdd-enforcement)
+                    echo "dr-plugin: disabled tdd-enforcement (test timing optional; tests remain mandatory)" >&2
+                    ;;
+                coworker-delegation)
+                    echo "dr-plugin: disabled coworker-delegation (native agent I/O permitted)" >&2
+                    ;;
+            esac
             ;;
         *)
-            echo "dr-plugin: invalid TDD enforcement state: $state" >&2
+            echo "dr-plugin: invalid $id state: $state" >&2
             return 64
             ;;
     esac
@@ -446,7 +469,11 @@ cmd_enable() {
     fi
 
     if [ "$src_arg" = "tdd-enforcement" ]; then
-        _set_tdd_enforcement_state enable
+        _set_default_on_plugin_state enable tdd-enforcement
+        return $?
+    fi
+    if [ "$src_arg" = "coworker-delegation" ]; then
+        _set_default_on_plugin_state enable coworker-delegation
         return $?
     fi
     if [ "$src_arg" = "ltm-graph-memory" ]; then
@@ -500,7 +527,7 @@ cmd_enable() {
         return 1
     fi
     case "$id" in
-        tdd-enforcement|ltm-graph-memory)
+        tdd-enforcement|ltm-graph-memory|coworker-delegation)
             echo "dr-plugin enable: $id is a reserved trusted core plugin id" >&2
             return 1
             ;;
@@ -714,7 +741,11 @@ cmd_disable() {
     fi
 
     if [ "$id" = "tdd-enforcement" ]; then
-        _set_tdd_enforcement_state disable
+        _set_default_on_plugin_state disable tdd-enforcement
+        return $?
+    fi
+    if [ "$id" = "coworker-delegation" ]; then
+        _set_default_on_plugin_state disable coworker-delegation
         return $?
     fi
     if [ "$id" = "ltm-graph-memory" ]; then
@@ -824,6 +855,11 @@ cmd_sync() {
     set_plugin_lock_trap "$lock_dir"
 
     bootstrap_manifest_if_missing "$manifest" "$repo" || return 2
+
+    if ! validate_disabled_defaults_section "$manifest"; then
+        echo "dr-plugin sync: malformed ## Disabled Defaults section; default-on policies remain enabled" >&2
+        return 1
+    fi
 
     local ltm_policy ltm_policy_status=0
     ltm_policy="$(manifest_builtin_metadata_status "$manifest" ltm-graph-memory)" || ltm_policy_status=$?
@@ -1298,7 +1334,7 @@ cmd_doctor() {
 
     echo "[10/10] trusted-policy-state" >&2
     if ! validate_disabled_defaults_section "$manifest"; then
-        _doctor_emit error "malformed ## Disabled Defaults section; TDD enforcement fails safe to required"
+        _doctor_emit error "malformed ## Disabled Defaults section; default-on policies fail safe to enabled"
         errors=$((errors + 1))
     fi
     local ltm_policy ltm_policy_status=0

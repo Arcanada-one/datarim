@@ -139,6 +139,11 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   weakening automated tests, QA, compliance, or completion evidence. Re-enable
   strict RED-GREEN-REFACTOR sequencing with `dr-plugin enable tdd-enforcement`.
   See `documentation/how-to/tdd-enforcement-plugin.md`.
+- **Coworker delegation toggle** — trusted metadata-only plugin enabled by
+  default. Use `dr-plugin disable coworker-delegation` to permit native agent
+  I/O without reinstalling runtimes; enable it to restore the delegation
+  mandate. Critical-KB backups and explicit branch start-point enforcement
+  remain active. See `documentation/how-to/coworker-delegation-toggle.md`.
 - **LTM graph-memory toggle** — trusted metadata-only plugin disabled by
   default. Use `dr-plugin enable ltm-graph-memory` to permit a separately
   configured LTM adapter; disable it to forbid discovery, adapter invocation,
@@ -509,7 +514,7 @@ specific capabilities. You can add custom skills by placing `.md` files in
 | `/dr-doctor` | Maintenance | Diagnose and repair Datarim operational files — migrate to thin one-liner schema, externalize task descriptions, abolish progress.md. |
 | `/dr-dream` | Maintenance | Knowledge base maintenance: organize files, build index, cross-reference, flag contradictions, archive stale content. |
 | `/dr-optimize` | Maintenance | Audit framework health, prune unused components, merge duplicates, fix references, sync documentation. |
-| `/dr-plugin` | Maintenance | Manage ordinary opt-in plugins and the default-on `tdd-enforcement` policy. `list/enable/disable/sync/doctor` over a manifest-driven runtime; ordinary plugins use namespaced symlinks and optional root-position overrides. |
+| `/dr-plugin` | Maintenance | Manage ordinary opt-in plugins plus trusted `tdd-enforcement`, `coworker-delegation`, and `ltm-graph-memory` policies. `list/enable/disable/sync/doctor` operate over a manifest-driven runtime; ordinary plugins use namespaced symlinks and optional root-position overrides. |
 | `/dr-status` | Any | Check current task status, pipeline progress, and backlog summary. |
 | `/dr-next` | Any | Resume work from the last checkpoint. Restores context and picks up where you left off. |
 | `/dr-help` | Any | List all available commands with descriptions, pipeline flow, and complexity routing. |

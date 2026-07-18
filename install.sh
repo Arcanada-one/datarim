@@ -1110,6 +1110,7 @@ setup_cursor_runtime() {
     # evaluate them when DATARIM_RUNTIME points at CURSOR_DIR.
     local tdd_resolver_src="$src_dir/scripts/tdd-enforcement-state.sh"
     local ltm_resolver_src="$src_dir/scripts/ltm-graph-memory-state.sh"
+    local coworker_resolver_src="$src_dir/scripts/coworker-delegation-state.sh"
     local plugin_lib_src="$src_dir/scripts/lib/plugin-system.sh"
     if [ -f "$plugin_lib_src" ]; then
         local policy_resolvers_copied=0
@@ -1128,6 +1129,13 @@ setup_cursor_runtime() {
             policy_resolvers_copied=$((policy_resolvers_copied + 1))
         else
             echo "  CURSOR: SKIP LTM graph-memory resolver (source missing — non-fatal)"
+        fi
+        if [ -f "$coworker_resolver_src" ]; then
+            cp "$coworker_resolver_src" "$cursor_dir/scripts/coworker-delegation-state.sh"
+            chmod +x "$cursor_dir/scripts/coworker-delegation-state.sh"
+            policy_resolvers_copied=$((policy_resolvers_copied + 1))
+        else
+            echo "  CURSOR: SKIP coworker delegation resolver (source missing — non-fatal)"
         fi
         if [ "$policy_resolvers_copied" -gt 0 ]; then
             echo "  CURSOR: installed $policy_resolvers_copied workspace policy resolver(s) → $cursor_dir/scripts/"
@@ -1328,7 +1336,7 @@ fanout_runtime() {
                 [ -n "$p" ] || continue
                 plugin_id="${p##*/}"
                 case "$plugin_id" in
-                    tdd-enforcement|ltm-graph-memory)
+                    tdd-enforcement|ltm-graph-memory|coworker-delegation)
                         echo "  /dr-plugin enable $plugin_id"
                         ;;
                     *)

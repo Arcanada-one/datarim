@@ -197,7 +197,7 @@ emit_write_deny() {
   local f="$1"
   local base
   base=$(basename "$f")
-  emit_deny "Создаёшь $base — это документационный артефакт. Per CLAUDE.md MANDATORY: первый draft через coworker write --profile datarim-write --spec \"...\" --context <refs> --target \"$f\", потом surgical edits. Approve только если уже сгенерирован coworker'ом. Если это АРХИТЕКТУРНОЕ решение (ADR / threat-model / design) — global rule «Do NOT delegate → Architectural decisions» разрешает писать напрямую: добавь glob имени в coworker-delegation-exempt.patterns (рядом с хуком) ИЛИ пиши через Bash heredoc (хук не гейтит Bash). Делегируй coworker'у только настоящие черновики, НЕ имитируй compliance пустышкой."
+  emit_deny "Creating $base is a protected documentation first draft. Per the mandatory CLAUDE.md policy, run coworker write --profile datarim-write --spec \"...\" --context <refs> --target \"$f\", then apply surgical edits. Approve only when coworker already generated the draft. For an architectural decision (ADR, threat model, or design), add its basename glob to coworker-delegation-exempt.patterns beside this hook, or write it directly through the native shell path allowed by policy. Delegate only real drafts; do not fabricate empty compliance output."
 }
 
 # Read-branch deny wording, bound to the crossed token threshold. The wording
@@ -215,14 +215,14 @@ emit_read_deny() {
         echo "ERROR: internal invariant violated: ceiling deny but est=$est <= CEILING=$CEILING_TOKENS" >&2
         exit 2
       fi
-      emit_deny "Файл $f — ~${est_k}k est-токенов (>${CEILING_TOKENS} ceiling) — больше безопасного context-window любого провайдера. НЕ отправляй ни в какую LLM. Читай нужное окно: sed -n 'A,Bp' \"$f\" / grep -n PATTERN -A/-B \"$f\" / head / tail."
+      emit_deny "File $f is about ${est_k}k estimated tokens, above the ${CEILING_TOKENS} ceiling and any safe provider context window. Do not send it to an LLM. Read a bounded window with sed -n 'A,Bp' \"$f\", grep -n PATTERN -A/-B \"$f\", head, or tail."
       ;;
     delegate)
       if [ "$est" -le "$DELEGATE_TOKENS" ] || [ "$est" -gt "$CEILING_TOKENS" ]; then
         echo "ERROR: internal invariant violated: delegate deny but est=$est outside (${DELEGATE_TOKENS}, ${CEILING_TOKENS}]" >&2
         exit 2
       fi
-      emit_deny "Файл $f — ~${est_k}k est-токенов (>${DELEGATE_TOKENS}). Для точечного edit применяй его через Bash python3/sed (guard НЕ гейтит Bash) — Read-precondition Edit'а тогда не нужен. Для bulk-понимания: coworker ask --paths \"$f\" --question \"...\". Поднять порог можно ТОЛЬКО релончем (COWORKER_GUARD_DELEGATE_TOKENS=N claude) — in-session '! export' до хука не доходит."
+      emit_deny "File $f is about ${est_k}k estimated tokens, above ${DELEGATE_TOKENS}. For a targeted edit, use the native Bash, python3, or sed path; the hook does not gate Bash. For bulk understanding, run coworker ask --paths \"$f\" --question \"...\". Raising the threshold requires relaunching with COWORKER_GUARD_DELEGATE_TOKENS=N; an in-session export does not reach this hook."
       ;;
     *)
       echo "ERROR: internal invariant violated: unknown deny tier '$tier'" >&2
@@ -240,14 +240,32 @@ event=$(printf '%s' "$input" | jq -r '.hook_event_name // empty')
 session_cwd=$(printf '%s' "$input" | jq -r '.cwd // empty')
 [ -n "$session_cwd" ] || session_cwd="$PWD"
 
+# Resolve the metadata-only workspace toggle on every hook invocation. The
+# resolver walks upward from the payload cwd. Only exact successful `disabled`
+# deactivates delegation; a missing resolver, nonzero exit, or other output
+# retains the enabled policy.
+delegation_disabled_for_workspace() {
+  local resolver state
+  resolver="$(dirname "$_GUARD_SRC")/../scripts/coworker-delegation-state.sh"
+  [ -x "$resolver" ] && [ -d "$session_cwd" ] || return 1
+  state=$(cd "$session_cwd" && DR_PLUGIN_WORKSPACE='' bash "$resolver" 2>/dev/null) || return 1
+  [ "$state" = "disabled" ]
+}
+
+delegation_policy="enabled"
+if delegation_disabled_for_workspace; then
+  delegation_policy="disabled"
+fi
+
 if [ "$event" = "SessionStart" ] || [ -z "$(printf '%s' "$input" | jq -r '.tool_name // empty')" ]; then
   if [ "$event" = "SessionStart" ]; then
+    [ "$delegation_policy" = "disabled" ] && exit 0
     session_msg=""
     # Legacy line-count thresholds are ignored under the token model. Warn
     # ONCE per session-start; never reinterpret the value as bytes/tokens
     # (a stale `=700` must not silently become 700 bytes).
     if [ -n "${COWORKER_GUARD_READ_THRESHOLD:-}" ] || [ -n "${KIMI_GUARD_READ_THRESHOLD:-}" ]; then
-      session_msg="⚠️  COWORKER_GUARD_READ_THRESHOLD / KIMI_GUARD_READ_THRESHOLD устарели (line-based) и игнорируются. Token-based пороги: COWORKER_GUARD_DELEGATE_TOKENS (default 10000), COWORKER_GUARD_CEILING_TOKENS (default 100000)."
+      session_msg="⚠️  COWORKER_GUARD_READ_THRESHOLD and KIMI_GUARD_READ_THRESHOLD are deprecated line-based settings and are ignored. Token thresholds are COWORKER_GUARD_DELEGATE_TOKENS (default 10000) and COWORKER_GUARD_CEILING_TOKENS (default 100000)."
     fi
     # Balance canary is provider-specific. Resolve the active coworker provider
     # the way coworker itself does (providers.py resolve_provider_and_model):
@@ -299,6 +317,7 @@ tool=$(printf '%s' "$input" | jq -r '.tool_name // empty')
 
 case "$tool" in
   Read|view)
+    [ "$delegation_policy" = "disabled" ] && exit 0
     # Claude Read uses tool_input.file_path; codex view uses tool_input.path.
     f=$(printf '%s' "$input" | jq -r '.tool_input.file_path // .tool_input.path // empty')
     [ -n "$f" ] && [ -f "$f" ] || exit 0
@@ -345,12 +364,14 @@ case "$tool" in
     f=$(printf '%s' "$input" | jq -r '.tool_input.file_path // empty')
     # Pre-overwrite backup side-effect (fail-soft, never blocks the write).
     kb_backup_if_critical "$f" "$session_cwd"
+    [ "$delegation_policy" = "disabled" ] && exit 0
     if check_write_protected "$f"; then
       emit_write_deny "$f"
     fi
     exit 0
     ;;
   apply_patch)
+    [ "$delegation_policy" = "disabled" ] && exit 0
     # Codex apply_patch payload — extract `*** Add File: <path>` headers and
     # apply Write-equivalent rules. Update File / Delete File entries pass
     # through (not first-draft of a new artefact). The raw patch body is
@@ -397,10 +418,11 @@ case "$tool" in
     if [ "${#__words[@]}" = "4" ] && [ "${__words[0]}" = "git" ]; then
       if { [ "${__words[1]}" = "checkout" ] && [ "${__words[2]}" = "-b" ]; } \
          || { [ "${__words[1]}" = "switch" ] && [ "${__words[2]}" = "-c" ]; }; then
-        emit_deny 'git checkout -b NAME без explicit start-point в shared workspace. Per documentation/mandates/workspace-discipline.md Rule 11: укажи `main` / SHA / HEAD после имени ветки. Reason: INFRA-0116 incident class — sibling-session HEAD inheritance.'
+        emit_deny 'git checkout -b NAME requires an explicit start point in a shared workspace. Per documentation/mandates/workspace-discipline.md Rule 11, specify main, a SHA, or HEAD after the branch name. Reason: INFRA-0116 sibling-session HEAD inheritance incident class.'
         exit 0
       fi
     fi
+    [ "$delegation_policy" = "disabled" ] && exit 0
     # Skip if already delegated to coworker (or legacy shims).
     case "$cmd" in *coworker\ ask*|*coworker\ write*|*ask-kimi*|*kimi-write*) exit 0 ;; esac
     trigger=0
@@ -432,7 +454,7 @@ case "$tool" in
       *"| head"*|*"| tail"*|*"| wc"*|*"| grep"*|*"| sed"*|*"| awk"*|*"--stat"*|*"--name-only"*|*"--name-status"*|*"--shortstat"*|*"--no-pager"*|*" > "*) trigger=0 ;;
     esac
     if [ "$trigger" = "1" ]; then
-      emit_deny "Команда '${cmd}' может вернуть >200 строк diff/log. Per CLAUDE.md MANDATORY: пайпь в coworker ask — например '${cmd} | coworker ask --question \"summarize changes\"'. Approve если уверен, что output короткий."
+      emit_deny "Command '${cmd}' may return more than 200 diff or log lines. Per the mandatory CLAUDE.md policy, pipe it to coworker ask, for example '${cmd} | coworker ask --question \"summarize changes\"'. Approve only when you know the output is short."
     fi
     exit 0
     ;;

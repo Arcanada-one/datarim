@@ -31,12 +31,15 @@ setup() {
     mkdir -p "$FAKE_HOME" "$FAKE_CLAUDE"
     # Minimal source tree: two migrated skills + one .system skill.
     mkdir -p "$TMPSRC/skills/alpha" "$TMPSRC/skills/beta" "$TMPSRC/skills/.system/bundled"
-    mkdir -p "$TMPSRC/scripts/lib" "$TMPSRC/commands"
+    mkdir -p "$TMPSRC/scripts/lib" "$TMPSRC/commands" "$TMPSRC/templates"
     cp "$BATS_TEST_DIRNAME/../scripts/tdd-enforcement-state.sh" "$TMPSRC/scripts/tdd-enforcement-state.sh"
     cp "$BATS_TEST_DIRNAME/../scripts/ltm-graph-memory-state.sh" "$TMPSRC/scripts/ltm-graph-memory-state.sh"
+    cp "$BATS_TEST_DIRNAME/../scripts/coworker-delegation-state.sh" "$TMPSRC/scripts/coworker-delegation-state.sh"
     cp "$BATS_TEST_DIRNAME/../scripts/lib/plugin-system.sh" "$TMPSRC/scripts/lib/plugin-system.sh"
     cp "$BATS_TEST_DIRNAME/../commands/dr-do.md" "$TMPSRC/commands/dr-do.md"
     cp "$BATS_TEST_DIRNAME/../commands/dr-prd.md" "$TMPSRC/commands/dr-prd.md"
+    cp "$BATS_TEST_DIRNAME/../templates/coworker-delegation.mdc" \
+        "$TMPSRC/templates/coworker-delegation.mdc"
     cat >"$TMPSRC/skills/alpha/SKILL.md" <<'EOF'
 ---
 name: alpha
@@ -106,6 +109,13 @@ teardown() {
         && [ -f "$TMPCURSOR/scripts/lib/plugin-system.sh" ]
 }
 
+@test "T48c2b: --with-cursor installs the coworker delegation resolver" {
+    run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" CURSOR_DIR="$TMPCURSOR" "$TMPSRC/install.sh" --with-cursor --yes
+    [ "$status" -eq 0 ] \
+        && [ -x "$TMPCURSOR/scripts/coworker-delegation-state.sh" ] \
+        && [ -f "$TMPCURSOR/scripts/lib/plugin-system.sh" ]
+}
+
 @test "T48c3: missing LTM source does not suppress established TDD fanout" {
     mv "$TMPSRC/scripts/ltm-graph-memory-state.sh" \
         "$TMPSRC/scripts/ltm-graph-memory-state.sh.missing"
@@ -115,8 +125,37 @@ teardown() {
 
     [ "$status" -eq 0 ] \
         && [ -x "$TMPCURSOR/scripts/tdd-enforcement-state.sh" ] \
+        && [ -x "$TMPCURSOR/scripts/coworker-delegation-state.sh" ] \
         && [ -f "$TMPCURSOR/scripts/lib/plugin-system.sh" ] \
         && [ ! -e "$TMPCURSOR/scripts/ltm-graph-memory-state.sh" ]
+}
+
+@test "T48c4: missing coworker source does not suppress TDD or LTM fanout" {
+    mv "$TMPSRC/scripts/coworker-delegation-state.sh" \
+        "$TMPSRC/scripts/coworker-delegation-state.sh.missing"
+
+    run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" CURSOR_DIR="$TMPCURSOR" \
+        "$TMPSRC/install.sh" --with-cursor --yes
+
+    [ "$status" -eq 0 ] \
+        && [ -x "$TMPCURSOR/scripts/tdd-enforcement-state.sh" ] \
+        && [ -x "$TMPCURSOR/scripts/ltm-graph-memory-state.sh" ] \
+        && [ -f "$TMPCURSOR/scripts/lib/plugin-system.sh" ] \
+        && [ ! -e "$TMPCURSOR/scripts/coworker-delegation-state.sh" ]
+}
+
+@test "T48c5: missing TDD source does not suppress coworker or LTM fanout" {
+    mv "$TMPSRC/scripts/tdd-enforcement-state.sh" \
+        "$TMPSRC/scripts/tdd-enforcement-state.sh.missing"
+
+    run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" CURSOR_DIR="$TMPCURSOR" \
+        "$TMPSRC/install.sh" --with-cursor --yes
+
+    [ "$status" -eq 0 ] \
+        && [ -x "$TMPCURSOR/scripts/coworker-delegation-state.sh" ] \
+        && [ -x "$TMPCURSOR/scripts/ltm-graph-memory-state.sh" ] \
+        && [ -f "$TMPCURSOR/scripts/lib/plugin-system.sh" ] \
+        && [ ! -e "$TMPCURSOR/scripts/tdd-enforcement-state.sh" ]
 }
 
 @test "T48d: Cursor-only install has an automatic resolver fallback" {
@@ -155,6 +194,19 @@ teardown() {
         exit 2
     '
     [ "$status" -eq 0 ] && [ "$output" = "disabled" ]
+}
+
+@test "T48f: Cursor-only install resolves coworker delegation enabled by default" {
+    local default_cursor="$FAKE_HOME/.cursor"
+    run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" CURSOR_DIR="$default_cursor" \
+        "$TMPSRC/install.sh" --with-cursor --yes
+    [ "$status" -eq 0 ] || return 1
+    grep -q 'coworker-delegation-state.sh' \
+        "$default_cursor/rules/coworker-delegation.mdc" || return 1
+    mkdir -p "$FAKE_HOME/workspace/datarim"
+    run bash "$default_cursor/scripts/coworker-delegation-state.sh" \
+        --workspace "$FAKE_HOME/workspace"
+    [ "$status" -eq 0 ] && [ "$output" = "enabled" ]
 }
 
 @test "T49: --with-cursor is idempotent (re-run produces no diff)" {
