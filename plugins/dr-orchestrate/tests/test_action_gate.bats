@@ -16,10 +16,12 @@ autonomy:
   schema_version: 1
   policy:
     merge_main: auto
+    cross_project_write: auto
 YAML
   cat > "$DR_AUTONOMY_RULES" <<'YAML'
 always_gated_floor: [finance_action]
 action_autonomy_map:
+  framework_command: cross_project_write
   merge_main: merge_main
 YAML
 }
@@ -30,6 +32,13 @@ YAML
   [ "$status" -eq 0 ] \
     && [ -s "$DR_ORCH_AUTONOMY_AUDIT" ] \
     && [ "$(jq -r '.decision' "$DR_ORCH_AUTONOMY_AUDIT")" = auto ]
+}
+
+@test "V-AC-26: framework command maps through cross-project write policy" {
+  run env DATARIM_ACTIVE_SPACE=arcanada \
+    "$PLUGIN_ROOT/scripts/action_gate.sh" gate --action framework_command
+  [ "$status" -eq 0 ] \
+    && [ "$(jq -r '.policy_key' "$DR_ORCH_AUTONOMY_AUDIT")" = cross_project_write ]
 }
 
 @test "action gate blocks floor action even in permissive space" {
