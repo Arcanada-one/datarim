@@ -135,6 +135,8 @@ This command generates a structured Product Requirements Document (PRD) followin
     -   On contradiction with an expectation: add `--conflict-with <wish_id>` (+ optional `--conflict-detail-file`); CTA MUST route work back to `/dr-prd` (current stage — revise discovery) for closure.
     -   Skip the step entirely if no clarification rounds occurred. Utility exit 0 = appended; 1 = IO/validation error; 2 = usage error.
 
+6.7. **AUTOMATIC POST-STEP SELF-VERIFICATION**: After the PRD, expectations, spec-graph, mandate, network, and Q&A gates above have succeeded, apply `skills/self-verification/SKILL.md` § Automatic post_step profile inline with `{TASK-ID}` and `stage=prd`. Do not invoke `/dr-verify` or a shell semantic dispatcher. L1 performs no verification work; L2 uses exactly `peer-reviewer`; L3/L4 use exactly `reviewer`, `tester`, and `security` in parallel after the deterministic floor. Only a complete, non-blocking result may use the normal advancing route. Incomplete or blocking execution routes within the parent stage, and the parent alone owns the CTA and snapshot.
+
 7.  **Output Summary**:
     -   Confirm file location.
     -   List next steps: `/dr-init`, `/dr-plan`.
@@ -169,6 +171,8 @@ After PRD save, the architect agent MUST emit a CTA block ([definition](../skill
 
 **Routing logic for `/dr-prd`:**
 
+- Automatic `post_step` result `execution_status: incomplete` or verdict `BLOCKED` → primary `/dr-prd {TASK-ID}`; this overrides every normal advancing route.
+- Automatic `post_step` result `execution_status: complete` with verdict `CONDITIONAL` → retain the findings in the audit and use the normal non-blocking route below.
 - PRD approved, L3-4 → primary `/dr-plan {TASK-ID}` (detailed implementation plan)
 - PRD approved, L2 → primary `/dr-plan {TASK-ID}` (planning phase)
 - PRD approved, L1 → primary `/dr-do {TASK-ID}` (skip planning for trivial fix)

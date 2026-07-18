@@ -463,6 +463,10 @@ After initialization, the pipeline depends on the task's complexity level. Datar
 
 > **Note:** reflection runs automatically inside `/dr-archive` as mandatory Step 0.5 (v1.10.0, TUNE-0013). You do not invoke it separately.
 
+For L2+ work, successful `/dr-prd`, `/dr-plan`, and `/dr-do` stages verify their saved output before suggesting the next command. L2 uses one read-only peer reviewer; L3/L4 use three independent read-only roles in parallel. The check is one-pass and findings-only. If a required reviewer cannot complete, Datarim reports incomplete verification and keeps the route at the current stage instead of presenting a false PASS. L1 skips this work entirely.
+
+The standalone `/dr-verify` command is still available when you want the broader manual full tri-layer review. Automatic stage completion does not call it recursively or add a new flag.
+
 You do not need to memorize these routes. After each stage, Datarim tells you what comes next. Run `/dr-status` at any time to see where you are in the pipeline.
 
 If you take a break and come back later, `/dr-next` reads your `activeContext.md` and picks up where you left off.
@@ -578,4 +582,3 @@ The active set is recorded in `datarim/enabled-plugins.md` — manual edits are 
 **Health checks** (`/dr-plugin doctor`): manifest-syntax, inventory-consistency, broken-symlinks, orphan-files, override-integrity, dependency-graph (DFS cycle/dangling), git-state, snapshot-cleanup (>30d), skill-registry (frontmatter `name:` ↔ basename). Exit codes: `0` clean, `1` warnings only, `2` errors found, `64` usage error.
 
 For full reference see `commands/dr-plugin.md` and `templates/plugin.yaml.template`. Authoring third-party plugins: [plugin-author-guide.md](plugin-author-guide.md).
-

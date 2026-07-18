@@ -15,6 +15,7 @@ Skills are split into two categories:
 | ai-quality | Reference | inherit | 5 pillars: decomposition, TDD, architecture-first, focus, context | developer, planner |
 | security | Reference | inherit | Auth, input validation, data protection | reviewer, security agent |
 | testing | Reference | inherit | Testing pyramid, frameworks, mocking rules | developer, reviewer |
+| self-verification | Reference | inherit | Canonical manual and automatic verification profiles. Manual `/dr-verify` retains full tri-layer review; PRD/plan/do use one-pass `post_step` dispatch (L1 off, L2 one peer reviewer, L3/L4 three parallel roles) with fail-closed incomplete execution. | `/dr-verify`, `/dr-prd`, `/dr-plan`, `/dr-do` |
 | performance | Reference | inherit | Lazy loading, caching, batching, DB optimization | architect, sre |
 | tech-stack | Reference | inherit | Stack selection by project type | planner, architect |
 | consilium | Task | opus | Multi-agent panel discussions | /dr-design (L3-4) |

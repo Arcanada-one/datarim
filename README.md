@@ -190,8 +190,13 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   design review, plan verification, code review, and compliance checking. Defects
   are caught early, not in production.
 
-- **Tri-layer self-verification (`/dr-verify`)** — on-demand standalone verification
-  of any pipeline artifact. Layer 1 deterministic floor (shell pipeline, no LLM
+- **Automatic and manual self-verification** — successful `/dr-prd`, `/dr-plan`,
+  and `/dr-do` stages run a one-pass, findings-only check after their validators
+  and before their CTA/snapshot. L1 is off, L2 uses exactly one peer reviewer,
+  and L3/L4 use exactly three independent parallel roles. Incomplete required
+  review blocks normal advancement. The standalone `/dr-verify` command remains
+  available for full tri-layer verification of any pipeline artifact: Layer 1
+  deterministic floor (shell pipeline, no LLM
   cost) → Layer 2 native peer-review in a clean selected-agent context → Layer 3
   native runtime dispatch (Claude 3-agent parallel, Codex single-prompt fallback).
   Layer 2 provider auto-resolves via a native-only chain (CLI flag → per-project
@@ -499,11 +504,12 @@ specific capabilities. You can add custom skills by placing `.md` files in
 | Command | Stage | Description |
 |---------|-------|-------------|
 | `/dr-init` | Initialize | Start a new task, pick from backlog, or scaffold a new project. For tasks: assigns complexity (L1-L4) and routes pipeline. For projects: `/dr-init create project "Name"`. |
-| `/dr-prd` | Requirements | Generate a Product Requirements Document. Analyzes the problem, defines scope, success criteria, and constraints. |
-| `/dr-plan` | Planning | Create a detailed implementation plan. Breaks work into phases, estimates effort, identifies risks. |
+| `/dr-prd` | Requirements | Generate a Product Requirements Document, validate it, and run the automatic post-step profile before routing. |
+| `/dr-plan` | Planning | Create a detailed implementation plan, validate it, and run the automatic post-step profile before routing. |
 | `/dr-design` | Design | Explore architectural decisions. Evaluates alternatives, documents trade-offs, defines interfaces. |
-| `/dr-do` | Execution | Execute the plan. TDD for code, structured iteration for research, documentation, or other work. |
+| `/dr-do` | Execution | Execute the plan, capture evidence, and run the automatic post-step profile before QA routing. |
 | `/dr-qa` | Quality | Run quality checks. PRD alignment, design conformance, plan completeness, output quality. |
+| `/dr-verify` | Verification | Run standalone manual full tri-layer self-verification. Automatic PRD/plan/do completion uses the same skill's bounded `post_step` profile. |
 | `/dr-compliance` | Compliance | Post-QA hardening. Validates against PRD, checks for regressions, security audit. |
 | `/dr-archive` | Archive | Archive the task. Step 0.5 runs reflection (analyze, propose framework updates). Steps 1-7 store context, update backlog, reset for the next task. |
 | `/dr-auto` | Autonomous | Meta-command for autonomous execution. Activates FB-1..8 ([definition](skills/autonomous-mode/SKILL.md)) mandate + L1 Inline Resolution Rule as default-on via env var + file marker. Question Suppression Ladder (5 levels) suppresses pipeline Q&A; L1 Class A gaps close inline; hard-gated actions escalate to operator. Two modes — Continue (`/dr-auto {TASK-ID}` resume) / Bootstrap (`/dr-auto "<free-text>"` full pipeline). |

@@ -195,12 +195,12 @@ Before writing ANY file to `datarim/`:
 | Command | Stage | Description |
 |---------|-------|-------------|
 | `/dr-init` | Initialize | Create task, pick from backlog, or **scaffold a new project**. Assess complexity, set up `datarim/` |
-| `/dr-prd` | Requirements | Generate PRD with discovery interview |
-| `/dr-plan` | Planning | Detailed implementation plan with strategist gate |
+| `/dr-prd` | Requirements | Generate PRD with discovery interview, then apply automatic complexity-tiered self-verification before routing |
+| `/dr-plan` | Planning | Detailed implementation plan with strategist gate, then apply automatic complexity-tiered self-verification before routing |
 | `/dr-design` | Design | Architecture exploration with consilium |
-| `/dr-do` | Execution | Implement the plan: TDD for code, structured iteration for other work |
+| `/dr-do` | Execution | Implement the plan, capture test evidence, then apply automatic complexity-tiered self-verification before QA routing |
 | `/dr-qa` | Quality | Multi-layer verification (PRD, design, plan, output quality) |
-| `/dr-verify` | Verification | Standalone self-verification (on-demand). Tri-layer: Layer 1 deterministic floor + Layer 2 cross-model peer-review (DeepSeek default) + Layer 3 native runtime dispatch. Findings-only mode. |
+| `/dr-verify` | Verification | Standalone manual self-verification. Full tri-layer: deterministic floor + native peer-review + runtime dispatch. Findings-only mode. |
 | `/dr-compliance` | Hardening | 7-step post-QA hardening |
 | `/dr-archive` | Archive | Reflection (Step 0.5: lessons learned + framework evolution proposals) + complete task + update backlog + reset context |
 | `/dr-auto` | Autonomous | Autonomous-execution meta-command. Turns on the FB-1..8 mandate (eight feedback-rules — see `skills/autonomous-agents/`), the L1 Inline Resolution Rule (close small gaps in-line rather than asking), and the autonomous-ops scope ([definition](skills/autonomous-mode/SKILL.md)) by default through env var `DATARIM_AUTO_MODE=1` + file marker `datarim/.auto-mode-active`. The five-level Question Suppression Ladder ([definition](skills/autonomous-mode/SKILL.md)) suppresses pipeline clarification questions; L1 Class A gaps close inline; hard-gated actions still escalate to the operator. Subagent orchestrator: spawns the matching agent per stage (planner/architect/developer/reviewer/compliance) via the Agent tool and summarises each result. Terminal point is a passing `/dr-compliance` + reflection — it does NOT run the final `/dr-archive`. Stage-replay allowed (re-entering a stage updates its artefact). Two modes — Continue (`/dr-auto {TASK-ID}` resume) / Bootstrap (`/dr-auto "<free-text>"`). Canonical contract in `skills/autonomous-mode/SKILL.md`. |
@@ -224,7 +224,13 @@ Before writing ANY file to `datarim/`:
 
 Command files: `$HOME/.claude/commands/{name}.md` (27 commands, including the plugin command)
 
-### /dr-verify (on-demand, tri-layer architecture)
+### Self-verification: automatic completion and manual command
+
+Successful `/dr-prd`, `/dr-plan`, and `/dr-do` stages apply the canonical self-verification skill's internal `post_step` profile after saving and validating their artifact, but before selecting the parent CTA and snapshot. L1 performs no verification work. L2 runs the floor plus exactly one `peer-reviewer`. L3/L4 run the floor plus exactly `reviewer`, `tester`, and `security` as three independent parallel roles. Automatic review is one-pass and findings-only. Missing or malformed required evidence records `execution_status: incomplete` and blocks normal advancement; only the parent stage writes the audit and emits routing output.
+
+The stage commands apply the skill inline. They do not recursively invoke `/dr-verify`, and the automatic profile is not a command flag.
+
+#### /dr-verify (manual, tri-layer architecture)
 
 Manual self-verification command (post-completion review of any pipeline artifact). **Tri-layer architecture (cheapest-first, fail-fast):**
 
@@ -244,9 +250,9 @@ Findings carry an explicit `source_layer` tag (`floor` / `peer_review` / `dispat
 - Before merge / archive — sanity check on final PRD/plan/code state
 - Retrospective validation — review a completed task for missed gaps
 - Fast pre-merge gating: `--floor-only` (Layer 1 only, zero LLM cost)
-- Not part of the default pipeline (manual on-demand only — an automated post-step hook is a deferred future evolution)
+- Run manually when the automatic single-pass result needs a broader full tri-layer review or when reviewing another supported artifact.
 
-**Args:** `/dr-verify {TASK-ID} [--stage={prd,plan,do,all}] [--max-iter=N] [--no-fix] [--floor-only] [--peer-provider={deepseek,groq,openrouter,...}] [--runtime={claude,codex}] [--external-verifier=PASS] [--cost-cap=N]`
+**Args:** `/dr-verify {TASK-ID} [--stage={prd,plan,do,all}] [--max-iter=N] [--no-fix] [--floor-only] [--peer-provider={sonnet,haiku,opus,none}] [--runtime={claude,codex}] [--external-verifier=PASS] [--cost-cap=N]`
 
 **Findings schema:** `{finding_id, source_layer ∈ {floor, peer_review, dispatch}, artifact_ref, ac_criteria[], severity (high/medium/low), category (correctness/completeness/consistency/safety), drift_subtype (optional), evidence (file_quote/test_output/absent), suggested_fix, check_name (Layer 1), peer_review_provider (Layer 2)}`. 7 validator rules + 3 severity anchors + 4 category anchors + 3 evidence types + auto-discard + verifiability + secret redaction. Canonical in `skills/self-verification/SKILL.md` § Findings Schema.
 
@@ -254,7 +260,7 @@ Findings carry an explicit `source_layer` tag (`floor` / `peer_review` / `dispat
 
 **Audit log:** `datarim/qa/verify-{task-id}-{stage}-{iter}.md` (append-only, `chmod a-w` post-write). Header carries `source_layer_breakdown: {floor: N, peer_review: M, dispatch: K}` for tri-layer provenance.
 
-**`coworker --task-id <ID>` propagation MANDATORY at Layer 2.** Without it the prospective-rate / token-cost tooling (`dev-tools/measure-prospective-rate.sh` + `dev-tools/measure-invocation-token-cost.sh`) cannot filter logs by task.
+**Task identity propagation is mandatory at Layer 2.** Without `{TASK-ID}`, prospective-rate and token-cost tooling cannot attribute the invocation.
 
 ### Verification tagging at archive time
 
@@ -271,7 +277,7 @@ verification_outcome:
 
 Aggregator `dev-tools/measure-prospective-rate.sh --since <YYYY-MM-DD>` walks all `archive-*.md` files, computes `caught_per_5_tasks`, and emits a `decision_hint` for the next pipeline gate. The `verification_outcome` block is the single source of truth for the prospective measurement campaign.
 
-**Status:** tri-layer canonical, findings-only at all layers (no auto-fix). Cross-link: skill `skills/self-verification/SKILL.md` · floor script `dev-tools/dr-verify-floor.sh` · template `templates/archive-template.md`.
+**Status:** automatic `post_step` and manual tri-layer profiles are canonical; both are findings-only and do not auto-fix. Cross-link: skill `skills/self-verification/SKILL.md` · floor script `dev-tools/dr-verify-floor.sh` · template `templates/archive-template.md`.
 
 ---
 
