@@ -1,10 +1,10 @@
 schema_version: 1
 id: dr-orchestrate
-title: "Datarim Orchestrator (Phase 2 — Subagent Inference + Bot-Interaction Interface)"
+title: "Datarim Orchestrator (Phase 3 — Confirmed Auto-learning)"
 version: 0.4.0
 author: "Pavel Valentov / Arcanada"
 license: MIT
-description: "tmux-based self-driving Datarim pipeline runner — Phase 2 adds multi-backend subagent inference for unknown prompts. Autonomy is resolved per-space from space.yml § autonomy.policy via resolve-space-autonomy.sh / action_gate.sh — full-autonomy spaces run all reversible actions without asking; only the Supreme-Directive hard-gated floor escalates to the operator. v0.3.0 adds bot-interaction interface: OpenAPI 3.1 inbound contract + adnanh/webhook reference impl + HMAC-SHA256 outbound emitter + Redis pub/sub opt-in backend."
+description: "tmux-based self-driving Datarim pipeline runner. Phase 3 adds actor/session-bound Save-as-rule confirmation, exact learned matches, 24-hour re-validation, and a seven-day TTL. Autonomy is resolved per space; the immutable hard-gated floor remains authoritative."
 categories:
   - scripts
   - rules
