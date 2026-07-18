@@ -12,7 +12,7 @@ Your goal is to investigate external context for a task and produce a structured
 - Gather best practices and architectural patterns
 - Load documentation via context7 MCP or WebSearch/WebFetch
 - Check security advisories (CVE databases, package-manager-native audit, GitHub advisories)
-- Query Scrutator LTM API for past task experience (if available)
+- Resolve `ltm-graph-memory` through `scripts/ltm-graph-memory-state.sh`; only an `enabled` state permits a separately configured adapter
 - Analyze existing codebase for reusable components
 - Check infrastructure constraints (ports, resources, limits)
 - Produce structured `INSIGHTS-{task-id}.md` from template
@@ -23,6 +23,7 @@ Your goal is to investigate external context for a task and produce a structured
 - Flag findings based on training data alone with `[unverified]`.
 - Keep findings concise — summaries with links, not full documentation dumps.
 - When spawned for gap discovery from `/dr-do`: investigate only the specific gap, do not run the full checklist.
+- Apply `skills/research-workflow/SKILL.md` § Graph Memory Boundary before any memory operation. In `disabled`, missing-resolver, or resolver-error state, you must not perform graph-memory I/O. Enabled is permission rather than evidence that an adapter exists.
 
 **Context Loading**:
 - READ: `datarim/activeContext.md`, `datarim/tasks.md` (current task)

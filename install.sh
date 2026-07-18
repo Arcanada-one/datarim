@@ -1072,7 +1072,7 @@ setup_cursor_runtime() {
         echo "DRY: copy each $src_dir/skills/<name>/SKILL.md → $cursor_dir/skills/<name>.md"
         echo "DRY: mkdir -p $cursor_dir/commands"
         echo "DRY: copy each $src_dir/commands/dr-*.md → $cursor_dir/commands/dr-<name>.md"
-        echo "DRY: copy $src_dir/scripts/tdd-enforcement-state.sh + lib/plugin-system.sh → $cursor_dir/scripts/"
+        echo "DRY: copy $src_dir/scripts/{tdd-enforcement-state,ltm-graph-memory-state}.sh + lib/plugin-system.sh → $cursor_dir/scripts/"
         echo "DRY: cursor support is operator-validated (R7 deferred-validation)"
         return 0
     fi
@@ -1105,19 +1105,35 @@ setup_cursor_runtime() {
     echo "  CURSOR: mirrored $cmds_copied dr-* command(s) into $cursor_dir/commands/"
     echo "  NOTE: Cursor command fanout is operator-validated — R7 (deferred-validation)."
 
-    # The TDD policy is workspace state, not a Cursor-specific preference.
-    # Install the same resolver used by Claude and Codex so copied command and
-    # skill prompts can evaluate it when DATARIM_RUNTIME points at CURSOR_DIR.
+    # Trusted plugin policies are workspace state, not Cursor preferences.
+    # Install the same resolvers used by Claude and Codex so copied prompts can
+    # evaluate them when DATARIM_RUNTIME points at CURSOR_DIR.
     local tdd_resolver_src="$src_dir/scripts/tdd-enforcement-state.sh"
+    local ltm_resolver_src="$src_dir/scripts/ltm-graph-memory-state.sh"
     local plugin_lib_src="$src_dir/scripts/lib/plugin-system.sh"
-    if [ -f "$tdd_resolver_src" ] && [ -f "$plugin_lib_src" ]; then
+    if [ -f "$plugin_lib_src" ]; then
+        local policy_resolvers_copied=0
         mkdir -p "$cursor_dir/scripts/lib"
-        cp "$tdd_resolver_src" "$cursor_dir/scripts/tdd-enforcement-state.sh"
         cp "$plugin_lib_src" "$cursor_dir/scripts/lib/plugin-system.sh"
-        chmod +x "$cursor_dir/scripts/tdd-enforcement-state.sh"
-        echo "  CURSOR: installed TDD enforcement resolver → $cursor_dir/scripts/tdd-enforcement-state.sh"
+        if [ -f "$tdd_resolver_src" ]; then
+            cp "$tdd_resolver_src" "$cursor_dir/scripts/tdd-enforcement-state.sh"
+            chmod +x "$cursor_dir/scripts/tdd-enforcement-state.sh"
+            policy_resolvers_copied=$((policy_resolvers_copied + 1))
+        else
+            echo "  CURSOR: SKIP TDD policy resolver (source missing — non-fatal)"
+        fi
+        if [ -f "$ltm_resolver_src" ]; then
+            cp "$ltm_resolver_src" "$cursor_dir/scripts/ltm-graph-memory-state.sh"
+            chmod +x "$cursor_dir/scripts/ltm-graph-memory-state.sh"
+            policy_resolvers_copied=$((policy_resolvers_copied + 1))
+        else
+            echo "  CURSOR: SKIP LTM graph-memory resolver (source missing — non-fatal)"
+        fi
+        if [ "$policy_resolvers_copied" -gt 0 ]; then
+            echo "  CURSOR: installed $policy_resolvers_copied workspace policy resolver(s) → $cursor_dir/scripts/"
+        fi
     else
-        echo "  CURSOR: SKIP TDD enforcement resolver (source missing — non-fatal)"
+        echo "  CURSOR: SKIP workspace policy resolvers (shared library missing — non-fatal)"
     fi
 
     # Install coworker delegation rule into ~/.cursor/rules/. Cursor reads
@@ -1309,7 +1325,16 @@ fanout_runtime() {
         if [ -n "$bundled_plugins" ]; then
             echo "Bundled opt-in plugins (activate per-workspace with /dr-plugin enable):"
             printf '%s\n' "$bundled_plugins" | while IFS= read -r p; do
-                [ -n "$p" ] && echo "  /dr-plugin enable $p"
+                [ -n "$p" ] || continue
+                plugin_id="${p##*/}"
+                case "$plugin_id" in
+                    tdd-enforcement|ltm-graph-memory)
+                        echo "  /dr-plugin enable $plugin_id"
+                        ;;
+                    *)
+                        echo "  /dr-plugin enable $p"
+                        ;;
+                esac
             done
             echo ""
         fi

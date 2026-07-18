@@ -33,8 +33,10 @@ setup() {
     mkdir -p "$TMPSRC/skills/alpha" "$TMPSRC/skills/beta" "$TMPSRC/skills/.system/bundled"
     mkdir -p "$TMPSRC/scripts/lib" "$TMPSRC/commands"
     cp "$BATS_TEST_DIRNAME/../scripts/tdd-enforcement-state.sh" "$TMPSRC/scripts/tdd-enforcement-state.sh"
+    cp "$BATS_TEST_DIRNAME/../scripts/ltm-graph-memory-state.sh" "$TMPSRC/scripts/ltm-graph-memory-state.sh"
     cp "$BATS_TEST_DIRNAME/../scripts/lib/plugin-system.sh" "$TMPSRC/scripts/lib/plugin-system.sh"
     cp "$BATS_TEST_DIRNAME/../commands/dr-do.md" "$TMPSRC/commands/dr-do.md"
+    cp "$BATS_TEST_DIRNAME/../commands/dr-prd.md" "$TMPSRC/commands/dr-prd.md"
     cat >"$TMPSRC/skills/alpha/SKILL.md" <<'EOF'
 ---
 name: alpha
@@ -97,6 +99,26 @@ teardown() {
         && [ -f "$TMPCURSOR/scripts/lib/plugin-system.sh" ]
 }
 
+@test "T48c2: --with-cursor installs the shared LTM graph-memory resolver" {
+    run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" CURSOR_DIR="$TMPCURSOR" "$TMPSRC/install.sh" --with-cursor --yes
+    [ "$status" -eq 0 ] \
+        && [ -x "$TMPCURSOR/scripts/ltm-graph-memory-state.sh" ] \
+        && [ -f "$TMPCURSOR/scripts/lib/plugin-system.sh" ]
+}
+
+@test "T48c3: missing LTM source does not suppress established TDD fanout" {
+    mv "$TMPSRC/scripts/ltm-graph-memory-state.sh" \
+        "$TMPSRC/scripts/ltm-graph-memory-state.sh.missing"
+
+    run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" CURSOR_DIR="$TMPCURSOR" \
+        "$TMPSRC/install.sh" --with-cursor --yes
+
+    [ "$status" -eq 0 ] \
+        && [ -x "$TMPCURSOR/scripts/tdd-enforcement-state.sh" ] \
+        && [ -f "$TMPCURSOR/scripts/lib/plugin-system.sh" ] \
+        && [ ! -e "$TMPCURSOR/scripts/ltm-graph-memory-state.sh" ]
+}
+
 @test "T48d: Cursor-only install has an automatic resolver fallback" {
     local default_cursor="$FAKE_HOME/.cursor"
     run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" CURSOR_DIR="$default_cursor" \
@@ -114,6 +136,25 @@ teardown() {
         exit 2
     '
     [ "$status" -eq 0 ] && [ "$output" = "required" ]
+}
+
+@test "T48e: Cursor-only install resolves graph memory disabled by default" {
+    local default_cursor="$FAKE_HOME/.cursor"
+    run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" CURSOR_DIR="$default_cursor" \
+        "$TMPSRC/install.sh" --with-cursor --yes
+    [ "$status" -eq 0 ] || return 1
+    grep -q 'ltm-graph-memory-state.sh' "$default_cursor/commands/dr-prd.md" || return 1
+    mkdir -p "$FAKE_HOME/workspace/datarim"
+    run env -u DATARIM_RUNTIME HOME="$FAKE_HOME" bash -c '
+        for root in "${DATARIM_RUNTIME:-}" "$HOME/.claude" "$HOME/.codex" "$HOME/.cursor"; do
+            [ -n "$root" ] || continue
+            if [ -x "$root/scripts/ltm-graph-memory-state.sh" ]; then
+                exec bash "$root/scripts/ltm-graph-memory-state.sh" --workspace "$HOME/workspace"
+            fi
+        done
+        exit 2
+    '
+    [ "$status" -eq 0 ] && [ "$output" = "disabled" ]
 }
 
 @test "T49: --with-cursor is idempotent (re-run produces no diff)" {
