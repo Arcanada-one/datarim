@@ -1,0 +1,9 @@
+schema_version: 1
+id: coworker-delegation
+title: Coworker Delegation
+version: 1.0.0
+author: Datarim
+license: MIT
+description: Workspace toggle for coworker delegation policy.
+categories:
+default_enabled: true

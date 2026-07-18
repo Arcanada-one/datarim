@@ -48,7 +48,7 @@ EOF
 # Invoke the SessionStart branch with the mock config + given env.
 run_sessionstart() {
     printf '%s' '{"hook_event_name":"SessionStart"}' \
-        | env PATH="$TESTTMP/bin:$PATH" \
+        | env -u COWORKER_DEFAULT_PROVIDER PATH="$TESTTMP/bin:$PATH" \
               XDG_CONFIG_HOME="$TESTTMP/config" \
               "$@" \
               "$HOOK"

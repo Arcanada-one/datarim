@@ -6,6 +6,17 @@ alwaysApply: true
 
 # MANDATORY: Coworker Delegation Rule for Cursor
 
+## Workspace toggle boundary
+
+At the workflow boundary, locate `scripts/coworker-delegation-state.sh` under
+`${DATARIM_RUNTIME:-$HOME/.claude}`, `$HOME/.codex`, or `$HOME/.cursor`, then
+run it with `--workspace <workspace-root>`. Only an exact `disabled` result deactivates
+the remaining delegation mandate for that workspace. Missing resolvers,
+execution errors, and any other output retain the `enabled` policy.
+
+When disabled, native agent I/O is permitted. Unrelated safety and quality
+gates remain active.
+
 ## Rule of thumb
 
 Cursor agent = thinking. Coworker = I/O.

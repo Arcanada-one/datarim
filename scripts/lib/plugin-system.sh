@@ -371,16 +371,23 @@ manifest_set_builtin_metadata_state() {
 
 # --- trusted disabled-default policy ----------------------------------------
 #
-# `tdd-enforcement` is the sole core-owned default-on plugin. Its disabled
-# state is represented outside active `- id:` records so legacy parsers ignore
-# it. Any ambiguous section fails closed: callers must retain required TDD.
+# Trusted core-owned default-on plugins represent disabled state outside active
+# `- id:` records so legacy parsers ignore it. The allowlist is intentionally
+# closed. Any ambiguous section fails safe to each plugin's enabled state.
+
+trusted_disabled_default_id() {
+    case "$1" in
+        tdd-enforcement|coworker-delegation) return 0 ;;
+        *) return 1 ;;
+    esac
+}
 
 validate_disabled_defaults_section() {
     local manifest="$1"
     [ -f "$manifest" ] || return 0
 
     awk '
-        BEGIN { headings=0; entries=0; invalid=0; in_section=0 }
+        BEGIN { headings=0; tdd=0; coworker=0; invalid=0; in_section=0 }
         /^## Disabled Defaults/ && $0 != "## Disabled Defaults" {
             invalid=1
             next
@@ -393,16 +400,24 @@ validate_disabled_defaults_section() {
         in_section && /^## / {
             in_section=0
         }
+        !in_section && ($0 == "- tdd-enforcement" || $0 == "- coworker-delegation") {
+            invalid=1
+            next
+        }
         in_section {
             if ($0 == "") next
             if ($0 == "- tdd-enforcement") {
-                entries++
+                tdd++
+                next
+            }
+            if ($0 == "- coworker-delegation") {
+                coworker++
                 next
             }
             invalid=1
         }
         END {
-            if (headings > 1 || entries > 1 || invalid) exit 1
+            if (headings > 1 || tdd > 1 || coworker > 1 || invalid) exit 1
             exit 0
         }
     ' "$manifest"
@@ -410,7 +425,7 @@ validate_disabled_defaults_section() {
 
 manifest_default_is_disabled() {
     local manifest="$1" id="$2"
-    [ "$id" = "tdd-enforcement" ] || return 1
+    trusted_disabled_default_id "$id" || return 1
     validate_disabled_defaults_section "$manifest" || return 1
     [ -f "$manifest" ] || return 1
 
@@ -424,7 +439,7 @@ manifest_default_is_disabled() {
 
 manifest_add_disabled_default() {
     local manifest="$1" id="$2"
-    [ "$id" = "tdd-enforcement" ] || return 1
+    trusted_disabled_default_id "$id" || return 1
     validate_disabled_defaults_section "$manifest" || return 1
     manifest_default_is_disabled "$manifest" "$id" && return 0
 
@@ -462,7 +477,7 @@ manifest_add_disabled_default() {
 
 manifest_remove_disabled_default() {
     local manifest="$1" id="$2"
-    [ "$id" = "tdd-enforcement" ] || return 1
+    trusted_disabled_default_id "$id" || return 1
     validate_disabled_defaults_section "$manifest" || return 1
     [ -f "$manifest" ] || return 0
 

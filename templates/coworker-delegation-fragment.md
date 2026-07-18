@@ -12,6 +12,16 @@
 > (or equivalent fanout) → consumers regenerate. Do NOT hand-edit downstream
 > copies.
 
+## Workspace toggle boundary
+
+At the workflow boundary, locate `scripts/coworker-delegation-state.sh` under
+`${DATARIM_RUNTIME:-$HOME/.claude}`, `$HOME/.codex`, or `$HOME/.cursor`, then
+run it with `--workspace <workspace-root>`. Only an exact `disabled` result deactivates
+the remaining delegation mandate for that workspace. Missing resolvers,
+execution errors, and any other output retain the `enabled` policy.
+
+When disabled, native agent I/O is permitted. This does not disable unrelated safety or quality gates, including critical-KB backups and explicit branch start-point enforcement.
+
 ## Rule of thumb
 
 **Claude / Codex = thinking. Coworker = I/O.**
