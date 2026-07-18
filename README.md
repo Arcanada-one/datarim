@@ -118,9 +118,10 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   ships built-in; additional skills/agents/commands/templates are enabled via
   `/dr-plugin enable <source>` against a `plugin.yaml` manifest. Runtime symlinks
   per-plugin namespace under `~/.claude/<category>/<plugin-id>/`; root-position via
-  `overrides:`. `dr-plugin doctor` runs 9 health checks (manifest-syntax,
+  `overrides:`. `dr-plugin doctor` runs 10 health checks (manifest-syntax,
   inventory-consistency, broken-symlinks, orphan-files, override-integrity,
-  dependency-graph, git-state, snapshot-cleanup, skill-registry).
+  dependency-graph, git-state, snapshot-cleanup, skill-registry,
+  disabled-defaults).
 
 - **Reference plugin: dr-orchestrate (v2.5.0+)** — first non-core plugin.
   Tmux-based self-driving Datarim pipeline runner. Phase 1 ships a lean
@@ -133,6 +134,11 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   schema v2 with confidence + backend metadata, hash-only matched text
   invariant preserved. Install via `dr-plugin enable dr-orchestrate`. See
   `plugins/dr-orchestrate/README.md`.
+- **TDD enforcement toggle** — trusted metadata-only plugin enabled by default.
+  Use `dr-plugin disable tdd-enforcement` to make test timing optional without
+  weakening automated tests, QA, compliance, or completion evidence. Re-enable
+  strict RED-GREEN-REFACTOR sequencing with `dr-plugin enable tdd-enforcement`.
+  See `documentation/how-to/tdd-enforcement-plugin.md`.
 
 - **Multi-runtime coworker delegation enforcement** — `dev-tools/coworker-hook-guard.sh`
   is a PreToolUse hook that denies direct bulk I/O when the MANDATORY
@@ -498,7 +504,7 @@ specific capabilities. You can add custom skills by placing `.md` files in
 | `/dr-doctor` | Maintenance | Diagnose and repair Datarim operational files — migrate to thin one-liner schema, externalize task descriptions, abolish progress.md. |
 | `/dr-dream` | Maintenance | Knowledge base maintenance: organize files, build index, cross-reference, flag contradictions, archive stale content. |
 | `/dr-optimize` | Maintenance | Audit framework health, prune unused components, merge duplicates, fix references, sync documentation. |
-| `/dr-plugin` | Maintenance | Manage opt-in plugins (v1.23.0+, TUNE-0101). `list/enable/disable/sync/doctor` over a manifest-driven runtime. Symlinks plugin sources into `~/.claude/{cat}/{plugin-id}/` namespaces; supports root-position `overrides:`; pre-mutation snapshot/rollback. |
+| `/dr-plugin` | Maintenance | Manage ordinary opt-in plugins and the default-on `tdd-enforcement` policy. `list/enable/disable/sync/doctor` over a manifest-driven runtime; ordinary plugins use namespaced symlinks and optional root-position overrides. |
 | `/dr-status` | Any | Check current task status, pipeline progress, and backlog summary. |
 | `/dr-next` | Any | Resume work from the last checkpoint. Restores context and picks up where you left off. |
 | `/dr-help` | Any | List all available commands with descriptions, pipeline flow, and complexity routing. |

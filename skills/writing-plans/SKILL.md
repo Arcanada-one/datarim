@@ -7,9 +7,13 @@ target_aal: 2
 
 # Writing Plans
 
+## TDD Enforcement Boundary
+
+Before choosing implementation-step order, run `bash "$(for root in "${DATARIM_RUNTIME:-}" "$HOME/.claude" "$HOME/.codex" "$HOME/.cursor"; do [ -n "$root" ] && [ -x "$root/scripts/tdd-enforcement-state.sh" ] && { printf '%s\n' "$root/scripts/tdd-enforcement-state.sh"; break; }; done)" --workspace "<workspace-root>"`. The lookup honors an explicit runtime first and otherwise finds an installed Claude, Codex, or Cursor resolver. A `required` result uses strict failing-test-first steps. An `optional` result permits a different test-writing sequence, but the plan must still require meaningful automated tests, regression coverage, and all Definition of Done, security, QA, compliance, and evidence gates.
+
 ## Overview
 
-Write comprehensive implementation plans assuming the engineer has zero context for our codebase and questionable taste. Document everything they need to know: which files to touch for each task, code, testing, docs they might need to check, how to test it. Give them the whole plan as bite-sized tasks. DRY. YAGNI. TDD. Frequent commits.
+Write comprehensive implementation plans assuming the engineer has zero context for our codebase and questionable taste. Document everything they need to know: which files to touch for each task, code, testing, docs they might need to check, how to test it. Give them the whole plan as bite-sized tasks. DRY. YAGNI. Apply TDD sequencing according to the enforcement state. Frequent commits remain the default unless the operator requests batch accumulation.
 
 Assume they are a skilled developer, but know almost nothing about our toolset or problem domain. Assume they don't know good test design very well.
 

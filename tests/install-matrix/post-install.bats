@@ -88,6 +88,27 @@ setup() {
     [ -e "$TARGET_DIR/dev-tools" ]
 }
 
+@test "TDD enforcement resolver reachable after install" {
+    [ -x "$TARGET_DIR/scripts/tdd-enforcement-state.sh" ] \
+        && [ -f "$TARGET_DIR/scripts/lib/plugin-system.sh" ]
+}
+
+@test "installed TDD consumer retains cross-runtime conditional contract" {
+    local consumer="$TARGET_DIR/commands/dr-do.md"
+    [ -f "$consumer" ] \
+        && grep -qF 'tdd-enforcement-state.sh' "$consumer" \
+        && grep -qF '$HOME/.cursor' "$consumer" \
+        && grep -qiF 'required' "$consumer" \
+        && grep -qiF 'optional' "$consumer"
+}
+
+@test "installed TDD resolver executes against a fresh workspace" {
+    local workspace="$BATS_TEST_TMPDIR/tdd-workspace"
+    mkdir -p "$workspace/datarim"
+    run bash "$TARGET_DIR/scripts/tdd-enforcement-state.sh" --workspace "$workspace"
+    [ "$status" -eq 0 ] && [ "$output" = "required" ]
+}
+
 # ---------- key file reachability (claude + codex) ----------------------------
 
 @test "planner agent reachable via TARGET_DIR" {

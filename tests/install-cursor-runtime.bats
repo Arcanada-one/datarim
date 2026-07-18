@@ -31,6 +31,10 @@ setup() {
     mkdir -p "$FAKE_HOME" "$FAKE_CLAUDE"
     # Minimal source tree: two migrated skills + one .system skill.
     mkdir -p "$TMPSRC/skills/alpha" "$TMPSRC/skills/beta" "$TMPSRC/skills/.system/bundled"
+    mkdir -p "$TMPSRC/scripts/lib" "$TMPSRC/commands"
+    cp "$BATS_TEST_DIRNAME/../scripts/tdd-enforcement-state.sh" "$TMPSRC/scripts/tdd-enforcement-state.sh"
+    cp "$BATS_TEST_DIRNAME/../scripts/lib/plugin-system.sh" "$TMPSRC/scripts/lib/plugin-system.sh"
+    cp "$BATS_TEST_DIRNAME/../commands/dr-do.md" "$TMPSRC/commands/dr-do.md"
     cat >"$TMPSRC/skills/alpha/SKILL.md" <<'EOF'
 ---
 name: alpha
@@ -84,6 +88,32 @@ teardown() {
     [ "$status" -eq 0 ]
     [ ! -f "$TMPCURSOR/skills/bundled.md" ]
     [ ! -d "$TMPCURSOR/skills/.system" ]
+}
+
+@test "T48c: --with-cursor installs the shared TDD enforcement resolver" {
+    run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" CURSOR_DIR="$TMPCURSOR" "$TMPSRC/install.sh" --with-cursor --yes
+    [ "$status" -eq 0 ] \
+        && [ -x "$TMPCURSOR/scripts/tdd-enforcement-state.sh" ] \
+        && [ -f "$TMPCURSOR/scripts/lib/plugin-system.sh" ]
+}
+
+@test "T48d: Cursor-only install has an automatic resolver fallback" {
+    local default_cursor="$FAKE_HOME/.cursor"
+    run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" CURSOR_DIR="$default_cursor" \
+        "$TMPSRC/install.sh" --with-cursor --yes
+    [ "$status" -eq 0 ] || return 1
+    grep -q '\$HOME/.cursor' "$default_cursor/commands/dr-do.md" || return 1
+    mkdir -p "$FAKE_HOME/workspace/datarim"
+    run env -u DATARIM_RUNTIME HOME="$FAKE_HOME" bash -c '
+        for root in "${DATARIM_RUNTIME:-}" "$HOME/.claude" "$HOME/.codex" "$HOME/.cursor"; do
+            [ -n "$root" ] || continue
+            if [ -x "$root/scripts/tdd-enforcement-state.sh" ]; then
+                exec bash "$root/scripts/tdd-enforcement-state.sh" --workspace "$HOME/workspace"
+            fi
+        done
+        exit 2
+    '
+    [ "$status" -eq 0 ] && [ "$output" = "required" ]
 }
 
 @test "T49: --with-cursor is idempotent (re-run produces no diff)" {

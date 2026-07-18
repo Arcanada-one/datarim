@@ -9,6 +9,10 @@ target_aal: 2
 
 > **TL;DR:** These 5 pillars guide AI-assisted development. Apply them consistently for 30-50% better code quality and 40-50% fewer bugs.
 
+## TDD Enforcement Boundary
+
+Resolve the workspace policy with `bash "$(for root in "${DATARIM_RUNTIME:-}" "$HOME/.claude" "$HOME/.codex" "$HOME/.cursor"; do [ -n "$root" ] && [ -x "$root/scripts/tdd-enforcement-state.sh" ] && { printf '%s\n' "$root/scripts/tdd-enforcement-state.sh"; break; }; done)" --workspace "<workspace-root>"`. The lookup honors an explicit runtime first and otherwise finds an installed Claude, Codex, or Cursor resolver. In `required` state, the TEST-FIRST pillar mandates tests before production code. In `optional` state, sequencing is flexible, but meaningful automated tests, regression coverage, Definition of Done, security, QA, compliance, and evidence remain mandatory.
+
 ## THE 5 PILLARS OF QUALITY AI DEVELOPMENT
 
 ### 1. DECOMPOSITION (Rules #1, #3, #9)

@@ -7,6 +7,10 @@ target_aal: 3
 
 # Verification Before Completion
 
+## TDD Enforcement Boundary
+
+Run `bash "$(for root in "${DATARIM_RUNTIME:-}" "$HOME/.claude" "$HOME/.codex" "$HOME/.cursor"; do [ -n "$root" ] && [ -x "$root/scripts/tdd-enforcement-state.sh" ] && { printf '%s\n' "$root/scripts/tdd-enforcement-state.sh"; break; }; done)" --workspace "<workspace-root>"` when reviewing test-order evidence. The lookup honors an explicit runtime first and otherwise finds an installed Claude, Codex, or Cursor resolver. `required` demands strict RED-before-code evidence; `optional` does not. Fresh automated test results, Definition of Done, security, QA, compliance, and completion evidence are mandatory in both states.
+
 ## Overview
 
 Claiming work is complete without verification is dishonesty, not efficiency.

@@ -1,12 +1,8 @@
 #!/usr/bin/env bash
-# dr-plugin.sh — Datarim Plugin System CLI (TUNE-0101, Phase A scaffold).
+# dr-plugin.sh — Datarim Plugin System CLI.
 #
-# Subcommands implemented in this slice:
-#   list      — show active plugins (bootstraps datarim-core on first run)
-#   --help    — usage
-#
-# Subcommands deferred to next /dr-do round (Phase A3-D):
-#   enable / disable / sync / doctor
+# Includes ordinary plugin lifecycle plus the trusted metadata-only
+# `tdd-enforcement` default policy (TUNE-0102).
 #
 # Environment:
 #   DR_PLUGIN_WORKSPACE     — workspace root containing datarim/ (default: cwd
@@ -82,10 +78,11 @@ USAGE:
 
 COMMANDS:
   list                  Show active plugins (bootstraps datarim-core on first run)
-  enable <abs-path>     Activate a plugin from an absolute path (git-URL clone deferred — Phase A4)
-  disable <id>          Deactivate a plugin (refuses datarim-core)
+  enable <abs-path|tdd-enforcement>
+                        Activate a plugin, or require strict TDD sequencing
+  disable <id>          Deactivate a plugin, or make TDD sequencing optional
   sync                  Reconcile filesystem with manifest
-  doctor [--fix]        Diagnose inconsistent state (8 checks)
+  doctor [--fix]        Diagnose inconsistent state (10 checks)
   --help                Show this message
 
 EXIT CODES:
@@ -108,6 +105,10 @@ bootstrap_manifest_if_missing() {
     if [ -f "$manifest" ]; then
         return 0
     fi
+    if [ -e "$manifest" ]; then
+        echo "dr-plugin: manifest is not a regular file: $manifest" >&2
+        return 2
+    fi
 
     local version
     if [ -f "$repo_root/VERSION" ]; then
@@ -118,9 +119,12 @@ bootstrap_manifest_if_missing() {
     local now
     now="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
-    mkdir -p "$(dirname "$manifest")"
+    mkdir -p "$(dirname "$manifest")" || return 2
 
-    cat > "$manifest" <<EOF
+    local tmp
+    tmp="$(mktemp "${manifest}.tmp.XXXXXX")" || return 2
+
+    cat > "$tmp" <<EOF
 # Enabled Plugins
 
 <!-- Managed by /dr-plugin (TUNE-0101). Manual edits → run /dr-plugin sync. -->
@@ -139,7 +143,35 @@ bootstrap_manifest_if_missing() {
     templates: []
 EOF
 
+    mv "$tmp" "$manifest" || { rm -f "$tmp"; return 2; }
+
     echo "dr-plugin: bootstrapped $manifest with protected datarim-core entry." >&2
+}
+
+PLUGIN_LOCK_DIR=""
+
+set_plugin_lock_trap() {
+    PLUGIN_LOCK_DIR="$1"
+    trap 'release_plugin_lock "$PLUGIN_LOCK_DIR"' EXIT INT TERM
+}
+
+bootstrap_manifest_serialized() {
+    local manifest="$1" repo_root="$2" ws="$3" context="$4"
+    [ -f "$manifest" ] && return 0
+
+    local lock_dir status=0
+    lock_dir="$(_lock_path "$ws")"
+    mkdir -p "$(dirname "$lock_dir")"
+    if ! acquire_plugin_lock "$lock_dir" "$DR_PLUGIN_LOCK_TIMEOUT"; then
+        echo "dr-plugin $context: lock busy: $lock_dir" >&2
+        return 3
+    fi
+    set_plugin_lock_trap "$lock_dir"
+    bootstrap_manifest_if_missing "$manifest" "$repo_root" || status=$?
+    release_plugin_lock "$PLUGIN_LOCK_DIR"
+    PLUGIN_LOCK_DIR=""
+    trap - EXIT INT TERM
+    return "$status"
 }
 
 # --- list subcommand ---------------------------------------------------------
@@ -150,7 +182,7 @@ cmd_list() {
     repo_root="$(resolve_repo_root "$ws")"
     manifest="$ws/datarim/enabled-plugins.md"
 
-    bootstrap_manifest_if_missing "$manifest" "$repo_root"
+    bootstrap_manifest_serialized "$manifest" "$repo_root" "$ws" list || return $?
 
     echo "Active plugins (manifest: $manifest):"
     echo
@@ -192,6 +224,15 @@ cmd_list() {
             }
         }
     ' "$manifest"
+
+    local tdd_state="enabled (default)"
+    if manifest_default_is_disabled "$manifest" tdd-enforcement; then
+        tdd_state="disabled (default)"
+    elif ! validate_disabled_defaults_section "$manifest"; then
+        tdd_state="enabled (default, fail-safe: invalid policy state)"
+    fi
+    printf '  - %-24s  source=%-12s  version=%-12s  %s\n' \
+        "tdd-enforcement" "builtin" "1.0.0" "$tdd_state"
 }
 
 # --- enable subcommand ------------------------------------------------------
@@ -296,11 +337,56 @@ _collect_inventory_for() {
     done
 }
 
+_set_tdd_enforcement_state() {
+    local state="$1"
+    local ws repo manifest lock_dir
+    ws="$(resolve_workspace)"
+    repo="$(resolve_repo_root "$ws")"
+    manifest="$ws/datarim/enabled-plugins.md"
+
+    lock_dir="$(_lock_path "$ws")"
+    mkdir -p "$(dirname "$lock_dir")"
+    if ! acquire_plugin_lock "$lock_dir" "$DR_PLUGIN_LOCK_TIMEOUT"; then
+        echo "dr-plugin $state: lock busy: $lock_dir" >&2
+        return 3
+    fi
+    # shellcheck disable=SC2064
+    set_plugin_lock_trap "$lock_dir"
+
+    bootstrap_manifest_if_missing "$manifest" "$repo" || return 2
+
+    if ! validate_disabled_defaults_section "$manifest"; then
+        echo "dr-plugin $state: malformed ## Disabled Defaults section; policy remains required" >&2
+        return 1
+    fi
+
+    case "$state" in
+        enable)
+            manifest_remove_disabled_default "$manifest" tdd-enforcement || return $?
+            echo "dr-plugin: enabled tdd-enforcement (strict sequencing required)" >&2
+            ;;
+        disable)
+            manifest_add_disabled_default "$manifest" tdd-enforcement || return $?
+            echo "dr-plugin: disabled tdd-enforcement (test timing optional; tests remain mandatory)" >&2
+            ;;
+        *)
+            echo "dr-plugin: invalid TDD enforcement state: $state" >&2
+            return 64
+            ;;
+    esac
+    return 0
+}
+
 cmd_enable() {
     local src_arg="${1:-}"
     if [ -z "$src_arg" ]; then
         echo "dr-plugin enable: source path required" >&2
         return 64
+    fi
+
+    if [ "$src_arg" = "tdd-enforcement" ]; then
+        _set_tdd_enforcement_state enable
+        return $?
     fi
 
     case "$src_arg" in
@@ -322,6 +408,8 @@ cmd_enable() {
             return 1
             ;;
     esac
+
+    validate_source "$src" || return 1
 
     if [ ! -d "$src" ]; then
         echo "dr-plugin enable: source directory not found: $src" >&2
@@ -346,12 +434,15 @@ cmd_enable() {
     if ! validate_plugin_id "$id"; then
         return 1
     fi
+    if [ "$id" = "tdd-enforcement" ]; then
+        echo "dr-plugin enable: tdd-enforcement is a reserved trusted core plugin id" >&2
+        return 1
+    fi
 
     local ws repo manifest
     ws="$(resolve_workspace)"
     repo="$(resolve_repo_root "$ws")"
     manifest="$ws/datarim/enabled-plugins.md"
-    bootstrap_manifest_if_missing "$manifest" "$repo"
 
     local lock_dir
     lock_dir="$(_lock_path "$ws")"
@@ -361,7 +452,9 @@ cmd_enable() {
         return 3
     fi
     # shellcheck disable=SC2064
-    trap "release_plugin_lock '$lock_dir'" EXIT INT TERM
+    set_plugin_lock_trap "$lock_dir"
+
+    bootstrap_manifest_if_missing "$manifest" "$repo" || return 2
 
     # Snapshot pre-mutation state so we can roll back on mid-apply failure
     # (TUNE-0101 Phase C, V-8). Snapshot is taken after lock acquisition so
@@ -484,8 +577,9 @@ cmd_enable() {
     version="$(parse_plugin_yaml "$yaml" version)"
     depends="$(parse_yaml_list "$yaml" depends_on)"
 
+    local entry_file
+    entry_file="$(mktemp "${manifest}.entry.XXXXXX")" || return 2
     {
-        echo ""
         echo "- id: $id"
         echo "  source: $src"
         echo "  version: $version"
@@ -508,7 +602,15 @@ cmd_enable() {
         echo "    agents: [$agents_inv]"
         echo "    commands: [$commands_inv]"
         echo "    templates: [$templates_inv]"
-    } >> "$manifest"
+    } > "$entry_file"
+    local insert_status=0
+    manifest_insert_entry "$manifest" "$entry_file" || insert_status=$?
+    rm -f "$entry_file"
+    if [ "$insert_status" -ne 0 ]; then
+        restore_from_snapshot "$_snap" "$runtime_pre" "$manifest" || true
+        echo "dr-plugin enable: failed to update manifest" >&2
+        return "$insert_status"
+    fi
 
     # Fault injection (testing only): simulate post-apply failure to verify
     # snapshot rollback. DR_PLUGIN_FAULT_INJECT honoured values:
@@ -544,11 +646,15 @@ cmd_disable() {
         return 1
     fi
 
+    if [ "$id" = "tdd-enforcement" ]; then
+        _set_tdd_enforcement_state disable
+        return $?
+    fi
+
     local ws repo manifest
     ws="$(resolve_workspace)"
     repo="$(resolve_repo_root "$ws")"
     manifest="$ws/datarim/enabled-plugins.md"
-    bootstrap_manifest_if_missing "$manifest" "$repo"
 
     local lock_dir
     lock_dir="$(_lock_path "$ws")"
@@ -558,7 +664,9 @@ cmd_disable() {
         return 3
     fi
     # shellcheck disable=SC2064
-    trap "release_plugin_lock '$lock_dir'" EXIT INT TERM
+    set_plugin_lock_trap "$lock_dir"
+
+    bootstrap_manifest_if_missing "$manifest" "$repo" || return 2
 
     if ! manifest_has_entry "$manifest" "$id"; then
         echo "dr-plugin disable: $id not enabled" >&2
@@ -632,7 +740,6 @@ cmd_sync() {
     ws="$(resolve_workspace)"
     repo="$(resolve_repo_root "$ws")"
     manifest="$ws/datarim/enabled-plugins.md"
-    bootstrap_manifest_if_missing "$manifest" "$repo"
     runtime="$(resolve_runtime_root)"
 
     local lock_dir
@@ -643,7 +750,9 @@ cmd_sync() {
         return 3
     fi
     # shellcheck disable=SC2064
-    trap "release_plugin_lock '$lock_dir'" EXIT INT TERM
+    set_plugin_lock_trap "$lock_dir"
+
+    bootstrap_manifest_if_missing "$manifest" "$repo" || return 2
 
     local active_ids active_ids_padded id
     active_ids="$(manifest_active_ids "$manifest")"
@@ -1058,7 +1167,7 @@ cmd_doctor() {
     ws="$(resolve_workspace)"
     repo="$(resolve_repo_root "$ws")"
     manifest="$ws/datarim/enabled-plugins.md"
-    bootstrap_manifest_if_missing "$manifest" "$repo"
+    bootstrap_manifest_serialized "$manifest" "$repo" "$ws" doctor || return $?
     runtime="$(resolve_runtime_root)"
 
     local active_ids active_ids_padded
@@ -1071,42 +1180,48 @@ cmd_doctor() {
 
     local errors=0 warnings=0 c
 
-    echo "[1/9] manifest-syntax" >&2
+    echo "[1/10] manifest-syntax" >&2
     c="$(_doctor_check_manifest_syntax "$manifest")"
     [ "$c" -gt 0 ] && errors=$((errors + c))
 
-    echo "[2/9] inventory-consistency" >&2
+    echo "[2/10] inventory-consistency" >&2
     c="$(_doctor_check_inventory_consistency "$inv_file" "$runtime")"
     [ "$c" -gt 0 ] && errors=$((errors + c))
 
-    echo "[3/9] broken-symlinks" >&2
+    echo "[3/10] broken-symlinks" >&2
     c="$(_doctor_check_broken_symlinks "$inv_file" "$runtime")"
     [ "$c" -gt 0 ] && errors=$((errors + c))
 
-    echo "[4/9] orphan-files" >&2
+    echo "[4/10] orphan-files" >&2
     c="$(_doctor_check_orphan_files "$inv_file" "$runtime" "$active_ids_padded")"
     [ "$c" -gt 0 ] && warnings=$((warnings + c))
 
-    echo "[5/9] override-integrity" >&2
+    echo "[5/10] override-integrity" >&2
     c="$(_doctor_check_override_integrity "$manifest")"
     [ "$c" -gt 0 ] && errors=$((errors + c))
 
-    echo "[6/9] dependency-graph" >&2
+    echo "[6/10] dependency-graph" >&2
     c="$(_doctor_check_dependency_graph "$manifest")"
     [ "$c" -gt 0 ] && errors=$((errors + c))
 
-    echo "[7/9] git-state" >&2
+    echo "[7/10] git-state" >&2
     c="$(_doctor_check_git_state "$ws" "$manifest")"
     [ "$c" -gt 0 ] && warnings=$((warnings + c))
 
-    echo "[8/9] snapshot-cleanup (>${DR_PLUGIN_SNAPSHOT_AGE_DAYS}d)" >&2
+    echo "[8/10] snapshot-cleanup (>${DR_PLUGIN_SNAPSHOT_AGE_DAYS}d)" >&2
     local old_snaps
     old_snaps="$(_doctor_check_snapshot_cleanup "$ws")"
     [ "$old_snaps" -gt 0 ] && warnings=$((warnings + old_snaps))
 
-    echo "[9/9] skill-registry" >&2
+    echo "[9/10] skill-registry" >&2
     c="$(_doctor_check_skill_registry "$runtime")"
     [ "$c" -gt 0 ] && warnings=$((warnings + c))
+
+    echo "[10/10] disabled-defaults" >&2
+    if ! validate_disabled_defaults_section "$manifest"; then
+        _doctor_emit error "malformed ## Disabled Defaults section; TDD enforcement fails safe to required"
+        errors=$((errors + 1))
+    fi
 
     rm -f "$inv_file"
 
@@ -1131,7 +1246,7 @@ cmd_doctor() {
         echo "dr-plugin doctor: 0 errors, $warnings warning(s)" >&2
         return 1
     fi
-    echo "dr-plugin doctor: clean (9/9 checks passed)" >&2
+    echo "dr-plugin doctor: clean (10/10 checks passed)" >&2
     return 0
 }
 
