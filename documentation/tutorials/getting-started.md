@@ -463,9 +463,11 @@ After initialization, the pipeline depends on the task's complexity level. Datar
 
 > **Note:** reflection runs automatically inside `/dr-archive` as mandatory Step 0.5 (v1.10.0, TUNE-0013). You do not invoke it separately.
 
-For L2+ work, successful `/dr-prd`, `/dr-plan`, and `/dr-do` stages verify their saved output before suggesting the next command. L2 uses one read-only peer reviewer; L3/L4 use three independent read-only roles in parallel. The check is one-pass and findings-only. If a required reviewer cannot complete, Datarim reports incomplete verification and keeps the route at the current stage instead of presenting a false PASS. L1 skips this work entirely.
+For L2+ work, successful `/dr-prd`, `/dr-plan`, and `/dr-do` stages verify their saved output before suggesting the next command. L2 uses one read-only peer reviewer; L3/L4 use three independent read-only roles in parallel. If a required reviewer cannot complete, Datarim reports incomplete verification and keeps the route at the current stage instead of presenting a false PASS. L1 skips this work entirely.
 
-The standalone `/dr-verify` command is still available when you want the broader manual full tri-layer review. Automatic stage completion does not call it recursively or add a new flag.
+**Guarded automatic fixes.** Before reviewer dispatch, the deterministic floor may identify a registered formatting, trailing-whitespace lint, or exact typo finding. Datarim applies it only when the complete immutable history for that exact detector and fixer is strictly below 30% false positives. It applies one finding at a time and reruns the stage validators and floor before considering another. Missing or uncertain history is advisory only. Every attempted result remains visible in the immutable verification audit beside the unchanged original finding.
+
+The standalone `/dr-verify` command is still available when you want the broader manual full tri-layer review. It remains findings-only and never auto-fixes. Automatic stage completion does not call it recursively or add a new flag.
 
 You do not need to memorize these routes. After each stage, Datarim tells you what comes next. Run `/dr-status` at any time to see where you are in the pipeline.
 

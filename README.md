@@ -197,10 +197,15 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   are caught early, not in production.
 
 - **Automatic and manual self-verification** — successful `/dr-prd`, `/dr-plan`,
-  and `/dr-do` stages run a one-pass, findings-only check after their validators
-  and before their CTA/snapshot. L1 is off, L2 uses exactly one peer reviewer,
-  and L3/L4 use exactly three independent parallel roles. Incomplete required
-  review blocks normal advancement. The standalone `/dr-verify` command remains
+  and `/dr-do` stages run a bounded check after their validators and before their
+  CTA/snapshot. L1 is off, L2 uses exactly one peer reviewer, and L3/L4 use
+  exactly three independent parallel roles. For L2+, registered deterministic
+  formatting, trailing-whitespace lint, and exact-typo fixes may apply only when
+  complete immutable class history is strictly below 30% false positives. The
+  parent applies one fix, reruns validators and the floor, and records every
+  attempted result. Incomplete required review or transaction uncertainty blocks
+  normal advancement. Manual `/dr-verify` never auto-fixes. The standalone
+  `/dr-verify` command remains
   available for full tri-layer verification of any pipeline artifact: Layer 1
   deterministic floor (shell pipeline, no LLM
   cost) → Layer 2 native peer-review in a clean selected-agent context → Layer 3
