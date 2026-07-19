@@ -144,11 +144,22 @@ tmux_capture_pane_safe() {
 # (targeted suffix) + pane_idle_check (hang detection).
 
 session_spawn_interactive() {
-  local session="$1" agent_cmd="$2" role="${3:-}"
+  local session="$1" agent_cmd="$2" role="${3:-}" pane_dead
   command -v tmux >/dev/null 2>&1 || { echo "ERR: tmux not installed" >&2; return 1; }
   [ -n "$session" ] && [ -n "$agent_cmd" ] || { echo "ERR: usage: session_spawn_interactive <session> <agent-cmd> [role]" >&2; return 2; }
   if tmux has-session -t "$session" 2>/dev/null; then
-    return 0   # reuse existing session (PM decision)
+    pane_dead="$(tmux display-message -p -t "$session" '#{pane_dead}' 2>/dev/null || printf 1)"
+    [ "$pane_dead" = 1 ] || return 0   # reuse a live existing session
+    if bash "$DR_ORCH_DIR/scripts/context_window_setup.sh" enabled >/dev/null 2>&1; then
+      _session_spawn_with_context "$session" "$agent_cmd" "$role"
+      return
+    fi
+    tmux respawn-pane -k -t "$session" "$agent_cmd"
+    return
+  fi
+  if bash "$DR_ORCH_DIR/scripts/context_window_setup.sh" enabled >/dev/null 2>&1; then
+    _session_spawn_with_context "$session" "$agent_cmd" "$role"
+    return
   fi
   # remain-on-exit keeps the pane inspectable if the agent exits early.
   # A wide detached window keeps long session-start lines from wrapping (a
@@ -162,6 +173,35 @@ session_spawn_interactive() {
   if [ -n "$role" ]; then
     _inject_role_context "$session" "$role"
   fi
+}
+
+_session_spawn_with_context() {
+  local session="$1" agent_cmd="$2" role="$3" runtime task workspace pane epoch socket setup_out instance incarnation overlay birth launch meta barrier
+  runtime="${DR_ORCH_RUNTIME:-}"; task="${DR_ORCH_ACTIVE_TASK:-}"; workspace="${DR_ORCH_WORKSPACE:-$PWD}"
+  case "$runtime" in claude|codex) ;; *) echo 'ERR: DR_ORCH_RUNTIME must be claude or codex' >&2; return 2 ;; esac
+  [[ "$task" =~ ^[A-Z]+-[0-9]+$ ]] || { echo 'ERR: DR_ORCH_ACTIVE_TASK is required' >&2; return 2; }
+  if ! tmux has-session -t "$session" 2>/dev/null; then
+    tmux new-session -d -s "$session" -x "${DR_FLEET_PANE_COLS:-220}" -y "${DR_FLEET_PANE_ROWS:-50}" 'sleep 30'
+  fi
+  tmux set-option -t "$session" remain-on-exit on 2>/dev/null || true
+  pane="$(tmux display-message -p -t "$session" '#{pane_id}')"
+  socket="$(tmux display-message -p -t "$session" '#{socket_path}')"
+  epoch="$(tmux show-options -gv @datarim_context_epoch 2>/dev/null || true)"
+  if [ -z "$epoch" ]; then epoch="$(openssl rand -hex 16)"; tmux set-option -g @datarim_context_epoch "$epoch"; fi
+  setup_out="$(DR_ORCH_CONTEXT_PANE="$pane" DR_ORCH_CONTEXT_EPOCH="$epoch" DR_ORCH_CONTEXT_SOCKET="$socket" DR_ORCH_ACTIVE_TASK="$task" \
+    bash "$DR_ORCH_DIR/scripts/context_window_setup.sh" install --runtime "$runtime")" || { tmux kill-session -t "$session"; return 1; }
+  instance="$(printf '%s\n' "$setup_out" | awk -F= '$1=="instance"{print $2; exit}')"
+  incarnation="$(printf '%s\n' "$setup_out" | awk -F= '$1=="incarnation"{print $2; exit}')"
+  overlay="$(printf '%s\n' "$setup_out" | awk -F= '$1=="overlay"{sub(/^overlay=/, ""); print; exit}')"
+  [ -n "$instance" ] && [ -n "$incarnation" ] && [ -n "$overlay" ] || { tmux kill-session -t "$session"; return 1; }
+  if [ "$runtime" = claude ]; then launch="$agent_cmd --settings $(printf '%q' "$overlay")"; else launch="$agent_cmd --profile datarim-orchestrate-context"; fi
+  launch="env DR_ORCH_DIR=$(printf '%q' "$DR_ORCH_DIR") DR_ORCH_CONTEXT_STATE=$(printf '%q' "${DR_ORCH_CONTEXT_STATE:-${DR_ORCH_STATE_DIR:-$HOME/.local/share/datarim-orchestrate/state}/context-window}") DR_ORCH_CONTEXT_TRUST_ROOT=$(printf '%q' "${DR_ORCH_CONTEXT_TRUST_ROOT:-$HOME}") DR_ORCH_USER_CONFIG=$(printf '%q' "${DR_ORCH_USER_CONFIG:-$DR_ORCH_DIR/user-config.yaml}") HOME=$(printf '%q' "$HOME") CODEX_HOME=$(printf '%q' "${CODEX_HOME:-$HOME/.codex}") DR_ORCH_CONTEXT_INSTANCE=$(printf '%q' "$instance") DR_ORCH_CONTEXT_INCARNATION=$(printf '%q' "$incarnation") DR_ORCH_CONTEXT_PANE=$(printf '%q' "$pane") DR_ORCH_ACTIVE_TASK=$(printf '%q' "$task") DR_ORCH_WORKSPACE=$(printf '%q' "$workspace") $launch"
+  meta="${DR_ORCH_CONTEXT_STATE:-${DR_ORCH_STATE_DIR:-$HOME/.local/share/datarim-orchestrate/state}/context-window}/instances/$instance.meta.json"
+  barrier="while grep -q '\"runtime_bound\":false' $(printf '%q' "$meta"); do sleep 0.01; done; exec $launch"
+  tmux respawn-pane -k -t "$session" "$barrier"
+  birth="$(tmux display-message -p -t "$session" '#{pane_pid}')"
+  bash "$DR_ORCH_DIR/scripts/context_window_setup.sh" bind-process "$instance" "$incarnation" "$birth"
+  if [ -n "$role" ]; then _inject_role_context "$session" "$role"; fi
 }
 
 # _inject_role_context <session> <role> — fetch the role's starter_skill +
@@ -228,9 +268,16 @@ pane_idle_check() {
 # session_close <session> — terminate a fleet session (PM decision after result
 # extraction). Reuse is the alternative (session_spawn_interactive is idempotent).
 session_close() {
-  local session="$1"
+  local session="$1" pane="" killed=0 state_root map
   command -v tmux >/dev/null 2>&1 || return 1
-  tmux kill-session -t "$session" 2>/dev/null || true
+  pane="$(tmux display-message -p -t "$session" '#{pane_id}' 2>/dev/null || true)"
+  if tmux kill-session -t "$session" 2>/dev/null; then killed=1; fi
+  state_root="${DR_ORCH_CONTEXT_STATE:-${DR_ORCH_STATE_DIR:-$HOME/.local/share/datarim-orchestrate/state}/context-window}"
+  map="$state_root/active/$(printf '%s' "$pane" | tr -c 'A-Za-z0-9_.-' '_').map"
+  if [ "$killed" -eq 1 ] && [ -n "$pane" ] && [ -f "$map" ] && ! tmux list-panes -a -F '#{pane_id}' 2>/dev/null | grep -Fxq "$pane"; then
+    bash "$DR_ORCH_DIR/scripts/context_window_setup.sh" retire --pane "$pane" 2>/dev/null || return 1
+  fi
+  [ "$killed" -eq 1 ]
 }
 
 # V-AC adjacency: floor = tmux 1.7 (capture-pane). Plan §5.3 / fixtures F3.

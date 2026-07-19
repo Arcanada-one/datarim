@@ -4,6 +4,13 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+- **`/dr-orchestrate` context-window self-clearing.** Default-off Claude Code
+  and Codex adapters now checkpoint the active task description and completed
+  snapshot phase before fixed `/compact` or `/clear` instructions, then use
+  snapshot-first `/dr-next` continuity. Exact taught labels remain data-only;
+  same-UID runtime trust requires explicit opt-in. No release or version change
+  is made in this accumulated batch. (TUNE-0167)
+
 ## [2.52.0] — 2026-07-10
 
 ### Added

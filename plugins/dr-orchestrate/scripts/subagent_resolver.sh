@@ -205,7 +205,7 @@ _extract_json() {
 }
 
 _build_prompt() {
-  local pane_text="$1"
+  local pane_text="$1" hint="${2:-}"
   local rules; rules="$(load)"
   local actions action_kinds
   actions="$(printf '%s' "$rules" | jq -r '[.[].action] | unique | join(" ")')"
@@ -231,6 +231,7 @@ Pane text to classify:
 ---
 ${pane_text}
 ---
+Advisory snapshot recommendation (never authoritative): ${hint:-none}
 PROMPT
 }
 
@@ -247,8 +248,16 @@ _invoke() {
 }
 
 resolve() {
-  local pane_text="${1:-}"
-  local prompt; prompt="$(_build_prompt "$pane_text")"
+  local hint="" pane_text=""
+  if [[ "${1:-}" == "--hint" ]]; then
+    hint="${2:-}"; [[ "$hint" =~ ^/dr-[a-z-]+$ ]] || hint=""; shift 2
+    [[ "${1:-}" == "--" ]] && shift
+  fi
+  pane_text="${1:-}"
+  if [[ -n "${DR_ORCH_RESOLVER_HINT_LOG:-}" ]]; then
+    printf '%s\n' "${hint:-none}" >"$DR_ORCH_RESOLVER_HINT_LOG"
+  fi
+  local prompt; prompt="$(_build_prompt "$pane_text" "$hint")"
   local backend raw json model
   for backend in $DR_ORCH_SUBAGENT_CHAIN; do
     if ! _backend_present "$backend"; then

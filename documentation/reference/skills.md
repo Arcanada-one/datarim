@@ -1,6 +1,6 @@
 # Skills Reference
 
-Datarim includes 62 reusable skill modules. Skills provide rules, patterns, and guidelines loaded on demand by agents and commands.
+Datarim includes 63 reusable skill modules. Skills provide rules, patterns, and guidelines loaded on demand by agents and commands.
 
 Skills are split into two categories:
 - **Reference skills** — rules and patterns the caller applies inline. Inherit caller's model (no `model` field).
@@ -16,6 +16,7 @@ Skills are split into two categories:
 | security | Reference | inherit | Auth, input validation, data protection | reviewer, security agent |
 | testing | Reference | inherit | Testing pyramid, frameworks, mocking rules | developer, reviewer |
 | self-verification | Reference | inherit | Canonical manual and automatic verification profiles. Manual `/dr-verify` retains full tri-layer review; PRD/plan/do use one-pass `post_step` dispatch (L1 off, L2 one peer reviewer, L3/L4 three parallel roles) with fail-closed incomplete execution. | `/dr-verify`, `/dr-prd`, `/dr-plan`, `/dr-do` |
+| context-window-self-clearing | Reference | inherit | Default-off orchestrator contract for checkpoint-before-reset context compaction/clearing and snapshot-first continuity across Claude Code and Codex. | `/dr-orchestrate` plugin runtime |
 | performance | Reference | inherit | Lazy loading, caching, batching, DB optimization | architect, sre |
 | tech-stack | Reference | inherit | Stack selection by project type | planner, architect |
 | consilium | Task | opus | Multi-agent panel discussions | /dr-design (L3-4) |
@@ -55,7 +56,7 @@ Skills are split into two categories:
 | cron-agent-patterns | Reference | inherit | Layered timeout defense for cron-orchestrated agents making external calls (LLM CLI / HTTP / subprocess) — strictly-nested tiers (per-call < cycle deadline < SIGALRM net < shell `timeout --kill-after`), anti-patterns (per-call==budget, `max(N, deadline-now)` floor, `except Exception: pass` swallowing SIGALRM), symmetric deadline guards + explicit next-tier headroom (`*_RESERVE_SEC`) | on demand for cron / timer agents with external API calls |
 | nginx-version-compat | Reference | inherit | Probe running nginx version (`nginx -v` / `nginx -V`) before editing config, then map directive syntax to that version (HTTP/2 `listen ... http2` legacy vs `http2 on;` from 1.25.1; HTTP/3 `quic`/`http3` from 1.25.0+) + common breaking-change traps | `/dr-plan` for any nginx-touching task |
 
-**Distribution:** 20 reference (inherit), 3 opus, 13 sonnet, 4 haiku.
+**Distribution:** 21 reference (inherit), 3 opus, 13 sonnet, 4 haiku.
 
 ## Loading Hierarchy
 
