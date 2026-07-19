@@ -227,7 +227,7 @@ Command files: `$HOME/.claude/commands/{name}.md` (27 commands, including the pl
 
 ### Self-verification: automatic completion and manual command
 
-Successful `/dr-prd`, `/dr-plan`, and `/dr-do` stages apply the canonical self-verification skill's internal `post_step` profile after saving and validating their artifact, but before selecting the parent CTA and snapshot. L1 performs no verification work. L2 runs the floor plus exactly one `peer-reviewer`. L3/L4 run the floor plus exactly `reviewer`, `tester`, and `security` as three independent parallel roles. Automatic review is one-pass and findings-only. Missing or malformed required evidence records `execution_status: incomplete` and blocks normal advancement; only the parent stage writes the audit and emits routing output.
+Successful `/dr-prd`, `/dr-plan`, and `/dr-do` stages apply the canonical self-verification skill's internal `post_step` profile after saving and validating their artifact, but before selecting the parent CTA and snapshot. L1 performs no verification work. L2 runs the floor plus exactly one `peer-reviewer`. L3/L4 run the floor plus exactly `reviewer`, `tester`, and `security` as three independent parallel roles. For L2+, the parent may auto-apply only registered deterministic formatting, trailing-whitespace lint, or exact-typo fixes when complete immutable class history is strictly below 30% false positives. It applies one finding, reruns validators and the floor, and records every attempt before reviewer dispatch. Missing or malformed required evidence records `execution_status: incomplete` and blocks normal advancement; only the parent stage writes the audit and emits routing output. The manual `/dr-verify` remains findings-only and never enters the mutation loop.
 
 The stage commands apply the skill inline. They do not recursively invoke `/dr-verify`, and the automatic profile is not a command flag.
 
@@ -278,7 +278,7 @@ verification_outcome:
 
 Aggregator `dev-tools/measure-prospective-rate.sh --since <YYYY-MM-DD>` walks all `archive-*.md` files, computes `caught_per_5_tasks`, and emits a `decision_hint` for the next pipeline gate. The `verification_outcome` block is the single source of truth for the prospective measurement campaign.
 
-**Status:** automatic `post_step` and manual tri-layer profiles are canonical; both are findings-only and do not auto-fix. Cross-link: skill `skills/self-verification/SKILL.md` · floor script `dev-tools/dr-verify-floor.sh` · template `templates/archive-template.md`.
+**Status:** automatic `post_step` and manual tri-layer profiles are canonical. The automatic L2+ profile has the guarded deterministic auto-fix boundary described above; manual `/dr-verify` remains findings-only. Cross-link: skill `skills/self-verification/SKILL.md` · floor script `dev-tools/dr-verify-floor.sh` · runner `dev-tools/self-verify-auto-fix.sh` · template `templates/archive-template.md`.
 
 ---
 

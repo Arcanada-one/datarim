@@ -400,6 +400,122 @@ print("\t".join([sev, cat, chk, art, ac, ev_t, ev_s, ev_e]))
 }
 
 # ---------------------------------------------------------------------------
+# Sub-check: deterministic low-risk text findings for the exact stage artifact.
+# The floor remains read-only. These records extend the canonical finding schema
+# with closed metadata consumed only by the automatic post_step auto-fix runner.
+# ---------------------------------------------------------------------------
+
+resolve_stage_artifact() {
+    case "$STAGE" in
+        prd)  printf '%s\n' "$DATARIM_ROOT/prd/PRD-${TASK_ID}.md" ;;
+        plan) printf '%s\n' "$DATARIM_ROOT/plans/${TASK_ID}-plan.md" ;;
+        do)   printf '%s\n' "$DATARIM_ROOT/tasks/${TASK_ID}-task-description.md" ;;
+        *)    return 1 ;;
+    esac
+}
+
+emit_stage_artifact_text_findings() {
+    local artifact rel_path scan_output emitted_count
+    artifact="$(resolve_stage_artifact)" || return 0
+    if [ ! -f "$artifact" ] || [ -L "$artifact" ]; then
+        echo "[stage_text] SKIP: exact regular stage artifact not found: $artifact" >&2
+        return 0
+    fi
+    rel_path="${artifact#"$(dirname "$DATARIM_ROOT")/"}"
+
+    scan_output="$(python3 - "$artifact" "$rel_path" "$FINDING_COUNTER" <<'PYEOF'
+import hashlib
+import json
+import re
+import sys
+from pathlib import Path
+
+artifact = Path(sys.argv[1])
+target = sys.argv[2]
+counter = int(sys.argv[3])
+data = artifact.read_bytes()
+try:
+    text = data.decode("utf-8")
+except UnicodeDecodeError:
+    raise SystemExit(0)
+
+digest = hashlib.sha256(data).hexdigest()
+findings = []
+
+
+def add(finding_class, detector, fixer, line, excerpt):
+    global counter
+    counter += 1
+    findings.append({
+        "finding_id": f"F-floor-{counter}",
+        "source_layer": "floor",
+        "artifact_ref": target if line is None else f"{target}:{line}",
+        "ac_criteria": [],
+        "severity": "low",
+        "category": "correctness",
+        "evidence": {
+            "type": "test_output",
+            "source": f"stage_text:{detector}",
+            "excerpt": excerpt[:200],
+        },
+        "check_name": f"stage_text:{detector}",
+        "finding_class": finding_class,
+        "detector_version": detector,
+        "fixer_id": fixer,
+        "target": target,
+        "preimage_sha256": digest,
+        "line": line,
+        "risk_level": "low",
+        "sensitivity": "none",
+        "deterministic": True,
+        "discarded": False,
+        "evidence_verified": True,
+    })
+
+
+if data and not data.endswith(b"\n"):
+    add(
+        "formatting",
+        "final-newline-detector-v1",
+        "final-newline-v1",
+        None,
+        "target lacks a final LF byte",
+    )
+
+for number, line_text in enumerate(text.splitlines(), start=1):
+    if re.search(r"[ \t]+$", line_text):
+        add(
+            "lint",
+            "trailing-whitespace-detector-v1",
+            "trailing-whitespace-v1",
+            number,
+            f"line {number} has trailing horizontal whitespace",
+        )
+    for typo, correction, detector, fixer in (
+        ("recieve", "receive", "typo-receive-detector-v1", "typo-receive-v1"),
+        ("occured", "occurred", "typo-occurred-detector-v1", "typo-occurred-v1"),
+    ):
+        if re.search(rf"\b{re.escape(typo)}\b", line_text):
+            add(
+                "obvious_typo",
+                detector,
+                fixer,
+                number,
+                f"line {number} contains exact typo {typo!r}; registered correction is {correction!r}",
+            )
+
+for finding in findings:
+    print(json.dumps(finding, ensure_ascii=False))
+PYEOF
+)"
+    [ -n "$scan_output" ] || { echo "[stage_text] clean" >&2; return 0; }
+    printf '%s\n' "$scan_output"
+    emitted_count="$(printf '%s\n' "$scan_output" | awk 'NF { count += 1 } END { print count + 0 }')"
+    FINDING_COUNTER=$((FINDING_COUNTER + emitted_count))
+    echo "[stage_text] findings=$emitted_count artifact=$rel_path" >&2
+}
+
+# ---------------------------------------------------------------------------
 # Main dispatch
 # ---------------------------------------------------------------------------
 
@@ -408,6 +524,10 @@ case "$STAGE" in
     plan) check_ac_coverage; check_file_touched; check_spec_graph ;;
     do)   check_file_touched; check_test_presence; check_shellcheck ;;
     all)  check_ac_coverage; check_file_touched; check_test_presence; check_shellcheck; check_spec_graph ;;
+esac
+
+case "$STAGE" in
+    prd|plan|do) emit_stage_artifact_text_findings ;;
 esac
 
 # Warn if zero findings were emitted AND shellcheck produced no hits (all checks were SKIP).

@@ -111,7 +111,7 @@ setup() {
 }
 
 @test "V-AC-07: every incomplete reason is explicit" {
-  grep -Fq 'missing or malformed complexity, missing or duplicate role identity, timeout, provider failure, malformed output, unsupported runtime, missing or invalid budget reservation, cost exhaustion, recursive invocation, or audit persistence failure' "$SKILL" \
+  grep -Fq 'missing or malformed complexity, missing or duplicate role identity, timeout, provider failure, malformed output, unsupported runtime, missing or invalid budget reservation, cost exhaustion, recursive invocation, auto-fix transaction uncertainty, or audit persistence failure' "$SKILL" \
     && grep -Fq 'Every listed reason sets `execution_status: incomplete`' "$SKILL"
 }
 
@@ -182,4 +182,74 @@ setup() {
     git -C "$REPO_ROOT" diff --quiet a46872d -- "$file" && return 1
   done
   return 0
+}
+
+@test "TUNE-0140: automatic profile orders floor, guarded auto-fix, then reviewers" {
+  grep -Fq 'deterministic floor → guarded auto-fix loop → model reviewer dispatch' "$SKILL" \
+    && grep -Fq 'self-verify-auto-fix.sh' "$SKILL"
+}
+
+@test "TUNE-0140: every parent stage names the guarded runner in its post-step contract" {
+  local file
+  for file in commands/dr-prd.md commands/dr-plan.md commands/dr-do.md; do
+    grep -Fq 'self-verify-auto-fix.sh' "$REPO_ROOT/$file" \
+      && grep -Fq 'one finding, then rerun the stage validators and deterministic floor' "$REPO_ROOT/$file" \
+      || return 1
+  done
+}
+
+@test "TUNE-0140: mutation loop is bounded and refreshes stale preimages" {
+  grep -Fq '32 total runner invocations' "$SKILL" \
+    && grep -Fq 'Never select a second finding from a pre-mutation floor result' "$SKILL" \
+    && grep -Fq 'attempted-finding set for that unchanged floor generation' "$SKILL"
+}
+
+@test "TUNE-0140: history authority cannot be supplied by a finding or caller" {
+  grep -Fq 'datarim/qa/self-verification-auto-fix-history/records/' "$SKILL" \
+    && grep -Fq 'cannot substitute a history path' "$SKILL" \
+    && grep -Fq 'strict `10 * false_positive < 3 * total`' "$SKILL"
+}
+
+@test "TUNE-0140: original finding and every runner result remain audit-visible" {
+  grep -Fq 'retain every original floor finding unchanged' "$SKILL" \
+    && grep -Fq 'one structured result for every runner invocation' "$SKILL" \
+    && grep -Fq '`auto_fix_applied` is a derived count' "$SKILL"
+}
+
+@test "TUNE-0140: transaction uncertainty is incomplete and non-advancing" {
+  grep -Fq 'rollback_integrity_failure' "$SKILL" \
+    && grep -Fq 'journal_conflict' "$SKILL" \
+    && grep -Fq 'transaction persistence uncertainty' "$SKILL" \
+    && grep -Fq 'launch no model reviewers and take the parent non-advancing route' "$SKILL"
+}
+
+@test "TUNE-0140: peer reviewer prose never becomes executable authority" {
+  grep -Fq 'Reviewer prose is never executable authority' "$REPO_ROOT/agents/peer-reviewer.md" \
+    && grep -Fq 'cannot invoke the deterministic auto-fix runner' "$REPO_ROOT/agents/peer-reviewer.md"
+}
+
+@test "TUNE-0140: manual verify remains findings-only and cannot invoke runner" {
+  grep -Fq 'Manual `/dr-verify` remains findings-only' "$MANUAL" \
+    && ! grep -Fq 'self-verify-auto-fix.sh' "$MANUAL"
+}
+
+@test "TUNE-0140: root documentation distinguishes automatic auto-fix from manual findings-only" {
+  grep -Fq 'strictly below 30%' "$REPO_ROOT/CLAUDE.md" \
+    && grep -Fq 'manual `/dr-verify` remains findings-only' "$REPO_ROOT/CLAUDE.md" \
+    && grep -Fq 'strictly below 30%' "$REPO_ROOT/README.md" \
+    && grep -Fq 'Manual `/dr-verify` never auto-fixes' "$REPO_ROOT/README.md"
+}
+
+@test "TUNE-0140: tutorial and pipeline explanation document visible audit results" {
+  grep -Fq 'Guarded automatic fixes' "$REPO_ROOT/documentation/tutorials/getting-started.md" \
+    && grep -Fq 'Every attempted result remains visible in the immutable verification audit' "$REPO_ROOT/documentation/tutorials/getting-started.md" \
+    && grep -Fq 'Guarded auto-fix boundary' "$REPO_ROOT/documentation/explanation/pipeline.md" \
+    && grep -Fq 'reruns the validators and floor after each mutation' "$REPO_ROOT/documentation/explanation/pipeline.md"
+}
+
+@test "TUNE-0140: command and skill references expose the same bounded policy" {
+  grep -Fq 'guarded deterministic auto-fix' "$REPO_ROOT/documentation/reference/commands.md" \
+    && grep -Fq 'manual `/dr-verify` remains findings-only' "$REPO_ROOT/documentation/reference/commands.md" \
+    && grep -Fq 'strictly below 30%' "$REPO_ROOT/documentation/reference/skills.md" \
+    && grep -Fq 'fixed immutable history namespace' "$REPO_ROOT/documentation/reference/skills.md"
 }
