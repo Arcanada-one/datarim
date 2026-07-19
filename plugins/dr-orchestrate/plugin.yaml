@@ -1,10 +1,10 @@
 schema_version: 1
 id: dr-orchestrate
-title: "Datarim Orchestrator (Phase 3 — Confirmed Auto-learning)"
+title: "Datarim Orchestrator (Phase 3 — Auto-learning and Context Continuity)"
 version: 0.4.0
 author: "Pavel Valentov / Arcanada"
 license: MIT
-description: "tmux-based self-driving Datarim pipeline runner. Phase 3 adds actor/session-bound Save-as-rule confirmation, exact learned matches, 24-hour re-validation, and a seven-day TTL. Autonomy is resolved per space; the immutable hard-gated floor remains authoritative."
+description: "tmux-based self-driving Datarim pipeline runner. Phase 3 includes confirmed learned rules, 24-hour re-validation, an immutable seven-day TTL, and default-off context-window compaction/clearing with snapshot-first continuity for Claude Code and Codex. Autonomy is resolved per space; the immutable hard-gated floor remains authoritative."
 categories:
   - scripts
   - rules

@@ -1,0 +1,11 @@
+{
+  "statusLine": {
+    "type": "command",
+    "command": "bash \"${DR_ORCH_DIR}/scripts/context_pressure_adapter.sh\" ingest-claude --kind status"
+  },
+  "hooks": {
+    "Stop": [{"hooks": [{"type": "command", "command": "bash \"${DR_ORCH_DIR}/scripts/context_pressure_adapter.sh\" ingest-claude --kind stop"}]}],
+    "SessionStart": [{"matcher": "clear", "hooks": [{"type": "command", "command": "bash \"${DR_ORCH_DIR}/scripts/context_pressure_adapter.sh\" ingest-claude --kind session_start"}]}],
+    "PostCompact": [{"hooks": [{"type": "command", "command": "bash \"${DR_ORCH_DIR}/scripts/context_pressure_adapter.sh\" ingest-claude --kind post_compact"}]}]
+  }
+}
