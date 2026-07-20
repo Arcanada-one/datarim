@@ -237,8 +237,8 @@ MD
     # Frontmatter contains name + description (always double-quoted post YAML-safe fix)
     grep -qE '^name: "?testing"?' "$fake_codex/skills/testing/SKILL.md"
     grep -qE '^description: "' "$fake_codex/skills/testing/SKILL.md"
-    # Body references source path
-    grep -q 'code/datarim/skills/' "$fake_codex/skills/testing/SKILL.md"
+    # Body references canonical nested source path
+    grep -q 'code/datarim/skills/testing/SKILL.md' "$fake_codex/skills/testing/SKILL.md"
     # Sub-dir source (skills/sub-dir/frag.md) does NOT get a wrapper at top level
     [ ! -e "$fake_codex/skills/frag/SKILL.md" ]
     [ ! -e "$fake_codex/skills/sub-dir/SKILL.md" ]
@@ -323,6 +323,30 @@ MD
     [ "$status" -eq 0 ]
     sum2="$(find "$fake_codex/skills" -type f | sort | xargs shasum -a 256 | shasum -a 256 | awk '{print $1}')"
     [ "$sum1" = "$sum2" ] || { echo "idempotency broken: $sum1 != $sum2" >&2; false; }
+}
+
+@test "TUNE-0297 T45b --with-codex swaps generated skills without stale fanout leftovers" {
+    local fake_codex="$FAKE_HOME/.codex"
+    echo "# datarim AGENTS" > "$FAKE_REPO/AGENTS.md"
+    mkdir -p "$(dirname "$FAKE_REPO/skills/testing/SKILL.md")"
+    cat > "$FAKE_REPO/skills/testing/SKILL.md" <<'MD'
+---
+name: testing
+description: t
+---
+MD
+    run env HOME="$FAKE_HOME" CODEX_DIR="$fake_codex" "$FAKE_REPO/install.sh" --with-codex
+    [ "$status" -eq 0 ]
+    [ -f "$fake_codex/skills/testing/SKILL.md" ]
+    echo "stale wrapper" > "$fake_codex/skills/stale.txt"
+
+    run env HOME="$FAKE_HOME" CODEX_DIR="$fake_codex" "$FAKE_REPO/install.sh" --with-codex
+    [ "$status" -eq 0 ]
+    [ -f "$fake_codex/skills/testing/SKILL.md" ]
+    [ ! -e "$fake_codex/skills/stale.txt" ]
+    [ ! -e "$fake_codex/.skills.previous.$$" ]
+    [ -z "$(find "$fake_codex" -maxdepth 1 -name '.skills.fanout.*' -print)" ]
+    [ -z "$(find "$fake_codex" -maxdepth 1 -name '.skills.previous.*' -print)" ]
 }
 
 @test "TUNE-0297 T46 --with-codex --no-codex-ux opts out of wrapper generation" {

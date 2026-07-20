@@ -58,6 +58,17 @@ autonomous execution) and is never legitimate.
 
 **24h TTL.** If the marker was created more than 24 hours ago → silently purge it (the agent deletes the file or ignores it). Only `/dr-auto` re-creates the marker.
 
+## Execution host — arcana-devs (TUNE-0471)
+
+When running on the Datarim execution host (`arcana-devs`, user `dev`), **before cloning any project repo** in a worktree:
+
+1. Run `/home/dev/bin/datarim-devs-preflight.sh` (Mac dispatch runs this automatically before agent launch).
+2. Follow `dev-tools/datarim-devs-clone-policy.md` in the workspace (also at `/home/dev/bin/datarim-devs-clone-policy.md` on DEVS):
+   - Clone GitHub repos via **SSH** (`git@github.com:Arcanada-one/...`), never HTTPS.
+   - Do **not** use `git clone --local` for repos that must push to GitHub.
+3. `gh auth status` must pass for `gh pr create`; `git push` uses SSH and does not require `gh`.
+4. Cursor CLI (`agent`) has no Datarim slash commands — implement stage steps inline from skills, or use Codex/Claude Code for slash parity.
+
 ## Delegated bootstrap — bare task-id enters /dr-auto on startup
 
 When a task is delegated to a remote executor, the agent starts in a fresh

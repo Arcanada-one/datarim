@@ -27,6 +27,8 @@ target_aal: 2
 
 1. **Resolve the workspace.** Walk up from the current directory to find the `datarim/` workflow-state folder. If none is found, stop and tell the operator to run `/dr-init` — autonomous mode does not create state directories.
 
+1b. **Execution-host preflight (arcana-devs only).** If the current host is the Datarim execution host (`arcana-devs`, user `dev`), run `/home/dev/bin/datarim-devs-preflight.sh` before cloning project repos. Follow `dev-tools/datarim-devs-clone-policy.md`: SSH remotes only, no `git clone --local` for GitHub-bound repos. Non-zero preflight with broken GitHub SSH auth → stop and report; warnings alone may proceed.
+
 2. **Pick a mode.**
    - If the argument matches a task ID listed in `datarim/tasks.md`, the command is in **resume mode**.
    - Otherwise it is in **bootstrap mode**: the argument is treated as the operator brief for a new task and the pipeline starts at `/dr-init`.
