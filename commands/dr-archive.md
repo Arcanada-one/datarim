@@ -34,6 +34,11 @@ The framework ships the PreToolUse guard (`dev-tools/datarim-exec-guard.sh`) tha
 **Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header.
 0. **TASK RESOLUTION**: Apply Task Resolution Rule from `$HOME/.claude/skills/datarim-system/SKILL.md` § Task Resolution Rule. Resolve which task is being archived (from argument or disambiguation). Use the resolved task ID for all subsequent steps.
 
+0.025. **ARCHIVE AUTO-COMMIT OPTION RESOLUTION** (default-off):
+   - `--auto-commit` explicitly requests the local archive-record commit described in Steps 0.49 and 7.5. Absence of the flag leaves the capability disabled.
+   - `--no-auto-commit` explicitly disables it. If both flags are present, the negative override wins. Record the resolved state as `AUTO_COMMIT_REQUESTED=true|false`; do not infer opt-in from autonomous mode, environment variables, prior tasks, or repository configuration.
+   - This option changes only whether the completed archive record is committed locally. It never authorizes a push, tag, release, publication, version change, or bypass of an existing gate.
+
 0.05. **READ INIT-TASK** (mandatory per `$HOME/.claude/skills/init-task-persistence/SKILL.md`): Open `datarim/tasks/{TASK-ID}-init-task.md` if present. Read the full `## Operator brief (verbatim)` section AND every `## Append-log` entry. The archive document MUST render every brief bullet inside `## Как решили` (one bullet per brief item, original order; expectations folded as `(уточнение брифа)` markers — see Step 2 below). Missing init-task is non-blocking on archive — note its absence under `### Operator Handoff` and continue. <!-- allow-non-ascii: literal-russian-archive-section-names-from-template-contract -->
 
 0.1. **PRE-ARCHIVE CLEAN-GIT CHECK** (MANDATORY):
@@ -533,6 +538,19 @@ The framework ships the PreToolUse guard (`dev-tools/datarim-exec-guard.sh`) tha
      (a git probe failure exits 3 without emitting the advisory) and the reminder is
      a human prompt only.
 
+0.49. **ARCHIVE AUTO-COMMIT PREPARE** (only when `AUTO_COMMIT_REQUESTED=true`):
+   - Run this after every preceding Step 0.x precondition has passed and immediately before reflection or any other archive mutation:
+
+     ```bash
+     "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/archive-auto-commit.sh" prepare \
+       --task "{TASK-ID}" \
+       --repo "$DATARIM_ROOT"
+     ```
+
+   - Exit 0 captures or safely reuses a private clean-boundary record and sets `AUTO_COMMIT_READY=true`. The repository must be globally clean: tracked, staged, conflicted, untracked, submodule, and foreign changes all refuse. The more permissive shared-workspace classification in Step 0.1 is not authorization for auto-commit.
+   - Exit 1 is a policy refusal. Preserve its machine-readable disposition, set `AUTO_COMMIT_READY=false`, and continue the ordinary archive without auto-commit. Do not ask the operator and do not stage anything manually. Exit 2 is an integrity/usage failure and follows the same no-commit path, but report it as a framework error.
+   - When `AUTO_COMMIT_REQUESTED=false`, do not invoke `prepare`; set `AUTO_COMMIT_READY=false`. The single disabled disposition is emitted at Step 7.5 after a successful archive.
+
 0.5. **REFLECT** (MANDATORY — runs at least once per task, via a conditional freshness gate):
    - **Freshness gate (decides whether to re-run reflection):** invoke
      `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/reflection-freshness.sh --task {TASK-ID} --root "$DATARIM_ROOT"`.
@@ -624,6 +642,24 @@ The framework ships the PreToolUse guard (`dev-tools/datarim-exec-guard.sh`) tha
      directly; remove from `backlog.md`.
    - Legacy state (any of those files present): `/dr-doctor --fix` migrates and
      deletes; `/dr-init` Step 2.4 self-heal probe surfaces this on next session.
+7.5. **ARCHIVE AUTO-COMMIT FINALIZE** (after all archive mutations and gates succeed):
+   - If `AUTO_COMMIT_READY=true`, invoke the finalizer with only the permanent task-bound roles. Include `--snapshot` only when Step 0.95 moved that file:
+
+     ```bash
+     "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/archive-auto-commit.sh" commit \
+       --task "{TASK-ID}" \
+       --repo "$DATARIM_ROOT" \
+       --archive "documentation/archive/<area>/archive-{TASK-ID}.md" \
+       --snapshot "documentation/archive/<area>/snapshots/{TASK-ID}-final-stage.md"
+     ```
+
+   - The helper must find no visible dirty path except the exact archive document and optional same-area snapshot. Ignored runtime mutations such as reflection, plan cleanup, and thin-index updates are never force-added. Any visible foreign path, staged content, invalid role, or branch/index/working-tree race refuses the commit.
+   - On `committed`, record the returned local SHA. On `already_clean`, record that no empty commit was created. On any `refused_*` disposition, the auto-commit refusal does not undo or misreport the completed archive; surface the refusal and leave every foreign byte untouched.
+   - On exit 2 `committed_recovery_required`, the branch may already contain the journaled commit while its index is not yet synchronized. Preserve the private journal, report the integrity state exactly, and retry this same finalizer invocation; never call it a refusal and never construct a different commit.
+   - On exit 2 `integrity_error`, preserve any journal that still exists and report the helper's reason. Do not claim a commit unless the disposition also carries its verified SHA; retry only after correcting the named integrity condition.
+   - If auto-commit was disabled, invoke `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/archive-auto-commit.sh" skip --task "{TASK-ID}"` exactly once to emit `skipped_disabled`. If prepare already refused, do not invoke the helper again: its refusal is the terminal disposition.
+   - This step is local-only. Never follow it with a push, tag, release, version publication, or remote operation unless a separate future operator instruction explicitly authorizes that distinct action.
+
 8. **HUMAN SUMMARY**:
    - Load `$HOME/.claude/skills/human-summary/SKILL.md`.
    - Emit the `## Отчёт оператору` (RU) / `## Operator summary` (EN) section, with the four mandated sub-sections, between the archive-mutation block and the CTA block ([definition](../skills/cta-format/SKILL.md)). Language follows the most recent operator message. <!-- allow-non-ascii: literal-russian-section-name-token-from-human-summary-skill -->
@@ -662,6 +698,7 @@ If user says "cancel task" or "cancel {TASK-ID}":
 4. **Remove** the cancelled task from `## Active Tasks` in `activeContext.md` (keep other active tasks)
 5. Clear task from `tasks.md`
 6. The cancelled-archive stub from step 3 is the only record (no full completion archive — task shipped no deliverable)
+7. Cancellation Mode MUST NOT invoke `archive-auto-commit.sh`; cancellation is not a clean completed-task archive.
 
 ## /dr-auto Mode (when `DATARIM_AUTO_MODE=1`)
 
