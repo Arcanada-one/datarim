@@ -490,6 +490,8 @@ When the publishing app is unavailable and you must drive the post by hand throu
 
 **Verify text and approved media before the irreversible Publish click, and re-verify the rendered post after.** A partial publish (media attached, text missing — or vice-versa) leaves a broken public post that cannot be fixed by retry without producing duplicates. Snapshot the composer (body present AND media preview present) before Publish. For narration-backed video, verify that the attached file hash matches the MP4 in the approved audio/video receipt; a visible preview proves attachment, not semantic correctness. Open the published post afterward and confirm both text and media are there. On a timeout/modal error, check the profile for a partial publish BEFORE assuming nothing was posted.
 
+**A publish is not finished until the platform is verified AND stale versions are removed (MANDATORY, every platform).** After publishing/editing on any platform: (1) read back the real published entity in a browser/API by a unique title marker — never `.first()` (feeds attach other authors' posts); (2) confirm exactly the intended text/media/pavel-voice/date/links shipped (not a teaser, not a stock voice, not a stale URL); (3) **check that no earlier version, duplicate, or draft of this publication remains on the platform, and delete any that do** (with the read-before-delete guard) — publishing a new version without removing the old one leaves a duplicate the operator has to clean up by hand; (4) only after verify+cleanup on ALL target platforms is the channel closed and reportable as done. Never trust rc=0 / a returned permalink / comment-id blindly.
+
 
 ### Facebook
 
