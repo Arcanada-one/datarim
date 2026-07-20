@@ -185,6 +185,21 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
     - Skip silently when re-running `/dr-init` on an existing backlog ID whose init-task already exists — preserve the verbatim history.
     - **License auto-sync**: when the Q&A round-trip (`skills/init-task-persistence/SKILL.md` § Q&A round-trip contract) records an operator license decision for this project, update the project's root `README.md` — replace the "License" section's "TBD" placeholder with the chosen license (name + SPDX identifier where applicable). Skip silently when `README.md` has no "License" section, or the section already names a concrete license (idempotent — never overwrite an operator-set value).
 
+4.65. **CAPTURE FRAMEWORK VERSION BASELINE** (mandatory when the resolved
+    implementation repository is the Datarim framework repository: it contains
+    `VERSION`, `commands/`, and `skills/`):
+    - Immediately after the canonical init-task passes its structural probe,
+      before PRD/plan creation or framework edits, invoke:
+      ```bash
+      "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/capture-framework-version-baseline.sh" \
+        --task {TASK-ID} --workspace "$DATARIM_ROOT" --repo <framework-repo>
+      ```
+    - The helper exclusively captures the current commit/tree and binds it to
+      the task, repository identity, and raw init-task digest. Do not pass a
+      caller-selected base SHA. A byte-identical re-entry is idempotent.
+    - Exit 1 or exit 2 is a hard INIT failure for a framework task. Do not
+      continue to PRD/plan and do not recapture later from `/dr-do`.
+
 4.7. **WRITE EXPECTATIONS SKELETON** (mandatory for all complexity levels L1-L4 — see `$HOME/.claude/skills/expectations-checklist/SKILL.md` § When the file is created):
     - Compute `EXPECTATIONS_FILE="datarim/tasks/{TASK-ID}-expectations.md"`.
     - Skip silently when `EXPECTATIONS_FILE` already exists (re-run `/dr-init` on backlog ID, or operator-amended skeleton from a prior cycle) — preserve operator edits.
