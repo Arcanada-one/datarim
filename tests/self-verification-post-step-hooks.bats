@@ -10,7 +10,7 @@ setup() {
     commands/dr-do.md
     commands/dr-verify.md
     skills/self-verification/SKILL.md
-    agents/peer-reviewer.md
+    agents/reviewer.md
     CLAUDE.md
     README.md
     documentation/tutorials/getting-started.md
@@ -62,7 +62,7 @@ setup() {
     && grep -Fq 'No separate peer-review layer or fourth model worker runs in the automatic profile' "$SKILL"
 }
 
-@test "V-AC-04: L3 and L4 require exactly three parallel independent roles" {
+@test "V-AC-04: L3 and L4 retain the three-role nominal profile" {
   [ "$(grep -cF 'L3/L4 | yes | `reviewer`, `tester`, `security` | exactly three independent workers in parallel' "$SKILL")" -eq 1 ] \
     && grep -Fq 'No separate peer-review layer or fourth model worker runs in the automatic profile' "$SKILL"
 }
@@ -80,10 +80,9 @@ setup() {
     && grep -Fq 'launches no workers' "$SKILL"
 }
 
-@test "V-AC-04: whole-tier token budget is reserved before any launch" {
-  grep -Fq 'fixed automatic stage budget is 96,000 estimated tokens' "$SKILL" \
-    && grep -Fq 'Reserve the sum of the computed role estimates before launch' "$SKILL" \
-    && grep -Fq 'three 27,130-token estimates reserve 81,390 tokens' "$SKILL" \
+@test "V-AC-04: selected bundle budget is reserved before any launch" {
+  grep -Fq 'self-verify-degradation-policy.sh' "$SKILL" \
+    && grep -Fq 'Reserve the selected bundle atomically before launch' "$SKILL" \
     && grep -Fq 'No fourth worker may consume the reservation' "$SKILL"
 }
 
@@ -111,7 +110,7 @@ setup() {
 }
 
 @test "V-AC-07: every incomplete reason is explicit" {
-  grep -Fq 'missing or malformed complexity, missing or duplicate role identity, timeout, provider failure, malformed output, unsupported runtime, missing or invalid budget reservation, cost exhaustion, recursive invocation, auto-fix transaction uncertainty, or audit persistence failure' "$SKILL" \
+  grep -Fq 'missing or malformed complexity, missing or duplicate role identity, timeout, provider failure, malformed output, unsupported runtime, invalid budget evidence, degradation evaluation failure, missing or invalid budget reservation, cost exhaustion, recursive invocation, auto-fix transaction uncertainty, or audit persistence failure' "$SKILL" \
     && grep -Fq 'Every listed reason sets `execution_status: incomplete`' "$SKILL"
 }
 
@@ -252,4 +251,69 @@ setup() {
     && grep -Fq 'manual `/dr-verify` remains findings-only' "$REPO_ROOT/documentation/reference/commands.md" \
     && grep -Fq 'strictly below 30%' "$REPO_ROOT/documentation/reference/skills.md" \
     && grep -Fq 'fixed immutable history namespace' "$REPO_ROOT/documentation/reference/skills.md"
+}
+
+@test "TUNE-0139: automatic L3/L4 profiles use the fixed omission lattice" {
+  grep -Fq '`full -> deep_only -> floor_only`' "$SKILL" \
+    && grep -Fq 'omit `multi_vote_adversarial` first' "$SKILL" \
+    && grep -Fq 'then omit `deep_cross_artifact`' "$SKILL" \
+    && grep -Fq 'The deterministic floor is never omitted' "$SKILL"
+}
+
+@test "TUNE-0139: floor auto-fix refresh policy reservation dispatch and audit stay ordered" {
+  grep -Fq 'floor -> guarded auto-fix -> validator/floor refresh -> degradation decision -> atomic reservation -> selected dispatch -> immutable audit' "$SKILL" \
+    && grep -Fq 'Never evaluate a pre-mutation ledger or stale floor generation' "$SKILL"
+}
+
+@test "TUNE-0139: parent owns digest sequence lock recheck and reservation race" {
+  grep -Fq 'expected_sequence = previous_sequence + 1' "$SKILL" \
+    && grep -Fq 'freeze the ledger digest under the same task-stage lock' "$SKILL" \
+    && grep -Fq 'recheck the digest, sequence, and remaining budget while still holding the lock immediately before dispatch' "$SKILL" \
+    && grep -Fq 'Exactly one competing reservation may win' "$SKILL"
+}
+
+@test "TUNE-0139: invalid policy execution is audited incomplete without reactive downgrade" {
+  grep -Fq 'nonzero exit, signal termination, empty stdout, malformed JSON, or missing required decision field' "$SKILL" \
+    && grep -Fq 'parent-synthesized redacted `incomplete` decision' "$SKILL" \
+    && grep -Fq 'never retry a weaker profile after a worker or provider failure' "$SKILL"
+}
+
+@test "TUNE-0139: stage commands carry identical stage-bound callouts" {
+  local file stage
+  for file in commands/dr-prd.md commands/dr-plan.md commands/dr-do.md; do
+    stage="${file#commands/dr-}"
+    stage="${stage%.md}"
+    grep -Fq "self-verify-degradation-policy.sh\` with \`stage=$stage\`" "$REPO_ROOT/$file" \
+      && grep -Fq 'automatic L3/L4 only' "$REPO_ROOT/$file" \
+      && grep -Fq 'deterministic floor remains mandatory' "$REPO_ROOT/$file" \
+      || return 1
+  done
+}
+
+@test "TUNE-0139: L1 L2 and manual verification never use degradation policy" {
+  grep -Fq 'L1 and L2 never invoke the degradation evaluator' "$SKILL" \
+    && grep -Fq 'Manual `/dr-verify` never invokes `self-verify-degradation-policy.sh`' "$SKILL" \
+    && grep -Fq 'cost-adaptive automatic profile does not apply' "$MANUAL"
+}
+
+@test "TUNE-0139: canonical deep-only role remains read-only reviewer" {
+  grep -Fq 'canonical automatic `deep_only` role' "$REPO_ROOT/agents/reviewer.md" \
+    && grep -Fq 'budget evidence or select a degradation profile' "$REPO_ROOT/agents/reviewer.md"
+}
+
+@test "TUNE-0139: every public surface names coverage and the hard floor" {
+  local file
+  for file in CLAUDE.md README.md documentation/tutorials/getting-started.md documentation/explanation/pipeline.md documentation/reference/commands.md documentation/reference/skills.md; do
+    grep -Fq 'floor_only' "$REPO_ROOT/$file" \
+      && grep -Fq 'deterministic floor' "$REPO_ROOT/$file" \
+      && grep -Fq 'verification_coverage' "$REPO_ROOT/$file" \
+      || return 1
+  done
+}
+
+@test "TUNE-0139: audit records normalized decision fields without raw ledger" {
+  grep -Fq 'degradation section' "$SKILL" \
+    && grep -Fq '`policy_version`, `signal_source`, `signal_digest`, `signal_sequence`' "$SKILL" \
+    && grep -Fq '`selected_profile`, `omitted_passes`, `trigger_axes`, and `reason_code`' "$SKILL" \
+    && grep -Fq 'never persist the raw budget ledger' "$SKILL"
 }

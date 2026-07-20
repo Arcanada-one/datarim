@@ -10,7 +10,7 @@ description: Standalone manual self-verification of a Datarim artifact (PRD/plan
 
 This command is the manual consumer of the skill's full tri-layer profile. Automatic PRD/plan/do completion uses the skill's internal `post_step` profile inline from the parent stage; it is not exposed as a `/dr-verify` flag and does not change the arguments or behavior below.
 
-Manual `/dr-verify` remains findings-only and does not enter the automatic mutation step. It reports findings for operator triage under the existing full tri-layer contract.
+Manual `/dr-verify` remains findings-only and does not enter the automatic mutation step. It reports findings for operator triage under the existing full tri-layer contract; the cost-adaptive automatic profile does not apply.
 
 ## Instructions
 

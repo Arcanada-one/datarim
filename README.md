@@ -198,13 +198,20 @@ Stages in `[brackets]` are conditional — included when the agent determines th
 
 - **Automatic and manual self-verification** — successful `/dr-prd`, `/dr-plan`,
   and `/dr-do` stages run a bounded check after their validators and before their
-  CTA/snapshot. L1 is off, L2 uses exactly one peer reviewer, and L3/L4 use
-  exactly three independent parallel roles. For L2+, registered deterministic
+  CTA/snapshot. L1 is off, L2 uses exactly one peer reviewer, and L3/L4 normally
+  use three independent parallel roles. Valid parent-owned token/cost pressure
+  may reduce L3/L4 only through `full -> deep_only -> floor_only`, dropping the
+  adversarial bundle before the deep reviewer. The deterministic floor always
+  runs, and `verification_coverage` records the completed tier independently
+  from the canonical verdict. For L2+, registered deterministic
   formatting, trailing-whitespace lint, and exact-typo fixes may apply only when
   complete immutable class history is strictly below 30% false positives. The
   parent applies one fix, reruns validators and the floor, and records every
-  attempted result. Incomplete required review or transaction uncertainty blocks
-  normal advancement. Manual `/dr-verify` never auto-fixes. The standalone
+  attempted result before pressure is evaluated. Every degradation decision is
+  immutable and auditable without persisting the raw budget ledger. Invalid
+  evidence, incomplete required review, or transaction uncertainty blocks normal
+  advancement instead of silently selecting a cheaper tier. Manual `/dr-verify`
+  never auto-fixes or auto-degrades. Manual `/dr-verify` never auto-fixes. The standalone
   `/dr-verify` command remains
   available for full tri-layer verification of any pipeline artifact: Layer 1
   deterministic floor (shell pipeline, no LLM
