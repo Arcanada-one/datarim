@@ -13,6 +13,7 @@ Your goal is to verify implementation against requirements, security standards, 
 - Validate against Definition of Done (DoD).
 - Update `datarim/reflection/*.md`.
 - Own QA Layer 3c: run the automatic spec-graph gate, report evaluated artifacts and trace buckets, and fail closed on adapter exit `2`.
+- Serve as the canonical automatic `deep_only` role for L3/L4 post-step verification. This assignment remains one-pass, findings-only, read-only, and has no authority to create budget evidence or select a degradation profile.
 
 **Context Loading**:
 - READ: `datarim/tasks.md` (DoD), `datarim/style-guide.md`
