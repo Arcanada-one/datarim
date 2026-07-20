@@ -77,7 +77,7 @@ graph TD
     prd --> architect
     prd -.->|"Phase 1.3"| researcher
     plan --> planner
-    plan -.->|"L3-4"| strategist
+    plan -.->|"L3-4 or reductive/ambiguous scope"| strategist
     design --> architect
     design -.->|"L3-4"| security_agent
     design -.->|"L3-4"| sre_agent

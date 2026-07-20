@@ -194,9 +194,11 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   verify claims against sources, remove AI writing artifacts, preserve the author's
   natural voice.
 
-- **Strategic advisor gate** — before committing to major work, the strategist agent
-  evaluates value, risk, and cost. Not every technically interesting idea deserves
-  implementation resources.
+- **Strategic advisor gate** — before committing to major work, the strategist
+  evaluates value, risk, and cost. `/dr-plan` also requires and logs this review
+  at any complexity when the entire scope only removes redundancy, dead code,
+  or duplicate surfaces without adding behavior. Ambiguous cleanup claims fail
+  closed; a valid `GO` unlocks only the next existing planning gate.
 
 - **Project scaffolding** — `/dr-init create project "Name"` creates a complete
   project structure: CLAUDE.md with Laws of Robotics and Datarim pipeline, documentation/
@@ -427,7 +429,7 @@ documentation, or any structured work.
 | **Reviewer** | Reviews code for quality, correctness, and adherence to plan | `qa` |
 | **Compliance** | Validates implementation against PRD, checks for regressions | `compliance` |
 | **Code Simplifier** | Reduces complexity, eliminates duplication, improves readability | `do`, `qa` |
-| **Strategist** | Evaluates value/risk/cost, advises on priorities, gates major work | `init`, `prd` |
+| **Strategist** | Evaluates value/risk/cost, advises on priorities, gates L3/L4 and redundancy-only planning | `plan` |
 | **DevOps** | Handles deployment, CI/CD, infrastructure, and environment configuration | `do`, `compliance` |
 | **Writer** | Creates content — articles, docs, research papers, posts, guides | `write`, `archive` (Step 0.5) |
 | **Editor** | Editorial review — fact-checking, AI pattern removal, style, polish | `edit`, `qa` |
@@ -484,7 +486,7 @@ specific capabilities. You can add custom skills by placing `.md` files in
 |---------|-------|-------------|
 | `/dr-init` | Initialize | Start a new task, pick from backlog, or scaffold a new project. For tasks: assigns complexity (L1-L4) and routes pipeline. For projects: `/dr-init create project "Name"`. |
 | `/dr-prd` | Requirements | Generate a Product Requirements Document. Analyzes the problem, defines scope, success criteria, and constraints. |
-| `/dr-plan` | Planning | Create a detailed implementation plan. Breaks work into phases, estimates effort, identifies risks. |
+| `/dr-plan` | Planning | Create a detailed implementation plan. Breaks work into phases, estimates effort, identifies risks; a logged strategist decision is mandatory for redundancy-only or ambiguous scope at any complexity |
 | `/dr-design` | Design | Explore architectural decisions. Evaluates alternatives, documents trade-offs, defines interfaces. |
 | `/dr-do` | Execution | Execute the plan. TDD for code, structured iteration for research, documentation, or other work. |
 | `/dr-qa` | Quality | Run quality checks. PRD alignment, design conformance, plan completeness, output quality. |
