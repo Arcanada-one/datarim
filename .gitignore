@@ -66,3 +66,9 @@ datarim/.auto-mode-active
 # pane classifier operate on these; the .answer channel (Phase 2 relay) lands
 # here too.
 datarim/runtime/
+
+# Interactive task-spec wizard state — per-task append-only JSONL event log
+# datarim/wizard/<TASK-ID>.wizard.jsonl and the emitted knowledge/dependency
+# graph datarim/wizard/<TASK-ID>.graph.jsonl (TUNE-0390). Runtime interview
+# state; the local log may hold raw operator text and is never committed.
+datarim/wizard/

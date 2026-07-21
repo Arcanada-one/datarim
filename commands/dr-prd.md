@@ -59,6 +59,7 @@ The framework ships a PreToolUse guard (`dev-tools/datarim-exec-guard.sh`) that 
     -   If insights document already exists (e.g., from a previous `/dr-prd` run), update rather than overwrite.
 
 2.  **Discovery Interview (Phase 1.5)**:
+    -   **Wizard consume-hook (finalized-gated, idempotent).** Before running the plain interview, source `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/lib/wizard-state.sh` and probe `wizard_status {TASK-ID} --root <repo-root>`. If a wizard artefact exists AND its `status=finalized` AND `wizard_validate {TASK-ID} --root <repo-root>` exits 0, **consume it instead of a fresh discovery interview**: read the Requirements Summary the `/dr-wizard` run produced and the graph at `datarim/wizard/{TASK-ID}.graph.jsonl` (the graph sink contract), and feed them into the PRD discovery section. This is **idempotent** — re-running `/dr-prd` re-reads the same finalized artefact and never double-consumes or re-opens the interview. A non-finalized (in-progress or absent) wizard artefact is ignored — fall through to the plain discovery path below unchanged. See `$HOME/.claude/skills/wizard/SKILL.md` § Composition with /dr-prd.
     -   If `datarim/insights/INSIGHTS-{task-id}.md` exists, read it before starting the interview — use research findings to inform questions and proposals.
     -   Load `$HOME/.claude/skills/discovery/SKILL.md`.
     -   Run a focused interview (mode based on complexity: Quick for L1-2, Standard for L2-3, Deep for L3-4).
