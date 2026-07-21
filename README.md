@@ -1000,7 +1000,7 @@ and why it exists.
 ```
 datarim/
   agents/            # Agent personas (19 agents)
-  skills/            # Knowledge modules (67 skills)
+  skills/            # Knowledge modules (68 skills)
   commands/          # Slash commands (27 commands)
   templates/         # Task and document templates (24 templates)
   documentation/              # Extended documentation and use cases

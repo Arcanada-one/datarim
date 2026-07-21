@@ -1,6 +1,6 @@
 # Skills Reference
 
-Datarim includes 67 reusable skill modules. Skills provide rules, patterns, and guidelines loaded on demand by agents and commands.
+Datarim includes 68 reusable skill modules. Skills provide rules, patterns, and guidelines loaded on demand by agents and commands.
 
 Skills are split into two categories:
 - **Reference skills** — rules and patterns the caller applies inline. Inherit caller's model (no `model` field).
@@ -47,6 +47,7 @@ Skills are split into two categories:
 | stage-snapshot-writer | Reference | inherit | Producer contract for per-task stage snapshots — final operator-visible `/dr-*` response persisted to `datarim/snapshots/{TASK-ID}.snapshot.md` with overwrite semantics, mkdir-based atomic lock, 8 KB hard cap (v2.13.0, TUNE-0254) | invoked from `cta-format.md` § Snapshot Emission by every `/dr-*` |
 | dr-next-snapshot-replay | Reference | inherit | Consumer contract — `/dr-next` and `/dr-orchestrate` read snapshot first, emit replay-prompt with CTA + bilingual autonomy reminder + `done before:` body; CTA-selection heuristic with ≥3 worked examples (v2.13.0, TUNE-0254) | `/dr-next` Step 2.5, `/dr-orchestrate` Snapshot-First Resume |
 | v-ac-axis-split | Reference | inherit | Pattern guidance: split V-AC groups mixing a deterministic axis (rule match / shape check / type assertion) and a statistical axis (live-rate threshold / SLA percentile / soak distribution) into two distinct V-AC groups upfront. | `/dr-prd` V-AC drafting, `/dr-plan` V-AC review |
+| seam-vs-integration-boundary | Reference | inherit | Pattern guidance: flag an L3+ backlog one-liner that bundles a seam/contract concern (define an interface/dispatcher in module X) with an integration/call-site concern (wire it into a caller in module Y); split into foundation + integration follow-up or scope the ACs so the integration is explicitly optional/deferred. Advisory detector `dev-tools/check-seam-integration-boundary.sh`. | `/dr-prd`, `/dr-plan` Step 4 scope-boundary probe |
 | prod-readiness-probe | Reference | inherit | Deploy-class prod-readiness gate — read-only test↔prod runner symmetry probe (sudoers, PATH, ports, units, runtime versions); blocks merge-proposal at `/dr-qa` Gate 4g and archive at `/dr-archive` Step 0.4 until prod is verified; hybrid deterministic (`deploy-readiness.yml`) / agent-checklist | `/dr-qa` Gate 4g, `/dr-archive` Step 0.4 |
 | session-handoff-writer | Reference | inherit | Producer contract for `/dr-save` — writes `datarim/sessions/SESSION-{YYYYMMDD-HHMMSS}.session.md` with 5-layer body, 32 KB cap (L1/L5 non-truncatable), append-only semantics, claim-provenance enforcement (exit 1 on untagged claims), T-8 secret redaction, mkdir-based atomic lock, chmod 600. | `/dr-save` |
 | session-handoff-replay | Reference | inherit | Consumer contract for `/dr-continue` — reads session artefact in a clean window, re-verifies every claim via live probes (STALE SNAPSHOT / CLAIM-UNVERIFIED / FILE-MISSING banners), downgrades provenance tags, routes to `/dr-next` or `/dr-auto`. Squash-collision detection via `git merge-base --is-ancestor`. Shares bilingual replay renderer with `/dr-next` via `skills/dr-next-snapshot-replay/SKILL.md § Shared Replay Renderer`. | `/dr-continue` |
@@ -59,7 +60,7 @@ Skills are split into two categories:
 | edge-case-hunter | Reference | inherit | Boundary/degenerate/failure-input enumeration — cardinality, emptiness, value bounds, ordering/timing, concurrency (TOCTOU), partial failure, malformed input, environment; distinguishability test; ranks silent-failure edges first | `/dr-plan` Validation Checklist, `/dr-qa` (sibling of adversarial-review) |
 | structure-review | Reference | inherit | Structural/editorial review — completeness against the artifact's own contract, internal consistency (section-vs-section contradiction), traceability, drifted counts, un-runnable step order; the "does it hold together" axis | `/dr-plan`, `/dr-qa` Layer 3 (sibling of adversarial-review) |
 
-**Distribution:** 25 reference (inherit), 3 opus, 13 sonnet, 4 haiku.
+**Distribution:** 26 reference (inherit), 3 opus, 13 sonnet, 4 haiku.
 
 ## Loading Hierarchy
 
