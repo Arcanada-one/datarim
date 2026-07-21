@@ -2182,3 +2182,44 @@ category/claimed/actual named in `--report` output, for each of the 4 categories
 fixture is a no-op pass; `--root` auto-walk-up verified). `tests/check-repo-site-sync.bats` —
 12/12 green, no regression from the sibling script being read as prior art. Full `bats tests/`
 run — see PR body for the pass/fail count captured at PR-open time.
+
+## 2026-07-21 — TUNE-0198 (P3, reflection-CONN-0093 Class A proposal): 1:1 wire-shape mirror via cited file:line at plan time
+
+**Category:** promote-recurring-incident-to-gate · **Class:** A.
+**Target:** `skills/ai-quality/SKILL.md` § Wire-Shape Mirror via Cited File-Line in the Plan (new section, inserted after the Spike-thresholds section as the last rule section).
+
+**What:** Added a plan-time correctness gate for any task that mirrors a shape defined
+elsewhere (client/SDK/adapter, cross-service DTO mirror, shared-enum consumer). Three
+requirements: (1) cite each mirrored field/type/enum by `<file>:<line>` in the plan pointing
+at the authoritative definition, never a prose paraphrase; (2) grep every cited symbol at
+plan time, before code generation — zero matches means shape drift, caught free instead of
+surfacing later as a runtime mismatch; (3) keep the mirror 1:1 against the source wire-shape,
+with any divergence (renamed field, reserved-word alias, coerced type, dropped member)
+recorded as a deliberate documented adapter decision. Cross-referenced the sibling
+"Task-Description Line-Reference Smoke Check" — same citation-plus-grep discipline, applied to
+prove a mirrored shape exists rather than to guard a `<file>:<line>` edit from going stale.
+Chose `skills/ai-quality/` over `skills/datarim-system/` for the same reason the sibling
+line-reference gate landed there: `/dr-do` Step 4 already loads `ai-quality/SKILL.md`, and the
+rule is a plan/verification quality practice, not a path/storage/schema convention.
+
+**Why (evidence cohort):**
+- **CONN-0089** (server output-guard surface) established the wire shape being mirrored — the
+  `repair_report` / response-envelope fields and the `output_format` DTO members that a
+  first-party consumer must reproduce.
+- **CONN-0093** (first-party TS + Python client SDKs) mirrored that server shape 1:1. The
+  `<file>:<line>` citations plus a plan-time symbol grep caught all five wire-shape mirrors
+  (server envelope fields, DTO members, reserved-word aliases) deterministically and
+  near-free, with **zero runtime integration tests** written. Recorded in
+  `archive-CONN-0093.md` § Lessons Learned as a Class A proposal, which spawned this
+  TUNE-0198. The alternative — discovering a drifted field only when an integration test
+  fails or in production — costs a full build-verify-revise cycle per missed member.
+
+**Verification:** `scripts/task-id-gate.sh skills/ai-quality/SKILL.md` → PASS: clean (no bare
+task-ID leaked into the shipped skill body — all provenance kept here in the evolution-log).
+`scripts/stack-agnostic-gate.sh skills/ai-quality/SKILL.md` → PASS: clean. No Cyrillic
+introduced (`dev-tools/check-body-english.sh` → RESULT: PASS, 175 files scanned). New
+markdown-smoke bats `tests/ai-quality-wire-shape-mirror-smoke-gate.bats` (8 tests) — all green
+(heading present; plan-time `<file>:<line>` citation rule present as the acceptance
+"citation present in plan" check; symbol-existence grep at plan time before code generation;
+mirror is 1:1 wire-shape match; sibling cross-reference; English-only; task-id-gate-clean).
+Sibling `tests/ai-quality-line-reference-smoke-gate.bats` — 8/8 green, no regression.
