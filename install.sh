@@ -136,6 +136,7 @@ FANOUT_CLAUDE=false
 FANOUT_CODEX=false
 FANOUT_CODEX_UX=true       # generate SKILL.md wrappers + AGENTS.override.md; --no-codex-ux opts out
 FANOUT_CURSOR=false        # Cursor IDE skill mirroring (--with-cursor)
+ENABLE_CODEX_PROMPTS=false # mirror commands/dr-*.md → $CODEX_DIR/prompts/ for Codex /prompts:dr-* (--enable-codex-prompts, opt-in default-off)
 
 # Sentinel markers delimiting the auto-synced coworker-delegation
 # block inside the operator's own $CLAUDE_DIR/CLAUDE.md. Everything outside
@@ -157,6 +158,13 @@ Usage:
   install.sh --with-claude          Install for Claude runtime (symlink default)
   install.sh --with-codex           Install for Codex runtime
   install.sh --with-codex --no-codex-ux  Codex install without UX wrappers/manifest
+  install.sh --with-codex --enable-codex-prompts  Also mirror commands/dr-*.md into
+                                    $CODEX_DIR/prompts/dr-<name>.md so Codex CLI exposes
+                                    them as /prompts:dr-<name> slash-commands. Opt-in,
+                                    default-off: Codex documents the /prompts: mechanism
+                                    as legacy and may retire it (accepted risk, see
+                                    documentation/how-to/multi-runtime.md). Flat copies
+                                    (not symlinks) for Windows/FAT parity.
   install.sh --with-cursor          Install for Cursor IDE (flat .md mirror of each SKILL.md;
                                     target: $CURSOR_DIR/skills/ — default ~/.cursor/skills/.
                                     Cursor's skill discovery is not yet officially documented;
@@ -203,6 +211,7 @@ parse_args() {
             --with-claude)  FANOUT_CLAUDE=true; shift ;;
             --with-codex)   FANOUT_CODEX=true; shift ;;
             --no-codex-ux)  FANOUT_CODEX_UX=false; shift ;;
+            --enable-codex-prompts) ENABLE_CODEX_PROMPTS=true; shift ;;
             --with-cursor)  FANOUT_CURSOR=true; shift ;;
             --project)
                 if [ $# -lt 2 ]; then
@@ -1290,6 +1299,106 @@ fanout_codex_ux() {
     echo "  MANIFEST: $codex_dir/AGENTS.override.md"
 }
 
+# Mirror shipped commands/dr-*.md into $codex_dir/prompts/ as flat copies so
+# Codex CLI exposes them as `/prompts:dr-<name>` slash-commands. Opt-in
+# (--enable-codex-prompts), default-off: Codex documents the /prompts:
+# mechanism as legacy and may retire it in a future release, so this ships
+# behind an accepted-risk (deferred-validation) posture — the same posture
+# setup_cursor_runtime uses for the not-yet-officially-documented Cursor path.
+#
+# Flat copy, not symlink: parity with setup_cursor_runtime for Windows/FAT
+# targets, and the copies stay byte-identical to source so the empirically
+# verified /prompts: behaviour is preserved.
+#
+# The mirror is a deterministic, ownership-tracked reconcile — never a blind
+# additive copy — because each mirrored file is an *executable* slash-command:
+# a stale orphan would keep running removed behaviour.
+#   * Ownership is tracked in $codex_dir/prompts/.datarim-managed (a dotfile,
+#     no .md extension, so Codex never surfaces it as a prompt). It lists the
+#     basenames this mirror authored.
+#   * A pre-existing dr-*.md we did NOT author (absent from the manifest) is a
+#     namespace conflict: skip + warn, never overwrite. Non-dr files in
+#     prompts/ are outside our namespace and are never touched.
+#   * Copies are content-gated (cmp -s) so a no-op re-run causes no mtime churn.
+#   * Managed files whose source command no longer exists are pruned; pruning
+#     is restricted to the manifest set, so operator-authored prompts survive.
+mirror_prompts_target() {
+    local codex_dir="$1" src_dir="$2"
+    local prompts_dir="$codex_dir/prompts"
+    local manifest="$prompts_dir/.datarim-managed"
+    local src name dest
+
+    if [ "$DRY_RUN" = true ]; then
+        echo "DRY: mkdir -p $prompts_dir"
+        for src in "$src_dir"/commands/dr-*.md; do
+            [ -f "$src" ] || continue
+            name="$(basename "$src")"
+            echo "DRY: copy commands/$name -> $prompts_dir/$name  (Codex /prompts:${name%.md})"
+        done
+        echo "DRY: reconcile $manifest (prune managed dr-*.md with no source; skip+warn foreign dr-*.md)"
+        return 0
+    fi
+
+    mkdir -p "$prompts_dir"
+
+    local prior_managed=""
+    [ -f "$manifest" ] && prior_managed="$(cat "$manifest")"
+
+    local new_managed="" mirrored=0 skipped=0
+    for src in "$src_dir"/commands/dr-*.md; do
+        [ -f "$src" ] || continue
+        name="$(basename "$src")"
+        # Defense-in-depth: the destination basename must be a plain dr-*.md
+        # name. The source is the trusted repo, but the basename becomes a
+        # write target, so reject anything unexpected before touching the disk.
+        if ! printf '%s' "$name" | grep -Eq '^dr-[a-z0-9-]+\.md$'; then
+            echo "  PROMPTS: SKIP $name (unexpected command filename)" >&2
+            continue
+        fi
+        dest="$prompts_dir/$name"
+        # A dr-*.md already on disk that we did not author is operator-owned —
+        # never clobber it (namespace-conflict detection).
+        if [ -e "$dest" ] && ! printf '%s\n' "$prior_managed" | grep -Fxq "$name"; then
+            echo "  PROMPTS: SKIP $name (namespace conflict: operator-authored $dest — not overwriting)" >&2
+            skipped=$((skipped + 1))
+            continue
+        fi
+        # Content-gated copy: only write when the target differs (idempotent).
+        if [ ! -e "$dest" ] || ! cmp -s "$src" "$dest"; then
+            cp "$src" "$dest"
+        fi
+        new_managed="$new_managed$name
+"
+        mirrored=$((mirrored + 1))
+    done
+
+    # Prune managed files whose source command no longer exists. Only files we
+    # authored (present in the prior manifest) are eligible; operator prompts
+    # and non-dr files are never removed.
+    local old
+    while IFS= read -r old; do
+        [ -n "$old" ] || continue
+        case "$old" in dr-*.md) : ;; *) continue ;; esac
+        if ! printf '%s' "$new_managed" | grep -Fxq "$old"; then
+            rm -f "$prompts_dir/$old"
+            echo "  PROMPTS: pruned stale $old (source command removed)"
+        fi
+    done <<EOF
+$prior_managed
+EOF
+
+    # Persist the managed set (sorted, blank lines stripped).
+    if [ -n "$new_managed" ]; then
+        printf '%s' "$new_managed" | grep -v '^$' | LC_ALL=C sort > "$manifest"
+    else
+        rm -f "$manifest"
+    fi
+
+    echo "  PROMPTS: mirrored $mirrored dr-* command(s) into $prompts_dir/ (Codex /prompts:dr-*)"
+    [ "$skipped" -gt 0 ] && echo "  PROMPTS: $skipped file(s) skipped (namespace conflict — see warnings)"
+    echo "  NOTE: Codex /prompts: is documented as legacy — accepted-risk (deferred-validation), opt-in only."
+}
+
 # setup_cursor_runtime.
 #
 # Mirrors each migrated `skills/<name>/SKILL.md` from the source repo into
@@ -1414,6 +1523,9 @@ print_dry_run_plan() {
         if [ "$FANOUT_CODEX_UX" = true ]; then
             fanout_codex_ux "$CLAUDE_DIR" "$SCRIPT_DIR"
         fi
+        if [ "$ENABLE_CODEX_PROMPTS" = true ]; then
+            mirror_prompts_target "$CLAUDE_DIR" "$SCRIPT_DIR"
+        fi
     fi
     if [ "$runtime_name" = "claude" ]; then
         echo "DRY: sync coworker-delegation fragment into $CLAUDE_DIR/CLAUDE.md (sentinel block)"
@@ -1471,6 +1583,9 @@ install_symlink_scopes() {
         if [ "$FANOUT_CODEX_UX" = true ]; then
             fanout_codex_ux "$CLAUDE_DIR" "$SCRIPT_DIR"
         fi
+        if [ "$ENABLE_CODEX_PROMPTS" = true ]; then
+            mirror_prompts_target "$CLAUDE_DIR" "$SCRIPT_DIR"
+        fi
     fi
 }
 
@@ -1514,6 +1629,9 @@ install_copy_scopes() {
         COPIED=$((COPIED + 1))
         if [ "$FANOUT_CODEX_UX" = true ]; then
             fanout_codex_ux "$CLAUDE_DIR" "$SCRIPT_DIR"
+        fi
+        if [ "$ENABLE_CODEX_PROMPTS" = true ]; then
+            mirror_prompts_target "$CLAUDE_DIR" "$SCRIPT_DIR"
         fi
     fi
 }

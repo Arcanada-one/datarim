@@ -118,6 +118,43 @@ Pass `--no-codex-ux` when:
 
 The flag composes with all other flags (`--with-codex --no-codex-ux`, `--with-claude --with-codex --no-codex-ux`, `--with-codex --no-codex-ux --dry-run`).
 
+## Optional: `/prompts:dr-*` slash-commands (`--enable-codex-prompts`)
+
+The `## Codex UX integration` default makes commands reachable by name, but — as § "Why no `/`-popup menu in Codex?" explains — Datarim's `~/.codex/commands/dr-*.md` do **not** surface in a typed `/` menu. Codex CLI does have one menu-backed slash-command surface: any markdown file in `~/.codex/prompts/<name>.md` is invocable as `/prompts:<name>`. Passing `--enable-codex-prompts` mirrors each shipped `commands/dr-*.md` into that directory so the Datarim commands appear there too:
+
+```bash
+./install.sh --with-codex --enable-codex-prompts
+# then, inside Codex CLI:
+/prompts:dr-status
+/prompts:dr-do
+```
+
+`/prompts:dr-status` loads `~/.codex/prompts/dr-status.md` and runs the command's instructions, the same body Claude Code reads from `~/.claude/commands/dr-status.md`.
+
+**Opt-in, default-off — this is deliberate.** Codex CLI documents the `/prompts:` mechanism as a legacy path that a future release may retire. The flag ships behind an accepted-risk (deferred-validation) posture: it is verified working on the current Codex CLI, but you opt into it knowingly rather than getting it by default. If a future Codex drops `/prompts:`, drop the flag — nothing else in the install depends on it.
+
+### How the mirror behaves
+
+- **Flat copies, not symlinks.** Each `dr-*.md` is copied verbatim (byte-identical to source), matching the `--with-cursor` posture for Windows/FAT targets where symlinks are unavailable.
+- **Namespace is `dr-*` only.** Only `dr-<name>.md` files are ever created, refreshed, or pruned. Any other file you keep in `~/.codex/prompts/` is outside Datarim's namespace and is never touched.
+- **Conflict-safe.** A pre-existing `dr-*.md` that this mirror did not author (e.g. one you wrote yourself) is left untouched and reported — the mirror never silently overwrites it. Ownership is tracked in the dotfile `~/.codex/prompts/.datarim-managed` (no `.md` extension, so Codex never lists it as a prompt).
+- **Idempotent + self-cleaning.** Re-running with no source change produces no diff. When a command is renamed or removed upstream, the stale mirrored file is pruned on the next run — otherwise a removed command would keep running old behaviour as a live `/prompts:` entry. Pruning only ever removes files the mirror itself authored.
+
+### Verification
+
+```bash
+# dry-run prints the plan and writes nothing
+./install.sh --with-codex --enable-codex-prompts --dry-run
+
+# after a real run: one prompts file per shipped dr-* command
+ls ~/.codex/prompts/dr-*.md | wc -l
+
+# live smoke inside Codex CLI — should return the dr-status stage header
+/prompts:dr-status
+```
+
+The flag composes with the other flags (`--with-codex --enable-codex-prompts`, `--with-codex --no-codex-ux --enable-codex-prompts`, `--with-claude --with-codex --enable-codex-prompts --dry-run`).
+
 ## Optional: Coworker `codex` profile
 
 If you use `coworker` to delegate bulk I/O to an external LLM, register a `codex` profile so the system prompt is aware of Codex CLI conventions (slash-commands are pipeline commands, not shell input; YAML frontmatter is byte-exact).
