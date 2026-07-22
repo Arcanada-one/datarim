@@ -19,6 +19,7 @@ description: Initialize a new Datarim task or scaffold a new project. Auto-detec
       - Pattern: `/dr-init new project for <description>`
     - **If project intent detected:**
       a. Load `$HOME/.claude/skills/project-init/SKILL.md` and follow its scaffolding flow.
+      a1. **Secrecy signal:** if the brief carries a `secrecy: <domain>` annotation or a secret-core keyword (secret/proprietary algorithm, encoding scheme, compression mechanism), the skill scaffolds in **secrecy-aware mode** — mechanism-free `[REDACTED]` reference stubs + a `## Secrecy` gate emitted into CLAUDE.md at scaffold time (SKILL Step 4.5).
       b. **EXIT** — do not continue to the task flow below.
     - **If NO project intent detected:**
       → Continue to Step 1 (standard task flow, unchanged).
