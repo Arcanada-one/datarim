@@ -1,5 +1,13 @@
 # Evolution Log
 
+## 2026-07-22 -- Public visibility and exact-SHA CI evidence gates (v2.58.0)
+
+Two recurring release failures are now structural gates. A new public repository or private-to-public transition must prove the exact allowlisted tree, all reachable history, unsupported-object absence, redacted policy checks, and an independently hashed secret scan before visibility changes. When GitHub Actions is an acceptance criterion, only the actual target workflow executing successfully on the exact implementation SHA satisfies it; a queued run, zero-runner result, unrelated probe, or follow-up task does not.
+
+The implementation is deliberately read-only and fail-closed. Its evidence surface contains classifications, counts, identifiers, hashes, and tool versions rather than matched values. Provider-hosted surfaces and the immutable ref set are rechecked immediately before a visibility mutation to limit TOCTOU drift.
+
+---
+
 ## 2026-07-15 -- Off-host auto-dispatch: replace the STOP round-trip with autonomous delegation (v2.57.0)
 
 - **Problem.** The off-host Step-0 contract in every `/dr-*` command said "on off-host (exit 10): emit a delegation directive and STOP". A local agent that resolved off-host froze and asked the operator to type the dispatch -- even after the operator said "run it autonomously". Every off-host task forced an operator round-trip; the agent behaved as a postman, not an executor. Root cause: a misplaced gate -- the confirmation protects irreversibility, but dispatch is reversible transport (spawns a remote tmux session); the irreversible steps stay hard-gated on the remote agent downstream.

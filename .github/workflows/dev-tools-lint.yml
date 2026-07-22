@@ -36,7 +36,10 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends bats
 
       - name: Run dev-tools self-tests
-        run: bats dev-tools/tests/doc-fanout-lint.bats
+        run: |
+          bats dev-tools/tests/doc-fanout-lint.bats
+          bats dev-tools/tests/check-public-repository-boundary.bats
+          bats dev-tools/tests/check-github-actions-execution.bats
 
   linter-run:
     name: doc-fanout-lint run (warning-only)
