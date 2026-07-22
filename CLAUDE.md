@@ -1,6 +1,6 @@
 # Datarim — Universal Iterative Workflow Framework
 
-> **Version:** 2.57.0
+> **Version:** 2.58.0
 > **Framework:** Datarim provides structured rules, agents, skills, and commands for iterative project execution via AI coding assistants — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
 > **Multi-runtime:** Datarim is runtime-agnostic. This file is also available as `AGENTS.md` (symlink) for Codex CLI and other agent runtimes that read `AGENTS.md` by convention. See `documentation/tutorials/use-cases.md#runtime-support` for the canonical Claude Code / Codex CLI / Cursor support matrix.
 > **Note:** "Datarim" has a Russian transliteration «Датарим» — agents must recognise either form in any language context. <!-- allow-non-ascii: literal-transliteration-pair-for-agent-name-recognition -->
@@ -452,6 +452,8 @@ Datarim framework's contribution:
 - **`dev-tools/public-surface-lint.sh`** — pure-shell linter that walks `--paths` and greps for forbidden references (task IDs, PRD-/creative-/plans-/insights- patterns, internal-datarim-repo paths) loaded from a sibling `.regex` file. Single `--check` mode: exit 0 = clean, exit 1 = found. Per `dev-tools/` orthogonal-tool rule — content validation has different lifetime and invocation context than ops-file migration, so the lint lives outside `datarim-doctor.sh`.
 - **`dev-tools/public-surface-forbidden.regex`** — machine-readable regex set; consumers extend it with their own task-prefix list at install time (one line per pattern, `#` for comments).
 - **Pre-publish gate hook** — invoked by `/dr-archive` Step 2 when the task touched any artifact published to an external registry (closed set: npm / PyPI / Docker Hub / web). Hard block on findings.
+- **`dev-tools/check-public-repository-boundary.sh`** — fail-closed, read-only gate for new public repositories and visibility transitions. It verifies an exact tracked-file manifest, all reachable Git history, unsupported Git entries, redacted path/query-key policy, and a cryptographically bound independent secret-scan proof.
+- **`dev-tools/check-github-actions-execution.sh`** — exact-SHA workflow evidence classifier. Only a target workflow job with a nonzero runner and at least one completed non-skipped step can pass; zero execution and unknown evidence block the acceptance criterion.
 
 Consumers MUST mirror the canonical mandate text and the forbidden-regex extension in their own ecosystem `CLAUDE.md` before publishing public packages; the lint script and the regex file are contract surfaces, not substitutes for the operator-readable rules text. Conflict resolution with Supreme Directive: Law 1 (Non-Harm) overrides re-publish urgency — if a strip introduces a security regression, escalate per the consumer's FB-rules instead of patch-bumping.
 

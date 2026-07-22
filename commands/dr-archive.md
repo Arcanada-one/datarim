@@ -207,6 +207,12 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
 
    Scope: only `CLAUDE.md` and `README.md` (current-state surfaces). `documentation/` is excluded by design — `evolution-log.md` / `release-notes.md` / `changelog.md` are append-only historical ledgers that reference past versions on purpose. This step is skipped automatically when `VERSION` is unchanged — most archives don't bump, so the check is a fast no-op outside framework releases.
 
+0.23. **RELEASE EVIDENCE GATES** (conditional, fail-closed):
+
+   - **GitHub Actions acceptance criterion:** verify the actual required workflow and exact required job/status context on the full archived SHA with a live `dev-tools/check-github-actions-execution.sh` GitHub API lookup. Only exit `0` with `executed-success` permits archive. Pending, no execution, provider refusal, unrelated jobs, wrong SHA/workflow, failure, or indeterminate API evidence blocks archive; a follow-up or canary is not a substitute.
+   - **Public repository creation or visibility transition:** require a clean `dev-tools/check-public-repository-boundary.sh` result bound to the exact SHA/tree, full ref set, allowlist, policy, and independent secret-scan proof. Require a complete, paginated, redacted audit of provider-hosted surfaces and re-fetch the immutable repository/ref attestation immediately before the visibility mutation. Any drift, unsupported object, incomplete page, zero scope, or finding blocks visibility and archive.
+   - Evidence contains only classifications, identifiers, counts, hashes, tool versions, and timestamps. Never archive matched content, credential values, signed URLs, raw annotations, or authentication headers. The helpers are read-only; destructive remediation remains separately authorized.
+
 0.2.5. **PRE-ARCHIVE RUNTIME PROBE** (MANDATORY when the task-description frontmatter carries `requires_runtime_probe: true`):
 
    Arm condition: read the `requires_runtime_probe:` field from

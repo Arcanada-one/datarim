@@ -4,6 +4,10 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Fail-closed public repository boundary and GitHub Actions execution evidence gates.** New read-only helpers verify an exact allowlisted Git tree plus all reachable history against redacted policy, live secret scanning, and complete hosted-surface evidence, and distinguish an actually executed successful required job on the exact SHA from no-execution, pending, failed, mismatched, or indeterminate evidence. Planning, compliance, and archive commands now require these gates when their trigger conditions apply. A focused Bats matrix covers clean and adversarial paths.
+
 ### Fixed
 
 - **Deploy-class classifier fails loud instead of fail-open on caller/IO errors.** Two pre-existing paths in `dev-tools/check-deploy-class.sh` silently resolved to exit 1 ("not deploy-class / gate SKIP"): a flag given without a value crashed `shift 2` under `set -eu`, and an existing-but-unreadable task-description masked grep's read error inside the no-pipefail pipeline. Both now exit 2 (usage error) with a stderr message; +2 regression bats cases (the unreadable-file case skips under a root test runner, where permission denial is not enforceable). (TUNE-0498)
