@@ -243,6 +243,16 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
     -   The plan MUST cite the baseline run id and the baseline failed-job list inline so reviewers can verify the delta gate at `/dr-qa` / `/dr-archive` without re-querying.
     -   Rationale: WIP-branch dep-bump archives have repeatedly required ad-hoc V-checklist reformulation from «all green» to «no NEW failures vs baseline» because the target branch carried multiple pre-existing red jobs (`shellcheck-extracted`, `bandit-extracted`, `regression-bats`, `markdown-policy`, `semgrep`). Mechanical SHA replacement of pinned action versions cannot regress unrelated red jobs, but a strict-green gate written without baseline awareness force-fails the V-checklist post-hoc. A 30-second baseline probe at `/dr-plan` time prevents the reformulation churn.
 
+11.5.1. **Exact-SHA GitHub Actions Evidence (MANDATORY when a GitHub Actions result is an acceptance criterion)**:
+    -   Name the actual required workflow (name, numeric id, or path) and the exact required job/status context. Require that job to execute successfully on the full 40-character implementation SHA. A canary, unrelated workflow, or unrelated job does not satisfy the criterion.
+    -   Plan a verification call to `dev-tools/check-github-actions-execution.sh`. Only exit `0` with classification `executed-success` satisfies the criterion. Pending, skipped, cancelled, wrong-SHA, wrong-workflow, zero-runner/zero-step, failed, malformed, and API-unknown evidence all remain non-passing.
+    -   Do not infer a billing or allocation cause from an empty job shape. Record it as `no-execution`; only a separately sanitized provider annotation may support a narrower cause, and annotations or tokens MUST NOT be copied into task artefacts.
+
+11.5.2. **Public Repository Boundary Plan (MANDATORY for a new public repository or a private-to-public visibility change)**:
+    -   Include an exact tracked-file allowlist, full-ref/history scan, independent secret-scan report and proof, hosted-surface inventory, and an immediately-pre-visibility immutable attestation. Use `dev-tools/check-public-repository-boundary.sh` for the local Git boundary.
+    -   The gate is read-only and fail-closed. Symlinks, submodules, missing objects, zero scan scope, unsupported content, incomplete pagination, findings, proof drift, or any ref/tree/policy change block visibility. History rewrite or secret rotation is a separate incident workflow and never an automatic gate action.
+    -   Bind evidence to repository identity, exact ref-to-object set, target SHA/tree, allowlist and policy digests, scanner versions, and sanitized hosted-surface counts. Re-fetch immediately before the visibility mutation and refuse on drift.
+
 11.6.  **Network Exposure Surfaces (tiered gate)**:
     -   Detect whether the plan touches any networking surface: docker-compose
         `ports`/`expose`, `redis.conf`, `postgresql.conf`, systemd `.socket`,
