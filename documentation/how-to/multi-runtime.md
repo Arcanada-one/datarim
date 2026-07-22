@@ -156,6 +156,25 @@ Two practical checks before a parallel session:
 
 The two runtimes do not interlock at the OS level — concurrency safety is enforced by the same `flock` + git-add-p discipline Claude Code already uses.
 
+## Cross-runtime `/dr-auto` smoke
+
+`/dr-auto`'s autonomous mode does not depend on any Claude-Code-only hook: it activates off a pure-bash marker file (`auto-mode-marker.sh`) plus an explicit per-subagent auto-signal, and the hard-gated-action boundary is data in `dev-tools/rules/fb-rules.yaml`. Because these primitives are plain shell, the activation contract holds identically on Codex CLI and Cursor.
+
+`dev-tools/check-dr-auto-cross-runtime.sh` proves this on whatever shell you run it from. Run it from a **Codex CLI or Cursor** shell (not just Claude Code) to confirm the contract survives the runtime switch:
+
+```bash
+# From a Codex CLI / Cursor terminal, at the Datarim source root:
+./dev-tools/check-dr-auto-cross-runtime.sh --report
+```
+
+It asserts three properties and exits `0` only when all hold (`1` on any failure, `2` on a missing precondition):
+
+1. **Activation marker** — `auto-mode-marker.sh reassert` writes a parseable marker whose path `auto-mode-marker.sh resolve` reports back. The Question Suppression Ladder engages off this marker, never off the runtime identity.
+2. **Env-var independence** — `subagent-active` returns `active`/`non-auto` with `DATARIM_AUTO_MODE` **unset**. A spawned Codex/Cursor subagent does not inherit the shell env var, so activation must stand on the marker + prompt-signal alone.
+3. **Hard-gate escalation data** — `fb-rules.yaml` declares a non-empty `hard_gated_actions` list. Hard-gated actions (prod deploy, secret rotation, force-push, public communication, …) never auto-execute on any runtime; they always escalate to the operator.
+
+A green `--report` is the pure-bash preflight. The full behavioural smoke — spawning a mock target task under `/dr-auto` on Codex CLI and observing the Ladder suppress reversible questions while hard-gated actions escalate — follows the same steps an operator runs on Claude Code; the smoke above guarantees the underlying activation primitives are already runtime-portable before you get there.
+
 ## Troubleshooting
 
 ### `link_scope_tree: refuses to overwrite real directory`
