@@ -36,19 +36,30 @@ MODE=""
 CANON=""
 MAP=""
 SPACE=""
+WORKSPACE_ARG=""
 TTL_DAYS=90
 
 usage() {
     cat <<'EOF'
-Usage: check-execution-host-drift.sh (--check|--report) --canon <space.yml> --map <execution-hosts.yml> --space <name> [--ttl-days N]
+Usage: check-execution-host-drift.sh (--check|--report|--fix) --canon <space.yml> --map <execution-hosts.yml> --space <name> [--workspace <path>] [--ttl-days N]
 
-Compares canon space.yml § execution against the machine-local
-execution-hosts.yml binding for --space, and flags:
+--check / --report: compare canon space.yml § execution against the
+machine-local execution-hosts.yml binding for --space, and flag:
   - drift: required_host / tailscale_ip / host_aliases mismatch (canon wins)
   - staleness: map synced_at (or file mtime, if synced_at absent) older
     than --ttl-days (default 90)
 
-Exit codes: 0 PASS, 1 FAIL (finding), 2 usage error.
+--fix: regenerate the machine-local map binding for --space FROM canon
+(canon->cache only, never the reverse). Refreshes the canon-owned fields
+(required_host, host_aliases, tailscale_ip, ssh_user, default_agent,
+allowed_agents) and stamps synced_at=now. The machine-local `workspace`
+path is owned by the cache, not canon: --fix preserves the existing
+binding's workspace, and only needs --workspace when creating a brand-new
+binding (fallback: canon .space.local_repo_path). Creates the map file
+(schema_version/role/bindings skeleton) when absent; other spaces'
+bindings and top-level keys are left untouched.
+
+Exit codes: 0 PASS/OK, 1 FAIL (finding), 2 usage error.
 EOF
 }
 
@@ -56,9 +67,11 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --check) MODE="check"; shift ;;
         --report) MODE="report"; shift ;;
+        --fix) MODE="fix"; shift ;;
         --canon) CANON="$2"; shift 2 ;;
         --map) MAP="$2"; shift 2 ;;
         --space) SPACE="$2"; shift 2 ;;
+        --workspace) WORKSPACE_ARG="$2"; shift 2 ;;
         --ttl-days) TTL_DAYS="$2"; shift 2 ;;
         -h|--help) usage; exit 0 ;;
         *) echo "ERROR: unknown argument: $1" >&2; usage >&2; exit 2 ;;
@@ -73,6 +86,106 @@ fi
 if ! command -v yq >/dev/null 2>&1; then
     echo "ERROR: yq is required" >&2
     exit 2
+fi
+
+# --- do_fix -----------------------------------------------------------------
+# Regenerate the machine-local map binding for $SPACE FROM canon. Canon owns
+# host identity; the cache owns the machine-local `workspace` path. Never
+# writes canon.
+do_fix() {
+    if [ ! -f "$CANON" ]; then
+        echo "ERROR: canon space.yml not found: $CANON" >&2
+        exit 2
+    fi
+
+    # Read canon-owned fields (tolerate both top-level and nested-under-space
+    # layouts, mirroring the --check reader).
+    local c_host c_ip c_aliases c_user c_agent c_allowed
+    c_host="$(yq e '(.execution // .space.execution).required_host // ""' "$CANON")"
+    c_ip="$(yq e '(.execution // .space.execution).tailscale_ip // ""' "$CANON")"
+    c_aliases="$(yq e '(.execution // .space.execution).host_aliases // [] | join(", ")' "$CANON")"
+    c_user="$(yq e '(.execution // .space.execution).ssh_user // ""' "$CANON")"
+    c_agent="$(yq e '(.execution // .space.execution).default_agent // "claude-code"' "$CANON")"
+    c_allowed="$(yq e '(.execution // .space.execution).allowed_agents // [] | join(", ")' "$CANON")"
+
+    if [ -z "$c_host" ]; then
+        echo "ERROR: canon has no execution.required_host (space=$SPACE): $CANON" >&2
+        exit 2
+    fi
+
+    # Create the map skeleton when absent so += has a sequence to append to.
+    if [ ! -f "$MAP" ]; then
+        printf 'schema_version: 1\nrole: control\nbindings: []\n' > "$MAP"
+    fi
+
+    # Locate any existing binding for this space to preserve its
+    # machine-local workspace path.
+    local n idx existing_ws
+    n="$(yq e '.bindings | length' "$MAP" 2>/dev/null || echo 0)"
+    case "$n" in ''|*[!0-9]*) n=0 ;; esac
+    idx=-1
+    local i=0
+    while [ "$i" -lt "$n" ]; do
+        if [ "$(yq e ".bindings[$i].space" "$MAP" 2>/dev/null || true)" = "$SPACE" ]; then
+            idx=$i
+            break
+        fi
+        i=$((i + 1))
+    done
+    existing_ws=""
+    if [ "$idx" -ge 0 ]; then
+        existing_ws="$(yq e ".bindings[$idx].workspace // \"\"" "$MAP" 2>/dev/null || true)"
+        [ "$existing_ws" = "null" ] && existing_ws=""
+    fi
+
+    # Resolve the machine-local workspace path: explicit --workspace wins,
+    # else preserve the existing binding's path, else fall back to canon's
+    # local_repo_path (best-effort for first-ever creation).
+    local ws
+    if [ -n "$WORKSPACE_ARG" ]; then
+        ws="$WORKSPACE_ARG"
+    elif [ -n "$existing_ws" ]; then
+        ws="$existing_ws"
+    else
+        ws="$(yq e '.space.local_repo_path // ""' "$CANON")"
+    fi
+    if [ -z "$ws" ] || [ "$ws" = "null" ]; then
+        echo "ERROR: cannot resolve machine-local workspace path for space '$SPACE'; pass --workspace <path>" >&2
+        exit 2
+    fi
+
+    # Build the desired binding in a temp file (same flow-array shape the
+    # map already uses) and splice it in: delete the prior binding for this
+    # space, then append the fresh one. This preserves other spaces'
+    # bindings and every top-level key except synced_at.
+    local binding_tmp
+    binding_tmp="$(mktemp)"
+    # shellcheck disable=SC2064
+    trap "rm -f '$binding_tmp'" RETURN
+    {
+        printf 'workspace: %s\n' "$ws"
+        printf 'space: %s\n' "$SPACE"
+        printf 'required_host: %s\n' "$c_host"
+        printf 'host_aliases: [%s]\n' "$c_aliases"
+        printf 'tailscale_ip: "%s"\n' "$c_ip"
+        printf 'ssh_user: %s\n' "$c_user"
+        printf 'default_agent: %s\n' "$c_agent"
+        printf 'allowed_agents: [%s]\n' "$c_allowed"
+    } > "$binding_tmp"
+
+    local now
+    now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+    yq e -i "del(.bindings[] | select(.space == \"$SPACE\"))" "$MAP"
+    yq e -i ".bindings += [load(\"$binding_tmp\")]" "$MAP"
+    yq e -i ".synced_at = \"$now\"" "$MAP"
+
+    echo "OK: regenerated map binding from canon (space=$SPACE)"
+    exit 0
+}
+
+if [ "$MODE" = "fix" ]; then
+    do_fix
 fi
 
 FINDINGS=0

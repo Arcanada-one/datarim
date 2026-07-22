@@ -207,3 +207,73 @@ EOF
     run "$DOCTOR" --scope=execution --root="$TMPROOT/datarim"
     [ "$status" -eq 0 ]
 }
+
+# ---------------------------------------------------------------------------
+# TUNE-0505: --fix regenerates the machine-local map binding FROM canon
+# (canon->cache only). Makes the cache a derived artefact, not a hand-
+# maintained source of truth.
+# ---------------------------------------------------------------------------
+
+@test "drift-fix: creates map from canon (map absent) then --check PASSes" {
+    [ ! -f "$MAP" ]
+    run "$DRIFT_SCRIPT" --fix --canon "$CANON" --map "$MAP" --space testspace --workspace "$TMPROOT"
+    [ "$status" -eq 0 ]
+    [ -f "$MAP" ]
+    # Canon-owned fields landed in the map.
+    [ "$(yq e '.bindings[0].required_host' "$MAP")" = "canon-host" ]
+    [ "$(yq e '.bindings[0].tailscale_ip' "$MAP")" = "100.64.0.1" ]
+    [ "$(yq e '.bindings[0].workspace' "$MAP")" = "$TMPROOT" ]
+    [ -n "$(yq e '.synced_at' "$MAP")" ]
+    run "$DRIFT_SCRIPT" --check --canon "$CANON" --map "$MAP" --space testspace
+    [ "$status" -eq 0 ]
+}
+
+@test "drift-fix: idempotent -> re-run keeps exactly one binding for the space" {
+    "$DRIFT_SCRIPT" --fix --canon "$CANON" --map "$MAP" --space testspace --workspace "$TMPROOT"
+    "$DRIFT_SCRIPT" --fix --canon "$CANON" --map "$MAP" --space testspace --workspace "$TMPROOT"
+    [ "$(yq e '[.bindings[] | select(.space == "testspace")] | length' "$MAP")" -eq 1 ]
+}
+
+@test "drift-fix: preserves the machine-local workspace when --workspace omitted on re-run" {
+    "$DRIFT_SCRIPT" --fix --canon "$CANON" --map "$MAP" --space testspace --workspace "/machine/local/ws"
+    # Re-fix WITHOUT --workspace: canon owns host identity, cache owns the path.
+    "$DRIFT_SCRIPT" --fix --canon "$CANON" --map "$MAP" --space testspace
+    [ "$(yq e '.bindings[0].workspace' "$MAP")" = "/machine/local/ws" ]
+}
+
+@test "drift-fix: canon wins -> fixing a drifted map makes --check PASS" {
+    write_map "stale-host" "100.64.0.99" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    run "$DRIFT_SCRIPT" --check --canon "$CANON" --map "$MAP" --space testspace
+    [ "$status" -eq 1 ]
+    "$DRIFT_SCRIPT" --fix --canon "$CANON" --map "$MAP" --space testspace
+    [ "$(yq e '.bindings[0].required_host' "$MAP")" = "canon-host" ]
+    [ "$(yq e '.bindings[0].tailscale_ip' "$MAP")" = "100.64.0.1" ]
+    run "$DRIFT_SCRIPT" --check --canon "$CANON" --map "$MAP" --space testspace
+    [ "$status" -eq 0 ]
+}
+
+@test "drift-fix: leaves other spaces' bindings untouched" {
+    "$DRIFT_SCRIPT" --fix --canon "$CANON" --map "$MAP" --space testspace --workspace "$TMPROOT"
+    yq e -i '.bindings += [{"workspace":"/other","space":"otherspace","required_host":"oh","host_aliases":["oh"],"tailscale_ip":"1.2.3.4","ssh_user":"x","default_agent":"claude-code","allowed_agents":["claude-code"]}]' "$MAP"
+    "$DRIFT_SCRIPT" --fix --canon "$CANON" --map "$MAP" --space testspace
+    [ "$(yq e '.bindings | length' "$MAP")" -eq 2 ]
+    [ "$(yq e '[.bindings[] | select(.space == "otherspace")] | length' "$MAP")" -eq 1 ]
+}
+
+@test "drift-fix: missing canon file -> exit 2 usage error" {
+    run "$DRIFT_SCRIPT" --fix --canon "$TMPROOT/nope-space.yml" --map "$MAP" --space testspace --workspace "$TMPROOT"
+    [ "$status" -eq 2 ]
+}
+
+@test "drift-fix: cannot resolve workspace (no --workspace, no existing binding, no canon local_repo_path) -> exit 2" {
+    # Default setup() CANON has no .space.local_repo_path.
+    [ ! -f "$MAP" ]
+    run "$DRIFT_SCRIPT" --fix --canon "$CANON" --map "$MAP" --space testspace
+    [ "$status" -eq 2 ]
+}
+
+@test "drift-fix: --help usage documents --fix" {
+    run "$DRIFT_SCRIPT" --help
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"--fix"* ]]
+}
