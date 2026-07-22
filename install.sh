@@ -609,6 +609,30 @@ setup_branch_integration_hook_symlink() {
     ln -sfn "$src" "$dst"
     echo "  LINK: branch-integration-guard -> $src"
 }
+# Symlink ~/.local/bin/session-execution-drift-warn -> canonical Datarim source.
+# Same idempotent topology as the guard symlinks. This is the SessionStart
+# ADVISORY drift-warning; the machine registers it in its own
+# ~/.claude/settings.json SessionStart matcher (see the script header) — the
+# hooks array is machine-local and not written by install.sh.
+setup_session_drift_warn_symlink() {
+    local src="$SCRIPT_DIR/dev-tools/session-execution-drift-warn.sh"
+    local dst="$HOME/.local/bin/session-execution-drift-warn"
+    [ -f "$src" ] || return 0
+    if [ "$DRY_RUN" = true ]; then
+        echo "DRY: ln -sfn $src $dst"
+        return 0
+    fi
+    mkdir -p "$(dirname "$dst")"
+    if [ -e "$dst" ] && [ ! -L "$dst" ]; then
+        local ts bak
+        ts=$(date -u +%Y%m%dT%H%M%SZ)
+        bak="$dst.bak-$ts"
+        mv "$dst" "$bak"
+        echo "  BACKUP: $dst -> $bak"
+    fi
+    ln -sfn "$src" "$dst"
+    echo "  LINK: session-execution-drift-warn -> $src"
+}
 
 # Codex hook self-heal: replace stale temporary probe hooks that no longer
 # exist (for example `/tmp/codex-probe-hook.sh`) with the canonical guard.
@@ -1596,6 +1620,8 @@ fanout_runtime() {
     setup_coworker_hook_symlink
     # Branch-integration hard-floor (dev->main direct-merge forbidden).
     setup_branch_integration_hook_symlink
+    # Execution-host SessionStart advisory drift-warning.
+    setup_session_drift_warn_symlink
     if [ "$runtime_name" = "codex" ]; then
         heal_codex_stale_probe_hooks "$CLAUDE_DIR"
     fi
