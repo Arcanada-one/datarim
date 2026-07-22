@@ -12,6 +12,18 @@ description: Multi-layer quality verification — checks PRD alignment, design c
 
 
 **Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header.
+0.  **PROVENANCE GATE (mandatory, runs first)**: Before any other logic, assert that the tip being certified **is** the current branch tip and the working tree is clean, so a QA sign-off can never be recorded against a stale or rebased-away commit (a known false-green class: a sign-off recorded on a commit that is later rebased away, leaving the certification pinned to a tree that is no longer the branch state). Resolve the repo root first — the git top-level of the touched code (for a task whose code lives under `Projects/<name>/code/`, that nested repo, NOT the workspace root).
+    -   **Pin what will be certified** (records the current HEAD to `datarim/provenance/{TASK-ID}.sha` and blocks on a dirty tree):
+        ```bash
+        "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/provenance-gate.sh" \
+            --root <repo-root> --record --task {TASK-ID} --stage qa
+        ```
+    -   **Re-verify immediately before writing the QA report (Step 7)** that nothing rebased, amended, or committed over the tip mid-review:
+        ```bash
+        "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/provenance-gate.sh" \
+            --root <repo-root> --task {TASK-ID} --stage qa
+        ```
+    -   A non-zero exit (dirty tree, drifted tip, or an evidence SHA that no longer resolves) STOPS the command: emit the gate's error verbatim and route back to `/dr-do {TASK-ID}` to re-run against the current tip. Exit `0` proceeds. The recorded SHA is the tip the QA report certifies — cite it in the report.
 1.  **LOAD**: Read `$HOME/.claude/agents/reviewer.md` and adopt that persona.
 2.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system/SKILL.md` § Path Resolution Rule. **For a task whose code lives under `Projects/<name>/code/`, NEVER probe `Projects/<name>/code/datarim/` for workflow artefacts — that path exists only for the Datarim framework's own repo (see § Path Resolution Rule point 5). Resolve `--root` to the project's git-toplevel `datarim/`.**
 
