@@ -26,6 +26,7 @@ Discipline in `code/datarim/CLAUDE.md`).
 | `check-deferral-prose.sh` | `commands/dr-qa.md` Layer 3b (advisory), `commands/dr-compliance.md` Step 5c (hard), `commands/dr-archive.md` Step 0.45 |
 | `check-stage-snapshot-on-exit.sh` | `commands/dr-continue.md`, `commands/dr-archive.md`, validator suite |
 | `check-skill-frontmatter.sh` | `/dr-plugin doctor` § skill-registry check |
+| `check-frontmatter-mirror.sh` | frontmatter-key behaviour-gate mirror drift guard (TUNE-0191) vs `rules/frontmatter-key-registry.yaml`; enforced by `tests/check-frontmatter-mirror.bats`, advisory in CI/datarim-doctor |
 | `check-security-policy.sh` | `/dr-qa` ecosystem security gate, `/dr-compliance` |
 | `check-topic-overlap.py` | `commands/dr-init.md` Step 3.5 (backlog similarity) |
 | `network-exposure-check.sh`, `network-exposure-gate.sh` | `commands/dr-do.md` Step 8.5 |
