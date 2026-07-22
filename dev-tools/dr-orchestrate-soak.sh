@@ -13,6 +13,13 @@
 #   noop       — invoke cmd_run.sh with no args (legacy pane-capture path)
 #
 # Defaults: 70/20/10 resolved/escalated/noop, 5s cycle sleep, 48h deadline.
+# The 70/20/10 mode weights and the RESOLVED_PROMPTS / ESCALATED_PROMPTS
+# corpora below are PRD-canonical: their source of truth is
+# PRD-TUNE-0165 § Amendment A (V-AC-22 Traffic-Mix Specification, TUNE-0212).
+# The verdict gate (measure-orchestrator-soak.sh) computes the false-escalation
+# rate as escalated/(resolved+escalated) over the expected_outcome=="resolved"
+# slice only, excluding blocked_decision_cooldown from both sides — so the 0.15
+# threshold is invariant to these volume weights (Amendment A.3/A.4).
 # Tune via env knobs:
 #   DR_SOAK_DURATION_HOURS  — soak deadline in hours (default 48; integer)
 #   DR_SOAK_DURATION_SECONDS — soak deadline in seconds (overrides HOURS; for smoke runs)
