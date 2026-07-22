@@ -63,6 +63,9 @@ Optional fields (used by later phases — F4 browser QA, etc.):
 
 ```yaml
 qa_browser_mode: headed       # headed | headless — F4 reference
+severity_probe_pending: true  # opt-in — set by a parent task's /dr-archive when this
+                              # child inherits an unprobed blast-radius branch (see
+                              # § Severity-probe-pending child-brief contract)
 ```
 
 ## Body shape
@@ -225,6 +228,42 @@ requirement to drift or be forgotten, which surfaces as a regression at
 example: an oral endpoint-stability requirement was never coded or appended
 to the expectations file; the pipeline closed with a one-off `curl` check
 and the next deploy broke it (live HTTP 404 on a freshly provisioned site).
+
+## Severity-probe-pending child-brief contract
+
+When a task discovers a defect whose blast radius is **confirmed-narrow but potentially wider** — one surface
+is confirmed broken, but a sibling surface that shares the same code path is plausibly affected and was **not
+probed** — and the fix or the tail is spawned into a child task, the spawning task's `/dr-archive` MUST record
+the unprobed branch in the **child's** init-task as an explicit, mandatory deliverable — never a casual "may
+also affect …" aside in the inline-log.
+
+**Why an explicit item, not a note.** A "may affect" remark in a log is invisible to the child's Definition of
+Done; the child can close on the confirmed symptom alone and ship the wider defect. Naming the unprobed branch
+as a named scope item of the child means the child **MUST NOT close** until the probe runs and either clears
+the branch or spawns its own fix. The canonical shape: one surface of a shared transform confirmed broken (for
+example, one token type's signing path), the sibling surface (another token type through the same path)
+unverified — the child brief must carry "probe the sibling surface" as a named deliverable.
+
+**How to record it (two coordinated writes at the parent's `/dr-archive`).**
+
+1. **Frontmatter marker (opt-in).** Set `severity_probe_pending: true` in the child init-task frontmatter
+   (Optional-fields block) so the pending probe is greppable across the task corpus.
+2. **Named brief/append-log item (required).** Write the unprobed branch into the child's
+   `## Operator brief (verbatim)` (when the parent authors the child brief) or as an append-log entry
+   `### <ISO> — severity-probe-pending seeded by /dr-archive (parent <PARENT-ID>)`, phrased as a mandatory
+   deliverable: *"Probe whether `<sibling surface>` is affected by `<shared defect>`; this task MUST NOT
+   close without clearing or fixing this branch."*
+
+**Enforcement (consumer side).** Seed the probe as a wish in the child's `tasks/{CHILD-ID}-expectations.md` in
+addition to the brief item, so the existing expectations-checklist gate carries it: the child's `/dr-qa` and
+`/dr-compliance` then BLOCK closure on a missed or partial severity-probe wish exactly as for any other
+operator wish, until the append-log or expectations file records the probe outcome (branch cleared, or a
+grandchild fix spawned). Clearing the marker: flip `severity_probe_pending` to `false` (or remove it) only
+once that outcome is recorded.
+
+**When to apply.** Any `/dr-archive` that spawns a child task to carry a defect tail whose surface is broader
+than the confirmed symptom. Skip when the defect is provably self-contained (single surface, no shared
+transform) — in that case there is no unprobed branch to name.
 
 ## Q&A round-trip contract
 
