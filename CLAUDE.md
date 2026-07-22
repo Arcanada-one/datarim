@@ -271,7 +271,7 @@ verification_outcome:
 
 Aggregator `dev-tools/measure-prospective-rate.sh --since <YYYY-MM-DD>` walks all `archive-*.md` files, computes `caught_per_5_tasks`, and emits a `decision_hint` for the next pipeline gate. The `verification_outcome` block is the single source of truth for the prospective measurement campaign.
 
-**Status:** tri-layer canonical, findings-only at all layers (no auto-fix). Cross-link: skill `skills/self-verification/SKILL.md` · floor script `dev-tools/dr-verify-floor.sh` · template `templates/archive-template.md`.
+**Status:** tri-layer canonical. Manual `/dr-verify` remains findings-only; the automatic `post_step` hook (L2+) adds a guarded deterministic auto-fix loop that mutates only `formatting`, allowlisted trailing-whitespace `lint`, and exact-typo findings whose immutable class history is strictly below 30% false positives. Cross-link: skill `skills/self-verification/SKILL.md` · floor script `dev-tools/dr-verify-floor.sh` · auto-fix runner `dev-tools/self-verify-auto-fix.sh` · template `templates/archive-template.md`.
 
 ---
 

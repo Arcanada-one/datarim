@@ -186,6 +186,15 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   Findings carry `source_layer` + `peer_review_mode` (`cross_claude_family` /
   `same_model_isolated`) tags for tri-layer provenance and dispatch-class audit.
   `--floor-only` for fast pre-merge gating with zero LLM cost.
+- **Guarded automatic auto-fix (`post_step` hook, L2+)** — the automatic
+  self-verification hook wired into `/dr-prd`, `/dr-plan`, and `/dr-do` may apply
+  registered deterministic formatting, trailing-whitespace lint, and exact-typo
+  fixes only when the immutable class history is
+  strictly below 30% false positives. It applies one finding at a time,
+  re-running the validators and floor before the next, and records every attempt
+  in the immutable audit.
+  Manual `/dr-verify` never auto-fixes — the mutation runner is reachable only
+  from the automatic hook, never from the manual command.
 
 - **Native shell utilities** — no external MCP server dependencies required. All
   core functionality works through Claude Code's built-in tools and shell access.

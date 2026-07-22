@@ -8,6 +8,8 @@ description: Standalone self-verification of a Datarim artifact (PRD/plan/do out
 **Role**: Verifier (orchestrated via self-verification skill)
 **Source**: skill `code/datarim/skills/self-verification/SKILL.md`
 
+Manual `/dr-verify` remains findings-only and never enters the automatic guarded auto-fix loop. It reports findings for operator triage under the full tri-layer contract; the deterministic mutation runner is reachable only from the automatic `post_step` hook, not from this command.
+
 ## Instructions
 
 
