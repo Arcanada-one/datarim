@@ -137,6 +137,24 @@ An integration test that spawns a real service process (daemon, server, worker) 
 
 ---
 
+## Ambient-Reaper Masking in Timing-Sensitive Mutation Gates
+
+A mutation-gate test — one that proves a guard fires by *breaking* the guard and asserting the observable outcome changes — is only valid when the guard under test is the **sole** producer of that outcome. When a background reaper, watchdog, supervisor, or cleanup timer runs concurrently and can produce the same observable effect (killing a stuck process, reclaiming a lease, closing an idle connection, evicting a stale entry), the mutation is **masked**: breaking the guard changes nothing observable, because the ambient reaper still produces the effect. The gate passes green on a guard that no longer works.
+
+**Rule.** Any timing-sensitive mutation-gate test MUST isolate the guard under test from every ambient reaper/watchdog that can independently produce the asserted effect. Isolate by one of:
+
+- **Disable the reaper** for the test window — stop the watchdog timer, push its interval beyond the test window, or inject a no-op supervisor — so the guard is the only path to the effect.
+- **Assert on a guard-unique signal** — a log line, metric, or exit reason emitted only by the guard under test — rather than on the shared downstream effect that both the guard and the reaper produce.
+- **Prove attribution by timing** — shrink the test window below the reaper's fire interval AND assert the effect occurred *before* the reaper could have fired.
+
+**Why this matters.** A masked mutation is a false green: the mutation test reports the guard is covered and firing, while in production the guard is dead and only the slower ambient reaper is holding the invariant — until a load or timing shift outpaces the reaper and the unguarded failure ships. Verify attribution, not just outcome.
+
+**When to apply.** Any mutation-checked or timing-sensitive test whose asserted effect (termination, cleanup, reclamation, eviction, timeout) can also be produced by a background reaper/watchdog/supervisor running in the same environment. Skip when the guard's effect is uniquely attributable and no concurrent process can reproduce it.
+
+Source: prior incident — a shutdown-guard mutation gate passed because a background reaper terminated the process on its own timer regardless of whether the guard fired; the dead guard was invisible until the reaper was disabled and the guard probed in isolation.
+
+---
+
 ## Infrastructure-Gated Test Skips
 
 An integration test that needs a live broker, database, or external service is legitimate to skip when that dependency is absent — but a bare `skip` (no probe, no message) is indistinguishable from a bug swallowed behind an unconditional skip. A reviewer scanning a green suite with skips has to hand-audit every guard to tell the two apart, which is slow and erodes trust in the suite.
