@@ -11,6 +11,13 @@ description: Adaptive post-QA hardening. Detects task type and applies matching 
 ## Instructions
 
 **Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header.
+0.  **PROVENANCE GATE (mandatory, runs first)**: Before any other logic, verify the tip being certified is still the current branch tip and the working tree is clean — i.e. nothing was rebased, amended, or committed since `/dr-qa` signed off (a known false-green class: a COMPLIANT sign-off recorded against a commit that had been rebased away). Resolve the repo root as in Step 2 (the git top-level of the touched code), then:
+    ```bash
+    "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/provenance-gate.sh" \
+        --root <repo-root> --task {TASK-ID} --stage compliance
+    ```
+    This asserts `git rev-parse HEAD` equals the SHA `/dr-qa` recorded in `datarim/provenance/{TASK-ID}.sha` and that the working tree is clean. If the QA evidence record is absent (QA predates this gate), fall back to `--expected-sha <SHA cited by the QA report>`; if neither is available, record the current clean tip with `--record` now and note the missing QA baseline in the report.
+    -   A non-zero exit (dirty tree, drifted tip, or an evidence SHA that no longer resolves) makes the verdict **NON-COMPLIANT**: emit the gate's error verbatim and route via the FAIL-Routing CTA back to `/dr-qa {TASK-ID}` to re-certify the current tip. Exit `0` proceeds.
 1.  **LOAD**: Read `$HOME/.claude/agents/compliance.md` and adopt that persona.
 2.  **RESOLVE PATH**: Find `datarim/` using standard path resolution (see `$HOME/.claude/skills/datarim-system/SKILL.md` § Path Resolution Rule). **For a task whose code lives under `Projects/<name>/code/`, NEVER probe `Projects/<name>/code/datarim/` for workflow artefacts — that path exists only for the Datarim framework's own repo (§ Path Resolution Rule point 5). Resolve `--root` to the project's git-toplevel `datarim/`.**
 
