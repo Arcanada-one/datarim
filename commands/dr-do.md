@@ -182,6 +182,7 @@ Before proceeding to `/dr-qa` or `/dr-archive`:
 ```
 [ ] All planned changes implemented?
 [ ] Tests written and passing?
+[ ] Each V-AC-N carries a seeded `Evidence: V-AC-N — <artifact>` line and `spec-graph-gate.sh --stage do` (step 7.6) was run so evidence coverage is verified before `/dr-qa`?
 [ ] tasks/{TASK-ID}-task-description.md updated with implementation notes?
 [ ] No known regressions introduced?
 [ ] If staged changes touch any networking surface, `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/network-exposure-check.sh"` exited 0 against the staged set and the tiered-gate verdict was honoured (or an `advisory_warn` override was logged with Ops Bot event + § Decisions note)?
