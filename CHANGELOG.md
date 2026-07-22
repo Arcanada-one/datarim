@@ -6,6 +6,7 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ### Added
 
+- **Two testing/init-task authoring rules from reflection-AUTH-0091.** (1) The `testing` skill gains a dedicated `## Adapter-Path Fixture` subsection: a row→payload mapper spec MUST drive the real DB-row → mapper → output path and be red-on-revert, and it explicitly distinguishes the "hand-built-fixture masks mapper transformation" sub-pattern from the sibling class-exists-but-not-wired blind spot. (2) The `init-task-persistence` skill gains a `## Severity-probe-pending child-brief contract`: when a spawning task's `/dr-archive` hands a child an unprobed blast-radius branch, it MUST name that branch as a mandatory child deliverable (opt-in `severity_probe_pending` frontmatter marker + expectations-checklist enforcement) so the child cannot close on the confirmed symptom alone. Both rules are locked by focused spec-lint Bats. (TUNE-0396)
 - **Fail-closed public repository boundary and GitHub Actions execution evidence gates.** New read-only helpers verify an exact allowlisted Git tree plus all reachable history against redacted policy, live secret scanning, and complete hosted-surface evidence, and distinguish an actually executed successful required job on the exact SHA from no-execution, pending, failed, mismatched, or indeterminate evidence. Planning, compliance, and archive commands now require these gates when their trigger conditions apply. A focused Bats matrix covers clean and adversarial paths.
 
 ### Fixed

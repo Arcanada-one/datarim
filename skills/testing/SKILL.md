@@ -31,10 +31,39 @@ target_aal: 2
 - **Never mock the thing you're actually testing.** If the bug class you're trying to prevent lives in the
   real integration (wrong client, wrong schema, wrong dialect), a mocked test will pass and production will
   fail. See § Live Smoke-Test Gates below.
-- **Adapter-path fixture.** A mapper/adapter spec MUST drive the real DB-row → mapper → output path — feed a
-  raw DB-row fixture into the actual mapper function and assert on its return value. A hand-built output
-  object assembled directly in the test bypasses the mapper and masks transformation defects (wrong field
-  mapping, type coercion, null handling) even though the mapper class exists and is wired.
+- **Adapter-path fixture.** A mapper/adapter spec MUST drive the real DB-row → mapper → output path, never a
+  hand-built output object assembled directly in the test. Full contract in § Adapter-Path Fixture below.
+
+## Adapter-Path Fixture
+
+When a spec covers a mapper/adapter that converts a persistence-layer record (DB row, ORM/Prisma record, raw
+query result) into a framework-facing or wire-facing payload, the spec MUST exercise the real
+**row → mapper → output** path: build the input as a raw record fixture shaped like the mapper's real input,
+run it through the actual mapper function, and assert on the mapper's return value. Never assemble the
+expected output object by hand and assert against that — a hand-built output bypasses the mapper entirely and
+masks transformation defects (wrong field mapping, type coercion, null/default handling, dropped fields).
+
+**Red-on-revert is the acceptance test for the spec itself.** Revert the mapper to its pre-fix behaviour
+(delete the line that sets the field, or restore the wrong default) and the spec MUST go red. A spec that
+still passes with the mapper reverted proves nothing about the transformation and is not a valid regression —
+it only proves the framework accepts the field shape, which the hand-built-output anti-pattern also "proves"
+while catching zero real defects.
+
+**Distinct from the class-exists-but-not-wired pattern.** That sibling blind spot catches production code
+where the class/function is implemented but never called from the real code path — the fix is to *wire it in*,
+and a "is it wired?" check clears it. This is the opposite blind spot: the mapper **is** called and wired in
+production, but the *test* bypasses its input→output transformation by pre-setting the output field in the
+fixture. Sub-pattern name: **hand-built-fixture masks mapper transformation**. Record and treat the two
+separately — a green "class is wired" check does not imply the mapper's transformation is exercised, and a
+green transformation spec does not imply the mapper is reachable from production. Different failure, different
+probe.
+
+**When to apply.** Any unit/integration spec for a row→payload mapper, ORM→adapter boundary, serializer, or
+DTO-projection function. Skip only when the spec's explicit subject is the framework's *acceptance* of a
+payload shape (a contract test against the downstream consumer), not the mapper that produces it — in that
+case the hand-built payload IS the assertion.
+
+---
 
 ## Driver-Side Serialization Simulation
 
