@@ -1,7 +1,7 @@
 # /dr-plugin — Datarim Plugin System CLI
 
 **Source:** plugin-system core PRD and plan (see workspace `datarim/prd/` and `datarim/plans/` indexes).
-**Status:** `list` + first-run bootstrap, `enable`, `disable`, `sync`, and `doctor` are all implemented and covered by `tests/dr-plugin.bats` + `tests/dr-plugin-coverage.bats`. Git-URL clone for `enable` (Phase A4) remains the only deferred path. `enable dr-orchestrate` additionally refuses (exit 1) unless the consumer workspace's `CLAUDE.md` already contains the string "Autonomous Agent Operating Rules" — the plugin ships FB-rules enforcement and assumes the mandate text is already mirrored at rank-1 level.
+**Status:** `list` + first-run bootstrap, `enable`, `disable`, `sync`, and `doctor` are all implemented and covered by `tests/dr-plugin.bats` + `tests/dr-plugin-coverage.bats` + the LTM graph-memory suites (`tests/ltm-graph-memory-toggle.bats`, `tests/ltm-graph-memory-instructions.bats`). Git-URL clone for `enable` (Phase A4) remains the only deferred path. `enable dr-orchestrate` additionally refuses (exit 1) unless the consumer workspace's `CLAUDE.md` already contains the string "Autonomous Agent Operating Rules" — the plugin ships FB-rules enforcement and assumes the mandate text is already mirrored at rank-1 level.
 
 ## Purpose
 
@@ -20,9 +20,11 @@ Templates: `${DATARIM_RUNTIME:-$HOME/.claude}/templates/plugin.yaml.template`, `
 ```
 /dr-plugin list                  # show active plugins (bootstraps datarim-core on first run)
 /dr-plugin enable <abs-path>     # activate a plugin from an absolute path (git-URL clone deferred — Phase A4)
+/dr-plugin enable ltm-graph-memory # permit a separately configured LTM adapter
 /dr-plugin disable <id>          # deactivate (refuses datarim-core)
+/dr-plugin disable ltm-graph-memory # forbid graph-memory operations
 /dr-plugin sync                  # reconcile filesystem with manifest
-/dr-plugin doctor [--fix]        # diagnose inconsistent state (8 checks)
+/dr-plugin doctor [--fix]        # diagnose inconsistent state (10 checks)
 /dr-plugin --help                # usage
 ```
 
@@ -35,6 +37,8 @@ Helpers in `scripts/lib/plugin-system.sh`:
 - `validate_source` — `builtin` | abs path | https URL (no embedded credentials, no path traversal)
 - `parse_plugin_yaml <file> <field>` — awk-based scalar extraction; rejects CRLF
 - `parse_yaml_list <file> <key>` — awk-based list extraction
+- `manifest_builtin_metadata_status <manifest> <id>` — exact `enabled|disabled|invalid` trusted-record state
+- `manifest_set_builtin_metadata_state <manifest> <id> <version> <timestamp> <state>` — section-safe metadata-only mutation
 
 ## Exit codes
 
@@ -55,14 +59,18 @@ Helpers in `scripts/lib/plugin-system.sh`:
 
 ## Tests
 
-`tests/dr-plugin.bats` (77+ cases) + `tests/dr-plugin-coverage.bats` (4 reachability/coverage gates) — GREEN on macOS bash 3.2 + Linux bash 5+.
+`tests/dr-plugin.bats` (77+ cases) + `tests/dr-plugin-coverage.bats` (4 reachability/coverage gates) + `tests/ltm-graph-memory-toggle.bats` + `tests/ltm-graph-memory-instructions.bats` — GREEN on macOS bash 3.2 + Linux bash 5+.
+
+## Default-off LTM graph memory
+
+`/dr-plugin enable ltm-graph-memory` adds one exact built-in metadata record; `/dr-plugin disable ltm-graph-memory` removes it. Missing, duplicate, incomplete, wrong-source, protected, or non-empty-inventory records fail safe to disabled. The toggle installs no runtime file and does not prove an adapter exists. See `documentation/how-to/ltm-graph-memory-adapter.md`.
 
 ## Roadmap
 
 - **Phase A3** — ✅ done. `enable`/`disable` happy paths + first-run inventory backfill for `datarim-core`.
 - **Phase B** — ✅ done. `overrides:` mechanism + conflict pre-scan.
 - **Phase C** — ✅ done. snapshot/rollback + `sync`.
-- **Phase D** — ✅ done. `doctor` (8 checks).
+- **Phase D** — ✅ done. `doctor` (10 checks, including trusted policy-state validation).
 - **Phase A4** — `enable` from a git URL (clone-and-activate). Deferred.
 - **Phase E** — Class B public surface (CLAUDE.md, README, datarim.club).
 - **Phase F** — author guide + bats coverage ≥80%.

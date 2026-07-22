@@ -1012,3 +1012,89 @@ EOF
     run "$PLUGIN_SH" doctor --bogus
     [ "$status" -eq 64 ]
 }
+
+# --- trusted metadata-only helpers (TUNE-0103) ------------------------------
+# Direct unit coverage for the ltm-graph-memory policy helpers. The full
+# lifecycle is exercised in tests/ltm-graph-memory-toggle.bats; these keep the
+# lib-level primitives directly reachable from the core suite.
+
+@test "T136 _builtin_metadata_id_allowed admits only the reserved id" {
+    run _builtin_metadata_id_allowed ltm-graph-memory
+    [ "$status" -eq 0 ]
+    run _builtin_metadata_id_allowed tdd-enforcement
+    [ "$status" -ne 0 ]
+    run _builtin_metadata_id_allowed some-other-plugin
+    [ "$status" -ne 0 ]
+}
+
+@test "T137 manifest_insert_entry places a record inside the Active section" {
+    local manifest="$TMPROOT/insert-manifest.md"
+    cat > "$manifest" <<'EOF'
+# Enabled Plugins
+
+## Active
+
+- id: datarim-core
+  source: builtin
+  version: test
+  enabled_at: 2026-07-18T00:00:00Z
+  protected: true
+  file_inventory:
+    skills: []
+    agents: []
+    commands: []
+    templates: []
+
+## Future Policy
+
+- some-marker
+EOF
+    local entry="$TMPROOT/insert-entry.md"
+    cat > "$entry" <<'EOF'
+- id: ltm-graph-memory
+  source: builtin
+  version: 1.0.0
+  enabled_at: 2026-07-18T00:00:00Z
+  protected: false
+  file_inventory:
+    skills: []
+    agents: []
+    commands: []
+    templates: []
+EOF
+    run manifest_insert_entry "$manifest" "$entry"
+    [ "$status" -eq 0 ]
+    # Record resolves as enabled (i.e. it landed inside ## Active) and the
+    # trailing policy section is preserved intact.
+    run manifest_builtin_metadata_status "$manifest" ltm-graph-memory
+    [ "$status" -eq 0 ] && [ "$output" = "enabled" ]
+    grep -q '^- some-marker$' "$manifest"
+}
+
+@test "T138 manifest_set_builtin_metadata_state round-trips enabled and disabled" {
+    local manifest="$TMPROOT/state-manifest.md"
+    cat > "$manifest" <<'EOF'
+# Enabled Plugins
+
+## Active
+
+- id: datarim-core
+  source: builtin
+  version: test
+  enabled_at: 2026-07-18T00:00:00Z
+  protected: true
+  file_inventory:
+    skills: []
+    agents: []
+    commands: []
+    templates: []
+EOF
+    run manifest_set_builtin_metadata_state "$manifest" ltm-graph-memory 1.0.0 2026-07-18T00:00:00Z enabled
+    [ "$status" -eq 0 ]
+    run manifest_builtin_metadata_status "$manifest" ltm-graph-memory
+    [ "$status" -eq 0 ] && [ "$output" = "enabled" ]
+    run manifest_set_builtin_metadata_state "$manifest" ltm-graph-memory 1.0.0 "" disabled
+    [ "$status" -eq 0 ]
+    run manifest_builtin_metadata_status "$manifest" ltm-graph-memory
+    [ "$status" -eq 0 ] && [ "$output" = "disabled" ]
+}

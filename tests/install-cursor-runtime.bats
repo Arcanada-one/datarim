@@ -51,6 +51,12 @@ name: bundled
 description: codex bundled
 ---
 EOF
+    # Workspace-policy resolver source: the LTM graph-memory toggle installs a
+    # shared resolver into the Cursor runtime so copied prompts can evaluate it.
+    mkdir -p "$TMPSRC/scripts/lib" "$TMPSRC/commands"
+    cp "$BATS_TEST_DIRNAME/../scripts/ltm-graph-memory-state.sh" "$TMPSRC/scripts/ltm-graph-memory-state.sh"
+    cp "$BATS_TEST_DIRNAME/../scripts/lib/plugin-system.sh" "$TMPSRC/scripts/lib/plugin-system.sh"
+    cp "$BATS_TEST_DIRNAME/../commands/dr-prd.md" "$TMPSRC/commands/dr-prd.md"
     # install.sh resolves paths via dirname; copy it into a sibling of TMPSRC
     # so it can locate skills/ next to itself.
     cp "$INSTALL_SH" "$TMPSRC/install.sh"
@@ -84,6 +90,44 @@ teardown() {
     [ "$status" -eq 0 ]
     [ ! -f "$TMPCURSOR/skills/bundled.md" ]
     [ ! -d "$TMPCURSOR/skills/.system" ]
+}
+
+@test "T48c: --with-cursor installs the shared LTM graph-memory resolver" {
+    run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" CURSOR_DIR="$TMPCURSOR" "$TMPSRC/install.sh" --with-cursor --yes
+    [ "$status" -eq 0 ] \
+        && [ -x "$TMPCURSOR/scripts/ltm-graph-memory-state.sh" ] \
+        && [ -f "$TMPCURSOR/scripts/lib/plugin-system.sh" ]
+}
+
+@test "T48d: missing LTM resolver source is non-fatal and still ships the library" {
+    mv "$TMPSRC/scripts/ltm-graph-memory-state.sh" \
+        "$TMPSRC/scripts/ltm-graph-memory-state.sh.missing"
+
+    run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" CURSOR_DIR="$TMPCURSOR" \
+        "$TMPSRC/install.sh" --with-cursor --yes
+
+    [ "$status" -eq 0 ] \
+        && [ -f "$TMPCURSOR/scripts/lib/plugin-system.sh" ] \
+        && [ ! -e "$TMPCURSOR/scripts/ltm-graph-memory-state.sh" ]
+}
+
+@test "T48e: Cursor-only install resolves graph memory disabled by default" {
+    local default_cursor="$FAKE_HOME/.cursor"
+    run env HOME="$FAKE_HOME" CLAUDE_DIR="$FAKE_CLAUDE" CURSOR_DIR="$default_cursor" \
+        "$TMPSRC/install.sh" --with-cursor --yes
+    [ "$status" -eq 0 ] || return 1
+    grep -q 'ltm-graph-memory-state.sh' "$default_cursor/commands/dr-prd.md" || return 1
+    mkdir -p "$FAKE_HOME/workspace/datarim"
+    run env -u DATARIM_RUNTIME HOME="$FAKE_HOME" bash -c '
+        for root in "${DATARIM_RUNTIME:-}" "$HOME/.claude" "$HOME/.codex" "$HOME/.cursor"; do
+            [ -n "$root" ] || continue
+            if [ -x "$root/scripts/ltm-graph-memory-state.sh" ]; then
+                exec bash "$root/scripts/ltm-graph-memory-state.sh" --workspace "$HOME/workspace"
+            fi
+        done
+        exit 2
+    '
+    [ "$status" -eq 0 ] && [ "$output" = "disabled" ]
 }
 
 @test "T49: --with-cursor is idempotent (re-run produces no diff)" {
