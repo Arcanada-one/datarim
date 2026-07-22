@@ -532,6 +532,36 @@ Consumers MUST mirror the canonical FB-rules text and the enforcement-mapping ta
 
 ---
 
+## Partial Milestone Closure Pattern (AAL milestones across child tasks)
+
+> **Scope:** the AAL scale (L0–L5), `weakest_links`, and milestone/gate definitions are **ecosystem-owned** — see the consumer's **AAL Mandate** (cross-link; canonical `documentation/architecture/AAL-Classification.md` in the reference ecosystem). Datarim ships only the **workflow contract** below, because it governs framework-owned artefacts: the task-description `## Append-log` schema and the `/dr-archive` bump timing.
+
+Use this pattern when a single milestone `M{N}` — a group of `weakest_links` from a parent PRD's Autonomy Plan — is closed incrementally across **two or more child tasks** rather than in one shot. It keeps the AAL claim earned (never bumped early), auditable (a single ledger), and honest (regressions lower the level).
+
+**1. Append-log entry schema** (appended to the **parent** task-description's `## Append-log`):
+
+- *Partial-closure entry* — when a child ships some, not all, of `M{N}`:
+  - Heading: `### {YYYY-MM-DD} — Partial M{N} closure via {CHILD-ID}` (optional short descriptor suffix).
+  - One status paragraph naming the child and what landed, then an itemised decomposition of every weakest_link in `M{N}`, each tagged from the **canonical status word set** — `✓ closed` (eliminated / enforced / restart-survivable, with a one-line commit/mechanism evidence pointer) or `✗ deferred` (with the child task it will land in and the reason). A component landed with an accepted-risk caveat stays `✗ deferred` until the risk is eliminated.
+  - An explicit `**AAL bump deferred:**` line — `current_aal` holds until the last weakest_link ships (rationale: the milestone gate criteria are not yet met).
+  - A cross-link to the closing child (`{CHILD-ID}`).
+- *Full-closure entry* — when the **last** outstanding weakest_link ships: `### {YYYY-MM-DD} — M{N} full closure via {CHILD-ID} — AAL L{k} reached`; flips the final `✗ deferred` to `✓ closed`; this is where the bump is applied.
+
+**2. Parent/child responsibility split (who owns AAL tracking):**
+
+- **Parent owns the ledger.** All partial-closure entries append to the **parent** task-description; the parent frontmatter `current_aal` is the single source of truth and stays **unchanged** through every partial closure.
+- **The last closing child owns the bump.** The child shipping the final weakest_link — and only it — at its `/dr-archive`: (a) appends the full-closure entry to the parent, (b) raises `current_aal` in the parent frontmatter, (c) updates the public AAL rating page (AAL Mandate honesty rule). No earlier child touches `current_aal`.
+
+**3. Reopen-on-fallback semantics:**
+
+- If a `✓ closed` component later regresses (mechanism disabled / enforcement removed), append `### {YYYY-MM-DD} — M{N} reopened via {INCIDENT-or-TASK-ID}` to the parent, flipping that component back to `✗ deferred`.
+- If the reopened component justified the prior bump, **revert the bump** — lower `current_aal` to the pre-bump level and correct the public rating page (honest, not aspirational).
+- Write or extend a reflection file tagging `aal_gap` with the regressed dimension.
+
+Single-task milestone closure is unchanged: this pattern applies only to the multi-child split.
+
+---
+
 ## Defensive Invariants
 
 When a script's textual output is contractually paired with its exit code or internal state (e.g. "BLOCKED" message ↔ exit 1, "OK" message ↔ exit 0, "applied" flag ↔ side-effect performed), insert a precondition guard immediately before emitting the wording:
