@@ -86,6 +86,13 @@ from the v1→v2 migration archive). Deprecation warning emitted on every valida
 invocation. Migration recipe: add `evidence_type: empirical` (or
 `static`/`measurement`) to each wish; bump `schema_version: 2`.
 
+**Migration note — author new files at v2.** `/dr-prd` (and `/dr-plan` for the
+L2-no-PRD path) MUST create new expectations files at `schema_version: 2`
+directly — never author a v1 file and migrate it afterwards. v1 is deprecated
+(sunset **2027-05-23**) and emits a per-invocation deprecation warning, so
+starting at v2 avoids a needless migration and a noisy validator. Schema v3
+stays opt-in per the note above; the default first-write target is v2.
+
 ## Body shape
 
 ```markdown
