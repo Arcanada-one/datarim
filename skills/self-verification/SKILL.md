@@ -410,12 +410,26 @@ Final verdict: CONDITIONAL
 3. **`max_iter`** reached (default 3)
 4. **`cost_ceiling`** exceeded (token budget +25% over baseline)
 
+## Automatic Post-Step Guarded Auto-Fix (`post_step` profile only)
+
+The automatic post-step hook wired into `/dr-prd`, `/dr-plan`, and `/dr-do` (see each command's `## Post-Step Self-Verification Hook (Automatic)` section) may apply a bounded, deterministic auto-fix before dispatching model reviewers. Manual `/dr-verify` never enters this loop. The automatic L2+ order is **deterministic floor → guarded auto-fix loop → model reviewer dispatch**; the floor stays read-only, and only the parent stage — never a reviewer worker or the floor — may authorize a mutation through `dev-tools/self-verify-auto-fix.sh`.
+
+**Closed eligibility.** A finding is eligible only when it is a trusted floor finding carrying auto-fix metadata for a closed low-risk class (`formatting` missing final newline, allowlisted trailing-whitespace `lint`, or exact-map `obvious_typo`), has a registered bounded fix recipe, and its class-specific history proves a false-positive rate strictly below 30 percent. Security, authentication, secrets, production data, model-authored fixes, unknown classes, and unverified evidence are never auto-fixed.
+
+**Immutable history authority.** Positive eligibility derives only from the fixed namespace `datarim/qa/self-verification-auto-fix-history/records/`: the runner enumerates every individual immutable record there, the caller cannot substitute a history path, and the finding cannot supply one. A tuple is eligible only when every record is valid and the exact integer rule is strict `10 * false_positive < 3 * total`; missing, aggregate-only, writable, malformed, zero-denominator, or exactly-30-percent history remains advisory. The framework ships no positive production history records, so nothing auto-fixes until real per-class evidence accumulates.
+
+**Bounded one-at-a-time loop.** The parent selects at most one finding, assigns a unique `{hook_invocation_id}-{sequence}` transaction ID, invokes the runner, and records the result. An `applied` or `already_applied` outcome requires rerunning the stage validators and the deterministic floor before another selection. **Never select a second finding from a pre-mutation floor result.** For an advisory outcome, add the finding to an attempted-finding set for that unchanged floor generation and consider the next unattempted finding. The hard ceiling is **32 total runner invocations**, advisory attempts included, and is not reset by a new floor generation.
+
+**Result dispositions and incompleteness.** The only dispositions are `applied`, `advisory`, `already_applied`, `failed`, and `rolled_back`; stable reason codes include `lock_conflict`, `journal_conflict`, and `rollback_integrity_failure`. Any failed disposition, lock conflict, rollback-integrity failure, malformed runner output, validator/floor refresh failure, journal or transaction persistence uncertainty, or invocation-cap exhaustion is **auto-fix transaction uncertainty**: launch no model reviewers and take the parent non-advancing route. The automatic incomplete-reason set is therefore missing or malformed complexity, missing or duplicate role identity, timeout, provider failure, malformed output, unsupported runtime, missing or invalid budget reservation, cost exhaustion, recursive invocation, auto-fix transaction uncertainty, or audit persistence failure; every listed reason sets `execution_status: incomplete` and is non-advancing.
+
+**Audit visibility.** The post-step audit must retain every original floor finding unchanged and add one structured result for every runner invocation, including advisory and recovery outcomes; `auto_fix_applied` is a derived count, never a replacement for those records.
+
 ## Constraints
 
 - **Stack-agnostic mandate.** All three layers run equally under any supported runtime; Layer 2 cross-model peer-review is vendor-neutral via `coworker` abstraction. No runtime-specific API literals.
 - **Cost budget:** ≤+25% tokens on manual `/dr-verify` invocation vs baseline `/dr-do`. Layer 1 = ~0 cost; Layer 2 absorbs the bulk via cheap external model; Layer 3 only fires for the most expensive runtime path.
 - **Append-only audit log** (`chmod a-w` post-write). Header carries `source_layer_breakdown` for tri-layer provenance.
-- **Findings-only mode**: no auto-fix application at any layer. Operator triages all findings manually.
+- **Manual findings-only mode**: no auto-fix application at any manual `/dr-verify` layer; operator triages all findings manually. The automatic `post_step` hook uses only the guarded deterministic policy in § Automatic Post-Step Guarded Auto-Fix.
 - **Read-only subagents/external calls.** Layer 2 (peer_review) and Layer 3 (dispatch) MUST NOT have Write/Edit/NotebookEdit; they read artifacts and emit findings only.
 - **`coworker --task-id` propagation MANDATORY at Layer 2.** Without it the prospective-rate / token-cost tooling cannot filter logs by task.
 
@@ -428,7 +442,7 @@ Implementation lineage (PRDs, plans, creatives, baselines) is tracked in `docume
 
 ## Status
 
-**Tri-layer canonical** — Layer 1 deterministic floor (no LLM cost) + Layer 2 cross-model peer-review (DeepSeek default) + Layer 3 native runtime dispatch. Findings-only mode at all layers; auto-fix is a separate future evolution gated by FP-rate threshold from prospective dogfood. Manual on-demand only — automated post-step hook is a separate future evolution gated by dogfood verdict (≥1 caught per 5 tasks).
+**Tri-layer canonical** — Layer 1 deterministic floor (no LLM cost) + Layer 2 cross-model peer-review (DeepSeek default) + Layer 3 native runtime dispatch. Manual `/dr-verify` is findings-only at all layers. The automatic `post_step` hook (L2+) adds a guarded deterministic auto-fix loop bounded by the strictly-below-30% immutable-history threshold (§ Automatic Post-Step Guarded Auto-Fix); it ships inert because no positive history records exist until per-class evidence accumulates.
 
 <!-- spec-anchors: state-diff per-phase stop-condition loop exit drift taxonomy ac_criterion -->
 <!-- These literal lowercase tokens mirror canonical concept names (sections #1, #2, #5; schema field `ac_criteria` maps to the PRD literal `ac_criterion`). They satisfy the falsifiability grep contract from the parent PRD AC without altering the surface header casing. -->
