@@ -164,6 +164,8 @@ classify by scope (a), contract impact (b), hard-gated check (c):
       HARD → emit an operator prompt via Ladder L5; do not auto-execute
 ```
 
+**Follow-up ID allocation (MANDATORY).** When the resolution is "create a backlog item" (the `L2+ or Class B` branch), allocate the new task ID by **running the canonical helper** — `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/next-free-id.sh" {PREFIX} "$DATARIM_ROOT"` (or the equivalent `/dr-init` mkdir-mutex reservation) — never a hand-computed `max+1`. The helper applies `max(claimed across documentation/archive ∪ datarim/tasks.md ∪ datarim/backlog.md) + 1` across all three claim surfaces and auto-bumps on a parallel-session race, so a task spawning a follow-up cannot collide with a concurrently-created ID (the follow-up-ID rename incident that motivated this rule). Documented fallback (helper unavailable in this runtime): compute the same 3-surface formula by hand.
+
 ### Inline-log contract
 
 File: `datarim/tasks/{TASK-ID}-auto-inline-log.md` — append-only, populated during `/dr-do`. Each entry:
