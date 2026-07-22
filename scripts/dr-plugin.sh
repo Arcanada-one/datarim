@@ -82,10 +82,12 @@ USAGE:
 
 COMMANDS:
   list                  Show active plugins (bootstraps datarim-core on first run)
-  enable <abs-path>     Activate a plugin from an absolute path (git-URL clone deferred — Phase A4)
-  disable <id>          Deactivate a plugin (refuses datarim-core)
+  enable <abs-path|ltm-graph-memory>
+                        Activate a plugin from an absolute path (git-URL clone
+                        deferred — Phase A4), or the trusted ltm-graph-memory policy
+  disable <id>          Deactivate a plugin or trusted workspace policy (refuses datarim-core)
   sync                  Reconcile filesystem with manifest
-  doctor [--fix]        Diagnose inconsistent state (8 checks)
+  doctor [--fix]        Diagnose inconsistent state (10 checks)
   --help                Show this message
 
 EXIT CODES:
@@ -157,8 +159,11 @@ cmd_list() {
 
     # Render each "- id: <foo>" block with key fields. Bash 3.2 friendly: no
     # associative arrays, just sequential awk walk emitting one line per plugin.
+    # The trusted metadata-only ltm-graph-memory record is rendered by a
+    # dedicated footer below (always exactly once, absent or present), so the
+    # ordinary walk skips it to avoid a duplicate line.
     awk '
-        BEGIN { id=""; src=""; ver=""; prot="" }
+        BEGIN { id=""; src=""; ver=""; prot=""; skip=0 }
         /^- id:/ {
             if (id != "") {
                 printf "  - %-24s  source=%-12s  version=%-12s  %s\n", id, src, ver, (prot=="true"?"[protected]":"")
@@ -166,21 +171,22 @@ cmd_list() {
             }
             sub(/^- id:[[:space:]]*/, "")
             id = $0
+            if (id == "ltm-graph-memory") { id=""; skip=1 } else { skip=0 }
             next
         }
-        /^[[:space:]]+source:/ {
+        !skip && /^[[:space:]]+source:/ {
             line = $0
             sub(/^[[:space:]]+source:[[:space:]]*/, "", line)
             src = line
             next
         }
-        /^[[:space:]]+version:/ {
+        !skip && /^[[:space:]]+version:/ {
             line = $0
             sub(/^[[:space:]]+version:[[:space:]]*/, "", line)
             ver = line
             next
         }
-        /^[[:space:]]+protected:/ {
+        !skip && /^[[:space:]]+protected:/ {
             line = $0
             sub(/^[[:space:]]+protected:[[:space:]]*/, "", line)
             prot = line
@@ -192,6 +198,16 @@ cmd_list() {
             }
         }
     ' "$manifest"
+
+    local ltm_policy ltm_status=0 ltm_state="installed (disabled)"
+    ltm_policy="$(manifest_builtin_metadata_status "$manifest" ltm-graph-memory)" || ltm_status=$?
+    [ "$ltm_status" -eq 0 ] || return "$ltm_status"
+    case "$ltm_policy" in
+        enabled) ltm_state="installed (enabled)" ;;
+        invalid) ltm_state="installed (disabled, fail-safe: invalid state)" ;;
+    esac
+    printf '  - %-24s  source=%-12s  version=%-12s  %s\n' \
+        "ltm-graph-memory" "builtin" "1.0.0" "$ltm_state"
 }
 
 # --- enable subcommand ------------------------------------------------------
@@ -334,11 +350,67 @@ _collect_inventory_for() {
     done
 }
 
+# --- trusted metadata-only policy: ltm-graph-memory (TUNE-0103) -------------
+#
+# Default-off, opt-in graph-memory policy. Enable adds one exact built-in
+# active record; disable removes it. Metadata-only: no runtime symlink is
+# created or removed. Invalid persisted state fails safe to disabled and
+# blocks enable until repaired.
+_set_ltm_graph_memory_state() {
+    local state="$1"
+    local ws repo manifest lock_dir
+    ws="$(resolve_workspace)"
+    repo="$(resolve_repo_root "$ws")"
+    manifest="$ws/datarim/enabled-plugins.md"
+
+    lock_dir="$(_lock_path "$ws")"
+    mkdir -p "$(dirname "$lock_dir")"
+    if ! acquire_plugin_lock "$lock_dir" "$DR_PLUGIN_LOCK_TIMEOUT"; then
+        echo "dr-plugin $state: lock busy: $lock_dir" >&2
+        return 3
+    fi
+    # shellcheck disable=SC2064
+    trap "release_plugin_lock '$lock_dir'" EXIT INT TERM
+
+    bootstrap_manifest_if_missing "$manifest" "$repo" || return 2
+
+    local policy policy_status=0 now
+    policy="$(manifest_builtin_metadata_status "$manifest" ltm-graph-memory)" || policy_status=$?
+    [ "$policy_status" -eq 0 ] || return "$policy_status"
+    case "$state" in
+        enable)
+            if [ "$policy" = "invalid" ]; then
+                echo "dr-plugin enable: invalid ltm-graph-memory state; disable it or run doctor before enabling" >&2
+                return 1
+            fi
+            now="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+            manifest_set_builtin_metadata_state \
+                "$manifest" ltm-graph-memory 1.0.0 "$now" enabled || return $?
+            echo "dr-plugin: enabled ltm-graph-memory (adapter use permitted when configured)" >&2
+            ;;
+        disable)
+            manifest_set_builtin_metadata_state \
+                "$manifest" ltm-graph-memory 1.0.0 "" disabled || return $?
+            echo "dr-plugin: disabled ltm-graph-memory (no memory I/O authorized)" >&2
+            ;;
+        *)
+            echo "dr-plugin: invalid LTM graph-memory state: $state" >&2
+            return 64
+            ;;
+    esac
+    return 0
+}
+
 cmd_enable() {
     local src_arg="${1:-}"
     if [ -z "$src_arg" ]; then
         echo "dr-plugin enable: source path required" >&2
         return 64
+    fi
+
+    if [ "$src_arg" = "ltm-graph-memory" ]; then
+        _set_ltm_graph_memory_state enable
+        return $?
     fi
 
     case "$src_arg" in
@@ -360,6 +432,10 @@ cmd_enable() {
             return 1
             ;;
     esac
+
+    if ! validate_source "$src"; then
+        return 1
+    fi
 
     if [ ! -d "$src" ]; then
         echo "dr-plugin enable: source directory not found: $src" >&2
@@ -384,6 +460,13 @@ cmd_enable() {
     if ! validate_plugin_id "$id"; then
         return 1
     fi
+
+    case "$id" in
+        ltm-graph-memory)
+            echo "dr-plugin enable: $id is a reserved trusted core plugin id" >&2
+            return 1
+            ;;
+    esac
 
     # TUNE-0187: dr-orchestrate ships fb-rules enforcement that assumes the
     # consumer's own CLAUDE.md already mirrors the canonical Autonomous Agent
@@ -601,6 +684,11 @@ cmd_disable() {
         return 1
     fi
 
+    if [ "$id" = "ltm-graph-memory" ]; then
+        _set_ltm_graph_memory_state disable
+        return $?
+    fi
+
     local ws repo manifest
     ws="$(resolve_workspace)"
     repo="$(resolve_repo_root "$ws")"
@@ -701,6 +789,14 @@ cmd_sync() {
     fi
     # shellcheck disable=SC2064
     trap "release_plugin_lock '$lock_dir'" EXIT INT TERM
+
+    local ltm_policy ltm_policy_status=0
+    ltm_policy="$(manifest_builtin_metadata_status "$manifest" ltm-graph-memory)" || ltm_policy_status=$?
+    [ "$ltm_policy_status" -eq 0 ] || return "$ltm_policy_status"
+    if [ "$ltm_policy" = "invalid" ]; then
+        echo "dr-plugin sync: invalid ltm-graph-memory metadata state; policy remains disabled" >&2
+        return 1
+    fi
 
     local active_ids active_ids_padded id
     active_ids="$(manifest_active_ids "$manifest")"
@@ -1128,42 +1224,53 @@ cmd_doctor() {
 
     local errors=0 warnings=0 c
 
-    echo "[1/9] manifest-syntax" >&2
+    echo "[1/10] manifest-syntax" >&2
     c="$(_doctor_check_manifest_syntax "$manifest")"
     [ "$c" -gt 0 ] && errors=$((errors + c))
 
-    echo "[2/9] inventory-consistency" >&2
+    echo "[2/10] inventory-consistency" >&2
     c="$(_doctor_check_inventory_consistency "$inv_file" "$runtime")"
     [ "$c" -gt 0 ] && errors=$((errors + c))
 
-    echo "[3/9] broken-symlinks" >&2
+    echo "[3/10] broken-symlinks" >&2
     c="$(_doctor_check_broken_symlinks "$inv_file" "$runtime")"
     [ "$c" -gt 0 ] && errors=$((errors + c))
 
-    echo "[4/9] orphan-files" >&2
+    echo "[4/10] orphan-files" >&2
     c="$(_doctor_check_orphan_files "$inv_file" "$runtime" "$active_ids_padded")"
     [ "$c" -gt 0 ] && warnings=$((warnings + c))
 
-    echo "[5/9] override-integrity" >&2
+    echo "[5/10] override-integrity" >&2
     c="$(_doctor_check_override_integrity "$manifest")"
     [ "$c" -gt 0 ] && errors=$((errors + c))
 
-    echo "[6/9] dependency-graph" >&2
+    echo "[6/10] dependency-graph" >&2
     c="$(_doctor_check_dependency_graph "$manifest")"
     [ "$c" -gt 0 ] && errors=$((errors + c))
 
-    echo "[7/9] git-state" >&2
+    echo "[7/10] git-state" >&2
     c="$(_doctor_check_git_state "$ws" "$manifest")"
     [ "$c" -gt 0 ] && warnings=$((warnings + c))
 
-    echo "[8/9] snapshot-cleanup (>${DR_PLUGIN_SNAPSHOT_AGE_DAYS}d)" >&2
+    echo "[8/10] snapshot-cleanup (>${DR_PLUGIN_SNAPSHOT_AGE_DAYS}d)" >&2
     local old_snaps
     old_snaps="$(_doctor_check_snapshot_cleanup "$ws")"
     [ "$old_snaps" -gt 0 ] && warnings=$((warnings + old_snaps))
 
-    echo "[9/9] skill-registry" >&2
+    echo "[9/10] skill-registry" >&2
     c="$(_doctor_check_skill_registry "$runtime")"
     [ "$c" -gt 0 ] && warnings=$((warnings + c))
+
+    echo "[10/10] trusted-policy-state" >&2
+    local ltm_policy ltm_policy_status=0
+    ltm_policy="$(manifest_builtin_metadata_status "$manifest" ltm-graph-memory)" || ltm_policy_status=$?
+    if [ "$ltm_policy_status" -ne 0 ]; then
+        _doctor_emit error "ltm-graph-memory state could not be read"
+        errors=$((errors + 1))
+    elif [ "$ltm_policy" = "invalid" ]; then
+        _doctor_emit error "invalid ltm-graph-memory metadata state; graph memory fails safe to disabled"
+        errors=$((errors + 1))
+    fi
 
     rm -f "$inv_file"
 

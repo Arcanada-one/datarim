@@ -60,6 +60,20 @@ validate_source() {
         return 0
     fi
 
+    # Manifest values are line-oriented Markdown. Reject all control bytes so
+    # an otherwise valid absolute path cannot inject fields or policy sections
+    # (e.g. a newline-embedded "- id: ltm-graph-memory" record).
+    case "$src" in
+        *$'\n'*|*$'\r'*|*$'\t'*)
+            echo "validate_source: control characters not allowed in source" >&2
+            return 1
+            ;;
+    esac
+    if printf '%s' "$src" | LC_ALL=C grep -q '[[:cntrl:]]'; then
+        echo "validate_source: control characters not allowed in source" >&2
+        return 1
+    fi
+
     # Reject path traversal anywhere in the string.
     case "$src" in
         *..* )
@@ -200,9 +214,169 @@ manifest_remove_entry() {
             if ($0 == "- id: " id) { skipping = 1; next }
             skipping = 0
         }
+        skipping && /^## / { skipping = 0 }
         !skipping
     ' "$manifest" > "$tmp"
     mv "$tmp" "$manifest"
+}
+
+# --- trusted metadata-only active records (TUNE-0103) -----------------------
+#
+# `ltm-graph-memory` is a default-off, opt-in workspace policy represented by
+# one exact built-in active record inside `## Active`. Enabling adds the record;
+# disabling removes it. The record installs no runtime symlink and proves only
+# policy, never that an LTM adapter is configured. Missing, malformed,
+# duplicate, impersonated, protected, or non-empty-inventory state fails safe
+# to disabled. This machinery is independent of any default-on tombstone
+# policy: it never reads or writes a `## Disabled Defaults` section.
+
+_builtin_metadata_id_allowed() {
+    case "$1" in
+        ltm-graph-memory) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+manifest_insert_entry() {
+    # Insert a complete active-plugin record at the end of the `## Active`
+    # section: before the first subsequent `## ` heading, or at end-of-file
+    # when Active is the last section. This keeps the trusted metadata record
+    # inside Active without disturbing any later policy section.
+    local manifest="$1" entry_file="$2"
+    [ -f "$manifest" ] && [ -f "$entry_file" ] || return 1
+
+    local tmp
+    tmp="$(mktemp "${manifest}.tmp.XXXXXX")" || return 2
+    awk '
+        NR == FNR { entry[++entry_count] = $0; next }
+        function emit_entry(   i) {
+            if (previous != "") print ""
+            for (i = 1; i <= entry_count; i++) print entry[i]
+        }
+        /^## Active[[:space:]]*$/ && !seen_active {
+            seen_active = 1
+            print
+            previous = $0
+            next
+        }
+        seen_active && !inserted && /^## / {
+            emit_entry()
+            print ""
+            inserted = 1
+            print
+            previous = $0
+            next
+        }
+        { print; previous = $0 }
+        END {
+            if (!inserted) emit_entry()
+        }
+    ' "$entry_file" "$manifest" > "$tmp" || { rm -f "$tmp"; return 2; }
+    mv "$tmp" "$manifest" || { rm -f "$tmp"; return 2; }
+}
+
+manifest_builtin_metadata_status() {
+    # Args: <manifest> <reserved-id>. Prints enabled|disabled|invalid.
+    # Malformed policy is a resolved state (invalid, rc 0); only I/O is rc 2.
+    local manifest="$1" id="$2"
+    _builtin_metadata_id_allowed "$id" || return 64
+    if [ ! -e "$manifest" ]; then
+        echo "disabled"
+        return 0
+    fi
+    if [ ! -f "$manifest" ] || [ ! -r "$manifest" ]; then
+        return 2
+    fi
+
+    awk -v id="$id" '
+        function finish_target() {
+            if (in_target && step != 10) invalid=1
+            in_target=0
+            step=0
+        }
+        function is_timestamp(line) {
+            return line ~ /^  enabled_at: [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]Z$/
+        }
+        BEGIN { active=0; active_headings=0; count=0; invalid=0; in_target=0; step=0 }
+        /^## / {
+            finish_target()
+            if ($0 == "## Active") active_headings++
+            active=($0 == "## Active")
+            next
+        }
+        !active {
+            if (index($0, id) > 0) invalid=1
+            next
+        }
+        /^- id: / {
+            finish_target()
+            if ($0 == "- id: " id) {
+                count++
+                in_target=1
+                step=1
+            }
+            next
+        }
+        index($0, id) > 0 && !in_target { invalid=1; next }
+        !in_target { next }
+        step == 1 && $0 == "  source: builtin" { step=2; next }
+        step == 2 && $0 == "  version: 1.0.0" { step=3; next }
+        step == 3 && is_timestamp($0) { step=4; next }
+        step == 4 && $0 == "  protected: false" { step=5; next }
+        step == 5 && $0 == "  file_inventory:" { step=6; next }
+        step == 6 && $0 == "    skills: []" { step=7; next }
+        step == 7 && $0 == "    agents: []" { step=8; next }
+        step == 8 && $0 == "    commands: []" { step=9; next }
+        step == 9 && $0 == "    templates: []" { step=10; next }
+        step == 10 && $0 == "" { next }
+        { invalid=1 }
+        END {
+            finish_target()
+            if (active_headings != 1 || invalid || count > 1) print "invalid"
+            else if (count == 1) print "enabled"
+            else print "disabled"
+        }
+    ' "$manifest"
+}
+
+manifest_set_builtin_metadata_state() {
+    # Args: <manifest> <reserved-id> <version> <enabled-at> <enabled|disabled>
+    local manifest="$1" id="$2" version="$3" enabled_at="$4" state="$5"
+    _builtin_metadata_id_allowed "$id" || return 64
+    case "$state" in enabled|disabled) ;; *) return 64 ;; esac
+
+    local current status=0
+    current="$(manifest_builtin_metadata_status "$manifest" "$id")" || status=$?
+    [ "$status" -eq 0 ] || return "$status"
+
+    if [ "$state" = "disabled" ]; then
+        [ -f "$manifest" ] || return 0
+        manifest_remove_entry "$manifest" "$id"
+        return $?
+    fi
+    [ "$current" = "enabled" ] && return 0
+    [ "$current" = "invalid" ] && return 1
+    [ "$version" = "1.0.0" ] || return 1
+    printf '%s' "$enabled_at" | grep -qE \
+        '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$' || return 1
+
+    local entry_file insert_status=0
+    entry_file="$(mktemp "${manifest}.entry.XXXXXX")" || return 2
+    {
+        printf '%s\n' "- id: $id"
+        printf '%s\n' "  source: builtin"
+        printf '%s\n' "  version: $version"
+        printf '%s\n' "  enabled_at: $enabled_at"
+        printf '%s\n' "  protected: false"
+        printf '%s\n' "  file_inventory:"
+        printf '%s\n' "    skills: []"
+        printf '%s\n' "    agents: []"
+        printf '%s\n' "    commands: []"
+        printf '%s\n' "    templates: []"
+    } > "$entry_file"
+    manifest_insert_entry "$manifest" "$entry_file" || insert_status=$?
+    rm -f "$entry_file"
+    return "$insert_status"
 }
 
 manifest_dependents_of() {

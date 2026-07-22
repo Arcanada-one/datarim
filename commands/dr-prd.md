@@ -53,7 +53,8 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
     -   Load `$HOME/.claude/skills/research-workflow/SKILL.md`.
     -   Spawn researcher agent (`$HOME/.claude/agents/researcher.md`) with task context: task ID, description, identified stack/dependencies from Phase 1.
     -   Agent creates `datarim/insights/INSIGHTS-{task-id}.md` from template `${DATARIM_RUNTIME:-$HOME/.claude}/templates/insights-template.md`.
-    -   Agent runs research checklist per mode, using available tools adaptively (context7, WebSearch, LTM API, codebase analysis).
+    -   Agent runs research checklist per mode, using available tools adaptively (context7, WebSearch, conditional graph memory, codebase analysis).
+    -   Before checkpoint 8, resolve `ltm-graph-memory` through the first installed `scripts/ltm-graph-memory-state.sh` using the target workspace. If it returns `enabled`, the researcher may use a separately configured adapter under `skills/research-workflow/SKILL.md` § Graph Memory Boundary. If it returns `disabled`, is missing, or errors, the researcher must not attempt graph-memory I/O and records the checkpoint as disabled.
     -   If insights document already exists (e.g., from a previous `/dr-prd` run), update rather than overwrite.
 
 2.  **Discovery Interview (Phase 1.5)**:

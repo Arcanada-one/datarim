@@ -134,6 +134,12 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   invariant preserved. Install via `dr-plugin enable dr-orchestrate`. See
   `plugins/dr-orchestrate/README.md`.
 
+- **LTM graph-memory toggle** — trusted metadata-only plugin disabled by
+  default. Use `dr-plugin enable ltm-graph-memory` to permit a separately
+  configured LTM adapter; disable it to forbid discovery, adapter invocation,
+  network calls, queues, and retries. It ships no engine or runtime symlink.
+  See `documentation/how-to/ltm-graph-memory-adapter.md`.
+
 - **Multi-runtime coworker delegation enforcement** — `dev-tools/coworker-hook-guard.sh`
   is a PreToolUse hook that denies direct bulk I/O when the MANDATORY
   delegation rules apply (>400-line reads, ≥3-file ask, bootstrap
