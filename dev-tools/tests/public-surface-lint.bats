@@ -36,6 +36,18 @@ EOF
     [ "$status" -eq 0 ]
 }
 
+@test "bare task ID — exit 1" {
+    printf 'Internal reference AGENT-0001.\n' >README.md
+    run "$SCRIPT" --regex "$REGEX" --paths README.md
+    [ "$status" -eq 1 ]
+}
+
+@test "public CVE and CWE identifiers — exit 0" {
+    printf 'Security references CVE-2024 and CWE-1234.\n' >README.md
+    run "$SCRIPT" --regex "$REGEX" --paths README.md
+    [ "$status" -eq 0 ]
+}
+
 @test "PRD-X-NNNN reference — exit 1" {
     cat >README.md <<'EOF'
 Design rationale per PRD-CONN-0087.

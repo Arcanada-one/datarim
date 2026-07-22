@@ -18,6 +18,7 @@
 # Internal SDLC artefact references (PRD / creative / plans / insights /
 # reflection). Closed pattern set — every consumer's task IDs route through
 # one of these.
+\b(AGENT|BENCH|CONTENT|DATA|DEV|DEVOPS|FIN|INFRA|MAINT|QA|QCK|RESEARCH|ROB|SEC|TUNE|WEB)-[0-9]{4}\b
 \bPRD-[A-Z]{2,10}-[0-9]{4}\b
 \bcreative-[A-Z]{2,10}-[0-9]{4}\b
 \bplans-[A-Z]{2,10}-[0-9]{4}\b
