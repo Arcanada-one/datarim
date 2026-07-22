@@ -31,6 +31,45 @@ EOF
 
     MALFORMED_MAP="$TEST_TMP/execution-hosts-malformed.yml"
     printf 'bindings: [this is not: valid: yaml: [[[\n' > "$MALFORMED_MAP"
+
+    # --- TUNE-0507 canon fixtures -------------------------------------------
+    # A workspace that carries a git-tracked spaces/ tree with a canonical
+    # execution block, so canon-fallback (cache miss -> canon) can resolve it.
+    CANON_WS="$TEST_TMP/canon-repo"
+    mkdir -p "$CANON_WS/datarim" "$CANON_WS/spaces/demospace"
+    cat > "$CANON_WS/spaces/registry.yml" <<EOF
+registry:
+  - name: demospace
+    path: spaces/demospace/space.yml
+    status: active
+    role: root-managing
+EOF
+    cat > "$CANON_WS/spaces/demospace/space.yml" <<EOF
+schema_version: 1
+execution:
+  required_host: canon-host
+  host_aliases: [canon-host, Canon-Host]
+  tailscale_ip: "100.99.0.7"
+  ssh_user: dev
+  default_agent: claude-code
+  allowed_agents: [claude-code, codex, cursor]
+EOF
+
+    # A workspace with spaces/ but NO execution mandate anywhere (truly
+    # unconfigured — canon-fallback must stay fail-open).
+    NOMANDATE_WS="$TEST_TMP/nomandate-repo"
+    mkdir -p "$NOMANDATE_WS/datarim" "$NOMANDATE_WS/spaces/plain"
+    cat > "$NOMANDATE_WS/spaces/registry.yml" <<EOF
+registry:
+  - name: plain
+    path: spaces/plain/space.yml
+    status: active
+    role: root-managing
+EOF
+    printf 'schema_version: 1\nname: plain\n' > "$NOMANDATE_WS/spaces/plain/space.yml"
+
+    # Empty map path (cache absent — the arcana-devs trap condition).
+    ABSENT_MAP="$TEST_TMP/no-such-cache.yml"
 }
 
 teardown() {
@@ -148,4 +187,137 @@ teardown() {
     run bash -c "source '$LIB'"
     [ "$status" -eq 0 ]
     [ -z "$output" ]
+}
+
+# ===========================================================================
+# TUNE-0507 — canon-fallback + intent-aware fail-closed
+# ===========================================================================
+
+# --- eh_canon_space_for_root -----------------------------------------------
+
+@test "eh_canon_space_for_root: resolves the root-managing space + canon path" {
+    run bash -c "source '$LIB'; eh_canon_space_for_root '$CANON_WS'"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"spaces/demospace/space.yml"* ]]
+    [[ "$output" == *"demospace"* ]]
+}
+
+@test "eh_canon_space_for_root: no spaces/registry.yml returns 1" {
+    run bash -c "source '$LIB'; eh_canon_space_for_root '$BOUND_WS'"
+    [ "$status" -eq 1 ]
+}
+
+# --- eh_lookup_binding_canon -----------------------------------------------
+
+@test "eh_lookup_binding_canon: reads canon execution block into the 7-field shape" {
+    run bash -c "source '$LIB'; eh_lookup_binding_canon '$CANON_WS'"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"canon-host"* ]]
+    [[ "$output" == *"100.99.0.7"* ]]
+    [[ "$output" == *"demospace"* ]]
+    tabs=$(printf '%s' "$output" | tr -cd '\t' | wc -c | tr -d ' ')
+    [ "$tabs" -eq 6 ]
+}
+
+@test "eh_lookup_binding_canon: canon with no execution mandate returns 1" {
+    run bash -c "source '$LIB'; eh_lookup_binding_canon '$NOMANDATE_WS'"
+    [ "$status" -eq 1 ]
+}
+
+# --- eh_canon_mandate_present (yq-free) ------------------------------------
+
+@test "eh_canon_mandate_present: true when a space.yml carries an execution block" {
+    run bash -c "source '$LIB'; eh_canon_mandate_present '$CANON_WS'"
+    [ "$status" -eq 0 ]
+}
+
+@test "eh_canon_mandate_present: false when no space.yml carries a mandate" {
+    run bash -c "source '$LIB'; eh_canon_mandate_present '$NOMANDATE_WS'"
+    [ "$status" -eq 1 ]
+}
+
+@test "eh_canon_mandate_present: works without yq (grep-only probe)" {
+    run bash -c "
+      source '$LIB'
+      command() { if [ \"\$1\" = -v ] && [ \"\$2\" = yq ]; then return 1; fi; builtin command \"\$@\"; }
+      export -f command
+      eh_canon_mandate_present '$CANON_WS'
+    "
+    [ "$status" -eq 0 ]
+}
+
+# --- eh_classify_intent ----------------------------------------------------
+
+@test "eh_classify_intent: /dr-status is readonly" {
+    run bash -c "source '$LIB'; eh_classify_intent 'claude /dr-status TUNE-1'"
+    [ "$output" = "readonly" ]
+}
+
+@test "eh_classify_intent: /dr-do is mutating" {
+    run bash -c "source '$LIB'; eh_classify_intent 'claude /dr-do TUNE-1'"
+    [ "$output" = "mutating" ]
+}
+
+@test "eh_classify_intent: unknown/opaque command defaults to mutating" {
+    run bash -c "source '$LIB'; eh_classify_intent 'codex'"
+    [ "$output" = "mutating" ]
+}
+
+# --- eh_decision_intent ----------------------------------------------------
+
+@test "eh_decision_intent: ARCANA-DEVS TRAP — cache absent + canon on-host + mutating -> ALLOW (0)" {
+    run bash -c "source '$LIB'; EH_TEST_HOSTNAME='canon-host' eh_decision_intent '$CANON_WS' '$ABSENT_MAP' mutating"
+    [ "$status" -eq 0 ]
+}
+
+@test "eh_decision_intent: cache absent + canon off-host + mutating -> off-host (10)" {
+    run bash -c "source '$LIB'; EH_TEST_HOSTNAME='some-mac' eh_decision_intent '$CANON_WS' '$ABSENT_MAP' mutating"
+    [ "$status" -eq 10 ]
+}
+
+@test "eh_decision_intent: off-host + read-only stays fail-open (0) even via canon" {
+    run bash -c "source '$LIB'; EH_TEST_HOSTNAME='some-mac' eh_decision_intent '$CANON_WS' '$ABSENT_MAP' readonly"
+    [ "$status" -eq 0 ]
+}
+
+@test "eh_decision_intent: truly unconfigured (no canon mandate) + mutating -> fail-open (0)" {
+    run bash -c "source '$LIB'; EH_TEST_HOSTNAME='some-mac' eh_decision_intent '$NOMANDATE_WS' '$ABSENT_MAP' mutating"
+    [ "$status" -eq 0 ]
+}
+
+@test "eh_decision_intent: mandate exists + yq absent + mutating -> fail-CLOSED (3)" {
+    run bash -c "
+      source '$LIB'
+      yq() { return 127; }
+      command() { if [ \"\$1\" = -v ] && [ \"\$2\" = yq ]; then return 1; fi; builtin command \"\$@\"; }
+      export -f yq command
+      EH_TEST_HOSTNAME='canon-host' eh_decision_intent '$CANON_WS' '$ABSENT_MAP' mutating
+    "
+    [ "$status" -eq 3 ]
+}
+
+@test "eh_decision_intent: mandate exists + yq absent + read-only -> fail-open (0)" {
+    run bash -c "
+      source '$LIB'
+      yq() { return 127; }
+      command() { if [ \"\$1\" = -v ] && [ \"\$2\" = yq ]; then return 1; fi; builtin command \"\$@\"; }
+      export -f yq command
+      EH_TEST_HOSTNAME='canon-host' eh_decision_intent '$CANON_WS' '$ABSENT_MAP' readonly
+    "
+    [ "$status" -eq 0 ]
+}
+
+@test "eh_decision_intent: malformed cache map + mutating -> fail-CLOSED (3)" {
+    run bash -c "source '$LIB'; EH_TEST_HOSTNAME='some-mac' eh_decision_intent '$BOUND_WS' '$MALFORMED_MAP' mutating"
+    [ "$status" -eq 3 ]
+}
+
+@test "eh_decision_intent: cache hit + host matches -> on-host (0)" {
+    run bash -c "source '$LIB'; EH_TEST_HOSTNAME='test-host' eh_decision_intent '$BOUND_WS' '$MAP' mutating"
+    [ "$status" -eq 0 ]
+}
+
+@test "eh_decision_intent: cache hit + host does not match + mutating -> off-host (10)" {
+    run bash -c "source '$LIB'; EH_TEST_HOSTNAME='some-mac' eh_decision_intent '$BOUND_WS' '$MAP' mutating"
+    [ "$status" -eq 10 ]
 }
