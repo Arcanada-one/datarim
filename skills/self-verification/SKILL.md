@@ -20,6 +20,16 @@ target_aal: 2
 - Already archived tasks (immutable artifacts).
 - During `/dr-prd` / `/dr-plan` / `/dr-do` active session — use post-completion only (pre-emptive verify hook is a deferred future evolution).
 
+## Mandatory trigger — untrusted-content boundary (S11)
+
+When the artifact under verification **implements or modifies a boundary where untrusted bytes enter an LLM context** — retrieved KB / RAG documents, fetched web or tool output, user-supplied files, or any external corpus rendered into a prompt / system message / tool result a model then reads — a distinct adversarial security review is **not optional and CI-green does not clear it** (canonical rule: [`skills/security-baseline/SKILL.md`](../security-baseline/SKILL.md) § S11). This skill is the review vehicle:
+
+- **Layer 3 native-runtime dispatch MUST run** for the change (a floor-only or peer-review-only pass does not satisfy the gate), in findings-only, read-only mode, by a reviewer in a context separate from the implementer.
+- The adversarial frame MUST be scoped to the six S11 probing dimensions — **fence-escape, nonce-predictability, trust-class cross-promotion, provenance-forgery, size-guard-bypass, fail-open** — in addition to the generic adversarial frame above.
+- The gate is **pre-merge**: the review artefact lands under `datarim/qa/` and its verdict is cited at `/dr-qa` / `/dr-compliance` before the change merges. A surfaced finding follows the S9 obligation (fix + regression test, or accepted-risk in `tests/security/baseline.json`).
+
+Rationale (source incident): a prior KB/RAG injection-fence review found three L1 hardening items every CI check had passed over (incomplete cross-family role-marker denylist, UTF-8 mid-codepoint panic, unbounded cache-key range) — semantic defects no lint / secret / dependency job can model. See § S11 for the full evidence.
+
 ## Core Concepts (5 Gap Protocols)
 
 ### 1. State-Diff (light v1)
@@ -425,6 +435,7 @@ Implementation lineage (PRDs, plans, creatives, baselines) is tracked in `docume
 
 - `dispatching-parallel-agents` (Datarim runtime skill) — parallel-agent fan-out used by Layer 3 Claude path.
 - `verification-before-completion` (Datarim runtime skill) — evidence-before-assertion discipline applied to per-finding `evidence_verified` re-grep.
+- `skills/security-baseline/SKILL.md` § S11 — untrusted-content boundary review gate; this skill's Layer 3 dispatch is the mandated review vehicle (see § Mandatory trigger above).
 
 ## Status
 
