@@ -49,14 +49,12 @@ setup() {
 }
 
 @test "workflow: lint job runs on a known runner pool" {
-    # Accepts either the GitHub-hosted default (ubuntu-latest) or the
-    # self-hosted Linux pool used during GitHub Actions outage workarounds.
     run yq -r '.jobs.lint."runs-on"' "$WF"
     [ "$status" -eq 0 ]
-    case "$output" in
-        ubuntu-latest|"[self-hosted, linux]"|"[self-hosted, Linux]"|'${{ fromJSON(inputs.runner_labels) }}') ;;
-        *) echo "Unexpected runs-on: $output" >&2; false ;;
-    esac
+    [ "$output" = '${{ fromJSON(inputs.runner_labels) }}' ]
+    run yq -r '.on.workflow_call.inputs.runner_labels.default' "$WF"
+    [ "$status" -eq 0 ]
+    [ "$output" = '["self-hosted","linux","ci-general"]' ]
 }
 
 @test "workflow: permissions block restricts contents to read" {

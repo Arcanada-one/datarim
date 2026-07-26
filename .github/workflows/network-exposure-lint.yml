@@ -49,7 +49,7 @@ on:
         description: 'JSON array string of runner labels to pin the job (workflow_call inputs cannot be arrays; consumed via fromJSON in runs-on)'
         type: string
         required: false
-        default: '["self-hosted","linux"]'
+        default: '["self-hosted","linux","ci-general"]'
   workflow_dispatch:
     inputs:
       compose_paths:
