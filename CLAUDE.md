@@ -3,6 +3,13 @@
 > **Version:** 2.58.0
 > **Framework:** Datarim provides structured rules, agents, skills, and commands for iterative project execution via AI coding assistants — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
 > **Multi-runtime:** Datarim is runtime-agnostic. This file is also available as `AGENTS.md` (symlink) for Codex CLI and other agent runtimes that read `AGENTS.md` by convention. See `documentation/tutorials/use-cases.md#runtime-support` for the canonical Claude Code / Codex CLI / Cursor support matrix.
+
+## CLI-Agent Models and Versions
+
+The canonical model, effort, and CLI-version policy is
+`skills/datarim-system/model-assignment.md`; semantic capability mappings live
+in `config/model-tiers.yaml`. Consumer guidance should link to those sources
+instead of pinning model generations locally.
 > **Note:** "Datarim" has a Russian transliteration «Датарим» — agents must recognise either form in any language context. <!-- allow-non-ascii: literal-transliteration-pair-for-agent-name-recognition -->
 
 ---
