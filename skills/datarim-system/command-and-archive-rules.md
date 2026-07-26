@@ -110,3 +110,13 @@ Source: prior incident — plan stated "24→25 skills" but actual count was 20�
    find . -maxdepth 6 -name .git -type d -exec dirname {} \;
    ```
    For each — `git status --porcelain` + `git rev-list --count @{u}..HEAD`. Flag dirty trees and unpushed commits per Step 0.1 three-options gate. Source: prior incident — Email Agent sub-repo had 7 uncommitted file deltas + 1 unpushed commit, invisible until explicit nested scan.
+
+## Persist status changes immediately
+
+When a command flips a task's status in a tracked operational file, such as
+the backlog, tasks, or active-context index, commit and push that status flip
+promptly. Do not accumulate uncommitted status flips across multiple tasks.
+
+Uncommitted progress is not canonical progress: a stale-clone checkout or a
+moved upstream can lose it and force risky manual reconciliation. This rule
+applies specifically to operational status-flip writes. It does not require WIP code commits.

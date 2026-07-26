@@ -85,6 +85,7 @@ tail -1 ~/.local/share/datarim-orchestrate/audit-"$(date -u +%Y-%m-%d)".jsonl | 
 
 ## Architecture boundary
 
+- Scheduling invariant: see `skills/datarim-system/backlog-and-routing.md` section "Parallel orchestration is the default".
 - **Core (no plugin needed):** this command file, `dev-tools/resolve-space-autonomy.sh`, `dev-tools/lib/space-autonomy.sh`, `dev-tools/fb-policy-loader.sh`, `dev-tools/rules/fb-rules.yaml` (autonomy floor + policy map). The autonomy floor and policy map resolve without enabling the plugin.
 - **Plugin (opt-in — `dr-plugin enable <path>/plugins/dr-orchestrate`):** tmux runner, subagent inference chain, bot/HTTP transport, Redis pub/sub, HMAC audit, fleet scripts, content-consilium fan-out. Enable the plugin to use `/dr-orchestrate run`.
 - Resolver agent: `agents/dr-orchestrate-resolver.md` — plugin-backed; non-functional without the `dr-orchestrate` plugin's `subagent_resolver.sh`. See plugin README for setup.

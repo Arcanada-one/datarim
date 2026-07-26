@@ -125,6 +125,7 @@ violations. Other operational actions ask only when the resolved
 - Exploratory work where the operator's intent is going to be refined as the task progresses.
 - High-risk changes to the framework's operating model, where each stage gate is genuinely a decision point that needs the operator present.
 - Coordinating work across multiple repositories. Use `/dr-orchestrate` for that — it is built for parallel multi-task execution and `/dr-auto` is not. **Note:** `/dr-orchestrate` command and the autonomy policy floor are core (no plugin required). The **tmux/bot transport runner** is the opt-in plugin — enable it with `/dr-plugin enable <abs-path>/plugins/dr-orchestrate` when you need the pane-driven runner.
+- Scheduling invariant: see `skills/datarim-system/backlog-and-routing.md` section "Parallel orchestration is the default".
 
 ## Stage Snapshot Emission (Mandatory Terminal Step)
 
