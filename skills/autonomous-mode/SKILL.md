@@ -109,6 +109,9 @@ Before every `AskUserQuestion` call (or any equivalent operator prompt — phras
 Some recurring decisions are pre-resolved by policy and MUST NOT be surfaced as an
 `AskUserQuestion`, even when the agent feels uncertain. Treat these as L1-decided:
 
+- **Which model or effort should be used.** Use the CLI agent's current
+  vendor-default model and reasoning effort unless the task explicitly records a
+  reasoned version pin; do not ask the operator to choose.
 - **Test on the test environment before prod / archive.** If the project space has a
   test environment (per [[test-env-verification]] resolution chain), the answer to
   "should I deploy to test and verify backend + frontend before preparing for prod or

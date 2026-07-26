@@ -13,11 +13,14 @@
 #                                "coworker-deepseek claude codex".
 #   DR_ORCH_RESOLVER_TIMEOUT_S — per-backend wall-clock budget (default 15).
 #   STATE_DIR                  — dedup dir for "backend missing" warnings.
+#   DR_FLEET_VERSION_HINTS     - set to 1 for best-effort CLI version advice.
+#   DR_FLEET_VERSION_TIMEOUT_S - version-probe budget in seconds (default 2).
 set -euo pipefail
 
 : "${DR_ORCH_DIR:=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 : "${DR_ORCH_SUBAGENT_CHAIN:=coworker-deepseek claude codex}"
 : "${DR_ORCH_RESOLVER_TIMEOUT_S:=15}"
+: "${DR_FLEET_VERSION_TIMEOUT_S:=2}"
 : "${STATE_DIR:=$HOME/.local/share/dr-orchestrate/state}"
 mkdir -p "$STATE_DIR"
 
@@ -95,13 +98,26 @@ _fleet_backend_present() {
   command -v "$first" >/dev/null 2>&1
 }
 
+_fleet_cli_version_hint() {
+  local backend="$1" executable="$2" raw version
+  [ "${DR_FLEET_VERSION_HINTS:-0}" = "1" ] || return 0
+  raw="$(_with_timeout "$DR_FLEET_VERSION_TIMEOUT_S" "$executable" --version)" \
+    || return 0
+  version="${raw%%$'\n'*}"
+  version="${version:0:160}"
+  [ -n "$version" ] || return 0
+  printf 'ADVISORY: CLI %s %s detected; prefer the newest stable version when upgrades are permitted.\n' \
+    "$backend" "$version" >&2
+  return 0
+}
+
 # select_fleet_backend — walk DR_FLEET_BACKEND_CHAIN, return the first backend
 # whose binary is present (health-check). Echoes the backend NAME on success.
 # CONN wiring is OFF by default (DR_FLEET_CONN_ENABLED unset → contract-first
 # stub: pure `command -v` health-check). When the real CONN-0088 fallback ships,
 # the enabled branch routes through its contract without changing this interface.
 select_fleet_backend() {
-  local backend
+  local backend first
   for backend in $DR_FLEET_BACKEND_CHAIN; do
     # Health-check. Default (stub) path = local `command -v`. When CONN-0088
     # ships, DR_FLEET_CONN_ENABLED routes the check through the Model-Connector
@@ -111,6 +127,8 @@ select_fleet_backend() {
     else
       _fleet_backend_present "$backend" || continue
     fi
+    first="$(_resolve_fleet_backend "$backend")" || first=""
+    _fleet_cli_version_hint "$backend" "$first" || true
     printf '%s\n' "$backend"
     return 0
   done

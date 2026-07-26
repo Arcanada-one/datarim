@@ -16,6 +16,10 @@ phase: 2
 
 # /dr-orchestrate
 
+CLI-agent model, effort, and permission-aware version guidance is canonical in
+`skills/datarim-system/model-assignment.md`. Fleet availability remains
+selection-neutral and version hints are advisory only.
+
 Phase 2 — Subagent Inference Layer (v2.4.0).
 
 ## Cycle

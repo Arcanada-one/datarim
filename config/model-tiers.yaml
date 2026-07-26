@@ -1,4 +1,4 @@
-# Datarim model-tier configuration — TUNE-0304 V-AC-5.
+# Datarim model-tier configuration - TUNE-0304 V-AC-5.
 #
 # Maps abstract capability tiers to concrete provider model IDs. Skills and
 # agents declare intent via `metadata.model_tier:` in their frontmatter; the
@@ -11,50 +11,47 @@
 # (model: + metadata.model_tier:), dev-tools/check-model-tiers.sh
 # (this file's structural integrity, to-be-added in Phase 1 follow-up).
 #
-# Provider IDs are pinned per `feedback_latest_deps_rule.md` — latest stable
-# major as of 2026-Q2. Update via PR with a model-deprecation note in
-# CHANGELOG.md when providers ship a new generation.
+# Tier selection follows the vendor-default semantics defined in
+# `skills/datarim-system/model-assignment.md`. `vendor-default` is declarative:
+# an adapter MUST omit its model override rather than pass this token as a
+# literal model ID. The tier key remains capability-intent metadata.
 
 schema_version: 1
 
 # Default for skills/agents without explicit `model:` in their frontmatter.
 runtime_default: inherit
 
-# Tier → provider → concrete model ID mapping.
+# Tier -> selection behavior.
 #
 # Tier semantics:
-#   reasoning — architectural decisions, consilium panels, evolution proposals,
+#   reasoning - architectural decisions, consilium panels, evolution proposals,
 #               deep analysis. Highest capability, highest cost. Default
 #               for the architect/strategist agent stack.
-#   balanced  — workhorse for normal coding, planning, review. Most skills
+#   balanced  - workhorse for normal coding, planning, review. Most skills
 #               and agents fall here. Usually expressed via `model: inherit`
 #               so the operator's session model wins; this row exists for
 #               documentation and for non-interactive resolution paths.
-#   fast      — routine ops, formatting, validation, status reports. Low
+#   fast      - routine ops, formatting, validation, status reports. Low
 #               latency, cheap. Default for status/help/utility skills.
-#   cheap     — explicit cost-driven equivalent of `fast`; separate name so
+#   cheap     - explicit cost-driven equivalent of `fast`; separate name so
 #               callers can express intent ("save money" vs "save time").
 #               Maps to the same concrete model as `fast` today; reserved
 #               for future divergence.
 tiers:
   reasoning:
-    anthropic: claude-opus-4-7
-    openai: o3
-    google: gemini-2.5-pro
+    selection: vendor-default
+    adapter_behavior: omit-model-override
   balanced:
-    anthropic: claude-sonnet-4-6
-    openai: gpt-5
-    google: gemini-2.5-flash
+    selection: vendor-default
+    adapter_behavior: omit-model-override
   fast:
-    anthropic: claude-haiku-4-5
-    openai: gpt-5-mini
-    google: gemini-2.5-flash-lite
+    selection: vendor-default
+    adapter_behavior: omit-model-override
   cheap:
-    anthropic: claude-haiku-4-5
-    openai: gpt-5-mini
-    google: gemini-2.5-flash-lite
+    selection: vendor-default
+    adapter_behavior: omit-model-override
 
-# Provider env-var convention — used by runtime adapters to discover keys.
+# Provider env-var convention - used by runtime adapters to discover keys.
 # Datarim does not embed keys; adapters read from environment or Vault.
 providers:
   anthropic:
