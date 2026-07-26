@@ -33,8 +33,9 @@ parent_init_task: TUNE-0516-init-task.md
   - evidence_type: static
   - #### История статусов
     - 2026-07-26T15:00:00+03:00 / 15:00 MSK · /dr-init · pending → pending · reason: пункт создан при формировании контракта ожиданий
+    - 2026-07-26T09:06:00Z / 09:06 UTC · /dr-qa · pending → met · reason: canonical rule, isolation boundary, cross-links, and placeholder example verified by focused bats and diff review
   - #### Текущий статус
-    - pending
+    - met
 
 - **2. Добавлено правило немедленного коммита-и-пуша изменений статусов задач с bats‑регрессией.**
   - wish_id: commit-push-status-immediately
@@ -44,8 +45,9 @@ parent_init_task: TUNE-0516-init-task.md
   - evidence_type: static
   - #### История статусов
     - 2026-07-26T15:00:00+03:00 / 15:00 MSK · /dr-init · pending → pending · reason: пункт создан при формировании контракта ожиданий
+    - 2026-07-26T09:06:00Z / 09:06 UTC · /dr-qa · pending → met · reason: prompt commit-and-push rule and WIP boundary verified by focused bats; task checkpoints are signed and pushed
   - #### Текущий статус
-    - pending
+    - met
 
 - **3. Документация маркера /dr-auto в CLAUDE.md исправлена на схему per‑task.**
   - wish_id: claude-auto-marker-fix
@@ -55,8 +57,9 @@ parent_init_task: TUNE-0516-init-task.md
   - evidence_type: static
   - #### История статусов
     - 2026-07-26T15:00:00+03:00 / 15:00 MSK · /dr-init · pending → pending · reason: пункт создан при формировании контракта ожиданий
+    - 2026-07-26T09:06:00Z / 09:06 UTC · /dr-qa · pending → met · reason: CLAUDE.md names the per-task marker and the legacy marker is absent
   - #### Текущий статус
-    - pending
+    - met
 
 - **4. Финальный deliverable — только ASCII на экспортируемой поверхности, без операторских имён, и пройдены все гейты пайплайна (lint, bats, shellcheck, подписанный коммит, архив).**
   - wish_id: shipped-surface-compliance
@@ -66,6 +69,7 @@ parent_init_task: TUNE-0516-init-task.md
   - evidence_type: empirical
   - #### История статусов
     - 2026-07-26T15:00:00+03:00 / 15:00 MSK · /dr-init · pending → pending · reason: пункт создан при формировании контракта ожиданий
+    - 2026-07-26T09:06:00Z / 09:06 UTC · /dr-qa · pending → pending · reason: ASCII, literal, validation, full bats, shellcheck, signing, and push evidence pass; archive remains the downstream lifecycle stage
   - #### Текущий статус
     - pending
 
