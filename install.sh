@@ -473,19 +473,45 @@ copy_scope_tree() {
 # --- v1.17.0 symlink + local overlay ----------------------------------------
 
 # Create one symlink per scope: $CLAUDE_DIR/<scope> → $SCRIPT_DIR/<scope>.
-# Idempotent: if the link already points at the right target, no-op.
+# Idempotent: if the link already points at the right target AND the target
+# still exists, no-op.  A dangling symlink (broken target) is treated as
+# "needs relink" regardless of its stored target text — the prior install's
+# source may have moved and a re-point is always correct.
 # Refuses to overwrite a real directory without explicit migration consent.
+# Honours DRY_RUN — when set, reports planned actions without mutating.
 link_scope_tree() {
     local src_dir="$1"   # absolute path to $SCRIPT_DIR/<scope>
     local dst_dir="$2"   # absolute path to $CLAUDE_DIR/<scope>
     local parent dst_name existing
     parent="$(dirname "$dst_dir")"
     dst_name="$(basename "$dst_dir")"
+
+    if [ "$DRY_RUN" = true ]; then
+        if [ -L "$dst_dir" ]; then
+            existing="$(readlink "$dst_dir" 2>/dev/null || echo "")"
+            if [ "$existing" = "$src_dir" ] && [ -e "$dst_dir" ]; then
+                echo "DRY: LINK (already): $dst_name → $src_dir"
+                return 0
+            fi
+        elif [ -e "$dst_dir" ]; then
+            echo "DRY: ERROR: $dst_dir exists as a real directory; refuse to overwrite without migration." >&2
+            return 1
+        fi
+        echo "DRY: LINK: $dst_name → $src_dir"
+        return 0
+    fi
+
     mkdir -p "$parent"
 
     if [ -L "$dst_dir" ]; then
-        existing="$(cd -P "$dst_dir" 2>/dev/null && pwd || echo "")"
-        if [ "$existing" = "$src_dir" ]; then
+        existing="$(readlink "$dst_dir" 2>/dev/null || echo "")"
+        # readlink returns the literal symlink-text stored on disk.  The
+        # contract is that link_scope_tree always creates absolute-target
+        # symlinks (ln -s "$src_dir" ...) — so an exact string comparison
+        # against $src_dir is correct.  A relative target introduced by a
+        # future call site would make this comparison silently fail.
+        # Already correctly linked: target text matches AND target exists (not dangling).
+        if [ "$existing" = "$src_dir" ] && [ -e "$dst_dir" ]; then
             echo "  LINK (already): $dst_name → $src_dir"
             return
         fi

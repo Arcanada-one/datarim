@@ -315,3 +315,102 @@ setup() {
     grep -E '^INSTALL_SCOPES=' "$FAKE_REPO/install.sh" | grep -q 'dev-tools'
     [ "$?" -eq 0 ]
 }
+
+# ---------- TUNE-0193: symlink idempotency + dry-run guards ----------
+
+# Helper: test link_scope_tree in isolation by extracting the function from
+# install.sh and calling it directly. We source install.sh in a subshell
+# that skips the main flow to avoid side effects.
+run_link_scope_tree() {
+    local src="$1" dst="$2"
+    # Extract link_scope_tree function and run it in a clean subshell.
+    bash -c "
+        set -euo pipefail
+        LINKED=0
+        DRY_RUN=${DRY_RUN:-false}
+        $(sed -n '/^link_scope_tree()/,/^}/p' "$FAKE_REPO/install.sh")
+        link_scope_tree \"$src\" \"$dst\"
+    "
+}
+
+@test "TUNE-0193-01 dangling symlink is relinked (not skipped as already)" {
+    # Pre-create a dangling symlink at commands/.
+    mkdir -p "$(dirname "$FAKE_CLAUDE/commands")"
+    ln -s "/nonexistent/path/commands" "$FAKE_CLAUDE/commands"
+    # Do the same for agents, skills, templates so topology = symlink.
+    ln -s "/nonexistent/path/agents"    "$FAKE_CLAUDE/agents"
+    ln -s "/nonexistent/path/skills"    "$FAKE_CLAUDE/skills"
+    ln -s "/nonexistent/path/templates" "$FAKE_CLAUDE/templates"
+    [ ! -e "$FAKE_CLAUDE/commands" ]  # dangling — target doesn't exist
+
+    run_install
+    [ "$status" -eq 0 ]
+
+    # After install: symlink is valid and points to the correct source.
+    assert_symlink_to "$FAKE_CLAUDE/commands" "$FAKE_REPO/commands"
+    [ -e "$FAKE_CLAUDE/commands" ]
+    [ -f "$FAKE_CLAUDE/commands/dr-init.md" ]
+}
+
+@test "TUNE-0193-02 link_scope_tree refuses to overwrite real directory" {
+    # Create a real directory with content at the commands/ scope.
+    mkdir -p "$FAKE_CLAUDE/commands"
+    echo "# hand-written" > "$FAKE_CLAUDE/commands/manual.md"
+
+    # Call link_scope_tree directly — should exit 1.
+    run run_link_scope_tree "$FAKE_REPO/commands" "$FAKE_CLAUDE/commands"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"ERROR"* || "$output" == *"real directory"* ]]
+
+    # Real directory and its content are untouched.
+    [ -d "$FAKE_CLAUDE/commands" ]
+    [ -f "$FAKE_CLAUDE/commands/manual.md" ]
+    grep -q "hand-written" "$FAKE_CLAUDE/commands/manual.md"
+}
+
+@test "TUNE-0193-03 --dry-run skips all filesystem mutations" {
+    # Capture filesystem state before.
+    local before_agents before_skills before_commands before_templates
+    [ ! -d "$FAKE_CLAUDE/agents" ]    || before_agents="exists"
+    [ ! -d "$FAKE_CLAUDE/skills" ]    || before_skills="exists"
+    [ ! -d "$FAKE_CLAUDE/commands" ]  || before_commands="exists"
+    [ ! -d "$FAKE_CLAUDE/templates" ] || before_templates="exists"
+
+    run_install --dry-run
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"DRY"* ]]
+
+    # Nothing was created on disk.
+    if [ -z "$before_agents" ]; then
+        [ ! -d "$FAKE_CLAUDE/agents" ]
+    fi
+    if [ -z "$before_skills" ]; then
+        [ ! -d "$FAKE_CLAUDE/skills" ]
+    fi
+    if [ -z "$before_commands" ]; then
+        [ ! -d "$FAKE_CLAUDE/commands" ]
+    fi
+    if [ -z "$before_templates" ]; then
+        [ ! -d "$FAKE_CLAUDE/templates" ]
+    fi
+    # No symlinks were created.
+    [ ! -L "$FAKE_CLAUDE/agents" ]
+    [ ! -L "$FAKE_CLAUDE/skills" ]
+    [ ! -L "$FAKE_CLAUDE/commands" ]
+    [ ! -L "$FAKE_CLAUDE/templates" ]
+}
+
+@test "TUNE-0193-04 idempotent re-run: valid symlink → LINK (already)" {
+    # First install creates symlinks.
+    run_install
+    [ "$status" -eq 0 ]
+    assert_symlink_to "$FAKE_CLAUDE/commands" "$FAKE_REPO/commands"
+
+    # Second install should report LINK (already) for each scope.
+    run_install
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"LINK (already)"* ]]
+
+    # Symlinks are still valid.
+    assert_symlink_to "$FAKE_CLAUDE/commands" "$FAKE_REPO/commands"
+}
