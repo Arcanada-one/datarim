@@ -634,11 +634,6 @@ scan_wiki_raw_orphans() {
         [ -e "$f" ] || continue
         base="$(basename "$f")"
         stem="${base%.md}"
-        # LC_ALL=C forces byte-mode tr. A UTF-8-locale BSD tr (macOS) aborts
-        # with "tr: Illegal byte sequence" when head -c 300 splits a multibyte
-        # codepoint mid-character; byte-mode also keeps the ASCII-token
-        # heuristic intact (non-ASCII bytes map to spaces via tr -c and pass
-        # through the case-fold unchanged).
         tokens="$(printf '%s' "$stem" | LC_ALL=C tr '[:upper:]' '[:lower:]' | LC_ALL=C tr -c '[:alnum:]' ' ')"
         content_lower="$(head -c 300 "$f" 2>/dev/null | LC_ALL=C tr '[:upper:]' '[:lower:]')"
         has_token=0
@@ -646,9 +641,6 @@ scan_wiki_raw_orphans() {
         # Script-wide IFS is $'\n\t' (strict mode) — split on plain space
         # explicitly rather than relying on unquoted word-splitting.
         IFS=' ' read -ra tok_array <<< "$tokens"
-        # ${tok_array[@]:-} -- bash <4.4 (macOS bash 3.2) under `set -u` raises
-        # "unbound variable" on an empty-array expansion; the :- default yields
-        # one empty element, harmlessly skipped by the >=4-char guard below.
         for tok in "${tok_array[@]:-}"; do
             [ "${#tok}" -ge 4 ] || continue
             has_token=1

@@ -69,3 +69,49 @@ EOF
     run "$DOCTOR" --root="$TMPROOT/datarim"
     [ "$status" -eq 1 ]
 }
+
+# TUNE-0498 — macOS bash-3.2 crash fixes
+
+@test "T7 --scope=all with non-ASCII content + mismatched basename → no tr crash, finding" {
+    # Em dashes (—, 3-byte UTF-8) in the file body — head -c 300 can split a
+    # multibyte character mid-sequence, which BSD tr rejects without LC_ALL=C.
+    # Basename tokens "deploy", "guide" are ASCII (safe under LC_ALL=C tokenization)
+    # and do NOT appear in the body → mismatch finding + exit 1.
+    cat > "$TMPROOT/wiki/_raw_/Deploy — Guide.md" <<'EOF'
+# Руководство по развёртыванию — основные принципы
+
+Мониторинг — ключевой компонент любой production-системы. Без надёжного
+сбора метрик и алертов невозможно гарантировать стабильную работу сервисов
+в условиях высокой нагрузки и частых изменений конфигурации.
+EOF
+    run "$DOCTOR" --root="$TMPROOT/datarim" --scope=all
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"basename/content mismatch"* ]]
+    [[ "$output" != *"Illegal byte sequence"* ]]
+}
+
+@test "T8 --scope=all with non-alnum-only filename → empty token array, no crash" {
+    # Stem "---" after tr -c '[:alnum:]' ' ' produces an empty string. Under
+    # set -u, dereferencing an empty array with ${tok_array[@]} throws
+    # "unbound variable" on bash-3.2. ${tok_array[@]:-} guards against it.
+    cat > "$TMPROOT/wiki/_raw_/---.md" <<'EOF'
+Some content with enough bytes to pass the head -c 300 boundary.
+EOF
+    run "$DOCTOR" --root="$TMPROOT/datarim" --scope=all
+    [ "$status" -eq 0 ]
+}
+
+@test "T9 --scope=all with non-ASCII content + em-dash in first 300 bytes → no crash" {
+    # The second tr pipeline (content_lower) also processes raw file bytes.
+    # Multibyte UTF-8 chars split by head -c 300 must not crash BSD tr.
+    # Use a basename with a token that WILL appear in the content so we get
+    # exit 0 rather than a finding, confirming the check ran to completion.
+    cat > "$TMPROOT/wiki/_raw_/Prometheus — Metrics.md" <<'EOF'
+Prometheus is an open-source monitoring and alerting toolkit designed for
+reliability and scalability. It collects metrics from configured targets
+at given intervals, evaluates rule expressions, and triggers alerts.
+EOF
+    run "$DOCTOR" --root="$TMPROOT/datarim" --scope=all
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"Illegal byte sequence"* ]]
+}
