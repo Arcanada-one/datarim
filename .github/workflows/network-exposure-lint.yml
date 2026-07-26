@@ -82,9 +82,13 @@ jobs:
         run: |
           set -euo pipefail
           if ! command -v yq >/dev/null 2>&1; then
-            sudo wget -qO /usr/local/bin/yq \
+            yq_dir="${RUNNER_TEMP}/datarim-bin"
+            mkdir -p "$yq_dir"
+            wget -qO "${yq_dir}/yq" \
               https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
-            sudo chmod +x /usr/local/bin/yq
+            chmod 0755 "${yq_dir}/yq"
+            printf '%s\n' "$yq_dir" >>"$GITHUB_PATH"
+            export PATH="${yq_dir}:${PATH}"
           fi
           yq --version
 

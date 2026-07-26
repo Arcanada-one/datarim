@@ -70,6 +70,13 @@ setup() {
     [ "$status" -eq 0 ]
 }
 
+@test "workflow: yq bootstrap works without runner sudo" {
+    run grep -F 'yq_dir="${RUNNER_TEMP}/datarim-bin"' "$WF"
+    [ "$status" -eq 0 ]
+    run grep -F 'sudo ' "$WF"
+    [ "$status" -eq 1 ]
+}
+
 @test "workflow: actionlint clean (when available)" {
     if ! command -v actionlint >/dev/null 2>&1; then
         skip "actionlint not installed"
