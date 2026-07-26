@@ -31,7 +31,7 @@ setup() {
     [ "$output" = "network-exposure-lint" ]
 }
 
-@test "workflow: workflow_call inputs include all six contract fields" {
+@test "workflow: workflow_call inputs include all contract fields" {
     run yq -r '.on.workflow_call.inputs | keys | .[]' "$WF"
     [ "$status" -eq 0 ]
     for k in compose_paths redis_conf_paths postgres_conf_paths systemd_socket_paths strict datarim_ref; do
@@ -49,14 +49,13 @@ setup() {
 }
 
 @test "workflow: lint job runs on a known runner pool" {
-    # Accepts either the GitHub-hosted default (ubuntu-latest) or the
-    # self-hosted Linux pool used during GitHub Actions outage workarounds.
     run yq -r '.jobs.lint."runs-on"' "$WF"
     [ "$status" -eq 0 ]
-    case "$output" in
-        ubuntu-latest|"[self-hosted, linux]"|"[self-hosted, Linux]"|'${{ fromJSON(inputs.runner_labels) }}') ;;
-        *) echo "Unexpected runs-on: $output" >&2; false ;;
-    esac
+    # shellcheck disable=SC2016
+    [ "$output" = '${{ fromJSON(inputs.runner_labels) }}' ]
+    run yq -r '.on.workflow_call.inputs.runner_labels.default' "$WF"
+    [ "$status" -eq 0 ]
+    [ "$output" = '["self-hosted","linux","ci-general"]' ]
 }
 
 @test "workflow: permissions block restricts contents to read" {
@@ -67,6 +66,27 @@ setup() {
 
 @test "workflow: lint job invokes network-exposure-check.sh from .datarim" {
     run grep -F ".datarim/dev-tools/network-exposure-check.sh" "$WF"
+    [ "$status" -eq 0 ]
+}
+
+@test "workflow: yq bootstrap works without runner sudo" {
+    # shellcheck disable=SC2016
+    run grep -F 'yq_dir="${RUNNER_TEMP}/datarim-bin"' "$WF"
+    [ "$status" -eq 0 ]
+    run grep -F 'a2c097180dd884a8d50c956ee16a9cec070f30a7947cf4ebf87d5f36213e9ed7' "$WF"
+    [ "$status" -eq 0 ]
+    run grep -F 'sha256sum --check --strict' "$WF"
+    [ "$status" -eq 0 ]
+    run grep -F 'sudo ' "$WF"
+    [ "$status" -eq 1 ]
+}
+
+@test "workflow: Datarim linter checkout requires an immutable commit" {
+    run yq -r '.on.workflow_call.inputs.datarim_ref.required' "$WF"
+    [ "$status" -eq 0 ]
+    [ "$output" = "true" ]
+    # shellcheck disable=SC2016
+    run grep -F '[[ "$DATARIM_REF" =~ ^[0-9a-f]{40}$ ]]' "$WF"
     [ "$status" -eq 0 ]
 }
 
