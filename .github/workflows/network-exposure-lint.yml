@@ -6,9 +6,10 @@
 #
 #   jobs:
 #     network-exposure:
-#       uses: Arcanada-one/datarim/.github/workflows/network-exposure-lint.yml@main
+#       uses: Arcanada-one/datarim/.github/workflows/network-exposure-lint.yml@<40-hex-commit>
 #       with:
 #         compose_paths: docker-compose.yml docker-compose.prod.yml
+#         datarim_ref: '<same-40-hex-commit>'
 #
 name: network-exposure-lint
 
@@ -41,21 +42,29 @@ on:
         required: false
         default: true
       datarim_ref:
-        description: 'Datarim ref to checkout the linter from.'
+        description: 'Exact 40-hex Datarim commit containing the linter.'
         type: string
-        required: false
-        default: 'main'
+        required: true
       runner_labels:
         description: 'JSON array string of runner labels to pin the job (workflow_call inputs cannot be arrays; consumed via fromJSON in runs-on)'
         type: string
         required: false
-        default: '["self-hosted","linux"]'
+        default: '["self-hosted","linux","ci-general"]'
   workflow_dispatch:
     inputs:
       compose_paths:
         description: 'Compose paths'
         type: string
         default: 'docker-compose.yml'
+      datarim_ref:
+        description: 'Exact 40-hex Datarim commit containing the linter'
+        type: string
+        required: true
+      runner_labels:
+        description: 'JSON array string of runner labels'
+        type: string
+        required: false
+        default: '["self-hosted","linux","ci-general"]'
 
 permissions:
   contents: read
@@ -65,6 +74,16 @@ jobs:
     name: network-exposure-lint
     runs-on: ${{ fromJSON(inputs.runner_labels) }}
     steps:
+      - name: Validate immutable Datarim ref
+        env:
+          DATARIM_REF: ${{ inputs.datarim_ref }}
+        run: |
+          set -euo pipefail
+          [[ "$DATARIM_REF" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "datarim_ref must be an exact lowercase 40-hex commit" >&2
+            exit 1
+          }
+
       - name: Checkout target repo
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -81,11 +100,16 @@ jobs:
       - name: Install yq
         run: |
           set -euo pipefail
-          if ! command -v yq >/dev/null 2>&1; then
-            sudo wget -qO /usr/local/bin/yq \
-              https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
-            sudo chmod +x /usr/local/bin/yq
-          fi
+          yq_dir="${RUNNER_TEMP}/datarim-bin"
+          mkdir -p "$yq_dir"
+          wget -qO "${yq_dir}/yq" \
+            https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
+          printf '%s  %s\n' \
+            'a2c097180dd884a8d50c956ee16a9cec070f30a7947cf4ebf87d5f36213e9ed7' \
+            "${yq_dir}/yq" | sha256sum --check --strict
+          chmod 0755 "${yq_dir}/yq"
+          printf '%s\n' "$yq_dir" >>"$GITHUB_PATH"
+          export PATH="${yq_dir}:${PATH}"
           yq --version
 
       - name: Run lint
