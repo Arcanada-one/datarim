@@ -1,7 +1,7 @@
 ---
 id: TUNE-0516
 title: "Codify parallel-orchestration default and immediate status commit"
-status: in_progress
+status: completed
 priority: P2
 complexity: L2
 type: framework

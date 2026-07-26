@@ -70,8 +70,9 @@ parent_init_task: TUNE-0516-init-task.md
   - #### История статусов
     - 2026-07-26T15:00:00+03:00 / 15:00 MSK · /dr-init · pending → pending · reason: пункт создан при формировании контракта ожиданий
     - 2026-07-26T09:06:00Z / 09:06 UTC · /dr-qa · pending → pending · reason: ASCII, literal, validation, full bats, shellcheck, signing, and push evidence pass; archive remains the downstream lifecycle stage
+    - 2026-07-26T09:10:00Z / 09:10 UTC · /dr-archive · pending → met · reason: permanent framework archive written and terminal status removed from active indexes
   - #### Текущий статус
-    - pending
+    - met
 
 ## Append-log (operator amendments)
 
