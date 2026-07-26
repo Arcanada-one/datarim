@@ -94,3 +94,9 @@ auto-mode marker scheme.
 - Parent PRD: none
 - Sibling tasks: none
 - Prior reflection: none
+
+## Implementation Notes
+
+- 2026-07-26: Added a failing six-case bats presence contract before changing shipped prose.
+- 2026-07-26: Added both Class A invariants, command cross-links, and the per-task marker correction without changing routing or executable logic.
+- Evidence: focused bats 6/6 PASS; `validate.sh` PASS; added-line ASCII and forbidden-literal scans PASS; full bats and CI-equivalent shellcheck continue as QA gates.
