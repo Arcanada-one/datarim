@@ -166,6 +166,23 @@ After fix: resume forward, re-run QA/compliance. Loop guard: 3 same-layer fails 
 
 Whenever `## Active Tasks` in `datarim/activeContext.md` lists >1 task, the CTA block MUST append a `**Другие активные задачи:**` menu listing each parallel task with its own recommended next command. This is mandatory for `/dr-status`, `/dr-next`, `/dr-archive`; agents on other commands MAY append it when context permits. See `cta-format.md` § Canonical Block — Multiple Active Tasks. <!-- allow-non-ascii: russian-cta-variant-b-menu-header-cited-from-cta-format-skill -->
 
+### Parallel orchestration is the default
+
+Each task runs in its own isolated orchestrator session, with its own worktree
+and own branch. Parallel sessions across tasks are expected and normal because
+branches and target file sets provide the isolation. Do not serialize tasks,
+and do not ask the operator where to run them or whether they will collide,
+unless two tasks use the same branch or modify the same target files.
+
+Only same-branch or same-file overlap requires coordination. When overlap
+exists, follow the workspace-discipline rules for foreign-hunk safety and
+coordinate ownership of the shared targets before writing.
+
+**Example - adapt to your infrastructure (non-normative):** If project
+configuration declares `my-dev-host` as a remote execution host, each
+`task-id` can dispatch its own remote session there. The host and session
+transport are placeholders; this example does not prescribe infrastructure.
+
 ### Pre-merge baseline cleanup spawn
 
 - When an unblocker PR carries baseline-red CI noise that is unrelated to
