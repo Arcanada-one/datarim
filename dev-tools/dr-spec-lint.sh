@@ -307,7 +307,8 @@ if rule_enabled "vac-deliverable-coverage" && rule_applies_to_level "vac-deliver
     done
     if [ -z "$cb_source" ]; then
         {
-            printf '{"severity":"info","check_name":"vac-deliverable-coverage","artifact_ref":"%s","ac_referenced":[],'
+            printf '{"severity":"info","check_name":"vac-deliverable-coverage","artifact_ref":"%s","ac_referenced":[],' \
+                'plan or PRD'
             printf '"evidence":{"type":"absent","source":"","excerpt":"no Component Breakdown section found in plan or PRD — forward coverage check skipped"}}\n'
         } >> "$FINDINGS_TMP"
         VIOLATION_COUNT=$((VIOLATION_COUNT + 1))
