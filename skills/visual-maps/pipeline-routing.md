@@ -81,6 +81,29 @@ graph LR
     style Esc fill:#7c2d12,stroke:#451a03,color:white
 ```
 
+### Return-to-Plan Transition (v2.59.0+)
+
+When a test, V-AC, or non-code checklist item genuinely must change during
+`/dr-do` (discovered constraint, impossible preconditions, wrong contract —
+not implementation difficulty), the implementation routes back through
+`/dr-plan` before resuming:
+
+```mermaid
+graph LR
+    DoRunning["/dr-do<br>(implementation)"] --> Escalate["Test/V-AC Change<br>Escalation (Step 7.5b)"]
+    Escalate --> Record["Record in<br>task-description.md"]
+    Record --> PlanRerun["/dr-plan<br>(re-validate contract)"]
+    PlanRerun --> DoResume["/dr-do<br>(resume with revised plan)"]
+
+    style Escalate fill:#fbbf24,stroke:#d97706,color:#1f2937
+    style PlanRerun fill:#8b5cf6,stroke:#7c3aed,color:white
+```
+
+This is a backward edge in the normal pipeline flow — it is NOT a failure
+(routing back to `/dr-prd` for scope revision) but a planned contract
+change. The normal forward pipeline reintroduces it at `/dr-do` after the
+planner re-validates.
+
 Source: prior incident — unified CTA spec, v1.16.0.
 
 ## Artifact Flow Across the Pipeline (v2.8.0)

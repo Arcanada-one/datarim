@@ -31,7 +31,7 @@ description: Implement planned changes using TDD and AI quality principles
 Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 check is the cooperative soft layer sharing the same resolver library.
 
 3.  **TASK RESOLUTION**: Apply Task Resolution Rule from `$HOME/.claude/skills/datarim-system/SKILL.md` § Task Resolution Rule. Use the resolved task ID for all subsequent steps.
-4.  **SKILL**: Read `$HOME/.claude/skills/ai-quality/SKILL.md` (apply rules #2, #3, #8, #9 — see § Stage-Rule Mapping).
+4.  **SKILL**: Read `$HOME/.claude/skills/ai-quality/SKILL.md` (apply rules #2, #3, #8, #9 — see § Stage-Rule Mapping). Then load `$HOME/.claude/skills/testing/SKILL.md` § Discipline and read `$HOME/.claude/skills/testing/tdd-discipline.md` — the TDD Iron Law (no production code without a failing test first), RED-GREEN-REFACTOR cycle, and Anti-Tautological Test Gate are mandatory discipline for every `/dr-do` implementation phase.
 5.  **CONTEXT**: Read `datarim/tasks.md` (Implementation Plan for the resolved task). Additionally, read `datarim/tasks/{TASK-ID}-init-task.md` if present (mandatory per `$HOME/.claude/skills/init-task-persistence/SKILL.md`): the verbatim operator brief + every append-log block. Any divergence between the operator's stated intent and the planned implementation MUST be recorded in `datarim/tasks/{TASK-ID}-task-description.md` § Implementation Notes. Missing init-task is non-blocking — flag as advisory and continue.
 
 5.5. **OPERATOR-MANDATED DELEGATION FLOW** (MANDATORY when the operator's project / global CLAUDE.md declares a hook-enforced delegation rule for the artefact type being produced — e.g. «always delegate first, then edit» for archive docs, blog posts, PRD drafts, reflection files):
@@ -90,6 +90,13 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
     -   Researcher appends findings to `datarim/insights/INSIGHTS-{task-id}.md` § Gap Discoveries.
     -   If gap is fundamental (wrong stack, impossible requirement): STOP. Recommend operator run `/dr-prd` to revise requirements.
     -   Otherwise: continue implementation with updated context.
+
+7.5b. **TEST/V-AC CHANGE ESCALATION** (MANDATORY when the implementation requires changing a passing test, V-AC, or non-code checklist item):
+    If the implementation genuinely cannot satisfy a test, V-AC, or checklist item as written (newly discovered constraint, impossible preconditions, wrong-level-of-testing), do NOT weaken the assertion. Apply the Return-to-Plan Transition per `$HOME/.claude/skills/testing/tdd-discipline.md` § Return-to-Plan:
+    1. Record the original assertion and the reason it must change in `datarim/tasks/{TASK-ID}-task-description.md` § Decisions, using the format: `Return-to-plan: <id> — original: <text> — reason: <rationale> — proposed: <new text>`.
+    2. Route to `/dr-plan {TASK-ID}` — the planner re-validates the changed contract.
+    3. Resume `/dr-do` only after the plan artefact carries the revised contract.
+    Implementation difficulty alone is NOT a valid reason to change a test.
 
 7.6. **AUTOMATIC SPEC-GRAPH EVIDENCE CHECK**:
     -   As tests and verification artifacts are produced, append canonical lines to the task implementation record:
@@ -211,6 +218,7 @@ After implementation, the developer agent MUST emit a CTA block ([definition](..
 - All checks pass, L1-2 → primary `/dr-archive {TASK-ID}` (reflection runs as Step 0.5)
 - Checks incomplete → primary `/dr-do {TASK-ID}` (continue) + alternative `/dr-status`
 - Fundamental gap discovered (Gap Discovery escalation) → primary `/dr-prd {TASK-ID}` (revise requirements)
+- Test/V-AC/checklist must change (Return-to-Plan Transition) → primary `/dr-plan {TASK-ID}` (re-validate the changed contract before resuming)
 
 The CTA block MUST follow the canonical format (numbered list, one `**рекомендуется**`, `---` HR wrapping, task ID included). Variant B menu when >1 active tasks. <!-- allow-non-ascii: russian-canonical-cta-marker-tokens-cited-from-cta-format-skill -->
 

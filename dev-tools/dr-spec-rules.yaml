@@ -89,3 +89,10 @@ rules:
     applies_to: [L3, L4]
     since: 2.42.0
     desc: full wish_id -> D-REQ -> V-AC -> plan-step -> evidence path resolvable
+
+  - id: vac-deliverable-coverage
+    severity: warning
+    mandatory: false
+    applies_to: [L3, L4]
+    since: 2.59.0
+    desc: every Component Breakdown deliverable artifact has a matching V-AC row

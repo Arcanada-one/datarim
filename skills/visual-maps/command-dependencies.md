@@ -21,6 +21,7 @@ graph LR
     dr-qa --> dr-compliance
     dr-qa --> dr-archive
     dr-compliance --> dr-archive
+    dr-do -.->|"return-to-plan<br>(v2.59.0+)"| dr-plan
 ```
 
 ## Optional at Complexity Levels

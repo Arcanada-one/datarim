@@ -1,6 +1,6 @@
 ---
 name: testing/tdd-discipline
-description: Test-Driven Development discipline — RED-GREEN-REFACTOR cycle, Iron Law (no production code without failing test first), rationalization table for stress scenarios. Load when implementing features/bugfixes that warrant TDD discipline.
+description: Test-Driven Development discipline — RED-GREEN-REFACTOR cycle, Iron Law (no production code without failing test first), rationalization table for stress scenarios, Anti-Tautological Test Gate. Mandatory under /dr-do for code tasks — loaded by commands/dr-do.md Step 4 and agents/developer.md.
 ---
 
 # Test-Driven Development — Discipline Fragment
@@ -113,6 +113,92 @@ await compactVerify(token, realPublicKey)                  // throws if signatur
 ```
 
 **The rule:** remove the conditional. If the test cannot fail without the `if`, it is a tautology — delete the branching and assert the one expected outcome. Verify-RED (above) catches this for the AC-1 happy path; this gate extends the same discipline to every test, especially severity/partition probes where the `if/else` shape is tempting.
+
+### Test Immutability Rule
+
+**A test MUST NOT be weakened to accommodate a failing implementation.**
+
+A test that passes on the correct implementation but fails on a wrong one must
+stay as written. The only legitimate responses to a failing test are:
+
+1. **Fix the implementation** — the test is correct, the code is wrong.
+2. **The test was testing the wrong contract** — this triggers the Return-to-Plan
+   Transition (see § Return-to-Plan Transition). Do NOT silently weaken the
+   assertion.
+
+The antipattern: **"weakening the assertion to make it pass"** — relaxing a
+matcher, broadening a type, ignoring an edge case, adding a conditional
+branch, or reducing the expected precision so a failing test turns green without
+fixing the root cause.
+
+**Concrete example:**
+```
+// CORRECT test — the implementation MUST reject negative amounts
+expect(() => processPayment(-100)).toThrow("Amount must be positive")
+
+// WEAKENED test — the assertion is relaxed to accept anything
+expect(() => processPayment(-100)).not.toThrow()  // ANTIPATTERN
+```
+
+**V-AC parity rule:** V-AC rows in the plan's Validation Checklist are subject
+to the same immutability. A V-AC that verifies a deliverable (e.g. `test -f
+<path>`, `grep -c <text> <file>`) MUST NOT be changed to a weaker check so the
+deliverable passes without meeting the original acceptance criterion. The named
+antipattern applies equally: "weakening the V-AC to make the deliverable pass."
+
+**Non-code parity rule:** For non-code tasks, the to-do / checklist is the
+"test." A checklist item MUST NOT have its completion criteria weakened.
+"Checklist scope reduction" is the non-code equivalent of weakening the assertion.
+
+### Return-to-Plan Transition
+
+When a test, V-AC, or checklist item genuinely cannot be satisfied as written,
+the implementation MUST NOT silently change it. Instead, follow this transition:
+
+**Trigger:**
+A real blocker that genuinely requires changing a passing test, V-AC, or
+checklist item — not implementation difficulty (which is never a valid reason),
+but a discovered constraint (impossible preconditions, wrong level of testing,
+newly understood requirement, upstream API change that invalidates the original
+assertion contract).
+
+**Who decides:**
+The developer cannot decide alone. Escalate to the operator with:
+(a) the original test/V-AC/checklist text verbatim,
+(b) the concrete reason it must change,
+(c) the proposed new assertion.
+
+**Where it is recorded:**
+In `datarim/tasks/{TASK-ID}-task-description.md` § Decisions, with the format:
+```
+Return-to-plan: V-AC-N (or checklist item)
+  original: <verbatim original text>
+  reason: <rationale for the change>
+  proposed: <verbatim proposed new text>
+```
+The record is written BEFORE the test is changed.
+
+**How `/dr-do` resumes:**
+After the operator approves the plan revision and the planner updates the plan
+artefact (or the plan is re-issued), the developer resumes `/dr-do` with the
+revised plan. The CTA after recording the transition MUST route to `/dr-plan
+{TASK-ID}` (not continue `/dr-do`), because the planner must re-validate the
+changed contract before implementation resumes.
+
+**Non-code parity:**
+The same transition applies to checklist items in non-code plans. The record
+format is identical; the referenced artefact is the checklist item text instead
+of a V-AC label.
+
+**What this is NOT:**
+- NOT an escape hatch for implementation difficulty ("this is hard, let's change
+  the test").
+- NOT a post-hoc rationalization ("the test was wrong all along" without
+  evidence).
+- NOT a solo decision — operator review is required.
+
+The return-to-plan transition is invoked ONLY when the assertion contract itself
+is wrong, not when the implementation finds it inconvenient.
 
 ### GREEN — Minimal Code
 
