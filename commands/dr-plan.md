@@ -315,6 +315,8 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
 
 The plan in `datarim/tasks.md` MUST include: **Overview**, **Security Summary** (Attack Surface, Risks), **Architecture Impact**, **Detailed Design** (components, API, DB), **Security Design** (Threat Model, Appendix A controls), **Implementation Steps**, **Test Plan**, **Rollback Strategy**, **Validation Checklist**, **Next Steps**. (Enhanced Design Process Phases 4-6.)
 
+For non-code tasks, the Validation Checklist (to-do items) is subject to the same immutability rule as code tests (`skills/testing/tdd-discipline.md` § Test Immutability Rule): a checked item MUST NOT have its completion criteria weakened to make the implementation pass. The antipattern is "checklist scope reduction" or "criterion narrowing." If a checklist item genuinely cannot be satisfied as written, apply the Return-to-Plan Transition (`skills/testing/tdd-discipline.md` § Return-to-Plan Transition) for non-code parity.
+
 When the task touches a command, skill, or agent that has a public docs-site counterpart, the plan's **Out of Scope** section MUST carry a presumptive site-sync call so the later hardening gate verifies a decision rather than making one from scratch: `Site data sync (e.g. data/commands/<name>.php): [skip — internal-mechanics change | update — user-facing behaviour change; confirm at /dr-compliance if uncertain]`. Most internal-mechanics edits presume *skip*; flag *update* only when the change alters what the docs page promises the operator.
 
 ## Security Requirements (Appendix A)
