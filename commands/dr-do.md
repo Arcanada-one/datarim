@@ -91,6 +91,13 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
     -   If gap is fundamental (wrong stack, impossible requirement): STOP. Recommend operator run `/dr-prd` to revise requirements.
     -   Otherwise: continue implementation with updated context.
 
+7.5b. **TEST/V-AC CHANGE ESCALATION** (MANDATORY when the implementation requires changing a passing test, V-AC, or non-code checklist item):
+    If the implementation genuinely cannot satisfy a test, V-AC, or checklist item as written (newly discovered constraint, impossible preconditions, wrong-level-of-testing), do NOT weaken the assertion. Apply the Return-to-Plan Transition per `$HOME/.claude/skills/testing/tdd-discipline.md` § Return-to-Plan:
+    1. Record the original assertion and the reason it must change in `datarim/tasks/{TASK-ID}-task-description.md` § Decisions, using the format: `Return-to-plan: <id> — original: <text> — reason: <rationale> — proposed: <new text>`.
+    2. Route to `/dr-plan {TASK-ID}` — the planner re-validates the changed contract.
+    3. Resume `/dr-do` only after the plan artefact carries the revised contract.
+    Implementation difficulty alone is NOT a valid reason to change a test.
+
 7.6. **AUTOMATIC SPEC-GRAPH EVIDENCE CHECK**:
     -   As tests and verification artifacts are produced, append canonical lines to the task implementation record:
         `Evidence: V-AC-N — <exact command, test, measurement, or artifact path>`.
@@ -211,6 +218,7 @@ After implementation, the developer agent MUST emit a CTA block ([definition](..
 - All checks pass, L1-2 → primary `/dr-archive {TASK-ID}` (reflection runs as Step 0.5)
 - Checks incomplete → primary `/dr-do {TASK-ID}` (continue) + alternative `/dr-status`
 - Fundamental gap discovered (Gap Discovery escalation) → primary `/dr-prd {TASK-ID}` (revise requirements)
+- Test/V-AC/checklist must change (Return-to-Plan Transition) → primary `/dr-plan {TASK-ID}` (re-validate the changed contract before resuming)
 
 The CTA block MUST follow the canonical format (numbered list, one `**рекомендуется**`, `---` HR wrapping, task ID included). Variant B menu when >1 active tasks. <!-- allow-non-ascii: russian-canonical-cta-marker-tokens-cited-from-cta-format-skill -->
 
