@@ -177,10 +177,10 @@ case "$STAGE" in
         rules="dreq-id-format,dreq-id-unique,covers-resolves,dreq-dangling,vac-covers-present,axis-separation,graph-complete-l3"
         ;;
     plan|verify)
-        rules="dreq-id-format,dreq-id-unique,covers-resolves,dreq-orphan,dreq-dangling,vac-covers-present,vac-binding-present,binding-no-duplicate,axis-separation,graph-complete-l3"
+        rules="dreq-id-format,dreq-id-unique,covers-resolves,dreq-orphan,dreq-dangling,vac-covers-present,vac-binding-present,binding-no-duplicate,axis-separation,vac-deliverable-coverage,graph-complete-l3"
         ;;
     do|qa|compliance)
-        rules="dreq-id-format,dreq-id-unique,covers-resolves,dreq-orphan,dreq-dangling,vac-covers-present,vac-binding-present,binding-no-duplicate,axis-separation,graph-complete-l3"
+        rules="dreq-id-format,dreq-id-unique,covers-resolves,dreq-orphan,dreq-dangling,vac-covers-present,vac-binding-present,binding-no-duplicate,axis-separation,vac-deliverable-coverage,graph-complete-l3"
         ;;
 esac
 
