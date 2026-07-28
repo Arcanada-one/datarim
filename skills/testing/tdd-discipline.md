@@ -150,6 +150,56 @@ antipattern applies equally: "weakening the V-AC to make the deliverable pass."
 "test." A checklist item MUST NOT have its completion criteria weakened.
 "Checklist scope reduction" is the non-code equivalent of weakening the assertion.
 
+### Return-to-Plan Transition
+
+When a test, V-AC, or checklist item genuinely cannot be satisfied as written,
+the implementation MUST NOT silently change it. Instead, follow this transition:
+
+**Trigger:**
+A real blocker that genuinely requires changing a passing test, V-AC, or
+checklist item — not implementation difficulty (which is never a valid reason),
+but a discovered constraint (impossible preconditions, wrong level of testing,
+newly understood requirement, upstream API change that invalidates the original
+assertion contract).
+
+**Who decides:**
+The developer cannot decide alone. Escalate to the operator with:
+(a) the original test/V-AC/checklist text verbatim,
+(b) the concrete reason it must change,
+(c) the proposed new assertion.
+
+**Where it is recorded:**
+In `datarim/tasks/{TASK-ID}-task-description.md` § Decisions, with the format:
+```
+Return-to-plan: V-AC-N (or checklist item)
+  original: <verbatim original text>
+  reason: <rationale for the change>
+  proposed: <verbatim proposed new text>
+```
+The record is written BEFORE the test is changed.
+
+**How `/dr-do` resumes:**
+After the operator approves the plan revision and the planner updates the plan
+artefact (or the plan is re-issued), the developer resumes `/dr-do` with the
+revised plan. The CTA after recording the transition MUST route to `/dr-plan
+{TASK-ID}` (not continue `/dr-do`), because the planner must re-validate the
+changed contract before implementation resumes.
+
+**Non-code parity:**
+The same transition applies to checklist items in non-code plans. The record
+format is identical; the referenced artefact is the checklist item text instead
+of a V-AC label.
+
+**What this is NOT:**
+- NOT an escape hatch for implementation difficulty ("this is hard, let's change
+  the test").
+- NOT a post-hoc rationalization ("the test was wrong all along" without
+  evidence).
+- NOT a solo decision — operator review is required.
+
+The return-to-plan transition is invoked ONLY when the assertion contract itself
+is wrong, not when the implementation finds it inconvenient.
+
 ### GREEN — Minimal Code
 
 Write the simplest code that makes the test pass.
