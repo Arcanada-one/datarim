@@ -289,6 +289,51 @@ for doc in "${SPEC_DOCS[@]}"; do
     done < <(collect_vac "$doc")
 done
 
+# ---- vac-deliverable-coverage: Component Breakdown artifacts -> V-AC ----
+# Parse the PLAN_FILE (or PRD_FILE fallback) for a "Component Breakdown" or
+# "## Files to change" section, extract file paths, and verify each has a
+# corresponding V-AC row in the Validation Checklist. Advisory by default;
+# roll to hard when DATARIM_SPEC_GRAPH_MODE=hard.
+if rule_enabled "vac-deliverable-coverage" && rule_applies_to_level "vac-deliverable-coverage" "$LEVEL"; then
+    # The primary source for Component Breakdown is the plan. If absent, try the PRD
+    # (some PRDs carry a component list in lieu of a separate plan — L2 tasks).
+    cb_source=""
+    for f in "$PLAN_FILE" "$PRD_FILE"; do
+        [ -f "$f" ] || continue
+        if grep -qE '^###? Component (Breakdown|List)|^## (Affected|Modified) (Files|Artifacts)' "$f" 2>/dev/null; then
+            cb_source="$f"
+            break
+        fi
+    done
+    if [ -z "$cb_source" ]; then
+        {
+            printf '{"severity":"info","check_name":"vac-deliverable-coverage","artifact_ref":"%s","ac_referenced":[],'
+            printf '"evidence":{"type":"absent","source":"","excerpt":"no Component Breakdown section found in plan or PRD — forward coverage check skipped"}}\n'
+        } >> "$FINDINGS_TMP"
+        VIOLATION_COUNT=$((VIOLATION_COUNT + 1))
+    else
+        # Extract file paths from the Component Breakdown section — match bare
+        # backtick-quoted paths and bullet-list paths under the section heading.
+        cb_paths="$(awk '/^###? Component (Breakdown|List)|^## (Affected|Modified) (Files|Artifacts)/,/^###? |^## /' "$cb_source" \
+            | grep -oE '`([^`]+\.(md|sh|yaml|yml|json|js|ts|py|rs|go|php|html|css|bats))`' \
+            | sed 's/^`//;s/`$//' \
+            | grep -v '^$' \
+            || true)"
+        if [ -n "$cb_paths" ]; then
+            # Collect V-AC verification commands for matching
+            vac_rows="$(grep -A2 '^| V-AC-' "$cb_source" 2>/dev/null || true)"
+            while IFS= read -r artifact; do
+                [ -n "$artifact" ] || continue
+                # Check if any V-AC row mentions this artifact path
+                if ! printf '%s\n' "$vac_rows" | grep -qF "$artifact"; then
+                    record warning completeness vac-deliverable-coverage "${cb_source##*/}" "" \
+                        absent "${cb_source##*/}" "Component Breakdown artifact '$artifact' has no matching V-AC row"
+                fi
+            done <<< "$(printf '%s' "$cb_paths")"
+        fi
+    fi
+fi
+
 # ---- graph-complete-l3: every current wish has a stage-appropriate path ----
 if { [ "$LEVEL" = "L3" ] || [ "$LEVEL" = "L4" ]; } && [ -f "$EXP_FILE" ]; then
     VAC_DECLARED="$(collect_vac "$PRD_FILE" | awk -F'\t' '{print $2}' | sort -u)"
