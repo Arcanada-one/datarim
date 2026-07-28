@@ -22,6 +22,10 @@ graph LR
     dr-qa --> dr-archive
     dr-compliance --> dr-archive
     dr-do -.->|"return-to-plan<br>(v2.59.0+)"| dr-plan
+    dr-do -.->|"return-to-source<br>(v2.60.0+)"| dr-prd
+    dr-qa -.->|"return-to-source<br>(v2.60.0+)"| dr-design
+    dr-qa -.->|"return-to-source<br>(v2.60.0+)"| dr-plan
+    dr-compliance -.->|"return-to-source<br>(v2.60.0+)"| dr-qa
 ```
 
 ## Optional at Complexity Levels
