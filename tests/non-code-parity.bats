@@ -4,8 +4,8 @@
 # parity prose for checklist immutability and return-to-plan transition.
 
 setup() {
-    RUNTIME="${DATARIM_RUNTIME:-$HOME/.claude}"
-    PLAN_CMD="$RUNTIME/commands/dr-plan.md"
+    REPO_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
+    PLAN_CMD="$REPO_DIR/commands/dr-plan.md"
 }
 
 @test "dr-plan.md references checklist immutability" {
