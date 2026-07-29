@@ -168,3 +168,9 @@ adjudicate aesthetic correctness.
 - `reviewer` agent: verify compliance during `/dr-qa`
 - `playwright-qa.md`: detailed contract for the automated browser pass
   invoked at `/dr-qa` Step 4f
+- **Immutability contract:** `skills/immutability/SKILL.md` § Frontend-UI
+  Rules — defines the visual baseline immutability rule, deviation
+  recording, and operator-approval requirement. Frontend-UI tasks that
+  change visual output MUST NOT silently accept regressions; visual
+  deviations require operator diff review per the Frontend-UI Rules
+  fragment.

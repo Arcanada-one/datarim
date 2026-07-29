@@ -13,6 +13,7 @@ description: Explore architectural and design decisions for complex features (Le
 
 **Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header.
 1.  **LOAD**: Read `$HOME/.claude/agents/architect.md` and adopt that persona.
+1.5. **SKILL**: Also load `$HOME/.claude/skills/immutability/SKILL.md` — read the `/dr-design Rules` fragment for design decision immutability, ADR-calibre artefact freeze, and Return-to-Source routing.
 2.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system/SKILL.md` § Path Resolution Rule.
 
 ### EXECUTION HOST
