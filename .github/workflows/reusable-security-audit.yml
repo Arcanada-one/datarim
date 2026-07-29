@@ -84,14 +84,87 @@ jobs:
             echo "accepted-risk.yml not present at $ACCEPTED_RISK_PATH — skipping schema validation"
           fi
 
-      # Self-hosted runners do not ship a Rust toolchain the way GitHub-hosted
-      # images did, so the rust_cargo branch below would fail with
-      # "cargo: command not found" (exit 127). Provision the toolchain in-workflow
-      # for the rust_cargo profile only — other profiles rely on node/pnpm/python,
-      # which are present on the runner.
+      # INFRA-0365: this gate must be correct on ANY runner in the fleet, because
+      # `runs-on: [self-hosted, linux]` matches nearly all of them and they are
+      # NOT interchangeable. Measured 2026-07-29 across the seven runner hosts:
+      #
+      #   host             node corepack pnpm python python3 shellcheck cargo
+      #   arcana-devs       y     y       y     N      y       y          y
+      #   arcana-prod       y     y       y     N      y       y          N
+      #   arcana-dbs        y     y       y     N      y       N          N
+      #   arcana-kb         y     y       y     N      y       y          N
+      #   arcana-www        N     N       N     N      y       N          N
+      #   arcana-trading    y     y       N     N      y       N          N
+      #   arcana-agents     y     y       y     N      y       N          y
+      #
+      # Consequences that were live before this change:
+      #   - typescript_pnpm exited 127 on arcana-www (cubrim-api PR #21) while
+      #     passing on arcana-prod-ci (PR #16) — identical code, different verdict.
+      #   - `python` is absent on EVERY host, so the python profile could never
+      #     have run at all.
+      #   - `framework` silently SKIPPED its only check on the 4 hosts without
+      #     shellcheck, reporting success having audited nothing — a false green.
+      #
+      # The fix is to provision what each profile needs rather than to pin the job
+      # to whichever hosts happen to be equipped today. Pinning would also shrink
+      # the eligible pool and worsen the single-slot contention tracked in
+      # INFRA-0364.
       - name: Setup Rust toolchain (rust_cargo profile only)
         if: inputs.stack == 'rust_cargo'
         uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+
+      # Brings node AND corepack into the runner tool cache, so the corepack
+      # shim trick below works on a host that ships neither.
+      - name: Setup Node toolchain (typescript_pnpm profile only)
+        if: inputs.stack == 'typescript_pnpm'
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '20'
+
+      # shellcheck has no setup-action; fetch the upstream static binary the same
+      # way other Arcanada workflows do. Without this the framework profile
+      # silently audits nothing wherever shellcheck is absent.
+      - name: Provision shellcheck (framework profile only)
+        if: inputs.stack == 'framework'
+        run: |
+          set -euo pipefail
+          if command -v shellcheck >/dev/null 2>&1; then
+            echo "shellcheck already present: $(command -v shellcheck)"
+            exit 0
+          fi
+          ver="v0.10.0"
+          curl -sSfL "https://github.com/koalaman/shellcheck/releases/download/${ver}/shellcheck-${ver}.linux.x86_64.tar.xz" \
+            | tar -xJ -C "$RUNNER_TEMP" "shellcheck-${ver}/shellcheck" --strip-components=1
+          chmod +x "$RUNNER_TEMP/shellcheck"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+          echo "shellcheck ${ver} provisioned to RUNNER_TEMP"
+
+      # Fail with a diagnosable message naming the runner and the missing tool,
+      # instead of a bare exit 127 from the middle of the audit script.
+      - name: Assert toolchain preconditions
+        env:
+          STACK: ${{ inputs.stack }}
+        run: |
+          set -euo pipefail
+          case "$STACK" in
+            typescript_pnpm) required="node corepack" ;;
+            rust_cargo)      required="cargo" ;;
+            python)          required="python3" ;;
+            framework)       required="shellcheck" ;;
+            *) echo "ERROR: unknown stack profile: $STACK" >&2; exit 1 ;;
+          esac
+          missing=""
+          for bin in $required; do
+            command -v "$bin" >/dev/null 2>&1 || missing="$missing $bin"
+          done
+          if [ -n "$missing" ]; then
+            echo "ERROR: stack '$STACK' requires:$missing" >&2
+            echo "       runner '${RUNNER_NAME:-unknown}' does not provide them, and the" >&2
+            echo "       provisioning step above did not supply them either." >&2
+            echo "       This gate must never pass without actually auditing." >&2
+            exit 1
+          fi
+          echo "toolchain OK for '$STACK' on runner '${RUNNER_NAME:-unknown}':$(for b in $required; do printf ' %s=%s' "$b" "$(command -v "$b")"; done)"
 
       - name: Run stack-specific audit
         env:
@@ -123,7 +196,9 @@ jobs:
               ;;
             python)
               echo "::group::python audit"
-              python -m pip install --upgrade pip pip-audit
+              # INFRA-0365: was `python`, which is absent on every runner host
+              # (only python3 is installed) — this profile could never have run.
+              python3 -m pip install --upgrade pip pip-audit
               pip-audit -s osv --strict
               echo "::endgroup::"
               ;;
@@ -134,10 +209,12 @@ jobs:
                 exit 1
               fi
               echo "no runtime manifests — shellcheck sweep only"
-              if command -v shellcheck >/dev/null 2>&1; then
-                find . -type f -name '*.sh' -not -path './.datarim/*' \
-                  -print0 | xargs -0 -r shellcheck -S warning
-              fi
+              # INFRA-0365: this was wrapped in `if command -v shellcheck`, so on
+              # a runner without shellcheck the gate audited NOTHING and reported
+              # success. shellcheck is now provisioned and asserted above, so the
+              # sweep always runs.
+              find . -type f -name '*.sh' -not -path './.datarim/*' \
+                -print0 | xargs -0 -r shellcheck -S warning
               ;;
             *)
               echo "ERROR: unknown stack profile: $STACK" >&2

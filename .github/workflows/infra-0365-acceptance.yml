@@ -1,0 +1,47 @@
+# TEMPORARY — INFRA-0365 acceptance test. Removed before merge.
+#
+# Acceptance criterion (operator, 2026-07-29): "the job is correct on a runner
+# that does NOT have the toolchain preinstalled — verify that empirically, do
+# not assume."
+#
+# arcana-www-arcanada is that runner: measured 2026-07-29 it has no node, no
+# corepack, no pnpm and no shellcheck. This pins BOTH profiles to it.
+name: infra-0365-acceptance
+on:
+  push:
+    branches: ['infra-0365/**']
+
+permissions:
+  contents: read
+
+jobs:
+  # Real end-to-end call of the reusable workflow, pinned to the bare host.
+  framework-on-bare-runner:
+    uses: ./.github/workflows/reusable-security-audit.yml
+    with:
+      stack: framework
+      runner_labels: '["self-hosted","Linux","X64","arcana-www"]'
+
+  # Proves the node/corepack provisioning path on the same bare host.
+  node-provisioning-on-bare-runner:
+    runs-on: [self-hosted, Linux, X64, arcana-www]
+    steps:
+      - name: Show the runner starts WITHOUT the toolchain
+        run: |
+          echo "runner=${RUNNER_NAME:-unknown}"
+          for b in node corepack pnpm shellcheck; do
+            printf '  %-12s %s\n' "$b" "$(command -v $b || echo ABSENT)"
+          done
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '20'
+      - name: Assert node + corepack are now present and pnpm shim works
+        run: |
+          set -euo pipefail
+          command -v node
+          command -v corepack
+          mkdir -p "$RUNNER_TEMP/corepack-bin"
+          corepack enable --install-directory "$RUNNER_TEMP/corepack-bin"
+          export PATH="$RUNNER_TEMP/corepack-bin:$PATH"
+          pnpm --version
+          echo "PASS: toolchain self-provisioned on a runner that had none"
