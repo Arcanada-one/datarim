@@ -33,8 +33,9 @@ parent_init_task: TUNE-0530-init-task.md
   - evidence_type: static
   - #### История статусов
     - 2026-07-29 / 2026-07-29 · /dr-init · pending → pending · reason: пункт создан при инициализации задачи
+    - 2026-07-29 / 2026-07-29 · /dr-qa · pending → met · reason: аудит выполнен в PRD § Context Analysis, все prescriptive поверхности задокументированы с file:line и wiring
   - #### Текущий статус
-    - pending
+    - met
 
 - **2. Дизайн (Fable 5 + consilium) механизма замены: 2-3 viable candidate stack-а с явными trade-offs и рекомендацией на этапе PRD/plan.**
   - wish_id: design-candidate-stacks-with-tradeoffs
@@ -44,8 +45,19 @@ parent_init_task: TUNE-0530-init-task.md
   - evidence_type: static
   - #### История статусов
     - 2026-07-29 / 2026-07-29 · /dr-init · pending → pending · reason: пункт создан при инициализации задачи
+    - 2026-07-29 / 2026-07-29 · /dr-qa · pending → met · reason: Fable 5 consilium panel 5/5 conditional support, 15 design decisions (D-1..D-15), dissent recorded, creative doc complete
   - #### Текущий статус
-    - pending
+    - met
+  - wish_id: design-candidate-stacks-with-tradeoffs
+  - Что хочу проверить: на выходе дизайна оператор получает не один mandated stack, а обоснованный выбор из 2-3 вариантов с trade-offs, с рекомендацией агента и с возможностью оператору выбрать или утвердить.
+  - Как проверить (success criterion): design-документ содержит (a) метод выбора candidate stacks, (b) формат proposal-блока с alternatives + rationale + recommendation, (c) триггеры когда вопрос вообще стоит задавать, (d) разрешение противоречия со stack-agnostic-gate.
+  - Связанный AC из PRD: V-AC-2, V-AC-5
+  - evidence_type: static
+  - #### История статусов
+    - 2026-07-29 / 2026-07-29 · /dr-init · pending → pending · reason: пункт создан при инициализации задачи
+    - 2026-07-29 / 2026-07-29 · /dr-qa · pending → met · reason: аудит выполнен в PRD § Context Analysis, все prescriptive поверхности задокументированы с file:line и wiring
+  - #### Текущий статус
+    - met
 
 - **3. Имплементация: переработка skills/tech-stack/, врезка proposal-шага в /dr-prd и /dr-plan, добавление пропущенных доменов (cross-platform CLI/desktop, systems services).**
   - wish_id: implement-rewired-tech-stack
@@ -55,8 +67,9 @@ parent_init_task: TUNE-0530-init-task.md
   - evidence_type: static
   - #### История статусов
     - 2026-07-29 / 2026-07-29 · /dr-init · pending → pending · reason: пункт создан при инициализации задачи
+    - 2026-07-29 / 2026-07-29 · /dr-qa · pending → met · reason: skills/tech-stack/SKILL.md полностью переписан — Starting Points & Alternatives таблица, Trigger Classifier, 10-factor proposal template, 5 новых доменов, Rust+Go first-class options, immutability binding с security-emergency fast-track
   - #### Текущий статус
-    - pending
+    - met
 
 - **4. bats-тесты на проводку (wiring) и обязательную форму proposal (alternatives + rationale + recommendation).**
   - wish_id: bats-tests-wiring-and-proposal-shape
@@ -66,8 +79,9 @@ parent_init_task: TUNE-0530-init-task.md
   - evidence_type: static
   - #### История статусов
     - 2026-07-29 / 2026-07-29 · /dr-init · pending → pending · reason: пункт создан при инициализации задачи
+    - 2026-07-29 / 2026-07-29 · /dr-qa · pending → met · reason: 10 bats тестов (T1-T10) все проходят — проверяют proposal shape, trigger classifier, отсутствие prescriptive языка, Rust+Go first-class, immutability binding, security factor, escape velocity, новые домены, licence/cost split, backend-standards boundary
   - #### Текущий статус
-    - pending
+    - met
 
 - **5. Валидационный dry-run: применить новый механизм к кейсу Control Arcana (Tailwind vs MUI) и показать что он бы выдал на этапе PRD/plan.**
   - wish_id: validation-dry-run-control-arcana
@@ -77,8 +91,9 @@ parent_init_task: TUNE-0530-init-task.md
   - evidence_type: empirical
   - #### История статусов
     - 2026-07-29 / 2026-07-29 · /dr-init · pending → pending · reason: пункт создан при инициализации задачи
+    - 2026-07-29 / 2026-07-29 · /dr-qa · pending → met · reason: dry-run применён к кейсу Control Arcana — 3 candidate stacks (MUI, Tailwind+TanStack, Mantine) с 10-factor trade-offs; демонстрирует что старый prescriptive подход не показал бы выбор MUI vs Tailwind
   - #### Текущий статус
-    - pending
+    - met
 
 ## Append-log (operator amendments)
 
