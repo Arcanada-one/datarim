@@ -99,9 +99,9 @@ if [ -f "$PRD_FILE" ] && grep -qiE '^[[:space:]]*(\*\*)?complexity[^:]*:[^[:alnu
 elif [ -f "$PRD_FILE" ] && grep -qiE '^[[:space:]]*(\*\*)?complexity[^:]*:[^[:alnum:]]*(Level[[:space:]]+2|L2)\b' "$PRD_FILE"; then LEVEL="L2"
 elif [ -f "$PRD_FILE" ] && grep -qiE '^[[:space:]]*(\*\*)?complexity[^:]*:[^[:alnum:]]*(Level[[:space:]]+1|L1)\b' "$PRD_FILE"; then LEVEL="L1"
 elif [ -f "$TASK_FILE" ]; then
-    if grep -qiE '^complexity:[[:space:]]*L4' "$TASK_FILE"; then LEVEL="L4"
-    elif grep -qiE '^complexity:[[:space:]]*L2' "$TASK_FILE"; then LEVEL="L2"
-    elif grep -qiE '^complexity:[[:space:]]*L1' "$TASK_FILE"; then LEVEL="L1"
+    if grep -qiE '^[[:space:]]*(\*\*)?complexity[^:]*:[^[:alnum:]]*(Level[[:space:]]+4|L4)\b' "$TASK_FILE"; then LEVEL="L4"
+    elif grep -qiE '^[[:space:]]*(\*\*)?complexity[^:]*:[^[:alnum:]]*(Level[[:space:]]+2|L2)\b' "$TASK_FILE"; then LEVEL="L2"
+    elif grep -qiE '^[[:space:]]*(\*\*)?complexity[^:]*:[^[:alnum:]]*(Level[[:space:]]+1|L1)\b' "$TASK_FILE"; then LEVEL="L1"
     fi
 fi
 
