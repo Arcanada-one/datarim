@@ -119,7 +119,11 @@ jobs:
         if: inputs.stack == 'typescript_pnpm'
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: '20'
+          # Node 24, not 20. Corepack resolves the current pnpm (11.x), which
+          # requires the `node:sqlite` builtin; on Node 20 it dies with
+          # ERR_UNKNOWN_BUILTIN_MODULE. Found empirically on arcana-www-arcanada
+          # — setup-node itself succeeded and the pnpm shim then crashed.
+          node-version: '24'
 
       # shellcheck has no setup-action; fetch the upstream static binary the same
       # way other Arcanada workflows do. Without this the framework profile
