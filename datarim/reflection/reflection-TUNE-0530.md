@@ -4,7 +4,7 @@ artifact: reflection
 captured_at: 2026-07-29
 captured_by: /dr-compliance
 status: canonical
-reflection_basis: datarim/reports/compliance-report-TUNE-0530.md
+reflection_basis: 267b5e35e9f21fc7
 ---
 
 # Reflection — TUNE-0530
