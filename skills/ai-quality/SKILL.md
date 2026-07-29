@@ -99,6 +99,31 @@ ELEMENTS:
 
 ---
 
+### 6. LINT-ON-THE-SPOT
+> **Run project linters after each TDD code-change step, before moving to the next stub/method.** Defers to `/dr-compliance` only when the project has no auto-detectable linter — not when findings need fixing.
+
+```
+AUTO-DETECTION PATTERNS (check manifests in order of precedence):
+1. eslint / prettier → `package.json` (devDependencies or scripts)
+2. ruff / flake8 / pylint → `pyproject.toml`, `ruff.toml`, `setup.cfg`
+3. clippy / rustfmt → `Cargo.toml` (under [lints] or as dev-dependency)
+4. golangci-lint → `.golangci.yml` or `go.mod` + `tools.go`
+5. rubocop → `.rubocop.yml`
+6. Any linter configured in project root config files → detect by extension
+```
+
+**Procedure:**
+1. After each TDD RED-GREEN-REFACTOR cycle, run the auto-detected linter against changed files.
+2. Fix findings immediately — do not accumulate lint debt.
+3. If no auto-detectable linter exists: skip and note in the task description that lint discipline is manual.
+4. Never defer lint fixes to `/dr-compliance`: that stage assumes a clean baseline.
+
+**Why:** Lint findings discovered at compliance time force a fixup commit outside the TDD loop, breaking the RED-GREEN-REFACTOR cadence. Each lint rule is a potential bug that was visible at code time but deferred to a stage that expects cleanup, not bug-fixing.
+
+Covered by: `commands/dr-do.md` § Step 7 ACTION — Lint-on-the-spot (MANDATORY).
+
+---
+
 ## STAGE-RULE MAPPING
 
 Load only the rules relevant to your current stage:
