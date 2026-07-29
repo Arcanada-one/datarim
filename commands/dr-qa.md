@@ -306,6 +306,7 @@ Invoke:
 - If the changed code uses `$queryRaw`, `raw()`, `sequelize.query()`, or any path that bypasses the ORM type-checker — a **live smoke test** against the actual target datasource is **mandatory**. Mocked/unit tests do not satisfy this gate (see `$HOME/.claude/skills/testing/SKILL.md` § Live Smoke-Test Gate).
 - In multi-datasource projects (e.g. aio-v2: `PrismaService` → `stats` mysql5 vs `PrismaBiService` → `bi_aggregate` mysql8), verify the correct client is injected for the target table. A wrong-client `$queryRaw` compiles clean and fails at runtime.
 - **Record in QA report:** the exact smoke-test command, the datasource hit, and the result (row count / expected empty / error). No smoke test ⇒ Layer 4 verdict is **FAIL**, not PASS_WITH_NOTES.
+- **Gate:** the pre-archive gate `dev-tools/check-raw-sql-smoke-test.sh` enforces this mechanically — when a diff carries raw-SQL patterns, it checks the QA report for smoke-test result markers and blocks archive on absence. Run it at `/dr-qa` Step 7 (self-check) and at `/dr-archive` Step 0.x (pre-archive gate).
 
 ### 4d-bis. Agentic Entrypoint Wiring + Live-Run Gate
 
@@ -314,6 +315,7 @@ Invoke:
 - **Entrypoint-reachability (both ways):** prove the *real* entrypoint (`__main__` / systemd `ExecStart` / cron command / queue consumer) actually calls the declared function — static call-graph grep (entrypoint imports AND invokes the orchestrator/lane, not merely that it exists) **and** a runtime probe showing the function was entered. An orchestrator/lane reachable only from tests is **dead code in prod**: the wish is **missed**, Layer 4 = **FAIL** → `/dr-do`.
 - **One live tool-run:** run the agent **once for real** with the feature enabled and the tool present, against realistic input; capture the real tool's stdout/exit + the resulting side-effect (audit record / notification / MR / file change). Pair with the Auth Probe and PATH check (the tool must be on the *service's* PATH, not just the login shell's).
 - **Record in QA report:** the exact run command, tool version, captured real output, and the observed side-effect. A mock assertion does NOT satisfy this. An `evidence_type: empirical` wish marked **met** on mocks alone (no live tool-run) is a Layer 3b/4 finding ⇒ **FAIL** — never PASS_WITH_NOTES. A kill-switch-OFF exit-0 probe proves the agent does *nothing*; it does not satisfy this gate.
+- **Gate:** `dev-tools/check-live-evidence.sh` enforces this mechanically — when expectations carry `evidence_type: empirical` items, it checks the QA report for live-evidence markers (command block with real output, tool version, exit code) and blocks on insufficient evidence. Structural check only; semantic verification (is the output genuinely from a live run?) remains human judgment. Run at `/dr-qa` Layer 3b and at `/dr-archive` Step 0.x.
 
 ### 4e. Definition of Done
 - Read DoD from `datarim/tasks.md` or `datarim/prd/*.md`
@@ -383,6 +385,7 @@ recommend merging an unverified cutover.
 - `SKIP` / `PASS` ⇒ Layer 4g contribution = PASS; the pipeline **MAY propose merge**.
 - `FAIL` (asymmetry found) ⇒ Layer 4g = **FAIL**; the pipeline **MUST NOT propose merge** until resolved. Overall QA verdict is **BLOCKED**.
 - `BLOCKED` (probe could not run, e.g. prod unreachable, and no operator confirmation) ⇒ Layer 4g = **FAIL**; **MUST NOT propose merge**. `BLOCKED` never auto-resolves to PASS — the operator must confirm out-of-band verification.
+- **Gate:** `dev-tools/check-qa-verdict-blocked.sh` enforces this mechanically — it greps the QA report frontmatter for `verdict: BLOCKED` or `verdict: FAIL` and refuses archive on either. The gate is additive to the prose rule: the prose tells you; the gate catches you. Run at `/dr-archive` Step 0.x (pre-archive gate).
 
 **Record in QA report:** the verdict, the runner pair probed, the exact
 read-only commands run, captured output, and — on FAIL — the asymmetry plus the
