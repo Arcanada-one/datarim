@@ -278,6 +278,7 @@ The framework ships the PreToolUse guard (`dev-tools/datarim-exec-guard.sh`) tha
      origin==PROD link cannot be read) → archive **BLOCKED** until the operator
      explicitly confirms out-of-band verification. Never auto-archive on an
      unverifiable prod; silence is not a PASS.
+   - **Gate:** `dev-tools/check-archive-sha-chain.sh` enforces this mechanically — when the task claims PROD deployment, it checks the archive doc for SHA-chain evidence (three SHAs, verification section, or BLOCKED with operator confirmation) and blocks archive on absence. Run at `/dr-archive` Step 0.2.5 (post-probe self-check) and Step 2 (pre-finalize gate).
 
    **prod is hard-gated:** every action in this step is read-only; prod
    mutation is an explicit operator step, never performed by the framework.
@@ -387,6 +388,7 @@ The framework ships the PreToolUse guard (`dev-tools/datarim-exec-guard.sh`) tha
      done AND verified**. A green test-runner pipeline and a passing `/dr-qa`
      Gate 4g (pre-merge readiness) are necessary but NOT sufficient — this step
      confirms the change is actually live and healthy on prod after merge.
+   - **Gate:** `dev-tools/check-prod-merge-blocked.sh` enforces this mechanically — for deploy-class tasks, it checks the archive doc for prod-merge verification evidence (post-deploy health probe, version confirmed running, or BLOCKED with operator confirmation) and blocks archive on absence. Run at `/dr-archive` Step 0.4 (post-probe self-check) and Step 2 (pre-finalize gate).
    - **Verification (read-only):** confirm the merged artifact is live on prod —
      e.g. the running systemd unit reports the expected version, the
      local==origin==PROD image/SHA chain matches (see
