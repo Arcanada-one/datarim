@@ -9,36 +9,36 @@ GUARD="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)/datarim-exec-guard.sh"
 setup() {
     TEST_TMP="$(mktemp -d)"
     # Fake bound workspaces (with a datarim/ marker dir so walk-up resolves).
-    ARCANADA_WS="$TEST_TMP/arcanada"
-    AETHER_WS="$TEST_TMP/aether"
+    WS1="$TEST_TMP/ws1"
+    WS2="$TEST_TMP/ws2"
     UNBOUND_WS="$TEST_TMP/scratch-repo"
-    mkdir -p "$ARCANADA_WS/datarim" "$ARCANADA_WS/Projects/Sub"
-    mkdir -p "$AETHER_WS/datarim"
+    mkdir -p "$WS1/datarim" "$WS1/Projects/Sub"
+    mkdir -p "$WS2/datarim"
     mkdir -p "$UNBOUND_WS/datarim"
     # Audit log override (never write into ~/.claude/logs from tests).
     AUDIT_LOG="$TEST_TMP/exec-dispatch.log"
 
-    # Test-only execution-hosts map (real IPs for arcanada/aether; unreachable
-    # sentinel for the dispatch-refusal case).
+    # Test-only execution-hosts map (fixture data using RFC 5737 TEST-NET
+    # addresses and generic placeholder names).
     MAP="$TEST_TMP/execution-hosts.yml"
     cat > "$MAP" <<EOF
 schema_version: 1
 role: control
 bindings:
-  - workspace: $ARCANADA_WS
-    space: arcanada
-    required_host: arcana-devs
-    host_aliases: [arcana-devs, Arcana-DEVS]
-    tailscale_ip: "100.106.230.125"
+  - workspace: $WS1
+    space: demo-space
+    required_host: demo-host
+    host_aliases: [demo-host, Demo-Host]
+    tailscale_ip: "192.0.2.1"
     ssh_user: dev
     default_agent: claude-code
     allowed_agents: [claude-code, codex, cursor]
-  - workspace: $AETHER_WS
-    space: aether
-    required_host: dev-ai
-    host_aliases: [dev-ai]
-    tailscale_ip: "100.118.134.82"
-    ssh_user: aether
+  - workspace: $WS2
+    space: other-space
+    required_host: other-host
+    host_aliases: [other-host]
+    tailscale_ip: "192.0.2.2"
+    ssh_user: dev
     default_agent: claude-code
     allowed_agents: [claude-code, codex, cursor]
 EOF
@@ -48,11 +48,11 @@ EOF
 schema_version: 1
 role: control
 bindings:
-  - workspace: $ARCANADA_WS
-    space: arcanada
-    required_host: arcana-devs
-    host_aliases: [arcana-devs, Arcana-DEVS]
-    tailscale_ip: "100.127.255.254"
+  - workspace: $WS1
+    space: demo-space
+    required_host: demo-host
+    host_aliases: [demo-host, Demo-Host]
+    tailscale_ip: "203.0.113.1"
     ssh_user: dev
     default_agent: claude-code
     allowed_agents: [claude-code, codex, cursor]
@@ -71,30 +71,30 @@ fixture_bash() {
 }
 
 # ---------------------------------------------------------------------------
-# V-AC-1 / D-REQ-03: deny-arcanada
+# V-AC-1 / D-REQ-03: deny-ws1
 # ---------------------------------------------------------------------------
-@test "deny-arcanada: executable /dr-* Bash call in bound Arcanada workspace denies with arcana-devs directive" {
+@test "deny-ws1: executable /dr-* Bash call in bound bound workspace denies with demo-host directive" {
     run bash -c "
       fixture_bash() { local cwd=\"\$1\" cmd=\"\$2\"; jq -nc --arg cwd \"\$cwd\" --arg cmd \"\$cmd\" '{hook_event_name: \"PreToolUse\", tool_name: \"Bash\", tool_input: {command: \$cmd}, cwd: \$cwd}'; }
-      fixture_bash '$ARCANADA_WS' 'claude /dr-do TUNE-9999' | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
+      fixture_bash '$WS1' 'claude /dr-do TUNE-9999' | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
     "
     [ "$status" -eq 0 ]
     [[ "$output" == *"permissionDecision"*"deny"* ]]
-    [[ "$output" == *"arcana-devs"* ]]
+    [[ "$output" == *"demo-host"* ]]
     [[ "$output" == *"datarim-dispatch.sh"* ]]
 }
 
 # ---------------------------------------------------------------------------
-# V-AC-2 / D-REQ-03, D-REQ-01: deny-aether
+# V-AC-2 / D-REQ-03, D-REQ-01: deny-ws2
 # ---------------------------------------------------------------------------
-@test "deny-aether: executable /dr-* Bash call in bound Aether workspace denies with dev-ai directive" {
+@test "deny-ws2: executable /dr-* Bash call in bound second bound workspace denies with other-host directive" {
     run bash -c "
       fixture_bash() { local cwd=\"\$1\" cmd=\"\$2\"; jq -nc --arg cwd \"\$cwd\" --arg cmd \"\$cmd\" '{hook_event_name: \"PreToolUse\", tool_name: \"Bash\", tool_input: {command: \$cmd}, cwd: \$cwd}'; }
-      fixture_bash '$AETHER_WS' 'claude /dr-plan SPACE-1234' | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
+      fixture_bash '$WS2' 'claude /dr-plan SPACE-1234' | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
     "
     [ "$status" -eq 0 ]
     [[ "$output" == *"permissionDecision"*"deny"* ]]
-    [[ "$output" == *"dev-ai"* ]]
+    [[ "$output" == *"other-host"* ]]
 }
 
 # ---------------------------------------------------------------------------
@@ -115,21 +115,21 @@ fixture_bash() {
 @test "subdir-walk-up: cwd inside a subdirectory of bound workspace still denies" {
     run bash -c "
       fixture_bash() { local cwd=\"\$1\" cmd=\"\$2\"; jq -nc --arg cwd \"\$cwd\" --arg cmd \"\$cmd\" '{hook_event_name: \"PreToolUse\", tool_name: \"Bash\", tool_input: {command: \$cmd}, cwd: \$cwd}'; }
-      fixture_bash '$ARCANADA_WS/Projects/Sub' 'codex /dr-status TUNE-0001' | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
+      fixture_bash '$WS1/Projects/Sub' 'codex /dr-status TUNE-0001' | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
     "
     [ "$status" -eq 0 ]
     [[ "$output" == *"permissionDecision"*"deny"* ]]
-    [[ "$output" == *"arcana-devs"* ]]
+    [[ "$output" == *"demo-host"* ]]
 }
 
 # ---------------------------------------------------------------------------
 # override-marker: datarim/.exec-local-override allows + logs
 # ---------------------------------------------------------------------------
 @test "override-marker: presence of datarim/.exec-local-override allows and logs" {
-    touch "$ARCANADA_WS/datarim/.exec-local-override"
+    touch "$WS1/datarim/.exec-local-override"
     run bash -c "
       fixture_bash() { local cwd=\"\$1\" cmd=\"\$2\"; jq -nc --arg cwd \"\$cwd\" --arg cmd \"\$cmd\" '{hook_event_name: \"PreToolUse\", tool_name: \"Bash\", tool_input: {command: \$cmd}, cwd: \$cwd}'; }
-      fixture_bash '$ARCANADA_WS' 'claude /dr-do TUNE-9999' | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
+      fixture_bash '$WS1' 'claude /dr-do TUNE-9999' | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
     "
     [ "$status" -eq 0 ]
     [ -z "$output" ]
@@ -143,7 +143,7 @@ fixture_bash() {
 @test "doctor-exemption: datarim-doctor.sh invocation in bound workspace is allowed and logged" {
     run bash -c "
       fixture_bash() { local cwd=\"\$1\" cmd=\"\$2\"; jq -nc --arg cwd \"\$cwd\" --arg cmd \"\$cmd\" '{hook_event_name: \"PreToolUse\", tool_name: \"Bash\", tool_input: {command: \$cmd}, cwd: \$cwd}'; }
-      fixture_bash '$ARCANADA_WS' 'bash Projects/Datarim/code/datarim/scripts/datarim-doctor.sh --fix' | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
+      fixture_bash '$WS1' 'bash Projects/Datarim/code/datarim/scripts/datarim-doctor.sh --fix' | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
     "
     [ "$status" -eq 0 ]
     [ -z "$output" ]
@@ -157,7 +157,7 @@ fixture_bash() {
 @test "dispatch-not-blocked: invoking datarim-dispatch.sh itself is not denied" {
     run bash -c "
       fixture_bash() { local cwd=\"\$1\" cmd=\"\$2\"; jq -nc --arg cwd \"\$cwd\" --arg cmd \"\$cmd\" '{hook_event_name: \"PreToolUse\", tool_name: \"Bash\", tool_input: {command: \$cmd}, cwd: \$cwd}'; }
-      fixture_bash '$ARCANADA_WS' 'dev-tools/datarim-dispatch.sh --workspace $ARCANADA_WS --task TUNE-9999' | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
+      fixture_bash '$WS1' 'dev-tools/datarim-dispatch.sh --workspace $WS1 --task TUNE-9999' | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
     "
     [ "$status" -eq 0 ]
     [ -z "$output" ]
@@ -169,7 +169,7 @@ fixture_bash() {
 @test "non-executional Bash command in bound workspace passes through silently" {
     run bash -c "
       fixture_bash() { local cwd=\"\$1\" cmd=\"\$2\"; jq -nc --arg cwd \"\$cwd\" --arg cmd \"\$cmd\" '{hook_event_name: \"PreToolUse\", tool_name: \"Bash\", tool_input: {command: \$cmd}, cwd: \$cwd}'; }
-      fixture_bash '$ARCANADA_WS' 'ls -la' | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
+      fixture_bash '$WS1' 'ls -la' | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
     "
     [ "$status" -eq 0 ]
     [ -z "$output" ]
@@ -211,7 +211,7 @@ fixture_bash() {
 @test "DEF-1a: rg claude datarim/ in bound workspace passes through silently (not a false-deny)" {
     run bash -c "
       fixture_bash() { local cwd=\"\$1\" cmd=\"\$2\"; jq -nc --arg cwd \"\$cwd\" --arg cmd \"\$cmd\" '{hook_event_name: \"PreToolUse\", tool_name: \"Bash\", tool_input: {command: \$cmd}, cwd: \$cwd}'; }
-      fixture_bash '$ARCANADA_WS' 'rg claude datarim/' | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
+      fixture_bash '$WS1' 'rg claude datarim/' | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
     "
     [ "$status" -eq 0 ]
     [ -z "$output" ]
@@ -220,7 +220,7 @@ fixture_bash() {
 @test "DEF-1b: grep -r codex . in bound workspace passes through silently (not a false-deny)" {
     run bash -c "
       fixture_bash() { local cwd=\"\$1\" cmd=\"\$2\"; jq -nc --arg cwd \"\$cwd\" --arg cmd \"\$cmd\" '{hook_event_name: \"PreToolUse\", tool_name: \"Bash\", tool_input: {command: \$cmd}, cwd: \$cwd}'; }
-      fixture_bash '$ARCANADA_WS' 'grep -r codex .' | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
+      fixture_bash '$WS1' 'grep -r codex .' | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
     "
     [ "$status" -eq 0 ]
     [ -z "$output" ]
@@ -229,7 +229,7 @@ fixture_bash() {
 @test "DEF-1c: claude /dr-do X at command start still denies" {
     run bash -c "
       fixture_bash() { local cwd=\"\$1\" cmd=\"\$2\"; jq -nc --arg cwd \"\$cwd\" --arg cmd \"\$cmd\" '{hook_event_name: \"PreToolUse\", tool_name: \"Bash\", tool_input: {command: \$cmd}, cwd: \$cwd}'; }
-      fixture_bash '$ARCANADA_WS' 'claude /dr-do TUNE-9999' | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
+      fixture_bash '$WS1' 'claude /dr-do TUNE-9999' | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
     "
     [ "$status" -eq 0 ]
     [[ "$output" == *"permissionDecision"*"deny"* ]]
@@ -238,7 +238,7 @@ fixture_bash() {
 @test "DEF-1d: cd foo && claude denies (claude at start of segment after &&)" {
     run bash -c "
       fixture_bash() { local cwd=\"\$1\" cmd=\"\$2\"; jq -nc --arg cwd \"\$cwd\" --arg cmd \"\$cmd\" '{hook_event_name: \"PreToolUse\", tool_name: \"Bash\", tool_input: {command: \$cmd}, cwd: \$cwd}'; }
-      fixture_bash '$ARCANADA_WS' 'cd foo && claude' | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
+      fixture_bash '$WS1' 'cd foo && claude' | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
     "
     [ "$status" -eq 0 ]
     [[ "$output" == *"permissionDecision"*"deny"* ]]
@@ -247,7 +247,7 @@ fixture_bash() {
 @test "DEF-1e: VAR=1 claude denies (leading env-assignment tokens skipped)" {
     run bash -c "
       fixture_bash() { local cwd=\"\$1\" cmd=\"\$2\"; jq -nc --arg cwd \"\$cwd\" --arg cmd \"\$cmd\" '{hook_event_name: \"PreToolUse\", tool_name: \"Bash\", tool_input: {command: \$cmd}, cwd: \$cwd}'; }
-      fixture_bash '$ARCANADA_WS' 'VAR=1 claude' | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
+      fixture_bash '$WS1' 'VAR=1 claude' | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
     "
     [ "$status" -eq 0 ]
     [[ "$output" == *"permissionDecision"*"deny"* ]]
@@ -256,7 +256,7 @@ fixture_bash() {
 @test "DEF-1f: /opt/homebrew/bin/claude denies (match by basename of first token)" {
     run bash -c "
       fixture_bash() { local cwd=\"\$1\" cmd=\"\$2\"; jq -nc --arg cwd \"\$cwd\" --arg cmd \"\$cmd\" '{hook_event_name: \"PreToolUse\", tool_name: \"Bash\", tool_input: {command: \$cmd}, cwd: \$cwd}'; }
-      fixture_bash '$ARCANADA_WS' '/opt/homebrew/bin/claude' | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
+      fixture_bash '$WS1' '/opt/homebrew/bin/claude' | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
     "
     [ "$status" -eq 0 ]
     [[ "$output" == *"permissionDecision"*"deny"* ]]
@@ -265,7 +265,7 @@ fixture_bash() {
 @test "DEF-1g: echo claude passes through silently (claude is an argument, not the command)" {
     run bash -c "
       fixture_bash() { local cwd=\"\$1\" cmd=\"\$2\"; jq -nc --arg cwd \"\$cwd\" --arg cmd \"\$cmd\" '{hook_event_name: \"PreToolUse\", tool_name: \"Bash\", tool_input: {command: \$cmd}, cwd: \$cwd}'; }
-      fixture_bash '$ARCANADA_WS' 'echo claude' | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
+      fixture_bash '$WS1' 'echo claude' | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
     "
     [ "$status" -eq 0 ]
     [ -z "$output" ]
@@ -284,7 +284,7 @@ fixture_bash() {
       fixture_bash() { local cwd=\"\$1\" cmd=\"\$2\"; jq -nc --arg cwd \"\$cwd\" --arg cmd \"\$cmd\" '{hook_event_name: \"PreToolUse\", tool_name: \"Bash\", tool_input: {command: \$cmd}, cwd: \$cwd}'; }
       printf 'cat <<DOC\n/dr-do is the implementation stage.\nDOC' > '$BATS_TEST_TMPDIR/hd.txt'
       cmd=\"\$(cat '$BATS_TEST_TMPDIR/hd.txt')\"
-      fixture_bash '$ARCANADA_WS' \"\$cmd\" | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
+      fixture_bash '$WS1' \"\$cmd\" | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
     "
     [ "$status" -eq 0 ]
     [ -z "$output" ]
@@ -295,7 +295,7 @@ fixture_bash() {
       fixture_bash() { local cwd=\"\$1\" cmd=\"\$2\"; jq -nc --arg cwd \"\$cwd\" --arg cmd \"\$cmd\" '{hook_event_name: \"PreToolUse\", tool_name: \"Bash\", tool_input: {command: \$cmd}, cwd: \$cwd}'; }
       printf 'cat > /tmp/snap.md <<EOF\nStep 6: /dr-archive TUNE-9999 to finalize.\nEOF' > '$BATS_TEST_TMPDIR/hd2.txt'
       cmd=\"\$(cat '$BATS_TEST_TMPDIR/hd2.txt')\"
-      fixture_bash '$ARCANADA_WS' \"\$cmd\" | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
+      fixture_bash '$WS1' \"\$cmd\" | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
     "
     [ "$status" -eq 0 ]
     [ -z "$output" ]
@@ -306,7 +306,7 @@ fixture_bash() {
       fixture_bash() { local cwd=\"\$1\" cmd=\"\$2\"; jq -nc --arg cwd \"\$cwd\" --arg cmd \"\$cmd\" '{hook_event_name: \"PreToolUse\", tool_name: \"Bash\", tool_input: {command: \$cmd}, cwd: \$cwd}'; }
       printf \"cat <<'EOF'\nclaude runs the pipeline.\nEOF\" > '$BATS_TEST_TMPDIR/hd3.txt'
       cmd=\"\$(cat '$BATS_TEST_TMPDIR/hd3.txt')\"
-      fixture_bash '$ARCANADA_WS' \"\$cmd\" | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
+      fixture_bash '$WS1' \"\$cmd\" | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
     "
     [ "$status" -eq 0 ]
     [ -z "$output" ]
@@ -317,7 +317,7 @@ fixture_bash() {
       fixture_bash() { local cwd=\"\$1\" cmd=\"\$2\"; jq -nc --arg cwd \"\$cwd\" --arg cmd \"\$cmd\" '{hook_event_name: \"PreToolUse\", tool_name: \"Bash\", tool_input: {command: \$cmd}, cwd: \$cwd}'; }
       printf 'cat <<EOF\nsome text\nEOF\nclaude /dr-do TUNE-9999' > '$BATS_TEST_TMPDIR/hd4.txt'
       cmd=\"\$(cat '$BATS_TEST_TMPDIR/hd4.txt')\"
-      fixture_bash '$ARCANADA_WS' \"\$cmd\" | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
+      fixture_bash '$WS1' \"\$cmd\" | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
     "
     [ "$status" -eq 0 ]
     [[ "$output" == *"permissionDecision"*"deny"* ]]
@@ -328,7 +328,7 @@ fixture_bash() {
       fixture_bash() { local cwd=\"\$1\" cmd=\"\$2\"; jq -nc --arg cwd \"\$cwd\" --arg cmd \"\$cmd\" '{hook_event_name: \"PreToolUse\", tool_name: \"Bash\", tool_input: {command: \$cmd}, cwd: \$cwd}'; }
       printf 'git commit -m \"TUNE-0474 fix\n\n/dr-archive was denied when committing; reworded.\"' > '$BATS_TEST_TMPDIR/m1.txt'
       cmd=\"\$(cat '$BATS_TEST_TMPDIR/m1.txt')\"
-      fixture_bash '$ARCANADA_WS' \"\$cmd\" | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
+      fixture_bash '$WS1' \"\$cmd\" | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
     "
     [ "$status" -eq 0 ]
     [ -z "$output" ]
@@ -339,7 +339,7 @@ fixture_bash() {
       fixture_bash() { local cwd=\"\$1\" cmd=\"\$2\"; jq -nc --arg cwd \"\$cwd\" --arg cmd \"\$cmd\" '{hook_event_name: \"PreToolUse\", tool_name: \"Bash\", tool_input: {command: \$cmd}, cwd: \$cwd}'; }
       printf \"git commit -m 'wired codex fallback\ncodex path now works'\" > '$BATS_TEST_TMPDIR/m2.txt'
       cmd=\"\$(cat '$BATS_TEST_TMPDIR/m2.txt')\"
-      fixture_bash '$ARCANADA_WS' \"\$cmd\" | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
+      fixture_bash '$WS1' \"\$cmd\" | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
     "
     [ "$status" -eq 0 ]
     [ -z "$output" ]
@@ -350,7 +350,7 @@ fixture_bash() {
       fixture_bash() { local cwd=\"\$1\" cmd=\"\$2\"; jq -nc --arg cwd \"\$cwd\" --arg cmd \"\$cmd\" '{hook_event_name: \"PreToolUse\", tool_name: \"Bash\", tool_input: {command: \$cmd}, cwd: \$cwd}'; }
       printf 'git commit -m \"msg body /dr-archive cited\" && claude /dr-do TUNE-9999' > '$BATS_TEST_TMPDIR/m3.txt'
       cmd=\"\$(cat '$BATS_TEST_TMPDIR/m3.txt')\"
-      fixture_bash '$ARCANADA_WS' \"\$cmd\" | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
+      fixture_bash '$WS1' \"\$cmd\" | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
     "
     [ "$status" -eq 0 ]
     [[ "$output" == *"permissionDecision"*"deny"* ]]
@@ -361,7 +361,7 @@ fixture_bash() {
       fixture_bash() { local cwd=\"\$1\" cmd=\"\$2\"; jq -nc --arg cwd \"\$cwd\" --arg cmd \"\$cmd\" '{hook_event_name: \"PreToolUse\", tool_name: \"Bash\", tool_input: {command: \$cmd}, cwd: \$cwd}'; }
       printf 'git commit -m \"note: agent said \\\\\"/dr-do\\\\\" here\"' > '$BATS_TEST_TMPDIR/m4.txt'
       cmd=\"\$(cat '$BATS_TEST_TMPDIR/m4.txt')\"
-      fixture_bash '$ARCANADA_WS' \"\$cmd\" | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
+      fixture_bash '$WS1' \"\$cmd\" | DATARIM_EXEC_GUARD_MAP='$MAP' DATARIM_EXEC_GUARD_AUDIT_LOG='$AUDIT_LOG' bash '$GUARD'
     "
     [ "$status" -eq 0 ]
     [ -z "$output" ]
