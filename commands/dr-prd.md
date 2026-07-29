@@ -66,6 +66,13 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
     -   Output structured requirements summary into the PRD discovery section.
     -   For L3-4 tasks, optionally invoke consilium skill (`$HOME/.claude/skills/consilium/SKILL.md`) for multi-perspective analysis of requirements.
 
+2.5. **Stack Assumption Check** (new project/service or cross-domain work):
+    -   Load `$HOME/.claude/skills/tech-stack/SKILL.md` and run the Trigger Classifier.
+    -   Document the assumed stack in the PRD's Technical Approach section — cite the Default Recommendation from the Starting Points & Alternatives table.
+    -   If the stack choice is architecture-driving (the solution cannot be designed until the stack is known — e.g., Rust vs Python determines whether GPU nodes are needed), mark it: `**Architecture-driving stack choice — formal proposal deferred to /dr-plan.**` and generate candidate options for the PRD's solution exploration.
+    -   For routine same-domain work (Trigger: SKIP), document the assumed stack in one line and continue.
+    -   The formal stack proposal with concrete version pins and the operator's binding decision lives at `/dr-plan` Step 6 (Technology Validation).
+
 3.  **Explore Solutions (Phase 2)**:
     -   Generate **3+ distinct technical approaches**.
     -   Evaluate each against criteria: Security, Pattern Alignment, DRY, Testability.
