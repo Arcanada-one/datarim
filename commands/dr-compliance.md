@@ -34,7 +34,7 @@ description: Adaptive post-QA hardening. Detects task type and applies matching 
 4. On **unconfigured** (exit code 0, binding absent): proceed unchanged (fail-open).
 5. On **on-host** (exit code 0, binding present): proceed normally.
 
-Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 check is the cooperative soft layer sharing the same resolver library.
+The framework ships the PreToolUse guard (`dev-tools/datarim-exec-guard.sh`) that enforces host-key verification mechanically — it intercepts mutating Bash calls and denies execution when the current machine is not the declared execution host for this workspace. **Install it as a hook** per the header comment in the guard script: symlink into `~/.local/bin/` and register in `~/.claude/settings.json`. The guard is the hard floor; this Step-0 check is the cooperative soft layer sharing the same resolver library (`dev-tools/lib/execution-host.sh`).
 
 3.  **TASK RESOLUTION**: Apply Task Resolution Rule from `$HOME/.claude/skills/datarim-system/SKILL.md` § Task Resolution Rule. Use the resolved task ID for all subsequent steps.
 4.  **LOAD SKILLS**:
