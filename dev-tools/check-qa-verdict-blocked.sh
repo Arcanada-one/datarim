@@ -17,8 +17,6 @@
 # Called by /dr-archive Step 0.x (pre-archive gate) and /dr-qa Step 7 (self-check).
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-
 usage() {
     echo "Usage: $0 --qa-report <path> [--report]"
     exit 2

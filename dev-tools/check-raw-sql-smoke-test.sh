@@ -19,8 +19,6 @@
 # Called by /dr-archive Step 0.x (pre-archive gate).
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-
 usage() {
     echo "Usage: $0 --diff <path> --qa-report <path> [--report]"
     exit 2
@@ -40,12 +38,15 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-[ -n "$DIFF_FILE" ] && [ -n "$QA_REPORT" ] || usage
+if [ -z "$DIFF_FILE" ] || [ -z "$QA_REPORT" ]; then
+    usage
+fi
 [ -f "$DIFF_FILE" ] || exit 0   # no diff = no raw SQL concern
 
 # Patterns that indicate raw SQL bypassing the ORM type-checker.
 # These are the patterns listed in dr-qa.md:306.
 RAW_SQL_FOUND=0
+# shellcheck disable=SC2016  # patterns carry literal $ signs, not expansions
 if grep -qE '\$queryRaw|\.raw\(|sequelize\.query\(|prisma\.\$queryRaw|\.executeRaw\(|\.queryRaw\(' "$DIFF_FILE" 2>/dev/null; then
     RAW_SQL_FOUND=1
 fi
