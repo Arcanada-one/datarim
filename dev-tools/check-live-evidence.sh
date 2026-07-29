@@ -27,8 +27,6 @@
 # /dr-archive Step 0.x (pre-archive gate).
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-
 usage() {
     echo "Usage: $0 --expectations <path> --qa-report <path> [--report]"
     exit 2
@@ -48,7 +46,9 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-[ -n "$EXPECTATIONS_FILE" ] && [ -n "$QA_REPORT" ] || usage
+if [ -z "$EXPECTATIONS_FILE" ] || [ -z "$QA_REPORT" ]; then
+    usage
+fi
 
 # No expectations file → skip.
 [ -f "$EXPECTATIONS_FILE" ] || exit 0
@@ -76,6 +76,7 @@ EMPIRICAL_COUNT=$(grep -c 'evidence_type:[[:space:]]*empirical' "$EXPECTATIONS_F
 LIVE_MARKERS=0
 
 # Marker 1: code fence with a command AND output (not just a command listing)
+# shellcheck disable=SC2016  # PCRE pattern with literal $/backtick markers
 if grep -qPz '(?s)```(bash|text|shell)?\s*\n\$?\s*\w+.*\n(.*\n){1,20}```' "$QA_REPORT" 2>/dev/null; then
     LIVE_MARKERS=$((LIVE_MARKERS + 1))
 fi
