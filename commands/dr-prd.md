@@ -17,6 +17,8 @@ This command generates a structured Product Requirements Document (PRD) followin
 
 ### EXECUTION HOST
 
+The framework ships a PreToolUse guard (`dev-tools/datarim-exec-guard.sh`) that enforces host-key verification mechanically — it intercepts mutating Bash calls and denies execution when the current machine is not the declared execution host for this workspace. **Install it as a hook** per `CLAUDE.md` § Datarim Execution Host: symlink into `~/.local/bin/` and register in `~/.claude/settings.json`. The guard is the hard floor; this Step-0 check is the cooperative soft layer sharing the same resolver library (`dev-tools/lib/execution-host.sh`).
+
 1. Source the resolver: `source "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/lib/execution-host.sh"`.
 2. Call `eh_decision <workspace-root> <execution-hosts-map-path>` (default map: `~/.claude/local/config/execution-hosts.yml`).
 3. On **off-host** (exit code 10), AUTO-DISPATCH -- do NOT stop and hand the command back for the operator to type. The `required_host` binding IS the operator's standing authorization to run there, and dispatch (spawning a remote tmux session) is a reversible transport action; every irreversible step (prod deploy, secret rotation, force-push, public message) stays hard-gated on the remote agent downstream. Contract:
@@ -27,8 +29,6 @@ This command generates a structured Product Requirements Document (PRD) followin
    e. **After dispatch/attach, act only as a READ-ONLY MONITOR.** Poll the task runtime status file (`datarim/runtime/<TASK-ID>.status`) and classify the remote pane (`dev-tools/classify-pane.sh`). Wait up to ~90s for the first status write; if none, re-send the bare task-id ONCE into the existing pane and wait once more; still none = FAILED-LAUNCH -> durable local log line + escalate + STOP (never silent re-dispatch). Steady-state supervise; when the remote agent hits a hard-gate, relay the question+options to the operator and pass back their choice as an option index -- NEVER answer a hard-gate yourself and never proceed on silence. Write one identifier-free local audit line per dispatch attempt.
 4. On **unconfigured** (exit code 0, binding absent): proceed unchanged (fail-open).
 5. On **on-host** (exit code 0, binding present): proceed normally.
-
-Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 check is the cooperative soft layer sharing the same resolver library.
 
 
 0.5. **READ INIT-TASK** (mandatory per `$HOME/.claude/skills/init-task-persistence/SKILL.md`): Open `datarim/tasks/{TASK-ID}-init-task.md` if present. Read the full `## Operator brief (verbatim)` section AND every `## Append-log` entry. Any divergence between the operator's stated intent and the discovery scope MUST be surfaced in PRD § Discovery / § Constraints. Missing init-task is non-blocking — flag as advisory and continue.
