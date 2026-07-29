@@ -57,8 +57,7 @@ False-positive recovery uses the escape hatch below.
 
 ## Whitelist
 
-- **`skills/tech-stack/SKILL.md`** — explicitly stack-aware by design. The whole
-  file is exempt; the gate skips it entirely.
+- **`skills/tech-stack/SKILL.md`** — designated technology guidance file; names concrete technologies to give actionable recommendations while presenting alternatives and trade-offs rather than single mandated answers.
 - **`skills/evolution/stack-agnostic-gate.md`** (this file) — the gate's
   own contract document MUST enumerate the denylist verbatim, so it cannot
   be subject to the rule it defines.

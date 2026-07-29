@@ -27,7 +27,7 @@ Your goal is to ensure system integrity, scalability, and alignment with archite
   - `$HOME/.claude/skills/immutability/SKILL.md` (Artefact Immutability rule, per-stage fragments for PRD and design stages — load `/dr-prd Rules` for PRD work, `/dr-design Rules` for design work)
 - When researching external libraries or APIs, use context7 MCP server if available for token-efficient documentation access. Fall back to WebFetch/WebSearch if context7 is not configured.
 - LOAD WHEN NEEDED:
-  - `$HOME/.claude/skills/tech-stack/SKILL.md` (When making technology decisions or designing architecture for new services)
+  - `$HOME/.claude/skills/tech-stack/SKILL.md` (When making technology decisions or designing architecture for new services — generates stack proposals with alternatives and trade-offs, not a single mandated answer)
 - OPTIONAL: `$HOME/.claude/skills/performance/SKILL.md`, `$HOME/.claude/skills/security/SKILL.md`
 
 **Output discipline**:
