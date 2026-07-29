@@ -32,6 +32,8 @@ This command generates a detailed implementation plan in `datarim/tasks.md`, str
 Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 check is the cooperative soft layer sharing the same resolver library.
 
 
+0.8. **SKILL**: Also load `$HOME/.claude/skills/immutability/SKILL.md` — read the `/dr-plan Rules` fragment for plan artefact immutability, V-AC parity, and Return-to-Source routing.
+
 1.  **TASK RESOLUTION**: Apply Task Resolution Rule from `$HOME/.claude/skills/datarim-system/SKILL.md` § Task Resolution Rule. Use the resolved task ID for all subsequent steps.
 
 1.5. **READ INIT-TASK** (mandatory per `$HOME/.claude/skills/init-task-persistence/SKILL.md`): Open `datarim/tasks/{TASK-ID}-init-task.md` if present. Read the full `## Operator brief (verbatim)` section AND every `## Append-log` entry. Any divergence between the operator's stated intent and the planned scope MUST be recorded in the plan's § Notes / § Risks. Missing init-task is non-blocking — flag as advisory and continue.

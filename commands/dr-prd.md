@@ -43,6 +43,8 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
         - HINT: recommend the research path instead — run `/dr-plan` with the research-workflow skill (`$HOME/.claude/skills/research-workflow/SKILL.md`) so findings land in `datarim/insights/INSIGHTS-{task-id}.md`, and drive candidate elimination through `/dr-plan` § Research Kill-Criteria Checkpoint rather than a product Technical-Approach section. If the operator confirms a genuine product PRD is still wanted, proceed with the phases below.
     -   The guard is **advisory-only**: it never blocks. In auto-mode (see § /dr-auto Mode) resolve the confirm/decline through the Question Suppression Ladder; log the decision per `$HOME/.claude/skills/init-task-persistence/SKILL.md` § Q&A round-trip. On no detection, continue silently to Step 1.
 
+0.8. **SKILL**: Also load `$HOME/.claude/skills/immutability/SKILL.md` — read the `/dr-prd Rules` fragment for PRD artefact immutability, V-AC parity, and Return-to-Source routing.
+
 1.  **Analyze Context (Phase 1)**:
     -   Read `datarim/projectbrief.md`, `techContext.md`, and `systemPatterns.md`.
     -   Identify affected components and constraints (Security, Performance).
