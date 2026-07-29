@@ -29,7 +29,7 @@ description: Explore architectural and design decisions for complex features (Le
 4. On **unconfigured** (exit code 0, binding absent): proceed unchanged (fail-open).
 5. On **on-host** (exit code 0, binding present): proceed normally.
 
-Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 check is the cooperative soft layer sharing the same resolver library.
+The framework ships the PreToolUse guard (`dev-tools/datarim-exec-guard.sh`) that enforces host-key verification mechanically — it intercepts mutating Bash calls and denies execution when the current machine is not the declared execution host for this workspace. **Install it as a hook** per the header comment in the guard script: symlink into `~/.local/bin/` and register in `~/.claude/settings.json`. The guard is the hard floor; this Step-0 check is the cooperative soft layer sharing the same resolver library (`dev-tools/lib/execution-host.sh`).
 
 3.  **CONTEXT**: Read `datarim/tasks.md` and `datarim/systemPatterns.md`. Additionally, read `datarim/tasks/{TASK-ID}-init-task.md` if present (mandatory per `$HOME/.claude/skills/init-task-persistence/SKILL.md`): the verbatim operator brief + every append-log block. Any divergence between the operator's stated intent and the design proposals MUST be recorded in each creative doc's § Decisions. Missing init-task is non-blocking — flag as advisory and continue.
 
