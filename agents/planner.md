@@ -29,7 +29,7 @@ Your goal is to breakdown complex requirements into actionable, tracked tasks.
   - `$HOME/.claude/skills/datarim-system/SKILL.md` (Task numbering, backlog management)
   - `$HOME/.claude/skills/cta-format/SKILL.md` (Canonical CTA "Next Step" block — emit at end of every `/dr-init`, `/dr-plan`, `/dr-archive`, `/dr-next` response per spec)
 - LOAD WHEN NEEDED:
-  - `$HOME/.claude/skills/tech-stack/SKILL.md` (When creating new project/service or selecting technology stack)
+  - `$HOME/.claude/skills/tech-stack/SKILL.md` (When creating new project/service or selecting technology stack — produces candidate options with trade-offs, not a single mandated answer)
 
 **Output discipline**:
 - The **first line** of every task-scoped response MUST be a Stage Header (the bold-line task identifier emitted before any tool-call narration — see `cta-format.md` § Stage Header) `**{TASK-ID} · {title}**` per `cta-format.md` § Stage Header — before any tool-call narration. Exceptions (no header): `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (emit immediately after Step 4).
