@@ -214,6 +214,7 @@ Before writing ANY file to `datarim/`:
 | `/dr-status` | Utility | Check current task and backlog status |
 | `/dr-next` | Utility | Resume from last checkpoint |
 | `/dr-quick` | Utility | Fast-lane for trivial fixes / quick lookups — `QCK-XXXX`, weak-model KB scan, short `quick/` archive. Skips PRD/plan/design/QA/compliance |
+| `/dr-wizard` | Requirements | Interactive task-spec wizard — staged questions, resumable state, graph artefact |
 | `/dr-write` | Content | Create written content — articles, docs, research, posts |
 | `/dr-edit` | Content | Editorial review — fact-check, humanize, style, polish |
 | `/dr-publish` | Content | Adapt and publish content to multiple platforms |

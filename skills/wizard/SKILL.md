@@ -1,6 +1,6 @@
 ---
 name: wizard
-description: Interactive task-spec wizard — a thin orchestrator over the discovery and consilium skills that runs a guided, interruptible, tree-drilling interview, persists it to an append-only JSONL event log, and emits a knowledge/dependency graph. Use from /dr-wizard, or before /dr-prd on L3-4 tasks where "agent misread the intent" is costly.
+description: Interactive task-spec wizard — a thin orchestrator over discovery and consilium that turns a rough brief into a structured spec plus a graph artefact.
 model: inherit
 current_aal: 1
 target_aal: 3
