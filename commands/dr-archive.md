@@ -159,6 +159,48 @@ The framework ships the PreToolUse guard (`dev-tools/datarim-exec-guard.sh`) tha
    is permitted.
 
 
+0.13. **CLOSURE REACHABILITY GATE** (MANDATORY for every git repository touched by the task):
+
+   Step 0.12 asserts that local commits reached **the remote**. It does not assert that the
+   work reached the repository's **canonical default branch**. A pushed feature branch whose
+   pull request was never opened satisfies 0.12 completely while leaving the framework without
+   the work — which is precisely how 22 backlog entries came to read `done` with zero of their
+   content in `origin/main`, each recording `await ... signed-push+PR` as its evidence. Closure
+   is reachability from `main`, not a branch existing somewhere.
+
+   **0.13.1 Detection per repo.** For each git repository classified in Step 0.1.1:
+
+   ```bash
+   "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/closure-gate.sh" \
+       --root <repo-path> --branch <task-branch> --task <TASK-ID>
+   ```
+
+   Exit `0` = every file and line the branch contributes is present in `origin/main`;
+   exit `1` = work is absent, and the task MUST NOT be marked `done`;
+   exit `2` = usage or environment error, including an unresolvable base ref. Unlike 0.12,
+   this gate fails **closed**: a base that cannot be resolved is never read as "everything
+   landed", because that reading is what produced the defect.
+
+   **0.13.2 What it asserts, and why not the obvious alternatives.**
+   - **Not ancestry of the evidence commit.** `main` merges by squash, so a branch's own
+     commits are never ancestors of `main`. `git merge-base --is-ancestor <evidence> origin/main`
+     is false for every *correctly* merged task, so a gate built on it would block everything
+     while catching nothing — an acceptance check no correct task can satisfy.
+   - **Not commit-message matching.** `git log --grep=<TASK-ID>` is unsound in both directions:
+     it misses work that landed without naming its id, and it reports work as landed when an
+     unrelated commit merely mentions the id.
+   - **Not added-file counts.** `git diff --diff-filter=A` counts only *additions*, so a branch
+     that solely modifies existing files reports zero while its work is unmerged.
+   - **Content reachability**, which squash-merge preserves: every added file must be present in
+     `origin/main` by blob or basename, and every substantive line added to a pre-existing file
+     must be findable in the `origin/main` tree.
+
+   **0.13.3 Routing on exit 1.** Halt the archive. The work is real and unmerged, so the
+   resolution is to land it — open the pull request, merge it, then re-run the gate. If the work
+   is deliberately being abandoned, that is a **cancellation**, not an archive: record it per
+   § Cancellation Mode. Marking `done` with the work outside `main` is not an available outcome,
+   and no attestation substitutes for the gate passing.
+
 0.15. **DRIFT SITE-UPDATE GATE** (MANDATORY when the task's commits touched a path under a registered product's `repo_local` in `documentation/ecosystem-sync/registry.yml`):
 
    When an archived task changed a registered product's repository, the deployed
