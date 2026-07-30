@@ -39,9 +39,15 @@ teardown() {
 }
 
 # --- P-2: public-routable IP still caught (heuristic, no listing needed) -----
+#
+# The fixture is 198.18.0.0/15 (RFC 2544 benchmarking). The heuristic's contract
+# is "any globally-routable address that is not a reserved/documentation block",
+# and 198.18/15 satisfies it while being assigned to no real host. A fixture
+# taken from live infrastructure would publish that infrastructure in a PUBLIC
+# repo — the same defect this gate exists to prevent, relocated into its test.
 @test "P-2 real public IPv4 still flagged without any denylist entry" {
     printf 'deploy target 203.0.113.9 is documentation-range\n' > "$TMP_DIR/doc.txt"
-    printf 'deploy target 65.108.236.39 is a real host\n' > "$TMP_DIR/real.txt"
+    printf 'deploy target 198.18.51.100 is a real host\n' > "$TMP_DIR/real.txt"
     run bash "$GATE" --regex "$REGEX" --paths "$TMP_DIR/real.txt" --check
     [ "$status" -eq 1 ]
 }
@@ -54,15 +60,22 @@ teardown() {
 }
 
 # --- P-4: CGNAT mesh address caught via the local overlay -------------------
+#
+# 100.100.100.100 is inside 100.64/10 and belongs to no host. What this test
+# proves is the overlay MECHANISM (a pattern supplied out-of-band is honoured);
+# the specific address is irrelevant to that proof, so it must not be a real
+# mesh peer. Note the second fixture is the address in escaped denylist-entry
+# form — a real value there would ship the very literal the shipped denylist
+# deliberately no longer carries.
 @test "P-4 CGNAT mesh address flagged when a local overlay supplies it" {
-    printf 'mesh peer 100.78.174.28 reachable\n' > "$TMP_DIR/mesh.txt"
+    printf 'mesh peer 100.100.100.100 reachable\n' > "$TMP_DIR/mesh.txt"
 
     # Without an overlay the heuristic deliberately skips 100.64/10.
     run bash "$GATE" --regex "$REGEX" --paths "$TMP_DIR/mesh.txt" --check
     [ "$status" -eq 0 ]
 
     # With the overlay the same content must be flagged.
-    printf '\\b100\\.78\\.174\\.28\\b\n' > "$TMP_DIR/local.regex"
+    printf '\\b100\\.100\\.100\\.100\\b\n' > "$TMP_DIR/local.regex"
     run env DATARIM_PERSONAL_ID_OVERLAY="$TMP_DIR/local.regex" \
         bash "$GATE" --regex "$REGEX" --paths "$TMP_DIR/mesh.txt" --check
     [ "$status" -eq 1 ]
