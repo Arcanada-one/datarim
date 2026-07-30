@@ -43,10 +43,13 @@ The framework ships the PreToolUse guard (`dev-tools/datarim-exec-guard.sh`) tha
    - Run the canonical helper (do NOT compute `max+1` mentally):
      `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/next-free-id.sh" QCK "$DATARIM_ROOT"`
      where `$DATARIM_ROOT` is the workspace root (parent of `datarim/`). The helper applies the canonical formula
-     `max(claimed across documentation/archive ∪ datarim/tasks.md ∪ datarim/backlog.md) + 1`
-     over all three claim surfaces and auto-bumps on a parallel-session race, printing the chosen `QCK-NNNN` to stdout.
+     `max(claimed across archive/datarim filenames ∪ line-leading index rows in datarim/tasks.md and datarim/backlog.md) + 1`
+     and auto-bumps on a parallel-session race, printing the chosen `QCK-NNNN` to stdout. Its CEILING counts only
+     structural positions (filenames, line-leading rows); its separate COLLISION probe is wider and also counts prose
+     mentions, live tmux session names and git worktree/branch names. The helper exits non-zero rather than emit an
+     ID outside the 4-digit space.
      **Documented fallback** (helper unavailable in this runtime): compute the same formula by hand.
-   - **Do not emit or announce the chosen task ID — in reply text or in any artefact — until the helper has returned (its grep IS the 3-surface collision probe).**
+   - **Do not emit or announce the chosen task ID — in reply text or in any artefact — until the helper has returned (its grep IS the full claim-surface collision probe).**
    - If the computed candidate is already claimed (a parallel-session race on the agent's own new ID), the helper auto-bumps to the next free ID and emits a warning — no operator prompt.
    - `QCK` is a universal area-prefix; its archive subdirectory is `quick/`.
 
