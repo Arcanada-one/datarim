@@ -36,6 +36,44 @@
 
 ---
 
+## File: documentation/reference/architecture.md — SECRECY-AWARE VARIANT
+
+> **Use this variant instead of the one above when `/dr-init` project-init is in
+> secrecy-aware mode** (Step 4.5 detected a secrecy signal). The mechanism-bearing
+> sections are redacted so the secret core never lands on the public surface. The
+> secret lives only in the private code and, if needed, in `documentation/ephemeral/`.
+
+```markdown
+# Architecture
+
+> Last updated: __DATE__
+>
+> 🔒 **Secret-core project.** The internal mechanism is REDACTED from this public
+> reference. Do not describe the algorithm / encoding / mechanism here or anywhere
+> under `documentation/{tutorials,how-to,reference,explanation}/` or `README*`.
+> See CLAUDE.md § Secrecy for the disclosure boundary and the pre-publish gate.
+
+## Overview
+
+[REDACTED — see CLAUDE.md § Secrecy]
+
+## Components
+
+| Component | Path | Language | Purpose |
+|-----------|------|----------|---------|
+| [internal] | `src/` | [internal] | [REDACTED — see CLAUDE.md § Secrecy] |
+
+## Data Flow
+
+[REDACTED — see CLAUDE.md § Secrecy]
+
+## Security Model
+
+[REDACTED — see CLAUDE.md § Secrecy]
+```
+
+---
+
 ## File: documentation/how-to/testing.md
 
 ```markdown

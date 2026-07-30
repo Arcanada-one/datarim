@@ -103,3 +103,31 @@ This project uses [Datarim](https://datarim.club) for structured task execution.
 ## Additional Rules
 
 - [TODO: Add project-specific rules]
+
+<!-- SECRECY-BLOCK: include only when /dr-init project-init detected a secrecy signal (secrecy-aware mode). Drop this whole block for non-secret projects. Fill __MECHANISM_TERM_*__ with this project's real mechanism terms. -->
+
+## Secrecy
+
+> 🔒 **Secret-core project.** The internal mechanism is proprietary and MUST NOT
+> appear on any public surface. Emitted at scaffold time (`/dr-init` secrecy-aware
+> mode), not as a post-hoc fix.
+
+**Boundary.** The secret mechanism lives only in the private code and, if needed,
+in `documentation/ephemeral/`. The public Diátaxis surface
+(`documentation/{tutorials,how-to,reference,explanation}/`) and any `README*` MUST
+be mechanism-free — reference stubs carry `[REDACTED — see CLAUDE.md § Secrecy]`.
+
+**Pre-publish gate.** Before ANY public publication (site, README, social, npm/docs),
+run the secrecy gate. It must return no output (empty = pass). README is resolved
+via `find` so an absent README is graceful (never a bare `README*` glob to `grep`):
+
+```bash
+# Replace __MECHANISM_TERM_*__ with this project's real mechanism lexicon.
+readmes=$(find . -maxdepth 1 -name 'README*')
+grep -rin -E '__MECHANISM_TERM_1__|__MECHANISM_TERM_2__|__MECHANISM_TERM_N__' \
+  documentation/tutorials documentation/how-to \
+  documentation/reference documentation/explanation \
+  $readmes 2>/dev/null && echo "SECRECY GATE FAILED — mechanism leaked" || echo "secrecy gate: clean"
+```
+
+<!-- END SECRECY-BLOCK -->
