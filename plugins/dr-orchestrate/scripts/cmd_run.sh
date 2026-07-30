@@ -8,6 +8,15 @@ set -euo pipefail
 DR_ORCH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export DR_ORCH_DIR
 
+# Stateful modules must see one canonical root. Keep STATE_DIR as the legacy
+# compatibility alias, but never let source order select a different root.
+AUDIT_DIR="${AUDIT_DIR:-$HOME/.local/share/datarim-orchestrate}"
+DR_ORCH_STATE_DIR="${DR_ORCH_STATE_DIR:-${STATE_DIR:-$AUDIT_DIR/state}}"
+STATE_DIR="$DR_ORCH_STATE_DIR"
+export AUDIT_DIR DR_ORCH_STATE_DIR STATE_DIR
+umask 077
+mkdir -p "$AUDIT_DIR" "$DR_ORCH_STATE_DIR"
+
 DRY_RUN=0
 PANE_ID=""
 UNKNOWN_PROMPT=0
@@ -29,9 +38,8 @@ while (( $# > 0 )); do
 usage: dr-orchestrate run [--dry-run] [--pane <pane_id>]
        dr-orchestrate run --unknown-prompt [text]
 
-Phase 2 (TUNE-0165) adds subagent inference for parser misses: confidence-0
-parses fall through to subagent_resolver.sh → autonomous-or-escalate, with
-audit schema v2 emitted at each stage.
+Phase 3 (TUNE-0166) adds trusted action execution plus actor/session-bound
+Save-as-rule confirmation, 24-hour re-validation, and a seven-day rule TTL.
 USAGE
                exit 0 ;;
     *)         echo "ERR: unknown arg '$1'" >&2; exit 2 ;;
@@ -50,17 +58,52 @@ source "$DR_ORCH_DIR/scripts/audit_sink.sh"
 source "$DR_ORCH_DIR/scripts/semantic_parser.sh"
 # shellcheck source=bot_interaction_dispatcher.sh
 source "$DR_ORCH_DIR/scripts/bot_interaction_dispatcher.sh"
+# shellcheck source=learned_rules.sh
+source "$DR_ORCH_DIR/scripts/learned_rules.sh"
 USER_CONFIG_YAML="${DR_ORCH_USER_CONFIG:-$DR_ORCH_DIR/user-config.yaml}"
 [[ -f "$USER_CONFIG_YAML" ]] && bot_interaction_load "$USER_CONFIG_YAML" || true
 
 SESSION_NAME="${SESSION_NAME:-datarim}"
-AUDIT_DIR="${AUDIT_DIR:-$HOME/.local/share/datarim-orchestrate}"
-STATE_DIR="${STATE_DIR:-$AUDIT_DIR/state}"
 CONFIDENCE_THRESHOLD="${DR_ORCH_CONFIDENCE_THRESHOLD:-0.80}"
-export STATE_DIR
-mkdir -p "$AUDIT_DIR" "$STATE_DIR"
 
 AUDIT_FILE="$AUDIT_DIR/audit-$(date -u +%Y-%m-%d).jsonl"
+DR_ORCH_AUDIT_FILE="$AUDIT_FILE"
+export DR_ORCH_AUDIT_FILE
+
+trusted_action() {
+  local action="$1"
+  load_trusted_actions | jq -e --arg action "$action" 'index($action) != null' >/dev/null
+}
+
+# execute_selected_action <action> <pane> <cycle_id> <confidence> <intent> <propose>
+# The write-ahead checkpoint is mandatory. A test seam records the action
+# instead of touching tmux, while production uses the existing safe pane path.
+execute_selected_action() {
+  local action="$1" pane="$2" cycle_id="$3" confidence="$4" intent="$5"
+  local should_propose="${6:-0}"
+  trusted_action "$action" || return 3
+  local payload
+  payload="$(jq -n -c --arg command "$action" '{command:$command}')"
+  bash "$DR_ORCH_DIR/scripts/action_gate.sh" gate \
+    --action framework_command --payload "$payload" >/dev/null || return 10
+  check_cooldown "$pane" decision 2>/dev/null || return 11
+  emit "$AUDIT_FILE" "$(make_cycle_checkpoint prepare "$cycle_id" "$SESSION_NAME" "$pane" "$action" pending)" \
+    || return 12
+  local rc=0
+  if [[ -n "${DR_ORCH_ACTION_EXECUTOR_LOG:-}" ]]; then
+    printf '%s\n' "$action" >> "$DR_ORCH_ACTION_EXECUTOR_LOG" || rc=$?
+  else
+    pane_send "$pane" "$action" || rc=$?
+  fi
+  emit "$AUDIT_FILE" "$(make_cycle_checkpoint terminal "$cycle_id" "$SESSION_NAME" "$pane" "$action" pending "exit_$rc")" \
+    || return 12
+  if (( rc == 0 && should_propose == 1 )); then
+    learned_rules_propose "$intent" "$action" "$confidence" \
+      "${DR_ORCH_ACTOR:-${USER:-agent}}" "${DR_ORCH_SESSION_CONTEXT:-$SESSION_NAME}" \
+      >/dev/null 2>&1 || true
+  fi
+  return "$rc"
+}
 
 # resolve_and_route <pane_text> <pane_id> <start_ms> — Phase 2 unknown-prompt
 # handler. Calls subagent_resolver.sh, gates on confidence threshold, either
@@ -86,6 +129,7 @@ resolve_and_route() {
   awk -v c="$conf" -v t="$CONFIDENCE_THRESHOLD" 'BEGIN{ exit !(c+0 >= t+0) }' && pass=1
 
   if (( pass )); then
+    [[ -n "$action_kind" ]] || action_kind="framework_command"
     if [[ -n "$action_kind" ]]; then
       local gate_rc
       set +e
@@ -105,9 +149,10 @@ resolve_and_route() {
         return 0
       fi
     fi
-    local outcome="resolved"
-    if ! check_cooldown "$pane" decision 2>/dev/null; then
-      outcome="blocked_decision_cooldown"
+    local outcome="resolved" cycle_id
+    cycle_id="$(hash_sha256 "$start_ms:$pane:$text")"
+    if ! execute_selected_action "$action" "$pane" "$cycle_id" "$conf" "$text" 1; then
+      outcome="blocked_execution"
     fi
     local evt
     evt="$(make_event_v2 "$text" "$action" 0 "$dur" "$pane" \
@@ -164,9 +209,12 @@ if (( UNKNOWN_PROMPT )); then
 fi
 
 tmux_version_check
-session_init "$SESSION_NAME"
+session_recover "$SESSION_NAME"
 
 PANE_ID="${PANE_ID:-${SESSION_NAME}:0.0}"
+
+learned_rules_maintenance >/dev/null 2>&1 || true
+recover_latest_cycle_checkpoint "$AUDIT_DIR" "$AUDIT_FILE" "$SESSION_NAME" "$PANE_ID" || true
 
 start_ms=$(now_ms)
 text="$(pane_capture "$PANE_ID" 2>/dev/null || true)"
@@ -180,11 +228,13 @@ dur=$(( end_ms - start_ms ))
 # stage=parse, outcome=resolved. expected_outcome read from env (soak driver).
 # Routing unchanged — rule-hit still resolves locally without subagent call.
 if [[ "$confidence" != "0" ]]; then
+  selected_action="$(printf '%s' "$decision" | jq -r '.action // ""')"
   local_outcome="resolved"
-  if ! check_cooldown "$PANE_ID" decision 2>/dev/null; then
-    local_outcome="blocked_decision_cooldown"
+  cycle_id="$(hash_sha256 "$start_ms:$PANE_ID:$text")"
+  if ! execute_selected_action "$selected_action" "$PANE_ID" "$cycle_id" "$confidence" "$text" 0; then
+    local_outcome="blocked_execution"
   fi
-  evt="$(make_event_v2 "$text" "dr-orchestrate run" 0 "$dur" "$PANE_ID" \
+  evt="$(make_event_v2 "$text" "$selected_action" 0 "$dur" "$PANE_ID" \
           "$confidence" "" "" "" "parse" "$local_outcome" "rule_hit")"
   emit "$AUDIT_FILE" "$evt"
   echo "dr-orchestrate run | confidence=$confidence | pane=$PANE_ID | dur=${dur}ms | outcome=$local_outcome | $(date -u +%FT%TZ)"

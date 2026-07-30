@@ -162,6 +162,8 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ### Added
 
+- **`/dr-orchestrate` Phase 3 confirmed auto-learning.** Successful trusted resolutions can emit an actor/session-bound `Save as rule? [Y/N]` callback. Affirmative one-time callbacks persist exact learned matches with 24-hour re-validation and an immutable seven-day TTL; learned actions remain subject to per-space policy and the Supreme-Directive hard-gated floor. This batch does not change release or plugin versions. (TUNE-0166)
+
 - **New Reference skill `image-prompting`** — a reusable playbook that turns a content brief into a precise, repeatable prompt for instruction-following image generators (the gpt-image family and equivalents): blog/article covers, video thumbnails, social-post images, illustrations, infographics/diagrams, logo marks, and edits of existing images. Covers the full method — intake → spec → prompt → verify loop, prompt anatomy, composition, style/medium, camera/lens, light, mood, palette, text-in-image constraints, negative constraints + invariants, native aspect/size handling, iterative refinement, plus a `prompt-templates.md` fragment with nine fill-in-the-blank templates and a ship-readiness verification checklist. Wired into the `writer` and `editor` agents (load-when-needed) and the agent↔skill dependency visual map. Completes the deferred merge of TUNE-0466 (skill authored + archived COMPLIANT, branch merge was an outstanding operator action). (TUNE-0466, TUNE-0480)
 
 ### Changed
