@@ -282,9 +282,9 @@ mandatory contract, not a judgment call.
    the four scanned scopes will itself trip the gate — reference banned markers abstractly in shipped
    text, never literally.)
 
-**Source:** reflection-TUNE-0150 § Evolution Proposal 2 (Class B). Founding incidents — Datarim v2.0.0
-absorption of 14 external skills (TUNE-0114); dead-cross-reference cleanup (TUNE-0150); regression gate
-(TUNE-0151). This pattern is the sibling of `## Pattern: Split-Architecture Metrics for Absorption
+**Source:** `documentation/how-to/evolution-log.md` — the Class B proposal accepted after the v2.0.0
+absorption of 14 external skills, its dead-cross-reference cleanup, and the regression gate that
+followed. This pattern is the sibling of `## Pattern: Split-Architecture Metrics for Absorption
 Tasks` above — both encode contracts an absorption task must satisfy.
 
 ---
