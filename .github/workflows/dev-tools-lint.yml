@@ -40,6 +40,7 @@ jobs:
           bats dev-tools/tests/doc-fanout-lint.bats
           bats dev-tools/tests/check-public-repository-boundary.bats
           bats dev-tools/tests/check-github-actions-execution.bats
+          bats dev-tools/tests/rename-task-prefix.bats
 
   linter-run:
     name: doc-fanout-lint run (warning-only)
