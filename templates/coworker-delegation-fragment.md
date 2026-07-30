@@ -24,7 +24,10 @@ OpenAI) via the OpenAI-compatible API. Provider/model switchable per call.
 
 ### Never write directly — always `coworker write --profile datarim-write` first, then edit
 
-- First draft of PRD, plan, design docs, task-description.
+- First draft of PRD, plan, design docs, task-description. A design doc
+  (`creative-*.md`) that only *transcribes* an architectural decision already
+  reasoned and vetted in-cycle — rather than drafting one — is exempt; see
+  § Exempt.
 
 Published content (articles, social posts, ecosystem-site docs) is NOT in
 this list — see § Do NOT delegate, "Voice-bearing and judgment content".
@@ -39,6 +42,40 @@ this list — see § Do NOT delegate, "Voice-bearing and judgment content".
 <!-- /gate:history-allowed -->
   precedent). Direct `Write` allowed. If context is empty (recovering a
   stale archive months later) the operator picks coworker manually.
+
+- **Vetted architectural creative-docs** — same rationale as the archive /
+  reflection exempt above, extended to an architectural-decision
+  `creative-*.md` (ADR, threat-model, algorithm- or design-contract) that is
+  *transcription, not generation*. Delegation here saves ~0 tokens (spec ≈
+  final text) and only round-trips vetted facts through a paraphrasing LLM —
+  the exact fabrication mode this exempt list exists to avoid. The carve-out
+  applies only when **ALL** of the following hold:
+  1. the doc **records a decision**, not a first-time exploration of the
+     design space;
+  2. its load-bearing facts (IPs, hostnames, IDs, chosen-vs-rejected verdicts)
+     were **already reasoned and vetted by the writing agent earlier in the
+     same task-cycle**;
+  3. those facts are **correctness-critical**, where a paraphrase is a defect;
+  4. faithful reproduction forces **spec ≈ final text**, so delegation buys no
+     net token saving.
+
+  A design doc whose reasoning is still forming fails (1)/(4) and stays
+  MANDATORY: *"I vetted the decision"* is not *"I already wrote the draft"*.
+
+  These four conditions **govern eligibility** — they are semantic and the
+  runtime hook cannot observe them, so this is **not** a "vetted => write
+  directly" licence. Once the conditions genuinely hold, you *enact* the
+  exemption by adding the doc's basename glob to
+  `dev-tools/coworker-delegation-exempt.patterns` (a git-tracked, auditable
+  edit; the hook then silently allows the matching `creative-*.md`). The
+  default globs are keyword-based (`*architecture*`, `*-design*`, `*-adr*`,
+  `*threat-model*`, `*algorithm*`), so a task-named doc such as
+  `creative-{TASK-ID}-*.md` will **not** auto-match — add its glob
+  deliberately rather than assume coverage. Do **not** broaden the default
+  globs to auto-pass docs by filename keyword, and do **not** treat a Bash
+  heredoc (which the hook does not gate) as a sanctioned path — that is an
+  un-gated hole, never a policy exemption, and must not be used to skip
+  delegation on a genuine first draft.
 
 ### Always `coworker ask` if ANY trigger fires
 
