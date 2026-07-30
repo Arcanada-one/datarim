@@ -21,7 +21,7 @@ ROOT="$BATS_TEST_DIRNAME/.."
 @test "existing /dr-do spec graph self-verification and network gates remain" {
   grep -qF 'AUTOMATIC SPEC-GRAPH EVIDENCE CHECK' "$ROOT/commands/dr-do.md" \
     && grep -qF 'NETWORK EXPOSURE PRE-COMMIT GATE' "$ROOT/commands/dr-do.md" \
-    && grep -qF 'AUTOMATIC POST-STEP SELF-VERIFICATION' "$ROOT/commands/dr-do.md"
+    && grep -qF 'automatic self-verification hook for this stage' "$ROOT/commands/dr-do.md"
 }
 
 @test "existing QA expectations anti-deferral and test gates remain" {
