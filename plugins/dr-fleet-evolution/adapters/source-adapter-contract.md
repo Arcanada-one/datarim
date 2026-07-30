@@ -7,8 +7,12 @@ candidate scoring.
 
 ## Interface
 
-- **Invocation:** `adapter.sh <source-path>` — `argv[1]` is a directory or file
-  the adapter reads. Adapters MUST NOT read any path other than the one passed.
+- **Invocation:** `adapter.sh <source-path>` — `argv[1]` is the origin the
+  adapter reads: a directory or file for filesystem sources, or a broker URL
+  (e.g. `redis://host:port`) for live sources. Adapters MUST NOT read any origin
+  other than the one passed. A broker-backed adapter MUST self-gate — exit `0`
+  with empty stdout when the broker is unreachable (an absent broker is not an
+  error).
 - **stdout:** JSONL — one JSON object per line, each conforming to the schema
   below. No trailing prose, no banner lines.
 - **Exit codes:**
@@ -48,12 +52,14 @@ Adapters are listed in `source-adapters.conf`, one per line:
 ```
 
 Adding a line activates a new adapter in the next loop run. No code change to the
-loop is required — this is the extension-point for future sources (e.g. the
-deferred audit-log adapter, a tracked follow-up).
+loop is required — this is the extension-point for new sources.
 
 ## Security
 
-Adapter output is fed to an external LLM via `coworker`. Adapters MUST only read
-public knowledge-base artefacts (archive records, reflection notes). Sources that
-may carry sensitive traces (paths, hostnames, command fragments, secrets) require
-a redaction layer before they are eligible — see the tracked follow-up.
+Adapter output is fed to an external LLM via `coworker`. Adapters that read
+public knowledge-base artefacts (archive records, reflection notes) may emit
+their content verbatim. Any source that may carry sensitive traces — paths,
+hostnames, command fragments, secrets — MUST run every emitted string through a
+redaction layer first. The `audit-log` adapter reads the fleet audit stream and
+does exactly this via `lib/redact.sh` (`redact_trace`), replacing secrets, paths
+and network identifiers with placeholders before a record leaves the process.

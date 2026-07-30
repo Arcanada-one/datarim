@@ -59,8 +59,10 @@ _expand_path() {
     p=$(printf '%s' "$p" | sed -E \
         -e "s|\\\$\{DR_FLEET_ARCHIVE_DIR:-([^}]*)\}|${DR_FLEET_ARCHIVE_DIR:-\1}|g" \
         -e "s|\\\$\{DR_FLEET_DREAM_DIR:-([^}]*)\}|${DR_FLEET_DREAM_DIR:-\1}|g" \
+        -e "s|\\\$\{DR_ORCH_REDIS_URL:-([^}]*)\}|${DR_ORCH_REDIS_URL:-\1}|g" \
         -e "s|\\\$\{DR_FLEET_ARCHIVE_DIR\}|${DR_FLEET_ARCHIVE_DIR:-}|g" \
-        -e "s|\\\$\{DR_FLEET_DREAM_DIR\}|${DR_FLEET_DREAM_DIR:-}|g")
+        -e "s|\\\$\{DR_FLEET_DREAM_DIR\}|${DR_FLEET_DREAM_DIR:-}|g" \
+        -e "s|\\\$\{DR_ORCH_REDIS_URL\}|${DR_ORCH_REDIS_URL:-}|g")
     # Leading ~ → $HOME. (Literal tilde test; shellcheck SC2088 is a
     # false positive here — we are matching a literal ~, not expanding one.)
     local tilde='~'
@@ -81,10 +83,18 @@ collect_dataset() {
         script_abs="$PLUGIN_DIR/${script_rel#plugins/dr-fleet-evolution/}"
         [ -x "$script_abs" ] || { log "adapter not executable: $script_abs (skip)"; continue; }
         source_path=$(_expand_path "$source_path")
-        if [ ! -e "$source_path" ]; then
-            log "source path missing for '$label': $source_path (skip)"
-            continue
-        fi
+        # A redis:// source is a live broker, not a filesystem path — skip the
+        # existence check and let the adapter self-gate (it exits 0 empty when
+        # the broker is unreachable). Filesystem sources still require -e.
+        case "$source_path" in
+            redis://*) ;;
+            *)
+                if [ ! -e "$source_path" ]; then
+                    log "source path missing for '$label': $source_path (skip)"
+                    continue
+                fi
+                ;;
+        esac
         if raw=$("$script_abs" "$source_path" 2>/dev/null); then
             printf '%s\n' "$raw" >> "$out"
         else
