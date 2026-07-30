@@ -88,6 +88,57 @@ EOF
     [ "$status" -eq 1 ]
 }
 
+@test "S1: truthful-differently-worded evidence → exit 0 (not false-positive)" {
+    cat > "$TEST_TMP/task.md" <<'EOF'
+---
+title: prod task
+requires_runtime_probe: true
+---
+EOF
+    cat > "$TEST_TMP/archive.md" <<'EOF'
+## Verification
+Post-deploy probe returned HTTP 200. Version matches 2.59.0. Operator confirmed.
+EOF
+    run bash "$SC" --task-description "$TEST_TMP/task.md" --archive-doc "$TEST_TMP/archive.md"
+    [ "$status" -eq 0 ]
+}
+
+@test "S1: structured prod_verification: verified → exit 0" {
+    cat > "$TEST_TMP/task.md" <<'EOF'
+---
+title: prod task
+requires_runtime_probe: true
+---
+EOF
+    cat > "$TEST_TMP/archive.md" <<'EOF'
+---
+prod_verification: verified
+---
+## Archive
+Deployed. All good.
+EOF
+    run bash "$SC" --task-description "$TEST_TMP/task.md" --archive-doc "$TEST_TMP/archive.md"
+    [ "$status" -eq 0 ]
+}
+
+@test "S1: structured prod_verification: blocked-operator-approved → exit 0" {
+    cat > "$TEST_TMP/task.md" <<'EOF'
+---
+title: prod task
+requires_runtime_probe: true
+---
+EOF
+    cat > "$TEST_TMP/archive.md" <<'EOF'
+---
+prod_verification: blocked-operator-approved
+---
+## Archive
+Prod unreachable, operator confirmed manually.
+EOF
+    run bash "$SC" --task-description "$TEST_TMP/task.md" --archive-doc "$TEST_TMP/archive.md"
+    [ "$status" -eq 0 ]
+}
+
 @test "S1: BLOCKED with operator confirmation → exit 0 (valid exception)" {
     cat > "$TEST_TMP/task.md" <<'EOF'
 ---
@@ -162,6 +213,39 @@ EOF
 ## Verification
 Production unreachable (BLOCKED). Operator confirmed out-of-band verification.
 Deployment was verified manually. Operator approved.
+EOF
+    run bash "$PM" --task-description "$TEST_TMP/task.md" --archive-doc "$TEST_TMP/archive.md"
+    [ "$status" -eq 0 ]
+}
+
+@test "P1: truthful-differently-worded evidence → exit 0 (not false-positive)" {
+    cat > "$TEST_TMP/task.md" <<'EOF'
+---
+title: production deploy
+---
+Deploy to production server.
+EOF
+    cat > "$TEST_TMP/archive.md" <<'EOF'
+## Prod verification
+Post-merge health probe returned HTTP 200; version matches 2.59.0. Operator confirmed.
+EOF
+    run bash "$PM" --task-description "$TEST_TMP/task.md" --archive-doc "$TEST_TMP/archive.md"
+    [ "$status" -eq 0 ]
+}
+
+@test "P1: structured prod_verification: verified → exit 0" {
+    cat > "$TEST_TMP/task.md" <<'EOF'
+---
+title: production deploy
+---
+Deploy to production.
+EOF
+    cat > "$TEST_TMP/archive.md" <<'EOF'
+---
+prod_verification: verified
+---
+## Archive
+Deployed. All good.
 EOF
     run bash "$PM" --task-description "$TEST_TMP/task.md" --archive-doc "$TEST_TMP/archive.md"
     [ "$status" -eq 0 ]
