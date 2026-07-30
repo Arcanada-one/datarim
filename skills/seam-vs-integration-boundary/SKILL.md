@@ -27,7 +27,8 @@ The two concerns have different evidence chains and different done-definitions. 
 2. If both classes are present, do not proceed straight to component breakdown. Flag the operator with the two-way choice above (split vs explicit AC scoping) and record the decision in the plan's Overview / Decisions section.
 3. As a mechanical aid, run the advisory scanner over the one-liner:
    ```
-   dev-tools/check-seam-integration-boundary.sh --task {TASK-ID} --report
+   # noshellcheck-extract
+   "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-seam-integration-boundary.sh" --task {TASK-ID} --report
    ```
    It flags a co-occurrence of seam-class and integration-class signals. It is **advisory only** — never a hard block. The scanner's two signal lists are a floor, not a ceiling: it can miss a mix worded outside the lists, and it can false-positive on a genuine single-concern one-liner that incidentally carries one word from each list. The planner makes the final call; the scanner only surfaces candidates.
 4. When the task is split, the follow-up integration task gets its own backlog entry with its own acceptance. When the ACs are scoped instead, the seam task's acceptance must name the deferred integration and point at the follow-up so the boundary is falsifiable rather than implicit.
