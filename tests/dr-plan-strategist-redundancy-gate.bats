@@ -497,7 +497,7 @@ replace_field() {
     [ "$step3_line" -lt "$step4_line" ]
     grep -qF 'unlocks Step 4 only' "$COMMAND"
     grep -qF 'AUTOMATIC SPEC-GRAPH VALIDATION' "$COMMAND"
-    grep -qF 'AUTOMATIC POST-STEP SELF-VERIFICATION' "$COMMAND"
+    grep -qF '## Post-Step Self-Verification Hook (Automatic)' "$COMMAND"
     grep -qF 'Stage Snapshot Emission' "$COMMAND"
 }
 
