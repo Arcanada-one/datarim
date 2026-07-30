@@ -111,6 +111,18 @@ All notable changes to the Datarim framework are documented here. Format follows
 ### Fixed
 
 - **Coworker `write --context` file-type gate documented accurately** — the delegation fragment previously claimed write paths had no allowlist; corrected to describe the `--context` code-gate (needs `--allow-code`/`COWORKER_ALLOW_CODE=1`), the `--target`-only exemption, and the self-recursion doc-generation workaround. (TUNE-0261)
+- **Framework version accountability.** `/dr-init` now pins an immutable
+  repository baseline, while `/dr-do` and `/dr-qa` independently require a
+  version-and-changelog update or a committed, task-bound release deferral for
+  shipped framework behaviour changes. This batch records the explicit
+  consolidated-release deferral without publishing a version. (TUNE-0206)
+
+- **`/dr-orchestrate` context-window self-clearing.** Default-off Claude Code
+  and Codex adapters now checkpoint the active task description and completed
+  snapshot phase before fixed `/compact` or `/clear` instructions, then use
+  snapshot-first `/dr-next` continuity. Exact taught labels remain data-only;
+  same-UID runtime trust requires explicit opt-in. No release or version change
+  is made in this accumulated batch. (TUNE-0167)
 
 ## [2.52.0] — 2026-07-10
 

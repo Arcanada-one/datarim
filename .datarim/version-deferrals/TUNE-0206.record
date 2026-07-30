@@ -1,0 +1,13 @@
+schema-version: 1
+task-id: TUNE-0206
+base-commit: 4b56fa2212be39618432e6d3baf40d5850699214
+shipped-diff-digest: 1e48b0e199e42be3f97fc4258f26cee8553d7db3ad547bbc8da3c41b566f8aaf
+decision: defer
+reason-code: batch-accumulation
+reason: Operator requested this framework change join the next consolidated release.
+delivery-kind: release-train
+delivery-target: next-consolidated-release
+source-kind: init-task
+source-digest: 7d6152d728d08ae0d1c1b8740b81e882f97e9a1246095e4788bcb94fa0db94a3
+recorded-by: agent
+recorded-at: 2026-07-20T12:47:22Z

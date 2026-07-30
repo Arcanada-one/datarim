@@ -22,6 +22,8 @@ Discipline in `code/datarim/CLAUDE.md`).
 | Script | Invoked by |
 |--------|-----------|
 | `check-init-task-presence.sh` | `commands/dr-init.md` Step 4.6 |
+| `capture-framework-version-baseline.sh` | `commands/dr-init.md` Step 4.65 for framework tasks |
+| `check-framework-version-accountability.sh` | `commands/dr-do.md` Step 7.55 and `commands/dr-qa.md` Layer 4i |
 | `check-expectations-checklist.sh` | `commands/dr-qa.md`, `commands/dr-compliance.md`, `commands/dr-archive.md` |
 | `check-deferral-prose.sh` | `commands/dr-qa.md` Layer 3b (advisory), `commands/dr-compliance.md` Step 5c (hard), `commands/dr-archive.md` Step 0.45 |
 | `check-stage-snapshot-on-exit.sh` | `commands/dr-continue.md`, `commands/dr-archive.md`, validator suite |

@@ -98,6 +98,21 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
     2. Route to `/dr-plan {TASK-ID}` — the planner re-validates the changed contract.
     3. Resume `/dr-do` only after the plan artefact carries the revised contract.
     Implementation difficulty alone is NOT a valid reason to change a test.
+7.55. **FRAMEWORK VERSION ACCOUNTABILITY** (hard transition gate for the
+    Datarim framework repository): after implementation/tests and the local
+    task commit, run the checker unconditionally. The checker alone classifies
+    applicability; task prose or the parent command must not pre-classify it.
+    ```bash
+    "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-framework-version-accountability.sh" \
+      --task {TASK-ID} --workspace <workspace-root> --repo <framework-repo>
+    ```
+    - Exit 0 with `not_applicable`, `satisfied_by_version`, or
+      `satisfied_by_deferral` permits the remaining `/dr-do` gates.
+    - exit 1 or exit 2 is a hard block with no advisory override: retain the
+      task in `/dr-do`, log the stable disposition, and route to `/dr-do`.
+    - A version deferral covers packaging timing only. It never waives tests,
+      expectations, security, network, spec-graph, self-verification, deploy,
+      QA, or compliance gates.
 
 7.6. **AUTOMATIC SPEC-GRAPH EVIDENCE CHECK**:
     -   As tests and verification artifacts are produced, append canonical lines to the task implementation record:
@@ -191,6 +206,7 @@ Before proceeding to `/dr-qa` or `/dr-archive`:
 [ ] All planned changes implemented?
 [ ] Tests written and passing?
 [ ] Each V-AC-N carries a seeded `Evidence: V-AC-N — <artifact>` line and `spec-graph-gate.sh --stage do` (step 7.6) was run so evidence coverage is verified before `/dr-qa`?
+[ ] Framework version-accountability checker exited 0 when the implementation repository is Datarim?
 [ ] tasks/{TASK-ID}-task-description.md updated with implementation notes?
 [ ] No known regressions introduced?
 [ ] If staged changes touch any networking surface, `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/network-exposure-check.sh"` exited 0 against the staged set and the tiered-gate verdict was honoured (or an `advisory_warn` override was logged with Ops Bot event + § Decisions note)?
