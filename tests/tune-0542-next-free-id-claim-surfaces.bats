@@ -28,7 +28,8 @@
 #   A — defect 2: test-fixture literals in prose must not poison the ceiling
 #   B — defect 1: live tmux / git worktree names are a claim surface
 #   C — the 4-digit invariant (loud failure instead of a 5-digit ID)
-#   D — widened FILE claim surface (datarim/tasks, prd, plans, .auto, snapshots)
+#   D — widened NAME claim surface (datarim/tasks, prd, plans, .auto, snapshots;
+#       files AND directories; both markdown list markers)
 #
 # Test seam: the two host-global surfaces are overridable so this spec is
 # hermetic on a busy multi-agent host. When DATARIM_ID_TMUX_SESSIONS /
@@ -258,7 +259,7 @@ dr-arcanada-RESEARCH-0015"
     done
 }
 
-# ── Group D — widened FILE claim surface ─────────────────────────────────────
+# ── Group D — widened NAME claim surface ─────────────────────────────────────
 #
 # Absorbs TUNE-0538 item 1, reproduced during CTRL-0037: an epic decomposition
 # wrote `datarim/tasks/{ID}-task-description.md` files but no tasks.md rows, so
@@ -314,4 +315,44 @@ dr-arcanada-RESEARCH-0015"
     run_helper ZZ "${FIXTURE_DIR}"
     [ "$HSTATUS" -eq 0 ]
     [ "$HID" = "ZZ-0001" ]
+}
+
+@test "D06: an ID-named DIRECTORY is claimed, not just an ID-named file" {
+    # A task can stake its claim with a directory before it writes any file —
+    # per-task consilium/qa/snapshot folders do exactly that. Scanning only
+    # `-type f` left 89 such claims invisible on the live workspace, which is
+    # the same "one hole, not the class" mistake this task exists to correct.
+    mkdir -p "${FIXTURE_DIR}/datarim/consilium/TUNE-0077"
+
+    run_helper TUNE "${FIXTURE_DIR}"
+    [ "$HSTATUS" -eq 0 ]
+    [ "$HID" = "TUNE-0078" ]
+}
+
+@test "D07: ceiling accepts the '*' and '+' list markers, not only '-'" {
+    # Markdown allows three bullet markers. Recognising only one made the
+    # ceiling silently degrade from "next free" to "lowest free" on an index
+    # written with another — safe, because the probe still refuses a claimed
+    # ID, but surprising and invisible.
+    printf -- '* TUNE-0050 · star-marker row\n' > "${FIXTURE_DIR}/datarim/tasks.md"
+    run_helper TUNE "${FIXTURE_DIR}"
+    [ "$HSTATUS" -eq 0 ]
+    [ "$HID" = "TUNE-0051" ]
+
+    printf -- '+ TUNE-0060 · plus-marker row\n' > "${FIXTURE_DIR}/datarim/tasks.md"
+    run_helper TUNE "${FIXTURE_DIR}"
+    [ "$HSTATUS" -eq 0 ]
+    [ "$HID" = "TUNE-0061" ]
+}
+
+@test "D08: GUARD — widening the marker set must not admit INDENTED sub-bullets" {
+    # The anchor stays at column zero. Accepting leading whitespace would let a
+    # nested prose bullet ("  - see TUNE-9999 for the fixture") back into the
+    # ceiling and reopen defect 2 through the marker set instead of the grep.
+    printf -- '- TUNE-0003 · real row\n  - see TUNE-9999 for the fixture\n' \
+        > "${FIXTURE_DIR}/datarim/tasks.md"
+
+    run_helper TUNE "${FIXTURE_DIR}"
+    [ "$HSTATUS" -eq 0 ]
+    [ "$HID" = "TUNE-0004" ]
 }

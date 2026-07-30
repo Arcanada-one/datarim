@@ -120,7 +120,7 @@ extract_nums() {
 # collision window in the field.
 for dir in "$ARCHIVE_DIR" "$DATARIM_DIR"; do
     [[ -d "$dir" ]] || continue
-    find "$dir" -type f 2>/dev/null | sed 's|.*/||' >> "$NAMES_FILE" || true
+    find "$dir" 2>/dev/null | sed 's|.*/||' >> "$NAMES_FILE" || true
 done
 
 # ── surface 2 (ceiling + probe): line-leading index rows ─────────────────────
@@ -132,7 +132,7 @@ done
 # test-fixture literals. Anchoring to `^- {ID}` is what separates the two.
 for f in "$TASKS_FILE" "$BACKLOG_FILE"; do
     [[ -f "$f" ]] || continue
-    grep -oE "^-[[:space:]]+${PREFIX}-[0-9]+" "$f" 2>/dev/null >> "$ROWS_FILE" || true
+    grep -oE "^[-*+][[:space:]]+${PREFIX}-[0-9]+" "$f" 2>/dev/null >> "$ROWS_FILE" || true
 done
 
 # ── surface 3 (PROBE ONLY): live host claims ─────────────────────────────────
