@@ -1,6 +1,6 @@
 ---
 name: immutability
-description: Immutability contract for all Datarim pipeline stages — Artefact Immutability Rule, V-AC Parity, Non-Code Parity, Anti-Tautological Rule, and Return-to-Source Transition. Loaded by every pipeline command and the architect agent.
+description: Immutability contract for all pipeline stages: artefact freeze, V-AC parity, non-code parity, anti-tautological rule, and return-to-source transition.
 model: inherit
 current_aal: 1
 target_aal: 1

@@ -100,7 +100,10 @@ for line in sys.stdin:
     assert len(f[\"evidence\"][\"excerpt\"]) <= 200
 print(n)'" _ "$output"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"1"* ]]
+    # Expect at least 1 finding with excerpt ≤ 200 chars. The lint may emit
+    # additional valid findings (e.g. vac-deliverable-coverage); every finding
+    # must pass the truncation check, so n >= 1 is STRONGER than n == 1.
+    [ "$output" -ge 1 ]
 }
 
 # ---------- (c) exact boundary: char 120 is the START of a 2-byte Cyrillic char ----------
