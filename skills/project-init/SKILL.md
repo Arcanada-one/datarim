@@ -86,6 +86,23 @@ Create the following structure following the **Diátaxis Documentation Taxonomy 
     └── archive/                 # Completed task archives
 ```
 
+### Step 4.5: Secrecy-Aware Scaffolding
+
+Some projects have a **secret core** — a proprietary algorithm, encoding scheme, compression mechanism, or private model weights that must NOT appear on any public surface. For these, the scaffold must be mechanism-free from the first commit, and the secrecy gate must be emitted **at scaffold time**, not bolted on after a leak is caught.
+
+**Detect the secrecy signal.** Enter secrecy-aware mode when the operator brief carries EITHER:
+
+- an explicit `secrecy: <domain>` annotation (e.g. `secrecy: algorithm`), OR
+- a secret-core keyword: `secret core`, `secret algorithm`, `proprietary algorithm`, `encoding scheme`, `compression mechanism`, `mechanism must stay secret` (and their equivalents in the brief's language).
+
+If neither is present, skip this step — the scaffold is unchanged (byte-identical to the non-secret path).
+
+**In secrecy-aware mode:**
+
+1. **Mechanism-free reference stub.** Write `documentation/reference/architecture.md` from the **secrecy-aware variant** in `templates/project-docs-stubs.md`: its Overview / Components / Data Flow / Security Model bodies carry `[REDACTED — see CLAUDE.md § Secrecy]` instead of a "describe the system" TODO.
+2. **No mechanism on the public surface.** Do NOT populate any file under the public Diátaxis surface (`documentation/{tutorials,how-to,reference,explanation}/`) or any `README*` with the secret mechanism's lexicon. The secret lives only in the private code and, if needed, in `documentation/ephemeral/` (excluded from the public surface). This is the direct root-cause fix for the scaffold-leak pattern (precedent: a QA blocker on an earlier secrecy-bearing project — the scaffold committed the full mechanism into `documentation/reference/architecture.md` before secrecy was codified).
+3. **Emit the secrecy gate now.** When filling CLAUDE.md (Step 5), include the conditional `## Secrecy` block from the template (the `<!-- SECRECY-BLOCK … -->` section) — the secrecy declaration plus the README-tolerant grep gate — so the gate exists at scaffold time, not as a post-hoc fix.
+
 ### Step 5: Fill CLAUDE.md Template
 
 Read `${DATARIM_RUNTIME:-$HOME/.claude}/templates/project-claude-md.md` and replace placeholders:
@@ -102,6 +119,8 @@ Read `${DATARIM_RUNTIME:-$HOME/.claude}/templates/project-claude-md.md` and repl
 **Diátaxis taxonomy in CLAUDE.md.** When the project's CLAUDE.md is generated, include a one-liner reference to `documentation/{tutorials,how-to,reference,explanation}/` so that future contributors discover the mandate from the project root, not only from Datarim framework docs.
 
 For placeholders the agent cannot fill (components, terminology, gotchas), leave them as `[TODO: ...]` markers for the user.
+
+**Secrecy block (secrecy-aware mode only).** If Step 4.5 detected a secrecy signal, keep the template's conditional `## Secrecy` block (marked `<!-- SECRECY-BLOCK … -->`) and fill its project-specific mechanism terms into the grep gate. Otherwise drop the block entirely — a non-secret project gets no Secrecy section.
 
 ### Step 6: Initialize Git (if needed)
 
@@ -168,3 +187,4 @@ This allows updating old projects to the new structure incrementally.
 - Does not modify existing files — only creates new ones
 - Does not run CI/CD setup — that is a separate task
 - Does not add `--dry-run` or `--force` flags (future enhancement)
+- In secrecy-aware mode, does NOT write the secret mechanism to any public Diátaxis file or `README*` — mechanism-bearing reference stubs are `[REDACTED]` (see Step 4.5)

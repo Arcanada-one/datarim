@@ -50,6 +50,51 @@ set -euo pipefail
 # Exhaustion therefore fails loudly rather than overflowing.
 MAX_ID_NUM=9999
 
+# ── reservation store (TUNE-0285 race-window hardening) ──────────────────────
+#
+# The three claim surfaces above only become visible once a session has written
+# an artifact. Between ID selection and that first write there is a workspace-
+# shared TOCTOU window (reflection-TUNE-0280 § 1): two parallel `/dr-init`
+# sessions can both select the same free ID. To close it we ATOMICALLY reserve
+# the selected ID via a `mkdir` mutex under `datarim/.id-reservations/{ID}`
+# BEFORE this helper returns, so the reservation spans the whole
+# helper → agent → first-write sequence. `mkdir` is atomic on every POSIX
+# filesystem (incl. macOS APFS): of two concurrent sessions computing the same
+# candidate, exactly one `mkdir` wins; the loser bumps.
+#
+# Reversibility (a hard requirement of the task):
+#   1. TTL self-expiry — a marker older than DATARIM_ID_RESERVATION_TTL seconds
+#      (default 1800 / 30 min) is STALE and reclaimable, so a crashed session
+#      never permanently burns an ID.
+#   2. Explicit release — `next-free-id.sh --release <ID> <DATARIM_ROOT>`.
+#   3. Manual — `rm -rf datarim/.id-reservations/<ID>`.
+#   4. Idempotent GC of stale markers runs at the start of every selection.
+# The marker is advisory: once the real artifact claims the ID on a canonical
+# surface, a lingering marker is harmless (the surface already blocks reuse).
+
+RESERVATION_SUBDIR="datarim/.id-reservations"
+
+# --release mode: `next-free-id.sh --release <ID> <DATARIM_ROOT>`
+if [[ "${1:-}" == "--release" ]]; then
+    if [[ $# -lt 3 ]]; then
+        echo "Usage: next-free-id.sh --release <ID> <DATARIM_ROOT>" >&2
+        exit 1
+    fi
+    REL_ID="$2"
+    REL_ROOT="$3"
+    # Strict-validate the ID before any filesystem op (Security S1 — no traversal)
+    if ! [[ "$REL_ID" =~ ^[A-Z]{2,10}-[0-9]{4,}$ ]]; then
+        echo "ERROR: invalid ID '${REL_ID}' for --release — expected PREFIX-NNNN" >&2
+        exit 1
+    fi
+    if [[ ! -d "$REL_ROOT" ]]; then
+        echo "ERROR: DATARIM_ROOT '${REL_ROOT}' does not exist or is not a directory" >&2
+        exit 1
+    fi
+    rm -rf "${REL_ROOT:?}/${RESERVATION_SUBDIR}/${REL_ID:?}" 2>/dev/null || true
+    exit 0
+fi
+
 # ── argument validation ──────────────────────────────────────────────────────
 
 if [[ $# -lt 2 ]]; then
@@ -70,6 +115,83 @@ if [[ ! -d "$DATARIM_ROOT" ]]; then
     echo "ERROR: DATARIM_ROOT '${DATARIM_ROOT}' does not exist or is not a directory" >&2
     exit 1
 fi
+
+# ── reservation config + helpers (TUNE-0285) ─────────────────────────────────
+
+RESERVE_DIR="${DATARIM_ROOT}/${RESERVATION_SUBDIR}"
+
+# TTL after which an untouched reservation is considered stale (crashed session)
+RESERVATION_TTL="${DATARIM_ID_RESERVATION_TTL:-1800}"
+if ! [[ "$RESERVATION_TTL" =~ ^[0-9]+$ ]]; then
+    RESERVATION_TTL=1800
+fi
+
+# Age of a reservation marker in seconds. A missing/unreadable epoch is treated
+# as age 0 (fresh) — this protects the narrow window where a concurrent winner
+# has mkdir'd the marker but not yet written its epoch; such a marker is never
+# auto-stolen (it clears via TTL once its epoch lands, or via --release).
+_reservation_age() {
+    local marker="$1" now epoch
+    now="$(date +%s)"
+    epoch="$(cat "${marker}/epoch" 2>/dev/null)" || epoch=""
+    if ! [[ "$epoch" =~ ^[0-9]+$ ]]; then
+        echo 0
+        return 0
+    fi
+    echo $(( now - epoch ))
+}
+
+# A reservation is "fresh" (counts as claimed) when its marker exists and its
+# age is within the TTL.
+_reservation_is_fresh() {
+    local id="$1"
+    local marker="${RESERVE_DIR}/${id}"
+    [[ -d "$marker" ]] || return 1
+    (( $(_reservation_age "$marker") <= RESERVATION_TTL ))
+}
+
+# Idempotent sweep: reclaim (rmdir) any reservation older than the TTL.
+_reservation_gc() {
+    [[ -d "$RESERVE_DIR" ]] || return 0
+    local marker
+    for marker in "$RESERVE_DIR"/*/; do
+        [[ -d "$marker" ]] || continue
+        if (( $(_reservation_age "$marker") > RESERVATION_TTL )); then
+            rm -rf "$marker" 2>/dev/null || true
+        fi
+    done
+}
+
+# Atomically reserve an ID. Returns 0 on success (marker created + stamped),
+# 1 when a FRESH reservation already holds it (lost the race → caller bumps).
+# A stale marker is reclaimed and re-taken.
+_reservation_try() {
+    local id="$1"
+    local marker="${RESERVE_DIR}/${id}"
+    if mkdir "$marker" 2>/dev/null; then
+        date +%s > "${marker}/epoch" 2>/dev/null || true
+        echo "$$" > "${marker}/pid" 2>/dev/null || true
+        return 0
+    fi
+    # Marker already exists — reclaim only if stale, else we lost the race.
+    if ! _reservation_is_fresh "$id"; then
+        rm -rf "$marker" 2>/dev/null || true
+        if mkdir "$marker" 2>/dev/null; then
+            date +%s > "${marker}/epoch" 2>/dev/null || true
+            echo "$$" > "${marker}/pid" 2>/dev/null || true
+            return 0
+        fi
+    fi
+    return 1
+}
+
+# ── reservation GC runs BEFORE the surface scan ──────────────────────────────
+# Reservation markers live under datarim/ and are therefore picked up by the
+# name sweep below. Sweeping stale ones first keeps an abandoned marker from
+# inflating the ceiling; a FRESH one is a real claim and should raise it.
+
+mkdir -p "$RESERVE_DIR" 2>/dev/null || true
+_reservation_gc
 
 TASKS_FILE="${DATARIM_ROOT}/datarim/tasks.md"
 BACKLOG_FILE="${DATARIM_ROOT}/datarim/backlog.md"
@@ -217,16 +339,18 @@ is_claimed() {
     if [[ -f "$TASKS_FILE" ]] && grep -qF -- "$id" "$TASKS_FILE" 2>/dev/null; then return 0; fi
     if [[ -f "$BACKLOG_FILE" ]] && grep -qF -- "$id" "$BACKLOG_FILE" 2>/dev/null; then return 0; fi
 
-    # Surface 4 — an in-flight init-lock marker is an atomic claim by a
-    # concurrent session that has not yet written tasks.md. Checked directly as
-    # well as via NAMES_FILE, for the reason given at the surface-4 block.
+    # An in-flight init-lock marker is an atomic claim by a concurrent session
+    # that has not yet written tasks.md.
     if [[ -d "${DATARIM_ROOT}/datarim/.locks/${id}.init-lock" ]]; then return 0; fi
 
+    # A FRESH reservation marker held by a parallel session in its read->write
+    # window counts as claimed.
+    if _reservation_is_fresh "$id"; then return 0; fi
 
     return 1
 }
 
-# ── candidate = max + 1, then bump past any live claim ───────────────────────
+# ── candidate = max + 1, then atomic select-and-reserve ──────────────────────
 
 CANDIDATE=$(( MAX_NUM + 1 ))
 
@@ -241,19 +365,41 @@ if (( CANDIDATE > MAX_ID_NUM )); then
     exhausted
 fi
 
-CANDIDATE_ID="$(printf '%s-%04d' "$PREFIX" "$CANDIDATE")"
+# GC ran above. Walk candidates: skip any claimed on a real surface OR by a
+# fresh reservation, and atomically reserve the first free one. The mkdir mutex
+# inside _reservation_try is the true guarantee — a candidate that slips past
+# is_claimed but loses the concurrent mkdir causes a bump, so two simultaneous
+# sessions can never emit the same ID.
 
-if is_claimed "$CANDIDATE_ID"; then
-    # Auto-bump: find next free ID — no operator prompt (design §6)
-    echo "WARNING: ID ${CANDIDATE_ID} already claimed (parallel-session race) — auto-bumping to next free ID" >&2
-    while is_claimed "$CANDIDATE_ID"; do
-        CANDIDATE=$(( CANDIDATE + 1 ))
-        if (( CANDIDATE > MAX_ID_NUM )); then
-            exhausted
+CANDIDATE_ID="$(printf '%s-%04d' "$PREFIX" "$CANDIDATE")"
+warned=0
+_bump() {
+    CANDIDATE=$(( CANDIDATE + 1 ))
+    if (( CANDIDATE > MAX_ID_NUM )); then
+        exhausted
+    fi
+    CANDIDATE_ID="$(printf '%s-%04d' "$PREFIX" "$CANDIDATE")"
+}
+
+while : ; do
+    if is_claimed "$CANDIDATE_ID"; then
+        if (( warned == 0 )); then
+            echo "WARNING: ID ${CANDIDATE_ID} already claimed (parallel-session race) — auto-bumping to next free ID" >&2
+            warned=1
         fi
-        CANDIDATE_ID="$(printf '%s-%04d' "$PREFIX" "$CANDIDATE")"
-    done
-fi
+        _bump
+        continue
+    fi
+    if _reservation_try "$CANDIDATE_ID"; then
+        break
+    fi
+    # Lost the atomic mkdir race to a parallel session — bump.
+    if (( warned == 0 )); then
+        echo "WARNING: ID ${CANDIDATE_ID} reserved by a parallel session — auto-bumping to next free ID" >&2
+        warned=1
+    fi
+    _bump
+done
 
 # ── defensive invariant ──────────────────────────────────────────────────────
 # The emitted wording is a contract surface consumed by /dr-init and /dr-quick.

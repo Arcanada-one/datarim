@@ -40,6 +40,10 @@ jobs:
           bats dev-tools/tests/doc-fanout-lint.bats
           bats dev-tools/tests/check-public-repository-boundary.bats
           bats dev-tools/tests/check-github-actions-execution.bats
+          bats dev-tools/tests/rename-task-prefix.bats
+          bats dev-tools/tests/cross-kb-evolution-digest.bats
+          bats dev-tools/tests/closure-gate.bats
+          bats dev-tools/tests/orchestrate-phase3-acceptance.bats
 
   linter-run:
     name: doc-fanout-lint run (warning-only)
@@ -60,3 +64,22 @@ jobs:
 
       - name: Run dr-auto reassert-wiring lint
         run: bash dev-tools/check-dr-auto-reassert-wiring.sh --root .
+
+  dr-auto-cross-runtime:
+    name: dr-auto cross-runtime smoke (blocking)
+    # Exercises the /dr-auto activation PRIMITIVES rather than the command prose:
+    # marker write+resolve round-trip, `subagent-active` with DATARIM_AUTO_MODE
+    # unset, and a non-empty hard_gated_actions list. Those three properties are
+    # what make the activation contract hold on Codex CLI and Cursor, where a
+    # spawned subagent does not inherit the shell env var. Blocking: the checks are
+    # deterministic pure-bash assertions over committed files, with no corpus
+    # heuristics. Complements the reassert-wiring lint above, which checks the
+    # command spec's prose for a mandatory cue.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Run the cross-runtime activation smoke
+        run: bash dev-tools/check-dr-auto-cross-runtime.sh --report

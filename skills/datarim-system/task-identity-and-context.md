@@ -207,6 +207,31 @@ Each ecosystem (or each project that owns a registry) declares its own prefixes 
 
 A task ID changes only by explicit request. If renamed, update all references atomically.
 
+**Renaming a whole task PREFIX** (every `OLD-NNNN` becomes `NEW-NNNN` — e.g. a registry row's prefix
+is corrected) MUST use `dev-tools/rename-task-prefix.sh`, never a hand-rolled `sed` sweep:
+
+```bash
+# noshellcheck-extract
+# dry-run is the default — inspect the plan, then re-run with --apply
+"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/rename-task-prefix.sh" \
+  --old OLD --new NEW --path <file-or-dir> [--path ...] \
+  [--exclude-anchor "<literal>"] [--include-anchor "<literal>"] [--collision NNNN] \
+  [--rename-files] [--apply] [--verify]
+```
+
+Why a tool and not `sed`: a task token is indistinguishable by regex from a **homograph** — an
+unrelated identifier of the same shape, such as an architecture-decision-record number. A blind
+sweep rewrites those too, and one such sweep has already corrupted cross-references across a
+document set's rank-1 mandate links. The tool classifies every token per line through a pure,
+offline, anchored classifier (`dev-tools/lib/prefix-rename-classify.py`): an **exclude-anchor**
+substring protects a whole line (homograph), and for numbers listed as **collisions** a token is
+renamed only when an **include-anchor** is also on the line. Anchors are compared as literal
+substrings, never compiled as regex, so slash- and punctuation-bearing anchors are safe.
+
+Contract: dry-run by default (writes nothing, prints the plan); `--apply` mutates; `--rename-files`
+additionally `git mv`s files named `OLD-NNNN-*`; `--verify` re-scans and fails on half-rename
+residue. It never commits, pushes, or deletes outside a rename. Take a backup before `--apply`.
+
 ### Pre-Spawn ID-Claim Probe
 
 When a PRD's «Spawned Backlog Items» table assigns sequential IDs to a batch <!-- gate:history-allowed -->(e.g. `XYZ-0011..XYZ-0015`)<!-- /gate:history-allowed -->, probe ALL THREE claim surfaces before finalising the assignment — do not rely on an archive-only «next free» calculation captured at `/dr-init` time.

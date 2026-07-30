@@ -314,3 +314,40 @@ write_deferral() {
     && [[ "$output" == *"disposition=accountability_missing"* ]] \
     && [[ "$output" =~ scope_digest=[a-f0-9]{64} ]]
 }
+
+@test "a default-umask (775) repository root is accepted, not rejected as unsafe_repo" {
+  # Regression: the repo-root precondition used the no-group-write predicate meant
+  # for the record directory. With the common umask 0002 every checkout is mode 775,
+  # so the baseline capture exited 2 (error=unsafe_repo) and, because
+  # commands/dr-init.md Step 4.65 treats exit 2 as a hard INIT failure, /dr-init was
+  # blocked outright for framework tasks on such a host. The repo root is only ever
+  # READ through git; it needs the same guarantee as $workspace (owned, not a
+  # symlink, not world-writable), not the stricter record-directory rule.
+  chmod 775 "$REPO"
+  run "$CAPTURE" --task "$TASK_ID" --workspace "$WORKSPACE" --repo "$REPO"
+  [ "$status" -eq 0 ]
+  [[ "$output" != *unsafe_repo* ]]
+}
+
+@test "a world-writable (777) repository root is still rejected as unsafe_repo" {
+  # The relaxation must not extend to other-write: an attacker-writable repo root
+  # would let a third party swap the tree the baseline is computed over.
+  chmod 777 "$REPO"
+  run "$CAPTURE" --task "$TASK_ID" --workspace "$WORKSPACE" --repo "$REPO"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *unsafe_repo* ]]
+}
+
+@test "the record directory keeps the stricter no-group-write guarantee" {
+  # trusted_directory() must still guard datarim/.auto/version-accountability/<task>/,
+  # which the tool creates chmod 700 — the relaxation is scoped to the repo root only.
+  chmod 775 "$REPO"
+  run "$CAPTURE" --task "$TASK_ID" --workspace "$WORKSPACE" --repo "$REPO"
+  [ "$status" -eq 0 ]
+  rec_dir="$WORKSPACE/datarim/.auto/version-accountability/$TASK_ID"
+  [ -d "$rec_dir" ]
+  [ "$(stat -c %a "$rec_dir")" = "700" ]
+  chmod 770 "$rec_dir"
+  run "$CAPTURE" --task "$TASK_ID" --workspace "$WORKSPACE" --repo "$REPO"
+  [ "$status" -eq 2 ]
+}

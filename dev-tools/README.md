@@ -24,11 +24,18 @@ Discipline in `code/datarim/CLAUDE.md`).
 | `check-init-task-presence.sh` | `commands/dr-init.md` Step 4.6 |
 | `capture-framework-version-baseline.sh` | `commands/dr-init.md` Step 4.65 for framework tasks |
 | `check-framework-version-accountability.sh` | `commands/dr-do.md` Step 7.55 and `commands/dr-qa.md` Layer 4i |
+| `archive-auto-commit.sh` | `commands/dr-archive.md` Steps 0.49 and 7.5 |
 | `check-expectations-checklist.sh` | `commands/dr-qa.md`, `commands/dr-compliance.md`, `commands/dr-archive.md` |
 | `check-deferral-prose.sh` | `commands/dr-qa.md` Layer 3b (advisory), `commands/dr-compliance.md` Step 5c (hard), `commands/dr-archive.md` Step 0.45 |
 | `check-stage-snapshot-on-exit.sh` | `commands/dr-continue.md`, `commands/dr-archive.md`, validator suite |
 | `check-skill-frontmatter.sh` | `/dr-plugin doctor` § skill-registry check |
 | `check-security-policy.sh` | `/dr-qa` ecosystem security gate, `/dr-compliance` |
+| `dr-init-id-lock.sh` | `commands/dr-init.md` Step 4 atomic ID claim; held markers are claim surface 4 for `next-free-id.sh` |
+| `check-seam-integration-boundary.sh` | `commands/dr-plan.md` Phase 4 seam-vs-integration boundary check (advisory; `--strict` exits 3) |
+| `check-frontmatter-mirror.sh` | `.github/workflows/frontmatter-mirror.yml` (blocking) vs `rules/frontmatter-key-registry.yaml` |
+| `cross-kb-evolution-digest.sh` | `commands/dr-archive.md` Step 0.5 sub-step a-bis, before evolution proposals are drafted |
+| `rename-task-prefix.sh` | `skills/datarim-system/task-identity-and-context.md` § Rename Policy (operator-invoked; dry-run by default) |
+| `check-dr-auto-cross-runtime.sh` | `.github/workflows/dev-tools-lint.yml` job `dr-auto-cross-runtime` (blocking) |
 | `check-topic-overlap.py` | `commands/dr-init.md` Step 3.5 (backlog similarity) |
 | `network-exposure-check.sh`, `network-exposure-gate.sh` | `commands/dr-do.md` Step 8.5 |
 | `resolve-peer-provider.sh` | `commands/dr-verify.md` Layer 2 |

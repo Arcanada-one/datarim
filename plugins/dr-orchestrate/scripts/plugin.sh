@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# plugin.sh — hook dispatcher for dr-orchestrate plugin (Phase 1, TUNE-0164).
+# plugin.sh — hook dispatcher for dr-orchestrate plugin.
 # Pure routing; bash 3.2+ ok. The bash-4 floor lives in cmd_run.sh where the
 # actual cycle work runs (V-AC-15 must answer get_autonomy from any host bash).
 set -euo pipefail
@@ -25,8 +25,13 @@ dispatch() {
       # resolver + escalation chain.
       "$DR_ORCH_DIR/scripts/cmd_run.sh" --unknown-prompt "$@"
       ;;
+    on_callback)
+      # Transport-neutral seam used by Telegram/bot adapters. Live Telegram
+      # HTTP transport remains outside this plugin phase.
+      "$DR_ORCH_DIR/scripts/learned_rules.sh" consume_callback "$@"
+      ;;
     on_tune_complete)
-      echo "dr-orchestrate: on_tune_complete noop (Phase 3 hook)"
+      "$DR_ORCH_DIR/scripts/learned_rules.sh" maintenance
       return 0
       ;;
     *)
@@ -40,7 +45,7 @@ dispatch() {
 # (which delegates to dev-tools/resolve-space-autonomy.sh + space.yml §
 # autonomy.policy). Full-autonomy spaces return "auto" from the gate and run
 # all reversible actions without asking. See README.md § Autonomy Levels.
-get_autonomy() { echo "2"; }
+get_autonomy() { echo "4"; }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   cmd="${1:-}"; shift || true

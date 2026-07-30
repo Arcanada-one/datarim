@@ -60,9 +60,21 @@ datarim/sessions/
 datarim/.auto/
 datarim/.auto-mode-active
 
+# ID-reservation markers (TUNE-0285 race-window hardening) — atomic mkdir mutex
+# written by dev-tools/next-free-id.sh under datarim/.id-reservations/<TASK-ID>
+# to close the /dr-init select→first-write TOCTOU window. Ephemeral runtime
+# state (TTL-expiring, releasable), never committed.
+datarim/.id-reservations/
+
 # Dispatch heartbeat status files — per-task at datarim/runtime/<TASK-ID>.status
 # (TUNE-0490 Phase 2). Runtime state written by a delegated agent and read by
 # the laptop monitor; ephemeral, host-local, never committed. The digest and
 # pane classifier operate on these; the .answer channel (Phase 2 relay) lands
 # here too.
 datarim/runtime/
+
+# Interactive task-spec wizard state — per-task append-only JSONL event log
+# datarim/wizard/<TASK-ID>.wizard.jsonl and the emitted knowledge/dependency
+# graph datarim/wizard/<TASK-ID>.graph.jsonl (TUNE-0390). Runtime interview
+# state; the local log may hold raw operator text and is never committed.
+datarim/wizard/

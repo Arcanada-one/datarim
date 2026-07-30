@@ -138,7 +138,7 @@ Skills are reusable knowledge modules loaded on demand. They provide rules, patt
 - `session-handoff-writer.md` — Producer contract for `/dr-save`: write `datarim/sessions/SESSION-{YYYYMMDD-HHMMSS}.session.md` with 5-layer body, 32 KB cap (L1/L5 non-truncatable), append-only semantics, claim-provenance enforcement (exit 1 on untagged claims), T-8 secret redaction, mkdir-based atomic lock, chmod 600. (loaded by: /dr-save)
 - `session-handoff-replay.md` -- Consumer contract for `/dr-continue`: read session artefact in clean window, re-verify every claim via live probes (STALE SNAPSHOT / CLAIM-UNVERIFIED / FILE-MISSING banners), downgrade provenance tags, route to `/dr-next` or `/dr-auto`. Squash-collision detection via `git merge-base --is-ancestor`. Shares bilingual replay renderer with `/dr-next` via `skills/dr-next-snapshot-replay/SKILL.md § Shared Replay Renderer`. (loaded by: /dr-continue)
 
-Skill files: `$HOME/.claude/skills/{name}/SKILL.md` (64 skills, 17 with supporting fragment directories — a "supporting fragment directory" is a skill folder that ships at least one sibling `.md` beside its `SKILL.md`)
+Skill files: `$HOME/.claude/skills/{name}/SKILL.md` (67 skills, 17 with supporting fragment directories — a "supporting fragment directory" is a skill folder that ships at least one sibling `.md` beside its `SKILL.md`)
 
 > **v1.16.0 addition:** `cta-format.md` — canonical CTA "Next Step" block specification, loaded by `planner`, `architect`, `developer`, `reviewer`, `compliance` agents. Defines structure, separators, primary marker, multi-task menu (Variant B), and FAIL-Routing variant. Source: TUNE-0032.
 
@@ -214,6 +214,7 @@ Before writing ANY file to `datarim/`:
 | `/dr-status` | Utility | Check current task and backlog status |
 | `/dr-next` | Utility | Resume from last checkpoint |
 | `/dr-quick` | Utility | Fast-lane for trivial fixes / quick lookups — `QCK-XXXX`, weak-model KB scan, short `quick/` archive. Skips PRD/plan/design/QA/compliance |
+| `/dr-wizard` | Requirements | Interactive task-spec wizard — staged questions, resumable state, graph artefact |
 | `/dr-write` | Content | Create written content — articles, docs, research, posts |
 | `/dr-edit` | Content | Editorial review — fact-check, humanize, style, polish |
 | `/dr-publish` | Content | Adapt and publish content to multiple platforms |
@@ -229,7 +230,15 @@ Before writing ANY file to `datarim/`:
 | `/factcheck` | Standalone | Fact-check articles and posts before publication |
 | `/humanize` | Standalone | Remove AI writing patterns from text |
 
-Command files: `$HOME/.claude/commands/{name}.md` (27 commands, including the plugin command)
+> **`/dr-orchestrate` Phase 3 — auto-learning with operator confirmation.** A resolved
+> action may propose `Save as rule?`, bound to the authenticated actor and session. Only an
+> explicit confirmation persists it; replay, expiry, wrong context, or malformed input fails
+> closed. Learned rules become due for re-validation after 24 hours and expire on an
+> immutable seven-day TTL. Re-validation proposes confirmation and never executes a due
+> rule, and every learned action stays subject to per-space policy and the immutable
+> hard-gated floor.
+
+Command files: `$HOME/.claude/commands/{name}.md` (28 commands, including the plugin command)
 
 ### /dr-verify (on-demand, tri-layer architecture)
 
@@ -529,6 +538,36 @@ Datarim framework's contribution:
 Consumers MUST mirror the canonical FB-rules text and the enforcement-mapping table in their own ecosystem `CLAUDE.md` before enabling the `dr-orchestrate` plugin; the YAML policy block is a contract surface, not a substitute for the operator-readable rules text.
 
 - **Rollout tracker / enable-time gate** — `scripts/check-fb-rules-mirror.sh <consumer-CLAUDE.md>` verifies a consumer mirror (anchor heading + every canonical `rule_id` cited). A plugin manifest declaring `requires_fb_rules_mirror: true` makes `/dr-plugin enable` run that check against the consumer workspace `CLAUDE.md` and refuse activation on drift. Rollout status + mechanism: `documentation/reference/fb-rules-consumer-rollout.md`.
+
+---
+
+## Partial Milestone Closure Pattern (AAL milestones across child tasks)
+
+> **Scope:** the AAL scale (L0–L5), `weakest_links`, and milestone/gate definitions are **ecosystem-owned** — see the consumer's **AAL Mandate** (cross-link; canonical `documentation/architecture/AAL-Classification.md` in the reference ecosystem). Datarim ships only the **workflow contract** below, because it governs framework-owned artefacts: the task-description `## Append-log` schema and the `/dr-archive` bump timing.
+
+Use this pattern when a single milestone `M{N}` — a group of `weakest_links` from a parent PRD's Autonomy Plan — is closed incrementally across **two or more child tasks** rather than in one shot. It keeps the AAL claim earned (never bumped early), auditable (a single ledger), and honest (regressions lower the level).
+
+**1. Append-log entry schema** (appended to the **parent** task-description's `## Append-log`):
+
+- *Partial-closure entry* — when a child ships some, not all, of `M{N}`:
+  - Heading: `### {YYYY-MM-DD} — Partial M{N} closure via {CHILD-ID}` (optional short descriptor suffix).
+  - One status paragraph naming the child and what landed, then an itemised decomposition of every weakest_link in `M{N}`, each tagged from the **canonical status word set** — `✓ closed` (eliminated / enforced / restart-survivable, with a one-line commit/mechanism evidence pointer) or `✗ deferred` (with the child task it will land in and the reason). A component landed with an accepted-risk caveat stays `✗ deferred` until the risk is eliminated.
+  - An explicit `**AAL bump deferred:**` line — `current_aal` holds until the last weakest_link ships (rationale: the milestone gate criteria are not yet met).
+  - A cross-link to the closing child (`{CHILD-ID}`).
+- *Full-closure entry* — when the **last** outstanding weakest_link ships: `### {YYYY-MM-DD} — M{N} full closure via {CHILD-ID} — AAL L{k} reached`; flips the final `✗ deferred` to `✓ closed`; this is where the bump is applied.
+
+**2. Parent/child responsibility split (who owns AAL tracking):**
+
+- **Parent owns the ledger.** All partial-closure entries append to the **parent** task-description; the parent frontmatter `current_aal` is the single source of truth and stays **unchanged** through every partial closure.
+- **The last closing child owns the bump.** The child shipping the final weakest_link — and only it — at its `/dr-archive`: (a) appends the full-closure entry to the parent, (b) raises `current_aal` in the parent frontmatter, (c) updates the public AAL rating page (AAL Mandate honesty rule). No earlier child touches `current_aal`.
+
+**3. Reopen-on-fallback semantics:**
+
+- If a `✓ closed` component later regresses (mechanism disabled / enforcement removed), append `### {YYYY-MM-DD} — M{N} reopened via {INCIDENT-or-TASK-ID}` to the parent, flipping that component back to `✗ deferred`.
+- If the reopened component justified the prior bump, **revert the bump** — lower `current_aal` to the pre-bump level and correct the public rating page (honest, not aspirational).
+- Write or extend a reflection file tagging `aal_gap` with the regressed dimension.
+
+Single-task milestone closure is unchanged: this pattern applies only to the multi-child split.
 
 ---
 
