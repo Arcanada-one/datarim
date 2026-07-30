@@ -21,6 +21,7 @@ effort: high
     - `$HOME/.claude/skills/factcheck/SKILL.md` (Fact verification methodology)
     - `$HOME/.claude/skills/humanize/SKILL.md` (AI pattern detection and removal)
     - `$HOME/.claude/skills/writing/SKILL.md` (Quality checklist and editorial standards)
+    - **Voice-bearing content prohibition:** `coworker` MUST NOT be used for fact-checking, editing, or AI-pattern review of voice-bearing content. The assigned model performs all editorial work directly. Per `~/.claude/CLAUDE.md` § Do NOT delegate → Voice-bearing and judgment content. The coworker hook guard (`dev-tools/coworker-hook-guard.sh`) enforces this mechanically.
 3.  **READ THE CONTENT**: Read the file at the path provided in `$ARGUMENTS`. If no path given, ask the user.
 4.  **SETUP**:
     - Detect the primary language (English, Russian, or mixed).
