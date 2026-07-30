@@ -441,6 +441,7 @@ When the implementation repository is the Datarim framework repository, run
 the shared checker unconditionally and independently of `/dr-do`:
 
 ```bash
+# noshellcheck-extract
 "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-framework-version-accountability.sh" \
   --task {TASK-ID} --workspace <workspace-root> --repo <framework-repo>
 ```
