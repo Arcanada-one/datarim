@@ -197,3 +197,49 @@ run_hook_bash() {
     decision=$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')
     [ "$decision" = "deny" ]
 }
+
+# --- V-14: unquoted --target with SPACE in voice-bearing path DENIED ----------
+@test "V-14 unquoted --target with space in voice-bearing path DENIED" {
+    local fp="$TMP_DIR/Social Media/Мои посты/Telegram/test-post.md"
+    # Unquoted: shell splits the path, but coworker write sees all tokens
+    local cmd="coworker write --target $fp"
+    run run_hook_bash "$cmd"
+    [ "$status" -eq 0 ]
+    decision=$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')
+    [ "$decision" = "deny" ]
+    reason=$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')
+    case "$reason" in
+        *"voice-bearing"*|*"Voice-bearing"*) : ;;
+        *) printf 'deny reason missing voice-bearing: %s\n' "$reason" >&2; return 1 ;;
+    esac
+}
+
+# --- V-15: --target= with space in voice-bearing path DENIED ------------------
+@test "V-15 --target= with space in voice-bearing path DENIED" {
+    local fp="$TMP_DIR/Social Media/Мои посты/Telegram/test-post.md"
+    local cmd="coworker write --target=$fp"
+    run run_hook_bash "$cmd"
+    [ "$status" -eq 0 ]
+    decision=$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')
+    [ "$decision" = "deny" ]
+    reason=$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')
+    case "$reason" in
+        *"voice-bearing"*|*"Voice-bearing"*) : ;;
+        *) printf 'deny reason missing voice-bearing: %s\n' "$reason" >&2; return 1 ;;
+    esac
+}
+
+# --- V-16: unquoted --paths with space in voice-bearing path DENIED (coworker ask)
+@test "V-16 unquoted --paths with space in voice-bearing path DENIED (coworker ask)" {
+    local fp="$TMP_DIR/Social Media/Мои посты/Telegram/test-post.md"
+    local cmd="coworker ask --paths $fp --question \"summarize\""
+    run run_hook_bash "$cmd"
+    [ "$status" -eq 0 ]
+    decision=$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecision')
+    [ "$decision" = "deny" ]
+    reason=$(printf '%s' "$output" | jq -r '.hookSpecificOutput.permissionDecisionReason')
+    case "$reason" in
+        *"voice-bearing"*|*"Voice-bearing"*) : ;;
+        *) printf 'deny reason missing voice-bearing: %s\n' "$reason" >&2; return 1 ;;
+    esac
+}
