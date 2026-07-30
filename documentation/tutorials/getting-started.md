@@ -449,6 +449,14 @@ After initialization, the pipeline depends on the task's complexity level. Datar
 /dr-archive
 ```
 
+During `/dr-plan`, Datarim checks the whole task scope before detailed planning.
+If every deliverable only removes redundancy, dead code, or duplicate surfaces
+without adding behavior—or if that claim is still ambiguous—the strategist
+review is mandatory even for L1/L2. Datarim logs one scope-bound decision; L3/L4
+reuse their normal strategist invocation. A valid `GO` reaches the existing
+architectural-superseding probe, not implementation, and every later hard gate
+still applies. Clearly non-matching work follows the normal complexity route.
+
 ### L3+ -- Feature or Major (5+ files, 200+ lines)
 
 ```

@@ -53,7 +53,7 @@ Agents are specialized personas loaded per pipeline stage. Each agent has define
 | **reviewer** | QA & Security Lead | /dr-qa, /dr-archive (Step 0.5 reflection) |
 | **compliance** | Compliance Runner | /dr-compliance |
 | **code-simplifier** | Code Simplification | /dr-compliance |
-| **strategist** | Strategic Advisor | /dr-plan (L3-4) |
+| **strategist** | Strategic Advisor | /dr-plan (L3-4; redundancy-only or ambiguous L1-L2) |
 | **devops** | DevOps Engineer | /dr-plan, /dr-do, /dr-compliance |
 | **writer** | Content Writer | /dr-write, /dr-archive (Step 0.5 + final docs), /dr-prd |
 | **editor** | Content Editor | /dr-edit, /dr-qa (content) |
@@ -203,7 +203,7 @@ Before writing ANY file to `datarim/`:
 |---------|-------|-------------|
 | `/dr-init` | Initialize | Create task, pick from backlog, or **scaffold a new project**. Assess complexity, set up `datarim/` |
 | `/dr-prd` | Requirements | Generate PRD with discovery interview |
-| `/dr-plan` | Planning | Detailed implementation plan with strategist gate |
+| `/dr-plan` | Planning | Detailed implementation plan with strategist gate; a logged strategist decision is mandatory for redundancy-only or ambiguous scope at any complexity |
 | `/dr-design` | Design | Architecture exploration with consilium |
 | `/dr-do` | Execution | Implement the plan: TDD for code, structured iteration for other work |
 | `/dr-qa` | Quality | Multi-layer verification (PRD, design, plan, output quality) |

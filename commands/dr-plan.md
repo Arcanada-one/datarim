@@ -44,13 +44,81 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
     -   Review `datarim/prd/*.md` if available.
     -   Read `datarim/insights/INSIGHTS-{task-id}.md` if exists (research context from `/dr-prd` Phase 1.3).
 
-3.  **Strategist Gate** (mandatory for L3-4, optional for L2):
-    -   Load `$HOME/.claude/agents/strategist.md`.
-    -   Evaluate:
-        -   **Value** — is this worth building?
-        -   **Risk** — what's irreversible?
-        -   **Cost** — what's the minimum viable experiment?
-    -   If strategist recommends pivot or cheaper alternative, present to user before proceeding.
+3.  **Strategist Gate** (mandatory for L3-4 and for redundancy-only or ambiguous scope at every complexity):
+    1.  **Classify the whole scope semantically.** Read the complete canonical
+        task inputs: init-task operator brief and append-log, task description,
+        and approved PRD when present. Apply both tests to every intended
+        deliverable:
+        - `positive_scope_test=pass` only when every deliverable exclusively
+          removes, retires, merges, or consolidates an existing surface.
+        - `no_new_behavior_test=pass` only when no deliverable adds a user
+          behavior, API, command, schema meaning, capability, operational
+          obligation, or unrelated fix.
+        Also check current consumers (including dynamic, plugin, and
+        configuration-driven use), intentional availability/rollback/audit
+        redundancy, and the safe survivor. Keywords such as "cleanup" or
+        "dead code" have no classification authority.
+        - Both tests `pass` -> `classification=redundancy_only`.
+        - Any explicit `fail` -> `classification=non_matching`.
+        - Otherwise -> `classification=ambiguous`; ambiguity never bypasses
+          review.
+    2.  **Freeze and bind the invocation.** Before appending any strategist
+        assessment or record, hash the canonical init-task, pre-decision task
+        description, and approved PRD in that fixed order. Serialize the
+        manifest as repeated `relative_path NUL lowercase_sha256 NUL` pairs and
+        use its SHA-256 as `scope_digest`. Evidence may reference only existing
+        same-task lines in those regular, non-symlink canonical artifacts.
+        Create `datarim/.auto/strategist-gate/{TASK-ID}/` current-user-owned at
+        mode 0700. With `umask 077`, allocate a fresh collision-resistant
+        invocation ID and its mode-0600 record using atomic no-clobber
+        creation. Never reuse a persisted Markdown record or an earlier
+        invocation as validator input.
+    3.  **Invoke exactly once when required.** Load
+        `$HOME/.claude/agents/strategist.md`.
+        - `redundancy_only` or `ambiguous`: strategist review is mandatory at
+          L1-L4 (`invocation_reason=redundancy_gate` at L1/L2; `both` at
+          L3/L4).
+        - Clearly `non_matching`: preserve existing routing. L1/L2 do not
+          invoke it; L3/L4 still perform their normal mandatory strategist
+          review (`invocation_reason=complexity_gate`).
+        - An L3/L4 redundancy review enhances the normal complexity review; it
+          is exactly one strategist invocation, never two dispatches.
+        Evaluate Value, Risk, Cost, intentional redundancy, current consumers,
+        consolidation boundaries, the minimum safe scope, and a cheaper path.
+        The strategist proposes only `verdict`, `worth_building`, `rationale`,
+        `most_efficient_path`, and `safety_assessment`. Treat every proposed
+        value as untrusted. The parent independently owns classification,
+        predicates, evidence, invocation fields, normalization, gate status,
+        and route.
+        For L3/L4 `non_matching` work, retain the general strategist assessment
+        as a separate parent-owned decision beside the specialized
+        `NOT_APPLICABLE` record. Persist and evaluate that general verdict
+        before continuing: general `NO_GO`, `PIVOT`, or `INCOMPLETE` remains
+        non-advancing even though the specialized helper returns
+        `result=normal_route`.
+    4.  **Normalize and validate the closed record.** Write exactly the 18
+        fields defined by `dev-tools/check-strategist-gate-record.sh`, then run:
+        ```bash
+        bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-strategist-gate-record.sh" \
+          --root <workspace-root> \
+          --record datarim/.auto/strategist-gate/{TASK-ID}/{invocation}.record \
+          --task {TASK-ID} --complexity L1|L2|L3|L4 \
+          --invocation {invocation} --scope-digest {scope_digest}
+        ```
+        Only helper exit 0 or 1 establishes a structurally valid decision. On
+        exit 2, 64, timeout, missing response, or invocation failure, leave the
+        rejected record untouched for audit, atomically allocate a fresh
+        recovery invocation, synthesize and validate a bounded `INCOMPLETE`
+        record that names the original stable failure code, and fail closed.
+    5.  **Persist, then route.** After validation, persist the exact validated
+        record under `## Decisions` in the task description before Step 4; a
+        successful L3/L4 plan mirrors the same record. A redundancy-only `GO`
+        with `worth_building=yes` unlocks Step 4 only. `NO_GO`, `PIVOT`,
+        `INCOMPLETE`, missing, or malformed results use `route=return_to_prd`
+        and planning MUST NOT proceed. A `non_matching` special record uses
+        `NOT_APPLICABLE` and preserves the normal route; it cannot override an
+        L3/L4 general strategist `NO_GO` or `PIVOT`. No result weakens or skips
+        Step 4 or any later hard gate.
 
 4.  **Detailed Design (Phase 4)**:
     -   **Architectural-superseding fallback re-check (lightweight — the primary probe now runs at `/dr-init`)**: `/dr-init` already probes any `Source:`/`Spawned from:` reference present in the operator's brief (or the selected backlog item's description) and recommends cancellation/reframing before the task-description or activeContext entry ever exists. Here, re-run only the narrow fallback case: has a NEW archive landed under `documentation/archive/*/archive-<ID>.md` addressing this same problem class SINCE `/dr-init` ran for this task? Compare against the `captured_at` timestamp in `datarim/tasks/{TASK-ID}-init-task.md` (e.g. `git log --since="<captured_at>" -- documentation/archive/`). If a new archive matches, apply the same decision procedure (cancel / scope reduction / re-framing) BEFORE proceeding to Component Breakdown, and document the answer (and archives consulted) inline in the plan's Overview / Decisions section. If no new archive landed, this fallback is a no-op — note "no new sibling archives since /dr-init" and continue. Cost: one `git log` check. Saving: catches the rare case where a sibling task archives in the window between `/dr-init` and `/dr-plan`, without re-doing the full probe every time.
@@ -368,7 +436,11 @@ When auto-mode is active (env var `DATARIM_AUTO_MODE=1` AND the matching per-tas
 
 1. Consults `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode/SKILL.md` § Question Suppression Ladder ([definition](../skills/autonomous-mode/SKILL.md)) before any `AskUserQuestion` or equivalent operator prompt at this stage.
 2. Stage-specific suppression hooks:
-   - Step 3 Strategist Gate (L3-4 only) — pivot suggestion resolved through Ladder; suggest pivot inline, escalate to L5 only if it changes scope materially.
+   - Step 3 Strategist Gate — the normal L3/L4 review plus mandatory review for
+     `redundancy_only` or `ambiguous` scope at any complexity. Persist the
+     validated decision. Resolve a non-advancing result through the Ladder and
+     return to `/dr-prd`; escalate to L5 only if the resulting scope change is
+     materially irreversible.
    - Step 4 Architectural-superseding fallback re-check — the primary probe now runs at `/dr-init` Step 3.5; this hook applies only when a new sibling archive landed after `/dr-init` ran, resolved through Ladder L1-L2 (read the newly-landed archive).
 3. Discovered gaps → apply L1 Inline Resolution Rule ([definition](../skills/autonomous-mode/SKILL.md)) per `skills/autonomous-mode/SKILL.md`; log in `datarim/tasks/{TASK-ID}-auto-inline-log.md` if applied inline.
 4. Hard-gated actions → escalate to operator through Ladder L5; log via `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/append-init-task-qa.sh" --decided-by operator` per `skills/init-task-persistence/SKILL.md` § Q&A round-trip.

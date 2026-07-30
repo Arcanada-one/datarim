@@ -39,7 +39,7 @@ Source: TUNE-0032. Spec: `skills/cta-format/SKILL.md`. Template: `templates/cta-
 |---------|-------|-------|-------------|
 | `/dr-init` | Initialize | planner | Create task, assess complexity, set up `datarim/`. Includes Step 2.5b — non-blocking topic-overlap advisory against pending backlog (v2.7.0+). Emits CTA. |
 | `/dr-prd` | Requirements | architect | Generate PRD with discovery interview. Emits CTA. |
-| `/dr-plan` | Planning | planner | Detailed implementation plan with strategist gate. Emits CTA. |
+| `/dr-plan` | Planning | planner | Detailed implementation plan with strategist gate. Emits CTA; a logged strategist decision is mandatory for redundancy-only or ambiguous scope at any complexity |
 | `/dr-design` | Design | architect | Architecture exploration with consilium (L3-4). Emits CTA. |
 | `/dr-do` | Execution | developer | TDD development, one method at a time. Emits CTA. |
 | `/dr-qa` | Quality | reviewer | Multi-layer verification (PRD, design, plan, code). For deploy-class tasks, Layer 4g (Prod-Readiness Gate) runs a read-only test↔prod runner symmetry probe and blocks merge-proposal on FAIL/BLOCKED. Emits CTA (FAIL-Routing variant on BLOCKED). |
@@ -47,6 +47,13 @@ Source: TUNE-0032. Spec: `skills/cta-format/SKILL.md`. Template: `templates/cta-
 | `/dr-compliance` | Hardening | compliance | 7-step post-QA hardening workflow. Compliance report follows `templates/compliance-report-template.md` (v2.14.0+): four top sections in strict order — «Начальная задача», «Как решили», «Артефакты задачи», «Следующие шаги» — plus an audit addendum under `---` carrying `### Step-by-step verdicts`, `### Remaining risks`, `### Related`. Emits CTA (FAIL-Routing variant on NON-COMPLIANT). |
 | `/dr-archive` | Archive | reviewer (Step 0.5 reflection) + planner (Steps 1-7) | Reflection + evolution proposals + complete task + update backlog + reset context. For deploy-class tasks, Step 0.4 (Prod-Merge Verification Gate) blocks archive until the production merge is done AND verified. Archive doc follows `templates/archive-template.md` (v2.14.0+): four top sections in strict order — «Начальная задача», «Как решили», «Артефакты задачи», «Следующие шаги» — plus an audit addendum under `---` carrying `### verification_outcome`, `### Acceptance Criteria`, `### Lessons Learned`, `### Operator Handoff`, `### Related`. The «Как решили» section is a single-level bullet list that maps each operator-brief bullet to a quoted item + Russian status word (выполнено / частично / не выполнено / неприменимо) + one or two plain-language sentences; expectations fold into the same list with marker «(уточнение брифа)». Emits CTA. |
 | `/dr-auto` | Autonomous | orchestrator (spawns per-stage subagents) | Subagent orchestrator that drives a task from its current status to a passing `/dr-compliance` + reflection — it does NOT run the final `/dr-archive`. Spawns the matching agent per stage (planner/architect/developer/reviewer/compliance) via the Agent tool and summarises each result to decide the next stage. Activates `autonomous-mode.md` via env var `DATARIM_AUTO_MODE=1` + marker `datarim/.auto-mode-active`; the Question Suppression Ladder suppresses clarification questions; hard-gated actions still escalate to the operator. Stage-replay allowed. Two modes — Continue (`/dr-auto {TASK-ID}` resume) / Bootstrap (`/dr-auto "<free-text>"`). Emits CTA + stage snapshot `stage: auto`. |
+
+`/dr-plan` binds the specialized decision to the current task, invocation, and
+canonical-scope digest. The read-only
+`dev-tools/check-strategist-gate-record.sh` validates the closed 18-field
+record and returns advancing, normal-route, valid non-advancing, or malformed;
+it never classifies prose, invokes the strategist, writes files, or selects a
+route. Missing or malformed evidence returns the task to `/dr-prd`.
 
 ## Content Commands (3)
 

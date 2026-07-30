@@ -8,7 +8,7 @@ Datarim includes 18 specialized agents. Each agent is a persona with defined cap
 |-------|------|-------|----------------|
 | planner | Lead Project Manager | opus | /dr-init, /dr-plan, /dr-archive |
 | architect | Chief Architect | opus | /dr-prd, /dr-design |
-| strategist | Strategic Advisor | opus | /dr-plan (L3-4) |
+| strategist | Strategic Advisor | opus | /dr-plan (L3-4; redundancy-only or ambiguous L1-L2) |
 | security | Security Analyst | opus | /dr-design, /dr-qa, /dr-compliance |
 | reviewer | QA & Security Lead | opus | /dr-qa, /dr-archive (Step 0.5 reflection) |
 | skill-creator | Skill/Agent/Command Creator | opus | /dr-addskill |
