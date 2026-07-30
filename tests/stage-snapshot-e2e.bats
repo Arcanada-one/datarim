@@ -12,6 +12,7 @@
 
 REPO_ROOT="$(cd "${BATS_TEST_DIRNAME}/.." && pwd)"
 WRITER_LIB="${REPO_ROOT}/scripts/lib/snapshot-writer.sh"
+WRITER_WRAPPER="${REPO_ROOT}/dev-tools/snapshot-writer-wrapper.sh"
 VALIDATOR="${REPO_ROOT}/dev-tools/check-stage-snapshot-on-exit.sh"
 TASK_ID="TUNE-9999"
 
@@ -91,4 +92,114 @@ EOB
         --options-file "${OPTIONS_TMP}" --body-file "${BODY_TMP}"
     run grep -E '^stage: do$' "${FAKE_ROOT}/datarim/snapshots/${TASK_ID}.snapshot.md"
     [ "$status" -eq 0 ]
+}
+
+@test "E2E — frontmatter terminator never glues to a normal body" {
+    run bash "${WRITER_WRAPPER}" \
+        --root "${FAKE_ROOT}" --task "${TASK_ID}" --stage do --command /dr-do \
+        --captured-by agent --recommended-next /dr-qa \
+        --options-file "${OPTIONS_TMP}" --body-file "${BODY_TMP}"
+    [ "$status" -eq 0 ]
+    local snapshot="${FAKE_ROOT}/datarim/snapshots/${TASK_ID}.snapshot.md"
+    run grep -q '^---Implementation' "${snapshot}"
+    [ "$status" -eq 1 ]
+    grep -q '^---$' "${snapshot}"
+    grep -q '^Implementation TUNE-0259' "${snapshot}"
+}
+
+@test "E2E — declared size_bytes equals exact snapshot bytes" {
+    run bash "${WRITER_WRAPPER}" \
+        --root "${FAKE_ROOT}" --task "${TASK_ID}" --stage do --command /dr-do \
+        --captured-by agent --recommended-next /dr-qa \
+        --options-file "${OPTIONS_TMP}" --body-file "${BODY_TMP}"
+    [ "$status" -eq 0 ]
+    local snapshot="${FAKE_ROOT}/datarim/snapshots/${TASK_ID}.snapshot.md"
+    local declared actual
+    declared="$(sed -n 's/^size_bytes: //p' "${snapshot}")"
+    actual="$(wc -c < "${snapshot}" | tr -d ' ')"
+    [ "${declared}" -eq "${actual}" ]
+}
+
+@test "E2E — wrapper reports exact four-digit snapshot size" {
+    local four_digit_body="${BATS_TEST_TMPDIR}/four-digit-body.txt"
+    python3 -c 'print("X" * 1000, end="")' > "${four_digit_body}"
+    [ "$(wc -c < "${four_digit_body}" | tr -d ' ')" -eq 1000 ]
+
+    run bash "${WRITER_WRAPPER}" \
+        --root "${FAKE_ROOT}" --task "${TASK_ID}" --stage do --command /dr-do \
+        --captured-by agent --recommended-next /dr-qa \
+        --options-file "${OPTIONS_TMP}" --body-file "${four_digit_body}"
+    [ "$status" -eq 0 ]
+
+    local snapshot="${FAKE_ROOT}/datarim/snapshots/${TASK_ID}.snapshot.md"
+    local declared actual
+    declared="$(sed -n 's/^size_bytes: //p' "${snapshot}")"
+    actual="$(wc -c < "${snapshot}" | tr -d ' ')"
+    [ "${actual}" -ge 1000 ]
+    [ "${declared}" -eq "${actual}" ]
+}
+
+@test "E2E — exact-size renderer converges across the 9999 to 10000 decimal-width boundary" {
+    # shellcheck source=/dev/null
+    source "${WRITER_LIB}"
+    local probe="${BATS_TEST_TMPDIR}/fixed-point-probe.md"
+    local rendered="${BATS_TEST_TMPDIR}/fixed-point-rendered.md"
+    local captured_at="2026-07-30T00:00:00Z"
+
+    _snapshot_render_frontmatter \
+        "${TASK_ID}" do /dr-do "${captured_at}" agent /dr-qa \
+        "${OPTIONS_TMP}" 9999 false > "${probe}"
+
+    local frontmatter_bytes body_bytes declared actual
+    frontmatter_bytes="$(wc -c < "${probe}" | tr -d ' ')"
+    body_bytes=$((10000 - frontmatter_bytes))
+    [ "${body_bytes}" -gt 0 ]
+
+    declared="$(_snapshot_render_exact_frontmatter \
+        "${TASK_ID}" do /dr-do "${captured_at}" agent /dr-qa \
+        "${OPTIONS_TMP}" "${body_bytes}" 9999 false "${rendered}")"
+    actual=$(( $(wc -c < "${rendered}" | tr -d ' ') + body_bytes ))
+
+    [ "${declared}" -eq 10001 ]
+    [ "${declared}" -eq "${actual}" ]
+    grep -q '^size_bytes: 10001$' "${rendered}"
+}
+
+@test "E2E — oversized options fail closed before publishing any snapshot" {
+    local huge_options="${BATS_TEST_TMPDIR}/huge-options.txt"
+    python3 -c 'print("/dr-qa TUNE-9999 | " + "X" * 9000)' > "${huge_options}"
+
+    run bash "${WRITER_WRAPPER}" \
+        --root "${FAKE_ROOT}" --task "${TASK_ID}" --stage do --command /dr-do \
+        --captured-by agent --recommended-next /dr-qa \
+        --options-file "${huge_options}" --body-file "${BODY_TMP}"
+
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"exceeds 8192-byte cap"* ]]
+    [ ! -e "${FAKE_ROOT}/datarim/snapshots/${TASK_ID}.snapshot.md" ]
+    [ ! -d "${FAKE_ROOT}/datarim/snapshots/.lock.${TASK_ID}" ]
+}
+
+@test "E2E — I/O failure cleanup treats root as data and removes the acquired lock" {
+    local canary="${BATS_TEST_TMPDIR}/TUNE0546_CANARY"
+    local literal_payload='$(touch${IFS}TUNE0546_CANARY)'
+    local hostile_root="${BATS_TEST_TMPDIR}/root-${literal_payload}"
+    local fake_bin="${BATS_TEST_TMPDIR}/fake-bin"
+    mkdir -p "${hostile_root}/datarim/snapshots" "${fake_bin}"
+    printf '#!/usr/bin/env bash\nexit 74\n' > "${fake_bin}/cp"
+    chmod +x "${fake_bin}/cp"
+
+    run env PATH="${fake_bin}:${PATH}" bash -c '
+        cd "$1"
+        shift
+        exec "$@"
+    ' _ "${BATS_TEST_TMPDIR}" bash "${WRITER_WRAPPER}" \
+        --root "${hostile_root}" --task "${TASK_ID}" --stage do --command /dr-do \
+        --captured-by agent --recommended-next /dr-qa \
+        --options-file "${OPTIONS_TMP}" --body-file "${BODY_TMP}"
+
+    [ "$status" -ne 0 ]
+    [ ! -e "${canary}" ]
+    [ ! -d "${hostile_root}/datarim/snapshots/.lock.${TASK_ID}" ]
+    [ ! -e "${hostile_root}/datarim/snapshots/${TASK_ID}.snapshot.md" ]
 }

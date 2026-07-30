@@ -77,6 +77,74 @@ _snapshot_render_frontmatter() {
     printf -- '---\n\n'
 }
 
+# Render frontmatter until its declared size is the exact fixed point of:
+#
+#   frontmatter bytes (including decimal size width) + final body bytes
+#
+# The decimal field is self-referential: changing 9999 to 10000 makes the
+# frontmatter one byte longer. A single recomputation is therefore not enough
+# at a decimal-width boundary. The function writes to a file so trailing
+# newlines stay byte-exact, prints the converged size, and fails closed if the
+# bounded monotone iteration does not converge.
+_snapshot_render_exact_frontmatter() {
+    local task_id="$1" stage="$2" command="$3" captured_at="$4" captured_by="$5"
+    local recommended_next="$6" options_file="$7" body_bytes="$8"
+    local size_bytes="$9" truncated="${10}" output_file="${11}"
+    local iteration fm_bytes actual_size
+
+    for iteration in 1 2 3 4 5 6 7 8; do
+        _snapshot_render_frontmatter \
+            "$task_id" "$stage" "$command" "$captured_at" "$captured_by" \
+            "$recommended_next" "$options_file" "$size_bytes" "$truncated" \
+            > "$output_file"
+        fm_bytes="$(wc -c < "$output_file" | tr -d ' ')"
+        actual_size=$(( fm_bytes + body_bytes ))
+        if [ "$actual_size" -eq "$size_bytes" ]; then
+            printf '%s\n' "$actual_size"
+            return 0
+        fi
+        size_bytes="$actual_size"
+    done
+
+    printf 'write_stage_snapshot: exact size did not converge after %s iterations\n' \
+        "$iteration" >&2
+    return 1
+}
+
+# Trap state is stored as data, never interpolated into trap source. A root
+# path may legally contain shell metacharacters; reparsing such a path in an
+# EXIT trap would turn it into executable code and could also address the
+# wrong lock directory.
+_snapshot_writer_cleanup_lock_dir=""
+_snapshot_writer_cleanup_tmp_path=""
+_snapshot_writer_cleanup_body_tmp=""
+_snapshot_writer_cleanup_raw_chunk=""
+_snapshot_writer_cleanup_fm_probe=""
+_snapshot_writer_cleanup_fm_final=""
+
+_snapshot_writer_cleanup() {
+    local status="${1:-0}"
+
+    trap - EXIT INT TERM
+    if [ -n "$_snapshot_writer_cleanup_lock_dir" ]; then
+        release_plugin_lock "$_snapshot_writer_cleanup_lock_dir"
+    fi
+    rm -f -- \
+        "$_snapshot_writer_cleanup_tmp_path" \
+        "$_snapshot_writer_cleanup_body_tmp" \
+        "$_snapshot_writer_cleanup_raw_chunk" \
+        "$_snapshot_writer_cleanup_fm_probe" \
+        "$_snapshot_writer_cleanup_fm_final"
+
+    _snapshot_writer_cleanup_lock_dir=""
+    _snapshot_writer_cleanup_tmp_path=""
+    _snapshot_writer_cleanup_body_tmp=""
+    _snapshot_writer_cleanup_raw_chunk=""
+    _snapshot_writer_cleanup_fm_probe=""
+    _snapshot_writer_cleanup_fm_final=""
+    return "$status"
+}
+
 # Public entry point.
 write_stage_snapshot() {
     if [ "${DATARIM_DISABLE_SNAPSHOT:-0}" = "1" ]; then
@@ -159,6 +227,10 @@ write_stage_snapshot() {
     local lock_dir="$snapshots_dir/.lock.${task_id}"
     local final_path="$snapshots_dir/${task_id}.snapshot.md"
     local tmp_path="${final_path}.tmp.$$"
+    local body_tmp="${tmp_path}.body"
+    local raw_chunk="${body_tmp}.raw"
+    local fm_probe_path="${tmp_path}.frontmatter.probe"
+    local fm_final_path="${tmp_path}.frontmatter"
 
     mkdir -p "$snapshots_dir"
     chmod 700 "$snapshots_dir" 2>/dev/null || true
@@ -169,23 +241,31 @@ write_stage_snapshot() {
             "$timeout" "$lock_dir" >&2
         return 3
     fi
-    # shellcheck disable=SC2064  # expand task_id NOW for the trap
-    trap "release_plugin_lock \"$lock_dir\"; rm -f \"$tmp_path\"" EXIT INT TERM
+    _snapshot_writer_cleanup_lock_dir="$lock_dir"
+    _snapshot_writer_cleanup_tmp_path="$tmp_path"
+    _snapshot_writer_cleanup_body_tmp="$body_tmp"
+    _snapshot_writer_cleanup_raw_chunk="$raw_chunk"
+    _snapshot_writer_cleanup_fm_probe="$fm_probe_path"
+    _snapshot_writer_cleanup_fm_final="$fm_final_path"
+    trap '_snapshot_writer_cleanup "$?"' EXIT
+    trap '_snapshot_writer_cleanup 130; exit 130' INT
+    trap '_snapshot_writer_cleanup 143; exit 143' TERM
 
     # Symlink T-7 mitigation — if final_path exists as symlink, unlink first.
     if [ -L "$final_path" ]; then
         rm -f "$final_path"
     fi
 
-    # Compose a worst-case frontmatter probe (size_bytes uses the cap width,
-    # truncated=true) so the real frontmatter is never longer. Byte counts use
-    # wc -c — ${#var} counts characters and would undercount UTF-8 content
-    # (option strings, the truncation marker itself).
-    local fm_probe fm_bytes body_bytes max_body marker_bytes fm_final
-    fm_probe="$(_snapshot_render_frontmatter \
+    # Compose a conservative body-budget probe (size_bytes uses the cap width,
+    # truncated=true). The exact final frontmatter is solved below; byte counts
+    # use wc -c because ${#var} would undercount UTF-8 option strings and the
+    # truncation marker.
+    local fm_bytes body_bytes max_body marker_bytes
+    _snapshot_render_frontmatter \
         "$task_id" "$stage" "$command" "$captured_at" "$captured_by" \
-        "$recommended_next" "$options_file" "$SNAPSHOT_MAX_BYTES" "true")"
-    fm_bytes="$(printf '%s' "$fm_probe" | wc -c | tr -d ' ')"
+        "$recommended_next" "$options_file" "$SNAPSHOT_MAX_BYTES" "true" \
+        > "$fm_probe_path"
+    fm_bytes="$(wc -c < "$fm_probe_path" | tr -d ' ')"
     body_bytes="$(wc -c < "$body_file" | tr -d ' ')"
     marker_bytes="$(printf '%s' "$SNAPSHOT_TRUNCATION_MARKER" | wc -c | tr -d ' ')"
 
@@ -196,7 +276,6 @@ write_stage_snapshot() {
         max_body=0
     fi
 
-    local body_tmp="${tmp_path}.body"
     if [ "$body_bytes" -gt "$max_body" ]; then
         # Keep first $max_body bytes, then strip any trailing partial UTF-8
         # codepoint via `iconv -c` (POSIX; macOS libiconv + Linux glibc).
@@ -208,7 +287,6 @@ write_stage_snapshot() {
         # macOS libiconv exits 1 + writes a stderr warning on incomplete
         # trailing sequences (the very case we are normalising), so we
         # absorb the exit code with `|| true` and silence stderr.
-        local raw_chunk="${body_tmp}.raw"
         head -c "$max_body" "$body_file" > "$raw_chunk"
         iconv -c -f UTF-8 -t UTF-8 "$raw_chunk" > "$body_tmp" 2>/dev/null || true
         rm -f "$raw_chunk"
@@ -218,19 +296,43 @@ write_stage_snapshot() {
         cp "$body_file" "$body_tmp"
     fi
 
-    local final_body_bytes
+    local final_body_bytes size_bytes actual_size
     final_body_bytes="$(wc -c < "$body_tmp" | tr -d ' ')"
-    local size_bytes=$(( fm_bytes + final_body_bytes ))
-
-    fm_final="$(_snapshot_render_frontmatter \
+    if ! size_bytes="$(_snapshot_render_exact_frontmatter \
         "$task_id" "$stage" "$command" "$captured_at" "$captured_by" \
-        "$recommended_next" "$options_file" "$size_bytes" "$truncated")"
+        "$recommended_next" "$options_file" "$final_body_bytes" \
+        "$(( fm_bytes + final_body_bytes ))" "$truncated" "$fm_final_path")"; then
+        _snapshot_writer_cleanup 0
+        return 1
+    fi
+
+    if [ "$size_bytes" -gt "$SNAPSHOT_MAX_BYTES" ]; then
+        printf 'write_stage_snapshot: rendered snapshot is %s bytes; exceeds %s-byte cap\n' \
+            "$size_bytes" "$SNAPSHOT_MAX_BYTES" >&2
+        _snapshot_writer_cleanup 0
+        return 1
+    fi
 
     {
-        printf '%s' "$fm_final"
+        cat "$fm_final_path"
         cat "$body_tmp"
     } > "$tmp_path"
-    rm -f "$body_tmp"
+
+    # Verify the actual composed artifact before the atomic publish. This is
+    # the final enforcement point for options/frontmatter as well as body.
+    actual_size="$(wc -c < "$tmp_path" | tr -d ' ')"
+    if [ "$actual_size" -ne "$size_bytes" ]; then
+        printf 'write_stage_snapshot: composed size %s differs from declared size %s\n' \
+            "$actual_size" "$size_bytes" >&2
+        _snapshot_writer_cleanup 0
+        return 1
+    fi
+    if [ "$actual_size" -gt "$SNAPSHOT_MAX_BYTES" ]; then
+        printf 'write_stage_snapshot: rendered snapshot is %s bytes; exceeds %s-byte cap\n' \
+            "$actual_size" "$SNAPSHOT_MAX_BYTES" >&2
+        _snapshot_writer_cleanup 0
+        return 1
+    fi
 
     chmod 600 "$tmp_path" 2>/dev/null || true
 
@@ -275,8 +377,7 @@ write_stage_snapshot() {
         } >> "${journal_dir}/journal.md" 2>/dev/null || true
     fi
 
-    release_plugin_lock "$lock_dir"
-    trap - EXIT INT TERM
+    _snapshot_writer_cleanup 0
     return 0
 }
 
