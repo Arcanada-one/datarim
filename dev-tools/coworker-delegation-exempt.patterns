@@ -18,6 +18,14 @@
 # file via the COWORKER_GUARD_EXEMPT_FILE env var. Missing file = no exemptions
 # (every creative-doc stays gated -- the prior behaviour).
 #
+# ELIGIBILITY IS SEMANTIC, NOT GLOB-DEFINED. Adding a glob here is how you ENACT
+# an exemption, not what MAKES a doc eligible. Add a per-doc glob (e.g. a
+# task-named creative-*.md that the keyword globs below do not cover) ONLY when
+# all four § Exempt "Vetted architectural creative-docs" conditions genuinely
+# hold (decision-not-exploration; facts vetted in-cycle; correctness-critical;
+# spec ~= final text). Do NOT broaden the defaults to auto-pass first drafts by
+# filename keyword. See the coworker-delegation policy (§ Exempt).
+#
 # Default architecture-document globs:
 creative-*architecture*.md
 creative-*algorithm*.md
