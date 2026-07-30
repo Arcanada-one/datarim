@@ -1,0 +1,324 @@
+# frontmatter-key-registry.yaml — Datarim frontmatter-key behaviour-gate registry.
+#
+# Source principle (see documentation/how-to/evolution-log.md for provenance):
+# a machine-readable contract (a frontmatter key, flag, or gating directive) MUST
+# mirror to a human-readable surface adjacent to the call site, plus a regression
+# test that fails on drift in either direction. This registry generalises that
+# principle to the whole frontmatter surface.
+#
+# Consumer: dev-tools/check-frontmatter-mirror.sh (read-only two-pass drift guard).
+# Location: dev-tools/rules/frontmatter-key-registry.yaml (sibling of fb-rules.yaml).
+#
+# Schema (block style only, depth <= 2, no anchors/flow):
+#   keys:
+#     - key: <top-level frontmatter key, verbatim, case-sensitive>
+#       surface: instruction | template
+#           instruction = commands/skills/agents (where behaviour-gating lives;
+#                         DRIFT-GATED by pass P1).
+#           template    = templates/ data-artefact schema (survey-only; NOT
+#                         drift-gated — governed by the artefact-schema track,
+#                         e.g. stage-snapshot-frontmatter-schema + /dr-doctor).
+#       category: G | C | E | M
+#           G  behaviour-gate w/ out-of-file consumer — the key changes
+#              discoverability/invocability observable WITHOUT opening the file
+#              (the P-6 failure class). Mirror REQUIRED.
+#           C  capability-gate, in-file only — restricts the tool set; visible
+#              in-file, enforced at run time. Mirror RECOMMENDED (documented).
+#           E  execution tuning, in-file only — model/effort; self-evident from
+#              output, no surprise-failure, no external catalog. Mirror NONE.
+#           M  metadata / schema field — descriptive; no behavioural gate.
+#              Mirror NONE.
+#       mirror: required | recommended | none
+#           required    — ENFORCED by pass P2: a file carrying the frontmatter
+#                         key MUST carry `body_marker`, and a file carrying the
+#                         marker MUST carry the key (either-side drift = FAIL).
+#           recommended — documented convention, NOT test-enforced.
+#           none        — no mirror expected.
+#       status: live | reserved
+#           live     — currently present on the surface; DRIFT-GATED by P1.
+#           reserved — schema-allowed but not currently used; a dormant P2 guard
+#                      that fires the moment the key is (re-)introduced.
+#       body_marker: <substring>   # required only when mirror: required
+#       surfaces:    <free text>   # external consumer surfaces (guidance)
+#       note:        <free text>   # rationale / cross-reference
+#
+# P1 (registry-completeness) compares the set of live top-level keys on the
+# instruction surface against the `surface: instruction, status: live` entries
+# below and fails on drift in either direction. Keep this list in sync when a
+# command/skill/agent adds or drops a top-level frontmatter key.
+
+keys:
+
+  # ── instruction surface — G (behaviour-gate, out-of-file consumer) ──────────
+  - key: disable-model-invocation
+    surface: instruction
+    category: G
+    mirror: required
+    status: reserved
+    body_marker: model-invocation
+    surfaces: "command/skill body note + dr-help table + skills/cta-format/SKILL.md + skills/visual-maps/pipeline-routing.md"
+    note: >-
+      The canonical mirror-contract case. Removed from the live surface by the
+      autonomy mandate, but kept schema-reserved by check-skill-frontmatter.sh.
+      Encoded here as a dormant guard: any re-introduction MUST carry a visible
+      body note (mirror) adjacent to the frontmatter plus the external consumer
+      surfaces above, or pass P2 fails.
+
+  # ── instruction surface — C (capability-gate, in-file only) ─────────────────
+  - key: allowed-tools
+    surface: instruction
+    category: C
+    mirror: recommended
+    status: live
+    note: >-
+      Restricts the tool set of a command/skill. Visible in-file and enforced at
+      run time; a body reader who acts on the prose without parsing YAML can hit
+      a permission denial. A one-line "Tools:" body note is RECOMMENDED but not
+      enforced — the frontmatter is self-adjacent, so enforcing a mirror across
+      every grant would be noise > signal.
+  - key: tools
+    surface: instruction
+    category: C
+    mirror: recommended
+    status: live
+    note: "Agent tool allowlist (e.g. peer-reviewer = read-only). Same rationale as allowed-tools."
+
+  # ── instruction surface — E (execution tuning, in-file only) ────────────────
+  - key: model
+    surface: instruction
+    category: E
+    mirror: none
+    status: live
+    note: "Model selection (inherit|sonnet|opus|haiku|full-id). Validated by check-skill-frontmatter.sh."
+  - key: effort
+    surface: instruction
+    category: E
+    mirror: none
+    status: live
+    note: "Reasoning-effort tuning. Self-evident from output; no external catalog."
+
+  # ── instruction surface — M (metadata / schema field) ───────────────────────
+  - key: name
+    surface: instruction
+    category: M
+    mirror: none
+    status: live
+  - key: description
+    surface: instruction
+    category: M
+    mirror: none
+    status: live
+  - key: title
+    surface: instruction
+    category: M
+    mirror: none
+    status: live
+  - key: id
+    surface: instruction
+    category: M
+    mirror: none
+    status: live
+  - key: argument-hint
+    surface: instruction
+    category: M
+    mirror: none
+    status: live
+    note: "Invocation-UX hint; not a gate."
+  - key: usage
+    surface: instruction
+    category: M
+    mirror: none
+    status: live
+  - key: Usage
+    surface: instruction
+    category: M
+    mirror: none
+    status: live
+    note: "Case variant of usage present on one command; both registered (checker is case-sensitive)."
+  - key: phase
+    surface: instruction
+    category: M
+    mirror: none
+    status: live
+  - key: options
+    surface: instruction
+    category: M
+    mirror: none
+    status: live
+  - key: globs
+    surface: instruction
+    category: M
+    mirror: none
+    status: live
+    note: "Path-activation hint (advisory match), not a hide/block gate."
+  - key: metadata
+    surface: instruction
+    category: M
+    mirror: none
+    status: live
+    note: "Container for nested fields (model_tier, current_aal, target_aal, runtime, creators)."
+  - key: loaded_by
+    surface: instruction
+    category: M
+    mirror: none
+    status: live
+    note: "Documents which command loads the skill; coupling metadata."
+  - key: source
+    surface: instruction
+    category: M
+    mirror: none
+    status: live
+  - key: applicability
+    surface: instruction
+    category: M
+    mirror: none
+    status: live
+  - key: target_aal
+    surface: instruction
+    category: M
+    mirror: none
+    status: live
+    note: "AAL governance surface (aal-mandate / per-repo aal.yaml) owns AAL mirroring — out of this pattern's scope."
+  - key: current_aal
+    surface: instruction
+    category: M
+    mirror: none
+    status: live
+    note: "See target_aal — AAL governance surface, separate track."
+  - key: autonomy
+    surface: instruction
+    category: M
+    mirror: none
+    status: live
+    note: "Autonomy declaration; governed by the AAL/autonomy mandate, not this pattern."
+
+  # ── template surface — survey-only (all metadata; NOT drift-gated) ──────────
+  # Recorded to satisfy the P-6 survey across templates/. Behaviour-gating keys
+  # do not appear here (templates are data artefacts). Governed by the
+  # artefact-schema track (stage-snapshot-frontmatter-schema + /dr-doctor), so
+  # pass P1 does not scan templates.
+  - key: task_id
+    surface: template
+    category: M
+    mirror: none
+    status: live
+  - key: status
+    surface: template
+    category: M
+    mirror: none
+    status: live
+  - key: type
+    surface: template
+    category: M
+    mirror: none
+    status: live
+  - key: complexity
+    surface: template
+    category: M
+    mirror: none
+    status: live
+  - key: priority
+    surface: template
+    category: M
+    mirror: none
+    status: live
+  - key: project
+    surface: template
+    category: M
+    mirror: none
+    status: live
+  - key: related
+    surface: template
+    category: M
+    mirror: none
+    status: live
+  - key: prd
+    surface: template
+    category: M
+    mirror: none
+    status: live
+  - key: plan
+    surface: template
+    category: M
+    mirror: none
+    status: live
+  - key: parent
+    surface: template
+    category: M
+    mirror: none
+    status: live
+  - key: parent_prd
+    surface: template
+    category: M
+    mirror: none
+    status: live
+  - key: parent_init_task
+    surface: template
+    category: M
+    mirror: none
+    status: live
+  - key: reflection_basis
+    surface: template
+    category: M
+    mirror: none
+    status: live
+  - key: schema_version
+    surface: template
+    category: M
+    mirror: none
+    status: live
+  - key: scope
+    surface: template
+    category: M
+    mirror: none
+    status: live
+  - key: verdict
+    surface: template
+    category: M
+    mirror: none
+    status: live
+  - key: verification_outcome
+    surface: template
+    category: M
+    mirror: none
+    status: live
+  - key: artifact
+    surface: template
+    category: M
+    mirror: none
+    status: live
+  - key: agent
+    surface: template
+    category: M
+    mirror: none
+    status: live
+  - key: archive_doc
+    surface: template
+    category: M
+    mirror: none
+    status: live
+  - key: captured_at
+    surface: template
+    category: M
+    mirror: none
+    status: live
+  - key: captured_by
+    surface: template
+    category: M
+    mirror: none
+    status: live
+  - key: started
+    surface: template
+    category: M
+    mirror: none
+    status: live
+  - key: date
+    surface: template
+    category: M
+    mirror: none
+    status: live
+  - key: completed_date
+    surface: template
+    category: M
+    mirror: none
+    status: live

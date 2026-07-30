@@ -1,0 +1,62 @@
+name: frontmatter-mirror
+
+# Blocking drift guard for the frontmatter-key behaviour-gate registry.
+#
+# Enforces, against dev-tools/rules/frontmatter-key-registry.yaml:
+#   P1 registry-completeness — every live top-level frontmatter key on the
+#      instruction surface (commands/, skills/, agents/) is categorised; no
+#      `status: live` entry has vanished from that surface; a `status: reserved`
+#      key does not appear live.
+#   P2 mirror-presence — for `mirror: required` entries carrying a body_marker,
+#      the frontmatter key and the body marker co-occur, in both directions.
+#
+# Blocking rather than advisory: the check is a closed registry-vs-surface match
+# with no heuristics or prose classification, so it has no false-positive corpus
+# risk of the kind that justifies an adoption period. Its own bats suite pins six
+# negative cases (both P1 and P2 directions) plus a positive case against the real
+# shipped tree, so a red job means genuine drift.
+
+on:
+  pull_request:
+    paths:
+      - 'commands/**'
+      - 'skills/**'
+      - 'agents/**'
+      - 'dev-tools/rules/frontmatter-key-registry.yaml'
+      - 'dev-tools/check-frontmatter-mirror.sh'
+      - '.github/workflows/frontmatter-mirror.yml'
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontmatter-mirror-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mirror-drift:
+    name: frontmatter-key mirror drift (blocking)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Run the mirror drift guard against the shipped tree
+        run: bash dev-tools/check-frontmatter-mirror.sh
+
+  self-tests:
+    name: frontmatter-mirror bats (blocking)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install bats
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends bats
+
+      - name: Run the gate's own regression suite
+        run: bats tests/check-frontmatter-mirror.bats
