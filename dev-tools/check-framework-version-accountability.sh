@@ -56,6 +56,15 @@ safe_workspace_directory() {
   other_digit="${mode: -1}"
   [ $((other_digit & 2)) -eq 0 ]
 }
+# The repository root is only ever READ (through git). It therefore needs the same
+# guarantee as $workspace — owned by us, not a symlink, not world-writable — and NOT
+# the stricter no-group-write rule that trusted_directory() enforces for the record
+# directory it creates. A default umask of 0002 yields mode 775 on every checkout, so
+# demanding a clear group-write bit here rejects the normal shape of a shared dev host
+# and hard-fails /dr-init for framework tasks.
+safe_repo_directory() {
+  safe_workspace_directory "$1"
+}
 
 is_closed_ascii_record() {
   local path="$1" forbidden last_byte
@@ -111,7 +120,7 @@ if ! [[ "$task" =~ ^[A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*$ ]]; then fail_untruste
 if [ ! -d "$workspace" ] || [ ! -d "$repo" ] || [ -L "$workspace" ] || [ -L "$repo" ]; then fail_untrusted invalid_root; fi
 workspace="$(cd "$workspace" && pwd -P)"
 repo="$(cd "$repo" && pwd -P)"
-trusted_directory "$repo" || fail_untrusted unsafe_repo
+safe_repo_directory "$repo" || fail_untrusted unsafe_repo
 for component in "$workspace" "$workspace/datarim" "$workspace/datarim/tasks"; do
   safe_workspace_directory "$component" || fail_untrusted unsafe_workspace_path
 done
