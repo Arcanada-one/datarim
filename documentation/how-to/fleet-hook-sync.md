@@ -9,9 +9,10 @@
 
 Datarim ships per-machine hook scripts that enforce runtime policy:
 
-- `coworker-hook-guard` — delegation gating (Read/Write/Bash)
-- `datarim-exec-guard` — execution-host gating
-- `branch-integration-guard` — branch-merge gating
+- `coworker-hook-guard` — delegation gating (Read/Write/Bash + SessionStart)
+- `datarim-exec-guard` — execution-host gating (Bash)
+- `branch-integration-guard` — branch-merge gating (Bash)
+- `rtk-signal-guard.sh` — RTK token-reduction guard (Bash)
 
 These are **per-machine artefacts**. A fix that lands only in `git` changes
 nothing on any machine. The update path is:
@@ -64,24 +65,59 @@ grep -c "coworker-hook-guard" ~/.claude/settings.json
 # If 0: re-run install.sh OR manually add the hook entry
 ```
 
-## Registration asymmetry (DEVS)
+## Registration verification (per-machine)
 
-As of TUNE-0537 (2026-07-30):
+Hooks are registered in `~/.claude/settings.json` under `hooks.PreToolUse`
+and `hooks.SessionStart`. The canonical registration for all active guards:
 
-| Machine | Binary present | Registered in settings.json |
-|---------|---------------|---------------------------|
-| Mac     | Yes (symlink) | 2 occurrences |
-| DEVS    | Yes (symlink) | **0 occurrences** — hook installed but NOT registered |
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {"matcher": "Read|Write|Bash", "command": "/home/<user>/.local/bin/coworker-hook-guard"},
+      {"matcher": "Bash", "command": "/home/<user>/.local/bin/rtk-signal-guard.sh"},
+      {"matcher": "Bash", "command": "/home/<user>/.local/bin/datarim-exec-guard"},
+      {"matcher": "Bash", "command": "/home/<user>/.local/bin/branch-integration-guard"}
+    ],
+    "SessionStart": [
+      {"command": "/home/<user>/.local/bin/coworker-hook-guard"}
+    ]
+  }
+}
+```
 
-**Impact:** On DEVS, the hook binary exists but Claude Code never invokes it
-because it is not listed in `~/.claude/settings.json`. The hook's policy
-enforcement is **absent** on DEVS.
+**Verification on any machine:**
 
-**Fix:** Run `install.sh --with-claude` on DEVS. The `setup_coworker_hook_symlink()`
-step is idempotent (binary symlink is already correct), and the
-`sync_claude_coworker_fragment` step handles registration. If registration is
-still absent after install, add the hook entry manually per the install.sh
-template.
+```bash
+# Check all 4 guard binaries
+for g in coworker-hook-guard branch-integration-guard rtk-signal-guard.sh datarim-exec-guard; do
+  [ -f "$HOME/.local/bin/$g" ] && echo "OK: $g" || echo "MISSING: $g"
+done
+
+# Check registration
+jq '.hooks.PreToolUse | length' ~/.claude/settings.json
+# Expected: >= 4
+```
+
+**Symlink from canonical repo:**
+
+```bash
+# datarim-exec-guard must be symlinked from the framework repo (shipped in TUNE-0519)
+ln -sf "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/datarim-exec-guard.sh" ~/.local/bin/datarim-exec-guard
+
+# other guards are linked by install.sh
+```
+
+## Registration history (DEVS)
+
+| Date | Event |
+|------|-------|
+| 2026-07-30 (TUNE-0537 merge) | Hook binaries present, settings.json had ZERO hooks registered |
+| 2026-07-30 08:45 UTC | Backed up settings.json, registered all 4 PreToolUse + 1 SessionStart hooks via `jq`, verified harmless Bash passes, datarim-exec-guard symlinked |
+
+**Root cause:** `install.sh` does not register hooks — it only links binaries.
+Registration is a per-machine step. The fleet-hook-sync runbook is the
+canonical reference for this step.
 
 ## Hook update does NOT require agent restart
 
