@@ -13,6 +13,8 @@
 #   DR_FLEET_AUDIT_GROUP    Consumer group (default obs)
 #   DR_FLEET_AUDIT_CONSUMER Consumer name (default audit-consumer-1)
 #   DR_FLEET_BLOCK_MS       XREADGROUP block timeout ms (default 5000)
+#   DR_FLEET_METRICS_DIR    Obs metrics sink dir (default <plugin>/var/metrics)
+#   DR_FLEET_COMPLIANCE_DIR Compliance sink dir (default <plugin>/var/compliance)
 
 set -uo pipefail
 
@@ -27,6 +29,7 @@ AUDIT_SINK="$PLUGIN_DIR/scripts/audit_sink.sh"
 : "${DR_FLEET_AUDIT_CONSUMER:=audit-consumer-1}"
 : "${DR_FLEET_BLOCK_MS:=5000}"
 : "${DR_FLEET_METRICS_DIR:=$PLUGIN_DIR/var/metrics}"
+: "${DR_FLEET_COMPLIANCE_DIR:=$PLUGIN_DIR/var/compliance}"
 
 MODE="loop"
 
@@ -53,25 +56,76 @@ _check() {
 }
 
 _process_entry() {
-  # Forward one audit-log entry to the obs metrics sink (JSONL).
-  # Reason fields are redacted before persistence (PRD § Security).
-  # Full structured parsing (field-by-field kv extraction) is deferred;
-  # current implementation redacts the raw blob and appends it to the daily
-  # obs sink so the obs aggregator can pick it up on the next --snapshot run.
-  # pending full sink wiring: backlog item "audit-consumer: typed kv forward to obs/compliance"
-  # (Source: discovered-during-auto)
+  # Parse one audit-log entry and forward it as a typed schema-v2 event to the
+  # obs metrics sink and the compliance sink, then acknowledge it via XACK.
+  #
+  # `raw` is the flattened XREADGROUP output from bus_subscribe: redis-cli in
+  # non-tty mode emits one token per line — the stream key, the stream entry id
+  # (\d+-\d+), then alternating field / value lines (id, ts, type, task_id,
+  # reason, …). Reason material is redacted before persistence (PRD § Security).
   local raw="$1"
-  local redacted_raw
-  redacted_raw="$(redact_reason "$raw")"
 
-  local sink_file
-  sink_file="$DR_FLEET_METRICS_DIR/audit-consumer-$(date -u +%Y-%m-%d).jsonl"
-  mkdir -p "$DR_FLEET_METRICS_DIR"
-  emit "$sink_file" \
-    "{\"ts\":\"$(date -u +%FT%TZ)\",\"group\":\"$DR_FLEET_AUDIT_GROUP\",\"raw\":\"$redacted_raw\"}"
+  # Empty read (no pending entry) or mock placeholder — nothing to forward.
+  if [[ -z "$raw" || "$raw" == "(empty)" ]]; then
+    return 0
+  fi
 
-  printf 'AUDIT [%s] group=%s entry forwarded to obs sink\n' \
-    "$(date -u +%FT%TZ)" "$DR_FLEET_AUDIT_GROUP"
+  # Field-by-field kv extraction via a small state machine (no arithmetic, so
+  # it stays correct under `set -e` inherited from audit_sink.sh).
+  local entry_id="" f_id="" f_ts="" f_type="" f_task_id="" f_reason=""
+  local state="seek" key=""
+  local line
+  while IFS= read -r line; do
+    case "$state" in
+      seek)
+        # First \d+-\d+ line is the Redis stream entry id (used for XACK).
+        if [[ "$line" =~ ^[0-9]+-[0-9]+$ ]]; then
+          entry_id="$line"; state="key"
+        fi
+        ;;
+      key)
+        # A second entry-id line marks the next entry — process one at a time.
+        if [[ "$line" =~ ^[0-9]+-[0-9]+$ ]]; then
+          break
+        fi
+        key="$line"; state="val"
+        ;;
+      val)
+        case "$key" in
+          id)      f_id="$line" ;;
+          ts)      f_ts="$line" ;;
+          type)    f_type="$line" ;;
+          task_id) f_task_id="$line" ;;
+          reason)  f_reason="$line" ;;
+        esac
+        state="key"
+        ;;
+    esac
+  done <<< "$raw"
+
+  # No stream entry id parsed — malformed or empty batch, skip.
+  if [[ -z "$entry_id" ]]; then
+    return 0
+  fi
+
+  # Build the canonical schema-v2 envelope (make_event_v2 redacts `reason`),
+  # then enrich with the source provenance so the parsed id/ts/task_id survive.
+  local event
+  event="$(make_event_v2 "" "audit-forward" 0 0 "$f_task_id" 0 "" \
+             "$DR_FLEET_AUDIT_GROUP" "" "$f_type" "forwarded" "$f_reason")"
+  event="$(printf '%s' "$event" | jq -c \
+    --arg sid "$f_id" --arg sts "$f_ts" --arg tid "$f_task_id" \
+    '. + {source_id: $sid, source_ts: $sts, task_id: $tid}')"
+
+  local day; day="$(date -u +%Y-%m-%d)"
+  emit "$DR_FLEET_METRICS_DIR/audit-consumer-$day.jsonl" "$event"
+  emit "$DR_FLEET_COMPLIANCE_DIR/audit-compliance-$day.jsonl" "$event"
+
+  # Compliance ACK — remove the message from the pending entries list.
+  bus_ack "$TOPIC" "$DR_FLEET_AUDIT_GROUP" "$entry_id" >/dev/null 2>&1 || true
+
+  printf 'AUDIT [%s] group=%s entry=%s forwarded to obs+compliance sinks\n' \
+    "$(date -u +%FT%TZ)" "$DR_FLEET_AUDIT_GROUP" "$entry_id"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
