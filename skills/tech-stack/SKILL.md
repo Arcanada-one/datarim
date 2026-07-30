@@ -1,6 +1,6 @@
 ---
 name: tech-stack
-description: Technology guidance and stack selection — starting points, viable alternatives, decision-making method, and proposal template. Use when creating a new project, service, or module, or when choosing technologies.
+description: Technology guidance and stack selection: starting points, viable alternatives, decision-making method, and proposal template for new projects and modules.
 current_aal: 1
 target_aal: 2
 ---
