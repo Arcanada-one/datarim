@@ -179,9 +179,11 @@ check_write_protected() {
   [ -e "$f" ] && return 1
   local base
   base=$(basename "$f")
-  case "$f" in
-    */wiki/*|*/Social\ Media/*) return 0 ;;
-  esac
+  # Voice-bearing paths are NOT delegation-gated — the assigned model writes
+  # them itself per the global mandate (~/.claude/CLAUDE.md § Do NOT delegate
+  # → Voice-bearing and judgment content). They return 1 (allow native write).
+  # This was the TUNE-0537 defect: the case previously returned 0 here, forcing
+  # the exact opposite of the mandate.
   case "$base" in
     prd-*.md|plan-*.md|*-task-description.md) return 0 ;;
     creative-*.md)
@@ -193,11 +195,71 @@ check_write_protected() {
   return 1
 }
 
+# Returns 0 (voice-bearing) if <path> matches a voice-bearing directory —
+# content where the assigned model must write natively, never delegate to
+# coworker.  Covers: Social Media/ posts, ecosystem-site published articles,
+# consilium / panel reasoning.  Bulk-read delegation (coworker ask over
+# wiki/_raw_/ source material) is NOT voice-bearing and returns 1.
+#
+# The function is used for the INVERSE gate: deny `coworker write --target
+# <voice-bearing path>`. It is deliberately separate from
+# check_write_protected() — orthogonal concerns (allow native write vs
+# deny coworker write).
+is_voice_bearing_path() {
+  local f="$1"
+  [ -n "$f" ] || return 1
+  case "$f" in
+    */Social\ Media/*) return 0 ;;
+  esac
+  return 1
+}
+
+# Walk up from <path> to find the nearest datarim/ directory, optionally
+# resolving it as a Datarim project root. Used by check_no_coworker_zone().
+# Writes the absolute path of the found datarim/ to stdout, or empty if not
+# found. Fail-soft: any error returns empty.
+resolve_datarim_from_path() {
+  local p="$1"
+  [ -n "$p" ] || return 0
+  local d
+  d="$(dirname "$p" 2>/dev/null || true)"
+  while [ -n "$d" ] && [ "$d" != "/" ] && [ "$d" != "." ]; do
+    if [ -d "$d/datarim" ]; then
+      echo "$d/datarim"
+      return 0
+    fi
+    d="$(dirname "$d" 2>/dev/null || true)"
+  done
+  return 0
+}
+
+# Returns 0 when <path> is inside a project that has datarim/.no-coworker —
+# a per-task marker that bans ALL coworker usage for the current task.
+# Returns 1 otherwise (no marker, not in a datarim project, any error).
+# Fail-soft: any internal error returns 1, never blocks the operation.
+check_no_coworker_zone() {
+  local f="$1" datarim_dir
+  [ -n "$f" ] || return 1
+  datarim_dir="$(resolve_datarim_from_path "$f" 2>/dev/null || true)"
+  [ -n "$datarim_dir" ] || return 1
+  [ -f "$datarim_dir/.no-coworker" ] || return 1
+  return 0
+}
+
 emit_write_deny() {
   local f="$1"
   local base
   base=$(basename "$f")
   emit_deny "Создаёшь $base — это документационный артефакт. Per CLAUDE.md MANDATORY: первый draft через coworker write --profile datarim-write --spec \"...\" --context <refs> --target \"$f\", потом surgical edits. Approve только если уже сгенерирован coworker'ом. Если это АРХИТЕКТУРНОЕ решение (ADR / threat-model / design) — global rule «Do NOT delegate → Architectural decisions» разрешает писать напрямую: добавь glob имени в coworker-delegation-exempt.patterns (рядом с хуком) ИЛИ пиши через Bash heredoc (хук не гейтит Bash). Делегируй coworker'у только настоящие черновики, НЕ имитируй compliance пустышкой."
+}
+
+emit_deny_voice_bearing() {
+  local f="$1"
+  emit_deny "Voice-bearing content must be written natively by the assigned model, not delegated to coworker. Per CLAUDE.md § Do NOT delegate → Voice-bearing and judgment content — the point of running such work on a specific agent is to get *that model's* voice and judgment; routing the draft through coworker silently substitutes the delegate LLM's prose and defeats the purpose. Target: $f"
+}
+
+emit_deny_no_coworker_zone() {
+  emit_deny "This task has datarim/.no-coworker set — coworker is banned for the ENTIRE task per the init-task coworker_policy: banned directive. All work must be done natively by the assigned model. Remove the marker file to re-enable coworker."
 }
 
 # Read-branch deny wording, bound to the crossed token threshold. The wording
@@ -313,6 +375,11 @@ case "$tool" in
       *.md|*.markdown|*.txt) ;;   # doc → fall through to token estimation
       *) exit 0 ;;                 # code / blob / no-extension → agent handles it
     esac
+    # In a no-coworker zone, skip Read delegation gating — the assigned model
+    # reads everything natively.
+    if check_no_coworker_zone "$f"; then
+      exit 0
+    fi
     bytes=$(wc -c < "$f" 2>/dev/null | tr -d ' ' || echo 0)
     bytes="${bytes:-0}"
     est=""
@@ -345,6 +412,10 @@ case "$tool" in
     f=$(printf '%s' "$input" | jq -r '.tool_input.file_path // empty')
     # Pre-overwrite backup side-effect (fail-soft, never blocks the write).
     kb_backup_if_critical "$f" "$session_cwd"
+    # In a no-coworker zone, ALL native writes are allowed — skip delegation gating.
+    if check_no_coworker_zone "$f"; then
+      exit 0
+    fi
     if check_write_protected "$f"; then
       emit_write_deny "$f"
     fi
@@ -359,6 +430,10 @@ case "$tool" in
     [ -n "$body" ] || exit 0
     while IFS= read -r addpath; do
       [ -n "$addpath" ] || continue
+      # In a no-coworker zone, ALL native writes are allowed.
+      if check_no_coworker_zone "$addpath"; then
+        continue
+      fi
       if check_write_protected "$addpath"; then
         emit_write_deny "$addpath"
         exit 0
@@ -401,7 +476,48 @@ case "$tool" in
         exit 0
       fi
     fi
-    # Skip if already delegated to coworker (or legacy shims).
+    # --- Coworker voice-bearing + no-coworker-zone gates ---------------------
+    # These run BEFORE the legacy passthrough so they can deny coworker
+    # invocations that would otherwise silently pass.
+    case "$cmd" in
+      *coworker\ write*|*coworker\ ask*)
+        # Extract --target from coworker write (or --paths from coworker ask)
+        # for voice-bearing + no-coworker-zone checks. S1: $cmd is never eval'd.
+        _cow_target=""
+        _cow_question=""
+        case "$cmd" in
+          *coworker\ write*)
+            _cow_target=$(printf '%s' "$cmd" | sed -n 's/.*--target[= ][[:space:]]*"\?\([^"]*\)"\?.*/\1/p' | head -1)
+            ;;
+          *coworker\ ask*)
+            _cow_target=$(printf '%s' "$cmd" | sed -n 's/.*--paths[= ][[:space:]]*"\?\([^"]*\)"\?.*/\1/p' | head -1)
+            _cow_question=$(printf '%s' "$cmd" | sed -n 's/.*--question[= ][[:space:]]*"\?\([^"]*\)"\?.*/\1/p' | head -1)
+            ;;
+        esac
+        # Gate 1: no-coworker zone — ban ALL coworker invocations.
+        if [ -n "$_cow_target" ] && check_no_coworker_zone "$_cow_target" 2>/dev/null; then
+          emit_deny_no_coworker_zone
+          exit 0
+        fi
+        # Gate 2: voice-bearing path — deny coworker write to voice-bearing targets.
+        if [ -n "$_cow_target" ] && is_voice_bearing_path "$_cow_target"; then
+          emit_deny_voice_bearing "$_cow_target"
+          exit 0
+        fi
+        # Gate 3: coworker ask with generation keywords (heuristic — cheap
+        # detection of "write a draft via ask"). Only fires when no --paths
+        # (pure generation, not reading a specific file).
+        if [ -n "$_cow_question" ] && [ -z "$_cow_target" ]; then
+          case "$(printf '%s' "$_cow_question" | tr '[:upper:]' '[:lower:]')" in
+            *write\ *|*draft\ *|*compose\ *|*create\ *|*generate\ *|*автор*|*напиши*|*создай*|*сгенерируй*)
+              emit_deny_voice_bearing "(coworker ask used for generation: $_cow_question)"
+              exit 0
+              ;;
+          esac
+        fi
+        ;;
+    esac
+    # Legacy passthrough — coworker commands that pass the gates above.
     case "$cmd" in *coworker\ ask*|*coworker\ write*|*ask-kimi*|*kimi-write*) exit 0 ;; esac
     trigger=0
     case "$cmd" in
