@@ -1,6 +1,6 @@
-# dr-orchestrate Plugin — Phase 2 (Subagent Inference + Bot-Interaction Interface)
+# dr-orchestrate Plugin — Phase 3 (Confirmed Auto-learning)
 
-> Class B plugin. Status: Phase 2 (Datarim v2.5.0, plugin v0.3.0).
+> Class B plugin. Phase 3 is implemented in the accumulated-release branch; the plugin manifest version remains unchanged until release.
 
 ## Install
 
@@ -16,9 +16,9 @@ dr-orchestrate run --dry-run
 dr-orchestrate run --unknown-prompt [text]
 ```
 
-Опционально перед запуском скопировать `user-config.template.yaml` → `user-config.yaml`,
-выставить `chmod 600`, заполнить ключи. Default `key_injection: false` — без ручного
-включения плагин не будет посылать send-keys.
+Optionally copy `user-config.template.yaml` to `user-config.yaml`, set mode 0600,
+and fill in the required keys. With the default `key_injection: false`, the
+plugin does not send keys until the operator enables it.
 
 ## Autonomy Levels
 
@@ -34,7 +34,29 @@ Pipeline phases by feature set (not a fixed autonomy level):
 
 - **Phase 1** — lean rule-based tmux runner.
 - **Phase 2** — multi-backend subagent inference (coworker → claude → codex) + race-safe cooldown + audit schema v2.
-- Phase 3 (planned) — auto-learning rules, Y/N callback, 24 h re-validation.
+- **Phase 3** — actor/session-bound Save-as-rule confirmation, exact learned rules, 24-hour re-validation, and a seven-day TTL.
+
+## Confirmed Auto-learning (Phase 3)
+
+After a successful trusted resolution, the plugin queues a `Save as rule? [Y/N]`
+proposal containing only an opaque callback identifier. A `Y` callback must
+match the authenticated actor and session, may be consumed once, and persists
+the normalized intent as an exact match. `N`, replay, expiry, stale generation,
+or context mismatch leaves the learned-rule file unchanged.
+Bot transports deliver the answer through the `on_callback` hook with an ID,
+answer, actor, and session; no network endpoint or Telegram credential is added
+by this phase.
+
+Learned actions never expand the trust registry. Every dispatch must already
+exist in bundled or user rules and must pass `framework_command` through the
+per-space `cross_project_write` policy immediately before execution. The
+immutable hard-gated floor remains authoritative at the Phase 3 L4 baseline.
+
+Fresh learned rules are usable for 24 hours. A due rule is excluded until a
+new successful resolution produces another confirmed proposal; confirmation
+updates `last_validated_at` without extending the immutable seven-day expiry.
+Expired rules are purged by maintenance. Mutable state defaults to a private
+mode-0700 directory, with mode-0600 atomic files and lock-held updates.
 
 ## Subagent Inference (Phase 2)
 
@@ -76,8 +98,8 @@ first, and fails closed on missing, malformed, unknown, or unresolved policy.
 
 ## Security Floor
 
-Перед любым `tmux send-keys` и перед любым autonomous decision выполняется
-фиксированный pipeline:
+Before every `tmux send-keys` call and autonomous decision, the fixed security
+pipeline runs:
 
 | Layer | Source | Behaviour |
 |-------|--------|-----------|
@@ -90,7 +112,7 @@ first, and fails closed on missing, malformed, unknown, or unresolved policy.
 | Flock-safe lock | `flock -n` per (pane, kind) | Linux only; macOS one-time WARN, non-atomic fallback |
 | Violation tracker | 5 hits / hour → 1 h pane block | persistent state |
 
-Все блокировки и события пишутся в JSONL audit. Schema v2 carries
+All blocks and events are written to the JSONL audit. Schema v2 carries
 `schema_version: 2`, `confidence`, `subagent_model`, `backend_used`,
 `escalation_backend`, `stage`, `outcome`, and a grep-redacted `reason`.
 `matched_text_hash` (sha256) preserves the hash-only invariant — raw pane text
@@ -152,9 +174,12 @@ a clean `chain_exhausted` envelope so the escalation path always runs.
 - `scripts/tmux_manager.sh` — session / pane CRUD.
 - `scripts/security.sh` — whitelist + escape + flock-safe cooldown + violation tracker.
 - `scripts/secrets_backend.sh` — YAML backend with mode-0600 enforcement.
-- `scripts/audit_sink.sh` — JSONL emit + schema v1 + schema v2 events + redaction.
+- `scripts/audit_sink.sh` — JSONL emit, schema v1/v2 events, cycle checkpoints, and recovery.
 - `scripts/semantic_parser.sh` — rule-based first-pass classifier.
 - `scripts/rules_loader.sh` — 3-source rules merge (default → user → learned).
+- `scripts/resolver.sh` — bounded compatibility history and deterministic alternative ranking.
+- `scripts/learned_rules.sh` — proposal, callback, TTL, re-validation, and maintenance lifecycle.
+- `scripts/proposal_backend.sh` — private idempotent mock/event callback queue.
 - `scripts/subagent_resolver.sh` — multi-backend AI CLI dispatch.
 - `scripts/escalation_backend.sh` — mock | dev-bot escalation sink (callback HMAC + Redis pub/sub backends).
 - `scripts/orchestrator-input-handler.sh` — inbound HTTP body validator + atomic inbox enqueue.
@@ -165,7 +190,7 @@ a clean `chain_exhausted` envelope so the escalation path always runs.
 - `rules/default.yaml` — bootstrap slash-command patterns.
 - `agents/dr-orchestrate-resolver.md` — declarative spec for the resolver subprocess.
 - `commands/dr-orchestrate.md` — command surface.
-- `tests/*.bats` — V-AC coverage (Phase 1 + Phase 2).
+- `tests/*.bats` — recursive V-AC coverage for Phase 1 through Phase 3.
 
 ## Bot Interaction Config
 
@@ -186,9 +211,9 @@ as simple as setting `provider: terminal` (or removing the block entirely).
 See `openapi/orchestrator-interface.yaml` for the full wire contract and
 `scripts/bot_interaction_dispatcher.sh` for the sourced env-export logic.
 
-## Out of Scope (Phase 2 + v0.3.0)
+## Out of Scope
 
-Telegram bridge UI, auto-learned rules write path (Phase 3), Vault
+Live Telegram callback transport (tracked separately), Vault
 `secrets_backend.sh` rewrite, embedding/vector classification, multi-host SSH,
 Docker / K8s orchestration, native Windows, stateful session store (Redis
 SETEX deferred), SSE/WebSocket outbound transport (deferred).

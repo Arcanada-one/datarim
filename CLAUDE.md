@@ -230,6 +230,14 @@ Before writing ANY file to `datarim/`:
 | `/factcheck` | Standalone | Fact-check articles and posts before publication |
 | `/humanize` | Standalone | Remove AI writing patterns from text |
 
+> **`/dr-orchestrate` Phase 3 — auto-learning with operator confirmation.** A resolved
+> action may propose `Save as rule?`, bound to the authenticated actor and session. Only an
+> explicit confirmation persists it; replay, expiry, wrong context, or malformed input fails
+> closed. Learned rules become due for re-validation after 24 hours and expire on an
+> immutable seven-day TTL. Re-validation proposes confirmation and never executes a due
+> rule, and every learned action stays subject to per-space policy and the immutable
+> hard-gated floor.
+
 Command files: `$HOME/.claude/commands/{name}.md` (28 commands, including the plugin command)
 
 ### /dr-verify (on-demand, tri-layer architecture)
