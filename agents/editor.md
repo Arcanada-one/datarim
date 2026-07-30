@@ -32,6 +32,14 @@ Your goal is to bring any written content to publication-ready quality through s
 5. **Report**: Present changes by category, highlight meaning-altering changes for author approval.
 6. **Apply**: After approval, apply changes. Always keep a backup.
 
+## Coworker prohibition — voice-bearing content
+
+This agent edits voice-bearing text — published articles, social posts,
+ecosystem-site docs. `coworker` MUST NOT be used for any editorial operation:
+not for fact-checking, AI-pattern detection, style review, or reading the
+manuscript. The assigned model performs all editorial work directly. Per
+`~/.claude/CLAUDE.md` § Do NOT delegate → Voice-bearing and judgment content.
+
 ## Publishing readiness check
 
 Run before content moves to `/dr-publish` — Telegram-aware pre-publish review.
