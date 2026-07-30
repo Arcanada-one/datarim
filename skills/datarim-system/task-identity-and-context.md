@@ -22,10 +22,11 @@ If the user does not provide a task ID, the system:
 
 1. Determines a prefix from the task content or project area.
 2. Computes the candidate ID using the deterministic formula:
-   `max(claimed across documentation/archive ∪ datarim/tasks.md ∪ datarim/backlog.md) + 1`
-   (max taken over all `PREFIX-NNNN` entries for the chosen prefix across all three claim surfaces — archive, active tasks, and backlog).
-3. **Do not emit or announce the chosen task ID — in reply text or in any artefact — until this 3-surface collision probe completes.**
-4. If the computed candidate is already claimed (a parallel-session race on the agent's own new ID), auto-bump to the next free ID and emit a warning — no operator prompt.
+   `max(claimed across archive/datarim filenames ∪ line-leading index rows in datarim/tasks.md and datarim/backlog.md) + 1`
+   (max taken over `PREFIX-NNNN` tokens found in *structural positions only* — the names of files **and directories** under `documentation/archive` and `datarim/`, and line-leading index rows in the two one-liner files. A token appearing in free prose does NOT lift the ceiling: descriptions legitimately cite supersession notes, renumber history and worked examples, and treating those as claims walks the allocator out of the 4-digit ID space the whole framework assumes.)
+3. **Do not emit or announce the chosen task ID — in reply text or in any artefact — until this collision probe completes.**
+4. If the computed candidate is already claimed, auto-bump to the next free ID and emit a warning — no operator prompt. The collision probe deliberately runs on a *wider* surface than the ceiling: prose mentions, live tmux session names (`dr-<space>-<TASK-ID>`, which reserve an ID minutes before any file records it) and git worktree/branch names all count. The asymmetry is the point — a false positive here wastes one ID, a false negative hands two agents the same ID.
+5. The ID space is exactly four digits. On exhaustion the allocator fails loudly rather than emitting a 5-digit ID, which would be invisible to the archive glob and the probes below and would therefore be re-issued forever.
 
 This generalises § Pre-Spawn ID-Claim Probe (below) from multi-ID PRD spawns to every single-ID assignment.
 
@@ -241,7 +242,7 @@ When a PRD's «Spawned Backlog Items» table assigns sequential IDs to a batch <
 2. `datarim/tasks.md` — active in-progress / not-started one-liners.
 3. `datarim/backlog.md` — pending / blocked-pending one-liners.
 
-The first free ID is `max(claimed across all three) + 1`. Archive-only probe is insufficient: a pending row in `backlog.md` from a parallel session, added between `/dr-init` and `/dr-plan`, will claim an ID that the archive does not yet know about. The collision becomes visible only when `/dr-do` is invoked against the colliding ID, by which time downstream artefacts (PRD spawned-items table, plan dependency graph, sibling task `Depends:` references) have all baked in the wrong number.
+The first free ID is `max(claimed across all three) + 1`, counting structural positions only (see § the canonical formula above). Archive-only probe is insufficient: a pending row in `backlog.md` from a parallel session, added between `/dr-init` and `/dr-plan`, will claim an ID that the archive does not yet know about. Nor are the three files sufficient on their own — a batch-spawned orchestrator reserves its ID in a tmux session name and a worktree branch name before writing any file, so those names are part of the collision probe too. The collision becomes visible only when `/dr-do` is invoked against the colliding ID, by which time downstream artefacts (PRD spawned-items table, plan dependency graph, sibling task `Depends:` references) have all baked in the wrong number.
 
 **When to apply.** Any agent finalising a multi-ID spawn from a PRD — typically `/dr-plan` for L4 epics with a Spawned Backlog Items table. The probe is a 3-file `grep` + `sort -V` + max-pick; cost is sub-second.
 
