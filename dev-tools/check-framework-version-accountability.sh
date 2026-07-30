@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Verify version accountability for the committed task diff. Read-only.
 set -euo pipefail
+# nosemgrep: bash.lang.security.ifs-tampering.ifs-tampering -- intentional strict-mode IFS scope is process-wide, single-script
 IFS=$'\n\t'
 
 usage() {
