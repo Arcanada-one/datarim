@@ -113,6 +113,47 @@ if [ ${#patterns[@]} -eq 0 ]; then
     exit 2
 fi
 
+# --- Private overlay (additive) --------------------------------------------
+# The shipped denylist lives in a PUBLIC repo, so it MUST NOT contain literal
+# infrastructure addresses or other operator-specific values — listing them
+# publishes exactly what this gate exists to suppress. Public-routable IPv4 is
+# already covered by the is_real_public_ipv4 heuristic below and needs no
+# listing. CGNAT mesh addresses (100.64/10) are deliberately EXCLUDED from that
+# heuristic (they are not globally routable), so an operator who wants them
+# caught must supply them explicitly — via this overlay, never in the shipped
+# file.
+#
+# Resolution order (first existing file wins):
+#   1. $DATARIM_PERSONAL_ID_OVERLAY            (explicit, used by tests/CI)
+#   2. ${DATARIM_LOCAL:-$HOME/.claude/local}/config/personal-id-forbidden.regex
+#
+# Fail-soft by design: an absent overlay is the normal case for a fresh
+# install and must never break the gate. The overlay is strictly ADDITIVE —
+# it can add patterns, never suppress a shipped one.
+_overlay_file=""
+if [ -n "${DATARIM_PERSONAL_ID_OVERLAY:-}" ] && [ -f "${DATARIM_PERSONAL_ID_OVERLAY}" ]; then
+    _overlay_file="${DATARIM_PERSONAL_ID_OVERLAY}"
+elif [ -f "${DATARIM_LOCAL:-$HOME/.claude/local}/config/personal-id-forbidden.regex" ]; then
+    _overlay_file="${DATARIM_LOCAL:-$HOME/.claude/local}/config/personal-id-forbidden.regex"
+fi
+
+_merged_regex=""
+if [ -n "$_overlay_file" ]; then
+    while IFS= read -r _line || [ -n "$_line" ]; do
+        case "$_line" in ''|'#'*) continue ;; esac
+        patterns+=("$_line")
+    done < "$_overlay_file"
+
+    # The Perl scanner reads the pattern FILE, not the shell array, so the
+    # merged set must be materialised. mktemp + trap keeps it out of the repo
+    # and removes it on every exit path.
+    _merged_regex="$(mktemp "${TMPDIR:-/tmp}/personal-id-merged.XXXXXX")"
+    # shellcheck disable=SC2064  # expand _merged_regex now, not at trap time
+    trap "rm -f '$_merged_regex'" EXIT INT TERM
+    printf '%s\n' "${patterns[@]}" > "$_merged_regex"
+    regex_file="$_merged_regex"
+fi
+
 # Built-in whitelist: the regex definition file and the gate script itself
 # must not be scanned — they are the pattern source, not content under policy.
 # Store both absolute and relative (basename) forms for path-agnostic matching.
