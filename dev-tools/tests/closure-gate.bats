@@ -193,3 +193,29 @@ advance_main() {
   [ "$status" -eq 2 ]
   [[ "$output" == *"origin/main"* ]]
 }
+
+@test "wiring: CI enumerates this suite, and every route to done invokes the gate" {
+  # Measured 2026-07-30: deleting closure-gate.sh AND this suite outright left
+  # `bats tests/ (full)` (2492/2492), `bats self-tests`, `doc-refs` and
+  # `dr-auto reassert-wiring` all green. A gate nothing runs is a paragraph,
+  # not a gate. The assertions below are the anti-decay wiring.
+  ROOT="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
+
+  # 1. dev-tools/tests/*.bats is NOT swept by `bats tests/` — the CI job
+  #    enumerates files, so an unlisted suite runs nowhere at all.
+  WF="$ROOT/.github/workflows/dev-tools-lint.yml"
+  [ -f "$WF" ]
+  run grep -c 'bats dev-tools/tests/closure-gate.bats' "$WF"
+  [ "$status" -eq 0 ]
+
+  # 2. Every command that may flip a task to `done` must invoke the gate first.
+  #    `/dr-archive` was wired at birth; `/dr-quick` writes a short archive and
+  #    flips `tasks.md` to `done` on its own authority, so an unwired fast-lane
+  #    is a complete bypass of the slow lane's gate.
+  for cmd in dr-archive dr-quick; do
+    DOC="$ROOT/commands/$cmd.md"
+    [ -f "$DOC" ]
+    run grep -c 'dev-tools/closure-gate.sh' "$DOC"
+    [ "$status" -eq 0 ]
+  done
+}
