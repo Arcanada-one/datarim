@@ -75,6 +75,21 @@ if [[ -f "$BACKLOG_FILE" ]]; then
     grep -oh "${PREFIX}-[0-9]\{4\}" "$BACKLOG_FILE" 2>/dev/null >> "$TMPFILE" || true
 fi
 
+# Surface 4 — in-flight init-lock markers (datarim/.locks/<ID>.init-lock). A
+# concurrent /dr-init that has claimed an ID but not yet written tasks.md is
+# invisible to surfaces 1–3; the marker directory makes that claim visible so
+# max+1 skips it. Any present marker is treated as claimed (conservative — a
+# stale marker only inflates max slightly and is never reused). See
+# dr-init-id-lock.sh.
+LOCK_DIR="${DATARIM_ROOT}/datarim/.locks"
+if [[ -d "$LOCK_DIR" ]]; then
+    for _m in "$LOCK_DIR/${PREFIX}-"[0-9][0-9][0-9][0-9].init-lock; do
+        [[ -d "$_m" ]] || continue
+        _b="$(basename "$_m")"; _b="${_b%.init-lock}"
+        printf '%s\n' "$_b" >> "$TMPFILE"
+    done
+fi
+
 # ── compute max ───────────────────────────────────────────────────────────────
 
 MAX_NUM=0
@@ -105,6 +120,9 @@ is_claimed() {
     find "$ARCHIVE_DIR" -type f -name "archive-${id}.md" 2>/dev/null | grep -q . && return 0
     [[ -f "$TASKS_FILE" ]] && grep -qh "${id}" "$TASKS_FILE" 2>/dev/null && return 0
     [[ -f "$BACKLOG_FILE" ]] && grep -qh "${id}" "$BACKLOG_FILE" 2>/dev/null && return 0
+    # Surface 4 — an in-flight init-lock marker is an atomic claim by a
+    # concurrent session that has not yet written tasks.md.
+    [[ -d "${DATARIM_ROOT}/datarim/.locks/${id}.init-lock" ]] && return 0
     return 1
 }
 
