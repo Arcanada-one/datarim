@@ -27,7 +27,13 @@
 # --check           Exit 0/1 (implied; explicit alias for scripting clarity)
 #
 # Shipped surface default paths (relative to script's parent dir):
-#   cli skills agents commands templates scripts dev-tools CLAUDE.md README.md docs
+#   cli skills agents commands templates scripts dev-tools CLAUDE.md README.md
+#   docs documentation
+#
+# Both docs/ and documentation/ are listed: this framework repo uses
+# documentation/, consumer projects may use docs/, and a missing default path is
+# skipped silently (see the abs_paths loop). Listing only one of them makes the
+# gate report PASS on a surface it never opened.
 
 set -euo pipefail
 
@@ -37,7 +43,7 @@ FRAMEWORK_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 DEFAULT_REGEX="${FRAMEWORK_ROOT}/dev-tools/personal-id-forbidden.regex"
 DEFAULT_PATHS=(
     cli skills agents commands templates scripts dev-tools
-    CLAUDE.md README.md docs
+    CLAUDE.md README.md docs documentation
 )
 
 regex_file="$DEFAULT_REGEX"
