@@ -199,6 +199,7 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
     - Immediately after the canonical init-task passes its structural probe,
       before PRD/plan creation or framework edits, invoke:
       ```bash
+      # noshellcheck-extract
       "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/capture-framework-version-baseline.sh" \
         --task {TASK-ID} --workspace "$DATARIM_ROOT" --repo <framework-repo>
       ```

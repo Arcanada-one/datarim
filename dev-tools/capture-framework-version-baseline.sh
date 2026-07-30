@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Capture the immutable INIT-owned repository baseline for version accountability.
 set -euo pipefail
+# nosemgrep: bash.lang.security.ifs-tampering.ifs-tampering -- intentional strict-mode IFS scope is process-wide, single-script
 IFS=$'\n\t'
 
 usage() {

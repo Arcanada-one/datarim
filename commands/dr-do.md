@@ -103,6 +103,7 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
     task commit, run the checker unconditionally. The checker alone classifies
     applicability; task prose or the parent command must not pre-classify it.
     ```bash
+    # noshellcheck-extract
     "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-framework-version-accountability.sh" \
       --task {TASK-ID} --workspace <workspace-root> --repo <framework-repo>
     ```
