@@ -4,6 +4,8 @@
 setup() {
     PLUGIN_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
     export DR_ORCH_DIR="$PLUGIN_ROOT"
+    export DR_ORCH_STATE_DIR="$BATS_TEST_TMPDIR/state"
+    export AUDIT_DIR="$BATS_TEST_TMPDIR/audit"
 }
 
 @test "V-AC-1: plugin.yaml registers id dr-orchestrate" {
@@ -27,10 +29,10 @@ setup() {
     [ "$status" -eq 0 ]
 }
 
-@test "V-AC-15: get_autonomy returns 2 (TUNE-0165 bumps L1→L2)" {
+@test "V-AC-28: get_autonomy returns 4 for Phase 3" {
     run bash "$DR_ORCH_DIR/scripts/plugin.sh" get_autonomy
     [ "$status" -eq 0 ]
-    [ "$output" = "2" ]
+    [ "$output" = "4" ]
 }
 
 @test "V-AC-16: dispatch on_unknown_prompt routes to cmd_run.sh" {
@@ -50,4 +52,10 @@ setup() {
     # Structural check independent of bash version: the dispatch case exists.
     run grep -E '^[[:space:]]*on_unknown_prompt\)' "$DR_ORCH_DIR/scripts/plugin.sh"
     [ "$status" -eq 0 ]
+}
+
+@test "V-AC-28: transport-neutral callback hook is wired to learned lifecycle" {
+    run grep -E '^[[:space:]]*on_callback\)' "$DR_ORCH_DIR/scripts/plugin.sh"
+    [ "$status" -eq 0 ]
+    grep -qF 'learned_rules.sh" consume_callback' "$DR_ORCH_DIR/scripts/plugin.sh"
 }

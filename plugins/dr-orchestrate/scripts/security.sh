@@ -4,6 +4,10 @@
 # 8 (5 violations/hour → 1h pane block). Fail-closed by design.
 set -euo pipefail
 
+_SECURITY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/portable-stat.sh
+source "$_SECURITY_DIR/lib/portable-stat.sh"
+
 : "${STATE_DIR:=/tmp/dr-orchestrate-state}"
 mkdir -p "$STATE_DIR"
 
@@ -119,7 +123,7 @@ is_pane_blocked() {
   local b="$STATE_DIR/${safe_pane}.blocked"
   [[ -f "$b" ]] || return 1
   local mtime
-  mtime="$(stat -f %m "$b" 2>/dev/null || stat -c %Y "$b" 2>/dev/null)"
+  mtime="$(portable_mtime "$b" 2>/dev/null || printf '0')"
   [[ -n "$mtime" ]] || return 1
   if (( $(date -u +%s) - mtime >= 3600 )); then
     rm -f "$b"
