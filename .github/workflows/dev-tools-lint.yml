@@ -42,6 +42,7 @@ jobs:
           bats dev-tools/tests/check-github-actions-execution.bats
           bats dev-tools/tests/rename-task-prefix.bats
           bats dev-tools/tests/cross-kb-evolution-digest.bats
+          bats dev-tools/tests/closure-gate.bats
           bats dev-tools/tests/orchestrate-phase3-acceptance.bats
 
   linter-run:
