@@ -147,6 +147,45 @@ coworker ask --profile codex --provider deepseek \
 
 Non-empty answer = profile recognised. The default provider is `deepseek` (≈14× cheaper than Moonshot for bulk delegation); override per call with `--provider`.
 
+## Cross-runtime `/dr-auto` smoke
+
+`/dr-auto`'s autonomous mode does not depend on any Claude-Code-only hook: it activates off a
+pure-bash marker file (`auto-mode-marker.sh`) plus an explicit per-subagent auto-signal, and the
+hard-gated-action boundary is data in `dev-tools/rules/fb-rules.yaml`. Because these primitives are
+plain shell, the activation contract holds identically on Codex CLI and Cursor.
+
+`dev-tools/check-dr-auto-cross-runtime.sh` proves this on whatever shell you run it from. Run it
+from a **Codex CLI or Cursor** shell — not just Claude Code — to confirm the contract survives the
+runtime switch:
+
+```bash
+# From a Codex CLI / Cursor terminal, at the Datarim source root:
+./dev-tools/check-dr-auto-cross-runtime.sh --report
+```
+
+It asserts three properties and exits `0` only when all hold (`1` on any failure, `2` on a missing
+precondition):
+
+1. **Activation marker** — `auto-mode-marker.sh reassert` writes a parseable marker whose path
+   `auto-mode-marker.sh resolve` reports back. The Question Suppression Ladder engages off this
+   marker, never off the runtime identity.
+2. **Env-var independence** — `subagent-active` returns `active` / `non-auto` with
+   `DATARIM_AUTO_MODE` **unset**. A spawned Codex/Cursor subagent does not inherit the shell env
+   var, so activation must stand on the marker + prompt-signal alone.
+3. **Hard-gate escalation data** — `fb-rules.yaml` declares a non-empty `hard_gated_actions` list.
+   Hard-gated actions (production deploy, secret rotation, force-push, public communication, ...)
+   never auto-execute on any runtime; they always escalate to the operator.
+
+CI runs the same check on every relevant pull request as the blocking `dr-auto-cross-runtime` job
+in `.github/workflows/dev-tools-lint.yml`, so a regression in the primitives fails the build rather
+than waiting to be discovered on a non-Claude runtime.
+
+A green `--report` is the pure-bash preflight. The full behavioural smoke — spawning a mock target
+task under `/dr-auto` on Codex CLI and observing the Ladder suppress reversible questions while
+hard-gated actions escalate — follows the same steps an operator runs on Claude Code; the check
+above guarantees the underlying activation primitives are already runtime-portable before you get
+there.
+
 ## Parallel-session safety
 
 `~/.claude/` and `~/.codex/` resolve to the same Datarim source files. Running Claude Code and Codex CLI side-by-side in `~/arcanada/` is supported with the existing workspace-discipline rules (`git add -p` per task ID, foreign hunks left alone, single `.doctor.lock` per workspace).
