@@ -1002,7 +1002,7 @@ and why it exists.
 ```
 datarim/
   agents/            # Agent personas (19 agents)
-  skills/            # Knowledge modules (64 skills)
+  skills/            # Knowledge modules (66 skills)
   commands/          # Slash commands (27 commands)
   templates/         # Task and document templates (25 templates)
   documentation/              # Extended documentation and use cases
