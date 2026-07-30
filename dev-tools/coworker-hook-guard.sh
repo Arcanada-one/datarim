@@ -487,11 +487,11 @@ case "$tool" in
         _cow_question=""
         case "$cmd" in
           *coworker\ write*)
-            _cow_target=$(printf '%s' "$cmd" | sed -n 's/.*--target[= ][[:space:]]*"\?\([^"]*\)"\?.*/\1/p' | head -1)
+            _cow_target=$(printf '%s' "$cmd" | sed -n -e 's/.*--target "\([^"]*\)".*/\1/p' -e 's/.*--target="\([^"]*\)".*/\1/p' -e 's/.*--target \([^" ]\{1,\}\).*/\1/p' -e 's/.*--target=\([^" ]\{1,\}\).*/\1/p' | head -1)
             ;;
           *coworker\ ask*)
-            _cow_target=$(printf '%s' "$cmd" | sed -n 's/.*--paths[= ][[:space:]]*"\?\([^"]*\)"\?.*/\1/p' | head -1)
-            _cow_question=$(printf '%s' "$cmd" | sed -n 's/.*--question[= ][[:space:]]*"\?\([^"]*\)"\?.*/\1/p' | head -1)
+            _cow_target=$(printf '%s' "$cmd" | sed -n -e 's/.*--paths "\([^"]*\)".*/\1/p' -e 's/.*--paths="\([^"]*\)".*/\1/p' -e 's/.*--paths \([^" ]\{1,\}\).*/\1/p' -e 's/.*--paths=\([^" ]\{1,\}\).*/\1/p' | head -1)
+            _cow_question=$(printf '%s' "$cmd" | sed -n -e 's/.*--question "\([^"]*\)".*/\1/p' -e 's/.*--question="\([^"]*\)".*/\1/p' -e 's/.*--question \([^" ]\{1,\}\).*/\1/p' -e 's/.*--question=\([^" ]\{1,\}\).*/\1/p' | head -1)
             ;;
         esac
         # Gate 1: no-coworker zone — ban ALL coworker invocations.
