@@ -244,6 +244,51 @@ When a Class B task absorbs new components (skills, templates, fragments) into a
 
 ---
 
+## Pattern: Brand Hygiene for Absorbed External Skills
+
+When a task absorbs or ports an external component (skill, agent, command, template) — typically an
+MIT-licensed skill from another framework — the source material carries the *source project's* brand
+surface: its skill-invocation prefix, namespace literals, tool names, and ecosystem paths. Ported
+verbatim, those strings become dead pointers inside Datarim (the source component no longer exists in
+this repo) or, worse, silently promote a competing framework's brand inside Datarim's own shipped
+instruction surface. Every absorption MUST run the following four-step hygiene pass. This is a
+mandatory contract, not a judgment call.
+
+1. **Attribute the provenance in `CHANGELOG.md`.** Enumerate each absorbed component and its
+   upstream source under the MIT licence in the CHANGELOG entry for the absorbing release. Attribution
+   is required and is the *only* place the source brand is allowed to persist verbatim.
+
+2. **Replace every source brand cross-reference with its local Datarim equivalent, post-merge.** After
+   the port, find and replace the source framework's skill-invocation prefix, namespace literals, and
+   internal tool names with the corresponding Datarim skill/agent/command reference. A cross-reference
+   that points at a component the framework does not ship is a dead pointer and is not acceptable in a
+   fully-absorbed artifact.
+
+3. **Drop external path-interop strings unless Datarim declares a runtime dependency.** Absorbed files
+   often reference the source ecosystem's on-disk paths (its worktree/config directories). Datarim owns
+   none of those and, absent a *declared* dependency on the source tool, needs none of them. Drop the
+   string and, where the behaviour still matters, restate it brand-agnostically ("paths owned by the
+   external worktree-manager under its own config dir"). Keep a path only when a real dependency is
+   declared.
+
+4. **Enforce with the CI regression gate — extend it per new source brand.** A committed gate already
+   exists: `tests/test-absorption-brand-hygiene.bats` asserts the source-brand skill-invocation prefix
+   never reappears in `skills/ agents/ commands/ templates/`, and CI runs it via `bats tests/`
+   (`.github/workflows/bats.yml`). Manual grep catches a point-in-time state; only the committed gate
+   prevents regression across future commits. When a task absorbs a **new** external framework, it MUST
+   extend that gate's banned-marker set with the new source's brand namespace and add a
+   golden-violation fixture reproducing the leak, so the gate grows with each absorption instead of
+   silently covering only the first-absorbed brand. (Writing a source-brand marker verbatim into any of
+   the four scanned scopes will itself trip the gate — reference banned markers abstractly in shipped
+   text, never literally.)
+
+**Source:** `documentation/how-to/evolution-log.md` — the Class B proposal accepted after the v2.0.0
+absorption of 14 external skills, its dead-cross-reference cleanup, and the regression gate that
+followed. This pattern is the sibling of `## Pattern: Split-Architecture Metrics for Absorption
+Tasks` above — both encode contracts an absorption task must satisfy.
+
+---
+
 ## Pattern: Memory Rule → Executable Gate at Apply Step
 
 When a user-memory rule (e.g. `~/.claude/projects/<proj>/memory/feedback_*.md`) repeatedly surfaces in reflection as a corrective action — meaning the rule was declared, then violated, then manually reverted — text-only memory is no longer sufficient at scale. Promote the rule to an **executable gate at the apply step** of the relevant pipeline command.

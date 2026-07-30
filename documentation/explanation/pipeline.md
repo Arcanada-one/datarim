@@ -53,13 +53,20 @@ init → prd → plan → design → do → qa → compliance → archive
 
 **What happens:**
 1. Analyze PRD and project context
-2. Strategist gate (L3-4 mandatory): Value/Risk/Cost assessment
-3. Component breakdown — list all modified and new files
-4. Interface design — function signatures, API contracts
-5. Security design — threat model, controls (Appendix A)
-6. Implementation steps with code examples
-7. Rollback strategy
-8. Validation checklist
+2. Whole-scope semantic screen: distinguish wholly reductive no-new-behavior
+   work, clearly non-matching work, and ambiguity without relying on keywords
+3. Strategist gate: mandatory for L3/L4 and for reductive or ambiguous scope at
+   every complexity; a matching L3/L4 task reuses one invocation
+4. Parent-normalized, task/invocation/scope-bound decision record is validated
+   and logged; a valid specialized `GO` or valid non-matching normal route may
+   reach the unchanged next gate, but an L3/L4 general strategist negative
+   remains non-advancing
+5. Architectural-superseding probe — remains mandatory and can still cancel,
+   reduce, or reframe the task
+6. Component breakdown — list all modified and new files
+7. Interface design — function signatures, API contracts
+8. Security design — threat model, controls (Appendix A)
+9. Implementation steps, rollback strategy, and validation checklist
 
 ---
 
