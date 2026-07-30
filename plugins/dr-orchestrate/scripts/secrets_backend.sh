@@ -3,13 +3,17 @@
 # V-AC: 9 (YAML get + mode 0600 enforcement).
 set -euo pipefail
 
+_SECRETS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/portable-stat.sh
+source "$_SECRETS_DIR/lib/portable-stat.sh"
+
 # yaml_get <file> <key> — print value of top-level scalar key. Mode MUST be 0600.
 # Exit codes: 0 ok, 1 file missing, 2 mode wrong, 3 key missing.
 yaml_get() {
   local file="$1"; local key="$2"
   [[ -f "$file" ]] || { echo "ERR: $file missing" >&2; return 1; }
   local mode
-  mode="$(stat -f %Lp "$file" 2>/dev/null || stat -c %a "$file" 2>/dev/null)"
+  mode="$(portable_mode "$file" 2>/dev/null || true)"
   [[ -n "$mode" ]] || { echo "ERR: cannot stat $file" >&2; return 1; }
   if [[ "$mode" != "600" ]]; then
     echo "ERR: $file mode $mode (need 600)" >&2

@@ -16,6 +16,18 @@ session_init() {
   tmux new-session -d -s "$s"
 }
 
+# Restore a missing session or a dead primary pane without replaying commands.
+session_recover() {
+  local s="${1:-datarim}"
+  if ! tmux has-session -t "$s" 2>/dev/null; then
+    session_init "$s"
+    return 0
+  fi
+  if [[ "$(tmux display-message -p -t "$s:0.0" '#{pane_dead}' 2>/dev/null || echo 1)" == "1" ]]; then
+    tmux respawn-pane -k -t "$s:0.0"
+  fi
+}
+
 pane_split() {
   local s="$1"
   tmux split-window -t "$s"

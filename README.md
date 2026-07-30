@@ -131,7 +131,10 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   closed threshold gate) for unknown prompts and bumps plugin autonomy from
   L1 (manual) to L2 (assisted). Flock-race-safe cooldown on Linux, audit
   schema v2 with confidence + backend metadata, hash-only matched text
-  invariant preserved. Install via `dr-plugin enable dr-orchestrate`. See
+  invariant preserved. Phase 3 adds an L4 baseline with actor/session-bound
+  Save-as-rule confirmation, exact learned matches, 24-hour re-validation,
+  and an immutable seven-day TTL. Learned actions remain constrained by
+  per-space policy and the hard-gated floor. Install via `dr-plugin enable dr-orchestrate`. See
   `plugins/dr-orchestrate/README.md`.
 
 - **Multi-runtime coworker delegation enforcement** — `dev-tools/coworker-hook-guard.sh`

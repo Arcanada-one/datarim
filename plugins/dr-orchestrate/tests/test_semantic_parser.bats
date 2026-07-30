@@ -56,3 +56,9 @@ setup() {
     conf=$(echo "$out" | jq -r '.confidence')
     awk -v c="$conf" 'BEGIN{exit !(c==0.95)}'
 }
+
+@test "V-AC-28: parser returns the selected action and provenance" {
+    out=$(bash "$DR_ORCH_DIR/scripts/semantic_parser.sh" parse "/dr-plan TUNE-0166")
+    [ "$(echo "$out" | jq -r '.action')" = "/dr-plan" ]
+    [ "$(echo "$out" | jq -r '.provenance')" = "bundled" ]
+}

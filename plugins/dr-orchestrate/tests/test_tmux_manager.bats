@@ -48,7 +48,7 @@ teardown() {
     run pane_send "$target" "echo orchestrate-marker"
     [ "$status" -eq 0 ]
     sleep 0.3
-    run tmux capture-pane -p -t "$target"
+    run tmux capture-pane -J -p -t "$target"
     echo "$output" | grep -q 'orchestrate-marker'
 }
 
@@ -73,7 +73,7 @@ teardown() {
     run pane_send_content "$target" "$brief"
     [ "$status" -eq 0 ]
     sleep 0.3
-    run tmux capture-pane -p -t "$target"
+    run tmux capture-pane -J -p -t "$target"
     echo "$output" | grep -q 'Второй месяц'
 }
 
