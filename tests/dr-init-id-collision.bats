@@ -19,10 +19,11 @@
 # Group B: functional harness reproducing the exact grep-probe command
 #   dr-init.md Step 4 specifies, against fixture backlog/tasks/archive
 #   trees, to prove the probe correctly flags/clears FOREIGN collisions.
-# Group C: known-behaviour regression guard for the next-free-id.sh
-#   literal-substring gotcha (Surface-3 `grep -oh` over backlog.md body
-#   text, not anchored to an entry line) — deliberately exercised per the
-#   wave-12 finding, not treated as an in-scope fix for this task.
+# Group C: anchor semantics of next-free-id.sh's two internal probes.
+#   Originally a guard pinning the unanchored-watermark gotcha as
+#   known-good behaviour; REVERSED by TUNE-0542 after that behaviour
+#   walked the live allocator out of the 4-digit ID space. See the
+#   Group C header below for what survived the reversal and why.
 
 CMDS_DIR="${BATS_TEST_DIRNAME}/../commands"
 HELPER="${BATS_TEST_DIRNAME}/../dev-tools/next-free-id.sh"
@@ -81,6 +82,11 @@ setup() {
     mkdir -p "${FIXTURE_DIR}/datarim"
     mkdir -p "${FIXTURE_DIR}/documentation/archive/framework"
     cd "${FIXTURE_DIR}" || return 1
+    # TUNE-0542: next-free-id.sh now also reads two HOST-GLOBAL claim surfaces
+    # (live tmux session names, git worktree/branch names). Neutralise them so
+    # this spec stays hermetic on a host running dozens of unrelated agents.
+    export DATARIM_ID_TMUX_SESSIONS=""
+    export DATARIM_ID_GIT_REFS=""
 }
 
 teardown() {
@@ -153,27 +159,58 @@ teardown() {
     [ -n "$ARCHIVE_HIT" ]  # but the archive surface still flags it as claimed
 }
 
-# ── Group C — known-behaviour regression guard (wave-12 literal-grep gotcha) ─
-# next-free-id.sh Surface-3 extraction (`grep -oh "${PREFIX}-[0-9]\{4\}"` over
-# the full body of backlog.md/tasks.md) is NOT anchored to an entry line — a
-# prose mention of a high-numbered ID anywhere in backlog.md is picked up and
-# inflates MAX_NUM, unlike the anchored dr-init.md Step-4 FOREIGN-entry probe
-# (Group B) which correctly ignores prose mentions. This is deliberately
-# exercised, not asserted as a defect — the two probes have different anchor
-# semantics by design (helper picks a NEW free id; Step-4 probe checks a
-# SPECIFIC candidate id against real entries).
+# ── Group C — anchor semantics of the two probes ─────────────────────────────
+#
+# CONTRACT REVERSED BY TUNE-0542 — deliberate, not a regression.
+#
+# C01 used to assert the opposite of what it asserts now: that a prose-only
+# mention of TUNE-9999 correctly inflated next-free-id.sh's watermark to
+# TUNE-10000. It was filed as "deliberately exercised, not asserted as a
+# defect", on the rationale that the helper and the dr-init Step-4 probe have
+# different anchor semantics BY DESIGN — the helper picks a NEW id, Step-4
+# checks a SPECIFIC id.
+#
+# That rationale was half right, and the half that was wrong cost real work.
+# On 2026-07-30 the unanchored watermark walked the live allocator to
+# TUNE-10001 against a true ceiling of TUNE-0541, out of the 4-digit space the
+# framework assumes.
+#
+# What survives: the two probes really do differ. What was misdrawn: the axis.
+# Anchoring does not track WHICH caller is asking — it tracks WHAT A FALSE
+# POSITIVE COSTS. There are three probes, not two, and the helper contains two
+# of them:
+#
+#   helper CEILING      FP = the numbering space forks     → ANCHORED   (C01)
+#   helper is_claimed   FP = one wasted ID                 → unanchored (C02)
+#   dr-init Step-4      FP = an operator STOP + 3-way ask  → ANCHORED   (B04)
+#
+# So Group B's anchored probe stays exactly as it was, and the unanchored
+# semantics C01 was defending survive too — relocated to the one place where
+# being wrong is cheap. Full derivation: dev-tools/next-free-id.sh header.
 
-@test "C01: next-free-id.sh Surface-3 extraction is NOT anchored — a prose-only ID mention inflates the max" {
+@test "C01: next-free-id.sh CEILING is anchored — a prose-only mention does not inflate the max" {
     printf -- '- TUNE-0001 · real task\n  Note: similar to TUNE-9999 discussed previously\n' \
         > datarim/backlog.md
 
     run bash "${HELPER}" "TUNE" "${FIXTURE_DIR}"
     [ "$status" -eq 0 ]
-    # Known behaviour: the prose mention of TUNE-9999 is picked up by the
-    # unanchored grep, so the computed next-free ID jumps to TUNE-10000
-    # instead of the "true" TUNE-0002 a reader would expect from the one
-    # real entry line.
-    [ "$output" = "TUNE-10000" ]
+    # One real entry line → the ceiling is 0001 and the next free ID is 0002.
+    # The prose mention of TUNE-9999 contributes nothing to the watermark.
+    [ "$output" = "TUNE-0002" ]
+}
+
+@test "C01b: next-free-id.sh COLLISION PROBE stays unanchored — prose still blocks reuse" {
+    # The surviving half of the original Group-C intent. The prose mention must
+    # not lift the ceiling (C01) and must still make that specific ID
+    # unavailable, because "renumbered from TUNE-0002" is somebody's claim even
+    # though it is not an entry line. Ceiling 0001 → candidate 0002 lands
+    # exactly on the prose-only ID, so the probe alone decides this case.
+    printf -- '- TUNE-0001 · real task [renumbered from TUNE-0002 earlier today]\n' \
+        > datarim/backlog.md
+
+    run bash "${HELPER}" "TUNE" "${FIXTURE_DIR}"
+    [ "$status" -eq 0 ]
+    echo "$output" | grep -q "TUNE-0003"
 }
 
 @test "C02: next-free-id.sh with no prose mention returns the expected low next-free ID" {

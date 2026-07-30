@@ -55,7 +55,7 @@ The following commands and contexts MUST NOT emit a Stage Header:
 | `/dr-status` | Multi-task list; the command itself prints every ID. | Skip the header entirely. |
 | `/dr-doctor` | Framework operation, not task-scoped. | Skip the header entirely. |
 | `/dr-init` (Steps 1-3, pre-ID) | TASK-ID is not yet assigned. | Emit the header on the first line *after* Step 4 completes (once the TASK-ID has been determined). |
-| `/dr-quick` (Step 1, pre-ID) | TASK-ID is not yet assigned (3-surface collision probe in Step 2 must complete first). | Emit the header on the first line *after* Step 2's probe completes (once the TASK-ID has been determined). |
+| `/dr-quick` (Step 1, pre-ID) | TASK-ID is not yet assigned (claim-surface collision probe in Step 2 must complete first). | Emit the header on the first line *after* Step 2's probe completes (once the TASK-ID has been determined). |
 
 ### Edge Cases
 

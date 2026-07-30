@@ -43,7 +43,7 @@ HELPER="${BATS_TEST_DIRNAME}/../dev-tools/next-free-id.sh"
 }
 
 # V-AC-03: pinned formula present in all three files (grep -F exact match)
-FORMULA="max(claimed across documentation/archive ∪ datarim/tasks.md ∪ datarim/backlog.md) + 1"
+FORMULA="max(claimed across archive/datarim filenames ∪ line-leading index rows in datarim/tasks.md and datarim/backlog.md) + 1"
 
 @test "A03: dr-quick.md contains the pinned max()+1 formula" {
     grep -F "${FORMULA}" "${CMDS_DIR}/dr-quick.md"
@@ -79,6 +79,12 @@ setup() {
     FIXTURE_DIR="$(mktemp -d)"
     mkdir -p "${FIXTURE_DIR}/datarim"
     mkdir -p "${FIXTURE_DIR}/documentation/archive/framework"
+    # TUNE-0542: next-free-id.sh now also reads two HOST-GLOBAL claim surfaces
+    # (live tmux session names, git worktree/branch names). Neutralise them so
+    # this spec stays hermetic on a host running dozens of unrelated agents.
+    # Their own coverage lives in tune-0542-next-free-id-claim-surfaces.bats.
+    export DATARIM_ID_TMUX_SESSIONS=""
+    export DATARIM_ID_GIT_REFS=""
 }
 
 teardown() {
@@ -111,10 +117,20 @@ teardown() {
 }
 
 @test "B04: next-free-id.sh auto-bumps when max+1 is already claimed (collision)" {
-    # Seed TUNE-9999 as the highest known ID — candidate would be TUNE-10000
-    # Pre-seed TUNE-10000 in backlog to force a collision on the first candidate
-    printf -- '- TUNE-9999 · high-watermark task\n' > "${FIXTURE_DIR}/datarim/tasks.md"
-    printf -- '- TUNE-10000 · parallel session claimed this first\n' \
+    # TUNE-0542: fixture rewritten, assertion intent unchanged.
+    #
+    # This case has always been about the auto-bump path, but it used to build
+    # the collision out of TUNE-9999 + TUNE-10000 — i.e. out of the very
+    # 5-digit overflow TUNE-0542 proved is the defect. It only ever "collided"
+    # because the unanchored grep read TUNE-10000 as the number 1000, leaving
+    # the candidate to land on a literal the ceiling had mis-parsed.
+    #
+    # A genuine collision needs a claim the CEILING cannot see and the PROBE
+    # can — that is what the two-bias split means. Here TUNE-0006 is claimed
+    # only in another row's prose: ceiling = 0005, candidate = 0006, probe
+    # catches it, bump → 0007.
+    printf -- '- TUNE-0005 · high-watermark task\n' > "${FIXTURE_DIR}/datarim/tasks.md"
+    printf -- '- TUNE-0003 · earlier row [superseded by TUNE-0006, taken by a parallel session]\n' \
         > "${FIXTURE_DIR}/datarim/backlog.md"
 
     # Use separate stdout/stderr capture so the warning line does not pollute
@@ -127,14 +143,14 @@ teardown() {
     rm -f "${STDOUT_FILE}" "${STDERR_FILE}"
 
     [ "$STATUS" -eq 0 ]
-    # Should auto-bump past TUNE-10000 → TUNE-10001
-    [ "${CHOSEN_ID}" = "TUNE-10001" ]
+    # Should auto-bump past the claimed TUNE-0006 → TUNE-0007
+    [ "${CHOSEN_ID}" = "TUNE-0007" ]
 }
 
 @test "B05: next-free-id.sh emits a WARNING to stderr on collision" {
-    # Same collision setup: TUNE-9999 in tasks, TUNE-10000 in backlog
-    printf -- '- TUNE-9999 · high-watermark task\n' > "${FIXTURE_DIR}/datarim/tasks.md"
-    printf -- '- TUNE-10000 · parallel session claimed this first\n' \
+    # Same collision setup as B04 (see the TUNE-0542 note there).
+    printf -- '- TUNE-0005 · high-watermark task\n' > "${FIXTURE_DIR}/datarim/tasks.md"
+    printf -- '- TUNE-0003 · earlier row [superseded by TUNE-0006, taken by a parallel session]\n' \
         > "${FIXTURE_DIR}/datarim/backlog.md"
 
     # Capture stderr separately
@@ -146,7 +162,7 @@ teardown() {
     [ "$STATUS" -eq 0 ]
     # Stdout: auto-bumped ID
     CHOSEN_ID="$(cat "${STDOUT_FILE}")"
-    [ "$CHOSEN_ID" = "TUNE-10001" ]
+    [ "$CHOSEN_ID" = "TUNE-0007" ]
     # Stderr: warning line present (regex V-AC-05)
     grep -iE "WARNING.*auto.?bump|parallel.session|already claimed" "${STDERR_FILE}"
 
@@ -160,15 +176,28 @@ teardown() {
 }
 
 @test "B07: next-free-id.sh handles TUNE-9999 boundary — absorbs TUNE-0229 DoD" {
-    # This is the TUNE-0229 absorbed requirement:
-    # When the highest claimed ID is TUNE-9999, the helper must correctly
-    # compute TUNE-10000 as the next free ID (no 4-digit truncation).
+    # CONTRACT REVERSED BY TUNE-0542 — deliberate, not a regression.
+    #
+    # This case previously required TUNE-10000 as the correct answer at the
+    # boundary, reading TUNE-0229's DoD ("no 4-digit truncation") as a demand
+    # that the allocator overflow into five digits. That reading does not
+    # survive contact with the surfaces the allocator has to re-read:
+    # `archive-{PREFIX}-[0-9][0-9][0-9][0-9].md`, the dr-init Step-4 probe and
+    # the public-surface regexes are all fixed at four digits. An emitted
+    # TUNE-10000 is invisible to every one of them, so the NEXT call cannot see
+    # it as claimed and hands the same ID out again — the boundary case was
+    # specified to produce a permanent self-collision.
+    #
+    # TUNE-0229's actual requirement is preserved and is stronger here: the
+    # helper must never SILENTLY mis-handle the boundary. It now fails loudly.
+    # Silence, not the digit count, was the thing worth testing.
     printf -- '- TUNE-9999 · task at boundary\n' > "${FIXTURE_DIR}/datarim/tasks.md"
 
     run bash "${HELPER}" "TUNE" "${FIXTURE_DIR}"
-    [ "$status" -eq 0 ]
-    # 10000 is 5 digits — the helper must handle this correctly
-    [ "$output" = "TUNE-10000" ]
+    [ "$status" -ne 0 ]
+    # Never a truncated ID (TUNE-0000 / TUNE-9999 reused) and never a 5-digit one
+    echo "$output" | grep -qvE 'TUNE-[0-9]{5}' || { echo "5-digit ID emitted"; false; }
+    echo "$output" | grep -iE "exhaust|4-digit"
 }
 
 # ── Group C — archived-only ID not reused (AC-3, AC-4) ───────────────────────
