@@ -186,11 +186,16 @@ ecosystem-specific Vault paths MUST NOT appear in any shipped framework artefact
 4. **Personal config location** — operator-specific tokens and settings live in `${DATARIM_LOCAL:-$HOME/.claude/local}/config/personal.env`, loaded by `cli/lib/load-local-config.sh`. This path is gitignored and never shipped.
 5. **Enforcement** — `scripts/personal-id-gate.sh` scans the shipped surface against `dev-tools/personal-id-forbidden.regex`. Run on every PR via `.github/workflows/personal-id-lint.yml`. Exit 0 = clean; exit 1 = block.
 6. **Inline exemption** — teaching counter-examples and synthetic fixtures may use the fence `<!-- gate:example-only --> ... <!-- /gate:example-only -->` to exclude specific lines from the scan.
+7. **A denylist MUST NOT contain the values it forbids.** `dev-tools/personal-id-forbidden.regex` ships in a **public** repo. Adding literal infrastructure addresses to it publishes precisely what the gate exists to suppress — the pattern file becomes its own leak, and a reader gets a ready-made role-to-address map. This applies to any shipped denylist, not only this one.
+   - **Public-routable IPv4 needs no entry.** The `is_real_public_ipv4` heuristic in `scripts/personal-id-gate.sh` flags *any* globally-routable address in the shipped surface, so a new, never-listed host is caught with no edit to the pattern file. Reserved and documentation ranges are excluded there (RFC 1918, RFC 5737 TEST-NET, loopback, link-local, 100.64/10 CGNAT, 4th-octet-0 version strings).
+   - **CGNAT mesh addresses (100.64/10) are the sole exception** — deliberately outside the heuristic, since flagging the whole range would break legitimate documentation. They are supplied through the private overlay `${DATARIM_LOCAL:-$HOME/.claude/local}/config/personal-id-forbidden.regex`, which the gate merges **additively** (it can add patterns, never suppress a shipped one). Absent overlay is fail-soft — the normal case for a fresh install. Override for tests/CI with `DATARIM_PERSONAL_ID_OVERLAY=<file>`.
+8. **A gate's own tests MUST NOT use real values as fixtures.** A test proving "a real host is caught" needs a routable address, not *your* address — use a third-party well-known address or an RFC 5737 range, whichever the assertion requires. Tests are shipped surface too.
 
 ### Cross-references
 
-- `scripts/personal-id-gate.sh` — scanner (engine: `perl -CSD`, UTF-8-safe, BSD-compatible).
-- `dev-tools/personal-id-forbidden.regex` — machine-readable pattern set.
+- `scripts/personal-id-gate.sh` — scanner (engine: `perl -CSD`, UTF-8-safe, BSD-compatible) + additive private-overlay merge.
+- `dev-tools/personal-id-forbidden.regex` — machine-readable pattern set (**generic patterns only — no literal addresses**).
+- `tests/personal-id-gate-private-overlay.bats` — overlay contract regression (shipped file carries no literals; heuristic still catches public IPs; overlay is additive and fail-soft).
 - `.github/workflows/personal-id-lint.yml` — CI gate.
 - `cli/lib/load-local-config.sh` — generic personal-config loader.
 

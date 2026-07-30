@@ -36,26 +36,30 @@ ASANA_[A-Z_]*PAT
 # 16-digit numeric IDs (Asana workspace/user GIDs)
 \b[0-9]{16}\b
 
-# Real public IPv4 heuristic — forward leak prevention.
-# The specific IPs below stay as a defense-in-depth denylist, but the FLOOR is
-# now a heuristic in scripts/personal-id-gate.sh (sub is_real_public_ipv4): it
-# flags ANY routable public IPv4 in the shipped surface, so a NEW unlisted
-# ecosystem IP is caught without touching this file. Reserved/documentation
-# ranges (RFC 1918, RFC 5737 TEST-NET, loopback, link-local, 100.64/10 CGNAT,
-# 4th-octet-0 network/version strings) are excluded there. Keep this denylist
-# in sync when hosts change, but the heuristic no longer depends on it.
-
-# Arcana production infrastructure — real public IPs (never in shipped surface)
-\b49\.13\.52\.208\b
-\b65\.108\.236\.39\b
-\b135\.181\.222\.38\b
-\b37\.27\.107\.227\b
-
-# Arcana production infrastructure — Tailscale mesh IPs
-\b100\.78\.174\.28\b
-\b100\.121\.155\.54\b
-\b100\.70\.137\.104\b
-\b100\.90\.7\.20\b
+# Real public IPv4 — handled by heuristic, NOT by a literal denylist.
+#
+# This file ships in a PUBLIC repository. A denylist of literal infrastructure
+# addresses would publish exactly what this gate exists to suppress: the file
+# becomes its own leak, and a reader gets a ready-made role-to-address map.
+# Literal addresses therefore MUST NOT be added here.
+#
+# The floor is the heuristic in scripts/personal-id-gate.sh
+# (sub is_real_public_ipv4): it flags ANY globally-routable public IPv4 in the
+# shipped surface, so a new, never-listed address is caught with no edit to
+# this file. Reserved and documentation ranges are excluded there (RFC 1918,
+# RFC 5737 TEST-NET, loopback, link-local, 100.64/10 CGNAT, and 4th-octet-0
+# network/version strings).
+#
+# CGNAT mesh addresses (100.64/10) are deliberately outside the heuristic —
+# they are not globally routable, and flagging the whole range would break
+# legitimate documentation. An operator who needs specific mesh addresses
+# caught supplies them through the private overlay, which the gate merges
+# additively when present:
+#
+#   ${DATARIM_LOCAL:-$HOME/.claude/local}/config/personal-id-forbidden.regex
+#
+# That path is gitignored and machine-local. Override for tests/CI with
+# DATARIM_PERSONAL_ID_OVERLAY=<file>.
 
 # ssh root@ to a literal IPv4 (entry-point leak — use ssh root@<host> placeholder instead)
 ssh root@[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}

@@ -160,7 +160,7 @@ FIXTURE
 <!-- gate:example-only -->
 198.51.100.7 is a safe documentation address
 <!-- /gate:example-only -->
-But 65.108.236.39 out here is a real host and must be caught.
+But 8.8.8.8 out here is a routable public address and must be caught.
 FIXTURE
     run bash "$GATE" --regex "$REGEX" --paths "$TMP_DIR/mixed-ip.txt" --check
     [ "$status" -eq 1 ]
