@@ -59,10 +59,18 @@ source_backlog_ref: <ref>     # only when source: backlog (e.g. backlog.md#<back
 ---
 ```
 
-Optional fields (used by later phases — F4 browser QA, etc.):
+Optional fields (used by later phases — F4 browser QA, task-level policy, etc.):
 
 ```yaml
 qa_browser_mode: headed       # headed | headless — F4 reference
+coworker_policy: banned       # default (omit) | banned — when "banned", the
+                              # coworker hook guard blocks ALL coworker
+                              # invocations for this task and a pipeline
+                              # command that reads this field creates the
+                              # runtime marker datarim/.no-coworker (the
+                              # hook checks for the marker, not the YAML).
+                              # Use for voice-bearing content tasks where
+                              # the assigned model must write every word.
 ```
 
 ## Body shape
