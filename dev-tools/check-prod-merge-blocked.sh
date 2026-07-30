@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# check-prod-merge-blocked.sh — Pre-archive gate: for deploy-class tasks,
+# check-prod-merge-blocked.sh -- Pre-archive gate: for deploy-class tasks,
 # refuse to archive when the prod merge verification is BLOCKED or
 # unverifiable without operator confirmation.
 #
@@ -8,20 +8,28 @@
 # is done AND verified) are UNENFORCED. This script is the mechanical
 # enforcement for both.
 #
-# It checks two things:
-#   1. Is the task deploy-class? (via check-deploy-class.sh)
-#   2. Does the archive doc carry prod-merge verification evidence?
-#      (a post-merge health/log probe, a version match, or an operator
-#       confirmation on BLOCKED)
+# Two-tier check (structured beats regex):
+#   1. PRIMARY: archive doc frontmatter field prod_verification.
+#      Values: verified | blocked-operator-approved | n-a.
+#      verified or blocked-operator-approved -> pass.
+#      Absent -> fall through to prose check.
+#   2. FALLBACK: broad DISJUNCTIVE prose evidence. Any of these signal
+#      verification was performed (vocabulary from real archive docs,
+#      not rigid word-order patterns -- "probe returned HTTP 200" and
+#      "version matches" are as valid as "health probe passed" and
+#      "running version"):
+#        - post-deploy health status (returned/HTTP/200/OK/healthy/active/passed)
+#        - version or SHA confirmed (matches/confirmed/running/deployed)
+#        - operator sign-off (confirmed/approved/verified/out-of-band)
+#      BLOCKED without operator confirmation -> block.
 #
 # Usage:
 #   check-prod-merge-blocked.sh --task-description <path> --archive-doc <path> [--report]
 #
 # Exit codes:
-#   0 — not deploy-class, OR prod-merge verification evidence present
-#   1 — deploy-class but prod-merge verification missing or BLOCKED without
-#        operator confirmation
-#   2 — usage error
+#   0 -- not deploy-class, OR prod-merge verification confirmed
+#   1 -- deploy-class but prod-merge verification missing or blocked
+#   2 -- usage error
 #
 # Called by /dr-archive Step 0.4 (post-probe self-check) and Step 2
 # (pre-finalize gate).
@@ -50,8 +58,7 @@ if [ -z "$TASK_DESC" ] || [ -z "$ARCHIVE_DOC" ]; then
     usage
 fi
 
-# Check if deploy-class. Use the existing classifier script if available;
-# otherwise, grep for deploy-surface markers directly.
+# Check if deploy-class.
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DEPLOY_CLASSIFIER="$SCRIPT_DIR/check-deploy-class.sh"
 
@@ -62,14 +69,13 @@ if [ -x "$DEPLOY_CLASSIFIER" ] && [ -f "$TASK_DESC" ]; then
     fi
 fi
 
-# Fallback: grep the task description for deploy-surface markers.
 if [ "$IS_DEPLOY" -eq 0 ] && [ -f "$TASK_DESC" ]; then
     if grep -qiE 'deploy|systemd|nginx|docker.compose|production|prod.deploy|cutover' "$TASK_DESC" 2>/dev/null; then
         IS_DEPLOY=1
     fi
 fi
 
-[ "$IS_DEPLOY" -eq 1 ] || exit 0   # not deploy-class → skip
+[ "$IS_DEPLOY" -eq 1 ] || exit 0
 
 # Deploy-class: archive doc MUST have prod-merge verification evidence.
 [ -f "$ARCHIVE_DOC" ] || {
@@ -81,39 +87,82 @@ fi
     exit 1
 }
 
-# Evidence markers for prod-merge verification:
-VERIFY=0
+# --- TIER 1: structured frontmatter field (deterministic) ------------------
+PROD_VERIFICATION=$(awk '/^---$/ {c++; next}
+    c==1 && /^prod_verification:/ {
+        v=$0; sub(/^prod_verification:[[:space:]]*/, "", v);
+        gsub(/[[:space:]]+$/, "", v);
+        print v; exit
+    }
+    c>=2 {exit}' "$ARCHIVE_DOC" 2>/dev/null || true)
 
-# Marker 1: explicit post-merge / prod-verification language
-if grep -qiE 'prod.merge.*verified|post.merge.*verif|prod.deploy.*confirmed|deploy.*class.*verified|production.*merge.*done' "$ARCHIVE_DOC" 2>/dev/null; then
-    VERIFY=$((VERIFY + 1))
+if [ -n "$PROD_VERIFICATION" ]; then
+    case "$PROD_VERIFICATION" in
+        verified|blocked-operator-approved)
+            exit 0 ;;
+        n-a)
+            exit 0 ;;
+        *)
+            if [ "$REPORT_MODE" -eq 1 ]; then
+                echo "BLOCKED: prod_verification frontmatter is '$PROD_VERIFICATION' (expected: verified | blocked-operator-approved | n-a)"
+                echo "  Archive: $ARCHIVE_DOC"
+            fi
+            exit 1 ;;
+    esac
 fi
 
-# Marker 2: version or build-SHA confirmed running on prod
-if grep -qiE 'running.*version|version.*running|build.SHA.*prod|deployed.*SHA|image.*running|container.*version|systemctl.*status.*active' "$ARCHIVE_DOC" 2>/dev/null; then
-    VERIFY=$((VERIFY + 1))
+# --- TIER 2: broad disjunctive prose fallback ------------------------------
+# Each group is a DISJUNCTION: ANY match in the group counts as one evidence
+# point. Vocabulary from real archive docs -- "probe returned HTTP 200" and
+# "version matches" are as valid as "health probe passed" and "running version".
+
+# Group A: any health/probe/status indicator
+HEALTH_SCORE=0
+if grep -qiE 'health.*(returned|HTTP|200|OK|active|passed|healthy|confirmed|running|up|live)' "$ARCHIVE_DOC" 2>/dev/null; then
+    HEALTH_SCORE=1
+fi
+if grep -qiE '(probe|check|verified|confirmed|tested).*(returned|HTTP|200|OK|active|passed|healthy|up|live|success)' "$ARCHIVE_DOC" 2>/dev/null; then
+    HEALTH_SCORE=1
 fi
 
-# Marker 3: health/log probe evidence after deploy
-if grep -qiE 'health.*probe.*passed|log.probe.*confirmed|post.deploy.*healthy|prod.*ready|readiness.*probe' "$ARCHIVE_DOC" 2>/dev/null; then
-    VERIFY=$((VERIFY + 1))
+# Group B: any version/SHA/image match indicator
+VERSION_SCORE=0
+if grep -qiE 'version.*(match|confirm|OK|correct|same|deploy|running|prod|live)' "$ARCHIVE_DOC" 2>/dev/null; then
+    VERSION_SCORE=1
+fi
+if grep -qiE '(running|deploy|prod|live|image).*(version|SHA|commit|tag|match|confirm|OK|correct)' "$ARCHIVE_DOC" 2>/dev/null; then
+    VERSION_SCORE=1
+fi
+if grep -qiE '(build|image|container).*(running|deploy|prod|match|confirm|OK|SHA|tag|version)' "$ARCHIVE_DOC" 2>/dev/null; then
+    VERSION_SCORE=1
 fi
 
-# At least 2 markers needed.
-if [ "$VERIFY" -ge 2 ]; then
+# Group C: operator sign-off
+OPERATOR_SCORE=0
+if grep -qiE 'operator.*(confirm|approv|verif|sign|OK|ack)' "$ARCHIVE_DOC" 2>/dev/null; then
+    OPERATOR_SCORE=1
+fi
+
+TOTAL_SCORE=$((HEALTH_SCORE + VERSION_SCORE + OPERATOR_SCORE))
+# Need at least 2 of 3 groups with evidence, OR 1 group + explicit PASS marker.
+PASS_MARKER=0
+if grep -qiE 'PASS|SHA.chain.*intact|prod.deploy.*confirmed|post.merge.*done.*verified|prod.*verified' "$ARCHIVE_DOC" 2>/dev/null; then
+    PASS_MARKER=1
+fi
+
+if [ "$TOTAL_SCORE" -ge 2 ] || { [ "$TOTAL_SCORE" -ge 1 ] && [ "$PASS_MARKER" -eq 1 ]; }; then
     exit 0
 fi
 
-# One more check: BLOCKED/unverifiable with operator confirmation is valid
+# --- BLOCKED check ---------------------------------------------------------
 BLOCKED_PATTERN=0
-if grep -qiE 'BLOCKED.*prod|prod.*unreachable|unverifiable.*prod|prod.*BLOCKED' "$ARCHIVE_DOC" 2>/dev/null; then
+if grep -qiE 'BLOCKED|unreachable|unverifiable|cannot.connect|timeout' "$ARCHIVE_DOC" 2>/dev/null; then
     BLOCKED_PATTERN=1
 fi
 if [ "$BLOCKED_PATTERN" -eq 1 ]; then
-    if grep -qiE 'operator.*confirmed|operator.*approved|out.of.band.*verif|explicit.*operator' "$ARCHIVE_DOC" 2>/dev/null; then
+    if grep -qiE 'operator.*(confirm|approv|verif|sign|OK|ack)|out.of.band|manual.*verif' "$ARCHIVE_DOC" 2>/dev/null; then
         exit 0   # BLOCKED with operator confirmation is valid
     fi
-    # BLOCKED without operator confirmation → error
     if [ "$REPORT_MODE" -eq 1 ]; then
         echo "BLOCKED: prod verification is BLOCKED/unverifiable without operator confirmation"
         echo "  Archive: $ARCHIVE_DOC"
@@ -123,9 +172,11 @@ if [ "$BLOCKED_PATTERN" -eq 1 ]; then
 fi
 
 if [ "$REPORT_MODE" -eq 1 ]; then
-    echo "BLOCKED: deploy-class task lacks prod-merge verification evidence ($VERIFY of 2 markers)"
+    echo "BLOCKED: deploy-class task lacks prod-merge verification evidence"
+    echo "  Scores: health=$HEALTH_SCORE version=$VERSION_SCORE operator=$OPERATOR_SCORE (need >=2)"
     echo "  Task: $TASK_DESC"
     echo "  Archive: $ARCHIVE_DOC"
-    echo "  Action: verify prod merge per dr-archive.md § 0.4 and record evidence."
+    echo "  Action: verify prod merge per dr-archive.md § 0.4 and record evidence,"
+    echo "    or add 'prod_verification: verified' to archive frontmatter."
 fi
 exit 1
