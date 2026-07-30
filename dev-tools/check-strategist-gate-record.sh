@@ -4,6 +4,7 @@
 # agents, write records, select routes, or open evidence paths.
 
 set -euo pipefail
+# nosemgrep: bash.lang.security.ifs-tampering.ifs-tampering -- intentional strict-mode IFS scope is process-wide, single-script
 IFS=$' \t\n'
 
 usage() {
