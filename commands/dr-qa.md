@@ -435,6 +435,25 @@ this skill pre-resolves that decision to "yes".
 
 **Verdict:** PASS | PASS_WITH_NOTES | SKIP | NO-TEST-ENV | FAIL
 
+### Layer 4i — Framework Version Accountability
+
+When the implementation repository is the Datarim framework repository, run
+the shared checker unconditionally and independently of `/dr-do`:
+
+```bash
+"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-framework-version-accountability.sh" \
+  --task {TASK-ID} --workspace <workspace-root> --repo <framework-repo>
+```
+
+- Exit 0 records the exact stable disposition and contributes PASS.
+- exit 1 or exit 2 makes this layer **FAIL** with no advisory downgrade. The
+  overall QA result is **FAIL**, the pipeline is **BLOCKED**, and must route to
+  `/dr-do`.
+- Recompute against the INIT-owned baseline; never accept a base from task
+  prose, a QA report, or a command argument.
+- This layer is additive and cannot weaken expectations, anti-deferral,
+  security, tests, test-environment, prod-readiness, or any other hard gate.
+
 ```markdown
 ### Layer 4: Code Quality — {VERDICT}
 

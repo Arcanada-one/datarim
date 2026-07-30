@@ -165,6 +165,27 @@ elif command -v git >/dev/null 2>&1; then
     git -C "$DATARIM_ROOT" branch -a --format='%(refname:short)' 2>/dev/null >> "$LIVE_FILE" || true
 fi
 
+# ── surface 4 (ceiling + probe): in-flight init-lock markers ─────────────────
+#
+# `datarim/.locks/<ID>.init-lock` is the mkdir-based atomic claim a concurrent
+# /dr-init takes between choosing an ID and writing its first artefact. That is
+# the narrowest race window in the system, and nothing in surfaces 1–3 can see
+# it. Any present marker counts — conservatively, because a stale one only
+# skips an ID and is never reused. See dr-init-id-lock.sh.
+#
+# The generic datarim/ name sweep above already collects these markers (they
+# are directories under datarim/). The explicit block stays anyway: a
+# safety-critical guarantee should not rest on being an incidental side effect
+# of a broader glob, where a later narrowing of that glob would silently drop
+# it.
+LOCK_DIR="${DATARIM_ROOT}/datarim/.locks"
+if [[ -d "$LOCK_DIR" ]]; then
+    for _m in "$LOCK_DIR/${PREFIX}-"[0-9][0-9][0-9][0-9].init-lock; do
+        [[ -d "$_m" ]] || continue
+        printf '%s\n' "${_m##*/}" >> "$NAMES_FILE"
+    done
+fi
+
 # ── compute the ceiling ──────────────────────────────────────────────────────
 
 MAX_NUM=0
@@ -195,6 +216,12 @@ is_claimed() {
     # must not be handed out either.
     if [[ -f "$TASKS_FILE" ]] && grep -qF -- "$id" "$TASKS_FILE" 2>/dev/null; then return 0; fi
     if [[ -f "$BACKLOG_FILE" ]] && grep -qF -- "$id" "$BACKLOG_FILE" 2>/dev/null; then return 0; fi
+
+    # Surface 4 — an in-flight init-lock marker is an atomic claim by a
+    # concurrent session that has not yet written tasks.md. Checked directly as
+    # well as via NAMES_FILE, for the reason given at the surface-4 block.
+    if [[ -d "${DATARIM_ROOT}/datarim/.locks/${id}.init-lock" ]]; then return 0; fi
+
 
     return 1
 }
