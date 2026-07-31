@@ -39,14 +39,30 @@ jobs:
           sudo chmod +x /usr/local/bin/yq
           python3 -m pip install --quiet jsonschema pyyaml
 
-      # -r is load-bearing, not cosmetic. `bats <dir>` does NOT descend into
-      # subdirectories, so before this flag tests/install-matrix/ was invisible
-      # despite this job claiming to run "every *.bats file under tests/", and
-      # any future suite added under a subdirectory would have been dark from
-      # the moment it landed. Verified on bats 1.10.0: a tree with one
-      # top-level and one nested suite runs 1 test without -r and 2 with it.
+      # `bats tests/` does NOT descend into subdirectories (verified on bats
+      # 1.10.0: a tree with one top-level and one nested suite runs 1 test, and
+      # 2 with -r). So this job's claim to run "every *.bats file under tests/"
+      # was false — tests/install-matrix/ was never executed by it.
+      #
+      # `bats -r tests/` is the obvious fix and is WRONG here: tests/dr-orchestrate
+      # is a symlink to ../plugins/dr-orchestrate/tests, and -r follows it. The
+      # plugin tree would then run a second time through a path whose relative
+      # fixtures do not resolve — measured, 353 failures via the symlinked path
+      # against 1 when the same suites run at their real path in dark-suites
+      # below. Enumerating with find, which does not follow symlinks by default,
+      # gets the recursion without the symlink.
       - name: Run full bats suite
-        run: bats -r tests/
+        run: |
+          set -euo pipefail
+          mapfile -t suites < <(find tests -type f -name '*.bats' | sort)
+          echo "executing ${#suites[@]} suite(s)"
+          # A glob that matches nothing must fail loudly, not pass green.
+          if [ "${#suites[@]}" -lt 240 ]; then
+            echo "FAIL: ${#suites[@]} suite(s) matched, below the floor of 240." >&2
+            echo "      Do not lower the floor to make this pass." >&2
+            exit 1
+          fi
+          bats "${suites[@]}"
 
   # Suites that exist, pass locally, and until now proved nothing on any PR.
   # Grouped into ONE job rather than one job per surface: these run on the
