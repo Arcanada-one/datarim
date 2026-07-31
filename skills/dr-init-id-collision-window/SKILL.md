@@ -57,7 +57,7 @@ NEW_ID="$(dev-tools/next-free-id.sh TUNE "$DATARIM_ROOT")"   # probes AND reserv
 ```
 
 The allocator reserves the selected ID with an atomic `mkdir` mutex under
-`datarim/.id-reservations/{ID}` (TUNE-0285). `mkdir` is atomic on every POSIX
+`datarim/.id-reservations/{ID}`. `mkdir` is atomic on every POSIX
 filesystem, so of two sessions computing the same candidate exactly one wins and
 the loser gets `EEXIST` and bumps. The reservation is reversible three ways, so
 a crashed session can never permanently burn an ID:
@@ -84,11 +84,12 @@ are the collisions that actually happen:
 | `datarim/*` under `.gitignore` | `rg`/`grep` honour `.gitignore`, so a taken ID reads as free unless `--no-ignore` is passed |
 | archive subdirectories | the ID is retired, not free |
 
-Measured provenance: `TUNE-0543` and `TUNE-0544` were both free at 12:30 and
-claimed by other sessions by 12:50 — with task files and worktree branches but
-**zero** presence in `backlog.md`, `tasks.md`, the archive, or `git log --all`.
-On 2026-07-31 three separate collisions (`TUNE-0545`, `INFRA-0379`, and an
-earlier pair) all traced to sessions that probed by hand instead of reserving.
+Measured provenance: two consecutive IDs were both free at 12:30 and claimed by
+other sessions by 12:50 — with task files and worktree branches but **zero**
+presence in `backlog.md`, `tasks.md`, the archive, or `git log --all`. Three
+separate collisions in a single day, in two different prefixes, all traced to
+sessions that probed by hand instead of reserving. One of them was committed by
+an agent following the fallback procedure in this very file.
 
 ## Detection — manual probe scope (fallback / verification only)
 
