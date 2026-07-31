@@ -6,9 +6,10 @@
 # the 7-day OP-3 decommission clock (warning on window-open, fatal once
 # overdue, single info event + persisted state once fully removed).
 #
-# Deliberately NOT a runner-side systemd job on arcana-dev — Operational
-# Resilience Mandate Principle 2 treats the laptop-class runner as unfit for
-# production-critical drift detection. Mirrors security-stale-trigger.yml.
+# Deliberately NOT a runner-side systemd job on the development runner —
+# Operational Resilience Mandate Principle 2 treats the laptop-class runner as
+# unfit for production-critical drift detection. Mirrors
+# security-stale-trigger.yml.
 #
 # Fail-soft: dev-tools/sha-bridge-audit.sh emits `::warning::`/`::error::`
 # annotations and always exits 0 on its own network/API errors so this cron

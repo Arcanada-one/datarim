@@ -78,3 +78,24 @@ datarim/runtime/
 # graph datarim/wizard/<TASK-ID>.graph.jsonl (TUNE-0390). Runtime interview
 # state; the local log may hold raw operator text and is never committed.
 datarim/wizard/
+
+# Init-task artefacts — datarim/tasks/<TASK-ID>-init-task.md holds, by contract,
+# the VERBATIM operator brief and append-log (skills/init-task-persistence).
+# Verbatim operator input is personal data by construction: the frontmatter
+# carries an `operator:` field and the body carries the operator's own wording,
+# paths and machine names. Ten such files were tracked in this public repo until
+# the 2.60.0 release audit; they are untracked now and must never be re-added.
+# The framework already documents datarim/ as local workflow state — this closes
+# the gap between that contract and the repo's actual tracked set.
+datarim/tasks/*-init-task.md
+
+# Insight artefacts — CLAUDE.md § Critical Rules asserts these are "gitignored,
+# ephemeral runtime artefacts" and forbids shipped files from citing them by
+# filename. Nothing under insights/ was tracked, but without this rule the
+# assertion was unenforced and the next /dr-prd run could commit one.
+insights/
+
+# Bare *.env files. The patterns above cover `.env` and `.env.*`, but not a file
+# named e.g. `personal.env` — which is exactly the operator-overlay filename the
+# security baseline tells consumers to create.
+*.env

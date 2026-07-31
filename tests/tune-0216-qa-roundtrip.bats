@@ -44,7 +44,7 @@ write_base_init_task() {
         echo "schema_version: 1"
         echo "captured_at: 2026-05-14"
         echo "captured_by: /dr-init"
-        echo "operator: Pavel"
+        echo "operator: test-operator"
         echo "status: canonical"
         echo "source: /dr-init"
         echo "---"

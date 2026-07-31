@@ -214,7 +214,7 @@ After PRD save, the architect agent MUST emit a CTA block ([definition](../skill
 - Backlog items proposed and accepted → mention "N items added to backlog" + primary `/dr-plan {TASK-ID}`
 - Always include `/dr-status` as escape hatch
 
-The CTA block MUST follow the canonical format (numbered, one `**рекомендуется**`, `---` HR). Variant B menu when >1 active tasks. <!-- allow-non-ascii: russian-canonical-cta-marker-tokens-cited-from-cta-format-skill -->
+The CTA block MUST follow the canonical format (numbered, exactly one primary recommendation marker per `cta-format.md`, `---` HR). Variant B menu when >1 active tasks.
 
 ## Post-Step Self-Verification Hook (Automatic)
 

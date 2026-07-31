@@ -1,13 +1,13 @@
 # How-to Guides — Problem-Solving Documentation
 
-How-to guides are task-oriented документация, где читатель точно знает, какую проблему хочет решить. Содержание — это точные инструкции для достижения конкретной цели: последовательность шагов, конфигурации, команды. Интент — дать рабочее решение известной проблемы без лишних объяснений. Читатель приходит с вопросом «как сделать X?» и ожидает прямой ответ.
+How-to guides are task-oriented documentation, where the reader knows exactly which problem they want to solve. The content consists of precise instructions for reaching a specific goal: a sequence of steps, configurations, commands. The intent is to give a working solution to a known problem without unnecessary explanations. The reader arrives with the question "how do I do X?" and expects a direct answer.
 
 ## When to write here
 
-- Deployment recipes — развертывание сервиса, настройка окружения, запуск в production
-- Testing/CI configuration steps — настройка пайплайнов, добавление тестовых сценариев, интеграция линтеров
-- Troubleshooting fixes for typical errors — решения для частых ошибок, логов, stack trace
-- Debugging procedures — методики отладки, включение verbose mode, анализ дампов
+- Deployment recipes — deploying a service, configuring the environment, running it in production
+- Testing/CI configuration steps — setting up pipelines, adding test scenarios, integrating linters
+- Troubleshooting fixes for typical errors — solutions for common errors, logs, stack traces
+- Debugging procedures — debugging techniques, enabling verbose mode, analysing dumps
 
 ## When NOT to write here
 

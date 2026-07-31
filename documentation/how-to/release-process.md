@@ -43,7 +43,7 @@ consumer-facing verification recipe lives in
 > `release-manual`) MUST allow the `v*` tag pattern — GitHub's default
 > `protected_branches=true` policy silently excludes tags. Provision once per new
 > repo before the first publish: see
-> [How to provision a tag-driven release deployment environment](how-to/provision-release-environment.md).
+> [How to provision a tag-driven release deployment environment](provision-release-environment.md).
 
 ## Pre-flight (manual, fail-closed)
 

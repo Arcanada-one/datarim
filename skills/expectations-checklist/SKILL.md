@@ -126,8 +126,8 @@ _(empty on first write)_
 
 `dev-tools/check-expectations-checklist.sh` matches the override line with the
 exact regex `^  - override:` — 2 spaces, same indent level as `wish_id` /
-`Что хочу проверить` / `Связанный AC из PRD`. A misplaced `override` nested at
-the 4-space level (the indent used by `#### Текущий статус` sub-items) is
+`Что хочу проверить` / `Связанный AC из PRD`. A misplaced `override` nested at <!-- allow-non-ascii: canonical-expectations-field-names-cited-verbatim-for-validator-string-equal-match -->
+the 4-space level (the indent used by `#### Текущий статус` sub-items) is <!-- allow-non-ascii: canonical-current-status-section-name-cited-verbatim-for-validator-string-equal-match -->
 invisible to the regex: the validator finds no override and silently returns
 `BLOCKED` for a partial/missed wish, with no diagnostic pointing at the indent.
 
@@ -151,7 +151,7 @@ Incorrect (4-space, silently ignored by the validator):
 - **`Связанный AC из PRD`** is advisory for L1-L2. For L3-L4 current, <!-- allow-non-ascii: canonical-russian-expectations-field-name -->
   non-overridden wishes it is required when spec-graph hard mode is active:
   the value MUST be `V-AC-N`, not «—». Deleted, superseded, or operator-overridden
-  wishes retain the advisory form. Renames in the PRD are recorded in the item's <!-- allow-non-ascii: russian-expectations-field-name-cited-from-canonical-schema -->
+  wishes retain the advisory form. Renames in the PRD are recorded in the item's
   История статусов with `stage: append-merge`. <!-- allow-non-ascii: russian-status-history-section-name-from-canonical-schema -->
 - **`override`** is plain prose, optional. When the current status is
   `partial` or `missed`, an override of fewer than 10 characters is treated
@@ -356,8 +356,8 @@ on the phase ID MAY legitimately:
   not yet verifiable) and not `partial`/`missed` (no failure to record at
   this point in the pipeline).
 - Append one `История статусов` line per touched item with `reason:` text <!-- allow-non-ascii: russian-status-history-section-name-cited-in-bullet -->
-  that names the phase scope explicitly (e.g. «ожидание относится к <!-- allow-non-ascii: russian-example-status-reason-illustrating-phase-scope -->
-  фазе 3 (audit coverage); в фазе 1 не реализуется»). The phase mention <!-- allow-non-ascii: russian-example-status-reason-illustrating-phase-scope -->
+  that names the phase scope explicitly (e.g. "this wish belongs to phase 3
+  (audit coverage); it is not implemented in phase 1"). The phase mention
   in the reason is what lets the umbrella close-gate auditor distinguish
   «pending because phase X hasn't run» from «pending because no one looked».
 

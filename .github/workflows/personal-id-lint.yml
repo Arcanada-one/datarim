@@ -7,6 +7,19 @@
 
 name: personal-id-lint
 
+# The two `paths:` lists below MUST stay a superset of DEFAULT_PATHS in
+# scripts/personal-id-gate.sh. They previously mirrored an older, narrower
+# DEFAULT_PATHS and were never updated when the gate's scan surface widened, so
+# CI was blind to exactly the half of the tree (plugins/, config/, tests/,
+# .github/, root installers) that the gate had started scanning locally. A
+# passing CI run was then an artefact of the filter, not evidence of a clean
+# tree.
+#
+# Drift between the two is now caught by tests/personal-id-lint-scope.bats.
+#
+# The list is duplicated rather than shared via a YAML anchor: GitHub Actions
+# does not support anchors/aliases in workflow files. The regression test
+# checks BOTH copies.
 on:
   push:
     branches: [ main ]
@@ -18,9 +31,21 @@ on:
       - 'templates/**'
       - 'scripts/**'
       - 'dev-tools/**'
-      - 'CLAUDE.md'
-      - 'README.md'
+      - 'plugins/**'
+      - 'config/**'
+      - 'tests/**'
+      - '.github/**'
+      - 'docs/**'
       - 'documentation/**'
+      - 'CLAUDE.md'
+      - 'AGENTS.md'
+      - 'README.md'
+      - 'SECURITY.md'
+      - 'CONTRIBUTING.md'
+      - 'CODE_OF_CONDUCT.md'
+      - 'install.sh'
+      - 'update.sh'
+      - 'validate.sh'
   pull_request:
     branches: [ main ]
     paths:
@@ -31,9 +56,21 @@ on:
       - 'templates/**'
       - 'scripts/**'
       - 'dev-tools/**'
-      - 'CLAUDE.md'
-      - 'README.md'
+      - 'plugins/**'
+      - 'config/**'
+      - 'tests/**'
+      - '.github/**'
+      - 'docs/**'
       - 'documentation/**'
+      - 'CLAUDE.md'
+      - 'AGENTS.md'
+      - 'README.md'
+      - 'SECURITY.md'
+      - 'CONTRIBUTING.md'
+      - 'CODE_OF_CONDUCT.md'
+      - 'install.sh'
+      - 'update.sh'
+      - 'validate.sh'
   workflow_dispatch:
 
 permissions:

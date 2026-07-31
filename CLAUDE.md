@@ -1,6 +1,6 @@
 # Datarim — Universal Iterative Workflow Framework
 
-> **Version:** 2.59.0
+> **Version:** 2.60.0
 > **Framework:** Datarim provides structured rules, agents, skills, and commands for iterative project execution via AI coding assistants — software development, research, documentation, legal work, project management, and any task that benefits from a phased workflow.
 > **Multi-runtime:** Datarim is runtime-agnostic. This file is also available as `AGENTS.md` (symlink) for Codex CLI and other agent runtimes that read `AGENTS.md` by convention. See `documentation/tutorials/use-cases.md#runtime-support` for the canonical Claude Code / Codex CLI / Cursor support matrix.
 
@@ -345,15 +345,15 @@ Each new validator follows a simple contract:
 
 ## English-Only Shipped Instruction Surface
 
-Shipped artefacts under `code/datarim/{commands,skills,agents,CLAUDE.md,README.md}/` MUST be English-only. Non-ASCII characters (Cyrillic, etc.) are permitted only when the skill's meaning literally requires the foreign-language string:
+Shipped artefacts under `code/datarim/{commands,skills,agents,templates,CLAUDE.md,README.md}/` MUST be English-only. `templates/` is in scope because `/dr-init` scaffolds those files into every consumer project. Non-ASCII characters (Cyrillic, etc.) are permitted only when the skill's meaning literally requires the foreign-language string:
 
 - **Content-work files** whose purpose is to operate on Russian-language content: `skills/humanize/`, `skills/publishing/`, `skills/writing/`, `skills/factcheck/`, `commands/dr-write.md`, `commands/dr-edit.md`, `commands/dr-publish.md`, `commands/dr-humanize.md`.
-- **Canonical schema field/section names** cited verbatim — e.g. the `activeContext.md` recent-archives section heading the doctor migrates to/from. The literal heading lives in `templates/activeContext-template.md`; cite the name only when the validator or doctor requires a string-equal match. <!-- allow-non-ascii: literal-canonical-schema-section-name-cited-from-template -->
+- **Canonical schema field/section names** cited verbatim — e.g. the `activeContext.md` recent-archives section heading the doctor migrates to/from. The literal heading lives in `templates/activeContext-template.md`; cite the name only when the validator or doctor requires a string-equal match.
 - **Operator-output tokens** whose source-of-truth file defines them in that language — e.g. CTA marker tokens live only in `skills/cta-format/SKILL.md`. Every other file describing the CTA contract MUST use abstract prose (such as "the primary recommendation marker per `cta-format.md`" or "the variant-B menu of other active tasks"), never literal-quote the marker.
 
 The `<!-- allow-non-ascii: <reason >=10 chars> -->` validator marker is the last resort, not a default. If the foreign-language string can be paraphrased to English without losing precision, paraphrase. Wrapping casual prose in `allow-non-ascii` because it cites a Russian phrase is process regression — the validator's purpose is to police shipped content, not to grant amnesty to lazy translation.
 
-Enforced by `dev-tools/check-body-english.sh` (advisory in `/dr-archive` Step 0.5 sub-step (e); flips to fail-hard at the end of the Wave 3 rewrite).
+Enforced by `dev-tools/check-body-english.sh` (MANDATORY, fail-hard in `/dr-archive` Step 0.5 sub-step (e) — the Wave 3 rewrite is complete, so a hit blocks archive with a non-zero exit).
 
 ---
 
@@ -463,7 +463,7 @@ Mandate level:
 ## Public Surface Hygiene Mandate (cross-link)
 
 > **Status:** mandatory for every Datarim consumer that ships public packages (npm / PyPI / Docker Hub / web). The canonical text lives in the **consumer's** ecosystem `CLAUDE.md` — Datarim ships the contract surface (forbidden-regex set + retroactive-sweep recipe), not the canonical text, because the regex set is ecosystem-owned (consumer's task-prefix registry) and audit-tagged per consumer.
-> **Reference consumer:** `/Users/ug/arcanada/CLAUDE.md` § Public Surface Hygiene Mandate (Arcanada ecosystem canonical).
+> **Reference consumer:** `<consumer-workspace>/CLAUDE.md` § Public Surface Hygiene Mandate (Arcanada ecosystem canonical).
 
 Datarim framework's contribution:
 
@@ -485,7 +485,7 @@ Consumers MUST mirror the canonical mandate text and the forbidden-regex extensi
 > YAML schema + reusable workflows + presence-gate script), not the
 > canonical text, because reporting destinations and SLA tiers are
 > ecosystem-owned.
-> **Reference consumer:** `/Users/ug/arcanada/CLAUDE.md` § Arcanada Ecosystem
+> **Reference consumer:** `<consumer-workspace>/CLAUDE.md` § Arcanada Ecosystem
 > Security Policy Mandate (Arcanada ecosystem canonical).
 
 Datarim framework's contribution:
@@ -526,7 +526,7 @@ FB-rules instead of accepting the entry.
 ## Autonomous Agent Operating Rules (cross-link)
 
 > **Status:** mandatory for every Datarim consumer that hosts AI agents. The full ruleset lives in the **consumer's** ecosystem `CLAUDE.md` — Datarim ships the operating-rules contract surface, not the canonical text, because the canonical text is ecosystem-owned and audit-tagged per consumer.
-> **Reference consumer:** `/Users/ug/arcanada/CLAUDE.md` § Autonomous Agent Operating Rules Mandate (Arcanada ecosystem canonical; source: TUNE-0185 Phase 4 + `Projects/Datarim/datarim/insights/INSIGHTS-TUNE-0185-fb-rules.md`).
+> **Reference consumer:** `<consumer-workspace>/CLAUDE.md` § Autonomous Agent Operating Rules Mandate (Arcanada ecosystem canonical; source: TUNE-0185 Phase 4 + `Projects/Datarim/datarim/insights/INSIGHTS-TUNE-0185-fb-rules.md`).
 
 Datarim framework's contribution:
 
