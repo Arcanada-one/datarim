@@ -39,5 +39,36 @@ jobs:
           sudo chmod +x /usr/local/bin/yq
           python3 -m pip install --quiet jsonschema pyyaml
 
+      # -r is load-bearing, not cosmetic. `bats <dir>` does NOT descend into
+      # subdirectories, so before this flag tests/install-matrix/ was invisible
+      # despite this job claiming to run "every *.bats file under tests/", and
+      # any future suite added under a subdirectory would have been dark from
+      # the moment it landed. Verified on bats 1.10.0: a tree with one
+      # top-level and one nested suite runs 1 test without -r and 2 with it.
       - name: Run full bats suite
-        run: bats tests/
+        run: bats -r tests/
+
+  # Suites that exist, pass locally, and until now proved nothing on any PR.
+  # Grouped into ONE job rather than one job per surface: these run on the
+  # GitHub-hosted runner, but extra jobs still cost queue slots, and a single
+  # job keeps all three surface summaries in one log.
+  dark-suites:
+    name: bats cli/ dev-tools/ plugins/
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install bats
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends bats
+
+      - name: Install test dependencies (yq, jq, jsonschema)
+        run: |
+          sudo apt-get install -y --no-install-recommends jq
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+          python3 -m pip install --quiet jsonschema pyyaml
+
+      - name: Run cli/, dev-tools/ and plugin suites
+        run: bash .github/scripts/run-dark-suites.sh
