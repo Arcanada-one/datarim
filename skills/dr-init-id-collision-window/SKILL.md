@@ -46,14 +46,15 @@ This skill is invoked by:
 
 ## Allocation — reserve, do not merely probe
 
-**Use `dev-tools/next-free-id.sh <PREFIX> <DATARIM_ROOT>`. It is the only
+**Use `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/next-free-id.sh <PREFIX> <DATARIM_ROOT>`.
+It is the only
 allocator that both probes and *reserves*.** A hand-rolled `grep`/`ls` probe
 tells you an ID was free a moment ago; it does not stop the session next to you
 from taking it while you write your first artifact. That gap is the entire
 subject of this skill.
 
 ```sh
-NEW_ID="$(dev-tools/next-free-id.sh TUNE "$DATARIM_ROOT")"   # probes AND reserves
+NEW_ID="$("${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/next-free-id.sh" TUNE "$DATARIM_ROOT")"
 ```
 
 The allocator reserves the selected ID with an atomic `mkdir` mutex under
@@ -64,7 +65,7 @@ a crashed session can never permanently burn an ID:
 
 1. **TTL self-expiry** — a marker older than `DATARIM_ID_RESERVATION_TTL`
    seconds (default `1800`) is reclaimed automatically.
-2. **Explicit release** — `dev-tools/next-free-id.sh --release <ID> <ROOT>`.
+2. **Explicit release** — `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/next-free-id.sh --release <ID> <ROOT>`.
    Call this **after your first artifact is written** (the artifact itself is
    then the claim), or immediately if you probed an ID you did not use.
 3. **Manual** — `rm -rf datarim/.id-reservations/<ID>`.
@@ -173,7 +174,7 @@ shipped script.
 The losing session (lower commit-time or operator-assigned) renames its task
 ID. Procedure:
 
-1. **Choose new ID.** Allocate with `dev-tools/next-free-id.sh <PREFIX> <ROOT>`
+1. **Choose new ID.** Allocate with `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/next-free-id.sh <PREFIX> <ROOT>`
    so the replacement ID is *reserved*, not merely probed — renaming into a
    second collision is a real outcome when parallel sessions are active.
    Confirm with the § Detection probe, and re-probe immediately before you
