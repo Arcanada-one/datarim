@@ -39,5 +39,52 @@ jobs:
           sudo chmod +x /usr/local/bin/yq
           python3 -m pip install --quiet jsonschema pyyaml
 
+      # `bats tests/` does NOT descend into subdirectories (verified on bats
+      # 1.10.0: a tree with one top-level and one nested suite runs 1 test, and
+      # 2 with -r). So this job's claim to run "every *.bats file under tests/"
+      # was false — tests/install-matrix/ was never executed by it.
+      #
+      # `bats -r tests/` is the obvious fix and is WRONG here: tests/dr-orchestrate
+      # is a symlink to ../plugins/dr-orchestrate/tests, and -r follows it. The
+      # plugin tree would then run a second time through a path whose relative
+      # fixtures do not resolve — measured, 353 failures via the symlinked path
+      # against 1 when the same suites run at their real path in dark-suites
+      # below. Enumerating with find, which does not follow symlinks by default,
+      # gets the recursion without the symlink.
       - name: Run full bats suite
-        run: bats tests/
+        run: |
+          set -euo pipefail
+          mapfile -t suites < <(find tests -type f -name '*.bats' | sort)
+          echo "executing ${#suites[@]} suite(s)"
+          # A glob that matches nothing must fail loudly, not pass green.
+          if [ "${#suites[@]}" -lt 240 ]; then
+            echo "FAIL: ${#suites[@]} suite(s) matched, below the floor of 240." >&2
+            echo "      Do not lower the floor to make this pass." >&2
+            exit 1
+          fi
+          bats "${suites[@]}"
+
+  # Suites that exist, pass locally, and until now proved nothing on any PR.
+  # Grouped into ONE job rather than one job per surface: these run on the
+  # GitHub-hosted runner, but extra jobs still cost queue slots, and a single
+  # job keeps all three surface summaries in one log.
+  dark-suites:
+    name: bats cli/ dev-tools/ plugins/
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install bats
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends bats
+
+      - name: Install test dependencies (yq, jq, jsonschema)
+        run: |
+          sudo apt-get install -y --no-install-recommends jq
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+          python3 -m pip install --quiet jsonschema pyyaml
+
+      - name: Run cli/, dev-tools/ and plugin suites
+        run: bash .github/scripts/run-dark-suites.sh
