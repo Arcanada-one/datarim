@@ -287,6 +287,63 @@ elif command -v git >/dev/null 2>&1; then
     git -C "$DATARIM_ROOT" branch -a --format='%(refname:short)' 2>/dev/null >> "$LIVE_FILE" || true
 fi
 
+# ── surface 3b (PROBE ONLY): task FILENAMES inside every worktree ────────────
+#
+# Surface 1 sweeps datarim/ and documentation/archive/ — but only under
+# DATARIM_ROOT, i.e. the checkout the caller happens to be standing in. A
+# sibling worktree that already wrote `datarim/tasks/{ID}-task-description.md`
+# is invisible to it, and that is not hypothetical: two consecutive IDs were
+# handed out while exactly those files sat in sibling checkouts, with zero
+# presence in tasks.md, backlog.md, the archive or any commit.
+#
+# Filenames only, never bodies — same rule as surface 1, and for the same
+# reason: task documents cite illustrative IDs in prose.
+#
+# PROBE ONLY. A foreign checkout may sit on a stale branch, a reverted
+# experiment or a fixture tree, so a hit is good enough to REFUSE an ID and not
+# good enough to define the watermark. Feeding it to MAX_NUM would rebuild the
+# fixture-poison defect on a new surface.
+#
+# Test seam: DATARIM_ID_WORKTREE_PATHS (newline-separated) replaces the live
+# `git worktree list`, so a spec is hermetic on a host with dozens of trees.
+_scan_worktree_task_names() {
+    local wt="$1"
+    [[ -n "$wt" && -d "$wt" ]] || return 0
+    find "$wt/datarim/tasks" -maxdepth 1 2>/dev/null | sed 's|.*/||' >> "$LIVE_FILE" || true
+}
+
+if [[ -n "${DATARIM_ID_WORKTREE_PATHS+set}" ]]; then
+    while IFS= read -r _wt; do
+        _scan_worktree_task_names "$_wt"
+    done <<< "$DATARIM_ID_WORKTREE_PATHS"
+elif command -v git >/dev/null 2>&1; then
+    while IFS= read -r _wt; do
+        _scan_worktree_task_names "$_wt"
+    done < <(git -C "$DATARIM_ROOT" worktree list --porcelain 2>/dev/null \
+             | awk '/^worktree /{print substr($0, 10)}')
+fi
+
+# ── surface 3c (PROBE ONLY): commit subjects on EVERY ref ────────────────────
+#
+# A claim can exist as nothing but a commit on a branch that is not checked
+# out. `git branch -a` above catches the case where the ID is in the branch
+# NAME; it says nothing about a conventional-commit subject like
+# `feat(PREFIX-NNNN): ...` on an otherwise unremarkable branch name.
+#
+# PROBE ONLY, emphatically. Commit subjects are free prose and routinely cite
+# IDs they do not claim — a renumber commit names both the old and the new ID.
+# Refusing both is the conservative and correct outcome for a mutex: the cost
+# is skipping an ID, which is recoverable, against handing out a live one,
+# which is not.
+#
+# Test seam: DATARIM_ID_GIT_LOG (newline-separated subjects) replaces the live
+# `git log`.
+if [[ -n "${DATARIM_ID_GIT_LOG+set}" ]]; then
+    printf '%s\n' "$DATARIM_ID_GIT_LOG" >> "$LIVE_FILE"
+elif command -v git >/dev/null 2>&1; then
+    git -C "$DATARIM_ROOT" log --all --format='%s' 2>/dev/null >> "$LIVE_FILE" || true
+fi
+
 # ── surface 4 (ceiling + probe): in-flight init-lock markers ─────────────────
 #
 # `datarim/.locks/<ID>.init-lock` is the mkdir-based atomic claim a concurrent
