@@ -44,12 +44,67 @@ This skill is invoked by:
   conversation context but is actually already filed in `backlog.md` as a
   follow-up from a sibling task.
 
-## Detection — probe scope
+## Allocation — reserve, do not merely probe
+
+**Use `dev-tools/next-free-id.sh <PREFIX> <DATARIM_ROOT>`. It is the only
+allocator that both probes and *reserves*.** A hand-rolled `grep`/`ls` probe
+tells you an ID was free a moment ago; it does not stop the session next to you
+from taking it while you write your first artifact. That gap is the entire
+subject of this skill.
+
+```sh
+NEW_ID="$(dev-tools/next-free-id.sh TUNE "$DATARIM_ROOT")"   # probes AND reserves
+```
+
+The allocator reserves the selected ID with an atomic `mkdir` mutex under
+`datarim/.id-reservations/{ID}`. `mkdir` is atomic on every POSIX
+filesystem, so of two sessions computing the same candidate exactly one wins and
+the loser gets `EEXIST` and bumps. The reservation is reversible three ways, so
+a crashed session can never permanently burn an ID:
+
+1. **TTL self-expiry** — a marker older than `DATARIM_ID_RESERVATION_TTL`
+   seconds (default `1800`) is reclaimed automatically.
+2. **Explicit release** — `dev-tools/next-free-id.sh --release <ID> <ROOT>`.
+   Call this **after your first artifact is written** (the artifact itself is
+   then the claim), or immediately if you probed an ID you did not use.
+3. **Manual** — `rm -rf datarim/.id-reservations/<ID>`.
+
+`datarim/.id-reservations/` is gitignored; it is host-local coordination state,
+never committed.
+
+### Why the manual probe below is a fallback, not the default
+
+The allocator already searches surfaces an ad-hoc probe misses, and the misses
+are the collisions that actually happen:
+
+| Surface | Why a naive probe misses it |
+|---|---|
+| live `tmux` session names | a batch-spawned orchestrator reserves its ID in the session name before any file exists |
+| `git worktree list` branch names | a sibling checkout holds the claim with zero presence in the main checkout |
+| `datarim/*` under `.gitignore` | `rg`/`grep` honour `.gitignore`, so a taken ID reads as free unless `--no-ignore` is passed |
+| archive subdirectories | the ID is retired, not free |
+
+Measured provenance: two consecutive IDs were both free at 12:30 and claimed by
+other sessions by 12:50 — with task files and worktree branches but **zero**
+presence in `backlog.md`, `tasks.md`, the archive, or `git log --all`. Three
+separate collisions in a single day, in two different prefixes, all traced to
+sessions that probed by hand instead of reserving. One of them was committed by
+an agent following the fallback procedure in this very file.
+
+## Detection — manual probe scope (fallback / verification only)
+
+Use this to *verify* an allocator result, or when the allocator is unavailable.
+It does not reserve, so treat any result as provisional until an artifact
+exists.
 
 Run from the workspace root (the dir containing `datarim/` and
 `documentation/`):
 
 ```sh
+# 0. gitignore trap: datarim/* is gitignored — a ripgrep probe without
+#    --no-ignore reports a TAKEN id as free. Always pass it.
+rg --no-ignore -n "${TASK_ID}" datarim/ documentation/ 2>/dev/null
+
 # 1. probe active state
 grep -E "^- ${TASK_ID} " datarim/tasks.md datarim/backlog.md
 grep "^${TASK_ID}\b" datarim/activeContext.md
@@ -68,9 +123,20 @@ ls datarim/tasks/${TASK_ID}-*.md \
 ls documentation/archive/*/archive-${TASK_ID}.md \
    documentation/archive/*/snapshots/${TASK_ID}-final-stage.md \
    2>/dev/null
+
+# 4. host-global surfaces no file scan can see
+tmux list-sessions -F '#{session_name}' 2>/dev/null | grep -F "${TASK_ID}"
+git worktree list --porcelain 2>/dev/null | grep -F "${TASK_ID}"
+
+# 5. task FILENAMES in every worktree, and commit subjects on every branch —
+#    both invisible to a search rooted at the main checkout
+for wt in $(git worktree list --porcelain | awk '/^worktree /{print $2}'); do
+    find "$wt/datarim" -maxdepth 2 -name "${TASK_ID}*" 2>/dev/null
+done
+git log --all --format='%s%n%b' 2>/dev/null | grep -F "${TASK_ID}"
 ```
 
-Any hit in step 2 or 3 outside the calling session's own scope = collision.
+Any hit in steps 2-5 outside the calling session's own scope = collision.
 Distinguish «my own forgotten earlier session» from «parallel session» via
 frontmatter `operator:` / `captured_at:` / commit author, not by file presence
 alone.
@@ -107,9 +173,11 @@ shipped script.
 The losing session (lower commit-time or operator-assigned) renames its task
 ID. Procedure:
 
-1. **Choose new ID.** Pick the next free `TASK-PREFIX-NNNN` per
-   `skills/datarim-system/SKILL.md` § Unified Task Numbering — confirm via the same
-   probe in detection step 1–3 with the new ID.
+1. **Choose new ID.** Allocate with `dev-tools/next-free-id.sh <PREFIX> <ROOT>`
+   so the replacement ID is *reserved*, not merely probed — renaming into a
+   second collision is a real outcome when parallel sessions are active.
+   Confirm with the § Detection probe, and re-probe immediately before you
+   write: free-at-start is not free-at-end.
 
 2. **sed-batch rename across artifact bodies.** All artifact files reference
    the old ID in frontmatter (`task_id:`), headings, cross-links, and audit log
