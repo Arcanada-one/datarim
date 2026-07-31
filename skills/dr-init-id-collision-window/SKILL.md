@@ -142,6 +142,54 @@ Distinguish «my own forgotten earlier session» from «parallel session» via
 frontmatter `operator:` / `captured_at:` / commit author, not by file presence
 alone.
 
+### A probe is valid only against the merge base you LAND on
+
+Every surface above — including the host-local `mkdir` reservation — answers one
+question: *is this ID taken **on this filesystem, right now**?* None of them can
+see a claim that is about to arrive through `git`. The reservation mutex
+coordinates sessions sharing a disk; it cannot coordinate with a branch.
+
+So a probe that was **correct when it ran** still yields a duplicate whenever:
+
+1. you probe, and the ID is genuinely free everywhere;
+2. a sibling's row for the same ID lands on the canonical branch;
+3. you later `git merge` / rebase onto that branch before opening your PR;
+4. the merge silently places their row beside yours in the shared ledger.
+
+Nothing in steps 2-4 touches your filesystem until the merge, so no local probe
+and no reservation marker can prevent it. Measured provenance: a candidate that
+was clean on **all** the surfaces above, checked against the canonical branch tip
+at probe time, collided anyway — the sibling row landed minutes later and the
+duplicate was created by the author's own merge, not by any concurrent write.
+The ledger gate caught it; the probe could not have.
+
+**Rules:**
+
+- `git fetch` **before** probing. `git log --all` and the branch surfaces are
+  only as current as your last fetch, so an unfetched probe reports a claimed ID
+  as free.
+- **Re-run the probe immediately before the commit that lands** — after your
+  final merge/rebase, not once at claim time. This is the load-bearing step.
+- Run the ledger's own duplicate gate locally before pushing, so CI is
+  confirmation rather than discovery.
+- Prefer probing the canonical branch content directly
+  (`git show <remote>/<default-branch>:<ledger-path>`) over the working copy: on
+  a checkout that has fallen behind, the working copy under-reports claims that
+  are already canonical.
+- Branch-only claims are real claims. A sibling can hold an ID in a branch name
+  and commit subject with **zero** presence in the ledger, so a ledger-only probe
+  reports it free. Check local *and* remote branches.
+- Duplicate detection over the ledger must be **suffix-aware**. A bare
+  `^- [A-Z]+-[0-9]{4}` pattern collapses legitimately distinct suffixed IDs
+  (`...-B-STATE`, `...-FU-01`) into phantom duplicates; match the optional
+  suffix: `^- [A-Z]+-[0-9]{4}(-[A-Za-z0-9-]+)?`.
+
+**On collision, the later claimant renumbers** — compare *filing dates*, not who
+noticed first — and leaves the earlier row untouched, plus a pointer note
+recording what the ID was renumbered from and why. Re-probe the replacement
+candidate on every surface too: adjacent numbers are the most likely to have been
+taken by whoever you just collided with.
+
 ### External-ID-authority probe (tracker-owned prefixes)
 
 The workspace probe above is **structurally blind** to numbers assigned by an
