@@ -94,7 +94,12 @@ actual_count() {  # $1=category
     local cat="$1" dir="$ROOT/$1"
     [ -d "$dir" ] || { echo 0; return; }
     case "$cat" in
-        skills) find "$dir" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ' ;;
+        # Hidden directories are runtime scaffolding, not shipped skills: a
+        # Codex install drops an untracked `skills/.system/` holding its own
+        # bundled helpers. Counting it inflated the local total to 68 against a
+        # correct documented 67 — a drift report that fired only on a developer
+        # machine and never in CI (where the untracked dir does not exist).
+        skills) find "$dir" -mindepth 1 -maxdepth 1 -type d ! -name '.*' 2>/dev/null | wc -l | tr -d ' ' ;;
         *)      find "$dir" -mindepth 1 -maxdepth 1 -name '*.md' 2>/dev/null | wc -l | tr -d ' ' ;;
     esac
 }
