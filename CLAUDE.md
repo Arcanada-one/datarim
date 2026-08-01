@@ -65,6 +65,7 @@ Agents are specialized personas loaded per pipeline stage. Each agent has define
 | **tester** | Platform QA Tester | /dr-qa, /dr-do (verification) |
 | **researcher** | Structured External Research | /dr-prd (Phase 1.3), /dr-do (Gap Discovery) |
 | **peer-reviewer** | Adversarial Peer Reviewer (Layer 2/3 fallback) | /dr-verify (cross-Claude-family fallback subagent) |
+| **dr-orchestrate-resolver** | Plugin-backed unknown-input classifier | /dr-orchestrate (plugin transport only) |
 
 Agent files: `$HOME/.claude/agents/{name}.md` (19 agents)
 
