@@ -107,6 +107,21 @@ EOB
     grep -q '^Implementation TUNE-0259' "${snapshot}"
 }
 
+@test "E2E wrapper — ordinary body without a leading newline stays unglued" {
+    local ordinary_body="${BATS_TEST_TMPDIR}/ordinary-body.txt"
+    printf '%s' 'Implementation TUNE-0259 ordinary first line' > "${ordinary_body}"
+
+    run bash "${WRITER_WRAPPER}" \
+        --root "${FAKE_ROOT}" --task "${TASK_ID}" --stage do --command /dr-do \
+        --captured-by agent --recommended-next /dr-qa \
+        --options-file "${OPTIONS_TMP}" --body-file "${ordinary_body}"
+    [ "$status" -eq 0 ]
+
+    local snapshot="${FAKE_ROOT}/datarim/snapshots/${TASK_ID}.snapshot.md"
+    run grep -F -q -- '---Implementation TUNE-0259 ordinary first line' "${snapshot}"
+    [ "$status" -eq 1 ]
+}
+
 @test "E2E — declared size_bytes equals exact snapshot bytes" {
     run bash "${WRITER_WRAPPER}" \
         --root "${FAKE_ROOT}" --task "${TASK_ID}" --stage do --command /dr-do \
@@ -137,6 +152,40 @@ EOB
     actual="$(wc -c < "${snapshot}" | tr -d ' ')"
     [ "${actual}" -ge 1000 ]
     [ "${declared}" -eq "${actual}" ]
+}
+
+@test "E2E wrapper — declared size converges across the 999-to-1000 boundary" {
+    local captured_at="2026-07-30T00:00:00Z"
+    local probe="${BATS_TEST_TMPDIR}/boundary-frontmatter.md"
+    local boundary_body="${BATS_TEST_TMPDIR}/boundary-body.txt"
+
+    # The cap-width probe is four digits. Choosing the body so the pre-fix
+    # command-substitution path declared 999 forces the 3→4 digit transition.
+    # shellcheck source=/dev/null
+    source "${WRITER_LIB}"
+    _snapshot_render_frontmatter \
+        "${TASK_ID}" do /dr-do "${captured_at}" agent /dr-qa \
+        "${OPTIONS_TMP}" 8192 true > "${probe}"
+    local probe_bytes body_bytes
+    probe_bytes="$(wc -c < "${probe}" | tr -d ' ')"
+    body_bytes=$((1002 - probe_bytes))
+    [ "${body_bytes}" -gt 0 ]
+    python3 -c "print('X' * ${body_bytes}, end='')" > "${boundary_body}"
+    [ "$(wc -c < "${boundary_body}" | tr -d ' ')" -eq "${body_bytes}" ]
+
+    run bash "${WRITER_WRAPPER}" \
+        --root "${FAKE_ROOT}" --task "${TASK_ID}" --stage do --command /dr-do \
+        --captured-by agent --recommended-next /dr-qa \
+        --options-file "${OPTIONS_TMP}" --body-file "${boundary_body}" \
+        --captured-at "${captured_at}"
+    [ "$status" -eq 0 ]
+
+    local snapshot="${FAKE_ROOT}/datarim/snapshots/${TASK_ID}.snapshot.md"
+    local declared actual
+    declared="$(sed -n 's/^size_bytes: //p' "${snapshot}")"
+    actual="$(wc -c < "${snapshot}" | tr -d ' ')"
+    [ "${declared}" -eq "${actual}" ]
+    [ "${actual}" -ge 1000 ]
 }
 
 @test "E2E — exact-size renderer converges across the 9999 to 10000 decimal-width boundary" {
