@@ -1,0 +1,80 @@
+name: framework-gates
+
+# Blocking gates over the framework's own consistency invariants.
+#
+# Every script wired here already existed in `dev-tools/` and was already
+# documented as a gate — but no CI job invoked any of them, so each was
+# effectively a paragraph rather than a gate. Two of them (component-counts,
+# version-consistency) exit 1 on the tree as of wiring; that is the point. A
+# gate is only worth having if it is allowed to be red.
+#
+# No `paths:` filter: these gates guard README/CLAUDE.md/VERSION/CHANGELOG
+# consistency, which is exactly what a release PR touches. Filtering by path is
+# how a release-time gate ends up never running at release time.
+#
+# All jobs are blocking. Nothing here uses `continue-on-error`.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: framework-gates-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  component-counts:
+    name: component counts vs disk (blocking)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check documented component counts against the filesystem
+        run: bash dev-tools/check-component-counts.sh --report
+
+  version-consistency:
+    name: version consistency (blocking)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check version + component-count consistency
+        run: bash dev-tools/check-version-consistency.sh
+
+  body-english:
+    name: english-only shipped surface (blocking)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # `all` covers every scope token the script knows, not just the
+      # commands,skills,agents default. CLAUDE.md § English-Only Shipped
+      # Instruction Surface describes this as fail-hard at the end of the
+      # rewrite; wiring it blocking here is that flip.
+      - name: Check shipped instruction surface is English-only
+        run: bash dev-tools/check-body-english.sh --scope all
+
+  release-ledger:
+    name: release ledger zero-orphan (blocking)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # The ledger walks commit ranges and runs `git merge-base
+          # --is-ancestor`; a shallow clone makes every ancestry query wrong.
+          fetch-depth: 0
+
+      - name: Check every commit maps to a CHANGELOG version section
+        run: bash dev-tools/release-ledger-report.sh --check

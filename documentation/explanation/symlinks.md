@@ -113,7 +113,7 @@ readlink ~/.claude/skills    # absolute path to code/datarim/skills (single sour
 
 ## See also
 
-- [`README.md`](../README.md) § Installation — entry-point overview.
-- [`documentation/tutorials/getting-started.md`](getting-started.md) — first-run walkthrough.
-- [`documentation/how-to/release-process.md`](release-process.md) — how releases ship and
+- [`README.md`](../../README.md) § Installation — entry-point overview.
+- [`documentation/tutorials/getting-started.md`](../tutorials/getting-started.md) — first-run walkthrough.
+- [`documentation/how-to/release-process.md`](../how-to/release-process.md) — how releases ship and
   how the installer pins to a version.

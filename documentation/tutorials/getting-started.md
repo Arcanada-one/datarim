@@ -40,7 +40,7 @@ Datarim v2.0+ is **multi-runtime**. Three runtimes are supported with different 
 - **Codex CLI** — parity via the `coworker rtk` shim for `view` / `apply_patch` / `shell` / `exec_command`. **Codex disclaimer:** no `Task` / `TodoWrite` primitives; intent-layer rewrites in absorbed superpowers skills preserve runtime-agnostic readability.
 - **Cursor** — parity: Cursor Agent has no Claude-style `PreToolUse` hook, but `coworker rtk enable` (Coworker v0.6.2+) wires its native `beforeShellExecution` hook (`rtk hook cursor`), giving the same RTK token economy as Claude Code and Codex CLI. `install.sh --with-cursor` mirrors Datarim skills and the delegation rule; RTK is opt-in. See the runtime support matrix for details.
 
-Without flags, `install.sh` prints help and exits 0 — you must choose at least one runtime or `--project DIR`. The installer creates 6 scope symlinks in `~/.${runtime}/` — `agents`, `skills`, `commands`, `templates`, `scripts`, `tests` — each pointing at the matching directory inside the cloned repo. The runtime IS the repo: any edit you make in either place lands in the same file, so `git diff` shows your changes immediately and there is no separate "curate" step.
+Without flags, `install.sh` prints help and exits 0 — you must choose at least one runtime or `--project DIR`. The installer creates 7 scope symlinks in `~/.${runtime}/` — `agents`, `skills`, `commands`, `templates`, `scripts`, `tests`, `dev-tools` — each pointing at the matching directory inside the cloned repo. The runtime IS the repo: any edit you make in either place lands in the same file, so `git diff` shows your changes immediately and there is no separate "curate" step.
 
 `AGENTS.md` (a symlink to `CLAUDE.md`) is shipped at the repo root so Codex CLI and other runtimes that read `AGENTS.md` by convention work out of the box.
 
@@ -54,7 +54,7 @@ The main `./install.sh` symlinks runtime scopes (agents/skills/commands/…) int
 cd cli && ./install.sh
 ```
 
-It prints the bilingual AAL 3 warning, validates `accepted-risk-aal.yml` entry `tune-0268-aal3-cli`, and symlinks `cli/datarim` → `/usr/local/bin/datarim` (falls back to `$HOME/.local/bin/datarim` when `/usr/local/bin` is not writable). Set `DATARIM_CLI_AGENT_ID` to a UUID v7 before the first `datarim run` invocation — generate via `cli/lib/uuid7-gen.sh`. Full reference: [documentation/reference/cli.md](cli.md).
+It prints the bilingual AAL 3 warning, validates `accepted-risk-aal.yml` entry `tune-0268-aal3-cli`, and symlinks `cli/datarim` → `/usr/local/bin/datarim` (falls back to `$HOME/.local/bin/datarim` when `/usr/local/bin` is not writable). Set `DATARIM_CLI_AGENT_ID` to a UUID v7 before the first `datarim run` invocation — generate via `cli/lib/uuid7-gen.sh`. Full reference: [documentation/reference/cli.md](../reference/cli.md).
 
 The CLI is opt-in. Slash commands inside a Claude Code session work without it.
 
@@ -63,9 +63,13 @@ The CLI is opt-in. Slash commands inside a Claude Code session work without it.
 If symlinks are not available — typical on Windows Git Bash, FAT32/exFAT volumes, or restricted shells — pass `--copy` (or let the installer auto-detect):
 
 ```bash
-./install.sh --copy             # explicit copy mode
-./install.sh --copy --force --yes   # CI / scripted overwrite (creates backup)
+./install.sh --with-claude --copy                # explicit copy mode
+./install.sh --with-claude --copy --force --yes  # CI / scripted overwrite (creates backup)
 ```
+
+Passing `--copy` / `--force` / `--yes` without an explicit `--with-*` flag
+still works for backwards compatibility, but the installer prints
+`WARN: implicit --with-claude for legacy flags` — name the runtime instead.
 
 `uname -s` matching `MINGW*`, `MSYS*`, or `CYGWIN*` triggers the copy fallback automatically; the installer prints `Mode: copy (auto-detected: symlinks not available)`.
 
@@ -117,24 +121,23 @@ path-scoped to the `skills/` directory; same basename under `local/agents/`,
 
 ```bash
 mkdir -p ~/.claude
-ln -s "$(pwd)/agents"    ~/.claude/agents
-ln -s "$(pwd)/skills"    ~/.claude/skills
-ln -s "$(pwd)/commands"  ~/.claude/commands
-ln -s "$(pwd)/templates" ~/.claude/templates
+for scope in agents skills commands templates scripts tests dev-tools; do
+    ln -sfn "$(pwd)/$scope" "$HOME/.claude/$scope"
+done
 mkdir -p ~/.claude/local/{skills,agents,commands,templates}
 ```
 
 Or, for copy mode (the legacy v1.16 path):
 
 ```bash
-mkdir -p ~/.claude/{agents,skills,commands,templates}
-cp agents/*.md ~/.claude/agents/
-cp skills/*.md ~/.claude/skills/
-cp commands/*.md ~/.claude/commands/
-cp templates/*.md ~/.claude/templates/
-cp templates/*.sh ~/.claude/templates/ 2>/dev/null || true
+for scope in agents skills commands templates scripts tests dev-tools; do
+    mkdir -p "$HOME/.claude/$scope"
+    cp -R "$scope/." "$HOME/.claude/$scope/"
+done
 chmod +x ~/.claude/templates/*.sh 2>/dev/null || true
 ```
+
+A manual install skips the script's side effects — the `~/.local/bin/` hook-guard symlinks and the `CLAUDE.md` delegation fragment. Add them by hand if you want them.
 
 ### Fork-as-contributor (advanced)
 
@@ -146,18 +149,23 @@ The installer has a deliberately narrow contract — review a diff of `install.s
 
 **Install scopes** (linked or copied into `$CLAUDE_DIR`, default `~/.claude/`):
 
+Seven scopes, in the order declared by `INSTALL_SCOPES` in `install.sh`:
+
 | Scope | Content types | Notes |
 |-------|---------------|-------|
 | `agents/`    | `.md` | Agent personas |
-| `skills/`    | `.md` | Skills, including supporting subdirectories (`datarim-system/`, `visual-maps/`) |
+| `skills/`    | `.md` | Skills, each a directory with `SKILL.md` plus any supporting fragment files |
 | `commands/`  | `.md` | Slash-command definitions |
 | `templates/` | `.md`, `.sh`, `.json`, `.yaml`, `.yml` | Reusable scaffolds. `.sh` templates get `+x` automatically in copy mode (symlink mode preserves the source bits). |
+| `scripts/`   | `.sh` and friends | Framework tooling invoked at runtime (`datarim-doctor.sh`, `pre-archive-check.sh`, `check-doc-refs.sh`, ...). Installed since v1.20.0 so `~/.claude/scripts/` cannot diverge from the repo by inode. |
+| `tests/`     | `.bats`-adjacent `.sh`/`.md` | The repo's own regression suite, shipped for the same anti-drift reason. |
+| `dev-tools/` | `.sh`, `.yaml`, `.md` | Runtime-required since v2.15.0. `/dr-init`, `/dr-doctor`, `/dr-archive`, `/dr-verify`, `/dr-qa`, `/dr-plan`, `/dr-compliance`, and `/dr-design` all shell out to scripts here via `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/<script>`. |
 
 **Repo-only** (intentionally NOT installed):
 
-- `scripts/` — dev tooling (`pre-archive-check.sh`, `datarim-doctor.sh`, `version-consistency-check.sh`, ...). These run from the cloned repo.
-- `tests/` — bats tests for the repo's own scripts.
-- `install.sh`, `update.sh`, `validate.sh`, `VERSION`, `CLAUDE.md`, `README.md`, `LICENSE` — repo artefacts.
+- `install.sh`, `update.sh`, `validate.sh`, `VERSION`, `CLAUDE.md`, `README.md`, `LICENSE` — repo artefacts at the root. Everything else in the seven scopes above is installed.
+
+**Side effects outside the scope directories.** The installer also symlinks three hook guards from `dev-tools/` into `~/.local/bin/` (`coworker-hook-guard`, `branch-integration-guard`, `session-execution-drift-warn`), backing up an existing regular file at those paths once; and on a `--with-claude` install it syncs the coworker delegation fragment into `$CLAUDE_DIR/CLAUDE.md` between the `<!-- coworker-fragment:begin -->` / `<!-- coworker-fragment:end -->` sentinels, leaving everything outside the sentinels untouched. Registering the hooks in `settings.json` remains a manual, machine-local step.
 
 **Content-type whitelist.** In copy mode, files with extensions outside the whitelist are logged (`WARN (unknown extension, skipped)`) and not copied. In symlink mode the entire scope dir is exposed wholesale, so the whitelist does not apply at install time.
 
@@ -180,7 +188,7 @@ The installer has a deliberately narrow contract — review a diff of `install.s
 
 The framework's 9-cluster security baseline (S1–S9) maps 9/9 to SOC 2 Common
 Criteria (CC6 / CC7 / CC8 / CC9). See
-[`documentation/reference/standards-mapping.md`](standards-mapping.md) § SOC 2 Progress for the
+[`documentation/reference/standards-mapping.md`](../reference/standards-mapping.md) § SOC 2 Progress for the
 current coverage, outstanding evidence, and the Q3 2026 Type II readiness
 roadmap. Operational evidence collection (Type I review, vendor management,
 incident-response runbooks) remains the consumer project's responsibility —
@@ -188,10 +196,12 @@ Datarim provides the technical scaffolding only.
 
 ### Symlink-default operating model
 
-The default install mode is symlink (`install.sh` with no flags) — the
-`symlink-default` operating model since v1.17.0. Copy mode
-(`install.sh --copy`) is the documented fallback for filesystems without
-symlink support. See [`documentation/explanation/symlinks.md`](symlinks.md) for the full operating
+The default install *mode* is symlink — the `symlink-default` operating model
+since v1.17.0. Mode is not the same as invocation: a runtime flag is still
+required, so the default-mode install is `install.sh --with-claude`, not bare
+`install.sh` (which prints usage and exits 0). Copy mode
+(`install.sh --with-claude --copy`) is the documented fallback for filesystems
+without symlink support. See [`documentation/explanation/symlinks.md`](../explanation/symlinks.md) for the full operating
 model, copy-mode migration recipe, and limitations.
 
 ---
@@ -497,7 +507,7 @@ Every `/dr-*` command persists its final operator-visible response (Summary + Ga
 
 - Storage: `datarim/snapshots/` (gitignored; archived snapshot lands in `documentation/archive/<subdir>/snapshots/{TASK-ID}-final-stage.md` at `/dr-archive`).
 - Kill-switch: `export DATARIM_DISABLE_SNAPSHOT=1` makes the writer no-op.
-- How-to with full reference: [`documentation/how-to/stage-snapshots.md`](how-to/stage-snapshots.md).
+- How-to with full reference: [`documentation/how-to/stage-snapshots.md`](../how-to/stage-snapshots.md).
 
 ---
 
@@ -562,10 +572,10 @@ Discovered mid-cycle gaps классифицируются: single file × ≤50
 
 ## Next Steps
 
-- [Pipeline Stages](pipeline.md) -- detailed reference for each of the 9 pipeline stages
-- [Commands Reference](commands.md) -- all 20 available commands with usage examples
-- [Backlog Workflow](backlog-workflow.md) -- how to manage tasks, priorities, and the backlog
-- [Complexity Routing](complexity.md) -- how task complexity determines which stages run
+- [Pipeline Stages](../explanation/pipeline.md) -- detailed reference for each of the 9 pipeline stages
+- [Commands Reference](../reference/commands.md) -- all 28 available commands with usage examples
+- [Backlog Workflow](../how-to/backlog-workflow.md) -- how to manage tasks, priorities, and the backlog
+- [Complexity Routing](../reference/complexity.md) -- how task complexity determines which stages run
 
 ## Adding plugins (v1.23.0+)
 
@@ -585,5 +595,5 @@ The active set is recorded in `datarim/enabled-plugins.md` — manual edits are 
 
 **Health checks** (`/dr-plugin doctor`): manifest-syntax, inventory-consistency, broken-symlinks, orphan-files, override-integrity, dependency-graph (DFS cycle/dangling), git-state, snapshot-cleanup (>30d), skill-registry (frontmatter `name:` ↔ basename). Exit codes: `0` clean, `1` warnings only, `2` errors found, `64` usage error.
 
-For full reference see `commands/dr-plugin.md` and `templates/plugin.yaml.template`. Authoring third-party plugins: [plugin-author-guide.md](plugin-author-guide.md).
+For full reference see `commands/dr-plugin.md` and `templates/plugin.yaml.template`. Authoring third-party plugins: [plugin-author-guide.md](../explanation/plugin-author-guide.md).
 

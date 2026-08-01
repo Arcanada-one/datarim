@@ -3,17 +3,18 @@
 # Installs agents, skills, commands, and templates into $CLAUDE_DIR (~/.claude).
 #
 # Operating model (v1.17.0):
-#   Default mode is SYMLINK — the four scope directories in $CLAUDE_DIR
-#   (agents/skills/commands/templates) become symlinks to $SCRIPT_DIR/<scope>/.
+#   Default mode is SYMLINK — the seven scope directories in $CLAUDE_DIR
+#   (see INSTALL_SCOPES below: agents, skills, commands, templates, scripts,
+#   tests, dev-tools) become symlinks to $SCRIPT_DIR/<scope>/.
 #   This makes the repo the runtime: edits land in git tracking immediately
 #   and curation/drift detection are no-ops by definition. Use --copy to
 #   preserve the legacy v1.16 behaviour (real file copies).
 #
 # Contract (aligned with PRD-datarim-sdlc-framework §4 — copy mode):
-#   - Install scopes (distributed to runtime): agents, skills, commands, templates.
-#   - Installed scopes (whole-dir symlink under default mode): agents/, skills/,
-#     commands/, templates/, scripts/ (since v1.20.0), tests/ (since
-#     v1.20.0). Repo-only: validate.sh (single root file).
+#   - Install scopes (distributed to runtime) = INSTALL_SCOPES, 7 entries:
+#     agents/, skills/, commands/, templates/, scripts/ (since v1.20.0),
+#     tests/ (since v1.20.0), dev-tools/. Each becomes a whole-dir symlink
+#     under default mode. Repo-only: validate.sh (single root file).
 #   - Content types copied: .md .sh .json .yaml .yml. Unknown extensions are
 #     logged (WARN) and skipped — never silently dropped.
 #   - .sh files receive +x after copy.
@@ -27,11 +28,22 @@
 # framework files of the same name. Loader policy: local wins, validate.sh WARN.
 #
 # Usage:
-#   ./install.sh                 # symlink mode (default, repo == runtime)
-#   ./install.sh --copy          # legacy copy mode (real files)
-#   ./install.sh --force         # force re-install (copy mode only)
-#   ./install.sh --force --yes   # overwrite without prompt (CI / scripted)
-#   ./install.sh --help          # print usage and exit
+#   A runtime-selection flag is REQUIRED. Invoked bare — with no --with-*
+#   and no --project — the script prints usage and exits 0 WITHOUT
+#   installing anything. `./install.sh` on its own is not an install.
+#
+#   ./install.sh --with-claude          # Claude runtime (symlink mode, the default topology)
+#   ./install.sh --with-codex           # Codex runtime
+#   ./install.sh --with-cursor          # Cursor IDE (flat .md mirror of each SKILL.md)
+#   ./install.sh --with-claude --with-codex   # multi-runtime install
+#   ./install.sh --project DIR          # project-local copy install (no symlinks)
+#   ./install.sh --with-claude --copy   # legacy copy mode (real files)
+#   ./install.sh --with-claude --force --yes  # overwrite without prompt (CI / scripted)
+#   ./install.sh --dry-run              # show planned mutations without applying
+#   ./install.sh --help                 # print usage and exit
+#
+#   `--help` output (see the usage() body below) is the authoritative flag
+#   list; this header is a summary.
 #
 # Environment:
 #   CLAUDE_DIR                target runtime dir (default: $HOME/.claude)

@@ -37,7 +37,7 @@ setup() {
     cat > "${BODY_FILE}" <<'EOF'
 ## Layer 1 — Git State
 
-repo: /Users/ug/code/myproject  HEAD: abc123  status: clean
+repo: /Users/dev/code/myproject  HEAD: abc123  status: clean
 
 ## Layer 5 — Failed Approaches
 

@@ -109,8 +109,15 @@ matches_baseline() {
 }
 
 # --- file enumeration ---------------------------------------------------------
-# We scan ROOT/CLAUDE.md plus ROOT/{skills,agents,commands,templates,docs}/**/*.md.
-# Other dirs (tests/, scripts/, documentation/) are out-of-scope per plan.
+# We scan ROOT/CLAUDE.md, ROOT/README.md, plus
+# ROOT/{skills,agents,commands,templates,documentation}/**/*.md.
+#
+# NOTE: `docs/` was renamed to `documentation/` at v2.49.0. This scan list
+# kept the dead `docs` entry, so the entire documentation tree — and
+# README.md, which was never listed — went unscanned and the gate reported
+# "clean" over real breakage. Both are in scope now.
+#
+# Other dirs (tests/, scripts/) remain out-of-scope per plan.
 # `skills/.system/` is vendored external content (e.g. OpenAI reference docs
 # shipped for Codex parity, marked by `.codex-system-skills.marker`); Datarim
 # does not author or maintain those files, and their absolute API-path links
@@ -118,7 +125,8 @@ matches_baseline() {
 # to Datarim's own shipped surface.
 SCAN_TARGETS=()
 [ -f "$ROOT/CLAUDE.md" ] && SCAN_TARGETS+=("$ROOT/CLAUDE.md")
-for _sub in skills agents commands templates docs; do
+[ -f "$ROOT/README.md" ] && SCAN_TARGETS+=("$ROOT/README.md")
+for _sub in skills agents commands templates documentation; do
     if [ -d "$ROOT/$_sub" ]; then
         while IFS= read -r _f; do
             SCAN_TARGETS+=("$_f")

@@ -459,7 +459,7 @@ After plan generation, the planner agent MUST emit a CTA block ([definition](../
 - Plan incomplete or strategist suggests pivot → primary `/dr-prd {TASK-ID}` (revise scope)
 - Always include `/dr-status` as escape hatch
 
-The CTA block MUST follow the canonical format (numbered, one `**рекомендуется**`, `---` HR). Variant B menu when >1 active tasks. <!-- allow-non-ascii: literal-russian-cta-marker-from-cta-format-skill -->
+The CTA block MUST follow the canonical format (numbered, exactly one primary recommendation marker per `cta-format.md`, `---` HR). Variant B menu when >1 active tasks.
 
 ## Post-Step Self-Verification Hook (Automatic)
 

@@ -36,24 +36,23 @@ artifacts:
         severity: warning
         cross_root: true
 
-  - glob: skills/*.md
-    name_transform: basename_no_ext
-    consumers:
-      - id: framework_claude
-        kind: grep_in_file
-        file: CLAUDE.md
-        pattern: "{name}"
-        severity: error
-      - id: docs_skills_row
-        kind: grep_in_file
-        file: documentation/reference/skills.md
-        pattern: "{name}"
-        severity: error
-      - id: site_data_php
-        kind: file_must_exist
-        path: ../../../Websites/datarim.club/data/skills/{name}.php
-        severity: warning
-        cross_root: true
+  # --- Per-skill fanout: DISABLED, pending a linter capability -------------
+  # The skill layout is `skills/<name>/SKILL.md`, not `skills/<name>.md`.
+  # The previous entry here globbed `skills/*.md`, which expands to ZERO
+  # entries — so it was silently inert and checked nothing.
+  #
+  # It cannot simply be re-pointed at `skills/*/SKILL.md`: the artefact name
+  # is derived by `name_transform`, and the linter supports only
+  # `basename` / `basename_no_ext` / `literal`. All three collapse every
+  # skill to the same name ("SKILL"), which turns the two `grep_in_file`
+  # consumers into trivially-true checks and emits one bogus
+  # `data/skills/SKILL.php` warning per skill (measured: 51 -> 118 warnings,
+  # zero added signal).
+  #
+  # Re-enabling requires a `parent_dirname` name_transform in
+  # dev-tools/doc-fanout-lint.sh. Until then the skill count is still
+  # guarded by the `skill_count_docs` rule under `counts:` below, which
+  # works correctly against `skills/*/SKILL.md`.
 
   - glob: agents/*.md
     name_transform: basename_no_ext
@@ -76,7 +75,10 @@ artifacts:
 
 counts:
   - id: skill_count_docs
-    source_glob: skills/*.md
+    # Layout is skills/<name>/SKILL.md — `skills/*.md` expanded to 0, so this
+    # rule compared 0 against the documented count and could never be
+    # meaningful.
+    source_glob: skills/*/SKILL.md
     consumer_file: documentation/reference/skills.md
     pattern: ([0-9]+) reusable skill
     severity: error

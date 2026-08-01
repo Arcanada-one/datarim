@@ -22,6 +22,19 @@ teardown() {
     [ -n "${TMP_DIR:-}" ] && rm -rf "$TMP_DIR" || true
 }
 
+@test "args hash preserves argument boundaries without diagnostics" {
+    run bash -c '
+        . "$1"
+        left="$(audit_args_hash a bc)"
+        right="$(audit_args_hash ab c)"
+        [ "$left" != "$right" ] || exit 1
+        printf "%s\n%s\n" "$left" "$right"
+    ' _ "$AUDIT_LIB"
+    [ "$status" -eq 0 ] \
+        && [ "$(printf '%s\n' "$output" | wc -l | tr -d ' ')" -eq 2 ] \
+        && ! printf '%s\n' "$output" | grep -qF 'ignored null byte'
+}
+
 @test "V-AC-19: 16 parallel appends → 16 valid JSON lines, all 10 keys" {
     local pids=() i
     for i in $(seq 1 16); do

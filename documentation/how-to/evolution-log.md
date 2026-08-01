@@ -750,7 +750,7 @@ Two structural defects enabled the incident:
 
 - `bats tests/datarim-doctor.bats` — 21/21 pass (15 pre-existing + 6 new).
 - `shellcheck -S warning scripts/datarim-doctor.sh install.sh` — clean.
-- Live smoke: `~/.claude/scripts/datarim-doctor.sh --root=/Users/ug/arcanada/datarim` → exit 0 «OK: datarim/ structure compliant».
+- Live smoke: `~/.claude/scripts/datarim-doctor.sh --root=/arcanada/datarim` → exit 0 «OK: datarim/ structure compliant».
 - `readlink -f ~/.claude/scripts/datarim-doctor.sh` → `Projects/Datarim/code/datarim/scripts/datarim-doctor.sh` ✓.
 - `./install.sh` idempotent: rogue real-file moved to `~/.claude/backups/runtime-rogue-{TS}/`, replaced by symlink.
 
@@ -832,7 +832,7 @@ TUNE-0044 → TUNE-0056 → TUNE-0058 → TUNE-0059 → TUNE-0060 → TUNE-0061 
 
 ### Why
 
-TUNE-0060 archive (the previous iteration) self-dogfooded the new `mine-by-elimination` klass and surfaced one residual gap: `Projects/Websites/datarim.club/config.php` was correctly identified as a legitimate version-bump file by Pavel during the archive but the gate classified it `unattributed` (basename outside hardcoded list). The choice was either pollute the canonical list with `config.php` (breaks framework neutrality — `config.php` is generic enough that a non-Datarim consumer might NOT want it whitelisted) or add an opt-in extension mechanism. Spawn-trigger N=2 reached: TUNE-0059 (hardcoded VERSION/CHANGELOG/etc.) was the first instance; TUNE-0060 self-dogfood surfaced the second. Pattern «Memory Rule → Executable Gate at Apply Step» — sixth iteration (TUNE-0044/0056/0058/0059/0060/0061).
+TUNE-0060 archive (the previous iteration) self-dogfooded the new `mine-by-elimination` klass and surfaced one residual gap: `Projects/Websites/datarim.club/config.php` was correctly identified as a legitimate version-bump file by operator during the archive but the gate classified it `unattributed` (basename outside hardcoded list). The choice was either pollute the canonical list with `config.php` (breaks framework neutrality — `config.php` is generic enough that a non-Datarim consumer might NOT want it whitelisted) or add an opt-in extension mechanism. Spawn-trigger N=2 reached: TUNE-0059 (hardcoded VERSION/CHANGELOG/etc.) was the first instance; TUNE-0060 self-dogfood surfaced the second. Pattern «Memory Rule → Executable Gate at Apply Step» — sixth iteration (TUNE-0044/0056/0058/0059/0060/0061).
 
 ### Class
 
@@ -858,7 +858,7 @@ Class A (additive runtime behaviour, env-var opt-in, no contract break). VERSION
 
 ### Why
 
-TUNE-0059 archive surfaced the residual false-positive after the whitelist landed. `code/datarim/CLAUDE.md` and `code/datarim/README.md` (committed body has many historical task IDs from prior reflections + features) version-bumped 1.18.0 → 1.18.2 in TUNE-0059 archive — the diff lines were just `-1.18.0` / `+1.18.2`, no IDs introduced by the current session. The `whitelisted` klass did not cover them (basename ≠ version-bump file), and `found_ids` from the body had IDs but none matched `--task-id TUNE-0059`, so the gate said `foreign`. The operator manually staged via `git add` to work around — the same toll TUNE-0058 closed for baseline matches in `stack-agnostic-gate.sh`. Spawn-trigger N=2 reached by Pavel approval (TUNE-0059 self = N=1, CLAUDE.md/README.md observed misclassification = second class instance, escalated by operator).
+TUNE-0059 archive surfaced the residual false-positive after the whitelist landed. `code/datarim/CLAUDE.md` and `code/datarim/README.md` (committed body has many historical task IDs from prior reflections + features) version-bumped 1.18.0 → 1.18.2 in TUNE-0059 archive — the diff lines were just `-1.18.0` / `+1.18.2`, no IDs introduced by the current session. The `whitelisted` klass did not cover them (basename ≠ version-bump file), and `found_ids` from the body had IDs but none matched `--task-id TUNE-0059`, so the gate said `foreign`. The operator manually staged via `git add` to work around — the same toll TUNE-0058 closed for baseline matches in `stack-agnostic-gate.sh`. Spawn-trigger N=2 reached by operator approval (TUNE-0059 self = N=1, CLAUDE.md/README.md observed misclassification = second class instance, escalated by operator).
 
 ### Class
 
@@ -887,7 +887,7 @@ Class B (operating-model contract change — extends what counts as `attributed`
 
 ### Why
 
-TUNE-0056 self-dogfood surfaced the false positive: `VERSION` (single line `1.18.1`) physically cannot carry a task ID and was classified as `unattributed`, blocking a legitimate release commit. Pavel's `/dr-archive {TASK-ID}` IS the disposition, but the gate had no machine-readable way to see it. Spawn-trigger N=2 was reached when the same toll resurfaced in the TUNE-0059 self-dogfood (catch-up VERSION drift from TUNE-0056). Whitelist closes the gap without weakening default-deny: it activates only with `--task-id` (operator disposition) and prints the bypass on stdout for visibility.
+TUNE-0056 self-dogfood surfaced the false positive: `VERSION` (single line `1.18.1`) physically cannot carry a task ID and was classified as `unattributed`, blocking a legitimate release commit. operator's `/dr-archive {TASK-ID}` IS the disposition, but the gate had no machine-readable way to see it. Spawn-trigger N=2 was reached when the same toll resurfaced in the TUNE-0059 self-dogfood (catch-up VERSION drift from TUNE-0056). Whitelist closes the gap without weakening default-deny: it activates only with `--task-id` (operator disposition) and prints the bypass on stdout for visibility.
 
 ### Class
 
@@ -996,7 +996,7 @@ Datarim's framework runtime had a single-agent assumption: any uncommitted chang
 
 ### Class A/B classification
 
-**Class B** — operating-model contract change to a public command (`/dr-archive`). PRD `prd/PRD-TUNE-0044-multi-agent-workspace-archive-semantics.md` approved 2026-04-29 (Pavel). Backward-compatible: legacy single-agent mode unchanged; new shared mode is opt-in via `--task-id`/`--shared`.
+**Class B** — operating-model contract change to a public command (`/dr-archive`). PRD `prd/PRD-TUNE-0044-multi-agent-workspace-archive-semantics.md` approved 2026-04-29 (operator). Backward-compatible: legacy single-agent mode unchanged; new shared mode is opt-in via `--task-id`/`--shared`.
 
 ### Verification
 
@@ -1006,7 +1006,7 @@ Datarim's framework runtime had a single-agent assumption: any uncommitted chang
 
 ### Approved
 
-Human (Pavel), 2026-04-29 (PRD approved earlier same day).
+operator, 2026-04-29 (PRD approved earlier same day).
 
 ---
 
@@ -1014,7 +1014,7 @@ Human (Pavel), 2026-04-29 (PRD approved earlier same day).
 
 ### Summary
 
-LTM-0017 archived as Path 2 (escalate to A2 topic-clustering) — entity-resolver canonicalisation cannot lift recall@5 from 0.556 floor case on `ltm-bench-datarim-kb`. Reflection surfaced 3 Class A proposals; Pavel approved all three for application post-archive.
+LTM-0017 archived as Path 2 (escalate to A2 topic-clustering) — entity-resolver canonicalisation cannot lift recall@5 from 0.556 floor case on `ltm-bench-datarim-kb`. Reflection surfaced 3 Class A proposals; operator approved all three for application post-archive.
 
 ### Class A applies
 
@@ -1026,7 +1026,7 @@ LTM-0017 archived as Path 2 (escalate to A2 topic-clustering) — entity-resolve
 - **Why:** LTM-0017 plan named `pipeline.py::_resolve_entity` as resolver-fix surface; method did not exist (entity grouping was raw SQL inside `repository.fetch_chunks_for_reflect`). Required in-flight redirect, ~10 min /dr-do investigation. A 30-second grep at /dr-plan would have caught it.
 - **Stack-agnostic gate:** PASS clean (`scripts/stack-agnostic-gate.sh commands/dr-plan.md`).
 - **Bats verification:** 160/160 PASS post-apply.
-- **Approved:** human (Pavel), 2026-04-28.
+- **Approved:** operator, 2026-04-28.
 
 #### Proposal 2: skills/ai-quality/incident-patterns.md — Floor-Case Diagnostics Dual-Axis
 
@@ -1036,7 +1036,7 @@ LTM-0017 archived as Path 2 (escalate to A2 topic-clustering) — entity-resolve
 - **Why:** LTM-0017 plan framed diagnostic exclusively around canonicalisation (transformation axis). Audit returned 0.00% transformation delta — true no-op. Population probe surfaced 134/188 (71%) entities with `source_chunk_id IS NULL` — invisible to JOIN regardless of canonicalisation. A dual-axis plan would have surfaced both gaps in the same audit.
 - **Stack-agnostic gate:** PASS clean.
 - **Bats verification:** 160/160 PASS post-apply.
-- **Approved:** human (Pavel), 2026-04-28.
+- **Approved:** operator, 2026-04-28.
 
 #### Proposal 3: ~/arcanada/CLAUDE.md — Pre-commit re-verification (workspace, not framework)
 
@@ -1044,7 +1044,7 @@ LTM-0017 archived as Path 2 (escalate to A2 topic-clustering) — entity-resolve
 - **Class:** A — workspace-level rule extension; not subject to stack-agnostic gate or bats (workspace CLAUDE.md is project-specific, not framework runtime).
 - **What:** Pre-commit verification: between `git update-index` and `git commit`, run `git diff --staged --numstat` + capture HEAD SHA. If file-set / line-counts diverge from expected blob-swap delta, or HEAD shifted, redo blob-swap from new HEAD before commit.
 - **Why:** During LTM-0017 archive, parallel session's TRANS-0027 commit landed between my `update-index` and `commit`, causing my staged blob to lose the LTM-0017 entry. ~10 min recovery vs ~30s preemptive check.
-- **Approved:** human (Pavel), 2026-04-28.
+- **Approved:** operator, 2026-04-28.
 
 ### Class B (none)
 
@@ -1073,7 +1073,7 @@ SEC-0001 closed Security Mandate Finding 5: leaked OAuth Client ID in public fra
 - **Why:** SEC-0001 Step 8 first run leaked GA4 property ID through commit message (caught by mandatory grep gate before push); release-tag-as-backup got rewritten by `--force --tags` and became useless. Permanent rules close both gaps for the next quarterly rotation cycle.
 - **Stack-agnostic gate:** PASS clean (`scripts/stack-agnostic-gate.sh skills/security/SKILL.md`). Generic placeholders used (`<pattern>`, `<incident-id>`, `<branch>`, `<remote>`); no Arcanada-specific identifiers leaked into the recipe.
 - **Bats verification:** 160/160 PASS post-apply.
-- **Approved:** human (Pavel), 2026-04-28.
+- **Approved:** operator, 2026-04-28.
 
 ### Class B (HELD)
 
@@ -1105,7 +1105,7 @@ TUNE-0034 closing round (residual 2 reds → 0) surfaced the «backlog inventory
 - **Why:** Closes the inventory-side mirror of the AC-side drift rule already in this file. Same source-of-truth logic, applied at the inventory level instead of the AC level. Pattern parallels TUNE-0028 (stale skill count) and TUNE-0043 (absolute test-count drift).
 - **Stack-agnostic gate:** initial draft FAILed (1 hit: `npm audit` in example list, line 88); reworded to «the project's package-manager-native audit command» using the canonical microcopy from TUNE-0043 Proposal 2 (security.md). Re-run: PASS clean ×4 scopes.
 - **Bats verification:** 160/160 PASS post-apply.
-- **Approved:** human (Pavel), 2026-04-27.
+- **Approved:** operator, 2026-04-27.
 
 ### Class B (HELD)
 
@@ -1133,7 +1133,7 @@ Groq connector deploy revealed silent env-var staleness mode: `.env` updated on 
 - **Why:** CONN-0047 deploy auto-fired CI on push of `feat(CONN-0047)`; CI ran `docker compose up -d --build` and reported success. `.env` had `GROQ_API_KEY=gsk_*`, but `docker exec ... env | grep GROQ` returned empty. Smoke против `/connectors/groq/execute` failed bы как `auth_error`. Closed by manual `--force-recreate`. Generic Compose semantics: `env_file` читается at container *create*, not container *start*; recreate only когда image identity меняется. Lesson generalises to every deploy в экосистеме с secrets/keys/flags в `.env`.
 - **Stack-agnostic gate:** PASS (Docker Compose / kubectl / systemd terminology kept generic; «or k8s/systemd equivalent» / «or equivalent» phrasing throughout).
 - **Bats:** 160/160 PASS post-apply.
-- **Approved:** human (Pavel) auto-approval per autonomous-ops memory, applied during /dr-archive CONN-0047 Step 0.5.
+- **Approved:** operator auto-approval per autonomous-ops memory, applied during /dr-archive CONN-0047 Step 0.5.
 
 ### Class B (HELD)
 
@@ -1142,7 +1142,7 @@ Groq connector deploy revealed silent env-var staleness mode: `.env` updated on 
 - **Class:** B — infrastructure deploy contract change
 - **Target:** `Projects/Model Connector/code/.github/workflows/ci.yml` (deploy job)
 - **Held because:** changes deploy semantics beyond a single connector; needs ADR / short design doc для Model Connector (no PRD exists yet).
-- **Action:** Deferred to follow-up task (recommendation: новый `INFRA-0030` или `CONN-0049` когда Pavel ready to formalise).
+- **Action:** Deferred to follow-up task (recommendation: новый `INFRA-0030` или `CONN-0049` когда operator ready to formalise).
 
 ### Class A (REJECTED runtime placement)
 
@@ -1178,7 +1178,7 @@ Reflect-job entity-grouping pilot caught a corpus floor case (188 entities, 187 
 - **What:** Added «Coverage probe (group-aggregation features)» sub-section после «What a passing gate looks like». Mandates pre-pilot probe для features dependent на group-aggregated data: count groups satisfying ≥N-member threshold; flag plan'ы без branch-trigger при near-floor count (1-2 groups). Reference incident: LTM-0013.
 - **Why:** LTM-0013 reflect pilot — corpus floor case (1 entity-group qualifying). AC-2 numerically missed. Plan §3.4 had DIAGNOSE branch-trigger, so miss handled gracefully — but probe earlier would have surfaced floor case before pilot started + validated trigger existence proactively. Pattern generalises to topic-clustering / batched aggregation / multi-row reflection features.
 - **Stack-agnostic gate:** PASS (skills scope clean).
-- **Approved:** human (Pavel), 2026-04-27.
+- **Approved:** operator, 2026-04-27.
 
 ### Class B (HELD)
 
@@ -1294,7 +1294,7 @@ None.
 
 ### Follow-up tasks
 
-None new. Steps 10-11 (synthetic acceptance test + Pavel walkthrough Level-1 rollback) — PROD activity, не отдельная задача backlog'а; tracked в archive-TRANS-0017 § Outstanding.
+None new. Steps 10-11 (synthetic acceptance test + operator walkthrough Level-1 rollback) — PROD activity, не отдельная задача backlog'а; tracked в archive-TRANS-0017 § Outstanding.
 
 ### No version bump
 
@@ -1378,7 +1378,7 @@ Operating-model revision. Default `install.sh` mode is now **symlink** — `~/.c
 
 ### Class A/B Gate
 
-This change is **Class B** (operating-model change, public framework contract). Approved: human (Pavel), 2026-04-25, via `/dr-prd TUNE-0033` PRD review and `/dr-design TUNE-0033` consilium-light validation.
+This change is **Class B** (operating-model change, public framework contract). Approved: operator, 2026-04-25, via `/dr-prd TUNE-0033` PRD review and `/dr-design TUNE-0033` consilium-light validation.
 
 ### Rationale
 
@@ -1436,7 +1436,7 @@ Reflection (Step 0.5 of `/dr-archive TUNE-0033`) generated 5 Class A evolution p
 
 ### Class A/B Gate
 
-All 5 proposals are **Class A** (content updates, no operating-model changes). Approved: human (Pavel), 2026-04-25, via `/dr-archive TUNE-0033` reflection review with `all` approval.
+All 5 proposals are **Class A** (content updates, no operating-model changes). Approved: operator, 2026-04-25, via `/dr-archive TUNE-0033` reflection review with `all` approval.
 
 ### Health Metrics Snapshot
 
@@ -1478,7 +1478,7 @@ Unified the "Next Step" Call-to-Action (CTA) emitted by every `/dr-*` command an
 
 ### Class A/B Gate
 
-This change is **Class A** (touches public framework contract — output format every user sees). Approved: human (Pavel), 2026-04-25, via `/dr-prd TUNE-0032` PRD review.
+This change is **Class A** (touches public framework contract — output format every user sees). Approved: operator, 2026-04-25, via `/dr-prd TUNE-0032` PRD review.
 
 ### Rationale
 
@@ -1528,7 +1528,7 @@ Approved Class A evolution proposals from `reflection/reflection-TUNE-0032.md`. 
   - **Scope Live-Grep Rule** — when a task touches multiple artefacts of the same kind (commands/agents/skills/templates), grep filesystem for actual count before fixing scope in PRD; do not rely on memory.
   - **AC-Feasibility Rule** — every measurable AC must be reachable under the current operating-model; dry-run each AC against live state before user-approval; reformulate as "X OR documented invariant" when not directly reachable.
 - **Why:** TUNE-0032 PRD § Scope said "15 commands" (actual: 17). AC-8 (`check-drift exit 0`) was unreachable under symlink topology — surfaced only in QA. Both should have been caught at PRD draft time.
-- **Approved:** human (Pavel), 2026-04-25.
+- **Approved:** operator, 2026-04-25.
 
 ### Proposal 3: Websites/CLAUDE.md — Cross-product site-update checklist
 
@@ -1542,7 +1542,7 @@ Approved Class A evolution proposals from `reflection/reflection-TUNE-0032.md`. 
   done
   ```
 - **Why:** TUNE-0028 explicitly required `data/commands/*.php` updates; skills/agents were implicit and templates were unmentioned. TUNE-0032 added `data/skills/cta-format.php` correctly only because the agent generalised by analogy — luck, not rule.
-- **Approved:** human (Pavel), 2026-04-25.
+- **Approved:** operator, 2026-04-25.
 
 ### Proposal 4: ai-quality.md — Spec-First with Golden Fixtures pattern
 
@@ -1550,7 +1550,7 @@ Approved Class A evolution proposals from `reflection/reflection-TUNE-0032.md`. 
 - **Class:** A (content addition — new pattern section)
 - **What:** New "Spec-First with Golden Fixtures (Format-Change Pattern)" section before "Fragment Routing". Codifies the 4-step sequence (spec-as-skill → fixtures → spec-regression tests → mechanical propagation) for L3+ tasks changing output format/structure across ≥5 files of the same kind.
 - **Why:** TUNE-0032 used Approach C (this pattern); 39 bats tests now guard 17 commands + 5 agents from drift. Approach A (mechanical sweep) was rejected exactly because drift would re-emerge with each new consumer. Pattern deserves codification beyond TUNE-0032.
-- **Approved:** human (Pavel), 2026-04-25.
+- **Approved:** operator, 2026-04-25.
 
 ### Proposal 5: dr-archive.md — Pre-commit staged-diff audit
 
@@ -1558,7 +1558,7 @@ Approved Class A evolution proposals from `reflection/reflection-TUNE-0032.md`. 
 - **Class:** A (refinement of existing mandatory step)
 - **What:** Added explicit instruction: after `git add` and before `git commit`, run `git diff --staged --stat` and verify the file list matches commit-message scope; reject and restage if unrelated files appear.
 - **Why:** TUNE-0032 archive: 2 INFRA-0026 files (`skills/file-sync-config/SKILL.md`, `templates/cli-conflict-resolver-prompt.md`) leaked into TUNE-0032 commit `5ac8cd9` despite explicit `git add` path-list. Root cause not pinpointed; staged-diff audit makes leak visible before history is cast in stone.
-- **Approved:** human (Pavel), 2026-04-25.
+- **Approved:** operator, 2026-04-25.
 
 ### Class B (HELD)
 
@@ -1619,7 +1619,7 @@ None (TUNE-0091's currently-failing tests will surface organically on its PR via
 - **What:** Codifies the pre-flight `grep -rln "$OLD" code/datarim/` check before staging any `git mv` or cross-repo relocation. Ensures relocation + reference-fixup land in the same commit. Cross-repo variant + verification step included.
 - **Why:** During `/dr-do`, after relocating `code/datarim/documentation/` (Steps 8-10), `check-doc-refs.sh` flagged 3 dangling refs in `skills/security-baseline/SKILL.md`. Plan hadn't enumerated the skill as a touch-point. Pre-flight grep would have caught it before commit.
 - **Stack-agnostic gate:** PASS (POSIX `grep`, no stack-specific tools).
-- **Approved:** human (Pavel), 2026-05-03.
+- **Approved:** operator, 2026-05-03.
 
 #### Proposal 2: tests/test-command-doc-coverage.bats
 
@@ -1628,7 +1628,7 @@ None (TUNE-0091's currently-failing tests will surface organically on its PR via
 - **What:** 4 assertions guarding the gap TUNE-0090 just fixed: every `commands/dr-*.md` is mentioned in `docs/commands.md` AND `CLAUDE.md`; no obsolete `/dr-reflect` or `/dr-security` references; `code/datarim/documentation/` does not exist.
 - **Why:** Without a continuous detector, the same drift can reopen silently (as it did for `/dr-doctor`).
 - **Stack-agnostic gate:** PASS (bats whitelisted via `skills/testing/bats-and-spec-lint.md`).
-- **Approved:** human (Pavel), 2026-05-03.
+- **Approved:** operator, 2026-05-03.
 
 ### Class A Applied (project-specific — outside framework gate scope)
 
@@ -1639,7 +1639,7 @@ None (TUNE-0091's currently-failing tests will surface organically on its PR via
 - **What:** New subsection codifying the n-way sync rule when adding a new `commands/`/`skills/`/`agents/` artifact: must propagate to (a) site `data/{kind}/<name>.php`, (b) `code/datarim/docs/{commands,skills,agents}.md` row, (c) `code/datarim/CLAUDE.md` mention, (d) `code/datarim/README.md` mention. References the new bats test as the framework-doc detector.
 - **Why:** TUNE-0090 itself was discovered because the site had `data/commands/dr-doctor.php` while framework docs lacked any mention of `/dr-doctor`. Asymmetry-as-drift needs explicit rule.
 - **Stack-agnostic gate:** N/A (file is `Projects/Datarim/CLAUDE.md`, project-specific config — gate scope excludes).
-- **Approved:** human (Pavel), 2026-05-03.
+- **Approved:** operator, 2026-05-03.
 
 ### Class B (HELD — defer to PRD-TUNE-0091)
 
@@ -1938,7 +1938,7 @@ Source: `documentation/archive/arcanada-ecosystem/archive-ARCA-0011.md` § Lesso
 
 - **Proposal 1 — skill-update (applied):** `code/datarim/skills/compliance/SKILL.md` — new subsection «Loop-guard pre-emptive operator handoff (attempt 2 vs attempt 3)» after § 7 CI/CD Impact Analysis. Rule: on loop-guard attempt 2, if probe set is deterministic AND state delta vs the previous attempt is empty across all probes, Compliance MUST formulate a pre-emptive handoff question (FB-8) rather than running attempt 3 with the same probe set. Caught anti-pattern: identical NON-COMPLIANT verdicts produced by re-running `gh pr view` / `curl /health` minutes apart with no operator merge in between. Stack-agnostic gate PASS; task-id-gate PASS (provenance moved to evolution-log per S5).
 - **Proposal 2 — new-skill (applied):** `code/datarim/skills/health-controller-stub-detector/SKILL.md` (new file, ~68 lines). Detector skill loaded by `/dr-do` Step 7 when task touches health/status controller files. Grep on diff added lines for stub literals (`'pending-integration'`, `'not-implemented'`, `'not_implemented'`, `'stub'`, `'unimplemented'`). Three disposition rules: implement now, defer with inline backlog tag, or explicit § Out of Scope. Catches the class where hard-coded health controller literals create contract gaps with wish gating downstream. Stack-agnostic gate PASS; task-id-gate PASS; bats `optimize-merge.bats T343 description-length` PASS (157 char description — within 155-char body budget after `description: ` prefix strip).
-- **Proposal 3 — claude-md-update (HELD, Class B):** `~/arcanada/CLAUDE.md` § Internal HTTP Integration Patterns rule 7 — add sub-rule «open both sender + receiver PR with `--auto` merge flag (squash, delete-branch) by default». Class B (operating-model change for ecosystem PR workflow); requires PRD diff or ADR before approval. Pavel can re-present after drafting PRD in `Arcanada-one/datarim` operations docs or new ADR.
+- **Proposal 3 — claude-md-update (HELD, Class B):** `~/arcanada/CLAUDE.md` § Internal HTTP Integration Patterns rule 7 — add sub-rule «open both sender + receiver PR with `--auto` merge flag (squash, delete-branch) by default». Class B (operating-model change for ecosystem PR workflow); requires PRD diff or ADR before approval. operator can re-present after drafting PRD in `Arcanada-one/datarim` operations docs or new ADR.
 - **Class A scope applied minimally:** 2 skill files + this evolution-log entry. TUNE-0090 public-surface sync (`docs/skills.md` count update + `datarim.club/data/skills/health-controller-stub-detector.php` EN+RU + bats `tests/skill-registry.bats` health entry + README) deferred as a follow-up TUNE-* per asymmetric-drift detector contract.
 - **Class B (1 HELD).** See Proposal 3.
 - **Health-metrics**: skills 45 → 46, commands 22, agents 18 — thresholds not exceeded; `/dr-optimize` not auto-suggested.
@@ -2035,7 +2035,7 @@ Reflection on TUNE-0280 (`/dr-continue` + stage-snapshot replay verification) su
 
 ## Fleet Phase 1 reflection — YAML-frontmatter extraction + word-boundary anti-pattern grep (2026-06-07)
 
-- **P-1 (skill-update, Class A APPLIED):** new `skills/utilities/yaml.md` fragment + Fragment Routing entry in `skills/utilities/SKILL.md`. Documents extracting YAML frontmatter from a markdown file via `awk '/^---$/{c++;next} c==1' file | yq` (frontmatter-only), because `yq <file.md>` / `yaml.safe_load` on a whole markdown file fails on the first `:`-bearing prose line ("mapping values are not allowed in this context"). Source: a reflection cycle where naive `yq` on a SKILL.md returned a false-empty `context_budget_tokens`; frontmatter-only extraction fixed it (and the same recipe was then used in the new `check-role-registry.sh` budget gate). docs/skills.md utilities fragment count corrected 12 → 15.
+- **P-1 (skill-update, Class A APPLIED):** new `skills/utilities/yaml.md` fragment + Fragment Routing entry in `skills/utilities/SKILL.md`. Documents extracting YAML frontmatter from a markdown file via `awk '/^---$/{c++;next} c==1' file | yq` (frontmatter-only), because `yq <file.md>` / `yaml.safe_load` on a whole markdown file fails on the first `:`-bearing prose line ("mapping values are not allowed in this context"). Source: a reflection cycle where naive `yq` on a SKILL.md returned a false-empty `context_budget_tokens`; frontmatter-only extraction fixed it (and the same recipe was then used in the new `check-role-registry.sh` budget gate). The utilities fragment count in the skills reference was corrected 12 → 15.
 - **P-2 (skill-update, Class A APPLIED):** `skills/security-baseline/SKILL.md` § S1 gains rule 10 — anti-pattern greps over prose MUST anchor short dangerous tokens (`eval`, `exec`, `raw`, `tmp`) with `grep -w` / `\b<token>\b`. A bare `grep 'eval '` matched the substring inside "retri**eval** on demand", producing a false-positive security finding. Source: same reflection cycle (a compliance security-grep false-positive cost a triage step).
 - Gates: stack-agnostic PASS (yaml.md full-file; SKILL.md edits --diff-only), body-english PASS (new files clean), task-id-gate PASS, bats `utilities-decomposition` green after T3 count bump 15 → 16 markdown files. Operator approved both Class A proposals.
 

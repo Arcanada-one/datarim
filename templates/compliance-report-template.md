@@ -5,6 +5,8 @@ verdict: {COMPLIANT|COMPLIANT_WITH_NOTES|NON-COMPLIANT}
 scope: {optional one-line scope description}
 ---
 
+<!-- allow-non-ascii-block: canonical operator-facing compliance-report section names and their Russian placeholder prose — a hard exclusion under CLAUDE.md § Artifact Language Policy, which keeps these sections in the operator's language by deliberate decision -->
+
 # Compliance-отчёт: {TASK-ID} — {Title}
 
 ## Начальная задача
@@ -50,10 +52,12 @@ scope: {optional one-line scope description}
 
 {Список рисков, которые остались открытыми после compliance-прохода. Если пусто — одна строка «нет открытых рисков».}
 
+<!-- /allow-non-ascii-block -->
+
 ### Related
 
 - Task: `datarim/tasks/{TASK-ID}-task-description.md`
 - PRD: (path or none)
 - Plan: (path or none)
 - QA report: (path or none)
-- Archive: (path or none — заполняется после `/dr-archive`)
+- Archive: (path or none — filled in after `/dr-archive`)

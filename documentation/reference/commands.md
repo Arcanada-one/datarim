@@ -1,6 +1,6 @@
 # Commands Reference
 
-Datarim provides 27 slash commands for Claude Code (plus 2 standalone /factcheck /humanize). Commands are grouped by category.
+Datarim provides 26 slash commands in the `/dr-*` namespace for Claude Code (plus 2 standalone `/factcheck` and `/humanize` commands). Commands are grouped by category.
 
 ## Unified CTA Block (v1.16.0)
 
@@ -33,7 +33,7 @@ When `/dr-qa` returns BLOCKED or `/dr-compliance` returns NON-COMPLIANT, the CTA
 
 Source: TUNE-0032. Spec: `skills/cta-format/SKILL.md`. Template: `templates/cta-template.md`. Tests: `tests/cta-format.bats` (39 spec-regression tests + 3 fixtures).
 
-## Pipeline Commands (8)
+## Pipeline Commands (10)
 
 | Command | Stage | Agent | Description |
 |---------|-------|-------|-------------|
@@ -63,7 +63,7 @@ route. Missing or malformed evidence returns the task to `/dr-prd`.
 | `/dr-edit` | Content | editor | Editorial review -- fact-check, humanize, style, polish. Emits CTA. |
 | `/dr-publish` | Content | writer | Adapt and publish content to multiple platforms. Emits CTA. |
 
-## Framework Management (4)
+## Framework Management (6)
 
 | Command | Stage | Agent | Description |
 |---------|-------|-------|-------------|
@@ -74,7 +74,7 @@ route. Missing or malformed evidence returns the task to `/dr-prd`.
 | `/dr-plugin` | Extension | -- | Manage opt-in plugin system: list active plugins, enable/disable third-party modules. Phase A (TUNE-0101). Emits CTA. |
 | `/dr-orchestrate run` | Core + Plugin | -- | Self-driving pipeline runner. **The command and its autonomy policy are core** — the hard-gated safety floor and action-autonomy map live in `dev-tools/rules/fb-rules.yaml` and resolve via `dev-tools/fb-policy-loader.sh` without enabling any plugin. Phase 2 adds multi-backend subagent inference for unknown prompts (autonomy L1 → L2). **The transport runner is the opt-in plugin** (terminal-multiplexer driver, inference-backend chain, bot/HTTP interface, audit backends) — enable via `/dr-plugin enable <path>/plugins/dr-orchestrate` only to drive panes. Security floor: whitelist + escape-block + micro/decision cooldown; JSONL audit, hash-only credentials. |
 
-## Utility Commands (5)
+## Utility Commands (7)
 
 | Command | Stage | Agent | Description |
 |---------|-------|-------|-------------|

@@ -237,7 +237,7 @@ After implementation, the developer agent MUST emit a CTA block ([definition](..
 - Fundamental gap discovered (Gap Discovery escalation) → primary `/dr-prd {TASK-ID}` (revise requirements)
 - Test/V-AC/checklist must change (Return-to-Plan Transition) → primary `/dr-plan {TASK-ID}` (re-validate the changed contract before resuming)
 
-The CTA block MUST follow the canonical format (numbered list, one `**рекомендуется**`, `---` HR wrapping, task ID included). Variant B menu when >1 active tasks. <!-- allow-non-ascii: russian-canonical-cta-marker-tokens-cited-from-cta-format-skill -->
+The CTA block MUST follow the canonical format (numbered list, exactly one primary recommendation marker per `cta-format.md`, `---` HR wrapping, task ID included). Variant B menu when >1 active tasks.
 
 ## Post-Step Self-Verification Hook (Automatic)
 

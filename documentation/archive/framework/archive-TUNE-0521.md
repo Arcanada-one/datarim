@@ -113,7 +113,7 @@ Per the enforcement program brief, the file is present on all three machines:
 
 | Machine | Path | Size |
 |---------|------|------|
-| Mac | `/Users/ug/.claude/skills/immutability/SKILL.md` | 14.0K |
+| Mac | `/.claude/skills/immutability/SKILL.md` | 14.0K |
 | DEVS | `/home/dev/.claude/skills/immutability/SKILL.md` | 14327 bytes |
 | dev-ai | `/home/aether/.claude/skills/immutability/SKILL.md` | 14327 bytes |
 

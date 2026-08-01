@@ -36,7 +36,7 @@ After expanding the pattern list from 28 → 66, the file count dropped from 40,
 Before turning sync on, **run `find` against every class of problematic files** on the source host:
 
 ```sh
-SYNC_ROOT=/Users/me/myvault   # or another source root
+SYNC_ROOT="$HOME/myvault"   # or another source root
 
 # Vendored / build artifacts
 find "$SYNC_ROOT" -maxdepth 6 \( \

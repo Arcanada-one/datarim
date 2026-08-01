@@ -99,7 +99,7 @@ are present and correctly named.
 
 Per the enforcement program brief, the operator verified the file exists on all
 three machines:
-- Mac: `/Users/ug/.claude/skills/immutability/SKILL.md` (14.0K)
+- Mac: `$HOME/.claude/skills/immutability/SKILL.md` (14.0K)
 - DEVS: `/home/dev/.claude/skills/immutability/SKILL.md` (14327 bytes)
 - dev-ai: `/home/aether/.claude/skills/immutability/SKILL.md` (14327 bytes)
 

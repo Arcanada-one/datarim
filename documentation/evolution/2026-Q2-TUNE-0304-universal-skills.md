@@ -102,7 +102,7 @@ All five new dev-tools/* scripts pass `shellcheck -S warning`.
 
 ## Rollback
 
-Per `docs/how-to/migrate-to-skill-md-layout.md` § Rollback — revert each
+Per `documentation/how-to/migrate-to-skill-md-layout.md` § Rollback — revert each
 commit individually:
 
 - Phase 5 deletion: `git revert <SHA>` restores 55 flat sources.

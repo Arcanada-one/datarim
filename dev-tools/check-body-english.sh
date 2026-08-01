@@ -3,6 +3,7 @@
 # check-body-english.sh — enforce English-only body content in shipped
 # Datarim instruction surface: commands/*.md, skills/<n>/SKILL.md (and
 # nested fragments), agents/*.md, plugins/*/commands/*.md, plugins/*/skills/*/SKILL.md,
+# templates/**/*.md (scaffolded into every consumer project by /dr-init),
 # and (opt-in) framework root markdown (CLAUDE.md, AGENTS.md, README.md).
 #
 # Orthogonal companion to check-frontmatter-english.sh (which covers the
@@ -27,7 +28,8 @@
 #   check-body-english.sh [--root <repo-root>] [--scope <comma-list>] [--help]
 #
 # Default --root = $(pwd). Default --scope = commands,skills,agents.
-# Scope tokens: commands, skills, agents, plugins, root.
+# Scope tokens: commands, skills, agents, plugins, templates, root.
+# The meta-token `all` expands to every scope token above.
 #
 # Exit codes:
 #   0 PASS (zero Cyrillic body matches)
@@ -50,7 +52,9 @@ Scopes (comma-separated):
   skills    -> <root>/skills/*/SKILL.md and <root>/skills/*/*.md
   agents    -> <root>/agents/*.md
   plugins   -> <root>/plugins/*/commands/*.md, <root>/plugins/*/skills/*/SKILL.md
+  templates -> <root>/templates/**/*.md
   root      -> <root>/CLAUDE.md, <root>/AGENTS.md, <root>/README.md
+  all       -> every scope token above
 
 Exit codes: 0 PASS | 1 FAIL | 2 usage error.
 USAGE
@@ -84,9 +88,11 @@ fi
 # Validate scope tokens.
 SCOPES=()
 IFS=',' read -r -a _scope_tokens <<<"$SCOPE_RAW"
+ALL_SCOPE_TOKENS=(commands skills agents plugins templates root)
 for tok in "${_scope_tokens[@]}"; do
     case "$tok" in
-        commands|skills|agents|plugins|root) SCOPES+=("$tok") ;;
+        all) SCOPES+=("${ALL_SCOPE_TOKENS[@]}") ;;
+        commands|skills|agents|plugins|templates|root) SCOPES+=("$tok") ;;
         "") ;;
         *) echo "ERROR: unknown scope token: '$tok'" >&2; exit 2 ;;
     esac
@@ -105,6 +111,8 @@ collect_files() {
             find "$ROOT_ABS/agents" -maxdepth 1 -type f -name '*.md' 2>/dev/null ;;
         plugins)
             find "$ROOT_ABS/plugins" -type f \( -path '*/commands/*.md' -o -path '*/skills/*/SKILL.md' -o -path '*/skills/*/*.md' \) 2>/dev/null ;;
+        templates)
+            find "$ROOT_ABS/templates" -type f -name '*.md' 2>/dev/null ;;
         root)
             for f in CLAUDE.md AGENTS.md README.md; do
                 [ -f "$ROOT_ABS/$f" ] && printf '%s\n' "$ROOT_ABS/$f"
@@ -113,9 +121,17 @@ collect_files() {
 }
 
 ALL_FILES=()
+_seen_files=""
 for s in "${SCOPES[@]}"; do
     while IFS= read -r f; do
-        [ -n "$f" ] && ALL_FILES+=("$f")
+        [ -n "$f" ] || continue
+        # Deduplicate across scopes (the `all` meta-token may be combined
+        # with an explicit token naming the same scope).
+        case "$_seen_files" in
+            *"|$f|"*) continue ;;
+        esac
+        _seen_files="$_seen_files|$f|"
+        ALL_FILES+=("$f")
     done < <(collect_files "$s" | sort -u)
 done
 
@@ -175,7 +191,12 @@ scan_file() {
             fi
             continue
         fi
-        if [[ "$line" == *'<!-- allow-non-ascii-block:'* ]]; then
+        # A line carrying BOTH the block-open and the block-close token is a
+        # self-documenting line (prose that cites the marker syntax), not a
+        # real block opener. Fall through and scan it normally — otherwise a
+        # doc line silently suppresses every remaining line in the file.
+        if [[ "$line" == *'<!-- allow-non-ascii-block:'* ]] \
+           && [[ "$line" != *'<!-- /allow-non-ascii-block -->'* ]]; then
             local block_reason
             block_reason="$(printf '%s' "$line" | sed -E 's/.*<!-- allow-non-ascii-block:[[:space:]]*([^>]*[^->[:space:]])[[:space:]]*-->.*/\1/')"
             local block_stripped
