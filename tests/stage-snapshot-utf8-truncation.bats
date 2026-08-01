@@ -23,6 +23,13 @@ setup() {
     # shellcheck source=/dev/null
     . "$WRITER_LIB"
 }
+assert_declared_size_matches() {
+    local file="$1"
+    local declared actual
+    declared="$(sed -n 's/^size_bytes: //p' "$file")"
+    actual="$(wc -c < "$file")"
+    [ "$declared" -eq "$actual" ]
+}
 
 assert_valid_utf8() {
     local file="$1"
@@ -52,6 +59,7 @@ assert_valid_utf8() {
     [ "$size" -le 8192 ]
     assert_valid_utf8 "$snap"
     grep -q 'snapshot-truncated' "$snap"
+    assert_declared_size_matches "$snap"
 }
 
 @test "f5b emoji body truncated to valid utf8" {
@@ -70,6 +78,7 @@ assert_valid_utf8() {
     [ "$size" -le 8192 ]
     assert_valid_utf8 "$snap"
     grep -q 'snapshot-truncated' "$snap"
+    assert_declared_size_matches "$snap"
 }
 
 @test "f5c ascii body still passes regression guard" {
@@ -86,4 +95,5 @@ assert_valid_utf8() {
     size="$(wc -c < "$snap" | tr -d ' ')"
     [ "$size" -le 8192 ]
     assert_valid_utf8 "$snap"
+    assert_declared_size_matches "$snap"
 }

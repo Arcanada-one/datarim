@@ -223,22 +223,23 @@ EOB
         --captured-by agent --recommended-next /dr-qa \
         --options-file "${huge_options}" --body-file "${BODY_TMP}"
 
-    [ "$status" -eq 1 ]
-    [[ "$output" == *"exceeds 8192-byte cap"* ]]
-    [ ! -e "${FAKE_ROOT}/datarim/snapshots/${TASK_ID}.snapshot.md" ]
+    [ "$status" -eq 1 ] &&
+    [[ "$output" == *"exceeds 8192-byte cap"* ]] &&
+    [ ! -e "${FAKE_ROOT}/datarim/snapshots/${TASK_ID}.snapshot.md" ] &&
     [ ! -d "${FAKE_ROOT}/datarim/snapshots/.lock.${TASK_ID}" ]
 }
 
 @test "E2E — I/O failure cleanup treats root as data and removes the acquired lock" {
     local canary="${BATS_TEST_TMPDIR}/TUNE0546_CANARY"
+    local cp_invoked="${BATS_TEST_TMPDIR}/cp-invoked"
     local literal_payload='$(touch${IFS}TUNE0546_CANARY)'
     local hostile_root="${BATS_TEST_TMPDIR}/root-${literal_payload}"
     local fake_bin="${BATS_TEST_TMPDIR}/fake-bin"
     mkdir -p "${hostile_root}/datarim/snapshots" "${fake_bin}"
-    printf '#!/usr/bin/env bash\nexit 74\n' > "${fake_bin}/cp"
+    printf '#!/usr/bin/env bash\n: > "${SNAPSHOT_TEST_CP_INVOKED}"\nexit 74\n' > "${fake_bin}/cp"
     chmod +x "${fake_bin}/cp"
 
-    run env PATH="${fake_bin}:${PATH}" bash -c '
+    run env PATH="${fake_bin}:${PATH}" SNAPSHOT_TEST_CP_INVOKED="${cp_invoked}" bash -c '
         cd "$1"
         shift
         exec "$@"
@@ -247,8 +248,9 @@ EOB
         --captured-by agent --recommended-next /dr-qa \
         --options-file "${OPTIONS_TMP}" --body-file "${BODY_TMP}"
 
-    [ "$status" -ne 0 ]
-    [ ! -e "${canary}" ]
-    [ ! -d "${hostile_root}/datarim/snapshots/.lock.${TASK_ID}" ]
+    [ "$status" -ne 0 ] &&
+    [ -e "${cp_invoked}" ] &&
+    [ ! -e "${canary}" ] &&
+    [ ! -d "${hostile_root}/datarim/snapshots/.lock.${TASK_ID}" ] &&
     [ ! -e "${hostile_root}/datarim/snapshots/${TASK_ID}.snapshot.md" ]
 }
