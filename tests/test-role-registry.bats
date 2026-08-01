@@ -146,7 +146,17 @@ EOF
     # Skill must resolve under repo root (so the schema also resolves). Create a
     # throwaway fleet skill WITHOUT context_budget_tokens inside the repo, then
     # clean it up. The role points at it; budget-presence check must fire.
+    #
+    # The teardown below is an `rm -rf` inside the working tree, so this fixture
+    # MUST NOT be tracked: a tracked path here would make a plain test run delete
+    # a repo file and leave the tree dirty. (It was tracked once — committed by
+    # accident in an unrelated PR — and a full-suite run duly deleted it.) Refuse
+    # to run rather than damage the checkout.
     NB_DIR="$REPO/skills/fleet/_test_no_budget"
+    if git -C "$REPO" ls-files --error-unmatch "skills/fleet/_test_no_budget/SKILL.md" >/dev/null 2>&1; then
+        echo "fixture path is tracked in git — refusing to run a destructive teardown over it" >&2
+        return 1
+    fi
     mkdir -p "$NB_DIR"
     cat > "$NB_DIR/SKILL.md" <<'EOF'
 ---

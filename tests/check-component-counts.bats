@@ -108,3 +108,15 @@ EOF
     run bash -c "cd '$KB/nested/deeper' && bash '$DETECTOR' --check"
     [ "$status" -eq 0 ]
 }
+
+@test "hidden skills dir is runtime scaffolding, not a shipped skill (V-AC-hidden)" {
+    # A Codex install drops an untracked `skills/.system/` holding its own
+    # bundled helpers. It carries no SKILL.md and ships with nothing, so it
+    # MUST NOT count toward the documented skill total. Counting it produced a
+    # drift report that fired only on a developer machine and never in CI,
+    # where the untracked directory does not exist.
+    mkdir -p "$KB/skills/.system/imagegen"
+    : > "$KB/skills/.system/.codex-system-skills.marker"
+    run bash "$DETECTOR" --check --root "$KB"
+    [ "$status" -eq 0 ]
+}

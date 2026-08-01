@@ -99,3 +99,6 @@ insights/
 # named e.g. `personal.env` — which is exactly the operator-overlay filename the
 # security baseline tells consumers to create.
 *.env
+
+# Throwaway fixture created and rm -rf'd by tests/test-role-registry.bats — must stay untracked
+skills/fleet/_test_no_budget/
