@@ -143,8 +143,10 @@ fi
 # python3 fcntl shim matching lib/audit.sh atomic-append pattern.
 lock_file="${BACKLOG_MD}.lock"
 if command -v flock >/dev/null 2>&1; then
+    # flock's `-c` accepts one shell-command string and no following argv.
+    # Command mode keeps the entry and path as positional arguments instead.
     flock --exclusive --timeout 5 "$lock_file" \
-        -c "printf '%s\n' \"\$1\" >> \"\$2\"" -- "$entry" "$BACKLOG_MD" \
+        sh -c 'printf "%s\n" "$1" >> "$2"' sh "$entry" "$BACKLOG_MD" \
         || output_emit_error 30 STATE_MISMATCH "flock contention on $lock_file"
 else
     python3 - "$BACKLOG_MD" "$entry" <<'PY'

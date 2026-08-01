@@ -2,7 +2,7 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 2.59.0](https://img.shields.io/badge/Version-2.59.0-green.svg)](VERSION)
+[![Version: 2.60.0](https://img.shields.io/badge/Version-2.60.0-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Arcanada-one/datarim/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Arcanada-one/datarim)
 
@@ -18,7 +18,7 @@ reflection. The result is inconsistent quality, skipped steps, and zero institut
 learning. Every task starts from scratch, repeating the same mistakes from yesterday.
 
 Datarim fixes this by providing a complete iterative pipeline for any project type.
-It includes 19 specialized agents, 65 reusable skills, and 28 commands that guide
+It includes 19 specialized agents, 67 reusable skills, and 28 commands that guide
 work through a structured process: requirements gathering, planning, design,
 execution, quality assurance, compliance, reflection, and archival. The pipeline is
 complexity-aware — a quick fix does not go through the same process as a major
@@ -97,7 +97,7 @@ Stages in `[brackets]` are conditional — included when the agent determines th
   cross-Claude-family fallback). Each agent has a defined role, capabilities,
   and the stages where it operates.
 
-- **65 reusable skills** — modular knowledge units that agents load on demand,
+- **67 reusable skills** — modular knowledge units that agents load on demand,
   covering everything from testing methodology to security hardening to content
   creation workflows and structured research.
 
@@ -259,13 +259,21 @@ back into this repo so the next person who clones it gets the current state.
 3. Run `./validate.sh` to confirm runtime symlinks point at the repo.
 4. Bump `VERSION` if the change is significant enough to warrant a release.
 
-`install.sh` is for seeding a fresh machine — it installs this repo's content
-into `~/.claude/` with merge semantics (skip existing). `install.sh --force`
-overwrites existing files and, since v1.9.0, **will refuse to run on a live
-system without an explicit `yes` confirmation (or `--yes`/`DATARIM_INSTALL_YES=1`)
-and always takes a timestamped backup into `~/.claude/backups/force-*/` before
-touching anything**. Use with intention; the guard exists because `--force`
-previously destroyed 9 runtime evolutions during the TUNE-0003 incident.
+`install.sh` is for seeding a fresh machine — it wires this repo's content into
+`~/.claude/`. **It requires an explicit runtime flag**: with no
+`--with-claude` / `--with-codex` / `--with-cursor` / `--project DIR` argument it
+only prints usage and exits 0 without touching anything.
+
+`install.sh --force` applies to **copy mode only**. Under the default symlink
+topology it is a semantic no-op — the installer prints
+`Already symlinked … nothing to update` and exits 0. In copy mode on a live
+system it refuses to run without an explicit `yes` confirmation (or
+`--yes` / `DATARIM_INSTALL_YES=1`) and then takes a timestamped backup into
+`~/.claude/backups/force-*/`. Note the three paths that return **without** a
+backup: an already-symlinked runtime (early exit), symlink mode over an
+existing copy install (consent and the `migrate-*` snapshot are handled by the
+migration prompt instead), and a fresh empty target. Use with intention; the
+guard exists because `--force` previously destroyed 9 runtime evolutions.
 
 ---
 
@@ -279,12 +287,50 @@ previously destroyed 9 runtime evolutions during the TUNE-0003 incident.
 git clone https://github.com/Arcanada-one/datarim.git
 cd datarim
 chmod +x install.sh
-./install.sh
+./install.sh --with-claude
 ```
 
-Merge mode — copies agents, skills, commands, templates, and supporting
-subdirectories into `~/.claude/`, skipping any file that already exists. Safe
-to run on a system that already has customizations.
+**A runtime flag is required.** Bare `./install.sh` prints usage and exits 0
+without installing anything. Pick at least one of:
+
+| Flag | Effect |
+|------|--------|
+| `--with-claude` | Claude Code runtime — symlinks scopes into `~/.claude/` (default mode) |
+| `--with-codex` | Codex CLI runtime — symlinks into `~/.codex/`, plus `AGENTS.md` and the SKILL.md wrappers (`--no-codex-ux` opts out) |
+| `--with-cursor` | Cursor IDE — flat `.md` mirror of each `SKILL.md` into `~/.cursor/skills/` |
+| `--project DIR` | Project-local **copy** install into `DIR/.datarim` (no symlinks) |
+
+Flags combine: `./install.sh --with-claude --with-codex` installs both
+runtimes in one pass. Other useful flags: `--dry-run` (print the planned
+mutations and exit), `--copy` (real files instead of symlinks), `--help`.
+
+By default this is **symlink** mode: the scope directories in `~/.claude/`
+become symlinks to the cloned repo, so a `git pull` is the update. Copy mode
+(`--copy`, or auto-detected on Windows) writes real files instead.
+
+#### What the installer touches outside `~/.claude/<scope>/`
+
+Beyond the scope symlinks the installer has three side effects worth knowing
+about before you run it:
+
+- **`~/.local/bin/`** — symlinks three hook guards from `dev-tools/`:
+  `coworker-hook-guard`, `branch-integration-guard`, and
+  `session-execution-drift-warn`. An existing regular file at any of those
+  paths is backed up once (`.bak-<UTC-timestamp>`) before the symlink replaces
+  it. Registering the hooks in your `settings.json` stays a manual, machine-local
+  step — the installer never edits the hooks array.
+- **`$CLAUDE_DIR/CLAUDE.md`** — on a `--with-claude` install the coworker
+  delegation fragment is synced into your own `CLAUDE.md` between the
+  `<!-- coworker-fragment:begin -->` / `<!-- coworker-fragment:end -->`
+  sentinel lines. Everything outside the sentinels is your hand-written
+  content and is never touched; if the sentinels are absent the installer
+  prints instructions and leaves the file alone.
+- **`~/.claude/local/{skills,agents,commands,templates}/`** — real (gitignored)
+  directories created for personal overrides that should not be committed
+  upstream.
+
+`--profile orchestrator` is a separate, standalone action: it writes only
+`~/.config/datarim-orchestrate/local.yaml` (mode 0600) and installs no scopes.
 
 ### Verifying the install
 
@@ -292,25 +338,30 @@ to run on a system that already has customizations.
 ./validate.sh
 ```
 
-Verifies that `~/.claude/{agents,skills,commands,templates}/` resolve to the
-canonical Datarim repo (symlink mode) or contain the expected fileset (copy
-mode). Under symlink topology drift is impossible by construction — runtime
-IS the repo by inode.
+Verifies that the installed scopes resolve to the canonical Datarim repo
+(symlink mode) or contain the expected fileset (copy mode). Under symlink
+topology drift is impossible by construction — runtime IS the repo by inode.
 
-The scope list lives in `install.sh INSTALL_SCOPES`; dev-tooling directories
-(`scripts/`, `tests/`, `dev-tools/`) are deliberately excluded because they
-are not distributed to runtime. See [documentation/tutorials/getting-started.md](documentation/tutorials/getting-started.md#installer-contract)
+The scope list lives in `install.sh INSTALL_SCOPES` and has **seven** entries:
+`agents/`, `skills/`, `commands/`, `templates/`, `scripts/`, `tests/`, and
+`dev-tools/`. The last three are runtime-required — several `/dr-*` commands
+shell out to `dev-tools/` and `scripts/` helpers at runtime, so they are
+installed rather than repo-only. Only root files (`install.sh`, `update.sh`,
+`validate.sh`, `VERSION`, `CLAUDE.md`, `README.md`, `LICENSE`) stay
+repo-only. See [documentation/tutorials/getting-started.md](documentation/tutorials/getting-started.md#installer-contract)
 for the full installer contract.
 
 ### Symlink-default operating model
 
 Since v1.17.0, `install.sh` defaults to **symlink** mode — the
-`symlink-default` operating model. It links
-`~/.claude/{agents,skills,commands,templates}/` into the cloned Datarim
-repo, so every `git pull` instantly refreshes runtime with no copy step
-and no drift. Copy mode (`install.sh --copy`) is the documented fallback
-for filesystems without symlink support (FAT, exFAT, Windows native
-without Developer Mode). See [`documentation/explanation/symlinks.md`](documentation/explanation/symlinks.md) for
+`symlink-default` operating model. It links all seven scope directories
+(`agents/`, `skills/`, `commands/`, `templates/`, `scripts/`, `tests/`,
+`dev-tools/`) from `~/.claude/` into the cloned Datarim repo, so every
+`git pull` instantly refreshes runtime with no copy step and no drift. Copy
+mode (`install.sh --copy`) is the documented fallback for filesystems without
+symlink support (FAT, exFAT, Windows native without Developer Mode). Copy mode
+is also where the merge semantics apply: it skips any file that already exists
+unless you pass `--force`. See [`documentation/explanation/symlinks.md`](documentation/explanation/symlinks.md) for
 the full operating model, copy-mode migration recipe, and limitations.
 
 ### Windows (WSL / Git Bash)
@@ -319,10 +370,13 @@ the full operating model, copy-mode migration recipe, and limitations.
 # From WSL or Git Bash terminal:
 git clone https://github.com/Arcanada-one/datarim.git
 cd datarim
-./install.sh
+./install.sh --with-claude
 ```
 
-The same installer works under WSL and Git Bash. Native PowerShell is not supported.
+The same installer works under WSL and Git Bash — and the same rule applies:
+without a `--with-*` / `--project` flag it only prints usage. Under Git Bash
+(`MINGW*` / `MSYS*` / `CYGWIN*`) the installer auto-detects that symlinks are
+unavailable and falls back to copy mode. Native PowerShell is not supported.
 
 ### Manual Installation
 
@@ -330,23 +384,38 @@ If you prefer to install manually or need to customize the locations, use
 recursive copies so supporting fragments are preserved:
 
 ```bash
-mkdir -p ~/.claude/{agents,skills,commands,templates}
-cp -R agents/. ~/.claude/agents/
-cp -R skills/. ~/.claude/skills/
-cp -R commands/. ~/.claude/commands/
-cp -R templates/. ~/.claude/templates/
+mkdir -p ~/.claude/{agents,skills,commands,templates,scripts,tests,dev-tools}
+cp -R agents/.     ~/.claude/agents/
+cp -R skills/.     ~/.claude/skills/
+cp -R commands/.   ~/.claude/commands/
+cp -R templates/.  ~/.claude/templates/
+cp -R scripts/.    ~/.claude/scripts/
+cp -R tests/.      ~/.claude/tests/
+cp -R dev-tools/.  ~/.claude/dev-tools/
 ```
+
+A manual copy skips the installer's other side effects — the `~/.local/bin/`
+hook-guard symlinks, the `CLAUDE.md` delegation fragment, and the `local/`
+overlay directories. Add those by hand if you need them.
 
 ### Updating an existing installation
 
 ```bash
 cd /path/to/datarim              # your cloned repo
-./update.sh                      # pull + install + verify
+./update.sh                      # pull + (copy-mode) reinstall
 ```
 
-One command: pulls latest from GitHub, overwrites `~/.claude/` with fresh
-files (backup taken automatically), verifies sync. Use `--dry-run` to
-preview without writing.
+`update.sh` branches on the runtime topology it detects:
+
+- **Symlink mode (default):** runs `git pull origin main` and exits. The
+  runtime IS the repo, so the pull *is* the install — nothing is copied and
+  no backup is taken.
+- **Copy mode:** `git pull origin main`, then
+  `./install.sh --copy --force --yes` to overwrite `~/.claude/`.
+
+Use `./update.sh --dry-run` to preview what would change without writing
+anything. `update.sh` does not run `validate.sh` — run it yourself if you
+want to confirm the topology afterwards.
 
 ### Activate in Your Project
 
@@ -443,10 +512,12 @@ documentation, or any structured work.
 | **SRE** | Evaluates reliability, scalability, monitoring, and operational readiness | `design`, `compliance` |
 | **Tester** | Platform QA for verifying changes, auto-detects test runners, structured reporting | `qa`, `do` |
 | **Researcher** | Structured external research — docs, best practices, versions, compatibility | `prd` (Phase 1.3), `do` (Gap Discovery) |
+| **Peer Reviewer** | Adversarial, findings-only review in a clean isolated context; cross-family fallback reviewer | `verify` (Layer 2/3) |
+| **Orchestrate Resolver** | Classifies an unknown orchestrator pane line into a slash command via a multi-backend CLI chain. Requires the `dr-orchestrate` plugin | `orchestrate` |
 
 Agents are loaded on demand. A quick fix (L1) may only activate the Developer.
 A content task may use Writer and Editor instead. A major migration (L4) may
-involve all seventeen agents across different stages.
+involve most of the nineteen agents across different stages.
 
 ---
 
@@ -467,19 +538,25 @@ involve all seventeen agents across different stages.
 | **evolution** | Framework self-improvement, metric tracking, change proposals | Reflect stage |
 | **writing** | Content creation workflow, editorial standards, quality checklist | Writer, Editor |
 | **dream** | Knowledge base maintenance: ingest, lint, consolidate, index | Librarian |
-| **seo-launch** | SEO audit, analytics setup, website/app launch, ASO checklists | On demand |
-| **marketing** | Ad campaigns, conversion tracking, landing pages, growth marketing | On demand |
+| **security-baseline** | Canonical S1-S11 security rule reference for shipped artefacts | Plan, QA, compliance, do |
+| **self-verification** | Tri-layer self-verification orchestrator — deterministic floor, peer review, runtime dispatch | /dr-verify |
 | **factcheck** | Claim extraction, source verification, accuracy scoring | Editor, Writer |
 | **humanize** | AI artifact removal, voice preservation, natural language patterns | Editor, Writer |
 | **publishing** | Multi-platform publishing rules, formatting, limits, workflow | Writer (on demand) |
-| **telegram-publishing** | Telegram Bot API publishing rules, caption limits, discussion group comments | On demand |
+| **session-handoff-writer** | Producer contract for session handoff — 5-layer body, claim provenance, secret redaction | /dr-save |
 | **project-init** | Project scaffolding: CLAUDE.md, documentation/, datarim/ structure for new projects | /dr-init (project mode) |
 | **research-workflow** | Structured research methodology — checklist, tool selection, gap discovery protocol | Researcher |
 | **reflecting** | Post-task reflection: lessons learned, evolution proposals, Class A/B gate | /dr-archive (Step 0.5) |
 
-Skills are modular. Each is a standalone Markdown file that agents load when they need
-specific capabilities. You can add custom skills by placing `.md` files in
-`~/.claude/skills/`.
+The table above is a representative sample, not the full catalogue — the
+complete list of all 67 skills is in
+[`documentation/reference/skills.md`](documentation/reference/skills.md).
+
+Skills are modular. Each one is a directory containing a `SKILL.md` (plus any
+supporting fragment files) that agents load when they need specific
+capabilities. Add your own by creating `~/.claude/local/skills/<name>/SKILL.md`
+— the `local/` overlay is gitignored and wins over a framework skill of the
+same name.
 
 ---
 
@@ -489,11 +566,13 @@ specific capabilities. You can add custom skills by placing `.md` files in
 |---------|-------|-------------|
 | `/dr-init` | Initialize | Start a new task, pick from backlog, or scaffold a new project. For tasks: assigns complexity (L1-L4) and routes pipeline. For projects: `/dr-init create project "Name"`. |
 | `/dr-prd` | Requirements | Generate a Product Requirements Document. Analyzes the problem, defines scope, success criteria, and constraints. |
+| `/dr-wizard` | Requirements | Interactive task-spec wizard. Staged one-question-at-a-time interview with resumable state, on-demand consilium, and a knowledge/dependency graph artefact. |
 | `/dr-plan` | Planning | Create a detailed implementation plan. Breaks work into phases, estimates effort, identifies risks; a logged strategist decision is mandatory for redundancy-only or ambiguous scope at any complexity |
 | `/dr-design` | Design | Explore architectural decisions. Evaluates alternatives, documents trade-offs, defines interfaces. |
 | `/dr-do` | Execution | Execute the plan. TDD for code, structured iteration for research, documentation, or other work. |
 | `/dr-qa` | Quality | Run quality checks. PRD alignment, design conformance, plan completeness, output quality. |
 | `/dr-compliance` | Compliance | Post-QA hardening. Validates against PRD, checks for regressions, security audit. |
+| `/dr-verify` | Verification | Standalone on-demand self-verification of any artefact. Tri-layer: deterministic shell floor (`--floor-only`, zero LLM cost) + peer review + native runtime dispatch. Findings-only — it never auto-fixes. |
 | `/dr-archive` | Archive | Archive the task. Step 0.5 runs reflection (analyze, propose framework updates). Steps 1-7 store context, update backlog, reset for the next task. |
 | `/dr-auto` | Autonomous | Meta-command for autonomous execution. Activates FB-1..8 ([definition](skills/autonomous-mode/SKILL.md)) mandate + L1 Inline Resolution Rule as default-on via env var + file marker. Question Suppression Ladder (5 levels) suppresses pipeline Q&A; L1 Class A gaps close inline; hard-gated actions escalate to operator. Two modes — Continue (`/dr-auto {TASK-ID}` resume) / Bootstrap (`/dr-auto "<free-text>"` full pipeline). |
 | `/dr-write` | Content | Create written content — articles, docs, research, posts. Uses the writer agent. |
@@ -504,8 +583,12 @@ specific capabilities. You can add custom skills by placing `.md` files in
 | `/dr-dream` | Maintenance | Knowledge base maintenance: organize files, build index, cross-reference, flag contradictions, archive stale content. |
 | `/dr-optimize` | Maintenance | Audit framework health, prune unused components, merge duplicates, fix references, sync documentation. |
 | `/dr-plugin` | Maintenance | Manage opt-in plugins (v1.23.0+, TUNE-0101). `list/enable/disable/sync/doctor` over a manifest-driven runtime. Symlinks plugin sources into `~/.claude/{cat}/{plugin-id}/` namespaces; supports root-position `overrides:`; pre-mutation snapshot/rollback. |
+| `/dr-orchestrate` | Maintenance | Self-driving pipeline runner. The command and its autonomy policy are core; the tmux/bot transport runner is the opt-in `dr-orchestrate` plugin. Whitelisted actions only, JSONL audit, hard-gated floor. |
+| `/dr-quick` | Any | Fast lane for trivial fixes and quick lookups — assigns a `QCK-XXXX` id, scans the knowledge base, applies the change, writes a short archive. Skips PRD, plan, design, QA, and compliance. |
 | `/dr-status` | Any | Check current task status, pipeline progress, and backlog summary. |
 | `/dr-next` | Any | Resume work from the last checkpoint. Restores context and picks up where you left off. |
+| `/dr-save` | Any | Capture the current session to `datarim/sessions/SESSION-{YYYYMMDD-HHMMSS}.session.md` before the context window is destroyed. 5-layer body, 32 KB cap, append-only, claim-provenance enforcement, secret redaction. |
+| `/dr-continue` | Any | Resume from a session artefact in a **clean** context window. Re-verifies every claim with live probes (stale-snapshot / unverified-claim / missing-file banners), downgrades provenance, then routes to `/dr-next` or `/dr-auto`. |
 | `/dr-help` | Any | List all available commands with descriptions, pipeline flow, and complexity routing. |
 | `/factcheck` | Standalone | Fact-check articles and posts. Extracts claims, verifies against sources, corrects errors. |
 | `/humanize` | Standalone | Remove AI writing patterns from text. Fixes vocabulary, structure, and formatting artifacts. |
@@ -1005,7 +1088,7 @@ and why it exists.
 ```
 datarim/
   agents/            # Agent personas (19 agents)
-  skills/            # Knowledge modules (66 skills)
+  skills/            # Knowledge modules (67 skills)
   commands/          # Slash commands (28 commands)
   templates/         # Task and document templates (25 templates)
   documentation/              # Extended documentation and use cases

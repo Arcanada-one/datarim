@@ -262,7 +262,7 @@ After completing initialization, the planner agent MUST emit a CTA block ([defin
 - Backlog had pending items shown → alternative `/dr-init {BACKLOG-ID}` for any other listed item
 - Always include `/dr-status` as escape hatch
 
-The CTA block MUST: (a) include resolved task ID, (b) mark exactly one `**рекомендуется**`, (c) list ≤5 numbered options, (d) be wrapped in `---` HR. If >1 active tasks in `datarim/activeContext.md`, append `**Другие активные задачи:**` menu (Variant B). <!-- allow-non-ascii: russian-canonical-cta-marker-tokens-cited-from-cta-format-skill -->
+The CTA block MUST: (a) include resolved task ID, (b) mark exactly one primary recommendation marker per `cta-format.md`, (c) list ≤5 numbered options, (d) be wrapped in `---` HR. If >1 active tasks in `datarim/activeContext.md`, append the variant-B menu of other active tasks per `cta-format.md`.
 
 ## Stage Snapshot Emission (Mandatory Terminal Step)
 

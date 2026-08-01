@@ -31,13 +31,29 @@
 #      `--diff-filter=A` count is zero because it only modified files — a shape
 #      that added-file counting reports as clean while the work is unmerged.
 #
+#   3. When a task id is supplied, the ledger carries a ROW for that id — a row
+#      that STARTS with the id, not merely a line that mentions it. A sweep on
+#      2026-07-31 found merged tasks with no ledger row at all: the work landed
+#      on `main` while the index that is supposed to account for it never gained
+#      an entry, so the task was invisible to every status query. Anchoring
+#      matters in both directions — an unanchored `grep <ID>` reports a row as
+#      present when some OTHER row merely cites the id ("supersedes TUNE-0541"),
+#      which is the same false-clean this gate exists to prevent.
+#
 # Usage:
 #   closure-gate.sh --root <dir> --branch <name> [--task <ID>] [--base <ref>]
-#                   [--max-lines <n>] [--quiet]
+#                   [--max-lines <n>] [--ledger <path>]... [--require-ledger]
+#                   [--quiet]
+#
+# Ledger resolution. `--ledger` may be repeated and makes the row check
+# MANDATORY (a named ledger that lacks the row fails the gate). With no
+# `--ledger`, the default indexes under `--root` are probed and the check is
+# skipped-with-a-note when none exist, so the gate stays usable on roots that
+# have no Datarim ledger. `--require-ledger` turns that skip into a failure.
 #
 # Exit codes:
 #   0  work is present in the base ref — closure may proceed
-#   1  work is absent — the task must not be marked `done`
+#   1  work is absent, or the ledger has no row for the task — not `done`
 #   2  usage / environment error (also the fail-closed path when the base ref
 #      cannot be resolved: an unresolvable base is never treated as "clean")
 #
@@ -51,6 +67,9 @@ TASK=""
 BASE="origin/main"
 MAX_LINES=400
 QUIET=0
+LEDGERS=()
+REQUIRE_LEDGER=0
+DEFAULT_LEDGERS=("datarim/tasks.md" "datarim/backlog.md")
 
 die_usage() { printf 'closure-gate: %s\n' "$1" >&2; exit 2; }
 
@@ -61,6 +80,8 @@ while [ $# -gt 0 ]; do
     --task)      TASK="${2:-}";      shift 2 || die_usage "--task needs a value" ;;
     --base)      BASE="${2:-}";      shift 2 || die_usage "--base needs a value" ;;
     --max-lines) MAX_LINES="${2:-}"; shift 2 || die_usage "--max-lines needs a value" ;;
+    --ledger)    LEDGERS+=("${2:-}");  shift 2 || die_usage "--ledger needs a value" ;;
+    --require-ledger) REQUIRE_LEDGER=1; shift ;;
     --quiet)     QUIET=1; shift ;;
     -h|--help)   sed -n '2,45p' "$0"; exit 0 ;;
     *)           die_usage "unknown argument: $1" ;;
@@ -147,20 +168,99 @@ while IFS=$'\t' read -r path line; do
 done < "$CANDIDATES"
 
 # ---------------------------------------------------------------------------
+# 3. The ledger must carry a ROW for the task id — anchored at the start of the
+#    row, so a line that merely CITES the id elsewhere ("supersedes TUNE-0541")
+#    never satisfies the check.
+#
+#    Two row shapes are accepted, matching the schemas the framework has shipped:
+#      thin one-liner : "- TUNE-0541 · done · P2 · L2 · <summary> -> <path>"
+#      table          : "| TUNE-0541 | ... |"
+#    In both, the id must be the first token of the row.
+# ---------------------------------------------------------------------------
+LEDGER_STATUS="skipped"
+LEDGER_FILES_SEEN=()
+
+if [ -n "$TASK" ]; then
+    ledger_paths=()
+    if [ "${#LEDGERS[@]}" -gt 0 ]; then
+        ledger_paths=("${LEDGERS[@]}")
+        explicit_ledger=1
+    else
+        explicit_ledger=0
+        for cand in "${DEFAULT_LEDGERS[@]}"; do
+            [ -f "$ROOT/$cand" ] && ledger_paths+=("$cand")
+        done
+    fi
+
+    # An explicitly named ledger that does not exist is an environment error,
+    # never a silent pass.
+    if [ "$explicit_ledger" -eq 1 ]; then
+        for lp in "${ledger_paths[@]}"; do
+            case "$lp" in (/*) abs="$lp" ;; (*) abs="$ROOT/$lp" ;; esac
+            [ -f "$abs" ] || die_usage "--ledger file not found: $lp"
+        done
+    fi
+
+    if [ "${#ledger_paths[@]}" -eq 0 ]; then
+        if [ "$REQUIRE_LEDGER" -eq 1 ]; then
+            LEDGER_STATUS="absent"
+        fi
+    else
+        row_re="^[[:space:]]*([-*][[:space:]]+|\|[[:space:]]*)${TASK}([[:space:]]|\||·|$)"
+        LEDGER_STATUS="missing"
+        for lp in "${ledger_paths[@]}"; do
+            case "$lp" in (/*) abs="$lp" ;; (*) abs="$ROOT/$lp" ;; esac
+            LEDGER_FILES_SEEN+=("$lp")
+            if grep -qE -- "$row_re" "$abs" 2>/dev/null; then
+                LEDGER_STATUS="present"
+                break
+            fi
+        done
+    fi
+fi
+
+# ---------------------------------------------------------------------------
 # Verdict
 # ---------------------------------------------------------------------------
 label="${TASK:-$BRANCH}"
 
-if [ "${#MISSING_FILES[@]}" -eq 0 ] && [ "${#MISSING_LINES[@]}" -eq 0 ]; then
+ledger_ok=1
+case "$LEDGER_STATUS" in
+    missing|absent) ledger_ok=0 ;;
+esac
+
+if [ "${#MISSING_FILES[@]}" -eq 0 ] && [ "${#MISSING_LINES[@]}" -eq 0 ] && [ "$ledger_ok" -eq 1 ]; then
   say "closure-gate: PASS — all content from '$BRANCH' is present in '$BASE' ($label)"
+  case "$LEDGER_STATUS" in
+    present) say "closure-gate: ledger row for $TASK found" ;;
+    skipped) [ -n "$TASK" ] && say "closure-gate: note — no ledger index found; row check skipped" ;;
+  esac
   [ "$TOTAL_CAND" -gt "$CHECKED" ] && \
     say "closure-gate: note — checked $CHECKED of $TOTAL_CAND candidate lines (--max-lines $MAX_LINES)"
   exit 0
 fi
 
-say "closure-gate: FAIL — work claimed by $label is NOT present in '$BASE'."
+if [ "${#MISSING_FILES[@]}" -eq 0 ] && [ "${#MISSING_LINES[@]}" -eq 0 ]; then
+    say "closure-gate: FAIL — content from '$BRANCH' is present in '$BASE', but the"
+    say "closure-gate: ledger has no row for $label."
+else
+    say "closure-gate: FAIL — work claimed by $label is NOT present in '$BASE'."
+fi
 say "closure-gate: this task must not be marked \`done\`."
 say ""
+
+if [ "$ledger_ok" -eq 0 ]; then
+    if [ "$LEDGER_STATUS" = "absent" ]; then
+        say "Ledger: no index found under '$ROOT' (--require-ledger was given)."
+        say "  looked for: ${DEFAULT_LEDGERS[*]}"
+    else
+        say "Ledger: no row STARTING with '$TASK' in:"
+        for lp in "${LEDGER_FILES_SEEN[@]}"; do say "  $lp"; done
+        say "  A line that merely mentions '$TASK' inside another row does not count —"
+        say "  the id must be the first token of its own row."
+    fi
+    say ""
+fi
 
 if [ "${#MISSING_FILES[@]}" -gt 0 ]; then
   say "Files added on '$BRANCH' and absent from '$BASE' (${#MISSING_FILES[@]}):"

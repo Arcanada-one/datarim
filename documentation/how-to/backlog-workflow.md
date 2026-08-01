@@ -70,7 +70,7 @@ Each backlog entry follows this structure:
 - **[PREFIX]-XXXX** — Scan existing tasks and backlog for the prefix, pick the next sequential 4-digit number. The ID is invariant across lifecycle.
 - **Status** — Only `pending` and `in_progress` belong in the active backlog. Completed and cancelled items move to `backlog-archive.md`.
 - **Priority** — Determines selection order: `critical` > `high` > `medium` > `low`.
-- **Complexity** — Estimated effort level (see [complexity.md](complexity.md) for definitions). Helps plan iterations.
+- **Complexity** — Estimated effort level (see [complexity.md](../reference/complexity.md) for definitions). Helps plan iterations.
 - **Source** — Where this task originated. Useful for traceability. Common values: `manual`, `PRD-SUP-0001`, `CONTENT-0001 reflection`, `INFRA-0003 reflection`.
 
 ---

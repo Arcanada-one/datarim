@@ -75,7 +75,7 @@ graph LR
     CtaFail -->|"Layer 2"| L2return["/dr-design {ID}"]
     CtaFail -->|"Layer 3"| L3return["/dr-plan {ID}"]
     CtaFail -->|"Layer 4"| L4return["/dr-do {ID}"]
-    CtaFail -->|"3 same-layer fails"| Esc["Эскалация<br>to user"]
+    CtaFail -->|"3 same-layer fails"| Esc["Escalation<br>to user"]
 
     style CtaFail fill:#ef4444,stroke:#dc2626,color:white
     style Esc fill:#7c2d12,stroke:#451a03,color:white

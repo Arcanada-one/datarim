@@ -41,9 +41,19 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 FRAMEWORK_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 DEFAULT_REGEX="${FRAMEWORK_ROOT}/dev-tools/personal-id-forbidden.regex"
+# The default surface must be the PUBLISHED surface. An earlier revision listed
+# only the ten entries above `plugins`, which left plugins/, config/, tests/,
+# .github/, the root installers and the root policy documents unscanned — about
+# half of what a public clone actually receives. The gate reported PASS while
+# personal identifiers sat in the unscanned half, so the PASS was an artefact of
+# scope rather than evidence of cleanliness. Anything shipped to a consumer
+# belongs here; a path that does not exist is skipped harmlessly by `find`.
 DEFAULT_PATHS=(
     cli skills agents commands templates scripts dev-tools
-    CLAUDE.md README.md docs documentation
+    plugins config tests .github
+    CLAUDE.md AGENTS.md README.md SECURITY.md CONTRIBUTING.md CODE_OF_CONDUCT.md
+    install.sh update.sh validate.sh
+    docs documentation
 )
 
 regex_file="$DEFAULT_REGEX"
@@ -168,10 +178,29 @@ _self_basename="${0##*/}"
 whitelist_paths=("$regex_file" "$0" "$_regex_basename" "$_self_basename"
     "personal-id-forbidden.regex" "personal-id-gate.sh"
     "dev-tools/personal-id-forbidden.regex" "scripts/personal-id-gate.sh"
-    # Intentional historical ecosystem narrative — frozen append-only record.
-    # Names appear as "approved by <human>" attribution markers; rewriting
-    # them would destroy the record's historical fidelity. Frozen, not leaked.
-    "documentation/how-to/evolution-log.md"
+    # NOTE: documentation/how-to/evolution-log.md was whitelisted here on the
+    # rationale "names appear as approved-by attribution markers; rewriting them
+    # would destroy the record's historical fidelity. Frozen, not leaked."
+    # That rationale did not survive the repository going public: the entry was
+    # hiding 26 live personal-name references in a tracked file, and a gate that
+    # exempts the one file carrying the data reports PASS while the leak ships.
+    # The attributions now read "operator" (the form the log already used
+    # elsewhere), which preserves the record's meaning — who approved, and when —
+    # without naming a private individual. The entry is deliberately NOT
+    # reinstated; the file is scanned like any other.
+    # Detector-needle fixtures. These suites exist to prove the gate FIRES, so
+    # they must contain the very strings it hunts (a routable public IP, an
+    # internal hostname, an example address). Scanning them makes the gate
+    # report its own test data as a leak. Same rationale as the regex source
+    # file being exempt from its own scan — and, unlike a content whitelist,
+    # these entries cannot hide a real leak because the files ship no prose.
+    # Each is anchored to an exact trailing path by _is_whitelisted.
+    "tests/personal-id-gate.bats"
+    "tests/personal-id-gate-private-overlay.bats"
+    "tests/personal-id-no-real-values.bats"
+    "tests/check-stale-runtime.bats"
+    "tests/check-classify-bats-failure-scope.bats"
+    "tests/datarim-doctor-execution-drift.bats"
     # Supreme Directive canonical Source-of-Truth URL — public canon, not a
     # personal data leak. The URL is the published identifier of the spec.
     "templates/project-claude-md.md"
@@ -194,14 +223,26 @@ fi
 # Check if a file path matches any whitelist entry (prefix or substring match).
 # Uses ${arr[@]+"${arr[@]}"} guard for bash 3.2 compat (empty array + set -u).
 _is_whitelisted() {
+    # Anchored matching only. An earlier revision also matched *"$wl"* — any
+    # path merely CONTAINING a whitelist token was exempted, so a single
+    # short token could silently un-scan unrelated files as the tree grew
+    # (e.g. a token "dead-ip-consumer-sweep.sh" would also exempt
+    # "notes/dead-ip-consumer-sweep.sh.bak", and a future one-word token would
+    # exempt far more). A whitelist that widens by accident is worse than no
+    # whitelist, because it reports PASS. Three anchored shapes are accepted:
+    #   exact path       fp == wl
+    #   directory prefix fp starts with "wl/"
+    #   path/basename    fp ends with "/wl"
+    # The trailing-anchor form is required because scanned paths are absolute
+    # while whitelist entries are repo-relative or bare basenames; it is still
+    # anchored, so a token can never match in the middle of a path.
     local fp="$1" wl
     for wl in ${whitelist_paths[@]+"${whitelist_paths[@]}"}; do
+        [ -n "$wl" ] || continue
+        [ "$fp" = "$wl" ] && return 0
         case "$fp" in
-            "$wl"*) return 0 ;;
-        esac
-        # Also match if the whitelist entry is contained in the path.
-        case "$fp" in
-            *"$wl"*) return 0 ;;
+            "${wl%/}/"*) return 0 ;;   # wl is a directory prefix
+            */"$wl") return 0 ;;       # wl is a trailing path or basename
         esac
     done
     return 1

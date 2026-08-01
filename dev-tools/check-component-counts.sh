@@ -5,8 +5,19 @@
 # repo-vs-site drift detection (which needs an external cross-repo registry).
 # This script has NO cross-repo dependency: it enforces that the component
 # counts claimed in THIS repo's own CLAUDE.md / README.md ("NN agents",
-# "NN skills", "NN commands", "NN templates" — parenthesized declaration
-# form, e.g. "(19 agents)") match the actual on-disk counts:
+# "NN skills", "NN commands", "NN templates") match the actual on-disk
+# counts. Two claim forms are recognised:
+#
+#   1. parenthesized declaration — "(19 agents)", "(67 skills, ...)"
+#   2. prose declaration         — "19 specialized agents",
+#                                  "**67 reusable skills**",
+#                                  "and 28 commands", "includes 19 agents"
+#
+# Form 2 is the most VISIBLE claim surface (README intro paragraph and the
+# feature bullet list) and was invisible to this detector until the pattern
+# was broadened; see § claimed_counts for the false-positive guard.
+#
+# On-disk counts:
 #
 #   commands   find commands  -mindepth 1 -maxdepth 1 -name '*.md' | wc -l
 #   agents     find agents    -mindepth 1 -maxdepth 1 -name '*.md' | wc -l
@@ -88,17 +99,32 @@ actual_count() {  # $1=category
     esac
 }
 
-# Claimed count for a category in a given doc file. Parenthesized
-# declaration form only, e.g. "(19 agents)" / "(64 skills, ...)" — this is
-# the format both CLAUDE.md and README.md use at their canonical count
-# declaration points, and it avoids false positives from illustrative
-# prose elsewhere (e.g. "Documentation says 15 agents but disk has 12",
-# ">20 skills" threshold examples — neither is parenthesized).
-# Echoes the first match's number, or nothing if no claim found.
-claimed_count() {  # $1=file $2=category
+# Claimed counts for a category in a given doc file.
+#
+# Recognised claim shapes (both are real declaration points in this repo):
+#   parenthesized  "(19 agents)"            "(67 skills, 17 with ...)"
+#   prose          "19 specialized agents"  "**67 reusable skills**"
+#                  "and 28 commands"        "It includes 19 specialized agents"
+# i.e. a number, optionally bold-emphasised, optionally followed by ONE
+# lowercase qualifier word, then the category noun.
+#
+# FALSE-POSITIVE GUARD — the number must sit at a *declaration position*:
+# immediately after start-of-line, "(", "**", ", ", "and ", "includes " or
+# ": ". That prefix set is what separates a real count claim from
+# illustrative prose. Live counter-examples in README.md that MUST NOT
+# match (both verified against the shipped text):
+#   "Documentation says 15 agents but disk has 12"  -> preceded by "says "
+#   "(e.g., >20 skills, >25 commands, ...)"         -> preceded by ">"
+# Only ONE qualifier word is allowed, which keeps constructions such as
+# "3 of the 4 skills" out of the match set.
+#
+# Echoes every DISTINCT claimed number found, one per line (a doc may
+# declare the same category in several places; each is checked).
+claimed_counts() {  # $1=file $2=category
     local file="$1" cat="$2"
     [ -f "$file" ] || return
-    grep -oE "\([0-9]+ ${cat}\b" "$file" 2>/dev/null | head -1 | grep -oE '[0-9]+'
+    grep -oE "(^|\(|\*\*|, |and |includes |: )[0-9]+( [a-z]+)? ${cat}\b" "$file" 2>/dev/null \
+        | grep -oE '[0-9]+' | sort -un
 }
 
 FINDINGS=""   # accumulates "<file>|<category>|<claimed>|<actual>"
@@ -108,12 +134,13 @@ for doc in "$ROOT/CLAUDE.md" "$ROOT/README.md"; do
     [ -f "$doc" ] || continue
     doc_name="$(basename "$doc")"
     for cat in $CATEGORIES; do
-        claim="$(claimed_count "$doc" "$cat")"
-        [ -n "$claim" ] || continue
         actual="$(actual_count "$cat")"
-        if [ "$claim" != "$actual" ]; then
-            add_finding "$doc_name" "$cat" "$claim" "$actual"
-        fi
+        while IFS= read -r claim; do
+            [ -n "$claim" ] || continue
+            if [ "$claim" != "$actual" ]; then
+                add_finding "$doc_name" "$cat" "$claim" "$actual"
+            fi
+        done < <(claimed_counts "$doc" "$cat")
     done
 done
 

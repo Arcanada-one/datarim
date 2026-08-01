@@ -1,21 +1,21 @@
 # Tutorials — Learning-Oriented Documentation
 
-В Diátaxis-таксономии категория **tutorials** (учебные руководства) предназначена для обучения через практику. Такой документ ориентирован на начинающего читателя, который не знаком с предметом. Материал подаётся пошагово, шаг за шагом, от простого к сложному. Главная цель — не объяснить концепцию, а сформировать навык: читатель должен выполнить действия и получить работающий результат. Это не справочник и не рецепт, а живая инструкция с нуля до первого результата.
+In the Diátaxis taxonomy, the **tutorials** category is intended for learning through practice. Such a document is aimed at a beginner who is not familiar with the subject. The material is presented step by step, one step at a time, from the simple to the complex. The main goal is not to explain a concept but to build a skill: the reader must carry out the actions and obtain a working result. This is neither a reference nor a recipe, but a living instruction from zero to the first result.
 
 ## When to write here
 
-- Первое знакомство пользователя с продуктом: сквозной гайд от установки до базового сценария
-- Пошаговая инструкция для новичка без глубоких предварительных знаний
-- Практическое занятие (hands-on lesson), где читатель создаёт что-то своими руками
-- Getting-started flow: минимальный набор шагов для запуска и подтверждения работы
+- A user's first encounter with the product: an end-to-end guide from installation to a basic scenario
+- A step-by-step instruction for a newcomer without deep prior knowledge
+- A hands-on lesson in which the reader builds something with their own hands
+- Getting-started flow: the minimal set of steps to launch it and confirm that it works
 
 ## When NOT to write here
 
-- Готовые рецепты для пользователей с определённым уровнем навыка → перенесите в **how-to/**
-- Поиск конкретного параметра, флага или сигнатуры API → перенесите в **reference/**
-- Описание архитектуры, причин проектных решений или теоретической базы → перенесите в **explanation/**
+- Ready-made recipes for users with a certain level of skill → move them to **how-to/**
+- Looking up a specific parameter, flag, or API signature → move it to **reference/**
+- A description of the architecture, of the reasons behind design decisions, or of the theoretical basis → move it to **explanation/**
 
 ## Naming convention
 
-- Имя файла — kebab-case с расширением `.md`, например `first-project-setup.md`
-- Название должно кратко отражать суть шагов и ожидаемый результат, без абстракций вроде `tutorial.md`
+- The file name is kebab-case with a `.md` extension, for example `first-project-setup.md`
+- The title should briefly reflect the substance of the steps and the expected result, without abstractions such as `tutorial.md`

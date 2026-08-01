@@ -7,8 +7,12 @@ Thanks for your interest in improving this framework.
 ```bash
 git clone https://github.com/Arcanada-one/datarim.git
 cd datarim
-./install.sh
+./install.sh --with-claude
 ```
+
+A runtime flag is required — bare `./install.sh` prints usage and exits 0
+without installing anything. Use `--with-codex` / `--with-cursor` for the
+other runtimes, or `--dry-run` to see the planned mutations first.
 
 For a development checkout:
 

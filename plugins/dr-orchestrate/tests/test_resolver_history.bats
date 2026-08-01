@@ -240,6 +240,16 @@ PY
 }
 
 @test "concurrent records all survive the shared history lock" {
+  # The property under test is "the shared lock serialises 40 concurrent
+  # writers without losing a record" — the assertions below are unchanged.
+  #
+  # resolver.sh defaults DR_ORCH_LOCK_TIMEOUT to 5s. On a loaded CI runner,
+  # 40 forked writers can queue longer than that; the losers exit 2 and drop
+  # their record, so the suite failed by wall-clock luck rather than by any
+  # defect in the locking. Pin a generous, explicit budget so the outcome
+  # depends on the lock's correctness and not on the scheduler.
+  export DR_ORCH_LOCK_TIMEOUT=60
+
   run bash -c '
     set -euo pipefail
     resolver="$1"

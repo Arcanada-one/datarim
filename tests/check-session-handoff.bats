@@ -25,7 +25,7 @@ _valid_session_body() {
     cat <<'EOF'
 ## Layer 1 — Git State
 
-repo: /Users/ug/code/myproject  HEAD: abc123  status: clean
+repo: /Users/dev/code/myproject  HEAD: abc123  status: clean
 
 ## Layer 2 — Active Tasks
 
@@ -33,7 +33,7 @@ TUNE-0420 | in_progress
 
 ## Layer 3 — Related Files
 
-- /Users/ug/arcanada/datarim/tasks/TUNE-0420-task-description.md
+- /Users/dev/arcanada/datarim/tasks/TUNE-0420-task-description.md
 
 ## Layer 4 — Open Questions
 

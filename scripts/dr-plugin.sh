@@ -85,7 +85,7 @@ COMMANDS:
   enable <abs-path>     Activate a plugin from an absolute path (git-URL clone deferred — Phase A4)
   disable <id>          Deactivate a plugin (refuses datarim-core)
   sync                  Reconcile filesystem with manifest
-  doctor [--fix]        Diagnose inconsistent state (8 checks)
+  doctor [--fix]        Diagnose inconsistent state (9 checks)
   --help                Show this message
 
 EXIT CODES:

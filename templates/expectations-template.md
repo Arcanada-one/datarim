@@ -10,6 +10,8 @@ parent_init_task: {TASK-ID}-init-task.md
 parent_prd: ../prd/PRD-{TASK-ID}.md
 ---
 
+<!-- allow-non-ascii-block: canonical expectations schema field and section names plus their Russian placeholder prose — cited verbatim so check-expectations-checklist.sh can string-match them, and an operator-facing hard exclusion under CLAUDE.md § Artifact Language Policy -->
+
 # {TASK-ID} — Ожидания оператора
 
 > **Plain-language operator wishlist.** Каждый пункт — одно проверяемое
@@ -74,3 +76,5 @@ parent_prd: ../prd/PRD-{TASK-ID}.md
 > (`### <ISO 8601 timestamp> — amendment by <author>`), без таблиц.
 
 _(пусто на момент создания)_
+
+<!-- /allow-non-ascii-block -->

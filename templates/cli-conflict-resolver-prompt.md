@@ -1,6 +1,6 @@
 # CLI Conflict Resolver — Prompt Template
 
-Шаблон промпта для запуска **Claude CLI как embedded conflict-resolver** в shell-скриптах, cron-задачах, CI/CD pipelines.
+A prompt template for running **Claude CLI as an embedded conflict-resolver** in shell scripts, cron jobs, and CI/CD pipelines.
 
 ## Origin
 
@@ -12,7 +12,7 @@ Pattern derived from a multi-host git-pull resolver script. Smoke-tested: 3/3 su
 # nosec-extract
 CLAUDE_BIN=/home/dev/.local/bin/claude
 CLAUDE_TIMEOUT=300
-CLAUDE_MODEL=sonnet  # или opus для сложных конфликтов
+CLAUDE_MODEL=sonnet  # or opus for complex conflicts
 
 result="$(timeout "$CLAUDE_TIMEOUT" "$CLAUDE_BIN" \
     --print \
@@ -28,7 +28,7 @@ case "$last_line" in
 esac
 ```
 
-## Promp Template (parameterize по задаче)
+## Prompt Template (parameterize per task)
 
 ```text
 You are resolving a {CONFLICT_TYPE} in: {TARGET}
@@ -38,19 +38,19 @@ Conflict items:
 {CONFLICT_LIST}
 
 Procedure:
-1. cd "{TARGET}" (если применимо)
+1. cd "{TARGET}" (if applicable)
 2. For each conflict item:
    a. Read it.
    b. Resolve by choosing the most reasonable merge:
       {DECISION_RULES}
-   c. {CLEANUP_STEP — например, remove conflict markers}.
+   c. {CLEANUP_STEP — for example, remove conflict markers}.
 3. After ALL items resolved: {COMMIT_OR_FINALIZE_STEP}
 4. Print exactly "RESOLVED" on the very last line if {SUCCESS_CRITERIA}.
 5. If any conflict is too complex (semantic conflict, ambiguous business logic),
    leave items as-is and print exactly "FAILED: <one-line reason>" on the last line.
 
 Hard constraints:
-- {LIST_OF_FORBIDDEN_ACTIONS — никогда не push, не install, не build, не trogать вне scope}
+- {LIST_OF_FORBIDDEN_ACTIONS — never push, never install, never build, never touch anything outside scope}
 - Time budget: {TIMEOUT}s.
 ```
 
@@ -99,16 +99,16 @@ Hard constraints:
 
 ## Hard Constraints — Non-Negotiable
 
-Эти правила **обязательны** в любом CLI-агент-в-shell pattern (защита от runaway agents):
+These rules are **mandatory** in any CLI-agent-in-shell pattern (protection against runaway agents):
 
-1. **No external state changes outside scope** — никаких `git push`, `npm publish`, `cargo publish`, `aws s3 cp`, `curl POST` к production endpoints без explicit approval.
+1. **No external state changes outside scope** — no `git push`, `npm publish`, `cargo publish`, `aws s3 cp`, or `curl POST` to production endpoints without explicit approval.
 <!-- gate:example-only -->
-2. **No package installs** — `npm install`, `pip install`, `cargo add` могут потащить уязвимости.
+2. **No package installs** — `npm install`, `pip install`, and `cargo add` can pull in vulnerabilities.
 <!-- /gate:example-only -->
-3. **No builds/tests** — слишком долго для cron, могут оставить артефакты, могут упасть и заблокировать решение.
-4. **Time budget** — `timeout NNs` обязателен. CLI Claude может задуматься на минуты, cron должен быть предсказуем.
-5. **Machine-readable verdict** — последняя строка output ровно `RESOLVED` или `FAILED: <reason>`. Без variations. Скрипт парсит `tail -n 1`.
-6. **Idempotent on re-run** — если агент уже резолвил, повторный запуск должен detect (e.g. `git status --porcelain` empty) и быстро выйти.
+3. **No builds/tests** — too slow for cron, they can leave artifacts behind, and they can fail and block the decision.
+4. **Time budget** — `timeout NNs` is mandatory. CLI Claude may think for minutes; cron must stay predictable.
+5. **Machine-readable verdict** — the last line of output is exactly `RESOLVED` or `FAILED: <reason>`. No variations. The script parses `tail -n 1`.
+6. **Idempotent on re-run** — if the agent has already resolved the conflict, a repeat run must detect that (e.g. `git status --porcelain` empty) and exit quickly.
 
 ## Failure Handling Pattern
 
@@ -119,25 +119,25 @@ if [[ "$last_line" == "RESOLVED" ]]; then
 elif [[ "$last_line" == FAILED:* ]]; then
     log "❌ Claude refused: ${last_line#FAILED:}"
     opsbot_alert "warning" "Claude conflict resolver refused: $reason"
-    # Оставить state как есть — пользователь резолвит вручную
+    # Leave the state as-is — the user resolves it manually
 elif [[ -z "$last_line" ]]; then
     log "⚠️ Claude empty output — likely timeout or crash"
     opsbot_alert "warning" "CLI Claude empty output in $context"
 else
     log "⚠️ Claude unexpected output: $last_line"
-    # Treat unexpected как failure для safety
+    # Treat unexpected output as failure, for safety
 fi
 ```
 
 ## When NOT to Use This Pattern
 
-- **Production deploy decisions** — слишком high-stakes для автономного агента, требует human approval gate.
-- **Security incidents** — конфликты в auth/secrets/ACL должны эскалировать к человеку, не auto-resolve.
-- **Cross-team merges** — где конфликт касается разных стейкхолдеров, агент не знает их предпочтений.
-- **Schema migrations с data loss риском** — DROP COLUMN, DELETE rows etc.
+- **Production deploy decisions** — too high-stakes for an autonomous agent; requires a human approval gate.
+- **Security incidents** — conflicts in auth/secrets/ACL must escalate to a human, not be auto-resolved.
+- **Cross-team merges** — where the conflict affects different stakeholders and the agent does not know their preferences.
+- **Schema migrations with data-loss risk** — DROP COLUMN, DELETE rows, etc.
 
 ## Related Skills
 
-- `skills/file-sync-config/SKILL.md` — full file-sync setup (где этот pattern впервые применён)
-- `skills/security/SKILL.md` — почему `bypassPermissions` mode нужен hard constraints
+- `skills/file-sync-config/SKILL.md` — full file-sync setup (where this pattern was first applied)
+- `skills/security/SKILL.md` — why `bypassPermissions` mode needs hard constraints
 - `skills/devops/SKILL.md` — cron-driven self-healing infrastructure

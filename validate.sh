@@ -39,10 +39,32 @@ for dir in agents skills commands templates; do
     done
 done
 
-# Docs directory check
+# Documentation tree check.
+# `docs/` was renamed to `documentation/` at v2.49.0. This check still probed
+# the old path, so it leaked a `find: .../docs: No such file or directory`
+# to stderr, reported 0, and — because nothing incremented ERRORS — still
+# announced ALL CHECKS PASSED. A missing documentation tree is now a real
+# failure.
 echo ""
-doc_count=$(find "$SCRIPT_DIR/docs" -maxdepth 1 -name "*.md" -type f 2>/dev/null | wc -l | tr -d ' ')
-echo "  INFO: documentation/ contains $doc_count reference documents"
+# Severity is graduated on purpose:
+#   present but empty -> FAIL. The tree exists and is broken; that is a real
+#                        defect in a full checkout.
+#   absent            -> WARN. A skeletal or partial checkout (and the bats
+#                        fixture repo) legitimately ships the install scopes
+#                        without a documentation tree, so absence alone is
+#                        not evidence of breakage in this repo.
+echo "Documentation Check:"
+if [ -d "$SCRIPT_DIR/documentation" ]; then
+    doc_count=$(find "$SCRIPT_DIR/documentation" -name "*.md" -type f 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$doc_count" -gt 0 ]; then
+        echo "  PASS: documentation/ contains $doc_count documents"
+    else
+        echo "  FAIL: documentation/ exists but contains no .md files"
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo "  WARN: documentation/ directory not present (partial checkout?)"
+fi
 
 # Double-prefix check
 echo ""
@@ -108,12 +130,22 @@ fi
 
 # Summary counts
 echo ""
+# Counting rules — one shipped component per unit, NOT every .md on disk:
+#   agents/commands/templates  one file at depth 1 (`-maxdepth 1`). A bare
+#                              recursive find over templates/ also swept the
+#                              documentation-diataxis/*/README.md stubs and
+#                              reported 29 instead of 25.
+#   skills                     one directory per skill, `skills/<name>/SKILL.md`.
+#                              A recursive find counted supporting fragment
+#                              files too and reported 129 instead of 67.
+#   documentation              recursive: the tree is organised into Diataxis
+#                              subdirectories, so depth 1 holds no .md at all.
 echo "Framework Inventory:"
-echo "  Agents:    $(find "$SCRIPT_DIR/agents" -name "*.md" | wc -l | tr -d ' ')"
-echo "  Skills:    $(find "$SCRIPT_DIR/skills" -name "*.md" | wc -l | tr -d ' ')"
-echo "  Commands:  $(find "$SCRIPT_DIR/commands" -name "*.md" | wc -l | tr -d ' ')"
-echo "  Templates: $(find "$SCRIPT_DIR/templates" -name "*.md" | wc -l | tr -d ' ')"
-echo "  Docs:      $(find "$SCRIPT_DIR/docs" -name "*.md" | wc -l | tr -d ' ')"
+echo "  Agents:    $(find "$SCRIPT_DIR/agents" -maxdepth 1 -name "*.md" -type f 2>/dev/null | wc -l | tr -d ' ')"
+echo "  Skills:    $(find "$SCRIPT_DIR/skills" -mindepth 2 -maxdepth 2 -name "SKILL.md" -type f 2>/dev/null | wc -l | tr -d ' ')"
+echo "  Commands:  $(find "$SCRIPT_DIR/commands" -maxdepth 1 -name "*.md" -type f 2>/dev/null | wc -l | tr -d ' ')"
+echo "  Templates: $(find "$SCRIPT_DIR/templates" -maxdepth 1 -name "*.md" -type f 2>/dev/null | wc -l | tr -d ' ')"
+echo "  Docs:      $(find "$SCRIPT_DIR/documentation" -name "*.md" -type f 2>/dev/null | wc -l | tr -d ' ')"
 
 # Summary
 echo ""

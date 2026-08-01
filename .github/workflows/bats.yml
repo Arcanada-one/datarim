@@ -1,15 +1,29 @@
 name: bats
 
-# TUNE-0092 — full bats regression suite for the framework repo.
-# Runs every *.bats file under tests/ on every PR and on push to main.
-# Complements the scoped bats jobs in security.yml (regression-bats, doc-refs,
-# task-id-gate) and dev-tools-lint.yml (bats-self-tests) by covering the rest
-# of the suite that previously had no CI gate.
+# Repo-wide bats regression gate.
+#
+# DISCOVERY, NOT ENUMERATION
+# --------------------------
+# This workflow deliberately does NOT name suites. It shells out to
+# `tests/run-bats-discovery.sh`, which globs every *.bats file in the repo and
+# subtracts the exclusion registry (`tests/bats-exclusions.yml`).
+#
+# The previous design named suites explicitly and ran `bats tests/`, which is
+# NOT recursive — so `tests/security/` and `tests/install-matrix/` were invisible
+# to it, and the whole of `cli/tests/`, `plugins/dr-orchestrate/tests/` and most
+# of `dev-tools/tests/` were run by no job at all. Enumeration fails open: a
+# suite added tomorrow is simply never listed and nothing complains. Discovery
+# fails closed: a new suite runs the moment it lands, and skipping one requires
+# a dated, reasoned entry in the registry.
+#
+# No `paths:` filter on purpose — a release PR that touches only VERSION and
+# CHANGELOG.md must still run the full regression gate.
 
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -19,72 +33,56 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  full-suite:
-    name: bats tests/ (full)
+  registry:
+    name: exclusion registry + inventory
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - name: Install bats
-        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends bats
+      - name: Validate the bats exclusion registry
+        # Fail-closed: a stale entry (suite renamed or deleted) would silently
+        # keep a live suite dark under a path nobody checks.
+        run: bash tests/run-bats-discovery.sh --check-registry
 
-      # Fleet role-registry + level-resolver tests need yq, jq, and python
-      # jsonschema. jq ships on the runner; yq and jsonschema do not.
-      - name: Install test dependencies (yq, jq, jsonschema)
-        run: |
-          sudo apt-get install -y --no-install-recommends jq
-          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-          sudo chmod +x /usr/local/bin/yq
-          python3 -m pip install --quiet jsonschema pyyaml
-
-      # `bats tests/` does NOT descend into subdirectories (verified on bats
-      # 1.10.0: a tree with one top-level and one nested suite runs 1 test, and
-      # 2 with -r). So this job's claim to run "every *.bats file under tests/"
-      # was false — tests/install-matrix/ was never executed by it.
-      #
-      # `bats -r tests/` is the obvious fix and is WRONG here: tests/dr-orchestrate
-      # is a symlink to ../plugins/dr-orchestrate/tests, and -r follows it. The
-      # plugin tree would then run a second time through a path whose relative
-      # fixtures do not resolve — measured, 353 failures via the symlinked path
-      # against 1 when the same suites run at their real path in dark-suites
-      # below. Enumerating with find, which does not follow symlinks by default,
-      # gets the recursion without the symlink.
-      - name: Run full bats suite
+      - name: Publish suite inventory
         run: |
           set -euo pipefail
-          mapfile -t suites < <(find tests -type f -name '*.bats' | sort)
-          echo "executing ${#suites[@]} suite(s)"
-          # A glob that matches nothing must fail loudly, not pass green.
-          if [ "${#suites[@]}" -lt 240 ]; then
-            echo "FAIL: ${#suites[@]} suite(s) matched, below the floor of 240." >&2
-            echo "      Do not lower the floor to make this pass." >&2
-            exit 1
-          fi
-          bats "${suites[@]}"
+          total=$(find . -type f -name '*.bats' ! -path './.git/*' | wc -l)
+          running=$(bash tests/run-bats-discovery.sh --list | wc -l)
+          {
+            echo "### bats inventory"
+            echo
+            echo "| metric | count |"
+            echo "| --- | --- |"
+            echo "| suites on disk | ${total} |"
+            echo "| suites executed | ${running} |"
+            echo "| excluded (registry) | $(( total - running )) |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "on disk: ${total}, executed: ${running}"
 
-  # Suites that exist, pass locally, and until now proved nothing on any PR.
-  # Grouped into ONE job rather than one job per surface: these run on the
-  # GitHub-hosted runner, but extra jobs still cost queue slots, and a single
-  # job keeps all three surface summaries in one log.
-  dark-suites:
-    name: bats cli/ dev-tools/ plugins/
+  suites:
+    name: shard ${{ matrix.shard }}/8
+    needs: registry
     runs-on: ubuntu-latest
+    strategy:
+      # Never cancel siblings: one red shard must not hide failures in the
+      # other seven. The point of this job is a complete picture.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # Suites that inspect git topology (archive-auto-commit,
+          # session-handoff-squash-collision, framework-version-accountability)
+          # need real history, not a depth-1 cone.
+          fetch-depth: 0
 
-      - name: Install bats
-        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends bats
+      - name: Install pinned toolchain
+        run: bash tests/ci-install-bats-deps.sh
 
-      - name: Install test dependencies (yq, jq, jsonschema)
-        run: |
-          sudo apt-get install -y --no-install-recommends jq
-          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-          sudo chmod +x /usr/local/bin/yq
-          python3 -m pip install --quiet jsonschema pyyaml
-
-      - name: Run cli/, dev-tools/ and plugin suites
-        run: bash .github/scripts/run-dark-suites.sh
+      - name: Run shard ${{ matrix.shard }} of 8
+        run: bash tests/run-bats-discovery.sh --shard ${{ matrix.shard }}/8

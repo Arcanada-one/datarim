@@ -73,12 +73,17 @@ _audit_random_id() {
 
 # args_hash <arg1> <arg2> ... → sha256:<64hex>
 audit_args_hash() {
-    local joined
-    joined="$(printf '%s\0' "$@")"
     local sha
-    sha=$(printf '%s' "$joined" | shasum -a 256 2>/dev/null | awk '{print $1}')
-    if [ -z "$sha" ]; then
-        sha=$(printf '%s' "$joined" | sha256sum 2>/dev/null | awk '{print $1}')
+    # Stream NUL-delimited arguments directly into the digest. Bash variables
+    # cannot carry NUL bytes; a command substitution would strip the separators,
+    # warn on stderr, and make ("a", "bc") collide with ("ab", "c").
+    if command -v shasum >/dev/null 2>&1; then
+        sha=$(printf '%s\0' "$@" | shasum -a 256 | awk '{print $1}')
+    elif command -v sha256sum >/dev/null 2>&1; then
+        sha=$(printf '%s\0' "$@" | sha256sum | awk '{print $1}')
+    else
+        printf 'audit_args_hash: no SHA-256 implementation available\n' >&2
+        return 1
     fi
     printf 'sha256:%s' "$sha"
 }

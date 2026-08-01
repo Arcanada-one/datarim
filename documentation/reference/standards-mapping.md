@@ -1,6 +1,6 @@
 # Standards Mapping — Datarim Security Baseline (S1–S9)
 
-> **Source skill:** [`skills/security-baseline/SKILL.md`](../skills/security-baseline/SKILL.md)
+> **Source skill:** [`skills/security-baseline/SKILL.md`](../../skills/security-baseline/SKILL.md)
 > **Authoritative versions:**
 > - OWASP ASVS v5.0.0 (2025)
 > - SOC 2 Trust Services Criteria 2017 (revised 2022)
@@ -125,7 +125,7 @@ responsibility — not in scope of the framework:
 
 The framework provides the technical baseline; consumers running SOC 2
 audits provide the operational evidence trail. See
-[`README.md`](../README.md) § Documentation for the cross-link.
+[`README.md`](../../README.md) § Documentation for the cross-link.
 
 ---
 

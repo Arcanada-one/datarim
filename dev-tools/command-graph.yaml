@@ -25,6 +25,13 @@ commands:
     precedes: [dr-plan]
     optional_at: [L1, L2]
 
+  dr-wizard:
+    stage: requirements
+    requires: []
+    precedes: [dr-prd]
+    optional_at: [L1, L2]
+    entry: true
+
   dr-plan:
     stage: planning
     requires: [dr-init]
@@ -79,6 +86,20 @@ commands:
     stage: utility
     requires: [dr-init]
     precedes: []
+    optional_at: []
+    entry: true
+
+  dr-save:
+    stage: utility
+    requires: []
+    precedes: [dr-continue]
+    optional_at: []
+    entry: true
+
+  dr-continue:
+    stage: utility
+    requires: [dr-save]
+    precedes: [dr-next]
     optional_at: []
     entry: true
 
@@ -164,6 +185,13 @@ commands:
     entry: true
 
   factcheck:
+    stage: standalone
+    requires: []
+    precedes: []
+    optional_at: []
+    entry: true
+
+  humanize:
     stage: standalone
     requires: []
     precedes: []

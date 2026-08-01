@@ -177,3 +177,45 @@ write_file() {
     [ "$status" -eq 0 ]
     [[ "$output" == *"PASS"* ]]
 }
+
+@test "16 FAIL when Cyrillic follows a self-documenting allow-non-ascii-block line" {
+    # Regression guard.
+    #
+    # A line that carries BOTH the block-open and the block-close token is
+    # prose documenting the marker syntax — not a real block opener. Before
+    # the fix, such a line opened a block that never closed, so the scanner
+    # silently skipped everything from that line to EOF. In the real repo that
+    # was ~160 lines of commands/dr-archive.md: the entire archive-output
+    # contract went unscanned while the gate still reported PASS.
+    #
+    # The assertion is deliberately about the line AFTER the self-documenting
+    # one: it proves the region is still being scanned, which is the property
+    # that regressed. A test that only checked the doc line itself would pass
+    # under the buggy implementation too.
+    write_file "commands/dr-foo.md" \
+        "---" "name: dr-foo" "description: Foo." "---" "" \
+        "English prose before." \
+        "Open a block with <!-- allow-non-ascii-block: reason-goes-here --> and close it with <!-- /allow-non-ascii-block -->." \
+        "Русский текст здесь." \
+        "English prose after."
+    run "$SCRIPT" --root "$TMPROOT"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"FAIL"* ]]
+}
+
+@test "17 a self-documenting allow-non-ascii-block line does not suppress a LATER block-open" {
+    # Complements 16: after the self-documenting line is scanned normally, a
+    # genuine block opener further down must still work. This guards against a
+    # fix that special-cases the doc line by disabling block handling outright.
+    write_file "commands/dr-foo.md" \
+        "---" "name: dr-foo" "description: Foo." "---" "" \
+        "Syntax is <!-- allow-non-ascii-block: reason-goes-here --> ... <!-- /allow-non-ascii-block -->." \
+        "English in between." \
+        "<!-- allow-non-ascii-block: russian-ai-pattern-fixture-data-required-by-skill -->" \
+        "следует отметить" \
+        "<!-- /allow-non-ascii-block -->" \
+        "English after."
+    run "$SCRIPT" --root "$TMPROOT"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"PASS"* ]]
+}

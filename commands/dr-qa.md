@@ -584,7 +584,7 @@ After verdict, the reviewer agent MUST emit a CTA block per `$HOME/.claude/skill
 
 Multi-layer FAIL: route to **earliest** failed layer (Layer 1 > 2 > 3 > 3b > 4). Earlier failures are root causes. Layer 3b sits between plan completeness and code quality because operator-expectation misses indicate scope-drift; they are higher-level than code defects but presuppose the plan was executed.
 
-The FAIL-Routing CTA header MUST read: `**QA failed для {TASK-ID} — earliest failed layer: Layer N (Layer name)**`. Variant B menu when >1 active tasks. <!-- allow-non-ascii: literal-russian-fail-routing-cta-header-template-token -->
+The FAIL-Routing CTA header MUST use the FAIL-Routing CTA header phrasing defined in `cta-format.md` § FAIL-Routing, naming this task and the earliest failed layer (`Layer N (Layer name)`). Variant B menu when >1 active tasks.
 
 ## Loop Guard
 

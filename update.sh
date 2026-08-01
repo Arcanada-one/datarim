@@ -2,9 +2,15 @@
 # Datarim Framework Updater
 # Updates an existing installation to the latest version from GitHub.
 #
-# Behaviour by runtime topology:
+# Behaviour by runtime topology (see detect_runtime_mode):
 #   - symlink mode (default): git pull only — runtime IS the repo.
 #   - copy    mode:           git pull + ./install.sh --copy --force --yes.
+#   - none:                   stop with install guidance (nothing to update).
+#   - mixed:                  stop and ask the operator to converge via
+#                             install.sh (refuses to guess a topology).
+#
+# Runs from a normal clone OR a `git worktree` checkout (where .git is a
+# regular file, not a directory).
 #
 # Usage:
 #   ./update.sh              # update to latest
@@ -20,9 +26,16 @@ CLAUDE_DIR="${CLAUDE_DIR:-$HOME/.claude}"
 
 # v1.17.0: inspect runtime topology so we can branch update logic.
 # Returns "symlink" / "copy" / "mixed" / "none" on stdout.
+#
+# The probe MUST cover every scope install.sh distributes (INSTALL_SCOPES in
+# install.sh — agents, skills, commands, templates, scripts, tests,
+# dev-tools). It previously probed only the first four, so a runtime whose
+# newer scopes were symlinked but whose legacy four were real dirs was
+# misreported. Scopes that are absent are not counted either way, so a
+# legacy four-scope install still classifies correctly.
 detect_runtime_mode() {
     local s symlink_count=0 dir_count=0 present=0
-    for s in agents skills commands templates; do
+    for s in agents skills commands templates scripts tests dev-tools; do
         if [ -L "$CLAUDE_DIR/$s" ]; then
             symlink_count=$((symlink_count + 1)); present=$((present + 1))
         elif [ -d "$CLAUDE_DIR/$s" ]; then
@@ -72,7 +85,10 @@ if [ ! -f "$VERSION_FILE" ]; then
     exit 1
 fi
 
-if [ ! -d "$SCRIPT_DIR/.git" ]; then
+# `.git` is a DIRECTORY in a normal clone but a regular FILE (a gitdir
+# pointer) inside a `git worktree` checkout, and also in submodules. Testing
+# for -d rejected every worktree. Accept either shape.
+if [ ! -e "$SCRIPT_DIR/.git" ]; then
     echo "ERROR: not a git repository. update.sh must run from a cloned repo." >&2
     exit 1
 fi
@@ -84,6 +100,42 @@ echo "==============="
 echo "Current version: $OLD_VER"
 echo "Runtime mode:    $RUNTIME_MODE"
 echo ""
+
+# --- Topology guards --------------------------------------------------------
+# detect_runtime_mode can return four values. "symlink" and "copy" each have
+# a dedicated path below. "none" and "mixed" previously fell through to the
+# copy-mode install at the bottom of this script, which meant:
+#   - none:  a machine with no Datarim runtime at all silently received a
+#            COPY-mode install, even though symlink is the documented
+#            default. Nothing to update — this is an install.
+#   - mixed: some scopes symlinked, some real dirs (interrupted migration).
+#            A blind `install.sh --copy --force` would overwrite the
+#            symlinked scopes with real copies and silently destroy the
+#            repo-IS-runtime property.
+# Both now stop with actionable guidance instead of guessing. --dry-run
+# reports the same diagnosis without failing, since its contract is to
+# describe rather than mutate.
+
+if [ "$RUNTIME_MODE" = "none" ]; then
+    echo "No Datarim runtime found in $CLAUDE_DIR." >&2
+    echo "There is nothing to update — this machine needs an install first." >&2
+    echo "Run:  ./install.sh --with-claude      (symlink mode, the default)" >&2
+    echo "      ./install.sh --help             (all runtime flags)" >&2
+    [ "$DRY_RUN" = true ] && exit 0
+    exit 1
+fi
+
+if [ "$RUNTIME_MODE" = "mixed" ]; then
+    echo "Mixed runtime topology in $CLAUDE_DIR: some scopes are symlinks," >&2
+    echo "others are real directories. This is usually an interrupted migration." >&2
+    echo "update.sh will not guess which topology you want, because converging" >&2
+    echo "the wrong way overwrites symlinked scopes with copies." >&2
+    echo "Re-run install.sh explicitly to converge:" >&2
+    echo "      ./install.sh --with-claude          (converge to symlink mode)" >&2
+    echo "      ./install.sh --with-claude --copy   (converge to copy mode)" >&2
+    [ "$DRY_RUN" = true ] && exit 0
+    exit 1
+fi
 
 # --- Step 1: git pull -------------------------------------------------------
 

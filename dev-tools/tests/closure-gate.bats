@@ -219,3 +219,95 @@ advance_main() {
     [ "$status" -eq 0 ]
   done
 }
+
+# ---------------------------------------------------------------------------
+# Ledger-row shapes.
+#
+# Derived from the 2026-07-31 sweep: two tasks whose work HAD landed on `main`
+# carried no ledger row at all, so they were invisible to every status query.
+# Content reachability alone reported them clean.
+# ---------------------------------------------------------------------------
+
+# a branch whose content genuinely landed, so the ledger row is the only variable
+land_branch() {
+  git -C "$REPO" checkout -qb feat
+  printf '#!/bin/sh\necho landed\n' > "$REPO/dev-tools/landed.sh"
+  git -C "$REPO" add -A
+  git -C "$REPO" commit -qm "feat: landed work"
+  git -C "$REPO" checkout -q main
+  printf '#!/bin/sh\necho landed\n' > "$REPO/dev-tools/landed.sh"
+  git -C "$REPO" add -A
+  git -C "$REPO" commit -qm "squash: landed work"
+  git -C "$REPO" update-ref refs/remotes/origin/main HEAD
+}
+
+write_ledger() {
+  mkdir -p "$REPO/datarim"
+  printf '%s\n' "$1" > "$REPO/datarim/tasks.md"
+}
+
+@test "ledger: fails when the work landed but no row exists for the task (W11 shape)" {
+  land_branch
+  write_ledger "- TUNE-0999 · pending · P2 · L2 · something else → tasks/TUNE-0999.md"
+
+  run "$GATE" --root "$REPO" --branch feat --task TUNE-0541
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"no row STARTING with 'TUNE-0541'"* ]]
+}
+
+@test "ledger: a mention INSIDE another row does not satisfy the check (anchoring)" {
+  land_branch
+  # the id appears, but as a citation inside a different task's row
+  write_ledger "- TUNE-0999 · pending · P2 · L2 · supersedes TUNE-0541 entirely → tasks/TUNE-0999.md"
+
+  run "$GATE" --root "$REPO" --branch feat --task TUNE-0541
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"no row STARTING with 'TUNE-0541'"* ]]
+}
+
+@test "ledger: passes on a properly anchored thin one-liner row" {
+  land_branch
+  write_ledger "- TUNE-0541 · done · P2 · L2 · closure gate → tasks/TUNE-0541.md"
+
+  run "$GATE" --root "$REPO" --branch feat --task TUNE-0541
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"ledger row for TUNE-0541 found"* ]]
+}
+
+@test "ledger: passes on a table-shaped row" {
+  land_branch
+  write_ledger "| TUNE-0541 | done | closure gate |"
+
+  run "$GATE" --root "$REPO" --branch feat --task TUNE-0541
+  [ "$status" -eq 0 ]
+}
+
+@test "ledger: a prefix collision does not count as a row (TUNE-0541 vs TUNE-05410)" {
+  land_branch
+  write_ledger "- TUNE-05410 · done · P2 · L2 · a different task → tasks/TUNE-05410.md"
+
+  run "$GATE" --root "$REPO" --branch feat --task TUNE-0541
+  [ "$status" -eq 1 ]
+}
+
+@test "ledger: an explicitly named ledger that does not exist is a usage error, not a pass" {
+  land_branch
+
+  run "$GATE" --root "$REPO" --branch feat --task TUNE-0541 --ledger datarim/nope.md
+  [ "$status" -eq 2 ]
+}
+
+@test "ledger: --require-ledger fails closed when no index exists" {
+  land_branch
+
+  run "$GATE" --root "$REPO" --branch feat --task TUNE-0541 --require-ledger
+  [ "$status" -eq 1 ]
+}
+
+@test "ledger: backward compatible — no index and no --require-ledger still passes" {
+  land_branch
+
+  run "$GATE" --root "$REPO" --branch feat --task TUNE-0541
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"row check skipped"* ]]
+}

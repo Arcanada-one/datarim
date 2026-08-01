@@ -150,4 +150,4 @@ gh api repos/Arcanada-one/coworker/environments/release-manual \
 ## Cross-references
 
 - [How to register a PyPI Trusted Publisher](./pypi-first-publish.md)
-- [Release process](../release-process.md)
+- [Release process](release-process.md)

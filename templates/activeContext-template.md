@@ -10,7 +10,7 @@ Active Tasks line regex (canonical):
   ^- ([A-Z]{2,10}-[0-9]{4}) · (in_progress|blocked|not_started) · P[0-3] · L[1-4] · (.+) → tasks/\1-(task-description|init-task)\.md$
 
 Removed in v1.19.1:
-  - `## Последние завершённые` — runtime via `/dr-status --recent N`
+  - the legacy Russian "recently completed" section — runtime via `/dr-status --recent N`
   - `## Last Updated` — not used by any consumer
   - `progress.md` — abolished v1.19.0
   - `backlog-archive.md` — abolished v1.19.1

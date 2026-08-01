@@ -152,7 +152,7 @@ QA BLOCKED → header `**QA failed for {TASK-ID} — earliest failed layer: Laye
 
 Compliance NON-COMPLIANT → header `**Compliance NON-COMPLIANT for {TASK-ID} — ...**`, primary `/dr-do {TASK-ID}` (default) or earlier stage if PRD/plan gap identified.
 
-After fix: resume forward, re-run QA/compliance. Loop guard: 3 same-layer fails → escalate to user via CTA option `Эскалация` (see `cta-format.md` § FAIL-Routing). <!-- allow-non-ascii: russian-cta-option-token-cited-from-cta-format-skill -->
+After fix: resume forward, re-run QA/compliance. Loop guard: 3 same-layer fails → escalate to user via the escalation option defined in `cta-format.md` § FAIL-Routing.
 
 ### Manual Transitions
 
@@ -164,7 +164,7 @@ After fix: resume forward, re-run QA/compliance. Loop guard: 3 same-layer fails 
 
 ### Multi-task awareness (Variant B)
 
-Whenever `## Active Tasks` in `datarim/activeContext.md` lists >1 task, the CTA block MUST append a `**Другие активные задачи:**` menu listing each parallel task with its own recommended next command. This is mandatory for `/dr-status`, `/dr-next`, `/dr-archive`; agents on other commands MAY append it when context permits. See `cta-format.md` § Canonical Block — Multiple Active Tasks. <!-- allow-non-ascii: russian-cta-variant-b-menu-header-cited-from-cta-format-skill -->
+Whenever `## Active Tasks` in `datarim/activeContext.md` lists >1 task, the CTA block MUST append the variant-B menu of other active tasks per `cta-format.md`, listing each parallel task with its own recommended next command. This is mandatory for `/dr-status`, `/dr-next`, `/dr-archive`; agents on other commands MAY append it when context permits. See `cta-format.md` § Canonical Block — Multiple Active Tasks.
 
 ### Parallel orchestration is the default
 

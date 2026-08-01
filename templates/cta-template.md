@@ -27,7 +27,7 @@ Placeholders:
 | `{STATUS}` | task lifecycle status | `in_progress` |
 | `{COMMAND_PRIMARY}` | recommended next pipeline step | `/dr-design {TASK_ID}` |
 | `{COMMAND_ALT_1}`, `{COMMAND_ALT_2}` | reasonable alternatives or escape hatches | `/dr-do {TASK_ID}`, `/dr-status` |
-| `{PURPOSE_*}` | one-sentence outcome (≤80 chars) | `Auto-transition после plan для L3` |
+| `{PURPOSE_*}` | one-sentence outcome (≤80 chars) | `Auto-transition after plan for L3` |
 
 ## Multiple Active Tasks (>1 in activeContext.md)
 
@@ -47,7 +47,7 @@ Placeholders:
 ---
 ```
 
-Order rules for "Другие активные задачи":
+Order rules for the variant-B menu of other active tasks (see `cta-format.md`):
 1. Priority descending (P0 > P1 > P2 > P3)
 2. Tie-break by complexity descending (L4 > L3 > L2 > L1)
 3. List up to 5 entries; if more than 5 active tasks exist, link to `/dr-status` instead

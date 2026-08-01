@@ -158,4 +158,4 @@ After optimize-pass, the optimizer agent MUST emit a CTA block ([definition](../
 - Need deeper restructuring → primary `/dr-design {TASK-ID}` (consilium panel)
 - Always include `/dr-status` as escape hatch
 
-The CTA block MUST follow the canonical format (numbered, one `**рекомендуется**`, `---` HR). Variant B menu when >1 active tasks. <!-- allow-non-ascii: russian-canonical-cta-marker-tokens-cited-from-cta-format-skill -->
+The CTA block MUST follow the canonical format (numbered, exactly one primary recommendation marker per `cta-format.md`, `---` HR). Variant B menu when >1 active tasks.

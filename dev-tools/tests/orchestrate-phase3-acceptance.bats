@@ -130,7 +130,10 @@ run_fixture_regression() {
 }
 
 @test "documentation helper validates all six Class B surfaces" {
-  run "$DOCS"
+  # The helper also carries one-time batch-history assertions. Anchor those to
+  # the released revision here so this ongoing surface regression does not
+  # reject a later, legitimate framework VERSION bump.
+  run env DR_ORCH_DOCS_BASE="$(git -C "$REPO_ROOT" rev-parse HEAD)" "$DOCS"
   [ "$status" -eq 0 ] && [[ "$output" == *"phase3_docs=6"* ]]
 }
 

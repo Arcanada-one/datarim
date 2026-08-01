@@ -1,8 +1,13 @@
 name: dev-tools-lint
-# TUNE-0091 — non-blocking dev-only lint gate.
-# - bats-self-tests: BLOCKING. Linter's own bats suite must stay green.
-# - linter-run:      WARNING-ONLY. Cross-root surfaces (sister site)
-#                    are not checked out; warnings expected.
+# Dev-tools lint + fast-feedback bats subset.
+# - bats-self-tests: BLOCKING. Fast subset; see the note on that job.
+# - linter-run:      doc-fanout-lint ERRs block; cross-root WARNs advisory.
+# - dr-auto-cross-runtime: BLOCKING activation-primitive smoke.
+#
+# This workflow has a `paths:` filter, so it can skip entirely on a PR that
+# touches only VERSION/CHANGELOG. Full repo-wide bats coverage therefore does
+# NOT live here — it lives in `bats.yml`, which is glob-discovery based and
+# carries no path filter.
 
 on:
   pull_request:
@@ -35,6 +40,17 @@ jobs:
       - name: Install bats
         run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends bats
 
+      # DO NOT replace this explicit list with a glob.
+      #
+      # `dev-tools/tests/closure-gate.bats` contains an anti-decay assertion
+      # that greps THIS FILE for the literal string
+      # `bats dev-tools/tests/closure-gate.bats`. That assertion exists because
+      # deleting the closure gate outright once left every CI job green — a gate
+      # nothing runs is a paragraph, not a gate.
+      #
+      # Repo-wide coverage is handled by `bats.yml` (glob discovery, no path
+      # filter). This list is a fast-feedback subset plus that literal tripwire;
+      # it is intentionally redundant with discovery, not a substitute for it.
       - name: Run dev-tools self-tests
         run: |
           bats dev-tools/tests/doc-fanout-lint.bats
@@ -46,21 +62,40 @@ jobs:
           bats dev-tools/tests/orchestrate-phase3-acceptance.bats
 
   linter-run:
-    name: doc-fanout-lint run (warning-only)
+    name: doc-fanout-lint (errors blocking, cross-root advisory)
     runs-on: ubuntu-latest
-    continue-on-error: true
+    # NOTE: this job previously carried BOTH `continue-on-error: true` AND a
+    # trailing `|| echo "::warning::"`. Either alone neutralises the gate; both
+    # together made it impossible for doc-fanout-lint to fail CI under any
+    # circumstances, including genuine in-repo count drift.
+    #
+    # The severity split the script already implements is the right seam:
+    #   default mode  -> ERR exits 1, WARN exits 0
+    #   --strict      -> WARN also exits 1
+    # In-repo count-mismatch ERRs are real drift and now block. Cross-root WARNs
+    # ("consumer file missing") are expected in a single-repo CI checkout, since
+    # the sister site is not checked out, so they stay advisory.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - name: Run linter against framework checkout
+      - name: doc-fanout-lint — in-repo errors (blocking)
         run: |
           bash dev-tools/doc-fanout-lint.sh \
                --root . \
                --config dev-tools/.doc-fanout.yml \
-               --allow-cross-root || \
-          echo "::warning::doc-fanout-lint reported issues (cross-root surfaces are expected to be missing in single-repo CI checkout)"
+               --allow-cross-root
+
+      - name: doc-fanout-lint — cross-root warnings (advisory)
+        if: always()
+        continue-on-error: true
+        run: |
+          bash dev-tools/doc-fanout-lint.sh \
+               --root . \
+               --config dev-tools/.doc-fanout.yml \
+               --allow-cross-root --strict || \
+          echo "::warning::doc-fanout-lint reported warnings (cross-root surfaces are expected to be missing in a single-repo CI checkout)"
 
       - name: Run dr-auto reassert-wiring lint
         run: bash dev-tools/check-dr-auto-reassert-wiring.sh --root .

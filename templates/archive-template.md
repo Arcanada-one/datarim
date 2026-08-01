@@ -22,8 +22,10 @@ verification_outcome field semantics:
 - false_positive: integer count of findings flagged by /dr-verify that were triaged as not real
 - n_a: boolean, true when /dr-verify was NOT run; when true, the three counts above MUST be 0
 - dogfood_window: active prospective-measurement window identifier; grouping key for measure-prospective-rate.sh
-Канонический контракт — skills/self-verification/SKILL.md § Findings Schema.
+Canonical contract — skills/self-verification/SKILL.md § Findings Schema.
 -->
+
+<!-- allow-non-ascii-block: canonical operator-facing archive section names and their Russian placeholder prose — a hard exclusion under CLAUDE.md § Artifact Language Policy, which keeps these sections in the operator's language by deliberate decision -->
 
 # Архив: {TASK-ID} — {Title}
 
@@ -70,6 +72,8 @@ verification_outcome field semantics:
 ### Operator Handoff
 
 {Любые остаточные следы, отложенные улучшения или операторские шаги для следующего исполнителя. Если пусто — одна строка «всё закрыто».}
+
+<!-- /allow-non-ascii-block -->
 
 ### Related
 

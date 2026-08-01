@@ -306,12 +306,9 @@ if rule_enabled "vac-deliverable-coverage" && rule_applies_to_level "vac-deliver
         fi
     done
     if [ -z "$cb_source" ]; then
-        {
-            printf '{"severity":"info","check_name":"vac-deliverable-coverage","artifact_ref":"%s","ac_referenced":[],' \
-                'plan or PRD'
-            printf '"evidence":{"type":"absent","source":"","excerpt":"no Component Breakdown section found in plan or PRD — forward coverage check skipped"}}\n'
-        } >> "$FINDINGS_TMP"
-        VIOLATION_COUNT=$((VIOLATION_COUNT + 1))
+        # The rule is conditional on a deliverable list. Its absence means
+        # there is no forward-coverage surface to evaluate, not a finding.
+        :
     else
         # Extract file paths from the Component Breakdown section — match bare
         # backtick-quoted paths and bullet-list paths under the section heading.

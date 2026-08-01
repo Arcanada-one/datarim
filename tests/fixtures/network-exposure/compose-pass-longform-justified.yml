@@ -6,7 +6,11 @@ services:
     x-exposure-expires: "2026-08-04"
     ports:
       - mode: ingress
-        host_ip: "178.105.250.27"
+        # RFC 5737 TEST-NET-1 (192.0.2.0/24) — reserved for documentation and
+        # never globally routable, so this fixture cannot name a real host.
+        # personal-id-gate.sh exempts this block by design; the RFC 2544
+        # benchmark range (198.18.0.0/15) is NOT exempt, so do not use it here.
+        host_ip: "192.0.2.10"
         target: 80
         published: "80"
         protocol: tcp

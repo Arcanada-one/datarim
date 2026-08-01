@@ -1,23 +1,23 @@
 # Reference — Information-Oriented Documentation
 
-Reference-документация относится к information-oriented типу документации. Она предназначена для точного фактического поиска: читатель уже знает, что ищет, и нуждается в достоверных, лаконичных и полных сведениях. Содержимое строится по структурированному принципу — таблицы, списки, сигнатуры, схемы — без пояснений и учебных примеров. Основная цель: дать быстрый доступ к конкретному параметру, типу, значению или ключу в максимально сжатой форме.
+Reference documentation belongs to the information-oriented type of documentation. It is intended for precise factual lookup: the reader already knows what they are looking for and needs trustworthy, concise, and complete information. The content is built on a structured principle — tables, lists, signatures, schemas — without explanations or teaching examples. The primary goal is to give fast access to a specific parameter, type, value, or key in the most compact form possible.
 
 ## When to write here
 
-- API документация: endpoint, method, request/response schema
-- CLI commands: флаги, аргументы, сигнатуры, exit codes
-- Configuration schema: ключи, допустимые значения, defaults
-- Glossary: термины, сокращения, определения
+- API documentation: endpoint, method, request/response schema
+- CLI commands: flags, arguments, signatures, exit codes
+- Configuration schema: keys, permitted values, defaults
+- Glossary: terms, abbreviations, definitions
 - Data type catalogue: enum values, field types, constraints
 - System map: architecture diagram, port mapping, service registry
 
 ## When NOT to write here
 
-- Передаёт первое знакомство и end-to-end ориентиры → перенесите в **tutorials/**
-- Предлагает рецепт для решения конкретной задачи → используйте **how-to/**
-- Объясняет мотивацию выбора или архитектурные решения → напишите **explanation/**
+- Conveys a first encounter and end-to-end orientation → move it to **tutorials/**
+- Offers a recipe for solving a specific task → use **how-to/**
+- Explains the motivation behind a choice or architectural decisions → write **explanation/**
 
 ## Naming convention
 
-- Все файлы используют kebab-case, расширение `.md`
-- Имя должно быть описательным и предметно-ориентированным: `api-endpoints.md`, `config-schema.md`, `glossary.md`
+- All files use kebab-case with a `.md` extension
+- The name should be descriptive and subject-oriented: `api-endpoints.md`, `config-schema.md`, `glossary.md`
