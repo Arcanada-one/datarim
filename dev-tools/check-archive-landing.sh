@@ -13,8 +13,9 @@
 # suite) survived only as `zz-archived/feat/tune-0334-snapshot-id-regex`, so
 # stage-snapshot and `/dr-next` resume stayed silently broken for every
 # slug-suffix follow-up ID for six weeks after the archive said otherwise.
-# TUNE-0167 (22 files / +2071 lines) and TUNE-0294 (8 artefacts) are absent from
-# every clone, from reflog and from `git fsck` dangling objects — unrecoverable.
+# TUNE-0167 (22 files / +2071 lines) and TUNE-0294 (8 artefacts) were absent
+# from the target ref but remained preserved in linked worktrees. An earlier
+# audit missed those worktree HEADs and incorrectly described the work as lost.
 #
 # Two directions, deliberately weighted differently:
 #
@@ -37,8 +38,10 @@
 #
 # A SHA is "reachable" if `git merge-base --is-ancestor <sha> <ref>` succeeds.
 # An unknown SHA (absent from the object store entirely) is reported distinctly
-# from a known-but-unreachable one: the first means the work may be gone, the
-# second means it exists but never landed. Those need different responses.
+# from a known-but-unreachable one. For a known adrift commit, the verifier also
+# reports whether all refs, a linked worktree HEAD, or only the loose object
+# preserves it. Landing on the target ref and preservation elsewhere are
+# separate facts and need separate responses.
 #
 # API:
 #   check-archive-landing.sh [--root <repo>] [--ref <ref>] [--archives <dir>]
@@ -205,6 +208,67 @@ sha_status() {  # $1=sha
     fi
 }
 
+# List every ref whose tip contains <sha>. `for-each-ref` without a prefix
+# searches the complete refs namespace (local branches, remote-tracking refs,
+# tags and archival refs), not just the currently checked-out branch.
+refs_containing_sha() {  # $1=sha
+    git -C "$ROOT" for-each-ref --contains "$1" --format='%(refname)' 2>/dev/null \
+        | sort -u
+}
+
+# List every linked-worktree HEAD that contains <sha>. Detached worktree HEADs
+# have no ref and are therefore invisible to refs_containing_sha. Compare by
+# ancestry rather than equality because a worktree may have advanced since the
+# archived commit while still preserving it. Paths are deliberately not
+# emitted: preservation is the useful public diagnostic, not a host-local path.
+worktree_heads_containing_sha() {  # $1=sha
+    local sha="$1" line head_sha=""
+
+    while IFS= read -r line; do
+        case "$line" in
+            "HEAD "*) head_sha="${line#HEAD }" ;;
+            "")
+                if [ -n "$head_sha" ] \
+                    && git -C "$ROOT" merge-base --is-ancestor "$sha" "$head_sha" 2>/dev/null; then
+                    printf '%s\n' "$head_sha"
+                fi
+                head_sha=""
+                ;;
+        esac
+    done < <(git -C "$ROOT" worktree list --porcelain 2>/dev/null; printf '\n') \
+        | sort -u
+}
+
+# A landing violation says only that work is absent from the target ref. Before
+# an operator decides how to recover it, report every bounded preservation
+# surface available in this repository. A commit with no containing ref or
+# worktree is OBJECT-ONLY, not "unrecoverable": the object still exists today.
+emit_sha_preservation() {  # $1=archive name  $2=sha
+    local doc_name="$1" sha="$2" refs worktree_heads found=0 ref_name head_sha
+
+    refs="$(refs_containing_sha "$sha")"
+    if [ -n "$refs" ]; then
+        while IFS= read -r ref_name; do
+            [ -n "$ref_name" ] || continue
+            emit "RECOVERABLE-REF    $doc_name  cites \`$sha\` — preserved by ref \`$ref_name\`; absent from target ref $REF"
+            found=1
+        done <<< "$refs"
+    fi
+
+    worktree_heads="$(worktree_heads_containing_sha "$sha")"
+    if [ -n "$worktree_heads" ]; then
+        while IFS= read -r head_sha; do
+            [ -n "$head_sha" ] || continue
+            emit "RECOVERABLE-WORKTREE  $doc_name  cites \`$sha\` — preserved by linked worktree HEAD \`$head_sha\`; absent from target ref $REF"
+            found=1
+        done <<< "$worktree_heads"
+    fi
+
+    if [ "$found" -eq 0 ]; then
+        emit "OBJECT-ONLY        $doc_name  cites \`$sha\` — commit object exists, but no ref or linked worktree HEAD contains it; absent from target ref $REF"
+    fi
+}
+
 # Extract backtick-quoted repo-relative artefact paths from a markdown file.
 #
 # Only paths under known shipped roots are considered: an archive is prose and
@@ -302,7 +366,7 @@ run_direction_a() {
                         [ "$REPORT" -eq 1 ] && emit "MOVED-ARTEFACT    $doc_name  claims \`$p\` — not at that path, but \`$base\` still ships (stale path in archive)"
                     else
                         VIOLATIONS=$((VIOLATIONS + 1))
-                        emit "REMOVED-ARTEFACT  $doc_name  claims \`$p\` — existed once, no file of that name on $REF"
+                        emit "REMOVED-ARTEFACT  $doc_name  claims \`$p\` — existed once, but no file of that name exists on target ref $REF (target-ref finding only)"
                     fi
                 else
                     FOREIGN=$((FOREIGN + 1))
@@ -353,7 +417,8 @@ run_direction_a() {
                         [ "$REPORT" -eq 1 ] && emit "UNVERIFIABLE-SHA  $doc_name  cites \`$s\` — not an ancestor of $REF and touched no resolvable paths"
                     elif [ "$present" -eq 0 ]; then
                         VIOLATIONS=$((VIOLATIONS + 1))
-                        emit "ADRIFT-SHA        $doc_name  cites \`$s\` — not an ancestor of $REF and NONE of its $touched file(s) exist there (work never landed)"
+                        emit "ADRIFT-SHA        $doc_name  cites \`$s\` — not an ancestor of target ref $REF and NONE of its $touched file(s) exist there (landing violation)"
+                        emit_sha_preservation "$doc_name" "$s"
                     else
                         SQUASHED=$((SQUASHED + 1))
                         [ "$REPORT" -eq 1 ] && emit "SQUASHED-SHA      $doc_name  cites \`$s\` — not an ancestor, but $present/$touched of its files ship on $REF (landed under a squash)"
@@ -370,7 +435,7 @@ run_direction_a() {
                     # Reported as unverifiable so a human can check the clones,
                     # reflog and `git fsck` where it matters.
                     UNVERIFIABLE=$((UNVERIFIABLE + 1))
-                    [ "$REPORT" -eq 1 ] && emit "UNVERIFIABLE-SHA  $doc_name  cites \`$s\` — not in this object store (pre-rewrite history, or genuinely lost: check every clone, reflog, git fsck)"
+                    [ "$REPORT" -eq 1 ] && emit "UNVERIFIABLE-SHA  $doc_name  cites \`$s\` — not in this object store; preservation and landing on target ref $REF cannot be verified from this repository"
                     ;;
             esac
         done < <(extract_shas "$doc")
