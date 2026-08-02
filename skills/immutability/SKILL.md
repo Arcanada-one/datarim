@@ -194,8 +194,8 @@ Completeness), the CTA routes to `/dr-plan {TASK-ID}`.
 to the superseded file. L2 tasks MAY use a lightweight `§ Design Amendment`
 appendix with operator sign-off instead of a full new creative doc.
 
-> **Prose amendments stay prose — decided 2026-08-02 (TUNE-0562, closing
-> TUNE-0546).** A machine-readable immutable-sidecar mechanism (validator,
+> **Prose amendments stay prose — decided 2026-08-02.**
+> A machine-readable immutable-sidecar mechanism (validator,
 > creator, template, chain ledger, three suites) was proposed and is NOT
 > adopted. Measured demand at decision time: **274 PRDs in the workspace and
 > zero `§ Design Amendment` sections in any of them** — the lightweight path

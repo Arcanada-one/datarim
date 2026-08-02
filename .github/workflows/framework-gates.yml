@@ -121,8 +121,11 @@ jobs:
           bats dev-tools/tests/check-archive-landing.bats
 
       - name: Verifier is self-consistent (usage + refusal paths)
+        # `shell: bash -e` aborts on the first non-zero command, and these probes
+        # EXPECT non-zero — so the exit code must be captured inside a construct
+        # that -e tolerates, or the step dies before asserting anything.
         run: |
-          bash dev-tools/check-archive-landing.sh --direction sideways; rc=$?
+          rc=0; bash dev-tools/check-archive-landing.sh --direction sideways || rc=$?
           [ "$rc" -eq 2 ] || { echo "expected usage error 2, got $rc"; exit 1; }
-          bash dev-tools/check-archive-landing.sh --ref no/such/ref --direction a; rc=$?
+          rc=0; bash dev-tools/check-archive-landing.sh --ref no/such/ref --direction a || rc=$?
           [ "$rc" -eq 3 ] || { echo "expected refusal 3, got $rc"; exit 1; }
