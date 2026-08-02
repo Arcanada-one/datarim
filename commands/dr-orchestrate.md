@@ -24,6 +24,13 @@ Phase 2 — Subagent Inference Layer (v2.4.0).
 
 Phase 3 — Auto-learning with operator confirmation.
 
+Optional context-window self-clearing checkpoints the active task-description
+path and last completed snapshot phase before fixed Claude Code or Codex
+`/compact` or `/clear` instructions. It is default-off, requires explicit
+same-UID runtime trust plus key-injection opt-in, and resumes a full clear only
+through snapshot-first `/dr-next <TASK-ID>`. See
+`skills/context-window-self-clearing/SKILL.md`.
+
 ## Cycle
 
 1. `tmux capture-pane -p -t <pane>` — captures the current pane buffer.
@@ -48,6 +55,11 @@ Phase 3 — Auto-learning with operator confirmation.
 ## Configuration (user-config.yaml)
 
 ```yaml
+key_injection: false
+context_window:
+  enabled: false
+  trust_same_uid_runtime: false
+  policy_label: ""
 subagent:
   fallback_chain: ["coworker-deepseek", "claude", "codex"]
   timeout_s: 15

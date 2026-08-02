@@ -34,6 +34,9 @@ dispatch() {
       "$DR_ORCH_DIR/scripts/learned_rules.sh" maintenance
       return 0
       ;;
+    on_context_pressure)
+      "$DR_ORCH_DIR/scripts/context_pressure_adapter.sh" "$@"
+      ;;
     *)
       return 0
       ;;

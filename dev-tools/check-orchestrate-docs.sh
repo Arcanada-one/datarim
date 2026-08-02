@@ -22,6 +22,17 @@ files=(
   CLAUDE.md
   CHANGELOG.md
 )
+context_files=(
+  skills/context-window-self-clearing/SKILL.md
+  documentation/how-to/context-window-self-clearing.md
+  plugins/dr-orchestrate/config/context-window-hooks.claude.json
+  plugins/dr-orchestrate/scripts/lib/context-window-state.sh
+  plugins/dr-orchestrate/scripts/context_window_controller.sh
+  plugins/dr-orchestrate/scripts/context_pressure_adapter.sh
+  plugins/dr-orchestrate/scripts/context_window_setup.sh
+  plugins/dr-orchestrate/tests/test_context_window_controller.bats
+  plugins/dr-orchestrate/tests/test_context_window_integration.bats
+)
 
 for file in "${files[@]}"; do
   [[ -f "$ROOT/$file" ]] || { echo "FAIL: missing shipped surface: $file" >&2; exit 1; }
@@ -32,6 +43,25 @@ for file in "${files[@]}"; do
   grep -Eiq 're-validation|revalidation' "$ROOT/$file" || { echo "FAIL: $file lacks re-validation contract" >&2; exit 1; }
   grep -Eiq 'hard[- ]gat|immutable.*gate' "$ROOT/$file" || { echo "FAIL: $file lacks hard-gate contract" >&2; exit 1; }
 done
+
+for file in "${context_files[@]}"; do
+  [[ -f "$ROOT/$file" ]] || { echo "FAIL: missing context-window surface: $file" >&2; exit 1; }
+  git -C "$ROOT" ls-files --error-unmatch -- "$file" >/dev/null 2>&1 || { echo "FAIL: context-window surface is not tracked: $file" >&2; exit 1; }
+  if LC_ALL=C grep -qE $'\xD0[\x80-\xBF]|\xD1[\x80-\xBF]|\xD2[\x80-\xBF]|\xD3[\x80-\xBF]' "$ROOT/$file"; then
+    echo "FAIL: context-window surface contains non-English Cyrillic text: $file" >&2
+    exit 1
+  fi
+done
+
+context_corpus="$(mktemp)"
+for file in "${context_files[@]}" commands/dr-orchestrate.md plugins/dr-orchestrate/README.md README.md CLAUDE.md CHANGELOG.md; do
+  cat "$ROOT/$file" >>"$context_corpus"
+done
+grep -qF 'trust_same_uid_runtime' "$context_corpus" || { echo 'FAIL: same-UID opt-in missing' >&2; exit 1; }
+grep -qF 'snapshot-first' "$context_corpus" || { echo 'FAIL: snapshot-first continuity missing' >&2; exit 1; }
+grep -qF '/compact' "$context_corpus" || { echo 'FAIL: selective instruction missing' >&2; exit 1; }
+grep -qF '/clear' "$context_corpus" || { echo 'FAIL: clear instruction missing' >&2; exit 1; }
+rm -f "$context_corpus"
 
 corpus="$(mktemp)"
 scan_root="$(mktemp -d)"
@@ -79,4 +109,4 @@ if LC_ALL=C grep -qE $'\xD0[\x80-\xBF]|\xD1[\x80-\xBF]|\xD2[\x80-\xBF]|\xD3[\x80
   exit 1
 fi
 
-echo "PASS: phase3_docs=6 confirmation=true ttl=604800 revalidation=86400 hard_gate=true version_unchanged=true english=true"
+echo "PASS: phase3_docs=6 context_window_surfaces=9 confirmation=true ttl=604800 revalidation=86400 hard_gate=true version_unchanged=true english=true"
