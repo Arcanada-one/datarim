@@ -19,34 +19,55 @@ target_aal: 2
 - Keep `datarim/` for local workflow state and `documentation/archive/` for committed long-term archives.
 - Never create `documentation/tasks/`.
 - Use `$HOME/.claude/` or project-relative paths, not absolute machine-specific paths.
-- **Operational files are thin indexes**: `tasks.md`, `backlog.md`, `activeContext.md` carry one-liner-per-task pointers — never full task content. Descriptions live in `tasks/{TASK-ID}-task-description.md`. `progress.md` is **abolished**. See § Operational File Schema below.
+- **Operational state is line-oriented**: `tasks.md` and `activeContext.md` are strict thin indexes with one pointer per task; `backlog.md` is the pending-work ledger and may carry a single-line inline description without a pointer. Full active-task content lives in `tasks/{TASK-ID}-task-description.md`. `progress.md` is **abolished**. See § Operational File Schema below.
 
 ## Operational File Schema (v1.19.0+)
 
-Operational files are **indexes**, not content. Each line answers: which task, what state, where the description lives. Detailed contract: `skills/datarim-doctor/SKILL.md`.
+Operational files are machine-parseable, single-line ledgers. Active indexes are pointer-based; the backlog may preserve pending-work context inline until a task is promoted. Exact regex constants live only in `scripts/lib/schema-regex.sh`; detailed semantics live in `skills/datarim-doctor/SKILL.md`.
 
-### `tasks.md` and `backlog.md` line format
+### Strict active-index line format
 
-Canonical regex (anchored, single-line):
+`tasks.md` and `activeContext.md` use the strict `ONELINER_RE` contract:
 
 ```
 ^- ([A-Z]{2,10}-[0-9]{4}) · (STATUS) · P[0-3] · L[1-4] · (.+) → tasks/\1-(task-description|init-task)\.md$
 ```
 
-`STATUS` ∈
-- `tasks.md`: `in_progress|blocked|not_started`
-- `backlog.md`: `pending|blocked-pending|cancelled`
+`ONELINER_RE` accepts `in_progress|blocked|not_started|pending|blocked-pending|cancelled`
+for legacy and migration compatibility. Canonical active-index writers emit
+`in_progress|blocked|not_started`; `pending` and `blocked-pending` belong to
+the backlog intake flow, and `cancelled` is archived from the backlog rather
+than mirrored as an active task.
 
-Separator: `·` (U+00B7 MIDDLE DOT). Arrow: `→` (U+2192). Title: 1–80 chars, single-line, no `→`.
+**Active-index pointer: required.** Separator: `·` (U+00B7 MIDDLE DOT).
+Arrow: `→` (U+2192). The description pointer must carry the same task ID.
 
-Example:
 <!-- gate:history-allowed -->
 ```
 - <TASK-ID> · in_progress · P1 · L3 · <Title> → tasks/<TASK-ID>-task-description.md
 ```
 <!-- /gate:history-allowed -->
 
-Section headers (`## Active`, `## Pending`) and blank lines allowed; only `- {PREFIX}-{NNNN}` bullets are validated.
+### Backlog ledger line format
+
+`backlog.md` uses `BACKLOG_ITEM_RE`: the status vocabulary also accepts
+`pending`, `blocked-pending`, `cancelled`, `superseded`, `absorbed`, and
+`deferred`; priority may be P0-P4; priority and complexity may be bold. The
+description is nonempty and single-line.
+
+**Pointer: optional for backlog entries.** A pointer may be appended when a
+description artefact already exists, but Doctor must not truncate or relocate
+valid inline backlog prose merely to create one.
+
+<!-- gate:history-allowed -->
+```
+- <TASK-ID> · pending · P2 · L2 · <Inline pending-work description>
+- <TASK-ID> · blocked · P3 · L2 · <Title> → tasks/<TASK-ID>-task-description.md
+```
+<!-- /gate:history-allowed -->
+
+Section headers and blank lines are allowed; only task bullet lines are schema
+validated.
 
 ### `activeContext.md` thin contract (v2 — ≤30 lines)
 
@@ -360,4 +381,3 @@ When closing a task, choose the disposition that matches the actual outcome:
 | `superseded` | Replaced by a newer task with broader/different scope; no deliverable from this ID | Write `documentation/archive/cancelled/archive-{ID}.md` with status `superseded` and a link to the replacing task; remove entry from `backlog.md`. |
 
 Source: prior incident — an `update.sh` deliverable was shipped inside a different task's scope; `cancelled` was inaccurate (deliverable existed) and `completed` was inaccurate (no separate archive). `absorbed` captures the reality and preserves audit trail.
-

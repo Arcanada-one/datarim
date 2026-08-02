@@ -4,7 +4,15 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
-_Nothing yet._
+### Changed
+
+- **TUNE-0196 backlog schema fork is superseded.** The later field-proven
+  backlog contract already permits a single-line inline pending-work
+  description without a task-description pointer, while `tasks.md` and
+  `activeContext.md` retain required pointers. The system skill, Doctor skill,
+  and backlog template now match the canonical regex split in
+  `scripts/lib/schema-regex.sh`; a focused regression pins both sides without
+  changing Doctor runtime behavior.
 
 ## [2.61.0] — 2026-08-02
 

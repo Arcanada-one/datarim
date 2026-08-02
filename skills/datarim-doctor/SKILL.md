@@ -7,22 +7,24 @@ target_aal: 3
 
 # Datarim Doctor — Schema and Migration Semantics
 
-This skill is the runtime knowledge module for `/dr-doctor`. It defines the **canonical thin contract** that operational files (`tasks.md`, `backlog.md`, `activeContext.md`) MUST conform to, the **6-pass migration algorithm** that `scripts/datarim-doctor.sh` applies, and the **data-loss safety contract** that wraps every `--fix` invocation.
+This skill is the runtime knowledge module for `/dr-doctor`. It defines the strict active-index contract for `tasks.md` / `activeContext.md`, the relaxed line-oriented ledger contract for `backlog.md`, the **6-pass migration algorithm** that `scripts/datarim-doctor.sh` applies, and the **data-loss safety contract** that wraps every `--fix` invocation.
 
 Loaded by:
 - `/dr-doctor` (always)
 - `/dr-init` self-heal (when `--quiet` probe returns exit 1)
 - `/dr-archive` line-format gate (on failure, to explain non-compliance)
 
-Not loaded by other commands — they read the operational files as opaque indexes and follow the description-file pointer.
+Not loaded by other commands — they read operational files as line-oriented ledgers and resolve a description pointer when one is present.
 
 ## Why Thin Indexes
 
-Operational files are **indexes**, not content. Each line answers four questions: which task, what state, where the description lives. No prose, no requirements, no plan content lives in `tasks.md` / `backlog.md`.
+`tasks.md` and `activeContext.md` are strict pointer indexes. `backlog.md` is a
+pending-work ledger: each entry remains one line and machine-parseable, but may
+preserve its pending-work description inline until the task is promoted.
 
 Goals:
 - **Bounded context** — agents read 1 KB index instead of 100 KB monolith.
-- **Single source of truth per task** — description, ACs, constraints live in one file: `datarim/tasks/{TASK-ID}-task-description.md`.
+- **Single source of truth for active tasks** — description, ACs, and constraints live in `datarim/tasks/{TASK-ID}-task-description.md`; pointerless backlog prose is intake context, not an active plan.
 - **Greppable state** — line format is machine-parseable; status changes are 1-line diffs.
 - **Idempotent migrations** — `/dr-doctor` can run any number of times without drift.
 
@@ -30,30 +32,56 @@ Goals:
 
 ## Operational File Schema
 
-### `tasks.md` and `backlog.md` line format
+Exact regex constants are sourced from `scripts/lib/schema-regex.sh`. Do not
+redefine them inside Doctor or a downstream validator.
 
-Canonical regex (anchored, single-line):
+### Strict active-index line format
+
+`tasks.md` and `activeContext.md` use `ONELINER_RE`:
 
 ```
 ^- ([A-Z]{2,10}-[0-9]{4}) · (STATUS) · P[0-3] · L[1-4] · (.+) → tasks/\1-(task-description|init-task)\.md$
 ```
 
-Where `STATUS` ∈:
-- `tasks.md`: `in_progress|blocked|not_started`
-- `backlog.md`: `pending|blocked-pending|cancelled`
+`ONELINER_RE` accepts `in_progress|blocked|not_started|pending|blocked-pending|cancelled`
+for legacy and migration compatibility. Canonical active-index writers emit
+`in_progress|blocked|not_started`; `pending` and `blocked-pending` belong to
+the backlog intake flow, and `cancelled` is archived from the backlog rather
+than mirrored as an active task.
 
-Separator: `·` (U+00B7 MIDDLE DOT, NOT bullet, NOT period). Arrow: `→` (U+2192). Title length: 1–80 chars, no newlines, no `→`.
+**Active-index pointer: required.** Separator: `·` (U+00B7 MIDDLE DOT, not a
+bullet or period). Arrow: `→` (U+2192). The pointer task ID must match the
+entry task ID.
 
-Examples (compliant):
+Compliant active entry:
 
 <!-- gate:history-allowed -->
 ```
 - <TASK-ID-A> · in_progress · P1 · L3 · <Title> → tasks/<TASK-ID-A>-task-description.md
-- <TASK-ID-B> · pending · P2 · L2 · <Title> → tasks/<TASK-ID-B>-task-description.md
 ```
 <!-- /gate:history-allowed -->
 
-Section headers (`## Active`, `## Pending`, etc.) and blank lines are allowed — only bullet lines starting with `- {PREFIX}-{NNNN}` are validated against the regex.
+### Backlog ledger line format
+
+`backlog.md` uses `BACKLOG_ITEM_RE`, not the active-index regex. It accepts the
+wider backlog status set (`pending`, `blocked-pending`, `cancelled`,
+`superseded`, `absorbed`, `deferred`, plus active states), priorities P0-P4,
+optional bold priority/complexity tokens, and a nonempty single-line inline
+description.
+
+**Pointer: optional for backlog entries.** An existing description may be
+linked, but a compliant inline entry is not a Doctor finding and `--fix` must
+not truncate it or invent a relocation.
+
+<!-- gate:history-allowed -->
+```
+- <TASK-ID-B> · pending · P2 · L2 · <Inline pending-work description>
+- <TASK-ID-C> · blocked · P3 · L2 · <Title> → tasks/<TASK-ID-C>-task-description.md
+```
+<!-- /gate:history-allowed -->
+
+Section headers and blank lines are allowed; only task bullet lines are schema
+validated.
 
 ### `activeContext.md` thin contract
 
@@ -67,9 +95,6 @@ Section headers (`## Active`, `## Pending`, etc.) and blank lines are allowed �
 <!-- strict mirror of tasks.md § Active — identical lines, identical order -->
 
 - <TASK-ID-A> · in_progress · P1 · L3 · <Title> → tasks/<TASK-ID-A>-task-description.md
-
-## Last Updated
-YYYY-MM-DD HH:MM · short summary
 ```
 <!-- /gate:history-allowed -->
 
@@ -254,7 +279,7 @@ Log line: `Pass 7 {file}: stripped={N} preserved={M}`. **Idempotent:** second `-
 
 ### Idempotency Guard
 
-Before Pass 1: if every operational file is already in canonical shape — zero `### TASK-ID:` headings in `tasks.md` / `backlog.md`, no legacy `backlog-archive.md` (or only the `.pre-v2.bak` sidecar remains), `progress.md` does not exist, no `## Последние завершённые` section in `activeContext.md`, and every bullet line matches the canonical regex — exit 0 immediately. Cheap probe used by `/dr-init` self-heal. <!-- allow-non-ascii: russian-legacy-section-marker-cited-from-prior-schema -->
+Before Pass 1: if every operational file is already in canonical shape — zero `### TASK-ID:` headings in `tasks.md` / `backlog.md`, no legacy `backlog-archive.md` (or only the `.pre-v2.bak` sidecar remains), `progress.md` does not exist, no `## Последние завершённые` section in `activeContext.md`, and every bullet line matches the regex applicable to its file — exit 0 immediately. Cheap probe used by `/dr-init` self-heal. <!-- allow-non-ascii: russian-legacy-section-marker-cited-from-prior-schema -->
 
 ## Data-Loss Safety Contract
 
