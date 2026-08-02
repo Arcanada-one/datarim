@@ -7,6 +7,16 @@ session_name: datarim
 audit_dir: ~/.local/share/datarim-orchestrate
 state_dir: ~/.local/share/datarim-orchestrate/state
 
+# Context-window self-clearing. Both this section and key_injection
+# must be explicitly enabled. Same-UID runtime processes are one trusted origin
+# domain; lifecycle HMAC tags provide integrity/correlation, not provenance.
+context_window:
+  enabled: false
+  trust_same_uid_runtime: false
+  policy_label: ""
+  selective_percent: 75
+  full_clear_percent: 90
+
 # Phase 2 (TUNE-0165): subagent inference layer. Effective autonomy is resolved
 # per-space at runtime via action_gate.sh + space.yml § autonomy.policy.
 subagent:
