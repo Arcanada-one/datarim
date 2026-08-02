@@ -287,7 +287,18 @@ write_stage_snapshot() {
         # macOS libiconv exits 1 + writes a stderr warning on incomplete
         # trailing sequences (the very case we are normalising), so we
         # absorb the exit code with `|| true` and silence stderr.
-        head -c "$max_body" "$body_file" > "$raw_chunk"
+        # `head -c 0` is NOT portable: GNU coreutils accepts it and emits
+        # nothing, BSD/macOS head rejects it with "illegal byte count -- 0"
+        # and exits 1. max_body is legitimately clamped to 0 above when the
+        # frontmatter alone consumes the whole cap (oversized --options-file),
+        # so this path IS reachable — and on macOS it aborted the writer
+        # before the cap check could fail closed, turning a hard guard into a
+        # silent pass. Linux-only CI never saw it.
+        if [ "$max_body" -eq 0 ]; then
+            : > "$raw_chunk"
+        else
+            head -c "$max_body" "$body_file" > "$raw_chunk"
+        fi
         iconv -c -f UTF-8 -t UTF-8 "$raw_chunk" > "$body_tmp" 2>/dev/null || true
         rm -f "$raw_chunk"
         printf '\n%s\n' "$SNAPSHOT_TRUNCATION_MARKER" >> "$body_tmp"
