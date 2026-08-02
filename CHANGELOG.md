@@ -6,6 +6,26 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 _Nothing yet._
 
+## [2.61.0] — 2026-08-02
+
+### Added
+
+- **Archive-landing truth gate (`dev-tools/check-archive-landing.sh`).**
+  Direction A checks archive artefact paths and cited commits against the
+  content actually present on the verification ref, distinguishing removed,
+  moved, foreign, unverifiable, and squash-landed evidence. Direction B is an
+  advisory stale-label scan for open backlog rows. The gate is scope-guarded
+  against cross-repository false verdicts, reports undated archives instead of
+  guessing dates, and ships 16 focused Bats contracts including mutation
+  coverage. It is wired into the framework gates and the template-path gate
+  is now enforced by CI.
+
+### Fixed
+
+- **Relanded the snapshot TASK-ID regex fix.** Slug-suffix follow-up IDs now
+  remain resumable after the archived change was recovered and landed under a
+  squash merge.
+
 ## [2.60.1] — 2026-08-02
 
 ### Fixed
