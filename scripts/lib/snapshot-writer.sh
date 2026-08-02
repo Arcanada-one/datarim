@@ -16,7 +16,7 @@ SNAPSHOT_WRITER_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=resolve-datarim-root.sh
 . "${SNAPSHOT_WRITER_LIB_DIR}/resolve-datarim-root.sh"
 
-readonly SNAPSHOT_TASK_ID_RE='^[A-Z][A-Z0-9-]+-[0-9]{4,5}$'
+readonly SNAPSHOT_TASK_ID_RE='^[A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*$'
 readonly SNAPSHOT_STAGE_RE='^(init|prd|plan|design|do|qa|verify|compliance|archive|edit|publish|write|dream|doctor|optimize|auto)$'
 readonly SNAPSHOT_MAX_BYTES=8192
 readonly SNAPSHOT_TRUNCATION_MARKER='<!-- snapshot-truncated, full ответ см. session jsonl -->'
