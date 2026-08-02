@@ -357,6 +357,35 @@ A hand-written stub and a hand-written wrapper share one author's mental model o
 
 ---
 
+## Gate 9: Shell-Harness Child-Failure Attribution
+
+**Who this applies to:** a shell layer that sits between a child command and a
+QA/compliance evidence claim and can alter, suppress, replace, or reinterpret
+the child's exit status or output. A native test-runner invocation is not an
+extra harness merely because a shell starts it. Bats is in scope only when an
+additional status-transforming wrapper sits between Bats and the evidence.
+
+Evidence from an in-scope wrapper is acceptable only when all applicable
+controls pass:
+
+1. **Positive control.** A known-passing child makes the wrapper exit `0` and
+   emit its declared PASS marker.
+2. **Negative control.** A deliberately failing child makes the wrapper exit
+   nonzero and the PASS marker is absent. A controlled substitution seam may
+   inject this child; it need not be a public product flag.
+3. **Expected-red attribution.** A mutation or expected-red child counts only
+   when its output carries the exact named assertion declared by the test. A
+   different nonzero result is `HARNESS_INVALID`, not a caught mutation.
+4. **Setup negative.** An unrelated setup failure, such as a missing fixture or
+   invalid argument, must produce `HARNESS_INVALID` and cannot emit the named
+   expected-red confirmation.
+
+Missing or failing controls make the wrapper's evidence **FAIL** at QA and
+compliance. They cannot be downgraded to notes. This gate is additive: it does
+not replace any prior live-smoke or measurement-hygiene rule.
+
+---
+
 ## Measurement hygiene: a trailing pipe masks the binary's exit code
 
 When a live smoke verifies a **CLI binary's exit code** (e.g. «281-char input → non-zero exit, 279-char → exit 0»), do NOT pipe the binary's output to `tail` / `head` / `grep` while reading `$?` — the shell reports the exit status of the **last** command in the pipeline, which is the pager, not the binary. A genuinely-failing case then reads as exit 0 and the gate passes on a false negative.
