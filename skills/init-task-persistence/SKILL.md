@@ -130,7 +130,7 @@ execution and reconcile any divergence in their output document:
 | `/dr-do` | verbatim brief + every append-log block | task-description § Implementation Notes |
 | `/dr-qa` | verbatim brief + every append-log block | QA report § Expectations / Plain-language summary |
 | `/dr-compliance` | verbatim brief + every append-log block | compliance report § Plain-language summary |
-| `/dr-archive` | verbatim brief + every append-log block | archive doc (section name in `templates/archive-template.md` — folded into the "how we solved it" section per the current template) |
+| `/dr-archive` | verbatim brief + every append-log block | archive doc (section name in `${DATARIM_RUNTIME:-$HOME/.claude}/templates/archive-template.md` — folded into the "how we solved it" section per the current template) |
 
 `/dr-doctor` reads init-task **presence** (via `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-init-task-presence.sh"
 --all`) but not content; absent init-task on a non-archived task surfaces as a

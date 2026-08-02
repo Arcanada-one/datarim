@@ -82,7 +82,7 @@ Before writing to `tasks.md` or `activeContext.md`, check file size:
 | File | Warn threshold | Hard limit | Action at limit |
 |------|---------------|------------|-----------------|
 | `tasks.md` | 3,000 lines | 5,000 lines | STOP writing. Inform user: "tasks.md exceeds 5K lines. Run `/dr-optimize` or archive completed tasks before proceeding." |
-| `activeContext.md` | 100 lines | 200 lines | Prune the recent-archives section (canonical heading in `templates/activeContext-template.md`) to 5 most recent entries. |
+| `activeContext.md` | 100 lines | 200 lines | Prune the recent-archives section (canonical heading in `${DATARIM_RUNTIME:-$HOME/.claude}/templates/activeContext-template.md`) to 5 most recent entries. |
 
 Check command: `wc -l < datarim/tasks.md`
 

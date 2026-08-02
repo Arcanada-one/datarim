@@ -1,6 +1,6 @@
 # Shell Helper Conventions — IFS, Word-Splitting, Locale
 
-> **Usage:** Load when writing or reviewing a Datarim shell helper that returns lists, iterates over them, splits on a delimiter, or runs a regex. These four conventions keep behaviour identical across macOS (bash 3.2, non-POSIX collation) and Linux (bash 5.x). Runnable skeleton: `templates/shell-helper-template.sh`.
+> **Usage:** Load when writing or reviewing a Datarim shell helper that returns lists, iterates over them, splits on a delimiter, or runs a regex. These four conventions keep behaviour identical across macOS (bash 3.2, non-POSIX collation) and Linux (bash 5.x). Runnable skeleton: `${DATARIM_RUNTIME:-$HOME/.claude}/templates/shell-helper-template.sh`.
 
 ## Why This Exists
 

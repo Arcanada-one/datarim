@@ -75,6 +75,22 @@ EOF
     [ -z "$output" ]
 }
 
+@test "markdown link href climbing TWO levels (../../templates/X) does NOT trigger" {
+    # Regression, TUNE-0562. The exclusion was anchored to a single `../`, so a
+    # nested skill page linking up two levels was reported as an offence even
+    # though its display text already carried the correct absolute form. Two of
+    # the nine findings on main were this false positive — and a gate whose
+    # findings are partly bogus is a gate people learn to skim past.
+    mkdir -p "$TMPROOT/skills/nested"
+    cat >"$TMPROOT/skills/nested/deep.md" <<'EOF'
+# deep
+- [`${DATARIM_RUNTIME:-$HOME/.claude}/templates/security-workflow.yml`](../../templates/security-workflow.yml) — CI gate.
+EOF
+    run bash "$SCRIPT" --root "$TMPROOT"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
+
 @test "non-.md extensions (.yml .sh .template) trigger when bare" {
     cat >"$TMPROOT/skills/exts.md" <<'EOF'
 # exts

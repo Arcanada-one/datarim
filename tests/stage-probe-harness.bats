@@ -23,7 +23,13 @@ CLEANUP="${REPO_ROOT}/dev-tools/datarim-stage-probe-cleanup.sh"
 
 # Per-test unique TASK-ID so journal directories don't collide across cases.
 generate_task_id() {
-    printf 'TESTX-%04d' "$RANDOM"
+    # `%04d` PADS to four digits but does not CAP: $RANDOM reaches 32767, so
+    # roughly two runs in three produced a five-digit ID. That was tolerated by
+    # the old snapshot-writer regex (`[0-9]{4,5}`) and is rejected by the
+    # canonical framework pattern (`[0-9]{4}`, per scripts/lib/schema-regex.sh and
+    # datarim-doctor.sh) that the writer was realigned to. The fixture, not the
+    # regex, was wrong: a four-digit ID is the contract everywhere else.
+    printf 'TESTX-%04d' "$(( RANDOM % 10000 ))"
 }
 
 setup() {
