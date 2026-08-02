@@ -45,7 +45,7 @@ Load only the fragment relevant to the task:
 - `git-diff-parsing.md`
   Use when a shell recipe extracts data from `git diff` / `git diff --cached`. Canonical filter chain (`^[+-]` excluding `+++/---`) for separating real additions/removals from hunk-context noise; covers the markdown-bullet edge case and untracked-file fallback.
 - `shell-conventions.md`
-  Use when writing or reviewing a shell helper that returns lists, iterates over them, splits on a delimiter, or runs a regex. Canonical IFS / word-splitting / locale rules (newline-separated `printf '%s\n'` returns, `while IFS= read -r` loops, narrow `IFS` scoping, `LC_ALL=C` for regex/sort) for cross-platform (macOS bash 3.2 / Linux) behaviour. Runnable skeleton: `templates/shell-helper-template.sh`.
+  Use when writing or reviewing a shell helper that returns lists, iterates over them, splits on a delimiter, or runs a regex. Canonical IFS / word-splitting / locale rules (newline-separated `printf '%s\n'` returns, `while IFS= read -r` loops, narrow `IFS` scoping, `LC_ALL=C` for regex/sort) for cross-platform (macOS bash 3.2 / Linux) behaviour. Runnable skeleton: `${DATARIM_RUNTIME:-$HOME/.claude}/templates/shell-helper-template.sh`.
 
 ## Quick Selection Guide
 

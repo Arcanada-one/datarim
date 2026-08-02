@@ -99,7 +99,7 @@ If neither is present, skip this step — the scaffold is unchanged (byte-identi
 
 **In secrecy-aware mode:**
 
-1. **Mechanism-free reference stub.** Write `documentation/reference/architecture.md` from the **secrecy-aware variant** in `templates/project-docs-stubs.md`: its Overview / Components / Data Flow / Security Model bodies carry `[REDACTED — see CLAUDE.md § Secrecy]` instead of a "describe the system" TODO.
+1. **Mechanism-free reference stub.** Write `documentation/reference/architecture.md` from the **secrecy-aware variant** in `${DATARIM_RUNTIME:-$HOME/.claude}/templates/project-docs-stubs.md`: its Overview / Components / Data Flow / Security Model bodies carry `[REDACTED — see CLAUDE.md § Secrecy]` instead of a "describe the system" TODO.
 2. **No mechanism on the public surface.** Do NOT populate any file under the public Diátaxis surface (`documentation/{tutorials,how-to,reference,explanation}/`) or any `README*` with the secret mechanism's lexicon. The secret lives only in the private code and, if needed, in `documentation/ephemeral/` (excluded from the public surface). This is the direct root-cause fix for the scaffold-leak pattern (precedent: a QA blocker on an earlier secrecy-bearing project — the scaffold committed the full mechanism into `documentation/reference/architecture.md` before secrecy was codified).
 3. **Emit the secrecy gate now.** When filling CLAUDE.md (Step 5), include the conditional `## Secrecy` block from the template (the `<!-- SECRECY-BLOCK … -->` section) — the secrecy declaration plus the README-tolerant grep gate — so the gate exists at scaffold time, not as a post-hoc fix.
 

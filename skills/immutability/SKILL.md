@@ -194,6 +194,16 @@ Completeness), the CTA routes to `/dr-plan {TASK-ID}`.
 to the superseded file. L2 tasks MAY use a lightweight `§ Design Amendment`
 appendix with operator sign-off instead of a full new creative doc.
 
+> **Prose amendments stay prose — decided 2026-08-02 (TUNE-0562, closing
+> TUNE-0546).** A machine-readable immutable-sidecar mechanism (validator,
+> creator, template, chain ledger, three suites) was proposed and is NOT
+> adopted. Measured demand at decision time: **274 PRDs in the workspace and
+> zero `§ Design Amendment` sections in any of them** — the lightweight path
+> above has never once been exercised. Building enforcement infrastructure for
+> a workflow with no observed usage adds surface to maintain and a gate to keep
+> green, in exchange for nothing. Revisit if prose amendments start appearing
+> and drift becomes a real problem; the trigger is usage, not tidiness.
+
 **Return-to-Source trigger:** Design deviation discovered during `/dr-do` or
 `/dr-qa`. Route to `/dr-design {TASK-ID}`.
 
