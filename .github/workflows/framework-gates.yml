@@ -78,3 +78,54 @@ jobs:
 
       - name: Check every commit maps to a CHANGELOG version section
         run: bash dev-tools/release-ledger-report.sh --check
+
+  template-path-convention:
+    name: template path convention (blocking)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # TUNE-0548: this gate shipped in TUNE-0267 and was enforced by NO workflow.
+      # It sat RED on main (9 findings, 2 of them false positives from an
+      # over-narrow exclusion) for as long as it existed — coverage on paper,
+      # nothing in practice. Fixed and wired here; an unwired gate is worse than
+      # no gate, because it reads as protection.
+      - name: Check template refs in runtime markdown are absolute
+        run: bash dev-tools/check-template-path-convention.sh
+
+  archive-landing:
+    name: archive landing verifier (blocking)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # The verifier resolves cited SHAs with `merge-base --is-ancestor` and
+          # asks the object store what exists; a shallow clone would report every
+          # older commit as unknown and every ancestry answer as wrong.
+          fetch-depth: 0
+
+      # Archives live in the CONSUMING workspace, not in this repo, so CI cannot
+      # run direction A here — there is nothing to scan. What CI can and must
+      # protect is the verifier itself: its own suite is the thing that keeps the
+      # gate honest, and an unwired suite is exactly the defect this gate exists
+      # to catch. Direction A over the workspace archives runs in the workspace,
+      # and as a pre-archive step in /dr-archive.
+      - name: Run the archive-landing verifier's own regression suite
+        run: |
+          if ! command -v bats >/dev/null 2>&1; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq bats
+          fi
+          bats dev-tools/tests/check-archive-landing.bats
+
+      - name: Verifier is self-consistent (usage + refusal paths)
+        # `shell: bash -e` aborts on the first non-zero command, and these probes
+        # EXPECT non-zero — so the exit code must be captured inside a construct
+        # that -e tolerates, or the step dies before asserting anything.
+        run: |
+          rc=0; bash dev-tools/check-archive-landing.sh --direction sideways || rc=$?
+          [ "$rc" -eq 2 ] || { echo "expected usage error 2, got $rc"; exit 1; }
+          rc=0; bash dev-tools/check-archive-landing.sh --ref no/such/ref --direction a || rc=$?
+          [ "$rc" -eq 3 ] || { echo "expected refusal 3, got $rc"; exit 1; }

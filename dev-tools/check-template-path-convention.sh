@@ -111,7 +111,13 @@ for f in "${files[@]}"; do
             # Per-line skip: markdown link form with backtick display text +
             # relative href both pointing at templates/. Renderer-side link,
             # not an LLM-actionable path.
-            if (match(line, /\[`[^`]*templates\/[^`]*`\]\(\.\.?\/templates\//)) {
+            # The href may climb any number of levels: skills live one deep
+            # (`../templates/`) but nested skill pages are two or more
+            # (`../../templates/`). Anchoring to a single `../` made the gate
+            # report `skills/security-baseline/SKILL.md:499-500` as offences even
+            # though their display text is already the correct absolute form —
+            # two of the nine findings on main were this false positive.
+            if (match(line, /\[`[^`]*templates\/[^`]*`\]\((\.\.?\/)+templates\//)) {
                 next
             }
 
