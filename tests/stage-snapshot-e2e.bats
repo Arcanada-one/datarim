@@ -107,6 +107,21 @@ EOB
     grep -q '^Implementation TUNE-0259' "${snapshot}"
 }
 
+@test "E2E wrapper — ordinary body without a leading newline stays unglued" {
+    local ordinary_body="${BATS_TEST_TMPDIR}/ordinary-body.txt"
+    printf '%s' 'Implementation TUNE-0259 ordinary first line' > "${ordinary_body}"
+
+    run bash "${WRITER_WRAPPER}" \
+        --root "${FAKE_ROOT}" --task "${TASK_ID}" --stage do --command /dr-do \
+        --captured-by agent --recommended-next /dr-qa \
+        --options-file "${OPTIONS_TMP}" --body-file "${ordinary_body}"
+    [ "$status" -eq 0 ]
+
+    local snapshot="${FAKE_ROOT}/datarim/snapshots/${TASK_ID}.snapshot.md"
+    run grep -F -q -- '---Implementation TUNE-0259 ordinary first line' "${snapshot}"
+    [ "$status" -eq 1 ]
+}
+
 @test "E2E — declared size_bytes equals exact snapshot bytes" {
     run bash "${WRITER_WRAPPER}" \
         --root "${FAKE_ROOT}" --task "${TASK_ID}" --stage do --command /dr-do \
@@ -137,6 +152,40 @@ EOB
     actual="$(wc -c < "${snapshot}" | tr -d ' ')"
     [ "${actual}" -ge 1000 ]
     [ "${declared}" -eq "${actual}" ]
+}
+
+@test "E2E wrapper — declared size converges across the 999-to-1000 boundary" {
+    local captured_at="2026-07-30T00:00:00Z"
+    local probe="${BATS_TEST_TMPDIR}/boundary-frontmatter.md"
+    local boundary_body="${BATS_TEST_TMPDIR}/boundary-body.txt"
+
+    # The cap-width probe is four digits. Choosing the body so the pre-fix
+    # command-substitution path declared 999 forces the 3→4 digit transition.
+    # shellcheck source=/dev/null
+    source "${WRITER_LIB}"
+    _snapshot_render_frontmatter \
+        "${TASK_ID}" do /dr-do "${captured_at}" agent /dr-qa \
+        "${OPTIONS_TMP}" 8192 true > "${probe}"
+    local probe_bytes body_bytes
+    probe_bytes="$(wc -c < "${probe}" | tr -d ' ')"
+    body_bytes=$((1002 - probe_bytes))
+    [ "${body_bytes}" -gt 0 ]
+    python3 -c "print('X' * ${body_bytes}, end='')" > "${boundary_body}"
+    [ "$(wc -c < "${boundary_body}" | tr -d ' ')" -eq "${body_bytes}" ]
+
+    run bash "${WRITER_WRAPPER}" \
+        --root "${FAKE_ROOT}" --task "${TASK_ID}" --stage do --command /dr-do \
+        --captured-by agent --recommended-next /dr-qa \
+        --options-file "${OPTIONS_TMP}" --body-file "${boundary_body}" \
+        --captured-at "${captured_at}"
+    [ "$status" -eq 0 ]
+
+    local snapshot="${FAKE_ROOT}/datarim/snapshots/${TASK_ID}.snapshot.md"
+    local declared actual
+    declared="$(sed -n 's/^size_bytes: //p' "${snapshot}")"
+    actual="$(wc -c < "${snapshot}" | tr -d ' ')"
+    [ "${declared}" -eq "${actual}" ]
+    [ "${actual}" -ge 1000 ]
 }
 
 @test "E2E — exact-size renderer converges across the 9999 to 10000 decimal-width boundary" {
@@ -174,22 +223,23 @@ EOB
         --captured-by agent --recommended-next /dr-qa \
         --options-file "${huge_options}" --body-file "${BODY_TMP}"
 
-    [ "$status" -eq 1 ]
-    [[ "$output" == *"exceeds 8192-byte cap"* ]]
-    [ ! -e "${FAKE_ROOT}/datarim/snapshots/${TASK_ID}.snapshot.md" ]
+    [ "$status" -eq 1 ] &&
+    [[ "$output" == *"exceeds 8192-byte cap"* ]] &&
+    [ ! -e "${FAKE_ROOT}/datarim/snapshots/${TASK_ID}.snapshot.md" ] &&
     [ ! -d "${FAKE_ROOT}/datarim/snapshots/.lock.${TASK_ID}" ]
 }
 
 @test "E2E — I/O failure cleanup treats root as data and removes the acquired lock" {
     local canary="${BATS_TEST_TMPDIR}/TUNE0546_CANARY"
+    local cp_invoked="${BATS_TEST_TMPDIR}/cp-invoked"
     local literal_payload='$(touch${IFS}TUNE0546_CANARY)'
     local hostile_root="${BATS_TEST_TMPDIR}/root-${literal_payload}"
     local fake_bin="${BATS_TEST_TMPDIR}/fake-bin"
     mkdir -p "${hostile_root}/datarim/snapshots" "${fake_bin}"
-    printf '#!/usr/bin/env bash\nexit 74\n' > "${fake_bin}/cp"
+    printf '#!/usr/bin/env bash\n: > "${SNAPSHOT_TEST_CP_INVOKED}"\nexit 74\n' > "${fake_bin}/cp"
     chmod +x "${fake_bin}/cp"
 
-    run env PATH="${fake_bin}:${PATH}" bash -c '
+    run env PATH="${fake_bin}:${PATH}" SNAPSHOT_TEST_CP_INVOKED="${cp_invoked}" bash -c '
         cd "$1"
         shift
         exec "$@"
@@ -198,8 +248,9 @@ EOB
         --captured-by agent --recommended-next /dr-qa \
         --options-file "${OPTIONS_TMP}" --body-file "${BODY_TMP}"
 
-    [ "$status" -ne 0 ]
-    [ ! -e "${canary}" ]
-    [ ! -d "${hostile_root}/datarim/snapshots/.lock.${TASK_ID}" ]
+    [ "$status" -ne 0 ] &&
+    [ -e "${cp_invoked}" ] &&
+    [ ! -e "${canary}" ] &&
+    [ ! -d "${hostile_root}/datarim/snapshots/.lock.${TASK_ID}" ] &&
     [ ! -e "${hostile_root}/datarim/snapshots/${TASK_ID}.snapshot.md" ]
 }
