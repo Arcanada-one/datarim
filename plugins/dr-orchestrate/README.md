@@ -36,6 +36,25 @@ Pipeline phases by feature set (not a fixed autonomy level):
 - **Phase 2** — multi-backend subagent inference (coworker → claude → codex) + race-safe cooldown + audit schema v2.
 - **Phase 3** — actor/session-bound Save-as-rule confirmation, exact learned rules, 24-hour re-validation, and a seven-day TTL.
 
+## Context-Window Self-Clearing
+
+Orchestrator-launched Claude Code and Codex sessions can opt into deterministic
+context pressure handling. At 75 percent the plugin sends a fixed runtime-
+specific `/compact`; at 90 percent it checkpoints the active task-description
+path, completed snapshot phase, and digest before sending `/clear`. A changed-
+conversation lifecycle marker then resumes through snapshot-first
+`/dr-next <TASK-ID>`.
+
+The feature is default-off and requires both `key_injection: true` and
+`context_window.trust_same_uid_runtime: true`. This explicitly trusts the
+unsandboxed same-UID runtime domain; HMAC protects integrity and replay but is
+not vendor provenance. Each launch receives a private incarnation nonce that
+binds its hooks and transactions even when a dead pane reuses the same bounded
+slot. Taught labels are exact data-only enum selectors and never become
+terminal input. See
+`documentation/how-to/context-window-self-clearing.md` for setup, doctor,
+reconciliation, disable, and rollback procedures.
+
 ## Confirmed Auto-learning (Phase 3)
 
 After a successful trusted resolution, the plugin queues a `Save as rule? [Y/N]`
@@ -171,6 +190,9 @@ a clean `chain_exhausted` envelope so the escalation path always runs.
 - `plugin.yaml` — manifest (schema_version 1).
 - `scripts/plugin.sh` — hook dispatcher (`on_cycle`, `on_unknown_prompt`, `get_autonomy`).
 - `scripts/cmd_run.sh` — entry point for `dr-orchestrate run` + `--unknown-prompt` path.
+- `scripts/context_window_controller.sh` — checkpoint and reset transaction state machine.
+- `scripts/context_pressure_adapter.sh` — Claude/Codex numeric telemetry and lifecycle normalization.
+- `scripts/context_window_setup.sh` — private overlay/profile setup, doctor, recovery, and removal.
 - `scripts/tmux_manager.sh` — session / pane CRUD.
 - `scripts/security.sh` — whitelist + escape + flock-safe cooldown + violation tracker.
 - `scripts/secrets_backend.sh` — YAML backend with mode-0600 enforcement.

@@ -21,10 +21,12 @@ DRY_RUN=0
 PANE_ID=""
 UNKNOWN_PROMPT=0
 UNKNOWN_TEXT=""
+ACTIVE_TASK=""
 while (( $# > 0 )); do
   case "$1" in
     --dry-run) DRY_RUN=1; shift ;;
     --pane)    PANE_ID="$2"; shift 2 ;;
+    --task)    ACTIVE_TASK="$2"; shift 2 ;;
     --unknown-prompt)
                UNKNOWN_PROMPT=1
                # Optional inline text; otherwise pane capture supplies it.
@@ -35,8 +37,8 @@ while (( $# > 0 )); do
                fi
                ;;
     -h|--help) cat <<USAGE
-usage: dr-orchestrate run [--dry-run] [--pane <pane_id>]
-       dr-orchestrate run --unknown-prompt [text]
+usage: dr-orchestrate run [--dry-run] [--pane <pane_id>] [--task <TASK-ID>]
+       dr-orchestrate run --unknown-prompt [text] [--task <TASK-ID>]
 
 Phase 3 (TUNE-0166) adds trusted action execution plus actor/session-bound
 Save-as-rule confirmation, 24-hour re-validation, and a seven-day rule TTL.
@@ -75,6 +77,19 @@ trusted_action() {
   load_trusted_actions | jq -e --arg action "$action" 'index($action) != null' >/dev/null
 }
 
+snapshot_hint_for_task() {
+  local task="$1" workspace="${DR_ORCH_WORKSPACE:-$PWD}" snapshot task_desc hint
+  [[ "$task" =~ ^[A-Z]+-[0-9]+$ ]] || return 1
+  snapshot="$workspace/datarim/snapshots/$task.snapshot.md"
+  task_desc="$workspace/datarim/tasks/$task-task-description.md"
+  [[ -f "$snapshot" && ! -L "$snapshot" && -f "$task_desc" && ! -L "$task_desc" ]] || return 1
+  grep -q "^task_id: $task$" "$snapshot" || return 1
+  grep -qE '^stage: (init|prd|plan|design|do|qa|verify|compliance|archive)$' "$snapshot" || return 1
+  hint="$(awk '$1=="recommended_next:" {print $2; exit}' "$snapshot")"
+  [[ "$hint" =~ ^/dr-[a-z-]+$ ]] || return 1
+  printf '%s\n' "$hint"
+}
+
 # execute_selected_action <action> <pane> <cycle_id> <confidence> <intent> <propose>
 # The write-ahead checkpoint is mandatory. A test seam records the action
 # instead of touching tmux, while production uses the existing safe pane path.
@@ -110,8 +125,13 @@ execute_selected_action() {
 # emits an audit v2 record with outcome=resolved or routes to escalation.
 resolve_and_route() {
   local text="$1"; local pane="$2"; local start_ms="$3"
-  local resolver_json conf action action_kind action_payload backend_used model end_ms dur
-  resolver_json="$(bash "$DR_ORCH_DIR/scripts/subagent_resolver.sh" resolve "$text" 2>/dev/null || true)"
+  local resolver_json conf action action_kind action_payload backend_used model end_ms dur hint=""
+  if [[ -n "$ACTIVE_TASK" ]]; then hint="$(snapshot_hint_for_task "$ACTIVE_TASK" 2>/dev/null || true)"; fi
+  if [[ -n "$hint" ]]; then
+    resolver_json="$(bash "$DR_ORCH_DIR/scripts/subagent_resolver.sh" resolve --hint "$hint" -- "$text" 2>/dev/null || true)"
+  else
+    resolver_json="$(bash "$DR_ORCH_DIR/scripts/subagent_resolver.sh" resolve "$text" 2>/dev/null || true)"
+  fi
   if [[ -z "$resolver_json" ]]; then
     resolver_json='{"action":"","confidence":0,"reason":"resolver_failed","backend_used":"none","subagent_model":""}'
   fi
