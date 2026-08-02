@@ -6,6 +6,16 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 _Nothing yet._
 
+## [2.60.1] — 2026-08-02
+
+### Fixed
+
+- **`head -c 0` is GNU-only and silently disarmed the snapshot size cap on macOS.** An oversized `--options-file` makes the frontmatter alone consume the whole 8192-byte cap, so `max_body` is deliberately clamped to `0` and the truncation path runs with a zero byte count. GNU coreutils accepts `head -c 0` and emits nothing; BSD/macOS `head` rejects it with `illegal byte count -- 0` and exits 1. Under `set -e` that aborted the writer **before the cap check could fail closed** — converting a hard guard into a silent pass. Linux-only CI kept the suite green while `tests/stage-snapshot-e2e.bats` "oversized options fail closed" was already failing on clean `main` on macOS. The zero case is now an explicit truncate; the regression test is mutation-verified.
+
+### Added
+
+- Wrapper-level snapshot regressions covering the frontmatter/body separator (an ordinary body without a leading newline must not glue to the terminator) and the 999-to-1000 decimal-width boundary for the declared byte size.
+
 ## [2.60.0] — 2026-07-31
 
 > Final release before the framework enters maintenance/reuse.
