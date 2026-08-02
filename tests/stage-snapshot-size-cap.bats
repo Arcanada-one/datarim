@@ -13,6 +13,13 @@ setup() {
     # shellcheck source=/dev/null
     . "$WRITER_LIB"
 }
+assert_declared_size_matches() {
+    local file="$1"
+    local declared actual
+    declared="$(sed -n 's/^size_bytes: //p' "$file")"
+    actual="$(wc -c < "$file")"
+    [ "$declared" -eq "$actual" ]
+}
 
 @test "body under 8192 bytes → no truncation marker" {
     local body="$BATS_TEST_TMPDIR/small.txt"
@@ -24,6 +31,7 @@ setup() {
     local snap="$TMPROOT/datarim/snapshots/TUNE-0254.snapshot.md"
     ! grep -q 'snapshot-truncated' "$snap"
     grep -q '^truncated: false$' "$snap"
+    assert_declared_size_matches "$snap"
 }
 
 @test "body over 8192 bytes → marker present + file ≤ 8192 + truncated: true" {
@@ -39,4 +47,5 @@ setup() {
     [ "$size" -le 8192 ]
     grep -q 'snapshot-truncated' "$snap"
     grep -q '^truncated: true$' "$snap"
+    assert_declared_size_matches "$snap"
 }
