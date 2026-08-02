@@ -63,8 +63,67 @@ run_a() { run bash "$SUT" --root "$FIX" --ref HEAD \
     git checkout -q -
     mkarchive "TUNE-9002" "Delivered in \`$orphan\`."
     run_a
-    [ "$status" -eq 1 ]
-    [[ "$output" == *"ADRIFT-SHA"* ]]
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"ADRIFT-SHA"* ]] \
+        && [[ "$output" == *"RECOVERABLE-REF"* ]] \
+        && [[ "$output" == *'`refs/heads/sidebranch`'* ]]
+}
+
+@test "V-AC-17: an adrift SHA preserved by a detached linked worktree is identified" {
+    local linked="$BATS_TEST_TMPDIR/detached-linked-worktree"
+    git worktree add -q --detach "$linked" HEAD
+    echo "detached work" > "$linked/skills/real-skill/DETACHED.md"
+    git -C "$linked" add -A
+    git -C "$linked" commit -qm "detached worktree work"
+    local detached_sha; detached_sha="$(git -C "$linked" rev-parse HEAD)"
+    # Advance the detached HEAD beyond the cited SHA. Equality is insufficient:
+    # the preservation contract is ancestry-aware, so descendants also retain
+    # the archived work.
+    echo "later detached work" > "$linked/skills/real-skill/AFTER-DETACHED.md"
+    git -C "$linked" add -A
+    git -C "$linked" commit -qm "advance detached worktree"
+
+    mkarchive "TUNE-9017" "Delivered in \`$detached_sha\`."
+    run_a
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"ADRIFT-SHA"* ]] \
+        && [[ "$output" == *"RECOVERABLE-WORKTREE"* ]] \
+        && [[ "$output" != *"$linked"* ]] \
+        && [[ "$output" != *"$FIX"* ]]
+}
+
+@test "V-AC-18: an adrift SHA preserved only by a non-head ref is identified" {
+    git checkout -q -b temporary-ref-source
+    echo "non-head ref work" > "$FIX/skills/real-skill/NON-HEAD-REF.md"
+    git add -A && git commit -qm "non-head ref work"
+    local ref_sha; ref_sha="$(git rev-parse HEAD)"
+    git checkout -q -
+    git update-ref refs/remotes/recovery/preserved "$ref_sha"
+    git update-ref -d refs/heads/temporary-ref-source
+
+    mkarchive "TUNE-9018" "Delivered in \`$ref_sha\`."
+    run_a
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"ADRIFT-SHA"* ]] \
+        && [[ "$output" == *"RECOVERABLE-REF"* ]] \
+        && [[ "$output" == *'`refs/remotes/recovery/preserved`'* ]]
+}
+
+@test "V-AC-19: an adrift commit with no containing ref or worktree is object-only" {
+    git checkout -q -b temporary-object-source
+    echo "object-only work" > "$FIX/skills/real-skill/OBJECT-ONLY.md"
+    git add -A && git commit -qm "object-only work"
+    local object_sha; object_sha="$(git rev-parse HEAD)"
+    git checkout -q -
+    git update-ref -d refs/heads/temporary-object-source
+
+    mkarchive "TUNE-9019" "Delivered in \`$object_sha\`."
+    run_a
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"ADRIFT-SHA"* ]] \
+        && [[ "$output" == *"OBJECT-ONLY"* ]] \
+        && [[ "$output" != *"RECOVERABLE-REF"* ]] \
+        && [[ "$output" != *"RECOVERABLE-WORKTREE"* ]]
 }
 
 @test "V-AC-16: a squash-landed SHA is not a violation" {
