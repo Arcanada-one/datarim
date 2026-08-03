@@ -79,6 +79,15 @@ Tmux pane control (Phase 4, /hooks/tmux HTTP-proxy):
   tmux kill <pane> [--force] [--json]
   tmux read <pane> [--lines N] [--json]
 
+Configuration + plugin proxy (Phase 5):
+  config get <key> [--json]
+  config set <key> <value>             Compatibility refusal (exit 20)
+  plugin list
+  plugin enable <absolute-plugin-path>
+  plugin disable <plugin-id>
+  plugin sync
+  plugin doctor [--fix]
+
 Slash dispatch + audit (Phase 3 baseline):
   run <slash-cmd> [args]                Dispatch slash command to /dr-orchestrate
   audit log [--day YYYY-MM-DD]
@@ -157,6 +166,27 @@ main() {
                 tmux_subcommand "$@"
             else
                 printf '[datarim] tmux subcommand not installed (cli/subcommands/tmux.sh missing)\n' >&2
+                exit 2
+            fi
+            ;;
+        config)
+            if [ -f "$SUBCMD_DIR/config.sh" ]; then
+                # shellcheck source=cli/subcommands/config.sh
+                . "$SUBCMD_DIR/config.sh"
+                config_subcommand "$@"
+            else
+                printf '[datarim] config subcommand not installed (cli/subcommands/config.sh missing)\n' >&2
+                exit 2
+            fi
+            ;;
+        plugin)
+            validate_agent_id || exit $?
+            if [ -f "$SUBCMD_DIR/plugin.sh" ]; then
+                # shellcheck source=cli/subcommands/plugin.sh
+                . "$SUBCMD_DIR/plugin.sh"
+                plugin_subcommand "$@"
+            else
+                printf '[datarim] plugin subcommand not installed (cli/subcommands/plugin.sh missing)\n' >&2
                 exit 2
             fi
             ;;
