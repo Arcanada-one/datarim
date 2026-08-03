@@ -54,6 +54,37 @@ The simulation is **driver-specific** — declare the helper in the spec file an
 
 ---
 
+## Unique-Violation Domain Normalization
+
+A broad unique-violation family such as SQLSTATE `23505` or ORM code `P2002`
+does not identify the domain outcome by itself. Map such an error to a
+domain result only when its runtime metadata identifies either the **exact
+named constraint** intended by that mapping or an **exact normalized column
+signature** with set equality against the declared unique columns.
+
+An unknown explicit constraint name wins over column metadata and fails loud;
+do not fall back to a coincidentally matching column list. When the explicit
+name is absent, missing columns, partial overlap, subsets, supersets, and every
+unrelated unique violation remain infrastructure errors rather than domain
+results.
+
+The required evidence is:
+
+- runtime-shaped unit cases for the actual driver error shape;
+- a positive intended-constraint case and an unrelated negative case through
+  the real domain-mapping boundary;
+- partial, missing, and unknown-metadata negatives appropriate to the accepted
+  input forms; and
+- a real-database integration case when correct classification depends on
+  driver- or schema-supplied metadata. A mock alone cannot prove that metadata.
+
+Mutation check: broaden the classifier to the error family alone.
+The unrelated unique violation test must then go red. If it stays green, the
+boundary is not proved. Missing required evidence is a fail-hard QA/compliance result, never
+`PASS_WITH_NOTES`.
+
+---
+
 ## Coverage Instrumenter Blind-Spot Awareness
 
 When code under test executes through a framework-internal pass-through — raw runtime hooks where the web framework hands the underlying runtime request/response objects to user code, bypassing the framework's own instrumentation seams — the coverage instrumenter may underreport line/branch execution even though tests pass and the code paths run. Symptoms: a controller/handler whose every behavioural test passes yet shows single-digit coverage, threshold regressions appearing immediately after introducing raw-pass code, branch-vs-main coverage delta with no behavioural delta.
@@ -259,7 +290,7 @@ Load only the fragment needed for the current sub-problem:
   Use whenever you would otherwise write production code without a failing test first. Mandates the RED-GREEN-REFACTOR cycle, captures the common rationalizations and the canonical responses, and lists the red-flag phrases that mean STOP and start over.
 
 - `live-smoke-gates.md`
-  Use for raw-SQL / cross-datasource Live Smoke-Test Gate, cross-container Docker smoke, user-switch deployment gates, N=1 smoke validation before bulk ingest/transform, and recorded-fixture tests for thin HTTP wrapper clients. Trigger when the change touches `$queryRaw`, multi-datasource code, Docker orchestration, container health, runtime user/permissions, any bulk run that depends on entity resolution / record linkage / normalization, or a new/changed wrapper client around an external/internal HTTP service.
+  Use for raw-SQL / cross-datasource Live Smoke-Test Gate, cross-container Docker smoke, user-switch deployment gates, N=1 smoke validation before bulk ingest/transform, recorded-fixture tests for thin HTTP wrapper clients, and Gate 9 child-failure attribution for status-transforming shell harnesses. Trigger when the change touches `$queryRaw`, multi-datasource code, Docker orchestration, container health, runtime user/permissions, any bulk run that depends on entity resolution / record linkage / normalization, a new/changed wrapper client around an external/internal HTTP service, or a shell layer that turns a child result into QA/compliance evidence.
 
 - `silent-failure-detection.md`
   Use for wrappers around CLIs/subprocesses that exit `0` on error and write error sentences to stdout (LLM CLIs, cloud tools). Mandates structured-output parsing, raise-inside-wrapper, and testing both exit-code scenarios.
@@ -277,6 +308,8 @@ Load only the fragment needed for the current sub-problem:
 ## Quick Routing Heuristic
 
 - Touching raw SQL, cross-datasource, Docker orchestration, user-switch deploy, or writing a thin HTTP wrapper client? → `live-smoke-gates.md`.
+- Turning a child command's result into evidence through a status-transforming shell layer? → `live-smoke-gates.md` § Gate 9; prove positive control, negative control, and exact named-assertion attribution.
+- Mapping a database unique violation to a domain result? → this file § Unique-Violation Domain Normalization; match the exact named constraint or exact normalized column signature and prove an unrelated violation stays loud.
 - Shipping an agent/daemon/cron that drives a CLI/LLM/subprocess and acts on its output? → `live-smoke-gates.md` § Gate 7 (Agentic Entrypoint Wiring + Live-Run): prove the real entrypoint reaches the declared function AND run it once live against the real tool before any "the agent does X via <tool>" wish can be marked met.
 - Wrapping a CLI / subprocess that exits 0 on error? → `silent-failure-detection.md`.
 - Writing or maintaining bats tests, or regex-asserting markdown prose? → `bats-and-spec-lint.md`.

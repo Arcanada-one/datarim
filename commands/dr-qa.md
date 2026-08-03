@@ -317,6 +317,24 @@ Invoke:
 - **Record in QA report:** the exact run command, tool version, captured real output, and the observed side-effect. A mock assertion does NOT satisfy this. An `evidence_type: empirical` wish marked **met** on mocks alone (no live tool-run) is a Layer 3b/4 finding ⇒ **FAIL** — never PASS_WITH_NOTES. A kill-switch-OFF exit-0 probe proves the agent does *nothing*; it does not satisfy this gate.
 - **Gate:** `dev-tools/check-live-evidence.sh` enforces this mechanically — when expectations carry `evidence_type: empirical` items, it checks the QA report for live-evidence markers (command block with real output, tool version, exit code) and blocks on insufficient evidence. Structural check only; semantic verification (is the output genuinely from a live run?) remains human judgment. Run at `/dr-qa` Layer 3b and at `/dr-archive` Step 0.x.
 
+### 4d-ter. Evidence Attribution and Unique-Violation Gates
+
+- **Shell-harness Gate 9:** when a status-transforming shell layer sits between
+  a child command and an evidence claim, require the positive control, negative
+  control, and—when applicable—the exact named assertion for expected-red or
+  mutation evidence from `skills/testing/live-smoke-gates.md` § Gate 9. An
+  unrelated setup failure must be `HARNESS_INVALID`, not mutation evidence.
+  Missing proof makes Layer 4 **FAIL**; do not downgrade it to notes.
+- **Unique-violation domain mapping:** when changed code maps `23505`, `P2002`,
+  or an equivalent unique-error family into a domain result, require the exact
+  named constraint or exact normalized column signature contract from
+  `skills/testing/SKILL.md` § Unique-Violation Domain Normalization. Inspect
+  runtime-shaped unit evidence, the real mapping boundary, a positive intended
+  case, an unrelated negative case, and real-database evidence when driver or
+  schema metadata determines classification. An unknown explicit constraint
+  fails loud and may not fall back to columns. Missing proof makes Layer 4
+  **FAIL**, never `PASS_WITH_NOTES`.
+
 ### 4e. Definition of Done
 - Read DoD from `datarim/tasks.md` or `datarim/prd/*.md`
 - Check each criterion
