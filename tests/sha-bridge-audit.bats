@@ -89,3 +89,13 @@ teardown() {
     run grep -Eq '^ *git push[[:space:]]*$' "$workflow"
     [ "$status" -ne 0 ]
 }
+
+@test "workflow-does-not-suppress-protected-pr-checks" {
+    workflow="${BATS_TEST_DIRNAME}/../.github/workflows/sha-bridge-currency-audit.yml"
+
+    run grep -F '[skip ci]' "$workflow"
+    [ "$status" -ne 0 ]
+
+    run grep -Eiq 'operator (review|landing)|operator must|needs operator' "$workflow"
+    [ "$status" -ne 0 ]
+}
