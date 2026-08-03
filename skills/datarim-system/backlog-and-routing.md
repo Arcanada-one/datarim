@@ -4,9 +4,14 @@
 
 ### Single-File Architecture
 
-**Backlog** (`backlog.md`) — thin one-liner index
-- contains only `pending` / `blocked-pending` / `cancelled` (transient state)
-- optimized for normal reads
+**Backlog** (`backlog.md`) — line-oriented pending-work ledger
+- keeps each task on one machine-parseable line with a nonempty, single-line
+  description that may remain inline until the task is promoted
+- treats `pending`, `blocked-pending`, and `cancelled` as the canonical intake
+  states; the schema also preserves `superseded`, `absorbed`, `deferred`, and
+  active-state rows during transitions and legacy migration
+- accepts an optional task-description pointer when a separate description
+  already exists; Doctor must not invent one by truncating inline context
 - uses the same `{PREFIX}-{NNNN}` ID the task will keep later
 
 `backlog-archive.md` was retired in v1.19.1. Completion archive

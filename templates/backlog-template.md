@@ -1,20 +1,22 @@
 # Backlog
 
 <!--
-Thin-index schema (v1.19.0+).
+Pending-work ledger schema.
 
-Each line is a one-liner pointer to a description file. NO task content here.
-Full task body lives in datarim/tasks/{TASK-ID}-task-description.md.
+Each task remains on one machine-parseable line. A pending-work description may
+remain inline until the task is promoted. Full active-task plans, ACs, and
+constraints live in datarim/tasks/{TASK-ID}-task-description.md.
 
-Canonical regex (single-line, anchored):
-  ^- ([A-Z]{2,10}-[0-9]{4}) · (pending|blocked-pending|cancelled) · P[0-3] · L[1-4] · (.+) → tasks/\1-(task-description|init-task)\.md$
+Canonical source: scripts/lib/schema-regex.sh BACKLOG_ITEM_RE.
+Statuses include pending, blocked-pending, cancelled, superseded, absorbed,
+deferred, and active states. Priority is P0-P4; complexity is L1-L4.
 
-Separator: · (U+00B7 MIDDLE DOT). Arrow: → (U+2192). Title: free-form (single line).
+Pointer: optional for backlog entries. When present, use → (U+2192) and the
+same task ID. Inline descriptions must be nonempty and single-line.
 
-Example:
-<!-- gate:history-allowed -->
-  - INFRA-0099 · pending · P2 · L2 · Vault MFA Rollout → tasks/INFRA-0099-task-description.md
-<!-- /gate:history-allowed -->
+Examples:
+  - <TASK-ID-A> · pending · P2 · L2 · <Inline pending-work description>
+  - <TASK-ID-B> · blocked · P3 · L2 · <Title> → tasks/<TASK-ID-B>-task-description.md
 
 Validation: scripts/datarim-doctor.sh / pre-archive-check.sh. Self-heal: /dr-doctor --fix.
 Schema reference: skills/datarim-system/SKILL.md § Operational File Schema.
@@ -31,6 +33,5 @@ Schema reference: skills/datarim-system/SKILL.md § Operational File Schema.
 ## Cancelled
 
 <!-- Recently cancelled tasks (transient — full archive in
-     documentation/archive/cancelled/archive-{ID}.md). Thin-index schema
-     (v1.19.1+): backlog-archive.md retired. -->
-
+     documentation/archive/cancelled/archive-{ID}.md). backlog-archive.md is
+     retired. -->
