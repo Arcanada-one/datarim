@@ -4,6 +4,8 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.62.0] — 2026-08-03
+
 ### Changed
 
 - **TUNE-0196 backlog schema fork is superseded.** The later field-proven
