@@ -77,6 +77,26 @@ _snapshot_render_frontmatter() {
     printf -- '---\n\n'
 }
 
+# Guarantee the emitted frontmatter footer is always followed by a blank body separator
+# line, even if the transport path strips trailing newlines in the future.
+_snapshot_render_frontmatter_terminal() {
+    local path="$1"
+    local tail2_hex
+
+    # shellcheck disable=SC2016
+    # We compare trailing bytes (hex), because command substitution drops trailing
+    # newlines. A single quoted '---\n\n' can still look wrong after substitution.
+    while :; do
+        tail2_hex="$(tail -c 2 "$path" 2>/dev/null \
+            | od -An -t x1 \
+            | tr -d ' \n' || true)"
+        if [ "$tail2_hex" = "0a0a" ]; then
+            return 0
+        fi
+        printf '\n' >> "$path"
+    done
+}
+
 # Render frontmatter until its declared size is the exact fixed point of:
 #
 #   frontmatter bytes (including decimal size width) + final body bytes
@@ -97,6 +117,7 @@ _snapshot_render_exact_frontmatter() {
             "$task_id" "$stage" "$command" "$captured_at" "$captured_by" \
             "$recommended_next" "$options_file" "$size_bytes" "$truncated" \
             > "$output_file"
+        _snapshot_render_frontmatter_terminal "$output_file"
         fm_bytes="$(wc -c < "$output_file" | tr -d ' ')"
         actual_size=$(( fm_bytes + body_bytes ))
         if [ "$actual_size" -eq "$size_bytes" ]; then

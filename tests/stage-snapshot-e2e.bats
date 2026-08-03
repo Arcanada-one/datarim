@@ -105,6 +105,11 @@ EOB
     [ "$status" -eq 1 ]
     grep -q '^---$' "${snapshot}"
     grep -q '^Implementation TUNE-0259' "${snapshot}"
+    local term_line body_line
+    term_line="$(grep -n '^---$' "${snapshot}" | sed -n '2p' | cut -d: -f1)"
+    [ -n "${term_line}" ]
+    body_line="$(sed -n "$((term_line + 2))p" "${snapshot}")"
+    [[ "${body_line}" == "Implementation TUNE-0259"* ]]
 }
 
 @test "E2E wrapper — ordinary body without a leading newline stays unglued" {
@@ -120,6 +125,43 @@ EOB
     local snapshot="${FAKE_ROOT}/datarim/snapshots/${TASK_ID}.snapshot.md"
     run grep -F -q -- '---Implementation TUNE-0259 ordinary first line' "${snapshot}"
     [ "$status" -eq 1 ]
+}
+
+@test "E2E wrapper — ordinary body near 1000-byte boundary keeps exact size declaration" {
+    local body="${BATS_TEST_TMPDIR}/boundary-body.txt"
+    local probe="${BATS_TEST_TMPDIR}/boundary-frontmatter-probe.md"
+    local captured_at="2026-08-03T00:00:00Z"
+    local probe_bytes body_bytes declared actual snapshot
+    local target=1000
+
+    # shellcheck source=/dev/null
+    source "${WRITER_LIB}"
+    _snapshot_render_frontmatter \
+        "${TASK_ID}" do /dr-do "${captured_at}" agent /dr-qa \
+        "${OPTIONS_TMP}" "${target}" false > "${probe}"
+
+    probe_bytes="$(wc -c < "${probe}" | tr -d ' ')"
+    body_bytes=$(( target - probe_bytes ))
+    [ "${body_bytes}" -gt 0 ]
+    python3 -c "print('B' * ${body_bytes}, end='')" > "${body}"
+
+    run bash "${WRITER_WRAPPER}" \
+        --root "${FAKE_ROOT}" --task "${TASK_ID}" --stage do --command /dr-do \
+        --captured-by agent --recommended-next /dr-qa \
+        --options-file "${OPTIONS_TMP}" --body-file "${body}"
+    [ "$status" -eq 0 ]
+
+    snapshot="${FAKE_ROOT}/datarim/snapshots/${TASK_ID}.snapshot.md"
+    declared="$(sed -n 's/^size_bytes: //p' "${snapshot}")"
+    actual="$(wc -c < "${snapshot}" | tr -d ' ')"
+    [ "${actual}" -eq "${declared}" ]
+    [ "${declared}" -le "${target}" ]
+    [ "${declared}" -gt 0 ]
+    local boundary_term_line boundary_gap
+    boundary_term_line="$(grep -n '^---$' "${snapshot}" | tail -1 | cut -d: -f1)"
+    [ -n "${boundary_term_line}" ]
+    boundary_gap="$(sed -n "$((boundary_term_line + 1))p" "${snapshot}")"
+    [ -z "${boundary_gap}" ]
 }
 
 @test "E2E — declared size_bytes equals exact snapshot bytes" {
