@@ -31,6 +31,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 concurrency:
   group: sha-bridge-currency-audit
@@ -55,11 +56,54 @@ jobs:
           mkdir -p dev-tools/.state
           bash dev-tools/sha-bridge-audit.sh
 
-      - name: Persist state file (fallback path only — no-op once Vault-backed)
+      - name: Persist state file through protected PR (fallback path only)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STATE_BRANCH: automation/infra-0202-sha-bridge-state
+          BASE_BRANCH: main
         run: |
+          if ! git status --porcelain -- dev-tools/.state/ | grep -q .; then
+            echo 'No fallback state change to publish.'
+            exit 0
+          fi
+
+          state_backup="$(mktemp -d)"
+          trap 'rm -rf "$state_backup"' EXIT
+          mkdir -p "$state_backup/state"
+          cp -a dev-tools/.state/. "$state_backup/state/"
+          rm -rf dev-tools/.state
+          mkdir -p dev-tools/.state
+
+          git fetch origin "$BASE_BRANCH"
+          git fetch origin "$STATE_BRANCH" 2>/dev/null || true
+          if git show-ref --verify --quiet "refs/remotes/origin/$STATE_BRANCH"; then
+            git switch --create "$STATE_BRANCH" --track "origin/$STATE_BRANCH"
+          else
+            git switch --create "$STATE_BRANCH" "origin/$BASE_BRANCH"
+          fi
+          cp -a "$state_backup/state/." dev-tools/.state/
+
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
           git add -A dev-tools/.state/
           git diff --cached --quiet && exit 0
           git commit -m 'chore(INFRA-0202): sha-bridge-audit state update [skip ci]'
-          git push
+          git push origin "HEAD:$STATE_BRANCH"
+
+          pr_number="$(gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
+            --head "$STATE_BRANCH" \
+            --base "$BASE_BRANCH" \
+            --state open \
+            --json number \
+            --jq '.[0].number // empty')"
+          if [ -n "$pr_number" ]; then
+            echo "Updated protected state PR #$pr_number. Operator review/landing remains required."
+          else
+            gh pr create \
+              --repo "$GITHUB_REPOSITORY" \
+              --base "$BASE_BRANCH" \
+              --head "$STATE_BRANCH" \
+              --title 'chore(INFRA-0202): persist SHA-bridge audit state' \
+              --body 'This automation PR persists the SHA-bridge decommission clock state produced by the scheduled audit. It deliberately targets an automation branch because main is protected. Do not auto-merge; review the state-only diff and land through the ordinary protected path.'
+          fi

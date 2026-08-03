@@ -70,3 +70,22 @@ teardown() {
     [ "$PR_NUMBER" -eq 8 ]
     [ "$TAG_REF" = "v1" ]
 }
+
+# ---------------------------------------------------------------------------
+# protected fallback-state persistence — main is not a writable target
+# ---------------------------------------------------------------------------
+@test "workflow-persists-fallback-state-through-protected-pr" {
+    workflow="${BATS_TEST_DIRNAME}/../.github/workflows/sha-bridge-currency-audit.yml"
+
+    run grep -Eq '^ *pull-requests: write$' "$workflow"
+    [ "$status" -eq 0 ]
+
+    run grep -Eq 'gh pr (create|list)' "$workflow"
+    [ "$status" -eq 0 ]
+
+    run grep -Eq 'STATE_BRANCH|automation/infra-0202' "$workflow"
+    [ "$status" -eq 0 ]
+
+    run grep -Eq '^ *git push[[:space:]]*$' "$workflow"
+    [ "$status" -ne 0 ]
+}
