@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `datarim` CLI is the external-agent surface for Datarim — it lets a non-interactive process (Codex, Cursor, or a custom agent) drive the full `/dr-*` pipeline through the existing `/dr-orchestrate v2.5.0` webhook. AAL 3 is opt-in only and requires an `accepted-risk-aal.yml` entry `tune-0268-aal3-cli`. Phase 3 ships HTTP dispatch plus six AAL 3 mitigations.
+The `datarim` CLI is the external-agent surface for Datarim — it lets a non-interactive process (Codex, Cursor, or a custom agent) inspect local state and drive eligible `/dr-*` operations through the existing `/dr-orchestrate` webhook. AAL 3 is opt-in only and requires an `accepted-risk-aal.yml` entry `tune-0268-aal3-cli`. Hard-gated actions remain operator-controlled; a notifier acknowledgement is observability, not authorization.
 
 ## When to use CLI vs slash command
 
@@ -40,7 +40,7 @@ To stand up the listener:
 
 ```bash
 # 1. Activate the plugin (creates ~/.claude/plugins/dr-orchestrate symlinks).
-/dr-plugin enable dr-orchestrate
+/dr-plugin enable /absolute/path/to/code/datarim/plugins/dr-orchestrate
 
 # 2. Install adnanh/webhook (one option — see https://github.com/adnanh/webhook for others).
 brew install webhook                  # macOS
@@ -80,13 +80,40 @@ Applies 90-day retention: files untouched for <90d remain as-is, files 90-180d o
 
 Prints summary counters for the audit log.
 
+### `datarim config get <key> [--json]`
+
+Exposes only non-secret derived state. Supported keys are
+`framework_version` and `plugin_manifest_status`. Generic config files no longer
+have one canonical schema: personal settings, peer-review settings,
+orchestrator settings, and plugin state each have separate owners. Arbitrary
+keys and `--config` are therefore rejected instead of risking disclosure.
+
+`datarim config set` is a compatibility refusal surface. Every mutation exits
+20 without changing config or manifest bytes. This includes the historical
+`aal_class` write: the old notifier-authorized AAL ratchet is superseded by the
+current hard-gated action floor.
+
+### `datarim plugin list | enable | disable | sync | doctor`
+
+Delegates directly to the canonical `scripts/dr-plugin.sh` controller and
+preserves its stdout, stderr, and exit code. `enable` accepts an absolute plugin
+source path; `disable` accepts a plugin ID; `doctor` accepts optional `--fix`.
+The wrapper never edits `datarim/enabled-plugins.md` itself, so canonical
+validation, locking, snapshots, rollback, dependency checks, and protected-core
+rules remain authoritative.
+
+Phase-5 derived reads do not append to the Phase-3 HTTP audit log. Plugin
+operations retain the canonical controller's manifest/snapshot/lock evidence.
+This ownership boundary supersedes the historic proposal that every CLI
+wrapper invocation must create a second audit record.
+
 ### `datarim version | help`
 
 Self-explanatory.
 
 ## AAL 3 mitigations (Phase 3 ships all six)
 
-- **Dual-channel notifier** — every irreversible action emits a Telegram alert via `@ArcanadaAssistantBot` before the action proceeds; zero ACK within 3000ms causes exit 18 and the action is aborted.
+- **Dual-channel notifier** — eligible actions emit an alert before execution; zero ACK within 3000ms causes exit 18. Notification never grants permission for a hard-gated action.
 - **JSONL audit log** — schema version 1, 10 keys, flock atomic append (portable python3 fcntl wrapper on macOS).
 - **Kill-switch sentinel** — presence of `~/.config/datarim-cli/HALT` triggers exit 17 on every subcommand.
 - **`accepted-risk-aal.yml` entry** — invocation-time gate (1h cache); missing or expired entry exits 23.
@@ -100,6 +127,7 @@ Self-explanatory.
 | 0 | Success |
 | 17 | Kill-switch sentinel present (`HALT` file) |
 | 18 | Dual-channel notifier timed out (no ACK in 3000ms) |
+| 20 | Config mutation or managed-key access refused |
 | 21 | Invalid or missing slash command |
 | 22 | Missing or malformed `$DATARIM_CLI_AGENT_ID` (must be UUID v7) |
 | 23 | `accepted-risk-aal.yml` entry `tune-0268-aal3-cli` missing or expired |
@@ -112,7 +140,8 @@ Self-explanatory.
 
 - `cli/datarim` — entry point
 - `cli/lib/` — http, audit, notify, kill-switch, agent-id, accepted-risk-check, uuid7-gen, slash-classification.yaml
-- `cli/subcommands/run.sh`, `audit.sh`
+- `cli/subcommands/run.sh`, `audit.sh`, `config.sh`, `plugin.sh`
+- `scripts/dr-plugin.sh` — canonical plugin-state controller used by the CLI wrapper
 - `cli/install.sh`, `cli/install-warning.sh`
 - `accepted-risk-aal.yml` — repo root
 - `dev-tools/check-cli-audit-schema.sh`
