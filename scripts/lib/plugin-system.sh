@@ -593,6 +593,149 @@ _dep_dfs() {
     done < <(manifest_depends_of "$manifest" "$node")
 }
 
+# --- trusted default-on policy plugins ---------------------------------------
+#
+# Core-owned allowlist of metadata-only plugins that are effectively enabled
+# by default in every workspace. Third-party manifests cannot join this set by
+# declaring `default_enabled: true` — trust is bound to the hard-coded id.
+# Opt-out is an exact tombstone line under one well-formed
+# `## Disabled Defaults` section in the workspace manifest; every absent,
+# malformed, duplicate, indented, or substring state fails safe to the
+# stricter default.
+
+is_trusted_default_plugin() {
+    case "$1" in
+        tdd-enforcement) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+disabled_defaults_state() {
+    # Args: <manifest> <id>
+    # Prints "optional" iff exactly one well-formed `## Disabled Defaults`
+    # section exists and contains exactly one exact `- <id>` entry.
+    # Prints "required" for every other state (fail-safe). Always returns 0.
+    local manifest="$1" id="$2"
+    if [ ! -f "$manifest" ]; then
+        echo "required"
+        return 0
+    fi
+    LC_ALL=C awk -v id="$id" '
+        {
+            if ($0 == "## Disabled Defaults") { headings++; in_sec = 1; next }
+            if ($0 ~ /^## /) { in_sec = 0 }
+            if (!in_sec) next
+            if ($0 ~ /^[[:space:]]*$/) next
+            if ($0 ~ /^- [a-z][a-z0-9-]*$/) {
+                if ($0 == "- " id) count++
+                next
+            }
+            malformed = 1
+        }
+        END {
+            if (headings == 1 && !malformed && count == 1) print "optional"
+            else print "required"
+        }
+    ' "$manifest"
+}
+
+disabled_defaults_diagnose() {
+    # Args: <manifest>
+    # Echoes one issue per line for a malformed or ambiguous
+    # `## Disabled Defaults` section. Silence means the section is absent or
+    # well-formed. Always returns 0; callers count lines.
+    local manifest="$1"
+    [ -f "$manifest" ] || return 0
+    LC_ALL=C awk '
+        {
+            if ($0 == "## Disabled Defaults") {
+                headings++
+                if (headings > 1) print "duplicate Disabled Defaults heading at line " NR
+                in_sec = 1
+                next
+            }
+            if ($0 ~ /^## /) { in_sec = 0 }
+            if (!in_sec) next
+            if ($0 ~ /^[[:space:]]*$/) next
+            if ($0 ~ /^- [a-z][a-z0-9-]*$/) {
+                if (seen[$0]++) print "duplicate entry at line " NR ": " $0
+                next
+            }
+            print "unsupported content at line " NR ": " $0
+        }
+    ' "$manifest"
+}
+
+disabled_defaults_add() {
+    # Args: <manifest> <id>
+    # Idempotently adds the exact tombstone. Creates the section when absent;
+    # inserts into the first existing section otherwise. Atomic replace.
+    local manifest="$1" id="$2"
+    [ -f "$manifest" ] || return 1
+    local tmp
+    tmp="$(mktemp)"
+    LC_ALL=C awk -v id="$id" '
+        {
+            n++; lines[n] = $0
+            if ($0 == "## Disabled Defaults") { if (!first) first = n; in_sec = 1 }
+            else if ($0 ~ /^## /) in_sec = 0
+            if (in_sec && $0 == "- " id) present = 1
+        }
+        END {
+            for (i = 1; i <= n; i++) {
+                print lines[i]
+                if (!present && first && i == first) {
+                    print ""
+                    print "- " id
+                }
+            }
+            if (!present && !first) {
+                print ""
+                print "## Disabled Defaults"
+                print ""
+                print "- " id
+            }
+        }
+    ' "$manifest" > "$tmp"
+    mv "$tmp" "$manifest"
+}
+
+disabled_defaults_remove() {
+    # Args: <manifest> <id>
+    # Idempotently removes every exact tombstone for <id> from Disabled
+    # Defaults sections; drops a section left without any list entry.
+    local manifest="$1" id="$2"
+    [ -f "$manifest" ] || return 1
+    local tmp
+    tmp="$(mktemp)"
+    LC_ALL=C awk -v id="$id" '
+        {
+            if ($0 == "## Disabled Defaults") { in_sec = 1 }
+            else if ($0 ~ /^## /) { in_sec = 0 }
+            if (in_sec && $0 == "- " id) next
+            n++; lines[n] = $0
+        }
+        END {
+            for (i = 1; i <= n; i++) {
+                if (lines[i] == "## Disabled Defaults") {
+                    has = 0
+                    for (j = i + 1; j <= n && lines[j] !~ /^## /; j++)
+                        if (lines[j] ~ /^- /) has = 1
+                    if (!has) {
+                        del[i] = 1
+                        for (j = i + 1; j <= n && lines[j] ~ /^[[:space:]]*$/; j++)
+                            del[j] = 1
+                        # also drop the blank line introducing the section
+                        if (i > 1 && lines[i-1] ~ /^[[:space:]]*$/) del[i-1] = 1
+                    }
+                }
+            }
+            for (i = 1; i <= n; i++) if (!(i in del)) print lines[i]
+        }
+    ' "$manifest" > "$tmp"
+    mv "$tmp" "$manifest"
+}
+
 skill_frontmatter_name() {
     # Args: <skill-md-file>
     # Echo the `name:` field from YAML frontmatter (first --- ... --- block),

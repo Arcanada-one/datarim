@@ -20,6 +20,12 @@
           commands: [<file.md>, ...]
           templates: [<file.md>, ...]
 
+  Optional section "## Disabled Defaults": exact plain list items
+  (one "- <id>" per line, unindented) opting out of core-owned default-on
+  policy plugins (e.g. tdd-enforcement). Managed by
+  `/dr-plugin disable|enable <default-id>`. Malformed content fails safe to
+  the stricter default policy.
+
   Source: PRD-TUNE-0101, plans/TUNE-0101-plan.md.
 -->
 

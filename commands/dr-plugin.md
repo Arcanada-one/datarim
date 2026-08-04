@@ -19,12 +19,43 @@ Templates: `${DATARIM_RUNTIME:-$HOME/.claude}/templates/plugin.yaml.template`, `
 
 ```
 /dr-plugin list                  # show active plugins (bootstraps datarim-core on first run)
+                                 # plus core-owned default policies (e.g. tdd-enforcement)
 /dr-plugin enable <abs-path>     # activate a plugin from an absolute path (git-URL clone deferred — Phase A4)
+/dr-plugin enable <default-id>   # restore a core-owned default policy (removes its tombstone)
 /dr-plugin disable <id>          # deactivate (refuses datarim-core)
 /dr-plugin sync                  # reconcile filesystem with manifest
-/dr-plugin doctor [--fix]        # diagnose inconsistent state (8 checks)
+/dr-plugin doctor [--fix]        # diagnose inconsistent state (10 checks)
 /dr-plugin --help                # usage
 ```
+
+## Default-on policy plugins (tdd-enforcement)
+
+`tdd-enforcement` is a **core-owned, metadata-only, default-on** plugin: it
+projects no runtime files and is effectively enabled in every workspace with
+no manifest record. Opt-out is an exact tombstone under a
+`## Disabled Defaults` section in `datarim/enabled-plugins.md`:
+
+```markdown
+## Disabled Defaults
+
+- tdd-enforcement
+```
+
+- `/dr-plugin disable tdd-enforcement` adds the tombstone idempotently;
+  `/dr-plugin enable tdd-enforcement` removes it. Neither touches symlinks.
+- `/dr-plugin list` reports the state as `enabled (default)` or
+  `disabled (default)`.
+- `/dr-plugin sync` treats the plugin as inventory-free and preserves the
+  tombstone; `/dr-plugin doctor` diagnoses malformed sections (check 10).
+- Resolution is stateless and fail-safe: only one exact, unindented entry in
+  one well-formed section yields the relaxed state; everything else resolves
+  to the strict default. Canonical resolver: `scripts/tdd-enforcement-state.sh`
+  (prints `required` | `optional`). Consumers: `commands/dr-do.md` Step 4,
+  `agents/developer.md`, `skills/testing/tdd-discipline.md` § Enforcement
+  Toggle.
+- Trust is bound to the core-owned id: `default_enabled: true` in a
+  third-party `plugin.yaml` grants nothing, and a path-based plugin claiming
+  the reserved id is refused.
 
 ## Implementation
 

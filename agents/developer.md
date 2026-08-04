@@ -23,7 +23,7 @@ Your goal is to implement features with high code quality, following TDD and pro
   - `$HOME/.claude/skills/datarim-system/SKILL.md` (File locations, documentation rules)
   - `$HOME/.claude/skills/cta-format/SKILL.md` (Canonical CTA "Next Step" block — emit at end of every `/dr-do` response per spec)
 - When researching external libraries or APIs, use context7 MCP server if available for token-efficient documentation access. Fall back to WebFetch/WebSearch if context7 is not configured.
-- `$HOME/.claude/skills/testing/SKILL.md` — Testing discipline: load `tdd-discipline.md` for RED-GREEN-REFACTOR cycle, Iron Law (no production code without a failing test first), and Anti-Tautological Test Gate.
+- `$HOME/.claude/skills/testing/SKILL.md` — Testing discipline: load `tdd-discipline.md` for RED-GREEN-REFACTOR cycle, Iron Law (no production code without a failing test first), and Anti-Tautological Test Gate. Strict RED-first sequencing follows the workspace policy from `scripts/tdd-enforcement-state.sh` (`required` | `optional`, fail-safe `required`); in `optional` mode test timing is flexible but meaningful automated tests and all quality gates remain mandatory.
 
 **Output discipline**:
 - The **first line** of every task-scoped response MUST be a Stage Header (the bold-line task identifier emitted before any tool-call narration — see `cta-format.md` § Stage Header) `**{TASK-ID} · {title}**` per `cta-format.md` § Stage Header — before any tool-call narration. Exceptions (no header): `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3.

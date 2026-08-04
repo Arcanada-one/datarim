@@ -1,5 +1,13 @@
 # Evolution Log
 
+## 2026-08-04 -- PRD-amendment sidecars: rejection recorded, branch is not lost work (TUNE-0563)
+
+- **Decision.** The recovered implementation on the orphaned worktree branch `tune-0294-prd-amendment` (HEAD `39a19f4`, "feat: add governed PRD amendments" -- `scripts/lib/prd-amendments.sh`, `dev-tools/check-prd-amendments.sh`, `dev-tools/create-prd-amendment.sh`, `templates/prd-amendment-template.md`, three bats suites, spec-graph wiring) is **deliberately NOT landed**. This is the permanent record; do not re-triage that branch as lost work.
+- **Why.** (1) The current immutability contract already carries the dated, evidence-based decision "Prose amendments stay prose -- decided 2026-08-02" (`skills/immutability/SKILL.md`, landed via PR #325 commit `c33d95b`), which names this exact mechanism and declines it; its revisit trigger (observed amendment usage) has not fired -- 274 PRDs, zero `Design Amendment` sections. (2) The chain ledger anchors an immutability guarantee in gitignored, ephemeral, regenerable `datarim/prd/` -- the substrate contradicts the guarantee. (3) ~600 lines of embedded Python conflict with the pure-shell validator-contract weight class. (4) The bundle smuggles PRD `-vN` revision resolution (`resolve_prd_file`) into every graph consumer as a side effect.
+- **Full ADR:** `datarim/creative/creative-prd-amendment-sidecars-decision.md`. The orphaned worktree directory is the only copy of the implementation and is preserved as the reference should the revisit trigger ever fire; re-landing requires an operator-approved reversal of the 2026-08-02 decision.
+
+---
+
 ## 2026-07-22 -- Public visibility and exact-SHA CI evidence gates (v2.58.0)
 
 Two recurring release failures are now structural gates. A new public repository or private-to-public transition must prove the exact allowlisted tree, all reachable history, unsupported-object absence, redacted policy checks, and an independently hashed secret scan before visibility changes. When GitHub Actions is an acceptance criterion, only the actual target workflow executing successfully on the exact implementation SHA satisfies it; a queued run, zero-runner result, unrelated probe, or follow-up task does not.

@@ -30,6 +30,30 @@ Write the test first. Watch it fail. Write minimal code to pass.
 
 Thinking "skip TDD just this once"? Stop. That's rationalization.
 
+## Enforcement Toggle (workspace policy)
+
+Strict test-first sequencing is a workspace policy resolved at each planning,
+implementation, or developer-agent boundary by the bundled default-on
+`tdd-enforcement` plugin. Resolve it — never infer it from prose or memory:
+
+```bash
+scripts/tdd-enforcement-state.sh   # prints "required" or "optional"
+```
+
+- **`required`** — the default, and the fail-safe for any missing, malformed,
+  or ambiguous policy state: the Iron Law and RED-GREEN-REFACTOR sequencing
+  below apply in full.
+- **`optional`** — the operator disabled the default via the plugin manager
+  (`/dr-plugin disable tdd-enforcement`): you may choose test timing — tests
+  may be written after the implementation. Everything else in this fragment
+  still applies: meaningful automated tests for every behavior change, the
+  Anti-Tautological Test Gate, Definition of Done, security, QA, and
+  compliance gates **remain mandatory**.
+  Optional relaxes ordering only, never test existence.
+
+When in doubt, or when the resolver is unavailable, treat the state as
+`required`.
+
 ## The Iron Law
 
 ```
