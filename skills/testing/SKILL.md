@@ -301,6 +301,9 @@ Load only the fragment needed for the current sub-problem:
 - `triaging-legacy-failures.md`
   Use when inheriting a test suite with pre-existing failures. Three-bucket triage: stale-delete, fixable-patch, rephrase-the-content.
 
+- `concurrency-patterns.md`
+  Use when an agent/service fans one request out over multiple interchangeable endpoints (LLM providers, fallback chains, mirror APIs). Provider-race pattern: bounded worker pool + completion-ordered iteration + first-success short-circuit + alert-only-when-ALL-fail + barrier-based concurrency test, plus the one-cap latency caveat (a join-all wait returns at slowest-attempt latency — the win is correctness/fewer alerts, not speed) and budget sizing (worst case ≤ one per-endpoint cap, not the sum).
+
 ## Reusable Templates
 
 - `${DATARIM_RUNTIME:-$HOME/.claude}/templates/docker-smoke-checklist.md` — 5-step reusable checklist for cross-container smoke (Compose validity → container health → endpoint smoke → end-to-end action with post-conditions → rollback). Reference this when applying the Live Docker Smoke gate.
@@ -314,6 +317,7 @@ Load only the fragment needed for the current sub-problem:
 - Wrapping a CLI / subprocess that exits 0 on error? → `silent-failure-detection.md`.
 - Writing or maintaining bats tests, or regex-asserting markdown prose? → `bats-and-spec-lint.md`.
 - Inherited a red test suite? → `triaging-legacy-failures.md`.
+- Fanning one request out over multiple provider/endpoint alternatives with first-success semantics? → `concurrency-patterns.md` § Provider Race.
 
 ## Why This Skill Is Split
 

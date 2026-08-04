@@ -2,6 +2,7 @@ name: dev-tools-lint
 # Dev-tools lint + fast-feedback bats subset.
 # - bats-self-tests: BLOCKING. Fast subset; see the note on that job.
 # - linter-run:      doc-fanout-lint ERRs block; cross-root WARNs advisory.
+# - dr-auto-reassert-wiring: BLOCKING prose-decay lint (own job, no continue-on-error).
 # - dr-auto-cross-runtime: BLOCKING activation-primitive smoke.
 #
 # This workflow has a `paths:` filter, so it can skip entirely on a PR that
@@ -96,6 +97,23 @@ jobs:
                --config dev-tools/.doc-fanout.yml \
                --allow-cross-root --strict || \
           echo "::warning::doc-fanout-lint reported warnings (cross-root surfaces are expected to be missing in a single-repo CI checkout)"
+
+  dr-auto-reassert-wiring:
+    name: dr-auto reassert-wiring lint (blocking)
+    # The lint's own header promises that "a deterministic CI lint FAILS
+    # (exit 1) the moment that call decays back to advisory prose only". That
+    # promise only holds when the lint runs in a job with no continue-on-error
+    # and no shared steps that can skip it. It previously ran as a trailing
+    # step of `linter-run` — a job that historically carried
+    # `continue-on-error: true`, which made the lint advisory in practice and
+    # contradicted its header. Own blocking job, mirroring the sibling
+    # `dr-auto-cross-runtime` job. Regression:
+    # tests/check-dr-auto-reassert-wiring.bats (workflow-wiring test).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Run dr-auto reassert-wiring lint
         run: bash dev-tools/check-dr-auto-reassert-wiring.sh --root .

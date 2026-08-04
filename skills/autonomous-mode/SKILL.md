@@ -216,6 +216,33 @@ operator.
 
 **Not hard-gated:** infra-side actions on Arcanada-owned resources (SSH, `docker restart`, `git push` on a feature branch, Vault read, Cloudflare API read) — these are permitted per `feedback_autonomous_ops`.
 
+## Independent Compliance on Framework Self-Modification
+
+When an autonomous run's task **modifies the framework the agent itself
+operates under** — its skills, agents, commands, templates, pipeline gates,
+or the rules governing autonomous execution — the compliance stage MUST be
+dispatched to an **independent compliance agent in a clean context**: a
+fresh subagent that carries **no do/qa session history** from the same run.
+
+Rationale: an agent verifying a change to the very rules it is currently
+executing under is subject to self-reflexive bias — it has already accepted
+the change's framing during implementation, so an in-session verification
+tends to re-confirm rather than challenge. A clean-context compliance agent
+reads only the artefacts (PRD, plan, diff, QA report) and the current rule
+set, and judges the change against them without the implementation session's
+accumulated rationalizations.
+
+Operationally:
+
+- The orchestrator spawns the compliance stage as a separate subagent with
+  a fresh context window; it passes artefact paths, never a conversation
+  transcript or a summary of "what we decided during do/qa".
+- This applies to self-modification tasks regardless of complexity level —
+  the trigger is *what* is being changed (the operating rules), not the
+  change's size.
+- For non-self-modification tasks the standard compliance dispatch is
+  unchanged; independence is recommended but not mandatory there.
+
 ## Failure modes
 
 - **Env-var leak**: a parent shell kept `DATARIM_AUTO_MODE=1` set after `/clear`. **Mitigation:** mismatch detection (env var set, marker absent) treats the situation as non-auto and emits a warning. The 24h marker TTL prevents stale leaks from carrying further.
