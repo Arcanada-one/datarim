@@ -82,10 +82,15 @@ USAGE:
 
 COMMANDS:
   list                  Show active plugins (bootstraps datarim-core on first run)
+                        and core-owned default policies (e.g. tdd-enforcement)
   enable <abs-path>     Activate a plugin from an absolute path (git-URL clone deferred — Phase A4)
-  disable <id>          Deactivate a plugin (refuses datarim-core)
+  enable <default-id>   Restore a core-owned default policy (removes its
+                        Disabled Defaults tombstone; touches no symlinks)
+  disable <id>          Deactivate a plugin (refuses datarim-core). For a
+                        core-owned default policy id this records an exact
+                        tombstone under '## Disabled Defaults' instead
   sync                  Reconcile filesystem with manifest
-  doctor [--fix]        Diagnose inconsistent state (9 checks)
+  doctor [--fix]        Diagnose inconsistent state (10 checks)
   --help                Show this message
 
 EXIT CODES:
@@ -192,6 +197,17 @@ cmd_list() {
             }
         }
     ' "$manifest"
+
+    # Core-owned default-on policy plugins (metadata-only, no symlinks).
+    echo
+    echo "Default policies:"
+    local state
+    state="$(disabled_defaults_state "$manifest" tdd-enforcement)"
+    if [ "$state" = "optional" ]; then
+        echo "  - tdd-enforcement         disabled (default)"
+    else
+        echo "  - tdd-enforcement         enabled (default)"
+    fi
 }
 
 # --- enable subcommand ------------------------------------------------------
@@ -334,11 +350,52 @@ _collect_inventory_for() {
     done
 }
 
+# --- trusted default-on policy lifecycle -------------------------------------
+#
+# Handled before ordinary path-based enable and active-record disable logic so
+# external plugins cannot impersonate the trusted default-on policy. The
+# lifecycle only edits the `## Disabled Defaults` tombstone section of the
+# manifest — it never creates, replaces, or deletes runtime symlinks.
+
+_trusted_default_toggle() {
+    # Args: <id> <enable|disable>
+    local id="$1" action="$2"
+    local ws repo manifest
+    ws="$(resolve_workspace)"
+    repo="$(resolve_repo_root "$ws")"
+    manifest="$ws/datarim/enabled-plugins.md"
+    bootstrap_manifest_if_missing "$manifest" "$repo"
+
+    local lock_dir
+    lock_dir="$(_lock_path "$ws")"
+    mkdir -p "$(dirname "$lock_dir")"
+    if ! acquire_plugin_lock "$lock_dir" "$DR_PLUGIN_LOCK_TIMEOUT"; then
+        echo "dr-plugin $action: lock busy: $lock_dir" >&2
+        return 3
+    fi
+    # shellcheck disable=SC2064
+    trap "release_plugin_lock '$lock_dir'" EXIT INT TERM
+
+    if [ "$action" = "disable" ]; then
+        disabled_defaults_add "$manifest" "$id"
+        echo "dr-plugin: $id disabled (default policy opt-out recorded; strict test-first sequencing is now optional — automated tests and quality gates remain mandatory)" >&2
+    else
+        disabled_defaults_remove "$manifest" "$id"
+        echo "dr-plugin: $id enabled (default policy restored; strict test-first sequencing required)" >&2
+    fi
+    return 0
+}
+
 cmd_enable() {
     local src_arg="${1:-}"
     if [ -z "$src_arg" ]; then
         echo "dr-plugin enable: source path required" >&2
         return 64
+    fi
+
+    if is_trusted_default_plugin "$src_arg"; then
+        _trusted_default_toggle "$src_arg" enable
+        return $?
     fi
 
     case "$src_arg" in
@@ -382,6 +439,11 @@ cmd_enable() {
     local id
     id="$(parse_plugin_yaml "$yaml" id)"
     if ! validate_plugin_id "$id"; then
+        return 1
+    fi
+
+    if is_trusted_default_plugin "$id"; then
+        echo "dr-plugin enable: '$id' is a reserved core-owned default-policy id; a path-based plugin cannot claim it" >&2
         return 1
     fi
 
@@ -599,6 +661,11 @@ cmd_disable() {
     fi
     if ! validate_plugin_id "$id"; then
         return 1
+    fi
+
+    if is_trusted_default_plugin "$id"; then
+        _trusted_default_toggle "$id" disable
+        return $?
     fi
 
     local ws repo manifest
@@ -1094,6 +1161,21 @@ _doctor_check_skill_registry() {
     echo "$issues"
 }
 
+_doctor_check_disabled_defaults() {
+    # Check 10: the `## Disabled Defaults` tombstone section (trusted
+    # default-on policy opt-out) must be absent or well-formed. Malformed or
+    # ambiguous state is a warning — the resolver already fails safe to the
+    # stricter policy; the operator should still repair the section.
+    local manifest="$1"
+    local issues=0 line
+    while IFS= read -r line; do
+        [ -n "$line" ] || continue
+        _doctor_emit warning "disabled-defaults: $line (state fails safe to the stricter policy)"
+        issues=$((issues + 1))
+    done < <(disabled_defaults_diagnose "$manifest")
+    echo "$issues"
+}
+
 cmd_doctor() {
     local fix=0
     while [ $# -gt 0 ]; do
@@ -1128,41 +1210,45 @@ cmd_doctor() {
 
     local errors=0 warnings=0 c
 
-    echo "[1/9] manifest-syntax" >&2
+    echo "[1/10] manifest-syntax" >&2
     c="$(_doctor_check_manifest_syntax "$manifest")"
     [ "$c" -gt 0 ] && errors=$((errors + c))
 
-    echo "[2/9] inventory-consistency" >&2
+    echo "[2/10] inventory-consistency" >&2
     c="$(_doctor_check_inventory_consistency "$inv_file" "$runtime")"
     [ "$c" -gt 0 ] && errors=$((errors + c))
 
-    echo "[3/9] broken-symlinks" >&2
+    echo "[3/10] broken-symlinks" >&2
     c="$(_doctor_check_broken_symlinks "$inv_file" "$runtime")"
     [ "$c" -gt 0 ] && errors=$((errors + c))
 
-    echo "[4/9] orphan-files" >&2
+    echo "[4/10] orphan-files" >&2
     c="$(_doctor_check_orphan_files "$inv_file" "$runtime" "$active_ids_padded")"
     [ "$c" -gt 0 ] && warnings=$((warnings + c))
 
-    echo "[5/9] override-integrity" >&2
+    echo "[5/10] override-integrity" >&2
     c="$(_doctor_check_override_integrity "$manifest")"
     [ "$c" -gt 0 ] && errors=$((errors + c))
 
-    echo "[6/9] dependency-graph" >&2
+    echo "[6/10] dependency-graph" >&2
     c="$(_doctor_check_dependency_graph "$manifest")"
     [ "$c" -gt 0 ] && errors=$((errors + c))
 
-    echo "[7/9] git-state" >&2
+    echo "[7/10] git-state" >&2
     c="$(_doctor_check_git_state "$ws" "$manifest")"
     [ "$c" -gt 0 ] && warnings=$((warnings + c))
 
-    echo "[8/9] snapshot-cleanup (>${DR_PLUGIN_SNAPSHOT_AGE_DAYS}d)" >&2
+    echo "[8/10] snapshot-cleanup (>${DR_PLUGIN_SNAPSHOT_AGE_DAYS}d)" >&2
     local old_snaps
     old_snaps="$(_doctor_check_snapshot_cleanup "$ws")"
     [ "$old_snaps" -gt 0 ] && warnings=$((warnings + old_snaps))
 
-    echo "[9/9] skill-registry" >&2
+    echo "[9/10] skill-registry" >&2
     c="$(_doctor_check_skill_registry "$runtime")"
+    [ "$c" -gt 0 ] && warnings=$((warnings + c))
+
+    echo "[10/10] disabled-defaults" >&2
+    c="$(_doctor_check_disabled_defaults "$manifest")"
     [ "$c" -gt 0 ] && warnings=$((warnings + c))
 
     rm -f "$inv_file"
@@ -1188,7 +1274,7 @@ cmd_doctor() {
         echo "dr-plugin doctor: 0 errors, $warnings warning(s)" >&2
         return 1
     fi
-    echo "dr-plugin doctor: clean (9/9 checks passed)" >&2
+    echo "dr-plugin doctor: clean (10/10 checks passed)" >&2
     return 0
 }
 

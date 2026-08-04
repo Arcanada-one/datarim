@@ -6,6 +6,19 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ### Added
 
+- **TUNE-0102 TDD enforcement toggle.** New core-owned, metadata-only,
+  default-on plugin `plugins/tdd-enforcement/` with a stateless workspace
+  resolver `scripts/tdd-enforcement-state.sh` (prints `required` |
+  `optional`, fail-safe `required`). `/dr-plugin disable|enable
+  tdd-enforcement` records/removes an exact tombstone under a backward-safe
+  `## Disabled Defaults` manifest section without touching runtime symlinks;
+  `list` reports `enabled (default)` / `disabled (default)`; `doctor` gains
+  check 10 (`disabled-defaults`). Optional mode relaxes strict RED-first
+  ordering only — meaningful automated tests and all downstream quality
+  gates remain mandatory. Wired into `commands/dr-do.md`,
+  `agents/developer.md`, `skills/testing/tdd-discipline.md` § Enforcement
+  Toggle. Suites: `tests/tdd-enforcement-toggle.bats` (30),
+  `tests/tdd-enforcement-instructions.bats` (10).
 - **Narrative-parity dimension for the repo↔site drift detector.** Opt-in
   `--narrative` flag on `dev-tools/check-repo-site-sync.sh` audits per-artefact
   narrative freshness across the registry `page_bindings`: orphan site pages
@@ -66,6 +79,14 @@ All notable changes to the Datarim framework are documented here. Format follows
   core loader now fails closed (exit 2) instead of silently degrading.
   Regression: `tests/test-fb-rules-core-resolution.bats` (renamed from the
   shim suite).
+
+### Changed
+
+- **TUNE-0563 PRD-amendment sidecars decision recorded.** The recovered
+  machine-validated immutable-sidecar implementation is deliberately NOT
+  landed; the prose amendment contract in `skills/immutability/SKILL.md`
+  stands. ADR: `datarim/creative/creative-prd-amendment-sidecars-decision.md`;
+  permanent rejection record in `documentation/how-to/evolution-log.md`.
 
 ### Fixed
 
