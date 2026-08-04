@@ -20,6 +20,10 @@ setup() {
     FIXTURE_DIR="$(mktemp -d)"
     mkdir -p "${FIXTURE_DIR}/datarim"
     mkdir -p "${FIXTURE_DIR}/documentation/archive/framework"
+    # Ledger-presence guard: the helper now fails CLOSED on a root carrying
+    # neither datarim/tasks.md nor datarim/backlog.md. An empty ledger keeps
+    # every fixture semantically identical (no rows) while satisfying it.
+    : > "${FIXTURE_DIR}/datarim/tasks.md"
 }
 
 teardown() {

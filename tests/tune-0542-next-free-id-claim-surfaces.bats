@@ -43,6 +43,11 @@ setup() {
     FIXTURE_DIR="$(mktemp -d)"
     mkdir -p "${FIXTURE_DIR}/datarim"
     mkdir -p "${FIXTURE_DIR}/documentation/archive/framework"
+    # Ledger-presence guard: the helper now fails CLOSED on a root carrying
+    # neither datarim/tasks.md nor datarim/backlog.md. An empty ledger keeps
+    # every fixture semantically identical (no rows) while satisfying it.
+    # Group E below covers the guard itself with ledger-less fixtures.
+    : > "${FIXTURE_DIR}/datarim/tasks.md"
     # Hermetic by default: neutralise both host-global surfaces.
     export DATARIM_ID_TMUX_SESSIONS=""
     export DATARIM_ID_GIT_REFS=""
@@ -272,7 +277,8 @@ dr-arcanada-RESEARCH-0015"
     for n in 0038 0039 0040 0041 0042 0043 0044 0045 0046 0047 0048 0049; do
         printf '# brief\n' > "${FIXTURE_DIR}/datarim/tasks/CTRL-${n}-task-description.md"
     done
-    # tasks.md / backlog.md deliberately absent — that is the defect.
+    # tasks.md carries no rows (the setup-created ledger is empty) — the
+    # task-description FILENAMES are the only claim surface, which is the defect.
 
     run_helper CTRL "${FIXTURE_DIR}"
     [ "$HSTATUS" -eq 0 ]
@@ -355,4 +361,58 @@ dr-arcanada-RESEARCH-0015"
     run_helper TUNE "${FIXTURE_DIR}"
     [ "$HSTATUS" -eq 0 ]
     [ "$HID" = "TUNE-0004" ]
+}
+
+# ── Group E — fail-CLOSED ledger-presence guard ──────────────────────────────
+#
+# A root carrying neither datarim/tasks.md nor datarim/backlog.md cannot answer
+# the ceiling question; the pre-guard behaviour was a silent, plausible
+# `PREFIX-0001` with exit 0 — against a workspace whose real ceiling could be
+# hundreds of IDs higher. The guard turns both misuse shapes into loud usage
+# errors. The most tempting misuse is passing the datarim/ directory ITSELF
+# (the parameter is literally named DATARIM_ROOT), so that shape gets its own
+# diagnostic hint.
+
+@test "E01: a ledger-less root fails loud (non-zero exit, no ID emitted)" {
+    LEDGERLESS="$(mktemp -d)"
+    # a plain directory with no datarim/ ledger at all
+    run_helper TUNE "${LEDGERLESS}"
+    rm -rf "${LEDGERLESS}"
+    [ "$HSTATUS" -ne 0 ]
+    [ -z "$HID" ]
+    [[ "$HERR" == *"no task ledger"* ]]
+    [[ "$HERR" == *"parent of datarim/"* ]]
+}
+
+@test "E02: passing the datarim/ subdirectory itself fails loud with a parent hint" {
+    # The workspace root (FIXTURE_DIR) is valid — its datarim/tasks.md exists —
+    # but the caller hands over FIXTURE_DIR/datarim. The helper resolves the
+    # ledgers as <given>/datarim/tasks.md, which does not exist, while
+    # <given>/tasks.md DOES — the signature of the subdir misuse.
+    printf -- '- TUNE-0550 · real ceiling row\n' > "${FIXTURE_DIR}/datarim/tasks.md"
+
+    run_helper TUNE "${FIXTURE_DIR}/datarim"
+    [ "$HSTATUS" -ne 0 ]
+    [ -z "$HID" ]
+    [[ "$HERR" == *"no task ledger"* ]]
+    [[ "$HERR" == *"pass its PARENT directory"* ]]
+    # and emphatically NOT the pre-guard silent wrong answer on stdout
+    [[ "$HID" != "TUNE-0001" ]]
+}
+
+@test "E03: the documented invocation against the workspace root still allocates correctly" {
+    printf -- '- TUNE-0550 · ceiling row\n' > "${FIXTURE_DIR}/datarim/tasks.md"
+
+    run_helper TUNE "${FIXTURE_DIR}"
+    [ "$HSTATUS" -eq 0 ]
+    [ "$HID" = "TUNE-0551" ]
+}
+
+@test "E04: a root with only backlog.md (no tasks.md) is a valid ledger" {
+    rm -f "${FIXTURE_DIR}/datarim/tasks.md"
+    printf -- '- TUNE-0007 · backlog row\n' > "${FIXTURE_DIR}/datarim/backlog.md"
+
+    run_helper TUNE "${FIXTURE_DIR}"
+    [ "$HSTATUS" -eq 0 ]
+    [ "$HID" = "TUNE-0008" ]
 }
