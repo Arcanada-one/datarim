@@ -43,6 +43,21 @@ All notable changes to the Datarim framework are documented here. Format follows
   advisory step in the release workflow's classify job, before the
   environment gate can reject a tag opaquely. Regression:
   `tests/check-release-env-policy.bats`.
+
+- **TUNE-0232 — anti-decay regression for the pre-push local-validator
+  checklist.** `tests/tune-0232-prepush-validator-wiring.bats` extracts the
+  "Pre-push local validation (advisory)" section of
+  `skills/security-baseline/SKILL.md` and asserts all three validator
+  invocations (`check-security-policy.sh --validate-yaml`,
+  `check-expectations-checklist.sh --verify`, `actionlint`) appear inside the
+  section itself, not merely elsewhere in the file.
+- **TUNE-0204 — prose-contract regression for the `/dr-plan` stdlib-symbol
+  advisory.** `tests/tune-0204-dr-plan-stdlib-advisory.bats` pins the
+  standard-library symbol/module coverage bullet in `commands/dr-plan.md`:
+  the missing-import surface case (a wrong/renamed stdlib symbol still gets a
+  plan-time flag) and the already-imported pass-silently semantics (a
+  project-grep miss alone must not fail the plan).
+
 ### Fixed
 
 - **TUNE-0553 — `next-free-id.sh` fails CLOSED on a ledger-less root.** The
@@ -63,22 +78,6 @@ All notable changes to the Datarim framework are documented here. Format follows
   `linter-run` job into its own blocking `dr-auto-reassert-wiring` job in
   `dev-tools-lint.yml`, matching its fail-hard header; workflow-wiring
   assertions added to `tests/check-dr-auto-reassert-wiring.bats`.
-
-### Added
-
-- **TUNE-0232 — anti-decay regression for the pre-push local-validator
-  checklist.** `tests/tune-0232-prepush-validator-wiring.bats` extracts the
-  "Pre-push local validation (advisory)" section of
-  `skills/security-baseline/SKILL.md` and asserts all three validator
-  invocations (`check-security-policy.sh --validate-yaml`,
-  `check-expectations-checklist.sh --verify`, `actionlint`) appear inside the
-  section itself, not merely elsewhere in the file.
-- **TUNE-0204 — prose-contract regression for the `/dr-plan` stdlib-symbol
-  advisory.** `tests/tune-0204-dr-plan-stdlib-advisory.bats` pins the
-  standard-library symbol/module coverage bullet in `commands/dr-plan.md`:
-  the missing-import surface case (a wrong/renamed stdlib symbol still gets a
-  plan-time flag) and the already-imported pass-silently semantics (a
-  project-grep miss alone must not fail the plan).
 
 ## [2.62.0] — 2026-08-03
 
@@ -357,7 +356,6 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 - **English-only shipped surface passes cleanly.** Canonical Russian schema/section names and operator-output tokens cited verbatim in `skills/expectations-checklist/SKILL.md` and the RU TTS-normalization examples in `skills/publishing/SKILL.md` (a content-work skill) are now wrapped in `allow-non-ascii` markers, so `check-body-english.sh` reports PASS across the whole `commands`/`skills`/`agents` surface without relying on the validator's advisory tolerance. (TUNE-0480)
 
-
 ## [2.51.1] — 2026-07-09
 
 ### Fixed
@@ -468,7 +466,6 @@ Pre-archive unpushed-commits gate. `/dr-archive` now stops when a touched reposi
 - **`/dr-archive` Step 0.12 — Pre-Archive Unpushed-Commits Gate** — a sibling sub-step of Step 0.1 (not a rewrite). Per touched repo it runs the new detector and, on committed-but-unpushed commits for an in-scope task type, halts with a three-way prompt: Push / Verify cherry-picked or merged elsewhere / Accept loss (recorded in the archive doc Known Outstanding State section, never a silent continue).
 - **`dev-tools/check-unpushed-commits.sh`** — detection helper emitting `stop` / `advisory` / `clean`. Comparison base resolves `@{u}` then `origin/<default-branch>` via `git symbolic-ref` then last-resort `origin/main`; fail-open on an unresolvable base (detached HEAD, no origin, shallow clone) so it never false-STOPs an archive.
 - **`tests/check-unpushed-commits.bats`** — 20 contract cases (trigger set, base-resolution chain, fail-open edge cases, spec-lint of the Step 0.12 prose).
-
 
 ## [2.37.0] — 2026-06-14
 
