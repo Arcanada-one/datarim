@@ -21,7 +21,6 @@
 # Exit codes: 0 success; 64 usage error.
 
 set -euo pipefail
-IFS=$'\n\t'
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/plugin-system.sh
