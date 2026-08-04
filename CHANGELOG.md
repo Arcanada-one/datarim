@@ -60,8 +60,6 @@ All notable changes to the Datarim framework are documented here. Format follows
   plan-time flag) and the already-imported pass-silently semantics (a
   project-grep miss alone must not fail the plan).
 
-<<<<<<< HEAD
-
 ### Removed
 
 - **fb-rules deprecation copy retired** — the one-cycle deprecation copy
@@ -81,9 +79,6 @@ All notable changes to the Datarim framework are documented here. Format follows
   landed; the prose amendment contract in `skills/immutability/SKILL.md`
   stands. ADR: `datarim/creative/creative-prd-amendment-sidecars-decision.md`;
   permanent rejection record in `documentation/how-to/evolution-log.md`.
-
-=======
->>>>>>> origin/main
 
 ### Fixed
 
