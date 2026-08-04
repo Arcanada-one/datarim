@@ -20,6 +20,32 @@ All notable changes to the Datarim framework are documented here. Format follows
   Toggle. Suites: `tests/tdd-enforcement-toggle.bats` (30),
   `tests/tdd-enforcement-instructions.bats` (10).
 
+- **Agent frontmatter gate** — `dev-tools/check-agent-frontmatter.sh`
+  enforces the runtime-agnostic agent contract: `model: inherit` (hardcoded
+  model-generation names FAIL) plus a `metadata.model_tier` drawn from the
+  canonical `tiers:` set in `config/model-tiers.yaml` (parsed at run time,
+  fail-closed on a missing registry). Wired blocking into
+  `.github/workflows/framework-gates.yml` job `frontmatter-schema` alongside
+  the previously-unwired `check-skill-frontmatter.sh`. Regression:
+  `tests/check-agent-frontmatter.bats`.
+- **`wiki/_raw_/` semantic orphan-content check** —
+  `dev-tools/check-wiki-raw-orphans.sh` (standalone per the Validation
+  Discipline, not a datarim-doctor branch): flags raw-dump files whose
+  basename shares zero tokens with their first content heading/line
+  (deterministic basename-vs-heading token-overlap heuristic, pure
+  bash+grep; substring overlap counts; token-less files are skipped, never
+  flagged). `--check` exit 0/1, `--report` detail, no-op exit 0 when the
+  target dir is absent. Regression: `tests/check-wiki-raw-orphans.bats`.
+- **Release environment policy as code** — `.github/environments-policy.yml`
+  declares the `release-auto` / `release-manual` deployment-branch-policy
+  (both must allow the `v*` TAG pattern) with a repo-recreate recipe in its
+  header; `dev-tools/check-release-env-policy.sh` validates the declaration
+  (`--check`) and compares the live policy via `gh api` (`--live`, advisory
+  fail-soft without a token, `--strict` to hard-fail on drift). Wired as an
+  advisory step in the release workflow's classify job, before the
+  environment gate can reject a tag opaquely. Regression:
+  `tests/check-release-env-policy.bats`.
+
 - **TUNE-0232 — anti-decay regression for the pre-push local-validator
   checklist.** `tests/tune-0232-prepush-validator-wiring.bats` extracts the
   "Pre-push local validation (advisory)" section of
@@ -34,6 +60,20 @@ All notable changes to the Datarim framework are documented here. Format follows
   plan-time flag) and the already-imported pass-silently semantics (a
   project-grep miss alone must not fail the plan).
 
+<<<<<<< HEAD
+
+### Removed
+
+- **fb-rules deprecation copy retired** — the one-cycle deprecation copy
+  `plugins/dr-orchestrate/rules/fb-rules.yaml` is deleted; canon stays
+  `dev-tools/rules/fb-rules.yaml`. The plugin shims (`rules_loader.sh`,
+  `action_gate.sh`) drop their inline/plugin-local fallback and resolve
+  core-only (runtime install first, repo-relative core second; explicit
+  `DR_ORCH_FB_RULES` / `DR_AUTONOMY_RULES` overrides unchanged). A missing
+  core loader now fails closed (exit 2) instead of silently degrading.
+  Regression: `tests/test-fb-rules-core-resolution.bats` (renamed from the
+  shim suite).
+
 ### Changed
 
 - **TUNE-0563 PRD-amendment sidecars decision recorded.** The recovered
@@ -41,6 +81,9 @@ All notable changes to the Datarim framework are documented here. Format follows
   landed; the prose amendment contract in `skills/immutability/SKILL.md`
   stands. ADR: `datarim/creative/creative-prd-amendment-sidecars-decision.md`;
   permanent rejection record in `documentation/how-to/evolution-log.md`.
+
+=======
+>>>>>>> origin/main
 
 ### Fixed
 
