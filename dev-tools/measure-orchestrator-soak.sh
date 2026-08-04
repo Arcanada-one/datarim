@@ -14,6 +14,23 @@
 #
 # Exit 0 if rate < threshold (default 0.15), exit 1 if >= threshold or no data,
 # exit 2 on usage error.
+#
+# Threshold derivation (0.15, re-validated after the over-escalation
+# root-cause redesign — see documentation/how-to/evolution-log.md):
+#   The unknown-prompt handler is rule-first: input that substring-matches a
+#   trusted rule at/above the confidence threshold resolves deterministically
+#   with zero LLM involvement (cmd_run.sh resolve_and_route). Every prompt in
+#   the PRD-canonical resolvable reference corpus (the soak driver's
+#   RESOLVED_PROMPTS) carries a rule-matching slash-command literal, so the
+#   expected false-escalate contribution from that corpus is 0. The residual
+#   escalation sources are (a) resolvable phrasings with no rule substring
+#   that the backend chain classifies under-confidently, and (b) backend-chain
+#   outages for such phrasings. 0.15 is retained as headroom for those organic
+#   cases — it is attainable by mechanism, not by backend luck. Prerequisites
+#   for a valid verdict: audit events MUST carry expected_outcome labels
+#   (schema-v2 additive field) and this label-aware formula MUST be the
+#   deployed one — a rate computed without the expected_outcome slice counts
+#   designed escalations as false positives and inflates the rate.
 set -euo pipefail
 
 AUDIT_DIR="${DR_ORCH_AUDIT_DIR:-$HOME/.local/share/datarim-orchestrate}"

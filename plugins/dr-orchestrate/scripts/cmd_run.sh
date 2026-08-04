@@ -121,11 +121,42 @@ execute_selected_action() {
 }
 
 # resolve_and_route <pane_text> <pane_id> <start_ms> — Phase 2 unknown-prompt
-# handler. Calls subagent_resolver.sh, gates on confidence threshold, either
-# emits an audit v2 record with outcome=resolved or routes to escalation.
+# handler. Rule-first: consults the deterministic rule set (semantic_parser)
+# before any subagent inference; a trusted-rule hit at or above the confidence
+# threshold resolves locally with backend_used=rule. Only on rule miss (or a
+# sub-threshold hit) does it call subagent_resolver.sh, gate on the confidence
+# threshold, and either emit an audit v2 record with outcome=resolved or route
+# to escalation. Rationale: the escalate branch is the deterministic catch-all
+# whenever the LLM backend chain is absent, unauthenticated, or under-confident;
+# without the rule-first pass, input that already matches a trusted rule
+# (e.g. a prose-wrapped slash command) false-escalates on every such host.
 resolve_and_route() {
   local text="$1"; local pane="$2"; local start_ms="$3"
   local resolver_json conf action action_kind action_payload backend_used model end_ms dur hint=""
+
+  # --- Rule-first fast path (zero LLM cost, backend-independent) -----------
+  local rule_json rule_conf rule_action
+  rule_json="$(parse "$text")"
+  rule_conf="$(printf '%s' "$rule_json" | jq -r '.confidence // 0')"
+  rule_action="$(printf '%s' "$rule_json" | jq -r '.action // ""')"
+  if [[ -n "$rule_action" ]] \
+    && awk -v c="$rule_conf" -v t="$CONFIDENCE_THRESHOLD" 'BEGIN{ exit !(c+0 >= t+0) }'; then
+    end_ms="$(now_ms)"
+    dur=$(( end_ms - start_ms ))
+    local rule_outcome="resolved" rule_cycle_id
+    rule_cycle_id="$(hash_sha256 "$start_ms:$pane:$text")"
+    if ! execute_selected_action "$rule_action" "$pane" "$rule_cycle_id" "$rule_conf" "$text" 0; then
+      rule_outcome="blocked_execution"
+    fi
+    local rule_evt
+    rule_evt="$(make_event_v2 "$text" "$rule_action" 0 "$dur" "$pane" \
+            "$rule_conf" "" "rule" "" "resolve" "$rule_outcome" "rule_first_hit")"
+    emit "$AUDIT_FILE" "$rule_evt"
+    echo "dr-orchestrate: resolve | action=$rule_action | confidence=$rule_conf | backend=rule | outcome=$rule_outcome"
+    return 0
+  fi
+  # --- Rule miss / sub-threshold hit → subagent inference chain ------------
+
   if [[ -n "$ACTIVE_TASK" ]]; then hint="$(snapshot_hint_for_task "$ACTIVE_TASK" 2>/dev/null || true)"; fi
   if [[ -n "$hint" ]]; then
     resolver_json="$(bash "$DR_ORCH_DIR/scripts/subagent_resolver.sh" resolve --hint "$hint" -- "$text" 2>/dev/null || true)"
