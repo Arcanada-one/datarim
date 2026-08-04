@@ -4,6 +4,10 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [2.63.0] — 2026-08-04
+
 ### Added
 
 - **TUNE-0102 TDD enforcement toggle.** New core-owned, metadata-only,
