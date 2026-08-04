@@ -9,18 +9,33 @@
 #   (2) feature-list parity   count of repo feature dir *.md  vs  site rendered count
 #   (3) footer-SHA staleness  site build-stamp  vs  newer content commits in repo
 #   (4) head-site linkage      site→head-site link  AND  repo README→site link
+#   (5) narrative parity       (opt-in via --narrative) per-artefact narrative
+#                              freshness across the registry `page_bindings`:
+#         (5a) orphan site page — a bound site page whose repo artefact no
+#              longer exists (stale reference to a removed command/skill/agent)
+#         (5b) stale command token — a bound site page cites a slash-command
+#              token (`/<cmd-prefix>-<name>` shape derived from the commands
+#              binding) that has no artefact in the repo commands namespace
+#              AND is no longer mentioned anywhere in the repo artefact
+#              corpus (a retired command kept as a historical note in the
+#              repo is a shared reference, not drift)
+#         (5c) stale flag token — a bound site page cites a `--long-flag`
+#              token that appears in NO repo artefact of any binding (renamed
+#              or removed flag). Deterministic, pure-shell, text-level
+#              heuristics; a flag still present anywhere in the bound artefact
+#              set is accepted to keep the check false-positive-safe.
 #
 # Severity contract (consumed by the auto-task generator): a site that is AHEAD
 # of its repo (newer version) is HIGH — it means the repo-first ordering was
 # violated. All other findings (site behind, stale stamp, missing link, count
-# mismatch) are MEDIUM.
+# mismatch, narrative drift) are MEDIUM.
 #
 # Dependency floor: pure bash + awk + grep + git. No yq, no python — this is a
 # shipped Datarim artifact that must run on any consumer. The registry is parsed
 # with awk (precedent: check-security-policy.sh).
 #
 # Usage:
-#   check-repo-site-sync.sh [--check | --report] [--product <id>] [--root <dir>]
+#   check-repo-site-sync.sh [--check | --report] [--narrative] [--product <id>] [--root <dir>]
 #
 # Exit codes:
 #   0  clean (or all products' sources unavailable / skipped)
@@ -37,13 +52,17 @@ SCRIPT_NAME="check-repo-site-sync.sh"
 MODE="check"            # check | report
 PRODUCT_FILTER=""
 ROOT=""
+NARRATIVE=0             # 1 = also run dimension (5) narrative parity
 
 print_usage() {
     cat <<EOF
-Usage: $SCRIPT_NAME [--check | --report] [--product <id>] [--root <dir>]
+Usage: $SCRIPT_NAME [--check | --report] [--narrative] [--product <id>] [--root <dir>]
 
   --check        exit 0 = all synced, 1 = drift found (default)
   --report       human-readable per-product findings with severity
+  --narrative    also run dimension (5) narrative parity over page_bindings:
+                 orphan site pages, stale slash-command tokens, stale --flag
+                 tokens (removed/renamed references). Opt-in; MEDIUM severity
   --product <id> scope to one registry product id
   --root <dir>   KB root (default: walk up from cwd to find
                  documentation/ecosystem-sync/registry.yml)
@@ -58,6 +77,7 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --check)   MODE="check"; shift ;;
         --report)  MODE="report"; shift ;;
+        --narrative) NARRATIVE=1; shift ;;
         --product) PRODUCT_FILTER="${2:-}"; shift 2 ;;
         --root)    ROOT="${2:-}"; shift 2 ;;
         -h|--help) print_usage; exit 0 ;;
@@ -211,6 +231,141 @@ check_product() {  # $1=product
             add_finding "$p" linkage MEDIUM "repo $readme has no reverse link to $domain"
         fi
     fi
+
+    # (5) narrative parity (opt-in)
+    if [ "$NARRATIVE" -eq 1 ]; then
+        check_narrative "$p" "$repo" "$site"
+    fi
+}
+
+# ---- dimension (5): narrative parity over page_bindings ----
+# Bindings look like `<repo-glob> => <site-glob>`. Two repo-glob shapes are
+# understood: `dir/*.ext` (flat artefacts) and `dir/*/FILE.ext` (one artefact
+# per subdirectory, e.g. a skill folder with its canonical entry file).
+# Site-globs are always flat: `dir/*.ext`.
+
+# Echo one artefact name per line for a repo-glob.
+narrative_repo_names() {  # $1=repo-abs $2=repo_glob
+    local repo="$1" g="$2" dir file d f b
+    case "$g" in
+        */\*/*)  # dir/*/FILE.ext → artefact name is the subdirectory name
+            dir="${g%%/\**}"; file="${g##*/}"
+            [ -d "$repo/$dir" ] || return 0
+            for d in "$repo/$dir"/*/; do
+                [ -f "${d}${file}" ] && basename "$d"
+            done ;;
+        */\*.*)  # dir/*.ext → artefact name is the basename minus extension
+            dir="${g%/*}"
+            [ -d "$repo/$dir" ] || return 0
+            for f in "$repo/$dir"/*."${g##*.}"; do
+                [ -f "$f" ] || continue
+                b="$(basename "$f")"; printf '%s\n' "${b%.*}"
+            done ;;
+    esac
+}
+
+# Echo one page name per line for a site-glob (always dir/*.ext shape).
+narrative_site_names() {  # $1=site-abs $2=site_glob
+    local site="$1" g="$2" dir f b
+    dir="${g%/*}"
+    [ -d "$site/$dir" ] || return 0
+    for f in "$site/$dir"/*."${g##*.}"; do
+        [ -f "$f" ] || continue
+        b="$(basename "$f")"; printf '%s\n' "${b%.*}"
+    done
+}
+
+check_narrative() {  # $1=product $2=repo-abs $3=site-abs
+    local p="$1" repo="$2" site="$3"
+    local bindings b repo_glob site_glob names site_names n
+    bindings="$(printf '%s\n' "$PARSED" | awk -F'\t' -v p="$p" '$1==p && $2=="page_binding" {print $3}')"
+    [ -n "$bindings" ] || return 0
+
+    # Command namespace: names + token prefix from the binding whose repo-glob
+    # lives under a directory literally named `commands`.
+    local cmd_names="" cmd_prefix=""
+    while IFS= read -r b; do
+        [ -n "$b" ] || continue
+        repo_glob="${b%% =>*}"
+        case "$repo_glob" in
+            commands/*|*/commands/*)
+                cmd_names="$(narrative_repo_names "$repo" "$repo_glob")"
+                # token prefix = longest common `<word>-` prefix (e.g. `dr-`)
+                cmd_prefix="$(printf '%s\n' "$cmd_names" | awk -F- 'NF>1 {c[$1"-"]++} END {best=""; for (k in c) if (c[k]>m) {m=c[k]; best=k}; print best}')"
+                ;;
+        esac
+    done <<EOF
+$bindings
+EOF
+
+    # Union of all repo artefact dirs across bindings (flag fallback corpus),
+    # newline-separated so paths are never word-split.
+    local all_artefact_dirs=""
+    while IFS= read -r b; do
+        [ -n "$b" ] || continue
+        repo_glob="${b%% =>*}"
+        n="${repo_glob%%/\**}"
+        [ -d "$repo/$n" ] && all_artefact_dirs="${all_artefact_dirs}${repo}/${n}"$'\n'
+    done <<EOF
+$bindings
+EOF
+
+    # True if $1 occurs as a fixed string anywhere in the artefact corpus.
+    corpus_has() {  # $1=token
+        local tok="$1" d
+        while IFS= read -r d; do
+            [ -n "$d" ] || continue
+            grep -rqF -- "$tok" "$d" 2>/dev/null && return 0
+        done <<EOF2
+$all_artefact_dirs
+EOF2
+        return 1
+    }
+
+    while IFS= read -r b; do
+        [ -n "$b" ] || continue
+        repo_glob="${b%% =>*}"
+        site_glob="${b##*=> }"
+        names="$(narrative_repo_names "$repo" "$repo_glob")"
+        site_names="$(narrative_site_names "$site" "$site_glob")"
+        [ -n "$site_names" ] || continue
+
+        local page page_file tok
+        for page in $site_names; do
+            # (5a) orphan site page → repo artefact removed/renamed
+            if ! printf '%s\n' "$names" | grep -qxF "$page"; then
+                add_finding "$p" narrative MEDIUM "site page ${site_glob%/*}/$page references removed artefact ($repo_glob has no '$page')"
+                continue
+            fi
+            page_file="$site/${site_glob%/*}/$page.${site_glob##*.}"
+
+            # (5b) stale slash-command token. The boundary class before the
+            # `/` excludes path contexts (`dev-tools/<prefix>-x.sh`,
+            # `skills/<prefix>-y/`): a slash-command citation is preceded by
+            # start-of-line, whitespace, or markup — never by a path segment.
+            if [ -n "$cmd_prefix" ] && [ -n "$cmd_names" ]; then
+                for tok in $(grep -ohE -- "(^|[^[:alnum:]_./-])/${cmd_prefix}[a-z0-9][a-z0-9-]*" "$page_file" 2>/dev/null | sed 's|^[^/]*/||' | sed 's/-*$//' | sort -u); do
+                    if ! printf '%s\n' "$cmd_names" | grep -qxF "$tok"; then
+                        # A retired command still narrated in the repo corpus
+                        # (historical note) is a shared reference, not drift.
+                        if ! corpus_has "$tok"; then
+                            add_finding "$p" narrative MEDIUM "site page ${site_glob%/*}/$page cites /$tok — no such command artefact in repo"
+                        fi
+                    fi
+                done
+            fi
+
+            # (5c) stale --flag token: accepted if present anywhere in the
+            # bound artefact corpus; otherwise it is a removed/renamed flag.
+            for tok in $(grep -ohE -- '--[a-z][a-z0-9][a-z0-9-]*' "$page_file" 2>/dev/null | sed 's/-*$//' | sort -u); do
+                if ! corpus_has "$tok"; then
+                    add_finding "$p" narrative MEDIUM "site page ${site_glob%/*}/$page cites flag $tok — not found in any repo artefact"
+                fi
+            done
+        done
+    done <<EOF
+$bindings
+EOF
 }
 
 # ---- main ----

@@ -119,6 +119,79 @@ EOF
     [ "$status" -eq 0 ]
 }
 
+# Helper: extend the fixture for dimension (5) narrative parity. Adds two
+# hyphenated commands (so a `dr-` token prefix is derivable), keeps the
+# rendered feature count in sync, and creates matching bound site pages.
+narrative_fixture() {
+    printf '# run\nRuns things. Supports `--fast` and `--dry` flags.\n' > "$KB/repo/commands/dr-run.md"
+    printf '# stop\nStops things.\n' > "$KB/repo/commands/dr-stop.md"
+    printf '4 commands\n<a href="https://arcanada.one/ecosystem">eco</a>\n' > "$KB/site/features.php"
+    ( cd "$KB/repo" && git add -A && git commit -qm narrative-fixture )
+    mkdir -p "$KB/site/data/commands"
+    printf '<?php // page for /dr-run — use --fast for speed\n' > "$KB/site/data/commands/dr-run.php"
+    printf '<?php // page for /dr-stop\n' > "$KB/site/data/commands/dr-stop.php"
+    printf '<?php // page a\n' > "$KB/site/data/commands/a.php"
+    printf '<?php // page b\n' > "$KB/site/data/commands/b.php"
+}
+
+@test "narrative: synced fixture with bound pages exits 0 under --narrative" {
+    narrative_fixture
+    run bash "$DETECTOR" --check --narrative --root "$KB"
+    [ "$status" -eq 0 ]
+}
+
+@test "narrative: orphan site page (artefact removed) → exit 1 + narrative finding" {
+    narrative_fixture
+    printf '<?php // page for a command that no longer exists\n' > "$KB/site/data/commands/dr-gone.php"
+    run bash "$DETECTOR" --check --narrative --root "$KB"
+    [ "$status" -eq 1 ]
+    run bash "$DETECTOR" --report --narrative --root "$KB"
+    [[ "$output" == *narrative* ]]
+    [[ "$output" == *"removed artefact"* ]]
+}
+
+@test "narrative: stale slash-command token → exit 1 names the token" {
+    narrative_fixture
+    printf '<?php // see also /dr-vanished for details\n' >> "$KB/site/data/commands/dr-run.php"
+    run bash "$DETECTOR" --check --narrative --root "$KB"
+    [ "$status" -eq 1 ]
+    run bash "$DETECTOR" --report --narrative --root "$KB"
+    [[ "$output" == *"/dr-vanished"* ]]
+}
+
+@test "narrative: retired command still narrated in repo corpus is NOT drift" {
+    narrative_fixture
+    printf 'Historical note: replaces the former dr-legacy command.\n' >> "$KB/repo/commands/dr-run.md"
+    ( cd "$KB/repo" && git commit -qam legacy-note )
+    printf '<?php // replaced the former /dr-legacy command\n' >> "$KB/site/data/commands/dr-run.php"
+    run bash "$DETECTOR" --check --narrative --root "$KB"
+    [ "$status" -eq 0 ]
+}
+
+@test "narrative: command token inside a path context is NOT drift" {
+    narrative_fixture
+    printf '<?php // implemented by dev-tools/dr-floor.sh helper\n' >> "$KB/site/data/commands/dr-run.php"
+    run bash "$DETECTOR" --check --narrative --root "$KB"
+    [ "$status" -eq 0 ]
+}
+
+@test "narrative: stale --flag token (in no repo artefact) → exit 1 names the flag" {
+    narrative_fixture
+    printf '<?php // pass --vanished-flag to enable\n' >> "$KB/site/data/commands/dr-run.php"
+    run bash "$DETECTOR" --check --narrative --root "$KB"
+    [ "$status" -eq 1 ]
+    run bash "$DETECTOR" --report --narrative --root "$KB"
+    [[ "$output" == *"--vanished-flag"* ]]
+}
+
+@test "narrative: dimension is opt-in — same drift fixture passes without --narrative" {
+    narrative_fixture
+    printf '<?php // page for a command that no longer exists\n' > "$KB/site/data/commands/dr-gone.php"
+    printf '<?php // see also /dr-vanished and --vanished-flag\n' >> "$KB/site/data/commands/dr-run.php"
+    run bash "$DETECTOR" --check --root "$KB"
+    [ "$status" -eq 0 ]
+}
+
 @test "path traversal in repo_local is rejected (source unavailable, no escape)" {
     sed -i.bak 's|repo_local: repo|repo_local: ../../../../etc|' "$KB/documentation/ecosystem-sync/registry.yml"
     run bash "$DETECTOR" --check --root "$KB"

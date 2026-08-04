@@ -4,19 +4,16 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
-### Removed
-
-- **fb-rules deprecation copy retired** — the one-cycle deprecation copy
-  `plugins/dr-orchestrate/rules/fb-rules.yaml` is deleted; canon stays
-  `dev-tools/rules/fb-rules.yaml`. The plugin shims (`rules_loader.sh`,
-  `action_gate.sh`) drop their inline/plugin-local fallback and resolve
-  core-only (runtime install first, repo-relative core second; explicit
-  `DR_ORCH_FB_RULES` / `DR_AUTONOMY_RULES` overrides unchanged). A missing
-  core loader now fails closed (exit 2) instead of silently degrading.
-  Regression: `tests/test-fb-rules-core-resolution.bats` (renamed from the
-  shim suite).
-
 ### Added
+
+- **Narrative-parity dimension for the repo↔site drift detector.** Opt-in
+  `--narrative` flag on `dev-tools/check-repo-site-sync.sh` audits per-artefact
+  narrative freshness across the registry `page_bindings`: orphan site pages
+  whose repo artefact was removed, stale slash-command tokens with no matching
+  command artefact (a retired command still narrated in the repo corpus is
+  accepted as a shared historical reference), and stale `--flag` tokens found
+  in no repo artefact. Deterministic pure-shell heuristics with a path-context
+  boundary guard; MEDIUM severity; mutation-verified Bats coverage.
 
 - **Agent frontmatter gate** — `dev-tools/check-agent-frontmatter.sh`
   enforces the runtime-agnostic agent contract: `model: inherit` (hardcoded
@@ -58,7 +55,23 @@ All notable changes to the Datarim framework are documented here. Format follows
   plan-time flag) and the already-imported pass-silently semantics (a
   project-grep miss alone must not fail the plan).
 
+### Removed
+
+- **fb-rules deprecation copy retired** — the one-cycle deprecation copy
+  `plugins/dr-orchestrate/rules/fb-rules.yaml` is deleted; canon stays
+  `dev-tools/rules/fb-rules.yaml`. The plugin shims (`rules_loader.sh`,
+  `action_gate.sh`) drop their inline/plugin-local fallback and resolve
+  core-only (runtime install first, repo-relative core second; explicit
+  `DR_ORCH_FB_RULES` / `DR_AUTONOMY_RULES` overrides unchanged). A missing
+  core loader now fails closed (exit 2) instead of silently degrading.
+  Regression: `tests/test-fb-rules-core-resolution.bats` (renamed from the
+  shim suite).
+
 ### Fixed
+
+- **Skill-count drift in shipped docs.** README's skill-catalogue pointer and
+  the CLAUDE.md supporting-fragment-directory count now match the artefacts on
+  disk.
 
 - **TUNE-0553 — `next-free-id.sh` fails CLOSED on a ledger-less root.** The
   allocator silently returned `<PREFIX>-0001` (exit 0) when pointed at a root
