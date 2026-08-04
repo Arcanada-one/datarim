@@ -552,7 +552,7 @@ involve most of the nineteen agents across different stages.
 | **reflecting** | Post-task reflection: lessons learned, evolution proposals, Class A/B gate | /dr-archive (Step 0.5) |
 
 The table above is a representative sample, not the full catalogue — the
-complete list of all 67 skills is in
+complete list of all 68 skills is in
 [`documentation/reference/skills.md`](documentation/reference/skills.md).
 
 Skills are modular. Each one is a directory containing a `SKILL.md` (plus any
