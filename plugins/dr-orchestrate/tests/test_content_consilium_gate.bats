@@ -5,7 +5,8 @@
 SCRIPT_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
 FANOUT="$SCRIPT_DIR/scripts/content_consilium_fanout.sh"
 JUDGE="$SCRIPT_DIR/scripts/content_consilium_judge.sh"
-FB_RULES="$SCRIPT_DIR/rules/fb-rules.yaml"
+# Core canonical — the plugin-local deprecation copy was removed.
+FB_RULES="$SCRIPT_DIR/../../dev-tools/rules/fb-rules.yaml"
 
 setup() {
   export RUN_DIR

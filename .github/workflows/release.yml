@@ -70,6 +70,19 @@ jobs:
             exit 1
           fi
 
+      # Advisory drift check on the declared release environment policy
+      # (.github/environments-policy.yml). Fail-soft by design: the script
+      # exits 0 on missing token/API access and on drift (advisory), so this
+      # step cannot block a release — it validates the declaration file and
+      # surfaces "environment lost the v* tag policy" BEFORE the release job
+      # hits the environment gate and dies with an opaque rejection.
+      - name: Release environment policy drift check (advisory)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          bash dev-tools/check-release-env-policy.sh --check --live \
+            --repo "$GITHUB_REPOSITORY"
+
   release:
     name: build-sign-attest-publish
     needs: [classify]
@@ -81,11 +94,14 @@ jobs:
     # allow deployments from the `v*` tag pattern. This workflow triggers on tag
     # pushes (`on: push: tags`), and a tag is NOT a protected branch — so an
     # environment whose deployment branch policy is "Protected branches only"
-    # rejects every tagged release at job start (~2s, no steps run). IaC'd via
-    # `dev-tools/provision-release-env.sh --repo <owner/name> --env <name> --apply`
-    # (idempotent; add `--reviewers User:<id>` for release-manual) — re-run it
-    # after any environment recreate instead of fixing the policy live via the
-    # API/UI.
+    # rejects every tagged release at job start (~2s, no steps run). The policy
+    # is DECLARED in version control at `.github/environments-policy.yml` (see
+    # its header for the repo-recreate recipe) and drift-checked by the
+    # advisory step in the classify job (`dev-tools/check-release-env-policy.sh`).
+    # Applied via `dev-tools/provision-release-env.sh --repo <owner/name>
+    # --env <name> --apply` (idempotent; add `--reviewers User:<id>` for
+    # release-manual) — re-run it after any environment recreate instead of
+    # fixing the policy live via the API/UI.
     environment:
       name: ${{ (needs.classify.outputs.bump_level == 'major' && 'release-manual') || 'release-auto' }}
     permissions:

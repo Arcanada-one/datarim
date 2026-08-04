@@ -28,7 +28,10 @@ Discipline in `code/datarim/CLAUDE.md`).
 | `check-expectations-checklist.sh` | `commands/dr-qa.md`, `commands/dr-compliance.md`, `commands/dr-archive.md` |
 | `check-deferral-prose.sh` | `commands/dr-qa.md` Layer 3b (advisory), `commands/dr-compliance.md` Step 5c (hard), `commands/dr-archive.md` Step 0.45 |
 | `check-stage-snapshot-on-exit.sh` | `commands/dr-continue.md`, `commands/dr-archive.md`, validator suite |
-| `check-skill-frontmatter.sh` | `/dr-plugin doctor` § skill-registry check |
+| `check-skill-frontmatter.sh` | `/dr-plugin doctor` § skill-registry check, `.github/workflows/framework-gates.yml` job `frontmatter-schema` (blocking) |
+| `check-agent-frontmatter.sh` | `.github/workflows/framework-gates.yml` job `frontmatter-schema` (blocking) — agents must carry `model: inherit` + canonical `metadata.model_tier` |
+| `check-wiki-raw-orphans.sh` | standalone content validator (Validation Discipline) — on-demand KB maintenance over `wiki/_raw_/`; no-op when the dir is absent |
+| `check-release-env-policy.sh` | `.github/workflows/release.yml` classify job (advisory live-drift) — validates `.github/environments-policy.yml` and compares the live GitHub environment deployment-branch-policy |
 | `check-security-policy.sh` | `/dr-qa` ecosystem security gate, `/dr-compliance` |
 | `dr-init-id-lock.sh` | `commands/dr-init.md` Step 4 atomic ID claim; held markers are claim surface 4 for `next-free-id.sh` |
 | `check-seam-integration-boundary.sh` | `commands/dr-plan.md` Phase 4 seam-vs-integration boundary check (advisory; `--strict` exits 3) |

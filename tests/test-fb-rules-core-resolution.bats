@@ -1,11 +1,12 @@
 #!/usr/bin/env bats
-# test-fb-rules-shim.bats — TUNE-0449 Phase 5.2 regression.
-# Verifies the deprecation-window shim contract:
-#   - The old plugin path still resolves the floor when the core path wins.
-#   - When both exist, the core path wins (loader prefers core).
-#   - When only the plugin copy exists (copy-mode / mid-migration), it still resolves.
-#
-# V-AC covered: V-AC-2b (deprecation shim + prefer-core).
+# test-fb-rules-core-resolution.bats — core-only fb-rules resolution regression.
+# The one-cycle deprecation copy (plugins/dr-orchestrate/rules/fb-rules.yaml)
+# and the plugin-local fallback in the shims were removed after consumers
+# resynced to the core path. This suite pins the post-removal contract:
+#   - The plugin copy stays deleted (regression guard against re-introduction).
+#   - The shims resolve ONLY core paths (runtime install first, repo-relative
+#     core second) and honour an explicit DR_ORCH_FB_RULES override.
+#   - The floor/map accessors keep working through the core loader.
 
 setup() {
   export REPO_ROOT
@@ -15,22 +16,22 @@ setup() {
   unset DR_AUTONOMY_RULES
 }
 
-# ── Shim file presence ───────────────────────────────────────────────────────
+# ── Deprecation copy is gone ─────────────────────────────────────────────────
 
-@test "deprecation shim exists at old plugin path" {
-  [ -f "$PLUGIN_ROOT/rules/fb-rules.yaml" ]
+@test "deprecation copy no longer exists at the old plugin path" {
+  [ ! -e "$PLUGIN_ROOT/rules/fb-rules.yaml" ]
 }
 
-@test "shim contains always_gated_floor (data is intact)" {
-  run grep -c 'always_gated_floor' "$PLUGIN_ROOT/rules/fb-rules.yaml"
-  [ "$status" -eq 0 ]
-  [ "$output" -ge 1 ]
+@test "no shipped script references the old plugin fb-rules path" {
+  run grep -rn 'plugins/dr-orchestrate/rules/fb-rules\.yaml' \
+    "$PLUGIN_ROOT/scripts" "$REPO_ROOT/dev-tools" "$REPO_ROOT/scripts" \
+    "$REPO_ROOT/cli"
+  [ "$status" -ne 0 ]
 }
 
 # ── Prefer-core in rules_loader.sh ──────────────────────────────────────────
 
-@test "rules_loader picks core path when DATARIM_RUNTIME is set and core exists" {
-  # With DATARIM_RUNTIME pointing at the repo, the loader resolves the core file.
+@test "rules_loader picks runtime core path when DATARIM_RUNTIME carries it" {
   run bash -c "
     export DATARIM_RUNTIME='$REPO_ROOT'
     unset DR_ORCH_FB_RULES DR_AUTONOMY_RULES
@@ -39,12 +40,14 @@ setup() {
   "
   [ "$status" -eq 0 ]
   [[ "$output" == *"dev-tools/rules/fb-rules.yaml"* ]]
+  [[ "$output" != *"plugins/dr-orchestrate/rules"* ]]
 }
 
-@test "rules_loader falls back to plugin copy when core path is absent" {
+@test "rules_loader resolves repo-relative CORE path when runtime lacks the file" {
   local tmp_runtime
   tmp_runtime="$(mktemp -d)"
-  # tmp_runtime has no dev-tools/rules/fb-rules.yaml → shim triggers.
+  # tmp_runtime has no dev-tools/rules/fb-rules.yaml → the repo-relative
+  # CORE path wins. There is no plugin-local copy to fall back to anymore.
   run bash -c "
     export DATARIM_RUNTIME='$tmp_runtime'
     unset DR_ORCH_FB_RULES DR_AUTONOMY_RULES
@@ -53,11 +56,11 @@ setup() {
   "
   rm -rf "$tmp_runtime"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"plugins/dr-orchestrate/rules/fb-rules.yaml"* ]]
+  [[ "$output" == *"dev-tools/rules/fb-rules.yaml"* ]]
+  [[ "$output" != *"plugins/dr-orchestrate/rules"* ]]
 }
 
-@test "load_always_gated_floor resolves from old plugin path when DR_ORCH_FB_RULES set to it" {
-  export DR_ORCH_FB_RULES="$PLUGIN_ROOT/rules/fb-rules.yaml"
+@test "load_always_gated_floor resolves the floor from the core canonical" {
   run bash "$PLUGIN_ROOT/scripts/rules_loader.sh" load_always_gated_floor
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'index("force_push_drops_commits") != null'
@@ -83,9 +86,9 @@ YAML
   echo "$output" | jq -e 'index("test_sentinel_action") != null'
 }
 
-# ── action_gate.sh prefers core ──────────────────────────────────────────────
+# ── action_gate.sh core-only resolution ──────────────────────────────────────
 
-@test "action_gate.sh prefers core path when DATARIM_RUNTIME is set" {
+@test "action_gate.sh prefers runtime core path when DATARIM_RUNTIME is set" {
   local tmpdir spaces_dir audit_file
   tmpdir="$(mktemp -d)"
   spaces_dir="$tmpdir/spaces"
@@ -109,7 +112,7 @@ YAML
   [ "$status" -eq 0 ]
 }
 
-@test "action_gate.sh falls back to plugin copy when core is absent" {
+@test "action_gate.sh resolves repo-relative CORE path when runtime lacks the file" {
   local tmpdir tmp_runtime spaces_dir audit_file
   tmpdir="$(mktemp -d)"
   tmp_runtime="$tmpdir/nocore"
