@@ -169,3 +169,48 @@ EOF
     run "$GATE" "$REPO_ROOT/templates"
     [ "$status" -eq 0 ]
 }
+
+# -----------------------------------------------------------------------------
+# /dr-compliance caller wiring (anti-decay). The gate is only useful if a
+# pipeline stage actually invokes it: full-file mode for newly-touched runtime
+# files, --diff-only for shared-history files. Behavioural proof of the two
+# modes lives above (T8/T9: --diff-only suppresses pre-existing baseline IDs
+# and catches freshly-added ones; T17: full-file still fails on baseline IDs).
+# These cases pin the wiring prose in commands/dr-compliance.md.
+# -----------------------------------------------------------------------------
+
+DR_COMPLIANCE="$REPO_ROOT/commands/dr-compliance.md"
+
+@test "W1: dr-compliance.md carries the HISTORY-AGNOSTIC GATE step invoking task-id-gate.sh" {
+    [ -f "$DR_COMPLIANCE" ]
+    run grep -c 'HISTORY-AGNOSTIC GATE' "$DR_COMPLIANCE"
+    [ "$status" -eq 0 ]
+    [ "$output" -ge 1 ]
+    run grep -c 'scripts/task-id-gate.sh' "$DR_COMPLIANCE"
+    [ "$status" -eq 0 ]
+    [ "$output" -ge 2 ]
+}
+
+@test "W2: dr-compliance wiring prescribes --diff-only for shared-history files" {
+    run grep -c 'task-id-gate.sh --diff-only' "$DR_COMPLIANCE"
+    [ "$status" -eq 0 ]
+    [ "$output" -ge 1 ]
+    run grep -c 'suppressing pre-existing baseline matches' "$DR_COMPLIANCE"
+    [ "$status" -eq 0 ]
+    [ "$output" -ge 1 ]
+}
+
+@test "W3: dr-compliance wiring prescribes full-file mode for newly-touched runtime files" {
+    run grep -c 'full-file mode' "$DR_COMPLIANCE"
+    [ "$status" -eq 0 ]
+    [ "$output" -ge 1 ]
+    run grep -c 'clean end-to-end, not merely diff-clean' "$DR_COMPLIANCE"
+    [ "$status" -eq 0 ]
+    [ "$output" -ge 1 ]
+}
+
+@test "W4: dr-compliance NON-COMPLIANT routing bound to gate exit 1" {
+    run grep -c 'Exit `1` from either invocation' "$DR_COMPLIANCE"
+    [ "$status" -eq 0 ]
+    [ "$output" -ge 1 ]
+}
