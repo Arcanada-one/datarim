@@ -6,7 +6,13 @@
 #
 # Returns (stdout):  the next free ID in the form PREFIX-NNNN
 # On collision:      auto-bumps to next free, emits a warning to stderr
-# Exit codes:        0 = OK; 1 = usage/validation error, or 4-digit space exhausted
+# Exit codes:        0 = OK; 1 = usage/validation error (incl. a ledger-less
+#                    root — see the fail-closed guard below), or 4-digit space
+#                    exhausted
+#
+# <DATARIM_ROOT> is the WORKSPACE root — the PARENT of datarim/ — never the
+# datarim/ directory itself. A root carrying neither datarim/tasks.md nor
+# datarim/backlog.md fails CLOSED instead of emitting PREFIX-0001.
 #
 # ─────────────────────────────────────────────────────────────────────────────
 # ARCHITECTURE — two jobs, opposite biases, computed from DIFFERENT scans.
@@ -113,6 +119,31 @@ fi
 
 if [[ ! -d "$DATARIM_ROOT" ]]; then
     echo "ERROR: DATARIM_ROOT '${DATARIM_ROOT}' does not exist or is not a directory" >&2
+    exit 1
+fi
+
+# ── ledger-presence guard (fail CLOSED on a ledger-less root) ────────────────
+#
+# DATARIM_ROOT is the WORKSPACE root — the PARENT of datarim/ — so the ledgers
+# live at ${DATARIM_ROOT}/datarim/{tasks.md,backlog.md}. A root that carries
+# neither file cannot answer "how high has anyone counted?": the ceiling scan
+# sees nothing and the allocator would emit a plausible-looking ${PREFIX}-0001
+# with exit 0 — an ID that may already be claimed hundreds of times over in the
+# workspace the caller MEANT to point at. That silent-and-maximally-destructive
+# shape is worse than any loud failure, so a ledger-less root is a usage error.
+#
+# The most tempting misuse is handing over the datarim/ directory itself (the
+# parameter name invites it), so that shape gets its own diagnostic.
+if [[ ! -f "${DATARIM_ROOT}/datarim/tasks.md" && ! -f "${DATARIM_ROOT}/datarim/backlog.md" ]]; then
+    echo "ERROR: no task ledger found under '${DATARIM_ROOT}/datarim/'" >&2
+    echo "       Expected layout: DATARIM_ROOT is the WORKSPACE ROOT (the parent of datarim/)," >&2
+    echo "       carrying datarim/tasks.md and/or datarim/backlog.md." >&2
+    if [[ -f "${DATARIM_ROOT}/tasks.md" || -f "${DATARIM_ROOT}/backlog.md" ]]; then
+        echo "       Hint: '${DATARIM_ROOT}' looks like the datarim/ directory itself —" >&2
+        echo "       pass its PARENT directory instead." >&2
+    fi
+    echo "       Refusing to allocate against a ledger-less root: the result would be a" >&2
+    echo "       plausible ${PREFIX}-0001 that ignores every existing claim." >&2
     exit 1
 fi
 

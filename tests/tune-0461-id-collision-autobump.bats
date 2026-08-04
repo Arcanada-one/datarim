@@ -79,6 +79,10 @@ setup() {
     FIXTURE_DIR="$(mktemp -d)"
     mkdir -p "${FIXTURE_DIR}/datarim"
     mkdir -p "${FIXTURE_DIR}/documentation/archive/framework"
+    # Ledger-presence guard: the helper now fails CLOSED on a root carrying
+    # neither datarim/tasks.md nor datarim/backlog.md. An empty ledger keeps
+    # every fixture semantically identical (no rows) while satisfying it.
+    : > "${FIXTURE_DIR}/datarim/tasks.md"
     # TUNE-0542: next-free-id.sh now also reads two HOST-GLOBAL claim surfaces
     # (live tmux session names, git worktree/branch names). Neutralise them so
     # this spec stays hermetic on a host running dozens of unrelated agents.

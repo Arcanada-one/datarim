@@ -4,6 +4,43 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **TUNE-0553 — `next-free-id.sh` fails CLOSED on a ledger-less root.** The
+  allocator silently returned `<PREFIX>-0001` (exit 0) when pointed at a root
+  carrying neither `datarim/tasks.md` nor `datarim/backlog.md` — including the
+  tempting misuse of passing the `datarim/` directory itself as
+  `DATARIM_ROOT`. Both shapes now exit non-zero with a message naming the
+  expected layout (workspace root = parent of `datarim/`) and a parent-hint
+  for the subdir misuse. Regression: Group E in
+  `tests/tune-0542-next-free-id-claim-surfaces.bats`.
+- **TUNE-0549 — framework hygiene: tracked `documentation/` was gitignored;
+  reassert-wiring lint was advisory.** (1) The blanket `documentation/` ignore
+  rule contradicted the deliberately tracked docs tree (~44 files) and forced
+  `git add -f` on every new doc; the tree is canon, the rule is removed
+  (regression: `tests/tune-0549-framework-hygiene.bats`, using
+  `check-ignore --no-index` because index-aware `check-ignore` never reports
+  tracked files). (2) `check-dr-auto-reassert-wiring.sh` moved out of the
+  `linter-run` job into its own blocking `dr-auto-reassert-wiring` job in
+  `dev-tools-lint.yml`, matching its fail-hard header; workflow-wiring
+  assertions added to `tests/check-dr-auto-reassert-wiring.bats`.
+
+### Added
+
+- **TUNE-0232 — anti-decay regression for the pre-push local-validator
+  checklist.** `tests/tune-0232-prepush-validator-wiring.bats` extracts the
+  "Pre-push local validation (advisory)" section of
+  `skills/security-baseline/SKILL.md` and asserts all three validator
+  invocations (`check-security-policy.sh --validate-yaml`,
+  `check-expectations-checklist.sh --verify`, `actionlint`) appear inside the
+  section itself, not merely elsewhere in the file.
+- **TUNE-0204 — prose-contract regression for the `/dr-plan` stdlib-symbol
+  advisory.** `tests/tune-0204-dr-plan-stdlib-advisory.bats` pins the
+  standard-library symbol/module coverage bullet in `commands/dr-plan.md`:
+  the missing-import surface case (a wrong/renamed stdlib symbol still gets a
+  plan-time flag) and the already-imported pass-silently semantics (a
+  project-grep miss alone must not fail the plan).
+
 ## [2.62.0] — 2026-08-03
 
 ### Changed

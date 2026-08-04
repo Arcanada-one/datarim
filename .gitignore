@@ -24,10 +24,13 @@ node_modules/
 __pycache__/
 *.pyc
 
-# TUNE-0090: framework repo MUST NOT contain documentation/ — that is a consumer-side artefact.
-# Consumer projects write task archives to documentation/archive/ per CLAUDE.md template.
-# Framework workflow state lives in Projects/Datarim/datarim/; security/insights archives in ~/arcanada/documentation/.
-documentation/
+# documentation/ is TRACKED — the docs migration deliberately moved the public
+# Diátaxis tree (tutorials/how-to/reference/explanation) plus framework task
+# archives into this repo, and CLAUDE.md § S4/S10 reference documentation/
+# paths as shipped surfaces. An earlier rule ignored the whole directory as a
+# "consumer-side artefact", which contradicted the tracked tree and forced
+# `git add -f` on every new doc. The tree is canon; do not re-add an ignore
+# rule for it (regression: tests/tune-0549-framework-hygiene.bats).
 
 # TUNE-0164: dr-orchestrate plugin operator config (mode-0600 secrets via secrets_backend.sh).
 # Template ships at plugins/dr-orchestrate/user-config.template.yaml.
