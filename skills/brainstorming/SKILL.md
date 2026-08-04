@@ -57,7 +57,7 @@ digraph brainstorming {
 }
 ```
 
-**The terminal state is invoking writing-plans.** Do NOT invoke other implementation skills (frontend-design, mcp-builder, infra-automation, etc.). The ONLY skill you invoke after brainstorming is `writing-plans`.
+**The terminal state is invoking writing-plans.** Do NOT invoke other implementation skills (frontend-ui, infra-automation, project-init, etc.). The ONLY skill you invoke after brainstorming is `writing-plans`.
 
 ## The Process
 
