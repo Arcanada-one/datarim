@@ -79,6 +79,24 @@ jobs:
       - name: Check every commit maps to a CHANGELOG version section
         run: bash dev-tools/release-ledger-report.sh --check
 
+  frontmatter-schema:
+    name: skill + agent frontmatter schema (blocking)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check skill frontmatter schema
+        run: bash dev-tools/check-skill-frontmatter.sh
+
+      # Agents are runtime-agnostic by contract: `model: inherit` plus a
+      # canonical `metadata.model_tier` from config/model-tiers.yaml. A
+      # hardcoded model-generation name in an agent file silently pins every
+      # consumer to that vendor generation — this gate keeps the surface clean.
+      - name: Check agent frontmatter schema (model inherit + tier)
+        run: bash dev-tools/check-agent-frontmatter.sh
+
   template-path-convention:
     name: template path convention (blocking)
     runs-on: ubuntu-latest
