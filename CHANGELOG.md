@@ -4,6 +4,23 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Narrative-parity dimension for the repo↔site drift detector.** Opt-in
+  `--narrative` flag on `dev-tools/check-repo-site-sync.sh` audits per-artefact
+  narrative freshness across the registry `page_bindings`: orphan site pages
+  whose repo artefact was removed, stale slash-command tokens with no matching
+  command artefact (a retired command still narrated in the repo corpus is
+  accepted as a shared historical reference), and stale `--flag` tokens found
+  in no repo artefact. Deterministic pure-shell heuristics with a path-context
+  boundary guard; MEDIUM severity; mutation-verified Bats coverage.
+
+### Fixed
+
+- **Skill-count drift in shipped docs.** README's skill-catalogue pointer and
+  the CLAUDE.md supporting-fragment-directory count now match the artefacts on
+  disk.
+
 ## [2.62.0] — 2026-08-03
 
 ### Changed
