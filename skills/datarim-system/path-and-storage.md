@@ -58,6 +58,50 @@ printf '%s/datarim\n' "$DR_DIR"
 
 This rule is implemented once, canonically, in `scripts/lib/resolve-datarim-root.sh` — `resolve_datarim_root [start]` echoes the **repo-root** (the parent of the KB-marked `datarim/`), and `assert_not_nested_datarim <root>` rejects a root already inside a `datarim/` (the `datarim/datarim/` nesting vector). Every consumer that needs the KB location (the snapshot writer, `datarim-doctor.sh`, the `dev-tools/check-*.sh` validators) sources this file rather than re-implementing the walk-up — three divergent re-implementations were the root cause of nested directories and a missed `docs→history` migration. The `--root` argument means **repo-root** everywhere.
 
+## Negative-Claim Scope Precondition
+
+Any **negative claim** about the knowledge base — "the KB has no X",
+"no prior art exists", "zero matches for Y" — MUST be grounded in the
+**canonical workspace KB root** (the KB-marked `datarim/` resolved by the
+Path Resolution Rule above at the primary workspace), never in a
+`datarim/` directory observed **inside a git worktree**.
+
+Why: `datarim/` is gitignored, so a freshly created worktree carries only a
+partial skeleton of it — a handful of subdirectories instead of the full
+canonical set, with knowledge-bearing directories (insights, research,
+creative, design) simply absent. A search inside that skeleton returns zero
+matches that *look* like a clean negative result, when in reality the files
+were never there to be searched. Acting on such a false negative means
+re-doing research the KB already contains, or asserting "no prior art" over
+prior art that exists.
+
+**Cheap precondition (run before asserting any negative):** compare the
+KB subdirectory count in the current scope against the canonical root's
+count:
+
+```bash
+ls -d datarim/*/ | wc -l          # current scope
+ls -d "<canonical-root>"/datarim/*/ | wc -l   # canonical workspace KB
+```
+
+If the current scope's count is **lower**, the scope is a partial skeleton
+and is **unfit for negative claims** — re-run the search against the
+canonical root before asserting absence. (A positive match found in a
+worktree skeleton is still valid; only *negative* conclusions are scope-
+sensitive.)
+
+Two companion rules from the same failure class:
+
+- **(a) Search the literal term.** When claiming "X is absent", the search
+  MUST have included the literal term `X` (not only synonyms or adjacent
+  phrasing). A query about a concept that never greps the concept's own
+  name can miss live documents that use it verbatim.
+- **(b) Canonical outranks local.** A canonical document carrying
+  `status: accepted` outranks a project-local note on the same subject.
+  When the two disagree, cite and follow the canonical accepted document;
+  flag the local note for reconciliation rather than treating them as
+  peers.
+
 ## Core Files
 
 - `tasks.md` — active task tracking
