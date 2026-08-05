@@ -46,7 +46,7 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
 4.  **SKILL**: Read `$HOME/.claude/skills/security/SKILL.md` and `$HOME/.claude/skills/testing/SKILL.md`. Also load `$HOME/.claude/skills/immutability/SKILL.md` — read the `/dr-qa Rules` fragment for QA criterion immutability, Layer structure freeze, and Return-to-Source routing.
 5.  **CONTEXT**: Read `datarim/tasks.md` to get the resolved task's implementation plan. Read `datarim/activeContext.md` for current state. Additionally, read `datarim/tasks/{TASK-ID}-init-task.md` if present (mandatory per `$HOME/.claude/skills/init-task-persistence/SKILL.md`): the verbatim operator brief + every append-log block. Any divergence between the operator's stated intent and the implementation MUST be flagged in the QA report § Expectations / § Plain-language summary. Missing init-task is non-blocking — flag as advisory and continue.
 6.  **ACTION**: Execute the verification layers below in order. Layers 1, 2, 3, 4 are the classical multi-layer review; Layer 3b is the expectations-verification gate (runs after Layer 3 when `datarim/tasks/{TASK-ID}-expectations.md` exists). Skip layers whose artifacts do not exist.
-6.5. **APPEND Q&A IF ANY** (mandatory per `$HOME/.claude/skills/init-task-persistence/SKILL.md` § Q&A round-trip contract): for every operator clarification round captured during the review — either operator answer or autonomous agent-decision under FB-1..FB-5 — invoke `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/append-init-task-qa.sh"` to persist the round into `datarim/tasks/{TASK-ID}-init-task.md § Append-log` before emitting the QA report.
+6.5. **APPEND Q&A IF ANY** (mandatory per `$HOME/.claude/skills/init-task-persistence/SKILL.md` § Q&A round-trip contract): for every operator clarification round captured during the review — either operator answer or autonomous agent-decision under FB-1..FB-5 (the Feedback Behaviour rules governing autonomous decisions, [definition](../skills/autonomous-mode/SKILL.md)) — invoke `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/append-init-task-qa.sh"` to persist the round into `datarim/tasks/{TASK-ID}-init-task.md § Append-log` before emitting the QA report.
     -   Write the question, answer, and rationale (when applicable) to temp files first; free-form text MUST come via `--*-file <path>` per Security Mandate § S1.
     -   Required flags: `--root <repo-root> --task {TASK-ID} --stage qa --round <N> --question-file <path> --answer-file <path> --decided-by <operator|agent> --summary "<one-line>"`.
     -   When `--decided-by agent`: `--rationale-file <path>` MUST contain ≥ 50 non-whitespace characters of best-practice rationale. Layer 3b will verify each agent-decision against the implementation.
@@ -156,7 +156,7 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
   - run the success criterion against the implementation and decide one of `met` / `partial` / `missed` / `n-a`;
   - append one line to that item's `#### История статусов` with the canonical format `<ISO> / <local> · /dr-qa · <prior> → <new> · reason: <one-sentence plain ru>`; <!-- allow-non-ascii: literal-russian-field-name-tokens-from-expectations-template -->
   - update the item's `#### Текущий статус` to the new value; <!-- allow-non-ascii: literal-russian-field-name-tokens-from-expectations-template -->
-  - **(Per-wish report contract, mandatory for schema_version=2)** write a detailed per-wish block to `datarim/qa/qa-report-{TASK-ID}.md` per the **Per-Wish Detailed Block Template** below. The block records what was tested + what command was run + what was measured, so the operator can audit «как реализована эта задача, какие тесты + замеры были проведены, какой получен результат» without re-running QA. Evidence_type rules: <!-- allow-non-ascii: literal-russian-field-name-tokens-from-expectations-template -->
+  - **(Per-wish report contract, mandatory for schema_version=2)** write a detailed per-wish block to `datarim/qa/qa-report-{TASK-ID}.md` per the **Per-Wish Detailed Block Template** below. The block records what was tested + what command was run + what was measured, so the operator can audit how the task was implemented, which tests and measurements were run, and what result came back — without re-running QA. Evidence_type rules:
     - `empirical` — block MUST contain a runtime command invocation <!-- gate:example-only -->(curl, bats, pytest, docker exec, sample-tool execution)<!-- /gate:example-only --> + actual stdout/stderr/exit code. Static grep alone does NOT satisfy `empirical`.
     - `measurement` — block MUST contain a numeric value + comparison to expected (e.g. «latency p95 = 87ms < budget 100ms»). Plain prose alone does NOT satisfy `measurement`.
     - `static` — block MAY contain only `grep` / `test -f` / `wc -l` / file-presence checks. Validator emits an advisory warning if ALL wishes in a task are `static` (per `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --all`).
@@ -214,17 +214,17 @@ For every wish item in `## Ожидания`, append one block to the QA report 
 **Команда + результат:**
 ```
 $ {actual command — exact invocation, copy-pasteable}
-{stdout/stderr — abbreviated к first/last 10 lines если длиннее; full output в run.log если применимо;
- для measurement — numeric value на отдельной строке;
- для static — grep output / file existence check;
- для empirical — runtime тест invocation output + exit code}
+{stdout/stderr — abbreviate to first/last 10 lines when longer; full output goes to run.log when applicable;
+ for measurement — the numeric value on its own line;
+ for static — grep output / file existence check;
+ for empirical — runtime test invocation output + exit code}
 Exit code: {N}
 ```
 
 **Verdict:** {met | partial | missed | n-a} — {one-sentence reason citing the measured value vs expected; для measurement — формат «X = {value} {comparison-op} {expected}», e.g. «latency p95 = 87ms < budget 100ms»; для static — «{file-path}:{line} contains {token}»; для empirical — «exit 0 + stdout contains «{marker}»»}.
 ```
 
-**Rationale (operator goal per the original wish-list brief):** «по каждому пункту отчёт о том что было сделано для тестирования и какой получен результат». Каждый wish получает отдельный отчётный блок — 1-к-1 mapping operator-goal → per-goal evidence. Без этого блока Layer 3b verdict снижается до **PASS_WITH_NOTES** с finding `per-wish-block-missing: <wish_id>`.
+**Rationale (operator goal per the original wish-list brief):** «по каждому пункту отчёт о том что было сделано для тестирования и какой получен результат». Each wish gets its own report block — a 1-to-1 mapping from operator goal to per-goal evidence. Without this block the Layer 3b verdict downgrades to **PASS_WITH_NOTES** with finding `per-wish-block-missing: <wish_id>`.
 <!-- /allow-non-ascii-block -->
 
 **Evidence-type contract enforcement (advisory at Layer 3b, hard gate at /dr-compliance):**
@@ -550,7 +550,7 @@ When auto-mode is active (env var `DATARIM_AUTO_MODE=1` AND the matching per-tas
 1. Consults `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode/SKILL.md` § Question Suppression Ladder before any `AskUserQuestion` or equivalent operator prompt at this stage.
 2. Stage-specific suppression hooks:
    - Stage failure routing (back to /dr-do vs proceed with caveats) — resolved through Ladder L2 (re-run test, runtime probe) before L5 escalation.
-   - V-AC ambiguity (partial pass vs full pass) — strict ambiguity rule applies: ≥2 plausible verdicts → L5.
+   - V-AC (verifiable acceptance criterion — an acceptance criterion paired with a concrete runnable check, [definition](../skills/v-ac-feasibility/SKILL.md)) ambiguity (partial pass vs full pass) — strict ambiguity rule applies: ≥2 plausible verdicts → L5.
 3. Discovered gaps → apply L1 Inline Resolution Rule per `skills/autonomous-mode/SKILL.md`; log in `datarim/tasks/{TASK-ID}-auto-inline-log.md` if applied inline.
 4. Hard-gated actions → escalate to operator through Ladder L5; log via `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/append-init-task-qa.sh" --decided-by operator` per `skills/init-task-persistence/SKILL.md` § Q&A round-trip.
 5. Mismatch (env var set, marker absent OR marker contains different TASK-ID) → emit single-line warning, treat as non-auto (fail-safe per `skills/autonomous-mode/SKILL.md` § When this skill is active).

@@ -1,6 +1,6 @@
 # Skills Reference
 
-Datarim includes 68 reusable skill modules. Skills provide rules, patterns, and guidelines loaded on demand by agents and commands. Each skill is a directory under `skills/` containing a `SKILL.md` plus any supporting fragment files.
+Datarim includes 69 reusable skill modules. Skills provide rules, patterns, and guidelines loaded on demand by agents and commands. Each skill is a directory under `skills/` containing a `SKILL.md` plus any supporting fragment files.
 
 Skills are split into two categories:
 - **Reference skills** — rules and patterns the caller applies inline. No `model` field in frontmatter, so they inherit the caller's model. 49 of the 68.
@@ -60,6 +60,7 @@ Alphabetical. "Loaded by" names the commands, agents, or trigger conditions that
 | release-verify | Reference | Consumer-side release verification (sha256 → cosign verify-blob → gh attestation) | on install/update from a GitHub Release |
 | requesting-code-review | Reference | Verify that work meets requirements before merge — used when completing tasks or implementing major features | on demand, before merge |
 | research-workflow | Task | Structured external research methodology, checklist, tool selection | researcher agent in /dr-prd, /dr-do |
+| rotation-runbook | Reference | Credential rotation playbook — consumer inventory, auth-scoped verification, full payload replay, canonical secret paths, rotation log | on demand, for any planned rotation or leak response |
 | seam-vs-integration-boundary | Reference | Plan-time scope-boundary pattern: split a one-liner that bundles a seam/contract concern with an integration/call-site concern, or scope the ACs so the integration is explicitly deferred. Advisory detector `dev-tools/check-seam-integration-boundary.sh` | /dr-plan Phase 4 Component Breakdown |
 | security | Reference | Auth, input validation, data protection | reviewer, security agent |
 | security-baseline | Reference | Canonical S1–S11 security rule reference cited from CLAUDE.md § Security Mandate | plan/qa/compliance/do touching shipped artefacts |
@@ -83,7 +84,7 @@ Alphabetical. "Loaded by" names the commands, agents, or trigger conditions that
 | writing | Task | Content creation and editorial workflow | writer, editor |
 | writing-plans | Reference | Turn a spec or set of requirements for a multi-step task into a written plan, before touching code | on demand, before implementation |
 
-**Distribution:** 49 reference skills (no `model` field — inherit the caller), 19 task skills (explicit `model: inherit`).
+**Distribution:** 50 reference skills (no `model` field — inherit the caller), 19 task skills (explicit `model: inherit`).
 
 ## Loading Hierarchy
 

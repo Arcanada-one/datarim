@@ -577,7 +577,7 @@ The framework ships the PreToolUse guard (`dev-tools/datarim-exec-guard.sh`) tha
    - Resolve archive subdir via `prefix_to_area()` from `scripts/datarim-doctor.sh` (same helper used by Step 1 below).
    - `mkdir -p documentation/archive/<subdir>/snapshots/` if absent.
    - `mv datarim/snapshots/{TASK-ID}.snapshot.md documentation/archive/<subdir>/snapshots/{TASK-ID}-final-stage.md` (move-not-delete — final snapshot is a compact task card, useful for grep-search through the archive).
-   - If snapshot absent → skip without warning (V-AC-9 fallback branch).
+   - If snapshot absent → skip without warning (the fallback branch of verifiable acceptance criterion 9 in the stage-snapshot contract).
    - Contract: `skills/stage-snapshot-writer/SKILL.md` § Outputs; producer side `skills/cta-format/SKILL.md` § Snapshot Emission.
 
 1. **DETERMINE ARCHIVE AREA**:
@@ -611,7 +611,7 @@ The framework ships the PreToolUse guard (`dev-tools/datarim-exec-guard.sh`) tha
      - `### Lessons Learned` — short ≤3-bullet digest; the full text lives in `reflection-{ID}.md`.
      - `### Operator Handoff` — residual technical debt, deferred improvements, configuration steps for the next operator. «всё закрыто» if empty. <!-- allow-non-ascii: literal-russian-archive-section-name-from-template -->
      - `### Related` — Parent PRD / Plan / Reflection / Follow-ups.
-   - The audit addendum carries the technical surface; the top four sections carry the operator-facing answer to «что я просил и что вы сделали». Banlist applies to the prose in the top four sections; tables and YAML mirrors in the addendum MAY be wrapped in `<!-- gate:literal -->` fence when they include ASCII technical terms. <!-- allow-non-ascii: literal-russian-archive-section-name-from-template -->
+   - The audit addendum carries the technical surface; the top four sections carry the operator-facing answer to "what I asked for and what you did". Banlist applies to the prose in the top four sections; tables and YAML mirrors in the addendum MAY be wrapped in `<!-- gate:literal -->` fence when they include ASCII technical terms.
    - **Known Loss Verification Gate (MANDATORY when archive will include any "Known Loss" / "Unrecoverable" / "Content lost" statement):**
      Before recording that any file, section, decision, or piece of work is permanently lost, run the Disaster Recovery Checklist from `$HOME/.claude/skills/evolution/SKILL.md` § Disaster Recovery for Lost Runtime Files. Record in the archive document which channels were checked (grep reflections by filename, compacted session context, cross-references, git history of consumer projects, external backups) and what each returned. If the checklist takes >30 minutes, defer the archive, open a follow-up recovery task, do not record the loss yet. Only after all 5 channels are exhausted may a loss claim enter the archive. Rationale: an archive that records files as "text reconstruction is not possible" after 0 minutes of discovery has historically been recovered 100% in <30 minutes using channels 1-3. Always run the checklist first.
 3. **BACKLOG UPDATE** (if task existed in backlog):
@@ -707,7 +707,7 @@ When auto-mode is active (env var `DATARIM_AUTO_MODE=1` AND the matching per-tas
 
 1. Consults `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode/SKILL.md` § Question Suppression Ladder ([definition](../skills/autonomous-mode/SKILL.md)) before any `AskUserQuestion` or equivalent operator prompt at this stage.
 2. Stage-specific suppression hooks:
-   - Step 0.5 reflection apply gate — Class A L1 proposals applied in-cycle per L1 Inline Resolution Rule ([definition](../skills/autonomous-mode/SKILL.md)); Class B requires L5.
+   - Step 0.5 reflection apply gate — Class A proposals (small, reversible framework edits; Class B are operating-model changes — [definitions](../skills/reflecting/SKILL.md)) applied in-cycle per L1 Inline Resolution Rule ([definition](../skills/autonomous-mode/SKILL.md)); Class B requires L5.
    - Consume `datarim/tasks/{TASK-ID}-auto-inline-log.md` (if present) into Reflection § «Inline-resolved gaps» section.
    - Operator handoff items list — auto-skip items resolved through Ladder during cycle; surface only true L5 escalations.
 3. Discovered gaps → apply L1 Inline Resolution Rule per `skills/autonomous-mode/SKILL.md`; log in `datarim/tasks/{TASK-ID}-auto-inline-log.md` if applied inline.

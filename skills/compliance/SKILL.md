@@ -267,6 +267,6 @@ Render the compliance report via the canonical structure declared in `${DATARIM_
 - Four operator-facing top sections in strict order — «Начальная задача», «Как решили», «Артефакты задачи», «Следующие шаги». <!-- allow-non-ascii: russian-archive-template-section-names-cited-from-template -->
 - An audit addendum under a `---` horizontal rule carrying `### Step-by-step verdicts` (the 7-step per-step table), `### Remaining risks`, `### Related`.
 
-The four top sections answer «что просил оператор» and «что подтвердили / что осталось» in plain Russian — apply the banlist from `skills/human-summary/banlist.txt`. The audit addendum carries the technical surface (status table, risk list, cross-links) and MAY wrap ASCII-heavy lines in `<!-- gate:literal -->` fence. <!-- allow-non-ascii: russian-operator-quoted-archive-section-purpose-cited-from-template -->
+The four top sections answer "what the operator asked for" and "what was confirmed / what remains" in plain Russian — apply the banlist from `skills/human-summary/banlist.txt`. The audit addendum carries the technical surface (status table, risk list, cross-links) and MAY wrap ASCII-heavy lines in `<!-- gate:literal -->` fence.
 
 Save to `datarim/reports/compliance-report-{task_id}.md` if the directory exists, otherwise present in chat. Filename suffix on re-runs: `-v2`, `-v3`, … (one new file per `/dr-compliance` invocation).

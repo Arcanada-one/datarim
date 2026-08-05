@@ -4,7 +4,33 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added
+
+- **TUNE-0112 `rotation-runbook` skill.** New reference skill
+  `skills/rotation-runbook/SKILL.md` — credential-rotation playbook distilled
+  from three real rotation exercises: consumer inventory + secret-store↔producer
+  truth-check, deliberate grace-window choice, auth-scoped revoke/issue
+  verification (false-green trap), full producer-payload replay over minimal
+  probe, canonical secret-store path discipline, rotation-log entry, and
+  leak-response addenda (rotate-before-scrub, local-mirror backup, fresh-clone
+  scrub verification). Deferred activation trigger (≥3 similar tasks) fired.
+  Skill count 68 → 69 across CLAUDE.md / README / skills reference.
+
+### Changed
+
+- **TUNE-0308 outsider-friendly English pass on the shipped surface.** The
+  residual paraphrasable Russian prose hiding behind `allow-non-ascii` markers
+  is now English: agent-facing placeholder instructions inside the per-wish QA
+  fixture and the operator-goal paraphrases in `commands/dr-qa.md`,
+  `commands/dr-init.md`, `commands/dr-archive.md`, `skills/compliance/SKILL.md`,
+  `skills/stage-snapshot-writer/SKILL.md`, and the init-task boilerplate
+  blockquotes in `skills/init-task-persistence/SKILL.md` (the schema-locked
+  placeholder `_(пусто на момент создания)_` and all canonical operator-output
+  tokens stay, per the English-only policy carve-outs). Jargon defined on first
+  use: FB-rules and V-AC glossed with definition links in `commands/dr-qa.md` /
+  `commands/dr-plan.md`, Class A/B glossed in `commands/dr-archive.md`; three
+  circular self-`[definition]` links removed from
+  `skills/autonomous-mode/SKILL.md`. <!-- allow-non-ascii: literal-schema-locked-placeholder-token-cited-verbatim -->
 
 ## [2.63.0] — 2026-08-04
 

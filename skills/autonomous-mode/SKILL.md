@@ -8,7 +8,7 @@ target_aal: 2
 
 # Autonomous Mode — Question Suppression + L1 Inline + Hard-gated Boundary
 
-This skill activates the existing mandates (`documentation/mandates/autonomous-agents.md` FB-1..8 ([definition](../autonomous-mode/SKILL.md)) — eight Feedback Behaviour rules that define how an autonomous agent answers its own questions; `feedback_l1_proposals_close_in_cycle`; `feedback_autonomous_ops`) as **default-on** inside an active `/dr-auto` cycle. It introduces no new rules — it only changes the default from "conditional activation" to "always on while the mode is active".
+This skill activates the existing mandates (`documentation/mandates/autonomous-agents.md` FB-1..8 — eight Feedback Behaviour rules that define how an autonomous agent answers its own questions; `feedback_l1_proposals_close_in_cycle`; `feedback_autonomous_ops`) as **default-on** inside an active `/dr-auto` cycle. It introduces no new rules — it only changes the default from "conditional activation" to "always on while the mode is active".
 
 ## When this skill is active
 
@@ -92,7 +92,7 @@ The live keystroke that carries the bare task-id is a best-effort **nudge**: if
 it is dropped, the marker-read on startup still enters the correct mode. The
 marker is the load-bearing signal; the keystroke is not.
 
-## Question Suppression Ladder ([definition](../autonomous-mode/SKILL.md))
+## Question Suppression Ladder
 
 Before every `AskUserQuestion` call (or any equivalent operator prompt — phrases like "What do you think?" or "Which option should we pick?") the agent **MUST** walk levels L1 → L4 in order. Stop at the **first** level that returns an **unambiguous** answer. Only if L1-L4 all fail to give one → escalate to L5 (the operator).
 
@@ -137,7 +137,7 @@ Questions that require business knowledge go **directly to L5**, with no L1-L4 a
 
 Do not invent a safe default. A future flag "assumed default — confirm at archive" is a separate follow-up after at least three dogfood cycles. Wide-mode operation is an optional separate backlog item and is not part of the current contract.
 
-## L1 Inline Resolution Rule ([definition](../autonomous-mode/SKILL.md))
+## L1 Inline Resolution Rule
 
 This rule applies across **every** stage of a `/dr-auto` cycle: `init`, `prd`, `plan`, `do`, `qa`, `compliance`, `archive` — not only the `/dr-archive` reflection step.
 
