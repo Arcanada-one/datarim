@@ -128,6 +128,18 @@ if [ -d "$LOCAL_DIR" ]; then
     fi
 fi
 
+# Runtime drift check: a runtime symlinked into a feature-worktree serves
+# stale rules to every agent on the host. Blocking — that state must be loud.
+if [ -f "$SCRIPT_DIR/dev-tools/check-runtime-drift.sh" ]; then
+    echo ""
+    echo "Runtime Drift Check:"
+    if bash "$SCRIPT_DIR/dev-tools/check-runtime-drift.sh" --check --claude-dir "${CLAUDE_DIR:-$HOME/.claude}"; then
+        :
+    else
+        ERRORS=$((ERRORS + 1))
+    fi
+fi
+
 # Summary counts
 echo ""
 # Counting rules — one shipped component per unit, NOT every .md on disk:
