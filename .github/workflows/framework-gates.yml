@@ -28,6 +28,24 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  version-tag-parity:
+    name: VERSION has a matching release tag (blocking on main)
+    # A release that never shipped must not look shipped: a release PR that
+    # bumps VERSION+CHANGELOG and merges without the post-merge tag leaves the
+    # repo advertising a version with no tag, no release workflow, no artefacts.
+    # Runs ONLY on the main-push event — on a release PR the bumped VERSION
+    # legitimately precedes the tag, so a pull_request run would always fail.
+    # --wait-seconds tolerates the normal merge→tag window before going red.
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: VERSION ↔ remote tag parity (waits up to 15 min for the tag)
+        run: bash dev-tools/check-version-tag-parity.sh --check --wait-seconds 900 --report
+
   component-counts:
     name: component counts vs disk (blocking)
     runs-on: ubuntu-latest

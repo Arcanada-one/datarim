@@ -4,7 +4,30 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added
+
+- **TUNE-0564 VERSION↔tag parity gate.** `dev-tools/check-version-tag-parity.sh`
+  fails when the version declared in `VERSION` has no matching `v<VERSION>` tag
+  on origin — the silent half-release (bumped manifest, never-pushed tag, no
+  release workflow, no artefacts) that both v2.62.0 and, initially, v2.64.0
+  fell into. Wired as a blocking `framework-gates` job on the main-push event
+  only (a release PR legitimately bumps VERSION before the tag exists), with a
+  15-minute wait window for the normal merge→tag gap. Mutation-tested
+  regression: `tests/check-version-tag-parity.bats`.
+- **TUNE-0565 runtime drift check.** `dev-tools/check-runtime-drift.sh` fails
+  when the agent runtime (`$CLAUDE_DIR/{skills,commands,agents}`) symlinks into
+  a git checkout sitting on a feature branch (or detached off any release tag),
+  or when scopes resolve into different checkouts — the state where every agent
+  on a host silently serves stale rules. Skips copy-mode installs; accepts a
+  release-tag pin. Wired as a blocking step in `validate.sh`. Mutation-tested
+  regression: `tests/check-runtime-drift.bats`.
+
+### Fixed
+
+- **v2.64.0 release completed.** The v2.64.0 cut merged without its annotated
+  tag, so no release pipeline ran; the tag was created on the release commit
+  and the signed release (tarball + SBOM + cosign bundles + provenance) is now
+  published. Audit record: `documentation/release-audit/release-2.64.0.md`.
 
 ## [2.64.0] — 2026-08-05
 
