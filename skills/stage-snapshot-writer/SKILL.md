@@ -81,7 +81,7 @@ size_bytes: 6432
 truncated: false
 ---
 
-<rendered Summary + Gate Results + CTA-блок; ≤ 8192 bytes total file>
+<rendered Summary + Gate Results + CTA block; ≤ 8192 bytes total file>
 ```
 
 ## Exit codes
