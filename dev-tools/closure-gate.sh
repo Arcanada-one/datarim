@@ -158,14 +158,65 @@ done < <(git -C "$ROOT" diff --diff-filter=M --name-only "$MB..$BRANCH" 2>/dev/n
 
 TOTAL_CAND="$(wc -l < "$CANDIDATES" | tr -d ' ')"
 CHECKED=0
+
+# `git grep -F` is NOT a safe fixed-string search: it implements -F by wrapping
+# the pattern in \Q...\E, so a pattern containing a literal \E terminates the
+# quoting early and the remainder is parsed as a regex. Any line mentioning
+# e.g. `yii\base\Exception` or `\ErrorException` therefore silently MISSES and
+# the gate falsely reports landed work as absent from the base. Reproduction:
+#   git grep -qF 'yii\base\Exception' <rev>   -> no match
+#   git show <rev>:<path> | grep -qF '...'    -> match
+# GNU grep -F has no such escape layer, so read the blob and pipe it instead.
+#
+# Pass A checks each candidate against its OWN path in the base — one `git show`
+# per distinct path, which covers the overwhelmingly common case.
+# Pass B takes only the leftovers and makes ONE streaming scan of the whole base
+# tree with `grep -F -f`, so a line that landed under a rename or in a different
+# file is still found (the behaviour `git grep` used to provide). Batching
+# matters: a per-line repo-wide scan is O(lines x files) subprocesses and pushed
+# a 60-line / 1161-file worst case past two minutes.
+PASS_A_LEFTOVERS="$(mktemp)"
+BASE_FILE_CACHE="$(mktemp)"
+trap 'rm -f "$BASE_BLOBS" "$BASE_NAMES" "$BASE_BASENAMES" "$CANDIDATES" "$PASS_A_LEFTOVERS" "$BASE_FILE_CACHE"' EXIT
+
+CUR_PATH=""
 while IFS=$'\t' read -r path line; do
   [ -n "$line" ] || continue
   if [ "$CHECKED" -ge "$MAX_LINES" ]; then break; fi
   CHECKED=$((CHECKED + 1))
-  if ! git -C "$ROOT" grep -qF -- "$line" "$BASE" 2>/dev/null; then
-    MISSING_LINES+=("$path	$line")
+  # candidates are sorted by line, not path, so cache the last blob read
+  if [ "$path" != "$CUR_PATH" ]; then
+    CUR_PATH="$path"
+    git -C "$ROOT" show "$BASE:$path" > "$BASE_FILE_CACHE" 2>/dev/null || : > "$BASE_FILE_CACHE"
+  fi
+  if ! grep -qF -- "$line" "$BASE_FILE_CACHE"; then
+    printf '%s\t%s\n' "$path" "$line" >> "$PASS_A_LEFTOVERS"
   fi
 done < "$CANDIDATES"
+
+if [ -s "$PASS_A_LEFTOVERS" ]; then
+  # One scan of the entire base tree for every leftover line at once.
+  LEFTOVER_PATTERNS="$(mktemp)"
+  BASE_CONTENT="$(mktemp)"
+  FOUND_PATTERNS="$(mktemp)"
+  trap 'rm -f "$BASE_BLOBS" "$BASE_NAMES" "$BASE_BASENAMES" "$CANDIDATES" "$PASS_A_LEFTOVERS" "$BASE_FILE_CACHE" "$LEFTOVER_PATTERNS" "$BASE_CONTENT" "$FOUND_PATTERNS"' EXIT
+
+  cut -f2- < "$PASS_A_LEFTOVERS" | sort -u > "$LEFTOVER_PATTERNS"
+  while IFS= read -r _p; do
+    [ -n "$_p" ] || continue
+    git -C "$ROOT" show "$BASE:$_p" 2>/dev/null || true
+  done < "$BASE_NAMES" > "$BASE_CONTENT"
+
+  # keep only the patterns that DO occur somewhere in the base
+  grep -oF -f "$LEFTOVER_PATTERNS" "$BASE_CONTENT" 2>/dev/null | sort -u > "$FOUND_PATTERNS" || : > "$FOUND_PATTERNS"
+
+  while IFS=$'\t' read -r path line; do
+    [ -n "$line" ] || continue
+    if ! grep -qxF -- "$line" "$FOUND_PATTERNS"; then
+      MISSING_LINES+=("$path	$line")
+    fi
+  done < "$PASS_A_LEFTOVERS"
+fi
 
 # ---------------------------------------------------------------------------
 # 3. The ledger must carry a ROW for the task id — anchored at the start of the
