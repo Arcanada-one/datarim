@@ -4,6 +4,10 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [2.64.0] — 2026-08-05
+
 ### Added
 
 - **TUNE-0112 `rotation-runbook` skill.** New reference skill
@@ -31,6 +35,13 @@ All notable changes to the Datarim framework are documented here. Format follows
   `commands/dr-plan.md`, Class A/B glossed in `commands/dr-archive.md`; three
   circular self-`[definition]` links removed from
   `skills/autonomous-mode/SKILL.md`. <!-- allow-non-ascii: literal-schema-locked-placeholder-token-cited-verbatim -->
+
+### Fixed
+
+- **CI: `dtolnay/rust-toolchain` pin repinned** in
+  `.github/workflows/reusable-security-audit.yml` — the previous SHA was
+  orphaned by an upstream branch rebase and tripped zizmor's impostor-commit
+  (HIGH) audit on every PR.
 
 ## [2.63.0] — 2026-08-04
 
