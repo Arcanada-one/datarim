@@ -1,6 +1,6 @@
 ---
 name: rotation-runbook
-description: Credential rotation playbook — consumer inventory, auth-scoped revoke/issue verification, full payload replay over minimal probe, canonical secret-store paths, rotation log. Load for any planned rotation or leak response.
+description: Credential rotation playbook — consumer inventory, auth-scoped verification, full payload replay, canonical secret paths, rotation log.
 current_aal: 1
 target_aal: 2
 ---
