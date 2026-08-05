@@ -1,5 +1,13 @@
 # Evolution Log
 
+## 2026-08-05 -- rotation-runbook skill: credential-rotation playbook formalized (TUNE-0112)
+
+- **Trigger fired.** The deferred activation condition (three or more similar rotation exercises accumulated) is met: a CI-secret key rotation that surfaced a hidden payload-validation regression (TRANS-0043), an ecosystem-wide credential-leak audit and history scrub (SEC-0001), and a multi-vendor exposed-credential rotation (SEC-0005).
+- **What shipped.** `skills/rotation-runbook/SKILL.md` — seven-step playbook: consumer inventory + secret-store↔producer truth-check, deliberate grace-window choice, auth-scoped revoke/issue verification (false-green trap), full producer-payload replay over minimal probe, canonical secret-store path discipline, rotation-log entry, and leak-response addenda (rotate-before-scrub, local-mirror backup, fresh-clone scrub verification).
+- **Provenance.** Distilled from the three archives above; the reflection lessons are generalized stack-agnostically (no vendor or task IDs in the shipped skill per the history-agnostic gate).
+
+---
+
 ## 2026-08-04 -- PRD-amendment sidecars: rejection recorded, branch is not lost work (TUNE-0563)
 
 - **Decision.** The recovered implementation on the orphaned worktree branch `tune-0294-prd-amendment` (HEAD `39a19f4`, "feat: add governed PRD amendments" -- `scripts/lib/prd-amendments.sh`, `dev-tools/check-prd-amendments.sh`, `dev-tools/create-prd-amendment.sh`, `templates/prd-amendment-template.md`, three bats suites, spec-graph wiring) is **deliberately NOT landed**. This is the permanent record; do not re-triage that branch as lost work.

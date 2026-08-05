@@ -81,9 +81,9 @@ text:
 ```markdown
 # {TASK-ID} — Init-Task (canonical operator brief)
 
-> Контракт: оператор может на любом этапе работы дополнять файл; каждый этап
-> pipeline ОБЯЗАН сверяться с ним и фиксировать в своём выходе любые
-> расхождения.
+> Contract: the operator may amend this file at any stage of the work; every
+> pipeline stage MUST check against it and record any divergence in its own
+> output.
 
 ## Source command
 
@@ -97,8 +97,8 @@ text:
 
 ## Append-log (operator amendments)
 
-> Дополнения добавляются хронологически; каждое — отдельная подпись.
-> Агенты должны читать **весь** append-log, не только верхний блок.
+> Amendments are appended chronologically; each carries its own signature.
+> Agents MUST read the **entire** append-log, not only the top block.
 
 _(пусто на момент создания)_
 ```
