@@ -56,7 +56,15 @@ The framework ships the PreToolUse guard (`dev-tools/datarim-exec-guard.sh`) tha
 ## Stage Header (mandatory)
 
 After Step 2's probe completes and the task ID is known, emit `**{TASK-ID} · {title}**` as the first line of the post-Step-2 message block, per `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header. Do NOT emit the header before the ID is known (before the probe completes). Single occurrence per command invocation.
-3. Append a thin one-liner task line to `tasks.md` and mirror it into `activeContext.md` § Active Tasks. Short English title. `status in_progress`, `priority P3`, `complexity L1` by convention (the fast-lane is for L1-sized work; if the work turns out larger, STOP and recommend `/dr-init` for the full pipeline).
+3. Append a thin one-liner task line to `tasks.md` and mirror it into `activeContext.md` § Active Tasks. Short English title. By convention the fast-lane uses status `in_progress`, priority `P3`, complexity `L1` (it is for L1-sized work; if the work turns out larger, STOP and recommend `/dr-init` for the full pipeline). Emit the bare VALUES in their positional slots — writing the field NAMES into the line (`· status in_progress · priority P3 · complexity L1 ·`) does not match `ONELINER_RE` and fails the doctor:
+
+<!-- gate:history-allowed -->
+```
+- QCK-0000 · in_progress · P3 · L1 · Short English title → tasks/QCK-0000-task-description.md
+```
+<!-- /gate:history-allowed -->
+
+   A completed task does NOT stay in `tasks.md`: when the QCK archives, REMOVE its row (and its `activeContext.md` mirror). `ONELINER_RE` has no `done` status precisely because the single source of truth for completion history is `documentation/archive/`.
 4. Quick KB scan for context: spawn ONE subagent via the Agent tool, using the runtime's CHEAPEST / WEAKEST reasoning tier (vendor-neutral — each runtime resolves its own cheap tier). The subagent does a fast, shallow read of the knowledge base / codebase to locate where the change belongs (or to find what was asked). It returns only the relevant files/context, not a full analysis. This keeps the main (strong) context free and avoids the multi-hour full-analysis path.
 5. Apply the fix (for a fix task) or report the located item (for a search task). The actual edit runs in the main context.
 6. **CLOSURE REACHABILITY GATE** (MANDATORY before Step 7, for every git repository this QCK changed; skip only for a READ-ONLY QCK, which touches no repository). The fast-lane skips PRD, plan, QA and compliance — it does NOT skip the check that the work exists where consumers can reach it. A QCK that edits files on a branch, writes its archive and flips `done` while the branch never lands produces exactly the defect the slow lane's `/dr-archive` Step 0.13 exists to prevent, and produces it faster.

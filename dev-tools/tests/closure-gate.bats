@@ -311,3 +311,68 @@ write_ledger() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"row check skipped"* ]]
 }
+
+# ---------------------------------------------------------------------------
+# `\E` in a landed line (DEV-1770 shape)
+#
+# `git grep -F` implements fixed-string matching by wrapping the pattern in
+# \Q...\E, so a literal \E in the pattern ends the quoting and the remainder is
+# parsed as a regex. Every `\Exception` / `\ErrorException` reference in a PHP
+# repo therefore MISSED, and the gate falsely blocked an archive whose work was
+# demonstrably on main (observed in /dr-archive DEV-1762: 4 of 4 flagged lines
+# contained `\Exception`).
+#
+# These scenarios use the SQUASH-merge shape on purpose: the branch must stay
+# unmerged, otherwise the merge-base advances to the branch tip, the modify
+# diff is empty, and the line check never runs at all.
+# ---------------------------------------------------------------------------
+
+# seed a PHP file on main, then squash-land `landed` content onto main while
+# leaving `feat` unmerged.
+seed_php() {
+  git -C "$REPO" checkout -q main
+  printf '<?php\nuse yii\\web\\HttpException;\n' > "$REPO/error.php"
+  git -C "$REPO" add -A
+  git -C "$REPO" commit -qm "base error view"
+  git -C "$REPO" update-ref refs/remotes/origin/main HEAD
+
+  git -C "$REPO" checkout -qb feat
+  printf 'echo $e instanceof \\yii\\base\\Exception ? 1 : 0;\n' >> "$REPO/error.php"
+  git -C "$REPO" commit -qam "feat: guard non-HTTP exceptions"
+  git -C "$REPO" checkout -q main
+}
+
+@test "backslash-E: a squash-landed line containing \\Exception is found on main" {
+  seed_php
+  printf '<?php\nuse yii\\web\\HttpException;\necho $e instanceof \\yii\\base\\Exception ? 1 : 0;\n' > "$REPO/error.php"
+  git -C "$REPO" commit -qam "squash land"
+  git -C "$REPO" update-ref refs/remotes/origin/main HEAD
+
+  run "$GATE" --root "$REPO" --branch feat
+  [ "$status" -eq 0 ]
+}
+
+@test "backslash-E: a line containing \\Exception that is genuinely ABSENT still fails" {
+  # mutation check — the fix must not turn the gate into a rubber stamp
+  seed_php
+  printf 'unrelated\n' >> "$REPO/base.txt"
+  git -C "$REPO" commit -qam "main advances without the work"
+  git -C "$REPO" update-ref refs/remotes/origin/main HEAD
+
+  run "$GATE" --root "$REPO" --branch feat
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"error.php"* ]]
+}
+
+@test "backslash-E: a line that squash-landed under a DIFFERENT path is still found" {
+  # the path-scoped fast path must fall back to a repo-wide scan
+  seed_php
+  printf '<?php\nuse yii\\web\\HttpException;\necho $e instanceof \\yii\\base\\Exception ? 1 : 0;\n' > "$REPO/views-error.php"
+  rm -f "$REPO/error.php"
+  git -C "$REPO" add -A
+  git -C "$REPO" commit -qm "land under a renamed path"
+  git -C "$REPO" update-ref refs/remotes/origin/main HEAD
+
+  run "$GATE" --root "$REPO" --branch feat
+  [ "$status" -eq 0 ]
+}

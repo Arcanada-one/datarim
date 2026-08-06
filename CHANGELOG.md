@@ -24,6 +24,41 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ### Fixed
 
+
+- **TUNE-0566 closure-gate `\E` false block.** `dev-tools/closure-gate.sh` verified
+  landed lines with `git grep -F`, which implements fixed-string matching by
+  wrapping the pattern in `\Q...\E` — so any pattern containing a literal `\E`
+  ended the quoting early and the remainder was parsed as a regex. Every
+  `\Exception` / `\ErrorException` reference in a PHP repo was therefore
+  invisible to gate 0.13, producing a false "work is not on main" archive block
+  (observed at `/dr-archive DEV-1762`: 4 of 4 flagged lines contained
+  `\Exception`, all of them demonstrably on `main`). The check now reads each
+  blob and pipes it to GNU `grep -F`, which has no such escape layer. Verification
+  is two-pass to keep it fast: per-path first, then ONE batched `grep -F -f` scan
+  of the base tree for the leftovers — a per-line repo-wide scan is
+  O(lines x files) subprocesses and pushed a 60-line / 1161-file case past two
+  minutes (now ~15s). Substring semantics and the rename fallback are unchanged.
+
+- **TUNE-0568 `/dr-quick` emitted a malformed `tasks.md` row.** Step 3 named the
+  field values as prose ("`status in_progress`, `priority P3`, `complexity L1` by
+  convention") without showing the emitted line, so agents interpolated the field
+  NAMES into the row — `· status done · priority P3 · complexity L1 ·` — which
+  does not match `ONELINER_RE`. Every fast-lane row written this way was
+  non-compliant (33 such rows found in one consumer workspace, all of them
+  completed tasks that had also never been removed). Step 3 now shows the exact
+  line shape and states that a completed task's row is REMOVED at archive time,
+  `ONELINER_RE` having no `done` status because completion history lives in
+  `documentation/archive/`.
+
+- **TUNE-0567 deferral-prose line-scoped false positive.**
+  `dev-tools/check-deferral-prose.sh` judged self-infliction per PARAGRAPH, which
+  over-matches on a long single-line bullet: a deferral phrase about file A and an
+  unrelated mention of touched file B share a "paragraph" only because they share
+  a line. Co-occurrence is now narrowed to the SENTENCE when — and only when —
+  both tokens appear on the same line; a basename in the same sentence, on another
+  line of the paragraph, or in a line with no sentence punctuation still blocks
+  exactly as before (fail-open to the paragraph verdict). Sentence boundaries are
+  `. `, `; `, `! `, `? `, so filenames and version numbers stay intact.
 - **v2.64.0 release completed.** The v2.64.0 cut merged without its annotated
   tag, so no release pipeline ran; the tag was created on the release commit
   and the signed release (tarball + SBOM + cosign bundles + provenance) is now
