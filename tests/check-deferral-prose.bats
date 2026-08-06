@@ -271,3 +271,51 @@ EOF
     [ "$status" -eq 2 ]
     [[ "$output" == *"control"* || "$output" == *"ERROR"* ]]
 }
+
+# ---------- sentence-scoped co-occurrence (DEV-1770 second finding) ----------
+#
+# Self-infliction is judged per paragraph, which over-matches on a long
+# single-line bullet: a deferral phrase about file A and an unrelated mention
+# of touched file B share a "paragraph" only because they share a line.
+# Observed at /dr-archive DEV-1762. Narrowing to the sentence must NOT weaken
+# the same-sentence block.
+
+@test "PASS: deferral phrase and touched file are in DIFFERENT sentences of one line" {
+    cat > "$REPORT" <<'EOF'
+## Layer 3b
+The 4 failures in tests/e2e/dev-1590.spec.ts are pre-existing baseline noise. Separately, spaces/aether/runbook.md was updated and verified live.
+EOF
+    run "$SCRIPT" --file "$REPORT" --touched-files "$TOUCHED"
+    [ "$status" -eq 0 ]
+}
+
+@test "BLOCK: deferral phrase and touched file in the SAME sentence still blocks" {
+    cat > "$REPORT" <<'EOF'
+## Layer 3b
+The stale counter in spaces/aether/runbook.md is pre-existing and out of scope. Separately, an unrelated topic follows here.
+EOF
+    run "$SCRIPT" --file "$REPORT" --touched-files "$TOUCHED"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"runbook.md"* ]]
+}
+
+@test "BLOCK: touched file on a DIFFERENT line of the same paragraph still blocks" {
+    # sentence scoping only applies when both tokens share a line; the
+    # paragraph verdict must survive untouched otherwise
+    cat > "$REPORT" <<'EOF'
+## Layer 3b
+The change is out of scope for this cycle.
+It concerns spaces/aether/runbook.md and will not be finished here.
+EOF
+    run "$SCRIPT" --file "$REPORT" --touched-files "$TOUCHED"
+    [ "$status" -eq 1 ]
+}
+
+@test "BLOCK: a line with no sentence punctuation fails OPEN to the paragraph verdict" {
+    cat > "$REPORT" <<'EOF'
+## Layer 3b
+spaces/aether/runbook.md counter is pre-existing and out of scope for now
+EOF
+    run "$SCRIPT" --file "$REPORT" --touched-files "$TOUCHED"
+    [ "$status" -eq 1 ]
+}

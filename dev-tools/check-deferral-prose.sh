@@ -206,6 +206,23 @@ FENCE_MARKER="$(printf '\140\140\140')"
 candidates="$(
     awk -v PHRASES="$PHRASES" -v BN_FILE="$BN_FILE" -v FENCE="$FENCE_MARKER" '
     function lc(s) { return tolower(s) }
+    # True when `a` and `b` occur within the same sentence of line `s`.
+    # Sentences are split on `. `, `; `, `! ` and `? `. A bare `.` is NOT a
+    # boundary, so filenames ("error.php") and version numbers stay intact.
+    # Fail-OPEN: when either token is absent, or the line has no boundary at
+    # all, report same-sentence so the caller keeps the paragraph verdict.
+    function same_sentence(s, a, b,   n, parts, i, seen_a, seen_b) {
+        if (index(s, a) == 0 || index(s, b) == 0) return 1
+        gsub(/[.;!?][ \t]+/, "\001", s)
+        n = split(s, parts, "\001")
+        if (n <= 1) return 1
+        for (i = 1; i <= n; i++) {
+            seen_a = (index(parts[i], a) > 0)
+            seen_b = (index(parts[i], b) > 0)
+            if (seen_a && seen_b) return 1
+        }
+        return 0
+    }
     BEGIN {
         np = 0
         while ((getline line < PHRASES) > 0) {
@@ -275,6 +292,19 @@ candidates="$(
             }
         }
         # Emit one candidate per LINE that contains a deferral phrase.
+        #
+        # Self-infliction is normally judged per PARAGRAPH. That over-matches on
+        # a long single-line bullet, where a deferral phrase about file A and an
+        # unrelated mention of touched file B share one "paragraph" only because
+        # they share one line (observed in /dr-archive DEV-1762: "pre-existing"
+        # described tests/e2e/dev-1590.spec.ts while error.php was named later in
+        # the same line for an unrelated reason).
+        #
+        # So when the phrase and the touched basename are provably in DIFFERENT
+        # sentences of the same line, prefer the sentence-scoped verdict. This
+        # only ever narrows a hit that the paragraph pass already made; a
+        # basename in the same sentence, on another line of the paragraph, or in
+        # a file with no sentence punctuation still blocks exactly as before.
         for (i = 1; i <= total; i++) {
             if (para[i] == 0) continue
             if (quoted[i]) continue   # quoted phrase != self-deferral claim
@@ -282,7 +312,13 @@ candidates="$(
             for (k = 1; k <= np; k++) {
                 if (index(l, phrases[k]) > 0) {
                     p = para[i]
-                    printf("%d\t%s\t%s\t%s\n", i, phrases[k], pbase[p], partid[p])
+                    ebase = pbase[p]
+                    if (ebase != "-" && index(l, lc(ebase)) > 0) {
+                        # both the phrase and the basename occur on THIS line —
+                        # the only case where sentence scoping can be decided.
+                        if (!same_sentence(l, phrases[k], lc(ebase))) ebase = "-"
+                    }
+                    printf("%d\t%s\t%s\t%s\n", i, phrases[k], ebase, partid[p])
                     break
                 }
             }
