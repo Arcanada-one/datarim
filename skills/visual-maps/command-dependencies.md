@@ -28,6 +28,27 @@ graph LR
     dr-compliance -.->|"return-to-source<br>(v2.60.0+)"| dr-qa
 ```
 
+## Task-Spec Entry
+
+`dr-wizard` is an optional staged alternative to answering the discovery
+interview inline; it feeds the requirements stage.
+
+```mermaid
+graph LR
+    dr-wizard --> dr-prd
+```
+
+## Session Handoff
+
+`dr-save` captures the session before the context window is destroyed;
+`dr-continue` replays that artefact in a clean window and routes onward.
+
+```mermaid
+graph LR
+    dr-save --> dr-continue
+    dr-continue --> dr-next
+```
+
 ## Optional at Complexity Levels
 
 | Command | Optional at |
@@ -38,6 +59,7 @@ graph LR
 | `dr-qa` | L1, L2 |
 | `dr-compliance` | L1, L2 |
 | `dr-edit` | L1 |
+| `dr-wizard` | L1, L2 |
 
 ## Entry-Point Commands (no prerequisites)
 
@@ -55,6 +77,11 @@ These commands may be invoked at any time without a prior pipeline stage:
 | `dr-plugin` | extension | Manage plugin system |
 | `dr-orchestrate` | plugin | Self-driving pipeline runner (plugin) |
 | `dr-verify` | quality | Standalone tri-layer verification |
+| `dr-wizard` | requirements | Interactive task-spec wizard (feeds `dr-prd`) |
+| `dr-save` | utility | Capture the session before the context window is destroyed |
+| `dr-continue` | utility | Replay a session artefact in a clean context window |
+| `factcheck` | standalone | Fact-check articles and posts before publication |
+| `humanize` | standalone | Remove AI writing patterns from text |
 
 ## Content Pipeline
 

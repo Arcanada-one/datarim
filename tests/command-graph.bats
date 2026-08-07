@@ -49,3 +49,23 @@ print('ok: all core pipeline commands present')
     [ "$status" -eq 0 ]
     [ "$output" -ge 1 ]
 }
+
+# The Mermaid file is a DERIVED artefact; the YAML is the source of truth.
+# Without this test the pair drifts silently: dr-continue, dr-save and
+# dr-wizard were declared in the YAML with real edges and appeared nowhere in
+# the diagram, while the suite stayed green because the only diagram assertion
+# was a single hardcoded edge.
+@test "every command in command-graph.yaml appears in command-dependencies.md" {
+    run python3 -c "
+import re, yaml
+with open('$GRAPH') as f:
+    cmds = set(yaml.safe_load(f)['commands'])
+text = open('$MERMAID').read()
+# Not every command is dr-prefixed: the standalone content utilities
+# (factcheck, humanize) carry no prefix, so match each declared name.
+missing = sorted(c for c in cmds if not re.search(r'\b' + re.escape(c) + r'\b', text))
+assert not missing, 'declared in command-graph.yaml but absent from the diagram: ' + ', '.join(missing)
+print(f'ok: all {len(cmds)} graph commands present in the derived diagram')
+"
+    [ "$status" -eq 0 ]
+}
