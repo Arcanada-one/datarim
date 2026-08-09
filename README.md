@@ -2,7 +2,7 @@
 
 **A universal iterative workflow framework for AI-assisted project execution — from requirements to completion.**
 
-[![Version: 2.64.0](https://img.shields.io/badge/Version-2.64.0-green.svg)](VERSION)
+[![Version: 2.65.0](https://img.shields.io/badge/Version-2.65.0-green.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Arcanada-one/datarim/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Arcanada-one/datarim)
 
@@ -63,7 +63,7 @@ graph LR
     style archive fill:#868e96,stroke:#333,color:#fff
 ```
 
-Reflection runs automatically inside `archive` as mandatory Step 0.5 (since v1.10.0, TUNE-0013).
+Reflection runs automatically inside `archive` as mandatory Step 0.5 since v1.10.0.
 
 ### Complexity Routing (ASCII)
 
@@ -107,14 +107,13 @@ Stages in `[brackets]` are conditional — included when the agent determines th
 
 - **8-stage complexity-aware pipeline** — tasks flow through exactly the stages they
   need. No unnecessary ceremony for simple fixes, full rigor for major changes.
-  Reflection runs automatically inside `archive` as mandatory Step 0.5 (v1.12.0,
-  TUNE-0013).
+  Reflection runs automatically inside `archive` as mandatory Step 0.5.
 
 - **Backlog management** — two-file architecture for task tracking. Active items in
   `backlog.md`, completed history in `backlog-archive.md`. Pick tasks from backlog
   with `/dr-init` or add new ones as you work.
 
-- **Plugin system (v1.23.0+, TUNE-0101)** — opt-in extension mechanism. `datarim-core`
+- **Plugin system (v1.23.0+)** — opt-in extension mechanism. `datarim-core`
   ships built-in; additional skills/agents/commands/templates are enabled via
   `/dr-plugin enable <source>` against a `plugin.yaml` manifest. Runtime symlinks
   per-plugin namespace under `~/.claude/<category>/<plugin-id>/`; root-position via
@@ -587,7 +586,7 @@ same name.
 | `/dr-doctor` | Maintenance | Diagnose and repair Datarim operational files — migrate to thin one-liner schema, externalize task descriptions, abolish progress.md. |
 | `/dr-dream` | Maintenance | Knowledge base maintenance: organize files, build index, cross-reference, flag contradictions, archive stale content. |
 | `/dr-optimize` | Maintenance | Audit framework health, prune unused components, merge duplicates, fix references, sync documentation. |
-| `/dr-plugin` | Maintenance | Manage opt-in plugins (v1.23.0+, TUNE-0101). `list/enable/disable/sync/doctor` over a manifest-driven runtime. Symlinks plugin sources into `~/.claude/{cat}/{plugin-id}/` namespaces; supports root-position `overrides:`; pre-mutation snapshot/rollback. |
+| `/dr-plugin` | Maintenance | Manage opt-in plugins (v1.23.0+). `list/enable/disable/sync/doctor` over a manifest-driven runtime. Symlinks plugin sources into `~/.claude/{cat}/{plugin-id}/` namespaces; supports root-position `overrides:`; pre-mutation snapshot/rollback. |
 | `/dr-orchestrate` | Maintenance | Self-driving pipeline runner. The command and its autonomy policy are core; the tmux/bot transport runner is the opt-in `dr-orchestrate` plugin. Whitelisted actions only, JSONL audit, hard-gated floor. |
 | `/dr-quick` | Any | Fast lane for trivial fixes and quick lookups — assigns a `QCK-XXXX` id, scans the knowledge base, applies the change, writes a short archive. Skips PRD, plan, design, QA, and compliance. |
 | `/dr-status` | Any | Check current task status, pipeline progress, and backlog summary. |

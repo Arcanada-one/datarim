@@ -234,7 +234,7 @@ residue. It never commits, pushes, or deletes outside a rename. Take a backup be
 
 ### Pre-Spawn ID-Claim Probe
 
-When a PRD's «Spawned Backlog Items» table assigns sequential IDs to a batch <!-- gate:history-allowed -->(e.g. `XYZ-0011..XYZ-0015`)<!-- /gate:history-allowed -->, probe ALL THREE claim surfaces before finalising the assignment — do not rely on an archive-only «next free» calculation captured at `/dr-init` time.
+When a PRD's «Spawned Backlog Items» table assigns sequential IDs to a batch (for example, a contiguous `<PREFIX>-NNNN` range), probe ALL THREE claim surfaces before finalising the assignment — do not rely on an archive-only «next free» calculation captured at `/dr-init` time.
 
 **Required surfaces:**
 

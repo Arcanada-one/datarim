@@ -326,9 +326,7 @@ To post a real comment under a channel post:
 4. **Reply in discussion group:** `comment = sendMessage(linked, reply_to_message_id=forwarded_msg_id, text=…)`.
 5. **Post-publish verification gate (MANDATORY):** `assert comment.message_thread_id == forwarded_msg_id`. If not equal, the comment landed in the WRONG thread (some unrelated supergroup msg whose id happened to collide with `forwarded_msg_id`'s coordinate). Immediately `deleteMessage(linked, comment.message_id)` and re-run step 3 — auto-forward likely hadn't arrived yet. Do NOT proceed without this check.
 
-<!-- gate:history-allowed -->
-**Anti-patterns (concrete failure modes — verified 2026-05-20, CONTENT-0050 round 12 bug):**
-<!-- /gate:history-allowed -->
+**Anti-patterns (concrete failure modes verified in a production incident):**
 
 - ❌ `reply_to_message_id = channel_msg.message_id` against the supergroup. `reply_to_message_id` is resolved in the **target chat's** namespace. In the supergroup namespace `channel_msg.message_id` points to whatever supergroup message happens to have that id — almost certainly NOT the auto-forwarded copy. Real failure: channel post 95 was auto-forwarded as supergroup msg 167; `reply_to=95` resolved to a stale supergroup msg in the part-2 thread → `message_thread_id=93` → comment invisible under channel post 95.
 - ❌ Using `copyMessage(chat_id=supergroup, from_chat_id=supergroup, message_id=N)` as the "is the post forwarded?" probe. This returns success whenever supergroup msg N exists (regardless of whether N is an auto-forward or a regular user message). It also returns the **new copy** id, not the auto-forward id. Use the `getUpdates` discovery loop above — it is the only Bot-API path that yields the auto-forward msg id.
@@ -337,9 +335,7 @@ To post a real comment under a channel post:
 
 Caching: `linked_chat_id` is stable per channel — store it in credentials alongside the channel `chat_id` so step 1 runs once, not per publish.
 
-<!-- gate:history-allowed -->
-**Test-channel smoke before prod (mandatory for new publisher code / first run after refactor):** before commenting on prod posts, replay the full sequence in `chat_id=-1003855619081` (Arcanada Test Channel) → `chat_id=-1003929851152` (Arcanada Test Comments). Reference smoke script: `/tmp/tg-smoke-correct-comment.py` (CONTENT-0050). Pass criterion: returned `comment.message_thread_id == forwarded_msg_id`.
-<!-- /gate:history-allowed -->
+**Test-channel smoke before prod (mandatory for new publisher code / first run after refactor):** before commenting on production posts, replay the full sequence using the configured test channel and test comments group. Pass criterion: returned `comment.message_thread_id == forwarded_msg_id`.
 
 ## Post title — first line of the body on every platform
 

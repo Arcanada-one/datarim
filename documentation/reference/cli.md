@@ -150,5 +150,5 @@ Self-explanatory.
 
 ## Related
 
-- PRD: `prd/PRD-TUNE-0271.md` (Phase 3) + `prd/PRD-TUNE-0268.md` (epic)
-- Plan: `plans/TUNE-0271-plan.md`
+- Command contract: `commands/dr-orchestrate.md`
+- Operator guide: `documentation/how-to/multi-runtime.md`
