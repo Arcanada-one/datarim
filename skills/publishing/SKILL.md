@@ -440,6 +440,16 @@ re-publishing, editing, or adding a corrective comment.
   `docs/how-to/blog-audio-narration.md` carries the matching operational JSON example;
   verify both committed versions before claiming cross-repository parity. Do not
   claim CLI enforcement until a validator actually ships.
+- **Operator-directed site-first review exception.** If the operator explicitly
+  instructs the agent to publish fresh narration to an Arcanada first-party
+  website so the operator can listen there, the site may receive the new MP3
+  before proof-listening. Keep the campaign and receipt `REVIEW_REQUIRED` /
+  `PENDING`, expose the exact live player URL, and do not describe the audio as
+  approved. This exception is limited to the first-party site as the review
+  surface; it does not authorize sending an unreviewed narration-backed MP4 to
+  Telegram, X, LinkedIn, Facebook, VK, YouTube, or another social destination.
+  After the operator confirms the live-site listen, finish the receipt and run
+  the normal Publisher gates before social publication.
 - **Chunking:** keep chunks small (<=600 chars, not the 900 default) — long chunks raise Silero's length-limit 500 even after a split. The chunker self-heals by recursively halving, but small chunks avoid the wasted retry rounds.
 - **Cache:** re-voiced MP3s live on Cloudflare R2 with a 1-year `immutable` cache. After overwriting an audio asset you MUST purge the Cloudflare cache for those URLs (and the listener should hard-refresh the browser), or the old narration keeps playing. Same rule as any content edit — see § Website Publishing.
 
