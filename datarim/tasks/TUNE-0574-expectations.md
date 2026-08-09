@@ -71,20 +71,22 @@ parent_prd: datarim/prd/PRD-TUNE-0574.md
   - #### История статусов
     - 2026-08-09T13:52:54Z / 13:52 UTC · /dr-prd · pending → pending · reason: captured from the operator brief release requirement
     - 2026-08-09T15:22:14Z / 15:22 UTC · /dr-qa · pending → pending · reason: implementation is merge-ready; protected framework merge and release are downstream gates not yet reached
+    - 2026-08-09T16:48:00Z / 16:48 UTC · /dr-qa · pending → met · reason: protected PR 352 merged to c0e283eb22b9b052197f93f96ab165e833b9e17f, tag v2.65.0 targets that commit, release run 31322665918 attempt 2 succeeded, and all five release artifacts passed checksum, signature, attestation, SBOM, and version verification
   - #### Текущий статус
-    - pending
+    - met
 
 - **6. The semantic hook probe and released runtime are verified on all three machines.**
   - wish_id: fleet-three-machine-readback
-  - Что хочу проверить: arcana-devs, dev-ai, and aether carry the released framework and per-user runtime, pass drift/readback checks, and return the semantic marker from the installed hook; the gated Aether fork remains untouched.
+  - Что хочу проверить: The primary canonical runtime, secondary canonical runtime, and secondary per-user runtime carry the release, pass drift/readback checks, and return the semantic marker from the installed hook; the separately gated project checkout remains untouched.
   - Как проверить (success criterion): Exact commands, exit codes, version/ref hashes, drift output, and `grep -F 'missing read targets fail closed' ~/.local/bin/coworker-hook-guard` output are recorded separately for all three machines.
   - Связанный AC из PRD: V-AC-5
   - evidence_type: empirical
   - #### История статусов
     - 2026-08-09T13:52:54Z / 13:52 UTC · /dr-prd · pending → pending · reason: captured from the operator brief fleet Definition of Done
     - 2026-08-09T15:22:14Z / 15:22 UTC · /dr-qa · pending → pending · reason: the semantic probe is implemented and locally verified; three-machine release sync is a downstream gate not yet reached
+    - 2026-08-09T16:48:00Z / 16:48 UTC · /dr-qa · pending → met · reason: the three current named runtime surfaces resolve to the primary canonical checkout, the secondary canonical checkout, and its per-user runtime; all carry c0e283eb22b9b052197f93f96ab165e833b9e17f and version 2.65.0, pass all ten scanner calls, and return the semantic hook marker while the separately gated project checkout retained its original commit
   - #### Текущий статус
-    - pending
+    - met
 
 - **7. Full verification, independent compliance, and lifecycle closure are complete.**
   - wish_id: complete-quality-and-archive
@@ -95,9 +97,20 @@ parent_prd: datarim/prd/PRD-TUNE-0574.md
   - #### История статусов
     - 2026-08-09T13:52:54Z / 13:52 UTC · /dr-prd · pending → pending · reason: captured from the operator brief Definition of Done
     - 2026-08-09T15:22:14Z / 15:22 UTC · /dr-qa · pending → pending · reason: local QA and independent review pass; framework delivery, release, fleet readback, and archive remain downstream gates
+    - 2026-08-09T16:48:00Z / 16:48 UTC · /dr-qa · pending → met · reason: 3257 full tests, focused controls, independent reviews, protected framework and site delivery, verified release, fleet readback, final QA and compliance replay, reflection, archive document, and reconciled task indexes agree on closure
   - #### Текущий статус
-    - pending
+    - met
 
 ## Append-log (operator amendments)
 
 _(empty on first write)_
+
+### 2026-08-09T16:48:00Z — autonomous closure decisions
+
+- The publisher received no runner for 45 minutes. After proving there were no
+  steps, deployment statuses, or release object, one bounded cancel-and-rerun
+  was performed for the same immutable tag; attempt 2 completed successfully.
+- Current inventory resolves the third requested fleet label to the per-user
+  runtime on the secondary host rather than a separate live node. Both canonical
+  checkouts and the user runtime were synchronized. The separately gated project
+  checkout was read back only and retained its original commit.

@@ -40,7 +40,7 @@ The documented rule says “no task‑IDs in shipped artefacts”, but the enfor
 ## Non-Goals
 
 - Changing historical records in `documentation/archive/` or test fixtures. `CHANGELOG.md` and the evolution log change only for the release entry and this task's designated provenance record.
-- Touching Aether’s gated fork, dependabot PRs, or unrelated salvage directories.
+- Touching the separately gated project checkout, dependabot PRs, or unrelated recovery directories.
 - Rewriting the gate in a different language; the design stays a shell‑based gate with POSIX utilities.
 
 ## Solution Approaches
@@ -90,7 +90,7 @@ The documented rule says “no task‑IDs in shipped artefacts”, but the enfor
 - **Fleet functional marker**: the grep command in `fleet-hook-sync.md` and the marker string embedded in the deployed hook are changed to `missing read targets fail closed`; the documented grep must match exactly.
 - **Pre‑fix RED controls**: new or modified bats tests are executed in an isolated fixture against the gate and caller wiring read from `origin/main` and must return `rc=1`; post‑fix they return `rc=0`. No stash or foreign-worktree mutation is permitted. The failing output is recorded in the PR.
 - **Release process**: VERSION bump, CHANGELOG entry, git tag, GitHub Release.
-- **Fleet readback**: after merge, the installed runtime on arcana‑devs, dev‑ai, and aether is synchronised and drift gates re‑run, producing identical SHA or content verification; exact‑main proof (no divergent changes on `origin/main` at merge time).
+- **Fleet readback**: after merge, the primary canonical runtime, secondary canonical runtime, and secondary per-user runtime are synchronised and drift gates re-run, producing identical SHA or content verification; exact-main proof confirms no divergent changes on `origin/main` at merge time.
 
 ## Requirements
 
@@ -185,7 +185,7 @@ Additionally, `bats tests/` and `dev-tools/tests/` return `0`.
 
 #### D-REQ-11: Fleet readback with exact-main proof
 
-After the PR is merged and the release cut, on each of the three machines (arcana‑devs, dev‑ai, aether):
+After the PR is merged and the release cut, on each of the three current named runtime surfaces:
 
 1. The canonical checkout at `/opt/datarim` and the per-user installed runtime are updated through the existing fleet sync procedure, preserving local configuration outside the repo.
 2. Drift gates are re‑run, confirming that the repo content and the installed files are byte‑identical for all shipped artefacts.
@@ -263,7 +263,7 @@ Covers: D-REQ-05, D-REQ-11
 On each machine, `grep -F 'missing read targets fail closed' ~/.local/bin/coworker-hook-guard` returns the expected line, and the documented grep in `fleet-hook-sync.md` is byte-for-byte the same command.
 
 **How to verify**
-- Execute the exact grep from the updated doc on arcana‑devs, dev‑ai, aether; all return a line containing the marker.
+- Execute the exact grep from the updated doc on all three current named runtime surfaces; all return a line containing the marker.
 - The pre‑fix state would fail to find that marker.
 
 ### V-AC-6 — Contract docs match enforcement

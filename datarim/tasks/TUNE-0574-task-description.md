@@ -1,7 +1,7 @@
 ---
 id: TUNE-0574
-title: Close task-ID provenance leaks across repo site and fleet
-status: in_progress
+title: Close task-ID provenance leaks across framework, site, and fleet
+status: completed
 priority: P1
 complexity: L4
 type: framework
@@ -10,7 +10,7 @@ started: 2026-08-09
 parent: null
 related: []
 prd: prd/PRD-TUNE-0574.md
-plan: plans/TUNE-0574-plan.md
+plan: null
 ---
 
 # TUNE-0574 — Task-ID provenance leak: close the mechanism gaps, repo + site + fleet
@@ -48,7 +48,7 @@ This task fixes the mechanisms first, then cleans every real violation, brings t
    `tests/site-contract.sh` passes with a prefix-agnostic, no-hatch rule, a novel-prefix contaminating control, and an adjacent non-ID control. The `datarim.club` repo is updated. Deploy happens via push→main→CI only.
 
 7. **Fleet consistency**
-   After merge, `/opt/datarim` (and per‑user installs) on arcana‑devs, dev‑ai, aether are synchronised. Drift gates re‑run and all three machines show repo == installed runtime.
+   After merge, the primary canonical runtime, secondary canonical runtime, and secondary per-user runtime are synchronised. Drift gates re-run and all three named surfaces show repo == installed runtime.
 
 8. **Release**
    VERSION bumped, CHANGELOG entry, git tag, GitHub Release published.
@@ -60,11 +60,11 @@ This task fixes the mechanisms first, then cleans every real violation, brings t
 
 - Repository is PUBLIC – no operator names, absolute home paths, hostnames, IPs, credentials.
 - English only in `commands/`, `skills/`, `agents/`, `CLAUDE.md`, `README.md`.
-- Commit as `Arcanada <dev@veritasarcana.ai>`. Never as PavelValentov.
+- Commit with the configured project identity; never use a personal identity.
 - Branch + PR; rebase on `origin/main` immediately before merge. Never rebase or force‑push shared main.
-- Do NOT touch `/home/aether/code/aether/local-env/datarim` (Aether’s gated fork).
+- Do NOT touch the separately gated project checkout.
 - Do NOT merge dependabot PRs #333 / #256.
-- Do NOT delete `/home/dev/datarim-orphan-salvage-20260730/` or `/home/dev/w9-salvage`.
+- Do NOT delete unrelated recovery directories.
 - Never `git checkout --` / stash / revert foreign hunks in a shared workspace.
 - Credentials: never probe for liveness, never paste values, never rotate.
 - Push your branch – local commit is not durability.
@@ -75,13 +75,13 @@ This task fixes the mechanisms first, then cleans every real violation, brings t
 - Historical entries already present in `documentation/how-to/evolution-log.md`; this task may add its own provenance record and any missing provenance displaced from shipped surfaces.
 - `tests/fixtures/` – excluded from the gate by design.
 - Dependabot PRs #333 and #256.
-- Aether’s gated fork.
+- The separately gated project checkout.
 - Any change not required by the gate widening or instance clean‑up.
 
 ## Related
 
 - PRD: `prd/PRD-TUNE-0574.md`
-- Plan: `plans/TUNE-0574-plan.md`
+- Final archive (including the implemented plan summary): `documentation/archive/framework/archive-TUNE-0574.md`
 - Evolution log: `documentation/how-to/evolution-log.md`
 
 ## Decisions
