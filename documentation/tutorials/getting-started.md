@@ -172,7 +172,7 @@ Seven scopes, in the order declared by `INSTALL_SCOPES` in `install.sh`:
 **`--force` safety:**
 
 - Symlink topology + `--force` → no-op (prints "Already symlinked, nothing to update"). Use `cd repo && git pull` or `./update.sh` instead.
-- Copy topology + `--force` (TUNE-0004 hardening): `CLAUDE_DIR` sanity-checked, live-system consent required (`yes` typed at TTY, or `--yes` / `DATARIM_INSTALL_YES=1`), backup of each scope under `$CLAUDE_DIR/backups/force-<UTC-timestamp>/` with a `SUCCESS` marker written last.
+- Copy topology + `--force`: `CLAUDE_DIR` is sanity-checked, live-system consent is required (`yes` typed at TTY, or `--yes` / `DATARIM_INSTALL_YES=1`), and each scope is backed up under `$CLAUDE_DIR/backups/force-<UTC-timestamp>/` with a `SUCCESS` marker written last.
 
 **Exit codes:**
 
@@ -416,7 +416,7 @@ When a task is completed and archived with `/dr-archive`, the archive file goes 
 | `QA-*` | `qa/` | Quality assurance, testing initiatives |
 | *(unknown)* | `general/` | Anything that does not match a known prefix |
 
-The archive file is named `archive-{task_id}.md` (for example, `documentation/archive/web/archive-WEB-0042.md`).
+The archive file is named `archive-{task_id}.md` (for example, `documentation/archive/web/archive-<TASK-ID>.md`).
 
 The full mapping is defined in the `datarim-system.md` skill.
 
@@ -479,7 +479,7 @@ still applies. Clearly non-matching work follows the normal complexity route.
 /dr-archive
 ```
 
-> **Note:** reflection runs automatically inside `/dr-archive` as mandatory Step 0.5 (v1.10.0, TUNE-0013). You do not invoke it separately.
+> **Note:** reflection runs automatically inside `/dr-archive` as mandatory Step 0.5 since v1.10.0. You do not invoke it separately.
 
 You do not need to memorize these routes. After each stage, Datarim tells you what comes next. Run `/dr-status` at any time to see where you are in the pipeline.
 
@@ -579,7 +579,7 @@ Discovered mid-cycle gaps классифицируются: single file × ≤50
 
 ## Adding plugins (v1.23.0+)
 
-Datarim ships with a built-in `datarim-core` set. Optional skills, agents, commands, and templates beyond core are managed via the `/dr-plugin` CLI (TUNE-0101).
+Datarim ships with a built-in `datarim-core` set. Optional skills, agents, commands, and templates beyond core are managed via the `/dr-plugin` CLI.
 
 ```bash
 /dr-plugin list                              # active set + bootstrap on first run
@@ -596,4 +596,3 @@ The active set is recorded in `datarim/enabled-plugins.md` — manual edits are 
 **Health checks** (`/dr-plugin doctor`): manifest-syntax, inventory-consistency, broken-symlinks, orphan-files, override-integrity, dependency-graph (DFS cycle/dangling), git-state, snapshot-cleanup (>30d), skill-registry (frontmatter `name:` ↔ basename). Exit codes: `0` clean, `1` warnings only, `2` errors found, `64` usage error.
 
 For full reference see `commands/dr-plugin.md` and `templates/plugin.yaml.template`. Authoring third-party plugins: [plugin-author-guide.md](../explanation/plugin-author-guide.md).
-

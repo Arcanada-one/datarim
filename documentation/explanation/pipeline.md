@@ -2,7 +2,7 @@
 
 ## Overview
 
-Datarim's pipeline consists of 8 stages. Not all stages run for every task — complexity level determines the route. Reflection is not a standalone stage — it runs automatically inside `/dr-archive` as mandatory Step 0.5 (v1.10.0, TUNE-0013).
+Datarim's pipeline consists of 8 stages. Not all stages run for every task — complexity level determines the route. Reflection is not a standalone stage — it runs automatically inside `/dr-archive` as mandatory Step 0.5 since v1.10.0.
 
 ```
 init → prd → plan → design → do → qa → compliance → archive
@@ -156,7 +156,7 @@ init → prd → plan → design → do → qa → compliance → archive
 6. Reset `activeContext.md`
 7. Clear completed item from Active Tasks section of `tasks.md`
 
-**Historical note:** Prior to v1.10.0 (TUNE-0013), reflection ran as a separate Stage 8 `/dr-reflect` command. It was consolidated into `/dr-archive` to eliminate the "mandatory gate disguised as optional" defect. The `/dr-reflect` command no longer exists.
+**Historical note:** Prior to v1.10.0, reflection ran as a separate Stage 8 `/dr-reflect` command. It was consolidated into `/dr-archive` to eliminate the "mandatory gate disguised as optional" defect. The `/dr-reflect` command no longer exists.
 
 ---
 

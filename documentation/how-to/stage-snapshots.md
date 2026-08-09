@@ -1,7 +1,7 @@
 # How-to: Stage Snapshots for `/dr-next` Context Resume
 
 **Audience:** operators returning to a Datarim task after `/clear` or a closed terminal.
-**Introduced in:** v2.13.0 (TUNE-0254).
+**Available since:** v2.13.0.
 
 This how-to explains the per-task stage-snapshot mechanism: what gets persisted, where, how `/dr-next` and `/dr-orchestrate` consume it, and how to disable / inspect it.
 

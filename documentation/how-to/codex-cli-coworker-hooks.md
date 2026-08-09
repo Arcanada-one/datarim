@@ -8,7 +8,7 @@ own dotfiles repo. This runbook documents the manual edit each operator
 must apply once per machine to make Codex actually fire the hook on its
 native tools.
 
-## Source: TUNE-0303 (2026-05-25)
+## Decision (2026-05-25)
 
 Decision D2 — `~/.codex/hooks.json` operator-maintained per machine,
 symmetric to `~/.claude/settings.json`. Installer never overwrites.
@@ -106,5 +106,5 @@ symmetric to `~/.claude/settings.json`. Installer never overwrites.
 - Mandate text: `templates/coworker-delegation-fragment.md`
 - bats coverage: `tests/test-coworker-hook-guard-codex.bats`,
   `tests/test-coworker-hook-guard-head-blind.bats`
-- Source task: TUNE-0303 (`datarim/tasks/TUNE-0303-task-description.md`)
-- Parent epic: TUNE-0296 Codex CLI parity
+- Policy source: `templates/coworker-delegation-fragment.md`
+- Runtime parity reference: `documentation/how-to/multi-runtime.md`

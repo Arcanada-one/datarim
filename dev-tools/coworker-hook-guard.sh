@@ -182,8 +182,7 @@ check_write_protected() {
   # Voice-bearing paths are NOT delegation-gated — the assigned model writes
   # them itself per the global mandate (~/.claude/CLAUDE.md § Do NOT delegate
   # → Voice-bearing and judgment content). They return 1 (allow native write).
-  # This was the TUNE-0537 defect: the case previously returned 0 here, forcing
-  # the exact opposite of the mandate.
+  # missing read targets fail closed; allowing them would invert the mandate.
   case "$base" in
     prd-*.md|plan-*.md|*-task-description.md) return 0 ;;
     creative-*.md)

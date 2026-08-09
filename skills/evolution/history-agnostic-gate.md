@@ -1,13 +1,12 @@
 ---
 name: evolution/history-agnostic-gate
-description: Pre-apply gate rejecting task-ID inlining in Datarim runtime. Load before any Class A apply step in reflecting/evolution/optimize/addskill workflows.
+description: Gate rejecting task-ID inlining across governed Datarim public surfaces. Load before any Class A apply step in reflecting/evolution/optimize/addskill workflows.
 ---
 
 # History-Agnostic Gate — Runtime Contract
 
-The Datarim framework is **history-agnostic by contract**. Skills, agents,
-commands, and templates installed under
-`$HOME/.claude/{skills,agents,commands,templates}/` must not embed task-ID
+The Datarim framework is **history-agnostic by contract**. Runtime instructions,
+public explanatory documentation, and root entry documents must not embed task-ID
 provenance — otherwise rules become coupled to ephemeral identifiers
 (archived/renamed/cancelled tasks), the reading agent is distracted by
 references it cannot resolve, and historical IDs risk leaking into AI outputs
@@ -40,31 +39,41 @@ Load and run this gate at the apply step of:
 
 ## Scope
 
-Any text about to be written to:
+CI invokes the one-target gate separately for these exact roots:
 
-- `$HOME/.claude/skills/*.md` and `$HOME/.claude/skills/*/*.md`
-- `$HOME/.claude/agents/*.md`
-- `$HOME/.claude/commands/*.md`
-- `${DATARIM_RUNTIME:-$HOME/.claude}/templates/*.md`
+- `skills/`
+- `agents/`
+- `commands/`
+- `templates/`
+- `documentation/how-to/`
+- `documentation/reference/`
+- `documentation/explanation/`
+- `documentation/tutorials/`
+- root `CLAUDE.md`
+- root `README.md`
 
-…with the exceptions listed in Whitelist below.
+Directory targets recursively scan regular text files ending in `.md`, `.sh`,
+`.template`, `.yaml`, or `.yml`. Symlinks, special files, unreadable inputs,
+binary inputs, traversal failures, and Git diff failures fail closed.
 
 **Out of scope** (history surfaces by definition — gate must NOT scan them):
 
 - `scripts/` (source code with conventional in-comment provenance)
 - `tests/`, `tests/security/`, `tests/*.bats` (regression tests reference findings by ID — `.bats` test data and fixture body may contain TASK-ID literals by design)
-- `documentation/`, `documentation/how-to/evolution-log.md` (the canonical evolution surface)
+- documentation outside the four governed public categories
 - `datarim/`, `datarim/reflection/` (workflow state)
 - `documentation/archive/` (long-term task archives)
-- Top-level `CLAUDE.md` (project-wide rules; cite gate but are not in gate scope)
+- `CHANGELOG.md` (release history)
 
 ## Denylist (single regex)
 
 <!-- gate:history-allowed -->
-The match pattern is the literal regex `\b[A-Z]{2,10}-[0-9]{4}\b` —
-two-to-ten upper-case letters, hyphen, exactly four digits, with word boundaries
-on both sides. Examples that match: ``, ``, ``,
-``. Examples that do NOT match: `AB-1` (too few digits), `FOO-12345`
+The semantic match shape is `[A-Z]{2,10}-[0-9]{4}` — two-to-ten upper-case
+letters, hyphen, exactly four digits — bounded on both sides by non-word
+characters. The implementation uses POSIX-awk character checks rather than
+`\b`, whose meaning is not portable across GNU and BSD grep. Examples that
+match are kept in this exempt contract. Examples that do NOT match: `AB-1`
+(too few digits), `FOO-12345`
 (too many digits), `tune-0042` (lowercase), `1.21.0` (no letters), bare numeric
 tokens like `25055434967` (no hyphenated letter prefix).
 <!-- /gate:history-allowed -->
@@ -78,8 +87,12 @@ extensible keyword array because frameworks/runtimes do not share a syntax.
 
 - **`skills/evolution/history-agnostic-gate.md`** (this file) — the gate's own
  contract document MUST enumerate the regex and example IDs verbatim, so it
- cannot be subject to the rule it defines. Wrapped in a single
- `<!-- gate:history-allowed -->` block per scope.
+ cannot be subject to the rule it defines.
+- **`documentation/how-to/evolution-log.md`** — the canonical public provenance
+  ledger.
+
+Both comparisons are exact canonical repository-relative equality. A different
+path that merely ends with either exempt name is not trusted.
 
 The whitelist is intentionally minimal. New entries weaken the gate's
 discriminative power. Add a file ONLY if:
@@ -96,8 +109,9 @@ file.
 
 ## Escape Hatch — `<!-- gate:history-allowed -->` … `<!-- /gate:history-allowed -->`
 
-Per-block escape hatch for legitimate placeholders. Lines between an opening
-and closing marker are ignored by the gate. Use only when:
+Per-block escape hatch for legitimate placeholders. Lines between a valid
+opening and closing marker are ignored only after structural and provenance
+checks. Use only when:
 
 - The task-ID is a genuine illustrative slot (e.g. backlog template showing
  `` as an example entry shape).
@@ -109,13 +123,18 @@ and closing marker are ignored by the gate. Use only when:
 Reviewers should challenge any usage that smuggles prescriptive guidance
 under the marker.
 
-### Markers must be on separate lines (pitfall)
+The parser rejects provenance labels inside a hatch. After Markdown decoration
+and case are normalized, `Source`, `Source task`, `Reference`, `Created`, and
+`Parent epic` followed by a task ID on the same or next nonblank line are
+findings. This is defense in depth: reviewers still decide whether every
+unlabelled survivor is genuinely illustrative.
 
-The escape-hatch markers are **block-style only**. The gate's awk strip
-matches `<!-- gate:history-allowed -->` line-by-line and uses `next` after
-the opening marker matches, so the closing marker on the **same input line**
-is never processed and `skip=1` persists for the rest of the file (every
-subsequent line is silently dropped from the scan, masking real violations).
+### Marker grammar is fail closed
+
+The escape-hatch markers are **block-style only**. Each exact marker must be the
+only non-whitespace content on its line. Same-line open/close, marker payload,
+nested open, stray close, and an unclosed block at EOF are independent findings;
+none can suppress later content.
 
 Correct (separate lines, the only working form):
 
@@ -125,15 +144,13 @@ example task-ID slot
 <!-- /gate:history-allowed -->
 ```
 
-Wrong (same line — opening matches, closing is never seen, scan halts):
+Wrong (same-line markers are malformed):
 
 ```
 <!-- gate:history-allowed -->example here<!-- /gate:history-allowed -->
 ```
 
-The sibling stack-agnostic-gate carries the identical pitfall and the lesson
-applies to both: assume same-line markers are malformed and rewrite to the
-block form.
+Malformed syntax exits 1 even when its line contains no task ID.
 
 ## Invocation
 
@@ -143,15 +160,11 @@ Direct CLI (CI helper):
 scripts/task-id-gate.sh <file-or-dir> [--whitelist <path>] [--diff-only [<base>]]
 ```
 
-Agent flow (markdown checklist agents must follow when the script is not
-reachable from the current working directory):
+Agent flow:
 
-1. Read the target file's content (the proposal text about to be written).
-2. Run `grep -nE -o -- '\b[A-Z]{2,10}-[0-9]{4}\b'` over the content.
-3. Skip lines between `<!-- gate:history-allowed -->` markers (block-style only).
-4. If the file path ends with `skills/evolution/history-agnostic-gate.md`,
- skip entirely (PASS).
-5. **Decision:**
+1. Resolve and invoke the shipped script against one intended target.
+2. Do not reproduce the boundary or hatch logic with an ad hoc grep.
+3. **Decision:**
  - 0 hits → PASS. Proceed with the write.
  - 1+ hits → FAIL. **Do not write the file.** Two outcomes:
  - (a) Reword the proposal in history-neutral terms (delete pure provenance,
@@ -168,8 +181,9 @@ yet be cleaned up (transitional period before the cleanup pass lands), the
 (default base `HEAD`). Pre-existing matches in the baseline are ignored —
 only fresh leakage in the current diff triggers FAIL.
 
-Single-file target outside a git repo or untracked → exit 2 (refuse to silently
-PASS). Directory scan silently skips untracked files.
+Single-file target outside a git repo or untracked exits 2. In directory mode,
+an untracked governed text file is scanned in full so a new file cannot bypass
+the gate. Invalid bases and Git errors exit 2.
 
 Use `--diff-only` in CI on push to feature branches (catch new leakage), and
 the full scan in main-branch CI (enforce the cleaned baseline).
@@ -201,14 +215,11 @@ identical: a known-leak class with a clean separation between the rule
 
 ## Out of Scope
 
-- **Historical content cleanup** — the gate is forward-looking. Pre-existing
- task-ID references in framework files are tracked as a one-pass cleanup; the
- gate surfaces them but does not auto-fix.
 - **Whitespace / Unicode bypass** — accepted residual risk. Bypass requires
  intentional malice; reflection follow-up + maintainer review provide
  redundancy.
 - **Source-code provenance** (`scripts/*.sh` headers) — conventional and not
- user-facing rule. Out of gate scope by directory exclusion.
+ user-facing rule unless the script is beneath a governed caller root.
 
 ## Anti-patterns
 

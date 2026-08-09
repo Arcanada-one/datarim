@@ -1,5 +1,23 @@
 # Evolution Log
 
+## 2026-08-09 -- TUNE-0574 -- Task-ID provenance gate widened and made fail closed (v2.65.0)
+
+- **Mechanism.** The one-target gate now scans the governed runtime, public
+  documentation categories, and root entry documents across `.md`, `.template`,
+  `.sh`, `.yaml`, and `.yml`. Its POSIX-awk state machine rejects malformed or
+  nested history hatches and provenance labels inside otherwise valid hatches;
+  exact exemptions, portable boundaries, NUL-safe traversal, and fail-closed Git
+  diff handling remove the previous bypasses.
+- **Corpus and site.** Real provenance stamps and dead task-description links
+  were removed while rendered examples stayed narrow and explicit. The public
+  site uses the same generic task-ID shape with no hatch, including novel-prefix
+  and adjacent-non-ID controls.
+- **Fleet invariant.** The hook-sync runbook now probes the semantic behavior
+  `missing read targets fail closed` instead of a historical task number.
+- **Evidence boundary.** Pre-fix Bats and site controls were red against the old
+  mechanisms. Merge, release, deployment, and fleet readbacks are recorded in
+  the task archive only after their immutable revisions are proven.
+
 ## 2026-08-05 -- rotation-runbook skill: credential-rotation playbook formalized (TUNE-0112)
 
 - **Trigger fired.** The deferred activation condition (three or more similar rotation exercises accumulated) is met: a CI-secret key rotation that surfaced a hidden payload-validation regression (TRANS-0043), an ecosystem-wide credential-leak audit and history scrub (SEC-0001), and a multi-vendor exposed-credential rotation (SEC-0005).

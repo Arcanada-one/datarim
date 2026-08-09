@@ -52,7 +52,7 @@ floor integration can remap with a single field rename:
 {
   "finding_id": "F-spec-1",
   "source_layer": "spec-lint",
-  "artifact_ref": "PRD-EXAMPLE-0001.md:42",
+  "artifact_ref": "PRD-<TASK-ID>.md:42",
   "ac_criteria": ["V-AC-2"],
   "severity": "error",
   "category": "completeness",

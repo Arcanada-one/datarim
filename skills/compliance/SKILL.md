@@ -27,9 +27,10 @@ When any condition fails, Path A is correct. When all four hold, Path B is the l
 
 **Operator override is the canonical escape hatch.** If compliance default-routes to Path A but the operator wants Path B (or vice versa), the override carries via `--focus-items` invocation of `/dr-do` — see Layer 3b FAIL-Routing CTA. Each override round MUST land in the init-task append-log (FB-2 / FB-5 traceability).
 
-<!-- gate:history-allowed -->
-Source: ARAS-0006 archive — F-2 (ReadlinePrompt deferral) and F-3 (caller-side canonicalize) initially Path A at compliance v1/v2; both operator-overridden to Path B in subsequent /dr-do rounds, closing ARAS-0024 obligations #1 and #2. Net effect: successor task's scope reduced from 3 items to 1. Second source: TUNE-0264 archive — PASS_WITH_NOTES (two functions slightly over 50-line cap) closed inline at /dr-compliance under Path B; accepted-risk register stayed empty by design.
-<!-- /gate:history-allowed -->
+This distinction is operationally useful: operator overrides can move concrete
+deferred findings from Path A to Path B in later `/dr-do` rounds, shrinking a
+successor task, while small method-size findings can be closed inline without
+creating an accepted-risk entry.
 
 ---
 

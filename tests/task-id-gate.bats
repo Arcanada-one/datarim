@@ -21,7 +21,7 @@
 #            scopes stay gate-clean (parallel to stack-agnostic-gate.bats T5)
 
 REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
-GATE="$REPO_ROOT/scripts/task-id-gate.sh"
+GATE="${TASK_ID_GATE_OVERRIDE:-$REPO_ROOT/scripts/task-id-gate.sh}"
 FIXTURES="$REPO_ROOT/tests/fixtures/task-id-gate"
 
 @test "T1: clean-pass fixture exits 0" {
@@ -50,8 +50,17 @@ FIXTURES="$REPO_ROOT/tests/fixtures/task-id-gate"
 }
 
 @test "T6: --whitelist mechanism suppresses tune-fail" {
-    run "$GATE" --whitelist "tune-fail.md" "$FIXTURES/tune-fail.md"
+    run "$GATE" --whitelist "$FIXTURES/tune-fail.md" "$FIXTURES/tune-fail.md"
     [ "$status" -eq 0 ]
+}
+
+@test "T6b: whitelist matching is exact, not suffix-based" {
+    TMPROOT="$(mktemp -d)"
+    mkdir -p "$TMPROOT/spoof/$FIXTURES"
+    cp "$FIXTURES/tune-fail.md" "$TMPROOT/spoof/$FIXTURES/tune-fail.md"
+    run "$GATE" --whitelist "$FIXTURES/tune-fail.md" "$TMPROOT/spoof/$FIXTURES/tune-fail.md"
+    rm -rf "$TMPROOT"
+    [ "$status" -eq 1 ]
 }
 
 @test "T7: gate's own contract doc whitelisted by default" {
@@ -116,6 +125,21 @@ EOF
     [ "$status" -eq 2 ]
 }
 
+@test "T10b: directory --diff-only with invalid base exits 2" {
+    setup_diff_repo
+    run "$GATE" --diff-only definitely-not-a-valid-ref "$DIFF_REPO"
+    teardown_diff_repo
+    [ "$status" -eq 2 ]
+}
+
+@test "T10c: directory --diff-only scans an untracked contaminating file" {
+    setup_diff_repo
+    printf '%s\n' 'New rule from NOVEL-1234.' > "$DIFF_REPO/new.md"
+    run "$GATE" --diff-only "$DIFF_REPO"
+    teardown_diff_repo
+    [ "$status" -eq 1 ]
+}
+
 # -----------------------------------------------------------------------------
 # --base-commit mode (TUNE-0425: named-flag variant of --diff-only).
 # These three tests cover: (a) pre-existing foreign ID ignored, (b) newly-added
@@ -168,6 +192,200 @@ EOF
 @test "T14: templates/ scope is gate-clean (regression invariant)" {
     run "$GATE" "$REPO_ROOT/templates"
     [ "$status" -eq 0 ]
+}
+
+@test "T18: documentation/how-to scope is gate-clean" {
+    run "$GATE" "$REPO_ROOT/documentation/how-to"
+    [ "$status" -eq 0 ]
+}
+
+@test "T19: documentation/reference scope is gate-clean" {
+    run "$GATE" "$REPO_ROOT/documentation/reference"
+    [ "$status" -eq 0 ]
+}
+
+@test "T20: documentation/explanation scope is gate-clean" {
+    run "$GATE" "$REPO_ROOT/documentation/explanation"
+    [ "$status" -eq 0 ]
+}
+
+@test "T21: documentation/tutorials scope is gate-clean" {
+    run "$GATE" "$REPO_ROOT/documentation/tutorials"
+    [ "$status" -eq 0 ]
+}
+
+@test "T22: root CLAUDE.md is gate-clean" {
+    run "$GATE" "$REPO_ROOT/CLAUDE.md"
+    [ "$status" -eq 0 ]
+}
+
+@test "T23: root README.md is gate-clean" {
+    run "$GATE" "$REPO_ROOT/README.md"
+    [ "$status" -eq 0 ]
+}
+
+assert_extension_is_scanned() {
+    local extension="$1"
+    local tmpdir
+    tmpdir="$(mktemp -d)"
+    printf '%s\n' 'Leaked NOVEL-1234 provenance.' > "$tmpdir/leak.$extension"
+    run "$GATE" "$tmpdir"
+    rm -rf "$tmpdir"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"leak.$extension"* ]]
+}
+
+@test "E1: directory scan includes md" { assert_extension_is_scanned md; }
+@test "E2: directory scan includes template" { assert_extension_is_scanned template; }
+@test "E3: directory scan includes sh" { assert_extension_is_scanned sh; }
+@test "E4: directory scan includes yaml" { assert_extension_is_scanned yaml; }
+@test "E5: directory scan includes yml" { assert_extension_is_scanned yml; }
+
+@test "E6: newline-bearing filename cannot bypass directory scan" {
+    TMPROOT="$(mktemp -d)"
+    printf '%s\n' 'Leaked NOVEL-1234 provenance.' > "$TMPROOT/line
+break.md"
+    run "$GATE" "$TMPROOT"
+    rm -rf "$TMPROOT"
+    [ "$status" -eq 1 ]
+}
+
+@test "E7: a nested fake tests/fixtures path is not globally excluded" {
+    TMPROOT="$(mktemp -d)"
+    mkdir -p "$TMPROOT/nested/tests/fixtures"
+    printf '%s\n' 'Leaked NOVEL-1234 provenance.' > "$TMPROOT/nested/tests/fixtures/leak.md"
+    run "$GATE" "$TMPROOT"
+    rm -rf "$TMPROOT"
+    [ "$status" -eq 1 ]
+}
+
+@test "E8: a symlink target fails closed" {
+    TMPROOT="$(mktemp -d)"
+    printf '%s\n' 'Clean prose.' > "$TMPROOT/real.md"
+    ln -s "$TMPROOT/real.md" "$TMPROOT/link.md"
+    run "$GATE" "$TMPROOT/link.md"
+    rm -rf "$TMPROOT"
+    [ "$status" -eq 2 ]
+}
+
+@test "E9: an unreadable input fails closed" {
+    TMPROOT="$(mktemp -d)"
+    printf '%s\n' 'Clean prose.' > "$TMPROOT/unreadable.md"
+    chmod 000 "$TMPROOT/unreadable.md"
+    run "$GATE" "$TMPROOT/unreadable.md"
+    chmod 600 "$TMPROOT/unreadable.md"
+    rm -rf "$TMPROOT"
+    [ "$status" -eq 2 ]
+}
+
+make_hatch_fixture() {
+    HATCH_FILE="$(mktemp)"
+    printf '%s\n' "$@" > "$HATCH_FILE"
+}
+
+remove_hatch_fixture() {
+    rm -f "${HATCH_FILE:-}"
+}
+
+assert_hatch_fails() {
+    make_hatch_fixture "$@"
+    run "$GATE" "$HATCH_FILE"
+    remove_hatch_fixture
+    [ "$status" -eq 1 ]
+}
+
+@test "H1: balanced unlabeled illustrative hatch passes" {
+    make_hatch_fixture '<!-- gate:history-allowed -->' 'Example TASK-0001' '<!-- /gate:history-allowed -->'
+    run "$GATE" "$HATCH_FILE"
+    remove_hatch_fixture
+    [ "$status" -eq 0 ]
+}
+
+@test "H2: same-line open and close fails without an earlier sentinel" {
+    assert_hatch_fails '<!-- gate:history-allowed -->Example TASK-0001<!-- /gate:history-allowed -->'
+}
+
+@test "H3: unmatched opener cannot hide a later ID" {
+    assert_hatch_fails '<!-- gate:history-allowed -->' 'Example TASK-0001' 'Leaked NOVEL-1234 provenance.'
+}
+
+@test "H4: unmatched closer fails" {
+    assert_hatch_fails '<!-- /gate:history-allowed -->'
+}
+
+@test "H5: nested opener fails" {
+    assert_hatch_fails '<!-- gate:history-allowed -->' '<!-- gate:history-allowed -->' '<!-- /gate:history-allowed -->'
+}
+
+@test "H6: opener with payload fails" {
+    assert_hatch_fails '<!-- gate:history-allowed --> payload'
+}
+
+@test "H7: closer with payload fails" {
+    assert_hatch_fails '<!-- gate:history-allowed -->' '<!-- /gate:history-allowed --> payload'
+}
+
+@test "H8: provenance labels inside hatches fail in all supported forms" {
+    local form
+    for form in \
+        'Source: TASK-0001' \
+        'source task: TASK-0001' \
+        '**Reference:** TASK-0001' \
+        '> **Created:** TASK-0001' \
+        '- Parent epic: TASK-0001' \
+        'source: TASK-0001'; do
+        make_hatch_fixture '<!-- gate:history-allowed -->' "$form" '<!-- /gate:history-allowed -->'
+        run "$GATE" "$HATCH_FILE"
+        remove_hatch_fixture
+        [ "$status" -eq 1 ]
+    done
+}
+
+@test "H9: provenance label followed by an ID on the next line fails" {
+    assert_hatch_fails '<!-- gate:history-allowed -->' '**Source:**' 'TASK-0001' '<!-- /gate:history-allowed -->'
+}
+
+@test "H10: table, ordered-list, and task-list provenance decoration cannot launder IDs" {
+    local form
+    for form in \
+        '| Source: TASK-0001 |' \
+        '1. Reference: TASK-0001' \
+        '- [ ] Created: TASK-0002'; do
+        make_hatch_fixture '<!-- gate:history-allowed -->' "$form" '<!-- /gate:history-allowed -->'
+        run "$GATE" "$HATCH_FILE"
+        remove_hatch_fixture
+        [ "$status" -eq 1 ]
+    done
+}
+
+@test "F1: scanner subprocess failure exits 2 instead of returning a false PASS" {
+    run bash -c 'awk() { return 127; }; export -f awk; exec "$1" "$2"' \
+        _ "$GATE" "$FIXTURES/clean-pass.md"
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"scanner error"* ]]
+}
+
+@test "F2: shipped shell gate enables the S1 strict-mode floor" {
+    run grep -F 'set -euo pipefail' "$GATE"
+    [ "$status" -eq 0 ]
+    run grep -F "IFS=\$'\\n\\t'" "$GATE"
+    [ "$status" -eq 0 ]
+}
+
+@test "B1: task-ID boundaries are portable and do not match adjacent word characters" {
+    TMPFILE="$(mktemp)"
+    printf '%s\n' 'xTASK-0001 TASK-00010 _TASK-0001 TASK-0001_' > "$TMPFILE"
+    run "$GATE" "$TMPFILE"
+    rm -f "$TMPFILE"
+    [ "$status" -eq 0 ]
+}
+
+@test "C1: security workflow invokes every governed target" {
+    local target
+    for target in skills agents commands templates documentation/how-to documentation/reference documentation/explanation documentation/tutorials CLAUDE.md README.md; do
+        run grep -F "$target" "$REPO_ROOT/.github/workflows/security.yml"
+        [ "$status" -eq 0 ]
+    done
 }
 
 # -----------------------------------------------------------------------------
