@@ -22,8 +22,9 @@ parent_prd: datarim/prd/PRD-TUNE-0574.md
   - evidence_type: empirical
   - #### История статусов
     - 2026-08-09T13:52:54Z / 13:52 UTC · /dr-prd · pending → pending · reason: captured from the operator brief and approved design
+    - 2026-08-09T15:22:14Z / 15:22 UTC · /dr-qa · pending → met · reason: 53 focused cases cover every required parser, traversal, boundary, whitelist, and diff failure mode and all pass
   - #### Текущий статус
-    - pending
+    - met
 
 - **2. Every shipped task-ID occurrence is classified and only illustrative examples survive.**
   - wish_id: classify-and-clean-governed-corpus
@@ -33,8 +34,9 @@ parent_prd: datarim/prd/PRD-TUNE-0574.md
   - evidence_type: static
   - #### История статусов
     - 2026-08-09T13:52:54Z / 13:52 UTC · /dr-prd · pending → pending · reason: captured from the operator brief and approved design
+    - 2026-08-09T15:22:14Z / 15:22 UTC · /dr-qa · pending → met · reason: the raw inventory is classified, exact history surfaces are exempt, and every governed target passes the clean gate
   - #### Текущий статус
-    - pending
+    - met
 
 - **3. RED evidence proves the tests detect the original defect.**
   - wish_id: preserve-prefixed-red-proof
@@ -44,8 +46,9 @@ parent_prd: datarim/prd/PRD-TUNE-0574.md
   - evidence_type: empirical
   - #### История статусов
     - 2026-08-09T13:52:54Z / 13:52 UTC · /dr-prd · pending → pending · reason: captured from the operator brief and TDD mandate
+    - 2026-08-09T15:22:14Z / 15:22 UTC · /dr-qa · pending → met · reason: the isolated pre-fix gate returned exit 1 with 24 of 50 cases failing and the fixed gate returns exit 0 with 53 of 53 passing
   - #### Текущий статус
-    - pending
+    - met
 
 - **4. The public site enforces the generic no-hatch rule and is deployed through CI.**
   - wish_id: site-generic-gate-and-deploy
@@ -55,8 +58,9 @@ parent_prd: datarim/prd/PRD-TUNE-0574.md
   - evidence_type: empirical
   - #### История статусов
     - 2026-08-09T13:52:54Z / 13:52 UTC · /dr-prd · pending → pending · reason: captured from the operator brief site parity requirement
+    - 2026-08-09T15:22:14Z / 15:22 UTC · /dr-qa · pending → met · reason: the novel-prefix control fails as intended, the clean 448-route contract passes, both protected changes landed, and resulting-main deployment succeeded
   - #### Текущий статус
-    - pending
+    - met
 
 - **5. Framework delivery and release are proven at exact immutable revisions.**
   - wish_id: framework-release-provenance
@@ -66,6 +70,7 @@ parent_prd: datarim/prd/PRD-TUNE-0574.md
   - evidence_type: empirical
   - #### История статусов
     - 2026-08-09T13:52:54Z / 13:52 UTC · /dr-prd · pending → pending · reason: captured from the operator brief release requirement
+    - 2026-08-09T15:22:14Z / 15:22 UTC · /dr-qa · pending → pending · reason: implementation is merge-ready; protected framework merge and release are downstream gates not yet reached
   - #### Текущий статус
     - pending
 
@@ -77,6 +82,7 @@ parent_prd: datarim/prd/PRD-TUNE-0574.md
   - evidence_type: empirical
   - #### История статусов
     - 2026-08-09T13:52:54Z / 13:52 UTC · /dr-prd · pending → pending · reason: captured from the operator brief fleet Definition of Done
+    - 2026-08-09T15:22:14Z / 15:22 UTC · /dr-qa · pending → pending · reason: the semantic probe is implemented and locally verified; three-machine release sync is a downstream gate not yet reached
   - #### Текущий статус
     - pending
 
@@ -88,6 +94,7 @@ parent_prd: datarim/prd/PRD-TUNE-0574.md
   - evidence_type: empirical
   - #### История статусов
     - 2026-08-09T13:52:54Z / 13:52 UTC · /dr-prd · pending → pending · reason: captured from the operator brief Definition of Done
+    - 2026-08-09T15:22:14Z / 15:22 UTC · /dr-qa · pending → pending · reason: local QA and independent review pass; framework delivery, release, fleet readback, and archive remain downstream gates
   - #### Текущий статус
     - pending
 
