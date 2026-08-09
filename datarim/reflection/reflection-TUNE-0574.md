@@ -3,23 +3,23 @@ task_id: TUNE-0574
 artifact: reflection
 captured_at: 2026-08-09
 captured_by: /dr-compliance
-reflection_basis: "dcf1c0b262fcc178"
+reflection_basis: "967bb979218691f7"
 ---
 
-# Reflection: TUNE-0574 -- Close task-ID provenance leaks across repo, site, and fleet
+# Reflection: TUNE-0574 -- Close task-ID provenance leaks across framework, site, and fleet
 
 **Date:** 2026-08-09
 **Complexity:** Level 4
-**Duration:** One autonomous delivery session; downstream release and fleet stages remain in progress.
+**Duration:** One autonomous delivery and closure session.
 
 ## Summary
 
 The implementation repaired the provenance scanner before cleaning the corpus,
 expanded CI to every governed surface, aligned the public contract, and delivered
-the companion-site parity change. The strongest result is not merely a clean
-inventory: the old scanner fails the expanded regression contract, while the
-new scanner and the full framework suite pass. Release and fleet evidence remain
-ordered after the protected framework merge and will be added before archive.
+the companion-site parity change. The old scanner fails the expanded regression
+contract, while the new scanner and the full framework suite pass. Protected
+framework delivery, the signed release, installed-runtime convergence, final QA,
+compliance, reflection, and archive reconciliation now complete the lifecycle.
 
 ## What Worked Well
 
@@ -33,9 +33,9 @@ ordered after the protected framework merge and will be added before archive.
   evidence.
 - Keeping the framework and site in isolated worktrees preserved unrelated local
   state and allowed exact-head and resulting-main proof for each repository.
-- Separating implementation QA from later release/fleet proof broke the release-
-  gate cycle without claiming future evidence. Pending expectations remain
-  pending and will be re-evaluated after the live stages.
+- Separating implementation QA from release and fleet proof broke the release-
+  gate cycle without claiming future evidence. The final replay promoted the
+  three pending lifecycle expectations only after their live evidence existed.
 
 ## What Could Be Improved
 
@@ -54,6 +54,11 @@ ordered after the protected framework merge and will be added before archive.
   was rejected by the runtime read guard because its possible output exceeded
   the direct-read threshold. Splitting it into bounded commands produced clearer
   evidence and avoided a needless large-output path. No recurrence was found.
+- `incident_class: hosted-runner-queue-without-start` — the release publisher
+  received no runner for 45 minutes. Before recovery, the job had zero steps,
+  the deployment had zero statuses, and no release object existed. One bounded
+  rerun of unfinished jobs for the same tag completed in 26 seconds. This is an
+  external scheduling event, not a framework defect, so no evolution is proposed.
 
 ## Lessons Learned
 

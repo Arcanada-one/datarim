@@ -2,8 +2,8 @@
 task_id: TUNE-0574
 date: 2026-08-09
 verdict: COMPLIANT
-scope: pre-delivery framework implementation and delivered companion site
-framework_sha: f9e39ae8b900e92e39788e68cdc5609e3047b0df
+scope: final framework, site, release, fleet, and archive lifecycle
+framework_sha: c0e283eb22b9b052197f93f96ab165e833b9e17f
 site_main_sha: 33cf4816d08c4b1ff3ced3948a291e1d3b80e83b
 ---
 
@@ -11,149 +11,142 @@ site_main_sha: 33cf4816d08c4b1ff3ced3948a291e1d3b80e83b
 
 ## Начальная задача
 
-Close the task-ID provenance mechanism gaps across the public framework,
-governed documentation, public site, release, and three installed runtimes.
-Decide ordinary forks autonomously, preserve real illustrative examples only
-inside narrow valid hatches, and do not claim lifecycle evidence before it
-exists.
+Устранить обходы правила происхождения служебных инструкций в открытом наборе
+правил, документации, сайте, выпуске и действующих установках, не объявляя ни
+один слой доказательств выполненным до появления проверяемого результата.
 
 ## Как решили
 
-- Replaced the blind hatch stripper with a portable state machine that rejects
-  malformed markers and provenance labels before suppressing illustration-only
-  content.
-- Made directory walking NUL-safe and fail-closed for symlinks, special files,
-  unreadable inputs, binary inputs, invalid diff bases, scanner failures, and
-  untracked files.
-- Enforced exact repository-relative history exemptions, exact anchored
-  exclusions, portable identifier boundaries, and the five documented text
-  extensions across ten explicit CI callers.
-- Classified the governed corpus, retained only legitimate examples in narrow
-  hatches, and moved historical provenance to the designated evolution log.
-- Changed the runtime hook probe to the semantic marker `missing read targets
-  fail closed` and aligned the fleet procedure to that exact probe.
-- Delivered the separate site no-hatch rule through protected changes, including
-  a follow-up that restored executable mode after independent compliance found
-  it missing.
+- Слепое удаление исключающих блоков заменено переносимым автоматом, который
+  закрывается при любой ошибке.
+- Добавлены безопасный обход имён файлов, точные исключения, переносимые границы,
+  строгий режим оболочки и явная обработка ошибок входа, сканера и сравнения.
+- Проверка расширена до десяти управляемых целей, а корневое правило согласовано
+  с договором.
+- Корпус классифицирован и очищен; допустимые наглядные примеры сохранены.
+- Исторический признак обработчика заменён смысловым инвариантом.
+- Отдельное строгое правило открытого сайта доставлено через защищённые проверки
+  и развёртывание.
+- Основное изменение объединено через защищённый запрос, подписанная версия
+  `v2.65.0` опубликована и проверена, действующие установки выровнены.
 
 ## Артефакты задачи
 
-### Implementation
-
-- `scripts/task-id-gate.sh` — fail-closed scanner and directory/diff contract.
-- `tests/task-id-gate.bats` — 53 behavior and failure-mode regressions.
-- `.github/workflows/security.yml` — ten explicit governed callers.
-- `skills/evolution/history-agnostic-gate.md` and `CLAUDE.md` — canonical
-  contract alignment.
-- `dev-tools/coworker-hook-guard.sh` and
-  `documentation/how-to/fleet-hook-sync.md` — semantic fleet probe.
-- `VERSION`, `CHANGELOG.md`, and version surfaces — release 2.65.0 inputs.
-- Governed skills, commands, agents, templates, and documentation — classified
-  corpus cleanup without weakening load-bearing rules.
-
-### Workflow evidence
-
-- `datarim/prd/PRD-TUNE-0574.md`
-- `datarim/plans/TUNE-0574-plan.md`
-- `datarim/tasks/TUNE-0574-expectations.md`
-- `datarim/qa/qa-report-TUNE-0574.md`
-- this compliance report
-
-### Verification
-
-- Focused gate suite: 53/53 passed.
-- Full framework suite: 3257/3257 passed.
-- Focused cross-gate suite: 91/91 passed.
-- Site contract: 448 routes passed.
-- Ten canonical task-ID gate calls: PASS.
-- Body-English check: 132 skill files checked, PASS.
-- Documentation references: 256 files checked, PASS.
-- Stack-agnostic checks: PASS for skills, agents, commands, and templates.
-- Version consistency: 2.65.0 across required surfaces, PASS.
-- Repository validation: PASS.
-- Native ShellCheck at warning severity: PASS.
-- Exact-head Semgrep exposed a global `IFS` assignment. The assignment was
-  removed, F2 now forbids its return, and focused tests plus independent review
-  pass at the amended implementation SHA; protected CI is rerunning that SHA.
-- Pre-commit Bandit and Gitleaks: PASS. The configured containerized ShellCheck
-  hook lacked a usable container daemon; native ShellCheck supplied the check.
-- Independent framework and site reviews: no unresolved finding.
+- Основной сканер и пятьдесят три целевых испытания закрывают успешные и
+  аварийные пути нового договора.
+- Корневое правило, договор, десять вызовов проверок и управляемая документация
+  приведены к одному охвату.
+- Изменения открытого сайта объединены и развёрнуты из защищённой основной ветки.
+- Версия `2.65.0` опубликована с пятью проверенными файлами, а действующие
+  установки приведены к одной ревизии.
+- Итоговые отчёты качества, соответствия, рефлексии и архива согласованы с
+  текущими статусами ожиданий и тонкими индексами.
 
 ## Следующие шаги
 
-The exact framework revision is compliant and ready for protected delivery.
-Framework merge, release publication, fleet synchronization, final QA replay,
-and archive reconciliation remain mandatory downstream gates. This verdict does
-not mark those proof layers complete.
+всё закрыто
 
 ---
+
+## Дополнительно для аудита
 
 ### Step-by-step verdicts
 
 <!-- gate:literal -->
-| Step | Check | Verdict |
+| Step | Verdict | Notes |
 |---|---|---|
-| 1 | Lint and formatting | PASS — ShellCheck and diff checks are clean |
-| 2 | Tests | PASS — 3257 full, 53 focused, 91 cross-gate, 448 site routes |
-| 3 | Coverage and controls | PASS — pre-fix 24/50 RED; positive and negative controls retained |
-| 4 | CI/CD | PASS for delivered site; framework exact-head CI is the next protected gate |
-| 5 | Security | PASS — fail-closed handling and independent review show no unresolved finding |
-| 6 | Documentation | PASS — contract, PRD, plan, QA, version, and fleet guide agree |
-| 7 | Compliance report | PASS — this report distinguishes implementation from downstream lifecycle proof |
+| 1. Re-validate vs PRD/task | compliant | All acceptance criteria and expectations have current evidence. |
+| 2. Simplify code | compliant | Independent review found no remaining unnecessary complexity. |
+| 3. Check references | compliant | Documentation references and archive links resolve. |
+| 4. Coverage | compliant | 3257 full, 53 focused, 91 cross-gate, and 448 site-route checks pass. |
+| 5. Lint | compliant | ShellCheck, formatting, language, and repository validators pass. |
+| 6. Tests | compliant | Negative controls, security checks, exact-main workflows, and live reads pass. |
+| 7. Final verdict | COMPLIANT | Release, installations, reports, reflection, archive, and indexes reconcile. |
 <!-- /gate:literal -->
+
+### Immutable delivery evidence
+
+- Framework PR: 352; reviewed head
+  `344b93747979033a50d89955607795ed079681f3`; 57 terminal checks, zero failed.
+- Framework resulting main:
+  `c0e283eb22b9b052197f93f96ab165e833b9e17f`; owned blobs matched and
+  resulting-main workflows succeeded.
+- Site resulting main: `33cf4816d08c4b1ff3ced3948a291e1d3b80e83b`;
+  verification and deployment workflows succeeded.
+- Запуск выпуска: `31322665918`, попытка 2, точная ревизия метки, обе работы успешны.
+- Пять файлов выпуска: контрольная сумма верна; две беспарольные подписи дали
+  `Verified OK`; подтверждение сборки завершилось с кодом 0; перечень состава
+  содержит 45 компонентов; архив сообщает версию 2.65.0.
 
 ### Security baseline
 
-- S1 strict shell mode is present in the changed gate: `set -euo pipefail`.
-- All path traversal is NUL-delimited and anchored to canonical repository roots.
-- Exemptions are exact paths rather than suffix matches.
-- Invalid refs, unreadable inputs, binary content, special files, symlinks, and
-  scanner subprocess errors fail closed.
-- No secret material, private infrastructure detail, or personal identifier is
-  recorded in committed task artifacts.
+- S1 strict shell mode is present: `set -euo pipefail`.
+- No global `IFS` mutation remains.
+- Directory traversal is NUL-delimited; canonical exclusions and exceptions are exact.
+- Symlink, special, unreadable, binary, malformed-marker, invalid-ref, and scanner
+  failures return an error rather than a clean result.
+- Public closure artifacts use generic fleet labels and contain no private
+  infrastructure addresses, credentials, or authentication material.
 
-### Environment and production classification
+### Environment classification
 
-The framework has no separate application test environment, so the framework
-test-environment gate is `NO-TEST-ENV`; local runtime and CI are its relevant
-verification surfaces. The companion site was deployed from protected
-resulting main and received a live content readback. The framework fleet is a
-post-release production-readiness stage and remains pending.
+<!-- gate:literal -->
+У набора правил нет отдельной испытательной среды приложения, поэтому результат
+`NO-TEST-ENV` записан прямо, без выдуманного подтверждения развёртывания.
+Достаточными поверхностями служат полный набор испытаний, проверки точной
+ревизии и основной ветки, подписанный выпуск и чтение действующих установок.
+Сопутствующий сайт развёрнут из защищённой основной ветки и прошёл чтение
+опубликованного содержимого.
+<!-- /gate:literal -->
 
 ### Remaining risks
 
-No unresolved implementation risk. The only open items are explicitly ordered
-lifecycle operations: protected framework merge, release 2.65.0, three-machine
-fleet readback, and final archive closure. Failure at any of those stages will
-block the final task verdict rather than being converted into a waiver.
+Неразрешённых рисков реализации, доставки, выпуска, установок или архива нет.
+Первая попытка выпуска не получила исполнителя; отсутствие побочных эффектов
+было доказано до единственного ограниченного повтора, а успешная попытка стала
+неизменяемым доказательством выпуска.
 
-## Operator summary
+### Related
 
-**TUNE-0574 · Close task-ID provenance leaks across repo, site, and fleet**
+- Task: `datarim/tasks/TUNE-0574-task-description.md`
+- PRD: `datarim/prd/PRD-TUNE-0574.md`
+- Plan: none; its implemented summary is preserved in the final archive.
+- QA report: `datarim/qa/qa-report-TUNE-0574.md`
+- Archive: `documentation/archive/framework/archive-TUNE-0574.md`
 
-**What was done**
+## Отчёт оператору
 
-The task asked for task-ID provenance to be removed from shipped framework and
-site surfaces, with the enforcement mechanism repaired before cleanup. The
-scanner, documentation, regression suite, corpus, semantic fleet probe, and
-site rule now implement that requirement.
+**TUNE-0574 · Close task-ID provenance leaks across framework, site, and fleet**
 
-**What worked**
+**Что было сделано / What was done**
 
-- The expanded tests detect the old bypasses and all pass after the fixes.
-- Full framework verification, security checks, and independent reviews are
-  green with no unresolved implementation finding.
-- The site change passed protected checks, merged, deployed, and matched live
-  resulting-main content.
+Сканер, договор, проверки хранилища, управляемый корпус, открытый сайт,
+подписанный выпуск и действующие установки теперь исполняют одно правило.
+Исторические номера убраны из рабочих инструкций, допустимые примеры сохранены,
+а любые ошибки разбора, обхода файлов и запуска сканера больше не превращаются
+в ложный чистый результат. Итоговые документы связывают каждое утверждение с
+уже существующим доказательством.
 
-**What didn't work or is still open**
+**Что получилось / What worked**
 
-- Nothing is open in the implementation-compliance scope. The framework has not
-  yet been merged or released, and the three installed runtimes have not yet
-  been synchronized; those are required downstream gates.
+Старая реализация провалила новый набор испытаний, а исправленная реализация,
+полные проверки, независимая оценка, защищённая доставка и проверка происхождения
+выпуска завершились успешно. Особенно полезным оказалось разделение локальной
+готовности, защищённого объединения, выпуска, развёртывания сайта и чтения
+установок: ни один будущий этап не был засчитан заранее. Отдельная проверка
+режима файла также предотвратила доставку неисполняемого сценария сайта.
 
-**What's next**
+**Что не получилось / осталось открытым / What didn't work or is still open**
 
-Deliver this exact revision through the protected framework branch, verify its
-resulting-main tree, publish release 2.65.0, synchronize and read back all three
-machines, then rerun QA and close the archive.
+Одна попытка выпуска не получила исполнителя. Она не создала состояния выпуска
+и была восстановлена одним ограниченным повтором той же метки. Перед повтором
+были проверены отсутствие шагов, состояний развёртывания и открытого выпуска,
+поэтому восстановление не создало параллельной публикации. Иных незакрытых
+ошибок реализации, доставки или установок не осталось.
+
+**Что дальше / What's next**
+
+Остаётся только защищённое объединение этой записи о закрытии; уже выпущенное
+поведение оно не меняет. После объединения основная ветка будет содержать
+архив, окончательные отчёты, запись выпуска и согласованные индексы. Отдельных
+действий оператора, переносов на потом или новых задач не требуется.
