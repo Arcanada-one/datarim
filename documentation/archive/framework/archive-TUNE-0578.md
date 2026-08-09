@@ -32,6 +32,7 @@ verification_outcome:
 - `tune-r5-site` — не осталась как отдельная необработанная ветка (ветка в GitHub уже отсутствует/ранее уже закрыта в истории).
 - `mac-handoff/2026-07-20` — ветка не оставлена как открытый объект в конце задачи.
 - Дополнительно закрыты зависимые Dependabot PR #15/#16/#17 и удалены их ветки перед фиксацией DoD.
+- `TUNE-0578` больше не присутствует в `datarim/tasks.md` и `datarim/activeContext.md`.
 
 ## Верификация
 
@@ -39,7 +40,7 @@ verification_outcome:
 - `gh pr list --state open` пуст.
 - Живая проверка:
   - 448 sitemap routes проверены с реальным UA,
-  - 200 на всех,
+  - 448 checked, 0 failures,
   - non-thin bodies = 0,
   - no task-ID leaks,
   - EN/RU hero counters: `19/28/69`.
