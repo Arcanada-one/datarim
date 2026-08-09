@@ -90,7 +90,9 @@ write_audit() {
         printf -- '  registry: %s\n' "$registry"
         printf -- '  bump_level: %s\n' "$bump"
         printf -- '  gates_passed: %s\n' "$gates"
-        printf -- '  rationale: %s\n' "$rationale"
+        # Quote the rationale: it can contain a colon (range "vX..HEAD: ...") which
+        # breaks unquoted YAML. Escape any embedded double-quote for safety.
+        printf -- '  rationale: "%s"\n' "${rationale//\"/\\\"}"
         printf -- '  timestamp: %s\n' "$ts"
     } > "$file"
     echo "$file"
@@ -148,9 +150,12 @@ main() {
     # Side-effect crossing. Write the audit record, then create the ANNOTATED tag
     # carrying the classifier stamp, then push. Defensive invariant below binds
     # exit code to the tag actually existing.
-    local stamp audit_file
+    local stamp audit_file rationale_line
     stamp="$("$SCRIPT_DIR/release-classify.sh" --repo "$repo" --api-diff auto --stamp)"
-    audit_file="$(write_audit "${GATE_AUDIT_DIR:-$repo/documentation/release-audit}" "$version" "$bump" "$registry" "$gates" "$verdict")"
+    # Single-line rationale for the audit record (the full verdict is multi-line
+    # key=value and would break the record's YAML).
+    rationale_line="$(printf '%s\n' "$verdict" | sed -n 's/^rationale=//p' | head -1)"
+    audit_file="$(write_audit "${GATE_AUDIT_DIR:-$repo/documentation/release-audit}" "$version" "$bump" "$registry" "$gates" "$rationale_line")"
     git -C "$repo" tag -a "v${version}" -m "$(printf 'release %s\n\n%s' "$version" "$stamp")"
 
     # Defensive invariant: the tag MUST exist now (CLAUDE.md § Defensive Invariants).

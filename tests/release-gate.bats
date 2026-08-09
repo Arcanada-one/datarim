@@ -31,7 +31,9 @@ setup() {
     export GATE_QA_VERDICT=ALL_PASS        # G2
     export GATE_VERSION_PUBLISHED=false    # G5
     export GATE_SMOKE_STATUS=success       # G7
-    AUDIT_DIR="$REPO/docs/release-audit"
+    # Mirror the shipped default (documentation/release-audit) so the fixture
+    # cannot drift from the path release-gate.sh actually writes to.
+    AUDIT_DIR="$REPO/documentation/release-audit"
     export GATE_AUDIT_DIR="$AUDIT_DIR"
 }
 
@@ -48,6 +50,22 @@ _set_manifest_version() { echo "$1" > "$REPO/VERSION"; }
     [ -d "$AUDIT_DIR" ]
     run grep -rl "0.6.4" "$AUDIT_DIR"
     [ "$status" -eq 0 ]
+}
+
+@test "audit record is valid parseable YAML (single-line quoted rationale)" {
+    _run_gate 0.6.4
+    [ "$status" -eq 0 ]
+    # rationale must be exactly one line (no multi-line verdict spill).
+    run bash -c "grep -c '^  rationale:' '$AUDIT_DIR/release-0.6.4.md'"
+    [ "$output" = "1" ]
+    run bash -c "grep -cE '^(api_diff|zero_x|escalate)=' '$AUDIT_DIR/release-0.6.4.md'"
+    [ "$output" = "0" ]
+    # The record must parse as YAML even though the rationale contains a colon.
+    if command -v python3 >/dev/null 2>&1; then
+        run python3 -c "import yaml,sys; yaml.safe_load(open(sys.argv[1])); print('OK')" "$AUDIT_DIR/release-0.6.4.md"
+        [ "$status" -eq 0 ]
+        [ "$output" = "OK" ]
+    fi
 }
 
 @test "created tag is ANNOTATED (carries the stamped bump_level)" {
