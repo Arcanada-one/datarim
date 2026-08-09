@@ -14,7 +14,7 @@ The original and most common use case. The pipeline maps directly to structured 
 
 | Stage | What happens |
 |-------|-------------|
-| `/dr-init` | Assess complexity (L3), create task TASK-0012 |
+| `/dr-init` | Assess complexity (L3), create a new task ID |
 | `/dr-prd` | Define auth requirements: token format, expiration, refresh flow, protected routes |
 | `/dr-plan` | Break into phases: middleware, token service, login endpoint, tests |
 | `/dr-design` | Consilium panel: Architect + Security evaluate JWT vs session tokens |

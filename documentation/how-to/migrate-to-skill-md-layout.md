@@ -88,7 +88,7 @@ Expected: `0`.
 Restart Claude Code (and Codex CLI, if used) — running sessions cache
 skill discovery and will not see the new layout until restart. Then
 invoke at least three migrated skills/commands in each runtime; record
-output under `datarim/qa/qa-report-TUNE-0304-live-smoke.md` (V-AC-11).
+output under the current task's live-smoke QA report.
 
 ## Rollback
 
@@ -120,8 +120,8 @@ The migration COPIES the flat source rather than moving it because:
 - `runtime: …` (top-level) is dropped entirely. The value is universally
   `[claude, codex]` across the existing 51 skills that carry it; preserving
   it under `metadata.runtime` would add cluttered noise without semantic
-  gain. (L1 Class A inline decision from `/dr-do` round 2 — see
-  `datarim/tasks/TUNE-0304-init-task.md` Q&A round 3.)
+  gain. This is an inline migration decision: retaining redundant metadata
+  would add noise without changing runtime behavior.
 - `model: sonnet|opus|haiku` → `model: inherit`. Explicit capability
   overrides remain explicit if the skill needs them — but the migrator
   always normalises hard aliases to `inherit`. If a skill needs to keep

@@ -1,6 +1,7 @@
 # Active Context
 
 ## Active Tasks
+- TUNE-0574 · in_progress · P1 · L4 · Close task-ID provenance leaks across repo, site, and fleet → tasks/TUNE-0574-task-description.md
 - TUNE-0558 · in_progress · P1 · L4 · Final release epic — reconcile release ledger, close gaps, ship 2.60.0 → tasks/TUNE-0558-init-task.md
 - TUNE-0499 · pending · P3 · L2 · Sync activeContext.md § Active Tasks with tasks.md (strict-mirror contract) → tasks/TUNE-0499-task-description.md
 - TUNE-0500 · pending · P3 · L1 · Resolve QCK-0010/0011 dangling archive references → tasks/TUNE-0500-task-description.md

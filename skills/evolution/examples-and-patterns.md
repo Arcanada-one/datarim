@@ -15,7 +15,7 @@ description: Good/bad evolution proposal examples and deprecation pattern. Refer
 Category: skill-update
 Target: skills/security/SKILL.md
 What: Add rate limiting section with token bucket and sliding window patterns
-Why: TASK-0051 required rate limiting on 3 endpoints; had to research patterns from scratch each time
+Why: Rate limiting across several endpoints repeatedly required the same research
 Impact: Medium
 ```
 <!-- /gate:history-allowed -->
@@ -26,7 +26,7 @@ Impact: Medium
 Category: new-template
 Target: templates/migration-checklist.md
 What: Checklist template for database migrations (backup, test, rollback plan, monitoring)
-Why: Missed rollback plan in TASK-0047, causing 30min downtime. Same checklist needed in TASK-0044 and TASK-0039.
+Why: A missed rollback plan caused 30 minutes of downtime, and later migrations needed the same checklist.
 Impact: High
 ```
 <!-- /gate:history-allowed -->

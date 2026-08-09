@@ -89,6 +89,7 @@ cat /tmp/datarim-test-<TASK-ID>/journal.md
 
 Sample expected output (full lifecycle):
 
+<!-- gate:history-allowed -->
 ```
 init · 2026-05-22T22:05:00Z · TASK-ID=TEST-9999
 plan · 2026-05-22T22:10:15Z · header-present:y · snapshot-written:y · cta-footer:y · snapshot-sha:a1b2c3d4e5f6
@@ -97,6 +98,7 @@ qa · 2026-05-22T23:30:00Z · header-present:y · snapshot-written:y · cta-foot
 coworker · 2026-05-22T22:55:00Z · keywords-found:4
 archive · 2026-05-22T23:45:00Z · header-present:y · snapshot-written:y · cta-footer:y · snapshot-sha:e5f6a7b8c9d0
 ```
+<!-- /gate:history-allowed -->
 
 A line with `header-present:n` indicates the agent missed the Stage Header convention on that stage — fail-fast signal that the `coworker-context.md` reference / Stage-Header bullet has not yet propagated.
 

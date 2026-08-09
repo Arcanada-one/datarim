@@ -416,7 +416,7 @@ jobs:
       - name: Self-dogfood — run linter against repo HEAD with baseline applied
         run: bash scripts/check-doc-refs.sh --root .
 
-  # 14. task-id-gate — history-agnostic policy on shipped runtime
+  # 14. task-id-gate — history-agnostic policy on governed public surfaces
   task-id-gate:
     name: task-id-gate
     runs-on: ubuntu-latest
@@ -437,9 +437,19 @@ jobs:
           sudo apt-get install -y --no-install-recommends bats
       - name: Run task-id-gate bats fixtures
         run: bats tests/task-id-gate.bats
-      - name: Self-dogfood — gate against runtime scopes (full tree)
+      - name: Self-dogfood — gate against governed scopes (full tree)
         run: |
           set -euo pipefail
-          for d in skills agents commands templates; do
-            bash scripts/task-id-gate.sh "$d"
+          for target in \
+            skills \
+            agents \
+            commands \
+            templates \
+            documentation/how-to \
+            documentation/reference \
+            documentation/explanation \
+            documentation/tutorials \
+            CLAUDE.md \
+            README.md; do
+            bash scripts/task-id-gate.sh "$target"
           done

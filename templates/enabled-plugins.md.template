@@ -1,7 +1,7 @@
 # Enabled Plugins
 
 <!--
-  Runtime manifest managed by /dr-plugin (TUNE-0101).
+  Runtime manifest managed by /dr-plugin.
   Manual edits are permitted but require `/dr-plugin sync` afterwards to
   reconcile filesystem state with this file.
 
@@ -26,7 +26,7 @@
   `/dr-plugin disable|enable <default-id>`. Malformed content fails safe to
   the stricter default policy.
 
-  Source: PRD-TUNE-0101, plans/TUNE-0101-plan.md.
+  Contract: the plugin-system documentation and this template.
 -->
 
 ## Active

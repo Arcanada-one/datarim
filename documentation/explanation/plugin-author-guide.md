@@ -210,11 +210,11 @@ Top five failure modes and their exit codes:
 
 ## 11. References
 
-- `datarim/prd/PRD-TUNE-0101-plugin-system-core.md` — Product requirements
-- `datarim/commands/dr-plugin.md` — CLI reference and exit codes
-- `datarim/templates/plugin.yaml.template` — Blank manifest template
+- `documentation/reference/commands.md` — command reference
+- `commands/dr-plugin.md` — CLI contract and exit codes
+- `templates/plugin.yaml.template` — blank manifest template
 
-## 12. Reference Plugin: `dr-orchestrate` (TUNE-0164)
+## 12. Reference Plugin: `dr-orchestrate`
 
 The first non-core plugin shipping with the framework lives at
 `plugins/dr-orchestrate/` and is intended as the canonical example for plugin
@@ -234,9 +234,9 @@ authors. It demonstrates:
 - A `user-config.template.yaml` operator-config skeleton; the live
   `user-config.yaml` is gitignored at the framework `.gitignore`.
 
-Phase 1 (TUNE-0164, this release) covers V-AC 1–15. Phase 2 (TUNE-0165)
-introduces subagent inference and a Telegram bridge; Phase 3 (TUNE-0166) adds
-auto-learning rules and 24 h re-validation. Use it as a template for your own
+The first phase covers the core transport contract. The second introduces
+subagent inference and a bot bridge; the third adds auto-learning rules and
+24-hour re-validation. Use it as a template for your own
 plugins; contract surfaces (manifest, hook dispatch, autonomy reporting) are
 intentionally minimal and inheritable.
 - `datarim/docs/getting-started.md` — Workspace onboarding

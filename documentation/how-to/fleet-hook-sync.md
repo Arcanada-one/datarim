@@ -1,6 +1,6 @@
 # Fleet Hook Sync Runbook
 
-> **Created:** TUNE-0537 (2026-07-30)
+> **Created:** 2026-07-30
 >
 > How to verify and synchronise per-machine hook registration across the
 > Datarim fleet after a hook update lands in the canonical repo.
@@ -57,8 +57,8 @@ git pull
 # 2. Re-run install to update hook symlinks (idempotent)
 ./install.sh --with-claude --with-codex
 
-# 3. Verify binary is the updated version
-grep "TUNE-0537" ~/.local/bin/coworker-hook-guard && echo "Updated" || echo "STALE"
+# 3. Verify the missing-target policy is present
+grep -F 'missing read targets fail closed' ~/.local/bin/coworker-hook-guard
 
 # 4. Verify registration parity
 grep -c "coworker-hook-guard" ~/.claude/settings.json
@@ -102,7 +102,7 @@ jq '.hooks.PreToolUse | length' ~/.claude/settings.json
 **Symlink from canonical repo:**
 
 ```bash
-# datarim-exec-guard must be symlinked from the framework repo (shipped in TUNE-0519)
+# datarim-exec-guard must be symlinked from the framework repo
 ln -sf "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/datarim-exec-guard.sh" ~/.local/bin/datarim-exec-guard
 
 # other guards are linked by install.sh
@@ -112,7 +112,7 @@ ln -sf "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/datarim-exec-guard.sh" ~/.lo
 
 | Date | Event |
 |------|-------|
-| 2026-07-30 (TUNE-0537 merge) | Hook binaries present, settings.json had ZERO hooks registered |
+| 2026-07-30 | Hook binaries present, settings.json had ZERO hooks registered |
 | 2026-07-30 08:45 UTC | Backed up settings.json, registered all 4 PreToolUse + 1 SessionStart hooks via `jq`, verified harmless Bash passes, datarim-exec-guard symlinked |
 
 **Root cause:** `install.sh` does not register hooks — it only links binaries.

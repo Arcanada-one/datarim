@@ -4,7 +4,20 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.65.0] — 2026-08-09
+
 ### Added
+
+- **Prefix-agnostic task-ID provenance gate.** The history-agnostic scanner now
+  covers public runtime instructions, four public documentation categories,
+  root entry documents, and five shipped text extensions. A fail-closed
+  POSIX-awk parser rejects malformed or nested hatches and provenance labels
+  inside otherwise valid illustrative blocks. Exact path exemptions, portable
+  lexical boundaries, NUL-safe traversal, and directory diff error handling
+  close the previous silent bypasses. CI and Bats pin the widened contract.
+- **Public-site parity.** The site contract now rejects every generic
+  two-to-ten-letter task prefix instead of maintaining a closed prefix list;
+  novel-prefix and adjacent non-ID controls run on every site test.
 
 - **TUNE-0564 VERSION↔tag parity gate.** `dev-tools/check-version-tag-parity.sh`
   fails when the version declared in `VERSION` has no matching `v<VERSION>` tag
@@ -21,6 +34,13 @@ All notable changes to the Datarim framework are documented here. Format follows
   on a host silently serves stale rules. Skips copy-mode installs; accepts a
   release-tag pin. Wired as a blocking step in `validate.sh`. Mutation-tested
   regression: `tests/check-runtime-drift.bats`.
+
+### Changed
+
+- Removed historical task provenance and dead task-description links from the
+  governed public corpus while preserving load-bearing rules and narrow
+  illustrative examples. The fleet hook check now probes the semantic invariant
+  `missing read targets fail closed` rather than a historical identifier.
 
 ### Fixed
 

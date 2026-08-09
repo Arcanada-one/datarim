@@ -60,9 +60,11 @@ Each backlog entry follows this structure:
 **Examples:**
 
 ```markdown
+<!-- gate:history-allowed -->
 ### INFRA-0004: Google Search Console для всех доменов
 ### SUP-0002: Support Center — Infrastructure
 ### CONTENT-0002: Telegram discussion group API
+<!-- /gate:history-allowed -->
 ```
 
 **Field notes:**
@@ -71,7 +73,7 @@ Each backlog entry follows this structure:
 - **Status** — Only `pending` and `in_progress` belong in the active backlog. Completed and cancelled items move to `backlog-archive.md`.
 - **Priority** — Determines selection order: `critical` > `high` > `medium` > `low`.
 - **Complexity** — Estimated effort level (see [complexity.md](../reference/complexity.md) for definitions). Helps plan iterations.
-- **Source** — Where this task originated. Useful for traceability. Common values: `manual`, `PRD-SUP-0001`, `CONTENT-0001 reflection`, `INFRA-0003 reflection`.
+- **Source** — Where this task originated. Useful for traceability. Common values are `manual`, `PRD-<TASK-ID>`, `<TASK-ID> reflection`, or another stable origin description.
 
 ---
 
@@ -132,7 +134,7 @@ Three ways to see what's pending:
 /dr-init
 
 # Directly start working on a specific backlog item (ID is invariant)
-/dr-init SUP-0002
+/dr-init <TASK-ID>
 
 # Create a new task (not from backlog)
 /dr-init "Add rate limiting to the API"
@@ -191,7 +193,7 @@ A project manager who doesn't use Claude Code directly can still participate in 
 4. Add a new entry at the appropriate priority position under `## Active Items`:
 
 ```markdown
-### SUP-0010: Implement user notifications
+### <TASK-ID>: Implement user notifications
 - **Status:** pending
 - **Priority:** high
 - **Complexity:** Level 2

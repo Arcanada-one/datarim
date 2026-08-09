@@ -5,8 +5,8 @@
 #   Encodes the framework's IFS / word-splitting / locale conventions so that any
 #   helper that returns lists, iterates over them, or runs regex behaves the same
 #   on macOS (bash 3.2, non-POSIX collation) and Linux (bash 5.x). These rules
-#   surfaced as repeat word-splitting bugs (TUNE-0101 R2/R5) before being
-#   formalised here.
+#   prevent repeat word-splitting bugs seen before this template was
+#   formalised.
 #
 # WHAT TO FILL IN
 #   1. Replace the example functions with your own; keep the return/loop idioms.
@@ -35,8 +35,8 @@ set -euo pipefail
 # BAD:  echo "$a $b $c"  ->  a single line; the caller's `for x in $(...)`
 #       re-splits on spaces and mangles any element that itself contains a space.
 list_task_ids() {
-  # Emits e.g. TUNE-0111, one per line. Replace body with real source.
-  printf '%s\n' "TUNE-0111" "TUNE-0101" "task with space in name"
+  # Emits example task tokens, one per line. Replace body with real source.
+  printf '%s\n' "TASK-NNNN" "WORK-NNNN" "task with space in name"
 }
 
 # ---------------------------------------------------------------------------

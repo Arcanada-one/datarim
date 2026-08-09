@@ -1,9 +1,8 @@
 # How-to · Opt-in `dr-output-stop` hook
 
-**Source:** TUNE-0264.
-**Status:** opt-in, not installed by `install.sh` / `update.sh` (intentional — see `tasks/TUNE-0264-task-description.md § Decisions D-3`).
+**Status:** opt-in, intentionally not installed by `install.sh` / `update.sh`.
 
-The `dr-output-stop` Claude Code `Stop` hook adds programmatic enforcement on top of two markdown contracts that are otherwise advisory:
+The `dr-output-stop` Claude Code `Stop` hook adds programmatic enforcement on top of two markdown contracts that are otherwise advisory. Opt-in installation keeps the default runtime unchanged while allowing operators to choose strict output enforcement:
 
 1. **Stage Header** (`skills/cta-format/SKILL.md § Stage Header`) — every task-scoped `/dr-*` response must begin with `**{TASK-ID} · {title}**`.
 2. **Human Summary contract** (`skills/human-summary/SKILL.md § Output contract`) — `/dr-archive`, `/dr-compliance`, and `/dr-qa` responses must carry the canonical `## Отчёт оператору` / `## Operator summary` section with self-identifier preamble + four canonical sub-headings in order.

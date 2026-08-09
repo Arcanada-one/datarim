@@ -61,11 +61,13 @@ The framework should stay lean. Run `/dr-optimize` when any threshold is exceede
 
 `datarim/docs/evolution-log.md`:
 
+<!-- gate:history-allowed -->
 ```markdown
 | Date | Task ID | Category | Target | Change | Rationale |
 |------|---------|----------|--------|--------|-----------|
 | 2026-04-09 | TASK-0001 | skill-update | testing.md | Added property-based testing | Caught 3 edge cases unit tests missed |
 ```
+<!-- /gate:history-allowed -->
 
 ## Anti-Bloat Rule
 

@@ -145,10 +145,9 @@ discoverability) is preferred.
   runtime gap.
 
 - **Deprecated bridge — follow-up.** Datarim's opt-in `/prompts:dr-*` bridge
-  (`--enable-codex-prompts`, added in TUNE-0306 — await-merge as of this writing) rides
-  the now officially-deprecated custom-prompts mechanism. It still works, but a future
-  Codex release may remove it; TUNE-0306 already carries an accepted-risk (R8) note to
-  that effect. The forward-compatible path is Skills, which Datarim already installs
+  (`--enable-codex-prompts`) rides the officially deprecated custom-prompts mechanism.
+  It still works, but a future Codex release may remove it; this is an accepted risk.
+  The forward-compatible path is Skills, which Datarim already installs
   under `~/.codex/skills/`. **Suggested follow-up task:** evaluate migrating the
   `/prompts:dr-*` bridge posture to a Skills-based discovery story (and, if the Option 2
   ask above is ever accepted, adopt `slash: true` on the relevant skills). No action

@@ -20,7 +20,7 @@ A narrated guard carries the original lesson forward. Future operators, LLM agen
 <!-- gate:history-allowed -->
 ```bash
 echo "WARNING: --force on a live system will overwrite $CLAUDE_DIR"
-echo "         TUNE-0003 incident: --force previously destroyed 9 runtime evolutions."
+echo "         Prior incident: --force destroyed 9 runtime evolutions."
 ```
 <!-- /gate:history-allowed -->
 

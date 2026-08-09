@@ -1,4 +1,4 @@
-# plugin.yaml — static manifest for Datarim plugin (TUNE-0101).
+# plugin.yaml — static manifest for a Datarim plugin.
 #
 # Schema version 1. Place this file in the root of your plugin repo.
 # Example: plugin-storage/<id>/plugin.yaml
@@ -11,7 +11,7 @@
 #     <name>.datarim-core.disabled and installs your file in its place.
 #   - depends_on: optional list of other plugin ids that MUST be enabled first.
 #   - schema_version: must equal 1. Future schemas bump this and stay backwards
-#     compatible for one minor release per ADR-0001 pattern.
+#     compatible for one minor release.
 
 schema_version: 1
 

@@ -236,6 +236,7 @@ Incorrect (4-space, silently ignored by the validator):
   Missing or unresolvable artifact → ERROR `verification-not-wired:
   <wish_id>` (hard at `/dr-compliance`, advisory at `/dr-qa` Layer 3b).
 
+<!-- gate:example-only -->
   **Stub-literal guard (advisory, best-effort):** when `evidence_artifact`
   resolves to an existing file, the validator scans for stub literals
   (`it.skip`, `xit(`, `.todo`, `expect(true).toBe(true)`, `test.skip`,
@@ -245,6 +246,7 @@ Incorrect (4-space, silently ignored by the validator):
   partially-implemented test file from a stub-only file. A file with mixed
   real and stub tests passes the guard even when the relevant assertion is
   the stub. Operator must verify stub coverage during `/dr-qa` review.
+<!-- /gate:example-only -->
 
   **Heuristic advisory (sub-v3 and v3, NEVER hard):** for schema v3
   wishes where `verification_mode` is ABSENT and `evidence_type:
@@ -267,9 +269,7 @@ Incorrect (4-space, silently ignored by the validator):
 | `n-a` | item became inapplicable (scope changed, environment drift) | non-blocking |
 | `deleted` | operator dropped the wish (history retained) | non-blocking |
 
-<!-- gate:history-allowed -->
-> **Glossary note.** `closed` is NOT an enum value here, although the word often appears in QA/PRD prose to mean "success criterion verified". The correct enum for that semantics is `met`. The validator (`"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --task <ID>`) rejects `closed` as a structural error; pipelines fail late at `/dr-compliance --verify` rather than at write time. Source: TUNE-0295 Phase H L2-F-8 wrote `closed`, surfaced only at `/dr-compliance` re-validation.
-<!-- /gate:history-allowed -->
+> **Glossary note.** `closed` is NOT an enum value here, although the word often appears in QA/PRD prose to mean "success criterion verified". The correct enum for that semantics is `met`. The validator (`"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --task <ID>`) rejects `closed` as a structural error so the mistake is caught before `/dr-compliance --verify`.
 
 ### Numeric literals in success criteria
 
