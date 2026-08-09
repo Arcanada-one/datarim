@@ -601,6 +601,27 @@ Required for proper link previews on all social platforms:
 
 ---
 
+## Per-platform language and Telegram cross-link
+
+- **Language is per-platform, not one language for all.** Russian-audience platforms (Telegram, Facebook, VKontakte) publish in **Russian**; international platforms (**LinkedIn, X/Twitter**) publish in **English**. Posting the wrong language costs a delete+repost cycle.
+- **Every post links back to Telegram in its first comment** (drives traffic to the channel from each platform). Add the canonical Telegram post URL to the first comment of every platform except Telegram itself. On English platforms, tag the language so readers know the linked content is Russian: `Telegram (in Russian): <url>`. On Russian platforms: `Telegram: <url>`.
+- **Image is mandatory** in every social post (a text-only post is a defect). Verify the image is attached BOTH before submit (composer snapshot) AND after (open the published post).
+- **First line = headline, separated by a blank line from the body** on Facebook and LinkedIn. The feed shows only the first line (rest folded under "see more"), so a run-on first line reads as no headline. Always `<headline>\n\n<body>`.
+
+## Browser-composer mechanics (when no API exists)
+
+When publishing via browser automation (Playwright) rather than an official API, the composers of FB / X / LinkedIn are fragile and mutate often. Hard-won mechanics:
+
+- **Use real `locator.click()`, not `element.click()` inside `page.evaluate`** — React composers (FB, LinkedIn) ignore synthetic DOM clicks; only emulated mouse events fire their handlers.
+- **Facebook clears the editor when an image is attached** (React re-render): attach the image FIRST, wait, THEN type the text.
+- **Facebook treats Enter / `\n` as submit.** For multi-line comments/posts, type each line then `Shift+Enter` between lines, and a final `Enter` to send — otherwise it submits on the first newline and only the first line is saved.
+- **Changing a comment's text = delete + add, not edit** on Facebook (the edit contenteditable collapses to the first line and rejects programmatic input). LinkedIn comment-edit works but needs scroll-to-load + the `View more options for <Name>'s comment` menu label + the `Save changes` button.
+- **Publish confirmation is the network response, not the DOM.** Wait for the GraphQL response (`page.waitForResponse`): FB `/api/graphql/` 200; X `CreateTweet` 200. The DOM caches and lies.
+- **Comment publish can take up to ~10 s** (a "publishing" indicator shows) — wait ≥12 s before verifying.
+- **Read before delete:** open and identify a post/comment by its content before deleting — never delete blindly by URL or feed position (a wrong-target delete on a public profile is irreversible).
+
+> Full selector tables and the per-platform recipes live in the operator's knowledge base; the universal-publisher product (Publisher / PUB) owns the durable implementation of these rules.
+
 ## Multi-Platform Workflow
 
 ### Adapting One Post for Multiple Platforms
