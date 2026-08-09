@@ -365,11 +365,11 @@ assert_hatch_fails() {
     [[ "$output" == *"scanner error"* ]]
 }
 
-@test "F2: shipped shell gate enables the S1 strict-mode floor" {
+@test "F2: shipped shell gate enables strict mode without global IFS mutation" {
     run grep -F 'set -euo pipefail' "$GATE"
     [ "$status" -eq 0 ]
-    run grep -F "IFS=\$'\\n\\t'" "$GATE"
-    [ "$status" -eq 0 ]
+    run grep -nE '^IFS=' "$GATE"
+    [ "$status" -eq 1 ]
 }
 
 @test "B1: task-ID boundaries are portable and do not match adjacent word characters" {

@@ -21,7 +21,6 @@
 #   0 clean; 1 policy finding; 2 invocation or scanner error.
 
 set -euo pipefail
-IFS=$'\n\t'
 
 WHITELIST=(
     "skills/evolution/history-agnostic-gate.md"
