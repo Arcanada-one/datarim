@@ -3,7 +3,7 @@ task_id: TUNE-0574
 artifact: reflection
 captured_at: 2026-08-09
 captured_by: /dr-compliance
-reflection_basis: "5aa378c268b2d103"
+reflection_basis: "dcf1c0b262fcc178"
 ---
 
 # Reflection: TUNE-0574 -- Close task-ID provenance leaks across repo, site, and fleet
@@ -27,8 +27,10 @@ ordered after the protected framework merge and will be added before archive.
   24/50 cases, so GREEN could not be mistaken for tests written around the fix.
 - Independent security and compliance reviews found four material gaps before
   delivery: scanner subprocess propagation, Markdown decoration laundering,
-  strict shell mode, and executable mode on the site contract. Each finding was
-  reproduced or directly verified, fixed, and retained as durable evidence.
+  strict shell mode, and executable mode on the site contract. Exact-head
+  Semgrep found a fifth: the strict-mode edit had also set `IFS` globally. Each
+  finding was reproduced or directly verified, fixed, and retained as durable
+  evidence.
 - Keeping the framework and site in isolated worktrees preserved unrelated local
   state and allowed exact-head and resulting-main proof for each repository.
 - Separating implementation QA from later release/fleet proof broke the release-
@@ -98,4 +100,4 @@ to a follow-up.
 - Framework lines added/removed before QA artifacts: 1457 / 325.
 - Focused gate tests: 53 total.
 - Full framework tests: 3257 total.
-- Issues found by independent QA: 4 material findings, all resolved.
+- Issues found by independent QA/CI: 5 material findings, all resolved.

@@ -3,7 +3,7 @@ task_id: TUNE-0574
 date: 2026-08-09
 verdict: COMPLIANT
 scope: pre-delivery framework implementation and delivered companion site
-framework_sha: 6e349260f2ec8ae11fdd4f571e9ac429112e7c78
+framework_sha: f9e39ae8b900e92e39788e68cdc5609e3047b0df
 site_main_sha: 33cf4816d08c4b1ff3ced3948a291e1d3b80e83b
 ---
 
@@ -72,6 +72,9 @@ exists.
 - Version consistency: 2.65.0 across required surfaces, PASS.
 - Repository validation: PASS.
 - Native ShellCheck at warning severity: PASS.
+- Exact-head Semgrep exposed a global `IFS` assignment. The assignment was
+  removed, F2 now forbids its return, and focused tests plus independent review
+  pass at the amended implementation SHA; protected CI is rerunning that SHA.
 - Pre-commit Bandit and Gitleaks: PASS. The configured containerized ShellCheck
   hook lacked a usable container daemon; native ShellCheck supplied the check.
 - Independent framework and site reviews: no unresolved finding.

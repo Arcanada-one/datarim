@@ -3,7 +3,7 @@ task_id: TUNE-0574
 date: 2026-08-09
 verdict: ALL_PASS
 scope: pre-delivery implementation and companion-site delivery
-reviewed_framework_sha: 6e349260f2ec8ae11fdd4f571e9ac429112e7c78
+reviewed_framework_sha: f9e39ae8b900e92e39788e68cdc5609e3047b0df
 reviewed_site_main_sha: 33cf4816d08c4b1ff3ced3948a291e1d3b80e83b
 ---
 
@@ -275,8 +275,10 @@ or execution.
 
 **Security issues:** 0 unresolved high or medium findings. Independent review
 identified three real gaps during development: scanner failure propagation,
-decorated label normalization, and strict shell mode. Each was reproduced RED,
-fixed, and retained as a regression.
+decorated label normalization, and strict shell mode. Exact-head Semgrep then
+rejected a global `IFS` mutation introduced with strict mode; F2 was inverted
+RED/GREEN to forbid that mutation. Each defect is fixed and retained as a
+regression or blocking security check.
 
 **Anti-patterns:** 0 unresolved. ShellCheck passes for tracked shell files at
 warning severity. Bandit and Gitleaks pass through pre-commit. The configured
