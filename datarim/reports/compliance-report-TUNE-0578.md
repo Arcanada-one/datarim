@@ -87,7 +87,7 @@ scope: datarim-club-site branch retirement + live verification
 - `datarim/reports/compliance-report-TUNE-0578.md` added (настоящий документ).
 - Проверка на наличие строки `TUNE-0578` в реестре задач:
   - `rg -n "TUNE-0578" datarim/tasks.md datarim/activeContext.md`
-  - результат: no matches (row already removed from both files).
+  - результат: после финальной правки в `tasks.md` и `activeContext.md` — no matches.
 
 ## Соседние задачи
 
@@ -103,7 +103,7 @@ scope: datarim-club-site branch retirement + live verification
 | 2 | Open PR inventory | PASS — no open PRs |
 | 3 | Merge workflow | PASS — both real-improvement branches merged and tested |
 | 4 | Delete/close non-merged branches | PASS — all remaining branch refs removed |
-| 5 | Live route check | PASS — 448 routes, 200/0 thin/0 leaks |
+| 5 | Live route check | PASS — 448 routes, 0 thin/0 failures |
 | 6 | Counter parity | PASS — 19/28/69 on both EN and RU |
 | 7 | Registry cleanup | PASS — no `TUNE-0578` rows in `tasks.md` and `activeContext.md` |
 <!-- /gate:literal -->
