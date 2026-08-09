@@ -47,6 +47,10 @@ Rules and patterns for structured content creation and editorial review.
 15. **Never announce or meta-comment a heading.** Headings like "Philosophical finale", "An important conclusion", "The big takeaway" tell the reader how to feel instead of saying the thing. Name the actual content: "From infrastructure-as-code to infrastructure as an agent's service". Same rule inside prose — don't label your own point as profound, just make it.
 16. **No moralizing, no hollow verdicts.** Cut sentences whose only job is to pronounce a lesson or a boundary: "but the line remains", "the extra cost buys peace of mind later", "this is the new level". State the concrete fact instead: "the human controls the final action — the purchase — and pays with their own card". If a sentence can be deleted without losing a fact, it was a moral, not content.
 17. **Translate jargon to human language.** Words like "machine-readable", "feed", "live JSON" are writer-facing, not reader-facing. Say what they mean to the reader: "the data has everything needed — processors, memory, disks, ECC, location, current price". Keep a proper noun (a file name, a protocol) only when it's load-bearing.
+18. **Never publish pseudographic diagrams.** Do not use ASCII art, box-drawing characters, Unicode arrows, or aligned text as an architecture diagram, dependency map, or process flow. A `<pre>` block is reserved for executable or copyable code. Express relationships in direct prose, a real SVG/PNG diagram, or a semantic HTML table.
+19. **Keep technical labels in context.** Never split a sentence into isolated one-word paragraphs such as `MCP`, `CLI`, or `or:`. Keep protocol names inline, in a sentence, list, or table so the reader can tell what the label means.
+20. **Describe, do not announce, the point.** Remove template signposting such as "the most interesting part", "here is the idea", "the main conclusion", and their Russian equivalents ("самое интересное", "вот здесь идея", "главный вывод", "окончательно видно"). State the concrete observation or claim directly.
+21. **Complex figures need a text alternative.** When a diagram carries more than a decorative role, publish it as a real `<figure>` with an informative `alt`, a visible caption or adjacent long description, explicit `width`/`height`, and `loading="lazy"`/`decoding="async"` when it is below the fold. Keep the figure and its explanation structurally equivalent in every language.
 
 ### Phase 3: Self-Review (before editor)
 1. Read aloud (mentally). Does it sound like a person wrote it?
@@ -78,6 +82,8 @@ Before any content is considered complete:
 - [ ] All links and references are valid
 - [ ] Spelling and grammar are correct in all languages used
 - [ ] Content reads naturally — not "too clean" or "too balanced"
+- [ ] No pseudographic diagram, Unicode arrow chain, or isolated technical label appears in the rendered content
+- [ ] Every complex figure has an accessible text alternative and responsive dimensions
 - [ ] Target audience claims verified with the author (who it's for / not for — these contain subjective judgments that factcheck can't catch from sources alone)
 
 ## Anti-Patterns to Avoid
