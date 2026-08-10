@@ -1,0 +1,34 @@
+name: deploy
+
+on:
+  pull_request:
+
+jobs:
+  preflight-caller-contract:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          ref: ${{ github.workflow_sha }}
+      - uses: Arcanada-one/datarim/.github/actions/preflight-caller-contract@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        with:
+          vault-addr: ${{ vars.VAULT_ADDR }}
+
+  deploy:
+    needs: preflight-caller-contract
+    runs-on: self-hosted
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    env:
+      VAULT_ADDR: ${{ vars.VAULT_ADDR }}
+    steps:
+      - uses: Arcanada-one/datarim/.github/actions/preflight-check@fff2521000000000000000000000000000000000
+        with:
+          target-host: arcana-prod
+          service-name: legal
+          extra-checks: vault
+          ops-bot-emit: "true"
+          ops-bot-url: https://ops.arcanada.one/events
