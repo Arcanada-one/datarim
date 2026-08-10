@@ -39,6 +39,10 @@ inputs:
     required: false
     default: ""
     description: Ops Bot Vault-issued API key. If empty, falls back to runner env OPSBOT_KEY. Explicit input eliminates the job-vs-step env-scope footgun.
+  ops-bot-agent:
+    required: false
+    default: preflight-check
+    description: Service-scoped agent identity included in the Ops Bot event payload.
   severity-overrides:
     required: false
     default: ""
@@ -60,6 +64,9 @@ outputs:
   failures:
     description: Number of FATAL failures
     value: ${{ steps.run.outputs.failures }}
+  notification-outcome:
+    description: disabled | not-needed | skipped-no-key | delivered | failed
+    value: ${{ steps.run.outputs.notification-outcome }}
 runs:
   using: composite
   steps:
@@ -99,6 +106,7 @@ runs:
         PREFLIGHT_EXTRA_CHECKS: ${{ inputs.extra-checks }}
         PREFLIGHT_OPS_BOT_EMIT: ${{ inputs.ops-bot-emit }}
         PREFLIGHT_OPS_BOT_URL: ${{ inputs.ops-bot-url }}
+        PREFLIGHT_OPS_BOT_AGENT: ${{ inputs.ops-bot-agent }}
         PREFLIGHT_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         OPSBOT_KEY: ${{ inputs.ops-bot-key != '' && inputs.ops-bot-key || env.OPSBOT_KEY }}
       run: |
