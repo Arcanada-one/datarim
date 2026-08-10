@@ -384,6 +384,7 @@ re-publishing, editing, or adding a corrective comment.
 - **No audio?** Fall back to a ~30 s clip from the cover alone (the generator's no-audio path), still with cycling effects.
 - Do NOT use a bare audio-waveform visualizer (showwaves/showcqt/showspectrum) as the WHOLE post video — a full-frame visualizer looks generic; the animated-cover cycle stays the hero. A bottom audio-amplitude STRIP drawn ON TOP of the cycle is allowed and is the default house style (operator-approved): a showwaves oscilloscope with a horizontal gold→crimson gradient, ~180px tall, pinned to the bottom edge, shown only when narration audio exists. The distinction is overlay-strip (good) vs. whole-frame-visualizer (forbidden). The canonical generator draws it by default; disable with the `--no-waveform` CLI flag (or `WAVEFORM=0` for the bash reference engine).
 - Per-platform attach: X long-form and LinkedIn take the MP4; Facebook feed forces video into Reels, so on FB use the static cover image instead (keep the video for X and LinkedIn); Telegram can take the MP4 via `sendVideo`.
+- **Social-video size baseline:** for long narrated posts, render the compact 480p target (normally 854x480, H.264/AAC) and keep Telegram-bound files below its upload limit. Do not create a 720p/"720 dpi" export merely because the source image is large; use higher resolution only when the target platform and campaign explicitly require it.
 - **Approved-audio provenance is mandatory.** A narration-backed video may use only
   an MP3 that passed the semantic fidelity gate below. Record the approved MP3
   SHA-256 and frozen narration SHA-256 in the video generation evidence. After
@@ -440,6 +441,26 @@ re-publishing, editing, or adding a corrective comment.
   `docs/how-to/blog-audio-narration.md` carries the matching operational JSON example;
   verify both committed versions before claiming cross-repository parity. Do not
   claim CLI enforcement until a validator actually ships.
+- **Operator-directed site-first review exception.** If the operator explicitly
+  instructs the agent to publish fresh narration to an Arcanada first-party
+  website so the operator can listen there, the site may receive the new MP3
+  before proof-listening. After the operator confirms the live-site listen, an
+  explicitly requested smoke may also send the derived MP4 to the canonical
+  Telegram **test** channel through Publisher. Keep the campaign and receipt
+  `REVIEW_REQUIRED` / `PENDING`, expose the exact live URLs, and do not describe
+  either asset as approved. This exception does not authorize the main Telegram
+  channel, X, LinkedIn, Facebook, VK, YouTube, or another production/social
+  destination. Read back the test-channel artifacts before reporting them.
+  Finish the receipt and run the normal Publisher gates before broader social
+  publication.
+- **Explicit production continuation after live review.** If, after the live
+  site listen, the operator explicitly says to continue the production rollout,
+  that statement authorizes the remaining named social/YouTube destinations
+  through Publisher even when the narration receipt is still
+  `REVIEW_REQUIRED` / `PENDING`. Preserve that evidence status, surface it in
+  the campaign record, and never call the media proof-listening gate `PASS`.
+  Without this second production go, stop after the requested test-channel
+  smoke; do not infer production permission from the site-first request alone.
 - **Chunking:** keep chunks small (<=600 chars, not the 900 default) — long chunks raise Silero's length-limit 500 even after a split. The chunker self-heals by recursively halving, but small chunks avoid the wasted retry rounds.
 - **Cache:** re-voiced MP3s live on Cloudflare R2 with a 1-year `immutable` cache. After overwriting an audio asset you MUST purge the Cloudflare cache for those URLs (and the listener should hard-refresh the browser), or the old narration keeps playing. Same rule as any content edit — see § Website Publishing.
 
@@ -587,6 +608,10 @@ Required for proper link previews on all social platforms:
 - [ ] `<link rel="canonical">` set
 - [ ] Heading hierarchy correct (one `<h1>`, logical `<h2>`→`<h3>`)
 - [ ] Images have `alt` text, are optimized (<200 KB), use modern formats (WebP)
+- [ ] No pseudographic diagram is present: `<pre>` contains code only; no box-drawing glyphs, Unicode arrow chains, or aligned text flows appear in article prose
+- [ ] Complex diagrams use a real SVG/PNG `<figure>` with informative `alt`, visible `figcaption` or adjacent long description, explicit `width`/`height`, and `loading="lazy"` plus `decoding="async"` below the fold; verify at 320/375/768/1280 px widths
+- [ ] Technical labels are not isolated paragraphs (`<p>MCP</p>`, `<p>CLI</p>`, `<p>or:</p>`, or `<p>или:</p>`); keep them in a sentence, list, or table <!-- allow-non-ascii: documented Russian editorial example -->
+- [ ] Remove template signposting before publication: "the most interesting part", "here is the idea", "main conclusion", "it becomes finally clear" and Russian equivalents "самое интересное", "вот здесь идея", "главный вывод", "окончательно видно" <!-- allow-non-ascii: documented Russian editorial examples -->
 - [ ] Internal links use relative paths or full URLs consistently
 - [ ] Multi-language: `<link rel="alternate" hreflang="ru">` if applicable
 - [ ] RSS feed updated (if exists)
