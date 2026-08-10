@@ -20,6 +20,7 @@ PREFLIGHT_DISK_FAIL_PERCENT="${PREFLIGHT_DISK_FAIL_PERCENT:-90}"
 PREFLIGHT_EXTRA_CHECKS="${PREFLIGHT_EXTRA_CHECKS:-}"
 PREFLIGHT_OPS_BOT_EMIT="${PREFLIGHT_OPS_BOT_EMIT:-true}"
 PREFLIGHT_OPS_BOT_URL="${PREFLIGHT_OPS_BOT_URL:-https://ops.arcanada.ai/events}"
+PREFLIGHT_OPS_BOT_AGENT="${PREFLIGHT_OPS_BOT_AGENT:-preflight-check}"
 PREFLIGHT_RUN_URL="${PREFLIGHT_RUN_URL:-unknown}"
 PREFLIGHT_DISK_PATHS="${PREFLIGHT_DISK_PATHS:-/ /var/lib/docker /srv/apps}"
 PREFLIGHT_HEALTH_URL="${PREFLIGHT_HEALTH_URL:-}"
@@ -31,6 +32,7 @@ PREFLIGHT_TIME_SKEW_THRESHOLD_S="${PREFLIGHT_TIME_SKEW_THRESHOLD_S:-0.5}"
 
 WARN_COUNT=0
 FATAL_COUNT=0
+NOTIFICATION_OUTCOME="not-needed"
 REPORT_FILE="${REPORT_FILE:-}"
 
 # === HELPERS ===
@@ -299,6 +301,7 @@ emit_ops_bot() {
     local key="${OPSBOT_KEY:-}"
     if [[ -z "$key" ]]; then
         echo "WARN: OPSBOT_KEY unset; skipping Ops Bot emit (fail-soft)" >&2
+        NOTIFICATION_OUTCOME="skipped-no-key"
         return 0
     fi
     local category dedup_bucket payload status_upper body_text
@@ -312,7 +315,7 @@ emit_ops_bot() {
     body_text="$(jq -r '.[] | "\(.name): \(.status) (\(.actual) vs \(.threshold))"' \
                  "$report" | head -10 | tr '\n' '|' )"
     payload="$(jq -cn \
-        --arg agent     "preflight-check" \
+        --arg agent     "$PREFLIGHT_OPS_BOT_AGENT" \
         --arg title     "Pre-deploy preflight: ${PREFLIGHT_SERVICE_NAME} on ${PREFLIGHT_TARGET_HOST} [${status_upper}]" \
         --arg body      "$body_text" \
         --arg category  "$category" \
@@ -336,16 +339,21 @@ emit_ops_bot() {
         --output "$resp_file" \
         --write-out '%{http_code}' 2>/dev/null || echo "000")"
     if [[ ! "$http_code" =~ ^2[0-9]{2}$ ]]; then
+        NOTIFICATION_OUTCOME="failed"
         resp_body="$(head -c 200 "$resp_file" 2>/dev/null | tr -d '\0\r' || true)"
         echo "WARN: Ops Bot emit failed (HTTP ${http_code}); body: ${resp_body:-<empty>}; not blocking deploy" >&2
+    else
+        NOTIFICATION_OUTCOME="delivered"
     fi
     rm -f "$resp_file"
+    return 0
 }
 
 # === MAIN ===
 
 preflight_main() {
     set -e
+    NOTIFICATION_OUTCOME="not-needed"
 
     : "${PREFLIGHT_TARGET_HOST:?required}"
     : "${PREFLIGHT_SERVICE_NAME:?required}"
@@ -356,6 +364,10 @@ preflight_main() {
     fi
     if [[ ! "$PREFLIGHT_SERVICE_NAME" =~ ^[a-z0-9-]+$ ]]; then
         echo "ERR: invalid service-name (must match [a-z0-9-]+): $PREFLIGHT_SERVICE_NAME" >&2
+        exit 3
+    fi
+    if [[ ! "$PREFLIGHT_OPS_BOT_AGENT" =~ ^[a-z0-9-]+$ ]]; then
+        echo "ERR: invalid ops-bot-agent (must match [a-z0-9-]+): $PREFLIGHT_OPS_BOT_AGENT" >&2
         exit 3
     fi
 
@@ -393,8 +405,14 @@ preflight_main() {
         } >> "$GITHUB_OUTPUT"
     fi
 
-    if [[ "$PREFLIGHT_OPS_BOT_EMIT" == "true" && "$status" != "ok" ]]; then
+    if [[ "$PREFLIGHT_OPS_BOT_EMIT" != "true" ]]; then
+        NOTIFICATION_OUTCOME="disabled"
+    elif [[ "$status" != "ok" ]]; then
         emit_ops_bot "$status" "$REPORT_FILE"
+    fi
+
+    if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+        echo "notification-outcome=$NOTIFICATION_OUTCOME" >> "$GITHUB_OUTPUT"
     fi
 
     [[ "$status" == "fail" ]] && exit 2
