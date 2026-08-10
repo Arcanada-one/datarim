@@ -440,6 +440,19 @@ EOF
     [ "$checks_len" -ge 1 ]
 }
 
+@test "T19c emit_ops_bot: service-scoped agent reaches canonical DTO" {
+    mock_curl
+    prepend_path
+    export OPSBOT_KEY="testkey"
+    export PREFLIGHT_OPS_BOT_AGENT="muneral"
+    source_script
+    append_finding "disk" "warning" "used_pct" "85" "80"
+    run emit_ops_bot "warn" "$REPORT_FILE"
+    payload_line=$(grep "^PAYLOAD:" "$CURL_LOG" | head -1)
+    payload="${payload_line#PAYLOAD: }"
+    [ "$(echo "$payload" | jq -r '.agent')" = "muneral" ]
+}
+
 @test "T19a emit_ops_bot: WARN logs HTTP code + body excerpt on 4xx" {
     mock_curl 401 '{"error":"invalid_api_key"}'
     prepend_path
@@ -538,9 +551,26 @@ EOF
         PREFLIGHT_OPS_BOT_EMIT=false \
         GITHUB_OUTPUT="$GITHUB_OUTPUT" \
         bash "$SCRIPT"
-    [ "$status" -eq 0 ]
-    grep -q "^status=ok$" "$GITHUB_OUTPUT"
-    grep -q "^failures=0$" "$GITHUB_OUTPUT"
+    [ "$status" -eq 0 ] &&
+        grep -q "^status=ok$" "$GITHUB_OUTPUT" &&
+        grep -q "^failures=0$" "$GITHUB_OUTPUT" &&
+        grep -q "^notification-outcome=disabled$" "$GITHUB_OUTPUT"
+}
+
+@test "T24a e2e: healthy preflight needs no notification" {
+    mock_cmd_file df "$FIX/df-ok.txt"
+    prepend_path
+    unset OPSBOT_KEY
+    run env PATH="$PATH" \
+        PREFLIGHT_TARGET_HOST=arcana-prod \
+        PREFLIGHT_SERVICE_NAME=opsbot \
+        PREFLIGHT_EXTRA_CHECKS="" \
+        PREFLIGHT_OPS_BOT_EMIT=true \
+        GITHUB_OUTPUT="$GITHUB_OUTPUT" \
+        bash "$SCRIPT"
+    [ "$status" -eq 0 ] &&
+        grep -q "^status=ok$" "$GITHUB_OUTPUT" &&
+        grep -q "^notification-outcome=not-needed$" "$GITHUB_OUTPUT"
 }
 
 @test "T25 e2e: disk-fatal exits 2, status=fail" {
@@ -578,6 +608,73 @@ EOF
     grep -q "^failures=0$" "$GITHUB_OUTPUT"
     warns=$(grep "^warnings=" "$GITHUB_OUTPUT" | cut -d= -f2)
     [ "$warns" -gt 0 ]
+}
+
+@test "T35 e2e: warn with no key exposes skipped notification independently" {
+    mock_cmd_file df "$FIX/df-warn.txt"
+    prepend_path
+    unset OPSBOT_KEY
+    run env PATH="$PATH" \
+        PREFLIGHT_TARGET_HOST=arcana-prod \
+        PREFLIGHT_SERVICE_NAME=opsbot \
+        PREFLIGHT_EXTRA_CHECKS="" \
+        PREFLIGHT_OPS_BOT_EMIT=true \
+        GITHUB_OUTPUT="$GITHUB_OUTPUT" \
+        bash "$SCRIPT"
+    [ "$status" -eq 0 ] &&
+        grep -q "^status=warn$" "$GITHUB_OUTPUT" &&
+        grep -q "^notification-outcome=skipped-no-key$" "$GITHUB_OUTPUT"
+}
+
+@test "T36 e2e: warn with HTTP 200 exposes delivered notification" {
+    mock_cmd_file df "$FIX/df-warn.txt"
+    mock_curl 200
+    prepend_path
+    run env PATH="$PATH" \
+        PREFLIGHT_TARGET_HOST=arcana-prod \
+        PREFLIGHT_SERVICE_NAME=opsbot \
+        PREFLIGHT_EXTRA_CHECKS="" \
+        PREFLIGHT_OPS_BOT_EMIT=true \
+        OPSBOT_KEY=testkey \
+        GITHUB_OUTPUT="$GITHUB_OUTPUT" \
+        bash "$SCRIPT"
+    [ "$status" -eq 0 ] &&
+        grep -q "^status=warn$" "$GITHUB_OUTPUT" &&
+        grep -q "^notification-outcome=delivered$" "$GITHUB_OUTPUT"
+}
+
+@test "T37 e2e: fatal with HTTP 500 preserves health failure and exposes notification failure" {
+    mock_cmd_file df "$FIX/df-fatal.txt"
+    mock_curl 500 '{"error":"unavailable"}'
+    prepend_path
+    run env PATH="$PATH" \
+        PREFLIGHT_TARGET_HOST=arcana-prod \
+        PREFLIGHT_SERVICE_NAME=opsbot \
+        PREFLIGHT_EXTRA_CHECKS="" \
+        PREFLIGHT_OPS_BOT_EMIT=true \
+        OPSBOT_KEY=testkey \
+        GITHUB_OUTPUT="$GITHUB_OUTPUT" \
+        bash "$SCRIPT"
+    [ "$status" -eq 2 ] &&
+        grep -q "^status=fail$" "$GITHUB_OUTPUT" &&
+        grep -q "^notification-outcome=failed$" "$GITHUB_OUTPUT"
+}
+
+@test "T38 e2e: curl network failure exposes failed notification" {
+    mock_cmd_file df "$FIX/df-warn.txt"
+    mock_cmd_fail curl 6
+    prepend_path
+    run env PATH="$PATH" \
+        PREFLIGHT_TARGET_HOST=arcana-prod \
+        PREFLIGHT_SERVICE_NAME=opsbot \
+        PREFLIGHT_EXTRA_CHECKS="" \
+        PREFLIGHT_OPS_BOT_EMIT=true \
+        OPSBOT_KEY=testkey \
+        GITHUB_OUTPUT="$GITHUB_OUTPUT" \
+        bash "$SCRIPT"
+    [ "$status" -eq 0 ] &&
+        grep -q "^status=warn$" "$GITHUB_OUTPUT" &&
+        grep -q "^notification-outcome=failed$" "$GITHUB_OUTPUT"
 }
 
 # ---------- INFRA-0201: action.yml input-validation hardening ----------
@@ -654,4 +751,27 @@ ACTION_YML="$BATS_TEST_DIRNAME/../.github/actions/preflight-check/action.yml"
     [ -f "$ACTION_YML" ]
     grep -qE '^  ops-bot-key:' "$ACTION_YML"
     grep -qE 'OPSBOT_KEY: \$\{\{ inputs\.ops-bot-key != .. && inputs\.ops-bot-key \|\| env\.OPSBOT_KEY \}\}' "$ACTION_YML"
+}
+
+@test "T31 ops-bot-agent: action declares default and run-step wiring" {
+    agent_block="$(grep -A3 -E '^  ops-bot-agent:$' "$ACTION_YML")"
+    [[ "$agent_block" == *"default: preflight-check"* ]] &&
+        grep -qE '^        PREFLIGHT_OPS_BOT_AGENT: \$\{\{ inputs\.ops-bot-agent \}\}$' "$ACTION_YML"
+}
+
+@test "T32 notification outcome: action exposes the run-step output" {
+    grep -A2 -qE '^  notification-outcome:$' "$ACTION_YML" &&
+        grep -qF 'value: ${{ steps.run.outputs.notification-outcome }}' "$ACTION_YML"
+}
+
+@test "T33 ops-bot-agent: invalid service identity exits 3 before checks" {
+    run env \
+        PREFLIGHT_TARGET_HOST=arcana-prod \
+        PREFLIGHT_SERVICE_NAME=opsbot \
+        PREFLIGHT_OPS_BOT_AGENT='Muneral;invalid' \
+        PREFLIGHT_EXTRA_CHECKS="" \
+        PREFLIGHT_OPS_BOT_EMIT=false \
+        GITHUB_OUTPUT="$GITHUB_OUTPUT" \
+        bash "$SCRIPT"
+    [ "$status" -eq 3 ] && [[ "$output" == *"invalid ops-bot-agent"* ]]
 }
