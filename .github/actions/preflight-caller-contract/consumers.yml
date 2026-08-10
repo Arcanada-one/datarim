@@ -1,0 +1,7 @@
+schema-version: 1
+consumers:
+  Arcanada-one/muneral:
+    service-name: muneral
+    ops-bot-agent: muneral
+    ops-bot-key-secret-name: OPSBOT_API_KEY
+    deploy-if: github.ref == 'refs/heads/main' && github.event_name == 'push'
