@@ -1,0 +1,48 @@
+name: deploy
+
+on:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo build
+
+  preflight-caller-contract:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          ref: ${{ github.workflow_sha }}
+      - uses: Arcanada-one/datarim/.github/actions/preflight-caller-contract@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        with:
+          vault-addr: ${{ vars.VAULT_ADDR }}
+
+  deploy:
+    needs:
+      - build
+      - preflight-caller-contract
+    runs-on: self-hosted
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    env:
+      VAULT_ADDR: ${{ vars.VAULT_ADDR }}
+    steps:
+      - id: preflight
+        uses: Arcanada-one/datarim/.github/actions/preflight-check@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        with:
+          target-host: arcana-prod
+          service-name: muneral
+          extra-checks: |
+            vault
+            time-skew
+          ops-bot-emit: "true"
+          ops-bot-agent: muneral
+          ops-bot-key: ${{ secrets.OPSBOT_API_KEY }}
+          ops-bot-url: https://ops.arcanada.ai/events
+      - if: steps.preflight.outputs.status != 'fail'
+        run: sudo -n /usr/local/sbin/arcanada-compose-broker muneral up
