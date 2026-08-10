@@ -384,6 +384,7 @@ re-publishing, editing, or adding a corrective comment.
 - **No audio?** Fall back to a ~30 s clip from the cover alone (the generator's no-audio path), still with cycling effects.
 - Do NOT use a bare audio-waveform visualizer (showwaves/showcqt/showspectrum) as the WHOLE post video — a full-frame visualizer looks generic; the animated-cover cycle stays the hero. A bottom audio-amplitude STRIP drawn ON TOP of the cycle is allowed and is the default house style (operator-approved): a showwaves oscilloscope with a horizontal gold→crimson gradient, ~180px tall, pinned to the bottom edge, shown only when narration audio exists. The distinction is overlay-strip (good) vs. whole-frame-visualizer (forbidden). The canonical generator draws it by default; disable with the `--no-waveform` CLI flag (or `WAVEFORM=0` for the bash reference engine).
 - Per-platform attach: X long-form and LinkedIn take the MP4; Facebook feed forces video into Reels, so on FB use the static cover image instead (keep the video for X and LinkedIn); Telegram can take the MP4 via `sendVideo`.
+- **Social-video size baseline:** for long narrated posts, render the compact 480p target (normally 854x480, H.264/AAC) and keep Telegram-bound files below its upload limit. Do not create a 720p/"720 dpi" export merely because the source image is large; use higher resolution only when the target platform and campaign explicitly require it.
 - **Approved-audio provenance is mandatory.** A narration-backed video may use only
   an MP3 that passed the semantic fidelity gate below. Record the approved MP3
   SHA-256 and frozen narration SHA-256 in the video generation evidence. After
@@ -443,13 +444,23 @@ re-publishing, editing, or adding a corrective comment.
 - **Operator-directed site-first review exception.** If the operator explicitly
   instructs the agent to publish fresh narration to an Arcanada first-party
   website so the operator can listen there, the site may receive the new MP3
-  before proof-listening. Keep the campaign and receipt `REVIEW_REQUIRED` /
-  `PENDING`, expose the exact live player URL, and do not describe the audio as
-  approved. This exception is limited to the first-party site as the review
-  surface; it does not authorize sending an unreviewed narration-backed MP4 to
-  Telegram, X, LinkedIn, Facebook, VK, YouTube, or another social destination.
-  After the operator confirms the live-site listen, finish the receipt and run
-  the normal Publisher gates before social publication.
+  before proof-listening. After the operator confirms the live-site listen, an
+  explicitly requested smoke may also send the derived MP4 to the canonical
+  Telegram **test** channel through Publisher. Keep the campaign and receipt
+  `REVIEW_REQUIRED` / `PENDING`, expose the exact live URLs, and do not describe
+  either asset as approved. This exception does not authorize the main Telegram
+  channel, X, LinkedIn, Facebook, VK, YouTube, or another production/social
+  destination. Read back the test-channel artifacts before reporting them.
+  Finish the receipt and run the normal Publisher gates before broader social
+  publication.
+- **Explicit production continuation after live review.** If, after the live
+  site listen, the operator explicitly says to continue the production rollout,
+  that statement authorizes the remaining named social/YouTube destinations
+  through Publisher even when the narration receipt is still
+  `REVIEW_REQUIRED` / `PENDING`. Preserve that evidence status, surface it in
+  the campaign record, and never call the media proof-listening gate `PASS`.
+  Without this second production go, stop after the requested test-channel
+  smoke; do not infer production permission from the site-first request alone.
 - **Chunking:** keep chunks small (<=600 chars, not the 900 default) — long chunks raise Silero's length-limit 500 even after a split. The chunker self-heals by recursively halving, but small chunks avoid the wasted retry rounds.
 - **Cache:** re-voiced MP3s live on Cloudflare R2 with a 1-year `immutable` cache. After overwriting an audio asset you MUST purge the Cloudflare cache for those URLs (and the listener should hard-refresh the browser), or the old narration keeps playing. Same rule as any content edit — see § Website Publishing.
 
