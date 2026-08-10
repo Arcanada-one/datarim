@@ -226,7 +226,14 @@ normalize_time_offset_seconds() {
         s)  factor="1" ;;
     esac
     awk -v v="$value" -v f="$factor" \
-        'BEGIN {v*=f; if (v<0) v=-v; printf "%.6f", v}'
+        'BEGIN {
+            v*=f
+            if (v<0) v=-v
+            result=sprintf("%.9f", v)
+            sub(/0+$/, "", result)
+            sub(/[.]$/, "", result)
+            printf "%s", result
+        }'
 }
 
 record_time_offset() {

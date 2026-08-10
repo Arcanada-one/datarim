@@ -280,6 +280,19 @@ EOF
     [ "$warn" -gt 0 ]
 }
 
+@test "T15e check_time_skew: preserves precision when offset is just above threshold" {
+    cat > "$MOCK_BIN/chronyc" <<'EOF'
+#!/usr/bin/env bash
+echo "System time     : 0.500000400 seconds fast of NTP time"
+EOF
+    chmod +x "$MOCK_BIN/chronyc"
+    prepend_path
+    source_script
+    run check_time_skew
+    warning=$(jq '[.[] | select(.name=="time_skew" and .status=="warning" and .actual=="0.5000004")] | length' "$REPORT_FILE")
+    [ "$warning" -eq 1 ]
+}
+
 @test "T15a check_time_skew: falls back to synchronized timesyncd state" {
     mock_cmd_fail chronyc 127
     cat > "$MOCK_BIN/timedatectl" <<'EOF'
