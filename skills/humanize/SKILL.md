@@ -159,7 +159,7 @@ significant, innovative, dynamic, compelling, unprecedented, exceptional, sophis
 5. **Numbered list inflation** — "5 key takeaways", "3 things to know" — remove the counting if it feels forced.
 6. **Signposting** — "In this article, we will explore..." — delete. Just start.
 7. **Generic conclusions** — "The future looks bright", "Only time will tell" — cut or replace with a specific, concrete closing thought.
-8. **Template emphasis** — delete phrases such as "the most interesting part", "here is the idea", "the main conclusion", and "it becomes finally clear". In Russian, remove "самое интересное", "вот здесь идея", "главный вывод", and "окончательно видно". Replace each with the fact, observation, or decision it was announcing.
+8. **Template emphasis** — delete phrases such as "the most interesting part", "here is the idea", "the main conclusion", and "it becomes finally clear". In Russian, remove "самое интересное", "вот здесь идея", "главный вывод", and "окончательно видно". Replace each with the fact, observation, or decision it was announcing. <!-- allow-non-ascii: documented Russian editorial examples -->
 
 ---
 

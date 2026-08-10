@@ -610,8 +610,8 @@ Required for proper link previews on all social platforms:
 - [ ] Images have `alt` text, are optimized (<200 KB), use modern formats (WebP)
 - [ ] No pseudographic diagram is present: `<pre>` contains code only; no box-drawing glyphs, Unicode arrow chains, or aligned text flows appear in article prose
 - [ ] Complex diagrams use a real SVG/PNG `<figure>` with informative `alt`, visible `figcaption` or adjacent long description, explicit `width`/`height`, and `loading="lazy"` plus `decoding="async"` below the fold; verify at 320/375/768/1280 px widths
-- [ ] Technical labels are not isolated paragraphs (`<p>MCP</p>`, `<p>CLI</p>`, `<p>or:</p>`, or `<p>или:</p>`); keep them in a sentence, list, or table
-- [ ] Remove template signposting before publication: "the most interesting part", "here is the idea", "main conclusion", "it becomes finally clear" and Russian equivalents "самое интересное", "вот здесь идея", "главный вывод", "окончательно видно"
+- [ ] Technical labels are not isolated paragraphs (`<p>MCP</p>`, `<p>CLI</p>`, `<p>or:</p>`, or `<p>или:</p>`); keep them in a sentence, list, or table <!-- allow-non-ascii: documented Russian editorial example -->
+- [ ] Remove template signposting before publication: "the most interesting part", "here is the idea", "main conclusion", "it becomes finally clear" and Russian equivalents "самое интересное", "вот здесь идея", "главный вывод", "окончательно видно" <!-- allow-non-ascii: documented Russian editorial examples -->
 - [ ] Internal links use relative paths or full URLs consistently
 - [ ] Multi-language: `<link rel="alternate" hreflang="ru">` if applicable
 - [ ] RSS feed updated (if exists)
