@@ -159,6 +159,7 @@ significant, innovative, dynamic, compelling, unprecedented, exceptional, sophis
 5. **Numbered list inflation** — "5 key takeaways", "3 things to know" — remove the counting if it feels forced.
 6. **Signposting** — "In this article, we will explore..." — delete. Just start.
 7. **Generic conclusions** — "The future looks bright", "Only time will tell" — cut or replace with a specific, concrete closing thought.
+8. **Template emphasis** — delete phrases such as "the most interesting part", "here is the idea", "the main conclusion", and "it becomes finally clear". In Russian, remove "самое интересное", "вот здесь идея", "главный вывод", and "окончательно видно". Replace each with the fact, observation, or decision it was announcing. <!-- allow-non-ascii: documented Russian editorial examples -->
 
 ---
 
@@ -170,6 +171,8 @@ significant, innovative, dynamic, compelling, unprecedented, exceptional, sophis
 4. **Emoji in non-casual text** — Remove unless the text is explicitly casual / social media.
 5. **Markdown bleeding** — Remove stray asterisks, hashes, or other markup that does not belong in the output format.
 6. **Horizontal rules** — Remove decorative `---` between sections.
+7. **Pseudographic diagrams** — Never leave ASCII art, box-drawing characters, aligned arrows, or a Unicode arrow chain in published prose. Replace the diagram with direct prose, a semantic table, or a real SVG/PNG `<figure>` with `alt` text and a visible long description. Keep `<pre>` for actual code only.
+8. **Isolated labels** — Do not render a technical term as a paragraph by itself when it belongs to the surrounding sentence: `MCP`, `CLI`, `or:`, or similar fragments must be inline or part of a real list/table.
 
 ---
 
