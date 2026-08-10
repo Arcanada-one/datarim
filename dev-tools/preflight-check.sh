@@ -213,24 +213,33 @@ check_loadavg() {
 }
 
 check_time_skew() {
-    local out offset abs_offset
+    local out offset abs_offset synchronized
     out="$(chronyc tracking 2>/dev/null || true)"
-    if [[ -z "$out" ]]; then
-        append_finding "time_skew" "warning" "chrony_unavailable" "no_output" "stable"
-        return 0
-    fi
     offset="$(echo "$out" | awk '/^System time/ {print $4}')"
-    if [[ -z "$offset" ]]; then
-        append_finding "time_skew" "warning" "parse_failed" "no_match" "System time line"
+    if [[ "$offset" =~ ^-?[0-9]+([.][0-9]+)?$ ]]; then
+        abs_offset="$(awk -v o="$offset" 'BEGIN {if (o<0) o=-o; printf "%.6f", o}')"
+        if awk -v a="$abs_offset" -v t="$PREFLIGHT_TIME_SKEW_THRESHOLD_S" \
+            'BEGIN {exit !(a > t)}'; then
+            append_finding "time_skew" "warning" "offset_seconds" "$abs_offset" "$PREFLIGHT_TIME_SKEW_THRESHOLD_S"
+        else
+            append_finding "time_skew" "ok" "offset_seconds" "$abs_offset" "$PREFLIGHT_TIME_SKEW_THRESHOLD_S"
+        fi
         return 0
     fi
-    abs_offset="$(awk -v o="$offset" 'BEGIN {if (o<0) o=-o; printf "%.6f", o}')"
-    if awk -v a="$abs_offset" -v t="$PREFLIGHT_TIME_SKEW_THRESHOLD_S" \
-        'BEGIN {exit !(a > t)}'; then
-        append_finding "time_skew" "warning" "offset_seconds" "$abs_offset" "$PREFLIGHT_TIME_SKEW_THRESHOLD_S"
-    else
-        append_finding "time_skew" "ok" "offset_seconds" "$abs_offset" "$PREFLIGHT_TIME_SKEW_THRESHOLD_S"
-    fi
+
+    synchronized="$(timedatectl show --property=NTPSynchronized --value 2>/dev/null \
+        | tr '[:upper:]' '[:lower:]' | xargs || true)"
+    case "$synchronized" in
+        yes)
+            append_finding "time_skew" "ok" "ntp_synchronized" "yes" "yes"
+            ;;
+        no)
+            append_finding "time_skew" "warning" "ntp_synchronized" "no" "yes"
+            ;;
+        *)
+            append_finding "time_skew" "warning" "time_source" "unobservable" "observable"
+            ;;
+    esac
 }
 
 check_health_pre_probe() {

@@ -8,7 +8,7 @@
 #   T09-T10 check_docker       (ok / high reclaimable)
 #   T11-T12 check_ram          (ok / low free)
 #   T13-T14 check_loadavg      (ok / fatal)
-#   T15     check_time_skew    (warn — never blocks)
+#   T15     check_time_skew    (chrony + timesyncd fallback; never blocks)
 #   T16-T17 check_health       (ok / down)
 #   T18     append_finding     (json mutation + counters)
 #   T19     emit_ops_bot       (canonical DTO payload shape)
@@ -278,6 +278,51 @@ EOF
     warn=$(jq  '[.[] | select(.name=="time_skew" and .status=="warning")] | length' "$REPORT_FILE")
     [ "$fatal" -eq 0 ]
     [ "$warn" -gt 0 ]
+}
+
+@test "T15a check_time_skew: falls back to synchronized timesyncd state" {
+    mock_cmd_fail chronyc 127
+    cat > "$MOCK_BIN/timedatectl" <<'EOF'
+#!/usr/bin/env bash
+echo yes
+EOF
+    chmod +x "$MOCK_BIN/timedatectl"
+    prepend_path
+    source_script
+    run check_time_skew
+    [ "$status" -eq 0 ]
+    ok=$(jq '[.[] | select(.name=="time_skew" and .status=="ok" and .metric=="ntp_synchronized" and .actual=="yes")] | length' "$REPORT_FILE")
+    [ "$ok" -eq 1 ]
+}
+
+@test "T15b check_time_skew: warns when timesyncd reports unsynchronized" {
+    mock_cmd_fail chronyc 127
+    cat > "$MOCK_BIN/timedatectl" <<'EOF'
+#!/usr/bin/env bash
+echo no
+EOF
+    chmod +x "$MOCK_BIN/timedatectl"
+    prepend_path
+    source_script
+    run check_time_skew
+    warning=$(jq '[.[] | select(.name=="time_skew" and .status=="warning" and .metric=="ntp_synchronized" and .actual=="no")] | length' "$REPORT_FILE")
+    [ "$warning" -eq 1 ]
+}
+
+@test "T15c check_time_skew: reports unobservable when sources are unavailable or unparseable" {
+    mock_cmd_fail chronyc 127
+    cat > "$MOCK_BIN/timedatectl" <<'EOF'
+#!/usr/bin/env bash
+echo unknown
+EOF
+    chmod +x "$MOCK_BIN/timedatectl"
+    prepend_path
+    source_script
+    run check_time_skew
+    warning=$(jq '[.[] | select(.name=="time_skew" and .status=="warning" and .metric=="time_source" and .actual=="unobservable")] | length' "$REPORT_FILE")
+    stable=$(jq '[.[] | select(.name=="time_skew" and .threshold=="stable")] | length' "$REPORT_FILE")
+    [ "$warning" -eq 1 ]
+    [ "$stable" -eq 0 ]
 }
 
 # ---------- check_health_pre_probe ----------
