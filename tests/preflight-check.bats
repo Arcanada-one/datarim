@@ -8,7 +8,7 @@
 #   T09-T10 check_docker       (ok / high reclaimable)
 #   T11-T12 check_ram          (ok / low free)
 #   T13-T14 check_loadavg      (ok / fatal)
-#   T15     check_time_skew    (warn — never blocks)
+#   T15     check_time_skew    (chrony + timesyncd fallback; never blocks)
 #   T16-T17 check_health       (ok / down)
 #   T18     append_finding     (json mutation + counters)
 #   T19     emit_ops_bot       (canonical DTO payload shape)
@@ -278,6 +278,89 @@ EOF
     warn=$(jq  '[.[] | select(.name=="time_skew" and .status=="warning")] | length' "$REPORT_FILE")
     [ "$fatal" -eq 0 ]
     [ "$warn" -gt 0 ]
+}
+
+@test "T15e check_time_skew: preserves precision when offset is just above threshold" {
+    cat > "$MOCK_BIN/chronyc" <<'EOF'
+#!/usr/bin/env bash
+echo "System time     : 0.500000400 seconds fast of NTP time"
+EOF
+    chmod +x "$MOCK_BIN/chronyc"
+    prepend_path
+    source_script
+    run check_time_skew
+    warning=$(jq '[.[] | select(.name=="time_skew" and .status=="warning" and .actual=="0.5000004")] | length' "$REPORT_FILE")
+    [ "$warning" -eq 1 ]
+}
+
+@test "T15a check_time_skew: falls back to synchronized timesyncd state" {
+    mock_cmd_fail chronyc 127
+    cat > "$MOCK_BIN/timedatectl" <<'EOF'
+#!/usr/bin/env bash
+[[ "${LC_ALL:-}" == "C" ]] || exit 3
+case "$1" in
+    show) echo yes ;;
+    timesync-status) echo "       Offset: -613us" ;;
+    *) exit 2 ;;
+esac
+EOF
+    chmod +x "$MOCK_BIN/timedatectl"
+    prepend_path
+    source_script
+    run check_time_skew
+    [ "$status" -eq 0 ]
+    ok=$(jq '[.[] | select(.name=="time_skew" and .status=="ok" and .metric=="offset_seconds" and .actual=="0.000613")] | length' "$REPORT_FILE")
+    [ "$ok" -eq 1 ]
+}
+
+@test "T15b check_time_skew: warns when timesyncd reports unsynchronized" {
+    mock_cmd_fail chronyc 127
+    cat > "$MOCK_BIN/timedatectl" <<'EOF'
+#!/usr/bin/env bash
+echo no
+EOF
+    chmod +x "$MOCK_BIN/timedatectl"
+    prepend_path
+    source_script
+    run check_time_skew
+    warning=$(jq '[.[] | select(.name=="time_skew" and .status=="warning" and .metric=="ntp_synchronized" and .actual=="no")] | length' "$REPORT_FILE")
+    [ "$warning" -eq 1 ]
+}
+
+@test "T15c check_time_skew: reports unobservable when sources are unavailable or unparseable" {
+    mock_cmd_fail chronyc 127
+    cat > "$MOCK_BIN/timedatectl" <<'EOF'
+#!/usr/bin/env bash
+echo unknown
+EOF
+    chmod +x "$MOCK_BIN/timedatectl"
+    prepend_path
+    source_script
+    run check_time_skew
+    warning=$(jq '[.[] | select(.name=="time_skew" and .status=="warning" and .metric=="time_sync_unobservable" and .actual=="true")] | length' "$REPORT_FILE")
+    stable=$(jq '[.[] | select(.name=="time_skew" and .threshold=="stable")] | length' "$REPORT_FILE")
+    [ "$warning" -eq 1 ]
+    [ "$stable" -eq 0 ]
+}
+
+@test "T15d check_time_skew: synchronized timesyncd without parseable offset is unobservable" {
+    mock_cmd_fail chronyc 127
+    cat > "$MOCK_BIN/timedatectl" <<'EOF'
+#!/usr/bin/env bash
+case "$1" in
+    show) echo yes ;;
+    timesync-status) echo "Offset: unknown" ;;
+    *) exit 2 ;;
+esac
+EOF
+    chmod +x "$MOCK_BIN/timedatectl"
+    prepend_path
+    source_script
+    run check_time_skew
+    warning=$(jq '[.[] | select(.name=="time_skew" and .status=="warning" and .metric=="time_sync_unobservable" and .actual=="true")] | length' "$REPORT_FILE")
+    ok=$(jq '[.[] | select(.name=="time_skew" and .status=="ok")] | length' "$REPORT_FILE")
+    [ "$warning" -eq 1 ]
+    [ "$ok" -eq 0 ]
 }
 
 # ---------- check_health_pre_probe ----------
