@@ -284,14 +284,19 @@ EOF
     mock_cmd_fail chronyc 127
     cat > "$MOCK_BIN/timedatectl" <<'EOF'
 #!/usr/bin/env bash
-echo yes
+[[ "${LC_ALL:-}" == "C" ]] || exit 3
+case "$1" in
+    show) echo yes ;;
+    timesync-status) echo "       Offset: -613us" ;;
+    *) exit 2 ;;
+esac
 EOF
     chmod +x "$MOCK_BIN/timedatectl"
     prepend_path
     source_script
     run check_time_skew
     [ "$status" -eq 0 ]
-    ok=$(jq '[.[] | select(.name=="time_skew" and .status=="ok" and .metric=="ntp_synchronized" and .actual=="yes")] | length' "$REPORT_FILE")
+    ok=$(jq '[.[] | select(.name=="time_skew" and .status=="ok" and .metric=="offset_seconds" and .actual=="0.000613")] | length' "$REPORT_FILE")
     [ "$ok" -eq 1 ]
 }
 
@@ -319,10 +324,30 @@ EOF
     prepend_path
     source_script
     run check_time_skew
-    warning=$(jq '[.[] | select(.name=="time_skew" and .status=="warning" and .metric=="time_source" and .actual=="unobservable")] | length' "$REPORT_FILE")
+    warning=$(jq '[.[] | select(.name=="time_skew" and .status=="warning" and .metric=="time_sync_unobservable" and .actual=="true")] | length' "$REPORT_FILE")
     stable=$(jq '[.[] | select(.name=="time_skew" and .threshold=="stable")] | length' "$REPORT_FILE")
     [ "$warning" -eq 1 ]
     [ "$stable" -eq 0 ]
+}
+
+@test "T15d check_time_skew: synchronized timesyncd without parseable offset is unobservable" {
+    mock_cmd_fail chronyc 127
+    cat > "$MOCK_BIN/timedatectl" <<'EOF'
+#!/usr/bin/env bash
+case "$1" in
+    show) echo yes ;;
+    timesync-status) echo "Offset: unknown" ;;
+    *) exit 2 ;;
+esac
+EOF
+    chmod +x "$MOCK_BIN/timedatectl"
+    prepend_path
+    source_script
+    run check_time_skew
+    warning=$(jq '[.[] | select(.name=="time_skew" and .status=="warning" and .metric=="time_sync_unobservable" and .actual=="true")] | length' "$REPORT_FILE")
+    ok=$(jq '[.[] | select(.name=="time_skew" and .status=="ok")] | length' "$REPORT_FILE")
+    [ "$warning" -eq 1 ]
+    [ "$ok" -eq 0 ]
 }
 
 # ---------- check_health_pre_probe ----------

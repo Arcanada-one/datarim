@@ -212,34 +212,56 @@ check_loadavg() {
     fi
 }
 
+normalize_time_offset_seconds() {
+    local raw="$1" value unit factor
+    if [[ ! "$raw" =~ ^([+-]?[0-9]+([.][0-9]+)?)(ns|us|ms|s)$ ]]; then
+        return 1
+    fi
+    value="${BASH_REMATCH[1]}"
+    unit="${BASH_REMATCH[3]}"
+    case "$unit" in
+        ns) factor="0.000000001" ;;
+        us) factor="0.000001" ;;
+        ms) factor="0.001" ;;
+        s)  factor="1" ;;
+    esac
+    awk -v v="$value" -v f="$factor" \
+        'BEGIN {v*=f; if (v<0) v=-v; printf "%.6f", v}'
+}
+
+record_time_offset() {
+    local offset="$1" status="ok"
+    if awk -v a="$offset" -v t="$PREFLIGHT_TIME_SKEW_THRESHOLD_S" \
+        'BEGIN {exit !(a > t)}'; then
+        status="warning"
+    fi
+    append_finding "time_skew" "$status" "offset_seconds" "$offset" "$PREFLIGHT_TIME_SKEW_THRESHOLD_S"
+}
+
 check_time_skew() {
-    local out offset abs_offset synchronized
+    local out raw_offset offset synchronized
     out="$(chronyc tracking 2>/dev/null || true)"
-    offset="$(echo "$out" | awk '/^System time/ {print $4}')"
-    if [[ "$offset" =~ ^-?[0-9]+([.][0-9]+)?$ ]]; then
-        abs_offset="$(awk -v o="$offset" 'BEGIN {if (o<0) o=-o; printf "%.6f", o}')"
-        if awk -v a="$abs_offset" -v t="$PREFLIGHT_TIME_SKEW_THRESHOLD_S" \
-            'BEGIN {exit !(a > t)}'; then
-            append_finding "time_skew" "warning" "offset_seconds" "$abs_offset" "$PREFLIGHT_TIME_SKEW_THRESHOLD_S"
-        else
-            append_finding "time_skew" "ok" "offset_seconds" "$abs_offset" "$PREFLIGHT_TIME_SKEW_THRESHOLD_S"
-        fi
+    raw_offset="$(echo "$out" | awk '/^System time/ {print $4 "s"; exit}')"
+    if offset="$(normalize_time_offset_seconds "$raw_offset")"; then
+        record_time_offset "$offset"
         return 0
     fi
 
-    synchronized="$(timedatectl show --property=NTPSynchronized --value 2>/dev/null \
+    synchronized="$(LC_ALL=C timedatectl show --property=NTPSynchronized --value 2>/dev/null \
         | tr '[:upper:]' '[:lower:]' | xargs || true)"
-    case "$synchronized" in
-        yes)
-            append_finding "time_skew" "ok" "ntp_synchronized" "yes" "yes"
-            ;;
-        no)
-            append_finding "time_skew" "warning" "ntp_synchronized" "no" "yes"
-            ;;
-        *)
-            append_finding "time_skew" "warning" "time_source" "unobservable" "observable"
-            ;;
-    esac
+    if [[ "$synchronized" == "no" ]]; then
+        append_finding "time_skew" "warning" "ntp_synchronized" "no" "yes"
+        return 0
+    fi
+    if [[ "$synchronized" == "yes" ]]; then
+        out="$(LC_ALL=C timedatectl timesync-status --no-pager 2>/dev/null || true)"
+        raw_offset="$(echo "$out" | awk '$1 == "Offset:" {print $2; exit}')"
+        if offset="$(normalize_time_offset_seconds "$raw_offset")"; then
+            record_time_offset "$offset"
+            return 0
+        fi
+    fi
+    append_finding "time_skew" "warning" "time_sync_unobservable" "true" "false"
 }
 
 check_health_pre_probe() {
