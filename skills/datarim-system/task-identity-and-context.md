@@ -199,6 +199,25 @@ Resolution algorithm (implemented in `scripts/datarim-doctor.sh`):
 
 Each ecosystem (or each project that owns a registry) declares its own prefixes in its own `CLAUDE.md`. Adding a new project does not require a Datarim framework change.
 
+> **Area prefixes are RESERVED — a project row cannot redefine one.** Step 1 runs
+> before step 2, so a registry row naming a prefix from the Area Prefixes table
+> above (`DEV`, `QA`, `WEB`, `INFRA`, …) is **ignored**: resolution returns the
+> runtime's area subdir, not the project's `Archive Subdir`. This is deliberate —
+> it keeps the area namespace stack-agnostic — but it is an easy trap, because
+> `DEV` and `QA` read like natural project prefixes.
+>
+> The doctor now prints a `WARN` naming both values when it discards a shadowed
+> row. Previously the row was dropped with no output: a project declaring
+> `| DEV | My app | general |` believed its archives routed to `general/` while
+> `--probe-prefix=DEV` kept answering `development` — and an agent that trusts the
+> probe then creates a stray archive tree outside the corpus that later prior-art
+> greps search.
+>
+> **For project-specific routing, pick a prefix that is NOT in the Area Prefixes
+> table** (e.g. `OPS`, `FIX`, `INC`). Verify with
+> `datarim-doctor.sh --probe-prefix=<P>` and confirm the answer names a subdir
+> that actually exists on disk.
+
 ### Deprecated Namespace
 
 `BACKLOG-XXXX` is deprecated for new work. Historical references may remain in archives.

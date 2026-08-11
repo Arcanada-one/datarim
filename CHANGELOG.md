@@ -4,6 +4,25 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Reserved-prefix shadowing is reported instead of applied silently.** Universal
+  area prefixes (`DEV`, `QA`, `WEB`, `INFRA`, …) resolve before a consumer's
+  `## Task Prefix Registry`, so a project row repeating one of them was discarded
+  with no output. A project declaring `| DEV | My app | general |` therefore
+  believed its archives routed to `general/` while `--probe-prefix=DEV` kept
+  answering `development` — and because project instructions typically tell agents
+  to resolve the subdir via the probe «rather than assuming», an obedient agent
+  creates a stray `archive/development/` tree and strands the archive outside the
+  corpus later prior-art greps search. `prefix_to_area()` now emits a `WARN`
+  naming both the reserved value and the ignored project value; agreement between
+  the two tables stays quiet. **Resolution precedence is unchanged** — the
+  anti-shadowing guarantee (`T-PFX-10`) is deliberate and intact. Documented in
+  `skills/datarim-system/task-identity-and-context.md` § Project Prefix
+  Resolution, `skills/datarim-doctor/SKILL.md`, and the `CLAUDE.md` registry
+  section, all of which previously said «do not repeat them here» without stating
+  what happens if you do.
+
 ## [2.65.0] — 2026-08-09
 
 ### Added

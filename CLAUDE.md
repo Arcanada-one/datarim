@@ -640,3 +640,11 @@ Schema: `| Prefix | Project | Archive Subdir |`. Archive Subdir MUST match `^[a-
 | DATA | Datarim framework | framework |
 
 > `TUNE` is already a universal area prefix in the runtime (archive subdir `framework/`); no row needed. Adding a new project prefix here propagates automatically to `/dr-archive` routing — no Datarim framework change required.
+
+> **A row that repeats a universal area prefix is IGNORED, not applied.** Area
+> prefixes resolve first, so `| DEV | My app | general |` does not route `DEV-*`
+> to `general/` — the runtime's `development` wins. The doctor now emits a `WARN`
+> naming both values instead of discarding the row silently. Pick a prefix outside
+> the universal list for project-specific routing, and confirm with
+> `datarim-doctor.sh --probe-prefix=<P>` that the answer names a subdir that
+> exists on disk.

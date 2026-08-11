@@ -229,6 +229,15 @@ Per bullet:
 1. Validate task ID matches `^[A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*$`. Invalid → preserve in operational file with manual-migration marker.
 2. **Explicit-pointer dispatch:** if bullet body contains `→ documentation/archive/{path}.md`, prefer that path as canonical; otherwise fall back to `prefix_to_area()` (prefix→area mapping) → `documentation/archive/{area}/archive-{ID}.md`.
 3. Path-traversal safety: canonical path MUST stay under `documentation/archive/`; violation rejects explicit pointer and falls back to `prefix_to_area`. If fallback also escapes → preserve, warn.
+
+> `prefix_to_area()` resolves **universal area prefixes first**, so a consumer
+> `## Task Prefix Registry` row that repeats one of them (`DEV`, `QA`, `WEB`,
+> `INFRA`, …) is ignored rather than applied. The doctor emits a `WARN` naming
+> both the reserved value and the discarded project value. If a project's
+> archives already live under a different subdir than the probe reports, that
+> warning is the explanation — and step 5's defensive `find` is what still
+> locates them (`archive at unexpected area`). See
+> `skills/datarim-system/task-identity-and-context.md` § Project Prefix Resolution.
 4. **Verified case** — canonical archive exists with `{ID}` literal inside → strip bullet from operational file.
 5. **Missing case** — canonical absent at computed path → defensive `find documentation/archive/ -name "archive-{ID}.md"` (depth ≤ 3) checks every area subdir; if found with ID literal, strip bullet with warning `archive at unexpected area`. Otherwise synthesise stub with frontmatter (`id`, `title`, `status`, `{status}_at`, `source: synthesised from operational-file by datarim-doctor.sh Pass 6`, `original_block_sha`) + body = original bullet content; strip bullet.
 6. **Collision case** — canonical archive exists but does NOT contain `{ID}` literal → invoke `resolve_conflict()` (`--no-prompt` defaults to skip in non-TTY); on skip, preserve bullet in operational file with `<!-- bullets pending manual migration … -->` marker; on overwrite, synthesise stub.
