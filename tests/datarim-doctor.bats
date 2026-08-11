@@ -1038,3 +1038,103 @@ EOF
     [ "$(grep -cE '^SCHEMA_TASKS_RE=' "$prearchive")" -eq 0 ]
     [ "$(grep -cE '^SCHEMA_BACKLOG_RE=' "$prearchive")" -eq 0 ]
 }
+
+# --- Reserved-prefix shadowing (DEV-1790 follow-up) --------------------------
+# The runtime reserves a stack-agnostic prefix namespace; a project may ADD
+# prefixes but may not REDEFINE a reserved one (T-PFX-10, anti-shadowing). That
+# guarantee is correct and stays. What was wrong is that it applied SILENTLY:
+# a consumer project declared DEV -> general (where its whole archive corpus
+# already lived) and QA -> general, both reserved, so both were discarded without
+# a word while --probe-prefix answered `development` / `qa` -- subdirs that
+# existed in no repo. Since a project CLAUDE.md typically tells agents to trust
+# the probe over their own assumption, the silence is what stranded the archive.
+# Resolution is unchanged; the shadowed row is now reported. These tests pin the
+# warning AND the untouched precedence.
+
+@test "T-SHADOW-WARN reserved prefix shadowed by a project row warns, resolution unchanged" {
+    cat > "$TMPROOT/CLAUDE.md" <<'EOF'
+# Test project
+
+## Task Prefix Registry
+
+| Prefix | Project | Archive Subdir |
+|--------|---------|----------------|
+| DEV | Test app | general |
+| QA | QA-only tasks | general |
+EOF
+    # Precedence is NOT inverted: the reserved runtime value still wins.
+    local stdout
+    stdout="$("$DOCTOR" --root="$TMPROOT" --probe-prefix=DEV 2>/dev/null)"
+    [ "$stdout" = "development" ]
+
+    # ...but the ignored project row is now surfaced, naming both sides.
+    run "$DOCTOR" --root="$TMPROOT" --probe-prefix=DEV
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"RESERVED"* ]]
+    [[ "$output" == *"IGNORED"* ]]
+    [[ "$output" == *"DEV"* ]]
+    [[ "$output" == *"general"* ]]
+
+    run "$DOCTOR" --root="$TMPROOT" --probe-prefix=QA
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"RESERVED"* ]]
+}
+
+@test "T-SHADOW-AGREE project row that agrees with the runtime warns nothing" {
+    # QCK -> quick in both tables. Agreement is not a conflict; stay quiet or the
+    # warning becomes noise every project learns to ignore.
+    cat > "$TMPROOT/CLAUDE.md" <<'EOF'
+## Task Prefix Registry
+
+| Prefix | Project | Archive Subdir |
+|--------|---------|----------------|
+| QCK | Fast lane | quick |
+EOF
+    run "$DOCTOR" --root="$TMPROOT" --probe-prefix=QCK
+    [ "$status" -eq 0 ]
+    [ "$output" = "quick" ]
+    [[ "$output" != *"RESERVED"* ]]
+}
+
+@test "T-SHADOW-NONRESERVED non-reserved project prefix resolves with no warning" {
+    # The intended extension point: a prefix the runtime does not reserve.
+    cat > "$TMPROOT/CLAUDE.md" <<'EOF'
+## Task Prefix Registry
+
+| Prefix | Project | Archive Subdir |
+|--------|---------|----------------|
+| OPS | Ops tasks | general |
+EOF
+    run "$DOCTOR" --root="$TMPROOT" --probe-prefix=OPS
+    [ "$status" -eq 0 ]
+    [ "$output" = "general" ]
+    [[ "$output" != *"RESERVED"* ]]
+}
+
+@test "T-SHADOW-QUIET no project registry at all → runtime value, no warning" {
+    run "$DOCTOR" --root="$TMPROOT" --probe-prefix=DEV
+    [ "$status" -eq 0 ]
+    [ "$output" = "development" ]
+    [[ "$output" != *"RESERVED"* ]]
+}
+
+@test "T-SHADOW-UNSAFE malformed shadow row is rejected, never echoed" {
+    cat > "$TMPROOT/CLAUDE.md" <<'EOF'
+## Task Prefix Registry
+
+| Prefix | Project | Archive Subdir |
+|--------|---------|----------------|
+| DEV | Evil | ../../etc |
+EOF
+    # bats `run` merges stderr into $output and the rejection WARN quotes the
+    # offending value, so assert on stdout alone.
+    local stdout
+    stdout="$("$DOCTOR" --root="$TMPROOT" --probe-prefix=DEV 2>/dev/null)"
+    [[ "$stdout" != *".."* ]]
+    [ "$stdout" = "development" ]
+    # No RESERVED warning here: the unsafe row is refused inside the lookup, so
+    # there is no surviving shadow value to report as ignored.
+    run "$DOCTOR" --root="$TMPROOT" --probe-prefix=DEV
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"../../etc"* ]]
+}
