@@ -8,7 +8,7 @@
 # Optional — a pack without module.yaml is simply un-indexed at the pack level.
 #
 # Schema reference: documentation/reference/module-manifest.md
-# Validate:         dev-tools/check-module-manifest.sh path/to/module.yaml
+# Validate:         ${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-module-manifest.sh path/to/module.yaml
 
 schema_version: 1
 
