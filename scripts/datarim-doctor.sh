@@ -1518,7 +1518,10 @@ EMITTED_COUNT=0
 for f in "$ROOT_ABS/tasks.md" "$ROOT_ABS/backlog.md" "$ROOT_ABS/activeContext.md"; do
     [ -f "$f" ] || continue
     # count compound IDs too (PREFIX-NNNN-FOLLOWUP-slug shape).
-    n=$(grep -cE '^- [A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)* · ' "$f" 2>/dev/null || true)
+    # Leading whitespace tolerated: indented bullets are real ledger rows, and a
+    # flush-left-only count under-reports EMITTED, which would fire the data-loss
+    # restore below on a migration that actually lost nothing.
+    n=$(grep -cE '^[[:space:]]*- [A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)* · ' "$f" 2>/dev/null || true)
     EMITTED_COUNT=$((EMITTED_COUNT + n))
 done
 

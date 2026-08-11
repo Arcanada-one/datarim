@@ -839,3 +839,54 @@ EOF
     [ "$status" -eq 1 ]
     [[ "$output" == *"backlog-archive.md"* ]]
 }
+
+# ---------- schema gate reachability + indent anchor (DEV-1790 follow-up) ----
+
+# Two independent bypasses let non-compliant ledger rows accumulate unseen:
+#
+#  1. The schema gate lived INSIDE the clean-case branch, so any repo with
+#     uncommitted changes -- the normal state of a multi-repo workspace -- exited
+#     down the dirty path without ever calling it. The operator saw only
+#     "BLOCKED: N repo(s) have uncommitted changes", an unrelated message, and
+#     concluded the schema was fine.
+#  2. The violation scan anchored at `^-`, so an INDENTED bullet was exempt.
+#     That is a bypass, not a fix: nudging rows right turns the gate green while
+#     leaving them unvalidated.
+
+@test "schema gate runs even when the repo is dirty (gate reachability)" {
+    local repo="$BATS_TEST_TMPDIR/repo1"
+    make_clean_repo "$repo"
+    mkdir -p "$repo/datarim"
+    printf -- '- BADROW-9999 not a schema-compliant row\n' > "$repo/datarim/backlog.md"
+    git -C "$repo" add -A && git -C "$repo" commit --quiet -m ledger
+    make_dirty "$repo" untracked
+
+    run "$SCRIPT" "$repo"
+    [ "$status" -eq 1 ]
+    # The schema violation must surface, not be masked by the dirty-repo notice.
+    [[ "$output" == *"Schema-compliance gate failed"* ]]
+}
+
+@test "indented ledger row is held to the schema (no indent bypass)" {
+    local repo="$BATS_TEST_TMPDIR/repo1"
+    make_clean_repo "$repo"
+    mkdir -p "$repo/datarim"
+    printf -- '  - BADROW-8888 indented, still a ledger row\n' > "$repo/datarim/backlog.md"
+    git -C "$repo" add -A && git -C "$repo" commit --quiet -m ledger
+
+    run "$SCRIPT" "$repo"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Schema-compliance gate failed"* ]]
+}
+
+@test "valid indented ledger row still passes (no false positive)" {
+    local repo="$BATS_TEST_TMPDIR/repo1"
+    make_clean_repo "$repo"
+    mkdir -p "$repo/datarim"
+    printf -- '- DEV-1234 · pending · P2 · L1 · Flush-left row\n  - DEV-5678 · pending · P3 · L2 · Indented row\n' \
+        > "$repo/datarim/backlog.md"
+    git -C "$repo" add -A && git -C "$repo" commit --quiet -m ledger
+
+    run "$SCRIPT" "$repo"
+    [ "$status" -eq 0 ]
+}
