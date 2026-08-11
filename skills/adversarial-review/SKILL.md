@@ -1,6 +1,6 @@
 ---
 name: adversarial-review
-description: "Forces an adversarial mindset on an artifact (plan, PRD, code, design) — the reviewer's job is to break it, not bless it. Loaded at /dr-plan Transition Checkpoint and /dr-qa. Sibling skills: edge-case-hunter, structure-review."
+description: "Forces an adversarial mindset on a plan, PRD, design, or code change — break it rather than bless it. Loaded at the /dr-plan checkpoint and /dr-qa."
 current_aal: 1
 target_aal: 2
 ---

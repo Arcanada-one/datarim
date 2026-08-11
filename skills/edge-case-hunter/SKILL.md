@@ -1,6 +1,6 @@
 ---
 name: edge-case-hunter
-description: "Enumerates boundary, degenerate, and failure inputs an artifact does not visibly handle. The edge-focused sibling of adversarial-review; loaded at /dr-plan and /dr-qa. See also structure-review."
+description: "Enumerates boundary, degenerate, and failure inputs an artifact does not visibly handle. Sibling of adversarial-review; loaded at /dr-plan and /dr-qa."
 current_aal: 1
 target_aal: 2
 ---

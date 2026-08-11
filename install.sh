@@ -1356,9 +1356,9 @@ fanout_codex_ux() {
 }
 
 # register_codex_mcp_server — idempotently add [mcp_servers.datarim] to
-# $codex_dir/config.toml so Codex CLI discovers Datarim as an MCP source
-# (TUNE-0301). The MCP tools surface is additive to the AGENTS.override.md
-# filesystem catalogue (TUNE-0297), which stays as graceful degradation.
+# $codex_dir/config.toml so Codex CLI discovers Datarim as an MCP source.
+# The MCP tools surface is additive to the AGENTS.override.md filesystem
+# catalogue, which stays in place as graceful degradation.
 # Opt out with --no-codex-mcp. Direct file surgery via register-codex-mcp.py
 # (NOT `codex mcp add`, which needs codex present and reformats the whole file).
 register_codex_mcp_server() {

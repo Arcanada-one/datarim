@@ -1,6 +1,6 @@
 ---
 name: structure-review
-description: "Reviews an artifact's organisation, completeness, and internal consistency — does it hold together as a document, independent of whether each claim is true. The structural sibling of adversarial-review and edge-case-hunter; loaded at /dr-plan and /dr-qa."
+description: "Reviews an artifact for organisation, completeness, and internal consistency — does it hold together as a document. Loaded at /dr-plan and /dr-qa."
 current_aal: 1
 target_aal: 2
 ---
