@@ -63,5 +63,5 @@ Run before content moves to `/dr-publish` — Telegram-aware pre-publish review.
 - LOAD WHEN NEEDED:
   - `$HOME/.claude/skills/image-prompting/SKILL.md` (When reviewing or commissioning a visual asset — run the verification checklist on a generated image, or author/refine the generation prompt)
 
-**When invoked:** `/dr-edit` (editorial review), in consilium for content decisions.
+**When invoked:** `/dr-edit` (editorial review), `/dr-qa` (content tasks — replaces reviewer as primary QA lens per CLAUDE.md § Minimum Agent Set), in consilium for content decisions (Content panel).
 **In consilium:** Voice of editorial quality and reader trust.

@@ -1,6 +1,6 @@
 # Skills Reference
 
-Datarim includes 69 reusable skill modules. Skills provide rules, patterns, and guidelines loaded on demand by agents and commands. Each skill is a directory under `skills/` containing a `SKILL.md` plus any supporting fragment files.
+Datarim includes 72 reusable skill modules. Skills provide rules, patterns, and guidelines loaded on demand by agents and commands. Each skill is a directory under `skills/` containing a `SKILL.md` plus any supporting fragment files.
 
 Skills are split into two categories:
 - **Reference skills** — rules and patterns the caller applies inline. No `model` field in frontmatter, so they inherit the caller's model. 49 of the 68.
@@ -14,6 +14,7 @@ Alphabetical. "Loaded by" names the commands, agents, or trigger conditions that
 
 | Skill | Type | Purpose | Loaded By |
 |-------|------|---------|-----------|
+| adversarial-review | Reference | Forces an adversarial mindset on an artifact (plan, PRD, code, design) — break it, do not bless it | /dr-plan Transition Checkpoint, /dr-qa |
 | ai-quality | Reference | 5 pillars: decomposition, TDD, architecture-first, focus, context | developer, planner |
 | autonomous-mode | Task | Question Suppression Ladder + L1 Inline Resolution Rule + hard-gated action boundary; activated by `DATARIM_AUTO_MODE=1` plus a per-task marker | /dr-auto, and every pipeline command when the marker is present |
 | brainstorming | Reference | Explore user intent and design before implementation; mandatory before creative work on features, components, or behaviour changes | on demand, before creative work |
@@ -25,6 +26,7 @@ Alphabetical. "Loaded by" names the commands, agents, or trigger conditions that
 | cta-format | Reference | Canonical CTA "Next Step" block format | planner, architect, developer, reviewer, compliance |
 | datarim-doctor | Reference | /dr-doctor schema and migration semantics (thin one-liner contract) | /dr-doctor, /dr-init self-heal, /dr-archive line-format gate |
 | datarim-system | Reference | Core workflow rules, path resolution, file locations | All commands (mandatory) |
+| edge-case-hunter | Reference | Enumerates boundary, degenerate, and failure inputs an artifact does not visibly handle | /dr-plan, /dr-qa |
 | diataxis-docs | Reference | Documentation Taxonomy Mandate — 4 closed Diátaxis categories, mapping table, reserved siblings, exemption list, anti-patterns | /dr-init project scaffolding, /dr-optimize audit, /dr-archive surface verification |
 | discovery | Task | Requirements discovery interview | /dr-prd |
 | dispatching-parallel-agents | Reference | Recognise 2+ independent tasks that can run without shared state or sequential dependencies, and dispatch them in parallel | skill-creator, on demand |
@@ -70,6 +72,7 @@ Alphabetical. "Loaded by" names the commands, agents, or trigger conditions that
 | stage-snapshot-writer | Reference | Producer contract for per-task stage snapshots — the final operator-visible `/dr-*` response persisted to `datarim/snapshots/{TASK-ID}.snapshot.md` with overwrite semantics, mkdir-based atomic lock, 8 KB hard cap | invoked from `cta-format.md` § Snapshot Emission by every `/dr-*` |
 | structured-outputs-integration-gate | Reference | Demand schema-unit and wrapper-path tests when API-side structured-output validation is added on top of an existing post-processing pipeline | on demand, when structured-output validation is introduced |
 | subagent-driven-development | Reference | Execute implementation plans with independent tasks inside the current session, via subagents | on demand, during /dr-do |
+| structure-review | Reference | Reviews an artifact's organisation, completeness, and internal consistency — does it hold together as a document | /dr-plan, /dr-qa |
 | systematic-debugging | Reference | Structured approach to any bug, test failure, or unexpected behaviour — applied before proposing fixes | on demand, on any failure |
 | tech-stack | Reference | Stack selection by project type | planner, architect |
 | test-env-verification | Reference | Mandatory gate: verify the change on the test environment (backend + frontend) autonomously before prod prep or archive | blocks /dr-qa, /dr-compliance, /dr-archive |

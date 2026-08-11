@@ -239,7 +239,9 @@ def _verify_tg_safe_html():
 
 Disallowed tags are dropped and their inner text is preserved as plain escaped data — `<script>alert(1)</script>` becomes `alert(1)`, with no execution path opened. The allowlist of href schemes MUST be enforced operator-side — Telegram's own filter is inconsistent across clients and is not a defence boundary.
 
-**Photo + caption decision tree** (input: `post_text`, optional `photo`):
+**Telegram article bundle (operator-approved contract):** publish exactly two sequential ordinary channel posts to the same `chat_id`. Post 1 is media plus the bold title only. Post 2 is the title, the complete RU article text, and a final linked CTA `Читать статью полностью на arcanada.ai` pointing to the RU URL. The link appears only in post 2. Never set `reply_to_message_id`, `message_thread_id`, discussion-group fields, or any comment/thread relationship. Validate that post 1 fits the media-caption limit and post 2 fits 4096 UTF-16 units before sending; otherwise stop instead of splitting or changing the approved shape. Treat the pair as one publish operation: preserve both ordered `message_id` values, read back both ordinary channel posts, and report partial/UNKNOWN state without blind retry if either request is ambiguous.
+
+**Generic photo + caption decision tree (non-article messages only)** (input: `post_text`, optional `photo`):
 
 ```
 units = telegram_units(post_text)
@@ -337,6 +339,8 @@ Caching: `linked_chat_id` is stable per channel — store it in credentials alon
 
 **Test-channel smoke before prod (mandatory for new publisher code / first run after refactor):** before commenting on production posts, replay the full sequence using the configured test channel and test comments group. Pass criterion: returned `comment.message_thread_id == forwarded_msg_id`.
 
+**Telegram article read-back gate:** both responses must belong to the requested channel and be returned in order. Accept real channel sender identity through `sender_chat.id == chat_id` as well as bot-authored responses where applicable. Verify post 1 media and exact bold title; verify post 2 title, complete RU text, final CTA URL, and absence of `reply_to_message`, `message_thread_id`, or discussion-group routing. Channel comments are not part of an article publication and must not be created.
+
 ## Post title — first line of the body on every platform
 
 The article's title (or a title-equivalent headline in the post's language)
@@ -352,9 +356,9 @@ lead with the title line — match that shape.
 - Verify the title is present in the **read-back** content (not just the source
   file) before declaring smoke.
 
-## Universal rule — links go in the first comment, not the body
+## Universal rule — links go in the first comment on comment-capable platforms
 
-For **all** social platforms (FB, LinkedIn, Telegram, VK, Twitter/X threads, etc.) the **post body must not contain a standalone "links block"** — a section header like `Куда смотреть` / `Ссылки` / `Resources` / `Полезное` followed by a bullet-list of URLs is forbidden in the body. All such CTA-links (blog URL, dashboards, repositories, doc cross-refs) MUST be published as the **author's first comment** under the post. <!-- allow-non-ascii: literal-russian-section-headers-fixture-for-publishing-rule -->
+For **FB, LinkedIn, VK, and Twitter/X threads**, the **post body must not contain a standalone "links block"** — a section header like `Куда смотреть` / `Ссылки` / `Resources` / `Полезное` followed by a bullet-list of URLs is forbidden in the body. Put those CTA links in the the first comment by the author or reply according to the policy for that platform. **Telegram article publication is the explicit exception:** it has no comment/reply; its single RU article URL appears only in the final CTA of ordinary channel post 2. <!-- allow-non-ascii: literal-russian-section-headers-fixture-for-publishing-rule -->
 
 Rationale:
 - **FB & LinkedIn algorithms** downrank posts that contain external links in the body — comment-level links bypass that penalty.
@@ -363,7 +367,7 @@ Rationale:
 
 Inline mentions in prose are fine (`Datarim (github.com/Arcanada-one/datarim, MIT) is open-source`, `Munera on muneral.com`). The rule targets **standalone link sections**, not contextual references.
 
-Publisher pattern: immediately after `POST_URL` is captured, post the first-comment with the CTA-links block. On FB and LinkedIn that is a normal `Прокомментировать` action under the post; on Telegram it is the discussion-thread comment under the channel post (see canonical recipe above). If the platform's comment size is smaller than the link list, keep blog URL + 2–3 anchor links and rely on the website (`arcanada.one`) for the full directory. <!-- allow-non-ascii: literal-russian-fb-action-token-required-for-publisher-pattern -->
+Publisher pattern for FB, LinkedIn, VK, and X: immediately after `POST_URL` is captured, post the first comment/reply with the CTA-links block and then verify its parent post. Telegram does not use this pattern; use the two ordinary channel posts above. If the size limit on a comment-capable platform is smaller than the link list, keep the blog URL plus 2–3 anchor links and rely on the website (`arcanada.one`) for the full directory. <!-- allow-non-ascii: literal-russian-fb-action-token-required-for-publisher-pattern -->
 
 **Verify the comment's parent post before commenting — never trust a returned URL blindly.** A browser publisher can return the feed's top post or an older post, not the one just created. Before attaching the first comment, read back the target post (its body/media) and confirm it is **this** article published **this** cycle; only then comment. A comment that lands on a stale post is a silent defect the operator finds later by hand.
 
@@ -464,7 +468,7 @@ re-publishing, editing, or adding a corrective comment.
 - **Chunking:** keep chunks small (<=600 chars, not the 900 default) — long chunks raise Silero's length-limit 500 even after a split. The chunker self-heals by recursively halving, but small chunks avoid the wasted retry rounds.
 - **Cache:** re-voiced MP3s live on Cloudflare R2 with a 1-year `immutable` cache. After overwriting an audio asset you MUST purge the Cloudflare cache for those URLs (and the listener should hard-refresh the browser), or the old narration keeps playing. Same rule as any content edit — see § Website Publishing.
 
-**Telegram first-comment — one link, the article in the post's language.** On a Telegram channel post, the comment links to the full article in the **same language as the post** — a single URL, nothing else. Do NOT add the other-language version (an RU post links the RU article only, not the EN one), and do NOT link the channel itself — the reader is already in it. This is narrower than the multi-link FB/LinkedIn comment; keep the TG comment minimal.
+**Telegram article CTA — one link in ordinary channel post 2.** The final line of post 2 is the linked CTA `Читать статью полностью на arcanada.ai` to the RU article URL. Do not create a first comment, reply, discussion-group message, or thread; do not add the EN URL or a channel-self link.
 
 **X (EN) first-comment — the EN article + the canonical Telegram (RU) post.**
 On an X post the first reply carries TWO links, each language-labelled: the full

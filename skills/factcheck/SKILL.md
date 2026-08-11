@@ -76,7 +76,7 @@ For each claim, use the **Chain of Verification (CoVe)** method:
    - Reputable news outlets (Reuters, AP, BBC, established tech press)
    - **Never use social media posts as authoritative sources.**
 3. **Fetch and read the source** using WebFetch to confirm the claim against the actual page content.
-4. **Cross-reference** — for critical/high claims, find a second independent source.
+4. **Cross-reference** — corroborate against additional independent sources per the claim's importance level (Phase-1 Importance levels: critical 3+, high 2+, medium 1+). Never rely on a single source for a critical or high claim.
 5. **Assign a verdict**:
    - `ACCURATE` — confirmed by sources
    - `INACCURATE` — contradicted by sources (include the correct information)

@@ -120,6 +120,29 @@ Pass `--no-codex-ux` when:
 
 The flag composes with all other flags (`--with-codex --no-codex-ux`, `--with-claude --with-codex --no-codex-ux`, `--with-codex --no-codex-ux --dry-run`).
 
+## Datarim MCP server
+
+`--with-codex` also registers the **Datarim MCP server** so Codex recognises Datarim as a Model Context Protocol source and can invoke commands/skills/agents through typed tool calls (not only via the `AGENTS.override.md` filesystem catalogue, which stays as fallback). The installer adds an idempotent stanza to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.datarim]
+command = "<install>/cli/mcp/datarim-mcp-server.sh"
+args = []
+env = { DATARIM_ROOT = "<install>" }
+```
+
+A re-run is byte-identical and never touches your other `config.toml` tables (including a sibling `[mcp_servers.*]` server) or comments. Opt out with `--no-codex-mcp`.
+
+Verify:
+
+```text
+codex mcp get datarim          # recognition: enabled, transport stdio
+```
+
+Inside a Codex session the server exposes six tools — `datarim_list_commands`, `datarim_run_command`, `datarim_list_skills`, `datarim_get_skill`, `datarim_list_agents`, `datarim_get_agent`. `datarim_run_command name="dr-plan"` returns the command's instructions for Codex to execute. Full contract: `documentation/reference/mcp-server.md`.
+
+> **Note:** Codex CLI's MCP client consumes **tools** (it does not request MCP prompts/resources), so Datarim commands/skills/agents are surfaced as tools. The server still implements prompt/resource handlers for other MCP clients, but does not advertise those capabilities.
+
 ## Optional: Coworker `codex` profile
 
 If you use `coworker` to delegate bulk I/O to an external LLM, register a `codex` profile so the system prompt is aware of Codex CLI conventions (slash-commands are pipeline commands, not shell input; YAML frontmatter is byte-exact).
