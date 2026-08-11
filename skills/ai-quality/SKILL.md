@@ -389,6 +389,33 @@ A spike (or any exploratory prototype meant to falsify a design hypothesis befor
 - Writing a specific number into the PRD/plan without naming which documented consumer budget it traces to.
 - Treating the operator interview as optional when no budget is on record, and proceeding with an invented number instead.
 
+## Wire-Shape Mirror via Cited File-Line in the Plan
+
+When a task builds a client, an SDK, an adapter, or any consumer that must reproduce a shape defined elsewhere (a server response envelope, a DTO, a shared enum, a reserved-word field alias), the cheapest correctness gate is to mirror that shape **1:1** and prove the mirror against its source at plan time — before a single line of the consumer is generated. A shape asserted in prose ("mirror the response fields") drifts silently; a shape asserted by a cited `<file>:<line>` that a reviewer can grep does not.
+
+**Rule.**
+
+1. **Cite the source shape, do not describe it.** For every member the consumer reproduces, cite each mirrored field, type, or enum by `<file>:<line>` in the plan, pointing at the authoritative definition — not a prose paraphrase.
+2. **Prove each citation.** You must grep every cited symbol at plan time, before code generation, against the cited file:
+   ```bash
+   grep -n '<symbol-or-field-name>' <file>
+   ```
+   A match confirms the shape you are about to mirror actually exists as cited. **Zero matches means shape drift** — the source moved, was renamed, or the citation is stale — caught free at plan time instead of surfacing later as a runtime mismatch.
+3. **Keep the mirror exact.** Ensure the mirror is 1:1 — the consumer's shape matches the source wire-shape field-for-field, type-for-type, name-for-name. Any divergence (a renamed field, a dropped member, a reserved-word alias, a coerced type) MUST be a deliberate, documented adapter decision recorded in the plan — never an accident of paraphrase.
+
+**Why.** A symbol-existence grep is deterministic and near-free, and it catches a whole cohort's worth of wire-shape mirrors — server envelope fields, DTO members, reserved-word aliases — at plan time with zero runtime integration tests. The alternative, discovering a drifted field only when an integration test fails (or worse, in production), costs a full build-verify-revise cycle per missed member. Citing `<file>:<line>` also makes the mirror auditable: a reviewer re-runs the same greps and confirms the plan before any code exists.
+
+**When to apply.** Any client-SDK, API-adapter, cross-service DTO mirror, or shared-enum-consumer task — mandatory before `/dr-plan` locks the mirror approach. This is the plan-time analogue of the "Task-Description Line-Reference Smoke Check" above: that rule guards a `<file>:<line>` citation from going stale before an edit; this rule uses the same citation-plus-grep discipline to prove a mirrored shape exists before the mirror is built.
+
+**Stack-agnostic.** `grep -n` symbol lookup against a cited file is universal across languages and transports; this is a plan-time verification gate, not stack-specific content.
+
+**Anti-patterns.**
+
+- Describing the mirrored shape in prose ("copy the response fields") instead of citing each member by `<file>:<line>` a reviewer can grep.
+- Generating the consumer first and reconciling the shape against the source only when an integration test fails.
+- Silently diverging from the source shape (renamed field, coerced type, dropped member) without recording it as a deliberate adapter decision.
+- Trusting a citation without running the grep — a stale `<file>:<line>` that no longer resolves is exactly the drift this gate exists to catch.
+
 ---
 
 ## Spike-Defer-to-Production Protocol

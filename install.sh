@@ -147,6 +147,7 @@ SKIPPED=0
 FANOUT_CLAUDE=false
 FANOUT_CODEX=false
 FANOUT_CODEX_UX=true       # generate SKILL.md wrappers + AGENTS.override.md; --no-codex-ux opts out
+FANOUT_CODEX_MCP=true      # register [mcp_servers.datarim] in ~/.codex/config.toml; --no-codex-mcp opts out
 FANOUT_CURSOR=false        # Cursor IDE skill mirroring (--with-cursor)
 
 # Sentinel markers delimiting the auto-synced coworker-delegation
@@ -169,6 +170,7 @@ Usage:
   install.sh --with-claude          Install for Claude runtime (symlink default)
   install.sh --with-codex           Install for Codex runtime
   install.sh --with-codex --no-codex-ux  Codex install without UX wrappers/manifest
+  install.sh --with-codex --no-codex-mcp Codex install without registering the Datarim MCP server
   install.sh --with-cursor          Install for Cursor IDE (flat .md mirror of each SKILL.md;
                                     target: $CURSOR_DIR/skills/ — default ~/.cursor/skills/.
                                     Cursor's skill discovery is not yet officially documented;
@@ -215,6 +217,7 @@ parse_args() {
             --with-claude)  FANOUT_CLAUDE=true; shift ;;
             --with-codex)   FANOUT_CODEX=true; shift ;;
             --no-codex-ux)  FANOUT_CODEX_UX=false; shift ;;
+            --no-codex-mcp) FANOUT_CODEX_MCP=false; shift ;;
             --with-cursor)  FANOUT_CURSOR=true; shift ;;
             --project)
                 if [ $# -lt 2 ]; then
@@ -1352,6 +1355,43 @@ fanout_codex_ux() {
     echo "  MANIFEST: $codex_dir/AGENTS.override.md"
 }
 
+# register_codex_mcp_server — idempotently add [mcp_servers.datarim] to
+# $codex_dir/config.toml so Codex CLI discovers Datarim as an MCP source.
+# The MCP tools surface is additive to the AGENTS.override.md filesystem
+# catalogue, which stays in place as graceful degradation.
+# Opt out with --no-codex-mcp. Direct file surgery via register-codex-mcp.py
+# (NOT `codex mcp add`, which needs codex present and reformats the whole file).
+register_codex_mcp_server() {
+    local codex_dir="$1" src_dir="$2"
+    [ "$FANOUT_CODEX_MCP" = true ] || return 0
+    local server_rel="cli/mcp/datarim-mcp-server.sh"
+    local registrar="$src_dir/cli/mcp/register-codex-mcp.py"
+    local abs_root abs_cmd config
+    abs_root="$(cd "$src_dir" && pwd)"
+    abs_cmd="$abs_root/$server_rel"
+    config="$codex_dir/config.toml"
+
+    if [ "$DRY_RUN" = true ]; then
+        echo "DRY: chmod +x $abs_cmd"
+        echo "DRY: register [mcp_servers.datarim] in $config (command=$abs_cmd, DATARIM_ROOT=$abs_root)"
+        return 0
+    fi
+    if [ ! -f "$abs_cmd" ] || [ ! -f "$registrar" ]; then
+        echo "  WARN: MCP server or registrar missing under $src_dir — skipping MCP registration" >&2
+        return 0
+    fi
+    if ! command -v python3 >/dev/null 2>&1; then
+        echo "  WARN: python3 missing — cannot register Datarim MCP server" >&2
+        return 0
+    fi
+    chmod +x "$abs_cmd" "$abs_root/$server_rel" 2>/dev/null || true
+    if python3 "$registrar" --config "$config" --command "$abs_cmd" --root "$abs_root"; then
+        echo "  MCP: registered [mcp_servers.datarim] → $config"
+    else
+        echo "  WARN: MCP registration failed (config.toml left untouched)" >&2
+    fi
+}
+
 # setup_cursor_runtime.
 #
 # Mirrors each migrated `skills/<name>/SKILL.md` from the source repo into
@@ -1476,6 +1516,7 @@ print_dry_run_plan() {
         if [ "$FANOUT_CODEX_UX" = true ]; then
             fanout_codex_ux "$CLAUDE_DIR" "$SCRIPT_DIR"
         fi
+        register_codex_mcp_server "$CLAUDE_DIR" "$SCRIPT_DIR"
     fi
     if [ "$runtime_name" = "claude" ]; then
         echo "DRY: sync coworker-delegation fragment into $CLAUDE_DIR/CLAUDE.md (sentinel block)"
@@ -1533,6 +1574,7 @@ install_symlink_scopes() {
         if [ "$FANOUT_CODEX_UX" = true ]; then
             fanout_codex_ux "$CLAUDE_DIR" "$SCRIPT_DIR"
         fi
+        register_codex_mcp_server "$CLAUDE_DIR" "$SCRIPT_DIR"
     fi
 }
 
@@ -1577,6 +1619,7 @@ install_copy_scopes() {
         if [ "$FANOUT_CODEX_UX" = true ]; then
             fanout_codex_ux "$CLAUDE_DIR" "$SCRIPT_DIR"
         fi
+        register_codex_mcp_server "$CLAUDE_DIR" "$SCRIPT_DIR"
     fi
 }
 

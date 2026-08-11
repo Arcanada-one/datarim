@@ -4,6 +4,37 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Module manifest gate.** `dev-tools/check-module-manifest.sh` validates a
+  `module.yaml` bundle descriptor (schema version, semver, kebab-case id,
+  non-empty skill list, per-skill summary, `requires`), with
+  `templates/module.yaml` as the shipped example and
+  `documentation/reference/module-manifest.md` as the reference. Recovered from
+  the accumulated framework batch by INFRA-0394.
+- **MCP server for the Datarim catalog.** `cli/mcp/datarim-mcp-server.sh` plus
+  `cli/mcp/lib/{mcp-catalog,mcp-frontmatter}.sh` expose commands, skills and
+  agents over MCP (list / resolve / body, path-confined, size-capped);
+  `cli/mcp/register-codex-mcp.py` writes `[mcp_servers.datarim]` into
+  `~/.codex/config.toml` by direct file surgery, wired into `install.sh`
+  (`--no-codex-mcp` opts out). Reference: `documentation/reference/mcp-server.md`.
+- **Three review skills split out of the monolithic adversarial pass** —
+  `adversarial-review` (break the artifact), `edge-case-hunter` (boundary and
+  degenerate inputs), `structure-review` (does the document hold together).
+  Loaded at the `/dr-plan` Transition Checkpoint and `/dr-qa`.
+- **QA-block validator** `dev-tools/lib/validate-qa-blocks.awk`, plus the
+  `dr-auto` dogfood retrospective how-to and two evolution design notes
+  (partial-milestone-closure AAL draft, project-init secrecy scaffold).
+
+### Changed
+
+- **Telegram article publication contract.** A Telegram article is exactly two
+  sequential ordinary channel posts in one `chat_id` — media plus bold title,
+  then title plus full text plus the single linked CTA — with no
+  `reply_to_message_id`, `message_thread_id`, discussion-group or comment
+  routing, and a read-back gate over both returned ids. The channel-comment
+  recipe stays documented for non-article posts.
+
 ### Fixed
 
 - **Reserved-prefix shadowing is reported instead of applied silently.** Universal
