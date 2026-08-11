@@ -154,7 +154,14 @@ check_schema_compliance() {
         # anchor from $re when composing with the `N:` prefix from grep -n.
         local re_no_anchor="${re#^}"
         local bad
-        bad=$(grep -nE '^- [A-Z]+-[0-9]+' "$fp" 2>/dev/null \
+        # Anchor tolerates leading whitespace: an indented bullet is still a
+        # ledger row, and `^-` silently exempted it from the schema. That is a
+        # gate bypass, not a fix -- nudging rows right would turn the gate green
+        # while leaving them unvalidated. The canonical regex is applied to the
+        # line with its indent stripped, so indented rows are held to the same
+        # shape without being rewritten here.
+        bad=$(grep -nE '^[[:space:]]*- [A-Z]+-[0-9]+' "$fp" 2>/dev/null \
+              | sed -E 's/^([0-9]+):[[:space:]]+- /\1:- /' \
               | grep -vE "^[0-9]+:$re_no_anchor" || true)
         # Also flag legacy block-style headings (### TASK-ID:).
         local legacy_blocks
@@ -523,14 +530,24 @@ for repo in "$@"; do
     fi
 done
 
+# Schema-compliance gate (TUNE-0071): run on every repo that has datarim/,
+# BEFORE the dirty-repo branch and independent of it.
+#
+# This gate used to live inside the clean-case branch below, which made it
+# unreachable whenever ANY passed repo had uncommitted changes — the normal
+# state of a multi-repo workspace. A non-compliant ledger row therefore stayed
+# invisible indefinitely: the operator saw only "BLOCKED: N repo(s) have
+# uncommitted changes", a different and unrelated message, and concluded the
+# schema was fine. Ledger shape does not depend on worktree cleanliness, so
+# neither should the check.
+for repo in "$@"; do
+    if ! check_schema_compliance "$repo"; then
+        exit 1
+    fi
+done
+
 # Clean case → silent success.
 if [ "${#dirty_repos[@]}" -eq 0 ]; then
-    # Schema-compliance gate (TUNE-0071): run on every repo that has datarim/.
-    for repo in "$@"; do
-        if ! check_schema_compliance "$repo"; then
-            exit 1
-        fi
-    done
     echo "OK: $# repo(s) clean — archive may proceed" >&2
     exit 0
 fi
