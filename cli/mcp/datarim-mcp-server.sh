@@ -20,6 +20,7 @@
 # continuing (V-AC-7). `-u`/pipefail stay; `-f` disables globbing on names.
 set -uo pipefail
 set -f
+# nosemgrep: bash.lang.security.ifs-tampering.ifs-tampering -- canonical strict-mode IFS, not derived from input
 IFS=$' \t\n'
 export LC_ALL=C
 
