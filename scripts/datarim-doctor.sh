@@ -160,6 +160,22 @@ fi
 #   2) project prefix — declared by caller in nearest CLAUDE.md (walk-up tree),
 #      under `## Task Prefix Registry` section with table | Prefix | Project | Archive Subdir |.
 # Falls back to `general` when neither matches. Path-traversal hardened.
+#
+# The tier order is deliberate (T-PFX-10, "area-prefix-wins-over-shadow"): the
+# runtime reserves a stack-agnostic namespace, so a project may ADD prefixes but
+# may not REDEFINE a reserved one. Do not invert this — it is an anti-shadowing
+# guarantee, not an oversight.
+#
+# DEV-1790 follow-up: the guarantee was enforced SILENTLY, which is the actual
+# defect. A consumer project declared DEV → general (where its entire archive
+# corpus already lived) and QA → general; both prefixes are reserved, so both
+# rows were discarded without a word while the probe answered `development` /
+# `qa` — subdirs that existed in no repo. Because a project CLAUDE.md typically
+# instructs agents to resolve the subdir via the probe «rather than assuming»,
+# an obedient agent creates a stray archive tree and strands the archive outside
+# the corpus later prior-art greps search. Resolution is unchanged; the shadowed
+# row is now reported so the project can rename its prefix (the real fix) instead
+# of silently believing a mapping that never applied.
 area_prefix_to_subdir() {
     case "${1%%-*}" in
         INFRA) echo "infrastructure" ;;
@@ -217,10 +233,20 @@ lookup_project_prefix_from_claude_md() {
 }
 
 prefix_to_area() {
-    local prefix="${1%%-*}" subdir
+    local prefix="${1%%-*}" subdir shadowed
+    # Tier 1: the reserved, stack-agnostic runtime namespace (anti-shadowing).
     if subdir="$(area_prefix_to_subdir "$prefix")"; then
+        # The project may not redefine a reserved prefix, but silently ignoring
+        # its declaration is what stranded DEV-1790's archive. Say so once.
+        # `|| true`: the lookup exits non-zero when the project declares nothing
+        # (the common case), and a bare assignment would abort under `set -e`.
+        shadowed="$(lookup_project_prefix_from_claude_md "$prefix" "${ROOT_ABS:-$PWD}" 2>/dev/null || true)"
+        if [ -n "$shadowed" ] && [ "$shadowed" != "$subdir" ]; then
+            warn "prefix $prefix is RESERVED by the Datarim runtime (→ $subdir); the project's Task Prefix Registry row '$prefix → $shadowed' is IGNORED. Rename the project prefix to a non-reserved one, or move the archives to $subdir."
+        fi
         echo "$subdir"; return 0
     fi
+    # Tier 2: project-declared prefix (the intended extension point).
     if subdir="$(lookup_project_prefix_from_claude_md "$prefix" "${ROOT_ABS:-$PWD}")"; then
         echo "$subdir"; return 0
     fi

@@ -151,7 +151,13 @@ EOF
 | INFRA | Trying to override | overridden |
 EOF
     cd "$TMPROOT"
+    # Resolution contract is unchanged: the reserved runtime prefix wins.
+    # DEV-1790 follow-up added a WARN naming the ignored row; bats `run` merges
+    # stderr into $output, so assert the resolved value on stdout alone.
+    local stdout
+    stdout="$("$DOCTOR" --probe-prefix=INFRA 2>/dev/null)"
+    [ "$stdout" = "infrastructure" ]
     run "$DOCTOR" --probe-prefix=INFRA
     [ "$status" -eq 0 ]
-    [ "$output" = "infrastructure" ]
+    [[ "$output" == *"IGNORED"* ]]
 }
