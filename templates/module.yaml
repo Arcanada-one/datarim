@@ -1,0 +1,39 @@
+# module.yaml — declarative content-manifest for a Datarim skill pack.
+#
+# Copy this file beside a plugin's plugin.yaml and edit. It declares the pack's
+# per-skill catalogue (version, deps, one-line help) so the pack can be
+# versioned, dependency-checked, deterministically indexed, and linted.
+#
+# Orthogonal to plugin.yaml (which declares the plugin SOURCE + symlink policy).
+# Optional — a pack without module.yaml is simply un-indexed at the pack level.
+#
+# Schema reference: documentation/reference/module-manifest.md
+# Validate:         ${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-module-manifest.sh path/to/module.yaml
+
+schema_version: 1
+
+module:
+  id: example-review-pack
+  title: "Example Adversarial-Review Skill Pack"
+  version: 1.0.0
+  description: "A worked example skill pack shipping three cooperating review skills."
+
+skills:
+  - name: adversarial-review
+    version: 1.0.0
+    summary: "General adversarial-mindset review — break the artifact, not bless it."
+    stability: stable
+
+  - name: edge-case-hunter
+    version: 1.0.0
+    summary: "Enumerate boundary/degenerate/failure inputs the happy path ignores."
+    stability: stable
+    requires:
+      - adversarial-review
+
+  - name: structure-review
+    version: 1.0.0
+    summary: "Review completeness, internal consistency, and traceability of a document."
+    stability: beta
+    requires:
+      - adversarial-review
