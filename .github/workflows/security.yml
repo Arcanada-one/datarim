@@ -445,6 +445,7 @@ jobs:
             agents \
             commands \
             templates \
+            dev-tools/rules \
             documentation/how-to \
             documentation/reference \
             documentation/explanation \

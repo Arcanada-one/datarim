@@ -43,6 +43,13 @@ setup() {
     [[ "$output" == *"P9"* ]]
 }
 
+# --- Word-form priority aliases + short-form security type are handled ---
+
+@test "checker: word-form critical/high + security type -> exit 0 (post-fix)" {
+    run "$SCRIPT" --gate "$GATE" --corpus-dir "$F/word-forms" --quiet
+    [ "$status" -eq 0 ]
+}
+
 # --- Empty corpus is clean ---
 
 @test "checker: empty corpus -> exit 0" {
