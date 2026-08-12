@@ -16,9 +16,11 @@ paths = [
   # `Authorization: Bearer` header against `svc.example.com` (RFC 2606
   # documentation domain). The default `curl-auth-header` rule matches the
   # header SHAPE regardless of the value, so the placeholder trips it. The file
-  # is not on main — it exists only on two abandoned `rescue/INFRA-0394/*`
-  # branches — but CI scans `--log-opts="--all"`, so every ref is in scope and
-  # any PR opened while those branches exist inherits the finding.
+  # is not on main — the two carrier branches were retired in the 2026-08-12
+  # branch cleanup and their tips are preserved as
+  # `zz-archived/rescue/INFRA-0394/tune-batch-epic-{e,f}-20260812` tags — but CI
+  # scans `--log-opts="--all"`, so every ref (tags included) stays in scope and
+  # any PR inherits the finding while those tags exist.
   '''tests/fixtures/fleet-evolution/audit/cli-audit-fixture\.jsonl''',
 ]
 # Belt-and-suspenders: the specific synthetic key literal used in fixtures.
