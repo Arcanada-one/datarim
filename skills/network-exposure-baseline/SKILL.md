@@ -196,11 +196,16 @@ Pipeline commands read the task-description frontmatter and pick one of three de
 | `P1`     | others                                                                                  | (any)                    | `advisory_warn` |
 | `P2`/`P3`/`P4`| (any)                                                                              | yes                      | `advisory_warn` |
 | `P2`/`P3`/`P4`| (any)                                                                              | no                       | `skip`          |
+| `critical` (word-form alias of `P0`) | (any)                                                      | (any)                    | `hard_block`    |
+| `high` (word-form alias of `P1`) | sec/infra types (as `P1` row)                                  | (any)                    | `hard_block`    |
+| `high` (word-form alias of `P1`) | others                                                         | (any)                    | `advisory_warn` |
 | init-task artefact (`artifact: init-task`, no priority/type) | —                                                       | no                       | `skip`          |
 | init-task artefact (`artifact: init-task`, no priority/type) | —                                                       | yes                      | `advisory_warn` |
 | missing/malformed (non-init-task) | —                                                              | —                        | `hard_block` (fail-closed) |
 
 "Network surface touched" means that the diff (for `/dr-plan`) or the staged change (for `/dr-do`) touches one of the verifier's sources: docker-compose, `redis.conf`, `postgresql.conf`, systemd `.socket`, firewall / UFW rules, or a runtime bind argument.
+
+**Word-form priority aliases.** Some task-descriptions express priority as the word forms `critical` / `high` rather than the `Pn` scale. The gate accepts these as first-class aliases — `critical` ≡ `P0` (absolute floor), `high` ≡ `P1` (type-refined) — so such a file is consciously handled instead of fail-closing to `hard_block` as "malformed" (the latent-false-positive class a plain `high` non-sec task would otherwise hit). The short-form `security` type is a member of the sec/infra set alongside its long siblings `security-incident` / `security-baseline`. Any other priority value remains malformed → fail-closed `hard_block`.
 
 An **init-task artefact** uses a different frontmatter schema (no `priority`/`type` by design). Early pipeline stages (`/dr-prd`, `/dr-plan`) may probe the init-task before a task-description exists; the gate resolves to `skip` (no networking surface to gate) rather than fail-closing, unless an explicit network-diff signal is present. The fail-closed `hard_block` is reserved for a genuinely malformed *task-description* (a file that is not an init-task yet lacks a valid priority).
 

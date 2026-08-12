@@ -2312,3 +2312,19 @@ category/claimed/actual named in `--report` output, for each of the 4 categories
 fixture is a no-op pass; `--root` auto-walk-up verified). `tests/check-repo-site-sync.bats` —
 12/12 green, no regression from the sibling script being read as prior art. Full `bats tests/`
 run — see PR body for the pass/fail count captured at PR-open time.
+
+---
+
+## 2026-08-12 — TUNE-0592: re-land of the INFRA-0394 preserved framework-rules batches (A/C/D), adjudicated against current main
+
+**Category:** batch-reland promote-preserved-work · **Class:** A (point-additions preserved as `zz-archived/rescue/INFRA-0394/batch-{a,c,d}-framework-rules-20260812` tags before the 2026-08-12 branch cleanup; adjudicated item-by-item against current `main` rather than replayed wholesale — a preserved batch is a claim about July's main, not today's).
+
+**Landed (absent from main, applied):**
+
+- batch-A: `CLAUDE.md` "Branch-level sibling switch" paragraph (shared-HEAD recovery guidance); `security.yml` task-id-gate self-dogfood loop now also covers `dev-tools/rules` (shipped policy-data; verified gate-clean before wiring).
+- batch-C: `dev-tools-lint.yml` advisory gate-token-registry-sync step; `/dr-plan`+`/dr-design` deploy-gated plan↔creative cross-reference rule; `/dr-do` long-plan bulk-read extract recommendation; `skills/ai-quality` § Surface-Count vs Host-Count AC Disambiguation and § Exact-Name Selectors for DOM Automation; coworker fragment § Doc-generation self-recursion; regression suites `tests/check-dr-plan-external-target-probe.bats` and `tests/check-dr-do-delegation-flow.bats` (their grep anchors verified present on current command specs).
+- batch-D: `agents/writer.md` LinkedIn-English authoring rule; `network-exposure-gate.sh` word-form priority aliases (`critical`≡P0, `high`≡P1) + skill decision-table rows + `check-gate-token-registry-sync.sh` decide()-scoped word-form scan + word-forms fixtures and bats case; `tests/check-spec-behaviour-drift.bats` (dr-edit arm re-pointed at main's pointer-not-number resolution).
+
+**Superseded on main (deliberately NOT re-landed):** batch-A task-id-gate rules/-segment yaml scan + T18-T21 (main scans *.yaml/*.sh/*.template everywhere — broader; T20 would contradict it) and fb-rules shim-test slimming (shim deleted, `test-fb-rules-core-resolution.bats` replaced it); batch-C TUNE-0355 milestone-regex tightening + its two lint cases (main dropped `Phase` from the pattern entirely — the batch's `Phase2 → exit 1` case would redden main's design) and the `/dr-qa` Deferred-Items table (already on main); batch-D release.yml env-drop + `check-release-env-gate.bats` (main kept `release-auto` and made its policy settings-as-code: `.github/environments-policy.yml` + `provision-release-env.sh` + drift check), `rename-task-prefix.sh` + bats (main ships the evolved TUNE-0368 homograph-protecting tool, #305 — the batch's older contract fails against it), dr-doctor Step-2.4 citations, dr-edit source-count restatement (main defers to factcheck by pointer), fragment fact-verified-creative exemption (main carries the richer vetted-creative-docs text), and the `security` short-form type (already in gate + skill).
+
+**Verification:** targeted bats suites green (see PR); task-id-gate + stack-agnostic gate on touched shipped files; actionlint/yaml parse on touched workflows.
