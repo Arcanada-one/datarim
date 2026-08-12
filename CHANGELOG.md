@@ -4,6 +4,8 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.66.0] — 2026-08-12
+
 ### Added
 
 - **Module manifest gate.** `dev-tools/check-module-manifest.sh` validates a
@@ -25,6 +27,12 @@ All notable changes to the Datarim framework are documented here. Format follows
 - **QA-block validator** `dev-tools/lib/validate-qa-blocks.awk`, plus the
   `dr-auto` dogfood retrospective how-to and two evolution design notes
   (partial-milestone-closure AAL draft, project-init secrecy scaffold).
+- **Preflight caller contract enforced.** The composite preflight action now
+  validates its caller's inputs against `consumers.yml` instead of trusting
+  them, exposes the Ops Bot notification outcome as an explicit output
+  (`not-needed` / `sent` / `skipped-no-key`), and reports timesync state with a
+  measurable offset and preserved threshold precision rather than a bare
+  ok/fail.
 
 ### Changed
 
@@ -34,6 +42,10 @@ All notable changes to the Datarim framework are documented here. Format follows
   `reply_to_message_id`, `message_thread_id`, discussion-group or comment
   routing, and a read-back gate over both returned ids. The channel-comment
   recipe stays documented for non-article posts.
+- **Publishing rules hardened against rollout regressions** — pseudographic
+  diagrams, template signposting, oversized social video, and premature
+  narration/media rollout are now called out explicitly; the language
+  exceptions the rules rely on pass the shipped-surface gate.
 
 ### Fixed
 
@@ -53,6 +65,23 @@ All notable changes to the Datarim framework are documented here. Format follows
   Resolution, `skills/datarim-doctor/SKILL.md`, and the `CLAUDE.md` registry
   section, all of which previously said «do not repeat them here» without stating
   what happens if you do.
+- **Pre-archive schema gate is reachable, and the indent bypass is closed.** Two
+  independent bypasses let non-compliant ledger rows accumulate unseen (one
+  workspace carried 24 with the gate reporting nothing). `check_schema_compliance`
+  ran only when every passed repo was clean, so any dirty repo — the normal state
+  of a multi-repo workspace — skipped it; the check is hoisted ahead of the
+  dirty-repo branch and runs unconditionally. The violation scan anchored at `^-`,
+  exempting indented bullets; it now matches `^[[:space:]]*-` and strips the
+  indent before applying the canonical regex. The doctor's `EMITTED_COUNT`
+  data-loss counter carried the same flush-left-only anchor and is widened too.
+  Both fixes are mutation-tested.
+- **Gitleaks allowlist for the fleet-evolution audit fixture.** CI scans
+  `--log-opts="--all"`, so the placeholder `Authorization: Bearer` header in
+  `tests/fixtures/fleet-evolution/audit/cli-audit-fixture.jsonl` (RFC 2606
+  documentation domain, carried only by archived refs) tripped the
+  `curl-auth-header` rule on every PR. The path-scoped allowlist entry suppresses
+  the one fixture; a real token planted outside the allowlisted path is still
+  detected (verified in both directions).
 
 ## [2.65.0] — 2026-08-09
 
