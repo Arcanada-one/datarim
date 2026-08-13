@@ -114,6 +114,8 @@ _autonomy_rules() {
   # plugin. Override by setting DR_AUTONOMY_RULES to an absolute path.
   local rules="${DR_AUTONOMY_RULES:-${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/rules/fb-rules.yaml}"
   [[ -n "$rules" && -s "$rules" ]] || return 1
+  yq eval -e '.hard_gated_actions | type == "!!seq" and length > 0' "$rules" >/dev/null 2>&1 \
+    || return 1
   yq eval -e '.always_gated_floor | type == "!!seq" and length > 0' "$rules" >/dev/null 2>&1 \
     || return 1
   yq eval -e '.action_autonomy_map | type == "!!map" and length > 0' "$rules" >/dev/null 2>&1 \
@@ -167,7 +169,7 @@ _autonomy_policy_decision() {
 }
 
 autonomy_decision() {
-  local action="$1" payload="${2:-"{}"}" rules effective floor_hit
+  local action="$1" payload="${2:-"{}"}" rules effective floor_hit hard_gate_hit
   jq -e 'type == "object"' <<<"$payload" >/dev/null 2>&1 || payload='{}'
   effective="$(_autonomy_effective_kind "$action" "$payload")"
   rules="$(_autonomy_rules 2>/dev/null || true)"
@@ -181,6 +183,16 @@ autonomy_decision() {
     | jq --arg kind "$effective" 'index($kind) != null')"
   if [[ "$floor_hit" == true ]]; then
     _autonomy_operator "$action" "$effective" always_gated_floor true
+    return 10
+  fi
+  hard_gate_hit="$(yq eval -o=json '.hard_gated_actions' "$rules" \
+    | jq --arg action "$action" --arg effective "$effective" \
+      'index($action) != null or index($effective) != null')"
+  if [[ "$hard_gate_hit" == true ]]; then
+    _autonomy_json --arg action "$action" --arg effective "$effective" \
+      '{schema_version:1,action_kind:$action,effective_action_kind:$effective,
+        decision:"operator",floor_hit:false,hard_gate_hit:true,
+        precedence_layer:"P1",reason_code:"hard_gated_action"}'
     return 10
   fi
   if [[ "$action" == public_package_release ]] \
