@@ -4,6 +4,20 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **TUNE-0592 framework-batch reconciliation.** The current-main-adjudicated
+  A/C/D residue from PR #371 is now the canonical tree, including its
+  delegation-flow, external-target, gate-token-registry, behaviour-drift, and
+  network-exposure coverage; superseded rescue branches were retired.
+
+### Fixed
+
+- **Shared-mode pre-archive schema reachability.** The existing schema gate now
+  runs after per-file hunk attribution and before every shared-mode return, so
+  own, mixed, or unattributed dirty state cannot mask malformed ledgers. The
+  explicit `--no-schema-check` escape remains unchanged. (#372)
+
 ## [2.66.0] — 2026-08-12
 
 ### Added
