@@ -4,6 +4,8 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.66.1] — 2026-08-13
+
 ### Changed
 
 - **TUNE-0592 framework-batch reconciliation.** The current-main-adjudicated
