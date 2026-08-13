@@ -4,6 +4,17 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.66.2] — 2026-08-13
+
+### Fixed
+
+- **Hard-gated action enforcement.** The core autonomy resolver now validates
+  and enforces the configured `hard_gated_actions` list before space-level
+  release carve-outs or other automatic policy decisions. Missing or malformed
+  hard-gate configuration fails closed as an invalid policy.
+- Added regression coverage for hard-gate precedence and the missing-list
+  invariant.
+
 ## [2.66.1] — 2026-08-13
 
 ### Changed
