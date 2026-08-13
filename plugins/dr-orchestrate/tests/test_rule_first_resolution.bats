@@ -52,6 +52,7 @@ autonomy:
     cross_project_write: auto
 YAML
   cat > "$DR_AUTONOMY_RULES" <<'YAML'
+hard_gated_actions: [secret_rotation]
 always_gated_floor: [finance_action]
 action_autonomy_map:
   framework_command: cross_project_write
