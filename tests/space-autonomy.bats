@@ -53,6 +53,8 @@ autonomy:
 YAML
 
   cat > "$RULES_FILE" <<'YAML'
+hard_gated_actions:
+  - secret_rotation
 always_gated_floor:
   - finance_action
   - legal_action
@@ -111,6 +113,14 @@ gate() {
     && [ "$(jq -r '.space' <<<"$output")" = arcanada ]
 }
 
+@test "secret rotation hard gate overrides an auto space policy" {
+  gate arcanada secret_rotation
+  [ "$status" -eq 10 ] \
+    && [ "$(jq -r '.decision' <<<"$output")" = operator ] \
+    && [ "$(jq -r '.hard_gate_hit' <<<"$output")" = true ] \
+    && [ "$(jq -r '.reason_code' <<<"$output")" = hard_gated_action ]
+}
+
 @test "commit-dropping force push is always gated" {
   gate arcanada force_push '{"drops_commits":true}'
   [ "$status" -eq 10 ] \
@@ -166,6 +176,13 @@ gate() {
 @test "missing immutable floor is an invariant error" {
   yq -i 'del(.always_gated_floor)' "$RULES_FILE"
   gate arcanada merge_main
+  [ "$status" -eq 2 ] \
+    && [ "$(jq -r '.reason_code' <<<"$output")" = invalid_rules ]
+}
+
+@test "missing hard-gate list is an invariant error" {
+  yq -i 'del(.hard_gated_actions)' "$RULES_FILE"
+  gate arcanada secret_rotation
   [ "$status" -eq 2 ] \
     && [ "$(jq -r '.reason_code' <<<"$output")" = invalid_rules ]
 }
