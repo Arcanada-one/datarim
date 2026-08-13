@@ -224,6 +224,17 @@ modify_with_task_id() {
     [[ "$output" == *"unattributed"* ]]
 }
 
+@test "shared mode: own dirty hunk does not bypass schema-compliance gate" {
+    make_clean_repo "$BATS_TEST_TMPDIR/ws"
+    make_workflow_file "$BATS_TEST_TMPDIR/ws" "datarim/tasks.md" "- TUNE-0044 malformed row"
+    make_workflow_file "$BATS_TEST_TMPDIR/ws" "datarim/notes.md" "# notes"
+    echo "TUNE-0044 own dirty hunk" >> "$BATS_TEST_TMPDIR/ws/datarim/notes.md"
+    run "$SCRIPT" --task-id TUNE-0044 --shared "$BATS_TEST_TMPDIR/ws"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"Schema-compliance gate failed."* ]] \
+        && [[ "$output" == *"datarim/tasks.md"* ]]
+}
+
 # ---------- TUNE-0291 --allow-foreign-untracked (shared multi-agent workspace) ----------
 #
 # Founding incident: TUNE-0286 /dr-archive hit 23 foreign untracked files
@@ -683,12 +694,12 @@ EOF
 @test "shared mode: index-file body has many TASK-IDs + own diff line → column 3 = own only (TUNE-0084)" {
     make_marker_repo "$BATS_TEST_TMPDIR/fw"
     make_workflow_file "$BATS_TEST_TMPDIR/fw" "datarim/tasks.md" "# Tasks
-- TRANS-0021 · in_progress · P1 · L3 · Transcribator
-- LTM-0017 · in_progress · P2 · L2 · Long-Term Memory
-- VERD-0026 · in_progress · P1 · L3 · Verdicus
-- DEV-1212 · in_progress · P2 · L2 · Dev tooling
-- INFRA-0040 · in_progress · P1 · L3 · Infra"
-    echo "- TUNE-0084 · in_progress · P3 · L2 · diff-only classification" \
+- TRANS-0021 · in_progress · P1 · L3 · Transcribator → tasks/TRANS-0021-task-description.md
+- LTM-0017 · in_progress · P2 · L2 · Long-Term Memory → tasks/LTM-0017-task-description.md
+- VERD-0026 · in_progress · P1 · L3 · Verdicus → tasks/VERD-0026-task-description.md
+- DEV-1212 · in_progress · P2 · L2 · Dev tooling → tasks/DEV-1212-task-description.md
+- INFRA-0040 · in_progress · P1 · L3 · Infra → tasks/INFRA-0040-task-description.md"
+    echo "- TUNE-0084 · in_progress · P3 · L2 · diff-only classification → tasks/TUNE-0084-task-description.md" \
         >> "$BATS_TEST_TMPDIR/fw/datarim/tasks.md"
     run "$SCRIPT" --task-id TUNE-0084 --shared "$BATS_TEST_TMPDIR/fw"
     [ "$status" -eq 1 ]
@@ -726,8 +737,8 @@ EOF
     make_marker_repo "$BATS_TEST_TMPDIR/fw"
     make_workflow_file "$BATS_TEST_TMPDIR/fw" "datarim/backlog.md" "# Backlog"
     {
-        echo "- TUNE-0084 · pending · own line"
-        echo "- TRANS-0021 · pending · foreign line"
+        echo "- TUNE-0084 · pending · P3 · L2 · own line"
+        echo "- TRANS-0021 · pending · P1 · L2 · foreign line"
     } >> "$BATS_TEST_TMPDIR/fw/datarim/backlog.md"
     run "$SCRIPT" --task-id TUNE-0084 --shared "$BATS_TEST_TMPDIR/fw"
     [ "$status" -eq 1 ]

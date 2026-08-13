@@ -465,11 +465,16 @@ if [ -n "$SHARED_REPO" ]; then
         printf '%s\t%s\t%s\n' "$file" "$klass" "$found_ids"
     done < <(git -C "$SHARED_REPO" status --porcelain --untracked-files=all 2>/dev/null)
 
+    # Schema-compliance is independent of hunk ownership. Run it before any
+    # shared-mode return so an own, mixed, or unattributed dirty file cannot
+    # hide a malformed tasks/backlog ledger. Keep classification first so a
+    # caller still receives the per-file disposition alongside the schema
+    # failure instead of losing a useful shared-workspace diagnostic.
+    if ! check_schema_compliance "$SHARED_REPO"; then
+        exit 1
+    fi
+
     if [ "$block" -eq 0 ]; then
-        # Schema-compliance gate (TUNE-0071) runs after clean-git success.
-        if ! check_schema_compliance "$SHARED_REPO"; then
-            exit 1
-        fi
         if [ "$saw_foreign" -eq 1 ]; then
             echo "OK: shared repo has foreign-only hunks — archive may proceed" >&2
         else
