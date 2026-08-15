@@ -352,6 +352,7 @@ EOF
 
     [ "$status" -ne 0 ] \
         && [[ "$output" == *"simulated init-task read failure"* ]] \
+        && [[ "$output" == *"failed to read init-task file"* ]] \
         && cmp -s "$original" "$init_file" \
         && [ ! -d "$tasks_dir/.TEST-0206.qa-lock" ] \
         && [ -z "$(find "$tasks_dir" -maxdepth 1 -name '.TEST-0206.qa.append.*' -print)" ]
@@ -363,7 +364,8 @@ EOF
     local init_file="$tasks_dir/TEST-0207-init-task.md"
     local original="$TMPROOT/TEST-0207-init-task.original.md"
     local q="$TMPROOT/q.txt" a="$TMPROOT/a.txt"
-    local fake_bin="$TMPROOT/fake-bin" rm_log="$TMPROOT/rm-calls.log"
+    local fake_bin="$TMPROOT/fake-bin"
+    local rm_log="$TMPROOT/rm-calls.log" rmdir_log="$TMPROOT/rmdir-calls.log"
     cp "$init_file" "$original"
     echo "Q whose append must fail." > "$q"
     echo "A whose append must fail." > "$a"
@@ -385,13 +387,19 @@ if [ "$#" -eq 2 ] && [ "$1" = "-f" ] && [[ "$2" == "${RM_FAIL_PREFIX:?}"* ]]; th
 fi
 exec /bin/rm "$@"
 EOF
-    chmod +x "$fake_bin/cat" "$fake_bin/rm"
+    cat > "$fake_bin/rmdir" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "${RMDIR_CALL_LOG:?}"
+exec /bin/rmdir "$@"
+EOF
+    chmod +x "$fake_bin/cat" "$fake_bin/rm" "$fake_bin/rmdir"
 
     run env \
         PATH="$fake_bin:$PATH" \
         CAT_FAIL_PATH="$init_file" \
         RM_CALL_LOG="$rm_log" \
         RM_FAIL_PREFIX="$tasks_dir/.TEST-0207.qa.append." \
+        RMDIR_CALL_LOG="$rmdir_log" \
         "$APPEND" \
         --root "$TMPROOT" \
         --task TEST-0207 --stage do --round 1 \
@@ -403,6 +411,7 @@ EOF
         && [[ "$output" == *"simulated init-task read failure"* ]] \
         && [[ "$output" == *"simulated temp cleanup failure"* ]] \
         && grep -qF "$tasks_dir/.TEST-0207.qa.append." "$rm_log" \
+        && grep -qF "$tasks_dir/.TEST-0207.qa-lock" "$rmdir_log" \
         && cmp -s "$original" "$init_file" \
         && [ ! -d "$tasks_dir/.TEST-0207.qa-lock" ]
 }
