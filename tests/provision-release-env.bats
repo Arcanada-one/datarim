@@ -20,7 +20,13 @@ setup() {
 # Minimal gh-api stand-in. Logs argv plus any piped JSON body (so nested-object
 # PUT/POST bodies are assertable), returns empty JSON object for reads.
 line="$*"
-if [ ! -t 0 ]; then
+read_stdin=0
+previous=""
+for argument in "$@"; do
+    [ "$previous" = "--input" ] && [ "$argument" = "-" ] && read_stdin=1
+    previous="$argument"
+done
+if [ "$read_stdin" -eq 1 ]; then
     body="$(cat)"
     [ -n "$body" ] && line="$line ${body}"
 fi
@@ -68,6 +74,22 @@ _calls() { cat "$GH_CALLS"; }
     [ "$status" -eq 0 ]
     run grep -E -- '-X (PUT|POST|DELETE)' "$GH_CALLS"
     [ "$status" -ne 0 ]   # no mutating verb recorded
+}
+
+@test "read-only policy GET does not consume inherited open stdin" {
+    local stdin_fifo="$WORK/open-stdin"
+    local writer_pid
+    mkfifo "$stdin_fifo"
+    (exec 3>"$stdin_fifo"; sleep 10) &
+    writer_pid=$!
+
+    run timeout --signal=TERM --kill-after=1s 2s \
+        "$SCRIPT" --repo Arcanada-one/coworker --env release-auto \
+        < "$stdin_fifo"
+
+    kill "$writer_pid" 2>/dev/null || true
+    wait "$writer_pid" 2>/dev/null || true
+    [ "$status" -eq 0 ]
 }
 
 @test "dry-run prints the planned PUT environment + tag-policy POST" {
