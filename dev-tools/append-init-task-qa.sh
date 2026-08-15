@@ -20,7 +20,7 @@
 #   1 — validation / I/O error
 #   2 — usage error
 
-set -uo pipefail
+set -euo pipefail
 
 VERSION="1.0.0"
 SCRIPT_NAME="append-init-task-qa.sh"

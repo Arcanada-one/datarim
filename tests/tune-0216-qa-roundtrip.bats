@@ -304,6 +304,44 @@ EOF
     [ "$status" -eq 0 ]
 }
 
+@test "P2.6 utility preserves init-task when its source read fails" {
+    write_base_init_task "TEST-0206"
+    local tasks_dir="$TMPROOT/datarim/tasks"
+    local init_file="$tasks_dir/TEST-0206-init-task.md"
+    local original="$TMPROOT/TEST-0206-init-task.original.md"
+    local q="$TMPROOT/q.txt" a="$TMPROOT/a.txt"
+    local fake_bin="$TMPROOT/fake-bin"
+    cp "$init_file" "$original"
+    echo "Q whose append must fail." > "$q"
+    echo "A whose append must fail." > "$a"
+    mkdir -p "$fake_bin"
+    cat > "$fake_bin/cat" <<'EOF'
+#!/usr/bin/env bash
+if [ "$#" -eq 1 ] && [ "$1" = "${CAT_FAIL_PATH:?}" ]; then
+    echo "simulated init-task read failure" >&2
+    exit 74
+fi
+exec /bin/cat "$@"
+EOF
+    chmod +x "$fake_bin/cat"
+
+    run env \
+        PATH="$fake_bin:$PATH" \
+        CAT_FAIL_PATH="$init_file" \
+        "$APPEND" \
+        --root "$TMPROOT" \
+        --task TEST-0206 --stage do --round 1 \
+        --question-file "$q" --answer-file "$a" \
+        --decided-by operator \
+        --summary "This append must not replace an unreadable source."
+
+    [ "$status" -ne 0 ] \
+        && [[ "$output" == *"simulated init-task read failure"* ]] \
+        && cmp -s "$original" "$init_file" \
+        && [ ! -d "$tasks_dir/.TEST-0206.qa-lock" ] \
+        && [ -z "$(find "$tasks_dir" -maxdepth 1 -name '.TEST-0206.qa.append.*' -print)" ]
+}
+
 # ---------------------------------------------------------------------------
 # Phase 3 — Wire six pipeline commands
 # ---------------------------------------------------------------------------
