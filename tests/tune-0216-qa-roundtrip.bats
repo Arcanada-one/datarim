@@ -207,6 +207,21 @@ EOF
     [[ "$output" == *"Usage"* ]] || [[ "$output" == *"usage"* ]]
 }
 
+@test "P2.0c utility reports usage error when any option value is missing" {
+    local option
+    for option in \
+        --root --task --stage --round \
+        --question-file --answer-file --decided-by --rationale-file \
+        --summary --asked-by --conflict-with --conflict-detail-file \
+        --timestamp; do
+        run "$APPEND" "$option"
+        if [ "$status" -ne 2 ]; then
+            echo "$option without a value returned $status, expected 2" >&2
+            return 1
+        fi
+    done
+}
+
 @test "P2.1 utility writes a valid Q&A block and validator passes" {
     write_base_init_task "TEST-0201"
     local q="$TMPROOT/q.txt" a="$TMPROOT/a.txt"
@@ -340,6 +355,56 @@ EOF
         && cmp -s "$original" "$init_file" \
         && [ ! -d "$tasks_dir/.TEST-0206.qa-lock" ] \
         && [ -z "$(find "$tasks_dir" -maxdepth 1 -name '.TEST-0206.qa.append.*' -print)" ]
+}
+
+@test "P2.7 cleanup removes the lock after temp cleanup itself fails" {
+    write_base_init_task "TEST-0207"
+    local tasks_dir="$TMPROOT/datarim/tasks"
+    local init_file="$tasks_dir/TEST-0207-init-task.md"
+    local original="$TMPROOT/TEST-0207-init-task.original.md"
+    local q="$TMPROOT/q.txt" a="$TMPROOT/a.txt"
+    local fake_bin="$TMPROOT/fake-bin" rm_log="$TMPROOT/rm-calls.log"
+    cp "$init_file" "$original"
+    echo "Q whose append must fail." > "$q"
+    echo "A whose append must fail." > "$a"
+    mkdir -p "$fake_bin"
+    cat > "$fake_bin/cat" <<'EOF'
+#!/usr/bin/env bash
+if [ "$#" -eq 1 ] && [ "$1" = "${CAT_FAIL_PATH:?}" ]; then
+    echo "simulated init-task read failure" >&2
+    exit 74
+fi
+exec /bin/cat "$@"
+EOF
+    cat > "$fake_bin/rm" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "${RM_CALL_LOG:?}"
+if [ "$#" -eq 2 ] && [ "$1" = "-f" ] && [[ "$2" == "${RM_FAIL_PREFIX:?}"* ]]; then
+    echo "simulated temp cleanup failure" >&2
+    exit 75
+fi
+exec /bin/rm "$@"
+EOF
+    chmod +x "$fake_bin/cat" "$fake_bin/rm"
+
+    run env \
+        PATH="$fake_bin:$PATH" \
+        CAT_FAIL_PATH="$init_file" \
+        RM_CALL_LOG="$rm_log" \
+        RM_FAIL_PREFIX="$tasks_dir/.TEST-0207.qa.append." \
+        "$APPEND" \
+        --root "$TMPROOT" \
+        --task TEST-0207 --stage do --round 1 \
+        --question-file "$q" --answer-file "$a" \
+        --decided-by operator \
+        --summary "Cleanup must continue after a failed temp removal."
+
+    [ "$status" -ne 0 ] \
+        && [[ "$output" == *"simulated init-task read failure"* ]] \
+        && [[ "$output" == *"simulated temp cleanup failure"* ]] \
+        && grep -qF "$tasks_dir/.TEST-0207.qa.append." "$rm_log" \
+        && cmp -s "$original" "$init_file" \
+        && [ ! -d "$tasks_dir/.TEST-0207.qa-lock" ]
 }
 
 # ---------------------------------------------------------------------------

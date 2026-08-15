@@ -20,7 +20,7 @@
 #   1 — validation / I/O error
 #   2 — usage error
 
-set -euo pipefail
+set -uo pipefail
 
 VERSION="1.0.0"
 SCRIPT_NAME="append-init-task-qa.sh"
@@ -47,7 +47,7 @@ TMP_FILE=""
 
 cleanup() {
     if [ -n "$TMP_FILE" ] && [ -e "$TMP_FILE" ]; then
-        rm -f "$TMP_FILE"
+        rm -f "$TMP_FILE" || true
     fi
     if [ -n "$LOCK_DIR" ] && [ -d "$LOCK_DIR" ]; then
         rmdir "$LOCK_DIR" 2>/dev/null || true
@@ -222,13 +222,30 @@ fi
 
 TMP_FILE="$(mktemp "$TASKS_DIR_ABS/.${TASK_ID}.qa.append.XXXXXX")"
 
+if ! QUESTION_CONTENT="$(cat "$QUESTION_FILE")"; then
+    fail_io "failed to read --question-file: $QUESTION_FILE"
+fi
+if ! ANSWER_CONTENT="$(cat "$ANSWER_FILE")"; then
+    fail_io "failed to read --answer-file: $ANSWER_FILE"
+fi
+RATIONALE_CONTENT=""
+if [ -n "$RATIONALE_FILE" ] && ! RATIONALE_CONTENT="$(cat "$RATIONALE_FILE")"; then
+    fail_io "failed to read --rationale-file: $RATIONALE_FILE"
+fi
+CONFLICT_DETAIL_CONTENT=""
+if [ -n "$CONFLICT_DETAIL_FILE" ] && ! CONFLICT_DETAIL_CONTENT="$(cat "$CONFLICT_DETAIL_FILE")"; then
+    fail_io "failed to read --conflict-detail-file: $CONFLICT_DETAIL_FILE"
+fi
+
 {
-    cat "$INIT_FILE"
+    if ! cat "$INIT_FILE"; then
+        fail_io "failed to read init-task file: $INIT_FILE"
+    fi
     printf '\n### %s — Q&A by /dr-%s (round %s)\n\n' "$TIMESTAMP" "$STAGE" "$ROUND"
     printf '**Question (verbatim, asked by %s):**\n\n' "$ASKED_BY"
-    printf '%s\n\n' "$(cat "$QUESTION_FILE")"
+    printf '%s\n\n' "$QUESTION_CONTENT"
     printf '**Answer (verbatim, by %s):**\n\n' "$DECIDED_BY"
-    printf '%s\n\n' "$(cat "$ANSWER_FILE")"
+    printf '%s\n\n' "$ANSWER_CONTENT"
     printf '**Decided by:** %s\n\n' "$DECIDED_BY"
     if [ -n "$RATIONALE_FILE" ]; then
         if [ "$DECIDED_BY" = "process-rule-artefact" ]; then
@@ -236,14 +253,14 @@ TMP_FILE="$(mktemp "$TASKS_DIR_ABS/.${TASK_ID}.qa.append.XXXXXX")"
         else
             printf '**Decision rationale:**\n\n'
         fi
-        printf '%s\n\n' "$(cat "$RATIONALE_FILE")"
+        printf '%s\n\n' "$RATIONALE_CONTENT"
     fi
     printf '**Summary (how it changes initial conditions):**\n\n'
     printf '%s\n\n' "$SUMMARY"
     if [ -n "$CONFLICT_WITH" ]; then
         if [ -n "$CONFLICT_DETAIL_FILE" ]; then
             printf '**Conflict with existing wish:** %s — %s\n\n' \
-                "$CONFLICT_WITH" "$(cat "$CONFLICT_DETAIL_FILE")"
+                "$CONFLICT_WITH" "$CONFLICT_DETAIL_CONTENT"
         else
             printf '**Conflict with existing wish:** %s — (see Summary)\n\n' "$CONFLICT_WITH"
         fi
