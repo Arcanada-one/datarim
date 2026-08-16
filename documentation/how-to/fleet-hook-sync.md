@@ -10,7 +10,7 @@
 Datarim ships per-machine hook scripts that enforce runtime policy:
 
 - `coworker-hook-guard` — delegation gating (Read/Write/Bash + SessionStart)
-- `datarim-exec-guard` — execution-host gating (Bash)
+- `datarim-exec-guard` — execution-host gating (Bash) — **site-owned, not shipped by this framework**
 - `branch-integration-guard` — branch-merge gating (Bash)
 - `rtk-signal-guard.sh` — RTK token-reduction guard (Bash)
 
@@ -102,8 +102,13 @@ jq '.hooks.PreToolUse | length' ~/.claude/settings.json
 **Symlink from canonical repo:**
 
 ```bash
-# datarim-exec-guard must be symlinked from the framework repo
-ln -sf "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/datarim-exec-guard.sh" ~/.local/bin/datarim-exec-guard
+# NOTE: datarim-exec-guard is NOT shipped by this framework.
+# It is a site-owned (class-b) hook: link it from YOUR OWN workspace repo, e.g.
+#   ln -sf ~/<your-workspace>/dev-tools/datarim-exec-guard.sh ~/.local/bin/datarim-exec-guard
+# Linking it out of the framework runtime is what caused the original defect:
+# the framework copy drifted, went stale, and then denied every task on a host
+# that WAS its own required_host. On a host with no workspace checkout, deliver
+# the file from the workspace instead of pointing at a framework clone.
 
 # other guards are linked by install.sh
 ```
