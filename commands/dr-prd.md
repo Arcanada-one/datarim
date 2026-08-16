@@ -17,7 +17,7 @@ This command generates a structured Product Requirements Document (PRD) followin
 
 ### EXECUTION HOST
 
-The framework ships a PreToolUse guard (`dev-tools/datarim-exec-guard.sh`) that enforces host-key verification mechanically — it intercepts mutating Bash calls and denies execution when the current machine is not the declared execution host for this workspace. **Install it as a hook** per `CLAUDE.md` § Datarim Execution Host: symlink into `~/.local/bin/` and register in `~/.claude/settings.json`. The guard is the hard floor; this Step-0 check is the cooperative soft layer sharing the same resolver library (`dev-tools/lib/execution-host.sh`).
+Enforcing this binding mechanically is **site policy, and the framework ships no reference implementation**. What ships is the mechanism, not the decision: the resolver library (`dev-tools/lib/execution-host.sh`), the drift validator (`dev-tools/check-execution-host-drift.sh`) and their tests. If your setup separates a control machine from execution hosts, wire your own PreToolUse hook against that resolver and keep it in your own workspace repo. This Step-0 check is the cooperative soft layer over the same resolver.
 
 1. Source the resolver: `source "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/lib/execution-host.sh"`.
 2. Call `eh_decision <workspace-root> <execution-hosts-map-path>` (default map: `~/.claude/local/config/execution-hosts.yml`).
