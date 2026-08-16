@@ -21,6 +21,39 @@
 #   3   fail-closed: malformed YAML, or map unreadable in a way that is
 #       NOT simply "no map / no binding" (e.g. yq parse error)
 #
+# WHY 0 IS OVERLOADED, AND HOW TO TELL THE TWO CASES APART
+# -------------------------------------------------------
+# Exit 0 deliberately means "proceed" and NOTHING else. It answers both
+# «this host IS the declared one» and «this workspace has no mandate», and
+# that conflation is load-bearing: every consumer branches on 0 == allow, so
+# minting a distinct code for `unconfigured` would silently re-route it into
+# their `*)` deny arm and start denying on every unconfigured workspace. The
+# code stays overloaded on purpose.
+#
+# What that costs, and why it matters: a guard that is not installed at all
+# is INDISTINGUISHABLE, by exit code alone, from a guard that ran and passed.
+# Both are silence. A machine with no protection whatsoever therefore reads
+# as healthy — which is exactly how a real outage stayed invisible.
+#
+# The fix is out-of-band, not a new exit code. Every entry point sets
+#   EH_STATE  ∈ on-host | unconfigured | off-host | fail-closed
+# in the CALLER's shell (these are functions, not subshells) before it
+# returns. Read it when you need the reason; ignore it and the exit-code
+# contract is byte-for-byte what it always was.
+#
+#   eh_decision "$root" "$map"; rc=$?
+#   case "$EH_STATE" in
+#       on-host)      : ;;                       # genuinely gated and passing
+#       unconfigured) echo "NOT gated here" ;;   # no mandate: silence is real
+#   esac
+#
+# Health-check callers should assert `EH_STATE=on-host` rather than `rc=0`,
+# and MUST still prove a deny under a foreign hostname (EH_TEST_HOSTNAME).
+# A control that has never been observed denying has not been observed at all.
+#
+# Note `$?` must be captured BEFORE reading EH_STATE if the read is a
+# compound command, per normal shell rules.
+#
 # yq degrade rule: if `yq` is not installed, the library cannot read ANY
 # map safely, so it degrades to "unconfigured" (return 0, fail-open) rather
 # than fail-closed — the absence of the tool is an environment gap, not a
@@ -30,6 +63,13 @@
 # Each function sets its own strict-mode locally and isolates errors into
 # its own exit code — sourcing this file must never abort the caller's
 # shell (no top-level `set -e` at source time).
+
+# EH_STATE is assigned by the two orchestrators below and read by CALLERS,
+# which shellcheck cannot see from inside this file — hence the narrowly
+# scoped SC2034 disables on those functions (never file-wide, which would
+# mask genuinely unused variables added later). Deliberately NOT exported:
+# it must reflect the last call in THIS shell, and an exported copy would go
+# stale in subshells while still looking authoritative.
 
 # --- eh_resolve_workspace_root ----------------------------------------------
 # Walk up from start_dir until an ancestor containing datarim/ is found.
@@ -128,16 +168,24 @@ eh_host_match() {
 #   0  -> unconfigured (no binding) OR on-host (binding + match): proceed
 #   10 -> off-host (binding present, host does not match): delegate
 #   3  -> fail-closed (malformed YAML)
+#
+# Also sets EH_STATE (on-host | unconfigured | off-host | fail-closed) in the
+# caller's shell, which is what disambiguates the two meanings of exit 0. See
+# the header's "WHY 0 IS OVERLOADED" note.
 eh_decision() {
     local root="$1" map_path="$2"
     local binding rc
+
+    # shellcheck disable=SC2034  # EH_STATE is read by callers, not here.
+    EH_STATE="unconfigured"
 
     binding="$(eh_lookup_binding "$root" "$map_path" 2>/dev/null)"
     rc=$?
 
     case "$rc" in
-        1) return 0 ;;   # unconfigured: no map / no yq / no binding -> fail-open
-        3) return 3 ;;   # malformed YAML -> fail-closed
+        # unconfigured: no map / no yq / no binding -> fail-open.
+        1) EH_STATE="unconfigured"; return 0 ;;
+        3) EH_STATE="fail-closed"; return 3 ;;   # malformed YAML
     esac
 
     # rc == 0: binding found. Parse the TAB-separated fields.
@@ -145,9 +193,11 @@ eh_decision() {
     IFS=$'\t' read -r req_host aliases ip user agent allowed space <<< "$binding"
 
     if eh_host_match "$req_host" "$aliases" "$ip"; then
-        return 0   # on-host
+        EH_STATE="on-host"
+        return 0
     fi
-    return 10      # off-host
+    EH_STATE="off-host"
+    return 10
 }
 
 # ============================================================================
@@ -281,21 +331,35 @@ eh_classify_intent() {
 # mutates state, so it is always allowed locally (dispatching it buys nothing)
 # — the short-circuit below is the single source of that guarantee, so every
 # gating branch afterwards is reached only for mutating intent.
+# Also sets EH_STATE in the caller's shell. Read-only intent short-circuits
+# BEFORE any host resolution, so its state is `readonly-bypass`, not
+# `on-host` — the check never ran, and reporting it as a pass would be the
+# same false-health claim this variable exists to prevent.
 eh_decision_intent() {
     local root="$1" map_path="$2" intent="${3:-mutating}"
     local binding rc req aliases ip
 
-    [ "$intent" = "readonly" ] && return 0
+    # shellcheck disable=SC2034  # EH_STATE is read by callers, not here.
+    EH_STATE="unconfigured"
+
+    if [ "$intent" = "readonly" ]; then
+        EH_STATE="readonly-bypass"
+        return 0
+    fi
 
     # --- mutating intent from here on ---------------------------------------
     binding="$(eh_lookup_binding "$root" "$map_path" 2>/dev/null)"
     rc=$?
 
     case "$rc" in
-        3) return 3 ;;   # malformed cache map -> fail-closed
+        3) EH_STATE="fail-closed"; return 3 ;;   # malformed cache map
         0)               # cache hit -> host-match decides
             IFS=$'\t' read -r req aliases ip _ _ _ _ <<< "$binding"
-            eh_host_match "$req" "$aliases" "$ip" && return 0
+            if eh_host_match "$req" "$aliases" "$ip"; then
+                EH_STATE="on-host"
+                return 0
+            fi
+            EH_STATE="off-host"
             return 10
             ;;
     esac
@@ -308,15 +372,24 @@ eh_decision_intent() {
     case "$crc" in
         0)  # canon resolves the binding -> host-match decides (FIXES the trap)
             IFS=$'\t' read -r req aliases ip _ _ _ _ <<< "$cbind"
-            eh_host_match "$req" "$aliases" "$ip" && return 0
+            if eh_host_match "$req" "$aliases" "$ip"; then
+                EH_STATE="on-host"
+                return 0
+            fi
+            EH_STATE="off-host"
             return 10
             ;;
-        3) return 3 ;;   # malformed canon YAML -> fail-closed
+        3) EH_STATE="fail-closed"; return 3 ;;   # malformed canon YAML
     esac
 
     # crc == 1: canon carries no resolvable binding via yq. Distinguish «no
     # mandate at all» (fail-open) from «mandate exists but yq is absent /
     # unreadable» (fail-closed).
-    eh_canon_mandate_present "$root" && return 3   # mandate exists, host unprovable
-    return 0                                        # truly unconfigured -> fail-open
+    if eh_canon_mandate_present "$root"; then
+        EH_STATE="fail-closed"   # mandate exists, host unprovable
+        return 3
+    fi
+    # shellcheck disable=SC2034  # EH_STATE is read by callers, not here.
+    EH_STATE="unconfigured"      # truly unconfigured -> fail-open
+    return 0
 }
