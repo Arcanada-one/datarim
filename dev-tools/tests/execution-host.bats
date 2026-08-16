@@ -321,3 +321,86 @@ teardown() {
     run bash -c "source '$LIB'; EH_TEST_HOSTNAME='some-mac' eh_decision_intent '$BOUND_WS' '$MAP' mutating"
     [ "$status" -eq 10 ]
 }
+
+# ===========================================================================
+# EH_STATE — disambiguating the two meanings of exit 0.
+#
+# Exit 0 answers both «this host IS the declared one» and «no mandate here»,
+# so an absent guard is indistinguishable from a healthy one by exit code
+# alone: both are silence. EH_STATE is the out-of-band channel that tells
+# them apart WITHOUT changing the exit-code contract every consumer branches
+# on. The load-bearing assertion is the first one below.
+# ===========================================================================
+
+@test "EH_STATE: on-host and unconfigured BOTH exit 0 but are distinguishable" {
+    # The exact conflation that let a machine with no protection read as
+    # healthy. Same exit code, different state -- that is the whole fix.
+    run bash -c "
+      source '$LIB'
+      EH_TEST_HOSTNAME='test-host' eh_decision '$BOUND_WS' '$MAP'; on_rc=\$?
+      on_state=\$EH_STATE
+      eh_decision '$UNBOUND_WS' '$MAP'; un_rc=\$?
+      un_state=\$EH_STATE
+      printf '%s %s %s %s' \"\$on_rc\" \"\$on_state\" \"\$un_rc\" \"\$un_state\"
+    "
+    [ "$output" = "0 on-host 0 unconfigured" ]
+}
+
+@test "EH_STATE: off-host verdict is labelled off-host" {
+    run bash -c "source '$LIB'; EH_TEST_HOSTNAME='some-other-mac' eh_decision '$BOUND_WS' '$MAP'; printf '%s' \"\$EH_STATE\""
+    [ "$output" = "off-host" ]
+}
+
+@test "EH_STATE: malformed map is labelled fail-closed" {
+    run bash -c "source '$LIB'; eh_decision '$BOUND_WS' '$MALFORMED_MAP'; printf '%s' \"\$EH_STATE\""
+    [ "$output" = "fail-closed" ]
+}
+
+@test "EH_STATE: yq absent degrades to unconfigured, not a false on-host" {
+    # Degradation must never masquerade as a passing check.
+    run bash -c "
+      source '$LIB'
+      yq() { return 127; }
+      command() { if [ \"\$1\" = -v ] && [ \"\$2\" = yq ]; then return 1; fi; builtin command \"\$@\"; }
+      export -f yq command
+      EH_TEST_HOSTNAME='test-host' eh_decision '$BOUND_WS' '$MAP'
+      printf '%s' \"\$EH_STATE\"
+    "
+    [ "$output" = "unconfigured" ]
+}
+
+@test "EH_STATE: read-only bypass is NOT reported as on-host" {
+    # Read-only short-circuits before any host resolution. Calling that
+    # 'on-host' would be the same false-health claim in a new place.
+    run bash -c "source '$LIB'; EH_TEST_HOSTNAME='some-mac' eh_decision_intent '$CANON_WS' '$ABSENT_MAP' readonly; printf '%s' \"\$EH_STATE\""
+    [ "$output" = "readonly-bypass" ]
+}
+
+@test "EH_STATE: intent resolver labels canon-resolved on-host correctly" {
+    run bash -c "source '$LIB'; EH_TEST_HOSTNAME='canon-host' eh_decision_intent '$CANON_WS' '$ABSENT_MAP' mutating; printf '%s' \"\$EH_STATE\""
+    [ "$output" = "on-host" ]
+}
+
+@test "EH_STATE: intent resolver labels unprovable-host fail-closed" {
+    run bash -c "
+      source '$LIB'
+      yq() { return 127; }
+      command() { if [ \"\$1\" = -v ] && [ \"\$2\" = yq ]; then return 1; fi; builtin command \"\$@\"; }
+      export -f yq command
+      EH_TEST_HOSTNAME='canon-host' eh_decision_intent '$CANON_WS' '$ABSENT_MAP' mutating
+      printf '%s' \"\$EH_STATE\"
+    "
+    [ "$output" = "fail-closed" ]
+}
+
+@test "EH_STATE: is set in the CALLER's shell, not a subshell" {
+    # If these were subshells the variable would be invisible to the caller
+    # and the whole mechanism would silently do nothing.
+    run bash -c "source '$LIB'; EH_STATE=unset; EH_TEST_HOSTNAME='test-host' eh_decision '$BOUND_WS' '$MAP'; [ \"\$EH_STATE\" != unset ]"
+    [ "$status" -eq 0 ]
+}
+
+@test "EH_STATE: is not exported (a stale exported copy would look authoritative)" {
+    run bash -c "source '$LIB'; EH_TEST_HOSTNAME='test-host' eh_decision '$BOUND_WS' '$MAP'; bash -c 'printf \"%s\" \"\${EH_STATE:-absent}\"'"
+    [ "$output" = "absent" ]
+}

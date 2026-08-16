@@ -4,6 +4,49 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.67.0] — 2026-08-16
+
+### Added
+
+- **`EH_STATE` — telling apart the two meanings of exit 0 in the execution-host
+  resolver.** `eh_decision` returns `0` for BOTH «this host is the declared
+  execution host» and «this workspace has no mandate at all», so a guard that
+  was never installed is indistinguishable, by exit code alone, from a guard
+  that ran and passed. Both are silence, and a machine with no protection
+  whatsoever therefore reads as healthy — which is how a real outage stayed
+  invisible while a second machine, mis-wired the other way, denied every task
+  on its own declared `required_host`.
+
+  The exit code is deliberately left overloaded: every consumer branches on
+  `0 == proceed`, so minting a distinct code for *unconfigured* would silently
+  route it into their `*)` deny arm and start denying on every unconfigured
+  workspace worldwide. Instead, `eh_decision` and `eh_decision_intent` now set
+  **`EH_STATE`** in the caller's shell (they are functions, not subshells):
+  `on-host` | `unconfigured` | `off-host` | `fail-closed` | `readonly-bypass`.
+  Read it when you need the reason; ignore it and behaviour is byte-for-byte
+  what it always was. Deliberately not exported — an exported copy would go
+  stale in subshells while still looking authoritative. Read-only intent is
+  labelled `readonly-bypass`, not `on-host`, because it short-circuits before
+  any host resolution and reporting it as a pass would be the same false-health
+  claim in a new place.
+
+- **`dev-tools/check-execution-host-health.sh`** — answers "is this machine
+  actually gated?" without inferring health from silence. Runs the resolver
+  twice: a POSITIVE control as the real current host, and a NEGATIVE control
+  under a hostname that cannot match, which must be denied. A control that has
+  never been observed denying has not been observed at all. Reports
+  `UNCONFIGURED` out loud instead of passing quietly, and fails closed (exit 2)
+  on a missing library or unresolvable root. Regression:
+  `dev-tools/tests/check-execution-host-health.bats` (10 tests, including two
+  mutation controls that seed a non-denying resolver and assert the check goes
+  red — a health check that cannot fail is the defect it exists to detect).
+
+### Changed
+
+- `CLAUDE.md` § S10-bis now documents `EH_STATE` and requires health checks to
+  assert `EH_STATE=on-host` rather than `rc=0`, and to prove a deny under a
+  foreign hostname.
+
 ## [2.66.2] — 2026-08-13
 
 ### Fixed
