@@ -28,7 +28,7 @@
     "sourceRemark": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source_id", "source_tier", "verbatim_quote", "captured_at", "requirement_ids"],
+      "required": ["source_id", "source_tier", "verbatim_quote", "captured_at", "requirement_ids", "tier1_assertions"],
       "properties": {
         "source_id": { "type": "string", "pattern": "^source-[0-9]{4}$" },
         "source_tier": {
@@ -43,13 +43,19 @@
           "minItems": 1,
           "uniqueItems": true,
           "items": { "type": "string", "pattern": "^req-[0-9]{4}$" }
+        },
+        "tier1_assertions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/tier1Assertion" }
         }
       }
     },
     "requirement": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source_ids", "tier1_assertion", "acceptance"],
+      "required": ["source_ids", "tier1_assertion_ids", "acceptance"],
       "properties": {
         "source_ids": {
           "type": "array",
@@ -57,38 +63,43 @@
           "uniqueItems": true,
           "items": { "type": "string", "pattern": "^source-[0-9]{4}$" }
         },
-        "tier1_assertion": { "$ref": "#/$defs/tier1Assertion" },
+        "tier1_assertion_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^assertion-[0-9]{4}$" }
+        },
+        "paraphrase": {
+          "description": "Optional non-authoritative explanatory wording; it never replaces a source-owned Tier-1 assertion.",
+          "type": "string",
+          "minLength": 1
+        },
         "acceptance": { "$ref": "#/$defs/acceptanceTuple" }
       }
     },
     "tier1Assertion": {
-      "description": "The authoritative structured assertion derived from Tier-1 verbatim evidence. Acceptance may preserve or strengthen it but never replace or weaken it.",
+      "description": "An authoritative structured assertion owned by its containing Tier-1 source remark. Acceptance may preserve or strengthen it but never replace or weaken it.",
       "type": "object",
       "additionalProperties": false,
       "required": [
         "assertion_id",
+        "requirement_id",
         "predicate_id",
         "product",
         "surface",
         "applicability",
         "visitor_visible",
-        "authority_ref",
         "asserted_at"
       ],
       "properties": {
         "assertion_id": { "type": "string", "pattern": "^assertion-[0-9]{4}$" },
+        "requirement_id": { "type": "string", "pattern": "^req-[0-9]{4}$" },
         "predicate_id": { "type": "string", "pattern": "^predicate-[a-z0-9][a-z0-9-]*$" },
         "product": { "type": "string", "minLength": 1 },
         "surface": { "type": "string", "minLength": 1 },
         "applicability": { "$ref": "#/$defs/applicability" },
         "visitor_visible": { "type": "boolean" },
-        "authority_ref": { "type": "string", "pattern": "^source-[0-9]{4}$" },
-        "asserted_at": { "type": "string", "format": "date-time" },
-        "paraphrase": {
-          "description": "Optional non-authoritative explanatory wording; it never replaces the structured Tier-1 assertion.",
-          "type": "string",
-          "minLength": 1
-        }
+        "asserted_at": { "type": "string", "format": "date-time" }
       }
     },
     "acceptanceTuple": {
@@ -229,11 +240,37 @@
         }
       ]
     },
-    "visitorEvidenceMethod": {
-      "description": "A closed rendered-production evidence method. Documentation, tests, tools, CI, ledgers, and arbitrary prose are not visitor evidence methods.",
+    "identityApplicability": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind", "surface_ref"],
+      "required": ["locales", "viewports", "themes", "painted_matrix_applicable"],
+      "properties": {
+        "locales": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z]{2}(-[A-Z]{2})?$" }
+        },
+        "viewports": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["mobile", "desktop"] }
+        },
+        "themes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["light", "dark"] }
+        },
+        "painted_matrix_applicable": { "type": "boolean" }
+      }
+    },
+    "visitorEvidenceMethod": {
+      "description": "A closed rendered-production evidence identity. Documentation, tests, tools, CI, ledgers, URLs, and arbitrary prose are not authoritative visitor evidence fields.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "product", "surface", "environment"],
       "properties": {
         "kind": {
           "enum": [
@@ -242,22 +279,26 @@
             "RENDERED_SCREENSHOT_REVIEW"
           ]
         },
-        "surface_ref": { "type": "string", "minLength": 1 }
+        "product": { "type": "string", "minLength": 1 },
+        "surface": { "type": "string", "minLength": 1 },
+        "environment": { "const": "PRODUCTION" }
       }
     },
     "productionAssertion": {
-      "description": "A visitor-observable assertion about the rendered production surface, not an enabling artifact or tool result.",
+      "description": "A closed visitor-observation identity bound to the source-owned predicate and accepted production scope, not an enabling artifact or prose claim.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["actor", "environment", "observation_kind", "surface_ref", "observable_outcome"],
+      "required": ["actor", "environment", "observation_kind", "product", "surface", "predicate_id", "applicability"],
       "properties": {
         "actor": { "const": "VISITOR" },
         "environment": { "const": "PRODUCTION" },
         "observation_kind": {
           "enum": ["BROWSER_RENDERED", "PAINTED_SURFACE", "RENDERED_SCREENSHOT"]
         },
-        "surface_ref": { "type": "string", "minLength": 1 },
-        "observable_outcome": { "type": "string", "minLength": 1 }
+        "product": { "type": "string", "minLength": 1 },
+        "surface": { "type": "string", "minLength": 1 },
+        "predicate_id": { "type": "string", "pattern": "^predicate-[a-z0-9][a-z0-9-]*$" },
+        "applicability": { "$ref": "#/$defs/identityApplicability" }
       }
     },
     "knowledgeSelection": {

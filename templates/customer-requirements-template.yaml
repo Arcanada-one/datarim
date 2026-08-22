@@ -10,30 +10,32 @@ source_remarks:
     source_ref: customer-interview-0001
     requirement_ids:
       - req-0001
+    tier1_assertions:
+      - assertion_id: assertion-0001
+        requirement_id: req-0001
+        predicate_id: predicate-visitor-readable
+        product: example-product
+        surface: public-comparison
+        applicability:
+          locales:
+            - ru
+            - en
+          viewports:
+            - mobile
+            - desktop
+          themes:
+            - light
+            - dark
+          painted_matrix_applicable: true
+        visitor_visible: true
+        asserted_at: "2026-01-02T09:00:00Z"
 requirements:
   req-0001:
     source_ids:
       - source-0001
-    tier1_assertion:
-      assertion_id: assertion-0001
-      predicate_id: predicate-visitor-readable
-      product: example-product
-      surface: public-comparison
-      applicability:
-        locales:
-          - ru
-          - en
-        viewports:
-          - mobile
-          - desktop
-        themes:
-          - light
-          - dark
-        painted_matrix_applicable: true
-      visitor_visible: true
-      authority_ref: source-0001
-      asserted_at: "2026-01-02T09:00:00Z"
-      paraphrase: The comparison is visitor-readable in every applicable painted UI combination.
+    tier1_assertion_ids:
+      - assertion-0001
+    paraphrase: The comparison is visitor-readable in every applicable painted UI combination.
     acceptance:
       tier1_assertion_id: assertion-0001
       predicate_id: predicate-visitor-readable
@@ -56,7 +58,9 @@ requirements:
       evidence:
         method:
           kind: PAINTED_SURFACE_PROBE
-          surface_ref: https://example.invalid/comparison
+          product: example-product
+          surface: public-comparison
+          environment: PRODUCTION
         owner: delivery-reviewer
         evidence_class: VISITOR_VISIBLE_PRODUCTION
       knowledge_selection:
@@ -113,6 +117,18 @@ requirements:
         actor: VISITOR
         environment: PRODUCTION
         observation_kind: PAINTED_SURFACE
-        surface_ref: https://example.invalid/comparison
-        observable_outcome: The visitor can read the comparison without overlap.
+        product: example-product
+        surface: public-comparison
+        predicate_id: predicate-visitor-readable
+        applicability:
+          locales:
+            - ru
+            - en
+          viewports:
+            - mobile
+            - desktop
+          themes:
+            - light
+            - dark
+          painted_matrix_applicable: true
       disposition: pending
