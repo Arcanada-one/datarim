@@ -43,6 +43,7 @@
       "authority-key-registry-owner-pinned",
       "authority-key-registry-trust-anchor-pinned",
       "authority-key-registry-canonical-digest-valid",
+      "authority-key-registry-signature-valid-against-pinned-trust-anchor",
       "authority-key-registry-key-id-unique",
       "authority-key-registry-conflict-prohibited",
       "authority-key-registry-validity-interval-positive",
@@ -139,11 +140,12 @@
       "registry_container_schema": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["registry_id", "revision", "digest", "entries"],
+        "required": ["registry_id", "revision", "digest", "registry_signature", "entries"],
         "properties": {
           "registry_id": { "type": "string", "pattern": "^authority-key-registry-[0-9]{4}$" },
           "revision": { "type": "string", "pattern": "^[1-9][0-9]*$" },
           "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+          "registry_signature": { "type": "string", "pattern": "^ed25519:[A-Za-z0-9+/]{85}[AQgw]==$" },
           "entries": {
             "type": "array",
             "minItems": 1,
@@ -157,15 +159,24 @@
         "canonicalization": "RFC8785",
         "encoding": "UTF-8",
         "covered_fields": ["registry_id", "revision", "entries"],
-        "excluded_fields": ["digest"],
+        "excluded_fields": ["digest", "registry_signature"],
         "entry_order": "ASCENDING_KEY_ID",
         "duplicate_key_id_policy": "FAIL_CLOSED",
         "conflicting_key_id_policy": "FAIL_CLOSED"
+      },
+      "registry_signature_contract": {
+        "algorithm": "ED25519",
+        "signed_field": "bundled_registry.digest",
+        "signature_field": "bundled_registry.registry_signature",
+        "digest_framing_ref": "/x-datarim-signature-contract/digest_framing",
+        "signature_framing_ref": "/x-datarim-signature-contract/signature_framing",
+        "trust_anchor_ref": "/x-datarim-signature-contract/key_resolution/registry_owner/trust_anchor"
       },
       "bundled_registry": {
         "registry_id": "authority-key-registry-0001",
         "revision": "1",
         "digest": "sha256:3a5af5b188e0bfde5a9202a13b27461dc5058176ad74eaceb782053ffa4cae0b",
+        "registry_signature": "ed25519:1Z0Q0iZS2hgzYqIixAB18kun4FwFPtgCD2tv/zfzUEPFhmQzPPkEf3uJRfbNLKhOI3UkBWJ149q9A2UgGsbLCA==",
         "entries": [
           {
             "key_id": "key-customer-0001",
@@ -232,6 +243,8 @@
         "required_relation": "VALID_FROM_STRICTLY_BEFORE_VALID_UNTIL"
       },
       "verification_sequence": [
+        "REGISTRY_DIGEST_VALID",
+        "REGISTRY_SIGNATURE_VALID_AGAINST_PINNED_TRUST_ANCHOR",
         "KEY_ID_KNOWN",
         "APPROVAL_AUTHORITY_ID_EQUALS_KEY_AUTHORITY_ID",
         "APPROVAL_AUTHORITY_ROLE_IN_KEY_ALLOWED_ROLES",
