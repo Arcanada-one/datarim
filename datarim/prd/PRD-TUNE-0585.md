@@ -69,7 +69,7 @@ Require a prose delivery table at archive. This is cheap but post-hoc by constru
 
 `datarim/delivery/{TASK-ID}.jsonl` is a versioned append-only event stream. Each line carries `schema_version`, `event_id`, `event_type`, `task_id`, `recorded_at`, `payload`, `prev_event_hash`, and `event_hash`. Writers take a per-task lock, recompute the predecessor hash, write to a temporary file, validate the full stream, and atomically replace the ledger. Corrections append a superseding event; no event is edited or deleted.
 
-Normative event types are `lane_classified`, `source_manifest_bound`, `remark_captured`, `requirement_declared`, `production_ac_declared`, `atomicity_reviewed`, `evolution_disposition`, `prework_contract_frozen`, `implementation_authorized`, `implementation_bound`, `red_observed`, `green_observed`, `production_deployment_observed`, `visual_observation`, `customer_disposition`, `child_manifest_bound`, `event_superseded`, and `ledger_head_anchored`.
+Normative event types are `lane_classified`, `source_manifest_bound`, `remark_captured`, `requirement_declared`, `production_ac_declared`, `atomicity_reviewed`, `parent_intent_bound`, `evolution_disposition`, `prework_contract_frozen`, `implementation_authorized`, `implementation_bound`, `red_observed`, `green_observed`, `production_deployment_observed`, `visual_observation`, `customer_disposition`, `enabling_disposition`, `child_manifest_bound`, `event_superseded`, and `ledger_head_anchored`.
 
 Derived delivery state is never authored as an authoritative event. The validator calculates it from the current non-superseded event graph every run. A locally valid chain is insufficient: every stage transition requires an authenticated receipt from the registered monotonic head-anchor authority for the exact final event hash, event count, task ID, and project ID. A shorter or divergent local chain fails even when its internal hashes are valid.
 
@@ -88,6 +88,8 @@ Verbatim bytes are private data, not necessarily public Git data. Native tasks k
 - `none`: the task contains no customer-delivery requirement. It records a reason and cannot be used for a task whose init-task or append-log contains a customer remark or visitor-facing outcome.
 
 Every task classifies its lane, so the canon is universal. The expensive production matrix is hard only where semantics require it, which permits private research, legal, documentation, API, CLI, framework, and tooling work to close honestly without allowing it to satisfy customer-facing work.
+
+Customer-visible and enabling dispositions are deliberately different. Customer-visible completion requires customer-authenticated `accepted` or denominator-removing `withdrawn`. An enabling requirement may close only with a project-authority-signed `verified` disposition after its implementation/RED/GREEN chain passes. It contributes zero customer-delivery coverage to its parent. `parent_intent_bound` may bind a pre-registration parent from an authenticated operator/customer source record; later project registration must resolve to the same project/task/requirement identity or the enabling task reopens.
 
 Each customer-visible requirement names a pinned surface blueprint with typed executable predicates. `bilingual-web-v1` requires the exact RU/EN × mobile/desktop × light/dark eight-cell matrix and may be widened but not narrowed by registration. Other shipped blueprints define equivalent visitor-observation dimensions for native, CLI, API, and published-document surfaces; none permits tools, source documents, tests, or local-only output to substitute for the actual customer-consumed production surface. Talomnia uses `bilingual-web-v1`.
 
@@ -148,7 +150,7 @@ The validator reports deterministic counts and exact missing IDs for:
 - customer-disposition coverage;
 - child-contract coverage for epics.
 
-Task delivery is complete only when all in-scope requirements pass and every in-scope requirement has customer-authenticated `accepted`, or has been removed from the denominator by customer-authenticated `withdrawn`. `returned` and `rejected` derive `rework_required`; `deferred` derives `blocked`. Epic delivery is complete only when its own requirements and every child from the independently resolved child manifest pass. Child references must be acyclic and resolve to the same monotonic project registry; cycles, missing children, or cross-project identity mismatches fail closed. A ledger-authored child list or stored `completed` status cannot override the provider manifest or a failing derived report. Suggested derived states are `not_started`, `in_progress`, `customer_review`, `rework_required`, `blocked`, and `complete`.
+Customer-visible task delivery is complete only when all in-scope requirements pass and every in-scope requirement has customer-authenticated `accepted`, or has been removed from the denominator by customer-authenticated `withdrawn`. `returned` and `rejected` derive `rework_required`; `deferred` derives `blocked`. Enabling task delivery is complete only when every enabling requirement passes implementation/RED/GREEN and carries project-authority `verified`; that state never changes the parent denominator. Epic delivery is complete only when its own customer-visible requirements and every child from the independently resolved child manifest pass. Child references must be acyclic and resolve to the same monotonic project registry; cycles, missing children, or cross-project identity mismatches fail closed. A ledger-authored child list or stored `completed` status cannot override the provider manifest or a failing derived report. Suggested derived states are `not_started`, `in_progress`, `customer_review`, `rework_required`, `blocked`, and `complete`.
 
 ### 8. Lifecycle wiring
 
@@ -171,11 +173,32 @@ The shared command router requires classification before any task-creating or ta
 
 The framework ships a project-registration template. Consumers register project ID, epic root, authoritative source and child-manifest providers, contract roots, public surface base URLs, surface blueprints, knowledge-reference resolver, deployment provenance probe, customer-authority policy, and a framework-release `canon_epoch`. The universal validator accepts adapters but keeps the core schema project-agnostic.
 
+The first shipped provider profiles are concrete:
+
+- `git-protected-ref-v1` is the ongoing monotonic head authority. It requires a dedicated remote branch whose host rules forbid deletion and non-fast-forward updates while permitting append-only fast-forwards, verifies those rules through a pinned host API profile, and anchors a ledger head only when the exact ledger blob and receipt commit are reachable from that protected ref. Each strict stage transition is merged through the protected review path before the next stage. Git credentials come from the existing credential helper; tokens are never command arguments.
+- `git-immutable-tag-v1` is the one-shot genesis/release anchor. It requires a tag namespace whose host rules forbid deletion, non-fast-forward, and update; the canon's reviewed release tag anchors the final genesis ledger but cannot serve subsequent append transitions.
+- `git-ssh-v1` authenticates runner/reviewer receipts with `ssh-keygen -Y sign/verify` and a project-registry allowed-signers file pinned by digest. Private keys stay in the configured agent/CI signer; the registry stores public identities only.
+- source, customer, and child providers use the same constrained adapter envelope and an authenticated provider-specific receipt. A project without a passing trust/authority probe cannot arm strict mode.
+
+The plan must perform a ≤60-second feasibility probe of executable availability, signer verification, remote rules, credential scope, and an append/resolve dry run before implementation. Documentation is not proof of provider behavior.
+
 Adapters are data providers, never shell fragments or state authorities. Registration is accepted only from the project-governance location and authority pinned by the framework consumer registry. It uses argv arrays with an allowlisted executable, pinned executable digest/version, fixed project-relative working directory, explicit environment allowlist, timeout, stdout-size cap, and authenticated/schema-validated JSON results. The validator invokes without a shell, rejects path escapes and symlinks, and independently recomputes coverage. Adapters cannot emit derived state or passing assertions. A customer-authority adapter may resolve an existing signed acceptance record but cannot create one; the core verifies its trust proof. The separate head-anchor adapter exposes append/resolve operations backed by a monotonic provider and rejects rollback or divergent heads.
 
 ### 10. Writer durability and authority transitions
 
 The writer serializes per-task appends with an advisory lock that carries owner/process/start metadata and a bounded stale-lock recovery rule. It validates the current anchored head, writes and fsyncs a complete temporary file, atomically renames, fsyncs the containing directory, then requests a compare-and-append head receipt from the monotonic authority. Duplicate retries are idempotent by event ID and payload digest. Concurrent/divergent predecessors fail without overwriting either branch. Disk-full, short write, signal/process death, anchor timeout, and failure between rename and anchor leave an explicit recoverable `unanchored` state; no stage gate passes until reconciliation either anchors that exact head or appends an authority-approved supersession. Supersession is allowlisted by target event type and signer role; source capture, customer disposition, prior head anchors, and evidence observations are never deletable from history, only countermanded by a new equally authenticated event.
+
+### 11. Genesis bootstrap
+
+A framework cannot use an unimplemented runner/anchor to prove its own creation. The sole bootstrap is explicit and non-passing:
+
+1. A reviewed PRD/plan commit exists first.
+2. A separate genesis-freeze commit records the private-source digests, atomic requirement mapping/review, all existing pinned capabilities, target base, and selected provider profiles. It may not pin a skill or tool that does not yet exist.
+3. A separate authorization commit descends from the freeze and records the clean target base. Ordinary repository TDD then drives the initial implementation; those raw Bats outputs are development evidence, not canonical runner attestations.
+4. Once the runner exists, a present-day controlled mutation produces canonical signed RED, the restored exact head produces signed GREEN, and the full branch receives independent exact-head review.
+5. The bootstrap remains `genesis_unanchored` and cannot report canonical completion until the exact ledger/receipt head is merged and its reviewed release tag passes `git-immutable-tag-v1`. That immutable tag becomes the `canon_epoch`; all later tasks use the normal strict sequence with a configured `git-protected-ref-v1` branch.
+
+This exception applies only to the implementation of the canon's own missing enforcement machinery. It never converts historical output into pre-implementation RED and never applies to Talomnia or later consumers.
 
 ## Requirements
 
@@ -223,9 +246,9 @@ Verbatim external text is treated as data, never executed. CLI text inputs use f
 
 The core validator remains project-agnostic. A registration schema defines exact contract roots, authoritative source/child manifests, surface matrices, constrained adapter argv, and customer authority. Missing, mutable, unsafe, non-executable, timed-out, oversized, or schema-invalid adapters fail only the phases that need them.
 
-#### D-REQ-12: Dogfood and independent reviews
+#### D-REQ-12: Honest genesis and independent reviews
 
-TUNE-0585 has its own valid delivery ledger and authorization marker, captures runner-produced RED before implementation, passes focused and full suites, and receives a subordinate Codex exact-blob spec review before source work and exact-head quality review after implementation.
+TUNE-0585 follows the two-commit genesis freeze/authorization sequence before implementation, labels raw TDD as development-only, captures a present-day signed mutation RED and restored GREEN after the runner exists, passes focused/full suites, and receives subordinate exact-blob spec review before source work and exact-head quality review after implementation. It cannot claim canonical completion until the resulting head is merged and anchored on the selected protected ref.
 
 #### D-REQ-13: Privacy-safe monotonic authority and durable writes
 
@@ -273,9 +296,9 @@ Covers: D-REQ-09
 Argv/no-shell controls, executable/registration trust, timeout/output/env caps, path confinement, digest checks, forged/hash-only runner receipts, forged customer dispositions, authenticated result validation, and evidence-receipt provenance mutations pass.
 Covers: D-REQ-05, D-REQ-10, D-REQ-11
 
-### V-AC-9 — Dogfood and review
+### V-AC-9 — Genesis and review
 
-TUNE-0585's freeze and authorization commits predate implementation; focused/full exact-head validation, English-only surface, exact-blob spec-review disposition, and exact-head quality-review disposition are independently verified.
+TUNE-0585's reviewed spec, genesis freeze, and authorization are three ordered commits before implementation; raw TDD is not canonical evidence; present-day signed mutation RED/restored GREEN, focused/full exact-head validation, English-only surface, exact-blob spec-review disposition, protected-ref anchor, and exact-head quality-review disposition are independently verified.
 Covers: D-REQ-12
 
 ### V-AC-10 — Monotonic durability and privacy
