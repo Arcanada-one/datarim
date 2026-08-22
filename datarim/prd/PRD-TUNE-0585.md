@@ -222,7 +222,7 @@ Role, skill, blueprint, constraint, policy, and success criterion are all pinned
 
 #### D-REQ-04: Review-to-evolution
 
-Customer-review requirements carry a pre-work evolution disposition and pinned artifacts. The pre-work gate goes RED when the disposition is absent or post-hoc and GREEN only when the requirement is covered before implementation.
+Customer-review requirements carry a pre-work evolution disposition and pinned artifacts. The pre-work gate goes RED when the disposition is absent or post-hoc and GREEN only when the requirement is covered before implementation. An approved request alone may apply changes; a rejected request remains blocked, cannot apply or freeze, and may resume only through an authenticated terminal decline or a distinct new request ID.
 
 #### D-REQ-05: RED/GREEN evidence integrity
 
@@ -274,7 +274,7 @@ Covers: D-REQ-03
 
 ### V-AC-3 — Review evolution
 
-Source-kind relabel, missing, unpinned, post-hoc, and created/revised-without-prework-mutation fixtures fail; reused/revised/created/no-change controls with pinned artifacts pass.
+Source-kind relabel, missing, unpinned, post-hoc, created/revised-without-prework-mutation, rejected-to-applied, rejected-to-freeze, reused-rejected-request-ID, unauthenticated-decline, and crash-resume-after-rejection fixtures fail independently; reused/revised/created/no-change controls with pinned artifacts and a new-ID retry after rejection pass.
 Covers: D-REQ-04
 
 ### V-AC-4 — Live close gate
