@@ -56,7 +56,7 @@ assert set(schema) == {"$defs", "$id", "$schema"}
 expected = {
     "activate_key_request", "activate_key_result", "append_receipt_request",
     "append_receipt_result", "authority_signature_envelope",
-    "activation", "activation_acceptance", "activation_finalize_result",
+    "activation", "activation_acceptance", "activation_authority_bundle", "activation_finalize_result",
     "activation_journal", "activation_prepare_result", "activation_rebind_result",
     "activation_response", "activation_supersession",
     "authorization_result", "authorize_and_sign_request",
@@ -71,12 +71,12 @@ expected = {
     "genesis_invocation_authorization", "genesis_lookup", "genesis_transition_journal",
     "genesis_trust_invocation", "genesis_trust_request", "genesis_trust_result",
     "identity_state", "immutable_authorization_request",
-    "lookup_provider_operation_request", "lookup_provider_operation_result",
+    "key_possession_envelope", "lookup_provider_operation_request", "lookup_provider_operation_result",
     "policy_spec", "provider_registration_manifest", "provider_spec",
     "publish_blob_request", "publish_blob_result", "recovery_cas_authorization",
     "recovery_spec", "registry_cas_activation_prepare_ref", "registry_cas_inner_request",
     "registry_parameters",
-    "receipt_lookup_request", "receipt_lookup_result", "registry_cas_request",
+    "registry_cas_request",
     "registry_cas_result", "resolve_blob_request", "resolve_blob_result",
     "resolve_receipt_request", "resolve_receipt_result", "signer_spec", "source_revision"
 }
@@ -361,39 +361,47 @@ PY
 @test "activate-key replays slot crash, recovery rebind, and accepted-CAS finalize" {
   require_bootstrap_source
   run python3 - "$BOOTSTRAP" "$WIRE_SCHEMA_SOURCE" "$FIXTURE_DIR" <<'PY'
-import hashlib,importlib.util,json,pathlib,shutil,subprocess,sys
+import hashlib,importlib.util,json,pathlib,shutil,subprocess,sys,types
 spec=importlib.util.spec_from_file_location("bootstrap",sys.argv[1]); m=importlib.util.module_from_spec(spec); sys.modules[spec.name]=m; spec.loader.exec_module(m)
 schema=json.loads(pathlib.Path(sys.argv[2]).read_text()); root=pathlib.Path(sys.argv[3]); private=root/"activation-private"; private.mkdir()
 ssh=pathlib.Path(shutil.which("ssh-keygen") or "").resolve()
-old=private/"keys"/"old"; new=private/"keys"/"new"; old.parent.mkdir()
-subprocess.run([str(ssh),"-q","-t","ed25519","-N","","-f",str(old)],check=True); subprocess.run([str(ssh),"-q","-t","ed25519","-N","","-f",str(new)],check=True)
+old=private/"keys"/"old"; new=private/"keys"/"new"; recovery=private/"keys"/"recovery"; old.parent.mkdir()
+for handle in (old,new,recovery): subprocess.run([str(ssh),"-q","-t","ed25519","-N","","-f",str(handle)],check=True)
 fingerprint=subprocess.run([str(ssh),"-lf",str(new)+".pub"],check=True,capture_output=True,text=True).stdout.split()[1]
 registration={"environment_allowlist":[],"ssh_keygen_executable":str(ssh),"ssh_keygen_sha256":hashlib.sha256(ssh.read_bytes()).hexdigest()}
 context=m.RuntimeContext(root=root,schema=schema,registration=registration,private_root=private)
 m.initialize_identity(context,"signer","signer-one","provider-one","key-old","secret-store:"+str(old))
-(root/"authority.json").write_bytes(b"{}\n"); authority_sha=hashlib.sha256(b"{}\n").hexdigest()
 activation={"activation_nonce":"nonce-one","identity_id":"signer-one","identity_kind":"signer","old_key_id":"key-old","provider_id":"provider-one","replacement_fingerprint":fingerprint,"replacement_key_id":"key-new","replacement_principal":"signer-one","replacement_public_key":pathlib.Path(str(new)+".pub").read_text().strip(),"replacement_secret_store_ref":"secret-store:"+str(new)}
-def request(action,mode,result_out,proof_out,cas=None):
-    value={"action":action,"activation":activation,"authority_bundle_locator":"authority.json","authority_bundle_sha256":authority_sha,"authorization_mode":mode,"cas_result_locator":None,"cas_result_sha256":None,"cas_result_signature_locator":None,"cas_result_signature_sha256":None,"idempotency_key":"0"*64,"operation":"activate-key","prepare_proof_output":proof_out,"prepare_result_output":result_out,"previous_registry_locator":"previous.json","previous_registry_sha256":"1"*64,"replacement_registry_locator":"replacement.json","replacement_registry_sha256":"2"*64,"schema_version":1,"supersession":None}
+continuity_record={**activation,"issued_at":"2026-08-22T00:00:00Z","previous_registry_sha256":"1"*64,"replacement_registry_sha256":"2"*64,"schema_version":1}; continuity_raw=m.canonical_bytes(continuity_record)
+continuity={"record":continuity_record,"old_signature":m.sign_envelope(context,continuity_raw,"secret-store:"+str(old),"datarim-key-continuity-v1",identity_kind="signer",identity_id="signer-one",key_id="key-old",principal="signer-one"),"new_signature":m.sign_envelope(context,continuity_raw,"secret-store:"+str(new),"datarim-key-continuity-v1",identity_kind="signer",identity_id="signer-one",key_id="key-new",principal="signer-one")}
+(root/"continuity.json").write_bytes(m.canonical_bytes(continuity))
+recovery_record={"adopted_pending_activation_nonces":["nonce-one"],"compromised_governance_key_id":None,"compromised_key_ids":["key-old"],"issued_at":"2026-08-22T00:00:01Z","key_activations":[activation],"previous_registry_sha256":"1"*64,"reason":"fixture recovery","recovery_id":"recovery-one","replacement_governance_key":None,"replacement_key_ids":["key-new"],"replacement_registry_preimage_sha256":"3"*64,"schema_version":1}; recovery_raw=m.canonical_bytes(recovery_record)
+recovery_signature=m.sign_envelope(context,recovery_raw,"secret-store:"+str(recovery),"datarim-recovery-v1",signer_id="recovery-signer",key_id="recovery-key",principal="recovery-signer")
+(root/"recovery.json").write_bytes(m.canonical_bytes({"record":recovery_record,"signatures":[recovery_signature]}))
+catalog={"recovery_policy":{"quorum":1,"record_namespace":"datarim-recovery-v1","recovery_signers":[{"key_id":"recovery-key","principal":"recovery-signer","public_key":pathlib.Path(str(recovery)+".pub").read_text().strip(),"signer_id":"recovery-signer"}]}}
+(root/"catalog.json").write_bytes(m.canonical_bytes(catalog)); args=types.SimpleNamespace(trust_catalog="catalog.json")
+def request(action,mode,result_out,proof_out,authority_locator,cas=None):
+    authority_raw=(root/authority_locator).read_bytes()
+    value={"action":action,"activation":activation,"authority_bundle_locator":authority_locator,"authority_bundle_sha256":m.digest_bytes(authority_raw),"authorization_mode":mode,"cas_result_locator":None,"cas_result_sha256":None,"cas_result_signature_locator":None,"cas_result_signature_sha256":None,"idempotency_key":"0"*64,"operation":"activate-key","prepare_proof_output":proof_out,"prepare_result_output":result_out,"previous_registry_locator":"previous.json","previous_registry_sha256":"1"*64,"replacement_registry_locator":"replacement.json","replacement_registry_sha256":"2"*64,"schema_version":1,"supersession":None}
     if cas: value.update(cas)
     subject=dict(value); subject.pop("idempotency_key"); value["idempotency_key"]=m.digest_bytes(m.canonical_bytes(subject)); return value
-prepare=request("prepare","continuity","prepare-result.json","prepare-proof.json")
-first=m.handle_activate_key(context,prepare,None)
+prepare=request("prepare","continuity","prepare-result.json","prepare-proof.json","continuity.json")
+first=m.handle_activate_key(context,prepare,args)
 state=m.load_identity_state(context,"signer","signer-one")
 if state["active_key_id"]!="key-old" or state["pending_key_id"]!="key-new": raise SystemExit("prepare activated early or failed to install pending slot")
 journal_path=m.activation_journal_path(context,"nonce-one"); journal=m.load_json_bytes(journal_path.read_bytes())
 crashed=dict(journal); crashed.update({"pending_slot_generation":None,"prepare_result_locator":None,"prepare_result_sha256":None,"prepare_proof_locator":None,"prepare_proof_sha256":None,"state":"prepared"})
 m.atomic_compare_replace(journal_path,journal_path.read_bytes(),m.canonical_file_bytes(crashed),root=private)
-if m.handle_activate_key(context,prepare,None)!=first: raise SystemExit("prepare response-loss replay changed result bytes")
-rebind=request("rebind","recovery","rebind-result.json","rebind-proof.json")
-rebound=m.handle_activate_key(context,rebind,None)
-if m.handle_activate_key(context,rebind,None)!=rebound: raise SystemExit("rebind retry changed result bytes")
+if m.handle_activate_key(context,prepare,args)!=first: raise SystemExit("prepare response-loss replay changed result bytes")
+rebind=request("rebind","recovery","rebind-result.json","rebind-proof.json","recovery.json")
+rebound=m.handle_activate_key(context,rebind,args)
+if m.handle_activate_key(context,rebind,args)!=rebound: raise SystemExit("rebind retry changed result bytes")
 cas_result={"operation":"registry-cas","previous_registry_sha256":"1"*64,"result_registry_sha256":"2"*64}
 (root/"cas.json").write_bytes(m.canonical_bytes(cas_result)); (root/"cas.sig").write_bytes(b"signed")
 cas={"cas_result_locator":"cas.json","cas_result_sha256":m.digest_bytes(m.canonical_bytes(cas_result)),"cas_result_signature_locator":"cas.sig","cas_result_signature_sha256":m.digest_bytes(b"signed")}
-finalize=request("finalize","recovery","unused-result.json","unused-proof.json",cas)
-finished=m.handle_activate_key(context,finalize,None)
-if m.handle_activate_key(context,finalize,None)!=finished: raise SystemExit("finalize retry changed result bytes")
+finalize=request("finalize","recovery","unused-result.json","unused-proof.json","recovery.json",cas)
+finished=m.handle_activate_key(context,finalize,args)
+if m.handle_activate_key(context,finalize,args)!=finished: raise SystemExit("finalize retry changed result bytes")
 state=m.load_identity_state(context,"signer","signer-one")
 if state["active_key_id"]!="key-new" or any(state[k] is not None for k in ("pending_key_id","pending_handle_ref","pending_activation_nonce","pending_slot_generation")): raise SystemExit("accepted CAS did not atomically finalize the stable slot")
 journal=m.load_json_bytes(journal_path.read_bytes()); m.validate_schema(journal,schema["$defs"]["activation_journal"],schema)
