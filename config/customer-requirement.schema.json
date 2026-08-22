@@ -39,6 +39,13 @@
       "tier1-assertion-approval-key-role-authorized",
       "tier1-assertion-approval-key-active",
       "tier1-assertion-approval-key-valid-at-approval",
+      "authority-key-registry-bundled-only",
+      "authority-key-registry-owner-pinned",
+      "authority-key-registry-trust-anchor-pinned",
+      "authority-key-registry-canonical-digest-valid",
+      "authority-key-registry-key-id-unique",
+      "authority-key-registry-conflict-prohibited",
+      "authority-key-registry-validity-interval-positive",
       "tier1-authority-approval-before-implementation",
       "tier1-assertion-correction-append-only",
       "source-verbatim-to-assertion-authority-approval-required",
@@ -112,6 +119,74 @@
       "registry": "TRUSTED_AUTHORITY_KEY_REGISTRY",
       "lookup_by": "authority_approval.key_id",
       "unknown_key_policy": "FAIL_CLOSED",
+      "registry_locator": {
+        "schema_relative_path": "customer-requirement.schema.json",
+        "json_pointer": "/x-datarim-signature-contract/key_resolution/bundled_registry",
+        "resolution": "BUNDLED_ONLY",
+        "ambient_override": "PROHIBITED"
+      },
+      "registry_owner": {
+        "authority_id": "authority-operator-0001",
+        "authority_role": "OPERATOR",
+        "trust_anchor": {
+          "key_id": "key-operator-0001",
+          "algorithm": "ED25519",
+          "public_key": "rPXUV8/jjrLqliFt6i8QViz2Zy21uI42a+OcCx6l3z8=",
+          "fingerprint": "sha256:27ea9ac17dd58bebb51f51c1565c5219a97be0bdbab1f8a8e350b7ea22a3e8a6",
+          "semantics": "SCHEMA_REVIEWED_PINNED_PUBLIC_KEY"
+        }
+      },
+      "registry_container_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["registry_id", "revision", "digest", "entries"],
+        "properties": {
+          "registry_id": { "type": "string", "pattern": "^authority-key-registry-[0-9]{4}$" },
+          "revision": { "type": "string", "pattern": "^[1-9][0-9]*$" },
+          "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+          "entries": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "$ref": "#/x-datarim-signature-contract/key_resolution/binding_schema" }
+          }
+        }
+      },
+      "registry_digest_contract": {
+        "algorithm": "SHA-256",
+        "canonicalization": "RFC8785",
+        "encoding": "UTF-8",
+        "covered_fields": ["registry_id", "revision", "entries"],
+        "excluded_fields": ["digest"],
+        "entry_order": "ASCENDING_KEY_ID",
+        "duplicate_key_id_policy": "FAIL_CLOSED",
+        "conflicting_key_id_policy": "FAIL_CLOSED"
+      },
+      "bundled_registry": {
+        "registry_id": "authority-key-registry-0001",
+        "revision": "1",
+        "digest": "sha256:3a5af5b188e0bfde5a9202a13b27461dc5058176ad74eaceb782053ffa4cae0b",
+        "entries": [
+          {
+            "key_id": "key-customer-0001",
+            "authority_id": "authority-customer-0001",
+            "allowed_roles": ["CUSTOMER"],
+            "public_key": "rcPqVnAZF2gzQc8O1d+MdKHHGZ6RnyU4R8OJT35ycwU=",
+            "status": "ACTIVE",
+            "valid_from": "2026-01-01T00:00:00Z",
+            "valid_until": "2036-01-01T00:00:00Z"
+          },
+          {
+            "key_id": "key-operator-0001",
+            "authority_id": "authority-operator-0001",
+            "allowed_roles": ["OPERATOR"],
+            "public_key": "rPXUV8/jjrLqliFt6i8QViz2Zy21uI42a+OcCx6l3z8=",
+            "status": "ACTIVE",
+            "valid_from": "2026-01-01T00:00:00Z",
+            "valid_until": "2036-01-01T00:00:00Z"
+          }
+        ]
+      },
       "binding_schema": {
         "type": "object",
         "additionalProperties": false,
@@ -153,7 +228,8 @@
       },
       "validity_interval": {
         "valid_from": "INCLUSIVE",
-        "valid_until": "EXCLUSIVE_WHEN_PRESENT"
+        "valid_until": "EXCLUSIVE_WHEN_PRESENT",
+        "required_relation": "VALID_FROM_STRICTLY_BEFORE_VALID_UNTIL"
       },
       "verification_sequence": [
         "KEY_ID_KNOWN",

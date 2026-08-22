@@ -3,6 +3,37 @@
   "$id": "https://datarim.club/schema/customer-delivery-receipt-v1.json",
   "title": "Datarim Customer Delivery Receipt",
   "description": "A complete, acyclic requirement-to-customer-disposition evidence chain. A missing required edge is not a met delivery.",
+  "x-datarim-trusted-authority-key-registry-ref": {
+    "schema_relative_path": "customer-requirement.schema.json",
+    "json_pointer": "/x-datarim-signature-contract/key_resolution/bundled_registry",
+    "resolution": "BUNDLED_ONLY",
+    "ambient_override": "PROHIBITED",
+    "registry_id": "authority-key-registry-0001",
+    "registry_digest": "sha256:3a5af5b188e0bfde5a9202a13b27461dc5058176ad74eaceb782053ffa4cae0b"
+  },
+  "x-datarim-customer-disposition-contract": {
+    "terminal_statuses": ["accepted", "rejected", "superseded"],
+    "pending_policy": "UNSIGNED_NONTERMINAL",
+    "disposition_digest": {
+      "algorithm": "SHA-256",
+      "canonicalization": "RFC8785",
+      "encoding": "UTF-8",
+      "covered_fields": ["requirement_id", "status", "recorded_at", "evidence_ref", "note?", "superseded_by?"],
+      "excluded_fields": ["disposition_digest", "authority_approval"]
+    },
+    "approval_payload_digest": {
+      "algorithm": "SHA-256",
+      "canonicalization": "RFC8785",
+      "encoding": "UTF-8",
+      "covered_fields": ["approved_digest", "authority_id", "authority_role", "approved_at", "evidence_ref", "algorithm", "key_id"],
+      "excluded_fields": ["approval_payload_digest", "signature"]
+    },
+    "signature_contract_ref": {
+      "schema_relative_path": "customer-requirement.schema.json",
+      "json_pointer": "/x-datarim-signature-contract",
+      "signed_field": "authority_approval.approval_payload_digest"
+    }
+  },
   "x-datarim-semantic-invariants": {
     "description": "Draft 2020-12 validates shape only; the deterministic customer-delivery validator must enforce every registered cross-record invariant.",
     "enforcer": "customer-delivery-validator",
@@ -37,6 +68,17 @@
       "receipt-deployed-digest-equals-merged-digest",
       "receipt-disposition-equals-requirement-disposition",
       "receipt-disposition-closure-exact",
+      "receipt-terminal-disposition-signed",
+      "receipt-pending-disposition-unsigned",
+      "receipt-disposition-canonical-digest-valid",
+      "receipt-disposition-approval-digest-equals-disposition-digest",
+      "receipt-disposition-approval-payload-canonical-digest-valid",
+      "receipt-disposition-signature-valid",
+      "receipt-disposition-approval-key-known",
+      "receipt-disposition-approval-key-authority-id-equal",
+      "receipt-disposition-approval-key-role-authorized",
+      "receipt-disposition-approval-key-active",
+      "receipt-disposition-approval-key-valid-at-approval",
       "receipt-visitor-acceptance-authority-role-operator",
       "receipt-parent-links-complete",
       "review-open-or-changes-requested-blocks-closure",
@@ -494,7 +536,8 @@
         "status": { "enum": ["pending", "accepted", "rejected", "superseded"] },
         "recorded_at": { "type": "string", "format": "date-time" },
         "evidence_ref": { "type": "string", "minLength": 1 },
-        "authority": { "$ref": "#/$defs/dispositionAuthority" },
+        "disposition_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "authority_approval": { "$ref": "#/$defs/dispositionAuthorityApproval" },
         "note": { "type": "string", "minLength": 1 },
         "superseded_by": { "type": "string", "pattern": "^req-[0-9]{4}$" }
       },
@@ -512,19 +555,43 @@
             "properties": { "status": { "const": "pending" } },
             "required": ["status"]
           },
-          "then": {},
-          "else": { "required": ["authority"] }
+          "then": {
+            "not": {
+              "anyOf": [
+                { "required": ["disposition_digest"] },
+                { "required": ["authority_approval"] }
+              ]
+            }
+          },
+          "else": { "required": ["disposition_digest", "authority_approval"] }
         }
       ]
     },
-    "dispositionAuthority": {
+    "dispositionAuthorityApproval": {
+      "description": "A terminal customer-disposition approval verified against the bundled trusted authority-key registry referenced by x-datarim-trusted-authority-key-registry-ref. The Ed25519 signature is over the raw 32 bytes of approval_payload_digest using the framing in customer-requirement.schema.json.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["authority_id", "authority_role", "evidence_ref"],
+      "required": [
+        "approved_digest",
+        "authority_id",
+        "authority_role",
+        "approved_at",
+        "evidence_ref",
+        "algorithm",
+        "key_id",
+        "approval_payload_digest",
+        "signature"
+      ],
       "properties": {
+        "approved_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
         "authority_id": { "type": "string", "pattern": "^authority-[a-z0-9][a-z0-9-]*$" },
         "authority_role": { "enum": ["CUSTOMER", "OPERATOR"] },
-        "evidence_ref": { "type": "string", "minLength": 1 }
+        "approved_at": { "type": "string", "format": "date-time" },
+        "evidence_ref": { "type": "string", "minLength": 1 },
+        "algorithm": { "const": "ED25519" },
+        "key_id": { "type": "string", "pattern": "^key-[a-z0-9][a-z0-9-]*$" },
+        "approval_payload_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "signature": { "type": "string", "pattern": "^ed25519:[A-Za-z0-9+/]{85}[AQgw]==$" }
       }
     }
   }
