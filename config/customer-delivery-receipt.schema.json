@@ -36,6 +36,7 @@
       "receipt-disposition-equals-requirement-disposition",
       "receipt-disposition-closure-exact",
       "receipt-parent-links-complete",
+      "review-open-or-changes-requested-blocks-closure",
       "receipt-epic-status-derived",
       "receipt-user-facing-parent-has-visible-child"
     ]

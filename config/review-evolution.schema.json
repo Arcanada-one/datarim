@@ -10,6 +10,7 @@
       "review-requirement-id-equals-product-fix-requirement-id",
       "review-receipt-id-equals-product-fix-receipt-id",
       "review-parent-links-complete",
+      "review-open-or-changes-requested-blocks-closure",
       "review-product-fix-status-equals-receipt-delivery",
       "review-classification-canonical-change-exclusive",
       "review-no-canon-change-evidence-approved",
