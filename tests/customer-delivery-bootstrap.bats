@@ -400,6 +400,7 @@ rebound=m.handle_activate_key(context,rebind,args)
 if m.handle_activate_key(context,rebind,args)!=rebound: raise SystemExit("rebind retry changed result bytes")
 cas_result={"operation":"registry-cas","previous_registry_sha256":"1"*64,"result_registry_sha256":"2"*64}
 (root/"cas.json").write_bytes(m.canonical_bytes(cas_result)); (root/"cas.sig").write_bytes(b"signed")
+m.verify_activation_cas_acceptance=lambda context,args,raw,signature: m.load_json_bytes(raw)
 cas={"cas_result_locator":"cas.json","cas_result_sha256":m.digest_bytes(m.canonical_bytes(cas_result)),"cas_result_signature_locator":"cas.sig","cas_result_signature_sha256":m.digest_bytes(b"signed")}
 finalize=request("finalize","recovery","unused-result.json","unused-proof.json","recovery.json",cas)
 finished=m.handle_activate_key(context,finalize,args)
