@@ -17,6 +17,11 @@
       "source-approval-payload-canonical-digest-valid",
       "source-signature-valid",
       "source-signature-over-approval-payload-digest-valid",
+      "source-approval-key-known",
+      "source-approval-key-authority-id-equal",
+      "source-approval-key-role-authorized",
+      "source-approval-key-active",
+      "source-approval-key-valid-at-approval",
       "assertion-source-digest-equals-containing-source-digest",
       "source-correction-superseded-digest-exists",
       "source-correction-prior-record-retained",
@@ -29,6 +34,11 @@
       "tier1-assertion-approval-payload-canonical-digest-valid",
       "tier1-assertion-signature-valid",
       "tier1-assertion-signature-over-approval-payload-digest-valid",
+      "tier1-assertion-approval-key-known",
+      "tier1-assertion-approval-key-authority-id-equal",
+      "tier1-assertion-approval-key-role-authorized",
+      "tier1-assertion-approval-key-active",
+      "tier1-assertion-approval-key-valid-at-approval",
       "tier1-authority-approval-before-implementation",
       "tier1-assertion-correction-append-only",
       "source-verbatim-to-assertion-authority-approval-required",
@@ -98,12 +108,61 @@
       "canonical_padding": "REQUIRED",
       "decoded_length_bytes": 64
     },
-    "public_key_resolution": {
-      "reference_field": "authority_approval.key_id",
-      "key_type": "ED25519_PUBLIC_KEY",
-      "encoding": "RFC4648_STANDARD_BASE64",
-      "canonical_padding": "REQUIRED",
-      "decoded_length_bytes": 32
+    "key_resolution": {
+      "registry": "TRUSTED_AUTHORITY_KEY_REGISTRY",
+      "lookup_by": "authority_approval.key_id",
+      "unknown_key_policy": "FAIL_CLOSED",
+      "binding_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key_id",
+          "authority_id",
+          "allowed_roles",
+          "public_key",
+          "status",
+          "valid_from"
+        ],
+        "properties": {
+          "key_id": {
+            "type": "string",
+            "pattern": "^key-[a-z0-9][a-z0-9-]*$"
+          },
+          "authority_id": {
+            "type": "string",
+            "pattern": "^authority-[a-z0-9][a-z0-9-]*$"
+          },
+          "allowed_roles": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "enum": ["CUSTOMER", "OPERATOR"] }
+          },
+          "public_key": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=$",
+            "x-key-type": "ED25519_PUBLIC_KEY",
+            "x-encoding": "RFC4648_STANDARD_BASE64",
+            "x-canonical-padding": "REQUIRED",
+            "x-decoded-length-bytes": 32
+          },
+          "status": { "enum": ["ACTIVE", "REVOKED"] },
+          "valid_from": { "type": "string", "format": "date-time" },
+          "valid_until": { "type": "string", "format": "date-time" }
+        }
+      },
+      "validity_interval": {
+        "valid_from": "INCLUSIVE",
+        "valid_until": "EXCLUSIVE_WHEN_PRESENT"
+      },
+      "verification_sequence": [
+        "KEY_ID_KNOWN",
+        "APPROVAL_AUTHORITY_ID_EQUALS_KEY_AUTHORITY_ID",
+        "APPROVAL_AUTHORITY_ROLE_IN_KEY_ALLOWED_ROLES",
+        "KEY_STATUS_ACTIVE",
+        "APPROVED_AT_INSIDE_KEY_VALIDITY",
+        "CRYPTOGRAPHIC_SIGNATURE_VALID"
+      ]
     },
     "verification_enforcer": "customer-delivery-validator"
   },
@@ -249,7 +308,7 @@
       ]
     },
     "authorityApproval": {
-      "description": "An authority approval whose ED25519 signature framing is defined exactly by the top-level x-datarim-signature-contract annotation. The approval payload contains approved_digest, authority_id, authority_role, approved_at, evidence_ref, algorithm, and key_id; approval_payload_digest and signature are excluded. Cryptographic verification is enforced by the registered validator.",
+      "description": "An authority approval whose trusted key authorization and ED25519 signature framing are defined exactly by the top-level x-datarim-signature-contract annotation. The approval payload contains approved_digest, authority_id, authority_role, approved_at, evidence_ref, algorithm, and key_id; approval_payload_digest and signature are excluded. The registered validator checks the authority-key binding before cryptographic verification.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -271,7 +330,7 @@
         "evidence_ref": { "type": "string", "minLength": 1 },
         "algorithm": { "const": "ED25519" },
         "key_id": {
-          "description": "Resolves according to x-datarim-signature-contract to an RFC 4648 standard-base64 encoded raw 32-byte Ed25519 public key.",
+          "description": "Resolves through the trusted authority-key registry defined by x-datarim-signature-contract to a closed authority binding and an RFC 4648 standard-base64 encoded raw 32-byte Ed25519 public key. Unknown keys fail closed.",
           "type": "string",
           "pattern": "^key-[a-z0-9][a-z0-9-]*$"
         },

@@ -740,6 +740,11 @@ expected = {
             "source-approval-payload-canonical-digest-valid",
             "source-signature-valid",
             "source-signature-over-approval-payload-digest-valid",
+            "source-approval-key-known",
+            "source-approval-key-authority-id-equal",
+            "source-approval-key-role-authorized",
+            "source-approval-key-active",
+            "source-approval-key-valid-at-approval",
             "assertion-source-digest-equals-containing-source-digest",
             "source-correction-superseded-digest-exists",
             "source-correction-prior-record-retained",
@@ -752,6 +757,11 @@ expected = {
             "tier1-assertion-approval-payload-canonical-digest-valid",
             "tier1-assertion-signature-valid",
             "tier1-assertion-signature-over-approval-payload-digest-valid",
+            "tier1-assertion-approval-key-known",
+            "tier1-assertion-approval-key-authority-id-equal",
+            "tier1-assertion-approval-key-role-authorized",
+            "tier1-assertion-approval-key-active",
+            "tier1-assertion-approval-key-valid-at-approval",
             "tier1-authority-approval-before-implementation",
             "tier1-assertion-correction-append-only",
             "source-verbatim-to-assertion-authority-approval-required",
@@ -878,12 +888,61 @@ expected = {
         "canonical_padding": "REQUIRED",
         "decoded_length_bytes": 64,
     },
-    "public_key_resolution": {
-        "reference_field": "authority_approval.key_id",
-        "key_type": "ED25519_PUBLIC_KEY",
-        "encoding": "RFC4648_STANDARD_BASE64",
-        "canonical_padding": "REQUIRED",
-        "decoded_length_bytes": 32,
+    "key_resolution": {
+        "registry": "TRUSTED_AUTHORITY_KEY_REGISTRY",
+        "lookup_by": "authority_approval.key_id",
+        "unknown_key_policy": "FAIL_CLOSED",
+        "binding_schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "key_id",
+                "authority_id",
+                "allowed_roles",
+                "public_key",
+                "status",
+                "valid_from",
+            ],
+            "properties": {
+                "key_id": {
+                    "type": "string",
+                    "pattern": "^key-[a-z0-9][a-z0-9-]*$",
+                },
+                "authority_id": {
+                    "type": "string",
+                    "pattern": "^authority-[a-z0-9][a-z0-9-]*$",
+                },
+                "allowed_roles": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": True,
+                    "items": {"enum": ["CUSTOMER", "OPERATOR"]},
+                },
+                "public_key": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=$",
+                    "x-key-type": "ED25519_PUBLIC_KEY",
+                    "x-encoding": "RFC4648_STANDARD_BASE64",
+                    "x-canonical-padding": "REQUIRED",
+                    "x-decoded-length-bytes": 32,
+                },
+                "status": {"enum": ["ACTIVE", "REVOKED"]},
+                "valid_from": {"type": "string", "format": "date-time"},
+                "valid_until": {"type": "string", "format": "date-time"},
+            },
+        },
+        "validity_interval": {
+            "valid_from": "INCLUSIVE",
+            "valid_until": "EXCLUSIVE_WHEN_PRESENT",
+        },
+        "verification_sequence": [
+            "KEY_ID_KNOWN",
+            "APPROVAL_AUTHORITY_ID_EQUALS_KEY_AUTHORITY_ID",
+            "APPROVAL_AUTHORITY_ROLE_IN_KEY_ALLOWED_ROLES",
+            "KEY_STATUS_ACTIVE",
+            "APPROVED_AT_INSIDE_KEY_VALIDITY",
+            "CRYPTOGRAPHIC_SIGNATURE_VALID",
+        ],
     },
     "verification_enforcer": "customer-delivery-validator",
 }
@@ -894,6 +953,128 @@ if actual != expected:
         f"SIGNATURE_CONTRACT_MISMATCH:expected={expected!r}:actual={actual!r}"
     )
 PY
+}
+
+validate_trusted_authority_keys() {
+    "$PYTHON" - "$REQUIREMENTS_SCHEMA" "$1" <<'PY'
+import base64
+import json
+import sys
+from datetime import datetime
+
+import jsonschema
+import yaml
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    schema = json.load(handle)
+with open(sys.argv[2], encoding="utf-8") as handle:
+    document = yaml.safe_load(handle)
+
+key_contract = schema["x-datarim-signature-contract"]["key_resolution"]
+binding_schema = key_contract["binding_schema"]
+public_key_contract = binding_schema["properties"]["public_key"]
+public_key = "A" * 43 + "="
+trusted_registry = {
+    "key-customer-0001": {
+        "key_id": "key-customer-0001",
+        "authority_id": "authority-customer-0001",
+        "allowed_roles": ["CUSTOMER"],
+        "public_key": public_key,
+        "status": "ACTIVE",
+        "valid_from": "2026-01-01T00:00:00Z",
+        "valid_until": "2027-01-01T00:00:00Z",
+    },
+    "key-revoked-0001": {
+        "key_id": "key-revoked-0001",
+        "authority_id": "authority-customer-0001",
+        "allowed_roles": ["CUSTOMER"],
+        "public_key": public_key,
+        "status": "REVOKED",
+        "valid_from": "2026-01-01T00:00:00Z",
+        "valid_until": "2027-01-01T00:00:00Z",
+    },
+    "key-future-0001": {
+        "key_id": "key-future-0001",
+        "authority_id": "authority-customer-0001",
+        "allowed_roles": ["CUSTOMER"],
+        "public_key": public_key,
+        "status": "ACTIVE",
+        "valid_from": "2026-02-01T00:00:00Z",
+    },
+    "key-expired-0001": {
+        "key_id": "key-expired-0001",
+        "authority_id": "authority-customer-0001",
+        "allowed_roles": ["CUSTOMER"],
+        "public_key": public_key,
+        "status": "ACTIVE",
+        "valid_from": "2025-01-01T00:00:00Z",
+        "valid_until": "2026-01-02T09:04:00Z",
+    },
+}
+
+checker = jsonschema.FormatChecker()
+for registry_key, binding in trusted_registry.items():
+    jsonschema.Draft202012Validator(
+        binding_schema,
+        format_checker=checker,
+    ).validate(binding)
+    if binding["key_id"] != registry_key:
+        raise SystemExit(f"TRUSTED_KEY_REGISTRY_INDEX_MISMATCH:{registry_key}")
+    decoded_key = base64.b64decode(binding["public_key"], validate=True)
+    if len(decoded_key) != public_key_contract["x-decoded-length-bytes"]:
+        raise SystemExit(f"TRUSTED_KEY_LENGTH_MISMATCH:{registry_key}")
+    if base64.b64encode(decoded_key).decode("ascii") != binding["public_key"]:
+        raise SystemExit(f"TRUSTED_KEY_BASE64_NONCANONICAL:{registry_key}")
+
+
+def parse_timestamp(value):
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def validate_approval(kind, record_id, approval):
+    key_id = approval["key_id"]
+    binding = trusted_registry.get(key_id)
+    if binding is None:
+        raise SystemExit(f"{kind}_APPROVAL_KEY_UNKNOWN:{record_id}:{key_id}")
+    if approval["authority_id"] != binding["authority_id"]:
+        raise SystemExit(
+            f"{kind}_APPROVAL_KEY_AUTHORITY_ID_MISMATCH:{record_id}:{key_id}"
+        )
+    if approval["authority_role"] not in binding["allowed_roles"]:
+        raise SystemExit(
+            f"{kind}_APPROVAL_KEY_ROLE_UNAUTHORIZED:{record_id}:"
+            f"{approval['authority_role']}"
+        )
+    if binding["status"] != "ACTIVE":
+        raise SystemExit(f"{kind}_APPROVAL_KEY_NOT_ACTIVE:{record_id}:{key_id}")
+    approved_at = parse_timestamp(approval["approved_at"])
+    valid_from = parse_timestamp(binding["valid_from"])
+    if approved_at < valid_from:
+        raise SystemExit(f"{kind}_APPROVAL_KEY_NOT_YET_VALID:{record_id}:{key_id}")
+    if "valid_until" in binding and approved_at >= parse_timestamp(
+        binding["valid_until"]
+    ):
+        raise SystemExit(f"{kind}_APPROVAL_KEY_EXPIRED:{record_id}:{key_id}")
+
+
+for source in document["source_remarks"]:
+    validate_approval("SOURCE", source["source_id"], source["authority_approval"])
+    for assertion in source["tier1_assertions"]:
+        validate_approval(
+            "TIER1",
+            assertion["assertion_id"],
+            assertion["authority_approval"],
+        )
+PY
+}
+
+trusted_key_mutation_fixture() {
+    local target="$1"
+    local expression="$2"
+
+    structured_requirement_fixture "$target" || return 2
+    yq -i "$expression" "$target" || return 2
+    construct_placeholder_approvals "$target"
 }
 
 @test "complete customer delivery examples validate against Draft 2020-12 schemas" {
@@ -1016,7 +1197,8 @@ if base64.b64encode(signature_bytes).decode("ascii") != signature_text:
     raise SystemExit("SIGNATURE_BASE64_NOT_CANONICAL")
 public_key_text = "A" * 43 + "="
 public_key_bytes = base64.b64decode(public_key_text, validate=True)
-if len(public_key_bytes) != contract["public_key_resolution"]["decoded_length_bytes"]:
+public_key_contract = contract["key_resolution"]["binding_schema"]["properties"]["public_key"]
+if len(public_key_bytes) != public_key_contract["x-decoded-length-bytes"]:
     raise SystemExit(f"PUBLIC_KEY_DECODED_LENGTH:{len(public_key_bytes)}")
 if base64.b64encode(public_key_bytes).decode("ascii") != public_key_text:
     raise SystemExit("PUBLIC_KEY_BASE64_NOT_CANONICAL")
@@ -1051,7 +1233,7 @@ PY
     cp "$REQUIREMENTS_SCHEMA" "$key_mutant" || return 1
     yq -i 'del(."x-datarim-signature-contract")' "$deleted" || return 1
     yq -i '."x-datarim-signature-contract".digest_framing.signed_message = "LOWERCASE_HEX_UTF8"' "$message_mutant" || return 1
-    yq -i '."x-datarim-signature-contract".public_key_resolution.encoding = "PEM"' "$key_mutant" || return 1
+    yq -i '."x-datarim-signature-contract".key_resolution.binding_schema.properties.public_key."x-encoding" = "PEM"' "$key_mutant" || return 1
 
     run assert_signature_contract "$deleted"
     [ "$status" -eq 1 ] \
@@ -1062,6 +1244,84 @@ PY
         && run assert_signature_contract "$key_mutant" \
         && [ "$status" -eq 1 ] \
         && [[ "$output" == *"SIGNATURE_CONTRACT_MISMATCH"* ]]
+}
+
+@test "trusted authority-key registry accepts the bound customer approval" {
+    assert_signature_contract "$REQUIREMENTS_SCHEMA" \
+        && validate_requirement_contract "$REQUIREMENTS_TEMPLATE" \
+        && validate_trusted_authority_keys "$REQUIREMENTS_TEMPLATE"
+}
+
+@test "customer key cannot claim an operator authority identity" {
+    local mutant="$BATS_TEST_TMPDIR/key-authority-id-mismatch.yaml"
+    trusted_key_mutation_fixture "$mutant" \
+        '.source_remarks[0].authority_approval.authority_id = "authority-operator-0001"' || return 1
+    assert_signature_contract "$REQUIREMENTS_SCHEMA" || return 1
+    validate_requirement_contract "$mutant" || return 1
+
+    run validate_trusted_authority_keys "$mutant"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"SOURCE_APPROVAL_KEY_AUTHORITY_ID_MISMATCH:source-0001:key-customer-0001"* ]]
+}
+
+@test "customer key cannot claim the operator authority role" {
+    local mutant="$BATS_TEST_TMPDIR/key-role-unauthorized.yaml"
+    trusted_key_mutation_fixture "$mutant" \
+        '.source_remarks[0].tier1_assertions[0].authority_approval.authority_role = "OPERATOR"' || return 1
+    assert_signature_contract "$REQUIREMENTS_SCHEMA" || return 1
+    validate_requirement_contract "$mutant" || return 1
+
+    run validate_trusted_authority_keys "$mutant"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"TIER1_APPROVAL_KEY_ROLE_UNAUTHORIZED:assertion-0001:OPERATOR"* ]]
+}
+
+@test "unknown approval key fails closed" {
+    local mutant="$BATS_TEST_TMPDIR/key-unknown.yaml"
+    trusted_key_mutation_fixture "$mutant" \
+        '.source_remarks[0].authority_approval.key_id = "key-unknown-0001"' || return 1
+    assert_signature_contract "$REQUIREMENTS_SCHEMA" || return 1
+    validate_requirement_contract "$mutant" || return 1
+
+    run validate_trusted_authority_keys "$mutant"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"SOURCE_APPROVAL_KEY_UNKNOWN:source-0001:key-unknown-0001"* ]]
+}
+
+@test "revoked approval key is rejected" {
+    local mutant="$BATS_TEST_TMPDIR/key-revoked.yaml"
+    trusted_key_mutation_fixture "$mutant" \
+        '.source_remarks[0].tier1_assertions[0].authority_approval.key_id = "key-revoked-0001"' || return 1
+    assert_signature_contract "$REQUIREMENTS_SCHEMA" || return 1
+    validate_requirement_contract "$mutant" || return 1
+
+    run validate_trusted_authority_keys "$mutant"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"TIER1_APPROVAL_KEY_NOT_ACTIVE:assertion-0001:key-revoked-0001"* ]]
+}
+
+@test "not-yet-valid approval key is rejected" {
+    local mutant="$BATS_TEST_TMPDIR/key-not-yet-valid.yaml"
+    trusted_key_mutation_fixture "$mutant" \
+        '.source_remarks[0].authority_approval.key_id = "key-future-0001"' || return 1
+    assert_signature_contract "$REQUIREMENTS_SCHEMA" || return 1
+    validate_requirement_contract "$mutant" || return 1
+
+    run validate_trusted_authority_keys "$mutant"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"SOURCE_APPROVAL_KEY_NOT_YET_VALID:source-0001:key-future-0001"* ]]
+}
+
+@test "expired approval key is rejected" {
+    local mutant="$BATS_TEST_TMPDIR/key-expired.yaml"
+    trusted_key_mutation_fixture "$mutant" \
+        '.source_remarks[0].tier1_assertions[0].authority_approval.key_id = "key-expired-0001"' || return 1
+    assert_signature_contract "$REQUIREMENTS_SCHEMA" || return 1
+    validate_requirement_contract "$mutant" || return 1
+
+    run validate_trusted_authority_keys "$mutant"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"TIER1_APPROVAL_KEY_EXPIRED:assertion-0001:key-expired-0001"* ]]
 }
 
 @test "RFC 8785 source digest preserves Cyrillic UTF-8 bytes without legacy escaping" {
