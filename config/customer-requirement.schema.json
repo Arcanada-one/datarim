@@ -108,7 +108,16 @@
               }
             }
           },
-          "else": { "not": { "required": ["production_acceptance_criterion"] } }
+          "else": {
+            "not": { "required": ["production_acceptance_criterion"] },
+            "properties": {
+              "evidence": {
+                "properties": {
+                  "evidence_class": { "const": "NON_VISITOR" }
+                }
+              }
+            }
+          }
         },
         {
           "if": {
