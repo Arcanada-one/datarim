@@ -856,6 +856,46 @@ for path, required_registry in expected.items():
 PY
 }
 
+assert_signature_contract() {
+    "$PYTHON" - "$1" <<'PY'
+import json
+import sys
+
+expected = {
+    "algorithm": "ED25519",
+    "signed_field": "authority_approval.approval_payload_digest",
+    "digest_framing": {
+        "strip_prefix": "sha256:",
+        "hex_pattern": "^[0-9a-f]{64}$",
+        "decode": "LOWERCASE_HEX",
+        "signed_message": "RAW_SHA256_DIGEST_BYTES",
+        "signed_message_length_bytes": 32,
+    },
+    "signature_framing": {
+        "field": "authority_approval.signature",
+        "strip_prefix": "ed25519:",
+        "decode": "RFC4648_STANDARD_BASE64",
+        "canonical_padding": "REQUIRED",
+        "decoded_length_bytes": 64,
+    },
+    "public_key_resolution": {
+        "reference_field": "authority_approval.key_id",
+        "key_type": "ED25519_PUBLIC_KEY",
+        "encoding": "RFC4648_STANDARD_BASE64",
+        "canonical_padding": "REQUIRED",
+        "decoded_length_bytes": 32,
+    },
+    "verification_enforcer": "customer-delivery-validator",
+}
+with open(sys.argv[1], encoding="utf-8") as handle:
+    actual = json.load(handle).get("x-datarim-signature-contract")
+if actual != expected:
+    raise SystemExit(
+        f"SIGNATURE_CONTRACT_MISMATCH:expected={expected!r}:actual={actual!r}"
+    )
+PY
+}
+
 @test "complete customer delivery examples validate against Draft 2020-12 schemas" {
     validate_requirement_contract "$REQUIREMENTS_TEMPLATE" \
         && validate_yaml "$REQUIREMENTS_SCHEMA" "$REQUIREMENTS_TEMPLATE" \
@@ -929,6 +969,7 @@ expected = {
     },
     "digest_input": "RFC8785_CANONICAL_JSON_UTF8_BYTES_WITHOUT_DIGEST_PREFIX",
 }
+
 with open(sys.argv[1], encoding="utf-8") as handle:
     actual = json.load(handle).get("x-datarim-canonicalization")
 if actual != expected:
@@ -937,6 +978,90 @@ if actual != expected:
     )
 PY
     [ "$status" -eq 0 ]
+}
+
+@test "requirement schema publishes the exact closed Ed25519 wire framing contract" {
+    assert_signature_contract "$REQUIREMENTS_SCHEMA"
+}
+
+@test "Ed25519 framing signs raw 32-byte digest rather than hex or prefixed UTF-8" {
+    run "$PYTHON" - "$REQUIREMENTS_SCHEMA" <<'PY'
+import base64
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    contract = json.load(handle)["x-datarim-signature-contract"]
+field_value = "sha256:" + ("ab" * 32)
+prefix = contract["digest_framing"]["strip_prefix"]
+if not field_value.startswith(prefix):
+    raise SystemExit("SIGNATURE_DIGEST_PREFIX_MISSING")
+hex_text = field_value[len(prefix):]
+raw_digest = bytes.fromhex(hex_text)
+hex_utf8 = hex_text.encode("utf-8")
+field_utf8 = field_value.encode("utf-8")
+if len(raw_digest) != contract["digest_framing"]["signed_message_length_bytes"]:
+    raise SystemExit(f"SIGNATURE_RAW_DIGEST_LENGTH:{len(raw_digest)}")
+if len(hex_utf8) != 64:
+    raise SystemExit(f"SIGNATURE_HEX_UTF8_LENGTH:{len(hex_utf8)}")
+if len(field_utf8) != 71:
+    raise SystemExit(f"SIGNATURE_FIELD_UTF8_LENGTH:{len(field_utf8)}")
+if raw_digest in {hex_utf8, field_utf8}:
+    raise SystemExit("SIGNATURE_MESSAGE_FRAMING_AMBIGUOUS")
+signature_text = "A" * 86 + "=="
+signature_bytes = base64.b64decode(signature_text, validate=True)
+if len(signature_bytes) != contract["signature_framing"]["decoded_length_bytes"]:
+    raise SystemExit(f"SIGNATURE_DECODED_LENGTH:{len(signature_bytes)}")
+if base64.b64encode(signature_bytes).decode("ascii") != signature_text:
+    raise SystemExit("SIGNATURE_BASE64_NOT_CANONICAL")
+public_key_text = "A" * 43 + "="
+public_key_bytes = base64.b64decode(public_key_text, validate=True)
+if len(public_key_bytes) != contract["public_key_resolution"]["decoded_length_bytes"]:
+    raise SystemExit(f"PUBLIC_KEY_DECODED_LENGTH:{len(public_key_bytes)}")
+if base64.b64encode(public_key_bytes).decode("ascii") != public_key_text:
+    raise SystemExit("PUBLIC_KEY_BASE64_NOT_CANONICAL")
+PY
+    [ "$status" -eq 0 ]
+}
+
+@test "signature schema rejects noncanonical RFC 4648 pad bits" {
+    run "$PYTHON" - "$REQUIREMENTS_SCHEMA" <<'PY'
+import json
+import re
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    pattern = json.load(handle)["$defs"]["authorityApproval"]["properties"]["signature"]["pattern"]
+canonical = "ed25519:" + ("A" * 86) + "=="
+noncanonical = "ed25519:" + ("A" * 85) + "/=="
+if re.fullmatch(pattern, canonical) is None:
+    raise SystemExit("CANONICAL_SIGNATURE_REJECTED")
+if re.fullmatch(pattern, noncanonical) is not None:
+    raise SystemExit("NONCANONICAL_SIGNATURE_PAD_BITS_ACCEPTED")
+PY
+    [ "$status" -eq 0 ]
+}
+
+@test "deleting or mutating Ed25519 wire framing is detected independently" {
+    local deleted="$BATS_TEST_TMPDIR/signature-contract-deleted.json"
+    local message_mutant="$BATS_TEST_TMPDIR/signature-message-mutant.json"
+    local key_mutant="$BATS_TEST_TMPDIR/signature-key-mutant.json"
+    cp "$REQUIREMENTS_SCHEMA" "$deleted" || return 1
+    cp "$REQUIREMENTS_SCHEMA" "$message_mutant" || return 1
+    cp "$REQUIREMENTS_SCHEMA" "$key_mutant" || return 1
+    yq -i 'del(."x-datarim-signature-contract")' "$deleted" || return 1
+    yq -i '."x-datarim-signature-contract".digest_framing.signed_message = "LOWERCASE_HEX_UTF8"' "$message_mutant" || return 1
+    yq -i '."x-datarim-signature-contract".public_key_resolution.encoding = "PEM"' "$key_mutant" || return 1
+
+    run assert_signature_contract "$deleted"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"SIGNATURE_CONTRACT_MISMATCH"* ]] \
+        && run assert_signature_contract "$message_mutant" \
+        && [ "$status" -eq 1 ] \
+        && [[ "$output" == *"SIGNATURE_CONTRACT_MISMATCH"* ]] \
+        && run assert_signature_contract "$key_mutant" \
+        && [ "$status" -eq 1 ] \
+        && [[ "$output" == *"SIGNATURE_CONTRACT_MISMATCH"* ]]
 }
 
 @test "RFC 8785 source digest preserves Cyrillic UTF-8 bytes without legacy escaping" {

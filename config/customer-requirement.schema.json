@@ -81,6 +81,32 @@
     },
     "digest_input": "RFC8785_CANONICAL_JSON_UTF8_BYTES_WITHOUT_DIGEST_PREFIX"
   },
+  "x-datarim-signature-contract": {
+    "algorithm": "ED25519",
+    "signed_field": "authority_approval.approval_payload_digest",
+    "digest_framing": {
+      "strip_prefix": "sha256:",
+      "hex_pattern": "^[0-9a-f]{64}$",
+      "decode": "LOWERCASE_HEX",
+      "signed_message": "RAW_SHA256_DIGEST_BYTES",
+      "signed_message_length_bytes": 32
+    },
+    "signature_framing": {
+      "field": "authority_approval.signature",
+      "strip_prefix": "ed25519:",
+      "decode": "RFC4648_STANDARD_BASE64",
+      "canonical_padding": "REQUIRED",
+      "decoded_length_bytes": 64
+    },
+    "public_key_resolution": {
+      "reference_field": "authority_approval.key_id",
+      "key_type": "ED25519_PUBLIC_KEY",
+      "encoding": "RFC4648_STANDARD_BASE64",
+      "canonical_padding": "REQUIRED",
+      "decoded_length_bytes": 32
+    },
+    "verification_enforcer": "customer-delivery-validator"
+  },
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "requirement_set_id", "created_at", "source_remarks", "requirements"],
@@ -223,7 +249,7 @@
       ]
     },
     "authorityApproval": {
-      "description": "An authority approval whose ED25519 signature is over approval_payload_digest. The approval payload contains approved_digest, authority_id, authority_role, approved_at, evidence_ref, algorithm, and key_id; approval_payload_digest and signature are excluded. Cryptographic verification is enforced by the registered validator.",
+      "description": "An authority approval whose ED25519 signature framing is defined exactly by the top-level x-datarim-signature-contract annotation. The approval payload contains approved_digest, authority_id, authority_role, approved_at, evidence_ref, algorithm, and key_id; approval_payload_digest and signature are excluded. Cryptographic verification is enforced by the registered validator.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -244,13 +270,21 @@
         "approved_at": { "type": "string", "format": "date-time" },
         "evidence_ref": { "type": "string", "minLength": 1 },
         "algorithm": { "const": "ED25519" },
-        "key_id": { "type": "string", "pattern": "^key-[a-z0-9][a-z0-9-]*$" },
+        "key_id": {
+          "description": "Resolves according to x-datarim-signature-contract to an RFC 4648 standard-base64 encoded raw 32-byte Ed25519 public key.",
+          "type": "string",
+          "pattern": "^key-[a-z0-9][a-z0-9-]*$"
+        },
         "approval_payload_digest": {
-          "description": "SHA-256 over the RFC 8785 canonical JSON UTF-8 bytes of approved_digest, authority_id, authority_role, approved_at, evidence_ref, algorithm, and key_id. The ED25519 signature is over this digest value.",
+          "description": "SHA-256 over the RFC 8785 canonical JSON UTF-8 bytes of approved_digest, authority_id, authority_role, approved_at, evidence_ref, algorithm, and key_id. The signed-message wire framing is defined by x-datarim-signature-contract.",
           "type": "string",
           "pattern": "^sha256:[0-9a-f]{64}$"
         },
-        "signature": { "type": "string", "pattern": "^ed25519:[A-Za-z0-9+/]{86}==$" }
+        "signature": {
+          "description": "The prefixed RFC 4648 standard-base64 Ed25519 signature encoded exactly as defined by x-datarim-signature-contract.",
+          "type": "string",
+          "pattern": "^ed25519:[A-Za-z0-9+/]{85}[AQgw]==$"
+        }
       }
     },
     "acceptanceTuple": {
