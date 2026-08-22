@@ -332,6 +332,9 @@ if retry!=wire: raise SystemExit("identical retry did not return byte-identical 
 try: m.provider_compare_append(context,{},provider,"append-receipt","a"*64,request,b"authority-b",[],build,"result-v1")
 except m.BootstrapError: pass
 else: raise SystemExit("changed authorization under one idempotency key was accepted")
+try: m.provider_compare_append(context,{},provider,"append-receipt","a"*64,request,auth_a,[{"kind":"receipt","locator":"foreign.json","sha256":"d"*64}],build,"result-v1")
+except m.BootstrapError: pass
+else: raise SystemExit("changed object references under one idempotency key were accepted")
 wire2=m.provider_compare_append(context,{},provider,"append-receipt","b"*64,{"operation":"append-receipt","value":"two"},auth_a,[],build,"result-v1")
 parent=subprocess.run([str(git),"--git-dir",str(remote),"rev-parse",wire2["provider_commit_oid"]+"^"],check=True,capture_output=True,text=True).stdout.strip()
 if parent!=remote_oid: raise SystemExit("second protected provider mutation was not a direct fast-forward")
