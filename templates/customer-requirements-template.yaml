@@ -3,6 +3,17 @@ requirement_set_id: reqset-0001
 created_at: "2026-01-02T10:00:00Z"
 source_remarks:
   - source_id: source-0001
+    revision: "1"
+    source_digest: sha256:dec22e8eb2925342f34286aae99363de8ac09f529e212ae56e3817959f4b70da
+    authority_approval:
+      approved_digest: sha256:dec22e8eb2925342f34286aae99363de8ac09f529e212ae56e3817959f4b70da
+      authority_id: authority-customer-0001
+      authority_role: CUSTOMER
+      approved_at: "2026-01-02T09:02:00Z"
+      evidence_ref: source-authority-approval-0001
+      algorithm: ED25519
+      key_id: key-customer-0001
+      signature: ed25519:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==
     source_tier: CUSTOMER_VERBATIM
     verbatim_quote: "The comparison must remain readable on my phone in both languages and themes."
     locale: en
@@ -13,9 +24,10 @@ source_remarks:
     tier1_assertions:
       - assertion_id: assertion-0001
         revision: "1"
-        assertion_digest: sha256:8563e7ada4eb24f48aa663fbc26e56e92e473894a31d2bf76a74e56dfc8b5c7f
+        source_digest: sha256:dec22e8eb2925342f34286aae99363de8ac09f529e212ae56e3817959f4b70da
+        assertion_digest: sha256:ce9f4fea4974a825125d08cb0f9c2c6af3b460d9ad65a96a9cbf7ae9e76f0f02
         authority_approval:
-          approved_digest: sha256:8563e7ada4eb24f48aa663fbc26e56e92e473894a31d2bf76a74e56dfc8b5c7f
+          approved_digest: sha256:ce9f4fea4974a825125d08cb0f9c2c6af3b460d9ad65a96a9cbf7ae9e76f0f02
           authority_id: authority-customer-0001
           authority_role: CUSTOMER
           approved_at: "2026-01-02T09:05:00Z"
