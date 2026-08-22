@@ -56,20 +56,29 @@ assert set(schema) == {"$defs", "$id", "$schema"}
 expected = {
     "activate_key_request", "activate_key_result", "append_receipt_request",
     "append_receipt_result", "authority_signature_envelope",
+    "activation", "activation_acceptance", "activation_finalize_result",
+    "activation_journal", "activation_prepare_result", "activation_rebind_result",
+    "activation_response", "activation_supersession",
     "authorization_result", "authorize_and_sign_request",
+    "authorization_pointer_request",
     "bootstrap_authorization", "bootstrap_policy", "bootstrap_provider_registration",
-    "bootstrap_review", "caller_signature_envelope", "caller_sign_request",
+    "bootstrap_review", "caller_signature_envelope", "caller_sign_request", "caller_spec",
     "caller_sign_result", "canonicalize_request", "canonicalize_result",
-    "common_control", "genesis_attest_request", "genesis_attest_result",
+    "catalog_parameters", "common_control", "genesis_attest_request", "genesis_attest_result",
     "genesis_bundle_request", "genesis_bundle_result", "genesis_input_invocation",
     "genesis_input_request", "genesis_input_result", "genesis_plan_request",
     "genesis_plan_result", "genesis_prepare_request", "genesis_prepare_result",
+    "genesis_invocation_authorization", "genesis_lookup", "genesis_transition_journal",
     "genesis_trust_invocation", "genesis_trust_request", "genesis_trust_result",
+    "identity_state", "immutable_authorization_request",
     "lookup_provider_operation_request", "lookup_provider_operation_result",
-    "provider_registration_manifest", "publish_blob_request", "publish_blob_result",
+    "policy_spec", "provider_registration_manifest", "provider_spec",
+    "publish_blob_request", "publish_blob_result", "recovery_cas_authorization",
+    "recovery_spec", "registry_cas_activation_prepare_ref", "registry_cas_inner_request",
+    "registry_parameters",
     "receipt_lookup_request", "receipt_lookup_result", "registry_cas_request",
     "registry_cas_result", "resolve_blob_request", "resolve_blob_result",
-    "resolve_receipt_request", "resolve_receipt_result"
+    "resolve_receipt_request", "resolve_receipt_result", "signer_spec", "source_revision"
 }
 assert set(schema["$defs"]) == expected, (set(schema["$defs"]) ^ expected)
 
@@ -95,7 +104,7 @@ PY
   require_bootstrap_source
   run bootstrap --self-test-schema
   [[ "$status" -eq 0 ]] || fail_test "self-test failed: $output"
-  [[ "$output" = "BOOTSTRAP_WIRE_SCHEMA_OK fragments=44" ]] || fail_test "unexpected self-test output: $output"
+  [[ "$output" = "BOOTSTRAP_WIRE_SCHEMA_OK fragments=69" ]] || fail_test "unexpected self-test output: $output"
 
   printf '{"input_locator":"fixture.json","input_sha256":"%064d","operation":"canonicalize","profile":"datarim-canonical-json-v1","schema_version":1,"unknown":true}\n' 0 >"$FIXTURE_DIR/unknown.json"
   run bootstrap --schema-pointer '/$defs/canonicalize_request' --validate-only unknown.json
