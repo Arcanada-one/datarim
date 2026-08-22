@@ -272,19 +272,77 @@ plural_receipt_fixture() {
         .requirements.req-0001.coverage_chain.requirement.source_quote_digests = [
           {
             "source_id": "source-0001",
-            "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            "digest": "sha256:02ea885890c5deec86bbc01bc6d5f123229ed11a38c8438c68dbc4235a415eb5"
           },
           {
             "source_id": "source-0002",
-            "digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            "digest": "sha256:e9e1afff11ff27a1422054ca44320e5cf45e7a73601a95f5fcaf1b8a43eb092f"
           }
         ] |
         del(.requirements.req-0001.coverage_chain.requirement.source_quote_digest)
     ' "$target" || return 2
 }
 
+validate_receipt_digest_contract() {
+    "$PYTHON" - "$REQUIREMENTS_SCHEMA" "$RECEIPT_SCHEMA" "$1" "$2" <<'PY'
+import hashlib
+import json
+import sys
+
+import jsonschema
+import yaml
+
+requirements_schema_path, receipt_schema_path, requirements_path, receipt_path = sys.argv[1:]
+with open(requirements_schema_path, encoding="utf-8") as handle:
+    requirements_schema = json.load(handle)
+with open(receipt_schema_path, encoding="utf-8") as handle:
+    receipt_schema = json.load(handle)
+with open(requirements_path, encoding="utf-8") as handle:
+    requirements_document = yaml.safe_load(handle)
+with open(receipt_path, encoding="utf-8") as handle:
+    receipt_document = yaml.safe_load(handle)
+
+checker = jsonschema.FormatChecker()
+jsonschema.Draft202012Validator(requirements_schema, format_checker=checker).validate(
+    requirements_document
+)
+jsonschema.Draft202012Validator(receipt_schema, format_checker=checker).validate(
+    receipt_document
+)
+
+sources = {
+    source["source_id"]: source["verbatim_quote"]
+    for source in requirements_document["source_remarks"]
+}
+for requirement_id, requirement in requirements_document["requirements"].items():
+    expected_source_ids = set(requirement["source_ids"])
+    receipt_requirement = receipt_document["requirements"][requirement_id]
+    digest_rows = receipt_requirement["coverage_chain"]["requirement"][
+        "source_quote_digests"
+    ]
+    provided = {}
+    for row in digest_rows:
+        source_id = row["source_id"]
+        if source_id in provided:
+            raise SystemExit(
+                f"SOURCE_QUOTE_DIGEST_SOURCE_DUPLICATE:{requirement_id}:{source_id}"
+            )
+        provided[source_id] = row["digest"]
+    if set(provided) != expected_source_ids:
+        raise SystemExit(f"SOURCE_QUOTE_DIGEST_SET_MISMATCH:{requirement_id}")
+    for source_id in sorted(expected_source_ids):
+        expected_digest = "sha256:" + hashlib.sha256(
+            sources[source_id].encode("utf-8")
+        ).hexdigest()
+        if provided[source_id] != expected_digest:
+            raise SystemExit(
+                f"SOURCE_QUOTE_DIGEST_CONTENT_MISMATCH:{requirement_id}:{source_id}"
+            )
+PY
+}
+
 assert_semantic_invariant_registries() {
-    "$PYTHON" - "$1" "$2" <<'PY'
+    "$PYTHON" - "$1" "$2" "$3" <<'PY'
 import json
 import sys
 
@@ -295,17 +353,83 @@ expected = {
         "invariant_ids": [
             "source-id-unique",
             "assertion-id-unique",
-            "source-requirement-assertion-bidirectional",
+            "source-requirement-bidirectional",
+            "source-assertion-bidirectional",
             "source-quote-set-exact",
-            "assertion-identity-equal",
+            "assertion-acceptance-predicate-equal",
+            "assertion-acceptance-product-equal",
+            "assertion-acceptance-surface-equal",
+            "assertion-acceptance-surface-class-equal",
             "acceptance-applicability-superset",
-            "production-evidence-identity-equal",
+            "acceptance-visitor-visible-nonweakening",
+            "acceptance-painted-applicability-nonweakening",
+            "production-acceptance-product-equal",
+            "production-acceptance-surface-equal",
+            "production-acceptance-surface-class-equal",
+            "production-acceptance-predicate-equal",
+            "production-acceptance-applicability-equal",
+            "evidence-acceptance-product-equal",
+            "evidence-acceptance-surface-equal",
+            "evidence-acceptance-surface-class-equal",
+            "evidence-acceptance-predicate-equal",
+            "evidence-acceptance-applicability-equal",
+            "knowledge-selection-id-unique-across-kinds",
+            "knowledge-selection-revision-immutable",
+            "knowledge-selection-revision-not-branch-ref",
+            "knowledge-selection-before-implementation",
+            "supersession-graph-acyclic",
         ],
     },
     sys.argv[2]: {
         "description": "Draft 2020-12 validates shape only; the deterministic customer-delivery validator must enforce every registered cross-record invariant.",
         "enforcer": "customer-delivery-validator",
-        "invariant_ids": ["receipt-source-quote-digest-set-exact"],
+        "invariant_ids": [
+            "receipt-requirement-key-equals-embedded-id",
+            "receipt-top-requirement-set-equals-embedded-id",
+            "receipt-source-quote-digest-set-exact",
+            "receipt-selected-knowledge-set-exact",
+            "receipt-implementation-task-equals-parent-task",
+            "receipt-u4-edge-declaration-exact",
+            "receipt-enabling-count-equals-list-cardinality",
+            "receipt-visible-count-equals-list-cardinality",
+            "receipt-live-product-equals-acceptance-product",
+            "receipt-live-surface-equals-acceptance-surface",
+            "receipt-live-surface-class-equals-acceptance-surface-class",
+            "receipt-live-predicate-equals-acceptance-predicate",
+            "receipt-live-applicability-equals-acceptance-applicability",
+            "receipt-live-visitor-visible-equals-acceptance-visitor-visible",
+            "receipt-zero-visible-rejected-for-user-facing",
+            "receipt-painted-matrix-set-exact",
+            "receipt-red-before-green",
+            "receipt-green-before-merge",
+            "receipt-merge-before-deploy",
+            "receipt-deploy-before-matrix-observation",
+            "receipt-matrix-observation-not-after-live-summary",
+            "receipt-deploy-before-live",
+            "receipt-live-before-disposition",
+            "receipt-merged-revision-accepted",
+            "receipt-deployed-revision-equals-merged-revision",
+            "receipt-deployed-digest-equals-merged-digest",
+            "receipt-disposition-equals-requirement-disposition",
+            "receipt-disposition-closure-exact",
+            "receipt-parent-links-complete",
+            "receipt-epic-status-derived",
+            "receipt-user-facing-parent-has-visible-child",
+        ],
+    },
+    sys.argv[3]: {
+        "description": "Draft 2020-12 validates shape only; the deterministic review-evolution validator must enforce every registered cross-record invariant.",
+        "enforcer": "review-evolution-validator",
+        "invariant_ids": [
+            "review-requirement-id-equals-product-fix-requirement-id",
+            "review-receipt-id-equals-product-fix-receipt-id",
+            "review-parent-links-complete",
+            "review-product-fix-status-equals-receipt-delivery",
+            "review-classification-canonical-change-exclusive",
+            "review-no-canon-change-evidence-approved",
+            "review-canonical-change-enforcement-red-capable",
+            "review-product-fix-substitution-prohibited",
+        ],
     },
 }
 
@@ -365,18 +489,36 @@ PY
     [ "$status" -eq 0 ]
 }
 
-@test "schemas publish the exact closed A2 semantic invariant registries" {
-    assert_semantic_invariant_registries "$REQUIREMENTS_SCHEMA" "$RECEIPT_SCHEMA"
+@test "schemas publish the exact closed A2 and A3 semantic invariant registries" {
+    assert_semantic_invariant_registries \
+        "$REQUIREMENTS_SCHEMA" "$RECEIPT_SCHEMA" "$EVOLUTION_SCHEMA"
 }
 
-@test "omitting any registered semantic invariant is detected" {
-    local requirement_mutant="$BATS_TEST_TMPDIR/requirement-without-quote-invariant.json"
-    cp "$REQUIREMENTS_SCHEMA" "$requirement_mutant" || return 1
-    yq -i 'del(."x-datarim-semantic-invariants".invariant_ids[3])' "$requirement_mutant" || return 1
+@test "deleting any registered semantic invariant is detected independently" {
+    local schema index count mutant
+    local requirement_path receipt_path evolution_path
 
-    run assert_semantic_invariant_registries "$requirement_mutant" "$RECEIPT_SCHEMA"
-    [ "$status" -eq 1 ] \
-        && [[ "$output" == *"SEMANTIC_INVARIANT_REGISTRY_MISMATCH"* ]]
+    for schema in "$REQUIREMENTS_SCHEMA" "$RECEIPT_SCHEMA" "$EVOLUTION_SCHEMA"; do
+        count=$(jq '."x-datarim-semantic-invariants".invariant_ids | length' "$schema") || return 1
+        for ((index = 0; index < count; index++)); do
+            mutant="$BATS_TEST_TMPDIR/$(basename "$schema")-$index"
+            cp "$schema" "$mutant" || return 1
+            yq -i "del(.\"x-datarim-semantic-invariants\".invariant_ids[$index])" "$mutant" || return 1
+            requirement_path="$REQUIREMENTS_SCHEMA"
+            receipt_path="$RECEIPT_SCHEMA"
+            evolution_path="$EVOLUTION_SCHEMA"
+            case "$schema" in
+                "$REQUIREMENTS_SCHEMA") requirement_path="$mutant" ;;
+                "$RECEIPT_SCHEMA") receipt_path="$mutant" ;;
+                "$EVOLUTION_SCHEMA") evolution_path="$mutant" ;;
+            esac
+            run assert_semantic_invariant_registries \
+                "$requirement_path" "$receipt_path" "$evolution_path"
+            [ "$status" -eq 1 ] \
+                && [[ "$output" == *"SEMANTIC_INVARIANT_REGISTRY_MISMATCH"* ]] \
+                || return 1
+        done
+    done
 }
 
 @test "customer requirements reject unstable requirement IDs" {
@@ -839,11 +981,102 @@ PY
         && [ "$status" -eq 1 ]
 }
 
+@test "visitor live evidence requires closed production identity fields" {
+    run reject_mutation "$RECEIPT_SCHEMA" "$RECEIPT_TEMPLATE" \
+        'del(.requirements.req-0001.coverage_chain.live_evidence.product)'
+    [ "$status" -eq 1 ] \
+        && run reject_mutation "$RECEIPT_SCHEMA" "$RECEIPT_TEMPLATE" \
+            'del(.requirements.req-0001.coverage_chain.live_evidence.predicate_id)' \
+        && [ "$status" -eq 1 ] \
+        && run reject_mutation "$RECEIPT_SCHEMA" "$RECEIPT_TEMPLATE" \
+            'del(.requirements.req-0001.coverage_chain.live_evidence.applicability)' \
+        && [ "$status" -eq 1 ]
+}
+
+@test "receipt cannot self-label unit tests and documentation as visitor evidence" {
+    run reject_mutation "$RECEIPT_SCHEMA" "$RECEIPT_TEMPLATE" \
+        '.requirements.req-0001.coverage_chain.live_evidence.method = "Unit test output and documentation review only"'
+    [ "$status" -eq 1 ]
+}
+
+@test "receipt live product and surface identities reject URLs and prose" {
+    run reject_mutation "$RECEIPT_SCHEMA" "$RECEIPT_TEMPLATE" \
+        '.requirements.req-0001.coverage_chain.live_evidence.product = "https://example.invalid/docs"'
+    [ "$status" -eq 1 ] \
+        && run reject_mutation "$RECEIPT_SCHEMA" "$RECEIPT_TEMPLATE" \
+            '.requirements.req-0001.coverage_chain.live_evidence.surface = "Unit test output and documentation review only"' \
+        && [ "$status" -eq 1 ]
+}
+
+@test "receipt visitor and non-visitor live evidence branches are structurally closed" {
+    local non_visitor="$BATS_TEST_TMPDIR/non-visitor-live-identity.yaml"
+    cp "$RECEIPT_TEMPLATE" "$non_visitor" || return 1
+    yq -i '.requirements.req-0001.coverage_chain.live_evidence.visitor_visible = false |
+        .requirements.req-0001.coverage_chain.live_evidence.observation_kind = "NON_VISITOR_CONTROL" |
+        .requirements.req-0001.coverage_chain.live_evidence.surface_class = "ENABLING" |
+        .requirements.req-0001.coverage_chain.live_evidence.environment = "CONTROL" |
+        .requirements.req-0001.coverage_chain.live_evidence.painted_matrix_applicable = false |
+        .requirements.req-0001.coverage_chain.live_evidence.not_applicable_reason = "This is an enabling delivery control." |
+        .requirements.req-0001.coverage_chain.live_evidence.applicability.painted_matrix_applicable = false |
+        .requirements.req-0001.coverage_chain.live_evidence.painted_matrix = [] |
+        .requirements.req-0001.coverage_chain.implementation_delta.visitor_visible_count = 0 |
+        .requirements.req-0001.coverage_chain.implementation_delta.visitor_visible_changes = []' "$non_visitor" || return 1
+
+    validate_yaml "$RECEIPT_SCHEMA" "$non_visitor" \
+        && run reject_mutation "$RECEIPT_SCHEMA" "$RECEIPT_TEMPLATE" \
+            '.requirements.req-0001.coverage_chain.live_evidence.environment = "CONTROL"' \
+        && [ "$status" -eq 1 ] \
+        && run reject_mutation "$RECEIPT_SCHEMA" "$RECEIPT_TEMPLATE" \
+            '.requirements.req-0001.coverage_chain.live_evidence.observation_kind = "NON_VISITOR_CONTROL"' \
+        && [ "$status" -eq 1 ]
+}
+
 @test "delivery receipt accepts plural closed source quote digests" {
     local plural="$BATS_TEST_TMPDIR/plural-source-digests.yaml"
     plural_receipt_fixture "$plural"
 
     validate_yaml "$RECEIPT_SCHEMA" "$plural"
+}
+
+@test "two-source requirement and receipt preserve exact quote digest content" {
+    local requirements="$BATS_TEST_TMPDIR/two-source-digest-requirements.yaml"
+    local receipt="$BATS_TEST_TMPDIR/two-source-digest-receipt.yaml"
+    two_source_requirement_fixture "$requirements" || return 1
+    plural_receipt_fixture "$receipt" || return 1
+
+    validate_receipt_digest_contract "$requirements" "$receipt"
+}
+
+@test "plural quote digest set rejects missing duplicate wrong and foreign rows" {
+    local requirements="$BATS_TEST_TMPDIR/digest-vector-requirements.yaml"
+    local base="$BATS_TEST_TMPDIR/digest-vector-base.yaml"
+    local missing="$BATS_TEST_TMPDIR/digest-vector-missing.yaml"
+    local duplicate="$BATS_TEST_TMPDIR/digest-vector-duplicate.yaml"
+    local wrong="$BATS_TEST_TMPDIR/digest-vector-wrong.yaml"
+    local foreign="$BATS_TEST_TMPDIR/digest-vector-foreign.yaml"
+    two_source_requirement_fixture "$requirements" || return 1
+    plural_receipt_fixture "$base" || return 1
+    cp "$base" "$missing" || return 1
+    cp "$base" "$duplicate" || return 1
+    cp "$base" "$wrong" || return 1
+    cp "$base" "$foreign" || return 1
+    yq -i 'del(.requirements.req-0001.coverage_chain.requirement.source_quote_digests[1])' "$missing" || return 1
+    yq -i '.requirements.req-0001.coverage_chain.requirement.source_quote_digests += [{"source_id": "source-0001", "digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}]' "$duplicate" || return 1
+    yq -i '.requirements.req-0001.coverage_chain.requirement.source_quote_digests[1].digest = "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"' "$wrong" || return 1
+    yq -i '.requirements.req-0001.coverage_chain.requirement.source_quote_digests += [{"source_id": "source-9999", "digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}]' "$foreign" || return 1
+
+    run validate_receipt_digest_contract "$requirements" "$missing"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"SOURCE_QUOTE_DIGEST_SET_MISMATCH:req-0001"* ]] \
+        && run validate_receipt_digest_contract "$requirements" "$duplicate" \
+        && [ "$status" -eq 1 ] \
+        && [[ "$output" == *"SOURCE_QUOTE_DIGEST_SOURCE_DUPLICATE:req-0001:source-0001"* ]] \
+        && run validate_receipt_digest_contract "$requirements" "$wrong" \
+        && [ "$status" -eq 1 ] \
+        && [[ "$output" == *"SOURCE_QUOTE_DIGEST_CONTENT_MISMATCH:req-0001:source-0002"* ]] \
+        && run validate_receipt_digest_contract "$requirements" "$foreign" \
+        && [ "$status" -eq 1 ] \
+        && [[ "$output" == *"SOURCE_QUOTE_DIGEST_SET_MISMATCH:req-0001"* ]]
 }
 
 @test "delivery receipt rejects legacy singular source quote digest" {
@@ -887,6 +1120,7 @@ PY
     local non_applicable="$BATS_TEST_TMPDIR/non-applicable-painted.yaml"
     cp "$RECEIPT_TEMPLATE" "$non_applicable" || return 1
     yq -i '.requirements.req-0001.coverage_chain.live_evidence.painted_matrix_applicable = false |
+        .requirements.req-0001.coverage_chain.live_evidence.applicability.painted_matrix_applicable = false |
         .requirements.req-0001.coverage_chain.live_evidence.not_applicable_reason = "This surface has no painted locale, viewport, or theme variants." |
         .requirements.req-0001.coverage_chain.live_evidence.painted_matrix = []' "$non_applicable" || return 1
 
@@ -916,7 +1150,11 @@ PY
     yq -i '.requirements.req-0001.coverage_chain.implementation_delta.visitor_visible_count = 0 |
         .requirements.req-0001.coverage_chain.implementation_delta.visitor_visible_changes = [] |
         .requirements.req-0001.coverage_chain.live_evidence.visitor_visible = false |
+        .requirements.req-0001.coverage_chain.live_evidence.observation_kind = "NON_VISITOR_CONTROL" |
+        .requirements.req-0001.coverage_chain.live_evidence.surface_class = "ENABLING" |
+        .requirements.req-0001.coverage_chain.live_evidence.environment = "CONTROL" |
         .requirements.req-0001.coverage_chain.live_evidence.painted_matrix_applicable = false |
+        .requirements.req-0001.coverage_chain.live_evidence.applicability.painted_matrix_applicable = false |
         .requirements.req-0001.coverage_chain.live_evidence.not_applicable_reason = "This requirement changes an internal delivery control only." |
         .requirements.req-0001.coverage_chain.live_evidence.painted_matrix = []' "$non_visitor_receipt" || return 1
     cp "$non_visitor_receipt" "$false_visitor_claim" || return 1
@@ -941,7 +1179,7 @@ import sys
 with open(sys.argv[1], encoding="utf-8") as handle:
     schema = json.load(handle)
 
-matrix_rules = schema["$defs"]["liveEvidence"]["allOf"][0]["then"]["properties"]["painted_matrix"]["allOf"]
+matrix_rules = schema["$defs"]["liveEvidence"]["allOf"][1]["then"]["properties"]["painted_matrix"]["allOf"]
 actual = [rule["contains"]["$ref"] for rule in matrix_rules]
 expected = [
     "#/$defs/ruMobileLight",
@@ -971,7 +1209,7 @@ PY
         .requirements.req-0001.coverage_chain.live_evidence.painted_matrix[7].theme = "light"' "$duplicate_combination" || return 1
     # $defs is the literal JSON Schema key.
     # shellcheck disable=SC2016
-    yq -i 'del(."$defs".liveEvidence.allOf[0].then.properties.painted_matrix.allOf[7])' "$schema_mutant" || return 1
+    yq -i 'del(."$defs".liveEvidence.allOf[1].then.properties.painted_matrix.allOf[7])' "$schema_mutant" || return 1
 
     run reject_mutation "$RECEIPT_SCHEMA" "$RECEIPT_TEMPLATE" \
         'del(.requirements.req-0001.coverage_chain.live_evidence.painted_matrix[7])'
