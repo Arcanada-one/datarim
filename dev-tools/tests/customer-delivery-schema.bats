@@ -116,6 +116,16 @@ for source_id, source in sources.items():
 
 for requirement_id, requirement in requirements.items():
     acceptance = requirement["acceptance"]
+    for knowledge_kind, selections in acceptance["knowledge_selection"].items():
+        for selection in selections:
+            for identity_field in ("id", "revision"):
+                identity_value = selection[identity_field]
+                if identity_value.casefold() in {"gap", "unbound"}:
+                    raise SystemExit(
+                        "KNOWLEDGE_SELECTION_GAP_UNBOUND:"
+                        f"{requirement_id}:{knowledge_kind}:{identity_field}:"
+                        f"{identity_value}"
+                    )
     for source_id in requirement["source_ids"]:
         if source_id not in sources:
             raise SystemExit(f"TIER1_SOURCE_DANGLING:{requirement_id}:{source_id}")
@@ -341,6 +351,18 @@ for requirement_id, requirement in requirements_document["requirements"].items()
 PY
 }
 
+validate_review_closure_contract() {
+    local review_state="$1"
+    local requested_task_state="$2"
+
+    case "$review_state:$requested_task_state" in
+        OPEN:CLOSED|CHANGES_REQUESTED:CLOSED)
+            echo "ORIGINATING_REVIEW_BLOCKS_CLOSURE:${review_state}"
+            return 1
+            ;;
+    esac
+}
+
 assert_semantic_invariant_registries() {
     "$PYTHON" - "$1" "$2" "$3" <<'PY'
 import json
@@ -376,6 +398,7 @@ expected = {
             "knowledge-selection-id-unique-across-kinds",
             "knowledge-selection-revision-immutable",
             "knowledge-selection-revision-not-branch-ref",
+            "knowledge-selection-gap-unbound-prohibited",
             "knowledge-selection-before-implementation",
             "supersession-graph-acyclic",
         ],
@@ -413,6 +436,7 @@ expected = {
             "receipt-disposition-equals-requirement-disposition",
             "receipt-disposition-closure-exact",
             "receipt-parent-links-complete",
+            "review-open-or-changes-requested-blocks-closure",
             "receipt-epic-status-derived",
             "receipt-user-facing-parent-has-visible-child",
         ],
@@ -424,6 +448,7 @@ expected = {
             "review-requirement-id-equals-product-fix-requirement-id",
             "review-receipt-id-equals-product-fix-receipt-id",
             "review-parent-links-complete",
+            "review-open-or-changes-requested-blocks-closure",
             "review-product-fix-status-equals-receipt-delivery",
             "review-classification-canonical-change-exclusive",
             "review-no-canon-change-evidence-approved",
@@ -563,6 +588,24 @@ PY
         && [ "$status" -eq 1 ]
 }
 
+@test "Gap and Unbound knowledge cannot self-label product delivery in any kind or identity field" {
+    local kind field sentinel
+    for kind in roles skills blueprints constraints policies success_criteria; do
+        for field in id revision; do
+            for sentinel in Gap Unbound; do
+                run reject_contract_mutation \
+                    ".requirements.req-0001.acceptance.knowledge_selection.${kind}[0].${field} = \"${sentinel}\""
+                [ "$status" -eq 1 ] \
+                    && [[ "$output" == *"KNOWLEDGE_SELECTION_GAP_UNBOUND:req-0001:${kind}:${field}:${sentinel}"* ]] \
+                    || {
+                        echo "accepted prohibited knowledge sentinel: ${kind}.${field}=${sentinel}" >&2
+                        return 1
+                    }
+            done
+        done
+    done
+}
+
 @test "date-time fields use strict RFC3339 while accepting Z and numeric offsets" {
     local offset="$BATS_TEST_TMPDIR/rfc3339-offset.yaml"
     cp "$REQUIREMENTS_TEMPLATE" "$offset" || return 1
@@ -679,6 +722,137 @@ PY
     '
     [ "$status" -eq 1 ] \
         && [[ "$output" == *"surface"* ]]
+}
+
+@test "each product identity call site independently rejects an invalid slug" {
+    local label expression
+    while IFS='|' read -r label expression; do
+        run reject_contract_mutation "$expression"
+        [ "$status" -eq 1 ] || {
+            echo "product slug call site accepted invalid identity: $label" >&2
+            return 1
+        }
+    done <<'CASES'
+source-assertion|.source_remarks[0].tier1_assertions[0].product = "https://example.invalid/docs"
+acceptance|.requirements.req-0001.acceptance.product = "https://example.invalid/docs"
+production-assertion|.requirements.req-0001.acceptance.production_assertion.product = "https://example.invalid/docs"
+evidence-method|.requirements.req-0001.acceptance.evidence.method.product = "https://example.invalid/docs"
+CASES
+}
+
+@test "each surface identity call site independently rejects invalid prose" {
+    local label expression
+    while IFS='|' read -r label expression; do
+        run reject_contract_mutation "$expression"
+        [ "$status" -eq 1 ] || {
+            echo "surface slug call site accepted invalid identity: $label" >&2
+            return 1
+        }
+    done <<'CASES'
+source-assertion|.source_remarks[0].tier1_assertions[0].surface = "Unit test output and documentation review only"
+acceptance|.requirements.req-0001.acceptance.surface = "Unit test output and documentation review only"
+production-assertion|.requirements.req-0001.acceptance.production_assertion.surface = "Unit test output and documentation review only"
+evidence-method|.requirements.req-0001.acceptance.evidence.method.surface = "Unit test output and documentation review only"
+CASES
+}
+
+@test "each dedicated slug vector kills relaxation of its own schema reference" {
+    "$PYTHON" - "$REQUIREMENTS_SCHEMA" "$REQUIREMENTS_TEMPLATE" <<'PY'
+import copy
+import json
+import sys
+
+import jsonschema
+import yaml
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    schema = json.load(handle)
+with open(sys.argv[2], encoding="utf-8") as handle:
+    template = yaml.safe_load(handle)
+
+cases = [
+    (
+        "source-assertion-product",
+        ("$defs", "tier1Assertion", "properties", "product"),
+        ("source_remarks", 0, "tier1_assertions", 0, "product"),
+        "https://example.invalid/docs",
+    ),
+    (
+        "acceptance-product",
+        ("$defs", "acceptanceTuple", "properties", "product"),
+        ("requirements", "req-0001", "acceptance", "product"),
+        "https://example.invalid/docs",
+    ),
+    (
+        "production-product",
+        ("$defs", "productionAssertion", "properties", "product"),
+        ("requirements", "req-0001", "acceptance", "production_assertion", "product"),
+        "https://example.invalid/docs",
+    ),
+    (
+        "evidence-product",
+        ("$defs", "visitorEvidenceMethod", "properties", "product"),
+        ("requirements", "req-0001", "acceptance", "evidence", "method", "product"),
+        "https://example.invalid/docs",
+    ),
+    (
+        "source-assertion-surface",
+        ("$defs", "tier1Assertion", "properties", "surface"),
+        ("source_remarks", 0, "tier1_assertions", 0, "surface"),
+        "Unit test output and documentation review only",
+    ),
+    (
+        "acceptance-surface",
+        ("$defs", "acceptanceTuple", "properties", "surface"),
+        ("requirements", "req-0001", "acceptance", "surface"),
+        "Unit test output and documentation review only",
+    ),
+    (
+        "production-surface",
+        ("$defs", "productionAssertion", "properties", "surface"),
+        ("requirements", "req-0001", "acceptance", "production_assertion", "surface"),
+        "Unit test output and documentation review only",
+    ),
+    (
+        "evidence-surface",
+        ("$defs", "visitorEvidenceMethod", "properties", "surface"),
+        ("requirements", "req-0001", "acceptance", "evidence", "method", "surface"),
+        "Unit test output and documentation review only",
+    ),
+]
+
+for label, schema_path, instance_path, invalid_value in cases:
+    mutant_schema = copy.deepcopy(schema)
+    schema_node = mutant_schema
+    for part in schema_path[:-1]:
+        schema_node = schema_node[part]
+    if schema_node[schema_path[-1]] not in (
+        {"$ref": "#/$defs/productIdentity"},
+        {"$ref": "#/$defs/surfaceIdentity"},
+    ):
+        raise SystemExit(f"unexpected identity reference at {label}")
+    schema_node[schema_path[-1]] = {"type": "string"}
+
+    invalid_instance = copy.deepcopy(template)
+    instance_node = invalid_instance
+    for part in instance_path[:-1]:
+        instance_node = instance_node[part]
+    instance_node[instance_path[-1]] = invalid_value
+
+    try:
+        jsonschema.Draft202012Validator(schema).validate(invalid_instance)
+    except jsonschema.ValidationError:
+        pass
+    else:
+        raise SystemExit(f"baseline did not reject dedicated vector: {label}")
+
+    try:
+        jsonschema.Draft202012Validator(mutant_schema).validate(invalid_instance)
+    except jsonschema.ValidationError as exc:
+        raise SystemExit(
+            f"dedicated vector did not kill relaxed reference: {label}: {exc.message}"
+        ) from None
+PY
 }
 
 @test "visitor-visible tier-one assertion cannot become non-visitor acceptance" {
@@ -1275,4 +1449,16 @@ PY
         && run reject_mutation "$EVOLUTION_SCHEMA" "$EVOLUTION_TEMPLATE" \
             '.parent_links[0].state = "complete"' \
         && [ "$status" -eq 1 ]
+}
+
+@test "open or changes-requested originating review blocks closure" {
+    local review_state
+    for review_state in OPEN CHANGES_REQUESTED; do
+        run validate_review_closure_contract "$review_state" CLOSED
+        [ "$status" -eq 1 ] \
+            && [[ "$output" == *"ORIGINATING_REVIEW_BLOCKS_CLOSURE:${review_state}"* ]] \
+            || return 1
+    done
+
+    validate_review_closure_contract APPROVED CLOSED
 }

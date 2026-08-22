@@ -32,6 +32,7 @@
       "knowledge-selection-id-unique-across-kinds",
       "knowledge-selection-revision-immutable",
       "knowledge-selection-revision-not-branch-ref",
+      "knowledge-selection-gap-unbound-prohibited",
       "knowledge-selection-before-implementation",
       "supersession-graph-acyclic"
     ]
