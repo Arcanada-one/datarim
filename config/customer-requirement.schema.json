@@ -12,6 +12,12 @@
       "source-requirement-bidirectional",
       "source-assertion-bidirectional",
       "source-quote-set-exact",
+      "tier1-assertion-canonical-digest-valid",
+      "tier1-assertion-approval-digest-equals-assertion-digest",
+      "tier1-assertion-signature-valid",
+      "tier1-authority-approval-before-implementation",
+      "tier1-assertion-correction-append-only",
+      "source-verbatim-to-assertion-authority-approval-required",
       "assertion-acceptance-predicate-equal",
       "assertion-acceptance-product-equal",
       "assertion-acceptance-surface-equal",
@@ -29,11 +35,17 @@
       "evidence-acceptance-surface-class-equal",
       "evidence-acceptance-predicate-equal",
       "evidence-acceptance-applicability-equal",
+      "rendered-test-acceptance-product-equal",
+      "rendered-test-acceptance-surface-equal",
+      "rendered-test-acceptance-predicate-equal",
+      "rendered-test-acceptance-applicability-equal",
+      "rendered-test-observed-after-implementation-start",
       "knowledge-selection-id-unique-across-kinds",
       "knowledge-selection-revision-immutable",
       "knowledge-selection-revision-not-branch-ref",
       "knowledge-selection-gap-unbound-prohibited",
       "knowledge-selection-before-implementation",
+      "supersession-target-exists",
       "supersession-graph-acyclic"
     ]
   },
@@ -117,6 +129,9 @@
       "additionalProperties": false,
       "required": [
         "assertion_id",
+        "revision",
+        "assertion_digest",
+        "authority_approval",
         "requirement_id",
         "predicate_id",
         "product",
@@ -128,6 +143,13 @@
       ],
       "properties": {
         "assertion_id": { "type": "string", "pattern": "^assertion-[0-9]{4}$" },
+        "revision": { "type": "string", "pattern": "^[1-9][0-9]*$" },
+        "assertion_digest": {
+          "description": "SHA-256 over UTF-8 JSON of every assertion field except assertion_digest and authority_approval, with keys sorted and compact comma/colon separators.",
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "authority_approval": { "$ref": "#/$defs/authorityApproval" },
         "requirement_id": { "type": "string", "pattern": "^req-[0-9]{4}$" },
         "predicate_id": { "type": "string", "pattern": "^predicate-[a-z0-9][a-z0-9-]*$" },
         "product": { "$ref": "#/$defs/productIdentity" },
@@ -147,6 +169,31 @@
           "else": { "properties": { "surface_class": { "const": "ENABLING" } } }
         }
       ]
+    },
+    "authorityApproval": {
+      "description": "A signed authority approval over the canonical Tier-1 assertion digest. Cryptographic verification and append-only revision history are enforced by the registered validator.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "approved_digest",
+        "authority_id",
+        "authority_role",
+        "approved_at",
+        "evidence_ref",
+        "algorithm",
+        "key_id",
+        "signature"
+      ],
+      "properties": {
+        "approved_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "authority_id": { "type": "string", "pattern": "^authority-[a-z0-9][a-z0-9-]*$" },
+        "authority_role": { "enum": ["CUSTOMER", "OPERATOR"] },
+        "approved_at": { "type": "string", "format": "date-time" },
+        "evidence_ref": { "type": "string", "minLength": 1 },
+        "algorithm": { "const": "ED25519" },
+        "key_id": { "type": "string", "pattern": "^key-[a-z0-9][a-z0-9-]*$" },
+        "signature": { "type": "string", "pattern": "^ed25519:[A-Za-z0-9+/]{86}==$" }
+      }
     },
     "acceptanceTuple": {
       "type": "object",
@@ -184,9 +231,10 @@
         "after_state": { "type": "string", "minLength": 1 },
         "evidence": { "$ref": "#/$defs/evidencePlan" },
         "knowledge_selection": { "$ref": "#/$defs/knowledgeSelection" },
-        "implementation": { "$ref": "#/$defs/implementationScope" },
-        "visitor_visible": { "type": "boolean" },
-        "production_assertion": { "$ref": "#/$defs/productionAssertion" },
+      "implementation": { "$ref": "#/$defs/implementationScope" },
+      "visitor_visible": { "type": "boolean" },
+      "rendered_test_evidence": { "$ref": "#/$defs/renderedTestEvidence" },
+      "production_assertion": { "$ref": "#/$defs/productionAssertion" },
         "disposition": { "$ref": "#/$defs/disposition" },
         "superseded_by": { "type": "string", "pattern": "^req-[0-9]{4}$" }
       },
@@ -197,7 +245,7 @@
             "required": ["visitor_visible"]
           },
           "then": {
-            "required": ["production_assertion"],
+            "required": ["rendered_test_evidence", "production_assertion"],
             "properties": {
               "evidence": {
                 "properties": {
@@ -207,7 +255,10 @@
             }
           },
           "else": {
-            "not": { "required": ["production_assertion"] },
+            "allOf": [
+              { "not": { "required": ["rendered_test_evidence"] } },
+              { "not": { "required": ["production_assertion"] } }
+            ],
             "properties": {
               "evidence": {
                 "properties": {
@@ -368,6 +419,33 @@
         "environment": { "const": "PRODUCTION" }
       }
     },
+    "renderedTestEvidence": {
+      "description": "Mandatory supporting rendered TEST evidence for visitor-visible acceptance; it cannot replace the production assertion or live receipt evidence.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "environment",
+        "product",
+        "surface",
+        "predicate_id",
+        "applicability",
+        "baseline_ref",
+        "candidate_ref",
+        "observed_at",
+        "owner"
+      ],
+      "properties": {
+        "environment": { "const": "TEST" },
+        "product": { "$ref": "#/$defs/productIdentity" },
+        "surface": { "$ref": "#/$defs/surfaceIdentity" },
+        "predicate_id": { "type": "string", "pattern": "^predicate-[a-z0-9][a-z0-9-]*$" },
+        "applicability": { "$ref": "#/$defs/identityApplicability" },
+        "baseline_ref": { "type": "string", "minLength": 1 },
+        "candidate_ref": { "type": "string", "minLength": 1 },
+        "observed_at": { "type": "string", "format": "date-time" },
+        "owner": { "type": "string", "minLength": 1 }
+      }
+    },
     "productionAssertion": {
       "description": "A closed visitor-observation identity bound to the source-owned predicate and accepted production scope, not an enabling artifact or prose claim.",
       "type": "object",
@@ -420,14 +498,32 @@
     "implementationScope": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["task_id", "code_revision", "content_revision", "environment", "started_at"],
+      "required": ["task_id", "code_revision", "content_revision", "code_paths", "content_paths", "environment", "started_at"],
       "properties": {
         "task_id": { "type": "string", "pattern": "^task:[a-z][a-z0-9-]*:[0-9]{4}$" },
         "code_revision": { "type": "string", "minLength": 1 },
         "content_revision": { "type": "string", "minLength": 1 },
+        "code_paths": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/relativePath" }
+        },
+        "content_paths": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/relativePath" }
+        },
         "environment": { "type": "string", "minLength": 1 },
         "started_at": { "type": "string", "format": "date-time" }
-      }
+      },
+      "anyOf": [
+        { "properties": { "code_paths": { "minItems": 1 } } },
+        { "properties": { "content_paths": { "minItems": 1 } } }
+      ]
+    },
+    "relativePath": {
+      "type": "string",
+      "pattern": "^(?!.*(?:^|/)\\.\\.?(?:/|$))[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$"
     },
     "disposition": {
       "enum": ["pending", "accepted", "rejected", "superseded"]

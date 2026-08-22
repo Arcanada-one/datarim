@@ -63,10 +63,44 @@ structured_requirement_fixture() {
     cp "$REQUIREMENTS_TEMPLATE" "$target" || return 2
 }
 
-validate_requirement_contract() {
-    "$PYTHON" - "$REQUIREMENTS_SCHEMA" "$1" <<'PY'
+refresh_assertion_digests() {
+    "$PYTHON" - "$1" <<'PY'
+import hashlib
 import json
 import sys
+
+import yaml
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as handle:
+    document = yaml.safe_load(handle)
+for source in document["source_remarks"]:
+    for assertion in source["tier1_assertions"]:
+        payload = {
+            key: value
+            for key, value in assertion.items()
+            if key not in {"assertion_digest", "authority_approval"}
+        }
+        canonical = json.dumps(
+            payload,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        digest = "sha256:" + hashlib.sha256(canonical).hexdigest()
+        assertion["assertion_digest"] = digest
+        assertion["authority_approval"]["approved_digest"] = digest
+with open(path, "w", encoding="utf-8") as handle:
+    yaml.safe_dump(document, handle, allow_unicode=True, sort_keys=False)
+PY
+}
+
+validate_requirement_contract() {
+    "$PYTHON" - "$REQUIREMENTS_SCHEMA" "$1" <<'PY'
+import hashlib
+import json
+import sys
+from datetime import datetime
 
 import jsonschema
 import yaml
@@ -149,6 +183,39 @@ for requirement_id, requirement in requirements.items():
         raise SystemExit(
             f"TIER1_ASSERTION_REPLACED:{requirement_id}:{assertion_id}"
         )
+    implementation_started_at = datetime.fromisoformat(
+        acceptance["implementation"]["started_at"].replace("Z", "+00:00")
+    )
+    for linked_assertion_id in referenced_assertion_ids:
+        _, linked_assertion = assertions[linked_assertion_id]
+        canonical_payload = {
+            key: value
+            for key, value in linked_assertion.items()
+            if key not in {"assertion_digest", "authority_approval"}
+        }
+        canonical_bytes = json.dumps(
+            canonical_payload,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        expected_digest = "sha256:" + hashlib.sha256(canonical_bytes).hexdigest()
+        if linked_assertion["assertion_digest"] != expected_digest:
+            raise SystemExit(
+                f"TIER1_ASSERTION_DIGEST_MISMATCH:{linked_assertion_id}"
+            )
+        approval = linked_assertion["authority_approval"]
+        if approval["approved_digest"] != linked_assertion["assertion_digest"]:
+            raise SystemExit(
+                f"TIER1_APPROVAL_DIGEST_MISMATCH:{linked_assertion_id}"
+            )
+        approved_at = datetime.fromisoformat(
+            approval["approved_at"].replace("Z", "+00:00")
+        )
+        if approved_at >= implementation_started_at:
+            raise SystemExit(
+                f"TIER1_APPROVAL_NOT_BEFORE_IMPLEMENTATION:{linked_assertion_id}"
+            )
     provided_quotes = {}
     for quote_row in acceptance["exact_source_quotes"]:
         source_id = quote_row["source_id"]
@@ -234,6 +301,39 @@ for requirement_id, requirement in requirements.items():
             raise SystemExit(
                 f"VISITOR_METHOD_SCOPE_CHANGED:{requirement_id}:painted"
             )
+
+    rendered_test = acceptance.get("rendered_test_evidence")
+    if rendered_test is not None:
+        for identity in ("product", "surface", "predicate_id"):
+            if rendered_test[identity] != acceptance[identity]:
+                raise SystemExit(
+                    f"RENDERED_TEST_IDENTITY_CHANGED:{requirement_id}:{identity}"
+                )
+        rendered_scope = rendered_test["applicability"]
+        for dimension in ("locales", "viewports", "themes"):
+            if set(rendered_scope[dimension]) != set(accepted_scope[dimension]):
+                raise SystemExit(
+                    f"RENDERED_TEST_SCOPE_CHANGED:{requirement_id}:{dimension}"
+                )
+        if (
+            rendered_scope["painted_matrix_applicable"]
+            != accepted_scope["painted_matrix_applicable"]
+        ):
+            raise SystemExit(
+                f"RENDERED_TEST_SCOPE_CHANGED:{requirement_id}:painted"
+            )
+        rendered_at = datetime.fromisoformat(
+            rendered_test["observed_at"].replace("Z", "+00:00")
+        )
+        if rendered_at < implementation_started_at:
+            raise SystemExit(f"RENDERED_TEST_BEFORE_IMPLEMENTATION:{requirement_id}")
+
+    if acceptance["disposition"] == "superseded":
+        superseded_by = acceptance["superseded_by"]
+        if superseded_by not in requirements:
+            raise SystemExit(
+                f"SUPERSESSION_TARGET_DANGLING:{requirement_id}:{superseded_by}"
+            )
 PY
 }
 
@@ -272,6 +372,7 @@ two_source_requirement_fixture() {
         ] |
         del(.requirements.req-0001.acceptance.exact_source_quote)
     ' "$target" || return 2
+    refresh_assertion_digests "$target" || return 2
 }
 
 plural_receipt_fixture() {
@@ -363,6 +464,87 @@ validate_review_closure_contract() {
     esac
 }
 
+validate_requirement_receipt_key_contract() {
+    "$PYTHON" - "$REQUIREMENTS_SCHEMA" "$RECEIPT_SCHEMA" "$1" "$2" <<'PY'
+import json
+import sys
+
+import jsonschema
+import yaml
+
+requirements_schema_path, receipt_schema_path, requirements_path, receipt_path = sys.argv[1:]
+with open(requirements_schema_path, encoding="utf-8") as handle:
+    requirements_schema = json.load(handle)
+with open(receipt_schema_path, encoding="utf-8") as handle:
+    receipt_schema = json.load(handle)
+with open(requirements_path, encoding="utf-8") as handle:
+    requirements_document = yaml.safe_load(handle)
+with open(receipt_path, encoding="utf-8") as handle:
+    receipt_document = yaml.safe_load(handle)
+
+checker = jsonschema.FormatChecker()
+jsonschema.Draft202012Validator(requirements_schema, format_checker=checker).validate(
+    requirements_document
+)
+jsonschema.Draft202012Validator(receipt_schema, format_checker=checker).validate(
+    receipt_document
+)
+requirement_keys = set(requirements_document["requirements"])
+receipt_keys = set(receipt_document["requirements"])
+if requirement_keys != receipt_keys:
+    difference = sorted(requirement_keys ^ receipt_keys)
+    raise SystemExit(f"REQUIREMENT_RECEIPT_KEY_SET_MISMATCH:{','.join(difference)}")
+PY
+}
+
+validate_acceptance_receipt_authority_contract() {
+    "$PYTHON" - "$REQUIREMENTS_SCHEMA" "$RECEIPT_SCHEMA" "$1" "$2" <<'PY'
+import json
+import sys
+from datetime import datetime
+
+import jsonschema
+import yaml
+
+requirements_schema_path, receipt_schema_path, requirements_path, receipt_path = sys.argv[1:]
+with open(requirements_schema_path, encoding="utf-8") as handle:
+    requirements_schema = json.load(handle)
+with open(receipt_schema_path, encoding="utf-8") as handle:
+    receipt_schema = json.load(handle)
+with open(requirements_path, encoding="utf-8") as handle:
+    requirements_document = yaml.safe_load(handle)
+with open(receipt_path, encoding="utf-8") as handle:
+    receipt_document = yaml.safe_load(handle)
+
+checker = jsonschema.FormatChecker()
+jsonschema.Draft202012Validator(requirements_schema, format_checker=checker).validate(
+    requirements_document
+)
+jsonschema.Draft202012Validator(receipt_schema, format_checker=checker).validate(
+    receipt_document
+)
+for requirement_id, requirement in requirements_document["requirements"].items():
+    acceptance = requirement["acceptance"]
+    receipt_chain = receipt_document["requirements"][requirement_id]["coverage_chain"]
+    disposition = receipt_chain["customer_disposition"]
+    if (
+        acceptance["visitor_visible"]
+        and disposition["authority"]["authority_role"] != "OPERATOR"
+    ):
+        raise SystemExit(
+            f"VISITOR_DISPOSITION_OPERATOR_REQUIRED:{requirement_id}"
+        )
+    rendered_at = datetime.fromisoformat(
+        acceptance["rendered_test_evidence"]["observed_at"].replace("Z", "+00:00")
+    )
+    live_at = datetime.fromisoformat(
+        receipt_chain["live_evidence"]["observed_at"].replace("Z", "+00:00")
+    )
+    if rendered_at > live_at:
+        raise SystemExit(f"RENDERED_TEST_AFTER_LIVE_EVIDENCE:{requirement_id}")
+PY
+}
+
 assert_semantic_invariant_registries() {
     "$PYTHON" - "$1" "$2" "$3" <<'PY'
 import json
@@ -378,6 +560,12 @@ expected = {
             "source-requirement-bidirectional",
             "source-assertion-bidirectional",
             "source-quote-set-exact",
+            "tier1-assertion-canonical-digest-valid",
+            "tier1-assertion-approval-digest-equals-assertion-digest",
+            "tier1-assertion-signature-valid",
+            "tier1-authority-approval-before-implementation",
+            "tier1-assertion-correction-append-only",
+            "source-verbatim-to-assertion-authority-approval-required",
             "assertion-acceptance-predicate-equal",
             "assertion-acceptance-product-equal",
             "assertion-acceptance-surface-equal",
@@ -395,11 +583,17 @@ expected = {
             "evidence-acceptance-surface-class-equal",
             "evidence-acceptance-predicate-equal",
             "evidence-acceptance-applicability-equal",
+            "rendered-test-acceptance-product-equal",
+            "rendered-test-acceptance-surface-equal",
+            "rendered-test-acceptance-predicate-equal",
+            "rendered-test-acceptance-applicability-equal",
+            "rendered-test-observed-after-implementation-start",
             "knowledge-selection-id-unique-across-kinds",
             "knowledge-selection-revision-immutable",
             "knowledge-selection-revision-not-branch-ref",
             "knowledge-selection-gap-unbound-prohibited",
             "knowledge-selection-before-implementation",
+            "supersession-target-exists",
             "supersession-graph-acyclic",
         ],
     },
@@ -408,6 +602,7 @@ expected = {
         "enforcer": "customer-delivery-validator",
         "invariant_ids": [
             "receipt-requirement-key-equals-embedded-id",
+            "receipt-requirement-key-set-equals-requirement-document-key-set",
             "receipt-top-requirement-set-equals-embedded-id",
             "receipt-source-quote-digest-set-exact",
             "receipt-selected-knowledge-set-exact",
@@ -430,11 +625,13 @@ expected = {
             "receipt-matrix-observation-not-after-live-summary",
             "receipt-deploy-before-live",
             "receipt-live-before-disposition",
+            "receipt-rendered-test-before-live-evidence",
             "receipt-merged-revision-accepted",
             "receipt-deployed-revision-equals-merged-revision",
             "receipt-deployed-digest-equals-merged-digest",
             "receipt-disposition-equals-requirement-disposition",
             "receipt-disposition-closure-exact",
+            "receipt-visitor-acceptance-authority-role-operator",
             "receipt-parent-links-complete",
             "review-open-or-changes-requested-blocks-closure",
             "receipt-epic-status-derived",
@@ -588,6 +785,22 @@ PY
         && [ "$status" -eq 1 ]
 }
 
+@test "implementation scope requires normalized code and content path declarations" {
+    run reject_contract_mutation \
+        'del(.requirements.req-0001.acceptance.implementation.code_paths)'
+    [ "$status" -eq 1 ] \
+        && run reject_contract_mutation \
+            '.requirements.req-0001.acceptance.implementation.code_paths = [] |
+             .requirements.req-0001.acceptance.implementation.content_paths = []' \
+        && [ "$status" -eq 1 ] \
+        && run reject_contract_mutation \
+            '.requirements.req-0001.acceptance.implementation.code_paths = ["/absolute/path.ts"]' \
+        && [ "$status" -eq 1 ] \
+        && run reject_contract_mutation \
+            '.requirements.req-0001.acceptance.implementation.content_paths = ["content/../escape.md"]' \
+        && [ "$status" -eq 1 ]
+}
+
 @test "Gap and Unbound knowledge cannot self-label product delivery in any kind or identity field" {
     local kind field sentinel
     for kind in roles skills blueprints constraints policies success_criteria; do
@@ -633,21 +846,51 @@ PY
         .source_remarks[0].tier1_assertions[0].applicability.viewports = ["mobile"] |
         .source_remarks[0].tier1_assertions[0].applicability.themes = ["light"]
     ' "$structured" || return 1
+    refresh_assertion_digests "$structured" || return 1
 
     validate_requirement_contract "$structured"
 }
 
-@test "narrowing requirement-owned and acceptance scope cannot replace source authority" {
+@test "unchanged source digest rejects coordinated assertion and acceptance narrowing" {
     run reject_contract_mutation '
-        .requirements.req-0001.tier1_assertion = .source_remarks[0].tier1_assertions[0] |
-        .requirements.req-0001.tier1_assertion.applicability.locales = ["en"] |
-        .requirements.req-0001.tier1_assertion.applicability.viewports = ["desktop"] |
-        .requirements.req-0001.tier1_assertion.applicability.themes = ["light"] |
+        .source_remarks[0].tier1_assertions[0].applicability.locales = ["en"] |
+        .source_remarks[0].tier1_assertions[0].applicability.viewports = ["desktop"] |
+        .source_remarks[0].tier1_assertions[0].applicability.themes = ["light"] |
         .requirements.req-0001.acceptance.applicability.locales = ["en"] |
         .requirements.req-0001.acceptance.applicability.viewports = ["desktop"] |
-        .requirements.req-0001.acceptance.applicability.themes = ["light"]
+        .requirements.req-0001.acceptance.applicability.themes = ["light"] |
+        .requirements.req-0001.acceptance.production_assertion.applicability.locales = ["en"] |
+        .requirements.req-0001.acceptance.production_assertion.applicability.viewports = ["desktop"] |
+        .requirements.req-0001.acceptance.production_assertion.applicability.themes = ["light"] |
+        .requirements.req-0001.acceptance.evidence.method.applicability.locales = ["en"] |
+        .requirements.req-0001.acceptance.evidence.method.applicability.viewports = ["desktop"] |
+        .requirements.req-0001.acceptance.evidence.method.applicability.themes = ["light"]
     '
-    [ "$status" -eq 1 ]
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"TIER1_ASSERTION_DIGEST_MISMATCH:assertion-0001"* ]]
+}
+
+@test "source-owned assertion requires immutable digest and signed authority approval" {
+    run reject_contract_mutation \
+        'del(.source_remarks[0].tier1_assertions[0].revision)'
+    [ "$status" -eq 1 ] \
+        && run reject_contract_mutation \
+            'del(.source_remarks[0].tier1_assertions[0].assertion_digest)' \
+        && [ "$status" -eq 1 ] \
+        && run reject_contract_mutation \
+            'del(.source_remarks[0].tier1_assertions[0].authority_approval)' \
+        && [ "$status" -eq 1 ] \
+        && run reject_contract_mutation \
+            '.source_remarks[0].tier1_assertions[0].authority_approval.signature = "not-a-signature"' \
+        && [ "$status" -eq 1 ] \
+        && run reject_contract_mutation \
+            '.source_remarks[0].tier1_assertions[0].authority_approval.approved_digest = "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"' \
+        && [ "$status" -eq 1 ] \
+        && [[ "$output" == *"TIER1_APPROVAL_DIGEST_MISMATCH:assertion-0001"* ]] \
+        && run reject_contract_mutation \
+            '.source_remarks[0].tier1_assertions[0].authority_approval.approved_at = "2026-01-02T10:00:00Z"' \
+        && [ "$status" -eq 1 ] \
+        && [[ "$output" == *"TIER1_APPROVAL_NOT_BEFORE_IMPLEMENTATION:assertion-0001"* ]]
 }
 
 @test "preserved quote cannot hide dropped RU acceptance scope" {
@@ -861,6 +1104,7 @@ PY
          .requirements.req-0001.acceptance.surface_class = "ENABLING" |
          .requirements.req-0001.acceptance.evidence.evidence_class = "NON_VISITOR" |
          .requirements.req-0001.acceptance.evidence.method = "Schema validation." |
+         del(.requirements.req-0001.acceptance.rendered_test_evidence) |
          del(.requirements.req-0001.acceptance.production_assertion)'
     [ "$status" -eq 1 ] \
         && [[ "$output" == *"TIER1_VISITOR_VISIBLE_WEAKENED:req-0001"* ]]
@@ -947,11 +1191,60 @@ PY
         && [[ "$output" == *"atomic_statement"* ]]
 }
 
+@test "supersession target must exist in the same requirement document" {
+    run reject_contract_mutation '
+        .requirements.req-0001.acceptance.disposition = "superseded" |
+        .requirements.req-0001.acceptance.superseded_by = "req-9999"
+    '
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"SUPERSESSION_TARGET_DANGLING:req-0001:req-9999"* ]]
+}
+
 @test "visitor acceptance requires a closed production assertion" {
     run reject_contract_mutation \
         'del(.requirements.req-0001.acceptance.production_assertion)'
     [ "$status" -eq 1 ] \
         && [[ "$output" == *"production_assertion"* ]]
+}
+
+@test "visitor acceptance requires closed rendered test evidence and nonvisitor forbids it" {
+    local nonvisitor="$BATS_TEST_TMPDIR/nonvisitor-with-rendered-test.yaml"
+    run reject_contract_mutation \
+        'del(.requirements.req-0001.acceptance.rendered_test_evidence)'
+    [ "$status" -eq 1 ] \
+        && run reject_contract_mutation \
+            '.requirements.req-0001.acceptance.rendered_test_evidence.environment = "PRODUCTION"' \
+        && [ "$status" -eq 1 ] \
+        && run reject_contract_mutation \
+            '.requirements.req-0001.acceptance.rendered_test_evidence.method = "Docs only"' \
+        && [ "$status" -eq 1 ] \
+        || return 1
+
+    structured_requirement_fixture "$nonvisitor" || return 1
+    yq -i '.requirements.req-0001.acceptance.visitor_visible = false |
+        .requirements.req-0001.acceptance.surface_class = "ENABLING" |
+        .requirements.req-0001.acceptance.evidence.evidence_class = "NON_VISITOR" |
+        .requirements.req-0001.acceptance.evidence.method = "Schema validation." |
+        .source_remarks[0].tier1_assertions[0].visitor_visible = false |
+        .source_remarks[0].tier1_assertions[0].surface_class = "ENABLING" |
+        del(.requirements.req-0001.acceptance.production_assertion)' "$nonvisitor" || return 1
+    run validate_yaml "$REQUIREMENTS_SCHEMA" "$nonvisitor"
+    [ "$status" -eq 1 ]
+}
+
+@test "rendered test evidence identity and timestamp stay bound to acceptance" {
+    run reject_contract_mutation \
+        '.requirements.req-0001.acceptance.rendered_test_evidence.product = "substitute-product"'
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"RENDERED_TEST_IDENTITY_CHANGED:req-0001:product"* ]] \
+        && run reject_contract_mutation \
+            '.requirements.req-0001.acceptance.rendered_test_evidence.applicability.themes = ["light"]' \
+        && [ "$status" -eq 1 ] \
+        && [[ "$output" == *"RENDERED_TEST_SCOPE_CHANGED:req-0001:themes"* ]] \
+        && run reject_contract_mutation \
+            '.requirements.req-0001.acceptance.rendered_test_evidence.observed_at = "2026-01-02T09:59:59Z"' \
+        && [ "$status" -eq 1 ] \
+        && [[ "$output" == *"RENDERED_TEST_BEFORE_IMPLEMENTATION:req-0001"* ]]
 }
 
 @test "visitor production assertion requires visitor actor and production environment" {
@@ -1212,6 +1505,23 @@ PY
     validate_yaml "$RECEIPT_SCHEMA" "$plural"
 }
 
+@test "requirement document and receipt requirement key sets are exactly equal" {
+    local requirements="$BATS_TEST_TMPDIR/two-requirement-keys.yaml"
+    local incomplete="$BATS_TEST_TMPDIR/one-receipt-key.yaml"
+    local complete="$BATS_TEST_TMPDIR/two-receipt-keys.yaml"
+    structured_requirement_fixture "$requirements" || return 1
+    cp "$RECEIPT_TEMPLATE" "$incomplete" || return 1
+    yq -i '.requirements.req-0002 = .requirements.req-0001' "$requirements" || return 1
+    cp "$incomplete" "$complete" || return 1
+    yq -i '.requirements.req-0002 = .requirements.req-0001 |
+        .requirements.req-0002.coverage_chain.requirement.requirement_id = "req-0002"' "$complete" || return 1
+
+    run validate_requirement_receipt_key_contract "$requirements" "$incomplete"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"REQUIREMENT_RECEIPT_KEY_SET_MISMATCH:req-0002"* ]] \
+        && validate_requirement_receipt_key_contract "$requirements" "$complete"
+}
+
 @test "two-source requirement and receipt preserve exact quote digest content" {
     local requirements="$BATS_TEST_TMPDIR/two-source-digest-requirements.yaml"
     local receipt="$BATS_TEST_TMPDIR/two-source-digest-receipt.yaml"
@@ -1312,6 +1622,7 @@ PY
         .requirements.req-0001.acceptance.surface_class = "ENABLING" |
         .requirements.req-0001.acceptance.evidence.evidence_class = "NON_VISITOR" |
         .requirements.req-0001.acceptance.evidence.method = "Schema validation against the internal contract." |
+        del(.requirements.req-0001.acceptance.rendered_test_evidence) |
         del(.requirements.req-0001.acceptance.production_assertion) |
         .source_remarks[0].tier1_assertions[0].visitor_visible = false |
         .source_remarks[0].tier1_assertions[0].surface_class = "ENABLING" |
@@ -1319,6 +1630,7 @@ PY
         .source_remarks[0].tier1_assertions[0].applicability.not_applicable_reason = "This requirement changes an internal delivery control only." |
         .requirements.req-0001.acceptance.applicability.painted_matrix_applicable = false |
         .requirements.req-0001.acceptance.applicability.not_applicable_reason = "This requirement changes an internal delivery control only."' "$non_visitor_requirement" || return 1
+    refresh_assertion_digests "$non_visitor_requirement" || return 1
     cp "$non_visitor_requirement" "$contradictory_requirement" || return 1
     yq -i '.requirements.req-0001.acceptance.evidence.evidence_class = "VISITOR_VISIBLE_PRODUCTION"' "$contradictory_requirement" || return 1
     yq -i '.requirements.req-0001.coverage_chain.implementation_delta.visitor_visible_count = 0 |
@@ -1405,6 +1717,67 @@ PY
     run reject_mutation "$RECEIPT_SCHEMA" "$RECEIPT_TEMPLATE" \
         '.requirements.req-0001.coverage_chain.customer_disposition.status = "approved"'
     [ "$status" -eq 1 ]
+}
+
+@test "terminal customer disposition requires closed authority while pending may omit it" {
+    local pending="$BATS_TEST_TMPDIR/pending-without-authority.yaml"
+    local terminal_status expression
+    cp "$RECEIPT_TEMPLATE" "$pending" || return 1
+    yq -i '.requirements.req-0001.coverage_chain.customer_disposition.status = "pending" |
+        del(.requirements.req-0001.coverage_chain.customer_disposition.authority)' "$pending" || return 1
+
+    validate_yaml "$RECEIPT_SCHEMA" "$pending" || return 1
+    for terminal_status in accepted rejected superseded; do
+        expression=".requirements.req-0001.coverage_chain.customer_disposition.status = \"${terminal_status}\" | del(.requirements.req-0001.coverage_chain.customer_disposition.authority)"
+        if [ "$terminal_status" = "superseded" ]; then
+            expression="${expression} | .requirements.req-0001.coverage_chain.customer_disposition.superseded_by = \"req-0002\""
+        fi
+        run reject_mutation "$RECEIPT_SCHEMA" "$RECEIPT_TEMPLATE" "$expression"
+        [ "$status" -eq 1 ] || return 1
+    done
+    run reject_mutation "$RECEIPT_SCHEMA" "$RECEIPT_TEMPLATE" \
+        '.requirements.req-0001.coverage_chain.customer_disposition.authority.extra = "not closed"'
+    [ "$status" -eq 1 ]
+}
+
+@test "qualitative and painted visitor acceptance require operator disposition authority" {
+    local customer_authority="$BATS_TEST_TMPDIR/customer-authority.yaml"
+    local late_rendered="$BATS_TEST_TMPDIR/late-rendered-test.yaml"
+    local qualitative_requirement="$BATS_TEST_TMPDIR/qualitative-requirement.yaml"
+    local qualitative_receipt="$BATS_TEST_TMPDIR/qualitative-receipt.yaml"
+    cp "$RECEIPT_TEMPLATE" "$customer_authority" || return 1
+    cp "$REQUIREMENTS_TEMPLATE" "$late_rendered" || return 1
+    cp "$REQUIREMENTS_TEMPLATE" "$qualitative_requirement" || return 1
+    cp "$RECEIPT_TEMPLATE" "$qualitative_receipt" || return 1
+    yq -i '.requirements.req-0001.coverage_chain.customer_disposition.authority.authority_role = "CUSTOMER"' "$customer_authority" || return 1
+    yq -i '.requirements.req-0001.acceptance.rendered_test_evidence.observed_at = "2026-01-02T14:00:00Z"' "$late_rendered" || return 1
+    yq -i '.source_remarks[0].tier1_assertions[0].applicability.painted_matrix_applicable = false |
+        .source_remarks[0].tier1_assertions[0].applicability.not_applicable_reason = "This visitor outcome is qualitative rather than matrix-based." |
+        .requirements.req-0001.acceptance.applicability.painted_matrix_applicable = false |
+        .requirements.req-0001.acceptance.applicability.not_applicable_reason = "This visitor outcome is qualitative rather than matrix-based." |
+        .requirements.req-0001.acceptance.rendered_test_evidence.applicability.painted_matrix_applicable = false |
+        .requirements.req-0001.acceptance.production_assertion.applicability.painted_matrix_applicable = false |
+        .requirements.req-0001.acceptance.evidence.method.applicability.painted_matrix_applicable = false' "$qualitative_requirement" || return 1
+    refresh_assertion_digests "$qualitative_requirement" || return 1
+    yq -i '.requirements.req-0001.coverage_chain.live_evidence.observation_kind = "BROWSER_RENDERED" |
+        .requirements.req-0001.coverage_chain.live_evidence.painted_matrix_applicable = false |
+        .requirements.req-0001.coverage_chain.live_evidence.applicability.painted_matrix_applicable = false |
+        .requirements.req-0001.coverage_chain.live_evidence.not_applicable_reason = "This visitor outcome is qualitative rather than matrix-based." |
+        .requirements.req-0001.coverage_chain.live_evidence.painted_matrix = [] |
+        .requirements.req-0001.coverage_chain.customer_disposition.authority.authority_role = "CUSTOMER"' "$qualitative_receipt" || return 1
+
+    run validate_acceptance_receipt_authority_contract \
+        "$REQUIREMENTS_TEMPLATE" "$customer_authority"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"VISITOR_DISPOSITION_OPERATOR_REQUIRED:req-0001"* ]] \
+        && run validate_acceptance_receipt_authority_contract \
+            "$late_rendered" "$RECEIPT_TEMPLATE" \
+        && [ "$status" -eq 1 ] \
+        && [[ "$output" == *"RENDERED_TEST_AFTER_LIVE_EVIDENCE:req-0001"* ]] \
+        && run validate_acceptance_receipt_authority_contract \
+            "$qualitative_requirement" "$qualitative_receipt" \
+        && [ "$status" -eq 1 ] \
+        && [[ "$output" == *"VISITOR_DISPOSITION_OPERATOR_REQUIRED:req-0001"* ]]
 }
 
 @test "review evolution accepts only the six normative classifications" {

@@ -166,4 +166,8 @@ requirements:
         status: accepted
         recorded_at: "2026-01-03T13:00:00Z"
         evidence_ref: customer-acceptance-0001
+        authority:
+          authority_id: authority-operator-0001
+          authority_role: OPERATOR
+          evidence_ref: operator-visual-acceptance-0001
         note: Customer confirmed the production comparison is readable.

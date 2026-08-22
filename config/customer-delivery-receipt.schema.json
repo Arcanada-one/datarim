@@ -8,6 +8,7 @@
     "enforcer": "customer-delivery-validator",
     "invariant_ids": [
       "receipt-requirement-key-equals-embedded-id",
+      "receipt-requirement-key-set-equals-requirement-document-key-set",
       "receipt-top-requirement-set-equals-embedded-id",
       "receipt-source-quote-digest-set-exact",
       "receipt-selected-knowledge-set-exact",
@@ -30,11 +31,13 @@
       "receipt-matrix-observation-not-after-live-summary",
       "receipt-deploy-before-live",
       "receipt-live-before-disposition",
+      "receipt-rendered-test-before-live-evidence",
       "receipt-merged-revision-accepted",
       "receipt-deployed-revision-equals-merged-revision",
       "receipt-deployed-digest-equals-merged-digest",
       "receipt-disposition-equals-requirement-disposition",
       "receipt-disposition-closure-exact",
+      "receipt-visitor-acceptance-authority-role-operator",
       "receipt-parent-links-complete",
       "review-open-or-changes-requested-blocks-closure",
       "receipt-epic-status-derived",
@@ -491,6 +494,7 @@
         "status": { "enum": ["pending", "accepted", "rejected", "superseded"] },
         "recorded_at": { "type": "string", "format": "date-time" },
         "evidence_ref": { "type": "string", "minLength": 1 },
+        "authority": { "$ref": "#/$defs/dispositionAuthority" },
         "note": { "type": "string", "minLength": 1 },
         "superseded_by": { "type": "string", "pattern": "^req-[0-9]{4}$" }
       },
@@ -502,8 +506,26 @@
           },
           "then": { "required": ["superseded_by"] },
           "else": { "not": { "required": ["superseded_by"] } }
+        },
+        {
+          "if": {
+            "properties": { "status": { "const": "pending" } },
+            "required": ["status"]
+          },
+          "then": {},
+          "else": { "required": ["authority"] }
         }
       ]
+    },
+    "dispositionAuthority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authority_id", "authority_role", "evidence_ref"],
+      "properties": {
+        "authority_id": { "type": "string", "pattern": "^authority-[a-z0-9][a-z0-9-]*$" },
+        "authority_role": { "enum": ["CUSTOMER", "OPERATOR"] },
+        "evidence_ref": { "type": "string", "minLength": 1 }
+      }
     }
   }
 }
