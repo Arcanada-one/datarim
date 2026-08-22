@@ -3,6 +3,16 @@
   "$id": "https://datarim.club/schema/customer-requirement-v1.json",
   "title": "Datarim Customer Requirements",
   "description": "Atomic, stable customer requirements with verbatim provenance and a pre-implementation acceptance tuple.",
+  "x-datarim-source-tier-authorization": {
+    "enforcer": "customer-delivery-validator",
+    "evaluation_order": "BEFORE_SOURCE_SIGNATURE_VERIFICATION",
+    "unknown_tier_policy": "FAIL_CLOSED",
+    "tier_authority_roles": {
+      "CUSTOMER_VERBATIM": ["CUSTOMER"],
+      "AUTHORIZED_RELAY_VERBATIM": ["OPERATOR"],
+      "OPERATOR_VERBATIM": ["OPERATOR"]
+    }
+  },
   "x-datarim-semantic-invariants": {
     "description": "Draft 2020-12 validates shape only; the deterministic customer-delivery validator must enforce every registered cross-record invariant.",
     "enforcer": "customer-delivery-validator",
@@ -22,6 +32,7 @@
       "source-approval-key-role-authorized",
       "source-approval-key-active",
       "source-approval-key-valid-at-approval",
+      "source-tier-authority-role-authorized",
       "assertion-source-digest-equals-containing-source-digest",
       "source-correction-superseded-digest-exists",
       "source-correction-prior-record-retained",
@@ -130,11 +141,12 @@
         "authority_id": "authority-operator-0001",
         "authority_role": "OPERATOR",
         "trust_anchor": {
-          "key_id": "key-operator-0001",
+          "key_id": "key-registry-root-0001",
           "algorithm": "ED25519",
-          "public_key": "rPXUV8/jjrLqliFt6i8QViz2Zy21uI42a+OcCx6l3z8=",
-          "fingerprint": "sha256:27ea9ac17dd58bebb51f51c1565c5219a97be0bdbab1f8a8e350b7ea22a3e8a6",
-          "semantics": "SCHEMA_REVIEWED_PINNED_PUBLIC_KEY"
+          "public_key": "r6djD8Z3khD94nHJ2NuHwFahvXDkuirHLxPsk/NR0LI=",
+          "fingerprint": "sha256:97b1d5e3ea072e7c5b168dab1304aa5f7916f3cd5857b452104ff748a6ad47c4",
+          "semantics": "SCHEMA_REVIEWED_PINNED_PUBLIC_KEY",
+          "usage": "REGISTRY_SIGNATURE_ONLY"
         }
       },
       "registry_container_schema": {
@@ -176,7 +188,7 @@
         "registry_id": "authority-key-registry-0001",
         "revision": "1",
         "digest": "sha256:3a5af5b188e0bfde5a9202a13b27461dc5058176ad74eaceb782053ffa4cae0b",
-        "registry_signature": "ed25519:1Z0Q0iZS2hgzYqIixAB18kun4FwFPtgCD2tv/zfzUEPFhmQzPPkEf3uJRfbNLKhOI3UkBWJ149q9A2UgGsbLCA==",
+        "registry_signature": "ed25519:KDSymSQF4e51aa+TPNihzn8jMGzDBsinBm9iG2PLsK6zYTNIDnI/O9ZdcWaYUcjIckV7HphJFK4ha5Ongus/DQ==",
         "entries": [
           {
             "key_id": "key-customer-0001",
@@ -245,6 +257,7 @@
       "verification_sequence": [
         "REGISTRY_DIGEST_VALID",
         "REGISTRY_SIGNATURE_VALID_AGAINST_PINNED_TRUST_ANCHOR",
+        "SOURCE_TIER_AUTHORITY_ROLE_AUTHORIZED",
         "KEY_ID_KNOWN",
         "APPROVAL_AUTHORITY_ID_EQUALS_KEY_AUTHORITY_ID",
         "APPROVAL_AUTHORITY_ROLE_IN_KEY_ALLOWED_ROLES",
