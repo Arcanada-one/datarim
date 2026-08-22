@@ -770,6 +770,7 @@ expected = {
             "authority-key-registry-owner-pinned",
             "authority-key-registry-trust-anchor-pinned",
             "authority-key-registry-canonical-digest-valid",
+            "authority-key-registry-signature-valid-against-pinned-trust-anchor",
             "authority-key-registry-key-id-unique",
             "authority-key-registry-conflict-prohibited",
             "authority-key-registry-validity-interval-positive",
@@ -977,10 +978,12 @@ if actual is not None:
         "registry_owner",
         "registry_container_schema",
         "registry_digest_contract",
+        "registry_signature_contract",
         "bundled_registry",
     ):
         actual["key_resolution"].pop(extension, None)
     actual["key_resolution"]["validity_interval"].pop("required_relation", None)
+    actual["key_resolution"]["verification_sequence"] = actual["key_resolution"]["verification_sequence"][2:]
 if actual != expected:
     raise SystemExit(
         f"SIGNATURE_CONTRACT_MISMATCH:expected={expected!r}:actual={actual!r}"
@@ -2735,6 +2738,7 @@ validate_bundled_authority_registry() {
 import base64
 import hashlib
 import json
+import re
 import sys
 from datetime import datetime
 
@@ -2761,6 +2765,11 @@ if anchor.get("key_id") != "key-operator-0001" or anchor.get("algorithm") != "ED
     raise SystemExit("TRUST_REGISTRY_ANCHOR_MISMATCH")
 if anchor.get("semantics") != "SCHEMA_REVIEWED_PINNED_PUBLIC_KEY":
     raise SystemExit("TRUST_REGISTRY_ANCHOR_SEMANTICS_MISMATCH")
+if (
+    anchor.get("public_key") != "rPXUV8/jjrLqliFt6i8QViz2Zy21uI42a+OcCx6l3z8="
+    or anchor.get("fingerprint") != "sha256:27ea9ac17dd58bebb51f51c1565c5219a97be0bdbab1f8a8e350b7ea22a3e8a6"
+):
+    raise SystemExit("TRUST_REGISTRY_ANCHOR_KNOWN_ANSWER_MISMATCH")
 public_key = base64.b64decode(anchor.get("public_key", ""), validate=True)
 if len(public_key) != 32:
     raise SystemExit("TRUST_REGISTRY_ANCHOR_LENGTH")
@@ -2769,11 +2778,12 @@ if anchor.get("fingerprint") != "sha256:" + hashlib.sha256(public_key).hexdigest
 expected_container_schema = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["registry_id", "revision", "digest", "entries"],
+    "required": ["registry_id", "revision", "digest", "registry_signature", "entries"],
     "properties": {
         "registry_id": {"type": "string", "pattern": "^authority-key-registry-[0-9]{4}$"},
         "revision": {"type": "string", "pattern": "^[1-9][0-9]*$"},
         "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "registry_signature": {"type": "string", "pattern": "^ed25519:[A-Za-z0-9+/]{85}[AQgw]==$"},
         "entries": {
             "type": "array",
             "minItems": 1,
@@ -2784,10 +2794,40 @@ expected_container_schema = {
 }
 if contract.get("registry_container_schema") != expected_container_schema:
     raise SystemExit("TRUST_REGISTRY_CONTAINER_SCHEMA_MISMATCH")
+expected_registry_digest_contract = {
+    "algorithm": "SHA-256",
+    "canonicalization": "RFC8785",
+    "encoding": "UTF-8",
+    "covered_fields": ["registry_id", "revision", "entries"],
+    "excluded_fields": ["digest", "registry_signature"],
+    "entry_order": "ASCENDING_KEY_ID",
+    "duplicate_key_id_policy": "FAIL_CLOSED",
+    "conflicting_key_id_policy": "FAIL_CLOSED",
+}
+if contract.get("registry_digest_contract") != expected_registry_digest_contract:
+    raise SystemExit("TRUST_REGISTRY_DIGEST_CONTRACT_MISMATCH")
+expected_registry_signature_contract = {
+    "algorithm": "ED25519",
+    "signed_field": "bundled_registry.digest",
+    "signature_field": "bundled_registry.registry_signature",
+    "digest_framing_ref": "/x-datarim-signature-contract/digest_framing",
+    "signature_framing_ref": "/x-datarim-signature-contract/signature_framing",
+    "trust_anchor_ref": "/x-datarim-signature-contract/key_resolution/registry_owner/trust_anchor",
+}
+if contract.get("registry_signature_contract") != expected_registry_signature_contract:
+    raise SystemExit("TRUST_REGISTRY_SIGNATURE_CONTRACT_MISMATCH")
+expected_verification_prefix = [
+    "REGISTRY_DIGEST_VALID",
+    "REGISTRY_SIGNATURE_VALID_AGAINST_PINNED_TRUST_ANCHOR",
+]
+if contract.get("verification_sequence", [])[:2] != expected_verification_prefix:
+    raise SystemExit("TRUST_REGISTRY_VERIFICATION_ORDER_MISMATCH")
 
 registry = contract["bundled_registry"]
-if set(registry) != {"registry_id", "revision", "digest", "entries"}:
+if set(registry) != {"registry_id", "revision", "digest", "registry_signature", "entries"}:
     raise SystemExit("TRUST_REGISTRY_CONTAINER_NOT_CLOSED")
+if re.fullmatch(r"ed25519:[A-Za-z0-9+/]{85}[AQgw]==", registry["registry_signature"]) is None:
+    raise SystemExit("TRUST_REGISTRY_SIGNATURE_MALFORMED")
 ids = [entry["key_id"] for entry in registry["entries"]]
 seen = {}
 for entry in registry["entries"]:
@@ -2848,6 +2888,35 @@ expected_disposition_contract = {
 if receipt_schema.get("x-datarim-customer-disposition-contract") != expected_disposition_contract:
     raise SystemExit("RECEIPT_DISPOSITION_CONTRACT_MISMATCH")
 PY
+}
+
+verify_bundled_registry_signature() {
+    # shellcheck disable=SC2016
+    "$PYTHON" - "$1" <<'PY' |
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    schema = json.load(handle)
+resolution = schema["x-datarim-signature-contract"]["key_resolution"]
+print(json.dumps({
+    "public_key": resolution["registry_owner"]["trust_anchor"]["public_key"],
+    "message": resolution["bundled_registry"]["digest"],
+    "signature": resolution["bundled_registry"]["registry_signature"],
+}))
+PY
+    php -r '
+$record = json_decode(stream_get_contents(STDIN), true, 512, JSON_THROW_ON_ERROR);
+$message = hex2bin(substr($record["message"], 7));
+$signature = base64_decode(substr($record["signature"], 8), true);
+$publicKey = base64_decode($record["public_key"], true);
+if ($message === false || strlen($message) !== 32 || $signature === false || strlen($signature) !== 64 || $publicKey === false || strlen($publicKey) !== 32) {
+    fwrite(STDERR, "REGISTRY_SIGNATURE_WIRE_INVALID\n"); exit(1);
+}
+if (!sodium_crypto_sign_verify_detached($signature, $message, $publicKey)) {
+    fwrite(STDERR, "REGISTRY_SIGNATURE_AUTHENTICATION_FAILED\n"); exit(1);
+}
+'
 }
 
 verify_complete_template_signatures() {
@@ -2973,7 +3042,8 @@ PY
 }
 
 @test "bundled trusted authority registry and receipt reference are deterministic" {
-    validate_bundled_authority_registry "$REQUIREMENTS_SCHEMA" "$RECEIPT_SCHEMA"
+    validate_bundled_authority_registry "$REQUIREMENTS_SCHEMA" "$RECEIPT_SCHEMA" \
+        && verify_bundled_registry_signature "$REQUIREMENTS_SCHEMA"
 }
 
 @test "terminal disposition requires a canonical digest and signed authority approval" {
@@ -3044,6 +3114,49 @@ with open(path, "w", encoding="utf-8") as handle:
 PY
 }
 
+@test "registry signature removal malformed framing and wrong signing key fail independently" {
+    local removed="$BATS_TEST_TMPDIR/registry-signature-removed.json"
+    local malformed="$BATS_TEST_TMPDIR/registry-signature-malformed.json"
+    local wrong_key="$BATS_TEST_TMPDIR/registry-signature-wrong-key.json"
+    cp "$REQUIREMENTS_SCHEMA" "$removed" || return 1
+    cp "$REQUIREMENTS_SCHEMA" "$malformed" || return 1
+    cp "$REQUIREMENTS_SCHEMA" "$wrong_key" || return 1
+    yq -i 'del(."x-datarim-signature-contract".key_resolution.bundled_registry.registry_signature)' "$removed" || return 1
+    yq -i '."x-datarim-signature-contract".key_resolution.bundled_registry.registry_signature = "ed25519:not-a-signature"' "$malformed" || return 1
+    yq -i '."x-datarim-signature-contract".key_resolution.bundled_registry.registry_signature = "ed25519:K1VGKvdXEf4MaSO3oWSHYnIRtqivCQsBijj+1f++/mc6SMqxuxVRIU7hUQwDyyq0fCFCg7BGhL4TDXAP1+/IBg=="' "$wrong_key" || return 1
+
+    run validate_bundled_authority_registry "$removed" "$RECEIPT_SCHEMA"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"TRUST_REGISTRY_CONTAINER_NOT_CLOSED"* ]] \
+        && run validate_bundled_authority_registry "$malformed" "$RECEIPT_SCHEMA" \
+        && [ "$status" -eq 1 ] \
+        && [[ "$output" == *"TRUST_REGISTRY_SIGNATURE_MALFORMED"* ]] \
+        && validate_bundled_authority_registry "$wrong_key" "$RECEIPT_SCHEMA" \
+        && run verify_bundled_registry_signature "$wrong_key" \
+        && [ "$status" -eq 1 ] \
+        && [[ "$output" == *"REGISTRY_SIGNATURE_AUTHENTICATION_FAILED"* ]]
+}
+
+@test "operator binding replacement cannot survive pinned registry signature authentication" {
+    local registry_mutant="$BATS_TEST_TMPDIR/operator-binding-replaced.json"
+    local receipt_mutant="$BATS_TEST_TMPDIR/operator-binding-receipt.json"
+    local digest original_signature mutated_signature
+    cp "$REQUIREMENTS_SCHEMA" "$registry_mutant" || return 1
+    cp "$RECEIPT_SCHEMA" "$receipt_mutant" || return 1
+    yq -i '."x-datarim-signature-contract".key_resolution.bundled_registry.entries[1].public_key = "rcPqVnAZF2gzQc8O1d+MdKHHGZ6RnyU4R8OJT35ycwU="' "$registry_mutant" || return 1
+    reseal_registry_digest "$registry_mutant" || return 1
+    digest=$(jq -r '."x-datarim-signature-contract".key_resolution.bundled_registry.digest' "$registry_mutant") || return 1
+    original_signature=$(jq -r '."x-datarim-signature-contract".key_resolution.bundled_registry.registry_signature' "$REQUIREMENTS_SCHEMA") || return 1
+    mutated_signature=$(jq -r '."x-datarim-signature-contract".key_resolution.bundled_registry.registry_signature' "$registry_mutant") || return 1
+    [ "$mutated_signature" = "$original_signature" ] || return 1
+    yq -i ".\"x-datarim-trusted-authority-key-registry-ref\".registry_digest = \"${digest}\"" "$receipt_mutant" || return 1
+
+    validate_bundled_authority_registry "$registry_mutant" "$receipt_mutant" || return 1
+    run verify_bundled_registry_signature "$registry_mutant"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"REGISTRY_SIGNATURE_AUTHENTICATION_FAILED"* ]]
+}
+
 reseal_disposition_approval_payload() {
     "$PYTHON" - "$1" <<'PY'
 import hashlib
@@ -3083,7 +3196,7 @@ PY
 ."x-datarim-signature-contract".key_resolution.registry_locator.json_pointer = "/ambient"|TRUST_REGISTRY_LOCATOR_MISMATCH
 ."x-datarim-signature-contract".key_resolution.registry_locator.ambient_override = "ALLOWED"|TRUST_REGISTRY_LOCATOR_MISMATCH
 ."x-datarim-signature-contract".key_resolution.registry_owner.authority_id = "authority-attacker-0001"|TRUST_REGISTRY_OWNER_MISMATCH
-."x-datarim-signature-contract".key_resolution.registry_owner.trust_anchor.public_key = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="|TRUST_REGISTRY_ANCHOR_FINGERPRINT_MISMATCH
+."x-datarim-signature-contract".key_resolution.registry_owner.trust_anchor.public_key = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="|TRUST_REGISTRY_ANCHOR_KNOWN_ANSWER_MISMATCH
 ."x-datarim-signature-contract".key_resolution.bundled_registry.digest = "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"|TRUST_REGISTRY_DIGEST_MISMATCH
 ."x-datarim-signature-contract".key_resolution.bundled_registry.entries += [."x-datarim-signature-contract".key_resolution.bundled_registry.entries[1]]|TRUST_REGISTRY_DUPLICATE_KEY_ID
 ."x-datarim-signature-contract".key_resolution.bundled_registry.entries += [(."x-datarim-signature-contract".key_resolution.bundled_registry.entries[1] * {"authority_id":"authority-attacker-0001"})]|TRUST_REGISTRY_CONFLICTING_KEY_ID
