@@ -16,7 +16,9 @@ requirements:
       requirement:
         requirement_id: req-0001
         requirement_set_id: reqset-0001
-        source_quote_digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        source_quote_digests:
+          - source_id: source-0001
+            digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
       selected_knowledge:
         roles:
           - id: frontend-reviewer

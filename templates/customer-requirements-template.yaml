@@ -16,6 +16,7 @@ source_remarks:
         predicate_id: predicate-visitor-readable
         product: example-product
         surface: public-comparison
+        surface_class: VISITOR_VISIBLE
         applicability:
           locales:
             - ru
@@ -39,9 +40,12 @@ requirements:
     acceptance:
       tier1_assertion_id: assertion-0001
       predicate_id: predicate-visitor-readable
-      exact_source_quote: "The comparison must remain readable on my phone in both languages and themes."
+      exact_source_quotes:
+        - source_id: source-0001
+          verbatim_quote: "The comparison must remain readable on my phone in both languages and themes."
       product: example-product
       surface: public-comparison
+      surface_class: VISITOR_VISIBLE
       applicability:
         locales:
           - ru
@@ -60,6 +64,19 @@ requirements:
           kind: PAINTED_SURFACE_PROBE
           product: example-product
           surface: public-comparison
+          surface_class: VISITOR_VISIBLE
+          predicate_id: predicate-visitor-readable
+          applicability:
+            locales:
+              - ru
+              - en
+            viewports:
+              - mobile
+              - desktop
+            themes:
+              - light
+              - dark
+            painted_matrix_applicable: true
           environment: PRODUCTION
         owner: delivery-reviewer
         evidence_class: VISITOR_VISIBLE_PRODUCTION
@@ -119,6 +136,7 @@ requirements:
         observation_kind: PAINTED_SURFACE
         product: example-product
         surface: public-comparison
+        surface_class: VISITOR_VISIBLE
         predicate_id: predicate-visitor-readable
         applicability:
           locales:

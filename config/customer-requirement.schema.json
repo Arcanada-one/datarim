@@ -3,6 +3,19 @@
   "$id": "https://datarim.club/schema/customer-requirement-v1.json",
   "title": "Datarim Customer Requirements",
   "description": "Atomic, stable customer requirements with verbatim provenance and a pre-implementation acceptance tuple.",
+  "x-datarim-semantic-invariants": {
+    "description": "Draft 2020-12 validates shape only; the deterministic customer-delivery validator must enforce every registered cross-record invariant.",
+    "enforcer": "customer-delivery-validator",
+    "invariant_ids": [
+      "source-id-unique",
+      "assertion-id-unique",
+      "source-requirement-assertion-bidirectional",
+      "source-quote-set-exact",
+      "assertion-identity-equal",
+      "acceptance-applicability-superset",
+      "production-evidence-identity-equal"
+    ]
+  },
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "requirement_set_id", "created_at", "source_remarks", "requirements"],
@@ -87,6 +100,7 @@
         "predicate_id",
         "product",
         "surface",
+        "surface_class",
         "applicability",
         "visitor_visible",
         "asserted_at"
@@ -95,12 +109,23 @@
         "assertion_id": { "type": "string", "pattern": "^assertion-[0-9]{4}$" },
         "requirement_id": { "type": "string", "pattern": "^req-[0-9]{4}$" },
         "predicate_id": { "type": "string", "pattern": "^predicate-[a-z0-9][a-z0-9-]*$" },
-        "product": { "type": "string", "minLength": 1 },
-        "surface": { "type": "string", "minLength": 1 },
+        "product": { "$ref": "#/$defs/productIdentity" },
+        "surface": { "$ref": "#/$defs/surfaceIdentity" },
+        "surface_class": { "$ref": "#/$defs/surfaceClass" },
         "applicability": { "$ref": "#/$defs/applicability" },
         "visitor_visible": { "type": "boolean" },
         "asserted_at": { "type": "string", "format": "date-time" }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "visitor_visible": { "const": true } },
+            "required": ["visitor_visible"]
+          },
+          "then": { "properties": { "surface_class": { "const": "VISITOR_VISIBLE" } } },
+          "else": { "properties": { "surface_class": { "const": "ENABLING" } } }
+        }
+      ]
     },
     "acceptanceTuple": {
       "type": "object",
@@ -108,9 +133,10 @@
       "required": [
         "tier1_assertion_id",
         "predicate_id",
-        "exact_source_quote",
+        "exact_source_quotes",
         "product",
         "surface",
+        "surface_class",
         "applicability",
         "before_state",
         "after_state",
@@ -123,9 +149,15 @@
       "properties": {
         "tier1_assertion_id": { "type": "string", "pattern": "^assertion-[0-9]{4}$" },
         "predicate_id": { "type": "string", "pattern": "^predicate-[a-z0-9][a-z0-9-]*$" },
-        "exact_source_quote": { "type": "string", "minLength": 1 },
-        "product": { "type": "string", "minLength": 1 },
-        "surface": { "type": "string", "minLength": 1 },
+        "exact_source_quotes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/sourceQuote" }
+        },
+        "product": { "$ref": "#/$defs/productIdentity" },
+        "surface": { "$ref": "#/$defs/surfaceIdentity" },
+        "surface_class": { "$ref": "#/$defs/surfaceClass" },
         "applicability": { "$ref": "#/$defs/applicability" },
         "before_state": { "type": "string", "minLength": 1 },
         "after_state": { "type": "string", "minLength": 1 },
@@ -171,8 +203,36 @@
           },
           "then": { "required": ["superseded_by"] },
           "else": { "not": { "required": ["superseded_by"] } }
+        },
+        {
+          "if": {
+            "properties": { "visitor_visible": { "const": true } },
+            "required": ["visitor_visible"]
+          },
+          "then": { "properties": { "surface_class": { "const": "VISITOR_VISIBLE" } } },
+          "else": { "properties": { "surface_class": { "const": "ENABLING" } } }
         }
       ]
+    },
+    "sourceQuote": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "verbatim_quote"],
+      "properties": {
+        "source_id": { "type": "string", "pattern": "^source-[0-9]{4}$" },
+        "verbatim_quote": { "type": "string", "minLength": 1 }
+      }
+    },
+    "productIdentity": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+    },
+    "surfaceIdentity": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+    },
+    "surfaceClass": {
+      "enum": ["VISITOR_VISIBLE", "ENABLING"]
     },
     "applicability": {
       "type": "object",
@@ -270,7 +330,7 @@
       "description": "A closed rendered-production evidence identity. Documentation, tests, tools, CI, ledgers, URLs, and arbitrary prose are not authoritative visitor evidence fields.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind", "product", "surface", "environment"],
+      "required": ["kind", "product", "surface", "surface_class", "predicate_id", "applicability", "environment"],
       "properties": {
         "kind": {
           "enum": [
@@ -279,8 +339,11 @@
             "RENDERED_SCREENSHOT_REVIEW"
           ]
         },
-        "product": { "type": "string", "minLength": 1 },
-        "surface": { "type": "string", "minLength": 1 },
+        "product": { "$ref": "#/$defs/productIdentity" },
+        "surface": { "$ref": "#/$defs/surfaceIdentity" },
+        "surface_class": { "$ref": "#/$defs/surfaceClass" },
+        "predicate_id": { "type": "string", "pattern": "^predicate-[a-z0-9][a-z0-9-]*$" },
+        "applicability": { "$ref": "#/$defs/identityApplicability" },
         "environment": { "const": "PRODUCTION" }
       }
     },
@@ -288,15 +351,16 @@
       "description": "A closed visitor-observation identity bound to the source-owned predicate and accepted production scope, not an enabling artifact or prose claim.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["actor", "environment", "observation_kind", "product", "surface", "predicate_id", "applicability"],
+      "required": ["actor", "environment", "observation_kind", "product", "surface", "surface_class", "predicate_id", "applicability"],
       "properties": {
         "actor": { "const": "VISITOR" },
         "environment": { "const": "PRODUCTION" },
         "observation_kind": {
           "enum": ["BROWSER_RENDERED", "PAINTED_SURFACE", "RENDERED_SCREENSHOT"]
         },
-        "product": { "type": "string", "minLength": 1 },
-        "surface": { "type": "string", "minLength": 1 },
+        "product": { "$ref": "#/$defs/productIdentity" },
+        "surface": { "$ref": "#/$defs/surfaceIdentity" },
+        "surface_class": { "$ref": "#/$defs/surfaceClass" },
         "predicate_id": { "type": "string", "pattern": "^predicate-[a-z0-9][a-z0-9-]*$" },
         "applicability": { "$ref": "#/$defs/identityApplicability" }
       }

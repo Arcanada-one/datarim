@@ -3,6 +3,11 @@
   "$id": "https://datarim.club/schema/customer-delivery-receipt-v1.json",
   "title": "Datarim Customer Delivery Receipt",
   "description": "A complete, acyclic requirement-to-customer-disposition evidence chain. A missing required edge is not a met delivery.",
+  "x-datarim-semantic-invariants": {
+    "description": "Draft 2020-12 validates shape only; the deterministic customer-delivery validator must enforce every registered cross-record invariant.",
+    "enforcer": "customer-delivery-validator",
+    "invariant_ids": ["receipt-source-quote-digest-set-exact"]
+  },
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "receipt_id", "requirement_set_id", "generated_at", "parent_links", "requirements"],
@@ -139,11 +144,25 @@
     "requirementRef": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["requirement_id", "requirement_set_id", "source_quote_digest"],
+      "required": ["requirement_id", "requirement_set_id", "source_quote_digests"],
       "properties": {
         "requirement_id": { "type": "string", "pattern": "^req-[0-9]{4}$" },
         "requirement_set_id": { "type": "string", "pattern": "^reqset-[0-9]{4}$" },
-        "source_quote_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+        "source_quote_digests": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/sourceQuoteDigest" }
+        }
+      }
+    },
+    "sourceQuoteDigest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "digest"],
+      "properties": {
+        "source_id": { "type": "string", "pattern": "^source-[0-9]{4}$" },
+        "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
       }
     },
     "knowledgeSelection": {
