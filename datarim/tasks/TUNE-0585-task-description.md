@@ -21,16 +21,20 @@ This task delivers the framework mechanism only. It is the first dependency in t
 
 ## Acceptance Criteria
 
-- [ ] AC-1: A versioned customer-delivery contract schema maps verbatim remarks to atomic requirement IDs and preserves source provenance.
-- [ ] AC-2: Every atomic requirement carries a visitor-visible production AC or an explicit enabling-only parent binding.
-- [ ] AC-3: Pre-work role, skill, blueprint, constraint, policy, and success-criterion references are immutable and pinned before implementation begins.
+- [ ] AC-1: A versioned append-only customer-delivery event ledger maps verbatim remarks to atomic requirement IDs and preserves source and evidence provenance with a hash chain.
+- [ ] AC-2: Every atomic requirement carries one typed customer-visible production AC and pinned surface blueprint, or an explicit enabling-only parent binding from an authoritative manifest.
+- [ ] AC-3: Pre-work role, skill, blueprint, constraint, policy, and success-criterion references are immutable and pinned before implementation authorization.
 - [ ] AC-4: The validator rejects `Unbound`, mutable refs, missing capability classes, and post-hoc attribution.
-- [ ] AC-5: Customer-review inputs cannot enter implementation until a review-to-evolution disposition is recorded and pinned.
-- [ ] AC-6: User-facing requirements require RED/GREEN evidence, deployed SHA, live checks, an RU/EN × mobile/desktop × light/dark screenshot matrix, and customer disposition.
+- [ ] AC-5: Customer-review inputs cannot enter implementation until a source-derived review-to-evolution disposition is recorded, any created/revised artifact exists, and all references are pinned.
+- [ ] AC-6: User-facing web requirements require runner-produced RED/GREEN evidence, deployed SHA, semantic live checks, a non-aliased RU/EN × mobile/desktop × light/dark screenshot matrix, and customer-authenticated acceptance or withdrawal.
 - [ ] AC-7: Tools, docs, static checks, and implementation completion can support but never satisfy a user-facing requirement.
-- [ ] AC-8: Epic state is computed from atomic coverage; stored or narrated `complete` state cannot override uncovered requirements.
-- [ ] AC-9: `/dr-init`, `/dr-prd`, `/dr-plan`, `/dr-design`, `/dr-do`, `/dr-qa`, `/dr-compliance`, `/dr-archive`, and `/dr-auto` carry the appropriate capture/pre-work/evidence/close gates.
+- [ ] AC-8: Task and epic state are computed from authoritative source and acyclic child manifests plus atomic coverage; stored or narrated `complete` state cannot override uncovered, returned, rejected, or deferred requirements.
+- [ ] AC-9: Every task-creating or task-advancing entry point, including quick/content/replay/status/orchestration paths, classifies and enforces the appropriate capture/pre-work/evidence/close gate.
 - [ ] AC-10: The framework ships templates, reference documentation, migration rules, focused RED/GREEN tests, full validation, independent spec review, and independent quality review.
+- [ ] AC-11: Every task classifies its delivery lane; customer-visible and enabling lanes are hard across L1-L4, while a task with no customer-delivery scope records `none` without fabricating production evidence.
+- [ ] AC-12: Retroactive recovery can never label agent-authored prose as a verbatim customer remark or turn legacy claims into passing evidence.
+- [ ] AC-13: Registration adapters are trusted, argv-only, no-shell, bounded data providers; they cannot author passing assertions, customer acceptance, or derived state.
+- [ ] AC-14: The framework evidence runner, exact-blob spec review, and exact-head quality review independently verify load-bearing evidence provenance.
 
 ## Constraints
 
@@ -61,4 +65,4 @@ This task delivers the framework mechanism only. It is the first dependency in t
 - Exact baseline: `origin/main` at `d27b15f`; `./validate.sh` exited 0 before task artifacts were written.
 - Isolated worktree: `/home/dev/.worktrees/datarim/TUNE-0585-customer-delivery`.
 - Coworker drafting was not retried because the configured provider previously failed non-retryably with `401 User not found`; native drafting is the documented fallback for this turn.
-- The approved architecture is a dedicated machine-readable delivery contract plus deterministic validator and lifecycle hooks. Existing expectations remain the human-readable acceptance layer.
+- The approved architecture is an append-only, hash-chained JSONL delivery ledger plus deterministic writer, validator, and lifecycle hooks. Existing expectations remain a generated human-readable acceptance view rather than closure authority for armed delivery tasks.

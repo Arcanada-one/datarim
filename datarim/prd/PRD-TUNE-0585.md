@@ -49,11 +49,11 @@ The pipeline lacks a machine-verifiable chain from customer language to live del
 
 ## Solution Approaches
 
-### Approach A — Dedicated JSON delivery contract plus deterministic validator (selected)
+### Approach A — Append-only JSONL delivery ledger plus deterministic writer and validator (selected)
 
-Add `datarim/tasks/{TASK-ID}-customer-delivery.json` as the machine source of truth. A standard-library Python validator checks schema, source coverage, pre-work binding order, evidence completeness, screenshot coverage, customer disposition, and derived epic state. Commands consume the same validator at phase-specific gates.
+Add `datarim/delivery/{TASK-ID}.jsonl` as the machine source of truth. A standard-library Python writer atomically appends hash-chained events; a read-only validator checks schema, source coverage, temporal ordering, evidence completeness, screenshot coverage, customer disposition, and derived epic state. Commands consume the same validator at phase-specific gates.
 
-Advantages: clean separation from human wishes; safe verbatim strings; deterministic cross-task coverage; direct adoption by non-Markdown projects; exact missing requirement IDs. Trade-off: one additional per-task artifact and validator.
+Advantages: clean separation from human wishes; safe verbatim strings; correction without history rewriting; deterministic cross-task coverage; direct adoption by non-Markdown projects; exact missing requirement IDs. Trade-off: one additional per-task artifact plus a writer and validator.
 
 ### Approach B — Expectations schema v4
 
@@ -67,36 +67,43 @@ Require a prose delivery table at archive. This is cheap but post-hoc by constru
 
 ### 1. Artifact
 
-`datarim/tasks/{TASK-ID}-customer-delivery.json` is a versioned JSON object with four top-level collections:
+`datarim/delivery/{TASK-ID}.jsonl` is a versioned append-only event stream. Each line carries `schema_version`, `event_id`, `event_type`, `task_id`, `recorded_at`, `payload`, `prev_event_hash`, and `event_hash`. Writers take a per-task lock, recompute the predecessor hash, write to a temporary file, validate the full stream, and atomically replace the ledger. Corrections append a superseding event; no event is edited or deleted.
 
-- `remarks[]`: stable `remark_id`, verbatim text, immutable source locator/digest, customer authority, and mapped requirement IDs.
-- `requirements[]`: stable `requirement_id`, class (`visitor-visible` or `enabling`), parent relationship, visitor AC, target surfaces, pre-work capability binding, evolution disposition, implementation references, RED/GREEN evidence, deployment/live evidence, screenshot evidence, and customer disposition.
-- `children[]`: child task IDs and contract paths for umbrella/epic aggregation.
-- `policy`: schema version, task/epic identity, legacy disposition, and project registration reference.
+Normative event types are `lane_classified`, `source_manifest_bound`, `remark_captured`, `requirement_declared`, `production_ac_declared`, `evolution_disposition`, `prework_contract_frozen`, `implementation_authorized`, `implementation_bound`, `red_observed`, `green_observed`, `production_deployment_observed`, `visual_observation`, `customer_disposition`, `child_manifest_bound`, and `event_superseded`.
 
-Derived delivery state is never authoritative data in the artifact. The validator calculates it from coverage each run.
+Derived delivery state is never authored as an authoritative event. The validator calculates it from the current non-superseded event graph every run.
 
 ### 2. Atomic identity and source coverage
 
-`remark_id` and `requirement_id` are immutable within a task. Every remark maps to at least one requirement. Every requirement maps back to at least one remark. Duplicate verbatim remarks may share a source digest but retain distinct source locators. A one-to-many decomposition is explicit.
+`remark_id` and `requirement_id` are immutable within a task. Every remark maps to at least one requirement. Every requirement maps back to at least one remark. Duplicate verbatim remarks may share a content digest but retain distinct source locators. A one-to-many decomposition is explicit. For an armed lane, a missing genuine source blocks: agent-authored Overview prose can be retained only as `legacy_unverified_source`, never as `verbatim` customer provenance.
 
-### 3. Requirement classes
+The denominator is not the ledger's self-declared `remark_captured` set. `source_manifest_bound` pins an authoritative, provider-produced inventory of complete source containers and stable item identifiers: the init-task brief and append-log records for native tasks, plus the project registration's issue/comment/document adapters for imported work. The validator independently resolves every manifest item, recomputes its bytes and digest, and rejects uncaptured, multiply captured, missing, or extra source items. A source manifest is valid only when the adapter proves pagination/exhaustion and the manifest is retained at an immutable revision. Semantic atomization is then independently reviewed: a single source item may produce several requirements, but it cannot disappear through aggregation.
 
-- `visitor-visible`: must carry a production route/surface and the complete live proof chain.
-- `enabling`: may close on its own implementation evidence only when it names a visitor-visible parent requirement. It never marks the parent delivered.
+### 3. Delivery lanes and surface blueprints
 
-This permits tooling and infrastructure tasks to close honestly without allowing them to satisfy customer-facing work.
+- `customer-visible-v1`: requirements must carry a production route/surface and the complete live proof chain.
+- `enabling-v1`: requirements may close on their own implementation evidence only when they name a customer-visible parent requirement in an authoritative manifest. They never mark the parent delivered.
+- `none`: the task contains no customer-delivery requirement. It records a reason and cannot be used for a task whose init-task or append-log contains a customer remark or visitor-facing outcome.
+
+Every task classifies its lane, so the canon is universal. The expensive production matrix is hard only where semantics require it, which permits private research, legal, documentation, API, CLI, framework, and tooling work to close honestly without allowing it to satisfy customer-facing work.
+
+Each customer-visible requirement names a pinned surface blueprint with typed executable predicates. `bilingual-web-v1` requires the exact RU/EN × mobile/desktop × light/dark eight-cell matrix and may be widened but not narrowed by registration. Other shipped blueprints define equivalent visitor-observation dimensions for native, CLI, API, and published-document surfaces; none permits tools, source documents, tests, or local-only output to substitute for the actual customer-consumed production surface. Talomnia uses `bilingual-web-v1`.
+
+Atomicity is structural and independently reviewed: one requirement has one subject, one observable behavior, one terminal disposition, and one surface blueprint; its production AC is a typed predicate plus expected value, not prose alone. A source item that contains conjunctions, multiple routes, or independently rejectable outcomes must decompose. The spec review records approved source-item-to-requirement cardinality and fails aggregate catch-all requirements.
 
 ### 4. Pre-work binding
 
-Before implementation starts, every requirement must pin exactly one or more immutable references for each class: role, skill, blueprint, constraint, policy, and success criterion. Each reference carries a logical ID, immutable revision, content digest, binding record locator, binding commit, and `pinned_at` timestamp. The validator rejects:
+Before implementation starts, every armed requirement must pin exactly one or more immutable references for each class: role, skill, blueprint, constraint, policy, and success criterion. Each reference carries a logical ID, immutable revision, content digest, binding record locator, and binding commit. `prework_contract_frozen` names the contract-repository commit that contains the complete binding event. `implementation_authorized` names the exact clean implementation-repository base SHA and a delivery-authorization marker committed in that repository before source changes. The first implementation commit must descend from that marker commit. The validator rejects:
 
 - literal or semantic `Unbound`;
 - mutable revisions such as `main`, `master`, `latest`, branch-only URLs, or unversioned paths;
 - any missing capability class;
-- a binding commit that is not an ancestor of the first implementation commit when both are in the same repository;
-- a binding timestamp after implementation started;
-- an evolution disposition written after implementation started.
+- a contract freeze commit that does not predate the implementation authorization;
+- a claimed freeze event absent from the ledger blob at the binding commit;
+- a missing authorization marker, dirty-worktree inventory, mismatched target-repository identity/base SHA, or implementation commit that is not a descendant of the marker commit;
+- an evolution disposition written after `implementation_bound`.
+
+Timestamps are descriptive, not ordering authority. Event order, hash-chain integrity, retained ledger blobs, the committed authorization marker, and implementation-repository Git ancestry establish the auditable ordering contract. The framework cannot prove the absence of deliberately hidden off-ledger work; such bypass is a detectable policy violation and cannot be imported later as canon-compliant pre-work.
 
 ### 5. Review-to-evolution gate
 
@@ -109,15 +116,19 @@ Every requirement sourced from a customer review must record one pre-work dispos
 
 The pre-work gate blocks `/dr-do` when the disposition or immutable references are absent. Writing an evolution note after implementation does not clear the gate.
 
+Review origin is derived from the authoritative source provider's immutable source-kind metadata (`customer_review`, `customer_brief`, `operator_amendment`, or another registered kind), not selected by the implementer. `customer_review` and amendments to prior delivered work always arm this gate.
+
+`created` and `revised` route to a bounded pre-work evolution substage before authorization. Task-scoped reversible artifacts are changed and reviewed in that substage; framework-wide operating-model changes follow the existing Class B approval boundary. The task cannot enter `/dr-do` until the pinned artifact exists at the freeze commit. This is a real mutation stage, not a post-archive reflection note.
+
 ### 6. Evidence model
 
-Every requirement needs load-bearing RED and GREEN records naming command/test, exit code, artifact digest, and captured evidence path. For `visitor-visible` requirements the close gate additionally requires:
+Every requirement needs load-bearing RED and GREEN events emitted by the framework evidence runner, not hand-authored metadata. They name a shared assertion ID, argv, exit code, observed repository SHA, hermeticity inputs, output digest, and retained evidence path. RED must be non-zero, GREEN zero, and both must name the same load-bearing assertion. The RED record also names the intentional mutation/negative control and the exact assertion that failed; setup, wrapper, or unrelated failures do not count. The runner signs or hashes a receipt over the command, repository tree, mutation diff, output, and result, and an independent quality review checks exact-head provenance. For migrated work, a present-day mutation or negative control may provide RED; historical RED is never invented. For customer-visible requirements the close gate additionally requires:
 
 - exact merged and deployed SHA, with equality or an explicit build-provenance link;
-- live URL/probe evidence captured after deployment;
+- live HTTP and DOM evidence captured after deployment, including expected route identity and semantic assertions so an HTTP error or generic shell cannot pass;
 - eight screenshot cells: RU and EN × mobile and desktop × light and dark;
-- screenshot file digest, viewport, theme, locale, URL, deployed SHA, and timestamp for every cell;
-- customer disposition: `accepted`, `returned`, `deferred`, or `rejected`, with immutable authority/source locator.
+- screenshot file digest, dimensions, viewport, theme, locale, URL, deployed SHA, DOM/content fingerprint, assertion result, and timestamp for every cell; cells cannot alias one retained file or one effective locale/theme/viewport state;
+- customer disposition: `accepted`, `returned`, `deferred`, `rejected`, or `withdrawn`, with verbatim authority/source locator. Only customer-authenticated `withdrawn` removes a requirement from the coverage denominator; `deferred` remains incomplete.
 
 Tests, tools, source documents, CI, and local screenshots are supporting evidence. None can substitute for the deployed/live/screenshot/disposition chain of a visitor-visible requirement.
 
@@ -135,36 +146,44 @@ The validator reports deterministic counts and exact missing IDs for:
 - customer-disposition coverage;
 - child-contract coverage for epics.
 
-Task delivery is complete only when all in-scope requirements pass. Epic delivery is complete only when its own requirements and every registered child contract pass. A stored `completed` status cannot override a failing derived report.
+Task delivery is complete only when all in-scope requirements pass and every in-scope requirement has customer-authenticated `accepted`, or has been removed from the denominator by customer-authenticated `withdrawn`. `returned` and `rejected` derive `rework_required`; `deferred` derives `blocked`. Epic delivery is complete only when its own requirements and every child from the independently resolved child manifest pass. Child references must be acyclic and resolve to the same monotonic project registry; cycles, missing children, or cross-project identity mismatches fail closed. A ledger-authored child list or stored `completed` status cannot override the provider manifest or a failing derived report. Suggested derived states are `not_started`, `in_progress`, `customer_review`, `rework_required`, `blocked`, and `complete`.
 
 ### 8. Lifecycle wiring
 
-- `/dr-init`: create the contract skeleton and capture the initial verbatim remark set.
-- `/dr-prd`: atomize remarks, add visitor ACs/classes, and bind requirements to V-AC.
+- `/dr-init`: classify the delivery lane; for armed lanes create the ledger and capture every initial verbatim remark as a distinct event.
+- `/dr-prd`: atomize remarks, add typed production ACs/surface blueprints, and bind requirements to V-AC.
 - `/dr-plan` and `/dr-design`: pin all capability and evolution references before implementation.
-- `/dr-do`: run pre-work validation before source edits; append implementation and RED/GREEN evidence after work.
+- `/dr-do`: run pre-work validation before source edits; require a committed freeze event before the first implementation commit; append implementation and RED/GREEN evidence after work.
 - `/dr-qa`: verify implementation evidence and, for deployed work, the live matrix without accepting artifact-only completion.
 - `/dr-compliance`: hard-enforce contract and coverage completeness for the task's declared delivery stage.
-- `/dr-archive`: require derived complete state; unresolved visitor requirements block archive unless the customer disposition is an operator-authorized `deferred` with a durable follow-up.
+- `/dr-archive`: require derived complete state; unresolved customer-visible requirements block archive. An operator-authorized deferral may stop work at `blocked`, but it does not convert the requirement or epic to `complete`.
 - `/dr-auto`: choose the next reversible action from exact missing requirement IDs, never from narrated epic status.
+- `/dr-status`: render only derived coverage/state for armed tasks and epics.
+- `/dr-quick`: classify first; customer-visible work either executes the same hard gates or routes into the full pipeline before any implementation.
+- `/dr-write`, `/dr-edit`, and `/dr-publish`: classify customer/content scope, preserve source remarks, and never treat draft preparation or publication tooling as visitor-visible delivery. Actual publication remains operator-gated.
+- `/dr-next` and `/dr-orchestrate`: replay and dispatch from the derived next missing gate without bypassing lane enforcement.
+
+The shared command router requires classification before any task-creating or task-advancing command. The named command integrations are regression-tested, but the hard invariant is capability-based: a new entry point that can create, implement, review, close, publish, or archive work fails validation until it declares its customer-delivery behavior.
 
 ### 9. Project registration
 
-The framework ships a project-registration template. Consumers register project ID, epic root, contract roots, public surface base URLs, locale/viewport/theme matrices, knowledge-reference resolver, deployment provenance probe, and customer-authority policy. The universal validator accepts adapters but keeps the core schema project-agnostic.
+The framework ships a project-registration template. Consumers register project ID, epic root, authoritative source and child-manifest providers, contract roots, public surface base URLs, surface blueprints, knowledge-reference resolver, deployment provenance probe, customer-authority policy, and a framework-release `canon_epoch`. The universal validator accepts adapters but keeps the core schema project-agnostic.
+
+Adapters are data providers, never shell fragments or state authorities. Registration is accepted only from the project-governance location and authority pinned by the framework consumer registry. It uses argv arrays with an allowlisted executable, pinned executable digest/version, fixed project-relative working directory, explicit environment allowlist, timeout, stdout-size cap, and authenticated/schema-validated JSON results. The validator invokes without a shell, rejects path escapes and symlinks, and independently recomputes coverage. Adapters cannot emit derived state, acceptance, or passing assertions.
 
 ## Requirements
 
-### D-REQ-01: Atomic source mapping
+### D-REQ-01: Append-only atomic source mapping
 
-Every nonempty verbatim customer remark has a stable source digest and at least one atomic requirement ID; every requirement has at least one remark ID. Duplicate IDs, dangling mappings, empty verbatim text, or source-digest mismatch block all later phases.
+Every authoritative source-manifest item is exhausted and has its own hash-chained capture event, stable source digest, and at least one atomic requirement ID; every requirement has at least one remark ID. Duplicate IDs, incomplete/paginated manifests, broken predecessor/event hashes, dangling mappings, empty verbatim text, source-digest mismatch, omitted source items, or history rewriting block all later phases.
 
 ### D-REQ-02: Visitor-visible AC or enabling parent
 
-Every requirement declares exactly one class. `visitor-visible` requires a concrete observable production outcome and target routes/surfaces. `enabling` requires a valid visitor-visible parent and cannot contribute delivered coverage to that parent.
+Every task classifies its delivery lane and every armed requirement declares exactly one class. A customer-visible requirement needs one atomic typed observable production outcome, target surface, and immutable blueprint. An enabling requirement needs a valid customer-visible parent from the authoritative manifest and cannot contribute delivered coverage to that parent. `none` is rejected when source intent names a customer or visitor outcome.
 
 ### D-REQ-03: Immutable pre-work capability bindings
 
-Role, skill, blueprint, constraint, policy, and success criterion are all pinned with immutable revision and digest before implementation. Any `Unbound`, mutable reference, missing class, non-ancestor same-repo binding, or later timestamp is a hard failure.
+Role, skill, blueprint, constraint, policy, and success criterion are all pinned with immutable revision and digest before implementation authorization. Any `Unbound`, `—`, mutable reference, missing class, absent freeze blob/authorization marker, target repository mismatch, dirty authorization base, or non-descendant implementation commit is a hard failure.
 
 ### D-REQ-04: Review-to-evolution
 
@@ -176,19 +195,19 @@ Each requirement carries distinct load-bearing RED and GREEN records. Evidence r
 
 ### D-REQ-06: Visitor-visible live delivery
 
-A visitor-visible requirement is incomplete without exact deployment provenance, a post-deploy live probe, all eight screenshot cells, and customer disposition. Static or local artifacts cannot satisfy this requirement.
+A visitor-visible requirement is incomplete without exact deployment provenance, a semantic post-deploy live probe, all eight non-aliased screenshot cells, and customer-authenticated acceptance or withdrawal. Returned, rejected, or deferred work is not complete. Static or local artifacts cannot satisfy this requirement.
 
 ### D-REQ-07: Derived task and epic state
 
-Coverage is computed from source mappings, requirements, child contracts, and evidence. The command emits machine-readable JSON and human-readable summaries with exact missing IDs. No stored completion field is accepted as authority.
+Coverage is computed from authoritative source and child manifests, mappings, requirements, evidence, and customer dispositions. The command emits machine-readable JSON and human-readable summaries with exact missing IDs. No ledger-authored denominator or stored completion field is accepted as authority.
 
 ### D-REQ-08: Phase-specific command gates
 
-The nine lifecycle commands invoke the validator at the appropriate phase and fail closed on invalid contracts. Wiring tests verify every command token and forbid stale/partial integration.
+Every task-creating or task-advancing entry point classifies the lane and invokes the validator at the appropriate phase. The lifecycle, quick, content, replay, status, and orchestration commands named above fail closed on armed invalid contracts. Wiring tests discover command capabilities and reject any new bypass rather than merely grepping a fixed nine-command list.
 
 ### D-REQ-09: Compatibility and migration
 
-New L1-L4 tasks create the contract by default after the release pivot. Pre-pivot tasks are advisory unless explicitly registered for strict adoption. Once registered strict, a task cannot revert to legacy mode. A migration helper creates a skeleton but never invents customer remarks, bindings, evidence, or dispositions.
+New L1-L4 tasks classify their lane after the exact framework release/version/commit recorded as `canon_epoch`. Armed lanes are hard across all complexity levels. The consumer registry, outside the task ledger, records a monotonic adoption state that cannot revert from strict to legacy or `none`. Pre-epoch tasks are historical unless explicitly registered for strict adoption. A migration helper imports genuine source bytes as capture events, labels retroactive seeds as `legacy_unverified_source`, and imports existing implementation/tests/screenshots/deploy text only as `legacy_claim` events that do not satisfy coverage. It never invents remarks, bindings, RED/GREEN, live proof, or dispositions. Dual-read compatibility lasts exactly one release and has a named removal version.
 
 ### D-REQ-10: Security and evidence preservation
 
@@ -196,24 +215,27 @@ Verbatim external text is treated as data, never executed. CLI text inputs use f
 
 ### D-REQ-11: Project registration and adapter boundary
 
-The core validator remains project-agnostic. A registration schema defines exact contract roots, surface matrices, adapter commands, and customer authority. Missing or non-executable adapters fail only the phases that need them.
+The core validator remains project-agnostic. A registration schema defines exact contract roots, authoritative source/child manifests, surface matrices, constrained adapter argv, and customer authority. Missing, mutable, unsafe, non-executable, timed-out, oversized, or schema-invalid adapters fail only the phases that need them.
 
 ### D-REQ-12: Dogfood and independent reviews
 
-TUNE-0585 has its own valid delivery contract, captures RED before implementation, passes focused and full suites, and receives a subordinate Codex spec review before source work and quality review after implementation.
+TUNE-0585 has its own valid delivery ledger and authorization marker, captures runner-produced RED before implementation, passes focused and full suites, and receives a subordinate Codex exact-blob spec review before source work and exact-head quality review after implementation.
 
 ## Validation Acceptance Criteria
 
-- **V-AC-1 — Atomic coverage:** broken one-to-one, one-to-many, duplicate, dangling, and digest fixtures fail; valid mappings pass. Covers D-REQ-01 and D-REQ-02.
-- **V-AC-2 — Pre-work gate:** one mutation per capability class plus `Unbound`, mutable ref, post-hoc timestamp, and ancestry mutants fail; fully pinned fixture passes. Covers D-REQ-03.
-- **V-AC-3 — Review evolution:** missing, unpinned, and post-hoc dispositions fail; reused/revised/created/no-change controls pass. Covers D-REQ-04.
-- **V-AC-4 — Live close gate:** omitting each RED/GREEN, deploy, live, screenshot-cell, and disposition field fails independently; artifact-only completion remains RED. Covers D-REQ-05 and D-REQ-06.
-- **V-AC-5 — Derived epic coverage:** uncovered remark, uncovered child, enabling-only child, and narrated-complete mutants fail with exact IDs; complete graph passes. Covers D-REQ-07.
-- **V-AC-6 — Universal wiring and safety:** all lifecycle command hooks, migration behavior, path confinement, digest checks, English-only surface, full validation, and independent reviews pass. Covers D-REQ-08 through D-REQ-12.
+- **V-AC-1 — Atomic coverage:** provider-manifest omission/pagination, broken one-to-one, one-to-many, duplicate, dangling, and digest fixtures fail; valid exhausted mappings pass. Covers D-REQ-01 and D-REQ-02.
+- **V-AC-2 — Pre-work gate:** one mutation per capability class plus `Unbound`, mutable ref, absent freeze/authorization marker, dirty or wrong base, and ancestry mutants fail; fully pinned fixture passes. Covers D-REQ-03.
+- **V-AC-3 — Review evolution:** source-kind relabel, missing, unpinned, post-hoc, and created/revised-without-prework-mutation fixtures fail; reused/revised/created/no-change controls with pinned artifacts pass. Covers D-REQ-04.
+- **V-AC-4 — Live close gate:** omitting each RED/GREEN, deploy, semantic-live, screenshot-cell, and disposition field fails independently; 404/generic-page, aliased-cell, forged-adapter, tool-only, returned, rejected, and deferred mutants remain RED. Covers D-REQ-05 and D-REQ-06.
+- **V-AC-5 — Derived epic coverage:** omitted provider source/child, uncovered remark, uncovered child, child cycle, cross-project child, enabling-only child, and narrated-complete mutants fail with exact IDs; complete provider-backed acyclic graph passes. Covers D-REQ-07.
+- **V-AC-6 — Command routing:** capability discovery proves all task-creating/advancing commands classify and gate armed work; L1, L2, quick, content, replay, and new-command mutants fail. Covers D-REQ-08.
+- **V-AC-7 — Migration monotonicity:** exact `canon_epoch`, one-release dual read, strict-mode non-reversion, genuine-source import, and legacy-claim non-coverage fixtures pass independently. Covers D-REQ-09.
+- **V-AC-8 — Runner and adapter safety:** argv/no-shell controls, executable/registration trust, timeout/output/env caps, path confinement, digest checks, authenticated result validation, and evidence-receipt provenance mutations pass. Covers D-REQ-05, D-REQ-10, and D-REQ-11.
+- **V-AC-9 — Dogfood and review:** TUNE-0585's freeze and authorization commits predate implementation; focused/full exact-head validation, English-only surface, exact-blob spec-review disposition, and exact-head quality-review disposition are independently verified. Covers D-REQ-12.
 
 ## Error Handling
 
-The validator uses stable exit codes: `0` phase satisfied, `1` contract/coverage finding, `2` usage or unreadable input, `3` adapter unavailable for a required phase. Findings include task ID, requirement ID, field/code, and remediation phase. Unknown schema versions and unknown enum values fail closed.
+The validator uses stable exit codes: `0` phase satisfied, `1` contract/coverage finding, `2` usage or ledger-integrity failure, `3` adapter unavailable for a required phase. Findings include task ID, requirement ID, field/code, and remediation phase. Unknown schema versions, event types, enum values, broken hash chains, and escaped evidence paths fail closed.
 
 ## Rollout
 
@@ -226,9 +248,9 @@ The validator uses stable exit codes: `0` phase satisfied, `1` contract/coverage
 
 ## Risks
 
-- **False completeness through adapters:** adapters provide evidence but cannot set derived state; the core recomputes coverage.
+- **False completeness through adapters:** constrained adapters provide data only; the core recomputes coverage and state against authoritative manifests.
 - **Post-hoc timestamps:** same-repo ancestry and retained binding records are authoritative; timestamps alone never prove ordering.
-- **Artifact explosion:** one task-level JSON file and retained evidence directories keep the model bounded.
+- **Artifact explosion:** one task-level JSONL ledger and retained evidence directories keep the model bounded.
 - **Legacy noise:** the pivot is default-strict for new tasks and opt-in strict for pre-pivot tasks.
 - **Customer authority ambiguity:** registration names accepted authority kinds; agents cannot author `accepted` dispositions unless explicitly authorized.
 
