@@ -357,3 +357,49 @@ PY
   [[ "$status" -eq 0 ]] || fail_test "GIT_PROVIDER_AUTHORITY_GAP: $output"
   [[ "$output" = "GIT_PROVIDER_AUTHORITY_OK" ]] || fail_test "wrong Git-provider output: $output"
 }
+
+@test "activate-key replays slot crash, recovery rebind, and accepted-CAS finalize" {
+  require_bootstrap_source
+  run python3 - "$BOOTSTRAP" "$WIRE_SCHEMA_SOURCE" "$FIXTURE_DIR" <<'PY'
+import hashlib,importlib.util,json,pathlib,shutil,subprocess,sys
+spec=importlib.util.spec_from_file_location("bootstrap",sys.argv[1]); m=importlib.util.module_from_spec(spec); sys.modules[spec.name]=m; spec.loader.exec_module(m)
+schema=json.loads(pathlib.Path(sys.argv[2]).read_text()); root=pathlib.Path(sys.argv[3]); private=root/"activation-private"; private.mkdir()
+ssh=pathlib.Path(shutil.which("ssh-keygen") or "").resolve()
+old=private/"keys"/"old"; new=private/"keys"/"new"; old.parent.mkdir()
+subprocess.run([str(ssh),"-q","-t","ed25519","-N","","-f",str(old)],check=True); subprocess.run([str(ssh),"-q","-t","ed25519","-N","","-f",str(new)],check=True)
+fingerprint=subprocess.run([str(ssh),"-lf",str(new)+".pub"],check=True,capture_output=True,text=True).stdout.split()[1]
+registration={"environment_allowlist":[],"ssh_keygen_executable":str(ssh),"ssh_keygen_sha256":hashlib.sha256(ssh.read_bytes()).hexdigest()}
+context=m.RuntimeContext(root=root,schema=schema,registration=registration,private_root=private)
+m.initialize_identity(context,"signer","signer-one","provider-one","key-old","secret-store:"+str(old))
+(root/"authority.json").write_bytes(b"{}\n"); authority_sha=hashlib.sha256(b"{}\n").hexdigest()
+activation={"activation_nonce":"nonce-one","identity_id":"signer-one","identity_kind":"signer","old_key_id":"key-old","provider_id":"provider-one","replacement_fingerprint":fingerprint,"replacement_key_id":"key-new","replacement_principal":"signer-one","replacement_public_key":pathlib.Path(str(new)+".pub").read_text().strip(),"replacement_secret_store_ref":"secret-store:"+str(new)}
+def request(action,mode,result_out,proof_out,cas=None):
+    value={"action":action,"activation":activation,"authority_bundle_locator":"authority.json","authority_bundle_sha256":authority_sha,"authorization_mode":mode,"cas_result_locator":None,"cas_result_sha256":None,"cas_result_signature_locator":None,"cas_result_signature_sha256":None,"idempotency_key":"0"*64,"operation":"activate-key","prepare_proof_output":proof_out,"prepare_result_output":result_out,"previous_registry_locator":"previous.json","previous_registry_sha256":"1"*64,"replacement_registry_locator":"replacement.json","replacement_registry_sha256":"2"*64,"schema_version":1,"supersession":None}
+    if cas: value.update(cas)
+    subject=dict(value); subject.pop("idempotency_key"); value["idempotency_key"]=m.digest_bytes(m.canonical_bytes(subject)); return value
+prepare=request("prepare","continuity","prepare-result.json","prepare-proof.json")
+first=m.handle_activate_key(context,prepare,None)
+state=m.load_identity_state(context,"signer","signer-one")
+if state["active_key_id"]!="key-old" or state["pending_key_id"]!="key-new": raise SystemExit("prepare activated early or failed to install pending slot")
+journal_path=m.activation_journal_path(context,"nonce-one"); journal=m.load_json_bytes(journal_path.read_bytes())
+crashed=dict(journal); crashed.update({"pending_slot_generation":None,"prepare_result_locator":None,"prepare_result_sha256":None,"prepare_proof_locator":None,"prepare_proof_sha256":None,"state":"prepared"})
+m.atomic_compare_replace(journal_path,journal_path.read_bytes(),m.canonical_file_bytes(crashed),root=private)
+if m.handle_activate_key(context,prepare,None)!=first: raise SystemExit("prepare response-loss replay changed result bytes")
+rebind=request("rebind","recovery","rebind-result.json","rebind-proof.json")
+rebound=m.handle_activate_key(context,rebind,None)
+if m.handle_activate_key(context,rebind,None)!=rebound: raise SystemExit("rebind retry changed result bytes")
+cas_result={"operation":"registry-cas","previous_registry_sha256":"1"*64,"result_registry_sha256":"2"*64}
+(root/"cas.json").write_bytes(m.canonical_bytes(cas_result)); (root/"cas.sig").write_bytes(b"signed")
+cas={"cas_result_locator":"cas.json","cas_result_sha256":m.digest_bytes(m.canonical_bytes(cas_result)),"cas_result_signature_locator":"cas.sig","cas_result_signature_sha256":m.digest_bytes(b"signed")}
+finalize=request("finalize","recovery","unused-result.json","unused-proof.json",cas)
+finished=m.handle_activate_key(context,finalize,None)
+if m.handle_activate_key(context,finalize,None)!=finished: raise SystemExit("finalize retry changed result bytes")
+state=m.load_identity_state(context,"signer","signer-one")
+if state["active_key_id"]!="key-new" or any(state[k] is not None for k in ("pending_key_id","pending_handle_ref","pending_activation_nonce","pending_slot_generation")): raise SystemExit("accepted CAS did not atomically finalize the stable slot")
+journal=m.load_json_bytes(journal_path.read_bytes()); m.validate_schema(journal,schema["$defs"]["activation_journal"],schema)
+if journal["state"]!="complete": raise SystemExit("activation journal did not reach complete")
+print("ACTIVATION_REPLAY_OK")
+PY
+  [[ "$status" -eq 0 ]] || fail_test "ACTIVATION_REPLAY_GAP: $output"
+  [[ "$output" = "ACTIVATION_REPLAY_OK" ]] || fail_test "wrong activation output: $output"
+}
