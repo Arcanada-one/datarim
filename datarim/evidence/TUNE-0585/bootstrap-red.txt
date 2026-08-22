@@ -1,0 +1,19 @@
+TUNE-0585 bootstrap RED evidence
+reviewed_pair_commit: f636bd7c6ef4ad9fef6342bd0a8abe26594b082d
+bootstrap_authorization_commit: 2fede07456920a51f7e3a6dc1dfb70968fba5fbd
+recorded_at: 2026-08-22T15:04:00Z
+cwd: /home/dev/.worktrees/datarim/TUNE-0585-customer-delivery
+argv: ["bats","tests/customer-delivery-bootstrap.bats"]
+exit_code: 1
+assertion: BOOTSTRAP_RED_MISSING_EXECUTABLE
+expected_failure: missing authorized executable scripts/customer-delivery-bootstrap.py
+output:
+1..5
+not ok 1 bootstrap executable exists only after the authorized RED commit
+# (in test file tests/customer-delivery-bootstrap.bats, line 20)
+#   `false' failed
+# BOOTSTRAP_RED: missing authorized executable scripts/customer-delivery-bootstrap.py
+ok 2 wire schema is canonical, closed, and contains every pre-trust fragment # skip bootstrap executable intentionally absent at bootstrap RED
+ok 3 bootstrap validates every wire fragment and rejects unknown fields # skip bootstrap executable intentionally absent at bootstrap RED
+ok 4 canonicalization rejects duplicate keys and produces exact canonical bytes # skip bootstrap executable intentionally absent at bootstrap RED
+ok 5 bootstrap imports only the Python standard library and never invokes a shell # skip bootstrap executable intentionally absent at bootstrap RED
