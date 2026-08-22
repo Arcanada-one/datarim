@@ -69,9 +69,11 @@ Require a prose delivery table at archive. This is cheap but post-hoc by constru
 
 `datarim/delivery/{TASK-ID}.jsonl` is a versioned append-only event stream. Each line carries `schema_version`, `event_id`, `event_type`, `task_id`, `recorded_at`, `payload`, `prev_event_hash`, and `event_hash`. Writers take a per-task lock, recompute the predecessor hash, write to a temporary file, validate the full stream, and atomically replace the ledger. Corrections append a superseding event; no event is edited or deleted.
 
-Normative event types are `lane_classified`, `source_manifest_bound`, `remark_captured`, `requirement_declared`, `production_ac_declared`, `atomicity_reviewed`, `parent_intent_bound`, `evolution_disposition`, `prework_contract_frozen`, `implementation_authorized`, `implementation_bound`, `red_observed`, `green_observed`, `production_deployment_observed`, `visual_observation`, `customer_disposition`, `enabling_disposition`, `child_manifest_bound`, `event_superseded`, and `ledger_head_anchored`.
+Normative event types are `lane_classified`, `source_manifest_bound`, `remark_captured`, `requirement_declared`, `production_ac_declared`, `atomicity_reviewed`, `parent_intent_bound`, `evolution_requested`, `evolution_approved`, `evolution_rejected`, `evolution_applied`, `evolution_reviewed`, `evolution_disposition`, `prework_contract_frozen`, `implementation_authorized`, `implementation_bound`, `red_observed`, `green_observed`, `production_deployment_observed`, `visual_observation`, `customer_disposition`, `enabling_disposition`, `child_manifest_bound`, and `event_superseded`.
 
-Derived delivery state is never authored as an authoritative event. The validator calculates it from the current non-superseded event graph every run. A locally valid chain is insufficient: every stage transition requires an authenticated receipt from the registered monotonic head-anchor authority for the exact final event hash, event count, task ID, and project ID. A shorter or divergent local chain fails even when its internal hashes are valid.
+Derived delivery state is never authored as an authoritative event. The validator calculates it from the current non-superseded event graph every run. Anchor receipts are external provider records, never in-ledger events, so anchoring cannot recurse. A locally valid chain is insufficient: every normal strict stage transition requires an authenticated receipt for the exact final event hash, event count, task ID, project ID, immutable Git blob OID, and content length. The provider acknowledges only after the complete blob is retrievable from its immutable/content-addressed store or protected Git ref; resolve re-downloads the bytes and recomputes both blob and event hashes. A shorter, divergent, missing, or unretrievable local/provider chain fails even when internal hashes are valid.
+
+Canonical event bytes are precisely defined. JSON input rejects duplicate keys and accepts only strings, booleans, null, arrays/objects, and signed 64-bit integers; floats are forbidden. Strings are valid UTF-8 and retain their exact Unicode scalar sequence (no normalization). The hash preimage is the event object without `event_hash`, serialized as UTF-8 with keys sorted by Unicode code point, no insignificant whitespace, JSON lowercase literals, minimal base-10 integers, and JSON escaping only for quotation mark, reverse solidus, and U+0000-U+001F. No BOM or trailing newline is included. `prev_event_hash` is inside the preimage. Shipped cross-runtime test vectors fix every boundary.
 
 ### 2. Atomic identity and source coverage
 
@@ -79,7 +81,7 @@ Derived delivery state is never authored as an authoritative event. The validato
 
 The denominator is not the ledger's self-declared `remark_captured` set. `source_manifest_bound` pins an authoritative, provider-produced inventory of complete source containers and stable item identifiers: the init-task brief and append-log records for native tasks, plus the project registration's issue/comment/document adapters for imported work. The validator independently resolves every manifest item, recomputes its bytes and digest, and rejects uncaptured, multiply captured, missing, or extra source items. A source manifest is valid only when the adapter proves pagination/exhaustion and its exact manifest head is retained by the monotonic anchor authority. Semantic atomization is then independently reviewed: a single source item may produce several requirements, but it cannot disappear through aggregation.
 
-Verbatim bytes are private data, not necessarily public Git data. Native tasks keep them in the gitignored init-task/private source store; imports may use a registered encrypted or access-controlled source vault. The public ledger records stable provider item ID, byte length, salted content digest, source-kind, authority identity, and an opaque locator—not the private text—unless the project explicitly classifies that text as publishable. The source provider must return the original bytes for validation. Deletion or alteration fails the committed digest and anchored manifest; the public audit chain proves that a source existed without disclosing it. Reports redact content by default.
+Verbatim bytes are private data, not necessarily public Git data. Native tasks keep them in the gitignored init-task/private source store; imports may use a registered encrypted or access-controlled source vault. The public ledger records a pseudonymous item ID, byte length, versioned HMAC-SHA-256 commitment, source-kind, authority class, and an opaque locator—not the private text—unless the project explicitly classifies that text as publishable. The HMAC key remains in the private provider; domain separation binds schema/project/task/item/key ID. Rotation cross-signs old/new key metadata, retains the old key for historical verification, and never rewrites commitments. The source provider must return the original bytes for validation without logging them. Deletion or alteration fails the anchored commitment; public identifiers cannot expose provider-native issue/comment/user IDs. Reports redact content by default.
 
 ### 3. Delivery lanes and surface blueprints
 
@@ -93,7 +95,7 @@ Customer-visible and enabling dispositions are deliberately different. Customer-
 
 Each customer-visible requirement names a pinned surface blueprint with typed executable predicates. `bilingual-web-v1` requires the exact RU/EN × mobile/desktop × light/dark eight-cell matrix and may be widened but not narrowed by registration. Other shipped blueprints define equivalent visitor-observation dimensions for native, CLI, API, and published-document surfaces; none permits tools, source documents, tests, or local-only output to substitute for the actual customer-consumed production surface. Talomnia uses `bilingual-web-v1`.
 
-Atomicity is structural and independently reviewed: one requirement has one subject, one observable behavior, one terminal disposition, and one surface blueprint; its production AC is a typed predicate plus expected value, not prose alone. A source item that contains conjunctions, multiple routes, or independently rejectable outcomes must decompose. `atomicity_reviewed` binds the authoritative source-manifest digest, complete remark-to-requirement cardinality, reviewer identity/trust proof, exact spec revision, and verdict. A passing review receipt is required before freeze; aggregate catch-all requirements fail review and validation.
+Atomicity is structural and independently reviewed: one requirement has one subject, one observable behavior, one terminal disposition, and one surface blueprint; its production AC is a typed predicate plus expected value, not prose alone. A source item that contains conjunctions, multiple routes, or independently rejectable outcomes must decompose. `atomicity_reviewed` binds the authoritative source-manifest digest, exact ordered digest of all active requirement and production-AC events, complete remark-to-requirement cardinality, reviewer identity/trust proof, exact predecessor ledger head/spec revision, and verdict. Any later declaration, amendment, or supersession of a source/requirement/AC invalidates the review and downstream freeze. A passing review receipt is required before freeze; aggregate catch-all requirements fail review and validation.
 
 ### 4. Pre-work binding
 
@@ -122,7 +124,7 @@ The pre-work gate blocks `/dr-do` when the disposition or immutable references a
 
 Review origin is derived from the authoritative source provider's immutable source-kind metadata (`customer_review`, `customer_brief`, `operator_amendment`, or another registered kind), not selected by the implementer. `customer_review` and amendments to prior delivered work always arm this gate.
 
-`/dr-plan` owns and invokes a bounded pre-work evolution substage before authorization, using the capability owner named by the plan (`architect` for blueprints/policies/constraints, `skill-creator` for skills/roles). Task-scoped reversible artifacts are changed and reviewed in that substage, then control returns to `/dr-plan` for refreeze. Framework-wide operating-model changes follow the existing Class B approval boundary: `/dr-plan` derives `blocked`, presents the approval artifact to the operator, and resumes the same substage after approval. The task cannot enter `/dr-do` until the pinned artifact exists at the freeze commit. This is a real mutation stage, not a post-archive reflection note.
+`/dr-plan` owns and invokes a bounded pre-work evolution substage before authorization. Owner mapping is registry-derived, not implementer-selected: blueprint/policy/constraint/success-criterion → `architect`; skill/role → `skill-creator`; a project may narrow authority but never grant the implementer approval authority. The durable state machine is `evolution_requested → blocked` (when approval is required) → `evolution_approved|evolution_rejected → evolution_applied → evolution_reviewed → evolution_disposition → prework_contract_frozen`. Every event binds request ID, prior ledger head, exact artifact before/after digest, owner trust proof, approval record where required, and resume cursor. Rejection remains blocked; a crash resumes at the first missing valid transition, never against an unapproved/newer artifact. Task-scoped reversible artifacts are changed and reviewed in that substage, then control returns to `/dr-plan` for refreeze. Framework-wide operating-model changes follow the existing Class B approval boundary. The task cannot enter `/dr-do` until the pinned artifact exists at the freeze commit.
 
 ### 6. Evidence model
 
@@ -173,11 +175,13 @@ The shared command router requires classification before any task-creating or ta
 
 The framework ships a project-registration template. Consumers register project ID, epic root, authoritative source and child-manifest providers, contract roots, public surface base URLs, surface blueprints, knowledge-reference resolver, deployment provenance probe, customer-authority policy, and a framework-release `canon_epoch`. The universal validator accepts adapters but keeps the core schema project-agnostic.
 
+The consumer registry itself is signed by the framework/project governance trust root and pins profile version, verifier executable digest, algorithm, key/issuer, subject, audience, role scopes, repository/project/requirement scopes, validity interval, and revocation-list digest. Rotation requires an old-and-new cross-signature or an explicit operator recovery record; revoked/expired keys invalidate new receipts but historical receipts retain validation against the signed historical registry. Profile downgrade is forbidden after `canon_epoch`. Evidence/reviewer/project/customer roles are disjoint: a valid developer or runner key cannot sign atomicity review, enabling verification, or customer disposition.
+
 The first shipped provider profiles are concrete:
 
 - `git-protected-ref-v1` is the ongoing monotonic head authority. It requires a dedicated remote branch whose host rules forbid deletion and non-fast-forward updates while permitting append-only fast-forwards, verifies those rules through a pinned host API profile, and anchors a ledger head only when the exact ledger blob and receipt commit are reachable from that protected ref. Each strict stage transition is merged through the protected review path before the next stage. Git credentials come from the existing credential helper; tokens are never command arguments.
 - `git-immutable-tag-v1` is the one-shot genesis/release anchor. It requires a tag namespace whose host rules forbid deletion, non-fast-forward, and update; the canon's reviewed release tag anchors the final genesis ledger but cannot serve subsequent append transitions.
-- `git-ssh-v1` authenticates runner/reviewer receipts with `ssh-keygen -Y sign/verify` and a project-registry allowed-signers file pinned by digest. Private keys stay in the configured agent/CI signer; the registry stores public identities only.
+- `git-ssh-v1` authenticates runner/reviewer receipts with `ssh-keygen -Y sign/verify`, a fixed namespace per receipt class, and a project-registry allowed-signers file pinned by digest and scoped as above. Private keys stay in the configured agent/CI signer; the registry stores public identities only.
 - source, customer, and child providers use the same constrained adapter envelope and an authenticated provider-specific receipt. A project without a passing trust/authority probe cannot arm strict mode.
 
 The plan must perform a ≤60-second feasibility probe of executable availability, signer verification, remote rules, credential scope, and an append/resolve dry run before implementation. Documentation is not proof of provider behavior.
@@ -186,7 +190,9 @@ Adapters are data providers, never shell fragments or state authorities. Registr
 
 ### 10. Writer durability and authority transitions
 
-The writer serializes per-task appends with an advisory lock that carries owner/process/start metadata and a bounded stale-lock recovery rule. It validates the current anchored head, writes and fsyncs a complete temporary file, atomically renames, fsyncs the containing directory, then requests a compare-and-append head receipt from the monotonic authority. Duplicate retries are idempotent by event ID and payload digest. Concurrent/divergent predecessors fail without overwriting either branch. Disk-full, short write, signal/process death, anchor timeout, and failure between rename and anchor leave an explicit recoverable `unanchored` state; no stage gate passes until reconciliation either anchors that exact head or appends an authority-approved supersession. Supersession is allowlisted by target event type and signer role; source capture, customer disposition, prior head anchors, and evidence observations are never deletable from history, only countermanded by a new equally authenticated event.
+The writer serializes per-task appends with an advisory lock that carries owner/process/start metadata and a bounded stale-lock recovery rule. It validates the current anchored head, writes and fsyncs a complete temporary file, atomically renames, fsyncs the containing directory, publishes the complete immutable blob, then requests a compare-and-append head receipt. Duplicate retries are idempotent by event ID and payload digest. Concurrent/divergent predecessors fail without overwriting either branch. Disk-full, short write, signal/process death, publication/anchor timeout, and failure between rename/publication/anchor leave an explicit recoverable `unanchored` state; no stage gate passes until reconciliation proves the exact published blob and anchors it.
+
+Supersession is deterministic. Source captures, identity/manifest bindings, atomicity reviews, authorization, evidence observations, dispositions, and external anchor receipts are never semantically removed. Source/requirement/AC/prework declarations may be amended only before authorization by the scoped governance signer; doing so invalidates atomicity review/freeze and all downstream events. Implementation/evidence/deploy/visual observations are countermanded only by a newer valid observation with the same typed identity and scoped runner/provider signer; the highest event sequence on one anchored chain wins. Customer disposition is resolved by the customer provider's monotonic record sequence, never ledger order, and any returned/rejected record reopens. Two events with the same predecessor are a divergence and neither wins until an authority-signed reconciliation event names both hashes and the chosen successor. `event_superseded` carries target ID/type, replacement ID, reason, signer scope, and invalidation set; any other target/actor pair fails closed.
 
 ### 11. Genesis bootstrap
 
@@ -240,11 +246,11 @@ New L1-L4 tasks classify their lane after the exact framework release/version/co
 
 #### D-REQ-10: Security and evidence preservation
 
-Verbatim external text is treated as data, never executed. CLI text inputs use files or JSON stdin, paths are root-confined, digests are recomputed, symlinks cannot escape the project root, and reports never print secrets. Evidence paths are durable and project-relative; `/tmp` cannot satisfy retention.
+Verbatim external text is treated as data, never executed. CLI text inputs use files or JSON stdin, paths are root-confined, commitments are recomputed through the private provider, symlinks cannot escape the project root, and reports never print secrets or provider-native identifiers. Evidence paths are durable and project-relative; `/tmp` cannot satisfy retention.
 
 #### D-REQ-11: Project registration and adapter boundary
 
-The core validator remains project-agnostic. A registration schema defines exact contract roots, authoritative source/child manifests, surface matrices, constrained adapter argv, and customer authority. Missing, mutable, unsafe, non-executable, timed-out, oversized, or schema-invalid adapters fail only the phases that need them.
+The core validator remains project-agnostic. A governance-signed registration schema defines exact contract roots, authoritative source/child manifests, surface matrices, constrained adapter argv, disjoint signer roles/scopes, verifier revisions, revocation/rotation policy, and customer authority. Missing, mutable, unsafe, downgraded, unauthorized, revoked, non-executable, timed-out, oversized, or schema-invalid adapters/receipts fail only the phases that need them.
 
 #### D-REQ-12: Honest genesis and independent reviews
 
@@ -252,13 +258,13 @@ TUNE-0585 follows the two-commit genesis freeze/authorization sequence before im
 
 #### D-REQ-13: Privacy-safe monotonic authority and durable writes
 
-Private verbatim bytes remain in an access-controlled source provider while public ledger records retain non-disclosing provenance. Every accepted ledger head is externally anchored. Concurrent writers, retries, stale locks, crash points, disk-full, divergent heads, truncation, rollback, and unauthorized supersession have deterministic fail-closed or recoverable behavior without losing acknowledged events.
+Private verbatim bytes remain in an access-controlled source provider while public ledger records retain pseudonymous HMAC commitments. Every accepted ledger head is externally anchored to a retrievable immutable ledger blob. Canonical bytes are runtime-independent. Concurrent writers, retries, stale locks, crash points, disk-full, divergent heads, truncation, rollback, key rotation/revocation, and unauthorized/ambiguous supersession have deterministic fail-closed or recoverable behavior without losing acknowledged events.
 
 ## Validation Acceptance Criteria
 
 ### V-AC-1 — Atomic coverage
 
-Provider-manifest omission/pagination, private-source deletion/alteration, broken one-to-one, one-to-many, aggregate catch-all, missing atomicity review, duplicate, dangling, and digest fixtures fail; valid exhausted mappings with an authenticated passing atomicity review pass.
+Provider-manifest omission/pagination, private-source deletion/alteration, public identifier leakage, HMAC key/domain/rotation mismatch, broken one-to-one, one-to-many, aggregate catch-all, missing/stale atomicity review, duplicate, dangling, and commitment fixtures fail; valid exhausted mappings with an exact-graph authenticated atomicity review pass.
 Covers: D-REQ-01, D-REQ-02
 
 ### V-AC-2 — Pre-work gate
@@ -293,7 +299,7 @@ Covers: D-REQ-09
 
 ### V-AC-8 — Runner and adapter safety
 
-Argv/no-shell controls, executable/registration trust, timeout/output/env caps, path confinement, digest checks, forged/hash-only runner receipts, forged customer dispositions, authenticated result validation, and evidence-receipt provenance mutations pass.
+Argv/no-shell controls, executable/registration trust, timeout/output/env caps, path confinement, commitment checks, forged/hash-only runner receipts, wrong-role/scope/audience/namespace, expired/revoked/downgraded profiles, forged customer dispositions, authenticated result validation, and evidence-receipt provenance mutations pass.
 Covers: D-REQ-05, D-REQ-10, D-REQ-11
 
 ### V-AC-9 — Genesis and review
@@ -303,7 +309,7 @@ Covers: D-REQ-12
 
 ### V-AC-10 — Monotonic durability and privacy
 
-Private-source redaction, anchored-head truncation/rollback/divergence, unauthorized supersession, concurrent append, duplicate retry, stale lock, disk-full/short-write, process-death-before/after-rename, directory-fsync, anchor-timeout, and unanchored-recovery fixtures each preserve acknowledged history and fail closed until reconciled.
+Private-source redaction, cross-runtime canonical-byte vectors, missing immutable blob, anchored-head truncation/rollback/divergence, anchor self-reference absence, target/actor/conflict supersession, concurrent append, duplicate retry, stale lock, disk-full/short-write, process-death-before/after rename/publication, directory-fsync, anchor-timeout-after-accept, and unanchored recovery fixtures each preserve acknowledged bytes/history and fail closed until reconciled.
 Covers: D-REQ-13
 
 ## Error Handling
