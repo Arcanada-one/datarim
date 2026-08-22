@@ -14,14 +14,21 @@
       "source-quote-set-exact",
       "source-canonical-digest-valid",
       "source-approval-digest-equals-source-digest",
+      "source-approval-payload-canonical-digest-valid",
       "source-signature-valid",
+      "source-signature-over-approval-payload-digest-valid",
       "assertion-source-digest-equals-containing-source-digest",
       "source-correction-superseded-digest-exists",
       "source-correction-prior-record-retained",
       "source-correction-in-place-replacement-prohibited",
+      "source-history-prior-digest-set-retained",
+      "source-history-prior-record-content-immutable",
+      "source-correction-appended-record-supersedes-prior-digest",
       "tier1-assertion-canonical-digest-valid",
       "tier1-assertion-approval-digest-equals-assertion-digest",
+      "tier1-assertion-approval-payload-canonical-digest-valid",
       "tier1-assertion-signature-valid",
+      "tier1-assertion-signature-over-approval-payload-digest-valid",
       "tier1-authority-approval-before-implementation",
       "tier1-assertion-correction-append-only",
       "source-verbatim-to-assertion-authority-approval-required",
@@ -55,6 +62,24 @@
       "supersession-target-exists",
       "supersession-graph-acyclic"
     ]
+  },
+  "x-datarim-canonicalization": {
+    "algorithm": "RFC8785",
+    "scheme": "JCS",
+    "encoding": "UTF-8",
+    "unicode_normalization": "NONE",
+    "object_member_order": "RFC8785_UTF16_CODE_UNIT_LEXICOGRAPHIC",
+    "array_order": {
+      "default": "PRESERVE_INPUT_ORDER",
+      "sorted_set_like_fields": [
+        {
+          "payload": "sourceRemark",
+          "field": "requirement_ids",
+          "order": "ASCENDING_UNICODE_CODE_POINT"
+        }
+      ]
+    },
+    "digest_input": "RFC8785_CANONICAL_JSON_UTF8_BYTES_WITHOUT_DIGEST_PREFIX"
   },
   "type": "object",
   "additionalProperties": false,
@@ -96,7 +121,7 @@
         "source_id": { "type": "string", "pattern": "^source-[0-9]{4}$" },
         "revision": { "type": "string", "pattern": "^[1-9][0-9]*$" },
         "source_digest": {
-          "description": "SHA-256 over UTF-8 JSON of source_id, revision, source_tier, verbatim_quote, captured_at, sorted requirement_ids, optional locale/source_ref, and optional supersedes_source_digest, with keys sorted and compact comma/colon separators.",
+          "description": "SHA-256 over the RFC 8785 canonical JSON UTF-8 bytes of source_id, revision, source_tier, verbatim_quote, captured_at, requirement_ids sorted in ascending Unicode code-point order, optional locale/source_ref, and optional supersedes_source_digest. RFC 8785 performs no Unicode normalization. The sha256: prefix is not part of the digest input.",
           "type": "string",
           "pattern": "^sha256:[0-9a-f]{64}$"
         },
@@ -172,7 +197,7 @@
         "revision": { "type": "string", "pattern": "^[1-9][0-9]*$" },
         "source_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
         "assertion_digest": {
-          "description": "SHA-256 over UTF-8 JSON of every assertion field except assertion_digest and authority_approval, with keys sorted and compact comma/colon separators.",
+          "description": "SHA-256 over the RFC 8785 canonical JSON UTF-8 bytes of every assertion field except assertion_digest and authority_approval. RFC 8785 performs no Unicode normalization. The sha256: prefix is not part of the digest input.",
           "type": "string",
           "pattern": "^sha256:[0-9a-f]{64}$"
         },
@@ -198,7 +223,7 @@
       ]
     },
     "authorityApproval": {
-      "description": "A signed authority approval over the canonical Tier-1 assertion digest. Cryptographic verification and append-only revision history are enforced by the registered validator.",
+      "description": "An authority approval whose ED25519 signature is over approval_payload_digest. The approval payload contains approved_digest, authority_id, authority_role, approved_at, evidence_ref, algorithm, and key_id; approval_payload_digest and signature are excluded. Cryptographic verification is enforced by the registered validator.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -209,6 +234,7 @@
         "evidence_ref",
         "algorithm",
         "key_id",
+        "approval_payload_digest",
         "signature"
       ],
       "properties": {
@@ -219,6 +245,11 @@
         "evidence_ref": { "type": "string", "minLength": 1 },
         "algorithm": { "const": "ED25519" },
         "key_id": { "type": "string", "pattern": "^key-[a-z0-9][a-z0-9-]*$" },
+        "approval_payload_digest": {
+          "description": "SHA-256 over the RFC 8785 canonical JSON UTF-8 bytes of approved_digest, authority_id, authority_role, approved_at, evidence_ref, algorithm, and key_id. The ED25519 signature is over this digest value.",
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
         "signature": { "type": "string", "pattern": "^ed25519:[A-Za-z0-9+/]{86}==$" }
       }
     },
