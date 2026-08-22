@@ -308,10 +308,10 @@ PY
 @test "git protected provider uses real fast-forward commits and remote readback authority" {
   require_bootstrap_source
   run python3 - "$BOOTSTRAP" "$FIXTURE_DIR" <<'PY'
-import hashlib,importlib.util,pathlib,subprocess,sys,tempfile
+import hashlib,importlib.util,pathlib,shutil,subprocess,sys,tempfile
 spec=importlib.util.spec_from_file_location("bootstrap",sys.argv[1]); m=importlib.util.module_from_spec(spec); sys.modules[spec.name]=m; spec.loader.exec_module(m)
 root=pathlib.Path(sys.argv[2]); state=root/"provider-private"; state.mkdir()
-git=pathlib.Path(subprocess.run(["sh","-c","command -v git"],check=True,capture_output=True,text=True).stdout.strip()).resolve()
+git=pathlib.Path(shutil.which("git") or "").resolve()
 remote=root/"provider.git"; subprocess.run([str(git),"init","--bare","-q",str(remote)],check=True)
 registration={"environment_allowlist":[],"git_executable":str(git),"git_sha256":hashlib.sha256(git.read_bytes()).hexdigest()}
 context=m.RuntimeContext(root=root,schema={},registration=registration,private_root=state)
@@ -319,7 +319,7 @@ provider={"provider_id":"provider:receipts","protected_ref":"refs/heads/datarim/
 m.sign_provider_result=lambda _c,_r,_p,payload,namespace: {"namespace":namespace,"payload_sha256":m.digest_bytes(m.canonical_bytes(payload)),"schema_version":1}
 def build(sequence,previous,head,request_sha):
     return {"operation":"append-receipt","provider_sequence":sequence,"previous_provider_head":previous,"result_provider_head":head,"request_sha256":request_sha,"schema_version":1}
-request={"operation":"append-receipt","value":"one"}; auth_a=m.digest_bytes(b"authority-a")
+request={"operation":"append-receipt","value":"one"}; auth_a=b"authority-a"
 wire=m.provider_compare_append(context,{},provider,"append-receipt","a"*64,request,auth_a,[],build,"result-v1")
 remote_oid=subprocess.run([str(git),"--git-dir",str(remote),"rev-parse",provider["protected_ref"]],check=True,capture_output=True,text=True).stdout.strip()
 if wire["provider_commit_oid"]!=remote_oid: raise SystemExit("provider returned a fabricated or unrefetched commit OID")
@@ -329,7 +329,7 @@ found=m.provider_lookup_bytes(context,provider,"append-receipt","a"*64)
 if found is None or found[2]!=remote_oid or found[0]!=m.canonical_bytes(wire["result"]): raise SystemExit("response-loss lookup did not resolve exact remote bytes")
 retry=m.provider_compare_append(context,{},provider,"append-receipt","a"*64,request,auth_a,[],build,"result-v1")
 if retry!=wire: raise SystemExit("identical retry did not return byte-identical protected result")
-try: m.provider_compare_append(context,{},provider,"append-receipt","a"*64,request,m.digest_bytes(b"authority-b"),[],build,"result-v1")
+try: m.provider_compare_append(context,{},provider,"append-receipt","a"*64,request,b"authority-b",[],build,"result-v1")
 except m.BootstrapError: pass
 else: raise SystemExit("changed authorization under one idempotency key was accepted")
 wire2=m.provider_compare_append(context,{},provider,"append-receipt","b"*64,{"operation":"append-receipt","value":"two"},auth_a,[],build,"result-v1")
