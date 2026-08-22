@@ -171,6 +171,23 @@ PY
   if ((${#missing[@]})); then
     fail_test "MISSING_OPERATION_DISPATCH: ${missing[*]}"
   fi
+  run python3 - "$BOOTSTRAP" <<'PY'
+import ast,pathlib,sys
+source=pathlib.Path(sys.argv[1]).read_text()
+for forbidden in ("not yet authorized", "not implemented", "pending-integration"):
+    if forbidden in source:
+        raise SystemExit("DEFERRED_OPERATION_HANDLER: "+forbidden)
+tree=ast.parse(source)
+handlers={node.name for node in ast.walk(tree) if isinstance(node,(ast.FunctionDef,ast.AsyncFunctionDef)) and node.name.startswith("handle_")}
+expected={"handle_"+name.replace("-","_") for name in (
+ "canonicalize caller-sign activate-key genesis-trust genesis-input genesis-plan genesis-prepare genesis-attest genesis-bundle authorize-and-sign publish-blob resolve-blob lookup-provider-operation append-receipt lookup-receipt resolve-receipt registry-cas"
+).split()}
+missing=sorted(expected-handlers)
+if missing: raise SystemExit("MISSING_OPERATION_HANDLERS: "+" ".join(missing))
+print("OPERATION_HANDLERS_OK")
+PY
+  [[ "$status" -eq 0 ]] || fail_test "$output"
+  [[ "$output" = "OPERATION_HANDLERS_OK" ]] || fail_test "unexpected handler inventory: $output"
 }
 
 @test "permissive and obsolete wire shapes are rejected" {
