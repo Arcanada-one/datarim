@@ -12,6 +12,17 @@ source_remarks:
       - req-0001
     tier1_assertions:
       - assertion_id: assertion-0001
+        revision: "1"
+        assertion_digest: sha256:8563e7ada4eb24f48aa663fbc26e56e92e473894a31d2bf76a74e56dfc8b5c7f
+        authority_approval:
+          approved_digest: sha256:8563e7ada4eb24f48aa663fbc26e56e92e473894a31d2bf76a74e56dfc8b5c7f
+          authority_id: authority-customer-0001
+          authority_role: CUSTOMER
+          approved_at: "2026-01-02T09:05:00Z"
+          evidence_ref: authority-approval-0001
+          algorithm: ED25519
+          key_id: key-customer-0001
+          signature: ed25519:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==
         requirement_id: req-0001
         predicate_id: predicate-visitor-readable
         product: example-product
@@ -127,9 +138,33 @@ requirements:
         task_id: task:web:0001
         code_revision: pending-before-implementation
         content_revision: pending-before-implementation
+        code_paths:
+          - src/styles/comparison.css
+        content_paths:
+          - content/comparison.yaml
         environment: production
         started_at: "2026-01-02T10:00:00Z"
       visitor_visible: true
+      rendered_test_evidence:
+        environment: TEST
+        product: example-product
+        surface: public-comparison
+        predicate_id: predicate-visitor-readable
+        applicability:
+          locales:
+            - ru
+            - en
+          viewports:
+            - mobile
+            - desktop
+          themes:
+            - light
+            - dark
+          painted_matrix_applicable: true
+        baseline_ref: artifacts/test/comparison-before.png
+        candidate_ref: artifacts/test/comparison-after.png
+        observed_at: "2026-01-02T11:30:00Z"
+        owner: delivery-reviewer
       production_assertion:
         actor: VISITOR
         environment: PRODUCTION
