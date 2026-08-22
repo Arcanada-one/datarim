@@ -14,8 +14,29 @@ requirements:
   req-0001:
     source_ids:
       - source-0001
-    atomic_statement: The comparison is visitor-readable in every applicable painted UI combination.
+    tier1_assertion:
+      assertion_id: assertion-0001
+      predicate_id: predicate-visitor-readable
+      product: example-product
+      surface: public-comparison
+      applicability:
+        locales:
+          - ru
+          - en
+        viewports:
+          - mobile
+          - desktop
+        themes:
+          - light
+          - dark
+        painted_matrix_applicable: true
+      visitor_visible: true
+      authority_ref: source-0001
+      asserted_at: "2026-01-02T09:00:00Z"
+      paraphrase: The comparison is visitor-readable in every applicable painted UI combination.
     acceptance:
+      tier1_assertion_id: assertion-0001
+      predicate_id: predicate-visitor-readable
       exact_source_quote: "The comparison must remain readable on my phone in both languages and themes."
       product: example-product
       surface: public-comparison
@@ -33,7 +54,9 @@ requirements:
       before_state: The comparison overlaps its sticky header on mobile.
       after_state: The comparison remains readable without overlap in every applicable painted combination.
       evidence:
-        method: Painted-coordinate browser assertions against the production visitor route.
+        method:
+          kind: PAINTED_SURFACE_PROBE
+          surface_ref: https://example.invalid/comparison
         owner: delivery-reviewer
         evidence_class: VISITOR_VISIBLE_PRODUCTION
       knowledge_selection:
@@ -86,5 +109,10 @@ requirements:
         environment: production
         started_at: "2026-01-02T10:00:00Z"
       visitor_visible: true
-      production_acceptance_criterion: A visitor can read the comparison at RU and EN, mobile and desktop, light and dark on production.
+      production_assertion:
+        actor: VISITOR
+        environment: PRODUCTION
+        observation_kind: PAINTED_SURFACE
+        surface_ref: https://example.invalid/comparison
+        observable_outcome: The visitor can read the comparison without overlap.
       disposition: pending

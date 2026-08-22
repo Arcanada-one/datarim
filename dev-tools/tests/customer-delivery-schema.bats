@@ -57,6 +57,139 @@ reject_mutation() {
     validate_yaml "$schema" "$mutated"
 }
 
+structured_requirement_fixture() {
+    local target="$1"
+
+    cp "$REQUIREMENTS_TEMPLATE" "$target" || return 2
+    yq -i '
+        .requirements.req-0001.tier1_assertion = {
+          "assertion_id": "assertion-0001",
+          "predicate_id": "predicate-visitor-readable",
+          "product": "example-product",
+          "surface": "public-comparison",
+          "applicability": {
+            "locales": ["ru", "en"],
+            "viewports": ["mobile", "desktop"],
+            "themes": ["light", "dark"],
+            "painted_matrix_applicable": true
+          },
+          "visitor_visible": true,
+          "authority_ref": "source-0001",
+          "asserted_at": "2026-01-02T09:00:00Z"
+        } |
+        del(.requirements.req-0001.atomic_statement) |
+        .requirements.req-0001.acceptance.tier1_assertion_id = "assertion-0001" |
+        .requirements.req-0001.acceptance.predicate_id = "predicate-visitor-readable" |
+        .requirements.req-0001.acceptance.evidence.method = {
+          "kind": "PAINTED_SURFACE_PROBE",
+          "surface_ref": "https://example.invalid/comparison"
+        } |
+        .requirements.req-0001.acceptance.production_assertion = {
+          "actor": "VISITOR",
+          "environment": "PRODUCTION",
+          "observation_kind": "PAINTED_SURFACE",
+          "surface_ref": "https://example.invalid/comparison",
+          "observable_outcome": "The comparison remains readable without overlap."
+        } |
+        del(.requirements.req-0001.acceptance.production_acceptance_criterion)
+    ' "$target" || return 2
+}
+
+validate_requirement_contract() {
+    "$PYTHON" - "$REQUIREMENTS_SCHEMA" "$1" <<'PY'
+import json
+import sys
+
+import jsonschema
+import yaml
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    schema = json.load(handle)
+with open(sys.argv[2], encoding="utf-8") as handle:
+    instance = yaml.safe_load(handle)
+
+try:
+    jsonschema.Draft202012Validator(
+        schema,
+        format_checker=jsonschema.FormatChecker(),
+    ).validate(instance)
+except jsonschema.ValidationError as exc:
+    location = ".".join(str(part) for part in exc.absolute_path) or "$"
+    raise SystemExit(f"SCHEMA_REJECTED:{location}:{exc.message}") from None
+
+sources = {}
+for source in instance["source_remarks"]:
+    source_id = source["source_id"]
+    if source_id in sources:
+        raise SystemExit(f"TIER1_AUTHORITY_DUPLICATE:{source_id}")
+    sources[source_id] = source
+
+assertions = {}
+for requirement_id, requirement in instance["requirements"].items():
+    assertion = requirement["tier1_assertion"]
+    assertion_id = assertion["assertion_id"]
+    if assertion_id in assertions:
+        raise SystemExit(f"TIER1_ASSERTION_DUPLICATE:{assertion_id}")
+    assertions[assertion_id] = (requirement_id, assertion)
+
+for requirement_id, requirement in instance["requirements"].items():
+    own_assertion = requirement["tier1_assertion"]
+    acceptance = requirement["acceptance"]
+    authority_ref = own_assertion["authority_ref"]
+    if authority_ref not in sources:
+        raise SystemExit(
+            f"TIER1_AUTHORITY_DANGLING:{requirement_id}:{authority_ref}"
+        )
+    if (
+        authority_ref not in requirement["source_ids"]
+        or requirement_id not in sources[authority_ref]["requirement_ids"]
+    ):
+        raise SystemExit(
+            f"TIER1_AUTHORITY_NOT_BOUND:{requirement_id}:{authority_ref}"
+        )
+    assertion_id = acceptance["tier1_assertion_id"]
+    if assertion_id not in assertions:
+        raise SystemExit(f"TIER1_ASSERTION_DANGLING:{assertion_id}")
+    asserted_requirement_id, assertion = assertions[assertion_id]
+    if asserted_requirement_id != requirement_id or assertion is not own_assertion:
+        raise SystemExit(
+            f"TIER1_ASSERTION_REPLACED:{requirement_id}:{assertion_id}"
+        )
+    if acceptance["predicate_id"] != assertion["predicate_id"]:
+        raise SystemExit(f"TIER1_PREDICATE_CHANGED:{requirement_id}")
+    if acceptance["product"] != assertion["product"]:
+        raise SystemExit(f"TIER1_PRODUCT_CHANGED:{requirement_id}")
+    if acceptance["surface"] != assertion["surface"]:
+        raise SystemExit(f"TIER1_SURFACE_CHANGED:{requirement_id}")
+
+    asserted_scope = assertion["applicability"]
+    accepted_scope = acceptance["applicability"]
+    for dimension in ("locales", "viewports", "themes"):
+        omitted = set(asserted_scope[dimension]) - set(accepted_scope[dimension])
+        if omitted:
+            raise SystemExit(
+                f"TIER1_SCOPE_WEAKENED:{requirement_id}:{dimension}:"
+                + ",".join(sorted(omitted))
+            )
+    if assertion["visitor_visible"] and not acceptance["visitor_visible"]:
+        raise SystemExit(f"TIER1_VISITOR_VISIBLE_WEAKENED:{requirement_id}")
+    if (
+        asserted_scope["painted_matrix_applicable"]
+        and not accepted_scope["painted_matrix_applicable"]
+    ):
+        raise SystemExit(f"TIER1_PAINTED_APPLICABILITY_WEAKENED:{requirement_id}")
+PY
+}
+
+reject_contract_mutation() {
+    local expression="$1"
+    local mutated="$BATS_TEST_TMPDIR/structured-requirement.yaml"
+
+    structured_requirement_fixture "$mutated" || return 2
+    yq -i "$expression" "$mutated" || return 2
+    validate_requirement_contract "$mutated"
+}
+
 @test "complete customer delivery examples validate against Draft 2020-12 schemas" {
     validate_yaml "$REQUIREMENTS_SCHEMA" "$REQUIREMENTS_TEMPLATE" \
         && validate_yaml "$RECEIPT_SCHEMA" "$RECEIPT_TEMPLATE" \
@@ -155,19 +288,215 @@ PY
         && [ "$status" -eq 1 ]
 }
 
-@test "user-facing customer requirements require a visitor-visible production acceptance criterion" {
-    run reject_mutation "$REQUIREMENTS_SCHEMA" "$REQUIREMENTS_TEMPLATE" \
-        'del(.requirements.req-0001.acceptance.production_acceptance_criterion)'
-    [ "$status" -eq 1 ]
+@test "tier-one assertion accepts exactly preserved acceptance scope" {
+    local structured="$BATS_TEST_TMPDIR/exact-scope.yaml"
+    structured_requirement_fixture "$structured"
+
+    validate_requirement_contract "$structured"
 }
 
-@test "user-facing customer requirements reject docs tests tools CI or ledger-only evidence" {
-    run reject_mutation "$REQUIREMENTS_SCHEMA" "$REQUIREMENTS_TEMPLATE" \
-        'del(.requirements.req-0001.acceptance.evidence.evidence_class)'
+@test "tier-one assertion accepts acceptance scope strengthened by added dimensions" {
+    local structured="$BATS_TEST_TMPDIR/strengthened-scope.yaml"
+    structured_requirement_fixture "$structured" || return 1
+    yq -i '
+        .requirements.req-0001.tier1_assertion.applicability.locales = ["ru"] |
+        .requirements.req-0001.tier1_assertion.applicability.viewports = ["mobile"] |
+        .requirements.req-0001.tier1_assertion.applicability.themes = ["light"]
+    ' "$structured" || return 1
+
+    validate_requirement_contract "$structured"
+}
+
+@test "preserved quote cannot hide dropped RU acceptance scope" {
+    run reject_contract_mutation \
+        '.requirements.req-0001.acceptance.applicability.locales = ["en"]'
     [ "$status" -eq 1 ] \
-        && run reject_mutation "$REQUIREMENTS_SCHEMA" "$REQUIREMENTS_TEMPLATE" \
-            '.requirements.req-0001.acceptance.evidence.evidence_class = "NON_VISITOR"' \
-        && [ "$status" -eq 1 ]
+        && [[ "$output" == *"TIER1_SCOPE_WEAKENED:req-0001:locales:ru"* ]]
+}
+
+@test "preserved quote cannot hide dropped mobile acceptance scope" {
+    run reject_contract_mutation \
+        '.requirements.req-0001.acceptance.applicability.viewports = ["desktop"]'
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"TIER1_SCOPE_WEAKENED:req-0001:viewports:mobile"* ]]
+}
+
+@test "preserved quote cannot hide dropped dark acceptance scope" {
+    run reject_contract_mutation \
+        '.requirements.req-0001.acceptance.applicability.themes = ["light"]'
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"TIER1_SCOPE_WEAKENED:req-0001:themes:dark"* ]]
+}
+
+@test "tier-one predicate identity cannot change in acceptance" {
+    run reject_contract_mutation \
+        '.requirements.req-0001.acceptance.predicate_id = "predicate-substitute"'
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"TIER1_PREDICATE_CHANGED:req-0001"* ]]
+}
+
+@test "tier-one product identity cannot change in acceptance" {
+    run reject_contract_mutation \
+        '.requirements.req-0001.acceptance.product = "substitute-product"'
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"TIER1_PRODUCT_CHANGED:req-0001"* ]]
+}
+
+@test "tier-one surface identity cannot change in acceptance" {
+    run reject_contract_mutation \
+        '.requirements.req-0001.acceptance.surface = "substitute-surface"'
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"TIER1_SURFACE_CHANGED:req-0001"* ]]
+}
+
+@test "visitor-visible tier-one assertion cannot become non-visitor acceptance" {
+    run reject_contract_mutation \
+        '.requirements.req-0001.acceptance.visitor_visible = false |
+         .requirements.req-0001.acceptance.evidence.evidence_class = "NON_VISITOR" |
+         .requirements.req-0001.acceptance.evidence.method = "Schema validation." |
+         del(.requirements.req-0001.acceptance.production_assertion)'
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"TIER1_VISITOR_VISIBLE_WEAKENED:req-0001"* ]]
+}
+
+@test "painted tier-one applicability cannot become non-painted acceptance" {
+    run reject_contract_mutation \
+        '.requirements.req-0001.acceptance.applicability.painted_matrix_applicable = false |
+         .requirements.req-0001.acceptance.applicability.not_applicable_reason = "Substituted with a narrower non-painted check."'
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"TIER1_PAINTED_APPLICABILITY_WEAKENED:req-0001"* ]]
+}
+
+@test "tier-one assertion requires a stable assertion ID" {
+    run reject_contract_mutation \
+        'del(.requirements.req-0001.tier1_assertion.assertion_id)'
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"tier1_assertion"*"assertion_id"* ]]
+}
+
+@test "tier-one assertion IDs are unique across requirements" {
+    run reject_contract_mutation '
+        .requirements.req-0002 = .requirements.req-0001 |
+        .source_remarks[0].requirement_ids += ["req-0002"]
+    '
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"TIER1_ASSERTION_DUPLICATE:assertion-0001"* ]]
+}
+
+@test "tier-one authority reference cannot dangle" {
+    run reject_contract_mutation \
+        '.requirements.req-0001.tier1_assertion.authority_ref = "source-9999"'
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"TIER1_AUTHORITY_DANGLING:req-0001:source-9999"* ]]
+}
+
+@test "tier-one authority source IDs are unique" {
+    run reject_contract_mutation '
+        .source_remarks += [.source_remarks[0]] |
+        .source_remarks[1].verbatim_quote = "Conflicting duplicate authority."
+    '
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"TIER1_AUTHORITY_DUPLICATE:source-0001"* ]]
+}
+
+@test "tier-one authority reference belongs to the requirement source set" {
+    run reject_contract_mutation '
+        .source_remarks += [{
+          "source_id": "source-0002",
+          "source_tier": "CUSTOMER_VERBATIM",
+          "verbatim_quote": "A second independent remark.",
+          "locale": "en",
+          "captured_at": "2026-01-02T09:01:00Z",
+          "source_ref": "customer-interview-0002",
+          "requirement_ids": ["req-0001"]
+        }] |
+        .requirements.req-0001.tier1_assertion.authority_ref = "source-0002"
+    '
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"TIER1_AUTHORITY_NOT_BOUND:req-0001:source-0002"* ]]
+}
+
+@test "acceptance rejects a dangling tier-one assertion ID" {
+    run reject_contract_mutation \
+        '.requirements.req-0001.acceptance.tier1_assertion_id = "assertion-9999"'
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"TIER1_ASSERTION_DANGLING:assertion-9999"* ]]
+}
+
+@test "acceptance cannot replace its tier-one assertion with another valid assertion" {
+    run reject_contract_mutation '
+        .requirements.req-0002 = .requirements.req-0001 |
+        .requirements.req-0002.tier1_assertion.assertion_id = "assertion-0002" |
+        .requirements.req-0002.tier1_assertion.predicate_id = "predicate-second" |
+        .requirements.req-0002.acceptance.tier1_assertion_id = "assertion-0002" |
+        .requirements.req-0002.acceptance.predicate_id = "predicate-second" |
+        .requirements.req-0001.acceptance.tier1_assertion_id = "assertion-0002" |
+        .source_remarks[0].requirement_ids += ["req-0002"]
+    '
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"TIER1_ASSERTION_REPLACED:req-0001:assertion-0002"* ]]
+}
+
+@test "legacy atomic statement is rejected even beside a valid tier-one assertion" {
+    run reject_contract_mutation \
+        '.requirements.req-0001.atomic_statement = "Legacy authoritative paraphrase."'
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"atomic_statement"* ]]
+}
+
+@test "visitor acceptance requires a closed production assertion" {
+    run reject_contract_mutation \
+        'del(.requirements.req-0001.acceptance.production_assertion)'
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"production_assertion"* ]]
+}
+
+@test "visitor production assertion requires visitor actor and production environment" {
+    run reject_contract_mutation \
+        '.requirements.req-0001.acceptance.production_assertion.actor = "TEST_RUNNER"'
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"production_assertion.actor"* ]] \
+        && run reject_contract_mutation \
+            '.requirements.req-0001.acceptance.production_assertion.environment = "TEST"' \
+        && [ "$status" -eq 1 ] \
+        && [[ "$output" == *"production_assertion.environment"* ]]
+}
+
+@test "visitor production assertion rejects tool-only observation kinds" {
+    run reject_contract_mutation \
+        '.requirements.req-0001.acceptance.production_assertion.observation_kind = "CLI_OUTPUT"'
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"production_assertion.observation_kind"* ]]
+}
+
+@test "visitor production assertion requires a surface reference and observable outcome" {
+    run reject_contract_mutation \
+        'del(.requirements.req-0001.acceptance.production_assertion.surface_ref)'
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"production_assertion"*"surface_ref"* ]] \
+        && run reject_contract_mutation \
+            'del(.requirements.req-0001.acceptance.production_assertion.observable_outcome)' \
+        && [ "$status" -eq 1 ] \
+        && [[ "$output" == *"production_assertion"*"observable_outcome"* ]]
+}
+
+@test "visitor evidence method rejects arbitrary prose and tool-only kinds" {
+    run reject_contract_mutation \
+        '.requirements.req-0001.acceptance.evidence.method = "The CLI says the page is done."'
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"acceptance.evidence.method"* ]] \
+        && run reject_contract_mutation \
+            '.requirements.req-0001.acceptance.evidence.method.kind = "CLI_ASSERTION"' \
+        && [ "$status" -eq 1 ] \
+        && [[ "$output" == *"acceptance.evidence.method"* ]]
+}
+
+@test "user-facing customer requirements reject non-visitor evidence class" {
+    run reject_contract_mutation \
+        '.requirements.req-0001.acceptance.evidence.evidence_class = "NON_VISITOR" |
+         .requirements.req-0001.acceptance.evidence.method = "Schema validation."'
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"acceptance.evidence.evidence_class"* ]]
 }
 
 @test "customer requirements reject undocumented fields and invalid dispositions" {
@@ -237,11 +566,17 @@ PY
     local contradictory_requirement="$BATS_TEST_TMPDIR/contradictory-non-visitor-requirement.yaml"
     local non_visitor_receipt="$BATS_TEST_TMPDIR/non-visitor-receipt.yaml"
     local false_visitor_claim="$BATS_TEST_TMPDIR/false-visitor-claim.yaml"
-    cp "$REQUIREMENTS_TEMPLATE" "$non_visitor_requirement" || return 1
+    structured_requirement_fixture "$non_visitor_requirement" || return 1
     cp "$RECEIPT_TEMPLATE" "$non_visitor_receipt" || return 1
     yq -i '.requirements.req-0001.acceptance.visitor_visible = false |
         .requirements.req-0001.acceptance.evidence.evidence_class = "NON_VISITOR" |
-        del(.requirements.req-0001.acceptance.production_acceptance_criterion)' "$non_visitor_requirement" || return 1
+        .requirements.req-0001.acceptance.evidence.method = "Schema validation against the internal contract." |
+        del(.requirements.req-0001.acceptance.production_assertion) |
+        .requirements.req-0001.tier1_assertion.visitor_visible = false |
+        .requirements.req-0001.tier1_assertion.applicability.painted_matrix_applicable = false |
+        .requirements.req-0001.tier1_assertion.applicability.not_applicable_reason = "This requirement changes an internal delivery control only." |
+        .requirements.req-0001.acceptance.applicability.painted_matrix_applicable = false |
+        .requirements.req-0001.acceptance.applicability.not_applicable_reason = "This requirement changes an internal delivery control only."' "$non_visitor_requirement" || return 1
     cp "$non_visitor_requirement" "$contradictory_requirement" || return 1
     yq -i '.requirements.req-0001.acceptance.evidence.evidence_class = "VISITOR_VISIBLE_PRODUCTION"' "$contradictory_requirement" || return 1
     yq -i '.requirements.req-0001.coverage_chain.implementation_delta.visitor_visible_count = 0 |
@@ -253,7 +588,7 @@ PY
     cp "$non_visitor_receipt" "$false_visitor_claim" || return 1
     yq -i '.requirements.req-0001.coverage_chain.live_evidence.visitor_visible = true' "$false_visitor_claim" || return 1
 
-    validate_yaml "$REQUIREMENTS_SCHEMA" "$non_visitor_requirement" \
+    validate_requirement_contract "$non_visitor_requirement" \
         && validate_yaml "$RECEIPT_SCHEMA" "$non_visitor_receipt" \
         && run validate_yaml "$REQUIREMENTS_SCHEMA" "$contradictory_requirement" \
         && [ "$status" -eq 1 ] \

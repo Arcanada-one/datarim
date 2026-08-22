@@ -49,7 +49,7 @@
     "requirement": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source_ids", "atomic_statement", "acceptance"],
+      "required": ["source_ids", "tier1_assertion", "acceptance"],
       "properties": {
         "source_ids": {
           "type": "array",
@@ -57,14 +57,46 @@
           "uniqueItems": true,
           "items": { "type": "string", "pattern": "^source-[0-9]{4}$" }
         },
-        "atomic_statement": { "type": "string", "minLength": 1 },
+        "tier1_assertion": { "$ref": "#/$defs/tier1Assertion" },
         "acceptance": { "$ref": "#/$defs/acceptanceTuple" }
+      }
+    },
+    "tier1Assertion": {
+      "description": "The authoritative structured assertion derived from Tier-1 verbatim evidence. Acceptance may preserve or strengthen it but never replace or weaken it.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assertion_id",
+        "predicate_id",
+        "product",
+        "surface",
+        "applicability",
+        "visitor_visible",
+        "authority_ref",
+        "asserted_at"
+      ],
+      "properties": {
+        "assertion_id": { "type": "string", "pattern": "^assertion-[0-9]{4}$" },
+        "predicate_id": { "type": "string", "pattern": "^predicate-[a-z0-9][a-z0-9-]*$" },
+        "product": { "type": "string", "minLength": 1 },
+        "surface": { "type": "string", "minLength": 1 },
+        "applicability": { "$ref": "#/$defs/applicability" },
+        "visitor_visible": { "type": "boolean" },
+        "authority_ref": { "type": "string", "pattern": "^source-[0-9]{4}$" },
+        "asserted_at": { "type": "string", "format": "date-time" },
+        "paraphrase": {
+          "description": "Optional non-authoritative explanatory wording; it never replaces the structured Tier-1 assertion.",
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "acceptanceTuple": {
       "type": "object",
       "additionalProperties": false,
       "required": [
+        "tier1_assertion_id",
+        "predicate_id",
         "exact_source_quote",
         "product",
         "surface",
@@ -78,6 +110,8 @@
         "disposition"
       ],
       "properties": {
+        "tier1_assertion_id": { "type": "string", "pattern": "^assertion-[0-9]{4}$" },
+        "predicate_id": { "type": "string", "pattern": "^predicate-[a-z0-9][a-z0-9-]*$" },
         "exact_source_quote": { "type": "string", "minLength": 1 },
         "product": { "type": "string", "minLength": 1 },
         "surface": { "type": "string", "minLength": 1 },
@@ -88,7 +122,7 @@
         "knowledge_selection": { "$ref": "#/$defs/knowledgeSelection" },
         "implementation": { "$ref": "#/$defs/implementationScope" },
         "visitor_visible": { "type": "boolean" },
-        "production_acceptance_criterion": { "type": "string", "minLength": 1 },
+        "production_assertion": { "$ref": "#/$defs/productionAssertion" },
         "disposition": { "$ref": "#/$defs/disposition" },
         "superseded_by": { "type": "string", "pattern": "^req-[0-9]{4}$" }
       },
@@ -99,7 +133,7 @@
             "required": ["visitor_visible"]
           },
           "then": {
-            "required": ["production_acceptance_criterion"],
+            "required": ["production_assertion"],
             "properties": {
               "evidence": {
                 "properties": {
@@ -109,7 +143,7 @@
             }
           },
           "else": {
-            "not": { "required": ["production_acceptance_criterion"] },
+            "not": { "required": ["production_assertion"] },
             "properties": {
               "evidence": {
                 "properties": {
@@ -171,9 +205,59 @@
       "additionalProperties": false,
       "required": ["method", "owner", "evidence_class"],
       "properties": {
-        "method": { "type": "string", "minLength": 1 },
+        "method": {
+          "oneOf": [
+            { "type": "string", "minLength": 1 },
+            { "$ref": "#/$defs/visitorEvidenceMethod" }
+          ]
+        },
         "owner": { "type": "string", "minLength": 1 },
         "evidence_class": { "enum": ["VISITOR_VISIBLE_PRODUCTION", "NON_VISITOR"] }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "evidence_class": { "const": "VISITOR_VISIBLE_PRODUCTION" } },
+            "required": ["evidence_class"]
+          },
+          "then": {
+            "properties": { "method": { "$ref": "#/$defs/visitorEvidenceMethod" } }
+          },
+          "else": {
+            "properties": { "method": { "type": "string", "minLength": 1 } }
+          }
+        }
+      ]
+    },
+    "visitorEvidenceMethod": {
+      "description": "A closed rendered-production evidence method. Documentation, tests, tools, CI, ledgers, and arbitrary prose are not visitor evidence methods.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "surface_ref"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "BROWSER_AUTOMATION",
+            "PAINTED_SURFACE_PROBE",
+            "RENDERED_SCREENSHOT_REVIEW"
+          ]
+        },
+        "surface_ref": { "type": "string", "minLength": 1 }
+      }
+    },
+    "productionAssertion": {
+      "description": "A visitor-observable assertion about the rendered production surface, not an enabling artifact or tool result.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actor", "environment", "observation_kind", "surface_ref", "observable_outcome"],
+      "properties": {
+        "actor": { "const": "VISITOR" },
+        "environment": { "const": "PRODUCTION" },
+        "observation_kind": {
+          "enum": ["BROWSER_RENDERED", "PAINTED_SURFACE", "RENDERED_SCREENSHOT"]
+        },
+        "surface_ref": { "type": "string", "minLength": 1 },
+        "observable_outcome": { "type": "string", "minLength": 1 }
       }
     },
     "knowledgeSelection": {
