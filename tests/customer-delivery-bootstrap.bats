@@ -340,7 +340,7 @@ else: raise SystemExit("changed object references under one idempotency key were
 wire2=m.provider_compare_append(context,registry,provider,"append-receipt","b"*64,{"operation":"append-receipt","value":"two"},auth_a,[],build,"datarim-provider-append-result-v1")
 parent=subprocess.run([str(git),"--git-dir",str(remote),"rev-parse",wire2["provider_commit_oid"]+"^"],check=True,capture_output=True,text=True).stdout.strip()
 if parent!=remote_oid: raise SystemExit("second protected provider mutation was not a direct fast-forward")
-snapshot=m.fetch_provider_snapshot(context,provider)
+snapshot=m.fetch_provider_snapshot(context,registry,provider)
 if snapshot.remote_commit_oid!=wire2["provider_commit_oid"] or snapshot.provider_sequence!=1: raise SystemExit("remote snapshot head/sequence mismatch")
 
 foreign=root/"foreign.git"; subprocess.run([str(git),"init","--bare","-q",str(foreign)],check=True)
@@ -351,7 +351,7 @@ with tempfile.TemporaryDirectory(dir=root) as td:
     subprocess.run([str(git),"-C",str(work),"add","."],check=True); subprocess.run([str(git),"-C",str(work),"commit","-q","-m","foreign"],check=True)
     subprocess.run([str(git),"-C",str(work),"push","-q",str(foreign),"HEAD:"+provider["protected_ref"]],check=True)
 foreign_provider={**provider,"provider_id":"provider:foreign","remote_url":str(foreign)}
-try: m.fetch_provider_snapshot(context,foreign_provider)
+try: m.fetch_provider_snapshot(context,registry,foreign_provider)
 except m.BootstrapError: pass
 else: raise SystemExit("foreign incomplete protected provider tree was accepted")
 print("GIT_PROVIDER_AUTHORITY_OK")
