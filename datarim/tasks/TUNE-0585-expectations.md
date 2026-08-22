@@ -19,6 +19,7 @@ parent_prd: datarim/prd/PRD-TUNE-0585.md
   - Что хочу проверить: Every authoritative source-manifest item is preserved privately, externally anchored, and maps to one or more stable atomic requirement IDs with typed customer-visible acceptance criteria or an explicit enabling-parent relationship.
   - Как проверить (success criterion): Focused fixtures cover provider pagination/omission, private-source mutation, one-to-one, one-to-many, duplicate, unmapped, aggregate, missing atomicity review, and enabling-parent cases; the validator rejects every broken mapping.
   - Связанный AC из PRD: V-AC-1
+  - Evidence: V-AC-1 — `tests/customer-delivery-gate.bats` closed-world source and atomic mapping mutants plus authenticated GREEN control.
   - evidence_type: empirical
   - #### История статусов
     - 2026-08-22T07:20:00Z / 07:20 UTC · /dr-prd · pending → pending · reason: captured from the approved operator amendment
@@ -30,6 +31,7 @@ parent_prd: datarim/prd/PRD-TUNE-0585.md
   - Что хочу проверить: Role, skill, blueprint, constraint, policy, and success-criterion references are immutable before implementation authorization; `Unbound`, mutable refs, missing classes, wrong bases, and post-hoc attribution fail closed.
   - Как проверить (success criterion): Focused mutation cases remove, mutate, reorder, or falsify each binding class, freeze record, authorization marker, and target base; the pre-work gate returns non-zero before implementation is allowed.
   - Связанный AC из PRD: V-AC-2
+  - Evidence: V-AC-2 — `tests/customer-delivery-gate.bats` capability, freeze, authorization, base, and ancestry mutants plus pre-work GREEN control.
   - evidence_type: empirical
   - #### История статусов
     - 2026-08-22T07:20:00Z / 07:20 UTC · /dr-prd · pending → pending · reason: captured from the approved operator amendment
@@ -41,6 +43,7 @@ parent_prd: datarim/prd/PRD-TUNE-0585.md
   - Что хочу проверить: Every source-provider-classified customer-review requirement records a pre-work evolution disposition and immutable artifact references, or a justified reuse disposition, before implementation authorization.
   - Как проверить (success criterion): The review-to-evolution mutation substage and gate reject relabeling, absent dispositions, and created/revised references with no prior artifact mutation; a fully pinned fixture goes GREEN.
   - Связанный AC из PRD: V-AC-3
+  - Evidence: V-AC-3 — `tests/customer-delivery-command-contract.bats` review-source evolution transitions, post-hoc rejection, and resume GREEN control.
   - evidence_type: empirical
   - #### История статусов
     - 2026-08-22T07:20:00Z / 07:20 UTC · /dr-prd · pending → pending · reason: captured from the approved operator amendment
@@ -52,6 +55,7 @@ parent_prd: datarim/prd/PRD-TUNE-0585.md
   - Что хочу проверить: Tools, docs, tests, and green CI remain supporting evidence only; visitor-visible web work needs runner-produced RED/GREEN proof, exact deployed SHA, semantic live probe, complete non-aliased RU/EN by viewport by theme screenshots, and customer-authenticated acceptance or withdrawal.
   - Как проверить (success criterion): Close-gate fixtures independently omit or forge each evidence class, serve generic/404 pages, alias matrix cells, or use returned/rejected/deferred dispositions and remain blocked; only the complete accepted fixture passes.
   - Связанный AC из PRD: V-AC-4
+  - Evidence: V-AC-4 — signed runner RED/GREEN plus deployed semantic live probe and eight-cell non-aliased visual matrix.
   - evidence_type: empirical
   - #### История статусов
     - 2026-08-22T07:20:00Z / 07:20 UTC · /dr-prd · pending → pending · reason: captured from the approved operator amendment
@@ -63,6 +67,7 @@ parent_prd: datarim/prd/PRD-TUNE-0585.md
   - Что хочу проверить: An epic cannot claim completion while any authoritative source remark or child is omitted, any atomic requirement is uncovered, or any customer-facing requirement lacks live evidence and accepted/withdrawn disposition.
   - Как проверить (success criterion): Coverage fixtures demonstrate that narrated or stored completion cannot override an omitted, cyclic, cross-project, or uncovered child; the derived report names exact missing IDs and exits non-zero.
   - Связанный AC из PRD: V-AC-5
+  - Evidence: V-AC-5 — derived coverage report names exact omitted/cyclic/cross-project/uncovered requirement and child IDs.
   - evidence_type: empirical
   - #### История статусов
     - 2026-08-22T07:20:00Z / 07:20 UTC · /dr-prd · pending → pending · reason: captured from the approved operator amendment
@@ -74,6 +79,11 @@ parent_prd: datarim/prd/PRD-TUNE-0585.md
   - Что хочу проверить: Every task-creating or task-advancing Datarim entry point names the correct capture, pre-work, evidence, or closure gate; templates, monotonic migration, constrained adapters, runner provenance, full validation, spec review, and quality review all agree.
   - Как проверить (success criterion): V-AC-6 through V-AC-10 and the full framework suite pass on the exact PR head, and independent Codex reviews report no unresolved blocking finding.
   - Связанный AC из PRD: V-AC-6, V-AC-7, V-AC-8, V-AC-9, V-AC-10
+  - Evidence: V-AC-6 — discovered command-capability routing suite rejects every undeclared task-advancing entry point.
+  - Evidence: V-AC-7 — deterministic migration/compatibility suite proves exact plan-bundle replay and monotonic adoption.
+  - Evidence: V-AC-8 — runner/provider trust-boundary mutants and real provider integration prove constrained execution and authenticated results.
+  - Evidence: V-AC-9 — seven signed pre-code commits, exact-head reviews, protected release tag, and independently resolved non-null canon epoch.
+  - Evidence: V-AC-10 — canonical-byte, privacy, concurrency, crash, fsync, immutable-anchor, recovery, rollback, and supersession mutants.
   - evidence_type: empirical
   - #### История статусов
     - 2026-08-22T07:20:00Z / 07:20 UTC · /dr-prd · pending → pending · reason: captured from the approved operator amendment
