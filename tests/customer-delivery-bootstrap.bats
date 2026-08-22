@@ -3,9 +3,11 @@
 setup() {
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd -P)"
   BOOTSTRAP="$REPO_ROOT/scripts/customer-delivery-bootstrap.py"
-  WIRE_SCHEMA="$REPO_ROOT/config/customer-delivery-bootstrap-wire-v1.schema.json"
+  WIRE_SCHEMA_SOURCE="$REPO_ROOT/config/customer-delivery-bootstrap-wire-v1.schema.json"
   FIXTURE_DIR="$BATS_TEST_TMPDIR/bootstrap"
   mkdir -p "$FIXTURE_DIR"
+  cp "$WIRE_SCHEMA_SOURCE" "$FIXTURE_DIR/wire.schema.json"
+  WIRE_SCHEMA="wire.schema.json"
 }
 
 require_bootstrap_source() {
@@ -19,6 +21,10 @@ fail_test() {
   return 1
 }
 
+bootstrap() {
+  (cd "$FIXTURE_DIR" && python3 "$BOOTSTRAP" --wire-schema "$WIRE_SCHEMA" "$@")
+}
+
 @test "bootstrap executable exists only after the authorized RED commit" {
   if [[ ! -f "$BOOTSTRAP" ]]; then
     echo "BOOTSTRAP_RED: missing authorized executable scripts/customer-delivery-bootstrap.py"
@@ -28,7 +34,7 @@ fail_test() {
 
 @test "wire schema is canonical, closed, and contains every pre-trust fragment" {
   require_bootstrap_source
-  run python3 - "$WIRE_SCHEMA" <<'PY'
+  run python3 - "$WIRE_SCHEMA_SOURCE" <<'PY'
 import json
 import pathlib
 import sys
@@ -87,12 +93,12 @@ PY
 
 @test "bootstrap validates every wire fragment and rejects unknown fields" {
   require_bootstrap_source
-  run python3 "$BOOTSTRAP" --wire-schema "$WIRE_SCHEMA" --self-test-schema
+  run bootstrap --self-test-schema
   [[ "$status" -eq 0 ]] || fail_test "self-test failed: $output"
   [[ "$output" = "BOOTSTRAP_WIRE_SCHEMA_OK fragments=44" ]] || fail_test "unexpected self-test output: $output"
 
   printf '{"input_locator":"fixture.json","input_sha256":"%064d","operation":"canonicalize","profile":"datarim-canonical-json-v1","schema_version":1,"unknown":true}\n' 0 >"$FIXTURE_DIR/unknown.json"
-  run python3 "$BOOTSTRAP" --wire-schema "$WIRE_SCHEMA" --schema-pointer '/$defs/canonicalize_request' --validate-only "$FIXTURE_DIR/unknown.json"
+  run bootstrap --schema-pointer '/$defs/canonicalize_request' --validate-only unknown.json
   [[ "$status" -eq 2 ]] || fail_test "unknown field was accepted: $output"
   [[ "$output" == *"unknown field: unknown"* ]] || fail_test "wrong unknown-field diagnostic: $output"
 }
@@ -100,12 +106,12 @@ PY
 @test "canonicalization rejects duplicate keys and produces exact canonical bytes" {
   require_bootstrap_source
   printf '{"z":1,"a":"é","z":2}\n' >"$FIXTURE_DIR/duplicate.json"
-  run python3 "$BOOTSTRAP" --wire-schema "$WIRE_SCHEMA" --canonicalize-only "$FIXTURE_DIR/duplicate.json"
+  run bootstrap --canonicalize-only duplicate.json
   [[ "$status" -eq 2 ]] || fail_test "duplicate key was accepted: $output"
   [[ "$output" == *"duplicate key: z"* ]] || fail_test "wrong duplicate-key diagnostic: $output"
 
   printf '{"z":1,"a":"é","line":"x\\ny"}\n' >"$FIXTURE_DIR/input.json"
-  run python3 "$BOOTSTRAP" --wire-schema "$WIRE_SCHEMA" --canonicalize-only "$FIXTURE_DIR/input.json"
+  run bootstrap --canonicalize-only input.json
   [ "$status" -eq 0 ]
   [ "$output" = '{"a":"é","line":"x\ny","z":1}' ]
 }
@@ -146,10 +152,9 @@ PY
   printf '{}\n' >"$FIXTURE_DIR/request.json"
   missing=()
   for operation in "${operations[@]}"; do
-    run python3 "$BOOTSTRAP" \
-      --wire-schema "$WIRE_SCHEMA" \
+    run bootstrap \
       --operation "$operation" \
-      --request "$FIXTURE_DIR/request.json"
+      --request request.json
     if [[ "$output" == *"unrecognized arguments"* ]] || [[ "$output" == *"invalid choice"* ]] || [[ "$output" == *"one of the arguments --self-test-schema"* ]]; then
       missing+=("$operation")
     fi
@@ -165,14 +170,14 @@ PY
   forty="$(printf '%040d' 0)"
 
   printf '{"bootstrap_authorization_locator":"a","bootstrap_authorization_sha256":"%s","bootstrap_review_locator":"b","bootstrap_review_sha256":"%s","caller_specs":[null],"catalog_parameters":null,"operation":"genesis-trust","policy_specs":[null],"provider_specs":[null],"recorded_at":"2026-08-22T00:00:00Z","recovery_specs":[null],"registry_parameters":null,"result_output":"r","result_signature_output":"s","reviewed_pair_commit":"%s","schema_version":1,"signer_specs":[null]}\n' "$zero" "$zero" "$forty" >"$FIXTURE_DIR/open-trust.json"
-  run python3 "$BOOTSTRAP" --wire-schema "$WIRE_SCHEMA" --schema-pointer '/$defs/genesis_trust_request' --validate-only "$FIXTURE_DIR/open-trust.json"
+  run bootstrap --schema-pointer '/$defs/genesis_trust_request' --validate-only open-trust.json
   [[ "$status" -eq 2 ]] || fail_test "OPEN_SCHEMA_ACCEPTED: genesis_trust_request"
 
   printf '{"action":"lookup","activation_nonce":"nonce","authority_bundle_locator":"a","authority_bundle_sha256":"%s","expected_active_key_id":"old","expected_slot_generation":0,"identity_id":"identity","identity_kind":"signer","mode":"normal","operation":"activate-key","original_prepare_request_sha256":null,"output_proof":"proof","output_result":"result","provider_id":"provider","replacement_key_id":"new","replacement_principal":"principal","replacement_public_key":"ssh-ed25519 AAAA","replacement_secret_store_ref":"state/key","schema_version":1}\n' "$zero" >"$FIXTURE_DIR/obsolete-activation.json"
-  run python3 "$BOOTSTRAP" --wire-schema "$WIRE_SCHEMA" --schema-pointer '/$defs/activate_key_request' --validate-only "$FIXTURE_DIR/obsolete-activation.json"
+  run bootstrap --schema-pointer '/$defs/activate_key_request' --validate-only obsolete-activation.json
   [[ "$status" -eq 2 ]] || fail_test "OBSOLETE_ACTION_ACCEPTED: activate-key lookup"
 
-  python3 - "$WIRE_SCHEMA" "$FIXTURE_DIR/open-acceptance.json" <<'PY'
+  python3 - "$WIRE_SCHEMA_SOURCE" "$FIXTURE_DIR/open-acceptance.json" <<'PY'
 import json,sys
 s=json.load(open(sys.argv[1]))
 fragment=s["$defs"]["lookup_provider_operation_result"]
@@ -185,13 +190,13 @@ lookup.update({
 sig={"algorithm":"ssh-ed25519","key_id":"key","namespace":"datarim-provider-lookup-result-v1","payload_sha256":"0"*64,"principal":"p","schema_version":1,"signer_id":"signer","sshsig_b64":"AAAA"}
 open(sys.argv[2],"w").write(json.dumps({"lookup":lookup,"signature":sig},sort_keys=True,separators=(",",":"))+"\n")
 PY
-  run python3 "$BOOTSTRAP" --wire-schema "$WIRE_SCHEMA" --schema-pointer '/$defs/lookup_provider_operation_result' --validate-only "$FIXTURE_DIR/open-acceptance.json"
+  run bootstrap --schema-pointer '/$defs/lookup_provider_operation_result' --validate-only open-acceptance.json
   [[ "$status" -eq 2 ]] || fail_test "OPEN_SCHEMA_ACCEPTED: activation_acceptances null"
 }
 
 @test "every actual CLI path is root-confined" {
   require_bootstrap_source
-  run python3 "$BOOTSTRAP" --wire-schema "$WIRE_SCHEMA" --canonicalize-only /proc/sys/kernel/pid_max
+  run bootstrap --canonicalize-only /proc/sys/kernel/pid_max
   [[ "$status" -eq 2 ]] || fail_test "PATH_ESCAPE_ACCEPTED: absolute /proc/sys/kernel/pid_max"
 
   run python3 - "$BOOTSTRAP" "$FIXTURE_DIR" <<'PY'
