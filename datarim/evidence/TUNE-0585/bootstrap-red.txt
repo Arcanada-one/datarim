@@ -41,3 +41,15 @@ not ok 9 durable writes are create-or-verify and never overwrite conflict bytes
 # DURABILITY_CONFLICT_GAP: existing conflicting bytes were overwritten
 not ok 10 bounded subprocess evidence retains wait status and enforces output cap
 # TypeError: run_bounded() got an unexpected keyword argument 'output_cap_bytes'
+
+--- protected-provider correction RED ---
+reviewed_source_commit: ce4bc45ba28c7e0750988c6617fca9ce796f6e8e
+recorded_at: 2026-08-22T16:13:00Z
+argv: ["bats","--filter","git protected provider","tests/customer-delivery-bootstrap.bats"]
+exit_code: 1
+finding_ids: ["H3-protected-provider-authority","P1-response-loss-reconciliation","P1-existing-conflicting-resource"]
+expected_failure: protected provider does not create or refetch a real Git commit
+output:
+1..1
+not ok 1 git protected provider uses real fast-forward commits and remote readback authority
+# GIT_PROVIDER_AUTHORITY_GAP: git rev-parse refs/heads/datarim/customer-delivery-receipts-v1 exited 128 because no remote provider ref was published

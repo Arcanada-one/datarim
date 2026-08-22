@@ -304,3 +304,53 @@ PY
   [[ "$status" -eq 0 ]] || fail_test "TIMEOUT_PROCESS_GROUP_GAP: $output"
   [[ "$output" = "TIMEOUT_PROCESS_GROUP_OK" ]] || fail_test "wrong timeout output: $output"
 }
+
+@test "git protected provider uses real fast-forward commits and remote readback authority" {
+  require_bootstrap_source
+  run python3 - "$BOOTSTRAP" "$FIXTURE_DIR" <<'PY'
+import hashlib,importlib.util,pathlib,subprocess,sys,tempfile
+spec=importlib.util.spec_from_file_location("bootstrap",sys.argv[1]); m=importlib.util.module_from_spec(spec); sys.modules[spec.name]=m; spec.loader.exec_module(m)
+root=pathlib.Path(sys.argv[2]); state=root/"provider-private"; state.mkdir()
+git=pathlib.Path(subprocess.run(["sh","-c","command -v git"],check=True,capture_output=True,text=True).stdout.strip()).resolve()
+remote=root/"provider.git"; subprocess.run([str(git),"init","--bare","-q",str(remote)],check=True)
+registration={"environment_allowlist":[],"git_executable":str(git),"git_sha256":hashlib.sha256(git.read_bytes()).hexdigest()}
+context=m.RuntimeContext(root=root,schema={},registration=registration,private_root=state)
+provider={"provider_id":"provider:receipts","protected_ref":"refs/heads/datarim/customer-delivery-receipts-v1","remote_url":str(remote)}
+m.sign_provider_result=lambda _c,_r,_p,payload,namespace: {"namespace":namespace,"payload_sha256":m.digest_bytes(m.canonical_bytes(payload)),"schema_version":1}
+def build(sequence,previous,head,request_sha):
+    return {"operation":"append-receipt","provider_sequence":sequence,"previous_provider_head":previous,"result_provider_head":head,"request_sha256":request_sha,"schema_version":1}
+request={"operation":"append-receipt","value":"one"}; auth_a=m.digest_bytes(b"authority-a")
+wire=m.provider_compare_append(context,{},provider,"append-receipt","a"*64,request,auth_a,[],build,"result-v1")
+remote_oid=subprocess.run([str(git),"--git-dir",str(remote),"rev-parse",provider["protected_ref"]],check=True,capture_output=True,text=True).stdout.strip()
+if wire["provider_commit_oid"]!=remote_oid: raise SystemExit("provider returned a fabricated or unrefetched commit OID")
+result_path=state/"provider-state"/provider["provider_id"]/"results"/"append-receipt"/("a"*64+".json")
+if result_path.exists(): result_path.unlink()
+found=m.provider_lookup_bytes(context,provider,"append-receipt","a"*64)
+if found is None or found[2]!=remote_oid or found[0]!=m.canonical_bytes(wire["result"]): raise SystemExit("response-loss lookup did not resolve exact remote bytes")
+retry=m.provider_compare_append(context,{},provider,"append-receipt","a"*64,request,auth_a,[],build,"result-v1")
+if retry!=wire: raise SystemExit("identical retry did not return byte-identical protected result")
+try: m.provider_compare_append(context,{},provider,"append-receipt","a"*64,request,m.digest_bytes(b"authority-b"),[],build,"result-v1")
+except m.BootstrapError: pass
+else: raise SystemExit("changed authorization under one idempotency key was accepted")
+wire2=m.provider_compare_append(context,{},provider,"append-receipt","b"*64,{"operation":"append-receipt","value":"two"},auth_a,[],build,"result-v1")
+parent=subprocess.run([str(git),"--git-dir",str(remote),"rev-parse",wire2["provider_commit_oid"]+"^"],check=True,capture_output=True,text=True).stdout.strip()
+if parent!=remote_oid: raise SystemExit("second protected provider mutation was not a direct fast-forward")
+snapshot=m.fetch_provider_snapshot(context,provider)
+if snapshot.remote_commit_oid!=wire2["provider_commit_oid"] or snapshot.provider_sequence!=1: raise SystemExit("remote snapshot head/sequence mismatch")
+
+foreign=root/"foreign.git"; subprocess.run([str(git),"init","--bare","-q",str(foreign)],check=True)
+with tempfile.TemporaryDirectory(dir=root) as td:
+    work=pathlib.Path(td); subprocess.run([str(git),"-C",str(work),"init","-q"],check=True)
+    subprocess.run([str(git),"-C",str(work),"config","user.name","fixture"],check=True); subprocess.run([str(git),"-C",str(work),"config","user.email","fixture@example.invalid"],check=True)
+    conflict=work/"providers"/provider["provider_id"]/"requests"/"append-receipt"/("c"*64+".json"); conflict.parent.mkdir(parents=True); conflict.write_text("foreign\n")
+    subprocess.run([str(git),"-C",str(work),"add","."],check=True); subprocess.run([str(git),"-C",str(work),"commit","-q","-m","foreign"],check=True)
+    subprocess.run([str(git),"-C",str(work),"push","-q",str(foreign),"HEAD:"+provider["protected_ref"]],check=True)
+foreign_provider={**provider,"provider_id":"provider:foreign","remote_url":str(foreign)}
+try: m.fetch_provider_snapshot(context,foreign_provider)
+except m.BootstrapError: pass
+else: raise SystemExit("foreign incomplete protected provider tree was accepted")
+print("GIT_PROVIDER_AUTHORITY_OK")
+PY
+  [[ "$status" -eq 0 ]] || fail_test "GIT_PROVIDER_AUTHORITY_GAP: $output"
+  [[ "$output" = "GIT_PROVIDER_AUTHORITY_OK" ]] || fail_test "wrong Git-provider output: $output"
+}
