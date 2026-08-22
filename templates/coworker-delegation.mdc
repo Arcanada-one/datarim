@@ -22,8 +22,10 @@ CLI binary: `~/.local/bin/coworker`. Four subcommands:
 
 Profiles: `doc-read` (literal documentation extraction/summarization,
 DeepSeek v4-flash), `classifier` (short routing/classification, DeepSeek
-v4-flash), `datarim-write` (schema-aware Datarim drafts, DeepSeek v4-pro),
-and `write` (generic meaningful file generation, DeepSeek v4-pro). Legacy
+v4-flash), `datarim-write` (schema-aware Datarim drafts, DeepSeek v4-flash),
+and `write` (generic meaningful file generation, DeepSeek v4-flash). Enabled
+automatic profiles have no cross-provider fallback: exhausted retries fail
+loud. Explicit CLI provider/model flags remain manual operator overrides. Legacy
 `code`, `codex`, `datarim`, and `social` profiles are fail-closed in Arcanada
 runtime config; do not use them as defaults.
 
