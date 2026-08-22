@@ -139,12 +139,20 @@ for requirement_id, requirement in requirements.items():
         raise SystemExit(
             f"TIER1_ASSERTION_REPLACED:{requirement_id}:{assertion_id}"
         )
-    linked_quotes = {
-        sources[assertions[linked_assertion_id][0]]["verbatim_quote"]
-        for linked_assertion_id in referenced_assertion_ids
+    provided_quotes = {}
+    for quote_row in acceptance["exact_source_quotes"]:
+        source_id = quote_row["source_id"]
+        if source_id in provided_quotes:
+            raise SystemExit(
+                f"TIER1_QUOTE_SOURCE_DUPLICATE:{requirement_id}:{source_id}"
+            )
+        provided_quotes[source_id] = quote_row["verbatim_quote"]
+    expected_quotes = {
+        source_id: sources[source_id]["verbatim_quote"]
+        for source_id in authoritative_source_ids
     }
-    if any(acceptance["exact_source_quote"] != quote for quote in linked_quotes):
-        raise SystemExit(f"TIER1_QUOTE_MISMATCH:{requirement_id}")
+    if provided_quotes != expected_quotes:
+        raise SystemExit(f"TIER1_QUOTE_SET_MISMATCH:{requirement_id}")
 
     accepted_scope = acceptance["applicability"]
     for linked_assertion_id in referenced_assertion_ids:
@@ -165,6 +173,8 @@ for requirement_id, requirement in requirements.items():
                 )
         if assertion["visitor_visible"] and not acceptance["visitor_visible"]:
             raise SystemExit(f"TIER1_VISITOR_VISIBLE_WEAKENED:{requirement_id}")
+        if acceptance["surface_class"] != assertion["surface_class"]:
+            raise SystemExit(f"TIER1_SURFACE_CLASS_CHANGED:{requirement_id}")
         if (
             asserted_scope["painted_matrix_applicable"]
             and not accepted_scope["painted_matrix_applicable"]
@@ -175,7 +185,7 @@ for requirement_id, requirement in requirements.items():
 
     production = acceptance.get("production_assertion")
     if production is not None:
-        for identity in ("product", "surface", "predicate_id"):
+        for identity in ("product", "surface", "surface_class", "predicate_id"):
             if production[identity] != acceptance[identity]:
                 raise SystemExit(
                     f"PRODUCTION_ASSERTION_IDENTITY_CHANGED:{requirement_id}:{identity}"
@@ -196,11 +206,24 @@ for requirement_id, requirement in requirements.items():
 
     method = acceptance["evidence"]["method"]
     if isinstance(method, dict):
-        for identity in ("product", "surface"):
+        for identity in ("product", "surface", "surface_class", "predicate_id"):
             if method[identity] != acceptance[identity]:
                 raise SystemExit(
                     f"VISITOR_METHOD_IDENTITY_CHANGED:{requirement_id}:{identity}"
                 )
+        method_scope = method["applicability"]
+        for dimension in ("locales", "viewports", "themes"):
+            if set(method_scope[dimension]) != set(accepted_scope[dimension]):
+                raise SystemExit(
+                    f"VISITOR_METHOD_SCOPE_CHANGED:{requirement_id}:{dimension}"
+                )
+        if (
+            method_scope["painted_matrix_applicable"]
+            != accepted_scope["painted_matrix_applicable"]
+        ):
+            raise SystemExit(
+                f"VISITOR_METHOD_SCOPE_CHANGED:{requirement_id}:painted"
+            )
 PY
 }
 
@@ -211,6 +234,91 @@ reject_contract_mutation() {
     structured_requirement_fixture "$mutated" || return 2
     yq -i "$expression" "$mutated" || return 2
     validate_requirement_contract "$mutated"
+}
+
+two_source_requirement_fixture() {
+    local target="$1"
+
+    structured_requirement_fixture "$target" || return 2
+    yq -i '
+        .source_remarks += [.source_remarks[0]] |
+        .source_remarks[1].source_id = "source-0002" |
+        .source_remarks[1].verbatim_quote = "The comparison must also remain legible for desktop visitors." |
+        .source_remarks[1].captured_at = "2026-01-02T09:01:00Z" |
+        .source_remarks[1].source_ref = "customer-interview-0002" |
+        .source_remarks[1].tier1_assertions[0].assertion_id = "assertion-0002" |
+        .source_remarks[1].tier1_assertions[0].asserted_at = "2026-01-02T09:01:00Z" |
+        .requirements.req-0001.source_ids += ["source-0002"] |
+        .requirements.req-0001.tier1_assertion_ids += ["assertion-0002"] |
+        .requirements.req-0001.acceptance.exact_source_quotes = [
+          {
+            "source_id": "source-0001",
+            "verbatim_quote": "The comparison must remain readable on my phone in both languages and themes."
+          },
+          {
+            "source_id": "source-0002",
+            "verbatim_quote": "The comparison must also remain legible for desktop visitors."
+          }
+        ] |
+        del(.requirements.req-0001.acceptance.exact_source_quote)
+    ' "$target" || return 2
+}
+
+plural_receipt_fixture() {
+    local target="$1"
+
+    cp "$RECEIPT_TEMPLATE" "$target" || return 2
+    yq -i '
+        .requirements.req-0001.coverage_chain.requirement.source_quote_digests = [
+          {
+            "source_id": "source-0001",
+            "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "source_id": "source-0002",
+            "digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+          }
+        ] |
+        del(.requirements.req-0001.coverage_chain.requirement.source_quote_digest)
+    ' "$target" || return 2
+}
+
+assert_semantic_invariant_registries() {
+    "$PYTHON" - "$1" "$2" <<'PY'
+import json
+import sys
+
+expected = {
+    sys.argv[1]: {
+        "description": "Draft 2020-12 validates shape only; the deterministic customer-delivery validator must enforce every registered cross-record invariant.",
+        "enforcer": "customer-delivery-validator",
+        "invariant_ids": [
+            "source-id-unique",
+            "assertion-id-unique",
+            "source-requirement-assertion-bidirectional",
+            "source-quote-set-exact",
+            "assertion-identity-equal",
+            "acceptance-applicability-superset",
+            "production-evidence-identity-equal",
+        ],
+    },
+    sys.argv[2]: {
+        "description": "Draft 2020-12 validates shape only; the deterministic customer-delivery validator must enforce every registered cross-record invariant.",
+        "enforcer": "customer-delivery-validator",
+        "invariant_ids": ["receipt-source-quote-digest-set-exact"],
+    },
+}
+
+for path, required_registry in expected.items():
+    with open(path, encoding="utf-8") as handle:
+        schema = json.load(handle)
+    actual = schema.get("x-datarim-semantic-invariants")
+    if actual != required_registry:
+        raise SystemExit(
+            f"SEMANTIC_INVARIANT_REGISTRY_MISMATCH:{path}:"
+            f"expected={required_registry!r}:actual={actual!r}"
+        )
+PY
 }
 
 @test "complete customer delivery examples validate against Draft 2020-12 schemas" {
@@ -255,6 +363,20 @@ for path in sys.argv[1:]:
                         stack.append((f"{location}.{key}[{index}]", item))
 PY
     [ "$status" -eq 0 ]
+}
+
+@test "schemas publish the exact closed A2 semantic invariant registries" {
+    assert_semantic_invariant_registries "$REQUIREMENTS_SCHEMA" "$RECEIPT_SCHEMA"
+}
+
+@test "omitting any registered semantic invariant is detected" {
+    local requirement_mutant="$BATS_TEST_TMPDIR/requirement-without-quote-invariant.json"
+    cp "$REQUIREMENTS_SCHEMA" "$requirement_mutant" || return 1
+    yq -i 'del(."x-datarim-semantic-invariants".invariant_ids[3])' "$requirement_mutant" || return 1
+
+    run assert_semantic_invariant_registries "$requirement_mutant" "$RECEIPT_SCHEMA"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"SEMANTIC_INVARIANT_REGISTRY_MISMATCH"* ]]
 }
 
 @test "customer requirements reject unstable requirement IDs" {
@@ -385,9 +507,42 @@ PY
         && [[ "$output" == *"TIER1_SURFACE_CHANGED:req-0001"* ]]
 }
 
+@test "surface class is required and structurally follows visitor visibility" {
+    run reject_contract_mutation \
+        'del(.source_remarks[0].tier1_assertions[0].surface_class)'
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"surface_class"* ]] \
+        && run reject_contract_mutation \
+            '.requirements.req-0001.acceptance.surface_class = "ENABLING"' \
+        && [ "$status" -eq 1 ]
+}
+
+@test "product identity rejects URL laundering across every visitor layer" {
+    run reject_contract_mutation '
+        .source_remarks[0].tier1_assertions[0].product = "https://example.invalid/docs" |
+        .requirements.req-0001.acceptance.product = "https://example.invalid/docs" |
+        .requirements.req-0001.acceptance.production_assertion.product = "https://example.invalid/docs" |
+        .requirements.req-0001.acceptance.evidence.method.product = "https://example.invalid/docs"
+    '
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"product"* ]]
+}
+
+@test "surface identity rejects prose laundering across every visitor layer" {
+    run reject_contract_mutation '
+        .source_remarks[0].tier1_assertions[0].surface = "Unit test and docs only" |
+        .requirements.req-0001.acceptance.surface = "Unit test and docs only" |
+        .requirements.req-0001.acceptance.production_assertion.surface = "Unit test and docs only" |
+        .requirements.req-0001.acceptance.evidence.method.surface = "Unit test and docs only"
+    '
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"surface"* ]]
+}
+
 @test "visitor-visible tier-one assertion cannot become non-visitor acceptance" {
     run reject_contract_mutation \
         '.requirements.req-0001.acceptance.visitor_visible = false |
+         .requirements.req-0001.acceptance.surface_class = "ENABLING" |
          .requirements.req-0001.acceptance.evidence.evidence_class = "NON_VISITOR" |
          .requirements.req-0001.acceptance.evidence.method = "Schema validation." |
          del(.requirements.req-0001.acceptance.production_assertion)'
@@ -520,7 +675,11 @@ PY
         && run reject_contract_mutation \
             '.requirements.req-0001.acceptance.production_assertion.predicate_id = "predicate-substitute"' \
         && [ "$status" -eq 1 ] \
-        && [[ "$output" == *"PRODUCTION_ASSERTION_IDENTITY_CHANGED:req-0001:predicate_id"* ]]
+        && [[ "$output" == *"PRODUCTION_ASSERTION_IDENTITY_CHANGED:req-0001:predicate_id"* ]] \
+        && run reject_contract_mutation \
+            '.requirements.req-0001.acceptance.production_assertion.surface_class = "ENABLING"' \
+        && [ "$status" -eq 1 ] \
+        && [[ "$output" == *"PRODUCTION_ASSERTION_IDENTITY_CHANGED:req-0001:surface_class"* ]]
 }
 
 @test "visitor production assertion scope stays equal to accepted scope" {
@@ -534,7 +693,35 @@ PY
     run reject_contract_mutation \
         '.requirements.req-0001.acceptance.evidence.method.surface = "docs-surface"'
     [ "$status" -eq 1 ] \
-        && [[ "$output" == *"VISITOR_METHOD_IDENTITY_CHANGED:req-0001:surface"* ]]
+        && [[ "$output" == *"VISITOR_METHOD_IDENTITY_CHANGED:req-0001:surface"* ]] \
+        && run reject_contract_mutation \
+            '.requirements.req-0001.acceptance.evidence.method.surface_class = "ENABLING"' \
+        && [ "$status" -eq 1 ] \
+        && [[ "$output" == *"VISITOR_METHOD_IDENTITY_CHANGED:req-0001:surface_class"* ]]
+}
+
+@test "visitor evidence method requires predicate and applicability" {
+    run reject_contract_mutation \
+        'del(.requirements.req-0001.acceptance.evidence.method.predicate_id)'
+    [ "$status" -eq 1 ] \
+        && run reject_contract_mutation \
+            'del(.requirements.req-0001.acceptance.evidence.method.applicability)' \
+        && [ "$status" -eq 1 ]
+}
+
+@test "visitor evidence predicate and scope stay equal to acceptance" {
+    run reject_contract_mutation \
+        '.requirements.req-0001.acceptance.evidence.method.predicate_id = "predicate-substitute"'
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"VISITOR_METHOD_IDENTITY_CHANGED:req-0001:predicate_id"* ]] \
+        && run reject_contract_mutation \
+            '.requirements.req-0001.acceptance.evidence.method.applicability.themes = ["light"]' \
+        && [ "$status" -eq 1 ] \
+        && [[ "$output" == *"VISITOR_METHOD_SCOPE_CHANGED:req-0001:themes"* ]] \
+        && run reject_contract_mutation \
+            '.requirements.req-0001.acceptance.evidence.method.applicability.painted_matrix_applicable = false' \
+        && [ "$status" -eq 1 ] \
+        && [[ "$output" == *"VISITOR_METHOD_SCOPE_CHANGED:req-0001:painted"* ]]
 }
 
 @test "visitor evidence method rejects arbitrary prose and tool-only kinds" {
@@ -559,11 +746,54 @@ PY
     [ "$status" -eq 1 ]
 }
 
-@test "acceptance exact source quote cannot replace linked verbatim authority" {
-    run reject_contract_mutation \
-        '.requirements.req-0001.acceptance.exact_source_quote = "A narrower replacement quote."'
+@test "two differently worded source remarks remain linked to one canonical requirement" {
+    local plural="$BATS_TEST_TMPDIR/two-source-requirement.yaml"
+    two_source_requirement_fixture "$plural"
+
+    validate_requirement_contract "$plural"
+}
+
+@test "acceptance exact source quote set cannot omit a linked authority" {
+    local plural="$BATS_TEST_TMPDIR/quote-row-omitted.yaml"
+    two_source_requirement_fixture "$plural" || return 1
+    yq -i 'del(.requirements.req-0001.acceptance.exact_source_quotes[1])' "$plural" || return 1
+
+    run validate_requirement_contract "$plural"
     [ "$status" -eq 1 ] \
-        && [[ "$output" == *"TIER1_QUOTE_MISMATCH:req-0001"* ]]
+        && [[ "$output" == *"TIER1_QUOTE_SET_MISMATCH:req-0001"* ]]
+}
+
+@test "acceptance exact source quote set cannot change or add authority" {
+    local changed="$BATS_TEST_TMPDIR/quote-row-changed.yaml"
+    local added="$BATS_TEST_TMPDIR/quote-row-added.yaml"
+    two_source_requirement_fixture "$changed" || return 1
+    cp "$changed" "$added" || return 1
+    yq -i '.requirements.req-0001.acceptance.exact_source_quotes[1].verbatim_quote = "Narrowed replacement."' "$changed" || return 1
+    yq -i '.requirements.req-0001.acceptance.exact_source_quotes += [{"source_id": "source-9999", "verbatim_quote": "Invented authority."}]' "$added" || return 1
+
+    run validate_requirement_contract "$changed"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"TIER1_QUOTE_SET_MISMATCH:req-0001"* ]] \
+        && run validate_requirement_contract "$added" \
+        && [ "$status" -eq 1 ] \
+        && [[ "$output" == *"TIER1_QUOTE_SET_MISMATCH:req-0001"* ]]
+}
+
+@test "acceptance exact source quote set rejects duplicate source rows" {
+    local duplicate="$BATS_TEST_TMPDIR/quote-source-duplicate.yaml"
+    two_source_requirement_fixture "$duplicate" || return 1
+    yq -i '.requirements.req-0001.acceptance.exact_source_quotes += [{"source_id": "source-0001", "verbatim_quote": "Conflicting quote for the same authority."}]' "$duplicate" || return 1
+
+    run validate_requirement_contract "$duplicate"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"TIER1_QUOTE_SOURCE_DUPLICATE:req-0001:source-0001"* ]]
+}
+
+@test "legacy singular exact source quote is rejected" {
+    run reject_contract_mutation \
+        '.requirements.req-0001.acceptance.exact_source_quote = "Legacy singular quote."'
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"exact_source_quote"* ]]
 }
 
 @test "requirement source IDs cannot dangle" {
@@ -607,6 +837,19 @@ PY
         && run reject_mutation "$RECEIPT_SCHEMA" "$RECEIPT_TEMPLATE" \
             'del(.requirements.req-0001.coverage_chain.merged_revision)' \
         && [ "$status" -eq 1 ]
+}
+
+@test "delivery receipt accepts plural closed source quote digests" {
+    local plural="$BATS_TEST_TMPDIR/plural-source-digests.yaml"
+    plural_receipt_fixture "$plural"
+
+    validate_yaml "$RECEIPT_SCHEMA" "$plural"
+}
+
+@test "delivery receipt rejects legacy singular source quote digest" {
+    run reject_mutation "$RECEIPT_SCHEMA" "$RECEIPT_TEMPLATE" \
+        '.requirements.req-0001.coverage_chain.requirement.source_quote_digest = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"'
+    [ "$status" -eq 1 ]
 }
 
 @test "a missing coverage edge is valid only when explicitly declared NOT_MET" {
@@ -658,10 +901,12 @@ PY
     structured_requirement_fixture "$non_visitor_requirement" || return 1
     cp "$RECEIPT_TEMPLATE" "$non_visitor_receipt" || return 1
     yq -i '.requirements.req-0001.acceptance.visitor_visible = false |
+        .requirements.req-0001.acceptance.surface_class = "ENABLING" |
         .requirements.req-0001.acceptance.evidence.evidence_class = "NON_VISITOR" |
         .requirements.req-0001.acceptance.evidence.method = "Schema validation against the internal contract." |
         del(.requirements.req-0001.acceptance.production_assertion) |
         .source_remarks[0].tier1_assertions[0].visitor_visible = false |
+        .source_remarks[0].tier1_assertions[0].surface_class = "ENABLING" |
         .source_remarks[0].tier1_assertions[0].applicability.painted_matrix_applicable = false |
         .source_remarks[0].tier1_assertions[0].applicability.not_applicable_reason = "This requirement changes an internal delivery control only." |
         .requirements.req-0001.acceptance.applicability.painted_matrix_applicable = false |
