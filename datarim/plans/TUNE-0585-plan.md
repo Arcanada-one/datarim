@@ -4,7 +4,7 @@ artifact: plan
 status: approved
 created: 2026-08-22
 prd: datarim/prd/PRD-TUNE-0585.md
-blueprint_revision: becee08741a51e303796930e3694beff5ffaa3c3
+blueprint_revision: d413d9fcf6f23bdc36058278cae2b9de80b32dd9
 exact_base: d27b15f390265fef1fc95c31a28677a9664acb98
 spec_review_status: pending_exact_blob
 ---
@@ -76,8 +76,30 @@ Genesis uses two commits because the framework cannot self-attest before its run
 
 1. Obtain a subordinate exact-blob review of the amended spec and retain its findings/verdict.
 2. If the verdict is NO, revise the spec, commit it, and repeat exact-blob review. Do not edit implementation source before YES.
-3. Feasibility-probe the concrete genesis profiles: `ssh-keygen -Y` sign/verify with a synthetic key, GitHub rules API showing protected release/default refs, credential-safe authenticated read, and the exact protected-ref resolve protocol. Persist a schema-versioned report containing exact argv, redacted stdout/stderr, exit codes, retrieved rule JSON digest, resolved Git OIDs, probe timestamp, and overall result; sign it and record its digest in the freeze. A failed trust probe blocks source work. Replay commands are the exact synthetic `ssh-keygen -Y sign/verify`, `gh api repos/Arcanada-one/datarim/rulesets/{16418778,15879567}`, `git ls-remote --tags origin refs/tags/v2.66.2`, and `git cat-file` resolution probes. The 2026-08-22 interactive probe confirmed SSH signing/verification and remote read; release-tag ruleset `16418778` is active for `refs/tags/v*` with deletion/non-fast-forward/update blocked and no bypass. Protected annotated tag `v2.66.2` resolved through remote object `6104667` to commit `eb54e9c`. Default-branch ruleset `15879567` blocks deletion only, so it is explicitly ineligible for ongoing append anchoring until a dedicated non-fast-forward-protected ledger branch exists.
-4. Create the bootstrap freeze record with private operator-amendment source provenance, atomic framework requirements/review, `enabling-v1` pre-registration parent intent `TALO-0001`, evolution disposition, all existing six capability classes, selected `git-immutable-tag-v1` genesis and `git-ssh-v1` signer profiles, and the reviewed spec commit. Commit freeze alone. Do not falsely select the current default branch as a monotonic append authority.
+3. Feasibility-probe the concrete genesis profiles with the following replay, substituting only the temporary-directory value. The report records each argv array, redacted stdout/stderr digest, exit code, exact ruleset response digest, full tag-object/peeled-commit OIDs, UTC probe timestamp, and overall result. It is committed in the signed freeze commit; `git verify-commit` is the report signature verification. A failed trust probe blocks source work.
+
+   ```bash
+   probe_dir="$(mktemp -d)"
+   ssh-keygen -q -t ed25519 -N '' -f "$probe_dir/signer"
+   printf 'datarim-provider-probe-v1\n' >"$probe_dir/payload"
+   ssh-keygen -Y sign -f "$probe_dir/signer" -n datarim-provider-probe "$probe_dir/payload"
+   printf 'probe@example.invalid namespaces="datarim-provider-probe" %s\n' "$(cat "$probe_dir/signer.pub")" >"$probe_dir/allowed_signers"
+   ssh-keygen -Y verify -f "$probe_dir/allowed_signers" -I probe@example.invalid -n datarim-provider-probe -s "$probe_dir/payload.sig" <"$probe_dir/payload"
+   gh api repos/Arcanada-one/datarim/rulesets/16418778 >"$probe_dir/release-ruleset.json"
+   gh api repos/Arcanada-one/datarim/rulesets/15879567 >"$probe_dir/default-ruleset.json"
+   git -C "$probe_dir" init -q tag-resolver
+   git -C "$probe_dir/tag-resolver" fetch --no-tags https://github.com/Arcanada-one/datarim.git refs/tags/v2.66.2:refs/tags/v2.66.2
+   git -C "$probe_dir/tag-resolver" rev-parse refs/tags/v2.66.2
+   git -C "$probe_dir/tag-resolver" rev-parse 'refs/tags/v2.66.2^{}'
+   git -C "$probe_dir/tag-resolver" cat-file -p refs/tags/v2.66.2
+   git -C "$probe_dir/tag-resolver" cat-file -t 'refs/tags/v2.66.2^{}'
+   python3 -c 'import json,sys; d=json.load(open(sys.argv[1], encoding="utf-8")); required={"schema_version","probe_profile","commands","rulesets","objects","observed_at","result"}; assert required <= d.keys(); assert d["schema_version"] == 1 and d["result"] == "pass" and all(c["exit_code"] == 0 for c in d["commands"])' datarim/evidence/TUNE-0585/provider-feasibility.json
+   freeze_commit="$(git rev-parse HEAD)"
+   git verify-commit "$freeze_commit"
+   ```
+
+   The 2026-08-22 interactive probe confirmed SSH signing/verification and remote read; release-tag ruleset `16418778` is active for `refs/tags/v*` with deletion/non-fast-forward/update blocked and no bypass. Protected annotated tag `v2.66.2` resolved through full tag object `610466796fc34e196645d7c91d9f9fcf317c29d5` to full commit `eb54e9cf881ca14f7a689b831598285f38561e89`. Default-branch ruleset `15879567` blocks deletion only, so it is explicitly ineligible for ongoing append anchoring until a dedicated non-fast-forward-protected ledger branch exists. Remove the temporary directory after the committed report and OID verification.
+4. Create the bootstrap freeze record with private operator-amendment source provenance, atomic framework requirements/review, `enabling-v1` pre-registration parent intent `TALO-0001/C-REQ-DELIVERY-CANON`, evolution disposition, all existing six capability classes, selected `git-immutable-tag-v1` genesis and `git-ssh-v1` signer profiles, and reviewed PRD commit `d413d9fcf6f23bdc36058278cae2b9de80b32dd9`. Commit freeze alone. Do not falsely select the current default branch as a monotonic append authority.
 5. Retain the review receipt with reviewer identity, exact commit, findings, and disposition. In a second commit, write the authorization marker over the clean Datarim base. Do not claim a ledger anchor or canonical RED yet.
 6. Verify spec → freeze → authorization are three ordered commits descending from exact base `d27b15f`; branch is clean before Task 2.
 
@@ -114,6 +136,7 @@ Genesis uses two commits because the framework cannot self-attest before its run
 - Create: `templates/customer-delivery-ledger.jsonl` `[to-be-created]`
 - Create: `templates/customer-delivery-project.json` `[to-be-created]`
 - Create: `datarim/delivery/TUNE-0585.jsonl` `[to-be-created]`
+- Create: `datarim/evidence/TUNE-0585/provider-integration.json` `[to-be-created]`
 - Modify: `tests/customer-delivery-gate.bats`
 
 **Steps:**
@@ -126,7 +149,8 @@ Genesis uses two commits because the framework cannot self-attest before its run
 6. Expose `init`, `append`, `validate --stage`, `derive`, and `migrate` subcommands. The shell wrapper maps contract findings to 1, usage/integrity to 2, and required-provider failure to 3.
 7. Make every focused mutant RED and valid control GREEN.
 8. Run real reference-provider integration against a temporary bare Git remote configured to reject non-fast-forward/deletion, real `ssh-keygen -Y` signatures/scoped allowed signers, a private HMAC source store, immutable blob append/resolve/replay, timeout-after-accept recovery, and read-only resolution of the existing protected `v2.66.2` remote tag. Fixture-only tests cannot clear provider feasibility.
-9. Convert the committed bootstrap record into canonical `datarim/delivery/TUNE-0585.jsonl` `[to-be-created]` with `migrate-genesis`, verify every field/digest against the freeze/authorization commits, and mark it `genesis_unanchored`. This conversion must complete before Task 4 records any canonical evidence.
+9. Prove hosted `git-protected-ref-v1` behavior against a disposable branch and disposable GitHub ruleset in `Arcanada-one/datarim`: create an exact-name branch from the reviewed test commit; create a ruleset targeting only that branch with deletion and non-fast-forward protection; push one append-only fast-forward; prove a non-fast-forward update is rejected; fetch the branch into a clean temporary repository; re-download the committed immutable ledger blob and recompute its Git OID/event head; retain full request/response digests, branch/ruleset IDs, commit/blob OIDs, rejection exit/output digest, and cleanup result in signed `datarim/evidence/TUNE-0585/provider-integration.json`. Delete the disposable branch and ruleset only after the signed evidence commit preserves the proof. Never use the production ledger ref for this test.
+10. Convert the committed bootstrap record into canonical `datarim/delivery/TUNE-0585.jsonl` `[to-be-created]` with `migrate --genesis`, verify every field/digest against the freeze/authorization commits, and mark it `genesis_unanchored`. Validate the conversion with `dev-tools/check-customer-delivery.sh --task TUNE-0585 --stage plan --root . --format json`. This conversion must complete before Task 4 records any canonical evidence.
 
 **Validation:** `bats tests/customer-delivery-gate.bats`; `python3 -m py_compile scripts/customer-delivery-ledger.py`; `dev-tools/check-customer-delivery.sh --task TUNE-0585 --stage plan --root . --format json`.
 
@@ -276,7 +300,7 @@ Genesis uses two commits because the framework cannot self-attest before its run
 4. Run independent subordinate exact-head quality review. Fix every blocking finding and re-run the review on the new exact head.
 5. Record the quality-review receipt and final evidence hashes in the canonical ledger; derive TUNE-0585 as `genesis_unanchored`/enabling-verified without claiming customer acceptance or parent delivery for provisional parent requirement `TALO-0001/C-REQ-DELIVERY-CANON`.
 6. Commit, push the feature branch, open a protected PR, and require exact-head CI. Do not self-merge unless normal repository authority explicitly permits it.
-7. After the reviewed exact head merges through the protected path, resolve the exact ledger blob from the protected release tag. Store the immutable-tag receipt only in the external authority record, never append it to the anchored ledger. Record the tag/OIDs and external receipt locator as `canon_epoch` in the next release's consumer registry without claiming that registry update was part of the prior anchored blob. Only then may the universal canon report canonical completion. Talomnia must first register/probe its own dedicated `git-protected-ref-v1` append branch before strict mode.
+7. After the reviewed exact head merges through the protected path, resolve the exact ledger blob from the protected release tag. Store the immutable-tag receipt only in the external authority record, never append it to the anchored ledger. The verified external receipt over the merged immutable ledger blob is sufficient to establish this release's `canon_epoch` and report the universal canon complete; no unplanned next release or recursive registry edit is required. A downstream consumer registry records that immutable receipt locator, tag, and full OIDs when it adopts the canon. Talomnia must first register/probe its own dedicated `git-protected-ref-v1` append branch before strict mode.
 
 **Validation:** `bats tests/*.bats`; `bats dev-tools/tests/*.bats`; `./dev-tools/dr-spec-lint.sh --task TUNE-0585 --root . --stage verify --format text`; `./validate.sh`; exact-head CI for the PR head.
 
@@ -332,6 +356,8 @@ Every modified or new artifact has a direct check; shared suite rows do not subs
 | `datarim/delivery/TUNE-0585.jsonl` | canonical parser, hash chain, genesis conversion, derive report |
 | `datarim/evidence/TUNE-0585/spec-review.json` | signature/trust scope, exact commit, verdict schema |
 | `datarim/evidence/TUNE-0585/provider-feasibility.json` | replay argv/output digests and signed overall PASS |
+| `datarim/evidence/TUNE-0585/provider-integration.json` | disposable hosted protected-ref fast-forward/rejection/resolve proof and signed cleanup record |
+| `datarim/evidence/TUNE-0585/red/` | raw development RED manifest proves intended assertion failure and `development_only: true` |
 | `tests/fixtures/customer-delivery/` | fixture manifest proves every valid/mutant case is consumed |
 | `tests/customer-delivery-gate.bats` | focused RED/GREEN core contract and every independent mutant |
 | `tests/customer-delivery-evidence-runner.bats` | real runner receipt/signature/attribution/live-ingest cases |
@@ -388,9 +414,9 @@ All existing edit/validation targets above must resolve in the exact-base worktr
 
 PATH VALIDATION
 
-- checked: 50 unique artifact/edit/validation path references, including this plan;
+- checked: 52 unique artifact/edit/validation path references, including this plan;
 - present: 35 paths (34 exact-base targets plus this plan);
-- expected new: 15 paths, each explicitly marked `[to-be-created]`;
+- expected new: 17 paths, each explicitly marked `[to-be-created]`;
 - unexpected missing: 0;
 - deprecated edit targets: 0 (the only marker hits describe retired concepts inside live current files, not retired target paths);
 - runtime-body probe: clean; the plan does not prescribe task-ID provenance in shipped `commands/`, `skills/`, `templates/`, or `CLAUDE.md` bodies.
