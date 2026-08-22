@@ -21,6 +21,10 @@ setup() {
         echo "ERROR: required Python schema dependencies unavailable: jsonschema, PyYAML, and jsonschema date-time format support" >&2
         return 1
     fi
+    if ! command -v php >/dev/null 2>&1 || ! php -r 'exit(extension_loaded("sodium") ? 0 : 1);'; then
+        echo "ERROR: PHP sodium is required for independent Ed25519 verification" >&2
+        return 1
+    fi
 }
 
 validate_yaml() {
@@ -704,7 +708,7 @@ for requirement_id, requirement in requirements_document["requirements"].items()
     disposition = receipt_chain["customer_disposition"]
     if (
         acceptance["visitor_visible"]
-        and disposition["authority"]["authority_role"] != "OPERATOR"
+        and disposition["authority_approval"]["authority_role"] != "OPERATOR"
     ):
         raise SystemExit(
             f"VISITOR_DISPOSITION_OPERATOR_REQUIRED:{requirement_id}"
@@ -762,6 +766,13 @@ expected = {
             "tier1-assertion-approval-key-role-authorized",
             "tier1-assertion-approval-key-active",
             "tier1-assertion-approval-key-valid-at-approval",
+            "authority-key-registry-bundled-only",
+            "authority-key-registry-owner-pinned",
+            "authority-key-registry-trust-anchor-pinned",
+            "authority-key-registry-canonical-digest-valid",
+            "authority-key-registry-key-id-unique",
+            "authority-key-registry-conflict-prohibited",
+            "authority-key-registry-validity-interval-positive",
             "tier1-authority-approval-before-implementation",
             "tier1-assertion-correction-append-only",
             "source-verbatim-to-assertion-authority-approval-required",
@@ -830,6 +841,17 @@ expected = {
             "receipt-deployed-digest-equals-merged-digest",
             "receipt-disposition-equals-requirement-disposition",
             "receipt-disposition-closure-exact",
+            "receipt-terminal-disposition-signed",
+            "receipt-pending-disposition-unsigned",
+            "receipt-disposition-canonical-digest-valid",
+            "receipt-disposition-approval-digest-equals-disposition-digest",
+            "receipt-disposition-approval-payload-canonical-digest-valid",
+            "receipt-disposition-signature-valid",
+            "receipt-disposition-approval-key-known",
+            "receipt-disposition-approval-key-authority-id-equal",
+            "receipt-disposition-approval-key-role-authorized",
+            "receipt-disposition-approval-key-active",
+            "receipt-disposition-approval-key-valid-at-approval",
             "receipt-visitor-acceptance-authority-role-operator",
             "receipt-parent-links-complete",
             "review-open-or-changes-requested-blocks-closure",
@@ -948,6 +970,17 @@ expected = {
 }
 with open(sys.argv[1], encoding="utf-8") as handle:
     actual = json.load(handle).get("x-datarim-signature-contract")
+if actual is not None:
+    actual = json.loads(json.dumps(actual))
+    for extension in (
+        "registry_locator",
+        "registry_owner",
+        "registry_container_schema",
+        "registry_digest_contract",
+        "bundled_registry",
+    ):
+        actual["key_resolution"].pop(extension, None)
+    actual["key_resolution"]["validity_interval"].pop("required_relation", None)
 if actual != expected:
     raise SystemExit(
         f"SIGNATURE_CONTRACT_MISMATCH:expected={expected!r}:actual={actual!r}"
@@ -973,17 +1006,14 @@ with open(sys.argv[2], encoding="utf-8") as handle:
 key_contract = schema["x-datarim-signature-contract"]["key_resolution"]
 binding_schema = key_contract["binding_schema"]
 public_key_contract = binding_schema["properties"]["public_key"]
-public_key = "A" * 43 + "="
 trusted_registry = {
-    "key-customer-0001": {
-        "key_id": "key-customer-0001",
-        "authority_id": "authority-customer-0001",
-        "allowed_roles": ["CUSTOMER"],
-        "public_key": public_key,
-        "status": "ACTIVE",
-        "valid_from": "2026-01-01T00:00:00Z",
-        "valid_until": "2027-01-01T00:00:00Z",
-    },
+    entry["key_id"]: entry
+    for entry in key_contract["bundled_registry"]["entries"]
+}
+public_key = trusted_registry["key-customer-0001"]["public_key"]
+# Synthetic bindings exist only inside negative A1 vectors. Production lookup is
+# bundled-only and may not accept these as ambient registry overrides.
+trusted_registry.update({
     "key-revoked-0001": {
         "key_id": "key-revoked-0001",
         "authority_id": "authority-customer-0001",
@@ -1010,7 +1040,7 @@ trusted_registry = {
         "valid_from": "2025-01-01T00:00:00Z",
         "valid_until": "2026-01-02T09:04:00Z",
     },
-}
+})
 
 checker = jsonschema.FormatChecker()
 for registry_key, binding in trusted_registry.items():
@@ -2586,11 +2616,12 @@ PY
     local terminal_status expression
     cp "$RECEIPT_TEMPLATE" "$pending" || return 1
     yq -i '.requirements.req-0001.coverage_chain.customer_disposition.status = "pending" |
-        del(.requirements.req-0001.coverage_chain.customer_disposition.authority)' "$pending" || return 1
+        del(.requirements.req-0001.coverage_chain.customer_disposition.authority_approval) |
+        del(.requirements.req-0001.coverage_chain.customer_disposition.disposition_digest)' "$pending" || return 1
 
     validate_yaml "$RECEIPT_SCHEMA" "$pending" || return 1
     for terminal_status in accepted rejected superseded; do
-        expression=".requirements.req-0001.coverage_chain.customer_disposition.status = \"${terminal_status}\" | del(.requirements.req-0001.coverage_chain.customer_disposition.authority)"
+        expression=".requirements.req-0001.coverage_chain.customer_disposition.status = \"${terminal_status}\" | del(.requirements.req-0001.coverage_chain.customer_disposition.authority_approval)"
         if [ "$terminal_status" = "superseded" ]; then
             expression="${expression} | .requirements.req-0001.coverage_chain.customer_disposition.superseded_by = \"req-0002\""
         fi
@@ -2598,7 +2629,7 @@ PY
         [ "$status" -eq 1 ] || return 1
     done
     run reject_mutation "$RECEIPT_SCHEMA" "$RECEIPT_TEMPLATE" \
-        '.requirements.req-0001.coverage_chain.customer_disposition.authority.extra = "not closed"'
+        '.requirements.req-0001.coverage_chain.customer_disposition.authority_approval.extra = "not closed"'
     [ "$status" -eq 1 ]
 }
 
@@ -2611,7 +2642,7 @@ PY
     cp "$REQUIREMENTS_TEMPLATE" "$late_rendered" || return 1
     cp "$REQUIREMENTS_TEMPLATE" "$qualitative_requirement" || return 1
     cp "$RECEIPT_TEMPLATE" "$qualitative_receipt" || return 1
-    yq -i '.requirements.req-0001.coverage_chain.customer_disposition.authority.authority_role = "CUSTOMER"' "$customer_authority" || return 1
+    yq -i '.requirements.req-0001.coverage_chain.customer_disposition.authority_approval.authority_role = "CUSTOMER"' "$customer_authority" || return 1
     yq -i '.requirements.req-0001.acceptance.rendered_test_evidence.observed_at = "2026-01-02T14:00:00Z"' "$late_rendered" || return 1
     yq -i '.source_remarks[0].tier1_assertions[0].applicability.painted_matrix_applicable = false |
         .source_remarks[0].tier1_assertions[0].applicability.not_applicable_reason = "This visitor outcome is qualitative rather than matrix-based." |
@@ -2627,7 +2658,7 @@ PY
         .requirements.req-0001.coverage_chain.live_evidence.applicability.painted_matrix_applicable = false |
         .requirements.req-0001.coverage_chain.live_evidence.not_applicable_reason = "This visitor outcome is qualitative rather than matrix-based." |
         .requirements.req-0001.coverage_chain.live_evidence.painted_matrix = [] |
-        .requirements.req-0001.coverage_chain.customer_disposition.authority.authority_role = "CUSTOMER"' "$qualitative_receipt" || return 1
+        .requirements.req-0001.coverage_chain.customer_disposition.authority_approval.authority_role = "CUSTOMER"' "$qualitative_receipt" || return 1
 
     run validate_acceptance_receipt_authority_contract \
         "$REQUIREMENTS_TEMPLATE" "$customer_authority"
@@ -2697,4 +2728,416 @@ PY
     done
 
     validate_review_closure_contract APPROVED CLOSED
+}
+
+validate_bundled_authority_registry() {
+    "$PYTHON" - "$1" "$2" <<'PY'
+import base64
+import hashlib
+import json
+import sys
+from datetime import datetime
+
+requirement_schema_path, receipt_schema_path = sys.argv[1:]
+with open(requirement_schema_path, encoding="utf-8") as handle:
+    requirement_schema = json.load(handle)
+with open(receipt_schema_path, encoding="utf-8") as handle:
+    receipt_schema = json.load(handle)
+
+contract = requirement_schema["x-datarim-signature-contract"]["key_resolution"]
+expected_locator = {
+    "schema_relative_path": "customer-requirement.schema.json",
+    "json_pointer": "/x-datarim-signature-contract/key_resolution/bundled_registry",
+    "resolution": "BUNDLED_ONLY",
+    "ambient_override": "PROHIBITED",
+}
+if contract.get("registry_locator") != expected_locator:
+    raise SystemExit("TRUST_REGISTRY_LOCATOR_MISMATCH")
+owner = contract.get("registry_owner", {})
+if owner.get("authority_id") != "authority-operator-0001" or owner.get("authority_role") != "OPERATOR":
+    raise SystemExit("TRUST_REGISTRY_OWNER_MISMATCH")
+anchor = owner.get("trust_anchor", {})
+if anchor.get("key_id") != "key-operator-0001" or anchor.get("algorithm") != "ED25519":
+    raise SystemExit("TRUST_REGISTRY_ANCHOR_MISMATCH")
+if anchor.get("semantics") != "SCHEMA_REVIEWED_PINNED_PUBLIC_KEY":
+    raise SystemExit("TRUST_REGISTRY_ANCHOR_SEMANTICS_MISMATCH")
+public_key = base64.b64decode(anchor.get("public_key", ""), validate=True)
+if len(public_key) != 32:
+    raise SystemExit("TRUST_REGISTRY_ANCHOR_LENGTH")
+if anchor.get("fingerprint") != "sha256:" + hashlib.sha256(public_key).hexdigest():
+    raise SystemExit("TRUST_REGISTRY_ANCHOR_FINGERPRINT_MISMATCH")
+expected_container_schema = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["registry_id", "revision", "digest", "entries"],
+    "properties": {
+        "registry_id": {"type": "string", "pattern": "^authority-key-registry-[0-9]{4}$"},
+        "revision": {"type": "string", "pattern": "^[1-9][0-9]*$"},
+        "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "entries": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": True,
+            "items": {"$ref": "#/x-datarim-signature-contract/key_resolution/binding_schema"},
+        },
+    },
+}
+if contract.get("registry_container_schema") != expected_container_schema:
+    raise SystemExit("TRUST_REGISTRY_CONTAINER_SCHEMA_MISMATCH")
+
+registry = contract["bundled_registry"]
+if set(registry) != {"registry_id", "revision", "digest", "entries"}:
+    raise SystemExit("TRUST_REGISTRY_CONTAINER_NOT_CLOSED")
+ids = [entry["key_id"] for entry in registry["entries"]]
+seen = {}
+for entry in registry["entries"]:
+    key_id = entry["key_id"]
+    if key_id in seen:
+        if entry == seen[key_id]:
+            raise SystemExit("TRUST_REGISTRY_DUPLICATE_KEY_ID")
+        raise SystemExit("TRUST_REGISTRY_CONFLICTING_KEY_ID")
+    seen[key_id] = entry
+if ids != sorted(ids):
+    raise SystemExit("TRUST_REGISTRY_ENTRY_ORDER_MISMATCH")
+payload = {key: registry[key] for key in ("registry_id", "revision", "entries")}
+canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+if registry["digest"] != "sha256:" + hashlib.sha256(canonical).hexdigest():
+    raise SystemExit("TRUST_REGISTRY_DIGEST_MISMATCH")
+for entry in registry["entries"]:
+    if set(entry) - {"key_id", "authority_id", "allowed_roles", "public_key", "status", "valid_from", "valid_until"}:
+        raise SystemExit("TRUST_REGISTRY_ENTRY_NOT_CLOSED")
+    start = datetime.fromisoformat(entry["valid_from"].replace("Z", "+00:00"))
+    if "valid_until" in entry:
+        end = datetime.fromisoformat(entry["valid_until"].replace("Z", "+00:00"))
+        if start >= end:
+            raise SystemExit("TRUST_REGISTRY_INVALID_INTERVAL")
+
+expected_ref = {
+    "schema_relative_path": "customer-requirement.schema.json",
+    "json_pointer": "/x-datarim-signature-contract/key_resolution/bundled_registry",
+    "resolution": "BUNDLED_ONLY",
+    "ambient_override": "PROHIBITED",
+    "registry_id": registry["registry_id"],
+    "registry_digest": registry["digest"],
+}
+if receipt_schema.get("x-datarim-trusted-authority-key-registry-ref") != expected_ref:
+    raise SystemExit("RECEIPT_TRUST_REGISTRY_REF_MISMATCH")
+expected_disposition_contract = {
+    "terminal_statuses": ["accepted", "rejected", "superseded"],
+    "pending_policy": "UNSIGNED_NONTERMINAL",
+    "disposition_digest": {
+        "algorithm": "SHA-256",
+        "canonicalization": "RFC8785",
+        "encoding": "UTF-8",
+        "covered_fields": ["requirement_id", "status", "recorded_at", "evidence_ref", "note?", "superseded_by?"],
+        "excluded_fields": ["disposition_digest", "authority_approval"],
+    },
+    "approval_payload_digest": {
+        "algorithm": "SHA-256",
+        "canonicalization": "RFC8785",
+        "encoding": "UTF-8",
+        "covered_fields": ["approved_digest", "authority_id", "authority_role", "approved_at", "evidence_ref", "algorithm", "key_id"],
+        "excluded_fields": ["approval_payload_digest", "signature"],
+    },
+    "signature_contract_ref": {
+        "schema_relative_path": "customer-requirement.schema.json",
+        "json_pointer": "/x-datarim-signature-contract",
+        "signed_field": "authority_approval.approval_payload_digest",
+    },
+}
+if receipt_schema.get("x-datarim-customer-disposition-contract") != expected_disposition_contract:
+    raise SystemExit("RECEIPT_DISPOSITION_CONTRACT_MISMATCH")
+PY
+}
+
+verify_complete_template_signatures() {
+    local requirement_schema="$1"
+    local requirement_template="$2"
+    local receipt_template="$3"
+    # shellcheck disable=SC2016
+    "$PYTHON" - "$requirement_schema" "$requirement_template" "$receipt_template" <<'PY' |
+import json
+import sys
+
+import yaml
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    schema = json.load(handle)
+with open(sys.argv[2], encoding="utf-8") as handle:
+    requirements = yaml.safe_load(handle)
+with open(sys.argv[3], encoding="utf-8") as handle:
+    receipt = yaml.safe_load(handle)
+registry = {
+    entry["key_id"]: entry
+    for entry in schema["x-datarim-signature-contract"]["key_resolution"]["bundled_registry"]["entries"]
+}
+approvals = []
+for source in requirements["source_remarks"]:
+    approvals.append(source["authority_approval"])
+    approvals.extend(assertion["authority_approval"] for assertion in source["tier1_assertions"])
+for delivery in receipt["requirements"].values():
+    disposition = delivery["coverage_chain"]["customer_disposition"]
+    if disposition["status"] != "pending":
+        approvals.append(disposition["authority_approval"])
+print(json.dumps([
+    {
+        "public_key": registry[approval["key_id"]]["public_key"],
+        "message": approval["approval_payload_digest"],
+        "signature": approval["signature"],
+    }
+    for approval in approvals
+]))
+PY
+    php -r '
+$records = json_decode(stream_get_contents(STDIN), true, 512, JSON_THROW_ON_ERROR);
+foreach ($records as $index => $record) {
+    $messageText = $record["message"];
+    $signatureText = $record["signature"];
+    if (!str_starts_with($messageText, "sha256:") || !str_starts_with($signatureText, "ed25519:")) {
+        fwrite(STDERR, "SIGNATURE_FRAMING:$index\n"); exit(1);
+    }
+    $message = hex2bin(substr($messageText, 7));
+    $signature = base64_decode(substr($signatureText, 8), true);
+    $publicKey = base64_decode($record["public_key"], true);
+    if ($message === false || strlen($message) !== 32 || $signature === false || strlen($signature) !== 64 || $publicKey === false || strlen($publicKey) !== 32) {
+        fwrite(STDERR, "SIGNATURE_WIRE_LENGTH:$index\n"); exit(1);
+    }
+    if (!sodium_crypto_sign_verify_detached($signature, $message, $publicKey)) {
+        fwrite(STDERR, "SIGNATURE_INVALID:$index\n"); exit(1);
+    }
+}
+'
+}
+
+validate_terminal_disposition_contract() {
+    local receipt_template="$1"
+    local requirement_schema="${2:-$REQUIREMENTS_SCHEMA}"
+    "$PYTHON" - "$requirement_schema" "$RECEIPT_SCHEMA" "$receipt_template" <<'PY'
+import hashlib
+import json
+import sys
+from datetime import datetime
+
+import jsonschema
+import yaml
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    requirement_schema = json.load(handle)
+with open(sys.argv[2], encoding="utf-8") as handle:
+    receipt_schema = json.load(handle)
+with open(sys.argv[3], encoding="utf-8") as handle:
+    receipt = yaml.safe_load(handle)
+jsonschema.Draft202012Validator(receipt_schema, format_checker=jsonschema.FormatChecker()).validate(receipt)
+registry = {
+    entry["key_id"]: entry
+    for entry in requirement_schema["x-datarim-signature-contract"]["key_resolution"]["bundled_registry"]["entries"]
+}
+approval_fields = ("approved_digest", "authority_id", "authority_role", "approved_at", "evidence_ref", "algorithm", "key_id")
+for requirement_id, delivery in receipt["requirements"].items():
+    disposition = delivery["coverage_chain"]["customer_disposition"]
+    if disposition["status"] == "pending":
+        if "disposition_digest" in disposition or "authority_approval" in disposition:
+            raise SystemExit(f"PENDING_DISPOSITION_MUST_BE_UNSIGNED:{requirement_id}")
+        continue
+    payload = {field: disposition[field] for field in ("status", "recorded_at", "evidence_ref")}
+    payload["requirement_id"] = requirement_id
+    for optional in ("note", "superseded_by"):
+        if optional in disposition:
+            payload[optional] = disposition[optional]
+    expected_digest = "sha256:" + hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+    if disposition["disposition_digest"] != expected_digest:
+        raise SystemExit(f"DISPOSITION_DIGEST_MISMATCH:{requirement_id}")
+    approval = disposition["authority_approval"]
+    if approval["approved_digest"] != expected_digest:
+        raise SystemExit(f"DISPOSITION_APPROVED_DIGEST_MISMATCH:{requirement_id}")
+    approval_payload = {field: approval[field] for field in approval_fields}
+    expected_payload_digest = "sha256:" + hashlib.sha256(json.dumps(approval_payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+    if approval["approval_payload_digest"] != expected_payload_digest:
+        raise SystemExit(f"DISPOSITION_APPROVAL_PAYLOAD_DIGEST_MISMATCH:{requirement_id}")
+    binding = registry.get(approval["key_id"])
+    if binding is None:
+        raise SystemExit(f"DISPOSITION_APPROVAL_KEY_UNKNOWN:{requirement_id}")
+    if approval["authority_id"] != binding["authority_id"]:
+        raise SystemExit(f"DISPOSITION_APPROVAL_KEY_AUTHORITY_ID_MISMATCH:{requirement_id}")
+    if approval["authority_role"] not in binding["allowed_roles"]:
+        raise SystemExit(f"DISPOSITION_APPROVAL_KEY_ROLE_UNAUTHORIZED:{requirement_id}")
+    if binding["status"] != "ACTIVE":
+        raise SystemExit(f"DISPOSITION_APPROVAL_KEY_NOT_ACTIVE:{requirement_id}")
+    approved_at = datetime.fromisoformat(approval["approved_at"].replace("Z", "+00:00"))
+    valid_from = datetime.fromisoformat(binding["valid_from"].replace("Z", "+00:00"))
+    if approved_at < valid_from:
+        raise SystemExit(f"DISPOSITION_APPROVAL_KEY_NOT_YET_VALID:{requirement_id}")
+    if "valid_until" in binding and approved_at >= datetime.fromisoformat(binding["valid_until"].replace("Z", "+00:00")):
+        raise SystemExit(f"DISPOSITION_APPROVAL_KEY_EXPIRED:{requirement_id}")
+PY
+}
+
+@test "bundled trusted authority registry and receipt reference are deterministic" {
+    validate_bundled_authority_registry "$REQUIREMENTS_SCHEMA" "$RECEIPT_SCHEMA"
+}
+
+@test "terminal disposition requires a canonical digest and signed authority approval" {
+    validate_yaml "$RECEIPT_SCHEMA" "$RECEIPT_TEMPLATE" \
+        && validate_terminal_disposition_contract "$RECEIPT_TEMPLATE"
+}
+
+@test "pending disposition is explicitly unsigned" {
+    local pending="$BATS_TEST_TMPDIR/pending.yaml"
+    local signed_pending="$BATS_TEST_TMPDIR/signed-pending.yaml"
+    cp "$RECEIPT_TEMPLATE" "$pending" || return 1
+    cp "$RECEIPT_TEMPLATE" "$signed_pending" || return 1
+    yq -i '.requirements.req-0001.coverage_status = "NOT_MET" |
+        .requirements.req-0001.missing_edges = ["customer_disposition"] |
+        .requirements.req-0001.coverage_chain.customer_disposition = {
+          "status": "pending",
+          "recorded_at": "2026-01-03T13:00:00Z",
+          "evidence_ref": "pending-customer-review-0001"
+        }' "$pending" || return 1
+    yq -i '.requirements.req-0001.coverage_chain.customer_disposition.status = "pending"' "$signed_pending" || return 1
+    validate_yaml "$RECEIPT_SCHEMA" "$pending" \
+        && validate_terminal_disposition_contract "$pending" \
+        && run validate_yaml "$RECEIPT_SCHEMA" "$signed_pending" \
+        && [ "$status" -eq 1 ]
+}
+
+@test "terminal disposition digest and approval payload mutations are rejected independently" {
+    local digest_mutant="$BATS_TEST_TMPDIR/disposition-digest.yaml"
+    local approved_digest_mutant="$BATS_TEST_TMPDIR/disposition-approved-digest.yaml"
+    local payload_mutant="$BATS_TEST_TMPDIR/disposition-payload.yaml"
+    cp "$RECEIPT_TEMPLATE" "$digest_mutant" || return 1
+    cp "$RECEIPT_TEMPLATE" "$approved_digest_mutant" || return 1
+    cp "$RECEIPT_TEMPLATE" "$payload_mutant" || return 1
+    yq -i '.requirements.req-0001.coverage_chain.customer_disposition.disposition_digest = "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"' "$digest_mutant" || return 1
+    yq -i '.requirements.req-0001.coverage_chain.customer_disposition.authority_approval.approved_digest = "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"' "$approved_digest_mutant" || return 1
+    yq -i '.requirements.req-0001.coverage_chain.customer_disposition.authority_approval.evidence_ref = "resealed-attacker-evidence"' "$payload_mutant" || return 1
+    run validate_terminal_disposition_contract "$digest_mutant"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"DISPOSITION_DIGEST_MISMATCH:req-0001"* ]] \
+        && run validate_terminal_disposition_contract "$approved_digest_mutant" \
+        && [ "$status" -eq 1 ] \
+        && [[ "$output" == *"DISPOSITION_APPROVED_DIGEST_MISMATCH:req-0001"* ]] \
+        && run validate_terminal_disposition_contract "$payload_mutant" \
+        && [ "$status" -eq 1 ] \
+        && [[ "$output" == *"DISPOSITION_APPROVAL_PAYLOAD_DIGEST_MISMATCH:req-0001"* ]]
+}
+
+@test "terminal disposition signatures verify independently with PHP sodium" {
+    verify_complete_template_signatures \
+        "$REQUIREMENTS_SCHEMA" "$REQUIREMENTS_TEMPLATE" "$RECEIPT_TEMPLATE"
+}
+
+reseal_registry_digest() {
+    "$PYTHON" - "$1" <<'PY'
+import hashlib
+import json
+import sys
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as handle:
+    schema = json.load(handle)
+registry = schema["x-datarim-signature-contract"]["key_resolution"]["bundled_registry"]
+payload = {field: registry[field] for field in ("registry_id", "revision", "entries")}
+registry["digest"] = "sha256:" + hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+with open(path, "w", encoding="utf-8") as handle:
+    json.dump(schema, handle, ensure_ascii=False, indent=2)
+    handle.write("\n")
+PY
+}
+
+reseal_disposition_approval_payload() {
+    "$PYTHON" - "$1" <<'PY'
+import hashlib
+import json
+import sys
+
+import yaml
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as handle:
+    receipt = yaml.safe_load(handle)
+fields = ("approved_digest", "authority_id", "authority_role", "approved_at", "evidence_ref", "algorithm", "key_id")
+for delivery in receipt["requirements"].values():
+    approval = delivery["coverage_chain"]["customer_disposition"]["authority_approval"]
+    payload = {field: approval[field] for field in fields}
+    approval["approval_payload_digest"] = "sha256:" + hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+with open(path, "w", encoding="utf-8") as handle:
+    yaml.safe_dump(receipt, handle, allow_unicode=True, sort_keys=False)
+PY
+}
+
+@test "trusted registry path pointer owner anchor digest duplicates conflicts and intervals fail independently" {
+    local mutant="$BATS_TEST_TMPDIR/registry-mutant.json"
+    local expression expected
+    while IFS='|' read -r expression expected; do
+        cp "$REQUIREMENTS_SCHEMA" "$mutant" || return 1
+        yq -i "$expression" "$mutant" || return 1
+        case "$expected" in
+            TRUST_REGISTRY_DUPLICATE_KEY_ID|TRUST_REGISTRY_CONFLICTING_KEY_ID|TRUST_REGISTRY_INVALID_INTERVAL)
+                reseal_registry_digest "$mutant" || return 1
+                ;;
+        esac
+        run validate_bundled_authority_registry "$mutant" "$RECEIPT_SCHEMA"
+        [ "$status" -eq 1 ] && [[ "$output" == *"$expected"* ]] || return 1
+    done <<'CASES'
+."x-datarim-signature-contract".key_resolution.registry_locator.schema_relative_path = "ambient-registry.json"|TRUST_REGISTRY_LOCATOR_MISMATCH
+."x-datarim-signature-contract".key_resolution.registry_locator.json_pointer = "/ambient"|TRUST_REGISTRY_LOCATOR_MISMATCH
+."x-datarim-signature-contract".key_resolution.registry_locator.ambient_override = "ALLOWED"|TRUST_REGISTRY_LOCATOR_MISMATCH
+."x-datarim-signature-contract".key_resolution.registry_owner.authority_id = "authority-attacker-0001"|TRUST_REGISTRY_OWNER_MISMATCH
+."x-datarim-signature-contract".key_resolution.registry_owner.trust_anchor.public_key = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="|TRUST_REGISTRY_ANCHOR_FINGERPRINT_MISMATCH
+."x-datarim-signature-contract".key_resolution.bundled_registry.digest = "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"|TRUST_REGISTRY_DIGEST_MISMATCH
+."x-datarim-signature-contract".key_resolution.bundled_registry.entries += [."x-datarim-signature-contract".key_resolution.bundled_registry.entries[1]]|TRUST_REGISTRY_DUPLICATE_KEY_ID
+."x-datarim-signature-contract".key_resolution.bundled_registry.entries += [(."x-datarim-signature-contract".key_resolution.bundled_registry.entries[1] * {"authority_id":"authority-attacker-0001"})]|TRUST_REGISTRY_CONFLICTING_KEY_ID
+."x-datarim-signature-contract".key_resolution.bundled_registry.entries[1].valid_from = "2037-01-01T00:00:00Z"|TRUST_REGISTRY_INVALID_INTERVAL
+."x-datarim-signature-contract".key_resolution.bundled_registry.entries[1].valid_until = ."x-datarim-signature-contract".key_resolution.bundled_registry.entries[1].valid_from|TRUST_REGISTRY_INVALID_INTERVAL
+CASES
+}
+
+@test "disposition key cannot claim an attacker identity after payload resealing" {
+    local mutant="$BATS_TEST_TMPDIR/disposition-attacker-id.yaml"
+    cp "$RECEIPT_TEMPLATE" "$mutant" || return 1
+    yq -i '.requirements.req-0001.coverage_chain.customer_disposition.authority_approval.authority_id = "authority-attacker-0001"' "$mutant" || return 1
+    reseal_disposition_approval_payload "$mutant" || return 1
+    run validate_terminal_disposition_contract "$mutant"
+    [ "$status" -eq 1 ] && [[ "$output" == *"DISPOSITION_APPROVAL_KEY_AUTHORITY_ID_MISMATCH:req-0001"* ]]
+}
+
+@test "customer disposition key cannot escalate to operator role after payload resealing" {
+    local mutant="$BATS_TEST_TMPDIR/disposition-role-escalation.yaml"
+    cp "$RECEIPT_TEMPLATE" "$mutant" || return 1
+    yq -i '.requirements.req-0001.coverage_chain.customer_disposition.authority_approval.authority_id = "authority-customer-0001" |
+        .requirements.req-0001.coverage_chain.customer_disposition.authority_approval.key_id = "key-customer-0001"' "$mutant" || return 1
+    reseal_disposition_approval_payload "$mutant" || return 1
+    run validate_terminal_disposition_contract "$mutant"
+    [ "$status" -eq 1 ] && [[ "$output" == *"DISPOSITION_APPROVAL_KEY_ROLE_UNAUTHORIZED:req-0001"* ]]
+}
+
+@test "unknown revoked and out-of-window disposition keys fail independently" {
+    local receipt_mutant="$BATS_TEST_TMPDIR/disposition-key.yaml"
+    local schema_mutant="$BATS_TEST_TMPDIR/disposition-registry.json"
+    cp "$RECEIPT_TEMPLATE" "$receipt_mutant" || return 1
+    yq -i '.requirements.req-0001.coverage_chain.customer_disposition.authority_approval.key_id = "key-unknown-0001"' "$receipt_mutant" || return 1
+    reseal_disposition_approval_payload "$receipt_mutant" || return 1
+    run validate_terminal_disposition_contract "$receipt_mutant"
+    [ "$status" -eq 1 ] && [[ "$output" == *"DISPOSITION_APPROVAL_KEY_UNKNOWN:req-0001"* ]] || return 1
+
+    local expression expected
+    while IFS='|' read -r expression expected; do
+        cp "$REQUIREMENTS_SCHEMA" "$schema_mutant" || return 1
+        yq -i "$expression" "$schema_mutant" || return 1
+        reseal_registry_digest "$schema_mutant" || return 1
+        run validate_terminal_disposition_contract "$RECEIPT_TEMPLATE" "$schema_mutant"
+        [ "$status" -eq 1 ] && [[ "$output" == *"$expected"* ]] || return 1
+    done <<'CASES'
+."x-datarim-signature-contract".key_resolution.bundled_registry.entries[1].status = "REVOKED"|DISPOSITION_APPROVAL_KEY_NOT_ACTIVE:req-0001
+."x-datarim-signature-contract".key_resolution.bundled_registry.entries[1].valid_from = "2027-01-01T00:00:00Z"|DISPOSITION_APPROVAL_KEY_NOT_YET_VALID:req-0001
+."x-datarim-signature-contract".key_resolution.bundled_registry.entries[1].valid_until = "2026-01-03T13:01:00Z"|DISPOSITION_APPROVAL_KEY_EXPIRED:req-0001
+CASES
+}
+
+@test "tampered terminal disposition signature fails independent crypto verification" {
+    local mutant="$BATS_TEST_TMPDIR/disposition-signature.yaml"
+    cp "$RECEIPT_TEMPLATE" "$mutant" || return 1
+    yq -i '.requirements.req-0001.coverage_chain.customer_disposition.authority_approval.signature = "ed25519:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="' "$mutant" || return 1
+    run verify_complete_template_signatures "$REQUIREMENTS_SCHEMA" "$REQUIREMENTS_TEMPLATE" "$mutant"
+    [ "$status" -eq 1 ] && [[ "$output" == *"SIGNATURE_INVALID:2"* ]]
 }

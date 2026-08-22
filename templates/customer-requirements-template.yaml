@@ -14,7 +14,7 @@ source_remarks:
       algorithm: ED25519
       key_id: key-customer-0001
       approval_payload_digest: sha256:9ff235666bd6b3211a27c96cf0b6aabb823388ee63e5ab9d80e25e3b5c70e59b
-      signature: ed25519:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==
+      signature: ed25519:0nT6vhkuUllfEIViZP/y8oTe4R3luNQu+JVcNxbJMPScG7E1nHjOvO3yx6DXwGGK0SaH7nJBQrVnRI6harN9Dw==
     source_tier: CUSTOMER_VERBATIM
     verbatim_quote: "The comparison must remain readable on my phone in both languages and themes."
     locale: en
@@ -36,7 +36,7 @@ source_remarks:
           algorithm: ED25519
           key_id: key-customer-0001
           approval_payload_digest: sha256:f8fdb6446fc328c6f9c2ca81d352d9a55dbcdcc60ac6ca23833c33e3210cdaa8
-          signature: ed25519:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==
+          signature: ed25519:A3pta4vvdKiEHaG4zyLuVnnnHR/r/Tk5H7Slmk3GJf+FDigqIztv4/FdaYxS+avhvtNPSwcSLkCYMqdYZr0wDQ==
         requirement_id: req-0001
         predicate_id: predicate-visitor-readable
         product: example-product
