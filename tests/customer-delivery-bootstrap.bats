@@ -377,7 +377,7 @@ activation={"activation_nonce":"nonce-one","identity_id":"signer-one","identity_
 continuity_record={**activation,"issued_at":"2026-08-22T00:00:00Z","previous_registry_sha256":"1"*64,"replacement_registry_sha256":"2"*64,"schema_version":1}; continuity_raw=m.canonical_bytes(continuity_record)
 continuity={"record":continuity_record,"old_signature":m.sign_envelope(context,continuity_raw,"secret-store:"+str(old),"datarim-key-continuity-v1",identity_kind="signer",identity_id="signer-one",key_id="key-old",principal="signer-one"),"new_signature":m.sign_envelope(context,continuity_raw,"secret-store:"+str(new),"datarim-key-continuity-v1",identity_kind="signer",identity_id="signer-one",key_id="key-new",principal="signer-one")}
 (root/"continuity.json").write_bytes(m.canonical_bytes(continuity))
-recovery_record={"adopted_pending_activation_nonces":["nonce-one"],"compromised_governance_key_id":None,"compromised_key_ids":["key-old"],"issued_at":"2026-08-22T00:00:01Z","key_activations":[activation],"previous_registry_sha256":"1"*64,"reason":"fixture recovery","recovery_id":"recovery-one","replacement_governance_key":None,"replacement_key_ids":["key-new"],"replacement_registry_preimage_sha256":"3"*64,"schema_version":1}; recovery_raw=m.canonical_bytes(recovery_record)
+recovery_record={"adopted_pending_activation_nonces":["nonce-one"],"compromised_governance_key_id":None,"compromised_key_ids":["key-old"],"issued_at":"2026-08-22T00:00:01Z","key_activations":[activation],"previous_registry_sha256":"1"*64,"reason":"fixture recovery","recovery_id":"pending","replacement_governance_key":None,"replacement_key_ids":["key-new"],"replacement_registry_preimage_sha256":"3"*64,"schema_version":1}; recovery_preimage=dict(recovery_record); recovery_preimage.pop("recovery_id"); recovery_record["recovery_id"]=m.digest_bytes(m.canonical_bytes(recovery_preimage)); recovery_raw=m.canonical_bytes(recovery_record)
 recovery_signature=m.sign_envelope(context,recovery_raw,"secret-store:"+str(recovery),"datarim-recovery-v1",signer_id="recovery-signer",key_id="recovery-key",principal="recovery-signer")
 (root/"recovery.json").write_bytes(m.canonical_bytes({"record":recovery_record,"signatures":[recovery_signature]}))
 catalog={"recovery_policy":{"quorum":1,"record_namespace":"datarim-recovery-v1","recovery_signers":[{"key_id":"recovery-key","principal":"recovery-signer","public_key":pathlib.Path(str(recovery)+".pub").read_text().strip(),"signer_id":"recovery-signer"}]}}
@@ -400,7 +400,7 @@ rebound=m.handle_activate_key(context,rebind,args)
 if m.handle_activate_key(context,rebind,args)!=rebound: raise SystemExit("rebind retry changed result bytes")
 cas_result={"operation":"registry-cas","previous_registry_sha256":"1"*64,"result_registry_sha256":"2"*64}
 (root/"cas.json").write_bytes(m.canonical_bytes(cas_result)); (root/"cas.sig").write_bytes(b"signed")
-m.verify_activation_cas_acceptance=lambda context,args,raw,signature: m.load_json_bytes(raw)
+m.verify_activation_cas_acceptance=lambda context,args,raw,signature,journal: m.load_json_bytes(raw)
 cas={"cas_result_locator":"cas.json","cas_result_sha256":m.digest_bytes(m.canonical_bytes(cas_result)),"cas_result_signature_locator":"cas.sig","cas_result_signature_sha256":m.digest_bytes(b"signed")}
 finalize=request("finalize","recovery","unused-result.json","unused-proof.json","recovery.json",cas)
 finished=m.handle_activate_key(context,finalize,args)
