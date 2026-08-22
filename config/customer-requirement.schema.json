@@ -12,6 +12,13 @@
       "source-requirement-bidirectional",
       "source-assertion-bidirectional",
       "source-quote-set-exact",
+      "source-canonical-digest-valid",
+      "source-approval-digest-equals-source-digest",
+      "source-signature-valid",
+      "assertion-source-digest-equals-containing-source-digest",
+      "source-correction-superseded-digest-exists",
+      "source-correction-prior-record-retained",
+      "source-correction-in-place-replacement-prohibited",
       "tier1-assertion-canonical-digest-valid",
       "tier1-assertion-approval-digest-equals-assertion-digest",
       "tier1-assertion-signature-valid",
@@ -74,9 +81,27 @@
     "sourceRemark": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source_id", "source_tier", "verbatim_quote", "captured_at", "requirement_ids", "tier1_assertions"],
+      "required": [
+        "source_id",
+        "revision",
+        "source_digest",
+        "authority_approval",
+        "source_tier",
+        "verbatim_quote",
+        "captured_at",
+        "requirement_ids",
+        "tier1_assertions"
+      ],
       "properties": {
         "source_id": { "type": "string", "pattern": "^source-[0-9]{4}$" },
+        "revision": { "type": "string", "pattern": "^[1-9][0-9]*$" },
+        "source_digest": {
+          "description": "SHA-256 over UTF-8 JSON of source_id, revision, source_tier, verbatim_quote, captured_at, sorted requirement_ids, optional locale/source_ref, and optional supersedes_source_digest, with keys sorted and compact comma/colon separators.",
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "authority_approval": { "$ref": "#/$defs/authorityApproval" },
+        "supersedes_source_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
         "source_tier": {
           "enum": ["CUSTOMER_VERBATIM", "AUTHORIZED_RELAY_VERBATIM", "OPERATOR_VERBATIM"]
         },
@@ -130,6 +155,7 @@
       "required": [
         "assertion_id",
         "revision",
+        "source_digest",
         "assertion_digest",
         "authority_approval",
         "requirement_id",
@@ -144,6 +170,7 @@
       "properties": {
         "assertion_id": { "type": "string", "pattern": "^assertion-[0-9]{4}$" },
         "revision": { "type": "string", "pattern": "^[1-9][0-9]*$" },
+        "source_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
         "assertion_digest": {
           "description": "SHA-256 over UTF-8 JSON of every assertion field except assertion_digest and authority_approval, with keys sorted and compact comma/colon separators.",
           "type": "string",

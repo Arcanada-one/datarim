@@ -75,7 +75,28 @@ path = sys.argv[1]
 with open(path, encoding="utf-8") as handle:
     document = yaml.safe_load(handle)
 for source in document["source_remarks"]:
+    source_payload = {
+        "source_id": source["source_id"],
+        "revision": source["revision"],
+        "source_tier": source["source_tier"],
+        "verbatim_quote": source["verbatim_quote"],
+        "captured_at": source["captured_at"],
+        "requirement_ids": sorted(source["requirement_ids"]),
+    }
+    for optional_field in ("locale", "source_ref", "supersedes_source_digest"):
+        if optional_field in source:
+            source_payload[optional_field] = source[optional_field]
+    canonical_source = json.dumps(
+        source_payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    source_digest = "sha256:" + hashlib.sha256(canonical_source).hexdigest()
+    source["source_digest"] = source_digest
+    source["authority_approval"]["approved_digest"] = source_digest
     for assertion in source["tier1_assertions"]:
+        assertion["source_digest"] = source_digest
         payload = {
             key: value
             for key, value in assertion.items()
@@ -127,6 +148,28 @@ for source in instance["source_remarks"]:
     if source_id in sources:
         raise SystemExit(f"TIER1_AUTHORITY_DUPLICATE:{source_id}")
     sources[source_id] = source
+    source_payload = {
+        "source_id": source["source_id"],
+        "revision": source["revision"],
+        "source_tier": source["source_tier"],
+        "verbatim_quote": source["verbatim_quote"],
+        "captured_at": source["captured_at"],
+        "requirement_ids": sorted(source["requirement_ids"]),
+    }
+    for optional_field in ("locale", "source_ref", "supersedes_source_digest"):
+        if optional_field in source:
+            source_payload[optional_field] = source[optional_field]
+    canonical_source = json.dumps(
+        source_payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    expected_source_digest = "sha256:" + hashlib.sha256(canonical_source).hexdigest()
+    if source["source_digest"] != expected_source_digest:
+        raise SystemExit(f"SOURCE_DIGEST_MISMATCH:{source_id}")
+    if source["authority_approval"]["approved_digest"] != source["source_digest"]:
+        raise SystemExit(f"SOURCE_APPROVAL_DIGEST_MISMATCH:{source_id}")
     for assertion in source["tier1_assertions"]:
         assertion_id = assertion["assertion_id"]
         if assertion_id in assertions:
@@ -134,6 +177,14 @@ for source in instance["source_remarks"]:
         requirement_id = assertion["requirement_id"]
         assertions[assertion_id] = (source_id, assertion)
         assertions_by_requirement.setdefault(requirement_id, set()).add(assertion_id)
+
+source_digests = {source["source_digest"] for source in sources.values()}
+for source_id, source in sources.items():
+    superseded_digest = source.get("supersedes_source_digest")
+    if superseded_digest is not None and superseded_digest not in source_digests:
+        raise SystemExit(
+            f"SOURCE_SUPERSEDED_DIGEST_DANGLING:{source_id}:{superseded_digest}"
+        )
 
 requirements = instance["requirements"]
 for source_id, source in sources.items():
@@ -187,7 +238,11 @@ for requirement_id, requirement in requirements.items():
         acceptance["implementation"]["started_at"].replace("Z", "+00:00")
     )
     for linked_assertion_id in referenced_assertion_ids:
-        _, linked_assertion = assertions[linked_assertion_id]
+        linked_source_id, linked_assertion = assertions[linked_assertion_id]
+        if linked_assertion["source_digest"] != sources[linked_source_id]["source_digest"]:
+            raise SystemExit(
+                f"ASSERTION_SOURCE_DIGEST_MISMATCH:{linked_assertion_id}"
+            )
         canonical_payload = {
             key: value
             for key, value in linked_assertion.items()
@@ -560,6 +615,13 @@ expected = {
             "source-requirement-bidirectional",
             "source-assertion-bidirectional",
             "source-quote-set-exact",
+            "source-canonical-digest-valid",
+            "source-approval-digest-equals-source-digest",
+            "source-signature-valid",
+            "assertion-source-digest-equals-containing-source-digest",
+            "source-correction-superseded-digest-exists",
+            "source-correction-prior-record-retained",
+            "source-correction-in-place-replacement-prohibited",
             "tier1-assertion-canonical-digest-valid",
             "tier1-assertion-approval-digest-equals-assertion-digest",
             "tier1-assertion-signature-valid",
@@ -756,6 +818,81 @@ PY
         && run reject_mutation "$REQUIREMENTS_SCHEMA" "$REQUIREMENTS_TEMPLATE" \
             'del(.source_remarks[0].verbatim_quote)' \
         && [ "$status" -eq 1 ]
+}
+
+@test "source records require immutable digest and signed authority commitment" {
+    run reject_contract_mutation \
+        'del(.source_remarks[0].revision)'
+    [ "$status" -eq 1 ] \
+        && run reject_contract_mutation \
+            'del(.source_remarks[0].source_digest)' \
+        && [ "$status" -eq 1 ] \
+        && run reject_contract_mutation \
+            'del(.source_remarks[0].authority_approval)' \
+        && [ "$status" -eq 1 ]
+}
+
+@test "signed source commitment rejects coherent quote and acceptance rewrite" {
+    run reject_contract_mutation '
+        .source_remarks[0].verbatim_quote = "The comparison may remain readable on desktop only." |
+        .requirements.req-0001.acceptance.exact_source_quotes[0].verbatim_quote = "The comparison may remain readable on desktop only."
+    '
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"SOURCE_DIGEST_MISMATCH:source-0001"* ]]
+}
+
+@test "source digest changes require matching authority approval" {
+    run reject_contract_mutation '
+        .source_remarks[0].verbatim_quote = "The comparison may remain readable on desktop only." |
+        .requirements.req-0001.acceptance.exact_source_quotes[0].verbatim_quote = "The comparison may remain readable on desktop only." |
+        .source_remarks[0].source_digest = "sha256:13dc577a184f01bc44e9b21b243dc868a827fbb6a85deca6e73b3eb7ef1ce844"
+    '
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"SOURCE_APPROVAL_DIGEST_MISMATCH:source-0001"* ]]
+}
+
+@test "assertion source digest must equal its containing source commitment" {
+    run reject_contract_mutation \
+        '.source_remarks[0].tier1_assertions[0].source_digest = "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"'
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"ASSERTION_SOURCE_DIGEST_MISMATCH:assertion-0001"* ]]
+}
+
+@test "append-only source correction retains and links its prior source digest" {
+    local correction="$BATS_TEST_TMPDIR/source-correction.yaml"
+    local dangling="$BATS_TEST_TMPDIR/source-correction-dangling.yaml"
+    structured_requirement_fixture "$correction" || return 1
+    yq -i '
+        .source_remarks += [.source_remarks[0]] |
+        .source_remarks[1].source_id = "source-0002" |
+        .source_remarks[1].revision = "2" |
+        .source_remarks[1].verbatim_quote = "The comparison must remain readable across the complete visitor matrix." |
+        .source_remarks[1].captured_at = "2026-01-02T09:06:00Z" |
+        .source_remarks[1].source_ref = "customer-correction-0002" |
+        .source_remarks[1].supersedes_source_digest = .source_remarks[0].source_digest |
+        .source_remarks[1].authority_approval.approved_at = "2026-01-02T09:07:00Z" |
+        .source_remarks[1].authority_approval.evidence_ref = "source-authority-approval-0002" |
+        .source_remarks[1].tier1_assertions[0].assertion_id = "assertion-0002" |
+        .source_remarks[1].tier1_assertions[0].revision = "2" |
+        .source_remarks[1].tier1_assertions[0].asserted_at = "2026-01-02T09:08:00Z" |
+        .source_remarks[1].tier1_assertions[0].authority_approval.approved_at = "2026-01-02T09:09:00Z" |
+        .source_remarks[1].tier1_assertions[0].authority_approval.evidence_ref = "authority-approval-0002" |
+        .requirements.req-0001.source_ids += ["source-0002"] |
+        .requirements.req-0001.tier1_assertion_ids += ["assertion-0002"] |
+        .requirements.req-0001.acceptance.exact_source_quotes += [{
+          "source_id": "source-0002",
+          "verbatim_quote": "The comparison must remain readable across the complete visitor matrix."
+        }]
+    ' "$correction" || return 1
+    refresh_assertion_digests "$correction" || return 1
+    cp "$correction" "$dangling" || return 1
+    yq -i '.source_remarks[1].supersedes_source_digest = "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"' "$dangling" || return 1
+    refresh_assertion_digests "$dangling" || return 1
+
+    validate_requirement_contract "$correction" \
+        && run validate_requirement_contract "$dangling" \
+        && [ "$status" -eq 1 ] \
+        && [[ "$output" == *"SOURCE_SUPERSEDED_DIGEST_DANGLING:source-0002"* ]]
 }
 
 @test "customer acceptance tuple requires product surface before-after and evidence ownership" {
@@ -1126,12 +1263,17 @@ PY
 }
 
 @test "tier-one assertion IDs are unique across requirements" {
-    run reject_contract_mutation '
+    local duplicate="$BATS_TEST_TMPDIR/duplicate-assertion-id.yaml"
+    structured_requirement_fixture "$duplicate" || return 1
+    yq -i '
         .requirements.req-0002 = .requirements.req-0001 |
         .source_remarks[0].requirement_ids += ["req-0002"] |
         .source_remarks[0].tier1_assertions += [.source_remarks[0].tier1_assertions[0]] |
         .source_remarks[0].tier1_assertions[1].requirement_id = "req-0002"
-    '
+    ' "$duplicate" || return 1
+    refresh_assertion_digests "$duplicate" || return 1
+
+    run validate_requirement_contract "$duplicate"
     [ "$status" -eq 1 ] \
         && [[ "$output" == *"TIER1_ASSERTION_DUPLICATE:assertion-0001"* ]]
 }
@@ -1168,7 +1310,9 @@ PY
 }
 
 @test "acceptance cannot replace its tier-one assertion with another valid assertion" {
-    run reject_contract_mutation '
+    local replaced="$BATS_TEST_TMPDIR/replaced-assertion.yaml"
+    structured_requirement_fixture "$replaced" || return 1
+    yq -i '
         .requirements.req-0002 = .requirements.req-0001 |
         .requirements.req-0002.tier1_assertion_ids = ["assertion-0002"] |
         .requirements.req-0002.acceptance.tier1_assertion_id = "assertion-0002" |
@@ -1179,7 +1323,10 @@ PY
         .source_remarks[0].tier1_assertions[1].assertion_id = "assertion-0002" |
         .source_remarks[0].tier1_assertions[1].requirement_id = "req-0002" |
         .source_remarks[0].tier1_assertions[1].predicate_id = "predicate-second"
-    '
+    ' "$replaced" || return 1
+    refresh_assertion_digests "$replaced" || return 1
+
+    run validate_requirement_contract "$replaced"
     [ "$status" -eq 1 ] \
         && [[ "$output" == *"TIER1_ASSERTION_REPLACED:req-0001:assertion-0002"* ]]
 }
@@ -1413,8 +1560,12 @@ PY
 }
 
 @test "source requirement IDs cannot dangle" {
-    run reject_contract_mutation \
-        '.source_remarks[0].requirement_ids += ["req-9999"]'
+    local dangling="$BATS_TEST_TMPDIR/dangling-source-requirement.yaml"
+    structured_requirement_fixture "$dangling" || return 1
+    yq -i '.source_remarks[0].requirement_ids += ["req-9999"]' "$dangling" || return 1
+    refresh_assertion_digests "$dangling" || return 1
+
+    run validate_requirement_contract "$dangling"
     [ "$status" -eq 1 ] \
         && [[ "$output" == *"TIER1_REQUIREMENT_DANGLING:source-0001:req-9999"* ]]
 }
