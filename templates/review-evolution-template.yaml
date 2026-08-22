@@ -1,0 +1,34 @@
+schema_version: 1
+review_id: review-0001
+requirement_id: req-0001
+delivery_receipt_id: receipt-0001
+reviewed_at: "2026-01-03T15:00:00Z"
+reviewer: independent-reviewer
+classification: ABSENT
+finding_evidence: The canonical review checklist had no visitor-visible production evidence clause.
+parent_links:
+  - relation: epic
+    id: epic:web:0000
+  - relation: task
+    id: task:web:0001
+  - relation: requirement
+    id: req-0001
+  - relation: delivery_receipt
+    id: receipt-0001
+canonical_change:
+  artifact_id: customer-delivery-review-checklist
+  change_kind: ARTIFACT_REVISION
+  artifact_revision: "2"
+  digest: sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+  recorded_at: "2026-01-03T15:30:00Z"
+  enforcement:
+    mechanism: A mutation test removes live production evidence and must make the review gate fail.
+    owner: framework-reviewer
+    red_capable: true
+    red_evidence: artifacts/evolution/red-live-evidence-gate.txt
+    green_evidence: artifacts/evolution/green-live-evidence-gate.txt
+product_fix:
+  requirement_id: req-0001
+  delivery_receipt_id: receipt-0001
+  status: DELIVERED
+  substitution_prohibited: true
