@@ -96,8 +96,8 @@ def walk(node, pointer="#"):
 walk(schema)
 print("WIRE_SCHEMA_OK")
 PY
-  [ "$status" -eq 0 ]
-  [ "$output" = "WIRE_SCHEMA_OK" ]
+  [[ "$status" -eq 0 ]] || fail_test "wire-schema inventory failed: $output"
+  [[ "$output" = "WIRE_SCHEMA_OK" ]] || fail_test "wrong wire-schema inventory output: $output"
 }
 
 @test "bootstrap validates every wire fragment and rejects unknown fields" {
@@ -121,8 +121,8 @@ PY
 
   printf '{"z":1,"a":"é","line":"x\\ny"}\n' >"$FIXTURE_DIR/input.json"
   run bootstrap --canonicalize-only input.json
-  [ "$status" -eq 0 ]
-  [ "$output" = '{"a":"é","line":"x\ny","z":1}' ]
+  [[ "$status" -eq 0 ]] || fail_test "canonicalization failed: $output"
+  [[ "$output" = '{"a":"é","line":"x\ny","z":1}' ]] || fail_test "wrong canonical bytes: $output"
 }
 
 @test "bootstrap imports only the Python standard library and never invokes a shell" {
@@ -146,8 +146,8 @@ for node in ast.walk(tree):
         assert isinstance(node.value, ast.Constant) and node.value.value is False
 print("BOOTSTRAP_TCB_STATIC_OK")
 PY
-  [ "$status" -eq 0 ]
-  [ "$output" = "BOOTSTRAP_TCB_STATIC_OK" ]
+  [[ "$status" -eq 0 ]] || fail_test "TCB static check failed: $output"
+  [[ "$output" = "BOOTSTRAP_TCB_STATIC_OK" ]] || fail_test "wrong TCB static output: $output"
 }
 
 @test "all seventeen registered operations have real dispatch" {
