@@ -4,9 +4,9 @@ artifact: plan
 status: approved
 created: 2026-08-22
 prd: datarim/prd/PRD-TUNE-0585.md
-blueprint_revision: d413d9fcf6f23bdc36058278cae2b9de80b32dd9
+blueprint_revision: f834877498cfffdd12bca77c510bcaecd9c61f0c
 exact_base: d27b15f390265fef1fc95c31a28677a9664acb98
-spec_review_status: pending_exact_blob
+spec_review_status: external_receipt_required
 ---
 
 # Universal Customer-Delivery Canon Implementation Plan
@@ -71,12 +71,21 @@ Genesis uses two commits because the framework cannot self-attest before its run
 - Create: `datarim/delivery/TUNE-0585.bootstrap.json` `[to-be-created]`
 - Create: `datarim/evidence/TUNE-0585/spec-review.json` `[to-be-created]`
 - Create: `datarim/evidence/TUNE-0585/provider-feasibility.json` `[to-be-created]`
+- Create: `datarim/evidence/TUNE-0585/provider-cleanup.jsonl` `[to-be-created]`
+- Create: `datarim/delivery/TUNE-0585.authorization.json` `[to-be-created]`
+- Create: `config/customer-delivery-trust-catalog.json` `[to-be-created]`
+- Create: `config/customer-delivery-trust-catalog.json.sig` `[to-be-created]`
+- Create: `config/customer-delivery-datarim-registry.json` `[to-be-created]`
+- Create: `config/customer-delivery-datarim-registry.json.sig` `[to-be-created]`
+- Create: `config/customer-delivery-allowed-signers` `[to-be-created]`
 
 **Steps:**
 
-1. Obtain a subordinate exact-blob review of the amended spec and retain its findings/verdict.
+1. Provision distinct non-repository role keys and governance-signed assignment records for the spec reviewer and the later quality reviewer/runner/providers without changing implementation source. Obtain a subordinate exact-blob review of the amended spec; materialize its canonical receipt, bind the exact PRD/plan commit and finding digest, sign it with the assigned spec-reviewer key/namespace, and retain both receipt and governance assignment for the freeze.
 2. If the verdict is NO, revise the spec, commit it, and repeat exact-blob review. Do not edit implementation source before YES.
-3. Feasibility-probe the concrete genesis profiles with the following replay, substituting only the temporary-directory value. The report records each argv array, redacted stdout/stderr digest, exit code, exact ruleset response digest, full tag-object/peeled-commit OIDs, UTC probe timestamp, and overall result. It is committed in the signed freeze commit; `git verify-commit` is the report signature verification. A failed trust probe blocks source work.
+3. Before any implementation source or RED test is created, complete a hard-deadline ≤60-second feasibility probe of the concrete genesis and ongoing profiles. The replay below covers signer behavior and immutable-tag resolution; the same report must also contain a disposable hosted append/resolve probe that proves current admin/write/read credential scope. Create a uniquely named temporary branch from the reviewed spec head, create/read back a GitHub ruleset targeting only that exact branch with `deletion` and `non_fast_forward` rules and no bypass actor, push a first commit containing a synthetic immutable ledger blob, and push one append-only fast-forward. Then issue an actual remote forced update with `git push --force-with-lease=<full-ref>:<known-remote-oid> origin <ancestor>:<full-ref>` and an actual remote deletion with `git push origin :<full-ref>`; both must reach GitHub and fail with the named ruleset/rule ID, not client fast-forward checks, auth, hooks, or malformed argv. Clone into a new empty repository and recompute the full branch commit OID, ledger Git blob OID, byte length, event count, and event head from fetched bytes. Record the ruleset creation/readback response and every exact Git/API argv, exit code, redacted output digest, start/end time, and attribution assertion. The disposable branch remains protected until Step 5 cleanup. Timeout or failed API/write/read/rejection/resolve blocks the freeze and all source work.
+
+   The local/tag replay substitutes only the temporary-directory value:
 
    ```bash
    probe_dir="$(mktemp -d)"
@@ -93,17 +102,14 @@ Genesis uses two commits because the framework cannot self-attest before its run
    git -C "$probe_dir/tag-resolver" rev-parse 'refs/tags/v2.66.2^{}'
    git -C "$probe_dir/tag-resolver" cat-file -p refs/tags/v2.66.2
    git -C "$probe_dir/tag-resolver" cat-file -t 'refs/tags/v2.66.2^{}'
-   python3 -c 'import json,sys; d=json.load(open(sys.argv[1], encoding="utf-8")); required={"schema_version","probe_profile","commands","rulesets","objects","observed_at","result"}; assert required <= d.keys(); assert d["schema_version"] == 1 and d["result"] == "pass" and all(c["exit_code"] == 0 for c in d["commands"])' datarim/evidence/TUNE-0585/provider-feasibility.json
-   freeze_commit="$(git rev-parse HEAD)"
-   git verify-commit "$freeze_commit"
    ```
 
-   The 2026-08-22 interactive probe confirmed SSH signing/verification and remote read; release-tag ruleset `16418778` is active for `refs/tags/v*` with deletion/non-fast-forward/update blocked and no bypass. Protected annotated tag `v2.66.2` resolved through full tag object `610466796fc34e196645d7c91d9f9fcf317c29d5` to full commit `eb54e9cf881ca14f7a689b831598285f38561e89`. Default-branch ruleset `15879567` blocks deletion only, so it is explicitly ineligible for ongoing append anchoring until a dedicated non-fast-forward-protected ledger branch exists. Remove the temporary directory after the committed report and OID verification.
-4. Create the bootstrap freeze record with private operator-amendment source provenance, atomic framework requirements/review, `enabling-v1` pre-registration parent intent `TALO-0001/C-REQ-DELIVERY-CANON`, evolution disposition, all existing six capability classes, selected `git-immutable-tag-v1` genesis and `git-ssh-v1` signer profiles, and reviewed PRD commit `d413d9fcf6f23bdc36058278cae2b9de80b32dd9`. Commit freeze alone. Do not falsely select the current default branch as a monotonic append authority.
-5. Retain the review receipt with reviewer identity, exact commit, findings, and disposition. In a second commit, write the authorization marker over the clean Datarim base. Do not claim a ledger anchor or canonical RED yet.
-6. Verify spec → freeze → authorization are three ordered commits descending from exact base `d27b15f`; branch is clean before Task 2.
+   Materialize `provider-feasibility.json` from the captured outputs with `apply_patch` before the freeze; the report is not implicit output of the replay. Validate it before commit with an inline duplicate-key-rejecting JSON reader that asserts the exact schema and semantics: `schema_version == 1`; every command exit is expected; release ruleset `16418778` is active, targets `refs/tags/v*`, has no bypass, and contains `deletion`, `non_fast_forward`, and `update`; default ruleset `15879567` is recorded ineligible; the disposable ruleset is active, exact-branch scoped, has no bypass, and contains `deletion` plus `non_fast_forward`; initial/fast-forward pushes pass; non-fast-forward/deletion pushes fail at the named remote-rule assertion; and the clean-clone resolved full commit/blob/event OIDs equal the published values. The 2026-08-22 read-only probe already confirmed SSH verification, API read, and immutable tag resolution: tag object `610466796fc34e196645d7c91d9f9fcf317c29d5` peels to commit `eb54e9cf881ca14f7a689b831598285f38561e89`; it did not substitute for this hosted write-scope probe.
+4. Create the concrete schema-v1 framework trust catalog, Datarim consumer registry, derived allowed-signers view, and both detached governance signatures. Recompute the pinned genesis governance fingerprint, allowed-signers/catalog/registry digests, every signer fingerprint/scope/namespace/validity, verifier executable/version/digest, catalog→consumer chain, predecessor/adoption state, and signatures with the exact namespace-specific `ssh-keygen -Y verify`; prove no mutually exclusive authority role shares a key. Commit only public keys for `spec-reviewer`, `quality-reviewer`, `evidence-runner`, `project-verifier`, `source-provider`, `deployment-provider`, and `visual-provider`; their private keys remain outside Git. Then create the bootstrap freeze record with private operator-amendment source provenance, atomic framework requirements/review, `enabling-v1` pre-registration parent intent `TALO-0001/C-REQ-DELIVERY-CANON`, evolution disposition, all existing six capability classes, selected `git-immutable-tag-v1`, `git-protected-ref-v1`, and `git-ssh-v1` profiles, explicit migration time, and the reviewed PRD commit recorded by plan frontmatter. Include exact catalog/registry/report/review digests and commit freeze alone. Do not falsely select the current default branch as a monotonic append authority.
+5. Resolve the signed freeze commit with `freeze_commit="$(git rev-parse HEAD)"` and verify its governance signature, exact identity/scope, and committed report/bootstrap/catalog/registry digests. Only then delete the disposable ruleset, delete the now-unprotected disposable branch, re-read both resources to prove absence, and append an immutable cleanup record to `datarim/evidence/TUNE-0585/provider-cleanup.jsonl`. In a second signed commit, add that cleanup record and `datarim/delivery/TUNE-0585.authorization.json`, which binds the exact clean Datarim base/repository/dirty-inventory digest and becomes the authorization marker. This two-phase order makes the probe durable before cleanup and cleanup durable before implementation. Do not claim a ledger anchor or canonical RED yet.
+6. Verify spec → freeze → authorization are three ordered signed commits descending from exact base `d27b15f`; verify both report schemas and exact Git ancestry; branch is clean and no disposable provider resources remain before Task 2.
 
-**Validation:** provider feasibility report exits 0; `git merge-base --is-ancestor d27b15f HEAD`; exact commit ordering is proven; init-task and expectations gates exit 0; subordinate report ends `SPEC READY: YES`.
+**Validation:** provider feasibility semantics pass, hosted append/rejection/resolve and cleanup are independently signed and replayable, `git verify-commit` passes for freeze and authorization, `git merge-base --is-ancestor d27b15f HEAD` passes, exact commit ordering is proven, init-task and expectations gates exit 0, and subordinate report ends `SPEC READY: YES`.
 
 **Verifies:** V-AC-9.
 
@@ -118,7 +124,7 @@ Genesis uses two commits because the framework cannot self-attest before its run
 
 1. Add fixtures for valid `none`, enabling, and bilingual-web ledgers plus provider-backed source and child manifests.
 2. Add independent mutants for duplicate JSON keys/non-canonical bytes/floats/Unicode/key order/newline, broken event/predecessor hashes, missing immutable anchor blob, anchored-head rollback/truncation/divergence, source omission/pagination/private-byte/HMAC/key-rotation/public-ID mutation, aggregate catch-all requirements, absent/stale/forged atomicity review, missing/dangling mappings, child omission/cycle/cross-project identity, and strict-mode reversion.
-3. Add pre-work mutants for every capability class, `Unbound`, em dash, mutable refs, absent freeze blob, missing/wrong authorization marker, dirty/wrong base, and non-descendant implementation.
+3. Add pre-work mutants for every capability class, `Unbound`, em dash, mutable refs, absent freeze blob, missing/wrong authorization marker, dirty/wrong base, non-descendant implementation, rejected-to-applied, rejected-to-freeze, reused rejected request ID, unauthenticated decline, and crash-resume after rejection; add a GREEN new-request-ID retry control.
 4. Add evidence/disposition mutants for fabricated/manual/hash-only receipts; wrong signer role/scope/namespace/audience; expired/revoked/downgraded registry; forged customer identity; vacuous RED; assertion mismatch; generic/404 live response; matrix-cell alias; missing each matrix cell; wrong deployed SHA; and accepted/returned/rejected/deferred/withdrawn semantics.
 5. Add durability mutants for concurrent/divergent writers, duplicate retry, stale lock, short write/disk full, process death around rename/blob publication, fsync failure, anchor timeout-after-accept, unanchored recovery, anchor recursion, target-specific supersession, same-predecessor conflicts, and unauthorized supersession.
 6. Run the focused suite before creating the implementation and retain the expected missing-core assertion as raw development RED in `datarim/evidence/TUNE-0585/red/` `[to-be-created]`. It must fail at the intended assertion, not setup, but it is explicitly not a canonical runner attestation.
@@ -137,20 +143,22 @@ Genesis uses two commits because the framework cannot self-attest before its run
 - Create: `templates/customer-delivery-project.json` `[to-be-created]`
 - Create: `datarim/delivery/TUNE-0585.jsonl` `[to-be-created]`
 - Create: `datarim/evidence/TUNE-0585/provider-integration.json` `[to-be-created]`
+- Create: `datarim/evidence/TUNE-0585/migration-plan.json` `[to-be-created]`
+- Create: `config/customer-delivery-event-v1.schema.json` `[to-be-created]`
 - Modify: `tests/customer-delivery-gate.bats`
 
 **Steps:**
 
-1. Implement duplicate-key-rejecting JSONL parsing, the exact integer-only UTF-8 canonicalization/test vectors, event/predecessor hashing, unique IDs, target/actor/conflict supersession table, owner-aware locking, durable fsync/atomic replacement/blob publication, idempotent retry, recoverable unanchored state, and unknown-schema/event fail-closed behavior.
+1. Transcribe the PRD's complete closed schema-v1 envelope/reusable records/event payload table into the executable event schema. Implement duplicate-key-rejecting JSONL parsing, exact event-index/genesis/integer-only UTF-8 canonicalization/test vectors, event/predecessor hashing, unique IDs, target/actor/conflict reconciliation/supersession tables, and a set-equality test across normative event enum, payload schemas, transition handlers, and documentation examples. Add owner-aware locking, durable fsync/atomic replacement/blob publication, idempotent retry, recoverable unanchored state, and unknown-schema/event fail-closed behavior.
 2. Implement lane classification and immutable project-registry `canon_epoch`; strict adoption is monotonic.
 3. Resolve private authoritative source/child manifests and public monotonic head anchors through governance-signed provider registrations. Enforce algorithm/key-or-issuer/subject/audience/namespace/role/scope/validity/revocation/verifier-digest and no-downgrade rules. Invoke adapters with argv and `shell=False`, a fixed cwd, allowlisted environment, executable digest, timeout, output cap, authentication metadata, and strict result schema.
 4. Validate source exhaustion without printing verbatim/native IDs, exact HMAC capture/key rotation, exact-graph atomicity review, typed atomic ACs, parent identity, acyclic children, capability pins, freeze blob, authorization marker, immutable blob retrieval, anchored event count/head, and Git ancestry.
 5. Derive `not_started`, `in_progress`, `customer_review`, `rework_required`, `blocked`, or `complete`; customer-visible requirements require accepted/withdrawn semantics, while enabling requirements require project-authority `verified` and never satisfy their parent.
-6. Expose `init`, `append`, `validate --stage`, `derive`, and `migrate` subcommands. The shell wrapper maps contract findings to 1, usage/integrity to 2, and required-provider failure to 3.
+6. Expose `init`, `append`, `validate --stage`, `derive`, and `migrate --plan|--apply` with the exact PRD arguments. The shell wrapper maps contract findings to 1, usage/integrity to 2, and required-provider failure to 3.
 7. Make every focused mutant RED and valid control GREEN.
 8. Run real reference-provider integration against a temporary bare Git remote configured to reject non-fast-forward/deletion, real `ssh-keygen -Y` signatures/scoped allowed signers, a private HMAC source store, immutable blob append/resolve/replay, timeout-after-accept recovery, and read-only resolution of the existing protected `v2.66.2` remote tag. Fixture-only tests cannot clear provider feasibility.
-9. Prove hosted `git-protected-ref-v1` behavior against a disposable branch and disposable GitHub ruleset in `Arcanada-one/datarim`: create an exact-name branch from the reviewed test commit; create a ruleset targeting only that branch with deletion and non-fast-forward protection; push one append-only fast-forward; prove a non-fast-forward update is rejected; fetch the branch into a clean temporary repository; re-download the committed immutable ledger blob and recompute its Git OID/event head; retain full request/response digests, branch/ruleset IDs, commit/blob OIDs, rejection exit/output digest, and cleanup result in signed `datarim/evidence/TUNE-0585/provider-integration.json`. Delete the disposable branch and ruleset only after the signed evidence commit preserves the proof. Never use the production ledger ref for this test.
-10. Convert the committed bootstrap record into canonical `datarim/delivery/TUNE-0585.jsonl` `[to-be-created]` with `migrate --genesis`, verify every field/digest against the freeze/authorization commits, and mark it `genesis_unanchored`. Validate the conversion with `dev-tools/check-customer-delivery.sh --task TUNE-0585 --stage plan --root . --format json`. This conversion must complete before Task 4 records any canonical evidence.
+9. Exercise the implemented `git-protected-ref-v1` adapter against a new disposable branch and disposable GitHub ruleset in `Arcanada-one/datarim`: create an exact-name branch from the reviewed test commit; create a ruleset targeting only that branch with deletion and non-fast-forward protection; publish and append through the adapter; prove non-fast-forward and deletion are rejected; resolve through the adapter in a clean temporary repository; and re-download/recompute the committed immutable ledger blob, Git OID, event count, and event head. First commit signed `datarim/evidence/TUNE-0585/provider-integration.json` with cleanup state `pending`. Only after that proof commit verifies, delete the disposable ruleset, delete the now-unprotected branch, prove both absent, append the second cleanup record to `datarim/evidence/TUNE-0585/provider-cleanup.jsonl`, and commit that cleanup separately with a valid signature. Never use the production ledger ref for this test.
+10. Create immutable `datarim/evidence/TUNE-0585/migration-plan.json` with `migrate --plan --mode genesis`, passing the committed bootstrap, signed source snapshot, exact authorization commit, null epoch/compatibility/removal inputs, and bootstrap-pinned migration time. Verify the plan's input/output digests and then run `migrate --apply --plan datarim/evidence/TUNE-0585/migration-plan.json --plan-sha256 <verified-plan-digest> --output datarim/delivery/TUNE-0585.jsonl`. Re-run plan and apply to prove byte-identical/idempotent output; independently verify every field/digest against freeze/authorization and derive `genesis_unanchored`. Validate with `dev-tools/check-customer-delivery.sh --task TUNE-0585 --stage plan --root . --format json`. This conversion must complete before Task 4 records canonical evidence.
 
 **Validation:** `bats tests/customer-delivery-gate.bats`; `python3 -m py_compile scripts/customer-delivery-ledger.py`; `dev-tools/check-customer-delivery.sh --task TUNE-0585 --stage plan --root . --format json`.
 
@@ -186,10 +194,10 @@ Genesis uses two commits because the framework cannot self-attest before its run
 
 **Steps:**
 
-1. RED-test exact genuine init-task/append-log import, provider pagination, retroactive Overview recovery, legacy evidence text, monotonic adoption, and dual-read sunset.
+1. RED-test `migrate --plan --mode legacy-v0` and `migrate --apply` for exact genuine init-task/append-log import, signed source-snapshot exhaustion, provider pagination, retroactive Overview recovery, legacy evidence text, plan/input drift, deterministic replay, partial-failure recovery, monotonic adoption, and dual-read sunset.
 2. Import genuine bytes/digests as source events; mark agent-authored retroactive seeds `legacy_unverified_source` and implementation/test/deploy prose `legacy_claim`.
 3. Ensure neither legacy class satisfies source, pre-work, RED/GREEN, live, visual, or customer-disposition coverage.
-4. Require an exact release/version/commit `canon_epoch`, name one compatibility release, and fail after its removal version.
+4. Require an exact release/tag-object/commit/ledger/receipt `canon_epoch`, name one compatibility release and removal version in the immutable migration plan, anchor/resolve the new ledger before registry CAS, and fail closed after the removal version or on any strict-mode reversion.
 5. Re-run focused migration and core suites GREEN.
 
 **Validation:** `bats tests/customer-delivery-migration.bats tests/customer-delivery-gate.bats`.
@@ -297,12 +305,15 @@ Genesis uses two commits because the framework cannot self-attest before its run
 1. Document schema, event lifecycle, provider/runner trust boundary, surface blueprints, derived state, migration, failure codes, and adoption recipe.
 2. Add selective-loading/router entries without duplicating the canonical skill.
 3. Run focused suites, all Bats suites, spec lint, documentation/reference checks, English-only checks, and `./validate.sh`.
-4. Run independent subordinate exact-head quality review. Fix every blocking finding and re-run the review on the new exact head.
-5. Record the quality-review receipt and final evidence hashes in the canonical ledger; derive TUNE-0585 as `genesis_unanchored`/enabling-verified without claiming customer acceptance or parent delivery for provisional parent requirement `TALO-0001/C-REQ-DELIVERY-CANON`.
-6. Commit, push the feature branch, open a protected PR, and require exact-head CI. Do not self-merge unless normal repository authority explicitly permits it.
-7. After the reviewed exact head merges through the protected path, resolve the exact ledger blob from the protected release tag. Store the immutable-tag receipt only in the external authority record, never append it to the anchored ledger. The verified external receipt over the merged immutable ledger blob is sufficient to establish this release's `canon_epoch` and report the universal canon complete; no unplanned next release or recursive registry edit is required. A downstream consumer registry records that immutable receipt locator, tag, and full OIDs when it adopts the canon. Talomnia must first register/probe its own dedicated `git-protected-ref-v1` append branch before strict mode.
+4. Before review, append all final canonical RED/GREEN/evidence and project-authority `enabling_disposition`, derive TUNE-0585 as `genesis_unanchored`/enabling-verified without claiming customer acceptance or parent delivery for `TALO-0001/C-REQ-DELIVERY-CANON`, commit every tracked byte, and freeze the candidate commit/tree/ledger blob/head/count/evidence-manifest digest.
+5. Run subordinate specification compliance on that exact frozen candidate, then an independent subordinate exact-head quality review with the registered quality-reviewer role/key. Fix every blocking finding before freezing a new candidate. For a passing candidate, write the signed quality receipt only to the protected external receipt authority through compare-and-append. The receipt binds exact commit/tree/ledger/evidence/finding digests and remains outside the candidate branch and ledger, so the reviewed head cannot self-invalidate. Refetch and verify its bytes, registry sequence, role, namespace, and scope independently.
+6. Push the unchanged reviewed feature head, open a protected PR, and require exact-head CI for that same commit. Do not append local review metadata afterward and do not self-merge unless normal repository authority explicitly permits it. The merge record must bind reviewed PR head to merged commit and prove identical tree/ledger blob; otherwise re-run exact-head review on the merged head before release.
+7. A named release authority creates the protected signed annotated tag whose closed receipt annotation binds release version, reviewed PR head, merged commit/tree, ledger path/blob OID/byte length/event count/head, quality-receipt locator/digest, ruleset digest, and verifier identity. From a new empty repository, fetch only that tag, verify its signature against the registry's release/anchor authority and namespace, resolve full tag-object and peeled-commit OIDs, extract the ledger blob, recompute every bound value, refetch/verify the external quality receipt, and run the release-stage validator over the `(ledger, quality receipt, tag receipt)` tuple. A bad immutable tag is retained and superseded only by a new authorized release; it is never moved or deleted.
+8. The verified external tag receipt is sufficient to establish this release's `canon_epoch` and report the universal canon complete; it is never appended to its subject ledger and no unplanned next release is required. A downstream consumer registry records the receipt locator/digest, tag object, peeled commit, ledger blob/head/count, and release version when it adopts the canon. Talomnia must first register and probe its own dedicated `git-protected-ref-v1` append branch before strict mode.
 
-**Validation:** `bats tests/*.bats`; `bats dev-tools/tests/*.bats`; `./dev-tools/dr-spec-lint.sh --task TUNE-0585 --root . --stage verify --format text`; `./validate.sh`; exact-head CI for the PR head.
+**Pre-merge validation:** `bats tests/*.bats`; `bats dev-tools/tests/*.bats`; `./dev-tools/dr-spec-lint.sh --task TUNE-0585 --root . --stage verify --format text`; `./validate.sh`; external quality-receipt refetch/verification; exact-head CI for the unchanged reviewed PR head.
+
+**Post-merge release validation:** initialize an empty resolver; fetch only `refs/tags/v$(tr -d '\n' < VERSION)`; run `git verify-tag`; resolve the full tag object, peeled commit, tree, and `datarim/delivery/TUNE-0585.jsonl` blob OIDs; extract and rehash the ledger; refetch the external quality receipt; validate signer/schema/registry/full OIDs/byte length/event count/head/evidence digest; then run `dev-tools/check-customer-delivery.sh --task TUNE-0585 --stage release --root . --quality-receipt <resolved-receipt> --anchor-receipt <resolved-tag-annotation> --format json`. All commands must exit 0 on the merged/tagged objects before V-AC-9 or canonical completion passes.
 
 **Verifies:** V-AC-1, V-AC-2, V-AC-3, V-AC-4, V-AC-5, V-AC-6, V-AC-7, V-AC-8, V-AC-9, V-AC-10.
 
@@ -353,11 +364,20 @@ Every modified or new artifact has a direct check; shared suite rows do not subs
 | `datarim/tasks/TUNE-0585-task-description.md` | task schema/init-task presence and AC cross-check |
 | `datarim/tasks/TUNE-0585-expectations.md` | expectations validator and wish-to-V-AC graph |
 | `datarim/delivery/TUNE-0585.bootstrap.json` | bootstrap schema, private commitments, exact spec/freeze/auth ordering |
+| `datarim/delivery/TUNE-0585.authorization.json` | repository/base/dirty-inventory marker schema and signed authorization ancestry |
 | `datarim/delivery/TUNE-0585.jsonl` | canonical parser, hash chain, genesis conversion, derive report |
 | `datarim/evidence/TUNE-0585/spec-review.json` | signature/trust scope, exact commit, verdict schema |
 | `datarim/evidence/TUNE-0585/provider-feasibility.json` | replay argv/output digests and signed overall PASS |
-| `datarim/evidence/TUNE-0585/provider-integration.json` | disposable hosted protected-ref fast-forward/rejection/resolve proof and signed cleanup record |
+| `datarim/evidence/TUNE-0585/provider-integration.json` | signed implemented-adapter hosted fast-forward/rejection/resolve proof with cleanup pending |
+| `datarim/evidence/TUNE-0585/provider-cleanup.jsonl` | two-phase cleanup schema, signed ancestry, exact resource absence readback, idempotent recovery |
+| `datarim/evidence/TUNE-0585/migration-plan.json` | immutable plan input/output digests, deterministic replay, plan/apply equality |
 | `datarim/evidence/TUNE-0585/red/` | raw development RED manifest proves intended assertion failure and `development_only: true` |
+| `config/customer-delivery-trust-catalog.json` | closed catalog schema, canonical digest, governance root/profile-floor checks |
+| `config/customer-delivery-trust-catalog.json.sig` | detached namespace/signature verification against pinned genesis root |
+| `config/customer-delivery-datarim-registry.json` | closed consumer schema, catalog link, roles/providers/scopes/revocation/adoption checks |
+| `config/customer-delivery-datarim-registry.json.sig` | detached consumer-registry signature and non-self-signing verification |
+| `config/customer-delivery-allowed-signers` | exact derived-view digest, no extra principals/namespaces, distinct role keys |
+| `config/customer-delivery-event-v1.schema.json` | enum/schema/transition/documentation set equality plus canonical vectors |
 | `tests/fixtures/customer-delivery/` | fixture manifest proves every valid/mutant case is consumed |
 | `tests/customer-delivery-gate.bats` | focused RED/GREEN core contract and every independent mutant |
 | `tests/customer-delivery-evidence-runner.bats` | real runner receipt/signature/attribution/live-ingest cases |
@@ -414,9 +434,9 @@ All existing edit/validation targets above must resolve in the exact-base worktr
 
 PATH VALIDATION
 
-- checked: 52 unique artifact/edit/validation path references, including this plan;
+- checked: 61 unique artifact/edit/validation path references, including this plan;
 - present: 35 paths (34 exact-base targets plus this plan);
-- expected new: 17 paths, each explicitly marked `[to-be-created]`;
+- expected new: 26 paths, each explicitly marked `[to-be-created]`;
 - unexpected missing: 0;
 - deprecated edit targets: 0 (the only marker hits describe retired concepts inside live current files, not retired target paths);
 - runtime-body probe: clean; the plan does not prescribe task-ID provenance in shipped `commands/`, `skills/`, `templates/`, or `CLAUDE.md` bodies.
