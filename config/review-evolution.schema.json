@@ -3,6 +3,20 @@
   "$id": "https://datarim.club/schema/review-evolution-v1.json",
   "title": "Datarim Review Evolution",
   "description": "Review finding classification and canonical-knowledge evolution evidence that never substitutes for delivery of the product fix.",
+  "x-datarim-semantic-invariants": {
+    "description": "Draft 2020-12 validates shape only; the deterministic review-evolution validator must enforce every registered cross-record invariant.",
+    "enforcer": "review-evolution-validator",
+    "invariant_ids": [
+      "review-requirement-id-equals-product-fix-requirement-id",
+      "review-receipt-id-equals-product-fix-receipt-id",
+      "review-parent-links-complete",
+      "review-product-fix-status-equals-receipt-delivery",
+      "review-classification-canonical-change-exclusive",
+      "review-no-canon-change-evidence-approved",
+      "review-canonical-change-enforcement-red-capable",
+      "review-product-fix-substitution-prohibited"
+    ]
+  },
   "type": "object",
   "additionalProperties": false,
   "required": [

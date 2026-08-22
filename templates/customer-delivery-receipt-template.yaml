@@ -18,7 +18,7 @@ requirements:
         requirement_set_id: reqset-0001
         source_quote_digests:
           - source_id: source-0001
-            digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+            digest: sha256:02ea885890c5deec86bbc01bc6d5f123229ed11a38c8438c68dbc4235a415eb5
       selected_knowledge:
         roles:
           - id: frontend-reviewer
@@ -100,7 +100,23 @@ requirements:
         evidence_ref: artifacts/deploy/production.json
       live_evidence:
         visitor_visible: true
-        method: Painted-coordinate browser assertions against the public production route.
+        observation_kind: PAINTED_SURFACE
+        product: example-product
+        surface: public-comparison
+        surface_class: VISITOR_VISIBLE
+        predicate_id: predicate-visitor-readable
+        applicability:
+          locales:
+            - ru
+            - en
+          viewports:
+            - mobile
+            - desktop
+          themes:
+            - light
+            - dark
+          painted_matrix_applicable: true
+        environment: PRODUCTION
         owner: delivery-reviewer
         observed_at: "2026-01-02T13:30:00Z"
         evidence_ref: artifacts/live/summary.json
