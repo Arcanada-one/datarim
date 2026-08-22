@@ -208,6 +208,40 @@ PY
         && [ "$status" -eq 1 ]
 }
 
+@test "non-applicable painted evidence accepts an empty matrix with a reason" {
+    local non_applicable="$BATS_TEST_TMPDIR/non-applicable-painted.yaml"
+    cp "$RECEIPT_TEMPLATE" "$non_applicable" || return 1
+    yq -i '.requirements.req-0001.coverage_chain.live_evidence.painted_matrix_applicable = false |
+        .requirements.req-0001.coverage_chain.live_evidence.not_applicable_reason = "This surface has no painted locale, viewport, or theme variants." |
+        .requirements.req-0001.coverage_chain.live_evidence.painted_matrix = []' "$non_applicable" || return 1
+
+    validate_yaml "$RECEIPT_SCHEMA" "$non_applicable"
+}
+
+@test "non-visitor requirements accept zero visible deltas but cannot claim visitor-visible evidence" {
+    local non_visitor_requirement="$BATS_TEST_TMPDIR/non-visitor-requirement.yaml"
+    local non_visitor_receipt="$BATS_TEST_TMPDIR/non-visitor-receipt.yaml"
+    local false_visitor_claim="$BATS_TEST_TMPDIR/false-visitor-claim.yaml"
+    cp "$REQUIREMENTS_TEMPLATE" "$non_visitor_requirement" || return 1
+    cp "$RECEIPT_TEMPLATE" "$non_visitor_receipt" || return 1
+    yq -i '.requirements.req-0001.acceptance.visitor_visible = false |
+        .requirements.req-0001.acceptance.evidence.evidence_class = "NON_VISITOR" |
+        del(.requirements.req-0001.acceptance.production_acceptance_criterion)' "$non_visitor_requirement" || return 1
+    yq -i '.requirements.req-0001.coverage_chain.implementation_delta.visitor_visible_count = 0 |
+        .requirements.req-0001.coverage_chain.implementation_delta.visitor_visible_changes = [] |
+        .requirements.req-0001.coverage_chain.live_evidence.visitor_visible = false |
+        .requirements.req-0001.coverage_chain.live_evidence.painted_matrix_applicable = false |
+        .requirements.req-0001.coverage_chain.live_evidence.not_applicable_reason = "This requirement changes an internal delivery control only." |
+        .requirements.req-0001.coverage_chain.live_evidence.painted_matrix = []' "$non_visitor_receipt" || return 1
+    cp "$non_visitor_receipt" "$false_visitor_claim" || return 1
+    yq -i '.requirements.req-0001.coverage_chain.live_evidence.visitor_visible = true' "$false_visitor_claim" || return 1
+
+    validate_yaml "$REQUIREMENTS_SCHEMA" "$non_visitor_requirement" \
+        && validate_yaml "$RECEIPT_SCHEMA" "$non_visitor_receipt" \
+        && run validate_yaml "$RECEIPT_SCHEMA" "$false_visitor_claim" \
+        && [ "$status" -eq 1 ]
+}
+
 @test "applicable live evidence requires the complete RU EN painted matrix" {
     run reject_mutation "$RECEIPT_SCHEMA" "$RECEIPT_TEMPLATE" \
         'del(.requirements.req-0001.coverage_chain.live_evidence.painted_matrix[7])'
