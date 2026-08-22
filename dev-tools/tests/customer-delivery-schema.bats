@@ -749,6 +749,7 @@ expected = {
             "source-approval-key-role-authorized",
             "source-approval-key-active",
             "source-approval-key-valid-at-approval",
+            "source-tier-authority-role-authorized",
             "assertion-source-digest-equals-containing-source-digest",
             "source-correction-superseded-digest-exists",
             "source-correction-prior-record-retained",
@@ -983,7 +984,7 @@ if actual is not None:
     ):
         actual["key_resolution"].pop(extension, None)
     actual["key_resolution"]["validity_interval"].pop("required_relation", None)
-    actual["key_resolution"]["verification_sequence"] = actual["key_resolution"]["verification_sequence"][2:]
+    actual["key_resolution"]["verification_sequence"] = actual["key_resolution"]["verification_sequence"][3:]
 if actual != expected:
     raise SystemExit(
         f"SIGNATURE_CONTRACT_MISMATCH:expected={expected!r}:actual={actual!r}"
@@ -2761,13 +2762,15 @@ owner = contract.get("registry_owner", {})
 if owner.get("authority_id") != "authority-operator-0001" or owner.get("authority_role") != "OPERATOR":
     raise SystemExit("TRUST_REGISTRY_OWNER_MISMATCH")
 anchor = owner.get("trust_anchor", {})
-if anchor.get("key_id") != "key-operator-0001" or anchor.get("algorithm") != "ED25519":
+if anchor.get("key_id") != "key-registry-root-0001" or anchor.get("algorithm") != "ED25519":
     raise SystemExit("TRUST_REGISTRY_ANCHOR_MISMATCH")
 if anchor.get("semantics") != "SCHEMA_REVIEWED_PINNED_PUBLIC_KEY":
     raise SystemExit("TRUST_REGISTRY_ANCHOR_SEMANTICS_MISMATCH")
+if anchor.get("usage") != "REGISTRY_SIGNATURE_ONLY":
+    raise SystemExit("TRUST_REGISTRY_ANCHOR_USAGE_MISMATCH")
 if (
-    anchor.get("public_key") != "rPXUV8/jjrLqliFt6i8QViz2Zy21uI42a+OcCx6l3z8="
-    or anchor.get("fingerprint") != "sha256:27ea9ac17dd58bebb51f51c1565c5219a97be0bdbab1f8a8e350b7ea22a3e8a6"
+    anchor.get("public_key") != "r6djD8Z3khD94nHJ2NuHwFahvXDkuirHLxPsk/NR0LI="
+    or anchor.get("fingerprint") != "sha256:97b1d5e3ea072e7c5b168dab1304aa5f7916f3cd5857b452104ff748a6ad47c4"
 ):
     raise SystemExit("TRUST_REGISTRY_ANCHOR_KNOWN_ANSWER_MISMATCH")
 public_key = base64.b64decode(anchor.get("public_key", ""), validate=True)
@@ -2819,8 +2822,9 @@ if contract.get("registry_signature_contract") != expected_registry_signature_co
 expected_verification_prefix = [
     "REGISTRY_DIGEST_VALID",
     "REGISTRY_SIGNATURE_VALID_AGAINST_PINNED_TRUST_ANCHOR",
+    "SOURCE_TIER_AUTHORITY_ROLE_AUTHORIZED",
 ]
-if contract.get("verification_sequence", [])[:2] != expected_verification_prefix:
+if contract.get("verification_sequence", [])[:3] != expected_verification_prefix:
     raise SystemExit("TRUST_REGISTRY_VERIFICATION_ORDER_MISMATCH")
 
 registry = contract["bundled_registry"]
@@ -3253,4 +3257,145 @@ CASES
     yq -i '.requirements.req-0001.coverage_chain.customer_disposition.authority_approval.signature = "ed25519:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="' "$mutant" || return 1
     run verify_complete_template_signatures "$REQUIREMENTS_SCHEMA" "$REQUIREMENTS_TEMPLATE" "$mutant"
     [ "$status" -eq 1 ] && [[ "$output" == *"SIGNATURE_INVALID:2"* ]]
+}
+
+validate_source_tier_authorization() {
+    "$PYTHON" - "$REQUIREMENTS_SCHEMA" "$1" <<'PY'
+import json
+import sys
+
+import yaml
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    schema = json.load(handle)
+with open(sys.argv[2], encoding="utf-8") as handle:
+    requirements = yaml.safe_load(handle)
+expected = {
+    "enforcer": "customer-delivery-validator",
+    "evaluation_order": "BEFORE_SOURCE_SIGNATURE_VERIFICATION",
+    "unknown_tier_policy": "FAIL_CLOSED",
+    "tier_authority_roles": {
+        "CUSTOMER_VERBATIM": ["CUSTOMER"],
+        "AUTHORIZED_RELAY_VERBATIM": ["OPERATOR"],
+        "OPERATOR_VERBATIM": ["OPERATOR"],
+    },
+}
+actual = schema.get("x-datarim-source-tier-authorization")
+if actual != expected:
+    raise SystemExit("SOURCE_TIER_AUTHORIZATION_CONTRACT_MISMATCH")
+sequence = schema["x-datarim-signature-contract"]["key_resolution"]["verification_sequence"]
+if sequence.index("SOURCE_TIER_AUTHORITY_ROLE_AUTHORIZED") > sequence.index("CRYPTOGRAPHIC_SIGNATURE_VALID"):
+    raise SystemExit("SOURCE_TIER_AUTHORIZATION_ORDER_MISMATCH")
+for source in requirements["source_remarks"]:
+    tier = source["source_tier"]
+    role = source["authority_approval"]["authority_role"]
+    if role not in actual["tier_authority_roles"].get(tier, []):
+        raise SystemExit(f"SOURCE_TIER_AUTHORITY_ROLE_UNAUTHORIZED:{source['source_id']}:{tier}:{role}")
+PY
+}
+
+validate_complete_example_pair() {
+    "$PYTHON" - "$1" "$2" <<'PY'
+import sys
+
+import yaml
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    requirements = yaml.safe_load(handle)
+with open(sys.argv[2], encoding="utf-8") as handle:
+    receipt = yaml.safe_load(handle)
+if requirements["requirement_set_id"] != receipt["requirement_set_id"]:
+    raise SystemExit("EXAMPLE_REQUIREMENT_SET_MISMATCH")
+if set(requirements["requirements"]) != set(receipt["requirements"]):
+    raise SystemExit("EXAMPLE_REQUIREMENT_KEYS_MISMATCH")
+for requirement_id, requirement in requirements["requirements"].items():
+    acceptance = requirement["acceptance"]
+    chain = receipt["requirements"][requirement_id]["coverage_chain"]
+    if acceptance["disposition"] != chain["customer_disposition"]["status"]:
+        raise SystemExit(f"EXAMPLE_DISPOSITION_MISMATCH:{requirement_id}")
+    if acceptance["disposition"] == "accepted":
+        merged = chain["merged_revision"]["revision"]
+        implementation = acceptance["implementation"]
+        if implementation["code_revision"] != merged:
+            raise SystemExit(f"EXAMPLE_CODE_REVISION_MISMATCH:{requirement_id}")
+        if implementation["content_revision"] != merged:
+            raise SystemExit(f"EXAMPLE_CONTENT_REVISION_MISMATCH:{requirement_id}")
+PY
+}
+
+@test "source tiers publish the exact role authorization map before signature verification" {
+    validate_source_tier_authorization "$REQUIREMENTS_TEMPLATE"
+}
+
+@test "every unauthorized source tier and authority-role combination is rejected" {
+    local mutant="$BATS_TEST_TMPDIR/source-tier-role.yaml"
+    local expression expected
+    while IFS='|' read -r expression expected; do
+        structured_requirement_fixture "$mutant" || return 1
+        yq -i "$expression" "$mutant" || return 1
+        refresh_assertion_digests "$mutant" || return 1
+        construct_placeholder_approvals "$mutant" || return 1
+        validate_trusted_authority_keys "$mutant" || return 1
+        run validate_source_tier_authorization "$mutant"
+        [ "$status" -eq 1 ] && [[ "$output" == *"$expected"* ]] || return 1
+    done <<'CASES'
+.source_remarks[0].authority_approval *= {"authority_id":"authority-operator-0001","authority_role":"OPERATOR","key_id":"key-operator-0001"}|SOURCE_TIER_AUTHORITY_ROLE_UNAUTHORIZED:source-0001:CUSTOMER_VERBATIM:OPERATOR
+.source_remarks[0].source_tier = "AUTHORIZED_RELAY_VERBATIM"|SOURCE_TIER_AUTHORITY_ROLE_UNAUTHORIZED:source-0001:AUTHORIZED_RELAY_VERBATIM:CUSTOMER
+.source_remarks[0].source_tier = "OPERATOR_VERBATIM"|SOURCE_TIER_AUTHORITY_ROLE_UNAUTHORIZED:source-0001:OPERATOR_VERBATIM:CUSTOMER
+CASES
+}
+
+@test "registry root is a distinct pinned non-operational key" {
+    run "$PYTHON" - "$REQUIREMENTS_SCHEMA" "$RECEIPT_TEMPLATE" <<'PY'
+import json
+import sys
+
+import yaml
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    schema = json.load(handle)
+with open(sys.argv[2], encoding="utf-8") as handle:
+    receipt = yaml.safe_load(handle)
+resolution = schema["x-datarim-signature-contract"]["key_resolution"]
+anchor = resolution["registry_owner"]["trust_anchor"]
+expected = {
+    "key_id": "key-registry-root-0001",
+    "algorithm": "ED25519",
+    "public_key": "r6djD8Z3khD94nHJ2NuHwFahvXDkuirHLxPsk/NR0LI=",
+    "fingerprint": "sha256:97b1d5e3ea072e7c5b168dab1304aa5f7916f3cd5857b452104ff748a6ad47c4",
+    "semantics": "SCHEMA_REVIEWED_PINNED_PUBLIC_KEY",
+    "usage": "REGISTRY_SIGNATURE_ONLY",
+}
+if anchor != expected:
+    raise SystemExit("REGISTRY_ROOT_KNOWN_ANSWER_MISMATCH")
+entries = resolution["bundled_registry"]["entries"]
+if any(entry["key_id"] == anchor["key_id"] or entry["public_key"] == anchor["public_key"] for entry in entries):
+    raise SystemExit("REGISTRY_ROOT_RESOLVES_AS_OPERATIONAL_KEY")
+leaf = next(entry for entry in entries if entry["key_id"] == "key-operator-0001")
+if leaf["public_key"] == anchor["public_key"]:
+    raise SystemExit("REGISTRY_ROOT_EQUALS_OPERATOR_LEAF")
+approval = receipt["requirements"]["req-0001"]["coverage_chain"]["customer_disposition"]["authority_approval"]
+if approval["key_id"] != leaf["key_id"]:
+    raise SystemExit("DISPOSITION_DOES_NOT_USE_OPERATOR_LEAF")
+PY
+    [ "$status" -eq 0 ]
+}
+
+@test "complete requirement and receipt examples agree on accepted revision and disposition" {
+    validate_complete_example_pair "$REQUIREMENTS_TEMPLATE" "$RECEIPT_TEMPLATE"
+}
+
+@test "complete example pair rejects disposition code and content revision mismatches independently" {
+    local requirement_mutant="$BATS_TEST_TMPDIR/example-requirement.yaml"
+    local expression expected
+    while IFS='|' read -r expression expected; do
+        cp "$REQUIREMENTS_TEMPLATE" "$requirement_mutant" || return 1
+        yq -i "$expression" "$requirement_mutant" || return 1
+        run validate_complete_example_pair "$requirement_mutant" "$RECEIPT_TEMPLATE"
+        [ "$status" -eq 1 ] && [[ "$output" == *"$expected"* ]] || return 1
+    done <<'CASES'
+.requirements.req-0001.acceptance.disposition = "pending"|EXAMPLE_DISPOSITION_MISMATCH:req-0001
+.requirements.req-0001.acceptance.implementation.code_revision = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"|EXAMPLE_CODE_REVISION_MISMATCH:req-0001
+.requirements.req-0001.acceptance.implementation.content_revision = "cccccccccccccccccccccccccccccccccccccccc"|EXAMPLE_CONTENT_REVISION_MISMATCH:req-0001
+CASES
 }

@@ -150,8 +150,8 @@ requirements:
             immutable: true
       implementation:
         task_id: task:web:0001
-        code_revision: pending-before-implementation
-        content_revision: pending-before-implementation
+        code_revision: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        content_revision: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
         code_paths:
           - src/styles/comparison.css
         content_paths:
@@ -198,4 +198,4 @@ requirements:
             - light
             - dark
           painted_matrix_applicable: true
-      disposition: pending
+      disposition: accepted
