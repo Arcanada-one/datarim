@@ -278,3 +278,29 @@ PY
   [[ "$status" -eq 0 ]] || fail_test "BOUNDED_PROCESS_GAPS: $output"
   [[ "$output" = "BOUNDED_PROCESS_OK" ]] || fail_test "wrong bounded-process output: $output"
 }
+
+@test "one-minute timeout kills the full process group and preserves exit 143 evidence" {
+  require_bootstrap_source
+  run python3 - "$BOOTSTRAP" "$FIXTURE_DIR" <<'PY'
+import importlib.util,pathlib,sys
+spec=importlib.util.spec_from_file_location("bootstrap",sys.argv[1]); m=importlib.util.module_from_spec(spec); sys.modules[spec.name]=m; spec.loader.exec_module(m)
+root=pathlib.Path(sys.argv[2]); env={"PATH":"/usr/bin:/bin"}
+grandchild="import time; time.sleep(600)"
+child="import subprocess,sys,time; subprocess.Popen([sys.executable,'-c',%r]); time.sleep(600)"%grandchild
+normal="import subprocess,sys,time; subprocess.Popen([sys.executable,'-c',%r]); time.sleep(600)"%child
+e=m.run_bounded([sys.executable,"-c",normal],1,cwd=root,env=env,output_cap_bytes=4096)
+if (e.result_exit_code,e.raw_wait_status,e.timed_out,e.termination_signal,e.forced_kill,e.descendants_survived)!=(143,15,True,15,False,False):
+    raise SystemExit(f"SIGTERM evidence mismatch: {e}")
+resistant_child="import signal,subprocess,sys,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); subprocess.Popen([sys.executable,'-c',%r]); time.sleep(600)"%("import signal,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); time.sleep(600)")
+resistant="import signal,subprocess,sys,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); subprocess.Popen([sys.executable,'-c',%r]); time.sleep(600)"%resistant_child
+e=m.run_bounded([sys.executable,"-c",resistant],1,cwd=root,env=env,output_cap_bytes=4096)
+if (e.result_exit_code,e.raw_wait_status,e.timed_out,e.termination_signal,e.forced_kill,e.descendants_survived)!=(143,9,True,15,True,False):
+    raise SystemExit(f"SIGKILL evidence mismatch: {e}")
+try: m.run_bounded([sys.executable,"-c","raise SystemExit(143)"],1,cwd=root,env=env,output_cap_bytes=4096)
+except m.BootstrapError: pass
+else: raise SystemExit("ordinary exit 143 was accepted")
+print("TIMEOUT_PROCESS_GROUP_OK")
+PY
+  [[ "$status" -eq 0 ]] || fail_test "TIMEOUT_PROCESS_GROUP_GAP: $output"
+  [[ "$output" = "TIMEOUT_PROCESS_GROUP_OK" ]] || fail_test "wrong timeout output: $output"
+}
