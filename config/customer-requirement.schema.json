@@ -1,0 +1,217 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://datarim.club/schema/customer-requirement-v1.json",
+  "title": "Datarim Customer Requirements",
+  "description": "Atomic, stable customer requirements with verbatim provenance and a pre-implementation acceptance tuple.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "requirement_set_id", "created_at", "source_remarks", "requirements"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "requirement_set_id": { "type": "string", "pattern": "^reqset-[0-9]{4}$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "source_remarks": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/sourceRemark" }
+    },
+    "requirements": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "patternProperties": {
+        "^req-[0-9]{4}$": { "$ref": "#/$defs/requirement" }
+      }
+    }
+  },
+  "$defs": {
+    "sourceRemark": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "source_tier", "verbatim_quote", "captured_at", "requirement_ids"],
+      "properties": {
+        "source_id": { "type": "string", "pattern": "^source-[0-9]{4}$" },
+        "source_tier": {
+          "enum": ["CUSTOMER_VERBATIM", "AUTHORIZED_RELAY_VERBATIM", "OPERATOR_VERBATIM"]
+        },
+        "verbatim_quote": { "type": "string", "minLength": 1 },
+        "locale": { "type": "string", "pattern": "^[a-z]{2}(-[A-Z]{2})?$" },
+        "captured_at": { "type": "string", "format": "date-time" },
+        "source_ref": { "type": "string", "minLength": 1 },
+        "requirement_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^req-[0-9]{4}$" }
+        }
+      }
+    },
+    "requirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_ids", "atomic_statement", "acceptance"],
+      "properties": {
+        "source_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^source-[0-9]{4}$" }
+        },
+        "atomic_statement": { "type": "string", "minLength": 1 },
+        "acceptance": { "$ref": "#/$defs/acceptanceTuple" }
+      }
+    },
+    "acceptanceTuple": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "exact_source_quote",
+        "product",
+        "surface",
+        "applicability",
+        "before_state",
+        "after_state",
+        "evidence",
+        "knowledge_selection",
+        "implementation",
+        "visitor_visible",
+        "disposition"
+      ],
+      "properties": {
+        "exact_source_quote": { "type": "string", "minLength": 1 },
+        "product": { "type": "string", "minLength": 1 },
+        "surface": { "type": "string", "minLength": 1 },
+        "applicability": { "$ref": "#/$defs/applicability" },
+        "before_state": { "type": "string", "minLength": 1 },
+        "after_state": { "type": "string", "minLength": 1 },
+        "evidence": { "$ref": "#/$defs/evidencePlan" },
+        "knowledge_selection": { "$ref": "#/$defs/knowledgeSelection" },
+        "implementation": { "$ref": "#/$defs/implementationScope" },
+        "visitor_visible": { "type": "boolean" },
+        "production_acceptance_criterion": { "type": "string", "minLength": 1 },
+        "disposition": { "$ref": "#/$defs/disposition" },
+        "superseded_by": { "type": "string", "pattern": "^req-[0-9]{4}$" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "visitor_visible": { "const": true } },
+            "required": ["visitor_visible"]
+          },
+          "then": {
+            "required": ["production_acceptance_criterion"],
+            "properties": {
+              "evidence": {
+                "properties": {
+                  "evidence_class": { "const": "VISITOR_VISIBLE_PRODUCTION" }
+                }
+              }
+            }
+          },
+          "else": { "not": { "required": ["production_acceptance_criterion"] } }
+        },
+        {
+          "if": {
+            "properties": { "disposition": { "const": "superseded" } },
+            "required": ["disposition"]
+          },
+          "then": { "required": ["superseded_by"] },
+          "else": { "not": { "required": ["superseded_by"] } }
+        }
+      ]
+    },
+    "applicability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["locales", "viewports", "themes", "painted_matrix_applicable"],
+      "properties": {
+        "locales": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z]{2}(-[A-Z]{2})?$" }
+        },
+        "viewports": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["mobile", "desktop"] }
+        },
+        "themes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["light", "dark"] }
+        },
+        "painted_matrix_applicable": { "type": "boolean" },
+        "not_applicable_reason": { "type": "string", "minLength": 1 }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "painted_matrix_applicable": { "const": false } },
+            "required": ["painted_matrix_applicable"]
+          },
+          "then": { "required": ["not_applicable_reason"] },
+          "else": { "not": { "required": ["not_applicable_reason"] } }
+        }
+      ]
+    },
+    "evidencePlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "owner", "evidence_class"],
+      "properties": {
+        "method": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string", "minLength": 1 },
+        "evidence_class": { "enum": ["VISITOR_VISIBLE_PRODUCTION", "NON_VISITOR"] }
+      }
+    },
+    "knowledgeSelection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["roles", "skills", "blueprints", "constraints", "policies", "success_criteria"],
+      "properties": {
+        "roles": { "$ref": "#/$defs/pinnedKnowledgeList" },
+        "skills": { "$ref": "#/$defs/pinnedKnowledgeList" },
+        "blueprints": { "$ref": "#/$defs/pinnedKnowledgeList" },
+        "constraints": { "$ref": "#/$defs/pinnedKnowledgeList" },
+        "policies": { "$ref": "#/$defs/pinnedKnowledgeList" },
+        "success_criteria": { "$ref": "#/$defs/pinnedKnowledgeList" }
+      }
+    },
+    "pinnedKnowledgeList": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/pinnedKnowledge" }
+    },
+    "pinnedKnowledge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "revision", "digest", "selected_at", "selected_before_implementation", "immutable"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "revision": { "type": "string", "minLength": 1 },
+        "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "selected_at": { "type": "string", "format": "date-time" },
+        "selected_before_implementation": { "const": true },
+        "immutable": { "const": true }
+      }
+    },
+    "implementationScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task_id", "code_revision", "content_revision", "environment", "started_at"],
+      "properties": {
+        "task_id": { "type": "string", "pattern": "^task:[a-z][a-z0-9-]*:[0-9]{4}$" },
+        "code_revision": { "type": "string", "minLength": 1 },
+        "content_revision": { "type": "string", "minLength": 1 },
+        "environment": { "type": "string", "minLength": 1 },
+        "started_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "disposition": {
+      "enum": ["pending", "accepted", "rejected", "superseded"]
+    }
+  }
+}

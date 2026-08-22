@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://datarim.club/schema/review-evolution-v1.json",
+  "title": "Datarim Review Evolution",
+  "description": "Review finding classification and canonical-knowledge evolution evidence that never substitutes for delivery of the product fix.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "review_id",
+    "requirement_id",
+    "delivery_receipt_id",
+    "reviewed_at",
+    "reviewer",
+    "classification",
+    "finding_evidence",
+    "parent_links",
+    "product_fix"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "review_id": { "type": "string", "pattern": "^review-[0-9]{4}$" },
+    "requirement_id": { "type": "string", "pattern": "^req-[0-9]{4}$" },
+    "delivery_receipt_id": { "type": "string", "pattern": "^receipt-[0-9]{4}$" },
+    "reviewed_at": { "type": "string", "format": "date-time" },
+    "reviewer": { "type": "string", "minLength": 1 },
+    "classification": {
+      "enum": ["ABSENT", "WEAK", "STALE", "MIS_SCOPED", "NOT_BOUND", "NO_CANON_CHANGE"]
+    },
+    "finding_evidence": { "type": "string", "minLength": 1 },
+    "parent_links": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/parentLink" }
+    },
+    "canonical_change": { "$ref": "#/$defs/canonicalChange" },
+    "no_canon_change": { "$ref": "#/$defs/noCanonChange" },
+    "product_fix": { "$ref": "#/$defs/productFix" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "classification": {
+            "enum": ["ABSENT", "WEAK", "STALE", "MIS_SCOPED", "NOT_BOUND"]
+          }
+        },
+        "required": ["classification"]
+      },
+      "then": {
+        "required": ["canonical_change"],
+        "not": { "required": ["no_canon_change"] }
+      },
+      "else": {
+        "required": ["no_canon_change"],
+        "not": { "required": ["canonical_change"] }
+      }
+    }
+  ],
+  "$defs": {
+    "parentLink": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relation", "id"],
+      "properties": {
+        "relation": { "enum": ["epic", "task", "requirement", "delivery_receipt"] },
+        "id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "canonicalChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "change_kind", "artifact_revision", "digest", "recorded_at", "enforcement"],
+      "properties": {
+        "artifact_id": { "type": "string", "minLength": 1 },
+        "change_kind": { "enum": ["NEW_ARTIFACT", "ARTIFACT_REVISION"] },
+        "artifact_revision": { "type": "string", "minLength": 1 },
+        "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "recorded_at": { "type": "string", "format": "date-time" },
+        "enforcement": { "$ref": "#/$defs/redCapableEnforcement" }
+      }
+    },
+    "redCapableEnforcement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mechanism", "owner", "red_capable", "red_evidence", "green_evidence"],
+      "properties": {
+        "mechanism": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string", "minLength": 1 },
+        "red_capable": { "const": true },
+        "red_evidence": { "type": "string", "minLength": 1 },
+        "green_evidence": { "type": "string", "minLength": 1 }
+      }
+    },
+    "noCanonChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence", "reviewer_approval"],
+      "properties": {
+        "evidence": { "type": "string", "minLength": 1 },
+        "reviewer_approval": { "$ref": "#/$defs/reviewerApproval" }
+      }
+    },
+    "reviewerApproval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewer", "approved", "approved_at"],
+      "properties": {
+        "reviewer": { "type": "string", "minLength": 1 },
+        "approved": { "const": true },
+        "approved_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "productFix": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requirement_id", "delivery_receipt_id", "status", "substitution_prohibited"],
+      "properties": {
+        "requirement_id": { "type": "string", "pattern": "^req-[0-9]{4}$" },
+        "delivery_receipt_id": { "type": "string", "pattern": "^receipt-[0-9]{4}$" },
+        "status": { "enum": ["NOT_STARTED", "IN_PROGRESS", "DELIVERED"] },
+        "substitution_prohibited": { "const": true }
+      }
+    }
+  }
+}

@@ -1,0 +1,90 @@
+schema_version: 1
+requirement_set_id: reqset-0001
+created_at: "2026-01-02T10:00:00Z"
+source_remarks:
+  - source_id: source-0001
+    source_tier: CUSTOMER_VERBATIM
+    verbatim_quote: "The comparison must remain readable on my phone in both languages and themes."
+    locale: en
+    captured_at: "2026-01-02T09:00:00Z"
+    source_ref: customer-interview-0001
+    requirement_ids:
+      - req-0001
+requirements:
+  req-0001:
+    source_ids:
+      - source-0001
+    atomic_statement: The comparison is visitor-readable in every applicable painted UI combination.
+    acceptance:
+      exact_source_quote: "The comparison must remain readable on my phone in both languages and themes."
+      product: example-product
+      surface: public-comparison
+      applicability:
+        locales:
+          - ru
+          - en
+        viewports:
+          - mobile
+          - desktop
+        themes:
+          - light
+          - dark
+        painted_matrix_applicable: true
+      before_state: The comparison overlaps its sticky header on mobile.
+      after_state: The comparison remains readable without overlap in every applicable painted combination.
+      evidence:
+        method: Painted-coordinate browser assertions against the production visitor route.
+        owner: delivery-reviewer
+        evidence_class: VISITOR_VISIBLE_PRODUCTION
+      knowledge_selection:
+        roles:
+          - id: frontend-reviewer
+            revision: "1"
+            digest: sha256:1111111111111111111111111111111111111111111111111111111111111111
+            selected_at: "2026-01-02T09:10:00Z"
+            selected_before_implementation: true
+            immutable: true
+        skills:
+          - id: frontend-ui
+            revision: "3"
+            digest: sha256:2222222222222222222222222222222222222222222222222222222222222222
+            selected_at: "2026-01-02T09:11:00Z"
+            selected_before_implementation: true
+            immutable: true
+        blueprints:
+          - id: painted-matrix-blueprint
+            revision: "2"
+            digest: sha256:3333333333333333333333333333333333333333333333333333333333333333
+            selected_at: "2026-01-02T09:12:00Z"
+            selected_before_implementation: true
+            immutable: true
+        constraints:
+          - id: visitor-visible-production-ac
+            revision: "1"
+            digest: sha256:4444444444444444444444444444444444444444444444444444444444444444
+            selected_at: "2026-01-02T09:13:00Z"
+            selected_before_implementation: true
+            immutable: true
+        policies:
+          - id: customer-delivery-policy
+            revision: "1"
+            digest: sha256:5555555555555555555555555555555555555555555555555555555555555555
+            selected_at: "2026-01-02T09:14:00Z"
+            selected_before_implementation: true
+            immutable: true
+        success_criteria:
+          - id: live-painted-matrix
+            revision: "4"
+            digest: sha256:6666666666666666666666666666666666666666666666666666666666666666
+            selected_at: "2026-01-02T09:15:00Z"
+            selected_before_implementation: true
+            immutable: true
+      implementation:
+        task_id: task:web:0001
+        code_revision: pending-before-implementation
+        content_revision: pending-before-implementation
+        environment: production
+        started_at: "2026-01-02T10:00:00Z"
+      visitor_visible: true
+      production_acceptance_criterion: A visitor can read the comparison at RU and EN, mobile and desktop, light and dark on production.
+      disposition: pending

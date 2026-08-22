@@ -1,0 +1,331 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://datarim.club/schema/customer-delivery-receipt-v1.json",
+  "title": "Datarim Customer Delivery Receipt",
+  "description": "A complete, acyclic requirement-to-customer-disposition evidence chain. A missing required edge is not a met delivery.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "receipt_id", "requirement_set_id", "generated_at", "parent_links", "requirements"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "receipt_id": { "type": "string", "pattern": "^receipt-[0-9]{4}$" },
+    "requirement_set_id": { "type": "string", "pattern": "^reqset-[0-9]{4}$" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "parent_links": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/parentLink" }
+    },
+    "requirements": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "patternProperties": {
+        "^req-[0-9]{4}$": { "$ref": "#/$defs/requirementDelivery" }
+      }
+    }
+  },
+  "$defs": {
+    "parentLink": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relation", "id"],
+      "properties": {
+        "relation": { "enum": ["epic", "task", "requirement_set"] },
+        "id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "requirementDelivery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["coverage_status", "coverage_chain"],
+      "properties": {
+        "coverage_status": { "enum": ["MET", "NOT_MET"] },
+        "coverage_chain": { "$ref": "#/$defs/coverageChain" },
+        "missing_edges": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "requirement",
+              "selected_knowledge",
+              "implementation_delta",
+              "red_green",
+              "merged_revision",
+              "deployed_revision",
+              "live_evidence",
+              "customer_disposition"
+            ]
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "coverage_status": { "const": "MET" } },
+            "required": ["coverage_status"]
+          },
+          "then": {
+            "properties": {
+              "coverage_chain": {
+                "required": [
+                  "requirement",
+                  "selected_knowledge",
+                  "implementation_delta",
+                  "red_green",
+                  "merged_revision",
+                  "deployed_revision",
+                  "live_evidence",
+                  "customer_disposition"
+                ]
+              }
+            },
+            "not": { "required": ["missing_edges"] }
+          },
+          "else": { "required": ["missing_edges"] }
+        }
+      ]
+    },
+    "coverageChain": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "requirement": { "$ref": "#/$defs/requirementRef" },
+        "selected_knowledge": { "$ref": "#/$defs/knowledgeSelection" },
+        "implementation_delta": { "$ref": "#/$defs/implementationDelta" },
+        "red_green": { "$ref": "#/$defs/redGreen" },
+        "merged_revision": { "$ref": "#/$defs/mergedRevision" },
+        "deployed_revision": { "$ref": "#/$defs/deployedRevision" },
+        "live_evidence": { "$ref": "#/$defs/liveEvidence" },
+        "customer_disposition": { "$ref": "#/$defs/customerDisposition" }
+      }
+    },
+    "requirementRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requirement_id", "requirement_set_id", "source_quote_digest"],
+      "properties": {
+        "requirement_id": { "type": "string", "pattern": "^req-[0-9]{4}$" },
+        "requirement_set_id": { "type": "string", "pattern": "^reqset-[0-9]{4}$" },
+        "source_quote_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "knowledgeSelection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["roles", "skills", "blueprints", "constraints", "policies", "success_criteria"],
+      "properties": {
+        "roles": { "$ref": "#/$defs/pinnedKnowledgeList" },
+        "skills": { "$ref": "#/$defs/pinnedKnowledgeList" },
+        "blueprints": { "$ref": "#/$defs/pinnedKnowledgeList" },
+        "constraints": { "$ref": "#/$defs/pinnedKnowledgeList" },
+        "policies": { "$ref": "#/$defs/pinnedKnowledgeList" },
+        "success_criteria": { "$ref": "#/$defs/pinnedKnowledgeList" }
+      }
+    },
+    "pinnedKnowledgeList": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/pinnedKnowledge" }
+    },
+    "pinnedKnowledge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "revision", "digest", "selected_at", "selected_before_implementation", "immutable"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "revision": { "type": "string", "minLength": 1 },
+        "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "selected_at": { "type": "string", "format": "date-time" },
+        "selected_before_implementation": { "const": true },
+        "immutable": { "const": true }
+      }
+    },
+    "implementationDelta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task_id", "enabling_count", "enabling_changes", "visitor_visible_count", "visitor_visible_changes"],
+      "properties": {
+        "task_id": { "type": "string", "pattern": "^task:[a-z][a-z0-9-]*:[0-9]{4}$" },
+        "enabling_count": { "type": "integer", "minimum": 0 },
+        "enabling_changes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/enablingChange" }
+        },
+        "visitor_visible_count": { "type": "integer", "minimum": 1 },
+        "visitor_visible_changes": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/visitorVisibleChange" }
+        }
+      }
+    },
+    "enablingChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["delta_id", "change_class", "description", "artifact_ref"],
+      "properties": {
+        "delta_id": { "type": "string", "pattern": "^delta-e-[0-9]{4}$" },
+        "change_class": { "const": "enabling" },
+        "description": { "type": "string", "minLength": 1 },
+        "artifact_ref": { "type": "string", "minLength": 1 }
+      }
+    },
+    "visitorVisibleChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["delta_id", "change_class", "description", "artifact_ref"],
+      "properties": {
+        "delta_id": { "type": "string", "pattern": "^delta-v-[0-9]{4}$" },
+        "change_class": { "const": "visitor_visible" },
+        "description": { "type": "string", "minLength": 1 },
+        "artifact_ref": { "type": "string", "minLength": 1 }
+      }
+    },
+    "redGreen": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["red", "green"],
+      "properties": {
+        "red": { "$ref": "#/$defs/redEvidence" },
+        "green": { "$ref": "#/$defs/greenEvidence" }
+      }
+    },
+    "redEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "command", "observed_at", "evidence_ref"],
+      "properties": {
+        "status": { "const": "failed_as_expected" },
+        "command": { "type": "string", "minLength": 1 },
+        "observed_at": { "type": "string", "format": "date-time" },
+        "evidence_ref": { "type": "string", "minLength": 1 }
+      }
+    },
+    "greenEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "command", "observed_at", "evidence_ref"],
+      "properties": {
+        "status": { "const": "passed" },
+        "command": { "type": "string", "minLength": 1 },
+        "observed_at": { "type": "string", "format": "date-time" },
+        "evidence_ref": { "type": "string", "minLength": 1 }
+      }
+    },
+    "mergedRevision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["revision", "digest", "merged_at", "evidence_ref"],
+      "properties": {
+        "revision": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "merged_at": { "type": "string", "format": "date-time" },
+        "evidence_ref": { "type": "string", "minLength": 1 }
+      }
+    },
+    "deployedRevision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["environment", "revision", "digest", "deployed_at", "evidence_ref"],
+      "properties": {
+        "environment": { "const": "production" },
+        "revision": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "deployed_at": { "type": "string", "format": "date-time" },
+        "evidence_ref": { "type": "string", "minLength": 1 }
+      }
+    },
+    "liveEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["visitor_visible", "method", "owner", "observed_at", "evidence_ref", "painted_matrix_applicable", "painted_matrix"],
+      "properties": {
+        "visitor_visible": { "const": true },
+        "method": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string", "minLength": 1 },
+        "observed_at": { "type": "string", "format": "date-time" },
+        "evidence_ref": { "type": "string", "minLength": 1 },
+        "painted_matrix_applicable": { "type": "boolean" },
+        "painted_matrix": { "$ref": "#/$defs/paintedMatrix" },
+        "not_applicable_reason": { "type": "string", "minLength": 1 }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "painted_matrix_applicable": { "const": true } },
+            "required": ["painted_matrix_applicable"]
+          },
+          "then": {
+            "properties": {
+              "painted_matrix": { "minItems": 8, "maxItems": 8 }
+            },
+            "not": { "required": ["not_applicable_reason"] }
+          },
+          "else": {
+            "required": ["not_applicable_reason"],
+            "properties": { "painted_matrix": { "maxItems": 0 } }
+          }
+        }
+      ]
+    },
+    "paintedMatrix": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/paintedMatrixCell" },
+      "allOf": [
+        { "contains": { "$ref": "#/$defs/ruMobileLight" } },
+        { "contains": { "$ref": "#/$defs/ruMobileDark" } },
+        { "contains": { "$ref": "#/$defs/ruDesktopLight" } },
+        { "contains": { "$ref": "#/$defs/ruDesktopDark" } },
+        { "contains": { "$ref": "#/$defs/enMobileLight" } },
+        { "contains": { "$ref": "#/$defs/enMobileDark" } },
+        { "contains": { "$ref": "#/$defs/enDesktopLight" } },
+        { "contains": { "$ref": "#/$defs/enDesktopDark" } }
+      ]
+    },
+    "paintedMatrixCell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["locale", "viewport", "theme", "evidence_ref", "observed_at"],
+      "properties": {
+        "locale": { "enum": ["ru", "en"] },
+        "viewport": { "enum": ["mobile", "desktop"] },
+        "theme": { "enum": ["light", "dark"] },
+        "evidence_ref": { "type": "string", "minLength": 1 },
+        "observed_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "ruMobileLight": { "$ref": "#/$defs/paintedMatrixCell", "properties": { "locale": { "const": "ru" }, "viewport": { "const": "mobile" }, "theme": { "const": "light" } } },
+    "ruMobileDark": { "$ref": "#/$defs/paintedMatrixCell", "properties": { "locale": { "const": "ru" }, "viewport": { "const": "mobile" }, "theme": { "const": "dark" } } },
+    "ruDesktopLight": { "$ref": "#/$defs/paintedMatrixCell", "properties": { "locale": { "const": "ru" }, "viewport": { "const": "desktop" }, "theme": { "const": "light" } } },
+    "ruDesktopDark": { "$ref": "#/$defs/paintedMatrixCell", "properties": { "locale": { "const": "ru" }, "viewport": { "const": "desktop" }, "theme": { "const": "dark" } } },
+    "enMobileLight": { "$ref": "#/$defs/paintedMatrixCell", "properties": { "locale": { "const": "en" }, "viewport": { "const": "mobile" }, "theme": { "const": "light" } } },
+    "enMobileDark": { "$ref": "#/$defs/paintedMatrixCell", "properties": { "locale": { "const": "en" }, "viewport": { "const": "mobile" }, "theme": { "const": "dark" } } },
+    "enDesktopLight": { "$ref": "#/$defs/paintedMatrixCell", "properties": { "locale": { "const": "en" }, "viewport": { "const": "desktop" }, "theme": { "const": "light" } } },
+    "enDesktopDark": { "$ref": "#/$defs/paintedMatrixCell", "properties": { "locale": { "const": "en" }, "viewport": { "const": "desktop" }, "theme": { "const": "dark" } } },
+    "customerDisposition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "recorded_at", "evidence_ref"],
+      "properties": {
+        "status": { "enum": ["pending", "accepted", "rejected", "superseded"] },
+        "recorded_at": { "type": "string", "format": "date-time" },
+        "evidence_ref": { "type": "string", "minLength": 1 },
+        "note": { "type": "string", "minLength": 1 },
+        "superseded_by": { "type": "string", "pattern": "^req-[0-9]{4}$" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "status": { "const": "superseded" } },
+            "required": ["status"]
+          },
+          "then": { "required": ["superseded_by"] },
+          "else": { "not": { "required": ["superseded_by"] } }
+        }
+      ]
+    }
+  }
+}

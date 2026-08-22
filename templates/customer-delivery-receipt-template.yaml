@@ -1,0 +1,151 @@
+schema_version: 1
+receipt_id: receipt-0001
+requirement_set_id: reqset-0001
+generated_at: "2026-01-03T14:00:00Z"
+parent_links:
+  - relation: epic
+    id: epic:web:0000
+  - relation: task
+    id: task:web:0001
+  - relation: requirement_set
+    id: reqset-0001
+requirements:
+  req-0001:
+    coverage_status: MET
+    coverage_chain:
+      requirement:
+        requirement_id: req-0001
+        requirement_set_id: reqset-0001
+        source_quote_digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      selected_knowledge:
+        roles:
+          - id: frontend-reviewer
+            revision: "1"
+            digest: sha256:1111111111111111111111111111111111111111111111111111111111111111
+            selected_at: "2026-01-02T09:10:00Z"
+            selected_before_implementation: true
+            immutable: true
+        skills:
+          - id: frontend-ui
+            revision: "3"
+            digest: sha256:2222222222222222222222222222222222222222222222222222222222222222
+            selected_at: "2026-01-02T09:11:00Z"
+            selected_before_implementation: true
+            immutable: true
+        blueprints:
+          - id: painted-matrix-blueprint
+            revision: "2"
+            digest: sha256:3333333333333333333333333333333333333333333333333333333333333333
+            selected_at: "2026-01-02T09:12:00Z"
+            selected_before_implementation: true
+            immutable: true
+        constraints:
+          - id: visitor-visible-production-ac
+            revision: "1"
+            digest: sha256:4444444444444444444444444444444444444444444444444444444444444444
+            selected_at: "2026-01-02T09:13:00Z"
+            selected_before_implementation: true
+            immutable: true
+        policies:
+          - id: customer-delivery-policy
+            revision: "1"
+            digest: sha256:5555555555555555555555555555555555555555555555555555555555555555
+            selected_at: "2026-01-02T09:14:00Z"
+            selected_before_implementation: true
+            immutable: true
+        success_criteria:
+          - id: live-painted-matrix
+            revision: "4"
+            digest: sha256:6666666666666666666666666666666666666666666666666666666666666666
+            selected_at: "2026-01-02T09:15:00Z"
+            selected_before_implementation: true
+            immutable: true
+      implementation_delta:
+        task_id: task:web:0001
+        enabling_count: 1
+        enabling_changes:
+          - delta_id: delta-e-0001
+            change_class: enabling
+            description: Add deterministic painted-coordinate assertions to the browser suite.
+            artifact_ref: tests/comparison-painted.spec.ts
+        visitor_visible_count: 1
+        visitor_visible_changes:
+          - delta_id: delta-v-0001
+            change_class: visitor_visible
+            description: Keep the sticky comparison header clear of visitor content at mobile widths.
+            artifact_ref: src/styles/comparison.css
+      red_green:
+        red:
+          status: failed_as_expected
+          command: pnpm playwright test tests/comparison-painted.spec.ts
+          observed_at: "2026-01-02T10:05:00Z"
+          evidence_ref: artifacts/red/comparison-painted.txt
+        green:
+          status: passed
+          command: pnpm playwright test tests/comparison-painted.spec.ts
+          observed_at: "2026-01-02T11:15:00Z"
+          evidence_ref: artifacts/green/comparison-painted.txt
+      merged_revision:
+        revision: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        digest: sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+        merged_at: "2026-01-02T12:00:00Z"
+        evidence_ref: https://example.invalid/pull/1
+      deployed_revision:
+        environment: production
+        revision: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        digest: sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+        deployed_at: "2026-01-02T13:00:00Z"
+        evidence_ref: artifacts/deploy/production.json
+      live_evidence:
+        visitor_visible: true
+        method: Painted-coordinate browser assertions against the public production route.
+        owner: delivery-reviewer
+        observed_at: "2026-01-02T13:30:00Z"
+        evidence_ref: artifacts/live/summary.json
+        painted_matrix_applicable: true
+        painted_matrix:
+          - locale: ru
+            viewport: mobile
+            theme: light
+            evidence_ref: artifacts/live/ru-mobile-light.png
+            observed_at: "2026-01-02T13:20:00Z"
+          - locale: ru
+            viewport: mobile
+            theme: dark
+            evidence_ref: artifacts/live/ru-mobile-dark.png
+            observed_at: "2026-01-02T13:21:00Z"
+          - locale: ru
+            viewport: desktop
+            theme: light
+            evidence_ref: artifacts/live/ru-desktop-light.png
+            observed_at: "2026-01-02T13:22:00Z"
+          - locale: ru
+            viewport: desktop
+            theme: dark
+            evidence_ref: artifacts/live/ru-desktop-dark.png
+            observed_at: "2026-01-02T13:23:00Z"
+          - locale: en
+            viewport: mobile
+            theme: light
+            evidence_ref: artifacts/live/en-mobile-light.png
+            observed_at: "2026-01-02T13:24:00Z"
+          - locale: en
+            viewport: mobile
+            theme: dark
+            evidence_ref: artifacts/live/en-mobile-dark.png
+            observed_at: "2026-01-02T13:25:00Z"
+          - locale: en
+            viewport: desktop
+            theme: light
+            evidence_ref: artifacts/live/en-desktop-light.png
+            observed_at: "2026-01-02T13:26:00Z"
+          - locale: en
+            viewport: desktop
+            theme: dark
+            evidence_ref: artifacts/live/en-desktop-dark.png
+            observed_at: "2026-01-02T13:27:00Z"
+      customer_disposition:
+        status: accepted
+        recorded_at: "2026-01-03T13:00:00Z"
+        evidence_ref: customer-acceptance-0001
+        note: Customer confirmed the production comparison is readable.
