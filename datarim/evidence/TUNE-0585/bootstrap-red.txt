@@ -17,3 +17,27 @@ ok 2 wire schema is canonical, closed, and contains every pre-trust fragment # s
 ok 3 bootstrap validates every wire fragment and rejects unknown fields # skip bootstrap executable intentionally absent at bootstrap RED
 ok 4 canonicalization rejects duplicate keys and produces exact canonical bytes # skip bootstrap executable intentionally absent at bootstrap RED
 ok 5 bootstrap imports only the Python standard library and never invokes a shell # skip bootstrap executable intentionally absent at bootstrap RED
+
+--- correction RED after exact-head reviews returned NO ---
+reviewed_source_commit: ce4bc45ba28c7e0750988c6617fca9ce796f6e8e
+recorded_at: 2026-08-22T15:17:00Z
+argv: ["bats","tests/customer-delivery-bootstrap.bats"]
+exit_code: 1
+finding_ids: ["H1-17-operation-dispatch","H2-closed-wire-schema","H3-trust-and-provider-semantics","M4-create-or-verify-durability","M5-bounded-process-evidence","M6-load-bearing-tests","P1-root-confinement"]
+output:
+1..10
+ok 1 bootstrap executable exists only after the authorized RED commit
+ok 2 wire schema is canonical, closed, and contains every pre-trust fragment
+ok 3 bootstrap validates every wire fragment and rejects unknown fields
+ok 4 canonicalization rejects duplicate keys and produces exact canonical bytes
+ok 5 bootstrap imports only the Python standard library and never invokes a shell
+not ok 6 all seventeen registered operations have real dispatch
+# MISSING_OPERATION_DISPATCH: canonicalize caller-sign activate-key genesis-trust genesis-input genesis-plan genesis-prepare genesis-attest genesis-bundle authorize-and-sign publish-blob resolve-blob lookup-provider-operation append-receipt lookup-receipt resolve-receipt registry-cas
+not ok 7 permissive and obsolete wire shapes are rejected
+# OPEN_SCHEMA_ACCEPTED: genesis_trust_request
+not ok 8 every actual CLI path is root-confined
+# PATH_ESCAPE_ACCEPTED: absolute /proc/sys/kernel/pid_max
+not ok 9 durable writes are create-or-verify and never overwrite conflict bytes
+# DURABILITY_CONFLICT_GAP: existing conflicting bytes were overwritten
+not ok 10 bounded subprocess evidence retains wait status and enforces output cap
+# TypeError: run_bounded() got an unexpected keyword argument 'output_cap_bytes'

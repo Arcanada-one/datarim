@@ -14,6 +14,11 @@ require_bootstrap_source() {
   fi
 }
 
+fail_test() {
+  echo "$*" >&2
+  return 1
+}
+
 @test "bootstrap executable exists only after the authorized RED commit" {
   if [[ ! -f "$BOOTSTRAP" ]]; then
     echo "BOOTSTRAP_RED: missing authorized executable scripts/customer-delivery-bootstrap.py"
@@ -83,21 +88,21 @@ PY
 @test "bootstrap validates every wire fragment and rejects unknown fields" {
   require_bootstrap_source
   run python3 "$BOOTSTRAP" --wire-schema "$WIRE_SCHEMA" --self-test-schema
-  [ "$status" -eq 0 ]
-  [ "$output" = "BOOTSTRAP_WIRE_SCHEMA_OK fragments=44" ]
+  [[ "$status" -eq 0 ]] || fail_test "self-test failed: $output"
+  [[ "$output" = "BOOTSTRAP_WIRE_SCHEMA_OK fragments=44" ]] || fail_test "unexpected self-test output: $output"
 
   printf '{"input_locator":"fixture.json","input_sha256":"%064d","operation":"canonicalize","profile":"datarim-canonical-json-v1","schema_version":1,"unknown":true}\n' 0 >"$FIXTURE_DIR/unknown.json"
   run python3 "$BOOTSTRAP" --wire-schema "$WIRE_SCHEMA" --schema-pointer '/$defs/canonicalize_request' --validate-only "$FIXTURE_DIR/unknown.json"
-  [ "$status" -eq 2 ]
-  [[ "$output" == *"unknown field: unknown"* ]]
+  [[ "$status" -eq 2 ]] || fail_test "unknown field was accepted: $output"
+  [[ "$output" == *"unknown field: unknown"* ]] || fail_test "wrong unknown-field diagnostic: $output"
 }
 
 @test "canonicalization rejects duplicate keys and produces exact canonical bytes" {
   require_bootstrap_source
   printf '{"z":1,"a":"é","z":2}\n' >"$FIXTURE_DIR/duplicate.json"
   run python3 "$BOOTSTRAP" --wire-schema "$WIRE_SCHEMA" --canonicalize-only "$FIXTURE_DIR/duplicate.json"
-  [ "$status" -eq 2 ]
-  [[ "$output" == *"duplicate key: z"* ]]
+  [[ "$status" -eq 2 ]] || fail_test "duplicate key was accepted: $output"
+  [[ "$output" == *"duplicate key: z"* ]] || fail_test "wrong duplicate-key diagnostic: $output"
 
   printf '{"z":1,"a":"é","line":"x\\ny"}\n' >"$FIXTURE_DIR/input.json"
   run python3 "$BOOTSTRAP" --wire-schema "$WIRE_SCHEMA" --canonicalize-only "$FIXTURE_DIR/input.json"
@@ -128,4 +133,117 @@ print("BOOTSTRAP_TCB_STATIC_OK")
 PY
   [ "$status" -eq 0 ]
   [ "$output" = "BOOTSTRAP_TCB_STATIC_OK" ]
+}
+
+@test "all seventeen registered operations have real dispatch" {
+  require_bootstrap_source
+  operations=(
+    canonicalize caller-sign activate-key genesis-trust genesis-input
+    genesis-plan genesis-prepare genesis-attest genesis-bundle
+    authorize-and-sign publish-blob resolve-blob lookup-provider-operation
+    append-receipt lookup-receipt resolve-receipt registry-cas
+  )
+  printf '{}\n' >"$FIXTURE_DIR/request.json"
+  missing=()
+  for operation in "${operations[@]}"; do
+    run python3 "$BOOTSTRAP" \
+      --wire-schema "$WIRE_SCHEMA" \
+      --operation "$operation" \
+      --request "$FIXTURE_DIR/request.json"
+    if [[ "$output" == *"unrecognized arguments"* ]] || [[ "$output" == *"invalid choice"* ]] || [[ "$output" == *"one of the arguments --self-test-schema"* ]]; then
+      missing+=("$operation")
+    fi
+  done
+  if ((${#missing[@]})); then
+    fail_test "MISSING_OPERATION_DISPATCH: ${missing[*]}"
+  fi
+}
+
+@test "permissive and obsolete wire shapes are rejected" {
+  require_bootstrap_source
+  zero="$(printf '%064d' 0)"
+  forty="$(printf '%040d' 0)"
+
+  printf '{"bootstrap_authorization_locator":"a","bootstrap_authorization_sha256":"%s","bootstrap_review_locator":"b","bootstrap_review_sha256":"%s","caller_specs":[null],"catalog_parameters":null,"operation":"genesis-trust","policy_specs":[null],"provider_specs":[null],"recorded_at":"2026-08-22T00:00:00Z","recovery_specs":[null],"registry_parameters":null,"result_output":"r","result_signature_output":"s","reviewed_pair_commit":"%s","schema_version":1,"signer_specs":[null]}\n' "$zero" "$zero" "$forty" >"$FIXTURE_DIR/open-trust.json"
+  run python3 "$BOOTSTRAP" --wire-schema "$WIRE_SCHEMA" --schema-pointer '/$defs/genesis_trust_request' --validate-only "$FIXTURE_DIR/open-trust.json"
+  [[ "$status" -eq 2 ]] || fail_test "OPEN_SCHEMA_ACCEPTED: genesis_trust_request"
+
+  printf '{"action":"lookup","activation_nonce":"nonce","authority_bundle_locator":"a","authority_bundle_sha256":"%s","expected_active_key_id":"old","expected_slot_generation":0,"identity_id":"identity","identity_kind":"signer","mode":"normal","operation":"activate-key","original_prepare_request_sha256":null,"output_proof":"proof","output_result":"result","provider_id":"provider","replacement_key_id":"new","replacement_principal":"principal","replacement_public_key":"ssh-ed25519 AAAA","replacement_secret_store_ref":"state/key","schema_version":1}\n' "$zero" >"$FIXTURE_DIR/obsolete-activation.json"
+  run python3 "$BOOTSTRAP" --wire-schema "$WIRE_SCHEMA" --schema-pointer '/$defs/activate_key_request' --validate-only "$FIXTURE_DIR/obsolete-activation.json"
+  [[ "$status" -eq 2 ]] || fail_test "OBSOLETE_ACTION_ACCEPTED: activate-key lookup"
+
+  python3 - "$WIRE_SCHEMA" "$FIXTURE_DIR/open-acceptance.json" <<'PY'
+import json,sys
+s=json.load(open(sys.argv[1]))
+fragment=s["$defs"]["lookup_provider_operation_result"]
+lookup={key: None for key in fragment["properties"]["lookup"]["properties"]}
+lookup.update({
+  "activation_acceptances":[None], "idempotency_key":"0"*64,
+  "observed_provider_head":"0"*64, "provider_id":"provider",
+  "schema_version":1, "status":"absent", "target_operation":"append-receipt"
+})
+sig={"algorithm":"ssh-ed25519","key_id":"key","namespace":"datarim-provider-lookup-result-v1","payload_sha256":"0"*64,"principal":"p","schema_version":1,"signer_id":"signer","sshsig_b64":"AAAA"}
+open(sys.argv[2],"w").write(json.dumps({"lookup":lookup,"signature":sig},sort_keys=True,separators=(",",":"))+"\n")
+PY
+  run python3 "$BOOTSTRAP" --wire-schema "$WIRE_SCHEMA" --schema-pointer '/$defs/lookup_provider_operation_result' --validate-only "$FIXTURE_DIR/open-acceptance.json"
+  [[ "$status" -eq 2 ]] || fail_test "OPEN_SCHEMA_ACCEPTED: activation_acceptances null"
+}
+
+@test "every actual CLI path is root-confined" {
+  require_bootstrap_source
+  run python3 "$BOOTSTRAP" --wire-schema "$WIRE_SCHEMA" --canonicalize-only /proc/sys/kernel/pid_max
+  [[ "$status" -eq 2 ]] || fail_test "PATH_ESCAPE_ACCEPTED: absolute /proc/sys/kernel/pid_max"
+
+  run python3 - "$BOOTSTRAP" "$FIXTURE_DIR" <<'PY'
+import importlib.util,pathlib,sys
+spec=importlib.util.spec_from_file_location("bootstrap",sys.argv[1]); m=importlib.util.module_from_spec(spec); sys.modules[spec.name]=m; spec.loader.exec_module(m)
+root=pathlib.Path(sys.argv[2]); (root/"a").mkdir(); (root/"a"/"value").write_text("x")
+bad=("a//value","a/./value","../value")
+accepted=[]
+for value in bad:
+    try: m.confined_path(root,value)
+    except m.BootstrapError: pass
+    else: accepted.append(value)
+if accepted: raise SystemExit("non-normal path accepted: "+",".join(accepted))
+(root/"outside").mkdir(); (root/"link").symlink_to(root/"outside",target_is_directory=True)
+try: m.confined_path(root,"link/value",must_exist=False)
+except m.BootstrapError: pass
+else: raise SystemExit("symlink parent accepted")
+print("ROOT_CONFINEMENT_OK")
+PY
+  [[ "$status" -eq 0 ]] || fail_test "PATH_CONFINEMENT_GAPS: $output"
+}
+
+@test "durable writes are create-or-verify and never overwrite conflict bytes" {
+  require_bootstrap_source
+  run python3 - "$BOOTSTRAP" "$FIXTURE_DIR" <<'PY'
+import importlib.util,pathlib,sys
+spec=importlib.util.spec_from_file_location("bootstrap",sys.argv[1]); m=importlib.util.module_from_spec(spec); sys.modules[spec.name]=m; spec.loader.exec_module(m)
+root=pathlib.Path(sys.argv[2]); target=root/"result.json"; target.write_bytes(b"first\n")
+try: m.atomic_write(target,b"different\n")
+except m.BootstrapError: print("CREATE_OR_VERIFY_CONFLICT_OK")
+else: raise SystemExit("existing conflicting bytes were overwritten")
+assert target.read_bytes()==b"first\n"
+PY
+  [[ "$status" -eq 0 ]] || fail_test "DURABILITY_CONFLICT_GAP: $output"
+  [[ "$output" = "CREATE_OR_VERIFY_CONFLICT_OK" ]] || fail_test "wrong durability output: $output"
+}
+
+@test "bounded subprocess evidence retains wait status and enforces output cap" {
+  require_bootstrap_source
+  run python3 - "$BOOTSTRAP" "$FIXTURE_DIR" <<'PY'
+import importlib.util,pathlib,sys
+spec=importlib.util.spec_from_file_location("bootstrap",sys.argv[1]); m=importlib.util.module_from_spec(spec); sys.modules[spec.name]=m; spec.loader.exec_module(m)
+root=pathlib.Path(sys.argv[2])
+normal=m.run_bounded([sys.executable,"-c","raise SystemExit(7)"],1,cwd=root,env={"PATH":"/usr/bin:/bin"},output_cap_bytes=1024)
+if normal.result_exit_code!=7 or normal.raw_wait_status!=(7<<8) or normal.timed_out:
+    raise SystemExit(f"normal wait status invalid: {normal}")
+try:
+    m.run_bounded([sys.executable,"-c","print('x'*2048)"],1,cwd=root,env={"PATH":"/usr/bin:/bin"},output_cap_bytes=128)
+except m.BootstrapError: pass
+else: raise SystemExit("output cap overflow accepted")
+print("BOUNDED_PROCESS_OK")
+PY
+  [[ "$status" -eq 0 ]] || fail_test "BOUNDED_PROCESS_GAPS: $output"
+  [[ "$output" = "BOUNDED_PROCESS_OK" ]] || fail_test "wrong bounded-process output: $output"
 }
