@@ -345,7 +345,7 @@ foreign=root/"foreign.git"; subprocess.run([str(git),"init","--bare","-q",str(fo
 with tempfile.TemporaryDirectory(dir=root) as td:
     work=pathlib.Path(td); subprocess.run([str(git),"-C",str(work),"init","-q"],check=True)
     subprocess.run([str(git),"-C",str(work),"config","user.name","fixture"],check=True); subprocess.run([str(git),"-C",str(work),"config","user.email","fixture@example.invalid"],check=True)
-    conflict=work/"providers"/provider["provider_id"]/"requests"/"append-receipt"/("c"*64+".json"); conflict.parent.mkdir(parents=True); conflict.write_text("foreign\n")
+    conflict=work/"providers"/"provider:foreign"/"requests"/"append-receipt"/("c"*64+".json"); conflict.parent.mkdir(parents=True); conflict.write_text("foreign\n")
     subprocess.run([str(git),"-C",str(work),"add","."],check=True); subprocess.run([str(git),"-C",str(work),"commit","-q","-m","foreign"],check=True)
     subprocess.run([str(git),"-C",str(work),"push","-q",str(foreign),"HEAD:"+provider["protected_ref"]],check=True)
 foreign_provider={**provider,"provider_id":"provider:foreign","remote_url":str(foreign)}
