@@ -10,7 +10,7 @@ started: 2026-08-22
 parent: null
 related: [TALO-0001]
 prd: datarim/prd/PRD-TUNE-0585.md
-plan: null
+plan: datarim/plans/TUNE-0585-plan.md
 ---
 
 ## Overview
@@ -35,6 +35,7 @@ This task delivers the framework mechanism only. It is the first dependency in t
 - [ ] AC-12: Retroactive recovery can never label agent-authored prose as a verbatim customer remark or turn legacy claims into passing evidence.
 - [ ] AC-13: Registration adapters are trusted, argv-only, no-shell, bounded data providers; they cannot author passing assertions, customer acceptance, or derived state.
 - [ ] AC-14: The framework evidence runner, exact-blob spec review, and exact-head quality review independently verify load-bearing evidence provenance.
+- [ ] AC-15: Private verbatim bytes stay in an access-controlled provider, every public ledger head is externally anchored, and rollback/truncation/unauthorized supersession/concurrent/crash mutations fail closed without losing acknowledged events.
 
 ## Constraints
 
