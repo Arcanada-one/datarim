@@ -16,8 +16,8 @@ parent_prd: datarim/prd/PRD-TUNE-0585.md
 
 - **1. Customer remarks become atomic, traceable delivery requirements.**
   - wish_id: atomic-customer-requirement-chain
-  - Что хочу проверить: Every authoritative source-manifest item is preserved and maps to one or more stable atomic requirement IDs with typed customer-visible acceptance criteria or an explicit enabling-parent relationship.
-  - Как проверить (success criterion): Focused fixtures cover provider pagination/omission, one-to-one, one-to-many, duplicate, unmapped, aggregate, and enabling-parent cases; the validator rejects every broken mapping.
+  - Что хочу проверить: Every authoritative source-manifest item is preserved privately, externally anchored, and maps to one or more stable atomic requirement IDs with typed customer-visible acceptance criteria or an explicit enabling-parent relationship.
+  - Как проверить (success criterion): Focused fixtures cover provider pagination/omission, private-source mutation, one-to-one, one-to-many, duplicate, unmapped, aggregate, missing atomicity review, and enabling-parent cases; the validator rejects every broken mapping.
   - Связанный AC из PRD: V-AC-1
   - evidence_type: empirical
   - #### История статусов
@@ -72,8 +72,8 @@ parent_prd: datarim/prd/PRD-TUNE-0585.md
 - **6. The canon is universal, documented, reviewed, and safe to adopt.**
   - wish_id: universal-pipeline-adoption
   - Что хочу проверить: Every task-creating or task-advancing Datarim entry point names the correct capture, pre-work, evidence, or closure gate; templates, monotonic migration, constrained adapters, runner provenance, full validation, spec review, and quality review all agree.
-  - Как проверить (success criterion): V-AC-6 through V-AC-9 and the full framework suite pass on the exact PR head, and independent Codex reviews report no unresolved blocking finding.
-  - Связанный AC из PRD: V-AC-6, V-AC-7, V-AC-8, V-AC-9
+  - Как проверить (success criterion): V-AC-6 through V-AC-10 and the full framework suite pass on the exact PR head, and independent Codex reviews report no unresolved blocking finding.
+  - Связанный AC из PRD: V-AC-6, V-AC-7, V-AC-8, V-AC-9, V-AC-10
   - evidence_type: empirical
   - #### История статусов
     - 2026-08-22T07:20:00Z / 07:20 UTC · /dr-prd · pending → pending · reason: captured from the approved operator amendment
