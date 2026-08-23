@@ -291,7 +291,8 @@ run_trusted_python() {
     if [[ "$platform" == Darwin ]]; then
         if /usr/bin/env -i LC_ALL=C \
             __PYVENV_LAUNCHER__="$python_bin" \
-            "$trusted_runtime_path" "$@"; then
+            /bin/bash -p -c 'exec -a "$1" "$2" "${@:3}"' bash \
+            "$python_bin" "$trusted_runtime_path" "$@"; then
             child_status=0
         else
             child_status=$?
@@ -313,9 +314,9 @@ python_probe="$(run_trusted_python -I -c '
 import os
 import sys
 
-metadata = os.stat(sys.executable)
+metadata = os.stat(sys.argv[1])
 print(f"{metadata.st_dev}|{metadata.st_ino}|{sys.implementation.name}|{sys.version_info.major}|{sys.version_info.minor}")
-' 2>/dev/null || true)"
+' "$trusted_runtime_path" 2>/dev/null || true)"
 IFS='|' read -r probe_device probe_inode probe_implementation probe_major probe_minor \
     <<<"$python_probe"
 if [[ "$probe_device" != "$trusted_runtime_device" || "$probe_inode" != "$trusted_runtime_inode" \
