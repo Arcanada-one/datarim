@@ -2407,14 +2407,15 @@ PY
 
 @test "Darwin METADATA open remains nonblocking across a FIFO replacement race" {
     [[ "$(/usr/bin/uname -s)" == Darwin ]] || skip 'Darwin-only trusted site boundary'
-    local site_path canary start end elapsed result output_copy
+    local site_path canary diagnostic start end elapsed result output_copy diagnostic_output
     site_path="${CUSTOMER_TEST_PYTHON_SITE:?missing CUSTOMER_TEST_PYTHON_SITE}"
     canary="${BATS_TEST_TMPDIR}/metadata-opened-without-nonblock"
+    diagnostic="${BATS_TEST_TMPDIR}/metadata-nonblock-diagnostic"
     build_test_framework metadata-nonblocking-race || return 1
-    "$PYTHON" - "$TEST_SCRIPT" "$canary" <<'PY' || return 1
+    "$PYTHON" - "$TEST_SCRIPT" "$canary" "$diagnostic" <<'PY' || return 1
 import sys
 
-path, canary = sys.argv[1:]
+path, canary, diagnostic = sys.argv[1:]
 source = open(path, encoding="utf-8").read()
 old = '        metadata_entry = os.stat("METADATA", follow_symlinks=False)\n'
 new = '''        metadata_entry = os.stat("METADATA", follow_symlinks=False)
@@ -2427,22 +2428,71 @@ new = '''        metadata_entry = os.stat("METADATA", follow_symlinks=False)
             threading = __import__("threading")
             time = __import__("time")
             def delayed_fifo_writer():
+                writer_started = time.monotonic_ns()
+                writer_log = os.open(
+                    {diagnostic!r},
+                    os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_CLOEXEC,
+                    0o600,
+                )
+                os.write(writer_log, f"writer_started_ns={{writer_started}}\\n".encode())
+                os.close(writer_log)
                 time.sleep(5.0)
+                writer_awake = time.monotonic_ns()
                 writer_fd = os.open(
                     "METADATA", os.O_RDWR | os.O_NONBLOCK | os.O_CLOEXEC,
                     dir_fd=dist_fd,
                 )
                 os.close(writer_fd)
+                writer_log = os.open(
+                    {diagnostic!r},
+                    os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_CLOEXEC,
+                    0o600,
+                )
+                os.write(writer_log, f"writer_awake_ns={{writer_awake}}\\n".encode())
+                os.close(writer_log)
             threading.Thread(target=delayed_fifo_writer, daemon=True).start()
 '''
 if source.count(old) != 1:
     raise SystemExit("METADATA_NONBLOCK_ATTACK_SEAM_MISSING_OR_AMBIGUOUS")
 source = source.replace(old, new)
 after_open = '        metadata_fd = os.open("METADATA", metadata_flags)\n'
-inspect_flags = after_open + f'''        if distribution == "jsonschema":
+inspect_flags = f'''        if distribution == "jsonschema":
+            open_started = __import__("time").monotonic_ns()
+            diagnostic_fd = os.open(
+                {diagnostic!r},
+                os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_CLOEXEC,
+                0o600,
+            )
+            os.write(
+                diagnostic_fd,
+                (
+                    f"metadata_flags={{metadata_flags}} "
+                    f"o_nonblock={{os.O_NONBLOCK}} "
+                    f"o_nofollow={{os.O_NOFOLLOW}} "
+                    f"o_cloexec={{os.O_CLOEXEC}} "
+                    f"open_started_ns={{open_started}}\\n"
+                ).encode(),
+            )
+            os.close(diagnostic_fd)
+''' + after_open + f'''        if distribution == "jsonschema":
+            open_finished = __import__("time").monotonic_ns()
             opened_flags = __import__("fcntl").fcntl(
                 metadata_fd, __import__("fcntl").F_GETFL,
             )
+            diagnostic_fd = os.open(
+                {diagnostic!r},
+                os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_CLOEXEC,
+                0o600,
+            )
+            os.write(
+                diagnostic_fd,
+                (
+                    f"opened_flags={{opened_flags}} "
+                    f"open_finished_ns={{open_finished}} "
+                    f"open_elapsed_ns={{open_finished-open_started}}\\n"
+                ).encode(),
+            )
+            os.close(diagnostic_fd)
             if not opened_flags & os.O_NONBLOCK:
                 canary_fd = os.open(
                     {canary!r},
@@ -2472,9 +2522,11 @@ PY
     output_copy="$output"
     end="$($PYTHON -c 'import time; print(time.time_ns())')"
     elapsed="$($PYTHON -c 'import sys; print((int(sys.argv[2])-int(sys.argv[1]))/1_000_000_000)' "$start" "$end")"
+    diagnostic_output="$(/bin/cat "$diagnostic" 2>/dev/null || true)"
     cleanup_metadata_identity_fixture || return 1
     assert_darwin_dependency_site_integrity || return 1
-    printf 'metadata_nonblock_output=%s elapsed=%s\n' "$output_copy" "$elapsed" >&3
+    printf 'metadata_nonblock_output=%s elapsed=%s diagnostic=%s\n' \
+        "$output_copy" "$elapsed" "$diagnostic_output" >&3
     [ "$result" -eq 2 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_dependencies"]' "$output_copy" \
         && "$PYTHON" -c 'import sys; assert float(sys.argv[1]) < 7.0' "$elapsed" \
