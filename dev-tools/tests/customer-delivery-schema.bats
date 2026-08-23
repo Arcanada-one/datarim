@@ -650,6 +650,205 @@ validate_review_closure_contract() {
     esac
 }
 
+validate_originating_review_contract() {
+    local review_template="$1"
+    local requirement_schema="${2:-$REQUIREMENTS_SCHEMA}"
+    "$PYTHON" - "$requirement_schema" "$EVOLUTION_SCHEMA" "$review_template" <<'PY'
+import hashlib
+import json
+import sys
+from datetime import datetime
+
+import jsonschema
+import yaml
+
+APPROVAL_FIELDS = (
+    "approved_digest",
+    "authority_id",
+    "authority_role",
+    "approved_at",
+    "evidence_ref",
+    "algorithm",
+    "key_id",
+)
+
+
+def digest(payload):
+    encoded = json.dumps(
+        payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+    return "sha256:" + hashlib.sha256(encoded).hexdigest()
+
+
+def timestamp(value):
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    requirement_schema = json.load(handle)
+with open(sys.argv[2], encoding="utf-8") as handle:
+    review_schema = json.load(handle)
+with open(sys.argv[3], encoding="utf-8") as handle:
+    review = yaml.safe_load(handle)
+jsonschema.Draft202012Validator(
+    review_schema, format_checker=jsonschema.FormatChecker()
+).validate(review)
+
+origin = review["originating_review"]
+review_payload = {
+    "review_id": review["review_id"],
+    "requirement_id": review["requirement_id"],
+    "delivery_receipt_id": review["delivery_receipt_id"],
+    "reviewer": review["reviewer"],
+    "review_ref": origin["review_ref"],
+    "state": origin["state"],
+    "observed_at": origin["observed_at"],
+    "evidence_ref": origin["evidence_ref"],
+}
+expected_review_digest = digest(review_payload)
+if origin["review_digest"] != expected_review_digest:
+    raise SystemExit("ORIGINATING_REVIEW_DIGEST_MISMATCH")
+approval = origin["authority_approval"]
+if approval["approved_digest"] != expected_review_digest:
+    raise SystemExit("ORIGINATING_REVIEW_APPROVED_DIGEST_MISMATCH")
+expected_payload_digest = digest({field: approval[field] for field in APPROVAL_FIELDS})
+if approval["approval_payload_digest"] != expected_payload_digest:
+    raise SystemExit("ORIGINATING_REVIEW_APPROVAL_PAYLOAD_DIGEST_MISMATCH")
+
+registry = {
+    entry["key_id"]: entry
+    for entry in requirement_schema["x-datarim-signature-contract"]
+    ["key_resolution"]["bundled_registry"]["entries"]
+}
+operator_key = registry["key-operator-0001"]["public_key"]
+registry.update({
+    "key-review-revoked-0001": {
+        "key_id": "key-review-revoked-0001",
+        "authority_id": "authority-operator-0001",
+        "allowed_roles": ["OPERATOR"],
+        "public_key": operator_key,
+        "status": "REVOKED",
+        "valid_from": "2026-01-01T00:00:00Z",
+        "valid_until": "2036-01-01T00:00:00Z",
+    },
+    "key-review-future-0001": {
+        "key_id": "key-review-future-0001",
+        "authority_id": "authority-operator-0001",
+        "allowed_roles": ["OPERATOR"],
+        "public_key": operator_key,
+        "status": "ACTIVE",
+        "valid_from": "2027-01-01T00:00:00Z",
+    },
+    "key-review-expired-0001": {
+        "key_id": "key-review-expired-0001",
+        "authority_id": "authority-operator-0001",
+        "allowed_roles": ["OPERATOR"],
+        "public_key": operator_key,
+        "status": "ACTIVE",
+        "valid_from": "2025-01-01T00:00:00Z",
+        "valid_until": "2026-01-03T14:00:00Z",
+    },
+})
+binding = registry.get(approval["key_id"])
+if binding is None:
+    raise SystemExit("ORIGINATING_REVIEW_APPROVAL_KEY_UNKNOWN")
+if approval["authority_id"] != binding["authority_id"]:
+    raise SystemExit("ORIGINATING_REVIEW_APPROVAL_KEY_AUTHORITY_ID_MISMATCH")
+if approval["authority_role"] not in binding["allowed_roles"]:
+    raise SystemExit("ORIGINATING_REVIEW_APPROVAL_KEY_ROLE_UNAUTHORIZED")
+if binding["status"] != "ACTIVE":
+    raise SystemExit("ORIGINATING_REVIEW_APPROVAL_KEY_NOT_ACTIVE")
+approved_at = timestamp(approval["approved_at"])
+if approved_at < timestamp(binding["valid_from"]):
+    raise SystemExit("ORIGINATING_REVIEW_APPROVAL_KEY_NOT_YET_VALID")
+if "valid_until" in binding and approved_at >= timestamp(binding["valid_until"]):
+    raise SystemExit("ORIGINATING_REVIEW_APPROVAL_KEY_EXPIRED")
+if timestamp(origin["observed_at"]) > timestamp(review["reviewed_at"]):
+    raise SystemExit("ORIGINATING_REVIEW_OBSERVED_AFTER_REVIEWED_AT")
+PY
+}
+
+reseal_originating_review_placeholder() {
+    "$PYTHON" - "$1" <<'PY'
+import hashlib
+import json
+import sys
+
+import yaml
+
+APPROVAL_FIELDS = (
+    "approved_digest", "authority_id", "authority_role", "approved_at",
+    "evidence_ref", "algorithm", "key_id",
+)
+
+
+def digest(payload):
+    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return "sha256:" + hashlib.sha256(encoded).hexdigest()
+
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as handle:
+    review = yaml.safe_load(handle)
+origin = review["originating_review"]
+origin["review_digest"] = digest({
+    "review_id": review["review_id"],
+    "requirement_id": review["requirement_id"],
+    "delivery_receipt_id": review["delivery_receipt_id"],
+    "reviewer": review["reviewer"],
+    "review_ref": origin["review_ref"],
+    "state": origin["state"],
+    "observed_at": origin["observed_at"],
+    "evidence_ref": origin["evidence_ref"],
+})
+approval = origin["authority_approval"]
+approval["approved_digest"] = origin["review_digest"]
+approval["approval_payload_digest"] = digest({field: approval[field] for field in APPROVAL_FIELDS})
+with open(path, "w", encoding="utf-8") as handle:
+    yaml.safe_dump(review, handle, allow_unicode=True, sort_keys=False)
+PY
+}
+
+verify_originating_review_signature() {
+    local review_template="$1"
+    local requirement_schema="${2:-$REQUIREMENTS_SCHEMA}"
+    # shellcheck disable=SC2016
+    "$PYTHON" - "$requirement_schema" "$review_template" <<'PY' |
+import json
+import sys
+
+import yaml
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    schema = json.load(handle)
+with open(sys.argv[2], encoding="utf-8") as handle:
+    review = yaml.safe_load(handle)
+approval = review["originating_review"]["authority_approval"]
+registry = {
+    entry["key_id"]: entry
+    for entry in schema["x-datarim-signature-contract"]["key_resolution"]
+    ["bundled_registry"]["entries"]
+}
+print(json.dumps({
+    "public_key": registry[approval["key_id"]]["public_key"],
+    "message": approval["approval_payload_digest"],
+    "signature": approval["signature"],
+}))
+PY
+    php -r '
+$record = json_decode(stream_get_contents(STDIN), true, 512, JSON_THROW_ON_ERROR);
+$message = hex2bin(substr($record["message"], 7));
+$signature = base64_decode(substr($record["signature"], 8), true);
+$publicKey = base64_decode($record["public_key"], true);
+if ($message === false || strlen($message) !== 32 || $signature === false || strlen($signature) !== 64 || $publicKey === false || strlen($publicKey) !== 32) {
+    fwrite(STDERR, "ORIGINATING_REVIEW_SIGNATURE_WIRE_INVALID\n"); exit(1);
+}
+if (!sodium_crypto_sign_verify_detached($signature, $message, $publicKey)) {
+    fwrite(STDERR, "ORIGINATING_REVIEW_SIGNATURE_INVALID\n"); exit(1);
+}
+'
+}
+
 validate_requirement_receipt_key_contract() {
     "$PYTHON" - "$REQUIREMENTS_SCHEMA" "$RECEIPT_SCHEMA" "$1" "$2" <<'PY'
 import json
@@ -871,6 +1070,16 @@ expected = {
             "receipt-disposition-approval-key-valid-at-approval",
             "receipt-visitor-acceptance-authority-role-operator",
             "receipt-parent-links-complete",
+            "originating-review-canonical-digest-valid",
+            "originating-review-approval-digest-equals-review-digest",
+            "originating-review-approval-payload-canonical-digest-valid",
+            "originating-review-signature-valid",
+            "originating-review-approval-key-known",
+            "originating-review-approval-key-authority-id-equal",
+            "originating-review-approval-key-role-authorized",
+            "originating-review-approval-key-active",
+            "originating-review-approval-key-valid-at-approval",
+            "originating-review-observed-at-not-after-reviewed-at",
             "review-open-or-changes-requested-blocks-closure",
             "receipt-epic-status-derived",
             "receipt-user-facing-parent-has-visible-child",
@@ -2706,6 +2915,202 @@ PY
     run reject_mutation "$EVOLUTION_SCHEMA" "$EVOLUTION_TEMPLATE" \
         '.classification = "MISSING"'
     [ "$status" -eq 1 ]
+}
+
+@test "review schema publishes the exact originating review authority contract" {
+    run "$PYTHON" - "$EVOLUTION_SCHEMA" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    schema = json.load(handle)
+expected_registry = {
+    "schema_relative_path": "customer-requirement.schema.json",
+    "json_pointer": "/x-datarim-signature-contract/key_resolution/bundled_registry",
+    "resolution": "BUNDLED_ONLY",
+    "ambient_override": "PROHIBITED",
+    "registry_id": "authority-key-registry-0001",
+    "registry_digest": "sha256:3a5af5b188e0bfde5a9202a13b27461dc5058176ad74eaceb782053ffa4cae0b",
+}
+
+expected_contract = {
+    "review_digest": {
+        "algorithm": "SHA-256",
+        "canonicalization": "RFC8785",
+        "encoding": "UTF-8",
+        "payload_shape": "FLAT_OBJECT",
+        "covered_fields": [
+            "review_id", "requirement_id", "delivery_receipt_id", "reviewer",
+            "review_ref", "state", "observed_at", "evidence_ref",
+        ],
+        "excluded_fields": ["review_digest", "authority_approval"],
+    },
+    "approval_payload_digest": {
+        "algorithm": "SHA-256",
+        "canonicalization": "RFC8785",
+        "encoding": "UTF-8",
+        "covered_fields": [
+            "approved_digest", "authority_id", "authority_role", "approved_at",
+            "evidence_ref", "algorithm", "key_id",
+        ],
+        "excluded_fields": ["approval_payload_digest", "signature"],
+    },
+    "signature_contract_ref": {
+        "schema_relative_path": "customer-requirement.schema.json",
+        "json_pointer": "/x-datarim-signature-contract",
+        "signed_field": "authority_approval.approval_payload_digest",
+    },
+    "verification_sequence": [
+        "ORIGINATING_REVIEW_DIGEST_VALID",
+        "ORIGINATING_REVIEW_APPROVAL_DIGEST_EQUALS_REVIEW_DIGEST",
+        "ORIGINATING_REVIEW_APPROVAL_PAYLOAD_DIGEST_VALID",
+        "ORIGINATING_REVIEW_APPROVAL_KEY_AUTHORIZED",
+        "ORIGINATING_REVIEW_SIGNATURE_VALID",
+        "ORIGINATING_REVIEW_OBSERVED_AT_NOT_AFTER_REVIEWED_AT",
+        "ORIGINATING_REVIEW_CLOSURE_STATE_ENFORCED_BY_A2",
+    ],
+}
+if schema.get("x-datarim-trusted-authority-key-registry-ref") != expected_registry:
+    raise SystemExit("ORIGINATING_REVIEW_REGISTRY_REF_MISMATCH")
+if schema.get("x-datarim-originating-review-contract") != expected_contract:
+    raise SystemExit("ORIGINATING_REVIEW_CONTRACT_MISMATCH")
+PY
+    [ "$status" -eq 0 ]
+}
+
+@test "originating review authority approval reuses the exact delivery signature shape" {
+    run "$PYTHON" - "$REQUIREMENTS_SCHEMA" "$EVOLUTION_SCHEMA" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    requirement = json.load(handle)
+with open(sys.argv[2], encoding="utf-8") as handle:
+    review = json.load(handle)
+
+
+def without_descriptions(value):
+    if isinstance(value, dict):
+        return {
+            key: without_descriptions(nested)
+            for key, nested in value.items()
+            if key != "description"
+        }
+    if isinstance(value, list):
+        return [without_descriptions(nested) for nested in value]
+    return value
+
+
+if without_descriptions(review["$defs"]["authorityApproval"]) != without_descriptions(
+    requirement["$defs"]["authorityApproval"]
+):
+    raise SystemExit("ORIGINATING_REVIEW_AUTHORITY_APPROVAL_CONTRACT_DRIFT")
+PY
+    [ "$status" -eq 0 ]
+}
+
+@test "originating review requires digest and closed signed authority approval" {
+    local missing_digest="$BATS_TEST_TMPDIR/review-missing-digest.yaml"
+    local missing_approval="$BATS_TEST_TMPDIR/review-missing-approval.yaml"
+    local extra_approval="$BATS_TEST_TMPDIR/review-extra-approval.yaml"
+    cp "$EVOLUTION_TEMPLATE" "$missing_digest" || return 1
+    cp "$EVOLUTION_TEMPLATE" "$missing_approval" || return 1
+    cp "$EVOLUTION_TEMPLATE" "$extra_approval" || return 1
+    yq -i 'del(.originating_review.review_digest)' "$missing_digest" || return 1
+    yq -i 'del(.originating_review.authority_approval)' "$missing_approval" || return 1
+    yq -i '.originating_review.authority_approval.self_attested = true' "$extra_approval" || return 1
+    run validate_yaml "$EVOLUTION_SCHEMA" "$missing_digest"
+    [ "$status" -eq 1 ] \
+        && run validate_yaml "$EVOLUTION_SCHEMA" "$missing_approval" \
+        && [ "$status" -eq 1 ] \
+        && run validate_yaml "$EVOLUTION_SCHEMA" "$extra_approval" \
+        && [ "$status" -eq 1 ]
+}
+
+@test "originating review refs reject whitespace-only authority claims" {
+    run reject_mutation "$EVOLUTION_SCHEMA" "$EVOLUTION_TEMPLATE" \
+        '.originating_review.review_ref = "   "'
+    [ "$status" -eq 1 ] \
+        && run reject_mutation "$EVOLUTION_SCHEMA" "$EVOLUTION_TEMPLATE" \
+            '.originating_review.evidence_ref = "  "' \
+        && [ "$status" -eq 1 ]
+}
+
+@test "originating review digest binds reviewer state evidence and cross-document identities" {
+    local expression label mutant
+    while IFS='|' read -r label expression; do
+        mutant="$BATS_TEST_TMPDIR/review-replay-${label}.yaml"
+        cp "$EVOLUTION_TEMPLATE" "$mutant" || return 1
+        yq -i "$expression" "$mutant" || return 1
+        run validate_originating_review_contract "$mutant"
+        [ "$status" -eq 1 ] \
+            && [[ "$output" == *"ORIGINATING_REVIEW_DIGEST_MISMATCH"* ]] \
+            || { echo "unbound review field: ${label}" >&2; return 1; }
+    done <<'CASES'
+review-id|.review_id = "review-9999"
+requirement-id|.requirement_id = "req-9999"
+receipt-id|.delivery_receipt_id = "receipt-9999"
+reviewer|.reviewer = "attacker-reviewer"
+review-ref|.originating_review.review_ref = "review-system/reviews/review-9999"
+state|.originating_review.state = "CHANGES_REQUESTED"
+evidence-ref|.originating_review.evidence_ref = "artifacts/reviews/attacker.json"
+CASES
+}
+
+@test "coherent originating review reseal cannot forge the operator signature" {
+    local mutant="$BATS_TEST_TMPDIR/review-coherent-reseal.yaml"
+    cp "$EVOLUTION_TEMPLATE" "$mutant" || return 1
+    yq -i '.originating_review.state = "CHANGES_REQUESTED"' "$mutant" || return 1
+    reseal_originating_review_placeholder "$mutant" || return 1
+    validate_originating_review_contract "$mutant" || return 1
+    run verify_originating_review_signature "$mutant"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"ORIGINATING_REVIEW_SIGNATURE_INVALID"* ]]
+}
+
+@test "originating review observation cannot postdate completed review" {
+    local mutant="$BATS_TEST_TMPDIR/review-future-observation.yaml"
+    cp "$EVOLUTION_TEMPLATE" "$mutant" || return 1
+    yq -i '.originating_review.observed_at = "2026-01-03T15:01:00Z"' "$mutant" || return 1
+    reseal_originating_review_placeholder "$mutant" || return 1
+    run validate_originating_review_contract "$mutant"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"ORIGINATING_REVIEW_OBSERVED_AFTER_REVIEWED_AT"* ]]
+}
+
+@test "originating review approval key authorization rejects attacker identity role and key state" {
+    local label expression expected mutant
+    while IFS='|' read -r label expression expected; do
+        mutant="$BATS_TEST_TMPDIR/review-key-${label}.yaml"
+        cp "$EVOLUTION_TEMPLATE" "$mutant" || return 1
+        yq -i "$expression" "$mutant" || return 1
+        reseal_originating_review_placeholder "$mutant" || return 1
+        run validate_originating_review_contract "$mutant"
+        [ "$status" -eq 1 ] && [[ "$output" == *"${expected}"* ]] \
+            || { echo "unattributed review key vector: ${label}" >&2; return 1; }
+    done <<'CASES'
+unknown|.originating_review.authority_approval.key_id = "key-unknown-0001"|ORIGINATING_REVIEW_APPROVAL_KEY_UNKNOWN
+attacker-id|.originating_review.authority_approval.authority_id = "authority-attacker-0001"|ORIGINATING_REVIEW_APPROVAL_KEY_AUTHORITY_ID_MISMATCH
+role-escalation|.originating_review.authority_approval.authority_role = "CUSTOMER"|ORIGINATING_REVIEW_APPROVAL_KEY_ROLE_UNAUTHORIZED
+revoked|.originating_review.authority_approval.key_id = "key-review-revoked-0001"|ORIGINATING_REVIEW_APPROVAL_KEY_NOT_ACTIVE
+future|.originating_review.authority_approval.key_id = "key-review-future-0001"|ORIGINATING_REVIEW_APPROVAL_KEY_NOT_YET_VALID
+expired|.originating_review.authority_approval.key_id = "key-review-expired-0001"|ORIGINATING_REVIEW_APPROVAL_KEY_EXPIRED
+CASES
+}
+
+@test "originating review template carries a real operator signature" {
+    validate_originating_review_contract "$EVOLUTION_TEMPLATE" \
+        && verify_originating_review_signature "$EVOLUTION_TEMPLATE"
+}
+
+@test "originating review signature mutation is rejected independently" {
+    local mutant="$BATS_TEST_TMPDIR/review-signature-mutant.yaml"
+    cp "$EVOLUTION_TEMPLATE" "$mutant" || return 1
+    yq -i '.originating_review.authority_approval.signature = "ed25519:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="' "$mutant" || return 1
+    validate_originating_review_contract "$mutant" || return 1
+    run verify_originating_review_signature "$mutant"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"ORIGINATING_REVIEW_SIGNATURE_INVALID"* ]]
 }
 
 @test "originating review approved open and changes-requested states are schema-valid" {
