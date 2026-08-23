@@ -18,7 +18,7 @@
       "algorithm": "SHA-256",
       "canonicalization": "RFC8785",
       "encoding": "UTF-8",
-      "covered_fields": ["requirement_id", "status", "recorded_at", "evidence_ref", "note?", "superseded_by?"],
+      "covered_fields": ["receipt_id", "requirement_set_id", "requirement_id", "coverage_chain_digest", "status", "recorded_at", "evidence_ref", "note?", "superseded_by?"],
       "excluded_fields": ["disposition_digest", "authority_approval"]
     },
     "approval_payload_digest": {
@@ -32,7 +32,37 @@
       "schema_relative_path": "customer-requirement.schema.json",
       "json_pointer": "/x-datarim-signature-contract",
       "signed_field": "authority_approval.approval_payload_digest"
-    }
+    },
+    "verification_sequence": [
+      "DISPOSITION_RECEIPT_ID_EQUALS_TOP_RECEIPT_ID",
+      "DISPOSITION_REQUIREMENT_SET_ID_EQUALS_TOP_REQUIREMENT_SET_ID",
+      "DISPOSITION_REQUIREMENT_ID_EQUALS_REQUIREMENT_ENTRY_KEY",
+      "COVERAGE_CHAIN_DIGEST_VALID",
+      "DISPOSITION_DIGEST_VALID",
+      "DISPOSITION_APPROVAL_DIGEST_EQUALS_DISPOSITION_DIGEST",
+      "DISPOSITION_APPROVAL_PAYLOAD_DIGEST_VALID",
+      "DISPOSITION_APPROVAL_KEY_AUTHORIZED",
+      "DISPOSITION_SIGNATURE_VALID"
+    ]
+  },
+  "x-datarim-coverage-chain-digest-contract": {
+    "algorithm": "SHA-256",
+    "canonicalization": "RFC8785",
+    "encoding": "UTF-8",
+    "source_object": "requirements.{requirement_id}.coverage_chain",
+    "included_members": [
+      "requirement",
+      "selected_knowledge",
+      "implementation_delta",
+      "red_green",
+      "merged_revision",
+      "deployed_revision",
+      "live_evidence"
+    ],
+    "excluded_members": ["customer_disposition"],
+    "object_member_order": "RFC8785_UTF16_CODE_UNIT_LEXICOGRAPHIC",
+    "array_order": "PRESERVE_DOCUMENT_ORDER_AS_COMMITTED",
+    "digest_input": "RFC8785_CANONICAL_JSON_UTF8_BYTES_WITHOUT_DIGEST_PREFIX"
   },
   "x-datarim-semantic-invariants": {
     "description": "Draft 2020-12 validates shape only; the deterministic customer-delivery validator must enforce every registered cross-record invariant.",
@@ -68,6 +98,10 @@
       "receipt-deployed-digest-equals-merged-digest",
       "receipt-disposition-equals-requirement-disposition",
       "receipt-disposition-closure-exact",
+      "receipt-coverage-chain-canonical-digest-valid",
+      "receipt-disposition-receipt-id-equals-top-id",
+      "receipt-disposition-requirement-set-id-equals-top-id",
+      "receipt-disposition-requirement-id-equals-entry-key",
       "receipt-terminal-disposition-signed",
       "receipt-pending-disposition-unsigned",
       "receipt-disposition-canonical-digest-valid",
@@ -536,6 +570,10 @@
         "status": { "enum": ["pending", "accepted", "rejected", "superseded"] },
         "recorded_at": { "type": "string", "format": "date-time" },
         "evidence_ref": { "type": "string", "minLength": 1 },
+        "receipt_id": { "type": "string", "pattern": "^receipt-[0-9]{4}$" },
+        "requirement_set_id": { "type": "string", "pattern": "^reqset-[0-9]{4}$" },
+        "requirement_id": { "type": "string", "pattern": "^req-[0-9]{4}$" },
+        "coverage_chain_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
         "disposition_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
         "authority_approval": { "$ref": "#/$defs/dispositionAuthorityApproval" },
         "note": { "type": "string", "minLength": 1 },
@@ -559,11 +597,24 @@
             "not": {
               "anyOf": [
                 { "required": ["disposition_digest"] },
-                { "required": ["authority_approval"] }
+                { "required": ["authority_approval"] },
+                { "required": ["receipt_id"] },
+                { "required": ["requirement_set_id"] },
+                { "required": ["requirement_id"] },
+                { "required": ["coverage_chain_digest"] }
               ]
             }
           },
-          "else": { "required": ["disposition_digest", "authority_approval"] }
+          "else": {
+            "required": [
+              "receipt_id",
+              "requirement_set_id",
+              "requirement_id",
+              "coverage_chain_digest",
+              "disposition_digest",
+              "authority_approval"
+            ]
+          }
         }
       ]
     },
