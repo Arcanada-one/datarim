@@ -334,6 +334,7 @@ PY
     local -a pairs=(
         'python_runtime|interpreter wrapper cannot impersonate the pinned Python runtime'
         'python_inode|perfect probe dependency and MET forgery cannot impersonate a trusted CPython inode'
+        'python_runtime_metadata|forged writable trusted runtime metadata fails closed'
         'wrapper_response|empty validator response cannot be accepted as MET'
         'git_no_replace_objects|Git replacement objects cannot hide an in-place source mutation'
         'git_process_group|source history deadline kills stubborn descendant pipe holders'
@@ -386,6 +387,14 @@ run_trusted_python() {
 }
 '''
     source = source[:start] + replacement + source[end:]
+elif kind == "python_runtime_metadata":
+    start_token = 'if [[ -z "$trusted_runtime_metadata" || "$trusted_runtime_uid" != 0 \\\n'
+    end_token = 'then  # SECURITY_RULE:python_runtime_metadata_trust'
+    if source.count(start_token) != 1 or source.count(end_token) != 1:
+        raise SystemExit("PYTHON_RUNTIME_METADATA_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+    start = source.index(start_token)
+    end = source.index(end_token, start) + len(end_token)
+    source = source[:start] + 'if false; then  # MUTATED:python_runtime_metadata_trust' + source[end:]
 elif kind == "wrapper_response":
     old = 'if [[ "$response_valid" != true ]]; then'
     if source.count(old) != 1:

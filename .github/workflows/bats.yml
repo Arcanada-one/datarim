@@ -138,6 +138,9 @@ jobs:
           bash tests/ci-install-bats-deps.sh --python-only \
             --python-bin "$RUNNER_TEMP/customer-delivery-venv/bin/python"
 
+      - name: Verify trusted Python launcher runtime and dependencies
+        run: bash tests/check-customer-delivery-python-runtime.sh "$RUNNER_TEMP/customer-delivery-venv/bin/python"
+
       - name: Run bounded exact shard
         timeout-minutes: 2
         run: |
@@ -257,6 +260,9 @@ jobs:
           /bin/ln -sf /usr/bin/python3 "$RUNNER_TEMP/customer-delivery-venv/bin/python"
           bash tests/ci-install-bats-deps.sh --python-only \
             --python-bin "$RUNNER_TEMP/customer-delivery-venv/bin/python"
+
+      - name: Verify trusted Python launcher runtime and dependencies
+        run: bash tests/check-customer-delivery-python-runtime.sh "$RUNNER_TEMP/customer-delivery-venv/bin/python"
 
       - name: Run bounded exact shard
         timeout-minutes: 2

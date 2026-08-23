@@ -242,6 +242,13 @@ YAML
         && ! grep -qE 'bats dev-tools/tests/(check-customer-delivery|customer-delivery-schema|customer-delivery-mutation)\.bats' "$WF"
 }
 
+@test "Linux and macOS customer-delivery jobs preflight launcher runtime identity and dependencies" {
+    local preflight="$ROOT/tests/check-customer-delivery-python-runtime.sh"
+    [ -x "$preflight" ] \
+        && [ "$(grep -c 'bash tests/check-customer-delivery-python-runtime.sh "\$RUNNER_TEMP/customer-delivery-venv/bin/python"' "$WF")" -eq 2 ] \
+        && { [[ -z "${CUSTOMER_CI_PYTHON:-}" ]] || "$preflight" "$CI_PYTHON"; }
+}
+
 @test "customer-delivery CI matrices come only from the canonical shard registry" {
     grep -q 'linux_matrix:.*steps.customer_delivery_matrix.outputs.linux' "$WF" \
         && grep -q 'macos_matrix:.*steps.customer_delivery_matrix.outputs.macos' "$WF" \

@@ -1759,6 +1759,47 @@ PY
         && ! grep -q 'python_anchor in /usr/bin/python3 /usr/local/bin/python3' "$SCRIPT"
 }
 
+@test "forged writable trusted runtime metadata fails closed" {
+    build_test_framework forged-writable-runtime || return 1
+    "$PYTHON" - "$TEST_SCRIPT" <<'PY' || return 1
+import sys
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as handle:
+    source = handle.read()
+needle = '''IFS='|' read -r trusted_runtime_device trusted_runtime_inode trusted_runtime_uid \\
+    trusted_runtime_mode trusted_runtime_type <<<"$trusted_runtime_metadata"
+'''
+if source.count(needle) != 1:
+    raise SystemExit("TRUSTED_RUNTIME_METADATA_FIXTURE_SEAM_MISSING_OR_AMBIGUOUS")
+source = source.replace(
+    needle,
+    needle + "trusted_runtime_uid=1000\ntrusted_runtime_mode=777\n",
+)
+with open(path, "w", encoding="utf-8") as handle:
+    handle.write(source)
+PY
+    chmod +x "$TEST_SCRIPT"
+
+    run_test_framework_json
+    [ "$status" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "ERROR" and d["findings"] == ["untrusted_python_runtime"]' "$output"
+}
+
+@test "ambient Python and Apple developer routing cannot redirect the trusted runtime" {
+    mkdir -p "${BATS_TEST_TMPDIR}/hostile-python-home"
+    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
+        PYTHONHOME="${BATS_TEST_TMPDIR}/hostile-python-home" \
+        PYTHONPATH="${BATS_TEST_TMPDIR}/hostile-python-home" \
+        PYTHONEXECUTABLE="${BATS_TEST_TMPDIR}/hostile-python" \
+        __PYVENV_LAUNCHER__="${BATS_TEST_TMPDIR}/hostile-launcher" \
+        DEVELOPER_DIR="${BATS_TEST_TMPDIR}/hostile-developer" \
+        TOOLCHAINS='hostile.toolchain' \
+        "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+    [ "$status" -eq 0 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "MET"' "$output"
+}
+
 @test "canonical inputs are parsed from confined stable descriptor snapshots" {
     grep -q '# SECURITY_RULE:input_snapshot_openat' "$SCRIPT" \
         && grep -q '# SECURITY_RULE:input_snapshot_identity' "$SCRIPT"

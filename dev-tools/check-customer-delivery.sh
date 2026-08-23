@@ -185,7 +185,7 @@ for python_anchor in "${python_anchors[@]}"; do
     [[ -e "$python_anchor" ]] || continue
     anchor_metadata="$(stat_identity "$python_anchor" || true)"
     [[ -n "$anchor_metadata" && "$python_metadata" == "$anchor_metadata" ]] || continue
-    IFS='|' read -r python_device python_inode python_uid python_mode python_type \
+    IFS='|' read -r _ _ python_uid python_mode python_type \
         <<<"$anchor_metadata"
     if [[ "$python_uid" == 0 && "$python_mode" =~ ^[0-7]{3,4}$ \
         && ("$python_type" == 'regular file' || "$python_type" == 'Regular File') ]] \
@@ -199,10 +199,107 @@ if [[ "$python_trusted" != true ]]; then  # SECURITY_RULE:python_inode_trust
     emit_config_error 'untrusted_python_runtime'
     exit 2
 fi
+
+# Apple's fixed /usr/bin/python3 is an xcselect launcher, not necessarily the
+# final CPython binary. Resolve it with all pre-CPython routing authority
+# removed, then execute only the validated runtime.  # PORTABLE_TRUST:launcher_runtime_identity
+unset DEVELOPER_DIR TOOLCHAINS __PYVENV_LAUNCHER__ PYTHONEXECUTABLE PYTHONHOME PYTHONPATH
+
+secure_root_path() {
+    local candidate="$1"
+    local required_root="$2"
+    local final_kind="$3"
+    local current='' component metadata uid mode type
+    local -a components=()
+    [[ "$candidate" == /* && "$candidate" != *$'\n'* ]] || return 1
+    if [[ -n "$required_root" ]]; then
+        case "$candidate" in
+            "$required_root"|"$required_root"/*) ;;
+            *) return 1 ;;
+        esac
+    fi
+    IFS='/' read -r -a components <<<"${candidate#/}"
+    ((${#components[@]} > 0)) || return 1
+    for component in "${components[@]}"; do
+        [[ -n "$component" && "$component" != . && "$component" != .. ]] || return 1
+        current="${current}/${component}"
+        metadata="$(stat_identity "$current" || true)"
+        IFS='|' read -r _ _ uid mode type <<<"$metadata"
+        [[ -n "$metadata" && "$uid" == 0 && "$mode" =~ ^[0-7]{3,4}$ ]] || return 1
+        (( (8#$mode & 8#022) == 0 )) || return 1
+        if [[ "$current" == "$candidate" ]]; then
+            case "$final_kind:$type" in
+                'file:regular file'|'file:Regular File'|'directory:directory'|'directory:Directory') ;;
+                *) return 1 ;;
+            esac
+        else
+            [[ "$type" == directory || "$type" == Directory ]] || return 1
+        fi
+    done
+}
+
+trusted_developer_root=''
+if [[ "$platform" == Darwin ]]; then
+    trusted_developer_root="$(/usr/bin/env -i LC_ALL=C PATH=/usr/bin:/bin \
+        /usr/bin/xcode-select -p 2>/dev/null || true)"
+    secure_root_path "$trusted_developer_root" '' directory || {
+        emit_config_error 'untrusted_python_runtime'
+        exit 2
+    }
+fi
+secure_root_path "$trusted_python_anchor" '' file || {
+    emit_config_error 'untrusted_python_runtime'
+    exit 2
+}
+trusted_runtime_path="$(/usr/bin/env -i LC_ALL=C PATH=/usr/bin:/bin \
+    "$trusted_python_anchor" -I -c 'import sys; print(sys.executable)' 2>/dev/null || true)"
+secure_root_path "$trusted_runtime_path" "$trusted_developer_root" file || {
+    emit_config_error 'untrusted_python_runtime'
+    exit 2
+}
+trusted_runtime_metadata="$(stat_identity "$trusted_runtime_path" || true)"
+IFS='|' read -r trusted_runtime_device trusted_runtime_inode trusted_runtime_uid \
+    trusted_runtime_mode trusted_runtime_type <<<"$trusted_runtime_metadata"
+if [[ -z "$trusted_runtime_metadata" || "$trusted_runtime_uid" != 0 \
+    || ! "$trusted_runtime_mode" =~ ^[0-7]{3,4}$ \
+    || ("$trusted_runtime_type" != 'regular file' && "$trusted_runtime_type" != 'Regular File') ]] \
+    || (( (8#$trusted_runtime_mode & 8#022) != 0 )); then  # SECURITY_RULE:python_runtime_metadata_trust
+    emit_config_error 'untrusted_python_runtime'
+    exit 2
+fi
+
+assert_python_runtime_identity() {
+    local current_candidate current_runtime
+    current_candidate="$(stat_identity "$python_bin" || true)"
+    current_runtime="$(stat_identity "$trusted_runtime_path" || true)"
+    [[ "$current_candidate" == "$python_metadata" \
+        && "$current_runtime" == "$trusted_runtime_metadata" ]] \
+        && secure_root_path "$trusted_runtime_path" "$trusted_developer_root" file
+}
+
 run_trusted_python() {
-    (
-        exec -a "$python_bin" "$trusted_python_anchor" "$@"
-    )
+    local child_status
+    assert_python_runtime_identity || return 126
+    if [[ "$platform" == Darwin ]]; then
+        if /usr/bin/env -i LC_ALL=C \
+            __PYVENV_LAUNCHER__="$python_bin" \
+            "$trusted_runtime_path" "$@"; then
+            child_status=0
+        else
+            child_status=$?
+        fi
+    else
+        if (
+            unset DEVELOPER_DIR TOOLCHAINS __PYVENV_LAUNCHER__ PYTHONEXECUTABLE PYTHONHOME PYTHONPATH
+            exec -a "$python_bin" "$trusted_runtime_path" "$@"
+        ); then
+            child_status=0
+        else
+            child_status=$?
+        fi
+    fi
+    assert_python_runtime_identity || return 126
+    return "$child_status"
 }
 python_probe="$(run_trusted_python -I -c '
 import os
@@ -213,7 +310,7 @@ print(f"{metadata.st_dev}|{metadata.st_ino}|{sys.implementation.name}|{sys.versi
 ' 2>/dev/null || true)"
 IFS='|' read -r probe_device probe_inode probe_implementation probe_major probe_minor \
     <<<"$python_probe"
-if [[ "$probe_device" != "$python_device" || "$probe_inode" != "$python_inode" \
+if [[ "$probe_device" != "$trusted_runtime_device" || "$probe_inode" != "$trusted_runtime_inode" \
     || "$probe_implementation" != cpython || "$probe_major" != 3 \
     || ! "$probe_minor" =~ ^[0-9]+$ || "$probe_minor" -lt "$python_min_minor" ]]; then
     emit_config_error 'untrusted_python_runtime'
