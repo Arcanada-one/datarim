@@ -11,6 +11,8 @@ setup() {
     REQUIREMENTS="${ROOT}/datarim/tasks/${TASK_ID}-customer-requirements.yaml"
     RECEIPT="${ROOT}/datarim/receipts/${TASK_ID}-customer-delivery.yaml"
     REVIEW="${ROOT}/datarim/receipts/${TASK_ID}-review-evolution.yaml"
+    SITE_CLEANUP_PATH=''
+    SITE_CLEANUP_BACKUP=''
     SHA="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     mkdir -p "${ROOT}/datarim/tasks" "${ROOT}/datarim/receipts"
 
@@ -40,6 +42,67 @@ setup() {
     git -C "$ROOT" config user.email test@example.invalid
     git -C "$ROOT" add datarim
     git -C "$ROOT" commit -q -m baseline
+    assert_darwin_dependency_site_integrity
+}
+
+clear_site_cleanup() {
+    SITE_CLEANUP_PATH=''
+    SITE_CLEANUP_BACKUP=''
+}
+
+cleanup_site_fixture() {
+    [[ -n "${SITE_CLEANUP_PATH:-}" ]] || return 0
+    if [[ -L "$SITE_CLEANUP_PATH" ]]; then
+        /bin/unlink -- "$SITE_CLEANUP_PATH" || return 1
+    elif [[ -d "$SITE_CLEANUP_PATH" ]]; then
+        /bin/rmdir -- "$SITE_CLEANUP_PATH" || return 1
+    elif [[ -e "$SITE_CLEANUP_PATH" ]]; then
+        /bin/rm -f -- "$SITE_CLEANUP_PATH" || return 1
+    fi
+    if [[ -n "${SITE_CLEANUP_BACKUP:-}" && -e "$SITE_CLEANUP_BACKUP" ]]; then
+        /bin/mv -- "$SITE_CLEANUP_BACKUP" "$SITE_CLEANUP_PATH" || return 1
+    fi
+    clear_site_cleanup
+}
+
+assert_darwin_dependency_site_integrity() {
+    [[ "$(/usr/bin/uname -s)" == Darwin ]] || return 0
+    /usr/bin/env -i LC_ALL=C \
+        "${CUSTOMER_TEST_PYTHON_RUNTIME:?missing CUSTOMER_TEST_PYTHON_RUNTIME}" \
+        -I -S -c 'import email.parser,os,re,stat,sys
+site=sys.argv[1]
+manifest=sys.argv[2]
+expected=(("jsonschema","4.23.0"),("rfc3339-validator","0.1.4"),("PyYAML","6.0.2"))
+observed=[]
+normalize=lambda value: re.sub(r"[-_.]+","_",value).lower()
+for name,version in expected:
+ matches=[entry for entry in os.listdir(site) if normalize(entry)==normalize(name+"-"+version+".dist-info")]
+ if len(matches)!=1: raise SystemExit("dependency_dist_info_inventory:"+name)
+ dist_path=os.path.join(site,matches[0])
+ dist_entry=os.lstat(dist_path)
+ if not stat.S_ISDIR(dist_entry.st_mode): raise SystemExit("dependency_dist_info_not_directory:"+dist_path)
+ path=os.path.join(dist_path,"METADATA")
+ entry=os.lstat(path)
+ if not stat.S_ISREG(entry.st_mode): raise SystemExit("dependency_metadata_not_regular:"+path)
+ with open(path,encoding="utf-8") as handle: parsed=email.parser.Parser().parse(handle)
+ if parsed.get_all("Name") != [name] or parsed.get_all("Version") != [version]:
+  raise SystemExit("dependency_metadata_mismatch:"+path)
+ observed.append(f"{normalize(name)}:{dist_entry.st_dev}:{dist_entry.st_ino}:{entry.st_dev}:{entry.st_ino}")
+snapshot="\n".join(observed)+"\n"
+try:
+ fd=os.open(manifest,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_CLOEXEC,0o600)
+except FileExistsError:
+ with open(manifest,encoding="ascii") as handle: prior=handle.read()
+ if prior!=snapshot: raise SystemExit("dependency_site_identity_changed")
+else:
+ with os.fdopen(fd,"w",encoding="ascii") as handle: handle.write(snapshot)
+' "${CUSTOMER_TEST_PYTHON_SITE:?missing CUSTOMER_TEST_PYTHON_SITE}" \
+        "${CUSTOMER_TEST_PYTHON_SITE:?missing CUSTOMER_TEST_PYTHON_SITE}.integrity"
+}
+
+teardown() {
+    cleanup_site_fixture || return 1
+    assert_darwin_dependency_site_integrity
 }
 
 test_seed() {
@@ -66,6 +129,37 @@ run_validator() {
 run_validator_json() {
     run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+}
+
+run_validator_json_bounded() {
+    local validator="$1" seconds="${2:-2}"
+    run "$PYTHON" - "$validator" "$VALIDATOR_PYTHON" "$ROOT" "$TASK_ID" "$seconds" <<'PY'
+import os
+import signal
+import subprocess
+import sys
+
+validator, python_bin, root, task, seconds = sys.argv[1:]
+environment = os.environ.copy()
+environment["CUSTOMER_DELIVERY_PYTHON"] = python_bin
+process = subprocess.Popen(
+    [validator, "--root", root, "--task", task, "--stage", "qa", "--format", "json"],
+    env=environment,
+    stdout=subprocess.PIPE,
+    stderr=subprocess.STDOUT,
+    start_new_session=True,
+    text=True,
+)
+try:
+    output, _ = process.communicate(timeout=float(seconds))
+except subprocess.TimeoutExpired:
+    os.killpg(process.pid, signal.SIGKILL)
+    output, _ = process.communicate()
+    sys.stdout.write(output)
+    raise SystemExit(124)
+sys.stdout.write(output)
+raise SystemExit(process.returncode)
+PY
 }
 
 commit_invalid_historical_requirements() {
@@ -370,7 +464,7 @@ sign_test_digest() {
 }
 
 prepare_two_requirement_fixture() {
-    local second_state="${1:-APPROVED}" seed public_key secret_key
+    local second_state="${1:-APPROVED}" seed public_key secret_key digests_raw digest_value
     local -a digests
     local source_signature assertion_signature disposition_signature review_signature
     seed="$(test_seed)"
@@ -425,7 +519,7 @@ if count != 1:
 with open(script_path, "w", encoding="utf-8") as handle:
     handle.write(source)
 PY
-    mapfile -t digests < <("$PYTHON" - "$REQUIREMENTS" "$RECEIPT" "$REVIEW" "$second_state" <<'PY'
+    digests_raw="$("$PYTHON" - "$REQUIREMENTS" "$RECEIPT" "$REVIEW" "$second_state" <<'PY'
 import copy
 import hashlib
 import json
@@ -605,7 +699,14 @@ print(disposition_approval["approval_payload_digest"])
 print(review_digest)
 print(manifest_digest)
 PY
-    ) || return 1
+)" || return 1
+    while IFS= read -r digest_value; do
+        digests[${#digests[@]}]="$digest_value"
+    done <<<"$digests_raw"
+    [[ "${#digests[@]}" -eq 5 ]] || {
+        printf 'two_requirement_digest_inventory=%s raw=%s\n' "${#digests[@]}" "$digests_raw"
+        return 1
+    }
     source_signature="$(sign_test_digest "$secret_key" "${digests[0]}")" || return 1
     assertion_signature="$(sign_test_digest "$secret_key" "${digests[1]}")" || return 1
     disposition_signature="$(sign_test_digest "$secret_key" "${digests[2]}")" || return 1
@@ -799,7 +900,8 @@ PY
 }
 
 prepare_same_requirement_review_inventory() {
-    local second_state="${1:-APPROVED}" seed public_key secret_key digests
+    local second_state="${1:-APPROVED}" seed public_key secret_key digests_raw digest_value
+    local -a digests
     local review_signature manifest_signature
     seed="$(test_seed)"
     # shellcheck disable=SC2016
@@ -850,7 +952,7 @@ if count != 1:
 with open(script_path, "w", encoding="utf-8") as handle:
     handle.write(source)
 PY
-    mapfile -t digests < <("$PYTHON" - "$REVIEW" "$second_state" <<'PY'
+    digests_raw="$("$PYTHON" - "$REVIEW" "$second_state" <<'PY'
 import copy
 import hashlib
 import json
@@ -913,7 +1015,14 @@ with open(path, "w", encoding="utf-8") as handle:
 print(approval["approval_payload_digest"])
 print(manifest_approval["approval_payload_digest"])
 PY
-    ) || return 1
+)" || return 1
+    while IFS= read -r digest_value; do
+        digests[${#digests[@]}]="$digest_value"
+    done <<<"$digests_raw"
+    [[ "${#digests[@]}" -eq 2 ]] || {
+        printf 'same_requirement_digest_inventory=%s raw=%s\n' "${#digests[@]}" "$digests_raw"
+        return 1
+    }
     review_signature="$(sign_test_digest "$secret_key" "${digests[0]}")" || return 1
     manifest_signature="$(sign_test_digest "$secret_key" "${digests[1]}")" || return 1
     yq -i ".originating_review_inventory[1].authority_approval.signature = \"${review_signature}\" |
@@ -1742,8 +1851,11 @@ PY
 @test "ambient framework-root override cannot replace bundled schemas" {
     run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" CUSTOMER_DELIVERY_FRAMEWORK_ROOT="${BATS_TEST_TMPDIR}/hostile-framework" \
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
-    [ "$status" -eq 0 ] \
-        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "MET"' "$output"
+    if [ "$status" -ne 0 ] \
+        || ! "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "MET"' "$output"; then
+        printf 'framework_root_status=%s output=%s\n' "$status" "$output"
+        return 1
+    fi
 }
 
 @test "dependency failure is deterministic machine-readable JSON" {
@@ -1752,13 +1864,17 @@ PY
         /usr/bin/env -i LC_ALL=C DEVELOPER_DIR=/Library/Developer/CommandLineTools \
             "${CUSTOMER_TEST_PYTHON_RUNTIME:?missing CUSTOMER_TEST_PYTHON_RUNTIME}" \
             -m venv "$dependency_free_venv" || return 1
+        /bin/ln -sf /usr/bin/python3 "${dependency_free_venv}/bin/python" || return 1
     else
         "$PYTHON" -m venv "$dependency_free_venv" || return 1
     fi
     run env CUSTOMER_DELIVERY_PYTHON="${dependency_free_venv}/bin/python" \
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage compliance --format json
-    [ "$status" -eq 2 ] \
-        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["task"] == "WEB-0001" and d["stage"] == "compliance" and d["status"] == "ERROR" and d["findings"] == ["missing_python_dependencies"]' "$output"
+    if [ "$status" -ne 2 ] \
+        || ! "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["task"] == "WEB-0001" and d["stage"] == "compliance" and d["status"] == "ERROR" and d["findings"] == ["missing_python_dependencies"]' "$output"; then
+        printf 'dependency_failure_status=%s output=%s\n' "$status" "$output"
+        return 1
+    fi
 }
 
 @test "trusted interpreter metadata contract covers Linux and macOS stat semantics" {
@@ -1805,8 +1921,11 @@ PY
         DEVELOPER_DIR="${BATS_TEST_TMPDIR}/hostile-developer" \
         TOOLCHAINS='hostile.toolchain' \
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
-    [ "$status" -eq 0 ] \
-        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "MET"' "$output"
+    if [ "$status" -ne 0 ] \
+        || ! "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "MET"' "$output"; then
+        printf 'routing_scrub_status=%s output=%s\n' "$status" "$output"
+        return 1
+    fi
 }
 
 @test "current directory cannot shadow trusted Python dependencies" {
@@ -1816,9 +1935,12 @@ PY
     printf '%s\n' 'raise RuntimeError("HOSTILE_CWD_BASE64_IMPORTED")' >"${hostile_cwd}/base64.py"
     run bash -c 'cd "$1" && env CUSTOMER_DELIVERY_PYTHON="$2" "$3" --root "$4" --task "$5" --stage qa --format json' \
         bash "$hostile_cwd" "$VALIDATOR_PYTHON" "$SCRIPT" "$ROOT" "$TASK_ID"
-    [ "$status" -eq 0 ] \
-        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "MET"' "$output" \
-        && [[ "$output" != *HOSTILE_CWD_JSONSCHEMA_IMPORTED* ]]
+    if [ "$status" -ne 0 ] \
+        || ! "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "MET"' "$output" \
+        || [[ "$output" == *HOSTILE_CWD_JSONSCHEMA_IMPORTED* ]]; then
+        printf 'cwd_isolation_status=%s output=%s\n' "$status" "$output"
+        return 1
+    fi
 }
 
 @test "Darwin trusted site bootstrap rejects executable pth authority" {
@@ -1826,14 +1948,15 @@ PY
     local site_path hostile_pth result output_copy
     site_path="${CUSTOMER_TEST_PYTHON_SITE:?missing CUSTOMER_TEST_PYTHON_SITE}"
     hostile_pth="${site_path}/customer_delivery_hostile.pth"
-    trap '/bin/rm -f -- "$hostile_pth"' EXIT
+    SITE_CLEANUP_PATH="$hostile_pth"
     printf '%s\n' 'raise RuntimeError("HOSTILE_PTH_EXECUTED")' >"$hostile_pth"
     run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
     result="$status"
     output_copy="$output"
     /bin/rm -f -- "$hostile_pth"
-    trap - EXIT
+    clear_site_cleanup
+    assert_darwin_dependency_site_integrity || return 1
     [ "$result" -eq 2 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_runtime"]' "$output_copy" \
         && [[ "$output_copy" != *HOSTILE_PTH_EXECUTED* ]]
@@ -1844,14 +1967,15 @@ PY
     local site_path hostile_link result output_copy
     site_path="${CUSTOMER_TEST_PYTHON_SITE:?missing CUSTOMER_TEST_PYTHON_SITE}"
     hostile_link="${site_path}/customer_delivery_outside_link"
-    trap '/bin/rm -f -- "$hostile_link"' EXIT
+    SITE_CLEANUP_PATH="$hostile_link"
     /bin/ln -s "$BATS_TEST_TMPDIR" "$hostile_link"
     run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
     result="$status"
     output_copy="$output"
     /bin/rm -f -- "$hostile_link"
-    trap - EXIT
+    clear_site_cleanup
+    assert_darwin_dependency_site_integrity || return 1
     [ "$result" -eq 2 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_runtime"]' "$output_copy"
 }
@@ -1863,7 +1987,8 @@ PY
     dist_info="${site_path}/jsonschema-4.23.0.dist-info"
     backup="${BATS_TEST_TMPDIR}/jsonschema-dist-info"
     /bin/mv "$dist_info" "$backup" || return 1
-    trap '/bin/rm -f -- "$dist_info"; /bin/mv -- "$backup" "$dist_info"' EXIT
+    SITE_CLEANUP_PATH="$dist_info"
+    SITE_CLEANUP_BACKUP="$backup"
     printf '%s\n' 'forged regular dist-info entry' >"$dist_info"
     run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
@@ -1871,7 +1996,8 @@ PY
     output_copy="$output"
     /bin/rm -f -- "$dist_info"
     /bin/mv -- "$backup" "$dist_info"
-    trap - EXIT
+    clear_site_cleanup
+    assert_darwin_dependency_site_integrity || return 1
     [ "$result" -eq 2 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_runtime"]' "$output_copy"
 }
@@ -1883,7 +2009,8 @@ PY
     dist_info="${site_path}/jsonschema-4.23.0.dist-info"
     backup="${BATS_TEST_TMPDIR}/jsonschema-dist-info-symlink"
     /bin/mv "$dist_info" "$backup" || return 1
-    trap '/bin/unlink -- "$dist_info"; /bin/mv -- "$backup" "$dist_info"' EXIT
+    SITE_CLEANUP_PATH="$dist_info"
+    SITE_CLEANUP_BACKUP="$backup"
     /bin/ln -s "$backup" "$dist_info"
     run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
@@ -1891,7 +2018,8 @@ PY
     output_copy="$output"
     /bin/unlink -- "$dist_info"
     /bin/mv -- "$backup" "$dist_info"
-    trap - EXIT
+    clear_site_cleanup
+    assert_darwin_dependency_site_integrity || return 1
     [ "$result" -eq 2 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_runtime"]' "$output_copy"
 }
@@ -1902,8 +2030,9 @@ PY
     site_path="${CUSTOMER_TEST_PYTHON_SITE:?missing CUSTOMER_TEST_PYTHON_SITE}"
     metadata="${site_path}/jsonschema-4.23.0.dist-info/METADATA"
     backup="${BATS_TEST_TMPDIR}/jsonschema-METADATA"
-    /bin/cp "$metadata" "$backup" || return 1
-    trap '/bin/cp -- "$backup" "$metadata"' EXIT
+    /bin/mv "$metadata" "$backup" || return 1
+    SITE_CLEANUP_PATH="$metadata"
+    SITE_CLEANUP_BACKUP="$backup"
     : >"$metadata"
     while IFS= read -r line; do
         if [[ "$line" == 'Version: '* ]]; then
@@ -1916,8 +2045,10 @@ PY
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
     result="$status"
     output_copy="$output"
-    /bin/cp -- "$backup" "$metadata"
-    trap - EXIT
+    /bin/rm -f -- "$metadata"
+    /bin/mv -- "$backup" "$metadata"
+    clear_site_cleanup
+    assert_darwin_dependency_site_integrity || return 1
     [ "$result" -eq 2 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_runtime"]' "$output_copy"
 }
@@ -1927,16 +2058,20 @@ PY
     local site_path metadata backup kind result output_copy
     site_path="${CUSTOMER_TEST_PYTHON_SITE:?missing CUSTOMER_TEST_PYTHON_SITE}"
     metadata="${site_path}/jsonschema-4.23.0.dist-info/METADATA"
-    for kind in symlink directory oversized wrong_name duplicate_name duplicate_version; do
+    for kind in symlink directory fifo oversized wrong_name duplicate_name duplicate_version; do
         backup="${BATS_TEST_TMPDIR}/jsonschema-METADATA-${kind}"
         /bin/mv "$metadata" "$backup" || return 1
-        trap 'if [[ -L "$metadata" ]]; then /bin/unlink -- "$metadata"; elif [[ -d "$metadata" ]]; then /bin/rmdir -- "$metadata"; elif [[ -e "$metadata" ]]; then /bin/mv -- "$metadata" "${BATS_TEST_TMPDIR}/failed-forged-METADATA"; fi; [[ ! -e "$metadata" ]] && /bin/mv -- "$backup" "$metadata"' EXIT
+        SITE_CLEANUP_PATH="$metadata"
+        SITE_CLEANUP_BACKUP="$backup"
         case "$kind" in
             symlink)
                 /bin/ln -s "$backup" "$metadata" || return 1
                 ;;
             directory)
                 /bin/mkdir "$metadata" || return 1
+                ;;
+            fifo)
+                "$PYTHON" -c 'import os,sys; os.mkfifo(sys.argv[1])' "$metadata" || return 1
                 ;;
             oversized)
                 "$PYTHON" -c 'import sys; open(sys.argv[1], "wb").write(b"Name: jsonschema\nVersion: 4.23.0\n\n" + b"x" * 1048577)' "$metadata" || return 1
@@ -1951,8 +2086,12 @@ PY
                 { printf '%s\n' 'Version: 4.23.0'; /bin/cat "$backup"; } >"$metadata"
                 ;;
         esac
-        run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
-            "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+        if [[ "$kind" == fifo ]]; then
+            run_validator_json_bounded "$SCRIPT" 2
+        else
+            run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+                "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+        fi
         result="$status"
         output_copy="$output"
         if [[ -L "$metadata" ]]; then
@@ -1963,7 +2102,8 @@ PY
             /bin/mv -- "$metadata" "${BATS_TEST_TMPDIR}/forged-METADATA-${kind}"
         fi
         /bin/mv -- "$backup" "$metadata"
-        trap - EXIT
+        clear_site_cleanup
+        assert_darwin_dependency_site_integrity || return 1
         if [ "$result" -ne 2 ] \
             || ! "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_runtime"]' "$output_copy"; then
             printf 'METADATA boundary kind=%s status=%s output=%s\n' "$kind" "$result" "$output_copy"
@@ -2004,16 +2144,19 @@ if source.count(old) != 1:
     raise SystemExit("METADATA_IDENTITY_ATTACK_SEAM_MISSING_OR_AMBIGUOUS")
 open(path, "w", encoding="utf-8").write(source.replace(old, new))
 PY
-    trap 'if [[ -e "$original" ]]; then /bin/mv -- "$metadata" "$replacement"; /bin/mv -- "$original" "$metadata"; fi' EXIT
+    SITE_CLEANUP_PATH="$metadata"
+    SITE_CLEANUP_BACKUP="$original"
     run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         "$TEST_SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
     result="$status"
     output_copy="$output"
     if [[ -e "$original" ]]; then
+        /bin/rm -f -- "$replacement"
         /bin/mv -- "$metadata" "$replacement"
         /bin/mv -- "$original" "$metadata"
     fi
-    trap - EXIT
+    clear_site_cleanup
+    assert_darwin_dependency_site_integrity || return 1
     [ "$result" -eq 2 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_runtime"]' "$output_copy"
 }
@@ -2621,9 +2764,11 @@ CASES
         '.source_remarks[0].source_ref = "customer-interview-newly-signed"' \
         || return 1
     run_test_framework_json
-    [ "$status" -eq 1 ] \
-        && [[ "$output" == *"source_history_prior_digest_deleted:"* ]] \
-        || return 1
+    if [ "$status" -ne 1 ] \
+        || [[ "$output" != *"source_history_prior_digest_deleted:"* ]]; then
+        printf 'root_swap_baseline_status=%s output=%s\n' "$status" "$output"
+        return 1
+    fi
     mkdir -p "$substitute/datarim/tasks"
     cp "$REQUIREMENTS" "$substitute/datarim/tasks/${TASK_ID}-customer-requirements.yaml"
     git -C "$substitute" init -q
@@ -2645,8 +2790,11 @@ assert source.count(old) == 1
 open(path, "w", encoding="utf-8").write(source.replace(old, new))
 PY
     run_test_framework_json
-    [ "$status" -eq 1 ] \
-        && [[ "$output" == *"source_history_repository_identity_changed:root"* ]]
+    if [ "$status" -ne 1 ] \
+        || [[ "$output" != *"source_history_repository_identity_changed:root"* ]]; then
+        printf 'root_swap_attack_status=%s output=%s\n' "$status" "$output"
+        return 1
+    fi
 }
 
 @test "authoritative gitdir replacement after document snapshots cannot redirect source history" {

@@ -411,6 +411,7 @@ def authenticated_dist_version(site_fd, distribution, expected_version):  # SECU
         metadata_flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC
         os.fchdir(dist_fd)
         dist_cwd_metadata = os.stat(".")
+        dist_cwd_identity = (dist_cwd_metadata.st_dev, dist_cwd_metadata.st_ino)
         if (
             dist_cwd_metadata.st_dev,
             dist_cwd_metadata.st_ino,
@@ -419,6 +420,14 @@ def authenticated_dist_version(site_fd, distribution, expected_version):  # SECU
             opened_dist_metadata.st_ino,
         ):
             raise RuntimeError("dist_info_cwd_identity_changed")
+        metadata_entry = os.stat("METADATA", follow_symlinks=False)
+        if (
+            not stat.S_ISREG(metadata_entry.st_mode)
+            or metadata_entry.st_size <= 0
+            or metadata_entry.st_size > 1048576
+        ):
+            raise RuntimeError("dist_info_metadata_invalid")
+        metadata_flags |= os.O_NONBLOCK
         metadata_fd = os.open("METADATA", metadata_flags)
         try:
             metadata_before = os.fstat(metadata_fd)
@@ -426,6 +435,15 @@ def authenticated_dist_version(site_fd, distribution, expected_version):  # SECU
                 not stat.S_ISREG(metadata_before.st_mode)
                 or metadata_before.st_size <= 0
                 or metadata_before.st_size > 1048576
+                or (
+                    metadata_before.st_dev,
+                    metadata_before.st_ino,
+                    metadata_before.st_size,
+                ) != (
+                    metadata_entry.st_dev,
+                    metadata_entry.st_ino,
+                    metadata_entry.st_size,
+                )
             ):
                 raise RuntimeError("dist_info_metadata_invalid")
             remaining = metadata_before.st_size
@@ -477,7 +495,10 @@ def authenticated_dist_version(site_fd, distribution, expected_version):  # SECU
         or versions[0] != expected_version
     ):  # SECURITY_RULE:python_distinfo_metadata
         raise RuntimeError(
-            f"dist_info_metadata_mismatch:{distribution}:{names!r}:{versions!r}"
+            "dist_info_metadata_mismatch:"
+            f"{distribution}:{dist_info}:cwd={dist_cwd_identity}:"
+            f"opened={(opened_dist_metadata.st_dev, opened_dist_metadata.st_ino)}:"
+            f"{names!r}:{versions!r}"
         )
     return versions[0]
 

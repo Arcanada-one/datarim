@@ -56,7 +56,7 @@ for assertion_start in status_lines:
         cursor += 1
 allowed.extend(
     index + 1 for index in range(start + 1, end)
-    if lines[index] == "    return 1"
+    if lines[index].strip() == "return 1"
 )
 print(",".join(str(value) for value in allowed))
 PY

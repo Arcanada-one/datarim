@@ -233,14 +233,27 @@ def authenticated_version(distribution, expected_version):
             raise RuntimeError("dist_info_identity_changed")
         os.fchdir(dist_fd)
         dist_cwd = os.stat(".")
+        dist_cwd_identity = (dist_cwd.st_dev, dist_cwd.st_ino)
         if (dist_cwd.st_dev, dist_cwd.st_ino) != (opened.st_dev, opened.st_ino):
             raise RuntimeError("dist_info_cwd_identity_changed")
+        metadata_entry = os.stat("METADATA", follow_symlinks=False)
+        if (
+            not stat.S_ISREG(metadata_entry.st_mode)
+            or not 0 < metadata_entry.st_size <= 1048576
+        ):
+            raise RuntimeError("metadata_invalid")
         metadata_fd = os.open(
-            "METADATA", os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC
+            "METADATA",
+            os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW | os.O_CLOEXEC,
         )
         try:
             before = os.fstat(metadata_fd)
-            if not stat.S_ISREG(before.st_mode) or not 0 < before.st_size <= 1048576:
+            if (
+                not stat.S_ISREG(before.st_mode)
+                or not 0 < before.st_size <= 1048576
+                or (before.st_dev, before.st_ino, before.st_size)
+                != (metadata_entry.st_dev, metadata_entry.st_ino, metadata_entry.st_size)
+            ):
                 raise RuntimeError("metadata_invalid")
             remaining = before.st_size
             chunks = []
@@ -283,7 +296,11 @@ def authenticated_version(distribution, expected_version):
         or normalize(names[0]) != normalize(distribution)
         or versions[0] != expected_version
     ):
-        raise RuntimeError("metadata_mismatch")
+        raise RuntimeError(
+            "metadata_mismatch:"
+            f"{distribution}:{candidates[0]}:cwd={dist_cwd_identity}:"
+            f"opened={(opened.st_dev, opened.st_ino)}:{names!r}:{versions!r}"
+        )
     return versions[0]
 
 sys.path.insert(0, ".")
