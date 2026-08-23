@@ -466,10 +466,21 @@ def authenticated_dist_version(site_fd, distribution, expected_version):  # SECU
             if os.read(metadata_fd, 1) != b"":
                 raise RuntimeError("dist_info_metadata_oversized")
             metadata_after = os.fstat(metadata_fd)
+            metadata_path_after = os.stat("METADATA", follow_symlinks=False)
             if (
                 not stat.S_ISREG(metadata_after.st_mode)
                 or (metadata_after.st_dev, metadata_after.st_ino, metadata_after.st_size)
                 != (metadata_before.st_dev, metadata_before.st_ino, metadata_before.st_size)
+                or not stat.S_ISREG(metadata_path_after.st_mode)
+                or (
+                    metadata_path_after.st_dev,
+                    metadata_path_after.st_ino,
+                    metadata_path_after.st_size,
+                ) != (
+                    metadata_before.st_dev,
+                    metadata_before.st_ino,
+                    metadata_before.st_size,
+                )
             ):
                 raise RuntimeError("dist_info_metadata_identity_changed")
         finally:
@@ -1103,6 +1114,10 @@ def repository_entry_identity(metadata, *, content_stable=False):
     return identity
 
 
+def repository_control_identity(metadata):  # MUTATION_SEAM:source_history_control_identity
+    return repository_entry_identity(metadata, content_stable=True)
+
+
 def bind_authoritative_repository():
     directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC
     nofollow = getattr(os, "O_NOFOLLOW", 0)
@@ -1185,8 +1200,8 @@ def bind_authoritative_repository():
         gitdir_identity = repository_entry_identity(os.fstat(gitdir_fd))
         common_identity = repository_entry_identity(os.fstat(common_fd))
         objects_identity = repository_entry_identity(os.fstat(objects_fd))
-        common_info_identity = repository_entry_identity(os.fstat(common_info_fd))
-        objects_info_identity = repository_entry_identity(os.fstat(objects_info_fd))
+        common_info_identity = repository_control_identity(os.fstat(common_info_fd))
+        objects_info_identity = repository_control_identity(os.fstat(objects_info_fd))
         return {
             "root_fd": root_fd,
             "root_identity": root_identity,
@@ -1241,15 +1256,15 @@ def repository_identity_issue():
         ) != binding["dotgit_identity"]:
             return "gitdir"
         if (
-            repository_entry_identity(os.fstat(binding["common_info_fd"]))
+            repository_control_identity(os.fstat(binding["common_info_fd"]))
             != binding["common_info_identity"]
-            or repository_entry_identity(
+            or repository_control_identity(
                 os.stat("info", dir_fd=binding["common_fd"], follow_symlinks=False)
             )
             != binding["common_info_identity"]
-            or repository_entry_identity(os.fstat(binding["objects_info_fd"]))
+            or repository_control_identity(os.fstat(binding["objects_info_fd"]))
             != binding["objects_info_identity"]
-            or repository_entry_identity(
+            or repository_control_identity(
                 os.stat("info", dir_fd=binding["objects_fd"], follow_symlinks=False)
             )
             != binding["objects_info_identity"]

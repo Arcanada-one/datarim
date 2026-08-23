@@ -275,28 +275,44 @@ PY
 rebind_test_openssl() {
     local executable="$1"
     local schema="${TEST_FRAMEWORK}/config/customer-requirement.schema.json"
+    local platform_key platform_path
+    case "$(/usr/bin/uname -s):$(/usr/bin/uname -m)" in
+        Linux:*)
+            platform_key='Linux'
+            platform_path='/usr/bin/openssl'
+            ;;
+        Darwin:arm64)
+            platform_key='Darwin-arm64'
+            platform_path='/opt/homebrew/opt/openssl@3/bin/openssl'
+            ;;
+        Darwin:x86_64)
+            platform_key='Darwin-x86_64'
+            platform_path='/usr/local/opt/openssl@3/bin/openssl'
+            ;;
+        *) return 1 ;;
+    esac
     replace_test_script_literal \
         'PINNED_OPENSSL = sys.argv[12]' \
         "PINNED_OPENSSL = \"${executable}\"" || return 1
     replace_test_script_literal \
-        '"Linux": "/usr/bin/openssl",' \
-        "\"Linux\": \"${executable}\"," || return 1
+        "\"${platform_key}\": \"${platform_path}\"," \
+        "\"${platform_key}\": \"${executable}\"," || return 1
     replace_test_script_literal \
         '({0} if PLATFORM == "Linux" else {0, os.geteuid()})' \
         '{0, os.geteuid()}' || return 1
-    "$PYTHON" - "$TEST_SCRIPT" "$schema" "$executable" <<'PY' || return 1
+    "$PYTHON" - "$TEST_SCRIPT" "$schema" "$executable" "$platform_key" <<'PY' || return 1
 import hashlib
 import json
 import sys
 
-script_path, schema_path, executable = sys.argv[1:]
+script_path, schema_path, executable, platform_key = sys.argv[1:]
 with open(schema_path, encoding="utf-8") as handle:
     schema = json.load(handle)
 contract = schema["x-datarim-crypto-verifier-contract"]
 old_digest = hashlib.sha256(
     json.dumps(contract, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
 ).hexdigest()
-contract["platform_executables"]["Linux"] = executable
+contract["platform_executables"][platform_key] = executable
 new_digest = hashlib.sha256(
     json.dumps(contract, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
 ).hexdigest()
@@ -1882,10 +1898,15 @@ PY
 @test "dependency failure is deterministic machine-readable JSON" {
     local dependency_free_venv="${BATS_TEST_TMPDIR}/python-without-dependencies"
     if [[ "$(/usr/bin/uname -s)" == Darwin ]]; then
-        /usr/bin/env -i LC_ALL=C DEVELOPER_DIR=/Library/Developer/CommandLineTools \
+        local runtime_version dependency_site
+        runtime_version="$(/usr/bin/env -i LC_ALL=C \
             "${CUSTOMER_TEST_PYTHON_RUNTIME:?missing CUSTOMER_TEST_PYTHON_RUNTIME}" \
-            -m venv "$dependency_free_venv" || return 1
+            -I -S -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')" \
+            || return 1
+        dependency_site="${dependency_free_venv}/lib/python${runtime_version}/site-packages"
+        /bin/mkdir -p "${dependency_free_venv}/bin" "$dependency_site" || return 1
         /bin/ln -sf /usr/bin/python3 "${dependency_free_venv}/bin/python" || return 1
+        compgen -G "${dependency_site}/*.pth" >/dev/null && return 1
     else
         "$PYTHON" -m venv "$dependency_free_venv" || return 1
     fi
@@ -2027,20 +2048,37 @@ PY
 
 @test "Darwin trusted site bootstrap rejects symlinked dist-info" {
     [[ "$(/usr/bin/uname -s)" == Darwin ]] || skip 'Darwin-only trusted site boundary'
-    local site_path dist_info backup result output_copy
+    local site_path dist_info original result output_copy
     site_path="${CUSTOMER_TEST_PYTHON_SITE:?missing CUSTOMER_TEST_PYTHON_SITE}"
     dist_info="${site_path}/jsonschema-4.23.0.dist-info"
-    backup="${BATS_TEST_TMPDIR}/jsonschema-dist-info-symlink"
-    /bin/mv "$dist_info" "$backup" || return 1
+    original="${dist_info}.original-a2"
+    build_test_framework distinfo-nofollow-swap || return 1
+    "$PYTHON" - "$TEST_SCRIPT" <<'PY' || return 1
+import sys
+
+path = sys.argv[1]
+source = open(path, encoding="utf-8").read()
+old = '    dist_fd = os.open(dist_info, flags, dir_fd=site_fd)\n'
+new = '''    if distribution == "jsonschema":
+        os.rename(
+            dist_info, dist_info + ".original-a2",
+            src_dir_fd=site_fd, dst_dir_fd=site_fd,
+        )
+        os.symlink(dist_info + ".original-a2", dist_info, dir_fd=site_fd)
+    dist_fd = os.open(dist_info, flags, dir_fd=site_fd)
+'''
+if source.count(old) != 1:
+    raise SystemExit("DISTINFO_NOFOLLOW_ATTACK_SEAM_MISSING_OR_AMBIGUOUS")
+open(path, "w", encoding="utf-8").write(source.replace(old, new))
+PY
     SITE_CLEANUP_PATH="$dist_info"
-    SITE_CLEANUP_BACKUP="$backup"
-    /bin/ln -s "$backup" "$dist_info"
+    SITE_CLEANUP_BACKUP="$original"
     run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
-        "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+        "$TEST_SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
     result="$status"
     output_copy="$output"
-    /bin/unlink -- "$dist_info"
-    /bin/mv -- "$backup" "$dist_info"
+    [[ ! -L "$dist_info" ]] || /bin/unlink -- "$dist_info" || return 1
+    [[ ! -d "$original" ]] || /bin/mv -- "$original" "$dist_info" || return 1
     clear_site_cleanup
     assert_darwin_dependency_site_integrity || return 1
     [ "$result" -eq 2 ] \
@@ -2235,6 +2273,56 @@ PY
         && [[ "$output_copy" != *Traceback* ]]
 }
 
+@test "Darwin METADATA open remains nonblocking across a FIFO replacement race" {
+    [[ "$(/usr/bin/uname -s)" == Darwin ]] || skip 'Darwin-only trusted site boundary'
+    local site_path start end elapsed result output_copy
+    site_path="${CUSTOMER_TEST_PYTHON_SITE:?missing CUSTOMER_TEST_PYTHON_SITE}"
+    build_test_framework metadata-nonblocking-race || return 1
+    "$PYTHON" - "$TEST_SCRIPT" <<'PY' || return 1
+import sys
+
+path = sys.argv[1]
+source = open(path, encoding="utf-8").read()
+old = '        metadata_entry = os.stat("METADATA", follow_symlinks=False)\n'
+new = '''        metadata_entry = os.stat("METADATA", follow_symlinks=False)
+        if distribution == "jsonschema":
+            os.rename(
+                "METADATA", "METADATA.original-a2",
+                src_dir_fd=dist_fd, dst_dir_fd=dist_fd,
+            )
+            os.mkfifo("METADATA", 0o600, dir_fd=dist_fd)
+            writer = os.fork()
+            if writer == 0:
+                os.close(1)
+                os.close(2)
+                __import__("time").sleep(8)
+                fifo_fd = os.open(
+                    "METADATA", os.O_RDWR | os.O_NONBLOCK | os.O_CLOEXEC,
+                    dir_fd=dist_fd,
+                )
+                os.close(fifo_fd)
+                os._exit(0)
+'''
+if source.count(old) != 1:
+    raise SystemExit("METADATA_NONBLOCK_ATTACK_SEAM_MISSING_OR_AMBIGUOUS")
+open(path, "w", encoding="utf-8").write(source.replace(old, new))
+PY
+    SITE_IDENTITY_CLEANUP_SITE="$site_path"
+    start="$($PYTHON -c 'import time; print(time.time_ns())')"
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        "$TEST_SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+    result="$status"
+    output_copy="$output"
+    end="$($PYTHON -c 'import time; print(time.time_ns())')"
+    elapsed="$($PYTHON -c 'import sys; print((int(sys.argv[2])-int(sys.argv[1]))/1_000_000_000)' "$start" "$end")"
+    cleanup_metadata_identity_fixture || return 1
+    assert_darwin_dependency_site_integrity || return 1
+    [ "$result" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_dependencies"]' "$output_copy" \
+        && "$PYTHON" -c 'import sys; assert float(sys.argv[1]) < 6.0' "$elapsed" \
+        && [[ "$output_copy" != *Traceback* ]]
+}
+
 @test "canonical inputs are parsed from confined stable descriptor snapshots" {
     grep -q '# SECURITY_RULE:input_snapshot_openat' "$SCRIPT" \
         && grep -q '# SECURITY_RULE:input_snapshot_identity' "$SCRIPT"
@@ -2403,10 +2491,10 @@ PY
         'VALIDATION_TOTAL_TIMEOUT_SECONDS = 20' \
         'VALIDATION_TOTAL_TIMEOUT_SECONDS = 1' || return 1
     rebind_test_openssl "$shim" || return 1
-    start="$($PYTHON -c 'import time; print(time.perf_counter())')"
+    start="$($PYTHON -c 'import time; print(time.time_ns())')"
     run_test_framework_json
-    end="$($PYTHON -c 'import time; print(time.perf_counter())')"
-    elapsed="$($PYTHON -c 'import sys; print(float(sys.argv[2])-float(sys.argv[1]))' "$start" "$end")"
+    end="$($PYTHON -c 'import time; print(time.time_ns())')"
+    elapsed="$($PYTHON -c 'import sys; print((int(sys.argv[2])-int(sys.argv[1]))/1_000_000_000)' "$start" "$end")"
     [ "$status" -eq 2 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["validation_resource_limit:deadline"]' "$output" \
         && "$PYTHON" -c 'import sys; assert float(sys.argv[1]) < 2.0' "$elapsed" \
@@ -2980,6 +3068,37 @@ PY
         && [[ "$output" == *'source_history_alternates_present'* ]]
 }
 
+@test "transient Git graft and alternates controls invalidate the bound repository" {
+    local shim="${BATS_TEST_TMPDIR}/transient-git-controls"
+    local real_git
+    case "$(/usr/bin/uname -s)" in
+        Darwin) real_git='/Library/Developer/CommandLineTools/usr/bin/git' ;;
+        Linux) real_git='/usr/bin/git' ;;
+        *) return 1 ;;
+    esac
+    "$PYTHON" - "$shim" "$real_git" <<'PY' || return 1
+import os
+import sys
+
+path, real_git = sys.argv[1:]
+with open(path, "w", encoding="utf-8") as handle:
+    handle.write(f'''#!/bin/bash
+: > info/grafts
+: > objects/info/alternates
+/bin/rm -f -- info/grafts objects/info/alternates
+exec {real_git!r} "$@"
+''')
+os.chmod(path, 0o700)
+PY
+    build_test_framework transient-git-controls || return 1
+    replace_test_script_literal \
+        'PINNED_GIT = "/usr/bin/git"' \
+        "PINNED_GIT = \"${shim}\"" || return 1
+    run_test_framework_json
+    [ "$status" -eq 1 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert "source_history_repository_identity_changed:gitdir" in d["findings"]' "$output"
+}
+
 @test "ambient GIT_DIR cannot substitute a clean authoritative history" {
     local substitute="${BATS_TEST_TMPDIR}/substitute-repository"
     yq -i '.source_remarks[0].authority_approval.evidence_ref = "mutated-in-place"' "$REQUIREMENTS"
@@ -3224,10 +3343,10 @@ PY
     replace_test_script_literal \
         'SOURCE_HISTORY_TOTAL_TIMEOUT_SECONDS = 10' \
         'SOURCE_HISTORY_TOTAL_TIMEOUT_SECONDS = 1' || return 1
-    start="$($PYTHON -c 'import time; print(time.perf_counter())')"
+    start="$($PYTHON -c 'import time; print(time.time_ns())')"
     run_test_framework_json
-    end="$($PYTHON -c 'import time; print(time.perf_counter())')"
-    elapsed="$($PYTHON -c 'import sys; print(float(sys.argv[2])-float(sys.argv[1]))' "$start" "$end")"
+    end="$($PYTHON -c 'import time; print(time.time_ns())')"
+    elapsed="$($PYTHON -c 'import sys; print((int(sys.argv[2])-int(sys.argv[1]))/1_000_000_000)' "$start" "$end")"
     [ "$status" -eq 1 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["source_history_resource_limit:deadline"]' "$output" \
         && "$PYTHON" -c 'import sys; assert float(sys.argv[1]) < 1.8' "$elapsed"
@@ -3329,10 +3448,10 @@ PY
     replace_test_script_literal \
         'SOURCE_HISTORY_TOTAL_TIMEOUT_SECONDS = 10' \
         'SOURCE_HISTORY_TOTAL_TIMEOUT_SECONDS = 1' || return 1
-    start="$($PYTHON -c 'import time; print(time.perf_counter())')"
+    start="$($PYTHON -c 'import time; print(time.time_ns())')"
     run_test_framework_json
-    end="$($PYTHON -c 'import time; print(time.perf_counter())')"
-    elapsed="$($PYTHON -c 'import sys; print(float(sys.argv[2])-float(sys.argv[1]))' "$start" "$end")"
+    end="$($PYTHON -c 'import time; print(time.time_ns())')"
+    elapsed="$($PYTHON -c 'import sys; print((int(sys.argv[2])-int(sys.argv[1]))/1_000_000_000)' "$start" "$end")"
     descendant_pid="$(cat "$pidfile")" || return 1
     descendant_state="$(ps -o stat= -p "$descendant_pid" 2>/dev/null || true)"
     [ "$status" -eq 1 ] \

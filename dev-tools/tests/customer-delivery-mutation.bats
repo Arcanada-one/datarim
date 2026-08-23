@@ -516,6 +516,7 @@ PY
         'python_metadata_name|Darwin trusted site bootstrap rejects METADATA boundary forgeries'
         'python_metadata_duplicate|Darwin trusted site bootstrap rejects METADATA boundary forgeries'
         'python_metadata_preopen_identity|Darwin trusted site bootstrap detects METADATA replacement before open'
+        'python_metadata_nonblock|Darwin METADATA open remains nonblocking across a FIFO replacement race'
         'python_metadata_identity|Darwin trusted site bootstrap detects METADATA identity change after read'
     )
     for pair in "${pairs[@]}"; do
@@ -617,9 +618,21 @@ elif kind == "python_metadata_preopen_identity":
                 )
 '''
     new = '                or False  # MUTATED:metadata_preopen_identity\n'
+elif kind == "python_metadata_nonblock":
+    old = '        metadata_flags |= os.O_NONBLOCK\n'
+    new = '        metadata_flags |= 0  # MUTATED:metadata_nonblock\n'
 elif kind == "python_metadata_identity":
-    old = '                != (metadata_before.st_dev, metadata_before.st_ino, metadata_before.st_size)\n'
-    new = '                != (metadata_after.st_dev, metadata_after.st_ino, metadata_after.st_size)  # MUTATED:metadata_identity\n'
+    old = '''                or (
+                    metadata_path_after.st_dev,
+                    metadata_path_after.st_ino,
+                    metadata_path_after.st_size,
+                ) != (
+                    metadata_before.st_dev,
+                    metadata_before.st_ino,
+                    metadata_before.st_size,
+                )
+'''
+    new = '                or False  # MUTATED:metadata_path_identity\n'
 else:
     raise SystemExit(kind)
 if old is not None:
@@ -876,6 +889,7 @@ PY
         'root_identity|authoritative root replacement after document snapshots cannot redirect source history'
         'gitdir_identity|authoritative gitdir replacement after document snapshots cannot redirect source history'
         'gitdir_descriptor|git child uses the bound gitdir when the path is transiently replaced'
+        'git_control_identity|transient Git graft and alternates controls invalidate the bound repository'
     )
     for pair in "${pairs[@]}"; do
         kind="${pair%%|*}"
@@ -912,6 +926,13 @@ elif kind == "gitdir_descriptor":
     for old, new in replacements.items():
         source = source.replace(old, new, 1)
     old = new = None
+elif kind == "git_control_identity":
+    old = '''def repository_control_identity(metadata):  # MUTATION_SEAM:source_history_control_identity
+    return repository_entry_identity(metadata, content_stable=True)
+'''
+    new = '''def repository_control_identity(metadata):  # MUTATED:source_history_control_identity
+    return repository_entry_identity(metadata)
+'''
 else:
     raise SystemExit(kind)
 if old is not None:
@@ -927,17 +948,9 @@ PY
     done
 }
 
-@test "review inventory exactness closure and authentication mutants are independently killed" {
+run_review_inventory_mutants() {
     local pair kind filter framework mutant expected_lines
-    local -a pairs=(
-        'set_exact|two-requirement epic cannot close with its second originating review missing'
-        'closure|two-requirement epic cannot close with its second originating review OPEN'
-        'authentication|every originating review inventory record is authenticated'
-        'pair_extra|signed review inventory rejects an extra review pair'
-        'id_uniqueness|signed review inventory rejects a duplicate review identity'
-        'manifest_signature|signed review inventory manifest signature is independently verified'
-    )
-    for pair in "${pairs[@]}"; do
+    for pair in "$@"; do
         kind="${pair%%|*}"
         filter="${pair#*|}"
         expected_lines="$(expected_red_lines "$filter")" || return 1
@@ -984,6 +997,20 @@ PY
         assert_attributed_mutant_kill "$kind" "$filter" "$expected_lines" \
             "$status" "$output" || return 1
     done
+}
+
+@test "review inventory set closure and authentication mutants are independently killed" {
+    run_review_inventory_mutants \
+        'set_exact|two-requirement epic cannot close with its second originating review missing' \
+        'closure|two-requirement epic cannot close with its second originating review OPEN' \
+        'authentication|every originating review inventory record is authenticated'
+}
+
+@test "review inventory extra duplicate and manifest mutants are independently killed" {
+    run_review_inventory_mutants \
+        'pair_extra|signed review inventory rejects an extra review pair' \
+        'id_uniqueness|signed review inventory rejects a duplicate review identity' \
+        'manifest_signature|signed review inventory manifest signature is independently verified'
 }
 
 @test "mutation kill attribution rejects setup syntax timeout and wrong-assertion failures" {
