@@ -6,11 +6,27 @@ setup() {
     FUNCTIONAL_TEST="${BATS_TEST_DIRNAME}/check-customer-delivery.bats"
     VALIDATOR_PYTHON="${CUSTOMER_DELIVERY_PYTHON:-/usr/bin/python3}"
     PYTHON="${CUSTOMER_DELIVERY_TEST_PYTHON:-$VALIDATOR_PYTHON}"
+    export CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON"
+    if [[ "$(/usr/bin/uname -s)" == Darwin ]]; then
+        [[ "${CUSTOMER_TEST_PYTHON_RUNTIME:-}" == /* \
+            && "${CUSTOMER_TEST_PYTHON_SITE:-}" == /* ]] \
+            || { echo "ERROR: Darwin mutation fixtures require explicit runtime and site" >&2; return 1; }
+        export CUSTOMER_TEST_PYTHON_RUNTIME CUSTOMER_TEST_PYTHON_SITE
+    fi
     [[ "$PYTHON" == /* && -x "$PYTHON" && ! -d "$PYTHON" \
         && "$VALIDATOR_PYTHON" == /* && -x "$VALIDATOR_PYTHON" && ! -d "$VALIDATOR_PYTHON" ]] \
         || { echo "ERROR: test and validator Python paths must be absolute executables" >&2; return 1; }
     [ -f "$SCRIPT" ] || { echo "ERROR: validator missing: $SCRIPT" >&2; return 1; }
     [ -f "$FUNCTIONAL_TEST" ] || { echo "ERROR: functional tests missing: $FUNCTIONAL_TEST" >&2; return 1; }
+}
+
+assert_baseline_green() {
+    local filter="$1"
+    if [ "$status" -ne 0 ]; then
+        printf 'HARNESS_INVALID:baseline_failed filter=%s status=%s output=%s\n' \
+            "$filter" "$status" "$output"
+        return 1
+    fi
 }
 
 expected_red_lines() {
@@ -27,7 +43,7 @@ except ValueError as error:
 end = next((index for index in range(start + 1, len(lines)) if lines[index].startswith('@test "')), len(lines))
 status_lines = [
     index for index in range(start + 1, end)
-    if re.match(r'^\s*\[ "\$status" ', lines[index])
+    if re.match(r'^\s*(?:if )?\[ "\$(?:status|result)" ', lines[index])
 ]
 if not status_lines:
     raise SystemExit(f"expected RED assertion missing: {name}")
@@ -101,7 +117,7 @@ assert_attributed_mutant_kill() {
         expected_lines="$(expected_red_lines "$filter")" || return 1
 
         run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
-        [ "$status" -eq 0 ] || return 1
+        assert_baseline_green "$filter" || return 1
 
         framework="${BATS_TEST_TMPDIR}/framework-${edge}"
         mutant="${framework}/dev-tools/check-customer-delivery.sh"
@@ -251,7 +267,7 @@ PY
         expected_lines="$(expected_red_lines "$filter")" || return 1
 
         run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
-        [ "$status" -eq 0 ] || return 1
+        assert_baseline_green "$filter" || return 1
 
         framework="${BATS_TEST_TMPDIR}/security-framework-${marker}"
         mutant="${framework}/dev-tools/check-customer-delivery.sh"
@@ -293,7 +309,7 @@ PY
     expected_lines="$(expected_red_lines "$filter")" || return 1
 
     run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
-    [ "$status" -eq 0 ] || return 1
+    assert_baseline_green "$filter" || return 1
 
     framework="${BATS_TEST_TMPDIR}/security-framework-ambient-openssl"
     mutant="${framework}/dev-tools/check-customer-delivery.sh"
@@ -343,19 +359,12 @@ PY
         'git_no_replace_objects|Git replacement objects cannot hide an in-place source mutation'
         'git_process_group|source history deadline kills stubborn descendant pipe holders'
     )
-    if [[ "$(/usr/bin/uname -s)" == Darwin ]]; then
-        pairs+=(
-            'python_pth_authority|Darwin trusted site bootstrap rejects executable pth authority'
-            'python_site_symlink|Darwin trusted site bootstrap rejects symlinked dependency content'
-        )
-    fi
-
     for pair in "${pairs[@]}"; do
         kind="${pair%%|*}"
         filter="${pair#*|}"
         expected_lines="$(expected_red_lines "$filter")" || return 1
         run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
-        [ "$status" -eq 0 ] || return 1
+        assert_baseline_green "$filter" || return 1
 
         framework="${BATS_TEST_TMPDIR}/runtime-framework-${kind}"
         mutant="${framework}/dev-tools/check-customer-delivery.sh"
@@ -433,7 +442,7 @@ elif kind == "python_cwd_isolation":
     darwin_child = '''child_args=(-I -S -c'''
     darwin_fchdir = '''os.fchdir(site_fd)'''
     if (source.count(darwin) != 1 or source.count(linux) != 1
-            or source.count(cwd) != 1 or source.count(darwin_guard) != 1
+            or source.count(cwd) != 2 or source.count(darwin_guard) != 1
             or source.count(darwin_child) != 2 or source.count(darwin_fchdir) != 1):
         raise SystemExit("PYTHON_CWD_ISOLATION_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
     source = source.replace(darwin, 'python_isolation_args=(-S)  # MUTATED:darwin_cwd_isolation', 1)
@@ -452,16 +461,6 @@ elif kind == "python_cwd_isolation":
         '''/bin/bash -p -c 'exec -a "$1" "$2" "${@:3}"' bash''',
         1,
     )
-elif kind == "python_pth_authority":
-    old = 'assert not any(name.endswith(".pth") for name in os.listdir(site_fd))'
-    if source.count(old) != 1:
-        raise SystemExit("PYTHON_PTH_AUTHORITY_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
-    source = source.replace(old, 'True  # MUTATED:python_pth_authority', 1)
-elif kind == "python_site_symlink":
-    old = 'assert not entry.is_symlink()'
-    if source.count(old) != 1:
-        raise SystemExit("PYTHON_SITE_SYMLINK_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
-    source = source.replace(old, 'True  # MUTATED:python_site_symlink', 1)
 elif kind == "wrapper_response":
     old = 'if [[ "$response_valid" != true ]]; then'
     if source.count(old) != 1:
@@ -496,6 +495,113 @@ PY
     done
 }
 
+@test "Darwin dependency-site authority mutants are independently killed" {
+    [[ "$(/usr/bin/uname -s)" == Darwin ]] || skip 'Darwin-only dependency-site mutations'
+    local pair kind filter framework mutant expected_lines
+    local -a pairs=(
+        'python_pth_authority|Darwin trusted site bootstrap rejects executable pth authority'
+        'python_site_symlink|Darwin trusted site bootstrap rejects symlinked dependency content'
+        'python_distinfo_type|Darwin trusted site bootstrap rejects regular-file dist-info forgery'
+        'python_distinfo_nofollow|Darwin trusted site bootstrap rejects symlinked dist-info'
+        'python_distinfo_metadata|Darwin trusted site bootstrap authenticates dist-info metadata'
+        'python_metadata_nofollow|Darwin trusted site bootstrap rejects METADATA boundary forgeries'
+        'python_metadata_size|Darwin trusted site bootstrap rejects METADATA boundary forgeries'
+        'python_metadata_name|Darwin trusted site bootstrap rejects METADATA boundary forgeries'
+        'python_metadata_duplicate|Darwin trusted site bootstrap rejects METADATA boundary forgeries'
+        'python_metadata_identity|Darwin trusted site bootstrap detects METADATA identity change after read'
+    )
+    for pair in "${pairs[@]}"; do
+        kind="${pair%%|*}"
+        filter="${pair#*|}"
+        expected_lines="$(expected_red_lines "$filter")" || return 1
+        run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+            CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+            CUSTOMER_TEST_PYTHON_RUNTIME="$CUSTOMER_TEST_PYTHON_RUNTIME" \
+            CUSTOMER_TEST_PYTHON_SITE="$CUSTOMER_TEST_PYTHON_SITE" \
+            bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+        assert_baseline_green "$filter" || return 1
+
+        framework="${BATS_TEST_TMPDIR}/site-authority-${kind}"
+        mutant="${framework}/dev-tools/check-customer-delivery.sh"
+        mkdir -p "${framework}/dev-tools" "${framework}/config"
+        cp "$SCRIPT" "$mutant" || return 1
+        cp "${REPO_ROOT}/config/customer-requirement.schema.json" \
+            "${REPO_ROOT}/config/customer-delivery-receipt.schema.json" \
+            "${REPO_ROOT}/config/review-evolution.schema.json" \
+            "${framework}/config/" || return 1
+        "$PYTHON" - "$mutant" "$kind" <<'PY' || return 1
+import sys
+
+path, kind = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+if kind == "python_pth_authority":
+    old = 'assert not any(name.endswith(".pth") for name in os.listdir(site_fd))'
+    new = 'True  # MUTATED:python_pth_authority'
+elif kind == "python_site_symlink":
+    old = 'assert not entry.is_symlink()'
+    new = 'True  # MUTATED:python_site_symlink'
+elif kind == "python_distinfo_type":
+    start_token = 'def authenticated_dist_version(site_fd, distribution, expected_version):  # SECURITY_RULE:python_distinfo_type\n'
+    end_token = 'sys.path.insert(0, ".")\n'
+    if source.count(start_token) != 1 or source.count(end_token) != 1:
+        raise SystemExit("PYTHON_DISTINFO_TYPE_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+    start = source.index(start_token)
+    end = source.index(end_token, start)
+    source = source[:start] + (
+        'def authenticated_dist_version(site_fd, distribution, expected_version):  # MUTATED:python_distinfo_type\n'
+        '    return expected_version\n\n'
+    ) + source[end:]
+    old = new = None
+elif kind == "python_distinfo_nofollow":
+    scan = 'assert not entry.is_symlink()'
+    old = 'flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC'
+    new = 'flags = os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC  # MUTATED:distinfo_nofollow'
+    if source.count(scan) != 1:
+        raise SystemExit("PYTHON_DISTINFO_NOFOLLOW_SCAN_SEAM_MISSING")
+    source = source.replace(scan, 'True  # MUTATED:distinfo_symlink_scan', 1)
+elif kind == "python_distinfo_metadata":
+    old = '        or versions[0] != expected_version\n'
+    new = '        or False  # MUTATED:python_distinfo_metadata\n'
+elif kind == "python_metadata_nofollow":
+    scan = 'assert not entry.is_symlink()'
+    old = 'metadata_flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC'
+    new = 'metadata_flags = os.O_RDONLY | os.O_CLOEXEC  # MUTATED:metadata_nofollow'
+    if source.count(scan) != 1:
+        raise SystemExit("PYTHON_METADATA_NOFOLLOW_SCAN_SEAM_MISSING")
+    source = source.replace(scan, 'True  # MUTATED:metadata_symlink_scan', 1)
+elif kind == "python_metadata_size":
+    old = '                or metadata_before.st_size > 1048576\n'
+    new = '                or False  # MUTATED:metadata_size\n'
+elif kind == "python_metadata_name":
+    old = '        or normalized_distribution(names[0]) != normalized_distribution(distribution)\n'
+    new = '        or False  # MUTATED:metadata_name\n'
+elif kind == "python_metadata_duplicate":
+    old = '        len(names) != 1\n        or len(versions) != 1\n'
+    new = '        False  # MUTATED:metadata_duplicate\n'
+elif kind == "python_metadata_identity":
+    old = '                != (metadata_before.st_dev, metadata_before.st_ino, metadata_before.st_size)\n'
+    new = '                != (metadata_after.st_dev, metadata_after.st_ino, metadata_after.st_size)  # MUTATED:metadata_identity\n'
+else:
+    raise SystemExit(kind)
+if old is not None:
+    if source.count(old) != 1:
+        raise SystemExit(f"SITE_AUTHORITY_MUTATION_SEAM_MISSING_OR_AMBIGUOUS:{kind}")
+    source = source.replace(old, new, 1)
+open(path, "w", encoding="utf-8").write(source)
+PY
+        chmod +x "$mutant"
+        run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+            CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+            CUSTOMER_TEST_PYTHON_RUNTIME="$CUSTOMER_TEST_PYTHON_RUNTIME" \
+            CUSTOMER_TEST_PYTHON_SITE="$CUSTOMER_TEST_PYTHON_SITE" \
+            CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
+            bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+        assert_attributed_mutant_kill "$kind" "$filter" "$expected_lines" \
+            "$status" "$output" || return 1
+        printf 'mutant=%s killed_by=%s\n' "$kind" "$filter"
+    done
+}
+
 
 @test "ambient realpath authority mutants are independently killed" {
     local pair kind filter framework mutant expected_lines
@@ -509,7 +615,7 @@ PY
         filter="${pair#*|}"
         expected_lines="$(expected_red_lines "$filter")" || return 1
         run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
-        [ "$status" -eq 0 ] || return 1
+        assert_baseline_green "$filter" || return 1
 
         framework="${BATS_TEST_TMPDIR}/realpath-framework-${kind}"
         mutant="${framework}/dev-tools/check-customer-delivery.sh"
@@ -575,7 +681,7 @@ PY
         filter="${pair#*|}"
         expected_lines="$(expected_red_lines "$filter")" || return 1
         run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
-        [ "$status" -eq 0 ] || return 1
+        assert_baseline_green "$filter" || return 1
 
         framework="${BATS_TEST_TMPDIR}/portable-bounds-framework-${kind}"
         mutant="${framework}/dev-tools/check-customer-delivery.sh"
@@ -657,7 +763,7 @@ PY
         filter="${pair#*|}"
         expected_lines="$(expected_red_lines "$filter")" || return 1
         run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
-        [ "$status" -eq 0 ] || return 1
+        assert_baseline_green "$filter" || return 1
         framework="${BATS_TEST_TMPDIR}/descriptor-framework-${kind}"
         mutant="${framework}/dev-tools/check-customer-delivery.sh"
         mkdir -p "${framework}/dev-tools" "${framework}/config"
@@ -725,7 +831,7 @@ PY
         filter="${pair#*|}"
         expected_lines="$(expected_red_lines "$filter")" || return 1
         run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
-        [ "$status" -eq 0 ] || return 1
+        assert_baseline_green "$filter" || return 1
         framework="${BATS_TEST_TMPDIR}/repository-binding-${kind}"
         mutant="${framework}/dev-tools/check-customer-delivery.sh"
         mkdir -p "${framework}/dev-tools" "${framework}/config"
@@ -775,7 +881,7 @@ PY
         filter="${pair#*|}"
         expected_lines="$(expected_red_lines "$filter")" || return 1
         run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
-        [ "$status" -eq 0 ] || return 1
+        assert_baseline_green "$filter" || return 1
         framework="${BATS_TEST_TMPDIR}/review-inventory-${kind}"
         mutant="${framework}/dev-tools/check-customer-delivery.sh"
         mkdir -p "${framework}/dev-tools" "${framework}/config"

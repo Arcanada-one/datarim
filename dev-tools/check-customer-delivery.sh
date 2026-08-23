@@ -349,7 +349,153 @@ run_trusted_python() {
         # special file (opening /dev/fd/N/child raises ENOTDIR). fchdir binds
         # relative imports to the already-open directory inode without
         # reopening its mutable pathname.
-        bootstrap_program=$'import importlib,importlib.metadata,importlib.util,os,sys\nsite_path=os.path.realpath(sys.argv[1])\nexpected_device=int(sys.argv[2])\nexpected_inode=int(sys.argv[3])\nmode=sys.argv[4]\nflags=os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW\nsite_fd=os.open(site_path, flags)\nmetadata=os.fstat(site_fd)\nassert (metadata.st_dev, metadata.st_ino)==(expected_device, expected_inode)\nassert not any(name.endswith(".pth") for name in os.listdir(site_fd))\nos.fchdir(site_fd)\ncwd_metadata=os.stat(".")\nassert (cwd_metadata.st_dev, cwd_metadata.st_ino)==(expected_device, expected_inode)\npending=["."]\nscanned=0\nwhile pending:\n current=pending.pop()\n with os.scandir(current) as entries:\n  for entry in entries:\n   scanned+=1\n   assert scanned<=20000\n   assert not entry.is_symlink()\n   if entry.is_dir(follow_symlinks=False):\n    pending.append(entry.path)\nsys.path.insert(0, ".")\ntrusted_dependency_versions={}\nexpected={"jsonschema":("jsonschema","4.23.0"),"rfc3339_validator":("rfc3339-validator","0.1.4"),"yaml":("PyYAML","6.0.2")}\nfor module_name,(distribution,version) in expected.items():\n spec=importlib.util.find_spec(module_name)\n assert spec is not None and spec.origin is not None\n assert os.path.commonpath((os.path.realpath(spec.origin),site_path))==site_path\n dist_info=f"{distribution.lower().replace(chr(45),chr(95))}-{version}.dist-info"\n assert dist_info.lower() in {name.lower() for name in os.listdir(".")}\n trusted_dependency_versions[distribution]=version\n module=importlib.import_module(module_name)\n assert os.path.commonpath((os.path.realpath(module.__file__),site_path))==site_path\ncwd_metadata=os.stat(".")\nmetadata=os.fstat(site_fd)\nassert (cwd_metadata.st_dev,cwd_metadata.st_ino)==(metadata.st_dev,metadata.st_ino)==(expected_device,expected_inode)\nsys.path.remove(".")\nos.chdir("/")\nif mode=="-c":\n program=sys.argv[5]\n sys.argv=["-c"]+sys.argv[6:]\n filename="<string>"\nelif mode=="-":\n program=sys.stdin.buffer.read()\n sys.argv=["-"]+sys.argv[5:]\n filename="<stdin>"\nelse:\n raise SystemExit(126)\nexec(compile(program, filename, "exec"), globals(), globals())'
+        bootstrap_program="$(/bin/cat <<'PY'
+import importlib
+import importlib.util
+import os
+import re
+import stat
+import sys
+from email.parser import Parser
+
+site_path = os.path.realpath(sys.argv[1])
+expected_device = int(sys.argv[2])
+expected_inode = int(sys.argv[3])
+mode = sys.argv[4]
+flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+site_fd = os.open(site_path, flags)
+metadata = os.fstat(site_fd)
+assert (metadata.st_dev, metadata.st_ino) == (expected_device, expected_inode)
+assert not any(name.endswith(".pth") for name in os.listdir(site_fd))
+os.fchdir(site_fd)
+cwd_metadata = os.stat(".")
+assert (cwd_metadata.st_dev, cwd_metadata.st_ino) == (expected_device, expected_inode)
+pending = ["."]
+scanned = 0
+while pending:
+    current = pending.pop()
+    with os.scandir(current) as entries:
+        for entry in entries:
+            scanned += 1
+            assert scanned <= 20000
+            assert not entry.is_symlink()
+            if entry.is_dir(follow_symlinks=False):
+                pending.append(entry.path)
+
+def normalized_distribution(value):
+    return re.sub(r"[-_.]+", "_", value).lower()
+
+def authenticated_dist_version(site_fd, distribution, expected_version):  # SECURITY_RULE:python_distinfo_type
+    expected_basename = (
+        f"{normalized_distribution(distribution)}-{expected_version}.dist-info"
+    )
+    candidates = [
+        name for name in os.listdir(site_fd)
+        if name.lower() == expected_basename.lower()
+    ]
+    if len(candidates) != 1:
+        raise RuntimeError("dist_info_inventory_invalid")
+    dist_info = candidates[0]
+    entry_metadata = os.stat(dist_info, dir_fd=site_fd, follow_symlinks=False)
+    if not stat.S_ISDIR(entry_metadata.st_mode):
+        raise RuntimeError("dist_info_not_directory")
+    dist_fd = os.open(dist_info, flags, dir_fd=site_fd)
+    try:
+        opened_dist_metadata = os.fstat(dist_fd)
+        if (
+            not stat.S_ISDIR(opened_dist_metadata.st_mode)
+            or (opened_dist_metadata.st_dev, opened_dist_metadata.st_ino)
+            != (entry_metadata.st_dev, entry_metadata.st_ino)
+        ):
+            raise RuntimeError("dist_info_identity_changed")
+        metadata_flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC
+        metadata_fd = os.open("METADATA", metadata_flags, dir_fd=dist_fd)
+        try:
+            metadata_before = os.fstat(metadata_fd)
+            if (
+                not stat.S_ISREG(metadata_before.st_mode)
+                or metadata_before.st_size <= 0
+                or metadata_before.st_size > 1048576
+            ):
+                raise RuntimeError("dist_info_metadata_invalid")
+            remaining = metadata_before.st_size
+            chunks = []
+            while remaining:
+                chunk = os.read(metadata_fd, min(remaining, 65536))
+                if not chunk:
+                    raise RuntimeError("dist_info_metadata_truncated")
+                chunks.append(chunk)
+                remaining -= len(chunk)
+            if os.read(metadata_fd, 1) != b"":
+                raise RuntimeError("dist_info_metadata_oversized")
+            metadata_after = os.fstat(metadata_fd)
+            if (
+                not stat.S_ISREG(metadata_after.st_mode)
+                or (metadata_after.st_dev, metadata_after.st_ino, metadata_after.st_size)
+                != (metadata_before.st_dev, metadata_before.st_ino, metadata_before.st_size)
+            ):
+                raise RuntimeError("dist_info_metadata_identity_changed")
+        finally:
+            os.close(metadata_fd)
+        dist_after = os.fstat(dist_fd)
+        if (
+            not stat.S_ISDIR(dist_after.st_mode)
+            or (dist_after.st_dev, dist_after.st_ino)
+            != (entry_metadata.st_dev, entry_metadata.st_ino)
+        ):
+            raise RuntimeError("dist_info_identity_changed")
+    finally:
+        os.close(dist_fd)
+    parsed = Parser().parsestr(b"".join(chunks).decode("utf-8", "strict"))
+    names = parsed.get_all("Name", [])
+    versions = parsed.get_all("Version", [])
+    if (
+        len(names) != 1
+        or len(versions) != 1
+        or normalized_distribution(names[0]) != normalized_distribution(distribution)
+        or versions[0] != expected_version
+    ):  # SECURITY_RULE:python_distinfo_metadata
+        raise RuntimeError("dist_info_metadata_mismatch")
+    return versions[0]
+
+sys.path.insert(0, ".")
+trusted_dependency_versions = {}
+expected = {
+    "jsonschema": ("jsonschema", "4.23.0"),
+    "rfc3339_validator": ("rfc3339-validator", "0.1.4"),
+    "yaml": ("PyYAML", "6.0.2"),
+}
+for module_name, (distribution, version) in expected.items():
+    spec = importlib.util.find_spec(module_name)
+    assert spec is not None and spec.origin is not None
+    assert os.path.commonpath((os.path.realpath(spec.origin), site_path)) == site_path
+    trusted_dependency_versions[distribution] = authenticated_dist_version(
+        site_fd, distribution, version
+    )
+    module = importlib.import_module(module_name)
+    assert os.path.commonpath((os.path.realpath(module.__file__), site_path)) == site_path
+cwd_metadata = os.stat(".")
+metadata = os.fstat(site_fd)
+assert (
+    (cwd_metadata.st_dev, cwd_metadata.st_ino)
+    == (metadata.st_dev, metadata.st_ino)
+    == (expected_device, expected_inode)
+)
+sys.path.remove(".")
+os.chdir("/")
+if mode == "-c":
+    program = sys.argv[5]
+    sys.argv = ["-c"] + sys.argv[6:]
+    filename = "<string>"
+elif mode == "-":
+    program = sys.stdin.buffer.read()
+    sys.argv = ["-"] + sys.argv[5:]
+    filename = "<stdin>"
+else:
+    raise SystemExit(126)
+exec(compile(program, filename, "exec"), globals(), globals())
+PY
+)"
         if [[ "$mode" == -c ]]; then
             [[ $# -ge 1 ]] || return 126
             program="$1"
@@ -380,7 +526,32 @@ run_trusted_python() {
     assert_python_runtime_identity || return 126
     return "$child_status"
 }
-python_probe="$(run_trusted_python "${python_isolation_args[@]}" -c '
+
+run_trusted_python_stdlib() {
+    local child_status
+    assert_python_runtime_identity || return 126
+    if [[ "$platform" == Darwin ]]; then
+        [[ "${1:-}" == -I && "${2:-}" == -S \
+            && ("${3:-}" == -c || "${3:-}" == -) ]] || return 126
+        if /usr/bin/env -i LC_ALL=C \
+            /bin/bash -p -c 'cd / && exec -a "$1" "$2" "${@:3}"' bash \
+            "$python_bin" "$trusted_runtime_path" "$@"; then
+            child_status=0
+        else
+            child_status=$?
+        fi
+    else
+        if run_trusted_python "$@"; then
+            child_status=0
+        else
+            child_status=$?
+        fi
+    fi
+    assert_python_runtime_identity || return 126
+    return "$child_status"
+}
+
+python_probe="$(run_trusted_python_stdlib "${python_isolation_args[@]}" -c '
 import os
 import sys
 
@@ -395,7 +566,7 @@ if [[ "$probe_device" != "$trusted_runtime_device" || "$probe_inode" != "$truste
     emit_config_error 'untrusted_python_runtime'
     exit 2
 fi
-if [[ "$(run_trusted_python "${python_isolation_args[@]}" -c '
+if [[ "$platform" != Darwin && "$(run_trusted_python "${python_isolation_args[@]}" -c '
 import os
 import sys
 from importlib import metadata as importlib_metadata
@@ -3054,7 +3225,7 @@ validator_output_size() {
 }
 
 validate_json_response() {
-    run_trusted_python "${python_isolation_args[@]}" - "$validator_output" "$task" "$stage" "$validator_status" <<'PY'
+    run_trusted_python_stdlib "${python_isolation_args[@]}" - "$validator_output" "$task" "$stage" "$validator_status" <<'PY'
 import json
 import sys
 
@@ -3087,6 +3258,10 @@ PY
 
 response_valid=false
 output_size="$(validator_output_size || true)"
+if [[ "$platform" == Darwin && ! -s "$validator_output" && "$validator_status" -ne 0 ]]; then
+    emit_config_error 'untrusted_python_runtime'
+    exit 2
+fi
 if [[ -s "$validator_output" && "$output_size" =~ ^[0-9]+$ && "$output_size" -le 1048576 ]]; then
     if [[ "$format" == json ]]; then
         if validate_json_response; then

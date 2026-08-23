@@ -1816,9 +1816,8 @@ PY
 
 @test "Darwin trusted site bootstrap rejects executable pth authority" {
     [[ "$(/usr/bin/uname -s)" == Darwin ]] || skip 'Darwin-only trusted site boundary'
-    local minor site_path hostile_pth result output_copy
-    minor="$(DEVELOPER_DIR=/Library/Developer/CommandLineTools /usr/bin/python3 -I -c 'import sys; print(sys.version_info.minor)')"
-    site_path="${PYTHON%/bin/python}/lib/python3.${minor}/site-packages"
+    local site_path hostile_pth result output_copy
+    site_path="${CUSTOMER_TEST_PYTHON_SITE:?missing CUSTOMER_TEST_PYTHON_SITE}"
     hostile_pth="${site_path}/customer_delivery_hostile.pth"
     trap '/bin/rm -f -- "$hostile_pth"' EXIT
     printf '%s\n' 'raise RuntimeError("HOSTILE_PTH_EXECUTED")' >"$hostile_pth"
@@ -1835,9 +1834,8 @@ PY
 
 @test "Darwin trusted site bootstrap rejects symlinked dependency content" {
     [[ "$(/usr/bin/uname -s)" == Darwin ]] || skip 'Darwin-only trusted site boundary'
-    local minor site_path hostile_link result output_copy
-    minor="$(DEVELOPER_DIR=/Library/Developer/CommandLineTools /usr/bin/python3 -I -c 'import sys; print(sys.version_info.minor)')"
-    site_path="${PYTHON%/bin/python}/lib/python3.${minor}/site-packages"
+    local site_path hostile_link result output_copy
+    site_path="${CUSTOMER_TEST_PYTHON_SITE:?missing CUSTOMER_TEST_PYTHON_SITE}"
     hostile_link="${site_path}/customer_delivery_outside_link"
     trap '/bin/rm -f -- "$hostile_link"' EXIT
     /bin/ln -s "$BATS_TEST_TMPDIR" "$hostile_link"
@@ -1846,6 +1844,168 @@ PY
     result="$status"
     output_copy="$output"
     /bin/rm -f -- "$hostile_link"
+    trap - EXIT
+    [ "$result" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_runtime"]' "$output_copy"
+}
+
+@test "Darwin trusted site bootstrap rejects regular-file dist-info forgery" {
+    [[ "$(/usr/bin/uname -s)" == Darwin ]] || skip 'Darwin-only trusted site boundary'
+    local site_path dist_info backup result output_copy
+    site_path="${CUSTOMER_TEST_PYTHON_SITE:?missing CUSTOMER_TEST_PYTHON_SITE}"
+    dist_info="${site_path}/jsonschema-4.23.0.dist-info"
+    backup="${BATS_TEST_TMPDIR}/jsonschema-dist-info"
+    /bin/mv "$dist_info" "$backup" || return 1
+    trap '/bin/rm -f -- "$dist_info"; /bin/mv -- "$backup" "$dist_info"' EXIT
+    printf '%s\n' 'forged regular dist-info entry' >"$dist_info"
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+    result="$status"
+    output_copy="$output"
+    /bin/rm -f -- "$dist_info"
+    /bin/mv -- "$backup" "$dist_info"
+    trap - EXIT
+    [ "$result" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_runtime"]' "$output_copy"
+}
+
+@test "Darwin trusted site bootstrap rejects symlinked dist-info" {
+    [[ "$(/usr/bin/uname -s)" == Darwin ]] || skip 'Darwin-only trusted site boundary'
+    local site_path dist_info backup result output_copy
+    site_path="${CUSTOMER_TEST_PYTHON_SITE:?missing CUSTOMER_TEST_PYTHON_SITE}"
+    dist_info="${site_path}/jsonschema-4.23.0.dist-info"
+    backup="${BATS_TEST_TMPDIR}/jsonschema-dist-info-symlink"
+    /bin/mv "$dist_info" "$backup" || return 1
+    trap '/bin/unlink -- "$dist_info"; /bin/mv -- "$backup" "$dist_info"' EXIT
+    /bin/ln -s "$backup" "$dist_info"
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+    result="$status"
+    output_copy="$output"
+    /bin/unlink -- "$dist_info"
+    /bin/mv -- "$backup" "$dist_info"
+    trap - EXIT
+    [ "$result" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_runtime"]' "$output_copy"
+}
+
+@test "Darwin trusted site bootstrap authenticates dist-info metadata" {
+    [[ "$(/usr/bin/uname -s)" == Darwin ]] || skip 'Darwin-only trusted site boundary'
+    local site_path metadata backup result output_copy line
+    site_path="${CUSTOMER_TEST_PYTHON_SITE:?missing CUSTOMER_TEST_PYTHON_SITE}"
+    metadata="${site_path}/jsonschema-4.23.0.dist-info/METADATA"
+    backup="${BATS_TEST_TMPDIR}/jsonschema-METADATA"
+    /bin/cp "$metadata" "$backup" || return 1
+    trap '/bin/cp -- "$backup" "$metadata"' EXIT
+    : >"$metadata"
+    while IFS= read -r line; do
+        if [[ "$line" == 'Version: '* ]]; then
+            printf '%s\n' 'Version: 0.0.0-forged'
+        else
+            printf '%s\n' "$line"
+        fi
+    done <"$backup" >"$metadata"
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+    result="$status"
+    output_copy="$output"
+    /bin/cp -- "$backup" "$metadata"
+    trap - EXIT
+    [ "$result" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_runtime"]' "$output_copy"
+}
+
+@test "Darwin trusted site bootstrap rejects METADATA boundary forgeries" {
+    [[ "$(/usr/bin/uname -s)" == Darwin ]] || skip 'Darwin-only trusted site boundary'
+    local site_path metadata backup kind result output_copy
+    site_path="${CUSTOMER_TEST_PYTHON_SITE:?missing CUSTOMER_TEST_PYTHON_SITE}"
+    metadata="${site_path}/jsonschema-4.23.0.dist-info/METADATA"
+    for kind in symlink directory oversized wrong_name duplicate_name duplicate_version; do
+        backup="${BATS_TEST_TMPDIR}/jsonschema-METADATA-${kind}"
+        /bin/mv "$metadata" "$backup" || return 1
+        trap 'if [[ -L "$metadata" ]]; then /bin/unlink -- "$metadata"; elif [[ -d "$metadata" ]]; then /bin/rmdir -- "$metadata"; elif [[ -e "$metadata" ]]; then /bin/mv -- "$metadata" "${BATS_TEST_TMPDIR}/failed-forged-METADATA"; fi; [[ ! -e "$metadata" ]] && /bin/mv -- "$backup" "$metadata"' EXIT
+        case "$kind" in
+            symlink)
+                /bin/ln -s "$backup" "$metadata" || return 1
+                ;;
+            directory)
+                /bin/mkdir "$metadata" || return 1
+                ;;
+            oversized)
+                "$PYTHON" -c 'import sys; open(sys.argv[1], "wb").write(b"Name: jsonschema\nVersion: 4.23.0\n\n" + b"x" * 1048577)' "$metadata" || return 1
+                ;;
+            wrong_name)
+                /usr/bin/sed 's/^Name: jsonschema$/Name: forged-project/' "$backup" >"$metadata"
+                ;;
+            duplicate_name)
+                { printf '%s\n' 'Name: jsonschema'; /bin/cat "$backup"; } >"$metadata"
+                ;;
+            duplicate_version)
+                { printf '%s\n' 'Version: 4.23.0'; /bin/cat "$backup"; } >"$metadata"
+                ;;
+        esac
+        run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+            "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+        result="$status"
+        output_copy="$output"
+        if [[ -L "$metadata" ]]; then
+            /bin/unlink -- "$metadata"
+        elif [[ -d "$metadata" ]]; then
+            /bin/rmdir -- "$metadata"
+        else
+            /bin/mv -- "$metadata" "${BATS_TEST_TMPDIR}/forged-METADATA-${kind}"
+        fi
+        /bin/mv -- "$backup" "$metadata"
+        trap - EXIT
+        if [ "$result" -ne 2 ] \
+            || ! "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_runtime"]' "$output_copy"; then
+            printf 'METADATA boundary kind=%s status=%s output=%s\n' "$kind" "$result" "$output_copy"
+            return 1
+        fi
+    done
+}
+
+@test "Darwin trusted site bootstrap detects METADATA identity change after read" {
+    [[ "$(/usr/bin/uname -s)" == Darwin ]] || skip 'Darwin-only trusted site boundary'
+    local site_path metadata original replacement result output_copy
+    site_path="${CUSTOMER_TEST_PYTHON_SITE:?missing CUSTOMER_TEST_PYTHON_SITE}"
+    metadata="${site_path}/jsonschema-4.23.0.dist-info/METADATA"
+    original="${site_path}/jsonschema-4.23.0.dist-info/METADATA.original-a2"
+    replacement="${BATS_TEST_TMPDIR}/jsonschema-METADATA-replacement"
+    build_test_framework metadata-identity-change || return 1
+    "$PYTHON" - "$TEST_SCRIPT" <<'PY' || return 1
+import sys
+
+path = sys.argv[1]
+source = open(path, encoding="utf-8").read()
+old = "            metadata_after = os.fstat(metadata_fd)\n"
+new = '''            os.rename(
+                "METADATA", "METADATA.original-a2",
+                src_dir_fd=dist_fd, dst_dir_fd=dist_fd,
+            )
+            replacement_fd = os.open(
+                "METADATA", os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC,
+                0o600, dir_fd=dist_fd,
+            )
+            try:
+                os.write(replacement_fd, b"Name: jsonschema\\nVersion: 4.23.0\\n\\n")
+            finally:
+                os.close(replacement_fd)
+            metadata_after = os.fstat(metadata_fd)
+'''
+if source.count(old) != 1:
+    raise SystemExit("METADATA_IDENTITY_ATTACK_SEAM_MISSING_OR_AMBIGUOUS")
+open(path, "w", encoding="utf-8").write(source.replace(old, new))
+PY
+    trap 'if [[ -e "$original" ]]; then /bin/mv -- "$metadata" "$replacement"; /bin/mv -- "$original" "$metadata"; fi' EXIT
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        "$TEST_SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+    result="$status"
+    output_copy="$output"
+    if [[ -e "$original" ]]; then
+        /bin/mv -- "$metadata" "$replacement"
+        /bin/mv -- "$original" "$metadata"
+    fi
     trap - EXIT
     [ "$result" -eq 2 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_runtime"]' "$output_copy"
