@@ -4,13 +4,12 @@
   "title": "Datarim Review Evolution",
   "description": "Review finding classification and canonical-knowledge evolution evidence that never substitutes for delivery of the product fix.",
   "x-datarim-semantic-invariants": {
-    "description": "Draft 2020-12 validates shape only; the A3 review-evolution validator enforces review-record invariants, while the A2 customer-delivery validator independently enforces review-open-or-changes-requested-blocks-closure before receipt closure.",
+    "description": "Draft 2020-12 validates shape only; the A3 review-evolution validator enforces exactly the eight review-record and evolution invariants. Receipt closure is owned exclusively by the A2 customer-delivery validator.",
     "enforcer": "review-evolution-validator",
     "invariant_ids": [
       "review-requirement-id-equals-product-fix-requirement-id",
       "review-receipt-id-equals-product-fix-receipt-id",
       "review-parent-links-complete",
-      "review-open-or-changes-requested-blocks-closure",
       "review-product-fix-status-equals-receipt-delivery",
       "review-classification-canonical-change-exclusive",
       "review-no-canon-change-evidence-approved",
