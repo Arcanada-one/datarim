@@ -379,6 +379,13 @@ for requirement_id, requirement in requirements.items():
                 f"TIER1_ASSERTION_DIGEST_MISMATCH:{linked_assertion_id}"
             )
         approval = linked_assertion["authority_approval"]
+        source_approval = sources[linked_source_id]["authority_approval"]
+        for identity_field in ("authority_id", "authority_role", "key_id"):
+            if approval[identity_field] != source_approval[identity_field]:
+                raise SystemExit(
+                    f"TIER1_APPROVAL_SOURCE_{identity_field.upper()}_MISMATCH:"
+                    f"{linked_assertion_id}"
+                )
         if approval["approved_digest"] != linked_assertion["assertion_digest"]:
             raise SystemExit(
                 f"TIER1_APPROVAL_DIGEST_MISMATCH:{linked_assertion_id}"
@@ -767,11 +774,15 @@ expected = {
             "tier1-assertion-approval-key-role-authorized",
             "tier1-assertion-approval-key-active",
             "tier1-assertion-approval-key-valid-at-approval",
+            "tier1-assertion-approval-authority-id-equals-containing-source",
+            "tier1-assertion-approval-authority-role-equals-containing-source",
+            "tier1-assertion-approval-key-id-equals-containing-source",
             "authority-key-registry-bundled-only",
             "authority-key-registry-owner-pinned",
             "authority-key-registry-trust-anchor-pinned",
             "authority-key-registry-canonical-digest-valid",
             "authority-key-registry-signature-valid-against-pinned-trust-anchor",
+            "authority-key-registry-entry-order-valid",
             "authority-key-registry-key-id-unique",
             "authority-key-registry-conflict-prohibited",
             "authority-key-registry-validity-interval-positive",
@@ -843,6 +854,10 @@ expected = {
             "receipt-deployed-digest-equals-merged-digest",
             "receipt-disposition-equals-requirement-disposition",
             "receipt-disposition-closure-exact",
+            "receipt-coverage-chain-canonical-digest-valid",
+            "receipt-disposition-receipt-id-equals-top-id",
+            "receipt-disposition-requirement-set-id-equals-top-id",
+            "receipt-disposition-requirement-id-equals-entry-key",
             "receipt-terminal-disposition-signed",
             "receipt-pending-disposition-unsigned",
             "receipt-disposition-canonical-digest-valid",
@@ -984,7 +999,7 @@ if actual is not None:
     ):
         actual["key_resolution"].pop(extension, None)
     actual["key_resolution"]["validity_interval"].pop("required_relation", None)
-    actual["key_resolution"]["verification_sequence"] = actual["key_resolution"]["verification_sequence"][3:]
+    actual["key_resolution"]["verification_sequence"] = actual["key_resolution"]["verification_sequence"][7:]
 if actual != expected:
     raise SystemExit(
         f"SIGNATURE_CONTRACT_MISMATCH:expected={expected!r}:actual={actual!r}"
@@ -1289,7 +1304,8 @@ PY
 @test "customer key cannot claim an operator authority identity" {
     local mutant="$BATS_TEST_TMPDIR/key-authority-id-mismatch.yaml"
     trusted_key_mutation_fixture "$mutant" \
-        '.source_remarks[0].authority_approval.authority_id = "authority-operator-0001"' || return 1
+        '(.source_remarks[0].authority_approval,
+          .source_remarks[0].tier1_assertions[0].authority_approval).authority_id = "authority-operator-0001"' || return 1
     assert_signature_contract "$REQUIREMENTS_SCHEMA" || return 1
     validate_requirement_contract "$mutant" || return 1
 
@@ -1301,19 +1317,21 @@ PY
 @test "customer key cannot claim the operator authority role" {
     local mutant="$BATS_TEST_TMPDIR/key-role-unauthorized.yaml"
     trusted_key_mutation_fixture "$mutant" \
-        '.source_remarks[0].tier1_assertions[0].authority_approval.authority_role = "OPERATOR"' || return 1
+        '(.source_remarks[0].authority_approval,
+          .source_remarks[0].tier1_assertions[0].authority_approval).authority_role = "OPERATOR"' || return 1
     assert_signature_contract "$REQUIREMENTS_SCHEMA" || return 1
     validate_requirement_contract "$mutant" || return 1
 
     run validate_trusted_authority_keys "$mutant"
     [ "$status" -eq 1 ] \
-        && [[ "$output" == *"TIER1_APPROVAL_KEY_ROLE_UNAUTHORIZED:assertion-0001:OPERATOR"* ]]
+        && [[ "$output" == *"SOURCE_APPROVAL_KEY_ROLE_UNAUTHORIZED:source-0001:OPERATOR"* ]]
 }
 
 @test "unknown approval key fails closed" {
     local mutant="$BATS_TEST_TMPDIR/key-unknown.yaml"
     trusted_key_mutation_fixture "$mutant" \
-        '.source_remarks[0].authority_approval.key_id = "key-unknown-0001"' || return 1
+        '(.source_remarks[0].authority_approval,
+          .source_remarks[0].tier1_assertions[0].authority_approval).key_id = "key-unknown-0001"' || return 1
     assert_signature_contract "$REQUIREMENTS_SCHEMA" || return 1
     validate_requirement_contract "$mutant" || return 1
 
@@ -1325,19 +1343,21 @@ PY
 @test "revoked approval key is rejected" {
     local mutant="$BATS_TEST_TMPDIR/key-revoked.yaml"
     trusted_key_mutation_fixture "$mutant" \
-        '.source_remarks[0].tier1_assertions[0].authority_approval.key_id = "key-revoked-0001"' || return 1
+        '(.source_remarks[0].authority_approval,
+          .source_remarks[0].tier1_assertions[0].authority_approval).key_id = "key-revoked-0001"' || return 1
     assert_signature_contract "$REQUIREMENTS_SCHEMA" || return 1
     validate_requirement_contract "$mutant" || return 1
 
     run validate_trusted_authority_keys "$mutant"
     [ "$status" -eq 1 ] \
-        && [[ "$output" == *"TIER1_APPROVAL_KEY_NOT_ACTIVE:assertion-0001:key-revoked-0001"* ]]
+        && [[ "$output" == *"SOURCE_APPROVAL_KEY_NOT_ACTIVE:source-0001:key-revoked-0001"* ]]
 }
 
 @test "not-yet-valid approval key is rejected" {
     local mutant="$BATS_TEST_TMPDIR/key-not-yet-valid.yaml"
     trusted_key_mutation_fixture "$mutant" \
-        '.source_remarks[0].authority_approval.key_id = "key-future-0001"' || return 1
+        '(.source_remarks[0].authority_approval,
+          .source_remarks[0].tier1_assertions[0].authority_approval).key_id = "key-future-0001"' || return 1
     assert_signature_contract "$REQUIREMENTS_SCHEMA" || return 1
     validate_requirement_contract "$mutant" || return 1
 
@@ -1349,7 +1369,8 @@ PY
 @test "expired approval key is rejected" {
     local mutant="$BATS_TEST_TMPDIR/key-expired.yaml"
     trusted_key_mutation_fixture "$mutant" \
-        '.source_remarks[0].tier1_assertions[0].authority_approval.key_id = "key-expired-0001"' || return 1
+        '(.source_remarks[0].authority_approval,
+          .source_remarks[0].tier1_assertions[0].authority_approval).key_id = "key-expired-0001"' || return 1
     assert_signature_contract "$REQUIREMENTS_SCHEMA" || return 1
     validate_requirement_contract "$mutant" || return 1
 
@@ -2621,7 +2642,11 @@ PY
     cp "$RECEIPT_TEMPLATE" "$pending" || return 1
     yq -i '.requirements.req-0001.coverage_chain.customer_disposition.status = "pending" |
         del(.requirements.req-0001.coverage_chain.customer_disposition.authority_approval) |
-        del(.requirements.req-0001.coverage_chain.customer_disposition.disposition_digest)' "$pending" || return 1
+        del(.requirements.req-0001.coverage_chain.customer_disposition.disposition_digest) |
+        del(.requirements.req-0001.coverage_chain.customer_disposition.receipt_id) |
+        del(.requirements.req-0001.coverage_chain.customer_disposition.requirement_set_id) |
+        del(.requirements.req-0001.coverage_chain.customer_disposition.requirement_id) |
+        del(.requirements.req-0001.coverage_chain.customer_disposition.coverage_chain_digest)' "$pending" || return 1
 
     validate_yaml "$RECEIPT_SCHEMA" "$pending" || return 1
     for terminal_status in accepted rejected superseded; do
@@ -2820,11 +2845,15 @@ expected_registry_signature_contract = {
 if contract.get("registry_signature_contract") != expected_registry_signature_contract:
     raise SystemExit("TRUST_REGISTRY_SIGNATURE_CONTRACT_MISMATCH")
 expected_verification_prefix = [
+    "REGISTRY_ENTRY_ORDER_VALID",
     "REGISTRY_DIGEST_VALID",
     "REGISTRY_SIGNATURE_VALID_AGAINST_PINNED_TRUST_ANCHOR",
     "SOURCE_TIER_AUTHORITY_ROLE_AUTHORIZED",
+    "TIER1_ASSERTION_AUTHORITY_ID_EQUALS_CONTAINING_SOURCE",
+    "TIER1_ASSERTION_AUTHORITY_ROLE_EQUALS_CONTAINING_SOURCE",
+    "TIER1_ASSERTION_KEY_ID_EQUALS_CONTAINING_SOURCE",
 ]
-if contract.get("verification_sequence", [])[:3] != expected_verification_prefix:
+if contract.get("verification_sequence", [])[:7] != expected_verification_prefix:
     raise SystemExit("TRUST_REGISTRY_VERIFICATION_ORDER_MISMATCH")
 
 registry = contract["bundled_registry"]
@@ -2873,7 +2902,7 @@ expected_disposition_contract = {
         "algorithm": "SHA-256",
         "canonicalization": "RFC8785",
         "encoding": "UTF-8",
-        "covered_fields": ["requirement_id", "status", "recorded_at", "evidence_ref", "note?", "superseded_by?"],
+        "covered_fields": ["receipt_id", "requirement_set_id", "requirement_id", "coverage_chain_digest", "status", "recorded_at", "evidence_ref", "note?", "superseded_by?"],
         "excluded_fields": ["disposition_digest", "authority_approval"],
     },
     "approval_payload_digest": {
@@ -2888,9 +2917,41 @@ expected_disposition_contract = {
         "json_pointer": "/x-datarim-signature-contract",
         "signed_field": "authority_approval.approval_payload_digest",
     },
+    "verification_sequence": [
+        "DISPOSITION_RECEIPT_ID_EQUALS_TOP_RECEIPT_ID",
+        "DISPOSITION_REQUIREMENT_SET_ID_EQUALS_TOP_REQUIREMENT_SET_ID",
+        "DISPOSITION_REQUIREMENT_ID_EQUALS_REQUIREMENT_ENTRY_KEY",
+        "COVERAGE_CHAIN_DIGEST_VALID",
+        "DISPOSITION_DIGEST_VALID",
+        "DISPOSITION_APPROVAL_DIGEST_EQUALS_DISPOSITION_DIGEST",
+        "DISPOSITION_APPROVAL_PAYLOAD_DIGEST_VALID",
+        "DISPOSITION_APPROVAL_KEY_AUTHORIZED",
+        "DISPOSITION_SIGNATURE_VALID",
+    ],
 }
 if receipt_schema.get("x-datarim-customer-disposition-contract") != expected_disposition_contract:
     raise SystemExit("RECEIPT_DISPOSITION_CONTRACT_MISMATCH")
+expected_coverage_contract = {
+    "algorithm": "SHA-256",
+    "canonicalization": "RFC8785",
+    "encoding": "UTF-8",
+    "source_object": "requirements.{requirement_id}.coverage_chain",
+    "included_members": [
+        "requirement",
+        "selected_knowledge",
+        "implementation_delta",
+        "red_green",
+        "merged_revision",
+        "deployed_revision",
+        "live_evidence",
+    ],
+    "excluded_members": ["customer_disposition"],
+    "object_member_order": "RFC8785_UTF16_CODE_UNIT_LEXICOGRAPHIC",
+    "array_order": "PRESERVE_DOCUMENT_ORDER_AS_COMMITTED",
+    "digest_input": "RFC8785_CANONICAL_JSON_UTF8_BYTES_WITHOUT_DIGEST_PREFIX",
+}
+if receipt_schema.get("x-datarim-coverage-chain-digest-contract") != expected_coverage_contract:
+    raise SystemExit("RECEIPT_COVERAGE_CHAIN_DIGEST_CONTRACT_MISMATCH")
 PY
 }
 
@@ -3007,13 +3068,44 @@ registry = {
 }
 approval_fields = ("approved_digest", "authority_id", "authority_role", "approved_at", "evidence_ref", "algorithm", "key_id")
 for requirement_id, delivery in receipt["requirements"].items():
-    disposition = delivery["coverage_chain"]["customer_disposition"]
+    chain = delivery["coverage_chain"]
+    disposition = chain["customer_disposition"]
     if disposition["status"] == "pending":
-        if "disposition_digest" in disposition or "authority_approval" in disposition:
+        commitment_fields = {
+            "receipt_id",
+            "requirement_set_id",
+            "requirement_id",
+            "coverage_chain_digest",
+            "disposition_digest",
+            "authority_approval",
+        }
+        if commitment_fields.intersection(disposition):
             raise SystemExit(f"PENDING_DISPOSITION_MUST_BE_UNSIGNED:{requirement_id}")
         continue
-    payload = {field: disposition[field] for field in ("status", "recorded_at", "evidence_ref")}
-    payload["requirement_id"] = requirement_id
+    if disposition["receipt_id"] != receipt["receipt_id"]:
+        raise SystemExit(f"DISPOSITION_RECEIPT_ID_MISMATCH:{requirement_id}")
+    if disposition["requirement_set_id"] != receipt["requirement_set_id"]:
+        raise SystemExit(f"DISPOSITION_REQUIREMENT_SET_ID_MISMATCH:{requirement_id}")
+    if disposition["requirement_id"] != requirement_id:
+        raise SystemExit(f"DISPOSITION_REQUIREMENT_ID_MISMATCH:{requirement_id}")
+    chain_payload = {
+        field: value for field, value in chain.items() if field != "customer_disposition"
+    }
+    expected_chain_digest = "sha256:" + hashlib.sha256(json.dumps(chain_payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+    if disposition["coverage_chain_digest"] != expected_chain_digest:
+        raise SystemExit(f"COVERAGE_CHAIN_DIGEST_MISMATCH:{requirement_id}")
+    payload = {
+        field: disposition[field]
+        for field in (
+            "receipt_id",
+            "requirement_set_id",
+            "requirement_id",
+            "coverage_chain_digest",
+            "status",
+            "recorded_at",
+            "evidence_ref",
+        )
+    }
     for optional in ("note", "superseded_by"):
         if optional in disposition:
             payload[optional] = disposition[optional]
@@ -3398,4 +3490,171 @@ PY
 .requirements.req-0001.acceptance.implementation.code_revision = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"|EXAMPLE_CODE_REVISION_MISMATCH:req-0001
 .requirements.req-0001.acceptance.implementation.content_revision = "cccccccccccccccccccccccccccccccccccccccc"|EXAMPLE_CONTENT_REVISION_MISMATCH:req-0001
 CASES
+}
+
+reseal_receipt_commitments() {
+    "$PYTHON" - "$1" <<'PY'
+import hashlib
+import json
+import sys
+
+import yaml
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as handle:
+    receipt = yaml.safe_load(handle)
+approval_fields = ("approved_digest", "authority_id", "authority_role", "approved_at", "evidence_ref", "algorithm", "key_id")
+for requirement_id, delivery in receipt["requirements"].items():
+    chain = delivery["coverage_chain"]
+    disposition = chain["customer_disposition"]
+    chain_payload = {field: value for field, value in chain.items() if field != "customer_disposition"}
+    chain_digest = "sha256:" + hashlib.sha256(json.dumps(chain_payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+    disposition["receipt_id"] = receipt["receipt_id"]
+    disposition["requirement_set_id"] = receipt["requirement_set_id"]
+    disposition["requirement_id"] = requirement_id
+    disposition["coverage_chain_digest"] = chain_digest
+    payload = {
+        field: disposition[field]
+        for field in ("receipt_id", "requirement_set_id", "requirement_id", "coverage_chain_digest", "status", "recorded_at", "evidence_ref")
+    }
+    for optional in ("note", "superseded_by"):
+        if optional in disposition:
+            payload[optional] = disposition[optional]
+    disposition_digest = "sha256:" + hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+    disposition["disposition_digest"] = disposition_digest
+    approval = disposition["authority_approval"]
+    approval["approved_digest"] = disposition_digest
+    approval_payload = {field: approval[field] for field in approval_fields}
+    approval["approval_payload_digest"] = "sha256:" + hashlib.sha256(json.dumps(approval_payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+with open(path, "w", encoding="utf-8") as handle:
+    yaml.safe_dump(receipt, handle, allow_unicode=True, sort_keys=False)
+PY
+}
+
+rewrite_complete_delivery_pair() {
+    cp "$REQUIREMENTS_TEMPLATE" "$1" || return 1
+    cp "$RECEIPT_TEMPLATE" "$2" || return 1
+    yq -i '.requirements.req-0001.acceptance.implementation.code_revision = "dddddddddddddddddddddddddddddddddddddddd" |
+        .requirements.req-0001.acceptance.implementation.content_revision = "dddddddddddddddddddddddddddddddddddddddd"' "$1" || return 1
+    yq -i '.requirements.req-0001.coverage_chain.merged_revision.revision = "dddddddddddddddddddddddddddddddddddddddd" |
+        .requirements.req-0001.coverage_chain.merged_revision.digest = "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" |
+        .requirements.req-0001.coverage_chain.merged_revision.evidence_ref = "artifacts/merge/rewritten.json" |
+        .requirements.req-0001.coverage_chain.deployed_revision.revision = "dddddddddddddddddddddddddddddddddddddddd" |
+        .requirements.req-0001.coverage_chain.deployed_revision.digest = "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" |
+        .requirements.req-0001.coverage_chain.deployed_revision.evidence_ref = "artifacts/deploy/rewritten.json" |
+        .requirements.req-0001.coverage_chain.live_evidence.evidence_ref = "artifacts/live/rewritten.json"' "$2" || return 1
+}
+
+@test "tier-one assertion approval identity and leaf equal the containing source" {
+    local mutant="$BATS_TEST_TMPDIR/assertion-authority-substitution.yaml"
+    structured_requirement_fixture "$mutant" || return 1
+    yq -i '.source_remarks[0].tier1_assertions[0].authority_approval *= {
+          "authority_id":"authority-operator-0001",
+          "authority_role":"OPERATOR",
+          "key_id":"key-operator-0001"
+        }' "$mutant" || return 1
+    refresh_assertion_digests "$mutant" || return 1
+    construct_placeholder_approvals "$mutant" || return 1
+    validate_trusted_authority_keys "$mutant" || return 1
+
+    run validate_requirement_contract "$mutant"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"TIER1_APPROVAL_SOURCE_AUTHORITY_ID_MISMATCH:assertion-0001"* ]]
+}
+
+@test "assertion-to-source authority equality invariants are registered atomically" {
+    run "$PYTHON" - "$REQUIREMENTS_SCHEMA" <<'PY'
+import json
+import sys
+with open(sys.argv[1], encoding="utf-8") as handle:
+    ids = json.load(handle)["x-datarim-semantic-invariants"]["invariant_ids"]
+required = {
+    "tier1-assertion-approval-authority-id-equals-containing-source",
+    "tier1-assertion-approval-authority-role-equals-containing-source",
+    "tier1-assertion-approval-key-id-equals-containing-source",
+}
+missing = sorted(required - set(ids))
+if missing:
+    raise SystemExit("ASSERTION_SOURCE_AUTHORITY_INVARIANTS_MISSING:" + ",".join(missing))
+PY
+    [ "$status" -eq 0 ]
+}
+
+@test "tier-one assertion may retain separate approval evidence timestamp and signature" {
+    run "$PYTHON" - "$REQUIREMENTS_TEMPLATE" <<'PY'
+import sys
+import yaml
+with open(sys.argv[1], encoding="utf-8") as handle:
+    document = yaml.safe_load(handle)
+source = document["source_remarks"][0]
+source_approval = source["authority_approval"]
+assertion_approval = source["tier1_assertions"][0]["authority_approval"]
+for field in ("authority_id", "authority_role", "key_id"):
+    if assertion_approval[field] != source_approval[field]:
+        raise SystemExit(f"ASSERTION_SOURCE_IDENTITY_NOT_EQUAL:{field}")
+for field in ("approved_at", "evidence_ref", "signature"):
+    if assertion_approval[field] == source_approval[field]:
+        raise SystemExit(f"ASSERTION_APPROVAL_METADATA_NOT_DISTINCT:{field}")
+PY
+    [ "$status" -eq 0 ] && validate_requirement_contract "$REQUIREMENTS_TEMPLATE"
+}
+
+@test "terminal disposition rejects receipt and requirement-set replay" {
+    local receipt_id_mutant="$BATS_TEST_TMPDIR/receipt-id-replay.yaml"
+    local requirement_set_mutant="$BATS_TEST_TMPDIR/requirement-set-replay.yaml"
+    cp "$RECEIPT_TEMPLATE" "$receipt_id_mutant" || return 1
+    cp "$RECEIPT_TEMPLATE" "$requirement_set_mutant" || return 1
+    yq -i '.receipt_id = "receipt-9999"' "$receipt_id_mutant" || return 1
+    yq -i '.requirement_set_id = "reqset-9999"' "$requirement_set_mutant" || return 1
+    run validate_terminal_disposition_contract "$receipt_id_mutant"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"DISPOSITION_RECEIPT_ID_MISMATCH:req-0001"* ]] \
+        && run validate_terminal_disposition_contract "$requirement_set_mutant" \
+        && [ "$status" -eq 1 ] \
+        && [[ "$output" == *"DISPOSITION_REQUIREMENT_SET_ID_MISMATCH:req-0001"* ]]
+}
+
+@test "coherent delivery rewrite with stale coverage commitment is rejected" {
+    local requirements_mutant="$BATS_TEST_TMPDIR/rewrite-requirements.yaml"
+    local receipt_mutant="$BATS_TEST_TMPDIR/rewrite-receipt.yaml"
+    rewrite_complete_delivery_pair "$requirements_mutant" "$receipt_mutant" || return 1
+    validate_complete_example_pair "$requirements_mutant" "$receipt_mutant" || return 1
+
+    run validate_terminal_disposition_contract "$receipt_mutant"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"COVERAGE_CHAIN_DIGEST_MISMATCH:req-0001"* ]]
+}
+
+@test "resealed coherent delivery rewrite still requires a new disposition signature" {
+    local requirements_mutant="$BATS_TEST_TMPDIR/resealed-requirements.yaml"
+    local receipt_mutant="$BATS_TEST_TMPDIR/resealed-receipt.yaml"
+    local original_signature mutated_signature
+    rewrite_complete_delivery_pair "$requirements_mutant" "$receipt_mutant" || return 1
+    original_signature=$(yq -r '.requirements.req-0001.coverage_chain.customer_disposition.authority_approval.signature' "$receipt_mutant") || return 1
+    reseal_receipt_commitments "$receipt_mutant" || return 1
+    mutated_signature=$(yq -r '.requirements.req-0001.coverage_chain.customer_disposition.authority_approval.signature' "$receipt_mutant") || return 1
+    [ "$mutated_signature" = "$original_signature" ] || return 1
+    validate_complete_example_pair "$requirements_mutant" "$receipt_mutant" || return 1
+    validate_terminal_disposition_contract "$receipt_mutant" || return 1
+
+    run verify_complete_template_signatures "$REQUIREMENTS_SCHEMA" "$requirements_mutant" "$receipt_mutant"
+    [ "$status" -eq 1 ] && [[ "$output" == *"SIGNATURE_INVALID:2"* ]]
+}
+
+@test "registry entry order is checked before digest and signature" {
+    local registry_mutant="$BATS_TEST_TMPDIR/registry-order.json"
+    local receipt_mutant="$BATS_TEST_TMPDIR/registry-order-receipt.json"
+    local digest original_signature mutated_signature
+    cp "$REQUIREMENTS_SCHEMA" "$registry_mutant" || return 1
+    cp "$RECEIPT_SCHEMA" "$receipt_mutant" || return 1
+    yq -i '."x-datarim-signature-contract".key_resolution.bundled_registry.entries |= reverse' "$registry_mutant" || return 1
+    reseal_registry_digest "$registry_mutant" || return 1
+    digest=$(jq -r '."x-datarim-signature-contract".key_resolution.bundled_registry.digest' "$registry_mutant") || return 1
+    original_signature=$(jq -r '."x-datarim-signature-contract".key_resolution.bundled_registry.registry_signature' "$REQUIREMENTS_SCHEMA") || return 1
+    mutated_signature=$(jq -r '."x-datarim-signature-contract".key_resolution.bundled_registry.registry_signature' "$registry_mutant") || return 1
+    [ "$mutated_signature" = "$original_signature" ] || return 1
+    yq -i ".\"x-datarim-trusted-authority-key-registry-ref\".registry_digest = \"${digest}\"" "$receipt_mutant" || return 1
+
+    run validate_bundled_authority_registry "$registry_mutant" "$receipt_mutant"
+    [ "$status" -eq 1 ] && [[ "$output" == *"TRUST_REGISTRY_ENTRY_ORDER_MISMATCH"* ]]
 }

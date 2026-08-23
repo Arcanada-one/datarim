@@ -166,15 +166,19 @@ requirements:
         status: accepted
         recorded_at: "2026-01-03T13:00:00Z"
         evidence_ref: customer-acceptance-0001
-        disposition_digest: sha256:5fac1c5f5544fcb38f3ebbd48528286355df2954f50939bfa4f7dd244f4f1181
+        receipt_id: receipt-0001
+        requirement_set_id: reqset-0001
+        requirement_id: req-0001
+        coverage_chain_digest: sha256:fa09d737301497beb9f13c61f3af8c0b6e167751710fe5e7cb6b4ba55da85554
+        disposition_digest: sha256:0e9620d0a3a32f906ee14af8cc355c3a7a10c67350503b0fbf5b5d67dbd3fcd1
         authority_approval:
-          approved_digest: sha256:5fac1c5f5544fcb38f3ebbd48528286355df2954f50939bfa4f7dd244f4f1181
+          approved_digest: sha256:0e9620d0a3a32f906ee14af8cc355c3a7a10c67350503b0fbf5b5d67dbd3fcd1
           authority_id: authority-operator-0001
           authority_role: OPERATOR
           approved_at: "2026-01-03T13:01:00Z"
           evidence_ref: operator-visual-acceptance-0001
           algorithm: ED25519
           key_id: key-operator-0001
-          approval_payload_digest: sha256:671acb35419dcd26392311248dab8c8b99a0f51ce171fb0f05cf884dce020d14
-          signature: ed25519:ZNjgi9Lu0Nc0st2rvMj8Tmv6A/V6lOiTTeuyAmktWTuRlVNaIzfR2gOZ7Vx2SeVVUdwl/RdID3iDjvxXZhcPDw==
+          approval_payload_digest: sha256:a0b9cff591c5353520d5cf68a90d881620f56a9931d78ae5138ba9c8bc33f393
+          signature: ed25519:WCyh1lqM126Ry5MaT3z3BGVQrfCVA9YvVEhXutbsa30m5kTWRFvmqNAhYJtua78E/NrCVIy/aj0eR1lBdOG8Cw==
         note: Customer confirmed the production comparison is readable.
