@@ -107,6 +107,9 @@ PY
         'source_history_shallow_rejected|shallow Git history cannot authorize customer delivery'
         'source_history_grafts_rejected|Git grafts cannot rewrite authoritative customer history'
         'source_history_parse_closed|historical malformed source record fails closed without traceback'
+        'source_history_total_deadline|source history subprocesses share one total deadline'
+        'source_history_commit_budget|source history commit scan is capped and fails closed'
+        'source_history_output_budget|source history blob output is capped and fails closed'
         'unicode_document|nested YAML lone surrogate is deterministic JSON NOT_MET without traceback'
         'unicode_schema|trusted-registry lone surrogate is deterministic JSON ERROR without traceback'
         'unicode_top_boundary|top Unicode boundary returns deterministic JSON when scalar precheck is faulted'
@@ -219,4 +222,81 @@ PY
         bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
     [ "$status" -ne 0 ] \
         && [[ "$output" == *"not ok 1 ${filter}"* ]]
+}
+
+@test "runtime pin response and Git authority mutants are independently killed" {
+    local pair kind filter framework mutant
+    local -a pairs=(
+        'python_runtime|non-Python executable cannot satisfy the interpreter pin'
+        'wrapper_response|empty validator response cannot be accepted as MET'
+        'git_environment|ambient GIT_DIR cannot substitute a clean authoritative history'
+        'git_environment_worktree|ambient GIT_WORK_TREE cannot redirect authoritative history discovery'
+        'git_environment_objects|ambient GIT_OBJECT_DIRECTORY cannot replace the authoritative object store'
+        'git_binary|ambient PATH Git shim cannot substitute a clean authoritative history'
+    )
+
+    for pair in "${pairs[@]}"; do
+        kind="${pair%%|*}"
+        filter="${pair#*|}"
+        run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+        [ "$status" -eq 0 ] || return 1
+
+        framework="${BATS_TEST_TMPDIR}/runtime-framework-${kind}"
+        mutant="${framework}/dev-tools/check-customer-delivery.sh"
+        mkdir -p "${framework}/dev-tools" "${framework}/config"
+        cp "$SCRIPT" "$mutant" || return 1
+        cp "${REPO_ROOT}/config/customer-requirement.schema.json" \
+            "${REPO_ROOT}/config/customer-delivery-receipt.schema.json" \
+            "${REPO_ROOT}/config/review-evolution.schema.json" \
+            "${framework}/config/" || return 1
+        "$PYTHON" - "$mutant" "$kind" <<'PY' || return 1
+import sys
+
+path, kind = sys.argv[1:]
+with open(path, encoding="utf-8") as handle:
+    source = handle.read()
+if kind == "python_runtime":
+    start_token = 'python_bin="${CUSTOMER_DELIVERY_PYTHON:-python3}"\n'
+    end_token = 'umask 077\n'
+    if source.count(start_token) != 1 or source.count(end_token) != 1:
+        raise SystemExit("PYTHON_RUNTIME_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+    start = source.index(start_token)
+    end = source.index(end_token, start)
+    source = source[:start] + start_token + source[end:]
+elif kind == "wrapper_response":
+    old = 'if [[ "$response_valid" != true ]]; then'
+    if source.count(old) != 1:
+        raise SystemExit("WRAPPER_RESPONSE_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+    source = source.replace(old, 'if false; then')
+elif kind.startswith("git_environment"):
+    start_token = '    git_env = {\n'
+    end_token = '    }  # SECURITY_RULE:git_environment_sanitized\n'
+    if source.count(start_token) != 1 or source.count(end_token) != 1:
+        raise SystemExit("GIT_ENVIRONMENT_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+    start = source.index(start_token)
+    end = source.index(end_token, start) + len(end_token)
+    replacement = (
+        '    git_env = dict(os.environ)\n'
+        '    git_env["GIT_NO_REPLACE_OBJECTS"] = "1"\n'
+    )
+    source = source[:start] + replacement + source[end:]
+elif kind == "git_binary":
+    old = 'PINNED_GIT = "/usr/bin/git"'
+    if source.count(old) != 1:
+        raise SystemExit("GIT_BINARY_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+    source = source.replace(old, 'PINNED_GIT = __import__("shutil").which("git")')
+else:
+    raise SystemExit(f"unknown mutant: {kind}")
+with open(path, "w", encoding="utf-8") as handle:
+    handle.write(source)
+PY
+        chmod +x "$mutant"
+
+        run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
+            bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+        [ "$status" -ne 0 ] \
+            && [[ "$output" == *"not ok 1 ${filter}"* ]] \
+            || return 1
+        printf 'mutant=%s killed_by=%s\n' "$kind" "$filter"
+    done
 }

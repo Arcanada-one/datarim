@@ -133,13 +133,53 @@ resolve_confined_file review_schema "$review_schema" "$framework_root" || exit 2
 review_schema="$resolved_file"
 
 python_bin="${CUSTOMER_DELIVERY_PYTHON:-python3}"
-if ! "$python_bin" -c 'import jsonschema, yaml; assert "date-time" in jsonschema.FormatChecker().checkers' >/dev/null 2>&1; then
+if [[ "$python_bin" != /* ]]; then
+    python_bin="$(command -v -- "$python_bin" 2>/dev/null || true)"
+fi
+if [[ -z "$python_bin" || ! -x "$python_bin" || -d "$python_bin" ]]; then
+    emit_config_error 'untrusted_python_runtime'
+    exit 2
+fi
+python_real="$(realpath -e -- "$python_bin" 2>/dev/null || true)"
+python_probe="$("$python_bin" -I -c '
+import json
+import os
+import sys
+
+print(json.dumps({
+    "executable": os.path.realpath(sys.executable),
+    "implementation": sys.implementation.name,
+    "major": sys.version_info.major,
+    "minor": sys.version_info.minor,
+}, sort_keys=True, separators=(",", ":")))
+' 2>/dev/null || true)"
+if [[ -z "$python_real" ]] \
+    || ! /usr/bin/jq -e --arg executable "$python_real" '
+        type == "object"
+        and keys == ["executable", "implementation", "major", "minor"]
+        and .executable == $executable
+        and .implementation == "cpython"
+        and .major == 3
+        and (.minor | type == "number" and . >= 11)
+    ' <<<"$python_probe" >/dev/null 2>&1; then
+    emit_config_error 'untrusted_python_runtime'
+    exit 2
+fi
+if [[ "$("$python_bin" -I -c 'import jsonschema, yaml; print("CUSTOMER_DELIVERY_DEPENDENCIES_OK" if "date-time" in jsonschema.FormatChecker().checkers else "")' 2>/dev/null || true)" != CUSTOMER_DELIVERY_DEPENDENCIES_OK ]]; then
     emit_config_error 'missing_python_dependencies'
     exit 2
 fi
-exec "$python_bin" - "$task" "$stage" "$format" "$root" \
+
+umask 077
+validator_output="$(mktemp "${TMPDIR:-/tmp}/customer-delivery-output.XXXXXX")" || {
+    emit_config_error 'validator_output_unavailable'
+    exit 2
+}
+trap 'rm -f -- "$validator_output"' EXIT
+set +e
+"$python_bin" -I - "$task" "$stage" "$format" "$root" \
     "$requirements" "$receipt" "$review" \
-    "$requirements_schema" "$receipt_schema" "$review_schema" <<'PY'
+    "$requirements_schema" "$receipt_schema" "$review_schema" >"$validator_output" <<'PY'
 import base64
 import binascii
 import hashlib
@@ -150,6 +190,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 from datetime import datetime
 
 import jsonschema
@@ -209,6 +250,11 @@ EXPECTED_CONTRACT_DIGESTS = {
     "review:x-datarim-originating-review-contract": "292e30935e6ee89252bcd7eae0487184115f96b6b6ad2e3d71c6a1f767770975",
 }
 PINNED_OPENSSL = "/usr/bin/openssl"
+PINNED_GIT = "/usr/bin/git"
+SOURCE_HISTORY_TOTAL_TIMEOUT_SECONDS = 10
+SOURCE_HISTORY_MAX_COMMITS = 1024
+SOURCE_HISTORY_MAX_CONTROL_OUTPUT_BYTES = 262144
+SOURCE_HISTORY_MAX_TOTAL_BLOB_BYTES = 16777216
 PINNED_REGISTRY_OWNER_ID = "authority-operator-0001"
 PINNED_REGISTRY_ROOT_KEY_ID = "key-registry-root-0001"
 PINNED_REGISTRY_PUBLIC_KEY = "3hzCOohIkBiCEu9V2qNl8r0zc9iCZE/MbLFabv6/o18="
@@ -1093,23 +1139,80 @@ def validate_requirements_contract():
 
 
 def validate_source_history():
-    git_env = dict(os.environ)
-    git_env["GIT_NO_REPLACE_OBJECTS"] = "1"
+    deadline = time.monotonic() + SOURCE_HISTORY_TOTAL_TIMEOUT_SECONDS
+    git_env = {
+        "GIT_CONFIG_GLOBAL": "/dev/null",
+        "GIT_CONFIG_NOSYSTEM": "1",
+        "GIT_CONFIG_SYSTEM": "/dev/null",
+        "GIT_NO_REPLACE_OBJECTS": "1",
+        "LANG": "C",
+        "LC_ALL": "C",
+        "PATH": "/usr/bin:/bin",
+    }  # SECURITY_RULE:git_environment_sanitized
+    git_prefix = [
+        PINNED_GIT,
+        "-c", "core.attributesFile=/dev/null",
+        "-c", "core.fsmonitor=false",
+        "-c", "core.hooksPath=/dev/null",
+        "-C", ROOT,
+    ]
+    resource_limited = False
 
-    def run_git(arguments):
+    def resource_limit(reason):
+        nonlocal resource_limited
+        if not resource_limited:
+            add(f"source_history_resource_limit:{reason}")
+            resource_limited = True
+
+    def run_git(arguments, *, input_bytes=None, output_limit=SOURCE_HISTORY_MAX_CONTROL_OUTPUT_BYTES):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            resource_limit("deadline")
+            return None
         try:
             result = subprocess.run(
-                ["git", "-C", ROOT, *arguments],
+                [*git_prefix, *arguments],
                 check=False,
                 capture_output=True,
                 env=git_env,
-                text=False,
-                timeout=10,
+                input=input_bytes,
+                timeout=remaining,
             )
-            stdout = result.stdout.decode("utf-8", errors="strict")
-        except (OSError, UnicodeError, subprocess.SubprocessError):
+        except subprocess.TimeoutExpired:
+            resource_limit("deadline")  # SECURITY_RULE:source_history_total_deadline
             return None
-        return result.returncode, stdout
+        except (OSError, subprocess.SubprocessError):
+            return None
+        if len(result.stdout) > output_limit:
+            resource_limit("output_budget")
+            return None
+        return result.returncode, result.stdout
+
+    try:
+        git_metadata = os.lstat(PINNED_GIT)
+    except OSError:
+        add("source_history_untrusted_git")
+        return
+    if (
+        not os.path.isabs(PINNED_GIT)
+        or not stat.S_ISREG(git_metadata.st_mode)
+        or not os.access(PINNED_GIT, os.X_OK)
+    ):
+        add("source_history_untrusted_git")
+        return
+    version = run_git(["--version"])
+    if version is None:
+        if not resource_limited:
+            add("source_history_untrusted_git")
+        return
+    try:
+        version_stdout = version[1].decode("ascii", errors="strict")
+    except UnicodeError:
+        add("source_history_untrusted_git")
+        return
+    if version[0] != 0 or re.fullmatch(r"git version [0-9]+\.[0-9]+(?:\.[0-9]+)?\n?", version_stdout) is None:
+        add("source_history_untrusted_git")  # SECURITY_RULE:git_binary_pinned
+        return
 
     def reject_snapshot(context):
         add(f"source_history_parse:{context}")  # SECURITY_RULE:source_history_parse_closed
@@ -1154,25 +1257,40 @@ def validate_source_history():
         return by_digest
 
     probe = run_git(["rev-parse", "--show-toplevel"])
+    try:
+        probe_stdout = probe[1].decode("utf-8", errors="strict") if probe is not None else ""
+    except UnicodeError:
+        probe_stdout = ""
     if (
         probe is None
         or probe[0] != 0
-        or os.path.realpath(probe[1].strip()) != os.path.realpath(ROOT)
+        or os.path.realpath(probe_stdout.strip()) != os.path.realpath(ROOT)
     ):
-        add("source_history_unavailable")  # SECURITY_RULE:source_history_repo_required
+        if not resource_limited:
+            add("source_history_unavailable")  # SECURITY_RULE:source_history_repo_required
         return
     shallow = run_git(["rev-parse", "--is-shallow-repository"])
-    if shallow is None or shallow[0] != 0 or shallow[1].strip() not in {"true", "false"}:
-        add("source_history_unavailable")
+    try:
+        shallow_stdout = shallow[1].decode("ascii", errors="strict").strip() if shallow is not None else ""
+    except UnicodeError:
+        shallow_stdout = ""
+    if shallow is None or shallow[0] != 0 or shallow_stdout not in {"true", "false"}:
+        if not resource_limited:
+            add("source_history_unavailable")
         return
-    if shallow[1].strip() == "true":
+    if shallow_stdout == "true":
         add("source_history_shallow_repository")  # SECURITY_RULE:source_history_shallow_rejected
         return
     graft_path_result = run_git(["rev-parse", "--git-path", "info/grafts"])
-    if graft_path_result is None or graft_path_result[0] != 0 or not graft_path_result[1].strip():
-        add("source_history_unavailable")
+    try:
+        graft_stdout = graft_path_result[1].decode("utf-8", errors="strict").strip() if graft_path_result is not None else ""
+    except UnicodeError:
+        graft_stdout = ""
+    if graft_path_result is None or graft_path_result[0] != 0 or not graft_stdout:
+        if not resource_limited:
+            add("source_history_unavailable")
         return
-    graft_path = graft_path_result[1].strip()
+    graft_path = graft_stdout
     if not os.path.isabs(graft_path):
         graft_path = os.path.join(ROOT, graft_path)
     try:
@@ -1186,21 +1304,122 @@ def validate_source_history():
         add("source_history_grafts_present")  # SECURITY_RULE:source_history_grafts_rejected
         return
     relative = os.path.relpath(DOCUMENT_PATHS["requirements"], ROOT)
-    history = run_git(["log", "--format=%H", "--follow", "--", relative])
-    if history is None or history[0] != 0 or not history[1].strip():
-        add("source_history_unavailable")  # SECURITY_RULE:source_history_document_required
+    history = run_git([
+        "log",
+        f"--max-count={SOURCE_HISTORY_MAX_COMMITS + 1}",
+        "--format=%H",
+        "--follow",
+        "--",
+        relative,
+    ])
+    try:
+        history_stdout = history[1].decode("ascii", errors="strict") if history is not None else ""
+    except UnicodeError:
+        history_stdout = ""
+    if history is None or history[0] != 0 or not history_stdout.strip():
+        if not resource_limited:
+            add("source_history_unavailable")  # SECURITY_RULE:source_history_document_required
+        return
+    commits = history_stdout.splitlines()
+    if len(commits) > SOURCE_HISTORY_MAX_COMMITS:
+        resource_limit("commit_budget")  # SECURITY_RULE:source_history_commit_budget
+        return
+    if any(re.fullmatch(r"[0-9a-f]{40,64}", commit) is None for commit in commits):
+        add("source_history_unavailable")
         return
     current_records = source_records(requirements_doc, "current")
     if current_records is None:
         return
     snapshots = [(requirements_doc, current_records)]
-    for commit in history[1].splitlines():
-        blob = run_git(["show", f"{commit}:{relative}"])
-        if blob is None or blob[0] != 0:
+
+    specs = [f"{commit}:{relative}" for commit in commits]
+    spec_input = ("\n".join(specs) + "\n").encode("utf-8")
+    info = run_git(
+        ["cat-file", "--batch-check=%(objectname) %(objecttype) %(objectsize)"],
+        input_bytes=spec_input,
+    )
+    if info is None or info[0] != 0:
+        if not resource_limited:
+            for commit in commits:
+                reject_snapshot(commit)
+        return
+    try:
+        info_lines = info[1].decode("ascii", errors="strict").splitlines()
+    except UnicodeError:
+        for commit in commits:
             reject_snapshot(commit)
+        return
+    if len(info_lines) != len(commits):
+        for commit in commits:
+            reject_snapshot(commit)
+        return
+    expected_objects = []
+    total_blob_bytes = 0
+    for commit, line in zip(commits, info_lines):
+        match = re.fullmatch(r"([0-9a-f]{40,64}) blob ([0-9]+)", line)
+        if match is None:
+            reject_snapshot(commit)
+            expected_objects.append(None)
+            continue
+        size = int(match.group(2))
+        total_blob_bytes += size
+        expected_objects.append((match.group(1), size))
+    if any(expected is None for expected in expected_objects):
+        return
+    if total_blob_bytes > SOURCE_HISTORY_MAX_TOTAL_BLOB_BYTES:
+        resource_limit("output_budget")  # SECURITY_RULE:source_history_output_budget
+        return
+
+    batch = run_git(
+        ["cat-file", "--batch"],
+        input_bytes=spec_input,
+        output_limit=SOURCE_HISTORY_MAX_TOTAL_BLOB_BYTES + SOURCE_HISTORY_MAX_CONTROL_OUTPUT_BYTES,
+    )
+    if batch is None or batch[0] != 0:
+        if not resource_limited:
+            for commit in commits:
+                reject_snapshot(commit)
+        return
+    cursor = 0
+    blobs = []
+    for commit, expected in zip(commits, expected_objects):
+        newline = batch[1].find(b"\n", cursor)
+        if newline < 0 or expected is None:
+            reject_snapshot(commit)
+            blobs.append(None)
             continue
         try:
-            prior = yaml.load(blob[1], Loader=UniqueKeyLoader)
+            header = batch[1][cursor:newline].decode("ascii", errors="strict")
+        except UnicodeError:
+            reject_snapshot(commit)
+            blobs.append(None)
+            cursor = newline + 1
+            continue
+        header_match = re.fullmatch(r"([0-9a-f]{40,64}) blob ([0-9]+)", header)
+        if header_match is None or (header_match.group(1), int(header_match.group(2))) != expected:
+            reject_snapshot(commit)
+            blobs.append(None)
+            cursor = newline + 1
+            continue
+        start = newline + 1
+        end = start + expected[1]
+        if end >= len(batch[1]) or batch[1][end:end + 1] != b"\n":
+            reject_snapshot(commit)
+            blobs.append(None)
+            cursor = len(batch[1])
+            continue
+        blobs.append(batch[1][start:end])
+        cursor = end + 1
+    if cursor != len(batch[1]):
+        for commit in commits:
+            reject_snapshot(commit)
+        return
+
+    for commit, blob_bytes in zip(commits, blobs):
+        if blob_bytes is None:
+            continue
+        try:
+            prior = yaml.load(blob_bytes.decode("utf-8", errors="strict"), Loader=UniqueKeyLoader)
         except (UnicodeError, yaml.YAMLError):
             reject_snapshot(commit)
             continue
@@ -1835,3 +2054,62 @@ if findings:
     emit("NOT_MET", 1, epic_status)
 emit("MET", 0, epic_status)
 PY
+validator_status=$?
+set -e
+
+validate_text_response() {
+    local first_line decision_field stage_field task_field status_field findings_field epic_field extra
+    local decision_value findings_value line recomputed_findings=''
+    IFS= read -r first_line <"$validator_output" || return 1
+    IFS=' ' read -r decision_field stage_field task_field status_field epic_field findings_field extra <<<"$first_line"
+    [[ -z "${extra:-}" ]] || return 1
+    [[ "$decision_field" == decision=MET || "$decision_field" == decision=NOT_MET \
+        || "$decision_field" == decision=ERROR ]] || return 1
+    decision_value="${decision_field#decision=}"
+    [[ "$stage_field" == "stage=${stage}" && "$task_field" == "task=${task}" ]] || return 1
+    [[ "$status_field" == "status=${decision_value}" ]] || return 1
+    findings_value="${findings_field#findings=}"
+    [[ "$findings_field" == findings=* ]] || return 1
+    [[ "$epic_field" == epic_status=MET || "$epic_field" == epic_status=NOT_MET ]] || return 1
+    while IFS= read -r line; do
+        [[ "$line" == finding=?* && "$line" != *[$'\001'-$'\037'$'\177']* ]] || return 1
+        if [[ -n "$recomputed_findings" ]]; then
+            recomputed_findings+=','
+        fi
+        recomputed_findings+="${line#finding=}"
+    done < <(tail -n +2 -- "$validator_output")
+    [[ "$recomputed_findings" == "$findings_value" ]] || return 1
+    [[ ("$decision_value" == MET && "$validator_status" -eq 0) \
+        || ("$decision_value" == NOT_MET && "$validator_status" -eq 1) \
+        || ("$decision_value" == ERROR && "$validator_status" -eq 2) ]]
+}
+
+response_valid=false
+if [[ -s "$validator_output" && "$(stat -c %s -- "$validator_output")" -le 1048576 ]]; then
+    if [[ "$format" == json ]]; then
+        if /usr/bin/jq -e --arg task "$task" --arg stage "$stage" --argjson rc "$validator_status" '
+            type == "object"
+            and keys == ["decision", "epic_status", "findings", "stage", "status", "task"]
+            and (.decision == "MET" or .decision == "NOT_MET" or .decision == "ERROR")
+            and .status == .decision
+            and (.epic_status == "MET" or .epic_status == "NOT_MET")
+            and .task == $task
+            and .stage == $stage
+            and (.findings | type == "array" and all(.[]; type == "string"))
+            and ((.decision == "MET" and $rc == 0)
+                or (.decision == "NOT_MET" and $rc == 1)
+                or (.decision == "ERROR" and $rc == 2))
+        ' "$validator_output" >/dev/null 2>&1 \
+            && [[ "$(wc -l <"$validator_output")" -eq 1 ]]; then
+            response_valid=true
+        fi
+    elif validate_text_response; then
+        response_valid=true
+    fi
+fi
+if [[ "$response_valid" != true ]]; then
+    emit_config_error 'invalid_validator_response'
+    exit 2
+fi
+cat -- "$validator_output"
+exit "$validator_status"

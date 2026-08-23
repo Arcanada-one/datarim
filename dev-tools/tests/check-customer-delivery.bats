@@ -122,6 +122,22 @@ run_test_framework_json() {
         "$TEST_SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
 }
 
+replace_test_script_literal() {
+    local old="$1"
+    local new="$2"
+    "$PYTHON" - "$TEST_SCRIPT" "$old" "$new" <<'PY'
+import sys
+
+path, old, new = sys.argv[1:]
+with open(path, encoding="utf-8") as handle:
+    source = handle.read()
+if source.count(old) != 1:
+    raise SystemExit(f"mutation seam missing or ambiguous: {old!r}")
+with open(path, "w", encoding="utf-8") as handle:
+    handle.write(source.replace(old, new))
+PY
+}
+
 authenticate_test_registry() {
     local expression="$1"
     local requirement_schema="${TEST_FRAMEWORK}/config/customer-requirement.schema.json"
@@ -1131,13 +1147,39 @@ prepare_signed_review_fixture() {
 }
 
 @test "dependency failure is deterministic machine-readable JSON" {
-    local fake_python="${BATS_TEST_TMPDIR}/python-without-dependencies"
-    printf '%s\n' '#!/bin/sh' 'exit 1' > "$fake_python"
+    local dependency_free_venv="${BATS_TEST_TMPDIR}/python-without-dependencies"
+    "$PYTHON" -m venv "$dependency_free_venv" || return 1
+    run env CUSTOMER_DELIVERY_PYTHON="${dependency_free_venv}/bin/python" \
+        "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage compliance --format json
+    [ "$status" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["task"] == "WEB-0001" and d["stage"] == "compliance" and d["status"] == "ERROR" and d["findings"] == ["missing_python_dependencies"]' "$output"
+}
+
+@test "non-Python executable cannot satisfy the interpreter pin" {
+    run env CUSTOMER_DELIVERY_PYTHON=/bin/true \
+        "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage compliance --format json
+    [ "$status" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "ERROR" and d["findings"] == ["untrusted_python_runtime"]' "$output"
+}
+
+@test "interpreter wrapper cannot impersonate the pinned Python runtime" {
+    local fake_python="${BATS_TEST_TMPDIR}/fake-python"
+    printf '%s\n' '#!/bin/sh' "exec \"${PYTHON}\" \"\$@\"" > "$fake_python"
     chmod +x "$fake_python"
     run env CUSTOMER_DELIVERY_PYTHON="$fake_python" \
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage compliance --format json
     [ "$status" -eq 2 ] \
-        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["task"] == "WEB-0001" and d["stage"] == "compliance" and d["status"] == "ERROR" and d["findings"] == ["missing_python_dependencies"]' "$output"
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "ERROR" and d["findings"] == ["untrusted_python_runtime"]' "$output"
+}
+
+@test "empty validator response cannot be accepted as MET" {
+    build_test_framework empty-validator-response || return 1
+    replace_test_script_literal \
+        'emit("MET", 0, epic_status)' \
+        'sys.exit(0)  # MUTATED:empty_validator_response' || return 1
+    run_test_framework_json
+    [ "$status" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "ERROR" and d["findings"] == ["invalid_validator_response"]' "$output"
 }
 
 @test "hostile malformed YAML returns JSON without traceback" {
@@ -1474,6 +1516,87 @@ PY
         && [[ "$output" == *"source_history_prior_record_mutated:source-0001"* ]]
 }
 
+@test "ambient GIT_DIR cannot substitute a clean authoritative history" {
+    local substitute="${BATS_TEST_TMPDIR}/substitute-repository"
+    yq -i '.source_remarks[0].authority_approval.evidence_ref = "mutated-in-place"' "$REQUIREMENTS"
+    mkdir -p "$substitute/datarim/tasks"
+    cp "$REQUIREMENTS" "$substitute/datarim/tasks/${TASK_ID}-customer-requirements.yaml"
+    git -C "$substitute" init -q
+    git -C "$substitute" config user.name test
+    git -C "$substitute" config user.email test@example.invalid
+    git -C "$substitute" add datarim
+    git -C "$substitute" commit -q -m substituted-clean-history
+
+    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" GIT_DIR="${substitute}/.git" \
+        "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"source_history_prior_record_mutated:source-0001"* ]]
+}
+
+@test "ambient GIT_WORK_TREE cannot redirect authoritative history discovery" {
+    local substitute_worktree="${BATS_TEST_TMPDIR}/substitute-worktree"
+    yq -i '.source_remarks[0].authority_approval.evidence_ref = "mutated-in-place"' "$REQUIREMENTS"
+    mkdir -p "$substitute_worktree"
+    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" GIT_WORK_TREE="$substitute_worktree" \
+        "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"source_history_prior_record_mutated:source-0001"* ]]
+}
+
+@test "ambient GIT_OBJECT_DIRECTORY cannot replace the authoritative object store" {
+    local substitute_objects="${BATS_TEST_TMPDIR}/substitute-objects"
+    yq -i '.source_remarks[0].authority_approval.evidence_ref = "mutated-in-place"' "$REQUIREMENTS"
+    mkdir -p "$substitute_objects"
+    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" GIT_OBJECT_DIRECTORY="$substitute_objects" \
+        "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"source_history_prior_record_mutated:source-0001"* ]]
+}
+
+@test "ambient PATH Git shim cannot substitute a clean authoritative history" {
+    local substitute="${BATS_TEST_TMPDIR}/path-substitute-repository"
+    local shim_dir="${BATS_TEST_TMPDIR}/path-git-shim"
+    local real_git
+    real_git="$(command -v git)" || return 1
+    yq -i '.source_remarks[0].authority_approval.evidence_ref = "mutated-in-place"' "$REQUIREMENTS"
+    mkdir -p "$substitute/datarim/tasks" "$shim_dir"
+    cp "$REQUIREMENTS" "$substitute/datarim/tasks/${TASK_ID}-customer-requirements.yaml"
+    git -C "$substitute" init -q
+    git -C "$substitute" config user.name test
+    git -C "$substitute" config user.email test@example.invalid
+    git -C "$substitute" add datarim
+    git -C "$substitute" commit -q -m substituted-clean-history
+    "$PYTHON" - "${shim_dir}/git" "$real_git" "$substitute" <<'PY' || return 1
+import os
+import sys
+
+path, real_git, substitute = sys.argv[1:]
+with open(path, "w", encoding="utf-8") as handle:
+    handle.write(f'''#!/usr/bin/env bash
+args=()
+skip_next=false
+for argument in "$@"; do
+    if [[ "$skip_next" == true ]]; then
+        skip_next=false
+        continue
+    fi
+    if [[ "$argument" == -C ]]; then
+        skip_next=true
+        continue
+    fi
+    args+=("$argument")
+done
+exec "{real_git}" -C "{substitute}" "${{args[@]}}"
+''')
+os.chmod(path, 0o700)
+PY
+
+    run env PATH="${shim_dir}:${PATH}" CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
+        "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"source_history_prior_record_mutated:source-0001"* ]]
+}
+
 @test "historical null source snapshot fails closed without traceback" {
     local commit
     commit="$(commit_invalid_historical_requirements null)" || return 1
@@ -1527,7 +1650,7 @@ PY
         && [[ "$output" != *"Traceback"* ]]
 }
 
-@test "historical Git show failure fails closed without traceback" {
+@test "historical Git batch read failure fails closed without traceback" {
     local commit git_path shim
     commit="$(git -C "$ROOT" rev-parse HEAD)" || return 1
     git_path="$(command -v git)" || return 1
@@ -1540,7 +1663,7 @@ import sys
 path, real_git = sys.argv[1:]
 script = f'''#!/usr/bin/env bash
 for argument in "$@"; do
-    if [[ "$argument" == show ]]; then
+    if [[ "$argument" == cat-file ]]; then
         exit 73
     fi
 done
@@ -1550,11 +1673,73 @@ with open(path, "w", encoding="utf-8") as handle:
     handle.write(script)
 os.chmod(path, 0o700)
 PY
-    run env PATH="${shim}:${PATH}" CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
-        "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+    build_test_framework git-read-failure || return 1
+    replace_test_script_literal \
+        'PINNED_GIT = "/usr/bin/git"' \
+        "PINNED_GIT = \"${shim}/git\"" || return 1
+    run_test_framework_json
     [ "$status" -eq 1 ] \
         && assert_source_history_parse_result "$commit" "$output" \
         && [[ "$output" != *"Traceback"* ]]
+}
+
+@test "source history commit scan is capped and fails closed" {
+    local commit
+    commit="$(commit_invalid_historical_requirements legacy-schema-version)" || return 1
+    [ -n "$commit" ] || return 1
+    build_test_framework history-commit-budget || return 1
+    replace_test_script_literal \
+        'SOURCE_HISTORY_MAX_COMMITS = 1024' \
+        'SOURCE_HISTORY_MAX_COMMITS = 1' || return 1
+    run_test_framework_json
+    [ "$status" -eq 1 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["source_history_resource_limit:commit_budget"]' "$output"
+}
+
+@test "source history blob output is capped and fails closed" {
+    build_test_framework history-output-budget || return 1
+    replace_test_script_literal \
+        'SOURCE_HISTORY_MAX_TOTAL_BLOB_BYTES = 16777216' \
+        'SOURCE_HISTORY_MAX_TOTAL_BLOB_BYTES = 64' || return 1
+    run_test_framework_json
+    [ "$status" -eq 1 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["source_history_resource_limit:output_budget"]' "$output"
+}
+
+@test "source history subprocesses share one total deadline" {
+    local shim="${BATS_TEST_TMPDIR}/slow-git"
+    local real_git start end elapsed
+    real_git="$(command -v git)" || return 1
+    "$PYTHON" - "$shim" "$real_git" <<'PY' || return 1
+import os
+import sys
+
+path, real_git = sys.argv[1:]
+with open(path, "w", encoding="utf-8") as handle:
+    handle.write(f'''#!/usr/bin/env bash
+for argument in "$@"; do
+    if [[ "$argument" == cat-file ]]; then
+        sleep 2
+    fi
+done
+exec "{real_git}" "$@"
+''')
+os.chmod(path, 0o700)
+PY
+    build_test_framework history-total-deadline || return 1
+    replace_test_script_literal \
+        'PINNED_GIT = "/usr/bin/git"' \
+        "PINNED_GIT = \"${shim}\"" || return 1
+    replace_test_script_literal \
+        'SOURCE_HISTORY_TOTAL_TIMEOUT_SECONDS = 10' \
+        'SOURCE_HISTORY_TOTAL_TIMEOUT_SECONDS = 1' || return 1
+    start="$($PYTHON -c 'import time; print(time.perf_counter())')"
+    run_test_framework_json
+    end="$($PYTHON -c 'import time; print(time.perf_counter())')"
+    elapsed="$($PYTHON -c 'import sys; print(float(sys.argv[2])-float(sys.argv[1]))' "$start" "$end")"
+    [ "$status" -eq 1 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["source_history_resource_limit:deadline"]' "$output" \
+        && "$PYTHON" -c 'import sys; assert float(sys.argv[1]) < 1.8' "$elapsed"
 }
 
 @test "MET requires an authoritative Git history for the requirement source" {
