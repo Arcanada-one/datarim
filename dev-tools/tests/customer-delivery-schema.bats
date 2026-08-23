@@ -877,13 +877,12 @@ expected = {
         ],
     },
     sys.argv[3]: {
-        "description": "Draft 2020-12 validates shape only; the A3 review-evolution validator enforces review-record invariants, while the A2 customer-delivery validator independently enforces review-open-or-changes-requested-blocks-closure before receipt closure.",
+        "description": "Draft 2020-12 validates shape only; the A3 review-evolution validator enforces exactly the eight review-record and evolution invariants. Receipt closure is owned exclusively by the A2 customer-delivery validator.",
         "enforcer": "review-evolution-validator",
         "invariant_ids": [
             "review-requirement-id-equals-product-fix-requirement-id",
             "review-receipt-id-equals-product-fix-receipt-id",
             "review-parent-links-complete",
-            "review-open-or-changes-requested-blocks-closure",
             "review-product-fix-status-equals-receipt-delivery",
             "review-classification-canonical-change-exclusive",
             "review-no-canon-change-evidence-approved",
@@ -2722,13 +2721,34 @@ PY
     done
 }
 
-@test "originating review object and state are required" {
+@test "originating review object is required" {
     run reject_mutation "$EVOLUTION_SCHEMA" "$EVOLUTION_TEMPLATE" \
         'del(.originating_review)'
-    [ "$status" -eq 1 ] \
-        && run reject_mutation "$EVOLUTION_SCHEMA" "$EVOLUTION_TEMPLATE" \
-            'del(.originating_review.state)' \
-        && [ "$status" -eq 1 ]
+    [ "$status" -eq 1 ]
+}
+
+@test "originating review review_ref is required" {
+    run reject_mutation "$EVOLUTION_SCHEMA" "$EVOLUTION_TEMPLATE" \
+        'del(.originating_review.review_ref)'
+    [ "$status" -eq 1 ]
+}
+
+@test "originating review state is required" {
+    run reject_mutation "$EVOLUTION_SCHEMA" "$EVOLUTION_TEMPLATE" \
+        'del(.originating_review.state)'
+    [ "$status" -eq 1 ]
+}
+
+@test "originating review observed_at is required" {
+    run reject_mutation "$EVOLUTION_SCHEMA" "$EVOLUTION_TEMPLATE" \
+        'del(.originating_review.observed_at)'
+    [ "$status" -eq 1 ]
+}
+
+@test "originating review evidence_ref is required" {
+    run reject_mutation "$EVOLUTION_SCHEMA" "$EVOLUTION_TEMPLATE" \
+        'del(.originating_review.evidence_ref)'
+    [ "$status" -eq 1 ]
 }
 
 @test "originating review rejects unknown state and extra fields" {
@@ -2794,6 +2814,30 @@ PY
 
     observed_state=$(yq -r '.originating_review.state' "$EVOLUTION_TEMPLATE") || return 1
     validate_review_closure_contract "$observed_state" CLOSED
+}
+
+@test "review closure is owned exclusively by the A2 receipt validator" {
+    run "$PYTHON" - "$RECEIPT_SCHEMA" "$EVOLUTION_SCHEMA" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    receipt_registry = json.load(handle)["x-datarim-semantic-invariants"]
+with open(sys.argv[2], encoding="utf-8") as handle:
+    review_registry = json.load(handle)["x-datarim-semantic-invariants"]
+invariant = "review-open-or-changes-requested-blocks-closure"
+if receipt_registry["enforcer"] != "customer-delivery-validator":
+    raise SystemExit("REVIEW_CLOSURE_A2_ENFORCER_MISMATCH")
+if invariant not in receipt_registry["invariant_ids"]:
+    raise SystemExit("REVIEW_CLOSURE_A2_INVARIANT_MISSING")
+if review_registry["enforcer"] != "review-evolution-validator":
+    raise SystemExit("REVIEW_EVOLUTION_A3_ENFORCER_MISMATCH")
+if invariant in review_registry["invariant_ids"]:
+    raise SystemExit("REVIEW_CLOSURE_DUPLICATE_A3_OWNERSHIP")
+if len(review_registry["invariant_ids"]) != 8:
+    raise SystemExit("REVIEW_EVOLUTION_A3_INVARIANT_COUNT_MISMATCH")
+PY
+    [ "$status" -eq 0 ]
 }
 
 validate_bundled_authority_registry() {
