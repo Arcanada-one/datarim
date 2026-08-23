@@ -358,6 +358,13 @@ import stat
 import sys
 from email.parser import Parser
 
+class MissingTrustedDependency(RuntimeError):
+    pass
+
+def bootstrap_exception_handler(exception_type, exception, traceback):
+    os._exit(125 if issubclass(exception_type, MissingTrustedDependency) else 124)
+
+sys.excepthook = bootstrap_exception_handler
 site_path = os.path.realpath(sys.argv[1])
 expected_device = int(sys.argv[2])
 expected_inode = int(sys.argv[3])
@@ -393,6 +400,8 @@ def authenticated_dist_version(site_fd, distribution, expected_version):  # SECU
         name for name in os.listdir(site_fd)
         if name.lower() == expected_basename.lower()
     ]
+    if not candidates:
+        raise MissingTrustedDependency("dist_info_missing")
     if len(candidates) != 1:
         raise RuntimeError("dist_info_inventory_invalid")
     dist_info = candidates[0]
@@ -511,7 +520,10 @@ expected = {
 }
 for module_name, (distribution, version) in expected.items():
     spec = importlib.util.find_spec(module_name)
-    assert spec is not None and spec.origin is not None
+    if spec is None:
+        raise MissingTrustedDependency("module_missing")
+    if spec.origin is None:
+        raise RuntimeError("module_origin_missing")
     assert os.path.commonpath((os.path.realpath(spec.origin), site_path)) == site_path
     trusted_dependency_versions[distribution] = authenticated_dist_version(
         site_fd, distribution, version
@@ -527,6 +539,7 @@ assert (
 )
 sys.path.remove(".")
 os.chdir("/")
+sys.excepthook = sys.__excepthook__
 if mode == "-c":
     program = sys.argv[5]
     sys.argv = ["-c"] + sys.argv[6:]
@@ -727,7 +740,9 @@ EXPECTED_CONTRACT_DIGESTS = {
     "receipt:x-datarim-task-identity-contract": "54e1d0c40950b024a0dcd760ee1964bb467088876b7624ff652e27f5dfbe69a5",
     "review:x-datarim-originating-review-contract": "79278a6f32ce798509cbb7b4578d2116007b37ac3f97646305d091ec3bdae5c4",
 }
-PINNED_GIT = "/usr/bin/git"
+PINNED_DARWIN_DEVELOPER_ROOT = "/Library/Developer/CommandLineTools"
+PINNED_DARWIN_GIT = "/Library/Developer/CommandLineTools/usr/bin/git"
+PINNED_GIT = "/usr/bin/git" if PLATFORM == "Linux" else PINNED_DARWIN_GIT
 VALIDATION_TOTAL_TIMEOUT_SECONDS = 20
 VALIDATION_DEADLINE = time.monotonic() + VALIDATION_TOTAL_TIMEOUT_SECONDS
 MAX_INPUT_BYTES = 8388608
@@ -1091,7 +1106,9 @@ def repository_entry_identity(metadata, *, content_stable=False):
 def bind_authoritative_repository():
     directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC
     nofollow = getattr(os, "O_NOFOLLOW", 0)
-    root_fd = dotgit_fd = gitdir_fd = None
+    root_fd = dotgit_fd = gitdir_fd = common_fd = objects_fd = None
+    common_info_fd = objects_info_fd = None
+    commondir_file_fd = None
     try:
         root_fd = os.open(ROOT, directory_flags | nofollow)
         root_identity = repository_entry_identity(os.fstat(root_fd))
@@ -1113,23 +1130,19 @@ def bind_authoritative_repository():
             if not stat.S_ISREG(dotgit_before.st_mode) or dotgit_before.st_size > 4096:
                 raise OSError("invalid gitfile")
             chunks = []
-            total = 0
             while True:
-                chunk = os.read(dotgit_fd, min(4097 - total, 4096))
+                chunk = os.read(dotgit_fd, 4097)
                 if not chunk:
                     break
                 chunks.append(chunk)
-                total += len(chunk)
-                if total > 4096:
+                if sum(map(len, chunks)) > 4096:
                     raise OSError("oversized gitfile")
             dotgit_after = os.fstat(dotgit_fd)
             if repository_entry_identity(
                 dotgit_before, content_stable=True
             ) != repository_entry_identity(dotgit_after, content_stable=True):
                 raise OSError("gitfile identity changed while binding")
-            match = re.fullmatch(
-                rb"gitdir: ([^\x00\r\n]+)\r?\n?", b"".join(chunks)
-            )
+            match = re.fullmatch(rb"gitdir: ([^\x00\r\n]+)\r?\n?", b"".join(chunks))
             if match is None:
                 raise OSError("invalid gitfile")
             gitdir_text = match.group(1).decode("utf-8", errors="strict")
@@ -1139,10 +1152,41 @@ def bind_authoritative_repository():
                 else os.path.normpath(os.path.join(ROOT, gitdir_text))
             )
             gitdir_fd = os.open(gitdir_path, directory_flags | nofollow)
+            commondir_file_fd = os.open(
+                "commondir", os.O_RDONLY | os.O_CLOEXEC | nofollow,
+                dir_fd=gitdir_fd,
+            )
+            commondir_before = os.fstat(commondir_file_fd)
+            if not stat.S_ISREG(commondir_before.st_mode) or commondir_before.st_size > 32:
+                raise OSError("invalid commondir")
+            commondir_text = os.read(commondir_file_fd, 33)
+            commondir_after = os.fstat(commondir_file_fd)
+            if (
+                commondir_text not in (b"../..\n", b"../..\r\n")
+                or repository_entry_identity(commondir_before, content_stable=True)
+                != repository_entry_identity(commondir_after, content_stable=True)
+            ):
+                raise OSError("unsupported commondir relation")
+            common_fd = os.open("../..", directory_flags | nofollow, dir_fd=gitdir_fd)
+        if common_fd is None:
+            common_fd = os.dup(gitdir_fd)
+        objects_fd = os.open(
+            "objects", directory_flags | nofollow, dir_fd=common_fd
+        )
+        common_info_fd = os.open(
+            "info", directory_flags | nofollow, dir_fd=common_fd
+        )
+        objects_info_fd = os.open(
+            "info", directory_flags | nofollow, dir_fd=objects_fd
+        )
         dotgit_identity = repository_entry_identity(
             os.fstat(dotgit_fd), content_stable=dotgit_is_file
         )
         gitdir_identity = repository_entry_identity(os.fstat(gitdir_fd))
+        common_identity = repository_entry_identity(os.fstat(common_fd))
+        objects_identity = repository_entry_identity(os.fstat(objects_fd))
+        common_info_identity = repository_entry_identity(os.fstat(common_info_fd))
+        objects_info_identity = repository_entry_identity(os.fstat(objects_info_fd))
         return {
             "root_fd": root_fd,
             "root_identity": root_identity,
@@ -1152,9 +1196,25 @@ def bind_authoritative_repository():
             "gitdir_fd": gitdir_fd,
             "gitdir_identity": gitdir_identity,
             "gitdir_path": gitdir_path,
+            "common_fd": common_fd,
+            "common_identity": common_identity,
+            "commondir_file_fd": commondir_file_fd,
+            "commondir_file_identity": (
+                repository_entry_identity(commondir_after, content_stable=True)
+                if dotgit_is_file else None
+            ),
+            "objects_fd": objects_fd,
+            "objects_identity": objects_identity,
+            "common_info_fd": common_info_fd,
+            "common_info_identity": common_info_identity,
+            "objects_info_fd": objects_info_fd,
+            "objects_info_identity": objects_info_identity,
         }
     except (OSError, UnicodeError):
-        for descriptor in (gitdir_fd, dotgit_fd, root_fd):
+        for descriptor in (
+            objects_info_fd, common_info_fd, objects_fd, common_fd, commondir_file_fd,
+            gitdir_fd, dotgit_fd, root_fd,
+        ):
             if descriptor is not None:
                 try:
                     os.close(descriptor)
@@ -1180,15 +1240,58 @@ def repository_identity_issue():
             content_stable=binding["dotgit_is_file"],
         ) != binding["dotgit_identity"]:
             return "gitdir"
+        if (
+            repository_entry_identity(os.fstat(binding["common_info_fd"]))
+            != binding["common_info_identity"]
+            or repository_entry_identity(
+                os.stat("info", dir_fd=binding["common_fd"], follow_symlinks=False)
+            )
+            != binding["common_info_identity"]
+            or repository_entry_identity(os.fstat(binding["objects_info_fd"]))
+            != binding["objects_info_identity"]
+            or repository_entry_identity(
+                os.stat("info", dir_fd=binding["objects_fd"], follow_symlinks=False)
+            )
+            != binding["objects_info_identity"]
+        ):
+            return "gitdir"
         dotgit_path_identity = repository_entry_identity(
             os.stat(".git", dir_fd=binding["root_fd"], follow_symlinks=False),
             content_stable=binding["dotgit_is_file"],
         )
         if dotgit_path_identity != binding["dotgit_identity"]:
             return "gitdir"
+        if repository_entry_identity(os.fstat(binding["common_fd"])) != binding["common_identity"]:
+            return "gitdir"
+        if binding["dotgit_is_file"]:
+            if (
+                repository_entry_identity(
+                    os.fstat(binding["commondir_file_fd"]), content_stable=True
+                )
+                != binding["commondir_file_identity"]
+                or repository_entry_identity(
+                    os.stat(
+                        "commondir", dir_fd=binding["gitdir_fd"], follow_symlinks=False
+                    ),
+                    content_stable=True,
+                )
+                != binding["commondir_file_identity"]
+            ):
+                return "gitdir"
         if (
             repository_entry_identity(os.fstat(binding["gitdir_fd"]))
             != binding["gitdir_identity"]
+        ):
+            return "gitdir"
+        if (
+            repository_entry_identity(os.fstat(binding["objects_fd"]))
+            != binding["objects_identity"]
+            or repository_entry_identity(
+                os.stat(
+                    "objects", dir_fd=binding["common_fd"], follow_symlinks=False
+                )
+            )
+            != binding["objects_identity"]
         ):
             return "gitdir"
         if binding["gitdir_path"] is not None and repository_entry_identity(
@@ -2139,21 +2242,27 @@ def _validate_source_history():
         "LC_ALL": "C",
         "PATH": "/usr/bin:/bin",
     }  # SECURITY_RULE:git_environment_sanitized
+    if PLATFORM == "Darwin":
+        git_env["DEVELOPER_DIR"] = PINNED_DARWIN_DEVELOPER_ROOT
     binding = AUTHORITATIVE_REPOSITORY
     if binding is None:
         add("source_history_unavailable")
         return
-    gitdir_fd_path = (
-        f"/proc/self/fd/{binding['gitdir_fd']}"
-        if PLATFORM == "Linux"
-        else f"/dev/fd/{binding['gitdir_fd']}"
-    )
+    git_cwd_fd = binding["gitdir_fd"]
+    git_cwd_identity = binding["gitdir_identity"]
+    git_dir_argument = "."
+    if binding["dotgit_is_file"]:
+        git_env["GIT_COMMON_DIR"] = "../.."
+        git_env["GIT_OBJECT_DIRECTORY"] = "../../objects"
+    else:
+        git_env["GIT_COMMON_DIR"] = "."
+        git_env["GIT_OBJECT_DIRECTORY"] = "objects"
     git_prefix = [
         PINNED_GIT,
         "-c", "core.attributesFile=/dev/null",
         "-c", "core.fsmonitor=false",
         "-c", "core.hooksPath=/dev/null",
-        f"--git-dir={gitdir_fd_path}",
+        f"--git-dir={git_dir_argument}",
     ]
     resource_limited = False
     repository_identity_reported = False
@@ -2216,16 +2325,32 @@ def _validate_source_history():
         stdout_buffer = bytearray()
         stderr_buffer = bytearray()
         input_offset = 0
+        saved_cwd_fd = None
         try:
-            process = subprocess.Popen(
-                [*git_prefix, *arguments],
-                env=git_env,
-                pass_fds=(binding["gitdir_fd"],),
-                stdin=subprocess.PIPE if input_bytes is not None else subprocess.DEVNULL,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                start_new_session=True,
+            saved_cwd_fd = os.open(
+                ".", os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC
             )
+            try:
+                os.fchdir(git_cwd_fd)
+                cwd_metadata = os.stat(".")
+                if repository_entry_identity(cwd_metadata) != git_cwd_identity:
+                    return None
+                process = subprocess.Popen(
+                    [*git_prefix, *arguments],
+                    env=git_env,
+                    pass_fds=(
+                        binding["gitdir_fd"], binding["common_fd"], binding["objects_fd"],
+                        binding["common_info_fd"], binding["objects_info_fd"],
+                    ),
+                    stdin=subprocess.PIPE if input_bytes is not None else subprocess.DEVNULL,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    start_new_session=True,
+                )
+            finally:
+                os.fchdir(saved_cwd_fd)
+                os.close(saved_cwd_fd)
+                saved_cwd_fd = None
             for stream, label in ((process.stdout, "stdout"), (process.stderr, "stderr")):
                 os.set_blocking(stream.fileno(), False)
                 selector.register(stream, selectors.EVENT_READ, label)
@@ -2298,22 +2423,62 @@ def _validate_source_history():
             return None
         finally:
             selector.close()
+            if saved_cwd_fd is not None:
+                try:
+                    os.fchdir(saved_cwd_fd)
+                finally:
+                    os.close(saved_cwd_fd)
             if process is not None:
                 for stream in (process.stdin, process.stdout, process.stderr):
                     if stream is not None and not stream.closed:
                         stream.close()
 
-    try:
-        git_metadata = os.lstat(PINNED_GIT)
-    except OSError:
+    def trusted_system_path(path, final_type):
+        if not os.path.isabs(path) or "\n" in path:
+            return False
+        current = os.path.sep
+        components = [component for component in path.split(os.path.sep) if component]
+        try:
+            for index, component in enumerate(components):
+                current = os.path.join(current, component)
+                metadata = os.lstat(current)
+                if metadata.st_uid != 0 or metadata.st_mode & 0o022:
+                    return False
+                if index < len(components) - 1:
+                    if not stat.S_ISDIR(metadata.st_mode):
+                        return False
+                elif final_type == "directory":
+                    if not stat.S_ISDIR(metadata.st_mode):
+                        return False
+                elif not stat.S_ISREG(metadata.st_mode) or not os.access(current, os.X_OK):
+                    return False
+        except OSError:
+            return False
+        return True
+
+    git_path_trusted = trusted_system_path(PINNED_GIT, "executable")
+    if PLATFORM == "Darwin":
+        git_path_trusted = git_path_trusted and trusted_system_path(
+            PINNED_DARWIN_DEVELOPER_ROOT, "directory"
+        )
+    if not git_path_trusted:
         add("source_history_untrusted_git")
         return
-    if (
-        not os.path.isabs(PINNED_GIT)
-        or not stat.S_ISREG(git_metadata.st_mode)
-        or not os.access(PINNED_GIT, os.X_OK)
-    ):
-        add("source_history_untrusted_git")
+
+    def bound_control_entry_present(directory_fd, filename):
+        try:
+            os.stat(filename, dir_fd=directory_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            return False
+        except OSError:
+            return True
+        return True
+
+    if bound_control_entry_present(binding["common_info_fd"], "grafts"):
+        add("source_history_grafts_present")  # SECURITY_RULE:source_history_grafts_rejected
+        return
+    if bound_control_entry_present(binding["objects_info_fd"], "alternates"):
+        add("source_history_alternates_present")  # SECURITY_RULE:source_history_alternates_rejected
         return
     version = run_git(["--version"])
     if version is None:
@@ -2325,7 +2490,11 @@ def _validate_source_history():
     except UnicodeError:
         add("source_history_untrusted_git")
         return
-    if version[0] != 0 or re.fullmatch(r"git version [0-9]+\.[0-9]+(?:\.[0-9]+)?\n?", version_stdout) is None:
+    if version[0] != 0 or re.fullmatch(
+        r"git version [0-9]+\.[0-9]+(?:\.[0-9]+)?"
+        r"(?: \(Apple Git-[0-9]+(?:\.[0-9]+)*\))?\n?",
+        version_stdout,
+    ) is None:
         add("source_history_untrusted_git")  # SECURITY_RULE:git_binary_pinned
         return
 
@@ -2395,28 +2564,6 @@ def _validate_source_history():
         return
     if shallow_stdout == "true":
         add("source_history_shallow_repository")  # SECURITY_RULE:source_history_shallow_rejected
-        return
-    graft_path_result = run_git(["rev-parse", "--git-path", "info/grafts"])
-    try:
-        graft_stdout = graft_path_result[1].decode("utf-8", errors="strict").strip() if graft_path_result is not None else ""
-    except UnicodeError:
-        graft_stdout = ""
-    if graft_path_result is None or graft_path_result[0] != 0 or not graft_stdout:
-        if not resource_limited:
-            add("source_history_unavailable")
-        return
-    graft_path = graft_stdout
-    if not os.path.isabs(graft_path):
-        graft_path = os.path.join(gitdir_fd_path, graft_path)
-    try:
-        graft_present = os.path.getsize(graft_path) > 0
-    except FileNotFoundError:
-        graft_present = False
-    except OSError:
-        add("source_history_unavailable")
-        return
-    if graft_present:
-        add("source_history_grafts_present")  # SECURITY_RULE:source_history_grafts_rejected
         return
     relative = os.path.relpath(DOCUMENT_PATHS["requirements"], ROOT)
     history = run_git([
@@ -3303,7 +3450,11 @@ PY
 response_valid=false
 output_size="$(validator_output_size || true)"
 if [[ "$platform" == Darwin && ! -s "$validator_output" && "$validator_status" -ne 0 ]]; then
-    emit_config_error 'untrusted_python_runtime'
+    case "$validator_status" in
+        125) emit_config_error 'missing_python_dependencies' ;;
+        124) emit_config_error 'untrusted_python_dependencies' ;;
+        *) emit_config_error 'untrusted_python_runtime' ;;
+    esac
     exit 2
 fi
 if [[ -s "$validator_output" && "$output_size" =~ ^[0-9]+$ && "$output_size" -le 1048576 ]]; then

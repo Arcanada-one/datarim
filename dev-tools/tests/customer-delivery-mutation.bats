@@ -197,6 +197,7 @@ PY
         'source_history_document_required|MET requires the requirement source itself in authoritative Git history'
         'source_history_shallow_rejected|shallow Git history cannot authorize customer delivery'
         'source_history_grafts_rejected|Git grafts cannot rewrite authoritative customer history'
+        'source_history_alternates_rejected|Git object alternates cannot supply authoritative customer history'
         'source_history_parse_closed|historical malformed source record fails closed without traceback'
         'source_history_total_deadline|source history subprocesses share one total deadline'
         'source_history_commit_budget|source history commit scan is capped and fails closed'
@@ -514,6 +515,7 @@ PY
         'python_metadata_size|Darwin trusted site bootstrap rejects METADATA boundary forgeries'
         'python_metadata_name|Darwin trusted site bootstrap rejects METADATA boundary forgeries'
         'python_metadata_duplicate|Darwin trusted site bootstrap rejects METADATA boundary forgeries'
+        'python_metadata_preopen_identity|Darwin trusted site bootstrap detects METADATA replacement before open'
         'python_metadata_identity|Darwin trusted site bootstrap detects METADATA identity change after read'
     )
     for pair in "${pairs[@]}"; do
@@ -603,6 +605,18 @@ elif kind == "python_metadata_name":
 elif kind == "python_metadata_duplicate":
     old = '        len(names) != 1\n        or len(versions) != 1\n'
     new = '        False  # MUTATED:metadata_duplicate\n'
+elif kind == "python_metadata_preopen_identity":
+    old = '''                or (
+                    metadata_before.st_dev,
+                    metadata_before.st_ino,
+                    metadata_before.st_size,
+                ) != (
+                    metadata_entry.st_dev,
+                    metadata_entry.st_ino,
+                    metadata_entry.st_size,
+                )
+'''
+    new = '                or False  # MUTATED:metadata_preopen_identity\n'
 elif kind == "python_metadata_identity":
     old = '                != (metadata_before.st_dev, metadata_before.st_ino, metadata_before.st_size)\n'
     new = '                != (metadata_after.st_dev, metadata_after.st_ino, metadata_after.st_size)  # MUTATED:metadata_identity\n'
@@ -700,6 +714,9 @@ PY
         'platform_openssl|complete canonical delivery chain is MET'
         'total_deadline|all validation subprocesses share one total deadline'
     )
+    if [[ "$platform" == Darwin ]]; then
+        pairs+=( 'platform_git|complete canonical delivery chain is MET' )
+    fi
 
     for pair in "${pairs[@]}"; do
         kind="${pair%%|*}"
@@ -751,6 +768,15 @@ elif kind == "platform_openssl":
     if source.count(old) != 1:
         raise SystemExit("PLATFORM_OPENSSL_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
     source = source.replace(old, "pinned_openssl='/nonexistent/customer-delivery-openssl'", 1)
+elif kind == "platform_git":
+    old = 'PINNED_DARWIN_GIT = "/Library/Developer/CommandLineTools/usr/bin/git"'
+    if platform != "Darwin" or source.count(old) != 1:
+        raise SystemExit("PLATFORM_GIT_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+    source = source.replace(
+        old,
+        'PINNED_DARWIN_GIT = "/nonexistent/customer-delivery-git"',
+        1,
+    )
 elif kind == "total_deadline":
     deadline = "VALIDATION_DEADLINE = time.monotonic() + VALIDATION_TOTAL_TIMEOUT_SECONDS"
     alarm = "signal.setitimer(signal.ITIMER_REAL, VALIDATION_TOTAL_TIMEOUT_SECONDS)"
@@ -876,12 +902,22 @@ elif kind == "gitdir_identity":
     old = '        if dotgit_path_identity != binding["dotgit_identity"]:'
     new = '        if False:'
 elif kind == "gitdir_descriptor":
-    old = '        f"--git-dir={gitdir_fd_path}",'
-    new = '        "-C", ROOT,'
+    replacements = {
+        '        f"--git-dir={git_dir_argument}",': '        f"--git-dir={ROOT}/.git",',
+        '    git_prefix = [\n': '    git_env["GIT_OBJECT_DIRECTORY"] = os.path.join(ROOT, ".git", "objects")\n    git_env["GIT_COMMON_DIR"] = os.path.join(ROOT, ".git")\n    git_prefix = [\n',
+        '                os.fchdir(git_cwd_fd)': '                os.chdir(ROOT)',
+    }
+    if any(source.count(old) != 1 for old in replacements):
+        raise SystemExit("GITDIR_DESCRIPTOR_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+    for old, new in replacements.items():
+        source = source.replace(old, new, 1)
+    old = new = None
 else:
     raise SystemExit(kind)
-assert source.count(old) == 1
-open(path, "w", encoding="utf-8").write(source.replace(old, new))
+if old is not None:
+    assert source.count(old) == 1
+    source = source.replace(old, new)
+open(path, "w", encoding="utf-8").write(source)
 PY
         chmod +x "$mutant"
         run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \

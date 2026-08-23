@@ -13,6 +13,7 @@ setup() {
     REVIEW="${ROOT}/datarim/receipts/${TASK_ID}-review-evolution.yaml"
     SITE_CLEANUP_PATH=''
     SITE_CLEANUP_BACKUP=''
+    SITE_IDENTITY_CLEANUP_SITE=''
     SHA="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     mkdir -p "${ROOT}/datarim/tasks" "${ROOT}/datarim/receipts"
 
@@ -65,6 +66,19 @@ cleanup_site_fixture() {
     clear_site_cleanup
 }
 
+cleanup_metadata_identity_fixture() {
+    local original metadata replacement
+    [[ -n "${SITE_IDENTITY_CLEANUP_SITE:-}" ]] || return 0
+    for original in "$SITE_IDENTITY_CLEANUP_SITE"/*.dist-info/METADATA.original-a2; do
+        [[ -e "$original" ]] || continue
+        metadata="${original%/METADATA.original-a2}/METADATA"
+        replacement="${BATS_TEST_TMPDIR}/$(basename "${original%/METADATA.original-a2}")-METADATA-replacement"
+        [[ ! -e "$metadata" ]] || /bin/mv -- "$metadata" "$replacement" || return 1
+        /bin/mv -- "$original" "$metadata" || return 1
+    done
+    SITE_IDENTITY_CLEANUP_SITE=''
+}
+
 assert_darwin_dependency_site_integrity() {
     [[ "$(/usr/bin/uname -s)" == Darwin ]] || return 0
     /usr/bin/env -i LC_ALL=C \
@@ -85,7 +99,7 @@ for name,version in expected:
  entry=os.lstat(path)
  if not stat.S_ISREG(entry.st_mode): raise SystemExit("dependency_metadata_not_regular:"+path)
  with open(path,encoding="utf-8") as handle: parsed=email.parser.Parser().parse(handle)
- if parsed.get_all("Name") != [name] or parsed.get_all("Version") != [version]:
+ if [normalize(value) for value in parsed.get_all("Name",[])] != [normalize(name)] or parsed.get_all("Version") != [version]:
   raise SystemExit("dependency_metadata_mismatch:"+path)
  observed.append(f"{normalize(name)}:{dist_entry.st_dev}:{dist_entry.st_ino}:{entry.st_dev}:{entry.st_ino}")
 snapshot="\n".join(observed)+"\n"
@@ -101,6 +115,7 @@ else:
 }
 
 teardown() {
+    cleanup_metadata_identity_fixture || return 1
     cleanup_site_fixture || return 1
     assert_darwin_dependency_site_integrity
 }
@@ -244,6 +259,12 @@ import sys
 path, old, new = sys.argv[1:]
 with open(path, encoding="utf-8") as handle:
     source = handle.read()
+if old == 'PINNED_GIT = "/usr/bin/git"':
+    old = 'PINNED_GIT = "/usr/bin/git" if PLATFORM == "Linux" else PINNED_DARWIN_GIT'
+    trust = "    if not git_path_trusted:\n"
+    if source.count(trust) != 1:
+        raise SystemExit("test Git trust seam missing or ambiguous")
+    source = source.replace(trust, "    if False:  # MUTATED:test_git_trust\n", 1)
 if source.count(old) != 1:
     raise SystemExit(f"mutation seam missing or ambiguous: {old!r}")
 with open(path, "w", encoding="utf-8") as handle:
@@ -1977,7 +1998,8 @@ PY
     clear_site_cleanup
     assert_darwin_dependency_site_integrity || return 1
     [ "$result" -eq 2 ] \
-        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_runtime"]' "$output_copy"
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_dependencies"]' "$output_copy" \
+        && [[ "$output_copy" != *Traceback* ]]
 }
 
 @test "Darwin trusted site bootstrap rejects regular-file dist-info forgery" {
@@ -1999,7 +2021,8 @@ PY
     clear_site_cleanup
     assert_darwin_dependency_site_integrity || return 1
     [ "$result" -eq 2 ] \
-        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_runtime"]' "$output_copy"
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_dependencies"]' "$output_copy" \
+        && [[ "$output_copy" != *Traceback* ]]
 }
 
 @test "Darwin trusted site bootstrap rejects symlinked dist-info" {
@@ -2021,7 +2044,8 @@ PY
     clear_site_cleanup
     assert_darwin_dependency_site_integrity || return 1
     [ "$result" -eq 2 ] \
-        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_runtime"]' "$output_copy"
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_dependencies"]' "$output_copy" \
+        && [[ "$output_copy" != *Traceback* ]]
 }
 
 @test "Darwin trusted site bootstrap authenticates dist-info metadata" {
@@ -2050,7 +2074,8 @@ PY
     clear_site_cleanup
     assert_darwin_dependency_site_integrity || return 1
     [ "$result" -eq 2 ] \
-        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_runtime"]' "$output_copy"
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_dependencies"]' "$output_copy" \
+        && [[ "$output_copy" != *Traceback* ]]
 }
 
 @test "Darwin trusted site bootstrap rejects METADATA boundary forgeries" {
@@ -2105,7 +2130,8 @@ PY
         clear_site_cleanup
         assert_darwin_dependency_site_integrity || return 1
         if [ "$result" -ne 2 ] \
-            || ! "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_runtime"]' "$output_copy"; then
+            || ! "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_dependencies"]' "$output_copy" \
+            || [[ "$output_copy" == *Traceback* ]]; then
             printf 'METADATA boundary kind=%s status=%s output=%s\n' "$kind" "$result" "$output_copy"
             return 1
         fi
@@ -2144,21 +2170,69 @@ if source.count(old) != 1:
     raise SystemExit("METADATA_IDENTITY_ATTACK_SEAM_MISSING_OR_AMBIGUOUS")
 open(path, "w", encoding="utf-8").write(source.replace(old, new))
 PY
-    SITE_CLEANUP_PATH="$metadata"
-    SITE_CLEANUP_BACKUP="$original"
+    SITE_IDENTITY_CLEANUP_SITE="$site_path"
     run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         "$TEST_SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
     result="$status"
     output_copy="$output"
-    if [[ -e "$original" ]]; then
-        /bin/rm -f -- "$replacement"
-        /bin/mv -- "$metadata" "$replacement"
-        /bin/mv -- "$original" "$metadata"
-    fi
-    clear_site_cleanup
+    cleanup_metadata_identity_fixture || return 1
     assert_darwin_dependency_site_integrity || return 1
     [ "$result" -eq 2 ] \
-        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_runtime"]' "$output_copy"
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_dependencies"]' "$output_copy" \
+        && [[ "$output_copy" != *Traceback* ]]
+}
+
+@test "Darwin trusted site bootstrap detects METADATA replacement before open" {
+    [[ "$(/usr/bin/uname -s)" == Darwin ]] || skip 'Darwin-only trusted site boundary'
+    local site_path result output_copy
+    site_path="${CUSTOMER_TEST_PYTHON_SITE:?missing CUSTOMER_TEST_PYTHON_SITE}"
+    build_test_framework metadata-preopen-identity-change || return 1
+    "$PYTHON" - "$TEST_SCRIPT" <<'PY' || return 1
+import sys
+
+path = sys.argv[1]
+source = open(path, encoding="utf-8").read()
+old = '''        metadata_entry = os.stat("METADATA", follow_symlinks=False)
+        if (
+'''
+new = '''        metadata_entry = os.stat("METADATA", follow_symlinks=False)
+        if distribution == "jsonschema":
+            os.rename(
+                "METADATA", "METADATA.original-a2",
+                src_dir_fd=dist_fd, dst_dir_fd=dist_fd,
+            )
+            original_fd = os.open(
+                "METADATA.original-a2", os.O_RDONLY | os.O_CLOEXEC,
+                dir_fd=dist_fd,
+            )
+            try:
+                original_bytes = os.read(original_fd, metadata_entry.st_size)
+            finally:
+                os.close(original_fd)
+            replacement_fd = os.open(
+                "METADATA", os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC,
+                0o600, dir_fd=dist_fd,
+            )
+            try:
+                os.write(replacement_fd, original_bytes)
+            finally:
+                os.close(replacement_fd)
+        if (
+'''
+if source.count(old) != 1:
+    raise SystemExit("METADATA_PREOPEN_ATTACK_SEAM_MISSING_OR_AMBIGUOUS")
+open(path, "w", encoding="utf-8").write(source.replace(old, new))
+PY
+    SITE_IDENTITY_CLEANUP_SITE="$site_path"
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        "$TEST_SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+    result="$status"
+    output_copy="$output"
+    cleanup_metadata_identity_fixture || return 1
+    assert_darwin_dependency_site_integrity || return 1
+    [ "$result" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_dependencies"]' "$output_copy" \
+        && [[ "$output_copy" != *Traceback* ]]
 }
 
 @test "canonical inputs are parsed from confined stable descriptor snapshots" {
@@ -2875,7 +2949,7 @@ PY
         && [[ "$output" != *"source_history_repository_identity_changed:"* ]]
 }
 
-@test "linked Git worktree gitfile remains authoritative" {
+@test "linked Git worktree gitdir commondir and object store remain authoritative" {
     local linked="${BATS_TEST_TMPDIR}/linked-consumer"
     git -C "$ROOT" worktree add -q --detach "$linked" HEAD || return 1
     ROOT="$linked"
@@ -2885,6 +2959,25 @@ PY
     run_validator_json
     [ "$status" -eq 0 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "MET" and d["findings"] == []' "$output"
+}
+
+@test "linked Git worktree rejects common grafts and object alternates" {
+    local linked="${BATS_TEST_TMPDIR}/linked-controls-consumer"
+    local common_gitdir="$ROOT/.git"
+    git -C "$ROOT" worktree add -q --detach "$linked" HEAD || return 1
+    ROOT="$linked"
+    REQUIREMENTS="${ROOT}/datarim/tasks/${TASK_ID}-customer-requirements.yaml"
+    RECEIPT="${ROOT}/datarim/receipts/${TASK_ID}-customer-delivery.yaml"
+    REVIEW="${ROOT}/datarim/receipts/${TASK_ID}-review-evolution.yaml"
+    printf '%s\n' "$(git -C "$ROOT" rev-parse HEAD)" >"${common_gitdir}/info/grafts"
+    run_validator_json
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'source_history_grafts_present'* ]] || return 1
+    /bin/rm -f -- "${common_gitdir}/info/grafts"
+    printf '%s\n' "${BATS_TEST_TMPDIR}/foreign-objects" >"${common_gitdir}/objects/info/alternates"
+    run_validator_json
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'source_history_alternates_present'* ]]
 }
 
 @test "ambient GIT_DIR cannot substitute a clean authoritative history" {
@@ -2912,6 +3005,33 @@ PY
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
     [ "$status" -eq 1 ] \
         && [[ "$output" == *"source_history_prior_record_mutated:source-0001"* ]]
+}
+
+@test "pinned Apple Git version syntax retains authoritative history validation" {
+    local shim="${BATS_TEST_TMPDIR}/apple-git"
+    "$PYTHON" - "$shim" <<'PY' || return 1
+import os
+import sys
+
+path = sys.argv[1]
+with open(path, "w", encoding="utf-8") as handle:
+    handle.write('''#!/bin/bash
+if [[ "$*" == "--version" ]]; then
+    printf '%s\\n' 'git version 2.39.5 (Apple Git-154)'
+    exit 0
+fi
+exec /usr/bin/git "$@"
+''')
+os.chmod(path, 0o700)
+PY
+    build_test_framework apple-git-version || return 1
+    replace_test_script_literal \
+        'PINNED_GIT = "/usr/bin/git"' \
+        "PINNED_GIT = \"${shim}\"" || return 1
+    run_test_framework_json
+    [ "$status" -eq 0 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "MET" and d["findings"] == []' "$output" \
+        || { printf 'apple_git_status=%s output=%s\n' "$status" "$output"; return 1; }
 }
 
 @test "ambient GIT_OBJECT_DIRECTORY cannot replace the authoritative object store" {
@@ -3298,6 +3418,14 @@ PY
     [ "$status" -eq 1 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "NOT_MET" and d["findings"] == ["source_history_grafts_present"]' "$output" \
         && [[ "$output" != *"Traceback"* ]]
+}
+
+@test "Git object alternates cannot supply authoritative customer history" {
+    mkdir -p "${ROOT}/.git/objects/info"
+    printf '%s\n' "${BATS_TEST_TMPDIR}/foreign-objects" >"${ROOT}/.git/objects/info/alternates"
+    run_validator_json
+    [ "$status" -eq 1 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "NOT_MET" and d["findings"] == ["source_history_alternates_present"]' "$output"
 }
 
 @test "nested YAML lone surrogate is deterministic JSON NOT_MET without traceback" {
