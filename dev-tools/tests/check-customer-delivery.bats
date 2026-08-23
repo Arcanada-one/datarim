@@ -829,3 +829,97 @@ CASES
     [ "$status" -eq 1 ] \
         && [[ "$output" == *"source_history_prior_record_mutated:source-0001"* ]]
 }
+
+@test "shallow Git history cannot authorize customer delivery" {
+    local head
+    head="$(git -C "$ROOT" rev-parse HEAD)"
+    printf '%s\n' "$head" >"${ROOT}/.git/shallow"
+    run_validator_json
+    [ "$status" -eq 1 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "NOT_MET" and d["findings"] == ["source_history_shallow_repository"]' "$output" \
+        && [[ "$output" != *"Traceback"* ]]
+}
+
+@test "Git grafts cannot rewrite authoritative customer history" {
+    local head
+    head="$(git -C "$ROOT" rev-parse HEAD)"
+    printf '%s\n' "$head" >"${ROOT}/.git/info/grafts"
+    run_validator_json
+    [ "$status" -eq 1 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "NOT_MET" and d["findings"] == ["source_history_grafts_present"]' "$output" \
+        && [[ "$output" != *"Traceback"* ]]
+}
+
+@test "nested YAML lone surrogate is deterministic JSON NOT_MET without traceback" {
+    "$PYTHON" - "$REQUIREMENTS" <<'PY'
+import sys
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as handle:
+    source = handle.read()
+needle = "evidence_ref: source-authority-approval-0001"
+if source.count(needle) != 1:
+    raise SystemExit("nested evidence_ref seam missing or ambiguous")
+source = source.replace(needle, 'evidence_ref: "\\uD800"')
+with open(path, "w", encoding="utf-8") as handle:
+    handle.write(source)
+PY
+    run_validator_json
+    [ "$status" -eq 1 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "NOT_MET" and d["findings"] == ["invalid_unicode_scalar:requirements:$/source_remarks/0/authority_approval/evidence_ref"]' "$output" \
+        && [[ "$output" != *"Traceback"* ]]
+}
+
+@test "trusted-registry lone surrogate is deterministic JSON ERROR without traceback" {
+    build_test_framework registry-surrogate || return 1
+    "$PYTHON" - "${TEST_FRAMEWORK}/config/customer-requirement.schema.json" <<'PY'
+import json
+import sys
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as handle:
+    schema = json.load(handle)
+schema["x-datarim-signature-contract"]["key_resolution"]["bundled_registry"]["entries"][0]["authority_id"] = "\ud800"
+with open(path, "w", encoding="utf-8") as handle:
+    json.dump(schema, handle, ensure_ascii=True, indent=2)
+    handle.write("\n")
+PY
+    run_test_framework_json
+    [ "$status" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "ERROR" and d["findings"] == ["invalid_unicode_scalar:schema:requirements:$/x-datarim-signature-contract/key_resolution/bundled_registry/entries/0/authority_id"]' "$output" \
+        && [[ "$output" != *"Traceback"* ]]
+}
+
+@test "top Unicode boundary returns deterministic JSON when scalar precheck is faulted" {
+    build_test_framework unicode-boundary || return 1
+    "$PYTHON" - "$TEST_SCRIPT" <<'PY'
+import sys
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as handle:
+    source = handle.read()
+needle = 'reject_invalid_unicode(documents[name], name, "NOT_MET", 1)  # SECURITY_RULE:unicode_document'
+if source.count(needle) != 1:
+    raise SystemExit("Unicode document precheck seam missing or ambiguous")
+source = source.replace(needle, "pass  # TEST_FAULT:unicode_document")
+with open(path, "w", encoding="utf-8") as handle:
+    handle.write(source)
+PY
+    "$PYTHON" - "$REQUIREMENTS" <<'PY'
+import sys
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as handle:
+    source = handle.read()
+source = source.replace(
+    "evidence_ref: source-authority-approval-0001",
+    'evidence_ref: "\\uD800"',
+)
+with open(path, "w", encoding="utf-8") as handle:
+    handle.write(source)
+PY
+    run_test_framework_json
+    [ "$status" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "ERROR" and d["findings"] == ["unicode_processing_error"]' "$output" \
+        && [[ "$output" != *"Traceback"* ]]
+}

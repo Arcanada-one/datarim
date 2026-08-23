@@ -379,6 +379,56 @@ def emit(decision, code, epic_status="NOT_MET"):
     raise SystemExit(code)
 
 
+def deterministic_unicode_excepthook(error_type, error, traceback):
+    if issubclass(error_type, UnicodeError):
+        add("unicode_processing_error")  # SECURITY_RULE:unicode_top_boundary
+        try:
+            emit("ERROR", 2)
+        except SystemExit as exit_status:
+            sys.stdout.flush()
+            sys.stderr.flush()
+            os._exit(exit_status.code)
+    sys.__excepthook__(error_type, error, traceback)
+
+
+sys.excepthook = deterministic_unicode_excepthook
+
+
+def json_pointer_segment(value):
+    return value.replace("~", "~0").replace("/", "~1")
+
+
+def invalid_unicode_scalar_path(value, path="$"):
+    if isinstance(value, str):
+        if any(0xD800 <= ord(character) <= 0xDFFF for character in value):
+            return path
+        return None
+    if isinstance(value, list):
+        for index, item in enumerate(value):
+            violation = invalid_unicode_scalar_path(item, f"{path}/{index}")
+            if violation is not None:
+                return violation
+        return None
+    if isinstance(value, dict):
+        for index, (key, item) in enumerate(value.items()):
+            if isinstance(key, str) and any(
+                0xD800 <= ord(character) <= 0xDFFF for character in key
+            ):
+                return f"{path}/<invalid-key-{index}>"
+            segment = json_pointer_segment(key) if isinstance(key, str) else f"<key-{index}>"
+            violation = invalid_unicode_scalar_path(item, f"{path}/{segment}")
+            if violation is not None:
+                return violation
+    return None
+
+
+def reject_invalid_unicode(value, label, decision, code):
+    violation = invalid_unicode_scalar_path(value)
+    if violation is not None:
+        add(f"invalid_unicode_scalar:{label}:{violation}")
+        emit(decision, code)
+
+
 def load_json(path):
     with open(path, encoding="utf-8") as handle:
         return json.load(handle)
@@ -394,6 +444,7 @@ for name in ("requirements", "receipt", "review"):
                 documents[name] = loader.get_single_data()
             finally:
                 loader.dispose()
+        reject_invalid_unicode(documents[name], name, "NOT_MET", 1)  # SECURITY_RULE:unicode_document
     except DuplicateKeyError as error:
         add(f"duplicate_id:{error.key}")
         emit("NOT_MET", 1)
@@ -402,6 +453,7 @@ for name in ("requirements", "receipt", "review"):
         emit("NOT_MET", 1)
     try:
         schemas[name] = load_json(SCHEMA_PATHS[name])
+        reject_invalid_unicode(schemas[name], f"schema:{name}", "ERROR", 2)  # SECURITY_RULE:unicode_schema
         jsonschema.Draft202012Validator.check_schema(schemas[name])
     except (OSError, UnicodeError, json.JSONDecodeError, jsonschema.SchemaError):
         add(f"invalid_framework_schema:{name}")
@@ -874,6 +926,44 @@ def validate_source_history():
         or os.path.realpath(probe.stdout.strip()) != os.path.realpath(ROOT)
     ):
         add("source_history_unavailable")  # SECURITY_RULE:source_history_repo_required
+        return
+    shallow = subprocess.run(
+        ["git", "-C", ROOT, "rev-parse", "--is-shallow-repository"],
+        check=False,
+        capture_output=True,
+        env=git_env,
+        text=True,
+        timeout=10,
+    )
+    if shallow.returncode != 0 or shallow.stdout.strip() not in {"true", "false"}:
+        add("source_history_unavailable")
+        return
+    if shallow.stdout.strip() == "true":
+        add("source_history_shallow_repository")  # SECURITY_RULE:source_history_shallow_rejected
+        return
+    graft_path_result = subprocess.run(
+        ["git", "-C", ROOT, "rev-parse", "--git-path", "info/grafts"],
+        check=False,
+        capture_output=True,
+        env=git_env,
+        text=True,
+        timeout=10,
+    )
+    if graft_path_result.returncode != 0 or not graft_path_result.stdout.strip():
+        add("source_history_unavailable")
+        return
+    graft_path = graft_path_result.stdout.strip()
+    if not os.path.isabs(graft_path):
+        graft_path = os.path.join(ROOT, graft_path)
+    try:
+        graft_present = os.path.getsize(graft_path) > 0
+    except FileNotFoundError:
+        graft_present = False
+    except OSError:
+        add("source_history_unavailable")
+        return
+    if graft_present:
+        add("source_history_grafts_present")  # SECURITY_RULE:source_history_grafts_rejected
         return
     relative = os.path.relpath(DOCUMENT_PATHS["requirements"], ROOT)
     history = subprocess.run(
