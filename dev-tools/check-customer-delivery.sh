@@ -102,7 +102,7 @@ resolve_confined_file() {
     local label="$1"
     local candidate="$2"
     local boundary="$3"
-    local resolved
+    local resolved resolved_dir
     if [[ ! -f "$candidate" ]]; then
         emit_config_error "missing_artifact:${label}"
         return 2
@@ -111,10 +111,11 @@ resolve_confined_file() {
         emit_config_error "path_escape:${label}"
         return 2
     fi
-    resolved="$(/usr/bin/realpath -e -- "$candidate")" || {
+    resolved_dir="$(cd -P -- "${candidate%/*}" && pwd -P)" || {
         emit_config_error "path_escape:${label}"
         return 2
     }
+    resolved="${resolved_dir}/${candidate##*/}"
     case "$resolved" in
         "$boundary"/*) resolved_file="$resolved" ;;
         *)
@@ -138,27 +139,59 @@ receipt_schema="$resolved_file"
 resolve_confined_file review_schema "$review_schema" "$framework_root" || exit 2
 review_schema="$resolved_file"
 
-python_bin="${CUSTOMER_DELIVERY_PYTHON:-python3}"
-if [[ "$python_bin" != /* ]]; then
-    python_bin="$(command -v -- "$python_bin" 2>/dev/null || true)"
-fi
+platform="$(/usr/bin/uname -s 2>/dev/null || true)"
+architecture="$(/usr/bin/uname -m 2>/dev/null || true)"
+case "$platform" in
+    Linux)
+        default_python='/usr/bin/python3'
+        python_min_minor=11
+        pinned_openssl='/usr/bin/openssl'
+        ;;
+    Darwin)
+        default_python='/usr/bin/python3'
+        python_min_minor=9
+        case "$architecture" in
+            arm64) pinned_openssl='/opt/homebrew/opt/openssl@3/bin/openssl' ;;
+            x86_64) pinned_openssl='/usr/local/opt/openssl@3/bin/openssl' ;;
+            *) emit_config_error 'unsupported_platform'; exit 2 ;;
+        esac
+        ;;
+    *) emit_config_error 'unsupported_platform'; exit 2 ;;
+esac
+
+python_bin="${CUSTOMER_DELIVERY_PYTHON:-$default_python}"
 if [[ -z "$python_bin" || ! -x "$python_bin" || -d "$python_bin" ]]; then
     emit_config_error 'untrusted_python_runtime'
     exit 2
 fi
-python_real="$(/usr/bin/realpath -e -- "$python_bin" 2>/dev/null || true)"
+[[ "$python_bin" == /* ]] || { emit_config_error 'untrusted_python_runtime'; exit 2; }
+
+stat_identity() {
+    case "$platform" in
+        Linux)
+            /usr/bin/stat -L -c '%d|%i|%u|%a|%F' "$1" 2>/dev/null
+            ;; # PORTABLE_TRUST:linux_gnu_stat
+        Darwin)
+            /usr/bin/stat -L -f '%d|%i|%u|%Lp|%HT' "$1" 2>/dev/null
+            ;; # PORTABLE_TRUST:darwin_bsd_stat
+    esac
+}
+
+python_metadata="$(stat_identity "$python_bin" || true)"
 python_trusted=false
-for python_anchor in /usr/bin/python3 /usr/local/bin/python3; do
+trusted_python_anchor=''
+python_anchors=(/usr/bin/python3)
+for python_anchor in "${python_anchors[@]}"; do
     [[ -e "$python_anchor" ]] || continue
-    anchor_real="$(/usr/bin/realpath -e -- "$python_anchor" 2>/dev/null || true)"
-    [[ -n "$anchor_real" && "$python_real" == "$anchor_real" ]] || continue
-    python_uid="$(/usr/bin/stat -Lc '%u' -- "$anchor_real" 2>/dev/null || true)"
-    python_mode="$(/usr/bin/stat -Lc '%a' -- "$anchor_real" 2>/dev/null || true)"
-    python_type="$(/usr/bin/stat -Lc '%F' -- "$anchor_real" 2>/dev/null || true)"
+    anchor_metadata="$(stat_identity "$python_anchor" || true)"
+    [[ -n "$anchor_metadata" && "$python_metadata" == "$anchor_metadata" ]] || continue
+    IFS='|' read -r python_device python_inode python_uid python_mode python_type \
+        <<<"$anchor_metadata"
     if [[ "$python_uid" == 0 && "$python_mode" =~ ^[0-7]{3,4}$ \
-        && "$python_type" == 'regular file' ]] \
+        && ("$python_type" == 'regular file' || "$python_type" == 'Regular File') ]] \
         && (( (8#$python_mode & 8#022) == 0 )); then
         python_trusted=true
+        trusted_python_anchor="$python_anchor"
         break
     fi
 done
@@ -168,30 +201,21 @@ if [[ "$python_trusted" != true ]]; then  # SECURITY_RULE:python_inode_trust
 fi
 run_trusted_python() {
     (
-        exec -a "$python_bin" "$python_real" "$@"
+        exec -a "$python_bin" "$trusted_python_anchor" "$@"
     )
 }
 python_probe="$(run_trusted_python -I -c '
-import json
 import os
 import sys
 
-print(json.dumps({
-    "executable": os.path.realpath(sys.executable),
-    "implementation": sys.implementation.name,
-    "major": sys.version_info.major,
-    "minor": sys.version_info.minor,
-}, sort_keys=True, separators=(",", ":")))
+metadata = os.stat(sys.executable)
+print(f"{metadata.st_dev}|{metadata.st_ino}|{sys.implementation.name}|{sys.version_info.major}|{sys.version_info.minor}")
 ' 2>/dev/null || true)"
-if [[ -z "$python_real" ]] \
-    || ! /usr/bin/jq -e --arg executable "$python_real" '
-        type == "object"
-        and keys == ["executable", "implementation", "major", "minor"]
-        and .executable == $executable
-        and .implementation == "cpython"
-        and .major == 3
-        and (.minor | type == "number" and . >= 11)
-    ' <<<"$python_probe" >/dev/null 2>&1; then
+IFS='|' read -r probe_device probe_inode probe_implementation probe_major probe_minor \
+    <<<"$python_probe"
+if [[ "$probe_device" != "$python_device" || "$probe_inode" != "$python_inode" \
+    || "$probe_implementation" != cpython || "$probe_major" != 3 \
+    || ! "$probe_minor" =~ ^[0-9]+$ || "$probe_minor" -lt "$python_min_minor" ]]; then
     emit_config_error 'untrusted_python_runtime'
     exit 2
 fi
@@ -209,7 +233,8 @@ trap '/usr/bin/rm -f -- "$validator_output"' EXIT
 set +e
 run_trusted_python -I - "$task" "$stage" "$format" "$root" \
     "$requirements" "$receipt" "$review" \
-    "$requirements_schema" "$receipt_schema" "$review_schema" >"$validator_output" <<'PY'
+    "$requirements_schema" "$receipt_schema" "$review_schema" \
+    "$framework_root" "$pinned_openssl" "$platform" >"$validator_output" <<'PY'
 import base64
 import binascii
 import hashlib
@@ -238,6 +263,9 @@ SCHEMA_PATHS = dict(zip(
     ("requirements", "receipt", "review"),
     sys.argv[8:11],
 ))
+FRAMEWORK_ROOT = sys.argv[11]
+PINNED_OPENSSL = sys.argv[12]
+PLATFORM = sys.argv[13]
 
 U4_EDGES = (
     "requirement",  # U4_EDGE
@@ -272,7 +300,7 @@ EXPECTED_INVARIANT_REGISTRY_DIGESTS = {
     "receipt": "0d37202c35e32815f18a70b04c7e4263ce4456988c93b56d162f4aedb1616260",
 }
 EXPECTED_CONTRACT_DIGESTS = {
-    "requirements:x-datarim-crypto-verifier-contract": "01d0ec21009c76101d4046190404667c64a5aa61abc22b612ca77befe3d91e72",
+    "requirements:x-datarim-crypto-verifier-contract": "9ebeb579d224d2f3db094c9873b7e1990da71f1ef789b30e64c5bb98deb33bed",
     "requirements:x-datarim-canonicalization": "28b09c2be6dc974f1522eb2fa48f34036ab1fa1dd91050109f0ff9d070ce126f",
     "requirements:x-datarim-source-tier-authorization": "f5f858651d222f1dab1560060cefbd8d49a47a2b41e2b95161b74b4b9dfc3109",
     "requirements:x-datarim-prework-identity-contract": "bdb98d473439c859ac6df06596a77e10cba8c711215668c285be44d0397484ce",
@@ -281,8 +309,18 @@ EXPECTED_CONTRACT_DIGESTS = {
     "receipt:x-datarim-task-identity-contract": "54e1d0c40950b024a0dcd760ee1964bb467088876b7624ff652e27f5dfbe69a5",
     "review:x-datarim-originating-review-contract": "292e30935e6ee89252bcd7eae0487184115f96b6b6ad2e3d71c6a1f767770975",
 }
-PINNED_OPENSSL = "/usr/bin/openssl"
 PINNED_GIT = "/usr/bin/git"
+VALIDATION_TOTAL_TIMEOUT_SECONDS = 20
+VALIDATION_DEADLINE = time.monotonic() + VALIDATION_TOTAL_TIMEOUT_SECONDS
+MAX_INPUT_BYTES = 8388608
+MAX_REQUIREMENTS = 512
+MAX_SOURCE_RECORDS = 1024
+MAX_EVIDENCE_RECORDS = 4096
+MAX_SIGNATURES = 1024
+MAX_CONTAINER_ITEMS = 8192
+MAX_TOTAL_NODES = 100000
+VALIDATION_MAX_STDOUT_BYTES = 65536
+VALIDATION_MAX_STDERR_BYTES = 65536
 SOURCE_HISTORY_TOTAL_TIMEOUT_SECONDS = 10
 SOURCE_HISTORY_MAX_COMMITS = 1024
 SOURCE_HISTORY_MAX_CONTROL_OUTPUT_BYTES = 262144
@@ -400,7 +438,7 @@ def verify_ed25519(signature_text, digest_text, public_key_text):
                 handle.write(message)
             with open(signature_path, "wb") as handle:
                 handle.write(signature)
-            result = subprocess.run(
+            returncode = run_silent_process(
                 [
                     PINNED_OPENSSL,
                     "pkeyutl",
@@ -416,16 +454,10 @@ def verify_ed25519(signature_text, digest_text, public_key_text):
                     "-sigfile",
                     signature_path,
                 ],
-                check=False,
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                timeout=10,
-                env={"LANG": "C", "LC_ALL": "C", "PATH": "/usr/bin:/bin"},
             )
     except (OSError, subprocess.SubprocessError):
         return False
-    return result.returncode == 0
+    return returncode == 0
 
 
 def approval_payload_digest(approval):
@@ -457,6 +489,124 @@ def emit(decision, code, epic_status="NOT_MET"):
         for finding in unique:
             print(f"finding={finding}")
     raise SystemExit(code)
+
+
+def validation_resource_limit(kind):
+    add(f"validation_resource_limit:{kind}")
+    emit("ERROR", 2)
+
+
+def remaining_validation_time():
+    remaining = VALIDATION_DEADLINE - time.monotonic()
+    if remaining <= 0:
+        validation_resource_limit("deadline")
+    return remaining
+
+
+def validation_alarm_handler(_signal_number, _frame):
+    validation_resource_limit("deadline")
+
+
+def terminate_process_group(process):
+    # The direct child can exit while a descendant still holds its pipes.
+    # Always address the whole session process group, then reap the child.
+    try:
+        os.killpg(process.pid, signal.SIGTERM)
+    except (ProcessLookupError, PermissionError):
+        pass
+    try:
+        process.wait(timeout=0.2)
+    except (subprocess.TimeoutExpired, OSError):
+        pass
+    try:
+        os.killpg(process.pid, signal.SIGKILL)  # SECURITY_RULE:validation_process_group_reap
+    except (ProcessLookupError, PermissionError):
+        pass
+    try:
+        process.wait(timeout=0.2)
+    except (subprocess.TimeoutExpired, OSError):
+        pass
+
+
+def run_silent_process(arguments):
+    try:
+        process = subprocess.Popen(
+            arguments,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            env={"LANG": "C", "LC_ALL": "C", "PATH": "/usr/bin:/bin"},
+            start_new_session=True,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    try:
+        return process.wait(timeout=max(0.001, remaining_validation_time()))
+    except subprocess.TimeoutExpired:
+        terminate_process_group(process)
+        validation_resource_limit("deadline")
+    except BaseException:
+        terminate_process_group(process)
+        raise
+
+
+def run_bounded_process(arguments, stdout_limit=VALIDATION_MAX_STDOUT_BYTES,
+                        stderr_limit=VALIDATION_MAX_STDERR_BYTES):
+    try:
+        process = subprocess.Popen(
+            arguments,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env={"LANG": "C", "LC_ALL": "C", "PATH": "/usr/bin:/bin"},
+            start_new_session=True,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None, b"", b""
+    selector = selectors.DefaultSelector()
+    stdout = bytearray()
+    stderr = bytearray()
+    try:
+        for label, stream in (("stdout", process.stdout), ("stderr", process.stderr)):
+            os.set_blocking(stream.fileno(), False)
+            selector.register(stream, selectors.EVENT_READ, label)
+        while selector.get_map():
+            remaining = remaining_validation_time()
+            events = selector.select(timeout=min(0.05, remaining))
+            if not events and process.poll() is not None:
+                events = [(key, selectors.EVENT_READ) for key in selector.get_map().values()]
+            for key, _ in events:
+                try:
+                    chunk = os.read(key.fileobj.fileno(), 65536)
+                except BlockingIOError:
+                    continue
+                if not chunk:
+                    selector.unregister(key.fileobj)
+                    key.fileobj.close()
+                    continue
+                target = stdout if key.data == "stdout" else stderr
+                limit = stdout_limit if key.data == "stdout" else stderr_limit
+                if len(target) + len(chunk) > limit:
+                    terminate_process_group(process)
+                    validation_resource_limit("subprocess_output")  # SECURITY_RULE:validation_subprocess_output
+                target.extend(chunk)
+        returncode = process.wait(timeout=max(0.001, remaining_validation_time()))
+        return returncode, bytes(stdout), bytes(stderr)
+    except subprocess.TimeoutExpired:
+        terminate_process_group(process)
+        validation_resource_limit("deadline")
+    except BaseException:
+        terminate_process_group(process)
+        raise
+    finally:
+        selector.close()
+        for stream in (process.stdout, process.stderr):
+            if stream is not None and not stream.closed:
+                stream.close()
+
+
+signal.signal(signal.SIGALRM, validation_alarm_handler)
+signal.setitimer(signal.ITIMER_REAL, VALIDATION_TOTAL_TIMEOUT_SECONDS)
 
 
 def deterministic_unicode_excepthook(error_type, error, traceback):
@@ -509,21 +659,163 @@ def reject_invalid_unicode(value, label, decision, code):
         emit(decision, code)
 
 
-def load_json(path):
-    with open(path, encoding="utf-8") as handle:
-        return json.load(handle)
+def read_confined_snapshot(path, boundary, label):
+    relative = os.path.relpath(path, boundary)
+    components = relative.split(os.sep)
+    if (
+        relative == os.pardir
+        or relative.startswith(os.pardir + os.sep)
+        or not components
+        or any(component in ("", ".", "..") for component in components)
+    ):
+        add(f"input_path_escape:{label}")
+        emit("ERROR", 2)
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC
+    nofollow = getattr(os, "O_NOFOLLOW", 0)
+    opened_directories = []
+    file_descriptor = None
+    try:
+        current = os.open(boundary, directory_flags | nofollow)
+        opened_directories.append(current)
+        for component in components[:-1]:
+            current = os.open(
+                component,
+                directory_flags | nofollow,
+                dir_fd=current,
+            )  # SECURITY_RULE:input_snapshot_openat
+            opened_directories.append(current)
+        file_descriptor = os.open(
+            components[-1],
+            os.O_RDONLY | os.O_CLOEXEC | nofollow,
+            dir_fd=current,
+        )
+        before = os.fstat(file_descriptor)
+        if not stat.S_ISREG(before.st_mode):
+            add(f"input_not_regular:{label}")
+            emit("ERROR", 2)
+        if before.st_size > MAX_INPUT_BYTES:
+            add(f"input_resource_limit:bytes:{label}")  # SECURITY_RULE:input_bytes
+            emit("ERROR", 2)
+        chunks = []
+        total = 0
+        while True:
+            remaining_validation_time()
+            chunk = os.read(file_descriptor, min(65536, MAX_INPUT_BYTES + 1 - total))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            total += len(chunk)
+            if total > MAX_INPUT_BYTES:
+                add(f"input_resource_limit:bytes:{label}")
+                emit("ERROR", 2)
+        after = os.fstat(file_descriptor)
+        identity_before = (
+            before.st_dev,
+            before.st_ino,
+            before.st_size,
+            before.st_mtime_ns,
+            before.st_ctime_ns,
+        )
+        identity_after = (
+            after.st_dev,
+            after.st_ino,
+            after.st_size,
+            after.st_mtime_ns,
+            after.st_ctime_ns,
+        )
+        if identity_before != identity_after:
+            add(f"input_identity_changed:{label}")  # SECURITY_RULE:input_snapshot_identity
+            emit("ERROR", 2)
+        return b"".join(chunks)
+    except OSError:
+        add(f"input_unavailable:{label}")
+        emit("ERROR", 2)
+    finally:
+        if file_descriptor is not None:
+            os.close(file_descriptor)
+        for descriptor in reversed(opened_directories):
+            os.close(descriptor)
+
+
+def enforce_cardinality(document_set):
+    requirements_document = document_set.get("requirements")
+    receipt_document = document_set.get("receipt")
+    requirement_count = 0
+    if isinstance(requirements_document, dict) and isinstance(
+        requirements_document.get("requirements"), dict
+    ):
+        requirement_count = max(
+            requirement_count, len(requirements_document["requirements"])
+        )
+    if isinstance(receipt_document, dict) and isinstance(
+        receipt_document.get("requirements"), dict
+    ):
+        requirement_count = max(requirement_count, len(receipt_document["requirements"]))
+    if requirement_count > MAX_REQUIREMENTS:
+        add("input_resource_limit:requirements")  # SECURITY_RULE:cardinality_requirements
+        emit("ERROR", 2)
+
+    source_records = (
+        requirements_document.get("source_remarks", [])
+        if isinstance(requirements_document, dict)
+        else []
+    )
+    if isinstance(source_records, list) and len(source_records) > MAX_SOURCE_RECORDS:
+        add("input_resource_limit:records")  # SECURITY_RULE:cardinality_records
+        emit("ERROR", 2)
+
+    evidence_keys = {
+        "exact_source_quotes",
+        "source_quote_digests",
+        "enabling_changes",
+        "visitor_visible_changes",
+        "painted_matrix",
+        "proposals",
+    }
+    evidence_count = 0
+    signature_count = 0
+    total_nodes = 0
+    stack = list(document_set.values())
+    while stack:
+        remaining_validation_time()
+        value = stack.pop()
+        total_nodes += 1
+        if total_nodes > MAX_TOTAL_NODES:
+            add("input_resource_limit:nodes")
+            emit("ERROR", 2)
+        if isinstance(value, dict):
+            for key, nested in value.items():
+                if key == "signature":
+                    signature_count += 1
+                if key in evidence_keys and isinstance(nested, list):
+                    evidence_count += len(nested)
+                stack.append(nested)
+        elif isinstance(value, list):
+            if len(value) > MAX_CONTAINER_ITEMS:
+                add("input_resource_limit:collection")
+                emit("ERROR", 2)
+            stack.extend(value)
+    if evidence_count > MAX_EVIDENCE_RECORDS:
+        add("input_resource_limit:evidence")  # SECURITY_RULE:cardinality_evidence
+        emit("ERROR", 2)
+    if signature_count > MAX_SIGNATURES:
+        add("input_resource_limit:signatures")  # SECURITY_RULE:cardinality_signatures
+        emit("ERROR", 2)
 
 
 documents = {}
 schemas = {}
 for name in ("requirements", "receipt", "review"):
     try:
-        with open(DOCUMENT_PATHS[name], encoding="utf-8") as handle:
-            loader = UniqueKeyLoader(handle)
-            try:
-                documents[name] = loader.get_single_data()
-            finally:
-                loader.dispose()
+        document_bytes = read_confined_snapshot(
+            DOCUMENT_PATHS[name], ROOT, name
+        )
+        document_text = document_bytes.decode("utf-8")
+        loader = UniqueKeyLoader(document_text)
+        try:
+            documents[name] = loader.get_single_data()
+        finally:
+            loader.dispose()
         reject_invalid_unicode(documents[name], name, "NOT_MET", 1)  # SECURITY_RULE:unicode_document
     except DuplicateKeyError as error:
         add(f"duplicate_id:{error.key}")
@@ -531,8 +823,14 @@ for name in ("requirements", "receipt", "review"):
     except (OSError, UnicodeError, yaml.YAMLError):
         add(f"parse:{name}")
         emit("NOT_MET", 1)
+enforce_cardinality(documents)
+
+for name in ("requirements", "receipt", "review"):
     try:
-        schemas[name] = load_json(SCHEMA_PATHS[name])
+        schema_bytes = read_confined_snapshot(
+            SCHEMA_PATHS[name], FRAMEWORK_ROOT, f"schema:{name}"
+        )
+        schemas[name] = json.loads(schema_bytes.decode("utf-8"))
         reject_invalid_unicode(schemas[name], f"schema:{name}", "ERROR", 2)  # SECURITY_RULE:unicode_schema
         jsonschema.Draft202012Validator.check_schema(schemas[name])
     except (OSError, UnicodeError, json.JSONDecodeError, jsonschema.SchemaError):
@@ -556,11 +854,15 @@ def validate_crypto_verifier():
     expected = {
         "backend": "OPENSSL",
         "major_version": 3,
-        "executable": PINNED_OPENSSL,
-        "resolution": "PINNED_ABSOLUTE_PATH",
+        "platform_executables": {
+            "Linux": "/usr/bin/openssl",
+            "Darwin-arm64": "/opt/homebrew/opt/openssl@3/bin/openssl",
+            "Darwin-x86_64": "/usr/local/opt/openssl@3/bin/openssl",
+        },
+        "resolution": "PLATFORM_PINNED_ABSOLUTE_PATH",
         "ambient_path": "PROHIBITED",
         "file_type": "REGULAR",
-        "owner_uid": 0,
+        "owner_policy": "ROOT_OR_MACOS_PACKAGE_MANAGER_OWNER",
         "group_or_other_writable": "PROHIBITED",
         "verification_success_exit_code": 0,
     }
@@ -568,31 +870,36 @@ def validate_crypto_verifier():
         add("crypto_verifier_contract_mismatch")
         return False
     try:
-        metadata = os.lstat(PINNED_OPENSSL)
+        metadata = os.stat(PINNED_OPENSSL)
     except OSError:
         add("missing_crypto_dependency:openssl3")
         return False
     if (
         not stat.S_ISREG(metadata.st_mode)
-        or metadata.st_uid != 0
+        or metadata.st_uid not in ({0} if PLATFORM == "Linux" else {0, os.geteuid()})
         or metadata.st_mode & 0o022
     ):
         add("untrusted_crypto_dependency:openssl3")
         return False
     try:
-        result = subprocess.run(
-            [PINNED_OPENSSL, "version"],
-            check=False,
-            stdin=subprocess.DEVNULL,
-            capture_output=True,
-            text=True,
-            timeout=10,
-            env={"LANG": "C", "LC_ALL": "C", "PATH": "/usr/bin:/bin"},
+        allowed_paths = (
+            {expected["platform_executables"]["Linux"]}
+            if PLATFORM == "Linux"
+            else {
+                expected["platform_executables"]["Darwin-arm64"],
+                expected["platform_executables"]["Darwin-x86_64"],
+            }
+        )
+        if PINNED_OPENSSL not in allowed_paths:
+            add("untrusted_crypto_dependency:openssl3")
+            return False
+        returncode, stdout, _stderr = run_bounded_process(
+            [PINNED_OPENSSL, "version"], stdout_limit=4096, stderr_limit=4096
         )
     except (OSError, subprocess.SubprocessError):
         add("missing_crypto_dependency:openssl3")
         return False
-    if result.returncode != 0 or re.match(r"^OpenSSL 3\.", result.stdout) is None:
+    if returncode != 0 or re.match(rb"^OpenSSL 3\.", stdout) is None:
         add("untrusted_crypto_dependency:openssl3")
         return False
     return True
@@ -1172,7 +1479,10 @@ def validate_requirements_contract():
 
 
 def validate_source_history():
-    deadline = time.monotonic() + SOURCE_HISTORY_TOTAL_TIMEOUT_SECONDS
+    deadline = min(
+        VALIDATION_DEADLINE,
+        time.monotonic() + SOURCE_HISTORY_TOTAL_TIMEOUT_SECONDS,
+    )
     git_env = {
         "GIT_CONFIG_GLOBAL": "/dev/null",
         "GIT_CONFIG_NOSYSTEM": "1",
@@ -2217,23 +2527,50 @@ validate_text_response() {
         || ("$decision_value" == ERROR && "$validator_status" -eq 2) ]]
 }
 
+validator_output_size() {
+    case "$platform" in
+        Linux) /usr/bin/stat -c '%s' "$validator_output" 2>/dev/null ;;
+        Darwin) /usr/bin/stat -f '%z' "$validator_output" 2>/dev/null ;;
+    esac
+}
+
+validate_json_response() {
+    run_trusted_python -I - "$validator_output" "$task" "$stage" "$validator_status" <<'PY'
+import json
+import sys
+
+path, task, stage, raw_status = sys.argv[1:]
+with open(path, "rb") as handle:
+    raw = handle.read(1048577)
+if not raw or len(raw) > 1048576 or raw.count(b"\n") != 1 or not raw.endswith(b"\n"):
+    raise SystemExit(1)
+try:
+    document = json.loads(raw)
+except (UnicodeError, json.JSONDecodeError):
+    raise SystemExit(1)
+decision = document.get("decision") if isinstance(document, dict) else None
+expected_keys = {"decision", "epic_status", "findings", "stage", "status", "task"}
+valid = (
+    isinstance(document, dict)
+    and set(document) == expected_keys
+    and decision in {"MET", "NOT_MET", "ERROR"}
+    and document["status"] == decision
+    and document["epic_status"] in {"MET", "NOT_MET"}
+    and document["task"] == task
+    and document["stage"] == stage
+    and isinstance(document["findings"], list)
+    and all(isinstance(item, str) for item in document["findings"])
+    and {"MET": 0, "NOT_MET": 1, "ERROR": 2}[decision] == int(raw_status)
+)
+raise SystemExit(0 if valid else 1)
+PY
+}
+
 response_valid=false
-if [[ -s "$validator_output" && "$(/usr/bin/stat -c %s -- "$validator_output")" -le 1048576 ]]; then
+output_size="$(validator_output_size || true)"
+if [[ -s "$validator_output" && "$output_size" =~ ^[0-9]+$ && "$output_size" -le 1048576 ]]; then
     if [[ "$format" == json ]]; then
-        if /usr/bin/jq -e --arg task "$task" --arg stage "$stage" --argjson rc "$validator_status" '
-            type == "object"
-            and keys == ["decision", "epic_status", "findings", "stage", "status", "task"]
-            and (.decision == "MET" or .decision == "NOT_MET" or .decision == "ERROR")
-            and .status == .decision
-            and (.epic_status == "MET" or .epic_status == "NOT_MET")
-            and .task == $task
-            and .stage == $stage
-            and (.findings | type == "array" and all(.[]; type == "string"))
-            and ((.decision == "MET" and $rc == 0)
-                or (.decision == "NOT_MET" and $rc == 1)
-                or (.decision == "ERROR" and $rc == 2))
-        ' "$validator_output" >/dev/null 2>&1 \
-            && [[ "$(/usr/bin/wc -l <"$validator_output")" -eq 1 ]]; then
+        if validate_json_response; then
             response_valid=true
         fi
     elif validate_text_response; then

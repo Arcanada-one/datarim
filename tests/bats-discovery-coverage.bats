@@ -177,3 +177,18 @@ YAML
     grep -q 'rfc3339_validator' "$inst"
     grep -q 'FormatChecker.*date-time' "$inst"
 }
+
+@test "macOS CI installs pinned A2 dependencies and runs both A2 suites in bounded steps" {
+    grep -q 'brew install bats-core yq openssl@3' "$WF" \
+        && grep -q -- '--python-only' "$WF" \
+        && grep -q 'dev-tools/tests/check-customer-delivery.bats' "$WF" \
+        && grep -q 'dev-tools/tests/customer-delivery-schema.bats' "$WF" \
+        && grep -q 'tests/bats-discovery-coverage.bats' "$WF"
+}
+
+@test "CI installer supports a pinned Python-only dependency mode" {
+    local inst="$ROOT/tests/ci-install-bats-deps.sh"
+    grep -q -- '--python-only' "$inst" \
+        && grep -q -- '--python-bin' "$inst" \
+        && grep -q 'PYTHON_BIN' "$inst"
+}

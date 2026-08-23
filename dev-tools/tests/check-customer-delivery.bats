@@ -138,6 +138,46 @@ with open(path, "w", encoding="utf-8") as handle:
 PY
 }
 
+rebind_test_openssl() {
+    local executable="$1"
+    local schema="${TEST_FRAMEWORK}/config/customer-requirement.schema.json"
+    replace_test_script_literal \
+        'PINNED_OPENSSL = sys.argv[12]' \
+        "PINNED_OPENSSL = \"${executable}\"" || return 1
+    replace_test_script_literal \
+        '"Linux": "/usr/bin/openssl",' \
+        "\"Linux\": \"${executable}\"," || return 1
+    replace_test_script_literal \
+        '({0} if PLATFORM == "Linux" else {0, os.geteuid()})' \
+        '{0, os.geteuid()}' || return 1
+    "$PYTHON" - "$TEST_SCRIPT" "$schema" "$executable" <<'PY' || return 1
+import hashlib
+import json
+import sys
+
+script_path, schema_path, executable = sys.argv[1:]
+with open(schema_path, encoding="utf-8") as handle:
+    schema = json.load(handle)
+contract = schema["x-datarim-crypto-verifier-contract"]
+old_digest = hashlib.sha256(
+    json.dumps(contract, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
+).hexdigest()
+contract["platform_executables"]["Linux"] = executable
+new_digest = hashlib.sha256(
+    json.dumps(contract, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
+).hexdigest()
+with open(script_path, encoding="utf-8") as handle:
+    source = handle.read()
+if source.count(old_digest) != 1:
+    raise SystemExit("CRYPTO_CONTRACT_DIGEST_MUTATION_SEAM_MISSING")
+with open(script_path, "w", encoding="utf-8") as handle:
+    handle.write(source.replace(old_digest, new_digest))
+with open(schema_path, "w", encoding="utf-8") as handle:
+    json.dump(schema, handle, ensure_ascii=False, indent=2)
+    handle.write("\n")
+PY
+}
+
 authenticate_test_registry() {
     local expression="$1"
     local requirement_schema="${TEST_FRAMEWORK}/config/customer-requirement.schema.json"
@@ -1187,6 +1227,185 @@ prepare_signed_review_fixture() {
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["task"] == "WEB-0001" and d["stage"] == "compliance" and d["status"] == "ERROR" and d["findings"] == ["missing_python_dependencies"]' "$output"
 }
 
+@test "trusted interpreter metadata contract covers Linux and macOS stat semantics" {
+    grep -q '# PORTABLE_TRUST:linux_gnu_stat' "$SCRIPT" \
+        && grep -q '# PORTABLE_TRUST:darwin_bsd_stat' "$SCRIPT" \
+        && grep -q '/usr/bin/python3' "$SCRIPT" \
+        && ! grep -q 'python_anchor in /usr/bin/python3 /usr/local/bin/python3' "$SCRIPT"
+}
+
+@test "canonical inputs are parsed from confined stable descriptor snapshots" {
+    grep -q '# SECURITY_RULE:input_snapshot_openat' "$SCRIPT" \
+        && grep -q '# SECURITY_RULE:input_snapshot_identity' "$SCRIPT"
+}
+
+@test "oversized canonical input is rejected before YAML parsing" {
+    "$PYTHON" - "$REQUIREMENTS" <<'PY' || return 1
+import os
+import sys
+
+path = sys.argv[1]
+limit = 8 * 1024 * 1024
+with open(path, "ab") as handle:
+    handle.write(b" " * (limit + 1 - os.path.getsize(path)))
+PY
+    run_validator_json
+    [ "$status" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["input_resource_limit:bytes:requirements"]' "$output"
+}
+
+@test "requirement cardinality is bounded before schema validation" {
+    "$PYTHON" - "$REQUIREMENTS" <<'PY' || return 1
+import sys
+import yaml
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as handle:
+    document = yaml.safe_load(handle)
+document["requirements"] = {f"req-{index:04d}": {} for index in range(1, 514)}
+with open(path, "w", encoding="utf-8") as handle:
+    yaml.safe_dump(document, handle, sort_keys=False)
+PY
+    run_validator_json
+    [ "$status" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["input_resource_limit:requirements"]' "$output"
+}
+
+@test "source record cardinality is bounded before schema validation" {
+    "$PYTHON" - "$REQUIREMENTS" <<'PY' || return 1
+import sys
+import yaml
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as handle:
+    document = yaml.safe_load(handle)
+document["source_remarks"] = [{"source_id": f"source-{index:04d}"} for index in range(1, 1026)]
+with open(path, "w", encoding="utf-8") as handle:
+    yaml.safe_dump(document, handle, sort_keys=False)
+PY
+    run_validator_json
+    [ "$status" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["input_resource_limit:records"]' "$output"
+}
+
+@test "evidence cardinality is bounded before schema validation" {
+    "$PYTHON" - "$RECEIPT" <<'PY' || return 1
+import sys
+import yaml
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as handle:
+    document = yaml.safe_load(handle)
+document["requirements"]["req-0001"]["coverage_chain"]["requirement"]["source_quote_digests"] = [
+    {} for _ in range(4097)
+]
+with open(path, "w", encoding="utf-8") as handle:
+    yaml.safe_dump(document, handle, sort_keys=False)
+PY
+    run_validator_json
+    [ "$status" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["input_resource_limit:evidence"]' "$output"
+}
+
+@test "signature cardinality is bounded before schema validation" {
+    "$PYTHON" - "$REVIEW" <<'PY' || return 1
+import sys
+import yaml
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as handle:
+    document = yaml.safe_load(handle)
+document["signature_flood"] = [{"signature": "ed25519:x"} for _ in range(1025)]
+with open(path, "w", encoding="utf-8") as handle:
+    yaml.safe_dump(document, handle, sort_keys=False)
+PY
+    run_validator_json
+    [ "$status" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["input_resource_limit:signatures"]' "$output"
+}
+
+@test "all validation subprocesses share one total deadline" {
+    local shim="${BATS_TEST_TMPDIR}/slow-openssl"
+    local real_openssl start end elapsed
+    real_openssl="$(command -v openssl)" || return 1
+    printf '%s\n' \
+        '#!/bin/bash' \
+        'if [ "${1:-}" != version ]; then sleep 0.35; fi' \
+        "exec \"${real_openssl}\" \"\$@\"" >"$shim"
+    chmod 0755 "$shim"
+    build_test_framework total-validation-deadline || return 1
+    replace_test_script_literal \
+        'VALIDATION_TOTAL_TIMEOUT_SECONDS = 20' \
+        'VALIDATION_TOTAL_TIMEOUT_SECONDS = 1' || return 1
+    rebind_test_openssl "$shim" || return 1
+    start="$($PYTHON -c 'import time; print(time.perf_counter())')"
+    run_test_framework_json
+    end="$($PYTHON -c 'import time; print(time.perf_counter())')"
+    elapsed="$($PYTHON -c 'import sys; print(float(sys.argv[2])-float(sys.argv[1]))' "$start" "$end")"
+    [ "$status" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["validation_resource_limit:deadline"]' "$output" \
+        && "$PYTHON" -c 'import sys; assert float(sys.argv[1]) < 2.0' "$elapsed" \
+        || { printf 'deadline_output=%s elapsed=%s\n' "$output" "$elapsed"; return 1; }
+}
+
+@test "OpenSSL version output is bounded before allocation" {
+    local shim="${BATS_TEST_TMPDIR}/noisy-openssl"
+    "$PYTHON" - "$shim" <<'PY' || return 1
+import os
+import sys
+
+with open(sys.argv[1], "w", encoding="utf-8") as handle:
+    handle.write("#!/bin/bash\n")
+    handle.write("if [ \"${1:-}\" = version ]; then head -c 1048576 /dev/zero | tr '\\0' x; exit 0; fi\n")
+    handle.write("exit 1\n")
+os.chmod(sys.argv[1], 0o755)
+PY
+    build_test_framework crypto-output-budget || return 1
+    rebind_test_openssl "$shim" || return 1
+    run_test_framework_json
+    [ "$status" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["validation_resource_limit:subprocess_output"]' "$output" \
+        || { printf 'crypto_output=%s\n' "$output"; return 1; }
+}
+
+@test "OpenSSL deadline terminates stubborn descendant pipe holders" {
+    local shim="${BATS_TEST_TMPDIR}/stubborn-openssl"
+    local pid_file="${BATS_TEST_TMPDIR}/stubborn-openssl.pid"
+    local descendant_pid attempt
+    "$PYTHON" - "$shim" "$pid_file" <<'PY' || return 1
+import os
+import sys
+
+shim, pid_file = sys.argv[1:]
+with open(shim, "w", encoding="utf-8") as handle:
+    handle.write("#!/bin/bash\n")
+    handle.write('if [ "${1:-}" = version ]; then\n')
+    handle.write("  (trap '' TERM; sleep 30) &\n")
+    handle.write(f"  printf '%s\\n' \"$!\" > {pid_file!r}\n")
+    handle.write("  exit 0\n")
+    handle.write("fi\n")
+    handle.write("exit 1\n")
+os.chmod(shim, 0o755)
+PY
+    build_test_framework stubborn-crypto-descendant || return 1
+    replace_test_script_literal \
+        'VALIDATION_TOTAL_TIMEOUT_SECONDS = 20' \
+        'VALIDATION_TOTAL_TIMEOUT_SECONDS = 1' || return 1
+    rebind_test_openssl "$shim" || return 1
+    run_test_framework_json
+    [ "$status" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["validation_resource_limit:deadline"]' "$output" \
+        || { printf 'stubborn_crypto_output=%s\n' "$output"; return 1; }
+    descendant_pid="$(<"$pid_file")"
+    for attempt in {1..10}; do
+        kill -0 "$descendant_pid" 2>/dev/null || return 0
+        sleep 0.05
+    done
+    kill -KILL "$descendant_pid" 2>/dev/null || true
+    printf 'stubborn_crypto_descendant_survived=%s\n' "$descendant_pid"
+    return 1
+}
+
 @test "non-Python executable cannot satisfy the interpreter pin" {
     run env CUSTOMER_DELIVERY_PYTHON=/bin/true \
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage compliance --format json
@@ -1218,8 +1437,8 @@ if [[ "${3:-}" == *CUSTOMER_DELIVERY_DEPENDENCIES_OK* ]]; then
     exit 0
 fi
 if [[ "${1:-}" == -I && "${2:-}" == -c ]]; then
-    resolved="$(readlink -f -- "$0")"
-    printf '{"executable":"%s","implementation":"cpython","major":3,"minor":12}\n' "$resolved"
+    identity="$(stat -Lc '%d|%i' -- "$0")"
+    printf '%s|cpython|3|12\n' "$identity"
     exit 0
 fi
 printf '%s\n' '{"decision":"MET","epic_status":"MET","findings":[],"stage":"qa","status":"MET","task":"WEB-0001"}'
@@ -1387,36 +1606,7 @@ CASES
 
 @test "missing OpenSSL 3 dependency is deterministic machine-readable JSON" {
     build_test_framework missing-openssl || return 1
-    "$PYTHON" - "$TEST_SCRIPT" "${TEST_FRAMEWORK}/config/customer-requirement.schema.json" <<'PY' || return 1
-import hashlib
-import json
-import sys
-
-path, schema_path = sys.argv[1:]
-with open(path, encoding="utf-8") as handle:
-    source = handle.read()
-old = 'PINNED_OPENSSL = "/usr/bin/openssl"'
-new = 'PINNED_OPENSSL = "/definitely-missing/datarim-openssl"'
-if source.count(old) != 1:
-    raise SystemExit("PINNED_OPENSSL_MUTATION_SEAM_MISSING")
-with open(schema_path, encoding="utf-8") as handle:
-    schema = json.load(handle)
-contract = schema["x-datarim-crypto-verifier-contract"]
-old_digest = hashlib.sha256(
-    json.dumps(contract, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
-).hexdigest()
-contract["executable"] = "/definitely-missing/datarim-openssl"
-new_digest = hashlib.sha256(
-    json.dumps(contract, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
-).hexdigest()
-if source.count(old_digest) != 1:
-    raise SystemExit("CRYPTO_CONTRACT_DIGEST_MUTATION_SEAM_MISSING")
-with open(path, "w", encoding="utf-8") as handle:
-    handle.write(source.replace(old, new).replace(old_digest, new_digest))
-with open(schema_path, "w", encoding="utf-8") as handle:
-    json.dump(schema, handle, ensure_ascii=False, indent=2)
-    handle.write("\n")
-PY
+    rebind_test_openssl '/definitely-missing/datarim-openssl' || return 1
     run_test_framework_json
     [ "$status" -eq 2 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "ERROR" and d["findings"] == ["missing_crypto_dependency:openssl3"]' "$output"

@@ -2942,7 +2942,7 @@ PY
     [ "$status" -eq 0 ]
 }
 
-@test "crypto verifier contract pins root-owned OpenSSL 3 outside ambient PATH" {
+@test "crypto verifier contract pins platform OpenSSL 3 paths outside ambient PATH" {
     run "$PYTHON" - "$REQUIREMENTS_SCHEMA" <<'PY'
 import json
 import sys
@@ -2952,11 +2952,15 @@ with open(sys.argv[1], encoding="utf-8") as handle:
 expected = {
     "backend": "OPENSSL",
     "major_version": 3,
-    "executable": "/usr/bin/openssl",
-    "resolution": "PINNED_ABSOLUTE_PATH",
+    "platform_executables": {
+        "Linux": "/usr/bin/openssl",
+        "Darwin-arm64": "/opt/homebrew/opt/openssl@3/bin/openssl",
+        "Darwin-x86_64": "/usr/local/opt/openssl@3/bin/openssl",
+    },
+    "resolution": "PLATFORM_PINNED_ABSOLUTE_PATH",
     "ambient_path": "PROHIBITED",
     "file_type": "REGULAR",
-    "owner_uid": 0,
+    "owner_policy": "ROOT_OR_MACOS_PACKAGE_MANAGER_OWNER",
     "group_or_other_writable": "PROHIBITED",
     "verification_success_exit_code": 0,
 }

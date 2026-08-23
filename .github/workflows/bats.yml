@@ -117,8 +117,15 @@ jobs:
       # uses portability-sensitive constructs (head -c, sed -i, flock,
       # readlink -f, grep -P, find -newermt), which is where the divergence
       # actually bites. Full parity on paid macOS minutes buys little beyond it.
-      - name: Install bats
-        run: brew install bats-core
+      - name: Install bats and A2 platform dependencies
+        run: brew install bats-core yq openssl@3
+
+      - name: Install pinned A2 Python dependencies
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -m venv "$RUNNER_TEMP/customer-delivery-venv"
+          bash tests/ci-install-bats-deps.sh --python-only \
+            --python-bin "$RUNNER_TEMP/customer-delivery-venv/bin/python"
 
       - name: Confirm this really is a BSD userland
         # Fail loudly if the runner image ever ships GNU coreutils first on PATH:
@@ -146,3 +153,18 @@ jobs:
             dev-tools/tests/check-archive-landing.bats \
             cli/tests/backlog.bats \
             cli/tests/backlog-add-collision.bats
+
+      - name: Run A2 functional suite (bounded below two minutes)
+        timeout-minutes: 2
+        run: |
+          CUSTOMER_DELIVERY_PYTHON="$RUNNER_TEMP/customer-delivery-venv/bin/python" \
+            bats dev-tools/tests/check-customer-delivery.bats
+
+      - name: Run A2 schema suite (bounded below two minutes)
+        timeout-minutes: 2
+        run: |
+          CUSTOMER_SCHEMA_PYTHON="$RUNNER_TEMP/customer-delivery-venv/bin/python" \
+            bats dev-tools/tests/customer-delivery-schema.bats
+
+      - name: Run CI dependency and portability contracts
+        run: bats tests/bats-discovery-coverage.bats

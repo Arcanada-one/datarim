@@ -140,6 +140,13 @@ PY
         'review_requirement_set_binding|signed requirement set cannot replay under a substituted outer set'
         'epic_receipt_binding|signed canonical epic identity rejects coordinated receipt and review parent replay'
         'epic_review_binding|authenticated review epic parent must equal the signed canonical epic'
+        'input_bytes|oversized canonical input is rejected before YAML parsing'
+        'cardinality_requirements|requirement cardinality is bounded before schema validation'
+        'cardinality_records|source record cardinality is bounded before schema validation'
+        'cardinality_evidence|evidence cardinality is bounded before schema validation'
+        'cardinality_signatures|signature cardinality is bounded before schema validation'
+        'validation_subprocess_output|OpenSSL version output is bounded before allocation'
+        'validation_process_group_reap|OpenSSL deadline terminates stubborn descendant pipe holders'
     )
 
     for pair in "${pairs[@]}"; do
@@ -152,8 +159,8 @@ PY
         fi
         if [[ "$shard" =~ ^q([1-4])$ ]]; then
             local quarter="${BASH_REMATCH[1]}"
-            local lower=$(( (quarter - 1) * 19 + 1 ))
-            local upper=$(( quarter * 19 ))
+            local lower=$(( (quarter - 1) * 21 + 1 ))
+            local upper=$(( quarter * 21 ))
             if ((mutation_index < lower || mutation_index > upper)); then
                 continue
             fi
@@ -220,7 +227,7 @@ import sys
 path = sys.argv[1]
 with open(path, encoding="utf-8") as handle:
     source = handle.read()
-pin = 'PINNED_OPENSSL = "/usr/bin/openssl"'
+pin = 'PINNED_OPENSSL = sys.argv[12]'
 validator = "def validate_crypto_verifier():\n"
 if source.count(pin) != 1 or source.count(validator) != 1:
     raise SystemExit("AMBIENT_OPENSSL_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
@@ -276,18 +283,31 @@ path, kind = sys.argv[1:]
 with open(path, encoding="utf-8") as handle:
     source = handle.read()
 if kind == "python_runtime":
-    start_token = 'python_bin="${CUSTOMER_DELIVERY_PYTHON:-python3}"\n'
+    start_token = 'if [[ "$python_trusted" != true ]]; then  # SECURITY_RULE:python_inode_trust\n'
     end_token = 'umask 077\n'
     if source.count(start_token) != 1 or source.count(end_token) != 1:
         raise SystemExit("PYTHON_RUNTIME_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
     start = source.index(start_token)
     end = source.index(end_token, start)
-    source = source[:start] + start_token + source[end:]
+    replacement = '''trusted_python_anchor="$python_bin"
+run_trusted_python() {
+    "$python_bin" "$@"
+}
+'''
+    source = source[:start] + replacement + source[end:]
 elif kind == "python_inode":
-    old = 'if [[ "$python_trusted" != true ]]; then  # SECURITY_RULE:python_inode_trust'
-    if source.count(old) != 1:
+    start_token = 'if [[ "$python_trusted" != true ]]; then  # SECURITY_RULE:python_inode_trust\n'
+    end_token = 'umask 077\n'
+    if source.count(start_token) != 1 or source.count(end_token) != 1:
         raise SystemExit("PYTHON_INODE_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
-    source = source.replace(old, 'if false; then  # MUTATED:python_inode_trust')
+    start = source.index(start_token)
+    end = source.index(end_token, start)
+    replacement = '''trusted_python_anchor="$python_bin"
+run_trusted_python() {
+    "$python_bin" "$@"
+}
+'''
+    source = source[:start] + replacement + source[end:]
 elif kind == "wrapper_response":
     old = 'if [[ "$response_valid" != true ]]; then'
     if source.count(old) != 1:
@@ -329,7 +349,7 @@ PY
             bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
         [ "$status" -ne 0 ] \
             && [[ "$output" == *"not ok 1 ${filter}"* ]] \
-            || return 1
+            || { printf 'survived_mutant=%s status=%s output=%s\n' "$kind" "$status" "$output"; return 1; }
         printf 'mutant=%s killed_by=%s\n' "$kind" "$filter"
     done
 }
@@ -362,10 +382,18 @@ import sys
 path = sys.argv[1]
 with open(path, encoding="utf-8") as handle:
     source = handle.read()
-old = '/usr/bin/realpath -e -- "$candidate"'
+old = '''    resolved_dir="$(cd -P -- "${candidate%/*}" && pwd -P)" || {
+        emit_config_error "path_escape:${label}"
+        return 2
+    }
+    resolved="${resolved_dir}/${candidate##*/}"'''
+replacement = '''    resolved="$(realpath -e -- "$candidate")" || {
+        emit_config_error "path_escape:${label}"
+        return 2
+    }'''
 if source.count(old) != 1:
-    raise SystemExit("REALPATH_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
-source = source.replace(old, 'realpath -e -- "$candidate"')
+    raise SystemExit("CONFINEMENT_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+source = source.replace(old, replacement)
 if sys.argv[2] == "function":
     privileged_shebang = "#!/bin/bash -p"
     old_unset = "unset -f cat dirname jq mktemp realpath rm stat tail wc"
@@ -385,5 +413,62 @@ PY
             && [[ "$output" == *"not ok 1 ${filter}"* ]] \
             || return 1
         printf 'mutant=realpath_%s killed_by=%s\n' "$kind" "$filter"
+    done
+}
+
+
+@test "portable stat and global deadline mutants are independently killed" {
+    local pair kind filter framework mutant
+    local -a pairs=(
+        'portable_stat|trusted interpreter metadata contract covers Linux and macOS stat semantics'
+        'total_deadline|all validation subprocesses share one total deadline'
+    )
+
+    for pair in "${pairs[@]}"; do
+        kind="${pair%%|*}"
+        filter="${pair#*|}"
+        run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+        [ "$status" -eq 0 ] || return 1
+
+        framework="${BATS_TEST_TMPDIR}/portable-bounds-framework-${kind}"
+        mutant="${framework}/dev-tools/check-customer-delivery.sh"
+        mkdir -p "${framework}/dev-tools" "${framework}/config"
+        cp "$SCRIPT" "$mutant" || return 1
+        cp "${REPO_ROOT}/config/customer-requirement.schema.json" \
+            "${REPO_ROOT}/config/customer-delivery-receipt.schema.json" \
+            "${REPO_ROOT}/config/review-evolution.schema.json" \
+            "${framework}/config/" || return 1
+        "$PYTHON" - "$mutant" "$kind" <<'PY' || return 1
+import sys
+
+path, kind = sys.argv[1:]
+with open(path, encoding="utf-8") as handle:
+    source = handle.read()
+if kind == "portable_stat":
+    old = "# PORTABLE_TRUST:darwin_bsd_stat"
+    if source.count(old) != 1:
+        raise SystemExit("DARWIN_STAT_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+    source = source.replace(old, "# MUTATED:darwin_bsd_stat")
+elif kind == "total_deadline":
+    deadline = "VALIDATION_DEADLINE = time.monotonic() + VALIDATION_TOTAL_TIMEOUT_SECONDS"
+    alarm = "signal.setitimer(signal.ITIMER_REAL, VALIDATION_TOTAL_TIMEOUT_SECONDS)"
+    if source.count(deadline) != 1 or source.count(alarm) != 1:
+        raise SystemExit("TOTAL_DEADLINE_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+    source = source.replace(
+        deadline, "VALIDATION_DEADLINE = time.monotonic() + 3600"
+    ).replace(alarm, "signal.setitimer(signal.ITIMER_REAL, 3600)")
+else:
+    raise SystemExit(f"unknown mutant: {kind}")
+with open(path, "w", encoding="utf-8") as handle:
+    handle.write(source)
+PY
+        chmod +x "$mutant"
+
+        run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
+            bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+        [ "$status" -ne 0 ] \
+            && [[ "$output" == *"not ok 1 ${filter}"* ]] \
+            || return 1
+        printf 'mutant=%s killed_by=%s\n' "$kind" "$filter"
     done
 }
