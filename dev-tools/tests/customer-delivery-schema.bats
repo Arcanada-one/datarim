@@ -3562,6 +3562,28 @@ rewrite_complete_delivery_pair() {
         && [[ "$output" == *"TIER1_APPROVAL_SOURCE_AUTHORITY_ID_MISMATCH:assertion-0001"* ]]
 }
 
+@test "tier-one assertion approval role equals the containing source independently" {
+    local mutant="$BATS_TEST_TMPDIR/assertion-authority-role-substitution.yaml"
+    structured_requirement_fixture "$mutant" || return 1
+    yq -i '.source_remarks[0].tier1_assertions[0].authority_approval.authority_role = "OPERATOR"' "$mutant" || return 1
+    construct_placeholder_approvals "$mutant" || return 1
+
+    run validate_requirement_contract "$mutant"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"TIER1_APPROVAL_SOURCE_AUTHORITY_ROLE_MISMATCH:assertion-0001"* ]]
+}
+
+@test "tier-one assertion approval key equals the containing source independently" {
+    local mutant="$BATS_TEST_TMPDIR/assertion-authority-key-substitution.yaml"
+    structured_requirement_fixture "$mutant" || return 1
+    yq -i '.source_remarks[0].tier1_assertions[0].authority_approval.key_id = "key-operator-0001"' "$mutant" || return 1
+    construct_placeholder_approvals "$mutant" || return 1
+
+    run validate_requirement_contract "$mutant"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"TIER1_APPROVAL_SOURCE_KEY_ID_MISMATCH:assertion-0001"* ]]
+}
+
 @test "assertion-to-source authority equality invariants are registered atomically" {
     run "$PYTHON" - "$REQUIREMENTS_SCHEMA" <<'PY'
 import json
@@ -3612,6 +3634,51 @@ PY
         && run validate_terminal_disposition_contract "$requirement_set_mutant" \
         && [ "$status" -eq 1 ] \
         && [[ "$output" == *"DISPOSITION_REQUIREMENT_SET_ID_MISMATCH:req-0001"* ]]
+}
+
+@test "terminal disposition requirement identity equals its containing receipt key independently" {
+    local mutant="$BATS_TEST_TMPDIR/disposition-requirement-id-replay.yaml"
+    cp "$RECEIPT_TEMPLATE" "$mutant" || return 1
+    yq -i '.requirements.req-0001.coverage_chain.customer_disposition.requirement_id = "req-9999"' "$mutant" || return 1
+    "$PYTHON" - "$mutant" <<'PY'
+import hashlib
+import json
+import sys
+
+import yaml
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as handle:
+    receipt = yaml.safe_load(handle)
+disposition = receipt["requirements"]["req-0001"]["coverage_chain"]["customer_disposition"]
+payload = {
+    field: disposition[field]
+    for field in (
+        "receipt_id",
+        "requirement_set_id",
+        "requirement_id",
+        "coverage_chain_digest",
+        "status",
+        "recorded_at",
+        "evidence_ref",
+    )
+}
+for optional in ("note", "superseded_by"):
+    if optional in disposition:
+        payload[optional] = disposition[optional]
+digest = "sha256:" + hashlib.sha256(
+    json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+).hexdigest()
+disposition["disposition_digest"] = digest
+disposition["authority_approval"]["approved_digest"] = digest
+with open(path, "w", encoding="utf-8") as handle:
+    yaml.safe_dump(receipt, handle, allow_unicode=True, sort_keys=False)
+PY
+    reseal_disposition_approval_payload "$mutant" || return 1
+
+    run validate_terminal_disposition_contract "$mutant"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"DISPOSITION_REQUIREMENT_ID_MISMATCH:req-0001"* ]]
 }
 
 @test "coherent delivery rewrite with stale coverage commitment is rejected" {
