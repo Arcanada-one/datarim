@@ -95,26 +95,54 @@ diagnose_path resolved_runtime "$runtime_path"
 secure_root_path "$runtime_path" "$developer_root" file
 runtime_identity="$(stat_identity "$runtime_path")"
 expected_prefix="${python_bin%/bin/python}"
+IFS='|' read -r resolver_major resolver_minor <<<"$resolver_version"
+expected_site="${expected_prefix}/lib/python${resolver_major}.${resolver_minor}/site-packages"
+[[ -d "$expected_site" && ! -L "$expected_site" ]] || {
+    printf 'runtime_preflight=ERROR reason=invalid_site_packages\n' >&2
+    exit 2
+}
+for pth_file in "$expected_site"/*.pth; do
+    if [[ -e "$pth_file" || -L "$pth_file" ]]; then
+        printf 'runtime_preflight=ERROR reason=untrusted_pth_file path=%s\n' "$pth_file" >&2
+        exit 2
+    fi
+done
+site_identity="$(stat_identity "$expected_site")"
+IFS='|' read -r site_device site_inode _ <<<"$site_identity"
 original_cwd="$PWD"
 probe_program='
 import os
 import sys
 from importlib import metadata as importlib_metadata
+from importlib import util as importlib_util
 
 expected_prefix = sys.argv[1]
 runtime_path = sys.argv[2]
 expected_executable = sys.argv[3]
 original_cwd = os.path.realpath(sys.argv[4])
 probe_platform = sys.argv[5]
+expected_site = os.path.realpath(sys.argv[6])
 print(f"runtime_preflight_child_executable={sys.executable} prefix={sys.prefix} base_prefix={sys.base_prefix} path={sys.path}", file=sys.stderr)
-assert sys.executable == expected_executable, (sys.executable, expected_executable)
-assert sys.prefix == expected_prefix, (sys.prefix, expected_prefix)
-assert sys.base_prefix != sys.prefix, (sys.base_prefix, sys.prefix)
 if probe_platform == "Darwin":
+    assert sys.executable == runtime_path, (sys.executable, runtime_path)
+    assert sys.prefix == sys.base_prefix, (sys.prefix, sys.base_prefix)
     assert os.getcwd() == "/", os.getcwd()
+    assert sys.path[0].startswith("/dev/fd/"), sys.path
+else:
+    assert sys.executable == expected_executable, (sys.executable, expected_executable)
+    assert sys.prefix == expected_prefix, (sys.prefix, expected_prefix)
+    assert sys.base_prefix != sys.prefix, (sys.base_prefix, sys.prefix)
 for entry in sys.path:
     resolved = os.path.realpath(entry or os.getcwd())
     assert resolved != original_cwd and not resolved.startswith(original_cwd + os.sep), resolved
+for module_name in ("cryptography", "jsonschema", "rfc3339_validator", "yaml"):
+    spec = importlib_util.find_spec(module_name)
+    assert spec is not None and spec.origin is not None, module_name
+    if probe_platform == "Darwin":
+        assert spec.origin.startswith(sys.path[0].rstrip("/") + "/"), spec.origin
+    else:
+        resolved_origin = os.path.realpath(spec.origin)
+        assert os.path.commonpath((resolved_origin, expected_site)) == expected_site, spec.origin
 import jsonschema
 import rfc3339_validator
 import yaml
@@ -131,33 +159,44 @@ expected_versions = {
 for distribution, version in expected_versions.items():
     assert importlib_metadata.version(distribution) == version, distribution
 for module in (cryptography, jsonschema, rfc3339_validator, yaml):
-    origin = os.path.realpath(module.__file__)
-    assert os.path.commonpath((origin, expected_prefix)) == expected_prefix, origin
+    origin = module.__file__
+    if probe_platform == "Darwin":
+        assert origin.startswith(sys.path[0].rstrip("/") + "/"), origin
+    else:
+        resolved_origin = os.path.realpath(origin)
+        assert os.path.commonpath((resolved_origin, expected_site)) == expected_site, origin
 print(f"{metadata.st_dev}|{metadata.st_ino}|{sys.implementation.name}|{sys.version_info.major}|{sys.version_info.minor}|{dependencies}|{sys.prefix}|{sys.base_prefix}")
 '
 if [[ "$platform" == Darwin ]]; then
-    probe="$(/usr/bin/env -i LC_ALL=C __PYVENV_LAUNCHER__="$python_bin" \
+    bootstrap_program=$'import importlib.metadata,importlib.util,os,sys\nsite_path=sys.argv[1]\nexpected_device=int(sys.argv[2])\nexpected_inode=int(sys.argv[3])\nflags=os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW\nsite_fd=os.open(site_path, flags)\nmetadata=os.fstat(site_fd)\nassert (metadata.st_dev, metadata.st_ino)==(expected_device, expected_inode)\nassert not any(name.endswith(".pth") for name in os.listdir(site_fd))\nbound_site=f"/dev/fd/{site_fd}"\nassert os.path.isdir(bound_site)\npending=[bound_site]\nscanned=0\nwhile pending:\n current=pending.pop()\n with os.scandir(current) as entries:\n  for entry in entries:\n   scanned+=1\n   assert scanned<=20000\n   assert not entry.is_symlink()\n   if entry.is_dir(follow_symlinks=False):\n    pending.append(entry.path)\nsys.path.insert(0, bound_site)\nprogram=sys.argv[4]\nsys.argv=["-c"]+sys.argv[5:]\nexec(compile(program, "<string>", "exec"), globals(), globals())'
+    probe="$(/usr/bin/env -i LC_ALL=C \
         /bin/bash -p -c 'cd / && exec -a "$1" "$2" "${@:3}"' bash \
-        "$python_bin" "$runtime_path" -s -c "$probe_program" \
-        "$expected_prefix" "$runtime_path" "$python_bin" "$original_cwd" "$platform")"
+        "$python_bin" "$runtime_path" -I -S -c "$bootstrap_program" \
+        "$expected_site" "$site_device" "$site_inode" "$probe_program" \
+        "$expected_prefix" "$runtime_path" \
+        "$python_bin" "$original_cwd" "$platform" "$expected_site")"
 else
     probe="$(/usr/bin/env -i LC_ALL=C /bin/bash -p -c \
         'exec -a "$1" "$2" "${@:3}"' bash \
         "$python_bin" "$runtime_path" -I -c "$probe_program" \
-        "$expected_prefix" "$runtime_path" "$python_bin" "$original_cwd" "$platform")"
+        "$expected_prefix" "$runtime_path" "$python_bin" "$original_cwd" "$platform" "$expected_site")"
 fi
 IFS='|' read -r probe_device probe_inode probe_implementation probe_major probe_minor \
     probe_dependencies probe_prefix probe_base_prefix <<<"$probe"
-IFS='|' read -r resolver_major resolver_minor <<<"$resolver_version"
 IFS='|' read -r runtime_device runtime_inode _ <<<"$runtime_identity"
 printf 'runtime_preflight_runtime=%s path=%s\n' "$runtime_identity" "$runtime_path"
+printf 'runtime_preflight_site=%s path=%s\n' "$site_identity" "$expected_site"
 printf 'runtime_preflight_probe=%s\n' "$probe"
 
-[[ "$probe_device" == "$runtime_device" && "$probe_inode" == "$runtime_inode" \
+[[ "$(stat_identity "$runtime_path")" == "$runtime_identity" \
+    && "$(stat_identity "$expected_site")" == "$site_identity" \
+    && "$probe_device" == "$runtime_device" && "$probe_inode" == "$runtime_inode" \
     && "$probe_implementation" == cpython && "$probe_major" == 3 \
     && "$probe_major" == "$resolver_major" && "$probe_minor" == "$resolver_minor" \
     && "$probe_minor" =~ ^[0-9]+$ && "$probe_dependencies" == ok \
-    && "$probe_prefix" == "$expected_prefix" && "$probe_base_prefix" != "$probe_prefix" ]] || {
+    && (("$platform" == Darwin && "$probe_prefix" == "$probe_base_prefix") \
+        || ("$platform" != Darwin && "$probe_prefix" == "$expected_prefix" \
+            && "$probe_base_prefix" != "$probe_prefix")) ]] || {
     printf 'runtime_preflight=ERROR reason=runtime_or_dependency_mismatch\n' >&2
     exit 2
 }

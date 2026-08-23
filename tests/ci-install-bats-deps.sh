@@ -98,6 +98,20 @@ fi
 echo "==> python test deps"
 "$PYTHON_BIN" -m pip install --quiet --disable-pip-version-check \
     "$PY_JSONSCHEMA" "$PY_RFC3339_VALIDATOR" "$PY_PYYAML" "$PY_CRYPTOGRAPHY"
+# Apple CLT Python 3.9 seeds setuptools and its executable
+# distutils-precedence.pth into a fresh venv. None of the pinned validator
+# dependencies needs that startup hook; remove only this known installer file
+# and fail if any other .pth authority remains.
+python_site="$("$PYTHON_BIN" -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')"
+for pth_file in "$python_site"/*.pth; do
+    [[ -e "$pth_file" || -L "$pth_file" ]] || continue
+    if [[ "${pth_file##*/}" == distutils-precedence.pth ]]; then
+        /bin/rm -f -- "$pth_file"
+    else
+        echo "ERROR: unexpected executable Python path file: $pth_file" >&2
+        exit 1
+    fi
+done
 "$PYTHON_BIN" -c 'import cryptography, jsonschema, rfc3339_validator, yaml; assert "date-time" in jsonschema.FormatChecker().checkers; jsonschema.FormatChecker().check("2026-01-01T00:00:00Z", "date-time")'
 
 echo "==> versions"

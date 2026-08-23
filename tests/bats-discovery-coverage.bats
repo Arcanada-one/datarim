@@ -196,6 +196,8 @@ YAML
     grep -q '"$PY_RFC3339_VALIDATOR"' "$inst"
     grep -q 'rfc3339_validator' "$inst"
     grep -q 'FormatChecker.*date-time' "$inst"
+    grep -q 'distutils-precedence\.pth' "$inst"
+    grep -q 'unexpected executable Python path file' "$inst"
 }
 
 @test "customer-delivery crypto fixtures use one pinned Python helper without PHP" {

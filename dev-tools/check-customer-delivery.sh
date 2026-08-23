@@ -276,29 +276,89 @@ if [[ -z "$trusted_runtime_metadata" || "$trusted_runtime_uid" != 0 \
     exit 2
 fi
 
+trusted_python_site=''
+trusted_python_site_metadata=''
+if [[ "$platform" == Darwin ]]; then
+    runtime_version="$(/usr/bin/env -i LC_ALL=C "$trusted_runtime_path" -I -c \
+        'import sys; print(f"{sys.version_info.major}|{sys.version_info.minor}")' \
+        2>/dev/null || true)"
+    IFS='|' read -r runtime_major runtime_minor <<<"$runtime_version"
+    if [[ "$python_bin" != */bin/python || "$runtime_major" != 3 \
+        || ! "$runtime_minor" =~ ^[0-9]+$ ]]; then
+        emit_config_error 'untrusted_python_runtime'
+        exit 2
+    fi
+    python_venv_root="${python_bin%/bin/python}"
+    trusted_python_site="${python_venv_root}/lib/python${runtime_major}.${runtime_minor}/site-packages"
+    if [[ "$trusted_python_site" != /* || "$trusted_python_site" == *$'\n'* \
+        || -L "$trusted_python_site" || ! -d "$trusted_python_site" ]]; then
+        emit_config_error 'untrusted_python_runtime'
+        exit 2
+    fi
+    # A .pth file is executable import-time authority. The pinned validator
+    # dependencies do not require one, so this boundary rejects them instead
+    # of asking site.addsitedir() to execute unverified code.
+    for pth_file in "$trusted_python_site"/*.pth; do
+        if [[ -e "$pth_file" || -L "$pth_file" ]]; then
+            emit_config_error 'untrusted_python_runtime'
+            exit 2
+        fi
+    done
+    trusted_python_site_metadata="$(stat_identity "$trusted_python_site" || true)"
+    [[ -n "$trusted_python_site_metadata" ]] || {
+        emit_config_error 'untrusted_python_runtime'
+        exit 2
+    }
+    IFS='|' read -r trusted_python_site_device trusted_python_site_inode _ \
+        <<<"$trusted_python_site_metadata"
+fi
+
 assert_python_runtime_identity() {
-    local current_candidate current_runtime
+    local current_candidate current_runtime current_site='' pth_file
     current_candidate="$(stat_identity "$python_bin" || true)"
     current_runtime="$(stat_identity "$trusted_runtime_path" || true)"
+    if [[ "$platform" == Darwin ]]; then
+        current_site="$(stat_identity "$trusted_python_site" || true)"
+        [[ ! -L "$trusted_python_site" && "$current_site" == "$trusted_python_site_metadata" ]] \
+            || return 1
+        for pth_file in "$trusted_python_site"/*.pth; do
+            [[ ! -e "$pth_file" && ! -L "$pth_file" ]] || return 1
+        done
+    fi
     [[ "$current_candidate" == "$python_metadata" \
         && "$current_runtime" == "$trusted_runtime_metadata" ]] \
         && secure_root_path "$trusted_runtime_path" "$trusted_developer_root" file
 }
 
 if [[ "$platform" == Darwin ]]; then
-    python_isolation_args=(-s)
+    python_isolation_args=(-I -S)
 else
     python_isolation_args=(-I)
 fi
 
 run_trusted_python() {
-    local child_status
+    local child_status mode program bootstrap_program
+    local -a child_args=()
     assert_python_runtime_identity || return 126
     if [[ "$platform" == Darwin ]]; then
+        [[ "${1:-}" == -I && "${2:-}" == -S \
+            && ("${3:-}" == -c || "${3:-}" == -) ]] || return 126
+        mode="$3"
+        shift 3
+        bootstrap_program=$'import importlib.metadata,importlib.util,os,sys\nsite_path=sys.argv[1]\nexpected_device=int(sys.argv[2])\nexpected_inode=int(sys.argv[3])\nmode=sys.argv[4]\nflags=os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW\nsite_fd=os.open(site_path, flags)\nmetadata=os.fstat(site_fd)\nassert (metadata.st_dev, metadata.st_ino)==(expected_device, expected_inode)\nassert not any(name.endswith(".pth") for name in os.listdir(site_fd))\nbound_site=f"/dev/fd/{site_fd}"\nassert os.path.isdir(bound_site)\npending=[bound_site]\nscanned=0\nwhile pending:\n current=pending.pop()\n with os.scandir(current) as entries:\n  for entry in entries:\n   scanned+=1\n   assert scanned<=20000\n   assert not entry.is_symlink()\n   if entry.is_dir(follow_symlinks=False):\n    pending.append(entry.path)\nsys.path.insert(0, bound_site)\nif mode=="-c":\n program=sys.argv[5]\n sys.argv=["-c"]+sys.argv[6:]\n filename="<string>"\nelif mode=="-":\n program=sys.stdin.buffer.read()\n sys.argv=["-"]+sys.argv[5:]\n filename="<stdin>"\nelse:\n raise SystemExit(126)\nexec(compile(program, filename, "exec"), globals(), globals())'
+        if [[ "$mode" == -c ]]; then
+            [[ $# -ge 1 ]] || return 126
+            program="$1"
+            shift
+            child_args=(-I -S -c "$bootstrap_program" "$trusted_python_site" \
+                "$trusted_python_site_device" "$trusted_python_site_inode" "$mode" "$program" "$@")
+        else
+            child_args=(-I -S -c "$bootstrap_program" "$trusted_python_site" \
+                "$trusted_python_site_device" "$trusted_python_site_inode" "$mode" "$@")
+        fi
         if /usr/bin/env -i LC_ALL=C \
-            __PYVENV_LAUNCHER__="$python_bin" \
             /bin/bash -p -c 'cd / && exec -a "$1" "$2" "${@:3}"' bash \
-            "$python_bin" "$trusted_runtime_path" "$@"; then
+            "$python_bin" "$trusted_runtime_path" "${child_args[@]}"; then
             child_status=0
         else
             child_status=$?
@@ -331,7 +391,30 @@ if [[ "$probe_device" != "$trusted_runtime_device" || "$probe_inode" != "$truste
     emit_config_error 'untrusted_python_runtime'
     exit 2
 fi
-if [[ "$(run_trusted_python "${python_isolation_args[@]}" -c 'import jsonschema, rfc3339_validator, yaml; print("CUSTOMER_DELIVERY_DEPENDENCIES_OK" if "date-time" in jsonschema.FormatChecker().checkers else "")' 2>/dev/null || true)" != CUSTOMER_DELIVERY_DEPENDENCIES_OK ]]; then
+if [[ "$(run_trusted_python "${python_isolation_args[@]}" -c '
+import os
+import sys
+from importlib import metadata as importlib_metadata
+from importlib import util as importlib_util
+
+expected_site = os.path.realpath(sys.argv[1]) if sys.argv[1] else ""
+origins_ok = True
+if expected_site:
+    bound_site = sys.path[0].rstrip("/") + "/"
+    for module_name in ("jsonschema", "rfc3339_validator", "yaml"):
+        spec = importlib_util.find_spec(module_name)
+        origins_ok = origins_ok and spec is not None and spec.origin is not None \
+            and spec.origin.startswith(bound_site)
+versions_ok = all(importlib_metadata.version(name) == version for name, version in {
+    "jsonschema": "4.23.0",
+    "rfc3339-validator": "0.1.4",
+    "PyYAML": "6.0.2",
+}.items())
+import jsonschema
+import rfc3339_validator
+import yaml
+print("CUSTOMER_DELIVERY_DEPENDENCIES_OK" if origins_ok and versions_ok and "date-time" in jsonschema.FormatChecker().checkers else "")
+' "$trusted_python_site" 2>/dev/null || true)" != CUSTOMER_DELIVERY_DEPENDENCIES_OK ]]; then
     emit_config_error 'missing_python_dependencies'
     exit 2
 fi

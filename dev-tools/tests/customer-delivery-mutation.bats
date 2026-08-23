@@ -341,6 +341,12 @@ PY
         'git_no_replace_objects|Git replacement objects cannot hide an in-place source mutation'
         'git_process_group|source history deadline kills stubborn descendant pipe holders'
     )
+    if [[ "$(/usr/bin/uname -s)" == Darwin ]]; then
+        pairs+=(
+            'python_pth_authority|Darwin trusted site bootstrap rejects executable pth authority'
+            'python_site_symlink|Darwin trusted site bootstrap rejects symlinked dependency content'
+        )
+    fi
 
     for pair in "${pairs[@]}"; do
         kind="${pair%%|*}"
@@ -415,18 +421,43 @@ elif kind == "python_routing_env":
         '''trusted_runtime_path="$("$trusted_python_anchor" -I -c 'import sys; print(sys.executable)' 2>/dev/null || true)"''',
     )
 elif kind == "python_cwd_isolation":
-    darwin = '''python_isolation_args=(-s)'''
+    darwin = '''python_isolation_args=(-I -S)'''
     linux = '''python_isolation_args=(-I)'''
     cwd = '''/bin/bash -p -c 'cd / && exec -a "$1" "$2" "${@:3}"' bash'''
-    if source.count(darwin) != 1 or source.count(linux) != 1 or source.count(cwd) != 1:
+    darwin_guard = '''[[ "${1:-}" == -I && "${2:-}" == -S \\
+            && ("${3:-}" == -c || "${3:-}" == -) ]] || return 126
+        mode="$3"
+        shift 3'''
+    darwin_child = '''child_args=(-I -S -c'''
+    if (source.count(darwin) != 1 or source.count(linux) != 1
+            or source.count(cwd) != 1 or source.count(darwin_guard) != 1
+            or source.count(darwin_child) != 2):
         raise SystemExit("PYTHON_CWD_ISOLATION_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
-    source = source.replace(darwin, 'python_isolation_args=(-s)  # MUTATED:darwin_cwd_isolation', 1)
+    source = source.replace(darwin, 'python_isolation_args=(-S)  # MUTATED:darwin_cwd_isolation', 1)
     source = source.replace(linux, 'python_isolation_args=(-s)  # MUTATED:linux_isolation', 1)
+    source = source.replace(
+        darwin_guard,
+        '''[[ "${1:-}" == -S && ("${2:-}" == -c || "${2:-}" == -) ]] || return 126
+        mode="$2"
+        shift 2''',
+        1,
+    )
+    source = source.replace(darwin_child, 'child_args=(-S -c', 2)
     source = source.replace(
         cwd,
         '''/bin/bash -p -c 'exec -a "$1" "$2" "${@:3}"' bash''',
         1,
     )
+elif kind == "python_pth_authority":
+    old = 'assert not any(name.endswith(".pth") for name in os.listdir(site_fd))'
+    if source.count(old) != 1:
+        raise SystemExit("PYTHON_PTH_AUTHORITY_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+    source = source.replace(old, 'True  # MUTATED:python_pth_authority', 1)
+elif kind == "python_site_symlink":
+    old = 'assert not entry.is_symlink()'
+    if source.count(old) != 1:
+        raise SystemExit("PYTHON_SITE_SYMLINK_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+    source = source.replace(old, 'True  # MUTATED:python_site_symlink', 1)
 elif kind == "wrapper_response":
     old = 'if [[ "$response_valid" != true ]]; then'
     if source.count(old) != 1:

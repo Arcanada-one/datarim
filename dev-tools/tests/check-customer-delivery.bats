@@ -1804,11 +1804,49 @@ PY
     local hostile_cwd="${BATS_TEST_TMPDIR}/hostile-python-cwd"
     mkdir -p "$hostile_cwd"
     printf '%s\n' 'raise RuntimeError("HOSTILE_CWD_JSONSCHEMA_IMPORTED")' >"${hostile_cwd}/jsonschema.py"
+    printf '%s\n' 'raise RuntimeError("HOSTILE_CWD_BASE64_IMPORTED")' >"${hostile_cwd}/base64.py"
     run bash -c 'cd "$1" && env CUSTOMER_DELIVERY_PYTHON="$2" "$3" --root "$4" --task "$5" --stage qa --format json' \
         bash "$hostile_cwd" "$PYTHON" "$SCRIPT" "$ROOT" "$TASK_ID"
     [ "$status" -eq 0 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "MET"' "$output" \
         && [[ "$output" != *HOSTILE_CWD_JSONSCHEMA_IMPORTED* ]]
+}
+
+@test "Darwin trusted site bootstrap rejects executable pth authority" {
+    [[ "$(/usr/bin/uname -s)" == Darwin ]] || skip 'Darwin-only trusted site boundary'
+    local minor site_path hostile_pth result output_copy
+    minor="$(DEVELOPER_DIR=/Library/Developer/CommandLineTools /usr/bin/python3 -I -c 'import sys; print(sys.version_info.minor)')"
+    site_path="${PYTHON%/bin/python}/lib/python3.${minor}/site-packages"
+    hostile_pth="${site_path}/customer_delivery_hostile.pth"
+    trap '/bin/rm -f -- "$hostile_pth"' EXIT
+    printf '%s\n' 'raise RuntimeError("HOSTILE_PTH_EXECUTED")' >"$hostile_pth"
+    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
+        "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+    result="$status"
+    output_copy="$output"
+    /bin/rm -f -- "$hostile_pth"
+    trap - EXIT
+    [ "$result" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_runtime"]' "$output_copy" \
+        && [[ "$output_copy" != *HOSTILE_PTH_EXECUTED* ]]
+}
+
+@test "Darwin trusted site bootstrap rejects symlinked dependency content" {
+    [[ "$(/usr/bin/uname -s)" == Darwin ]] || skip 'Darwin-only trusted site boundary'
+    local minor site_path hostile_link result output_copy
+    minor="$(DEVELOPER_DIR=/Library/Developer/CommandLineTools /usr/bin/python3 -I -c 'import sys; print(sys.version_info.minor)')"
+    site_path="${PYTHON%/bin/python}/lib/python3.${minor}/site-packages"
+    hostile_link="${site_path}/customer_delivery_outside_link"
+    trap '/bin/rm -f -- "$hostile_link"' EXIT
+    /bin/ln -s "$BATS_TEST_TMPDIR" "$hostile_link"
+    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
+        "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+    result="$status"
+    output_copy="$output"
+    /bin/rm -f -- "$hostile_link"
+    trap - EXIT
+    [ "$result" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_runtime"]' "$output_copy"
 }
 
 @test "canonical inputs are parsed from confined stable descriptor snapshots" {
