@@ -22,13 +22,11 @@ setup() {
 # --- the runner itself -------------------------------------------------------
 
 @test "bats workflow remains syntactically valid YAML" {
-    "$CI_PYTHON" - "$WF" <<'PY'
-import sys
-import yaml
-with open(sys.argv[1], encoding="utf-8") as handle:
-    workflow = yaml.safe_load(handle)
-assert isinstance(workflow, dict) and isinstance(workflow.get("jobs"), dict)
-PY
+    # yq is the workflow's pinned YAML parser. In particular, do not invoke
+    # Apple's rebound /usr/bin/python3 launcher outside the trusted dependency
+    # bootstrap merely to reach PyYAML.
+    run yq eval -e '.jobs | type == "!!map"' "$WF"
+    [ "$status" -eq 0 ] && [ "$output" = true ]
 }
 
 @test "discovery runner exists and is shellcheck-clean" {
@@ -213,6 +211,15 @@ YAML
             "$ROOT/dev-tools/tests/customer-delivery-mutation.bats"
 }
 
+@test "macOS customer-delivery shards separate fixture Python from validator authority" {
+    local helper="$ROOT/tests/customer-delivery-test-python.sh"
+    [ -x "$helper" ] \
+        && grep -q -- '--test-python-bin "\$GITHUB_WORKSPACE/tests/customer-delivery-test-python.sh"' "$WF" \
+        && grep -q 'CUSTOMER_TEST_PYTHON_RUNTIME=%s' "$WF" \
+        && grep -q 'CUSTOMER_TEST_PYTHON_SITE=%s' "$WF" \
+        && grep -q 'environment\["CUSTOMER_DELIVERY_TEST_PYTHON"\]' "$ROOT/tests/run-customer-delivery-shard.py"
+}
+
 @test "macOS CI installs pinned A2 dependencies and runs both A2 suites in bounded steps" {
     grep -q 'brew install bats-core yq openssl@3' "$WF" \
         && grep -q -- '--python-only' "$WF" \
@@ -227,7 +234,8 @@ YAML
     grep -q '/usr/bin/python3 -m venv "\$RUNNER_TEMP/portability-venv"' "$WF" \
         && grep -q 'dependency_site="\$RUNNER_TEMP/portability-venv/lib/python${clt_version}/site-packages"' "$WF" \
         && grep -q -- '--python-bin "$clt_python" --python-site "$dependency_site"' "$WF" \
-        && grep -q 'CUSTOMER_CI_PYTHON="\$RUNNER_TEMP/portability-venv/bin/python" bats tests/bats-discovery-coverage.bats' "$WF"
+        && grep -q 'bash tests/check-customer-delivery-python-runtime.sh "\$RUNNER_TEMP/portability-venv/bin/python"' "$WF" \
+        && grep -q '^        run: bats tests/bats-discovery-coverage.bats$' "$WF"
 }
 
 @test "CI installer supports a pinned Python-only dependency mode" {
@@ -251,13 +259,14 @@ YAML
     local validator="$ROOT/dev-tools/check-customer-delivery.sh"
     [ -x "$preflight" ] \
         && [ "$(grep -c 'bash tests/check-customer-delivery-python-runtime.sh "\$RUNNER_TEMP/customer-delivery-venv/bin/python"' "$WF")" -eq 2 ] \
+        && [ "$(grep -c 'bash tests/check-customer-delivery-python-runtime.sh "\$RUNNER_TEMP/portability-venv/bin/python"' "$WF")" -eq 1 ] \
         && grep -q '/usr/bin/python3 -m venv "\$RUNNER_TEMP/discovery-venv"' "$WF" \
-        && [ "$(grep -c 'DEVELOPER_DIR=/Library/Developer/CommandLineTools' "$WF")" -ge 3 ] \
+        && [ "$(grep -c 'DEVELOPER_DIR=/Library/Developer/CommandLineTools' "$WF")" -ge 2 ] \
         && grep -q '/bin/ln -sf /usr/bin/python3 "\$RUNNER_TEMP/portability-venv/bin/python"' "$WF" \
         && grep -q 'dependency_site="\$RUNNER_TEMP/customer-delivery-venv/lib/python${clt_version}/site-packages"' "$WF" \
         && grep -q 'trusted_python_site="${python_venv_root}/lib/python${runtime_major}.${runtime_minor}/site-packages"' "$validator" \
         && grep -q 'CUSTOMER_CI_PYTHON="\$RUNNER_TEMP/discovery-venv/bin/python" bash tests/run-bats-discovery.sh' "$WF" \
-        && grep -q 'DEVELOPER_DIR=/Library/Developer/CommandLineTools CUSTOMER_CI_PYTHON="\$RUNNER_TEMP/portability-venv/bin/python" bats tests/bats-discovery-coverage.bats' "$WF" \
+        && ! grep -q 'CUSTOMER_CI_PYTHON="\$RUNNER_TEMP/portability-venv/bin/python" bats tests/bats-discovery-coverage.bats' "$WF" \
         || return 1
     [[ -n "${CUSTOMER_CI_PYTHON:-}" ]] || skip 'CUSTOMER_CI_PYTHON is required; every CI invocation provides a pinned venv'
     "$preflight" "$CI_PYTHON"

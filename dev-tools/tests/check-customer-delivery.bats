@@ -3,7 +3,8 @@
 setup() {
     REPO_ROOT="${BATS_TEST_DIRNAME}/../.."
     SCRIPT="${CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE:-${REPO_ROOT}/dev-tools/check-customer-delivery.sh}"
-    PYTHON="${CUSTOMER_DELIVERY_PYTHON:-/usr/bin/python3}"
+    VALIDATOR_PYTHON="${CUSTOMER_DELIVERY_PYTHON:-/usr/bin/python3}"
+    PYTHON="${CUSTOMER_DELIVERY_TEST_PYTHON:-$VALIDATOR_PYTHON}"
     CRYPTO_HELPER="${REPO_ROOT}/tests/customer-delivery-ed25519.py"
     TASK_ID="WEB-0001"
     ROOT="${BATS_TEST_TMPDIR}/consumer"
@@ -17,8 +18,9 @@ setup() {
         echo "ERROR: yq is required for customer-delivery tests" >&2
         return 1
     fi
-    if [[ "$PYTHON" != /* || ! -x "$PYTHON" || -d "$PYTHON" ]]; then
-        echo "ERROR: CUSTOMER_DELIVERY_PYTHON must be an absolute executable" >&2
+    if [[ "$PYTHON" != /* || ! -x "$PYTHON" || -d "$PYTHON" \
+        || "$VALIDATOR_PYTHON" != /* || ! -x "$VALIDATOR_PYTHON" || -d "$VALIDATOR_PYTHON" ]]; then
+        echo "ERROR: test and validator Python paths must be absolute executables" >&2
         return 1
     fi
     if [[ ! -f "$CRYPTO_HELPER" ]] || ! "$PYTHON" -c 'import cryptography, jsonschema, yaml' >/dev/null 2>&1; then
@@ -57,12 +59,12 @@ test_signature() {
 }
 
 run_validator() {
-    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format text
 }
 
 run_validator_json() {
-    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
 }
 
@@ -135,7 +137,7 @@ build_test_framework() {
 }
 
 run_test_framework_json() {
-    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         "$TEST_SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
 }
 
@@ -943,7 +945,7 @@ PY
         "$ROOT/datarim/receipts/${replay_task}-review-evolution.yaml"
     git -C "$ROOT" commit -q -m "replay unchanged signed bundle under another task"
 
-    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         "$SCRIPT" --root "$ROOT" --task "$replay_task" --stage qa --format text
     if [ "$status" -ne 1 ]; then
         printf 'replay_status=%s replay_output=%s\n' "$status" "$output"
@@ -1008,7 +1010,7 @@ PY
     git -C "$ROOT" add datarim
     git -C "$ROOT" commit -q -m "coordinated post-work reattribution"
 
-    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         "$TEST_SCRIPT" --root "$ROOT" --task "$replay_task" --stage qa --format json
     [ "$status" -eq 1 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert {"acceptance_prework_task_mismatch:req-0001", "receipt_prework_task_mismatch:req-0001"} <= set(d["findings"])' "$output"
@@ -1100,7 +1102,7 @@ PY
 @test "all hard semantic stages enforce the same delivery decision" {
     local stage
     for stage in qa compliance archive; do
-        run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
+        run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
             "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage "$stage" --format json
         [ "$status" -eq 0 ] \
             && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["decision"] == "MET" and d["stage"] == sys.argv[2]' "$output" "$stage" \
@@ -1534,11 +1536,11 @@ PY
 }
 
 @test "JSON output is deterministic and machine-readable" {
-    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage compliance --format json
     local first="$output"
     [ "$status" -eq 0 ] || return 1
-    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage compliance --format json
     [ "$status" -eq 0 ] \
         && [ "$output" = "$first" ] \
@@ -1549,7 +1551,7 @@ PY
     run "$SCRIPT" --root "$ROOT" --task bad --stage qa --format text
     [ "$status" -eq 2 ] || return 1
     rm "$RECEIPT"
-    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format text
     [ "$status" -eq 2 ] \
         && [[ "$output" == *"missing_artifact"* ]]
@@ -1714,7 +1716,7 @@ PY
         printf '%s\n' "${!#}"
     }
     export -f realpath
-    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage compliance --format json
     unset -f realpath
     [ "$status" -eq 2 ] \
@@ -1730,14 +1732,14 @@ PY
     ln -s "$outside" "${ROOT}/datarim/tasks"
     printf '%s\n' '#!/usr/bin/env bash' 'printf '\''%s\\n'\'' "${!#}"' >"${shim_dir}/realpath"
     chmod +x "${shim_dir}/realpath"
-    run env PATH="${shim_dir}:${PATH}" CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
+    run env PATH="${shim_dir}:${PATH}" CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage compliance --format json
     [ "$status" -eq 2 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "ERROR" and "path_escape:requirements" in d["findings"]' "$output"
 }
 
 @test "ambient framework-root override cannot replace bundled schemas" {
-    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" CUSTOMER_DELIVERY_FRAMEWORK_ROOT="${BATS_TEST_TMPDIR}/hostile-framework" \
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" CUSTOMER_DELIVERY_FRAMEWORK_ROOT="${BATS_TEST_TMPDIR}/hostile-framework" \
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
     [ "$status" -eq 0 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "MET"' "$output"
@@ -1788,7 +1790,7 @@ PY
 
 @test "ambient Python and Apple developer routing cannot redirect the trusted runtime" {
     mkdir -p "${BATS_TEST_TMPDIR}/hostile-python-home"
-    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         PYTHONHOME="${BATS_TEST_TMPDIR}/hostile-python-home" \
         PYTHONPATH="${BATS_TEST_TMPDIR}/hostile-python-home" \
         PYTHONEXECUTABLE="${BATS_TEST_TMPDIR}/hostile-python" \
@@ -1806,7 +1808,7 @@ PY
     printf '%s\n' 'raise RuntimeError("HOSTILE_CWD_JSONSCHEMA_IMPORTED")' >"${hostile_cwd}/jsonschema.py"
     printf '%s\n' 'raise RuntimeError("HOSTILE_CWD_BASE64_IMPORTED")' >"${hostile_cwd}/base64.py"
     run bash -c 'cd "$1" && env CUSTOMER_DELIVERY_PYTHON="$2" "$3" --root "$4" --task "$5" --stage qa --format json' \
-        bash "$hostile_cwd" "$PYTHON" "$SCRIPT" "$ROOT" "$TASK_ID"
+        bash "$hostile_cwd" "$VALIDATOR_PYTHON" "$SCRIPT" "$ROOT" "$TASK_ID"
     [ "$status" -eq 0 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "MET"' "$output" \
         && [[ "$output" != *HOSTILE_CWD_JSONSCHEMA_IMPORTED* ]]
@@ -1820,7 +1822,7 @@ PY
     hostile_pth="${site_path}/customer_delivery_hostile.pth"
     trap '/bin/rm -f -- "$hostile_pth"' EXIT
     printf '%s\n' 'raise RuntimeError("HOSTILE_PTH_EXECUTED")' >"$hostile_pth"
-    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
     result="$status"
     output_copy="$output"
@@ -1839,7 +1841,7 @@ PY
     hostile_link="${site_path}/customer_delivery_outside_link"
     trap '/bin/rm -f -- "$hostile_link"' EXIT
     /bin/ln -s "$BATS_TEST_TMPDIR" "$hostile_link"
-    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
     result="$status"
     output_copy="$output"
@@ -2306,7 +2308,7 @@ CASES
     yq -i '.requirements.req-0001.coverage_chain.customer_disposition.authority_approval.signature = "ed25519:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="' "$RECEIPT"
 
     run env PATH="$hostile_path:$PATH" HOSTILE_OPENSSL_CANARY="$canary" \
-        CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
+        CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
     [ "$status" -eq 1 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "NOT_MET" and "disposition_signature_invalid:req-0001" in d["findings"]' "$output" \
@@ -2581,7 +2583,7 @@ PY
     git -C "$substitute" add datarim
     git -C "$substitute" commit -q -m substituted-clean-history
 
-    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" GIT_DIR="${substitute}/.git" \
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" GIT_DIR="${substitute}/.git" \
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
     [ "$status" -eq 1 ] \
         && [[ "$output" == *"source_history_prior_record_mutated:source-0001"* ]]
@@ -2591,7 +2593,7 @@ PY
     local substitute_worktree="${BATS_TEST_TMPDIR}/substitute-worktree"
     yq -i '.source_remarks[0].authority_approval.evidence_ref = "mutated-in-place"' "$REQUIREMENTS"
     mkdir -p "$substitute_worktree"
-    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" GIT_WORK_TREE="$substitute_worktree" \
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" GIT_WORK_TREE="$substitute_worktree" \
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
     [ "$status" -eq 1 ] \
         && [[ "$output" == *"source_history_prior_record_mutated:source-0001"* ]]
@@ -2601,7 +2603,7 @@ PY
     local substitute_objects="${BATS_TEST_TMPDIR}/substitute-objects"
     yq -i '.source_remarks[0].authority_approval.evidence_ref = "mutated-in-place"' "$REQUIREMENTS"
     mkdir -p "$substitute_objects"
-    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" GIT_OBJECT_DIRECTORY="$substitute_objects" \
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" GIT_OBJECT_DIRECTORY="$substitute_objects" \
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
     [ "$status" -eq 1 ] \
         && [[ "$output" == *"source_history_prior_record_mutated:source-0001"* ]]
@@ -2645,7 +2647,7 @@ exec "{real_git}" -C "{substitute}" "${{args[@]}}"
 os.chmod(path, 0o700)
 PY
 
-    run env PATH="${shim_dir}:${PATH}" CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
+    run env PATH="${shim_dir}:${PATH}" CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
     [ "$status" -eq 1 ] \
         && [[ "$output" == *"source_history_prior_record_mutated:source-0001"* ]]

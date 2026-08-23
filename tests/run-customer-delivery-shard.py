@@ -244,6 +244,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--suite", choices=sorted(SUITE_PATHS))
     parser.add_argument("--shard")
     parser.add_argument("--python-bin", default="/usr/bin/python3")
+    parser.add_argument("--test-python-bin")
     parser.add_argument("--bats-bin")
     parser.add_argument("--timeout-seconds", type=int, default=105)
     parser.add_argument("--platform", choices=("linux", "macos"))
@@ -287,6 +288,10 @@ def main() -> int:
         python_bin = Path(args.python_bin)
         if not python_bin.is_absolute() or not python_bin.is_file() or not os.access(python_bin, os.X_OK):
             raise ContractError("python-bin must be an absolute executable")
+        test_python_bin = Path(args.test_python_bin) if args.test_python_bin else python_bin
+        if (not test_python_bin.is_absolute() or not test_python_bin.is_file()
+                or not os.access(test_python_bin, os.X_OK)):
+            raise ContractError("test-python-bin must be an absolute executable")
         bats = args.bats_bin or shutil.which("bats")
         if not bats or not Path(bats).is_absolute() or not os.access(bats, os.X_OK):
             raise ContractError("bats executable unavailable")
@@ -295,7 +300,8 @@ def main() -> int:
             raise ContractError(f"shard not approved for platform: {args.platform}")
         environment = os.environ.copy()
         environment["CUSTOMER_DELIVERY_PYTHON"] = str(python_bin)
-        environment["CUSTOMER_SCHEMA_PYTHON"] = str(python_bin)
+        environment["CUSTOMER_DELIVERY_TEST_PYTHON"] = str(test_python_bin)
+        environment["CUSTOMER_SCHEMA_PYTHON"] = str(test_python_bin)
         if row.mode == "security":
             names = [inventories["mutation"][1]]
             environment["CUSTOMER_DELIVERY_SECURITY_RANGE"] = f"{row.first}-{row.last}"

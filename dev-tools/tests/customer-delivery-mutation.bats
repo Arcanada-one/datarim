@@ -4,9 +4,11 @@ setup() {
     REPO_ROOT="${BATS_TEST_DIRNAME}/../.."
     SCRIPT="${REPO_ROOT}/dev-tools/check-customer-delivery.sh"
     FUNCTIONAL_TEST="${BATS_TEST_DIRNAME}/check-customer-delivery.bats"
-    PYTHON="${CUSTOMER_DELIVERY_PYTHON:-/usr/bin/python3}"
-    [[ "$PYTHON" == /* && -x "$PYTHON" && ! -d "$PYTHON" ]] \
-        || { echo "ERROR: CUSTOMER_DELIVERY_PYTHON must be an absolute executable" >&2; return 1; }
+    VALIDATOR_PYTHON="${CUSTOMER_DELIVERY_PYTHON:-/usr/bin/python3}"
+    PYTHON="${CUSTOMER_DELIVERY_TEST_PYTHON:-$VALIDATOR_PYTHON}"
+    [[ "$PYTHON" == /* && -x "$PYTHON" && ! -d "$PYTHON" \
+        && "$VALIDATOR_PYTHON" == /* && -x "$VALIDATOR_PYTHON" && ! -d "$VALIDATOR_PYTHON" ]] \
+        || { echo "ERROR: test and validator Python paths must be absolute executables" >&2; return 1; }
     [ -f "$SCRIPT" ] || { echo "ERROR: validator missing: $SCRIPT" >&2; return 1; }
     [ -f "$FUNCTIONAL_TEST" ] || { echo "ERROR: functional tests missing: $FUNCTIONAL_TEST" >&2; return 1; }
 }
@@ -98,7 +100,7 @@ assert_attributed_mutant_kill() {
         filter="${pair#*|}"
         expected_lines="$(expected_red_lines "$filter")" || return 1
 
-        run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+        run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
         [ "$status" -eq 0 ] || return 1
 
         framework="${BATS_TEST_TMPDIR}/framework-${edge}"
@@ -125,7 +127,7 @@ with open(path, "w", encoding="utf-8") as handle:
 PY
         chmod +x "$mutant"
 
-        run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
+        run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
             bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
         assert_attributed_mutant_kill "$edge" "$filter" "$expected_lines" \
             "$status" "$output" || return 1
@@ -248,7 +250,7 @@ PY
         filter="${pair#*|}"
         expected_lines="$(expected_red_lines "$filter")" || return 1
 
-        run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+        run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
         [ "$status" -eq 0 ] || return 1
 
         framework="${BATS_TEST_TMPDIR}/security-framework-${marker}"
@@ -277,7 +279,7 @@ with open(path, "w", encoding="utf-8") as handle:
 PY
         chmod +x "$mutant"
 
-        run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
+        run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
             bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
         assert_attributed_mutant_kill "$marker" "$filter" "$expected_lines" \
             "$status" "$output" || return 1
@@ -290,7 +292,7 @@ PY
     filter='ambient PATH OpenSSL shim cannot authenticate an invalid disposition signature'
     expected_lines="$(expected_red_lines "$filter")" || return 1
 
-    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
     [ "$status" -eq 0 ] || return 1
 
     framework="${BATS_TEST_TMPDIR}/security-framework-ambient-openssl"
@@ -323,7 +325,7 @@ with open(path, "w", encoding="utf-8") as handle:
 PY
     chmod +x "$mutant"
 
-    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
         bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
     assert_attributed_mutant_kill ambient_openssl "$filter" "$expected_lines" \
         "$status" "$output"
@@ -352,7 +354,7 @@ PY
         kind="${pair%%|*}"
         filter="${pair#*|}"
         expected_lines="$(expected_red_lines "$filter")" || return 1
-        run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+        run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
         [ "$status" -eq 0 ] || return 1
 
         framework="${BATS_TEST_TMPDIR}/runtime-framework-${kind}"
@@ -429,9 +431,10 @@ elif kind == "python_cwd_isolation":
         mode="$3"
         shift 3'''
     darwin_child = '''child_args=(-I -S -c'''
+    darwin_fchdir = '''os.fchdir(site_fd)'''
     if (source.count(darwin) != 1 or source.count(linux) != 1
             or source.count(cwd) != 1 or source.count(darwin_guard) != 1
-            or source.count(darwin_child) != 2):
+            or source.count(darwin_child) != 2 or source.count(darwin_fchdir) != 1):
         raise SystemExit("PYTHON_CWD_ISOLATION_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
     source = source.replace(darwin, 'python_isolation_args=(-S)  # MUTATED:darwin_cwd_isolation', 1)
     source = source.replace(linux, 'python_isolation_args=(-s)  # MUTATED:linux_isolation', 1)
@@ -443,6 +446,7 @@ elif kind == "python_cwd_isolation":
         1,
     )
     source = source.replace(darwin_child, 'child_args=(-S -c', 2)
+    source = source.replace(darwin_fchdir, 'True  # MUTATED:darwin_fchdir_binding', 1)
     source = source.replace(
         cwd,
         '''/bin/bash -p -c 'exec -a "$1" "$2" "${@:3}"' bash''',
@@ -483,7 +487,7 @@ with open(path, "w", encoding="utf-8") as handle:
 PY
         chmod +x "$mutant"
 
-        run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
+        run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
             bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
         assert_attributed_mutant_kill "$kind" "$filter" "$expected_lines" \
             "$status" "$output" \
@@ -504,7 +508,7 @@ PY
         kind="${pair%%|*}"
         filter="${pair#*|}"
         expected_lines="$(expected_red_lines "$filter")" || return 1
-        run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+        run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
         [ "$status" -eq 0 ] || return 1
 
         framework="${BATS_TEST_TMPDIR}/realpath-framework-${kind}"
@@ -546,7 +550,7 @@ with open(path, "w", encoding="utf-8") as handle:
 PY
         chmod +x "$mutant"
 
-        run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
+        run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
             bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
         assert_attributed_mutant_kill "realpath_${kind}" "$filter" "$expected_lines" \
             "$status" "$output" || return 1
@@ -570,7 +574,7 @@ PY
         kind="${pair%%|*}"
         filter="${pair#*|}"
         expected_lines="$(expected_red_lines "$filter")" || return 1
-        run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+        run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
         [ "$status" -eq 0 ] || return 1
 
         framework="${BATS_TEST_TMPDIR}/portable-bounds-framework-${kind}"
@@ -631,7 +635,7 @@ with open(path, "w", encoding="utf-8") as handle:
 PY
         chmod +x "$mutant"
 
-        run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
+        run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
             bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
         assert_attributed_mutant_kill "$kind" "$filter" "$expected_lines" \
             "$status" "$output" || return 1
@@ -652,7 +656,7 @@ PY
         kind="${pair%%|*}"
         filter="${pair#*|}"
         expected_lines="$(expected_red_lines "$filter")" || return 1
-        run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+        run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
         [ "$status" -eq 0 ] || return 1
         framework="${BATS_TEST_TMPDIR}/descriptor-framework-${kind}"
         mutant="${framework}/dev-tools/check-customer-delivery.sh"
@@ -702,7 +706,7 @@ assert source.count(old) == 1
 open(path, "w", encoding="utf-8").write(source.replace(old, new))
 PY
         chmod +x "$mutant"
-        run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
+        run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
             bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
         assert_attributed_mutant_kill "$kind" "$filter" "$expected_lines" \
             "$status" "$output" || return 1
@@ -720,7 +724,7 @@ PY
         kind="${pair%%|*}"
         filter="${pair#*|}"
         expected_lines="$(expected_red_lines "$filter")" || return 1
-        run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+        run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
         [ "$status" -eq 0 ] || return 1
         framework="${BATS_TEST_TMPDIR}/repository-binding-${kind}"
         mutant="${framework}/dev-tools/check-customer-delivery.sh"
@@ -749,7 +753,7 @@ assert source.count(old) == 1
 open(path, "w", encoding="utf-8").write(source.replace(old, new))
 PY
         chmod +x "$mutant"
-        run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
+        run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
             bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
         assert_attributed_mutant_kill "$kind" "$filter" "$expected_lines" \
             "$status" "$output" || return 1
@@ -770,7 +774,7 @@ PY
         kind="${pair%%|*}"
         filter="${pair#*|}"
         expected_lines="$(expected_red_lines "$filter")" || return 1
-        run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+        run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
         [ "$status" -eq 0 ] || return 1
         framework="${BATS_TEST_TMPDIR}/review-inventory-${kind}"
         mutant="${framework}/dev-tools/check-customer-delivery.sh"
@@ -808,7 +812,7 @@ assert source.count(old) == 1
 open(path, "w", encoding="utf-8").write(source.replace(old, new))
 PY
         chmod +x "$mutant"
-        run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
+        run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
             bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
         assert_attributed_mutant_kill "$kind" "$filter" "$expected_lines" \
             "$status" "$output" || return 1

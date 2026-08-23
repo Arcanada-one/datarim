@@ -110,6 +110,10 @@ done
 site_identity="$(stat_identity "$expected_site")"
 IFS='|' read -r site_device site_inode _ <<<"$site_identity"
 original_cwd="$PWD"
+late_import_cwd="$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/customer-delivery-late-import.XXXXXX")"
+trap '/bin/rm -rf -- "$late_import_cwd"' EXIT
+printf '%s\n' 'raise RuntimeError("HOSTILE_LATE_IMPORT_EXECUTED")' \
+    >"${late_import_cwd}/customer_delivery_late_shadow.py"
 probe_program='
 import os
 import sys
@@ -122,12 +126,22 @@ expected_executable = sys.argv[3]
 original_cwd = os.path.realpath(sys.argv[4])
 probe_platform = sys.argv[5]
 expected_site = os.path.realpath(sys.argv[6])
+late_import_cwd = os.path.realpath(sys.argv[7])
 print(f"runtime_preflight_child_executable={sys.executable} prefix={sys.prefix} base_prefix={sys.base_prefix} path={sys.path}", file=sys.stderr)
 if probe_platform == "Darwin":
     assert sys.executable == runtime_path, (sys.executable, runtime_path)
     assert sys.prefix == sys.base_prefix, (sys.prefix, sys.base_prefix)
     assert os.getcwd() == "/", os.getcwd()
-    assert sys.path[0].startswith("/dev/fd/"), sys.path
+    assert all(os.path.realpath(entry or os.getcwd()) != expected_site for entry in sys.path), sys.path
+    os.chdir(late_import_cwd)
+    assert importlib_util.find_spec("customer_delivery_late_shadow") is None
+    try:
+        import customer_delivery_late_shadow
+    except ModuleNotFoundError:
+        pass
+    else:
+        raise AssertionError("late hostile import became reachable")
+    os.chdir("/")
 else:
     assert sys.executable == expected_executable, (sys.executable, expected_executable)
     assert sys.prefix == expected_prefix, (sys.prefix, expected_prefix)
@@ -139,7 +153,7 @@ for module_name in ("cryptography", "jsonschema", "rfc3339_validator", "yaml"):
     spec = importlib_util.find_spec(module_name)
     assert spec is not None and spec.origin is not None, module_name
     if probe_platform == "Darwin":
-        assert spec.origin.startswith(sys.path[0].rstrip("/") + "/"), spec.origin
+        assert os.path.realpath(spec.origin).startswith(expected_site.rstrip("/") + "/"), spec.origin
     else:
         resolved_origin = os.path.realpath(spec.origin)
         assert os.path.commonpath((resolved_origin, expected_site)) == expected_site, spec.origin
@@ -161,25 +175,25 @@ for distribution, version in expected_versions.items():
 for module in (cryptography, jsonschema, rfc3339_validator, yaml):
     origin = module.__file__
     if probe_platform == "Darwin":
-        assert origin.startswith(sys.path[0].rstrip("/") + "/"), origin
+        assert os.path.realpath(origin).startswith(expected_site.rstrip("/") + "/"), origin
     else:
         resolved_origin = os.path.realpath(origin)
         assert os.path.commonpath((resolved_origin, expected_site)) == expected_site, origin
 print(f"{metadata.st_dev}|{metadata.st_ino}|{sys.implementation.name}|{sys.version_info.major}|{sys.version_info.minor}|{dependencies}|{sys.prefix}|{sys.base_prefix}")
 '
 if [[ "$platform" == Darwin ]]; then
-    bootstrap_program=$'import importlib.metadata,importlib.util,os,sys\nsite_path=sys.argv[1]\nexpected_device=int(sys.argv[2])\nexpected_inode=int(sys.argv[3])\nflags=os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW\nsite_fd=os.open(site_path, flags)\nmetadata=os.fstat(site_fd)\nassert (metadata.st_dev, metadata.st_ino)==(expected_device, expected_inode)\nassert not any(name.endswith(".pth") for name in os.listdir(site_fd))\nbound_site=f"/dev/fd/{site_fd}"\nassert os.path.isdir(bound_site)\npending=[bound_site]\nscanned=0\nwhile pending:\n current=pending.pop()\n with os.scandir(current) as entries:\n  for entry in entries:\n   scanned+=1\n   assert scanned<=20000\n   assert not entry.is_symlink()\n   if entry.is_dir(follow_symlinks=False):\n    pending.append(entry.path)\nsys.path.insert(0, bound_site)\nprogram=sys.argv[4]\nsys.argv=["-c"]+sys.argv[5:]\nexec(compile(program, "<string>", "exec"), globals(), globals())'
+    bootstrap_program=$'import importlib,importlib.metadata,importlib.util,os,sys\nsite_path=os.path.realpath(sys.argv[1])\nexpected_device=int(sys.argv[2])\nexpected_inode=int(sys.argv[3])\nflags=os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW\nsite_fd=os.open(site_path, flags)\nmetadata=os.fstat(site_fd)\nassert (metadata.st_dev, metadata.st_ino)==(expected_device, expected_inode)\nassert not any(name.endswith(".pth") for name in os.listdir(site_fd))\nos.fchdir(site_fd)\ncwd_metadata=os.stat(".")\nassert (cwd_metadata.st_dev, cwd_metadata.st_ino)==(expected_device, expected_inode)\npending=["."]\nscanned=0\nwhile pending:\n current=pending.pop()\n with os.scandir(current) as entries:\n  for entry in entries:\n   scanned+=1\n   assert scanned<=20000\n   assert not entry.is_symlink()\n   if entry.is_dir(follow_symlinks=False):\n    pending.append(entry.path)\nsys.path.insert(0, ".")\nexpected={"cryptography":("cryptography","43.0.3"),"jsonschema":("jsonschema","4.23.0"),"rfc3339_validator":("rfc3339-validator","0.1.4"),"yaml":("PyYAML","6.0.2")}\nfor module_name,(distribution,version) in expected.items():\n spec=importlib.util.find_spec(module_name)\n assert spec is not None and spec.origin is not None\n assert os.path.commonpath((os.path.realpath(spec.origin),site_path))==site_path\n assert importlib.metadata.version(distribution)==version\n module=importlib.import_module(module_name)\n assert os.path.commonpath((os.path.realpath(module.__file__),site_path))==site_path\ncwd_metadata=os.stat(".")\nmetadata=os.fstat(site_fd)\nassert (cwd_metadata.st_dev,cwd_metadata.st_ino)==(metadata.st_dev,metadata.st_ino)==(expected_device,expected_inode)\nsys.path.remove(".")\nos.chdir("/")\nprogram=sys.argv[4]\nsys.argv=["-c"]+sys.argv[5:]\nexec(compile(program, "<string>", "exec"), globals(), globals())'
     probe="$(/usr/bin/env -i LC_ALL=C \
         /bin/bash -p -c 'cd / && exec -a "$1" "$2" "${@:3}"' bash \
         "$python_bin" "$runtime_path" -I -S -c "$bootstrap_program" \
         "$expected_site" "$site_device" "$site_inode" "$probe_program" \
         "$expected_prefix" "$runtime_path" \
-        "$python_bin" "$original_cwd" "$platform" "$expected_site")"
+        "$python_bin" "$original_cwd" "$platform" "$expected_site" "$late_import_cwd")"
 else
     probe="$(/usr/bin/env -i LC_ALL=C /bin/bash -p -c \
         'exec -a "$1" "$2" "${@:3}"' bash \
         "$python_bin" "$runtime_path" -I -c "$probe_program" \
-        "$expected_prefix" "$runtime_path" "$python_bin" "$original_cwd" "$platform" "$expected_site")"
+        "$expected_prefix" "$runtime_path" "$python_bin" "$original_cwd" "$platform" "$expected_site" "$late_import_cwd")"
 fi
 IFS='|' read -r probe_device probe_inode probe_implementation probe_major probe_minor \
     probe_dependencies probe_prefix probe_base_prefix <<<"$probe"

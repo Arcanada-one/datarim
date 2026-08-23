@@ -213,6 +213,9 @@ jobs:
             --python-bin "$clt_python" --python-site "$dependency_site"
           /bin/ln -sf /usr/bin/python3 "$RUNNER_TEMP/portability-venv/bin/python"
 
+      - name: Verify portability Python through trusted bootstrap
+        run: bash tests/check-customer-delivery-python-runtime.sh "$RUNNER_TEMP/portability-venv/bin/python"
+
       - name: Confirm this really is a BSD userland
         # Fail loudly if the runner image ever ships GNU coreutils first on PATH:
         # the job would then pass while testing nothing it was created to test.
@@ -241,7 +244,7 @@ jobs:
             cli/tests/backlog-add-collision.bats
 
       - name: Run CI dependency and portability contracts
-        run: DEVELOPER_DIR=/Library/Developer/CommandLineTools CUSTOMER_CI_PYTHON="$RUNNER_TEMP/portability-venv/bin/python" bats tests/bats-discovery-coverage.bats
+        run: bats tests/bats-discovery-coverage.bats
 
   customer-delivery-macos:
     name: customer delivery ${{ matrix.suite }} ${{ matrix.shard }} (macOS)
@@ -276,6 +279,8 @@ jobs:
           bash tests/ci-install-bats-deps.sh --python-only \
             --python-bin "$clt_python" --python-site "$dependency_site"
           /bin/ln -sf /usr/bin/python3 "$RUNNER_TEMP/customer-delivery-venv/bin/python"
+          printf 'CUSTOMER_TEST_PYTHON_RUNTIME=%s\n' "$clt_python" >>"$GITHUB_ENV"
+          printf 'CUSTOMER_TEST_PYTHON_SITE=%s\n' "$dependency_site" >>"$GITHUB_ENV"
 
       - name: Verify trusted Python launcher runtime and dependencies
         run: bash tests/check-customer-delivery-python-runtime.sh "$RUNNER_TEMP/customer-delivery-venv/bin/python"
@@ -292,6 +297,7 @@ jobs:
           /usr/bin/python3 tests/run-customer-delivery-shard.py \
             --suite "${{ matrix.suite }}" --shard "${{ matrix.shard }}" \
             --python-bin "$RUNNER_TEMP/customer-delivery-venv/bin/python" \
+            --test-python-bin "$GITHUB_WORKSPACE/tests/customer-delivery-test-python.sh" \
             --platform macos \
             --result-file "$result_dir/${{ matrix.suite }}-${shard//\//-}.json"
 

@@ -101,6 +101,16 @@ PY
         && "$PYTHON" -c 'import json,sys; assert json.load(open(sys.argv[1])) == {"suite":"functional","shard":"1/3"}' "$result"
 }
 
+@test "customer-delivery shard runner separates validator and fixture interpreters" {
+    local observed="$BATS_TEST_TMPDIR/observed-python"
+    make_bats_child "if [ \"\${1:-}\" = --count ]; then echo 45; exit 0; fi; printf '%s|%s|%s\n' \"\$CUSTOMER_DELIVERY_PYTHON\" \"\$CUSTOMER_DELIVERY_TEST_PYTHON\" \"\$CUSTOMER_SCHEMA_PYTHON\" > '$observed'; echo '1..45'; for n in {1..45}; do echo \"ok \$n fixture\"; done"
+    run "$PYTHON" "$RUNNER" --registry "$REGISTRY" \
+        --suite functional --shard 1/3 --bats-bin "$CHILD" \
+        --python-bin /usr/bin/python3 --test-python-bin /bin/true
+    [ "$status" -eq 0 ] \
+        && [ "$(<"$observed")" = /usr/bin/python3\|/bin/true\|/bin/true ]
+}
+
 @test "customer-delivery shard runner propagates a nonzero child status" {
     make_bats_child 'if [ "${1:-}" = --count ]; then echo 45; exit 0; fi; exit 17'
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" \
