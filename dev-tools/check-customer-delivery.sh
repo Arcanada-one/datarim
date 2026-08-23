@@ -1095,50 +1095,84 @@ def validate_requirements_contract():
 def validate_source_history():
     git_env = dict(os.environ)
     git_env["GIT_NO_REPLACE_OBJECTS"] = "1"
-    try:
-        probe = subprocess.run(
-            ["git", "-C", ROOT, "rev-parse", "--show-toplevel"],
-            check=False,
-            capture_output=True,
-            env=git_env,
-            text=True,
-            timeout=10,
-        )
-    except (OSError, subprocess.SubprocessError):
-        probe = None
+
+    def run_git(arguments):
+        try:
+            result = subprocess.run(
+                ["git", "-C", ROOT, *arguments],
+                check=False,
+                capture_output=True,
+                env=git_env,
+                text=False,
+                timeout=10,
+            )
+            stdout = result.stdout.decode("utf-8", errors="strict")
+        except (OSError, UnicodeError, subprocess.SubprocessError):
+            return None
+        return result.returncode, stdout
+
+    def reject_snapshot(context):
+        add(f"source_history_parse:{context}")  # SECURITY_RULE:source_history_parse_closed
+        return None
+
+    def source_records(snapshot, context):
+        if not isinstance(snapshot, dict):
+            return reject_snapshot(context)
+        records = snapshot.get("source_remarks")
+        if not isinstance(records, list):
+            return reject_snapshot(context)
+        by_digest = {}
+        source_ids = set()
+        for record in records:
+            if not isinstance(record, dict):
+                return reject_snapshot(context)
+            source_id = record.get("source_id")
+            digest = record.get("source_digest")
+            supersedes = record.get("supersedes_source_digest")
+            if (
+                not isinstance(source_id, str)
+                or re.fullmatch(r"source-[0-9]{4}", source_id) is None
+                or not isinstance(digest, str)
+                or re.fullmatch(r"sha256:[0-9a-f]{64}", digest) is None
+                or (
+                    supersedes is not None
+                    and (
+                        not isinstance(supersedes, str)
+                        or re.fullmatch(r"sha256:[0-9a-f]{64}", supersedes) is None
+                    )
+                )
+            ):
+                return reject_snapshot(context)
+            try:
+                jcs_bytes(record)
+            except (TypeError, UnicodeError, ValueError):
+                return reject_snapshot(context)
+            if digest in by_digest or source_id in source_ids:
+                return reject_snapshot(context)
+            by_digest[digest] = record
+            source_ids.add(source_id)
+        return by_digest
+
+    probe = run_git(["rev-parse", "--show-toplevel"])
     if (
         probe is None
-        or probe.returncode != 0
-        or os.path.realpath(probe.stdout.strip()) != os.path.realpath(ROOT)
+        or probe[0] != 0
+        or os.path.realpath(probe[1].strip()) != os.path.realpath(ROOT)
     ):
         add("source_history_unavailable")  # SECURITY_RULE:source_history_repo_required
         return
-    shallow = subprocess.run(
-        ["git", "-C", ROOT, "rev-parse", "--is-shallow-repository"],
-        check=False,
-        capture_output=True,
-        env=git_env,
-        text=True,
-        timeout=10,
-    )
-    if shallow.returncode != 0 or shallow.stdout.strip() not in {"true", "false"}:
+    shallow = run_git(["rev-parse", "--is-shallow-repository"])
+    if shallow is None or shallow[0] != 0 or shallow[1].strip() not in {"true", "false"}:
         add("source_history_unavailable")
         return
-    if shallow.stdout.strip() == "true":
+    if shallow[1].strip() == "true":
         add("source_history_shallow_repository")  # SECURITY_RULE:source_history_shallow_rejected
         return
-    graft_path_result = subprocess.run(
-        ["git", "-C", ROOT, "rev-parse", "--git-path", "info/grafts"],
-        check=False,
-        capture_output=True,
-        env=git_env,
-        text=True,
-        timeout=10,
-    )
-    if graft_path_result.returncode != 0 or not graft_path_result.stdout.strip():
+    graft_path_result = run_git(["rev-parse", "--git-path", "info/grafts"])
+    if graft_path_result is None or graft_path_result[0] != 0 or not graft_path_result[1].strip():
         add("source_history_unavailable")
         return
-    graft_path = graft_path_result.stdout.strip()
+    graft_path = graft_path_result[1].strip()
     if not os.path.isabs(graft_path):
         graft_path = os.path.join(ROOT, graft_path)
     try:
@@ -1152,39 +1186,30 @@ def validate_source_history():
         add("source_history_grafts_present")  # SECURITY_RULE:source_history_grafts_rejected
         return
     relative = os.path.relpath(DOCUMENT_PATHS["requirements"], ROOT)
-    history = subprocess.run(
-        ["git", "-C", ROOT, "log", "--format=%H", "--follow", "--", relative],
-        check=False,
-        capture_output=True,
-        env=git_env,
-        text=True,
-        timeout=10,
-    )
-    if history.returncode != 0 or not history.stdout.strip():
+    history = run_git(["log", "--format=%H", "--follow", "--", relative])
+    if history is None or history[0] != 0 or not history[1].strip():
         add("source_history_unavailable")  # SECURITY_RULE:source_history_document_required
         return
-    snapshots = [requirements_doc]
-    for commit in history.stdout.splitlines():
-        blob = subprocess.run(
-            ["git", "-C", ROOT, "show", f"{commit}:{relative}"],
-            check=False,
-            capture_output=True,
-            env=git_env,
-            text=True,
-            timeout=10,
-        )
-        if blob.returncode != 0:
+    current_records = source_records(requirements_doc, "current")
+    if current_records is None:
+        return
+    snapshots = [(requirements_doc, current_records)]
+    for commit in history[1].splitlines():
+        blob = run_git(["show", f"{commit}:{relative}"])
+        if blob is None or blob[0] != 0:
+            reject_snapshot(commit)
             continue
         try:
-            prior = yaml.load(blob.stdout, Loader=UniqueKeyLoader)
-        except yaml.YAMLError:
-            add("source_history_parse")
+            prior = yaml.load(blob[1], Loader=UniqueKeyLoader)
+        except (UnicodeError, yaml.YAMLError):
+            reject_snapshot(commit)
             continue
-        if prior != snapshots[-1]:
-            snapshots.append(prior)
-    for newer, older in zip(snapshots, snapshots[1:]):
-        old_by_digest = {item["source_digest"]: item for item in older["source_remarks"]}
-        new_by_digest = {item["source_digest"]: item for item in newer["source_remarks"]}
+        prior_records = source_records(prior, commit)
+        if prior_records is None:
+            continue
+        if prior != snapshots[-1][0]:
+            snapshots.append((prior, prior_records))
+    for (_, new_by_digest), (_, old_by_digest) in zip(snapshots, snapshots[1:]):
         for digest, prior in old_by_digest.items():
             if digest not in new_by_digest:
                 add(f"source_history_prior_digest_deleted:{digest}")

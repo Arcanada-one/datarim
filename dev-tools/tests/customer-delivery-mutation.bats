@@ -106,6 +106,7 @@ PY
         'source_history_document_required|MET requires the requirement source itself in authoritative Git history'
         'source_history_shallow_rejected|shallow Git history cannot authorize customer delivery'
         'source_history_grafts_rejected|Git grafts cannot rewrite authoritative customer history'
+        'source_history_parse_closed|historical malformed source record fails closed without traceback'
         'unicode_document|nested YAML lone surrogate is deterministic JSON NOT_MET without traceback'
         'unicode_schema|trusted-registry lone surrogate is deterministic JSON ERROR without traceback'
         'unicode_top_boundary|top Unicode boundary returns deterministic JSON when scalar precheck is faulted'

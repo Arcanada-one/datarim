@@ -49,6 +49,61 @@ run_validator_json() {
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
 }
 
+commit_invalid_historical_requirements() {
+    local kind="$1"
+    local valid_copy="${BATS_TEST_TMPDIR}/valid-${kind}.yaml"
+    local invalid_commit
+    cp "$REQUIREMENTS" "$valid_copy" || return 1
+    "$PYTHON" - "$REQUIREMENTS" "$kind" <<'PY' || return 1
+import sys
+
+import yaml
+
+path, kind = sys.argv[1:]
+payloads = {
+    "null": b"null\n",
+    "list": b"[]\n",
+    "null-source-remarks": b"source_remarks: null\n",
+    "invalid-utf8": b"source_remarks:\n  - source_id: source-0001\n    source_digest: \xff\n",
+}
+if kind in {"invalid-record", "legacy-schema-version"}:
+    with open(path, encoding="utf-8") as handle:
+        document = yaml.safe_load(handle)
+    if kind == "invalid-record":
+        document["source_remarks"][0]["source_digest"] = []
+    else:
+        document["schema_version"] = 0
+        document["legacy_metadata"] = {"schema_family": "pre-canon"}
+    with open(path, "w", encoding="utf-8") as handle:
+        yaml.safe_dump(document, handle, allow_unicode=True, sort_keys=False)
+else:
+    with open(path, "wb") as handle:
+        handle.write(payloads[kind])
+PY
+    git -C "$ROOT" add "datarim/tasks/${TASK_ID}-customer-requirements.yaml" || return 1
+    git -C "$ROOT" commit -q -m "historical-${kind}" || return 1
+    invalid_commit="$(git -C "$ROOT" rev-parse HEAD)" || return 1
+    cp "$valid_copy" "$REQUIREMENTS" || return 1
+    git -C "$ROOT" add "datarim/tasks/${TASK_ID}-customer-requirements.yaml" || return 1
+    git -C "$ROOT" commit -q -m "restore-valid-after-${kind}" || return 1
+    printf '%s\n' "$invalid_commit"
+}
+
+assert_source_history_parse_result() {
+    local commit="$1"
+    local result="$2"
+    "$PYTHON" - "$commit" "$result" <<'PY'
+import json
+import sys
+
+commit, raw = sys.argv[1:]
+document = json.loads(raw)
+assert document["decision"] == "NOT_MET"
+assert document["status"] == "NOT_MET"
+assert document["findings"] == [f"source_history_parse:{commit}"]
+PY
+}
+
 build_test_framework() {
     local name="$1"
     TEST_FRAMEWORK="${BATS_TEST_TMPDIR}/framework-${name}"
@@ -1417,6 +1472,89 @@ PY
     run_validator
     [ "$status" -eq 1 ] \
         && [[ "$output" == *"source_history_prior_record_mutated:source-0001"* ]]
+}
+
+@test "historical null source snapshot fails closed without traceback" {
+    local commit
+    commit="$(commit_invalid_historical_requirements null)" || return 1
+    run_validator_json
+    [ "$status" -eq 1 ] \
+        && assert_source_history_parse_result "$commit" "$output" \
+        && [[ "$output" != *"Traceback"* ]]
+}
+
+@test "historical list source snapshot fails closed without traceback" {
+    local commit
+    commit="$(commit_invalid_historical_requirements list)" || return 1
+    run_validator_json
+    [ "$status" -eq 1 ] \
+        && assert_source_history_parse_result "$commit" "$output" \
+        && [[ "$output" != *"Traceback"* ]]
+}
+
+@test "historical null source remarks fail closed without traceback" {
+    local commit
+    commit="$(commit_invalid_historical_requirements null-source-remarks)" || return 1
+    run_validator_json
+    [ "$status" -eq 1 ] \
+        && assert_source_history_parse_result "$commit" "$output" \
+        && [[ "$output" != *"Traceback"* ]]
+}
+
+@test "historical malformed source record fails closed without traceback" {
+    local commit
+    commit="$(commit_invalid_historical_requirements invalid-record)" || return 1
+    run_validator_json
+    [ "$status" -eq 1 ] \
+        && assert_source_history_parse_result "$commit" "$output" \
+        && [[ "$output" != *"Traceback"* ]]
+}
+
+@test "historical legacy schema version remains source-comparable" {
+    commit_invalid_historical_requirements legacy-schema-version >/dev/null || return 1
+    run_validator_json
+    [ "$status" -eq 0 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "MET" and d["findings"] == []' "$output" \
+        && [[ "$output" != *"Traceback"* ]]
+}
+
+@test "historical invalid UTF-8 fails closed without traceback" {
+    local commit
+    commit="$(commit_invalid_historical_requirements invalid-utf8)" || return 1
+    run_validator_json
+    [ "$status" -eq 1 ] \
+        && assert_source_history_parse_result "$commit" "$output" \
+        && [[ "$output" != *"Traceback"* ]]
+}
+
+@test "historical Git show failure fails closed without traceback" {
+    local commit git_path shim
+    commit="$(git -C "$ROOT" rev-parse HEAD)" || return 1
+    git_path="$(command -v git)" || return 1
+    shim="${BATS_TEST_TMPDIR}/git-show-failure"
+    mkdir -p "$shim"
+    "$PYTHON" - "${shim}/git" "$git_path" <<'PY' || return 1
+import os
+import sys
+
+path, real_git = sys.argv[1:]
+script = f'''#!/usr/bin/env bash
+for argument in "$@"; do
+    if [[ "$argument" == show ]]; then
+        exit 73
+    fi
+done
+exec "{real_git}" "$@"
+'''
+with open(path, "w", encoding="utf-8") as handle:
+    handle.write(script)
+os.chmod(path, 0o700)
+PY
+    run env PATH="${shim}:${PATH}" CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
+        "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+    [ "$status" -eq 1 ] \
+        && assert_source_history_parse_result "$commit" "$output" \
+        && [[ "$output" != *"Traceback"* ]]
 }
 
 @test "MET requires an authoritative Git history for the requirement source" {
