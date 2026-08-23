@@ -195,24 +195,25 @@ APPROVAL_FIELDS = (
     "key_id",
 )
 EXPECTED_INVARIANT_REGISTRY_DIGESTS = {
-    "requirements": "6192ad1fe2c834a630a1c98b773976d3ea64db399681bb563bf1568434f129b8",
-    "receipt": "1250c71d958cd19f7b1bd71cf6400cea5cb4c404a37d6ed328c9c3e4f5ce17dc",
+    "requirements": "b7638bd5bbebaf6034fa117758d0c7064c5ec0bec572ad5bb5dd897c91c2fd46",
+    "receipt": "0d37202c35e32815f18a70b04c7e4263ce4456988c93b56d162f4aedb1616260",
 }
 EXPECTED_CONTRACT_DIGESTS = {
     "requirements:x-datarim-crypto-verifier-contract": "01d0ec21009c76101d4046190404667c64a5aa61abc22b612ca77befe3d91e72",
-    "requirements:x-datarim-canonicalization": "bbd3995cdfbded121f17ef11f4751c0c02ccceef2b9f393f4969163af29053d0",
+    "requirements:x-datarim-canonicalization": "28b09c2be6dc974f1522eb2fa48f34036ab1fa1dd91050109f0ff9d070ce126f",
     "requirements:x-datarim-source-tier-authorization": "f5f858651d222f1dab1560060cefbd8d49a47a2b41e2b95161b74b4b9dfc3109",
+    "requirements:x-datarim-prework-identity-contract": "bdb98d473439c859ac6df06596a77e10cba8c711215668c285be44d0397484ce",
     "receipt:x-datarim-customer-disposition-contract": "994129b7b66c3ad29f4e76bb564ae4937d42e2e46dd5a983dd3eaa7741bf5d96",
     "receipt:x-datarim-coverage-chain-digest-contract": "9f7f5391d3c7922d97fe33148f5d7c2dc1a72808415f899cc04129ef5ee95b68",
-    "receipt:x-datarim-task-identity-contract": "7a473577dd2f09bb1e26559f30cf1b62e627233ee6bc8b3fea68c29706629a00",
+    "receipt:x-datarim-task-identity-contract": "54e1d0c40950b024a0dcd760ee1964bb467088876b7624ff652e27f5dfbe69a5",
     "review:x-datarim-originating-review-contract": "292e30935e6ee89252bcd7eae0487184115f96b6b6ad2e3d71c6a1f767770975",
 }
 PINNED_OPENSSL = "/usr/bin/openssl"
 PINNED_REGISTRY_OWNER_ID = "authority-operator-0001"
 PINNED_REGISTRY_ROOT_KEY_ID = "key-registry-root-0001"
-PINNED_REGISTRY_PUBLIC_KEY = "r6djD8Z3khD94nHJ2NuHwFahvXDkuirHLxPsk/NR0LI="
+PINNED_REGISTRY_PUBLIC_KEY = "3hzCOohIkBiCEu9V2qNl8r0zc9iCZE/MbLFabv6/o18="
 PINNED_REGISTRY_FINGERPRINT = (
-    "sha256:97b1d5e3ea072e7c5b168dab1304aa5f7916f3cd5857b452104ff748a6ad47c4"
+    "sha256:dfae487eaca4758d5b0e0ffc372d4594032dc59534ff1124a5b8351f2c923ccf"
 )
 
 
@@ -695,10 +696,28 @@ deliveries = receipt_doc["requirements"]
 sources = {item["source_id"]: item for item in requirements_doc["source_remarks"]}
 assertions = {}
 assertions_by_requirement = {}
+signed_prework_tasks_by_requirement = {}
+signed_prework_epics_by_requirement = {}
+signed_prework_knowledge_by_requirement = {}
+signed_prework_started_by_requirement = {}
 
 if len(sources) != len(requirements_doc["source_remarks"]):
     add("duplicate_id:source")
 for source in requirements_doc["source_remarks"]:
+    for assignment in source["prework_assignments"]:
+        requirement_id = assignment["requirement_id"]
+        signed_prework_tasks_by_requirement.setdefault(requirement_id, set()).add(
+            assignment["task_id"]
+        )
+        signed_prework_epics_by_requirement.setdefault(requirement_id, set()).add(
+            assignment["epic_id"]
+        )
+        signed_prework_knowledge_by_requirement.setdefault(requirement_id, set()).add(
+            assignment["knowledge_selection_digest"]
+        )
+        signed_prework_started_by_requirement.setdefault(requirement_id, set()).add(
+            assignment["implementation_started_at"]
+        )
     for assertion in source["tier1_assertions"]:
         assertion_id = assertion["assertion_id"]
         if assertion_id in assertions:
@@ -866,6 +885,12 @@ def validate_requirements_contract():
             "verbatim_quote": source["verbatim_quote"],
             "captured_at": source["captured_at"],
             "requirement_ids": sorted(source["requirement_ids"]),
+            "prework_assignments": sorted(
+                source["prework_assignments"],
+                key=lambda item: (
+                    item["requirement_id"], item["task_id"], item["epic_id"]
+                ),
+            ),
         }
         for optional in ("locale", "source_ref", "supersedes_source_digest"):
             if optional in source:
@@ -885,6 +910,14 @@ def validate_requirements_contract():
         asserted_requirements = {
             assertion["requirement_id"] for assertion in source["tier1_assertions"]
         }
+        source_assignments = {
+            assignment["requirement_id"]: assignment
+            for assignment in source["prework_assignments"]
+        }
+        if len(source_assignments) != len(source["prework_assignments"]):
+            add(f"source_prework_assignment_duplicate:{source_id}")  # SECURITY_RULE:source_prework_scope
+        if set(source_assignments) != set(source["requirement_ids"]):
+            add(f"source_prework_assignment_scope_mismatch:{source_id}")
         if asserted_requirements != set(source["requirement_ids"]):
             add(f"source_assertion_mapping_mismatch:{source_id}")
         for requirement_id in source["requirement_ids"]:
@@ -906,6 +939,20 @@ def validate_requirements_contract():
             assertion_approval = assertion["authority_approval"]
             if assertion["source_digest"] != source["source_digest"]:
                 add(f"assertion_source_digest_mismatch:{assertion_id}")
+            assignment = assertion["prework_assignment"]
+            if (
+                assignment["requirement_id"] != assertion["requirement_id"]
+                or source_assignments.get(assertion["requirement_id"]) != assignment
+            ):
+                add(f"assertion_prework_assignment_mismatch:{assertion_id}")  # SECURITY_RULE:assertion_prework_binding
+            task_match = re.fullmatch(
+                r"task:([a-z][a-z0-9]{1,9}):[0-9]{4}", assignment["task_id"]
+            )
+            expected_epic = (
+                f"epic:{task_match.group(1)}:0000" if task_match is not None else None
+            )
+            if assignment["epic_id"] != expected_epic:
+                add(f"prework_task_epic_mismatch:{assertion_id}")  # SECURITY_RULE:prework_epic_derivation
             assertion_payload = {
                 key: value
                 for key, value in assertion.items()
@@ -960,6 +1007,19 @@ def validate_requirements_contract():
             add(f"dangling_assertion_ref:{requirement_id}:{selected_assertion_id}")
         elif selected_assertion_id not in referenced_assertions:
             add(f"assertion_replaced:{requirement_id}:{selected_assertion_id}")
+
+        signed_tasks = signed_prework_tasks_by_requirement.get(requirement_id, set())
+        if signed_tasks != {acceptance["implementation"]["task_id"]}:
+            add(f"acceptance_prework_task_mismatch:{requirement_id}")  # SECURITY_RULE:acceptance_prework_binding
+        expected_knowledge_digest = sha256_digest(acceptance["knowledge_selection"])
+        if signed_prework_knowledge_by_requirement.get(requirement_id, set()) != {
+            expected_knowledge_digest
+        }:
+            add(f"prework_knowledge_selection_mismatch:{requirement_id}")  # SECURITY_RULE:prework_knowledge_binding
+        if signed_prework_started_by_requirement.get(requirement_id, set()) != {
+            acceptance["implementation"]["started_at"]
+        }:
+            add(f"prework_implementation_started_at_mismatch:{requirement_id}")  # SECURITY_RULE:prework_started_at_binding
 
         provided_quotes = {}
         for row in acceptance["exact_source_quotes"]:
@@ -1200,6 +1260,8 @@ def validate_implementation_delta_edge(requirement_id, acceptance, chain):
     delta = chain["implementation_delta"]
     if delta["task_id"] != acceptance["implementation"]["task_id"]:
         add(f"implementation_task_mismatch:{requirement_id}")
+    if {delta["task_id"]} != signed_prework_tasks_by_requirement.get(requirement_id, set()):
+        add(f"receipt_prework_task_mismatch:{requirement_id}")  # SECURITY_RULE:receipt_prework_task_binding
     if delta["visitor_visible_count"] != len(delta["visitor_visible_changes"]):
         add(f"visitor_visible_count_mismatch:{requirement_id}")
     if delta["enabling_count"] != len(delta["enabling_changes"]):
@@ -1445,12 +1507,8 @@ def check_supersession_cycles():
         visit(node)
 
 
-def validate_epic_identity_binding(receipt_epics, review_epics, signed_tasks):
-    canonical_epics = set()
-    for signed_task in signed_tasks:
-        match = re.fullmatch(r"task:([a-z][a-z0-9]{1,9}):([0-9]{4})", signed_task)
-        if match is not None:
-            canonical_epics.add(f"epic:{match.group(1)}:0000")
+def validate_epic_identity_binding(receipt_epics, review_epics, signed_epics):
+    canonical_epics = set(signed_epics)
 
     def identity_text(identifiers):
         return ",".join(sorted(identifiers)) if identifiers else "<missing>"
@@ -1479,11 +1537,14 @@ source-correction-superseded-digest-exists source-correction-prior-record-retain
 source-correction-in-place-replacement-prohibited source-history-prior-digest-set-retained
 source-history-prior-record-content-immutable
 source-correction-appended-record-supersedes-prior-digest
+source-prework-assignment-canonical-signed source-prework-assignment-requirement-set-exact
 tier1-assertion-canonical-digest-valid tier1-assertion-approval-digest-equals-assertion-digest
 tier1-assertion-approval-payload-canonical-digest-valid tier1-assertion-signature-valid
 tier1-assertion-signature-over-approval-payload-digest-valid tier1-assertion-approval-key-known
 tier1-assertion-approval-key-authority-id-equal tier1-assertion-approval-key-role-authorized
 tier1-assertion-approval-key-active tier1-assertion-approval-key-valid-at-approval
+tier1-assertion-prework-assignment-canonical-signed
+tier1-assertion-prework-assignment-equals-source
 tier1-assertion-approval-authority-id-equals-containing-source
 tier1-assertion-approval-authority-role-equals-containing-source
 tier1-assertion-approval-key-id-equals-containing-source authority-key-registry-bundled-only
@@ -1496,6 +1557,9 @@ tier1-authority-approval-before-implementation tier1-assertion-correction-append
 source-verbatim-to-assertion-authority-approval-required assertion-acceptance-predicate-equal
 assertion-acceptance-product-equal assertion-acceptance-surface-equal
 assertion-acceptance-surface-class-equal acceptance-applicability-superset
+acceptance-task-equals-signed-prework-assignment prework-task-epic-canonical
+prework-knowledge-selection-digest-equals-acceptance
+prework-implementation-started-at-equals-acceptance
 acceptance-visitor-visible-nonweakening acceptance-painted-applicability-nonweakening
 production-acceptance-product-equal production-acceptance-surface-equal
 production-acceptance-surface-class-equal production-acceptance-predicate-equal
@@ -1540,8 +1604,8 @@ receipt-disposition-approval-key-valid-at-approval
 receipt-visitor-acceptance-authority-role-operator receipt-parent-links-complete
 receipt-cli-task-id-canonical-round-trip
 receipt-cli-task-id-equals-signed-implementation-task-id
-receipt-canonical-epic-derived-from-signed-task
-receipt-epic-parent-equals-signed-canonical-epic
+receipt-task-equals-signed-prework-assignment
+receipt-epic-parent-equals-signed-prework-assignment
 originating-review-receipt-id-equals-top-receipt-id
 originating-review-requirement-set-transitively-bound-by-disposition
 originating-review-canonical-digest-valid
@@ -1552,7 +1616,8 @@ originating-review-approval-key-authority-id-equal
 originating-review-approval-key-role-authorized originating-review-approval-key-active
 originating-review-approval-key-valid-at-approval
 originating-review-observed-at-not-after-reviewed-at
-originating-review-epic-parent-equals-signed-canonical-epic
+originating-review-task-parent-equals-signed-prework-assignment
+originating-review-epic-parent-equals-signed-prework-assignment
 review-open-or-changes-requested-blocks-closure receipt-epic-status-derived
 receipt-user-facing-parent-has-visible-child
 """.split()
@@ -1567,14 +1632,19 @@ receipt-user-facing-parent-has-visible-child
             requirement_map[identifier] = validate_source_history
         elif identifier.startswith("knowledge-selection-"):
             requirement_map[identifier] = validate_knowledge_selection
+        elif "prework" in identifier:
+            requirement_map[identifier] = validate_requirements_contract
         elif identifier.startswith("supersession-"):
             requirement_map[identifier] = check_supersession_cycles
     for identifier in receipt_ids:
         if identifier in (
-            "receipt-canonical-epic-derived-from-signed-task",
-            "receipt-epic-parent-equals-signed-canonical-epic",
-            "originating-review-epic-parent-equals-signed-canonical-epic",
+            "receipt-epic-parent-equals-signed-prework-assignment",
+            "originating-review-epic-parent-equals-signed-prework-assignment",
         ):
+            receipt_map[identifier] = validate_epic_identity_binding
+        elif identifier == "receipt-task-equals-signed-prework-assignment":
+            receipt_map[identifier] = validate_implementation_delta_edge
+        elif identifier == "originating-review-task-parent-equals-signed-prework-assignment":
             receipt_map[identifier] = validate_epic_identity_binding
         elif identifier.startswith("originating-review-") or identifier == "review-open-or-changes-requested-blocks-closure":
             receipt_map[identifier] = validate_originating_review
@@ -1656,15 +1726,23 @@ receipt_epics = {
 receipt_tasks = {
     link["id"] for link in receipt_doc["parent_links"] if link["relation"] == "task"
 }
+signed_prework_tasks = {
+    task_id
+    for task_ids in signed_prework_tasks_by_requirement.values()
+    for task_id in task_ids
+}
+signed_prework_epics = {
+    epic_id
+    for epic_ids in signed_prework_epics_by_requirement.values()
+    for epic_id in epic_ids
+}
 receipt_sets = {
     link["id"] for link in receipt_doc["parent_links"] if link["relation"] == "requirement_set"
 }
-expected_task_links = {
-    requirement["acceptance"]["implementation"]["task_id"]
-    for requirement in requirements.values()
-}
+expected_task_links = signed_prework_tasks
 review_links = {(link["relation"], link["id"]) for link in review_doc["parent_links"]}
 review_epics = {identifier for relation, identifier in review_links if relation == "epic"}
+review_tasks = {identifier for relation, identifier in review_links if relation == "task"}
 task_match = re.fullmatch(r"([A-Z][A-Z0-9]{1,9})-([0-9]{4})", TASK)
 canonical_cli_task = (
     f"task:{task_match.group(1).lower()}:{task_match.group(2)}"
@@ -1684,12 +1762,14 @@ elif expected_task_links != {canonical_cli_task}:
         )
     add(f"task_identity_mismatch:{TASK}:{','.join(signed_cli_tasks)}")  # SECURITY_RULE:task_cli_binding
 canonical_epics = validate_epic_identity_binding(
-    receipt_epics, review_epics, expected_task_links
+    receipt_epics, review_epics, signed_prework_epics
 )
 if not receipt_epics:
     add("dangling_parent_ref:epic")
 if receipt_tasks != expected_task_links:
-    add("parent_link_set_mismatch:task")
+    add("parent_link_set_mismatch:task")  # SECURITY_RULE:receipt_prework_parent_binding
+if review_tasks != expected_task_links:
+    add("review_task_identity_mismatch")  # SECURITY_RULE:review_prework_task_binding
 expected_requirement_sets = {requirements_doc["requirement_set_id"]}
 if receipt_sets != expected_requirement_sets:
     add("parent_link_set_mismatch:requirement_set")

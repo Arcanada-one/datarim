@@ -9,7 +9,7 @@
     "resolution": "BUNDLED_ONLY",
     "ambient_override": "PROHIBITED",
     "registry_id": "authority-key-registry-0001",
-    "registry_digest": "sha256:3a5af5b188e0bfde5a9202a13b27461dc5058176ad74eaceb782053ffa4cae0b"
+    "registry_digest": "sha256:05c9e162e1397a074cfae965168f94173d9b6316cdb2e4756b2b0dedbfa292c5"
   },
   "x-datarim-task-identity-contract": {
     "cli_pattern": "^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$",
@@ -17,20 +17,35 @@
     "cli_to_signed": "task:<ASCII-lowercase-prefix>:<four-digit-number>",
     "signed_to_cli": "<ASCII-uppercase-prefix>-<four-digit-number>",
     "round_trip": "REQUIRED",
-    "prework_source": "requirements.{requirement_id}.acceptance.implementation.task_id",
-    "prework_binding": "EQUALS_SIGNED_SOURCE",
-    "signed_source": "requirements.{requirement_id}.coverage_chain.implementation_delta.task_id",
-    "canonical_epic_derivation": "epic:<signed-task-prefix>:0000",
+    "prework_contract_ref": "customer-requirement.schema.json#/x-datarim-prework-identity-contract",
+    "prework_sources": [
+      "source_remarks[].prework_assignments[]",
+      "source_remarks[].tier1_assertions[].prework_assignment"
+    ],
+    "prework_binding": "INDEPENDENT_SOURCE_AND_ASSERTION_SIGNATURES_REQUIRED",
+    "runtime_task_consumers": [
+      "requirements.{requirement_id}.acceptance.implementation.task_id",
+      "receipt.requirements.{requirement_id}.coverage_chain.implementation_delta.task_id",
+      "receipt.parent_links",
+      "authenticated_review.parent_links",
+      "cli.task"
+    ],
+    "runtime_prework_consumers": [
+      "requirements.{requirement_id}.acceptance.knowledge_selection",
+      "requirements.{requirement_id}.acceptance.implementation.started_at"
+    ],
+    "canonical_epic_source": "signed_prework_assignment.epic_id",
     "epic_parent_consumers": [
       "receipt.parent_links",
       "authenticated_review.parent_links"
     ],
-    "commitment_chain": [
-      "implementation_delta.task_id",
-      "customer_disposition.coverage_chain_digest",
-      "customer_disposition.disposition_digest",
-      "customer_disposition.authority_approval.approval_payload_digest",
-      "customer_disposition.authority_approval.signature"
+    "prework_commitment_chain": [
+      "source.prework_assignments",
+      "source.source_digest",
+      "source.authority_approval.signature",
+      "assertion.prework_assignment",
+      "assertion.assertion_digest",
+      "assertion.authority_approval.signature"
     ]
   },
   "x-datarim-customer-disposition-contract": {
@@ -139,8 +154,8 @@
       "receipt-parent-links-complete",
       "receipt-cli-task-id-canonical-round-trip",
       "receipt-cli-task-id-equals-signed-implementation-task-id",
-      "receipt-canonical-epic-derived-from-signed-task",
-      "receipt-epic-parent-equals-signed-canonical-epic",
+      "receipt-task-equals-signed-prework-assignment",
+      "receipt-epic-parent-equals-signed-prework-assignment",
       "originating-review-receipt-id-equals-top-receipt-id",
       "originating-review-requirement-set-transitively-bound-by-disposition",
       "originating-review-canonical-digest-valid",
@@ -153,7 +168,8 @@
       "originating-review-approval-key-active",
       "originating-review-approval-key-valid-at-approval",
       "originating-review-observed-at-not-after-reviewed-at",
-      "originating-review-epic-parent-equals-signed-canonical-epic",
+      "originating-review-task-parent-equals-signed-prework-assignment",
+      "originating-review-epic-parent-equals-signed-prework-assignment",
       "review-open-or-changes-requested-blocks-closure",
       "receipt-epic-status-derived",
       "receipt-user-facing-parent-has-visible-child"

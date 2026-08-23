@@ -9,7 +9,7 @@
     "resolution": "BUNDLED_ONLY",
     "ambient_override": "PROHIBITED",
     "registry_id": "authority-key-registry-0001",
-    "registry_digest": "sha256:3a5af5b188e0bfde5a9202a13b27461dc5058176ad74eaceb782053ffa4cae0b"
+    "registry_digest": "sha256:05c9e162e1397a074cfae965168f94173d9b6316cdb2e4756b2b0dedbfa292c5"
   },
   "x-datarim-originating-review-contract": {
     "review_digest": {

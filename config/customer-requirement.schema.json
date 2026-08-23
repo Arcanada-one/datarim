@@ -24,6 +24,17 @@
       "OPERATOR_VERBATIM": ["OPERATOR"]
     }
   },
+  "x-datarim-prework-identity-contract": {
+    "task_pattern": "^task:[a-z][a-z0-9]{1,9}:[0-9]{4}(?![\\s\\S])",
+    "epic_pattern": "^epic:[a-z][a-z0-9]{1,9}:0000(?![\\s\\S])",
+    "epic_derivation": "epic:<task-prefix>:0000",
+    "source_commitment": "source_remarks[].prework_assignments[]",
+    "assertion_commitment": "source_remarks[].tier1_assertions[].prework_assignment",
+    "knowledge_selection_digest": "SHA256_RFC8785_FULL_KNOWLEDGE_SELECTION_OBJECT",
+    "implementation_started_at": "EXACT_ACCEPTANCE_TIMESTAMP",
+    "commitment_timing": "AUTHORITY_APPROVED_BEFORE_IMPLEMENTATION",
+    "post_hoc_attribution": "PROHIBITED"
+  },
   "x-datarim-semantic-invariants": {
     "description": "Draft 2020-12 validates shape only; the deterministic customer-delivery validator must enforce every registered cross-record invariant.",
     "enforcer": "customer-delivery-validator",
@@ -52,6 +63,8 @@
       "source-history-prior-digest-set-retained",
       "source-history-prior-record-content-immutable",
       "source-correction-appended-record-supersedes-prior-digest",
+      "source-prework-assignment-canonical-signed",
+      "source-prework-assignment-requirement-set-exact",
       "tier1-assertion-canonical-digest-valid",
       "tier1-assertion-approval-digest-equals-assertion-digest",
       "tier1-assertion-approval-payload-canonical-digest-valid",
@@ -62,6 +75,8 @@
       "tier1-assertion-approval-key-role-authorized",
       "tier1-assertion-approval-key-active",
       "tier1-assertion-approval-key-valid-at-approval",
+      "tier1-assertion-prework-assignment-canonical-signed",
+      "tier1-assertion-prework-assignment-equals-source",
       "tier1-assertion-approval-authority-id-equals-containing-source",
       "tier1-assertion-approval-authority-role-equals-containing-source",
       "tier1-assertion-approval-key-id-equals-containing-source",
@@ -81,6 +96,10 @@
       "assertion-acceptance-product-equal",
       "assertion-acceptance-surface-equal",
       "assertion-acceptance-surface-class-equal",
+      "acceptance-task-equals-signed-prework-assignment",
+      "prework-task-epic-canonical",
+      "prework-knowledge-selection-digest-equals-acceptance",
+      "prework-implementation-started-at-equals-acceptance",
       "acceptance-applicability-superset",
       "acceptance-visitor-visible-nonweakening",
       "acceptance-painted-applicability-nonweakening",
@@ -121,6 +140,11 @@
           "payload": "sourceRemark",
           "field": "requirement_ids",
           "order": "ASCENDING_UNICODE_CODE_POINT"
+        },
+        {
+          "payload": "sourceRemark",
+          "field": "prework_assignments",
+          "order": "ASCENDING_REQUIREMENT_ID_THEN_TASK_ID_THEN_EPIC_ID"
         }
       ]
     },
@@ -159,8 +183,8 @@
         "trust_anchor": {
           "key_id": "key-registry-root-0001",
           "algorithm": "ED25519",
-          "public_key": "r6djD8Z3khD94nHJ2NuHwFahvXDkuirHLxPsk/NR0LI=",
-          "fingerprint": "sha256:97b1d5e3ea072e7c5b168dab1304aa5f7916f3cd5857b452104ff748a6ad47c4",
+          "public_key": "3hzCOohIkBiCEu9V2qNl8r0zc9iCZE/MbLFabv6/o18=",
+          "fingerprint": "sha256:dfae487eaca4758d5b0e0ffc372d4594032dc59534ff1124a5b8351f2c923ccf",
           "semantics": "SCHEMA_REVIEWED_PINNED_PUBLIC_KEY",
           "usage": "REGISTRY_SIGNATURE_ONLY"
         }
@@ -203,14 +227,14 @@
       "bundled_registry": {
         "registry_id": "authority-key-registry-0001",
         "revision": "1",
-        "digest": "sha256:3a5af5b188e0bfde5a9202a13b27461dc5058176ad74eaceb782053ffa4cae0b",
-        "registry_signature": "ed25519:KDSymSQF4e51aa+TPNihzn8jMGzDBsinBm9iG2PLsK6zYTNIDnI/O9ZdcWaYUcjIckV7HphJFK4ha5Ongus/DQ==",
+        "digest": "sha256:05c9e162e1397a074cfae965168f94173d9b6316cdb2e4756b2b0dedbfa292c5",
+        "registry_signature": "ed25519:omHlBdQ8sgHZfoUL+7JxRXJfBrQIt9ib1TBcLFNUpIoUklMWdoy3GInO0TK2ek1RD75+rcxgOpJI4z06DKUWBg==",
         "entries": [
           {
             "key_id": "key-customer-0001",
             "authority_id": "authority-customer-0001",
             "allowed_roles": ["CUSTOMER"],
-            "public_key": "rcPqVnAZF2gzQc8O1d+MdKHHGZ6RnyU4R8OJT35ycwU=",
+            "public_key": "OK/LrmJ1u+SIxDf2m6GPCG04iFvAv5MijxbvbPCyNPU=",
             "status": "ACTIVE",
             "valid_from": "2026-01-01T00:00:00Z",
             "valid_until": "2036-01-01T00:00:00Z"
@@ -322,13 +346,14 @@
         "verbatim_quote",
         "captured_at",
         "requirement_ids",
+        "prework_assignments",
         "tier1_assertions"
       ],
       "properties": {
         "source_id": { "type": "string", "pattern": "^source-[0-9]{4}$" },
         "revision": { "type": "string", "pattern": "^[1-9][0-9]*$" },
         "source_digest": {
-          "description": "SHA-256 over the RFC 8785 canonical JSON UTF-8 bytes of source_id, revision, source_tier, verbatim_quote, captured_at, requirement_ids sorted in ascending Unicode code-point order, optional locale/source_ref, and optional supersedes_source_digest. RFC 8785 performs no Unicode normalization. The sha256: prefix is not part of the digest input.",
+          "description": "SHA-256 over the RFC 8785 canonical JSON UTF-8 bytes of source_id, revision, source_tier, verbatim_quote, captured_at, requirement_ids sorted in ascending Unicode code-point order, prework_assignments sorted by requirement_id, task_id, and epic_id, optional locale/source_ref, and optional supersedes_source_digest. RFC 8785 performs no Unicode normalization. The sha256: prefix is not part of the digest input.",
           "type": "string",
           "pattern": "^sha256:[0-9a-f]{64}$"
         },
@@ -346,6 +371,12 @@
           "minItems": 1,
           "uniqueItems": true,
           "items": { "type": "string", "pattern": "^req-[0-9]{4}$" }
+        },
+        "prework_assignments": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/preworkAssignment" }
         },
         "tier1_assertions": {
           "type": "array",
@@ -397,6 +428,7 @@
         "surface_class",
         "applicability",
         "visitor_visible",
+        "prework_assignment",
         "asserted_at"
       ],
       "properties": {
@@ -416,6 +448,7 @@
         "surface_class": { "$ref": "#/$defs/surfaceClass" },
         "applicability": { "$ref": "#/$defs/applicability" },
         "visitor_visible": { "type": "boolean" },
+        "prework_assignment": { "$ref": "#/$defs/preworkAssignment" },
         "asserted_at": { "type": "string", "format": "date-time" }
       },
       "allOf": [
@@ -773,7 +806,7 @@
       "additionalProperties": false,
       "required": ["task_id", "code_revision", "content_revision", "code_paths", "content_paths", "environment", "started_at"],
       "properties": {
-        "task_id": { "type": "string", "pattern": "^task:[a-z][a-z0-9-]*:[0-9]{4}$" },
+        "task_id": { "type": "string", "pattern": "^task:[a-z][a-z0-9]{1,9}:[0-9]{4}(?![\\s\\S])" },
         "code_revision": { "type": "string", "minLength": 1 },
         "content_revision": { "type": "string", "minLength": 1 },
         "code_paths": {
@@ -793,6 +826,19 @@
         { "properties": { "code_paths": { "minItems": 1 } } },
         { "properties": { "content_paths": { "minItems": 1 } } }
       ]
+    },
+    "preworkAssignment": {
+      "description": "Closed task and epic attribution approved before implementation and independently committed by both the source and its Tier-1 assertion.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requirement_id", "task_id", "epic_id", "knowledge_selection_digest", "implementation_started_at"],
+      "properties": {
+        "requirement_id": { "type": "string", "pattern": "^req-[0-9]{4}$" },
+        "task_id": { "type": "string", "pattern": "^task:[a-z][a-z0-9]{1,9}:[0-9]{4}(?![\\s\\S])" },
+        "epic_id": { "type": "string", "pattern": "^epic:[a-z][a-z0-9]{1,9}:0000(?![\\s\\S])" },
+        "knowledge_selection_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "implementation_started_at": { "type": "string", "format": "date-time" }
+      }
     },
     "relativePath": {
       "type": "string",

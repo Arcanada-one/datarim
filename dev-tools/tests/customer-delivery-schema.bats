@@ -76,6 +76,32 @@ jsonschema.Draft202012Validator(schema).validate(candidate)
 PY
 }
 
+validate_prework_task_termination_case() {
+    "$PYTHON" - "$REQUIREMENTS_SCHEMA" "$REQUIREMENTS_TEMPLATE" "$1" <<'PY'
+import copy
+import json
+import sys
+
+import jsonschema
+import yaml
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    schema = json.load(handle)
+with open(sys.argv[2], encoding="utf-8") as handle:
+    instance = yaml.safe_load(handle)
+
+values = {
+    "valid": "task:abcdefghij:9999",
+    "lf": "task:web:0001\n",
+    "crlf": "task:web:0001\r\n",
+    "control": "task:web:0001\x1f",
+}
+candidate = copy.deepcopy(instance)
+candidate["requirements"]["req-0001"]["acceptance"]["implementation"]["task_id"] = values[sys.argv[3]]
+jsonschema.Draft202012Validator(schema).validate(candidate)
+PY
+}
+
 reject_mutation() {
     local schema="$1"
     local template="$2"
@@ -164,6 +190,12 @@ for source in document["source_remarks"]:
         "verbatim_quote": source["verbatim_quote"],
         "captured_at": source["captured_at"],
         "requirement_ids": sorted(source["requirement_ids"]),
+        "prework_assignments": sorted(
+            source["prework_assignments"],
+            key=lambda item: (
+                item["requirement_id"], item["task_id"], item["epic_id"]
+            ),
+        ),
     }
     for optional_field in ("locale", "source_ref", "supersedes_source_digest"):
         if optional_field in source:
@@ -305,6 +337,12 @@ for source in instance["source_remarks"]:
         "verbatim_quote": source["verbatim_quote"],
         "captured_at": source["captured_at"],
         "requirement_ids": sorted(source["requirement_ids"]),
+        "prework_assignments": sorted(
+            source["prework_assignments"],
+            key=lambda item: (
+                item["requirement_id"], item["task_id"], item["epic_id"]
+            ),
+        ),
     }
     for optional_field in ("locale", "source_ref", "supersedes_source_digest"):
         if optional_field in source:
@@ -990,6 +1028,8 @@ expected = {
             "source-history-prior-digest-set-retained",
             "source-history-prior-record-content-immutable",
             "source-correction-appended-record-supersedes-prior-digest",
+            "source-prework-assignment-canonical-signed",
+            "source-prework-assignment-requirement-set-exact",
             "tier1-assertion-canonical-digest-valid",
             "tier1-assertion-approval-digest-equals-assertion-digest",
             "tier1-assertion-approval-payload-canonical-digest-valid",
@@ -1000,6 +1040,8 @@ expected = {
             "tier1-assertion-approval-key-role-authorized",
             "tier1-assertion-approval-key-active",
             "tier1-assertion-approval-key-valid-at-approval",
+            "tier1-assertion-prework-assignment-canonical-signed",
+            "tier1-assertion-prework-assignment-equals-source",
             "tier1-assertion-approval-authority-id-equals-containing-source",
             "tier1-assertion-approval-authority-role-equals-containing-source",
             "tier1-assertion-approval-key-id-equals-containing-source",
@@ -1019,6 +1061,10 @@ expected = {
             "assertion-acceptance-product-equal",
             "assertion-acceptance-surface-equal",
             "assertion-acceptance-surface-class-equal",
+            "acceptance-task-equals-signed-prework-assignment",
+            "prework-task-epic-canonical",
+            "prework-knowledge-selection-digest-equals-acceptance",
+            "prework-implementation-started-at-equals-acceptance",
             "acceptance-applicability-superset",
             "acceptance-visitor-visible-nonweakening",
             "acceptance-painted-applicability-nonweakening",
@@ -1099,8 +1145,8 @@ expected = {
             "receipt-parent-links-complete",
             "receipt-cli-task-id-canonical-round-trip",
             "receipt-cli-task-id-equals-signed-implementation-task-id",
-            "receipt-canonical-epic-derived-from-signed-task",
-            "receipt-epic-parent-equals-signed-canonical-epic",
+            "receipt-task-equals-signed-prework-assignment",
+            "receipt-epic-parent-equals-signed-prework-assignment",
             "originating-review-receipt-id-equals-top-receipt-id",
             "originating-review-requirement-set-transitively-bound-by-disposition",
             "originating-review-canonical-digest-valid",
@@ -1113,7 +1159,8 @@ expected = {
             "originating-review-approval-key-active",
             "originating-review-approval-key-valid-at-approval",
             "originating-review-observed-at-not-after-reviewed-at",
-            "originating-review-epic-parent-equals-signed-canonical-epic",
+            "originating-review-task-parent-equals-signed-prework-assignment",
+            "originating-review-epic-parent-equals-signed-prework-assignment",
             "review-open-or-changes-requested-blocks-closure",
             "receipt-epic-status-derived",
             "receipt-user-facing-parent-has-visible-child",
@@ -1436,6 +1483,11 @@ expected = {
                 "payload": "sourceRemark",
                 "field": "requirement_ids",
                 "order": "ASCENDING_UNICODE_CODE_POINT",
+            },
+            {
+                "payload": "sourceRemark",
+                "field": "prework_assignments",
+                "order": "ASCENDING_REQUIREMENT_ID_THEN_TASK_ID_THEN_EPIC_ID",
             }
         ],
     },
@@ -1791,7 +1843,7 @@ PY
     run reject_contract_mutation '
         .source_remarks[0].verbatim_quote = "The comparison may remain readable on desktop only." |
         .requirements.req-0001.acceptance.exact_source_quotes[0].verbatim_quote = "The comparison may remain readable on desktop only." |
-        .source_remarks[0].source_digest = "sha256:13dc577a184f01bc44e9b21b243dc868a827fbb6a85deca6e73b3eb7ef1ce844"
+        .source_remarks[0].source_digest = "sha256:2d76350220c3183c84ff4d1c2e4a2708bf908d44add17a3c361381eea2ab8db7"
     '
     [ "$status" -eq 1 ] \
         && [[ "$output" == *"SOURCE_APPROVAL_DIGEST_MISMATCH:source-0001"* ]]
@@ -2810,7 +2862,60 @@ PY
     [ "$status" -eq 0 ]
 }
 
-@test "task identity contract derives one canonical epic from the pre-work signed task chain" {
+@test "pre-work implementation task identity accepts exact prefix and end boundaries" {
+    local candidate valid="$BATS_TEST_TMPDIR/valid-prework-task.yaml"
+    for candidate in task:ab:0001 task:c2m:0003 task:abcdefghij:9999; do
+        cp "$REQUIREMENTS_TEMPLATE" "$valid" || return 1
+        yq -i ".requirements.req-0001.acceptance.implementation.task_id = \"${candidate}\"" "$valid" || return 1
+        validate_yaml "$REQUIREMENTS_SCHEMA" "$valid" || return 1
+    done
+    validate_prework_task_termination_case valid
+}
+
+@test "pre-work implementation task identity rejects every noncanonical prefix form" {
+    local expression
+    for expression in \
+        '.requirements.req-0001.acceptance.implementation.task_id = "task:a:0001"' \
+        '.requirements.req-0001.acceptance.implementation.task_id = "task:web-extra:0001"' \
+        '.requirements.req-0001.acceptance.implementation.task_id = "task:abcdefghijk:0001"'; do
+        run reject_mutation "$REQUIREMENTS_SCHEMA" "$REQUIREMENTS_TEMPLATE" "$expression"
+        [ "$status" -eq 1 ] || return 1
+    done
+}
+
+@test "pre-work implementation task identity rejects trailing line and control termination" {
+    local case_name
+    for case_name in lf crlf control; do
+        run validate_prework_task_termination_case "$case_name"
+        [ "$status" -eq 1 ] || return 1
+    done
+}
+
+@test "published task pattern equals every pre-work and receipt task leaf" {
+    run "$PYTHON" - "$REQUIREMENTS_SCHEMA" "$RECEIPT_SCHEMA" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    requirements = json.load(handle)
+with open(sys.argv[2], encoding="utf-8") as handle:
+    receipt = json.load(handle)
+published = receipt["x-datarim-task-identity-contract"]["signed_pattern"]
+leaves = {
+    "requirements.prework_contract.task_pattern": requirements["x-datarim-prework-identity-contract"]["task_pattern"],
+    "acceptance.implementation.task_id": requirements["$defs"]["implementationScope"]["properties"]["task_id"]["pattern"],
+    "source.prework_assignments.task_id": requirements["$defs"]["preworkAssignment"]["properties"]["task_id"]["pattern"],
+    "assertion.prework_assignment.task_id": requirements["$defs"]["preworkAssignment"]["properties"]["task_id"]["pattern"],
+    "receipt.implementation_delta.task_id": receipt["$defs"]["implementationDelta"]["properties"]["task_id"]["pattern"],
+}
+drift = {name: pattern for name, pattern in leaves.items() if pattern != published}
+if drift:
+    raise SystemExit(f"TASK_PATTERN_DRIFT:{drift}")
+PY
+    [ "$status" -eq 0 ]
+}
+
+@test "task identity contract consumes independently signed pre-work source and assertion assignments" {
     run "$PYTHON" - "$RECEIPT_SCHEMA" <<'PY'
 import json
 import sys
@@ -2818,9 +2923,13 @@ import sys
 with open(sys.argv[1], encoding="utf-8") as handle:
     contract = json.load(handle)["x-datarim-task-identity-contract"]
 expected = {
-    "prework_source": "requirements.{requirement_id}.acceptance.implementation.task_id",
-    "prework_binding": "EQUALS_SIGNED_SOURCE",
-    "canonical_epic_derivation": "epic:<signed-task-prefix>:0000",
+    "prework_contract_ref": "customer-requirement.schema.json#/x-datarim-prework-identity-contract",
+    "prework_sources": [
+        "source_remarks[].prework_assignments[]",
+        "source_remarks[].tier1_assertions[].prework_assignment",
+    ],
+    "prework_binding": "INDEPENDENT_SOURCE_AND_ASSERTION_SIGNATURES_REQUIRED",
+    "canonical_epic_source": "signed_prework_assignment.epic_id",
     "epic_parent_consumers": [
         "receipt.parent_links",
         "authenticated_review.parent_links",
@@ -3075,7 +3184,7 @@ expected_registry = {
     "resolution": "BUNDLED_ONLY",
     "ambient_override": "PROHIBITED",
     "registry_id": "authority-key-registry-0001",
-    "registry_digest": "sha256:3a5af5b188e0bfde5a9202a13b27461dc5058176ad74eaceb782053ffa4cae0b",
+    "registry_digest": "sha256:05c9e162e1397a074cfae965168f94173d9b6316cdb2e4756b2b0dedbfa292c5",
 }
 
 expected_contract = {
@@ -3425,8 +3534,8 @@ if anchor.get("semantics") != "SCHEMA_REVIEWED_PINNED_PUBLIC_KEY":
 if anchor.get("usage") != "REGISTRY_SIGNATURE_ONLY":
     raise SystemExit("TRUST_REGISTRY_ANCHOR_USAGE_MISMATCH")
 if (
-    anchor.get("public_key") != "r6djD8Z3khD94nHJ2NuHwFahvXDkuirHLxPsk/NR0LI="
-    or anchor.get("fingerprint") != "sha256:97b1d5e3ea072e7c5b168dab1304aa5f7916f3cd5857b452104ff748a6ad47c4"
+    anchor.get("public_key") != "3hzCOohIkBiCEu9V2qNl8r0zc9iCZE/MbLFabv6/o18="
+    or anchor.get("fingerprint") != "sha256:dfae487eaca4758d5b0e0ffc372d4594032dc59534ff1124a5b8351f2c923ccf"
 ):
     raise SystemExit("TRUST_REGISTRY_ANCHOR_KNOWN_ANSWER_MISMATCH")
 public_key = base64.b64decode(anchor.get("public_key", ""), validate=True)
@@ -3532,20 +3641,35 @@ expected_task_identity_contract = {
     "cli_to_signed": "task:<ASCII-lowercase-prefix>:<four-digit-number>",
     "signed_to_cli": "<ASCII-uppercase-prefix>-<four-digit-number>",
     "round_trip": "REQUIRED",
-    "prework_source": "requirements.{requirement_id}.acceptance.implementation.task_id",
-    "prework_binding": "EQUALS_SIGNED_SOURCE",
-    "signed_source": "requirements.{requirement_id}.coverage_chain.implementation_delta.task_id",
-    "canonical_epic_derivation": "epic:<signed-task-prefix>:0000",
+    "prework_contract_ref": "customer-requirement.schema.json#/x-datarim-prework-identity-contract",
+    "prework_sources": [
+        "source_remarks[].prework_assignments[]",
+        "source_remarks[].tier1_assertions[].prework_assignment",
+    ],
+    "prework_binding": "INDEPENDENT_SOURCE_AND_ASSERTION_SIGNATURES_REQUIRED",
+    "runtime_task_consumers": [
+        "requirements.{requirement_id}.acceptance.implementation.task_id",
+        "receipt.requirements.{requirement_id}.coverage_chain.implementation_delta.task_id",
+        "receipt.parent_links",
+        "authenticated_review.parent_links",
+        "cli.task",
+    ],
+    "runtime_prework_consumers": [
+        "requirements.{requirement_id}.acceptance.knowledge_selection",
+        "requirements.{requirement_id}.acceptance.implementation.started_at",
+    ],
+    "canonical_epic_source": "signed_prework_assignment.epic_id",
     "epic_parent_consumers": [
         "receipt.parent_links",
         "authenticated_review.parent_links",
     ],
-    "commitment_chain": [
-        "implementation_delta.task_id",
-        "customer_disposition.coverage_chain_digest",
-        "customer_disposition.disposition_digest",
-        "customer_disposition.authority_approval.approval_payload_digest",
-        "customer_disposition.authority_approval.signature",
+    "prework_commitment_chain": [
+        "source.prework_assignments",
+        "source.source_digest",
+        "source.authority_approval.signature",
+        "assertion.prework_assignment",
+        "assertion.assertion_digest",
+        "assertion.authority_approval.signature",
     ],
 }
 if receipt_schema.get("x-datarim-task-identity-contract") != expected_task_identity_contract:
@@ -3894,7 +4018,7 @@ PY
     local digest original_signature mutated_signature
     cp "$REQUIREMENTS_SCHEMA" "$registry_mutant" || return 1
     cp "$RECEIPT_SCHEMA" "$receipt_mutant" || return 1
-    yq -i '."x-datarim-signature-contract".key_resolution.bundled_registry.entries[1].public_key = "rcPqVnAZF2gzQc8O1d+MdKHHGZ6RnyU4R8OJT35ycwU="' "$registry_mutant" || return 1
+    yq -i '."x-datarim-signature-contract".key_resolution.bundled_registry.entries[1].public_key = "OK/LrmJ1u+SIxDf2m6GPCG04iFvAv5MijxbvbPCyNPU="' "$registry_mutant" || return 1
     reseal_registry_digest "$registry_mutant" || return 1
     digest=$(jq -r '."x-datarim-signature-contract".key_resolution.bundled_registry.digest' "$registry_mutant") || return 1
     original_signature=$(jq -r '."x-datarim-signature-contract".key_resolution.bundled_registry.registry_signature' "$REQUIREMENTS_SCHEMA") || return 1
@@ -4108,8 +4232,8 @@ anchor = resolution["registry_owner"]["trust_anchor"]
 expected = {
     "key_id": "key-registry-root-0001",
     "algorithm": "ED25519",
-    "public_key": "r6djD8Z3khD94nHJ2NuHwFahvXDkuirHLxPsk/NR0LI=",
-    "fingerprint": "sha256:97b1d5e3ea072e7c5b168dab1304aa5f7916f3cd5857b452104ff748a6ad47c4",
+    "public_key": "3hzCOohIkBiCEu9V2qNl8r0zc9iCZE/MbLFabv6/o18=",
+    "fingerprint": "sha256:dfae487eaca4758d5b0e0ffc372d4594032dc59534ff1124a5b8351f2c923ccf",
     "semantics": "SCHEMA_REVIEWED_PINNED_PUBLIC_KEY",
     "usage": "REGISTRY_SIGNATURE_ONLY",
 }

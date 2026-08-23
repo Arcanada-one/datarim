@@ -92,10 +92,10 @@ script_path, requirement_path, receipt_path, review_path, public_key, fingerprin
 with open(script_path, encoding="utf-8") as handle:
     script = handle.read()
 script = script.replace(
-    'PINNED_REGISTRY_PUBLIC_KEY = "r6djD8Z3khD94nHJ2NuHwFahvXDkuirHLxPsk/NR0LI="',
+    'PINNED_REGISTRY_PUBLIC_KEY = "3hzCOohIkBiCEu9V2qNl8r0zc9iCZE/MbLFabv6/o18="',
     f'PINNED_REGISTRY_PUBLIC_KEY = "{public_key}"',
 ).replace(
-    '"sha256:97b1d5e3ea072e7c5b168dab1304aa5f7916f3cd5857b452104ff748a6ad47c4"',
+    '"sha256:dfae487eaca4758d5b0e0ffc372d4594032dc59534ff1124a5b8351f2c923ccf"',
     f'"{fingerprint}"',
 )
 with open(script_path, "w", encoding="utf-8") as handle:
@@ -181,6 +181,8 @@ with open(path, "w", encoding="utf-8") as handle:
 print(approval["approval_payload_digest"])
 PY
 )" || return 1
+    # PHP receives the script literally.
+    # shellcheck disable=SC2016
     signature="$(printf '%s\n%s\n' "$secret_key" "$digest" | php -r '
 $secret = base64_decode(trim(fgets(STDIN)), true);
 $digest = trim(fgets(STDIN));
@@ -189,6 +191,170 @@ if ($secret === false || $message === false) { exit(2); }
 echo "ed25519:" . base64_encode(sodium_crypto_sign_detached($message, $secret));
 ')" || return 1
     yq -i ".originating_review.authority_approval.signature = \"${signature}\"" "$REVIEW"
+}
+
+reseal_and_sign_disposition() {
+    local secret_key="$1"
+    local digest signature
+    digest="$($PYTHON - "$RECEIPT" <<'PY'
+import hashlib
+import json
+import sys
+
+import yaml
+
+APPROVAL_FIELDS = (
+    "approved_digest", "authority_id", "authority_role", "approved_at",
+    "evidence_ref", "algorithm", "key_id",
+)
+
+
+def digest(payload):
+    canonical = json.dumps(
+        payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+    return "sha256:" + hashlib.sha256(canonical).hexdigest()
+
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as handle:
+    receipt = yaml.safe_load(handle)
+chain = receipt["requirements"]["req-0001"]["coverage_chain"]
+disposition = chain["customer_disposition"]
+disposition["coverage_chain_digest"] = digest({
+    field: value for field, value in chain.items()
+    if field != "customer_disposition"
+})
+payload_fields = (
+    "receipt_id", "requirement_set_id", "requirement_id",
+    "coverage_chain_digest", "status", "recorded_at", "evidence_ref",
+)
+payload = {field: disposition[field] for field in payload_fields}
+for optional in ("note", "superseded_by"):
+    if optional in disposition:
+        payload[optional] = disposition[optional]
+disposition["disposition_digest"] = digest(payload)
+approval = disposition["authority_approval"]
+approval["approved_digest"] = disposition["disposition_digest"]
+approval["approval_payload_digest"] = digest({
+    field: approval[field] for field in APPROVAL_FIELDS
+})
+with open(path, "w", encoding="utf-8") as handle:
+    yaml.safe_dump(receipt, handle, allow_unicode=True, sort_keys=False)
+print(approval["approval_payload_digest"])
+PY
+)" || return 1
+    # PHP receives the script literally.
+    # shellcheck disable=SC2016
+    signature="$(printf '%s\n%s\n' "$secret_key" "$digest" | php -r '
+$secret = base64_decode(trim(fgets(STDIN)), true);
+$digest = trim(fgets(STDIN));
+$message = hex2bin(substr($digest, 7));
+if ($secret === false || $message === false) { exit(2); }
+echo "ed25519:" . base64_encode(sodium_crypto_sign_detached($message, $secret));
+')" || return 1
+    yq -i ".requirements.req-0001.coverage_chain.customer_disposition.authority_approval.signature = \"${signature}\"" "$RECEIPT"
+}
+
+prepare_authenticated_prework_fixture() {
+    local expression="$1"
+    local seed public_key secret_key digests source_digest assertion_digest
+    seed="$(openssl rand -hex 32)"
+    # PHP receives positional parameters literally.
+    # shellcheck disable=SC2016
+    public_key="$(printf '%s\n' "$seed" | php -r '$seed=hex2bin(trim(fgets(STDIN))); $pair=sodium_crypto_sign_seed_keypair($seed); echo base64_encode(sodium_crypto_sign_publickey($pair));')"
+    # PHP receives positional parameters literally.
+    # shellcheck disable=SC2016
+    secret_key="$(printf '%s\n' "$seed" | php -r '$seed=hex2bin(trim(fgets(STDIN))); $pair=sodium_crypto_sign_seed_keypair($seed); echo base64_encode(sodium_crypto_sign_secretkey($pair));')"
+    build_test_framework authenticated-prework || return 1
+    env PREWORK_PUBLIC_KEY="$public_key" yq -i '."x-datarim-signature-contract".key_resolution.bundled_registry.entries += [{
+      "key_id":"key-prework-test-0001",
+      "authority_id":"authority-prework-test-0001",
+      "allowed_roles":["CUSTOMER"],
+      "public_key":strenv(PREWORK_PUBLIC_KEY),
+      "status":"ACTIVE",
+      "valid_from":"2026-01-01T00:00:00Z",
+      "valid_until":"2036-01-01T00:00:00Z"
+    }] | ."x-datarim-signature-contract".key_resolution.bundled_registry.entries |= sort_by(.key_id)' \
+        "${TEST_FRAMEWORK}/config/customer-requirement.schema.json" || return 1
+    authenticate_test_registry '.' || return 1
+    yq -i '.source_remarks[0].authority_approval.authority_id = "authority-prework-test-0001" |
+        .source_remarks[0].authority_approval.key_id = "key-prework-test-0001" |
+        .source_remarks[0].tier1_assertions[0].authority_approval.authority_id = "authority-prework-test-0001" |
+        .source_remarks[0].tier1_assertions[0].authority_approval.key_id = "key-prework-test-0001"' "$REQUIREMENTS" || return 1
+    yq -i "$expression" "$REQUIREMENTS" || return 1
+    digests="$($PYTHON - "$REQUIREMENTS" <<'PY'
+import hashlib
+import json
+import sys
+
+import yaml
+
+APPROVAL_FIELDS = (
+    "approved_digest", "authority_id", "authority_role", "approved_at",
+    "evidence_ref", "algorithm", "key_id",
+)
+
+
+def digest(payload):
+    canonical = json.dumps(
+        payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+    return "sha256:" + hashlib.sha256(canonical).hexdigest()
+
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as handle:
+    document = yaml.safe_load(handle)
+source = document["source_remarks"][0]
+source_payload = {
+    "source_id": source["source_id"],
+    "revision": source["revision"],
+    "source_tier": source["source_tier"],
+    "verbatim_quote": source["verbatim_quote"],
+    "captured_at": source["captured_at"],
+    "requirement_ids": sorted(source["requirement_ids"]),
+    "prework_assignments": sorted(
+        source["prework_assignments"],
+        key=lambda item: (item["requirement_id"], item["task_id"], item["epic_id"]),
+    ),
+}
+for optional in ("locale", "source_ref", "supersedes_source_digest"):
+    if optional in source:
+        source_payload[optional] = source[optional]
+source["source_digest"] = digest(source_payload)
+source_approval = source["authority_approval"]
+source_approval["approved_digest"] = source["source_digest"]
+source_approval["approval_payload_digest"] = digest({
+    field: source_approval[field] for field in APPROVAL_FIELDS
+})
+assertion = source["tier1_assertions"][0]
+assertion["source_digest"] = source["source_digest"]
+assertion["assertion_digest"] = digest({
+    key: value for key, value in assertion.items()
+    if key not in {"assertion_digest", "authority_approval"}
+})
+assertion_approval = assertion["authority_approval"]
+assertion_approval["approved_digest"] = assertion["assertion_digest"]
+assertion_approval["approval_payload_digest"] = digest({
+    field: assertion_approval[field] for field in APPROVAL_FIELDS
+})
+with open(path, "w", encoding="utf-8") as handle:
+    yaml.safe_dump(document, handle, allow_unicode=True, sort_keys=False)
+print(source_approval["approval_payload_digest"])
+print(assertion_approval["approval_payload_digest"])
+PY
+)" || return 1
+    source_digest="${digests%%$'\n'*}"
+    assertion_digest="${digests##*$'\n'}"
+    local source_signature assertion_signature
+    # PHP receives the scripts literally.
+    # shellcheck disable=SC2016
+    source_signature="$(printf '%s\n%s\n' "$secret_key" "$source_digest" | php -r '$s=base64_decode(trim(fgets(STDIN)),true);$d=trim(fgets(STDIN));echo "ed25519:".base64_encode(sodium_crypto_sign_detached(hex2bin(substr($d,7)),$s));')" || return 1
+    # shellcheck disable=SC2016
+    assertion_signature="$(printf '%s\n%s\n' "$secret_key" "$assertion_digest" | php -r '$s=base64_decode(trim(fgets(STDIN)),true);$d=trim(fgets(STDIN));echo "ed25519:".base64_encode(sodium_crypto_sign_detached(hex2bin(substr($d,7)),$s));')" || return 1
+    yq -i ".source_remarks[0].authority_approval.signature = \"${source_signature}\" |
+        .source_remarks[0].tier1_assertions[0].authority_approval.signature = \"${assertion_signature}\"" "$REQUIREMENTS"
 }
 
 prepare_signed_review_fixture() {
@@ -270,6 +436,129 @@ prepare_signed_review_fixture() {
     run_validator_json
     [ "$status" -eq 1 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "NOT_MET" and "epic_identity_mismatch:epic:attacker:9999:epic:web:0000" in d["findings"]' "$output"
+}
+
+@test "post-work task epic and review reseal cannot reattribute signed pre-work authority" {
+    local replay_task="EVIL-9999" seed public_key secret_key
+    seed="$(openssl rand -hex 32)"
+    # PHP receives positional parameters literally.
+    # shellcheck disable=SC2016
+    public_key="$(printf '%s\n' "$seed" | php -r '$seed=hex2bin(trim(fgets(STDIN))); $pair=sodium_crypto_sign_seed_keypair($seed); echo base64_encode(sodium_crypto_sign_publickey($pair));')"
+    # PHP receives positional parameters literally.
+    # shellcheck disable=SC2016
+    secret_key="$(printf '%s\n' "$seed" | php -r '$seed=hex2bin(trim(fgets(STDIN))); $pair=sodium_crypto_sign_seed_keypair($seed); echo base64_encode(sodium_crypto_sign_secretkey($pair));')"
+    build_test_framework postwork-reattribution || return 1
+    env RESEAL_PUBLIC_KEY="$public_key" yq -i '."x-datarim-signature-contract".key_resolution.bundled_registry.entries += [{
+      "key_id":"key-postwork-reseal-0001",
+      "authority_id":"authority-postwork-reseal-0001",
+      "allowed_roles":["OPERATOR"],
+      "public_key":strenv(RESEAL_PUBLIC_KEY),
+      "status":"ACTIVE",
+      "valid_from":"2026-01-01T00:00:00Z",
+      "valid_until":"2036-01-01T00:00:00Z"
+    }] | ."x-datarim-signature-contract".key_resolution.bundled_registry.entries |= sort_by(.key_id)' \
+        "${TEST_FRAMEWORK}/config/customer-requirement.schema.json" || return 1
+    authenticate_test_registry '.' || return 1
+
+    yq -i '.requirements.req-0001.acceptance.implementation.task_id = "task:evil:9999"' "$REQUIREMENTS"
+    yq -i '.requirements.req-0001.coverage_chain.implementation_delta.task_id = "task:evil:9999" |
+        (.parent_links[] | select(.relation == "task").id) = "task:evil:9999" |
+        (.parent_links[] | select(.relation == "epic").id) = "epic:evil:0000" |
+        .requirements.req-0001.coverage_chain.customer_disposition.authority_approval.authority_id = "authority-postwork-reseal-0001" |
+        .requirements.req-0001.coverage_chain.customer_disposition.authority_approval.key_id = "key-postwork-reseal-0001"' "$RECEIPT"
+    yq -i '(.parent_links[] | select(.relation == "task").id) = "task:evil:9999" |
+        (.parent_links[] | select(.relation == "epic").id) = "epic:evil:0000"' "$REVIEW"
+    reseal_and_sign_disposition "$secret_key" || return 1
+
+    git -C "$ROOT" mv "$REQUIREMENTS" "$ROOT/datarim/tasks/${replay_task}-customer-requirements.yaml"
+    git -C "$ROOT" mv "$RECEIPT" "$ROOT/datarim/receipts/${replay_task}-customer-delivery.yaml"
+    git -C "$ROOT" mv "$REVIEW" "$ROOT/datarim/receipts/${replay_task}-review-evolution.yaml"
+    git -C "$ROOT" add datarim
+    git -C "$ROOT" commit -q -m "coordinated post-work reattribution"
+
+    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
+        "$TEST_SCRIPT" --root "$ROOT" --task "$replay_task" --stage qa --format json
+    [ "$status" -eq 1 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert {"acceptance_prework_task_mismatch:req-0001", "receipt_prework_task_mismatch:req-0001"} <= set(d["findings"])' "$output"
+}
+
+@test "post-work knowledge and start-time reseal cannot rewrite signed pre-work authority" {
+    local seed public_key secret_key
+    seed="$(openssl rand -hex 32)"
+    # PHP receives positional parameters literally.
+    # shellcheck disable=SC2016
+    public_key="$(printf '%s\n' "$seed" | php -r '$seed=hex2bin(trim(fgets(STDIN))); $pair=sodium_crypto_sign_seed_keypair($seed); echo base64_encode(sodium_crypto_sign_publickey($pair));')"
+    # PHP receives positional parameters literally.
+    # shellcheck disable=SC2016
+    secret_key="$(printf '%s\n' "$seed" | php -r '$seed=hex2bin(trim(fgets(STDIN))); $pair=sodium_crypto_sign_seed_keypair($seed); echo base64_encode(sodium_crypto_sign_secretkey($pair));')"
+    build_test_framework postwork-u3-reseal || return 1
+    env RESEAL_PUBLIC_KEY="$public_key" yq -i '."x-datarim-signature-contract".key_resolution.bundled_registry.entries += [{
+      "key_id":"key-u3-reseal-0001",
+      "authority_id":"authority-u3-reseal-0001",
+      "allowed_roles":["OPERATOR"],
+      "public_key":strenv(RESEAL_PUBLIC_KEY),
+      "status":"ACTIVE",
+      "valid_from":"2026-01-01T00:00:00Z",
+      "valid_until":"2036-01-01T00:00:00Z"
+    }] | ."x-datarim-signature-contract".key_resolution.bundled_registry.entries |= sort_by(.key_id)' \
+        "${TEST_FRAMEWORK}/config/customer-requirement.schema.json" || return 1
+    authenticate_test_registry '.' || return 1
+
+    yq -i '.requirements.req-0001.acceptance.knowledge_selection.skills[0].revision = "4" |
+        .requirements.req-0001.acceptance.implementation.started_at = "2026-01-02T09:30:00Z"' "$REQUIREMENTS"
+    yq -i '.requirements.req-0001.coverage_chain.selected_knowledge.skills[0].revision = "4" |
+        .requirements.req-0001.coverage_chain.customer_disposition.authority_approval.authority_id = "authority-u3-reseal-0001" |
+        .requirements.req-0001.coverage_chain.customer_disposition.authority_approval.key_id = "key-u3-reseal-0001"' "$RECEIPT"
+    reseal_and_sign_disposition "$secret_key" || return 1
+
+    run_test_framework_json
+    [ "$status" -eq 1 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert {"prework_knowledge_selection_mismatch:req-0001", "prework_implementation_started_at_mismatch:req-0001"} <= set(d["findings"])' "$output"
+}
+
+@test "authenticated assertion pre-work assignment must equal its signed source assignment" {
+    prepare_authenticated_prework_fixture '.source_remarks[0].tier1_assertions[0].prework_assignment.task_id = "task:evil:9999" |
+        .source_remarks[0].tier1_assertions[0].prework_assignment.epic_id = "epic:evil:0000"' || return 1
+    run_test_framework_json
+    [ "$status" -eq 1 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert "assertion_prework_assignment_mismatch:assertion-0001" in d["findings"]' "$output"
+}
+
+@test "authenticated source pre-work assignments are exact per requirement" {
+    prepare_authenticated_prework_fixture '.source_remarks[0].prework_assignments += [{
+        "requirement_id":"req-0001",
+        "task_id":"task:web:9999",
+        "epic_id":"epic:web:0000",
+        "knowledge_selection_digest":"sha256:4321e061f0e07de3203a3b0b474a2bb05cc30d3db2dae345f6c637eab61f1277",
+        "implementation_started_at":"2026-01-02T10:00:00Z"
+    }]' || return 1
+    run_test_framework_json
+    [ "$status" -eq 1 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert "source_prework_assignment_duplicate:source-0001" in d["findings"]' "$output"
+}
+
+@test "authenticated pre-work epic must be canonical for its task prefix" {
+    prepare_authenticated_prework_fixture '.source_remarks[0].prework_assignments[0].epic_id = "epic:evil:0000" |
+        .source_remarks[0].tier1_assertions[0].prework_assignment.epic_id = "epic:evil:0000"' || return 1
+    yq -i '(.parent_links[] | select(.relation == "epic").id) = "epic:evil:0000"' "$RECEIPT"
+    yq -i '(.parent_links[] | select(.relation == "epic").id) = "epic:evil:0000"' "$REVIEW"
+    run_test_framework_json
+    [ "$status" -eq 1 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert "prework_task_epic_mismatch:assertion-0001" in d["findings"]' "$output"
+}
+
+@test "acceptance task must equal the authenticated pre-work assignment" {
+    yq -i '.requirements.req-0001.acceptance.implementation.task_id = "task:evil:9999"' "$REQUIREMENTS"
+    run_validator_json
+    [ "$status" -eq 1 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert "acceptance_prework_task_mismatch:req-0001" in d["findings"]' "$output"
+}
+
+@test "authenticated review task parent must equal the signed pre-work task" {
+    yq -i '(.parent_links[] | select(.relation == "task").id) = "task:evil:9999"' "$REVIEW"
+    run_validator_json
+    [ "$status" -eq 1 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert "review_task_identity_mismatch" in d["findings"]' "$output"
 }
 
 @test "authenticated review epic parent must equal the signed canonical epic" {
@@ -389,9 +678,9 @@ prepare_signed_review_fixture() {
 
 @test "receipt selected knowledge exactly equals the accepted selection" {
     yq -i '.requirements.req-0001.acceptance.knowledge_selection.skills[0].revision = "4"' "$REQUIREMENTS"
-    run_validator
+    run_validator_json
     [ "$status" -eq 1 ] \
-        && [[ "$output" == *"knowledge_selection_mismatch:req-0001"* ]]
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert "knowledge_selection_mismatch:req-0001" in d["findings"]' "$output"
 }
 
 @test "in-progress product fix is separate from originating review closure" {
