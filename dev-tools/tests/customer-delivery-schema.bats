@@ -2716,6 +2716,50 @@ PY
         && [ "$status" -eq 1 ]
 }
 
+@test "signed implementation task identity accepts exact prefix boundaries" {
+    local candidate valid="$BATS_TEST_TMPDIR/valid-signed-task.yaml"
+    for candidate in task:ab:0001 task:c2m:0003 task:abcdefghij:9999; do
+        cp "$RECEIPT_TEMPLATE" "$valid" || return 1
+        yq -i ".requirements.req-0001.coverage_chain.implementation_delta.task_id = \"${candidate}\"" "$valid" || return 1
+        validate_yaml "$RECEIPT_SCHEMA" "$valid" || return 1
+    done
+}
+
+@test "signed implementation task identity rejects a one-character prefix" {
+    run reject_mutation "$RECEIPT_SCHEMA" "$RECEIPT_TEMPLATE" \
+        '.requirements.req-0001.coverage_chain.implementation_delta.task_id = "task:a:0001"'
+    [ "$status" -eq 1 ]
+}
+
+@test "signed implementation task identity rejects a hyphenated prefix" {
+    run reject_mutation "$RECEIPT_SCHEMA" "$RECEIPT_TEMPLATE" \
+        '.requirements.req-0001.coverage_chain.implementation_delta.task_id = "task:web-extra:0001"'
+    [ "$status" -eq 1 ]
+}
+
+@test "signed implementation task identity rejects a prefix longer than ten characters" {
+    run reject_mutation "$RECEIPT_SCHEMA" "$RECEIPT_TEMPLATE" \
+        '.requirements.req-0001.coverage_chain.implementation_delta.task_id = "task:abcdefghijk:0001"'
+    [ "$status" -eq 1 ]
+}
+
+@test "published signed task pattern equals its implementation-delta leaf" {
+    run "$PYTHON" - "$RECEIPT_SCHEMA" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    schema = json.load(handle)
+published = schema["x-datarim-task-identity-contract"]["signed_pattern"]
+leaf = schema["$defs"]["implementationDelta"]["properties"]["task_id"]["pattern"]
+if published != leaf:
+    raise SystemExit(
+        f"SIGNED_TASK_PATTERN_DRIFT:published={published}:leaf={leaf}"
+    )
+PY
+    [ "$status" -eq 0 ]
+}
+
 @test "delivery receipt requires RED GREEN merge deploy and live evidence" {
     run reject_mutation "$RECEIPT_SCHEMA" "$RECEIPT_TEMPLATE" \
         'del(.requirements.req-0001.coverage_chain.red_green.red)'
