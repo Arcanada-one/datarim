@@ -15,13 +15,14 @@ setup() {
     ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
     RUNNER="$ROOT/tests/run-bats-discovery.sh"
     WF="$ROOT/.github/workflows/bats.yml"
+    CI_PYTHON="${CUSTOMER_CI_PYTHON:-/usr/bin/python3}"
     export ROOT RUNNER WF
 }
 
 # --- the runner itself -------------------------------------------------------
 
 @test "bats workflow remains syntactically valid YAML" {
-    /usr/bin/python3 - "$WF" <<'PY'
+    "$CI_PYTHON" - "$WF" <<'PY'
 import sys
 import yaml
 with open(sys.argv[1], encoding="utf-8") as handle:
@@ -218,6 +219,12 @@ YAML
         && grep -q 'customer-delivery-linux' "$WF" \
         && grep -q -- "--python-bin \"\$RUNNER_TEMP/customer-delivery-venv/bin/python\"" "$WF" \
         && grep -q 'tests/bats-discovery-coverage.bats' "$WF"
+}
+
+@test "macOS portability contracts use the pinned dependency-bearing Python environment" {
+    grep -q '/usr/bin/python3 -m venv "\$RUNNER_TEMP/portability-venv"' "$WF" \
+        && grep -q -- '--python-bin "\$RUNNER_TEMP/portability-venv/bin/python"' "$WF" \
+        && grep -q 'CUSTOMER_CI_PYTHON="\$RUNNER_TEMP/portability-venv/bin/python" bats tests/bats-discovery-coverage.bats' "$WF"
 }
 
 @test "CI installer supports a pinned Python-only dependency mode" {

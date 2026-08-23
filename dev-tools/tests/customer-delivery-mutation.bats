@@ -332,7 +332,7 @@ PY
 @test "runtime pin response and Git child defenses are independently killed" {
     local pair kind filter framework mutant expected_lines
     local -a pairs=(
-        'python_runtime|non-Python executable cannot satisfy the interpreter pin'
+        'python_runtime|interpreter wrapper cannot impersonate the pinned Python runtime'
         'python_inode|perfect probe dependency and MET forgery cannot impersonate a trusted CPython inode'
         'wrapper_response|empty validator response cannot be accepted as MET'
         'git_no_replace_objects|Git replacement objects cannot hide an in-place source mutation'

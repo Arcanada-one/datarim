@@ -192,6 +192,13 @@ jobs:
       - name: Install bats and A2 platform dependencies
         run: brew install bats-core yq openssl@3
 
+      - name: Create pinned portability Python environment
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -m venv "$RUNNER_TEMP/portability-venv"
+          bash tests/ci-install-bats-deps.sh --python-only \
+            --python-bin "$RUNNER_TEMP/portability-venv/bin/python"
+
       - name: Confirm this really is a BSD userland
         # Fail loudly if the runner image ever ships GNU coreutils first on PATH:
         # the job would then pass while testing nothing it was created to test.
@@ -220,7 +227,7 @@ jobs:
             cli/tests/backlog-add-collision.bats
 
       - name: Run CI dependency and portability contracts
-        run: bats tests/bats-discovery-coverage.bats
+        run: CUSTOMER_CI_PYTHON="$RUNNER_TEMP/portability-venv/bin/python" bats tests/bats-discovery-coverage.bats
 
   customer-delivery-macos:
     name: customer delivery ${{ matrix.suite }} ${{ matrix.shard }} (macOS)
