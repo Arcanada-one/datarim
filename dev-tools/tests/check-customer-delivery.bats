@@ -1172,6 +1172,35 @@ prepare_signed_review_fixture() {
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "ERROR" and d["findings"] == ["untrusted_python_runtime"]' "$output"
 }
 
+@test "perfect probe dependency and MET forgery cannot impersonate a trusted CPython inode" {
+    local fake_python="${BATS_TEST_TMPDIR}/perfect-fake-python"
+    "$PYTHON" - "$fake_python" <<'PY' || return 1
+import os
+import sys
+
+path = sys.argv[1]
+with open(path, "w", encoding="utf-8") as handle:
+    handle.write(r'''#!/usr/bin/env bash
+if [[ "${3:-}" == *CUSTOMER_DELIVERY_DEPENDENCIES_OK* ]]; then
+    printf '%s\n' CUSTOMER_DELIVERY_DEPENDENCIES_OK
+    exit 0
+fi
+if [[ "${1:-}" == -I && "${2:-}" == -c ]]; then
+    resolved="$(readlink -f -- "$0")"
+    printf '{"executable":"%s","implementation":"cpython","major":3,"minor":12}\n' "$resolved"
+    exit 0
+fi
+printf '%s\n' '{"decision":"MET","epic_status":"MET","findings":[],"stage":"qa","status":"MET","task":"WEB-0001"}'
+exit 0
+''')
+os.chmod(path, 0o700)
+PY
+    run env CUSTOMER_DELIVERY_PYTHON="$fake_python" \
+        "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+    [ "$status" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "ERROR" and d["findings"] == ["untrusted_python_runtime"]' "$output"
+}
+
 @test "empty validator response cannot be accepted as MET" {
     build_test_framework empty-validator-response || return 1
     replace_test_script_literal \
@@ -1740,6 +1769,114 @@ PY
     [ "$status" -eq 1 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["source_history_resource_limit:deadline"]' "$output" \
         && "$PYTHON" -c 'import sys; assert float(sys.argv[1]) < 1.8' "$elapsed"
+}
+
+
+@test "source history stdout cap terminates producer before oversized output completes" {
+    local shim="${BATS_TEST_TMPDIR}/oversized-stdout-git"
+    local canary="${BATS_TEST_TMPDIR}/oversized-stdout-completed"
+    local real_git
+    real_git="$(command -v git)" || return 1
+    "$PYTHON" - "$shim" "$real_git" "$canary" <<'PY' || return 1
+import os
+import sys
+
+path, real_git, canary = sys.argv[1:]
+with open(path, "w", encoding="utf-8") as handle:
+    handle.write(f'''#!/usr/bin/env bash
+if [[ "$*" == *"rev-parse --show-toplevel"* ]]; then
+    head -c 1048576 /dev/zero | tr '\\0' x
+    : > "{canary}"
+    exit 0
+fi
+exec "{real_git}" "$@"
+''')
+os.chmod(path, 0o700)
+PY
+    build_test_framework history-stream-stdout || return 1
+    replace_test_script_literal \
+        'PINNED_GIT = "/usr/bin/git"' \
+        "PINNED_GIT = \"${shim}\"" || return 1
+    replace_test_script_literal \
+        'SOURCE_HISTORY_MAX_CONTROL_OUTPUT_BYTES = 262144' \
+        'SOURCE_HISTORY_MAX_CONTROL_OUTPUT_BYTES = 1024' || return 1
+    run_test_framework_json
+    [ "$status" -eq 1 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["source_history_resource_limit:output_budget"]' "$output" \
+        && [ ! -e "$canary" ]
+}
+
+@test "source history stderr cap terminates producer before oversized diagnostics complete" {
+    local shim="${BATS_TEST_TMPDIR}/oversized-stderr-git"
+    local canary="${BATS_TEST_TMPDIR}/oversized-stderr-completed"
+    local real_git
+    real_git="$(command -v git)" || return 1
+    "$PYTHON" - "$shim" "$real_git" "$canary" <<'PY' || return 1
+import os
+import sys
+
+path, real_git, canary = sys.argv[1:]
+with open(path, "w", encoding="utf-8") as handle:
+    handle.write(f'''#!/usr/bin/env bash
+if [[ "$*" == *"rev-parse --show-toplevel"* ]]; then
+    head -c 1048576 /dev/zero | tr '\\0' e >&2
+    : > "{canary}"
+fi
+exec "{real_git}" "$@"
+''')
+os.chmod(path, 0o700)
+PY
+    build_test_framework history-stream-stderr || return 1
+    replace_test_script_literal \
+        'PINNED_GIT = "/usr/bin/git"' \
+        "PINNED_GIT = \"${shim}\"" || return 1
+    replace_test_script_literal \
+        'SOURCE_HISTORY_MAX_STDERR_BYTES = 65536' \
+        'SOURCE_HISTORY_MAX_STDERR_BYTES = 1024' || return 1
+    run_test_framework_json
+    [ "$status" -eq 1 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["source_history_resource_limit:output_budget"]' "$output" \
+        && [ ! -e "$canary" ]
+}
+
+@test "source history deadline kills stubborn descendant pipe holders" {
+    local shim="${BATS_TEST_TMPDIR}/descendant-pipe-git"
+    local pidfile="${BATS_TEST_TMPDIR}/descendant-pipe.pid"
+    local real_git start end elapsed descendant_pid descendant_state
+    real_git="$(command -v git)" || return 1
+    "$PYTHON" - "$shim" "$real_git" "$pidfile" <<'PY' || return 1
+import os
+import sys
+
+path, real_git, pidfile = sys.argv[1:]
+with open(path, "w", encoding="utf-8") as handle:
+    handle.write(f'''#!/usr/bin/env bash
+if [[ "$*" == *"rev-parse --show-toplevel"* ]]; then
+    /usr/bin/python3 -c 'import os,signal,time; p=os.fork(); p and os._exit(0); signal.signal(signal.SIGHUP, signal.SIG_IGN); signal.signal(signal.SIGTERM, signal.SIG_IGN); open("{pidfile}", "w").write(str(os.getpid())); time.sleep(4)' &
+    printf '%s\\n' "$PWD"
+    exit 0
+fi
+exec "{real_git}" "$@"
+''')
+os.chmod(path, 0o700)
+PY
+    build_test_framework history-descendant-deadline || return 1
+    replace_test_script_literal \
+        'PINNED_GIT = "/usr/bin/git"' \
+        "PINNED_GIT = \"${shim}\"" || return 1
+    replace_test_script_literal \
+        'SOURCE_HISTORY_TOTAL_TIMEOUT_SECONDS = 10' \
+        'SOURCE_HISTORY_TOTAL_TIMEOUT_SECONDS = 1' || return 1
+    start="$($PYTHON -c 'import time; print(time.perf_counter())')"
+    run_test_framework_json
+    end="$($PYTHON -c 'import time; print(time.perf_counter())')"
+    elapsed="$($PYTHON -c 'import sys; print(float(sys.argv[2])-float(sys.argv[1]))' "$start" "$end")"
+    descendant_pid="$(cat "$pidfile")" || return 1
+    descendant_state="$(ps -o stat= -p "$descendant_pid" 2>/dev/null || true)"
+    [ "$status" -eq 1 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["source_history_resource_limit:deadline"]' "$output" \
+        && "$PYTHON" -c 'import sys; assert float(sys.argv[1]) < 2.5' "$elapsed" \
+        && { [ -z "$descendant_state" ] || [[ "$descendant_state" == Z* ]]; }
 }
 
 @test "MET requires an authoritative Git history for the requirement source" {

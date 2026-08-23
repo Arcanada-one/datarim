@@ -140,8 +140,32 @@ if [[ -z "$python_bin" || ! -x "$python_bin" || -d "$python_bin" ]]; then
     emit_config_error 'untrusted_python_runtime'
     exit 2
 fi
-python_real="$(realpath -e -- "$python_bin" 2>/dev/null || true)"
-python_probe="$("$python_bin" -I -c '
+python_real="$(/usr/bin/realpath -e -- "$python_bin" 2>/dev/null || true)"
+python_trusted=false
+for python_anchor in /usr/bin/python3 /usr/local/bin/python3; do
+    [[ -e "$python_anchor" ]] || continue
+    anchor_real="$(/usr/bin/realpath -e -- "$python_anchor" 2>/dev/null || true)"
+    [[ -n "$anchor_real" && "$python_real" == "$anchor_real" ]] || continue
+    python_uid="$(/usr/bin/stat -Lc '%u' -- "$anchor_real" 2>/dev/null || true)"
+    python_mode="$(/usr/bin/stat -Lc '%a' -- "$anchor_real" 2>/dev/null || true)"
+    python_type="$(/usr/bin/stat -Lc '%F' -- "$anchor_real" 2>/dev/null || true)"
+    if [[ "$python_uid" == 0 && "$python_mode" =~ ^[0-7]{3,4}$ \
+        && "$python_type" == 'regular file' ]] \
+        && (( (8#$python_mode & 8#022) == 0 )); then
+        python_trusted=true
+        break
+    fi
+done
+if [[ "$python_trusted" != true ]]; then  # SECURITY_RULE:python_inode_trust
+    emit_config_error 'untrusted_python_runtime'
+    exit 2
+fi
+run_trusted_python() {
+    (
+        exec -a "$python_bin" "$python_real" "$@"
+    )
+}
+python_probe="$(run_trusted_python -I -c '
 import json
 import os
 import sys
@@ -165,7 +189,7 @@ if [[ -z "$python_real" ]] \
     emit_config_error 'untrusted_python_runtime'
     exit 2
 fi
-if [[ "$("$python_bin" -I -c 'import jsonschema, yaml; print("CUSTOMER_DELIVERY_DEPENDENCIES_OK" if "date-time" in jsonschema.FormatChecker().checkers else "")' 2>/dev/null || true)" != CUSTOMER_DELIVERY_DEPENDENCIES_OK ]]; then
+if [[ "$(run_trusted_python -I -c 'import jsonschema, yaml; print("CUSTOMER_DELIVERY_DEPENDENCIES_OK" if "date-time" in jsonschema.FormatChecker().checkers else "")' 2>/dev/null || true)" != CUSTOMER_DELIVERY_DEPENDENCIES_OK ]]; then
     emit_config_error 'missing_python_dependencies'
     exit 2
 fi
@@ -177,7 +201,7 @@ validator_output="$(mktemp "${TMPDIR:-/tmp}/customer-delivery-output.XXXXXX")" |
 }
 trap 'rm -f -- "$validator_output"' EXIT
 set +e
-"$python_bin" -I - "$task" "$stage" "$format" "$root" \
+run_trusted_python -I - "$task" "$stage" "$format" "$root" \
     "$requirements" "$receipt" "$review" \
     "$requirements_schema" "$receipt_schema" "$review_schema" >"$validator_output" <<'PY'
 import base64
@@ -186,6 +210,8 @@ import hashlib
 import json
 import os
 import re
+import selectors
+import signal
 import stat
 import subprocess
 import sys
@@ -254,6 +280,7 @@ PINNED_GIT = "/usr/bin/git"
 SOURCE_HISTORY_TOTAL_TIMEOUT_SECONDS = 10
 SOURCE_HISTORY_MAX_COMMITS = 1024
 SOURCE_HISTORY_MAX_CONTROL_OUTPUT_BYTES = 262144
+SOURCE_HISTORY_MAX_STDERR_BYTES = 65536
 SOURCE_HISTORY_MAX_TOTAL_BLOB_BYTES = 16777216
 PINNED_REGISTRY_OWNER_ID = "authority-operator-0001"
 PINNED_REGISTRY_ROOT_KEY_ID = "key-registry-root-0001"
@@ -1164,29 +1191,129 @@ def validate_source_history():
             add(f"source_history_resource_limit:{reason}")
             resource_limited = True
 
+    def terminate_process_group(process):
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        except OSError:
+            pass
+        grace_deadline = min(deadline, time.monotonic() + 0.2)
+        while time.monotonic() < grace_deadline:
+            try:
+                os.killpg(process.pid, 0)
+            except ProcessLookupError:
+                break
+            except OSError:
+                break
+            time.sleep(0.01)
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        except OSError:
+            pass
+        try:
+            process.wait(timeout=0.2)
+        except (subprocess.TimeoutExpired, OSError):
+            pass
+
     def run_git(arguments, *, input_bytes=None, output_limit=SOURCE_HISTORY_MAX_CONTROL_OUTPUT_BYTES):
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             resource_limit("deadline")
             return None
-        try:
-            result = subprocess.run(
-                [*git_prefix, *arguments],
-                check=False,
-                capture_output=True,
-                env=git_env,
-                input=input_bytes,
-                timeout=remaining,
-            )
-        except subprocess.TimeoutExpired:
-            resource_limit("deadline")  # SECURITY_RULE:source_history_total_deadline
-            return None
-        except (OSError, subprocess.SubprocessError):
-            return None
-        if len(result.stdout) > output_limit:
+        if input_bytes is not None and len(input_bytes) > SOURCE_HISTORY_MAX_CONTROL_OUTPUT_BYTES:
             resource_limit("output_budget")
             return None
-        return result.returncode, result.stdout
+        process = None
+        selector = selectors.DefaultSelector()
+        stdout_buffer = bytearray()
+        stderr_buffer = bytearray()
+        input_offset = 0
+        try:
+            process = subprocess.Popen(
+                [*git_prefix, *arguments],
+                env=git_env,
+                stdin=subprocess.PIPE if input_bytes is not None else subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                start_new_session=True,
+            )
+            for stream, label in ((process.stdout, "stdout"), (process.stderr, "stderr")):
+                os.set_blocking(stream.fileno(), False)
+                selector.register(stream, selectors.EVENT_READ, label)
+            if process.stdin is not None:
+                os.set_blocking(process.stdin.fileno(), False)
+                selector.register(process.stdin, selectors.EVENT_WRITE, "stdin")
+
+            while selector.get_map() or process.poll() is None:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    resource_limit("deadline")  # SECURITY_RULE:source_history_total_deadline
+                    terminate_process_group(process)
+                    return None
+                if not selector.get_map():
+                    try:
+                        process.wait(timeout=min(0.05, remaining))
+                    except subprocess.TimeoutExpired:
+                        continue
+                    break
+                for key, _ in selector.select(timeout=min(0.05, remaining)):
+                    stream = key.fileobj
+                    label = key.data
+                    if label == "stdin":
+                        try:
+                            written = os.write(stream.fileno(), input_bytes[input_offset:input_offset + 65536])
+                        except (BrokenPipeError, OSError):
+                            written = 0
+                            selector.unregister(stream)
+                            stream.close()
+                        input_offset += written
+                        if input_offset >= len(input_bytes) and not stream.closed:
+                            selector.unregister(stream)
+                            stream.close()
+                        continue
+
+                    target = stdout_buffer if label == "stdout" else stderr_buffer
+                    limit = output_limit if label == "stdout" else SOURCE_HISTORY_MAX_STDERR_BYTES
+                    try:
+                        chunk = os.read(stream.fileno(), min(65536, max(1, limit - len(target) + 1)))
+                    except BlockingIOError:
+                        continue
+                    except OSError:
+                        terminate_process_group(process)
+                        return None
+                    if not chunk:
+                        selector.unregister(stream)
+                        stream.close()
+                        continue
+                    if len(target) + len(chunk) > limit:
+                        if label == "stdout":
+                            resource_limit("output_budget")  # SECURITY_RULE:source_history_stdout_stream_cap
+                        else:
+                            resource_limit("output_budget")  # SECURITY_RULE:source_history_stderr_stream_cap
+                        terminate_process_group(process)
+                        return None
+                    target.extend(chunk)
+
+            returncode = process.wait(timeout=max(0.001, deadline - time.monotonic()))
+            return returncode, bytes(stdout_buffer)
+        except subprocess.TimeoutExpired:
+            resource_limit("deadline")
+            if process is not None:
+                terminate_process_group(process)
+            return None
+        except (OSError, subprocess.SubprocessError):
+            if process is not None:
+                terminate_process_group(process)
+            return None
+        finally:
+            selector.close()
+            if process is not None:
+                for stream in (process.stdin, process.stdout, process.stderr):
+                    if stream is not None and not stream.closed:
+                        stream.close()
 
     try:
         git_metadata = os.lstat(PINNED_GIT)

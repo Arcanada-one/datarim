@@ -63,7 +63,8 @@ PY
 }
 
 @test "every security-critical production branch is killed by its focused regression" {
-    local pair marker filter framework mutant
+    local pair marker filter framework mutant mutation_index=0
+    local shard="${CUSTOMER_DELIVERY_SECURITY_SHARD:-all}"
     local -a pairs=(
         'invariant_dispatch|semantic implementation dispatch cannot lose a registered rule'
         'registry_locator|trusted registry locator owner anchor structure and receipt reference are pinned'
@@ -110,6 +111,8 @@ PY
         'source_history_total_deadline|source history subprocesses share one total deadline'
         'source_history_commit_budget|source history commit scan is capped and fails closed'
         'source_history_output_budget|source history blob output is capped and fails closed'
+        'source_history_stdout_stream_cap|source history stdout cap terminates producer before oversized output completes'
+        'source_history_stderr_stream_cap|source history stderr cap terminates producer before oversized diagnostics complete'
         'unicode_document|nested YAML lone surrogate is deterministic JSON NOT_MET without traceback'
         'unicode_schema|trusted-registry lone surrogate is deterministic JSON ERROR without traceback'
         'unicode_top_boundary|top Unicode boundary returns deterministic JSON when scalar precheck is faulted'
@@ -140,6 +143,21 @@ PY
     )
 
     for pair in "${pairs[@]}"; do
+        ((mutation_index += 1))
+        if [[ "$shard" == first && "$mutation_index" -gt 37 ]]; then
+            continue
+        fi
+        if [[ "$shard" == second && "$mutation_index" -le 37 ]]; then
+            continue
+        fi
+        if [[ "$shard" =~ ^q([1-4])$ ]]; then
+            local quarter="${BASH_REMATCH[1]}"
+            local lower=$(( (quarter - 1) * 19 + 1 ))
+            local upper=$(( quarter * 19 ))
+            if ((mutation_index < lower || mutation_index > upper)); then
+                continue
+            fi
+        fi
         marker="${pair%%|*}"
         filter="${pair#*|}"
 
@@ -228,11 +246,13 @@ PY
     local pair kind filter framework mutant
     local -a pairs=(
         'python_runtime|non-Python executable cannot satisfy the interpreter pin'
+        'python_inode|perfect probe dependency and MET forgery cannot impersonate a trusted CPython inode'
         'wrapper_response|empty validator response cannot be accepted as MET'
         'git_environment|ambient GIT_DIR cannot substitute a clean authoritative history'
         'git_environment_worktree|ambient GIT_WORK_TREE cannot redirect authoritative history discovery'
         'git_environment_objects|ambient GIT_OBJECT_DIRECTORY cannot replace the authoritative object store'
         'git_binary|ambient PATH Git shim cannot substitute a clean authoritative history'
+        'git_process_group|source history deadline kills stubborn descendant pipe holders'
     )
 
     for pair in "${pairs[@]}"; do
@@ -263,6 +283,11 @@ if kind == "python_runtime":
     start = source.index(start_token)
     end = source.index(end_token, start)
     source = source[:start] + start_token + source[end:]
+elif kind == "python_inode":
+    old = 'if [[ "$python_trusted" != true ]]; then  # SECURITY_RULE:python_inode_trust'
+    if source.count(old) != 1:
+        raise SystemExit("PYTHON_INODE_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+    source = source.replace(old, 'if false; then  # MUTATED:python_inode_trust')
 elif kind == "wrapper_response":
     old = 'if [[ "$response_valid" != true ]]; then'
     if source.count(old) != 1:
@@ -285,6 +310,14 @@ elif kind == "git_binary":
     if source.count(old) != 1:
         raise SystemExit("GIT_BINARY_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
     source = source.replace(old, 'PINNED_GIT = __import__("shutil").which("git")')
+elif kind == "git_process_group":
+    term = '            os.killpg(process.pid, signal.SIGTERM)'
+    kill = '            os.killpg(process.pid, signal.SIGKILL)'
+    if source.count(term) != 1 or source.count(kill) != 1:
+        raise SystemExit("GIT_PROCESS_GROUP_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+    source = source.replace(term, '            process.terminate()').replace(
+        kill, '            process.kill()'
+    )
 else:
     raise SystemExit(f"unknown mutant: {kind}")
 with open(path, "w", encoding="utf-8") as handle:
