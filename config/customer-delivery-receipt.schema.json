@@ -158,7 +158,9 @@
       "receipt-epic-parent-equals-signed-prework-assignment",
       "originating-review-receipt-id-equals-top-receipt-id",
       "originating-review-requirement-set-transitively-bound-by-disposition",
-      "originating-review-inventory-requirement-set-exact",
+      "originating-review-inventory-manifest-authenticated",
+      "originating-review-inventory-pair-set-exact",
+      "originating-review-inventory-requirement-coverage-complete",
       "originating-review-canonical-digest-valid",
       "originating-review-approval-digest-equals-review-digest",
       "originating-review-approval-payload-canonical-digest-valid",
@@ -205,7 +207,7 @@
       "required": ["relation", "id"],
       "properties": {
         "relation": { "enum": ["epic", "task", "requirement_set"] },
-        "id": { "type": "string", "minLength": 1 }
+        "id": { "type": "string", "minLength": 1, "pattern": "\\S" }
       }
     },
     "requirementDelivery": {
@@ -356,8 +358,8 @@
       "additionalProperties": false,
       "required": ["id", "revision", "digest", "selected_at", "selected_before_implementation", "immutable"],
       "properties": {
-        "id": { "type": "string", "minLength": 1 },
-        "revision": { "type": "string", "minLength": 1 },
+        "id": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "revision": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
         "selected_at": { "type": "string", "format": "date-time" },
         "selected_before_implementation": { "const": true },
@@ -389,8 +391,8 @@
       "properties": {
         "delta_id": { "type": "string", "pattern": "^delta-e-[0-9]{4}$" },
         "change_class": { "const": "enabling" },
-        "description": { "type": "string", "minLength": 1 },
-        "artifact_ref": { "type": "string", "minLength": 1 }
+        "description": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "artifact_ref": { "type": "string", "minLength": 1, "pattern": "\\S" }
       }
     },
     "visitorVisibleChange": {
@@ -400,8 +402,8 @@
       "properties": {
         "delta_id": { "type": "string", "pattern": "^delta-v-[0-9]{4}$" },
         "change_class": { "const": "visitor_visible" },
-        "description": { "type": "string", "minLength": 1 },
-        "artifact_ref": { "type": "string", "minLength": 1 }
+        "description": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "artifact_ref": { "type": "string", "minLength": 1, "pattern": "\\S" }
       }
     },
     "redGreen": {
@@ -419,9 +421,9 @@
       "required": ["status", "command", "observed_at", "evidence_ref"],
       "properties": {
         "status": { "const": "failed_as_expected" },
-        "command": { "type": "string", "minLength": 1 },
+        "command": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "observed_at": { "type": "string", "format": "date-time" },
-        "evidence_ref": { "type": "string", "minLength": 1 }
+        "evidence_ref": { "type": "string", "minLength": 1, "pattern": "\\S" }
       }
     },
     "greenEvidence": {
@@ -430,9 +432,9 @@
       "required": ["status", "command", "observed_at", "evidence_ref"],
       "properties": {
         "status": { "const": "passed" },
-        "command": { "type": "string", "minLength": 1 },
+        "command": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "observed_at": { "type": "string", "format": "date-time" },
-        "evidence_ref": { "type": "string", "minLength": 1 }
+        "evidence_ref": { "type": "string", "minLength": 1, "pattern": "\\S" }
       }
     },
     "mergedRevision": {
@@ -443,7 +445,7 @@
         "revision": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
         "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
         "merged_at": { "type": "string", "format": "date-time" },
-        "evidence_ref": { "type": "string", "minLength": 1 }
+        "evidence_ref": { "type": "string", "minLength": 1, "pattern": "\\S" }
       }
     },
     "deployedRevision": {
@@ -455,7 +457,7 @@
         "revision": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
         "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
         "deployed_at": { "type": "string", "format": "date-time" },
-        "evidence_ref": { "type": "string", "minLength": 1 }
+        "evidence_ref": { "type": "string", "minLength": 1, "pattern": "\\S" }
       }
     },
     "liveEvidence": {
@@ -487,12 +489,12 @@
         "predicate_id": { "type": "string", "pattern": "^predicate-[a-z0-9][a-z0-9-]*$" },
         "applicability": { "$ref": "#/$defs/identityApplicability" },
         "environment": { "enum": ["PRODUCTION", "CONTROL"] },
-        "owner": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "observed_at": { "type": "string", "format": "date-time" },
-        "evidence_ref": { "type": "string", "minLength": 1 },
+        "evidence_ref": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "painted_matrix_applicable": { "type": "boolean" },
         "painted_matrix": { "$ref": "#/$defs/paintedMatrix" },
-        "not_applicable_reason": { "type": "string", "minLength": 1 }
+        "not_applicable_reason": { "type": "string", "minLength": 1, "pattern": "\\S" }
       },
       "allOf": [
         {
@@ -606,7 +608,7 @@
         "locale": { "enum": ["ru", "en"] },
         "viewport": { "enum": ["mobile", "desktop"] },
         "theme": { "enum": ["light", "dark"] },
-        "evidence_ref": { "type": "string", "minLength": 1 },
+        "evidence_ref": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "observed_at": { "type": "string", "format": "date-time" }
       }
     },
@@ -625,14 +627,14 @@
       "properties": {
         "status": { "enum": ["pending", "accepted", "rejected", "superseded"] },
         "recorded_at": { "type": "string", "format": "date-time" },
-        "evidence_ref": { "type": "string", "minLength": 1 },
+        "evidence_ref": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "receipt_id": { "type": "string", "pattern": "^receipt-[0-9]{4}$" },
         "requirement_set_id": { "type": "string", "pattern": "^reqset-[0-9]{4}$" },
         "requirement_id": { "type": "string", "pattern": "^req-[0-9]{4}$" },
         "coverage_chain_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
         "disposition_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
         "authority_approval": { "$ref": "#/$defs/dispositionAuthorityApproval" },
-        "note": { "type": "string", "minLength": 1 },
+        "note": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "superseded_by": { "type": "string", "pattern": "^req-[0-9]{4}$" }
       },
       "allOf": [
@@ -694,7 +696,7 @@
         "authority_id": { "type": "string", "pattern": "^authority-[a-z0-9][a-z0-9-]*$" },
         "authority_role": { "enum": ["CUSTOMER", "OPERATOR"] },
         "approved_at": { "type": "string", "format": "date-time" },
-        "evidence_ref": { "type": "string", "minLength": 1 },
+        "evidence_ref": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "algorithm": { "const": "ED25519" },
         "key_id": { "type": "string", "pattern": "^key-[a-z0-9][a-z0-9-]*$" },
         "approval_payload_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },

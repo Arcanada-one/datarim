@@ -14,11 +14,27 @@
   "x-datarim-originating-review-contract": {
     "inventory": {
       "source": "originating_review_inventory",
+      "expected_pair_source": "originating_review_inventory_manifest.review_pairs",
       "expected_requirement_set": "customer-requirements.requirements.propertyNames",
-      "requirement_set_equality": "EXACT",
+      "review_pair_set_equality": "EXACT",
+      "requirement_coverage": "AT_LEAST_ONE_REVIEW_PER_REQUIREMENT",
       "review_id_uniqueness": "REQUIRED",
       "primary_review_mirror": "EXACT",
       "closure_states": ["APPROVED"]
+    },
+    "inventory_authority": {
+      "authority_id": "authority-review-inventory-0001",
+      "authority_role": "OPERATOR",
+      "key_id": "key-review-inventory-0001",
+      "public_key": "fU2GZHw9YgA1Xb7W6lUcqm2aoINd6xki9HPrflnmpyo=",
+      "fingerprint": "sha256:21a4917a1e22170342808e7b109fda69b60fd06b85dd708abd702578f0da79b2"
+    },
+    "inventory_digest": {
+      "algorithm": "SHA-256",
+      "canonicalization": "RFC8785",
+      "encoding": "UTF-8",
+      "covered_fields": ["delivery_receipt_id", "review_pairs"],
+      "review_pairs_order": "LEXICOGRAPHIC_BY_REVIEW_ID_THEN_REQUIREMENT_ID"
     },
     "review_digest": {
       "algorithm": "SHA-256",
@@ -63,7 +79,9 @@
       "ORIGINATING_REVIEW_APPROVAL_PAYLOAD_DIGEST_VALID",
       "ORIGINATING_REVIEW_APPROVAL_KEY_AUTHORIZED",
       "ORIGINATING_REVIEW_SIGNATURE_VALID",
-      "ORIGINATING_REVIEW_INVENTORY_REQUIREMENT_SET_EXACT",
+      "ORIGINATING_REVIEW_INVENTORY_MANIFEST_SIGNATURE_VALID",
+      "ORIGINATING_REVIEW_INVENTORY_PAIR_SET_EXACT",
+      "ORIGINATING_REVIEW_INVENTORY_REQUIREMENT_COVERAGE_COMPLETE",
       "ORIGINATING_REVIEW_PRIMARY_MIRROR_EXACT",
       "ORIGINATING_REVIEW_OBSERVED_AT_NOT_AFTER_REVIEWED_AT",
       "ORIGINATING_REVIEW_CLOSURE_STATE_ENFORCED_BY_A2"
@@ -92,6 +110,7 @@
     "delivery_receipt_id",
     "originating_review",
     "originating_review_inventory",
+    "originating_review_inventory_manifest",
     "reviewed_at",
     "reviewer",
     "classification",
@@ -110,6 +129,9 @@
       "minItems": 1,
       "maxItems": 512,
       "items": { "$ref": "#/$defs/originatingReviewInventoryItem" }
+    },
+    "originating_review_inventory_manifest": {
+      "$ref": "#/$defs/originatingReviewInventoryManifest"
     },
     "reviewed_at": { "type": "string", "format": "date-time" },
     "reviewer": { "type": "string", "minLength": 1 },
@@ -147,6 +169,31 @@
     }
   ],
   "$defs": {
+    "originatingReviewPair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["review_id", "requirement_id"],
+      "properties": {
+        "review_id": { "type": "string", "pattern": "^review-[0-9]{4}$" },
+        "requirement_id": { "type": "string", "pattern": "^req-[0-9]{4}$" }
+      }
+    },
+    "originatingReviewInventoryManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["delivery_receipt_id", "review_pairs", "inventory_digest", "authority_approval"],
+      "properties": {
+        "delivery_receipt_id": { "type": "string", "pattern": "^receipt-[0-9]{4}$" },
+        "review_pairs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 512,
+          "items": { "$ref": "#/$defs/originatingReviewPair" }
+        },
+        "inventory_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "authority_approval": { "$ref": "#/$defs/authorityApproval" }
+      }
+    },
     "originatingReviewInventoryItem": {
       "type": "object",
       "additionalProperties": false,

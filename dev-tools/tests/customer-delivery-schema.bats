@@ -1154,7 +1154,9 @@ expected = {
             "receipt-epic-parent-equals-signed-prework-assignment",
             "originating-review-receipt-id-equals-top-receipt-id",
             "originating-review-requirement-set-transitively-bound-by-disposition",
-            "originating-review-inventory-requirement-set-exact",
+            "originating-review-inventory-manifest-authenticated",
+            "originating-review-inventory-pair-set-exact",
+            "originating-review-inventory-requirement-coverage-complete",
             "originating-review-canonical-digest-valid",
             "originating-review-approval-digest-equals-review-digest",
             "originating-review-approval-payload-canonical-digest-valid",
@@ -3181,6 +3183,62 @@ PY
     [ "$status" -eq 1 ]
 }
 
+@test "receipt schema rejects whitespace-only mandatory U4 commands evidence and locators" {
+    local expression
+    local -a expressions=(
+        '.parent_links[0].id = "   "'
+        '.requirements.req-0001.coverage_chain.selected_knowledge.roles[0].id = "   "'
+        '.requirements.req-0001.coverage_chain.selected_knowledge.roles[0].revision = "   "'
+        '.requirements.req-0001.coverage_chain.implementation_delta.enabling_changes[0].description = "   "'
+        '.requirements.req-0001.coverage_chain.implementation_delta.enabling_changes[0].artifact_ref = "   "'
+        '.requirements.req-0001.coverage_chain.implementation_delta.visitor_visible_changes[0].description = "   "'
+        '.requirements.req-0001.coverage_chain.implementation_delta.visitor_visible_changes[0].artifact_ref = "   "'
+        '.requirements.req-0001.coverage_chain.red_green.red.command = "   "'
+        '.requirements.req-0001.coverage_chain.red_green.red.evidence_ref = "   "'
+        '.requirements.req-0001.coverage_chain.red_green.green.command = "   "'
+        '.requirements.req-0001.coverage_chain.red_green.green.evidence_ref = "   "'
+        '.requirements.req-0001.coverage_chain.merged_revision.evidence_ref = "   "'
+        '.requirements.req-0001.coverage_chain.deployed_revision.evidence_ref = "   "'
+        '.requirements.req-0001.coverage_chain.live_evidence.owner = "   "'
+        '.requirements.req-0001.coverage_chain.live_evidence.evidence_ref = "   "'
+        '.requirements.req-0001.coverage_chain.live_evidence.painted_matrix[0].evidence_ref = "   "'
+        '.requirements.req-0001.coverage_chain.customer_disposition.evidence_ref = "   "'
+        '.requirements.req-0001.coverage_chain.customer_disposition.note = "   "'
+        '.requirements.req-0001.coverage_chain.customer_disposition.authority_approval.evidence_ref = "   "'
+    )
+    for expression in "${expressions[@]}"; do
+        run reject_mutation "$RECEIPT_SCHEMA" "$RECEIPT_TEMPLATE" "$expression"
+        [ "$status" -eq 1 ] || {
+            printf 'whitespace expression unexpectedly accepted: %s\n' "$expression"
+            return 1
+        }
+    done
+}
+
+@test "every nonempty receipt string contract excludes whitespace-only values" {
+    run "$PYTHON" - "$RECEIPT_SCHEMA" <<'PY'
+import json
+import sys
+with open(sys.argv[1], encoding="utf-8") as handle:
+    schema = json.load(handle)
+missing = []
+def walk(value, path="$"):
+    if isinstance(value, dict):
+        if value.get("type") == "string" and value.get("minLength") == 1:
+            if value.get("pattern") != r"\S":
+                missing.append(path)
+        for key, nested in value.items():
+            walk(nested, f"{path}.{key}")
+    elif isinstance(value, list):
+        for index, nested in enumerate(value):
+            walk(nested, f"{path}[{index}]")
+walk(schema)
+if missing:
+    raise SystemExit("WHITESPACE_CONTRACT_MISSING:" + ",".join(missing))
+PY
+    [ "$status" -eq 0 ]
+}
+
 @test "review schema publishes the exact originating review authority contract" {
     run "$PYTHON" - "$EVOLUTION_SCHEMA" <<'PY'
 import json
@@ -3200,11 +3258,27 @@ expected_registry = {
 expected_contract = {
     "inventory": {
         "source": "originating_review_inventory",
+        "expected_pair_source": "originating_review_inventory_manifest.review_pairs",
         "expected_requirement_set": "customer-requirements.requirements.propertyNames",
-        "requirement_set_equality": "EXACT",
+        "review_pair_set_equality": "EXACT",
+        "requirement_coverage": "AT_LEAST_ONE_REVIEW_PER_REQUIREMENT",
         "review_id_uniqueness": "REQUIRED",
         "primary_review_mirror": "EXACT",
         "closure_states": ["APPROVED"],
+    },
+    "inventory_authority": {
+        "authority_id": "authority-review-inventory-0001",
+        "authority_role": "OPERATOR",
+        "key_id": "key-review-inventory-0001",
+        "public_key": "fU2GZHw9YgA1Xb7W6lUcqm2aoINd6xki9HPrflnmpyo=",
+        "fingerprint": "sha256:21a4917a1e22170342808e7b109fda69b60fd06b85dd708abd702578f0da79b2",
+    },
+    "inventory_digest": {
+        "algorithm": "SHA-256",
+        "canonicalization": "RFC8785",
+        "encoding": "UTF-8",
+        "covered_fields": ["delivery_receipt_id", "review_pairs"],
+        "review_pairs_order": "LEXICOGRAPHIC_BY_REVIEW_ID_THEN_REQUIREMENT_ID",
     },
     "review_digest": {
         "algorithm": "SHA-256",
@@ -3238,7 +3312,9 @@ expected_contract = {
         "ORIGINATING_REVIEW_APPROVAL_PAYLOAD_DIGEST_VALID",
         "ORIGINATING_REVIEW_APPROVAL_KEY_AUTHORIZED",
         "ORIGINATING_REVIEW_SIGNATURE_VALID",
-        "ORIGINATING_REVIEW_INVENTORY_REQUIREMENT_SET_EXACT",
+        "ORIGINATING_REVIEW_INVENTORY_MANIFEST_SIGNATURE_VALID",
+        "ORIGINATING_REVIEW_INVENTORY_PAIR_SET_EXACT",
+        "ORIGINATING_REVIEW_INVENTORY_REQUIREMENT_COVERAGE_COMPLETE",
         "ORIGINATING_REVIEW_PRIMARY_MIRROR_EXACT",
         "ORIGINATING_REVIEW_OBSERVED_AT_NOT_AFTER_REVIEWED_AT",
         "ORIGINATING_REVIEW_CLOSURE_STATE_ENFORCED_BY_A2",

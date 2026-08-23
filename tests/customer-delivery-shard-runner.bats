@@ -92,7 +92,7 @@ PY
 
 @test "customer-delivery shard runner executes its child with the default absolute interpreter" {
     local observed="$BATS_TEST_TMPDIR/observed-python" result="$BATS_TEST_TMPDIR/result.json"
-    make_bats_child "printf '%s\\n' \"\$CUSTOMER_DELIVERY_PYTHON\" > '$observed'; exit 0"
+    make_bats_child "if [ \"\${1:-}\" = --count ]; then echo 45; exit 0; fi; printf '%s\\n' \"\$CUSTOMER_DELIVERY_PYTHON\" > '$observed'; echo '1..45'; for n in {1..45}; do echo \"ok \$n fixture\"; done"
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" \
         --suite functional --shard 1/3 --bats-bin "$CHILD" \
         --platform linux --result-file "$result"
@@ -102,7 +102,7 @@ PY
 }
 
 @test "customer-delivery shard runner propagates a nonzero child status" {
-    make_bats_child 'exit 17'
+    make_bats_child 'if [ "${1:-}" = --count ]; then echo 45; exit 0; fi; exit 17'
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" \
         --suite functional --shard 1/3 --bats-bin "$CHILD"
     [ "$status" -eq 17 ]
@@ -110,7 +110,7 @@ PY
 
 @test "customer-delivery shard timeout kills the child group and returns 124" {
     local pid_file="$BATS_TEST_TMPDIR/descendant.pid" descendant attempt
-    make_bats_child "(trap '' TERM; sleep 30) & printf '%s\\n' \"\$!\" > '$pid_file'; wait"
+    make_bats_child "if [ \"\${1:-}\" = --count ]; then echo 45; exit 0; fi; (trap '' TERM; sleep 30) & printf '%s\\n' \"\$!\" > '$pid_file'; wait"
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" \
         --suite functional --shard 1/3 --bats-bin "$CHILD" --timeout-seconds 1
     [ "$status" -eq 124 ] || return 1
@@ -121,6 +121,41 @@ PY
     done
     kill -KILL "$descendant" 2>/dev/null || true
     return 1
+}
+
+@test "customer-delivery shard runner rejects empty successful Bats output" {
+    make_bats_child 'if [ "${1:-}" = --count ]; then echo 45; exit 0; fi; exit 0'
+    run "$PYTHON" "$RUNNER" --registry "$REGISTRY" \
+        --suite functional --shard 1/3 --bats-bin "$CHILD"
+    [ "$status" -eq 2 ] \
+        && [[ "$output" == *"Bats execution inventory mismatch: expected 45, observed 0"* ]]
+}
+
+@test "customer-delivery shard runner rejects a wrong Bats plan despite child success" {
+    make_bats_child 'if [ "${1:-}" = --count ]; then echo 45; exit 0; fi; echo "1..1"; echo "ok 1 fixture"'
+    run "$PYTHON" "$RUNNER" --registry "$REGISTRY" \
+        --suite functional --shard 1/3 --bats-bin "$CHILD"
+    [ "$status" -eq 2 ] \
+        && [[ "$output" == *"Bats execution inventory mismatch: expected 45, observed 1"* ]]
+}
+
+@test "customer-delivery shard runner rejects alternate Bats syntax instead of dead-testing it" {
+    local mutant_source="$BATS_TEST_TMPDIR/alternate.bats" probe="$BATS_TEST_TMPDIR/probe.py"
+    cp "$ROOT/dev-tools/tests/check-customer-delivery.bats" "$mutant_source"
+    printf '%s\n' 'function alternate_form { # @test' '  true' '}' >>"$mutant_source"
+    cat >"$probe" <<'PY'
+from pathlib import Path
+import importlib.util
+import sys
+spec = importlib.util.spec_from_file_location("runner", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = module
+spec.loader.exec_module(module)
+module.extract_tests(Path(sys.argv[2]))
+PY
+    run "$PYTHON" "$probe" "$RUNNER" "$mutant_source"
+    [ "$status" -ne 0 ] \
+        && [[ "$output" == *"noncanonical Bats test syntax"* ]]
 }
 
 @test "customer-delivery registry generates the complete Linux and approved macOS matrices" {

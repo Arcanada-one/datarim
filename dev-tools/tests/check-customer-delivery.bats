@@ -406,6 +406,40 @@ prepare_two_requirement_fixture() {
         }] | ."x-datarim-signature-contract".key_resolution.bundled_registry.entries |= sort_by(.key_id)' \
         "${TEST_FRAMEWORK}/config/customer-requirement.schema.json" || return 1
     authenticate_test_registry '.' || return 1
+    "$PYTHON" - "$TEST_SCRIPT" "${TEST_FRAMEWORK}/config/review-evolution.schema.json" "$public_key" <<'PY' || return 1
+import base64
+import hashlib
+import json
+import re
+import sys
+script_path, schema_path, public_key = sys.argv[1:]
+with open(schema_path, encoding="utf-8") as handle:
+    schema = json.load(handle)
+authority = schema["x-datarim-originating-review-contract"]["inventory_authority"]
+authority.update({
+    "authority_id": "authority-two-requirements-0001",
+    "key_id": "key-two-requirements-0001",
+    "public_key": public_key,
+    "fingerprint": "sha256:" + hashlib.sha256(base64.b64decode(public_key)).hexdigest(),
+})
+contract_digest = hashlib.sha256(json.dumps(
+    schema["x-datarim-originating-review-contract"], ensure_ascii=False,
+    sort_keys=True, separators=(",", ":")
+).encode("utf-8")).hexdigest()
+with open(schema_path, "w", encoding="utf-8") as handle:
+    json.dump(schema, handle, ensure_ascii=False, indent=2)
+    handle.write("\n")
+with open(script_path, encoding="utf-8") as handle:
+    source = handle.read()
+source, count = re.subn(
+    r'("review:x-datarim-originating-review-contract": ")[0-9a-f]{64}("[,])',
+    rf'\g<1>{contract_digest}\g<2>', source,
+)
+if count != 1:
+    raise SystemExit("review contract digest seam missing")
+with open(script_path, "w", encoding="utf-8") as handle:
+    handle.write(source)
+PY
     mapfile -t digests < <("$PYTHON" - "$REQUIREMENTS" "$RECEIPT" "$REVIEW" "$second_state" <<'PY'
 import copy
 import hashlib
@@ -526,6 +560,7 @@ disposition_approval["approval_payload_digest"] = digest({
 receipt["requirements"]["req-0002"] = delivery
 
 review_digest = ""
+manifest_digest = ""
 if "originating_review_inventory" in review:
     item = replace(copy.deepcopy(review["originating_review_inventory"][0]))
     item["authority_approval"].update({
@@ -548,6 +583,30 @@ if "originating_review_inventory" in review:
     })
     review["originating_review_inventory"].append(item)
     review_digest = item_approval["approval_payload_digest"]
+    manifest = review["originating_review_inventory_manifest"]
+    manifest["review_pairs"].append({
+        "review_id": item["review_id"],
+        "requirement_id": item["requirement_id"],
+    })
+    manifest["review_pairs"] = sorted(
+        manifest["review_pairs"],
+        key=lambda pair: (pair["review_id"], pair["requirement_id"]),
+    )
+    manifest["inventory_digest"] = digest({
+        "delivery_receipt_id": manifest["delivery_receipt_id"],
+        "review_pairs": manifest["review_pairs"],
+    })
+    manifest_approval = manifest["authority_approval"]
+    manifest_approval.update({
+        "approved_digest": manifest["inventory_digest"],
+        "authority_id": "authority-two-requirements-0001",
+        "authority_role": "OPERATOR",
+        "key_id": "key-two-requirements-0001",
+    })
+    manifest_approval["approval_payload_digest"] = digest({
+        field: manifest_approval[field] for field in approval_fields
+    })
+    manifest_digest = manifest_approval["approval_payload_digest"]
 
 with open(requirements_path, "w", encoding="utf-8") as handle:
     yaml.safe_dump(requirements, handle, allow_unicode=True, sort_keys=False)
@@ -559,6 +618,7 @@ print(source_approval["approval_payload_digest"])
 print(assertion_approval["approval_payload_digest"])
 print(disposition_approval["approval_payload_digest"])
 print(review_digest)
+print(manifest_digest)
 PY
     ) || return 1
     source_signature="$(sign_test_digest "$secret_key" "${digests[0]}")" || return 1
@@ -572,6 +632,11 @@ PY
     if [[ -n "${digests[3]}" ]]; then
         review_signature="$(sign_test_digest "$secret_key" "${digests[3]}")" || return 1
         yq -i ".originating_review_inventory[1].authority_approval.signature = \"${review_signature}\"" \
+            "$REVIEW" || return 1
+    fi
+    if [[ -n "${digests[4]}" ]]; then
+        review_signature="$(sign_test_digest "$secret_key" "${digests[4]}")" || return 1
+        yq -i ".originating_review_inventory_manifest.authority_approval.signature = \"${review_signature}\"" \
             "$REVIEW" || return 1
     fi
 }
@@ -711,10 +776,189 @@ prepare_signed_review_fixture() {
     reseal_and_sign_review "$secret_key"
 }
 
+prepare_authenticated_disposition_fixture() {
+    local expression="$1" seed public_key secret_key
+    seed="$(openssl rand -hex 32)"
+    # shellcheck disable=SC2016
+    public_key="$(printf '%s\n' "$seed" | php -r '$s=hex2bin(trim(fgets(STDIN)));$p=sodium_crypto_sign_seed_keypair($s);echo base64_encode(sodium_crypto_sign_publickey($p));')"
+    # shellcheck disable=SC2016
+    secret_key="$(printf '%s\n' "$seed" | php -r '$s=hex2bin(trim(fgets(STDIN)));$p=sodium_crypto_sign_seed_keypair($s);echo base64_encode(sodium_crypto_sign_secretkey($p));')"
+    build_test_framework authenticated-disposition || return 1
+    env DISPOSITION_PUBLIC_KEY="$public_key" yq -i \
+        '."x-datarim-signature-contract".key_resolution.bundled_registry.entries += [{
+          "key_id":"key-disposition-test-0001",
+          "authority_id":"authority-disposition-test-0001",
+          "allowed_roles":["OPERATOR"],
+          "public_key":strenv(DISPOSITION_PUBLIC_KEY),
+          "status":"ACTIVE",
+          "valid_from":"2026-01-01T00:00:00Z",
+          "valid_until":"2036-01-01T00:00:00Z"
+        }] | ."x-datarim-signature-contract".key_resolution.bundled_registry.entries |= sort_by(.key_id)' \
+        "${TEST_FRAMEWORK}/config/customer-requirement.schema.json" || return 1
+    authenticate_test_registry '.' || return 1
+    "$PYTHON" - "${TEST_FRAMEWORK}/config/customer-delivery-receipt.schema.json" <<'PY' || return 1
+import json
+import sys
+path = sys.argv[1]
+with open(path, encoding="utf-8") as handle:
+    schema = json.load(handle)
+def relax(value):
+    if isinstance(value, dict):
+        if value.get("pattern") == r"\S":
+            del value["pattern"]
+        for nested in value.values():
+            relax(nested)
+    elif isinstance(value, list):
+        for nested in value:
+            relax(nested)
+relax(schema)
+with open(path, "w", encoding="utf-8") as handle:
+    json.dump(schema, handle, ensure_ascii=False, indent=2)
+    handle.write("\n")
+PY
+    yq -i "$expression |
+        .requirements.req-0001.coverage_chain.customer_disposition.authority_approval.authority_id = \"authority-disposition-test-0001\" |
+        .requirements.req-0001.coverage_chain.customer_disposition.authority_approval.authority_role = \"OPERATOR\" |
+        .requirements.req-0001.coverage_chain.customer_disposition.authority_approval.key_id = \"key-disposition-test-0001\"" \
+        "$RECEIPT" || return 1
+    reseal_and_sign_disposition "$secret_key"
+}
+
+prepare_same_requirement_review_inventory() {
+    local second_state="${1:-APPROVED}" seed public_key secret_key digests
+    local review_signature manifest_signature
+    seed="$(openssl rand -hex 32)"
+    # shellcheck disable=SC2016
+    public_key="$(printf '%s\n' "$seed" | php -r '$s=hex2bin(trim(fgets(STDIN)));$p=sodium_crypto_sign_seed_keypair($s);echo base64_encode(sodium_crypto_sign_publickey($p));')"
+    # shellcheck disable=SC2016
+    secret_key="$(printf '%s\n' "$seed" | php -r '$s=hex2bin(trim(fgets(STDIN)));$p=sodium_crypto_sign_seed_keypair($s);echo base64_encode(sodium_crypto_sign_secretkey($p));')"
+    build_test_framework same-requirement-reviews || return 1
+    env REVIEW_PUBLIC_KEY="$public_key" yq -i \
+        '."x-datarim-signature-contract".key_resolution.bundled_registry.entries += [{
+          "key_id":"key-review-test-0002",
+          "authority_id":"authority-review-test-0002",
+          "allowed_roles":["OPERATOR"],
+          "public_key":strenv(REVIEW_PUBLIC_KEY),
+          "status":"ACTIVE",
+          "valid_from":"2026-01-01T00:00:00Z",
+          "valid_until":"2036-01-01T00:00:00Z"
+        }] | ."x-datarim-signature-contract".key_resolution.bundled_registry.entries |= sort_by(.key_id)' \
+        "${TEST_FRAMEWORK}/config/customer-requirement.schema.json" || return 1
+    authenticate_test_registry '.' || return 1
+    "$PYTHON" - "$TEST_SCRIPT" "${TEST_FRAMEWORK}/config/review-evolution.schema.json" "$public_key" <<'PY' || return 1
+import base64
+import hashlib
+import json
+import re
+import sys
+
+script_path, schema_path, public_key = sys.argv[1:]
+with open(schema_path, encoding="utf-8") as handle:
+    schema = json.load(handle)
+authority = schema["x-datarim-originating-review-contract"]["inventory_authority"]
+authority["authority_id"] = "authority-review-test-0002"
+authority["key_id"] = "key-review-test-0002"
+authority["public_key"] = public_key
+authority["fingerprint"] = "sha256:" + hashlib.sha256(base64.b64decode(public_key)).hexdigest()
+contract = schema["x-datarim-originating-review-contract"]
+contract_digest = hashlib.sha256(json.dumps(
+    contract, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+).encode("utf-8")).hexdigest()
+with open(schema_path, "w", encoding="utf-8") as handle:
+    json.dump(schema, handle, ensure_ascii=False, indent=2)
+    handle.write("\n")
+with open(script_path, encoding="utf-8") as handle:
+    source = handle.read()
+pattern = r'("review:x-datarim-originating-review-contract": ")[0-9a-f]{64}("[,])'
+source, count = re.subn(pattern, rf'\g<1>{contract_digest}\g<2>', source)
+if count != 1:
+    raise SystemExit("review contract digest seam missing")
+with open(script_path, "w", encoding="utf-8") as handle:
+    handle.write(source)
+PY
+    mapfile -t digests < <("$PYTHON" - "$REVIEW" "$second_state" <<'PY'
+import copy
+import hashlib
+import json
+import sys
+import yaml
+
+path, state = sys.argv[1:]
+with open(path, encoding="utf-8") as handle:
+    review = yaml.safe_load(handle)
+
+def digest(payload):
+    return "sha256:" + hashlib.sha256(json.dumps(
+        payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")).hexdigest()
+
+approval_fields = (
+    "approved_digest", "authority_id", "authority_role", "approved_at",
+    "evidence_ref", "algorithm", "key_id",
+)
+item = copy.deepcopy(review["originating_review_inventory"][0])
+item["review_id"] = "review-0002"
+item["review_ref"] = "review-system/reviews/review-0002"
+item["evidence_ref"] = "artifacts/reviews/review-0002-approval.json"
+item["state"] = state
+item["authority_approval"].update({
+    "authority_id": "authority-review-test-0002",
+    "authority_role": "OPERATOR",
+    "key_id": "key-review-test-0002",
+    "evidence_ref": "artifacts/reviews/review-0002-authority-approval.json",
+})
+item["review_digest"] = digest({field: item[field] for field in (
+    "review_id", "requirement_id", "delivery_receipt_id", "reviewer",
+    "review_ref", "state", "observed_at", "evidence_ref",
+)})
+approval = item["authority_approval"]
+approval["approved_digest"] = item["review_digest"]
+approval["approval_payload_digest"] = digest({field: approval[field] for field in approval_fields})
+review["originating_review_inventory"].append(item)
+manifest = review["originating_review_inventory_manifest"]
+manifest["review_pairs"] = [
+    {"review_id": "review-0001", "requirement_id": "req-0001"},
+    {"review_id": "review-0002", "requirement_id": "req-0001"},
+]
+manifest["inventory_digest"] = digest({
+    "delivery_receipt_id": manifest["delivery_receipt_id"],
+    "review_pairs": manifest["review_pairs"],
+})
+manifest_approval = manifest["authority_approval"]
+manifest_approval.update({
+    "approved_digest": manifest["inventory_digest"],
+    "authority_id": "authority-review-test-0002",
+    "authority_role": "OPERATOR",
+    "key_id": "key-review-test-0002",
+})
+manifest_approval["approval_payload_digest"] = digest({
+    field: manifest_approval[field] for field in approval_fields
+})
+with open(path, "w", encoding="utf-8") as handle:
+    yaml.safe_dump(review, handle, allow_unicode=True, sort_keys=False)
+print(approval["approval_payload_digest"])
+print(manifest_approval["approval_payload_digest"])
+PY
+    ) || return 1
+    review_signature="$(sign_test_digest "$secret_key" "${digests[0]}")" || return 1
+    manifest_signature="$(sign_test_digest "$secret_key" "${digests[1]}")" || return 1
+    yq -i ".originating_review_inventory[1].authority_approval.signature = \"${review_signature}\" |
+        .originating_review_inventory_manifest.authority_approval.signature = \"${manifest_signature}\"" \
+        "$REVIEW"
+}
+
 @test "complete canonical delivery chain is MET" {
     run_validator
     [ "$status" -eq 0 ] \
         && [[ "$output" == *"decision=MET"* ]]
+}
+
+@test "authorized disposition reseal cannot make whitespace U4 evidence MET" {
+    prepare_authenticated_disposition_fixture \
+        '.requirements.req-0001.coverage_chain.red_green.red.command = "   "' || return 1
+    run_test_framework_json
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"u4_nonblank_required:req-0001:red_green.red.command"* ]]
 }
 
 @test "signed delivery bundle cannot replay under another CLI task identity" {
@@ -1155,12 +1399,80 @@ prepare_signed_review_fixture() {
         && [[ "$output" == *"parent_review_not_closed:req-0001"* ]]
 }
 
+@test "one requirement may have two independently authenticated APPROVED reviews" {
+    prepare_same_requirement_review_inventory APPROVED || return 1
+    run_test_framework_json
+    [ "$status" -eq 0 ] \
+        && [[ "$output" == *'"decision":"MET"'* ]]
+}
+
+@test "signed review inventory rejects an omitted second OPEN review" {
+    prepare_same_requirement_review_inventory OPEN || return 1
+    yq -i 'del(.originating_review_inventory[1])' "$REVIEW"
+    run_test_framework_json
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"originating_review_inventory_pair_missing:review-0002:req-0001"* ]]
+}
+
+@test "present second OPEN review blocks closure even beside an APPROVED review" {
+    prepare_same_requirement_review_inventory OPEN || return 1
+    run_test_framework_json
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"parent_review_not_closed:req-0001"* ]]
+}
+
+@test "present second CHANGES_REQUESTED review blocks closure even beside an APPROVED review" {
+    prepare_same_requirement_review_inventory CHANGES_REQUESTED || return 1
+    run_test_framework_json
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"parent_review_not_closed:req-0001"* ]]
+}
+
+@test "signed review inventory rejects a duplicate review identity" {
+    prepare_same_requirement_review_inventory APPROVED || return 1
+    yq -i '.originating_review_inventory += [.originating_review_inventory[1]]' "$REVIEW"
+    run_test_framework_json
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"originating_review_id_duplicate:review-0002"* ]]
+}
+
+@test "signed review inventory rejects an extra review pair" {
+    prepare_same_requirement_review_inventory APPROVED || return 1
+    yq -i '.originating_review_inventory += [.originating_review_inventory[1]] |
+        .originating_review_inventory[2].review_id = "review-0003"' "$REVIEW"
+    run_test_framework_json
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"originating_review_inventory_pair_extra:review-0003:req-0001"* ]]
+}
+
+@test "signed review inventory manifest signature is independently verified" {
+    yq -i '.originating_review_inventory_manifest.authority_approval.signature = "ed25519:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="' "$REVIEW"
+    run_validator_json
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"originating_review_inventory_manifest_signature_invalid"* ]]
+}
+
+@test "every same-requirement review remains independently authenticated" {
+    prepare_same_requirement_review_inventory APPROVED || return 1
+    yq -i '.originating_review_inventory[1].review_ref = "review-system/reviews/tampered"' "$REVIEW"
+    run_test_framework_json
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"originating_review_digest_mismatch:review-0002"* ]]
+}
+
 @test "two-requirement epic cannot close with its second originating review missing" {
     prepare_two_requirement_fixture || return 1
     yq -i 'del(.originating_review_inventory[1])' "$REVIEW"
     run_test_framework_json
     [ "$status" -eq 1 ] \
-        && [[ "$output" == *"originating_review_inventory_missing:req-0002"* ]]
+        && [[ "$output" == *"originating_review_inventory_pair_missing:review-0002:req-0002"* ]]
+}
+
+@test "two-requirement epic closes when its exact signed review inventory is APPROVED" {
+    prepare_two_requirement_fixture APPROVED || return 1
+    run_test_framework_json
+    [ "$status" -eq 0 ] \
+        && [[ "$output" == *'"decision":"MET"'* ]]
 }
 
 @test "two-requirement epic cannot close with its second originating review OPEN" {
@@ -1192,7 +1504,7 @@ prepare_signed_review_fixture() {
         .originating_review_inventory[2].review_id = "review-9999"' "$REVIEW"
     run_test_framework_json
     [ "$status" -eq 1 ] \
-        && [[ "$output" == *"originating_review_inventory_extra:req-9999"* ]]
+        && [[ "$output" == *"originating_review_inventory_pair_extra:review-9999:req-9999"* ]]
 }
 
 @test "a rejected child disposition cannot produce a MET delivery decision" {
@@ -1496,15 +1808,19 @@ prepare_signed_review_fixture() {
 import sys
 path, outside = sys.argv[1:]
 source = open(path, encoding="utf-8").read()
-old = """        document_bytes = read_confined_snapshot(
-            DOCUMENT_PATHS[name], ROOT, name
-        )"""
-new = f"""        if name == \"requirements\":
+old = '''documents = {}
+schemas = {}
+for name in ("requirements", "receipt", "review"):
+    try:
+'''
+new = f'''documents = {{}}
+schemas = {{}}
+for name in ("requirements", "receipt", "review"):
+    try:
+        if name == "requirements":
             os.replace(DOCUMENT_PATHS[name], DOCUMENT_PATHS[name] + \".preopen\")
             os.symlink({outside!r}, DOCUMENT_PATHS[name])
-        document_bytes = read_confined_snapshot(
-            DOCUMENT_PATHS[name], ROOT, name
-        )"""
+'''
 assert source.count(old) == 1
 open(path, "w", encoding="utf-8").write(source.replace(old, new))
 PY

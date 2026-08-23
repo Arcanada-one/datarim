@@ -297,7 +297,7 @@ APPROVAL_FIELDS = (
 )
 EXPECTED_INVARIANT_REGISTRY_DIGESTS = {
     "requirements": "b7638bd5bbebaf6034fa117758d0c7064c5ec0bec572ad5bb5dd897c91c2fd46",
-    "receipt": "8dfacc991dec9af45477b9b500a6ee328b52ed84a6f432b720f3a0e63a46bef6",
+    "receipt": "0ee4fec73622c0ef1e9369f327a6623a7cc249506cea00c0d917cebadffea661",
 }
 EXPECTED_CONTRACT_DIGESTS = {
     "requirements:x-datarim-crypto-verifier-contract": "9ebeb579d224d2f3db094c9873b7e1990da71f1ef789b30e64c5bb98deb33bed",
@@ -307,7 +307,7 @@ EXPECTED_CONTRACT_DIGESTS = {
     "receipt:x-datarim-customer-disposition-contract": "994129b7b66c3ad29f4e76bb564ae4937d42e2e46dd5a983dd3eaa7741bf5d96",
     "receipt:x-datarim-coverage-chain-digest-contract": "9f7f5391d3c7922d97fe33148f5d7c2dc1a72808415f899cc04129ef5ee95b68",
     "receipt:x-datarim-task-identity-contract": "54e1d0c40950b024a0dcd760ee1964bb467088876b7624ff652e27f5dfbe69a5",
-    "review:x-datarim-originating-review-contract": "d51e0de7f68142849cd7d5100510f39f60d452708f100150bd40e87923e33a01",
+    "review:x-datarim-originating-review-contract": "79278a6f32ce798509cbb7b4578d2116007b37ac3f97646305d091ec3bdae5c4",
 }
 PINNED_GIT = "/usr/bin/git"
 VALIDATION_TOTAL_TIMEOUT_SECONDS = 20
@@ -1385,21 +1385,63 @@ def validate_originating_review_state(record, reviewed_at_value=None):
         add(f"parent_review_not_closed:{requirement_id}")  # SECURITY_RULE:review_state_changes
 
 
+def validate_originating_review_inventory_manifest():
+    manifest = review_doc["originating_review_inventory_manifest"]
+    approval = manifest["authority_approval"]
+    contract = schemas["review"]["x-datarim-originating-review-contract"]
+    authority = contract["inventory_authority"]
+    sorted_pairs = sorted(
+        manifest["review_pairs"],
+        key=lambda item: (item["review_id"], item["requirement_id"]),
+    )
+    expected_digest = sha256_digest({
+        "delivery_receipt_id": manifest["delivery_receipt_id"],
+        "review_pairs": sorted_pairs,
+    })
+    if manifest["review_pairs"] != sorted_pairs:
+        add("originating_review_inventory_manifest_not_canonical")
+    if manifest["inventory_digest"] != expected_digest:
+        add("originating_review_inventory_manifest_digest_mismatch")  # SECURITY_RULE:review_manifest_digest
+    if approval["approved_digest"] != manifest["inventory_digest"]:
+        add("originating_review_inventory_manifest_approval_digest_mismatch")
+    if approval["approval_payload_digest"] != approval_payload_digest(approval):
+        add("originating_review_inventory_manifest_approval_payload_digest_mismatch")
+    for field in ("authority_id", "authority_role", "key_id"):
+        if approval[field] != authority[field]:
+            add(f"originating_review_inventory_manifest_authority_mismatch:{field}")
+    public_key = authority["public_key"]
+    expected_fingerprint = "sha256:" + hashlib.sha256(
+        base64.b64decode(public_key, validate=True)
+    ).hexdigest()
+    if authority["fingerprint"] != expected_fingerprint:
+        add("originating_review_inventory_manifest_key_fingerprint_mismatch")
+    if not verify_ed25519(
+        approval["signature"], approval["approval_payload_digest"], public_key
+    ):
+        add("originating_review_inventory_manifest_signature_invalid")  # SECURITY_RULE:review_manifest_signature
+    if manifest["delivery_receipt_id"] != receipt_doc["receipt_id"]:
+        add("originating_review_inventory_manifest_receipt_mismatch")
+    return sorted_pairs
+
+
 def validate_originating_review():
     primary = primary_originating_review_record()
     validate_originating_review_commitment(primary)
     validate_originating_review_approval(primary)
     validate_originating_review_state(primary, review_doc["reviewed_at"])
     inventory = review_doc["originating_review_inventory"]
-    reviews_by_requirement = {}
+    expected_pairs = validate_originating_review_inventory_manifest()
+    observed_pairs = []
+    records_by_pair = {}
     review_ids = set()
     for record in inventory:
         requirement_id = record["requirement_id"]
         review_id = record["review_id"]
-        if requirement_id in reviews_by_requirement:
-            add(f"originating_review_inventory_duplicate:{requirement_id}")
-        else:
-            reviews_by_requirement[requirement_id] = record
+        pair = (review_id, requirement_id)
+        observed_pairs.append({"review_id": review_id, "requirement_id": requirement_id})
+        if pair in records_by_pair:
+            add(f"originating_review_inventory_pair_duplicate:{review_id}:{requirement_id}")
+        records_by_pair[pair] = record
         if review_id in review_ids:
             add(f"originating_review_id_duplicate:{review_id}")
         review_ids.add(review_id)
@@ -1408,13 +1450,29 @@ def validate_originating_review():
         validate_originating_review_state(record)  # SECURITY_RULE:review_inventory_closure
         if record["delivery_receipt_id"] != receipt_doc["receipt_id"]:
             add(f"review_receipt_mismatch:{requirement_id}")
+    observed_pairs = sorted(
+        observed_pairs, key=lambda item: (item["review_id"], item["requirement_id"])
+    )
+    expected_pair_set = {
+        (item["review_id"], item["requirement_id"]) for item in expected_pairs
+    }
+    if len(expected_pair_set) != len(expected_pairs):
+        add("originating_review_inventory_manifest_pair_duplicate")
+    observed_pair_set = {
+        (item["review_id"], item["requirement_id"]) for item in observed_pairs
+    }
+    for review_id, requirement_id in sorted(expected_pair_set - observed_pair_set):
+        add(f"originating_review_inventory_pair_missing:{review_id}:{requirement_id}")  # SECURITY_RULE:review_inventory_exact
+    for review_id, requirement_id in sorted(observed_pair_set - expected_pair_set):
+        add(f"originating_review_inventory_pair_extra:{review_id}:{requirement_id}")  # SECURITY_RULE:review_inventory_exact
     expected_requirements = set(requirements)
-    observed_requirements = set(reviews_by_requirement)
-    for requirement_id in sorted(expected_requirements - observed_requirements):
+    manifested_requirements = {requirement_id for _, requirement_id in expected_pair_set}
+    for requirement_id in sorted(expected_requirements - manifested_requirements):
         add(f"originating_review_inventory_missing:{requirement_id}")  # SECURITY_RULE:review_inventory_exact
-    for requirement_id in sorted(observed_requirements - expected_requirements):
+    for requirement_id in sorted(manifested_requirements - expected_requirements):
         add(f"originating_review_inventory_extra:{requirement_id}")  # SECURITY_RULE:review_inventory_exact
-    primary_inventory_record = reviews_by_requirement.get(primary["requirement_id"])
+    primary_pair = (primary["review_id"], primary["requirement_id"])
+    primary_inventory_record = records_by_pair.get(primary_pair)
     if primary_inventory_record != primary:
         add(f"originating_review_primary_mismatch:{primary['requirement_id']}")  # SECURITY_RULE:review_inventory_primary
 
@@ -2191,6 +2249,53 @@ def validate_red_green_edge(requirement_id, acceptance, chain):
         add(f"implementation_red_timestamp_mismatch:{requirement_id}")
 
 
+def validate_u4_nonblank_fields(requirement_id, chain):
+    values = []
+    selected = chain["selected_knowledge"]
+    for category in (
+        "roles", "skills", "blueprints", "constraints", "policies", "success_criteria"
+    ):
+        for index, item in enumerate(selected[category]):
+            values.extend((
+                (f"selected_knowledge.{category}[{index}].id", item["id"]),
+                (f"selected_knowledge.{category}[{index}].revision", item["revision"]),
+            ))
+    delta = chain["implementation_delta"]
+    for category in ("enabling_changes", "visitor_visible_changes"):
+        for index, item in enumerate(delta[category]):
+            values.extend((
+                (f"implementation_delta.{category}[{index}].description", item["description"]),
+                (f"implementation_delta.{category}[{index}].artifact_ref", item["artifact_ref"]),
+            ))
+    for colour in ("red", "green"):
+        evidence = chain["red_green"][colour]
+        values.extend((
+            (f"red_green.{colour}.command", evidence["command"]),
+            (f"red_green.{colour}.evidence_ref", evidence["evidence_ref"]),
+        ))
+    for edge in ("merged_revision", "deployed_revision"):
+        values.append((f"{edge}.evidence_ref", chain[edge]["evidence_ref"]))
+    live = chain["live_evidence"]
+    values.extend((
+        ("live_evidence.owner", live["owner"]),
+        ("live_evidence.evidence_ref", live["evidence_ref"]),
+    ))
+    if "not_applicable_reason" in live:
+        values.append(("live_evidence.not_applicable_reason", live["not_applicable_reason"]))
+    for index, cell in enumerate(live["painted_matrix"]):
+        values.append((f"live_evidence.painted_matrix[{index}].evidence_ref", cell["evidence_ref"]))
+    disposition = chain["customer_disposition"]
+    values.extend((
+        ("customer_disposition.evidence_ref", disposition["evidence_ref"]),
+        ("customer_disposition.authority_approval.evidence_ref", disposition["authority_approval"]["evidence_ref"]),
+    ))
+    if "note" in disposition:
+        values.append(("customer_disposition.note", disposition["note"]))
+    for path, value in values:
+        if not value.strip():
+            add(f"u4_nonblank_required:{requirement_id}:{path}")  # SECURITY_RULE:u4_nonblank
+
+
 def validate_merged_revision_edge(requirement_id, acceptance, chain):
     merged = chain["merged_revision"]
     accepted_revisions = {
@@ -2502,7 +2607,9 @@ receipt-task-equals-signed-prework-assignment
 receipt-epic-parent-equals-signed-prework-assignment
 originating-review-receipt-id-equals-top-receipt-id
 originating-review-requirement-set-transitively-bound-by-disposition
-originating-review-inventory-requirement-set-exact
+originating-review-inventory-manifest-authenticated
+originating-review-inventory-pair-set-exact
+originating-review-inventory-requirement-coverage-complete
 originating-review-canonical-digest-valid
 originating-review-approval-digest-equals-review-digest
 originating-review-approval-payload-canonical-digest-valid
@@ -2609,6 +2716,7 @@ for requirement_id in sorted(set(requirements) & set(deliveries)):
     validate_requirement_edge(requirement_id, requirement, chain)  # U4_RULE:requirement
     validate_selected_knowledge_edge(requirement_id, acceptance, chain)  # U4_RULE:selected_knowledge
     validate_implementation_delta_edge(requirement_id, acceptance, chain)  # U4_RULE:implementation_delta
+    validate_u4_nonblank_fields(requirement_id, chain)  # U4_RULE:nonblank
     validate_red_green_edge(requirement_id, acceptance, chain)  # U4_RULE:red_green
     validate_merged_revision_edge(requirement_id, acceptance, chain)  # U4_RULE:merged_revision
     validate_deployed_revision_edge(requirement_id, chain)  # U4_RULE:deployed_revision

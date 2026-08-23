@@ -23,6 +23,9 @@ SUITE_PATHS = {
     "mutation": ROOT / "dev-tools/tests/customer-delivery-mutation.bats",
 }
 TEST_PATTERN = re.compile(r'^@test "([^"]+)" \{$')
+ALTERNATE_TEST_PATTERN = re.compile(r'^function\s+[A-Za-z_][A-Za-z0-9_]*\s*\{\s*#\s*@test(?:\s.*)?$')
+TAP_RESULT_PATTERN = re.compile(r"^(?:ok|not ok)\s+[0-9]+(?:\s|$)", re.MULTILINE)
+TAP_PLAN_PATTERN = re.compile(r"^1\.\.([0-9]+)\s*$", re.MULTILINE)
 
 
 class ContractError(ValueError):
@@ -41,14 +44,26 @@ class Row:
 
 
 def extract_tests(path: Path) -> list[str]:
-    names = [
-        match.group(1)
-        for line in path.read_text(encoding="utf-8").splitlines()
-        if (match := TEST_PATTERN.fullmatch(line))
-    ]
+    names: list[str] = []
+    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        if ALTERNATE_TEST_PATTERN.fullmatch(line):
+            raise ContractError(f"noncanonical Bats test syntax: {path}:{line_number}")
+        if match := TEST_PATTERN.fullmatch(line):
+            names.append(match.group(1))
+        elif line.lstrip().startswith("@test"):
+            raise ContractError(f"noncanonical Bats test syntax: {path}:{line_number}")
     if not names or len(names) != len(set(names)):
         raise ContractError(f"test inventory is empty or duplicated: {path}")
     return names
+
+
+def validate_bats_execution(output: str, expected: int) -> None:
+    plans = [int(value) for value in TAP_PLAN_PATTERN.findall(output)]
+    observed = len(TAP_RESULT_PATTERN.findall(output))
+    if plans != [expected] or observed != expected:
+        raise ContractError(
+            f"Bats execution inventory mismatch: expected {expected}, observed {observed}"
+        )
 
 
 def extract_security_arms(path: Path) -> list[str]:
@@ -287,13 +302,38 @@ def main() -> int:
         else:
             names = selected_names(row, inventories[row.suite])
         filter_pattern = "^(" + "|".join(ere_escape(name) for name in names) + ")$"
+        count_process = subprocess.run(
+            [bats, "--count", "--filter", filter_pattern, str(SUITE_PATHS[row.suite])],
+            env=environment,
+            text=True,
+            capture_output=True,
+            timeout=min(args.timeout_seconds, 10),
+        )
+        if count_process.returncode != 0:
+            raise ContractError("Bats authoritative count failed")
+        try:
+            authoritative_count = int(count_process.stdout.strip())
+        except ValueError as error:
+            raise ContractError("Bats authoritative count is invalid") from error
+        if authoritative_count != len(names):
+            raise ContractError(
+                "Bats authoritative inventory mismatch: "
+                f"expected {len(names)}, observed {authoritative_count}"
+            )
         process = subprocess.Popen(
             [bats, "--filter", filter_pattern, str(SUITE_PATHS[row.suite])],
             env=environment,
             start_new_session=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
         )
         try:
-            returncode = process.wait(timeout=args.timeout_seconds)
+            output, _ = process.communicate(timeout=args.timeout_seconds)
+            print(output, end="")
+            returncode = process.returncode
+            if returncode == 0:
+                validate_bats_execution(output, len(names))
             if returncode == 0 and args.result_file:
                 if not args.platform:
                     raise ContractError("result-file requires platform")
@@ -308,7 +348,7 @@ def main() -> int:
                 os.killpg(process.pid, signal.SIGKILL)
             except (ProcessLookupError, PermissionError):
                 pass
-            process.wait()
+            process.communicate()
             print(
                 f"ERROR: shard exceeded {args.timeout_seconds}s: {args.suite} {args.shard}",
                 file=sys.stderr,

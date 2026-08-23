@@ -11,8 +11,76 @@ setup() {
     [ -f "$FUNCTIONAL_TEST" ] || { echo "ERROR: functional tests missing: $FUNCTIONAL_TEST" >&2; return 1; }
 }
 
+expected_red_lines() {
+    "$PYTHON" - "$FUNCTIONAL_TEST" "$1" <<'PY'
+import re
+import sys
+path, name = sys.argv[1:]
+lines = open(path, encoding="utf-8").read().splitlines()
+header = f'@test "{name}" {{'
+try:
+    start = lines.index(header)
+except ValueError as error:
+    raise SystemExit(f"expected RED target missing: {name}") from error
+end = next((index for index in range(start + 1, len(lines)) if lines[index].startswith('@test "')), len(lines))
+status_lines = [
+    index for index in range(start + 1, end)
+    if re.match(r'^\s*\[ "\$status" ', lines[index])
+]
+if not status_lines:
+    raise SystemExit(f"expected RED assertion missing: {name}")
+allowed = []
+for assertion_start in status_lines:
+    allowed.append(assertion_start + 1)
+    cursor = assertion_start + 1
+    while cursor < end and lines[cursor - 1].rstrip().endswith("\\"):
+        allowed.append(cursor + 1)
+        cursor += 1
+allowed.extend(
+    index + 1 for index in range(start + 1, end)
+    if lines[index] == "    return 1"
+)
+print(",".join(str(value) for value in allowed))
+PY
+}
+
+assert_attributed_mutant_kill() {
+    local marker="$1" filter="$2" expected_lines="$3"
+    local nested_status="$4" nested_output="$5" reported line matched=0
+    if [ "$nested_status" -eq 0 ]; then
+        printf 'SURVIVED_MUTANT:%s\n' "$marker"
+        return 1
+    fi
+    if [ "$nested_status" -eq 124 ] \
+        || [[ "$nested_output" == *"setup_file failed"* ]] \
+        || [[ "$nested_output" == *"syntax error"* ]] \
+        || [[ "$nested_output" == *"BATS_TEST_TIMEOUT"* ]] \
+        || [ "$(printf '%s\n' "$nested_output" | awk '$0 == "1..1" { count++ } END { print count+0 }')" -ne 1 ] \
+        || [ "$(printf '%s\n' "$nested_output" | awk -v target="not ok 1 ${filter}" '$0 == target { count++ } END { print count+0 }')" -ne 1 ]; then
+        printf 'HARNESS_INVALID:%s:execution-contract\n' "$marker"
+        return 1
+    fi
+    reported="$(printf '%s\n' "$nested_output" | sed -n 's/^# (in test file .* line \([0-9][0-9]*\))$/\1/p')"
+    IFS=',' read -r -a expected_array <<<"$expected_lines"
+    while IFS= read -r line; do
+        for expected in "${expected_array[@]}"; do
+            if [ "$line" = "$expected" ]; then
+                matched=1
+            fi
+        done
+    done <<<"$reported"
+    if [ "$matched" -ne 1 ]; then
+        printf 'HARNESS_INVALID:%s:wrong-assertion:expected=%s:reported=%s\n' \
+            "$marker" "$expected_lines" "$reported"
+        return 1
+    fi
+    "$PYTHON" -c \
+        'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
+        "$marker" "${marker}|${filter}|${expected_lines}"
+}
+
 @test "every U4 production validation branch is killed by its focused regression" {
-    local pair edge filter framework mutant
+    local pair edge filter framework mutant expected_lines
     local -a pairs=(
         'requirement|receipt source quote digests exactly bind every linked source quote'
         'selected_knowledge|receipt selected knowledge exactly equals the accepted selection'
@@ -22,11 +90,13 @@ setup() {
         'deployed_revision|production deployment SHA and digest must equal the merged accepted revision'
         'live_evidence|live production identity exactly equals accepted product identity'
         'customer_disposition|customer disposition must agree with the accepted requirement disposition'
+        'nonblank|authorized disposition reseal cannot make whitespace U4 evidence MET'
     )
 
     for pair in "${pairs[@]}"; do
         edge="${pair%%|*}"
         filter="${pair#*|}"
+        expected_lines="$(expected_red_lines "$filter")" || return 1
 
         run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
         [ "$status" -eq 0 ] || return 1
@@ -57,15 +127,14 @@ PY
 
         run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
             bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
-        [ "$status" -ne 0 ] \
-            && [[ "$output" == *"not ok 1 ${filter}"* ]] \
-            || return 1
+        assert_attributed_mutant_kill "$edge" "$filter" "$expected_lines" \
+            "$status" "$output" || return 1
         printf 'mutant=%s killed_by=%s\n' "$edge" "$filter"
     done
 }
 
 @test "every security-critical production branch is killed by its focused regression" {
-    local pair marker filter framework mutant mutation_index=0
+    local pair marker filter framework mutant expected_lines mutation_index=0
     local shard="${CUSTOMER_DELIVERY_SECURITY_SHARD:-all}"
     local security_range="${CUSTOMER_DELIVERY_SECURITY_RANGE:-}"
     local -a pairs=(
@@ -177,6 +246,7 @@ PY
         fi
         marker="${pair%%|*}"
         filter="${pair#*|}"
+        expected_lines="$(expected_red_lines "$filter")" || return 1
 
         run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
         [ "$status" -eq 0 ] || return 1
@@ -209,16 +279,16 @@ PY
 
         run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
             bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
-        [ "$status" -ne 0 ] \
-            && [[ "$output" == *"not ok 1 ${filter}"* ]] \
-            || return 1
+        assert_attributed_mutant_kill "$marker" "$filter" "$expected_lines" \
+            "$status" "$output" || return 1
         printf 'mutant=%s killed_by=%s\n' "$marker" "$filter"
     done
 }
 
 @test "ambient PATH crypto resolution mutant is killed by invalid-signature regression" {
-    local framework mutant filter
+    local framework mutant filter expected_lines
     filter='ambient PATH OpenSSL shim cannot authenticate an invalid disposition signature'
+    expected_lines="$(expected_red_lines "$filter")" || return 1
 
     run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
     [ "$status" -eq 0 ] || return 1
@@ -255,12 +325,12 @@ PY
 
     run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
         bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
-    [ "$status" -ne 0 ] \
-        && [[ "$output" == *"not ok 1 ${filter}"* ]]
+    assert_attributed_mutant_kill ambient_openssl "$filter" "$expected_lines" \
+        "$status" "$output"
 }
 
 @test "runtime pin response and Git child defenses are independently killed" {
-    local pair kind filter framework mutant
+    local pair kind filter framework mutant expected_lines
     local -a pairs=(
         'python_runtime|non-Python executable cannot satisfy the interpreter pin'
         'python_inode|perfect probe dependency and MET forgery cannot impersonate a trusted CPython inode'
@@ -272,6 +342,7 @@ PY
     for pair in "${pairs[@]}"; do
         kind="${pair%%|*}"
         filter="${pair#*|}"
+        expected_lines="$(expected_red_lines "$filter")" || return 1
         run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
         [ "$status" -eq 0 ] || return 1
 
@@ -342,16 +413,16 @@ PY
 
         run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
             bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
-        [ "$status" -ne 0 ] \
-            && [[ "$output" == *"not ok 1 ${filter}"* ]] \
-            || { printf 'survived_mutant=%s status=%s output=%s\n' "$kind" "$status" "$output"; return 1; }
+        assert_attributed_mutant_kill "$kind" "$filter" "$expected_lines" \
+            "$status" "$output" \
+            || { printf 'invalid_or_survived_mutant=%s status=%s output=%s\n' "$kind" "$status" "$output"; return 1; }
         printf 'mutant=%s killed_by=%s\n' "$kind" "$filter"
     done
 }
 
 
 @test "ambient realpath authority mutants are independently killed" {
-    local pair kind filter framework mutant
+    local pair kind filter framework mutant expected_lines
     local -a pairs=(
         'function|exported realpath function cannot bypass intermediate symlink confinement'
         'path|PATH realpath shim cannot bypass intermediate symlink confinement'
@@ -360,6 +431,7 @@ PY
     for pair in "${pairs[@]}"; do
         kind="${pair%%|*}"
         filter="${pair#*|}"
+        expected_lines="$(expected_red_lines "$filter")" || return 1
         run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
         [ "$status" -eq 0 ] || return 1
 
@@ -404,16 +476,15 @@ PY
 
         run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
             bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
-        [ "$status" -ne 0 ] \
-            && [[ "$output" == *"not ok 1 ${filter}"* ]] \
-            || return 1
+        assert_attributed_mutant_kill "realpath_${kind}" "$filter" "$expected_lines" \
+            "$status" "$output" || return 1
         printf 'mutant=realpath_%s killed_by=%s\n' "$kind" "$filter"
     done
 }
 
 
 @test "platform stat interpreter OpenSSL and global deadline mutants are behaviorally killed" {
-    local pair kind filter framework mutant platform architecture
+    local pair kind filter framework mutant platform architecture expected_lines
     platform="$(uname -s)"
     architecture="$(uname -m)"
     local -a pairs=(
@@ -426,6 +497,7 @@ PY
     for pair in "${pairs[@]}"; do
         kind="${pair%%|*}"
         filter="${pair#*|}"
+        expected_lines="$(expected_red_lines "$filter")" || return 1
         run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
         [ "$status" -eq 0 ] || return 1
 
@@ -489,16 +561,15 @@ PY
 
         run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
             bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
-        [ "$status" -ne 0 ] \
-            && [[ "$output" == *"not ok 1 ${filter}"* ]] \
-            || return 1
+        assert_attributed_mutant_kill "$kind" "$filter" "$expected_lines" \
+            "$status" "$output" || return 1
         printf 'mutant=%s platform=%s/%s killed_by=%s\n' \
             "$kind" "$platform" "$architecture" "$filter"
     done
 }
 
 @test "descriptor openat nofollow and identity mutants are behaviorally killed" {
-    local pair kind filter framework mutant
+    local pair kind filter framework mutant expected_lines
     local -a pairs=(
         'openat|pre-open path replacement cannot redirect a canonical snapshot'
         'repository_nofollow|repository binding refuses a symlink swapped into the canonical gitdir'
@@ -508,6 +579,7 @@ PY
     for pair in "${pairs[@]}"; do
         kind="${pair%%|*}"
         filter="${pair#*|}"
+        expected_lines="$(expected_red_lines "$filter")" || return 1
         run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
         [ "$status" -eq 0 ] || return 1
         framework="${BATS_TEST_TMPDIR}/descriptor-framework-${kind}"
@@ -560,14 +632,13 @@ PY
         chmod +x "$mutant"
         run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
             bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
-        [ "$status" -ne 0 ] \
-            && [[ "$output" == *"not ok 1 ${filter}"* ]] \
-            || return 1
+        assert_attributed_mutant_kill "$kind" "$filter" "$expected_lines" \
+            "$status" "$output" || return 1
     done
 }
 
 @test "repository root gitdir identity and descriptor mutants are independently killed" {
-    local pair kind filter framework mutant
+    local pair kind filter framework mutant expected_lines
     local -a pairs=(
         'root_identity|authoritative root replacement after document snapshots cannot redirect source history'
         'gitdir_identity|authoritative gitdir replacement after document snapshots cannot redirect source history'
@@ -576,6 +647,7 @@ PY
     for pair in "${pairs[@]}"; do
         kind="${pair%%|*}"
         filter="${pair#*|}"
+        expected_lines="$(expected_red_lines "$filter")" || return 1
         run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
         [ "$status" -eq 0 ] || return 1
         framework="${BATS_TEST_TMPDIR}/repository-binding-${kind}"
@@ -607,22 +679,25 @@ PY
         chmod +x "$mutant"
         run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
             bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
-        [ "$status" -ne 0 ] \
-            && [[ "$output" == *"not ok 1 ${filter}"* ]] \
-            || return 1
+        assert_attributed_mutant_kill "$kind" "$filter" "$expected_lines" \
+            "$status" "$output" || return 1
     done
 }
 
 @test "review inventory exactness closure and authentication mutants are independently killed" {
-    local pair kind filter framework mutant
+    local pair kind filter framework mutant expected_lines
     local -a pairs=(
         'set_exact|two-requirement epic cannot close with its second originating review missing'
         'closure|two-requirement epic cannot close with its second originating review OPEN'
         'authentication|every originating review inventory record is authenticated'
+        'pair_extra|signed review inventory rejects an extra review pair'
+        'id_uniqueness|signed review inventory rejects a duplicate review identity'
+        'manifest_signature|signed review inventory manifest signature is independently verified'
     )
     for pair in "${pairs[@]}"; do
         kind="${pair%%|*}"
         filter="${pair#*|}"
+        expected_lines="$(expected_red_lines "$filter")" || return 1
         run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
         [ "$status" -eq 0 ] || return 1
         framework="${BATS_TEST_TMPDIR}/review-inventory-${kind}"
@@ -638,14 +713,23 @@ import sys
 path, kind = sys.argv[1:]
 source = open(path, encoding="utf-8").read()
 if kind == "set_exact":
-    old = '    expected_requirements = set(requirements)'
-    new = '    expected_requirements = set(reviews_by_requirement)'
+    old = '        add(f"originating_review_inventory_pair_missing:{review_id}:{requirement_id}")  # SECURITY_RULE:review_inventory_exact'
+    new = '        pass  # MUTATED:review_inventory_exact'
 elif kind == "closure":
     old = '        validate_originating_review_state(record)  # SECURITY_RULE:review_inventory_closure'
     new = '        pass  # SECURITY_RULE:review_inventory_closure'
 elif kind == "authentication":
     old = '        validate_originating_review_commitment(record)'
     new = '        pass'
+elif kind == "pair_extra":
+    old = '        add(f"originating_review_inventory_pair_extra:{review_id}:{requirement_id}")  # SECURITY_RULE:review_inventory_exact'
+    new = '        pass  # MUTATED:review_inventory_pair_extra'
+elif kind == "id_uniqueness":
+    old = '            add(f"originating_review_id_duplicate:{review_id}")'
+    new = '            pass  # MUTATED:review_id_uniqueness'
+elif kind == "manifest_signature":
+    old = '        add("originating_review_inventory_manifest_signature_invalid")  # SECURITY_RULE:review_manifest_signature'
+    new = '        pass  # MUTATED:review_manifest_signature'
 else:
     raise SystemExit(kind)
 assert source.count(old) == 1
@@ -654,8 +738,30 @@ PY
         chmod +x "$mutant"
         run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
             bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
-        [ "$status" -ne 0 ] \
-            && [[ "$output" == *"not ok 1 ${filter}"* ]] \
-            || return 1
+        assert_attributed_mutant_kill "$kind" "$filter" "$expected_lines" \
+            "$status" "$output" || return 1
     done
+}
+
+@test "mutation kill attribution rejects setup syntax timeout and wrong-assertion failures" {
+    local filter='focused contract' expected=42
+    run assert_attributed_mutant_kill valid "$filter" "$expected" 1 \
+        $'1..1\nnot ok 1 focused contract\n# (in test file fixture.bats, line 42)\n# assertion failed'
+    [ "$status" -eq 0 ] && [[ "$output" == RED_SENTINEL:valid:* ]] || return 1
+
+    run assert_attributed_mutant_kill setup "$filter" "$expected" 1 \
+        $'1..1\nnot ok 1 focused contract\n# setup_file failed'
+    [ "$status" -ne 0 ] && [[ "$output" == *"HARNESS_INVALID:setup"* ]] || return 1
+
+    run assert_attributed_mutant_kill syntax "$filter" "$expected" 2 \
+        $'1..1\nnot ok 1 focused contract\n# syntax error\n# (in test file fixture.bats, line 42)'
+    [ "$status" -ne 0 ] && [[ "$output" == *"HARNESS_INVALID:syntax"* ]] || return 1
+
+    run assert_attributed_mutant_kill timeout "$filter" "$expected" 124 \
+        $'1..1\nnot ok 1 focused contract\n# (in test file fixture.bats, line 42)'
+    [ "$status" -ne 0 ] && [[ "$output" == *"HARNESS_INVALID:timeout"* ]] || return 1
+
+    run assert_attributed_mutant_kill wrong "$filter" "$expected" 1 \
+        $'1..1\nnot ok 1 focused contract\n# (in test file fixture.bats, line 43)\n# wrong assertion failed'
+    [ "$status" -ne 0 ] && [[ "$output" == *"HARNESS_INVALID:wrong:wrong-assertion"* ]]
 }
