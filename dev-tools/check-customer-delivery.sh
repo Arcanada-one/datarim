@@ -201,13 +201,14 @@ APPROVAL_FIELDS = (
 )
 EXPECTED_INVARIANT_REGISTRY_DIGESTS = {
     "requirements": "12ca494347ad6e093a11e60937c0cfdd72d44b5d94fee5ee6d22ca57e3cfe9aa",
-    "receipt": "d5fb7ba33733a021bd783f6be9fa6c52776eb07bd088fc40e87539c510b6bba5",
+    "receipt": "6335aa4aead3b6bc04198b960c48b2bacb5bfb5443bc2d0308be94be3f0d2d3f",
 }
 EXPECTED_CONTRACT_DIGESTS = {
     "requirements:x-datarim-canonicalization": "bbd3995cdfbded121f17ef11f4751c0c02ccceef2b9f393f4969163af29053d0",
     "requirements:x-datarim-source-tier-authorization": "f5f858651d222f1dab1560060cefbd8d49a47a2b41e2b95161b74b4b9dfc3109",
     "receipt:x-datarim-customer-disposition-contract": "994129b7b66c3ad29f4e76bb564ae4937d42e2e46dd5a983dd3eaa7741bf5d96",
     "receipt:x-datarim-coverage-chain-digest-contract": "9f7f5391d3c7922d97fe33148f5d7c2dc1a72808415f899cc04129ef5ee95b68",
+    "review:x-datarim-originating-review-contract": "292e30935e6ee89252bcd7eae0487184115f96b6b6ad2e3d71c6a1f767770975",
 }
 PINNED_REGISTRY_OWNER_ID = "authority-operator-0001"
 PINNED_REGISTRY_ROOT_KEY_ID = "key-registry-root-0001"
@@ -563,6 +564,8 @@ def validate_trust_registry():
     }
     if schemas["receipt"].get("x-datarim-trusted-authority-key-registry-ref") != expected_ref:
         add("receipt_trust_registry_ref_mismatch")  # SECURITY_RULE:registry_receipt_ref
+    if schemas["review"].get("x-datarim-trusted-authority-key-registry-ref") != expected_ref:
+        add("review_trust_registry_ref_mismatch")  # SECURITY_RULE:registry_review_ref
     return seen
 
 
@@ -715,6 +718,82 @@ def validate_approval(kind, record_id, approval):
         approval["signature"], approval["approval_payload_digest"], binding["public_key"]
     ):
         add(f"{kind}_signature_invalid:{record_id}")  # SECURITY_RULE:artifact_signature
+
+
+def originating_review_payload():
+    origin = review_doc["originating_review"]
+    return {
+        "review_id": review_doc["review_id"],
+        "requirement_id": review_doc["requirement_id"],
+        "delivery_receipt_id": review_doc["delivery_receipt_id"],
+        "reviewer": review_doc["reviewer"],
+        "review_ref": origin["review_ref"],
+        "state": origin["state"],
+        "observed_at": origin["observed_at"],
+        "evidence_ref": origin["evidence_ref"],
+    }
+
+
+def validate_originating_review_commitment():
+    review_id = review_doc["review_id"]
+    origin = review_doc["originating_review"]
+    approval = origin["authority_approval"]
+    expected_digest = sha256_digest(originating_review_payload())
+    if origin["review_digest"] != expected_digest:
+        add(f"originating_review_digest_mismatch:{review_id}")  # SECURITY_RULE:review_digest
+    if approval["approved_digest"] != origin["review_digest"]:
+        add(f"originating_review_approval_digest_mismatch:{review_id}")  # SECURITY_RULE:review_approved_digest
+    if approval["approval_payload_digest"] != approval_payload_digest(approval):
+        add(f"originating_review_approval_payload_digest_mismatch:{review_id}")  # SECURITY_RULE:review_approval_digest
+
+
+def validate_originating_review_approval():
+    review_id = review_doc["review_id"]
+    approval = review_doc["originating_review"]["authority_approval"]
+    key_id = approval["key_id"]
+    binding = trusted_keys.get(key_id)
+    if binding is None:
+        add(f"originating_review_approval_key_unknown:{review_id}:{key_id}")  # SECURITY_RULE:review_key_known
+        return
+    if approval["authority_id"] != binding["authority_id"]:
+        add(f"originating_review_approval_authority_mismatch:{review_id}")  # SECURITY_RULE:review_key_authority
+    if approval["authority_role"] not in binding["allowed_roles"]:
+        add(f"originating_review_approval_role_unauthorized:{review_id}")  # SECURITY_RULE:review_key_role
+    if binding["status"] != "ACTIVE":
+        add(f"originating_review_approval_key_not_active:{review_id}")  # SECURITY_RULE:review_key_active
+    approved_at = parse_time(approval["approved_at"], f"timestamp:{review_id}:approved_at")
+    valid_from = parse_time(binding["valid_from"], f"timestamp:{key_id}:valid_from")
+    valid_until = parse_time(
+        binding.get("valid_until"), f"timestamp:{key_id}:valid_until"
+    ) if "valid_until" in binding else None
+    if approved_at is not None and valid_from is not None and approved_at < valid_from:
+        add(f"originating_review_approval_key_not_yet_valid:{review_id}")  # SECURITY_RULE:review_key_valid_from
+    if approved_at is not None and valid_until is not None and approved_at >= valid_until:
+        add(f"originating_review_approval_key_expired:{review_id}")  # SECURITY_RULE:review_key_window
+    if not verify_ed25519(
+        approval["signature"], approval["approval_payload_digest"], binding["public_key"]
+    ):
+        add(f"originating_review_signature_invalid:{review_id}")  # SECURITY_RULE:review_signature
+
+
+def validate_originating_review_state():
+    review_id = review_doc["review_id"]
+    requirement_id = review_doc["requirement_id"]
+    origin = review_doc["originating_review"]
+    observed_at = parse_time(origin["observed_at"], f"timestamp:{review_id}:observed_at")
+    reviewed_at = parse_time(review_doc["reviewed_at"], f"timestamp:{review_id}:reviewed_at")
+    if observed_at is not None and reviewed_at is not None and observed_at > reviewed_at:
+        add(f"originating_review_observed_after_reviewed_at:{review_id}")  # SECURITY_RULE:review_observed_at
+    if origin["state"] == "OPEN":
+        add(f"parent_review_not_closed:{requirement_id}")  # SECURITY_RULE:review_state_open
+    if origin["state"] == "CHANGES_REQUESTED":
+        add(f"parent_review_not_closed:{requirement_id}")  # SECURITY_RULE:review_state_changes
+
+
+def validate_originating_review():
+    validate_originating_review_commitment()
+    validate_originating_review_approval()
+    validate_originating_review_state()
 
 
 def scope_equal(left, right):
@@ -1386,6 +1465,14 @@ receipt-disposition-approval-key-known receipt-disposition-approval-key-authorit
 receipt-disposition-approval-key-role-authorized receipt-disposition-approval-key-active
 receipt-disposition-approval-key-valid-at-approval
 receipt-visitor-acceptance-authority-role-operator receipt-parent-links-complete
+originating-review-canonical-digest-valid
+originating-review-approval-digest-equals-review-digest
+originating-review-approval-payload-canonical-digest-valid
+originating-review-signature-valid originating-review-approval-key-known
+originating-review-approval-key-authority-id-equal
+originating-review-approval-key-role-authorized originating-review-approval-key-active
+originating-review-approval-key-valid-at-approval
+originating-review-observed-at-not-after-reviewed-at
 review-open-or-changes-requested-blocks-closure receipt-epic-status-derived
 receipt-user-facing-parent-has-visible-child
 """.split()
@@ -1401,7 +1488,9 @@ receipt-user-facing-parent-has-visible-child
         elif identifier.startswith("supersession-"):
             requirement_map[identifier] = check_supersession_cycles
     for identifier in receipt_ids:
-        if "selected-knowledge" in identifier:
+        if identifier.startswith("originating-review-") or identifier == "review-open-or-changes-requested-blocks-closure":
+            receipt_map[identifier] = validate_originating_review
+        elif "selected-knowledge" in identifier:
             receipt_map[identifier] = validate_selected_knowledge_edge
         elif "count" in identifier or "visible" in identifier and "live" not in identifier:
             receipt_map[identifier] = validate_implementation_delta_edge
@@ -1497,14 +1586,16 @@ review_links = {(link["relation"], link["id"]) for link in review_doc["parent_li
 review_requirement = review_doc["requirement_id"]
 if review_requirement not in requirements:
     add(f"dangling_requirement_ref:review:{review_requirement}")
+    add(f"review_requirement_mismatch:{review_requirement}")  # SECURITY_RULE:review_requirement_binding
 if review_doc["delivery_receipt_id"] != receipt_doc["receipt_id"]:
-    add("review_receipt_mismatch")
+    add("review_receipt_mismatch")  # SECURITY_RULE:review_receipt_binding
 if review_doc["product_fix"]["requirement_id"] != review_requirement:
     add(f"review_product_requirement_mismatch:{review_requirement}")
 if review_doc["product_fix"]["delivery_receipt_id"] != receipt_doc["receipt_id"]:
     add("review_product_receipt_mismatch")
 if review_doc["product_fix"]["status"] != "DELIVERED":
-    add(f"parent_review_not_closed:{review_requirement}")
+    add(f"product_fix_not_delivered:{review_requirement}")
+validate_originating_review()
 required_review_links = {
     ("requirement", review_requirement),
     ("delivery_receipt", receipt_doc["receipt_id"]),

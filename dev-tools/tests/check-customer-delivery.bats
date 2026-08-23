@@ -71,23 +71,24 @@ authenticate_test_registry() {
     local expression="$1"
     local requirement_schema="${TEST_FRAMEWORK}/config/customer-requirement.schema.json"
     local receipt_schema="${TEST_FRAMEWORK}/config/customer-delivery-receipt.schema.json"
+    local review_schema="${TEST_FRAMEWORK}/config/review-evolution.schema.json"
     local seed public_key secret_key fingerprint digest signature
-    seed="$(printf '42%.0s' {1..32})"
+    seed="$(openssl rand -hex 32)"
     # PHP receives positional parameters literally.
     # shellcheck disable=SC2016
-    public_key="$(php -r '$seed=hex2bin($argv[1]); $pair=sodium_crypto_sign_seed_keypair($seed); echo base64_encode(sodium_crypto_sign_publickey($pair));' "$seed")"
+    public_key="$(printf '%s\n' "$seed" | php -r '$seed=hex2bin(trim(fgets(STDIN))); $pair=sodium_crypto_sign_seed_keypair($seed); echo base64_encode(sodium_crypto_sign_publickey($pair));')"
     # PHP receives positional parameters literally.
     # shellcheck disable=SC2016
-    secret_key="$(php -r '$seed=hex2bin($argv[1]); $pair=sodium_crypto_sign_seed_keypair($seed); echo base64_encode(sodium_crypto_sign_secretkey($pair));' "$seed")"
+    secret_key="$(printf '%s\n' "$seed" | php -r '$seed=hex2bin(trim(fgets(STDIN))); $pair=sodium_crypto_sign_seed_keypair($seed); echo base64_encode(sodium_crypto_sign_secretkey($pair));')"
     fingerprint="$($PYTHON -c 'import base64,hashlib,sys; print("sha256:"+hashlib.sha256(base64.b64decode(sys.argv[1])).hexdigest())' "$public_key")"
     yq -i "$expression" "$requirement_schema" || return 1
-    digest="$($PYTHON - "$TEST_SCRIPT" "$requirement_schema" "$receipt_schema" "$public_key" "$fingerprint" <<'PY'
+    digest="$($PYTHON - "$TEST_SCRIPT" "$requirement_schema" "$receipt_schema" "$review_schema" "$public_key" "$fingerprint" <<'PY'
 import base64
 import hashlib
 import json
 import sys
 
-script_path, requirement_path, receipt_path, public_key, fingerprint = sys.argv[1:]
+script_path, requirement_path, receipt_path, review_path, public_key, fingerprint = sys.argv[1:]
 with open(script_path, encoding="utf-8") as handle:
     script = handle.read()
 script = script.replace(
@@ -118,13 +119,110 @@ receipt_schema["x-datarim-trusted-authority-key-registry-ref"]["registry_digest"
 with open(receipt_path, "w", encoding="utf-8") as handle:
     json.dump(receipt_schema, handle, ensure_ascii=False, indent=2)
     handle.write("\n")
+with open(review_path, encoding="utf-8") as handle:
+    review_schema = json.load(handle)
+review_schema["x-datarim-trusted-authority-key-registry-ref"]["registry_digest"] = digest
+with open(review_path, "w", encoding="utf-8") as handle:
+    json.dump(review_schema, handle, ensure_ascii=False, indent=2)
+    handle.write("\n")
 print(digest)
 PY
 )" || return 1
     # PHP receives positional parameters literally.
     # shellcheck disable=SC2016
-    signature="$(php -r '$secret=base64_decode($argv[1], true); $message=hex2bin(substr($argv[2], 7)); echo "ed25519:".base64_encode(sodium_crypto_sign_detached($message, $secret));' "$secret_key" "$digest")"
+    signature="$(printf '%s\n%s\n' "$secret_key" "$digest" | php -r '$secret=base64_decode(trim(fgets(STDIN)), true); $message=hex2bin(substr(trim(fgets(STDIN)), 7)); echo "ed25519:".base64_encode(sodium_crypto_sign_detached($message, $secret));')"
     yq -i ".\"x-datarim-signature-contract\".key_resolution.bundled_registry.registry_signature = \"${signature}\"" "$requirement_schema"
+}
+
+reseal_and_sign_review() {
+    local secret_key="$1"
+    local digest signature
+    digest="$($PYTHON - "$REVIEW" <<'PY'
+import hashlib
+import json
+import sys
+
+import yaml
+
+APPROVAL_FIELDS = (
+    "approved_digest", "authority_id", "authority_role", "approved_at",
+    "evidence_ref", "algorithm", "key_id",
+)
+
+
+def digest(payload):
+    canonical = json.dumps(
+        payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+    return "sha256:" + hashlib.sha256(canonical).hexdigest()
+
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as handle:
+    review = yaml.safe_load(handle)
+origin = review["originating_review"]
+origin["review_digest"] = digest({
+    "review_id": review["review_id"],
+    "requirement_id": review["requirement_id"],
+    "delivery_receipt_id": review["delivery_receipt_id"],
+    "reviewer": review["reviewer"],
+    "review_ref": origin["review_ref"],
+    "state": origin["state"],
+    "observed_at": origin["observed_at"],
+    "evidence_ref": origin["evidence_ref"],
+})
+approval = origin["authority_approval"]
+approval["approved_digest"] = origin["review_digest"]
+approval["approval_payload_digest"] = digest({
+    field: approval[field] for field in APPROVAL_FIELDS
+})
+with open(path, "w", encoding="utf-8") as handle:
+    yaml.safe_dump(review, handle, allow_unicode=True, sort_keys=False)
+print(approval["approval_payload_digest"])
+PY
+)" || return 1
+    signature="$(printf '%s\n%s\n' "$secret_key" "$digest" | php -r '
+$secret = base64_decode(trim(fgets(STDIN)), true);
+$digest = trim(fgets(STDIN));
+$message = hex2bin(substr($digest, 7));
+if ($secret === false || $message === false) { exit(2); }
+echo "ed25519:" . base64_encode(sodium_crypto_sign_detached($message, $secret));
+')" || return 1
+    yq -i ".originating_review.authority_approval.signature = \"${signature}\"" "$REVIEW"
+}
+
+prepare_signed_review_fixture() {
+    local state="$1"
+    local status="${2-ACTIVE}"
+    local valid_from="${3-2026-01-01T00:00:00Z}"
+    local valid_until="${4-2036-01-01T00:00:00Z}"
+    local seed public_key secret_key
+    seed="$(openssl rand -hex 32)"
+    # PHP receives positional parameters literally.
+    # shellcheck disable=SC2016
+    public_key="$(printf '%s\n' "$seed" | php -r '$seed=hex2bin(trim(fgets(STDIN))); $pair=sodium_crypto_sign_seed_keypair($seed); echo base64_encode(sodium_crypto_sign_publickey($pair));')"
+    # PHP receives positional parameters literally.
+    # shellcheck disable=SC2016
+    secret_key="$(printf '%s\n' "$seed" | php -r '$seed=hex2bin(trim(fgets(STDIN))); $pair=sodium_crypto_sign_seed_keypair($seed); echo base64_encode(sodium_crypto_sign_secretkey($pair));')"
+    build_test_framework "review-${state}-${status}" || return 1
+    env REVIEW_PUBLIC_KEY="$public_key" REVIEW_KEY_STATUS="$status" \
+        REVIEW_VALID_FROM="$valid_from" REVIEW_VALID_UNTIL="$valid_until" \
+        yq -i '."x-datarim-signature-contract".key_resolution.bundled_registry.entries += [{
+          "key_id":"key-review-test-0001",
+          "authority_id":"authority-review-test-0001",
+          "allowed_roles":["OPERATOR"],
+          "public_key":strenv(REVIEW_PUBLIC_KEY),
+          "status":strenv(REVIEW_KEY_STATUS),
+          "valid_from":strenv(REVIEW_VALID_FROM),
+          "valid_until":strenv(REVIEW_VALID_UNTIL)
+        }] | ."x-datarim-signature-contract".key_resolution.bundled_registry.entries |= sort_by(.key_id)' \
+        "${TEST_FRAMEWORK}/config/customer-requirement.schema.json" || return 1
+    authenticate_test_registry '.' || return 1
+    yq -i ".originating_review.state = \"${state}\" |
+        .originating_review.authority_approval.authority_id = \"authority-review-test-0001\" |
+        .originating_review.authority_approval.authority_role = \"OPERATOR\" |
+        .originating_review.authority_approval.key_id = \"key-review-test-0001\"" "$REVIEW" || return 1
+    reseal_and_sign_review "$secret_key"
 }
 
 @test "complete canonical delivery chain is MET" {
@@ -247,17 +345,156 @@ PY
         && [[ "$output" == *"knowledge_selection_mismatch:req-0001"* ]]
 }
 
-@test "in-progress parent product-fix evidence cannot close delivery" {
+@test "in-progress product fix is separate from originating review closure" {
     yq -i '.product_fix.status = "IN_PROGRESS"' "$REVIEW"
     run_validator
     [ "$status" -eq 1 ] \
-        && [[ "$output" == *"parent_review_not_closed:req-0001"* ]] \
-        || return 1
+        && [[ "$output" == *"product_fix_not_delivered:req-0001"* ]] \
+        && [[ "$output" != *"parent_review_not_closed:req-0001"* ]]
+}
 
-    yq -i '.product_fix.status = "changes_requested"' "$REVIEW"
+@test "originating review digest binds every canonical review field" {
+    yq -i '.originating_review.evidence_ref = "artifacts/reviews/tampered.json"' "$REVIEW"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"originating_review_digest_mismatch:review-0001"* ]]
+}
+
+@test "originating review approved digest equals its canonical review digest" {
+    yq -i '.originating_review.authority_approval.approved_digest = "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"' "$REVIEW"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"originating_review_approval_digest_mismatch:review-0001"* ]]
+}
+
+@test "originating review approval payload digest is canonical" {
+    yq -i '.originating_review.authority_approval.evidence_ref = "artifacts/reviews/tampered-approval.json"' "$REVIEW"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"originating_review_approval_payload_digest_mismatch:review-0001"* ]]
+}
+
+@test "originating review signature verifies over raw approval payload digest" {
+    yq -i '.originating_review.authority_approval.signature = "ed25519:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="' "$REVIEW"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"originating_review_signature_invalid:review-0001"* ]]
+}
+
+@test "originating review rejects an unknown authority key" {
+    yq -i '.originating_review.authority_approval.key_id = "key-unknown-0001"' "$REVIEW"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"originating_review_approval_key_unknown:review-0001:key-unknown-0001"* ]]
+}
+
+@test "originating review authority identity equals its trusted key binding" {
+    yq -i '.originating_review.authority_approval.authority_id = "authority-attacker-0001"' "$REVIEW"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"originating_review_approval_authority_mismatch:review-0001"* ]]
+}
+
+@test "originating review authority role is allowed by its trusted key binding" {
+    yq -i '.originating_review.authority_approval.authority_role = "CUSTOMER"' "$REVIEW"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"originating_review_approval_role_unauthorized:review-0001"* ]]
+}
+
+@test "originating review rejects a revoked approval key" {
+    prepare_signed_review_fixture APPROVED REVOKED || return 1
+    run_test_framework_json
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"originating_review_approval_key_not_active:review-0001"* ]]
+}
+
+@test "originating review rejects a not-yet-valid approval key" {
+    prepare_signed_review_fixture APPROVED ACTIVE "2027-01-01T00:00:00Z" || return 1
+    run_test_framework_json
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"originating_review_approval_key_not_yet_valid:review-0001"* ]]
+}
+
+@test "originating review rejects an expired approval key" {
+    prepare_signed_review_fixture APPROVED ACTIVE "2025-01-01T00:00:00Z" "2026-01-03T14:00:00Z" || return 1
+    run_test_framework_json
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"originating_review_approval_key_expired:review-0001"* ]]
+}
+
+@test "originating review observation cannot postdate review completion" {
+    yq -i '.originating_review.observed_at = "2026-01-03T15:00:01Z"' "$REVIEW"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"originating_review_observed_after_reviewed_at:review-0001"* ]]
+}
+
+@test "originating review reference rejects a whitespace-only value" {
+    yq -i '.originating_review.review_ref = "   "' "$REVIEW"
     run_validator
     [ "$status" -eq 1 ] \
         && [[ "$output" == *"schema:review"* ]]
+}
+
+@test "originating review evidence reference rejects a whitespace-only value" {
+    yq -i '.originating_review.evidence_ref = "   "' "$REVIEW"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"schema:review"* ]]
+}
+
+@test "originating review registry reference is pinned to the bundled registry" {
+    build_test_framework review-registry-ref || return 1
+    yq -i '."x-datarim-trusted-authority-key-registry-ref".registry_id = "registry-attacker-0001"' \
+        "${TEST_FRAMEWORK}/config/review-evolution.schema.json"
+    run_test_framework_json
+    [ "$status" -eq 2 ] \
+        && [[ "$output" == *"review_trust_registry_ref_mismatch"* ]]
+}
+
+@test "originating review requirement identity is cross-bound" {
+    yq -i '.requirement_id = "req-0002"' "$REVIEW"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"review_requirement_mismatch:req-0002"* ]]
+}
+
+@test "originating review receipt identity is cross-bound" {
+    yq -i '.delivery_receipt_id = "receipt-0002"' "$REVIEW"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"review_receipt_mismatch"* ]]
+}
+
+@test "originating review replay under another review identity is rejected" {
+    yq -i '.review_id = "review-0002"' "$REVIEW"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"originating_review_digest_mismatch:review-0002"* ]]
+}
+
+@test "coordinated originating review reseal still requires a new signature" {
+    yq -i '.originating_review.state = "CHANGES_REQUESTED" |
+        .originating_review.evidence_ref = "artifacts/reviews/changes-requested.json"' "$REVIEW"
+    reseal_and_sign_review "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==" || return 1
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"originating_review_signature_invalid:review-0001"* ]]
+}
+
+@test "authenticated OPEN originating review blocks closure" {
+    prepare_signed_review_fixture OPEN || return 1
+    run_test_framework_json
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"parent_review_not_closed:req-0001"* ]]
+}
+
+@test "authenticated CHANGES_REQUESTED originating review blocks closure" {
+    prepare_signed_review_fixture CHANGES_REQUESTED || return 1
+    run_test_framework_json
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"parent_review_not_closed:req-0001"* ]]
 }
 
 @test "a rejected child disposition cannot produce a MET delivery decision" {

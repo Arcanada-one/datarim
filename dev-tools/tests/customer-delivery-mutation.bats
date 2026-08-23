@@ -104,6 +104,22 @@ PY
         'disposition_digest|terminal disposition canonical and approval payload digests are independently bound'
         'disposition_approved_digest|terminal disposition canonical and approval payload digests are independently bound'
         'disposition_approval_digest|terminal disposition canonical and approval payload digests are independently bound'
+        'registry_review_ref|originating review registry reference is pinned to the bundled registry'
+        'review_digest|originating review digest binds every canonical review field'
+        'review_approved_digest|originating review approved digest equals its canonical review digest'
+        'review_approval_digest|originating review approval payload digest is canonical'
+        'review_signature|originating review signature verifies over raw approval payload digest'
+        'review_key_known|originating review rejects an unknown authority key'
+        'review_key_authority|originating review authority identity equals its trusted key binding'
+        'review_key_role|originating review authority role is allowed by its trusted key binding'
+        'review_key_active|originating review rejects a revoked approval key'
+        'review_key_valid_from|originating review rejects a not-yet-valid approval key'
+        'review_key_window|originating review rejects an expired approval key'
+        'review_observed_at|originating review observation cannot postdate review completion'
+        'review_state_open|authenticated OPEN originating review blocks closure'
+        'review_state_changes|authenticated CHANGES_REQUESTED originating review blocks closure'
+        'review_requirement_binding|originating review requirement identity is cross-bound'
+        'review_receipt_binding|originating review receipt identity is cross-bound'
     )
 
     for pair in "${pairs[@]}"; do
