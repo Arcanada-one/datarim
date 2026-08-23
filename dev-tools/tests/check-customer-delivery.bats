@@ -14,6 +14,8 @@ setup() {
     SITE_CLEANUP_PATH=''
     SITE_CLEANUP_BACKUP=''
     SITE_IDENTITY_CLEANUP_SITE=''
+    SITE_CONTENT_CLEANUP_PATH=''
+    SITE_CONTENT_CLEANUP_BACKUP=''
     SHA="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     mkdir -p "${ROOT}/datarim/tasks" "${ROOT}/datarim/receipts"
 
@@ -79,6 +81,29 @@ cleanup_metadata_identity_fixture() {
     SITE_IDENTITY_CLEANUP_SITE=''
 }
 
+cleanup_site_content_fixture() {
+    [[ -n "${SITE_CONTENT_CLEANUP_PATH:-}" ]] || return 0
+    if [[ -n "${SITE_CONTENT_CLEANUP_BACKUP:-}" && -f "$SITE_CONTENT_CLEANUP_BACKUP" ]]; then
+        "$PYTHON" - "$SITE_CONTENT_CLEANUP_PATH" "$SITE_CONTENT_CLEANUP_BACKUP" <<'PY' || return 1
+import os
+import sys
+
+path, backup = sys.argv[1:]
+with open(backup, "rb") as handle:
+    content = handle.read()
+with open(path, "r+b") as handle:
+    handle.seek(0)
+    handle.truncate(0)
+    handle.write(content)
+    handle.flush()
+    os.fsync(handle.fileno())
+os.unlink(backup)
+PY
+    fi
+    SITE_CONTENT_CLEANUP_PATH=''
+    SITE_CONTENT_CLEANUP_BACKUP=''
+}
+
 assert_darwin_dependency_site_integrity() {
     [[ "$(/usr/bin/uname -s)" == Darwin ]] || return 0
     /usr/bin/env -i LC_ALL=C \
@@ -115,6 +140,7 @@ else:
 }
 
 teardown() {
+    cleanup_site_content_fixture || return 1
     cleanup_metadata_identity_fixture || return 1
     cleanup_site_fixture || return 1
     assert_darwin_dependency_site_integrity
@@ -2221,16 +2247,18 @@ PY
 
 @test "Darwin trusted site bootstrap rejects oversized METADATA change after lstat" {
     [[ "$(/usr/bin/uname -s)" == Darwin ]] || skip 'Darwin-only trusted site boundary'
-    local site_path result output_copy
+    local site_path metadata backup result output_copy
     site_path="${CUSTOMER_TEST_PYTHON_SITE:?missing CUSTOMER_TEST_PYTHON_SITE}"
+    metadata="${site_path}/jsonschema-4.23.0.dist-info/METADATA"
+    backup="${BATS_TEST_TMPDIR}/jsonschema-METADATA-size-original"
     build_test_framework metadata-size-after-lstat || return 1
-    "$PYTHON" - "$TEST_SCRIPT" <<'PY' || return 1
+    "$PYTHON" - "$TEST_SCRIPT" "$backup" <<'PY' || return 1
 import sys
 
-path = sys.argv[1]
+path, backup = sys.argv[1:]
 source = open(path, encoding="utf-8").read()
 after_check = '        metadata_flags |= os.O_NONBLOCK\n'
-attack = '''        if distribution == "jsonschema":
+attack = f'''        if distribution == "jsonschema":
             source_fd = os.open("METADATA", os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
             try:
                 original_bytes = b""
@@ -2242,7 +2270,7 @@ attack = '''        if distribution == "jsonschema":
             finally:
                 os.close(source_fd)
             backup_fd = os.open(
-                "METADATA.original-a2",
+                {backup!r},
                 os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC,
                 0o600,
             )
@@ -2267,12 +2295,13 @@ if source.count(after_check) != 1:
 source = source.replace(after_check, attack + after_check)
 open(path, "w", encoding="utf-8").write(source)
 PY
-    SITE_IDENTITY_CLEANUP_SITE="$site_path"
+    SITE_CONTENT_CLEANUP_PATH="$metadata"
+    SITE_CONTENT_CLEANUP_BACKUP="$backup"
     run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         "$TEST_SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
     result="$status"
     output_copy="$output"
-    cleanup_metadata_identity_fixture || return 1
+    cleanup_site_content_fixture || return 1
     assert_darwin_dependency_site_integrity || return 1
     [ "$result" -eq 2 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_dependencies"]' "$output_copy" \
@@ -2394,16 +2423,30 @@ new = '''        metadata_entry = os.stat("METADATA", follow_symlinks=False)
                 src_dir_fd=dist_fd, dst_dir_fd=dist_fd,
             )
             os.mkfifo("METADATA", 0o600, dir_fd=dist_fd)
-            signal = __import__("signal")
-            def interrupt_blocked_open(signum, frame):
-                raise TimeoutError("blocked METADATA open")
-            signal.signal(signal.SIGALRM, interrupt_blocked_open)
-            signal.setitimer(signal.ITIMER_REAL, 3.0)
+            threading = __import__("threading")
+            time = __import__("time")
+            def delayed_fifo_writer():
+                time.sleep(5.0)
+                writer_fd = os.open(
+                    "METADATA", os.O_RDWR | os.O_NONBLOCK | os.O_CLOEXEC,
+                    dir_fd=dist_fd,
+                )
+                os.close(writer_fd)
+            threading.Thread(target=delayed_fifo_writer, daemon=True).start()
 '''
 if source.count(old) != 1:
     raise SystemExit("METADATA_NONBLOCK_ATTACK_SEAM_MISSING_OR_AMBIGUOUS")
 open(path, "w", encoding="utf-8").write(source.replace(old, new))
 PY
+    if [[ -n "${CUSTOMER_DELIVERY_EXPECT_MUTATION_MARKER:-}" ]]; then
+        if ! grep -q "# ${CUSTOMER_DELIVERY_EXPECT_MUTATION_MARKER}" "$TEST_SCRIPT"; then
+            printf 'HARNESS_INVALID:missing_mutation_marker:%s\n' \
+                "$CUSTOMER_DELIVERY_EXPECT_MUTATION_MARKER" >&3
+            return 1
+        fi
+        printf 'metadata_nonblock_mutation=%s\n' \
+            "$CUSTOMER_DELIVERY_EXPECT_MUTATION_MARKER" >&3
+    fi
     SITE_IDENTITY_CLEANUP_SITE="$site_path"
     start="$($PYTHON -c 'import time; print(time.time_ns())')"
     run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
@@ -2417,7 +2460,7 @@ PY
     printf 'metadata_nonblock_output=%s elapsed=%s\n' "$output_copy" "$elapsed" >&3
     [ "$result" -eq 2 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_dependencies"]' "$output_copy" \
-        && "$PYTHON" -c 'import sys; assert float(sys.argv[1]) < 2.5' "$elapsed" \
+        && "$PYTHON" -c 'import sys; assert float(sys.argv[1]) < 4.0' "$elapsed" \
         && [[ "$output_copy" != *Traceback* ]]
 }
 

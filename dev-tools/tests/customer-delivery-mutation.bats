@@ -66,13 +66,14 @@ assert_attributed_mutant_kill() {
     local marker="$1" filter="$2" expected_lines="$3"
     local nested_status="$4" nested_output="$5" reported line matched=0
     if [ "$nested_status" -eq 0 ]; then
-        printf 'SURVIVED_MUTANT:%s\n' "$marker"
+        printf 'SURVIVED_MUTANT:%s output=%s\n' "$marker" "$nested_output"
         return 1
     fi
     if [ "$nested_status" -eq 124 ] \
         || [[ "$nested_output" == *"setup_file failed"* ]] \
         || [[ "$nested_output" == *"syntax error"* ]] \
         || [[ "$nested_output" == *"BATS_TEST_TIMEOUT"* ]] \
+        || [[ "$nested_output" == *"HARNESS_INVALID:"* ]] \
         || [ "$(printf '%s\n' "$nested_output" | awk '$0 == "1..1" { count++ } END { print count+0 }')" -ne 1 ] \
         || [ "$(printf '%s\n' "$nested_output" | awk -v target="not ok 1 ${filter}" '$0 == target { count++ } END { print count+0 }')" -ne 1 ]; then
         printf 'HARNESS_INVALID:%s:execution-contract\n' "$marker"
@@ -660,6 +661,7 @@ PY
             CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
             CUSTOMER_TEST_PYTHON_RUNTIME="$CUSTOMER_TEST_PYTHON_RUNTIME" \
             CUSTOMER_TEST_PYTHON_SITE="$CUSTOMER_TEST_PYTHON_SITE" \
+            CUSTOMER_DELIVERY_EXPECT_MUTATION_MARKER="MUTATED:${kind}" \
             CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
             bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
         assert_attributed_mutant_kill "$kind" "$filter" "$expected_lines" \
@@ -1069,6 +1071,10 @@ PY
     run assert_attributed_mutant_kill timeout "$filter" "$expected" 124 \
         $'1..1\nnot ok 1 focused contract\n# (in test file fixture.bats, line 42)'
     [ "$status" -ne 0 ] && [[ "$output" == *"HARNESS_INVALID:timeout"* ]] || return 1
+
+    run assert_attributed_mutant_kill marker "$filter" "$expected" 1 \
+        $'1..1\nnot ok 1 focused contract\nHARNESS_INVALID:missing_mutation_marker:marker\n# (in test file fixture.bats, line 42)'
+    [ "$status" -ne 0 ] && [[ "$output" == *"HARNESS_INVALID:marker"* ]] || return 1
 
     run assert_attributed_mutant_kill wrong "$filter" "$expected" 1 \
         $'1..1\nnot ok 1 focused contract\n# (in test file fixture.bats, line 43)\n# wrong assertion failed'
