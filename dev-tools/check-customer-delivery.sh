@@ -285,13 +285,19 @@ assert_python_runtime_identity() {
         && secure_root_path "$trusted_runtime_path" "$trusted_developer_root" file
 }
 
+if [[ "$platform" == Darwin ]]; then
+    python_isolation_args=(-s)
+else
+    python_isolation_args=(-I)
+fi
+
 run_trusted_python() {
     local child_status
     assert_python_runtime_identity || return 126
     if [[ "$platform" == Darwin ]]; then
         if /usr/bin/env -i LC_ALL=C \
             __PYVENV_LAUNCHER__="$python_bin" \
-            /bin/bash -p -c 'exec -a "$1" "$2" "${@:3}"' bash \
+            /bin/bash -p -c 'cd / && exec -a "$1" "$2" "${@:3}"' bash \
             "$python_bin" "$trusted_runtime_path" "$@"; then
             child_status=0
         else
@@ -310,7 +316,7 @@ run_trusted_python() {
     assert_python_runtime_identity || return 126
     return "$child_status"
 }
-python_probe="$(run_trusted_python -I -c '
+python_probe="$(run_trusted_python "${python_isolation_args[@]}" -c '
 import os
 import sys
 
@@ -325,7 +331,7 @@ if [[ "$probe_device" != "$trusted_runtime_device" || "$probe_inode" != "$truste
     emit_config_error 'untrusted_python_runtime'
     exit 2
 fi
-if [[ "$(run_trusted_python -I -c 'import jsonschema, rfc3339_validator, yaml; print("CUSTOMER_DELIVERY_DEPENDENCIES_OK" if "date-time" in jsonschema.FormatChecker().checkers else "")' 2>/dev/null || true)" != CUSTOMER_DELIVERY_DEPENDENCIES_OK ]]; then
+if [[ "$(run_trusted_python "${python_isolation_args[@]}" -c 'import jsonschema, rfc3339_validator, yaml; print("CUSTOMER_DELIVERY_DEPENDENCIES_OK" if "date-time" in jsonschema.FormatChecker().checkers else "")' 2>/dev/null || true)" != CUSTOMER_DELIVERY_DEPENDENCIES_OK ]]; then
     emit_config_error 'missing_python_dependencies'
     exit 2
 fi
@@ -337,7 +343,7 @@ validator_output="$(/usr/bin/mktemp "${TMPDIR:-/tmp}/customer-delivery-output.XX
 }
 trap '/usr/bin/rm -f -- "$validator_output"' EXIT
 set +e
-run_trusted_python -I - "$task" "$stage" "$format" "$root" \
+run_trusted_python "${python_isolation_args[@]}" - "$task" "$stage" "$format" "$root" \
     "$requirements" "$receipt" "$review" \
     "$requirements_schema" "$receipt_schema" "$review_schema" \
     "$framework_root" "$pinned_openssl" "$platform" >"$validator_output" <<'PY'
@@ -2957,7 +2963,7 @@ validator_output_size() {
 }
 
 validate_json_response() {
-    run_trusted_python -I - "$validator_output" "$task" "$stage" "$validator_status" <<'PY'
+    run_trusted_python "${python_isolation_args[@]}" - "$validator_output" "$task" "$stage" "$validator_status" <<'PY'
 import json
 import sys
 

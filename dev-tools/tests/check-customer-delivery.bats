@@ -1800,6 +1800,17 @@ PY
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "MET"' "$output"
 }
 
+@test "current directory cannot shadow trusted Python dependencies" {
+    local hostile_cwd="${BATS_TEST_TMPDIR}/hostile-python-cwd"
+    mkdir -p "$hostile_cwd"
+    printf '%s\n' 'raise RuntimeError("HOSTILE_CWD_JSONSCHEMA_IMPORTED")' >"${hostile_cwd}/jsonschema.py"
+    run bash -c 'cd "$1" && env CUSTOMER_DELIVERY_PYTHON="$2" "$3" --root "$4" --task "$5" --stage qa --format json' \
+        bash "$hostile_cwd" "$PYTHON" "$SCRIPT" "$ROOT" "$TASK_ID"
+    [ "$status" -eq 0 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "MET"' "$output" \
+        && [[ "$output" != *HOSTILE_CWD_JSONSCHEMA_IMPORTED* ]]
+}
+
 @test "canonical inputs are parsed from confined stable descriptor snapshots" {
     grep -q '# SECURITY_RULE:input_snapshot_openat' "$SCRIPT" \
         && grep -q '# SECURITY_RULE:input_snapshot_identity' "$SCRIPT"

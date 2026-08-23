@@ -95,6 +95,7 @@ diagnose_path resolved_runtime "$runtime_path"
 secure_root_path "$runtime_path" "$developer_root" file
 runtime_identity="$(stat_identity "$runtime_path")"
 expected_prefix="${python_bin%/bin/python}"
+original_cwd="$PWD"
 probe_program='
 import os
 import sys
@@ -103,10 +104,17 @@ from importlib import metadata as importlib_metadata
 expected_prefix = sys.argv[1]
 runtime_path = sys.argv[2]
 expected_executable = sys.argv[3]
+original_cwd = os.path.realpath(sys.argv[4])
+probe_platform = sys.argv[5]
 print(f"runtime_preflight_child_executable={sys.executable} prefix={sys.prefix} base_prefix={sys.base_prefix} path={sys.path}", file=sys.stderr)
 assert sys.executable == expected_executable, (sys.executable, expected_executable)
 assert sys.prefix == expected_prefix, (sys.prefix, expected_prefix)
 assert sys.base_prefix != sys.prefix, (sys.base_prefix, sys.prefix)
+if probe_platform == "Darwin":
+    assert os.getcwd() == "/", os.getcwd()
+for entry in sys.path:
+    resolved = os.path.realpath(entry or os.getcwd())
+    assert resolved != original_cwd and not resolved.startswith(original_cwd + os.sep), resolved
 import jsonschema
 import rfc3339_validator
 import yaml
@@ -129,14 +137,14 @@ print(f"{metadata.st_dev}|{metadata.st_ino}|{sys.implementation.name}|{sys.versi
 '
 if [[ "$platform" == Darwin ]]; then
     probe="$(/usr/bin/env -i LC_ALL=C __PYVENV_LAUNCHER__="$python_bin" \
-        /bin/bash -p -c 'exec -a "$1" "$2" "${@:3}"' bash \
-        "$python_bin" "$runtime_path" -I -c "$probe_program" \
-        "$expected_prefix" "$runtime_path" "$python_bin")"
+        /bin/bash -p -c 'cd / && exec -a "$1" "$2" "${@:3}"' bash \
+        "$python_bin" "$runtime_path" -s -c "$probe_program" \
+        "$expected_prefix" "$runtime_path" "$python_bin" "$original_cwd" "$platform")"
 else
     probe="$(/usr/bin/env -i LC_ALL=C /bin/bash -p -c \
         'exec -a "$1" "$2" "${@:3}"' bash \
         "$python_bin" "$runtime_path" -I -c "$probe_program" \
-        "$expected_prefix" "$runtime_path" "$python_bin")"
+        "$expected_prefix" "$runtime_path" "$python_bin" "$original_cwd" "$platform")"
 fi
 IFS='|' read -r probe_device probe_inode probe_implementation probe_major probe_minor \
     probe_dependencies probe_prefix probe_base_prefix <<<"$probe"

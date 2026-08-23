@@ -336,6 +336,7 @@ PY
         'python_inode|perfect probe dependency and MET forgery cannot impersonate a trusted CPython inode'
         'python_runtime_metadata|forged writable trusted runtime metadata fails closed'
         'python_routing_env|ambient Python and Apple developer routing cannot redirect the trusted runtime'
+        'python_cwd_isolation|current directory cannot shadow trusted Python dependencies'
         'wrapper_response|empty validator response cannot be accepted as MET'
         'git_no_replace_objects|Git replacement objects cannot hide an in-place source mutation'
         'git_process_group|source history deadline kills stubborn descendant pipe holders'
@@ -412,6 +413,19 @@ elif kind == "python_routing_env":
     ).replace(
         linux,
         '''trusted_runtime_path="$("$trusted_python_anchor" -I -c 'import sys; print(sys.executable)' 2>/dev/null || true)"''',
+    )
+elif kind == "python_cwd_isolation":
+    darwin = '''python_isolation_args=(-s)'''
+    linux = '''python_isolation_args=(-I)'''
+    cwd = '''/bin/bash -p -c 'cd / && exec -a "$1" "$2" "${@:3}"' bash'''
+    if source.count(darwin) != 1 or source.count(linux) != 1 or source.count(cwd) != 1:
+        raise SystemExit("PYTHON_CWD_ISOLATION_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+    source = source.replace(darwin, 'python_isolation_args=(-s)  # MUTATED:darwin_cwd_isolation', 1)
+    source = source.replace(linux, 'python_isolation_args=(-s)  # MUTATED:linux_isolation', 1)
+    source = source.replace(
+        cwd,
+        '''/bin/bash -p -c 'exec -a "$1" "$2" "${@:3}"' bash''',
+        1,
     )
 elif kind == "wrapper_response":
     old = 'if [[ "$response_valid" != true ]]; then'
