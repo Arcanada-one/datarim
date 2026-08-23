@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter
+import json
 import os
 from pathlib import Path
 import re
@@ -35,6 +37,7 @@ class Row:
     mode: str
     first: str
     last: str
+    platforms: tuple[str, ...]
 
 
 def extract_tests(path: Path) -> list[str]:
@@ -81,12 +84,15 @@ def load_registry(path: Path) -> list[Row]:
         if not line or line.startswith("#"):
             continue
         fields = line.split()
-        if len(fields) != 6:
+        if len(fields) != 7:
             raise ContractError(f"invalid registry row {line_number}")
-        suite, shard_text, total_text, mode, first, last = fields
+        suite, shard_text, total_text, mode, first, last, platforms_text = fields
         if suite not in SUITE_PATHS or not shard_text.isdigit() or not total_text.isdigit():
             raise ContractError(f"invalid registry row {line_number}")
-        row = Row(suite, int(shard_text), int(total_text), mode, first, last)
+        platforms = tuple(platforms_text.split(","))
+        if not platforms or len(platforms) != len(set(platforms)) or not set(platforms) <= {"linux", "macos"}:
+            raise ContractError(f"invalid registry platforms {line_number}")
+        row = Row(suite, int(shard_text), int(total_text), mode, first, last, platforms)
         key = (row.suite, row.shard)
         if key in keys:
             raise ContractError(f"duplicate shard: {suite} {row.shard}")
@@ -175,14 +181,58 @@ def selected_names(row: Row, inventory: list[str]) -> list[str]:
     return [inventory[index - 1] for index in indices]
 
 
+def matrix_for(rows: list[Row], platform: str) -> list[dict[str, str]]:
+    return [
+        {"suite": row.suite, "shard": f"{row.shard}/{row.total}"}
+        for row in rows if platform in row.platforms
+    ]
+
+
+def check_results(rows: list[Row], platform: str, directory: Path) -> int:
+    expected = Counter((item["suite"], item["shard"]) for item in matrix_for(rows, platform))
+    if not directory.is_dir():
+        raise ContractError("result inventory mismatch: missing directory")
+    observed: Counter[tuple[str, str]] = Counter()
+    for path in sorted(directory.glob("*.json")):
+        try:
+            item = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, UnicodeError) as error:
+            raise ContractError(f"result inventory mismatch: changed {path.name}") from error
+        if (
+            not isinstance(item, dict)
+            or set(item) != {"suite", "shard"}
+            or not all(isinstance(item[field], str) for field in ("suite", "shard"))
+        ):
+            raise ContractError(f"result inventory mismatch: changed {path.name}")
+        key = (item["suite"], item["shard"])
+        observed[key] += 1
+        if observed[key] > 1:
+            raise ContractError(f"result inventory mismatch: duplicate {key[0]} {key[1]}")
+    missing = expected - observed
+    extra = observed - expected
+    if missing:
+        key = next(iter(missing))
+        raise ContractError(f"result inventory mismatch: missing {key[0]} {key[1]}")
+    if extra:
+        key = next(iter(extra))
+        raise ContractError(f"result inventory mismatch: extra {key[0]} {key[1]}")
+    print(f"customer_delivery_results=valid platform={platform} count={sum(observed.values())}")
+    return 0
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--registry", type=Path, default=ROOT / "tests/customer-delivery-shards.tsv")
     parser.add_argument("--check", action="store_true")
+    parser.add_argument("--matrix", choices=("linux", "macos"))
+    parser.add_argument("--check-results", nargs=2, metavar=("PLATFORM", "DIRECTORY"))
     parser.add_argument("--suite", choices=sorted(SUITE_PATHS))
     parser.add_argument("--shard")
     parser.add_argument("--python-bin", default="/usr/bin/python3")
+    parser.add_argument("--bats-bin")
     parser.add_argument("--timeout-seconds", type=int, default=105)
+    parser.add_argument("--platform", choices=("linux", "macos"))
+    parser.add_argument("--result-file", type=Path)
     return parser.parse_args()
 
 
@@ -191,6 +241,14 @@ def main() -> int:
     try:
         rows = load_registry(args.registry)
         inventories, security_arms = validate_registry(rows)
+        if args.matrix:
+            print(json.dumps(matrix_for(rows, args.matrix), separators=(",", ":")))
+            return 0
+        if args.check_results:
+            platform, directory = args.check_results
+            if platform not in {"linux", "macos"}:
+                raise ContractError(f"unknown results platform: {platform}")
+            return check_results(rows, platform, Path(directory))
         if args.check:
             print(
                 "customer_delivery_shards=valid "
@@ -214,10 +272,12 @@ def main() -> int:
         python_bin = Path(args.python_bin)
         if not python_bin.is_absolute() or not python_bin.is_file() or not os.access(python_bin, os.X_OK):
             raise ContractError("python-bin must be an absolute executable")
-        bats = shutil.which("bats")
-        if not bats:
+        bats = args.bats_bin or shutil.which("bats")
+        if not bats or not Path(bats).is_absolute() or not os.access(bats, os.X_OK):
             raise ContractError("bats executable unavailable")
         row = matching[0]
+        if args.platform and args.platform not in row.platforms:
+            raise ContractError(f"shard not approved for platform: {args.platform}")
         environment = os.environ.copy()
         environment["CUSTOMER_DELIVERY_PYTHON"] = str(python_bin)
         environment["CUSTOMER_SCHEMA_PYTHON"] = str(python_bin)
@@ -233,7 +293,16 @@ def main() -> int:
             start_new_session=True,
         )
         try:
-            return process.wait(timeout=args.timeout_seconds)
+            returncode = process.wait(timeout=args.timeout_seconds)
+            if returncode == 0 and args.result_file:
+                if not args.platform:
+                    raise ContractError("result-file requires platform")
+                args.result_file.parent.mkdir(parents=True, exist_ok=True)
+                args.result_file.write_text(
+                    json.dumps({"suite": row.suite, "shard": f"{row.shard}/{row.total}"}) + "\n",
+                    encoding="utf-8",
+                )
+            return returncode
         except subprocess.TimeoutExpired:
             try:
                 os.killpg(process.pid, signal.SIGKILL)

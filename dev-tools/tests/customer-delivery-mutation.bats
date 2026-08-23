@@ -511,3 +511,52 @@ PY
             "$kind" "$platform" "$architecture" "$filter"
     done
 }
+
+@test "descriptor openat nofollow and identity mutants are behaviorally killed" {
+    local pair kind filter framework mutant
+    local -a pairs=(
+        'openat|pre-open path replacement cannot redirect a canonical snapshot'
+        'nofollow|pre-open path replacement cannot redirect a canonical snapshot'
+        'identity|post-open identity change invalidates the captured snapshot'
+    )
+    for pair in "${pairs[@]}"; do
+        kind="${pair%%|*}"
+        filter="${pair#*|}"
+        run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+        [ "$status" -eq 0 ] || return 1
+        framework="${BATS_TEST_TMPDIR}/descriptor-framework-${kind}"
+        mutant="${framework}/dev-tools/check-customer-delivery.sh"
+        mkdir -p "${framework}/dev-tools" "${framework}/config"
+        cp "$SCRIPT" "$mutant" || return 1
+        cp "${REPO_ROOT}/config/customer-requirement.schema.json" \
+            "${REPO_ROOT}/config/customer-delivery-receipt.schema.json" \
+            "${REPO_ROOT}/config/review-evolution.schema.json" \
+            "${framework}/config/" || return 1
+        "$PYTHON" - "$mutant" "$kind" <<'PY' || return 1
+import sys
+path, kind = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+if kind == "openat":
+    old = """        document_bytes = read_confined_snapshot(
+            DOCUMENT_PATHS[name], ROOT, name
+        )"""
+    new = '        document_bytes = open(DOCUMENT_PATHS[name], "rb").read()'
+elif kind == "nofollow":
+    old = '    nofollow = getattr(os, "O_NOFOLLOW", 0)'
+    new = '    nofollow = 0'
+elif kind == "identity":
+    old = '        if identity_before != identity_after:'
+    new = '        if False:'
+else:
+    raise SystemExit(kind)
+assert source.count(old) == 1
+open(path, "w", encoding="utf-8").write(source.replace(old, new))
+PY
+        chmod +x "$mutant"
+        run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
+            bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+        [ "$status" -ne 0 ] \
+            && [[ "$output" == *"not ok 1 ${filter}"* ]] \
+            || return 1
+    done
+}

@@ -36,6 +36,9 @@ jobs:
   registry:
     name: exclusion registry + inventory
     runs-on: ubuntu-latest
+    outputs:
+      linux_matrix: ${{ steps.customer_delivery_matrix.outputs.linux }}
+      macos_matrix: ${{ steps.customer_delivery_matrix.outputs.macos }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -48,6 +51,13 @@ jobs:
 
       - name: Validate exact customer-delivery shard coverage
         run: /usr/bin/python3 tests/run-customer-delivery-shard.py --check
+
+      - name: Generate customer-delivery matrices from the canonical registry
+        id: customer_delivery_matrix
+        run: |
+          set -euo pipefail
+          echo "linux=$(/usr/bin/python3 tests/run-customer-delivery-shard.py --matrix linux)" >> "$GITHUB_OUTPUT"
+          echo "macos=$(/usr/bin/python3 tests/run-customer-delivery-shard.py --matrix macos)" >> "$GITHUB_OUTPUT"
 
       - name: Publish suite inventory
         run: |
@@ -99,21 +109,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { suite: functional, shard: '1/3' }
-          - { suite: functional, shard: '2/3' }
-          - { suite: functional, shard: '3/3' }
-          - { suite: schema, shard: '1/3' }
-          - { suite: schema, shard: '2/3' }
-          - { suite: schema, shard: '3/3' }
-          - { suite: mutation, shard: '1/8' }
-          - { suite: mutation, shard: '2/8' }
-          - { suite: mutation, shard: '3/8' }
-          - { suite: mutation, shard: '4/8' }
-          - { suite: mutation, shard: '5/8' }
-          - { suite: mutation, shard: '6/8' }
-          - { suite: mutation, shard: '7/8' }
-          - { suite: mutation, shard: '8/8' }
+        include: ${{ fromJSON(needs.registry.outputs.linux_matrix) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -133,9 +129,23 @@ jobs:
       - name: Run bounded exact shard
         timeout-minutes: 2
         run: |
+          set -euo pipefail
+          result_dir="$RUNNER_TEMP/customer-delivery-result"
+          shard="${{ matrix.shard }}"
+          mkdir -p "$result_dir"
           /usr/bin/python3 tests/run-customer-delivery-shard.py \
             --suite "${{ matrix.suite }}" --shard "${{ matrix.shard }}" \
-            --python-bin "$RUNNER_TEMP/customer-delivery-venv/bin/python"
+            --python-bin "$RUNNER_TEMP/customer-delivery-venv/bin/python" \
+            --platform linux \
+            --result-file "$result_dir/${{ matrix.suite }}-${shard//\//-}.json"
+
+      - name: Upload exact shard result
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: customer-delivery-linux-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/customer-delivery-result/*.json
+          if-no-files-found: error
+          retention-days: 1
 
   macos-portability:
     name: portability (macOS / BSD userland)
@@ -207,14 +217,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { suite: functional, shard: '1/3' }
-          - { suite: functional, shard: '2/3' }
-          - { suite: functional, shard: '3/3' }
-          - { suite: schema, shard: '1/3' }
-          - { suite: schema, shard: '2/3' }
-          - { suite: schema, shard: '3/3' }
-          - { suite: mutation, shard: '8/8' }
+        include: ${{ fromJSON(needs.registry.outputs.macos_matrix) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -234,6 +237,52 @@ jobs:
       - name: Run bounded exact shard
         timeout-minutes: 2
         run: |
+          set -euo pipefail
+          result_dir="$RUNNER_TEMP/customer-delivery-result"
+          shard="${{ matrix.shard }}"
+          mkdir -p "$result_dir"
           /usr/bin/python3 tests/run-customer-delivery-shard.py \
             --suite "${{ matrix.suite }}" --shard "${{ matrix.shard }}" \
-            --python-bin "$RUNNER_TEMP/customer-delivery-venv/bin/python"
+            --python-bin "$RUNNER_TEMP/customer-delivery-venv/bin/python" \
+            --platform macos \
+            --result-file "$result_dir/${{ matrix.suite }}-${shard//\//-}.json"
+
+      - name: Upload exact shard result
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: customer-delivery-macos-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/customer-delivery-result/*.json
+          if-no-files-found: error
+          retention-days: 1
+
+  customer-delivery-aggregate:
+    name: customer delivery exact result inventory
+    if: ${{ always() }}
+    needs: [registry, customer-delivery-linux, customer-delivery-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download Linux shard results
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: customer-delivery-linux-*
+          path: ${{ runner.temp }}/customer-delivery-results/linux
+          merge-multiple: true
+
+      - name: Download macOS shard results
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: customer-delivery-macos-*
+          path: ${{ runner.temp }}/customer-delivery-results/macos
+          merge-multiple: true
+
+      - name: Verify exact generated result inventories
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 tests/run-customer-delivery-shard.py \
+            --check-results linux "$RUNNER_TEMP/customer-delivery-results/linux"
+          /usr/bin/python3 tests/run-customer-delivery-shard.py \
+            --check-results macos "$RUNNER_TEMP/customer-delivery-results/macos"

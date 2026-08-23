@@ -2,9 +2,31 @@
 
 setup() {
     ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
-    RUNNER="$ROOT/tests/run-customer-delivery-shard.py"
+    RUNNER="${CUSTOMER_DELIVERY_SHARD_RUNNER_OVERRIDE:-$ROOT/tests/run-customer-delivery-shard.py}"
     REGISTRY="$ROOT/tests/customer-delivery-shards.tsv"
     PYTHON=/usr/bin/python3
+}
+
+make_bats_child() {
+    local body="$1"
+    CHILD="$BATS_TEST_TMPDIR/bats-child"
+    printf '%s\n' '#!/bin/bash' "$body" >"$CHILD"
+    chmod +x "$CHILD"
+}
+
+seed_results() {
+    local platform="$1" directory="$2"
+    local matrix
+    mkdir -p "$directory"
+    matrix="$("$PYTHON" "$RUNNER" --registry "$REGISTRY" --matrix "$platform")" || return 1
+    "$PYTHON" - "$directory" "$matrix" <<'PY'
+import json
+from pathlib import Path
+import sys
+directory = Path(sys.argv[1])
+for index, item in enumerate(json.loads(sys.argv[2]), 1):
+    (directory / f"result-{index}.json").write_text(json.dumps(item) + "\n")
+PY
 }
 
 @test "customer-delivery shard runner and canonical registry exist" {
@@ -66,4 +88,90 @@ setup() {
         --timeout-seconds 110
     [ "$status" -eq 2 ] \
         && [[ "$output" == *"timeout-seconds must be between 1 and 109"* ]]
+}
+
+@test "customer-delivery shard runner executes its child with the default absolute interpreter" {
+    local observed="$BATS_TEST_TMPDIR/observed-python" result="$BATS_TEST_TMPDIR/result.json"
+    make_bats_child "printf '%s\\n' \"\$CUSTOMER_DELIVERY_PYTHON\" > '$observed'; exit 0"
+    run "$PYTHON" "$RUNNER" --registry "$REGISTRY" \
+        --suite functional --shard 1/3 --bats-bin "$CHILD" \
+        --platform linux --result-file "$result"
+    [ "$status" -eq 0 ] \
+        && [ "$(<"$observed")" = /usr/bin/python3 ] \
+        && "$PYTHON" -c 'import json,sys; assert json.load(open(sys.argv[1])) == {"suite":"functional","shard":"1/3"}' "$result"
+}
+
+@test "customer-delivery shard runner propagates a nonzero child status" {
+    make_bats_child 'exit 17'
+    run "$PYTHON" "$RUNNER" --registry "$REGISTRY" \
+        --suite functional --shard 1/3 --bats-bin "$CHILD"
+    [ "$status" -eq 17 ]
+}
+
+@test "customer-delivery shard timeout kills the child group and returns 124" {
+    local pid_file="$BATS_TEST_TMPDIR/descendant.pid" descendant attempt
+    make_bats_child "(trap '' TERM; sleep 30) & printf '%s\\n' \"\$!\" > '$pid_file'; wait"
+    run "$PYTHON" "$RUNNER" --registry "$REGISTRY" \
+        --suite functional --shard 1/3 --bats-bin "$CHILD" --timeout-seconds 1
+    [ "$status" -eq 124 ] || return 1
+    descendant="$(<"$pid_file")"
+    for attempt in {1..10}; do
+        kill -0 "$descendant" 2>/dev/null || return 0
+        sleep 0.05
+    done
+    kill -KILL "$descendant" 2>/dev/null || true
+    return 1
+}
+
+@test "customer-delivery registry generates the complete Linux and approved macOS matrices" {
+    run "$PYTHON" "$RUNNER" --registry "$REGISTRY" --matrix linux
+    [ "$status" -eq 0 ] \
+        && "$PYTHON" -c 'import json,sys; rows=json.loads(sys.argv[1]); assert len(rows)==14 and len({(r["suite"],r["shard"]) for r in rows})==14' "$output" \
+        || return 1
+    run "$PYTHON" "$RUNNER" --registry "$REGISTRY" --matrix macos
+    [ "$status" -eq 0 ] \
+        && "$PYTHON" -c 'import json,sys; rows=json.loads(sys.argv[1]); assert len(rows)==7 and {r["suite"] for r in rows}=={"functional","schema","mutation"}' "$output"
+}
+
+@test "customer-delivery aggregate accepts an exact generated result inventory" {
+    local results="$BATS_TEST_TMPDIR/results"
+    seed_results linux "$results" || return 1
+    run "$PYTHON" "$RUNNER" --registry "$REGISTRY" --check-results linux "$results"
+    [ "$status" -eq 0 ] \
+        && [[ "$output" == *"customer_delivery_results=valid platform=linux count=14"* ]]
+}
+
+@test "customer-delivery aggregate rejects a missing result" {
+    local results="$BATS_TEST_TMPDIR/results"
+    seed_results linux "$results" || return 1
+    rm "$results/result-1.json"
+    run "$PYTHON" "$RUNNER" --registry "$REGISTRY" --check-results linux "$results"
+    [ "$status" -eq 2 ] && [[ "$output" == *"result inventory mismatch: missing"* ]]
+}
+
+@test "customer-delivery aggregate rejects a duplicate result" {
+    local results="$BATS_TEST_TMPDIR/results"
+    seed_results linux "$results" || return 1
+    cp "$results/result-1.json" "$results/duplicate.json"
+    run "$PYTHON" "$RUNNER" --registry "$REGISTRY" --check-results linux "$results"
+    [ "$status" -eq 2 ] && [[ "$output" == *"result inventory mismatch: duplicate"* ]]
+}
+
+@test "customer-delivery aggregate rejects an extra result" {
+    local results="$BATS_TEST_TMPDIR/results"
+    seed_results linux "$results" || return 1
+    printf '%s\n' '{"suite":"foreign","shard":"1/1"}' >"$results/extra.json"
+    run "$PYTHON" "$RUNNER" --registry "$REGISTRY" --check-results linux "$results"
+    [ "$status" -eq 2 ] && [[ "$output" == *"result inventory mismatch: extra"* ]]
+}
+
+@test "customer-delivery aggregate rejects a changed result" {
+    local results="$BATS_TEST_TMPDIR/results"
+    seed_results linux "$results" || return 1
+    printf '%s\n' '{"suite":"functional","shard":"9/9"}' >"$results/result-1.json"
+    run "$PYTHON" "$RUNNER" --registry "$REGISTRY" --check-results linux "$results"
+    [ "$status" -eq 2 ] && [[ "$output" == *"result inventory mismatch:"* ]] || return 1
+    printf '%s\n' '{"suite":[],"shard":"1/3"}' >"$results/result-1.json"
+    run "$PYTHON" "$RUNNER" --registry "$REGISTRY" --check-results linux "$results"
+    [ "$status" -eq 2 ] && [[ "$output" == *"result inventory mismatch: changed"* ]]
 }

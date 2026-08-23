@@ -1243,6 +1243,41 @@ prepare_signed_review_fixture() {
         && grep -q '# SECURITY_RULE:input_snapshot_identity' "$SCRIPT"
 }
 
+@test "pre-open path replacement cannot redirect a canonical snapshot" {
+    local outside="$BATS_TEST_TMPDIR/outside-requirements.yaml"
+    cp "$REQUIREMENTS" "$outside"
+    build_test_framework preopen-replacement || return 1
+    "$PYTHON" - "$TEST_SCRIPT" "$outside" <<'PY' || return 1
+import sys
+path, outside = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+old = """        document_bytes = read_confined_snapshot(
+            DOCUMENT_PATHS[name], ROOT, name
+        )"""
+new = f"""        if name == \"requirements\":
+            os.replace(DOCUMENT_PATHS[name], DOCUMENT_PATHS[name] + \".preopen\")
+            os.symlink({outside!r}, DOCUMENT_PATHS[name])
+        document_bytes = read_confined_snapshot(
+            DOCUMENT_PATHS[name], ROOT, name
+        )"""
+assert source.count(old) == 1
+open(path, "w", encoding="utf-8").write(source.replace(old, new))
+PY
+    run_test_framework_json
+    [ "$status" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["input_unavailable:requirements"]' "$output"
+}
+
+@test "post-open identity change invalidates the captured snapshot" {
+    build_test_framework postopen-identity || return 1
+    replace_test_script_literal \
+        '        before = os.fstat(file_descriptor)' \
+        $'        before = os.fstat(file_descriptor)\n        if label == "requirements":\n            os.utime(path, ns=(before.st_atime_ns, before.st_mtime_ns + 1000000000))' || return 1
+    run_test_framework_json
+    [ "$status" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["input_identity_changed:requirements"]' "$output"
+}
+
 @test "oversized canonical input is rejected before YAML parsing" {
     "$PYTHON" - "$REQUIREMENTS" <<'PY' || return 1
 import os

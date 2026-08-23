@@ -210,3 +210,23 @@ YAML
     [ "$explicit_count" -ge 4 ] \
         && ! grep -qE 'bats dev-tools/tests/(check-customer-delivery|customer-delivery-schema|customer-delivery-mutation)\.bats' "$WF"
 }
+
+@test "customer-delivery CI matrices come only from the canonical shard registry" {
+    grep -q 'linux_matrix:.*steps.customer_delivery_matrix.outputs.linux' "$WF" \
+        && grep -q 'macos_matrix:.*steps.customer_delivery_matrix.outputs.macos' "$WF" \
+        && grep -q 'linux=.*run-customer-delivery-shard.py --matrix linux' "$WF" \
+        && grep -q 'macos=.*run-customer-delivery-shard.py --matrix macos' "$WF" \
+        && grep -q 'include:.*fromJSON(needs.registry.outputs.linux_matrix)' "$WF" \
+        && grep -q 'include:.*fromJSON(needs.registry.outputs.macos_matrix)' "$WF" \
+        && ! grep -qE '^\s+- \{ suite: (functional|schema|mutation),' "$WF"
+}
+
+@test "customer-delivery aggregate verifies exact Linux and macOS result inventories" {
+    grep -q '^  customer-delivery-aggregate:' "$WF" \
+        && grep -q 'needs: \[registry, customer-delivery-linux, customer-delivery-macos\]' "$WF" \
+        && grep -q -- '--check-results linux' "$WF" \
+        && grep -q -- '--check-results macos' "$WF" \
+        && [ "$(grep -c 'actions/upload-artifact@' "$WF")" -eq 2 ] \
+        && [ "$(grep -c 'actions/download-artifact@' "$WF")" -eq 2 ] \
+        && [ "$(grep -c -- '--result-file' "$WF")" -eq 2 ]
+}
