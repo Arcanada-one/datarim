@@ -14,7 +14,7 @@
 #   - apt packages (jq, shellcheck, socat) are stock distro tooling used only as
 #     test fixtures; they are not part of any shipped artefact.
 #
-# Usage: ci-install-bats-deps.sh [--prefix DIR] [--python-only] [--python-bin PATH]
+# Usage: ci-install-bats-deps.sh [--prefix DIR] [--python-only] [--python-bin PATH] [--python-site DIR]
 #   --prefix DIR   where to install bats + yq (default /usr/local)
 
 set -euo pipefail
@@ -42,6 +42,7 @@ PY_CRYPTOGRAPHY="cryptography==43.0.3"
 PREFIX="/usr/local"
 PYTHON_ONLY=false
 PYTHON_BIN="python3"
+PYTHON_SITE=""
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -53,8 +54,11 @@ while [ $# -gt 0 ]; do
         --python-bin)
             [ $# -ge 2 ] || { echo "ERROR: --python-bin requires an argument" >&2; exit 2; }
             PYTHON_BIN="$2"; shift ;;
+        --python-site)
+            [ $# -ge 2 ] || { echo "ERROR: --python-site requires an argument" >&2; exit 2; }
+            PYTHON_SITE="$2"; shift ;;
         --help|-h)
-            echo "Usage: $(basename "$0") [--prefix DIR] [--python-only] [--python-bin PATH]"; exit 0 ;;
+            echo "Usage: $(basename "$0") [--prefix DIR] [--python-only] [--python-bin PATH] [--python-site DIR]"; exit 0 ;;
         *)
             echo "ERROR: unknown argument: $1" >&2; exit 2 ;;
     esac
@@ -96,13 +100,30 @@ echo "${YQ_SHA256}  ${yq_tmp}" | sha256sum -c -
 fi
 
 echo "==> python test deps"
-"$PYTHON_BIN" -m pip install --quiet --disable-pip-version-check \
-    "$PY_JSONSCHEMA" "$PY_RFC3339_VALIDATOR" "$PY_PYYAML" "$PY_CRYPTOGRAPHY"
+if [[ -n "$PYTHON_SITE" ]]; then
+    [[ "$PYTHON_SITE" == /* && -d "$PYTHON_SITE" && ! -L "$PYTHON_SITE" ]] || {
+        echo "ERROR: --python-site must be an absolute existing directory" >&2
+        exit 2
+    }
+    "$PYTHON_BIN" -I -S -c '
+import runpy
+import sys
+
+target = sys.argv[1]
+sys.path.insert(0, target)
+sys.argv = ["pip", "install", "--quiet", "--disable-pip-version-check", "--upgrade", "--target", target] + sys.argv[2:]
+runpy.run_module("pip", run_name="__main__")
+' "$PYTHON_SITE" "$PY_JSONSCHEMA" "$PY_RFC3339_VALIDATOR" "$PY_PYYAML" "$PY_CRYPTOGRAPHY"
+    python_site="$PYTHON_SITE"
+else
+    "$PYTHON_BIN" -m pip install --quiet --disable-pip-version-check \
+        "$PY_JSONSCHEMA" "$PY_RFC3339_VALIDATOR" "$PY_PYYAML" "$PY_CRYPTOGRAPHY"
+    python_site="$("$PYTHON_BIN" -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')"
+fi
 # Apple CLT Python 3.9 seeds setuptools and its executable
 # distutils-precedence.pth into a fresh venv. None of the pinned validator
 # dependencies needs that startup hook; remove only this known installer file
 # and fail if any other .pth authority remains.
-python_site="$("$PYTHON_BIN" -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')"
 for pth_file in "$python_site"/*.pth; do
     [[ -e "$pth_file" || -L "$pth_file" ]] || continue
     if [[ "${pth_file##*/}" == distutils-precedence.pth ]]; then
@@ -112,7 +133,11 @@ for pth_file in "$python_site"/*.pth; do
         exit 1
     fi
 done
-"$PYTHON_BIN" -c 'import cryptography, jsonschema, rfc3339_validator, yaml; assert "date-time" in jsonschema.FormatChecker().checkers; jsonschema.FormatChecker().check("2026-01-01T00:00:00Z", "date-time")'
+if [[ -n "$PYTHON_SITE" ]]; then
+    "$PYTHON_BIN" -I -S -c 'import sys; sys.path.insert(0, sys.argv[1]); import cryptography, jsonschema, rfc3339_validator, yaml; assert "date-time" in jsonschema.FormatChecker().checkers; jsonschema.FormatChecker().check("2026-01-01T00:00:00Z", "date-time")' "$PYTHON_SITE"
+else
+    "$PYTHON_BIN" -c 'import cryptography, jsonschema, rfc3339_validator, yaml; assert "date-time" in jsonschema.FormatChecker().checkers; jsonschema.FormatChecker().check("2026-01-01T00:00:00Z", "date-time")'
+fi
 
 echo "==> versions"
 if [ "$PYTHON_ONLY" != true ]; then

@@ -219,13 +219,14 @@ YAML
         && grep -q 'run-customer-delivery-shard.py' "$WF" \
         && grep -q 'customer-delivery-macos' "$WF" \
         && grep -q 'customer-delivery-linux' "$WF" \
-        && grep -q -- "--python-bin \"\$RUNNER_TEMP/customer-delivery-venv/bin/python\"" "$WF" \
+        && [ "$(grep -c -- '--python-bin "$clt_python" --python-site "$dependency_site"' "$WF")" -eq 2 ] \
         && grep -q 'tests/bats-discovery-coverage.bats' "$WF"
 }
 
 @test "macOS portability contracts use the pinned dependency-bearing Python environment" {
     grep -q '/usr/bin/python3 -m venv "\$RUNNER_TEMP/portability-venv"' "$WF" \
-        && grep -q -- '--python-bin "\$RUNNER_TEMP/portability-venv/bin/python"' "$WF" \
+        && grep -q 'dependency_site="\$RUNNER_TEMP/portability-venv/lib/python${clt_version}/site-packages"' "$WF" \
+        && grep -q -- '--python-bin "$clt_python" --python-site "$dependency_site"' "$WF" \
         && grep -q 'CUSTOMER_CI_PYTHON="\$RUNNER_TEMP/portability-venv/bin/python" bats tests/bats-discovery-coverage.bats' "$WF"
 }
 
@@ -233,24 +234,28 @@ YAML
     local inst="$ROOT/tests/ci-install-bats-deps.sh"
     grep -q -- '--python-only' "$inst" \
         && grep -q -- '--python-bin' "$inst" \
+        && grep -q -- '--python-site' "$inst" \
         && grep -q 'PYTHON_BIN' "$inst"
 }
 
 @test "Linux and macOS customer-delivery jobs pass an absolute interpreter to every shard" {
     local explicit_count
     explicit_count="$(grep -c -- "--python-bin \"\$RUNNER_TEMP/customer-delivery-venv/bin/python\"" "$WF")"
-    [ "$explicit_count" -ge 4 ] \
+    [ "$explicit_count" -eq 3 ] \
         && [ "$(grep -c '/bin/ln -sf /usr/bin/python3 "\$RUNNER_TEMP/customer-delivery-venv/bin/python"' "$WF")" -eq 2 ] \
         && ! grep -qE 'bats dev-tools/tests/(check-customer-delivery|customer-delivery-schema|customer-delivery-mutation)\.bats' "$WF"
 }
 
 @test "Linux and macOS customer-delivery jobs preflight launcher runtime identity and dependencies" {
     local preflight="$ROOT/tests/check-customer-delivery-python-runtime.sh"
+    local validator="$ROOT/dev-tools/check-customer-delivery.sh"
     [ -x "$preflight" ] \
         && [ "$(grep -c 'bash tests/check-customer-delivery-python-runtime.sh "\$RUNNER_TEMP/customer-delivery-venv/bin/python"' "$WF")" -eq 2 ] \
         && grep -q '/usr/bin/python3 -m venv "\$RUNNER_TEMP/discovery-venv"' "$WF" \
-        && [ "$(grep -c 'DEVELOPER_DIR=/Library/Developer/CommandLineTools' "$WF")" -ge 4 ] \
+        && [ "$(grep -c 'DEVELOPER_DIR=/Library/Developer/CommandLineTools' "$WF")" -ge 3 ] \
         && grep -q '/bin/ln -sf /usr/bin/python3 "\$RUNNER_TEMP/portability-venv/bin/python"' "$WF" \
+        && grep -q 'dependency_site="\$RUNNER_TEMP/customer-delivery-venv/lib/python${clt_version}/site-packages"' "$WF" \
+        && grep -q 'trusted_python_site="${python_venv_root}/lib/python${runtime_major}.${runtime_minor}/site-packages"' "$validator" \
         && grep -q 'CUSTOMER_CI_PYTHON="\$RUNNER_TEMP/discovery-venv/bin/python" bash tests/run-bats-discovery.sh' "$WF" \
         && grep -q 'DEVELOPER_DIR=/Library/Developer/CommandLineTools CUSTOMER_CI_PYTHON="\$RUNNER_TEMP/portability-venv/bin/python" bats tests/bats-discovery-coverage.bats' "$WF" \
         || return 1
