@@ -201,13 +201,14 @@ APPROVAL_FIELDS = (
 )
 EXPECTED_INVARIANT_REGISTRY_DIGESTS = {
     "requirements": "12ca494347ad6e093a11e60937c0cfdd72d44b5d94fee5ee6d22ca57e3cfe9aa",
-    "receipt": "6335aa4aead3b6bc04198b960c48b2bacb5bfb5443bc2d0308be94be3f0d2d3f",
+    "receipt": "d087329e2433f1ce448371bf709a8429dc85ac6da6fb465bf6c5811da4b9abd3",
 }
 EXPECTED_CONTRACT_DIGESTS = {
     "requirements:x-datarim-canonicalization": "bbd3995cdfbded121f17ef11f4751c0c02ccceef2b9f393f4969163af29053d0",
     "requirements:x-datarim-source-tier-authorization": "f5f858651d222f1dab1560060cefbd8d49a47a2b41e2b95161b74b4b9dfc3109",
     "receipt:x-datarim-customer-disposition-contract": "994129b7b66c3ad29f4e76bb564ae4937d42e2e46dd5a983dd3eaa7741bf5d96",
     "receipt:x-datarim-coverage-chain-digest-contract": "9f7f5391d3c7922d97fe33148f5d7c2dc1a72808415f899cc04129ef5ee95b68",
+    "receipt:x-datarim-task-identity-contract": "d21a9a0c407349338cb42fcda628eaefdc45da73118f234187dec5802d2359af",
     "review:x-datarim-originating-review-contract": "292e30935e6ee89252bcd7eae0487184115f96b6b6ad2e3d71c6a1f767770975",
 }
 PINNED_REGISTRY_OWNER_ID = "authority-operator-0001"
@@ -1093,11 +1094,6 @@ def validate_requirement_edge(requirement_id, requirement, chain):
     requirement_ref = chain["requirement"]
     if requirement_ref["requirement_id"] != requirement_id:
         add(f"requirement_identity_mismatch:{requirement_id}")
-    if (
-        requirement_ref["requirement_set_id"] != requirements_doc["requirement_set_id"]
-        or requirement_ref["requirement_set_id"] != receipt_doc["requirement_set_id"]
-    ):
-        add(f"requirement_set_mismatch:{requirement_id}")
     provided = {}
     for row in requirement_ref["source_quote_digests"]:
         if row["source_id"] in provided:
@@ -1322,8 +1318,6 @@ def validate_customer_disposition_edge(requirement_id, acceptance, chain):
         add(f"live_disposition_timestamp_mismatch:{requirement_id}")
     if disposition["receipt_id"] != receipt_doc["receipt_id"]:
         add(f"disposition_receipt_id_mismatch:{requirement_id}")
-    if disposition["requirement_set_id"] != receipt_doc["requirement_set_id"]:
-        add(f"disposition_requirement_set_id_mismatch:{requirement_id}")
     if disposition["requirement_id"] != requirement_id:
         add(f"disposition_requirement_id_mismatch:{requirement_id}")
     chain_payload = {
@@ -1358,6 +1352,19 @@ def validate_customer_disposition_edge(requirement_id, acceptance, chain):
     )
     if disposition_at is not None and approval_at is not None and approval_at < disposition_at:
         add(f"disposition_approval_timestamp_mismatch:{requirement_id}")
+
+
+def validate_requirement_set_binding(requirement_id, chain):
+    signed_set_ids = {
+        chain["requirement"]["requirement_set_id"],
+        chain["customer_disposition"]["requirement_set_id"],
+    }
+    outer_set_ids = {
+        requirements_doc["requirement_set_id"],
+        receipt_doc["requirement_set_id"],
+    }
+    if len(signed_set_ids) != 1 or signed_set_ids != outer_set_ids:
+        add(f"requirement_set_signed_binding_mismatch:{requirement_id}")
 
 
 def check_supersession_cycles():
@@ -1465,6 +1472,10 @@ receipt-disposition-approval-key-known receipt-disposition-approval-key-authorit
 receipt-disposition-approval-key-role-authorized receipt-disposition-approval-key-active
 receipt-disposition-approval-key-valid-at-approval
 receipt-visitor-acceptance-authority-role-operator receipt-parent-links-complete
+receipt-cli-task-id-canonical-round-trip
+receipt-cli-task-id-equals-signed-implementation-task-id
+originating-review-receipt-id-equals-top-receipt-id
+originating-review-requirement-set-transitively-bound-by-disposition
 originating-review-canonical-digest-valid
 originating-review-approval-digest-equals-review-digest
 originating-review-approval-payload-canonical-digest-valid
@@ -1552,6 +1563,7 @@ for requirement_id in sorted(set(requirements) & set(deliveries)):
     if actual_missing:
         continue
 
+    validate_requirement_set_binding(requirement_id, chain)  # SECURITY_RULE:review_requirement_set_binding
     validate_requirement_edge(requirement_id, requirement, chain)  # U4_RULE:requirement
     validate_selected_knowledge_edge(requirement_id, acceptance, chain)  # U4_RULE:selected_knowledge
     validate_implementation_delta_edge(requirement_id, acceptance, chain)  # U4_RULE:implementation_delta
@@ -1574,6 +1586,24 @@ expected_task_links = {
     requirement["acceptance"]["implementation"]["task_id"]
     for requirement in requirements.values()
 }
+task_match = re.fullmatch(r"([A-Z][A-Z0-9]{1,9})-([0-9]{4})", TASK)
+canonical_cli_task = (
+    f"task:{task_match.group(1).lower()}:{task_match.group(2)}"
+    if task_match is not None
+    else None
+)
+if canonical_cli_task is None:
+    add(f"task_identity_invalid:{TASK}")
+elif expected_task_links != {canonical_cli_task}:
+    signed_cli_tasks = []
+    for signed_task in sorted(expected_task_links):
+        signed_match = re.fullmatch(r"task:([a-z][a-z0-9]{1,9}):([0-9]{4})", signed_task)
+        signed_cli_tasks.append(
+            f"{signed_match.group(1).upper()}-{signed_match.group(2)}"
+            if signed_match is not None
+            else signed_task
+        )
+    add(f"task_identity_mismatch:{TASK}:{','.join(signed_cli_tasks)}")  # SECURITY_RULE:task_cli_binding
 if not receipt_epics:
     add("dangling_parent_ref:epic")
 if receipt_tasks != expected_task_links:

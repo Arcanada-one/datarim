@@ -231,6 +231,38 @@ prepare_signed_review_fixture() {
         && [[ "$output" == *"decision=MET"* ]]
 }
 
+@test "signed delivery bundle cannot replay under another CLI task identity" {
+    local replay_task="WEB-9999"
+    git -C "$ROOT" mv "$REQUIREMENTS" \
+        "$ROOT/datarim/tasks/${replay_task}-customer-requirements.yaml"
+    git -C "$ROOT" mv "$RECEIPT" \
+        "$ROOT/datarim/receipts/${replay_task}-customer-delivery.yaml"
+    git -C "$ROOT" mv "$REVIEW" \
+        "$ROOT/datarim/receipts/${replay_task}-review-evolution.yaml"
+    git -C "$ROOT" commit -q -m "replay unchanged signed bundle under another task"
+
+    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
+        "$SCRIPT" --root "$ROOT" --task "$replay_task" --stage qa --format text
+    if [ "$status" -ne 1 ]; then
+        printf 'replay_status=%s replay_output=%s\n' "$status" "$output"
+    fi
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"task_identity_mismatch:WEB-9999:WEB-0001"* ]]
+}
+
+@test "signed requirement set cannot replay under a substituted outer set" {
+    yq -i '.requirement_set_id = "reqset-9999"' "$REQUIREMENTS"
+    yq -i '.requirement_set_id = "reqset-9999" |
+        .parent_links[] |= select(.relation == "requirement_set").id = "reqset-9999"' "$RECEIPT"
+
+    run_validator
+    if [ "$status" -ne 1 ]; then
+        printf 'reqset_replay_status=%s reqset_replay_output=%s\n' "$status" "$output"
+    fi
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"requirement_set_signed_binding_mismatch:req-0001"* ]]
+}
+
 @test "all hard semantic stages enforce the same delivery decision" {
     local stage
     for stage in qa compliance archive; do

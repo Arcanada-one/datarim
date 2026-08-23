@@ -1070,6 +1070,10 @@ expected = {
             "receipt-disposition-approval-key-valid-at-approval",
             "receipt-visitor-acceptance-authority-role-operator",
             "receipt-parent-links-complete",
+            "receipt-cli-task-id-canonical-round-trip",
+            "receipt-cli-task-id-equals-signed-implementation-task-id",
+            "originating-review-receipt-id-equals-top-receipt-id",
+            "originating-review-requirement-set-transitively-bound-by-disposition",
             "originating-review-canonical-digest-valid",
             "originating-review-approval-digest-equals-review-digest",
             "originating-review-approval-payload-canonical-digest-valid",
@@ -3381,6 +3385,23 @@ expected_ref = {
 }
 if receipt_schema.get("x-datarim-trusted-authority-key-registry-ref") != expected_ref:
     raise SystemExit("RECEIPT_TRUST_REGISTRY_REF_MISMATCH")
+expected_task_identity_contract = {
+    "cli_pattern": "^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$",
+    "signed_pattern": "^task:[a-z][a-z0-9]{1,9}:[0-9]{4}$",
+    "cli_to_signed": "task:<ASCII-lowercase-prefix>:<four-digit-number>",
+    "signed_to_cli": "<ASCII-uppercase-prefix>-<four-digit-number>",
+    "round_trip": "REQUIRED",
+    "signed_source": "requirements.{requirement_id}.coverage_chain.implementation_delta.task_id",
+    "commitment_chain": [
+        "implementation_delta.task_id",
+        "customer_disposition.coverage_chain_digest",
+        "customer_disposition.disposition_digest",
+        "customer_disposition.authority_approval.approval_payload_digest",
+        "customer_disposition.authority_approval.signature",
+    ],
+}
+if receipt_schema.get("x-datarim-task-identity-contract") != expected_task_identity_contract:
+    raise SystemExit("RECEIPT_TASK_IDENTITY_CONTRACT_MISMATCH")
 expected_disposition_contract = {
     "terminal_statuses": ["accepted", "rejected", "superseded"],
     "pending_policy": "UNSIGNED_NONTERMINAL",

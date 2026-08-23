@@ -120,6 +120,8 @@ PY
         'review_state_changes|authenticated CHANGES_REQUESTED originating review blocks closure'
         'review_requirement_binding|originating review requirement identity is cross-bound'
         'review_receipt_binding|originating review receipt identity is cross-bound'
+        'task_cli_binding|signed delivery bundle cannot replay under another CLI task identity'
+        'review_requirement_set_binding|signed requirement set cannot replay under a substituted outer set'
     )
 
     for pair in "${pairs[@]}"; do
