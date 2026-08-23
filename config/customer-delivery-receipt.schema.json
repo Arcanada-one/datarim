@@ -3,6 +3,123 @@
   "$id": "https://datarim.club/schema/customer-delivery-receipt-v1.json",
   "title": "Datarim Customer Delivery Receipt",
   "description": "A complete, acyclic requirement-to-customer-disposition evidence chain. A missing required edge is not a met delivery.",
+  "x-datarim-trusted-authority-key-registry-ref": {
+    "schema_relative_path": "customer-requirement.schema.json",
+    "json_pointer": "/x-datarim-signature-contract/key_resolution/bundled_registry",
+    "resolution": "BUNDLED_ONLY",
+    "ambient_override": "PROHIBITED",
+    "registry_id": "authority-key-registry-0001",
+    "registry_digest": "sha256:3a5af5b188e0bfde5a9202a13b27461dc5058176ad74eaceb782053ffa4cae0b"
+  },
+  "x-datarim-customer-disposition-contract": {
+    "terminal_statuses": ["accepted", "rejected", "superseded"],
+    "pending_policy": "UNSIGNED_NONTERMINAL",
+    "disposition_digest": {
+      "algorithm": "SHA-256",
+      "canonicalization": "RFC8785",
+      "encoding": "UTF-8",
+      "covered_fields": ["receipt_id", "requirement_set_id", "requirement_id", "coverage_chain_digest", "status", "recorded_at", "evidence_ref", "note?", "superseded_by?"],
+      "excluded_fields": ["disposition_digest", "authority_approval"]
+    },
+    "approval_payload_digest": {
+      "algorithm": "SHA-256",
+      "canonicalization": "RFC8785",
+      "encoding": "UTF-8",
+      "covered_fields": ["approved_digest", "authority_id", "authority_role", "approved_at", "evidence_ref", "algorithm", "key_id"],
+      "excluded_fields": ["approval_payload_digest", "signature"]
+    },
+    "signature_contract_ref": {
+      "schema_relative_path": "customer-requirement.schema.json",
+      "json_pointer": "/x-datarim-signature-contract",
+      "signed_field": "authority_approval.approval_payload_digest"
+    },
+    "verification_sequence": [
+      "DISPOSITION_RECEIPT_ID_EQUALS_TOP_RECEIPT_ID",
+      "DISPOSITION_REQUIREMENT_SET_ID_EQUALS_TOP_REQUIREMENT_SET_ID",
+      "DISPOSITION_REQUIREMENT_ID_EQUALS_REQUIREMENT_ENTRY_KEY",
+      "COVERAGE_CHAIN_DIGEST_VALID",
+      "DISPOSITION_DIGEST_VALID",
+      "DISPOSITION_APPROVAL_DIGEST_EQUALS_DISPOSITION_DIGEST",
+      "DISPOSITION_APPROVAL_PAYLOAD_DIGEST_VALID",
+      "DISPOSITION_APPROVAL_KEY_AUTHORIZED",
+      "DISPOSITION_SIGNATURE_VALID"
+    ]
+  },
+  "x-datarim-coverage-chain-digest-contract": {
+    "algorithm": "SHA-256",
+    "canonicalization": "RFC8785",
+    "encoding": "UTF-8",
+    "source_object": "requirements.{requirement_id}.coverage_chain",
+    "included_members": [
+      "requirement",
+      "selected_knowledge",
+      "implementation_delta",
+      "red_green",
+      "merged_revision",
+      "deployed_revision",
+      "live_evidence"
+    ],
+    "excluded_members": ["customer_disposition"],
+    "object_member_order": "RFC8785_UTF16_CODE_UNIT_LEXICOGRAPHIC",
+    "array_order": "PRESERVE_DOCUMENT_ORDER_AS_COMMITTED",
+    "digest_input": "RFC8785_CANONICAL_JSON_UTF8_BYTES_WITHOUT_DIGEST_PREFIX"
+  },
+  "x-datarim-semantic-invariants": {
+    "description": "Draft 2020-12 validates shape only; the deterministic customer-delivery validator must enforce every registered cross-record invariant.",
+    "enforcer": "customer-delivery-validator",
+    "invariant_ids": [
+      "receipt-requirement-key-equals-embedded-id",
+      "receipt-requirement-key-set-equals-requirement-document-key-set",
+      "receipt-top-requirement-set-equals-embedded-id",
+      "receipt-source-quote-digest-set-exact",
+      "receipt-selected-knowledge-set-exact",
+      "receipt-implementation-task-equals-parent-task",
+      "receipt-u4-edge-declaration-exact",
+      "receipt-enabling-count-equals-list-cardinality",
+      "receipt-visible-count-equals-list-cardinality",
+      "receipt-live-product-equals-acceptance-product",
+      "receipt-live-surface-equals-acceptance-surface",
+      "receipt-live-surface-class-equals-acceptance-surface-class",
+      "receipt-live-predicate-equals-acceptance-predicate",
+      "receipt-live-applicability-equals-acceptance-applicability",
+      "receipt-live-visitor-visible-equals-acceptance-visitor-visible",
+      "receipt-zero-visible-rejected-for-user-facing",
+      "receipt-painted-matrix-set-exact",
+      "receipt-red-before-green",
+      "receipt-green-before-merge",
+      "receipt-merge-before-deploy",
+      "receipt-deploy-before-matrix-observation",
+      "receipt-matrix-observation-not-after-live-summary",
+      "receipt-deploy-before-live",
+      "receipt-live-before-disposition",
+      "receipt-rendered-test-before-live-evidence",
+      "receipt-merged-revision-accepted",
+      "receipt-deployed-revision-equals-merged-revision",
+      "receipt-deployed-digest-equals-merged-digest",
+      "receipt-disposition-equals-requirement-disposition",
+      "receipt-disposition-closure-exact",
+      "receipt-coverage-chain-canonical-digest-valid",
+      "receipt-disposition-receipt-id-equals-top-id",
+      "receipt-disposition-requirement-set-id-equals-top-id",
+      "receipt-disposition-requirement-id-equals-entry-key",
+      "receipt-terminal-disposition-signed",
+      "receipt-pending-disposition-unsigned",
+      "receipt-disposition-canonical-digest-valid",
+      "receipt-disposition-approval-digest-equals-disposition-digest",
+      "receipt-disposition-approval-payload-canonical-digest-valid",
+      "receipt-disposition-signature-valid",
+      "receipt-disposition-approval-key-known",
+      "receipt-disposition-approval-key-authority-id-equal",
+      "receipt-disposition-approval-key-role-authorized",
+      "receipt-disposition-approval-key-active",
+      "receipt-disposition-approval-key-valid-at-approval",
+      "receipt-visitor-acceptance-authority-role-operator",
+      "receipt-parent-links-complete",
+      "review-open-or-changes-requested-blocks-closure",
+      "receipt-epic-status-derived",
+      "receipt-user-facing-parent-has-visible-child"
+    ]
+  },
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "receipt_id", "requirement_set_id", "generated_at", "parent_links", "requirements"],
@@ -139,11 +256,25 @@
     "requirementRef": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["requirement_id", "requirement_set_id", "source_quote_digest"],
+      "required": ["requirement_id", "requirement_set_id", "source_quote_digests"],
       "properties": {
         "requirement_id": { "type": "string", "pattern": "^req-[0-9]{4}$" },
         "requirement_set_id": { "type": "string", "pattern": "^reqset-[0-9]{4}$" },
-        "source_quote_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+        "source_quote_digests": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/sourceQuoteDigest" }
+        }
+      }
+    },
+    "sourceQuoteDigest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "digest"],
+      "properties": {
+        "source_id": { "type": "string", "pattern": "^source-[0-9]{4}$" },
+        "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
       }
     },
     "knowledgeSelection": {
@@ -274,10 +405,32 @@
     "liveEvidence": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["visitor_visible", "method", "owner", "observed_at", "evidence_ref", "painted_matrix_applicable", "painted_matrix"],
+      "required": [
+        "visitor_visible",
+        "observation_kind",
+        "product",
+        "surface",
+        "surface_class",
+        "predicate_id",
+        "applicability",
+        "environment",
+        "owner",
+        "observed_at",
+        "evidence_ref",
+        "painted_matrix_applicable",
+        "painted_matrix"
+      ],
       "properties": {
         "visitor_visible": { "type": "boolean" },
-        "method": { "type": "string", "minLength": 1 },
+        "observation_kind": {
+          "enum": ["BROWSER_RENDERED", "PAINTED_SURFACE", "RENDERED_SCREENSHOT", "NON_VISITOR_CONTROL"]
+        },
+        "product": { "$ref": "#/$defs/productIdentity" },
+        "surface": { "$ref": "#/$defs/surfaceIdentity" },
+        "surface_class": { "$ref": "#/$defs/surfaceClass" },
+        "predicate_id": { "type": "string", "pattern": "^predicate-[a-z0-9][a-z0-9-]*$" },
+        "applicability": { "$ref": "#/$defs/identityApplicability" },
+        "environment": { "enum": ["PRODUCTION", "CONTROL"] },
         "owner": { "type": "string", "minLength": 1 },
         "observed_at": { "type": "string", "format": "date-time" },
         "evidence_ref": { "type": "string", "minLength": 1 },
@@ -288,11 +441,36 @@
       "allOf": [
         {
           "if": {
+            "properties": { "visitor_visible": { "const": true } },
+            "required": ["visitor_visible"]
+          },
+          "then": {
+            "properties": {
+              "observation_kind": {
+                "enum": ["BROWSER_RENDERED", "PAINTED_SURFACE", "RENDERED_SCREENSHOT"]
+              },
+              "surface_class": { "const": "VISITOR_VISIBLE" },
+              "environment": { "const": "PRODUCTION" }
+            }
+          },
+          "else": {
+            "properties": {
+              "observation_kind": { "const": "NON_VISITOR_CONTROL" },
+              "surface_class": { "const": "ENABLING" },
+              "environment": { "const": "CONTROL" }
+            }
+          }
+        },
+        {
+          "if": {
             "properties": { "painted_matrix_applicable": { "const": true } },
             "required": ["painted_matrix_applicable"]
           },
           "then": {
             "properties": {
+              "applicability": {
+                "properties": { "painted_matrix_applicable": { "const": true } }
+              },
               "painted_matrix": {
                 "minItems": 8,
                 "maxItems": 8,
@@ -312,10 +490,52 @@
           },
           "else": {
             "required": ["not_applicable_reason"],
-            "properties": { "painted_matrix": { "maxItems": 0 } }
+            "properties": {
+              "applicability": {
+                "properties": { "painted_matrix_applicable": { "const": false } }
+              },
+              "painted_matrix": { "maxItems": 0 }
+            }
           }
         }
       ]
+    },
+    "productIdentity": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+    },
+    "surfaceIdentity": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+    },
+    "surfaceClass": {
+      "enum": ["VISITOR_VISIBLE", "ENABLING"]
+    },
+    "identityApplicability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["locales", "viewports", "themes", "painted_matrix_applicable"],
+      "properties": {
+        "locales": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z]{2}(-[A-Z]{2})?$" }
+        },
+        "viewports": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["mobile", "desktop"] }
+        },
+        "themes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["light", "dark"] }
+        },
+        "painted_matrix_applicable": { "type": "boolean" }
+      }
     },
     "paintedMatrix": {
       "type": "array",
@@ -350,6 +570,12 @@
         "status": { "enum": ["pending", "accepted", "rejected", "superseded"] },
         "recorded_at": { "type": "string", "format": "date-time" },
         "evidence_ref": { "type": "string", "minLength": 1 },
+        "receipt_id": { "type": "string", "pattern": "^receipt-[0-9]{4}$" },
+        "requirement_set_id": { "type": "string", "pattern": "^reqset-[0-9]{4}$" },
+        "requirement_id": { "type": "string", "pattern": "^req-[0-9]{4}$" },
+        "coverage_chain_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "disposition_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "authority_approval": { "$ref": "#/$defs/dispositionAuthorityApproval" },
         "note": { "type": "string", "minLength": 1 },
         "superseded_by": { "type": "string", "pattern": "^req-[0-9]{4}$" }
       },
@@ -361,8 +587,63 @@
           },
           "then": { "required": ["superseded_by"] },
           "else": { "not": { "required": ["superseded_by"] } }
+        },
+        {
+          "if": {
+            "properties": { "status": { "const": "pending" } },
+            "required": ["status"]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                { "required": ["disposition_digest"] },
+                { "required": ["authority_approval"] },
+                { "required": ["receipt_id"] },
+                { "required": ["requirement_set_id"] },
+                { "required": ["requirement_id"] },
+                { "required": ["coverage_chain_digest"] }
+              ]
+            }
+          },
+          "else": {
+            "required": [
+              "receipt_id",
+              "requirement_set_id",
+              "requirement_id",
+              "coverage_chain_digest",
+              "disposition_digest",
+              "authority_approval"
+            ]
+          }
         }
       ]
+    },
+    "dispositionAuthorityApproval": {
+      "description": "A terminal customer-disposition approval verified against the bundled trusted authority-key registry referenced by x-datarim-trusted-authority-key-registry-ref. The Ed25519 signature is over the raw 32 bytes of approval_payload_digest using the framing in customer-requirement.schema.json.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "approved_digest",
+        "authority_id",
+        "authority_role",
+        "approved_at",
+        "evidence_ref",
+        "algorithm",
+        "key_id",
+        "approval_payload_digest",
+        "signature"
+      ],
+      "properties": {
+        "approved_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "authority_id": { "type": "string", "pattern": "^authority-[a-z0-9][a-z0-9-]*$" },
+        "authority_role": { "enum": ["CUSTOMER", "OPERATOR"] },
+        "approved_at": { "type": "string", "format": "date-time" },
+        "evidence_ref": { "type": "string", "minLength": 1 },
+        "algorithm": { "const": "ED25519" },
+        "key_id": { "type": "string", "pattern": "^key-[a-z0-9][a-z0-9-]*$" },
+        "approval_payload_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "signature": { "type": "string", "pattern": "^ed25519:[A-Za-z0-9+/]{85}[AQgw]==$" }
+      }
     }
   }
 }

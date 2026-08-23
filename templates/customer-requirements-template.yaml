@@ -3,6 +3,18 @@ requirement_set_id: reqset-0001
 created_at: "2026-01-02T10:00:00Z"
 source_remarks:
   - source_id: source-0001
+    revision: "1"
+    source_digest: sha256:dec22e8eb2925342f34286aae99363de8ac09f529e212ae56e3817959f4b70da
+    authority_approval:
+      approved_digest: sha256:dec22e8eb2925342f34286aae99363de8ac09f529e212ae56e3817959f4b70da
+      authority_id: authority-customer-0001
+      authority_role: CUSTOMER
+      approved_at: "2026-01-02T09:02:00Z"
+      evidence_ref: source-authority-approval-0001
+      algorithm: ED25519
+      key_id: key-customer-0001
+      approval_payload_digest: sha256:9ff235666bd6b3211a27c96cf0b6aabb823388ee63e5ab9d80e25e3b5c70e59b
+      signature: ed25519:0nT6vhkuUllfEIViZP/y8oTe4R3luNQu+JVcNxbJMPScG7E1nHjOvO3yx6DXwGGK0SaH7nJBQrVnRI6harN9Dw==
     source_tier: CUSTOMER_VERBATIM
     verbatim_quote: "The comparison must remain readable on my phone in both languages and themes."
     locale: en
@@ -10,15 +22,55 @@ source_remarks:
     source_ref: customer-interview-0001
     requirement_ids:
       - req-0001
+    tier1_assertions:
+      - assertion_id: assertion-0001
+        revision: "1"
+        source_digest: sha256:dec22e8eb2925342f34286aae99363de8ac09f529e212ae56e3817959f4b70da
+        assertion_digest: sha256:ce9f4fea4974a825125d08cb0f9c2c6af3b460d9ad65a96a9cbf7ae9e76f0f02
+        authority_approval:
+          approved_digest: sha256:ce9f4fea4974a825125d08cb0f9c2c6af3b460d9ad65a96a9cbf7ae9e76f0f02
+          authority_id: authority-customer-0001
+          authority_role: CUSTOMER
+          approved_at: "2026-01-02T09:05:00Z"
+          evidence_ref: authority-approval-0001
+          algorithm: ED25519
+          key_id: key-customer-0001
+          approval_payload_digest: sha256:f8fdb6446fc328c6f9c2ca81d352d9a55dbcdcc60ac6ca23833c33e3210cdaa8
+          signature: ed25519:A3pta4vvdKiEHaG4zyLuVnnnHR/r/Tk5H7Slmk3GJf+FDigqIztv4/FdaYxS+avhvtNPSwcSLkCYMqdYZr0wDQ==
+        requirement_id: req-0001
+        predicate_id: predicate-visitor-readable
+        product: example-product
+        surface: public-comparison
+        surface_class: VISITOR_VISIBLE
+        applicability:
+          locales:
+            - ru
+            - en
+          viewports:
+            - mobile
+            - desktop
+          themes:
+            - light
+            - dark
+          painted_matrix_applicable: true
+        visitor_visible: true
+        asserted_at: "2026-01-02T09:00:00Z"
 requirements:
   req-0001:
     source_ids:
       - source-0001
-    atomic_statement: The comparison is visitor-readable in every applicable painted UI combination.
+    tier1_assertion_ids:
+      - assertion-0001
+    paraphrase: The comparison is visitor-readable in every applicable painted UI combination.
     acceptance:
-      exact_source_quote: "The comparison must remain readable on my phone in both languages and themes."
+      tier1_assertion_id: assertion-0001
+      predicate_id: predicate-visitor-readable
+      exact_source_quotes:
+        - source_id: source-0001
+          verbatim_quote: "The comparison must remain readable on my phone in both languages and themes."
       product: example-product
       surface: public-comparison
+      surface_class: VISITOR_VISIBLE
       applicability:
         locales:
           - ru
@@ -33,7 +85,24 @@ requirements:
       before_state: The comparison overlaps its sticky header on mobile.
       after_state: The comparison remains readable without overlap in every applicable painted combination.
       evidence:
-        method: Painted-coordinate browser assertions against the production visitor route.
+        method:
+          kind: PAINTED_SURFACE_PROBE
+          product: example-product
+          surface: public-comparison
+          surface_class: VISITOR_VISIBLE
+          predicate_id: predicate-visitor-readable
+          applicability:
+            locales:
+              - ru
+              - en
+            viewports:
+              - mobile
+              - desktop
+            themes:
+              - light
+              - dark
+            painted_matrix_applicable: true
+          environment: PRODUCTION
         owner: delivery-reviewer
         evidence_class: VISITOR_VISIBLE_PRODUCTION
       knowledge_selection:
@@ -81,10 +150,52 @@ requirements:
             immutable: true
       implementation:
         task_id: task:web:0001
-        code_revision: pending-before-implementation
-        content_revision: pending-before-implementation
+        code_revision: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        content_revision: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        code_paths:
+          - src/styles/comparison.css
+        content_paths:
+          - content/comparison.yaml
         environment: production
         started_at: "2026-01-02T10:00:00Z"
       visitor_visible: true
-      production_acceptance_criterion: A visitor can read the comparison at RU and EN, mobile and desktop, light and dark on production.
-      disposition: pending
+      rendered_test_evidence:
+        environment: TEST
+        product: example-product
+        surface: public-comparison
+        predicate_id: predicate-visitor-readable
+        applicability:
+          locales:
+            - ru
+            - en
+          viewports:
+            - mobile
+            - desktop
+          themes:
+            - light
+            - dark
+          painted_matrix_applicable: true
+        baseline_ref: artifacts/test/comparison-before.png
+        candidate_ref: artifacts/test/comparison-after.png
+        observed_at: "2026-01-02T11:30:00Z"
+        owner: delivery-reviewer
+      production_assertion:
+        actor: VISITOR
+        environment: PRODUCTION
+        observation_kind: PAINTED_SURFACE
+        product: example-product
+        surface: public-comparison
+        surface_class: VISITOR_VISIBLE
+        predicate_id: predicate-visitor-readable
+        applicability:
+          locales:
+            - ru
+            - en
+          viewports:
+            - mobile
+            - desktop
+          themes:
+            - light
+            - dark
+          painted_matrix_applicable: true
+      disposition: accepted
