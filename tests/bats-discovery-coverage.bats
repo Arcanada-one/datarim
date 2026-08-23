@@ -35,7 +35,16 @@ setup() {
     discovered="$(bash "$RUNNER" --root "$ROOT" --list | wc -l)"
     excluded="$(grep -cE '^[[:space:]]*-[[:space:]]+path:' "$ROOT/tests/bats-exclusions.yml" || true)"
 
-    [ "$discovered" -eq "$(( on_disk - excluded ))" ]
+    [ "$discovered" -eq "$(( on_disk - excluded - 3 ))" ]
+}
+
+@test "managed customer-delivery suites leave monolithic discovery and retain exact shard coverage" {
+    local discovered
+    discovered="$(bash "$RUNNER" --root "$ROOT" --list)"
+    [[ "$discovered" != *"dev-tools/tests/check-customer-delivery.bats"* ]] \
+        && [[ "$discovered" != *"dev-tools/tests/customer-delivery-schema.bats"* ]] \
+        && [[ "$discovered" != *"dev-tools/tests/customer-delivery-mutation.bats"* ]] \
+        && /usr/bin/python3 "$ROOT/tests/run-customer-delivery-shard.py" --check
 }
 
 @test "discovery is non-empty (a broken glob must not read as 'all clean')" {
@@ -181,8 +190,10 @@ YAML
 @test "macOS CI installs pinned A2 dependencies and runs both A2 suites in bounded steps" {
     grep -q 'brew install bats-core yq openssl@3' "$WF" \
         && grep -q -- '--python-only' "$WF" \
-        && grep -q 'dev-tools/tests/check-customer-delivery.bats' "$WF" \
-        && grep -q 'dev-tools/tests/customer-delivery-schema.bats' "$WF" \
+        && grep -q 'run-customer-delivery-shard.py' "$WF" \
+        && grep -q 'customer-delivery-macos' "$WF" \
+        && grep -q 'customer-delivery-linux' "$WF" \
+        && grep -q -- "--python-bin \"\$RUNNER_TEMP/customer-delivery-venv/bin/python\"" "$WF" \
         && grep -q 'tests/bats-discovery-coverage.bats' "$WF"
 }
 
@@ -191,4 +202,11 @@ YAML
     grep -q -- '--python-only' "$inst" \
         && grep -q -- '--python-bin' "$inst" \
         && grep -q 'PYTHON_BIN' "$inst"
+}
+
+@test "Linux and macOS customer-delivery jobs pass an absolute interpreter to every shard" {
+    local explicit_count
+    explicit_count="$(grep -c -- "--python-bin \"\$RUNNER_TEMP/customer-delivery-venv/bin/python\"" "$WF")"
+    [ "$explicit_count" -ge 4 ] \
+        && ! grep -qE 'bats dev-tools/tests/(check-customer-delivery|customer-delivery-schema|customer-delivery-mutation)\.bats' "$WF"
 }

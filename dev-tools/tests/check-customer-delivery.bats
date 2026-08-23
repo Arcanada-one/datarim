@@ -3,7 +3,7 @@
 setup() {
     REPO_ROOT="${BATS_TEST_DIRNAME}/../.."
     SCRIPT="${CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE:-${REPO_ROOT}/dev-tools/check-customer-delivery.sh}"
-    PYTHON="${CUSTOMER_DELIVERY_PYTHON:-python3}"
+    PYTHON="${CUSTOMER_DELIVERY_PYTHON:-/usr/bin/python3}"
     TASK_ID="WEB-0001"
     ROOT="${BATS_TEST_TMPDIR}/consumer"
     REQUIREMENTS="${ROOT}/datarim/tasks/${TASK_ID}-customer-requirements.yaml"
@@ -14,6 +14,10 @@ setup() {
 
     if ! command -v yq >/dev/null 2>&1; then
         echo "ERROR: yq is required for customer-delivery tests" >&2
+        return 1
+    fi
+    if [[ "$PYTHON" != /* || ! -x "$PYTHON" || -d "$PYTHON" ]]; then
+        echo "ERROR: CUSTOMER_DELIVERY_PYTHON must be an absolute executable" >&2
         return 1
     fi
     if ! "$PYTHON" -c 'import jsonschema, yaml' >/dev/null 2>&1; then

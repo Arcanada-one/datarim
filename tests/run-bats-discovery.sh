@@ -150,6 +150,19 @@ is_excluded() {
     return 1
 }
 
+# These suites are not excluded: their exact test inventory is partitioned by
+# tests/customer-delivery-shards.tsv and executed by dedicated Linux/macOS
+# matrices. Running the monolithic files here would reintroduce the >2 minute
+# command the shard registry exists to eliminate.
+is_managed_shard_suite() {
+    case "$1" in
+        dev-tools/tests/check-customer-delivery.bats|\
+        dev-tools/tests/customer-delivery-schema.bats|\
+        dev-tools/tests/customer-delivery-mutation.bats) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
 # ---------------------------------------------------------------------------
 # Registry validation. A stale entry (suite deleted or renamed) means a real
 # suite may be silently skipped under a path nobody checks any more, so this is
@@ -217,6 +230,7 @@ discover() {
     while IFS= read -r f; do
         rel="${f#"${ROOT}"/}"
         is_excluded "$rel" && continue
+        is_managed_shard_suite "$rel" && continue
         printf '%s\n' "$rel"
     # NOTE: filters are anchored to $ROOT. Do NOT add unanchored patterns like
     # `! -path '*/.worktrees/*'` — a checkout may itself live under such a
@@ -262,6 +276,7 @@ done
 
 echo "discovery: ${#ALL_SUITES[@]} suite(s) total, ${#SUITES[@]} in shard ${SHARD_N}/${SHARD_M}"
 echo "excluded : ${#EXCLUDED_PATHS[@]} suite(s) per ${REGISTRY#"${ROOT}"/}"
+echo "managed  : 3 suite(s) via tests/customer-delivery-shards.tsv"
 echo
 
 cd "$ROOT" || exit 2

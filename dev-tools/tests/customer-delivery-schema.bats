@@ -2,13 +2,18 @@
 
 setup() {
     ROOT="${BATS_TEST_DIRNAME}/../.."
-    PYTHON="${CUSTOMER_SCHEMA_PYTHON:-python3}"
+    PYTHON="${CUSTOMER_SCHEMA_PYTHON:-/usr/bin/python3}"
     REQUIREMENTS_SCHEMA="${ROOT}/config/customer-requirement.schema.json"
     RECEIPT_SCHEMA="${ROOT}/config/customer-delivery-receipt.schema.json"
     EVOLUTION_SCHEMA="${ROOT}/config/review-evolution.schema.json"
     REQUIREMENTS_TEMPLATE="${ROOT}/templates/customer-requirements-template.yaml"
     RECEIPT_TEMPLATE="${ROOT}/templates/customer-delivery-receipt-template.yaml"
     EVOLUTION_TEMPLATE="${ROOT}/templates/review-evolution-template.yaml"
+
+    if [[ "$PYTHON" != /* || ! -x "$PYTHON" || -d "$PYTHON" ]]; then
+        echo "ERROR: CUSTOMER_SCHEMA_PYTHON must be an absolute executable" >&2
+        return 1
+    fi
 
     for schema in "$REQUIREMENTS_SCHEMA" "$RECEIPT_SCHEMA" "$EVOLUTION_SCHEMA"; do
         if [ ! -f "$schema" ]; then

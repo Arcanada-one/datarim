@@ -1,0 +1,15 @@
+# suite shard total mode first last
+functional 1 3 ordinal 1 45
+functional 2 3 ordinal 46 90
+functional 3 3 ordinal 91 135
+schema 1 3 ordinal 1 57
+schema 2 3 ordinal 58 113
+schema 3 3 ordinal 114 169
+mutation 1 8 ordinal 1,3 -
+mutation 2 8 security 1 14
+mutation 3 8 security 15 28
+mutation 4 8 security 29 42
+mutation 5 8 security 43 56
+mutation 6 8 security 57 70
+mutation 7 8 security 71 81
+mutation 8 8 ordinal 4,5,6 -

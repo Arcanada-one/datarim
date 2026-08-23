@@ -4,7 +4,9 @@ setup() {
     REPO_ROOT="${BATS_TEST_DIRNAME}/../.."
     SCRIPT="${REPO_ROOT}/dev-tools/check-customer-delivery.sh"
     FUNCTIONAL_TEST="${BATS_TEST_DIRNAME}/check-customer-delivery.bats"
-    PYTHON="${CUSTOMER_DELIVERY_PYTHON:-python3}"
+    PYTHON="${CUSTOMER_DELIVERY_PYTHON:-/usr/bin/python3}"
+    [[ "$PYTHON" == /* && -x "$PYTHON" && ! -d "$PYTHON" ]] \
+        || { echo "ERROR: CUSTOMER_DELIVERY_PYTHON must be an absolute executable" >&2; return 1; }
     [ -f "$SCRIPT" ] || { echo "ERROR: validator missing: $SCRIPT" >&2; return 1; }
     [ -f "$FUNCTIONAL_TEST" ] || { echo "ERROR: functional tests missing: $FUNCTIONAL_TEST" >&2; return 1; }
 }
@@ -65,6 +67,7 @@ PY
 @test "every security-critical production branch is killed by its focused regression" {
     local pair marker filter framework mutant mutation_index=0
     local shard="${CUSTOMER_DELIVERY_SECURITY_SHARD:-all}"
+    local security_range="${CUSTOMER_DELIVERY_SECURITY_RANGE:-}"
     local -a pairs=(
         'invariant_dispatch|semantic implementation dispatch cannot lose a registered rule'
         'registry_locator|trusted registry locator owner anchor structure and receipt reference are pinned'
@@ -151,6 +154,13 @@ PY
 
     for pair in "${pairs[@]}"; do
         ((mutation_index += 1))
+        if [[ -n "$security_range" ]]; then
+            [[ "$security_range" =~ ^([1-9][0-9]*)-([1-9][0-9]*)$ ]] \
+                || { echo "ERROR: invalid CUSTOMER_DELIVERY_SECURITY_RANGE" >&2; return 2; }
+            if ((mutation_index < BASH_REMATCH[1] || mutation_index > BASH_REMATCH[2])); then
+                continue
+            fi
+        fi
         if [[ "$shard" == first && "$mutation_index" -gt 37 ]]; then
             continue
         fi
@@ -417,10 +427,14 @@ PY
 }
 
 
-@test "portable stat and global deadline mutants are independently killed" {
-    local pair kind filter framework mutant
+@test "platform stat interpreter OpenSSL and global deadline mutants are behaviorally killed" {
+    local pair kind filter framework mutant platform architecture
+    platform="$(uname -s)"
+    architecture="$(uname -m)"
     local -a pairs=(
-        'portable_stat|trusted interpreter metadata contract covers Linux and macOS stat semantics'
+        'platform_stat|complete canonical delivery chain is MET'
+        'platform_interpreter|complete canonical delivery chain is MET'
+        'platform_openssl|complete canonical delivery chain is MET'
         'total_deadline|all validation subprocesses share one total deadline'
     )
 
@@ -438,17 +452,41 @@ PY
             "${REPO_ROOT}/config/customer-delivery-receipt.schema.json" \
             "${REPO_ROOT}/config/review-evolution.schema.json" \
             "${framework}/config/" || return 1
-        "$PYTHON" - "$mutant" "$kind" <<'PY' || return 1
+        "$PYTHON" - "$mutant" "$kind" "$platform" "$architecture" <<'PY' || return 1
 import sys
 
-path, kind = sys.argv[1:]
+path, kind, platform, architecture = sys.argv[1:]
 with open(path, encoding="utf-8") as handle:
     source = handle.read()
-if kind == "portable_stat":
-    old = "# PORTABLE_TRUST:darwin_bsd_stat"
+if kind == "platform_stat":
+    if platform == "Linux":
+        old = "/usr/bin/stat -L -c '%d|%i|%u|%a|%F' \"$1\" 2>/dev/null"
+        replacement = "/usr/bin/stat -L -f '%d|%i|%u|%Lp|%HT' \"$1\" 2>/dev/null"
+    elif platform == "Darwin":
+        old = "/usr/bin/stat -L -f '%d|%i|%u|%Lp|%HT' \"$1\" 2>/dev/null"
+        replacement = "/usr/bin/stat -L -c '%d|%i|%u|%a|%F' \"$1\" 2>/dev/null"
+    else:
+        raise SystemExit(f"unsupported mutation platform: {platform}")
     if source.count(old) != 1:
-        raise SystemExit("DARWIN_STAT_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
-    source = source.replace(old, "# MUTATED:darwin_bsd_stat")
+        raise SystemExit("PLATFORM_STAT_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+    source = source.replace(old, replacement)
+elif kind == "platform_interpreter":
+    old = "python_min_minor=11" if platform == "Linux" else "python_min_minor=9"
+    if source.count(old) != 1:
+        raise SystemExit("PLATFORM_INTERPRETER_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+    source = source.replace(old, "python_min_minor=99")
+elif kind == "platform_openssl":
+    if platform == "Linux":
+        old = "pinned_openssl='/usr/bin/openssl'"
+    elif platform == "Darwin" and architecture == "arm64":
+        old = "pinned_openssl='/opt/homebrew/opt/openssl@3/bin/openssl'"
+    elif platform == "Darwin" and architecture == "x86_64":
+        old = "pinned_openssl='/usr/local/opt/openssl@3/bin/openssl'"
+    else:
+        raise SystemExit(f"unsupported mutation platform: {platform}/{architecture}")
+    if source.count(old) != 1:
+        raise SystemExit("PLATFORM_OPENSSL_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+    source = source.replace(old, "pinned_openssl='/nonexistent/customer-delivery-openssl'", 1)
 elif kind == "total_deadline":
     deadline = "VALIDATION_DEADLINE = time.monotonic() + VALIDATION_TOTAL_TIMEOUT_SECONDS"
     alarm = "signal.setitimer(signal.ITIMER_REAL, VALIDATION_TOTAL_TIMEOUT_SECONDS)"
@@ -469,6 +507,7 @@ PY
         [ "$status" -ne 0 ] \
             && [[ "$output" == *"not ok 1 ${filter}"* ]] \
             || return 1
-        printf 'mutant=%s killed_by=%s\n' "$kind" "$filter"
+        printf 'mutant=%s platform=%s/%s killed_by=%s\n' \
+            "$kind" "$platform" "$architecture" "$filter"
     done
 }
