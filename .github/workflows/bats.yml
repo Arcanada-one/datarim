@@ -134,6 +134,7 @@ jobs:
         run: |
           set -euo pipefail
           /usr/bin/python3 -m venv "$RUNNER_TEMP/customer-delivery-venv"
+          /bin/ln -sf /usr/bin/python3 "$RUNNER_TEMP/customer-delivery-venv/bin/python"
           bash tests/ci-install-bats-deps.sh --python-only \
             --python-bin "$RUNNER_TEMP/customer-delivery-venv/bin/python"
 
@@ -246,6 +247,7 @@ jobs:
         run: |
           set -euo pipefail
           /usr/bin/python3 -m venv "$RUNNER_TEMP/customer-delivery-venv"
+          /bin/ln -sf /usr/bin/python3 "$RUNNER_TEMP/customer-delivery-venv/bin/python"
           bash tests/ci-install-bats-deps.sh --python-only \
             --python-bin "$RUNNER_TEMP/customer-delivery-venv/bin/python"
 

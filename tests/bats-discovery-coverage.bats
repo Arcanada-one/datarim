@@ -231,6 +231,7 @@ YAML
     local explicit_count
     explicit_count="$(grep -c -- "--python-bin \"\$RUNNER_TEMP/customer-delivery-venv/bin/python\"" "$WF")"
     [ "$explicit_count" -ge 4 ] \
+        && [ "$(grep -c '/bin/ln -sf /usr/bin/python3 "\$RUNNER_TEMP/customer-delivery-venv/bin/python"' "$WF")" -eq 2 ] \
         && ! grep -qE 'bats dev-tools/tests/(check-customer-delivery|customer-delivery-schema|customer-delivery-mutation)\.bats' "$WF"
 }
 
