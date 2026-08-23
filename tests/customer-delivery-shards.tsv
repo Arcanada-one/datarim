@@ -13,7 +13,7 @@ mutation 4 11 security 29 42 linux
 mutation 5 11 security 43 56 linux
 mutation 6 11 security 57 70 linux
 mutation 7 11 security 71 81 linux
-mutation 8 11 ordinal 4,5 - linux,macos
+mutation 8 11 ordinal 4 - linux,macos
 mutation 9 11 ordinal 6,7 - linux,macos
 mutation 10 11 ordinal 8,9,10 - linux,macos
-mutation 11 11 ordinal 11 - macos
+mutation 11 11 ordinal 5,11 - macos

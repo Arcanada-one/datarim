@@ -455,7 +455,9 @@ def authenticated_dist_version(site_fd, distribution, expected_version):  # SECU
         or normalized_distribution(names[0]) != normalized_distribution(distribution)
         or versions[0] != expected_version
     ):  # SECURITY_RULE:python_distinfo_metadata
-        raise RuntimeError("dist_info_metadata_mismatch")
+        raise RuntimeError(
+            f"dist_info_metadata_mismatch:{distribution}:{names!r}:{versions!r}"
+        )
     return versions[0]
 
 sys.path.insert(0, ".")
@@ -603,7 +605,7 @@ validator_output="$(/usr/bin/mktemp "${TMPDIR:-/tmp}/customer-delivery-output.XX
     emit_config_error 'validator_output_unavailable'
     exit 2
 }
-trap '/usr/bin/rm -f -- "$validator_output"' EXIT
+trap '/bin/rm -f -- "$validator_output"' EXIT
 set +e
 run_trusted_python "${python_isolation_args[@]}" - "$task" "$stage" "$format" "$root" \
     "$requirements" "$receipt" "$review" \

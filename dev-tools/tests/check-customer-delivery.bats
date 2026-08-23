@@ -924,7 +924,8 @@ PY
 @test "complete canonical delivery chain is MET" {
     run_validator
     [ "$status" -eq 0 ] \
-        && [[ "$output" == *"decision=MET"* ]]
+        && [[ "$output" == *"decision=MET"* ]] \
+        || { printf 'canonical_status=%s canonical_output=%s\n' "$status" "$output"; return 1; }
 }
 
 @test "authorized disposition reseal cannot make whitespace U4 evidence MET" {
@@ -1747,7 +1748,13 @@ PY
 
 @test "dependency failure is deterministic machine-readable JSON" {
     local dependency_free_venv="${BATS_TEST_TMPDIR}/python-without-dependencies"
-    "$PYTHON" -m venv "$dependency_free_venv" || return 1
+    if [[ "$(/usr/bin/uname -s)" == Darwin ]]; then
+        /usr/bin/env -i LC_ALL=C DEVELOPER_DIR=/Library/Developer/CommandLineTools \
+            "${CUSTOMER_TEST_PYTHON_RUNTIME:?missing CUSTOMER_TEST_PYTHON_RUNTIME}" \
+            -m venv "$dependency_free_venv" || return 1
+    else
+        "$PYTHON" -m venv "$dependency_free_venv" || return 1
+    fi
     run env CUSTOMER_DELIVERY_PYTHON="${dependency_free_venv}/bin/python" \
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage compliance --format json
     [ "$status" -eq 2 ] \

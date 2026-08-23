@@ -186,8 +186,8 @@ import sys
 rows = [line.split() for line in open(sys.argv[1], encoding="utf-8") if line.startswith("mutation ")]
 portable = [row for row in rows if "macos" in row[-1]]
 assert [(row[1], row[2], row[4]) for row in portable] == [
-    ("8", "11", "4,5"), ("9", "11", "6,7"),
-    ("10", "11", "8,9,10"), ("11", "11", "11")
+    ("8", "11", "4"), ("9", "11", "6,7"),
+    ("10", "11", "8,9,10"), ("11", "11", "5,11")
 ]
 PY
 }
