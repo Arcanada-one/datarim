@@ -501,25 +501,10 @@ PY
     done
 }
 
-@test "Darwin dependency-site authority mutants are independently killed" {
+run_darwin_dependency_site_mutants() {
     [[ "$(/usr/bin/uname -s)" == Darwin ]] || skip 'Darwin-only dependency-site mutations'
     local pair kind filter framework mutant expected_lines
-    local -a pairs=(
-        'python_pth_authority|Darwin trusted site bootstrap rejects executable pth authority'
-        'python_site_symlink|Darwin trusted site bootstrap rejects symlinked dependency content'
-        'python_distinfo_type|Darwin trusted site bootstrap rejects regular-file dist-info forgery'
-        'python_distinfo_nofollow|Darwin trusted site bootstrap rejects symlinked dist-info'
-        'python_distinfo_fchdir|complete canonical delivery chain is MET'
-        'python_distinfo_metadata|Darwin trusted site bootstrap authenticates dist-info metadata'
-        'python_metadata_nofollow|Darwin trusted site bootstrap rejects METADATA boundary forgeries'
-        'python_metadata_size|Darwin trusted site bootstrap rejects METADATA boundary forgeries'
-        'python_metadata_name|Darwin trusted site bootstrap rejects METADATA boundary forgeries'
-        'python_metadata_duplicate|Darwin trusted site bootstrap rejects METADATA boundary forgeries'
-        'python_metadata_preopen_identity|Darwin trusted site bootstrap detects METADATA replacement before open'
-        'python_metadata_nonblock|Darwin METADATA open remains nonblocking across a FIFO replacement race'
-        'python_metadata_identity|Darwin trusted site bootstrap detects METADATA identity change after read'
-    )
-    for pair in "${pairs[@]}"; do
+    for pair in "$@"; do
         kind="${pair%%|*}"
         filter="${pair#*|}"
         expected_lines="$(expected_red_lines "$filter")" || return 1
@@ -652,6 +637,31 @@ PY
             "$status" "$output" || return 1
         printf 'mutant=%s killed_by=%s\n' "$kind" "$filter"
     done
+}
+
+@test "Darwin dependency-site path and dist-info descriptor mutants are independently killed" {
+    run_darwin_dependency_site_mutants \
+        'python_pth_authority|Darwin trusted site bootstrap rejects executable pth authority' \
+        'python_site_symlink|Darwin trusted site bootstrap rejects symlinked dependency content' \
+        'python_distinfo_type|Darwin trusted site bootstrap rejects regular-file dist-info forgery' \
+        'python_distinfo_nofollow|Darwin trusted site bootstrap rejects symlinked dist-info' \
+        'python_distinfo_fchdir|complete canonical delivery chain is MET'
+}
+
+@test "Darwin dependency metadata content mutants are independently killed" {
+    run_darwin_dependency_site_mutants \
+        'python_distinfo_metadata|Darwin trusted site bootstrap authenticates dist-info metadata' \
+        'python_metadata_nofollow|Darwin trusted site bootstrap rejects METADATA symlink swap after lstat' \
+        'python_metadata_size|Darwin trusted site bootstrap rejects METADATA boundary forgeries' \
+        'python_metadata_name|Darwin trusted site bootstrap rejects METADATA boundary forgeries'
+}
+
+@test "Darwin dependency metadata identity and bounded-open mutants are independently killed" {
+    run_darwin_dependency_site_mutants \
+        'python_metadata_duplicate|Darwin trusted site bootstrap rejects METADATA boundary forgeries' \
+        'python_metadata_preopen_identity|Darwin trusted site bootstrap detects METADATA replacement before open' \
+        'python_metadata_nonblock|Darwin METADATA open remains nonblocking across a FIFO replacement race' \
+        'python_metadata_identity|Darwin trusted site bootstrap detects METADATA identity change after read'
 }
 
 

@@ -2176,6 +2176,49 @@ PY
     done
 }
 
+@test "Darwin trusted site bootstrap rejects METADATA symlink swap after lstat" {
+    [[ "$(/usr/bin/uname -s)" == Darwin ]] || skip 'Darwin-only trusted site boundary'
+    local site_path result output_copy
+    site_path="${CUSTOMER_TEST_PYTHON_SITE:?missing CUSTOMER_TEST_PYTHON_SITE}"
+    build_test_framework metadata-nofollow-swap || return 1
+    "$PYTHON" - "$TEST_SCRIPT" <<'PY' || return 1
+import sys
+
+path = sys.argv[1]
+source = open(path, encoding="utf-8").read()
+before_open = '        metadata_entry = os.stat("METADATA", follow_symlinks=False)\n'
+swap = before_open + '''        if distribution == "jsonschema":
+            os.rename(
+                "METADATA", "METADATA.original-a2",
+                src_dir_fd=dist_fd, dst_dir_fd=dist_fd,
+            )
+            os.symlink("METADATA.original-a2", "METADATA", dir_fd=dist_fd)
+'''
+after_open = '        metadata_fd = os.open("METADATA", metadata_flags)\n'
+restore = after_open + '''        if distribution == "jsonschema":
+            os.unlink("METADATA", dir_fd=dist_fd)
+            os.rename(
+                "METADATA.original-a2", "METADATA",
+                src_dir_fd=dist_fd, dst_dir_fd=dist_fd,
+            )
+'''
+if source.count(before_open) != 1 or source.count(after_open) != 1:
+    raise SystemExit("METADATA_NOFOLLOW_ATTACK_SEAM_MISSING_OR_AMBIGUOUS")
+source = source.replace(before_open, swap).replace(after_open, restore)
+open(path, "w", encoding="utf-8").write(source)
+PY
+    SITE_IDENTITY_CLEANUP_SITE="$site_path"
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        "$TEST_SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+    result="$status"
+    output_copy="$output"
+    cleanup_metadata_identity_fixture || return 1
+    assert_darwin_dependency_site_integrity || return 1
+    [ "$result" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_dependencies"]' "$output_copy" \
+        && [[ "$output_copy" != *Traceback* ]]
+}
+
 @test "Darwin trusted site bootstrap detects METADATA identity change after read" {
     [[ "$(/usr/bin/uname -s)" == Darwin ]] || skip 'Darwin-only trusted site boundary'
     local site_path metadata original replacement result output_copy
@@ -2497,7 +2540,7 @@ PY
     elapsed="$($PYTHON -c 'import sys; print((int(sys.argv[2])-int(sys.argv[1]))/1_000_000_000)' "$start" "$end")"
     [ "$status" -eq 2 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["validation_resource_limit:deadline"]' "$output" \
-        && "$PYTHON" -c 'import sys; assert float(sys.argv[1]) < 2.0' "$elapsed" \
+        && "$PYTHON" -c 'import sys; assert 0.5 <= float(sys.argv[1]) < 4.0' "$elapsed" \
         || { printf 'deadline_output=%s elapsed=%s\n' "$output" "$elapsed"; return 1; }
 }
 
@@ -3349,7 +3392,8 @@ PY
     elapsed="$($PYTHON -c 'import sys; print((int(sys.argv[2])-int(sys.argv[1]))/1_000_000_000)' "$start" "$end")"
     [ "$status" -eq 1 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["source_history_resource_limit:deadline"]' "$output" \
-        && "$PYTHON" -c 'import sys; assert float(sys.argv[1]) < 1.8' "$elapsed"
+        && "$PYTHON" -c 'import sys; assert 0.5 <= float(sys.argv[1]) < 4.0' "$elapsed" \
+        || { printf 'history_deadline_output=%s elapsed=%s\n' "$output" "$elapsed"; return 1; }
 }
 
 

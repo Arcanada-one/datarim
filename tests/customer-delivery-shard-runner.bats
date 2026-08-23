@@ -171,14 +171,14 @@ PY
 @test "customer-delivery registry generates the complete Linux and approved macOS matrices" {
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" --matrix linux
     [ "$status" -eq 0 ] \
-        && "$PYTHON" -c 'import json,sys; rows=json.loads(sys.argv[1]); assert len(rows)==25 and len({(r["suite"],r["shard"]) for r in rows})==25 and [r["shard"] for r in rows if r["suite"]=="functional"]==["1/7","2/7","3/7","4/7","5/7","6/7","7/7"]' "$output" \
+        && "$PYTHON" -c 'import json,sys; rows=json.loads(sys.argv[1]); assert len(rows)==30 and len({(r["suite"],r["shard"]) for r in rows})==30 and [r["shard"] for r in rows if r["suite"]=="functional"]==["1/7","2/7","3/7","4/7","5/7","6/7","7/7"]' "$output" \
         || return 1
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" --matrix macos
     [ "$status" -eq 0 ] \
-        && "$PYTHON" -c 'import json,sys; rows=json.loads(sys.argv[1]); assert len(rows)==18 and {r["suite"] for r in rows}=={"functional","schema","mutation"} and [r["shard"] for r in rows if r["suite"]=="functional"]==["1/7","2/7","3/7","4/7","5/7","6/7","7/7"] and [r["shard"] for r in rows if r["suite"]=="mutation"]==["9/16","10/16","11/16","12/16","13/16","14/16","15/16","16/16"]' "$output"
+        && "$PYTHON" -c 'import json,sys; rows=json.loads(sys.argv[1]); assert len(rows)==20 and {r["suite"] for r in rows}=={"functional","schema","mutation"} and [r["shard"] for r in rows if r["suite"]=="functional"]==["1/7","2/7","3/7","4/7","5/7","6/7","7/7"] and [r["shard"] for r in rows if r["suite"]=="mutation"]==["14/23","15/23","16/23","17/23","18/23","19/23","20/23","21/23","22/23","23/23"]' "$output"
 }
 
-@test "cross-platform mutation cases are split into eight bounded exact shards" {
+@test "cross-platform mutation cases are split into ten bounded exact shards" {
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" --check
     [ "$status" -eq 0 ] || return 1
     "$PYTHON" - "$REGISTRY" <<'PY'
@@ -186,9 +186,10 @@ import sys
 rows = [line.split() for line in open(sys.argv[1], encoding="utf-8") if line.startswith("mutation ")]
 portable = [row for row in rows if "macos" in row[-1]]
 assert [(row[1], row[2], row[4]) for row in portable] == [
-    ("9", "16", "4"), ("10", "16", "6"), ("11", "16", "7"),
-    ("12", "16", "8"), ("13", "16", "9"), ("14", "16", "10"),
-    ("15", "16", "5,12"), ("16", "16", "11")
+    ("14", "23", "4"), ("15", "23", "8"), ("16", "23", "9"),
+    ("17", "23", "10"), ("18", "23", "11"), ("19", "23", "12"),
+    ("20", "23", "5"), ("21", "23", "6"), ("22", "23", "7,14"),
+    ("23", "23", "13")
 ]
 PY
 }
@@ -198,7 +199,7 @@ PY
     seed_results linux "$results" || return 1
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" --check-results linux "$results"
     [ "$status" -eq 0 ] \
-        && [[ "$output" == *"customer_delivery_results=valid platform=linux count=25"* ]]
+        && [[ "$output" == *"customer_delivery_results=valid platform=linux count=30"* ]]
 }
 
 @test "customer-delivery aggregate rejects a missing result" {
