@@ -3198,6 +3198,14 @@ expected_registry = {
 }
 
 expected_contract = {
+    "inventory": {
+        "source": "originating_review_inventory",
+        "expected_requirement_set": "customer-requirements.requirements.propertyNames",
+        "requirement_set_equality": "EXACT",
+        "review_id_uniqueness": "REQUIRED",
+        "primary_review_mirror": "EXACT",
+        "closure_states": ["APPROVED"],
+    },
     "review_digest": {
         "algorithm": "SHA-256",
         "canonicalization": "RFC8785",
@@ -3230,6 +3238,8 @@ expected_contract = {
         "ORIGINATING_REVIEW_APPROVAL_PAYLOAD_DIGEST_VALID",
         "ORIGINATING_REVIEW_APPROVAL_KEY_AUTHORIZED",
         "ORIGINATING_REVIEW_SIGNATURE_VALID",
+        "ORIGINATING_REVIEW_INVENTORY_REQUIREMENT_SET_EXACT",
+        "ORIGINATING_REVIEW_PRIMARY_MIRROR_EXACT",
         "ORIGINATING_REVIEW_OBSERVED_AT_NOT_AFTER_REVIEWED_AT",
         "ORIGINATING_REVIEW_CLOSURE_STATE_ENFORCED_BY_A2",
     ],

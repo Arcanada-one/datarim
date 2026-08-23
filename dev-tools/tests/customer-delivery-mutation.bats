@@ -106,7 +106,7 @@ PY
         'receipt_prework_parent_binding|receipt task and requirement-set parent links are exact'
         'review_prework_task_binding|authenticated review task parent must equal the signed pre-work task'
         'source_history|source records are append-only against available Git history'
-        'source_history_repo_required|MET requires an authoritative Git history for the requirement source'
+        'source_history_repo_required|bound repository whose Git probe fails is unavailable'
         'source_history_document_required|MET requires the requirement source itself in authoritative Git history'
         'source_history_shallow_rejected|shallow Git history cannot authorize customer delivery'
         'source_history_grafts_rejected|Git grafts cannot rewrite authoritative customer history'
@@ -259,16 +259,13 @@ PY
         && [[ "$output" == *"not ok 1 ${filter}"* ]]
 }
 
-@test "runtime pin response and Git authority mutants are independently killed" {
+@test "runtime pin response and Git child defenses are independently killed" {
     local pair kind filter framework mutant
     local -a pairs=(
         'python_runtime|non-Python executable cannot satisfy the interpreter pin'
         'python_inode|perfect probe dependency and MET forgery cannot impersonate a trusted CPython inode'
         'wrapper_response|empty validator response cannot be accepted as MET'
-        'git_environment|ambient GIT_DIR cannot substitute a clean authoritative history'
-        'git_environment_worktree|ambient GIT_WORK_TREE cannot redirect authoritative history discovery'
-        'git_environment_objects|ambient GIT_OBJECT_DIRECTORY cannot replace the authoritative object store'
-        'git_binary|ambient PATH Git shim cannot substitute a clean authoritative history'
+        'git_no_replace_objects|Git replacement objects cannot hide an in-place source mutation'
         'git_process_group|source history deadline kills stubborn descendant pipe holders'
     )
 
@@ -323,23 +320,11 @@ elif kind == "wrapper_response":
     if source.count(old) != 1:
         raise SystemExit("WRAPPER_RESPONSE_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
     source = source.replace(old, 'if false; then')
-elif kind.startswith("git_environment"):
-    start_token = '    git_env = {\n'
-    end_token = '    }  # SECURITY_RULE:git_environment_sanitized\n'
-    if source.count(start_token) != 1 or source.count(end_token) != 1:
-        raise SystemExit("GIT_ENVIRONMENT_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
-    start = source.index(start_token)
-    end = source.index(end_token, start) + len(end_token)
-    replacement = (
-        '    git_env = dict(os.environ)\n'
-        '    git_env["GIT_NO_REPLACE_OBJECTS"] = "1"\n'
-    )
-    source = source[:start] + replacement + source[end:]
-elif kind == "git_binary":
-    old = 'PINNED_GIT = "/usr/bin/git"'
+elif kind == "git_no_replace_objects":
+    old = '        "GIT_NO_REPLACE_OBJECTS": "1",\n'
     if source.count(old) != 1:
-        raise SystemExit("GIT_BINARY_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
-    source = source.replace(old, 'PINNED_GIT = __import__("shutil").which("git")')
+        raise SystemExit("GIT_NO_REPLACE_OBJECTS_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+    source = source.replace(old, "")
 elif kind == "git_process_group":
     term = '            os.killpg(process.pid, signal.SIGTERM)'
     kill = '            os.killpg(process.pid, signal.SIGKILL)'
@@ -516,7 +501,8 @@ PY
     local pair kind filter framework mutant
     local -a pairs=(
         'openat|pre-open path replacement cannot redirect a canonical snapshot'
-        'nofollow|pre-open path replacement cannot redirect a canonical snapshot'
+        'repository_nofollow|repository binding refuses a symlink swapped into the canonical gitdir'
+        'snapshot_nofollow|pre-open path replacement cannot redirect a canonical snapshot'
         'identity|post-open identity change invalidates the captured snapshot'
     )
     for pair in "${pairs[@]}"; do
@@ -541,9 +527,28 @@ if kind == "openat":
             DOCUMENT_PATHS[name], ROOT, name
         )"""
     new = '        document_bytes = open(DOCUMENT_PATHS[name], "rb").read()'
-elif kind == "nofollow":
-    old = '    nofollow = getattr(os, "O_NOFOLLOW", 0)'
-    new = '    nofollow = 0'
+elif kind == "repository_nofollow":
+    old = '''def bind_authoritative_repository():
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC
+    nofollow = getattr(os, "O_NOFOLLOW", 0)'''
+    new = '''def bind_authoritative_repository():
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC
+    nofollow = 0'''
+elif kind == "snapshot_nofollow":
+    old = '''def read_confined_snapshot(path, boundary, label):
+    relative = os.path.relpath(path, boundary)'''
+    new = '''def read_confined_snapshot(path, boundary, label):
+    nofollow = 0
+    relative = os.path.relpath(path, boundary)'''
+    snapshot_assignment = '    nofollow = getattr(os, "O_NOFOLLOW", 0)\n'
+    snapshot_start = source.index('def read_confined_snapshot(path, boundary, label):\n')
+    snapshot_end = source.index('\ndef ', snapshot_start + 1)
+    snapshot = source[snapshot_start:snapshot_end]
+    if snapshot.count(snapshot_assignment) != 1:
+        raise SystemExit("SNAPSHOT_NOFOLLOW_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+    source = source[:snapshot_start] + snapshot.replace(
+        snapshot_assignment, "", 1
+    ) + source[snapshot_end:]
 elif kind == "identity":
     old = '        if identity_before != identity_after:'
     new = '        if False:'

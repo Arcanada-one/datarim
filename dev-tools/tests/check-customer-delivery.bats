@@ -1513,6 +1513,31 @@ PY
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["input_unavailable:requirements"]' "$output"
 }
 
+@test "repository binding refuses a symlink swapped into the canonical gitdir" {
+    local displaced_gitdir="${BATS_TEST_TMPDIR}/displaced-gitdir"
+    mv "${ROOT}/.git" "$displaced_gitdir"
+    ln -s "$displaced_gitdir" "${ROOT}/.git"
+    build_test_framework repository-symlink-swap || return 1
+    "$PYTHON" - "$TEST_SCRIPT" "$displaced_gitdir" <<'PY' || return 1
+import sys
+
+path, displaced_gitdir = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+old = """            gitdir_fd = os.dup(dotgit_fd)
+        except NotADirectoryError:"""
+new = f"""            gitdir_fd = os.dup(dotgit_fd)
+            if os.path.islink(os.path.join(ROOT, ".git")):
+                os.unlink(os.path.join(ROOT, ".git"))
+                os.rename({displaced_gitdir!r}, os.path.join(ROOT, ".git"))
+        except NotADirectoryError:"""
+assert source.count(old) == 1
+open(path, "w", encoding="utf-8").write(source.replace(old, new))
+PY
+    run_test_framework_json
+    [ "$status" -eq 1 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "NOT_MET" and d["findings"] == ["source_history_unavailable"]' "$output"
+}
+
 @test "post-open identity change invalidates the captured snapshot" {
     build_test_framework postopen-identity || return 1
     replace_test_script_literal \
@@ -2414,7 +2439,7 @@ import sys
 path, real_git, canary = sys.argv[1:]
 with open(path, "w", encoding="utf-8") as handle:
     handle.write(f'''#!/usr/bin/env bash
-if [[ "$*" == *"rev-parse --show-toplevel"* ]]; then
+if [[ "$*" == *"rev-parse --git-dir"* ]]; then
     head -c 1048576 /dev/zero | tr '\\0' x
     : > "{canary}"
     exit 0
@@ -2448,7 +2473,7 @@ import sys
 path, real_git, canary = sys.argv[1:]
 with open(path, "w", encoding="utf-8") as handle:
     handle.write(f'''#!/usr/bin/env bash
-if [[ "$*" == *"rev-parse --show-toplevel"* ]]; then
+if [[ "$*" == *"rev-parse --git-dir"* ]]; then
     head -c 1048576 /dev/zero | tr '\\0' e >&2
     : > "{canary}"
 fi
@@ -2481,7 +2506,7 @@ import sys
 path, real_git, pidfile = sys.argv[1:]
 with open(path, "w", encoding="utf-8") as handle:
     handle.write(f'''#!/usr/bin/env bash
-if [[ "$*" == *"rev-parse --show-toplevel"* ]]; then
+if [[ "$*" == *"rev-parse --git-dir"* ]]; then
     /usr/bin/python3 -c 'import os,signal,time; p=os.fork(); p and os._exit(0); signal.signal(signal.SIGHUP, signal.SIG_IGN); signal.signal(signal.SIGTERM, signal.SIG_IGN); open("{pidfile}", "w").write(str(os.getpid())); time.sleep(4)' &
     printf '%s\\n' "$PWD"
     exit 0
@@ -2514,6 +2539,33 @@ PY
     run_validator
     [ "$status" -eq 1 ] \
         && [[ "$output" == *"source_history_unavailable"* ]]
+}
+
+@test "bound repository whose Git probe fails is unavailable" {
+    local shim="${BATS_TEST_TMPDIR}/failing-git-probe"
+    local real_git
+    real_git="$(command -v git)" || return 1
+    "$PYTHON" - "$shim" "$real_git" <<'PY' || return 1
+import os
+import sys
+
+path, real_git = sys.argv[1:]
+with open(path, "w", encoding="utf-8") as handle:
+    handle.write(f'''#!/usr/bin/env bash
+if [[ "$*" == *"rev-parse --git-dir"* ]]; then
+    exit 1
+fi
+exec "{real_git}" "$@"
+''')
+os.chmod(path, 0o700)
+PY
+    build_test_framework failing-git-probe || return 1
+    replace_test_script_literal \
+        'PINNED_GIT = "/usr/bin/git"' \
+        "PINNED_GIT = \"${shim}\"" || return 1
+    run_test_framework_json
+    [ "$status" -eq 1 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["source_history_unavailable"]' "$output"
 }
 
 @test "MET requires the requirement source itself in authoritative Git history" {
