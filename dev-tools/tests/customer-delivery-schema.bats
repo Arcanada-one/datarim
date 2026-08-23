@@ -50,6 +50,32 @@ jsonschema.Draft202012Validator(
 PY
 }
 
+validate_signed_task_termination_case() {
+    "$PYTHON" - "$RECEIPT_SCHEMA" "$RECEIPT_TEMPLATE" "$1" <<'PY'
+import copy
+import json
+import sys
+
+import jsonschema
+import yaml
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    schema = json.load(handle)
+with open(sys.argv[2], encoding="utf-8") as handle:
+    instance = yaml.safe_load(handle)
+
+values = {
+    "valid": "task:abcdefghij:9999",
+    "lf": "task:web:0001\n",
+    "crlf": "task:web:0001\r\n",
+    "control": "task:web:0001\x1f",
+}
+candidate = copy.deepcopy(instance)
+candidate["requirements"]["req-0001"]["coverage_chain"]["implementation_delta"]["task_id"] = values[sys.argv[3]]
+jsonschema.Draft202012Validator(schema).validate(candidate)
+PY
+}
+
 reject_mutation() {
     local schema="$1"
     local template="$2"
@@ -2725,6 +2751,26 @@ PY
     done
 }
 
+@test "signed implementation task identity accepts the valid absolute end boundary" {
+    run validate_signed_task_termination_case valid
+    [ "$status" -eq 0 ]
+}
+
+@test "signed implementation task identity rejects a trailing LF at the schema boundary" {
+    run validate_signed_task_termination_case lf
+    [ "$status" -eq 1 ]
+}
+
+@test "signed implementation task identity rejects a trailing CRLF at the schema boundary" {
+    run validate_signed_task_termination_case crlf
+    [ "$status" -eq 1 ]
+}
+
+@test "signed implementation task identity rejects a trailing C0 control at the schema boundary" {
+    run validate_signed_task_termination_case control
+    [ "$status" -eq 1 ]
+}
+
 @test "signed implementation task identity rejects a one-character prefix" {
     run reject_mutation "$RECEIPT_SCHEMA" "$RECEIPT_TEMPLATE" \
         '.requirements.req-0001.coverage_chain.implementation_delta.task_id = "task:a:0001"'
@@ -3431,7 +3477,7 @@ if receipt_schema.get("x-datarim-trusted-authority-key-registry-ref") != expecte
     raise SystemExit("RECEIPT_TRUST_REGISTRY_REF_MISMATCH")
 expected_task_identity_contract = {
     "cli_pattern": "^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$",
-    "signed_pattern": "^task:[a-z][a-z0-9]{1,9}:[0-9]{4}$",
+    "signed_pattern": "^task:[a-z][a-z0-9]{1,9}:[0-9]{4}(?![\\s\\S])",
     "cli_to_signed": "task:<ASCII-lowercase-prefix>:<four-digit-number>",
     "signed_to_cli": "<ASCII-uppercase-prefix>-<four-digit-number>",
     "round_trip": "REQUIRED",

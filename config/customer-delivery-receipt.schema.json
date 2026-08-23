@@ -13,7 +13,7 @@
   },
   "x-datarim-task-identity-contract": {
     "cli_pattern": "^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$",
-    "signed_pattern": "^task:[a-z][a-z0-9]{1,9}:[0-9]{4}$",
+    "signed_pattern": "^task:[a-z][a-z0-9]{1,9}:[0-9]{4}(?![\\s\\S])",
     "cli_to_signed": "task:<ASCII-lowercase-prefix>:<four-digit-number>",
     "signed_to_cli": "<ASCII-uppercase-prefix>-<four-digit-number>",
     "round_trip": "REQUIRED",
@@ -342,7 +342,7 @@
       "additionalProperties": false,
       "required": ["task_id", "enabling_count", "enabling_changes", "visitor_visible_count", "visitor_visible_changes"],
       "properties": {
-        "task_id": { "type": "string", "pattern": "^task:[a-z][a-z0-9]{1,9}:[0-9]{4}$" },
+        "task_id": { "type": "string", "pattern": "^task:[a-z][a-z0-9]{1,9}:[0-9]{4}(?![\\s\\S])" },
         "enabling_count": { "type": "integer", "minimum": 0 },
         "enabling_changes": {
           "type": "array",

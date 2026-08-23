@@ -208,7 +208,7 @@ EXPECTED_CONTRACT_DIGESTS = {
     "requirements:x-datarim-source-tier-authorization": "f5f858651d222f1dab1560060cefbd8d49a47a2b41e2b95161b74b4b9dfc3109",
     "receipt:x-datarim-customer-disposition-contract": "994129b7b66c3ad29f4e76bb564ae4937d42e2e46dd5a983dd3eaa7741bf5d96",
     "receipt:x-datarim-coverage-chain-digest-contract": "9f7f5391d3c7922d97fe33148f5d7c2dc1a72808415f899cc04129ef5ee95b68",
-    "receipt:x-datarim-task-identity-contract": "d21a9a0c407349338cb42fcda628eaefdc45da73118f234187dec5802d2359af",
+    "receipt:x-datarim-task-identity-contract": "dddeeb1e1e2a1a661f0b4be0ed61029f636c57d760204c90f8176961a50094b1",
     "review:x-datarim-originating-review-contract": "292e30935e6ee89252bcd7eae0487184115f96b6b6ad2e3d71c6a1f767770975",
 }
 PINNED_REGISTRY_OWNER_ID = "authority-operator-0001"
