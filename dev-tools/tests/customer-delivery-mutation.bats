@@ -76,7 +76,8 @@ assert_attributed_mutant_kill() {
         || [[ "$nested_output" == *"HARNESS_INVALID:"* ]] \
         || [ "$(printf '%s\n' "$nested_output" | awk '$0 == "1..1" { count++ } END { print count+0 }')" -ne 1 ] \
         || [ "$(printf '%s\n' "$nested_output" | awk -v target="not ok 1 ${filter}" '$0 == target { count++ } END { print count+0 }')" -ne 1 ]; then
-        printf 'HARNESS_INVALID:%s:execution-contract\n' "$marker"
+        printf 'HARNESS_INVALID:%s:execution-contract output=%s\n' \
+            "$marker" "$nested_output"
         return 1
     fi
     reported="$(printf '%s\n' "$nested_output" | sed -n 's/^# (in test file .* line \([0-9][0-9]*\))$/\1/p')"
@@ -661,7 +662,7 @@ PY
             CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
             CUSTOMER_TEST_PYTHON_RUNTIME="$CUSTOMER_TEST_PYTHON_RUNTIME" \
             CUSTOMER_TEST_PYTHON_SITE="$CUSTOMER_TEST_PYTHON_SITE" \
-            CUSTOMER_DELIVERY_EXPECT_MUTATION_MARKER="MUTATED:${kind}" \
+            CUSTOMER_DELIVERY_EXPECT_MUTATION_MARKER="MUTATED:${kind#python_}" \
             CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
             bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
         assert_attributed_mutant_kill "$kind" "$filter" "$expected_lines" \
