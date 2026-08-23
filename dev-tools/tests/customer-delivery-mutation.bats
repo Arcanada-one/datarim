@@ -583,8 +583,37 @@ elif kind == "python_metadata_nofollow":
         raise SystemExit("PYTHON_METADATA_NOFOLLOW_SCAN_SEAM_MISSING")
     source = source.replace(scan, 'True  # MUTATED:metadata_symlink_scan', 1)
 elif kind == "python_metadata_size":
-    old = '                or metadata_before.st_size > 1048576\n'
-    new = '                or False  # MUTATED:metadata_size\n'
+    size_cap = '                or metadata_before.st_size > 1048576\n'
+    identity = '''                or (
+                    metadata_before.st_dev,
+                    metadata_before.st_ino,
+                    metadata_before.st_size,
+                ) != (
+                    metadata_entry.st_dev,
+                    metadata_entry.st_ino,
+                    metadata_entry.st_size,
+                )
+'''
+    if source.count(size_cap) != 1 or source.count(identity) != 1:
+        raise SystemExit("PYTHON_METADATA_SIZE_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+    source = source.replace(
+        size_cap,
+        '                or False  # MUTATED:metadata_size_cap\n',
+        1,
+    )
+    source = source.replace(
+        identity,
+        '''                or (
+                    metadata_before.st_dev,
+                    metadata_before.st_ino,
+                ) != (
+                    metadata_entry.st_dev,
+                    metadata_entry.st_ino,
+                )  # MUTATED:metadata_size_identity
+''',
+        1,
+    )
+    old = new = None
 elif kind == "python_metadata_name":
     old = '        or normalized_distribution(names[0]) != normalized_distribution(distribution)\n'
     new = '        or False  # MUTATED:metadata_name\n'
@@ -652,7 +681,7 @@ PY
     run_darwin_dependency_site_mutants \
         'python_distinfo_metadata|Darwin trusted site bootstrap authenticates dist-info metadata' \
         'python_metadata_nofollow|Darwin trusted site bootstrap rejects METADATA symlink swap after lstat' \
-        'python_metadata_size|Darwin trusted site bootstrap rejects METADATA boundary forgeries' \
+        'python_metadata_size|Darwin trusted site bootstrap rejects oversized METADATA change after lstat' \
         'python_metadata_name|Darwin trusted site bootstrap rejects METADATA boundary forgeries'
 }
 

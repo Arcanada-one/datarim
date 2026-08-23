@@ -2219,6 +2219,66 @@ PY
         && [[ "$output_copy" != *Traceback* ]]
 }
 
+@test "Darwin trusted site bootstrap rejects oversized METADATA change after lstat" {
+    [[ "$(/usr/bin/uname -s)" == Darwin ]] || skip 'Darwin-only trusted site boundary'
+    local site_path result output_copy
+    site_path="${CUSTOMER_TEST_PYTHON_SITE:?missing CUSTOMER_TEST_PYTHON_SITE}"
+    build_test_framework metadata-size-after-lstat || return 1
+    "$PYTHON" - "$TEST_SCRIPT" <<'PY' || return 1
+import sys
+
+path = sys.argv[1]
+source = open(path, encoding="utf-8").read()
+after_check = '        metadata_flags |= os.O_NONBLOCK\n'
+attack = '''        if distribution == "jsonschema":
+            source_fd = os.open("METADATA", os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+            try:
+                original_bytes = b""
+                while True:
+                    chunk = os.read(source_fd, 65536)
+                    if not chunk:
+                        break
+                    original_bytes += chunk
+            finally:
+                os.close(source_fd)
+            backup_fd = os.open(
+                "METADATA.original-a2",
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC,
+                0o600,
+            )
+            try:
+                os.write(backup_fd, original_bytes)
+            finally:
+                os.close(backup_fd)
+            attack_fd = os.open(
+                "METADATA", os.O_WRONLY | os.O_TRUNC | os.O_NOFOLLOW | os.O_CLOEXEC,
+            )
+            try:
+                os.write(
+                    attack_fd,
+                    b"Name: jsonschema\\nVersion: 4.23.0\\nX-Padding: "
+                    + (b"a" * 1048577) + b"\\n\\n",
+                )
+            finally:
+                os.close(attack_fd)
+'''
+if source.count(after_check) != 1:
+    raise SystemExit("METADATA_SIZE_ATTACK_SEAM_MISSING_OR_AMBIGUOUS")
+source = source.replace(after_check, attack + after_check)
+open(path, "w", encoding="utf-8").write(source)
+PY
+    SITE_IDENTITY_CLEANUP_SITE="$site_path"
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        "$TEST_SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+    result="$status"
+    output_copy="$output"
+    cleanup_metadata_identity_fixture || return 1
+    assert_darwin_dependency_site_integrity || return 1
+    [ "$result" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_dependencies"]' "$output_copy" \
+        && [[ "$output_copy" != *Traceback* ]]
+}
+
 @test "Darwin trusted site bootstrap detects METADATA identity change after read" {
     [[ "$(/usr/bin/uname -s)" == Darwin ]] || skip 'Darwin-only trusted site boundary'
     local site_path metadata original replacement result output_copy
@@ -2334,17 +2394,11 @@ new = '''        metadata_entry = os.stat("METADATA", follow_symlinks=False)
                 src_dir_fd=dist_fd, dst_dir_fd=dist_fd,
             )
             os.mkfifo("METADATA", 0o600, dir_fd=dist_fd)
-            writer = os.fork()
-            if writer == 0:
-                os.close(1)
-                os.close(2)
-                __import__("time").sleep(8)
-                fifo_fd = os.open(
-                    "METADATA", os.O_RDWR | os.O_NONBLOCK | os.O_CLOEXEC,
-                    dir_fd=dist_fd,
-                )
-                os.close(fifo_fd)
-                os._exit(0)
+            signal = __import__("signal")
+            def interrupt_blocked_open(signum, frame):
+                raise TimeoutError("blocked METADATA open")
+            signal.signal(signal.SIGALRM, interrupt_blocked_open)
+            signal.setitimer(signal.ITIMER_REAL, 3.0)
 '''
 if source.count(old) != 1:
     raise SystemExit("METADATA_NONBLOCK_ATTACK_SEAM_MISSING_OR_AMBIGUOUS")
@@ -2360,9 +2414,10 @@ PY
     elapsed="$($PYTHON -c 'import sys; print((int(sys.argv[2])-int(sys.argv[1]))/1_000_000_000)' "$start" "$end")"
     cleanup_metadata_identity_fixture || return 1
     assert_darwin_dependency_site_integrity || return 1
+    printf 'metadata_nonblock_output=%s elapsed=%s\n' "$output_copy" "$elapsed" >&3
     [ "$result" -eq 2 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_dependencies"]' "$output_copy" \
-        && "$PYTHON" -c 'import sys; assert float(sys.argv[1]) < 6.0' "$elapsed" \
+        && "$PYTHON" -c 'import sys; assert float(sys.argv[1]) < 2.5' "$elapsed" \
         && [[ "$output_copy" != *Traceback* ]]
 }
 
@@ -3496,11 +3551,16 @@ PY
     run_test_framework_json
     end="$($PYTHON -c 'import time; print(time.time_ns())')"
     elapsed="$($PYTHON -c 'import sys; print((int(sys.argv[2])-int(sys.argv[1]))/1_000_000_000)' "$start" "$end")"
-    descendant_pid="$(cat "$pidfile")" || return 1
+    if ! descendant_pid="$(cat "$pidfile" 2>/dev/null)"; then
+        printf 'descendant_deadline_missing_pid status=%s output=%s elapsed=%s\n' \
+            "$status" "$output" "$elapsed" >&3
+        return 1
+    fi
     descendant_state="$(ps -o stat= -p "$descendant_pid" 2>/dev/null || true)"
+    printf 'descendant_deadline_output=%s elapsed=%s state=%s\n' "$output" "$elapsed" "$descendant_state" >&3
     [ "$status" -eq 1 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["source_history_resource_limit:deadline"]' "$output" \
-        && "$PYTHON" -c 'import sys; assert float(sys.argv[1]) < 2.5' "$elapsed" \
+        && "$PYTHON" -c 'import sys; elapsed=float(sys.argv[1]); assert 0.5 <= elapsed < 5.0' "$elapsed" \
         && { [ -z "$descendant_state" ] || [[ "$descendant_state" == Z* ]]; }
 }
 
