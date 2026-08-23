@@ -240,8 +240,10 @@ secure_root_path() {
 
 trusted_developer_root=''
 if [[ "$platform" == Darwin ]]; then
-    trusted_developer_root="$(/usr/bin/env -i LC_ALL=C PATH=/usr/bin:/bin \
-        /usr/bin/xcode-select -p 2>/dev/null || true)"
+    # The hosted runner's active Xcode lives below the admin-writable
+    # /Applications directory. Select the separately installed, immutable CLT
+    # tree explicitly instead of weakening the component ownership contract.
+    trusted_developer_root='/Library/Developer/CommandLineTools'
     secure_root_path "$trusted_developer_root" '' directory || {
         emit_config_error 'untrusted_python_runtime'
         exit 2
@@ -251,8 +253,14 @@ secure_root_path "$trusted_python_anchor" '' file || {
     emit_config_error 'untrusted_python_runtime'
     exit 2
 }
-trusted_runtime_path="$(/usr/bin/env -i LC_ALL=C PATH=/usr/bin:/bin \
-    "$trusted_python_anchor" -I -c 'import sys; print(sys.executable)' 2>/dev/null || true)"
+if [[ "$platform" == Darwin ]]; then
+    trusted_runtime_path="$(/usr/bin/env -i LC_ALL=C PATH=/usr/bin:/bin \
+        DEVELOPER_DIR="$trusted_developer_root" \
+        "$trusted_python_anchor" -I -c 'import sys; print(sys.executable)' 2>/dev/null || true)"
+else
+    trusted_runtime_path="$(/usr/bin/env -i LC_ALL=C PATH=/usr/bin:/bin \
+        "$trusted_python_anchor" -I -c 'import sys; print(sys.executable)' 2>/dev/null || true)"
+fi
 secure_root_path "$trusted_runtime_path" "$trusted_developer_root" file || {
     emit_config_error 'untrusted_python_runtime'
     exit 2

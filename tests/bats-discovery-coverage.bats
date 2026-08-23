@@ -246,7 +246,14 @@ YAML
     local preflight="$ROOT/tests/check-customer-delivery-python-runtime.sh"
     [ -x "$preflight" ] \
         && [ "$(grep -c 'bash tests/check-customer-delivery-python-runtime.sh "\$RUNNER_TEMP/customer-delivery-venv/bin/python"' "$WF")" -eq 2 ] \
-        && { [[ -z "${CUSTOMER_CI_PYTHON:-}" ]] || "$preflight" "$CI_PYTHON"; }
+        && grep -q '/usr/bin/python3 -m venv "\$RUNNER_TEMP/discovery-venv"' "$WF" \
+        && [ "$(grep -c 'DEVELOPER_DIR=/Library/Developer/CommandLineTools' "$WF")" -ge 4 ] \
+        && grep -q '/bin/ln -sf /usr/bin/python3 "\$RUNNER_TEMP/portability-venv/bin/python"' "$WF" \
+        && grep -q 'CUSTOMER_CI_PYTHON="\$RUNNER_TEMP/discovery-venv/bin/python" bash tests/run-bats-discovery.sh' "$WF" \
+        && grep -q 'DEVELOPER_DIR=/Library/Developer/CommandLineTools CUSTOMER_CI_PYTHON="\$RUNNER_TEMP/portability-venv/bin/python" bats tests/bats-discovery-coverage.bats' "$WF" \
+        || return 1
+    [[ -n "${CUSTOMER_CI_PYTHON:-}" ]] || skip 'CUSTOMER_CI_PYTHON is required; every CI invocation provides a pinned venv'
+    "$preflight" "$CI_PYTHON"
 }
 
 @test "customer-delivery CI matrices come only from the canonical shard registry" {

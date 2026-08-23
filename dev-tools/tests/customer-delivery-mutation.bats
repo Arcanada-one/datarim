@@ -335,6 +335,7 @@ PY
         'python_runtime|interpreter wrapper cannot impersonate the pinned Python runtime'
         'python_inode|perfect probe dependency and MET forgery cannot impersonate a trusted CPython inode'
         'python_runtime_metadata|forged writable trusted runtime metadata fails closed'
+        'python_routing_env|ambient Python and Apple developer routing cannot redirect the trusted runtime'
         'wrapper_response|empty validator response cannot be accepted as MET'
         'git_no_replace_objects|Git replacement objects cannot hide an in-place source mutation'
         'git_process_group|source history deadline kills stubborn descendant pipe holders'
@@ -395,6 +396,23 @@ elif kind == "python_runtime_metadata":
     start = source.index(start_token)
     end = source.index(end_token, start) + len(end_token)
     source = source[:start] + 'if false; then  # MUTATED:python_runtime_metadata_trust' + source[end:]
+elif kind == "python_routing_env":
+    scrub = '\nunset DEVELOPER_DIR TOOLCHAINS __PYVENV_LAUNCHER__ PYTHONEXECUTABLE PYTHONHOME PYTHONPATH\n\nsecure_root_path()'
+    darwin = '''trusted_runtime_path="$(/usr/bin/env -i LC_ALL=C PATH=/usr/bin:/bin \\
+        DEVELOPER_DIR="$trusted_developer_root" \\
+        "$trusted_python_anchor" -I -c 'import sys; print(sys.executable)' 2>/dev/null || true)"'''
+    linux = '''trusted_runtime_path="$(/usr/bin/env -i LC_ALL=C PATH=/usr/bin:/bin \\
+        "$trusted_python_anchor" -I -c 'import sys; print(sys.executable)' 2>/dev/null || true)"'''
+    if source.count(scrub) != 1 or source.count(darwin) != 1 or source.count(linux) != 1:
+        raise SystemExit("PYTHON_ROUTING_ENV_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+    source = source.replace(scrub, '\n: # MUTATED:python_routing_environment\n\nsecure_root_path()', 1)
+    source = source.replace(
+        darwin,
+        '''trusted_runtime_path="$("$trusted_python_anchor" -I -c 'import sys; print(sys.executable)' 2>/dev/null || true)"''',
+    ).replace(
+        linux,
+        '''trusted_runtime_path="$("$trusted_python_anchor" -I -c 'import sys; print(sys.executable)' 2>/dev/null || true)"''',
+    )
 elif kind == "wrapper_response":
     old = 'if [[ "$response_valid" != true ]]; then'
     if source.count(old) != 1:

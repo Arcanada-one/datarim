@@ -46,6 +46,19 @@ secure_root_path() {
     done
 }
 
+diagnose_path() {
+    local label="$1" candidate="$2" current='' component metadata
+    local -a components=()
+    printf 'runtime_preflight_%s_path=%s\n' "$label" "$candidate"
+    [[ "$candidate" == /* ]] || return 0
+    IFS='/' read -r -a components <<<"${candidate#/}"
+    for component in "${components[@]}"; do
+        current="${current}/${component}"
+        metadata="$(stat_identity "$current" 2>/dev/null || printf missing)"
+        printf 'runtime_preflight_%s_component=%s identity=%s\n' "$label" "$current" "$metadata"
+    done
+}
+
 anchor='/usr/bin/python3'
 candidate_identity="$(stat_identity "$python_bin")"
 anchor_identity="$(stat_identity "$anchor")"
@@ -58,12 +71,27 @@ printf 'runtime_preflight_anchor=%s\n' "$anchor_identity"
 
 developer_root=''
 if [[ "$platform" == Darwin ]]; then
-    developer_root="$(/usr/bin/env -i LC_ALL=C PATH=/usr/bin:/bin /usr/bin/xcode-select -p)"
+    active_developer_root="$(/usr/bin/env -i LC_ALL=C PATH=/usr/bin:/bin /usr/bin/xcode-select -p)"
+    diagnose_path active_developer "$active_developer_root"
+    developer_root='/Library/Developer/CommandLineTools'
+    diagnose_path selected_developer "$developer_root"
     secure_root_path "$developer_root" '' directory
     printf 'runtime_preflight_developer_root=%s\n' "$developer_root"
 fi
-runtime_path="$(/usr/bin/env -i LC_ALL=C PATH=/usr/bin:/bin \
-    "$anchor" -I -c 'import sys; print(sys.executable)')"
+if [[ "$platform" == Darwin ]]; then
+    runtime_path="$(/usr/bin/env -i LC_ALL=C PATH=/usr/bin:/bin \
+        DEVELOPER_DIR="$developer_root" \
+        "$anchor" -I -c 'import sys; print(sys.executable)')"
+    resolver_version="$(/usr/bin/env -i LC_ALL=C PATH=/usr/bin:/bin \
+        DEVELOPER_DIR="$developer_root" \
+        "$anchor" -I -c 'import sys; print(f"{sys.version_info.major}|{sys.version_info.minor}")')"
+else
+    runtime_path="$(/usr/bin/env -i LC_ALL=C PATH=/usr/bin:/bin \
+        "$anchor" -I -c 'import sys; print(sys.executable)')"
+    resolver_version="$(/usr/bin/env -i LC_ALL=C PATH=/usr/bin:/bin \
+        "$anchor" -I -c 'import sys; print(f"{sys.version_info.major}|{sys.version_info.minor}")')"
+fi
+diagnose_path resolved_runtime "$runtime_path"
 secure_root_path "$runtime_path" "$developer_root" file
 runtime_identity="$(stat_identity "$runtime_path")"
 expected_prefix="${python_bin%/bin/python}"
@@ -102,12 +130,14 @@ else
 fi
 IFS='|' read -r probe_device probe_inode probe_implementation probe_major probe_minor \
     probe_dependencies probe_prefix probe_base_prefix <<<"$probe"
+IFS='|' read -r resolver_major resolver_minor <<<"$resolver_version"
 IFS='|' read -r runtime_device runtime_inode _ <<<"$runtime_identity"
 printf 'runtime_preflight_runtime=%s path=%s\n' "$runtime_identity" "$runtime_path"
 printf 'runtime_preflight_probe=%s\n' "$probe"
 
 [[ "$probe_device" == "$runtime_device" && "$probe_inode" == "$runtime_inode" \
     && "$probe_implementation" == cpython && "$probe_major" == 3 \
+    && "$probe_major" == "$resolver_major" && "$probe_minor" == "$resolver_minor" \
     && "$probe_minor" =~ ^[0-9]+$ && "$probe_dependencies" == ok \
     && "$probe_prefix" == "$expected_prefix" && "$probe_base_prefix" != "$probe_prefix" ]] || {
     printf 'runtime_preflight=ERROR reason=runtime_or_dependency_mismatch\n' >&2
