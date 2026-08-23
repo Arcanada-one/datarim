@@ -35,6 +35,7 @@ YQ_VERSION="v4.44.3"
 YQ_SHA256="a2c097180dd884a8d50c956ee16a9cec070f30a7947cf4ebf87d5f36213e9ed7"
 
 PY_JSONSCHEMA="jsonschema==4.23.0"
+PY_RFC3339_VALIDATOR="rfc3339-validator==0.1.4"
 PY_PYYAML="pyyaml==6.0.2"
 
 PREFIX="/usr/local"
@@ -85,7 +86,9 @@ echo "${YQ_SHA256}  ${yq_tmp}" | sha256sum -c -
 $SUDO install -m 0755 "$yq_tmp" "${PREFIX}/bin/yq"
 
 echo "==> python test deps"
-python3 -m pip install --quiet --disable-pip-version-check "$PY_JSONSCHEMA" "$PY_PYYAML"
+python3 -m pip install --quiet --disable-pip-version-check \
+    "$PY_JSONSCHEMA" "$PY_RFC3339_VALIDATOR" "$PY_PYYAML"
+python3 -c 'import jsonschema, rfc3339_validator, yaml; assert "date-time" in jsonschema.FormatChecker().checkers; jsonschema.FormatChecker().check("2026-01-01T00:00:00Z", "date-time")'
 
 echo "==> versions"
 "${PREFIX}/bin/bats" --version

@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash -p
 # Deterministically validate one task's customer-delivery evidence bundle.
 #
 # Canonical task-bound artifacts under --root (no discovery or fallback):
@@ -11,8 +11,14 @@ set -euo pipefail
 IFS=$'\n\t'
 export LC_ALL=C
 
+# Imported Bash functions and caller PATH entries are not trusted execution
+# authority. Security-relevant external utilities below are invoked only by
+# their validated host paths; clearing common names also prevents accidental
+# future call sites from inheriting an exported function implementation.
+unset -f cat dirname jq mktemp realpath rm stat tail wc 2>/dev/null || true
+
 usage() {
-    cat <<'EOF'
+    /usr/bin/cat <<'EOF'
 usage: check-customer-delivery.sh --root DIR --task TASK-ID --stage qa|compliance|archive [--format text|json]
 
 Reads exactly these canonical task-bound artifacts below DIR:
@@ -83,7 +89,7 @@ fi
 [[ -d "$root" && ! -L "$root" ]] || { emit_config_error 'invalid_root'; exit 2; }
 root="$(cd "$root" && pwd -P)"
 
-framework_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+framework_root="$(cd "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 [[ -d "$framework_root" ]] || { emit_config_error 'invalid_framework_root'; exit 2; }
 requirements="${root}/datarim/tasks/${task}-customer-requirements.yaml"
 receipt="${root}/datarim/receipts/${task}-customer-delivery.yaml"
@@ -105,7 +111,7 @@ resolve_confined_file() {
         emit_config_error "path_escape:${label}"
         return 2
     fi
-    resolved="$(realpath -e -- "$candidate")" || {
+    resolved="$(/usr/bin/realpath -e -- "$candidate")" || {
         emit_config_error "path_escape:${label}"
         return 2
     }
@@ -189,17 +195,17 @@ if [[ -z "$python_real" ]] \
     emit_config_error 'untrusted_python_runtime'
     exit 2
 fi
-if [[ "$(run_trusted_python -I -c 'import jsonschema, yaml; print("CUSTOMER_DELIVERY_DEPENDENCIES_OK" if "date-time" in jsonschema.FormatChecker().checkers else "")' 2>/dev/null || true)" != CUSTOMER_DELIVERY_DEPENDENCIES_OK ]]; then
+if [[ "$(run_trusted_python -I -c 'import jsonschema, rfc3339_validator, yaml; print("CUSTOMER_DELIVERY_DEPENDENCIES_OK" if "date-time" in jsonschema.FormatChecker().checkers else "")' 2>/dev/null || true)" != CUSTOMER_DELIVERY_DEPENDENCIES_OK ]]; then
     emit_config_error 'missing_python_dependencies'
     exit 2
 fi
 
 umask 077
-validator_output="$(mktemp "${TMPDIR:-/tmp}/customer-delivery-output.XXXXXX")" || {
+validator_output="$(/usr/bin/mktemp "${TMPDIR:-/tmp}/customer-delivery-output.XXXXXX")" || {
     emit_config_error 'validator_output_unavailable'
     exit 2
 }
-trap 'rm -f -- "$validator_output"' EXIT
+trap '/usr/bin/rm -f -- "$validator_output"' EXIT
 set +e
 run_trusted_python -I - "$task" "$stage" "$format" "$root" \
     "$requirements" "$receipt" "$review" \
@@ -2204,7 +2210,7 @@ validate_text_response() {
             recomputed_findings+=','
         fi
         recomputed_findings+="${line#finding=}"
-    done < <(tail -n +2 -- "$validator_output")
+    done < <(/usr/bin/tail -n +2 -- "$validator_output")
     [[ "$recomputed_findings" == "$findings_value" ]] || return 1
     [[ ("$decision_value" == MET && "$validator_status" -eq 0) \
         || ("$decision_value" == NOT_MET && "$validator_status" -eq 1) \
@@ -2212,7 +2218,7 @@ validate_text_response() {
 }
 
 response_valid=false
-if [[ -s "$validator_output" && "$(stat -c %s -- "$validator_output")" -le 1048576 ]]; then
+if [[ -s "$validator_output" && "$(/usr/bin/stat -c %s -- "$validator_output")" -le 1048576 ]]; then
     if [[ "$format" == json ]]; then
         if /usr/bin/jq -e --arg task "$task" --arg stage "$stage" --argjson rc "$validator_status" '
             type == "object"
@@ -2227,7 +2233,7 @@ if [[ -s "$validator_output" && "$(stat -c %s -- "$validator_output")" -le 10485
                 or (.decision == "NOT_MET" and $rc == 1)
                 or (.decision == "ERROR" and $rc == 2))
         ' "$validator_output" >/dev/null 2>&1 \
-            && [[ "$(wc -l <"$validator_output")" -eq 1 ]]; then
+            && [[ "$(/usr/bin/wc -l <"$validator_output")" -eq 1 ]]; then
             response_valid=true
         fi
     elif validate_text_response; then
@@ -2238,5 +2244,5 @@ if [[ "$response_valid" != true ]]; then
     emit_config_error 'invalid_validator_response'
     exit 2
 fi
-cat -- "$validator_output"
+/usr/bin/cat -- "$validator_output"
 exit "$validator_status"

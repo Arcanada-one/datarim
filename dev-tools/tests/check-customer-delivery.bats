@@ -1139,6 +1139,38 @@ prepare_signed_review_fixture() {
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "ERROR" and "path_escape:requirements" in d["findings"]' "$output"
 }
 
+@test "exported realpath function cannot bypass intermediate symlink confinement" {
+    local outside="${BATS_TEST_TMPDIR}/outside-function"
+    mkdir -p "$outside"
+    mv "$REQUIREMENTS" "${outside}/${TASK_ID}-customer-requirements.yaml"
+    rmdir "${ROOT}/datarim/tasks"
+    ln -s "$outside" "${ROOT}/datarim/tasks"
+    realpath() {
+        printf '%s\n' "${!#}"
+    }
+    export -f realpath
+    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
+        "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage compliance --format json
+    unset -f realpath
+    [ "$status" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "ERROR" and "path_escape:requirements" in d["findings"]' "$output"
+}
+
+@test "PATH realpath shim cannot bypass intermediate symlink confinement" {
+    local outside="${BATS_TEST_TMPDIR}/outside-path"
+    local shim_dir="${BATS_TEST_TMPDIR}/hostile-path"
+    mkdir -p "$outside" "$shim_dir"
+    mv "$REQUIREMENTS" "${outside}/${TASK_ID}-customer-requirements.yaml"
+    rmdir "${ROOT}/datarim/tasks"
+    ln -s "$outside" "${ROOT}/datarim/tasks"
+    printf '%s\n' '#!/usr/bin/env bash' 'printf '\''%s\\n'\'' "${!#}"' >"${shim_dir}/realpath"
+    chmod +x "${shim_dir}/realpath"
+    run env PATH="${shim_dir}:${PATH}" CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
+        "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage compliance --format json
+    [ "$status" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "ERROR" and "path_escape:requirements" in d["findings"]' "$output"
+}
+
 @test "ambient framework-root override cannot replace bundled schemas" {
     run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" CUSTOMER_DELIVERY_FRAMEWORK_ROOT="${BATS_TEST_TMPDIR}/hostile-framework" \
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json

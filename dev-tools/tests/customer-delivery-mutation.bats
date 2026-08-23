@@ -333,3 +333,57 @@ PY
         printf 'mutant=%s killed_by=%s\n' "$kind" "$filter"
     done
 }
+
+
+@test "ambient realpath authority mutants are independently killed" {
+    local pair kind filter framework mutant
+    local -a pairs=(
+        'function|exported realpath function cannot bypass intermediate symlink confinement'
+        'path|PATH realpath shim cannot bypass intermediate symlink confinement'
+    )
+
+    for pair in "${pairs[@]}"; do
+        kind="${pair%%|*}"
+        filter="${pair#*|}"
+        run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+        [ "$status" -eq 0 ] || return 1
+
+        framework="${BATS_TEST_TMPDIR}/realpath-framework-${kind}"
+        mutant="${framework}/dev-tools/check-customer-delivery.sh"
+        mkdir -p "${framework}/dev-tools" "${framework}/config"
+        cp "$SCRIPT" "$mutant" || return 1
+        cp "${REPO_ROOT}/config/customer-requirement.schema.json" \
+            "${REPO_ROOT}/config/customer-delivery-receipt.schema.json" \
+            "${REPO_ROOT}/config/review-evolution.schema.json" \
+            "${framework}/config/" || return 1
+        "$PYTHON" - "$mutant" "$kind" <<'PY' || return 1
+import sys
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as handle:
+    source = handle.read()
+old = '/usr/bin/realpath -e -- "$candidate"'
+if source.count(old) != 1:
+    raise SystemExit("REALPATH_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+source = source.replace(old, 'realpath -e -- "$candidate"')
+if sys.argv[2] == "function":
+    privileged_shebang = "#!/bin/bash -p"
+    old_unset = "unset -f cat dirname jq mktemp realpath rm stat tail wc"
+    if source.count(privileged_shebang) != 1 or source.count(old_unset) != 1:
+        raise SystemExit("REALPATH_FUNCTION_SANITIZATION_SEAM_MISSING_OR_AMBIGUOUS")
+    source = source.replace(privileged_shebang, "#!/usr/bin/env bash").replace(
+        old_unset, "unset -f cat dirname jq mktemp rm stat tail wc"
+    )
+with open(path, "w", encoding="utf-8") as handle:
+    handle.write(source)
+PY
+        chmod +x "$mutant"
+
+        run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
+            bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+        [ "$status" -ne 0 ] \
+            && [[ "$output" == *"not ok 1 ${filter}"* ]] \
+            || return 1
+        printf 'mutant=realpath_%s killed_by=%s\n' "$kind" "$filter"
+    done
+}

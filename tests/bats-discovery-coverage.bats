@@ -168,3 +168,12 @@ YAML
     # and the digest is actually checked, not merely recorded
     grep -q 'sha256sum -c -' "$inst"
 }
+
+@test "the CI Python dependency contract pins and probes date-time validation" {
+    local inst="$ROOT/tests/ci-install-bats-deps.sh"
+    [ -f "$inst" ]
+    grep -q '^PY_RFC3339_VALIDATOR="rfc3339-validator==0\.1\.4"$' "$inst"
+    grep -q '"$PY_RFC3339_VALIDATOR"' "$inst"
+    grep -q 'rfc3339_validator' "$inst"
+    grep -q 'FormatChecker.*date-time' "$inst"
+}
