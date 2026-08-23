@@ -349,7 +349,7 @@ run_trusted_python() {
         # special file (opening /dev/fd/N/child raises ENOTDIR). fchdir binds
         # relative imports to the already-open directory inode without
         # reopening its mutable pathname.
-        bootstrap_program=$'import importlib,importlib.metadata,importlib.util,os,sys\nsite_path=os.path.realpath(sys.argv[1])\nexpected_device=int(sys.argv[2])\nexpected_inode=int(sys.argv[3])\nmode=sys.argv[4]\nflags=os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW\nsite_fd=os.open(site_path, flags)\nmetadata=os.fstat(site_fd)\nassert (metadata.st_dev, metadata.st_ino)==(expected_device, expected_inode)\nassert not any(name.endswith(".pth") for name in os.listdir(site_fd))\nos.fchdir(site_fd)\ncwd_metadata=os.stat(".")\nassert (cwd_metadata.st_dev, cwd_metadata.st_ino)==(expected_device, expected_inode)\npending=["."]\nscanned=0\nwhile pending:\n current=pending.pop()\n with os.scandir(current) as entries:\n  for entry in entries:\n   scanned+=1\n   assert scanned<=20000\n   assert not entry.is_symlink()\n   if entry.is_dir(follow_symlinks=False):\n    pending.append(entry.path)\nsys.path.insert(0, ".")\nexpected={"jsonschema":("jsonschema","4.23.0"),"rfc3339_validator":("rfc3339-validator","0.1.4"),"yaml":("PyYAML","6.0.2")}\nfor module_name,(distribution,version) in expected.items():\n spec=importlib.util.find_spec(module_name)\n assert spec is not None and spec.origin is not None\n assert os.path.commonpath((os.path.realpath(spec.origin),site_path))==site_path\n assert importlib.metadata.version(distribution)==version\n module=importlib.import_module(module_name)\n assert os.path.commonpath((os.path.realpath(module.__file__),site_path))==site_path\ncwd_metadata=os.stat(".")\nmetadata=os.fstat(site_fd)\nassert (cwd_metadata.st_dev,cwd_metadata.st_ino)==(metadata.st_dev,metadata.st_ino)==(expected_device,expected_inode)\nsys.path.remove(".")\nos.chdir("/")\nif mode=="-c":\n program=sys.argv[5]\n sys.argv=["-c"]+sys.argv[6:]\n filename="<string>"\nelif mode=="-":\n program=sys.stdin.buffer.read()\n sys.argv=["-"]+sys.argv[5:]\n filename="<stdin>"\nelse:\n raise SystemExit(126)\nexec(compile(program, filename, "exec"), globals(), globals())'
+        bootstrap_program=$'import importlib,importlib.metadata,importlib.util,os,sys\nsite_path=os.path.realpath(sys.argv[1])\nexpected_device=int(sys.argv[2])\nexpected_inode=int(sys.argv[3])\nmode=sys.argv[4]\nflags=os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW\nsite_fd=os.open(site_path, flags)\nmetadata=os.fstat(site_fd)\nassert (metadata.st_dev, metadata.st_ino)==(expected_device, expected_inode)\nassert not any(name.endswith(".pth") for name in os.listdir(site_fd))\nos.fchdir(site_fd)\ncwd_metadata=os.stat(".")\nassert (cwd_metadata.st_dev, cwd_metadata.st_ino)==(expected_device, expected_inode)\npending=["."]\nscanned=0\nwhile pending:\n current=pending.pop()\n with os.scandir(current) as entries:\n  for entry in entries:\n   scanned+=1\n   assert scanned<=20000\n   assert not entry.is_symlink()\n   if entry.is_dir(follow_symlinks=False):\n    pending.append(entry.path)\nsys.path.insert(0, ".")\ntrusted_dependency_versions={}\nexpected={"jsonschema":("jsonschema","4.23.0"),"rfc3339_validator":("rfc3339-validator","0.1.4"),"yaml":("PyYAML","6.0.2")}\nfor module_name,(distribution,version) in expected.items():\n spec=importlib.util.find_spec(module_name)\n assert spec is not None and spec.origin is not None\n assert os.path.commonpath((os.path.realpath(spec.origin),site_path))==site_path\n dist_info=f"{distribution.lower().replace(chr(45),chr(95))}-{version}.dist-info"\n assert dist_info.lower() in {name.lower() for name in os.listdir(".")}\n trusted_dependency_versions[distribution]=version\n module=importlib.import_module(module_name)\n assert os.path.commonpath((os.path.realpath(module.__file__),site_path))==site_path\ncwd_metadata=os.stat(".")\nmetadata=os.fstat(site_fd)\nassert (cwd_metadata.st_dev,cwd_metadata.st_ino)==(metadata.st_dev,metadata.st_ino)==(expected_device,expected_inode)\nsys.path.remove(".")\nos.chdir("/")\nif mode=="-c":\n program=sys.argv[5]\n sys.argv=["-c"]+sys.argv[6:]\n filename="<string>"\nelif mode=="-":\n program=sys.stdin.buffer.read()\n sys.argv=["-"]+sys.argv[5:]\n filename="<stdin>"\nelse:\n raise SystemExit(126)\nexec(compile(program, filename, "exec"), globals(), globals())'
         if [[ "$mode" == -c ]]; then
             [[ $# -ge 1 ]] || return 126
             program="$1"
@@ -409,11 +409,15 @@ if expected_site:
         spec = importlib_util.find_spec(module_name)
         origins_ok = origins_ok and spec is not None and spec.origin is not None \
             and os.path.commonpath((os.path.realpath(spec.origin), bound_site)) == bound_site
-versions_ok = all(importlib_metadata.version(name) == version for name, version in {
+expected_versions = {
     "jsonschema": "4.23.0",
     "rfc3339-validator": "0.1.4",
     "PyYAML": "6.0.2",
-}.items())
+}
+if expected_site:
+    versions_ok = trusted_dependency_versions == expected_versions
+else:
+    versions_ok = all(importlib_metadata.version(name) == version for name, version in expected_versions.items())
 import jsonschema
 import rfc3339_validator
 import yaml
