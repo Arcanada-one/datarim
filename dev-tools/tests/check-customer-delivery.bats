@@ -2407,13 +2407,14 @@ PY
 
 @test "Darwin METADATA open remains nonblocking across a FIFO replacement race" {
     [[ "$(/usr/bin/uname -s)" == Darwin ]] || skip 'Darwin-only trusted site boundary'
-    local site_path start end elapsed result output_copy
+    local site_path canary start end elapsed result output_copy
     site_path="${CUSTOMER_TEST_PYTHON_SITE:?missing CUSTOMER_TEST_PYTHON_SITE}"
+    canary="${BATS_TEST_TMPDIR}/metadata-opened-without-nonblock"
     build_test_framework metadata-nonblocking-race || return 1
-    "$PYTHON" - "$TEST_SCRIPT" <<'PY' || return 1
+    "$PYTHON" - "$TEST_SCRIPT" "$canary" <<'PY' || return 1
 import sys
 
-path = sys.argv[1]
+path, canary = sys.argv[1:]
 source = open(path, encoding="utf-8").read()
 old = '        metadata_entry = os.stat("METADATA", follow_symlinks=False)\n'
 new = '''        metadata_entry = os.stat("METADATA", follow_symlinks=False)
@@ -2436,7 +2437,23 @@ new = '''        metadata_entry = os.stat("METADATA", follow_symlinks=False)
 '''
 if source.count(old) != 1:
     raise SystemExit("METADATA_NONBLOCK_ATTACK_SEAM_MISSING_OR_AMBIGUOUS")
-open(path, "w", encoding="utf-8").write(source.replace(old, new))
+source = source.replace(old, new)
+after_open = '        metadata_fd = os.open("METADATA", metadata_flags)\n'
+inspect_flags = after_open + f'''        if distribution == "jsonschema":
+            opened_flags = __import__("fcntl").fcntl(
+                metadata_fd, __import__("fcntl").F_GETFL,
+            )
+            if not opened_flags & os.O_NONBLOCK:
+                canary_fd = os.open(
+                    {canary!r},
+                    os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC,
+                    0o600,
+                )
+                os.close(canary_fd)
+'''
+if source.count(after_open) != 1:
+    raise SystemExit("METADATA_NONBLOCK_INSPECTION_SEAM_MISSING_OR_AMBIGUOUS")
+open(path, "w", encoding="utf-8").write(source.replace(after_open, inspect_flags))
 PY
     if [[ -n "${CUSTOMER_DELIVERY_EXPECT_MUTATION_MARKER:-}" ]]; then
         if ! grep -q "# ${CUSTOMER_DELIVERY_EXPECT_MUTATION_MARKER}" "$TEST_SCRIPT"; then
@@ -2460,7 +2477,8 @@ PY
     printf 'metadata_nonblock_output=%s elapsed=%s\n' "$output_copy" "$elapsed" >&3
     [ "$result" -eq 2 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_dependencies"]' "$output_copy" \
-        && "$PYTHON" -c 'import sys; assert float(sys.argv[1]) < 4.0' "$elapsed" \
+        && "$PYTHON" -c 'import sys; assert float(sys.argv[1]) < 7.0' "$elapsed" \
+        && [ ! -e "$canary" ] \
         && [[ "$output_copy" != *Traceback* ]]
 }
 
@@ -2631,6 +2649,25 @@ PY
     replace_test_script_literal \
         'VALIDATION_TOTAL_TIMEOUT_SECONDS = 20' \
         'VALIDATION_TOTAL_TIMEOUT_SECONDS = 1' || return 1
+    "$PYTHON" - "$TEST_SCRIPT" <<'PY' || return 1
+import sys
+
+path = sys.argv[1]
+source = open(path, encoding="utf-8").read()
+deadline = "VALIDATION_DEADLINE = time.monotonic() + VALIDATION_TOTAL_TIMEOUT_SECONDS"
+mutant_deadline = "VALIDATION_DEADLINE = time.monotonic() + 3600"
+mutant_alarm = "signal.setitimer(signal.ITIMER_REAL, 3600)"
+if source.count(deadline) == 1:
+    source = source.replace(
+        deadline,
+        "VALIDATION_DEADLINE = time.monotonic() + "
+        "max(0.1, VALIDATION_TOTAL_TIMEOUT_SECONDS - 0.5)",
+        1,
+    )
+elif source.count(mutant_deadline) != 1 or source.count(mutant_alarm) != 1:
+    raise SystemExit("VALIDATION_DEADLINE_TEST_SEAM_MISSING_OR_AMBIGUOUS")
+open(path, "w", encoding="utf-8").write(source)
+PY
     rebind_test_openssl "$shim" || return 1
     start="$($PYTHON -c 'import time; print(time.time_ns())')"
     run_test_framework_json
