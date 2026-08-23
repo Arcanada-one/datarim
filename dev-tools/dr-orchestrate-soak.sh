@@ -49,8 +49,9 @@ W_NOOP="${DR_SOAK_W_NOOP:-10}"
 CMD="${DR_SOAK_CMD:-/opt/datarim/plugins/dr-orchestrate/scripts/cmd_run.sh}"
 
 if [[ -n "${DR_SOAK_RANDOM_SEED:-}" ]]; then
-  if [[ ! "$DR_SOAK_RANDOM_SEED" =~ ^[0-9]+$ ]]; then
-    echo "[soak] ERR DR_SOAK_RANDOM_SEED must be a non-negative integer" >&2
+  if [[ ! "$DR_SOAK_RANDOM_SEED" =~ ^(0|[1-9][0-9]{0,4})$ ]] \
+      || (( DR_SOAK_RANDOM_SEED > 32767 )); then
+    echo "[soak] ERR DR_SOAK_RANDOM_SEED must be a canonical integer in range 0..32767" >&2
     exit 2
   fi
   RANDOM="$DR_SOAK_RANDOM_SEED"

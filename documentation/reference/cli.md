@@ -116,7 +116,7 @@ Self-explanatory.
 - **Dual-channel notifier** — eligible actions emit an alert before execution; zero ACK within 3000ms causes exit 18. Notification never grants permission for a hard-gated action.
 - **JSONL audit log** — schema version 1, 10 keys, flock atomic append (portable python3 fcntl wrapper on macOS).
 - **Kill-switch sentinel** — presence of `~/.config/datarim-cli/HALT` triggers exit 17 on every subcommand.
-- **`accepted-risk-aal.yml` entry** — invocation-time gate for mutation-capable commands (1h cache keyed by register content); a register change invalidates the cache, while a missing, removed, or expired entry exits 23.
+- **`accepted-risk-aal.yml` entry** — uncached invocation-time gate for mutation-capable commands; every invocation revalidates the current register and validator, while a missing, removed, or expired entry exits 23.
 - **Bilingual install warning** — 6 RU + 6 EN canonical lines printed on every install run.
 - **UUID v7 agent identity** — env-only enforcement (no `--as` flag in Phase 3).
 

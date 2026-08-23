@@ -128,10 +128,10 @@ EOF
     rm -f "$fixture"
 }
 
-@test "V-AC-15: accepted-risk cache invalidates when the register changes" {
+@test "V-AC-15: accepted-risk gate revalidates when the register changes" {
     [ -f "$LIB" ] || skip "lib missing"
     fixture_root="$BATS_TEST_TMPDIR/fixture-root"
-    mkdir -p "$fixture_root/dev-tools" "$BATS_TEST_TMPDIR/cache"
+    mkdir -p "$fixture_root/dev-tools"
     cp "$VALIDATOR" "$fixture_root/dev-tools/check-accepted-risk-aal.sh"
     accepted=$(date -u +%F)
     later=$(python3 -c "import datetime; print((datetime.date.today() + datetime.timedelta(days=30)).isoformat())")
@@ -152,19 +152,27 @@ entries:
     risk_summary: "test"
     rollback: "test"
 EOF
-    # First call populates cache; second short-circuits.
-    run bash -c "export TMPDIR='$BATS_TEST_TMPDIR/cache' DATARIM_ROOT='$fixture_root'; . '$LIB'; aal_check TUNE-0268"
-    [ "$status" -eq 0 ]
-    [ -d "$BATS_TEST_TMPDIR/cache/datarim-cli-aal-cache" ]
-    # Second invocation is silent + 0.
-    run bash -c "export TMPDIR='$BATS_TEST_TMPDIR/cache' DATARIM_ROOT='$fixture_root'; . '$LIB'; aal_check TUNE-0268"
+    run bash -c "export DATARIM_ROOT='$fixture_root'; . '$LIB'; aal_check TUNE-0268"
     [ "$status" -eq 0 ]
     cat >"$fixture_root/accepted-risk-aal.yml" <<'EOF'
 schema_version: 1
 entries: []
 EOF
-    run bash -c "export TMPDIR='$BATS_TEST_TMPDIR/cache' DATARIM_ROOT='$fixture_root'; . '$LIB'; aal_check TUNE-0268"
+    run bash -c "export DATARIM_ROOT='$fixture_root'; . '$LIB'; aal_check TUNE-0268"
     [ "$status" -eq 23 ]
+}
+
+@test "V-AC-15: caller-controlled TMPDIR cache bytes cannot bypass validation" {
+    [ -f "$LIB" ] || skip "lib missing"
+    cache_root="$BATS_TEST_TMPDIR/poisoned-tmp"
+    mkdir -p "$cache_root/datarim-cli-aal-cache"
+    risk_hash="$(shasum -a 256 "$REAL_FILE" | awk '{print $1}')"
+    cache_key="$(printf '%s' "TUNE-0268-$VALIDATOR-$risk_hash" | shasum -a 256 | awk '{print $1}')"
+    : > "$cache_root/datarim-cli-aal-cache/$cache_key"
+
+    run bash -c "export TMPDIR='$cache_root' DATARIM_ROOT='$REPO_ROOT'; . '$LIB'; aal_check TUNE-0268"
+    [ "$status" -eq 23 ]
+    [[ "$output" == *"no active entry matching task TUNE-0268"* ]]
 }
 
 @test "expired acceptance makes installer fail closed with exit 23" {
@@ -192,6 +200,7 @@ EOF
             && [[ "$output" == *"no active entry matching task TUNE-0268"* ]]
     }
     assert_blocked tasks move TUNE-9999 "do" \
+        && assert_blocked backlog add --id TUNE-9999 --priority P4 --complexity L1 --title probe \
         && assert_blocked tmux kill %0 \
         && assert_blocked audit resume \
         && assert_blocked audit purge \
@@ -199,6 +208,22 @@ EOF
         && assert_blocked plugin disable example \
         && assert_blocked plugin sync \
         && assert_blocked plugin doctor --fix
+}
+
+@test "retired acceptance blocks backlog add before it appends" {
+    workspace="$BATS_TEST_TMPDIR/mutation-workspace"
+    backlog="$workspace/datarim/backlog.md"
+    mkdir -p "$(dirname "$backlog")"
+    printf '# Backlog\n' > "$backlog"
+    before="$(shasum -a 256 "$backlog" | awk '{print $1}')"
+
+    run env HOME="$BATS_TEST_TMPDIR/home" DATARIM_ROOT="$REPO_ROOT" \
+        DATARIM_WORKSPACE_ROOT="$workspace" "$CLI_DIR/datarim" backlog add \
+        --id TUNE-9999 --priority P4 --complexity L1 --title probe
+    [ "$status" -eq 23 ]
+    [[ "$output" == *"no active entry matching task TUNE-0268"* ]]
+    [ "$before" = "$(shasum -a 256 "$backlog" | awk '{print $1}')" ]
+    ! grep -q 'TUNE-9999' "$backlog"
 }
 
 @test "retired acceptance keeps protective audit halt available" {

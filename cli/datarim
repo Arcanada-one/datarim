@@ -115,7 +115,7 @@ cmd_version() {
 requires_aal3_acceptance() {
     local sub="${1:-}" op="${2:-}" arg
     case "$sub:$op" in
-        run:*|tasks:move|tmux:attach|tmux:new|tmux:kill|audit:resume|audit:purge|plugin:enable|plugin:disable|plugin:sync)
+        run:*|tasks:move|backlog:add|tmux:attach|tmux:new|tmux:kill|audit:resume|audit:purge|plugin:enable|plugin:disable|plugin:sync)
             return 0
             ;;
         plugin:doctor)

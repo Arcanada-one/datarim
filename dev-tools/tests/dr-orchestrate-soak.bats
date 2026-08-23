@@ -52,7 +52,15 @@ teardown() {
     run env DR_SOAK_RANDOM_SEED=not-a-number DR_SOAK_CMD="$MOCK" \
         DR_SOAK_DURATION_SECONDS=2 "$SOAK"
     [ "$status" -eq 2 ]
-    [[ "$output" =~ "DR_SOAK_RANDOM_SEED must be a non-negative integer" ]]
+    [[ "$output" =~ "DR_SOAK_RANDOM_SEED must be a canonical integer in range 0..32767" ]]
+}
+
+@test "T2c octal-looking random seed → exit 2 instead of running unseeded" {
+    run env DR_SOAK_RANDOM_SEED=08 DR_SOAK_CMD="$MOCK" \
+        DR_SOAK_DURATION_SECONDS=2 "$SOAK"
+    [ "$status" -eq 2 ]
+    [[ "$output" =~ "DR_SOAK_RANDOM_SEED must be a canonical integer in range 0..32767" ]]
+    [[ "$output" != *"[soak] start"* ]]
 }
 
 @test "T3 short run respects DURATION_SECONDS" {
