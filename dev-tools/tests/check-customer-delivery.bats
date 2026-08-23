@@ -263,6 +263,23 @@ prepare_signed_review_fixture() {
         && [[ "$output" == *"requirement_set_signed_binding_mismatch:req-0001"* ]]
 }
 
+@test "signed canonical epic identity rejects coordinated receipt and review parent replay" {
+    yq -i '(.parent_links[] | select(.relation == "epic").id) = "epic:attacker:9999"' "$RECEIPT"
+    yq -i '(.parent_links[] | select(.relation == "epic").id) = "epic:attacker:9999"' "$REVIEW"
+
+    run_validator_json
+    [ "$status" -eq 1 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "NOT_MET" and "epic_identity_mismatch:epic:attacker:9999:epic:web:0000" in d["findings"]' "$output"
+}
+
+@test "authenticated review epic parent must equal the signed canonical epic" {
+    yq -i '(.parent_links[] | select(.relation == "epic").id) = "epic:attacker:9999"' "$REVIEW"
+
+    run_validator_json
+    [ "$status" -eq 1 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "NOT_MET" and "review_epic_identity_mismatch:epic:attacker:9999:epic:web:0000" in d["findings"]' "$output"
+}
+
 @test "all hard semantic stages enforce the same delivery decision" {
     local stage
     for stage in qa compliance archive; do
@@ -922,16 +939,62 @@ CASES
 }
 
 @test "missing OpenSSL 3 dependency is deterministic machine-readable JSON" {
-    local isolated_path="${BATS_TEST_TMPDIR}/path-without-openssl"
-    mkdir -p "$isolated_path"
-    ln -s "$(command -v bash)" "${isolated_path}/bash"
-    ln -s "$(command -v dirname)" "${isolated_path}/dirname"
-    ln -s "$(command -v grep)" "${isolated_path}/grep"
-    ln -s "$(command -v realpath)" "${isolated_path}/realpath"
-    run env PATH="$isolated_path" CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
-        "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage archive --format json
+    build_test_framework missing-openssl || return 1
+    "$PYTHON" - "$TEST_SCRIPT" "${TEST_FRAMEWORK}/config/customer-requirement.schema.json" <<'PY' || return 1
+import hashlib
+import json
+import sys
+
+path, schema_path = sys.argv[1:]
+with open(path, encoding="utf-8") as handle:
+    source = handle.read()
+old = 'PINNED_OPENSSL = "/usr/bin/openssl"'
+new = 'PINNED_OPENSSL = "/definitely-missing/datarim-openssl"'
+if source.count(old) != 1:
+    raise SystemExit("PINNED_OPENSSL_MUTATION_SEAM_MISSING")
+with open(schema_path, encoding="utf-8") as handle:
+    schema = json.load(handle)
+contract = schema["x-datarim-crypto-verifier-contract"]
+old_digest = hashlib.sha256(
+    json.dumps(contract, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+).hexdigest()
+contract["executable"] = "/definitely-missing/datarim-openssl"
+new_digest = hashlib.sha256(
+    json.dumps(contract, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+).hexdigest()
+if source.count(old_digest) != 1:
+    raise SystemExit("CRYPTO_CONTRACT_DIGEST_MUTATION_SEAM_MISSING")
+with open(path, "w", encoding="utf-8") as handle:
+    handle.write(source.replace(old, new).replace(old_digest, new_digest))
+with open(schema_path, "w", encoding="utf-8") as handle:
+    json.dump(schema, handle, ensure_ascii=False, indent=2)
+    handle.write("\n")
+PY
+    run_test_framework_json
     [ "$status" -eq 2 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "ERROR" and d["findings"] == ["missing_crypto_dependency:openssl3"]' "$output"
+}
+
+@test "ambient PATH OpenSSL shim cannot authenticate an invalid disposition signature" {
+    local hostile_path="${BATS_TEST_TMPDIR}/hostile-openssl-path"
+    local canary="${BATS_TEST_TMPDIR}/hostile-openssl-called"
+    mkdir -p "$hostile_path"
+    # The generated shim expands these variables when it executes.
+    # shellcheck disable=SC2016
+    printf '%s\n' \
+        '#!/usr/bin/env bash' \
+        'printf called > "$HOSTILE_OPENSSL_CANARY"' \
+        'if [ "${1:-}" = version ]; then printf "OpenSSL 3.999 hostile\\n"; fi' \
+        'exit 0' > "$hostile_path/openssl"
+    chmod 0755 "$hostile_path/openssl"
+    yq -i '.requirements.req-0001.coverage_chain.customer_disposition.authority_approval.signature = "ed25519:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="' "$RECEIPT"
+
+    run env PATH="$hostile_path:$PATH" HOSTILE_OPENSSL_CANARY="$canary" \
+        CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
+        "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+    [ "$status" -eq 1 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "NOT_MET" and "disposition_signature_invalid:req-0001" in d["findings"]' "$output" \
+        && [ ! -e "$canary" ]
 }
 
 @test "source JCS digest and approval payload commitments are independently enforced" {

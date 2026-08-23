@@ -137,13 +137,7 @@ if ! "$python_bin" -c 'import jsonschema, yaml; assert "date-time" in jsonschema
     emit_config_error 'missing_python_dependencies'
     exit 2
 fi
-openssl_bin="$(command -v openssl || true)"
-if [[ -z "$openssl_bin" ]] || ! "$openssl_bin" version 2>/dev/null | grep -q '^OpenSSL 3\.'; then
-    emit_config_error 'missing_crypto_dependency:openssl3'
-    exit 2
-fi
-
-exec "$python_bin" - "$task" "$stage" "$format" "$root" "$openssl_bin" \
+exec "$python_bin" - "$task" "$stage" "$format" "$root" \
     "$requirements" "$receipt" "$review" \
     "$requirements_schema" "$receipt_schema" "$review_schema" <<'PY'
 import base64
@@ -152,6 +146,7 @@ import hashlib
 import json
 import os
 import re
+import stat
 import subprocess
 import sys
 import tempfile
@@ -161,14 +156,14 @@ import jsonschema
 import yaml
 
 
-TASK, STAGE, OUTPUT_FORMAT, ROOT, OPENSSL = sys.argv[1:6]
+TASK, STAGE, OUTPUT_FORMAT, ROOT = sys.argv[1:5]
 DOCUMENT_PATHS = dict(zip(
     ("requirements", "receipt", "review"),
-    sys.argv[6:9],
+    sys.argv[5:8],
 ))
 SCHEMA_PATHS = dict(zip(
     ("requirements", "receipt", "review"),
-    sys.argv[9:12],
+    sys.argv[8:11],
 ))
 
 U4_EDGES = (
@@ -200,17 +195,19 @@ APPROVAL_FIELDS = (
     "key_id",
 )
 EXPECTED_INVARIANT_REGISTRY_DIGESTS = {
-    "requirements": "12ca494347ad6e093a11e60937c0cfdd72d44b5d94fee5ee6d22ca57e3cfe9aa",
-    "receipt": "d087329e2433f1ce448371bf709a8429dc85ac6da6fb465bf6c5811da4b9abd3",
+    "requirements": "6192ad1fe2c834a630a1c98b773976d3ea64db399681bb563bf1568434f129b8",
+    "receipt": "1250c71d958cd19f7b1bd71cf6400cea5cb4c404a37d6ed328c9c3e4f5ce17dc",
 }
 EXPECTED_CONTRACT_DIGESTS = {
+    "requirements:x-datarim-crypto-verifier-contract": "01d0ec21009c76101d4046190404667c64a5aa61abc22b612ca77befe3d91e72",
     "requirements:x-datarim-canonicalization": "bbd3995cdfbded121f17ef11f4751c0c02ccceef2b9f393f4969163af29053d0",
     "requirements:x-datarim-source-tier-authorization": "f5f858651d222f1dab1560060cefbd8d49a47a2b41e2b95161b74b4b9dfc3109",
     "receipt:x-datarim-customer-disposition-contract": "994129b7b66c3ad29f4e76bb564ae4937d42e2e46dd5a983dd3eaa7741bf5d96",
     "receipt:x-datarim-coverage-chain-digest-contract": "9f7f5391d3c7922d97fe33148f5d7c2dc1a72808415f899cc04129ef5ee95b68",
-    "receipt:x-datarim-task-identity-contract": "dddeeb1e1e2a1a661f0b4be0ed61029f636c57d760204c90f8176961a50094b1",
+    "receipt:x-datarim-task-identity-contract": "7a473577dd2f09bb1e26559f30cf1b62e627233ee6bc8b3fea68c29706629a00",
     "review:x-datarim-originating-review-contract": "292e30935e6ee89252bcd7eae0487184115f96b6b6ad2e3d71c6a1f767770975",
 }
+PINNED_OPENSSL = "/usr/bin/openssl"
 PINNED_REGISTRY_OWNER_ID = "authority-operator-0001"
 PINNED_REGISTRY_ROOT_KEY_ID = "key-registry-root-0001"
 PINNED_REGISTRY_PUBLIC_KEY = "r6djD8Z3khD94nHJ2NuHwFahvXDkuirHLxPsk/NR0LI="
@@ -325,7 +322,7 @@ def verify_ed25519(signature_text, digest_text, public_key_text):
                 handle.write(signature)
             result = subprocess.run(
                 [
-                    OPENSSL,
+                    PINNED_OPENSSL,
                     "pkeyutl",
                     "-verify",
                     "-pubin",
@@ -344,6 +341,7 @@ def verify_ed25519(signature_text, digest_text, public_key_text):
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 timeout=10,
+                env={"LANG": "C", "LC_ALL": "C", "PATH": "/usr/bin:/bin"},
             )
     except (OSError, subprocess.SubprocessError):
         return False
@@ -474,6 +472,52 @@ def validate_invariant_contracts():
             add(f"semantic_contract_mismatch:{name}:{annotation}")
 
 
+def validate_crypto_verifier():
+    expected = {
+        "backend": "OPENSSL",
+        "major_version": 3,
+        "executable": PINNED_OPENSSL,
+        "resolution": "PINNED_ABSOLUTE_PATH",
+        "ambient_path": "PROHIBITED",
+        "file_type": "REGULAR",
+        "owner_uid": 0,
+        "group_or_other_writable": "PROHIBITED",
+        "verification_success_exit_code": 0,
+    }
+    if schemas["requirements"].get("x-datarim-crypto-verifier-contract") != expected:
+        add("crypto_verifier_contract_mismatch")
+        return False
+    try:
+        metadata = os.lstat(PINNED_OPENSSL)
+    except OSError:
+        add("missing_crypto_dependency:openssl3")
+        return False
+    if (
+        not stat.S_ISREG(metadata.st_mode)
+        or metadata.st_uid != 0
+        or metadata.st_mode & 0o022
+    ):
+        add("untrusted_crypto_dependency:openssl3")
+        return False
+    try:
+        result = subprocess.run(
+            [PINNED_OPENSSL, "version"],
+            check=False,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            env={"LANG": "C", "LC_ALL": "C", "PATH": "/usr/bin:/bin"},
+        )
+    except (OSError, subprocess.SubprocessError):
+        add("missing_crypto_dependency:openssl3")
+        return False
+    if result.returncode != 0 or re.match(r"^OpenSSL 3\.", result.stdout) is None:
+        add("untrusted_crypto_dependency:openssl3")
+        return False
+    return True
+
+
 def validate_trust_registry():
     resolution = schemas["requirements"].get("x-datarim-signature-contract", {}).get(
         "key_resolution", {}
@@ -571,6 +615,8 @@ def validate_trust_registry():
 
 
 validate_invariant_contracts()
+if findings or not validate_crypto_verifier():
+    emit("ERROR", 2)
 trusted_keys = validate_trust_registry()
 if findings or trusted_keys is None:
     emit("ERROR", 2)
@@ -1399,9 +1445,29 @@ def check_supersession_cycles():
         visit(node)
 
 
+def validate_epic_identity_binding(receipt_epics, review_epics, signed_tasks):
+    canonical_epics = set()
+    for signed_task in signed_tasks:
+        match = re.fullmatch(r"task:([a-z][a-z0-9]{1,9}):([0-9]{4})", signed_task)
+        if match is not None:
+            canonical_epics.add(f"epic:{match.group(1)}:0000")
+
+    def identity_text(identifiers):
+        return ",".join(sorted(identifiers)) if identifiers else "<missing>"
+
+    if receipt_epics != canonical_epics:
+        finding = f"epic_identity_mismatch:{identity_text(receipt_epics)}:{identity_text(canonical_epics)}"
+        add(finding)  # SECURITY_RULE:epic_receipt_binding
+    if review_epics != canonical_epics:
+        finding = f"review_epic_identity_mismatch:{identity_text(review_epics)}:{identity_text(canonical_epics)}"
+        add(finding)  # SECURITY_RULE:epic_review_binding
+    return canonical_epics
+
+
 def validate_invariant_dispatch():
     requirement_ids = """
 source-id-unique assertion-id-unique source-requirement-bidirectional
+signature-verifier-pinned-absolute-openssl3
 source-assertion-bidirectional source-quote-set-exact source-canonical-digest-valid
 source-approval-digest-equals-source-digest source-approval-payload-canonical-digest-valid
 source-signature-valid source-signature-over-approval-payload-digest-valid
@@ -1474,6 +1540,8 @@ receipt-disposition-approval-key-valid-at-approval
 receipt-visitor-acceptance-authority-role-operator receipt-parent-links-complete
 receipt-cli-task-id-canonical-round-trip
 receipt-cli-task-id-equals-signed-implementation-task-id
+receipt-canonical-epic-derived-from-signed-task
+receipt-epic-parent-equals-signed-canonical-epic
 originating-review-receipt-id-equals-top-receipt-id
 originating-review-requirement-set-transitively-bound-by-disposition
 originating-review-canonical-digest-valid
@@ -1484,13 +1552,16 @@ originating-review-approval-key-authority-id-equal
 originating-review-approval-key-role-authorized originating-review-approval-key-active
 originating-review-approval-key-valid-at-approval
 originating-review-observed-at-not-after-reviewed-at
+originating-review-epic-parent-equals-signed-canonical-epic
 review-open-or-changes-requested-blocks-closure receipt-epic-status-derived
 receipt-user-facing-parent-has-visible-child
 """.split()
     requirement_map = {identifier: validate_requirements_contract for identifier in requirement_ids}
     receipt_map = {identifier: validate_requirement_edge for identifier in receipt_ids}
     for identifier in requirement_ids:
-        if identifier.startswith("authority-key-registry-"):
+        if identifier == "signature-verifier-pinned-absolute-openssl3":
+            requirement_map[identifier] = validate_crypto_verifier
+        elif identifier.startswith("authority-key-registry-"):
             requirement_map[identifier] = validate_trust_registry
         elif "history" in identifier or identifier.startswith("source-correction-"):
             requirement_map[identifier] = validate_source_history
@@ -1499,7 +1570,13 @@ receipt-user-facing-parent-has-visible-child
         elif identifier.startswith("supersession-"):
             requirement_map[identifier] = check_supersession_cycles
     for identifier in receipt_ids:
-        if identifier.startswith("originating-review-") or identifier == "review-open-or-changes-requested-blocks-closure":
+        if identifier in (
+            "receipt-canonical-epic-derived-from-signed-task",
+            "receipt-epic-parent-equals-signed-canonical-epic",
+            "originating-review-epic-parent-equals-signed-canonical-epic",
+        ):
+            receipt_map[identifier] = validate_epic_identity_binding
+        elif identifier.startswith("originating-review-") or identifier == "review-open-or-changes-requested-blocks-closure":
             receipt_map[identifier] = validate_originating_review
         elif "selected-knowledge" in identifier:
             receipt_map[identifier] = validate_selected_knowledge_edge
@@ -1586,6 +1663,8 @@ expected_task_links = {
     requirement["acceptance"]["implementation"]["task_id"]
     for requirement in requirements.values()
 }
+review_links = {(link["relation"], link["id"]) for link in review_doc["parent_links"]}
+review_epics = {identifier for relation, identifier in review_links if relation == "epic"}
 task_match = re.fullmatch(r"([A-Z][A-Z0-9]{1,9})-([0-9]{4})", TASK)
 canonical_cli_task = (
     f"task:{task_match.group(1).lower()}:{task_match.group(2)}"
@@ -1604,6 +1683,9 @@ elif expected_task_links != {canonical_cli_task}:
             else signed_task
         )
     add(f"task_identity_mismatch:{TASK}:{','.join(signed_cli_tasks)}")  # SECURITY_RULE:task_cli_binding
+canonical_epics = validate_epic_identity_binding(
+    receipt_epics, review_epics, expected_task_links
+)
 if not receipt_epics:
     add("dangling_parent_ref:epic")
 if receipt_tasks != expected_task_links:
@@ -1612,7 +1694,6 @@ expected_requirement_sets = {requirements_doc["requirement_set_id"]}
 if receipt_sets != expected_requirement_sets:
     add("parent_link_set_mismatch:requirement_set")
 
-review_links = {(link["relation"], link["id"]) for link in review_doc["parent_links"]}
 review_requirement = review_doc["requirement_id"]
 if review_requirement not in requirements:
     add(f"dangling_requirement_ref:review:{review_requirement}")
@@ -1630,7 +1711,7 @@ required_review_links = {
     ("requirement", review_requirement),
     ("delivery_receipt", receipt_doc["receipt_id"]),
 }
-required_review_links.update(("epic", epic) for epic in receipt_epics)
+required_review_links.update(("epic", epic) for epic in canonical_epics)
 required_review_links.update(("task", task_id) for task_id in expected_task_links)
 for relation, identifier in sorted(required_review_links - review_links):
     add(f"dangling_parent_ref:review:{relation}:{identifier}")

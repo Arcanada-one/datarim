@@ -3,6 +3,17 @@
   "$id": "https://datarim.club/schema/customer-requirement-v1.json",
   "title": "Datarim Customer Requirements",
   "description": "Atomic, stable customer requirements with verbatim provenance and a pre-implementation acceptance tuple.",
+  "x-datarim-crypto-verifier-contract": {
+    "backend": "OPENSSL",
+    "major_version": 3,
+    "executable": "/usr/bin/openssl",
+    "resolution": "PINNED_ABSOLUTE_PATH",
+    "ambient_path": "PROHIBITED",
+    "file_type": "REGULAR",
+    "owner_uid": 0,
+    "group_or_other_writable": "PROHIBITED",
+    "verification_success_exit_code": 0
+  },
   "x-datarim-source-tier-authorization": {
     "enforcer": "customer-delivery-validator",
     "evaluation_order": "BEFORE_SOURCE_SIGNATURE_VERIFICATION",
@@ -18,6 +29,7 @@
     "enforcer": "customer-delivery-validator",
     "invariant_ids": [
       "source-id-unique",
+      "signature-verifier-pinned-absolute-openssl3",
       "assertion-id-unique",
       "source-requirement-bidirectional",
       "source-assertion-bidirectional",

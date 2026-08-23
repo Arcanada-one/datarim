@@ -17,7 +17,14 @@
     "cli_to_signed": "task:<ASCII-lowercase-prefix>:<four-digit-number>",
     "signed_to_cli": "<ASCII-uppercase-prefix>-<four-digit-number>",
     "round_trip": "REQUIRED",
+    "prework_source": "requirements.{requirement_id}.acceptance.implementation.task_id",
+    "prework_binding": "EQUALS_SIGNED_SOURCE",
     "signed_source": "requirements.{requirement_id}.coverage_chain.implementation_delta.task_id",
+    "canonical_epic_derivation": "epic:<signed-task-prefix>:0000",
+    "epic_parent_consumers": [
+      "receipt.parent_links",
+      "authenticated_review.parent_links"
+    ],
     "commitment_chain": [
       "implementation_delta.task_id",
       "customer_disposition.coverage_chain_digest",
@@ -132,6 +139,8 @@
       "receipt-parent-links-complete",
       "receipt-cli-task-id-canonical-round-trip",
       "receipt-cli-task-id-equals-signed-implementation-task-id",
+      "receipt-canonical-epic-derived-from-signed-task",
+      "receipt-epic-parent-equals-signed-canonical-epic",
       "originating-review-receipt-id-equals-top-receipt-id",
       "originating-review-requirement-set-transitively-bound-by-disposition",
       "originating-review-canonical-digest-valid",
@@ -144,6 +153,7 @@
       "originating-review-approval-key-active",
       "originating-review-approval-key-valid-at-approval",
       "originating-review-observed-at-not-after-reviewed-at",
+      "originating-review-epic-parent-equals-signed-canonical-epic",
       "review-open-or-changes-requested-blocks-closure",
       "receipt-epic-status-derived",
       "receipt-user-facing-parent-has-visible-child"

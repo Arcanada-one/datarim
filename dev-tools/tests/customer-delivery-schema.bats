@@ -967,6 +967,7 @@ expected = {
         "enforcer": "customer-delivery-validator",
         "invariant_ids": [
             "source-id-unique",
+            "signature-verifier-pinned-absolute-openssl3",
             "assertion-id-unique",
             "source-requirement-bidirectional",
             "source-assertion-bidirectional",
@@ -1098,6 +1099,8 @@ expected = {
             "receipt-parent-links-complete",
             "receipt-cli-task-id-canonical-round-trip",
             "receipt-cli-task-id-equals-signed-implementation-task-id",
+            "receipt-canonical-epic-derived-from-signed-task",
+            "receipt-epic-parent-equals-signed-canonical-epic",
             "originating-review-receipt-id-equals-top-receipt-id",
             "originating-review-requirement-set-transitively-bound-by-disposition",
             "originating-review-canonical-digest-valid",
@@ -1110,6 +1113,7 @@ expected = {
             "originating-review-approval-key-active",
             "originating-review-approval-key-valid-at-approval",
             "originating-review-observed-at-not-after-reviewed-at",
+            "originating-review-epic-parent-equals-signed-canonical-epic",
             "review-open-or-changes-requested-blocks-closure",
             "receipt-epic-status-derived",
             "receipt-user-facing-parent-has-visible-child",
@@ -2806,6 +2810,53 @@ PY
     [ "$status" -eq 0 ]
 }
 
+@test "task identity contract derives one canonical epic from the pre-work signed task chain" {
+    run "$PYTHON" - "$RECEIPT_SCHEMA" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    contract = json.load(handle)["x-datarim-task-identity-contract"]
+expected = {
+    "prework_source": "requirements.{requirement_id}.acceptance.implementation.task_id",
+    "prework_binding": "EQUALS_SIGNED_SOURCE",
+    "canonical_epic_derivation": "epic:<signed-task-prefix>:0000",
+    "epic_parent_consumers": [
+        "receipt.parent_links",
+        "authenticated_review.parent_links",
+    ],
+}
+for key, value in expected.items():
+    if contract.get(key) != value:
+        raise SystemExit(f"TASK_EPIC_IDENTITY_CONTRACT_MISMATCH:{key}")
+PY
+    [ "$status" -eq 0 ]
+}
+
+@test "crypto verifier contract pins root-owned OpenSSL 3 outside ambient PATH" {
+    run "$PYTHON" - "$REQUIREMENTS_SCHEMA" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    contract = json.load(handle)["x-datarim-crypto-verifier-contract"]
+expected = {
+    "backend": "OPENSSL",
+    "major_version": 3,
+    "executable": "/usr/bin/openssl",
+    "resolution": "PINNED_ABSOLUTE_PATH",
+    "ambient_path": "PROHIBITED",
+    "file_type": "REGULAR",
+    "owner_uid": 0,
+    "group_or_other_writable": "PROHIBITED",
+    "verification_success_exit_code": 0,
+}
+if contract != expected:
+    raise SystemExit("CRYPTO_VERIFIER_CONTRACT_MISMATCH")
+PY
+    [ "$status" -eq 0 ]
+}
+
 @test "delivery receipt requires RED GREEN merge deploy and live evidence" {
     run reject_mutation "$RECEIPT_SCHEMA" "$RECEIPT_TEMPLATE" \
         'del(.requirements.req-0001.coverage_chain.red_green.red)'
@@ -3481,7 +3532,14 @@ expected_task_identity_contract = {
     "cli_to_signed": "task:<ASCII-lowercase-prefix>:<four-digit-number>",
     "signed_to_cli": "<ASCII-uppercase-prefix>-<four-digit-number>",
     "round_trip": "REQUIRED",
+    "prework_source": "requirements.{requirement_id}.acceptance.implementation.task_id",
+    "prework_binding": "EQUALS_SIGNED_SOURCE",
     "signed_source": "requirements.{requirement_id}.coverage_chain.implementation_delta.task_id",
+    "canonical_epic_derivation": "epic:<signed-task-prefix>:0000",
+    "epic_parent_consumers": [
+        "receipt.parent_links",
+        "authenticated_review.parent_links",
+    ],
     "commitment_chain": [
         "implementation_delta.task_id",
         "customer_disposition.coverage_chain_digest",

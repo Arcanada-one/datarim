@@ -122,6 +122,8 @@ PY
         'review_receipt_binding|originating review receipt identity is cross-bound'
         'task_cli_binding|signed delivery bundle cannot replay under another CLI task identity'
         'review_requirement_set_binding|signed requirement set cannot replay under a substituted outer set'
+        'epic_receipt_binding|signed canonical epic identity rejects coordinated receipt and review parent replay'
+        'epic_review_binding|authenticated review epic parent must equal the signed canonical epic'
     )
 
     for pair in "${pairs[@]}"; do
@@ -164,4 +166,47 @@ PY
             || return 1
         printf 'mutant=%s killed_by=%s\n' "$marker" "$filter"
     done
+}
+
+@test "ambient PATH crypto resolution mutant is killed by invalid-signature regression" {
+    local framework mutant filter
+    filter='ambient PATH OpenSSL shim cannot authenticate an invalid disposition signature'
+
+    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+    [ "$status" -eq 0 ] || return 1
+
+    framework="${BATS_TEST_TMPDIR}/security-framework-ambient-openssl"
+    mutant="${framework}/dev-tools/check-customer-delivery.sh"
+    mkdir -p "${framework}/dev-tools" "${framework}/config"
+    cp "$SCRIPT" "$mutant" || return 1
+    cp "${REPO_ROOT}/config/customer-requirement.schema.json" \
+        "${REPO_ROOT}/config/customer-delivery-receipt.schema.json" \
+        "${REPO_ROOT}/config/review-evolution.schema.json" \
+        "${framework}/config/" || return 1
+    "$PYTHON" - "$mutant" <<'PY' || return 1
+import sys
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as handle:
+    source = handle.read()
+pin = 'PINNED_OPENSSL = "/usr/bin/openssl"'
+validator = "def validate_crypto_verifier():\n"
+if source.count(pin) != 1 or source.count(validator) != 1:
+    raise SystemExit("AMBIENT_OPENSSL_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+source = source.replace(
+    pin,
+    'PINNED_OPENSSL = __import__("shutil").which("openssl")',
+).replace(
+    validator,
+    validator + "    return True  # MUTATED:ambient_openssl_resolution\n",
+)
+with open(path, "w", encoding="utf-8") as handle:
+    handle.write(source)
+PY
+    chmod +x "$mutant"
+
+    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
+        bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+    [ "$status" -ne 0 ] \
+        && [[ "$output" == *"not ok 1 ${filter}"* ]]
 }
