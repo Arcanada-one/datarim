@@ -3,6 +3,62 @@
   "$id": "https://datarim.club/schema/review-evolution-v1.json",
   "title": "Datarim Review Evolution",
   "description": "Review finding classification and canonical-knowledge evolution evidence that never substitutes for delivery of the product fix.",
+  "x-datarim-trusted-authority-key-registry-ref": {
+    "schema_relative_path": "customer-requirement.schema.json",
+    "json_pointer": "/x-datarim-signature-contract/key_resolution/bundled_registry",
+    "resolution": "BUNDLED_ONLY",
+    "ambient_override": "PROHIBITED",
+    "registry_id": "authority-key-registry-0001",
+    "registry_digest": "sha256:3a5af5b188e0bfde5a9202a13b27461dc5058176ad74eaceb782053ffa4cae0b"
+  },
+  "x-datarim-originating-review-contract": {
+    "review_digest": {
+      "algorithm": "SHA-256",
+      "canonicalization": "RFC8785",
+      "encoding": "UTF-8",
+      "payload_shape": "FLAT_OBJECT",
+      "covered_fields": [
+        "review_id",
+        "requirement_id",
+        "delivery_receipt_id",
+        "reviewer",
+        "review_ref",
+        "state",
+        "observed_at",
+        "evidence_ref"
+      ],
+      "excluded_fields": ["review_digest", "authority_approval"]
+    },
+    "approval_payload_digest": {
+      "algorithm": "SHA-256",
+      "canonicalization": "RFC8785",
+      "encoding": "UTF-8",
+      "covered_fields": [
+        "approved_digest",
+        "authority_id",
+        "authority_role",
+        "approved_at",
+        "evidence_ref",
+        "algorithm",
+        "key_id"
+      ],
+      "excluded_fields": ["approval_payload_digest", "signature"]
+    },
+    "signature_contract_ref": {
+      "schema_relative_path": "customer-requirement.schema.json",
+      "json_pointer": "/x-datarim-signature-contract",
+      "signed_field": "authority_approval.approval_payload_digest"
+    },
+    "verification_sequence": [
+      "ORIGINATING_REVIEW_DIGEST_VALID",
+      "ORIGINATING_REVIEW_APPROVAL_DIGEST_EQUALS_REVIEW_DIGEST",
+      "ORIGINATING_REVIEW_APPROVAL_PAYLOAD_DIGEST_VALID",
+      "ORIGINATING_REVIEW_APPROVAL_KEY_AUTHORIZED",
+      "ORIGINATING_REVIEW_SIGNATURE_VALID",
+      "ORIGINATING_REVIEW_OBSERVED_AT_NOT_AFTER_REVIEWED_AT",
+      "ORIGINATING_REVIEW_CLOSURE_STATE_ENFORCED_BY_A2"
+    ]
+  },
   "x-datarim-semantic-invariants": {
     "description": "Draft 2020-12 validates shape only; the A3 review-evolution validator enforces exactly the eight review-record and evolution invariants. Receipt closure is owned exclusively by the A2 customer-delivery validator.",
     "enforcer": "review-evolution-validator",
@@ -77,12 +133,53 @@
     "originatingReview": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["review_ref", "state", "observed_at", "evidence_ref"],
+      "required": ["review_ref", "state", "observed_at", "evidence_ref", "review_digest", "authority_approval"],
       "properties": {
-        "review_ref": { "type": "string", "minLength": 1 },
+        "review_ref": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "state": { "enum": ["OPEN", "CHANGES_REQUESTED", "APPROVED"] },
         "observed_at": { "type": "string", "format": "date-time" },
-        "evidence_ref": { "type": "string", "minLength": 1 }
+        "evidence_ref": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "review_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "authority_approval": { "$ref": "#/$defs/authorityApproval" }
+      }
+    },
+    "authorityApproval": {
+      "description": "An originating-review authority approval whose trusted key authorization and ED25519 signature framing are referenced exactly by the top-level originating-review contract.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "approved_digest",
+        "authority_id",
+        "authority_role",
+        "approved_at",
+        "evidence_ref",
+        "algorithm",
+        "key_id",
+        "approval_payload_digest",
+        "signature"
+      ],
+      "properties": {
+        "approved_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "authority_id": { "type": "string", "pattern": "^authority-[a-z0-9][a-z0-9-]*$" },
+        "authority_role": { "enum": ["CUSTOMER", "OPERATOR"] },
+        "approved_at": { "type": "string", "format": "date-time" },
+        "evidence_ref": { "type": "string", "minLength": 1 },
+        "algorithm": { "const": "ED25519" },
+        "key_id": {
+          "description": "Resolves through x-datarim-trusted-authority-key-registry-ref to the closed authority binding defined by the referenced signature contract; unknown keys fail closed.",
+          "type": "string",
+          "pattern": "^key-[a-z0-9][a-z0-9-]*$"
+        },
+        "approval_payload_digest": {
+          "description": "SHA-256 over the RFC 8785 canonical JSON UTF-8 bytes of the approval fields listed by x-datarim-originating-review-contract.",
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "signature": {
+          "description": "The prefixed RFC 4648 standard-base64 Ed25519 signature encoded exactly as defined by x-datarim-originating-review-contract.signature_contract_ref.",
+          "type": "string",
+          "pattern": "^ed25519:[A-Za-z0-9+/]{85}[AQgw]==$"
+        }
       }
     },
     "parentLink": {
