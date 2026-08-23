@@ -2406,9 +2406,7 @@ PY
 }
 
 @test "Darwin METADATA open remains nonblocking across a FIFO replacement race" {
-    [[ "$(/usr/bin/uname -s)" == Darwin ]] || skip 'Darwin-only trusted site boundary'
     local site_path canary diagnostic start end elapsed result output_copy diagnostic_output
-    site_path="${CUSTOMER_TEST_PYTHON_SITE:?missing CUSTOMER_TEST_PYTHON_SITE}"
     canary="${BATS_TEST_TMPDIR}/metadata-opened-without-nonblock"
     diagnostic="${BATS_TEST_TMPDIR}/metadata-nonblock-diagnostic"
     build_test_framework metadata-nonblocking-race || return 1
@@ -2418,7 +2416,7 @@ import sys
 path, canary, diagnostic = sys.argv[1:]
 source = open(path, encoding="utf-8").read()
 old = '        metadata_entry = os.stat("METADATA", follow_symlinks=False)\n'
-new = '''        metadata_entry = os.stat("METADATA", follow_symlinks=False)
+new = f'''        metadata_entry = os.stat("METADATA", follow_symlinks=False)
         if distribution == "jsonschema":
             os.rename(
                 "METADATA", "METADATA.original-a2",
@@ -2503,8 +2501,16 @@ inspect_flags = f'''        if distribution == "jsonschema":
 '''
 if source.count(after_open) != 1:
     raise SystemExit("METADATA_NONBLOCK_INSPECTION_SEAM_MISSING_OR_AMBIGUOUS")
-open(path, "w", encoding="utf-8").write(source.replace(after_open, inspect_flags))
+rendered = source.replace(after_open, inspect_flags)
+bootstrap_prefix = '''bootstrap_program="$(/bin/cat <<'PY'
+'''
+bootstrap_start = rendered.index(bootstrap_prefix) + len(bootstrap_prefix)
+bootstrap_end = rendered.index("\nPY\n)", bootstrap_start)
+compile(rendered[bootstrap_start:bootstrap_end], "<darwin-site-bootstrap>", "exec")
+open(path, "w", encoding="utf-8").write(rendered)
 PY
+    [[ "$(/usr/bin/uname -s)" == Darwin ]] || skip 'Darwin-only trusted site boundary'
+    site_path="${CUSTOMER_TEST_PYTHON_SITE:?missing CUSTOMER_TEST_PYTHON_SITE}"
     if [[ -n "${CUSTOMER_DELIVERY_EXPECT_MUTATION_MARKER:-}" ]]; then
         if ! grep -q "# ${CUSTOMER_DELIVERY_EXPECT_MUTATION_MARKER}" "$TEST_SCRIPT"; then
             printf 'HARNESS_INVALID:missing_mutation_marker:%s\n' \
