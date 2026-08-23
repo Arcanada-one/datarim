@@ -560,3 +560,97 @@ PY
             || return 1
     done
 }
+
+@test "repository root gitdir identity and descriptor mutants are independently killed" {
+    local pair kind filter framework mutant
+    local -a pairs=(
+        'root_identity|authoritative root replacement after document snapshots cannot redirect source history'
+        'gitdir_identity|authoritative gitdir replacement after document snapshots cannot redirect source history'
+        'gitdir_descriptor|git child uses the bound gitdir when the path is transiently replaced'
+    )
+    for pair in "${pairs[@]}"; do
+        kind="${pair%%|*}"
+        filter="${pair#*|}"
+        run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+        [ "$status" -eq 0 ] || return 1
+        framework="${BATS_TEST_TMPDIR}/repository-binding-${kind}"
+        mutant="${framework}/dev-tools/check-customer-delivery.sh"
+        mkdir -p "${framework}/dev-tools" "${framework}/config"
+        cp "$SCRIPT" "$mutant" || return 1
+        cp "${REPO_ROOT}/config/customer-requirement.schema.json" \
+            "${REPO_ROOT}/config/customer-delivery-receipt.schema.json" \
+            "${REPO_ROOT}/config/review-evolution.schema.json" \
+            "${framework}/config/" || return 1
+        "$PYTHON" - "$mutant" "$kind" <<'PY' || return 1
+import sys
+path, kind = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+if kind == "root_identity":
+    old = 'or repository_entry_identity(os.stat(ROOT, follow_symlinks=False))\n            != binding["root_identity"]'
+    new = 'or False'
+elif kind == "gitdir_identity":
+    old = '        if dotgit_path_identity != binding["dotgit_identity"]:'
+    new = '        if False:'
+elif kind == "gitdir_descriptor":
+    old = '        f"--git-dir={gitdir_fd_path}",'
+    new = '        "-C", ROOT,'
+else:
+    raise SystemExit(kind)
+assert source.count(old) == 1
+open(path, "w", encoding="utf-8").write(source.replace(old, new))
+PY
+        chmod +x "$mutant"
+        run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
+            bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+        [ "$status" -ne 0 ] \
+            && [[ "$output" == *"not ok 1 ${filter}"* ]] \
+            || return 1
+    done
+}
+
+@test "review inventory exactness closure and authentication mutants are independently killed" {
+    local pair kind filter framework mutant
+    local -a pairs=(
+        'set_exact|two-requirement epic cannot close with its second originating review missing'
+        'closure|two-requirement epic cannot close with its second originating review OPEN'
+        'authentication|every originating review inventory record is authenticated'
+    )
+    for pair in "${pairs[@]}"; do
+        kind="${pair%%|*}"
+        filter="${pair#*|}"
+        run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+        [ "$status" -eq 0 ] || return 1
+        framework="${BATS_TEST_TMPDIR}/review-inventory-${kind}"
+        mutant="${framework}/dev-tools/check-customer-delivery.sh"
+        mkdir -p "${framework}/dev-tools" "${framework}/config"
+        cp "$SCRIPT" "$mutant" || return 1
+        cp "${REPO_ROOT}/config/customer-requirement.schema.json" \
+            "${REPO_ROOT}/config/customer-delivery-receipt.schema.json" \
+            "${REPO_ROOT}/config/review-evolution.schema.json" \
+            "${framework}/config/" || return 1
+        "$PYTHON" - "$mutant" "$kind" <<'PY' || return 1
+import sys
+path, kind = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+if kind == "set_exact":
+    old = '    expected_requirements = set(requirements)'
+    new = '    expected_requirements = set(reviews_by_requirement)'
+elif kind == "closure":
+    old = '        validate_originating_review_state(record)  # SECURITY_RULE:review_inventory_closure'
+    new = '        pass  # SECURITY_RULE:review_inventory_closure'
+elif kind == "authentication":
+    old = '        validate_originating_review_commitment(record)'
+    new = '        pass'
+else:
+    raise SystemExit(kind)
+assert source.count(old) == 1
+open(path, "w", encoding="utf-8").write(source.replace(old, new))
+PY
+        chmod +x "$mutant"
+        run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
+            bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+        [ "$status" -ne 0 ] \
+            && [[ "$output" == *"not ok 1 ${filter}"* ]] \
+            || return 1
+    done
+}

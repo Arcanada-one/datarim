@@ -371,6 +371,211 @@ echo "ed25519:" . base64_encode(sodium_crypto_sign_detached($message, $secret));
     yq -i ".requirements.req-0001.coverage_chain.customer_disposition.authority_approval.signature = \"${signature}\"" "$RECEIPT"
 }
 
+sign_test_digest() {
+    local secret_key="$1" digest="$2"
+    # PHP receives the script literally.
+    # shellcheck disable=SC2016
+    printf '%s\n%s\n' "$secret_key" "$digest" | php -r '
+$secret = base64_decode(trim(fgets(STDIN)), true);
+$digest = trim(fgets(STDIN));
+$message = hex2bin(substr($digest, 7));
+if ($secret === false || $message === false) { exit(2); }
+echo "ed25519:" . base64_encode(sodium_crypto_sign_detached($message, $secret));
+'
+}
+
+prepare_two_requirement_fixture() {
+    local second_state="${1:-APPROVED}" seed public_key secret_key
+    local -a digests
+    local source_signature assertion_signature disposition_signature review_signature
+    seed="$(openssl rand -hex 32)"
+    # shellcheck disable=SC2016
+    public_key="$(printf '%s\n' "$seed" | php -r '$s=hex2bin(trim(fgets(STDIN)));$p=sodium_crypto_sign_seed_keypair($s);echo base64_encode(sodium_crypto_sign_publickey($p));')"
+    # shellcheck disable=SC2016
+    secret_key="$(printf '%s\n' "$seed" | php -r '$s=hex2bin(trim(fgets(STDIN)));$p=sodium_crypto_sign_seed_keypair($s);echo base64_encode(sodium_crypto_sign_secretkey($p));')"
+    build_test_framework two-requirements || return 1
+    env TWO_REQUIREMENT_PUBLIC_KEY="$public_key" yq -i \
+        '."x-datarim-signature-contract".key_resolution.bundled_registry.entries += [{
+          "key_id":"key-two-requirements-0001",
+          "authority_id":"authority-two-requirements-0001",
+          "allowed_roles":["CUSTOMER","OPERATOR"],
+          "public_key":strenv(TWO_REQUIREMENT_PUBLIC_KEY),
+          "status":"ACTIVE",
+          "valid_from":"2026-01-01T00:00:00Z",
+          "valid_until":"2036-01-01T00:00:00Z"
+        }] | ."x-datarim-signature-contract".key_resolution.bundled_registry.entries |= sort_by(.key_id)' \
+        "${TEST_FRAMEWORK}/config/customer-requirement.schema.json" || return 1
+    authenticate_test_registry '.' || return 1
+    mapfile -t digests < <("$PYTHON" - "$REQUIREMENTS" "$RECEIPT" "$REVIEW" "$second_state" <<'PY'
+import copy
+import hashlib
+import json
+import sys
+
+import yaml
+
+requirements_path, receipt_path, review_path, second_state = sys.argv[1:]
+with open(requirements_path, encoding="utf-8") as handle:
+    requirements = yaml.safe_load(handle)
+with open(receipt_path, encoding="utf-8") as handle:
+    receipt = yaml.safe_load(handle)
+with open(review_path, encoding="utf-8") as handle:
+    review = yaml.safe_load(handle)
+
+
+def replace(value):
+    if isinstance(value, str):
+        return value.replace("req-0001", "req-0002").replace(
+            "source-0001", "source-0002"
+        ).replace("assertion-0001", "assertion-0002").replace(
+            "review-0001", "review-0002"
+        )
+    if isinstance(value, list):
+        return [replace(item) for item in value]
+    if isinstance(value, dict):
+        return {replace(key): replace(item) for key, item in value.items()}
+    return value
+
+
+def digest(payload):
+    encoded = json.dumps(
+        payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+    return "sha256:" + hashlib.sha256(encoded).hexdigest()
+
+
+approval_fields = (
+    "approved_digest", "authority_id", "authority_role", "approved_at",
+    "evidence_ref", "algorithm", "key_id",
+)
+source = replace(copy.deepcopy(requirements["source_remarks"][0]))
+source["authority_approval"].update({
+    "authority_id": "authority-two-requirements-0001",
+    "authority_role": "CUSTOMER",
+    "key_id": "key-two-requirements-0001",
+})
+source_payload = {
+    field: source[field]
+    for field in (
+        "source_id", "revision", "source_tier", "verbatim_quote", "captured_at",
+        "requirement_ids", "prework_assignments",
+    )
+}
+for optional in ("locale", "source_ref", "supersedes_source_digest"):
+    if optional in source:
+        source_payload[optional] = source[optional]
+source_payload["requirement_ids"] = sorted(source_payload["requirement_ids"])
+source_payload["prework_assignments"] = sorted(
+    source_payload["prework_assignments"],
+    key=lambda item: (item["requirement_id"], item["task_id"], item["epic_id"]),
+)
+source["source_digest"] = digest(source_payload)
+source_approval = source["authority_approval"]
+source_approval["approved_digest"] = source["source_digest"]
+source_approval["approval_payload_digest"] = digest({
+    field: source_approval[field] for field in approval_fields
+})
+assertion = source["tier1_assertions"][0]
+assertion["source_digest"] = source["source_digest"]
+assertion["authority_approval"].update({
+    "authority_id": "authority-two-requirements-0001",
+    "authority_role": "CUSTOMER",
+    "key_id": "key-two-requirements-0001",
+})
+assertion["assertion_digest"] = digest({
+    key: value for key, value in assertion.items()
+    if key not in {"assertion_digest", "authority_approval"}
+})
+assertion_approval = assertion["authority_approval"]
+assertion_approval["approved_digest"] = assertion["assertion_digest"]
+assertion_approval["approval_payload_digest"] = digest({
+    field: assertion_approval[field] for field in approval_fields
+})
+requirements["source_remarks"].append(source)
+requirements["requirements"]["req-0002"] = replace(
+    copy.deepcopy(requirements["requirements"]["req-0001"])
+)
+
+delivery = replace(copy.deepcopy(receipt["requirements"]["req-0001"]))
+chain = delivery["coverage_chain"]
+disposition = chain["customer_disposition"]
+disposition["authority_approval"].update({
+    "authority_id": "authority-two-requirements-0001",
+    "authority_role": "OPERATOR",
+    "key_id": "key-two-requirements-0001",
+})
+disposition["coverage_chain_digest"] = digest({
+    key: value for key, value in chain.items() if key != "customer_disposition"
+})
+disposition_payload = {
+    field: disposition[field]
+    for field in (
+        "receipt_id", "requirement_set_id", "requirement_id",
+        "coverage_chain_digest", "status", "recorded_at", "evidence_ref",
+    )
+}
+for optional in ("note", "superseded_by"):
+    if optional in disposition:
+        disposition_payload[optional] = disposition[optional]
+disposition["disposition_digest"] = digest(disposition_payload)
+disposition_approval = disposition["authority_approval"]
+disposition_approval["approved_digest"] = disposition["disposition_digest"]
+disposition_approval["approval_payload_digest"] = digest({
+    field: disposition_approval[field] for field in approval_fields
+})
+receipt["requirements"]["req-0002"] = delivery
+
+review_digest = ""
+if "originating_review_inventory" in review:
+    item = replace(copy.deepcopy(review["originating_review_inventory"][0]))
+    item["authority_approval"].update({
+        "authority_id": "authority-two-requirements-0001",
+        "authority_role": "OPERATOR",
+        "key_id": "key-two-requirements-0001",
+    })
+    item["state"] = second_state
+    item["review_digest"] = digest({
+        field: item[field]
+        for field in (
+            "review_id", "requirement_id", "delivery_receipt_id", "reviewer",
+            "review_ref", "state", "observed_at", "evidence_ref",
+        )
+    })
+    item_approval = item["authority_approval"]
+    item_approval["approved_digest"] = item["review_digest"]
+    item_approval["approval_payload_digest"] = digest({
+        field: item_approval[field] for field in approval_fields
+    })
+    review["originating_review_inventory"].append(item)
+    review_digest = item_approval["approval_payload_digest"]
+
+with open(requirements_path, "w", encoding="utf-8") as handle:
+    yaml.safe_dump(requirements, handle, allow_unicode=True, sort_keys=False)
+with open(receipt_path, "w", encoding="utf-8") as handle:
+    yaml.safe_dump(receipt, handle, allow_unicode=True, sort_keys=False)
+with open(review_path, "w", encoding="utf-8") as handle:
+    yaml.safe_dump(review, handle, allow_unicode=True, sort_keys=False)
+print(source_approval["approval_payload_digest"])
+print(assertion_approval["approval_payload_digest"])
+print(disposition_approval["approval_payload_digest"])
+print(review_digest)
+PY
+    ) || return 1
+    source_signature="$(sign_test_digest "$secret_key" "${digests[0]}")" || return 1
+    assertion_signature="$(sign_test_digest "$secret_key" "${digests[1]}")" || return 1
+    disposition_signature="$(sign_test_digest "$secret_key" "${digests[2]}")" || return 1
+    yq -i ".source_remarks[1].authority_approval.signature = \"${source_signature}\" |
+        .source_remarks[1].tier1_assertions[0].authority_approval.signature = \"${assertion_signature}\"" \
+        "$REQUIREMENTS" || return 1
+    yq -i ".requirements.req-0002.coverage_chain.customer_disposition.authority_approval.signature = \"${disposition_signature}\"" \
+        "$RECEIPT" || return 1
+    if [[ -n "${digests[3]}" ]]; then
+        review_signature="$(sign_test_digest "$secret_key" "${digests[3]}")" || return 1
+        yq -i ".originating_review_inventory[1].authority_approval.signature = \"${review_signature}\"" \
+            "$REVIEW" || return 1
+    fi
+}
+
 prepare_authenticated_prework_fixture() {
     local expression="$1"
     local seed public_key secret_key digests source_digest assertion_digest
@@ -948,6 +1153,46 @@ prepare_signed_review_fixture() {
     run_test_framework_json
     [ "$status" -eq 1 ] \
         && [[ "$output" == *"parent_review_not_closed:req-0001"* ]]
+}
+
+@test "two-requirement epic cannot close with its second originating review missing" {
+    prepare_two_requirement_fixture || return 1
+    yq -i 'del(.originating_review_inventory[1])' "$REVIEW"
+    run_test_framework_json
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"originating_review_inventory_missing:req-0002"* ]]
+}
+
+@test "two-requirement epic cannot close with its second originating review OPEN" {
+    prepare_two_requirement_fixture OPEN || return 1
+    run_test_framework_json
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"parent_review_not_closed:req-0002"* ]]
+}
+
+@test "two-requirement epic cannot close with its second originating review CHANGES_REQUESTED" {
+    prepare_two_requirement_fixture CHANGES_REQUESTED || return 1
+    run_test_framework_json
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"parent_review_not_closed:req-0002"* ]]
+}
+
+@test "every originating review inventory record is authenticated" {
+    prepare_two_requirement_fixture || return 1
+    yq -i '.originating_review_inventory[1].review_ref = "review-system/reviews/tampered"' "$REVIEW"
+    run_test_framework_json
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"originating_review_digest_mismatch:review-0002"* ]]
+}
+
+@test "originating review inventory rejects requirements outside the exact set" {
+    prepare_two_requirement_fixture || return 1
+    yq -i '.originating_review_inventory += [.originating_review_inventory[1]] |
+        .originating_review_inventory[2].requirement_id = "req-9999" |
+        .originating_review_inventory[2].review_id = "review-9999"' "$REVIEW"
+    run_test_framework_json
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"originating_review_inventory_extra:req-9999"* ]]
 }
 
 @test "a rejected child disposition cannot produce a MET delivery decision" {
@@ -1804,6 +2049,130 @@ CASES
     run_validator
     [ "$status" -eq 1 ] \
         && [[ "$output" == *"source_history_prior_record_mutated:source-0001"* ]]
+}
+
+@test "authoritative root replacement after document snapshots cannot redirect source history" {
+    local substitute="${BATS_TEST_TMPDIR}/root-swap-substitute"
+    prepare_authenticated_prework_fixture \
+        '.source_remarks[0].source_ref = "customer-interview-newly-signed"' \
+        || return 1
+    run_test_framework_json
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"source_history_prior_digest_deleted:"* ]] \
+        || return 1
+    mkdir -p "$substitute/datarim/tasks"
+    cp "$REQUIREMENTS" "$substitute/datarim/tasks/${TASK_ID}-customer-requirements.yaml"
+    git -C "$substitute" init -q
+    git -C "$substitute" config user.name test
+    git -C "$substitute" config user.email test@example.invalid
+    git -C "$substitute" add datarim
+    git -C "$substitute" commit -q -m clean-substitute
+    "$PYTHON" - "$TEST_SCRIPT" "$substitute" <<'PY' || return 1
+import sys
+path, substitute = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+old = "validate_requirements_contract()\nvalidate_source_history()\ncheck_supersession_cycles()"
+new = f'''validate_requirements_contract()
+os.rename(ROOT, ROOT + ".authoritative")
+os.rename({substitute!r}, ROOT)
+validate_source_history()
+check_supersession_cycles()'''
+assert source.count(old) == 1
+open(path, "w", encoding="utf-8").write(source.replace(old, new))
+PY
+    run_test_framework_json
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"source_history_repository_identity_changed:root"* ]]
+}
+
+@test "authoritative gitdir replacement after document snapshots cannot redirect source history" {
+    local substitute="${BATS_TEST_TMPDIR}/gitdir-swap-substitute"
+    prepare_authenticated_prework_fixture \
+        '.source_remarks[0].source_ref = "customer-interview-newly-signed"' \
+        || return 1
+    run_test_framework_json
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"source_history_prior_digest_deleted:"* ]] \
+        || return 1
+    mkdir -p "$substitute/datarim/tasks"
+    cp "$REQUIREMENTS" "$substitute/datarim/tasks/${TASK_ID}-customer-requirements.yaml"
+    git -C "$substitute" init -q
+    git -C "$substitute" config user.name test
+    git -C "$substitute" config user.email test@example.invalid
+    git -C "$substitute" add datarim
+    git -C "$substitute" commit -q -m clean-substitute
+    "$PYTHON" - "$TEST_SCRIPT" "$substitute/.git" <<'PY' || return 1
+import sys
+path, substitute_gitdir = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+old = "validate_requirements_contract()\nvalidate_source_history()\ncheck_supersession_cycles()"
+new = f'''validate_requirements_contract()
+os.rename(os.path.join(ROOT, ".git"), os.path.join(ROOT, ".git.authoritative"))
+os.rename({substitute_gitdir!r}, os.path.join(ROOT, ".git"))
+validate_source_history()
+check_supersession_cycles()'''
+assert source.count(old) == 1
+open(path, "w", encoding="utf-8").write(source.replace(old, new))
+PY
+    run_test_framework_json
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"source_history_repository_identity_changed:gitdir"* ]]
+}
+
+@test "git child uses the bound gitdir when the path is transiently replaced" {
+    local substitute="${BATS_TEST_TMPDIR}/transient-gitdir-substitute"
+    local fake_gitdir="${BATS_TEST_TMPDIR}/transient-fake-gitdir"
+    local hidden_gitdir="${BATS_TEST_TMPDIR}/transient-hidden-gitdir"
+    local shim="${BATS_TEST_TMPDIR}/transient-git-wrapper"
+    prepare_authenticated_prework_fixture \
+        '.source_remarks[0].source_ref = "customer-interview-newly-signed"' \
+        || return 1
+    mkdir -p "$substitute/datarim/tasks"
+    cp "$REQUIREMENTS" "$substitute/datarim/tasks/${TASK_ID}-customer-requirements.yaml"
+    git -C "$substitute" init -q
+    git -C "$substitute" config user.name test
+    git -C "$substitute" config user.email test@example.invalid
+    git -C "$substitute" add datarim
+    git -C "$substitute" commit -q -m clean-substitute
+    mv "$substitute/.git" "$fake_gitdir"
+    "$PYTHON" - "$shim" "$ROOT/.git" "$hidden_gitdir" "$fake_gitdir" <<'PY' || return 1
+import os
+import sys
+path, authoritative, hidden, fake = sys.argv[1:]
+with open(path, "w", encoding="utf-8") as handle:
+    handle.write(f'''#!/bin/bash
+set -euo pipefail
+mv {authoritative!r} {hidden!r}
+mv {fake!r} {authoritative!r}
+set +e
+/usr/bin/git "$@"
+rc=$?
+set -e
+mv {authoritative!r} {fake!r}
+mv {hidden!r} {authoritative!r}
+exit "$rc"
+''')
+os.chmod(path, 0o700)
+PY
+    replace_test_script_literal \
+        'PINNED_GIT = "/usr/bin/git"' \
+        "PINNED_GIT = \"${shim}\"" || return 1
+    run_test_framework_json
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"source_history_prior_digest_deleted:"* ]] \
+        && [[ "$output" != *"source_history_repository_identity_changed:"* ]]
+}
+
+@test "linked Git worktree gitfile remains authoritative" {
+    local linked="${BATS_TEST_TMPDIR}/linked-consumer"
+    git -C "$ROOT" worktree add -q --detach "$linked" HEAD || return 1
+    ROOT="$linked"
+    REQUIREMENTS="${ROOT}/datarim/tasks/${TASK_ID}-customer-requirements.yaml"
+    RECEIPT="${ROOT}/datarim/receipts/${TASK_ID}-customer-delivery.yaml"
+    REVIEW="${ROOT}/datarim/receipts/${TASK_ID}-review-evolution.yaml"
+    run_validator_json
+    [ "$status" -eq 0 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "MET" and d["findings"] == []' "$output"
 }
 
 @test "ambient GIT_DIR cannot substitute a clean authoritative history" {

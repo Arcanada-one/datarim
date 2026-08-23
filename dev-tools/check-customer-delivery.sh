@@ -297,7 +297,7 @@ APPROVAL_FIELDS = (
 )
 EXPECTED_INVARIANT_REGISTRY_DIGESTS = {
     "requirements": "b7638bd5bbebaf6034fa117758d0c7064c5ec0bec572ad5bb5dd897c91c2fd46",
-    "receipt": "0d37202c35e32815f18a70b04c7e4263ce4456988c93b56d162f4aedb1616260",
+    "receipt": "8dfacc991dec9af45477b9b500a6ee328b52ed84a6f432b720f3a0e63a46bef6",
 }
 EXPECTED_CONTRACT_DIGESTS = {
     "requirements:x-datarim-crypto-verifier-contract": "9ebeb579d224d2f3db094c9873b7e1990da71f1ef789b30e64c5bb98deb33bed",
@@ -307,7 +307,7 @@ EXPECTED_CONTRACT_DIGESTS = {
     "receipt:x-datarim-customer-disposition-contract": "994129b7b66c3ad29f4e76bb564ae4937d42e2e46dd5a983dd3eaa7741bf5d96",
     "receipt:x-datarim-coverage-chain-digest-contract": "9f7f5391d3c7922d97fe33148f5d7c2dc1a72808415f899cc04129ef5ee95b68",
     "receipt:x-datarim-task-identity-contract": "54e1d0c40950b024a0dcd760ee1964bb467088876b7624ff652e27f5dfbe69a5",
-    "review:x-datarim-originating-review-contract": "292e30935e6ee89252bcd7eae0487184115f96b6b6ad2e3d71c6a1f767770975",
+    "review:x-datarim-originating-review-contract": "d51e0de7f68142849cd7d5100510f39f60d452708f100150bd40e87923e33a01",
 }
 PINNED_GIT = "/usr/bin/git"
 VALIDATION_TOTAL_TIMEOUT_SECONDS = 20
@@ -659,6 +659,132 @@ def reject_invalid_unicode(value, label, decision, code):
         emit(decision, code)
 
 
+def repository_entry_identity(metadata, *, content_stable=False):
+    identity = (metadata.st_dev, metadata.st_ino, stat.S_IFMT(metadata.st_mode))
+    if content_stable:
+        identity += (
+            metadata.st_size,
+            metadata.st_mtime_ns,
+            metadata.st_ctime_ns,
+        )
+    return identity
+
+
+def bind_authoritative_repository():
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC
+    nofollow = getattr(os, "O_NOFOLLOW", 0)
+    root_fd = dotgit_fd = gitdir_fd = None
+    try:
+        root_fd = os.open(ROOT, directory_flags | nofollow)
+        root_identity = repository_entry_identity(os.fstat(root_fd))
+        if repository_entry_identity(os.stat(ROOT, follow_symlinks=False)) != root_identity:
+            raise OSError("root identity changed while binding")
+        gitdir_path = None
+        dotgit_is_file = False
+        try:
+            dotgit_fd = os.open(
+                ".git", directory_flags | nofollow, dir_fd=root_fd
+            )
+            gitdir_fd = os.dup(dotgit_fd)
+        except NotADirectoryError:
+            dotgit_is_file = True
+            dotgit_fd = os.open(
+                ".git", os.O_RDONLY | os.O_CLOEXEC | nofollow, dir_fd=root_fd
+            )
+            dotgit_before = os.fstat(dotgit_fd)
+            if not stat.S_ISREG(dotgit_before.st_mode) or dotgit_before.st_size > 4096:
+                raise OSError("invalid gitfile")
+            chunks = []
+            total = 0
+            while True:
+                chunk = os.read(dotgit_fd, min(4097 - total, 4096))
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                total += len(chunk)
+                if total > 4096:
+                    raise OSError("oversized gitfile")
+            dotgit_after = os.fstat(dotgit_fd)
+            if repository_entry_identity(
+                dotgit_before, content_stable=True
+            ) != repository_entry_identity(dotgit_after, content_stable=True):
+                raise OSError("gitfile identity changed while binding")
+            match = re.fullmatch(
+                rb"gitdir: ([^\x00\r\n]+)\r?\n?", b"".join(chunks)
+            )
+            if match is None:
+                raise OSError("invalid gitfile")
+            gitdir_text = match.group(1).decode("utf-8", errors="strict")
+            gitdir_path = (
+                gitdir_text
+                if os.path.isabs(gitdir_text)
+                else os.path.normpath(os.path.join(ROOT, gitdir_text))
+            )
+            gitdir_fd = os.open(gitdir_path, directory_flags | nofollow)
+        dotgit_identity = repository_entry_identity(
+            os.fstat(dotgit_fd), content_stable=dotgit_is_file
+        )
+        gitdir_identity = repository_entry_identity(os.fstat(gitdir_fd))
+        return {
+            "root_fd": root_fd,
+            "root_identity": root_identity,
+            "dotgit_fd": dotgit_fd,
+            "dotgit_identity": dotgit_identity,
+            "dotgit_is_file": dotgit_is_file,
+            "gitdir_fd": gitdir_fd,
+            "gitdir_identity": gitdir_identity,
+            "gitdir_path": gitdir_path,
+        }
+    except (OSError, UnicodeError):
+        for descriptor in (gitdir_fd, dotgit_fd, root_fd):
+            if descriptor is not None:
+                try:
+                    os.close(descriptor)
+                except OSError:
+                    pass
+        return None
+
+
+def repository_identity_issue():
+    binding = AUTHORITATIVE_REPOSITORY
+    if binding is None:
+        return "unavailable"
+    try:
+        if (
+            repository_entry_identity(os.fstat(binding["root_fd"]))
+            != binding["root_identity"]
+            or repository_entry_identity(os.stat(ROOT, follow_symlinks=False))
+            != binding["root_identity"]
+        ):
+            return "root"
+        if repository_entry_identity(
+            os.fstat(binding["dotgit_fd"]),
+            content_stable=binding["dotgit_is_file"],
+        ) != binding["dotgit_identity"]:
+            return "gitdir"
+        dotgit_path_identity = repository_entry_identity(
+            os.stat(".git", dir_fd=binding["root_fd"], follow_symlinks=False),
+            content_stable=binding["dotgit_is_file"],
+        )
+        if dotgit_path_identity != binding["dotgit_identity"]:
+            return "gitdir"
+        if (
+            repository_entry_identity(os.fstat(binding["gitdir_fd"]))
+            != binding["gitdir_identity"]
+        ):
+            return "gitdir"
+        if binding["gitdir_path"] is not None and repository_entry_identity(
+            os.stat(binding["gitdir_path"], follow_symlinks=False)
+        ) != binding["gitdir_identity"]:
+            return "gitdir"
+    except OSError:
+        return "root" if binding is not None else "unavailable"
+    return None
+
+
+AUTHORITATIVE_REPOSITORY = bind_authoritative_repository()
+
+
 def read_confined_snapshot(path, boundary, label):
     relative = os.path.relpath(path, boundary)
     components = relative.split(os.sep)
@@ -675,7 +801,10 @@ def read_confined_snapshot(path, boundary, label):
     opened_directories = []
     file_descriptor = None
     try:
-        current = os.open(boundary, directory_flags | nofollow)
+        if boundary == ROOT and AUTHORITATIVE_REPOSITORY is not None:
+            current = os.dup(AUTHORITATIVE_REPOSITORY["root_fd"])
+        else:
+            current = os.open(boundary, directory_flags | nofollow)
         opened_directories.append(current)
         for component in components[:-1]:
             current = os.open(
@@ -1172,7 +1301,7 @@ def validate_approval(kind, record_id, approval):
         add(f"{kind}_signature_invalid:{record_id}")  # SECURITY_RULE:artifact_signature
 
 
-def originating_review_payload():
+def primary_originating_review_record():
     origin = review_doc["originating_review"]
     return {
         "review_id": review_doc["review_id"],
@@ -1183,25 +1312,36 @@ def originating_review_payload():
         "state": origin["state"],
         "observed_at": origin["observed_at"],
         "evidence_ref": origin["evidence_ref"],
+        "review_digest": origin["review_digest"],
+        "authority_approval": origin["authority_approval"],
     }
 
 
-def validate_originating_review_commitment():
-    review_id = review_doc["review_id"]
-    origin = review_doc["originating_review"]
-    approval = origin["authority_approval"]
-    expected_digest = sha256_digest(originating_review_payload())
-    if origin["review_digest"] != expected_digest:
+def originating_review_payload(record):
+    return {
+        field: record[field]
+        for field in (
+            "review_id", "requirement_id", "delivery_receipt_id", "reviewer",
+            "review_ref", "state", "observed_at", "evidence_ref",
+        )
+    }
+
+
+def validate_originating_review_commitment(record):
+    review_id = record["review_id"]
+    approval = record["authority_approval"]
+    expected_digest = sha256_digest(originating_review_payload(record))
+    if record["review_digest"] != expected_digest:
         add(f"originating_review_digest_mismatch:{review_id}")  # SECURITY_RULE:review_digest
-    if approval["approved_digest"] != origin["review_digest"]:
+    if approval["approved_digest"] != record["review_digest"]:
         add(f"originating_review_approval_digest_mismatch:{review_id}")  # SECURITY_RULE:review_approved_digest
     if approval["approval_payload_digest"] != approval_payload_digest(approval):
         add(f"originating_review_approval_payload_digest_mismatch:{review_id}")  # SECURITY_RULE:review_approval_digest
 
 
-def validate_originating_review_approval():
-    review_id = review_doc["review_id"]
-    approval = review_doc["originating_review"]["authority_approval"]
+def validate_originating_review_approval(record):
+    review_id = record["review_id"]
+    approval = record["authority_approval"]
     key_id = approval["key_id"]
     binding = trusted_keys.get(key_id)
     if binding is None:
@@ -1228,24 +1368,55 @@ def validate_originating_review_approval():
         add(f"originating_review_signature_invalid:{review_id}")  # SECURITY_RULE:review_signature
 
 
-def validate_originating_review_state():
-    review_id = review_doc["review_id"]
-    requirement_id = review_doc["requirement_id"]
-    origin = review_doc["originating_review"]
-    observed_at = parse_time(origin["observed_at"], f"timestamp:{review_id}:observed_at")
-    reviewed_at = parse_time(review_doc["reviewed_at"], f"timestamp:{review_id}:reviewed_at")
+def validate_originating_review_state(record, reviewed_at_value=None):
+    review_id = record["review_id"]
+    requirement_id = record["requirement_id"]
+    observed_at = parse_time(record["observed_at"], f"timestamp:{review_id}:observed_at")
+    reviewed_at = (
+        parse_time(reviewed_at_value, f"timestamp:{review_id}:reviewed_at")
+        if reviewed_at_value is not None
+        else None
+    )
     if observed_at is not None and reviewed_at is not None and observed_at > reviewed_at:
         add(f"originating_review_observed_after_reviewed_at:{review_id}")  # SECURITY_RULE:review_observed_at
-    if origin["state"] == "OPEN":
+    if record["state"] == "OPEN":
         add(f"parent_review_not_closed:{requirement_id}")  # SECURITY_RULE:review_state_open
-    if origin["state"] == "CHANGES_REQUESTED":
+    if record["state"] == "CHANGES_REQUESTED":
         add(f"parent_review_not_closed:{requirement_id}")  # SECURITY_RULE:review_state_changes
 
 
 def validate_originating_review():
-    validate_originating_review_commitment()
-    validate_originating_review_approval()
-    validate_originating_review_state()
+    primary = primary_originating_review_record()
+    validate_originating_review_commitment(primary)
+    validate_originating_review_approval(primary)
+    validate_originating_review_state(primary, review_doc["reviewed_at"])
+    inventory = review_doc["originating_review_inventory"]
+    reviews_by_requirement = {}
+    review_ids = set()
+    for record in inventory:
+        requirement_id = record["requirement_id"]
+        review_id = record["review_id"]
+        if requirement_id in reviews_by_requirement:
+            add(f"originating_review_inventory_duplicate:{requirement_id}")
+        else:
+            reviews_by_requirement[requirement_id] = record
+        if review_id in review_ids:
+            add(f"originating_review_id_duplicate:{review_id}")
+        review_ids.add(review_id)
+        validate_originating_review_commitment(record)
+        validate_originating_review_approval(record)
+        validate_originating_review_state(record)  # SECURITY_RULE:review_inventory_closure
+        if record["delivery_receipt_id"] != receipt_doc["receipt_id"]:
+            add(f"review_receipt_mismatch:{requirement_id}")
+    expected_requirements = set(requirements)
+    observed_requirements = set(reviews_by_requirement)
+    for requirement_id in sorted(expected_requirements - observed_requirements):
+        add(f"originating_review_inventory_missing:{requirement_id}")  # SECURITY_RULE:review_inventory_exact
+    for requirement_id in sorted(observed_requirements - expected_requirements):
+        add(f"originating_review_inventory_extra:{requirement_id}")  # SECURITY_RULE:review_inventory_exact
+    primary_inventory_record = reviews_by_requirement.get(primary["requirement_id"])
+    if primary_inventory_record != primary:
+        add(f"originating_review_primary_mismatch:{primary['requirement_id']}")  # SECURITY_RULE:review_inventory_primary
 
 
 def scope_equal(left, right):
@@ -1478,7 +1649,7 @@ def validate_requirements_contract():
                 add(f"rendered_test_before_implementation:{requirement_id}")
 
 
-def validate_source_history():
+def _validate_source_history():
     deadline = min(
         VALIDATION_DEADLINE,
         time.monotonic() + SOURCE_HISTORY_TOTAL_TIMEOUT_SECONDS,
@@ -1492,20 +1663,40 @@ def validate_source_history():
         "LC_ALL": "C",
         "PATH": "/usr/bin:/bin",
     }  # SECURITY_RULE:git_environment_sanitized
+    binding = AUTHORITATIVE_REPOSITORY
+    if binding is None:
+        add("source_history_unavailable")
+        return
+    gitdir_fd_path = (
+        f"/proc/self/fd/{binding['gitdir_fd']}"
+        if PLATFORM == "Linux"
+        else f"/dev/fd/{binding['gitdir_fd']}"
+    )
     git_prefix = [
         PINNED_GIT,
         "-c", "core.attributesFile=/dev/null",
         "-c", "core.fsmonitor=false",
         "-c", "core.hooksPath=/dev/null",
-        "-C", ROOT,
+        f"--git-dir={gitdir_fd_path}",
     ]
     resource_limited = False
+    repository_identity_reported = False
 
     def resource_limit(reason):
         nonlocal resource_limited
         if not resource_limited:
             add(f"source_history_resource_limit:{reason}")
             resource_limited = True
+
+    def repository_identity_valid():
+        nonlocal repository_identity_reported
+        issue = repository_identity_issue()
+        if issue is None:
+            return True
+        if not repository_identity_reported:
+            add(f"source_history_repository_identity_changed:{issue}")
+            repository_identity_reported = True
+        return False
 
     def terminate_process_group(process):
         try:
@@ -1535,6 +1726,8 @@ def validate_source_history():
             pass
 
     def run_git(arguments, *, input_bytes=None, output_limit=SOURCE_HISTORY_MAX_CONTROL_OUTPUT_BYTES):
+        if not repository_identity_valid():
+            return None
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             resource_limit("deadline")
@@ -1551,6 +1744,7 @@ def validate_source_history():
             process = subprocess.Popen(
                 [*git_prefix, *arguments],
                 env=git_env,
+                pass_fds=(binding["gitdir_fd"],),
                 stdin=subprocess.PIPE if input_bytes is not None else subprocess.DEVNULL,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -1614,6 +1808,8 @@ def validate_source_history():
                     target.extend(chunk)
 
             returncode = process.wait(timeout=max(0.001, deadline - time.monotonic()))
+            if not repository_identity_valid():
+                return None
             return returncode, bytes(stdout_buffer)
         except subprocess.TimeoutExpired:
             resource_limit("deadline")
@@ -1699,7 +1895,7 @@ def validate_source_history():
             source_ids.add(source_id)
         return by_digest
 
-    probe = run_git(["rev-parse", "--show-toplevel"])
+    probe = run_git(["rev-parse", "--git-dir"])
     try:
         probe_stdout = probe[1].decode("utf-8", errors="strict") if probe is not None else ""
     except UnicodeError:
@@ -1707,7 +1903,7 @@ def validate_source_history():
     if (
         probe is None
         or probe[0] != 0
-        or os.path.realpath(probe_stdout.strip()) != os.path.realpath(ROOT)
+        or not probe_stdout.strip()
     ):
         if not resource_limited:
             add("source_history_unavailable")  # SECURITY_RULE:source_history_repo_required
@@ -1735,7 +1931,7 @@ def validate_source_history():
         return
     graft_path = graft_stdout
     if not os.path.isabs(graft_path):
-        graft_path = os.path.join(ROOT, graft_path)
+        graft_path = os.path.join(gitdir_fd_path, graft_path)
     try:
         graft_present = os.path.getsize(graft_path) > 0
     except FileNotFoundError:
@@ -1881,6 +2077,17 @@ def validate_source_history():
             superseded = source.get("supersedes_source_digest")
             if digest not in old_by_digest and superseded is not None and superseded not in old_by_digest:
                 add(f"source_history_correction_not_linked:{source['source_id']}")
+
+
+def validate_source_history():
+    try:
+        _validate_source_history()
+    finally:
+        issue = repository_identity_issue()
+        if issue not in (None, "unavailable"):
+            finding = f"source_history_repository_identity_changed:{issue}"
+            if finding not in findings:
+                add(finding)  # SECURITY_RULE:source_history_repository_identity
 
 
 def validate_requirement_edge(requirement_id, requirement, chain):
@@ -2295,6 +2502,7 @@ receipt-task-equals-signed-prework-assignment
 receipt-epic-parent-equals-signed-prework-assignment
 originating-review-receipt-id-equals-top-receipt-id
 originating-review-requirement-set-transitively-bound-by-disposition
+originating-review-inventory-requirement-set-exact
 originating-review-canonical-digest-valid
 originating-review-approval-digest-equals-review-digest
 originating-review-approval-payload-canonical-digest-valid

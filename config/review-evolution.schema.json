@@ -12,6 +12,14 @@
     "registry_digest": "sha256:05c9e162e1397a074cfae965168f94173d9b6316cdb2e4756b2b0dedbfa292c5"
   },
   "x-datarim-originating-review-contract": {
+    "inventory": {
+      "source": "originating_review_inventory",
+      "expected_requirement_set": "customer-requirements.requirements.propertyNames",
+      "requirement_set_equality": "EXACT",
+      "review_id_uniqueness": "REQUIRED",
+      "primary_review_mirror": "EXACT",
+      "closure_states": ["APPROVED"]
+    },
     "review_digest": {
       "algorithm": "SHA-256",
       "canonicalization": "RFC8785",
@@ -55,6 +63,8 @@
       "ORIGINATING_REVIEW_APPROVAL_PAYLOAD_DIGEST_VALID",
       "ORIGINATING_REVIEW_APPROVAL_KEY_AUTHORIZED",
       "ORIGINATING_REVIEW_SIGNATURE_VALID",
+      "ORIGINATING_REVIEW_INVENTORY_REQUIREMENT_SET_EXACT",
+      "ORIGINATING_REVIEW_PRIMARY_MIRROR_EXACT",
       "ORIGINATING_REVIEW_OBSERVED_AT_NOT_AFTER_REVIEWED_AT",
       "ORIGINATING_REVIEW_CLOSURE_STATE_ENFORCED_BY_A2"
     ]
@@ -81,6 +91,7 @@
     "requirement_id",
     "delivery_receipt_id",
     "originating_review",
+    "originating_review_inventory",
     "reviewed_at",
     "reviewer",
     "classification",
@@ -94,6 +105,12 @@
     "requirement_id": { "type": "string", "pattern": "^req-[0-9]{4}$" },
     "delivery_receipt_id": { "type": "string", "pattern": "^receipt-[0-9]{4}$" },
     "originating_review": { "$ref": "#/$defs/originatingReview" },
+    "originating_review_inventory": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 512,
+      "items": { "$ref": "#/$defs/originatingReviewInventoryItem" }
+    },
     "reviewed_at": { "type": "string", "format": "date-time" },
     "reviewer": { "type": "string", "minLength": 1 },
     "classification": {
@@ -130,6 +147,34 @@
     }
   ],
   "$defs": {
+    "originatingReviewInventoryItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "review_id",
+        "requirement_id",
+        "delivery_receipt_id",
+        "reviewer",
+        "review_ref",
+        "state",
+        "observed_at",
+        "evidence_ref",
+        "review_digest",
+        "authority_approval"
+      ],
+      "properties": {
+        "review_id": { "type": "string", "pattern": "^review-[0-9]{4}$" },
+        "requirement_id": { "type": "string", "pattern": "^req-[0-9]{4}$" },
+        "delivery_receipt_id": { "type": "string", "pattern": "^receipt-[0-9]{4}$" },
+        "reviewer": { "type": "string", "minLength": 1 },
+        "review_ref": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "state": { "enum": ["OPEN", "CHANGES_REQUESTED", "APPROVED"] },
+        "observed_at": { "type": "string", "format": "date-time" },
+        "evidence_ref": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "review_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "authority_approval": { "$ref": "#/$defs/authorityApproval" }
+      }
+    },
     "originatingReview": {
       "type": "object",
       "additionalProperties": false,

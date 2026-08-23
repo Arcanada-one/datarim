@@ -158,6 +158,7 @@
       "receipt-epic-parent-equals-signed-prework-assignment",
       "originating-review-receipt-id-equals-top-receipt-id",
       "originating-review-requirement-set-transitively-bound-by-disposition",
+      "originating-review-inventory-requirement-set-exact",
       "originating-review-canonical-digest-valid",
       "originating-review-approval-digest-equals-review-digest",
       "originating-review-approval-payload-canonical-digest-valid",
