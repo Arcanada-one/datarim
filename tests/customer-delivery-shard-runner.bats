@@ -161,11 +161,24 @@ PY
 @test "customer-delivery registry generates the complete Linux and approved macOS matrices" {
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" --matrix linux
     [ "$status" -eq 0 ] \
-        && "$PYTHON" -c 'import json,sys; rows=json.loads(sys.argv[1]); assert len(rows)==14 and len({(r["suite"],r["shard"]) for r in rows})==14' "$output" \
+        && "$PYTHON" -c 'import json,sys; rows=json.loads(sys.argv[1]); assert len(rows)==16 and len({(r["suite"],r["shard"]) for r in rows})==16' "$output" \
         || return 1
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" --matrix macos
     [ "$status" -eq 0 ] \
-        && "$PYTHON" -c 'import json,sys; rows=json.loads(sys.argv[1]); assert len(rows)==7 and {r["suite"] for r in rows}=={"functional","schema","mutation"}' "$output"
+        && "$PYTHON" -c 'import json,sys; rows=json.loads(sys.argv[1]); assert len(rows)==9 and {r["suite"] for r in rows}=={"functional","schema","mutation"} and [r["shard"] for r in rows if r["suite"]=="mutation"]==["8/10","9/10","10/10"]' "$output"
+}
+
+@test "cross-platform mutation cases are split into three bounded exact shards" {
+    run "$PYTHON" "$RUNNER" --registry "$REGISTRY" --check
+    [ "$status" -eq 0 ] || return 1
+    "$PYTHON" - "$REGISTRY" <<'PY'
+import sys
+rows = [line.split() for line in open(sys.argv[1], encoding="utf-8") if line.startswith("mutation ")]
+portable = [row for row in rows if "macos" in row[-1]]
+assert [(row[1], row[2], row[4]) for row in portable] == [
+    ("8", "10", "4,5"), ("9", "10", "6,7"), ("10", "10", "8,9,10")
+]
+PY
 }
 
 @test "customer-delivery aggregate accepts an exact generated result inventory" {
@@ -173,7 +186,7 @@ PY
     seed_results linux "$results" || return 1
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" --check-results linux "$results"
     [ "$status" -eq 0 ] \
-        && [[ "$output" == *"customer_delivery_results=valid platform=linux count=14"* ]]
+        && [[ "$output" == *"customer_delivery_results=valid platform=linux count=16"* ]]
 }
 
 @test "customer-delivery aggregate rejects a missing result" {

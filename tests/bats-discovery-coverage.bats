@@ -20,6 +20,16 @@ setup() {
 
 # --- the runner itself -------------------------------------------------------
 
+@test "bats workflow remains syntactically valid YAML" {
+    /usr/bin/python3 - "$WF" <<'PY'
+import sys
+import yaml
+with open(sys.argv[1], encoding="utf-8") as handle:
+    workflow = yaml.safe_load(handle)
+assert isinstance(workflow, dict) and isinstance(workflow.get("jobs"), dict)
+PY
+}
+
 @test "discovery runner exists and is shellcheck-clean" {
     [ -f "$RUNNER" ]
     if ! command -v shellcheck >/dev/null 2>&1; then
@@ -187,6 +197,19 @@ YAML
     grep -q 'FormatChecker.*date-time' "$inst"
 }
 
+@test "customer-delivery crypto fixtures use one pinned Python helper without PHP" {
+    local inst="$ROOT/tests/ci-install-bats-deps.sh"
+    local helper="$ROOT/tests/customer-delivery-ed25519.py"
+    [ -f "$helper" ] \
+        && grep -q '^PY_CRYPTOGRAPHY="cryptography==43\.0\.3"$' "$inst" \
+        && grep -q '"$PY_CRYPTOGRAPHY"' "$inst" \
+        && grep -q 'import cryptography' "$inst" \
+        && ! grep -qE 'php -r|sodium_|command -v php' \
+            "$ROOT/dev-tools/tests/check-customer-delivery.bats" \
+            "$ROOT/dev-tools/tests/customer-delivery-schema.bats" \
+            "$ROOT/dev-tools/tests/customer-delivery-mutation.bats"
+}
+
 @test "macOS CI installs pinned A2 dependencies and runs both A2 suites in bounded steps" {
     grep -q 'brew install bats-core yq openssl@3' "$WF" \
         && grep -q -- '--python-only' "$WF" \
@@ -229,4 +252,24 @@ YAML
         && [ "$(grep -c 'actions/upload-artifact@' "$WF")" -eq 2 ] \
         && [ "$(grep -c 'actions/download-artifact@' "$WF")" -eq 2 ] \
         && [ "$(grep -c -- '--result-file' "$WF")" -eq 2 ]
+}
+
+@test "every customer-delivery checkout is pinned to and verifies the triggering PR head" {
+    /usr/bin/python3 - "$WF" <<'PY'
+import re
+import sys
+
+text = open(sys.argv[1], encoding="utf-8").read()
+expected = "${{ github.event.pull_request.head.sha || github.sha }}"
+assert f"EXPECTED_HEAD_SHA: {expected}" in text
+jobs = list(re.finditer(r"(?m)^  ([a-z][a-z0-9-]+):\n", text))
+sections = {
+    match.group(1): text[match.start() : jobs[index + 1].start() if index + 1 < len(jobs) else None]
+    for index, match in enumerate(jobs)
+}
+for job in ("registry", "customer-delivery-linux", "customer-delivery-macos", "customer-delivery-aggregate"):
+    section = sections[job]
+    assert section.count(f"ref: {expected}") == 1, job
+    assert section.count('test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"') == 1, job
+PY
 }

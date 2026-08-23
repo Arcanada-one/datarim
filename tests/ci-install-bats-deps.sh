@@ -37,6 +37,7 @@ YQ_SHA256="a2c097180dd884a8d50c956ee16a9cec070f30a7947cf4ebf87d5f36213e9ed7"
 PY_JSONSCHEMA="jsonschema==4.23.0"
 PY_RFC3339_VALIDATOR="rfc3339-validator==0.1.4"
 PY_PYYAML="pyyaml==6.0.2"
+PY_CRYPTOGRAPHY="cryptography==43.0.3"
 
 PREFIX="/usr/local"
 PYTHON_ONLY=false
@@ -96,8 +97,8 @@ fi
 
 echo "==> python test deps"
 "$PYTHON_BIN" -m pip install --quiet --disable-pip-version-check \
-    "$PY_JSONSCHEMA" "$PY_RFC3339_VALIDATOR" "$PY_PYYAML"
-"$PYTHON_BIN" -c 'import jsonschema, rfc3339_validator, yaml; assert "date-time" in jsonschema.FormatChecker().checkers; jsonschema.FormatChecker().check("2026-01-01T00:00:00Z", "date-time")'
+    "$PY_JSONSCHEMA" "$PY_RFC3339_VALIDATOR" "$PY_PYYAML" "$PY_CRYPTOGRAPHY"
+"$PYTHON_BIN" -c 'import cryptography, jsonschema, rfc3339_validator, yaml; assert "date-time" in jsonschema.FormatChecker().checkers; jsonschema.FormatChecker().check("2026-01-01T00:00:00Z", "date-time")'
 
 echo "==> versions"
 if [ "$PYTHON_ONLY" != true ]; then

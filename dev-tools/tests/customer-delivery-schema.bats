@@ -9,6 +9,7 @@ setup() {
     REQUIREMENTS_TEMPLATE="${ROOT}/templates/customer-requirements-template.yaml"
     RECEIPT_TEMPLATE="${ROOT}/templates/customer-delivery-receipt-template.yaml"
     EVOLUTION_TEMPLATE="${ROOT}/templates/review-evolution-template.yaml"
+    CRYPTO_HELPER="${ROOT}/tests/customer-delivery-ed25519.py"
 
     if [[ "$PYTHON" != /* || ! -x "$PYTHON" || -d "$PYTHON" ]]; then
         echo "ERROR: CUSTOMER_SCHEMA_PYTHON must be an absolute executable" >&2
@@ -22,12 +23,8 @@ setup() {
         fi
     done
 
-    if ! "$PYTHON" -c 'import jsonschema, yaml; assert "date-time" in jsonschema.FormatChecker().checkers' >/dev/null 2>&1; then
-        echo "ERROR: required Python schema dependencies unavailable: jsonschema, PyYAML, and jsonschema date-time format support" >&2
-        return 1
-    fi
-    if ! command -v php >/dev/null 2>&1 || ! php -r 'exit(extension_loaded("sodium") ? 0 : 1);'; then
-        echo "ERROR: PHP sodium is required for independent Ed25519 verification" >&2
+    if [[ ! -f "$CRYPTO_HELPER" ]] || ! "$PYTHON" -c 'import cryptography, jsonschema, yaml; assert "date-time" in jsonschema.FormatChecker().checkers' >/dev/null 2>&1; then
+        echo "ERROR: required Python schema dependencies unavailable: cryptography, jsonschema, PyYAML, and jsonschema date-time format support" >&2
         return 1
     fi
 }
@@ -904,18 +901,10 @@ print(json.dumps({
     "signature": approval["signature"],
 }))
 PY
-    php -r '
-$record = json_decode(stream_get_contents(STDIN), true, 512, JSON_THROW_ON_ERROR);
-$message = hex2bin(substr($record["message"], 7));
-$signature = base64_decode(substr($record["signature"], 8), true);
-$publicKey = base64_decode($record["public_key"], true);
-if ($message === false || strlen($message) !== 32 || $signature === false || strlen($signature) !== 64 || $publicKey === false || strlen($publicKey) !== 32) {
-    fwrite(STDERR, "ORIGINATING_REVIEW_SIGNATURE_WIRE_INVALID\n"); exit(1);
-}
-if (!sodium_crypto_sign_verify_detached($signature, $message, $publicKey)) {
-    fwrite(STDERR, "ORIGINATING_REVIEW_SIGNATURE_INVALID\n"); exit(1);
-}
-'
+    "$PYTHON" "$CRYPTO_HELPER" verify-json >/dev/null || {
+        echo "ORIGINATING_REVIEW_SIGNATURE_INVALID" >&2
+        return 1
+    }
 }
 
 validate_requirement_receipt_key_contract() {
@@ -3845,18 +3834,10 @@ print(json.dumps({
     "signature": resolution["bundled_registry"]["registry_signature"],
 }))
 PY
-    php -r '
-$record = json_decode(stream_get_contents(STDIN), true, 512, JSON_THROW_ON_ERROR);
-$message = hex2bin(substr($record["message"], 7));
-$signature = base64_decode(substr($record["signature"], 8), true);
-$publicKey = base64_decode($record["public_key"], true);
-if ($message === false || strlen($message) !== 32 || $signature === false || strlen($signature) !== 64 || $publicKey === false || strlen($publicKey) !== 32) {
-    fwrite(STDERR, "REGISTRY_SIGNATURE_WIRE_INVALID\n"); exit(1);
-}
-if (!sodium_crypto_sign_verify_detached($signature, $message, $publicKey)) {
-    fwrite(STDERR, "REGISTRY_SIGNATURE_AUTHENTICATION_FAILED\n"); exit(1);
-}
-'
+    "$PYTHON" "$CRYPTO_HELPER" verify-json >/dev/null || {
+        echo "REGISTRY_SIGNATURE_AUTHENTICATION_FAILED" >&2
+        return 1
+    }
 }
 
 verify_complete_template_signatures() {
@@ -3897,25 +3878,7 @@ print(json.dumps([
     for approval in approvals
 ]))
 PY
-    php -r '
-$records = json_decode(stream_get_contents(STDIN), true, 512, JSON_THROW_ON_ERROR);
-foreach ($records as $index => $record) {
-    $messageText = $record["message"];
-    $signatureText = $record["signature"];
-    if (!str_starts_with($messageText, "sha256:") || !str_starts_with($signatureText, "ed25519:")) {
-        fwrite(STDERR, "SIGNATURE_FRAMING:$index\n"); exit(1);
-    }
-    $message = hex2bin(substr($messageText, 7));
-    $signature = base64_decode(substr($signatureText, 8), true);
-    $publicKey = base64_decode($record["public_key"], true);
-    if ($message === false || strlen($message) !== 32 || $signature === false || strlen($signature) !== 64 || $publicKey === false || strlen($publicKey) !== 32) {
-        fwrite(STDERR, "SIGNATURE_WIRE_LENGTH:$index\n"); exit(1);
-    }
-    if (!sodium_crypto_sign_verify_detached($signature, $message, $publicKey)) {
-        fwrite(STDERR, "SIGNATURE_INVALID:$index\n"); exit(1);
-    }
-}
-'
+    "$PYTHON" "$CRYPTO_HELPER" verify-json >/dev/null || return 1
 }
 
 validate_terminal_disposition_contract() {
@@ -4062,7 +4025,7 @@ PY
         && [[ "$output" == *"DISPOSITION_APPROVAL_PAYLOAD_DIGEST_MISMATCH:req-0001"* ]]
 }
 
-@test "terminal disposition signatures verify independently with PHP sodium" {
+@test "terminal disposition signatures verify independently with the tracked crypto helper" {
     verify_complete_template_signatures \
         "$REQUIREMENTS_SCHEMA" "$REQUIREMENTS_TEMPLATE" "$RECEIPT_TEMPLATE"
 }
@@ -4599,4 +4562,51 @@ PY
 
     run validate_bundled_authority_registry "$registry_mutant" "$receipt_mutant"
     [ "$status" -eq 1 ] && [[ "$output" == *"TRUST_REGISTRY_ENTRY_ORDER_MISMATCH"* ]]
+}
+
+@test "tracked Ed25519 helper matches the pinned digest-signing vector" {
+    local seed="9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60"
+    local digest="sha256:1db5a9f44ae08c4e46660ca5c1f9012e3b2f804b8f1ff5c80661c2b507b65db8"
+    local expected_public="11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo="
+    local expected_signature="ed25519:LodVKUVwuTsXHJQv8uhgujW7rS3+xcEh/0eQwpcZdeSldqiYTljJj+FYPNBdYN9PZjMmr2jxT5oRq7KfHPB7Aw=="
+    local keys public_key private_key legacy_secret signature
+
+    run "$PYTHON" "$CRYPTO_HELPER" keypair-from-seed <<<"$seed"
+    [ "$status" -eq 0 ] || return 1
+    keys="$output"
+    public_key="${keys%%$'\n'*}"
+    private_key="${keys#*$'\n'}"
+    [ "$public_key" = "$expected_public" ] || return 1
+    legacy_secret="$($PYTHON -c 'import base64,sys; print(base64.b64encode(base64.b64decode(sys.argv[1])+base64.b64decode(sys.argv[2])).decode())' "$private_key" "$public_key")" || return 1
+
+    run "$PYTHON" "$CRYPTO_HELPER" sign <<<"${private_key}"$'\n'"${digest}"
+    [ "$status" -eq 0 ] && [ "$output" = "$expected_signature" ] || return 1
+    signature="$output"
+
+    run "$PYTHON" "$CRYPTO_HELPER" sign <<<"${legacy_secret}"$'\n'"${digest}"
+    [ "$status" -eq 0 ] && [ "$output" = "$expected_signature" ] || return 1
+
+    run "$PYTHON" "$CRYPTO_HELPER" verify <<<"${public_key}"$'\n'"${digest}"$'\n'"${signature}"
+    [ "$status" -eq 0 ] && [ "$output" = "VERIFIED" ]
+}
+
+@test "tracked Ed25519 helper rejects malformed keys digests and signatures" {
+    local keys public_key private_key legacy_secret corrupted_secret
+    keys="$(printf '%s\n' '9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60' | "$PYTHON" "$CRYPTO_HELPER" keypair-from-seed)" || return 1
+    public_key="${keys%%$'\n'*}"
+    private_key="${keys#*$'\n'}"
+    legacy_secret="$($PYTHON -c 'import base64,sys; print(base64.b64encode(base64.b64decode(sys.argv[1])+base64.b64decode(sys.argv[2])).decode())' "$private_key" "$public_key")" || return 1
+    corrupted_secret="$($PYTHON -c 'import base64,sys; b=bytearray(base64.b64decode(sys.argv[1])); b[-1]^=1; print(base64.b64encode(b).decode())' "$legacy_secret")" || return 1
+
+    run "$PYTHON" "$CRYPTO_HELPER" keypair-from-seed <<<"00"
+    [ "$status" -eq 2 ] && [[ "$output" == *"invalid seed"* ]] || return 1
+
+    run "$PYTHON" "$CRYPTO_HELPER" sign <<<"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="$'\n'"sha256:not-hex"
+    [ "$status" -eq 2 ] && [[ "$output" == *"invalid digest"* ]] || return 1
+
+    run "$PYTHON" "$CRYPTO_HELPER" verify <<<"11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo="$'\n'"sha256:1db5a9f44ae08c4e46660ca5c1f9012e3b2f804b8f1ff5c80661c2b507b65db8"$'\n'"ed25519:AAAA"
+    [ "$status" -eq 2 ] && [[ "$output" == *"invalid signature"* ]] || return 1
+
+    run "$PYTHON" "$CRYPTO_HELPER" sign <<<"${corrupted_secret}"$'\n'"sha256:1db5a9f44ae08c4e46660ca5c1f9012e3b2f804b8f1ff5c80661c2b507b65db8"
+    [ "$status" -eq 2 ] && [[ "$output" == *"invalid private key"* ]]
 }

@@ -4,6 +4,7 @@ setup() {
     REPO_ROOT="${BATS_TEST_DIRNAME}/../.."
     SCRIPT="${CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE:-${REPO_ROOT}/dev-tools/check-customer-delivery.sh}"
     PYTHON="${CUSTOMER_DELIVERY_PYTHON:-/usr/bin/python3}"
+    CRYPTO_HELPER="${REPO_ROOT}/tests/customer-delivery-ed25519.py"
     TASK_ID="WEB-0001"
     ROOT="${BATS_TEST_TMPDIR}/consumer"
     REQUIREMENTS="${ROOT}/datarim/tasks/${TASK_ID}-customer-requirements.yaml"
@@ -20,12 +21,8 @@ setup() {
         echo "ERROR: CUSTOMER_DELIVERY_PYTHON must be an absolute executable" >&2
         return 1
     fi
-    if ! "$PYTHON" -c 'import jsonschema, yaml' >/dev/null 2>&1; then
-        echo "ERROR: required Python test dependencies unavailable: jsonschema and PyYAML" >&2
-        return 1
-    fi
-    if ! command -v php >/dev/null 2>&1 || ! php -r 'exit(extension_loaded("sodium") ? 0 : 1);'; then
-        echo "ERROR: PHP sodium is required for customer-delivery signature tests" >&2
+    if [[ ! -f "$CRYPTO_HELPER" ]] || ! "$PYTHON" -c 'import cryptography, jsonschema, yaml' >/dev/null 2>&1; then
+        echo "ERROR: required Python test dependencies unavailable: cryptography, jsonschema, and PyYAML" >&2
         return 1
     fi
 
@@ -41,6 +38,22 @@ setup() {
     git -C "$ROOT" config user.email test@example.invalid
     git -C "$ROOT" add datarim
     git -C "$ROOT" commit -q -m baseline
+}
+
+test_seed() {
+    "$PYTHON" "$CRYPTO_HELPER" seed
+}
+
+test_public_key() {
+    "$PYTHON" "$CRYPTO_HELPER" keypair-from-seed | sed -n '1p'
+}
+
+test_private_key() {
+    "$PYTHON" "$CRYPTO_HELPER" keypair-from-seed | sed -n '2p'
+}
+
+test_signature() {
+    "$PYTHON" "$CRYPTO_HELPER" sign
 }
 
 run_validator() {
@@ -188,13 +201,9 @@ authenticate_test_registry() {
     local receipt_schema="${TEST_FRAMEWORK}/config/customer-delivery-receipt.schema.json"
     local review_schema="${TEST_FRAMEWORK}/config/review-evolution.schema.json"
     local seed public_key secret_key fingerprint digest signature
-    seed="$(openssl rand -hex 32)"
-    # PHP receives positional parameters literally.
-    # shellcheck disable=SC2016
-    public_key="$(printf '%s\n' "$seed" | php -r '$seed=hex2bin(trim(fgets(STDIN))); $pair=sodium_crypto_sign_seed_keypair($seed); echo base64_encode(sodium_crypto_sign_publickey($pair));')"
-    # PHP receives positional parameters literally.
-    # shellcheck disable=SC2016
-    secret_key="$(printf '%s\n' "$seed" | php -r '$seed=hex2bin(trim(fgets(STDIN))); $pair=sodium_crypto_sign_seed_keypair($seed); echo base64_encode(sodium_crypto_sign_secretkey($pair));')"
+    seed="$(test_seed)"
+    public_key="$(printf '%s\n' "$seed" | test_public_key)"
+    secret_key="$(printf '%s\n' "$seed" | test_private_key)"
     fingerprint="$($PYTHON -c 'import base64,hashlib,sys; print("sha256:"+hashlib.sha256(base64.b64decode(sys.argv[1])).hexdigest())' "$public_key")"
     yq -i "$expression" "$requirement_schema" || return 1
     digest="$($PYTHON - "$TEST_SCRIPT" "$requirement_schema" "$receipt_schema" "$review_schema" "$public_key" "$fingerprint" <<'PY'
@@ -243,9 +252,7 @@ with open(review_path, "w", encoding="utf-8") as handle:
 print(digest)
 PY
 )" || return 1
-    # PHP receives positional parameters literally.
-    # shellcheck disable=SC2016
-    signature="$(printf '%s\n%s\n' "$secret_key" "$digest" | php -r '$secret=base64_decode(trim(fgets(STDIN)), true); $message=hex2bin(substr(trim(fgets(STDIN)), 7)); echo "ed25519:".base64_encode(sodium_crypto_sign_detached($message, $secret));')"
+    signature="$(printf '%s\n%s\n' "$secret_key" "$digest" | test_signature)"
     yq -i ".\"x-datarim-signature-contract\".key_resolution.bundled_registry.registry_signature = \"${signature}\"" "$requirement_schema"
 }
 
@@ -296,15 +303,7 @@ with open(path, "w", encoding="utf-8") as handle:
 print(approval["approval_payload_digest"])
 PY
 )" || return 1
-    # PHP receives the script literally.
-    # shellcheck disable=SC2016
-    signature="$(printf '%s\n%s\n' "$secret_key" "$digest" | php -r '
-$secret = base64_decode(trim(fgets(STDIN)), true);
-$digest = trim(fgets(STDIN));
-$message = hex2bin(substr($digest, 7));
-if ($secret === false || $message === false) { exit(2); }
-echo "ed25519:" . base64_encode(sodium_crypto_sign_detached($message, $secret));
-')" || return 1
+    signature="$(printf '%s\n%s\n' "$secret_key" "$digest" | test_signature)" || return 1
     yq -i ".originating_review.authority_approval.signature = \"${signature}\"" "$REVIEW"
 }
 
@@ -359,40 +358,24 @@ with open(path, "w", encoding="utf-8") as handle:
 print(approval["approval_payload_digest"])
 PY
 )" || return 1
-    # PHP receives the script literally.
-    # shellcheck disable=SC2016
-    signature="$(printf '%s\n%s\n' "$secret_key" "$digest" | php -r '
-$secret = base64_decode(trim(fgets(STDIN)), true);
-$digest = trim(fgets(STDIN));
-$message = hex2bin(substr($digest, 7));
-if ($secret === false || $message === false) { exit(2); }
-echo "ed25519:" . base64_encode(sodium_crypto_sign_detached($message, $secret));
-')" || return 1
+    signature="$(printf '%s\n%s\n' "$secret_key" "$digest" | test_signature)" || return 1
     yq -i ".requirements.req-0001.coverage_chain.customer_disposition.authority_approval.signature = \"${signature}\"" "$RECEIPT"
 }
 
 sign_test_digest() {
     local secret_key="$1" digest="$2"
-    # PHP receives the script literally.
-    # shellcheck disable=SC2016
-    printf '%s\n%s\n' "$secret_key" "$digest" | php -r '
-$secret = base64_decode(trim(fgets(STDIN)), true);
-$digest = trim(fgets(STDIN));
-$message = hex2bin(substr($digest, 7));
-if ($secret === false || $message === false) { exit(2); }
-echo "ed25519:" . base64_encode(sodium_crypto_sign_detached($message, $secret));
-'
+    printf '%s\n%s\n' "$secret_key" "$digest" | test_signature
 }
 
 prepare_two_requirement_fixture() {
     local second_state="${1:-APPROVED}" seed public_key secret_key
     local -a digests
     local source_signature assertion_signature disposition_signature review_signature
-    seed="$(openssl rand -hex 32)"
+    seed="$(test_seed)"
     # shellcheck disable=SC2016
-    public_key="$(printf '%s\n' "$seed" | php -r '$s=hex2bin(trim(fgets(STDIN)));$p=sodium_crypto_sign_seed_keypair($s);echo base64_encode(sodium_crypto_sign_publickey($p));')"
+    public_key="$(printf '%s\n' "$seed" | test_public_key)"
     # shellcheck disable=SC2016
-    secret_key="$(printf '%s\n' "$seed" | php -r '$s=hex2bin(trim(fgets(STDIN)));$p=sodium_crypto_sign_seed_keypair($s);echo base64_encode(sodium_crypto_sign_secretkey($p));')"
+    secret_key="$(printf '%s\n' "$seed" | test_private_key)"
     build_test_framework two-requirements || return 1
     env TWO_REQUIREMENT_PUBLIC_KEY="$public_key" yq -i \
         '."x-datarim-signature-contract".key_resolution.bundled_registry.entries += [{
@@ -644,13 +627,9 @@ PY
 prepare_authenticated_prework_fixture() {
     local expression="$1"
     local seed public_key secret_key digests source_digest assertion_digest
-    seed="$(openssl rand -hex 32)"
-    # PHP receives positional parameters literally.
-    # shellcheck disable=SC2016
-    public_key="$(printf '%s\n' "$seed" | php -r '$seed=hex2bin(trim(fgets(STDIN))); $pair=sodium_crypto_sign_seed_keypair($seed); echo base64_encode(sodium_crypto_sign_publickey($pair));')"
-    # PHP receives positional parameters literally.
-    # shellcheck disable=SC2016
-    secret_key="$(printf '%s\n' "$seed" | php -r '$seed=hex2bin(trim(fgets(STDIN))); $pair=sodium_crypto_sign_seed_keypair($seed); echo base64_encode(sodium_crypto_sign_secretkey($pair));')"
+    seed="$(test_seed)"
+    public_key="$(printf '%s\n' "$seed" | test_public_key)"
+    secret_key="$(printf '%s\n' "$seed" | test_private_key)"
     build_test_framework authenticated-prework || return 1
     env PREWORK_PUBLIC_KEY="$public_key" yq -i '."x-datarim-signature-contract".key_resolution.bundled_registry.entries += [{
       "key_id":"key-prework-test-0001",
@@ -733,11 +712,8 @@ PY
     source_digest="${digests%%$'\n'*}"
     assertion_digest="${digests##*$'\n'}"
     local source_signature assertion_signature
-    # PHP receives the scripts literally.
-    # shellcheck disable=SC2016
-    source_signature="$(printf '%s\n%s\n' "$secret_key" "$source_digest" | php -r '$s=base64_decode(trim(fgets(STDIN)),true);$d=trim(fgets(STDIN));echo "ed25519:".base64_encode(sodium_crypto_sign_detached(hex2bin(substr($d,7)),$s));')" || return 1
-    # shellcheck disable=SC2016
-    assertion_signature="$(printf '%s\n%s\n' "$secret_key" "$assertion_digest" | php -r '$s=base64_decode(trim(fgets(STDIN)),true);$d=trim(fgets(STDIN));echo "ed25519:".base64_encode(sodium_crypto_sign_detached(hex2bin(substr($d,7)),$s));')" || return 1
+    source_signature="$(printf '%s\n%s\n' "$secret_key" "$source_digest" | test_signature)" || return 1
+    assertion_signature="$(printf '%s\n%s\n' "$secret_key" "$assertion_digest" | test_signature)" || return 1
     yq -i ".source_remarks[0].authority_approval.signature = \"${source_signature}\" |
         .source_remarks[0].tier1_assertions[0].authority_approval.signature = \"${assertion_signature}\"" "$REQUIREMENTS"
 }
@@ -748,13 +724,9 @@ prepare_signed_review_fixture() {
     local valid_from="${3-2026-01-01T00:00:00Z}"
     local valid_until="${4-2036-01-01T00:00:00Z}"
     local seed public_key secret_key
-    seed="$(openssl rand -hex 32)"
-    # PHP receives positional parameters literally.
-    # shellcheck disable=SC2016
-    public_key="$(printf '%s\n' "$seed" | php -r '$seed=hex2bin(trim(fgets(STDIN))); $pair=sodium_crypto_sign_seed_keypair($seed); echo base64_encode(sodium_crypto_sign_publickey($pair));')"
-    # PHP receives positional parameters literally.
-    # shellcheck disable=SC2016
-    secret_key="$(printf '%s\n' "$seed" | php -r '$seed=hex2bin(trim(fgets(STDIN))); $pair=sodium_crypto_sign_seed_keypair($seed); echo base64_encode(sodium_crypto_sign_secretkey($pair));')"
+    seed="$(test_seed)"
+    public_key="$(printf '%s\n' "$seed" | test_public_key)"
+    secret_key="$(printf '%s\n' "$seed" | test_private_key)"
     build_test_framework "review-${state}-${status}" || return 1
     env REVIEW_PUBLIC_KEY="$public_key" REVIEW_KEY_STATUS="$status" \
         REVIEW_VALID_FROM="$valid_from" REVIEW_VALID_UNTIL="$valid_until" \
@@ -778,11 +750,11 @@ prepare_signed_review_fixture() {
 
 prepare_authenticated_disposition_fixture() {
     local expression="$1" seed public_key secret_key
-    seed="$(openssl rand -hex 32)"
+    seed="$(test_seed)"
     # shellcheck disable=SC2016
-    public_key="$(printf '%s\n' "$seed" | php -r '$s=hex2bin(trim(fgets(STDIN)));$p=sodium_crypto_sign_seed_keypair($s);echo base64_encode(sodium_crypto_sign_publickey($p));')"
+    public_key="$(printf '%s\n' "$seed" | test_public_key)"
     # shellcheck disable=SC2016
-    secret_key="$(printf '%s\n' "$seed" | php -r '$s=hex2bin(trim(fgets(STDIN)));$p=sodium_crypto_sign_seed_keypair($s);echo base64_encode(sodium_crypto_sign_secretkey($p));')"
+    secret_key="$(printf '%s\n' "$seed" | test_private_key)"
     build_test_framework authenticated-disposition || return 1
     env DISPOSITION_PUBLIC_KEY="$public_key" yq -i \
         '."x-datarim-signature-contract".key_resolution.bundled_registry.entries += [{
@@ -827,11 +799,11 @@ PY
 prepare_same_requirement_review_inventory() {
     local second_state="${1:-APPROVED}" seed public_key secret_key digests
     local review_signature manifest_signature
-    seed="$(openssl rand -hex 32)"
+    seed="$(test_seed)"
     # shellcheck disable=SC2016
-    public_key="$(printf '%s\n' "$seed" | php -r '$s=hex2bin(trim(fgets(STDIN)));$p=sodium_crypto_sign_seed_keypair($s);echo base64_encode(sodium_crypto_sign_publickey($p));')"
+    public_key="$(printf '%s\n' "$seed" | test_public_key)"
     # shellcheck disable=SC2016
-    secret_key="$(printf '%s\n' "$seed" | php -r '$s=hex2bin(trim(fgets(STDIN)));$p=sodium_crypto_sign_seed_keypair($s);echo base64_encode(sodium_crypto_sign_secretkey($p));')"
+    secret_key="$(printf '%s\n' "$seed" | test_private_key)"
     build_test_framework same-requirement-reviews || return 1
     env REVIEW_PUBLIC_KEY="$public_key" yq -i \
         '."x-datarim-signature-contract".key_resolution.bundled_registry.entries += [{
@@ -1004,13 +976,9 @@ PY
 
 @test "post-work task epic and review reseal cannot reattribute signed pre-work authority" {
     local replay_task="EVIL-9999" seed public_key secret_key
-    seed="$(openssl rand -hex 32)"
-    # PHP receives positional parameters literally.
-    # shellcheck disable=SC2016
-    public_key="$(printf '%s\n' "$seed" | php -r '$seed=hex2bin(trim(fgets(STDIN))); $pair=sodium_crypto_sign_seed_keypair($seed); echo base64_encode(sodium_crypto_sign_publickey($pair));')"
-    # PHP receives positional parameters literally.
-    # shellcheck disable=SC2016
-    secret_key="$(printf '%s\n' "$seed" | php -r '$seed=hex2bin(trim(fgets(STDIN))); $pair=sodium_crypto_sign_seed_keypair($seed); echo base64_encode(sodium_crypto_sign_secretkey($pair));')"
+    seed="$(test_seed)"
+    public_key="$(printf '%s\n' "$seed" | test_public_key)"
+    secret_key="$(printf '%s\n' "$seed" | test_private_key)"
     build_test_framework postwork-reattribution || return 1
     env RESEAL_PUBLIC_KEY="$public_key" yq -i '."x-datarim-signature-contract".key_resolution.bundled_registry.entries += [{
       "key_id":"key-postwork-reseal-0001",
@@ -1048,13 +1016,9 @@ PY
 
 @test "post-work knowledge and start-time reseal cannot rewrite signed pre-work authority" {
     local seed public_key secret_key
-    seed="$(openssl rand -hex 32)"
-    # PHP receives positional parameters literally.
-    # shellcheck disable=SC2016
-    public_key="$(printf '%s\n' "$seed" | php -r '$seed=hex2bin(trim(fgets(STDIN))); $pair=sodium_crypto_sign_seed_keypair($seed); echo base64_encode(sodium_crypto_sign_publickey($pair));')"
-    # PHP receives positional parameters literally.
-    # shellcheck disable=SC2016
-    secret_key="$(printf '%s\n' "$seed" | php -r '$seed=hex2bin(trim(fgets(STDIN))); $pair=sodium_crypto_sign_seed_keypair($seed); echo base64_encode(sodium_crypto_sign_secretkey($pair));')"
+    seed="$(test_seed)"
+    public_key="$(printf '%s\n' "$seed" | test_public_key)"
+    secret_key="$(printf '%s\n' "$seed" | test_private_key)"
     build_test_framework postwork-u3-reseal || return 1
     env RESEAL_PUBLIC_KEY="$public_key" yq -i '."x-datarim-signature-contract".key_resolution.bundled_registry.entries += [{
       "key_id":"key-u3-reseal-0001",
@@ -1379,7 +1343,7 @@ PY
 @test "coordinated originating review reseal still requires a new signature" {
     yq -i '.originating_review.state = "CHANGES_REQUESTED" |
         .originating_review.evidence_ref = "artifacts/reviews/changes-requested.json"' "$REVIEW"
-    reseal_and_sign_review "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==" || return 1
+    reseal_and_sign_review "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=" || return 1
     run_validator
     [ "$status" -eq 1 ] \
         && [[ "$output" == *"originating_review_signature_invalid:review-0001"* ]]
