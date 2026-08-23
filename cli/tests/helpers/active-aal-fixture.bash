@@ -1,5 +1,7 @@
 setup_active_aal_fixture() {
     local framework_root="$1" fixture_root="$2" accepted_at expires
+    mkdir -p "$fixture_root"
+    cp -R "$framework_root/cli" "$fixture_root/cli"
     mkdir -p "$fixture_root/dev-tools"
     cp "$framework_root/dev-tools/check-accepted-risk-aal.sh" \
         "$fixture_root/dev-tools/check-accepted-risk-aal.sh"
@@ -22,5 +24,12 @@ entries:
     risk_summary: "Temporary acceptance confined to an isolated Bats process."
     rollback: "Bats removes the temporary fixture directory."
 EOF
-    export DATARIM_ROOT="$fixture_root"
+    # Exercise an isolated installation root. The shipped gate deliberately
+    # ignores DATARIM_ROOT so callers cannot select their own validator.
+    CLI_DIR="$fixture_root/cli"
+    DATARIM_BIN="$CLI_DIR/datarim"
+    MOCK="$CLI_DIR/tests/fixtures/mock-webhook.py"
+    UUID_GEN="$CLI_DIR/lib/uuid7-gen.sh"
+    export CLI_DIR DATARIM_BIN MOCK UUID_GEN
+    unset DATARIM_ROOT
 }

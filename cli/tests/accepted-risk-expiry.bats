@@ -131,8 +131,10 @@ EOF
 @test "V-AC-15: accepted-risk gate revalidates when the register changes" {
     [ -f "$LIB" ] || skip "lib missing"
     fixture_root="$BATS_TEST_TMPDIR/fixture-root"
-    mkdir -p "$fixture_root/dev-tools"
+    mkdir -p "$fixture_root/dev-tools" "$fixture_root/cli/lib"
     cp "$VALIDATOR" "$fixture_root/dev-tools/check-accepted-risk-aal.sh"
+    cp "$LIB" "$fixture_root/cli/lib/accepted-risk-check.sh"
+    fixture_lib="$fixture_root/cli/lib/accepted-risk-check.sh"
     accepted=$(date -u +%F)
     later=$(python3 -c "import datetime; print((datetime.date.today() + datetime.timedelta(days=30)).isoformat())")
     cat >"$fixture_root/accepted-risk-aal.yml" <<EOF
@@ -152,13 +154,13 @@ entries:
     risk_summary: "test"
     rollback: "test"
 EOF
-    run bash -c "export DATARIM_ROOT='$fixture_root'; . '$LIB'; aal_check TUNE-0268"
+    run bash -c ". '$fixture_lib'; aal_check TUNE-0268"
     [ "$status" -eq 0 ]
     cat >"$fixture_root/accepted-risk-aal.yml" <<'EOF'
 schema_version: 1
 entries: []
 EOF
-    run bash -c "export DATARIM_ROOT='$fixture_root'; . '$LIB'; aal_check TUNE-0268"
+    run bash -c ". '$fixture_lib'; aal_check TUNE-0268"
     [ "$status" -eq 23 ]
 }
 
@@ -170,7 +172,7 @@ EOF
     cache_key="$(printf '%s' "TUNE-0268-$VALIDATOR-$risk_hash" | shasum -a 256 | awk '{print $1}')"
     : > "$cache_root/datarim-cli-aal-cache/$cache_key"
 
-    run bash -c "export TMPDIR='$cache_root' DATARIM_ROOT='$REPO_ROOT'; . '$LIB'; aal_check TUNE-0268"
+    run bash -c "export TMPDIR='$cache_root'; . '$LIB'; aal_check TUNE-0268"
     [ "$status" -eq 23 ]
     [[ "$output" == *"no active entry matching task TUNE-0268"* ]]
 }
@@ -220,6 +222,25 @@ EOF
     run env HOME="$BATS_TEST_TMPDIR/home" DATARIM_ROOT="$REPO_ROOT" \
         DATARIM_WORKSPACE_ROOT="$workspace" "$CLI_DIR/datarim" backlog add \
         --id TUNE-9999 --priority P4 --complexity L1 --title probe
+    [ "$status" -eq 23 ]
+    [[ "$output" == *"no active entry matching task TUNE-0268"* ]]
+    [ "$before" = "$(shasum -a 256 "$backlog" | awk '{print $1}')" ]
+    ! grep -q 'TUNE-9999' "$backlog"
+}
+
+@test "caller-controlled DATARIM_ROOT cannot replace validator provenance" {
+    spoof_root="$BATS_TEST_TMPDIR/spoof-root"
+    workspace="$BATS_TEST_TMPDIR/spoof-workspace"
+    backlog="$workspace/datarim/backlog.md"
+    mkdir -p "$spoof_root/dev-tools" "$(dirname "$backlog")"
+    cp /bin/true "$spoof_root/dev-tools/check-accepted-risk-aal.sh"
+    printf 'schema_version: 1\nentries: []\n' > "$spoof_root/accepted-risk-aal.yml"
+    printf '# Backlog\n' > "$backlog"
+    before="$(shasum -a 256 "$backlog" | awk '{print $1}')"
+
+    run env HOME="$BATS_TEST_TMPDIR/home" DATARIM_ROOT="$spoof_root" \
+        DATARIM_WORKSPACE_ROOT="$workspace" DATARIM_CLI_AUDIT_DIR="$BATS_TEST_TMPDIR/audit" \
+        "$CLI_DIR/datarim" backlog add --id TUNE-9999 --priority P4 --complexity L1 --title spoof
     [ "$status" -eq 23 ]
     [[ "$output" == *"no active entry matching task TUNE-0268"* ]]
     [ "$before" = "$(shasum -a 256 "$backlog" | awk '{print $1}')" ]

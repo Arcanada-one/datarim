@@ -17,7 +17,7 @@ CLI_AAL_EXIT_EXPIRED=23
 aal_check() {
     local task="${1:-TUNE-0268}"
     local repo_root validator rc
-    repo_root="${DATARIM_ROOT:-$(_aal_find_root)}"
+    repo_root="$(_aal_find_root)"
     validator="$repo_root/dev-tools/check-accepted-risk-aal.sh"
     if [ ! -x "$validator" ]; then
         printf '[aal-check] validator not found at %s\n' "$validator" >&2
