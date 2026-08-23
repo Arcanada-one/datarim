@@ -69,9 +69,9 @@ if data.get("schema_version") != 1:
     print(f"[check-aal] schema_version != 1 (got {data.get('schema_version')!r})", file=sys.stderr)
     errors += 1
 
-entries = data.get("entries") or []
-if not isinstance(entries, list) or not entries:
-    print("[check-aal] entries[] missing or empty", file=sys.stderr)
+entries = data.get("entries")
+if not isinstance(entries, list):
+    print("[check-aal] entries must be a list", file=sys.stderr)
     sys.exit(1)
 
 today = datetime.date.today()
@@ -87,8 +87,8 @@ def find_entry(task_id):
 
 target = find_entry(task) if task else None
 if task and not target:
-    print(f"[check-aal] no entry matching task {task}", file=sys.stderr)
-    sys.exit(1)
+    print(f"[check-aal] no active entry matching task {task}", file=sys.stderr)
+    sys.exit(23)
 
 # Schema validation pass over ALL entries (cheap; under 10).
 REQUIRED = {"id","title","accepted_at","expires","review_required_by","operator",

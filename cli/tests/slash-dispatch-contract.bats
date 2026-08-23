@@ -2,6 +2,8 @@
 # V-AC-8 — `datarim run /dr-status` ≡ direct webhook POST.
 # Source: TUNE-0271 plan § Implementation Steps Batch 3.
 
+load 'helpers/active-aal-fixture'
+
 setup() {
     CLI_DIR="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
     DATARIM_BIN="$CLI_DIR/datarim"
@@ -12,7 +14,9 @@ setup() {
     TMP_DIR="$(mktemp -d)"
     export DATARIM_CLI_AUDIT_DIR="$TMP_DIR/audit"
     export DATARIM_CLI_HALT_PATH="$TMP_DIR/HALT"
-    export DATARIM_CLI_AGENT_ID="$("$UUID_GEN")"
+    DATARIM_CLI_AGENT_ID="$("$UUID_GEN")"
+    export DATARIM_CLI_AGENT_ID
+    setup_active_aal_fixture "$CLI_DIR/.." "$TMP_DIR/active-aal"
 
     MOCK_PORT="$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()')"
     export DATARIM_CLI_WEBHOOK_URL="http://127.0.0.1:$MOCK_PORT"

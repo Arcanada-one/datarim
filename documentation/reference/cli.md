@@ -2,14 +2,14 @@
 
 ## Overview
 
-The `datarim` CLI is the external-agent surface for Datarim — it lets a non-interactive process (Codex, Cursor, or a custom agent) inspect local state and drive eligible `/dr-*` operations through the existing `/dr-orchestrate` webhook. AAL 3 is opt-in only and requires an `accepted-risk-aal.yml` entry `tune-0268-aal3-cli`. Hard-gated actions remain operator-controlled; a notifier acknowledgement is observability, not authorization.
+The `datarim` CLI is the external-agent surface for Datarim — it lets a non-interactive process (Codex, Cursor, or a custom agent) inspect local state and drive eligible `/dr-*` operations through the existing `/dr-orchestrate` webhook. AAL 3 is opt-in only and requires a current `accepted-risk-aal.yml` entry. With no active entry, mutation-capable commands fail closed with exit 23 while read-only inspection and the protective `audit halt` command remain available. Hard-gated actions remain operator-controlled; a notifier acknowledgement is observability, not authorization.
 
 ## When to use CLI vs slash command
 
 | Aspect | CLI (`datarim run /dr-*`) | Slash command (inside Claude Code session) |
 |--------|---------------------------|--------------------------------------------|
 | Interactive Q&A | Pre-confirmed flows only | Full interactive Q&A supported |
-| AAL | 3 (opt-in via `accepted-risk-aal.yml`) | 2 (default) |
+| AAL | 3 only with an active `accepted-risk-aal.yml` entry; otherwise read-only | 2 (default) |
 | Audit log | `datarim/audit/cli-audit-YYYY-MM-DD.jsonl` (90d retention) | Session JSONL |
 | Kill-switch | `~/.config/datarim-cli/HALT` sentinel | SIGINT |
 | Token cost | None (HTTP webhook only) | Current session |
@@ -20,7 +20,7 @@ The `datarim` CLI is the external-agent surface for Datarim — it lets a non-in
 cd code/datarim/cli && ./install.sh
 ```
 
-The installer: (a) prints the bilingual AAL 3 warning, (b) validates that `accepted-risk-aal.yml` contains entry `tune-0268-aal3-cli` and that the entry is not expired (exits 23 otherwise), (c) symlinks `code/datarim/cli/datarim` to `/usr/local/bin/datarim` (or `$HOME/.local/bin/datarim` if no sudo).
+The installer: (a) prints the bilingual AAL 3 warning, (b) validates that `accepted-risk-aal.yml` contains a current approval entry (exits 23 otherwise), (c) symlinks `code/datarim/cli/datarim` to `/usr/local/bin/datarim` (or `$HOME/.local/bin/datarim` if no sudo). The shipped register currently has no active override, so installation fails closed until a new approval is recorded.
 
 - Uninstall: `./install.sh --uninstall`
 - Dry-run: `./install.sh --dry-run`
@@ -116,7 +116,7 @@ Self-explanatory.
 - **Dual-channel notifier** — eligible actions emit an alert before execution; zero ACK within 3000ms causes exit 18. Notification never grants permission for a hard-gated action.
 - **JSONL audit log** — schema version 1, 10 keys, flock atomic append (portable python3 fcntl wrapper on macOS).
 - **Kill-switch sentinel** — presence of `~/.config/datarim-cli/HALT` triggers exit 17 on every subcommand.
-- **`accepted-risk-aal.yml` entry** — invocation-time gate (1h cache); missing or expired entry exits 23.
+- **`accepted-risk-aal.yml` entry** — invocation-time gate for mutation-capable commands (1h cache keyed by register content); a register change invalidates the cache, while a missing, removed, or expired entry exits 23.
 - **Bilingual install warning** — 6 RU + 6 EN canonical lines printed on every install run.
 - **UUID v7 agent identity** — env-only enforcement (no `--as` flag in Phase 3).
 
@@ -130,7 +130,7 @@ Self-explanatory.
 | 20 | Config mutation or managed-key access refused |
 | 21 | Invalid or missing slash command |
 | 22 | Missing or malformed `$DATARIM_CLI_AGENT_ID` (must be UUID v7) |
-| 23 | `accepted-risk-aal.yml` entry `tune-0268-aal3-cli` missing or expired |
+| 23 | Required `accepted-risk-aal.yml` entry missing or expired |
 | 24 | HTTP dispatch failure / network error |
 | 25 | Command returned non-zero from webhook |
 | 26 | Non-idempotent command requested on sync path |

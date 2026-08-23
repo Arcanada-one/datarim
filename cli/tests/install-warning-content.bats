@@ -45,9 +45,9 @@ setup() {
     [[ "$output" == *"retention 90d"* ]]
 }
 
-@test "V-AC-28: expiry date 2026-08-21 mentioned in both languages" {
+@test "V-AC-28: warning says no AAL 3 mandate override is active" {
     run "$WARNING"
-    count=$(printf '%s' "$output" | grep -c '2026-08-21')
+    count=$(printf '%s' "$output" | grep -c 'no active acceptance\|нет действующего принятия риска')
     [ "$count" -ge 2 ]
 }
 

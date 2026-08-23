@@ -15,16 +15,22 @@ CLI_AAL_CACHE_TTL="${DATARIM_CLI_AAL_CACHE_TTL:-3600}"
 
 aal_check() {
     local task="${1:-TUNE-0268}"
-    local repo_root validator cache_dir cache_key cache_file age mtime
+    local repo_root validator risk_file cache_dir cache_key cache_file age mtime risk_hash
     repo_root="${DATARIM_ROOT:-$(_aal_find_root)}"
     validator="$repo_root/dev-tools/check-accepted-risk-aal.sh"
+    risk_file="$repo_root/accepted-risk-aal.yml"
     if [ ! -x "$validator" ]; then
         printf '[aal-check] validator not found at %s\n' "$validator" >&2
         return 1
     fi
     cache_dir="${TMPDIR:-/tmp}/datarim-cli-aal-cache"
     mkdir -p "$cache_dir"
-    cache_key=$(printf '%s' "$task-$validator" | shasum -a 256 | awk '{print $1}')
+    if [ -f "$risk_file" ]; then
+        risk_hash="$(shasum -a 256 "$risk_file" | awk '{print $1}')"
+    else
+        risk_hash="missing"
+    fi
+    cache_key=$(printf '%s' "$task-$validator-$risk_hash" | shasum -a 256 | awk '{print $1}')
     cache_file="$cache_dir/$cache_key"
     if [ -f "$cache_file" ]; then
         # GNU `stat -f %m` succeeds but prints filesystem prose, so probe the
@@ -36,11 +42,13 @@ aal_check() {
             return 0
         fi
     fi
+    local rc
     if "$validator" --task "$task"; then
         : > "$cache_file"
         return 0
+    else
+        rc=$?
     fi
-    local rc=$?
     if [ "$rc" -eq 23 ]; then
         return $CLI_AAL_EXIT_EXPIRED
     fi

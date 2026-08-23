@@ -57,6 +57,8 @@ SUBCMD_DIR="$CLI_DIR/subcommands"
 . "$LIB_DIR/kill-switch.sh"
 # shellcheck source=cli/lib/agent-id.sh
 . "$LIB_DIR/agent-id.sh"
+# shellcheck source=cli/lib/accepted-risk-check.sh
+. "$LIB_DIR/accepted-risk-check.sh"
 
 # --- Dispatch -------------------------------------------------------------
 
@@ -110,12 +112,32 @@ cmd_version() {
     fi
 }
 
+requires_aal3_acceptance() {
+    local sub="${1:-}" op="${2:-}" arg
+    case "$sub:$op" in
+        run:*|tasks:move|tmux:attach|tmux:new|tmux:kill|audit:resume|audit:purge|plugin:enable|plugin:disable|plugin:sync)
+            return 0
+            ;;
+        plugin:doctor)
+            shift 2 || true
+            for arg in "$@"; do
+                [ "$arg" = "--fix" ] && return 0
+            done
+            ;;
+    esac
+    return 1
+}
+
 main() {
     # First line of every subcommand: kill-switch check (V-AC-6).
     check_kill_switch || exit $?
 
     local sub="${1:-help}"
     shift || true
+
+    if requires_aal3_acceptance "$sub" "$@"; then
+        aal_check TUNE-0268 || exit $?
+    fi
 
     case "$sub" in
         version|--version|-V)
