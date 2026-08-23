@@ -231,8 +231,12 @@ def authenticated_version(distribution, expected_version):
         opened = os.fstat(dist_fd)
         if (opened.st_dev, opened.st_ino) != (entry.st_dev, entry.st_ino):
             raise RuntimeError("dist_info_identity_changed")
+        os.fchdir(dist_fd)
+        dist_cwd = os.stat(".")
+        if (dist_cwd.st_dev, dist_cwd.st_ino) != (opened.st_dev, opened.st_ino):
+            raise RuntimeError("dist_info_cwd_identity_changed")
         metadata_fd = os.open(
-            "METADATA", os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=dist_fd
+            "METADATA", os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC
         )
         try:
             before = os.fstat(metadata_fd)
@@ -257,6 +261,14 @@ def authenticated_version(distribution, expected_version):
                 raise RuntimeError("metadata_identity_changed")
         finally:
             os.close(metadata_fd)
+        os.fchdir(site_fd)
+        site_cwd = os.stat(".")
+        site_opened = os.fstat(site_fd)
+        if (site_cwd.st_dev, site_cwd.st_ino) != (
+            site_opened.st_dev,
+            site_opened.st_ino,
+        ):
+            raise RuntimeError("dependency_site_cwd_identity_changed")
         closed = os.fstat(dist_fd)
         if (closed.st_dev, closed.st_ino) != (entry.st_dev, entry.st_ino):
             raise RuntimeError("dist_info_identity_changed")

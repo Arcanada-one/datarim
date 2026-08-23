@@ -440,7 +440,8 @@ elif kind == "python_cwd_isolation":
         mode="$3"
         shift 3'''
     darwin_child = '''child_args=(-I -S -c'''
-    darwin_fchdir = '''os.fchdir(site_fd)'''
+    darwin_fchdir = '''os.fchdir(site_fd)
+cwd_metadata = os.stat(".")'''
     if (source.count(darwin) != 1 or source.count(linux) != 1
             or source.count(cwd) != 2 or source.count(darwin_guard) != 1
             or source.count(darwin_child) != 2 or source.count(darwin_fchdir) != 1):
@@ -455,7 +456,11 @@ elif kind == "python_cwd_isolation":
         1,
     )
     source = source.replace(darwin_child, 'child_args=(-S -c', 2)
-    source = source.replace(darwin_fchdir, 'True  # MUTATED:darwin_fchdir_binding', 1)
+    source = source.replace(
+        darwin_fchdir,
+        'True  # MUTATED:darwin_fchdir_binding\ncwd_metadata = os.stat(".")',
+        1,
+    )
     source = source.replace(
         cwd,
         '''/bin/bash -p -c 'exec -a "$1" "$2" "${@:3}"' bash''',
@@ -503,6 +508,7 @@ PY
         'python_site_symlink|Darwin trusted site bootstrap rejects symlinked dependency content'
         'python_distinfo_type|Darwin trusted site bootstrap rejects regular-file dist-info forgery'
         'python_distinfo_nofollow|Darwin trusted site bootstrap rejects symlinked dist-info'
+        'python_distinfo_fchdir|complete canonical delivery chain is MET'
         'python_distinfo_metadata|Darwin trusted site bootstrap authenticates dist-info metadata'
         'python_metadata_nofollow|Darwin trusted site bootstrap rejects METADATA boundary forgeries'
         'python_metadata_size|Darwin trusted site bootstrap rejects METADATA boundary forgeries'
@@ -535,8 +541,24 @@ import sys
 path, kind = sys.argv[1:]
 source = open(path, encoding="utf-8").read()
 if kind == "python_pth_authority":
-    old = 'assert not any(name.endswith(".pth") for name in os.listdir(site_fd))'
-    new = 'True  # MUTATED:python_pth_authority'
+    initial = '''    for pth_file in "$trusted_python_site"/*.pth; do
+        if [[ -e "$pth_file" || -L "$pth_file" ]]; then
+            emit_config_error 'untrusted_python_runtime'
+            exit 2
+        fi
+    done
+'''
+    identity = '''        for pth_file in "$trusted_python_site"/*.pth; do
+            [[ ! -e "$pth_file" && ! -L "$pth_file" ]] || return 1
+        done
+'''
+    bootstrap = 'assert not any(name.endswith(".pth") for name in os.listdir(site_fd))'
+    if source.count(initial) != 1 or source.count(identity) != 1 or source.count(bootstrap) != 1:
+        raise SystemExit("PYTHON_PTH_AUTHORITY_SEAM_MISSING_OR_AMBIGUOUS")
+    source = source.replace(initial, '    : # MUTATED:python_pth_initial_authority\n', 1)
+    source = source.replace(identity, '        : # MUTATED:python_pth_identity_authority\n', 1)
+    source = source.replace(bootstrap, 'True  # MUTATED:python_pth_bootstrap_authority', 1)
+    old = new = None
 elif kind == "python_site_symlink":
     old = 'assert not entry.is_symlink()'
     new = 'True  # MUTATED:python_site_symlink'
@@ -559,6 +581,9 @@ elif kind == "python_distinfo_nofollow":
     if source.count(scan) != 1:
         raise SystemExit("PYTHON_DISTINFO_NOFOLLOW_SCAN_SEAM_MISSING")
     source = source.replace(scan, 'True  # MUTATED:distinfo_symlink_scan', 1)
+elif kind == "python_distinfo_fchdir":
+    old = '        os.fchdir(dist_fd)\n'
+    new = '        os.fchdir(site_fd)  # MUTATED:distinfo_fchdir\n'
 elif kind == "python_distinfo_metadata":
     old = '        or versions[0] != expected_version\n'
     new = '        or False  # MUTATED:python_distinfo_metadata\n'

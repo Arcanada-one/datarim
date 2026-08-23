@@ -18,7 +18,7 @@ export LC_ALL=C
 unset -f cat dirname jq mktemp realpath rm stat tail wc 2>/dev/null || true
 
 usage() {
-    /usr/bin/cat <<'EOF'
+    /bin/cat <<'EOF'
 usage: check-customer-delivery.sh --root DIR --task TASK-ID --stage qa|compliance|archive [--format text|json]
 
 Reads exactly these canonical task-bound artifacts below DIR:
@@ -409,7 +409,17 @@ def authenticated_dist_version(site_fd, distribution, expected_version):  # SECU
         ):
             raise RuntimeError("dist_info_identity_changed")
         metadata_flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC
-        metadata_fd = os.open("METADATA", metadata_flags, dir_fd=dist_fd)
+        os.fchdir(dist_fd)
+        dist_cwd_metadata = os.stat(".")
+        if (
+            dist_cwd_metadata.st_dev,
+            dist_cwd_metadata.st_ino,
+        ) != (
+            opened_dist_metadata.st_dev,
+            opened_dist_metadata.st_ino,
+        ):
+            raise RuntimeError("dist_info_cwd_identity_changed")
+        metadata_fd = os.open("METADATA", metadata_flags)
         try:
             metadata_before = os.fstat(metadata_fd)
             if (
@@ -437,6 +447,17 @@ def authenticated_dist_version(site_fd, distribution, expected_version):  # SECU
                 raise RuntimeError("dist_info_metadata_identity_changed")
         finally:
             os.close(metadata_fd)
+        os.fchdir(site_fd)
+        site_cwd_metadata = os.stat(".")
+        site_metadata = os.fstat(site_fd)
+        if (
+            site_cwd_metadata.st_dev,
+            site_cwd_metadata.st_ino,
+        ) != (
+            site_metadata.st_dev,
+            site_metadata.st_ino,
+        ):
+            raise RuntimeError("dependency_site_cwd_identity_changed")
         dist_after = os.fstat(dist_fd)
         if (
             not stat.S_ISDIR(dist_after.st_mode)
@@ -3277,5 +3298,5 @@ if [[ "$response_valid" != true ]]; then
     emit_config_error 'invalid_validator_response'
     exit 2
 fi
-/usr/bin/cat -- "$validator_output"
+/bin/cat -- "$validator_output"
 exit "$validator_status"
