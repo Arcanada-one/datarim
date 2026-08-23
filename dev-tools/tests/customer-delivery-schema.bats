@@ -877,7 +877,7 @@ expected = {
         ],
     },
     sys.argv[3]: {
-        "description": "Draft 2020-12 validates shape only; the deterministic review-evolution validator must enforce every registered cross-record invariant.",
+        "description": "Draft 2020-12 validates shape only; the A3 review-evolution validator enforces review-record invariants, while the A2 customer-delivery validator independently enforces review-open-or-changes-requested-blocks-closure before receipt closure.",
         "enforcer": "review-evolution-validator",
         "invariant_ids": [
             "review-requirement-id-equals-product-fix-requirement-id",
@@ -2709,6 +2709,37 @@ PY
     [ "$status" -eq 1 ]
 }
 
+@test "originating review approved open and changes-requested states are schema-valid" {
+    local state fixture
+    [ "$(yq -r '.originating_review.state' "$EVOLUTION_TEMPLATE")" = "APPROVED" ] \
+        && validate_yaml "$EVOLUTION_SCHEMA" "$EVOLUTION_TEMPLATE" \
+        || return 1
+    for state in OPEN CHANGES_REQUESTED; do
+        fixture="$BATS_TEST_TMPDIR/originating-review-${state}.yaml"
+        cp "$EVOLUTION_TEMPLATE" "$fixture" || return 1
+        yq -i ".originating_review.state = \"${state}\"" "$fixture" || return 1
+        validate_yaml "$EVOLUTION_SCHEMA" "$fixture" || return 1
+    done
+}
+
+@test "originating review object and state are required" {
+    run reject_mutation "$EVOLUTION_SCHEMA" "$EVOLUTION_TEMPLATE" \
+        'del(.originating_review)'
+    [ "$status" -eq 1 ] \
+        && run reject_mutation "$EVOLUTION_SCHEMA" "$EVOLUTION_TEMPLATE" \
+            'del(.originating_review.state)' \
+        && [ "$status" -eq 1 ]
+}
+
+@test "originating review rejects unknown state and extra fields" {
+    run reject_mutation "$EVOLUTION_SCHEMA" "$EVOLUTION_TEMPLATE" \
+        '.originating_review.state = "CLOSED"'
+    [ "$status" -eq 1 ] \
+        && run reject_mutation "$EVOLUTION_SCHEMA" "$EVOLUTION_TEMPLATE" \
+            '.originating_review.product_fix_status = "DELIVERED"' \
+        && [ "$status" -eq 1 ]
+}
+
 @test "review evolution first five classifications require a revised artifact and red-capable enforcement" {
     run reject_mutation "$EVOLUTION_SCHEMA" "$EVOLUTION_TEMPLATE" \
         'del(.canonical_change.artifact_revision)'
@@ -2748,15 +2779,21 @@ PY
 }
 
 @test "open or changes-requested originating review blocks closure" {
-    local review_state
+    local review_state fixture observed_state
     for review_state in OPEN CHANGES_REQUESTED; do
-        run validate_review_closure_contract "$review_state" CLOSED
+        fixture="$BATS_TEST_TMPDIR/review-closure-${review_state}.yaml"
+        cp "$EVOLUTION_TEMPLATE" "$fixture" || return 1
+        yq -i ".originating_review.state = \"${review_state}\"" "$fixture" || return 1
+        validate_yaml "$EVOLUTION_SCHEMA" "$fixture" || return 1
+        observed_state=$(yq -r '.originating_review.state' "$fixture") || return 1
+        run validate_review_closure_contract "$observed_state" CLOSED
         [ "$status" -eq 1 ] \
             && [[ "$output" == *"ORIGINATING_REVIEW_BLOCKS_CLOSURE:${review_state}"* ]] \
             || return 1
     done
 
-    validate_review_closure_contract APPROVED CLOSED
+    observed_state=$(yq -r '.originating_review.state' "$EVOLUTION_TEMPLATE") || return 1
+    validate_review_closure_contract "$observed_state" CLOSED
 }
 
 validate_bundled_authority_registry() {

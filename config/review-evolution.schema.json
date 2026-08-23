@@ -4,7 +4,7 @@
   "title": "Datarim Review Evolution",
   "description": "Review finding classification and canonical-knowledge evolution evidence that never substitutes for delivery of the product fix.",
   "x-datarim-semantic-invariants": {
-    "description": "Draft 2020-12 validates shape only; the deterministic review-evolution validator must enforce every registered cross-record invariant.",
+    "description": "Draft 2020-12 validates shape only; the A3 review-evolution validator enforces review-record invariants, while the A2 customer-delivery validator independently enforces review-open-or-changes-requested-blocks-closure before receipt closure.",
     "enforcer": "review-evolution-validator",
     "invariant_ids": [
       "review-requirement-id-equals-product-fix-requirement-id",
@@ -25,6 +25,7 @@
     "review_id",
     "requirement_id",
     "delivery_receipt_id",
+    "originating_review",
     "reviewed_at",
     "reviewer",
     "classification",
@@ -37,6 +38,7 @@
     "review_id": { "type": "string", "pattern": "^review-[0-9]{4}$" },
     "requirement_id": { "type": "string", "pattern": "^req-[0-9]{4}$" },
     "delivery_receipt_id": { "type": "string", "pattern": "^receipt-[0-9]{4}$" },
+    "originating_review": { "$ref": "#/$defs/originatingReview" },
     "reviewed_at": { "type": "string", "format": "date-time" },
     "reviewer": { "type": "string", "minLength": 1 },
     "classification": {
@@ -73,6 +75,17 @@
     }
   ],
   "$defs": {
+    "originatingReview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["review_ref", "state", "observed_at", "evidence_ref"],
+      "properties": {
+        "review_ref": { "type": "string", "minLength": 1 },
+        "state": { "enum": ["OPEN", "CHANGES_REQUESTED", "APPROVED"] },
+        "observed_at": { "type": "string", "format": "date-time" },
+        "evidence_ref": { "type": "string", "minLength": 1 }
+      }
+    },
     "parentLink": {
       "type": "object",
       "additionalProperties": false,
