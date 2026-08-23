@@ -228,6 +228,33 @@ EOF
     ! grep -q 'TUNE-9999' "$backlog"
 }
 
+@test "retired acceptance blocks mutations for global option permutations" {
+    workspace="$BATS_TEST_TMPDIR/option-workspace"
+    backlog="$workspace/datarim/backlog.md"
+    tasks="$workspace/datarim/tasks.md"
+    mkdir -p "$(dirname "$backlog")"
+    printf '# Backlog\n' > "$backlog"
+    printf '# Tasks\n- TUNE-9999 · pending · P4 · L1 · probe → tasks/TUNE-9999-task-description.md\n' > "$tasks"
+    backlog_before="$(shasum -a 256 "$backlog" | awk '{print $1}')"
+    tasks_before="$(shasum -a 256 "$tasks" | awk '{print $1}')"
+
+    assert_blocked_without_writes() {
+        run env HOME="$BATS_TEST_TMPDIR/home" DATARIM_WORKSPACE_ROOT="$workspace" \
+            DATARIM_CLI_AUDIT_DIR="$BATS_TEST_TMPDIR/audit" "$CLI_DIR/datarim" "$@"
+        [ "$status" -eq 23 ]
+        [[ "$output" == *"no active entry matching task TUNE-0268"* ]]
+        [ "$backlog_before" = "$(shasum -a 256 "$backlog" | awk '{print $1}')" ]
+        [ "$tasks_before" = "$(shasum -a 256 "$tasks" | awk '{print $1}')" ]
+    }
+
+    assert_blocked_without_writes backlog --json add \
+        --id TUNE-9998 --priority P4 --complexity L1 --title probe
+    assert_blocked_without_writes backlog add \
+        --id TUNE-9998 --priority P4 --complexity L1 --title probe --json
+    assert_blocked_without_writes tasks --json move TUNE-9999 do
+    assert_blocked_without_writes tasks move TUNE-9999 do --json
+}
+
 @test "caller-controlled DATARIM_ROOT cannot replace validator provenance" {
     spoof_root="$BATS_TEST_TMPDIR/spoof-root"
     workspace="$BATS_TEST_TMPDIR/spoof-workspace"

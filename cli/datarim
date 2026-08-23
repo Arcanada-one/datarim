@@ -112,14 +112,43 @@ cmd_version() {
     fi
 }
 
+effective_order_independent_operation() {
+    local family="${1:-}" op=""
+    shift || true
+
+    # tasks.sh and backlog.sh accept their operation token anywhere in the
+    # argument list. Mirror that parsing here, including option arity, so a
+    # leading global --json cannot hide a later mutating operation from the
+    # AAL gate. The last operation token wins, matching both subcommands.
+    while [ "$#" -gt 0 ]; do
+        case "$family:$1" in
+            tasks:list|tasks:show|tasks:move|backlog:list|backlog:add)
+                op="$1"
+                shift
+                ;;
+            tasks:--reason|backlog:--prefix|backlog:--id|backlog:--priority|backlog:--complexity|backlog:--title)
+                if [ "$#" -ge 2 ]; then shift 2; else shift; fi
+                ;;
+            *)
+                shift
+                ;;
+        esac
+    done
+    printf '%s' "$op"
+}
+
 requires_aal3_acceptance() {
-    local sub="${1:-}" op="${2:-}" arg
+    local sub="${1:-}" op arg
+    shift || true
+    case "$sub" in
+        tasks|backlog) op="$(effective_order_independent_operation "$sub" "$@")" ;;
+        *) op="${1:-}" ;;
+    esac
     case "$sub:$op" in
         run:*|tasks:move|backlog:add|tmux:attach|tmux:new|tmux:kill|audit:resume|audit:purge|plugin:enable|plugin:disable|plugin:sync)
             return 0
             ;;
         plugin:doctor)
-            shift 2 || true
             for arg in "$@"; do
                 [ "$arg" = "--fix" ] && return 0
             done
