@@ -20,32 +20,111 @@ setup() {
         echo "ERROR: required Python test dependencies unavailable: jsonschema and PyYAML" >&2
         return 1
     fi
+    if ! command -v php >/dev/null 2>&1 || ! php -r 'exit(extension_loaded("sodium") ? 0 : 1);'; then
+        echo "ERROR: PHP sodium is required for customer-delivery signature tests" >&2
+        return 1
+    fi
 
     cp "${REPO_ROOT}/templates/customer-requirements-template.yaml" "$REQUIREMENTS"
     cp "${REPO_ROOT}/templates/customer-delivery-receipt-template.yaml" "$RECEIPT"
     cp "${REPO_ROOT}/templates/review-evolution-template.yaml" "$REVIEW"
 
-    local quote_digest
-    quote_digest="$($PYTHON - "$REQUIREMENTS" <<'PY'
-import hashlib
-import sys
-import yaml
-
-with open(sys.argv[1], encoding="utf-8") as handle:
-    data = yaml.safe_load(handle)
-quote = data["requirements"]["req-0001"]["acceptance"]["exact_source_quote"]
-print("sha256:" + hashlib.sha256(quote.encode("utf-8")).hexdigest())
-PY
-)"
     yq -i ".requirements.req-0001.acceptance.implementation.code_revision = \"${SHA}\" |
         .requirements.req-0001.acceptance.implementation.content_revision = \"${SHA}\" |
         .requirements.req-0001.acceptance.disposition = \"accepted\"" "$REQUIREMENTS"
-    yq -i ".requirements.req-0001.coverage_chain.requirement.source_quote_digest = \"${quote_digest}\"" "$RECEIPT"
+    git -C "$ROOT" init -q
+    git -C "$ROOT" config user.name test
+    git -C "$ROOT" config user.email test@example.invalid
+    git -C "$ROOT" add datarim
+    git -C "$ROOT" commit -q -m baseline
 }
 
 run_validator() {
-    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" CUSTOMER_DELIVERY_FRAMEWORK_ROOT="$REPO_ROOT" \
+    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format text
+}
+
+run_validator_json() {
+    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
+        "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+}
+
+build_test_framework() {
+    local name="$1"
+    TEST_FRAMEWORK="${BATS_TEST_TMPDIR}/framework-${name}"
+    TEST_SCRIPT="${TEST_FRAMEWORK}/dev-tools/check-customer-delivery.sh"
+    mkdir -p "${TEST_FRAMEWORK}/dev-tools" "${TEST_FRAMEWORK}/config"
+    cp "$SCRIPT" "$TEST_SCRIPT" || return 1
+    cp "${REPO_ROOT}/config/customer-requirement.schema.json" \
+        "${REPO_ROOT}/config/customer-delivery-receipt.schema.json" \
+        "${REPO_ROOT}/config/review-evolution.schema.json" \
+        "${TEST_FRAMEWORK}/config/" || return 1
+    chmod +x "$TEST_SCRIPT"
+}
+
+run_test_framework_json() {
+    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
+        "$TEST_SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+}
+
+authenticate_test_registry() {
+    local expression="$1"
+    local requirement_schema="${TEST_FRAMEWORK}/config/customer-requirement.schema.json"
+    local receipt_schema="${TEST_FRAMEWORK}/config/customer-delivery-receipt.schema.json"
+    local seed public_key secret_key fingerprint digest signature
+    seed="$(printf '42%.0s' {1..32})"
+    # PHP receives positional parameters literally.
+    # shellcheck disable=SC2016
+    public_key="$(php -r '$seed=hex2bin($argv[1]); $pair=sodium_crypto_sign_seed_keypair($seed); echo base64_encode(sodium_crypto_sign_publickey($pair));' "$seed")"
+    # PHP receives positional parameters literally.
+    # shellcheck disable=SC2016
+    secret_key="$(php -r '$seed=hex2bin($argv[1]); $pair=sodium_crypto_sign_seed_keypair($seed); echo base64_encode(sodium_crypto_sign_secretkey($pair));' "$seed")"
+    fingerprint="$($PYTHON -c 'import base64,hashlib,sys; print("sha256:"+hashlib.sha256(base64.b64decode(sys.argv[1])).hexdigest())' "$public_key")"
+    yq -i "$expression" "$requirement_schema" || return 1
+    digest="$($PYTHON - "$TEST_SCRIPT" "$requirement_schema" "$receipt_schema" "$public_key" "$fingerprint" <<'PY'
+import base64
+import hashlib
+import json
+import sys
+
+script_path, requirement_path, receipt_path, public_key, fingerprint = sys.argv[1:]
+with open(script_path, encoding="utf-8") as handle:
+    script = handle.read()
+script = script.replace(
+    'PINNED_REGISTRY_PUBLIC_KEY = "r6djD8Z3khD94nHJ2NuHwFahvXDkuirHLxPsk/NR0LI="',
+    f'PINNED_REGISTRY_PUBLIC_KEY = "{public_key}"',
+).replace(
+    '"sha256:97b1d5e3ea072e7c5b168dab1304aa5f7916f3cd5857b452104ff748a6ad47c4"',
+    f'"{fingerprint}"',
+)
+with open(script_path, "w", encoding="utf-8") as handle:
+    handle.write(script)
+with open(requirement_path, encoding="utf-8") as handle:
+    schema = json.load(handle)
+resolution = schema["x-datarim-signature-contract"]["key_resolution"]
+anchor = resolution["registry_owner"]["trust_anchor"]
+anchor["public_key"] = public_key
+anchor["fingerprint"] = fingerprint
+registry = resolution["bundled_registry"]
+payload = {field: registry[field] for field in ("registry_id", "revision", "entries")}
+digest = "sha256:" + hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+registry["digest"] = digest
+with open(requirement_path, "w", encoding="utf-8") as handle:
+    json.dump(schema, handle, ensure_ascii=False, indent=2)
+    handle.write("\n")
+with open(receipt_path, encoding="utf-8") as handle:
+    receipt_schema = json.load(handle)
+receipt_schema["x-datarim-trusted-authority-key-registry-ref"]["registry_digest"] = digest
+with open(receipt_path, "w", encoding="utf-8") as handle:
+    json.dump(receipt_schema, handle, ensure_ascii=False, indent=2)
+    handle.write("\n")
+print(digest)
+PY
+)" || return 1
+    # PHP receives positional parameters literally.
+    # shellcheck disable=SC2016
+    signature="$(php -r '$secret=base64_decode($argv[1], true); $message=hex2bin(substr($argv[2], 7)); echo "ed25519:".base64_encode(sodium_crypto_sign_detached($message, $secret));' "$secret_key" "$digest")"
+    yq -i ".\"x-datarim-signature-contract\".key_resolution.bundled_registry.registry_signature = \"${signature}\"" "$requirement_schema"
 }
 
 @test "complete canonical delivery chain is MET" {
@@ -57,7 +136,7 @@ run_validator() {
 @test "all hard semantic stages enforce the same delivery decision" {
     local stage
     for stage in qa compliance archive; do
-        run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" CUSTOMER_DELIVERY_FRAMEWORK_ROOT="$REPO_ROOT" \
+        run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
             "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage "$stage" --format json
         [ "$status" -eq 0 ] \
             && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["decision"] == "MET" and d["stage"] == sys.argv[2]' "$output" "$stage" \
@@ -73,18 +152,17 @@ run_validator() {
 }
 
 @test "exact source quotes must agree with every mapped Tier-1 remark" {
-    yq -i '.requirements.req-0001.acceptance.exact_source_quote = "Derived paraphrase only."' "$REQUIREMENTS"
+    yq -i '.requirements.req-0001.acceptance.exact_source_quotes[0].verbatim_quote = "Derived paraphrase only."' "$REQUIREMENTS"
     run_validator
     [ "$status" -eq 1 ] \
         && [[ "$output" == *"exact_quote_mismatch:req-0001"* ]]
 }
 
 @test "tool-only acceptance cannot satisfy a visitor-visible requirement" {
-    yq -i '.requirements.req-0001.acceptance.production_acceptance_criterion = "The validator tool exits zero." |
-        .requirements.req-0001.acceptance.evidence.method = "CLI and CI checks only."' "$REQUIREMENTS"
+    yq -i '.requirements.req-0001.acceptance.evidence.method = "CLI and CI checks only."' "$REQUIREMENTS"
     run_validator
     [ "$status" -eq 1 ] \
-        && [[ "$output" == *"tool_only_visible_acceptance:req-0001"* ]]
+        && [[ "$output" == *"schema:requirements"* ]]
 }
 
 @test "post-hoc knowledge selection is NOT_MET" {
@@ -138,18 +216,9 @@ run_validator() {
     local edge
     for edge in merged_revision deployed_revision live_evidence customer_disposition; do
         cp "${REPO_ROOT}/templates/customer-delivery-receipt-template.yaml" "$RECEIPT"
-        local quote_digest
-        quote_digest="$($PYTHON - "$REQUIREMENTS" <<'PY'
-import hashlib, sys, yaml
-with open(sys.argv[1], encoding="utf-8") as handle:
-    data = yaml.safe_load(handle)
-print("sha256:" + hashlib.sha256(data["requirements"]["req-0001"]["acceptance"]["exact_source_quote"].encode()).hexdigest())
-PY
-)"
         yq -i ".requirements.req-0001.coverage_status = \"NOT_MET\" |
             .requirements.req-0001.missing_edges = [\"${edge}\"] |
-            del(.requirements.req-0001.coverage_chain.${edge}) |
-            .requirements.req-0001.coverage_chain.requirement.source_quote_digest = \"${quote_digest}\"" "$RECEIPT"
+            del(.requirements.req-0001.coverage_chain.${edge})" "$RECEIPT"
         run_validator
         [ "$status" -eq 1 ] \
             && [[ "$output" == *"missing_edge:req-0001:${edge}"* ]] \
@@ -164,7 +233,21 @@ PY
         && [[ "$output" == *"production_revision_mismatch:req-0001"* ]]
 }
 
-@test "open or changes-requested parent review cannot close delivery" {
+@test "receipt source quote digests exactly bind every linked source quote" {
+    yq -i '.requirements.req-0001.coverage_chain.requirement.source_quote_digests[0].digest = "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"' "$RECEIPT"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"source_quote_digest_mismatch:req-0001:source-0001"* ]]
+}
+
+@test "receipt selected knowledge exactly equals the accepted selection" {
+    yq -i '.requirements.req-0001.acceptance.knowledge_selection.skills[0].revision = "4"' "$REQUIREMENTS"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"knowledge_selection_mismatch:req-0001"* ]]
+}
+
+@test "in-progress parent product-fix evidence cannot close delivery" {
     yq -i '.product_fix.status = "IN_PROGRESS"' "$REVIEW"
     run_validator
     [ "$status" -eq 1 ] \
@@ -175,6 +258,28 @@ PY
     run_validator
     [ "$status" -eq 1 ] \
         && [[ "$output" == *"schema:review"* ]]
+}
+
+@test "a rejected child disposition cannot produce a MET delivery decision" {
+    yq -i '.requirements.req-0001.acceptance.disposition = "rejected"' "$REQUIREMENTS"
+    yq -i '.requirements.req-0001.coverage_chain.customer_disposition.status = "rejected"' "$RECEIPT"
+    run_validator_json
+    [ "$status" -eq 1 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "NOT_MET" and d["epic_status"] == "NOT_MET" and "child_disposition_not_met:req-0001" in d["findings"]' "$output"
+}
+
+@test "receipt task and requirement-set parent links are exact" {
+    yq -i '.parent_links += [{"relation":"task","id":"task:web:9999"}]' "$RECEIPT"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"parent_link_set_mismatch:task"* ]] \
+        || return 1
+
+    cp "${REPO_ROOT}/templates/customer-delivery-receipt-template.yaml" "$RECEIPT"
+    yq -i '.parent_links += [{"relation":"requirement_set","id":"requirement-set-9999"}]' "$RECEIPT"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"parent_link_set_mismatch:requirement_set"* ]]
 }
 
 @test "authored epic status is rejected instead of drifting from computed child state" {
@@ -218,11 +323,11 @@ PY
 }
 
 @test "JSON output is deterministic and machine-readable" {
-    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" CUSTOMER_DELIVERY_FRAMEWORK_ROOT="$REPO_ROOT" \
+    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage compliance --format json
     local first="$output"
     [ "$status" -eq 0 ] || return 1
-    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" CUSTOMER_DELIVERY_FRAMEWORK_ROOT="$REPO_ROOT" \
+    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage compliance --format json
     [ "$status" -eq 0 ] \
         && [ "$output" = "$first" ] \
@@ -233,8 +338,494 @@ PY
     run "$SCRIPT" --root "$ROOT" --task bad --stage qa --format text
     [ "$status" -eq 2 ] || return 1
     rm "$RECEIPT"
-    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" CUSTOMER_DELIVERY_FRAMEWORK_ROOT="$REPO_ROOT" \
+    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format text
     [ "$status" -eq 2 ] \
         && [[ "$output" == *"missing_artifact"* ]]
+}
+
+@test "Tier-2 atomic analysis structurally retains Tier-1 provenance and applicability" {
+    yq -i '.requirements.req-0001.acceptance.applicability.locales = ["en"]' "$REQUIREMENTS"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"tier1_scope_weakened:req-0001:locales"* ]]
+}
+
+@test "production wording cannot disguise a tool-only visitor acceptance criterion" {
+    yq -i '.requirements.req-0001.acceptance.production_assertion.product = "other-product"' "$REQUIREMENTS"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"production_assertion_identity_mismatch:req-0001:product"* ]]
+}
+
+@test "remote branch revisions are mutable and not pinned" {
+    yq -i '.requirements.req-0001.acceptance.knowledge_selection.skills[0].revision = "origin/main"' "$REQUIREMENTS"
+    yq -i '.requirements.req-0001.coverage_chain.selected_knowledge.skills[0].revision = "origin/main"' "$RECEIPT"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"knowledge_revision_unpinned:req-0001:skills"* ]]
+}
+
+@test "visitor requirements cannot declare the painted matrix not applicable" {
+    yq -i '.requirements.req-0001.acceptance.applicability.painted_matrix_applicable = false |
+        .requirements.req-0001.acceptance.applicability.not_applicable_reason = "Claimed not applicable."' "$REQUIREMENTS"
+    yq -i '.requirements.req-0001.coverage_chain.live_evidence.applicability.painted_matrix_applicable = false |
+        .requirements.req-0001.coverage_chain.live_evidence.applicability.not_applicable_reason = "Claimed not applicable." |
+        .requirements.req-0001.coverage_chain.live_evidence.painted_matrix_applicable = false |
+        .requirements.req-0001.coverage_chain.live_evidence.not_applicable_reason = "Claimed not applicable." |
+        .requirements.req-0001.coverage_chain.live_evidence.painted_matrix = []' "$RECEIPT"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"visitor_matrix_not_applicable:req-0001"* ]]
+}
+
+@test "requirement and receipt matrix applicability must agree" {
+    yq -i '.requirements.req-0001.coverage_chain.live_evidence.applicability.painted_matrix_applicable = false |
+        .requirements.req-0001.coverage_chain.live_evidence.applicability.not_applicable_reason = "Contradictory receipt applicability." |
+        .requirements.req-0001.coverage_chain.live_evidence.painted_matrix_applicable = false |
+        .requirements.req-0001.coverage_chain.live_evidence.not_applicable_reason = "Contradictory receipt applicability." |
+        .requirements.req-0001.coverage_chain.live_evidence.painted_matrix = []' "$RECEIPT"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"applicability_mismatch:req-0001"* ]]
+}
+
+@test "enabling-only delivery cannot close a user-facing parent" {
+    yq -i '.requirements.req-0001.coverage_chain.implementation_delta.visitor_visible_count = 0 |
+        .requirements.req-0001.coverage_chain.implementation_delta.visitor_visible_changes = [] |
+        .requirements.req-0001.coverage_chain.live_evidence.visitor_visible = false |
+        .requirements.req-0001.coverage_chain.live_evidence.observation_kind = "NON_VISITOR_CONTROL" |
+        .requirements.req-0001.coverage_chain.live_evidence.surface_class = "NON_VISITOR" |
+        .requirements.req-0001.coverage_chain.live_evidence.applicability.painted_matrix_applicable = false |
+        .requirements.req-0001.coverage_chain.live_evidence.applicability.not_applicable_reason = "Enabling evidence only." |
+        .requirements.req-0001.coverage_chain.live_evidence.painted_matrix_applicable = false |
+        .requirements.req-0001.coverage_chain.live_evidence.not_applicable_reason = "Enabling evidence only." |
+        .requirements.req-0001.coverage_chain.live_evidence.painted_matrix = []' "$RECEIPT"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"user_facing_parent_enabling_only:req-0001"* ]]
+}
+
+@test "semantic NOT_MET forces computed epic status NOT_MET" {
+    yq -i '.requirements.req-0001.acceptance.knowledge_selection.roles[0].selected_at = "2026-01-02T10:00:01Z"' "$REQUIREMENTS"
+    yq -i '.requirements.req-0001.coverage_chain.selected_knowledge.roles[0].selected_at = "2026-01-02T10:00:01Z"' "$RECEIPT"
+    run_validator_json
+    [ "$status" -eq 1 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "NOT_MET" and d["epic_status"] == "NOT_MET"' "$output"
+}
+
+@test "implementation delta task is bound to selected implementation task" {
+    yq -i '.requirements.req-0001.acceptance.implementation.task_id = "task:web:9999"' "$REQUIREMENTS"
+    yq -i '(.parent_links[] | select(.relation == "task").id) = "task:web:9999"' "$RECEIPT"
+    yq -i '(.parent_links[] | select(.relation == "task").id) = "task:web:9999"' "$REVIEW"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"implementation_task_mismatch:req-0001"* ]]
+}
+
+@test "selected knowledge IDs are unique across knowledge kinds" {
+    yq -i '.requirements.req-0001.acceptance.knowledge_selection.skills[0].id = "frontend-reviewer"' "$REQUIREMENTS"
+    yq -i '.requirements.req-0001.coverage_chain.selected_knowledge.skills[0].id = "frontend-reviewer"' "$RECEIPT"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"duplicate_knowledge_id:req-0001:frontend-reviewer"* ]]
+}
+
+@test "implementation delta IDs are unique" {
+    yq -i '.requirements.req-0001.coverage_chain.implementation_delta.enabling_changes += [.requirements.req-0001.coverage_chain.implementation_delta.enabling_changes[0]] |
+        .requirements.req-0001.coverage_chain.implementation_delta.enabling_count = 2' "$RECEIPT"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"duplicate_delta_id:req-0001:delta-e-0001"* ]]
+}
+
+@test "painted matrix evidence cannot be recorded after customer disposition" {
+    yq -i '.requirements.req-0001.coverage_chain.live_evidence.painted_matrix[0].observed_at = "2026-01-03T13:00:01Z"' "$RECEIPT"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"painted_matrix_timestamp_mismatch:req-0001"* ]]
+}
+
+@test "RED evidence must precede GREEN evidence" {
+    yq -i '.requirements.req-0001.coverage_chain.red_green.red.observed_at = "2026-01-02T11:16:00Z"' "$RECEIPT"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"red_green_timestamp_mismatch:req-0001"* ]]
+}
+
+@test "implementation starts no later than RED evidence" {
+    yq -i '.requirements.req-0001.acceptance.implementation.started_at = "2026-01-02T10:06:00Z"' "$REQUIREMENTS"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"implementation_red_timestamp_mismatch:req-0001"* ]]
+}
+
+@test "live production identity exactly equals accepted product identity" {
+    yq -i '.requirements.req-0001.coverage_chain.live_evidence.product = "other-product"' "$RECEIPT"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"live_product_mismatch:req-0001"* ]]
+}
+
+@test "merged revision must be one of the accepted implementation revisions" {
+    yq -i '.requirements.req-0001.acceptance.implementation.code_revision = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" |
+        .requirements.req-0001.acceptance.implementation.content_revision = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"' "$REQUIREMENTS"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"accepted_revision_mismatch:req-0001"* ]]
+}
+
+@test "customer disposition must agree with the accepted requirement disposition" {
+    yq -i '.requirements.req-0001.acceptance.disposition = "pending"' "$REQUIREMENTS"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"customer_disposition_mismatch:req-0001"* ]]
+}
+
+@test "intermediate symlink escapes from root fail closed" {
+    local outside="${BATS_TEST_TMPDIR}/outside"
+    mkdir -p "$outside"
+    mv "$REQUIREMENTS" "${outside}/${TASK_ID}-customer-requirements.yaml"
+    rmdir "${ROOT}/datarim/tasks"
+    ln -s "$outside" "${ROOT}/datarim/tasks"
+    run_validator_json
+    [ "$status" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "ERROR" and "path_escape:requirements" in d["findings"]' "$output"
+}
+
+@test "ambient framework-root override cannot replace bundled schemas" {
+    run env CUSTOMER_DELIVERY_PYTHON="$PYTHON" CUSTOMER_DELIVERY_FRAMEWORK_ROOT="${BATS_TEST_TMPDIR}/hostile-framework" \
+        "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+    [ "$status" -eq 0 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "MET"' "$output"
+}
+
+@test "dependency failure is deterministic machine-readable JSON" {
+    local fake_python="${BATS_TEST_TMPDIR}/python-without-dependencies"
+    printf '%s\n' '#!/bin/sh' 'exit 1' > "$fake_python"
+    chmod +x "$fake_python"
+    run env CUSTOMER_DELIVERY_PYTHON="$fake_python" \
+        "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage compliance --format json
+    [ "$status" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["task"] == "WEB-0001" and d["stage"] == "compliance" and d["status"] == "ERROR" and d["findings"] == ["missing_python_dependencies"]' "$output"
+}
+
+@test "hostile malformed YAML returns JSON without traceback" {
+    printf '%s\n' '? [unhashable, key]' ': value' > "$REQUIREMENTS"
+    run_validator_json
+    [ "$status" -eq 1 ] \
+        && [[ "$output" != *"Traceback"* ]] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["task"] == "WEB-0001" and d["stage"] == "qa" and d["status"] == "NOT_MET" and d["findings"]' "$output"
+}
+
+@test "semantic invariant registries are exact and cannot lose a registered rule" {
+    build_test_framework invariant-registry || return 1
+    yq -i 'del(."x-datarim-semantic-invariants".invariant_ids[0])' \
+        "${TEST_FRAMEWORK}/config/customer-requirement.schema.json"
+    run_test_framework_json
+    [ "$status" -eq 2 ] \
+        && [[ "$output" == *"invariant_registry_mismatch:requirements"* ]]
+}
+
+@test "semantic implementation dispatch cannot lose a registered rule" {
+    build_test_framework invariant-dispatch || return 1
+    "$PYTHON" - "$TEST_SCRIPT" <<'PY'
+import sys
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as handle:
+    source = handle.read()
+needle = "source-id-unique assertion-id-unique"
+if source.count(needle) != 1:
+    raise SystemExit("implementation registry seam missing or ambiguous")
+source = source.replace(needle, "assertion-id-unique")
+with open(path, "w", encoding="utf-8") as handle:
+    handle.write(source)
+PY
+    run_test_framework_json
+    [ "$status" -eq 2 ] \
+        && [[ "$output" == *"invariant_unimplemented:requirements:source-id-unique"* ]]
+}
+
+@test "trusted registry entry order is authenticated before key lookup" {
+    build_test_framework registry-order || return 1
+    yq -i '."x-datarim-signature-contract".key_resolution.bundled_registry.entries |= reverse' \
+        "${TEST_FRAMEWORK}/config/customer-requirement.schema.json"
+    run_test_framework_json
+    [ "$status" -eq 2 ] \
+        && [[ "$output" == *"trust_registry_entry_order"* ]]
+}
+
+@test "trusted registry canonical digest is verified before key lookup" {
+    build_test_framework registry-digest || return 1
+    yq -i '."x-datarim-signature-contract".key_resolution.bundled_registry.entries[0].authority_id = "authority-attacker-0001"' \
+        "${TEST_FRAMEWORK}/config/customer-requirement.schema.json"
+    run_test_framework_json
+    [ "$status" -eq 2 ] \
+        && [[ "$output" == *"trust_registry_digest_mismatch"* ]]
+}
+
+@test "trusted registry signature is verified against the pinned root" {
+    build_test_framework registry-signature || return 1
+    yq -i '."x-datarim-signature-contract".key_resolution.bundled_registry.registry_signature = "ed25519:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="' \
+        "${TEST_FRAMEWORK}/config/customer-requirement.schema.json"
+    run_test_framework_json
+    [ "$status" -eq 2 ] \
+        && [[ "$output" == *"trust_registry_signature_invalid"* ]]
+}
+
+@test "trusted registry duplicates conflicts and invalid validity windows fail closed" {
+    local name expression expected
+    while IFS='|' read -r name expression expected; do
+        build_test_framework "$name" || return 1
+        yq -i "$expression" "${TEST_FRAMEWORK}/config/customer-requirement.schema.json"
+        run_test_framework_json
+        [ "$status" -eq 2 ] \
+            && [[ "$output" == *"$expected"* ]] \
+            || return 1
+    done <<'CASES'
+registry-duplicate|."x-datarim-signature-contract".key_resolution.bundled_registry.entries += [."x-datarim-signature-contract".key_resolution.bundled_registry.entries[0]]|trust_registry_duplicate_key:key-customer-0001
+registry-conflict|."x-datarim-signature-contract".key_resolution.bundled_registry.entries += [(."x-datarim-signature-contract".key_resolution.bundled_registry.entries[0] * {"authority_id":"authority-attacker-0001"})]|trust_registry_conflicting_key:key-customer-0001
+registry-window|."x-datarim-signature-contract".key_resolution.bundled_registry.entries[0].valid_until = "2026-01-01T00:00:00Z"|trust_registry_invalid_window:key-customer-0001
+CASES
+}
+
+@test "trusted registry locator owner anchor structure and receipt reference are pinned" {
+    local name expression expected
+    while IFS='|' read -r name expression expected; do
+        build_test_framework "$name" || return 1
+        yq -i "$expression" "${TEST_FRAMEWORK}/config/customer-requirement.schema.json"
+        run_test_framework_json
+        [ "$status" -eq 2 ] \
+            && [[ "$output" == *"$expected"* ]] \
+            || return 1
+    done <<'CASES'
+registry-locator|."x-datarim-signature-contract".key_resolution.registry_locator.resolution = "AMBIENT_ALLOWED"|trust_registry_locator_mismatch
+registry-owner|."x-datarim-signature-contract".key_resolution.registry_owner.authority_id = "authority-attacker-0001"|trust_registry_owner_mismatch
+registry-anchor|."x-datarim-signature-contract".key_resolution.registry_owner.trust_anchor.key_id = "key-attacker-0001"|trust_registry_anchor_mismatch
+registry-structure|."x-datarim-signature-contract".key_resolution.bundled_registry.extra = true|trust_registry_structure
+registry-ref|."x-datarim-signature-contract".key_resolution.registry_locator.resolution = "AMBIENT_ALLOWED"|trust_registry_locator_mismatch
+CASES
+
+    build_test_framework registry-ref || return 1
+    yq -i '."x-datarim-trusted-authority-key-registry-ref".registry_id = "registry-attacker-0001"' \
+        "${TEST_FRAMEWORK}/config/customer-delivery-receipt.schema.json"
+    run_test_framework_json
+    [ "$status" -eq 2 ] \
+        && [[ "$output" == *"receipt_trust_registry_ref_mismatch"* ]]
+}
+
+@test "authenticated leaf registry status and approval windows fail closed" {
+    local name expression expected
+    while IFS='|' read -r name expression expected; do
+        build_test_framework "$name" || return 1
+        authenticate_test_registry "$expression" || return 1
+        run_test_framework_json
+        [ "$status" -eq 1 ] \
+            && [[ "$output" == *"$expected"* ]] \
+            || return 1
+    done <<'CASES'
+leaf-revoked|."x-datarim-signature-contract".key_resolution.bundled_registry.entries[0].status = "REVOKED"|source_approval_key_not_active:source-0001
+leaf-future|."x-datarim-signature-contract".key_resolution.bundled_registry.entries[0].valid_from = "2026-02-01T00:00:00Z"|source_approval_key_not_yet_valid:source-0001
+leaf-expired|."x-datarim-signature-contract".key_resolution.bundled_registry.entries[0].valid_until = "2026-01-02T09:01:00Z"|source_approval_key_expired:source-0001
+CASES
+}
+
+@test "approval key identity role and existence are authorized before signature acceptance" {
+    yq -i '.source_remarks[0].authority_approval.key_id = "key-unknown-0001"' "$REQUIREMENTS"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"source_approval_key_unknown:source-0001:key-unknown-0001"* ]] \
+        || return 1
+
+    cp "${REPO_ROOT}/templates/customer-requirements-template.yaml" "$REQUIREMENTS"
+    yq -i '.source_remarks[0].authority_approval.key_id = "key-operator-0001"' "$REQUIREMENTS"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"source_approval_authority_mismatch:source-0001"* ]] \
+        || return 1
+
+    cp "${REPO_ROOT}/templates/customer-requirements-template.yaml" "$REQUIREMENTS"
+    yq -i '.source_remarks[0].authority_approval.authority_role = "OPERATOR"' "$REQUIREMENTS"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"source_approval_role_unauthorized:source-0001"* ]]
+}
+
+@test "missing OpenSSL 3 dependency is deterministic machine-readable JSON" {
+    local isolated_path="${BATS_TEST_TMPDIR}/path-without-openssl"
+    mkdir -p "$isolated_path"
+    ln -s "$(command -v bash)" "${isolated_path}/bash"
+    ln -s "$(command -v dirname)" "${isolated_path}/dirname"
+    ln -s "$(command -v grep)" "${isolated_path}/grep"
+    ln -s "$(command -v realpath)" "${isolated_path}/realpath"
+    run env PATH="$isolated_path" CUSTOMER_DELIVERY_PYTHON="$PYTHON" \
+        "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage archive --format json
+    [ "$status" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["status"] == "ERROR" and d["findings"] == ["missing_crypto_dependency:openssl3"]' "$output"
+}
+
+@test "source JCS digest and approval payload commitments are independently enforced" {
+    yq -i '.source_remarks[0].verbatim_quote = "Coherently rewritten source." |
+        .requirements.req-0001.acceptance.exact_source_quotes[0].verbatim_quote = "Coherently rewritten source."' "$REQUIREMENTS"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"source_digest_mismatch:source-0001"* ]] \
+        || return 1
+
+    cp "${REPO_ROOT}/templates/customer-requirements-template.yaml" "$REQUIREMENTS"
+    yq -i '.source_remarks[0].authority_approval.evidence_ref = "tampered-source-approval"' "$REQUIREMENTS"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"source_approval_payload_digest_mismatch:source-0001"* ]]
+}
+
+@test "source and assertion approval digests and assertion JCS are independently enforced" {
+    yq -i '.source_remarks[0].authority_approval.approved_digest = "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"' "$REQUIREMENTS"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"source_approval_digest_mismatch:source-0001"* ]] \
+        || return 1
+
+    cp "${REPO_ROOT}/templates/customer-requirements-template.yaml" "$REQUIREMENTS"
+    yq -i '.source_remarks[0].tier1_assertions[0].assertion_digest = "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"' "$REQUIREMENTS"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"assertion_digest_mismatch:assertion-0001"* ]] \
+        || return 1
+
+    cp "${REPO_ROOT}/templates/customer-requirements-template.yaml" "$REQUIREMENTS"
+    yq -i '.source_remarks[0].tier1_assertions[0].authority_approval.approved_digest = "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"' "$REQUIREMENTS"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"assertion_approval_digest_mismatch:assertion-0001"* ]] \
+        || return 1
+
+    cp "${REPO_ROOT}/templates/customer-requirements-template.yaml" "$REQUIREMENTS"
+    yq -i '.source_remarks[0].tier1_assertions[0].authority_approval.evidence_ref = "tampered-assertion-approval"' "$REQUIREMENTS"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"assertion_approval_payload_digest_mismatch:assertion-0001"* ]]
+}
+
+@test "source and assertion signatures use raw digest Ed25519 framing" {
+    yq -i '.source_remarks[0].authority_approval.signature = "ed25519:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="' "$REQUIREMENTS"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"source_signature_invalid:source-0001"* ]] \
+        || return 1
+
+    cp "${REPO_ROOT}/templates/customer-requirements-template.yaml" "$REQUIREMENTS"
+    yq -i '.source_remarks[0].tier1_assertions[0].authority_approval.signature = "ed25519:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="' "$REQUIREMENTS"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"assertion_signature_invalid:assertion-0001"* ]]
+}
+
+@test "source tier role authorization and assertion authority identity are structural" {
+    yq -i '.source_remarks[0].source_tier = "AUTHORIZED_RELAY_VERBATIM"' "$REQUIREMENTS"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"source_tier_role_unauthorized:source-0001"* ]] \
+        || return 1
+
+    cp "${REPO_ROOT}/templates/customer-requirements-template.yaml" "$REQUIREMENTS"
+    yq -i '.source_remarks[0].tier1_assertions[0].authority_approval.key_id = "key-operator-0001"' "$REQUIREMENTS"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"assertion_source_key_mismatch:assertion-0001"* ]]
+}
+
+@test "terminal disposition commits the full pre-disposition coverage chain" {
+    yq -i '.requirements.req-0001.coverage_chain.live_evidence.evidence_ref = "artifacts/live/tampered.json"' "$RECEIPT"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"coverage_chain_digest_mismatch:req-0001"* ]]
+}
+
+@test "terminal disposition identities digests approval and signature are bound" {
+    yq -i '.requirements.req-0001.coverage_chain.customer_disposition.receipt_id = "receipt-9999"' "$RECEIPT"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"disposition_receipt_id_mismatch:req-0001"* ]] \
+        || return 1
+
+    cp "${REPO_ROOT}/templates/customer-delivery-receipt-template.yaml" "$RECEIPT"
+    yq -i '.requirements.req-0001.coverage_chain.customer_disposition.authority_approval.signature = "ed25519:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="' "$RECEIPT"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"disposition_signature_invalid:req-0001"* ]]
+}
+
+@test "terminal disposition canonical and approval payload digests are independently bound" {
+    yq -i '.requirements.req-0001.coverage_chain.customer_disposition.note = "tampered note"' "$RECEIPT"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"disposition_digest_mismatch:req-0001"* ]] \
+        || return 1
+
+    cp "${REPO_ROOT}/templates/customer-delivery-receipt-template.yaml" "$RECEIPT"
+    yq -i '.requirements.req-0001.coverage_chain.customer_disposition.authority_approval.approved_digest = "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"' "$RECEIPT"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"disposition_approval_digest_mismatch:req-0001"* ]] \
+        || return 1
+
+    cp "${REPO_ROOT}/templates/customer-delivery-receipt-template.yaml" "$RECEIPT"
+    yq -i '.requirements.req-0001.coverage_chain.customer_disposition.authority_approval.evidence_ref = "tampered-disposition-approval"' "$RECEIPT"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"disposition_approval_payload_digest_mismatch:req-0001"* ]]
+}
+
+@test "pending customer disposition is unsigned and cannot close coverage" {
+    yq -i '.requirements.req-0001.coverage_status = "NOT_MET" |
+        .requirements.req-0001.missing_edges = ["customer_disposition"] |
+        .requirements.req-0001.coverage_chain.customer_disposition = {
+          "status":"pending",
+          "recorded_at":"2026-01-03T13:00:00Z",
+          "evidence_ref":"pending-customer-review-0001"
+        }' "$RECEIPT"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"missing_edge:req-0001:customer_disposition"* ]]
+}
+
+@test "source records are append-only against available Git history" {
+    yq -i '.source_remarks[0].authority_approval.evidence_ref = "mutated-in-place"' "$REQUIREMENTS"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"source_history_prior_record_mutated:source-0001"* ]]
+}
+
+@test "MET requires an authoritative Git history for the requirement source" {
+    mv "${ROOT}/.git" "${BATS_TEST_TMPDIR}/hidden-git"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"source_history_unavailable"* ]]
+}
+
+@test "MET requires the requirement source itself in authoritative Git history" {
+    mv "${ROOT}/.git" "${BATS_TEST_TMPDIR}/baseline-git"
+    git -C "$ROOT" init -q
+    git -C "$ROOT" config user.name test
+    git -C "$ROOT" config user.email test@example.invalid
+    git -C "$ROOT" add "datarim/receipts"
+    git -C "$ROOT" commit -q -m receipts-only
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"source_history_unavailable"* ]]
+}
+
+@test "Git replacement objects cannot hide an in-place source mutation" {
+    local baseline tree replacement
+    baseline="$(git -C "$ROOT" rev-parse HEAD)"
+    yq -i '.source_remarks[0].authority_approval.evidence_ref = "mutated-in-place"' "$REQUIREMENTS"
+    git -C "$ROOT" add "datarim/tasks/${TASK_ID}-customer-requirements.yaml"
+    tree="$(git -C "$ROOT" write-tree)"
+    replacement="$(printf 'replacement\n' | git -C "$ROOT" commit-tree "$tree")"
+    git -C "$ROOT" replace "$baseline" "$replacement"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"source_history_prior_record_mutated:source-0001"* ]]
 }
