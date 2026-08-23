@@ -2,6 +2,11 @@ schema_version: 1
 review_id: review-0001
 requirement_id: req-0001
 delivery_receipt_id: receipt-0001
+originating_review:
+  review_ref: review-system/reviews/review-0001
+  state: APPROVED
+  observed_at: "2026-01-03T14:55:00Z"
+  evidence_ref: artifacts/reviews/review-0001-approval.json
 reviewed_at: "2026-01-03T15:00:00Z"
 reviewer: independent-reviewer
 classification: ABSENT
