@@ -32,11 +32,16 @@ assert_contains() {
     grep -Fq -- "$literal" "$file"
 }
 
+portable_editor_word() {
+    printf '%s%s' s ed
+}
+
 assert_no_direct_in_place_sed() {
     local file="$1"
-    local sed_word="s""ed"
+    local sed_word
     local long_option="--in""-place"
     local violations
+    sed_word="$(portable_editor_word)"
 
     # Deliberately lexical and fail-closed: this controlled suite may not carry
     # the command token followed by a GNU-only in-place option on one logical
@@ -49,6 +54,21 @@ assert_no_direct_in_place_sed() {
             gsub(/^[!$<>;|&(){}]+/, "", token)
             gsub(/[;|&(){}]+$/, "", token)
             return token
+        }
+        function is_sed_assignment(token, value) {
+            value = token
+            gsub(/["\047`]/, "", value)
+            gsub(/\\/, "", value)
+            if (value !~ /^[A-Za-z_][A-Za-z0-9_]*=/) {
+                return 0
+            }
+            sub(/^[A-Za-z_][A-Za-z0-9_]*=/, "", value)
+            if (value ~ /^[$][(]/) {
+                return 0
+            }
+            gsub(/^[!$<>;|&(){}]+/, "", value)
+            gsub(/[;|&(){}]+$/, "", value)
+            return value == sed_word || value ~ ("/" sed_word "$")
         }
         function is_sed_token(token, value) {
             value = canonical_token(token)
@@ -63,6 +83,10 @@ assert_no_direct_in_place_sed() {
             count = split(line, fields, /[[:space:]]+/)
             saw_sed = 0
             for (i = 1; i <= count; i++) {
+                if (is_sed_assignment(fields[i])) {
+                    print line_number ":" line
+                    return
+                }
                 if (!saw_sed && is_sed_token(fields[i])) {
                     saw_sed = 1
                     continue
@@ -1409,8 +1433,9 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
 
 @test "portability source convention rejects forbidden tokens even in inert prose" {
     local mutant_suite="${BATS_TEST_TMPDIR}/customer-binding-lexical-prose.bats"
-    local command_token="s""ed"
+    local command_token
     local short_option="-""i.bak"
+    command_token="$(portable_editor_word)"
 
     cp "${REPO_ROOT}/tests/customer-requirement-expectations-binding.bats" "$mutant_suite"
     printf '# inert prose: %s %s must still be rejected\n' \
@@ -1423,10 +1448,11 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
 
 @test "portability source convention is independent of substitution shell state" {
     local mutant_suite="${BATS_TEST_TMPDIR}/customer-binding-lexical-state.bats"
-    local command_token="s""ed"
+    local command_token
     local short_option="-""i.bak"
     local tick
     local payload
+    command_token="$(portable_editor_word)"
     tick="$(printf '\140')"
 
     for payload in \
@@ -1446,11 +1472,13 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
 
 @test "portability source convention recognizes modern substitution prefixes" {
     local mutant_suite="${BATS_TEST_TMPDIR}/customer-binding-modern-substitution.bats"
-    local command_token="s""ed"
-    local path_token="/usr/bin/${command_token}"
+    local command_token
+    local path_token
     local short_option="-""i.bak"
     local dollar_sign='$'
     local payload
+    command_token="$(portable_editor_word)"
+    path_token="/usr/bin/${command_token}"
 
     for payload in \
         "${dollar_sign}(${command_token} ${short_option} 's/x/y/' mutant)" \
@@ -1470,8 +1498,9 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
 
 @test "portability source convention concatenates shell continuations byte-exactly" {
     local mutant_suite="${BATS_TEST_TMPDIR}/customer-binding-continuation.bats"
-    local command_token="s""ed"
+    local command_token
     local short_option="-""i.bak"
+    command_token="$(portable_editor_word)"
 
     cp "${REPO_ROOT}/tests/customer-requirement-expectations-binding.bats" "$mutant_suite"
     printf '%s\\\n%s %s '\''s/x/y/'\'' mutant\n' \
@@ -1494,11 +1523,12 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
 
 @test "portability source convention canonicalizes ANSI-C and escaped command tokens" {
     local mutant_suite="${BATS_TEST_TMPDIR}/customer-binding-escaped-token.bats"
-    local command_token="s""ed"
+    local command_token
     local short_option="-""i.bak"
     local dollar_sign='$'
     local escape
     local payload
+    command_token="$(portable_editor_word)"
     escape="$(printf '\134')"
 
     for payload in \
@@ -1517,15 +1547,55 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
     done
 }
 
+@test "portability source convention rejects literal editor aliases" {
+    local mutant_suite="${BATS_TEST_TMPDIR}/customer-binding-editor-alias.bats"
+    local command_head="s"
+    local command_tail="ed"
+    local command_token="${command_head}${command_tail}"
+    local short_option="-""i.bak"
+    local escape
+    local assignment
+    escape="$(printf '\134')"
+
+    for assignment in \
+        "local editor=${command_token}" \
+        "editor=\"${command_token}\"" \
+        "editor='/usr/bin/${command_token}'" \
+        "editor=s${escape}ed"; do
+        cp "${REPO_ROOT}/tests/customer-requirement-expectations-binding.bats" "$mutant_suite"
+        printf '%s\n' "$assignment" >> "$mutant_suite"
+
+        run assert_no_direct_in_place_sed "$mutant_suite"
+        if [ "$status" -ne 1 ] || [[ "$output" != *"direct in-place sed syntax"* ]]; then
+            echo "literal editor alias passed (status=${status}; assignment=${assignment}): ${output}" >&2
+            return 1
+        fi
+    done
+
+    cp "${REPO_ROOT}/tests/customer-requirement-expectations-binding.bats" "$mutant_suite"
+    portable_sed_in_place "/^[[:space:]]*if ! sed /i\\
+    local editor=${command_token}
+" "$mutant_suite"
+    portable_sed_in_place \
+        "s/if ! sed /if ! \"\\\$editor\" ${short_option} /" \
+        "$mutant_suite"
+    run assert_no_direct_in_place_sed "$mutant_suite"
+    if [ "$status" -ne 1 ] || [[ "$output" != *"direct in-place sed syntax"* ]]; then
+        echo "two-line real-helper editor alias passed (status=${status}): ${output}" >&2
+        return 1
+    fi
+}
+
 @test "portability anti-decay rejects in-place option variants and commented macOS wiring" {
     local mutant_suite="${BATS_TEST_TMPDIR}/customer-binding-mutant.bats"
     local mutant_workflow="${BATS_TEST_TMPDIR}/bats-mutant.yml"
-    local command_token="s""ed"
+    local command_token
     local short_option="-""i.bak"
     local combined_option="-E""i"
     local long_option="--in""-place"
     local tick
     local payload
+    command_token="$(portable_editor_word)"
     tick="$(printf '\140')"
 
     cp "${REPO_ROOT}/.github/workflows/bats.yml" "$mutant_workflow"
