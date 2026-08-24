@@ -10,6 +10,27 @@ setup() {
     done
 }
 
+@test "customer hard stages invoke the delivery and review-evolution validators" {
+    for pair in 'dr-qa qa' 'dr-compliance compliance' 'dr-archive archive'; do
+        read -r command stage <<<"$pair"
+        grep -qF 'check-customer-delivery.sh' "$REPO_ROOT/commands/$command.md" \
+          && grep -qF -- "--stage $stage" "$REPO_ROOT/commands/$command.md" \
+          && grep -qF 'check-review-evolution.sh' "$REPO_ROOT/commands/$command.md" \
+          || return 1
+    done
+}
+
+@test "do command consumes the spec-graph customer pre-work verdict" {
+    grep -qF 'customer_delivery_prework' "$REPO_ROOT/commands/dr-do.md" \
+      && grep -qF 'prework_ready' "$REPO_ROOT/commands/dr-do.md"
+}
+
+@test "spec graph declares customer edge collectors and external closure authority" {
+    grep -qF 'collect_customer_requirement_vac_edges' "$REPO_ROOT/scripts/lib/spec-graph.sh" \
+      && grep -qF 'collect_customer_receipt_edges' "$REPO_ROOT/scripts/lib/spec-graph.sh" \
+      && grep -qF 'check-customer-delivery.sh' "$REPO_ROOT/dev-tools/spec-graph-gate.sh"
+}
+
 @test "pipeline agents carry graph authoring and verification responsibilities" {
     grep -qF 'Covers:' "$REPO_ROOT/agents/architect.md" \
       && grep -qF 'Verifies:' "$REPO_ROOT/agents/planner.md" \

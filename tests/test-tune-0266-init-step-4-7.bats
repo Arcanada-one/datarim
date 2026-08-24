@@ -35,9 +35,9 @@ CMDS_DIR="$BATS_TEST_DIRNAME/../commands"
         | grep -q "L1-L4"
 }
 
-@test "dr-init.md Step 4.7 references schema_version 2" {
+@test "dr-init.md Step 4.7 references current schema_version 4" {
     awk '/^4\.7\./{flag=1} /^5\.  /{flag=0} flag' "$CMDS_DIR/dr-init.md" \
-        | grep -q "schema_version: 2"
+        | grep -q "schema_version: 4"
 }
 
 @test "dr-init.md Step 4.7 references evidence_type default empirical" {

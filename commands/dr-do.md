@@ -54,6 +54,21 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
     ```
     If any check fails — fix before implementing. Do not start coding on a broken foundation.
 
+6.1. **CUSTOMER DELIVERY RECEIPT PRE-WORK GATE** (mandatory before writing
+    code or content when any schema-v4 expectation is customer-derived):
+    - Invoke `spec-graph-gate.sh --task {TASK-ID} --stage do --root
+      <repo-root> --format json` before the first implementation edit and read
+      its `customer_delivery_prework` object.
+    - Do not write code or content until `prework_ready` is `true`. Exit `1`
+      means the Requirement-to-V-AC binding, customer requirements artifact,
+      receipt `requirement` edge, receipt `selected_knowledge` edge, or one of
+      the six pinned knowledge kinds is missing; return to `/dr-plan`. Exit `2`
+      is fail-closed configuration failure. Non-customer work receives
+      `applicable: false` and proceeds normally.
+    - This gate proves only the pre-work prefix. It does not claim customer
+      delivery, and it does not replace `check-customer-delivery.sh` at QA,
+      compliance, or archive.
+
 6.5. **STAGING-NOT-STALE PRE-CHECK** (MANDATORY before executing any Acceptance Criterion whose E2E verification requires a non-prod / staging environment):
     -   Identify whether the AC under execution needs a live non-prod target (staging host, compose project, or equivalent environment defined by the task/plan). If the AC's evidence can be produced with a unit/integration test or a semantic assertion against data already available, skip this step.
     -   When a non-prod target is required, verify it is live and current — stack-agnostic, no hardcoded service names:
@@ -129,7 +144,9 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
         "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/spec-graph-gate.sh" \
             --task {TASK-ID} --stage do --root <repo-root> --format json
         ```
-    -   The do-stage gate is advisory even when hard mode is active because evidence is still accruing. Exit `2` remains fail-closed.
+    -   The do-stage evidence findings remain advisory even when hard mode is
+        active because evidence is still accruing. Customer pre-work exit `1`
+        from Step 6.1 is hard; exit `2` remains fail-closed.
 
 8.  **REVIEW-FEEDBACK HANDLING** (when an automated code review or human review returns findings):
     Classify each finding, then act:

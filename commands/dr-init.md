@@ -225,6 +225,24 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
     - Exit 1 or exit 2 is a hard INIT failure for a framework task. Do not
       continue to PRD/plan and do not recapture later from `/dr-do`.
 
+4.68. **Customer remarks (verbatim requirement intake)** (mandatory when the
+    brief or append-log contains customer/client review language or requests a
+    visitor-facing product outcome):
+    - Leave `## Operator brief (verbatim)` byte-for-byte unchanged. Duplicate
+      every customer remark byte-for-byte under a separate
+      `## Customer remarks (verbatim requirement intake)` heading; never
+      replace it with the extracted wish or an agent paraphrase. Preserve
+      source order and the source reference.
+    - Assign one stable intake Requirement ID (`req-NNNN`) to each atomic
+      outcome. When one remark contains multiple independently acceptable
+      outcomes, repeat the exact quotation for each atomic ID. A later
+      correction is append-only and records the superseding ID; it never
+      rewrites the original quotation.
+    - Mark the matching expectations wishes `customer_derived: true`; mark all
+      other wishes `customer_derived: false`. Do not infer a customer origin
+      from a similar internal acceptance criterion. `/dr-prd` Step 5.5a turns
+      this intake into the full customer-requirements artifact.
+
 4.7. **WRITE EXPECTATIONS SKELETON** (mandatory for all complexity levels L1-L4 — see `$HOME/.claude/skills/expectations-checklist/SKILL.md` § When the file is created):
     - Compute `EXPECTATIONS_FILE="datarim/tasks/{TASK-ID}-expectations.md"`.
     - Skip silently when `EXPECTATIONS_FILE` already exists (re-run `/dr-init` on backlog ID, or operator-amended skeleton from a prior cycle) — preserve operator edits.
@@ -234,11 +252,11 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
       - Extraction approach: LLM extraction via the agent's own model context (consistent with `/dr-prd` Step 5.5b pattern). Quote operator wording where possible; default `evidence_type: empirical` per wish (operator corrects via amendment if `static` or `measurement` is more appropriate).
       - Hallucination mitigation: wish title MUST trace back to a phrase or paraphrasable concept in the brief; do NOT invent goals the operator did not state. Vague brief → use the fallback skeleton below.
     - Write the file from `${DATARIM_RUNTIME:-$HOME/.claude}/templates/expectations-template.md` with:
-      - **Frontmatter (canonical):** `task_id`, `artifact: expectations`, `schema_version: 2`, `captured_at`, `captured_by: /dr-init`, `agent: planner`, `status: canonical`, `parent_init_task: {TASK-ID}-init-task.md`.
-      - **Per-wish item:** title (plain Russian, ending with «.»), `wish_id` (kebab-slug, cyrillic allowed), `Что хочу проверить:` (1-2 sentences), `Как проверить (success criterion):` (concrete signal — file path, command, visible behaviour), `Связанный AC из PRD: «—»` (no PRD yet), `evidence_type: empirical` (default), `#### История статусов` one initial line `<ISO> / <local> · /dr-init · pending → pending · reason: пункт создан при инициализации задачи`, `#### Текущий статус` followed by a single bullet line carrying the value (`pending` on first write). <!-- allow-non-ascii: russian-expectations-field-names-and-status-history-cited-from-canonical-schema -->
+      - **Frontmatter (canonical):** `task_id`, `artifact: expectations`, `schema_version: 4`, `captured_at`, `captured_by: /dr-init`, `agent: planner`, `status: canonical`, `parent_init_task: {TASK-ID}-init-task.md`.
+      - **Per-wish item:** title (plain Russian, ending with «.»), `wish_id` (kebab-slug, cyrillic allowed), `Что хочу проверить:` (1-2 sentences), `Как проверить (success criterion):` (concrete signal — file path, command, visible behaviour), `Связанный AC из PRD: «—»` (no PRD yet), exactly one `customer_derived: true | false`, `evidence_type: empirical` (default), `#### История статусов` one initial line `<ISO> / <local> · /dr-init · pending → pending · reason: пункт создан при инициализации задачи`, `#### Текущий статус` followed by a single bullet line carrying the value (`pending` on first write). A `true` wish also carries `requirement_id`, `surface_class`, `visitor_visible`, and `delivery_receipt`; a `false` wish carries none of those four fields. <!-- allow-non-ascii: russian-expectations-field-names-and-status-history-cited-from-canonical-schema -->
       - **Schema (mandatory).** Items MUST use the canonical bullet-list shape from `skills/expectations-checklist/SKILL.md` § Body shape — i.e. one top-level bullet per wish (`- **<N>. <Title>**`) with **nested bullets** (`  - wish_id:`, `  - Что хочу проверить:`, …) and a two-line `Текущий статус` block (`  - #### Текущий статус` followed by `    - <value>`). Do **NOT** use heading-style items (`### N. Title`) or single-line «inline» status (`#### Текущий статус: pending`) — the validator parses only the bullet-list shape, and heading-style files are rejected on the very next pipeline step (see `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --task {TASK-ID} --report` for the exact errors emitted on schema drift). <!-- allow-non-ascii: russian-expectations-field-names-cited-from-canonical-schema -->
     - Probe: `bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --task {TASK-ID} --root "$DATARIM_ROOT"`. Exit 0 = OK; non-zero = print warning + continue (fail-soft — operator may amend manually).
-    - **Fallback (empty / diffuse brief or LLM extraction failure):** write 1-wish skeleton with title «Цель задачи — TBD (оператор уточняет).», `wish_id: tsel-zadachi-tbd`, `evidence_type: empirical`, and an inline HTML comment `<!-- TODO: operator fills concrete wish at next /dr-prd or /dr-plan amendment -->`. This satisfies the L1+ mandate floor and surfaces the gap to the operator at the next pipeline step. <!-- allow-non-ascii: russian-fallback-skeleton-title-cited-from-template -->
+    - **Fallback (empty / diffuse brief or LLM extraction failure):** write 1-wish skeleton with title «Цель задачи — TBD (оператор уточняет).», `wish_id: tsel-zadachi-tbd`, `customer_derived: false`, `evidence_type: empirical`, and an inline HTML comment `<!-- TODO: operator fills concrete wish at next /dr-prd or /dr-plan amendment -->`. This satisfies the L1+ mandate floor and surfaces the gap to the operator at the next pipeline step. <!-- allow-non-ascii: russian-fallback-skeleton-title-cited-from-template -->
     - This step applies to **all complexity levels L1-L4** (mandate scope — the operator set this as a hard requirement with no exceptions).
 
 5.  **SUBTASK BACKLOG** (Level 3-4 only):

@@ -138,6 +138,22 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
 
 4.5. **Plan ↔ Creative Deploy-Dependency Cross-Reference** (MANDATORY when this task has a companion `datarim/creative/creative-{TASK-ID}-*.md` design doc that marks any Decision as deploy-gated — i.e. the decision only takes observable effect after a deploy/cutover, not merely after the code merges): for every Implementation Step whose completion depends on such a decision, annotate the step inline with `[deploy-gated — see creative-{TASK-ID}.md § Decision]`. This makes the deploy dependency visible to `/dr-qa` Layer 3 (Plan Completeness) and to the operator reading the plan, instead of surfacing only when a step marked "done" turns out to still be waiting on a deploy. Cost: one grep of the creative doc's § Decision sections for a deploy-gated marker. Saving: avoids a `/dr-qa` false-positive on a step that is code-complete but not yet effective.
 
+4.8. **CUSTOMER PRE-WORK KNOWLEDGE AND RECEIPT** (mandatory when any
+    schema-v4 expectation declares `customer_derived: true`):
+    - Before implementation starts, select and pin the applicable role, skill, blueprint, constraint, policy, and success criterion. Every selection
+      carries an immutable revision, digest, and selection timestamp earlier
+      than `implementation_started_at`. Record the issued selection in
+      `datarim/tasks/{TASK-ID}-customer-requirements.yaml` and in the plan.
+      `Gap` or `Unbound` may authorize a separate capability-creation task but
+      cannot stand in for a delivery-bound selection. Selection after implementation starts is post-hoc attribution and fails.
+    - Create `datarim/receipts/{TASK-ID}-customer-delivery.yaml` before implementation starts. Its per-requirement record begins with
+      `coverage_status: NOT_MET`, complete requirement and selected_knowledge edges,
+      and `missing_edges` naming every downstream edge not yet earned.
+      Never invent merge, deploy, live, or customer-disposition evidence.
+    - The receipt prefix is deliberately incomplete delivery evidence. It
+      authorizes work only; `check-customer-delivery.sh` remains the sole
+      semantic closure authority at QA, compliance, and archive.
+
 5.  **Create Implementation Plan (Phase 5)** — thin-index schema:
     -   **`datarim/tasks.md`** carries ONLY the one-liner pointer (canonical regex per `skills/datarim-system/SKILL.md` § Operational File Schema):
         ```
@@ -165,6 +181,12 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
             - `#### История статусов` with one initial line `<ISO> / <local> · /dr-plan · pending → pending · reason: пункт добавлен из плана § Validation Checklist`; <!-- allow-non-ascii: literal-russian-field-name-from-expectations-template -->
             - `#### Текущий статус: pending`. <!-- allow-non-ascii: literal-russian-field-name-from-expectations-template -->
     -   **Do not rewrite, reorder, or delete existing items.** Operator controls pruning via explicit `Текущий статус: deleted`. <!-- allow-non-ascii: literal-russian-field-name-from-expectations-template -->
+    -   **Legacy freeze before append.** An expectations file at v1-v3 MUST NOT
+        receive a new wish or an in-place wish mutation. Complete the full
+        full metadata-only migration to schema v4 first, preserving every legacy
+        body, title, history, order, and `wish_id`; classify every wish with
+        `customer_derived`; add the conditional binding quartet for `true`
+        wishes; record the migration; then append.
     -   **Post-write validation gate.** Invoke:
         ```bash
         "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --task {TASK-ID}
@@ -179,7 +201,9 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
         "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/spec-graph-gate.sh" \
             --task {TASK-ID} --stage plan --root <repo-root> --format json
         ```
-    -   Exit `2` blocks the stage. In explicit hard mode, exit `1` blocks transition to `/dr-do`; otherwise findings are advisory and must be summarized in the plan response.
+    -   Exit `2` blocks the stage. Exit `1` always blocks transition to `/dr-do`
+        when `customer_delivery_prework.prework_ready` is false; other graph
+        findings block only in explicit hard mode and otherwise remain advisory.
 
 6.  **Technology Validation**:
     -   **Stack Proposal (mandatory for new project/service, cross-domain, stack-migration — skip for routine same-domain):** Load `$HOME/.claude/skills/tech-stack/SKILL.md` and run the Trigger Classifier. On `Trigger: FULL`, generate a Stack Proposal with 2-3 candidates using the mandatory template (Context, Candidate Stacks with 10-factor assessment including Security posture and Escape velocity, Trade-off Summary, Recommendation, Operator Decision). The operator chooses; record the choice as a decision note in the plan's § Decisions section (not a standalone ADR). On `Trigger: SKIP`, document the incumbent or Default Recommendation in one line. If an architecture-driving stack choice was flagged at `/dr-prd`, the proposal at this step is the formal decision point. The chosen stack is bound by the immutability contract — revisable via Return-to-Plan amendment; a CVSS 9+ or KEV CVE suspends the binding (see `skills/tech-stack/SKILL.md` § Security-Emergency Fast-Track).

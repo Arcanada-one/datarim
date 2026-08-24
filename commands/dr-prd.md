@@ -97,6 +97,22 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
         - **V-AC spec-graph evidence-edge seed.** For every V-AC-N in § Success Criteria, author it so its spec-graph Evidence edge is seedable: pair the `Covers:` binding with the intended verification (planned command / test / measurement) for that criterion. `/dr-do` step 7.6 turns that intent into the concrete `Evidence: V-AC-N — <artifact>` edge as tests are produced, and `spec-graph-gate.sh` verifies the resulting evidence coverage before `/dr-qa`. A V-AC with no seedable evidence path is under-specified — make it verifiable or fold it into a `D-REQ`.
     -   Save to `datarim/prd/PRD-{slug}.md`.
 
+5.5a. **CUSTOMER ACCEPTANCE TUPLE** (mandatory when any schema-v4 expectations
+    wish declares `customer_derived: true`):
+    - Create or update
+      `datarim/tasks/{TASK-ID}-customer-requirements.yaml` from
+      `${DATARIM_RUNTIME:-$HOME/.claude}/templates/customer-requirements-template.yaml`.
+      Preserve each source remark verbatim and bind every atomic `req-NNNN` to
+      one or more V-ACs through its expectations wish. A paraphrase is metadata,
+      never the source quotation.
+    - Every Requirement ID carries the full acceptance tuple: originating source and exact quotation; affected product and surface or route; locale, viewport, and theme dimensions when applicable; observable before-state and required after-state; evidence method and responsible owner; applicable role, skill, blueprint, constraint, policy, and success criterion; delivery task, code/content paths, and target environment; and customer disposition (`pending`, `accepted`, `rejected`, or `superseded`).
+    - For every user-facing Requirement, author at least one acceptance
+      criterion asserting an observable visitor-facing change on the live production product. Test-environment rendering is supporting evidence;
+      documentation, knowledge, tests, CI, and ledgers cannot satisfy it.
+    - `/dr-plan` pins the exact admissible knowledge revisions before work. Do
+      not fabricate a future selection timestamp or an implementation start
+      time in this stage.
+
 5.5b. **Append-merge expectations checklist (L3-L4, mandatory)** per `$HOME/.claude/skills/expectations-checklist/SKILL.md`:
     -   The checklist file `datarim/tasks/{TASK-ID}-expectations.md` is created by `/dr-init` at Step 4.7. At `/dr-prd`, the architect MUST append-merge any new wishes derived from the PRD § Success Criteria block — never create the file from scratch, and never replace existing operator-derived wishes.
     -   **Source of items.** Each operator wish becomes one item. Derive items from:
@@ -111,6 +127,17 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
         - `#### История статусов` with one initial line `<ISO> / <local> · /dr-prd · pending → pending · reason: пункт создан при формировании PRD`; <!-- allow-non-ascii: russian-status-history-section-name-cited-from-canonical-schema -->
         - `#### Текущий статус` set to `pending`. <!-- allow-non-ascii: russian-current-status-section-name-cited-from-canonical-schema -->
     -   **Append-merge if the file already exists.** Load existing items by `wish_id`. New PRD-derived wishes whose slug does not match any existing item are appended at the bottom; existing items are not rewritten. If a previously-linked AC was renamed, append one `stage: append-merge` History line to the affected item.
+    -   **Legacy freeze before append.** If the file declares schema v1-v3,
+        do not append, reorder, or mutate any wish. First perform the full
+        full metadata-only migration to schema v4 required by
+        `skills/expectations-checklist/SKILL.md`: preserve bodies, titles,
+        history, order, and `wish_id`; add all missing versioned metadata and
+        `customer_derived` classifications; add the conditional binding quartet
+        to every `true` wish; record the migration; only then append.
+    -   Every appended schema-v4 item declares `customer_derived: true | false`.
+        A `true` item additionally carries `requirement_id`, `surface_class`,
+        `visitor_visible`, and the canonical `delivery_receipt` pointer; a
+        `false` item carries none of those four fields.
     -   **Post-write validation gate.** Invoke:
         ```bash
         "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --task {TASK-ID}

@@ -38,6 +38,94 @@ EOF
 EOF
 }
 
+write_customer_prework_fixture() {
+    write_fixture
+    cat >>"$WORK/datarim/tasks/GT-0001-expectations.md" <<'EOF'
+  - customer_derived: true
+  - requirement_id: req-0001
+  - surface_class: VISITOR_VISIBLE
+  - visitor_visible: true
+  - delivery_receipt: datarim/receipts/GT-0001-customer-delivery.yaml
+EOF
+    sed -i.bak '1i\---\nschema_version: 4\n---' \
+        "$WORK/datarim/tasks/GT-0001-expectations.md"
+    cat >"$WORK/datarim/tasks/GT-0001-customer-requirements.yaml" <<'EOF'
+requirements:
+  req-0001:
+    acceptance:
+      knowledge_selection:
+        roles: [{id: reviewer}]
+        skills: [{id: customer-delivery}]
+        blueprints: [{id: delivery-blueprint}]
+        constraints: [{id: prework}]
+        policies: [{id: delivery-policy}]
+        success_criteria: [{id: live-result}]
+EOF
+    mkdir -p "$WORK/datarim/receipts"
+    cat >"$WORK/datarim/receipts/GT-0001-customer-delivery.yaml" <<'EOF'
+requirements:
+  req-0001:
+    coverage_status: NOT_MET
+    missing_edges:
+      - implementation_delta
+      - red_green
+      - merged_revision
+      - deployed_revision
+      - live_evidence
+      - customer_disposition
+    coverage_chain:
+      requirement:
+        requirement_id: req-0001
+      selected_knowledge:
+        roles:
+          - id: reviewer
+            revision: "1"
+            digest: sha256:1111111111111111111111111111111111111111111111111111111111111111
+            selected_at: "2026-01-02T09:10:00Z"
+            selected_before_implementation: true
+            immutable: true
+        skills:
+          - id: customer-delivery
+            revision: "1"
+            digest: sha256:2222222222222222222222222222222222222222222222222222222222222222
+            selected_at: "2026-01-02T09:11:00Z"
+            selected_before_implementation: true
+            immutable: true
+        blueprints:
+          - id: delivery-blueprint
+            revision: "1"
+            digest: sha256:3333333333333333333333333333333333333333333333333333333333333333
+            selected_at: "2026-01-02T09:12:00Z"
+            selected_before_implementation: true
+            immutable: true
+        constraints:
+          - id: prework
+            revision: "1"
+            digest: sha256:4444444444444444444444444444444444444444444444444444444444444444
+            selected_at: "2026-01-02T09:13:00Z"
+            selected_before_implementation: true
+            immutable: true
+        policies:
+          - id: delivery-policy
+            revision: "1"
+            digest: sha256:5555555555555555555555555555555555555555555555555555555555555555
+            selected_at: "2026-01-02T09:14:00Z"
+            selected_before_implementation: true
+            immutable: true
+        success_criteria:
+          - id: live-result
+            revision: "1"
+            digest: sha256:6666666666666666666666666666666666666666666666666666666666666666
+            selected_at: "2026-01-02T09:15:00Z"
+            selected_before_implementation: true
+            immutable: true
+EOF
+    cp "$WORK/datarim/receipts/GT-0001-customer-delivery.yaml" \
+        "$WORK/datarim/tasks/GT-0001-customer-requirements.yaml"
+    sed -i.bak 's/^      selected_knowledge:/      knowledge_selection:/' \
+        "$WORK/datarim/tasks/GT-0001-customer-requirements.yaml"
+}
+
 @test "L3 defaults to advisory and emits evaluated artifact manifest" {
     write_fixture
     run "$SCRIPT" --task GT-0001 --stage qa --root "$WORK" --format json
@@ -127,6 +215,61 @@ EOF
         --task GT-0001 --stage verify --root "$WORK" --format json
     [ "$status" -eq 0 ] \
       && printf '%s\n' "$output" | grep -qF '"decision":"clean"'
+}
+
+@test "customer do stage emits a ready pre-work graph without claiming closure" {
+    write_customer_prework_fixture
+    run "$SCRIPT" --task GT-0001 --stage do --root "$WORK" --format json
+    [ "$status" -eq 0 ] \
+      && printf '%s\n' "$output" | grep -qF '"prework_ready":true' \
+      && printf '%s\n' "$output" | grep -qF '"closure_authority":"check-customer-delivery.sh"' \
+      && printf '%s\n' "$output" | grep -qF '"from":"requirement:req-0001"' \
+      && printf '%s\n' "$output" | grep -qF '"to":"vac:V-AC-1"'
+}
+
+@test "customer do stage blocks when the receipt lacks selected knowledge" {
+    write_customer_prework_fixture
+    sed -i.bak '/^      selected_knowledge:/,$d' \
+        "$WORK/datarim/receipts/GT-0001-customer-delivery.yaml"
+    run "$SCRIPT" --task GT-0001 --stage do --root "$WORK" --format json
+    [ "$status" -eq 1 ] \
+      && printf '%s\n' "$output" | grep -qF '"prework_ready":false'
+}
+
+@test "customer do stage cannot fail-open on an incomplete customer binding" {
+    write_customer_prework_fixture
+    sed -i.bak '/^  - requirement_id: req-0001$/d' \
+        "$WORK/datarim/tasks/GT-0001-expectations.md"
+    run "$SCRIPT" --task GT-0001 --stage do --root "$WORK" --format json
+    [ "$status" -eq 1 ] \
+      && printf '%s\n' "$output" | grep -qF 'missing_customer_binding:requirement_id'
+}
+
+@test "customer do stage blocks incomplete selected-knowledge pin metadata" {
+    write_customer_prework_fixture
+    sed -i.bak '/^            immutable: true$/d' \
+        "$WORK/datarim/receipts/GT-0001-customer-delivery.yaml"
+    run "$SCRIPT" --task GT-0001 --stage do --root "$WORK" --format json
+    [ "$status" -eq 1 ] \
+      && printf '%s\n' "$output" | grep -qF 'missing_knowledge_kind:req-0001:roles'
+}
+
+@test "customer do stage blocks incomplete issued-contract knowledge metadata" {
+    write_customer_prework_fixture
+    sed -i.bak '/^            revision: /d' \
+        "$WORK/datarim/tasks/GT-0001-customer-requirements.yaml"
+    run "$SCRIPT" --task GT-0001 --stage do --root "$WORK" --format json
+    [ "$status" -eq 1 ] \
+      && printf '%s\n' "$output" | grep -qF 'missing_requirement_knowledge_kind:req-0001:roles'
+}
+
+@test "spec graph inventory does not assume customer delivery closure authority" {
+    write_customer_prework_fixture
+    run env DATARIM_SPEC_GRAPH_MODE=hard "$SCRIPT" \
+        --task GT-0001 --stage qa --root "$WORK" --format json
+    [ "$status" -eq 0 ] \
+      && printf '%s\n' "$output" | grep -qF '"closure_authority":"check-customer-delivery.sh"' \
+      && printf '%s\n' "$output" | grep -qF '"missing_edges"'
 }
 
 # ===========================================================================

@@ -11,6 +11,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LINT="${SCRIPT_DIR}/dr-lint.sh"
 TRACE="${SCRIPT_DIR}/dr-trace.sh"
 GRADE="${SCRIPT_DIR}/dr-spec-grade.sh"
+LIB="${SCRIPT_DIR}/../scripts/lib/spec-graph.sh"
 
 TASK=""
 STAGE=""
@@ -42,8 +43,10 @@ case "$STAGE" in
 esac
 case "$FORMAT" in json|text) ;; *) usage_die "--format must be json|text" ;; esac
 [ -d "$ROOT" ] || usage_die "root not found: $ROOT"
-[ -f "$LINT" ] && [ -f "$TRACE" ] && [ -f "$GRADE" ] \
+[ -f "$LINT" ] && [ -f "$TRACE" ] && [ -f "$GRADE" ] && [ -f "$LIB" ] \
     || usage_die "spec-graph helper missing under $SCRIPT_DIR"
+# shellcheck source=scripts/lib/spec-graph.sh
+. "$LIB"
 
 DATARIM_ROOT=""
 search="$ROOT"
@@ -57,6 +60,10 @@ PRD="$DATARIM_ROOT/prd/PRD-${TASK}.md"
 PLAN="$DATARIM_ROOT/plans/${TASK}-plan.md"
 EXPECTATIONS="$DATARIM_ROOT/tasks/${TASK}-expectations.md"
 TASK_DESC="$DATARIM_ROOT/tasks/${TASK}-task-description.md"
+CUSTOMER_REQUIREMENTS="$DATARIM_ROOT/tasks/${TASK}-customer-requirements.yaml"
+CUSTOMER_RECEIPT="$DATARIM_ROOT/receipts/${TASK}-customer-delivery.yaml"
+QA_REPORT="$DATARIM_ROOT/qa/qa-report-${TASK}.md"
+COMPLIANCE_REPORT="$DATARIM_ROOT/reports/compliance-report-${TASK}.md"
 
 # _match_complexity <file> <level-label>
 # Single helper shared by the PRD and task-description branches so the two
@@ -194,6 +201,92 @@ for artifact in "${required[@]}"; do
     [ -f "$artifact" ] || usage_die "required artifact missing for stage $STAGE: $artifact"
 done
 
+# Customer delivery extends the graph inventory, but does not become a second
+# closure validator. A schema-v4 customer-derived wish makes the extension
+# applicable. Plan/do fail hard only on the U3 pre-work prefix: stable
+# Requirement -> V-AC binding plus requirement and selected-knowledge receipt
+# edges with all six knowledge kinds. Downstream delivery edges may be absent
+# while implementation is in progress and remain owned by
+# check-customer-delivery.sh at QA/compliance/archive.
+customer_applicable=0
+customer_prework_ready=1
+customer_prework_findings=""
+customer_links_tmp=""
+customer_receipt_tmp=""
+customer_knowledge_tmp=""
+customer_requirement_knowledge_tmp=""
+lint_tmp=""
+trace_tmp=""
+grade_tmp=""
+customer_links_tmp="$(mktemp)" || usage_die "cannot allocate customer link inventory"
+trap 'rm -f -- "$lint_tmp" "$trace_tmp" "$grade_tmp" "$customer_links_tmp" "$customer_receipt_tmp" "$customer_knowledge_tmp" "$customer_requirement_knowledge_tmp"' EXIT
+customer_receipt_tmp="$(mktemp)" || usage_die "cannot allocate customer receipt inventory"
+customer_knowledge_tmp="$(mktemp)" || usage_die "cannot allocate customer knowledge inventory"
+customer_requirement_knowledge_tmp="$(mktemp)" \
+    || usage_die "cannot allocate customer requirement knowledge inventory"
+
+collect_customer_requirement_vac_edges "$EXPECTATIONS" include-incomplete >"$customer_links_tmp" \
+    || usage_die "customer requirement/V-AC collector failed"
+if [ -s "$customer_links_tmp" ]; then
+    customer_applicable=1
+    collect_customer_receipt_edges "$CUSTOMER_RECEIPT" >"$customer_receipt_tmp" \
+        || usage_die "customer receipt edge collector failed"
+    collect_customer_selected_knowledge_kinds "$CUSTOMER_RECEIPT" >"$customer_knowledge_tmp" \
+        || usage_die "customer selected-knowledge collector failed"
+    collect_customer_selected_knowledge_kinds "$CUSTOMER_REQUIREMENTS" \
+        >"$customer_requirement_knowledge_tmp" \
+        || usage_die "customer requirement knowledge collector failed"
+
+    if [ ! -f "$CUSTOMER_REQUIREMENTS" ]; then
+        customer_prework_ready=0
+        customer_prework_findings="${customer_prework_findings}missing_customer_requirements\n"
+    fi
+    if [ ! -f "$CUSTOMER_RECEIPT" ]; then
+        customer_prework_ready=0
+        customer_prework_findings="${customer_prework_findings}missing_customer_delivery_receipt\n"
+    fi
+
+    while IFS=$'\t' read -r requirement_id _vac _source; do
+        [ -n "$requirement_id" ] || continue
+        if [ "$requirement_id" = "__MISSING_REQUIREMENT__" ]; then
+            customer_prework_ready=0
+            customer_prework_findings="${customer_prework_findings}missing_customer_binding:requirement_id\n"
+            continue
+        fi
+        if [ "$_vac" = "__MISSING_VAC__" ]; then
+            customer_prework_ready=0
+            customer_prework_findings="${customer_prework_findings}missing_customer_binding:v_ac:${requirement_id}\n"
+            continue
+        fi
+        if ! collect_customer_requirement_ids "$CUSTOMER_REQUIREMENTS" | grep -qx "$requirement_id"; then
+            customer_prework_ready=0
+            customer_prework_findings="${customer_prework_findings}missing_requirement:${requirement_id}\n"
+        fi
+        for edge in requirement selected_knowledge; do
+            if ! awk -F'\t' -v req="$requirement_id" -v edge="$edge" \
+                '$1 == req && $2 == edge {found=1} END {exit(found ? 0 : 1)}' \
+                "$customer_receipt_tmp"; then
+                customer_prework_ready=0
+                customer_prework_findings="${customer_prework_findings}missing_prework_edge:${requirement_id}:${edge}\n"
+            fi
+        done
+        for kind in roles skills blueprints constraints policies success_criteria; do
+            if ! awk -F'\t' -v req="$requirement_id" -v kind="$kind" \
+                '$1 == req && $2 == kind {found=1} END {exit(found ? 0 : 1)}' \
+                "$customer_knowledge_tmp"; then
+                customer_prework_ready=0
+                customer_prework_findings="${customer_prework_findings}missing_knowledge_kind:${requirement_id}:${kind}\n"
+            fi
+            if ! awk -F'\t' -v req="$requirement_id" -v kind="$kind" \
+                '$1 == req && $2 == kind {found=1} END {exit(found ? 0 : 1)}' \
+                "$customer_requirement_knowledge_tmp"; then
+                customer_prework_ready=0
+                customer_prework_findings="${customer_prework_findings}missing_requirement_knowledge_kind:${requirement_id}:${kind}\n"
+            fi
+        done
+    done <"$customer_links_tmp"
+fi
+
 rules=""
 case "$STAGE" in
     prd)
@@ -207,10 +300,9 @@ case "$STAGE" in
         ;;
 esac
 
-lint_tmp="$(mktemp)"
-trace_tmp="$(mktemp)"
-grade_tmp="$(mktemp)"
-trap 'rm -f "$lint_tmp" "$trace_tmp" "$grade_tmp"' EXIT
+lint_tmp="$(mktemp)" || usage_die "cannot allocate lint output"
+trace_tmp="$(mktemp)" || usage_die "cannot allocate trace output"
+grade_tmp="$(mktemp)" || usage_die "cannot allocate grade output"
 
 bash "$LINT" --task "$TASK" --root "$ROOT" --stage "$STAGE" \
     --rules "$rules" --format json --advisory >"$lint_tmp"
@@ -262,21 +354,38 @@ if [ "$STAGE" = "do" ] && [ -s "$lint_tmp" ]; then
     exit_code=0
 fi
 
+if [ "$customer_applicable" -eq 1 ] \
+    && { [ "$STAGE" = "plan" ] || [ "$STAGE" = "do" ]; } \
+    && [ "$customer_prework_ready" -ne 1 ]; then
+    decision="blocked"
+    exit_code=1
+fi
+
 if [ "$FORMAT" = "json" ]; then
     python3 - "$TASK" "$STAGE" "$LEVEL" "$MODE" "$decision" \
         "$lint_tmp" "$trace_tmp" "$grade_tmp" "$ROOT" \
-        "$PRD" "$PLAN" "$EXPECTATIONS" "$TASK_DESC" <<'PYEOF'
+        "$PRD" "$PLAN" "$EXPECTATIONS" "$TASK_DESC" \
+        "$CUSTOMER_REQUIREMENTS" "$CUSTOMER_RECEIPT" \
+        "$customer_applicable" "$customer_prework_ready" \
+        "$customer_prework_findings" "$customer_links_tmp" \
+        "$customer_receipt_tmp" "$QA_REPORT" "$COMPLIANCE_REPORT" <<'PYEOF'
 import json
 import os
 import sys
 
-task, stage, level, mode, decision, lint_path, trace_path, grade_path, root, *canonical = sys.argv[1:]
+(
+    task, stage, level, mode, decision, lint_path, trace_path, grade_path, root,
+    prd, plan, expectations, task_desc, customer_requirements, customer_receipt,
+    customer_applicable, customer_prework_ready, customer_prework_findings,
+    customer_links_path, customer_receipt_path, qa_report, compliance_report,
+) = sys.argv[1:]
 with open(lint_path, encoding="utf-8") as fh:
     findings = [json.loads(line) for line in fh if line.strip()]
 with open(trace_path, encoding="utf-8") as fh:
     trace = json.load(fh)
 with open(grade_path, encoding="utf-8") as fh:
     grade = json.load(fh)
+canonical = (prd, plan, expectations, task_desc, customer_requirements, customer_receipt)
 included = [
     {"path": os.path.relpath(path, root), "reason": "canonical current-task artifact"}
     for path in canonical if os.path.isfile(path)
@@ -285,6 +394,82 @@ excluded = [
     {"path": os.path.relpath(path, root), "reason": "artifact absent and optional for this stage"}
     for path in canonical if not os.path.isfile(path)
 ]
+
+links = []
+with open(customer_links_path, encoding="utf-8") as fh:
+    for line in fh:
+        parts = line.rstrip("\n").split("\t")
+        if len(parts) >= 2:
+            links.append((parts[0], parts[1]))
+receipt_edges = {}
+with open(customer_receipt_path, encoding="utf-8") as fh:
+    for line in fh:
+        parts = line.rstrip("\n").split("\t")
+        if len(parts) >= 2:
+            receipt_edges.setdefault(parts[0], set()).add(parts[1])
+
+evidence_vacs = set()
+evidence_pattern = __import__("re").compile(r"Evidence:\s*(V-AC-[A-Z]?\d+(?:\.\d+)?)\s+—")
+for path in (task_desc, qa_report, compliance_report):
+    if not os.path.isfile(path):
+        continue
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            match = evidence_pattern.search(line)
+            if match:
+                evidence_vacs.add(match.group(1))
+
+edges = []
+missing = []
+for requirement, vac in links:
+    if requirement.startswith("__MISSING_") or vac.startswith("__MISSING_"):
+        missing.append("customer_binding")
+        continue
+    edges.append({"from": f"requirement:{requirement}", "to": f"vac:{vac}"})
+    present = receipt_edges.get(requirement, set())
+    if "selected_knowledge" in present:
+        edges.append({
+            "from": f"requirement:{requirement}",
+            "to": f"knowledge:{requirement}:selected_knowledge",
+        })
+    else:
+        missing.append(f"{requirement}:selected_knowledge")
+    if "red_green" in present and vac in evidence_vacs:
+        edges.append({"from": f"vac:{vac}", "to": f"evidence:{requirement}:red_green"})
+    else:
+        missing.append(f"{requirement}:evidence")
+    if "implementation_delta" in present:
+        edges.append({
+            "from": f"evidence:{requirement}:red_green",
+            "to": f"implementation:{requirement}:implementation_delta",
+        })
+    else:
+        missing.append(f"{requirement}:implementation")
+    if "live_evidence" in present:
+        edges.append({
+            "from": f"implementation:{requirement}:implementation_delta",
+            "to": f"live:{requirement}:live_evidence",
+        })
+    else:
+        missing.append(f"{requirement}:live")
+    if "customer_disposition" in present:
+        edges.append({
+            "from": f"live:{requirement}:live_evidence",
+            "to": f"customer:{requirement}:customer_disposition",
+        })
+    else:
+        missing.append(f"{requirement}:customer_disposition")
+
+customer_graph = {
+    "applicable": customer_applicable == "1",
+    "prework_ready": customer_prework_ready == "1",
+    "prework_findings": [
+        item for item in customer_prework_findings.split("\\n") if item
+    ],
+    "edges": edges,
+    "missing_edges": sorted(set(missing)),
+    "closure_authority": "check-customer-delivery.sh",
+}
 print(json.dumps({
     "task": task,
     "stage": stage,
@@ -296,6 +481,7 @@ print(json.dumps({
     "findings": findings,
     "trace": trace,
     "grade": grade,
+    "customer_delivery_prework": customer_graph,
 }, separators=(",", ":")))
 PYEOF
 else

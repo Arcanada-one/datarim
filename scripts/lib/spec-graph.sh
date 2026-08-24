@@ -470,3 +470,264 @@ with open(path, encoding="utf-8") as fh:
 flush()
 PYEOF
 }
+
+# collect_customer_requirement_vac_edges <expectations-file>
+# Prints: requirement_id<TAB>linked_vac<TAB>source-basename
+#
+# This is an inventory edge only. The expectations validator remains the
+# authority for schema-v4 classification and binding validity.
+collect_customer_requirement_vac_edges() {
+    local file="$1"
+    local mode="${2:-complete-only}"
+    case "$mode" in
+        complete-only|include-incomplete) ;;
+        *) return 2 ;;
+    esac
+    [ -f "$file" ] || return 0
+    python3 - "$file" "$mode" <<'PYEOF'
+import os
+import re
+import sys
+
+path = sys.argv[1]
+include_incomplete = sys.argv[2] == "include-incomplete"
+current = None
+schema_version = None
+frontmatter_seen = False
+in_frontmatter = False
+in_comment = False
+fence = None
+
+
+def emit(item):
+    if schema_version != 4 or not item or item["customer_derived"] != "true":
+        return
+    if include_incomplete or (item["requirement_id"] and item["vac"]):
+        print("\t".join((
+            item["requirement_id"] or "__MISSING_REQUIREMENT__",
+            item["vac"] or "__MISSING_VAC__",
+            os.path.basename(path),
+        )))
+
+
+with open(path, encoding="utf-8") as handle:
+    for raw in handle:
+        line = raw.rstrip("\n")
+        if line == "---" and not frontmatter_seen:
+            frontmatter_seen = True
+            in_frontmatter = True
+            continue
+        if line == "---" and in_frontmatter:
+            in_frontmatter = False
+            continue
+        if in_frontmatter:
+            match = re.match(r"^schema_version:\s*([0-9]+)\s*$", line)
+            if match:
+                schema_version = int(match.group(1))
+            continue
+        stripped = line.lstrip(" ")
+        fence_match = re.match(r"^(`{3,}|~{3,})", stripped)
+        if fence_match:
+            marker = fence_match.group(1)
+            if fence is None:
+                fence = (marker[0], len(marker))
+            elif marker[0] == fence[0] and len(marker) >= fence[1]:
+                fence = None
+            continue
+        if fence is not None:
+            continue
+        if in_comment:
+            if "-->" in line:
+                in_comment = False
+            continue
+        if "<!--" in line:
+            if "-->" not in line.split("<!--", 1)[1]:
+                in_comment = True
+            continue
+        match = re.match(r"^  - wish_id:\s*(\S+)\s*$", line)
+        if match:
+            emit(current)
+            current = {
+                "customer_derived": "",
+                "requirement_id": "",
+                "vac": "",
+            }
+            continue
+        if current is None:
+            continue
+        match = re.match(r"^  - customer_derived:\s*(true|false)\s*$", line)
+        if match:
+            current["customer_derived"] = match.group(1)
+            continue
+        match = re.match(r"^  - requirement_id:\s*(req-[0-9]{4})\s*$", line)
+        if match:
+            current["requirement_id"] = match.group(1)
+            continue
+        if "Связанный AC из PRD:" in line:
+            match = re.search(r"V-AC-[A-Z]?\d+(?:\.\d+)?", line)
+            current["vac"] = match.group(0) if match else ""
+if schema_version == 4:
+    emit(current)
+PYEOF
+}
+
+# collect_customer_requirement_ids <requirements-file>
+# Prints one schema-shaped requirement id per line. This is deliberately a
+# structural collector; check-customer-delivery.sh owns semantic closure.
+collect_customer_requirement_ids() {
+    local file="$1"
+    [ -f "$file" ] || return 0
+    sed -nE 's/^  (req-[0-9]{4}):[[:space:]]*$/\1/p' "$file"
+}
+
+# collect_customer_receipt_edges <receipt-file>
+# Prints: requirement_id<TAB>coverage_chain_edge<TAB>source-basename
+# Only canonical coverage-chain keys are emitted. Absence stays observable to
+# the stage adapter as a missing edge; this function never supplies a verdict.
+collect_customer_receipt_edges() {
+    local file="$1"
+    [ -f "$file" ] || return 0
+    python3 - "$file" <<'PYEOF'
+import os
+import re
+import sys
+
+path = sys.argv[1]
+allowed = {
+    "requirement",
+    "selected_knowledge",
+    "implementation_delta",
+    "red_green",
+    "merged_revision",
+    "deployed_revision",
+    "live_evidence",
+    "customer_disposition",
+}
+requirement = ""
+in_chain = False
+with open(path, encoding="utf-8") as handle:
+    for raw in handle:
+        line = raw.rstrip("\n")
+        match = re.match(r"^  (req-[0-9]{4}):\s*$", line)
+        if match:
+            requirement = match.group(1)
+            in_chain = False
+            continue
+        if requirement and re.match(r"^    coverage_chain:\s*$", line):
+            in_chain = True
+            continue
+        match = re.match(r"^      ([a-z_]+):\s*$", line)
+        if requirement and in_chain and match:
+            edge = match.group(1)
+            if edge in allowed:
+                print("\t".join((requirement, edge, os.path.basename(path))))
+            continue
+        if requirement and in_chain and re.match(r"^    [a-z_]+:", line):
+            in_chain = False
+PYEOF
+}
+
+# collect_customer_selected_knowledge_kinds <receipt-file>
+# Prints: requirement_id<TAB>knowledge-kind. Used by the pre-work gate to
+# distinguish a selected_knowledge label from the complete six-kind U3 pin.
+collect_customer_selected_knowledge_kinds() {
+    local file="$1"
+    [ -f "$file" ] || return 0
+    python3 - "$file" <<'PYEOF'
+import re
+import sys
+
+path = sys.argv[1]
+kind_order = (
+    "roles",
+    "skills",
+    "blueprints",
+    "constraints",
+    "policies",
+    "success_criteria",
+)
+allowed = set(kind_order)
+requirement = ""
+in_selected = False
+current_kind = ""
+current_item = None
+kind_items = {}
+
+
+def unquote(value):
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        return value[1:-1]
+    return value
+
+
+def flush_item():
+    global current_item
+    if not requirement or not current_kind or current_item is None:
+        current_item = None
+        return
+    values = {key: unquote(value) for key, value in current_item.items()}
+    valid = (
+        bool(values.get("id"))
+        and values.get("id") not in {"Gap", "Unbound"}
+        and bool(values.get("revision"))
+        and re.fullmatch(r"sha256:[0-9a-f]{64}", values.get("digest", "")) is not None
+        and re.fullmatch(
+            r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})",
+            values.get("selected_at", ""),
+        ) is not None
+        and values.get("selected_before_implementation") == "true"
+        and values.get("immutable") == "true"
+    )
+    kind_items.setdefault((requirement, current_kind), []).append(valid)
+    current_item = None
+
+
+def flush_kind():
+    global current_kind
+    flush_item()
+    current_kind = ""
+
+
+with open(path, encoding="utf-8") as handle:
+    for raw in handle:
+        line = raw.rstrip("\n")
+        match = re.match(r"^  (req-[0-9]{4}):\s*$", line)
+        if match:
+            flush_kind()
+            requirement = match.group(1)
+            in_selected = False
+            continue
+        if requirement and re.match(r"^      (?:selected_knowledge|knowledge_selection):\s*$", line):
+            flush_kind()
+            in_selected = True
+            continue
+        if requirement and in_selected:
+            match = re.match(r"^        ([a-z_]+):\s*$", line)
+            if match and match.group(1) in allowed:
+                flush_kind()
+                current_kind = match.group(1)
+                continue
+            match = re.match(r"^          - id:\s*(\S.*?)\s*$", line)
+            if current_kind and match:
+                flush_item()
+                current_item = {"id": match.group(1)}
+                continue
+            match = re.match(
+                r"^            (revision|digest|selected_at|selected_before_implementation|immutable):\s*(\S.*?)\s*$",
+                line,
+            )
+            if current_item is not None and match:
+                current_item[match.group(1)] = match.group(2)
+                continue
+            if re.match(r"^      [a-z_]+:", line) or re.match(r"^    [a-z_]+:", line):
+                flush_kind()
+                in_selected = False
+flush_kind()
+for req in sorted({req for req, _kind in kind_items}):
+    for kind in kind_order:
+        items = kind_items.get((req, kind), [])
+        if items and all(items):
+            print("\t".join((req, kind)))
+PYEOF
+}
