@@ -291,6 +291,7 @@ parse_items() {
             fence_line = fence_candidate($0)
             if (!in_comment && code_span_len == 0 && start_fence(fence_line)) next
             $0 = strip_html_comments($0)
+            if (suppress_structure) next
             if ($0 ~ /^[ \t]*$/) next
             fence_line = fence_candidate($0)
             if (start_fence(fence_line)) next
@@ -450,6 +451,7 @@ parse_items() {
 
         function strip_html_comments(line,    out, pos, close_at, run_len, match_at) {
             out = ""
+            suppress_structure = 0
             if (in_comment) {
                 close_at = index(line, "-->")
                 if (close_at == 0) return ""
@@ -460,8 +462,9 @@ parse_items() {
             pos = 1
             if (code_span_len > 0) {
                 match_at = matching_backtick_run(line, pos, code_span_len)
-                if (match_at == 0) return "<>"
-                out = "<>"
+                suppress_structure = 1
+                if (match_at == 0) return line
+                out = substr(line, 1, match_at + code_span_len - 1)
                 pos = match_at + code_span_len
                 code_span_len = 0
             }
@@ -470,12 +473,12 @@ parse_items() {
                     run_len = backtick_run(line, pos)
                     match_at = matching_backtick_run(line, pos + run_len, run_len)
                     if (match_at > 0) {
-                        out = out "<>"
+                        out = out substr(line, pos, match_at + run_len - pos)
                         pos = match_at + run_len
                         continue
                     }
                     code_span_len = run_len
-                    return out "<>"
+                    return out substr(line, pos)
                 }
                 if (substr(line, pos, 4) == "<!--" && !is_escaped(line, pos)) {
                     close_at = index(substr(line, pos + 4), "-->")
@@ -615,6 +618,10 @@ parse_items() {
                 }
                 if (verification_mode == "reproducible" && evidence_artifact == "") {
                     printf "ERROR: %s: item %d verification-not-wired: %s (reproducible requires evidence_artifact)\n", \
+                        f, current_item, wish_id > "/dev/stderr"
+                    errors++
+                } else if (verification_mode == "reproducible" && index(evidence_artifact, "`") > 0) {
+                    printf "ERROR: %s: item %d verification-not-wired: %s (evidence_artifact must be a plain scalar)\n", \
                         f, current_item, wish_id > "/dev/stderr"
                     errors++
                 }

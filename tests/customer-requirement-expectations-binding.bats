@@ -657,6 +657,28 @@ EOF
     }
 }
 
+@test "multiline inline-code fields cannot satisfy schema bindings" {
+    local id="COMM-0009"
+    local root
+    local file
+    root="$(write_expectations "$id" 4 '  - customer_derived: true')"
+    file="$root/datarim/tasks/${id}-expectations.md"
+    sed -i '/success criterion/c\
+  - Как проверить (success criterion): These ``fields are examples:\
+  - requirement_id: req-0001\
+  - surface_class: VISITOR_VISIBLE\
+  - visitor_visible: true\
+  - delivery_receipt: datarim/receipts/COMM-0009-customer-delivery.yaml\
+`` and are not active bindings.' "$file"
+
+    run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+    [ "$status" -eq 1 ] && [[ "$output" == *"missing requirement_id"* ]] || return 1
+
+    run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"BLOCKED: expectations file fails structural validation"* ]]
+}
+
 @test "an escaped backtick does not neutralize a real HTML comment" {
     local id="COMM-0003"
     local root
@@ -687,6 +709,54 @@ EOF
     run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
     [ "$status" -eq 1 ] \
         && [[ "$output" == *"BLOCKED: expectations file fails structural validation"* ]]
+}
+
+@test "inline code cannot self-resolve a nonexistent evidence artifact" {
+    local id="COMM-0006"
+    local root
+    local file
+    root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
+    file="$root/datarim/tasks/${id}-expectations.md"
+    sed -i '/evidence_type: static/i\
+  - verification_mode: reproducible\
+  - evidence_artifact: `not-real`' "$file"
+    printf '%s\n' 'structured-value collision `not-real`' > "$root/sentinel.sh"
+
+    run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+    [ "$status" -eq 1 ] && [[ "$output" == *"verification-not-wired"* ]] || return 1
+
+    run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"BLOCKED: expectations file fails structural validation"* ]]
+}
+
+@test "inline code remains visible in override length" {
+    local id="COMM-0007"
+    local root
+    local file
+    root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
+    file="$root/datarim/tasks/${id}-expectations.md"
+    sed -i '/evidence_type: static/i\
+  - override: See `FOLLOW-1234`\
+  - override_by: operator' "$file"
+    sed -i '/^    - pending$/s/pending/partial/' "$file"
+
+    run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
+    [ "$status" -eq 0 ] && [[ "$output" == *"CONDITIONAL_PASS"* ]]
+}
+
+@test "inline code remains visible to the world-state advisory" {
+    local id="COMM-0008"
+    local root
+    local file
+    root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
+    file="$root/datarim/tasks/${id}-expectations.md"
+    sed -i 's/A deterministic signal passes./The `https:\/\/prod.example.test\/status` endpoint passes./' "$file"
+    sed -i 's/evidence_type: static/evidence_type: empirical/' "$file"
+
+    run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+    [ "$status" -eq 0 ] \
+        && [[ "$output" == *"verification-mode-suggested-reproducible"* ]]
 }
 
 @test "an unclosed code delimiter cannot hide a later schema v4 wish" {
