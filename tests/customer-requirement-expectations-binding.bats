@@ -1230,6 +1230,71 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
     [ "$status" -eq 0 ] && [[ "$output" == *"PASS"* ]]
 }
 
+@test "tracked schema v2 repo-root parent paths remain read-compatible" {
+    run "$CHECK_EXPECTATIONS" --task TUNE-0574 --root "$REPO_ROOT"
+    [ "$status" -eq 0 ] || return 1
+
+    run "$CHECK_EXPECTATIONS" --verify TUNE-0574 --root "$REPO_ROOT"
+    [ "$status" -eq 0 ] && [[ "$output" == *"PASS"* ]]
+}
+
+@test "legacy schemas accept task-bound repo-root parent paths" {
+    local id
+    local schema
+    local root
+    local file
+
+    for schema in 1 2 3; do
+        id="LPTH-000${schema}"
+        root="$(write_expectations "$id" "$schema")"
+        file="$root/datarim/tasks/${id}-expectations.md"
+        portable_sed_in_place "/^status: canonical$/a\\
+parent_init_task: datarim/tasks/${id}-init-task.md\\
+parent_prd: datarim/prd/PRD-${id}.md" "$file"
+
+        run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+        if [ "$status" -ne 0 ]; then
+            echo "schema v${schema} rejected task-bound repo-root parents: ${output}" >&2
+            return 1
+        fi
+
+        run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
+        if [ "$status" -ne 0 ] || [[ "$output" != *"PASS"* ]]; then
+            echo "schema v${schema} verify rejected task-bound repo-root parents: ${output}" >&2
+            return 1
+        fi
+        rm -rf "$root"
+    done
+}
+
+@test "legacy repo-root parent paths stay task-bound and traversal-free" {
+    local id="LPTH-0004"
+    local field
+    local replacement
+    local root
+    local file
+
+    while IFS='|' read -r field replacement; do
+        root="$(write_expectations "$id" 2)"
+        file="$root/datarim/tasks/${id}-expectations.md"
+        portable_sed_in_place "/^status: canonical$/a\\
+${field}: ${replacement}" "$file"
+
+        run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+        [ "$status" -eq 1 ] || return 1
+        run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
+        [ "$status" -eq 1 ] \
+            && [[ "$output" == *"BLOCKED: expectations file fails structural validation"* ]] \
+            || return 1
+        rm -rf "$root"
+    done <<EOF
+parent_init_task|../../other/${id}-init-task.md
+parent_init_task|datarim/tasks/OTHR-0001-init-task.md
+parent_prd|../../other/PRD-${id}.md
+parent_prd|datarim/prd/PRD-OTHR-0001.md
+EOF
+}
+
 @test "active expectations heading with a trailing HTML comment passes both modes" {
     local id="HEAD-0001"
     local root

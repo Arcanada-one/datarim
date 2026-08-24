@@ -842,15 +842,27 @@ validate_single_task() {
     fi
 
     parent_init_task=$(extract_frontmatter_field "$file" "parent_init_task")
-    if [ -n "$parent_init_task" ] && [ "$parent_init_task" != "${id}-init-task.md" ]; then
-        echo "ERROR: $file: parent_init_task must equal ${id}-init-task.md, got '$parent_init_task'" >&2
-        errors=$(( errors + 1 ))
+    if [ -n "$parent_init_task" ]; then
+        if [ "$schema_v" = "4" ] && [ "$parent_init_task" != "${id}-init-task.md" ]; then
+            echo "ERROR: $file: parent_init_task must equal ${id}-init-task.md, got '$parent_init_task'" >&2
+            errors=$(( errors + 1 ))
+        elif [ "$schema_v" != "4" ] && [ "$parent_init_task" != "${id}-init-task.md" ] \
+             && [ "$parent_init_task" != "datarim/tasks/${id}-init-task.md" ]; then
+            echo "ERROR: $file: legacy parent_init_task must be task-bound, got '$parent_init_task'" >&2
+            errors=$(( errors + 1 ))
+        fi
     fi
 
     parent_prd=$(extract_frontmatter_field "$file" "parent_prd")
-    if [ -n "$parent_prd" ] && [ "$parent_prd" != "../prd/PRD-${id}.md" ]; then
-        echo "ERROR: $file: parent_prd must equal ../prd/PRD-${id}.md, got '$parent_prd'" >&2
-        errors=$(( errors + 1 ))
+    if [ -n "$parent_prd" ]; then
+        if [ "$schema_v" = "4" ] && [ "$parent_prd" != "../prd/PRD-${id}.md" ]; then
+            echo "ERROR: $file: parent_prd must equal ../prd/PRD-${id}.md, got '$parent_prd'" >&2
+            errors=$(( errors + 1 ))
+        elif [ "$schema_v" != "4" ] && [ "$parent_prd" != "../prd/PRD-${id}.md" ] \
+             && [ "$parent_prd" != "datarim/prd/PRD-${id}.md" ]; then
+            echo "ERROR: $file: legacy parent_prd must be task-bound, got '$parent_prd'" >&2
+            errors=$(( errors + 1 ))
+        fi
     fi
 
     # Item-level parse is the single comment-normalized authority for the
