@@ -37,8 +37,149 @@ evidence_matrix:
   viewports: [desktop, tablet, mobile]
   themes: [light, dark]
   expected_cells_per_surface: 12
+decision_rules:
+  FD-SKILL-TITLE:
+    polarity: inform
+    semantics: scope.title
+    surfaces: [skills/frontend-design/SKILL.md]
+  FD-SKILL-SCOPE:
+    polarity: inform
+    semantics: scope.definition
+    surfaces: [skills/frontend-design/SKILL.md]
+  FD-SKILL-EXCLUDES:
+    polarity: forbid
+    semantics: scope.exclusions
+    surfaces: [skills/frontend-design/SKILL.md]
+  FD-SKILL-INPUTS:
+    polarity: require
+    semantics: inputs.required
+    surfaces: [skills/frontend-design/SKILL.md]
+  FD-SKILL-ASSUME:
+    polarity: permit
+    semantics: inputs.sparse_assumptions
+    surfaces: [skills/frontend-design/SKILL.md]
+  FD-SKILL-SEQUENCE:
+    polarity: require
+    semantics: workflow.pre_code_sequence
+    surfaces: [skills/frontend-design/SKILL.md]
+  FD-SKILL-BINDING:
+    polarity: forbid
+    semantics: binding.invalid_states
+    surfaces: [skills/frontend-design/SKILL.md]
+  FD-SKILL-PACKET:
+    polarity: require
+    semantics: design.packet
+    surfaces: [skills/frontend-design/SKILL.md]
+  FD-SKILL-DISCLOSURE:
+    polarity: require
+    semantics: routing.progressive_disclosure
+    surfaces: [skills/frontend-design/SKILL.md]
+  FD-SKILL-HANDOFF:
+    polarity: inform
+    semantics: routing.post_contract
+    surfaces: [skills/frontend-design/SKILL.md]
+  FD-SKILL-BOUNDARY:
+    polarity: forbid
+    semantics: completion.customer_acceptance
+    surfaces: [skills/frontend-design/SKILL.md]
+  FD-DESIGN-TITLE:
+    polarity: inform
+    semantics: design.title
+    surfaces: [skills/frontend-design/references/design-decisions.md]
+  FD-DESIGN-SCOPE:
+    polarity: inform
+    semantics: design.scope
+    surfaces: [skills/frontend-design/references/design-decisions.md]
+  FD-DESIGN-VISITOR:
+    polarity: require
+    semantics: design.visitor_decision
+    surfaces: [skills/frontend-design/references/design-decisions.md]
+  FD-DESIGN-REUSE:
+    polarity: require
+    semantics: design.reuse_first
+    surfaces: [skills/frontend-design/references/design-decisions.md]
+  FD-DESIGN-DIRECTION:
+    polarity: require
+    semantics: design.selected_direction
+    surfaces: [skills/frontend-design/references/design-decisions.md]
+  FD-DESIGN-TOKENS:
+    polarity: require
+    semantics: design.semantic_visual_rules
+    surfaces: [skills/frontend-design/references/design-decisions.md]
+  FD-DESIGN-RESPONSIVE:
+    polarity: require
+    semantics: design.responsive_i18n
+    surfaces: [skills/frontend-design/references/design-decisions.md]
+  FD-DESIGN-A11Y:
+    polarity: require
+    semantics: design.accessibility_performance
+    surfaces: [skills/frontend-design/references/design-decisions.md]
+  FD-HANDOFF-TITLE:
+    polarity: inform
+    semantics: handoff.title
+    surfaces: [skills/frontend-design/references/handoff-and-evidence.md]
+  FD-HANDOFF-SCOPE:
+    polarity: inform
+    semantics: handoff.scope
+    surfaces: [skills/frontend-design/references/handoff-and-evidence.md]
+  FD-HANDOFF-PACKET:
+    polarity: require
+    semantics: handoff.packet
+    surfaces: [skills/frontend-design/references/handoff-and-evidence.md]
+  FD-HANDOFF-KC-REQUIRE:
+    polarity: require
+    semantics: handoff.knowledge_contract_gate
+    surfaces: [skills/frontend-design/references/handoff-and-evidence.md]
+  FD-HANDOFF-KC-FORBID:
+    polarity: forbid
+    semantics: handoff.invalid_bindings
+    surfaces: [skills/frontend-design/references/handoff-and-evidence.md]
+  FD-HANDOFF-AUTONOMY:
+    polarity: permit
+    semantics: handoff.autonomous_first_result
+    surfaces: [skills/frontend-design/references/handoff-and-evidence.md]
+  FD-HANDOFF-EVIDENCE:
+    polarity: require
+    semantics: handoff.evidence_matrix
+    surfaces: [skills/frontend-design/references/handoff-and-evidence.md]
+  FD-HANDOFF-AUTOMATION-LIMIT:
+    polarity: forbid
+    semantics: handoff.automated_acceptance
+    surfaces: [skills/frontend-design/references/handoff-and-evidence.md]
+  FD-HANDOFF-OUTCOMES:
+    polarity: inform
+    semantics: handoff.outcomes
+    surfaces: [skills/frontend-design/references/handoff-and-evidence.md]
+  FD-HANDOFF-ACCEPTANCE:
+    polarity: forbid
+    semantics: handoff.customer_acceptance
+    surfaces: [skills/frontend-design/references/handoff-and-evidence.md]
+  FD-ROLE-TITLE:
+    polarity: inform
+    semantics: role.title
+    surfaces: [agents/designer.md]
+  FD-ROLE-GOAL:
+    polarity: require
+    semantics: role.goal
+    surfaces: [agents/designer.md]
+  FD-ROLE-RESPONSIBILITIES:
+    polarity: require
+    semantics: role.responsibilities
+    surfaces: [agents/designer.md]
+  FD-ROLE-BOUNDARIES:
+    polarity: forbid
+    semantics: role.boundaries
+    surfaces: [agents/designer.md]
+  FD-ROLE-CONTEXT:
+    polarity: require
+    semantics: role.context
+    surfaces: [agents/designer.md]
+  FD-ROLE-OUTPUT:
+    polarity: require
+    semantics: role.output
+    surfaces: [agents/designer.md]
 decision_surface_sha256:
-  skills/frontend-design/SKILL.md: 3e753bd2444e85ca0a0258deb26b764fc90c008173b587490dc4679e1bd5eb30
-  skills/frontend-design/references/design-decisions.md: 71d3c156d30b6c63f4b2e2ac615ff7cb0ab04586fe345b11fdbef6e55901c2e6
-  skills/frontend-design/references/handoff-and-evidence.md: e2c28e8bf4caa807e68721a7f18b80cae13832ed5ee4ea943b95de482de1eee0
-  agents/designer.md: d854f55e2dc725e16470bdd4595813a5bb516ab0959223ecc248092e606f6968
+  skills/frontend-design/SKILL.md: 55bd604a892158e36e3a6b4534a0aa6865289a21787743b1a4a30c6382b1beca
+  skills/frontend-design/references/design-decisions.md: d979a439230ab760f3dc30608ae9329d4dc6081c6b235a133afdd4ab3ee13f21
+  skills/frontend-design/references/handoff-and-evidence.md: 3b3b612974ba174fbe3b3d98f141e93af06ada544dfc41e58208941d977e6d21
+  agents/designer.md: e4ad6d786a47b239fb33be09e44aa80e184694a2c35443f263f83c1e263b4652
