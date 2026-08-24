@@ -34,241 +34,42 @@ assert_contains() {
 
 assert_no_direct_in_place_sed() {
     local file="$1"
+    local sed_word="s""ed"
+    local long_option="--in""-place"
     local violations
 
-    if ! violations="$(LC_ALL=C awk '
-        function inspect(line, line_number, line_len, pos, char, quote, value,
-                         count, i, expect_command, sed_command, wrapper,
-                         skip_wrapper_arg, skip_redirection_arg, in_backtick,
-                         pending_outer_quote, backtick_outer_quote, resume_quote,
-                         outer_expect_command, outer_sed_command, outer_wrapper,
-                         outer_skip_wrapper_arg, outer_skip_redirection_arg,
-                         values, kinds) {
-            line_len = length(line)
-            pos = 1
-            count = 0
-            while (pos <= line_len) {
-                char = substr(line, pos, 1)
-                if (char ~ /[[:space:]]/) {
-                    pos++
-                    continue
-                }
-                if (char == "#") {
-                    break
-                }
-                if (char == "`") {
-                    values[++count] = char
-                    if (in_backtick) {
-                        kinds[count] = "substitution_close"
-                        in_backtick = 0
-                        resume_quote = backtick_outer_quote
-                        backtick_outer_quote = ""
-                    } else {
-                        kinds[count] = "substitution_open"
-                        in_backtick = 1
-                        backtick_outer_quote = pending_outer_quote
-                    }
-                    pending_outer_quote = ""
-                    pos++
-                    continue
-                }
-                if (char ~ /[;&|(){}]/) {
-                    values[++count] = char
-                    kinds[count] = "separator"
-                    pos++
-                    continue
-                }
-
-                value = ""
-                quote = resume_quote
-                resume_quote = ""
-                while (pos <= line_len) {
-                    char = substr(line, pos, 1)
-                    if ((quote == "" && (char ~ /[[:space:]]/ || char ~ /[;&|(){}]/ || char == "`")) ||
-                        (quote == "\"" && char == "`")) {
-                        if (quote == "\"" && char == "`") {
-                            pending_outer_quote = quote
-                        }
-                        break
-                    }
-                    if (quote == "" && (char == "\"" || char == "\047")) {
-                        quote = char
-                        pos++
-                        continue
-                    }
-                    if (quote != "" && char == quote) {
-                        quote = ""
-                        pos++
-                        continue
-                    }
-                    if (quote != "\047" && char == "\\" && pos < line_len) {
-                        pos++
-                        value = value substr(line, pos, 1)
-                        pos++
-                        continue
-                    }
-                    value = value char
-                    pos++
-                }
-                values[++count] = value
-                kinds[count] = "word"
-            }
-
-            expect_command = 1
-            sed_command = 0
-            wrapper = ""
-            skip_wrapper_arg = 0
-            skip_redirection_arg = 0
+    # Deliberately lexical and fail-closed: this controlled suite may not carry
+    # the command token followed by a GNU-only in-place option on one logical
+    # line, even inside comments, strings, wrappers, or substitutions.
+    if ! violations="$(LC_ALL=C awk -v sed_word="$sed_word" -v long_option="$long_option" '
+        function canonical_token(token) {
+            gsub(/["\047`]/, "", token)
+            sub(/^[A-Za-z_][A-Za-z0-9_]*=/, "", token)
+            gsub(/^[!;|&(){}]+/, "", token)
+            gsub(/[;|&(){}]+$/, "", token)
+            return token
+        }
+        function is_sed_token(token, value) {
+            value = canonical_token(token)
+            return value == sed_word || value ~ ("/" sed_word "$")
+        }
+        function is_in_place_option(token, value) {
+            value = canonical_token(token)
+            return value == long_option || index(value, long_option "=") == 1 ||
+                value ~ /^-[A-Za-z]*i([A-Za-z]*|[.].*)$/
+        }
+        function inspect(line, line_number, count, fields, i, saw_sed) {
+            count = split(line, fields, /[[:space:]]+/)
+            saw_sed = 0
             for (i = 1; i <= count; i++) {
-                if (kinds[i] == "substitution_open") {
-                    outer_expect_command = expect_command
-                    outer_sed_command = sed_command
-                    outer_wrapper = wrapper
-                    outer_skip_wrapper_arg = skip_wrapper_arg
-                    outer_skip_redirection_arg = skip_redirection_arg
-                    expect_command = 1
-                    sed_command = 0
-                    wrapper = ""
-                    skip_wrapper_arg = 0
-                    skip_redirection_arg = 0
+                if (!saw_sed && is_sed_token(fields[i])) {
+                    saw_sed = 1
                     continue
                 }
-                if (kinds[i] == "substitution_close") {
-                    expect_command = outer_expect_command
-                    sed_command = outer_sed_command
-                    wrapper = outer_wrapper
-                    skip_wrapper_arg = outer_skip_wrapper_arg
-                    skip_redirection_arg = outer_skip_redirection_arg
-                    continue
+                if (saw_sed && is_in_place_option(fields[i])) {
+                    print line_number ":" line
+                    return
                 }
-                if (kinds[i] == "separator") {
-                    expect_command = 1
-                    sed_command = 0
-                    wrapper = ""
-                    skip_wrapper_arg = 0
-                    skip_redirection_arg = 0
-                    continue
-                }
-                value = values[i]
-                if (sed_command) {
-                    if (value ~ /^--in-place(=.*)?$/ || value ~ /^-[A-Za-z]*i/) {
-                        print line_number ":" line
-                        return
-                    }
-                    continue
-                }
-                if (!expect_command) {
-                    continue
-                }
-                if (skip_wrapper_arg) {
-                    skip_wrapper_arg = 0
-                    continue
-                }
-                if (skip_redirection_arg) {
-                    skip_redirection_arg = 0
-                    continue
-                }
-
-                if (wrapper == "env") {
-                    if (value == "--") {
-                        wrapper = ""
-                        continue
-                    }
-                    if (value ~ /^(-u|-C|-S|--unset|--chdir|--split-string)$/) {
-                        skip_wrapper_arg = 1
-                        continue
-                    }
-                    if (value ~ /^(-i|-0|-v|--ignore-environment|--null|--debug)$/ ||
-                        value ~ /^-[uCS].+/ || value ~ /^--(unset|chdir|split-string)=/) {
-                        continue
-                    }
-                    if (value ~ /^[A-Za-z_][A-Za-z0-9_]*=/) {
-                        continue
-                    }
-                    wrapper = ""
-                } else if (wrapper == "command") {
-                    if (value ~ /^(--|-p)$/) {
-                        continue
-                    }
-                    if (value ~ /^-[vV]$/) {
-                        expect_command = 0
-                        wrapper = ""
-                        continue
-                    }
-                    wrapper = ""
-                } else if (wrapper == "time") {
-                    if (value ~ /^(--|-p)$/) {
-                        continue
-                    }
-                    wrapper = ""
-                } else if (wrapper == "run") {
-                    if (value ~ /^(--|!)$/ || value ~ /^-[0-9]+$/ ||
-                        value ~ /^(--separate-stderr|--keep-empty-lines)$/) {
-                        continue
-                    }
-                    wrapper = ""
-                } else if (wrapper == "exec") {
-                    if (value == "--" || value ~ /^-[cl]+$/) {
-                        continue
-                    }
-                    if (value == "-a" || value ~ /^-[cl]+a$/) {
-                        skip_wrapper_arg = 1
-                        continue
-                    }
-                    if (value ~ /^-[cl]*a.+/) {
-                        continue
-                    }
-                    wrapper = ""
-                } else if (wrapper == "sudo") {
-                    if (value == "--") {
-                        wrapper = ""
-                        continue
-                    }
-                    if (value ~ /^(-u|-g|-h|-p|-C|-T|-R|-D|-t|-r|-c|--user|--group|--host|--prompt|--close-from|--command-timeout|--chroot|--chdir|--type|--role)$/) {
-                        skip_wrapper_arg = 1
-                        continue
-                    }
-                    if (value ~ /^(-[ughpCTRDtrc].+|--(user|group|host|prompt|close-from|command-timeout|chroot|chdir|type|role)=)/) {
-                        continue
-                    }
-                    if (value ~ /^-/) {
-                        continue
-                    }
-                    wrapper = ""
-                }
-
-                if (value ~ /^[0-9]*(>>?|<<?|<>|>&|<&)/) {
-                    if (value ~ /^[0-9]*(>>?|<<?|<>|>&|<&)$/) {
-                        skip_redirection_arg = 1
-                    }
-                    continue
-                }
-                if (value ~ /^[A-Za-z_][A-Za-z0-9_]*=/ ||
-                    value ~ /^(if|then|elif|while|until|do|!)$/) {
-                    continue
-                }
-                if (value == "run") {
-                    wrapper = "run"
-                    continue
-                }
-                if (value == "exec") {
-                    wrapper = "exec"
-                    continue
-                }
-                if (value == "builtin") {
-                    wrapper = "command"
-                    continue
-                }
-                if (value ~ /^(command|env|sudo|time)$/) {
-                    wrapper = value
-                    continue
-                }
-                if (value == "sed" || value ~ /\/sed$/) {
-                    sed_command = 1
-                    expect_command = 0
-                    continue
-                }
-                expect_command = 0
             }
         }
         {
@@ -1605,10 +1406,53 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
         'tests/customer-requirement-expectations-binding.bats'
 }
 
+@test "portability source convention rejects forbidden tokens even in inert prose" {
+    local mutant_suite="${BATS_TEST_TMPDIR}/customer-binding-lexical-prose.bats"
+    local command_token="s""ed"
+    local short_option="-""i.bak"
+
+    cp "${REPO_ROOT}/tests/customer-requirement-expectations-binding.bats" "$mutant_suite"
+    printf '# inert prose: %s %s must still be rejected\n' \
+        "$command_token" "$short_option" >> "$mutant_suite"
+
+    run assert_no_direct_in_place_sed "$mutant_suite"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"direct in-place sed syntax"* ]]
+}
+
+@test "portability source convention is independent of substitution shell state" {
+    local mutant_suite="${BATS_TEST_TMPDIR}/customer-binding-lexical-state.bats"
+    local command_token="s""ed"
+    local short_option="-""i.bak"
+    local tick
+    local payload
+    tick="$(printf '\140')"
+
+    for payload in \
+        "${tick}printf echo${tick} ${command_token} ${short_option} is literal echo prose" \
+        "> ${tick}printf /tmp/a4-out${tick} ${command_token} ${short_option} 's/x/y/' mutant" \
+        "sudo -u ${tick}printf nobody${tick} ${command_token} ${short_option} 's/x/y/' mutant"; do
+        cp "${REPO_ROOT}/tests/customer-requirement-expectations-binding.bats" "$mutant_suite"
+        printf '%s\n' "$payload" >> "$mutant_suite"
+
+        run assert_no_direct_in_place_sed "$mutant_suite"
+        if [ "$status" -ne 1 ] || [[ "$output" != *"direct in-place sed syntax"* ]]; then
+            echo "substitution-state lexical mutant passed (status=${status}; payload=${payload}): ${output}" >&2
+            return 1
+        fi
+    done
+}
+
 @test "portability anti-decay rejects in-place option variants and commented macOS wiring" {
     local mutant_suite="${BATS_TEST_TMPDIR}/customer-binding-mutant.bats"
     local mutant_workflow="${BATS_TEST_TMPDIR}/bats-mutant.yml"
-    local direct_command
+    local command_token="s""ed"
+    local short_option="-""i.bak"
+    local combined_option="-E""i"
+    local long_option="--in""-place"
+    local tick
+    local payload
+    tick="$(printf '\140')"
 
     cp "${REPO_ROOT}/.github/workflows/bats.yml" "$mutant_workflow"
     portable_sed_in_place '/^[[:space:]]*tests\/customer-requirement-expectations-binding\.bats/c\
@@ -1624,24 +1468,31 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
           PORTABILITY_DECOY_UNQUOTED\
 ' "$mutant_workflow"
 
-    for direct_command in \
-        "sed --in-place -E 's/x/y/' mutant" \
-        "sed --in-place=.bak 's/x/y/' mutant" \
-        "sed -Ei 's/x/y/' mutant" \
-        "sed -iE 's/x/y/' mutant" \
-        "sed -i.bak 's/x/y/' mutant" \
-        "sed -i'' 's/x/y/' mutant"; do
+    for payload in \
+        "${command_token} ${long_option} -E 's/x/y/' mutant" \
+        "${command_token} ${long_option}=.bak 's/x/y/' mutant" \
+        "${command_token} ${combined_option} 's/x/y/' mutant" \
+        "\"/usr/bin/${command_token}\" ${short_option} 's/x/y/' mutant" \
+        "run -- ${command_token} ${short_option} 's/x/y/' mutant" \
+        "env MODE=test ${command_token} ${short_option} 's/x/y/' mutant" \
+        "nice ${command_token} ${short_option} 's/x/y/' mutant" \
+        "nohup ${command_token} ${short_option} 's/x/y/' mutant" \
+        "xargs ${command_token} ${short_option}" \
+        "sh -c '${command_token} ${short_option} s/x/y/ mutant'" \
+        "ignored=${tick}${command_token} ${long_option} -e s/x/y/ mutant${tick}" \
+        "# inert prose: ${command_token} ${short_option} is forbidden"; do
         cp "${REPO_ROOT}/tests/customer-requirement-expectations-binding.bats" "$mutant_suite"
-        printf '%s\n' "$direct_command" >> "$mutant_suite"
+        printf '%s\n' "$payload" >> "$mutant_suite"
         run assert_no_direct_in_place_sed "$mutant_suite"
         if [ "$status" -ne 1 ] || [[ "$output" != *"direct in-place sed syntax"* ]]; then
-            echo "in-place sed mutant was not rejected (${direct_command}; status=${status}): ${output}" >&2
+            echo "lexical portability mutant passed (status=${status}; payload=${payload}): ${output}" >&2
             return 1
         fi
     done
 
     cp "${REPO_ROOT}/tests/customer-requirement-expectations-binding.bats" "$mutant_suite"
-    printf '%s\n' 'sed \' '    -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
+    printf '%s \\\n    %s '\''s/x/y/'\'' mutant\n' \
+        "$command_token" "$short_option" >> "$mutant_suite"
     run assert_no_direct_in_place_sed "$mutant_suite"
     if [ "$status" -ne 1 ] || [[ "$output" != *"direct in-place sed syntax"* ]]; then
         echo "continued in-place sed mutant was not rejected (status=${status}): ${output}" >&2
@@ -1649,85 +1500,12 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
     fi
 
     cp "${REPO_ROOT}/tests/customer-requirement-expectations-binding.bats" "$mutant_suite"
-    printf '%s\n' '"sed" -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
+    portable_sed_in_place \
+        "s/^[[:space:]]*portable_sed_in_place /    ${command_token} ${short_option} /" \
+        "$mutant_suite"
     run assert_no_direct_in_place_sed "$mutant_suite"
     if [ "$status" -ne 1 ] || [[ "$output" != *"direct in-place sed syntax"* ]]; then
-        echo "quoted in-place sed mutant was not rejected (status=${status}): ${output}" >&2
-        return 1
-    fi
-
-    cp "${REPO_ROOT}/tests/customer-requirement-expectations-binding.bats" "$mutant_suite"
-    printf '%s\n' "'sed' -i.bak 's/x/y/' mutant" >> "$mutant_suite"
-    printf '%s\n' '"/usr/bin/sed" -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
-    run assert_no_direct_in_place_sed "$mutant_suite"
-    if [ "$status" -ne 1 ] || [[ "$output" != *"direct in-place sed syntax"* ]]; then
-        echo "quoted sed path mutants were not rejected (status=${status}): ${output}" >&2
-        return 1
-    fi
-
-    cp "${REPO_ROOT}/tests/customer-requirement-expectations-binding.bats" "$mutant_suite"
-    printf '%s\n' 'if ! sed -i.bak '\''s/x/y/'\'' mutant; then exit 1; fi' >> "$mutant_suite"
-    printf '%s\n' 'echo setup; sed -Ei '\''s/x/y/'\'' mutant' >> "$mutant_suite"
-    printf '%s\n' 'run "sed" --in-place '\''s/x/y/'\'' mutant' >> "$mutant_suite"
-    printf '%s\n' 'env MODE=test /usr/bin/sed -i '\''s/x/y/'\'' mutant' >> "$mutant_suite"
-    printf '%s\n' 'env -i sed -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
-    printf '%s\n' 'env -uPATH sed -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
-    printf '%s\n' 'env -C/tmp sed -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
-    printf '%s\n' 'command -- sed -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
-    printf '%s\n' 'time -p sed -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
-    printf '%s\n' 'run -127 sed -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
-    printf '%s\n' 'run --separate-stderr sed -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
-    printf '%s\n' 'run --keep-empty-lines sed -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
-    printf '%s\n' 'run -- sed -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
-    printf '%s\n' 'exec -c sed -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
-    printf '%s\n' 'exec -cl sed -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
-    printf '%s\n' 'exec -lc sed -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
-    printf '%s\n' 'exec -a replacement sed -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
-    printf '%s\n' 'exec -cla replacement sed -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
-    printf '%s\n' 'sudo -u nobody sed -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
-    printf '%s\n' '>/tmp/customer-binding-mutant sed -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
-    run assert_no_direct_in_place_sed "$mutant_suite"
-    if [ "$status" -ne 1 ] || [[ "$output" != *"direct in-place sed syntax"* ]]; then
-        echo "wrapped in-place sed mutants were not rejected (status=${status}): ${output}" >&2
-        return 1
-    fi
-
-    cp "${REPO_ROOT}/tests/customer-requirement-expectations-binding.bats" "$mutant_suite"
-    printf 'ignored=\140sed --in-place -e "s/x/y/" mutant\140\n' >> "$mutant_suite"
-    printf 'quoted="\140sed -i.bak s/x/y/ mutant\140"\n' >> "$mutant_suite"
-    printf 'sequential="before \140printf ok\140 middle \140sed -i.bak s/x/y/ mutant\140 after"\n' >> "$mutant_suite"
-    printf '\140true\140 sed -i.bak s/x/y/ mutant\n' >> "$mutant_suite"
-    printf 'MODE=\140true\140 sed -i.bak s/x/y/ mutant\n' >> "$mutant_suite"
-    printf '\140true\140sed -i.bak s/x/y/ mutant\n' >> "$mutant_suite"
-    run assert_no_direct_in_place_sed "$mutant_suite"
-    if [ "$status" -ne 1 ] || [[ "$output" != *"direct in-place sed syntax"* ]]; then
-        echo "legacy backtick sed mutants were not rejected (status=${status}): ${output}" >&2
-        return 1
-    fi
-
-    cp "${REPO_ROOT}/tests/customer-requirement-expectations-binding.bats" "$mutant_suite"
-    printf '%s\n' '# Never use sed -i.bak here.' >> "$mutant_suite"
-    printf '%s\n' 'echo sed -i.bak is forbidden' >> "$mutant_suite"
-    printf '%s\n' 'printf '\''%s\n'\'' '\''sed -i.bak is forbidden'\''' >> "$mutant_suite"
-    printf '%s\n' 'message="sed -i.bak is forbidden"' >> "$mutant_suite"
-    printf '%s\n' 'echo "quoted separator; sed -i.bak is forbidden"' >> "$mutant_suite"
-    printf '%s\n' 'env -u sed echo allowed' >> "$mutant_suite"
-    printf '%s\n' 'env -used echo allowed' >> "$mutant_suite"
-    printf '%s\n' 'command -v sed' >> "$mutant_suite"
-    printf '%s\n' 'sudo -u sed echo allowed' >> "$mutant_suite"
-    printf '%s\n' 'time -p echo sed -i.bak is forbidden' >> "$mutant_suite"
-    printf '%s\n' 'run -127 echo sed -i.bak is forbidden' >> "$mutant_suite"
-    printf '%s\n' 'run -- echo sed -i.bak is forbidden' >> "$mutant_suite"
-    printf '%s\n' 'exec -a sed echo allowed' >> "$mutant_suite"
-    printf '%s\n' 'exec -cla sed echo allowed' >> "$mutant_suite"
-    printf "literal='\\140sed --in-place -e s/x/y/ mutant\\140'\n" >> "$mutant_suite"
-    printf 'escaped=\134\140sed --in-place -e s/x/y/ mutant\134\140\n' >> "$mutant_suite"
-    printf 'message="before \140printf ok\140 sed -i.bak is literal prose"\n' >> "$mutant_suite"
-    printf 'escaped_message="before \134\140sed -i.bak\134\140 after"\n' >> "$mutant_suite"
-    printf 'echo \140true\140 sed -i.bak is literal prose\n' >> "$mutant_suite"
-    run assert_no_direct_in_place_sed "$mutant_suite"
-    if [ "$status" -ne 0 ]; then
-        echo "inert sed prose was treated as executable (status=${status}): ${output}" >&2
+        echo "real portable helper mutation was not rejected (status=${status}): ${output}" >&2
         return 1
     fi
 
@@ -1738,7 +1516,8 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
         echo "byte-oriented scan rejected inert non-UTF-8 input (status=${status}): ${output}" >&2
         return 1
     fi
-    printf '%s\n' "sed --in-place -E 's/x/y/' mutant" >> "$mutant_suite"
+    printf '%s %s -E '\''s/x/y/'\'' mutant\n' \
+        "$command_token" "$long_option" >> "$mutant_suite"
     run assert_no_direct_in_place_sed "$mutant_suite"
     if [ "$status" -ne 1 ] || [[ "$output" != *"direct in-place sed syntax"* ]]; then
         echo "byte-oriented scan missed executable sed (status=${status}): ${output}" >&2
