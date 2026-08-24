@@ -19,11 +19,12 @@ PREFLIGHT = ROOT / "dev-tools/preflight-talo-0001-workflow-run.sh"
 PUBLISHER = ROOT / "dev-tools/publish-talo-0001-check.sh"
 EVALUATOR = ROOT / "dev-tools/check-talo-0001-trusted-authority.py"
 RUNNER_UNIT = ROOT / "dev-tools/systemd/talo-0001-trusted-runner.service"
+ACTIONLINT = ROOT / ".github/actionlint.yaml"
 
 CHECKOUT = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
 EXPECTED_DIGESTS = {
     "preflight": "548acccf9f3dd75687f2984698b2b751eb6c810536b29c480546d1f17bbb9a7b",
-    "controller": "960c15f55cbd62e59d8d3858dce1d3d9c21a0166edd94059101c94ed96613f26",
+    "controller": "9f7b6a6e8fefa91d2c3d288439acef736d4d1020c9013c1990cf9e79384ef74d",
     "publisher": "adc8edc95e02c983bfd0a690dc018c0cec986115cf614444879928936f3b578e",
     "evaluator": "a0e86fc87493231afffd3164587f0c14e463f5e8c4acd8f4f9679e2504280d1a",
     "runner-unit": "929c8f138a839383bd754600fa65c72996b04703ba8050d1714c3ea51a50c67a",
@@ -40,6 +41,7 @@ EXPECTED_PATHS = {
     "datarim/insights/TALO-0001-research-authority-audit.json",
     ".github/workflows/dev-tools-lint.yml",
     ".github/workflows/talo-0001-trusted-replay.yml",
+    ".github/actionlint.yaml",
 }
 EXPECTED_JOB_IF = (
     "github.event.workflow_run.workflow_id == 270931528 && "
@@ -119,6 +121,12 @@ def validate_projection(workflow: dict[str, Any], findings: list[str]) -> None:
         findings,
     )
     trigger = workflow.get("on")
+    exact(
+        set(trigger) if isinstance(trigger, dict) else None,
+        {"pull_request"},
+        "projection-trigger",
+        findings,
+    )
     paths = (
         trigger.get("pull_request", {}).get("paths")
         if isinstance(trigger, dict)
@@ -252,6 +260,25 @@ def validate_code(findings: list[str]) -> None:
         findings.append("missing:trusted-evaluator-digest")
     if "python3 /candidate/dev-tools/check-research-authority-audit.py" in controller:
         findings.append("forbidden:candidate-evaluator")
+    if 'cmp -s -- "$expected" "$result"' not in controller:
+        findings.append("missing:exact-validator-output-comparison")
+    if "grep -Fqx" in controller:
+        findings.append("forbidden:partial-validator-output-comparison")
+    if "del(" in controller:
+        findings.append("forbidden:cardinality-changing-mutant")
+    for value in (
+        '.mapping_source_git_blob)="0000000000000000000000000000000000000000"',
+        '.revision_id=="tal-role-design-lead@r4") | .path)',
+        '.source_id=="S29") | .git_blob)',
+        '.id=="TALO-0032-planning-envelope") | .evidence_path)',
+        '.body_sha256)="0000000000000000000000000000000000000000000000000000000000000000"',
+        '.task_id="TALO-9999"',
+        '.knowledge_snapshot="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"',
+        "research_authority_audit=NOT_MET\\nfinding=",
+        "for mutant in mapping candidate external derived comment task snapshot",
+    ):
+        if value not in controller:
+            findings.append(f"missing:sealed-mutant-contract:{value}")
     for value in (
         "--network none",
         "--read-only",
@@ -281,6 +308,12 @@ def main() -> int:
     findings: list[str] = []
     validate_projection(load_workflow(PROJECTION, "projection", findings), findings)
     validate_trusted(load_workflow(TRUSTED, "trusted", findings), findings)
+    exact(
+        load_workflow(ACTIONLINT, "actionlint", findings),
+        {"self-hosted-runner": {"labels": ["talo-0001-trusted"]}},
+        "actionlint-labels",
+        findings,
+    )
     validate_code(findings)
     if findings:
         print("talo_0001_workflow_contract=NOT_MET")

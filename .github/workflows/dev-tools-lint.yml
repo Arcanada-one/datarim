@@ -24,6 +24,7 @@ name: dev-tools-lint
       - 'datarim/insights/TALO-0001-research-authority-audit.json'
       - '.github/workflows/dev-tools-lint.yml'
       - '.github/workflows/talo-0001-trusted-replay.yml'
+      - '.github/actionlint.yaml'
 
 permissions:
   contents: read

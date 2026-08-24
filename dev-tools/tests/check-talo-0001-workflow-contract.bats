@@ -16,6 +16,9 @@ setup() {
         "$FIXTURE/.github/workflows/"
     cp "$ROOT/.github/workflows/talo-0001-trusted-replay.yml" \
         "$FIXTURE/.github/workflows/"
+    if [ -f "$ROOT/.github/actionlint.yaml" ]; then
+        cp "$ROOT/.github/actionlint.yaml" "$FIXTURE/.github/"
+    fi
 }
 
 run_check() {
@@ -116,6 +119,42 @@ PY
     [[ "$output" == *'invalid_yaml:trusted:duplicate key'* ]]
 }
 
+@test "actionlint custom runner label is closed and load-bearing" {
+    local config="$FIXTURE/.github/actionlint.yaml"
+    if [ -f "$config" ]; then
+        sed -i '/talo-0001-trusted/d' "$config"
+    fi
+    run_check
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'mismatch:actionlint-labels'* ]]
+}
+
+@test "projection trigger rejects push schedule and workflow-dispatch broadening" {
+    local workflow="$FIXTURE/.github/workflows/dev-tools-lint.yml"
+    local original="$BATS_TEST_TMPDIR/dev-tools-lint-trigger.original"
+    cp "$workflow" "$original"
+    while IFS= read -r trigger; do
+        cp "$original" "$workflow"
+        python3 - "$workflow" "$trigger" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+text = path.read_text(encoding="utf-8")
+needle = "permissions:\n"
+assert needle in text
+path.write_text(text.replace(needle, f"  {sys.argv[2]}: {{}}\n\npermissions:\n", 1), encoding="utf-8")
+PY
+        run_check
+        [ "$status" -eq 1 ] \
+            && [[ "$output" == *'mismatch:projection-trigger'* ]]
+    done <<'TRIGGERS'
+push
+schedule
+workflow_dispatch
+TRIGGERS
+}
+
 @test "all TALO trust files are load-bearing projection paths" {
     local workflow="$FIXTURE/.github/workflows/dev-tools-lint.yml"
     local original="$BATS_TEST_TMPDIR/dev-tools-lint.original"
@@ -140,6 +179,7 @@ datarim/insights/TALO-0001-research-authority-audit.json
 dev-tools/**
 .github/workflows/dev-tools-lint.yml
 .github/workflows/talo-0001-trusted-replay.yml
+.github/actionlint.yaml
 PATHS
 }
 
@@ -157,6 +197,27 @@ PATHS
     run_check
     [ "$status" -eq 1 ] \
         && [[ "$output" == *'missing:trusted-evaluator-digest'* ]]
+}
+
+@test "trusted validator requires exact ordered complete diagnostics" {
+    local controller="$FIXTURE/dev-tools/trusted-talo-0001-replay.sh"
+    sed -i 's/cmp -s -- "$expected" "$result"/grep -Fqx -- "$expected_text" "$result"/' \
+        "$controller"
+    run_check
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'missing:exact-validator-output-comparison'* ]] \
+        && [[ "$output" == *'forbidden:partial-validator-output-comparison'* ]]
+}
+
+@test "all seven sealed mutants preserve cardinality and remain load-bearing" {
+    local controller="$FIXTURE/dev-tools/trusted-talo-0001-replay.sh"
+    sed -i \
+        's/.mapping_source_git_blob)=\"0000000000000000000000000000000000000000\"/.id)=\"R1\"/' \
+        "$controller"
+    run_check
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'missing:sealed-mutant-contract:'* ]] \
+        && [[ "$output" == *'digest_mismatch:controller'* ]]
 }
 
 @test "sandbox identity is the dedicated non-root runner identity" {

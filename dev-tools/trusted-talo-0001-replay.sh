@@ -19,7 +19,7 @@ done
 for value in EVENT CANDIDATE OUTPUT; do
     [ -n "${!value}" ] || { echo "ERROR: --${value,,} is required" >&2; exit 2; }
 done
-for command in curl docker gh git jq sha256sum; do
+for command in cmp curl docker gh git jq sha256sum; do
     command -v "$command" >/dev/null || { echo "ERROR: missing $command" >&2; exit 2; }
 done
 
@@ -82,7 +82,8 @@ done
 
 run_validator() {
     local case_dir=$1 expected_status=$2 expected_text=$3
-    local result="$scratch/result"
+    local result="$scratch/result" expected="$scratch/expected"
+    printf '%s\n' "$expected_text" >"$expected"
     set +e
     docker run --rm --network none --read-only \
         --user "$sandbox_uid:$sandbox_gid" \
@@ -105,21 +106,21 @@ run_validator() {
     local status=$?
     set -e
     if [ "$status" -ne "$expected_status" ] \
-        || ! grep -Fqx -- "$expected_text" "$result"; then
+        || ! cmp -s -- "$expected" "$result"; then
         echo "ERROR: sandboxed verdict mismatch" >&2
-        : >"$result"
+        : >"$result"; : >"$expected"
         exit 1
     fi
-    : >"$result"
+    : >"$result"; : >"$expected"
 }
 
 mkdir -p "$scratch/sealed" "$scratch/cases"
 cp "$manifest" "$scratch/sealed/baseline.json"
-jq 'del(.reviews[] | select(.id=="R2")) | .item_table.expected_rows=28' "$manifest" >"$scratch/sealed/items.json"
-jq 'del(.candidates[] | select(.revision_id=="tal-capability-design-systems@r1"))' "$manifest" >"$scratch/sealed/candidates.json"
-jq 'del(.external_pins[] | select(.source_id=="S29"))' "$manifest" >"$scratch/sealed/external.json"
+jq '(.reviews[] | select(.id=="R1") | .mapping_source_git_blob)="0000000000000000000000000000000000000000"' "$manifest" >"$scratch/sealed/mapping.json"
+jq '(.candidates[] | select(.revision_id=="tal-role-design-lead@r4") | .path)="graph/data/local/tal-role-developer@r4.json"' "$manifest" >"$scratch/sealed/candidate.json"
+jq '(.external_pins[] | select(.source_id=="S29") | .git_blob)="0000000000000000000000000000000000000000"' "$manifest" >"$scratch/sealed/external.json"
 jq '(.derived_records[] | select(.id=="TALO-0032-planning-envelope") | .evidence_path)="replacement.json"' "$manifest" >"$scratch/sealed/derived.json"
-jq 'del(.comments[] | select((.id|tostring)=="5347971637"))' "$manifest" >"$scratch/sealed/comments.json"
+jq '(.comments[] | select((.id|tostring)=="5347971637") | .body_sha256)="0000000000000000000000000000000000000000000000000000000000000000"' "$manifest" >"$scratch/sealed/comment.json"
 jq '.task_id="TALO-9999"' "$manifest" >"$scratch/sealed/task.json"
 jq '.knowledge_snapshot="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"' "$manifest" >"$scratch/sealed/snapshot.json"
 
@@ -132,22 +133,25 @@ run_case() {
 }
 run_case "$scratch/sealed/baseline.json" 0 \
     'research_authority_audit=MET items=66 candidates=19 external_pins=8'
-run_case "$scratch/sealed/items.json" 1 'finding=review_set_mismatch:missing=R2'
-run_case "$scratch/sealed/candidates.json" 1 \
-    'finding=candidate_set_mismatch:missing=tal-capability-design-systems@r1'
-run_case "$scratch/sealed/external.json" 1 'finding=external_pin_set_mismatch:missing=S29'
+run_case "$scratch/sealed/mapping.json" 1 \
+    $'research_authority_audit=NOT_MET\nfinding=review_authority_mismatch:R1\nfinding=source_blob_mismatch:R1-mapping'
+run_case "$scratch/sealed/candidate.json" 1 \
+    $'research_authority_audit=NOT_MET\nfinding=candidate_authority_mismatch:tal-role-design-lead@r4\nfinding=candidate_git_blob_mismatch:tal-role-design-lead@r4\nfinding=candidate_path_missing:tal-role-design-lead@r4'
+run_case "$scratch/sealed/external.json" 1 \
+    $'research_authority_audit=NOT_MET\nfinding=external_authority_mismatch:S29\nfinding=external_pin_blob_mismatch:S29'
 run_case "$scratch/sealed/derived.json" 1 \
-    'finding=derived_record_authority_mismatch:TALO-0032-planning-envelope'
-run_case "$scratch/sealed/comments.json" 1 \
-    'finding=comment_set_mismatch:missing=5347971637'
+    $'research_authority_audit=NOT_MET\nfinding=derived_record_authority_mismatch:TALO-0032-planning-envelope\nfinding=derived_record_path_missing:TALO-0032-planning-envelope'
+run_case "$scratch/sealed/comment.json" 1 \
+    $'research_authority_audit=NOT_MET\nfinding=comment_authority_mismatch:5347971637\nfinding=comment_body_digest_mismatch:5347971637'
 run_case "$scratch/sealed/task.json" 1 \
-    'finding=task_id_mismatch:expected=TALO-0001:actual=TALO-9999'
-run_case "$scratch/sealed/snapshot.json" 1 'finding=knowledge_snapshot_authority_mismatch'
+    $'research_authority_audit=NOT_MET\nfinding=task_id_mismatch:expected=TALO-0001:actual=TALO-9999'
+run_case "$scratch/sealed/snapshot.json" 1 \
+    $'research_authority_audit=NOT_MET\nfinding=knowledge_snapshot_authority_mismatch\nfinding=knowledge_snapshot_mismatch'
 
 candidate_validator_digest=$(sha256sum "$candidate_validator" | cut -d' ' -f1)
 manifest_digest=$(sha256sum "$manifest" | cut -d' ' -f1)
 mutation_digest=$(
-    for mutant in items candidates external derived comments task snapshot; do
+    for mutant in mapping candidate external derived comment task snapshot; do
         sha256sum "$scratch/sealed/$mutant.json" | cut -d' ' -f1
     done | sha256sum | cut -d' ' -f1
 )
