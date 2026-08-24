@@ -149,12 +149,28 @@ session_spawn_interactive() {
   [ -n "$session" ] && [ -n "$agent_cmd" ] || { echo "ERR: usage: session_spawn_interactive <session> <agent-cmd> [role]" >&2; return 2; }
   if tmux has-session -t "$session" 2>/dev/null; then
     pane_dead="$(tmux display-message -p -t "$session" '#{pane_dead}' 2>/dev/null || printf 1)"
-    [ "$pane_dead" = 1 ] || return 0   # reuse a live existing session
+    if [ "$pane_dead" != 1 ]; then
+      # Reuse keeps the process, not the prior role. Re-project the requested
+      # role so a developer -> designer handoff cannot retain stale authority.
+      if [ -n "$role" ]; then
+        # The initial role projection may have just used the pane's 500 ms
+        # security cooldown. Honour that boundary instead of bypassing it.
+        sleep 0.6
+        _inject_role_context "$session" "$role"
+      fi
+      return 0
+    fi
     if bash "$DR_ORCH_DIR/scripts/context_window_setup.sh" enabled >/dev/null 2>&1; then
       _session_spawn_with_context "$session" "$agent_cmd" "$role"
       return
     fi
     tmux respawn-pane -k -t "$session" "$agent_cmd"
+    # respawn-pane creates a new agent process; it needs the same role-start
+    # projection as a newly created session.
+    if [ -n "$role" ]; then
+      sleep 0.6
+      _inject_role_context "$session" "$role"
+    fi
     return
   fi
   if bash "$DR_ORCH_DIR/scripts/context_window_setup.sh" enabled >/dev/null 2>&1; then

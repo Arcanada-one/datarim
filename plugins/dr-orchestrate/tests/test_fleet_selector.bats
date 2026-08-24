@@ -105,3 +105,14 @@ _fake_bin() { printf '#!/usr/bin/env bash\nexit 0\n' > "$TMP_BIN/$1"; chmod +x "
     run bash "$RESOLVER" fleet_role_session_init '../etc/passwd'
     [ "$status" -ne 0 ]
 }
+
+@test "fleet_role_session_init rejects sequence and mapping YAML keys without traceback" {
+    for hostile_key in '? [hostile, key]' '? {hostile: key}'; do
+        roles="$BATS_TEST_TMPDIR/hostile-$(printf '%s' "$hostile_key" | shasum -a 256 | cut -c1-8).yaml"
+        printf '%s\n%s\n' "$hostile_key" ': rejected' > "$roles"
+        run env DR_FLEET_ROLES="$roles" bash "$RESOLVER" fleet_role_session_init designer
+        [ "$status" -ne 0 ]
+        [[ "$output" != *"Traceback"* ]]
+        [[ "$output" == *"mapping keys must be scalar"* ]]
+    done
+}
