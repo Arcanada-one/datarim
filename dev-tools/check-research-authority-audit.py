@@ -16,7 +16,6 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 from urllib.parse import quote
 
-
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
 ITEM_ID = re.compile(r"^R[12]-[0-9]{2}$")
@@ -29,8 +28,43 @@ TASK_REF = re.compile(r"TALO-[0-9]{4}")
 COMMENT_ALGORITHM = "github-json-body-utf8-no-extra-lf/1"
 ITEM_ALGORITHM = "cells-trimmed-unit-separator-rows-lf-no-final-lf/1"
 MAX_EXTERNAL_SOURCE_BYTES = 16 * 1024 * 1024
+MAX_JSON_INPUT_BYTES = 16 * 1024 * 1024
+MAX_TEXT_INPUT_BYTES = 16 * 1024 * 1024
+MAX_JSON_DEPTH = 128
+AUTHORITY_PROJECTION_FIELDS: dict[str, tuple[str, ...]] = {
+    "review": (
+        "id",
+        "source_path",
+        "git_blob",
+        "expected_items",
+        "mapping_source_path",
+        "mapping_source_git_blob",
+        "mapping_comment_id",
+    ),
+    "comment": (
+        "id",
+        "repository",
+        "issue_number",
+        "navigation_url",
+        "body_sha256",
+    ),
+    "external": (
+        "source_id",
+        "navigation_url",
+        "accessed_at",
+        "repository",
+        "commit",
+        "path",
+        "git_blob",
+        "content_sha256",
+        "immutable_url",
+        "cache_file",
+    ),
+    "candidate": ("revision_id", "path", "git_blob", "content_digest"),
+}
 CLOSED_AUDIT_PROFILES: dict[str, dict[str, Any]] = {
     "TALO-0001": {
+        "knowledge_snapshot": "c636fea7b7dda0245fbbfd1da8a5a78c7e56c2ae",
         "candidates": {
             "tal-role-design-lead@r4": "tal-role-design-lead",
             "tal-role-knowledge-curator@r2": "tal-role-knowledge-curator",
@@ -84,6 +118,47 @@ CLOSED_AUDIT_PROFILES: dict[str, dict[str, Any]] = {
         },
         "external_source_ids": {"S20", "S21", "S22", "S23", "S24", "S27", "S28", "S29"},
         "comment_ids": {"5347868439", "5347971637"},
+        "authority_digests": {
+            "review": {
+                "R1": "5b37406cac3b41960b6ef5af7e0f7ce560d848d69f967add80140ca463db6376",
+                "R2": "cc27955f8359a33ff4ded408e45c3b1da473ab9d9f581036f4b60052fbb939ee",
+            },
+            "comment": {
+                "5347868439": "6385f20bbcca25c8f466aca170b583a45b5ef6ea395329a82ffaa3c42865648d",
+                "5347971637": "76f3d8d847c7cdcaf41607352601cce68fd222984f3d2b2ab7e4ad379cbe2eca",
+            },
+            "external": {
+                "S20": "1999a8fec8d1c0416f3dc50e4be1273433d2cda0ce6c9111dac95389bd6d16d5",
+                "S21": "7a1fc2ca019558ab0bcdc4712a96dea70c80d276934e3c53318df86616cabf30",
+                "S22": "cb0549eef61933724396bad09245787c71d9fae6b6b4dfa064f761af5d37241c",
+                "S23": "26dd3e8fce943400f0e1d6a77b21a2cce68b1499a78f6b816cb557a892adc6f6",
+                "S24": "f217d3e43f5966c34bd6c71d4279ff162ec0c02a2771fb58326b981819a19cb4",
+                "S27": "e9d595cf0c2bf5809841d89e74ac5e914424a174f43434e187fd920dda1f5cc5",
+                "S28": "565720ce3761d53f9d9ebcbeac2f4fecb28948318435afc9ba50896e19f0b1a8",
+                "S29": "bf3948e5527b245a128445782bd7c22caade47f53426508fc42c6ecd8eee84ac",
+            },
+            "candidate": {
+                "tal-role-design-lead@r4": "0d04287430bfbe55c55a6da54b8fd55f9b205a8eefb7dd5efc5a9c154a7ef2f8",
+                "tal-role-knowledge-curator@r2": "6e3eda2b64a3792167b2fdeff3be8c7e364ccc56516fe085c1716c654f7cd1a7",
+                "tal-role-evidence-auditor@r2": "6a78bcc6c41a48343c8f6de36c54fc88d0132f3e88c197708a19b588d5d7db3f",
+                "tal-role-deployment-operator@r2": "aea327f5ebd2cea155c511b479933d9171fa4f6cf1bbe7dfa24d6e003a73373e",
+                "tal-skill-design-research@r3": "f529ae316b7dd855a202c99524a2d2cb46ea5cbb8105c472d5c7c86e924a2a76",
+                "datarim-skill-frontend-ui@r2": "b77f9547d4f7e05d25a144086f651ab0eb9e9671cf0dcdfda99bb7ac9f67b16c",
+                "datarim-skill-playwright-qa@r2": "8bceb4b8ad8582c54cbc8a79547d78f8a5e287868b5d611041f8e25968c214fd",
+                "tal-skill-theming-anti-fouc@r3": "11cf37eef508ea239c04a0a12596d4bd8652334740f2fcdf81319329ceaca5fd",
+                "tal-skill-graph-neighbor-visualization@r1": "573a3fb828f8fd48cd500aa5dbda4e44a4759ab4f942355bcd18d58a6a1d591d",
+                "tal-skill-success-criterion-measurement@r2": "c43d594d47d1e0fdd3cd0bbe9a86f3474adef667871a2747413c0edd83aab633",
+                "tal-blueprint-design-system-atlas@r4": "2a69c6bfcbbe5e3753d50140a2f0cad226097538d03d8d5c3f9e5fbf12a0a94d",
+                "tal-blueprint-component-library@r4": "b41ebe35fe37a493f36fd9f972b4190f4044fcf688844cf80fe6a1c8e99e8354",
+                "tal-blueprint-evidence-bearing-verification@r2": "f7774ce22b37fc772f2348391ac4db827cb819ec35fec9ca70aa4849d327a418",
+                "tal-constraint-style-guide@r4": "e649d8c9d2df3a7aa1fbdf217cd0c492bf8efc93b15bb2c7c92c7aaf5e76220f",
+                "tal-constraint-sanitized-projection@r2": "83b380bddd85e0171d73ba39bd47e849a93eee6cef87aa2c88cfecd2c38492d9",
+                "tal-policy-honesty-presentation@r2": "ce574d27cd269327792e5757089cc61fe8f8021987de32739a3876e9ffef4821",
+                "tal-sc-design-accessibility@r2": "cb37394354caf36defb65086f12ecb6c26471405aef3dfaa33135bca35c0fb98",
+                "tal-sc-design-system@r2": "f947d712ab7982a658cb5e6b89903209a54eff848ec2e4f11c6538577f3b9dba",
+                "tal-capability-design-systems@r1": "ba294975237f82e959ad2f4f92b5c0d67ba6ee6b4402d4421d0f336a0035773b",
+            },
+        },
     },
     "TALO-TEST": {
         "candidates": {"candidate-role@r1": "candidate-role"},
@@ -135,38 +210,59 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def load_json(path: Path, label: str, findings: list[str]) -> Any | None:
-    def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
-        result: dict[str, Any] = {}
-        for key, value in pairs:
-            if key in result:
-                raise ValueError(f"duplicate JSON key: {key}")
-            result[key] = value
-        return result
+def json_depth_within_limit(value: Any) -> bool:
+    stack = [(value, 1)]
+    while stack:
+        current, depth = stack.pop()
+        if depth > MAX_JSON_DEPTH:
+            return False
+        if isinstance(current, dict):
+            stack.extend((child, depth + 1) for child in current.values())
+        elif isinstance(current, list):
+            stack.extend((child, depth + 1) for child in current)
+    return True
 
+
+def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
+def load_json(path: Path, label: str, findings: list[str]) -> Any | None:
     try:
-        return json.loads(
-            path.read_text(encoding="utf-8"), object_pairs_hook=reject_duplicate_keys
-        )
-    except (OSError, UnicodeError, json.JSONDecodeError, ValueError):
+        with path.open("rb") as handle:
+            content = handle.read(MAX_JSON_INPUT_BYTES + 1)
+    except OSError:
         findings.append(f"invalid_json:{label}")
         return None
+    if len(content) > MAX_JSON_INPUT_BYTES:
+        findings.append(f"input_resource_limit:bytes:{label}")
+        return None
+    return load_json_bytes(content, label, findings)
 
 
 def load_json_bytes(content: bytes, label: str, findings: list[str]) -> Any | None:
-    def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
-        result: dict[str, Any] = {}
-        for key, value in pairs:
-            if key in result:
-                raise ValueError(f"duplicate JSON key: {key}")
-            result[key] = value
-        return result
-
+    if len(content) > MAX_JSON_INPUT_BYTES:
+        findings.append(f"input_resource_limit:bytes:{label}")
+        return None
     try:
-        return json.loads(content.decode("utf-8"), object_pairs_hook=reject_duplicate_keys)
+        value = json.loads(
+            content.decode("utf-8"), object_pairs_hook=reject_duplicate_keys
+        )
+    except RecursionError:
+        findings.append(f"input_resource_limit:depth:{label}")
+        return None
     except (UnicodeError, json.JSONDecodeError, ValueError):
         findings.append(f"invalid_json:{label}")
         return None
+    if not json_depth_within_limit(value):
+        findings.append(f"input_resource_limit:depth:{label}")
+        return None
+    return value
 
 
 def safe_relative_path(root: Path, raw_path: Any) -> Path | None:
@@ -378,7 +474,9 @@ def mapping_rows(source_text: str) -> dict[str, tuple[str, ...]]:
             continue
         match = re.match(r"^(R[12]-[0-9]{2})(?:\s|$)", cells[0])
         if match is not None:
-            selected_index = mapping_index if mapping_index is not None else len(cells) - 1
+            selected_index = (
+                mapping_index if mapping_index is not None else len(cells) - 1
+            )
             if selected_index < len(cells):
                 targets = set(mapping_targets(cells[selected_index]))
                 if decision_index is not None and decision_index < len(cells):
@@ -442,7 +540,11 @@ def validate_reviews_and_items(
             continue
         review_id = review.get("id")
         expected_items = review.get("expected_items")
-        if review_id not in ("R1", "R2") or not isinstance(expected_items, int) or expected_items < 1:
+        if (
+            review_id not in ("R1", "R2")
+            or not isinstance(expected_items, int)
+            or expected_items < 1
+        ):
             findings.append(f"review_identity_invalid:{review_id}")
             continue
         source = validate_git_blob(
@@ -490,13 +592,17 @@ def validate_reviews_and_items(
                 findings.append(f"mapping_comment_evidence_missing:{review_id}")
             else:
                 source_mappings.update(mapping_rows(body))
-        expected_ids.update(f"{review_id}-{ordinal:02d}" for ordinal in range(1, expected_items + 1))
+        expected_ids.update(
+            f"{review_id}-{ordinal:02d}" for ordinal in range(1, expected_items + 1)
+        )
 
     rows = table_rows(insights)
     if "authorized_mapping_additions" in manifest:
         findings.append("authorized_mapping_additions_forbidden")
     counts = Counter(cells[0] for cells in rows)
-    for item_id in sorted(identifier for identifier, count in counts.items() if count > 1):
+    for item_id in sorted(
+        identifier for identifier, count in counts.items() if count > 1
+    ):
         findings.append(f"duplicate_item_id:{item_id}")
     actual_ids = set(counts)
     for review in reviews:
@@ -520,7 +626,10 @@ def validate_reviews_and_items(
         item_id, heading, mapping, selection = cells
         if source_headings.get(item_id) != heading:
             findings.append(f"verbatim_heading_mismatch:{item_id}")
-        if TASK_REF.search(mapping) is None and mapping != "Standing constraint -> all subtasks":
+        if (
+            TASK_REF.search(mapping) is None
+            and mapping != "Standing constraint -> all subtasks"
+        ):
             findings.append(f"delivery_mapping_missing:{item_id}")
         expected_mapping = source_mappings.get(item_id)
         if expected_mapping is None:
@@ -528,11 +637,15 @@ def validate_reviews_and_items(
         else:
             if set(mapping_targets(mapping)) != set(expected_mapping):
                 findings.append(f"delivery_mapping_mismatch:{item_id}")
-        if not selection.startswith(("Direct:", "Cross-functional:", "Human boundary:")):
+        if not selection.startswith(
+            ("Direct:", "Cross-functional:", "Human boundary:")
+        ):
             findings.append(f"selection_applicability_invalid:{item_id}")
         if "Rejected" in selection:
             findings.append(f"selected_item_rejected:{item_id}")
-        if manifest.get("declared_language") == "en" and any(CYRILLIC.search(cell) for cell in cells):
+        if manifest.get("declared_language") == "en" and any(
+            CYRILLIC.search(cell) for cell in cells
+        ):
             findings.append(f"declared_english_contains_cyrillic:{item_id}")
 
     table_contract = manifest.get("item_table")
@@ -544,7 +657,10 @@ def validate_reviews_and_items(
         if table_contract.get("expected_rows") != len(rows):
             findings.append("item_table_expected_rows_mismatch")
         expected_digest = table_contract.get("sha256")
-        if not isinstance(expected_digest, str) or item_table_digest(rows) != expected_digest:
+        if (
+            not isinstance(expected_digest, str)
+            or item_table_digest(rows) != expected_digest
+        ):
             findings.append("item_table_digest_mismatch")
     return len(rows)
 
@@ -574,9 +690,7 @@ def validate_comments(
         seen.add(identifier)
         repository = comment.get("repository")
         issue_number = comment.get("issue_number")
-        canonical_navigation = (
-            f"https://github.com/{repository}/issues/{issue_number}#issuecomment-{identifier}"
-        )
+        canonical_navigation = f"https://github.com/{repository}/issues/{issue_number}#issuecomment-{identifier}"
         canonical_issue_api = (
             f"https://api.github.com/repos/{repository}/issues/{issue_number}"
         )
@@ -642,6 +756,34 @@ def report_closed_set(
         findings.append(f"{finding_prefix}:duplicate={','.join(duplicates)}")
 
 
+def authority_projection_digest(entry: dict[str, Any], category: str) -> str:
+    projection = {
+        field: entry.get(field) for field in AUTHORITY_PROJECTION_FIELDS[category]
+    }
+    canonical = json.dumps(
+        projection, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def validate_authority_digests(
+    entries: list[Any],
+    category: str,
+    identity_field: str,
+    expected_digests: dict[str, str],
+    findings: list[str],
+) -> None:
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        identity = str(entry.get(identity_field))
+        expected = expected_digests.get(identity)
+        if expected is None:
+            continue
+        if authority_projection_digest(entry, category) != expected:
+            findings.append(f"{category}_authority_mismatch:{identity}")
+
+
 def validate_closed_profile(
     manifest: dict[str, Any], expected_task_id: str, findings: list[str]
 ) -> None:
@@ -654,6 +796,15 @@ def validate_closed_profile(
         findings.append(
             f"task_id_mismatch:expected={expected_task_id}:actual={task_id}"
         )
+    expected_snapshot = profile.get("knowledge_snapshot")
+    if (
+        expected_snapshot is not None
+        and manifest.get("knowledge_snapshot") != expected_snapshot
+    ):
+        findings.append("knowledge_snapshot_authority_mismatch")
+
+    reviews = manifest.get("reviews")
+    review_entries = reviews if isinstance(reviews, list) else []
 
     candidates = manifest.get("candidates")
     candidate_entries = candidates if isinstance(candidates, list) else []
@@ -716,6 +867,37 @@ def validate_closed_profile(
         findings,
     )
 
+    authority_digests = profile.get("authority_digests")
+    if isinstance(authority_digests, dict):
+        validate_authority_digests(
+            review_entries,
+            "review",
+            "id",
+            authority_digests.get("review", {}),
+            findings,
+        )
+        validate_authority_digests(
+            comment_entries,
+            "comment",
+            "id",
+            authority_digests.get("comment", {}),
+            findings,
+        )
+        validate_authority_digests(
+            pin_entries,
+            "external",
+            "source_id",
+            authority_digests.get("external", {}),
+            findings,
+        )
+        validate_authority_digests(
+            candidate_entries,
+            "candidate",
+            "revision_id",
+            authority_digests.get("candidate", {}),
+            findings,
+        )
+
 
 def validate_candidates(
     manifest: dict[str, Any],
@@ -751,11 +933,17 @@ def validate_candidates(
             continue
         revision_id = candidate.get("revision_id")
         path_value = candidate.get("path")
+        expected_git_blob = candidate.get("git_blob")
         content_digest = candidate.get("content_digest")
         if not isinstance(revision_id, str) or revision_id in seen:
             findings.append(f"candidate_revision_duplicate:{revision_id}")
             continue
         seen.add(revision_id)
+        actual_git_blob = git_value(
+            knowledge_root, "rev-parse", "--verify", f"{snapshot}:{path_value}"
+        )
+        if expected_git_blob is not None and actual_git_blob != expected_git_blob:
+            findings.append(f"candidate_git_blob_mismatch:{revision_id}")
         candidate_bytes = git_object_bytes(
             knowledge_root, snapshot, path_value, findings, f"candidate:{revision_id}"
         )
@@ -765,9 +953,11 @@ def validate_candidates(
         payload = load_json_bytes(candidate_bytes, f"candidate-{revision_id}", findings)
         if not isinstance(payload, dict):
             continue
-        expected_logical_id = CLOSED_AUDIT_PROFILES.get(expected_task_id, {}).get(
-            "candidates", {}
-        ).get(revision_id)
+        expected_logical_id = (
+            CLOSED_AUDIT_PROFILES.get(expected_task_id, {})
+            .get("candidates", {})
+            .get(revision_id)
+        )
         if payload.get("logical_id") != expected_logical_id:
             findings.append(f"candidate_logical_id_mismatch:{revision_id}")
         if payload.get("revision_id") != revision_id:
@@ -778,7 +968,10 @@ def validate_candidates(
             isinstance(value, str) and value in line
             for value in (path_value, revision_id, content_digest)
             for line in insights.splitlines()
-            if all(str(required) in line for required in (path_value, revision_id, content_digest))
+            if all(
+                str(required) in line
+                for required in (path_value, revision_id, content_digest)
+            )
         )
         if not documented:
             findings.append(f"candidate_not_documented:{revision_id}")
@@ -792,7 +985,10 @@ def validate_candidates(
         if not matching:
             findings.append(f"candidate_authority_missing:{revision_id}")
             continue
-        latest = max(enumerate(matching), key=lambda pair: (str(pair[1].get("issued_at", "")), pair[0]))[1]
+        latest = max(
+            enumerate(matching),
+            key=lambda pair: (str(pair[1].get("issued_at", "")), pair[0]),
+        )[1]
         if latest.get("event_type") != "approve":
             findings.append(
                 f"candidate_latest_authority_not_approve:{revision_id}:{latest.get('event_type')}"
@@ -837,7 +1033,11 @@ def validate_derived_records(
             token = token.replace("~1", "/").replace("~0", "~")
             if isinstance(current, dict) and token in current:
                 current = current[token]
-            elif isinstance(current, list) and token.isdigit() and int(token) < len(current):
+            elif (
+                isinstance(current, list)
+                and token.isdigit()
+                and int(token) < len(current)
+            ):
                 current = current[int(token)]
             else:
                 raise KeyError(pointer)
@@ -879,7 +1079,9 @@ def validate_derived_records(
             except KeyError:
                 actual = None
             if actual != expected:
-                findings.append(f"derived_record_pointer_mismatch:{record_id}:{pointer}")
+                findings.append(
+                    f"derived_record_pointer_mismatch:{record_id}:{pointer}"
+                )
             if expected not in insights:
                 findings.append(f"derived_record_not_documented:{record_id}:{pointer}")
         authority_required = record.get("authority_required")
@@ -933,9 +1135,10 @@ def validate_external_pins(
         immutable_url = pin.get("immutable_url")
         repository = pin.get("repository")
         source_path = pin.get("path")
-        repository_valid = isinstance(repository, str) and re.fullmatch(
-            r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository
-        ) is not None
+        repository_valid = (
+            isinstance(repository, str)
+            and re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository) is not None
+        )
         source_path_valid = safe_git_source_path(source_path) is not None
         if not repository_valid:
             findings.append(f"external_pin_repository_invalid:{source_id}")
@@ -947,14 +1150,13 @@ def validate_external_pins(
             findings.append(f"external_pin_blob_invalid:{source_id}")
         if not isinstance(digest, str) or HEX64.fullmatch(digest) is None:
             findings.append(f"external_pin_content_digest_invalid:{source_id}")
-        expected_immutable = (
-            f"https://github.com/{repository}/blob/{commit}/{quote(str(source_path), safe='/')}"
-        )
+        expected_immutable = f"https://github.com/{repository}/blob/{commit}/{quote(str(source_path), safe='/')}"
         if immutable_url != expected_immutable:
             findings.append(f"external_pin_immutable_url_invalid:{source_id}")
         navigation_url = pin.get("navigation_url")
         if not isinstance(navigation_url, str) or not any(
-            source_id in line and navigation_url in line for line in insights.splitlines()
+            source_id in line and navigation_url in line
+            for line in insights.splitlines()
         ):
             findings.append(f"external_pin_navigation_not_documented:{source_id}")
         if cache_dir is None:
@@ -981,7 +1183,12 @@ def validate_external_pins(
             findings.append(f"external_pin_blob_computation_failed:{source_id}")
         elif actual_blob != blob:
             findings.append(f"external_pin_blob_mismatch:{source_id}")
-        if verify_remote and repository_valid and source_path_valid and isinstance(commit, str):
+        if (
+            verify_remote
+            and repository_valid
+            and source_path_valid
+            and isinstance(commit, str)
+        ):
             raw_url = (
                 f"https://raw.githubusercontent.com/{repository}/{commit}/"
                 f"{quote(source_path, safe='/')}"
@@ -996,7 +1203,9 @@ def validate_external_pins(
                     findings.append(f"external_pin_remote_digest_mismatch:{source_id}")
                 remote_blob = git_blob_id(remote_content)
                 if remote_blob is None:
-                    findings.append(f"external_pin_remote_blob_computation_failed:{source_id}")
+                    findings.append(
+                        f"external_pin_remote_blob_computation_failed:{source_id}"
+                    )
                 elif remote_blob != blob:
                     findings.append(f"external_pin_remote_blob_mismatch:{source_id}")
     return len(pins)
@@ -1008,10 +1217,23 @@ def main() -> int:
     manifest = load_json(args.manifest, "manifest", findings)
     if not isinstance(manifest, dict):
         print("research_authority_audit=ERROR finding=invalid_manifest")
+        for finding in dict.fromkeys(findings):
+            print(f"finding={finding}")
         return 2
     try:
-        insights = args.insights.read_text(encoding="utf-8")
+        with args.insights.open("rb") as handle:
+            insights_bytes = handle.read(MAX_TEXT_INPUT_BYTES + 1)
     except (OSError, UnicodeError):
+        print("research_authority_audit=ERROR finding=invalid_insights")
+        return 2
+    if len(insights_bytes) > MAX_TEXT_INPUT_BYTES:
+        print(
+            "research_authority_audit=ERROR finding=input_resource_limit:bytes:insights"
+        )
+        return 2
+    try:
+        insights = insights_bytes.decode("utf-8")
+    except UnicodeError:
         print("research_authority_audit=ERROR finding=invalid_insights")
         return 2
     knowledge_root = args.knowledge_root.resolve()
@@ -1026,7 +1248,11 @@ def main() -> int:
     validate_closed_profile(manifest, args.expected_task_id, findings)
     snapshot = manifest.get("knowledge_snapshot")
     actual_head = git_value(knowledge_root, "rev-parse", "HEAD")
-    if not isinstance(snapshot, str) or not HEX40.fullmatch(snapshot) or actual_head != snapshot:
+    if (
+        not isinstance(snapshot, str)
+        or not HEX40.fullmatch(snapshot)
+        or actual_head != snapshot
+    ):
         findings.append("knowledge_snapshot_mismatch")
         snapshot = actual_head or "HEAD"
 

@@ -47,96 +47,115 @@
     {
       "path": "graph/data/local/tal-role-design-lead@r4.json",
       "revision_id": "tal-role-design-lead@r4",
+      "git_blob": "6398c78ba57efdcd2c1139a1e5911ce68edb4f75",
       "content_digest": "sha256:846f1da87895f136f8594586ff8ae24c362dd3020a8542ec29d9fbdebc98ce8c"
     },
     {
       "path": "graph/data/local/tal-role-knowledge-curator@r2.json",
       "revision_id": "tal-role-knowledge-curator@r2",
+      "git_blob": "68940cde545e7d6f7cf64b8eee061009083edde5",
       "content_digest": "sha256:3ee16a52b8baa517b24fd3d56e54a624f34d891809fb09c8e8038fbcb8c78078"
     },
     {
       "path": "graph/data/local/tal-role-evidence-auditor@r2.json",
       "revision_id": "tal-role-evidence-auditor@r2",
+      "git_blob": "3824485ad7d2bb242fbf3144f1a0b37b767fe1ef",
       "content_digest": "sha256:f7677f8a2b6d8fea8182a6d50e09de930af64be5f6ee0c2b16461ba0654cfac5"
     },
     {
       "path": "graph/data/local/tal-role-deployment-operator@r2.json",
       "revision_id": "tal-role-deployment-operator@r2",
+      "git_blob": "f30914f22eb3bed84ec664ee8feb4f318fd53622",
       "content_digest": "sha256:422083673c8de8626a993efda3ef1f9b42a7979a1fbe0f0c82e399ed25ca47a8"
     },
     {
       "path": "graph/data/local/tal-skill-design-research@r3.json",
       "revision_id": "tal-skill-design-research@r3",
+      "git_blob": "58a0bd4482ef59417c50302acd689bb271d76b5c",
       "content_digest": "sha256:35d993fba2af939f11cd1f17dc704f8a69f26775c4e4eae5fd15c19fadb3bd61"
     },
     {
       "path": "graph/data/datarim/datarim-skill-frontend-ui@r2.json",
       "revision_id": "datarim-skill-frontend-ui@r2",
+      "git_blob": "139b9f275362418e80644d8383acae7de566c1ea",
       "content_digest": "sha256:2041e05aad7da1e8e1018f32adc3e343f740f4ea96a686e88de2c42bb64b718c"
     },
     {
       "path": "graph/data/datarim/datarim-skill-playwright-qa@r2.json",
       "revision_id": "datarim-skill-playwright-qa@r2",
+      "git_blob": "b236f24ca8c1d5d78722da7430d0b45abb71a4e6",
       "content_digest": "sha256:716b8dcca722330010f580532d2c36694f7b48c3e7375d01bc4defe79663269d"
     },
     {
       "path": "graph/data/local/tal-skill-theming-anti-fouc@r3.json",
       "revision_id": "tal-skill-theming-anti-fouc@r3",
+      "git_blob": "b39d317897162188a59e3da60becacfd62f3bee5",
       "content_digest": "sha256:8345cb3b535c4615dfd78be1116c17d6a0949918f65108250b32b83ceef2a400"
     },
     {
       "path": "graph/data/local/tal-skill-graph-neighbor-visualization@r1.json",
       "revision_id": "tal-skill-graph-neighbor-visualization@r1",
+      "git_blob": "ec010fdc5fe2b5c6cd33439fecdf740e31a70255",
       "content_digest": "sha256:4ab784b3750853a7ee611330b9457b3f5ec07c02579edb996a4b59b2dda145b4"
     },
     {
       "path": "graph/data/local/tal-skill-success-criterion-measurement@r2.json",
       "revision_id": "tal-skill-success-criterion-measurement@r2",
+      "git_blob": "34c95c32c952cf22b5faf3afda3389396d644adb",
       "content_digest": "sha256:c1142ce770b875b936b03b7dc58bb49a5ec952c47beaafdf09f2ffd82f9907b4"
     },
     {
       "path": "graph/data/local/tal-blueprint-design-system-atlas@r4.json",
       "revision_id": "tal-blueprint-design-system-atlas@r4",
+      "git_blob": "e7739d2e18f06fab6aad228c8298147b7cb3f9bf",
       "content_digest": "sha256:32bf46a553a3deaed9a3999d77e3e79908cbb9f571cbfbbc9d8d77b6781dcf8e"
     },
     {
       "path": "graph/data/local/tal-blueprint-component-library@r4.json",
       "revision_id": "tal-blueprint-component-library@r4",
+      "git_blob": "308a83811ab704c80d1a37a2deca07a7410930b0",
       "content_digest": "sha256:87d0a35d6ce59ae2c37e0d007f16fb38ad3abe759a3b56d25bc65b48ed938e6b"
     },
     {
       "path": "graph/data/local/tal-blueprint-evidence-bearing-verification@r2.json",
       "revision_id": "tal-blueprint-evidence-bearing-verification@r2",
+      "git_blob": "063b425ff3ce03428c436746d52d5568270adbfa",
       "content_digest": "sha256:30236909268f9d1a188da61ce2b9b54db0b86b4d34660cc63720fc32d05796f1"
     },
     {
       "path": "graph/data/local/tal-constraint-style-guide@r4.json",
       "revision_id": "tal-constraint-style-guide@r4",
+      "git_blob": "f150d098644125c26f2a1c43810b671c999952f0",
       "content_digest": "sha256:8207f39ec69afde69a229e761f49f6d88d22e6ece30c3b8210e4c96770ed86c6"
     },
     {
       "path": "ontology/lifted/tal-constraint-sanitized-projection@r2.json",
       "revision_id": "tal-constraint-sanitized-projection@r2",
+      "git_blob": "ce9cfec5cc65aba24babb4310bd44d59622ac588",
       "content_digest": "sha256:b0f5583f57a7d53ea311c1b313b96a8d4512a49ac972ed95496d83908b6eaa34"
     },
     {
       "path": "ontology/lifted/tal-policy-honesty-presentation@r2.json",
       "revision_id": "tal-policy-honesty-presentation@r2",
+      "git_blob": "9d927d0ca9b6b2bd1e1d09ea5a6fac966a060b0a",
       "content_digest": "sha256:e0dbf0c75db7066fc968ed1bcd338f698f110ae35b01861012a69a4d90bc3a9f"
     },
     {
       "path": "ontology/lifted/tal-sc-design-accessibility@r2.json",
       "revision_id": "tal-sc-design-accessibility@r2",
+      "git_blob": "e9d2b433f6633055f116b36577904614865a6904",
       "content_digest": "sha256:c52d9d19013020bf8e191adae5ac8b5434a247d267b0f11d7ca6eba6c3b020ca"
     },
     {
       "path": "ontology/lifted/tal-sc-design-system@r2.json",
       "revision_id": "tal-sc-design-system@r2",
+      "git_blob": "4fcab1125d393086157c6e98c0bd77668f9f05c0",
       "content_digest": "sha256:673acd79699ba8d37f9f1f73d1e1309f329a9134a32c0da85173d39b4ad78360"
     },
     {
       "path": "graph/data/local/tal-capability-design-systems@r1.json",
       "revision_id": "tal-capability-design-systems@r1",
+      "git_blob": "88cfec38ac75bf0964d238545f90df4126647bce",
       "content_digest": "sha256:8095d49ce3af963a9ebe46ee2bc9e378e90c8f0ce3bb76bc966cf1a06d39db3e"
     }
   ],
