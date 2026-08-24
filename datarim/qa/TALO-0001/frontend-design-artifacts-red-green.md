@@ -139,21 +139,25 @@ Corrected GREEN evidence:
 
 ```text
 bats tests/frontend-design-artifacts.bats tests/frontend-design-artifact-mutations.bats
-1..35
-35 passed, 0 failed
+1..37
+37 passed, 0 failed
 ```
 
-The corrected contract contains 19 behavioral/structural tests and 16 mutation
-cases. The four normative decision surfaces are content-addressed in the
-decision contract. Any appended prose, including a synonym that a keyword
-classifier does not recognize, changes its SHA-256 digest and fails before a
-scenario is evaluated. Unknown structured contract keys also fail closed.
+The corrected contract contains 19 behavioral/structural tests and 18 mutation
+cases. Every prose block on the four normative decision surfaces carries a
+declared rule ID, polarity, and semantic binding from the closed decision-rule
+grammar. Content digests remain provenance pins, but they are not the semantic
+gate: an appended or unknown prose block stays invalid after an attacker
+legitimately recomputes every digest. Unknown structured contract keys also
+fail closed.
 
 The mutation suite retains safe text while appending the original unsafe
 backend-only and ten-cell rules, then separately appends the synonymous unsafe
 rules `Backend-only changes activate this capability.` and `Ten captures meet
 the complete proof threshold.` All four produce RED. A structured
-`documentation_override` mutant is also rejected. The remaining mutants cover
+`documentation_override` mutant is also rejected. Invalid scenario vocabulary
+(`brief_detail: ultraviolet`) and invalid scalar types are rejected before
+evaluation. The remaining mutants cover
 ownership/acceptance, taste approval, design-system replacement,
 accessibility, RU overflow, post-hoc binding, Unbound delivery, the
 MET-before-code gate, the canonical seven-kind boundary, and omission of a
@@ -163,8 +167,8 @@ Current primary plus role-registry command:
 
 ```text
 bats tests/frontend-design-artifacts.bats tests/frontend-design-artifact-mutations.bats tests/test-role-registry.bats
-1..53
-53 passed, 0 failed
+1..55
+55 passed, 0 failed
 ```
 
 Additional customer-contract compatibility command:

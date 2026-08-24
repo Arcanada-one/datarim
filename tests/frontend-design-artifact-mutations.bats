@@ -40,6 +40,27 @@ path.write_text(path.read_text() + "\n" + addition + "\n")
 PY
 }
 
+recompute_decision_surface_digests() {
+    python3 - "$MUTANT" <<'PY'
+from pathlib import Path
+import hashlib
+import sys
+import yaml
+
+root = Path(sys.argv[1])
+contract_path = root / "skills/frontend-design/references/decision-contract.yaml"
+contract = yaml.safe_load(contract_path.read_text(encoding="utf-8"))
+for relative in contract["decision_surface_sha256"]:
+    contract["decision_surface_sha256"][relative] = hashlib.sha256(
+        (root / relative).read_bytes()
+    ).hexdigest()
+contract_path.write_text(
+    yaml.safe_dump(contract, sort_keys=False, allow_unicode=True),
+    encoding="utf-8",
+)
+PY
+}
+
 assert_evaluator_red() {
     local expected="$1"
     run python3 "$MUTANT/dev-tools/evaluate-frontend-design.py" \
@@ -115,14 +136,16 @@ assert_evaluator_red() {
     assert_evaluator_red 'Unbound delivery is allowed'
 }
 
-@test "M13: unsafe backend synonym cannot bypass the pinned decision surfaces" {
+@test "M13: resealed backend synonym fails the closed rule-ID grammar" {
     append_text "$MUTANT/skills/frontend-design/SKILL.md" 'Backend-only changes activate this capability.'
-    assert_evaluator_red 'decision surface digest mismatch'
+    recompute_decision_surface_digests
+    assert_evaluator_red 'untagged decision line'
 }
 
-@test "M14: unsafe matrix synonym cannot bypass the pinned decision surfaces" {
+@test "M14: resealed proof-threshold synonym fails the closed rule-ID grammar" {
     append_text "$MUTANT/skills/frontend-design/references/handoff-and-evidence.md" 'Ten captures meet the complete proof threshold.'
-    assert_evaluator_red 'decision surface digest mismatch'
+    recompute_decision_surface_digests
+    assert_evaluator_red 'untagged decision line'
 }
 
 @test "M15: unknown structured override fails closed" {
@@ -133,4 +156,14 @@ assert_evaluator_red() {
 @test "M16: a scenario cannot silently omit a claimed output" {
     mutate_text "$MUTANT/tests/fixtures/frontend-design-scenarios.yaml" $'      implementation_allowed: true\n      product_code_emitted: false' $'      implementation_allowed: true'
     assert_evaluator_red 'scenario positive_site_wave is missing expected outputs: product_code_emitted'
+}
+
+@test "M17: unknown brief-detail vocabulary fails closed" {
+    mutate_text "$MUTANT/tests/fixtures/frontend-design-scenarios.yaml" 'brief_detail: complete' 'brief_detail: ultraviolet'
+    assert_evaluator_red "scenario positive_site_wave input brief_detail must be one of: complete, sparse"
+}
+
+@test "M18: scenario input types fail closed instead of coercing strings" {
+    mutate_text "$MUTANT/tests/fixtures/frontend-design-scenarios.yaml" 'rendered_customer_surface: true' 'rendered_customer_surface: "true"'
+    assert_evaluator_red 'scenario positive_site_wave input rendered_customer_surface must be boolean'
 }

@@ -33,17 +33,17 @@ EXPECTED_SCENARIO_IDS = {
     "post_hoc_unbound",
     "backend_only_migration",
 }
-ALLOWED_SCENARIO_INPUTS = {
-    "rendered_customer_surface",
-    "backend_only",
-    "brief_detail",
-    "existing_design_system",
-    "accessibility_conflict",
-    "ru_overflow",
-    "evidence_cells_present",
-    "binding_timing",
-    "binding_state",
-    "reusable_artifacts_valid",
+SCENARIO_INPUT_SCHEMA = {
+    "rendered_customer_surface": {"type": "boolean"},
+    "backend_only": {"type": "boolean"},
+    "brief_detail": {"type": "string", "enum": {"complete", "sparse"}},
+    "existing_design_system": {"type": "boolean"},
+    "accessibility_conflict": {"type": "boolean"},
+    "ru_overflow": {"type": "boolean"},
+    "evidence_cells_present": {"type": "integer", "minimum": 0, "maximum": 12},
+    "binding_timing": {"type": "string", "enum": {"post_hoc", "pre_work"}},
+    "binding_state": {"type": "string", "enum": {"Bound", "Gap", "Unbound"}},
+    "reusable_artifacts_valid": {"type": "boolean"},
 }
 REQUIRED_SCENARIO_INPUTS = {
     "rendered_customer_surface",
@@ -90,8 +90,15 @@ EXPECTED_ROOT_KEYS = {
     "acceptance_owner",
     "managed_kinds",
     *EXPECTED_SECTION_KEYS,
+    "decision_rules",
     "decision_surface_sha256",
 }
+ALLOWED_RULE_POLARITIES = {"forbid", "inform", "permit", "require"}
+RULE_MARKER_RE = re.compile(
+    r"^[ \t]*<!-- fd-rule: (?P<rule_id>[A-Z][A-Z0-9-]*); "
+    r"polarity: (?P<polarity>forbid|inform|permit|require); "
+    r"semantics: (?P<semantics>[a-z][a-z0-9_.-]*) -->[ \t]*$"
+)
 NUMBER_WORDS = {
     "zero": 0,
     "one": 1,
@@ -198,11 +205,74 @@ def contract_errors(contract: dict[str, Any]) -> list[str]:
         if matrix.get("expected_cells_per_surface") != calculated or calculated != 12:
             errors.append("evidence matrix must be the complete 2 x 3 x 2 = 12 cells")
 
+    rules = contract.get("decision_rules")
+    if not isinstance(rules, dict) or not rules:
+        errors.append("decision_rules must be a non-empty object")
+    else:
+        for rule_id, rule in rules.items():
+            if not isinstance(rule_id, str) or not re.fullmatch(r"[A-Z][A-Z0-9-]*", rule_id):
+                errors.append(f"decision rule ID is invalid: {rule_id!r}")
+                continue
+            if not isinstance(rule, dict):
+                errors.append(f"decision rule {rule_id} must be an object")
+                continue
+            if set(rule) != {"polarity", "semantics", "surfaces"}:
+                errors.append(
+                    f"decision rule {rule_id} must contain only polarity, semantics, and surfaces"
+                )
+                continue
+            polarity = rule.get("polarity")
+            semantics = rule.get("semantics")
+            surfaces = rule.get("surfaces")
+            if polarity not in ALLOWED_RULE_POLARITIES:
+                errors.append(f"decision rule {rule_id} has invalid polarity")
+            if not isinstance(semantics, str) or not re.fullmatch(
+                r"[a-z][a-z0-9_.-]*", semantics
+            ):
+                errors.append(f"decision rule {rule_id} has invalid semantics")
+            if (
+                not isinstance(surfaces, list)
+                or not surfaces
+                or len(surfaces) != len(set(surfaces))
+                or any(surface not in DOC_PATHS for surface in surfaces)
+            ):
+                errors.append(f"decision rule {rule_id} has invalid surfaces")
+
     digests = contract.get("decision_surface_sha256")
     if not isinstance(digests, dict) or set(digests) != set(DOC_PATHS):
         errors.append("decision_surface_sha256 must pin exactly the four decision surfaces")
     elif any(not re.fullmatch(r"[0-9a-f]{64}", str(value)) for value in digests.values()):
         errors.append("decision surface digests must be lowercase SHA-256 values")
+    return errors
+
+
+def _scenario_value_errors(scenario_id: str, values: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    for key, value in values.items():
+        schema = SCENARIO_INPUT_SCHEMA.get(key)
+        if schema is None:
+            continue
+        expected_type = schema["type"]
+        type_valid = (
+            (expected_type == "boolean" and type(value) is bool)
+            or (expected_type == "integer" and type(value) is int)
+            or (expected_type == "string" and type(value) is str)
+        )
+        if not type_valid:
+            errors.append(f"scenario {scenario_id} input {key} must be {expected_type}")
+            continue
+        allowed = schema.get("enum")
+        if allowed is not None and value not in allowed:
+            errors.append(
+                f"scenario {scenario_id} input {key} must be one of: "
+                + ", ".join(sorted(allowed))
+            )
+        minimum = schema.get("minimum")
+        maximum = schema.get("maximum")
+        if minimum is not None and value < minimum:
+            errors.append(f"scenario {scenario_id} input {key} must be >= {minimum}")
+        if maximum is not None and value > maximum:
+            errors.append(f"scenario {scenario_id} input {key} must be <= {maximum}")
     return errors
 
 
@@ -232,12 +302,13 @@ def scenario_errors(corpus: dict[str, Any]) -> list[str]:
         if not isinstance(values, dict):
             errors.append(f"scenario {scenario_id} input must be an object")
         else:
-            unknown_inputs = sorted(set(values) - ALLOWED_SCENARIO_INPUTS)
+            unknown_inputs = sorted(set(values) - set(SCENARIO_INPUT_SCHEMA))
             missing_inputs = sorted(REQUIRED_SCENARIO_INPUTS - set(values))
             if unknown_inputs:
                 errors.append(f"scenario {scenario_id} has unknown inputs: {', '.join(unknown_inputs)}")
             if missing_inputs:
                 errors.append(f"scenario {scenario_id} is missing inputs: {', '.join(missing_inputs)}")
+            errors.extend(_scenario_value_errors(str(scenario_id), values))
         if not isinstance(expected, dict):
             errors.append(f"scenario {scenario_id} expected must be an object")
         else:
@@ -262,11 +333,13 @@ def _declared_cell_counts(line: str) -> set[int]:
 
 
 def documentation_errors(root: Path, contract: dict[str, Any]) -> list[str]:
-    """Reject unsafe prose that contradicts the machine decision contract."""
+    """Reject unbound prose and unsafe claims on every decision surface."""
 
     errors: list[str] = []
     expected_cells = (contract.get("evidence_matrix") or {}).get("expected_cells_per_surface")
     expected_digests = contract.get("decision_surface_sha256") or {}
+    declared_rules = contract.get("decision_rules") or {}
+    used_rules: set[str] = set()
     for relative in DOC_PATHS:
         path = root / relative
         if not path.is_file():
@@ -276,29 +349,74 @@ def documentation_errors(root: Path, contract: dict[str, Any]) -> list[str]:
         actual_digest = hashlib.sha256(content).hexdigest()
         if expected_digests.get(relative) != actual_digest:
             errors.append(f"{relative}: decision surface digest mismatch")
-        for number, raw in enumerate(content.decode("utf-8").splitlines(), start=1):
-            line = raw.strip().lower()
-            if not line or line.startswith("```"):
+        lines = content.decode("utf-8").splitlines()
+        in_frontmatter = bool(lines and lines[0].strip() == "---")
+        blocks: list[list[tuple[int, str]]] = []
+        block: list[tuple[int, str]] = []
+        for number, raw in enumerate(lines, start=1):
+            if in_frontmatter:
+                if number > 1 and raw.strip() == "---":
+                    in_frontmatter = False
                 continue
-            location = f"{relative}:{number}"
-            if "backend-only" in line and "invoke" in line and not _is_negated(line):
-                errors.append(f"{location}: unsafe backend-only invocation rule")
-            if ("cell" in line or "matrix" in line) and "sufficient" in line:
-                for count in _declared_cell_counts(line):
-                    if count != expected_cells:
-                        errors.append(f"{location}: unsafe {count}-cell sufficiency rule")
-            if "taste approval" in line and "pause" in line and not _is_negated(line):
-                errors.append(f"{location}: preliminary taste approval pause contradicts policy")
-            if "post-hoc" in line and re.search(r"\b(allow|accept|valid|bind)\w*\b", line) and not _is_negated(line):
-                errors.append(f"{location}: post-hoc binding is allowed")
-            if "unbound" in line and re.search(r"\b(allow|accept|valid|delivery)\w*\b", line) and not _is_negated(line):
-                errors.append(f"{location}: Unbound delivery is allowed")
-            if "designer" in line and "acceptance" in line and re.search(r"\b(owns|grants|claims|approves)\b", line) and not _is_negated(line):
-                errors.append(f"{location}: designer is assigned acceptance authority")
-            if "product code" in line and re.search(r"\b(may|can|allowed to)\b.*\b(start|begin|ship)\b", line) and not _is_negated(line):
-                errors.append(f"{location}: product code is allowed before the MET gate")
-            if "competency" in line and "managed kind" in line and not _is_negated(line):
-                errors.append(f"{location}: Competency is declared as a managed kind")
+            if raw.strip():
+                block.append((number, raw))
+            elif block:
+                blocks.append(block)
+                block = []
+        if block:
+            blocks.append(block)
+
+        for block in blocks:
+            first_number, first_raw = block[0]
+            location = f"{relative}:{first_number}"
+            marker = RULE_MARKER_RE.fullmatch(first_raw)
+            if marker is None:
+                errors.append(f"{location}: untagged decision line")
+                visible_lines = block
+            else:
+                rule_id = marker.group("rule_id")
+                used_rules.add(rule_id)
+                declared = declared_rules.get(rule_id)
+                if not isinstance(declared, dict):
+                    errors.append(f"{location}: unknown decision rule {rule_id}")
+                else:
+                    if declared.get("polarity") != marker.group("polarity"):
+                        errors.append(f"{location}: decision rule {rule_id} polarity mismatch")
+                    if declared.get("semantics") != marker.group("semantics"):
+                        errors.append(f"{location}: decision rule {rule_id} semantics mismatch")
+                    if relative not in (declared.get("surfaces") or []):
+                        errors.append(f"{location}: decision rule {rule_id} is not authorized for this surface")
+                if len(block) == 1:
+                    errors.append(f"{location}: decision rule marker must bind visible content")
+                    continue
+                visible_lines = block[1:]
+            for number, raw in visible_lines:
+                line = raw.strip().lower()
+                line_location = f"{relative}:{number}"
+                if RULE_MARKER_RE.fullmatch(raw):
+                    errors.append(f"{line_location}: decision rule marker is not block-leading")
+                    continue
+                if "backend-only" in line and "invoke" in line and not _is_negated(line):
+                    errors.append(f"{line_location}: unsafe backend-only invocation rule")
+                if ("cell" in line or "matrix" in line) and "sufficient" in line:
+                    for count in _declared_cell_counts(line):
+                        if count != expected_cells:
+                            errors.append(f"{line_location}: unsafe {count}-cell sufficiency rule")
+                if "taste approval" in line and "pause" in line and not _is_negated(line):
+                    errors.append(f"{line_location}: preliminary taste approval pause contradicts policy")
+                if "post-hoc" in line and re.search(r"\b(allow|accept|valid|bind)\w*\b", line) and not _is_negated(line):
+                    errors.append(f"{line_location}: post-hoc binding is allowed")
+                if "unbound" in line and re.search(r"\b(allow|accept|valid|delivery)\w*\b", line) and not _is_negated(line):
+                    errors.append(f"{line_location}: Unbound delivery is allowed")
+                if "designer" in line and "acceptance" in line and re.search(r"\b(owns|grants|claims|approves)\b", line) and not _is_negated(line):
+                    errors.append(f"{line_location}: designer is assigned acceptance authority")
+                if "product code" in line and re.search(r"\b(may|can|allowed to)\b.*\b(start|begin|ship)\b", line) and not _is_negated(line):
+                    errors.append(f"{line_location}: product code is allowed before the MET gate")
+                if "competency" in line and "managed kind" in line and not _is_negated(line):
+                    errors.append(f"{line_location}: Competency is declared as a managed kind")
+    if isinstance(declared_rules, dict):
+        for rule_id in sorted(set(declared_rules) - used_rules):
+            errors.append(f"decision rule {rule_id} is declared but unused")
     return errors
 
 
