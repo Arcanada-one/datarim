@@ -1,10 +1,10 @@
 # Skills Reference
 
-Datarim includes 72 reusable skill modules. Skills provide rules, patterns, and guidelines loaded on demand by agents and commands. Each skill is a directory under `skills/` containing a `SKILL.md` plus any supporting fragment files.
+Datarim includes 73 reusable skill modules. Skills provide rules, patterns, and guidelines loaded on demand by agents and commands. Each skill is a directory under `skills/` containing a `SKILL.md` plus any supporting fragment files.
 
 Skills are split into two categories:
-- **Reference skills** — rules and patterns the caller applies inline. No `model` field in frontmatter, so they inherit the caller's model. 49 of the 68.
-- **Task skills** — perform an action when invoked. Carry an explicit `model` field per the [Model Assignment Convention](../../skills/datarim-system/SKILL.md). 19 of the 68.
+- **Reference skills** — rules and patterns the caller applies inline. No `model` field in frontmatter, so they inherit the caller's model. 53 of the 73.
+- **Task skills** — perform an action when invoked. Carry an explicit `model` field per the [Model Assignment Convention](../../skills/datarim-system/SKILL.md). 20 of the 73.
 
 Every shipped skill resolves to `inherit` — the operator's session model wins. Pinning a concrete model generation in a skill breaks under runtimes that do not offer it; express capability intent with `metadata.model_tier:` (resolved through `config/model-tiers.yaml`) instead.
 
@@ -24,6 +24,7 @@ Alphabetical. "Loaded by" names the commands, agents, or trigger conditions that
 | coworker-context | Reference | Conventions an external LLM (via coworker delegation) must follow when generating or editing Datarim artifacts — stage header, frontmatter, and so on | coworker `datarim` write profile, /dr-write, /dr-archive |
 | cron-agent-patterns | Reference | Layered timeout defense for cron-orchestrated agents making external calls (LLM CLI / HTTP / subprocess) — strictly-nested tiers, anti-patterns, symmetric deadline guards with explicit next-tier headroom | on demand for cron / timer agents with external API calls |
 | cta-format | Reference | Canonical CTA "Next Step" block format | planner, architect, developer, reviewer, compliance |
+| customer-delivery | Reference | Trace verbatim customer requirements through pre-work knowledge binding, implementation, production evidence, and disposition without treating enabling output as delivery | customer-facing work |
 | datarim-doctor | Reference | /dr-doctor schema and migration semantics (thin one-liner contract) | /dr-doctor, /dr-init self-heal, /dr-archive line-format gate |
 | datarim-system | Reference | Core workflow rules, path resolution, file locations | All commands (mandatory) |
 | edge-case-hunter | Reference | Enumerates boundary, degenerate, and failure inputs an artifact does not visibly handle | /dr-plan, /dr-qa |
@@ -87,7 +88,7 @@ Alphabetical. "Loaded by" names the commands, agents, or trigger conditions that
 | writing | Task | Content creation and editorial workflow | writer, editor |
 | writing-plans | Reference | Turn a spec or set of requirements for a multi-step task into a written plan, before touching code | on demand, before implementation |
 
-**Distribution:** 50 reference skills (no `model` field — inherit the caller), 19 task skills (explicit `model: inherit`).
+**Distribution:** 53 reference skills (no `model` field — inherit the caller), 20 task skills (explicit `model: inherit`).
 
 ## Loading Hierarchy
 

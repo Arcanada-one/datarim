@@ -5,6 +5,7 @@ setup() {
     DELIVERY_SKILL="${REPO_ROOT}/skills/customer-delivery/SKILL.md"
     EXPECTATIONS_SKILL="${REPO_ROOT}/skills/expectations-checklist/SKILL.md"
     EXPECTATIONS_TEMPLATE="${REPO_ROOT}/templates/expectations-template.md"
+    SKILLS_REFERENCE="${REPO_ROOT}/documentation/reference/skills.md"
 }
 
 assert_contains() {
@@ -83,4 +84,12 @@ assert_contains() {
     assert_contains "$EXPECTATIONS_SKILL" 'delivery_receipt'
     assert_contains "$EXPECTATIONS_SKILL" 'Legacy expectations files'
     assert_contains "$EXPECTATIONS_SKILL" 'remain valid without these fields'
+}
+
+@test "customer delivery skill is registered in the canonical skills inventory" {
+    assert_contains "$SKILLS_REFERENCE" '| customer-delivery | Reference |'
+
+    disk_count="$(find "${REPO_ROOT}/skills" -mindepth 2 -maxdepth 2 -name SKILL.md | wc -l | tr -d '[:space:]')"
+    documented_count="$(sed -nE 's/^Datarim includes ([0-9]+) reusable skill modules\..*/\1/p' "$SKILLS_REFERENCE")"
+    [[ "$documented_count" -eq "$disk_count" ]]
 }
