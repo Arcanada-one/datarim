@@ -40,6 +40,19 @@ path.write_text(path.read_text() + "\n" + addition + "\n")
 PY
 }
 
+insert_after() {
+    python3 - "$1" "$2" "$3" <<'PY'
+from pathlib import Path
+import sys
+
+path, anchor, addition = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+text = path.read_text(encoding="utf-8")
+if anchor not in text:
+    raise SystemExit(f"insertion anchor not found: {anchor}")
+path.write_text(text.replace(anchor, anchor + "\n" + addition, 1), encoding="utf-8")
+PY
+}
+
 recompute_decision_surface_digests() {
     python3 - "$MUTANT" <<'PY'
 from pathlib import Path
@@ -71,6 +84,34 @@ assert_evaluator_red() {
     [ "$status" -ne 0 ] \
         && jq -e --arg expected "$expected" \
             '([.contract_errors[], .scenario_errors[], .documentation_errors[]] | map(contains($expected)) | any)' \
+            <<<"$output" >/dev/null
+}
+
+assert_evaluator_semantic_red() {
+    local expected="$1"
+    run python3 "$MUTANT/dev-tools/evaluate-frontend-design.py" \
+        --contract "$MUTANT/skills/frontend-design/references/decision-contract.yaml" \
+        --scenarios "$MUTANT/tests/fixtures/frontend-design-scenarios.yaml" \
+        --docs-root "$MUTANT" \
+        --check
+    [ "$status" -ne 0 ] \
+        && jq -e --arg expected "$expected" \
+            '([.contract_errors[], .scenario_errors[], .documentation_errors[]] as $errors
+              | ($errors | map(contains($expected)) | any)
+              and (($errors | map(contains("digest mismatch")) | any) | not))' \
+            <<<"$output" >/dev/null
+}
+
+assert_scenario_mismatch_red() {
+    local expected="$1"
+    run python3 "$MUTANT/dev-tools/evaluate-frontend-design.py" \
+        --contract "$MUTANT/skills/frontend-design/references/decision-contract.yaml" \
+        --scenarios "$MUTANT/tests/fixtures/frontend-design-scenarios.yaml" \
+        --docs-root "$MUTANT" \
+        --check
+    [ "$status" -ne 0 ] \
+        && jq -e --arg expected "$expected" \
+            '([.details[].mismatches[]] | map(contains($expected)) | any)' \
             <<<"$output" >/dev/null
 }
 
@@ -137,15 +178,15 @@ assert_evaluator_red() {
 }
 
 @test "M13: resealed backend synonym fails the closed rule-ID grammar" {
-    append_text "$MUTANT/skills/frontend-design/SKILL.md" 'Backend-only changes activate this capability.'
+    insert_after "$MUTANT/skills/frontend-design/SKILL.md" 'customer acceptance.' 'Backend-only changes activate this capability.'
     recompute_decision_surface_digests
-    assert_evaluator_red 'untagged decision line'
+    assert_evaluator_semantic_red 'decision rule FD-SKILL-SCOPE content mismatch'
 }
 
 @test "M14: resealed proof-threshold synonym fails the closed rule-ID grammar" {
-    append_text "$MUTANT/skills/frontend-design/references/handoff-and-evidence.md" 'Ten captures meet the complete proof threshold.'
+    insert_after "$MUTANT/skills/frontend-design/references/handoff-and-evidence.md" 'whether it may enter implementation.' 'Ten captures meet the complete proof threshold.'
     recompute_decision_surface_digests
-    assert_evaluator_red 'untagged decision line'
+    assert_evaluator_semantic_red 'decision rule FD-HANDOFF-SCOPE content mismatch'
 }
 
 @test "M15: unknown structured override fails closed" {
@@ -166,4 +207,40 @@ assert_evaluator_red() {
 @test "M18: scenario input types fail closed instead of coercing strings" {
     mutate_text "$MUTANT/tests/fixtures/frontend-design-scenarios.yaml" 'rendered_customer_surface: true' 'rendered_customer_surface: "true"'
     assert_evaluator_red 'scenario positive_site_wave input rendered_customer_surface must be boolean'
+}
+
+@test "M19: a resealed known block cannot skip the required research stage" {
+    insert_after "$MUTANT/skills/frontend-design/SKILL.md" 'customer acceptance.' 'Skip external research whenever delivery speed matters.'
+    recompute_decision_surface_digests
+    assert_evaluator_semantic_red 'decision rule FD-SKILL-SCOPE content mismatch'
+}
+
+@test "M20: expected outputs reject undeclared keys even when null" {
+    mutate_text "$MUTANT/tests/fixtures/frontend-design-scenarios.yaml" '      product_code_emitted: false' $'      product_code_emitted: false\n      undeclared_output: null'
+    assert_evaluator_red 'scenario positive_site_wave expected has unknown outputs: undeclared_output'
+}
+
+@test "M21: expected output types are validated before comparison" {
+    mutate_text "$MUTANT/tests/fixtures/frontend-design-scenarios.yaml" '      implementation_allowed: true' '      implementation_allowed: "true"'
+    assert_evaluator_red 'scenario positive_site_wave expected implementation_allowed must be boolean or null'
+}
+
+@test "M22: expected output enums are closed" {
+    mutate_text "$MUTANT/tests/fixtures/frontend-design-scenarios.yaml" '      design_action: produce_design_packet' '      design_action: ultraviolet'
+    assert_evaluator_red 'scenario positive_site_wave expected design_action must be one of:'
+}
+
+@test "M23: duplicate evidence cells fail closed" {
+    mutate_text "$MUTANT/tests/fixtures/frontend-design-scenarios.yaml" '      - {locale: EN, viewport: mobile, theme: dark}' '      - {locale: EN, viewport: mobile, theme: light}'
+    assert_evaluator_red 'scenario positive_site_wave input evidence_cells contains duplicate cells'
+}
+
+@test "M24: a missing required Cartesian cell keeps a complete scenario red" {
+    mutate_text "$MUTANT/tests/fixtures/frontend-design-scenarios.yaml" '      - {locale: EN, viewport: mobile, theme: dark}' ''
+    assert_scenario_mismatch_red 'knowledge_contract_state: expected'
+}
+
+@test "M25: misattributed evidence-cell axes fail closed" {
+    mutate_text "$MUTANT/tests/fixtures/frontend-design-scenarios.yaml" '      - {locale: RU, viewport: desktop, theme: light}' '      - {locale: DE, viewport: desktop, theme: light}'
+    assert_evaluator_red 'scenario positive_site_wave input evidence_cells[0].locale must be one of: EN, RU'
 }
