@@ -1,0 +1,342 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://datarim.club/schema/review-evolution-v1.json",
+  "title": "Datarim Review Evolution",
+  "description": "Review finding classification and canonical-knowledge evolution evidence that never substitutes for delivery of the product fix.",
+  "x-datarim-trusted-authority-key-registry-ref": {
+    "schema_relative_path": "customer-requirement.schema.json",
+    "json_pointer": "/x-datarim-signature-contract/key_resolution/bundled_registry",
+    "resolution": "BUNDLED_ONLY",
+    "ambient_override": "PROHIBITED",
+    "registry_id": "authority-key-registry-0001",
+    "registry_digest": "sha256:05c9e162e1397a074cfae965168f94173d9b6316cdb2e4756b2b0dedbfa292c5"
+  },
+  "x-datarim-originating-review-contract": {
+    "inventory": {
+      "source": "originating_review_inventory",
+      "expected_pair_source": "originating_review_inventory_manifest.review_pairs",
+      "expected_requirement_set": "customer-requirements.requirements.propertyNames",
+      "review_pair_set_equality": "EXACT",
+      "requirement_coverage": "AT_LEAST_ONE_REVIEW_PER_REQUIREMENT",
+      "review_id_uniqueness": "REQUIRED",
+      "primary_review_mirror": "EXACT",
+      "closure_states": ["APPROVED"]
+    },
+    "inventory_authority": {
+      "authority_id": "authority-review-inventory-0001",
+      "authority_role": "OPERATOR",
+      "key_id": "key-review-inventory-0001",
+      "public_key": "fU2GZHw9YgA1Xb7W6lUcqm2aoINd6xki9HPrflnmpyo=",
+      "fingerprint": "sha256:21a4917a1e22170342808e7b109fda69b60fd06b85dd708abd702578f0da79b2"
+    },
+    "inventory_digest": {
+      "algorithm": "SHA-256",
+      "canonicalization": "RFC8785",
+      "encoding": "UTF-8",
+      "covered_fields": ["delivery_receipt_id", "review_pairs"],
+      "review_pairs_order": "LEXICOGRAPHIC_BY_REVIEW_ID_THEN_REQUIREMENT_ID"
+    },
+    "review_digest": {
+      "algorithm": "SHA-256",
+      "canonicalization": "RFC8785",
+      "encoding": "UTF-8",
+      "payload_shape": "FLAT_OBJECT",
+      "covered_fields": [
+        "review_id",
+        "requirement_id",
+        "delivery_receipt_id",
+        "reviewer",
+        "review_ref",
+        "state",
+        "observed_at",
+        "evidence_ref"
+      ],
+      "excluded_fields": ["review_digest", "authority_approval"]
+    },
+    "approval_payload_digest": {
+      "algorithm": "SHA-256",
+      "canonicalization": "RFC8785",
+      "encoding": "UTF-8",
+      "covered_fields": [
+        "approved_digest",
+        "authority_id",
+        "authority_role",
+        "approved_at",
+        "evidence_ref",
+        "algorithm",
+        "key_id"
+      ],
+      "excluded_fields": ["approval_payload_digest", "signature"]
+    },
+    "signature_contract_ref": {
+      "schema_relative_path": "customer-requirement.schema.json",
+      "json_pointer": "/x-datarim-signature-contract",
+      "signed_field": "authority_approval.approval_payload_digest"
+    },
+    "verification_sequence": [
+      "ORIGINATING_REVIEW_DIGEST_VALID",
+      "ORIGINATING_REVIEW_APPROVAL_DIGEST_EQUALS_REVIEW_DIGEST",
+      "ORIGINATING_REVIEW_APPROVAL_PAYLOAD_DIGEST_VALID",
+      "ORIGINATING_REVIEW_APPROVAL_KEY_AUTHORIZED",
+      "ORIGINATING_REVIEW_SIGNATURE_VALID",
+      "ORIGINATING_REVIEW_INVENTORY_MANIFEST_SIGNATURE_VALID",
+      "ORIGINATING_REVIEW_INVENTORY_PAIR_SET_EXACT",
+      "ORIGINATING_REVIEW_INVENTORY_REQUIREMENT_COVERAGE_COMPLETE",
+      "ORIGINATING_REVIEW_PRIMARY_MIRROR_EXACT",
+      "ORIGINATING_REVIEW_OBSERVED_AT_NOT_AFTER_REVIEWED_AT",
+      "ORIGINATING_REVIEW_CLOSURE_STATE_ENFORCED_BY_A2"
+    ]
+  },
+  "x-datarim-semantic-invariants": {
+    "description": "Draft 2020-12 validates shape only; the A3 review-evolution validator enforces exactly the eight review-record and evolution invariants. Receipt closure is owned exclusively by the A2 customer-delivery validator.",
+    "enforcer": "review-evolution-validator",
+    "invariant_ids": [
+      "review-requirement-id-equals-product-fix-requirement-id",
+      "review-receipt-id-equals-product-fix-receipt-id",
+      "review-parent-links-complete",
+      "review-product-fix-status-equals-receipt-delivery",
+      "review-classification-canonical-change-exclusive",
+      "review-no-canon-change-evidence-approved",
+      "review-canonical-change-enforcement-red-capable",
+      "review-product-fix-substitution-prohibited"
+    ]
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "review_id",
+    "requirement_id",
+    "delivery_receipt_id",
+    "originating_review",
+    "originating_review_inventory",
+    "originating_review_inventory_manifest",
+    "reviewed_at",
+    "reviewer",
+    "classification",
+    "finding_evidence",
+    "parent_links",
+    "product_fix"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "review_id": { "type": "string", "pattern": "^review-[0-9]{4}$" },
+    "requirement_id": { "type": "string", "pattern": "^req-[0-9]{4}$" },
+    "delivery_receipt_id": { "type": "string", "pattern": "^receipt-[0-9]{4}$" },
+    "originating_review": { "$ref": "#/$defs/originatingReview" },
+    "originating_review_inventory": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 512,
+      "items": { "$ref": "#/$defs/originatingReviewInventoryItem" }
+    },
+    "originating_review_inventory_manifest": {
+      "$ref": "#/$defs/originatingReviewInventoryManifest"
+    },
+    "reviewed_at": { "type": "string", "format": "date-time" },
+    "reviewer": { "type": "string", "minLength": 1 },
+    "classification": {
+      "enum": ["ABSENT", "WEAK", "STALE", "MIS_SCOPED", "NOT_BOUND", "NO_CANON_CHANGE"]
+    },
+    "finding_evidence": { "type": "string", "minLength": 1 },
+    "parent_links": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/parentLink" }
+    },
+    "canonical_change": { "$ref": "#/$defs/canonicalChange" },
+    "no_canon_change": { "$ref": "#/$defs/noCanonChange" },
+    "product_fix": { "$ref": "#/$defs/productFix" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "classification": {
+            "enum": ["ABSENT", "WEAK", "STALE", "MIS_SCOPED", "NOT_BOUND"]
+          }
+        },
+        "required": ["classification"]
+      },
+      "then": {
+        "required": ["canonical_change"],
+        "not": { "required": ["no_canon_change"] }
+      },
+      "else": {
+        "required": ["no_canon_change"],
+        "not": { "required": ["canonical_change"] }
+      }
+    }
+  ],
+  "$defs": {
+    "originatingReviewPair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["review_id", "requirement_id"],
+      "properties": {
+        "review_id": { "type": "string", "pattern": "^review-[0-9]{4}$" },
+        "requirement_id": { "type": "string", "pattern": "^req-[0-9]{4}$" }
+      }
+    },
+    "originatingReviewInventoryManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["delivery_receipt_id", "review_pairs", "inventory_digest", "authority_approval"],
+      "properties": {
+        "delivery_receipt_id": { "type": "string", "pattern": "^receipt-[0-9]{4}$" },
+        "review_pairs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 512,
+          "items": { "$ref": "#/$defs/originatingReviewPair" }
+        },
+        "inventory_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "authority_approval": { "$ref": "#/$defs/authorityApproval" }
+      }
+    },
+    "originatingReviewInventoryItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "review_id",
+        "requirement_id",
+        "delivery_receipt_id",
+        "reviewer",
+        "review_ref",
+        "state",
+        "observed_at",
+        "evidence_ref",
+        "review_digest",
+        "authority_approval"
+      ],
+      "properties": {
+        "review_id": { "type": "string", "pattern": "^review-[0-9]{4}$" },
+        "requirement_id": { "type": "string", "pattern": "^req-[0-9]{4}$" },
+        "delivery_receipt_id": { "type": "string", "pattern": "^receipt-[0-9]{4}$" },
+        "reviewer": { "type": "string", "minLength": 1 },
+        "review_ref": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "state": { "enum": ["OPEN", "CHANGES_REQUESTED", "APPROVED"] },
+        "observed_at": { "type": "string", "format": "date-time" },
+        "evidence_ref": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "review_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "authority_approval": { "$ref": "#/$defs/authorityApproval" }
+      }
+    },
+    "originatingReview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["review_ref", "state", "observed_at", "evidence_ref", "review_digest", "authority_approval"],
+      "properties": {
+        "review_ref": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "state": { "enum": ["OPEN", "CHANGES_REQUESTED", "APPROVED"] },
+        "observed_at": { "type": "string", "format": "date-time" },
+        "evidence_ref": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "review_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "authority_approval": { "$ref": "#/$defs/authorityApproval" }
+      }
+    },
+    "authorityApproval": {
+      "description": "An originating-review authority approval whose trusted key authorization and ED25519 signature framing are referenced exactly by the top-level originating-review contract.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "approved_digest",
+        "authority_id",
+        "authority_role",
+        "approved_at",
+        "evidence_ref",
+        "algorithm",
+        "key_id",
+        "approval_payload_digest",
+        "signature"
+      ],
+      "properties": {
+        "approved_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "authority_id": { "type": "string", "pattern": "^authority-[a-z0-9][a-z0-9-]*$" },
+        "authority_role": { "enum": ["CUSTOMER", "OPERATOR"] },
+        "approved_at": { "type": "string", "format": "date-time" },
+        "evidence_ref": { "type": "string", "minLength": 1 },
+        "algorithm": { "const": "ED25519" },
+        "key_id": {
+          "description": "Resolves through x-datarim-trusted-authority-key-registry-ref to the closed authority binding defined by the referenced signature contract; unknown keys fail closed.",
+          "type": "string",
+          "pattern": "^key-[a-z0-9][a-z0-9-]*$"
+        },
+        "approval_payload_digest": {
+          "description": "SHA-256 over the RFC 8785 canonical JSON UTF-8 bytes of the approval fields listed by x-datarim-originating-review-contract.",
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "signature": {
+          "description": "The prefixed RFC 4648 standard-base64 Ed25519 signature encoded exactly as defined by x-datarim-originating-review-contract.signature_contract_ref.",
+          "type": "string",
+          "pattern": "^ed25519:[A-Za-z0-9+/]{85}[AQgw]==$"
+        }
+      }
+    },
+    "parentLink": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relation", "id"],
+      "properties": {
+        "relation": { "enum": ["epic", "task", "requirement", "delivery_receipt"] },
+        "id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "canonicalChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "change_kind", "artifact_revision", "digest", "recorded_at", "enforcement"],
+      "properties": {
+        "artifact_id": { "type": "string", "minLength": 1 },
+        "change_kind": { "enum": ["NEW_ARTIFACT", "ARTIFACT_REVISION"] },
+        "artifact_revision": { "type": "string", "minLength": 1 },
+        "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "recorded_at": { "type": "string", "format": "date-time" },
+        "enforcement": { "$ref": "#/$defs/redCapableEnforcement" }
+      }
+    },
+    "redCapableEnforcement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mechanism", "owner", "red_capable", "red_evidence", "green_evidence"],
+      "properties": {
+        "mechanism": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string", "minLength": 1 },
+        "red_capable": { "const": true },
+        "red_evidence": { "type": "string", "minLength": 1 },
+        "green_evidence": { "type": "string", "minLength": 1 }
+      }
+    },
+    "noCanonChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence", "reviewer_approval"],
+      "properties": {
+        "evidence": { "type": "string", "minLength": 1 },
+        "reviewer_approval": { "$ref": "#/$defs/reviewerApproval" }
+      }
+    },
+    "reviewerApproval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewer", "approved", "approved_at"],
+      "properties": {
+        "reviewer": { "type": "string", "minLength": 1 },
+        "approved": { "const": true },
+        "approved_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "productFix": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requirement_id", "delivery_receipt_id", "status", "substitution_prohibited"],
+      "properties": {
+        "requirement_id": { "type": "string", "pattern": "^req-[0-9]{4}$" },
+        "delivery_receipt_id": { "type": "string", "pattern": "^receipt-[0-9]{4}$" },
+        "status": { "enum": ["NOT_STARTED", "IN_PROGRESS", "DELIVERED"] },
+        "substitution_prohibited": { "const": true }
+      }
+    }
+  }
+}

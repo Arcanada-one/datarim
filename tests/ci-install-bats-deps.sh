@@ -14,7 +14,7 @@
 #   - apt packages (jq, shellcheck, socat) are stock distro tooling used only as
 #     test fixtures; they are not part of any shipped artefact.
 #
-# Usage: ci-install-bats-deps.sh [--prefix DIR]
+# Usage: ci-install-bats-deps.sh [--prefix DIR] [--python-only] [--python-bin PATH] [--python-site DIR]
 #   --prefix DIR   where to install bats + yq (default /usr/local)
 
 set -euo pipefail
@@ -35,31 +35,45 @@ YQ_VERSION="v4.44.3"
 YQ_SHA256="a2c097180dd884a8d50c956ee16a9cec070f30a7947cf4ebf87d5f36213e9ed7"
 
 PY_JSONSCHEMA="jsonschema==4.23.0"
+PY_RFC3339_VALIDATOR="rfc3339-validator==0.1.4"
 PY_PYYAML="pyyaml==6.0.2"
+PY_CRYPTOGRAPHY="cryptography==43.0.3"
 
 PREFIX="/usr/local"
+PYTHON_ONLY=false
+PYTHON_BIN="python3"
+PYTHON_SITE=""
 
 while [ $# -gt 0 ]; do
     case "$1" in
         --prefix)
             [ $# -ge 2 ] || { echo "ERROR: --prefix requires an argument" >&2; exit 2; }
             PREFIX="$2"; shift ;;
+        --python-only)
+            PYTHON_ONLY=true ;;
+        --python-bin)
+            [ $# -ge 2 ] || { echo "ERROR: --python-bin requires an argument" >&2; exit 2; }
+            PYTHON_BIN="$2"; shift ;;
+        --python-site)
+            [ $# -ge 2 ] || { echo "ERROR: --python-site requires an argument" >&2; exit 2; }
+            PYTHON_SITE="$2"; shift ;;
         --help|-h)
-            echo "Usage: $(basename "$0") [--prefix DIR]"; exit 0 ;;
+            echo "Usage: $(basename "$0") [--prefix DIR] [--python-only] [--python-bin PATH] [--python-site DIR]"; exit 0 ;;
         *)
             echo "ERROR: unknown argument: $1" >&2; exit 2 ;;
     esac
     shift
 done
 
-SUDO=""
-if [ "$(id -u)" -ne 0 ]; then
-    SUDO="sudo"
-fi
+if [ "$PYTHON_ONLY" != true ]; then
+    SUDO=""
+    if [ "$(id -u)" -ne 0 ]; then
+        SUDO="sudo"
+    fi
 
-echo "==> apt fixtures (jq, shellcheck, socat)"
-$SUDO apt-get update -qq
-$SUDO apt-get install -y --no-install-recommends jq shellcheck socat
+    echo "==> apt fixtures (jq, shellcheck, socat)"
+    $SUDO apt-get update -qq
+    $SUDO apt-get install -y --no-install-recommends jq shellcheck socat
 
 echo "==> bats-core ${BATS_HUMAN_VERSION} @ ${BATS_SHA}"
 workdir="$(mktemp -d)"
@@ -82,14 +96,55 @@ curl -fsSL --proto '=https' --tlsv1.2 \
      -o "$yq_tmp" \
      "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64"
 echo "${YQ_SHA256}  ${yq_tmp}" | sha256sum -c -
-$SUDO install -m 0755 "$yq_tmp" "${PREFIX}/bin/yq"
+    $SUDO install -m 0755 "$yq_tmp" "${PREFIX}/bin/yq"
+fi
 
 echo "==> python test deps"
-python3 -m pip install --quiet --disable-pip-version-check "$PY_JSONSCHEMA" "$PY_PYYAML"
+if [[ -n "$PYTHON_SITE" ]]; then
+    [[ "$PYTHON_SITE" == /* && -d "$PYTHON_SITE" && ! -L "$PYTHON_SITE" ]] || {
+        echo "ERROR: --python-site must be an absolute existing directory" >&2
+        exit 2
+    }
+    "$PYTHON_BIN" -I -S -c '
+import runpy
+import sys
+
+target = sys.argv[1]
+sys.path.insert(0, target)
+sys.argv = ["pip", "install", "--quiet", "--disable-pip-version-check", "--upgrade", "--target", target] + sys.argv[2:]
+runpy.run_module("pip", run_name="__main__")
+' "$PYTHON_SITE" "$PY_JSONSCHEMA" "$PY_RFC3339_VALIDATOR" "$PY_PYYAML" "$PY_CRYPTOGRAPHY"
+    python_site="$PYTHON_SITE"
+else
+    "$PYTHON_BIN" -m pip install --quiet --disable-pip-version-check \
+        "$PY_JSONSCHEMA" "$PY_RFC3339_VALIDATOR" "$PY_PYYAML" "$PY_CRYPTOGRAPHY"
+    python_site="$("$PYTHON_BIN" -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')"
+fi
+# Apple CLT Python 3.9 seeds setuptools and its executable
+# distutils-precedence.pth into a fresh venv. None of the pinned validator
+# dependencies needs that startup hook; remove only this known installer file
+# and fail if any other .pth authority remains.
+for pth_file in "$python_site"/*.pth; do
+    [[ -e "$pth_file" || -L "$pth_file" ]] || continue
+    if [[ "${pth_file##*/}" == distutils-precedence.pth ]]; then
+        /bin/rm -f -- "$pth_file"
+    else
+        echo "ERROR: unexpected executable Python path file: $pth_file" >&2
+        exit 1
+    fi
+done
+if [[ -n "$PYTHON_SITE" ]]; then
+    "$PYTHON_BIN" -I -S -c 'import sys; sys.path.insert(0, sys.argv[1]); import cryptography, jsonschema, rfc3339_validator, yaml; assert "date-time" in jsonschema.FormatChecker().checkers; jsonschema.FormatChecker().check("2026-01-01T00:00:00Z", "date-time")' "$PYTHON_SITE"
+else
+    "$PYTHON_BIN" -c 'import cryptography, jsonschema, rfc3339_validator, yaml; assert "date-time" in jsonschema.FormatChecker().checkers; jsonschema.FormatChecker().check("2026-01-01T00:00:00Z", "date-time")'
+fi
 
 echo "==> versions"
-"${PREFIX}/bin/bats" --version
-"${PREFIX}/bin/yq" --version
-jq --version
-shellcheck --version | sed -n '2p'
+if [ "$PYTHON_ONLY" != true ]; then
+    "${PREFIX}/bin/bats" --version
+    "${PREFIX}/bin/yq" --version
+    jq --version
+    shellcheck --version | sed -n '2p'
+fi
+"$PYTHON_BIN" --version
 echo "toolchain ready"
