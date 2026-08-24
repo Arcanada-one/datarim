@@ -30,7 +30,7 @@
 #
 set -uo pipefail
 
-VERSION="1.1.0"
+VERSION="1.2.0"
 SCRIPT_NAME="check-expectations-checklist.sh"
 
 # TUNE-0266 Phase 4: pivot date for "all wishes evidence_type=static" advisory.
@@ -56,7 +56,14 @@ Options:
   --help               Show this help and exit 0.
   --version            Print version and exit 0.
 
-Schema v3 fields (optional per-wish, opt-in — requires schema_version: 3 in frontmatter):
+Schema v4 fields (current default; required per wish):
+  customer_binding_from: <wish_id> (required frontmatter cutover marker)
+  customer_derived: true | false
+    Every wish from the cutover marker onward declares whether it came from a
+    customer requirement. true requires requirement_id, surface_class,
+    visitor_visible, and delivery_receipt; false forbids those four fields.
+
+Schema v3 fields (also supported by v4):
   verification_mode: one-off | reproducible
     Distinguishes a one-off manual check (default when absent) from a
     reproducible/wired check. Bad enum value → ERROR.
@@ -202,14 +209,36 @@ days_between() {
 parse_items() {
     local file="$1"
     local schema="${2:-1}"
-    awk -v f="$file" -v schema="$schema" '
+    local task_id="${3:-}"
+    local cutover="${4:-}"
+    local artifact_status="${5:-}"
+    awk -v f="$file" -v schema="$schema" -v task="$task_id" \
+        -v cutover="$cutover" -v artifact_status="$artifact_status" '
         BEGIN {
             in_section = 0; current_item = 0; total_items = 0; errors = 0
             wish_id = ""; status = ""; override_text = ""; evidence_type = ""
             override_by = ""; override_class = ""; override_artifact = ""
             verification_mode = ""; evidence_artifact = ""; success_criterion = ""
+            customer_derived = ""
+            requirement_id = ""; surface_class = ""; visitor_visible = ""; delivery_receipt = ""
+            customer_derived_count = 0
+            requirement_id_count = 0; surface_class_count = 0
+            visitor_visible_count = 0; delivery_receipt_count = 0
+            in_comment = 0; binding_started = 0; cutover_seen = 0
+            first_wish_id = ""
             history_count = 0; has_history_heading = 0; has_status_heading = 0
             in_history = 0; in_status = 0
+        }
+
+        {
+            if (in_comment) {
+                if ($0 ~ /-->/) in_comment = 0
+                next
+            }
+            if ($0 ~ /<!--/) {
+                if ($0 !~ /-->/) in_comment = 1
+                next
+            }
         }
 
         /^## Ожидания[ \t]*$/ {
@@ -232,6 +261,11 @@ parse_items() {
                 wish_id = ""; status = ""; override_text = ""; evidence_type = ""
                 override_by = ""; override_class = ""; override_artifact = ""
                 verification_mode = ""; evidence_artifact = ""; success_criterion = ""
+                customer_derived = ""
+                requirement_id = ""; surface_class = ""; visitor_visible = ""; delivery_receipt = ""
+                customer_derived_count = 0
+                requirement_id_count = 0; surface_class_count = 0
+                visitor_visible_count = 0; delivery_receipt_count = 0
                 history_count = 0; has_history_heading = 0; has_status_heading = 0
                 in_history = 0; in_status = 0
                 next
@@ -240,11 +274,42 @@ parse_items() {
                 if (match($0, /^  - wish_id:[ \t]*/)) {
                     wish_id = substr($0, RLENGTH + 1)
                     sub(/[ \t]+$/, "", wish_id)
+                    if (current_item == 1) first_wish_id = wish_id
                     in_history = 0; in_status = 0; next
                 }
                 if (match($0, /^  - evidence_type:[ \t]*/)) {
                     evidence_type = substr($0, RLENGTH + 1)
                     sub(/[ \t]+$/, "", evidence_type)
+                    in_history = 0; in_status = 0; next
+                }
+                if (match($0, /^  - customer_derived:[ \t]*/)) {
+                    customer_derived_count++
+                    customer_derived = substr($0, RLENGTH + 1)
+                    sub(/[ \t]+$/, "", customer_derived)
+                    in_history = 0; in_status = 0; next
+                }
+                if (match($0, /^  - requirement_id:[ \t]*/)) {
+                    requirement_id_count++
+                    requirement_id = substr($0, RLENGTH + 1)
+                    sub(/[ \t]+$/, "", requirement_id)
+                    in_history = 0; in_status = 0; next
+                }
+                if (match($0, /^  - surface_class:[ \t]*/)) {
+                    surface_class_count++
+                    surface_class = substr($0, RLENGTH + 1)
+                    sub(/[ \t]+$/, "", surface_class)
+                    in_history = 0; in_status = 0; next
+                }
+                if (match($0, /^  - visitor_visible:[ \t]*/)) {
+                    visitor_visible_count++
+                    visitor_visible = substr($0, RLENGTH + 1)
+                    sub(/[ \t]+$/, "", visitor_visible)
+                    in_history = 0; in_status = 0; next
+                }
+                if (match($0, /^  - delivery_receipt:[ \t]*/)) {
+                    delivery_receipt_count++
+                    delivery_receipt = substr($0, RLENGTH + 1)
+                    sub(/[ \t]+$/, "", delivery_receipt)
                     in_history = 0; in_status = 0; next
                 }
                 if (match($0, /^  - verification_mode:[ \t]*/)) {
@@ -313,6 +378,16 @@ parse_items() {
                 printf "ERROR: %s: no items found under ## Ожидания (file appears empty)\n", f > "/dev/stderr"
                 errors++
             }
+            if (schema == "4" && cutover != "" && !cutover_seen) {
+                printf "ERROR: %s: customer_binding_from does not name a wish_id: %s\n", f, cutover > "/dev/stderr"
+                errors++
+            }
+            if (schema == "4" && artifact_status == "canonical" && first_wish_id != "" \
+                    && cutover != first_wish_id) {
+                printf "ERROR: %s: canonical schema v4 must start customer binding at its first wish: %s\n", \
+                    f, first_wish_id > "/dev/stderr"
+                errors++
+            }
             exit (errors > 0 ? 1 : 0)
         }
 
@@ -340,11 +415,11 @@ parse_items() {
                 printf "ERROR: %s: item %d status not in enum: %s\n", f, current_item, status > "/dev/stderr"
                 errors++
             }
-            # v2 schema: evidence_type required + enum (empirical|static|measurement).
+            # v2+ schema: evidence_type required + enum (empirical|static|measurement).
             # See skills/expectations-checklist/SKILL.md § Item rules.
-            if (schema == "2" || schema == "3") {
+            if (schema == "2" || schema == "3" || schema == "4") {
                 if (evidence_type == "") {
-                    printf "ERROR: %s: item %d missing evidence_type (required in schema_version=2/3)\n", f, current_item > "/dev/stderr"
+                    printf "ERROR: %s: item %d missing evidence_type (required in schema_version=2/3/4)\n", f, current_item > "/dev/stderr"
                     errors++
                 } else if (evidence_type != "empirical" && evidence_type != "static" \
                        && evidence_type != "measurement") {
@@ -352,11 +427,11 @@ parse_items() {
                     errors++
                 }
             }
-            # v3 schema: verification_mode optional enum; reproducible requires evidence_artifact.
+            # v3+ schema: verification_mode optional enum; reproducible requires evidence_artifact.
             # Hard error for bad enum and for reproducible-without-artifact.
             # advisory heuristic (missing mode on empirical with world-state text) and
             # stub-artifact check are done in the bash post-parse loop — they need file I/O.
-            if (schema == "3" && verification_mode != "") {
+            if ((schema == "3" || schema == "4") && verification_mode != "") {
                 if (verification_mode != "one-off" && verification_mode != "reproducible") {
                     printf "ERROR: %s: item %d verification_mode not in enum: %s (allowed: one-off|reproducible)\n", \
                         f, current_item, verification_mode > "/dev/stderr"
@@ -366,6 +441,80 @@ parse_items() {
                     printf "ERROR: %s: item %d verification-not-wired: %s (reproducible requires evidence_artifact)\n", \
                         f, current_item, wish_id > "/dev/stderr"
                     errors++
+                }
+            }
+            # v4 schema: every wish at or after the declared cutover explicitly
+            # declares customer derivation. Earlier wishes are preserved legacy.
+            if (schema == "4" && wish_id == cutover) {
+                binding_started = 1
+                cutover_seen = 1
+            }
+            if (schema == "4" && binding_started) {
+                if (customer_derived_count == 0) {
+                    printf "ERROR: %s: item %d missing customer_derived\n", f, current_item > "/dev/stderr"
+                    errors++
+                } else if (customer_derived_count > 1) {
+                    printf "ERROR: %s: item %d duplicate customer_derived\n", f, current_item > "/dev/stderr"
+                    errors++
+                } else if (customer_derived != "true" && customer_derived != "false") {
+                    printf "ERROR: %s: item %d customer_derived must be boolean true|false, got: %s\n", \
+                        f, current_item, customer_derived > "/dev/stderr"
+                    errors++
+                }
+
+                if (customer_derived == "true" && customer_derived_count == 1) {
+                    if (requirement_id_count == 0) {
+                        printf "ERROR: %s: item %d missing requirement_id\n", f, current_item > "/dev/stderr"
+                        errors++
+                    } else if (requirement_id_count > 1) {
+                        printf "ERROR: %s: item %d duplicate requirement_id\n", f, current_item > "/dev/stderr"
+                        errors++
+                    } else if (requirement_id !~ /^req-[0-9][0-9][0-9][0-9]$/) {
+                        printf "ERROR: %s: item %d requirement_id must match req-NNNN, got: %s\n", f, current_item, requirement_id > "/dev/stderr"
+                        errors++
+                    }
+                    if (surface_class_count == 0) {
+                        printf "ERROR: %s: item %d missing surface_class\n", f, current_item > "/dev/stderr"
+                        errors++
+                    } else if (surface_class_count > 1) {
+                        printf "ERROR: %s: item %d duplicate surface_class\n", f, current_item > "/dev/stderr"
+                        errors++
+                    } else if (surface_class != "VISITOR_VISIBLE" && surface_class != "ENABLING") {
+                        printf "ERROR: %s: item %d surface_class not in enum: %s (allowed: VISITOR_VISIBLE|ENABLING)\n", f, current_item, surface_class > "/dev/stderr"
+                        errors++
+                    }
+                    if (visitor_visible_count == 0) {
+                        printf "ERROR: %s: item %d missing visitor_visible\n", f, current_item > "/dev/stderr"
+                        errors++
+                    } else if (visitor_visible_count > 1) {
+                        printf "ERROR: %s: item %d duplicate visitor_visible\n", f, current_item > "/dev/stderr"
+                        errors++
+                    } else if (visitor_visible != "true" && visitor_visible != "false") {
+                        printf "ERROR: %s: item %d visitor_visible must be boolean true|false, got: %s\n", f, current_item, visitor_visible > "/dev/stderr"
+                        errors++
+                    }
+                    if (surface_class_count == 1 && visitor_visible_count == 1 \
+                            && ((surface_class == "VISITOR_VISIBLE" && visitor_visible != "true") \
+                            || (surface_class == "ENABLING" && visitor_visible != "false"))) {
+                        printf "ERROR: %s: item %d surface_class and visitor_visible disagree\n", f, current_item > "/dev/stderr"
+                        errors++
+                    }
+                    if (delivery_receipt_count == 0) {
+                        printf "ERROR: %s: item %d missing delivery_receipt\n", f, current_item > "/dev/stderr"
+                        errors++
+                    } else if (delivery_receipt_count > 1) {
+                        printf "ERROR: %s: item %d duplicate delivery_receipt\n", f, current_item > "/dev/stderr"
+                        errors++
+                    } else if (delivery_receipt != "datarim/receipts/" task "-customer-delivery.yaml") {
+                        printf "ERROR: %s: item %d delivery_receipt must be datarim/receipts/%s-customer-delivery.yaml, got: %s\n", \
+                            f, current_item, task, delivery_receipt > "/dev/stderr"
+                        errors++
+                    }
+                } else if (customer_derived == "false" && customer_derived_count == 1) {
+                    if (requirement_id_count + surface_class_count + visitor_visible_count + delivery_receipt_count > 0) {
+                        printf "ERROR: %s: item %d customer_derived=false must omit customer binding fields\n", f, current_item > "/dev/stderr"
+                        errors++
+                    }
                 }
             }
             ovr_len = length(override_text)
@@ -401,7 +550,7 @@ validate_single_task() {
         return 1
     fi
 
-    local errors=0 val
+    local errors=0 val schema_v customer_binding_from artifact_status
 
     for field in task_id artifact schema_version captured_at captured_by status; do
         val=$(extract_frontmatter_field "$file" "$field")
@@ -419,8 +568,14 @@ validate_single_task() {
 
     val=$(extract_frontmatter_field "$file" "schema_version")
     schema_v="$val"
-    if [ -n "$val" ] && [ "$val" != "1" ] && [ "$val" != "2" ] && [ "$val" != "3" ]; then
-        echo "ERROR: $file: schema_version must be '1', '2', or '3', got '$val'" >&2
+    if [ -n "$val" ] && [ "$val" != "1" ] && [ "$val" != "2" ] && [ "$val" != "3" ] && [ "$val" != "4" ]; then
+        echo "ERROR: $file: schema_version must be '1', '2', '3', or '4', got '$val'" >&2
+        errors=$(( errors + 1 ))
+    fi
+    customer_binding_from=$(extract_frontmatter_field "$file" "customer_binding_from")
+    artifact_status=$(extract_frontmatter_field "$file" "status")
+    if [ "$schema_v" = "4" ] && [ -z "$customer_binding_from" ]; then
+        echo "ERROR: $file: frontmatter missing required field 'customer_binding_from' for schema_version=4" >&2
         errors=$(( errors + 1 ))
     fi
     # v1 legacy deprecation warning (TUNE-0266: 12-month sunset, see
@@ -443,14 +598,14 @@ validate_single_task() {
     # Item-level parse — emits to stdout (captured here for v3 post-parse) + stderr.
     # schema_v passed through to enable evidence_type/verification_mode checks.
     local items_out
-    items_out=$(parse_items "$file" "${schema_v:-1}" 2>/tmp/_cec_stderr_$$) || errors=$(( errors + 1 ))
+    items_out=$(parse_items "$file" "${schema_v:-1}" "$id" "$customer_binding_from" "$artifact_status" 2>/tmp/_cec_stderr_$$) || errors=$(( errors + 1 ))
     # Pipe parse stderr to our stderr so callers see it.
     cat /tmp/_cec_stderr_$$ >&2 2>/dev/null || true
     rm -f /tmp/_cec_stderr_$$
 
-    # Post-parse bash loop: v3 evidence_artifact resolution + stub advisory + heuristic advisory.
+    # Post-parse bash loop: v3+ evidence_artifact resolution + stub advisory + heuristic advisory.
     # Done here (not in awk) because we need test -f, grep, and file scanning — unsafe inside awk system().
-    if [ "${schema_v:-1}" = "3" ] && [ -n "$items_out" ]; then
+    if { [ "${schema_v:-1}" = "3" ] || [ "${schema_v:-1}" = "4" ]; } && [ -n "$items_out" ]; then
         # Determine repo root for evidence_artifact resolution (two-tier: test -f, then grep).
         local repo_root
         repo_root=$(git -C "$(dirname "$file")" rev-parse --show-toplevel 2>/dev/null || echo "$ROOT")
@@ -538,10 +693,12 @@ verify_routing() {
         return 1
     fi
 
-    local schema_v
+    local schema_v customer_binding_from artifact_status
     schema_v=$(extract_frontmatter_field "$file" "schema_version")
+    customer_binding_from=$(extract_frontmatter_field "$file" "customer_binding_from")
+    artifact_status=$(extract_frontmatter_field "$file" "status")
     local items
-    items=$(parse_items "$file" "${schema_v:-1}" 2>/dev/null) || true
+    items=$(parse_items "$file" "${schema_v:-1}" "$id" "$customer_binding_from" "$artifact_status" 2>/dev/null) || true
 
     local blocking=()
     local has_partial_or_missed=0

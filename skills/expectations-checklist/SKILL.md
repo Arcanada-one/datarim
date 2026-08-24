@@ -61,7 +61,8 @@ Required YAML frontmatter (closed schema):
 ---
 task_id: <TASK-ID>          # ^[A-Z]{2,10}-[0-9]{4}$ — required
 artifact: expectations      # literal — required
-schema_version: 2           # integer — required (current: 2; legacy: 1, sunset 2027-05-23)
+schema_version: 4           # integer — required (current: 4; legacy: 1-3)
+customer_binding_from: <wish_id> # first wish governed by v4 customer binding
 captured_at: <YYYY-MM-DD>   # date of first write — required
 captured_by: /dr-init       # /dr-init | /dr-prd | /dr-plan — required
 status: canonical           # canonical | amended — required (flips on first append)
@@ -71,12 +72,17 @@ parent_prd: <path>          # relative path to PRD file when one exists
 ---
 ```
 
-**Schema v3 (opt-in):** adds optional per-wish `verification_mode` and
+**Schema v4 (current default):** requires `customer_binding_from` in
+frontmatter and exactly one `customer_derived: true | false` field on every
+wish from that marker onward. A new file sets the marker to its first
+`wish_id`. See § Customer-requirement binding.
+
+**Schema v3 (legacy, accepted):** adds optional per-wish `verification_mode` and
 `evidence_artifact` fields distinguishing a one-off manual check from a
 reproducible/wired check. See § `verification_mode` axis. Only active when the
-file declares `schema_version: 3`; all sub-v3 files are UNCHANGED.
+file declares `schema_version: 3` or `4`; all sub-v3 files are unchanged.
 
-**Schema v2 (current default):** adds required `evidence_type` field per wish item
+**Schema v2 (legacy, accepted):** adds required `evidence_type` field per wish item
 (enum: `empirical | static | measurement`). Validator
 (`"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh"`) rejects items without
 `evidence_type` in v2 mode.
@@ -86,12 +92,13 @@ from the v1→v2 migration archive). Deprecation warning emitted on every valida
 invocation. Migration recipe: add `evidence_type: empirical` (or
 `static`/`measurement`) to each wish; bump `schema_version: 2`.
 
-**Migration note — author new files at v2.** `/dr-prd` (and `/dr-plan` for the
-L2-no-PRD path) MUST create new expectations files at `schema_version: 2`
-directly — never author a v1 file and migrate it afterwards. v1 is deprecated
-(sunset **2027-05-23**) and emits a per-invocation deprecation warning, so
-starting at v2 avoids a needless migration and a noisy validator. Schema v3
-stays opt-in per the note above; the default first-write target is v2.
+**Migration note — author new files at v4.** `/dr-prd` (and `/dr-plan` for the
+L2-no-PRD path) MUST create new expectations files at `schema_version: 4`.
+For the first append to a v1-v3 file, change the version to 4, set
+`customer_binding_from` to the first appended wish, and leave every older wish
+block untouched. The validator applies v4 binding only from that marker onward.
+v1-v3 remain accepted without customer-binding fields; v1 keeps its
+**2027-05-23** sunset and deprecation warning.
 
 ## Body shape
 
@@ -106,11 +113,12 @@ stays opt-in per the note above; the default first-write target is v2.
   - Как проверить (success criterion): <one concrete signal — file path,
     command output, visible behaviour>
   - Связанный AC из PRD: V-AC-<N> или «—»
+  - customer_derived: <true | false>  # v4 — required at/after cutover
   - requirement_id: <req-NNNN>
   - surface_class: <VISITOR_VISIBLE | ENABLING>
   - visitor_visible: <true | false>
   - delivery_receipt: <datarim/receipts/{TASK-ID}-customer-delivery.yaml>
-  - evidence_type: <empirical | static | measurement>  # v2 — required
+  - evidence_type: <empirical | static | measurement>  # v2+ — required
   - override: <optional reason text, only used when status flips to
     partial/missed and the deferral is genuinely legitimate>
   - override_by: <agent | operator>            # who authored the override
@@ -128,7 +136,15 @@ _(empty on first write)_
 
 ### Customer-requirement binding
 
-Every new wish derived from a customer remark MUST carry these four fields:
+Every schema-v4 wish at or after `customer_binding_from` MUST carry exactly one
+discriminator:
+
+```yaml
+  - customer_derived: <true | false>
+```
+
+When `customer_derived: true`, the wish MUST carry exactly one of each binding
+field:
 
 ```yaml
   - requirement_id: <req-NNNN>
@@ -145,14 +161,17 @@ eventually prove the complete delivery chain. A pointer may identify its
 planned canonical path before the receipt exists, but an absent or incomplete
 receipt can never satisfy closure.
 
+When `customer_derived: false`, all four binding fields MUST be absent. A later
+canonical requirements cross-check may reject a false classification; this
+local schema gate only makes the declaration explicit and non-ambiguous.
+
 For a visitor-visible wish, the success criterion MUST assert observable live
 production behaviour. Documentation, knowledge, tests, CI, ledgers, and other
 enabling outputs may support the evidence but cannot satisfy the wish.
 
-Legacy expectations files remain valid without these fields. Do not rewrite
-or renumber existing wish blocks solely to add customer-delivery metadata;
-apply the binding to new customer-derived wishes and preserve the existing
-append-merge contract.
+Legacy expectations files at v1-v3 remain valid without these fields. On the
+first append, use the v4 cutover migration above; do not rewrite or renumber old
+wish blocks solely to add customer-delivery metadata.
 
 ### `override` indent — concrete syntax
 
@@ -225,7 +244,7 @@ Incorrect (4-space, silently ignored by the validator):
   three `·` separators and the literal `reason:` token are required.
 - **`#### Текущий статус`** carries the current enum value. Allowed values: <!-- allow-non-ascii: russian-current-status-section-name-from-canonical-schema -->
   `pending`, `met`, `partial`, `missed`, `n-a`, `deleted`.
-- **`evidence_type`** (schema v2, required) declares what kind of evidence
+- **`evidence_type`** (schema v2+, required) declares what kind of evidence
   `/dr-qa` must produce for this wish at Layer 3b. Allowed enum:
   - **`empirical`** — runtime check: command invocation, smoke test, E2E
     test, integration probe. Per-wish QA report MUST contain actual
@@ -239,7 +258,7 @@ Incorrect (4-space, silently ignored by the validator):
     contain the measured value + comparison to expected (`X = 87ms <
     budget 100ms`).
 
-- **`verification_mode`** (schema v3, optional per-wish) closes the
+- **`verification_mode`** (schema v3+, optional per-wish) closes the
   "manual-check ≠ coded verification" error class (the motivating incident:
   an oral requirement closed by a one-off `curl` spot-check, never coded →
   regression later). Allowed enum:
@@ -257,7 +276,7 @@ Incorrect (4-space, silently ignored by the validator):
     `evidence_artifact:` (see below); the validator exits 1 on the
     `verification-not-wired` error if it is missing.
 
-- **`evidence_artifact`** (schema v3, required when `verification_mode:
+- **`evidence_artifact`** (schema v3+, required when `verification_mode:
   reproducible`) names the concrete check: a relative file path, an
   absolute path, a test-id string, or a CI-job name. Resolution is
   deterministic and repo-root anchored (two-tier):
@@ -280,7 +299,7 @@ Incorrect (4-space, silently ignored by the validator):
   the stub. Operator must verify stub coverage during `/dr-qa` review.
 <!-- /gate:example-only -->
 
-  **Heuristic advisory (sub-v3 and v3, NEVER hard):** for schema v3
+  **Heuristic advisory (sub-v3 and v3+, NEVER hard):** for schema v3 or v4
   wishes where `verification_mode` is ABSENT and `evidence_type:
   empirical`, the validator runs a narrow deterministic case-insensitive
   regex over the "Как проверить (success criterion)" text for world-state <!-- allow-non-ascii: russian-expectations-field-name-cited-verbatim-as-validator-regex-target -->

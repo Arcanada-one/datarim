@@ -1,7 +1,8 @@
 ---
 task_id: {TASK-ID}
 artifact: expectations
-schema_version: 2
+schema_version: 4
+customer_binding_from: {kebab-slug-of-first-wish}
 captured_at: {YYYY-MM-DD}
 captured_by: {/dr-init | /dr-prd | /dr-plan}
 status: canonical
@@ -34,6 +35,7 @@ parent_prd: ../prd/PRD-{TASK-ID}.md
   - Как проверить (success criterion): {конкретный сигнал — путь к файлу,
     вывод команды, видимое поведение}
   - Связанный AC из PRD: {V-AC-N или «—»}
+  - customer_derived: true
   - requirement_id: {req-NNNN}
   - surface_class: {VISITOR_VISIBLE | ENABLING}
   - visitor_visible: {true | false}
@@ -49,6 +51,7 @@ parent_prd: ../prd/PRD-{TASK-ID}.md
   - Что хочу проверить: {…}
   - Как проверить (success criterion): {…}
   - Связанный AC из PRD: {V-AC-N или «—»}
+  - customer_derived: true
   - requirement_id: {req-NNNN}
   - surface_class: {VISITOR_VISIBLE | ENABLING}
   - visitor_visible: {true | false}
@@ -63,9 +66,9 @@ parent_prd: ../prd/PRD-{TASK-ID}.md
      валидатор проверяет наличие wish_id, формат строки История статусов и
      значение Текущий статус. -->
 
-<!-- OPTIONAL: verification_mode axis (schema v3 only).
+<!-- OPTIONAL: verification_mode axis (schema v3 and v4).
      Distinguishes a one-off manual check from a reproducible/wired check.
-     To opt in: bump schema_version to 3 in frontmatter, then add:
+     Available in schema v3 and inherited by the v4 default. Add:
 
   - verification_mode: reproducible          # one-off | reproducible
   - evidence_artifact: tests/my-suite.bats   # path, test-id, or CI-job-name
