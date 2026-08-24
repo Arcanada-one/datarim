@@ -26,6 +26,11 @@ TEST_PATTERN = re.compile(r'^@test "([^"]+)" \{$')
 ALTERNATE_TEST_PATTERN = re.compile(r'^function\s+[A-Za-z_][A-Za-z0-9_]*\s*\{\s*#\s*@test(?:\s.*)?$')
 TAP_RESULT_PATTERN = re.compile(r"^(?:ok|not ok)\s+[0-9]+(?:\s|$)", re.MULTILINE)
 TAP_PLAN_PATTERN = re.compile(r"^1\.\.([0-9]+)\s*$", re.MULTILINE)
+# TALO-0001 CI evidence: 20/44-case shards reached 103-106 seconds, and a
+# 15-case functional shard still reached 91 seconds at the fixed 105-second
+# macOS child ceiling. These limits preserve margin while exact coverage
+# prevents omissions.
+MACOS_ORDINAL_TEST_LIMITS = {"functional": 10, "schema": 30}
 
 
 class ContractError(ValueError):
@@ -157,6 +162,17 @@ def validate_registry(rows: list[Row]) -> tuple[dict[str, list[str]], list[str]]
                     if start > end:
                         raise ContractError(f"empty shard: {suite} {row.shard}")
                     indices = list(range(start, end + 1))
+                runtime_limit = MACOS_ORDINAL_TEST_LIMITS.get(suite)
+                if (
+                    runtime_limit is not None
+                    and "macos" in row.platforms
+                    and len(indices) > runtime_limit
+                ):
+                    raise ContractError(
+                        "macOS ordinal shard exceeds runtime budget: "
+                        f"{suite} {row.shard} has {len(indices)} tests "
+                        f"(max {runtime_limit})"
+                    )
                 for index in indices:
                     if suite == "mutation" and index == 2:
                         raise ContractError("mutation security test requires security mode")

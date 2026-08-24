@@ -29,6 +29,54 @@ for index, item in enumerate(json.loads(sys.argv[2]), 1):
 PY
 }
 
+write_runtime_budget_fixture() {
+    local oversized_suite="$1" fixture="$2"
+    {
+        printf '%s\n' '# suite shard total mode first last platforms'
+        if [ "$oversized_suite" = functional ]; then
+            printf '%s\n' \
+                'functional 1 18 ordinal 1 11 linux,macos' \
+                'functional 2 18 ordinal 12 20 linux,macos'
+        else
+            printf '%s\n' \
+                'functional 1 18 ordinal 1 10 linux,macos' \
+                'functional 2 18 ordinal 11 20 linux,macos'
+        fi
+        printf '%s\n' \
+            'functional 3 18 ordinal 21 30 linux,macos' \
+            'functional 4 18 ordinal 31 40 linux,macos' \
+            'functional 5 18 ordinal 41 50 linux,macos' \
+            'functional 6 18 ordinal 51 60 linux,macos' \
+            'functional 7 18 ordinal 61 70 linux,macos' \
+            'functional 8 18 ordinal 71 80 linux,macos' \
+            'functional 9 18 ordinal 81 90 linux,macos' \
+            'functional 10 18 ordinal 91 100 linux,macos' \
+            'functional 11 18 ordinal 101 110 linux,macos' \
+            'functional 12 18 ordinal 111 120 linux,macos' \
+            'functional 13 18 ordinal 121 130 linux,macos' \
+            'functional 14 18 ordinal 131 140 linux,macos' \
+            'functional 15 18 ordinal 141 150 linux,macos' \
+            'functional 16 18 ordinal 151 160 linux,macos' \
+            'functional 17 18 ordinal 161 170 linux,macos' \
+            'functional 18 18 ordinal 171 177 linux,macos'
+        if [ "$oversized_suite" = schema ]; then
+            printf '%s\n' \
+                'schema 1 6 ordinal 1 31 linux,macos' \
+                'schema 2 6 ordinal 32 58 linux,macos'
+        else
+            printf '%s\n' \
+                'schema 1 6 ordinal 1 30 linux,macos' \
+                'schema 2 6 ordinal 31 58 linux,macos'
+        fi
+        printf '%s\n' \
+            'schema 3 6 ordinal 59 87 linux,macos' \
+            'schema 4 6 ordinal 88 116 linux,macos' \
+            'schema 5 6 ordinal 117 145 linux,macos' \
+            'schema 6 6 ordinal 146 173 linux,macos'
+        awk '/^mutation[[:space:]]/ { print }' "$REGISTRY"
+    } >"$fixture"
+}
+
 @test "customer-delivery shard runner and canonical registry exist" {
     [ -f "$RUNNER" ] && [ -f "$REGISTRY" ]
 }
@@ -68,23 +116,39 @@ PY
 
 @test "customer-delivery shard registry rejects overlapping coverage" {
     local fixture="$BATS_TEST_TMPDIR/overlap.tsv"
-    awk 'BEGIN { seen=0 } /^functional[[:space:]]/ { seen++; if (seen==2) $5=$5-1 } { print }' \
+    awk '/^functional[[:space:]]/ && $2 == 18 { $5=$5-1 } { print }' \
         "$REGISTRY" >"$fixture"
     run "$PYTHON" "$RUNNER" --registry "$fixture" --check
     [ "$status" -eq 2 ] \
         && [[ "$output" == *"registry coverage overlap"* ]]
 }
 
+@test "macOS functional shards reject more than 10 tests of runtime work" {
+    local fixture="$BATS_TEST_TMPDIR/functional-runtime-budget.tsv"
+    write_runtime_budget_fixture functional "$fixture"
+    run "$PYTHON" "$RUNNER" --registry "$fixture" --check
+    [ "$status" -eq 2 ] \
+        && [[ "$output" == *"macOS ordinal shard exceeds runtime budget: functional 1 has 11 tests (max 10)"* ]]
+}
+
+@test "macOS schema shards reject more than 30 tests of runtime work" {
+    local fixture="$BATS_TEST_TMPDIR/schema-runtime-budget.tsv"
+    write_runtime_budget_fixture schema "$fixture"
+    run "$PYTHON" "$RUNNER" --registry "$fixture" --check
+    [ "$status" -eq 2 ] \
+        && [[ "$output" == *"macOS ordinal shard exceeds runtime budget: schema 1 has 31 tests (max 30)"* ]]
+}
+
 @test "customer-delivery shard runner rejects an out-of-range selection" {
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" \
-        --suite functional --shard 8/7 --python-bin /usr/bin/python3
+        --suite functional --shard 19/18 --python-bin /usr/bin/python3
     [ "$status" -eq 2 ] \
         && [[ "$output" == *"unknown shard"* ]]
 }
 
 @test "customer-delivery shard runner rejects a command ceiling of 110 seconds" {
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" \
-        --suite functional --shard 1/7 --python-bin /usr/bin/python3 \
+        --suite functional --shard 1/18 --python-bin /usr/bin/python3 \
         --timeout-seconds 110
     [ "$status" -eq 2 ] \
         && [[ "$output" == *"timeout-seconds must be between 1 and 109"* ]]
@@ -92,37 +156,37 @@ PY
 
 @test "customer-delivery shard runner executes its child with the default absolute interpreter" {
     local observed="$BATS_TEST_TMPDIR/observed-python" result="$BATS_TEST_TMPDIR/result.json"
-    make_bats_child "if [ \"\${1:-}\" = --count ]; then echo 24; exit 0; fi; printf '%s\\n' \"\$CUSTOMER_DELIVERY_PYTHON\" > '$observed'; echo '1..24'; for n in {1..24}; do echo \"ok \$n fixture\"; done"
+    make_bats_child "if [ \"\${1:-}\" = --count ]; then echo 10; exit 0; fi; printf '%s\\n' \"\$CUSTOMER_DELIVERY_PYTHON\" > '$observed'; echo '1..10'; for n in {1..10}; do echo \"ok \$n fixture\"; done"
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" \
-        --suite functional --shard 1/7 --bats-bin "$CHILD" \
+        --suite functional --shard 1/18 --bats-bin "$CHILD" \
         --platform linux --result-file "$result"
     [ "$status" -eq 0 ] \
         && [ "$(<"$observed")" = /usr/bin/python3 ] \
-        && "$PYTHON" -c 'import json,sys; assert json.load(open(sys.argv[1])) == {"suite":"functional","shard":"1/7"}' "$result"
+        && "$PYTHON" -c 'import json,sys; assert json.load(open(sys.argv[1])) == {"suite":"functional","shard":"1/18"}' "$result"
 }
 
 @test "customer-delivery shard runner separates validator and fixture interpreters" {
     local observed="$BATS_TEST_TMPDIR/observed-python"
-    make_bats_child "if [ \"\${1:-}\" = --count ]; then echo 24; exit 0; fi; printf '%s|%s|%s\n' \"\$CUSTOMER_DELIVERY_PYTHON\" \"\$CUSTOMER_DELIVERY_TEST_PYTHON\" \"\$CUSTOMER_SCHEMA_PYTHON\" > '$observed'; echo '1..24'; for n in {1..24}; do echo \"ok \$n fixture\"; done"
+    make_bats_child "if [ \"\${1:-}\" = --count ]; then echo 10; exit 0; fi; printf '%s|%s|%s\n' \"\$CUSTOMER_DELIVERY_PYTHON\" \"\$CUSTOMER_DELIVERY_TEST_PYTHON\" \"\$CUSTOMER_SCHEMA_PYTHON\" > '$observed'; echo '1..10'; for n in {1..10}; do echo \"ok \$n fixture\"; done"
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" \
-        --suite functional --shard 1/7 --bats-bin "$CHILD" \
+        --suite functional --shard 1/18 --bats-bin "$CHILD" \
         --python-bin /usr/bin/python3 --test-python-bin /bin/true
     [ "$status" -eq 0 ] \
         && [ "$(<"$observed")" = /usr/bin/python3\|/bin/true\|/bin/true ]
 }
 
 @test "customer-delivery shard runner propagates a nonzero child status" {
-    make_bats_child 'if [ "${1:-}" = --count ]; then echo 24; exit 0; fi; exit 17'
+    make_bats_child 'if [ "${1:-}" = --count ]; then echo 10; exit 0; fi; exit 17'
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" \
-        --suite functional --shard 1/7 --bats-bin "$CHILD"
+        --suite functional --shard 1/18 --bats-bin "$CHILD"
     [ "$status" -eq 17 ]
 }
 
 @test "customer-delivery shard timeout kills the child group and returns 124" {
     local pid_file="$BATS_TEST_TMPDIR/descendant.pid" descendant attempt
-    make_bats_child "if [ \"\${1:-}\" = --count ]; then echo 24; exit 0; fi; (trap '' TERM; sleep 30) & printf '%s\\n' \"\$!\" > '$pid_file'; wait"
+    make_bats_child "if [ \"\${1:-}\" = --count ]; then echo 10; exit 0; fi; (trap '' TERM; sleep 30) & printf '%s\\n' \"\$!\" > '$pid_file'; wait"
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" \
-        --suite functional --shard 1/7 --bats-bin "$CHILD" --timeout-seconds 1
+        --suite functional --shard 1/18 --bats-bin "$CHILD" --timeout-seconds 1
     [ "$status" -eq 124 ] || return 1
     descendant="$(<"$pid_file")"
     for attempt in {1..10}; do
@@ -134,19 +198,19 @@ PY
 }
 
 @test "customer-delivery shard runner rejects empty successful Bats output" {
-    make_bats_child 'if [ "${1:-}" = --count ]; then echo 24; exit 0; fi; exit 0'
+    make_bats_child 'if [ "${1:-}" = --count ]; then echo 10; exit 0; fi; exit 0'
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" \
-        --suite functional --shard 1/7 --bats-bin "$CHILD"
+        --suite functional --shard 1/18 --bats-bin "$CHILD"
     [ "$status" -eq 2 ] \
-        && [[ "$output" == *"Bats execution inventory mismatch: expected 24, observed 0"* ]]
+        && [[ "$output" == *"Bats execution inventory mismatch: expected 10, observed 0"* ]]
 }
 
 @test "customer-delivery shard runner rejects a wrong Bats plan despite child success" {
-    make_bats_child 'if [ "${1:-}" = --count ]; then echo 24; exit 0; fi; echo "1..1"; echo "ok 1 fixture"'
+    make_bats_child 'if [ "${1:-}" = --count ]; then echo 10; exit 0; fi; echo "1..1"; echo "ok 1 fixture"'
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" \
-        --suite functional --shard 1/7 --bats-bin "$CHILD"
+        --suite functional --shard 1/18 --bats-bin "$CHILD"
     [ "$status" -eq 2 ] \
-        && [[ "$output" == *"Bats execution inventory mismatch: expected 24, observed 1"* ]]
+        && [[ "$output" == *"Bats execution inventory mismatch: expected 10, observed 1"* ]]
 }
 
 @test "customer-delivery shard runner rejects alternate Bats syntax instead of dead-testing it" {
@@ -171,11 +235,11 @@ PY
 @test "customer-delivery registry generates the complete Linux and approved macOS matrices" {
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" --matrix linux
     [ "$status" -eq 0 ] \
-        && "$PYTHON" -c 'import json,sys; rows=json.loads(sys.argv[1]); assert len(rows)==30 and len({(r["suite"],r["shard"]) for r in rows})==30 and [r["shard"] for r in rows if r["suite"]=="functional"]==["1/7","2/7","3/7","4/7","5/7","6/7","7/7"]' "$output" \
+        && "$PYTHON" -c 'import json,sys; rows=json.loads(sys.argv[1]); assert len(rows)==44 and len({(r["suite"],r["shard"]) for r in rows})==44 and [r["shard"] for r in rows if r["suite"]=="functional"]==["1/18","2/18","3/18","4/18","5/18","6/18","7/18","8/18","9/18","10/18","11/18","12/18","13/18","14/18","15/18","16/18","17/18","18/18"]' "$output" \
         || return 1
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" --matrix macos
     [ "$status" -eq 0 ] \
-        && "$PYTHON" -c 'import json,sys; rows=json.loads(sys.argv[1]); assert len(rows)==20 and {r["suite"] for r in rows}=={"functional","schema","mutation"} and [r["shard"] for r in rows if r["suite"]=="functional"]==["1/7","2/7","3/7","4/7","5/7","6/7","7/7"] and [r["shard"] for r in rows if r["suite"]=="mutation"]==["14/23","15/23","16/23","17/23","18/23","19/23","20/23","21/23","22/23","23/23"]' "$output"
+        && "$PYTHON" -c 'import json,sys; rows=json.loads(sys.argv[1]); assert len(rows)==34 and {r["suite"] for r in rows}=={"functional","schema","mutation"} and [r["shard"] for r in rows if r["suite"]=="functional"]==["1/18","2/18","3/18","4/18","5/18","6/18","7/18","8/18","9/18","10/18","11/18","12/18","13/18","14/18","15/18","16/18","17/18","18/18"] and [r["shard"] for r in rows if r["suite"]=="schema"]==["1/6","2/6","3/6","4/6","5/6","6/6"] and [r["shard"] for r in rows if r["suite"]=="mutation"]==["14/23","15/23","16/23","17/23","18/23","19/23","20/23","21/23","22/23","23/23"]' "$output"
 }
 
 @test "cross-platform mutation cases are split into ten bounded exact shards" {
@@ -199,7 +263,7 @@ PY
     seed_results linux "$results" || return 1
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" --check-results linux "$results"
     [ "$status" -eq 0 ] \
-        && [[ "$output" == *"customer_delivery_results=valid platform=linux count=30"* ]]
+        && [[ "$output" == *"customer_delivery_results=valid platform=linux count=44"* ]]
 }
 
 @test "customer-delivery aggregate rejects a missing result" {
