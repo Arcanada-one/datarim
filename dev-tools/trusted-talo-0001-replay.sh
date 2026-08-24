@@ -32,9 +32,16 @@ actual_evaluator_sha=$(sha256sum "$TRUSTED_EVALUATOR" | cut -d' ' -f1)
     || { echo "ERROR: trusted evaluator digest mismatch" >&2; exit 1; }
 [ -d "$KNOWLEDGE_ROOT" ] \
     || { echo "ERROR: trusted knowledge snapshot unavailable" >&2; exit 1; }
-actual_snapshot=$(GIT_NO_REPLACE_OBJECTS=1 git -C "$KNOWLEDGE_ROOT" rev-parse HEAD)
+actual_snapshot=$(
+    GIT_NO_REPLACE_OBJECTS=1 git -c safe.directory="$KNOWLEDGE_ROOT" \
+        -C "$KNOWLEDGE_ROOT" rev-parse HEAD
+)
 [ "$actual_snapshot" = "$SNAPSHOT" ] \
     || { echo "ERROR: trusted knowledge snapshot mismatch" >&2; exit 1; }
+sandbox_uid=$(id -u)
+sandbox_gid=$(id -g)
+[ "$sandbox_uid" -ne 0 ] \
+    || { echo "ERROR: trusted replay must not run as root" >&2; exit 1; }
 git init --quiet "$CANDIDATE"
 git -C "$CANDIDATE" remote add origin https://github.com/Arcanada-one/datarim.git
 git -C "$CANDIDATE" fetch --quiet --depth=1 origin "$head_sha"
@@ -77,7 +84,8 @@ run_validator() {
     local case_dir=$1 expected_status=$2 expected_text=$3
     local result="$scratch/result"
     set +e
-    docker run --rm --network none --read-only --user 65534:65534 \
+    docker run --rm --network none --read-only \
+        --user "$sandbox_uid:$sandbox_gid" \
         --memory 256m --cpus 1 --pids-limit 64 --cap-drop ALL \
         --security-opt no-new-privileges --tmpfs /tmp:rw,noexec,nosuid,size=16m \
         -e PYTHONDONTWRITEBYTECODE=1 \

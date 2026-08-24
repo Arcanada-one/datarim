@@ -159,6 +159,22 @@ PATHS
         && [[ "$output" == *'missing:trusted-evaluator-digest'* ]]
 }
 
+@test "sandbox identity is the dedicated non-root runner identity" {
+    local controller="$FIXTURE/dev-tools/trusted-talo-0001-replay.sh"
+    sed -i 's/\[ "$sandbox_uid" -ne 0 \]/true/' "$controller"
+    run_check
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'digest_mismatch:controller'* ]]
+}
+
+@test "root-owned knowledge store uses command-scoped safe-directory" {
+    local controller="$FIXTURE/dev-tools/trusted-talo-0001-replay.sh"
+    sed -i 's/-c safe.directory="$KNOWLEDGE_ROOT" //' "$controller"
+    run_check
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'digest_mismatch:controller'* ]]
+}
+
 @test "dedicated runner identity, fixed paths, and hardening are load-bearing" {
     local unit="$FIXTURE/dev-tools/systemd/talo-0001-trusted-runner.service"
     sed -i \
