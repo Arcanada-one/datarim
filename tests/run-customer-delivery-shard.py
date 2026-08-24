@@ -26,10 +26,10 @@ TEST_PATTERN = re.compile(r'^@test "([^"]+)" \{$')
 ALTERNATE_TEST_PATTERN = re.compile(r'^function\s+[A-Za-z_][A-Za-z0-9_]*\s*\{\s*#\s*@test(?:\s.*)?$')
 TAP_RESULT_PATTERN = re.compile(r"^(?:ok|not ok)\s+[0-9]+(?:\s|$)", re.MULTILINE)
 TAP_PLAN_PATTERN = re.compile(r"^1\.\.([0-9]+)\s*$", re.MULTILINE)
-# TALO-0001 CI evidence: 24 functional or 57 schema cases could exhaust the
-# fixed 105-second macOS child ceiling. These limits keep roughly 20% ordinal
-# work headroom while the registry's exact-coverage check prevents omissions.
-MACOS_ORDINAL_TEST_LIMITS = {"functional": 20, "schema": 44}
+# TALO-0001 CI evidence: 20 functional or 44 schema cases still reached
+# 103-106 seconds at the fixed 105-second macOS child ceiling. These stricter
+# limits preserve runtime margin while exact coverage prevents omissions.
+MACOS_ORDINAL_TEST_LIMITS = {"functional": 15, "schema": 30}
 
 
 class ContractError(ValueError):
