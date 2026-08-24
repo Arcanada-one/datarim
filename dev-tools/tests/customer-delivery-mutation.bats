@@ -1084,7 +1084,7 @@ run_process_lifecycle_mutant() {
         cleanup-alarm)
             guard=$'    previous_mask = signal.pthread_sigmask(\n        signal.SIG_BLOCK, {signal.SIGALRM}\n    )  # SECURITY_RULE:cleanup_signal_mask'
             mutant='    previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, set())  # MUTATED:cleanup_signal_mask'
-            expected_fragment='cleanup_alarm_orphan=active:'
+            expected_fragment='cleanup_alarm_interrupted_owned=1'
             ;;
         reused-pid)
             guard='        and process.supervisor.returncode is None'
@@ -1127,6 +1127,51 @@ PY
     "$PYTHON" -c \
         'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
         "process_lifecycle_${mode}" "${filter}|${expected_fragment}"
+}
+
+run_cleanup_second_signal_mutant() {
+    local filter='OpenSSL deadline terminates stubborn descendant pipe holders'
+    local functional_mutant
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        CUSTOMER_DELIVERY_LIFECYCLE_ONLY=cleanup-alarm \
+        bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+    assert_baseline_green "$filter" || return 1
+
+    functional_mutant="${BATS_TEST_TMPDIR}/cleanup-second-signal-mutant.bats"
+    cp "$FUNCTIONAL_TEST" "$functional_mutant" || return 1
+    "$PYTHON" - "$functional_mutant" "$REPO_ROOT" <<'PY' || return 1
+import sys
+
+path, repo_root = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+root_old = '    REPO_ROOT="${BATS_TEST_DIRNAME}/../.."\n'
+root_new = f"    REPO_ROOT={repo_root!r}\n"
+guard = '''        active = namespace.get("_active_process")
+        if active is not None:
+            namespace["terminate_registered_process"](active)
+'''
+mutant = '''        real_killpg(process.pid, signal.SIGKILL)  # MUTATED:cleanup_second_signal
+''' + guard
+if source.count(root_old) != 1 or source.count(guard) != 1:
+    raise SystemExit("CLEANUP_SECOND_SIGNAL_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+source = source.replace(root_old, root_new, 1).replace(guard, mutant, 1)
+open(path, "w", encoding="utf-8").write(source)
+PY
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        CUSTOMER_DELIVERY_LIFECYCLE_ONLY=cleanup-alarm \
+        bats --filter "^${filter}$" "$functional_mutant"
+    [ "$status" -ne 0 ] \
+        && [[ "$output" == *"cleanup_alarm_unowned_signal"* ]] \
+        && [ "$(printf '%s\n' "$output" | awk -v target="not ok 1 ${filter}" '$0 == target { count++ } END { print count+0 }')" -eq 1 ] \
+        && [[ "$output" != *"setup_file failed"* ]] \
+        && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
+        || { printf 'cleanup_second_signal_mutant_not_attributed=status=%s output=%s\n' \
+            "$status" "$output"; return 1; }
+    "$PYTHON" -c \
+        'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
+        cleanup_second_signal "${filter}|cleanup_alarm_unowned_signal"
 }
 
 run_sigchld_consumer_mutant() {
@@ -1832,15 +1877,19 @@ stale_run = '''    force_test_logical_deadline_shutdown_race "$pid_file" || retu
 '''
 if (
     source.count(root_old) != 1
-    or source.count(startup) != 1
-    or source.count(run_anchor) != 1
 ):
     raise SystemExit("POST_POPEN_READINESS_CONTROL_SEAM_MISSING_OR_AMBIGUOUS")
-source = (
-    source.replace(root_old, root_new, 1)
-    .replace(startup, delayed_startup, 1)
-    .replace(run_anchor, stale_run, 1)
-)
+source = source.replace(root_old, root_new, 1)
+test_header = '@test "OpenSSL deadline terminates stubborn descendant pipe holders" {\n'
+test_start = source.index(test_header)
+test_end = source.find('\n@test "', test_start + len(test_header))
+if test_end < 0:
+    test_end = len(source)
+test_source = source[test_start:test_end]
+if test_source.count(startup) != 1 or test_source.count(run_anchor) != 1:
+    raise SystemExit("POST_POPEN_READINESS_CONTROL_SEAM_MISSING_OR_AMBIGUOUS")
+test_source = test_source.replace(startup, delayed_startup, 1).replace(run_anchor, stale_run, 1)
+source = source[:test_start] + test_source + source[test_end:]
 open(path, "w", encoding="utf-8").write(source)
 PY
     run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
@@ -2021,6 +2070,7 @@ PY
 
 @test "cleanup signal-mask and output-before-reap mutants are independently killed" {
     run_process_lifecycle_mutant cleanup-alarm
+    run_cleanup_second_signal_mutant
     run_process_lifecycle_mutant ignored-sigchld
     run_sigchld_portable_spawn_mutant silent
     run_sigchld_portable_spawn_mutant bounded

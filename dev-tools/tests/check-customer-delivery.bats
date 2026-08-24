@@ -1194,13 +1194,17 @@ elif mode == "cleanup-alarm":
     deadline = time.monotonic() + 1.0
     while not os.path.isfile(descendant_path):
         if time.monotonic() >= deadline:
-            os.killpg(process.pid, signal.SIGKILL)
-            supervisor.wait(timeout=1)
+            namespace["terminate_registered_process"](process)
             raise SystemExit("cleanup_alarm_descendant_not_ready")
         time.sleep(0.01)
     descendant_pid = int(pathlib.Path(descendant_path).read_text(encoding="ascii"))
     events = []
-    real_killpg = os.killpg
+    system_killpg = os.killpg
+
+    def real_killpg(pid, sig):
+        if namespace["_active_process"] is not process:
+            raise RuntimeError("cleanup_alarm_unowned_signal")
+        system_killpg(pid, sig)
 
     class ProbeAlarm(BaseException):
         pass
@@ -1217,18 +1221,19 @@ elif mode == "cleanup-alarm":
     previous_handler = signal.signal(signal.SIGALRM, alarm_handler)
     os.killpg = signalling_killpg
     alarm_observed = False
+    interrupted_while_owned = False
     try:
         try:
             namespace["terminate_registered_process"](process)
         except ProbeAlarm:
             alarm_observed = True
+            interrupted_while_owned = namespace["_active_process"] is process
     finally:
-        os.killpg = real_killpg
+        os.killpg = system_killpg
         signal.signal(signal.SIGALRM, previous_handler)
-        try:
-            real_killpg(process.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
+        active = namespace.get("_active_process")
+        if active is not None:
+            namespace["terminate_registered_process"](active)
         try:
             supervisor.wait(timeout=1)
         except subprocess.TimeoutExpired:
@@ -1243,6 +1248,8 @@ elif mode == "cleanup-alarm":
         time.sleep(0.01)
     if not alarm_observed or events != [signal.SIGKILL]:
         raise SystemExit(f"cleanup_alarm_interrupted={events!r} observed={alarm_observed!r}")
+    if interrupted_while_owned:
+        raise SystemExit("cleanup_alarm_interrupted_owned=1")
     if namespace["_active_process"] is not None or descendant_alive:
         raise SystemExit(
             f"cleanup_alarm_orphan=active:{namespace['_active_process']!r} "
