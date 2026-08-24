@@ -1,6 +1,6 @@
 # Agents Reference
 
-Datarim includes 19 specialized agents. Each agent is a persona with defined capabilities, context requirements, and skill dependencies.
+Datarim includes 20 specialized agents. Each agent is a persona with defined capabilities, context requirements, and skill dependencies.
 
 Every shipped agent declares `model: inherit` — the operator's session model wins — plus a `metadata.model_tier:` capability intent. Tiers resolve to concrete models through `config/model-tiers.yaml`; see [Model Assignment Convention](../../skills/datarim-system/SKILL.md) (in skill `datarim-system.md`) for the rationale. The **Tier** column below is that capability intent, not a pinned model generation.
 
@@ -14,6 +14,7 @@ Every shipped agent declares `model: inherit` — the operator's session model w
 | security | Security Analyst | reasoning | /dr-design, /dr-qa, /dr-compliance |
 | reviewer | QA & Security Lead | reasoning | /dr-qa, /dr-archive (Step 0.5 reflection) |
 | skill-creator | Skill/Agent/Command Creator | reasoning | /dr-addskill |
+| designer | Frontend Design Lead | reasoning | Pre-code customer-facing frontend design and Knowledge Contract handoff |
 | developer | Senior Developer (TDD) | balanced | /dr-do |
 | compliance | Compliance Runner | balanced | /dr-compliance |
 | code-simplifier | Code Simplification | balanced | /dr-compliance |
@@ -28,7 +29,7 @@ Every shipped agent declares `model: inherit` — the operator's session model w
 | dr-orchestrate-resolver | Plugin-backed subagent inference layer — classifies an unknown orchestrator pane line into a slash command via a multi-backend AI CLI chain (coworker → claude → codex). Fail-closed; threshold gating lives in the caller. Non-functional without the `dr-orchestrate` plugin's `subagent_resolver.sh` | balanced | /dr-orchestrate (unknown-prompt inference) |
 | tester | Platform QA Tester | fast | /dr-qa, /dr-do (verification) |
 
-**Distribution:** 6 reasoning (critical judgment), 12 balanced (standard work, review, and inference), 1 fast (test execution).
+**Distribution:** 7 reasoning (critical judgment), 12 balanced (standard work, review, and inference), 1 fast (test execution).
 
 ## Agent File Format
 

@@ -18,7 +18,7 @@ reflection. The result is inconsistent quality, skipped steps, and zero institut
 learning. Every task starts from scratch, repeating the same mistakes from yesterday.
 
 Datarim fixes this by providing a complete iterative pipeline for any project type.
-It includes 19 specialized agents, 73 reusable skills, and 28 commands that guide
+It includes 20 specialized agents, 74 reusable skills, and 28 commands that guide
 work through a structured process: requirements gathering, planning, design,
 execution, quality assurance, compliance, reflection, and archival. The pipeline is
 complexity-aware — a quick fix does not go through the same process as a major
@@ -91,13 +91,13 @@ Stages in `[brackets]` are conditional — included when the agent determines th
 
 ## Features
 
-- **19 specialized agents** — planner, architect, developer, reviewer, compliance,
+- **20 specialized agents** — planner, architect, developer, reviewer, compliance,
   code-simplifier, strategist, devops, writer, editor, skill-creator, optimizer,
   librarian, security, SRE, tester, researcher, and peer-reviewer (Layer 2/3
   cross-Claude-family fallback). Each agent has a defined role, capabilities,
   and the stages where it operates.
 
-- **73 reusable skills** — modular knowledge units that agents load on demand,
+- **74 reusable skills** — modular knowledge units that agents load on demand,
   covering everything from testing methodology to security hardening to content
   creation workflows and structured research.
 
@@ -502,6 +502,7 @@ documentation, or any structured work.
 | **Planner** | Breaks tasks into phases, estimates complexity, defines acceptance criteria | `plan` |
 | **Architect** | Designs system architecture, evaluates trade-offs, defines interfaces | `design`, `consilium` |
 | **Developer** | Implements code following TDD, applies coding standards, writes tests | `do` |
+| **Designer** | Produces research-backed pre-code frontend design packets and Knowledge Contract handoffs | Before customer-facing frontend implementation |
 | **Reviewer** | Reviews code for quality, correctness, and adherence to plan | `qa` |
 | **Compliance** | Validates implementation against PRD, checks for regressions | `compliance` |
 | **Code Simplifier** | Reduces complexity, eliminates duplication, improves readability | `do`, `qa` |
@@ -521,7 +522,7 @@ documentation, or any structured work.
 
 Agents are loaded on demand. A quick fix (L1) may only activate the Developer.
 A content task may use Writer and Editor instead. A major migration (L4) may
-involve most of the nineteen agents across different stages.
+involve most of the twenty agents across different stages.
 
 ---
 
@@ -535,6 +536,7 @@ involve most of the nineteen agents across different stages.
 | **security** | Vulnerability scanning, dependency audit, auth flow review | Security |
 | **testing** | Test strategy, coverage analysis, test organization patterns | Developer, Reviewer |
 | **performance** | Profiling, optimization patterns, benchmark methodology | Architect, Developer |
+| **frontend-design** | Pre-code hierarchy, visual direction, design-system reuse, responsive/i18n/accessibility contracts | Designer |
 | **tech-stack** | Technology evaluation, compatibility checking, migration guidance | Architect, Strategist |
 | **utilities** | Shell helpers, file operations, environment detection | All agents |
 | **consilium** | Multi-agent panel assembly, structured debate, consensus building | Any (on demand) |
@@ -553,7 +555,7 @@ involve most of the nineteen agents across different stages.
 | **reflecting** | Post-task reflection: lessons learned, evolution proposals, Class A/B gate | /dr-archive (Step 0.5) |
 
 The table above is a representative sample, not the full catalogue — the
-complete list of all 73 skills is in
+complete list of all 74 skills is in
 [`documentation/reference/skills.md`](documentation/reference/skills.md).
 
 Skills are modular. Each one is a directory containing a `SKILL.md` (plus any
@@ -1092,9 +1094,9 @@ and why it exists.
 ```
 datarim/
   agents/            # Agent personas (20 agents)
-  skills/            # Knowledge modules (73 skills)
+  skills/            # Knowledge modules (74 skills)
   commands/          # Slash commands (28 commands)
-  templates/         # Task and document templates (25 templates)
+  templates/         # Task and document templates (26 templates)
   documentation/              # Extended documentation and use cases
   CLAUDE.md          # Framework rules (copy to your project)
   install.sh         # Automated installer

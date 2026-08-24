@@ -29,7 +29,7 @@ roles:
   - id: designer
     description: "Pre-code frontend design packets, design-system decisions, and Knowledge Contract handoff."
     allowed_tools: [Read, Write, Bash, Grep, Glob]
-    allowed_paths: ["datarim/**", "documentation/**", "Projects/*/code/**"]
+    allowed_paths: ["datarim/**", "documentation/**", "skills/**", "agents/**", "templates/**", "config/**", "Projects/*/code/**"]
     forbidden_actions: [prod-deploy, secret-rotation, code-merge, product-code-write, customer-acceptance]
     max_parallel: 4
     complexity_levels: [2, 3, 4, 5]

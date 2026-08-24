@@ -1,6 +1,6 @@
 ---
 name: frontend-design
-description: Create a designer-owned, research-backed pre-code design packet for a rendered customer-facing frontend surface; excludes implementation-only, backend-only, and final visual-acceptance work.
+description: Design a research-backed pre-code packet for rendered customer-facing frontend work; excludes backend, implementation, and final acceptance.
 metadata:
   current_aal: 1
   target_aal: 2
@@ -77,6 +77,9 @@ the reusable packet structure.
 
 ## Progressive disclosure
 
+- Read `references/decision-contract.yaml` before routing or handoff. It is the
+  deterministic authority for activation, stage order, ownership, evidence
+  axes, and safe conflict resolution; prose may explain but never override it.
 - Read `references/design-decisions.md` when choosing hierarchy, visual
   direction, tokens, responsive behavior, theme behavior, i18n treatment,
   accessibility, or performance constraints.
