@@ -288,9 +288,34 @@ split_bounded_validator_json() {
     fi
 }
 
+instrument_test_validator_elapsed() {
+    local marker="$1"
+    "$PYTHON" - "$TEST_SCRIPT" "$marker" <<'PY' || return 1
+import sys
+
+path, marker = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+anchor = "import time\nfrom datetime import datetime\n"
+instrumented = f'''import time
+import atexit
+_TEST_DEADLINE_STARTED = time.monotonic()
+def _write_test_deadline_elapsed():
+    time.sleep(0)  # TEST_DEADLINE_STALL_MUTATION
+    with open({marker!r}, "w", encoding="ascii") as handle:
+        handle.write(str(time.monotonic() - _TEST_DEADLINE_STARTED))
+atexit.register(_write_test_deadline_elapsed)
+from datetime import datetime
+'''
+if source.count(anchor) != 1:
+    raise SystemExit("TEST_DEADLINE_INSTRUMENTATION_SEAM_MISSING_OR_AMBIGUOUS")
+open(path, "w", encoding="utf-8").write(source.replace(anchor, instrumented, 1))
+PY
+}
+
 assert_deadline_cleanup_elapsed() {
     "$PYTHON" -c \
-        'import sys; elapsed=float(sys.argv[1]); assert 0.5 <= elapsed < 15.0' "$1"
+        'import sys; elapsed=float(sys.argv[1]); ceiling=float(sys.argv[2]); assert 0.5 <= elapsed < ceiling' \
+        "$1" "$2"
 }
 
 replace_test_script_literal() {
@@ -2746,7 +2771,7 @@ PY
 
 @test "all validation subprocesses share one total deadline" {
     local shim="${BATS_TEST_TMPDIR}/slow-openssl"
-    local real_openssl start end elapsed
+    local real_openssl elapsed elapsed_marker="${BATS_TEST_TMPDIR}/validation-deadline.elapsed"
     real_openssl="$(command -v openssl)" || return 1
     printf '%s\n' \
         '#!/bin/bash' \
@@ -2776,15 +2801,15 @@ elif source.count(mutant_deadline) != 1 or source.count(mutant_alarm) != 1:
     raise SystemExit("VALIDATION_DEADLINE_TEST_SEAM_MISSING_OR_AMBIGUOUS")
 open(path, "w", encoding="utf-8").write(source)
 PY
+    instrument_test_validator_elapsed "$elapsed_marker" || return 1
     rebind_test_openssl "$shim" || return 1
-    start="$($PYTHON -c 'import time; print(time.time_ns())')"
     run_test_framework_json
-    end="$($PYTHON -c 'import time; print(time.time_ns())')"
-    elapsed="$($PYTHON -c 'import sys; print((int(sys.argv[2])-int(sys.argv[1]))/1_000_000_000)' "$start" "$end")"
+    [ -s "$elapsed_marker" ] || return 1
+    elapsed="$(<"$elapsed_marker")"
     split_bounded_validator_json "$output" || return 1
     [ "$status" -eq 2 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["validation_resource_limit:deadline"]' "$VALIDATOR_JSON" \
-        && assert_deadline_cleanup_elapsed "$elapsed" \
+        && assert_deadline_cleanup_elapsed "$elapsed" 4 \
         || { printf 'deadline_output=%s elapsed=%s\n' "$output" "$elapsed"; return 1; }
 }
 
@@ -2811,7 +2836,8 @@ PY
 @test "OpenSSL deadline terminates stubborn descendant pipe holders" {
     local shim="${BATS_TEST_TMPDIR}/stubborn-openssl"
     local pid_file="${BATS_TEST_TMPDIR}/stubborn-openssl.pid"
-    local descendant_pid attempt start end elapsed parsed_json
+    local descendant_pid attempt elapsed parsed_json
+    local elapsed_marker="${BATS_TEST_TMPDIR}/stubborn-crypto.elapsed"
     "$PYTHON" - "$shim" "$pid_file" <<'PY' || return 1
 import os
 import sys
@@ -2831,11 +2857,11 @@ PY
     replace_test_script_literal \
         'VALIDATION_TOTAL_TIMEOUT_SECONDS = 20' \
         'VALIDATION_TOTAL_TIMEOUT_SECONDS = 1' || return 1
+    instrument_test_validator_elapsed "$elapsed_marker" || return 1
     rebind_test_openssl "$shim" || return 1
-    start="$($PYTHON -c 'import time; print(time.time_ns())')"
     run_test_framework_json
-    end="$($PYTHON -c 'import time; print(time.time_ns())')"
-    elapsed="$($PYTHON -c 'import sys; print((int(sys.argv[2])-int(sys.argv[1]))/1_000_000_000)' "$start" "$end")"
+    [ -s "$elapsed_marker" ] || return 1
+    elapsed="$(<"$elapsed_marker")"
     split_bounded_validator_json "$output" || return 1
     parsed_json="$VALIDATOR_JSON"
     split_bounded_validator_json \
@@ -2847,7 +2873,7 @@ PY
     VALIDATOR_JSON="$parsed_json"
     [ "$status" -eq 2 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["validation_resource_limit:deadline"]' "$VALIDATOR_JSON" \
-        && assert_deadline_cleanup_elapsed "$elapsed" \
+        && assert_deadline_cleanup_elapsed "$elapsed" 4 \
         || { printf 'stubborn_crypto_output=%s elapsed=%s\n' "$output" "$elapsed"; return 1; }
     descendant_pid="$(<"$pid_file")"
     for attempt in {1..10}; do
@@ -3618,7 +3644,7 @@ PY
 
 @test "source history subprocesses share one total deadline" {
     local shim="${BATS_TEST_TMPDIR}/slow-git"
-    local real_git start end elapsed
+    local real_git elapsed elapsed_marker="${BATS_TEST_TMPDIR}/history-deadline.elapsed"
     real_git="$(command -v git)" || return 1
     "$PYTHON" - "$shim" "$real_git" <<'PY' || return 1
 import os
@@ -3643,14 +3669,14 @@ PY
     replace_test_script_literal \
         'SOURCE_HISTORY_TOTAL_TIMEOUT_SECONDS = 10' \
         'SOURCE_HISTORY_TOTAL_TIMEOUT_SECONDS = 1' || return 1
-    start="$($PYTHON -c 'import time; print(time.time_ns())')"
+    instrument_test_validator_elapsed "$elapsed_marker" || return 1
     run_test_framework_json
-    end="$($PYTHON -c 'import time; print(time.time_ns())')"
-    elapsed="$($PYTHON -c 'import sys; print((int(sys.argv[2])-int(sys.argv[1]))/1_000_000_000)' "$start" "$end")"
+    [ -s "$elapsed_marker" ] || return 1
+    elapsed="$(<"$elapsed_marker")"
     split_bounded_validator_json "$output" || return 1
     [ "$status" -eq 1 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["source_history_resource_limit:deadline"]' "$VALIDATOR_JSON" \
-        && assert_deadline_cleanup_elapsed "$elapsed" \
+        && assert_deadline_cleanup_elapsed "$elapsed" 4 \
         || { printf 'history_deadline_output=%s elapsed=%s\n' "$output" "$elapsed"; return 1; }
 }
 
@@ -3725,7 +3751,8 @@ PY
 @test "source history deadline kills stubborn descendant pipe holders" {
     local shim="${BATS_TEST_TMPDIR}/descendant-pipe-git"
     local pidfile="${BATS_TEST_TMPDIR}/descendant-pipe.pid"
-    local real_git start end elapsed descendant_pid descendant_state
+    local real_git elapsed descendant_pid descendant_state
+    local elapsed_marker="${BATS_TEST_TMPDIR}/history-descendant.elapsed"
     real_git="$(command -v git)" || return 1
     "$PYTHON" - "$shim" "$real_git" "$pidfile" <<'PY' || return 1
 import os
@@ -3750,10 +3777,10 @@ PY
     replace_test_script_literal \
         'SOURCE_HISTORY_TOTAL_TIMEOUT_SECONDS = 10' \
         'SOURCE_HISTORY_TOTAL_TIMEOUT_SECONDS = 1' || return 1
-    start="$($PYTHON -c 'import time; print(time.time_ns())')"
+    instrument_test_validator_elapsed "$elapsed_marker" || return 1
     run_test_framework_json
-    end="$($PYTHON -c 'import time; print(time.time_ns())')"
-    elapsed="$($PYTHON -c 'import sys; print((int(sys.argv[2])-int(sys.argv[1]))/1_000_000_000)' "$start" "$end")"
+    [ -s "$elapsed_marker" ] || return 1
+    elapsed="$(<"$elapsed_marker")"
     split_bounded_validator_json "$output" || return 1
     if ! descendant_pid="$(cat "$pidfile" 2>/dev/null)"; then
         printf 'descendant_deadline_missing_pid status=%s output=%s elapsed=%s\n' \
@@ -3764,7 +3791,7 @@ PY
     printf 'descendant_deadline_output=%s elapsed=%s state=%s\n' "$output" "$elapsed" "$descendant_state" >&3
     [ "$status" -eq 1 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["source_history_resource_limit:deadline"]' "$VALIDATOR_JSON" \
-        && assert_deadline_cleanup_elapsed "$elapsed" \
+        && assert_deadline_cleanup_elapsed "$elapsed" 5 \
         && { [ -z "$descendant_state" ] || [[ "$descendant_state" == Z* ]]; }
 }
 
@@ -3772,7 +3799,8 @@ PY
     local shim="${BATS_TEST_TMPDIR}/global-alarm-git"
     local leader_pidfile="${BATS_TEST_TMPDIR}/global-alarm-leader.pid"
     local descendant_pidfile="${BATS_TEST_TMPDIR}/global-alarm-descendant.pid"
-    local real_git start end elapsed leader_pid descendant_pid leader_state descendant_state
+    local real_git elapsed leader_pid descendant_pid leader_state descendant_state
+    local elapsed_marker="${BATS_TEST_TMPDIR}/global-alarm.elapsed"
     real_git="$(command -v git)" || return 1
     "$PYTHON" - "$shim" "$real_git" "$leader_pidfile" "$descendant_pidfile" <<'PY' || return 1
 import os
@@ -3801,10 +3829,10 @@ PY
     replace_test_script_literal \
         'VALIDATION_DEADLINE = time.monotonic() + VALIDATION_TOTAL_TIMEOUT_SECONDS' \
         'VALIDATION_DEADLINE = time.monotonic() + 3600' || return 1
-    start="$($PYTHON -c 'import time; print(time.time_ns())')"
+    instrument_test_validator_elapsed "$elapsed_marker" || return 1
     run_test_framework_json
-    end="$($PYTHON -c 'import time; print(time.time_ns())')"
-    elapsed="$($PYTHON -c 'import sys; print((int(sys.argv[2])-int(sys.argv[1]))/1_000_000_000)' "$start" "$end")"
+    [ -s "$elapsed_marker" ] || return 1
+    elapsed="$(<"$elapsed_marker")"
     split_bounded_validator_json "$output" || return 1
     if ! leader_pid="$(cat "$leader_pidfile" 2>/dev/null)" \
         || ! descendant_pid="$(cat "$descendant_pidfile" 2>/dev/null)"; then
@@ -3828,7 +3856,7 @@ PY
         "$output" "$elapsed" "$leader_state" "$descendant_state" >&3
     [ "$status" -eq 2 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["validation_resource_limit:deadline"]' "$VALIDATOR_JSON" \
-        && assert_deadline_cleanup_elapsed "$elapsed" \
+        && assert_deadline_cleanup_elapsed "$elapsed" 4 \
         && { [ -z "$leader_state" ] || [[ "$leader_state" == Z* ]]; } \
         && { [ -z "$descendant_state" ] || [[ "$descendant_state" == Z* ]]; }
 }

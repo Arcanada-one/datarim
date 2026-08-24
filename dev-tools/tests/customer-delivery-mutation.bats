@@ -1090,7 +1090,7 @@ PY
 }
 
 @test "mutation kill attribution rejects setup syntax timeout and wrong-assertion failures" {
-    local filter='focused contract' expected=42
+    local filter='focused contract' expected=42 deadline_mutant deadline_filter
     run assert_attributed_mutant_kill valid "$filter" "$expected" 1 \
         $'1..1\nnot ok 1 focused contract\n# (in test file fixture.bats, line 42)\n# assertion failed'
     [ "$status" -eq 0 ] && [[ "$output" == RED_SENTINEL:valid:* ]] || return 1
@@ -1113,5 +1113,33 @@ PY
 
     run assert_attributed_mutant_kill wrong "$filter" "$expected" 1 \
         $'1..1\nnot ok 1 focused contract\n# (in test file fixture.bats, line 43)\n# wrong assertion failed'
-    [ "$status" -ne 0 ] && [[ "$output" == *"HARNESS_INVALID:wrong:wrong-assertion"* ]]
+    [ "$status" -ne 0 ] && [[ "$output" == *"HARNESS_INVALID:wrong:wrong-assertion"* ]] \
+        || return 1
+
+    deadline_mutant="${BATS_TEST_TMPDIR}/deadline-post-stall.bats"
+    deadline_filter='source history subprocesses share one total deadline'
+    cp "$FUNCTIONAL_TEST" "$deadline_mutant" || return 1
+    "$PYTHON" - "$deadline_mutant" "$REPO_ROOT" <<'PY' || return 1
+import sys
+
+path, repo_root = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+stall_old = "    time.sleep(0)  # TEST_DEADLINE_STALL_MUTATION\n"
+stall_new = "    time.sleep(8)  # MUTATED:post_deadline_stall\n"
+root_old = '    REPO_ROOT="${BATS_TEST_DIRNAME}/../.."\n'
+root_new = f"    REPO_ROOT={repo_root!r}\n"
+if source.count(stall_old) != 1 or source.count(root_old) != 1:
+    raise SystemExit("POST_DEADLINE_STALL_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+source = source.replace(stall_old, stall_new, 1).replace(root_old, root_new, 1)
+open(path, "w", encoding="utf-8").write(source)
+PY
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        bats --filter "^${deadline_filter}$" "$deadline_mutant"
+    [ "$status" -ne 0 ] \
+        && [[ "$output" == *"not ok 1 ${deadline_filter}"* ]] \
+        && [[ "$output" == *"history_deadline_output="* ]] \
+        && [[ "$output" != *"setup_file failed"* ]] \
+        && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
+        || { printf 'post_deadline_mutant_status=%s output=%s\n' "$status" "$output"; return 1; }
 }
