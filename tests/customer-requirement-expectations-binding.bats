@@ -312,7 +312,7 @@ customer_binding_from: appended-internal-wish' "$file"
 
     run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
     [ "$status" -eq 1 ] \
-        && [[ "$output" == *"customer_binding_from is obsolete in schema_version=4"* ]]
+        && [[ "$output" == *"customer_binding_from is obsolete"* ]]
 }
 
 @test "verify blocks coordinated binding strip and cutover advance" {
@@ -332,19 +332,33 @@ customer_binding_from: appended-internal-wish' "$file"
         && [[ "$output" == *"BLOCKED: expectations file fails structural validation"* ]]
 }
 
-@test "schema v4 rejects the obsolete customer binding marker" {
-    local id="BIND-0009"
+@test "all schema versions reject the obsolete customer binding marker" {
+    local schema
+    local id
     local root
     local file
-    root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
-    file="$root/datarim/tasks/${id}-expectations.md"
-    sed -i.bak '/^schema_version: 4$/a\
-customer_binding_from: customer-outcome' "$file"
-    rm -f "${file}.bak"
+    local binding
+    for schema in 1 2 3 4; do
+        id="MARK-000${schema}"
+        binding=""
+        [ "$schema" -eq 4 ] && binding="$(valid_customer_binding "$id")"
+        root="$(write_expectations "$id" "$schema" "$binding")"
+        file="$root/datarim/tasks/${id}-expectations.md"
+        sed -i "/^schema_version: ${schema}$/a customer_binding_from: customer-outcome" "$file"
 
-    run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
-    [ "$status" -eq 1 ] \
-        && [[ "$output" == *"customer_binding_from is obsolete in schema_version=4"* ]]
+        run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+        if [ "$status" -ne 1 ] || [[ "$output" != *"customer_binding_from is obsolete"* ]]; then
+            echo "schema v${schema} accepted obsolete marker: ${output}" >&2
+            return 1
+        fi
+
+        run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
+        if [ "$status" -ne 1 ] || [[ "$output" != *"BLOCKED: expectations file fails structural validation"* ]]; then
+            echo "schema v${schema} verify accepted obsolete marker: ${output}" >&2
+            return 1
+        fi
+        rm -rf "$root"
+    done
 }
 
 @test "schema v4 canonical file governs its first wish" {
@@ -529,6 +543,37 @@ EOF
         fi
         rm -rf "$root"
     done
+}
+
+@test "closed expectations schema rejects an unknown frontmatter key in both modes" {
+    local id="UNKN-0001"
+    local root
+    local file
+    root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
+    file="$root/datarim/tasks/${id}-expectations.md"
+    sed -i '/^status: canonical$/a surprise_key: must-not-pass' "$file"
+
+    run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"unknown frontmatter field 'surprise_key'"* ]] || return 1
+
+    run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"BLOCKED: expectations file fails structural validation"* ]]
+}
+
+@test "closed expectations schema accepts every documented optional frontmatter key" {
+    local id="ALWD-0001"
+    local root
+    local file
+    root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
+    file="$root/datarim/tasks/${id}-expectations.md"
+    sed -i '/^status: canonical$/a agent: planner\
+parent_init_task: datarim/tasks/ALWD-0001-init-task.md\
+parent_prd: datarim/prd/PRD-ALWD-0001.md' "$file"
+
+    run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+    [ "$status" -eq 0 ]
 }
 
 @test "active expectations heading with a trailing HTML comment passes both modes" {

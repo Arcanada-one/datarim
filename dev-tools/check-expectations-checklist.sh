@@ -161,7 +161,7 @@ extract_frontmatter_field() {
     ' "$file"
 }
 
-duplicate_frontmatter_fields() {
+frontmatter_field_inventory() {
     local file="$1"
     awk '
         /^---[ \t]*$/ {
@@ -173,8 +173,8 @@ duplicate_frontmatter_fields() {
             key = substr($0, 1, index($0, ":") - 1)
             sub(/[ \t]+$/, "", key)
             seen[key]++
-            if (seen[key] == 2) print key
         }
+        END { for (key in seen) print key "|" seen[key] }
     ' "$file"
 }
 
@@ -605,13 +605,27 @@ validate_single_task() {
         return 1
     fi
 
-    local errors=0 val schema_v customer_binding_from artifact_status duplicate_field
+    local errors=0 val schema_v artifact_status frontmatter_field field_count
 
-    while IFS= read -r duplicate_field; do
-        [ -z "$duplicate_field" ] && continue
-        echo "ERROR: $file: duplicate frontmatter field '$duplicate_field'" >&2
-        errors=$(( errors + 1 ))
-    done < <(duplicate_frontmatter_fields "$file")
+    while IFS='|' read -r frontmatter_field field_count; do
+        [ -z "$frontmatter_field" ] && continue
+        if [ "${field_count:-0}" -gt 1 ]; then
+            echo "ERROR: $file: duplicate frontmatter field '$frontmatter_field'" >&2
+            errors=$(( errors + 1 ))
+        fi
+        case "$frontmatter_field" in
+            task_id|artifact|schema_version|captured_at|captured_by|status|agent|parent_init_task|parent_prd)
+                ;;
+            customer_binding_from)
+                echo "ERROR: $file: customer_binding_from is obsolete; every schema v4 wish is governed" >&2
+                errors=$(( errors + 1 ))
+                ;;
+            *)
+                echo "ERROR: $file: unknown frontmatter field '$frontmatter_field'" >&2
+                errors=$(( errors + 1 ))
+                ;;
+        esac
+    done < <(frontmatter_field_inventory "$file")
 
     for field in task_id artifact schema_version captured_at captured_by status; do
         val=$(extract_frontmatter_field "$file" "$field")
@@ -633,14 +647,9 @@ validate_single_task() {
         echo "ERROR: $file: schema_version must be '1', '2', '3', or '4', got '$val'" >&2
         errors=$(( errors + 1 ))
     fi
-    customer_binding_from=$(extract_frontmatter_field "$file" "customer_binding_from")
     artifact_status=$(extract_frontmatter_field "$file" "status")
     if [ -n "$artifact_status" ] && [ "$artifact_status" != "canonical" ] && [ "$artifact_status" != "amended" ]; then
         echo "ERROR: $file: frontmatter status must be 'canonical' or 'amended', got '$artifact_status'" >&2
-        errors=$(( errors + 1 ))
-    fi
-    if [ "$schema_v" = "4" ] && [ -n "$customer_binding_from" ]; then
-        echo "ERROR: $file: customer_binding_from is obsolete in schema_version=4; every wish is governed" >&2
         errors=$(( errors + 1 ))
     fi
     # v1 legacy deprecation warning (TUNE-0266: 12-month sunset, see
