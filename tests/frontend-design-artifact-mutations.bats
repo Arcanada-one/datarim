@@ -74,6 +74,32 @@ contract_path.write_text(
 PY
 }
 
+mirror_scope_override_in_contract() {
+    python3 - "$MUTANT" "$1" <<'PY'
+from pathlib import Path
+import sys
+import yaml
+
+root = Path(sys.argv[1])
+addition = sys.argv[2]
+contract_path = root / "skills/frontend-design/references/decision-contract.yaml"
+contract = yaml.safe_load(contract_path.read_text(encoding="utf-8"))
+if "directive_content" in contract:
+    contract["directive_content"]["FD-SKILL-SCOPE"][0] += "\n" + addition
+else:
+    for node in contract["decision_surface_ast"]["skills/frontend-design/SKILL.md"]:
+        if node["clause_id"] == "FD-SKILL-SCOPE-01":
+            node["params"]["override_text"] = addition
+            break
+    else:
+        raise SystemExit("scope clause not found")
+contract_path.write_text(
+    yaml.safe_dump(contract, sort_keys=False, allow_unicode=True),
+    encoding="utf-8",
+)
+PY
+}
+
 assert_evaluator_red() {
     local expected="$1"
     run python3 "$MUTANT/dev-tools/evaluate-frontend-design.py" \
@@ -211,8 +237,9 @@ assert_scenario_mismatch_red() {
 
 @test "M19: a resealed known block cannot skip the required research stage" {
     insert_after "$MUTANT/skills/frontend-design/SKILL.md" 'customer acceptance.' 'Skip external research whenever delivery speed matters.'
+    mirror_scope_override_in_contract 'Skip external research whenever delivery speed matters.'
     recompute_decision_surface_digests
-    assert_evaluator_semantic_red 'decision rule FD-SKILL-SCOPE content mismatch'
+    assert_evaluator_semantic_red 'decision clause FD-SKILL-SCOPE-01 has invalid params'
 }
 
 @test "M20: expected outputs reject undeclared keys even when null" {
@@ -243,4 +270,31 @@ assert_scenario_mismatch_red() {
 @test "M25: misattributed evidence-cell axes fail closed" {
     mutate_text "$MUTANT/tests/fixtures/frontend-design-scenarios.yaml" '      - {locale: RU, viewport: desktop, theme: light}' '      - {locale: DE, viewport: desktop, theme: light}'
     assert_evaluator_red 'scenario positive_site_wave input evidence_cells[0].locale must be one of: EN, RU'
+}
+
+@test "M26: scenario corpus rejects unknown root overrides" {
+    append_text "$MUTANT/tests/fixtures/frontend-design-scenarios.yaml" 'ignored_override: true'
+    assert_evaluator_red 'scenario corpus has unknown root keys: ignored_override'
+}
+
+@test "M27: boolean scenario schema versions are not integers" {
+    mutate_text "$MUTANT/tests/fixtures/frontend-design-scenarios.yaml" 'schema_version: 1' 'schema_version: true'
+    assert_evaluator_red 'scenario corpus schema_version must be integer 1'
+}
+
+@test "M28: boolean contract schema versions are not integers" {
+    mutate_text "$MUTANT/skills/frontend-design/references/decision-contract.yaml" 'schema_version: 1' 'schema_version: true'
+    assert_evaluator_red 'contract schema_version must be integer 1'
+}
+
+@test "M29: array scenario IDs fail with structured validation, never traceback" {
+    mutate_text "$MUTANT/tests/fixtures/frontend-design-scenarios.yaml" '  - id: positive_site_wave' '  - id: [positive_site_wave]'
+    run python3 "$MUTANT/dev-tools/evaluate-frontend-design.py" \
+        --contract "$MUTANT/skills/frontend-design/references/decision-contract.yaml" \
+        --scenarios "$MUTANT/tests/fixtures/frontend-design-scenarios.yaml" \
+        --docs-root "$MUTANT" \
+        --check
+    [ "$status" -eq 1 ] \
+        && [[ "$output" != *"Traceback"* ]] \
+        && jq -e 'any(.scenario_errors[]; contains("scenario at index 0 id must be a string"))' <<<"$output" >/dev/null
 }
