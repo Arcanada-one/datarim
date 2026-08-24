@@ -39,7 +39,9 @@ assert_no_direct_in_place_sed() {
     if ! violations="$(LC_ALL=C awk '
         function inspect(line, line_number, line_len, pos, char, quote, value,
                          count, i, expect_command, sed_command, wrapper,
-                         skip_wrapper_arg, skip_redirection_arg, values, kinds) {
+                         skip_wrapper_arg, skip_redirection_arg, in_backtick,
+                         pending_outer_quote, backtick_outer_quote, resume_quote,
+                         values, kinds) {
             line_len = length(line)
             pos = 1
             count = 0
@@ -52,7 +54,23 @@ assert_no_direct_in_place_sed() {
                 if (char == "#") {
                     break
                 }
-                if (char ~ /[;&|(){}]/ || char == "`") {
+                if (char == "`") {
+                    values[++count] = char
+                    if (in_backtick) {
+                        kinds[count] = "substitution_close"
+                        in_backtick = 0
+                        resume_quote = backtick_outer_quote
+                        backtick_outer_quote = ""
+                    } else {
+                        kinds[count] = "separator"
+                        in_backtick = 1
+                        backtick_outer_quote = pending_outer_quote
+                    }
+                    pending_outer_quote = ""
+                    pos++
+                    continue
+                }
+                if (char ~ /[;&|(){}]/) {
                     values[++count] = char
                     kinds[count] = "separator"
                     pos++
@@ -60,11 +78,15 @@ assert_no_direct_in_place_sed() {
                 }
 
                 value = ""
-                quote = ""
+                quote = resume_quote
+                resume_quote = ""
                 while (pos <= line_len) {
                     char = substr(line, pos, 1)
                     if ((quote == "" && (char ~ /[[:space:]]/ || char ~ /[;&|(){}]/ || char == "`")) ||
                         (quote == "\"" && char == "`")) {
+                        if (quote == "\"" && char == "`") {
+                            pending_outer_quote = quote
+                        }
                         break
                     }
                     if (quote == "" && (char == "\"" || char == "\047")) {
@@ -96,6 +118,14 @@ assert_no_direct_in_place_sed() {
             skip_wrapper_arg = 0
             skip_redirection_arg = 0
             for (i = 1; i <= count; i++) {
+                if (kinds[i] == "substitution_close") {
+                    expect_command = 0
+                    sed_command = 0
+                    wrapper = ""
+                    skip_wrapper_arg = 0
+                    skip_redirection_arg = 0
+                    continue
+                }
                 if (kinds[i] == "separator") {
                     expect_command = 1
                     sed_command = 0
@@ -1650,6 +1680,7 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
     cp "${REPO_ROOT}/tests/customer-requirement-expectations-binding.bats" "$mutant_suite"
     printf 'ignored=\140sed --in-place -e "s/x/y/" mutant\140\n' >> "$mutant_suite"
     printf 'quoted="\140sed -i.bak s/x/y/ mutant\140"\n' >> "$mutant_suite"
+    printf 'sequential="before \140printf ok\140 middle \140sed -i.bak s/x/y/ mutant\140 after"\n' >> "$mutant_suite"
     run assert_no_direct_in_place_sed "$mutant_suite"
     if [ "$status" -ne 1 ] || [[ "$output" != *"direct in-place sed syntax"* ]]; then
         echo "legacy backtick sed mutants were not rejected (status=${status}): ${output}" >&2
@@ -1673,6 +1704,8 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
     printf '%s\n' 'exec -cla sed echo allowed' >> "$mutant_suite"
     printf "literal='\\140sed --in-place -e s/x/y/ mutant\\140'\n" >> "$mutant_suite"
     printf 'escaped=\134\140sed --in-place -e s/x/y/ mutant\134\140\n' >> "$mutant_suite"
+    printf 'message="before \140printf ok\140 sed -i.bak is literal prose"\n' >> "$mutant_suite"
+    printf 'escaped_message="before \134\140sed -i.bak\134\140 after"\n' >> "$mutant_suite"
     run assert_no_direct_in_place_sed "$mutant_suite"
     if [ "$status" -ne 0 ]; then
         echo "inert sed prose was treated as executable (status=${status}): ${output}" >&2
