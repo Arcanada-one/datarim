@@ -31,6 +31,11 @@ TAP_PLAN_PATTERN = re.compile(r"^1\.\.([0-9]+)\s*$", re.MULTILINE)
 # macOS child ceiling. These limits preserve margin while exact coverage
 # prevents omissions.
 MACOS_ORDINAL_TEST_LIMITS = {"functional": 10, "schema": 30}
+MACOS_RUNTIME_ISOLATED_TESTS = (
+    "source history subprocesses share one total deadline",
+    "source history deadline kills stubborn descendant pipe holders",
+    "global validation alarm reaps late source history child process group",
+)
 
 
 class ContractError(ValueError):
@@ -132,6 +137,11 @@ def increment(coverage: list[int], index: int, label: str) -> None:
 def validate_registry(rows: list[Row]) -> tuple[dict[str, list[str]], list[str]]:
     inventories = {suite: extract_tests(path) for suite, path in SUITE_PATHS.items()}
     security_arms = extract_security_arms(SUITE_PATHS["mutation"])
+    isolated_indices: dict[int, str] = {}
+    for name in MACOS_RUNTIME_ISOLATED_TESTS:
+        if name not in inventories["functional"]:
+            raise ContractError(f"macOS runtime-isolated test is missing: {name}")
+        isolated_indices[inventories["functional"].index(name) + 1] = name
     for suite in SUITE_PATHS:
         suite_rows = [row for row in rows if row.suite == suite]
         if not suite_rows:
@@ -172,6 +182,16 @@ def validate_registry(rows: list[Row]) -> tuple[dict[str, list[str]], list[str]]
                         "macOS ordinal shard exceeds runtime budget: "
                         f"{suite} {row.shard} has {len(indices)} tests "
                         f"(max {runtime_limit})"
+                    )
+                isolated_hits = [
+                    isolated_indices[index]
+                    for index in indices
+                    if suite == "functional" and index in isolated_indices
+                ]
+                if isolated_hits and (len(indices) != 1 or "macos" not in row.platforms):
+                    raise ContractError(
+                        "macOS runtime-isolated test requires a dedicated shard: "
+                        f"{isolated_hits[0]}"
                     )
                 for index in indices:
                     if suite == "mutation" and index == 2:
