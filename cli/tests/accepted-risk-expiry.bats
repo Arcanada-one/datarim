@@ -130,6 +130,34 @@ EOF
         && [[ "$output" == *"no active entry matching task TUNE-0268"* ]]
 }
 
+@test "V-AC-15: task-id prefix collision is not an accepted-risk match" {
+    fixture="$(mktemp)"
+    accepted="$(date -u +%F)"
+    later="$(python3 -c "import datetime; print((datetime.date.today() + datetime.timedelta(days=30)).isoformat())")"
+    cat >"$fixture" <<EOF
+schema_version: 1
+entries:
+  - id: tune-02680-unrelated
+    title: "Prefix collision fixture"
+    accepted_at: $accepted
+    expires: $later
+    review_required_by: $later
+    operator: test
+    mandate_overridden: documentation/mandates/aal-mandate.md
+    mandate_ceiling: 2
+    declared_level: 3
+    scope: ["cli_subcommand:backlog add"]
+    mitigations: ["isolated fixture"]
+    risk_summary: "test"
+    rollback: "test"
+EOF
+    run "$VALIDATOR" --file "$fixture" --task TUNE-0268 \
+        --require-scope "cli_subcommand:backlog add"
+    rm -f "$fixture"
+    [ "$status" -eq 23 ] \
+        && [[ "$output" == *"no active entry matching task TUNE-0268"* ]]
+}
+
 @test "V-AC-15: narrow active scope rejects an unrelated required scope" {
     fixture="$(mktemp)"
     accepted="$(date -u +%F)"
@@ -294,6 +322,26 @@ EOF
         && assert_scope_blocked "cli_subcommand:plugin disable" plugin disable example \
         && assert_scope_blocked "cli_subcommand:plugin sync" plugin sync \
         && assert_scope_blocked "cli_subcommand:plugin doctor --fix" plugin doctor --fix
+}
+
+@test "task-id prefix collision cannot authorize backlog writes" {
+    fixture_root="$BATS_TEST_TMPDIR/collision-install"
+    workspace="$BATS_TEST_TMPDIR/collision-workspace"
+    backlog="$workspace/datarim/backlog.md"
+    setup_active_aal_fixture "$REPO_ROOT" "$fixture_root" "cli_subcommand:backlog add"
+    sed -i 's/id: tune-0268-aal3-cli/id: tune-02680-unrelated/' \
+        "$fixture_root/accepted-risk-aal.yml"
+    mkdir -p "$(dirname "$backlog")"
+    printf '# Backlog\n' > "$backlog"
+    before="$(shasum -a 256 "$backlog" | awk '{print $1}')"
+
+    run env HOME="$BATS_TEST_TMPDIR/home" DATARIM_WORKSPACE_ROOT="$workspace" \
+        DATARIM_CLI_AUDIT_DIR="$BATS_TEST_TMPDIR/audit" "$DATARIM_BIN" backlog add \
+        --id TUNE-9998 --priority P4 --complexity L1 --title collision
+    [ "$status" -eq 23 ] \
+        && [[ "$output" == *"no active entry matching task TUNE-0268"* ]] \
+        && [ "$before" = "$(shasum -a 256 "$backlog" | awk '{print $1}')" ] \
+        && ! grep -q 'TUNE-9998' "$backlog"
 }
 
 @test "retired acceptance blocks mutations for global option permutations" {

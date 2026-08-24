@@ -86,7 +86,8 @@ def find_entry(task_id):
         return None
     slug_part = task_id.lower()
     for e in entries:
-        if (e.get("id") or "").startswith(slug_part):
+        entry_id = str(e.get("id") or "").lower()
+        if entry_id == slug_part or entry_id.startswith(slug_part + "-"):
             return e
     return None
 
