@@ -96,6 +96,34 @@ teardown() {
     echo "$output" | grep -q 'PRODUCT_CODE_ACCESS=read-only'
 }
 
+@test "TALO-0001: live session reuse replaces the effective role projection" {
+    source "$DR_ORCH_DIR/scripts/tmux_manager.sh"
+    session_spawn_interactive "$SESSION" "bash --norc -i" developer
+    session_spawn_interactive "$SESSION" "bash --norc -i" designer
+    sleep 1
+    run pane_capture_tail "$SESSION" 20
+    [ "$status" -eq 0 ]
+    [ "$(grep -o 'AGENT=[^ ]*' <<<"$output" | tail -1)" = "AGENT=agents/designer.md" ]
+    [ "$(grep -o 'PRODUCT_CODE_ACCESS=[^ ]*' <<<"$output" | tail -1)" = "PRODUCT_CODE_ACCESS=read-only" ]
+}
+
+@test "TALO-0001: dead session respawn receives the requested role projection" {
+    source "$DR_ORCH_DIR/scripts/tmux_manager.sh"
+    session_spawn_interactive "$SESSION" "bash --norc -i"
+    tmux send-keys -t "$SESSION" exit Enter
+    for _ in $(seq 1 20); do
+        [ "$(tmux display-message -p -t "$SESSION" '#{pane_dead}')" = "1" ] && break
+        sleep 0.1
+    done
+    [ "$(tmux display-message -p -t "$SESSION" '#{pane_dead}')" = "1" ]
+    session_spawn_interactive "$SESSION" "bash --norc -i" designer
+    sleep 1
+    run pane_capture_tail "$SESSION" 16
+    [ "$status" -eq 0 ]
+    echo "$output" | grep -q 'AGENT=agents/designer.md'
+    echo "$output" | grep -q 'PRODUCT_CODE_ACCESS=read-only'
+}
+
 @test "wish-2: spawn without a role omits the injection (backward-compatible)" {
     source "$DR_ORCH_DIR/scripts/tmux_manager.sh"
     session_spawn_interactive "$SESSION" "bash --norc -i"

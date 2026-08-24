@@ -71,6 +71,13 @@ class UniqueKeyLoader(yaml.SafeLoader):
 def construct_unique_mapping(loader, node, deep=False):
     mapping = {}
     for key_node, value_node in node.value:
+        if not isinstance(key_node, yaml.nodes.ScalarNode):
+            raise yaml.constructor.ConstructorError(
+                "while constructing a mapping",
+                node.start_mark,
+                "mapping keys must be scalar",
+                key_node.start_mark,
+            )
         key = loader.construct_object(key_node, deep=deep)
         if key in mapping:
             raise yaml.constructor.ConstructorError(
@@ -91,7 +98,7 @@ UniqueKeyLoader.add_constructor(
 try:
     with open(roles_path, encoding="utf-8") as f:
         data = yaml.load(f, Loader=UniqueKeyLoader)
-except (OSError, yaml.YAMLError) as exc:
+except (OSError, TypeError, yaml.YAMLError) as exc:
     problem = getattr(exc, "problem", None) or str(exc)
     print(f"FAIL: invalid role registry YAML: {problem}", file=sys.stderr)
     sys.exit(1)

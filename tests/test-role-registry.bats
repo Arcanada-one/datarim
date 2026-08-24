@@ -297,6 +297,24 @@ PY
         && echo "$output" | grep -qF "duplicate YAML key: description"
 }
 
+@test "rejects a sequence YAML key without traceback" {
+    printf '%s\n' '? [hostile, key]' ': rejected' > "$TMP/non-scalar.yaml"
+    require_jsonschema
+    run "$VALIDATOR" --file "$TMP/non-scalar.yaml" --root "$REPO"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" != *"Traceback"* ]] \
+        && echo "$output" | grep -qF "mapping keys must be scalar"
+}
+
+@test "rejects a mapping YAML key without traceback" {
+    printf '%s\n' '? {hostile: key}' ': rejected' > "$TMP/non-scalar.yaml"
+    require_jsonschema
+    run "$VALIDATOR" --file "$TMP/non-scalar.yaml" --root "$REPO"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" != *"Traceback"* ]] \
+        && echo "$output" | grep -qF "mapping keys must be scalar"
+}
+
 @test "invalid non-string role IDs fail validation without a traceback" {
     write_projected_role
     python3 - "$TMP/projected.yaml" <<'PY'
