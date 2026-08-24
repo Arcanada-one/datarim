@@ -547,6 +547,46 @@ EOF
         && [[ "$output" == *"PASS"* ]]
 }
 
+@test "schema v4 ignores an expectations section inside a backtick fence" {
+    local id="FENC-0001"
+    local root
+    local file
+    root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
+    file="$root/datarim/tasks/${id}-expectations.md"
+    sed -i '/^## Ожидания$/i ```markdown' "$file"
+    printf '\n```\n' >> "$file"
+
+    run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"no items found under ## Ожидания"* ]] || return 1
+
+    run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"BLOCKED: expectations file fails structural validation"* ]]
+}
+
+@test "schema v4 ignores a tilde-fenced decoy beside active content" {
+    local id="FENC-0002"
+    local root
+    local file
+    root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
+    file="$root/datarim/tasks/${id}-expectations.md"
+    sed -i '/^## Ожидания$/i ~~~markdown\
+## Ожидания\
+\
+- **99. Fenced decoy wish.**\
+  - wish_id: fenced-decoy\
+~~~\
+' "$file"
+
+    run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+    [ "$status" -eq 0 ] || return 1
+
+    run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
+    [ "$status" -eq 0 ] \
+        && [[ "$output" == *"PASS"* ]]
+}
+
 @test "verify mode blocks a structurally invalid schema v4 artifact" {
     local id="BIND-0016"
     local root

@@ -237,14 +237,25 @@ parse_items() {
             customer_derived_count = 0
             requirement_id_count = 0; surface_class_count = 0
             visitor_visible_count = 0; delivery_receipt_count = 0
-            in_comment = 0
+            in_comment = 0; in_fence = 0; fence_char = ""; fence_len = 0
             history_count = 0; has_history_heading = 0; has_status_heading = 0
             in_history = 0; in_status = 0
         }
 
         {
+            if (in_fence) {
+                fence_line = fence_candidate($0)
+                if (is_fence_close(fence_line)) {
+                    in_fence = 0
+                    fence_char = ""
+                    fence_len = 0
+                }
+                next
+            }
             $0 = strip_html_comments($0)
             if ($0 ~ /^[ \t]*$/) next
+            fence_line = fence_candidate($0)
+            if (start_fence(fence_line)) next
         }
 
         /^## Ожидания[ \t]*$/ {
@@ -407,6 +418,37 @@ parse_items() {
                 }
                 line = prefix substr(tail, close_at + 3)
             }
+        }
+
+        function fence_candidate(line,    i) {
+            for (i = 0; i < 3 && substr(line, 1, 1) == " "; i++) {
+                line = substr(line, 2)
+            }
+            return line
+        }
+
+        function start_fence(line,    marker, run_len, suffix) {
+            marker = substr(line, 1, 1)
+            if (marker != "`" && marker != "~") return 0
+            run_len = 0
+            while (substr(line, run_len + 1, 1) == marker) run_len++
+            if (run_len < 3) return 0
+            suffix = substr(line, run_len + 1)
+            if (marker == "`" && index(suffix, "`") > 0) return 0
+            in_fence = 1
+            fence_char = marker
+            fence_len = run_len
+            return 1
+        }
+
+        function is_fence_close(line,    marker, run_len, suffix) {
+            marker = substr(line, 1, 1)
+            if (marker != fence_char) return 0
+            run_len = 0
+            while (substr(line, run_len + 1, 1) == marker) run_len++
+            if (run_len < fence_len) return 0
+            suffix = substr(line, run_len + 1)
+            return suffix ~ /^[ \t]*$/
         }
 
         function emit_item(    ovr_len) {
