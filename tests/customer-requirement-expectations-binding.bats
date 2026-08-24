@@ -562,6 +562,42 @@ EOF
         && [[ "$output" == *"BLOCKED: expectations file fails structural validation"* ]]
 }
 
+@test "closed expectations schema rejects noncanonical YAML constructs in both modes" {
+    local id="YAML-0001"
+    local construct
+    local root
+    local file
+    while IFS= read -r construct; do
+        root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
+        file="$root/datarim/tasks/${id}-expectations.md"
+        if [ "$construct" = "__NESTED__" ]; then
+            sed -i '/^status: canonical$/a\
+  nested: must-not-pass' "$file"
+        else
+            sed -i "/^status: canonical$/a ${construct}" "$file"
+        fi
+
+        run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+        if [ "$status" -ne 1 ] || [[ "$output" != *"invalid frontmatter line"* ]]; then
+            echo "noncanonical YAML passed task validation (${construct}): ${output}" >&2
+            return 1
+        fi
+
+        run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
+        if [ "$status" -ne 1 ] || [[ "$output" != *"BLOCKED: expectations file fails structural validation"* ]]; then
+            echo "noncanonical YAML passed verify validation (${construct}): ${output}" >&2
+            return 1
+        fi
+        rm -rf "$root"
+    done <<'EOF'
+"surprise_key": must-not-pass
+<<: {surprise_key: must-not-pass}
+- stray-sequence-entry
+__NESTED__
+parent_prd: |
+EOF
+}
+
 @test "closed expectations schema accepts every documented optional frontmatter key" {
     local id="ALWD-0001"
     local root
@@ -696,6 +732,23 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
     run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
     [ "$status" -eq 0 ] \
         && [[ "$output" == *"PASS"* ]]
+}
+
+@test "a second active expectations heading cannot backfill an incomplete wish" {
+    local id="HEAD-0002"
+    local root
+    local file
+    root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
+    file="$root/datarim/tasks/${id}-expectations.md"
+    sed -i '/^  - customer_derived:/i ## Ожидания' "$file"
+
+    run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"duplicate active ## Ожидания heading"* ]] || return 1
+
+    run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"BLOCKED: expectations file fails structural validation"* ]]
 }
 
 @test "schema v4 ignores an expectations section inside a backtick fence" {

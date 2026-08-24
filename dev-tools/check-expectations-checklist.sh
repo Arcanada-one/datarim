@@ -169,12 +169,20 @@ frontmatter_field_inventory() {
             in_fm = 1
             next
         }
-        in_fm && match($0, /^[A-Za-z_][A-Za-z0-9_-]*[ \t]*:/) {
+        in_fm {
+            if ($0 ~ /^[ \t]*$/ || $0 ~ /^[ \t]*#/) next
+            if ($0 !~ /^[A-Za-z_][A-Za-z0-9_]*:[ \t]+[^ \t]/ \
+                || $0 ~ /^[A-Za-z_][A-Za-z0-9_]*:[ \t]+[|>][-+0-9]*([ \t]+#.*)?[ \t]*$/) {
+                invalid[NR] = 1
+                next
+            }
             key = substr($0, 1, index($0, ":") - 1)
-            sub(/[ \t]+$/, "", key)
             seen[key]++
         }
-        END { for (key in seen) print key "|" seen[key] }
+        END {
+            for (line in invalid) print "__INVALID__|" line
+            for (key in seen) print key "|" seen[key]
+        }
     ' "$file"
 }
 
@@ -253,6 +261,7 @@ parse_items() {
     awk -v f="$file" -v schema="$schema" -v task="$task_id" '
         BEGIN {
             in_section = 0; current_item = 0; total_items = 0; errors = 0
+            expectations_heading_count = 0
             wish_id = ""; status = ""; override_text = ""; evidence_type = ""
             override_by = ""; override_class = ""; override_artifact = ""
             verification_mode = ""; evidence_artifact = ""; success_criterion = ""
@@ -283,6 +292,13 @@ parse_items() {
         }
 
         /^## Ожидания[ \t]*$/ {
+            expectations_heading_count++
+            if (expectations_heading_count > 1) {
+                if (current_item) emit_item()
+                current_item = 0
+                printf "ERROR: %s: duplicate active ## Ожидания heading\n", f > "/dev/stderr"
+                errors++
+            }
             in_section = 1; next
         }
         /^## / && in_section {
@@ -643,6 +659,11 @@ validate_single_task() {
 
     while IFS='|' read -r frontmatter_field field_count; do
         [ -z "$frontmatter_field" ] && continue
+        if [ "$frontmatter_field" = "__INVALID__" ]; then
+            echo "ERROR: $file: invalid frontmatter line ${field_count}; expected an unquoted flat 'key: value' scalar" >&2
+            errors=$(( errors + 1 ))
+            continue
+        fi
         if [ "${field_count:-0}" -gt 1 ]; then
             echo "ERROR: $file: duplicate frontmatter field '$frontmatter_field'" >&2
             errors=$(( errors + 1 ))
