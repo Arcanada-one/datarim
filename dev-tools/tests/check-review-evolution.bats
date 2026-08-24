@@ -449,9 +449,12 @@ assert_not_met() {
 }
 
 @test "total deadline kills and reaps a hanging A2 process group" {
-    local start end elapsed descendant_pid
-    sed -i 's/VALIDATION_TOTAL_TIMEOUT_SECONDS = 20/VALIDATION_TOTAL_TIMEOUT_SECONDS = 1/' \
-        "$SCRIPT"
+    local start end elapsed descendant_pid deadline_script
+    deadline_script="${SCRIPT}.deadline"
+    sed 's/VALIDATION_TOTAL_TIMEOUT_SECONDS = 20/VALIDATION_TOTAL_TIMEOUT_SECONDS = 1/' \
+        "$SCRIPT" >"$deadline_script"
+    mv "$deadline_script" "$SCRIPT"
+    chmod +x "$SCRIPT"
     : >"${ROOT}/.a2-hang"
     start="$(python3 -c 'import time; print(time.perf_counter())')"
     run_validator
