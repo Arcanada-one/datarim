@@ -90,12 +90,12 @@ setup() {
           item_table:{expected_rows:2,canonicalization:"cells-trimmed-unit-separator-rows-lf-no-final-lf/1",sha256:$item_digest},
           candidates:[{path:"graph/data/local/candidate-role@r1.json",revision_id:"candidate-role@r1",content_digest:"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}],
           derived_records:[
-            {id:"planning",evidence_path:"reports/planning.json",assertions:[
+            {id:"planning",record_type:"planning-envelope",evidence_path:"reports/planning.json",assertions:[
               {json_pointer:"/contract/contract_digest",equals:"sha256:1111111111111111111111111111111111111111111111111111111111111111"},
               {json_pointer:"/contract/body/resolution_receipt_digest",equals:"sha256:2222222222222222222222222222222222222222222222222222222222222222"},
               {json_pointer:"/issuance_envelope/envelope_digest",equals:"sha256:3333333333333333333333333333333333333333333333333333333333333333"}
             ]},
-            {id:"candidate-role@r1",evidence_path:"graph/data/local/candidate-role@r1.json",assertions:[
+            {id:"candidate-role@r1",record_type:"approved-artifact",evidence_path:"graph/data/local/candidate-role@r1.json",assertions:[
               {json_pointer:"/logical_id",equals:"candidate-role"},
               {json_pointer:"/revision_id",equals:"candidate-role@r1"},
               {json_pointer:"/content_digest",equals:"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
@@ -122,6 +122,13 @@ assert_not_met() {
     run_validator
     [ "$status" -eq 0 ] \
         && [[ "$output" == *'research_authority_audit=MET items=2 candidates=1 external_pins=1'* ]]
+}
+
+@test "audit task identity is code-owned" {
+    jq '.task_id="UNRELATED-9999"' "$MANIFEST" >"${MANIFEST}.new"
+    mv "${MANIFEST}.new" "$MANIFEST"
+    run_validator
+    assert_not_met 'task_id_invalid:UNRELATED-9999'
 }
 
 @test "omitted item is rejected with its review attribution" {
@@ -186,6 +193,32 @@ assert_not_met() {
         && [[ "$output" == *'candidate_digest_mismatch:wrong@r1'* ]]
 }
 
+@test "closed candidate set rejects omissions and extras independently" {
+    local manifest_base
+    manifest_base="${ROOT}/authority-audit.base.json"
+    cp "$MANIFEST" "$manifest_base"
+
+    jq 'del(.candidates[0])' "$manifest_base" >"$MANIFEST"
+    run_validator
+    assert_not_met 'candidate_set_mismatch:missing=candidate-role@r1'
+
+    jq '.candidates += [{path:"graph/data/local/extra@r1.json",revision_id:"extra@r1",content_digest:"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}]' \
+        "$manifest_base" >"$MANIFEST"
+    run_validator
+    assert_not_met 'candidate_set_mismatch:extra=extra@r1'
+
+    jq '.logical_id="wrong-logical-id"' \
+        "${KNOWLEDGE}/graph/data/local/candidate-role@r1.json" >"${ROOT}/candidate.new"
+    mv "${ROOT}/candidate.new" "${KNOWLEDGE}/graph/data/local/candidate-role@r1.json"
+    git -C "$KNOWLEDGE" add .
+    GIT_AUTHOR_DATE='2026-08-24T00:02:00Z' GIT_COMMITTER_DATE='2026-08-24T00:02:00Z' \
+        git -C "$KNOWLEDGE" commit -q -m wrong-logical-id
+    jq --arg snapshot "$(git -C "$KNOWLEDGE" rev-parse HEAD)" \
+        '.knowledge_snapshot=$snapshot' "$manifest_base" >"$MANIFEST"
+    run_validator
+    assert_not_met 'candidate_logical_id_mismatch:candidate-role@r1'
+}
+
 @test "latest non-approve authority event is rejected" {
     jq '. += [{"authority_class":"operator","authority_id":"operator","event_id":"evt-revoke-r1","event_type":"revoke","issued_at":"2026-08-24T01:00:00Z","kind":"AuthorityEvent","schema_version":"talomnia-ontology/v1","subject":{"content_digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","id":"candidate-role@r1","subject_kind":"revision"}}]' \
         "${KNOWLEDGE}/resolver/data/authority/events.json" >"${ROOT}/events.new"
@@ -215,6 +248,46 @@ assert_not_met() {
         && [[ "$output" == *'research_authority_audit=MET items=2 candidates=1 external_pins=1'* ]]
 }
 
+@test "oversized Git blob is rejected before content extraction" {
+    local manifest_base tree_oid oversized_path oversized_oid fake_bin real_git extraction_marker
+    manifest_base="${ROOT}/authority-audit.base.json"
+    cp "$MANIFEST" "$manifest_base"
+    tree_oid="$(git -C "$KNOWLEDGE" rev-parse 'HEAD:research/sources/review')"
+    jq --arg blob "$tree_oid" \
+        '.reviews[0].source_path="research/sources/review" | .reviews[0].git_blob=$blob' \
+        "$manifest_base" >"$MANIFEST"
+    run_validator
+    assert_not_met 'git_object_type_invalid:R1'
+
+    oversized_path="research/sources/review/oversized.bin"
+    dd if=/dev/zero of="${KNOWLEDGE}/${oversized_path}" bs=1048576 count=17 status=none
+    git -C "$KNOWLEDGE" add "$oversized_path"
+    GIT_AUTHOR_DATE='2026-08-24T00:01:00Z' GIT_COMMITTER_DATE='2026-08-24T00:01:00Z' \
+        git -C "$KNOWLEDGE" commit -q -m oversized
+    oversized_oid="$(git -C "$KNOWLEDGE" rev-parse "HEAD:${oversized_path}")"
+    jq --arg snapshot "$(git -C "$KNOWLEDGE" rev-parse HEAD)" \
+        --arg path "$oversized_path" --arg blob "$oversized_oid" \
+        '.knowledge_snapshot=$snapshot | .reviews[0].source_path=$path | .reviews[0].git_blob=$blob' \
+        "$manifest_base" >"${MANIFEST}.new"
+    mv "${MANIFEST}.new" "$MANIFEST"
+
+    fake_bin="${ROOT}/oversize-git-bin"
+    extraction_marker="${ROOT}/oversize-extracted"
+    real_git="$(command -v git)"
+    mkdir -p "$fake_bin"
+    printf '%s\n' \
+        '#!/bin/sh' \
+        "case \" \$* \" in *\" cat-file blob ${oversized_oid} \"*) : >\"${extraction_marker}\"; exit 99;; esac" \
+        "exec \"${real_git}\" \"\$@\"" \
+        >"${fake_bin}/git"
+    chmod +x "${fake_bin}/git"
+    run env PATH="${fake_bin}:${PATH}" python3 "$SCRIPT" \
+        --manifest "$MANIFEST" --insights "$INSIGHTS" --knowledge-root "$KNOWLEDGE" \
+        --comment-json "101=${COMMENT_JSON}" --external-cache-dir "$CACHE"
+    assert_not_met 'git_object_too_large:R1'
+    [ ! -e "$extraction_marker" ]
+}
+
 @test "structured derived pointers reject swapped K and R identities" {
     jq '.contract.contract_digest as $k |
       .contract.body.resolution_receipt_digest as $r |
@@ -232,6 +305,28 @@ assert_not_met() {
     [ "$status" -eq 1 ] \
         && [[ "$output" == *'derived_record_pointer_mismatch:planning:/contract/contract_digest'* ]] \
         && [[ "$output" == *'derived_record_pointer_mismatch:planning:/contract/body/resolution_receipt_digest'* ]]
+}
+
+@test "closed derived record set rejects omission and assertion weakening" {
+    local manifest_base
+    manifest_base="${ROOT}/authority-audit.base.json"
+    cp "$MANIFEST" "$manifest_base"
+
+    jq 'del(.derived_records[0])' "$manifest_base" >"$MANIFEST"
+    run_validator
+    assert_not_met 'derived_record_set_mismatch:missing=planning'
+
+    jq '.derived_records += [(.derived_records[0] | .id="extra-derived")]' \
+        "$manifest_base" >"$MANIFEST"
+    run_validator
+    assert_not_met 'derived_record_set_mismatch:extra=extra-derived'
+
+    jq '.derived_records[0].record_type="unknown" | del(.derived_records[0].assertions[0])' \
+        "$manifest_base" >"$MANIFEST"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'derived_record_type_mismatch:planning'* ]] \
+        && [[ "$output" == *'derived_record_assertion_set_mismatch:planning'* ]]
 }
 
 @test "narrative artifact logical identity is structured and authority-bound" {
@@ -276,6 +371,21 @@ assert_not_met() {
         && [[ "$output" == *'comment_payload_html_url_mismatch:999'* ]]
 }
 
+@test "closed raw-comment set rejects omission and extra comment" {
+    local manifest_base
+    manifest_base="${ROOT}/authority-audit.base.json"
+    cp "$MANIFEST" "$manifest_base"
+
+    jq 'del(.comments[0])' "$manifest_base" >"$MANIFEST"
+    run_validator
+    assert_not_met 'comment_set_mismatch:missing=101'
+
+    jq '.comments += [(.comments[0] | .id=102 | .navigation_url="https://github.com/example/reference/issues/42#issuecomment-102")]' \
+        "$manifest_base" >"$MANIFEST"
+    run_validator
+    assert_not_met 'comment_set_mismatch:extra=102'
+}
+
 @test "immutable external pin validates commit blob and cached content digest" {
     jq '.external_pins[0].commit="main"' "$MANIFEST" >"${MANIFEST}.new"
     mv "${MANIFEST}.new" "$MANIFEST"
@@ -285,6 +395,21 @@ assert_not_met() {
         && [[ "$output" == *'external_pin_commit_invalid:S20'* ]] \
         && [[ "$output" == *'external_pin_blob_mismatch:S20'* ]] \
         && [[ "$output" == *'external_pin_content_digest_mismatch:S20'* ]]
+}
+
+@test "closed selected-source set rejects pin omission and extra pin" {
+    local manifest_base
+    manifest_base="${ROOT}/authority-audit.base.json"
+    cp "$MANIFEST" "$manifest_base"
+
+    jq 'del(.external_pins[0])' "$manifest_base" >"$MANIFEST"
+    run_validator
+    assert_not_met 'external_pin_set_mismatch:missing=S20'
+
+    jq '.external_pins += [(.external_pins[0] | .source_id="S99")]' \
+        "$manifest_base" >"$MANIFEST"
+    run_validator
+    assert_not_met 'external_pin_set_mismatch:extra=S99'
 }
 
 @test "live source gate binds repository commit and path to remote bytes" {

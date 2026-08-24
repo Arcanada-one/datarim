@@ -143,6 +143,7 @@
   "derived_records": [
     {
       "id": "TALO-0032-planning-envelope",
+      "record_type": "planning-envelope",
       "evidence_path": "architecture/reports/talo-0032/talo-0032-accept-customer-review-r1.bundle.json",
       "assertions": [
         {
@@ -161,6 +162,7 @@
     },
     {
       "id": "TALO-0050-planning-envelope",
+      "record_type": "planning-envelope",
       "evidence_path": "architecture/reports/talo-0050/talo-0050-accept-customer-review-r2.bundle.json",
       "assertions": [
         {
@@ -179,6 +181,7 @@
     },
     {
       "id": "tal-skill-customer-narrative@r1",
+      "record_type": "approved-artifact",
       "evidence_path": "graph/data/local/tal-skill-customer-narrative@r1.json",
       "assertions": [
         {
