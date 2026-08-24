@@ -2431,12 +2431,13 @@ new = f'''        metadata_entry = os.stat("METADATA", follow_symlinks=False)
                     pass
             record_nonblock_stage("attack_entered")
             try:
-                os.rename(
-                    "METADATA", "METADATA.original-a2",
-                    src_dir_fd=dist_fd, dst_dir_fd=dist_fd,
-                )
+                os.rename("METADATA", "METADATA.original-a2")
                 record_nonblock_stage("metadata_renamed")
-                os.mkfifo("METADATA", 0o600, dir_fd=dist_fd)
+                # The bootstrap already fchdir-bound cwd to dist_fd and checked
+                # that identity. Apple Python 3.9 does not implement mkfifo's
+                # dir_fd argument, so create the attack FIFO relative to that
+                # authenticated cwd instead of falling back to a mutable path.
+                os.mkfifo("METADATA", 0o600)
                 record_nonblock_stage("fifo_ready")
             except BaseException as setup_error:
                 record_nonblock_stage(
@@ -2557,6 +2558,9 @@ PY
     [ "$result" -eq 2 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_dependencies"]' "$output_copy" \
         && "$PYTHON" -c 'import sys; assert float(sys.argv[1]) < 7.0' "$elapsed" \
+        && [[ "$diagnostic_output" == *fifo_ready* ]] \
+        && [[ "$diagnostic_output" == *metadata_flags=* ]] \
+        && [[ "$diagnostic_output" == *opened_flags=* ]] \
         && [ ! -e "$canary" ] \
         && [[ "$output_copy" != *Traceback* ]]
 }
