@@ -43,6 +43,8 @@ MACOS_RUNTIME_ISOLATED_TESTS = {
         "two-requirement epic cannot close with its second originating review CHANGES_REQUESTED",
         "every originating review inventory record is authenticated",
         "originating review inventory rejects requirements outside the exact set",
+        "all validation subprocesses share one total deadline",
+        "OpenSSL deadline terminates stubborn descendant pipe holders",
         "source history subprocesses share one total deadline",
         "source history deadline kills stubborn descendant pipe holders",
         "global validation alarm reaps late source history child process group",
