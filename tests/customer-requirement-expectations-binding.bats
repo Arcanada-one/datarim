@@ -18,6 +18,7 @@ assert_contains() {
     [[ -f "$DELIVERY_SKILL" ]]
     assert_contains "$DELIVERY_SKILL" 'name: customer-delivery'
     assert_contains "$DELIVERY_SKILL" 'description:'
+    [[ "$(grep -cE '^## U[1-8]\.' "$DELIVERY_SKILL")" -eq 8 ]]
     ! grep -Eq '[A-Z]{2,10}-[0-9]{4}' "$DELIVERY_SKILL"
 }
 
@@ -75,11 +76,11 @@ assert_contains() {
 }
 
 @test "expectations contract makes customer binding mandatory without invalidating legacy files" {
+    assert_contains "$EXPECTATIONS_SKILL" 'Every new wish derived from a customer remark MUST carry these four fields:'
     assert_contains "$EXPECTATIONS_SKILL" 'requirement_id'
     assert_contains "$EXPECTATIONS_SKILL" 'surface_class'
     assert_contains "$EXPECTATIONS_SKILL" 'visitor_visible'
     assert_contains "$EXPECTATIONS_SKILL" 'delivery_receipt'
-    assert_contains "$EXPECTATIONS_SKILL" 'MUST'
     assert_contains "$EXPECTATIONS_SKILL" 'Legacy expectations files'
     assert_contains "$EXPECTATIONS_SKILL" 'remain valid without these fields'
 }

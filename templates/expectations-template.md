@@ -34,6 +34,10 @@ parent_prd: ../prd/PRD-{TASK-ID}.md
   - Как проверить (success criterion): {конкретный сигнал — путь к файлу,
     вывод команды, видимое поведение}
   - Связанный AC из PRD: {V-AC-N или «—»}
+  - requirement_id: {req-NNNN}
+  - surface_class: {VISITOR_VISIBLE | ENABLING}
+  - visitor_visible: {true | false}
+  - delivery_receipt: {datarim/receipts/{TASK-ID}-customer-delivery.yaml}
   - evidence_type: {empirical | static | measurement}
   - #### История статусов
     - {ISO 8601} / {local-time} · {/dr-init | /dr-prd | /dr-plan} · pending → pending · reason: пункт создан при формировании контракта ожиданий
@@ -45,6 +49,10 @@ parent_prd: ../prd/PRD-{TASK-ID}.md
   - Что хочу проверить: {…}
   - Как проверить (success criterion): {…}
   - Связанный AC из PRD: {V-AC-N или «—»}
+  - requirement_id: {req-NNNN}
+  - surface_class: {VISITOR_VISIBLE | ENABLING}
+  - visitor_visible: {true | false}
+  - delivery_receipt: {datarim/receipts/{TASK-ID}-customer-delivery.yaml}
   - evidence_type: {empirical | static | measurement}
   - #### История статусов
     - {ISO 8601} / {local-time} · {/dr-init | /dr-prd | /dr-plan} · pending → pending · reason: пункт создан при формировании контракта ожиданий

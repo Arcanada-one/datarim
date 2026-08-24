@@ -106,6 +106,10 @@ stays opt-in per the note above; the default first-write target is v2.
   - Как проверить (success criterion): <one concrete signal — file path,
     command output, visible behaviour>
   - Связанный AC из PRD: V-AC-<N> или «—»
+  - requirement_id: <req-NNNN>
+  - surface_class: <VISITOR_VISIBLE | ENABLING>
+  - visitor_visible: <true | false>
+  - delivery_receipt: <datarim/receipts/{TASK-ID}-customer-delivery.yaml>
   - evidence_type: <empirical | static | measurement>  # v2 — required
   - override: <optional reason text, only used when status flips to
     partial/missed and the deferral is genuinely legitimate>
@@ -121,6 +125,34 @@ stays opt-in per the note above; the default first-write target is v2.
 
 _(empty on first write)_
 ```
+
+### Customer-requirement binding
+
+Every new wish derived from a customer remark MUST carry these four fields:
+
+```yaml
+  - requirement_id: <req-NNNN>
+  - surface_class: <VISITOR_VISIBLE | ENABLING>
+  - visitor_visible: <true | false>
+  - delivery_receipt: <datarim/receipts/{TASK-ID}-customer-delivery.yaml>
+```
+
+`requirement_id` is the stable foreign key into the customer-requirement
+artifact; it is not interchangeable with `wish_id`. `surface_class` and
+`visitor_visible` MUST agree: `VISITOR_VISIBLE` requires `true`, and `ENABLING`
+requires `false`. `delivery_receipt` names the deterministic receipt that must
+eventually prove the complete delivery chain. A pointer may identify its
+planned canonical path before the receipt exists, but an absent or incomplete
+receipt can never satisfy closure.
+
+For a visitor-visible wish, the success criterion MUST assert observable live
+production behaviour. Documentation, knowledge, tests, CI, ledgers, and other
+enabling outputs may support the evidence but cannot satisfy the wish.
+
+Legacy expectations files remain valid without these fields. Do not rewrite
+or renumber existing wish blocks solely to add customer-delivery metadata;
+apply the binding to new customer-derived wishes and preserve the existing
+append-merge contract.
 
 ### `override` indent — concrete syntax
 
