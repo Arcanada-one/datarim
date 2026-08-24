@@ -1,6 +1,8 @@
 #!/usr/bin/env bats
 # Phase 4 V-AC-19, V-AC-24 — datarim tmux new (whitelist enforcement, async timeout).
 
+load 'helpers/active-aal-fixture'
+
 setup() {
     CLI_DIR="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
     DATARIM_BIN="$CLI_DIR/datarim"
@@ -10,10 +12,12 @@ setup() {
     TMP_DIR="$(mktemp -d)"
     export DATARIM_CLI_AUDIT_DIR="$TMP_DIR/audit"
     export DATARIM_CLI_HALT_PATH="$TMP_DIR/HALT"
-    export DATARIM_CLI_AGENT_ID="$("$UUID_GEN")"
+    DATARIM_CLI_AGENT_ID="$("$UUID_GEN")"
+    export DATARIM_CLI_AGENT_ID
     # Notifier stub: targets=stub, results=ack — so notifier_gate passes.
     export DATARIM_CLI_NOTIFIER_TARGETS=stub
     export DATARIM_CLI_NOTIFY_STUB_RESULT=0
+    setup_active_aal_fixture "$CLI_DIR/.." "$TMP_DIR/active-aal"
 }
 
 teardown() {
