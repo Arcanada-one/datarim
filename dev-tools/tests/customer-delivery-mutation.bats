@@ -1152,16 +1152,24 @@ import sys
 
 path, repo_root = sys.argv[1:]
 source = open(path, encoding="utf-8").read()
-grammar = '''            && "$VALIDATOR_DIAGNOSTIC" =~ ^/[^[:space:][:cntrl:]]*/check-customer-delivery\\.sh:\\ line\\ [1-9][0-9]*:\\ [1-9][0-9]*\\ Alarm\\ clock:\\ 14\\ [^[:cntrl:]]+$ ]] \\
+guard_start = '''        "$PYTHON" - "$VALIDATOR_DIAGNOSTIC" <<'PY' || return 1
 '''
-substring = '''            && "$VALIDATOR_DIAGNOSTIC" == *'check-customer-delivery.sh: line '* \\
-            && "$VALIDATOR_DIAGNOSTIC" == *' Alarm clock: 14 '* ]] \\
+guard_end = '''PY
+    fi
+}
+
+report_bounded_validator_diagnostic_hex()'''
+substring = '''        [[ "$VALIDATOR_DIAGNOSTIC" == *'check-customer-delivery.sh: line '* \\
+            && "$VALIDATOR_DIAGNOSTIC" == *' Alarm clock: 14 '* ]] || return 1
 '''
 root_old = '    REPO_ROOT="${BATS_TEST_DIRNAME}/../.."\n'
 root_new = f"    REPO_ROOT={repo_root!r}\n"
-if source.count(grammar) != 1 or source.count(root_old) != 1:
+if source.count(guard_start) != 1 or source.count(guard_end) != 1 or source.count(root_old) != 1:
     raise SystemExit("ALARM_DIAGNOSTIC_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
-source = source.replace(grammar, substring, 1).replace(root_old, root_new, 1)
+guard_begin = source.index(guard_start)
+guard_finish = source.index(guard_end, guard_begin)
+source = source[:guard_begin] + substring + source[guard_finish + len("PY\n"):]
+source = source.replace(root_old, root_new, 1)
 open(path, "w", encoding="utf-8").write(source)
 PY
     run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \

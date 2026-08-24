@@ -282,9 +282,44 @@ split_bounded_validator_json() {
     VALIDATOR_DIAGNOSTIC=''
     if [[ "$raw" == *$'\n'* ]]; then
         VALIDATOR_DIAGNOSTIC="${raw%$'\n'*}"
-        [[ "$VALIDATOR_DIAGNOSTIC" != *$'\n'* \
-            && "$VALIDATOR_DIAGNOSTIC" =~ ^/[^[:space:][:cntrl:]]*/check-customer-delivery\.sh:\ line\ [1-9][0-9]*:\ [1-9][0-9]*\ Alarm\ clock:\ 14\ [^[:cntrl:]]+$ ]] \
-            || return 1
+        [[ "$VALIDATOR_DIAGNOSTIC" != *$'\n'* ]] || return 1
+        "$PYTHON" - "$VALIDATOR_DIAGNOSTIC" <<'PY' || return 1
+import re
+import sys
+
+diagnostic = sys.argv[1]
+try:
+    diagnostic.encode("ascii")
+except UnicodeEncodeError:
+    raise SystemExit(1)
+if any(ord(character) < 32 or ord(character) == 127 for character in diagnostic):
+    raise SystemExit(1)
+
+command = (
+    "/usr/bin/env -i LC_ALL=C /bin/bash -p -c "
+    "'cd / && exec -a \"$1\" \"$2\" \"${@:3}\"' bash "
+    '"$python_bin" "$trusted_runtime_path" "${child_args[@]}"'
+)
+marker = " Alarm clock: 14         " + command
+if diagnostic.count(marker) != 1 or not diagnostic.endswith(marker):
+    raise SystemExit(1)
+header = diagnostic[:-len(marker)]
+match = re.fullmatch(
+    r"(?P<path>/(?:[^/\s]+/)*check-customer-delivery\.sh): "
+    r"line (?P<line>[1-9][0-9]*): (?P<pid_field> *[1-9][0-9]*)",
+    header,
+    flags=re.ASCII,
+)
+if match is None:
+    raise SystemExit(1)
+path_parts = match.group("path").split("/")[1:-1]
+if not path_parts or any(part in {"", ".", ".."} for part in path_parts):
+    raise SystemExit(1)
+pid_field = match.group("pid_field")
+pid = pid_field.lstrip(" ")
+if pid_field != pid.rjust(5):
+    raise SystemExit(1)
+PY
     fi
 }
 
@@ -298,6 +333,35 @@ print(f"bounded_validator_diagnostic_separator={int(bool(separator))}")
 print(f"bounded_validator_diagnostic_bytes={len(diagnostic)}")
 print(f"bounded_validator_diagnostic_hex={diagnostic.hex()}")
 PY
+}
+
+assert_bounded_validator_diagnostic_grammar() {
+    local parsed_json='{"decision":"ERROR"}'
+    local observed_macos_diagnostic relative_path control_path altered_command
+    observed_macos_diagnostic="$(/bin/cat <<'EOF'
+/var/folders/df/djsxfhc17x95674wsm_g8s980000gn/T/bats-run-zuSwfD/test/1/framework-stubborn-crypto-descendant/dev-tools/check-customer-delivery.sh: line 339:  2875 Alarm clock: 14         /usr/bin/env -i LC_ALL=C /bin/bash -p -c 'cd / && exec -a "$1" "$2" "${@:3}"' bash "$python_bin" "$trusted_runtime_path" "${child_args[@]}"
+EOF
+)"
+    relative_path="${observed_macos_diagnostic#/}"
+    control_path="/"$'\x1b'"${observed_macos_diagnostic#/}"
+    altered_command="${observed_macos_diagnostic%/usr/bin/env*}/usr/bin/printf unexpected"
+
+    split_bounded_validator_json \
+        "$observed_macos_diagnostic"$'\n'"$parsed_json" \
+        && [ "$VALIDATOR_JSON" = "$parsed_json" ] || return 1
+    if split_bounded_validator_json \
+        "UNEXPECTED_PREFIX $observed_macos_diagnostic"$'\n'"$parsed_json"; then
+        return 1
+    fi
+    if split_bounded_validator_json "$relative_path"$'\n'"$parsed_json"; then
+        return 1
+    fi
+    if split_bounded_validator_json "$control_path"$'\n'"$parsed_json"; then
+        return 1
+    fi
+    if split_bounded_validator_json "$altered_command"$'\n'"$parsed_json"; then
+        return 1
+    fi
 }
 
 instrument_test_validator_elapsed() {
@@ -2850,6 +2914,7 @@ PY
     local pid_file="${BATS_TEST_TMPDIR}/stubborn-openssl.pid"
     local descendant_pid attempt elapsed parsed_json
     local elapsed_marker="${BATS_TEST_TMPDIR}/stubborn-crypto.elapsed"
+    assert_bounded_validator_diagnostic_grammar || return 1
     "$PYTHON" - "$shim" "$pid_file" <<'PY' || return 1
 import os
 import sys
@@ -2874,20 +2939,14 @@ PY
     run_test_framework_json
     [ -s "$elapsed_marker" ] || return 1
     elapsed="$(<"$elapsed_marker")"
-    split_bounded_validator_json "$output" \
-        || { report_bounded_validator_diagnostic_hex "$output"; return 1; }
+    if ! split_bounded_validator_json "$output"; then
+        report_bounded_validator_diagnostic_hex "$output"
+        return 1
+    fi
+    if [[ "$(/usr/bin/uname -s)" == Darwin ]]; then
+        report_bounded_validator_diagnostic_hex "$output"
+    fi
     parsed_json="$VALIDATOR_JSON"
-    split_bounded_validator_json \
-        "/tmp/check-customer-delivery.sh: line 339: 123 Alarm clock: 14 command"$'\n'"$parsed_json" \
-        && [ "$VALIDATOR_JSON" = "$parsed_json" ] || return 1
-    if split_bounded_validator_json \
-        "UNEXPECTED_PREFIX /tmp/check-customer-delivery.sh: line 339: 123 Alarm clock: 14 command"$'\n'"$parsed_json"; then
-        return 1
-    fi
-    if split_bounded_validator_json "unexpected diagnostic"$'\n'"$parsed_json"; then
-        return 1
-    fi
-    VALIDATOR_JSON="$parsed_json"
     [ "$status" -eq 2 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["validation_resource_limit:deadline"]' "$VALIDATOR_JSON" \
         && assert_deadline_cleanup_elapsed "$elapsed" 4 \
