@@ -202,6 +202,8 @@ Incorrect (4-space, silently ignored by the validator):
   is a kebab-slug derived from the title: non-empty segments of Cyrillic
   letters, ASCII letters, or digits, separated by single hyphens. Used as the focus key in
   FAIL-Routing CTA (`/dr-do <ID> --focus-items <wish_id_1,...,N>`).
+- Inline code spans use exact matching backtick-run delimiters. An unmatched
+  delimiter fails structural validation instead of suppressing later wishes.
 - **`Связанный AC из PRD`** is advisory for L1-L2. For L3-L4 current, <!-- allow-non-ascii: canonical-russian-expectations-field-name -->
   non-overridden wishes it is required when spec-graph hard mode is active:
   the value MUST be `V-AC-N`, not «—». Deleted, superseded, or operator-overridden

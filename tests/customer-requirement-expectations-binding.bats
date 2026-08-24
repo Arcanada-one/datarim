@@ -673,6 +673,48 @@ EOF
         && [[ "$output" == *"BLOCKED: expectations file fails structural validation"* ]]
 }
 
+@test "inline code cannot become a valid wish_id placeholder" {
+    local id="COMM-0004"
+    local root
+    local file
+    root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
+    file="$root/datarim/tasks/${id}-expectations.md"
+    sed -i 's/wish_id: customer-outcome/wish_id: `not a kebab slug`/' "$file"
+
+    run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+    [ "$status" -eq 1 ] && [[ "$output" == *"wish_id must be a kebab slug"* ]] || return 1
+
+    run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"BLOCKED: expectations file fails structural validation"* ]]
+}
+
+@test "an unclosed code delimiter cannot hide a later schema v4 wish" {
+    local id="COMM-0005"
+    local root
+    local file
+    root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
+    file="$root/datarim/tasks/${id}-expectations.md"
+    cat >> "$file" <<'EOF'
+
+` unmatched inline delimiter
+- **2. Hidden unbound wish.**
+  - wish_id: hidden-unbound-wish
+  - evidence_type: static
+  - #### История статусов
+    - 2026-08-24T00:00:00Z / 2026-08-24 00:00 (UTC) · pending → pending · /dr-prd · reason: item created
+  - #### Текущий статус
+    - pending
+EOF
+
+    run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+    [ "$status" -eq 1 ] && [[ "$output" == *"unclosed inline code span"* ]] || return 1
+
+    run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"BLOCKED: expectations file fails structural validation"* ]]
+}
+
 @test "schema validation rejects duplicate frontmatter keys in task and verify modes" {
     local id
     local root

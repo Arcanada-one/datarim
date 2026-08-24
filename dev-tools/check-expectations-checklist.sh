@@ -437,6 +437,10 @@ parse_items() {
 
         END {
             if (current_item) emit_item()
+            if (code_span_len > 0) {
+                printf "ERROR: %s: unclosed inline code span\n", f > "/dev/stderr"
+                errors++
+            }
             if (total_items == 0) {
                 printf "ERROR: %s: no items found under ## Ожидания (file appears empty)\n", f > "/dev/stderr"
                 errors++
@@ -456,8 +460,8 @@ parse_items() {
             pos = 1
             if (code_span_len > 0) {
                 match_at = matching_backtick_run(line, pos, code_span_len)
-                if (match_at == 0) return "x"
-                out = "x"
+                if (match_at == 0) return "<>"
+                out = "<>"
                 pos = match_at + code_span_len
                 code_span_len = 0
             }
@@ -466,12 +470,12 @@ parse_items() {
                     run_len = backtick_run(line, pos)
                     match_at = matching_backtick_run(line, pos + run_len, run_len)
                     if (match_at > 0) {
-                        out = out "x"
+                        out = out "<>"
                         pos = match_at + run_len
                         continue
                     }
                     code_span_len = run_len
-                    return out "x"
+                    return out "<>"
                 }
                 if (substr(line, pos, 4) == "<!--" && !is_escaped(line, pos)) {
                     close_at = index(substr(line, pos + 4), "-->")
