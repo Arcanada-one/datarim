@@ -15,10 +15,19 @@ setup() {
     ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
     RUNNER="$ROOT/tests/run-bats-discovery.sh"
     WF="$ROOT/.github/workflows/bats.yml"
+    CI_PYTHON="${CUSTOMER_CI_PYTHON:-/usr/bin/python3}"
     export ROOT RUNNER WF
 }
 
 # --- the runner itself -------------------------------------------------------
+
+@test "bats workflow remains syntactically valid YAML" {
+    # yq is the workflow's pinned YAML parser. In particular, do not invoke
+    # Apple's rebound /usr/bin/python3 launcher outside the trusted dependency
+    # bootstrap merely to reach PyYAML.
+    run yq eval -e '.jobs | type == "!!map"' "$WF"
+    [ "$status" -eq 0 ] && [ "$output" = true ]
+}
 
 @test "discovery runner exists and is shellcheck-clean" {
     [ -f "$RUNNER" ]
@@ -35,7 +44,16 @@ setup() {
     discovered="$(bash "$RUNNER" --root "$ROOT" --list | wc -l)"
     excluded="$(grep -cE '^[[:space:]]*-[[:space:]]+path:' "$ROOT/tests/bats-exclusions.yml" || true)"
 
-    [ "$discovered" -eq "$(( on_disk - excluded ))" ]
+    [ "$discovered" -eq "$(( on_disk - excluded - 3 ))" ]
+}
+
+@test "managed customer-delivery suites leave monolithic discovery and retain exact shard coverage" {
+    local discovered
+    discovered="$(bash "$RUNNER" --root "$ROOT" --list)"
+    [[ "$discovered" != *"dev-tools/tests/check-customer-delivery.bats"* ]] \
+        && [[ "$discovered" != *"dev-tools/tests/customer-delivery-schema.bats"* ]] \
+        && [[ "$discovered" != *"dev-tools/tests/customer-delivery-mutation.bats"* ]] \
+        && /usr/bin/python3 "$ROOT/tests/run-customer-delivery-shard.py" --check
 }
 
 @test "discovery is non-empty (a broken glob must not read as 'all clean')" {
@@ -167,4 +185,129 @@ YAML
     grep -qE 'YQ_SHA256="[0-9a-f]{64}"' "$inst"
     # and the digest is actually checked, not merely recorded
     grep -q 'sha256sum -c -' "$inst"
+}
+
+@test "the CI Python dependency contract pins and probes date-time validation" {
+    local inst="$ROOT/tests/ci-install-bats-deps.sh"
+    [ -f "$inst" ]
+    grep -q '^PY_RFC3339_VALIDATOR="rfc3339-validator==0\.1\.4"$' "$inst"
+    grep -q '"$PY_RFC3339_VALIDATOR"' "$inst"
+    grep -q 'rfc3339_validator' "$inst"
+    grep -q 'FormatChecker.*date-time' "$inst"
+    grep -q 'distutils-precedence\.pth' "$inst"
+    grep -q 'unexpected executable Python path file' "$inst"
+}
+
+@test "customer-delivery crypto fixtures use one pinned Python helper without PHP" {
+    local inst="$ROOT/tests/ci-install-bats-deps.sh"
+    local helper="$ROOT/tests/customer-delivery-ed25519.py"
+    [ -f "$helper" ] \
+        && grep -q '^PY_CRYPTOGRAPHY="cryptography==43\.0\.3"$' "$inst" \
+        && grep -q '"$PY_CRYPTOGRAPHY"' "$inst" \
+        && grep -q 'import cryptography' "$inst" \
+        && ! grep -qE 'php -r|sodium_|command -v php' \
+            "$ROOT/dev-tools/tests/check-customer-delivery.bats" \
+            "$ROOT/dev-tools/tests/customer-delivery-schema.bats" \
+            "$ROOT/dev-tools/tests/customer-delivery-mutation.bats"
+}
+
+@test "macOS customer-delivery shards separate fixture Python from validator authority" {
+    local helper="$ROOT/tests/customer-delivery-test-python.sh"
+    [ -x "$helper" ] \
+        && grep -q -- '--test-python-bin "\$GITHUB_WORKSPACE/tests/customer-delivery-test-python.sh"' "$WF" \
+        && grep -q 'CUSTOMER_TEST_PYTHON_RUNTIME=%s' "$WF" \
+        && grep -q 'CUSTOMER_TEST_PYTHON_SITE=%s' "$WF" \
+        && grep -q 'environment\["CUSTOMER_DELIVERY_TEST_PYTHON"\]' "$ROOT/tests/run-customer-delivery-shard.py"
+}
+
+@test "macOS CI installs pinned A2 dependencies and runs both A2 suites in bounded steps" {
+    grep -q 'brew install bats-core yq openssl@3' "$WF" \
+        && grep -q -- '--python-only' "$WF" \
+        && grep -q 'run-customer-delivery-shard.py' "$WF" \
+        && grep -q 'customer-delivery-macos' "$WF" \
+        && grep -q 'customer-delivery-linux' "$WF" \
+        && [ "$(grep -c -- '--python-bin "$clt_python" --python-site "$dependency_site"' "$WF")" -eq 2 ] \
+        && grep -q 'tests/bats-discovery-coverage.bats' "$WF"
+}
+
+@test "macOS portability contracts use the pinned dependency-bearing Python environment" {
+    grep -q '/usr/bin/python3 -m venv "\$RUNNER_TEMP/portability-venv"' "$WF" \
+        && grep -q 'dependency_site="\$RUNNER_TEMP/portability-venv/lib/python${clt_version}/site-packages"' "$WF" \
+        && grep -q -- '--python-bin "$clt_python" --python-site "$dependency_site"' "$WF" \
+        && grep -q 'bash tests/check-customer-delivery-python-runtime.sh "\$RUNNER_TEMP/portability-venv/bin/python"' "$WF" \
+        && grep -q '^        run: bats tests/bats-discovery-coverage.bats$' "$WF"
+}
+
+@test "CI installer supports a pinned Python-only dependency mode" {
+    local inst="$ROOT/tests/ci-install-bats-deps.sh"
+    grep -q -- '--python-only' "$inst" \
+        && grep -q -- '--python-bin' "$inst" \
+        && grep -q -- '--python-site' "$inst" \
+        && grep -q 'PYTHON_BIN' "$inst"
+}
+
+@test "Linux and macOS customer-delivery jobs pass an absolute interpreter to every shard" {
+    local explicit_count
+    explicit_count="$(grep -c -- "--python-bin \"\$RUNNER_TEMP/customer-delivery-venv/bin/python\"" "$WF")"
+    [ "$explicit_count" -eq 3 ] \
+        && [ "$(grep -c '/bin/ln -sf /usr/bin/python3 "\$RUNNER_TEMP/customer-delivery-venv/bin/python"' "$WF")" -eq 2 ] \
+        && ! grep -qE 'bats dev-tools/tests/(check-customer-delivery|customer-delivery-schema|customer-delivery-mutation)\.bats' "$WF"
+}
+
+@test "Linux and macOS customer-delivery jobs preflight launcher runtime identity and dependencies" {
+    local preflight="$ROOT/tests/check-customer-delivery-python-runtime.sh"
+    local validator="$ROOT/dev-tools/check-customer-delivery.sh"
+    [ -x "$preflight" ] \
+        && [ "$(grep -c 'bash tests/check-customer-delivery-python-runtime.sh "\$RUNNER_TEMP/customer-delivery-venv/bin/python"' "$WF")" -eq 2 ] \
+        && [ "$(grep -c 'bash tests/check-customer-delivery-python-runtime.sh "\$RUNNER_TEMP/portability-venv/bin/python"' "$WF")" -eq 1 ] \
+        && grep -q '/usr/bin/python3 -m venv "\$RUNNER_TEMP/discovery-venv"' "$WF" \
+        && [ "$(grep -c 'DEVELOPER_DIR=/Library/Developer/CommandLineTools' "$WF")" -ge 2 ] \
+        && grep -q '/bin/ln -sf /usr/bin/python3 "\$RUNNER_TEMP/portability-venv/bin/python"' "$WF" \
+        && grep -q 'dependency_site="\$RUNNER_TEMP/customer-delivery-venv/lib/python${clt_version}/site-packages"' "$WF" \
+        && grep -q 'trusted_python_site="${python_venv_root}/lib/python${runtime_major}.${runtime_minor}/site-packages"' "$validator" \
+        && grep -q 'CUSTOMER_CI_PYTHON="\$RUNNER_TEMP/discovery-venv/bin/python" bash tests/run-bats-discovery.sh' "$WF" \
+        && ! grep -q 'CUSTOMER_CI_PYTHON="\$RUNNER_TEMP/portability-venv/bin/python" bats tests/bats-discovery-coverage.bats' "$WF" \
+        || return 1
+    [[ -n "${CUSTOMER_CI_PYTHON:-}" ]] || skip 'CUSTOMER_CI_PYTHON is required; every CI invocation provides a pinned venv'
+    "$preflight" "$CI_PYTHON"
+}
+
+@test "customer-delivery CI matrices come only from the canonical shard registry" {
+    grep -q 'linux_matrix:.*steps.customer_delivery_matrix.outputs.linux' "$WF" \
+        && grep -q 'macos_matrix:.*steps.customer_delivery_matrix.outputs.macos' "$WF" \
+        && grep -q 'linux=.*run-customer-delivery-shard.py --matrix linux' "$WF" \
+        && grep -q 'macos=.*run-customer-delivery-shard.py --matrix macos' "$WF" \
+        && grep -q 'include:.*fromJSON(needs.registry.outputs.linux_matrix)' "$WF" \
+        && grep -q 'include:.*fromJSON(needs.registry.outputs.macos_matrix)' "$WF" \
+        && ! grep -qE '^\s+- \{ suite: (functional|schema|mutation),' "$WF"
+}
+
+@test "customer-delivery aggregate verifies exact Linux and macOS result inventories" {
+    grep -q '^  customer-delivery-aggregate:' "$WF" \
+        && grep -q 'needs: \[registry, customer-delivery-linux, customer-delivery-macos\]' "$WF" \
+        && grep -q -- '--check-results linux' "$WF" \
+        && grep -q -- '--check-results macos' "$WF" \
+        && [ "$(grep -c 'actions/upload-artifact@' "$WF")" -eq 2 ] \
+        && [ "$(grep -c 'actions/download-artifact@' "$WF")" -eq 2 ] \
+        && [ "$(grep -c -- '--result-file' "$WF")" -eq 2 ]
+}
+
+@test "every customer-delivery checkout is pinned to and verifies the triggering PR head" {
+    /usr/bin/python3 - "$WF" <<'PY'
+import re
+import sys
+
+text = open(sys.argv[1], encoding="utf-8").read()
+expected = "${{ github.event.pull_request.head.sha || github.sha }}"
+assert f"EXPECTED_HEAD_SHA: {expected}" in text
+jobs = list(re.finditer(r"(?m)^  ([a-z][a-z0-9-]+):\n", text))
+sections = {
+    match.group(1): text[match.start() : jobs[index + 1].start() if index + 1 < len(jobs) else None]
+    for index, match in enumerate(jobs)
+}
+for job in ("registry", "customer-delivery-linux", "customer-delivery-macos", "customer-delivery-aggregate"):
+    section = sections[job]
+    assert section.count(f"ref: {expected}") == 1, job
+    assert section.count('test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"') == 1, job
+PY
 }

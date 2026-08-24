@@ -1,0 +1,86 @@
+schema_version: 1
+review_id: review-0001
+requirement_id: req-0001
+delivery_receipt_id: receipt-0001
+originating_review:
+  review_ref: review-system/reviews/review-0001
+  state: APPROVED
+  observed_at: "2026-01-03T14:55:00Z"
+  evidence_ref: artifacts/reviews/review-0001-approval.json
+  review_digest: sha256:89ad08914c519c6154801fd4a70752e6edbd35303acc0555b42bd3c36b629235
+  authority_approval:
+    approved_digest: sha256:89ad08914c519c6154801fd4a70752e6edbd35303acc0555b42bd3c36b629235
+    authority_id: authority-operator-0001
+    authority_role: OPERATOR
+    approved_at: "2026-01-03T14:56:00Z"
+    evidence_ref: artifacts/reviews/review-0001-authority-approval.json
+    algorithm: ED25519
+    key_id: key-operator-0001
+    approval_payload_digest: sha256:983bc6f0066d8c056da83c407f8eaeb3bf0bb4118a817fda8c4f3294e5a95ee3
+    signature: ed25519:C5PtyJ5wYJKZj2sTB9wivJiT4ClxwFWcPj1Qbp/L9ewnYdslo5pI3KDKl2+cm1ZLWGAX/rWSXL4oebp0cJ4pDA==
+originating_review_inventory:
+  - review_id: review-0001
+    requirement_id: req-0001
+    delivery_receipt_id: receipt-0001
+    reviewer: independent-reviewer
+    review_ref: review-system/reviews/review-0001
+    state: APPROVED
+    observed_at: "2026-01-03T14:55:00Z"
+    evidence_ref: artifacts/reviews/review-0001-approval.json
+    review_digest: sha256:89ad08914c519c6154801fd4a70752e6edbd35303acc0555b42bd3c36b629235
+    authority_approval:
+      approved_digest: sha256:89ad08914c519c6154801fd4a70752e6edbd35303acc0555b42bd3c36b629235
+      authority_id: authority-operator-0001
+      authority_role: OPERATOR
+      approved_at: "2026-01-03T14:56:00Z"
+      evidence_ref: artifacts/reviews/review-0001-authority-approval.json
+      algorithm: ED25519
+      key_id: key-operator-0001
+      approval_payload_digest: sha256:983bc6f0066d8c056da83c407f8eaeb3bf0bb4118a817fda8c4f3294e5a95ee3
+      signature: ed25519:C5PtyJ5wYJKZj2sTB9wivJiT4ClxwFWcPj1Qbp/L9ewnYdslo5pI3KDKl2+cm1ZLWGAX/rWSXL4oebp0cJ4pDA==
+originating_review_inventory_manifest:
+  delivery_receipt_id: receipt-0001
+  review_pairs:
+    - review_id: review-0001
+      requirement_id: req-0001
+  inventory_digest: sha256:b4a56b11ed91fdf2a7f8b83c067aea4ac166ed70960bc562edc9e5ab5993cde8
+  authority_approval:
+    approved_digest: sha256:b4a56b11ed91fdf2a7f8b83c067aea4ac166ed70960bc562edc9e5ab5993cde8
+    authority_id: authority-review-inventory-0001
+    authority_role: OPERATOR
+    approved_at: "2026-01-03T14:57:00Z"
+    evidence_ref: artifacts/reviews/review-inventory-authority-approval.json
+    algorithm: ED25519
+    key_id: key-review-inventory-0001
+    approval_payload_digest: sha256:df917b894945a638f01aa7e8005d8523c5e0742c67c69d686293c0492b9533ef
+    signature: ed25519:YcC8h1ll3wXOTA06NhVMVZEr70r4x8E2+tzXDiiYkFuPqUNVM8Qjrnne4e3oGUadAzE2kC/JP/SNuoT9gxKsCg==
+reviewed_at: "2026-01-03T15:00:00Z"
+reviewer: independent-reviewer
+classification: ABSENT
+finding_evidence: The canonical review checklist had no visitor-visible production evidence clause.
+parent_links:
+  - relation: epic
+    id: epic:web:0000
+  - relation: task
+    id: task:web:0001
+  - relation: requirement
+    id: req-0001
+  - relation: delivery_receipt
+    id: receipt-0001
+canonical_change:
+  artifact_id: customer-delivery-review-checklist
+  change_kind: ARTIFACT_REVISION
+  artifact_revision: "2"
+  digest: sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+  recorded_at: "2026-01-03T15:30:00Z"
+  enforcement:
+    mechanism: A mutation test removes live production evidence and must make the review gate fail.
+    owner: framework-reviewer
+    red_capable: true
+    red_evidence: artifacts/evolution/red-live-evidence-gate.txt
+    green_evidence: artifacts/evolution/green-live-evidence-gate.txt
+product_fix:
+  requirement_id: req-0001
+  delivery_receipt_id: receipt-0001
+  status: DELIVERED
+  substitution_prohibited: true
