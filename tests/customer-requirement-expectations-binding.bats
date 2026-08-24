@@ -36,7 +36,7 @@ assert_no_direct_in_place_sed() {
     local file="$1"
     local violations
 
-    if ! violations="$(awk '
+    if ! violations="$(LC_ALL=C awk '
         function inspect(line, line_number, line_len, pos, char, quote, value,
                          count, i, expect_command, sed_command, wrapper,
                          skip_wrapper_arg, skip_redirection_arg, values, kinds) {
@@ -1646,6 +1646,20 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
     run assert_no_direct_in_place_sed "$mutant_suite"
     if [ "$status" -ne 0 ]; then
         echo "inert sed prose was treated as executable (status=${status}): ${output}" >&2
+        return 1
+    fi
+
+    cp "${REPO_ROOT}/tests/customer-requirement-expectations-binding.bats" "$mutant_suite"
+    printf '\377\n' >> "$mutant_suite"
+    run assert_no_direct_in_place_sed "$mutant_suite"
+    if [ "$status" -ne 0 ]; then
+        echo "byte-oriented scan rejected inert non-UTF-8 input (status=${status}): ${output}" >&2
+        return 1
+    fi
+    printf '%s\n' "sed --in-place -E 's/x/y/' mutant" >> "$mutant_suite"
+    run assert_no_direct_in_place_sed "$mutant_suite"
+    if [ "$status" -ne 1 ] || [[ "$output" != *"direct in-place sed syntax"* ]]; then
+        echo "byte-oriented scan missed executable sed (status=${status}): ${output}" >&2
         return 1
     fi
 
