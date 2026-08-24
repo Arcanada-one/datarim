@@ -4,7 +4,7 @@ artifact: insights
 schema_version: 1
 research_mode: full
 created_at: 2026-08-24T12:24:36Z
-updated_at: 2026-08-24T17:06:13Z
+updated_at: 2026-08-24T17:55:23Z
 status: complete
 scope: frontend-design-knowledge-contract
 language: en
@@ -84,6 +84,15 @@ it does not mean importing another organization’s brand or code wholesale.
 | S28 | Backstage Software Catalog, catalog graph — https://backstage.io/docs/features/software-catalog/creating-the-catalog-graph/ | Relations as graph edges for ownership, dependencies and lifecycle | **Selected as a pattern:** machine-resolvable typed edges. **Rejected:** free-text “related to” lists. |
 | S29 | Stryker, mutant states and metrics — https://stryker-mutator.io/docs/mutation-testing-elements/mutant-states-and-metrics/ | Killed, survived and no-coverage semantics | **Selected:** acceptance must demonstrate that wrong bindings and missing axes fail. **Rejected:** coverage or regex presence as proof that an assertion is sensitive. |
 
+The navigation URLs and access date above remain the human-readable research
+record. Mutable selected implementations S20–S24 and S27–S29 are additionally
+pinned in `TALO-0001-research-authority-audit.json` by repository, immutable
+40-character commit, path, Git blob, and SHA-256 content digest. The immutable
+GitHub URL for each pin contains that commit. The audit validator recomputes
+both the blob identity and content digest from the captured source bytes;
+`main`, `master`, `develop`, `current`, and a navigation URL alone are never
+accepted as immutable identity.
+
 ## Reuse-first inventory at exact remote heads
 
 The inventory was read from the remote-tracking commits below, not inferred
@@ -126,7 +135,7 @@ copy of each full review body.
 The mapping source is `research/sources/talo-0033/issue-42-executor-intake.md`
 (blob `192c57a5f7c183471b37295790996e1e7fd1e88c`) and its published executor record,
 [issue #42 comment 5347868439](https://github.com/Arcanada-one/talomnia-trace/issues/42#issuecomment-5347868439),
-body `sha256:13632ed476d6aec738e7bdc16b08f47d42707186a8a0d5a56e873b4d4575333b`,
+canonical body `sha256:2ab1b52a22494f96ceef299a1f776c87879dcace99de60bea377924217f7a1f7`,
 accessed 2026-08-24.
 
 | Item | Verbatim item heading | Pinned disposition and delivery mapping | KC research selection |
@@ -164,7 +173,7 @@ accessed 2026-08-24.
 
 The mapping source is the published executor disposition,
 [issue #44 comment 5347971637](https://github.com/Arcanada-one/talomnia-trace/issues/44#issuecomment-5347971637),
-body `sha256:e959472939f0c81c73636b7a397b8988864696bc565e68d308aa15b46e98f6b1`,
+canonical body `sha256:72abdc0ebe135fc9d33967501032cf63f7dd4c53e23d3385d2ea31b2c10b815f`,
 accessed 2026-08-24. `Fold` retains the named R1 requirement and adds only the
 R2 delta; it does not replace the R1 item.
 
@@ -225,6 +234,26 @@ The R1/R2 sources therefore remain selected as authoritative Tier 2 inputs in
 their entirety. The contracts, envelopes, task mappings and narrative skill are
 useful derived evidence, but none may silently narrow the source reviews or be
 treated as a customer disposition.
+
+#### Digest and audit replay contract
+
+`github-json-body-utf8-no-extra-lf/1` means: parse the GitHub API JSON response,
+take the JSON `body` string, encode that string exactly as UTF-8, and SHA-256
+those bytes without appending a line feed. A line feed already present in the
+JSON string remains part of the body. Rendering the value through a command
+that adds another terminal line feed is a different representation and must
+not reuse the canonical-body label. This distinction explains the rejected
+rendered digests `13632ed476d6aec738e7bdc16b08f47d42707186a8a0d5a56e873b4d4575333b`
+and `e959472939f0c81c73636b7a397b8988864696bc565e68d308aa15b46e98f6b1`.
+
+The machine-readable audit and `dev-tools/check-research-authority-audit.py`
+jointly verify the 66-row source-to-heading bijection, exact mapping and
+applicability table digest, source paths and Git blobs, derived identities,
+candidate path/revision/digest and latest `approve` event, declared-English
+item surface, canonical comment bodies, and immutable external-source pins.
+The companion Bats suite independently mutates omission, duplication, heading,
+mapping, source path/blob, candidate identity/digest/authority, language,
+comment newline representation, and external commit/blob/content boundaries.
 
 ### Canonical ontology boundary
 

@@ -1,0 +1,265 @@
+{
+  "schema_version": "datarim.research-authority-audit/v1",
+  "task_id": "TALO-0001",
+  "declared_language": "en",
+  "knowledge_snapshot": "c636fea7b7dda0245fbbfd1da8a5a78c7e56c2ae",
+  "authority_events_path": "resolver/data/authority/events.json",
+  "comment_body_digest_algorithm": "github-json-body-utf8-no-extra-lf/1",
+  "reviews": [
+    {
+      "id": "R1",
+      "source_path": "research/sources/talo-0033/issue-42-review-r1.md",
+      "git_blob": "aa584b0f768d7d52d511ae0e1924201f79c3216c",
+      "expected_items": 28,
+      "mapping_source_path": "research/sources/talo-0033/issue-42-executor-intake.md",
+      "mapping_source_git_blob": "192c57a5f7c183471b37295790996e1e7fd1e88c"
+    },
+    {
+      "id": "R2",
+      "source_path": "research/sources/talo-0033/issue-44-review-r2.md",
+      "git_blob": "97493085aaccdc50e96b32b3112b4e2ca3c23833",
+      "expected_items": 38,
+      "mapping_comment_id": 5347971637
+    }
+  ],
+  "comments": [
+    {
+      "id": 5347868439,
+      "navigation_url": "https://github.com/Arcanada-one/talomnia-trace/issues/42#issuecomment-5347868439",
+      "body_sha256": "2ab1b52a22494f96ceef299a1f776c87879dcace99de60bea377924217f7a1f7"
+    },
+    {
+      "id": 5347971637,
+      "navigation_url": "https://github.com/Arcanada-one/talomnia-trace/issues/44#issuecomment-5347971637",
+      "body_sha256": "72abdc0ebe135fc9d33967501032cf63f7dd4c53e23d3385d2ea31b2c10b815f"
+    }
+  ],
+  "item_table": {
+    "expected_rows": 66,
+    "canonicalization": "cells-trimmed-unit-separator-rows-lf-no-final-lf/1",
+    "sha256": "13abf81790ae427748637ecf6cdff2aa8cb7d64b1ccc35c431c318af6374d034"
+  },
+  "candidates": [
+    {
+      "path": "graph/data/local/tal-role-design-lead@r4.json",
+      "revision_id": "tal-role-design-lead@r4",
+      "content_digest": "sha256:846f1da87895f136f8594586ff8ae24c362dd3020a8542ec29d9fbdebc98ce8c"
+    },
+    {
+      "path": "graph/data/local/tal-role-knowledge-curator@r2.json",
+      "revision_id": "tal-role-knowledge-curator@r2",
+      "content_digest": "sha256:3ee16a52b8baa517b24fd3d56e54a624f34d891809fb09c8e8038fbcb8c78078"
+    },
+    {
+      "path": "graph/data/local/tal-role-evidence-auditor@r2.json",
+      "revision_id": "tal-role-evidence-auditor@r2",
+      "content_digest": "sha256:f7677f8a2b6d8fea8182a6d50e09de930af64be5f6ee0c2b16461ba0654cfac5"
+    },
+    {
+      "path": "graph/data/local/tal-role-deployment-operator@r2.json",
+      "revision_id": "tal-role-deployment-operator@r2",
+      "content_digest": "sha256:422083673c8de8626a993efda3ef1f9b42a7979a1fbe0f0c82e399ed25ca47a8"
+    },
+    {
+      "path": "graph/data/local/tal-skill-design-research@r3.json",
+      "revision_id": "tal-skill-design-research@r3",
+      "content_digest": "sha256:35d993fba2af939f11cd1f17dc704f8a69f26775c4e4eae5fd15c19fadb3bd61"
+    },
+    {
+      "path": "graph/data/datarim/datarim-skill-frontend-ui@r2.json",
+      "revision_id": "datarim-skill-frontend-ui@r2",
+      "content_digest": "sha256:2041e05aad7da1e8e1018f32adc3e343f740f4ea96a686e88de2c42bb64b718c"
+    },
+    {
+      "path": "graph/data/datarim/datarim-skill-playwright-qa@r2.json",
+      "revision_id": "datarim-skill-playwright-qa@r2",
+      "content_digest": "sha256:716b8dcca722330010f580532d2c36694f7b48c3e7375d01bc4defe79663269d"
+    },
+    {
+      "path": "graph/data/local/tal-skill-theming-anti-fouc@r3.json",
+      "revision_id": "tal-skill-theming-anti-fouc@r3",
+      "content_digest": "sha256:8345cb3b535c4615dfd78be1116c17d6a0949918f65108250b32b83ceef2a400"
+    },
+    {
+      "path": "graph/data/local/tal-skill-graph-neighbor-visualization@r1.json",
+      "revision_id": "tal-skill-graph-neighbor-visualization@r1",
+      "content_digest": "sha256:4ab784b3750853a7ee611330b9457b3f5ec07c02579edb996a4b59b2dda145b4"
+    },
+    {
+      "path": "graph/data/local/tal-skill-success-criterion-measurement@r2.json",
+      "revision_id": "tal-skill-success-criterion-measurement@r2",
+      "content_digest": "sha256:c1142ce770b875b936b03b7dc58bb49a5ec952c47beaafdf09f2ffd82f9907b4"
+    },
+    {
+      "path": "graph/data/local/tal-blueprint-design-system-atlas@r4.json",
+      "revision_id": "tal-blueprint-design-system-atlas@r4",
+      "content_digest": "sha256:32bf46a553a3deaed9a3999d77e3e79908cbb9f571cbfbbc9d8d77b6781dcf8e"
+    },
+    {
+      "path": "graph/data/local/tal-blueprint-component-library@r4.json",
+      "revision_id": "tal-blueprint-component-library@r4",
+      "content_digest": "sha256:87d0a35d6ce59ae2c37e0d007f16fb38ad3abe759a3b56d25bc65b48ed938e6b"
+    },
+    {
+      "path": "graph/data/local/tal-blueprint-evidence-bearing-verification@r2.json",
+      "revision_id": "tal-blueprint-evidence-bearing-verification@r2",
+      "content_digest": "sha256:30236909268f9d1a188da61ce2b9b54db0b86b4d34660cc63720fc32d05796f1"
+    },
+    {
+      "path": "graph/data/local/tal-constraint-style-guide@r4.json",
+      "revision_id": "tal-constraint-style-guide@r4",
+      "content_digest": "sha256:8207f39ec69afde69a229e761f49f6d88d22e6ece30c3b8210e4c96770ed86c6"
+    },
+    {
+      "path": "ontology/lifted/tal-constraint-sanitized-projection@r2.json",
+      "revision_id": "tal-constraint-sanitized-projection@r2",
+      "content_digest": "sha256:b0f5583f57a7d53ea311c1b313b96a8d4512a49ac972ed95496d83908b6eaa34"
+    },
+    {
+      "path": "ontology/lifted/tal-policy-honesty-presentation@r2.json",
+      "revision_id": "tal-policy-honesty-presentation@r2",
+      "content_digest": "sha256:e0dbf0c75db7066fc968ed1bcd338f698f110ae35b01861012a69a4d90bc3a9f"
+    },
+    {
+      "path": "ontology/lifted/tal-sc-design-accessibility@r2.json",
+      "revision_id": "tal-sc-design-accessibility@r2",
+      "content_digest": "sha256:c52d9d19013020bf8e191adae5ac8b5434a247d267b0f11d7ca6eba6c3b020ca"
+    },
+    {
+      "path": "ontology/lifted/tal-sc-design-system@r2.json",
+      "revision_id": "tal-sc-design-system@r2",
+      "content_digest": "sha256:673acd79699ba8d37f9f1f73d1e1309f329a9134a32c0da85173d39b4ad78360"
+    },
+    {
+      "path": "graph/data/local/tal-capability-design-systems@r1.json",
+      "revision_id": "tal-capability-design-systems@r1",
+      "content_digest": "sha256:8095d49ce3af963a9ebe46ee2bc9e378e90c8f0ce3bb76bc966cf1a06d39db3e"
+    }
+  ],
+  "derived_records": [
+    {
+      "id": "TALO-0032-planning-envelope",
+      "evidence_path": "architecture/reports/talo-0032/talo-0032-accept-customer-review-r1.bundle.json",
+      "required_values": [
+        "sha256:31ab3f467f12afc943d2f977dabc6ea8eb32675453ebe066e8df08b8b1b8cf3c",
+        "sha256:31ec464ee27fc6079169300a5313697390701a78c9b14beef7bb824875e416f6",
+        "sha256:48d580be951d458c2bdbf4704c4926e8331c6e380dd3824b9e622d92a405a642"
+      ]
+    },
+    {
+      "id": "TALO-0050-planning-envelope",
+      "evidence_path": "architecture/reports/talo-0050/talo-0050-accept-customer-review-r2.bundle.json",
+      "required_values": [
+        "sha256:0b3910acfe1fa56758f91d61fec32377574d23b2519dc38acb18f594d0af379d",
+        "sha256:a996b7f0c7130f7508ba07c8d4ae3c8e2c841947e290f0fceb22fc3e7798679a",
+        "sha256:f14cde136e75d7b5c481cf1e942e8e05dea7c35b2560ac1e708013856276cc59"
+      ]
+    },
+    {
+      "id": "tal-skill-customer-narrative@r1",
+      "evidence_path": "graph/data/local/tal-skill-customer-narrative@r1.json",
+      "required_values": [
+        "tal-skill-customer-narrative@r1",
+        "sha256:ecdffb0f3c1407858d0cc474ddf58d2c1e9bd88688f77b32076034f0b6a35cb5"
+      ]
+    }
+  ],
+  "external_pins": [
+    {
+      "source_id": "S20",
+      "navigation_url": "https://github.com/GoogleChrome/lighthouse-ci",
+      "accessed_at": "2026-08-24",
+      "repository": "GoogleChrome/lighthouse-ci",
+      "commit": "ebee453dad3f8acacd657a62ccc65e3296afb7d0",
+      "path": "README.md",
+      "git_blob": "ad586e41492dc151e09ca2767832e62afc24e6a1",
+      "content_sha256": "2df7b6e1803047354838ad733db426f79491bde4f704ebac928e5b9f8294241f",
+      "immutable_url": "https://github.com/GoogleChrome/lighthouse-ci/blob/ebee453dad3f8acacd657a62ccc65e3296afb7d0/README.md",
+      "cache_file": "S20.body"
+    },
+    {
+      "source_id": "S21",
+      "navigation_url": "https://github.com/GoogleChrome/lighthouse/blob/main/docs/variability.md",
+      "accessed_at": "2026-08-24",
+      "repository": "GoogleChrome/lighthouse",
+      "commit": "2402ec45198dc590b2fb5f69b32fa358695d2145",
+      "path": "docs/variability.md",
+      "git_blob": "53c7be336f7a5e2155a8259fa80137b12666bfa6",
+      "content_sha256": "dcacd53d3cd3dbe0c872e7322f37913972b20a09e0eb4077a6b7c82d3bf7e5f1",
+      "immutable_url": "https://github.com/GoogleChrome/lighthouse/blob/2402ec45198dc590b2fb5f69b32fa358695d2145/docs/variability.md",
+      "cache_file": "S21.body"
+    },
+    {
+      "source_id": "S22",
+      "navigation_url": "https://playwright.dev/docs/emulation",
+      "accessed_at": "2026-08-24",
+      "repository": "microsoft/playwright",
+      "commit": "12b611da20d21db663ee0c6be399b1bb854dead0",
+      "path": "docs/src/emulation.md",
+      "git_blob": "d05d07e6a255ca7205e84c89fb639adf4ecb755d",
+      "content_sha256": "b69c9046d95845322ff136765011099849849c6ed7f79f610eb9f121238a466d",
+      "immutable_url": "https://github.com/microsoft/playwright/blob/12b611da20d21db663ee0c6be399b1bb854dead0/docs/src/emulation.md",
+      "cache_file": "S22.body"
+    },
+    {
+      "source_id": "S23",
+      "navigation_url": "https://playwright.dev/docs/test-snapshots",
+      "accessed_at": "2026-08-24",
+      "repository": "microsoft/playwright",
+      "commit": "12b611da20d21db663ee0c6be399b1bb854dead0",
+      "path": "docs/src/test-snapshots-js.md",
+      "git_blob": "ed69bbcde2856e9d8be5f07dc07c3a2e2f4395c7",
+      "content_sha256": "4a11d61cb23bb812c3749d6e73d156b5e91a0ae6fd1eafebe97a2f7ad38e1746",
+      "immutable_url": "https://github.com/microsoft/playwright/blob/12b611da20d21db663ee0c6be399b1bb854dead0/docs/src/test-snapshots-js.md",
+      "cache_file": "S23.body"
+    },
+    {
+      "source_id": "S24",
+      "navigation_url": "https://playwright.dev/docs/accessibility-testing",
+      "accessed_at": "2026-08-24",
+      "repository": "microsoft/playwright",
+      "commit": "12b611da20d21db663ee0c6be399b1bb854dead0",
+      "path": "docs/src/accessibility-testing-js.md",
+      "git_blob": "f547e8850642f2806b88077d629cefdffa30f31b",
+      "content_sha256": "3b56f3227dde7679b333de98547421dd077bd3351375e7811d613bcf0f43cf04",
+      "immutable_url": "https://github.com/microsoft/playwright/blob/12b611da20d21db663ee0c6be399b1bb854dead0/docs/src/accessibility-testing-js.md",
+      "cache_file": "S24.body"
+    },
+    {
+      "source_id": "S27",
+      "navigation_url": "https://backstage.io/docs/features/software-catalog/descriptor-format/",
+      "accessed_at": "2026-08-24",
+      "repository": "backstage/backstage",
+      "commit": "1a705cad96f0fbd48d4f7fe7e92e8a45d6afbab7",
+      "path": "docs/features/software-catalog/descriptor-format.md",
+      "git_blob": "b5b0a8e6db26ac359ea5c109e5b63a7ddd23ad5e",
+      "content_sha256": "475531fedf3000c436592cf2f5552aa16734367c7befbef2c538992d45b0f8e0",
+      "immutable_url": "https://github.com/backstage/backstage/blob/1a705cad96f0fbd48d4f7fe7e92e8a45d6afbab7/docs/features/software-catalog/descriptor-format.md",
+      "cache_file": "S27.body"
+    },
+    {
+      "source_id": "S28",
+      "navigation_url": "https://backstage.io/docs/features/software-catalog/creating-the-catalog-graph/",
+      "accessed_at": "2026-08-24",
+      "repository": "backstage/backstage",
+      "commit": "1a705cad96f0fbd48d4f7fe7e92e8a45d6afbab7",
+      "path": "docs/features/software-catalog/creating-the-catalog-graph.md",
+      "git_blob": "133caad12e92d090f9b727e0b5654dd3b0c6d50d",
+      "content_sha256": "cb3daa51826aad18e81f1332333ba4ded0074c6bc0f7e439e6f89bd833174ac8",
+      "immutable_url": "https://github.com/backstage/backstage/blob/1a705cad96f0fbd48d4f7fe7e92e8a45d6afbab7/docs/features/software-catalog/creating-the-catalog-graph.md",
+      "cache_file": "S28.body"
+    },
+    {
+      "source_id": "S29",
+      "navigation_url": "https://stryker-mutator.io/docs/mutation-testing-elements/mutant-states-and-metrics/",
+      "accessed_at": "2026-08-24",
+      "repository": "stryker-mutator/mutation-testing-elements",
+      "commit": "befa9a40328e7ca3756772eb8551987df1b3e85b",
+      "path": "docs/mutant-states-and-metrics.md",
+      "git_blob": "7819bb7d9a8e56af763755b7a03fc795cd26f95b",
+      "content_sha256": "e2788b61e82e8f93e03a5adea52d59837b5fe71175885dff45c0fbc662412dc3",
+      "immutable_url": "https://github.com/stryker-mutator/mutation-testing-elements/blob/befa9a40328e7ca3756772eb8551987df1b3e85b/docs/mutant-states-and-metrics.md",
+      "cache_file": "S29.body"
+    }
+  ]
+}
