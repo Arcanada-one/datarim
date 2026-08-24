@@ -29,6 +29,82 @@ TASK_REF = re.compile(r"TALO-[0-9]{4}")
 COMMENT_ALGORITHM = "github-json-body-utf8-no-extra-lf/1"
 ITEM_ALGORITHM = "cells-trimmed-unit-separator-rows-lf-no-final-lf/1"
 MAX_EXTERNAL_SOURCE_BYTES = 16 * 1024 * 1024
+CLOSED_AUDIT_PROFILES: dict[str, dict[str, Any]] = {
+    "TALO-0001": {
+        "candidates": {
+            "tal-role-design-lead@r4": "tal-role-design-lead",
+            "tal-role-knowledge-curator@r2": "tal-role-knowledge-curator",
+            "tal-role-evidence-auditor@r2": "tal-role-evidence-auditor",
+            "tal-role-deployment-operator@r2": "tal-role-deployment-operator",
+            "tal-skill-design-research@r3": "tal-skill-design-research",
+            "datarim-skill-frontend-ui@r2": "datarim-skill-frontend-ui",
+            "datarim-skill-playwright-qa@r2": "datarim-skill-playwright-qa",
+            "tal-skill-theming-anti-fouc@r3": "tal-skill-theming-anti-fouc",
+            "tal-skill-graph-neighbor-visualization@r1": (
+                "tal-skill-graph-neighbor-visualization"
+            ),
+            "tal-skill-success-criterion-measurement@r2": (
+                "tal-skill-success-criterion-measurement"
+            ),
+            "tal-blueprint-design-system-atlas@r4": "tal-blueprint-design-system-atlas",
+            "tal-blueprint-component-library@r4": "tal-blueprint-component-library",
+            "tal-blueprint-evidence-bearing-verification@r2": (
+                "tal-blueprint-evidence-bearing-verification"
+            ),
+            "tal-constraint-style-guide@r4": "tal-constraint-style-guide",
+            "tal-constraint-sanitized-projection@r2": (
+                "tal-constraint-sanitized-projection"
+            ),
+            "tal-policy-honesty-presentation@r2": "tal-policy-honesty-presentation",
+            "tal-sc-design-accessibility@r2": "tal-sc-design-accessibility",
+            "tal-sc-design-system@r2": "tal-sc-design-system",
+            "tal-capability-design-systems@r1": "tal-capability-design-systems",
+        },
+        "derived_records": {
+            "TALO-0032-planning-envelope": {
+                "record_type": "planning-envelope",
+                "pointers": {
+                    "/contract/contract_digest",
+                    "/contract/body/resolution_receipt_digest",
+                    "/issuance_envelope/envelope_digest",
+                },
+            },
+            "TALO-0050-planning-envelope": {
+                "record_type": "planning-envelope",
+                "pointers": {
+                    "/contract/contract_digest",
+                    "/contract/body/resolution_receipt_digest",
+                    "/issuance_envelope/envelope_digest",
+                },
+            },
+            "tal-skill-customer-narrative@r1": {
+                "record_type": "approved-artifact",
+                "pointers": {"/logical_id", "/revision_id", "/content_digest"},
+            },
+        },
+        "external_source_ids": {"S20", "S21", "S22", "S23", "S24", "S27", "S28", "S29"},
+        "comment_ids": {"5347868439", "5347971637"},
+    },
+    "TALO-TEST": {
+        "candidates": {"candidate-role@r1": "candidate-role"},
+        "derived_records": {
+            "planning": {
+                "record_type": "planning-envelope",
+                "pointers": {
+                    "/contract/contract_digest",
+                    "/contract/body/resolution_receipt_digest",
+                    "/issuance_envelope/envelope_digest",
+                },
+            },
+            "candidate-role@r1": {
+                "record_type": "approved-artifact",
+                "pointers": {"/logical_id", "/revision_id", "/content_digest"},
+            },
+        },
+        "external_source_ids": {"S20"},
+        "comment_ids": {"101"},
+    },
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -132,14 +208,40 @@ def git_value(root: Path, *arguments: str) -> str | None:
     return result.stdout.strip()
 
 
-def git_object_bytes(root: Path, snapshot: str, raw_path: Any) -> bytes | None:
-    path = safe_relative_path(root, raw_path)
-    if path is None or not isinstance(raw_path, str) or ":" in raw_path:
+def git_object_bytes(
+    root: Path,
+    snapshot: str,
+    raw_path: Any,
+    findings: list[str] | None = None,
+    label: str = "git-object",
+) -> bytes | None:
+    if safe_git_source_path(raw_path) is None:
+        return None
+    object_id = git_value(root, "rev-parse", "--verify", f"{snapshot}:{raw_path}")
+    if object_id is None or HEX40.fullmatch(object_id) is None:
+        return None
+    object_type = git_value(root, "cat-file", "-t", object_id)
+    if object_type != "blob":
+        if findings is not None:
+            findings.append(f"git_object_type_invalid:{label}")
+        return None
+    raw_size = git_value(root, "cat-file", "-s", object_id)
+    try:
+        object_size = int(raw_size) if raw_size is not None else -1
+    except ValueError:
+        object_size = -1
+    if object_size < 0:
+        if findings is not None:
+            findings.append(f"git_object_size_invalid:{label}")
+        return None
+    if object_size > MAX_EXTERNAL_SOURCE_BYTES:
+        if findings is not None:
+            findings.append(f"git_object_too_large:{label}")
         return None
     try:
         with tempfile.TemporaryFile() as output:
             result = subprocess.run(
-                ["git", "-C", str(root), "show", f"{snapshot}:{raw_path}"],
+                ["git", "-C", str(root), "cat-file", "blob", object_id],
                 stdout=output,
                 stderr=subprocess.DEVNULL,
                 check=False,
@@ -152,7 +254,11 @@ def git_object_bytes(root: Path, snapshot: str, raw_path: Any) -> bytes | None:
             content = output.read(MAX_EXTERNAL_SOURCE_BYTES + 1)
     except (OSError, subprocess.SubprocessError):
         return None
-    return content if len(content) <= MAX_EXTERNAL_SOURCE_BYTES else None
+    if len(content) != object_size or len(content) > MAX_EXTERNAL_SOURCE_BYTES:
+        if findings is not None:
+            findings.append(f"git_object_size_mismatch:{label}")
+        return None
+    return content
 
 
 def git_blob_id(content: bytes) -> str | None:
@@ -288,7 +394,7 @@ def validate_git_blob(
     label: str,
     findings: list[str],
 ) -> bytes | None:
-    content = git_object_bytes(root, snapshot, path_value)
+    content = git_object_bytes(root, snapshot, path_value, findings, label)
     if content is None:
         findings.append(f"source_path_missing:{label}")
         return None
@@ -502,6 +608,105 @@ def validate_comments(
     return bodies
 
 
+def report_closed_set(
+    label: str,
+    actual_values: list[Any],
+    expected_values: set[str],
+    findings: list[str],
+) -> None:
+    if ":" in label:
+        category, identity = label.split(":", 1)
+        finding_prefix = f"{category}_set_mismatch:{identity}"
+    else:
+        finding_prefix = f"{label}_set_mismatch"
+    actual = {value for value in actual_values if isinstance(value, str)}
+    missing = sorted(expected_values - actual)
+    extra = sorted(actual - expected_values)
+    if missing:
+        findings.append(f"{finding_prefix}:missing={','.join(missing)}")
+    if extra:
+        findings.append(f"{finding_prefix}:extra={','.join(extra)}")
+    duplicates = sorted(
+        value
+        for value, count in Counter(
+            value for value in actual_values if isinstance(value, str)
+        ).items()
+        if count > 1
+    )
+    if duplicates:
+        findings.append(f"{finding_prefix}:duplicate={','.join(duplicates)}")
+
+
+def validate_closed_profile(manifest: dict[str, Any], findings: list[str]) -> None:
+    task_id = manifest.get("task_id")
+    profile = CLOSED_AUDIT_PROFILES.get(task_id)
+    if profile is None:
+        findings.append(f"task_id_invalid:{task_id}")
+        findings.append(f"closed_audit_profile_missing:{task_id}")
+        return
+
+    candidates = manifest.get("candidates")
+    candidate_entries = candidates if isinstance(candidates, list) else []
+    report_closed_set(
+        "candidate",
+        [
+            entry.get("revision_id")
+            for entry in candidate_entries
+            if isinstance(entry, dict)
+        ],
+        set(profile["candidates"]),
+        findings,
+    )
+
+    records = manifest.get("derived_records")
+    record_entries = records if isinstance(records, list) else []
+    expected_records = profile["derived_records"]
+    report_closed_set(
+        "derived_record",
+        [entry.get("id") for entry in record_entries if isinstance(entry, dict)],
+        set(expected_records),
+        findings,
+    )
+    for record in record_entries:
+        if not isinstance(record, dict) or record.get("id") not in expected_records:
+            continue
+        record_id = record["id"]
+        expected_record = expected_records[record_id]
+        if record.get("record_type") != expected_record["record_type"]:
+            findings.append(f"derived_record_type_mismatch:{record_id}")
+        assertions = record.get("assertions")
+        if isinstance(assertions, list):
+            pointers = [
+                assertion.get("json_pointer")
+                for assertion in assertions
+                if isinstance(assertion, dict)
+            ]
+            report_closed_set(
+                f"derived_record_assertion:{record_id}",
+                pointers,
+                set(expected_record["pointers"]),
+                findings,
+            )
+
+    pins = manifest.get("external_pins")
+    pin_entries = pins if isinstance(pins, list) else []
+    report_closed_set(
+        "external_pin",
+        [entry.get("source_id") for entry in pin_entries if isinstance(entry, dict)],
+        set(profile["external_source_ids"]),
+        findings,
+    )
+
+    comments = manifest.get("comments")
+    comment_entries = comments if isinstance(comments, list) else []
+    report_closed_set(
+        "comment",
+        [str(entry.get("id")) for entry in comment_entries if isinstance(entry, dict)],
+        set(profile["comment_ids"]),
+        findings,
+    )
+
+
 def validate_candidates(
     manifest: dict[str, Any],
     insights: str,
@@ -514,7 +719,11 @@ def validate_candidates(
         findings.append("candidates_missing")
         return 0
     authority_bytes = git_object_bytes(
-        knowledge_root, snapshot, manifest.get("authority_events_path")
+        knowledge_root,
+        snapshot,
+        manifest.get("authority_events_path"),
+        findings,
+        "candidate-authority-events",
     )
     events = (
         load_json_bytes(authority_bytes, "authority-events", findings)
@@ -536,13 +745,20 @@ def validate_candidates(
             findings.append(f"candidate_revision_duplicate:{revision_id}")
             continue
         seen.add(revision_id)
-        candidate_bytes = git_object_bytes(knowledge_root, snapshot, path_value)
+        candidate_bytes = git_object_bytes(
+            knowledge_root, snapshot, path_value, findings, f"candidate:{revision_id}"
+        )
         if candidate_bytes is None:
             findings.append(f"candidate_path_missing:{revision_id}")
             continue
         payload = load_json_bytes(candidate_bytes, f"candidate-{revision_id}", findings)
         if not isinstance(payload, dict):
             continue
+        expected_logical_id = CLOSED_AUDIT_PROFILES.get(
+            manifest.get("task_id"), {}
+        ).get("candidates", {}).get(revision_id)
+        if payload.get("logical_id") != expected_logical_id:
+            findings.append(f"candidate_logical_id_mismatch:{revision_id}")
         if payload.get("revision_id") != revision_id:
             findings.append(f"candidate_revision_mismatch:{revision_id}")
         if payload.get("content_digest") != content_digest:
@@ -588,7 +804,11 @@ def validate_derived_records(
         findings.append("derived_records_invalid")
         return
     authority_bytes = git_object_bytes(
-        knowledge_root, snapshot, manifest.get("authority_events_path")
+        knowledge_root,
+        snapshot,
+        manifest.get("authority_events_path"),
+        findings,
+        "derived-authority-events",
     )
     authority_events = (
         load_json_bytes(authority_bytes, "derived-authority-events", findings)
@@ -617,7 +837,13 @@ def validate_derived_records(
             findings.append("derived_record_invalid")
             continue
         record_id = record["id"]
-        evidence_bytes = git_object_bytes(knowledge_root, snapshot, record.get("evidence_path"))
+        evidence_bytes = git_object_bytes(
+            knowledge_root,
+            snapshot,
+            record.get("evidence_path"),
+            findings,
+            f"derived:{record_id}",
+        )
         if evidence_bytes is None:
             findings.append(f"derived_record_path_missing:{record_id}")
             continue
@@ -786,6 +1012,7 @@ def main() -> int:
         findings.append("schema_version_invalid")
     if manifest.get("declared_language") != "en":
         findings.append("declared_language_invalid")
+    validate_closed_profile(manifest, findings)
     snapshot = manifest.get("knowledge_snapshot")
     actual_head = git_value(knowledge_root, "rev-parse", "HEAD")
     if not isinstance(snapshot, str) or not HEX40.fullmatch(snapshot) or actual_head != snapshot:
