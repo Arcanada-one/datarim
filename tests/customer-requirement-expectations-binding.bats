@@ -82,19 +82,19 @@ EOF
 }
 
 @test "customer delivery skill is a valid history-agnostic skill entrypoint" {
-    [[ -f "$DELIVERY_SKILL" ]]
-    assert_contains "$DELIVERY_SKILL" 'name: customer-delivery'
-    assert_contains "$DELIVERY_SKILL" 'description:'
+    [[ -f "$DELIVERY_SKILL" ]] || return 1
+    assert_contains "$DELIVERY_SKILL" 'name: customer-delivery' || return 1
+    assert_contains "$DELIVERY_SKILL" 'description:' || return 1
     description="$(sed -n 's/^description: //p' "$DELIVERY_SKILL")"
-    [[ "${#description}" -le 155 ]]
-    [[ "$(grep -cE '^## U[1-8]\.' "$DELIVERY_SKILL")" -eq 8 ]]
-    ! grep -Eq '[A-Z]{2,10}-[0-9]{4}' "$DELIVERY_SKILL"
+    [[ "${#description}" -le 155 ]] || return 1
+    [[ "$(grep -cE '^## U[1-8]\.' "$DELIVERY_SKILL")" -eq 8 ]] || return 1
+    if grep -Eq '[A-Z]{2,10}-[0-9]{4}' "$DELIVERY_SKILL"; then return 1; fi
 }
 
 @test "customer delivery skill preserves verbatim remarks under atomic stable requirement IDs" {
-    assert_contains "$DELIVERY_SKILL" 'verbatim'
-    assert_contains "$DELIVERY_SKILL" 'atomic'
-    assert_contains "$DELIVERY_SKILL" 'stable Requirement ID'
+    assert_contains "$DELIVERY_SKILL" 'verbatim' || return 1
+    assert_contains "$DELIVERY_SKILL" 'atomic' || return 1
+    assert_contains "$DELIVERY_SKILL" 'stable Requirement ID' || return 1
     assert_contains "$DELIVERY_SKILL" 'paraphrase'
 }
 
@@ -104,7 +104,7 @@ EOF
         'role' 'skill' 'blueprint' 'constraint' 'policy' 'success criterion' \
         'selected before implementation starts' 'post-hoc attribution' \
         'Gap' 'Unbound'; do
-        assert_contains "$DELIVERY_SKILL" "$literal"
+        assert_contains "$DELIVERY_SKILL" "$literal" || return 1
     done
 }
 
@@ -115,20 +115,20 @@ EOF
         'green CI != deployed' 'deployed != visually accepted' \
         'enabling work != customer outcome' 'derived from the Requirement graph' \
         'ABSENT' 'WEAK' 'STALE' 'MIS_SCOPED' 'NOT_BOUND' 'NO_CANON_CHANGE'; do
-        assert_contains "$DELIVERY_SKILL" "$literal"
+        assert_contains "$DELIVERY_SKILL" "$literal" || return 1
     done
 }
 
 @test "customer delivery skill separates enabling and visitor-visible output" {
-    assert_contains "$DELIVERY_SKILL" 'enabling changes'
-    assert_contains "$DELIVERY_SKILL" 'visitor-visible changes'
-    assert_contains "$DELIVERY_SKILL" 'zero visitor-visible changes'
+    assert_contains "$DELIVERY_SKILL" 'enabling changes' || return 1
+    assert_contains "$DELIVERY_SKILL" 'visitor-visible changes' || return 1
+    assert_contains "$DELIVERY_SKILL" 'zero visitor-visible changes' || return 1
     assert_contains "$DELIVERY_SKILL" 'cannot satisfy'
 }
 
 @test "customer delivery skill requires the complete painted visual matrix" {
     for literal in 'RU' 'EN' 'mobile' 'desktop' 'light' 'dark' 'operator'; do
-        assert_contains "$DELIVERY_SKILL" "$literal"
+        assert_contains "$DELIVERY_SKILL" "$literal" || return 1
     done
     assert_contains "$DELIVERY_SKILL" 'cannot replace'
 }
@@ -228,7 +228,7 @@ EOF
         && [[ "$output" == *"surface_class and visitor_visible disagree"* ]]
 }
 
-@test "schema v4 legacy cutover preserves old wishes and governs appended wishes" {
+@test "schema v4 legacy cutover preserves old wishes and governs mixed appended wishes" {
     local id="BIND-0008"
     local root="${BATS_TEST_TMPDIR}/${id}"
     local file="${root}/datarim/tasks/${id}-expectations.md"
@@ -262,6 +262,15 @@ $(valid_customer_binding "$id")
     - 2026-08-24T00:00:00Z / 2026-08-24 00:00 (UTC) · pending → pending · /dr-prd · reason: item appended
   - #### Текущий статус
     - pending
+
+- **3. Appended non-customer wish.**
+  - wish_id: appended-internal-wish
+  - customer_derived: false
+  - evidence_type: static
+  - #### История статусов
+    - 2026-08-24T00:00:00Z / 2026-08-24 00:00 (UTC) · pending → pending · /dr-prd · reason: item appended
+  - #### Текущий статус
+    - pending
 EOF
 
     run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
@@ -280,6 +289,47 @@ EOF
         && [[ "$output" == *"customer_binding_from does not name a wish_id"* ]]
 }
 
+@test "schema v4 canonical file requires cutover at the first wish" {
+    local id="BIND-0015"
+    local root="${BATS_TEST_TMPDIR}/${id}"
+    local file="${root}/datarim/tasks/${id}-expectations.md"
+    mkdir -p "$(dirname "$file")"
+    cat > "$file" <<EOF
+---
+task_id: $id
+artifact: expectations
+schema_version: 4
+customer_binding_from: second-wish
+captured_at: 2026-08-24
+captured_by: /dr-prd
+status: canonical
+---
+
+## Ожидания
+
+- **1. First wish.**
+  - wish_id: first-wish
+  - evidence_type: static
+  - #### История статусов
+    - 2026-08-24T00:00:00Z / 2026-08-24 00:00 (UTC) · pending → pending · /dr-prd · reason: item created
+  - #### Текущий статус
+    - pending
+
+- **2. Second wish.**
+  - wish_id: second-wish
+$(valid_customer_binding "$id")
+  - evidence_type: static
+  - #### История статусов
+    - 2026-08-24T00:00:00Z / 2026-08-24 00:00 (UTC) · pending → pending · /dr-prd · reason: item created
+  - #### Текущий статус
+    - pending
+EOF
+
+    run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"canonical schema v4 must start customer binding at its first wish"* ]]
+}
+
 @test "schema v4 rejects duplicate customer binding fields" {
     local id="BIND-0010"
     local binding
@@ -290,6 +340,16 @@ EOF
     run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
     [ "$status" -eq 1 ] \
         && [[ "$output" == *"duplicate requirement_id"* ]]
+}
+
+@test "schema v4 customer_derived false forbids customer binding fields" {
+    local id="BIND-0013"
+    local root
+    root="$(write_expectations "$id" 4 $'  - customer_derived: false\n  - requirement_id: req-0001')"
+
+    run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"customer_derived=false must omit customer binding fields"* ]]
 }
 
 @test "schema v4 rejects invalid ID boolean and receipt values" {
@@ -309,7 +369,9 @@ EOF
         fi
         rm -rf "$root"
     done <<EOF
+customer_derived|maybe|customer_derived must be boolean true|false
 requirement_id|REQ-1|requirement_id must match req-NNNN
+surface_class|INTERNAL|surface_class not in enum
 visitor_visible|yes|visitor_visible must be boolean true|false
 delivery_receipt|other.yaml|delivery_receipt must be datarim/receipts/${id}-customer-delivery.yaml
 EOF
@@ -323,6 +385,28 @@ EOF
     run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
     [ "$status" -eq 1 ] \
         && [[ "$output" == *"missing requirement_id"* ]]
+}
+
+@test "schema v4 ignores an item header inside an HTML comment" {
+    local id="BIND-0014"
+    local root
+    root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
+    sed -E -i 's/^(- \*\*1\. Customer outcome\.\*\*)$/<!-- \1 -->/' \
+        "$root/datarim/tasks/${id}-expectations.md"
+
+    run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"no items found"* ]]
+}
+
+@test "verify mode blocks a structurally invalid schema v4 artifact" {
+    local id="BIND-0016"
+    local root
+    root="$(write_expectations "$id" 4)"
+
+    run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"BLOCKED: expectations file fails structural validation"* ]]
 }
 
 @test "legacy schema versions v1 through v3 remain valid without customer binding" {
@@ -341,19 +425,19 @@ EOF
 }
 
 @test "expectations contract makes customer binding mandatory without invalidating legacy files" {
-    assert_contains "$EXPECTATIONS_SKILL" 'schema_version: 4'
-    assert_contains "$EXPECTATIONS_SKILL" 'customer_binding_from'
-    assert_contains "$EXPECTATIONS_SKILL" 'customer_derived'
-    assert_contains "$EXPECTATIONS_SKILL" 'requirement_id'
-    assert_contains "$EXPECTATIONS_SKILL" 'surface_class'
-    assert_contains "$EXPECTATIONS_SKILL" 'visitor_visible'
-    assert_contains "$EXPECTATIONS_SKILL" 'delivery_receipt'
-    assert_contains "$EXPECTATIONS_SKILL" 'Legacy expectations files'
+    assert_contains "$EXPECTATIONS_SKILL" 'schema_version: 4' || return 1
+    assert_contains "$EXPECTATIONS_SKILL" 'customer_binding_from' || return 1
+    assert_contains "$EXPECTATIONS_SKILL" 'customer_derived' || return 1
+    assert_contains "$EXPECTATIONS_SKILL" 'requirement_id' || return 1
+    assert_contains "$EXPECTATIONS_SKILL" 'surface_class' || return 1
+    assert_contains "$EXPECTATIONS_SKILL" 'visitor_visible' || return 1
+    assert_contains "$EXPECTATIONS_SKILL" 'delivery_receipt' || return 1
+    assert_contains "$EXPECTATIONS_SKILL" 'Legacy expectations files' || return 1
     assert_contains "$EXPECTATIONS_SKILL" 'remain valid without these fields'
 }
 
 @test "customer delivery skill is registered in the canonical skills inventory" {
-    assert_contains "$SKILLS_REFERENCE" '| customer-delivery | Reference |'
+    assert_contains "$SKILLS_REFERENCE" '| customer-delivery | Reference |' || return 1
 
     disk_count="$(find "${REPO_ROOT}/skills" -mindepth 2 -maxdepth 2 -name SKILL.md | wc -l | tr -d '[:space:]')"
     documented_count="$(sed -nE 's/^Datarim includes ([0-9]+) reusable skill modules\..*/\1/p' "$SKILLS_REFERENCE")"
