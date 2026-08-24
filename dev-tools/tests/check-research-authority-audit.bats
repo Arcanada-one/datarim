@@ -106,7 +106,8 @@ setup() {
 }
 
 run_validator() {
-    run python3 "$SCRIPT" --manifest "$MANIFEST" --insights "$INSIGHTS" \
+    run python3 "$SCRIPT" --expected-task-id TALO-TEST \
+        --manifest "$MANIFEST" --insights "$INSIGHTS" \
         --knowledge-root "$KNOWLEDGE" --comment-json "101=${COMMENT_JSON}" \
         --external-cache-dir "$CACHE"
 }
@@ -128,7 +129,14 @@ assert_not_met() {
     jq '.task_id="UNRELATED-9999"' "$MANIFEST" >"${MANIFEST}.new"
     mv "${MANIFEST}.new" "$MANIFEST"
     run_validator
-    assert_not_met 'task_id_invalid:UNRELATED-9999'
+    assert_not_met 'task_id_mismatch:expected=TALO-TEST:actual=UNRELATED-9999'
+}
+
+@test "caller identity rejects a fully coupled known-profile bundle swap" {
+    run python3 "$SCRIPT" --expected-task-id TALO-0001 \
+        --manifest "$MANIFEST" --insights "$INSIGHTS" --knowledge-root "$KNOWLEDGE" \
+        --comment-json "101=${COMMENT_JSON}" --external-cache-dir "$CACHE"
+    assert_not_met 'task_id_mismatch:expected=TALO-0001:actual=TALO-TEST'
 }
 
 @test "omitted item is rejected with its review attribution" {
@@ -282,6 +290,7 @@ assert_not_met() {
         >"${fake_bin}/git"
     chmod +x "${fake_bin}/git"
     run env PATH="${fake_bin}:${PATH}" python3 "$SCRIPT" \
+        --expected-task-id TALO-TEST \
         --manifest "$MANIFEST" --insights "$INSIGHTS" --knowledge-root "$KNOWLEDGE" \
         --comment-json "101=${COMMENT_JSON}" --external-cache-dir "$CACHE"
     assert_not_met 'git_object_too_large:R1'
@@ -362,7 +371,8 @@ assert_not_met() {
     jq '.reviews[1].mapping_comment_id=999 | .comments[0].id=999 | .comments[0].navigation_url="https://example.invalid/comment/999"' \
         "$MANIFEST" >"${MANIFEST}.new"
     mv "${MANIFEST}.new" "$MANIFEST"
-    run python3 "$SCRIPT" --manifest "$MANIFEST" --insights "$INSIGHTS" \
+    run python3 "$SCRIPT" --expected-task-id TALO-TEST \
+        --manifest "$MANIFEST" --insights "$INSIGHTS" \
         --knowledge-root "$KNOWLEDGE" --comment-json "999=${COMMENT_JSON}" \
         --external-cache-dir "$CACHE"
     [ "$status" -eq 1 ] \
@@ -425,6 +435,7 @@ assert_not_met() {
         >"${fake_bin}/curl"
     chmod +x "${fake_bin}/curl"
     run env PATH="${fake_bin}:${PATH}" python3 "$SCRIPT" \
+        --expected-task-id TALO-TEST \
         --manifest "$MANIFEST" --insights "$INSIGHTS" --knowledge-root "$KNOWLEDGE" \
         --comment-json "101=${COMMENT_JSON}" --external-cache-dir "$CACHE" \
         --verify-external-remote
@@ -437,6 +448,7 @@ assert_not_met() {
         "$MANIFEST" >"${MANIFEST}.new"
     mv "${MANIFEST}.new" "$MANIFEST"
     run env PATH="${fake_bin}:${PATH}" python3 "$SCRIPT" \
+        --expected-task-id TALO-TEST \
         --manifest "$MANIFEST" --insights "$INSIGHTS" --knowledge-root "$KNOWLEDGE" \
         --comment-json "101=${COMMENT_JSON}" --external-cache-dir "$CACHE" \
         --verify-external-remote
@@ -472,6 +484,7 @@ assert_not_met() {
         >"${fake_bin}/git"
     chmod +x "${fake_bin}/git"
     run env PATH="${fake_bin}:${PATH}" python3 "$SCRIPT" \
+        --expected-task-id TALO-TEST \
         --manifest "$MANIFEST" --insights "$INSIGHTS" --knowledge-root "$KNOWLEDGE" \
         --comment-json "101=${COMMENT_JSON}" --external-cache-dir "$CACHE"
     assert_not_met 'external_pin_blob_computation_failed:S20'
