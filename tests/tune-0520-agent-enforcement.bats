@@ -15,7 +15,7 @@ PIPELINE_AGENTS=("architect" "compliance" "developer" "planner" "reviewer")
 
 # All agents (pipeline + auxiliary) that carry ALWAYS APPLY.
 AGENTS_WITH_ALWAYS_APPLY=(
-    "architect" "compliance" "developer" "planner" "reviewer"
+    "architect" "compliance" "designer" "developer" "planner" "reviewer"
     "devops" "editor" "librarian" "optimizer" "researcher"
     "security" "skill-creator" "sre" "strategist" "tester" "writer"
 )
@@ -173,15 +173,15 @@ AGENTS_WITH_ALWAYS_APPLY=(
     done
 }
 
-@test "D3: ALWAYS APPLY is present in expected agent count (15-16 of 19)" {
+@test "D3: ALWAYS APPLY is present in expected agent count (16-17 of 20)" {
     count=0
     for agent_file in "$AGENTS_DIR"/*.md; do
         if grep -q "ALWAYS APPLY" "$agent_file" 2>/dev/null; then
             count=$((count + 1))
         fi
     done
-    echo "Agents with ALWAYS APPLY: $count of 19"
-    [ "$count" -ge 15 ]
+    echo "Agents with ALWAYS APPLY: $count of 20"
+    [ "$count" -ge 16 ]
     [ "$count" -le 17 ]
 }
 

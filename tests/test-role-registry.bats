@@ -20,6 +20,10 @@ require_jsonschema() {
     fi
 }
 
+write_projected_role() {
+    cp "$ROLES" "$TMP/projected.yaml"
+}
+
 @test "validator script exists and is executable" {
     [ -x "$VALIDATOR" ]
 }
@@ -192,6 +196,33 @@ EOF
     require_jsonschema
     run "$VALIDATOR" --file "$ROLES"
     [ "$status" -eq 0 ]
+}
+
+@test "accepts explicit agent and domain skill projections when both resolve" {
+    write_projected_role
+    require_jsonschema
+    run "$VALIDATOR" --file "$TMP/projected.yaml" --root "$REPO"
+    [ "$status" -eq 0 ] \
+        && yq -e '.roles[] | select(.id == "researcher") | .agent == "agents/researcher.md"' "$TMP/projected.yaml" >/dev/null \
+        && yq -e '.roles[] | select(.id == "researcher") | .domain_skills[] == "skills/research-workflow"' "$TMP/projected.yaml" >/dev/null
+}
+
+@test "rejects an explicit agent projection that does not resolve" {
+    write_projected_role
+    sed 's#agents/researcher.md#agents/not-present.md#' "$TMP/projected.yaml" > "$TMP/bad-agent.yaml"
+    require_jsonschema
+    run "$VALIDATOR" --file "$TMP/bad-agent.yaml" --root "$REPO"
+    [ "$status" -eq 1 ] \
+        && echo "$output" | grep -qF "agent 'agents/not-present.md' does not resolve"
+}
+
+@test "rejects a domain skill projection that does not resolve" {
+    write_projected_role
+    sed 's#skills/research-workflow#skills/not-present#' "$TMP/projected.yaml" > "$TMP/bad-domain.yaml"
+    require_jsonschema
+    run "$VALIDATOR" --file "$TMP/bad-domain.yaml" --root "$REPO"
+    [ "$status" -eq 1 ] \
+        && echo "$output" | grep -qF "domain_skill 'skills/not-present' does not resolve"
 }
 
 @test "V-AC-1: all five fleet level skills declare an integer context_budget_tokens" {

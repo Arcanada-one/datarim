@@ -1091,7 +1091,7 @@ and why it exists.
 
 ```
 datarim/
-  agents/            # Agent personas (19 agents)
+  agents/            # Agent personas (20 agents)
   skills/            # Knowledge modules (73 skills)
   commands/          # Slash commands (28 commands)
   templates/         # Task and document templates (25 templates)
