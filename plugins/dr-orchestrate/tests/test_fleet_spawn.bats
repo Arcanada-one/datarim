@@ -12,6 +12,26 @@ setup() {
     tmux kill-session -t "$SESSION" 2>/dev/null || true
 }
 
+make_bind_failure_setup() {
+    local wrapper="$BATS_TEST_TMPDIR/context-bind-failure.sh"
+    printf '%s\n' \
+        '#!/usr/bin/env bash' \
+        'set -eu' \
+        'case "${1:-}" in' \
+        '  enabled) exit 0 ;;' \
+        '  install)' \
+        '    mkdir -p "$DR_ORCH_CONTEXT_STATE/instances"' \
+        '    printf '\''{"runtime_bound":false}\n'\'' > "$DR_ORCH_CONTEXT_STATE/instances/faultinstance.meta.json"' \
+        '    : > "$DR_ORCH_CONTEXT_STATE/fault-overlay"' \
+        '    printf '\''instance=faultinstance\nincarnation=faultincarnation\noverlay=%s\n'\'' "$DR_ORCH_CONTEXT_STATE/fault-overlay"' \
+        '    ;;' \
+        '  bind-process) exit 73 ;;' \
+        '  *) exit 2 ;;' \
+        'esac' > "$wrapper"
+    chmod +x "$wrapper"
+    printf '%s\n' "$wrapper"
+}
+
 teardown() {
     tmux kill-session -t "$SESSION" 2>/dev/null || true
     rm -rf "$STATE_DIR"
@@ -153,6 +173,51 @@ teardown() {
     [ "$status" -ne 0 ]
     tmux has-session -t "$SESSION"
     [ "$(tmux display-message -p -t "$SESSION" '#{pane_dead}')" = "1" ]
+}
+
+@test "TALO-0001: context bind-process fault returns nonzero and removes the session" {
+    export DR_ORCH_CONTEXT_SETUP="$(make_bind_failure_setup)"
+    export DR_ORCH_CONTEXT_STATE="$BATS_TEST_TMPDIR/context-state"
+    export DR_ORCH_RUNTIME=codex
+    export DR_ORCH_ACTIVE_TASK=TALO-0001
+    export DR_ORCH_WORKSPACE="$PWD"
+    source "${TMUX_MANAGER_UNDER_TEST:-$DR_ORCH_DIR/scripts/tmux_manager.sh}"
+
+    run session_spawn_interactive "$SESSION" "bash --norc -i"
+    [ "$status" -ne 0 ] || return 1
+    ! tmux has-session -t "$SESSION" 2>/dev/null || return 1
+}
+
+@test "TALO-0001: context bind guard remove and invert mutants are RED" {
+    local original="$DR_ORCH_DIR/scripts/tmux_manager.sh"
+    local behavior='^TALO-0001: context bind-process fault returns nonzero and removes the session$'
+    local variant mutant
+    for variant in remove invert; do
+        mutant="$BATS_TEST_TMPDIR/tmux-manager-$variant.sh"
+        cp "$original" "$mutant"
+        python3 - "$mutant" "$variant" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+variant = sys.argv[2]
+text = path.read_text(encoding="utf-8")
+guard = '''  if ! _context_window_setup bind-process "$instance" "$incarnation" "$birth"; then
+    tmux kill-session -t "$session" 2>/dev/null || true
+    return 1
+  fi'''
+if guard not in text:
+    raise SystemExit("context bind guard mutation target not found")
+if variant == "remove":
+    replacement = '  _context_window_setup bind-process "$instance" "$incarnation" "$birth"'
+else:
+    replacement = guard.replace("if ! _context_window_setup", "if _context_window_setup", 1)
+path.write_text(text.replace(guard, replacement, 1), encoding="utf-8")
+PY
+        run env TMUX_MANAGER_UNDER_TEST="$mutant" bats -f "$behavior" "$BATS_TEST_FILENAME"
+        [ "$status" -eq 1 ] || return 1
+        [[ "$output" == *"not ok 1 TALO-0001: context bind-process fault returns nonzero and removes the session"* ]] || return 1
+    done
 }
 
 @test "wish-2: spawn without a role omits the injection (backward-compatible)" {
