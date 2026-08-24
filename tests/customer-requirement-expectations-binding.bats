@@ -9,6 +9,22 @@ setup() {
     SKILLS_REFERENCE="${REPO_ROOT}/documentation/reference/skills.md"
 }
 
+portable_sed_in_place() {
+    local last_index=$(( $# - 1 ))
+    local args=("$@")
+    local file="${args[$last_index]}"
+    local temp_file
+
+    [ "$last_index" -gt 0 ] || return 2
+    unset 'args[$last_index]'
+    temp_file="$(mktemp "${file}.sed.XXXXXX")" || return 1
+    if ! sed "${args[@]}" "$file" > "$temp_file"; then
+        rm -f "$temp_file"
+        return 1
+    fi
+    mv "$temp_file" "$file"
+}
+
 assert_contains() {
     local file="$1"
     local literal="$2"
@@ -187,7 +203,7 @@ EOF
 @test "commented customer binding bullets do not satisfy the template contract" {
     local mutant="${BATS_TEST_TMPDIR}/commented-bindings.md"
     cp "$EXPECTATIONS_TEMPLATE" "$mutant"
-    sed -E -i 's/^(  - (requirement_id|surface_class|visitor_visible|delivery_receipt):.*)$/<!-- \1 -->/' "$mutant"
+    portable_sed_in_place -E 's/^(  - (requirement_id|surface_class|visitor_visible|delivery_receipt):.*)$/<!-- \1 -->/' "$mutant"
 
     run template_has_exact_binding_bullets "$mutant"
     [ "$status" -ne 0 ]
@@ -290,7 +306,7 @@ EOF
     local file
     root="$(write_migrated_expectations "$id")"
     file="$root/datarim/tasks/${id}-expectations.md"
-    sed -E -i.bak '/^- \*\*1\./,/^- \*\*2\./ { /^  - customer_derived:/d; }' "$file"
+    portable_sed_in_place -E '/^- \*\*1\./,/^- \*\*2\./ { /^  - customer_derived:/d; }' "$file"
     rm -f "${file}.bak"
 
     run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
@@ -304,10 +320,10 @@ EOF
     local file
     root="$(write_migrated_expectations "$id")"
     file="$root/datarim/tasks/${id}-expectations.md"
-    sed -i.bak '/^schema_version: 4$/a\
+    portable_sed_in_place '/^schema_version: 4$/a\
 customer_binding_from: appended-internal-wish' "$file"
     rm -f "${file}.bak"
-    sed -E -i.bak '/^- \*\*2\./,/^- \*\*3\./ { /^  - (customer_derived|requirement_id|surface_class|visitor_visible|delivery_receipt):/d; }' "$file"
+    portable_sed_in_place -E '/^- \*\*2\./,/^- \*\*3\./ { /^  - (customer_derived|requirement_id|surface_class|visitor_visible|delivery_receipt):/d; }' "$file"
     rm -f "${file}.bak"
 
     run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
@@ -321,10 +337,10 @@ customer_binding_from: appended-internal-wish' "$file"
     local file
     root="$(write_migrated_expectations "$id")"
     file="$root/datarim/tasks/${id}-expectations.md"
-    sed -i.bak '/^schema_version: 4$/a\
+    portable_sed_in_place '/^schema_version: 4$/a\
 customer_binding_from: appended-internal-wish' "$file"
     rm -f "${file}.bak"
-    sed -E -i.bak '/^- \*\*2\./,/^- \*\*3\./ { /^  - (customer_derived|requirement_id|surface_class|visitor_visible|delivery_receipt):/d; }' "$file"
+    portable_sed_in_place -E '/^- \*\*2\./,/^- \*\*3\./ { /^  - (customer_derived|requirement_id|surface_class|visitor_visible|delivery_receipt):/d; }' "$file"
     rm -f "${file}.bak"
 
     run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
@@ -344,7 +360,8 @@ customer_binding_from: appended-internal-wish' "$file"
         [ "$schema" -eq 4 ] && binding="$(valid_customer_binding "$id")"
         root="$(write_expectations "$id" "$schema" "$binding")"
         file="$root/datarim/tasks/${id}-expectations.md"
-        sed -i "/^schema_version: ${schema}$/a customer_binding_from: customer-outcome" "$file"
+        portable_sed_in_place "/^schema_version: ${schema}$/a\\
+customer_binding_from: customer-outcome" "$file"
 
         run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
         if [ "$status" -ne 1 ] || [[ "$output" != *"customer_binding_from is obsolete"* ]]; then
@@ -407,7 +424,7 @@ EOF
     local file
     root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
     file="$root/datarim/tasks/${id}-expectations.md"
-    sed -i 's/status: canonical/status: canonica1/' "$file"
+    portable_sed_in_place 's/status: canonical/status: canonica1/' "$file"
 
     run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
     [ "$status" -eq 1 ] \
@@ -420,7 +437,7 @@ EOF
     local file
     root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
     file="$root/datarim/tasks/${id}-expectations.md"
-    sed -i 's/status: canonical/status: canonica1/' "$file"
+    portable_sed_in_place 's/status: canonical/status: canonica1/' "$file"
 
     run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
     [ "$status" -eq 1 ] \
@@ -449,34 +466,34 @@ EOF
         if [ "$variant" = "duplicate_value" ]; then
             root="$(write_migrated_expectations "$id")"
             file="$root/datarim/tasks/${id}-expectations.md"
-            sed -i 's/wish_id: appended-internal-wish/wish_id: preserved-legacy-wish/' "$file"
+            portable_sed_in_place 's/wish_id: appended-internal-wish/wish_id: preserved-legacy-wish/' "$file"
             expected="duplicate wish_id value 'preserved-legacy-wish'"
         else
             root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
             file="$root/datarim/tasks/${id}-expectations.md"
             case "$variant" in
                 invalid_space)
-                    sed -i 's/wish_id: customer-outcome/wish_id: not a kebab slug/' "$file"
+                    portable_sed_in_place 's/wish_id: customer-outcome/wish_id: not a kebab slug/' "$file"
                     expected="wish_id must be a kebab slug"
                     ;;
                 invalid_underscore)
-                    sed -i 's/wish_id: customer-outcome/wish_id: not_a_kebab_slug/' "$file"
+                    portable_sed_in_place 's/wish_id: customer-outcome/wish_id: not_a_kebab_slug/' "$file"
                     expected="wish_id must be a kebab slug"
                     ;;
                 invalid_empty_segment)
-                    sed -i 's/wish_id: customer-outcome/wish_id: empty--segment/' "$file"
+                    portable_sed_in_place 's/wish_id: customer-outcome/wish_id: empty--segment/' "$file"
                     expected="wish_id must be a kebab slug"
                     ;;
                 invalid_separator)
-                    sed -i 's@wish_id: customer-outcome@wish_id: path/segment@' "$file"
+                    portable_sed_in_place 's@wish_id: customer-outcome@wish_id: path/segment@' "$file"
                     expected="wish_id must be a kebab slug"
                     ;;
                 invalid_other_script)
-                    sed -i 's/wish_id: customer-outcome/wish_id: δοκιμή/' "$file"
+                    portable_sed_in_place 's/wish_id: customer-outcome/wish_id: δοκιμή/' "$file"
                     expected="wish_id must be a kebab slug"
                     ;;
                 duplicate_field)
-                    sed -i '/wish_id: customer-outcome/a\
+                    portable_sed_in_place '/wish_id: customer-outcome/a\
   - wish_id: second-focus-key' "$file"
                     expected="duplicate wish_id field"
                     ;;
@@ -506,7 +523,7 @@ EOF
     for slug in 'Outcome-2' 'сохранение-исходного-промпта'; do
         root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
         file="$root/datarim/tasks/${id}-expectations.md"
-        sed -i "s/wish_id: customer-outcome/wish_id: ${slug}/" "$file"
+        portable_sed_in_place "s/wish_id: customer-outcome/wish_id: ${slug}/" "$file"
         run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
         if [ "$status" -ne 0 ]; then
             echo "valid wish_id rejected (${slug}): ${output}" >&2
@@ -571,7 +588,7 @@ EOF
     local id="BIND-0014"
     local root
     root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
-    sed -E -i 's/^(- \*\*1\. Customer outcome\.\*\*)$/<!-- \1 -->/' \
+    portable_sed_in_place -E 's/^(- \*\*1\. Customer outcome\.\*\*)$/<!-- \1 -->/' \
         "$root/datarim/tasks/${id}-expectations.md"
 
     run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
@@ -585,8 +602,8 @@ EOF
     local file
     root="$(write_migrated_expectations "$id")"
     file="$root/datarim/tasks/${id}-expectations.md"
-    sed -i 's/^- \*\*2\. Appended customer wish\.\*\*$/& <!-- active header trailing comment -->/' "$file"
-    sed -i '/^  - customer_derived: true$/,/^  - delivery_receipt:/d' "$file"
+    portable_sed_in_place 's/^- \*\*2\. Appended customer wish\.\*\*$/& <!-- active header trailing comment -->/' "$file"
+    portable_sed_in_place '/^  - customer_derived: true$/,/^  - delivery_receipt:/d' "$file"
 
     run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
     [ "$status" -eq 1 ] \
@@ -607,13 +624,13 @@ EOF
         file="$root/datarim/tasks/${id}-expectations.md"
         case "$variant" in
             single_tick)
-                sed -i '/success criterion/s/$/ `<!--` literal/' "$file"
+                portable_sed_in_place '/success criterion/s/$/ `<!--` literal/' "$file"
                 ;;
             delimiter_run)
-                sed -i '/success criterion/s/$/ ``short ` then <!-- `` literal/' "$file"
+                portable_sed_in_place '/success criterion/s/$/ ``short ` then <!-- `` literal/' "$file"
                 ;;
             escaped)
-                sed -i '/success criterion/s/$/ \\<!-- literal/' "$file"
+                portable_sed_in_place '/success criterion/s/$/ \\<!-- literal/' "$file"
                 grep -Fq '\<!-- literal' "$file" || return 1
                 ;;
         esac
@@ -639,7 +656,7 @@ EOF
     local file
     root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
     file="$root/datarim/tasks/${id}-expectations.md"
-    sed -i '/success criterion/c\
+    portable_sed_in_place '/success criterion/c\
   - Как проверить (success criterion): A ``span opens\
 <!-- remains literal before ` shorter delimiter\
 `` span closes before active bindings.' "$file"
@@ -663,7 +680,7 @@ EOF
     local file
     root="$(write_expectations "$id" 4 '  - customer_derived: true')"
     file="$root/datarim/tasks/${id}-expectations.md"
-    sed -i '/success criterion/c\
+    portable_sed_in_place '/success criterion/c\
   - Как проверить (success criterion): These ``fields are examples:\
   - requirement_id: req-0001\
   - surface_class: VISITOR_VISIBLE\
@@ -686,7 +703,7 @@ EOF
     local file
     root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
     file="$root/datarim/tasks/${id}-expectations.md"
-    sed -i '/success criterion/s/$/ \\`<!--`/' "$file"
+    portable_sed_in_place '/success criterion/s/$/ \\`<!--`/' "$file"
 
     run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
     [ "$status" -eq 1 ] && [[ "$output" == *"missing customer_derived"* ]] || return 1
@@ -702,7 +719,7 @@ EOF
     local file
     root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
     file="$root/datarim/tasks/${id}-expectations.md"
-    sed -i 's/wish_id: customer-outcome/wish_id: `not a kebab slug`/' "$file"
+    portable_sed_in_place 's/wish_id: customer-outcome/wish_id: `not a kebab slug`/' "$file"
 
     run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
     [ "$status" -eq 1 ] && [[ "$output" == *"wish_id must be a kebab slug"* ]] || return 1
@@ -718,7 +735,7 @@ EOF
     local file
     root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
     file="$root/datarim/tasks/${id}-expectations.md"
-    sed -i '/evidence_type: static/i\
+    portable_sed_in_place '/evidence_type: static/i\
   - verification_mode: reproducible\
   - evidence_artifact: `not-real`' "$file"
     printf '%s\n' 'structured-value collision `not-real`' > "$root/sentinel.sh"
@@ -737,10 +754,10 @@ EOF
     local file
     root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
     file="$root/datarim/tasks/${id}-expectations.md"
-    sed -i '/evidence_type: static/i\
+    portable_sed_in_place '/evidence_type: static/i\
   - override: See `FOLLOW-1234`\
   - override_by: operator' "$file"
-    sed -i '/^    - pending$/s/pending/partial/' "$file"
+    portable_sed_in_place '/^    - pending$/s/pending/partial/' "$file"
 
     run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
     [ "$status" -eq 0 ] && [[ "$output" == *"CONDITIONAL_PASS"* ]]
@@ -752,8 +769,8 @@ EOF
     local file
     root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
     file="$root/datarim/tasks/${id}-expectations.md"
-    sed -i 's/A deterministic signal passes./The `https:\/\/prod.example.test\/status` endpoint passes./' "$file"
-    sed -i 's/evidence_type: static/evidence_type: empirical/' "$file"
+    portable_sed_in_place 's/A deterministic signal passes./The `https:\/\/prod.example.test\/status` endpoint passes./' "$file"
+    portable_sed_in_place 's/evidence_type: static/evidence_type: empirical/' "$file"
 
     run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
     [ "$status" -eq 0 ] \
@@ -861,7 +878,8 @@ EOF
             schema_version) duplicate='schema_version: 4' ;;
             status) duplicate='status: canonica1' ;;
         esac
-        sed -i "/^${key}:/a ${duplicate}" "$file"
+        portable_sed_in_place "/^${key}:/a\\
+${duplicate}" "$file"
 
         run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
         if [ "$status" -ne 1 ] || [[ "$output" != *"duplicate frontmatter field '${key}'"* ]]; then
@@ -884,7 +902,8 @@ EOF
     local file
     root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
     file="$root/datarim/tasks/${id}-expectations.md"
-    sed -i '/^status: canonical$/a surprise_key: must-not-pass' "$file"
+    portable_sed_in_place '/^status: canonical$/a\
+surprise_key: must-not-pass' "$file"
 
     run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
     [ "$status" -eq 1 ] \
@@ -904,10 +923,11 @@ EOF
         root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
         file="$root/datarim/tasks/${id}-expectations.md"
         if [ "$construct" = "__NESTED__" ]; then
-            sed -i '/^status: canonical$/a\
+            portable_sed_in_place '/^status: canonical$/a\
   nested: must-not-pass' "$file"
         else
-            sed -i "/^status: canonical$/a ${construct}" "$file"
+            portable_sed_in_place "/^status: canonical$/a\\
+${construct}" "$file"
         fi
 
         run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
@@ -937,7 +957,8 @@ EOF
     local file
     root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
     file="$root/datarim/tasks/${id}-expectations.md"
-    sed -i '/^status: canonical$/a agent: planner\
+    portable_sed_in_place '/^status: canonical$/a\
+agent: planner\
 parent_init_task: ALWD-0001-init-task.md\
 parent_prd: ../prd/PRD-ALWD-0001.md' "$file"
 
@@ -957,11 +978,12 @@ parent_prd: ../prd/PRD-ALWD-0001.md' "$file"
         file="$root/datarim/tasks/${id}-expectations.md"
         case "$variant" in
             preamble)
-                sed -i '1i arbitrary preamble' "$file"
+                portable_sed_in_place '1i\
+arbitrary preamble' "$file"
                 expected="frontmatter opener must be the first line"
                 ;;
             missing_close)
-                sed -i '8d' "$file"
+                portable_sed_in_place '8d' "$file"
                 expected="frontmatter missing closing delimiter"
                 ;;
         esac
@@ -991,7 +1013,7 @@ parent_prd: ../prd/PRD-ALWD-0001.md' "$file"
     while IFS='|' read -r field replacement expected; do
         root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
         file="$root/datarim/tasks/${id}-expectations.md"
-        sed -i "s@^${field}:.*@${field}: ${replacement}@" "$file"
+        portable_sed_in_place "s@^${field}:.*@${field}: ${replacement}@" "$file"
 
         run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
         if [ "$status" -ne 1 ] || [[ "$output" != *"${expected}"* ]]; then
@@ -1020,7 +1042,8 @@ EOF
             parent_init_task) replacement="../tasks/OTHR-0001-init-task.md"; expected="parent_init_task must equal DOMN-0001-init-task.md" ;;
             parent_prd) replacement="../../other/PRD-OTHR-0001.md"; expected="parent_prd must equal ../prd/PRD-DOMN-0001.md" ;;
         esac
-        sed -i "/^status: canonical$/a ${field}: ${replacement}" "$file"
+        portable_sed_in_place "/^status: canonical$/a\\
+${field}: ${replacement}" "$file"
 
         run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
         if [ "$status" -ne 1 ] || [[ "$output" != *"${expected}"* ]]; then
@@ -1040,8 +1063,9 @@ EOF
     local file
     root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
     file="$root/datarim/tasks/${id}-expectations.md"
-    sed -i 's/^captured_at:.*/captured_at: 2024-02-29/' "$file"
-    sed -i '/^status: canonical$/a agent: architect\
+    portable_sed_in_place 's/^captured_at:.*/captured_at: 2024-02-29/' "$file"
+    portable_sed_in_place '/^status: canonical$/a\
+agent: architect\
 parent_init_task: LEAP-0001-init-task.md\
 parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
 
@@ -1057,7 +1081,7 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
     local file
     root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
     file="$root/datarim/tasks/${id}-expectations.md"
-    sed -i 's/^## Ожидания$/& <!-- active heading trailing comment -->/' "$file"
+    portable_sed_in_place 's/^## Ожидания$/& <!-- active heading trailing comment -->/' "$file"
 
     run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
     [ "$status" -eq 0 ] || return 1
@@ -1073,7 +1097,8 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
     local file
     root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
     file="$root/datarim/tasks/${id}-expectations.md"
-    sed -i '/^  - customer_derived:/i ## Ожидания' "$file"
+    portable_sed_in_place '/^  - customer_derived:/i\
+## Ожидания' "$file"
 
     run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
     [ "$status" -eq 1 ] \
@@ -1092,8 +1117,9 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
     for suffix in '##' '## <!-- trailing heading comment -->'; do
         root="$(write_migrated_expectations "$id")"
         file="$root/datarim/tasks/${id}-expectations.md"
-        sed -i "/^- \*\*2\. Appended customer wish\.\*\*$/i ## Ожидания ${suffix}" "$file"
-        sed -i '/^  - customer_derived: true$/,/^  - delivery_receipt:/d' "$file"
+        portable_sed_in_place "/^- \*\*2\. Appended customer wish\.\*\*$/i\\
+## Ожидания ${suffix}" "$file"
+        portable_sed_in_place '/^  - customer_derived: true$/,/^  - delivery_receipt:/d' "$file"
 
         run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
         if [ "$status" -ne 1 ] || [[ "$output" != *"duplicate active ## Ожидания heading"* ]]; then
@@ -1118,7 +1144,7 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
     for heading in '## Ожидания ##' $'   ##\tОжидания ###'; do
         root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
         file="$root/datarim/tasks/${id}-expectations.md"
-        sed -i "s/^## Ожидания$/${heading}/" "$file"
+        portable_sed_in_place "s/^## Ожидания$/${heading}/" "$file"
 
         run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
         if [ "$status" -ne 0 ]; then
@@ -1141,7 +1167,8 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
     local file
     root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
     file="$root/datarim/tasks/${id}-expectations.md"
-    sed -i '/^## Ожидания$/i ```markdown' "$file"
+    portable_sed_in_place '/^## Ожидания$/i\
+```markdown' "$file"
     printf '\n```\n' >> "$file"
 
     run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
@@ -1159,7 +1186,8 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
     local file
     root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
     file="$root/datarim/tasks/${id}-expectations.md"
-    sed -i '/^## Ожидания$/i ~~~markdown\
+    portable_sed_in_place '/^## Ожидания$/i\
+~~~markdown\
 ## Ожидания\
 \
 - **99. Fenced decoy wish.**\
@@ -1209,7 +1237,7 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
         id="STAT-000${schema}"
         root="$(write_expectations "$id" "$schema")"
         file="$root/datarim/tasks/${id}-expectations.md"
-        sed -i 's/status: canonical/status: canonica1/' "$file"
+        portable_sed_in_place 's/status: canonical/status: canonica1/' "$file"
         run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
         if [ "$status" -ne 1 ] || [[ "$output" != *"frontmatter status must be 'canonical' or 'amended'"* ]]; then
             echo "legacy schema v${schema} accepted invalid status: ${output}" >&2
@@ -1240,4 +1268,15 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
     disk_count="$(find "${REPO_ROOT}/skills" -mindepth 2 -maxdepth 2 -name SKILL.md | wc -l | tr -d '[:space:]')"
     documented_count="$(sed -nE 's/^Datarim includes ([0-9]+) reusable skill modules\..*/\1/p' "$SKILLS_REFERENCE")"
     [[ "$documented_count" -eq "$disk_count" ]]
+}
+
+@test "focused customer binding tests are BSD-portable and run in macOS CI" {
+    local focused_suite="${REPO_ROOT}/tests/customer-requirement-expectations-binding.bats"
+    local workflow="${REPO_ROOT}/.github/workflows/bats.yml"
+
+    if grep -Eq 'sed (-E )?-i([^A-Za-z]|$)' "$focused_suite"; then
+        echo "focused suite contains GNU-only sed in-place syntax" >&2
+        return 1
+    fi
+    grep -Fq 'tests/customer-requirement-expectations-binding.bats' "$workflow"
 }
