@@ -286,6 +286,12 @@ parse_items() {
                 }
                 next
             }
+            if (code_span_len > 0 && is_inline_block_boundary($0)) {
+                printf "ERROR: %s: unclosed inline code span before block boundary\n", \
+                    f > "/dev/stderr"
+                errors++
+                code_span_len = 0
+            }
             # Block fences take precedence over inline parsing, unless the
             # line continues an already-open HTML comment or code span.
             fence_line = fence_candidate($0)
@@ -522,6 +528,16 @@ parse_items() {
                 pos--
             }
             return (slash_count % 2) == 1
+        }
+
+        function is_inline_block_boundary(line,    candidate) {
+            if (line ~ /^[ \t]*$/) return 1
+            if (line ~ /^[ \t]*[-+*][ \t]+/) return 1
+            if (line ~ /^[ \t]*[0-9]+[.)][ \t]+/) return 1
+            candidate = fence_candidate(line)
+            if (candidate ~ /^#{1,6}([ \t]|$)/) return 1
+            if (candidate ~ /^```/ || candidate ~ /^~~~/) return 1
+            return 0
         }
 
         function fence_candidate(line,    i) {

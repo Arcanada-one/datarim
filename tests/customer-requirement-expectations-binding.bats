@@ -672,7 +672,8 @@ EOF
 `` and are not active bindings.' "$file"
 
     run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
-    [ "$status" -eq 1 ] && [[ "$output" == *"missing requirement_id"* ]] || return 1
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"unclosed inline code span before block boundary"* ]] || return 1
 
     run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
     [ "$status" -eq 1 ] \
@@ -783,6 +784,67 @@ EOF
     run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
     [ "$status" -eq 1 ] \
         && [[ "$output" == *"BLOCKED: expectations file fails structural validation"* ]]
+}
+
+@test "inline code spans cannot cross CommonMark block boundaries" {
+    local id="COMM-0010"
+    local variant
+    local root
+    local file
+    for variant in blank heading fence item; do
+        root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
+        file="$root/datarim/tasks/${id}-expectations.md"
+        case "$variant" in
+            blank)
+                cat >> "$file" <<'EOF'
+Paragraph `opens
+
+and closes` after a blank block boundary.
+EOF
+                ;;
+            heading)
+                cat >> "$file" <<'EOF'
+Paragraph `opens
+## A new block
+and closes` after a heading boundary.
+EOF
+                ;;
+            fence)
+                cat >> "$file" <<'EOF'
+Paragraph `opens
+~~~text
+and closes` after a fence boundary.
+~~~
+EOF
+                ;;
+            item)
+                cat >> "$file" <<'EOF'
+Paragraph `opens
+- **2. Hidden unbound wish.**
+  - wish_id: hidden-unbound-wish
+  - evidence_type: static
+  - #### История статусов
+    - 2026-08-24T00:00:00Z / 2026-08-24 00:00 (UTC) · pending → pending · /dr-prd · reason: item created
+  - #### Текущий статус
+    - pending
+and closes` after an item boundary.
+EOF
+                ;;
+        esac
+
+        run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+        if [ "$status" -ne 1 ] || [[ "$output" != *"unclosed inline code span before block boundary"* ]]; then
+            echo "code span crossed ${variant} boundary in task mode: ${output}" >&2
+            return 1
+        fi
+
+        run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
+        if [ "$status" -ne 1 ] || [[ "$output" != *"BLOCKED: expectations file fails structural validation"* ]]; then
+            echo "code span crossed ${variant} boundary in verify mode: ${output}" >&2
+            return 1
+        fi
+        rm -rf "$root"
+    done
 }
 
 @test "schema validation rejects duplicate frontmatter keys in task and verify modes" {
