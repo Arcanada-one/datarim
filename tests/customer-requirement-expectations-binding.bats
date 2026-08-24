@@ -41,6 +41,8 @@ assert_no_direct_in_place_sed() {
                          count, i, expect_command, sed_command, wrapper,
                          skip_wrapper_arg, skip_redirection_arg, in_backtick,
                          pending_outer_quote, backtick_outer_quote, resume_quote,
+                         outer_expect_command, outer_sed_command, outer_wrapper,
+                         outer_skip_wrapper_arg, outer_skip_redirection_arg,
                          values, kinds) {
             line_len = length(line)
             pos = 1
@@ -62,7 +64,7 @@ assert_no_direct_in_place_sed() {
                         resume_quote = backtick_outer_quote
                         backtick_outer_quote = ""
                     } else {
-                        kinds[count] = "separator"
+                        kinds[count] = "substitution_open"
                         in_backtick = 1
                         backtick_outer_quote = pending_outer_quote
                     }
@@ -118,12 +120,25 @@ assert_no_direct_in_place_sed() {
             skip_wrapper_arg = 0
             skip_redirection_arg = 0
             for (i = 1; i <= count; i++) {
-                if (kinds[i] == "substitution_close") {
-                    expect_command = 0
+                if (kinds[i] == "substitution_open") {
+                    outer_expect_command = expect_command
+                    outer_sed_command = sed_command
+                    outer_wrapper = wrapper
+                    outer_skip_wrapper_arg = skip_wrapper_arg
+                    outer_skip_redirection_arg = skip_redirection_arg
+                    expect_command = 1
                     sed_command = 0
                     wrapper = ""
                     skip_wrapper_arg = 0
                     skip_redirection_arg = 0
+                    continue
+                }
+                if (kinds[i] == "substitution_close") {
+                    expect_command = outer_expect_command
+                    sed_command = outer_sed_command
+                    wrapper = outer_wrapper
+                    skip_wrapper_arg = outer_skip_wrapper_arg
+                    skip_redirection_arg = outer_skip_redirection_arg
                     continue
                 }
                 if (kinds[i] == "separator") {
@@ -1681,6 +1696,9 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
     printf 'ignored=\140sed --in-place -e "s/x/y/" mutant\140\n' >> "$mutant_suite"
     printf 'quoted="\140sed -i.bak s/x/y/ mutant\140"\n' >> "$mutant_suite"
     printf 'sequential="before \140printf ok\140 middle \140sed -i.bak s/x/y/ mutant\140 after"\n' >> "$mutant_suite"
+    printf '\140true\140 sed -i.bak s/x/y/ mutant\n' >> "$mutant_suite"
+    printf 'MODE=\140true\140 sed -i.bak s/x/y/ mutant\n' >> "$mutant_suite"
+    printf '\140true\140sed -i.bak s/x/y/ mutant\n' >> "$mutant_suite"
     run assert_no_direct_in_place_sed "$mutant_suite"
     if [ "$status" -ne 1 ] || [[ "$output" != *"direct in-place sed syntax"* ]]; then
         echo "legacy backtick sed mutants were not rejected (status=${status}): ${output}" >&2
@@ -1706,6 +1724,7 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
     printf 'escaped=\134\140sed --in-place -e s/x/y/ mutant\134\140\n' >> "$mutant_suite"
     printf 'message="before \140printf ok\140 sed -i.bak is literal prose"\n' >> "$mutant_suite"
     printf 'escaped_message="before \134\140sed -i.bak\134\140 after"\n' >> "$mutant_suite"
+    printf 'echo \140true\140 sed -i.bak is literal prose\n' >> "$mutant_suite"
     run assert_no_direct_in_place_sed "$mutant_suite"
     if [ "$status" -ne 0 ]; then
         echo "inert sed prose was treated as executable (status=${status}): ${output}" >&2
