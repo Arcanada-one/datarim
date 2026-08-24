@@ -17,6 +17,8 @@
 #   - autonomous roles (default_aal >= 3) MUST forbid the Layer-6 floor
 #     {prod-deploy, secret-rotation}.
 #   - starter_skill MUST resolve to an existing skills/fleet/* directory.
+#   - optional agent and domain_skills projections MUST resolve to shipped
+#     agents/*.md and skills/*/SKILL.md files.
 #
 # No secrets here — declarative permissions only. Schema: role-registry.schema.json.
 
@@ -24,6 +26,30 @@ schema_version: 1
 global_max_parallel: 8
 
 roles:
+  - id: designer
+    description: "Pre-code frontend design packets, design-system decisions, and Knowledge Contract handoff."
+    allowed_tools: [Read, Write, Bash, Grep, Glob]
+    allowed_paths: ["datarim/**", "documentation/**", "Projects/*/code/**"]
+    forbidden_actions: [prod-deploy, secret-rotation, code-merge, product-code-write, customer-acceptance]
+    max_parallel: 4
+    complexity_levels: [2, 3, 4, 5]
+    default_aal: 2
+    starter_skill: "skills/fleet/l3-analyst"
+    agent: "agents/designer.md"
+    domain_skills: ["skills/frontend-design"]
+
+  - id: researcher
+    description: "External research, replayable provenance, reuse inventory, and focused gap investigation."
+    allowed_tools: [Read, Write, Bash, Grep, Glob]
+    allowed_paths: ["datarim/**", "documentation/**", "Projects/*/code/**"]
+    forbidden_actions: [prod-deploy, secret-rotation, code-merge, product-code-write]
+    max_parallel: 4
+    complexity_levels: [2, 3, 4, 5]
+    default_aal: 2
+    starter_skill: "skills/fleet/l3-analyst"
+    agent: "agents/researcher.md"
+    domain_skills: ["skills/research-workflow"]
+
   - id: architect
     description: "System design, ADRs, 3+ option exploration with tradeoffs."
     allowed_tools: [Read, Grep, Glob, Write]

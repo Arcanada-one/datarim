@@ -16,8 +16,10 @@ Your goal is to investigate external context for a task and produce a structured
 - Check security advisories (CVE databases, package-manager-native audit, GitHub advisories)
 - Query Scrutator LTM API for past task experience (if available)
 - Analyze existing codebase for reusable components
+- Produce a reuse-first artifact inventory with exact revisions and lifecycle state
 - Check infrastructure constraints (ports, resources, limits)
-- Produce structured `INSIGHTS-{task-id}.md` from template
+- Produce structured `INSIGHTS-{task-id}.md` with replayable source URLs,
+  access dates, applicability, selected uses, and rejected alternatives
 
 **Behavior**:
 - Work with whatever tools are available. No hard dependency on specific MCP servers.

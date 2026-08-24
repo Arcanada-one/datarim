@@ -9,6 +9,7 @@
 #        - autonomous roles (default_aal >= 3) MUST forbid the Layer-6 floor
 #          {prod-deploy, secret-rotation};
 #        - starter_skill resolves to an existing skills/fleet/* directory.
+#        - optional agent and domain_skills projections resolve to shipped files.
 #
 # Usage:
 #   check-role-registry.sh [--file PATH] [--root PATH] [--help]
@@ -121,6 +122,15 @@ for r in roles:
                     budget = None
             if not isinstance(budget, int):
                 errors.append(f"role '{rid}': starter_skill '{skill}' SKILL.md frontmatter missing integer metadata.context_budget_tokens")
+    agent = r.get("agent")
+    if agent:
+        agent_path = os.path.join(root, agent)
+        if not os.path.isfile(agent_path):
+            errors.append(f"role '{rid}': agent '{agent}' does not resolve to an existing file")
+    for domain_skill in r.get("domain_skills") or []:
+        domain_skill_md = os.path.join(root, domain_skill, "SKILL.md")
+        if not os.path.isfile(domain_skill_md):
+            errors.append(f"role '{rid}': domain_skill '{domain_skill}' does not resolve to an existing skill")
 
 if errors:
     for e in errors:
