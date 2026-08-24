@@ -169,24 +169,50 @@ assert_designer_projection() {
     fi
 }
 
+assert_projection_result() {
+    local roles_file="$1" expected_rc="$2" expected_output="$3"
+    local actual_output actual_rc=0
+    actual_output="$(assert_designer_projection "$roles_file" 2>&1)" || actual_rc=$?
+    if [ "$actual_rc" -ne "$expected_rc" ]; then
+        echo "projection rc mismatch: expected $expected_rc, got $actual_rc" >&2
+        return 1
+    fi
+    if [ "$actual_output" != "$expected_output" ]; then
+        echo "projection diagnostic mismatch: expected '$expected_output', got '$actual_output'" >&2
+        return 1
+    fi
+}
+
 @test "M1: explicit designer projection is load-bearing" {
     run env FRONTEND_DESIGN_ROOT="$MUTANT" bats \
         -f '^G1: designer and researcher execution projections are registered$' "$CONTRACT"
-    [ "$status" -eq 0 ] \
-        && [[ "$output" == *"ok 1 G1: designer and researcher execution projections are registered"* ]]
+    [ "$status" -eq 0 ] || return 1
+    [[ "$output" == *"ok 1 G1: designer and researcher execution projections are registered"* ]] || return 1
 
     run assert_designer_projection "$MUTANT/config/roles.yaml"
-    [ "$status" -eq 0 ]
+    [ "$status" -eq 0 ] || return 1
 
     mutate_text "$MUTANT/config/roles.yaml" 'agent: "agents/designer.md"' 'agent: "agents/not-present.md"'
-    run assert_designer_projection "$MUTANT/config/roles.yaml"
-    [ "$status" -eq 42 ] \
-        && [ "$output" = "projected designer agent mismatch: expected agents/designer.md, got agents/not-present.md" ]
+    assert_projection_result "$MUTANT/config/roles.yaml" 42 \
+        "projected designer agent mismatch: expected agents/designer.md, got agents/not-present.md" || return 1
 
     run env FRONTEND_DESIGN_ROOT="$MUTANT" bats \
         -f '^G1: designer and researcher execution projections are registered$' "$CONTRACT"
-    [ "$status" -eq 1 ] \
-        && [[ "$output" == *"not ok 1 G1: designer and researcher execution projections are registered"* ]]
+    [ "$status" -eq 1 ] || return 1
+    [[ "$output" == *"not ok 1 G1: designer and researcher execution projections are registered"* ]] || return 1
+}
+
+@test "M39: M1 expected rc and diagnostic assertions are independently load-bearing" {
+    mutate_text "$MUTANT/config/roles.yaml" 'agent: "agents/designer.md"' 'agent: "agents/not-present.md"'
+    local diagnostic="projected designer agent mismatch: expected agents/designer.md, got agents/not-present.md"
+
+    run assert_projection_result "$MUTANT/config/roles.yaml" 41 "$diagnostic"
+    [ "$status" -ne 0 ] || return 1
+    [[ "$output" == *"projection rc mismatch: expected 41, got 42"* ]] || return 1
+
+    run assert_projection_result "$MUTANT/config/roles.yaml" 42 "altered diagnostic"
+    [ "$status" -ne 0 ] || return 1
+    [[ "$output" == *"projection diagnostic mismatch"* ]] || return 1
 }
 
 @test "M2: designer ownership and acceptance boundary is load-bearing" {
