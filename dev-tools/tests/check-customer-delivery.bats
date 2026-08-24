@@ -419,6 +419,29 @@ open(path, "w", encoding="utf-8").write(source)
 PY
 }
 
+instrument_test_validator_observation() {
+    local status_marker="$1"
+    local output_marker="$2"
+    "$PYTHON" - "$TEST_SCRIPT" "$status_marker" "$output_marker" <<'PY' || return 1
+import sys
+
+path, status_marker, output_marker = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+anchor = '''validator_status=$?
+set -e
+'''
+instrumented = f'''validator_status=$?
+/usr/bin/printf '%s\\n' "$validator_status" > {status_marker!r}
+/bin/cp -- "$validator_output" {output_marker!r}
+set -e
+'''
+if source.count(anchor) != 1:
+    raise SystemExit("TEST_VALIDATOR_OBSERVATION_SEAM_MISSING_OR_AMBIGUOUS")
+source = source.replace(anchor, instrumented, 1)
+open(path, "w", encoding="utf-8").write(source)
+PY
+}
+
 force_test_logical_deadline_shutdown_race() {
     local pid_file="$1"
     "$PYTHON" - "$TEST_SCRIPT" "$pid_file" <<'PY' || return 1
@@ -1380,8 +1403,11 @@ assert_inherited_alarm_real_timer_cleanup() {
     local shim="${BATS_TEST_TMPDIR}/inherited-alarm-real-timer-openssl"
     local pid_file="${BATS_TEST_TMPDIR}/inherited-alarm-real-timer.pid"
     local elapsed_marker="${BATS_TEST_TMPDIR}/inherited-alarm-real-timer.elapsed"
+    local status_marker="${BATS_TEST_TMPDIR}/inherited-alarm-real-timer.status"
+    local output_marker="${BATS_TEST_TMPDIR}/inherited-alarm-real-timer.output"
     local child_pid elapsed attempt descendant_reaped=0
-    rm -f -- "$pid_file" "$elapsed_marker" || return 1
+    local validator_status='missing' validator_output_hex='missing'
+    rm -f -- "$pid_file" "$elapsed_marker" "$status_marker" "$output_marker" || return 1
     "$PYTHON" - "$shim" "$pid_file" <<'PY' || return 1
 import os
 import sys
@@ -1405,6 +1431,7 @@ PY
         'VALIDATION_DEADLINE = time.monotonic() + VALIDATION_TOTAL_TIMEOUT_SECONDS' \
         'VALIDATION_DEADLINE = time.monotonic() + 10' || return 1
     instrument_test_validator_elapsed "$elapsed_marker" || return 1
+    instrument_test_validator_observation "$status_marker" "$output_marker" || return 1
     rebind_test_openssl "$shim" || return 1
     run_test_framework_json_inherited_sigalrm_mask
     [ "$status" -eq 2 ] \
@@ -1413,8 +1440,15 @@ PY
         && [[ "$output" != *"Traceback"* ]] \
         && split_bounded_validator_json "$output" \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["validation_resource_limit:deadline"]' "$VALIDATOR_JSON" \
-        || { printf 'inherited_alarm_timer_failure=status=%s output=%s\n' \
-            "$status" "$output"; return 1; }
+        || {
+            [ -s "$status_marker" ] && validator_status="$(<"$status_marker")"
+            if [ -e "$output_marker" ]; then
+                validator_output_hex="$(od -An -v -tx1 "$output_marker" | tr -d ' \n')"
+            fi
+            printf 'inherited_alarm_timer_failure=status=%s validator_status=%s validator_output_hex=%s output=%s\n' \
+                "$status" "$validator_status" "$validator_output_hex" "$output"
+            return 1
+        }
     elapsed="$(<"$elapsed_marker")"
     "$PYTHON" -c 'import sys; elapsed=float(sys.argv[1]); assert 0.5 < elapsed < 4' "$elapsed" \
         || { printf 'inherited_alarm_timer_elapsed_invalid=%s\n' "$elapsed"; return 1; }
