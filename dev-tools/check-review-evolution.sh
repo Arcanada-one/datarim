@@ -380,6 +380,7 @@ validate_no_canon_decision() {
     local decision_file="${tmp_dir}/no-canon-decision.json"
     local payload_file="${tmp_dir}/no-canon-decision-payload.json"
     local declared_digest computed_digest signature key_id public_key registry_match_count
+    local canonical_decision_payload
     if ! is_safe_relative_path "$evidence_path" \
         || ! git_blob_to_file "$bound_head" "$evidence_path" "$decision_file"; then
         return 1
@@ -390,8 +391,9 @@ validate_no_canon_decision() {
       (keys | sort) == ([
         "algorithm", "approved", "approved_at", "authority_id", "authority_role",
         "decision", "decision_evidence_ref", "delivery_receipt_id", "finding_evidence_ref",
-        "key_id", "originating_review_digest", "originating_review_id", "payload_digest",
-        "requirement_id", "reviewer", "schema_version", "signature", "task_id"
+        "key_id", "originating_review_digest", "originating_review_id",
+        "originating_review_observed_at", "payload_digest", "requirement_id", "reviewer",
+        "schema_version", "signature", "task_id"
       ] | sort) and
       .schema_version == 1 and .decision == "NO_CANON_CHANGE" and .approved == true and
       (.payload_digest | type == "string" and test("^sha256:[0-9a-f]{64}$")) and
@@ -404,6 +406,9 @@ validate_no_canon_decision() {
     [[ "$(jq_raw '.originating_review_id' "$decision_file")" == "$review_id" ]] || return 1
     [[ "$(jq_raw '.originating_review_digest' "$decision_file")" == "$signed_review_digest" ]] \
         || return 1
+    [[ "$(jq_raw '.originating_review_observed_at' "$decision_file")" \
+        == "$signed_review_observed_at" ]] || return 1
+    [[ "$signed_review_digest_valid" == true ]] || return 1
     [[ "$(jq_raw '.reviewer' "$decision_file")" == "$signed_review_reviewer" ]] || return 1
     [[ "$approval_reviewer" == "$signed_review_reviewer" ]] || return 1
     [[ "$(jq_raw '.approved_at' "$decision_file")" == "$approval_time" ]] || return 1
@@ -442,8 +447,10 @@ validate_no_canon_decision() {
         '."x-datarim-signature-contract".key_resolution.bundled_registry.entries[]
           | select(.key_id == $key) | .public_key' "$trust_registry_snapshot" 2>/dev/null || true)"
 
-    "$jq_bin" -cS 'del(.payload_digest, .signature)' "$decision_file" >"$payload_file" \
-        2>/dev/null || return 1
+    canonical_decision_payload="$("$jq_bin" -cS 'del(.payload_digest, .signature)' \
+        "$decision_file" 2>/dev/null || true)"
+    [[ -n "$canonical_decision_payload" ]] || return 1
+    /usr/bin/printf '%s' "$canonical_decision_payload" >"$payload_file"
     declared_digest="$(jq_raw '.payload_digest' "$decision_file")"
     computed_digest="$(sha256_file "$payload_file")"
     [[ "$declared_digest" == "$computed_digest" ]] || return 1
@@ -543,10 +550,14 @@ validate_canonical_evolution() {
         add_finding "canonical_change_invalid_recorded_at:${classification_value}"
     fi
     if [[ "$revision_valid" == true && "$recorded_valid" == true ]]; then
-        commit_after_review="$(run_bound_git log -1 --format=%H --since="$signed_review_observed_at" \
-            "$artifact_revision" 2>/dev/null || true)"
-        if [[ "$commit_after_review" != "$artifact_revision" ]]; then
-            add_finding "canonical_change_post_hoc:${classification_value}"
+        if [[ "$signed_review_digest_valid" == true ]]; then
+            commit_after_review="$(run_bound_git log -1 --format=%H \
+                --since="$signed_review_observed_at" "$artifact_revision" 2>/dev/null || true)"
+            if [[ "$commit_after_review" != "$artifact_revision" ]]; then
+                add_finding "canonical_change_post_hoc:${classification_value}"
+            fi
+        else
+            add_finding "canonical_change_review_time_not_authenticated:${classification_value}"
         fi
         commit_before_record="$(run_bound_git log -1 --format=%H --until="$recorded_at" \
             "$artifact_revision" 2>/dev/null || true)"
@@ -587,6 +598,7 @@ signed_review_observed_at=''
 signed_authority_id=''
 signed_authority_role=''
 signed_authority_key_id=''
+signed_review_digest_valid=false
 if [[ "$authoritative_review_count" == 1 ]]; then
     # shellcheck disable=SC2016  # jq variables are intentionally quoted literally.
     authoritative_review_query='[.originating_review_inventory[]
@@ -615,6 +627,34 @@ if [[ "$authoritative_review_count" == 1 ]]; then
         --arg requirement "$review_requirement" \
         "${authoritative_review_query}.authority_approval.key_id // \"\"" \
         "$review_json" 2>/dev/null || true)"
+    # Recompute the A2-signed primary record commitment before trusting observed_at.
+    # shellcheck disable=SC2016  # jq variables are intentionally quoted literally.
+    canonical_review_payload="$("$jq_bin" -cS --arg review "$review_id" \
+        --arg requirement "$review_requirement" '
+          [.originating_review_inventory[]
+            | select(.review_id == $review and .requirement_id == $requirement)][0]
+          | {
+              review_id: .review_id,
+              requirement_id: .requirement_id,
+              delivery_receipt_id: .delivery_receipt_id,
+              reviewer: .reviewer,
+              review_ref: .review_ref,
+              state: .state,
+              observed_at: .observed_at,
+              evidence_ref: .evidence_ref
+            }
+        ' "$review_json" 2>/dev/null || true)"
+    if [[ -n "$canonical_review_payload" ]]; then
+        /usr/bin/printf '%s' "$canonical_review_payload" >"${tmp_dir}/originating-review-payload.json"
+        if [[ "$signed_review_digest" == "$(sha256_file \
+            "${tmp_dir}/originating-review-payload.json")" ]]; then
+            signed_review_digest_valid=true
+        else
+            add_finding "originating_review_digest_mismatch:${review_id}"
+        fi
+    else
+        add_finding "originating_review_digest_mismatch:${review_id}"
+    fi
 else
     add_finding "originating_review_binding_invalid:${review_id}:${review_requirement}"
 fi

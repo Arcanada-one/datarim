@@ -84,20 +84,24 @@ write_signed_no_canon_decision() {
     local reviewer='independent-reviewer'
     local approved_at='2026-01-03T15:15:00Z'
     local finding_evidence_ref='artifacts/reviews/review-0001-approval.json'
+    local originating_review_digest="${DECISION_ORIGIN_DIGEST:-sha256:89ad08914c519c6154801fd4a70752e6edbd35303acc0555b42bd3c36b629235}"
+    local originating_review_observed_at="${DECISION_ORIGIN_OBSERVED_AT:-2026-01-03T14:55:00Z}"
     local decision_path='artifacts/reviews/no-canon-change-decision.json'
     local canonical_payload="${BATS_TEST_TMPDIR}/no-canon-payload.json"
     local signature_file="${BATS_TEST_TMPDIR}/no-canon-signature.bin"
     local payload_digest signature
     jq -n --arg task "$TASK_ID" --arg reviewer "$reviewer" \
         --arg approved_at "$approved_at" --arg evidence_ref "$finding_evidence_ref" \
-        --arg decision_ref "$decision_path" '{
+        --arg decision_ref "$decision_path" --arg origin_digest "$originating_review_digest" \
+        --arg origin_observed_at "$originating_review_observed_at" '{
           schema_version: 1,
           decision: "NO_CANON_CHANGE",
           task_id: $task,
           requirement_id: "req-0001",
           delivery_receipt_id: "receipt-0001",
           originating_review_id: "review-0001",
-          originating_review_digest: "sha256:89ad08914c519c6154801fd4a70752e6edbd35303acc0555b42bd3c36b629235",
+          originating_review_digest: $origin_digest,
+          originating_review_observed_at: $origin_observed_at,
           reviewer: $reviewer,
           approved: true,
           approved_at: $approved_at,
@@ -108,7 +112,7 @@ write_signed_no_canon_decision() {
           algorithm: "ED25519",
           key_id: "key-operator-0001"
         }' >"${ROOT}/${decision_path}"
-    jq -cS . "${ROOT}/${decision_path}" >"$canonical_payload"
+    printf '%s' "$(jq -cS . "${ROOT}/${decision_path}")" >"$canonical_payload"
     payload_digest="sha256:$(openssl dgst -sha256 "$canonical_payload" | awk '{print $NF}')"
     openssl pkeyutl -sign -inkey "$DECISION_PRIVATE_KEY" -rawin \
         -in "$canonical_payload" -out "$signature_file"
@@ -119,6 +123,21 @@ write_signed_no_canon_decision() {
     GIT_AUTHOR_DATE='2026-01-03T15:20:00Z' GIT_COMMITTER_DATE='2026-01-03T15:20:00Z' \
         git -C "$ROOT" commit -q -m 'signed no-canon decision'
     printf '%s\n' "$decision_path"
+}
+
+reseal_primary_review_digest() {
+    local canonical_review_payload review_digest
+    canonical_review_payload="$(yq -o=json '.originating_review_inventory[0]' "$REVIEW" \
+      | jq -cS '{review_id, requirement_id, delivery_receipt_id, reviewer, review_ref,
+          state, observed_at, evidence_ref}')"
+    review_digest="sha256:$(printf '%s' "$canonical_review_payload" | openssl dgst -sha256 \
+        | awk '{print $NF}')"
+    yq -i ".originating_review.review_digest = \"${review_digest}\" |
+      .originating_review.authority_approval.approved_digest = \"${review_digest}\" |
+      .originating_review_inventory[0].review_digest = \"${review_digest}\" |
+      .originating_review_inventory[0].authority_approval.approved_digest = \"${review_digest}\"" \
+        "$REVIEW"
+    printf '%s\n' "$review_digest"
 }
 
 run_validator() {
@@ -322,6 +341,55 @@ assert_not_met() {
     assert_not_met 'no_canon_change_decision_not_authenticated'
 }
 
+@test "NO_CANON_CHANGE rejects a backward-time inventory mutation preserving the signed envelope" {
+    write_signed_no_canon_decision >/dev/null
+    yq -i '.originating_review_inventory[0].observed_at = "2020-01-03T14:55:00Z" |
+      .classification = "NO_CANON_CHANGE" |
+      del(.canonical_change) |
+      .no_canon_change = {
+        "evidence": "artifacts/reviews/no-canon-change-decision.json",
+        "reviewer_approval": {
+          "reviewer": "independent-reviewer",
+          "approved": true,
+          "approved_at": "2026-01-03T15:15:00Z"
+        }
+      }' "$REVIEW"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'originating_review_digest_mismatch:review-0001'* ]] \
+        && [[ "$output" == *'no_canon_change_decision_not_authenticated'* ]]
+}
+
+@test "NO_CANON_CHANGE signed envelope pins the originating review observation time" {
+    local changed_review_digest
+    yq -i '.originating_review.observed_at = "2020-01-03T14:55:00Z" |
+      .originating_review_inventory[0].observed_at = "2020-01-03T14:55:00Z"' "$REVIEW"
+    changed_review_digest="$(reseal_primary_review_digest)"
+    DECISION_ORIGIN_DIGEST="$changed_review_digest" \
+      DECISION_ORIGIN_OBSERVED_AT='2026-01-03T14:55:00Z' \
+      write_signed_no_canon_decision >/dev/null
+    yq -i '.classification = "NO_CANON_CHANGE" |
+      del(.canonical_change) |
+      .no_canon_change = {
+        "evidence": "artifacts/reviews/no-canon-change-decision.json",
+        "reviewer_approval": {
+          "reviewer": "independent-reviewer",
+          "approved": true,
+          "approved_at": "2026-01-03T15:15:00Z"
+        }
+      }' "$REVIEW"
+    run_validator
+    assert_not_met 'no_canon_change_decision_not_authenticated'
+}
+
+@test "canonical evolution rejects an originating review time with a stale declared digest" {
+    yq -i '.originating_review_inventory[0].observed_at = "2020-01-03T14:55:00Z"' "$REVIEW"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'originating_review_digest_mismatch:review-0001'* ]] \
+        && [[ "$output" == *'canonical_change_review_time_not_authenticated:ABSENT'* ]]
+}
+
 @test "forged authored delivery summary cannot substitute for the A2 delivery verdict" {
     yq -i '. = {
       "schema_version": 1,
@@ -472,6 +540,7 @@ assert_not_met() {
     yq -i '.canonical_change.recorded_at = "2026-01-03T15:30:00Z" |
       .originating_review.observed_at = "2026-01-03T15:20:00Z" |
       .originating_review_inventory[0].observed_at = "2026-01-03T15:20:00Z"' "$REVIEW"
+    reseal_primary_review_digest >/dev/null
     run_validator
     assert_not_met 'canonical_change_post_hoc:ABSENT'
 }
