@@ -206,8 +206,12 @@ UniqueKeyLoader.add_constructor(
 )
 
 
-def safe_list(entry, key):
-    value = entry.get(key) or []
+def safe_list(entry, key, required=False):
+    if required and key not in entry:
+        raise ValueError(f"missing {key}")
+    value = entry.get(key, [])
+    if value is None and not required:
+        value = []
     if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
         raise ValueError(f"malformed {key}")
     return value
@@ -227,13 +231,30 @@ except (OSError, TypeError, yaml.YAMLError) as exc:
     print(f"ERROR: invalid role registry YAML: {problem}", file=sys.stderr)
     sys.exit(3)
 role = sys.argv[2]
-for r in (doc.get("roles") or []):
+if not isinstance(doc, dict):
+    print("ERROR: invalid role registry shape: root must be a mapping", file=sys.stderr)
+    sys.exit(3)
+roles = doc.get("roles")
+if not isinstance(roles, list):
+    print("ERROR: invalid role registry shape: roles must be a list", file=sys.stderr)
+    sys.exit(3)
+for index, r in enumerate(roles):
+    if not isinstance(r, dict):
+        print(
+            f"ERROR: invalid role registry shape: roles[{index}] must be a mapping",
+            file=sys.stderr,
+        )
+        sys.exit(3)
     if r.get("id") == role:
         skill = r.get("starter_skill")
-        tools = safe_tokens(safe_list(r, "allowed_tools"), r"[A-Za-z][A-Za-z0-9_-]*", "allowed_tools")
-        paths = safe_tokens(safe_list(r, "allowed_paths"), r"[A-Za-z0-9_./*-]+", "allowed_paths")
-        forbidden = safe_tokens(safe_list(r, "forbidden_actions"), r"[a-z][a-z0-9-]*", "forbidden_actions")
-        domain_skills = safe_tokens(safe_list(r, "domain_skills"), r"skills/[a-z][a-z0-9-]*", "domain_skills")
+        try:
+            tools = safe_tokens(safe_list(r, "allowed_tools", required=True), r"[A-Za-z][A-Za-z0-9_-]*", "allowed_tools")
+            paths = safe_tokens(safe_list(r, "allowed_paths", required=True), r"[A-Za-z0-9_./*-]+", "allowed_paths")
+            forbidden = safe_tokens(safe_list(r, "forbidden_actions", required=True), r"[a-z][a-z0-9-]*", "forbidden_actions")
+            domain_skills = safe_tokens(safe_list(r, "domain_skills"), r"skills/[a-z][a-z0-9-]*", "domain_skills")
+        except ValueError as exc:
+            print(f"ERROR: invalid role registry shape: {exc}", file=sys.stderr)
+            sys.exit(3)
         agent = r.get("agent")
         if not isinstance(skill, str) or re.fullmatch(r"skills/[a-z0-9-]+/[a-z0-9-]+", skill) is None:
             sys.exit(3)   # malformed role entry → fail closed

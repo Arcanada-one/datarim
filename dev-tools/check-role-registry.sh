@@ -135,12 +135,18 @@ for r in roles:
         errors.append(f"role '{rid}': max_parallel {mp} > global_max_parallel {gmp}")
     aal = r.get("default_aal")
     if isinstance(aal, int) and aal >= 3:
-        forbidden = set(r.get("forbidden_actions") or [])
+        forbidden_value = r.get("forbidden_actions")
+        forbidden = (
+            set(forbidden_value)
+            if isinstance(forbidden_value, list)
+            and all(isinstance(item, str) for item in forbidden_value)
+            else set()
+        )
         missing = LAYER6_FLOOR - forbidden
         if missing:
             errors.append(f"role '{rid}': autonomous (default_aal={aal}) missing Layer-6 forbidden floor: {sorted(missing)}")
     skill = r.get("starter_skill")
-    if skill:
+    if isinstance(skill, str) and skill:
         skill_dir = os.path.join(root, skill)
         skill_md = os.path.join(skill_dir, "SKILL.md")
         if not os.path.isdir(skill_dir) or not os.path.isfile(skill_md):
@@ -170,11 +176,18 @@ for r in roles:
             if not isinstance(budget, int):
                 errors.append(f"role '{rid}': starter_skill '{skill}' SKILL.md frontmatter missing integer metadata.context_budget_tokens")
     agent = r.get("agent")
-    if agent:
+    if isinstance(agent, str) and agent:
         agent_path = os.path.join(root, agent)
         if not os.path.isfile(agent_path):
             errors.append(f"role '{rid}': agent '{agent}' does not resolve to an existing file")
-    for domain_skill in r.get("domain_skills") or []:
+    domain_skills = r.get("domain_skills")
+    domain_skills = (
+        domain_skills
+        if isinstance(domain_skills, list)
+        and all(isinstance(item, str) for item in domain_skills)
+        else []
+    )
+    for domain_skill in domain_skills:
         domain_skill_md = os.path.join(root, domain_skill, "SKILL.md")
         if not os.path.isfile(domain_skill_md):
             errors.append(f"role '{rid}': domain_skill '{domain_skill}' does not resolve to an existing skill")

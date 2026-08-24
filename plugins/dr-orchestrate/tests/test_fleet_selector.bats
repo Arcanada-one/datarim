@@ -116,3 +116,19 @@ _fake_bin() { printf '#!/usr/bin/env bash\nexit 0\n' > "$TMP_BIN/$1"; chmod +x "
         [[ "$output" == *"mapping keys must be scalar"* ]]
     done
 }
+
+@test "fleet_role_session_init rejects malformed registry shapes without traceback" {
+    declare -a payloads=(
+        '- scalar-root'
+        $'schema_version: 1\nroles:\n  - scalar-role'
+        $'schema_version: 1\nroles:\n  - id: designer\n    starter_skill: skills/fleet/l3-analyst\n    allowed_tools: Read'
+    )
+    for index in "${!payloads[@]}"; do
+        roles="$BATS_TEST_TMPDIR/malformed-$index.yaml"
+        printf '%s\n' "${payloads[$index]}" > "$roles"
+        run env DR_FLEET_ROLES="$roles" bash "$RESOLVER" fleet_role_session_init designer
+        [ "$status" -ne 0 ]
+        [[ "$output" != *"Traceback"* ]]
+        [[ "$output" == *"invalid role registry shape"* ]]
+    done
+}

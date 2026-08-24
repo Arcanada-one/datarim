@@ -156,7 +156,7 @@ session_spawn_interactive() {
         # The initial role projection may have just used the pane's 500 ms
         # security cooldown. Honour that boundary instead of bypassing it.
         sleep 0.6
-        _inject_role_context "$session" "$role"
+        _inject_role_context "$session" "$role" || return 1
       fi
       return 0
     fi
@@ -169,7 +169,12 @@ session_spawn_interactive() {
     # projection as a newly created session.
     if [ -n "$role" ]; then
       sleep 0.6
-      _inject_role_context "$session" "$role"
+      if ! _inject_role_context "$session" "$role"; then
+        # The old pane was already dead. Restore that fail-closed state rather
+        # than leave the replacement process running without a role.
+        tmux respawn-pane -k -t "$session" 'exit 1' 2>/dev/null || true
+        return 1
+      fi
     fi
     return
   fi
@@ -187,7 +192,12 @@ session_spawn_interactive() {
   # Plain `[ -n "$role" ] && ...` as the last statement would return 1 under
   # `set -e` when role is empty (the no-role path is valid) — use a full `if`.
   if [ -n "$role" ]; then
-    _inject_role_context "$session" "$role"
+    if ! _inject_role_context "$session" "$role"; then
+      # This session did not exist before this call; remove the unscoped
+      # process completely when its required role projection cannot be sent.
+      tmux kill-session -t "$session" 2>/dev/null || true
+      return 1
+    fi
   fi
 }
 
@@ -217,7 +227,12 @@ _session_spawn_with_context() {
   tmux respawn-pane -k -t "$session" "$barrier"
   birth="$(tmux display-message -p -t "$session" '#{pane_pid}')"
   bash "$DR_ORCH_DIR/scripts/context_window_setup.sh" bind-process "$instance" "$incarnation" "$birth"
-  if [ -n "$role" ]; then _inject_role_context "$session" "$role"; fi
+  if [ -n "$role" ]; then
+    if ! _inject_role_context "$session" "$role"; then
+      tmux kill-session -t "$session" 2>/dev/null || true
+      return 1
+    fi
+  fi
 }
 
 # _inject_role_context <session> <role> — fetch the complete role projection

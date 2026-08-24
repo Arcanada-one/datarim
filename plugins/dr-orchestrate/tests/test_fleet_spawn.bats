@@ -124,6 +124,37 @@ teardown() {
     echo "$output" | grep -q 'PRODUCT_CODE_ACCESS=read-only'
 }
 
+@test "TALO-0001: failed live role rebind returns nonzero and preserves prior scope" {
+    source "$DR_ORCH_DIR/scripts/tmux_manager.sh"
+    session_spawn_interactive "$SESSION" "bash --norc -i" designer
+    run session_spawn_interactive "$SESSION" "bash --norc -i" no-such-role
+    [ "$status" -ne 0 ]
+    tmux has-session -t "$SESSION"
+    run pane_capture_tail "$SESSION" 16
+    [ "$(grep -o 'AGENT=[^ ]*' <<<"$output" | tail -1)" = "AGENT=agents/designer.md" ]
+}
+
+@test "TALO-0001: failed initial role injection removes the unscoped session" {
+    source "$DR_ORCH_DIR/scripts/tmux_manager.sh"
+    run session_spawn_interactive "$SESSION" "bash --norc -i" no-such-role
+    [ "$status" -ne 0 ]
+    ! tmux has-session -t "$SESSION" 2>/dev/null
+}
+
+@test "TALO-0001: failed dead respawn role injection restores a dead session" {
+    source "$DR_ORCH_DIR/scripts/tmux_manager.sh"
+    session_spawn_interactive "$SESSION" "bash --norc -i"
+    tmux send-keys -t "$SESSION" exit Enter
+    for _ in $(seq 1 20); do
+        [ "$(tmux display-message -p -t "$SESSION" '#{pane_dead}')" = "1" ] && break
+        sleep 0.1
+    done
+    run session_spawn_interactive "$SESSION" "bash --norc -i" no-such-role
+    [ "$status" -ne 0 ]
+    tmux has-session -t "$SESSION"
+    [ "$(tmux display-message -p -t "$SESSION" '#{pane_dead}')" = "1" ]
+}
+
 @test "wish-2: spawn without a role omits the injection (backward-compatible)" {
     source "$DR_ORCH_DIR/scripts/tmux_manager.sh"
     session_spawn_interactive "$SESSION" "bash --norc -i"

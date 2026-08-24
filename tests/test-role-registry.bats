@@ -315,6 +315,28 @@ PY
         && echo "$output" | grep -qF "mapping keys must be scalar"
 }
 
+@test "invalid forbidden_actions entries remain bounded schema failures" {
+    write_projected_role
+    python3 - "$TMP/projected.yaml" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+text = path.read_text(encoding="utf-8")
+text = text.replace(
+    "forbidden_actions: [prod-deploy, secret-rotation, secret-write]",
+    "forbidden_actions: [{}]",
+    1,
+)
+path.write_text(text, encoding="utf-8")
+PY
+    require_jsonschema
+    run "$VALIDATOR" --file "$TMP/projected.yaml" --root "$REPO"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" != *"Traceback"* ]] \
+        && echo "$output" | grep -qF "schema: {} is not of type 'string'"
+}
+
 @test "invalid non-string role IDs fail validation without a traceback" {
     write_projected_role
     python3 - "$TMP/projected.yaml" <<'PY'
