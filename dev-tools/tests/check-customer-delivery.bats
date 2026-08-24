@@ -395,13 +395,13 @@ finalizer = '''    if _active_process is not None:
         # Never publish an acceptance-shaped response while the registered
         # process-group owner remains unresolved. The outer bounded shell
         # reports an invalid response after this hard abort.
-        os._exit(2)  # SECURITY_RULE:terminal_cleanup_before_output
+        os._exit(PROCESS_CLEANUP_ABORT_STATUS)  # SECURITY_RULE:terminal_cleanup_before_output
     encoded = terminal_response_bytes(result)
 '''
 instrumented = f'''    if _active_process is not None:
         terminate_registered_process(_active_process)
     if _active_process is not None:
-        os._exit(2)
+        os._exit(PROCESS_CLEANUP_ABORT_STATUS)
     time.sleep(0)  # TEST_DEADLINE_STALL_MUTATION
     with open({marker!r}, "w", encoding="ascii") as handle:
         handle.write(str(time.monotonic() - _TEST_DEADLINE_STARTED))
@@ -756,7 +756,7 @@ assert_cleanup_wait_resolution() {
     local expected_attempts
     case "$mode" in
         retry) expected_attempts=2 ;;
-        exhausted) expected_attempts=3 ;;
+        exhausted|runtime) expected_attempts=3 ;;
         *) return 1 ;;
     esac
     build_test_framework "cleanup-wait-${mode}" || return 1
@@ -778,7 +778,7 @@ with open({marker!r}, "w", encoding="ascii") as handle:
     handle.write(f"{{supervisor.attempts}}:{{int(_active_process is None)}}:{{result}}")
 os._exit(0)
 '''
-elif mode == "exhausted":
+elif mode in {"exhausted", "runtime"}:
     wait_body = f'''        self.attempts += 1
         with open({marker!r}, "w", encoding="ascii") as handle:
             handle.write(str(self.attempts))
@@ -809,7 +809,21 @@ _active_process = RegisteredProcess(supervisor, -1)
 '''
 if source.count(anchor) != 1:
     raise SystemExit("CLEANUP_WAIT_TEST_SEAM_MISSING_OR_AMBIGUOUS")
-open(path, "w", encoding="utf-8").write(source.replace(anchor, injection + anchor, 1))
+source = source.replace(anchor, injection + anchor, 1)
+if mode in {"exhausted", "runtime"}:
+    darwin_guard = '''if [[ "$platform" == Darwin && ! -s "$validator_output" && "$validator_status" -ne 0 ]]; then
+'''
+    darwin_forced = '''if [[ true && ! -s "$validator_output" && "$validator_status" -ne 0 ]]; then
+'''
+    if source.count(darwin_guard) != 1:
+        raise SystemExit("CLEANUP_WAIT_DARWIN_MAPPING_SEAM_MISSING_OR_AMBIGUOUS")
+    source = source.replace(darwin_guard, darwin_forced, 1)
+if mode == "runtime":
+    abort_status = "PROCESS_CLEANUP_ABORT_STATUS = 123\n"
+    if source.count(abort_status) != 1:
+        raise SystemExit("CLEANUP_WAIT_RUNTIME_STATUS_SEAM_MISSING_OR_AMBIGUOUS")
+    source = source.replace(abort_status, "PROCESS_CLEANUP_ABORT_STATUS = 2\n", 1)
+open(path, "w", encoding="utf-8").write(source)
 PY
     run_test_framework_json
     if [[ "$mode" == retry ]]; then
@@ -818,12 +832,18 @@ PY
                 "$(<"$marker")" "$status" "$output"
             return 1
         }
-    else
+    elif [[ "$mode" == exhausted ]]; then
         [ "$(<"$marker")" = "$expected_attempts" ] \
             && [ "$status" -eq 2 ] \
             && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["invalid_validator_response"]' "$output" \
             && [[ "$output" != *cleanup_wait_fixture* ]] \
             || { printf 'cleanup_wait_exhaustion_failed=marker=%s status=%s output=%s\n' \
+                "$(<"$marker")" "$status" "$output"; return 1; }
+    else
+        [ "$(<"$marker")" = "$expected_attempts" ] \
+            && [ "$status" -eq 2 ] \
+            && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_runtime"]' "$output" \
+            || { printf 'cleanup_wait_runtime_mapping_failed=marker=%s status=%s output=%s\n' \
                 "$(<"$marker")" "$status" "$output"; return 1; }
     fi
 }
@@ -3739,6 +3759,7 @@ PY
     done
     assert_cleanup_wait_resolution retry || return 1
     assert_cleanup_wait_resolution exhausted || return 1
+    assert_cleanup_wait_resolution runtime || return 1
 }
 
 @test "non-Python executable cannot satisfy the interpreter pin" {
