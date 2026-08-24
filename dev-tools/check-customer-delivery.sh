@@ -1299,6 +1299,9 @@ def run_bounded_process(arguments, stdout_limit=VALIDATION_MAX_STDOUT_BYTES,
             release_completed_process(process)
 
 
+signal.signal(
+    signal.SIGCHLD, signal.SIG_DFL
+)  # SECURITY_RULE:validation_sigchld_reaping
 signal.signal(signal.SIGALRM, validation_alarm_handler)
 signal.setitimer(signal.ITIMER_REAL, VALIDATION_TOTAL_TIMEOUT_SECONDS)
 

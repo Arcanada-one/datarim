@@ -1091,6 +1091,11 @@ run_process_lifecycle_mutant() {
             mutant='        and True  # MUTATED:durable_process_group_owner'
             expected_fragment='reused_pid_group_signalled='
             ;;
+        ignored-sigchld)
+            guard=$'signal.signal(\n    signal.SIGCHLD, signal.SIG_DFL\n)  # SECURITY_RULE:validation_sigchld_reaping'
+            mutant=$'signal.signal(\n    signal.SIGCHLD, signal.SIG_IGN\n)  # MUTATED:validation_sigchld_reaping'
+            expected_fragment='ignored_sigchld_group_signalled='
+            ;;
         *) return 1 ;;
     esac
     "$PYTHON" - "$functional_mutant" "$validator_mutant" "$REPO_ROOT" "$guard" "$mutant" <<'PY' || return 1
@@ -1122,6 +1127,53 @@ PY
     "$PYTHON" -c \
         'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
         "process_lifecycle_${mode}" "${filter}|${expected_fragment}"
+}
+
+run_sigchld_consumer_mutant() {
+    local callsite="$1"
+    local filter='OpenSSL deadline terminates stubborn descendant pipe holders'
+    local functional_mutant validator_mutant guard mutant
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        CUSTOMER_DELIVERY_SIGCHLD_CONSUMER_ONLY="$callsite" \
+        bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+    assert_baseline_green "$filter" || return 1
+
+    functional_mutant="${BATS_TEST_TMPDIR}/sigchld-${callsite}-mutant.bats"
+    validator_mutant="${BATS_TEST_TMPDIR}/check-customer-delivery-sigchld-${callsite}.sh"
+    cp "$FUNCTIONAL_TEST" "$functional_mutant" || return 1
+    cp "$SCRIPT" "$validator_mutant" || return 1
+    guard=$'signal.signal(\n    signal.SIGCHLD, signal.SIG_DFL\n)  # SECURITY_RULE:validation_sigchld_reaping'
+    mutant=$'signal.signal(\n    signal.SIGCHLD, signal.SIG_IGN\n)  # MUTATED:validation_sigchld_reaping'
+    "$PYTHON" - "$functional_mutant" "$validator_mutant" "$REPO_ROOT" "$guard" "$mutant" <<'PY' || return 1
+import sys
+
+test_path, validator_path, repo_root, guard, mutant = sys.argv[1:]
+test_source = open(test_path, encoding="utf-8").read()
+validator_source = open(validator_path, encoding="utf-8").read()
+root_old = '    REPO_ROOT="${BATS_TEST_DIRNAME}/../.."\n'
+root_new = f"    REPO_ROOT={repo_root!r}\n"
+if test_source.count(root_old) != 1 or validator_source.count(guard) != 1:
+    raise SystemExit("SIGCHLD_CONSUMER_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+open(test_path, "w", encoding="utf-8").write(test_source.replace(root_old, root_new, 1))
+open(validator_path, "w", encoding="utf-8").write(validator_source.replace(guard, mutant, 1))
+PY
+    chmod +x "$validator_mutant"
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$validator_mutant" \
+        CUSTOMER_DELIVERY_SIGCHLD_CONSUMER_ONLY="$callsite" \
+        bats --filter "^${filter}$" "$functional_mutant"
+    [ "$status" -ne 0 ] \
+        && [[ "$output" == *"ignored_sigchld_status_not_preserved=${callsite}"* ]] \
+        && [ "$(printf '%s\n' "$output" | awk -v target="not ok 1 ${filter}" '$0 == target { count++ } END { print count+0 }')" -eq 1 ] \
+        && [[ "$output" != *"setup_file failed"* ]] \
+        && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
+        || { printf 'sigchld_consumer_mutant_not_attributed=%s status=%s output=%s\n' \
+            "$callsite" "$status" "$output"; return 1; }
+    "$PYTHON" -c \
+        'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
+        "sigchld_consumer_${callsite}" "${filter}|ignored_sigchld_status_not_preserved=${callsite}"
 }
 
 run_cleanup_output_mutant() {
@@ -1687,6 +1739,10 @@ PY
 
 @test "cleanup signal-mask and output-before-reap mutants are independently killed" {
     run_process_lifecycle_mutant cleanup-alarm
+    run_process_lifecycle_mutant ignored-sigchld
+    run_sigchld_consumer_mutant silent
+    run_sigchld_consumer_mutant bounded
+    run_sigchld_consumer_mutant source_history
     run_cleanup_output_mutant
     run_cleanup_abort_mapping_mutant
 }

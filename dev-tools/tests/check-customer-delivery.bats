@@ -276,6 +276,13 @@ run_test_framework_json() {
         "$TEST_SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
 }
 
+run_test_framework_json_ignored_sigchld() {
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        "$PYTHON" -c \
+        'import os,signal,sys; signal.signal(signal.SIGCHLD, signal.SIG_IGN); os.execve(sys.argv[1], sys.argv[1:], os.environ)' \
+        "$TEST_SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+}
+
 split_bounded_validator_json() {
     local raw="$1"
     VALIDATOR_JSON="${raw##*$'\n'}"
@@ -861,14 +868,87 @@ PY
     fi
 }
 
+assert_ignored_sigchld_consumer() {
+    local callsite="$1"
+    local marker="${BATS_TEST_TMPDIR}/ignored-sigchld-${callsite}.marker"
+    local expected_finding
+    build_test_framework "ignored-sigchld-${callsite}" || return 1
+    "$PYTHON" - "$TEST_SCRIPT" "$callsite" "$marker" <<'PY' || return 1
+import sys
+
+path, callsite, marker = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+seams = {
+    "silent": (
+        "def verify_ed25519(",
+        "\ndef approval_payload_digest(",
+        '''                    PINNED_OPENSSL,
+                    "pkeyutl",
+''',
+        '''                    "/bin/sh",
+                    "-c",
+                    "exit 37",
+''',
+    ),
+    "bounded": (
+        "def validate_crypto_verifier():\n",
+        "\ndef validate_trust_registry():\n",
+        '''[PINNED_OPENSSL, "version"]''',
+        '''["/bin/sh", "-c", "printf 'OpenSSL 3.0.0 fixture\\n'; exit 37"]''',
+    ),
+    "source_history": (
+        "    def run_git(arguments, *, input_bytes=None,",
+        "\n    def trusted_system_path(",
+        "                    [*git_prefix, *arguments],\n",
+        '''                    ["/bin/sh", "-c", "printf 'git version 2.39.0\\n'; exit 37"],
+''',
+    ),
+}
+if callsite not in seams:
+    raise SystemExit("IGNORED_SIGCHLD_CALLSITE_INVALID")
+start_token, end_token, guard, mutant = seams[callsite]
+start = source.index(start_token)
+end = source.index(end_token, start)
+function_source = source[start:end]
+status_guard = "    result = int(match.group(1))\n"
+status_marker = f'''    result = int(match.group(1))
+    if result == 37:
+        with open({marker!r}, "w", encoding="ascii") as handle:
+            handle.write({callsite!r})
+'''
+if function_source.count(guard) != 1 or source.count(status_guard) != 1:
+    raise SystemExit("IGNORED_SIGCHLD_TEST_SEAM_MISSING_OR_AMBIGUOUS")
+function_source = function_source.replace(guard, mutant, 1)
+source = source[:start] + function_source + source[end:]
+source = source.replace(status_guard, status_marker, 1)
+open(path, "w", encoding="utf-8").write(source)
+PY
+    case "$callsite" in
+        silent) expected_finding='trust_registry_signature_invalid' ;;
+        bounded) expected_finding='untrusted_crypto_dependency:openssl3' ;;
+        source_history) expected_finding='source_history_untrusted_git' ;;
+        *) return 1 ;;
+    esac
+    run_test_framework_json_ignored_sigchld
+    [ -s "$marker" ] \
+        && [ "$(<"$marker")" = "$callsite" ] \
+        && { [ "$status" -eq 1 ] || [ "$status" -eq 2 ]; } \
+        && "$PYTHON" -c 'import json,sys; expected=sys.argv[2]; d=json.loads(sys.argv[1]); assert expected in d["findings"]; assert not any("resource_limit:deadline" in item for item in d["findings"])' "$output" "$expected_finding" \
+        || { printf 'ignored_sigchld_status_not_preserved=%s status=%s output=%s\n' \
+            "$callsite" "$status" "$output"; return 1; }
+}
+
 assert_process_lifecycle_probe() {
     local mode="$1"
     local marker="${BATS_TEST_TMPDIR}/process-lifecycle-${mode}.marker"
     build_test_framework "process-lifecycle-${mode}" || return 1
     run "$PYTHON" - "$TEST_SCRIPT" "$mode" "$marker" <<'PY'
 import ast
+import json
 import os
 import pathlib
+import re
+import selectors
 import signal
 import subprocess
 import sys
@@ -886,8 +966,18 @@ function_names = {
     "close_process_streams",
     "process_group_is_owned",
     "release_active_process",
+    "remaining_validation_time",
+    "read_process_status",
+    "start_registered_process",
     "terminate_process_group",
     "terminate_registered_process",
+    "wait_process_status",
+}
+assignment_names = {
+    "PROCESS_CLEANUP_ABORT_STATUS",
+    "PROCESS_CLEANUP_WAIT_ATTEMPTS",
+    "PROCESS_CLEANUP_WAIT_SECONDS",
+    "SUPERVISOR_PROGRAM",
 }
 selected = [
     node for node in tree.body
@@ -895,19 +985,126 @@ selected = [
         isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
         and node.name in function_names
     ) or (isinstance(node, ast.ClassDef) and node.name == "RegisteredProcess")
+    or (
+        isinstance(node, ast.Assign)
+        and any(
+            isinstance(target, ast.Name) and target.id in assignment_names
+            for target in node.targets
+        )
+    )
 ]
 namespace = {
+    "json": json,
     "os": os,
+    "re": re,
+    "selectors": selectors,
     "signal": signal,
     "subprocess": subprocess,
+    "sys": sys,
     "time": time,
     "PROCESS_CLEANUP_WAIT_ATTEMPTS": 3,
     "PROCESS_CLEANUP_WAIT_SECONDS": 0.4,
+    "VALIDATION_DEADLINE": time.monotonic() + 10,
     "_active_process": None,
 }
 exec(compile(ast.Module(body=selected, type_ignores=[]), script_path, "exec"), namespace)
+normalization_start = validator_source.index(
+    "signal.signal(\n    signal.SIGCHLD, signal.SIG_"
+)
+normalization_end = validator_source.index(
+    "\nsignal.signal(signal.SIGALRM, validation_alarm_handler)",
+    normalization_start,
+)
+normalization_code = compile(
+    validator_source[normalization_start:normalization_end] + "\n",
+    script_path,
+    "exec",
+)
 
-if mode == "reused-pid":
+if mode == "ignored-sigchld":
+    original_sigchld = signal.getsignal(signal.SIGCHLD)
+    callsites = (
+        ("silent", ["/bin/true"], {
+            "stdin": subprocess.DEVNULL,
+            "stdout": subprocess.DEVNULL,
+            "stderr": subprocess.DEVNULL,
+        }),
+        ("bounded", ["/bin/sh", "-c", "printf bounded"], {
+            "stdin": subprocess.DEVNULL,
+            "stdout": subprocess.PIPE,
+            "stderr": subprocess.PIPE,
+        }),
+        ("source_history", ["/usr/bin/git", "--version"], {
+            "stdin": subprocess.DEVNULL,
+            "stdout": subprocess.PIPE,
+            "stderr": subprocess.PIPE,
+        }),
+    )
+    completed = []
+    try:
+        for callsite, arguments, options in callsites:
+            signal.signal(signal.SIGCHLD, signal.SIG_IGN)
+            exec(normalization_code, namespace)
+            process = namespace["start_registered_process"](
+                arguments, start_new_session=True, **options
+            )
+            if signal.getsignal(signal.SIGCHLD) != signal.SIG_DFL:
+                os.killpg(process.pid, signal.SIGKILL)
+                deadline = time.monotonic() + 1
+                while True:
+                    try:
+                        os.kill(process.pid, 0)
+                    except ProcessLookupError:
+                        break
+                    if time.monotonic() >= deadline:
+                        raise SystemExit(f"ignored_sigchld_autoreap_missing={callsite}")
+                    time.sleep(0.01)
+                events = []
+                real_killpg = os.killpg
+                try:
+                    os.killpg = lambda pid, sig: events.append((pid, sig))
+                    namespace["terminate_registered_process"](process)
+                finally:
+                    os.killpg = real_killpg
+                if events:
+                    raise SystemExit(
+                        f"ignored_sigchld_group_signalled={callsite}:{events!r}"
+                    )
+                raise SystemExit(f"ignored_sigchld_not_normalized={callsite}")
+            namespace["wait_process_status"](
+                process, deadline=time.monotonic() + 2
+            )
+            os.kill(process.pid, signal.SIGKILL)
+            time.sleep(0.02)
+            try:
+                os.kill(process.pid, 0)
+            except ProcessLookupError:
+                raise SystemExit(f"ignored_sigchld_owner_reaped={callsite}")
+            namespace["terminate_registered_process"](process)
+            if namespace["_active_process"] is not None:
+                raise SystemExit(f"ignored_sigchld_owner_retained={callsite}")
+            if signal.getsignal(signal.SIGCHLD) != signal.SIG_DFL:
+                raise SystemExit(f"ignored_sigchld_not_retained={callsite}")
+            completed.append(callsite)
+    finally:
+        active = namespace.get("_active_process")
+        if active is not None:
+            try:
+                os.killpg(active.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            try:
+                active.supervisor.wait(timeout=1)
+            except (ChildProcessError, subprocess.TimeoutExpired):
+                pass
+            namespace["_active_process"] = None
+        signal.signal(signal.SIGCHLD, original_sigchld)
+    if completed != ["silent", "bounded", "source_history"]:
+        raise SystemExit(f"ignored_sigchld_callsite_coverage={completed!r}")
+    pathlib.Path(marker_path).write_text(
+        "ignored-sigchld-owner-pinned-and-normalized\n", encoding="ascii"
+    )
+elif mode == "reused-pid":
     events = []
 
     class ReapedSupervisor:
@@ -3662,6 +3859,7 @@ PY
     local lifecycle_only="${CUSTOMER_DELIVERY_LIFECYCLE_ONLY:-}"
     local spawn_failure_only="${CUSTOMER_DELIVERY_SPAWN_FAILURE_ONLY:-}"
     local cleanup_wait_only="${CUSTOMER_DELIVERY_CLEANUP_WAIT_ONLY:-}"
+    local sigchld_consumer_only="${CUSTOMER_DELIVERY_SIGCHLD_CONSUMER_ONLY:-}"
     local elapsed_marker="${BATS_TEST_TMPDIR}/stubborn-crypto.elapsed"
     rm -f -- "$pid_file" || return 1
     assert_bounded_validator_diagnostic_grammar || return 1
@@ -3678,9 +3876,13 @@ PY
         assert_cleanup_wait_resolution "$cleanup_wait_only" || return 1
         return 0
     fi
+    if [[ -n "$sigchld_consumer_only" ]]; then
+        assert_ignored_sigchld_consumer "$sigchld_consumer_only" || return 1
+        return 0
+    fi
     if [[ -n "$lifecycle_only" ]]; then
         case "$lifecycle_only" in
-            cleanup-alarm|reused-pid)
+            cleanup-alarm|reused-pid|ignored-sigchld)
                 assert_process_lifecycle_probe "$lifecycle_only" || return 1
                 ;;
             *) return 1 ;;
@@ -3767,6 +3969,10 @@ PY
     fi
     assert_process_lifecycle_probe cleanup-alarm || return 1
     assert_process_lifecycle_probe reused-pid || return 1
+    assert_process_lifecycle_probe ignored-sigchld || return 1
+    for callsite in silent bounded source_history; do
+        assert_ignored_sigchld_consumer "$callsite" || return 1
+    done
     for callsite in silent bounded source_history; do
         assert_spawn_failure_consumer "$callsite" || return 1
     done
