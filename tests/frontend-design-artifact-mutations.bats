@@ -398,3 +398,11 @@ with path.open("ab") as handle:
 PY
     assert_evaluator_load_red 'maximum byte size 1048576'
 }
+
+@test "M37: Python object tags never construct an object" {
+    local sentinel="$MUTANT/object-construction-sentinel"
+    append_text "$MUTANT/tests/fixtures/frontend-design-scenarios.yaml" \
+        "object_payload: !!python/object/apply:os.system ['touch $sentinel']"
+    assert_evaluator_load_red 'could not determine a constructor for the tag'
+    [ ! -e "$sentinel" ]
+}
