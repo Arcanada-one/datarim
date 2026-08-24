@@ -133,6 +133,25 @@ raise SystemExit(1 if findings else 0)
 PY
 }
 
+run_talo_0001_source_profile() {
+    local profile_insights="$1"
+    run python3 - "$SCRIPT" "$profile_insights" <<'PY'
+import runpy
+import sys
+
+namespace = runpy.run_path(sys.argv[1])
+with open(sys.argv[2], encoding="utf-8") as handle:
+    insights = handle.read()
+findings = []
+namespace["validate_source_register_profile"](
+    insights, "TALO-0001", findings
+)
+for finding in findings:
+    print(f"finding={finding}")
+raise SystemExit(1 if findings else 0)
+PY
+}
+
 assert_not_met() {
     local expected="$1"
     [ "$status" -eq 1 ] \
@@ -234,6 +253,16 @@ PY
     run_talo_0001_profile "$mutant"
     [ "$status" -eq 1 ] \
         && [[ "$output" == *'finding=item_table_digest_authority_mismatch'* ]]
+}
+
+@test "TALO-0001 profile rejects a coupled S20 applicability decision reversal" {
+    local mutant_insights="${ROOT}/real-mutant-insights.md"
+    cp "$REAL_INSIGHTS" "$mutant_insights"
+    sed -i 's/Repeatable lab audits, assertions, budgets and regression history | \*\*Selected:\*\* multiple repeatable lab runs with stored reports and explicit budgets\. \*\*Rejected:\*\* a single volatile Lighthouse score\./Volatile single-run score comparison | **Selected:** a single volatile Lighthouse score. **Rejected:** multiple repeatable lab runs with stored reports and explicit budgets./' \
+        "$mutant_insights"
+    run_talo_0001_source_profile "$mutant_insights"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'finding=source_register_authority_mismatch:S20'* ]]
 }
 
 @test "TALO-0001 profile rejects extra and duplicate review identities" {

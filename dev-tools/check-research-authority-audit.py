@@ -25,6 +25,11 @@ INLINE_SOURCE_HEADING = re.compile(
 )
 CYRILLIC = re.compile(r"[\u0400-\u04ff]")
 TASK_REF = re.compile(r"TALO-[0-9]{4}")
+SOURCE_REGISTER_ID = re.compile(r"^S[0-9]{2}$")
+SOURCE_REGISTER_SELECTION = re.compile(
+    r"^\*\*(Selected(?: as a pattern)?):\*\*\s*(.*?)\s+"
+    r"\*\*Rejected:\*\*\s*(.*?)$"
+)
 COMMENT_ALGORITHM = "github-json-body-utf8-no-extra-lf/1"
 ITEM_ALGORITHM = "cells-trimmed-unit-separator-rows-lf-no-final-lf/1"
 MAX_EXTERNAL_SOURCE_BYTES = 16 * 1024 * 1024
@@ -70,6 +75,37 @@ CLOSED_AUDIT_PROFILES: dict[str, dict[str, Any]] = {
         "item_table_sha256": (
             "13abf81790ae427748637ecf6cdff2aa8cb7d64b1ccc35c431c318af6374d034"
         ),
+        "source_register_digests": {
+            "S01": "6fcb6a228f5439d747490bd02d779d3ad385384c25115b6b5d037d5b5261d78c",
+            "S02": "aea2942936a5ed78d7a96437d91aa033b2bb0b5f0aa5632befcefdd161d2a999",
+            "S03": "b2605d846272a09b937dc00adbefb79268ff466726d67132b6aed55a569eb411",
+            "S04": "13600c7f95f2a9a638e4e448dc65e4da435378c22af4a6eea4db887edee5ca72",
+            "S05": "cd6eda8a01f312391d6ded89632c6fe03e8cda1068d314dfb3bd3dcb9832b993",
+            "S06": "c73eb9beb7cb093007af20d799f1932b69778b077fa05ed9913c7f7f264b6079",
+            "S07": "82f3f476ce16d76cb9c0e3477e476ff891ab9d6125161625ac4857e2dc53e3ce",
+            "S08": "b8265c1e7c5ce35327f8823d54e4d51747f2ba3ef800634a23f9cdd9551c616d",
+            "S09": "a35d95ae73af24292f95f3a806ea3df89dd2efe2a130b78c6a42c10699a532c5",
+            "S10": "0cff5cddbbf7715064222523d5e357547800be295ff295006d67f682e6b2d032",
+            "S11": "beb6d845cff4840f9fbe08a98e95741877a843d151e443c553309849bee04602",
+            "S12": "6170a4d18ff22773e5559b46706a8f145e1edbe12bc1911f484aeacddaeb2f67",
+            "S13": "bf76785abda133345fe625e159e2f5c4cb1bf029b4d9cdc12272d32be08d89ee",
+            "S14": "59ef417a0ba5296a0cba849788d0027e3c276383e6c7b92dcecc467e28714b88",
+            "S15": "9df344e0678822e3ed01ff4e0372aeb4ecfd27ac40ac12eacdb8af8261bbde7f",
+            "S16": "751c5a211b139ac6460bbd8c6b268e57cc960ee261d6966e635c669f3b08dc7b",
+            "S17": "31ddac4fa14b035efc33b33ac308576be012dd66692a6f5602fc8fe747af1312",
+            "S18": "6e6ea452364f690f380a822b2e4a94b8804e9d5f73ea4b5e1ae33b3b7a34afc2",
+            "S19": "2c00379d93e2b1ccdd8dbe21fa2e6039aa659d229663b17a1668c373bea4f1f2",
+            "S20": "26313280a411d0ce78bc79af5baf78a542d0936943f1cd50396150b36a3e25d8",
+            "S21": "739903f7488bf6228a2a8582b1f434d9bcfe720971abf01bf8d6a1b69a9c30bb",
+            "S22": "c997c7f23503de62a1744ef1b63dedb35e0e8f2c7640afefd09b2b51a83cd850",
+            "S23": "d472b9fd31de62d5bf15d43bdda3b6ca4662fc1087d5b1535a90249107c55819",
+            "S24": "968a76d2aa12aa1dac57d4a552a2a1a581415687a9d4be0b6aab0d17dfbbd9c2",
+            "S25": "2940002e992b0e3be01d8315099174afc0b9eac023faaf2b1a1be5775bac6625",
+            "S26": "efa3ec1af0d3547f7803505770ea998e7f95606ab9dd7dcce09d20a05d2eef4d",
+            "S27": "c6e8662fb75fa7c20471c9295e6f354de0f6e991ca580cd54d3f35c2b4036743",
+            "S28": "0ef909c7dc69dd891b81b5b1ac5cac9ca0a171d0f3d63b0431c2dc20bfe9477d",
+            "S29": "461cf32f5bca6d9e3eb9f98d6b418d2d899d922e3d2f83056fafcf0770c7ece9",
+        },
         "candidates": {
             "tal-role-design-lead@r4": "tal-role-design-lead",
             "tal-role-knowledge-curator@r2": "tal-role-knowledge-curator",
@@ -773,6 +809,64 @@ def authority_projection_digest(entry: dict[str, Any], category: str) -> str:
     return hashlib.sha256(canonical).hexdigest()
 
 
+def source_register_entries(insights: str, findings: list[str]) -> list[dict[str, str]]:
+    entries: list[dict[str, str]] = []
+    for line in insights.splitlines():
+        if re.match(r"^\|\s*S[0-9]{2}\s*\|", line) is None:
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        source_id = cells[0] if cells else "unknown"
+        if len(cells) != 4 or SOURCE_REGISTER_ID.fullmatch(source_id) is None:
+            findings.append(f"source_register_row_invalid:{source_id}")
+            continue
+        selection = SOURCE_REGISTER_SELECTION.fullmatch(cells[3])
+        if selection is None:
+            findings.append(f"source_register_selection_invalid:{source_id}")
+            continue
+        entries.append(
+            {
+                "id": source_id,
+                "authority_url": cells[1],
+                "applicability": cells[2],
+                "selected_label": selection.group(1),
+                "selected": selection.group(2),
+                "rejected": selection.group(3),
+            }
+        )
+    return entries
+
+
+def source_register_entry_digest(entry: dict[str, str]) -> str:
+    canonical = json.dumps(
+        entry, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def validate_source_register_profile(
+    insights: str, expected_task_id: str, findings: list[str]
+) -> None:
+    profile = CLOSED_AUDIT_PROFILES.get(expected_task_id)
+    if profile is None:
+        findings.append(f"expected_task_profile_missing:{expected_task_id}")
+        return
+    expected_digests = profile.get("source_register_digests")
+    if not isinstance(expected_digests, dict):
+        return
+    entries = source_register_entries(insights, findings)
+    report_closed_set(
+        "source_register",
+        [entry["id"] for entry in entries],
+        set(expected_digests),
+        findings,
+    )
+    for entry in entries:
+        source_id = entry["id"]
+        expected = expected_digests.get(source_id)
+        if expected is not None and source_register_entry_digest(entry) != expected:
+            findings.append(f"source_register_authority_mismatch:{source_id}")
+
+
 def validate_authority_digests(
     entries: list[Any],
     category: str,
@@ -1292,6 +1386,7 @@ def main() -> int:
     if manifest.get("declared_language") != "en":
         findings.append("declared_language_invalid")
     validate_closed_profile(manifest, args.expected_task_id, findings)
+    validate_source_register_profile(insights, args.expected_task_id, findings)
     snapshot = manifest.get("knowledge_snapshot")
     actual_head = git_value(knowledge_root, "rev-parse", "HEAD")
     if (
