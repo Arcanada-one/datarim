@@ -10,7 +10,7 @@ setup() {
 
 @test "shard runner child-status timeout output-count and alternate-syntax mutants are independently killed" {
     local kind filter mutant
-    for kind in child_status timeout_status output_count alternate_syntax; do
+    for kind in child_status timeout_status output_count alternate_syntax platform_policy count_process_group; do
         mutant="$BATS_TEST_TMPDIR/runner-$kind.py"
         cp "$SOURCE" "$mutant"
         if [ "$kind" = child_status ]; then
@@ -43,7 +43,7 @@ old = "validate_bats_execution(output, len(names))"
 assert source.count(old) == 1
 open(path, "w", encoding="utf-8").write(source.replace(old, "None"))
 PY
-        else
+        elif [ "$kind" = alternate_syntax ]; then
             filter='customer-delivery shard runner rejects alternate Bats syntax instead of dead-testing it'
             "$PYTHON" - "$mutant" <<'PY' || return 1
 import sys
@@ -52,6 +52,27 @@ source = open(path, encoding="utf-8").read()
 old = "if ALTERNATE_TEST_PATTERN.fullmatch(line):"
 assert source.count(old) == 1
 open(path, "w", encoding="utf-8").write(source.replace(old, "if False:"))
+PY
+        elif [ "$kind" = platform_policy ]; then
+            filter='customer-delivery registry rejects synchronized platform membership swaps'
+            "$PYTHON" - "$mutant" <<'PY' || return 1
+import sys
+path = sys.argv[1]
+source = open(path, encoding="utf-8").read()
+old = "expected_platforms = PLATFORM_SHARD_POLICY[suite]"
+new = "expected_platforms = {row.shard: row.platforms for row in suite_rows}"
+assert source.count(old) == 1
+open(path, "w", encoding="utf-8").write(source.replace(old, new))
+PY
+        else
+            filter='customer-delivery authoritative count timeout kills descendants and returns structured 124'
+            "$PYTHON" - "$mutant" <<'PY' || return 1
+import sys
+path = sys.argv[1]
+source = open(path, encoding="utf-8").read()
+old = "os.killpg(process.pid, signal.SIGKILL)"
+assert source.count(old) == 1
+open(path, "w", encoding="utf-8").write(source.replace(old, "process.kill()"))
 PY
         fi
         run bats --filter "^${filter}$" "$CONTRACT"

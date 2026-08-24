@@ -31,6 +31,16 @@ TAP_PLAN_PATTERN = re.compile(r"^1\.\.([0-9]+)\s*$", re.MULTILINE)
 # macOS child ceiling. These limits preserve margin while exact coverage
 # prevents omissions.
 MACOS_ORDINAL_TEST_LIMITS = {"functional": 10, "schema": 15}
+PLATFORM_SHARD_POLICY = {
+    "functional": {shard: ("linux", "macos") for shard in range(1, 37)},
+    "schema": {shard: ("linux", "macos") for shard in range(1, 13)},
+    "mutation": {
+        **{shard: ("linux",) for shard in range(1, 14)},
+        **{shard: ("linux", "macos") for shard in range(14, 20)},
+        **{shard: ("macos",) for shard in range(20, 27)},
+        **{shard: ("linux", "macos") for shard in range(27, 31)},
+    },
+}
 MACOS_RUNTIME_ISOLATED_TESTS = {
     "functional": (
         "signed review inventory rejects a duplicate review identity",
@@ -98,6 +108,29 @@ def validate_bats_execution(output: str, expected: int) -> None:
         raise ContractError(
             f"Bats execution inventory mismatch: expected {expected}, observed {observed}"
         )
+
+
+def run_bounded_process(
+    command: list[str], environment: dict[str, str], timeout_seconds: int
+) -> tuple[int, str]:
+    process = subprocess.Popen(
+        command,
+        env=environment,
+        start_new_session=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    try:
+        output, _ = process.communicate(timeout=timeout_seconds)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass
+        process.communicate()
+        raise
+    return process.returncode, output
 
 
 def extract_security_arms(path: Path) -> list[str]:
@@ -243,6 +276,18 @@ def validate_registry(rows: list[Row]) -> tuple[dict[str, list[str]], list[str]]
             for index in range(1, len(security_coverage)):
                 if security_coverage[index] != 1:
                     raise ContractError(f"registry coverage missing: mutation security {index}")
+        expected_platforms = PLATFORM_SHARD_POLICY[suite]
+        if set(expected_platforms) != shard_ids:
+            raise ContractError(f"registry platform policy mismatch: {suite} shard inventory")
+        for row in suite_rows:
+            expected = expected_platforms.get(row.shard)
+            if row.platforms != expected:
+                raise ContractError(
+                    "registry platform policy mismatch: "
+                    f"{suite} {row.shard} expected "
+                    f"{','.join(expected or ()) or 'undefined'}, observed "
+                    f"{','.join(row.platforms)}"
+                )
     return inventories, security_arms
 
 
@@ -370,17 +415,19 @@ def main() -> int:
         else:
             names = selected_names(row, inventories[row.suite])
         filter_pattern = "^(" + "|".join(ere_escape(name) for name in names) + ")$"
-        count_process = subprocess.run(
-            [bats, "--count", "--filter", filter_pattern, str(SUITE_PATHS[row.suite])],
-            env=environment,
-            text=True,
-            capture_output=True,
-            timeout=min(args.timeout_seconds, 10),
+        count_timeout = min(args.timeout_seconds, 10)
+        timeout_context = (
+            f"authoritative count exceeded {count_timeout}s: {args.suite} {args.shard}"
         )
-        if count_process.returncode != 0:
+        count_returncode, count_output = run_bounded_process(
+            [bats, "--count", "--filter", filter_pattern, str(SUITE_PATHS[row.suite])],
+            environment,
+            count_timeout,
+        )
+        if count_returncode != 0:
             raise ContractError("Bats authoritative count failed")
         try:
-            authoritative_count = int(count_process.stdout.strip())
+            authoritative_count = int(count_output.strip())
         except ValueError as error:
             raise ContractError("Bats authoritative count is invalid") from error
         if authoritative_count != len(names):
@@ -388,40 +435,27 @@ def main() -> int:
                 "Bats authoritative inventory mismatch: "
                 f"expected {len(names)}, observed {authoritative_count}"
             )
-        process = subprocess.Popen(
+        timeout_context = f"shard exceeded {args.timeout_seconds}s: {args.suite} {args.shard}"
+        returncode, output = run_bounded_process(
             [bats, "--filter", filter_pattern, str(SUITE_PATHS[row.suite])],
-            env=environment,
-            start_new_session=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
+            environment,
+            args.timeout_seconds,
         )
-        try:
-            output, _ = process.communicate(timeout=args.timeout_seconds)
-            print(output, end="")
-            returncode = process.returncode
-            if returncode == 0:
-                validate_bats_execution(output, len(names))
-            if returncode == 0 and args.result_file:
-                if not args.platform:
-                    raise ContractError("result-file requires platform")
-                args.result_file.parent.mkdir(parents=True, exist_ok=True)
-                args.result_file.write_text(
-                    json.dumps({"suite": row.suite, "shard": f"{row.shard}/{row.total}"}) + "\n",
-                    encoding="utf-8",
-                )
-            return returncode
-        except subprocess.TimeoutExpired:
-            try:
-                os.killpg(process.pid, signal.SIGKILL)
-            except (ProcessLookupError, PermissionError):
-                pass
-            process.communicate()
-            print(
-                f"ERROR: shard exceeded {args.timeout_seconds}s: {args.suite} {args.shard}",
-                file=sys.stderr,
+        print(output, end="")
+        if returncode == 0:
+            validate_bats_execution(output, len(names))
+        if returncode == 0 and args.result_file:
+            if not args.platform:
+                raise ContractError("result-file requires platform")
+            args.result_file.parent.mkdir(parents=True, exist_ok=True)
+            args.result_file.write_text(
+                json.dumps({"suite": row.suite, "shard": f"{row.shard}/{row.total}"}) + "\n",
+                encoding="utf-8",
             )
-            return 124
+        return returncode
+    except subprocess.TimeoutExpired:
+        print(f"ERROR: {timeout_context}", file=sys.stderr)
+        return 124
     except (ContractError, OSError, UnicodeError) as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 2

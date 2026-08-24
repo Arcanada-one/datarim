@@ -141,6 +141,31 @@ PY
         && [[ "$output" == *"registry coverage overlap"* ]]
 }
 
+@test "customer-delivery registry rejects synchronized platform membership swaps" {
+    local fixture="$BATS_TEST_TMPDIR/platform-policy.tsv"
+    "$PYTHON" - "$REGISTRY" "$fixture" <<'PY'
+from pathlib import Path
+import sys
+
+source, target = map(Path, sys.argv[1:])
+text = source.read_text(encoding="utf-8")
+old_schema = "schema 1 12 ordinal 1 15 linux,macos"
+new_schema = "schema 1 12 ordinal 1 15 macos"
+old_mutation = "mutation 20 30 ordinal 5 - macos"
+new_mutation = "mutation 20 30 ordinal 5 - linux,macos"
+if text.count(old_schema) != 1 or text.count(old_mutation) != 1:
+    raise SystemExit("platform policy mutation seam missing or ambiguous")
+target.write_text(
+    text.replace(old_schema, new_schema, 1).replace(old_mutation, new_mutation, 1),
+    encoding="utf-8",
+)
+PY
+    run "$PYTHON" "$RUNNER" --registry "$fixture" --check
+    [ "$status" -eq 2 ] \
+        && [[ "$output" == *"registry platform policy mismatch"* ]] \
+        || { printf 'platform_policy_status=%s output=%s\n' "$status" "$output"; return 1; }
+}
+
 @test "macOS functional shards reject more than 10 tests of runtime work" {
     local fixture="$BATS_TEST_TMPDIR/functional-runtime-budget.tsv"
     write_runtime_budget_fixture functional "$fixture"
@@ -319,6 +344,28 @@ PY
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" \
         --suite functional --shard 1/36 --bats-bin "$CHILD" --timeout-seconds 1
     [ "$status" -eq 124 ] || return 1
+    descendant="$(<"$pid_file")"
+    for attempt in {1..10}; do
+        kill -0 "$descendant" 2>/dev/null || return 0
+        sleep 0.05
+    done
+    kill -KILL "$descendant" 2>/dev/null || true
+    return 1
+}
+
+@test "customer-delivery authoritative count timeout kills descendants and returns structured 124" {
+    local pid_file="$BATS_TEST_TMPDIR/count-descendant.pid" descendant attempt started elapsed
+    make_bats_child "if [ \"\${1:-}\" = --count ]; then (trap '' TERM; sleep 30) & printf '%s\\n' \"\$!\" > '$pid_file'; wait; fi; exit 17"
+    started="$("$PYTHON" -c 'import time; print(time.monotonic())')" || return 1
+    run "$PYTHON" "$RUNNER" --registry "$REGISTRY" \
+        --suite functional --shard 1/36 --bats-bin "$CHILD" --timeout-seconds 1
+    elapsed="$("$PYTHON" -c 'import sys,time; print(time.monotonic()-float(sys.argv[1]))' "$started")" \
+        || return 1
+    [ "$status" -eq 124 ] \
+        && [[ "$output" == *"ERROR: authoritative count exceeded 1s: functional 1/36"* ]] \
+        && [[ "$output" != *"Traceback"* ]] \
+        && "$PYTHON" -c 'import sys; assert float(sys.argv[1]) < 4' "$elapsed" \
+        || { printf 'count_timeout_status=%s output=%s\n' "$status" "$output"; return 1; }
     descendant="$(<"$pid_file")"
     for attempt in {1..10}; do
         kill -0 "$descendant" 2>/dev/null || return 0

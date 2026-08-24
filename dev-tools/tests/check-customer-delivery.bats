@@ -283,8 +283,8 @@ split_bounded_validator_json() {
     if [[ "$raw" == *$'\n'* ]]; then
         VALIDATOR_DIAGNOSTIC="${raw%$'\n'*}"
         [[ "$VALIDATOR_DIAGNOSTIC" != *$'\n'* \
-            && "$VALIDATOR_DIAGNOSTIC" == *'check-customer-delivery.sh: line '* \
-            && "$VALIDATOR_DIAGNOSTIC" == *' Alarm clock: 14 '* ]] || return 1
+            && "$VALIDATOR_DIAGNOSTIC" =~ ^/[^[:space:][:cntrl:]]*/check-customer-delivery\.sh:\ line\ [1-9][0-9]*:\ [1-9][0-9]*\ Alarm\ clock:\ 14\ [^[:cntrl:]]+$ ]] \
+            || return 1
     fi
 }
 
@@ -2867,6 +2867,10 @@ PY
     split_bounded_validator_json \
         "/tmp/check-customer-delivery.sh: line 339: 123 Alarm clock: 14 command"$'\n'"$parsed_json" \
         && [ "$VALIDATOR_JSON" = "$parsed_json" ] || return 1
+    if split_bounded_validator_json \
+        "UNEXPECTED_PREFIX /tmp/check-customer-delivery.sh: line 339: 123 Alarm clock: 14 command"$'\n'"$parsed_json"; then
+        return 1
+    fi
     if split_bounded_validator_json "unexpected diagnostic"$'\n'"$parsed_json"; then
         return 1
     fi

@@ -1091,6 +1091,7 @@ PY
 
 @test "mutation kill attribution rejects setup syntax timeout and wrong-assertion failures" {
     local filter='focused contract' expected=42 deadline_mutant deadline_filter
+    local diagnostic_mutant diagnostic_filter
     run assert_attributed_mutant_kill valid "$filter" "$expected" 1 \
         $'1..1\nnot ok 1 focused contract\n# (in test file fixture.bats, line 42)\n# assertion failed'
     [ "$status" -eq 0 ] && [[ "$output" == RED_SENTINEL:valid:* ]] || return 1
@@ -1142,4 +1143,33 @@ PY
         && [[ "$output" != *"setup_file failed"* ]] \
         && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
         || { printf 'post_deadline_mutant_status=%s output=%s\n' "$status" "$output"; return 1; }
+
+    diagnostic_mutant="${BATS_TEST_TMPDIR}/alarm-diagnostic-substring.bats"
+    diagnostic_filter='OpenSSL deadline terminates stubborn descendant pipe holders'
+    cp "$FUNCTIONAL_TEST" "$diagnostic_mutant" || return 1
+    "$PYTHON" - "$diagnostic_mutant" "$REPO_ROOT" <<'PY' || return 1
+import sys
+
+path, repo_root = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+grammar = '''            && "$VALIDATOR_DIAGNOSTIC" =~ ^/[^[:space:][:cntrl:]]*/check-customer-delivery\\.sh:\\ line\\ [1-9][0-9]*:\\ [1-9][0-9]*\\ Alarm\\ clock:\\ 14\\ [^[:cntrl:]]+$ ]] \\
+'''
+substring = '''            && "$VALIDATOR_DIAGNOSTIC" == *'check-customer-delivery.sh: line '* \\
+            && "$VALIDATOR_DIAGNOSTIC" == *' Alarm clock: 14 '* ]] \\
+'''
+root_old = '    REPO_ROOT="${BATS_TEST_DIRNAME}/../.."\n'
+root_new = f"    REPO_ROOT={repo_root!r}\n"
+if source.count(grammar) != 1 or source.count(root_old) != 1:
+    raise SystemExit("ALARM_DIAGNOSTIC_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+source = source.replace(grammar, substring, 1).replace(root_old, root_new, 1)
+open(path, "w", encoding="utf-8").write(source)
+PY
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        bats --filter "^${diagnostic_filter}$" "$diagnostic_mutant"
+    [ "$status" -ne 0 ] \
+        && [[ "$output" == *"not ok 1 ${diagnostic_filter}"* ]] \
+        && [[ "$output" != *"setup_file failed"* ]] \
+        && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
+        || { printf 'alarm_diagnostic_mutant_status=%s output=%s\n' "$status" "$output"; return 1; }
 }
