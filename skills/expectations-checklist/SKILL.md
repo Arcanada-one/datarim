@@ -97,6 +97,9 @@ L2-no-PRD path) MUST create new expectations files at `schema_version: 4`.
 For the first append to a v1-v3 file, change the version to 4, set
 `customer_binding_from` to the first appended wish, and leave every older wish
 block untouched. The validator applies v4 binding only from that marker onward.
+Pre-cutover wishes MUST contain none of the v4 discriminator or binding fields;
+this makes moving the marker forward fail closed instead of silently exempting
+an already-governed wish.
 v1-v3 remain accepted without customer-binding fields; v1 keeps its
 **2027-05-23** sunset and deprecation warning.
 
@@ -171,7 +174,9 @@ enabling outputs may support the evidence but cannot satisfy the wish.
 
 Legacy expectations files at v1-v3 remain valid without these fields. On the
 first append, use the v4 cutover migration above; do not rewrite or renumber old
-wish blocks solely to add customer-delivery metadata.
+wish blocks solely to add customer-delivery metadata. The marker is monotonic in
+the current artifact: it cannot move past any wish that already carries v4
+customer-binding metadata.
 
 ### `override` indent — concrete syntax
 

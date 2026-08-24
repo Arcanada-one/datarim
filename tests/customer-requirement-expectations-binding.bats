@@ -288,7 +288,9 @@ EOF
 @test "schema v4 amended file rejects moving cutover forward past a bound wish" {
     local id="BIND-0017"
     local root
-    root="$(write_cutover_expectations "$id" appended-internal-wish)"
+    root="$(write_cutover_expectations "$id")"
+    sed -i 's/customer_binding_from: appended-customer-wish/customer_binding_from: appended-internal-wish/' \
+        "$root/datarim/tasks/${id}-expectations.md"
 
     run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
     [ "$status" -eq 1 ] \
@@ -298,7 +300,9 @@ EOF
 @test "verify mode blocks a schema v4 cutover moved past a bound wish" {
     local id="BIND-0019"
     local root
-    root="$(write_cutover_expectations "$id" appended-internal-wish)"
+    root="$(write_cutover_expectations "$id")"
+    sed -i 's/customer_binding_from: appended-customer-wish/customer_binding_from: appended-internal-wish/' \
+        "$root/datarim/tasks/${id}-expectations.md"
 
     run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
     [ "$status" -eq 1 ] \

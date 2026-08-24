@@ -445,6 +445,13 @@ parse_items() {
             }
             # v4 schema: every wish at or after the declared cutover explicitly
             # declares customer derivation. Earlier wishes are preserved legacy.
+            if (schema == "4" && !binding_started && wish_id != cutover \
+                    && customer_derived_count + requirement_id_count + surface_class_count \
+                    + visitor_visible_count + delivery_receipt_count > 0) {
+                printf "ERROR: %s: item %d customer binding field appears before customer_binding_from\n", \
+                    f, current_item > "/dev/stderr"
+                errors++
+            }
             if (schema == "4" && wish_id == cutover) {
                 binding_started = 1
                 cutover_seen = 1
