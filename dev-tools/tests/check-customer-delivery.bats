@@ -562,7 +562,7 @@ assert_post_popen_signal_cleanup() {
     elapsed="$(<"$elapsed_marker")"
     marker_hex="$("$PYTHON" -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).read_bytes().hex())' "$elapsed_marker")" \
         || return 1
-    "$PYTHON" -c 'import re,sys; raw=sys.argv[1]; assert re.fullmatch(r"(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:e[+-]?[0-9]+)?", raw, re.ASCII); assert 0 <= float(raw) < 4' "$elapsed" \
+    "$PYTHON" -c 'import re,sys; raw=sys.argv[1]; assert re.fullmatch(r"(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:e[+-]?[0-9]+)?", raw, re.ASCII); assert 0 < float(raw) < 4' "$elapsed" \
         || { printf 'post_popen_elapsed_invalid=%s marker_hex=%s status=%s output=%s\n' \
             "$callsite" "$marker_hex" "$status" "$output"; return 1; }
     [ "$status" -eq 2 ] \

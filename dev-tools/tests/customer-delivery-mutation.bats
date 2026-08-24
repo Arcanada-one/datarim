@@ -1100,7 +1100,7 @@ PY
 @test "mutation kill attribution rejects setup syntax timeout and wrong-assertion failures" {
     local filter='focused contract' expected=42 deadline_mutant deadline_filter
     local terminal_mask_mutant terminal_mask_validator terminal_mask_filter
-    local post_popen_mutant post_popen_filter callsite
+    local post_popen_mutant post_popen_control post_popen_filter callsite marker_kind marker_value marker_hex sentinel_kind
     local diagnostic_mutant diagnostic_filter pid_width_mutant
     run assert_attributed_mutant_kill valid "$filter" "$expected" 1 \
         $'1..1\nnot ok 1 focused contract\n# (in test file fixture.bats, line 42)\n# assertion failed'
@@ -1235,39 +1235,75 @@ PY
             "post_popen_${callsite}" "${callsite}|${post_popen_filter}"
     done
 
-    post_popen_mutant="${BATS_TEST_TMPDIR}/post-popen-same-clock.bats"
-    cp "$FUNCTIONAL_TEST" "$post_popen_mutant" || return 1
-    "$PYTHON" - "$post_popen_mutant" "$REPO_ROOT" <<'PY' || return 1
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        CUSTOMER_DELIVERY_POST_POPEN_ONLY=silent \
+        bats --filter "^${post_popen_filter}$" "$FUNCTIONAL_TEST"
+    assert_baseline_green "$post_popen_filter" || return 1
+
+    post_popen_control="${BATS_TEST_TMPDIR}/post-popen-same-clock-control.bats"
+    cp "$FUNCTIONAL_TEST" "$post_popen_control" || return 1
+    "$PYTHON" - "$post_popen_control" "$REPO_ROOT" <<'PY' || return 1
 import sys
 
 path, repo_root = sys.argv[1:]
 source = open(path, encoding="utf-8").read()
 root_old = '    REPO_ROOT="${BATS_TEST_DIRNAME}/../.."\n'
 root_new = f"    REPO_ROOT={repo_root!r}\n"
+if source.count(root_old) != 1:
+    raise SystemExit("POST_POPEN_SAME_CLOCK_CONTROL_ROOT_SEAM_MISSING_OR_AMBIGUOUS")
+source = source.replace(root_old, root_new, 1)
+open(path, "w", encoding="utf-8").write(source)
+PY
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        CUSTOMER_DELIVERY_POST_POPEN_ONLY=silent \
+        bats --filter "^${post_popen_filter}$" "$post_popen_control"
+    assert_baseline_green "$post_popen_filter" || return 1
+
+    for marker_kind in negative zero; do
+        if [[ "$marker_kind" == negative ]]; then
+            marker_value='-9.654199999999807e-05'
+            sentinel_kind=post_popen_same_clock
+        else
+            marker_value=0
+            sentinel_kind=post_popen_same_clock_zero
+        fi
+        marker_hex="$(printf '%s' "$marker_value" | "$PYTHON" -c 'import sys; print(sys.stdin.buffer.read().hex())')" || return 1
+        post_popen_mutant="${BATS_TEST_TMPDIR}/post-popen-same-clock-${marker_kind}.bats"
+        cp "$FUNCTIONAL_TEST" "$post_popen_mutant" || return 1
+        "$PYTHON" - "$post_popen_mutant" "$REPO_ROOT" "$marker_value" "$marker_kind" <<'PY' || return 1
+import sys
+
+path, repo_root, marker_value, marker_kind = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+root_old = '    REPO_ROOT="${BATS_TEST_DIRNAME}/../.."\n'
+root_new = f"    REPO_ROOT={repo_root!r}\n"
 guard = '    instrument_test_validator_elapsed "$elapsed_marker" || return 1  # POST_POPEN_SAME_CLOCK\n'
 mutant = (
-    "    printf '%s' '-9.654199999999807e-05' > \"$elapsed_marker\""
-    "  # MUTATED:post_popen_same_clock\n"
+    f"    printf '%s' {marker_value!r} > \"$elapsed_marker\""
+    f"  # MUTATED:post_popen_same_clock_{marker_kind}\n"
 )
 if source.count(root_old) != 1 or source.count(guard) != 1:
     raise SystemExit("POST_POPEN_SAME_CLOCK_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
 source = source.replace(root_old, root_new, 1).replace(guard, mutant, 1)
 open(path, "w", encoding="utf-8").write(source)
 PY
-    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
-        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
-        CUSTOMER_DELIVERY_POST_POPEN_ONLY=silent \
-        bats --filter "^${post_popen_filter}$" "$post_popen_mutant"
-    [ "$status" -ne 0 ] \
-        && [[ "$output" == *"post_popen_elapsed_invalid=silent marker_hex=2d392e363534313939393939393939383037652d3035"* ]] \
-        && [ "$(printf '%s\n' "$output" | awk -v target="not ok 1 ${post_popen_filter}" '$0 == target { count++ } END { print count+0 }')" -eq 1 ] \
-        && [[ "$output" != *"setup_file failed"* ]] \
-        && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
-        || { printf 'post_popen_same_clock_mutant_not_attributed=status=%s output=%s\n' \
-            "$status" "$output"; return 1; }
-    "$PYTHON" -c \
-        'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
-        post_popen_same_clock "${post_popen_filter}|-9.654199999999807e-05"
+        run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+            CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+            CUSTOMER_DELIVERY_POST_POPEN_ONLY=silent \
+            bats --filter "^${post_popen_filter}$" "$post_popen_mutant"
+        [ "$status" -ne 0 ] \
+            && [[ "$output" == *"post_popen_elapsed_invalid=silent marker_hex=${marker_hex}"* ]] \
+            && [ "$(printf '%s\n' "$output" | awk -v target="not ok 1 ${post_popen_filter}" '$0 == target { count++ } END { print count+0 }')" -eq 1 ] \
+            && [[ "$output" != *"setup_file failed"* ]] \
+            && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
+            || { printf 'post_popen_same_clock_mutant_not_attributed=%s status=%s output=%s\n' \
+                "$marker_kind" "$status" "$output"; return 1; }
+        "$PYTHON" -c \
+            'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
+            "$sentinel_kind" "${post_popen_filter}|${marker_value}"
+    done
 
     diagnostic_mutant="${BATS_TEST_TMPDIR}/alarm-diagnostic-substring.bats"
     diagnostic_filter='OpenSSL deadline terminates stubborn descendant pipe holders'
