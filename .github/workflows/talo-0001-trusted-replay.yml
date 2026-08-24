@@ -1,0 +1,50 @@
+name: TALO-0001 trusted replay
+
+on:
+  workflow_run:
+    workflows: ['TALO-0001 projection contract']
+    types: [completed]
+
+permissions:
+  contents: read
+  pull-requests: read
+  checks: write
+
+jobs:
+  replay:
+    name: talo-0001-trusted-replay-controller
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Check out trusted default-main controller
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          path: trusted
+          persist-credentials: false
+      - name: Require dedicated read-only knowledge deploy key
+        env:
+          DEPLOY_KEY: ${{ secrets.TALOMNIA_KNOWLEDGE_DEPLOY_KEY }}
+        run: |
+          if [ -z "$DEPLOY_KEY" ]; then
+            echo '::error::TALOMNIA_KNOWLEDGE_DEPLOY_KEY is required.'
+            exit 1
+          fi
+          install -m 0600 /dev/null "$RUNNER_TEMP/talomnia-knowledge.key"
+          printf '%s\n' "$DEPLOY_KEY" >"$RUNNER_TEMP/talomnia-knowledge.key"
+      - name: Run trusted collection and sandboxed exact-head replay
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          trusted/dev-tools/trusted-talo-0001-replay.sh \
+            --event "$GITHUB_EVENT_PATH" \
+            --candidate "$RUNNER_TEMP/candidate" \
+            --deploy-key "$RUNNER_TEMP/talomnia-knowledge.key" \
+            --output "$RUNNER_TEMP/talo-0001-attestation.json"
+      - name: Publish fixed candidate-head verdict
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          ATTESTATION: ${{ runner.temp }}/talo-0001-attestation.json
+        run: trusted/dev-tools/publish-talo-0001-check.sh
