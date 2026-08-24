@@ -1,0 +1,38 @@
+name: TALO-0001 research authority replay
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/talo-0001-research-authority.yml'
+      - 'datarim/insights/INSIGHTS-TALO-0001.md'
+      - 'datarim/insights/TALO-0001-research-authority-audit.json'
+      - 'dev-tools/check-research-authority-audit.py'
+      - 'dev-tools/check-talo-0001-research-authority.sh'
+      - 'dev-tools/replay-talo-0001-research-authority.sh'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  replay:
+    name: sealed real-consumer replay
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Require scoped Talomnia knowledge access
+        env:
+          GH_TOKEN: ${{ secrets.TALOMNIA_KNOWLEDGE_READ_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo '::error::TALOMNIA_KNOWLEDGE_READ_TOKEN is required for the sealed TALO-0001 replay.'
+            exit 1
+          fi
+      - name: Replay exact snapshot, comments, source bytes, and remote pins
+        env:
+          GH_TOKEN: ${{ secrets.TALOMNIA_KNOWLEDGE_READ_TOKEN }}
+        run: dev-tools/replay-talo-0001-research-authority.sh

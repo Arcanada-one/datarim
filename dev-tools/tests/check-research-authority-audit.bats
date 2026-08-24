@@ -4,6 +4,7 @@ setup() {
     REPO_ROOT="$(cd "${BATS_TEST_DIRNAME}/../.." && pwd -P)"
     SCRIPT="${RESEARCH_AUDIT_SCRIPT:-${REPO_ROOT}/dev-tools/check-research-authority-audit.py}"
     TALO_0001_CONSUMER="${REPO_ROOT}/dev-tools/check-talo-0001-research-authority.sh"
+    TALO_0001_REPLAY="${REPO_ROOT}/dev-tools/replay-talo-0001-research-authority.sh"
     ROOT="${BATS_TEST_TMPDIR}/fixture"
     KNOWLEDGE="${ROOT}/knowledge"
     INSIGHTS="${ROOT}/INSIGHTS.md"
@@ -206,6 +207,43 @@ assert_not_met() {
     [ "$status" -eq 0 ]
 }
 
+@test "CI-discovered replay assembles canonical evidence and enforces remote verification" {
+    local stub_bin="${ROOT}/stub-bin"
+    local capture="${ROOT}/replay-arguments.json"
+    mkdir -p "$stub_bin" "${ROOT}/exact-knowledge"
+    printf '%s\n' '#!/usr/bin/env bash' \
+        'if [ "$3" = "rev-parse" ]; then printf "%s\n" c636fea7b7dda0245fbbfd1da8a5a78c7e56c2ae; exit 0; fi' \
+        'exit 2' >"${stub_bin}/git"
+    printf '%s\n' '#!/usr/bin/env bash' \
+        'printf "%s\n" "{}"' >"${stub_bin}/gh"
+    printf '%s\n' '#!/usr/bin/env bash' \
+        'while [ "$#" -gt 0 ]; do' \
+        '  if [ "$1" = "--output" ]; then printf "%s\n" fixture >"$2"; exit 0; fi' \
+        '  shift' \
+        'done' \
+        'exit 2' >"${stub_bin}/curl"
+    printf '%s\n' '#!/usr/bin/env python3' \
+        'import json, os, sys' \
+        'with open(os.environ["CAPTURE"], "w", encoding="utf-8") as handle:' \
+        '    json.dump(sys.argv[1:], handle)' >"${stub_bin}/consumer"
+    chmod +x "${stub_bin}/git" "${stub_bin}/gh" "${stub_bin}/curl" \
+        "${stub_bin}/consumer"
+
+    run env PATH="${stub_bin}:$PATH" CAPTURE="$capture" \
+        TALO_RESEARCH_CONSUMER="${stub_bin}/consumer" \
+        bash "$TALO_0001_REPLAY" --knowledge-root "${ROOT}/exact-knowledge"
+    [ "$status" -eq 0 ]
+    run jq -e --arg knowledge "${ROOT}/exact-knowledge" '
+      index("--knowledge-root") as $knowledge_flag |
+      index("--comment-json") as $first_comment |
+      .[$knowledge_flag + 1] == $knowledge and
+      (.[$first_comment + 1] | startswith("5347868439=")) and
+      index("--external-cache-dir") != null and
+      index("--verify-external-remote") != null
+    ' "$capture"
+    [ "$status" -eq 0 ]
+}
+
 @test "TALO-0001 profile rejects a coupled snapshot and R1 authority replacement" {
     local mutant="${ROOT}/real-mutant.json"
     jq '.knowledge_snapshot="1111111111111111111111111111111111111111" |
@@ -265,6 +303,30 @@ PY
         && [[ "$output" == *'finding=source_register_authority_mismatch:S20'* ]]
 }
 
+@test "TALO-0001 profile rejects altered future and missing source access dates" {
+    local future="${ROOT}/real-future-insights.md"
+    local missing="${ROOT}/real-missing-insights.md"
+    sed 's/2026-08-24/2099-01-01/' "$REAL_INSIGHTS" >"$future"
+    run_talo_0001_source_profile "$future"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'finding=source_access_date_authority_mismatch:expected=2026-08-24:actual=2099-01-01'* ]] \
+        && [[ "$output" == *'finding=source_access_date_future:2099-01-01'* ]]
+
+    sed '/All sources were accessed on/d' "$REAL_INSIGHTS" >"$missing"
+    run_talo_0001_source_profile "$missing"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'finding=source_access_date_missing'* ]]
+}
+
+@test "TALO-0001 profile binds exact reuse inventory snapshots and scopes" {
+    local mutant_insights="${ROOT}/real-mutant-insights.md"
+    sed 's/a58e1a28454ab35cba26a8df71d4794662b0d339/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/; s/customer-delivery\/review-evolution canon, templates, gates, agents and skills/replaced inventory scope/' \
+        "$REAL_INSIGHTS" >"$mutant_insights"
+    run_talo_0001_source_profile "$mutant_insights"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'finding=reuse_inventory_authority_mismatch:Datarim'* ]]
+}
+
 @test "TALO-0001 profile rejects extra and duplicate review identities" {
     local extra="${ROOT}/real-extra.json"
     local duplicate="${ROOT}/real-duplicate.json"
@@ -288,6 +350,36 @@ PY
     run_talo_0001_profile "$mutant"
     [ "$status" -eq 1 ] \
         && [[ "$output" == *'finding=review_item_count_mismatch:R2:expected=38:actual=37'* ]]
+}
+
+@test "TALO-0001 profile rejects coupled planning-envelope projection swaps" {
+    local mutant="${ROOT}/real-mutant.json"
+    jq '(.derived_records[] | select(.id=="TALO-0032-planning-envelope")) as $r1 |
+      (.derived_records[] | select(.id=="TALO-0050-planning-envelope")) as $r2 |
+      (.derived_records[] | select(.id=="TALO-0032-planning-envelope") | .evidence_path)=$r2.evidence_path |
+      (.derived_records[] | select(.id=="TALO-0032-planning-envelope") | .assertions)=$r2.assertions |
+      (.derived_records[] | select(.id=="TALO-0050-planning-envelope") | .evidence_path)=$r1.evidence_path |
+      (.derived_records[] | select(.id=="TALO-0050-planning-envelope") | .assertions)=$r1.assertions' \
+        "$REAL_MANIFEST" >"$mutant"
+    run_talo_0001_profile "$mutant"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'finding=derived_record_authority_mismatch:TALO-0032-planning-envelope'* ]] \
+        && [[ "$output" == *'finding=derived_record_authority_mismatch:TALO-0050-planning-envelope'* ]]
+}
+
+@test "TALO-0001 profile rejects a coupled narrative authority replacement" {
+    local mutant="${ROOT}/real-mutant.json"
+    jq '(.derived_records[] | select(.id=="tal-skill-customer-narrative@r1")) |=
+      (.evidence_path="graph/data/local/tal-role-design-lead@r4.json" |
+       (.assertions[] | select(.json_pointer=="/logical_id") | .equals)="tal-role-design-lead" |
+       (.assertions[] | select(.json_pointer=="/revision_id") | .equals)="tal-role-design-lead@r4" |
+       (.assertions[] | select(.json_pointer=="/content_digest") | .equals)="sha256:846f1da87895f136f8594586ff8ae24c362dd3020a8542ec29d9fbdebc98ce8c" |
+       .authority_revision_id="tal-role-design-lead@r4" |
+       .authority_content_digest="sha256:846f1da87895f136f8594586ff8ae24c362dd3020a8542ec29d9fbdebc98ce8c")' \
+        "$REAL_MANIFEST" >"$mutant"
+    run_talo_0001_profile "$mutant"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'finding=derived_record_authority_mismatch:tal-skill-customer-narrative@r1'* ]]
 }
 
 @test "TALO-0001 profile rejects a coupled same-ID R2 comment replacement" {
