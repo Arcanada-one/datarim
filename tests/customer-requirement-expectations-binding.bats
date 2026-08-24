@@ -23,7 +23,8 @@ template_has_exact_binding_bullets() {
 
     item_count="$(grep -cE '^- \*\*[0-9]+\. ' "$file")"
     [ "$item_count" -gt 0 ] || return 1
-    [ "$(grep -cE '^customer_binding_from:' "$file")" -eq 1 ] || return 1
+    [ "$(grep -cE '^schema_version: 4$' "$file")" -eq 1 ] || return 1
+    [ "$(grep -cE '^customer_binding_from:' "$file")" -eq 0 ] || return 1
     for field in customer_derived requirement_id surface_class visitor_visible delivery_receipt; do
         [ "$(grep -cE "^  - ${field}:" "$file")" -eq "$item_count" ] || return 1
     done
@@ -45,7 +46,6 @@ write_expectations() {
 task_id: $id
 artifact: expectations
 schema_version: $schema
-$(if [ "$schema" -eq 4 ]; then printf '%s\n' 'customer_binding_from: customer-outcome'; fi)
 captured_at: 2026-08-24
 captured_by: /dr-prd
 status: canonical
@@ -81,9 +81,8 @@ valid_customer_binding() {
 EOF
 }
 
-write_cutover_expectations() {
+write_migrated_expectations() {
     local id="$1"
-    local marker="${2:-appended-customer-wish}"
     local root="${BATS_TEST_TMPDIR}/${id}"
     local file="${root}/datarim/tasks/${id}-expectations.md"
     mkdir -p "$(dirname "$file")"
@@ -92,7 +91,6 @@ write_cutover_expectations() {
 task_id: $id
 artifact: expectations
 schema_version: 4
-customer_binding_from: $marker
 captured_at: 2026-05-14
 captured_by: /dr-prd
 status: amended
@@ -102,6 +100,7 @@ status: amended
 
 - **1. Preserved legacy wish.**
   - wish_id: preserved-legacy-wish
+  - customer_derived: false
   - evidence_type: static
   - #### История статусов
     - 2026-05-14T00:00:00Z / 2026-05-14 00:00 (UTC) · pending → pending · /dr-prd · reason: item created
@@ -276,92 +275,79 @@ EOF
         && [[ "$output" == *"surface_class and visitor_visible disagree"* ]]
 }
 
-@test "schema v4 legacy cutover preserves old wishes and governs mixed appended wishes" {
+@test "schema v4 accepts a complete metadata-only migration with mixed wishes" {
     local id="BIND-0008"
     local root
-    root="$(write_cutover_expectations "$id")"
+    root="$(write_migrated_expectations "$id")"
 
     run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
     [ "$status" -eq 0 ]
 }
 
-@test "schema v4 amended file rejects moving cutover forward past a bound wish" {
+@test "schema v4 amended file rejects a missing preexisting discriminator" {
     local id="BIND-0017"
     local root
-    root="$(write_cutover_expectations "$id")"
-    sed -i 's/customer_binding_from: appended-customer-wish/customer_binding_from: appended-internal-wish/' \
-        "$root/datarim/tasks/${id}-expectations.md"
-
-    run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
-    [ "$status" -eq 1 ] \
-        && [[ "$output" == *"customer binding field appears before customer_binding_from"* ]]
-}
-
-@test "schema v4 rejects coordinated binding strip and cutover advance" {
-    local id="BIND-0020"
-    local root
     local file
-    root="$(write_cutover_expectations "$id")"
+    root="$(write_migrated_expectations "$id")"
     file="$root/datarim/tasks/${id}-expectations.md"
-    sed -i 's/customer_binding_from: appended-customer-wish/customer_binding_from: appended-internal-wish/' "$file"
-    sed -E -i.bak '/^- \*\*2\./,/^- \*\*3\./ { /^  - (customer_derived|requirement_id|surface_class|visitor_visible|delivery_receipt):/d; }' "$file"
+    sed -E -i.bak '/^- \*\*1\./,/^- \*\*2\./ { /^  - customer_derived:/d; }' "$file"
     rm -f "${file}.bak"
-
-    run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
-    [ "$status" -eq 1 ] \
-        && [[ "$output" == *"schema v4 must start customer binding at its first wish"* ]]
-}
-
-@test "verify blocks coordinated binding strip and cutover advance" {
-    local id="BIND-0021"
-    local root
-    local file
-    root="$(write_cutover_expectations "$id")"
-    file="$root/datarim/tasks/${id}-expectations.md"
-    sed -i 's/customer_binding_from: appended-customer-wish/customer_binding_from: appended-internal-wish/' "$file"
-    sed -E -i.bak '/^- \*\*2\./,/^- \*\*3\./ { /^  - (customer_derived|requirement_id|surface_class|visitor_visible|delivery_receipt):/d; }' "$file"
-    rm -f "${file}.bak"
-
-    run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
-    [ "$status" -eq 1 ] \
-        && [[ "$output" == *"BLOCKED: expectations file fails structural validation"* ]]
-}
-
-@test "verify mode blocks a schema v4 cutover moved past a bound wish" {
-    local id="BIND-0019"
-    local root
-    root="$(write_cutover_expectations "$id")"
-    sed -i 's/customer_binding_from: appended-customer-wish/customer_binding_from: appended-internal-wish/' \
-        "$root/datarim/tasks/${id}-expectations.md"
-
-    run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
-    [ "$status" -eq 1 ] \
-        && [[ "$output" == *"BLOCKED: expectations file fails structural validation"* ]]
-}
-
-@test "schema v4 amended file rejects moving cutover backward into a legacy wish" {
-    local id="BIND-0018"
-    local root
-    root="$(write_cutover_expectations "$id" preserved-legacy-wish)"
 
     run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
     [ "$status" -eq 1 ] \
         && [[ "$output" == *"missing customer_derived"* ]]
 }
 
-@test "schema v4 rejects a cutover marker that names no wish" {
-    local id="BIND-0009"
+@test "schema v4 rejects coordinated binding strip and cutover advance" {
+    local id="BIND-0020"
     local root
-    root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
-    sed -i 's/customer_binding_from: customer-outcome/customer_binding_from: missing-wish/' \
-        "$root/datarim/tasks/${id}-expectations.md"
+    local file
+    root="$(write_migrated_expectations "$id")"
+    file="$root/datarim/tasks/${id}-expectations.md"
+    sed -i.bak '/^schema_version: 4$/a\
+customer_binding_from: appended-internal-wish' "$file"
+    rm -f "${file}.bak"
+    sed -E -i.bak '/^- \*\*2\./,/^- \*\*3\./ { /^  - (customer_derived|requirement_id|surface_class|visitor_visible|delivery_receipt):/d; }' "$file"
+    rm -f "${file}.bak"
 
     run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
     [ "$status" -eq 1 ] \
-        && [[ "$output" == *"customer_binding_from does not name a wish_id"* ]]
+        && [[ "$output" == *"customer_binding_from is obsolete in schema_version=4"* ]]
 }
 
-@test "schema v4 canonical file requires cutover at the first wish" {
+@test "verify blocks coordinated binding strip and cutover advance" {
+    local id="BIND-0021"
+    local root
+    local file
+    root="$(write_migrated_expectations "$id")"
+    file="$root/datarim/tasks/${id}-expectations.md"
+    sed -i.bak '/^schema_version: 4$/a\
+customer_binding_from: appended-internal-wish' "$file"
+    rm -f "${file}.bak"
+    sed -E -i.bak '/^- \*\*2\./,/^- \*\*3\./ { /^  - (customer_derived|requirement_id|surface_class|visitor_visible|delivery_receipt):/d; }' "$file"
+    rm -f "${file}.bak"
+
+    run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"BLOCKED: expectations file fails structural validation"* ]]
+}
+
+@test "schema v4 rejects the obsolete customer binding marker" {
+    local id="BIND-0009"
+    local root
+    local file
+    root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
+    file="$root/datarim/tasks/${id}-expectations.md"
+    sed -i.bak '/^schema_version: 4$/a\
+customer_binding_from: customer-outcome' "$file"
+    rm -f "${file}.bak"
+
+    run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"customer_binding_from is obsolete in schema_version=4"* ]]
+}
+
+@test "schema v4 canonical file governs its first wish" {
     local id="BIND-0015"
     local root="${BATS_TEST_TMPDIR}/${id}"
     local file="${root}/datarim/tasks/${id}-expectations.md"
@@ -371,7 +357,6 @@ EOF
 task_id: $id
 artifact: expectations
 schema_version: 4
-customer_binding_from: second-wish
 captured_at: 2026-08-24
 captured_by: /dr-prd
 status: canonical
@@ -399,7 +384,7 @@ EOF
 
     run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
     [ "$status" -eq 1 ] \
-        && [[ "$output" == *"canonical schema v4 must start customer binding at its first wish"* ]]
+        && [[ "$output" == *"item 1 missing customer_derived"* ]]
 }
 
 @test "schema v4 rejects an invalid frontmatter status" {
@@ -522,6 +507,24 @@ EOF
     done
 }
 
+@test "legacy schema versions v1 through v3 reject an invalid frontmatter status" {
+    local schema
+    local id
+    local root
+    local file
+    for schema in 1 2 3; do
+        id="STAT-000${schema}"
+        root="$(write_expectations "$id" "$schema")"
+        file="$root/datarim/tasks/${id}-expectations.md"
+        sed -i 's/status: canonical/status: canonica1/' "$file"
+        run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+        if [ "$status" -ne 1 ] || [[ "$output" != *"frontmatter status must be 'canonical' or 'amended'"* ]]; then
+            echo "legacy schema v${schema} accepted invalid status: ${output}" >&2
+            return 1
+        fi
+    done
+}
+
 @test "expectations contract makes customer binding mandatory without invalidating legacy files" {
     assert_contains "$EXPECTATIONS_SKILL" 'schema_version: 4' || return 1
     assert_contains "$EXPECTATIONS_SKILL" 'customer_binding_from' || return 1
@@ -531,6 +534,8 @@ EOF
     assert_contains "$EXPECTATIONS_SKILL" 'visitor_visible' || return 1
     assert_contains "$EXPECTATIONS_SKILL" 'delivery_receipt' || return 1
     assert_contains "$EXPECTATIONS_SKILL" 'Legacy expectations files' || return 1
+    assert_contains "$EXPECTATIONS_SKILL" 'MUST NOT receive new wishes' || return 1
+    assert_contains "$EXPECTATIONS_SKILL" 'metadata-only migration' || return 1
     assert_contains "$EXPECTATIONS_SKILL" 'remain valid without these fields'
 }
 

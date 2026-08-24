@@ -2,7 +2,6 @@
 task_id: {TASK-ID}
 artifact: expectations
 schema_version: 4
-customer_binding_from: {kebab-slug-of-first-wish}
 captured_at: {YYYY-MM-DD}
 captured_by: {/dr-init | /dr-prd | /dr-plan}
 status: canonical

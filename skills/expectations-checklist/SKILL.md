@@ -62,7 +62,6 @@ Required YAML frontmatter (closed schema):
 task_id: <TASK-ID>          # ^[A-Z]{2,10}-[0-9]{4}$ — required
 artifact: expectations      # literal — required
 schema_version: 4           # integer — required (current: 4; legacy: 1-3)
-customer_binding_from: <wish_id> # first wish governed by v4 customer binding
 captured_at: <YYYY-MM-DD>   # date of first write — required
 captured_by: /dr-init       # /dr-init | /dr-prd | /dr-plan — required
 status: canonical           # canonical | amended — required (flips on first append)
@@ -72,10 +71,10 @@ parent_prd: <path>          # relative path to PRD file when one exists
 ---
 ```
 
-**Schema v4 (current default):** requires `customer_binding_from` in
-frontmatter and exactly one `customer_derived: true | false` field on every
-wish from that marker onward. A new file sets the marker to its first
-`wish_id`. See § Customer-requirement binding.
+**Schema v4 (current default):** requires exactly one
+`customer_derived: true | false` field on every wish. The obsolete
+`customer_binding_from` marker is rejected because a movable prefix can exempt
+previously governed wishes. See § Customer-requirement binding.
 
 **Schema v3 (legacy, accepted):** adds optional per-wish `verification_mode` and
 `evidence_artifact` fields distinguishing a one-off manual check from a
@@ -94,13 +93,13 @@ invocation. Migration recipe: add `evidence_type: empirical` (or
 
 **Migration note — author new files at v4.** `/dr-prd` (and `/dr-plan` for the
 L2-no-PRD path) MUST create new expectations files at `schema_version: 4`.
-For the first append to a v1-v3 file, change the version to 4, set
-`customer_binding_from` to the first appended wish, and leave every older wish
-block untouched. The validator applies v4 binding only from that marker onward.
-Pre-cutover wishes MUST contain none of the v4 discriminator or binding fields;
-this makes moving the marker forward fail closed instead of silently exempting
-an already-governed wish.
-v1-v3 remain accepted without customer-binding fields; v1 keeps its
+v1-v3 remain accepted for read and verification without customer-binding
+fields, but MUST NOT receive new wishes. Before the first append, perform an
+explicit metadata-only migration: preserve every existing body, title, history,
+order, and `wish_id`; add `evidence_type` where v1 lacks it; add
+`customer_derived` to every wish and the conditional binding quartet to each
+`true` wish; then bump to schema v4, set `status: amended`, and record the
+migration in the append-log. Only then append the new wish. v1 keeps its
 **2027-05-23** sunset and deprecation warning.
 
 ## Body shape
@@ -116,7 +115,7 @@ v1-v3 remain accepted without customer-binding fields; v1 keeps its
   - Как проверить (success criterion): <one concrete signal — file path,
     command output, visible behaviour>
   - Связанный AC из PRD: V-AC-<N> или «—»
-  - customer_derived: <true | false>  # v4 — required at/after cutover
+  - customer_derived: <true | false>  # v4 — required on every wish
   - requirement_id: <req-NNNN>
   - surface_class: <VISITOR_VISIBLE | ENABLING>
   - visitor_visible: <true | false>
@@ -139,8 +138,7 @@ _(empty on first write)_
 
 ### Customer-requirement binding
 
-Every schema-v4 wish at or after `customer_binding_from` MUST carry exactly one
-discriminator:
+Every schema-v4 wish MUST carry exactly one discriminator:
 
 ```yaml
   - customer_derived: <true | false>
@@ -172,11 +170,10 @@ For a visitor-visible wish, the success criterion MUST assert observable live
 production behaviour. Documentation, knowledge, tests, CI, ledgers, and other
 enabling outputs may support the evidence but cannot satisfy the wish.
 
-Legacy expectations files at v1-v3 remain valid without these fields. On the
-first append, use the v4 cutover migration above; do not rewrite or renumber old
-wish blocks solely to add customer-delivery metadata. The marker is monotonic in
-the current artifact: it cannot move past any wish that already carries v4
-customer-binding metadata.
+Legacy expectations files at v1-v3 remain valid without these fields for read
+and verification. They are frozen against new wishes until the full metadata
+migration above is complete; the migration preserves the content and identity
+of old wish blocks while adding v4 metadata to every one.
 
 ### `override` indent — concrete syntax
 

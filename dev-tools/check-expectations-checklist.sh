@@ -57,11 +57,10 @@ Options:
   --version            Print version and exit 0.
 
 Schema v4 fields (current default; required per wish):
-  customer_binding_from: <wish_id> (required frontmatter cutover marker)
   customer_derived: true | false
-    Every wish from the cutover marker onward declares whether it came from a
-    customer requirement. true requires requirement_id, surface_class,
-    visitor_visible, and delivery_receipt; false forbids those four fields.
+    Every wish declares whether it came from a customer requirement. true
+    requires requirement_id, surface_class, visitor_visible, and
+    delivery_receipt; false forbids those four fields.
 
 Schema v3 fields (also supported by v4):
   verification_mode: one-off | reproducible
@@ -210,10 +209,7 @@ parse_items() {
     local file="$1"
     local schema="${2:-1}"
     local task_id="${3:-}"
-    local cutover="${4:-}"
-    local artifact_status="${5:-}"
-    awk -v f="$file" -v schema="$schema" -v task="$task_id" \
-        -v cutover="$cutover" -v artifact_status="$artifact_status" '
+    awk -v f="$file" -v schema="$schema" -v task="$task_id" '
         BEGIN {
             in_section = 0; current_item = 0; total_items = 0; errors = 0
             wish_id = ""; status = ""; override_text = ""; evidence_type = ""
@@ -224,8 +220,7 @@ parse_items() {
             customer_derived_count = 0
             requirement_id_count = 0; surface_class_count = 0
             visitor_visible_count = 0; delivery_receipt_count = 0
-            in_comment = 0; binding_started = 0; cutover_seen = 0
-            first_wish_id = ""
+            in_comment = 0
             history_count = 0; has_history_heading = 0; has_status_heading = 0
             in_history = 0; in_status = 0
         }
@@ -274,7 +269,6 @@ parse_items() {
                 if (match($0, /^  - wish_id:[ \t]*/)) {
                     wish_id = substr($0, RLENGTH + 1)
                     sub(/[ \t]+$/, "", wish_id)
-                    if (current_item == 1) first_wish_id = wish_id
                     in_history = 0; in_status = 0; next
                 }
                 if (match($0, /^  - evidence_type:[ \t]*/)) {
@@ -378,16 +372,6 @@ parse_items() {
                 printf "ERROR: %s: no items found under ## Ожидания (file appears empty)\n", f > "/dev/stderr"
                 errors++
             }
-            if (schema == "4" && cutover != "" && !cutover_seen) {
-                printf "ERROR: %s: customer_binding_from does not name a wish_id: %s\n", f, cutover > "/dev/stderr"
-                errors++
-            }
-            if (schema == "4" && artifact_status == "canonical" && first_wish_id != "" \
-                    && cutover != first_wish_id) {
-                printf "ERROR: %s: canonical schema v4 must start customer binding at its first wish: %s\n", \
-                    f, first_wish_id > "/dev/stderr"
-                errors++
-            }
             exit (errors > 0 ? 1 : 0)
         }
 
@@ -443,20 +427,8 @@ parse_items() {
                     errors++
                 }
             }
-            # v4 schema: every wish at or after the declared cutover explicitly
-            # declares customer derivation. Earlier wishes are preserved legacy.
-            if (schema == "4" && !binding_started && wish_id != cutover \
-                    && customer_derived_count + requirement_id_count + surface_class_count \
-                    + visitor_visible_count + delivery_receipt_count > 0) {
-                printf "ERROR: %s: item %d customer binding field appears before customer_binding_from\n", \
-                    f, current_item > "/dev/stderr"
-                errors++
-            }
-            if (schema == "4" && wish_id == cutover) {
-                binding_started = 1
-                cutover_seen = 1
-            }
-            if (schema == "4" && binding_started) {
+            # v4 schema: every wish explicitly declares customer derivation.
+            if (schema == "4") {
                 if (customer_derived_count == 0) {
                     printf "ERROR: %s: item %d missing customer_derived\n", f, current_item > "/dev/stderr"
                     errors++
@@ -581,8 +553,12 @@ validate_single_task() {
     fi
     customer_binding_from=$(extract_frontmatter_field "$file" "customer_binding_from")
     artifact_status=$(extract_frontmatter_field "$file" "status")
-    if [ "$schema_v" = "4" ] && [ -z "$customer_binding_from" ]; then
-        echo "ERROR: $file: frontmatter missing required field 'customer_binding_from' for schema_version=4" >&2
+    if [ -n "$artifact_status" ] && [ "$artifact_status" != "canonical" ] && [ "$artifact_status" != "amended" ]; then
+        echo "ERROR: $file: frontmatter status must be 'canonical' or 'amended', got '$artifact_status'" >&2
+        errors=$(( errors + 1 ))
+    fi
+    if [ "$schema_v" = "4" ] && [ -n "$customer_binding_from" ]; then
+        echo "ERROR: $file: customer_binding_from is obsolete in schema_version=4; every wish is governed" >&2
         errors=$(( errors + 1 ))
     fi
     # v1 legacy deprecation warning (TUNE-0266: 12-month sunset, see
@@ -605,7 +581,7 @@ validate_single_task() {
     # Item-level parse — emits to stdout (captured here for v3 post-parse) + stderr.
     # schema_v passed through to enable evidence_type/verification_mode checks.
     local items_out
-    items_out=$(parse_items "$file" "${schema_v:-1}" "$id" "$customer_binding_from" "$artifact_status" 2>/tmp/_cec_stderr_$$) || errors=$(( errors + 1 ))
+    items_out=$(parse_items "$file" "${schema_v:-1}" "$id" 2>/tmp/_cec_stderr_$$) || errors=$(( errors + 1 ))
     # Pipe parse stderr to our stderr so callers see it.
     cat /tmp/_cec_stderr_$$ >&2 2>/dev/null || true
     rm -f /tmp/_cec_stderr_$$
@@ -700,12 +676,10 @@ verify_routing() {
         return 1
     fi
 
-    local schema_v customer_binding_from artifact_status
+    local schema_v
     schema_v=$(extract_frontmatter_field "$file" "schema_version")
-    customer_binding_from=$(extract_frontmatter_field "$file" "customer_binding_from")
-    artifact_status=$(extract_frontmatter_field "$file" "status")
     local items
-    items=$(parse_items "$file" "${schema_v:-1}" "$id" "$customer_binding_from" "$artifact_status" 2>/dev/null) || true
+    items=$(parse_items "$file" "${schema_v:-1}" "$id" 2>/dev/null) || true
 
     local blocking=()
     local has_partial_or_missed=0

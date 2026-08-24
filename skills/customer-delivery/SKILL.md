@@ -39,10 +39,10 @@ Every Requirement ID carries:
 - visibility classification: enabling or visitor-visible;
 - receipt pointer to its coverage receipt.
 
-Bind expectations through schema v4: set `customer_binding_from` to the first
-governed wish and declare `customer_derived` on that wish and every later one.
-A `true` declaration carries the Requirement ID, surface class, visibility,
-and receipt pointer; a `false` declaration carries none of those four fields.
+Bind expectations through schema v4 by declaring `customer_derived` on every
+wish. A `true` declaration carries the Requirement ID, surface class,
+visibility, and receipt pointer; a `false` declaration carries none of those
+four fields.
 
 At least one acceptance criterion must assert an observable visitor-facing
 change on the live production product. A rendered test-environment comparison
