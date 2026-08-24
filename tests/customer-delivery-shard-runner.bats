@@ -31,11 +31,28 @@ PY
 
 write_runtime_budget_fixture() {
     local oversized_suite="$1" fixture="$2"
+    if [ "$oversized_suite" = schema ]; then
+        "$PYTHON" - "$REGISTRY" >"$fixture" <<'PY'
+from pathlib import Path
+import sys
+
+lines = Path(sys.argv[1]).read_text(encoding="utf-8").splitlines()
+groups = [list(range(1, 17)), list(range(17, 31))]
+groups.extend(list(range(start, min(start + 15, 174))) for start in range(31, 174, 15))
+rows = ["# suite shard total mode first last platforms"]
+rows.extend(line for line in lines if line.startswith("functional "))
+for shard, indices in enumerate(groups, 1):
+    rows.append(
+        f"schema {shard} {len(groups)} ordinal {indices[0]} {indices[-1]} linux,macos"
+    )
+rows.extend(line for line in lines if line.startswith("mutation "))
+print("\n".join(rows))
+PY
+        return
+    fi
     awk -v target="$oversized_suite" '
         target == "functional" && $1 == "functional" && $2 == 1 { $6=11 }
         target == "functional" && $1 == "functional" && $2 == 2 { $5=12 }
-        target == "schema" && $1 == "schema" && $2 == 1 { $6=31 }
-        target == "schema" && $1 == "schema" && $2 == 2 { $5=32 }
         { print }
     ' "$REGISTRY" >"$fixture"
 }
@@ -132,12 +149,13 @@ PY
         && [[ "$output" == *"macOS ordinal shard exceeds runtime budget: functional 1 has 11 tests (max 10)"* ]]
 }
 
-@test "macOS schema shards reject more than 30 tests of runtime work" {
+@test "macOS schema shards reject more than 15 tests of runtime work" {
     local fixture="$BATS_TEST_TMPDIR/schema-runtime-budget.tsv"
     write_runtime_budget_fixture schema "$fixture"
     run "$PYTHON" "$RUNNER" --registry "$fixture" --check
     [ "$status" -eq 2 ] \
-        && [[ "$output" == *"macOS ordinal shard exceeds runtime budget: schema 1 has 31 tests (max 30)"* ]]
+        && [[ "$output" == *"macOS ordinal shard exceeds runtime budget: schema 1 has 16 tests (max 15)"* ]] \
+        || { printf 'schema_budget_status=%s output=%s\n' "$status" "$output"; return 1; }
 }
 
 @test "macOS timing-sensitive history tests require identity-pinned singleton shards" {
@@ -348,11 +366,11 @@ PY
 @test "customer-delivery registry generates the complete Linux and approved macOS matrices" {
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" --matrix linux
     [ "$status" -eq 0 ] \
-        && "$PYTHON" -c 'import json,sys; rows=json.loads(sys.argv[1]); assert len(rows)==65 and len({(r["suite"],r["shard"]) for r in rows})==65 and [r["shard"] for r in rows if r["suite"]=="functional"]==[f"{i}/36" for i in range(1,37)]' "$output" \
+        && "$PYTHON" -c 'import json,sys; rows=json.loads(sys.argv[1]); assert len(rows)==71 and len({(r["suite"],r["shard"]) for r in rows})==71 and [r["shard"] for r in rows if r["suite"]=="functional"]==[f"{i}/36" for i in range(1,37)]' "$output" \
         || return 1
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" --matrix macos
     [ "$status" -eq 0 ] \
-        && "$PYTHON" -c 'import json,sys; rows=json.loads(sys.argv[1]); assert len(rows)==59 and {r["suite"] for r in rows}=={"functional","schema","mutation"} and [r["shard"] for r in rows if r["suite"]=="functional"]==[f"{i}/36" for i in range(1,37)] and [r["shard"] for r in rows if r["suite"]=="schema"]==["1/6","2/6","3/6","4/6","5/6","6/6"] and [r["shard"] for r in rows if r["suite"]=="mutation"]==[f"{i}/30" for i in range(14,31)]' "$output"
+        && "$PYTHON" -c 'import json,sys; rows=json.loads(sys.argv[1]); assert len(rows)==65 and {r["suite"] for r in rows}=={"functional","schema","mutation"} and [r["shard"] for r in rows if r["suite"]=="functional"]==[f"{i}/36" for i in range(1,37)] and [r["shard"] for r in rows if r["suite"]=="schema"]==[f"{i}/12" for i in range(1,13)] and [r["shard"] for r in rows if r["suite"]=="mutation"]==[f"{i}/30" for i in range(14,31)]' "$output"
 }
 
 @test "cross-platform mutation cases are split into seventeen bounded exact shards" {
@@ -378,7 +396,7 @@ PY
     seed_results linux "$results" || return 1
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" --check-results linux "$results"
     [ "$status" -eq 0 ] \
-        && [[ "$output" == *"customer_delivery_results=valid platform=linux count=65"* ]]
+        && [[ "$output" == *"customer_delivery_results=valid platform=linux count=71"* ]]
 }
 
 @test "customer-delivery aggregate rejects a missing result" {

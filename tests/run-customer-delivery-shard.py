@@ -30,7 +30,7 @@ TAP_PLAN_PATTERN = re.compile(r"^1\.\.([0-9]+)\s*$", re.MULTILINE)
 # 15-case functional shard still reached 91 seconds at the fixed 105-second
 # macOS child ceiling. These limits preserve margin while exact coverage
 # prevents omissions.
-MACOS_ORDINAL_TEST_LIMITS = {"functional": 10, "schema": 30}
+MACOS_ORDINAL_TEST_LIMITS = {"functional": 10, "schema": 15}
 MACOS_RUNTIME_ISOLATED_TESTS = {
     "functional": (
         "signed review inventory rejects a duplicate review identity",
