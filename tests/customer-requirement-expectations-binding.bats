@@ -23,7 +23,8 @@ template_has_exact_binding_bullets() {
 
     item_count="$(grep -cE '^- \*\*[0-9]+\. ' "$file")"
     [ "$item_count" -gt 0 ] || return 1
-    for field in customer_requirement requirement_id surface_class visitor_visible delivery_receipt; do
+    [ "$(grep -cE '^customer_binding_from:' "$file")" -eq 1 ] || return 1
+    for field in customer_derived requirement_id surface_class visitor_visible delivery_receipt; do
         [ "$(grep -cE "^  - ${field}:" "$file")" -eq "$item_count" ] || return 1
     done
 }
@@ -44,6 +45,7 @@ write_expectations() {
 task_id: $id
 artifact: expectations
 schema_version: $schema
+$(if [ "$schema" -eq 4 ]; then printf '%s\n' 'customer_binding_from: customer-outcome'; fi)
 captured_at: 2026-08-24
 captured_by: /dr-prd
 status: canonical
@@ -71,7 +73,7 @@ EOF
 valid_customer_binding() {
     local id="$1"
     cat <<EOF
-  - customer_requirement: customer-derived
+  - customer_derived: true
   - requirement_id: req-0001
   - surface_class: VISITOR_VISIBLE
   - visitor_visible: true
@@ -160,7 +162,7 @@ EOF
 
     run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
     [ "$status" -eq 1 ] \
-        && [[ "$output" == *"missing customer_requirement"* ]] \
+        && [[ "$output" == *"missing customer_derived"* ]] \
         && [[ "$output" != *"schema_version must"* ]]
 }
 
@@ -182,7 +184,7 @@ EOF
     local id
     local binding
     local root
-    for field in customer_requirement requirement_id surface_class visitor_visible delivery_receipt; do
+    for field in customer_derived requirement_id surface_class visitor_visible delivery_receipt; do
         id="BIND-0004"
         binding="$(valid_customer_binding "$id" | sed -E "/^  - ${field}:/d")"
         root="$(write_expectations "$id" 4 "$binding")"
@@ -195,23 +197,23 @@ EOF
     done
 }
 
-@test "schema v4 not-applicable wish requires a reason and passes without binding fields" {
+@test "schema v4 non-customer wish passes without customer binding fields" {
     local id="BIND-0005"
     local root
-    root="$(write_expectations "$id" 4 $'  - customer_requirement: not-applicable\n  - customer_requirement_reason: Internal framework-only wish')"
+    root="$(write_expectations "$id" 4 '  - customer_derived: false')"
 
     run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
     [ "$status" -eq 0 ]
 }
 
-@test "schema v4 not-applicable wish without a reason fails closed" {
+@test "schema v4 wish without customer discriminator fails closed" {
     local id="BIND-0006"
     local root
-    root="$(write_expectations "$id" 4 '  - customer_requirement: not-applicable')"
+    root="$(write_expectations "$id" 4)"
 
     run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
     [ "$status" -eq 1 ] \
-        && [[ "$output" == *"missing customer_requirement_reason"* ]]
+        && [[ "$output" == *"missing customer_derived"* ]]
 }
 
 @test "schema v4 rejects inconsistent visitor visibility" {
@@ -224,6 +226,103 @@ EOF
     run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
     [ "$status" -eq 1 ] \
         && [[ "$output" == *"surface_class and visitor_visible disagree"* ]]
+}
+
+@test "schema v4 legacy cutover preserves old wishes and governs appended wishes" {
+    local id="BIND-0008"
+    local root="${BATS_TEST_TMPDIR}/${id}"
+    local file="${root}/datarim/tasks/${id}-expectations.md"
+    mkdir -p "$(dirname "$file")"
+    cat > "$file" <<EOF
+---
+task_id: $id
+artifact: expectations
+schema_version: 4
+customer_binding_from: appended-customer-wish
+captured_at: 2026-05-14
+captured_by: /dr-prd
+status: amended
+---
+
+## Ожидания
+
+- **1. Preserved legacy wish.**
+  - wish_id: preserved-legacy-wish
+  - evidence_type: static
+  - #### История статусов
+    - 2026-05-14T00:00:00Z / 2026-05-14 00:00 (UTC) · pending → pending · /dr-prd · reason: item created
+  - #### Текущий статус
+    - pending
+
+- **2. Appended customer wish.**
+  - wish_id: appended-customer-wish
+$(valid_customer_binding "$id")
+  - evidence_type: static
+  - #### История статусов
+    - 2026-08-24T00:00:00Z / 2026-08-24 00:00 (UTC) · pending → pending · /dr-prd · reason: item appended
+  - #### Текущий статус
+    - pending
+EOF
+
+    run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+    [ "$status" -eq 0 ]
+}
+
+@test "schema v4 rejects a cutover marker that names no wish" {
+    local id="BIND-0009"
+    local root
+    root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
+    sed -i 's/customer_binding_from: customer-outcome/customer_binding_from: missing-wish/' \
+        "$root/datarim/tasks/${id}-expectations.md"
+
+    run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"customer_binding_from does not name a wish_id"* ]]
+}
+
+@test "schema v4 rejects duplicate customer binding fields" {
+    local id="BIND-0010"
+    local binding
+    local root
+    binding="$(valid_customer_binding "$id")"$'\n  - requirement_id: req-0002'
+    root="$(write_expectations "$id" 4 "$binding")"
+
+    run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"duplicate requirement_id"* ]]
+}
+
+@test "schema v4 rejects invalid ID boolean and receipt values" {
+    local id="BIND-0011"
+    local field
+    local replacement
+    local expected
+    local binding
+    local root
+    while IFS='|' read -r field replacement expected; do
+        binding="$(valid_customer_binding "$id" | sed -E "s@^(  - ${field}:).*@\\1 ${replacement}@")"
+        root="$(write_expectations "$id" 4 "$binding")"
+        run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+        if [ "$status" -ne 1 ] || [[ "$output" != *"${expected}"* ]]; then
+            echo "invalid-value mutant survived for ${field}: ${output}" >&2
+            return 1
+        fi
+        rm -rf "$root"
+    done <<EOF
+requirement_id|REQ-1|requirement_id must match req-NNNN
+visitor_visible|yes|visitor_visible must be boolean true|false
+delivery_receipt|other.yaml|delivery_receipt must be datarim/receipts/${id}-customer-delivery.yaml
+EOF
+}
+
+@test "schema v4 ignores binding fields inside multiline HTML comments" {
+    local id="BIND-0012"
+    local root
+    root="$(write_expectations "$id" 4 $'  - customer_derived: true\n<!--\n  - requirement_id: req-0001\n  - surface_class: VISITOR_VISIBLE\n  - visitor_visible: true\n  - delivery_receipt: datarim/receipts/BIND-0012-customer-delivery.yaml\n-->')"
+
+    run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"missing requirement_id"* ]]
 }
 
 @test "legacy schema versions v1 through v3 remain valid without customer binding" {
@@ -243,7 +342,8 @@ EOF
 
 @test "expectations contract makes customer binding mandatory without invalidating legacy files" {
     assert_contains "$EXPECTATIONS_SKILL" 'schema_version: 4'
-    assert_contains "$EXPECTATIONS_SKILL" 'customer_requirement'
+    assert_contains "$EXPECTATIONS_SKILL" 'customer_binding_from'
+    assert_contains "$EXPECTATIONS_SKILL" 'customer_derived'
     assert_contains "$EXPECTATIONS_SKILL" 'requirement_id'
     assert_contains "$EXPECTATIONS_SKILL" 'surface_class'
     assert_contains "$EXPECTATIONS_SKILL" 'visitor_visible'
