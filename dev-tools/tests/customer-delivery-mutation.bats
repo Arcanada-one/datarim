@@ -1100,7 +1100,8 @@ PY
 @test "mutation kill attribution rejects setup syntax timeout and wrong-assertion failures" {
     local filter='focused contract' expected=42 deadline_mutant deadline_filter
     local terminal_mask_mutant terminal_mask_validator terminal_mask_filter
-    local post_popen_mutant post_popen_control post_popen_filter callsite marker_kind marker_value marker_hex sentinel_kind
+    local post_popen_mutant post_popen_control post_popen_readiness_control post_popen_filter
+    local callsite marker_kind marker_value marker_hex sentinel_kind
     local diagnostic_mutant diagnostic_filter pid_width_mutant
     run assert_attributed_mutant_kill valid "$filter" "$expected" 1 \
         $'1..1\nnot ok 1 focused contract\n# (in test file fixture.bats, line 42)\n# assertion failed'
@@ -1239,6 +1240,33 @@ PY
         CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
         CUSTOMER_DELIVERY_POST_POPEN_ONLY=silent \
         bats --filter "^${post_popen_filter}$" "$FUNCTIONAL_TEST"
+    assert_baseline_green "$post_popen_filter" || return 1
+
+    post_popen_readiness_control="${BATS_TEST_TMPDIR}/post-popen-readiness-control.bats"
+    cp "$FUNCTIONAL_TEST" "$post_popen_readiness_control" || return 1
+    "$PYTHON" - "$post_popen_readiness_control" "$REPO_ROOT" <<'PY' || return 1
+import sys
+
+path, repo_root = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+root_old = '    REPO_ROOT="${BATS_TEST_DIRNAME}/../.."\n'
+root_new = f"    REPO_ROOT={repo_root!r}\n"
+startup = '''    handle.write('if [ "${1:-}" = version ]; then\\n')
+    handle.write("  (trap '' TERM; sleep 30) &\\n")
+'''
+delayed_startup = '''    handle.write('if [ "${1:-}" = version ]; then\\n')
+    handle.write("  sleep 1.1\\n")  # TEST_FIXTURE_READINESS_DELAY
+    handle.write("  (trap '' TERM; sleep 30) &\\n")
+'''
+if source.count(root_old) != 1 or source.count(startup) != 1:
+    raise SystemExit("POST_POPEN_READINESS_CONTROL_SEAM_MISSING_OR_AMBIGUOUS")
+source = source.replace(root_old, root_new, 1).replace(startup, delayed_startup, 1)
+open(path, "w", encoding="utf-8").write(source)
+PY
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        CUSTOMER_DELIVERY_POST_POPEN_ONLY=silent \
+        bats --filter "^${post_popen_filter}$" "$post_popen_readiness_control"
     assert_baseline_green "$post_popen_filter" || return 1
 
     post_popen_control="${BATS_TEST_TMPDIR}/post-popen-same-clock-control.bats"

@@ -408,20 +408,40 @@ PY
 }
 
 force_test_logical_deadline_shutdown_race() {
-    "$PYTHON" - "$TEST_SCRIPT" <<'PY' || return 1
+    local pid_file="$1"
+    "$PYTHON" - "$TEST_SCRIPT" "$pid_file" <<'PY' || return 1
 import sys
 
-path = sys.argv[1]
+path, pid_file = sys.argv[1:]
 source = open(path, encoding="utf-8").read()
 crypto_probe = '''        returncode, stdout, _stderr = run_bounded_process(
             [PINNED_OPENSSL, "version"], stdout_limit=4096, stderr_limit=4096
         )
 '''
-forced_race = '''        globals()["VALIDATION_DEADLINE"] = time.monotonic() + 0.1
-        signal.setitimer(signal.ITIMER_REAL, 0.2)
+forced_race = '''        globals()["VALIDATION_DEADLINE"] = time.monotonic() + 2
+        signal.setitimer(signal.ITIMER_REAL, 2)
         returncode, stdout, _stderr = run_bounded_process(
             [PINNED_OPENSSL, "version"], stdout_limit=4096, stderr_limit=4096
         )
+'''
+process_ready_anchor = '''        selector = selectors.DefaultSelector()
+'''
+process_ready = f'''        if arguments == [PINNED_OPENSSL, "version"]:
+            # Arm the race only after the fixture-owned descendant has published
+            # its PID; runner scheduling before that point is not cleanup time.
+            fixture_ready_deadline = time.monotonic() + 1.75
+            while True:
+                try:
+                    if os.stat({pid_file!r}).st_size > 0:
+                        break
+                except OSError:
+                    pass
+                if time.monotonic() >= fixture_ready_deadline:
+                    raise RuntimeError("TEST_FIXTURE_PID_NOT_READY")
+                time.sleep(0.005)
+            globals()["VALIDATION_DEADLINE"] = time.monotonic() + 0.1
+            signal.setitimer(signal.ITIMER_REAL, 0.2)
+        selector = selectors.DefaultSelector()
 '''
 shutdown_yield = "    time.sleep(0)  # TEST_DEADLINE_STALL_MUTATION\n"
 shutdown_race = (
@@ -429,9 +449,24 @@ shutdown_race = (
     + "    os.kill(os.getpid(), signal.SIGALRM)  # TEST_PENDING_TERMINAL_SIGNAL\n"
     + "    time.sleep(0.25)  # TEST_LOGICAL_DEADLINE_SHUTDOWN_RACE\n"
 )
-if source.count(crypto_probe) != 1 or source.count(shutdown_yield) != 1:
+run_bounded_start = source.index("def run_bounded_process(")
+run_bounded_end = source.index("\nsignal.signal(", run_bounded_start)
+process_ready_index = source.find(
+    process_ready_anchor, run_bounded_start, run_bounded_end
+)
+if (
+    source.count(crypto_probe) != 1
+    or process_ready_index < 0
+    or source.find(process_ready_anchor, process_ready_index + 1, run_bounded_end) >= 0
+    or source.count(shutdown_yield) != 1
+):
     raise SystemExit("LOGICAL_DEADLINE_SHUTDOWN_RACE_SEAM_MISSING_OR_AMBIGUOUS")
 source = source.replace(crypto_probe, forced_race, 1)
+source = (
+    source[:process_ready_index]
+    + process_ready
+    + source[process_ready_index + len(process_ready_anchor):]
+)
 source = source.replace(shutdown_yield, shutdown_race, 1)
 open(path, "w", encoding="utf-8").write(source)
 PY
@@ -3193,7 +3228,7 @@ PY
         'VALIDATION_TOTAL_TIMEOUT_SECONDS = 20' \
         'VALIDATION_TOTAL_TIMEOUT_SECONDS = 1' || return 1
     instrument_test_validator_elapsed "$elapsed_marker" || return 1
-    force_test_logical_deadline_shutdown_race || return 1
+    force_test_logical_deadline_shutdown_race "$pid_file" || return 1
     rebind_test_openssl "$shim" || return 1
     run_test_framework_json
     [ -s "$elapsed_marker" ] || {
