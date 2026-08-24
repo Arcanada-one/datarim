@@ -1,8 +1,8 @@
 name: TALO-0001 trusted replay
 
-on:
-  workflow_run: # zizmor: ignore[dangerous-triggers] -- guarded default-main controller; contract mutants enforce every pre-secret invariant
-    workflows: ['TALO-0001 projection contract']
+'on':
+  workflow_run: # zizmor: ignore[dangerous-triggers] -- exact event tuple is job-gated before runner I/O; trusted main controller never executes candidate code
+    workflows: ['dev-tools-lint']
     types: [completed]
 
 permissions:
@@ -13,7 +13,22 @@ permissions:
 jobs:
   replay:
     name: talo-0001-trusted-replay-controller
-    runs-on: ubuntu-latest
+    if: >-
+      github.event.workflow_run.workflow_id == 270931528 &&
+      github.event.workflow_run.name == 'dev-tools-lint' &&
+      github.event.workflow_run.path == '.github/workflows/dev-tools-lint.yml' &&
+      github.event.workflow_run.repository.full_name == 'Arcanada-one/datarim' &&
+      github.event.workflow_run.head_repository.full_name == 'Arcanada-one/datarim' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.pull_requests[0].head.sha == github.event.workflow_run.head_sha &&
+      github.event.workflow_run.pull_requests[0].number == 394 &&
+      github.event.workflow_run.pull_requests[0].head.ref == 'research/TALO-0001-frontend-design' &&
+      github.event.workflow_run.pull_requests[0].head.repo.url == 'https://api.github.com/repos/Arcanada-one/datarim' &&
+      github.event.workflow_run.pull_requests[0].base.ref == 'main' &&
+      github.event.workflow_run.pull_requests[0].base.repo.url == 'https://api.github.com/repos/Arcanada-one/datarim' &&
+      github.event.workflow_run.pull_requests[1] == null
+    runs-on: [self-hosted, Linux, X64, talo-0001-trusted]
     timeout-minutes: 8
     steps:
       - name: Check out trusted default-main controller
@@ -24,16 +39,6 @@ jobs:
           persist-credentials: false
       - name: Validate workflow-run identity before secret materialization
         run: trusted/dev-tools/preflight-talo-0001-workflow-run.sh "$GITHUB_EVENT_PATH"
-      - name: Materialize dedicated read-only knowledge deploy key
-        env:
-          DEPLOY_KEY: ${{ secrets.TALOMNIA_KNOWLEDGE_DEPLOY_KEY }}
-        run: |
-          if [ -z "$DEPLOY_KEY" ]; then
-            echo '::error::TALOMNIA_KNOWLEDGE_DEPLOY_KEY is required.'
-            exit 1
-          fi
-          install -m 0600 /dev/null "$RUNNER_TEMP/talomnia-knowledge.key"
-          printf '%s\n' "$DEPLOY_KEY" >"$RUNNER_TEMP/talomnia-knowledge.key"
       - name: Run trusted collection and sandboxed exact-head replay
         env:
           GH_TOKEN: ${{ github.token }}
@@ -41,7 +46,6 @@ jobs:
           trusted/dev-tools/trusted-talo-0001-replay.sh \
             --event "$GITHUB_EVENT_PATH" \
             --candidate "$RUNNER_TEMP/candidate" \
-            --deploy-key "$RUNNER_TEMP/talomnia-knowledge.key" \
             --output "$RUNNER_TEMP/talo-0001-attestation.json"
       - name: Publish fixed candidate-head verdict
         if: always()
