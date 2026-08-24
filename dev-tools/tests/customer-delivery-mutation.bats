@@ -1219,6 +1219,242 @@ PY
         "sigchld_spawn_${callsite}" "${filter}|ignored_sigchld_spawn_failed=${callsite}"
 }
 
+run_inherited_alarm_mask_mutant() {
+    local callsite="$1"
+    local filter='OpenSSL deadline terminates stubborn descendant pipe holders'
+    local functional_mutant validator_mutant guard mutant
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        CUSTOMER_DELIVERY_INHERITED_ALARM_ONLY="$callsite" \
+        bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+    assert_baseline_green "$filter" || return 1
+
+    functional_mutant="${BATS_TEST_TMPDIR}/inherited-alarm-${callsite}-mutant.bats"
+    validator_mutant="${BATS_TEST_TMPDIR}/check-customer-delivery-inherited-alarm-${callsite}.sh"
+    cp "$FUNCTIONAL_TEST" "$functional_mutant" || return 1
+    cp "$SCRIPT" "$validator_mutant" || return 1
+    guard=$'    signal.pthread_sigmask(\n        signal.SIG_UNBLOCK, {signal.SIGALRM}\n    )  # SECURITY_RULE:validation_alarm_unblock'
+    mutant=$'    signal.pthread_sigmask(\n        signal.SIG_BLOCK, {signal.SIGALRM}\n    )  # MUTATED:validation_alarm_unblock'
+    "$PYTHON" - "$functional_mutant" "$validator_mutant" "$REPO_ROOT" "$guard" "$mutant" <<'PY' || return 1
+import sys
+
+test_path, validator_path, repo_root, guard, mutant = sys.argv[1:]
+test_source = open(test_path, encoding="utf-8").read()
+validator_source = open(validator_path, encoding="utf-8").read()
+root_old = '    REPO_ROOT="${BATS_TEST_DIRNAME}/../.."\n'
+root_new = f"    REPO_ROOT={repo_root!r}\n"
+if test_source.count(root_old) != 1 or validator_source.count(guard) != 1:
+    raise SystemExit("INHERITED_ALARM_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+open(test_path, "w", encoding="utf-8").write(test_source.replace(root_old, root_new, 1))
+open(validator_path, "w", encoding="utf-8").write(validator_source.replace(guard, mutant, 1))
+PY
+    chmod +x "$validator_mutant"
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$validator_mutant" \
+        CUSTOMER_DELIVERY_INHERITED_ALARM_ONLY="$callsite" \
+        bats --filter "^${filter}$" "$functional_mutant"
+    [ "$status" -ne 0 ] \
+        && [[ "$output" == *"inherited_alarm_mask_failure=${callsite}"* ]] \
+        && [ "$(printf '%s\n' "$output" | awk -v target="not ok 1 ${filter}" '$0 == target { count++ } END { print count+0 }')" -eq 1 ] \
+        && [[ "$output" != *"Traceback"* ]] \
+        && [[ "$output" != *"setup_file failed"* ]] \
+        && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
+        || { printf 'inherited_alarm_mutant_not_attributed=%s status=%s output=%s\n' \
+            "$callsite" "$status" "$output"; return 1; }
+    "$PYTHON" -c \
+        'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
+        "inherited_alarm_${callsite}" "${filter}|inherited_alarm_mask_failure=${callsite}"
+}
+
+run_supervisor_alarm_mask_mutant() {
+    local callsite="$1"
+    local filter='OpenSSL deadline terminates stubborn descendant pipe holders'
+    local functional_mutant validator_mutant guard mutant
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        CUSTOMER_DELIVERY_SIGCHLD_CONSUMER_ONLY="$callsite" \
+        bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+    assert_baseline_green "$filter" || return 1
+
+    functional_mutant="${BATS_TEST_TMPDIR}/supervisor-alarm-${callsite}-mutant.bats"
+    validator_mutant="${BATS_TEST_TMPDIR}/check-customer-delivery-supervisor-alarm-${callsite}.sh"
+    cp "$FUNCTIONAL_TEST" "$functional_mutant" || return 1
+    cp "$SCRIPT" "$validator_mutant" || return 1
+    guard=$'    signal.pthread_sigmask(\n        signal.SIG_UNBLOCK, {signal.SIGALRM}\n    )  # SECURITY_RULE:supervisor_alarm_unblock'
+    mutant=$'    signal.pthread_sigmask(\n        signal.SIG_BLOCK, {signal.SIGALRM}\n    )  # MUTATED:supervisor_alarm_unblock'
+    "$PYTHON" - "$functional_mutant" "$validator_mutant" "$REPO_ROOT" "$guard" "$mutant" <<'PY' || return 1
+import sys
+
+test_path, validator_path, repo_root, guard, mutant = sys.argv[1:]
+test_source = open(test_path, encoding="utf-8").read()
+validator_source = open(validator_path, encoding="utf-8").read()
+root_old = '    REPO_ROOT="${BATS_TEST_DIRNAME}/../.."\n'
+root_new = f"    REPO_ROOT={repo_root!r}\n"
+if test_source.count(root_old) != 1 or validator_source.count(guard) != 1:
+    raise SystemExit("SUPERVISOR_ALARM_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+open(test_path, "w", encoding="utf-8").write(test_source.replace(root_old, root_new, 1))
+open(validator_path, "w", encoding="utf-8").write(validator_source.replace(guard, mutant, 1))
+PY
+    chmod +x "$validator_mutant"
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$validator_mutant" \
+        CUSTOMER_DELIVERY_SIGCHLD_CONSUMER_ONLY="$callsite" \
+        bats --filter "^${filter}$" "$functional_mutant"
+    [ "$status" -ne 0 ] \
+        && [[ "$output" == *"ignored_sigchld_status_not_preserved=${callsite}"* ]] \
+        && [ "$(printf '%s\n' "$output" | awk -v target="not ok 1 ${filter}" '$0 == target { count++ } END { print count+0 }')" -eq 1 ] \
+        && [[ "$output" != *"Traceback"* ]] \
+        && [[ "$output" != *"setup_file failed"* ]] \
+        && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
+        || { printf 'supervisor_alarm_mutant_not_attributed=%s status=%s output=%s\n' \
+            "$callsite" "$status" "$output"; return 1; }
+    "$PYTHON" -c \
+        'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
+        "supervisor_alarm_${callsite}" "${filter}|ignored_sigchld_status_not_preserved=${callsite}"
+}
+
+run_post_registration_alarm_restore_mutant() {
+    local callsite="$1"
+    local filter='OpenSSL deadline terminates stubborn descendant pipe holders'
+    local functional_mutant validator_mutant
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        CUSTOMER_DELIVERY_INHERITED_ALARM_ONLY="$callsite" \
+        bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+    assert_baseline_green "$filter" || return 1
+
+    functional_mutant="${BATS_TEST_TMPDIR}/post-registration-alarm-${callsite}-mutant.bats"
+    validator_mutant="${BATS_TEST_TMPDIR}/check-customer-delivery-post-registration-alarm-${callsite}.sh"
+    cp "$FUNCTIONAL_TEST" "$functional_mutant" || return 1
+    cp "$SCRIPT" "$validator_mutant" || return 1
+    "$PYTHON" - "$functional_mutant" "$validator_mutant" "$REPO_ROOT" <<'PY' || return 1
+import sys
+
+test_path, validator_path, repo_root = sys.argv[1:]
+test_source = open(test_path, encoding="utf-8").read()
+validator_source = open(validator_path, encoding="utf-8").read()
+root_old = '    REPO_ROOT="${BATS_TEST_DIRNAME}/../.."\n'
+root_new = f"    REPO_ROOT={repo_root!r}\n"
+start = validator_source.index("def start_registered_process(arguments, **options):\n")
+end = validator_source.index("\ndef release_completed_process(process):\n", start)
+function_source = validator_source[start:end]
+guard = "            signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)\n"
+mutant = "            signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGALRM})  # MUTATED:popen_alarm_restore\n"
+if test_source.count(root_old) != 1 or function_source.count(guard) != 1:
+    raise SystemExit("POST_REGISTRATION_ALARM_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+function_source = function_source.replace(guard, mutant, 1)
+validator_source = validator_source[:start] + function_source + validator_source[end:]
+open(test_path, "w", encoding="utf-8").write(test_source.replace(root_old, root_new, 1))
+open(validator_path, "w", encoding="utf-8").write(validator_source)
+PY
+    chmod +x "$validator_mutant"
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$validator_mutant" \
+        CUSTOMER_DELIVERY_INHERITED_ALARM_ONLY="$callsite" \
+        bats --filter "^${filter}$" "$functional_mutant"
+    [ "$status" -ne 0 ] \
+        && [[ "$output" == *"inherited_alarm_mask_failure=${callsite}"* ]] \
+        && [ "$(printf '%s\n' "$output" | awk -v target="not ok 1 ${filter}" '$0 == target { count++ } END { print count+0 }')" -eq 1 ] \
+        && [[ "$output" != *"Traceback"* ]] \
+        && [[ "$output" != *"setup_file failed"* ]] \
+        && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
+        || { printf 'post_registration_alarm_mutant_not_attributed=%s status=%s output=%s\n' \
+            "$callsite" "$status" "$output"; return 1; }
+    "$PYTHON" -c \
+        'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
+        "post_registration_alarm_${callsite}" "${filter}|inherited_alarm_mask_failure=${callsite}"
+}
+
+run_alarm_initialization_mutant() {
+    local mode="$1"
+    local filter='OpenSSL deadline terminates stubborn descendant pipe holders'
+    local functional_mutant validator_mutant selector expected_fragment
+    case "$mode" in
+        handler-order)
+            selector='CUSTOMER_DELIVERY_PENDING_ALARM_ONLY=1'
+            expected_fragment='pending_inherited_alarm_failure='
+            ;;
+        timer-bound)
+            selector='CUSTOMER_DELIVERY_PENDING_ALARM_ONLY=timer'
+            expected_fragment='inherited_alarm_timer_elapsed_invalid='
+            ;;
+        init-hard-abort)
+            selector='CUSTOMER_DELIVERY_SIGNAL_INIT_ONLY=1'
+            expected_fragment='signal_initialization_failure='
+            ;;
+        *) return 1 ;;
+    esac
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" "$selector" \
+        bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+    assert_baseline_green "$filter" || return 1
+
+    functional_mutant="${BATS_TEST_TMPDIR}/alarm-initialization-${mode}-mutant.bats"
+    validator_mutant="${BATS_TEST_TMPDIR}/check-customer-delivery-alarm-initialization-${mode}.sh"
+    cp "$FUNCTIONAL_TEST" "$functional_mutant" || return 1
+    cp "$SCRIPT" "$validator_mutant" || return 1
+    "$PYTHON" - "$functional_mutant" "$validator_mutant" "$REPO_ROOT" "$mode" <<'PY' || return 1
+import sys
+
+test_path, validator_path, repo_root, mode = sys.argv[1:]
+test_source = open(test_path, encoding="utf-8").read()
+source = open(validator_path, encoding="utf-8").read()
+root_old = '    REPO_ROOT="${BATS_TEST_DIRNAME}/../.."\n'
+root_new = f"    REPO_ROOT={repo_root!r}\n"
+if mode == "handler-order":
+    guard = '''signal.signal(signal.SIGALRM, validation_alarm_handler)
+try:
+    signal.pthread_sigmask(
+        signal.SIG_UNBLOCK, {signal.SIGALRM}
+    )  # SECURITY_RULE:validation_alarm_unblock
+    signal.setitimer(signal.ITIMER_REAL, VALIDATION_TOTAL_TIMEOUT_SECONDS)
+'''
+    mutant = '''try:
+    signal.pthread_sigmask(
+        signal.SIG_UNBLOCK, {signal.SIGALRM}
+    )  # MUTATED:validation_alarm_handler_order
+    signal.signal(signal.SIGALRM, validation_alarm_handler)
+    signal.setitimer(signal.ITIMER_REAL, VALIDATION_TOTAL_TIMEOUT_SECONDS)
+'''
+elif mode == "timer-bound":
+    guard = "    signal.setitimer(signal.ITIMER_REAL, VALIDATION_TOTAL_TIMEOUT_SECONDS)\n"
+    mutant = "    signal.setitimer(signal.ITIMER_REAL, VALIDATION_TOTAL_TIMEOUT_SECONDS * 8)  # MUTATED:validation_alarm_timer_bound\n"
+elif mode == "init-hard-abort":
+    guard = '''    write_terminal_response(ValidationTerminal(
+        "ERROR", 2, "NOT_MET", ("untrusted_python_runtime",)
+    ))  # SECURITY_RULE:validation_signal_init_hard_abort
+'''
+    mutant = '''    finalize_terminal(select_terminal(
+        "ERROR", 2, additional_findings=("untrusted_python_runtime",)
+    ))  # MUTATED:validation_signal_init_hard_abort
+'''
+else:
+    raise SystemExit("ALARM_INITIALIZATION_MUTATION_MODE_INVALID")
+if test_source.count(root_old) != 1 or source.count(guard) != 1:
+    raise SystemExit("ALARM_INITIALIZATION_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+open(test_path, "w", encoding="utf-8").write(test_source.replace(root_old, root_new, 1))
+open(validator_path, "w", encoding="utf-8").write(source.replace(guard, mutant, 1))
+PY
+    chmod +x "$validator_mutant"
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$validator_mutant" "$selector" \
+        bats --filter "^${filter}$" "$functional_mutant"
+    [ "$status" -ne 0 ] \
+        && [[ "$output" == *"${expected_fragment}"* ]] \
+        && [ "$(printf '%s\n' "$output" | awk -v target="not ok 1 ${filter}" '$0 == target { count++ } END { print count+0 }')" -eq 1 ] \
+        && [[ "$output" != *"setup_file failed"* ]] \
+        && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
+        || { printf 'alarm_initialization_mutant_not_attributed=%s status=%s output=%s\n' \
+            "$mode" "$status" "$output"; return 1; }
+    "$PYTHON" -c \
+        'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
+        "alarm_initialization_${mode}" "${filter}|${expected_fragment}"
+}
+
 run_cleanup_output_mutant() {
     local filter='OpenSSL deadline terminates stubborn descendant pipe holders'
     local functional_mutant validator_mutant guard mutant expected_lines cleanup_assertion_line
@@ -1778,6 +2014,9 @@ PY
         && [[ "$output" != *"setup_file failed"* ]] \
         && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
         || { printf 'alarm_pid_width_mutant_status=%s output=%s\n' "$status" "$output"; return 1; }
+    run_alarm_initialization_mutant handler-order
+    run_alarm_initialization_mutant timer-bound
+    run_alarm_initialization_mutant init-hard-abort
 }
 
 @test "cleanup signal-mask and output-before-reap mutants are independently killed" {
@@ -1799,12 +2038,21 @@ PY
 
 @test "silent completed-parent detached descendant cleanup mutant is killed" {
     run_completed_descendant_callsite_mutant silent
+    run_inherited_alarm_mask_mutant silent
+    run_supervisor_alarm_mask_mutant silent
+    run_post_registration_alarm_restore_mutant silent
 }
 
 @test "bounded completed-parent detached descendant cleanup mutant is killed" {
     run_completed_descendant_callsite_mutant bounded
+    run_inherited_alarm_mask_mutant bounded
+    run_supervisor_alarm_mask_mutant bounded
+    run_post_registration_alarm_restore_mutant bounded
 }
 
 @test "source history completed-parent detached descendant cleanup mutant is killed" {
     run_completed_descendant_callsite_mutant source_history
+    run_inherited_alarm_mask_mutant source_history
+    run_supervisor_alarm_mask_mutant source_history
+    run_post_registration_alarm_restore_mutant source_history
 }

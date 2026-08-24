@@ -830,11 +830,18 @@ status_fd = int(sys.argv[1])
 arguments = json.loads(sys.argv[2])
 target_fds = tuple(json.loads(sys.argv[3]))
 try:
-    target = subprocess.Popen(arguments, pass_fds=target_fds)
-except (OSError, ValueError, subprocess.SubprocessError):
+    signal.pthread_sigmask(
+        signal.SIG_UNBLOCK, {signal.SIGALRM}
+    )  # SECURITY_RULE:supervisor_alarm_unblock
+except (AttributeError, OSError, ValueError, subprocess.SubprocessError):
     frame = b"V1 E spawn\n"
 else:
-    frame = f"V1 R {target.wait()}\n".encode("ascii", "strict")
+    try:
+        target = subprocess.Popen(arguments, pass_fds=target_fds)
+    except (OSError, ValueError, subprocess.SubprocessError):
+        frame = b"V1 E spawn\n"
+    else:
+        frame = f"V1 R {target.wait()}\n".encode("ascii", "strict")
 finally:
     for descriptor in (0, 1, 2, *target_fds):
         if descriptor == status_fd:
@@ -1299,22 +1306,7 @@ def run_bounded_process(arguments, stdout_limit=VALIDATION_MAX_STDOUT_BYTES,
             release_completed_process(process)
 
 
-signal.signal(
-    signal.SIGCHLD, signal.SIG_DFL
-)  # SECURITY_RULE:validation_sigchld_reaping
-signal.signal(signal.SIGALRM, validation_alarm_handler)
-signal.setitimer(signal.ITIMER_REAL, VALIDATION_TOTAL_TIMEOUT_SECONDS)
-
-
-def finalize_terminal(result):
-    block_and_disarm_validation_alarm()
-    if _active_process is not None:
-        terminate_registered_process(_active_process)
-    if _active_process is not None:
-        # Never publish an acceptance-shaped response while the registered
-        # process-group owner remains unresolved. The outer bounded shell
-        # reports an invalid response after this hard abort.
-        os._exit(PROCESS_CLEANUP_ABORT_STATUS)  # SECURITY_RULE:terminal_cleanup_before_output
+def write_terminal_response(result):
     encoded = terminal_response_bytes(result)
     try:
         sys.stdout.flush()
@@ -1328,6 +1320,18 @@ def finalize_terminal(result):
             os._exit(2)
         offset += written
     os._exit(result.code)
+
+
+def finalize_terminal(result):
+    block_and_disarm_validation_alarm()
+    if _active_process is not None:
+        terminate_registered_process(_active_process)
+    if _active_process is not None:
+        # Never publish an acceptance-shaped response while the registered
+        # process-group owner remains unresolved. The outer bounded shell
+        # reports an invalid response after this hard abort.
+        os._exit(PROCESS_CLEANUP_ABORT_STATUS)  # SECURITY_RULE:terminal_cleanup_before_output
+    write_terminal_response(result)
 
 
 def validator_excepthook(error_type, error, traceback):
@@ -1347,6 +1351,20 @@ def validator_excepthook(error_type, error, traceback):
 
 
 sys.excepthook = validator_excepthook
+
+signal.signal(
+    signal.SIGCHLD, signal.SIG_DFL
+)  # SECURITY_RULE:validation_sigchld_reaping
+signal.signal(signal.SIGALRM, validation_alarm_handler)
+try:
+    signal.pthread_sigmask(
+        signal.SIG_UNBLOCK, {signal.SIGALRM}
+    )  # SECURITY_RULE:validation_alarm_unblock
+    signal.setitimer(signal.ITIMER_REAL, VALIDATION_TOTAL_TIMEOUT_SECONDS)
+except (AttributeError, OSError, ValueError):
+    write_terminal_response(ValidationTerminal(
+        "ERROR", 2, "NOT_MET", ("untrusted_python_runtime",)
+    ))  # SECURITY_RULE:validation_signal_init_hard_abort
 
 
 def json_pointer_segment(value):
