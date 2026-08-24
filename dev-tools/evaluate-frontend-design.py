@@ -40,7 +40,7 @@ SCENARIO_INPUT_SCHEMA = {
     "existing_design_system": {"type": "boolean"},
     "accessibility_conflict": {"type": "boolean"},
     "ru_overflow": {"type": "boolean"},
-    "evidence_cells_present": {"type": "integer", "minimum": 0, "maximum": 12},
+    "evidence_cells": {"type": "array"},
     "binding_timing": {"type": "string", "enum": {"post_hoc", "pre_work"}},
     "binding_state": {"type": "string", "enum": {"Bound", "Gap", "Unbound"}},
     "reusable_artifacts_valid": {"type": "boolean"},
@@ -48,17 +48,70 @@ SCENARIO_INPUT_SCHEMA = {
 REQUIRED_SCENARIO_INPUTS = {
     "rendered_customer_surface",
     "backend_only",
-    "evidence_cells_present",
+    "evidence_cells",
     "binding_timing",
     "binding_state",
     "reusable_artifacts_valid",
 }
-REQUIRED_EXPECTED_OUTPUTS = {
-    "invoke_skill",
-    "design_action",
-    "knowledge_contract_state",
-    "implementation_allowed",
-    "product_code_emitted",
+EXPECTED_OUTPUT_SCHEMA = {
+    "invoke_skill": {"type": "boolean"},
+    "design_action": {
+        "type": "string",
+        "enum": {
+            "accessible_alternative",
+            "complete_evidence_plan",
+            "produce_design_packet",
+            "produce_first_direction",
+            "redesign_layout",
+            "reject_binding",
+            "reuse_and_extend",
+            "route_without_frontend_design",
+        },
+    },
+    "knowledge_contract_state": {"type": "string", "enum": {"MET", "NOT_APPLICABLE", "NOT_MET"}},
+    "implementation_allowed": {"type": "boolean", "nullable": True},
+    "product_code_emitted": {"type": "boolean"},
+    "approval_pause": {"type": "boolean"},
+    "replacement_default": {"type": "boolean"},
+    "accessibility_floor": {"type": "string", "enum": {"WCAG-2.2-AA"}},
+    "shrink_critical_text": {"type": "boolean"},
+    "evidence_cells_required": {"type": "integer", "minimum": 0, "maximum": 12},
+    "evidence_cells_present": {"type": "integer", "minimum": 0, "maximum": 12},
+    "binding_accepted": {"type": "boolean"},
+}
+EXPECTED_KEYS_BY_SCENARIO = {
+    "positive_site_wave": {
+        "invoke_skill", "design_action", "knowledge_contract_state",
+        "implementation_allowed", "product_code_emitted",
+    },
+    "sparse_visual_brief": {
+        "invoke_skill", "design_action", "approval_pause", "knowledge_contract_state",
+        "implementation_allowed", "product_code_emitted",
+    },
+    "existing_design_system": {
+        "invoke_skill", "design_action", "replacement_default", "knowledge_contract_state",
+        "implementation_allowed", "product_code_emitted",
+    },
+    "accessibility_conflict": {
+        "invoke_skill", "design_action", "accessibility_floor", "knowledge_contract_state",
+        "implementation_allowed", "product_code_emitted",
+    },
+    "long_ru_overflow": {
+        "invoke_skill", "design_action", "shrink_critical_text", "knowledge_contract_state",
+        "implementation_allowed", "product_code_emitted",
+    },
+    "missing_matrix_cell": {
+        "invoke_skill", "design_action", "evidence_cells_required", "evidence_cells_present",
+        "knowledge_contract_state", "implementation_allowed", "product_code_emitted",
+    },
+    "post_hoc_unbound": {
+        "invoke_skill", "design_action", "binding_accepted", "knowledge_contract_state",
+        "implementation_allowed", "product_code_emitted",
+    },
+    "backend_only_migration": {
+        "invoke_skill", "design_action", "knowledge_contract_state",
+        "implementation_allowed", "product_code_emitted",
+    },
 }
 DOC_PATHS = [
     "skills/frontend-design/SKILL.md",
@@ -91,7 +144,16 @@ EXPECTED_ROOT_KEYS = {
     "managed_kinds",
     *EXPECTED_SECTION_KEYS,
     "decision_rules",
+    "decision_surface_preambles",
+    "decision_surface_rules",
+    "directive_content",
     "decision_surface_sha256",
+}
+EXPECTED_EVIDENCE_CELLS = {
+    (locale, viewport, theme)
+    for locale in ("RU", "EN")
+    for viewport in ("desktop", "tablet", "mobile")
+    for theme in ("light", "dark")
 }
 ALLOWED_RULE_POLARITIES = {"forbid", "inform", "permit", "require"}
 RULE_MARKER_RE = re.compile(
@@ -238,6 +300,47 @@ def contract_errors(contract: dict[str, Any]) -> list[str]:
             ):
                 errors.append(f"decision rule {rule_id} has invalid surfaces")
 
+    preambles = contract.get("decision_surface_preambles")
+    if not isinstance(preambles, dict) or set(preambles) != set(DOC_PATHS):
+        errors.append("decision_surface_preambles must cover exactly the four decision surfaces")
+    elif any(type(value) is not str for value in preambles.values()):
+        errors.append("decision_surface_preambles values must be strings")
+
+    surface_rules = contract.get("decision_surface_rules")
+    if not isinstance(surface_rules, dict) or set(surface_rules) != set(DOC_PATHS):
+        errors.append("decision_surface_rules must cover exactly the four decision surfaces")
+    else:
+        for relative, rule_ids in surface_rules.items():
+            if not isinstance(rule_ids, list) or not rule_ids or any(type(rule_id) is not str for rule_id in rule_ids):
+                errors.append(f"decision_surface_rules for {relative} must be a non-empty rule-ID list")
+                continue
+            for rule_id in rule_ids:
+                rule = rules.get(rule_id) if isinstance(rules, dict) else None
+                if not isinstance(rule, dict):
+                    errors.append(f"decision_surface_rules for {relative} references unknown rule {rule_id}")
+                elif relative not in (rule.get("surfaces") or []):
+                    errors.append(f"decision_surface_rules for {relative} uses unauthorized rule {rule_id}")
+
+    directive_content = contract.get("directive_content")
+    if not isinstance(directive_content, dict) or not isinstance(rules, dict) or set(directive_content) != set(rules):
+        errors.append("directive_content must cover exactly every declared decision rule")
+    else:
+        for rule_id, directives in directive_content.items():
+            if (
+                not isinstance(directives, list)
+                or not directives
+                or any(type(value) is not str or not value.strip() for value in directives)
+            ):
+                errors.append(f"directive_content for {rule_id} must be a non-empty visible-content list")
+        if isinstance(surface_rules, dict):
+            occurrences = {
+                rule_id: sum(rule_ids.count(rule_id) for rule_ids in surface_rules.values() if isinstance(rule_ids, list))
+                for rule_id in rules
+            }
+            for rule_id, directives in directive_content.items():
+                if isinstance(directives, list) and occurrences.get(rule_id) != len(directives):
+                    errors.append(f"directive_content count mismatch for decision rule {rule_id}")
+
     digests = contract.get("decision_surface_sha256")
     if not isinstance(digests, dict) or set(digests) != set(DOC_PATHS):
         errors.append("decision_surface_sha256 must pin exactly the four decision surfaces")
@@ -257,6 +360,7 @@ def _scenario_value_errors(scenario_id: str, values: dict[str, Any]) -> list[str
             (expected_type == "boolean" and type(value) is bool)
             or (expected_type == "integer" and type(value) is int)
             or (expected_type == "string" and type(value) is str)
+            or (expected_type == "array" and type(value) is list)
         )
         if not type_valid:
             errors.append(f"scenario {scenario_id} input {key} must be {expected_type}")
@@ -273,6 +377,79 @@ def _scenario_value_errors(scenario_id: str, values: dict[str, Any]) -> list[str
             errors.append(f"scenario {scenario_id} input {key} must be >= {minimum}")
         if maximum is not None and value > maximum:
             errors.append(f"scenario {scenario_id} input {key} must be <= {maximum}")
+    cells = values.get("evidence_cells")
+    if type(cells) is list:
+        seen: set[tuple[str, str, str]] = set()
+        duplicate = False
+        for index, cell in enumerate(cells):
+            if not isinstance(cell, dict):
+                errors.append(f"scenario {scenario_id} input evidence_cells[{index}] must be an object")
+                continue
+            if set(cell) != {"locale", "viewport", "theme"}:
+                errors.append(
+                    f"scenario {scenario_id} input evidence_cells[{index}] must contain only locale, viewport, and theme"
+                )
+                continue
+            valid_cell = True
+            for axis, allowed in (
+                ("locale", {"EN", "RU"}),
+                ("viewport", {"desktop", "mobile", "tablet"}),
+                ("theme", {"dark", "light"}),
+            ):
+                value = cell.get(axis)
+                if type(value) is not str or value not in allowed:
+                    errors.append(
+                        f"scenario {scenario_id} input evidence_cells[{index}].{axis} must be one of: "
+                        + ", ".join(sorted(allowed))
+                    )
+                    valid_cell = False
+            if valid_cell:
+                identity = (cell["locale"], cell["viewport"], cell["theme"])
+                if identity in seen:
+                    duplicate = True
+                seen.add(identity)
+        if duplicate:
+            errors.append(f"scenario {scenario_id} input evidence_cells contains duplicate cells")
+    return errors
+
+
+def _expected_value_errors(scenario_id: str, expected: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    expected_keys = EXPECTED_KEYS_BY_SCENARIO.get(scenario_id, set())
+    unknown = sorted(set(expected) - expected_keys)
+    missing = sorted(expected_keys - set(expected))
+    if unknown:
+        errors.append(f"scenario {scenario_id} expected has unknown outputs: {', '.join(unknown)}")
+    if missing:
+        errors.append(f"scenario {scenario_id} is missing expected outputs: {', '.join(missing)}")
+    for key, value in expected.items():
+        schema = EXPECTED_OUTPUT_SCHEMA.get(key)
+        if schema is None:
+            continue
+        if value is None and schema.get("nullable") is True:
+            continue
+        expected_type = schema["type"]
+        type_valid = (
+            (expected_type == "boolean" and type(value) is bool)
+            or (expected_type == "integer" and type(value) is int)
+            or (expected_type == "string" and type(value) is str)
+        )
+        if not type_valid:
+            suffix = " or null" if schema.get("nullable") is True else ""
+            errors.append(f"scenario {scenario_id} expected {key} must be {expected_type}{suffix}")
+            continue
+        allowed = schema.get("enum")
+        if allowed is not None and value not in allowed:
+            errors.append(
+                f"scenario {scenario_id} expected {key} must be one of: "
+                + ", ".join(sorted(allowed))
+            )
+        minimum = schema.get("minimum")
+        maximum = schema.get("maximum")
+        if minimum is not None and value < minimum:
+            errors.append(f"scenario {scenario_id} expected {key} must be >= {minimum}")
+        if maximum is not None and value > maximum:
+            errors.append(f"scenario {scenario_id} expected {key} must be <= {maximum}")
     return errors
 
 
@@ -312,9 +489,7 @@ def scenario_errors(corpus: dict[str, Any]) -> list[str]:
         if not isinstance(expected, dict):
             errors.append(f"scenario {scenario_id} expected must be an object")
         else:
-            missing_outputs = sorted(REQUIRED_EXPECTED_OUTPUTS - set(expected))
-            if missing_outputs:
-                errors.append(f"scenario {scenario_id} is missing expected outputs: {', '.join(missing_outputs)}")
+            errors.extend(_expected_value_errors(str(scenario_id), expected))
     return errors
 
 
@@ -332,6 +507,31 @@ def _declared_cell_counts(line: str) -> set[int]:
     return counts
 
 
+def _split_decision_surface(content: str) -> tuple[str, list[list[tuple[int, str]]]]:
+    lines = content.splitlines()
+    preamble: list[str] = []
+    start = 0
+    if lines and lines[0].strip() == "---":
+        for index in range(1, len(lines)):
+            if lines[index].strip() == "---":
+                preamble = lines[: index + 1]
+                start = index + 1
+                break
+        else:
+            return "\n".join(lines), []
+    blocks: list[list[tuple[int, str]]] = []
+    block: list[tuple[int, str]] = []
+    for index, raw in enumerate(lines[start:], start=start + 1):
+        if raw.strip():
+            block.append((index, raw))
+        elif block:
+            blocks.append(block)
+            block = []
+    if block:
+        blocks.append(block)
+    return "\n".join(preamble), blocks
+
+
 def documentation_errors(root: Path, contract: dict[str, Any]) -> list[str]:
     """Reject unbound prose and unsafe claims on every decision surface."""
 
@@ -339,6 +539,9 @@ def documentation_errors(root: Path, contract: dict[str, Any]) -> list[str]:
     expected_cells = (contract.get("evidence_matrix") or {}).get("expected_cells_per_surface")
     expected_digests = contract.get("decision_surface_sha256") or {}
     declared_rules = contract.get("decision_rules") or {}
+    expected_preambles = contract.get("decision_surface_preambles") or {}
+    expected_surface_rules = contract.get("decision_surface_rules") or {}
+    directive_content = contract.get("directive_content") or {}
     used_rules: set[str] = set()
     for relative in DOC_PATHS:
         path = root / relative
@@ -349,23 +552,13 @@ def documentation_errors(root: Path, contract: dict[str, Any]) -> list[str]:
         actual_digest = hashlib.sha256(content).hexdigest()
         if expected_digests.get(relative) != actual_digest:
             errors.append(f"{relative}: decision surface digest mismatch")
-        lines = content.decode("utf-8").splitlines()
-        in_frontmatter = bool(lines and lines[0].strip() == "---")
-        blocks: list[list[tuple[int, str]]] = []
-        block: list[tuple[int, str]] = []
-        for number, raw in enumerate(lines, start=1):
-            if in_frontmatter:
-                if number > 1 and raw.strip() == "---":
-                    in_frontmatter = False
-                continue
-            if raw.strip():
-                block.append((number, raw))
-            elif block:
-                blocks.append(block)
-                block = []
-        if block:
-            blocks.append(block)
+        decoded = content.decode("utf-8")
+        preamble, blocks = _split_decision_surface(decoded)
+        if expected_preambles.get(relative) != preamble:
+            errors.append(f"{relative}: decision surface preamble mismatch")
 
+        observed_rule_ids: list[str] = []
+        rule_occurrences: dict[str, int] = {}
         for block in blocks:
             first_number, first_raw = block[0]
             location = f"{relative}:{first_number}"
@@ -375,6 +568,7 @@ def documentation_errors(root: Path, contract: dict[str, Any]) -> list[str]:
                 visible_lines = block
             else:
                 rule_id = marker.group("rule_id")
+                observed_rule_ids.append(rule_id)
                 used_rules.add(rule_id)
                 declared = declared_rules.get(rule_id)
                 if not isinstance(declared, dict):
@@ -390,6 +584,16 @@ def documentation_errors(root: Path, contract: dict[str, Any]) -> list[str]:
                     errors.append(f"{location}: decision rule marker must bind visible content")
                     continue
                 visible_lines = block[1:]
+                occurrence = rule_occurrences.get(rule_id, 0)
+                rule_occurrences[rule_id] = occurrence + 1
+                expected_directives = directive_content.get(rule_id)
+                actual_directive = "\n".join(raw for _, raw in visible_lines)
+                if (
+                    not isinstance(expected_directives, list)
+                    or occurrence >= len(expected_directives)
+                    or expected_directives[occurrence] != actual_directive
+                ):
+                    errors.append(f"{location}: decision rule {rule_id} content mismatch")
             for number, raw in visible_lines:
                 line = raw.strip().lower()
                 line_location = f"{relative}:{number}"
@@ -414,6 +618,9 @@ def documentation_errors(root: Path, contract: dict[str, Any]) -> list[str]:
                     errors.append(f"{line_location}: product code is allowed before the MET gate")
                 if "competency" in line and "managed kind" in line and not _is_negated(line):
                     errors.append(f"{line_location}: Competency is declared as a managed kind")
+        expected_order = expected_surface_rules.get(relative)
+        if not isinstance(expected_order, list) or observed_rule_ids != expected_order:
+            errors.append(f"{relative}: decision surface rule order mismatch")
     if isinstance(declared_rules, dict):
         for rule_id in sorted(set(declared_rules) - used_rules):
             errors.append(f"decision rule {rule_id} is declared but unused")
@@ -425,7 +632,14 @@ def evaluate(contract: dict[str, Any], scenario: dict[str, Any]) -> dict[str, An
     policies = contract["policies"]
     matrix = contract["evidence_matrix"]
     required_cells = matrix["expected_cells_per_surface"]
-    present_cells = int(values.get("evidence_cells_present", 0))
+    evidence_cells = values.get("evidence_cells") or []
+    cell_identities = {
+        (cell["locale"], cell["viewport"], cell["theme"])
+        for cell in evidence_cells
+        if isinstance(cell, dict) and set(cell) == {"locale", "viewport", "theme"}
+    }
+    present_cells = len(evidence_cells)
+    matrix_complete = cell_identities == EXPECTED_EVIDENCE_CELLS and present_cells == len(EXPECTED_EVIDENCE_CELLS)
     rendered = values.get("rendered_customer_surface") is True
     backend_only = values.get("backend_only") is True
     invoke = rendered and not backend_only
@@ -469,13 +683,13 @@ def evaluate(contract: dict[str, Any], scenario: dict[str, Any]) -> dict[str, An
         action = "produce_first_direction"
     elif not binding_accepted:
         action = "produce_first_direction"
-    elif present_cells != required_cells:
+    elif not matrix_complete:
         action = "complete_evidence_plan"
     else:
         action = "produce_design_packet"
 
     artifacts_valid = values.get("reusable_artifacts_valid") is True
-    contract_met = binding_accepted and artifacts_valid and present_cells == required_cells
+    contract_met = binding_accepted and artifacts_valid and matrix_complete
     result.update(
         design_action=action,
         knowledge_contract_state="MET" if contract_met else "NOT_MET",

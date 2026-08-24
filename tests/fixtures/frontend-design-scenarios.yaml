@@ -8,7 +8,19 @@ scenarios:
       existing_design_system: false
       accessibility_conflict: false
       ru_overflow: false
-      evidence_cells_present: 12
+      evidence_cells:
+      - {locale: RU, viewport: desktop, theme: light}
+      - {locale: RU, viewport: desktop, theme: dark}
+      - {locale: RU, viewport: tablet, theme: light}
+      - {locale: RU, viewport: tablet, theme: dark}
+      - {locale: RU, viewport: mobile, theme: light}
+      - {locale: RU, viewport: mobile, theme: dark}
+      - {locale: EN, viewport: desktop, theme: light}
+      - {locale: EN, viewport: desktop, theme: dark}
+      - {locale: EN, viewport: tablet, theme: light}
+      - {locale: EN, viewport: tablet, theme: dark}
+      - {locale: EN, viewport: mobile, theme: light}
+      - {locale: EN, viewport: mobile, theme: dark}
       binding_timing: pre_work
       binding_state: Bound
       reusable_artifacts_valid: true
@@ -24,7 +36,7 @@ scenarios:
       rendered_customer_surface: true
       backend_only: false
       brief_detail: sparse
-      evidence_cells_present: 0
+      evidence_cells: []
       binding_timing: pre_work
       binding_state: Gap
       reusable_artifacts_valid: false
@@ -42,7 +54,7 @@ scenarios:
       backend_only: false
       brief_detail: complete
       existing_design_system: true
-      evidence_cells_present: 0
+      evidence_cells: []
       binding_timing: pre_work
       binding_state: Gap
       reusable_artifacts_valid: false
@@ -59,7 +71,7 @@ scenarios:
       rendered_customer_surface: true
       backend_only: false
       accessibility_conflict: true
-      evidence_cells_present: 0
+      evidence_cells: []
       binding_timing: pre_work
       binding_state: Gap
       reusable_artifacts_valid: false
@@ -76,7 +88,7 @@ scenarios:
       rendered_customer_surface: true
       backend_only: false
       ru_overflow: true
-      evidence_cells_present: 0
+      evidence_cells: []
       binding_timing: pre_work
       binding_state: Gap
       reusable_artifacts_valid: false
@@ -92,7 +104,18 @@ scenarios:
     input:
       rendered_customer_surface: true
       backend_only: false
-      evidence_cells_present: 11
+      evidence_cells:
+      - {locale: RU, viewport: desktop, theme: light}
+      - {locale: RU, viewport: desktop, theme: dark}
+      - {locale: RU, viewport: tablet, theme: light}
+      - {locale: RU, viewport: tablet, theme: dark}
+      - {locale: RU, viewport: mobile, theme: light}
+      - {locale: RU, viewport: mobile, theme: dark}
+      - {locale: EN, viewport: desktop, theme: light}
+      - {locale: EN, viewport: desktop, theme: dark}
+      - {locale: EN, viewport: tablet, theme: light}
+      - {locale: EN, viewport: tablet, theme: dark}
+      - {locale: EN, viewport: mobile, theme: light}
       binding_timing: pre_work
       binding_state: Bound
       reusable_artifacts_valid: true
@@ -109,7 +132,19 @@ scenarios:
     input:
       rendered_customer_surface: true
       backend_only: false
-      evidence_cells_present: 12
+      evidence_cells:
+      - {locale: RU, viewport: desktop, theme: light}
+      - {locale: RU, viewport: desktop, theme: dark}
+      - {locale: RU, viewport: tablet, theme: light}
+      - {locale: RU, viewport: tablet, theme: dark}
+      - {locale: RU, viewport: mobile, theme: light}
+      - {locale: RU, viewport: mobile, theme: dark}
+      - {locale: EN, viewport: desktop, theme: light}
+      - {locale: EN, viewport: desktop, theme: dark}
+      - {locale: EN, viewport: tablet, theme: light}
+      - {locale: EN, viewport: tablet, theme: dark}
+      - {locale: EN, viewport: mobile, theme: light}
+      - {locale: EN, viewport: mobile, theme: dark}
       binding_timing: post_hoc
       binding_state: Unbound
       reusable_artifacts_valid: true
@@ -125,7 +160,7 @@ scenarios:
     input:
       rendered_customer_surface: false
       backend_only: true
-      evidence_cells_present: 0
+      evidence_cells: []
       binding_timing: pre_work
       binding_state: Bound
       reusable_artifacts_valid: true
