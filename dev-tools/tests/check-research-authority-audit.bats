@@ -198,6 +198,43 @@ assert_not_met() {
         && [[ "$output" == *'finding=review_authority_mismatch:R1'* ]]
 }
 
+@test "TALO-0001 profile rejects a coupled R2 omission and resealed 28-row table" {
+    local mutant="${ROOT}/real-mutant.json"
+    jq 'del(.reviews[] | select(.id=="R2")) |
+      .item_table.expected_rows=28 |
+      .item_table.sha256="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"' \
+        "$REAL_MANIFEST" >"$mutant"
+    run_talo_0001_profile "$mutant"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'finding=review_set_mismatch:missing=R2'* ]] \
+        && [[ "$output" == *'finding=item_table_expected_rows_mismatch:expected=66:actual=28'* ]]
+}
+
+@test "TALO-0001 profile rejects extra and duplicate review identities" {
+    local extra="${ROOT}/real-extra.json"
+    local duplicate="${ROOT}/real-duplicate.json"
+    jq '.reviews += [{id:"R3",source_path:"research/replacement.md",git_blob:"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",expected_items:0}]' \
+        "$REAL_MANIFEST" >"$extra"
+    run_talo_0001_profile "$extra"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'finding=review_set_mismatch:extra=R3'* ]]
+
+    jq '.reviews += [.reviews[] | select(.id=="R1")]' \
+        "$REAL_MANIFEST" >"$duplicate"
+    run_talo_0001_profile "$duplicate"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'finding=review_set_mismatch:duplicate=R1'* ]]
+}
+
+@test "TALO-0001 profile binds each review item count independently" {
+    local mutant="${ROOT}/real-mutant.json"
+    jq '(.reviews[] | select(.id=="R2") | .expected_items)=37' \
+        "$REAL_MANIFEST" >"$mutant"
+    run_talo_0001_profile "$mutant"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'finding=review_item_count_mismatch:R2:expected=38:actual=37'* ]]
+}
+
 @test "TALO-0001 profile rejects a coupled same-ID R2 comment replacement" {
     local mutant="${ROOT}/real-mutant.json"
     jq '(.comments[] | select((.id|tostring)=="5347971637")) |=

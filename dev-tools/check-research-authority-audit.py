@@ -65,6 +65,8 @@ AUTHORITY_PROJECTION_FIELDS: dict[str, tuple[str, ...]] = {
 CLOSED_AUDIT_PROFILES: dict[str, dict[str, Any]] = {
     "TALO-0001": {
         "knowledge_snapshot": "c636fea7b7dda0245fbbfd1da8a5a78c7e56c2ae",
+        "reviews": {"R1": 28, "R2": 38},
+        "item_table_rows": 66,
         "candidates": {
             "tal-role-design-lead@r4": "tal-role-design-lead",
             "tal-role-knowledge-curator@r2": "tal-role-knowledge-curator",
@@ -161,6 +163,8 @@ CLOSED_AUDIT_PROFILES: dict[str, dict[str, Any]] = {
         },
     },
     "TALO-TEST": {
+        "reviews": {"R1": 1, "R2": 1},
+        "item_table_rows": 2,
         "candidates": {"candidate-role@r1": "candidate-role"},
         "derived_records": {
             "planning": {
@@ -805,6 +809,36 @@ def validate_closed_profile(
 
     reviews = manifest.get("reviews")
     review_entries = reviews if isinstance(reviews, list) else []
+    expected_reviews = profile.get("reviews", {})
+    report_closed_set(
+        "review",
+        [entry.get("id") for entry in review_entries if isinstance(entry, dict)],
+        set(expected_reviews),
+        findings,
+    )
+    for review in review_entries:
+        if not isinstance(review, dict) or review.get("id") not in expected_reviews:
+            continue
+        review_id = review["id"]
+        expected_items = expected_reviews[review_id]
+        if review.get("expected_items") != expected_items:
+            findings.append(
+                f"review_item_count_mismatch:{review_id}:"
+                f"expected={expected_items}:actual={review.get('expected_items')}"
+            )
+
+    expected_item_table_rows = profile.get("item_table_rows")
+    if expected_item_table_rows != sum(expected_reviews.values()):
+        findings.append("closed_profile_item_count_invalid")
+    item_table = manifest.get("item_table")
+    actual_item_table_rows = (
+        item_table.get("expected_rows") if isinstance(item_table, dict) else None
+    )
+    if actual_item_table_rows != expected_item_table_rows:
+        findings.append(
+            "item_table_expected_rows_mismatch:"
+            f"expected={expected_item_table_rows}:actual={actual_item_table_rows}"
+        )
 
     candidates = manifest.get("candidates")
     candidate_entries = candidates if isinstance(candidates, list) else []
