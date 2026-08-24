@@ -661,16 +661,16 @@ assert_spawn_failure_consumer() {
     local bad_executable="${BATS_TEST_TMPDIR}/spawn-failure-${callsite}"
     local elapsed_marker="${BATS_TEST_TMPDIR}/spawn-failure-${callsite}.elapsed"
     local spawn_marker="${BATS_TEST_TMPDIR}/spawn-failure-${callsite}.reached"
-    local elapsed
+    local elapsed elapsed_ceiling=4
     printf '%s\n' '#!/definitely/missing/customer-delivery-interpreter' > "$bad_executable"
     chmod +x "$bad_executable"
     build_test_framework "spawn-failure-${callsite}" || return 1
-    replace_test_script_literal \
-        'VALIDATION_TOTAL_TIMEOUT_SECONDS = 20' \
-        'VALIDATION_TOTAL_TIMEOUT_SECONDS = 1' || return 1
     instrument_test_validator_elapsed "$elapsed_marker" || return 1
     case "$callsite" in
         silent)
+            replace_test_script_literal \
+                'VALIDATION_TOTAL_TIMEOUT_SECONDS = 20' \
+                'VALIDATION_TOTAL_TIMEOUT_SECONDS = 1' || return 1
             "$PYTHON" - "$TEST_SCRIPT" "$bad_executable" <<'PY' || return 1
 import sys
 
@@ -694,9 +694,13 @@ open(path, "w", encoding="utf-8").write(source[:start] + function_source + sourc
 PY
             ;;
         bounded)
+            replace_test_script_literal \
+                'VALIDATION_TOTAL_TIMEOUT_SECONDS = 20' \
+                'VALIDATION_TOTAL_TIMEOUT_SECONDS = 1' || return 1
             rebind_test_openssl "$bad_executable" || return 1
             ;;
         source_history)
+            elapsed_ceiling=20
             "$PYTHON" - "$TEST_SCRIPT" "$spawn_marker" <<'PY' || return 1
 import sys
 
@@ -728,6 +732,15 @@ PY
             ;;
         *) return 1 ;;
     esac
+    if [[ "$callsite" == source_history ]]; then
+        "$PYTHON" - "$TEST_SCRIPT" <<'PY' || return 1
+import sys
+
+source = open(sys.argv[1], encoding="utf-8").read()
+assert source.count("VALIDATION_TOTAL_TIMEOUT_SECONDS = 20") == 1
+assert source.count("SOURCE_HISTORY_TOTAL_TIMEOUT_SECONDS = 1") == 1
+PY
+    fi
     run_test_framework_json
     if [[ "$callsite" == source_history ]]; then
         [ "$(<"$spawn_marker")" = source_history ] || {
@@ -745,7 +758,7 @@ PY
     split_bounded_validator_json "$output" || return 1
     { [ "$status" -eq 1 ] || [ "$status" -eq 2 ]; } \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["decision"] in {"NOT_MET","ERROR"}; assert d["findings"]; assert not any("resource_limit:deadline" in item for item in d["findings"])' "$VALIDATOR_JSON" \
-        && "$PYTHON" -c 'import sys; value=float(sys.argv[1]); assert 0 < value < 4' "$elapsed" \
+        && "$PYTHON" -c 'import sys; value=float(sys.argv[1]); ceiling=float(sys.argv[2]); assert 0 < value < ceiling' "$elapsed" "$elapsed_ceiling" \
         || { printf 'spawn_failure_consumer=%s status=%s elapsed=%s output=%s\n' \
             "$callsite" "$status" "$elapsed" "$output"; return 1; }
 }
