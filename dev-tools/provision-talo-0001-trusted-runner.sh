@@ -14,6 +14,10 @@ RUNNER_DIR=/srv/talo-0001-trusted/runner
 UNIT_NAME=talo-0001-trusted-runner.service
 RUNNER_VERSION=2.336.0
 RUNNER_ARCHIVE_URL=https://github.com/actions/runner/releases/download/v$RUNNER_VERSION/actions-runner-linux-x64-$RUNNER_VERSION.tar.gz
+# Pinned source contract: CommandSettings ingests ACTIONS_RUNNER_INPUT_*, masks
+# Token, and removes the input from the process environment before use.
+# https://github.com/actions/runner/blob/v2.336.0/src/Runner.Listener/CommandSettings.cs
+# sha256:937f6552579f7d1eeb0a6d0201586781eb3e2e5ea2ab3878429076560e0cab08
 RUNNER_ARCHIVE_SHA256=04cf0be1aff4c3ec3554466c39124ca250e3effd8873bb7e8d68535aa9505d5d
 RUNNER_CONFIG_SHA256=4ad01727c3f29a0b6473d625412af6bdefc6c077763a6410f359c764fc0b3ae8
 RUNNER_SCRIPT_SHA256=b39d7e0ca921a3189f7fe4e0a2f686b46719d4ccc2647f156f14407ec4517e8f
@@ -364,6 +368,54 @@ harden_runner_payload() {
     chmod 0755 "$RUNNER_DIR"
 }
 
+local_registration_absent() {
+    local path
+    for path in .runner .credentials .credentials_rsaparams .env .path; do
+        if [ -e "$RUNNER_DIR/$path" ] || [ -L "$RUNNER_DIR/$path" ]; then
+            return 1
+        fi
+    done
+}
+
+bind_pre_reconcile_roster() {
+    local id=$1 runner runner_id
+    if [ -z "$id" ]; then
+        local_registration_absent || {
+            echo "ERROR: local runner identity exists without trusted group" >&2
+            return 1
+        }
+        return 0
+    fi
+    if [ -f "$RUNNER_DIR/.runner" ] && [ ! -L "$RUNNER_DIR/.runner" ]; then
+        runner=$(exact_group_runner "$id" registered) || {
+            echo "ERROR: runner is not the exact trusted group member" >&2
+            return 1
+        }
+        runner_id=$(jq -r .id <<<"$runner")
+        verify_local_registration "$runner_id" "$id" || {
+            echo "ERROR: local runner registration mismatch" >&2
+            return 1
+        }
+        verify_runner_payload || {
+            echo "ERROR: runner payload digest mismatch" >&2
+            return 1
+        }
+        verify_runner_payload_tree || {
+            echo "ERROR: runner payload tree mismatch" >&2
+            return 1
+        }
+        return 0
+    fi
+    local_registration_absent || {
+        echo "ERROR: incomplete local runner identity exists before reconciliation" >&2
+        return 1
+    }
+    group_has_no_runners "$id" || {
+        echo "ERROR: pre-reconciliation roster is not empty" >&2
+        return 1
+    }
+}
+
 ensure_group() {
     local id
     [ "$(id -u)" -eq 0 ] || {
@@ -384,6 +436,7 @@ ensure_group() {
         return 1
     fi
     stop_and_disable_runner_service || return 1
+    bind_pre_reconcile_roster "$id" || return 1
     reconcile_group "$id"
 }
 
@@ -503,8 +556,10 @@ register_and_start() {
         token=$(api --method POST "orgs/$ORG/actions/runners/registration-token" --jq .token)
         [ -n "$token" ] || { echo "ERROR: empty runner registration token" >&2; exit 1; }
         fresh_registration=true
-        if ! sudo -u "$RUNNER_USER" "$RUNNER_DIR/config.sh" --unattended \
-            --url "https://github.com/$ORG" --token "$token" \
+        if ! ACTIONS_RUNNER_INPUT_TOKEN="$token" \
+            sudo --preserve-env=ACTIONS_RUNNER_INPUT_TOKEN -u "$RUNNER_USER" \
+            "$RUNNER_DIR/config.sh" --unattended \
+            --url "https://github.com/$ORG" \
             --runnergroup "$GROUP_NAME" --name "$RUNNER_NAME" \
             --labels "$RUNNER_LABEL" --work _work --disableupdate; then
             token=REDACTED

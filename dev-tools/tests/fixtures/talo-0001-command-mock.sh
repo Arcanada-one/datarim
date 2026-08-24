@@ -38,6 +38,9 @@ case "$command_name" in
                 runner='{"id":7001,"name":"talo-0001-trusted-arcana-devs","os":"Linux","status":"offline","busy":false,"labels":[{"name":"self-hosted"},{"name":"Linux"},{"name":"X64"},{"name":"talo-0001-trusted"}]}'
                 runner_calls=$(grep -c 'runner-groups/42/runners' "${TALO_MOCK_LOG:?}" || true)
                 case "${TALO_MOCK_RUNNERS_MODE:-one}" in
+                    unbound-pre)
+                        printf '{"total_count":1,"runners":[%s]}\n' "$runner"
+                        ;;
                     remote-before-local)
                         if [ ! -f "${TALO_MOCK_CONFIG_STARTED:?}" ]; then
                             printf '%s\n' '{"total_count":0,"runners":[]}'
@@ -73,7 +76,7 @@ case "$command_name" in
                             '{"id":7002,"name":"other-runner","os":"Linux","status":"online","busy":false,"labels":[{"name":"self-hosted"},{"name":"Linux"},{"name":"X64"},{"name":"talo-0001-trusted"}]}'
                         ;;
                     busy)
-                        if [ "$runner_calls" -gt 1 ]; then
+                        if [ "$runner_calls" -gt 2 ]; then
                             runner="${runner/\"status\":\"offline\",\"busy\":false/\"status\":\"online\",\"busy\":true}"
                         fi
                         printf '{"total_count":1,"runners":[%s]}\n' "$runner"
@@ -153,6 +156,9 @@ case "$command_name" in
         if [ "${TALO_MOCK_ENFORCE_TRAVERSAL:-0}" = 1 ] \
             && [[ " $* " == *"/tmp/talo-runner-payload."* ]]; then
             exit 2
+        fi
+        if [[ "${1:-}" == --preserve-env=* ]]; then
+            shift
         fi
         if [ "${1:-}" = -u ]; then
             shift 2

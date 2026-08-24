@@ -29,7 +29,7 @@ EXPECTED_DIGESTS = {
     "publisher": "adc8edc95e02c983bfd0a690dc018c0cec986115cf614444879928936f3b578e",
     "evaluator": "a0e86fc87493231afffd3164587f0c14e463f5e8c4acd8f4f9679e2504280d1a",
     "runner-unit": "d9b25e4ea33ed2bddad9e5d1fd5a47acedfed852749f0771fb24838f70edc131",
-    "provisioner": "7e68e6efffb0f30e2071c22dacc18e79724632a1890077487f30d7059bb18dbf",
+    "provisioner": "09732bb595f7fbc84401cf32772e2d51b6e6e2aa8e0a3bc215ad25ce2d736f85",
 }
 EXPECTED_PATHS = [
     "commands/**",
@@ -387,11 +387,19 @@ def validate_code(findings: list[str]) -> None:
         'fresh_registration=true',
         'pre_registration_empty=true',
         'expected_id=${known_runner_id:-null}',
+        'local_registration_absent',
+        'bind_pre_reconcile_roster',
+        'ACTIONS_RUNNER_INPUT_TOKEN="$token"',
+        'sudo --preserve-env=ACTIONS_RUNNER_INPUT_TOKEN',
+        'https://github.com/actions/runner/blob/v2.336.0/src/Runner.Listener/CommandSettings.cs',
+        'sha256:937f6552579f7d1eeb0a6d0201586781eb3e2e5ea2ab3878429076560e0cab08',
     ):
         if value not in provisioner:
             findings.append(f"missing:runner-runtime-contract:{value}")
     if 'sudo -u "$RUNNER_USER" -- tar' in provisioner:
         findings.append("forbidden:runner-private-staging-traversal")
+    if '--token "$token"' in provisioner:
+        findings.append("forbidden:runner-token-in-argv")
     try:
         ensure_group = provisioner.split("ensure_group() {", 1)[1].split(
             "\n}", 1
@@ -407,6 +415,7 @@ def validate_code(findings: list[str]) -> None:
         "verify_trusted_main_workflow",
         "id=$(group_id)",
         "stop_and_disable_runner_service",
+        'bind_pre_reconcile_roster "$id"',
         'reconcile_group "$id"',
     )
     positions = [ensure_group.find(value) for value in ordered_reconciliation]

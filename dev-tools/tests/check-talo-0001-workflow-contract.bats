@@ -31,6 +31,14 @@ teardown() {
     fi
 }
 
+assert_file_lacks() {
+    local pattern=$1 file=$2
+    if grep -q -- "$pattern" "$file"; then
+        printf 'unexpected pattern %s in %s\n' "$pattern" "$file" >&2
+        return 1
+    fi
+}
+
 run_check() {
     run python3 "$FIXTURE/dev-tools/check-talo-0001-workflow-contract.py"
 }
@@ -51,6 +59,14 @@ setup_provision_runtime() {
 #!/usr/bin/env bash
 set -euo pipefail
 printf 'config.sh %s\n' "$*" >>"${TALO_MOCK_LOG:?}"
+token=${ACTIONS_RUNNER_INPUT_TOKEN:?}
+tr '\0' ' ' </proc/$$/cmdline >"${TALO_MOCK_CONFIG_CMDLINE:?}"
+if grep -q -- "$token" "${TALO_MOCK_CONFIG_CMDLINE:?}"; then
+    exit 97
+fi
+unset ACTIONS_RUNNER_INPUT_TOKEN
+bash -c '[ -z "${ACTIONS_RUNNER_INPUT_TOKEN:-}" ]'
+: >"${TALO_MOCK_CONFIG_ENV_REMOVED:?}"
 cd "$(dirname "$0")"
 if [ "${1:-}" = remove ]; then
     rm -f -- .runner .credentials .credentials_rsaparams .env .path
@@ -116,6 +132,8 @@ JSON
     MOCK_REGISTRATION_REMOVED="$BATS_TEST_TMPDIR/registration-removed"
     MOCK_DELETE_COUNTER="$BATS_TEST_TMPDIR/delete-counter"
     MOCK_CONFIG_STARTED="$BATS_TEST_TMPDIR/config-started"
+    MOCK_CONFIG_CMDLINE="$BATS_TEST_TMPDIR/config-cmdline"
+    MOCK_CONFIG_ENV_REMOVED="$BATS_TEST_TMPDIR/config-env-removed"
     : >"$MOCK_LOG"
     rm -f -- "$MOCK_REGISTRATION_REMOVED"
     rm -f -- "$MOCK_CONFIG_STARTED"
@@ -160,6 +178,8 @@ run_provision_runtime() {
         "TALO_MOCK_REGISTRATION_REMOVED=$MOCK_REGISTRATION_REMOVED" \
         "TALO_MOCK_DELETE_COUNTER=$MOCK_DELETE_COUNTER" \
         "TALO_MOCK_CONFIG_STARTED=$MOCK_CONFIG_STARTED" \
+        "TALO_MOCK_CONFIG_CMDLINE=$MOCK_CONFIG_CMDLINE" \
+        "TALO_MOCK_CONFIG_ENV_REMOVED=$MOCK_CONFIG_ENV_REMOVED" \
         "$PROVISIONER" --register-and-start
 }
 
@@ -453,6 +473,8 @@ systemctl stop "$UNIT_NAME"|true|missing:runner-runtime-contract
 id=$(ensure_group)|id=1|mismatch:registration-safety-order
 runner=$(wait_for_exact_runner "$id" registered)|runner=true|mismatch:registration-safety-order
 stop_and_disable_runner_service|true|mismatch:group-reconciliation-safety-order
+bind_pre_reconcile_roster "$id"|true|mismatch:group-reconciliation-safety-order
+ACTIONS_RUNNER_INPUT_TOKEN="$token"|ACTIONS_RUNNER_INPUT_TOKEN=|missing:runner-runtime-contract
 MUTANTS
 }
 
@@ -493,14 +515,14 @@ MUTANTS
         run_provision_runtime
     [ "$status" -eq 1 ]
     [[ "$output" == *'trusted provisioner is not the exact local bootstrap on main'* ]]
-    ! grep -q '^systemctl ' "$MOCK_LOG"
+    assert_file_lacks '^systemctl ' "$MOCK_LOG"
 
     setup_provision_runtime
     MOCK_UNIT_BLOB=0000000000000000000000000000000000000000 \
         run_provision_runtime
     [ "$status" -eq 1 ]
     [[ "$output" == *'trusted runner-unit is not the exact local bootstrap on main'* ]]
-    ! grep -q '^systemctl ' "$MOCK_LOG"
+    assert_file_lacks '^systemctl ' "$MOCK_LOG"
 }
 
 @test "main-workflow API and blob failures perform no system mutation" {
@@ -518,7 +540,7 @@ MUTANTS
             --register-and-start
         [ "$status" -eq 1 ]
         [[ "$output" == *'ERROR: trusted workflow'* ]]
-        ! grep -q '^systemctl ' "$log"
+        assert_file_lacks '^systemctl ' "$log"
     done
 }
 
@@ -528,7 +550,7 @@ MUTANTS
     [ "$status" -eq 0 ]
     grep -q '^systemctl stop' "$MOCK_LOG"
     grep -q '^systemctl enable --now' "$MOCK_LOG"
-    [ "$(grep -c 'runner-groups/42/runners' "$MOCK_LOG")" -eq 2 ]
+    [ "$(grep -c 'runner-groups/42/runners' "$MOCK_LOG")" -eq 3 ]
 }
 
 @test "trusted group rejects every extra member even when its labels match" {
@@ -536,7 +558,24 @@ MUTANTS
     TALO_MOCK_RUNNERS_MODE=extra run_provision_runtime
     [ "$status" -eq 1 ]
     [[ "$output" == *'runner is not the exact trusted group member'* ]]
-    ! grep -q '^systemctl enable' "$MOCK_LOG"
+    grep -q '^systemctl disable --now' "$MOCK_LOG"
+    assert_file_lacks '--method PATCH' "$MOCK_LOG"
+    assert_file_lacks '--method PUT' "$MOCK_LOG"
+    assert_file_lacks '^systemctl enable' "$MOCK_LOG"
+}
+
+@test "unconfigured host rejects a pre-existing remote runner before reconciliation" {
+    setup_provision_runtime
+    prepare_fresh_runner_payload
+    TALO_MOCK_RUNNERS_MODE=unbound-pre run_provision_runtime
+    [ "$status" -eq 1 ]
+    [[ "$output" == *'pre-reconciliation roster is not empty'* ]]
+    grep -q '^systemctl disable --now' "$MOCK_LOG"
+    assert_file_lacks '--method PATCH' "$MOCK_LOG"
+    assert_file_lacks '--method PUT' "$MOCK_LOG"
+    roster_line=$(grep -n 'runner-groups/42/runners' "$MOCK_LOG" | head -1 | cut -d: -f1)
+    disable_line=$(grep -n '^systemctl disable --now' "$MOCK_LOG" | head -1 | cut -d: -f1)
+    [ "$disable_line" -lt "$roster_line" ]
 }
 
 @test "local runner identity and payload failure leave service disabled before re-enable" {
@@ -546,7 +585,9 @@ MUTANTS
     [ "$status" -eq 1 ]
     [[ "$output" == *'local runner registration mismatch'* ]]
     grep -q '^systemctl disable --now' "$MOCK_LOG"
-    ! grep -q '^systemctl enable' "$MOCK_LOG"
+    assert_file_lacks '--method PATCH' "$MOCK_LOG"
+    assert_file_lacks '--method PUT' "$MOCK_LOG"
+    assert_file_lacks '^systemctl enable' "$MOCK_LOG"
 
     setup_provision_runtime
     printf '%s\n' tampered-support >"$RUNNER_FIXTURE/externals/support.bin"
@@ -554,7 +595,22 @@ MUTANTS
     [ "$status" -eq 1 ]
     [[ "$output" == *'runner payload tree mismatch'* ]]
     grep -q '^systemctl disable --now' "$MOCK_LOG"
-    ! grep -q '^systemctl enable' "$MOCK_LOG"
+    assert_file_lacks '--method PATCH' "$MOCK_LOG"
+    assert_file_lacks '--method PUT' "$MOCK_LOG"
+    assert_file_lacks '^systemctl enable' "$MOCK_LOG"
+}
+
+@test "incomplete local identity rejects an empty remote roster before reconciliation" {
+    setup_provision_runtime
+    prepare_fresh_runner_payload
+    mkdir -p "$RUNNER_FIXTURE"
+    : >"$RUNNER_FIXTURE/.credentials"
+    TALO_MOCK_RUNNERS_MODE=fresh run_provision_runtime
+    [ "$status" -eq 1 ]
+    [[ "$output" == *'incomplete local runner identity exists before reconciliation'* ]]
+    grep -q '^systemctl disable --now' "$MOCK_LOG"
+    assert_file_lacks '--method PATCH' "$MOCK_LOG"
+    assert_file_lacks '--method PUT' "$MOCK_LOG"
 }
 
 @test "registration stop failure is fatal before runner configuration" {
@@ -564,7 +620,7 @@ MUTANTS
     [[ "$output" == *'unable to stop trusted runner service'* ]]
     grep -q '^systemctl disable --now' "$MOCK_LOG"
     [ "$(cat "$MOCK_SERVICE_STATE")" = disabled ]
-    ! grep -q 'config.sh' "$MOCK_LOG"
+    assert_file_lacks 'config.sh' "$MOCK_LOG"
 }
 
 @test "active runner is disabled before any group policy mutation" {
@@ -575,7 +631,7 @@ MUTANTS
     disable_line=$(grep -n '^systemctl disable --now' "$MOCK_LOG" | head -1 | cut -d: -f1)
     patch_line=$(grep -n -- '--method PATCH' "$MOCK_LOG" | head -1 | cut -d: -f1)
     [ "$disable_line" -lt "$patch_line" ]
-    ! grep -q 'config.sh' "$MOCK_LOG"
+    assert_file_lacks 'config.sh' "$MOCK_LOG"
 }
 
 @test "post-start success requires the exact group member online and idle" {
@@ -594,7 +650,79 @@ MUTANTS
         run_provision_runtime
     [ "$status" -eq 0 ]
     grep -q '^config.sh --unattended' "$MOCK_LOG"
-    ! grep -q '^sudo .*talo-runner-payload' "$MOCK_LOG"
+    assert_file_lacks '^sudo .*talo-runner-payload' "$MOCK_LOG"
+}
+
+@test "registration token uses pinned non-argv runner input transport" {
+    setup_provision_runtime
+    prepare_fresh_runner_payload
+    TALO_MOCK_RUNNERS_MODE=fresh run_provision_runtime
+    [ "$status" -eq 0 ]
+    grep -q '^config.sh --unattended' "$MOCK_LOG"
+    assert_file_lacks 'fixture-token' "$MOCK_LOG"
+    assert_file_lacks 'fixture-token' "$MOCK_CONFIG_CMDLINE"
+    [ -f "$MOCK_CONFIG_ENV_REMOVED" ]
+}
+
+@test "negative file assertion fails on a present forbidden command" {
+    local log="$BATS_TEST_TMPDIR/forbidden-command.log"
+    printf '%s\n' 'systemctl enable --now forbidden.service' >"$log"
+    run assert_file_lacks '^systemctl enable' "$log"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *'unexpected pattern'* ]]
+}
+
+@test "pre-reconciliation roster order mutant authorizes the hostile member" {
+    setup_provision_runtime
+    python3 - "$PROVISIONER" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+source = path.read_text(encoding="utf-8")
+old = '''    stop_and_disable_runner_service || return 1
+    bind_pre_reconcile_roster "$id" || return 1
+    reconcile_group "$id"
+'''
+new = '''    stop_and_disable_runner_service || return 1
+    reconcile_group "$id" || return 1
+    bind_pre_reconcile_roster "$id"
+'''
+assert source.count(old) == 1
+path.write_text(source.replace(old, new), encoding="utf-8")
+PY
+    TALO_MOCK_RUNNERS_MODE=extra run_provision_runtime
+    [ "$status" -eq 1 ]
+    grep -q -- '--method PATCH' "$MOCK_LOG"
+    grep -q -- '--method PUT' "$MOCK_LOG"
+    printf '%s\n' 'RED_SENTINEL:pre-reconciliation-roster-order'
+}
+
+@test "registration argv mutant exposes the token and is rejected" {
+    setup_provision_runtime
+    prepare_fresh_runner_payload
+    python3 - "$PROVISIONER" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+source = path.read_text(encoding="utf-8")
+old = '''        if ! ACTIONS_RUNNER_INPUT_TOKEN="$token" \\
+            sudo --preserve-env=ACTIONS_RUNNER_INPUT_TOKEN -u "$RUNNER_USER" \\
+            "$RUNNER_DIR/config.sh" --unattended \\
+            --url "https://github.com/$ORG" \\
+'''
+new = '''        if ! sudo -u "$RUNNER_USER" \\
+            "$RUNNER_DIR/config.sh" --unattended \\
+            --url "https://github.com/$ORG" --token "$token" \\
+'''
+assert source.count(old) == 1
+path.write_text(source.replace(old, new), encoding="utf-8")
+PY
+    TALO_MOCK_RUNNERS_MODE=fresh run_provision_runtime
+    [ "$status" -eq 1 ]
+    grep -q -- 'fixture-token' "$MOCK_LOG"
+    printf '%s\n' 'RED_SENTINEL:runner-token-in-argv'
 }
 
 @test "fresh registration timeout removes local and remote partial registration" {
