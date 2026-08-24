@@ -751,6 +751,57 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
         && [[ "$output" == *"BLOCKED: expectations file fails structural validation"* ]]
 }
 
+@test "CommonMark closing hashes cannot hide later unbound wishes" {
+    local id="HEAD-0003"
+    local suffix
+    local root
+    local file
+    for suffix in '##' '## <!-- trailing heading comment -->'; do
+        root="$(write_migrated_expectations "$id")"
+        file="$root/datarim/tasks/${id}-expectations.md"
+        sed -i "/^- \*\*2\. Appended customer wish\.\*\*$/i ## Ожидания ${suffix}" "$file"
+        sed -i '/^  - customer_derived: true$/,/^  - delivery_receipt:/d' "$file"
+
+        run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+        if [ "$status" -ne 1 ] || [[ "$output" != *"duplicate active ## Ожидания heading"* ]]; then
+            echo "closing-hash heading hid an unbound wish (${suffix}): ${output}" >&2
+            return 1
+        fi
+
+        run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
+        if [ "$status" -ne 1 ] || [[ "$output" != *"BLOCKED: expectations file fails structural validation"* ]]; then
+            echo "closing-hash heading passed verify (${suffix}): ${output}" >&2
+            return 1
+        fi
+        rm -rf "$root"
+    done
+}
+
+@test "a single CommonMark-equivalent expectations heading remains active" {
+    local id="HEAD-0004"
+    local heading
+    local root
+    local file
+    for heading in '## Ожидания ##' $'   ##\tОжидания ###'; do
+        root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
+        file="$root/datarim/tasks/${id}-expectations.md"
+        sed -i "s/^## Ожидания$/${heading}/" "$file"
+
+        run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+        if [ "$status" -ne 0 ]; then
+            echo "valid CommonMark heading rejected (${heading}): ${output}" >&2
+            return 1
+        fi
+
+        run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
+        if [ "$status" -ne 0 ] || [[ "$output" != *"PASS"* ]]; then
+            echo "valid CommonMark heading failed verify (${heading}): ${output}" >&2
+            return 1
+        fi
+        rm -rf "$root"
+    done
+}
+
 @test "schema v4 ignores an expectations section inside a backtick fence" {
     local id="FENC-0001"
     local root

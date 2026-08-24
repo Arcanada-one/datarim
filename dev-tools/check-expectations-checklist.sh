@@ -289,24 +289,25 @@ parse_items() {
             if ($0 ~ /^[ \t]*$/) next
             fence_line = fence_candidate($0)
             if (start_fence(fence_line)) next
-        }
-
-        /^## Ожидания[ \t]*$/ {
-            expectations_heading_count++
-            if (expectations_heading_count > 1) {
+            if (is_expectations_heading(fence_line)) {
+                expectations_heading_count++
+                if (expectations_heading_count > 1) {
+                    if (current_item) emit_item()
+                    current_item = 0
+                    printf "ERROR: %s: duplicate active ## Ожидания heading\n", f > "/dev/stderr"
+                    errors++
+                }
+                in_section = 1
+                next
+            }
+            if (fence_line ~ /^##[ \t]+/ && in_section) {
                 if (current_item) emit_item()
                 current_item = 0
-                printf "ERROR: %s: duplicate active ## Ожидания heading\n", f > "/dev/stderr"
-                errors++
+                in_section = 0
+                in_history = 0
+                in_status = 0
+                next
             }
-            in_section = 1; next
-        }
-        /^## / && in_section {
-            if (current_item) emit_item()
-            current_item = 0
-            in_section = 0
-            in_history = 0; in_status = 0
-            next
         }
 
         in_section {
@@ -465,6 +466,10 @@ parse_items() {
                 line = substr(line, 2)
             }
             return line
+        }
+
+        function is_expectations_heading(line) {
+            return line ~ /^##[ \t]+Ожидания([ \t]+#+)?[ \t]*$/
         }
 
         function start_fence(line,    marker, run_len, suffix) {
