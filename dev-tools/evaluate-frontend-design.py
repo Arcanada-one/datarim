@@ -144,11 +144,791 @@ EXPECTED_ROOT_KEYS = {
     "managed_kinds",
     *EXPECTED_SECTION_KEYS,
     "decision_rules",
-    "decision_surface_preambles",
-    "decision_surface_rules",
-    "directive_content",
+    "decision_surface_metadata",
+    "decision_surface_ast",
     "decision_surface_sha256",
 }
+CANONICAL_RULES = {'FD-SKILL-TITLE': {'polarity': 'inform',
+                    'semantics': 'scope.title',
+                    'surfaces': ['skills/frontend-design/SKILL.md']},
+ 'FD-SKILL-SCOPE': {'polarity': 'inform',
+                    'semantics': 'scope.definition',
+                    'surfaces': ['skills/frontend-design/SKILL.md']},
+ 'FD-SKILL-EXCLUDES': {'polarity': 'forbid',
+                       'semantics': 'scope.exclusions',
+                       'surfaces': ['skills/frontend-design/SKILL.md']},
+ 'FD-SKILL-INPUTS': {'polarity': 'require',
+                     'semantics': 'inputs.required',
+                     'surfaces': ['skills/frontend-design/SKILL.md']},
+ 'FD-SKILL-ASSUME': {'polarity': 'permit',
+                     'semantics': 'inputs.sparse_assumptions',
+                     'surfaces': ['skills/frontend-design/SKILL.md']},
+ 'FD-SKILL-SEQUENCE': {'polarity': 'require',
+                       'semantics': 'workflow.pre_code_sequence',
+                       'surfaces': ['skills/frontend-design/SKILL.md']},
+ 'FD-SKILL-BINDING': {'polarity': 'forbid',
+                      'semantics': 'binding.invalid_states',
+                      'surfaces': ['skills/frontend-design/SKILL.md']},
+ 'FD-SKILL-PACKET': {'polarity': 'require',
+                     'semantics': 'design.packet',
+                     'surfaces': ['skills/frontend-design/SKILL.md']},
+ 'FD-SKILL-DISCLOSURE': {'polarity': 'require',
+                         'semantics': 'routing.progressive_disclosure',
+                         'surfaces': ['skills/frontend-design/SKILL.md']},
+ 'FD-SKILL-HANDOFF': {'polarity': 'inform',
+                      'semantics': 'routing.post_contract',
+                      'surfaces': ['skills/frontend-design/SKILL.md']},
+ 'FD-SKILL-BOUNDARY': {'polarity': 'forbid',
+                       'semantics': 'completion.customer_acceptance',
+                       'surfaces': ['skills/frontend-design/SKILL.md']},
+ 'FD-DESIGN-TITLE': {'polarity': 'inform',
+                     'semantics': 'design.title',
+                     'surfaces': ['skills/frontend-design/references/design-decisions.md']},
+ 'FD-DESIGN-SCOPE': {'polarity': 'inform',
+                     'semantics': 'design.scope',
+                     'surfaces': ['skills/frontend-design/references/design-decisions.md']},
+ 'FD-DESIGN-VISITOR': {'polarity': 'require',
+                       'semantics': 'design.visitor_decision',
+                       'surfaces': ['skills/frontend-design/references/design-decisions.md']},
+ 'FD-DESIGN-REUSE': {'polarity': 'require',
+                     'semantics': 'design.reuse_first',
+                     'surfaces': ['skills/frontend-design/references/design-decisions.md']},
+ 'FD-DESIGN-DIRECTION': {'polarity': 'require',
+                         'semantics': 'design.selected_direction',
+                         'surfaces': ['skills/frontend-design/references/design-decisions.md']},
+ 'FD-DESIGN-TOKENS': {'polarity': 'require',
+                      'semantics': 'design.semantic_visual_rules',
+                      'surfaces': ['skills/frontend-design/references/design-decisions.md']},
+ 'FD-DESIGN-RESPONSIVE': {'polarity': 'require',
+                          'semantics': 'design.responsive_i18n',
+                          'surfaces': ['skills/frontend-design/references/design-decisions.md']},
+ 'FD-DESIGN-A11Y': {'polarity': 'require',
+                    'semantics': 'design.accessibility_performance',
+                    'surfaces': ['skills/frontend-design/references/design-decisions.md']},
+ 'FD-HANDOFF-TITLE': {'polarity': 'inform',
+                      'semantics': 'handoff.title',
+                      'surfaces': ['skills/frontend-design/references/handoff-and-evidence.md']},
+ 'FD-HANDOFF-SCOPE': {'polarity': 'inform',
+                      'semantics': 'handoff.scope',
+                      'surfaces': ['skills/frontend-design/references/handoff-and-evidence.md']},
+ 'FD-HANDOFF-PACKET': {'polarity': 'require',
+                       'semantics': 'handoff.packet',
+                       'surfaces': ['skills/frontend-design/references/handoff-and-evidence.md']},
+ 'FD-HANDOFF-KC-REQUIRE': {'polarity': 'require',
+                           'semantics': 'handoff.knowledge_contract_gate',
+                           'surfaces': ['skills/frontend-design/references/handoff-and-evidence.md']},
+ 'FD-HANDOFF-KC-FORBID': {'polarity': 'forbid',
+                          'semantics': 'handoff.invalid_bindings',
+                          'surfaces': ['skills/frontend-design/references/handoff-and-evidence.md']},
+ 'FD-HANDOFF-AUTONOMY': {'polarity': 'permit',
+                         'semantics': 'handoff.autonomous_first_result',
+                         'surfaces': ['skills/frontend-design/references/handoff-and-evidence.md']},
+ 'FD-HANDOFF-EVIDENCE': {'polarity': 'require',
+                         'semantics': 'handoff.evidence_matrix',
+                         'surfaces': ['skills/frontend-design/references/handoff-and-evidence.md']},
+ 'FD-HANDOFF-AUTOMATION-LIMIT': {'polarity': 'forbid',
+                                 'semantics': 'handoff.automated_acceptance',
+                                 'surfaces': ['skills/frontend-design/references/handoff-and-evidence.md']},
+ 'FD-HANDOFF-OUTCOMES': {'polarity': 'inform',
+                         'semantics': 'handoff.outcomes',
+                         'surfaces': ['skills/frontend-design/references/handoff-and-evidence.md']},
+ 'FD-HANDOFF-ACCEPTANCE': {'polarity': 'forbid',
+                           'semantics': 'handoff.customer_acceptance',
+                           'surfaces': ['skills/frontend-design/references/handoff-and-evidence.md']},
+ 'FD-ROLE-TITLE': {'polarity': 'inform',
+                   'semantics': 'role.title',
+                   'surfaces': ['agents/designer.md']},
+ 'FD-ROLE-GOAL': {'polarity': 'require',
+                  'semantics': 'role.goal',
+                  'surfaces': ['agents/designer.md']},
+ 'FD-ROLE-RESPONSIBILITIES': {'polarity': 'require',
+                              'semantics': 'role.responsibilities',
+                              'surfaces': ['agents/designer.md']},
+ 'FD-ROLE-BOUNDARIES': {'polarity': 'forbid',
+                        'semantics': 'role.boundaries',
+                        'surfaces': ['agents/designer.md']},
+ 'FD-ROLE-CONTEXT': {'polarity': 'require',
+                     'semantics': 'role.context',
+                     'surfaces': ['agents/designer.md']},
+ 'FD-ROLE-OUTPUT': {'polarity': 'require',
+                    'semantics': 'role.output',
+                    'surfaces': ['agents/designer.md']}}
+
+CANONICAL_SURFACE_METADATA = {'skills/frontend-design/SKILL.md': {'kind': 'skill',
+                                     'identity': 'frontend-design',
+                                     'description_id': 'frontend-design-discovery',
+                                     'current_aal': 1,
+                                     'target_aal': 2},
+ 'skills/frontend-design/references/design-decisions.md': {'kind': 'reference'},
+ 'skills/frontend-design/references/handoff-and-evidence.md': {'kind': 'reference'},
+ 'agents/designer.md': {'kind': 'agent',
+                        'identity': 'designer',
+                        'description_id': 'designer-role-discovery',
+                        'model': 'inherit',
+                        'model_tier': 'reasoning'}}
+
+CANONICAL_SURFACE_AST = {'skills/frontend-design/SKILL.md': [{'clause_id': 'FD-SKILL-TITLE-01',
+                                      'rule_id': 'FD-SKILL-TITLE',
+                                      'params': {}},
+                                     {'clause_id': 'FD-SKILL-SCOPE-01',
+                                      'rule_id': 'FD-SKILL-SCOPE',
+                                      'params': {}},
+                                     {'clause_id': 'FD-SKILL-EXCLUDES-01',
+                                      'rule_id': 'FD-SKILL-EXCLUDES',
+                                      'params': {}},
+                                     {'clause_id': 'FD-SKILL-INPUTS-01',
+                                      'rule_id': 'FD-SKILL-INPUTS',
+                                      'params': {}},
+                                     {'clause_id': 'FD-SKILL-INPUTS-02',
+                                      'rule_id': 'FD-SKILL-INPUTS',
+                                      'params': {}},
+                                     {'clause_id': 'FD-SKILL-ASSUME-01',
+                                      'rule_id': 'FD-SKILL-ASSUME',
+                                      'params': {}},
+                                     {'clause_id': 'FD-SKILL-SEQUENCE-01',
+                                      'rule_id': 'FD-SKILL-SEQUENCE',
+                                      'params': {}},
+                                     {'clause_id': 'FD-SKILL-SEQUENCE-02',
+                                      'rule_id': 'FD-SKILL-SEQUENCE',
+                                      'params': {}},
+                                     {'clause_id': 'FD-SKILL-SEQUENCE-03',
+                                      'rule_id': 'FD-SKILL-SEQUENCE',
+                                      'params': {'stages': ['reuse_inventory',
+                                                            'external_research',
+                                                            'seven_kind_gap_analysis',
+                                                            'reusable_artifact_creation_and_validation',
+                                                            'knowledge_contract_issuance']}},
+                                     {'clause_id': 'FD-SKILL-BINDING-01',
+                                      'rule_id': 'FD-SKILL-BINDING',
+                                      'params': {}},
+                                     {'clause_id': 'FD-SKILL-PACKET-01',
+                                      'rule_id': 'FD-SKILL-PACKET',
+                                      'params': {}},
+                                     {'clause_id': 'FD-SKILL-PACKET-02',
+                                      'rule_id': 'FD-SKILL-PACKET',
+                                      'params': {}},
+                                     {'clause_id': 'FD-SKILL-PACKET-03',
+                                      'rule_id': 'FD-SKILL-PACKET',
+                                      'params': {}},
+                                     {'clause_id': 'FD-SKILL-PACKET-04',
+                                      'rule_id': 'FD-SKILL-PACKET',
+                                      'params': {}},
+                                     {'clause_id': 'FD-SKILL-DISCLOSURE-01',
+                                      'rule_id': 'FD-SKILL-DISCLOSURE',
+                                      'params': {}},
+                                     {'clause_id': 'FD-SKILL-DISCLOSURE-02',
+                                      'rule_id': 'FD-SKILL-DISCLOSURE',
+                                      'params': {}},
+                                     {'clause_id': 'FD-SKILL-HANDOFF-01',
+                                      'rule_id': 'FD-SKILL-HANDOFF',
+                                      'params': {}},
+                                     {'clause_id': 'FD-SKILL-BOUNDARY-01',
+                                      'rule_id': 'FD-SKILL-BOUNDARY',
+                                      'params': {}},
+                                     {'clause_id': 'FD-SKILL-BOUNDARY-02',
+                                      'rule_id': 'FD-SKILL-BOUNDARY',
+                                      'params': {}}],
+ 'skills/frontend-design/references/design-decisions.md': [{'clause_id': 'FD-DESIGN-TITLE-01',
+                                                            'rule_id': 'FD-DESIGN-TITLE',
+                                                            'params': {}},
+                                                           {'clause_id': 'FD-DESIGN-SCOPE-01',
+                                                            'rule_id': 'FD-DESIGN-SCOPE',
+                                                            'params': {}},
+                                                           {'clause_id': 'FD-DESIGN-VISITOR-01',
+                                                            'rule_id': 'FD-DESIGN-VISITOR',
+                                                            'params': {}},
+                                                           {'clause_id': 'FD-DESIGN-VISITOR-02',
+                                                            'rule_id': 'FD-DESIGN-VISITOR',
+                                                            'params': {}},
+                                                           {'clause_id': 'FD-DESIGN-VISITOR-03',
+                                                            'rule_id': 'FD-DESIGN-VISITOR',
+                                                            'params': {}},
+                                                           {'clause_id': 'FD-DESIGN-REUSE-01',
+                                                            'rule_id': 'FD-DESIGN-REUSE',
+                                                            'params': {}},
+                                                           {'clause_id': 'FD-DESIGN-REUSE-02',
+                                                            'rule_id': 'FD-DESIGN-REUSE',
+                                                            'params': {}},
+                                                           {'clause_id': 'FD-DESIGN-REUSE-03',
+                                                            'rule_id': 'FD-DESIGN-REUSE',
+                                                            'params': {}},
+                                                           {'clause_id': 'FD-DESIGN-DIRECTION-01',
+                                                            'rule_id': 'FD-DESIGN-DIRECTION',
+                                                            'params': {}},
+                                                           {'clause_id': 'FD-DESIGN-DIRECTION-02',
+                                                            'rule_id': 'FD-DESIGN-DIRECTION',
+                                                            'params': {}},
+                                                           {'clause_id': 'FD-DESIGN-DIRECTION-03',
+                                                            'rule_id': 'FD-DESIGN-DIRECTION',
+                                                            'params': {}},
+                                                           {'clause_id': 'FD-DESIGN-TOKENS-01',
+                                                            'rule_id': 'FD-DESIGN-TOKENS',
+                                                            'params': {}},
+                                                           {'clause_id': 'FD-DESIGN-TOKENS-02',
+                                                            'rule_id': 'FD-DESIGN-TOKENS',
+                                                            'params': {}},
+                                                           {'clause_id': 'FD-DESIGN-TOKENS-03',
+                                                            'rule_id': 'FD-DESIGN-TOKENS',
+                                                            'params': {}},
+                                                           {'clause_id': 'FD-DESIGN-TOKENS-04',
+                                                            'rule_id': 'FD-DESIGN-TOKENS',
+                                                            'params': {}},
+                                                           {'clause_id': 'FD-DESIGN-TOKENS-05',
+                                                            'rule_id': 'FD-DESIGN-TOKENS',
+                                                            'params': {}},
+                                                           {'clause_id': 'FD-DESIGN-RESPONSIVE-01',
+                                                            'rule_id': 'FD-DESIGN-RESPONSIVE',
+                                                            'params': {}},
+                                                           {'clause_id': 'FD-DESIGN-RESPONSIVE-02',
+                                                            'rule_id': 'FD-DESIGN-RESPONSIVE',
+                                                            'params': {}},
+                                                           {'clause_id': 'FD-DESIGN-RESPONSIVE-03',
+                                                            'rule_id': 'FD-DESIGN-RESPONSIVE',
+                                                            'params': {}},
+                                                           {'clause_id': 'FD-DESIGN-A11Y-01',
+                                                            'rule_id': 'FD-DESIGN-A11Y',
+                                                            'params': {}},
+                                                           {'clause_id': 'FD-DESIGN-A11Y-02',
+                                                            'rule_id': 'FD-DESIGN-A11Y',
+                                                            'params': {'accessibility_floor': 'WCAG-2.2-AA'}},
+                                                           {'clause_id': 'FD-DESIGN-A11Y-03',
+                                                            'rule_id': 'FD-DESIGN-A11Y',
+                                                            'params': {}}],
+ 'skills/frontend-design/references/handoff-and-evidence.md': [{'clause_id': 'FD-HANDOFF-TITLE-01',
+                                                                'rule_id': 'FD-HANDOFF-TITLE',
+                                                                'params': {}},
+                                                               {'clause_id': 'FD-HANDOFF-SCOPE-01',
+                                                                'rule_id': 'FD-HANDOFF-SCOPE',
+                                                                'params': {}},
+                                                               {'clause_id': 'FD-HANDOFF-PACKET-01',
+                                                                'rule_id': 'FD-HANDOFF-PACKET',
+                                                                'params': {}},
+                                                               {'clause_id': 'FD-HANDOFF-PACKET-02',
+                                                                'rule_id': 'FD-HANDOFF-PACKET',
+                                                                'params': {}},
+                                                               {'clause_id': 'FD-HANDOFF-PACKET-03',
+                                                                'rule_id': 'FD-HANDOFF-PACKET',
+                                                                'params': {}},
+                                                               {'clause_id': 'FD-HANDOFF-PACKET-04',
+                                                                'rule_id': 'FD-HANDOFF-PACKET',
+                                                                'params': {}},
+                                                               {'clause_id': 'FD-HANDOFF-KC-REQUIRE-01',
+                                                                'rule_id': 'FD-HANDOFF-KC-REQUIRE',
+                                                                'params': {}},
+                                                               {'clause_id': 'FD-HANDOFF-KC-REQUIRE-02',
+                                                                'rule_id': 'FD-HANDOFF-KC-REQUIRE',
+                                                                'params': {}},
+                                                               {'clause_id': 'FD-HANDOFF-KC-FORBID-01',
+                                                                'rule_id': 'FD-HANDOFF-KC-FORBID',
+                                                                'params': {}},
+                                                               {'clause_id': 'FD-HANDOFF-AUTONOMY-01',
+                                                                'rule_id': 'FD-HANDOFF-AUTONOMY',
+                                                                'params': {}},
+                                                               {'clause_id': 'FD-HANDOFF-EVIDENCE-01',
+                                                                'rule_id': 'FD-HANDOFF-EVIDENCE',
+                                                                'params': {}},
+                                                               {'clause_id': 'FD-HANDOFF-EVIDENCE-02',
+                                                                'rule_id': 'FD-HANDOFF-EVIDENCE',
+                                                                'params': {'locales': ['RU', 'EN'],
+                                                                           'viewports': ['desktop',
+                                                                                         'tablet',
+                                                                                         'mobile'],
+                                                                           'themes': ['light',
+                                                                                      'dark'],
+                                                                           'expected_cells': 12}},
+                                                               {'clause_id': 'FD-HANDOFF-EVIDENCE-03',
+                                                                'rule_id': 'FD-HANDOFF-EVIDENCE',
+                                                                'params': {}},
+                                                               {'clause_id': 'FD-HANDOFF-AUTOMATION-LIMIT-01',
+                                                                'rule_id': 'FD-HANDOFF-AUTOMATION-LIMIT',
+                                                                'params': {}},
+                                                               {'clause_id': 'FD-HANDOFF-OUTCOMES-01',
+                                                                'rule_id': 'FD-HANDOFF-OUTCOMES',
+                                                                'params': {}},
+                                                               {'clause_id': 'FD-HANDOFF-OUTCOMES-02',
+                                                                'rule_id': 'FD-HANDOFF-OUTCOMES',
+                                                                'params': {}},
+                                                               {'clause_id': 'FD-HANDOFF-ACCEPTANCE-01',
+                                                                'rule_id': 'FD-HANDOFF-ACCEPTANCE',
+                                                                'params': {}}],
+ 'agents/designer.md': [{'clause_id': 'FD-ROLE-TITLE-01', 'rule_id': 'FD-ROLE-TITLE', 'params': {}},
+                        {'clause_id': 'FD-ROLE-GOAL-01', 'rule_id': 'FD-ROLE-GOAL', 'params': {}},
+                        {'clause_id': 'FD-ROLE-RESPONSIBILITIES-01',
+                         'rule_id': 'FD-ROLE-RESPONSIBILITIES',
+                         'params': {}},
+                        {'clause_id': 'FD-ROLE-BOUNDARIES-01',
+                         'rule_id': 'FD-ROLE-BOUNDARIES',
+                         'params': {}},
+                        {'clause_id': 'FD-ROLE-CONTEXT-01',
+                         'rule_id': 'FD-ROLE-CONTEXT',
+                         'params': {}},
+                        {'clause_id': 'FD-ROLE-OUTPUT-01',
+                         'rule_id': 'FD-ROLE-OUTPUT',
+                         'params': {}}]}
+
+CANONICAL_CLAUSE_SPECS = {'FD-SKILL-TITLE-01': {'rule_id': 'FD-SKILL-TITLE', 'params': {}, 'text': '# Frontend Design'},
+ 'FD-SKILL-SCOPE-01': {'rule_id': 'FD-SKILL-SCOPE',
+                       'params': {},
+                       'text': 'Use this skill before product code when a task creates or '
+                               'materially changes a\n'
+                               'rendered customer-facing surface. It turns atomic customer '
+                               'requirements into a\n'
+                               'designer-owned design packet and a Knowledge Contract-ready '
+                               'handoff. It does\n'
+                               'not implement HTML/CSS/components, capture final browser evidence, '
+                               'or grant\n'
+                               'customer acceptance.'},
+ 'FD-SKILL-EXCLUDES-01': {'rule_id': 'FD-SKILL-EXCLUDES',
+                          'params': {},
+                          'text': 'For backend-only, data-only, infrastructure-only, or '
+                                  'non-rendered work, do not invoke this skill.\n'
+                                  'Content-only work uses this skill only when hierarchy, layout, '
+                                  'interaction, or\n'
+                                  'visual treatment changes materially.'},
+ 'FD-SKILL-INPUTS-01': {'rule_id': 'FD-SKILL-INPUTS', 'params': {}, 'text': '## Required inputs'},
+ 'FD-SKILL-INPUTS-02': {'rule_id': 'FD-SKILL-INPUTS',
+                        'params': {},
+                        'text': '- Verbatim customer remarks mapped to stable atomic Requirement '
+                                'IDs.\n'
+                                '- Affected routes or surface classes, locales, viewport classes, '
+                                'and themes.\n'
+                                '- Current product screenshots or renderable source, brand assets, '
+                                'tokens,\n'
+                                '  components, content, and known constraints.\n'
+                                '- The applicable project authority, lifecycle, and Knowledge '
+                                'Contract rules.'},
+ 'FD-SKILL-ASSUME-01': {'rule_id': 'FD-SKILL-ASSUME',
+                        'params': {},
+                        'text': 'If an input is sparse, make the smallest safe assumption that '
+                                'preserves the\n'
+                                "customer's stated outcome, label it, and continue. A missing "
+                                'preliminary taste\n'
+                                'review is not a routine implementation gate.'},
+ 'FD-SKILL-SEQUENCE-01': {'rule_id': 'FD-SKILL-SEQUENCE',
+                          'params': {},
+                          'text': '## Pre-code sequence'},
+ 'FD-SKILL-SEQUENCE-02': {'rule_id': 'FD-SKILL-SEQUENCE',
+                          'params': {},
+                          'text': 'Perform these steps in order and preserve their evidence:'},
+ 'FD-SKILL-SEQUENCE-03': {'rule_id': 'FD-SKILL-SEQUENCE',
+                          'params': {'stages': ['reuse_inventory',
+                                                'external_research',
+                                                'seven_kind_gap_analysis',
+                                                'reusable_artifact_creation_and_validation',
+                                                'knowledge_contract_issuance']},
+                          'text': None},
+ 'FD-SKILL-BINDING-01': {'rule_id': 'FD-SKILL-BINDING',
+                         'params': {},
+                         'text': '`Gap` and `Unbound` authorize research or artifact creation '
+                                 'only. They cannot\n'
+                                 'be delivery bindings. Never select an artifact after '
+                                 'implementation starts and\n'
+                                 'present the selection as if it governed that implementation.'},
+ 'FD-SKILL-PACKET-01': {'rule_id': 'FD-SKILL-PACKET', 'params': {}, 'text': '## Design packet'},
+ 'FD-SKILL-PACKET-02': {'rule_id': 'FD-SKILL-PACKET',
+                        'params': {},
+                        'text': 'The designer owns the following pre-code decisions:'},
+ 'FD-SKILL-PACKET-03': {'rule_id': 'FD-SKILL-PACKET',
+                        'params': {},
+                        'text': '- visitor, primary task, first-screen promise, trust evidence, '
+                                'and ordered\n'
+                                '  content hierarchy;\n'
+                                '- primary and secondary actions with visible outcomes;\n'
+                                '- two or more viable directions when the choice is material, with '
+                                'a selected\n'
+                                '  direction and explicit reasons;\n'
+                                '- semantic design tokens and component states for light and dark '
+                                'themes;\n'
+                                '- responsive behavior for desktop, tablet, and mobile, including '
+                                'keyboard,\n'
+                                '  pointer, and touch intent;\n'
+                                '- RU/EN semantic parity and realistic long-copy stress behavior;\n'
+                                '- accessibility and performance constraints expressed as '
+                                'observable criteria;\n'
+                                '- a route/surface evidence plan covering the complete required '
+                                'matrix.'},
+ 'FD-SKILL-PACKET-04': {'rule_id': 'FD-SKILL-PACKET',
+                        'params': {},
+                        'text': 'Use '
+                                '`${DATARIM_RUNTIME:-$HOME/.claude}/templates/frontend-design-brief.md` '
+                                'for\n'
+                                'the reusable packet structure.'},
+ 'FD-SKILL-DISCLOSURE-01': {'rule_id': 'FD-SKILL-DISCLOSURE',
+                            'params': {},
+                            'text': '## Progressive disclosure'},
+ 'FD-SKILL-DISCLOSURE-02': {'rule_id': 'FD-SKILL-DISCLOSURE',
+                            'params': {},
+                            'text': '- Read `references/decision-contract.yaml` before routing or '
+                                    'handoff. It is the\n'
+                                    '  deterministic authority for activation, stage order, '
+                                    'ownership, evidence\n'
+                                    '  axes, and safe conflict resolution; prose may explain but '
+                                    'never override it.\n'
+                                    '- Read `references/design-decisions.md` when choosing '
+                                    'hierarchy, visual\n'
+                                    '  direction, tokens, responsive behavior, theme behavior, '
+                                    'i18n treatment,\n'
+                                    '  accessibility, or performance constraints.\n'
+                                    '- Read `references/handoff-and-evidence.md` when assembling '
+                                    'the design packet,\n'
+                                    '  checking Knowledge Contract readiness, or handing work to '
+                                    'implementation and\n'
+                                    '  browser QA.'},
+ 'FD-SKILL-HANDOFF-01': {'rule_id': 'FD-SKILL-HANDOFF',
+                         'params': {},
+                         'text': 'After the contract is `MET`, route implementation hygiene to\n'
+                                 '`skills/frontend-ui/SKILL.md` and browser capture to\n'
+                                 '`skills/playwright-qa/SKILL.md`. Those skills verify '
+                                 'implementation and output;\n'
+                                 'they do not replace this pre-code design decision surface.'},
+ 'FD-SKILL-BOUNDARY-01': {'rule_id': 'FD-SKILL-BOUNDARY',
+                          'params': {},
+                          'text': '## Completion boundary'},
+ 'FD-SKILL-BOUNDARY-02': {'rule_id': 'FD-SKILL-BOUNDARY',
+                          'params': {},
+                          'text': 'This skill completes when the design packet is internally '
+                                  'consistent, all\n'
+                                  'missing reusable artifacts are validated, and the issued '
+                                  'Knowledge Contract is\n'
+                                  '`MET`. The designer may recommend a direction but MUST NOT '
+                                  'claim customer or\n'
+                                  'operator acceptance. Final qualitative disposition remains with '
+                                  'the authorized\n'
+                                  'operator after production evidence exists.'},
+ 'FD-DESIGN-TITLE-01': {'rule_id': 'FD-DESIGN-TITLE',
+                        'params': {},
+                        'text': '# Frontend design decisions'},
+ 'FD-DESIGN-SCOPE-01': {'rule_id': 'FD-DESIGN-SCOPE',
+                        'params': {},
+                        'text': 'Read this reference only when a frontend-design task needs '
+                                'concrete design\n'
+                                "decisions. Preserve the project's brand and stack; external "
+                                'design systems are\n'
+                                'evidence sources, not visual themes to copy.'},
+ 'FD-DESIGN-VISITOR-01': {'rule_id': 'FD-DESIGN-VISITOR',
+                          'params': {},
+                          'text': '## Start from the visitor decision'},
+ 'FD-DESIGN-VISITOR-02': {'rule_id': 'FD-DESIGN-VISITOR',
+                          'params': {},
+                          'text': 'State the visitor, the decision or task the surface supports, '
+                                  'the first-screen\n'
+                                  'promise, and the evidence required to trust that promise. Order '
+                                  'content before\n'
+                                  'decoration. Every primary or secondary action needs a visible '
+                                  'outcome and an\n'
+                                  'owner.'},
+ 'FD-DESIGN-VISITOR-03': {'rule_id': 'FD-DESIGN-VISITOR',
+                          'params': {},
+                          'text': 'Build the hierarchy from real customer remarks and '
+                                  'representative content.\n'
+                                  'Place proof next to the claim it supports. Separate navigation, '
+                                  'explanation,\n'
+                                  'evidence, action, and status so the hierarchy remains '
+                                  'understandable without\n'
+                                  'color or motion.'},
+ 'FD-DESIGN-REUSE-01': {'rule_id': 'FD-DESIGN-REUSE',
+                        'params': {},
+                        'text': '## Reuse before replacement'},
+ 'FD-DESIGN-REUSE-02': {'rule_id': 'FD-DESIGN-REUSE',
+                        'params': {},
+                        'text': 'Inspect the current brand assets, tokens, typography, layout '
+                                'primitives,\n'
+                                'components, states, and page patterns at exact source revisions. '
+                                'Reuse or extend compatible tokens, components, and page patterns '
+                                'before proposing replacements.\n'
+                                'Record what is reused unchanged, extended, replaced, or rejected '
+                                'and why.'},
+ 'FD-DESIGN-REUSE-03': {'rule_id': 'FD-DESIGN-REUSE',
+                        'params': {},
+                        'text': 'A current design system is a constraint and an asset, not '
+                                'automatic proof that\n'
+                                'the requested surface is already designed. Reject a pattern only '
+                                'for a named\n'
+                                'requirement conflict, accessibility failure, i18n failure, or '
+                                'measured product\n'
+                                'constraint.'},
+ 'FD-DESIGN-DIRECTION-01': {'rule_id': 'FD-DESIGN-DIRECTION',
+                            'params': {},
+                            'text': '## Choose a defensible direction'},
+ 'FD-DESIGN-DIRECTION-02': {'rule_id': 'FD-DESIGN-DIRECTION',
+                            'params': {},
+                            'text': 'When the brief is sparse, derive a defensible first direction '
+                                    'from customer\n'
+                                    'intent, the reuse inventory, research, and observable success '
+                                    'criteria. Do not pause for preliminary taste approval. Expose '
+                                    'assumptions, alternatives, and\n'
+                                    'reasons so later feedback can produce a precise follow-up '
+                                    'instead of erasing\n'
+                                    'the first result.'},
+ 'FD-DESIGN-DIRECTION-03': {'rule_id': 'FD-DESIGN-DIRECTION',
+                            'params': {},
+                            'text': 'When alternatives are materially different, compare at least '
+                                    'two across user\n'
+                                    'task fit, evidence clarity, brand continuity, accessibility, '
+                                    'responsive\n'
+                                    'behavior, i18n risk, implementation cost, and performance '
+                                    'risk. Select one;\n'
+                                    'do not blend incompatible directions into an untestable '
+                                    'compromise.'},
+ 'FD-DESIGN-TOKENS-01': {'rule_id': 'FD-DESIGN-TOKENS',
+                         'params': {},
+                         'text': '## Define semantic visual rules'},
+ 'FD-DESIGN-TOKENS-02': {'rule_id': 'FD-DESIGN-TOKENS',
+                         'params': {},
+                         'text': 'Prefer a bounded three-layer token model:'},
+ 'FD-DESIGN-TOKENS-03': {'rule_id': 'FD-DESIGN-TOKENS',
+                         'params': {},
+                         'text': '1. Primitive scales for color, space, type, radius, elevation, '
+                                 'and motion.\n'
+                                 '2. Semantic roles such as `text-primary`, `surface-raised`, '
+                                 '`border-focus`,\n'
+                                 '   `action-primary`, and `status-danger`.\n'
+                                 '3. Component/state aliases only where a component needs a '
+                                 'distinct contract.'},
+ 'FD-DESIGN-TOKENS-04': {'rule_id': 'FD-DESIGN-TOKENS',
+                         'params': {},
+                         'text': 'Specify light and dark values for every color role and test '
+                                 'contrast against\n'
+                                 'the actual composited background. Include default, hover, focus, '
+                                 'active,\n'
+                                 'disabled, loading, error, empty, success, forced-colors, and '
+                                 'reduced-motion\n'
+                                 'behavior where applicable. Color must not be the sole carrier of '
+                                 'meaning.'},
+ 'FD-DESIGN-TOKENS-05': {'rule_id': 'FD-DESIGN-TOKENS',
+                         'params': {},
+                         'text': 'Typography must include Latin and Cyrillic glyph coverage, '
+                                 'relative units,\n'
+                                 'deliberate weights and line heights, and a bounded responsive '
+                                 'scale. Use\n'
+                                 'consistent spacing instead of arbitrary one-off values.'},
+ 'FD-DESIGN-RESPONSIVE-01': {'rule_id': 'FD-DESIGN-RESPONSIVE',
+                             'params': {},
+                             'text': '## Design responsive and input behavior'},
+ 'FD-DESIGN-RESPONSIVE-02': {'rule_id': 'FD-DESIGN-RESPONSIVE',
+                             'params': {},
+                             'text': 'Describe content priority and component transformation at '
+                                     'desktop, tablet, and\n'
+                                     'mobile rather than merely scaling a desktop screenshot. '
+                                     'Preserve logical DOM\n'
+                                     'and focus order, visible focus, keyboard operation, touch '
+                                     'targets, zoom/reflow,\n'
+                                     'and reduced-motion behavior. Avoid hover-only information '
+                                     'and layout changes\n'
+                                     'that move essential actions unpredictably.'},
+ 'FD-DESIGN-RESPONSIVE-03': {'rule_id': 'FD-DESIGN-RESPONSIVE',
+                             'params': {},
+                             'text': 'Use representative EN copy and real RU stress copy before '
+                                     'handoff. When the RU\n'
+                                     'variant no longer fits, redesign the container or flow; do '
+                                     'not shrink critical text below the applicable policy. '
+                                     'Semantic parity means equivalent claims,\n'
+                                     'evidence, actions, and states, not only equal translation '
+                                     'keys.'},
+ 'FD-DESIGN-A11Y-01': {'rule_id': 'FD-DESIGN-A11Y',
+                       'params': {},
+                       'text': '## Resolve accessibility and performance conflicts'},
+ 'FD-DESIGN-A11Y-02': {'rule_id': 'FD-DESIGN-A11Y',
+                       'params': {'accessibility_floor': 'WCAG-2.2-AA'},
+                       'text': None},
+ 'FD-DESIGN-A11Y-03': {'rule_id': 'FD-DESIGN-A11Y',
+                       'params': {},
+                       'text': 'Declare performance-aware design constraints before '
+                               'implementation: critical\n'
+                               'content priority, image dimensions and formats, font strategy, '
+                               'animation\n'
+                               'budget, script or interaction cost, and measurable lab/field '
+                               'targets where the\n'
+                               'product can support them. A score alone is not a design rationale, '
+                               'and lab\n'
+                               'evidence does not become production field evidence.'},
+ 'FD-HANDOFF-TITLE-01': {'rule_id': 'FD-HANDOFF-TITLE',
+                         'params': {},
+                         'text': '# Frontend design handoff and evidence'},
+ 'FD-HANDOFF-SCOPE-01': {'rule_id': 'FD-HANDOFF-SCOPE',
+                         'params': {},
+                         'text': 'Read this reference when completing the pre-code design packet '
+                                 'or deciding\n'
+                                 'whether it may enter implementation.'},
+ 'FD-HANDOFF-PACKET-01': {'rule_id': 'FD-HANDOFF-PACKET',
+                          'params': {},
+                          'text': '## Minimum handoff packet'},
+ 'FD-HANDOFF-PACKET-02': {'rule_id': 'FD-HANDOFF-PACKET',
+                          'params': {},
+                          'text': 'The packet must identify:'},
+ 'FD-HANDOFF-PACKET-03': {'rule_id': 'FD-HANDOFF-PACKET',
+                          'params': {},
+                          'text': '- atomic Requirement IDs and verbatim source pointers;\n'
+                                  '- designer owner, affected product, routes or surface classes, '
+                                  'and audience;\n'
+                                  '- exact reuse inventory and external-research ledger;\n'
+                                  '- seven-kind gap dispositions and every created or revised '
+                                  'artifact;\n'
+                                  '- content hierarchy, task flow, selected direction, '
+                                  'alternatives, and reasons;\n'
+                                  '- token, typography, component/state, theme, responsive, i18n, '
+                                  'accessibility,\n'
+                                  '  and performance contracts;\n'
+                                  '- implementation boundaries and code/content owners;\n'
+                                  '- acceptance methods and the planned production evidence '
+                                  'cells;\n'
+                                  '- the issued Knowledge Contract identifier and validation '
+                                  'evidence.'},
+ 'FD-HANDOFF-PACKET-04': {'rule_id': 'FD-HANDOFF-PACKET',
+                          'params': {},
+                          'text': 'Use '
+                                  '`${DATARIM_RUNTIME:-$HOME/.claude}/templates/frontend-design-brief.md` '
+                                  'and\n'
+                                  'link supporting artifacts rather than duplicating them.'},
+ 'FD-HANDOFF-KC-REQUIRE-01': {'rule_id': 'FD-HANDOFF-KC-REQUIRE',
+                              'params': {},
+                              'text': '## Knowledge Contract entry gate'},
+ 'FD-HANDOFF-KC-REQUIRE-02': {'rule_id': 'FD-HANDOFF-KC-REQUIRE',
+                              'params': {},
+                              'text': 'Implementation may start only when all applicable managed '
+                                      'kinds are bound to\n'
+                                      'immutable approved revisions and content digests selected '
+                                      'before the recorded\n'
+                                      'implementation start. Provenance and typed relations must '
+                                      'resolve; required\n'
+                                      'artifacts must pass their independent forward scenarios and '
+                                      'meaningful\n'
+                                      'mutations.'},
+ 'FD-HANDOFF-KC-FORBID-01': {'rule_id': 'FD-HANDOFF-KC-FORBID',
+                             'params': {},
+                             'text': 'Reject post-hoc attribution, mutable `latest` references, '
+                                     'missing digests,\n'
+                                     'deprecated or rejected revisions, and selection after '
+                                     'implementation starts.\n'
+                                     '`Gap` or `Unbound` may describe why research or artifact '
+                                     'creation continues,\n'
+                                     'but either state makes a delivery-bound contract `NOT_MET`.'},
+ 'FD-HANDOFF-AUTONOMY-01': {'rule_id': 'FD-HANDOFF-AUTONOMY',
+                            'params': {},
+                            'text': 'No taste-approval checkpoint is required before producing the '
+                                    'first strong\n'
+                                    'design packet when the operator has authorized autonomous '
+                                    'execution. This does\n'
+                                    'not transfer final visual acceptance to the designer.'},
+ 'FD-HANDOFF-EVIDENCE-01': {'rule_id': 'FD-HANDOFF-EVIDENCE',
+                            'params': {},
+                            'text': '## Evidence plan'},
+ 'FD-HANDOFF-EVIDENCE-02': {'rule_id': 'FD-HANDOFF-EVIDENCE',
+                            'params': {'locales': ['RU', 'EN'],
+                                       'viewports': ['desktop', 'tablet', 'mobile'],
+                                       'themes': ['light', 'dark'],
+                                       'expected_cells': 12},
+                            'text': None},
+ 'FD-HANDOFF-EVIDENCE-03': {'rule_id': 'FD-HANDOFF-EVIDENCE',
+                            'params': {},
+                            'text': 'Each planned cell names locale, viewport dimensions and '
+                                    'class, theme, route,\n'
+                                    'browser/runtime version, source and deployed SHA, screenshot '
+                                    'path, structural\n'
+                                    'checks, accessibility result, performance result where '
+                                    'applicable, and\n'
+                                    'customer disposition state. A screenshot without revision and '
+                                    'environment\n'
+                                    'metadata is not production evidence.'},
+ 'FD-HANDOFF-AUTOMATION-LIMIT-01': {'rule_id': 'FD-HANDOFF-AUTOMATION-LIMIT',
+                                    'params': {},
+                                    'text': 'The pre-code packet defines this evidence contract. '
+                                            'After implementation,\n'
+                                            '`frontend-ui` checks implementation hygiene and '
+                                            '`playwright-qa` captures\n'
+                                            'browser artifacts. Automated checks cannot supply '
+                                            'qualitative operator\n'
+                                            'acceptance.'},
+ 'FD-HANDOFF-OUTCOMES-01': {'rule_id': 'FD-HANDOFF-OUTCOMES',
+                            'params': {},
+                            'text': '## Handoff outcomes'},
+ 'FD-HANDOFF-OUTCOMES-02': {'rule_id': 'FD-HANDOFF-OUTCOMES',
+                            'params': {},
+                            'text': '- `READY_FOR_CONTRACT`: design packet complete; reusable '
+                                    'artifacts validated;\n'
+                                    '  contract not yet issued or not yet `MET`.\n'
+                                    '- `READY_FOR_IMPLEMENTATION`: issued contract is `MET`; '
+                                    'implementation may\n'
+                                    '  begin at the recorded timestamp.\n'
+                                    '- `NOT_MET`: any required binding, relation, lifecycle '
+                                    'approval, forward test,\n'
+                                    '  mutation, locale, viewport, theme, or evidence plan cell is '
+                                    'missing.'},
+ 'FD-HANDOFF-ACCEPTANCE-01': {'rule_id': 'FD-HANDOFF-ACCEPTANCE',
+                              'params': {},
+                              'text': 'The designer reports one of these states with evidence. The '
+                                      'designer never\n'
+                                      'reports the customer-visible requirement delivered; '
+                                      'delivery additionally\n'
+                                      'requires merged and deployed revisions, live proof, '
+                                      'zero-residual review\n'
+                                      'coverage, and authorized customer disposition.'},
+ 'FD-ROLE-TITLE-01': {'rule_id': 'FD-ROLE-TITLE',
+                      'params': {},
+                      'text': 'You are the **Frontend Design Lead**.'},
+ 'FD-ROLE-GOAL-01': {'rule_id': 'FD-ROLE-GOAL',
+                     'params': {},
+                     'text': 'Your goal is to make customer-visible frontend work design-ready '
+                             'before product\n'
+                             'implementation. The designer owns the pre-code design packet: '
+                             'content hierarchy, visual\n'
+                             'direction, design-system reuse, tokens and states, responsive and '
+                             'theme\n'
+                             'behavior, RU/EN stress behavior, accessibility and performance '
+                             'constraints,\n'
+                             'and the evidence plan.'},
+ 'FD-ROLE-RESPONSIBILITIES-01': {'rule_id': 'FD-ROLE-RESPONSIBILITIES',
+                                 'params': {},
+                                 'text': '**Responsibilities**:\n'
+                                         '- Trace decisions to atomic verbatim customer '
+                                         'requirements.\n'
+                                         '- Inspect existing product and knowledge artifacts '
+                                         'before proposing new ones.\n'
+                                         '- Use current authoritative research and record '
+                                         'replayable provenance.\n'
+                                         '- Identify gaps across the seven canonical managed '
+                                         'artifact kinds.\n'
+                                         '- Produce a defensible first direction when taste '
+                                         'guidance is sparse.\n'
+                                         '- Hand off only after every missing reusable artifact is '
+                                         'validated and the\n'
+                                         '  issued Knowledge Contract is `MET`.'},
+ 'FD-ROLE-BOUNDARIES-01': {'rule_id': 'FD-ROLE-BOUNDARIES',
+                           'params': {},
+                           'text': '**Boundaries**:\n'
+                                   '- Do not write product implementation code while acting in '
+                                   'this role.\n'
+                                   '- Do not treat `Gap`, `Unbound`, mutable revisions, or '
+                                   'post-hoc selections as\n'
+                                   '  delivery bindings.\n'
+                                   '- You MAY recommend and defend a design direction, but you '
+                                   'MUST NOT claim customer or operator acceptance.\n'
+                                   '- Do not let an approval pause replace autonomous creation of '
+                                   'a strong first\n'
+                                   '  result when the operator has authorized it.'},
+ 'FD-ROLE-CONTEXT-01': {'rule_id': 'FD-ROLE-CONTEXT',
+                        'params': {},
+                        'text': '**Context Loading**:\n'
+                                '- READ: the init-task append-log, atomic requirement ledger, '
+                                'current product\n'
+                                '  surfaces, existing design system, and applicable Knowledge '
+                                'Contract.\n'
+                                '- ALWAYS APPLY:\n'
+                                '  - `$HOME/.claude/skills/frontend-design/SKILL.md`\n'
+                                '  - `$HOME/.claude/skills/research-workflow/SKILL.md`\n'
+                                '  - `$HOME/.claude/skills/customer-delivery/SKILL.md`\n'
+                                '- LOAD FOR HANDOFF:\n'
+                                '  - `$HOME/.claude/skills/frontend-ui/SKILL.md`\n'
+                                '  - `$HOME/.claude/skills/playwright-qa/SKILL.md`'},
+ 'FD-ROLE-OUTPUT-01': {'rule_id': 'FD-ROLE-OUTPUT',
+                       'params': {},
+                       'text': '**Output**: A completed frontend design brief using\n'
+                               '`${DATARIM_RUNTIME:-$HOME/.claude}/templates/frontend-design-brief.md`, '
+                               'plus\n'
+                               'the exact artifact and Knowledge Contract evidence required to '
+                               'justify its\n'
+                               'handoff state.'}}
+
 EXPECTED_EVIDENCE_CELLS = {
     (locale, viewport, theme)
     for locale in ("RU", "EN")
@@ -186,6 +966,21 @@ def load_yaml(path: Path) -> dict[str, Any]:
     return value
 
 
+def _typed_equal(actual: Any, expected: Any) -> bool:
+    if type(actual) is not type(expected):
+        return False
+    if isinstance(expected, dict):
+        return set(actual) == set(expected) and all(
+            _typed_equal(actual[key], value) for key, value in expected.items()
+        )
+    if isinstance(expected, list):
+        return len(actual) == len(expected) and all(
+            _typed_equal(actual_value, expected_value)
+            for actual_value, expected_value in zip(actual, expected)
+        )
+    return actual == expected
+
+
 def contract_errors(contract: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     unknown_root = sorted(set(contract) - EXPECTED_ROOT_KEYS)
@@ -205,8 +1000,8 @@ def contract_errors(contract: dict[str, Any]) -> list[str]:
             errors.append(f"unknown {section} keys are forbidden: {', '.join(unknown)}")
         if missing:
             errors.append(f"required {section} keys are missing: {', '.join(missing)}")
-    if contract.get("schema_version") != 1:
-        errors.append("contract schema_version must be 1")
+    if type(contract.get("schema_version")) is not int or contract.get("schema_version") != 1:
+        errors.append("contract schema_version must be integer 1")
     if contract.get("contract_id") != "datarim-frontend-design-decision-contract":
         errors.append("contract_id must identify the canonical frontend-design contract")
     if contract.get("managed_kinds") != EXPECTED_KINDS:
@@ -295,51 +1090,39 @@ def contract_errors(contract: dict[str, Any]) -> list[str]:
             if (
                 not isinstance(surfaces, list)
                 or not surfaces
+                or any(type(surface) is not str for surface in surfaces)
                 or len(surfaces) != len(set(surfaces))
                 or any(surface not in DOC_PATHS for surface in surfaces)
             ):
                 errors.append(f"decision rule {rule_id} has invalid surfaces")
+    if not _typed_equal(rules, CANONICAL_RULES):
+        errors.append("decision_rules must equal the closed canonical rule registry")
 
-    preambles = contract.get("decision_surface_preambles")
-    if not isinstance(preambles, dict) or set(preambles) != set(DOC_PATHS):
-        errors.append("decision_surface_preambles must cover exactly the four decision surfaces")
-    elif any(type(value) is not str for value in preambles.values()):
-        errors.append("decision_surface_preambles values must be strings")
+    metadata = contract.get("decision_surface_metadata")
+    if not _typed_equal(metadata, CANONICAL_SURFACE_METADATA):
+        errors.append("decision_surface_metadata must equal the closed typed surface registry")
 
-    surface_rules = contract.get("decision_surface_rules")
-    if not isinstance(surface_rules, dict) or set(surface_rules) != set(DOC_PATHS):
-        errors.append("decision_surface_rules must cover exactly the four decision surfaces")
+    ast = contract.get("decision_surface_ast")
+    if not isinstance(ast, dict) or set(ast) != set(CANONICAL_SURFACE_AST):
+        errors.append("decision_surface_ast must cover exactly the four decision surfaces")
     else:
-        for relative, rule_ids in surface_rules.items():
-            if not isinstance(rule_ids, list) or not rule_ids or any(type(rule_id) is not str for rule_id in rule_ids):
-                errors.append(f"decision_surface_rules for {relative} must be a non-empty rule-ID list")
+        for relative, expected_nodes in CANONICAL_SURFACE_AST.items():
+            actual_nodes = ast.get(relative)
+            if not isinstance(actual_nodes, list) or len(actual_nodes) != len(expected_nodes):
+                errors.append(f"decision_surface_ast for {relative} has invalid clause count")
                 continue
-            for rule_id in rule_ids:
-                rule = rules.get(rule_id) if isinstance(rules, dict) else None
-                if not isinstance(rule, dict):
-                    errors.append(f"decision_surface_rules for {relative} references unknown rule {rule_id}")
-                elif relative not in (rule.get("surfaces") or []):
-                    errors.append(f"decision_surface_rules for {relative} uses unauthorized rule {rule_id}")
-
-    directive_content = contract.get("directive_content")
-    if not isinstance(directive_content, dict) or not isinstance(rules, dict) or set(directive_content) != set(rules):
-        errors.append("directive_content must cover exactly every declared decision rule")
-    else:
-        for rule_id, directives in directive_content.items():
-            if (
-                not isinstance(directives, list)
-                or not directives
-                or any(type(value) is not str or not value.strip() for value in directives)
-            ):
-                errors.append(f"directive_content for {rule_id} must be a non-empty visible-content list")
-        if isinstance(surface_rules, dict):
-            occurrences = {
-                rule_id: sum(rule_ids.count(rule_id) for rule_ids in surface_rules.values() if isinstance(rule_ids, list))
-                for rule_id in rules
-            }
-            for rule_id, directives in directive_content.items():
-                if isinstance(directives, list) and occurrences.get(rule_id) != len(directives):
-                    errors.append(f"directive_content count mismatch for decision rule {rule_id}")
+            for index, (actual, expected) in enumerate(zip(actual_nodes, expected_nodes)):
+                expected_clause_id = expected["clause_id"]
+                if not isinstance(actual, dict) or set(actual) != {"clause_id", "rule_id", "params"}:
+                    errors.append(f"decision clause {expected_clause_id} must contain only clause_id, rule_id, and params")
+                    continue
+                if actual.get("clause_id") != expected_clause_id:
+                    errors.append(f"decision_surface_ast for {relative} has invalid clause at index {index}")
+                    continue
+                if actual.get("rule_id") != expected["rule_id"]:
+                    errors.append(f"decision clause {expected_clause_id} has invalid rule_id")
+                if not _typed_equal(actual.get("params"), expected["params"]):
+                    errors.append(f"decision clause {expected_clause_id} has invalid params")
 
     digests = contract.get("decision_surface_sha256")
     if not isinstance(digests, dict) or set(digests) != set(DOC_PATHS):
@@ -457,12 +1240,26 @@ def scenario_errors(corpus: dict[str, Any]) -> list[str]:
     """Validate that the forward corpus cannot silently omit a claimed output."""
 
     errors: list[str] = []
+    allowed_root = {"schema_version", "scenarios"}
+    unknown_root = sorted(str(key) for key in set(corpus) - allowed_root)
+    missing_root = sorted(allowed_root - set(corpus))
+    if unknown_root:
+        errors.append(f"scenario corpus has unknown root keys: {', '.join(unknown_root)}")
+    if missing_root:
+        errors.append(f"scenario corpus is missing root keys: {', '.join(missing_root)}")
     scenarios = corpus.get("scenarios")
-    if corpus.get("schema_version") != 1:
-        errors.append("scenario corpus schema_version must be 1")
+    if type(corpus.get("schema_version")) is not int or corpus.get("schema_version") != 1:
+        errors.append("scenario corpus schema_version must be integer 1")
     if not isinstance(scenarios, list):
         return [*errors, "scenario corpus scenarios must be a list"]
-    ids = [item.get("id") for item in scenarios if isinstance(item, dict)]
+    ids: list[str] = []
+    for index, item in enumerate(scenarios):
+        if isinstance(item, dict):
+            scenario_id = item.get("id")
+            if type(scenario_id) is str:
+                ids.append(scenario_id)
+            else:
+                errors.append(f"scenario at index {index} id must be a string")
     if len(scenarios) != 8 or len(ids) != 8 or set(ids) != EXPECTED_SCENARIO_IDS:
         errors.append("scenario corpus must contain each of the exact eight scenario IDs once")
     if len(ids) != len(set(ids)):
@@ -471,7 +1268,8 @@ def scenario_errors(corpus: dict[str, Any]) -> list[str]:
         if not isinstance(scenario, dict):
             errors.append(f"scenario at index {index} must be an object")
             continue
-        scenario_id = scenario.get("id", f"index-{index}")
+        raw_scenario_id = scenario.get("id")
+        scenario_id = raw_scenario_id if type(raw_scenario_id) is str else f"index-{index}"
         if set(scenario) != {"id", "input", "expected"}:
             errors.append(f"scenario {scenario_id} must contain only id, input, and expected")
         values = scenario.get("input")
@@ -532,16 +1330,123 @@ def _split_decision_surface(content: str) -> tuple[str, list[list[tuple[int, str
     return "\n".join(preamble), blocks
 
 
+def _render_preamble(relative: str) -> str:
+    metadata = CANONICAL_SURFACE_METADATA[relative]
+    if metadata["kind"] == "reference":
+        return ""
+    descriptions = {
+        "frontend-design-discovery": (
+            "Design a research-backed pre-code packet for rendered customer-facing frontend work; "
+            "excludes backend, implementation, and final acceptance."
+        ),
+        "designer-role-discovery": (
+            "Frontend Design Lead who converts customer-visible intent into a research-backed "
+            "pre-code design packet and Knowledge Contract-ready handoff."
+        ),
+    }
+    if metadata["kind"] == "skill":
+        return "\n".join(
+            [
+                "---",
+                f"name: {metadata['identity']}",
+                f"description: {descriptions[metadata['description_id']]}",
+                "metadata:",
+                f"  current_aal: {metadata['current_aal']}",
+                f"  target_aal: {metadata['target_aal']}",
+                "---",
+            ]
+        )
+    return "\n".join(
+        [
+            "---",
+            f"name: {metadata['identity']}",
+            f"description: {descriptions[metadata['description_id']]}",
+            f"model: {metadata['model']}",
+            "metadata:",
+            f"  model_tier: {metadata['model_tier']}",
+            "---",
+        ]
+    )
+
+
+def _render_clause(clause_id: str, params: dict[str, Any]) -> str:
+    spec = CANONICAL_CLAUSE_SPECS[clause_id]
+    if clause_id == "FD-SKILL-SEQUENCE-03":
+        stage_text = {
+            "reuse_inventory": (
+                "Inventory reusable artifacts in the product, its design system, the Datarim\n"
+                "   runtime, and the applicable knowledge graph. Record exact paths, revisions,\n"
+                "   digests, lifecycle state, and reuse/modify/create/reject disposition."
+            ),
+            "external_research": (
+                "Research the unresolved design questions with current primary standards,\n"
+                "   official documentation, and strong maintained reference implementations.\n"
+                "   Record URL, UTC access date, authority, applicability, selected use, and\n"
+                "   rejected alternatives in `INSIGHTS-{TASK-ID}.md`."
+            ),
+            "seven_kind_gap_analysis": (
+                "Analyze gaps across all seven managed kinds: `Role`, `Skill`, `Blueprint`,\n"
+                "   `Constraint`, `SuccessCriterion`, `Policy`, and `CapabilityDescription`.\n"
+                "   `Competency` is not a managed kind; express competency-shaped needs through\n"
+                "   `CapabilityDescription`, `provides`, and pinned dependency relations."
+            ),
+            "reusable_artifact_creation_and_validation": (
+                "Create and validate every missing reusable artifact. Run its schema,\n"
+                "   frontmatter, lifecycle, provenance, relation, forward-scenario, and mutation\n"
+                "   checks before any product implementation."
+            ),
+            "knowledge_contract_issuance": (
+                "Issue the Knowledge Contract with immutable artifact revisions and digests,\n"
+                "   pre-work timestamps, requirement bindings, and red-capable evidence.\n"
+                "   Product code is forbidden until the contract is `MET`."
+            ),
+        }
+        return "\n".join(
+            f"{index}. {stage_text[stage]}" for index, stage in enumerate(params["stages"], start=1)
+        )
+    if clause_id == "FD-DESIGN-A11Y-02":
+        floor = {"WCAG-2.2-AA": "WCAG 2.2 Level AA"}[params["accessibility_floor"]]
+        return (
+            f"{floor} is the minimum accessibility baseline unless a stricter\n"
+            "project policy applies. When a requested treatment conflicts with contrast,\n"
+            "keyboard, reflow, motion, or assistive-technology requirements, preserve the customer intent through an accessible alternative and record the constraint and\n"
+            "rationale. Never silently implement a known failure."
+        )
+    if clause_id == "FD-HANDOFF-EVIDENCE-02":
+        count_word = {12: "twelve"}[params["expected_cells"]]
+        return (
+            "For every affected painted surface, plan the full "
+            f"{'/'.join(params['locales'])} x {'/'.join(params['viewports'])} x "
+            f"{'/'.join(params['themes'])} matrix. That is {count_word} cells per surface class; "
+            "any absent cell keeps the Knowledge Contract `NOT_MET` when the matrix is required."
+        )
+    text = spec["text"]
+    if not isinstance(text, str):
+        raise ValueError(f"decision clause {clause_id} has no deterministic renderer")
+    return text
+
+
+def _render_surface(relative: str) -> str:
+    blocks: list[str] = []
+    for node in CANONICAL_SURFACE_AST[relative]:
+        rule = CANONICAL_RULES[node["rule_id"]]
+        marker = (
+            f"<!-- fd-rule: {node['rule_id']}; polarity: {rule['polarity']}; "
+            f"semantics: {rule['semantics']} -->"
+        )
+        blocks.append(f"{marker}\n{_render_clause(node['clause_id'], node['params'])}")
+    body = "\n\n".join(blocks)
+    preamble = _render_preamble(relative)
+    return f"{preamble}\n\n{body}\n" if preamble else f"{body}\n"
+
+
 def documentation_errors(root: Path, contract: dict[str, Any]) -> list[str]:
     """Reject unbound prose and unsafe claims on every decision surface."""
 
     errors: list[str] = []
     expected_cells = (contract.get("evidence_matrix") or {}).get("expected_cells_per_surface")
     expected_digests = contract.get("decision_surface_sha256") or {}
-    declared_rules = contract.get("decision_rules") or {}
-    expected_preambles = contract.get("decision_surface_preambles") or {}
-    expected_surface_rules = contract.get("decision_surface_rules") or {}
-    directive_content = contract.get("directive_content") or {}
+    declared_rules = CANONICAL_RULES
     used_rules: set[str] = set()
     for relative in DOC_PATHS:
         path = root / relative
@@ -553,15 +1458,18 @@ def documentation_errors(root: Path, contract: dict[str, Any]) -> list[str]:
         if expected_digests.get(relative) != actual_digest:
             errors.append(f"{relative}: decision surface digest mismatch")
         decoded = content.decode("utf-8")
+        if decoded != _render_surface(relative):
+            errors.append(f"{relative}: deterministic decision surface render mismatch")
         preamble, blocks = _split_decision_surface(decoded)
-        if expected_preambles.get(relative) != preamble:
+        if _render_preamble(relative) != preamble:
             errors.append(f"{relative}: decision surface preamble mismatch")
 
         observed_rule_ids: list[str] = []
-        rule_occurrences: dict[str, int] = {}
-        for block in blocks:
+        expected_nodes = CANONICAL_SURFACE_AST[relative]
+        for block_index, block in enumerate(blocks):
             first_number, first_raw = block[0]
             location = f"{relative}:{first_number}"
+            expected_node = expected_nodes[block_index] if block_index < len(expected_nodes) else None
             marker = RULE_MARKER_RE.fullmatch(first_raw)
             if marker is None:
                 errors.append(f"{location}: untagged decision line")
@@ -580,18 +1488,17 @@ def documentation_errors(root: Path, contract: dict[str, Any]) -> list[str]:
                         errors.append(f"{location}: decision rule {rule_id} semantics mismatch")
                     if relative not in (declared.get("surfaces") or []):
                         errors.append(f"{location}: decision rule {rule_id} is not authorized for this surface")
+                if expected_node is None or rule_id != expected_node["rule_id"]:
+                    errors.append(f"{location}: decision rule {rule_id} is out of canonical order")
                 if len(block) == 1:
                     errors.append(f"{location}: decision rule marker must bind visible content")
                     continue
                 visible_lines = block[1:]
-                occurrence = rule_occurrences.get(rule_id, 0)
-                rule_occurrences[rule_id] = occurrence + 1
-                expected_directives = directive_content.get(rule_id)
                 actual_directive = "\n".join(raw for _, raw in visible_lines)
                 if (
-                    not isinstance(expected_directives, list)
-                    or occurrence >= len(expected_directives)
-                    or expected_directives[occurrence] != actual_directive
+                    expected_node is None
+                    or _render_clause(expected_node["clause_id"], expected_node["params"])
+                    != actual_directive
                 ):
                     errors.append(f"{location}: decision rule {rule_id} content mismatch")
             for number, raw in visible_lines:
@@ -618,8 +1525,8 @@ def documentation_errors(root: Path, contract: dict[str, Any]) -> list[str]:
                     errors.append(f"{line_location}: product code is allowed before the MET gate")
                 if "competency" in line and "managed kind" in line and not _is_negated(line):
                     errors.append(f"{line_location}: Competency is declared as a managed kind")
-        expected_order = expected_surface_rules.get(relative)
-        if not isinstance(expected_order, list) or observed_rule_ids != expected_order:
+        expected_order = [node["rule_id"] for node in expected_nodes]
+        if observed_rule_ids != expected_order:
             errors.append(f"{relative}: decision surface rule order mismatch")
     if isinstance(declared_rules, dict):
         for rule_id in sorted(set(declared_rules) - used_rules):

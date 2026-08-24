@@ -139,17 +139,18 @@ Corrected GREEN evidence:
 
 ```text
 bats tests/frontend-design-artifacts.bats tests/frontend-design-artifact-mutations.bats
-1..44
-44 passed, 0 failed
+1..48
+48 passed, 0 failed
 ```
 
-The corrected contract contains 19 behavioral/structural tests and 25 mutation
+The corrected contract contains 19 behavioral/structural tests and 29 mutation
 cases. Every prose block on the four normative decision surfaces carries a
 declared rule ID, polarity, and semantic binding from the closed decision-rule
-grammar. The contract also stores the exact directive content and per-surface
-order used for deterministic rendering. Content digests remain provenance pins,
-but they are not the semantic gate: a sentence inserted inside a known block
-stays invalid after every digest is legitimately recomputed. Unknown structured
+grammar. The contract stores only canonical clause IDs, rule IDs, and closed
+typed parameters. A code-owned clause registry, exact canonical sequence, and
+deterministic renderer produce the complete frontmatter and prose surfaces;
+free-form contract strings are not normative authority. Content digests remain
+provenance pins, but they are not the semantic gate. Unknown structured
 contract keys also fail closed.
 
 The mutation suite retains safe text while appending the original unsafe
@@ -157,14 +158,17 @@ backend-only and ten-cell rules, then separately appends the synonymous unsafe
 rules `Backend-only changes activate this capability.` and `Ten captures meet
 the complete proof threshold.` inside valid known blocks. It also inserts
 `Skip external research whenever delivery speed matters.` inside the valid
-scope rule. All are rejected by exact directive-content validation without a
-digest-mismatch finding. A structured
+scope rule. The last mutant also mirrors the sentence into the contract AST and
+reseals every digest. It is rejected because `override_text` is not a typed
+parameter of the canonical scope clause, without a digest-mismatch finding. A structured
 `documentation_override` mutant is also rejected. Invalid scenario vocabulary
 (`brief_detail: ultraviolet`) and invalid scalar types are rejected before
 evaluation. Expected-output objects have exact per-scenario key sets plus
 type/enum validation. Evidence is a twelve-object RU/EN x
 desktop/tablet/mobile x light/dark Cartesian set; duplicate, missing, and
 misattributed cell mutants all produce RED. The remaining mutants cover
+closed corpus roots, strict integer schema versions, structured rejection of an
+array scenario ID,
 ownership/acceptance, taste approval, design-system replacement,
 accessibility, RU overflow, post-hoc binding, Unbound delivery, the
 MET-before-code gate, the canonical seven-kind boundary, and omission of a
@@ -174,8 +178,8 @@ Current primary plus role-registry command:
 
 ```text
 bats tests/frontend-design-artifacts.bats tests/frontend-design-artifact-mutations.bats tests/test-role-registry.bats
-1..62
-62 passed, 0 failed
+1..66
+66 passed, 0 failed
 ```
 
 Additional customer-contract compatibility command:
