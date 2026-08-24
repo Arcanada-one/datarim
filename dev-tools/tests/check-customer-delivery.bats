@@ -2418,11 +2418,32 @@ source = open(path, encoding="utf-8").read()
 old = '        metadata_entry = os.stat("METADATA", follow_symlinks=False)\n'
 new = f'''        metadata_entry = os.stat("METADATA", follow_symlinks=False)
         if distribution == "jsonschema":
-            os.rename(
-                "METADATA", "METADATA.original-a2",
-                src_dir_fd=dist_fd, dst_dir_fd=dist_fd,
-            )
-            os.mkfifo("METADATA", 0o600, dir_fd=dist_fd)
+            def record_nonblock_stage(message):
+                try:
+                    stage_fd = os.open(
+                        {diagnostic!r},
+                        os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_CLOEXEC,
+                        0o600,
+                    )
+                    os.write(stage_fd, (message + "\\n").encode())
+                    os.close(stage_fd)
+                except OSError:
+                    pass
+            record_nonblock_stage("attack_entered")
+            try:
+                os.rename(
+                    "METADATA", "METADATA.original-a2",
+                    src_dir_fd=dist_fd, dst_dir_fd=dist_fd,
+                )
+                record_nonblock_stage("metadata_renamed")
+                os.mkfifo("METADATA", 0o600, dir_fd=dist_fd)
+                record_nonblock_stage("fifo_ready")
+            except BaseException as setup_error:
+                record_nonblock_stage(
+                    f"setup_error={{type(setup_error).__name__}}:"
+                    f"{{getattr(setup_error, 'errno', None)}}"
+                )
+                raise
             threading = __import__("threading")
             time = __import__("time")
             def delayed_fifo_writer():
