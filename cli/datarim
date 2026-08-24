@@ -137,7 +137,7 @@ effective_order_independent_operation() {
     printf '%s' "$op"
 }
 
-requires_aal3_acceptance() {
+required_aal3_scope() {
     local sub="${1:-}" op arg
     shift || true
     case "$sub" in
@@ -145,12 +145,23 @@ requires_aal3_acceptance() {
         *) op="${1:-}" ;;
     esac
     case "$sub:$op" in
-        run:*|tasks:move|backlog:add|tmux:attach|tmux:new|tmux:kill|audit:resume|audit:purge|plugin:enable|plugin:disable|plugin:sync)
-            return 0
-            ;;
+        run:*)          printf '%s\n' 'cli_subcommand:run'; return 0 ;;
+        tasks:move)     printf '%s\n' 'cli_subcommand:tasks move'; return 0 ;;
+        backlog:add)    printf '%s\n' 'cli_subcommand:backlog add'; return 0 ;;
+        tmux:attach)    printf '%s\n' 'cli_subcommand:tmux attach'; return 0 ;;
+        tmux:new)       printf '%s\n' 'cli_subcommand:tmux new'; return 0 ;;
+        tmux:kill)      printf '%s\n' 'cli_subcommand:tmux kill'; return 0 ;;
+        audit:resume)   printf '%s\n' 'cli_subcommand:audit resume'; return 0 ;;
+        audit:purge)    printf '%s\n' 'cli_subcommand:audit purge'; return 0 ;;
+        plugin:enable)  printf '%s\n' 'cli_subcommand:plugin enable'; return 0 ;;
+        plugin:disable) printf '%s\n' 'cli_subcommand:plugin disable'; return 0 ;;
+        plugin:sync)    printf '%s\n' 'cli_subcommand:plugin sync'; return 0 ;;
         plugin:doctor)
             for arg in "$@"; do
-                [ "$arg" = "--fix" ] && return 0
+                if [ "$arg" = "--fix" ]; then
+                    printf '%s\n' 'cli_subcommand:plugin doctor --fix'
+                    return 0
+                fi
             done
             ;;
     esac
@@ -161,11 +172,11 @@ main() {
     # First line of every subcommand: kill-switch check (V-AC-6).
     check_kill_switch || exit $?
 
-    local sub="${1:-help}"
+    local sub="${1:-help}" required_scope
     shift || true
 
-    if requires_aal3_acceptance "$sub" "$@"; then
-        aal_check TUNE-0268 || exit $?
+    if required_scope="$(required_aal3_scope "$sub" "$@")"; then
+        aal_check TUNE-0268 "$required_scope" || exit $?
     fi
 
     case "$sub" in

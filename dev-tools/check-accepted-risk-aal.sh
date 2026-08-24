@@ -4,6 +4,7 @@
 #
 # Modes:
 #   --task TUNE-NNNN          ensure entry id "tune-NNNN-..." is present + valid
+#   --require-scope SCOPE     require exact membership in the target entry scope
 #   --file <path>             override default location
 #   --warn-window-days N      pre-expiry stderr warning window (default 7)
 #   --check-expiry-only       only check expires >= today (skip other fields)
@@ -13,7 +14,7 @@
 #   0   OK (entry present, not expired)
 #   1   validation failure
 #   2   usage error
-#   23  entry expired (intentional sentinel — CLI uses this to gate AAL 3)
+#   23  entry missing, out of scope, or expired (CLI AAL 3 gate sentinel)
 
 set -eu
 
@@ -22,7 +23,7 @@ usage() {
 check-accepted-risk-aal.sh — validate AAL mandate-override register.
 
 Usage:
-  check-accepted-risk-aal.sh --task TUNE-NNNN [--file PATH] [--warn-window-days N]
+  check-accepted-risk-aal.sh --task TUNE-NNNN [--require-scope SCOPE] [--file PATH] [--warn-window-days N]
   check-accepted-risk-aal.sh --file PATH (validate schema)
 EOF
 }
@@ -31,10 +32,12 @@ task=""
 file=""
 warn_days="${DATARIM_AAL_WARN_DAYS:-7}"
 check_expiry_only=0
+required_scope=""
 
 while [ $# -gt 0 ]; do
     case "$1" in
         --task) task="${2:-}"; shift 2 ;;
+        --require-scope) required_scope="${2:-}"; shift 2 ;;
         --file) file="${2:-}"; shift 2 ;;
         --warn-window-days) warn_days="${2:-}"; shift 2 ;;
         --check-expiry-only) check_expiry_only=1; shift ;;
@@ -52,7 +55,7 @@ if [ ! -f "$file" ]; then
     exit 1
 fi
 
-python3 - "$file" "$task" "$warn_days" "$check_expiry_only" <<'PY'
+python3 - "$file" "$task" "$warn_days" "$check_expiry_only" "$required_scope" <<'PY'
 import sys, datetime
 try:
     import yaml
@@ -60,7 +63,9 @@ except ImportError:
     print("[check-aal] python3 yaml package required", file=sys.stderr)
     sys.exit(1)
 
-path, task, warn_days, expiry_only = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4])
+path, task, warn_days, expiry_only, required_scope = (
+    sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4]), sys.argv[5]
+)
 with open(path, "r", encoding="utf-8") as f:
     data = yaml.safe_load(f) or {}
 
@@ -123,6 +128,13 @@ for e in entries:
 
 if errors and not expiry_only:
     sys.exit(1)
+
+if target and required_scope and required_scope not in target.get("scope", []):
+    print(
+        f"[check-aal] entry {target['id']} does not authorize scope {required_scope}",
+        file=sys.stderr,
+    )
+    sys.exit(23)
 
 # Expiry check for target entry (if given).
 if target:

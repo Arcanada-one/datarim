@@ -3,6 +3,8 @@
 # V-AC-27           — 7-day pre-expiry stderr warning.
 # Source: TUNE-0271 plan § Detailed Design 4.4.
 
+load helpers/active-aal-fixture
+
 setup() {
     CLI_DIR="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
     REPO_ROOT="$(cd "$CLI_DIR/.." && pwd)"
@@ -15,14 +17,14 @@ setup() {
 
 @test "V-AC-15: retired real register blocks TUNE-0268 with exit 23" {
     run "$VALIDATOR" --task TUNE-0268
-    [ "$status" -eq 23 ]
-    [[ "$output" == *"no active entry matching task TUNE-0268"* ]]
+    [ "$status" -eq 23 ] \
+        && [[ "$output" == *"no active entry matching task TUNE-0268"* ]]
 }
 
 @test "V-AC-15: real accepted-risk-aal.yml is a valid empty register" {
     run "$VALIDATOR" --file "$REAL_FILE"
-    [ "$status" -eq 0 ]
-    ! grep -q '^  - id:' "$REAL_FILE"
+    [ "$status" -eq 0 ] \
+        && ! grep -q '^  - id:' "$REAL_FILE"
 }
 
 @test "V-AC-26: backdated entry (expires yesterday) → exit 23" {
@@ -46,9 +48,9 @@ entries:
     rollback: "test"
 EOF
     run "$VALIDATOR" --file "$fixture" --task TUNE-0268
-    [ "$status" -eq 23 ]
-    [[ "$output" == *"EXPIRED"* ]]
     rm -f "$fixture"
+    [ "$status" -eq 23 ] \
+        && [[ "$output" == *"EXPIRED"* ]]
 }
 
 @test "V-AC-27: entry expiring in 6 days → exit 0 with warning on stderr" {
@@ -72,9 +74,9 @@ entries:
     rollback: "test"
 EOF
     run "$VALIDATOR" --file "$fixture" --task TUNE-0268
-    [ "$status" -eq 0 ]
-    [[ "$output" == *"expires in 6 days"* ]]
     rm -f "$fixture"
+    [ "$status" -eq 0 ] \
+        && [[ "$output" == *"expires in 6 days"* ]]
 }
 
 @test "V-AC-27: entry expiring in 30 days → exit 0, no warning" {
@@ -98,9 +100,9 @@ entries:
     rollback: "test"
 EOF
     run "$VALIDATOR" --file "$fixture" --task TUNE-0268
-    [ "$status" -eq 0 ]
-    [[ "$output" != *"expires in"* ]]
     rm -f "$fixture"
+    [ "$status" -eq 0 ] \
+        && [[ "$output" != *"expires in"* ]]
 }
 
 @test "V-AC-26: missing entry for task → exit 23" {
@@ -123,9 +125,37 @@ entries:
     rollback: "x"
 EOF
     run "$VALIDATOR" --file "$fixture" --task TUNE-0268
-    [ "$status" -eq 23 ]
-    [[ "$output" == *"no active entry matching task TUNE-0268"* ]]
     rm -f "$fixture"
+    [ "$status" -eq 23 ] \
+        && [[ "$output" == *"no active entry matching task TUNE-0268"* ]]
+}
+
+@test "V-AC-15: narrow active scope rejects an unrelated required scope" {
+    fixture="$(mktemp)"
+    accepted="$(date -u +%F)"
+    later="$(python3 -c "import datetime; print((datetime.date.today() + datetime.timedelta(days=30)).isoformat())")"
+    cat >"$fixture" <<EOF
+schema_version: 1
+entries:
+  - id: tune-0268-aal3-cli
+    title: "Narrow test entry"
+    accepted_at: $accepted
+    expires: $later
+    review_required_by: $later
+    operator: test
+    mandate_overridden: documentation/mandates/aal-mandate.md
+    mandate_ceiling: 2
+    declared_level: 3
+    scope: ["cli_subcommand:run"]
+    mitigations: ["isolated fixture"]
+    risk_summary: "test"
+    rollback: "test"
+EOF
+    run "$VALIDATOR" --file "$fixture" --task TUNE-0268 \
+        --require-scope "cli_subcommand:backlog add"
+    rm -f "$fixture"
+    [ "$status" -eq 23 ] \
+        && [[ "$output" == *"does not authorize scope cli_subcommand:backlog add"* ]]
 }
 
 @test "V-AC-15: accepted-risk gate revalidates when the register changes" {
@@ -155,7 +185,7 @@ entries:
     rollback: "test"
 EOF
     run bash -c ". '$fixture_lib'; aal_check TUNE-0268"
-    [ "$status" -eq 0 ]
+    [ "$status" -eq 0 ] || return 1
     cat >"$fixture_root/accepted-risk-aal.yml" <<'EOF'
 schema_version: 1
 entries: []
@@ -173,25 +203,25 @@ EOF
     : > "$cache_root/datarim-cli-aal-cache/$cache_key"
 
     run bash -c "export TMPDIR='$cache_root'; . '$LIB'; aal_check TUNE-0268"
-    [ "$status" -eq 23 ]
-    [[ "$output" == *"no active entry matching task TUNE-0268"* ]]
+    [ "$status" -eq 23 ] \
+        && [[ "$output" == *"no active entry matching task TUNE-0268"* ]]
 }
 
 @test "expired acceptance makes installer fail closed with exit 23" {
     target="$BATS_TEST_TMPDIR/bin"
     mkdir -p "$target"
     run env HOME="$BATS_TEST_TMPDIR/home" "$CLI_DIR/install.sh" --dry-run --target-bin "$target"
-    [ "$status" -eq 23 ]
-    [[ "$output" == *"accepted-risk-aal validation failed (exit 23)"* ]]
-    [ ! -e "$target/datarim" ]
+    [ "$status" -eq 23 ] \
+        && [[ "$output" == *"accepted-risk-aal validation failed (exit 23)"* ]] \
+        && [ ! -e "$target/datarim" ]
 }
 
 @test "retired acceptance blocks mutation before external dispatch" {
     run env HOME="$BATS_TEST_TMPDIR/home" DATARIM_ROOT="$REPO_ROOT" \
         "$CLI_DIR/datarim" run /dr-status
-    [ "$status" -eq 23 ]
-    [[ "$output" == *"no active entry matching task TUNE-0268"* ]]
-    [[ "$output" != *"connect-failed-after-retries"* ]]
+    [ "$status" -eq 23 ] \
+        && [[ "$output" == *"no active entry matching task TUNE-0268"* ]] \
+        && [[ "$output" != *"connect-failed-after-retries"* ]]
 }
 
 @test "retired acceptance blocks every mutation-capable CLI family" {
@@ -222,10 +252,48 @@ EOF
     run env HOME="$BATS_TEST_TMPDIR/home" DATARIM_ROOT="$REPO_ROOT" \
         DATARIM_WORKSPACE_ROOT="$workspace" "$CLI_DIR/datarim" backlog add \
         --id TUNE-9999 --priority P4 --complexity L1 --title probe
-    [ "$status" -eq 23 ]
-    [[ "$output" == *"no active entry matching task TUNE-0268"* ]]
-    [ "$before" = "$(shasum -a 256 "$backlog" | awk '{print $1}')" ]
-    ! grep -q 'TUNE-9999' "$backlog"
+    [ "$status" -eq 23 ] \
+        && [[ "$output" == *"no active entry matching task TUNE-0268"* ]] \
+        && [ "$before" = "$(shasum -a 256 "$backlog" | awk '{print $1}')" ] \
+        && ! grep -q 'TUNE-9999' "$backlog"
+}
+
+@test "narrow active scope blocks every unrelated mutation family without writing" {
+    fixture_root="$BATS_TEST_TMPDIR/narrow-install"
+    workspace="$BATS_TEST_TMPDIR/narrow-workspace"
+    backlog="$workspace/datarim/backlog.md"
+    tasks="$workspace/datarim/tasks.md"
+    setup_active_aal_fixture "$REPO_ROOT" "$fixture_root" "test-only mutation paths"
+    mkdir -p "$(dirname "$backlog")"
+    printf '# Backlog\n' > "$backlog"
+    printf '# Tasks\n- TUNE-9999 · pending · P4 · L1 · probe → tasks/TUNE-9999-task-description.md\n' > "$tasks"
+    backlog_before="$(shasum -a 256 "$backlog" | awk '{print $1}')"
+    tasks_before="$(shasum -a 256 "$tasks" | awk '{print $1}')"
+
+    assert_scope_blocked() {
+        required_scope="$1"
+        shift
+        run env HOME="$BATS_TEST_TMPDIR/home" DATARIM_WORKSPACE_ROOT="$workspace" \
+            DATARIM_CLI_AUDIT_DIR="$BATS_TEST_TMPDIR/audit" "$DATARIM_BIN" "$@"
+        [ "$status" -eq 23 ] \
+            && [[ "$output" == *"does not authorize scope $required_scope"* ]] \
+            && [ "$backlog_before" = "$(shasum -a 256 "$backlog" | awk '{print $1}')" ] \
+            && [ "$tasks_before" = "$(shasum -a 256 "$tasks" | awk '{print $1}')" ]
+    }
+
+    assert_scope_blocked "cli_subcommand:run" run /dr-status \
+        && assert_scope_blocked "cli_subcommand:tasks move" tasks move TUNE-9999 do \
+        && assert_scope_blocked "cli_subcommand:backlog add" backlog add \
+            --id TUNE-9998 --priority P4 --complexity L1 --title narrow \
+        && assert_scope_blocked "cli_subcommand:tmux attach" tmux attach %0 \
+        && assert_scope_blocked "cli_subcommand:tmux new" tmux new --task TUNE-9999 --cmd /dr-status \
+        && assert_scope_blocked "cli_subcommand:tmux kill" tmux kill %0 \
+        && assert_scope_blocked "cli_subcommand:audit resume" audit resume \
+        && assert_scope_blocked "cli_subcommand:audit purge" audit purge \
+        && assert_scope_blocked "cli_subcommand:plugin enable" plugin enable /tmp/example \
+        && assert_scope_blocked "cli_subcommand:plugin disable" plugin disable example \
+        && assert_scope_blocked "cli_subcommand:plugin sync" plugin sync \
+        && assert_scope_blocked "cli_subcommand:plugin doctor --fix" plugin doctor --fix
 }
 
 @test "retired acceptance blocks mutations for global option permutations" {
@@ -241,18 +309,18 @@ EOF
     assert_blocked_without_writes() {
         run env HOME="$BATS_TEST_TMPDIR/home" DATARIM_WORKSPACE_ROOT="$workspace" \
             DATARIM_CLI_AUDIT_DIR="$BATS_TEST_TMPDIR/audit" "$CLI_DIR/datarim" "$@"
-        [ "$status" -eq 23 ]
-        [[ "$output" == *"no active entry matching task TUNE-0268"* ]]
-        [ "$backlog_before" = "$(shasum -a 256 "$backlog" | awk '{print $1}')" ]
-        [ "$tasks_before" = "$(shasum -a 256 "$tasks" | awk '{print $1}')" ]
+        [ "$status" -eq 23 ] \
+            && [[ "$output" == *"no active entry matching task TUNE-0268"* ]] \
+            && [ "$backlog_before" = "$(shasum -a 256 "$backlog" | awk '{print $1}')" ] \
+            && [ "$tasks_before" = "$(shasum -a 256 "$tasks" | awk '{print $1}')" ]
     }
 
     assert_blocked_without_writes backlog --json add \
-        --id TUNE-9998 --priority P4 --complexity L1 --title probe
-    assert_blocked_without_writes backlog add \
-        --id TUNE-9998 --priority P4 --complexity L1 --title probe --json
-    assert_blocked_without_writes tasks --json move TUNE-9999 do
-    assert_blocked_without_writes tasks move TUNE-9999 do --json
+        --id TUNE-9998 --priority P4 --complexity L1 --title probe \
+        && assert_blocked_without_writes backlog add \
+            --id TUNE-9998 --priority P4 --complexity L1 --title probe --json \
+        && assert_blocked_without_writes tasks --json move TUNE-9999 do \
+        && assert_blocked_without_writes tasks move TUNE-9999 do --json
 }
 
 @test "caller-controlled DATARIM_ROOT cannot replace validator provenance" {
@@ -268,10 +336,10 @@ EOF
     run env HOME="$BATS_TEST_TMPDIR/home" DATARIM_ROOT="$spoof_root" \
         DATARIM_WORKSPACE_ROOT="$workspace" DATARIM_CLI_AUDIT_DIR="$BATS_TEST_TMPDIR/audit" \
         "$CLI_DIR/datarim" backlog add --id TUNE-9999 --priority P4 --complexity L1 --title spoof
-    [ "$status" -eq 23 ]
-    [[ "$output" == *"no active entry matching task TUNE-0268"* ]]
-    [ "$before" = "$(shasum -a 256 "$backlog" | awk '{print $1}')" ]
-    ! grep -q 'TUNE-9999' "$backlog"
+    [ "$status" -eq 23 ] \
+        && [[ "$output" == *"no active entry matching task TUNE-0268"* ]] \
+        && [ "$before" = "$(shasum -a 256 "$backlog" | awk '{print $1}')" ] \
+        && ! grep -q 'TUNE-9999' "$backlog"
 }
 
 @test "retired acceptance keeps protective audit halt available" {

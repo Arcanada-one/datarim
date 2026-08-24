@@ -130,7 +130,7 @@ Self-explanatory.
 | 20 | Config mutation or managed-key access refused |
 | 21 | Invalid or missing slash command |
 | 22 | Missing or malformed `$DATARIM_CLI_AGENT_ID` (must be UUID v7) |
-| 23 | Required `accepted-risk-aal.yml` entry missing or expired |
+| 23 | Required `accepted-risk-aal.yml` entry missing, out of operation scope, or expired |
 | 24 | HTTP dispatch failure / network error |
 | 25 | Command returned non-zero from webhook |
 | 26 | Non-idempotent command requested on sync path |
@@ -145,7 +145,7 @@ Self-explanatory.
 - `cli/install.sh`, `cli/install-warning.sh`
 - `accepted-risk-aal.yml` — repo root
 - `dev-tools/check-cli-audit-schema.sh`
-- `dev-tools/check-accepted-risk-aal.sh`
+- `dev-tools/check-accepted-risk-aal.sh` — validates exact `cli_subcommand:<operation>` scope membership for mutations
 - `datarim/audit/cli-audit-YYYY-MM-DD.jsonl` — workspace only
 
 ## Related

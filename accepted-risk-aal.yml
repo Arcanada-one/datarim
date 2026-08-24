@@ -20,7 +20,8 @@
 #   entries[].mandate_overridden:  path to mandate file
 #   entries[].mandate_ceiling:     integer (AAL level enforced by mandate)
 #   entries[].declared_level:      integer (level operator is opting into)
-#   entries[].scope:               list of strings (prd refs, cli_subcommands, …)
+#   entries[].scope:               exact strings; CLI mutations require
+#                                  cli_subcommand:<operation> membership
 #   entries[].mitigations:         list of strings (V-AC names)
 #   entries[].risk_summary:        free-text
 #   entries[].rollback:            string (one-line restore procedure)

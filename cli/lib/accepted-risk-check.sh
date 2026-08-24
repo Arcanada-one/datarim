@@ -7,7 +7,7 @@
 # bytes bypass expiry enforcement.
 # Returns:
 #   0   entry valid, not expired
-#   23  entry missing/expired → caller MUST abort + critical notifier
+#   23  entry missing/out-of-scope/expired → caller MUST abort
 #   1   validator IO error
 
 set -u
@@ -16,6 +16,7 @@ CLI_AAL_EXIT_EXPIRED=23
 
 aal_check() {
     local task="${1:-TUNE-0268}"
+    local required_scope="${2:-}"
     local repo_root validator rc
     repo_root="$(_aal_find_root)"
     validator="$repo_root/dev-tools/check-accepted-risk-aal.sh"
@@ -23,7 +24,10 @@ aal_check() {
         printf '[aal-check] validator not found at %s\n' "$validator" >&2
         return 1
     fi
-    if "$validator" --task "$task"; then
+    if [ -n "$required_scope" ]; then
+        "$validator" --task "$task" --require-scope "$required_scope" && return 0
+        rc=$?
+    elif "$validator" --task "$task"; then
         return 0
     else
         rc=$?

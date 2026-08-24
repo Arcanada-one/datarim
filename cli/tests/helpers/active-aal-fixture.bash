@@ -1,5 +1,21 @@
 setup_active_aal_fixture() {
-    local framework_root="$1" fixture_root="$2" accepted_at expires
+    local framework_root="$1" fixture_root="$2" accepted_at expires scope
+    shift 2
+    if [ "$#" -eq 0 ]; then
+        set -- \
+            "cli_subcommand:run" \
+            "cli_subcommand:tasks move" \
+            "cli_subcommand:backlog add" \
+            "cli_subcommand:tmux attach" \
+            "cli_subcommand:tmux new" \
+            "cli_subcommand:tmux kill" \
+            "cli_subcommand:audit resume" \
+            "cli_subcommand:audit purge" \
+            "cli_subcommand:plugin enable" \
+            "cli_subcommand:plugin disable" \
+            "cli_subcommand:plugin sync" \
+            "cli_subcommand:plugin doctor --fix"
+    fi
     mkdir -p "$fixture_root"
     cp -R "$framework_root/cli" "$fixture_root/cli"
     mkdir -p "$fixture_root/dev-tools"
@@ -19,7 +35,12 @@ entries:
     mandate_overridden: documentation/mandates/aal-mandate.md
     mandate_ceiling: 2
     declared_level: 3
-    scope: ["test-only mutation paths"]
+    scope:
+EOF
+    for scope in "$@"; do
+        printf '      - "%s"\n' "$scope" >> "$fixture_root/accepted-risk-aal.yml"
+    done
+    cat >>"$fixture_root/accepted-risk-aal.yml" <<'EOF'
     mitigations: ["isolated fixtures"]
     risk_summary: "Temporary acceptance confined to an isolated Bats process."
     rollback: "Bats removes the temporary fixture directory."
