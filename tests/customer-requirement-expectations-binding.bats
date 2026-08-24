@@ -37,19 +37,36 @@ assert_no_direct_in_place_sed() {
     local violations
 
     if ! violations="$(awk '
-        {
-            line = $0
-            if (!match(line, /(^|[;&|()[:space:]])([^[:space:]]*\/)?sed[[:space:]]+/)) {
-                next
+        function inspect(line, line_number, args, count, i, token, tokens) {
+            if (!match(line, /(^|[;&|()[:space:]])(([^[:space:]"]*\/)?sed|"([^"]*\/)?sed"|\047([^\047]*\/)?sed\047)[[:space:]]+/)) {
+                return
             }
             args = substr(line, RSTART + RLENGTH)
             count = split(args, tokens, /[[:space:]]+/)
             for (i = 1; i <= count; i++) {
                 token = tokens[i]
                 if (token ~ /^--in-place(=.*)?$/ || token ~ /^-[A-Za-z]*i/) {
-                    print FNR ":" $0
-                    next
+                    print line_number ":" line
+                    return
                 }
+            }
+        }
+        {
+            if (logical_line == "") {
+                logical_line = $0
+                logical_line_number = FNR
+            } else {
+                logical_line = logical_line "\n" $0
+            }
+            if ($0 ~ /\\[[:space:]]*$/) {
+                next
+            }
+            inspect(logical_line, logical_line_number)
+            logical_line = ""
+        }
+        END {
+            if (logical_line != "") {
+                inspect(logical_line, logical_line_number)
             }
         }
     ' "$file")"; then
@@ -1379,6 +1396,31 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
             return 1
         fi
     done
+
+    cp "${REPO_ROOT}/tests/customer-requirement-expectations-binding.bats" "$mutant_suite"
+    printf '%s\n' 'sed \' '    -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
+    run assert_no_direct_in_place_sed "$mutant_suite"
+    if [ "$status" -ne 1 ] || [[ "$output" != *"direct in-place sed syntax"* ]]; then
+        echo "continued in-place sed mutant was not rejected (status=${status}): ${output}" >&2
+        return 1
+    fi
+
+    cp "${REPO_ROOT}/tests/customer-requirement-expectations-binding.bats" "$mutant_suite"
+    printf '%s\n' '"sed" -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
+    run assert_no_direct_in_place_sed "$mutant_suite"
+    if [ "$status" -ne 1 ] || [[ "$output" != *"direct in-place sed syntax"* ]]; then
+        echo "quoted in-place sed mutant was not rejected (status=${status}): ${output}" >&2
+        return 1
+    fi
+
+    cp "${REPO_ROOT}/tests/customer-requirement-expectations-binding.bats" "$mutant_suite"
+    printf '%s\n' "'sed' -i.bak 's/x/y/' mutant" >> "$mutant_suite"
+    printf '%s\n' '"/usr/bin/sed" -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
+    run assert_no_direct_in_place_sed "$mutant_suite"
+    if [ "$status" -ne 1 ] || [[ "$output" != *"direct in-place sed syntax"* ]]; then
+        echo "quoted sed path mutants were not rejected (status=${status}): ${output}" >&2
+        return 1
+    fi
 
     run workflow_run_block_has_suite \
         "$mutant_workflow" \
