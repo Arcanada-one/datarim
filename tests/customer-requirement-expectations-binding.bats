@@ -44,8 +44,9 @@ assert_no_direct_in_place_sed() {
     if ! violations="$(LC_ALL=C awk -v sed_word="$sed_word" -v long_option="$long_option" '
         function canonical_token(token) {
             gsub(/["\047`]/, "", token)
+            gsub(/\\/, "", token)
             sub(/^[A-Za-z_][A-Za-z0-9_]*=/, "", token)
-            gsub(/^[!;|&(){}]+/, "", token)
+            gsub(/^[!$<>;|&(){}]+/, "", token)
             gsub(/[;|&(){}]+$/, "", token)
             return token
         }
@@ -82,7 +83,7 @@ assert_no_direct_in_place_sed() {
                 logical_line = physical_line
                 logical_line_number = FNR
             } else {
-                logical_line = logical_line " " physical_line
+                logical_line = logical_line physical_line
             }
             if (continued) {
                 next
@@ -1438,6 +1439,79 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
         run assert_no_direct_in_place_sed "$mutant_suite"
         if [ "$status" -ne 1 ] || [[ "$output" != *"direct in-place sed syntax"* ]]; then
             echo "substitution-state lexical mutant passed (status=${status}; payload=${payload}): ${output}" >&2
+            return 1
+        fi
+    done
+}
+
+@test "portability source convention recognizes modern substitution prefixes" {
+    local mutant_suite="${BATS_TEST_TMPDIR}/customer-binding-modern-substitution.bats"
+    local command_token="s""ed"
+    local path_token="/usr/bin/${command_token}"
+    local short_option="-""i.bak"
+    local dollar_sign='$'
+    local payload
+
+    for payload in \
+        "${dollar_sign}(${command_token} ${short_option} 's/x/y/' mutant)" \
+        "value=${dollar_sign}(${command_token} ${short_option} 's/x/y/' mutant)" \
+        "<(${command_token} ${short_option} 's/x/y/' mutant)" \
+        "${dollar_sign}(${path_token} ${short_option} 's/x/y/' mutant)"; do
+        cp "${REPO_ROOT}/tests/customer-requirement-expectations-binding.bats" "$mutant_suite"
+        printf '%s\n' "$payload" >> "$mutant_suite"
+
+        run assert_no_direct_in_place_sed "$mutant_suite"
+        if [ "$status" -ne 1 ] || [[ "$output" != *"direct in-place sed syntax"* ]]; then
+            echo "modern substitution lexical mutant passed (status=${status}; payload=${payload}): ${output}" >&2
+            return 1
+        fi
+    done
+}
+
+@test "portability source convention concatenates shell continuations byte-exactly" {
+    local mutant_suite="${BATS_TEST_TMPDIR}/customer-binding-continuation.bats"
+    local command_token="s""ed"
+    local short_option="-""i.bak"
+
+    cp "${REPO_ROOT}/tests/customer-requirement-expectations-binding.bats" "$mutant_suite"
+    printf '%s\\\n%s %s '\''s/x/y/'\'' mutant\n' \
+        's' 'ed' "$short_option" >> "$mutant_suite"
+    run assert_no_direct_in_place_sed "$mutant_suite"
+    if [ "$status" -ne 1 ] || [[ "$output" != *"direct in-place sed syntax"* ]]; then
+        echo "continued command token mutant passed (status=${status}): ${output}" >&2
+        return 1
+    fi
+
+    cp "${REPO_ROOT}/tests/customer-requirement-expectations-binding.bats" "$mutant_suite"
+    printf '%s -\\\n%s '\''s/x/y/'\'' mutant\n' \
+        "$command_token" 'i.bak' >> "$mutant_suite"
+    run assert_no_direct_in_place_sed "$mutant_suite"
+    if [ "$status" -ne 1 ] || [[ "$output" != *"direct in-place sed syntax"* ]]; then
+        echo "continued option token mutant passed (status=${status}): ${output}" >&2
+        return 1
+    fi
+}
+
+@test "portability source convention canonicalizes ANSI-C and escaped command tokens" {
+    local mutant_suite="${BATS_TEST_TMPDIR}/customer-binding-escaped-token.bats"
+    local command_token="s""ed"
+    local short_option="-""i.bak"
+    local dollar_sign='$'
+    local escape
+    local payload
+    escape="$(printf '\134')"
+
+    for payload in \
+        "${dollar_sign}'${command_token}' ${short_option} 's/x/y/' mutant" \
+        "${dollar_sign}'s''ed' ${short_option} 's/x/y/' mutant" \
+        "${escape}s${escape}ed ${short_option} 's/x/y/' mutant" \
+        "/usr/bin/s${escape}ed ${short_option} 's/x/y/' mutant"; do
+        cp "${REPO_ROOT}/tests/customer-requirement-expectations-binding.bats" "$mutant_suite"
+        printf '%s\n' "$payload" >> "$mutant_suite"
+
+        run assert_no_direct_in_place_sed "$mutant_suite"
+        if [ "$status" -ne 1 ] || [[ "$output" != *"direct in-place sed syntax"* ]]; then
+            echo "escaped command token mutant passed (status=${status}; payload=${payload}): ${output}" >&2
             return 1
         fi
     done
