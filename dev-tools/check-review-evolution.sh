@@ -139,6 +139,8 @@ esac
 requirements="${root}/datarim/tasks/${task}-customer-requirements.yaml"
 review="${root}/datarim/receipts/${task}-review-evolution.yaml"
 receipt="${root}/datarim/receipts/${task}-customer-delivery.yaml"
+script_dir="$(cd "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+trust_registry_schema="${script_dir}/../config/customer-requirement.schema.json"
 
 resolve_artifact() {
     local label="$1"
@@ -174,6 +176,15 @@ artifact_bytes=''
 resolve_artifact customer_requirements "$requirements" || exit 2
 resolve_artifact review_evolution "$review" || exit 2
 resolve_artifact customer_delivery "$receipt" || exit 2
+if [[ ! -f "$trust_registry_schema" || -L "$trust_registry_schema" ]]; then
+    emit_config_error 'missing_dependency:trusted_authority_registry'
+    exit 2
+fi
+trust_registry_bytes="$(/usr/bin/wc -c <"$trust_registry_schema" | /usr/bin/tr -d '[:space:]')"
+if [[ ! "$trust_registry_bytes" =~ ^[0-9]+$ ]] || ((trust_registry_bytes > 1048576)); then
+    emit_config_error 'trusted_authority_registry_too_large'
+    exit 2
+fi
 
 tmp_dir="$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/review-evolution.XXXXXX")" || {
     emit_config_error 'temporary_storage_unavailable'
@@ -190,13 +201,15 @@ delivery_output="${tmp_dir}/customer-delivery.json"
 requirements_snapshot="${tmp_dir}/requirements.yaml"
 review_snapshot="${tmp_dir}/review.yaml"
 receipt_snapshot="${tmp_dir}/receipt.yaml"
+trust_registry_snapshot="${tmp_dir}/customer-requirement.schema.json"
 /bin/cp -- "$requirements" "$requirements_snapshot"
 /bin/cp -- "$review" "$review_snapshot"
 /bin/cp -- "$receipt" "$receipt_snapshot"
+/bin/cp -- "$trust_registry_schema" "$trust_registry_snapshot"
 requirements_snapshot_digest="$("$openssl_bin" dgst -sha256 "$requirements_snapshot" | /usr/bin/awk '{print $NF}')"
 review_snapshot_digest="$("$openssl_bin" dgst -sha256 "$review_snapshot" | /usr/bin/awk '{print $NF}')"
 receipt_snapshot_digest="$("$openssl_bin" dgst -sha256 "$receipt_snapshot" | /usr/bin/awk '{print $NF}')"
-script_dir="$(cd "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+trust_registry_snapshot_digest="$("$openssl_bin" dgst -sha256 "$trust_registry_snapshot" | /usr/bin/awk '{print $NF}')"
 customer_delivery_validator="${script_dir}/check-customer-delivery.sh"
 if [[ ! -f "$customer_delivery_validator" || -L "$customer_delivery_validator" \
     || ! -x "$customer_delivery_validator" ]]; then
@@ -224,7 +237,9 @@ if [[ "$("$openssl_bin" dgst -sha256 "$requirements" 2>/dev/null | /usr/bin/awk 
     && "$("$openssl_bin" dgst -sha256 "$review" 2>/dev/null | /usr/bin/awk '{print $NF}')" \
         == "$review_snapshot_digest" \
     && "$("$openssl_bin" dgst -sha256 "$receipt" 2>/dev/null | /usr/bin/awk '{print $NF}')" \
-        == "$receipt_snapshot_digest" ]]; then
+        == "$receipt_snapshot_digest" \
+    && "$("$openssl_bin" dgst -sha256 "$trust_registry_schema" 2>/dev/null | /usr/bin/awk '{print $NF}')" \
+        == "$trust_registry_snapshot_digest" ]]; then
     delivery_inputs_stable=true
 fi
 
@@ -312,6 +327,17 @@ git_blob_to_file() {
     run_bound_git cat-file blob "${revision}:${path}" >"$destination" 2>/dev/null
 }
 
+git_blob_identity() {
+    local revision="$1" path="$2"
+    local tree_line mode object_type object_id
+    tree_line="$(run_bound_git ls-tree "$revision" -- "$path" 2>/dev/null || true)"
+    [[ -n "$tree_line" && "$tree_line" != *$'\n'* ]] || return 1
+    read -r mode object_type object_id _ <<<"$tree_line"
+    [[ "$mode" == 100644 || "$mode" == 100755 ]] || return 1
+    [[ "$object_type" == blob && "$object_id" =~ ^[0-9a-f]{40}$ ]] || return 1
+    printf '%s\n' "$object_id"
+}
+
 sha256_file() {
     "$openssl_bin" dgst -sha256 "$1" 2>/dev/null | /usr/bin/awk '{print "sha256:" $NF}'
 }
@@ -323,6 +349,106 @@ valid_timestamp_shape() {
     # shellcheck disable=SC2016  # $timestamp is a jq variable.
     "$jq_bin" -en --arg timestamp "$timestamp" \
         '$timestamp | fromdateiso8601' >/dev/null 2>&1
+}
+
+timestamp_not_before() {
+    local later="$1" earlier="$2"
+    # shellcheck disable=SC2016  # jq variables are intentionally quoted literally.
+    "$jq_bin" -en --arg later "$later" --arg earlier "$earlier" \
+        '($later | fromdateiso8601) >= ($earlier | fromdateiso8601)' >/dev/null 2>&1
+}
+
+verify_ed25519_payload() {
+    local payload_file="$1" signature="$2" public_key="$3"
+    local public_der="${tmp_dir}/decision-public.der"
+    local signature_file="${tmp_dir}/decision-signature.bin"
+    [[ "$signature" == ed25519:* ]] || return 1
+    [[ "$public_key" =~ ^[A-Za-z0-9+/]{43}=$ ]] || return 1
+    /usr/bin/printf '\x30\x2a\x30\x05\x06\x03\x2b\x65\x70\x03\x21\x00' >"$public_der"
+    /usr/bin/printf '%s' "$public_key" | "$openssl_bin" base64 -d -A >>"$public_der" 2>/dev/null \
+        || return 1
+    /usr/bin/printf '%s' "${signature#ed25519:}" \
+        | "$openssl_bin" base64 -d -A >"$signature_file" 2>/dev/null || return 1
+    [[ "$(/usr/bin/wc -c <"$public_der" | /usr/bin/tr -d '[:space:]')" == 44 ]] || return 1
+    [[ "$(/usr/bin/wc -c <"$signature_file" | /usr/bin/tr -d '[:space:]')" == 64 ]] || return 1
+    "$openssl_bin" pkeyutl -verify -pubin -keyform DER -inkey "$public_der" -rawin \
+        -in "$payload_file" -sigfile "$signature_file" >/dev/null 2>&1
+}
+
+validate_no_canon_decision() {
+    local evidence_path="$1" approval_reviewer="$2" approval_time="$3"
+    local decision_file="${tmp_dir}/no-canon-decision.json"
+    local payload_file="${tmp_dir}/no-canon-decision-payload.json"
+    local declared_digest computed_digest signature key_id public_key registry_match_count
+    if ! is_safe_relative_path "$evidence_path" \
+        || ! git_blob_to_file "$bound_head" "$evidence_path" "$decision_file"; then
+        return 1
+    fi
+    # shellcheck disable=SC2016  # Closed JSON envelope is validated by jq.
+    "$jq_bin" -e '
+      type == "object" and
+      (keys | sort) == ([
+        "algorithm", "approved", "approved_at", "authority_id", "authority_role",
+        "decision", "decision_evidence_ref", "delivery_receipt_id", "finding_evidence_ref",
+        "key_id", "originating_review_digest", "originating_review_id", "payload_digest",
+        "requirement_id", "reviewer", "schema_version", "signature", "task_id"
+      ] | sort) and
+      .schema_version == 1 and .decision == "NO_CANON_CHANGE" and .approved == true and
+      (.payload_digest | type == "string" and test("^sha256:[0-9a-f]{64}$")) and
+      (.signature | type == "string" and startswith("ed25519:"))
+    ' "$decision_file" >/dev/null 2>&1 || return 1
+
+    [[ "$(jq_raw '.task_id' "$decision_file")" == "$task" ]] || return 1
+    [[ "$(jq_raw '.requirement_id' "$decision_file")" == "$review_requirement" ]] || return 1
+    [[ "$(jq_raw '.delivery_receipt_id' "$decision_file")" == "$review_receipt" ]] || return 1
+    [[ "$(jq_raw '.originating_review_id' "$decision_file")" == "$review_id" ]] || return 1
+    [[ "$(jq_raw '.originating_review_digest' "$decision_file")" == "$signed_review_digest" ]] \
+        || return 1
+    [[ "$(jq_raw '.reviewer' "$decision_file")" == "$signed_review_reviewer" ]] || return 1
+    [[ "$approval_reviewer" == "$signed_review_reviewer" ]] || return 1
+    [[ "$(jq_raw '.approved_at' "$decision_file")" == "$approval_time" ]] || return 1
+    valid_timestamp_shape "$approval_time" || return 1
+    timestamp_not_before "$approval_time" "$signed_review_observed_at" || return 1
+    [[ "$(jq_raw '.finding_evidence_ref' "$decision_file")" == "$signed_review_evidence" ]] \
+        || return 1
+    [[ "$(jq_raw '.decision_evidence_ref' "$decision_file")" == "$evidence_path" ]] || return 1
+    is_safe_relative_path "$signed_review_evidence" \
+        && git_blob_to_file "$bound_head" "$signed_review_evidence" \
+            "${tmp_dir}/no-canon-finding-evidence" || return 1
+    [[ "$(jq_raw '.authority_id' "$decision_file")" == "$signed_authority_id" ]] || return 1
+    [[ "$(jq_raw '.authority_role' "$decision_file")" == "$signed_authority_role" ]] || return 1
+    [[ "$(jq_raw '.algorithm' "$decision_file")" == ED25519 ]] || return 1
+    key_id="$(jq_raw '.key_id' "$decision_file")"
+    [[ "$key_id" == "$signed_authority_key_id" ]] || return 1
+
+    # A2 has already authenticated this byte-stable bundled registry and review record.
+    # shellcheck disable=SC2016  # jq variables are intentionally quoted literally.
+    registry_match_count="$("$jq_bin" -r --arg key "$key_id" \
+        '[."x-datarim-signature-contract".key_resolution.bundled_registry.entries[]?
+          | select(.key_id == $key)] | length' "$trust_registry_snapshot" 2>/dev/null || true)"
+    [[ "$registry_match_count" == 1 ]] || return 1
+    # shellcheck disable=SC2016  # jq variables are intentionally quoted literally.
+    "$jq_bin" -e --arg key "$key_id" --arg authority "$signed_authority_id" \
+        --arg role "$signed_authority_role" --arg approved_at "$approval_time" '
+          ."x-datarim-signature-contract".key_resolution.bundled_registry.entries
+          | map(select(.key_id == $key))[0]
+          | .authority_id == $authority and (.allowed_roles | index($role) != null)
+            and .status == "ACTIVE"
+            and ((.valid_from | fromdateiso8601) <= ($approved_at | fromdateiso8601))
+            and (.valid_until == null or (($approved_at | fromdateiso8601) < (.valid_until | fromdateiso8601)))
+        ' "$trust_registry_snapshot" >/dev/null 2>&1 || return 1
+    # shellcheck disable=SC2016  # jq variables are intentionally quoted literally.
+    public_key="$("$jq_bin" -r --arg key "$key_id" \
+        '."x-datarim-signature-contract".key_resolution.bundled_registry.entries[]
+          | select(.key_id == $key) | .public_key' "$trust_registry_snapshot" 2>/dev/null || true)"
+
+    "$jq_bin" -cS 'del(.payload_digest, .signature)' "$decision_file" >"$payload_file" \
+        2>/dev/null || return 1
+    declared_digest="$(jq_raw '.payload_digest' "$decision_file")"
+    computed_digest="$(sha256_file "$payload_file")"
+    [[ "$declared_digest" == "$computed_digest" ]] || return 1
+    signature="$(jq_raw '.signature' "$decision_file")"
+    verify_ed25519_payload "$payload_file" "$signature" "$public_key"
 }
 
 validate_evolution_evidence() {
@@ -344,14 +470,16 @@ validate_evolution_evidence() {
 
 validate_canonical_evolution() {
     local classification_value="$1"
-    local artifact_path artifact_revision artifact_digest recorded_at reviewed_at
+    local artifact_path artifact_revision artifact_digest recorded_at change_kind
     local red_path green_path artifact_file revision_valid=false recorded_valid=false
     local commit_after_review commit_before_record red_digest green_digest
+    local revision_parent_line child_identity parent_identity
+    local -a revision_parts=()
     artifact_path="$(jq_raw '.canonical_change.artifact_id' "$review_json")"
     artifact_revision="$(jq_raw '.canonical_change.artifact_revision' "$review_json")"
     artifact_digest="$(jq_raw '.canonical_change.digest' "$review_json")"
     recorded_at="$(jq_raw '.canonical_change.recorded_at' "$review_json")"
-    reviewed_at="$(jq_raw '.reviewed_at' "$review_json")"
+    change_kind="$(jq_raw '.canonical_change.change_kind' "$review_json")"
     red_path="$(jq_raw '.canonical_change.enforcement.red_evidence' "$review_json")"
     green_path="$(jq_raw '.canonical_change.enforcement.green_evidence' "$review_json")"
     artifact_file="${tmp_dir}/canonical-artifact"
@@ -359,6 +487,10 @@ validate_canonical_evolution() {
     if [[ "$artifact_revision" =~ ^[0-9a-f]{40}$ ]] \
         && run_bound_git cat-file -e "${artifact_revision}^{commit}" 2>/dev/null; then
         revision_valid=true
+        if ! run_bound_git merge-base --is-ancestor "$artifact_revision" "$bound_head" \
+            >/dev/null 2>&1; then
+            add_finding "canonical_change_revision_not_ancestor:${classification_value}"
+        fi
     else
         add_finding "canonical_change_invalid_revision:${classification_value}"
     fi
@@ -377,13 +509,41 @@ validate_canonical_evolution() {
         add_finding "canonical_change_digest_mismatch:${classification_value}"
     fi
 
+    if [[ "$revision_valid" == true ]] && is_safe_relative_path "$artifact_path"; then
+        revision_parent_line="$(run_bound_git rev-list --parents -n 1 "$artifact_revision" \
+            2>/dev/null || true)"
+        read -r -a revision_parts <<<"$revision_parent_line"
+        if ((${#revision_parts[@]} > 2)); then
+            add_finding "canonical_change_merge_revision_unsupported:${classification_value}"
+        elif ((${#revision_parts[@]} != 2)); then
+            add_finding "canonical_change_revision_parent_invalid:${classification_value}"
+        else
+            child_identity="$(git_blob_identity "$artifact_revision" "$artifact_path" || true)"
+            parent_identity="$(git_blob_identity "${revision_parts[1]}" "$artifact_path" || true)"
+            case "$change_kind" in
+                NEW_ARTIFACT)
+                    if [[ -n "$parent_identity" ]]; then
+                        add_finding "canonical_change_new_artifact_preexisting:${classification_value}"
+                    fi
+                    ;;
+                ARTIFACT_REVISION)
+                    if [[ -z "$parent_identity" ]]; then
+                        add_finding "canonical_change_revision_parent_missing_artifact:${classification_value}"
+                    elif [[ -n "$child_identity" && "$child_identity" == "$parent_identity" ]]; then
+                        add_finding "canonical_change_artifact_unchanged:${classification_value}"
+                    fi
+                    ;;
+            esac
+        fi
+    fi
+
     if valid_timestamp_shape "$recorded_at"; then
         recorded_valid=true
     else
         add_finding "canonical_change_invalid_recorded_at:${classification_value}"
     fi
     if [[ "$revision_valid" == true && "$recorded_valid" == true ]]; then
-        commit_after_review="$(run_bound_git log -1 --format=%H --since="$reviewed_at" \
+        commit_after_review="$(run_bound_git log -1 --format=%H --since="$signed_review_observed_at" \
             "$artifact_revision" 2>/dev/null || true)"
         if [[ "$commit_after_review" != "$artifact_revision" ]]; then
             add_finding "canonical_change_post_hoc:${classification_value}"
@@ -408,13 +568,56 @@ validate_canonical_evolution() {
 }
 
 classification="$(jq_raw '.classification' "$review_json")"
+review_id="$(jq_raw '.review_id' "$review_json")"
 review_requirement="$(jq_raw '.requirement_id' "$review_json")"
 review_receipt="$(jq_raw '.delivery_receipt_id' "$review_json")"
 receipt_id="$(jq_raw '.receipt_id' "$receipt_json")"
 product_requirement="$(jq_raw '.product_fix.requirement_id' "$review_json")"
 product_receipt="$(jq_raw '.product_fix.delivery_receipt_id' "$review_json")"
 product_status="$(jq_raw '.product_fix.status' "$review_json")"
-reviewer="$(jq_raw '.reviewer' "$review_json")"
+# shellcheck disable=SC2016  # jq variables are intentionally quoted literally.
+authoritative_review_count="$("$jq_bin" -r --arg review "$review_id" --arg requirement "$review_requirement" \
+    '[.originating_review_inventory[]?
+      | select(.review_id == $review and .requirement_id == $requirement)] | length' \
+    "$review_json" 2>/dev/null || true)"
+signed_review_reviewer=''
+signed_review_evidence=''
+signed_review_digest=''
+signed_review_observed_at=''
+signed_authority_id=''
+signed_authority_role=''
+signed_authority_key_id=''
+if [[ "$authoritative_review_count" == 1 ]]; then
+    # shellcheck disable=SC2016  # jq variables are intentionally quoted literally.
+    authoritative_review_query='[.originating_review_inventory[]
+      | select(.review_id == $review and .requirement_id == $requirement)][0]'
+    signed_review_reviewer="$("$jq_bin" -r --arg review "$review_id" \
+        --arg requirement "$review_requirement" "${authoritative_review_query}.reviewer // \"\"" \
+        "$review_json" 2>/dev/null || true)"
+    signed_review_evidence="$("$jq_bin" -r --arg review "$review_id" \
+        --arg requirement "$review_requirement" "${authoritative_review_query}.evidence_ref // \"\"" \
+        "$review_json" 2>/dev/null || true)"
+    signed_review_digest="$("$jq_bin" -r --arg review "$review_id" \
+        --arg requirement "$review_requirement" "${authoritative_review_query}.review_digest // \"\"" \
+        "$review_json" 2>/dev/null || true)"
+    signed_review_observed_at="$("$jq_bin" -r --arg review "$review_id" \
+        --arg requirement "$review_requirement" "${authoritative_review_query}.observed_at // \"\"" \
+        "$review_json" 2>/dev/null || true)"
+    signed_authority_id="$("$jq_bin" -r --arg review "$review_id" \
+        --arg requirement "$review_requirement" \
+        "${authoritative_review_query}.authority_approval.authority_id // \"\"" \
+        "$review_json" 2>/dev/null || true)"
+    signed_authority_role="$("$jq_bin" -r --arg review "$review_id" \
+        --arg requirement "$review_requirement" \
+        "${authoritative_review_query}.authority_approval.authority_role // \"\"" \
+        "$review_json" 2>/dev/null || true)"
+    signed_authority_key_id="$("$jq_bin" -r --arg review "$review_id" \
+        --arg requirement "$review_requirement" \
+        "${authoritative_review_query}.authority_approval.key_id // \"\"" \
+        "$review_json" 2>/dev/null || true)"
+else
+    add_finding "originating_review_binding_invalid:${review_id}:${review_requirement}"
+fi
 task_prefix="${task%-*}"
 task_number="${task##*-}"
 task_prefix_lower="$(printf '%s' "$task_prefix" | /usr/bin/tr '[:upper:]' '[:lower:]')"
@@ -481,23 +684,17 @@ case "$classification" in
             jq_has_nonempty_string '.no_canon_change.reviewer_approval.approved_at' "$review_json" || \
                 add_finding 'no_canon_change_missing_approved_at'
             approval_reviewer="$(jq_raw '.no_canon_change.reviewer_approval.reviewer' "$review_json")"
-            if [[ "$approval_reviewer" != "$reviewer" ]]; then
-                add_finding "no_canon_change_reviewer_mismatch:${reviewer}:${approval_reviewer}"
+            if [[ "$approval_reviewer" != "$signed_review_reviewer" ]]; then
+                add_finding "no_canon_change_reviewer_mismatch:${signed_review_reviewer}:${approval_reviewer}"
             fi
             no_canon_evidence="$(jq_raw '.no_canon_change.evidence' "$review_json")"
-            signed_review_evidence="$(jq_raw '.originating_review.evidence_ref' "$review_json")"
             approval_time="$(jq_raw '.no_canon_change.reviewer_approval.approved_at' "$review_json")"
-            signed_approval_time="$(jq_raw '.originating_review.authority_approval.approved_at' "$review_json")"
-            if [[ "$no_canon_evidence" != "$signed_review_evidence" ]] \
-                || ! is_safe_relative_path "$no_canon_evidence" \
-                || ! git_blob_to_file "$bound_head" "$no_canon_evidence" "${tmp_dir}/no-canon-evidence"; then
-                add_finding 'no_canon_change_evidence_not_authenticated'
-            fi
-            if [[ "$approval_time" != "$signed_approval_time" ]]; then
-                add_finding 'no_canon_change_approval_not_authenticated'
-            fi
             if ! valid_timestamp_shape "$approval_time"; then
                 add_finding 'no_canon_change_invalid_approved_at'
+            fi
+            if ! validate_no_canon_decision "$no_canon_evidence" "$approval_reviewer" \
+                "$approval_time"; then
+                add_finding 'no_canon_change_decision_not_authenticated'
             fi
         fi
         if [[ "$(jq_type '.canonical_change' "$review_json")" != null ]]; then

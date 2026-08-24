@@ -5,8 +5,10 @@ setup() {
     REPO_ROOT="$(cd "${BATS_TEST_DIRNAME}/../.." && pwd -P)"
     SCRIPT_SOURCE="${REVIEW_EVOLUTION_SCRIPT:-${REPO_ROOT}/dev-tools/check-review-evolution.sh}"
     TEST_FRAMEWORK="${BATS_TEST_TMPDIR}/framework"
-    mkdir -p "${TEST_FRAMEWORK}/dev-tools"
+    mkdir -p "${TEST_FRAMEWORK}/dev-tools" "${TEST_FRAMEWORK}/config"
     cp "$SCRIPT_SOURCE" "${TEST_FRAMEWORK}/dev-tools/check-review-evolution.sh"
+    cp "${REPO_ROOT}/config/customer-requirement.schema.json" \
+        "${TEST_FRAMEWORK}/config/customer-requirement.schema.json"
     SCRIPT="${TEST_FRAMEWORK}/dev-tools/check-review-evolution.sh"
     # shellcheck disable=SC2016  # The generated A2 oracle must retain its own shell variables literally.
     printf '%s\n' \
@@ -30,6 +32,13 @@ setup() {
         'printf '\''{"decision":"MET","epic_status":"MET","findings":[],"stage":"qa","status":"MET","task":"%s"}\n'\'' "$task"' \
         >"${TEST_FRAMEWORK}/dev-tools/check-customer-delivery.sh"
     chmod +x "${TEST_FRAMEWORK}/dev-tools/check-customer-delivery.sh"
+    DECISION_PRIVATE_KEY="${BATS_TEST_TMPDIR}/decision-private.pem"
+    openssl genpkey -algorithm ED25519 -out "$DECISION_PRIVATE_KEY" >/dev/null 2>&1
+    DECISION_PUBLIC_KEY="$(openssl pkey -in "$DECISION_PRIVATE_KEY" -pubout -outform DER 2>/dev/null \
+        | tail -c 32 | openssl base64 -A)"
+    yq -i ".\"x-datarim-signature-contract\".key_resolution.bundled_registry.entries[] |=
+      (select(.key_id == \"key-operator-0001\").public_key = \"${DECISION_PUBLIC_KEY}\")" \
+        "${TEST_FRAMEWORK}/config/customer-requirement.schema.json"
     ROOT="${BATS_TEST_TMPDIR}/consumer"
     TASK_ID='WEB-0001'
     REQUIREMENTS="${ROOT}/datarim/tasks/${TASK_ID}-customer-requirements.yaml"
@@ -46,24 +55,70 @@ setup() {
     yq -i '.requirements.req-0001.acceptance.implementation.code_revision = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" |
       .requirements.req-0001.acceptance.implementation.content_revision = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" |
       .requirements.req-0001.acceptance.disposition = "accepted"' "$REQUIREMENTS"
+    git -C "$ROOT" init -q
+    git -C "$ROOT" config user.name test
+    git -C "$ROOT" config user.email test@example.invalid
+    git -C "$ROOT" add datarim
+    GIT_AUTHOR_DATE='2026-01-03T14:50:00Z' GIT_COMMITTER_DATE='2026-01-03T14:50:00Z' \
+        git -C "$ROOT" commit -q -m 'pre-evolution delivery records'
     printf '%s\n' '# Review checklist revision 2' >"${ROOT}/${ARTIFACT_PATH}"
     printf '%s\n' 'status=failed_as_expected' 'command=review-gate-mutant' >"${ROOT}/${RED_PATH}"
     printf '%s\n' 'status=passed' 'command=review-gate' >"${ROOT}/${GREEN_PATH}"
     printf '%s\n' 'neutral evidence without a verdict marker' >"${ROOT}/artifacts/evolution/neutral.txt"
     printf '%s\n' '{"state":"APPROVED","review_id":"review-0001"}' \
         >"${ROOT}/artifacts/reviews/review-0001-approval.json"
-    git -C "$ROOT" init -q
-    git -C "$ROOT" config user.name test
-    git -C "$ROOT" config user.email test@example.invalid
+    printf '%s\n' 'attacker-controlled unsigned evidence' >"${ROOT}/attacker-evidence"
     git -C "$ROOT" add .
     GIT_AUTHOR_DATE='2026-01-03T15:10:00Z' GIT_COMMITTER_DATE='2026-01-03T15:10:00Z' \
         git -C "$ROOT" commit -q -m 'canon evolution evidence'
     ARTIFACT_REVISION="$(git -C "$ROOT" rev-parse HEAD)"
     ARTIFACT_DIGEST="sha256:$(openssl dgst -sha256 "${ROOT}/${ARTIFACT_PATH}" | awk '{print $NF}')"
     yq -i ".canonical_change.artifact_id = \"${ARTIFACT_PATH}\" |
+      .canonical_change.change_kind = \"NEW_ARTIFACT\" |
       .canonical_change.artifact_revision = \"${ARTIFACT_REVISION}\" |
       .canonical_change.digest = \"${ARTIFACT_DIGEST}\" |
       .canonical_change.recorded_at = \"2026-01-03T15:30:00Z\"" "$REVIEW"
+}
+
+write_signed_no_canon_decision() {
+    local reviewer='independent-reviewer'
+    local approved_at='2026-01-03T15:15:00Z'
+    local finding_evidence_ref='artifacts/reviews/review-0001-approval.json'
+    local decision_path='artifacts/reviews/no-canon-change-decision.json'
+    local canonical_payload="${BATS_TEST_TMPDIR}/no-canon-payload.json"
+    local signature_file="${BATS_TEST_TMPDIR}/no-canon-signature.bin"
+    local payload_digest signature
+    jq -n --arg task "$TASK_ID" --arg reviewer "$reviewer" \
+        --arg approved_at "$approved_at" --arg evidence_ref "$finding_evidence_ref" \
+        --arg decision_ref "$decision_path" '{
+          schema_version: 1,
+          decision: "NO_CANON_CHANGE",
+          task_id: $task,
+          requirement_id: "req-0001",
+          delivery_receipt_id: "receipt-0001",
+          originating_review_id: "review-0001",
+          originating_review_digest: "sha256:89ad08914c519c6154801fd4a70752e6edbd35303acc0555b42bd3c36b629235",
+          reviewer: $reviewer,
+          approved: true,
+          approved_at: $approved_at,
+          finding_evidence_ref: $evidence_ref,
+          decision_evidence_ref: $decision_ref,
+          authority_id: "authority-operator-0001",
+          authority_role: "OPERATOR",
+          algorithm: "ED25519",
+          key_id: "key-operator-0001"
+        }' >"${ROOT}/${decision_path}"
+    jq -cS . "${ROOT}/${decision_path}" >"$canonical_payload"
+    payload_digest="sha256:$(openssl dgst -sha256 "$canonical_payload" | awk '{print $NF}')"
+    openssl pkeyutl -sign -inkey "$DECISION_PRIVATE_KEY" -rawin \
+        -in "$canonical_payload" -out "$signature_file"
+    signature="ed25519:$(openssl base64 -A -in "$signature_file")"
+    yq -i ".payload_digest = \"${payload_digest}\" | .signature = \"${signature}\"" \
+        "${ROOT}/${decision_path}"
+    git -C "$ROOT" add "$decision_path"
+    GIT_AUTHOR_DATE='2026-01-03T15:20:00Z' GIT_COMMITTER_DATE='2026-01-03T15:20:00Z' \
+        git -C "$ROOT" commit -q -m 'signed no-canon decision'
+    printf '%s\n' "$decision_path"
 }
 
 run_validator() {
@@ -122,14 +177,15 @@ assert_not_met() {
 }
 
 @test "NO_CANON_CHANGE is accepted only with evidence and reviewer approval" {
+    write_signed_no_canon_decision >/dev/null
     yq -i '.classification = "NO_CANON_CHANGE" |
       del(.canonical_change) |
       .no_canon_change = {
-        "evidence": "artifacts/reviews/review-0001-approval.json",
+        "evidence": "artifacts/reviews/no-canon-change-decision.json",
         "reviewer_approval": {
           "reviewer": "independent-reviewer",
           "approved": true,
-          "approved_at": "2026-01-03T14:56:00Z"
+          "approved_at": "2026-01-03T15:15:00Z"
         }
       }' "$REVIEW"
     run_validator
@@ -146,7 +202,7 @@ assert_not_met() {
         "reviewer_approval": {
           "reviewer": "independent-reviewer",
           "approved": true,
-          "approved_at": "2026-01-03T14:56:00Z"
+          "approved_at": "2026-01-03T13:01:00Z"
         }
       }' "$REVIEW"
     run_validator
@@ -157,30 +213,113 @@ assert_not_met() {
     yq -i '.classification = "NO_CANON_CHANGE" |
       del(.canonical_change) |
       .no_canon_change = {
-        "evidence": "artifacts/reviews/review-0001-approval.json",
+        "evidence": "operator-visual-acceptance-0001",
         "reviewer_approval": {
-          "reviewer": "independent-reviewer",
+          "reviewer": "authority-operator-0001",
           "approved": false,
-          "approved_at": "2026-01-03T14:56:00Z"
+          "approved_at": "2026-01-03T13:01:00Z"
         }
       }' "$REVIEW"
     run_validator
     assert_not_met 'no_canon_change_not_approved'
 }
 
-@test "NO_CANON_CHANGE approval must come from the classified finding reviewer" {
+@test "NO_CANON_CHANGE approval must come from the authenticated originating reviewer" {
+    write_signed_no_canon_decision >/dev/null
     yq -i '.classification = "NO_CANON_CHANGE" |
       del(.canonical_change) |
       .no_canon_change = {
-        "evidence": "artifacts/reviews/review-0001-approval.json",
+        "evidence": "artifacts/reviews/no-canon-change-decision.json",
         "reviewer_approval": {
           "reviewer": "different-reviewer",
           "approved": true,
-          "approved_at": "2026-01-03T14:56:00Z"
+          "approved_at": "2026-01-03T15:15:00Z"
         }
       }' "$REVIEW"
     run_validator
     assert_not_met 'no_canon_change_reviewer_mismatch:independent-reviewer:different-reviewer'
+}
+
+@test "NO_CANON_CHANGE cannot authenticate itself by mutating both unsigned review copies" {
+    yq -i '.classification = "NO_CANON_CHANGE" |
+      del(.canonical_change) |
+      .originating_review.evidence_ref = "attacker-evidence" |
+      .originating_review.authority_approval.approved_at = "2026-01-03T15:45:00Z" |
+      .originating_review.review_digest = "sha256:7777777777777777777777777777777777777777777777777777777777777777" |
+      .originating_review.authority_approval.signature = "ed25519:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==" |
+      .no_canon_change = {
+        "evidence": "attacker-evidence",
+        "reviewer_approval": {
+          "reviewer": "independent-reviewer",
+          "approved": true,
+          "approved_at": "2026-01-03T15:45:00Z"
+        }
+      }' "$REVIEW"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'no_canon_change_decision_not_authenticated'* ]]
+}
+
+@test "NO_CANON_CHANGE rejects a tampered signed decision payload" {
+    write_signed_no_canon_decision >/dev/null
+    yq -i '.reviewer = "attacker"' "${ROOT}/artifacts/reviews/no-canon-change-decision.json"
+    git -C "$ROOT" add artifacts/reviews/no-canon-change-decision.json
+    GIT_AUTHOR_DATE='2026-01-03T15:21:00Z' GIT_COMMITTER_DATE='2026-01-03T15:21:00Z' \
+        git -C "$ROOT" commit -q -m 'tamper decision payload'
+    yq -i '.classification = "NO_CANON_CHANGE" |
+      del(.canonical_change) |
+      .no_canon_change = {
+        "evidence": "artifacts/reviews/no-canon-change-decision.json",
+        "reviewer_approval": {
+          "reviewer": "independent-reviewer",
+          "approved": true,
+          "approved_at": "2026-01-03T15:15:00Z"
+        }
+      }' "$REVIEW"
+    run_validator
+    assert_not_met 'no_canon_change_decision_not_authenticated'
+}
+
+@test "NO_CANON_CHANGE rejects a forged decision signature" {
+    write_signed_no_canon_decision >/dev/null
+    yq -i '.signature = "ed25519:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="' \
+        "${ROOT}/artifacts/reviews/no-canon-change-decision.json"
+    git -C "$ROOT" add artifacts/reviews/no-canon-change-decision.json
+    GIT_AUTHOR_DATE='2026-01-03T15:21:00Z' GIT_COMMITTER_DATE='2026-01-03T15:21:00Z' \
+        git -C "$ROOT" commit -q -m 'forge decision signature'
+    yq -i '.classification = "NO_CANON_CHANGE" |
+      del(.canonical_change) |
+      .no_canon_change = {
+        "evidence": "artifacts/reviews/no-canon-change-decision.json",
+        "reviewer_approval": {
+          "reviewer": "independent-reviewer",
+          "approved": true,
+          "approved_at": "2026-01-03T15:15:00Z"
+        }
+      }' "$REVIEW"
+    run_validator
+    assert_not_met 'no_canon_change_decision_not_authenticated'
+}
+
+@test "NO_CANON_CHANGE rejects a forged decision payload digest" {
+    write_signed_no_canon_decision >/dev/null
+    yq -i '.payload_digest = "sha256:7777777777777777777777777777777777777777777777777777777777777777"' \
+        "${ROOT}/artifacts/reviews/no-canon-change-decision.json"
+    git -C "$ROOT" add artifacts/reviews/no-canon-change-decision.json
+    GIT_AUTHOR_DATE='2026-01-03T15:21:00Z' GIT_COMMITTER_DATE='2026-01-03T15:21:00Z' \
+        git -C "$ROOT" commit -q -m 'forge decision digest'
+    yq -i '.classification = "NO_CANON_CHANGE" |
+      del(.canonical_change) |
+      .no_canon_change = {
+        "evidence": "artifacts/reviews/no-canon-change-decision.json",
+        "reviewer_approval": {
+          "reviewer": "independent-reviewer",
+          "approved": true,
+          "approved_at": "2026-01-03T15:15:00Z"
+        }
+      }' "$REVIEW"
+    run_validator
+    assert_not_met 'no_canon_change_decision_not_authenticated'
 }
 
 @test "forged authored delivery summary cannot substitute for the A2 delivery verdict" {
@@ -217,6 +356,97 @@ assert_not_met() {
         && [[ "$output" == *'canonical_change_digest_mismatch:ABSENT'* ]]
 }
 
+@test "canonical evolution rejects a detached revision that is not an ancestor of bound HEAD" {
+    local empty_tree detached_parent detached_child current_tree
+    empty_tree="$(printf '' | git -C "$ROOT" mktree)"
+    detached_parent="$(printf '%s\n' 'detached parent' | env \
+        GIT_AUTHOR_DATE='2026-01-03T15:01:00Z' GIT_COMMITTER_DATE='2026-01-03T15:01:00Z' \
+        git -C "$ROOT" commit-tree "$empty_tree")"
+    current_tree="$(git -C "$ROOT" rev-parse 'HEAD^{tree}')"
+    detached_child="$(printf '%s\n' 'detached evolution' | env \
+        GIT_AUTHOR_DATE='2026-01-03T15:20:00Z' GIT_COMMITTER_DATE='2026-01-03T15:20:00Z' \
+        git -C "$ROOT" commit-tree "$current_tree" -p "$detached_parent")"
+    yq -i ".canonical_change.artifact_revision = \"${detached_child}\"" "$REVIEW"
+    run_validator
+    assert_not_met 'canonical_change_revision_not_ancestor:ABSENT'
+}
+
+@test "ARTIFACT_REVISION rejects a no-op commit whose artifact blob is unchanged" {
+    local noop tree parent
+    parent="$(git -C "$ROOT" rev-parse HEAD)"
+    tree="$(git -C "$ROOT" rev-parse 'HEAD^{tree}')"
+    noop="$(printf '%s\n' 'no-op evolution' | env \
+        GIT_AUTHOR_DATE='2026-01-03T15:20:00Z' GIT_COMMITTER_DATE='2026-01-03T15:20:00Z' \
+        git -C "$ROOT" commit-tree "$tree" -p "$parent")"
+    git -C "$ROOT" update-ref HEAD "$noop"
+    yq -i ".canonical_change.change_kind = \"ARTIFACT_REVISION\" |
+      .canonical_change.artifact_revision = \"${noop}\"" "$REVIEW"
+    run_validator
+    assert_not_met 'canonical_change_artifact_unchanged:ABSENT'
+}
+
+@test "ARTIFACT_REVISION rejects a mode-only commit whose artifact blob is unchanged" {
+    git -C "$ROOT" update-index --chmod=+x "$ARTIFACT_PATH"
+    GIT_AUTHOR_DATE='2026-01-03T15:20:00Z' GIT_COMMITTER_DATE='2026-01-03T15:20:00Z' \
+        git -C "$ROOT" commit -q -m 'change artifact mode only'
+    ARTIFACT_REVISION="$(git -C "$ROOT" rev-parse HEAD)"
+    yq -i ".canonical_change.change_kind = \"ARTIFACT_REVISION\" |
+      .canonical_change.artifact_revision = \"${ARTIFACT_REVISION}\"" "$REVIEW"
+    run_validator
+    assert_not_met 'canonical_change_artifact_unchanged:ABSENT'
+}
+
+@test "canonical evolution fails closed on merge revisions" {
+    local tree first_parent other_parent merge_revision
+    first_parent="$(git -C "$ROOT" rev-parse HEAD)"
+    tree="$(git -C "$ROOT" rev-parse 'HEAD^{tree}')"
+    other_parent="$(printf '%s\n' 'other parent' | env \
+        GIT_AUTHOR_DATE='2026-01-03T15:05:00Z' GIT_COMMITTER_DATE='2026-01-03T15:05:00Z' \
+        git -C "$ROOT" commit-tree "$tree" -p "$(git -C "$ROOT" rev-parse HEAD^)")"
+    merge_revision="$(printf '%s\n' 'merge evolution' | env \
+        GIT_AUTHOR_DATE='2026-01-03T15:20:00Z' GIT_COMMITTER_DATE='2026-01-03T15:20:00Z' \
+        git -C "$ROOT" commit-tree "$tree" -p "$first_parent" -p "$other_parent")"
+    git -C "$ROOT" update-ref HEAD "$merge_revision"
+    yq -i ".canonical_change.change_kind = \"ARTIFACT_REVISION\" |
+      .canonical_change.artifact_revision = \"${merge_revision}\"" "$REVIEW"
+    run_validator
+    assert_not_met 'canonical_change_merge_revision_unsupported:ABSENT'
+}
+
+@test "ARTIFACT_REVISION accepts a reachable commit that changes the existing artifact" {
+    printf '%s\n' '# Review checklist revision 3' >"${ROOT}/${ARTIFACT_PATH}"
+    git -C "$ROOT" add "$ARTIFACT_PATH"
+    GIT_AUTHOR_DATE='2026-01-03T15:20:00Z' GIT_COMMITTER_DATE='2026-01-03T15:20:00Z' \
+        git -C "$ROOT" commit -q -m 'revise canon artifact'
+    ARTIFACT_REVISION="$(git -C "$ROOT" rev-parse HEAD)"
+    ARTIFACT_DIGEST="sha256:$(openssl dgst -sha256 "${ROOT}/${ARTIFACT_PATH}" | awk '{print $NF}')"
+    yq -i ".canonical_change.change_kind = \"ARTIFACT_REVISION\" |
+      .canonical_change.artifact_revision = \"${ARTIFACT_REVISION}\" |
+      .canonical_change.digest = \"${ARTIFACT_DIGEST}\"" "$REVIEW"
+    run_validator
+    [ "$status" -eq 0 ] \
+        && [[ "$output" == *'"status":"MET"'* ]]
+}
+
+@test "NEW_ARTIFACT rejects a path that already existed in the parent revision" {
+    printf '%s\n' '# Review checklist revision 3' >"${ROOT}/${ARTIFACT_PATH}"
+    git -C "$ROOT" add "$ARTIFACT_PATH"
+    GIT_AUTHOR_DATE='2026-01-03T15:20:00Z' GIT_COMMITTER_DATE='2026-01-03T15:20:00Z' \
+        git -C "$ROOT" commit -q -m 'revise existing canon artifact'
+    ARTIFACT_REVISION="$(git -C "$ROOT" rev-parse HEAD)"
+    ARTIFACT_DIGEST="sha256:$(openssl dgst -sha256 "${ROOT}/${ARTIFACT_PATH}" | awk '{print $NF}')"
+    yq -i ".canonical_change.artifact_revision = \"${ARTIFACT_REVISION}\" |
+      .canonical_change.digest = \"${ARTIFACT_DIGEST}\"" "$REVIEW"
+    run_validator
+    assert_not_met 'canonical_change_new_artifact_preexisting:ABSENT'
+}
+
+@test "ARTIFACT_REVISION rejects a path absent from the parent revision" {
+    yq -i '.canonical_change.change_kind = "ARTIFACT_REVISION"' "$REVIEW"
+    run_validator
+    assert_not_met 'canonical_change_revision_parent_missing_artifact:ABSENT'
+}
+
 @test "canonical evolution rejects path escape and nonexistent red-green evidence" {
     yq -i '.canonical_change.artifact_id = "../outside.md" |
       .canonical_change.enforcement.red_evidence = "artifacts/evolution/missing-red.txt" |
@@ -240,7 +470,8 @@ assert_not_met() {
     assert_not_met 'canonical_change_invalid_recorded_at:ABSENT' || return 1
 
     yq -i '.canonical_change.recorded_at = "2026-01-03T15:30:00Z" |
-      .reviewed_at = "2026-01-03T15:20:00Z"' "$REVIEW"
+      .originating_review.observed_at = "2026-01-03T15:20:00Z" |
+      .originating_review_inventory[0].observed_at = "2026-01-03T15:20:00Z"' "$REVIEW"
     run_validator
     assert_not_met 'canonical_change_post_hoc:ABSENT'
 }
@@ -258,8 +489,7 @@ assert_not_met() {
       }' "$REVIEW"
     run_validator
     [ "$status" -eq 1 ] \
-        && [[ "$output" == *'no_canon_change_evidence_not_authenticated'* ]] \
-        && [[ "$output" == *'no_canon_change_approval_not_authenticated'* ]] \
+        && [[ "$output" == *'no_canon_change_decision_not_authenticated'* ]] \
         && [[ "$output" == *'no_canon_change_invalid_approved_at'* ]]
 }
 
