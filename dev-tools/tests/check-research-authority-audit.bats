@@ -3,12 +3,14 @@
 setup() {
     REPO_ROOT="$(cd "${BATS_TEST_DIRNAME}/../.." && pwd -P)"
     SCRIPT="${RESEARCH_AUDIT_SCRIPT:-${REPO_ROOT}/dev-tools/check-research-authority-audit.py}"
+    TALO_0001_CONSUMER="${REPO_ROOT}/dev-tools/check-talo-0001-research-authority.sh"
     ROOT="${BATS_TEST_TMPDIR}/fixture"
     KNOWLEDGE="${ROOT}/knowledge"
     INSIGHTS="${ROOT}/INSIGHTS.md"
     MANIFEST="${ROOT}/authority-audit.json"
     COMMENT_JSON="${ROOT}/comment-101.json"
     CACHE="${ROOT}/external-cache"
+    REAL_MANIFEST="${REPO_ROOT}/datarim/insights/TALO-0001-research-authority-audit.json"
     mkdir -p "${KNOWLEDGE}/research/sources/review" \
         "${KNOWLEDGE}/graph/data/local" "${KNOWLEDGE}/resolver/data/authority" \
         "${KNOWLEDGE}/reports" "$CACHE"
@@ -112,6 +114,24 @@ run_validator() {
         --external-cache-dir "$CACHE"
 }
 
+run_talo_0001_profile() {
+    local profile_manifest="$1"
+    run python3 - "$SCRIPT" "$profile_manifest" <<'PY'
+import json
+import runpy
+import sys
+
+namespace = runpy.run_path(sys.argv[1])
+with open(sys.argv[2], encoding="utf-8") as handle:
+    manifest = json.load(handle)
+findings = []
+namespace["validate_closed_profile"](manifest, "TALO-0001", findings)
+for finding in findings:
+    print(f"finding={finding}")
+raise SystemExit(1 if findings else 0)
+PY
+}
+
 assert_not_met() {
     local expected="$1"
     [ "$status" -eq 1 ] \
@@ -137,6 +157,104 @@ assert_not_met() {
         --manifest "$MANIFEST" --insights "$INSIGHTS" --knowledge-root "$KNOWLEDGE" \
         --comment-json "101=${COMMENT_JSON}" --external-cache-dir "$CACHE"
     assert_not_met 'task_id_mismatch:expected=TALO-0001:actual=TALO-TEST'
+}
+
+@test "committed TALO-0001 manifest replays its code-owned authority profile" {
+    run_talo_0001_profile "$REAL_MANIFEST"
+    [ "$status" -eq 0 ]
+}
+
+@test "committed TALO-0001 consumer pins task identity and canonical audit inputs" {
+    local capture="${ROOT}/consumer-arguments.json"
+    local capture_validator="${ROOT}/capture-validator.py"
+    printf '%s\n' \
+        'import json, os, sys' \
+        'with open(os.environ["CAPTURE"], "w", encoding="utf-8") as handle:' \
+        '    json.dump(sys.argv[1:], handle)' \
+        >"$capture_validator"
+    run env RESEARCH_AUDIT_SCRIPT="$capture_validator" CAPTURE="$capture" \
+        bash "$TALO_0001_CONSUMER" --knowledge-root "$KNOWLEDGE"
+    [ "$status" -eq 0 ]
+    run jq -e --arg root "$REPO_ROOT" '
+      index("--expected-task-id") as $task_flag |
+      index("--manifest") as $manifest_flag |
+      index("--insights") as $insights_flag |
+      .[$task_flag + 1] == "TALO-0001" and
+      .[$manifest_flag + 1] == ($root + "/datarim/insights/TALO-0001-research-authority-audit.json") and
+      .[$insights_flag + 1] == ($root + "/datarim/insights/INSIGHTS-TALO-0001.md")
+    ' "$capture"
+    [ "$status" -eq 0 ]
+}
+
+@test "TALO-0001 profile rejects a coupled snapshot and R1 authority replacement" {
+    local mutant="${ROOT}/real-mutant.json"
+    jq '.knowledge_snapshot="1111111111111111111111111111111111111111" |
+      (.reviews[] | select(.id=="R1") | .source_path)="research/sources/talo-0033/replacement.md" |
+      (.reviews[] | select(.id=="R1") | .git_blob)="2222222222222222222222222222222222222222"' \
+        "$REAL_MANIFEST" >"$mutant"
+    run_talo_0001_profile "$mutant"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'finding=knowledge_snapshot_authority_mismatch'* ]] \
+        && [[ "$output" == *'finding=review_authority_mismatch:R1'* ]]
+}
+
+@test "TALO-0001 profile rejects a coupled same-ID R2 comment replacement" {
+    local mutant="${ROOT}/real-mutant.json"
+    jq '(.comments[] | select((.id|tostring)=="5347971637")) |=
+      (.repository="attacker/example" | .issue_number=999 |
+       .body_sha256="3333333333333333333333333333333333333333333333333333333333333333")' \
+        "$REAL_MANIFEST" >"$mutant"
+    run_talo_0001_profile "$mutant"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'finding=comment_authority_mismatch:5347971637'* ]]
+}
+
+@test "TALO-0001 profile rejects a coupled same-ID external source replacement" {
+    local mutant="${ROOT}/real-mutant.json"
+    jq '(.external_pins[] | select(.source_id=="S20")) |=
+      (.repository="attacker/example" |
+       .commit="4444444444444444444444444444444444444444" |
+       .path="docs/replacement.md" |
+       .git_blob="5555555555555555555555555555555555555555" |
+       .content_sha256="6666666666666666666666666666666666666666666666666666666666666666")' \
+        "$REAL_MANIFEST" >"$mutant"
+    run_talo_0001_profile "$mutant"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'finding=external_authority_mismatch:S20'* ]]
+}
+
+@test "TALO-0001 profile rejects coupled candidate bytes at an advanced snapshot" {
+    local mutant="${ROOT}/real-mutant.json"
+    jq '.knowledge_snapshot="7777777777777777777777777777777777777777" |
+      (.candidates[] | select(.revision_id=="tal-role-design-lead@r4")) |=
+      (.path="graph/data/local/unapproved-role@r4.json" |
+       .git_blob="8888888888888888888888888888888888888888" |
+       .content_digest="sha256:9999999999999999999999999999999999999999999999999999999999999999")' \
+        "$REAL_MANIFEST" >"$mutant"
+    run_talo_0001_profile "$mutant"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'finding=knowledge_snapshot_authority_mismatch'* ]] \
+        && [[ "$output" == *'finding=candidate_authority_mismatch:tal-role-design-lead@r4'* ]]
+}
+
+@test "deep JSON fails with a structured resource finding and no traceback" {
+    python3 - "$MANIFEST" <<'PY'
+import sys
+with open(sys.argv[1], "w", encoding="utf-8") as handle:
+    handle.write("[" * 20000 + "0" + "]" * 20000)
+PY
+    run_validator
+    [ "$status" -eq 2 ] \
+        && [[ "$output" == *'finding=input_resource_limit:depth:manifest'* ]] \
+        && [[ "$output" != *'Traceback'* ]]
+}
+
+@test "oversized JSON fails before an unbounded parse" {
+    head -c $((16 * 1024 * 1024 + 1)) /dev/zero | tr '\0' ' ' >"$MANIFEST"
+    run_validator
+    [ "$status" -eq 2 ] \
+        && [[ "$output" == *'finding=input_resource_limit:bytes:manifest'* ]] \
+        && [[ "$output" != *'Traceback'* ]]
 }
 
 @test "omitted item is rejected with its review attribution" {
