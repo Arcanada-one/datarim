@@ -439,6 +439,89 @@ EOF
         && [[ "$output" == *"duplicate requirement_id"* ]]
 }
 
+@test "wish_id is a unique kebab focus key in task and verify modes" {
+    local id="WISH-0001"
+    local variant
+    local expected
+    local root
+    local file
+    for variant in invalid_space invalid_underscore invalid_empty_segment invalid_separator invalid_other_script duplicate_field duplicate_value; do
+        if [ "$variant" = "duplicate_value" ]; then
+            root="$(write_migrated_expectations "$id")"
+            file="$root/datarim/tasks/${id}-expectations.md"
+            sed -i 's/wish_id: appended-internal-wish/wish_id: preserved-legacy-wish/' "$file"
+            expected="duplicate wish_id value 'preserved-legacy-wish'"
+        else
+            root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
+            file="$root/datarim/tasks/${id}-expectations.md"
+            case "$variant" in
+                invalid_space)
+                    sed -i 's/wish_id: customer-outcome/wish_id: not a kebab slug/' "$file"
+                    expected="wish_id must be a kebab slug"
+                    ;;
+                invalid_underscore)
+                    sed -i 's/wish_id: customer-outcome/wish_id: not_a_kebab_slug/' "$file"
+                    expected="wish_id must be a kebab slug"
+                    ;;
+                invalid_empty_segment)
+                    sed -i 's/wish_id: customer-outcome/wish_id: empty--segment/' "$file"
+                    expected="wish_id must be a kebab slug"
+                    ;;
+                invalid_separator)
+                    sed -i 's@wish_id: customer-outcome@wish_id: path/segment@' "$file"
+                    expected="wish_id must be a kebab slug"
+                    ;;
+                invalid_other_script)
+                    sed -i 's/wish_id: customer-outcome/wish_id: δοκιμή/' "$file"
+                    expected="wish_id must be a kebab slug"
+                    ;;
+                duplicate_field)
+                    sed -i '/wish_id: customer-outcome/a\
+  - wish_id: second-focus-key' "$file"
+                    expected="duplicate wish_id field"
+                    ;;
+            esac
+        fi
+
+        run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+        if [ "$status" -ne 1 ] || [[ "$output" != *"${expected}"* ]]; then
+            echo "wish_id ${variant} passed task validation: ${output}" >&2
+            return 1
+        fi
+
+        run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
+        if [ "$status" -ne 1 ] || [[ "$output" != *"BLOCKED: expectations file fails structural validation"* ]]; then
+            echo "wish_id ${variant} passed verify validation: ${output}" >&2
+            return 1
+        fi
+        rm -rf "$root"
+    done
+}
+
+@test "wish_id accepts ASCII and Cyrillic kebab segments" {
+    local id="WISH-0002"
+    local slug
+    local root
+    local file
+    for slug in 'Outcome-2' 'сохранение-исходного-промпта'; do
+        root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
+        file="$root/datarim/tasks/${id}-expectations.md"
+        sed -i "s/wish_id: customer-outcome/wish_id: ${slug}/" "$file"
+        run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+        if [ "$status" -ne 0 ]; then
+            echo "valid wish_id rejected (${slug}): ${output}" >&2
+            return 1
+        fi
+
+        run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
+        if [ "$status" -ne 0 ] || [[ "$output" != *"PASS"* ]]; then
+            echo "valid wish_id failed verify (${slug}): ${output}" >&2
+            return 1
+        fi
+        rm -rf "$root"
+    done
+}
+
 @test "schema v4 customer_derived false forbids customer binding fields" {
     local id="BIND-0013"
     local root
@@ -508,6 +591,82 @@ EOF
     run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
     [ "$status" -eq 1 ] \
         && [[ "$output" == *"item 2 missing customer_derived"* ]] || return 1
+
+    run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"BLOCKED: expectations file fails structural validation"* ]]
+}
+
+@test "inline code and escaped comment openers remain literal active prose" {
+    local id="COMM-0001"
+    local variant
+    local root
+    local file
+    for variant in single_tick delimiter_run escaped; do
+        root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
+        file="$root/datarim/tasks/${id}-expectations.md"
+        case "$variant" in
+            single_tick)
+                sed -i '/success criterion/s/$/ `<!--` literal/' "$file"
+                ;;
+            delimiter_run)
+                sed -i '/success criterion/s/$/ ``short ` then <!-- `` literal/' "$file"
+                ;;
+            escaped)
+                sed -i '/success criterion/s/$/ \\<!-- literal/' "$file"
+                grep -Fq '\<!-- literal' "$file" || return 1
+                ;;
+        esac
+
+        run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+        if [ "$status" -ne 0 ]; then
+            echo "literal comment opener rejected (${variant}): ${output}" >&2
+            return 1
+        fi
+
+        run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
+        if [ "$status" -ne 0 ] || [[ "$output" != *"PASS"* ]]; then
+            echo "literal comment opener failed verify (${variant}): ${output}" >&2
+            return 1
+        fi
+        rm -rf "$root"
+    done
+}
+
+@test "multiline code spans preserve literal comments until an exact delimiter closes" {
+    local id="COMM-0002"
+    local root
+    local file
+    root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
+    file="$root/datarim/tasks/${id}-expectations.md"
+    sed -i '/success criterion/c\
+  - Как проверить (success criterion): A ``span opens\
+<!-- remains literal before ` shorter delimiter\
+`` span closes before active bindings.' "$file"
+
+    run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+    [ "$status" -eq 0 ] || {
+        echo "multiline code span rejected in task mode: ${output}" >&2
+        return 1
+    }
+
+    run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
+    [ "$status" -eq 0 ] && [[ "$output" == *"PASS"* ]] || {
+        echo "multiline code span rejected in verify mode: ${output}" >&2
+        return 1
+    }
+}
+
+@test "an escaped backtick does not neutralize a real HTML comment" {
+    local id="COMM-0003"
+    local root
+    local file
+    root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
+    file="$root/datarim/tasks/${id}-expectations.md"
+    sed -i '/success criterion/s/$/ \\`<!--`/' "$file"
+
+    run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+    [ "$status" -eq 1 ] && [[ "$output" == *"missing customer_derived"* ]] || return 1
 
     run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
     [ "$status" -eq 1 ] \

@@ -262,7 +262,7 @@ parse_items() {
         BEGIN {
             in_section = 0; current_item = 0; total_items = 0; errors = 0
             expectations_heading_count = 0
-            wish_id = ""; status = ""; override_text = ""; evidence_type = ""
+            wish_id = ""; wish_id_count = 0; status = ""; override_text = ""; evidence_type = ""
             override_by = ""; override_class = ""; override_artifact = ""
             verification_mode = ""; evidence_artifact = ""; success_criterion = ""
             customer_derived = ""
@@ -270,7 +270,8 @@ parse_items() {
             customer_derived_count = 0
             requirement_id_count = 0; surface_class_count = 0
             visitor_visible_count = 0; delivery_receipt_count = 0
-            in_comment = 0; in_fence = 0; fence_char = ""; fence_len = 0
+            in_comment = 0; code_span_len = 0
+            in_fence = 0; fence_char = ""; fence_len = 0
             history_count = 0; has_history_heading = 0; has_status_heading = 0
             in_history = 0; in_status = 0
         }
@@ -285,6 +286,10 @@ parse_items() {
                 }
                 next
             }
+            # Block fences take precedence over inline parsing, unless the
+            # line continues an already-open HTML comment or code span.
+            fence_line = fence_candidate($0)
+            if (!in_comment && code_span_len == 0 && start_fence(fence_line)) next
             $0 = strip_html_comments($0)
             if ($0 ~ /^[ \t]*$/) next
             fence_line = fence_candidate($0)
@@ -316,7 +321,7 @@ parse_items() {
                 if (current_item) emit_item()
                 total_items++
                 current_item = total_items
-                wish_id = ""; status = ""; override_text = ""; evidence_type = ""
+                wish_id = ""; wish_id_count = 0; status = ""; override_text = ""; evidence_type = ""
                 override_by = ""; override_class = ""; override_artifact = ""
                 verification_mode = ""; evidence_artifact = ""; success_criterion = ""
                 customer_derived = ""
@@ -330,6 +335,7 @@ parse_items() {
             }
             if (current_item) {
                 if (match($0, /^  - wish_id:[ \t]*/)) {
+                    wish_id_count++
                     wish_id = substr($0, RLENGTH + 1)
                     sub(/[ \t]+$/, "", wish_id)
                     in_history = 0; in_status = 0; next
@@ -438,27 +444,77 @@ parse_items() {
             exit (errors > 0 ? 1 : 0)
         }
 
-        function strip_html_comments(line,    open_at, close_at, prefix, tail) {
-            while (1) {
-                if (in_comment) {
-                    close_at = index(line, "-->")
-                    if (close_at == 0) return ""
-                    line = substr(line, close_at + 3)
-                    in_comment = 0
-                }
-
-                open_at = index(line, "<!--")
-                if (open_at == 0) return line
-
-                prefix = substr(line, 1, open_at - 1)
-                tail = substr(line, open_at + 4)
-                close_at = index(tail, "-->")
-                if (close_at == 0) {
-                    in_comment = 1
-                    return prefix
-                }
-                line = prefix substr(tail, close_at + 3)
+        function strip_html_comments(line,    out, pos, close_at, run_len, match_at) {
+            out = ""
+            if (in_comment) {
+                close_at = index(line, "-->")
+                if (close_at == 0) return ""
+                line = substr(line, close_at + 3)
+                in_comment = 0
             }
+
+            pos = 1
+            if (code_span_len > 0) {
+                match_at = matching_backtick_run(line, pos, code_span_len)
+                if (match_at == 0) return "x"
+                out = "x"
+                pos = match_at + code_span_len
+                code_span_len = 0
+            }
+            while (pos <= length(line)) {
+                if (substr(line, pos, 1) == "`" && !is_escaped(line, pos)) {
+                    run_len = backtick_run(line, pos)
+                    match_at = matching_backtick_run(line, pos + run_len, run_len)
+                    if (match_at > 0) {
+                        out = out "x"
+                        pos = match_at + run_len
+                        continue
+                    }
+                    code_span_len = run_len
+                    return out "x"
+                }
+                if (substr(line, pos, 4) == "<!--" && !is_escaped(line, pos)) {
+                    close_at = index(substr(line, pos + 4), "-->")
+                    if (close_at == 0) {
+                        in_comment = 1
+                        return out
+                    }
+                    pos = pos + close_at + 6
+                    continue
+                }
+                out = out substr(line, pos, 1)
+                pos++
+            }
+            return out
+        }
+
+        function backtick_run(line, pos,    run_len) {
+            run_len = 0
+            while (substr(line, pos + run_len, 1) == "`") run_len++
+            return run_len
+        }
+
+        function matching_backtick_run(line, pos, expected,    run_len) {
+            while (pos <= length(line)) {
+                if (substr(line, pos, 1) != "`") {
+                    pos++
+                    continue
+                }
+                run_len = backtick_run(line, pos)
+                if (run_len == expected) return pos
+                pos += run_len
+            }
+            return 0
+        }
+
+        function is_escaped(line, pos,    slash_count) {
+            slash_count = 0
+            pos--
+            while (pos > 0 && substr(line, pos, 1) == "\\") {
+                slash_count++
+                pos--
+            }
+            return (slash_count % 2) == 1
         }
 
         function fence_candidate(line,    i) {
@@ -497,8 +553,19 @@ parse_items() {
         }
 
         function emit_item(    ovr_len) {
-            if (wish_id == "") {
+            if (wish_id_count == 0 || wish_id == "") {
                 printf "ERROR: %s: item %d missing wish_id\n", f, current_item > "/dev/stderr"
+                errors++
+            } else if (wish_id_count > 1) {
+                printf "ERROR: %s: item %d duplicate wish_id field\n", f, current_item > "/dev/stderr"
+                errors++
+            } else if (wish_id !~ /^[A-Za-z0-9А-Яа-яЁё]+(-[A-Za-z0-9А-Яа-яЁё]+)*$/) {
+                printf "ERROR: %s: item %d wish_id must be a kebab slug: %s\n", \
+                    f, current_item, wish_id > "/dev/stderr"
+                errors++
+            } else if (seen_wish_id[wish_id]++) {
+                printf "ERROR: %s: item %d duplicate wish_id value '\''%s'\''\n", \
+                    f, current_item, wish_id > "/dev/stderr"
                 errors++
             }
             if (!has_history_heading) {
