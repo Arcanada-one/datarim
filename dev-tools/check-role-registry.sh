@@ -6,6 +6,7 @@
 #   1. JSON-schema conformance (config/role-registry.schema.json).
 #   2. Cross-field invariants the schema cannot express:
 #        - max_parallel <= global_max_parallel for every role;
+#        - role IDs MUST be unique;
 #        - autonomous roles (default_aal >= 3) MUST forbid the Layer-6 floor
 #          {prod-deploy, secret-rotation};
 #        - starter_skill resolves to an existing skills/fleet/* directory.
@@ -77,12 +78,22 @@ except jsonschema.ValidationError as e:
     errors.append(f"schema: {e.message} (at {'/'.join(str(p) for p in e.absolute_path)})")
 
 # Proceed with cross-field checks only when basic shape is present.
-gmp = (data or {}).get("global_max_parallel")
-roles = (data or {}).get("roles") or []
+registry = data if isinstance(data, dict) else {}
+gmp = registry.get("global_max_parallel")
+roles_value = registry.get("roles")
+roles = roles_value if isinstance(roles_value, list) else []
 LAYER6_FLOOR = {"prod-deploy", "secret-rotation"}
+seen_role_ids = set()
 
 for r in roles:
+    if not isinstance(r, dict):
+        continue
     rid = r.get("id", "<no-id>")
+    if isinstance(rid, str):
+        if rid in seen_role_ids:
+            errors.append(f"duplicate role id '{rid}'")
+        else:
+            seen_role_ids.add(rid)
     mp = r.get("max_parallel")
     if isinstance(mp, int) and isinstance(gmp, int) and mp > gmp:
         errors.append(f"role '{rid}': max_parallel {mp} > global_max_parallel {gmp}")

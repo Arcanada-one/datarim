@@ -12,6 +12,43 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from yaml.constructor import ConstructorError
+from yaml.events import AliasEvent, MappingStartEvent, ScalarEvent, SequenceStartEvent
+from yaml.nodes import MappingNode
+
+
+MAX_YAML_BYTES = 1_048_576
+MAX_YAML_DEPTH = 64
+MAX_YAML_NODES = 20_000
+
+
+class StrictSafeLoader(yaml.SafeLoader):
+    """Safe YAML loader with a closed, string-keyed mapping grammar."""
+
+
+def _construct_strict_mapping(
+    loader: StrictSafeLoader, node: MappingNode, deep: bool = False
+) -> dict[str, Any]:
+    if not isinstance(node, MappingNode):
+        raise ConstructorError(None, None, "expected a YAML mapping", node.start_mark)
+    mapping: dict[str, Any] = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if type(key) is not str:
+            raise ConstructorError(
+                None, None, "mapping keys must be strings", key_node.start_mark
+            )
+        if key in mapping:
+            raise ConstructorError(
+                None, None, f"duplicate YAML key: {key}", key_node.start_mark
+            )
+        mapping[key] = loader.construct_object(value_node, deep=deep)
+    return mapping
+
+
+StrictSafeLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _construct_strict_mapping
+)
 
 
 EXPECTED_KINDS = [
@@ -959,8 +996,41 @@ NUMBER_WORDS = {
 
 
 def load_yaml(path: Path) -> dict[str, Any]:
-    with path.open(encoding="utf-8") as handle:
-        value = yaml.safe_load(handle)
+    raw = path.read_bytes()
+    if len(raw) > MAX_YAML_BYTES:
+        raise ValueError(
+            f"{path}: exceeds maximum byte size {MAX_YAML_BYTES}"
+        )
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ValueError(f"{path}: invalid UTF-8 at byte {exc.start}") from exc
+
+    depth = 0
+    nodes = 0
+    try:
+        for event in yaml.parse(text, Loader=StrictSafeLoader):
+            if isinstance(event, AliasEvent):
+                raise ValueError(f"{path}: YAML aliases are forbidden")
+            if isinstance(event, (ScalarEvent, MappingStartEvent, SequenceStartEvent)):
+                nodes += 1
+                if nodes > MAX_YAML_NODES:
+                    raise ValueError(
+                        f"{path}: exceeds maximum node count {MAX_YAML_NODES}"
+                    )
+            if isinstance(event, (MappingStartEvent, SequenceStartEvent)):
+                depth += 1
+                if depth > MAX_YAML_DEPTH:
+                    raise ValueError(
+                        f"{path}: exceeds maximum nesting depth {MAX_YAML_DEPTH}"
+                    )
+            elif isinstance(event, yaml.events.CollectionEndEvent):
+                depth -= 1
+        value = yaml.load(text, Loader=StrictSafeLoader)
+    except RecursionError as exc:
+        raise ValueError(f"{path}: YAML recursion limit exceeded") from exc
+    except MemoryError as exc:
+        raise ValueError(f"{path}: YAML resource limit exceeded") from exc
     if not isinstance(value, dict):
         raise ValueError(f"{path}: expected a YAML object")
     return value
@@ -1630,7 +1700,7 @@ def main() -> int:
     try:
         contract = load_yaml(args.contract)
         corpus = load_yaml(args.scenarios)
-    except (OSError, ValueError, yaml.YAMLError) as exc:
+    except (OSError, ValueError, yaml.YAMLError, UnicodeError, RecursionError, MemoryError) as exc:
         print(json.dumps({"error": str(exc)}))
         return 2
 

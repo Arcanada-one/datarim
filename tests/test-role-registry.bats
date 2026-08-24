@@ -32,6 +32,30 @@ write_projected_role() {
     [ -f "$SCHEMA" ]
 }
 
+@test "schema rejects exact duplicate role objects" {
+    require_jsonschema
+    run python3 - "$ROLES" "$SCHEMA" <<'PY'
+from copy import deepcopy
+import json
+from pathlib import Path
+import sys
+import yaml
+from jsonschema import ValidationError, validate
+
+registry = yaml.safe_load(Path(sys.argv[1]).read_text(encoding="utf-8"))
+schema = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
+registry["roles"].append(deepcopy(registry["roles"][0]))
+try:
+    validate(instance=registry, schema=schema)
+except ValidationError as exc:
+    print(exc.message)
+    raise SystemExit(0)
+raise SystemExit("schema accepted an exact duplicate role object")
+PY
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"non-unique elements"* ]]
+}
+
 @test "seed roles.yaml passes validation (exit 0)" {
     require_jsonschema
     run "$VALIDATOR" --file "$ROLES"
@@ -205,6 +229,47 @@ EOF
     [ "$status" -eq 0 ] \
         && yq -e '.roles[] | select(.id == "researcher") | .agent == "agents/researcher.md"' "$TMP/projected.yaml" >/dev/null \
         && yq -e '.roles[] | select(.id == "researcher") | .domain_skills[] == "skills/research-workflow"' "$TMP/projected.yaml" >/dev/null
+}
+
+@test "rejects duplicate role IDs even when agent projections differ" {
+    write_projected_role
+    python3 - "$TMP/projected.yaml" <<'PY'
+from copy import deepcopy
+from pathlib import Path
+import sys
+import yaml
+
+path = Path(sys.argv[1])
+registry = yaml.safe_load(path.read_text(encoding="utf-8"))
+designer = next(role for role in registry["roles"] if role["id"] == "designer")
+duplicate = deepcopy(designer)
+duplicate["agent"] = "agents/researcher.md"
+registry["roles"].append(duplicate)
+path.write_text(yaml.safe_dump(registry, sort_keys=False), encoding="utf-8")
+PY
+    require_jsonschema
+    run "$VALIDATOR" --file "$TMP/projected.yaml" --root "$REPO"
+    [ "$status" -eq 1 ] \
+        && echo "$output" | grep -qF "duplicate role id 'designer'"
+}
+
+@test "invalid non-string role IDs fail validation without a traceback" {
+    write_projected_role
+    python3 - "$TMP/projected.yaml" <<'PY'
+from pathlib import Path
+import sys
+import yaml
+
+path = Path(sys.argv[1])
+registry = yaml.safe_load(path.read_text(encoding="utf-8"))
+registry["roles"][0]["id"] = ["designer"]
+path.write_text(yaml.safe_dump(registry, sort_keys=False), encoding="utf-8")
+PY
+    require_jsonschema
+    run "$VALIDATOR" --file "$TMP/projected.yaml" --root "$REPO"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" != *"Traceback"* ]] \
+        && echo "$output" | grep -qF "schema:"
 }
 
 @test "rejects an explicit agent projection that does not resolve" {

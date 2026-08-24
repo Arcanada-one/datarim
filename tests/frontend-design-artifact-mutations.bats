@@ -141,11 +141,52 @@ assert_scenario_mismatch_red() {
             <<<"$output" >/dev/null
 }
 
+assert_evaluator_load_red() {
+    local expected="$1"
+    run python3 "$MUTANT/dev-tools/evaluate-frontend-design.py" \
+        --contract "$MUTANT/skills/frontend-design/references/decision-contract.yaml" \
+        --scenarios "$MUTANT/tests/fixtures/frontend-design-scenarios.yaml" \
+        --docs-root "$MUTANT" \
+        --check
+    [ "$status" -eq 2 ] \
+        && [[ "$output" != *"Traceback"* ]] \
+        && jq -e --arg expected "$expected" '.error | contains($expected)' <<<"$output" >/dev/null
+}
+
+assert_designer_projection() {
+    local roles_file="$1"
+    local actual count
+    count="$(yq -r '[.roles[] | select(.id == "designer")] | length' "$roles_file")" \
+        || return 3
+    [ "$count" -eq 1 ] || actual="<invalid-cardinality>"
+    if [ "$count" -eq 1 ]; then
+        actual="$(yq -r '.roles[] | select(.id == "designer") | .agent' "$roles_file")" \
+            || return 3
+    fi
+    if [ "$actual" != "agents/designer.md" ]; then
+        echo "projected designer agent mismatch: expected agents/designer.md, got $actual" >&2
+        return 42
+    fi
+}
+
 @test "M1: explicit designer projection is load-bearing" {
+    run env FRONTEND_DESIGN_ROOT="$MUTANT" bats \
+        -f '^G1: designer and researcher execution projections are registered$' "$CONTRACT"
+    [ "$status" -eq 0 ] \
+        && [[ "$output" == *"ok 1 G1: designer and researcher execution projections are registered"* ]]
+
+    run assert_designer_projection "$MUTANT/config/roles.yaml"
+    [ "$status" -eq 0 ]
+
     mutate_text "$MUTANT/config/roles.yaml" 'agent: "agents/designer.md"' 'agent: "agents/not-present.md"'
-    run env FRONTEND_DESIGN_ROOT="$MUTANT" bats -f 'designer and researcher execution projections' "$CONTRACT"
-    [ "$status" -ne 0 ] \
-        && [[ "$output" == *"not ok"* ]]
+    run assert_designer_projection "$MUTANT/config/roles.yaml"
+    [ "$status" -eq 42 ] \
+        && [ "$output" = "projected designer agent mismatch: expected agents/designer.md, got agents/not-present.md" ]
+
+    run env FRONTEND_DESIGN_ROOT="$MUTANT" bats \
+        -f '^G1: designer and researcher execution projections are registered$' "$CONTRACT"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"not ok 1 G1: designer and researcher execution projections are registered"* ]]
 }
 
 @test "M2: designer ownership and acceptance boundary is load-bearing" {
@@ -297,4 +338,63 @@ assert_scenario_mismatch_red() {
     [ "$status" -eq 1 ] \
         && [[ "$output" != *"Traceback"* ]] \
         && jq -e 'any(.scenario_errors[]; contains("scenario at index 0 id must be a string"))' <<<"$output" >/dev/null
+}
+
+@test "M30: duplicate YAML keys fail before last-key-wins interpretation" {
+    mutate_text "$MUTANT/tests/fixtures/frontend-design-scenarios.yaml" \
+        'schema_version: 1' $'schema_version: 999\nschema_version: 1'
+    assert_evaluator_load_red 'duplicate YAML key: schema_version'
+}
+
+@test "M31: non-string YAML root keys fail with structured JSON" {
+    mutate_text "$MUTANT/skills/frontend-design/references/decision-contract.yaml" \
+        'schema_version: 1' $'7: invalid-root-key\nschema_version: 1'
+    assert_evaluator_load_red 'mapping keys must be strings'
+}
+
+@test "M32: invalid UTF-8 fails with bounded structured JSON" {
+    printf '\xff' >> "$MUTANT/tests/fixtures/frontend-design-scenarios.yaml"
+    assert_evaluator_load_red 'invalid UTF-8'
+}
+
+@test "M33: deeply nested YAML fails at the configured depth bound" {
+    python3 - "$MUTANT/tests/fixtures/frontend-design-scenarios.yaml" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+with path.open("a", encoding="utf-8") as handle:
+    handle.write("\nresource_nest: " + ("[" * 70) + "null" + ("]" * 70) + "\n")
+PY
+    assert_evaluator_load_red 'maximum nesting depth 64'
+}
+
+@test "M34: excessive YAML nodes fail at the configured node bound" {
+    python3 - "$MUTANT/tests/fixtures/frontend-design-scenarios.yaml" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+with path.open("a", encoding="utf-8") as handle:
+    handle.write("\nresource_nodes:\n" + "  - x\n" * 20001)
+PY
+    assert_evaluator_load_red 'maximum node count 20000'
+}
+
+@test "M35: YAML aliases fail closed before object construction" {
+    append_text "$MUTANT/tests/fixtures/frontend-design-scenarios.yaml" \
+        $'resource_anchor: &resource_anchor [x]\nresource_alias: *resource_anchor'
+    assert_evaluator_load_red 'YAML aliases are forbidden'
+}
+
+@test "M36: oversized YAML fails before decode or parse" {
+    python3 - "$MUTANT/tests/fixtures/frontend-design-scenarios.yaml" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+with path.open("ab") as handle:
+    handle.write(b"#" * 1048577)
+PY
+    assert_evaluator_load_red 'maximum byte size 1048576'
 }
