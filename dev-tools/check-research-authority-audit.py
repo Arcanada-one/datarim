@@ -67,6 +67,9 @@ CLOSED_AUDIT_PROFILES: dict[str, dict[str, Any]] = {
         "knowledge_snapshot": "c636fea7b7dda0245fbbfd1da8a5a78c7e56c2ae",
         "reviews": {"R1": 28, "R2": 38},
         "item_table_rows": 66,
+        "item_table_sha256": (
+            "13abf81790ae427748637ecf6cdff2aa8cb7d64b1ccc35c431c318af6374d034"
+        ),
         "candidates": {
             "tal-role-design-lead@r4": "tal-role-design-lead",
             "tal-role-knowledge-curator@r2": "tal-role-knowledge-curator",
@@ -839,6 +842,15 @@ def validate_closed_profile(
             "item_table_expected_rows_mismatch:"
             f"expected={expected_item_table_rows}:actual={actual_item_table_rows}"
         )
+    expected_item_table_digest = profile.get("item_table_sha256")
+    actual_item_table_digest = (
+        item_table.get("sha256") if isinstance(item_table, dict) else None
+    )
+    if (
+        expected_item_table_digest is not None
+        and actual_item_table_digest != expected_item_table_digest
+    ):
+        findings.append("item_table_digest_authority_mismatch")
 
     candidates = manifest.get("candidates")
     candidate_entries = candidates if isinstance(candidates, list) else []
