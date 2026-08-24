@@ -25,11 +25,15 @@
   "comments": [
     {
       "id": 5347868439,
+      "repository": "Arcanada-one/talomnia-trace",
+      "issue_number": 42,
       "navigation_url": "https://github.com/Arcanada-one/talomnia-trace/issues/42#issuecomment-5347868439",
       "body_sha256": "2ab1b52a22494f96ceef299a1f776c87879dcace99de60bea377924217f7a1f7"
     },
     {
       "id": 5347971637,
+      "repository": "Arcanada-one/talomnia-trace",
+      "issue_number": 44,
       "navigation_url": "https://github.com/Arcanada-one/talomnia-trace/issues/44#issuecomment-5347971637",
       "body_sha256": "72abdc0ebe135fc9d33967501032cf63f7dd4c53e23d3385d2ea31b2c10b815f"
     }
@@ -38,6 +42,11 @@
     "expected_rows": 66,
     "canonicalization": "cells-trimmed-unit-separator-rows-lf-no-final-lf/1",
     "sha256": "13abf81790ae427748637ecf6cdff2aa8cb7d64b1ccc35c431c318af6374d034"
+  },
+  "authorized_mapping_additions": {
+    "R2-03": [
+      "TALO-0042"
+    ]
   },
   "candidates": [
     {
@@ -140,28 +149,59 @@
     {
       "id": "TALO-0032-planning-envelope",
       "evidence_path": "architecture/reports/talo-0032/talo-0032-accept-customer-review-r1.bundle.json",
-      "required_values": [
-        "sha256:31ab3f467f12afc943d2f977dabc6ea8eb32675453ebe066e8df08b8b1b8cf3c",
-        "sha256:31ec464ee27fc6079169300a5313697390701a78c9b14beef7bb824875e416f6",
-        "sha256:48d580be951d458c2bdbf4704c4926e8331c6e380dd3824b9e622d92a405a642"
+      "assertions": [
+        {
+          "json_pointer": "/contract/contract_digest",
+          "equals": "sha256:31ab3f467f12afc943d2f977dabc6ea8eb32675453ebe066e8df08b8b1b8cf3c"
+        },
+        {
+          "json_pointer": "/contract/body/resolution_receipt_digest",
+          "equals": "sha256:31ec464ee27fc6079169300a5313697390701a78c9b14beef7bb824875e416f6"
+        },
+        {
+          "json_pointer": "/issuance_envelope/envelope_digest",
+          "equals": "sha256:48d580be951d458c2bdbf4704c4926e8331c6e380dd3824b9e622d92a405a642"
+        }
       ]
     },
     {
       "id": "TALO-0050-planning-envelope",
       "evidence_path": "architecture/reports/talo-0050/talo-0050-accept-customer-review-r2.bundle.json",
-      "required_values": [
-        "sha256:0b3910acfe1fa56758f91d61fec32377574d23b2519dc38acb18f594d0af379d",
-        "sha256:a996b7f0c7130f7508ba07c8d4ae3c8e2c841947e290f0fceb22fc3e7798679a",
-        "sha256:f14cde136e75d7b5c481cf1e942e8e05dea7c35b2560ac1e708013856276cc59"
+      "assertions": [
+        {
+          "json_pointer": "/contract/contract_digest",
+          "equals": "sha256:0b3910acfe1fa56758f91d61fec32377574d23b2519dc38acb18f594d0af379d"
+        },
+        {
+          "json_pointer": "/contract/body/resolution_receipt_digest",
+          "equals": "sha256:a996b7f0c7130f7508ba07c8d4ae3c8e2c841947e290f0fceb22fc3e7798679a"
+        },
+        {
+          "json_pointer": "/issuance_envelope/envelope_digest",
+          "equals": "sha256:f14cde136e75d7b5c481cf1e942e8e05dea7c35b2560ac1e708013856276cc59"
+        }
       ]
     },
     {
       "id": "tal-skill-customer-narrative@r1",
       "evidence_path": "graph/data/local/tal-skill-customer-narrative@r1.json",
-      "required_values": [
-        "tal-skill-customer-narrative@r1",
-        "sha256:ecdffb0f3c1407858d0cc474ddf58d2c1e9bd88688f77b32076034f0b6a35cb5"
-      ]
+      "assertions": [
+        {
+          "json_pointer": "/logical_id",
+          "equals": "tal-skill-customer-narrative"
+        },
+        {
+          "json_pointer": "/revision_id",
+          "equals": "tal-skill-customer-narrative@r1"
+        },
+        {
+          "json_pointer": "/content_digest",
+          "equals": "sha256:ecdffb0f3c1407858d0cc474ddf58d2c1e9bd88688f77b32076034f0b6a35cb5"
+        }
+      ],
+      "authority_required": "approve",
+      "authority_revision_id": "tal-skill-customer-narrative@r1",
+      "authority_content_digest": "sha256:ecdffb0f3c1407858d0cc474ddf58d2c1e9bd88688f77b32076034f0b6a35cb5"
     }
   ],
   "external_pins": [

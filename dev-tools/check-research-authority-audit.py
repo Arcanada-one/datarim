@@ -6,12 +6,15 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
+import tempfile
 from collections import Counter
 from pathlib import Path, PurePosixPath
 from typing import Any
+from urllib.parse import quote
 
 
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
@@ -25,6 +28,7 @@ CYRILLIC = re.compile(r"[\u0400-\u04ff]")
 TASK_REF = re.compile(r"TALO-[0-9]{4}")
 COMMENT_ALGORITHM = "github-json-body-utf8-no-extra-lf/1"
 ITEM_ALGORITHM = "cells-trimmed-unit-separator-rows-lf-no-final-lf/1"
+MAX_EXTERNAL_SOURCE_BYTES = 16 * 1024 * 1024
 
 
 def parse_args() -> argparse.Namespace:
@@ -42,6 +46,11 @@ def parse_args() -> argparse.Namespace:
         help="GitHub API JSON response used to replay a canonical comment-body digest.",
     )
     parser.add_argument("--external-cache-dir", type=Path)
+    parser.add_argument(
+        "--verify-external-remote",
+        action="store_true",
+        help="Fetch each derived immutable raw URL and bind the cache to live remote bytes.",
+    )
     return parser.parse_args()
 
 
@@ -59,6 +68,22 @@ def load_json(path: Path, label: str, findings: list[str]) -> Any | None:
             path.read_text(encoding="utf-8"), object_pairs_hook=reject_duplicate_keys
         )
     except (OSError, UnicodeError, json.JSONDecodeError, ValueError):
+        findings.append(f"invalid_json:{label}")
+        return None
+
+
+def load_json_bytes(content: bytes, label: str, findings: list[str]) -> Any | None:
+    def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError(f"duplicate JSON key: {key}")
+            result[key] = value
+        return result
+
+    try:
+        return json.loads(content.decode("utf-8"), object_pairs_hook=reject_duplicate_keys)
+    except (UnicodeError, json.JSONDecodeError, ValueError):
         findings.append(f"invalid_json:{label}")
         return None
 
@@ -85,10 +110,88 @@ def git_value(root: Path, *arguments: str) -> str | None:
             capture_output=True,
             text=True,
             timeout=5,
+            env={**os.environ, "GIT_NO_REPLACE_OBJECTS": "1"},
         )
     except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
         return None
     return result.stdout.strip()
+
+
+def git_object_bytes(root: Path, snapshot: str, raw_path: Any) -> bytes | None:
+    path = safe_relative_path(root, raw_path)
+    if path is None or not isinstance(raw_path, str) or ":" in raw_path:
+        return None
+    try:
+        with tempfile.TemporaryFile() as output:
+            result = subprocess.run(
+                ["git", "-C", str(root), "show", f"{snapshot}:{raw_path}"],
+                stdout=output,
+                stderr=subprocess.DEVNULL,
+                check=False,
+                timeout=5,
+                env={**os.environ, "GIT_NO_REPLACE_OBJECTS": "1"},
+            )
+            if result.returncode != 0:
+                return None
+            output.seek(0)
+            content = output.read(MAX_EXTERNAL_SOURCE_BYTES + 1)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return content if len(content) <= MAX_EXTERNAL_SOURCE_BYTES else None
+
+
+def git_blob_id(content: bytes) -> str | None:
+    if len(content) > MAX_EXTERNAL_SOURCE_BYTES:
+        return None
+    try:
+        with tempfile.TemporaryFile() as output:
+            result = subprocess.run(
+                ["git", "hash-object", "--stdin"],
+                input=content,
+                stdout=output,
+                stderr=subprocess.DEVNULL,
+                check=False,
+                timeout=5,
+            )
+            if result.returncode != 0:
+                return None
+            output.seek(0)
+            value = output.read(129).decode("ascii", errors="strict").strip()
+    except (OSError, UnicodeError, subprocess.SubprocessError):
+        return None
+    return value if HEX40.fullmatch(value) is not None else None
+
+
+def fetch_remote_source(url: str) -> bytes | None:
+    try:
+        with tempfile.TemporaryFile() as output:
+            result = subprocess.run(
+                [
+                    "curl",
+                    "--fail",
+                    "--silent",
+                    "--show-error",
+                    "--location",
+                    "--max-time",
+                    "15",
+                    "--max-filesize",
+                    str(MAX_EXTERNAL_SOURCE_BYTES),
+                    "--proto",
+                    "=https",
+                    url,
+                ],
+                stdout=output,
+                stderr=subprocess.DEVNULL,
+                check=False,
+                timeout=20,
+            )
+            if result.returncode != 0:
+                return None
+            output.seek(0)
+            content = output.read(MAX_EXTERNAL_SOURCE_BYTES + 1)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return content if len(content) <= MAX_EXTERNAL_SOURCE_BYTES else None
 
 
 def table_rows(insights: str) -> list[list[str]]:
@@ -119,7 +222,11 @@ def source_item_headings(source_text: str) -> list[tuple[str, str]]:
 
 
 def mapping_targets(value: str) -> tuple[str, ...]:
-    targets = {f"TALO-{match}" for match in re.findall(r"(?<![0-9])00[0-9]{2}(?![0-9])", value)}
+    targets = {f"TALO-{match}" for match in re.findall(r"TALO-([0-9]{4})", value)}
+    targets.update(
+        f"TALO-{match}"
+        for match in re.findall(r"(?<![A-Za-z0-9-])(00[0-9]{2})(?![0-9])", value)
+    )
     if "all subtasks" in value.lower():
         targets.add("ALL_SUBTASKS")
     return tuple(sorted(targets))
@@ -155,15 +262,15 @@ def validate_git_blob(
     expected_blob: Any,
     label: str,
     findings: list[str],
-) -> Path | None:
-    candidate = safe_relative_path(root, path_value)
-    if candidate is None or not candidate.is_file():
+) -> bytes | None:
+    content = git_object_bytes(root, snapshot, path_value)
+    if content is None:
         findings.append(f"source_path_missing:{label}")
         return None
     actual_blob = git_value(root, "rev-parse", f"{snapshot}:{path_value}")
     if not isinstance(expected_blob, str) or actual_blob != expected_blob:
         findings.append(f"source_blob_mismatch:{label}")
-    return candidate
+    return content
 
 
 def parse_comment_arguments(values: list[str], findings: list[str]) -> dict[str, Path]:
@@ -212,8 +319,8 @@ def validate_reviews_and_items(
         )
         if source is not None:
             try:
-                source_text = source.read_text(encoding="utf-8")
-            except (OSError, UnicodeError):
+                source_text = source.decode("utf-8")
+            except UnicodeError:
                 findings.append(f"source_unreadable:{review_id}")
             else:
                 selected = source_item_headings(source_text)
@@ -237,8 +344,8 @@ def validate_reviews_and_items(
             )
             if mapping_source is not None:
                 try:
-                    source_mappings.update(mapping_rows(mapping_source.read_text(encoding="utf-8")))
-                except (OSError, UnicodeError):
+                    source_mappings.update(mapping_rows(mapping_source.decode("utf-8")))
+                except UnicodeError:
                     findings.append(f"mapping_source_unreadable:{review_id}")
         mapping_comment_id = review.get("mapping_comment_id")
         if mapping_comment_id is not None:
@@ -250,6 +357,10 @@ def validate_reviews_and_items(
         expected_ids.update(f"{review_id}-{ordinal:02d}" for ordinal in range(1, expected_items + 1))
 
     rows = table_rows(insights)
+    mapping_additions = manifest.get("authorized_mapping_additions", {})
+    if not isinstance(mapping_additions, dict):
+        findings.append("authorized_mapping_additions_invalid")
+        mapping_additions = {}
     counts = Counter(cells[0] for cells in rows)
     for item_id in sorted(identifier for identifier, count in counts.items() if count > 1):
         findings.append(f"duplicate_item_id:{item_id}")
@@ -280,8 +391,17 @@ def validate_reviews_and_items(
         expected_mapping = source_mappings.get(item_id)
         if expected_mapping is None:
             findings.append(f"authoritative_mapping_missing:{item_id}")
-        elif not set(expected_mapping).issubset(mapping_targets(mapping)):
-            findings.append(f"delivery_mapping_mismatch:{item_id}")
+        else:
+            additions = mapping_additions.get(item_id, [])
+            if not isinstance(additions, list) or any(
+                not isinstance(value, str) or TASK_REF.fullmatch(value) is None
+                for value in additions
+            ):
+                findings.append(f"authorized_mapping_addition_invalid:{item_id}")
+                additions = []
+            authorized = set(expected_mapping) | set(additions)
+            if set(mapping_targets(mapping)) != authorized:
+                findings.append(f"delivery_mapping_mismatch:{item_id}")
         if not selection.startswith(("Direct:", "Cross-functional:", "Human boundary:")):
             findings.append(f"selection_applicability_invalid:{item_id}")
         if "Rejected" in selection:
@@ -304,7 +424,10 @@ def validate_reviews_and_items(
 
 
 def validate_comments(
-    manifest: dict[str, Any], comment_paths: dict[str, Path], findings: list[str]
+    manifest: dict[str, Any],
+    comment_paths: dict[str, Path],
+    insights: str,
+    findings: list[str],
 ) -> dict[str, str]:
     bodies: dict[str, str] = {}
     if manifest.get("comment_body_digest_algorithm") != COMMENT_ALGORITHM:
@@ -323,6 +446,25 @@ def validate_comments(
             findings.append(f"comment_id_invalid:{identifier}")
             continue
         seen.add(identifier)
+        repository = comment.get("repository")
+        issue_number = comment.get("issue_number")
+        canonical_navigation = (
+            f"https://github.com/{repository}/issues/{issue_number}#issuecomment-{identifier}"
+        )
+        canonical_issue_api = (
+            f"https://api.github.com/repos/{repository}/issues/{issue_number}"
+        )
+        if (
+            not isinstance(repository, str)
+            or re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository) is None
+            or not isinstance(issue_number, int)
+            or issue_number < 1
+        ):
+            findings.append(f"comment_issue_identity_invalid:{identifier}")
+        if comment.get("navigation_url") != canonical_navigation:
+            findings.append(f"comment_navigation_url_invalid:{identifier}")
+        if canonical_navigation not in insights:
+            findings.append(f"comment_navigation_not_documented:{identifier}")
         expected = comment.get("body_sha256")
         path = comment_paths.get(identifier)
         if path is None:
@@ -332,6 +474,12 @@ def validate_comments(
         if not isinstance(payload, dict) or not isinstance(payload.get("body"), str):
             findings.append(f"comment_body_invalid:{identifier}")
             continue
+        if str(payload.get("id", "")) != identifier:
+            findings.append(f"comment_payload_id_mismatch:{identifier}")
+        if payload.get("html_url") != canonical_navigation:
+            findings.append(f"comment_payload_html_url_mismatch:{identifier}")
+        if payload.get("issue_url") != canonical_issue_api:
+            findings.append(f"comment_payload_issue_url_mismatch:{identifier}")
         bodies[identifier] = payload["body"]
         actual = hashlib.sha256(payload["body"].encode("utf-8")).hexdigest()
         if not isinstance(expected, str) or actual != expected:
@@ -343,14 +491,21 @@ def validate_candidates(
     manifest: dict[str, Any],
     insights: str,
     knowledge_root: Path,
+    snapshot: str,
     findings: list[str],
 ) -> int:
     candidates = manifest.get("candidates")
     if not isinstance(candidates, list):
         findings.append("candidates_missing")
         return 0
-    authority_path = safe_relative_path(knowledge_root, manifest.get("authority_events_path"))
-    events = load_json(authority_path, "authority-events", findings) if authority_path else None
+    authority_bytes = git_object_bytes(
+        knowledge_root, snapshot, manifest.get("authority_events_path")
+    )
+    events = (
+        load_json_bytes(authority_bytes, "authority-events", findings)
+        if authority_bytes is not None
+        else None
+    )
     if not isinstance(events, list):
         findings.append("authority_events_invalid")
         events = []
@@ -366,11 +521,11 @@ def validate_candidates(
             findings.append(f"candidate_revision_duplicate:{revision_id}")
             continue
         seen.add(revision_id)
-        path = safe_relative_path(knowledge_root, path_value)
-        if path is None or not path.is_file():
+        candidate_bytes = git_object_bytes(knowledge_root, snapshot, path_value)
+        if candidate_bytes is None:
             findings.append(f"candidate_path_missing:{revision_id}")
             continue
-        payload = load_json(path, f"candidate-{revision_id}", findings)
+        payload = load_json_bytes(candidate_bytes, f"candidate-{revision_id}", findings)
         if not isinstance(payload, dict):
             continue
         if payload.get("revision_id") != revision_id:
@@ -407,41 +562,103 @@ def validate_candidates(
 
 
 def validate_derived_records(
-    manifest: dict[str, Any], insights: str, knowledge_root: Path, findings: list[str]
+    manifest: dict[str, Any],
+    insights: str,
+    knowledge_root: Path,
+    snapshot: str,
+    findings: list[str],
 ) -> None:
     records = manifest.get("derived_records", [])
     if not isinstance(records, list):
         findings.append("derived_records_invalid")
         return
+    authority_bytes = git_object_bytes(
+        knowledge_root, snapshot, manifest.get("authority_events_path")
+    )
+    authority_events = (
+        load_json_bytes(authority_bytes, "derived-authority-events", findings)
+        if authority_bytes is not None
+        else []
+    )
+    if not isinstance(authority_events, list):
+        authority_events = []
+
+    def pointer_value(payload: Any, pointer: str) -> Any:
+        if not pointer.startswith("/"):
+            raise KeyError(pointer)
+        current = payload
+        for token in pointer[1:].split("/"):
+            token = token.replace("~1", "/").replace("~0", "~")
+            if isinstance(current, dict) and token in current:
+                current = current[token]
+            elif isinstance(current, list) and token.isdigit() and int(token) < len(current):
+                current = current[int(token)]
+            else:
+                raise KeyError(pointer)
+        return current
+
     for record in records:
         if not isinstance(record, dict) or not isinstance(record.get("id"), str):
             findings.append("derived_record_invalid")
             continue
         record_id = record["id"]
-        path = safe_relative_path(knowledge_root, record.get("evidence_path"))
-        if path is None or not path.is_file():
+        evidence_bytes = git_object_bytes(knowledge_root, snapshot, record.get("evidence_path"))
+        if evidence_bytes is None:
             findings.append(f"derived_record_path_missing:{record_id}")
             continue
-        try:
-            evidence = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeError):
-            findings.append(f"derived_record_unreadable:{record_id}")
+        payload = load_json_bytes(evidence_bytes, f"derived-{record_id}", findings)
+        if payload is None:
             continue
-        values = record.get("required_values")
-        if not isinstance(values, list) or not values:
-            findings.append(f"derived_record_values_missing:{record_id}")
+        assertions = record.get("assertions")
+        if not isinstance(assertions, list) or not assertions:
+            findings.append(f"derived_record_assertions_missing:{record_id}")
             continue
-        for value in values:
-            if not isinstance(value, str) or value not in evidence:
-                findings.append(f"derived_record_evidence_mismatch:{record_id}")
-            if not isinstance(value, str) or value not in insights:
-                findings.append(f"derived_record_not_documented:{record_id}")
+        for assertion in assertions:
+            if not isinstance(assertion, dict):
+                findings.append(f"derived_record_assertion_invalid:{record_id}")
+                continue
+            pointer = assertion.get("json_pointer")
+            expected = assertion.get("equals")
+            if not isinstance(pointer, str) or not isinstance(expected, str):
+                findings.append(f"derived_record_assertion_invalid:{record_id}")
+                continue
+            try:
+                actual = pointer_value(payload, pointer)
+            except KeyError:
+                actual = None
+            if actual != expected:
+                findings.append(f"derived_record_pointer_mismatch:{record_id}:{pointer}")
+            if expected not in insights:
+                findings.append(f"derived_record_not_documented:{record_id}:{pointer}")
+        authority_required = record.get("authority_required")
+        if authority_required is not None:
+            revision_id = record.get("authority_revision_id")
+            content_digest = record.get("authority_content_digest")
+            matching = [
+                event
+                for event in authority_events
+                if isinstance(event, dict)
+                and isinstance(event.get("subject"), dict)
+                and event["subject"].get("id") == revision_id
+            ]
+            if not matching:
+                findings.append(f"derived_record_authority_missing:{record_id}")
+                continue
+            latest = max(
+                enumerate(matching),
+                key=lambda pair: (str(pair[1].get("issued_at", "")), pair[0]),
+            )[1]
+            if latest.get("event_type") != authority_required:
+                findings.append(f"derived_record_authority_state_mismatch:{record_id}")
+            if latest.get("subject", {}).get("content_digest") != content_digest:
+                findings.append(f"derived_record_authority_digest_mismatch:{record_id}")
 
 
 def validate_external_pins(
     manifest: dict[str, Any],
     insights: str,
     cache_dir: Path | None,
+    verify_remote: bool,
     findings: list[str],
 ) -> int:
     pins = manifest.get("external_pins")
@@ -462,13 +679,30 @@ def validate_external_pins(
         blob = pin.get("git_blob")
         digest = pin.get("content_sha256")
         immutable_url = pin.get("immutable_url")
+        repository = pin.get("repository")
+        source_path = pin.get("path")
+        repository_valid = isinstance(repository, str) and re.fullmatch(
+            r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository
+        ) is not None
+        source_path_valid = (
+            isinstance(source_path, str)
+            and safe_relative_path(Path("/tmp/research-pin-root"), source_path) is not None
+            and ":" not in source_path
+        )
+        if not repository_valid:
+            findings.append(f"external_pin_repository_invalid:{source_id}")
+        if not source_path_valid:
+            findings.append(f"external_pin_path_invalid:{source_id}")
         if not isinstance(commit, str) or HEX40.fullmatch(commit) is None:
             findings.append(f"external_pin_commit_invalid:{source_id}")
         if not isinstance(blob, str) or HEX40.fullmatch(blob) is None:
             findings.append(f"external_pin_blob_invalid:{source_id}")
         if not isinstance(digest, str) or HEX64.fullmatch(digest) is None:
             findings.append(f"external_pin_content_digest_invalid:{source_id}")
-        if not isinstance(immutable_url, str) or not isinstance(commit, str) or commit not in immutable_url:
+        expected_immutable = (
+            f"https://github.com/{repository}/blob/{commit}/{quote(str(source_path), safe='/')}"
+        )
+        if immutable_url != expected_immutable:
             findings.append(f"external_pin_immutable_url_invalid:{source_id}")
         navigation_url = pin.get("navigation_url")
         if not isinstance(navigation_url, str) or not any(
@@ -483,18 +717,40 @@ def validate_external_pins(
             findings.append(f"external_pin_cache_missing:{source_id}")
             continue
         try:
-            content = cache_path.read_bytes()
+            with cache_path.open("rb") as handle:
+                content = handle.read(MAX_EXTERNAL_SOURCE_BYTES + 1)
         except OSError:
             findings.append(f"external_pin_cache_unreadable:{source_id}")
             continue
+        if len(content) > MAX_EXTERNAL_SOURCE_BYTES:
+            findings.append(f"external_pin_cache_too_large:{source_id}")
+            continue
         actual_digest = hashlib.sha256(content).hexdigest()
-        actual_blob = hashlib.sha1(
-            f"blob {len(content)}\0".encode("ascii") + content, usedforsecurity=False
-        ).hexdigest()
+        actual_blob = git_blob_id(content)
         if actual_digest != digest:
             findings.append(f"external_pin_content_digest_mismatch:{source_id}")
-        if actual_blob != blob:
+        if actual_blob is None:
+            findings.append(f"external_pin_blob_computation_failed:{source_id}")
+        elif actual_blob != blob:
             findings.append(f"external_pin_blob_mismatch:{source_id}")
+        if verify_remote and repository_valid and source_path_valid and isinstance(commit, str):
+            raw_url = (
+                f"https://raw.githubusercontent.com/{repository}/{commit}/"
+                f"{quote(source_path, safe='/')}"
+            )
+            remote_content = fetch_remote_source(raw_url)
+            if remote_content is None:
+                findings.append(f"external_pin_remote_fetch_failed:{source_id}")
+            else:
+                if remote_content != content:
+                    findings.append(f"external_pin_remote_cache_mismatch:{source_id}")
+                if hashlib.sha256(remote_content).hexdigest() != digest:
+                    findings.append(f"external_pin_remote_digest_mismatch:{source_id}")
+                remote_blob = git_blob_id(remote_content)
+                if remote_blob is None:
+                    findings.append(f"external_pin_remote_blob_computation_failed:{source_id}")
+                elif remote_blob != blob:
+                    findings.append(f"external_pin_remote_blob_mismatch:{source_id}")
     return len(pins)
 
 
@@ -526,14 +782,20 @@ def main() -> int:
         snapshot = actual_head or "HEAD"
 
     comment_paths = parse_comment_arguments(args.comment_json, findings)
-    comment_bodies = validate_comments(manifest, comment_paths, findings)
+    comment_bodies = validate_comments(manifest, comment_paths, insights, findings)
     item_count = validate_reviews_and_items(
         manifest, insights, knowledge_root, snapshot, comment_bodies, findings
     )
-    candidate_count = validate_candidates(manifest, insights, knowledge_root, findings)
-    validate_derived_records(manifest, insights, knowledge_root, findings)
+    candidate_count = validate_candidates(
+        manifest, insights, knowledge_root, snapshot, findings
+    )
+    validate_derived_records(manifest, insights, knowledge_root, snapshot, findings)
     external_count = validate_external_pins(
-        manifest, insights, args.external_cache_dir, findings
+        manifest,
+        insights,
+        args.external_cache_dir,
+        args.verify_external_remote,
+        findings,
     )
 
     unique_findings = list(dict.fromkeys(findings))

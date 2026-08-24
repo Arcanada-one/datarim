@@ -4,7 +4,7 @@ artifact: insights
 schema_version: 1
 research_mode: full
 created_at: 2026-08-24T12:24:36Z
-updated_at: 2026-08-24T17:55:23Z
+updated_at: 2026-08-24T18:20:15Z
 status: complete
 scope: frontend-design-knowledge-contract
 language: en
@@ -91,7 +91,10 @@ pinned in `TALO-0001-research-authority-audit.json` by repository, immutable
 GitHub URL for each pin contains that commit. The audit validator recomputes
 both the blob identity and content digest from the captured source bytes;
 `main`, `master`, `develop`, `current`, and a navigation URL alone are never
-accepted as immutable identity.
+accepted as immutable identity. A complete acceptance replay also supplies
+`--verify-external-remote`: the validator derives the immutable raw URL from
+repository, commit, and path, downloads bounded bytes, and requires the remote
+bytes, captured cache, Git blob, and content digest to agree.
 
 ## Reuse-first inventory at exact remote heads
 
@@ -251,6 +254,10 @@ jointly verify the 66-row source-to-heading bijection, exact mapping and
 applicability table digest, source paths and Git blobs, derived identities,
 candidate path/revision/digest and latest `approve` event, declared-English
 item surface, canonical comment bodies, and immutable external-source pins.
+All Talomnia evidence bytes are read from the pinned snapshot through Git
+object plumbing with replacement objects disabled; dirty index or worktree
+bytes cannot change the verdict. Contract K/R/I identities are asserted at
+typed JSON pointers, rather than by unordered substring presence.
 The companion Bats suite independently mutates omission, duplication, heading,
 mapping, source path/blob, candidate identity/digest/authority, language,
 comment newline representation, and external commit/blob/content boundaries.
