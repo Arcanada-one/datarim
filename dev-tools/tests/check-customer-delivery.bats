@@ -391,10 +391,17 @@ from datetime import datetime
 '''
 finalizer = '''    if _active_process is not None:
         terminate_registered_process(_active_process)
+    if _active_process is not None:
+        # Never publish an acceptance-shaped response while the registered
+        # process-group owner remains unresolved. The outer bounded shell
+        # reports an invalid response after this hard abort.
+        os._exit(2)  # SECURITY_RULE:terminal_cleanup_before_output
     encoded = terminal_response_bytes(result)
 '''
 instrumented = f'''    if _active_process is not None:
         terminate_registered_process(_active_process)
+    if _active_process is not None:
+        os._exit(2)
     time.sleep(0)  # TEST_DEADLINE_STALL_MUTATION
     with open({marker!r}, "w", encoding="ascii") as handle:
         handle.write(str(time.monotonic() - _TEST_DEADLINE_STARTED))
@@ -653,6 +660,7 @@ assert_spawn_failure_consumer() {
     local callsite="$1"
     local bad_executable="${BATS_TEST_TMPDIR}/spawn-failure-${callsite}"
     local elapsed_marker="${BATS_TEST_TMPDIR}/spawn-failure-${callsite}.elapsed"
+    local spawn_marker="${BATS_TEST_TMPDIR}/spawn-failure-${callsite}.reached"
     local elapsed
     printf '%s\n' '#!/definitely/missing/customer-delivery-interpreter' > "$bad_executable"
     chmod +x "$bad_executable"
@@ -689,9 +697,31 @@ PY
             rebind_test_openssl "$bad_executable" || return 1
             ;;
         source_history)
-            replace_test_script_literal \
-                'PINNED_GIT = "/usr/bin/git"' \
-                "PINNED_GIT = \"${bad_executable}\"" || return 1
+            "$PYTHON" - "$TEST_SCRIPT" "$spawn_marker" <<'PY' || return 1
+import sys
+
+path, spawn_marker = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+run_git_start = source.index("    def run_git(arguments, *, input_bytes=None,")
+run_git_end = source.index("\n    def trusted_system_path(", run_git_start)
+run_git = source[run_git_start:run_git_end]
+trusted_arguments = "                    [*git_prefix, *arguments],\n"
+failed_arguments = "                    ['/definitely/missing/customer-delivery-git'],\n"
+status_guard = '''        if frame == b"V1 E spawn\\n":
+            raise subprocess.SubprocessError("validation_process_spawn_failed")
+'''
+status_marker = f'''        if frame == b"V1 E spawn\\n":
+            with open({spawn_marker!r}, "w", encoding="ascii") as handle:
+                handle.write("source_history")
+            raise subprocess.SubprocessError("validation_process_spawn_failed")
+'''
+if run_git.count(trusted_arguments) != 1 or source.count(status_guard) != 1:
+    raise SystemExit("SOURCE_HISTORY_SPAWN_FAILURE_SEAM_MISSING_OR_AMBIGUOUS")
+run_git = run_git.replace(trusted_arguments, failed_arguments, 1)
+source = source[:run_git_start] + run_git + source[run_git_end:]
+source = source.replace(status_guard, status_marker, 1)
+open(path, "w", encoding="utf-8").write(source)
+PY
             replace_test_script_literal \
                 'SOURCE_HISTORY_TOTAL_TIMEOUT_SECONDS = 10' \
                 'SOURCE_HISTORY_TOTAL_TIMEOUT_SECONDS = 1' || return 1
@@ -699,6 +729,13 @@ PY
         *) return 1 ;;
     esac
     run_test_framework_json
+    if [[ "$callsite" == source_history ]]; then
+        [ "$(<"$spawn_marker")" = source_history ] || {
+            printf 'spawn_failure_not_reached=%s status=%s output=%s\n' \
+                "$callsite" "$status" "$output"
+            return 1
+        }
+    fi
     [ -s "$elapsed_marker" ] || {
         printf 'spawn_failure_elapsed_missing=%s status=%s output=%s\n' \
             "$callsite" "$status" "$output"
@@ -711,6 +748,84 @@ PY
         && "$PYTHON" -c 'import sys; value=float(sys.argv[1]); assert 0 < value < 4' "$elapsed" \
         || { printf 'spawn_failure_consumer=%s status=%s elapsed=%s output=%s\n' \
             "$callsite" "$status" "$elapsed" "$output"; return 1; }
+}
+
+assert_cleanup_wait_resolution() {
+    local mode="$1"
+    local marker="${BATS_TEST_TMPDIR}/cleanup-wait-${mode}.marker"
+    local expected_attempts
+    case "$mode" in
+        retry) expected_attempts=2 ;;
+        exhausted) expected_attempts=3 ;;
+        *) return 1 ;;
+    esac
+    build_test_framework "cleanup-wait-${mode}" || return 1
+    "$PYTHON" - "$TEST_SCRIPT" "$marker" "$mode" <<'PY' || return 1
+import sys
+
+path, marker, mode = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+anchor = "def validator_excepthook(error_type, error, traceback):\n"
+if mode == "retry":
+    wait_body = '''        self.attempts += 1
+        if self.attempts == 1:
+            raise subprocess.TimeoutExpired("supervisor", timeout)
+        self.returncode = -9
+        return self.returncode
+'''
+    action = f'''result = terminate_registered_process(_active_process)
+with open({marker!r}, "w", encoding="ascii") as handle:
+    handle.write(f"{{supervisor.attempts}}:{{int(_active_process is None)}}:{{result}}")
+os._exit(0)
+'''
+elif mode == "exhausted":
+    wait_body = f'''        self.attempts += 1
+        with open({marker!r}, "w", encoding="ascii") as handle:
+            handle.write(str(self.attempts))
+        raise subprocess.TimeoutExpired("supervisor", timeout)
+'''
+    action = '''finalize_terminal(ValidationTerminal(
+    "ERROR", 2, "NOT_MET", ("cleanup_wait_fixture",)
+))
+'''
+else:
+    raise SystemExit("CLEANUP_WAIT_MODE_INVALID")
+injection = f'''class CleanupWaitSupervisor:
+    def __init__(self):
+        self.pid = 424242
+        self.stdin = None
+        self.stdout = None
+        self.stderr = None
+        self.returncode = None
+        self.attempts = 0
+
+    def wait(self, timeout=None):
+{wait_body}
+
+os.killpg = lambda _pid, _signal: None
+supervisor = CleanupWaitSupervisor()
+_active_process = RegisteredProcess(supervisor, -1)
+{action}
+'''
+if source.count(anchor) != 1:
+    raise SystemExit("CLEANUP_WAIT_TEST_SEAM_MISSING_OR_AMBIGUOUS")
+open(path, "w", encoding="utf-8").write(source.replace(anchor, injection + anchor, 1))
+PY
+    run_test_framework_json
+    if [[ "$mode" == retry ]]; then
+        [ "$(<"$marker")" = "${expected_attempts}:1:-9" ] || {
+            printf 'cleanup_wait_retry_failed=marker=%s status=%s output=%s\n' \
+                "$(<"$marker")" "$status" "$output"
+            return 1
+        }
+    else
+        [ "$(<"$marker")" = "$expected_attempts" ] \
+            && [ "$status" -eq 2 ] \
+            && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["invalid_validator_response"]' "$output" \
+            && [[ "$output" != *cleanup_wait_fixture* ]] \
+            || { printf 'cleanup_wait_exhaustion_failed=marker=%s status=%s output=%s\n' \
+                "$(<"$marker")" "$status" "$output"; return 1; }
+    fi
 }
 
 assert_process_lifecycle_probe() {
@@ -753,6 +868,8 @@ namespace = {
     "signal": signal,
     "subprocess": subprocess,
     "time": time,
+    "PROCESS_CLEANUP_WAIT_ATTEMPTS": 3,
+    "PROCESS_CLEANUP_WAIT_SECONDS": 0.4,
     "_active_process": None,
 }
 exec(compile(ast.Module(body=selected, type_ignores=[]), script_path, "exec"), namespace)
@@ -3511,6 +3628,7 @@ PY
     local completed_parent_only="${CUSTOMER_DELIVERY_COMPLETED_PARENT_ONLY:-}"
     local lifecycle_only="${CUSTOMER_DELIVERY_LIFECYCLE_ONLY:-}"
     local spawn_failure_only="${CUSTOMER_DELIVERY_SPAWN_FAILURE_ONLY:-}"
+    local cleanup_wait_only="${CUSTOMER_DELIVERY_CLEANUP_WAIT_ONLY:-}"
     local elapsed_marker="${BATS_TEST_TMPDIR}/stubborn-crypto.elapsed"
     rm -f -- "$pid_file" || return 1
     assert_bounded_validator_diagnostic_grammar || return 1
@@ -3521,6 +3639,10 @@ PY
                 ;;
             *) return 1 ;;
         esac
+        return 0
+    fi
+    if [[ -n "$cleanup_wait_only" ]]; then
+        assert_cleanup_wait_resolution "$cleanup_wait_only" || return 1
         return 0
     fi
     if [[ -n "$lifecycle_only" ]]; then
@@ -3615,6 +3737,8 @@ PY
     for callsite in silent bounded source_history; do
         assert_spawn_failure_consumer "$callsite" || return 1
     done
+    assert_cleanup_wait_resolution retry || return 1
+    assert_cleanup_wait_resolution exhausted || return 1
 }
 
 @test "non-Python executable cannot satisfy the interpreter pin" {

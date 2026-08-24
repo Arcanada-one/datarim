@@ -770,6 +770,8 @@ SOURCE_HISTORY_MAX_COMMITS = 1024
 SOURCE_HISTORY_MAX_CONTROL_OUTPUT_BYTES = 262144
 SOURCE_HISTORY_MAX_STDERR_BYTES = 65536
 SOURCE_HISTORY_MAX_TOTAL_BLOB_BYTES = 16777216
+PROCESS_CLEANUP_WAIT_ATTEMPTS = 3
+PROCESS_CLEANUP_WAIT_SECONDS = 0.4
 PINNED_REGISTRY_OWNER_ID = "authority-operator-0001"
 PINNED_REGISTRY_ROOT_KEY_ID = "key-registry-root-0001"
 PINNED_REGISTRY_PUBLIC_KEY = "3hzCOohIkBiCEu9V2qNl8r0zc9iCZE/MbLFabv6/o18="
@@ -1058,10 +1060,14 @@ def terminate_process_group(process):
         os.killpg(process.pid, signal.SIGKILL)  # SECURITY_RULE:validation_process_group_reap
     except (ProcessLookupError, PermissionError):
         pass
-    try:
-        return process.supervisor.wait(timeout=0.4)
-    except (subprocess.TimeoutExpired, OSError):
-        return None
+    for _attempt in range(PROCESS_CLEANUP_WAIT_ATTEMPTS):
+        try:
+            return process.supervisor.wait(timeout=PROCESS_CLEANUP_WAIT_SECONDS)
+        except subprocess.TimeoutExpired:
+            continue
+        except OSError:
+            return None
+    return None
 
 
 def close_process_streams(process):
@@ -1300,6 +1306,11 @@ def finalize_terminal(result):
     block_and_disarm_validation_alarm()
     if _active_process is not None:
         terminate_registered_process(_active_process)
+    if _active_process is not None:
+        # Never publish an acceptance-shaped response while the registered
+        # process-group owner remains unresolved. The outer bounded shell
+        # reports an invalid response after this hard abort.
+        os._exit(2)  # SECURITY_RULE:terminal_cleanup_before_output
     encoded = terminal_response_bytes(result)
     try:
         sys.stdout.flush()

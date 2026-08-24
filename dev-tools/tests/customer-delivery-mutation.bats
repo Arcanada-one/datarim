@@ -1124,6 +1124,58 @@ PY
         "process_lifecycle_${mode}" "${filter}|${expected_fragment}"
 }
 
+run_cleanup_output_mutant() {
+    local filter='OpenSSL deadline terminates stubborn descendant pipe holders'
+    local functional_mutant validator_mutant guard mutant expected_lines cleanup_assertion_line
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        CUSTOMER_DELIVERY_CLEANUP_WAIT_ONLY=exhausted \
+        bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+    assert_baseline_green "$filter" || return 1
+
+    functional_mutant="${BATS_TEST_TMPDIR}/cleanup-output-mutant.bats"
+    validator_mutant="${BATS_TEST_TMPDIR}/check-customer-delivery-cleanup-output.sh"
+    cp "$FUNCTIONAL_TEST" "$functional_mutant" || return 1
+    cp "$SCRIPT" "$validator_mutant" || return 1
+    guard='''    if _active_process is not None:
+        # Never publish an acceptance-shaped response while the registered
+        # process-group owner remains unresolved. The outer bounded shell
+        # reports an invalid response after this hard abort.
+        os._exit(2)  # SECURITY_RULE:terminal_cleanup_before_output
+'''
+    mutant='''    if False:  # MUTATED:terminal_cleanup_before_output
+        os._exit(2)
+'''
+    "$PYTHON" - "$functional_mutant" "$validator_mutant" "$REPO_ROOT" "$guard" "$mutant" <<'PY' || return 1
+import sys
+
+test_path, validator_path, repo_root, guard, mutant = sys.argv[1:]
+test_source = open(test_path, encoding="utf-8").read()
+validator_source = open(validator_path, encoding="utf-8").read()
+root_old = '    REPO_ROOT="${BATS_TEST_DIRNAME}/../.."\n'
+root_new = f"    REPO_ROOT={repo_root!r}\n"
+if test_source.count(root_old) != 1 or validator_source.count(guard) != 1:
+    raise SystemExit("CLEANUP_OUTPUT_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+open(test_path, "w", encoding="utf-8").write(test_source.replace(root_old, root_new, 1))
+open(validator_path, "w", encoding="utf-8").write(validator_source.replace(guard, mutant, 1))
+PY
+    chmod +x "$validator_mutant"
+    expected_lines="$(expected_red_lines "$filter")" || return 1
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$validator_mutant" \
+        CUSTOMER_DELIVERY_CLEANUP_WAIT_ONLY=exhausted \
+        bats --filter "^${filter}$" "$functional_mutant"
+    [[ "$output" == *"cleanup_wait_exhaustion_failed="* ]] \
+        && [[ "$output" == *"cleanup_wait_fixture"* ]] \
+        || return 1
+    cleanup_assertion_line="$(awk '/assert_cleanup_wait_resolution .*cleanup_wait_only/ { print NR }' "$functional_mutant")"
+    [[ "$cleanup_assertion_line" =~ ^[1-9][0-9]*$ ]] || return 1
+    expected_lines="${expected_lines},${cleanup_assertion_line}"
+    assert_attributed_mutant_kill terminal_cleanup_before_output "$filter" \
+        "$expected_lines" "$status" "$output"
+}
+
 run_completed_descendant_callsite_mutant() {
     local callsite="$1"
     local filter='OpenSSL deadline terminates stubborn descendant pipe holders'
@@ -1588,8 +1640,9 @@ PY
         || { printf 'alarm_pid_width_mutant_status=%s output=%s\n' "$status" "$output"; return 1; }
 }
 
-@test "cleanup SIGALRM mask mutant is killed before registry release" {
+@test "cleanup signal-mask and output-before-reap mutants are independently killed" {
     run_process_lifecycle_mutant cleanup-alarm
+    run_cleanup_output_mutant
 }
 
 @test "reaped supervisor PID ownership mutant cannot signal a reused group" {
