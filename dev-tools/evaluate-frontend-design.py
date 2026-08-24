@@ -1026,7 +1026,11 @@ def load_yaml(path: Path) -> dict[str, Any]:
                     )
             elif isinstance(event, yaml.events.CollectionEndEvent):
                 depth -= 1
-        value = yaml.load(text, Loader=StrictSafeLoader)
+        loader = StrictSafeLoader(text)
+        try:
+            value = loader.get_single_data()
+        finally:
+            loader.dispose()
     except RecursionError as exc:
         raise ValueError(f"{path}: YAML recursion limit exceeded") from exc
     except MemoryError as exc:

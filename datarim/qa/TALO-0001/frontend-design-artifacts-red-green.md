@@ -208,6 +208,11 @@ The strict safe loader now rejects duplicate or non-string mapping keys,
 invalid UTF-8, files over 1 MiB, nesting over 64 collections, more than 20,000
 nodes, and all YAML aliases before object construction. Parser, Unicode,
 recursion, memory, and I/O failures return bounded JSON without a traceback.
+The exact-CI B506 follow-up removes the generic `yaml.load` call and uses an
+explicit `StrictSafeLoader.get_single_data()` lifecycle with unconditional
+`dispose()`. M37 supplies a Python object tag and proves that its sentinel is
+never created. Bandit is not installed on the local host, so its result is
+left to exact-head CI rather than claimed locally.
 The role schema rejects duplicate objects, while the registry checker rejects
 duplicate `role.id` values even when their agent projections differ.
 
@@ -215,8 +220,8 @@ Fresh local evidence:
 
 ```text
 bats tests/frontend-design-artifacts.bats tests/frontend-design-artifact-mutations.bats tests/test-role-registry.bats
-1..76
-76 passed, 0 failed
+1..77
+77 passed, 0 failed
 
 bats tests/tune-0520-agent-enforcement.bats tests/check-agent-frontmatter.bats tests/check-skill-frontmatter.bats tests/check-skill-layout.bats tests/check-skill-sibling-refs.bats tests/check-component-counts.bats
 1..72
