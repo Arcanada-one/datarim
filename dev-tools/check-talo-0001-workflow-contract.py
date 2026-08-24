@@ -19,6 +19,7 @@ PREFLIGHT = ROOT / "dev-tools/preflight-talo-0001-workflow-run.sh"
 PUBLISHER = ROOT / "dev-tools/publish-talo-0001-check.sh"
 EVALUATOR = ROOT / "dev-tools/check-talo-0001-trusted-authority.py"
 RUNNER_UNIT = ROOT / "dev-tools/systemd/talo-0001-trusted-runner.service"
+PROVISIONER = ROOT / "dev-tools/provision-talo-0001-trusted-runner.sh"
 ACTIONLINT = ROOT / ".github/actionlint.yaml"
 
 CHECKOUT = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
@@ -28,8 +29,9 @@ EXPECTED_DIGESTS = {
     "publisher": "adc8edc95e02c983bfd0a690dc018c0cec986115cf614444879928936f3b578e",
     "evaluator": "a0e86fc87493231afffd3164587f0c14e463f5e8c4acd8f4f9679e2504280d1a",
     "runner-unit": "929c8f138a839383bd754600fa65c72996b04703ba8050d1714c3ea51a50c67a",
+    "provisioner": "19fa54631037ef4843d006bc4f83b7f4de59b4d466a942f71cb8a19a66a87916",
 }
-EXPECTED_PATHS = {
+EXPECTED_PATHS = [
     "commands/**",
     "skills/**",
     "agents/**",
@@ -42,7 +44,7 @@ EXPECTED_PATHS = {
     ".github/workflows/dev-tools-lint.yml",
     ".github/workflows/talo-0001-trusted-replay.yml",
     ".github/actionlint.yaml",
-}
+]
 EXPECTED_JOB_IF = (
     "github.event.workflow_run.workflow_id == 270931528 && "
     "github.event.workflow_run.name == 'dev-tools-lint' && "
@@ -127,15 +129,31 @@ def validate_projection(workflow: dict[str, Any], findings: list[str]) -> None:
         "projection-trigger",
         findings,
     )
+    pull_request = trigger.get("pull_request") if isinstance(trigger, dict) else None
+    exact(
+        set(pull_request) if isinstance(pull_request, dict) else None,
+        {"paths"},
+        "projection-pull-request",
+        findings,
+    )
     paths = (
-        trigger.get("pull_request", {}).get("paths")
-        if isinstance(trigger, dict)
+        pull_request.get("paths")
+        if isinstance(pull_request, dict)
         else None
     )
     exact(
-        set(paths) if isinstance(paths, list) else None,
+        paths,
         EXPECTED_PATHS,
         "projection-paths",
+        findings,
+    )
+    exact(
+        workflow.get("concurrency"),
+        {
+            "group": "dev-tools-lint-${{ github.ref }}",
+            "cancel-in-progress": True,
+        },
+        "projection-concurrency",
         findings,
     )
     jobs = workflow.get("jobs")
@@ -238,6 +256,7 @@ def validate_code(findings: list[str]) -> None:
         "publisher": PUBLISHER,
         "evaluator": EVALUATOR,
         "runner-unit": RUNNER_UNIT,
+        "provisioner": PROVISIONER,
     }
     texts: dict[str, str] = {}
     for label, path in files.items():
@@ -251,6 +270,7 @@ def validate_code(findings: list[str]) -> None:
             findings.append(f"digest_mismatch:{label}")
     controller = texts.get("controller", "")
     runner_unit = texts.get("runner-unit", "")
+    provisioner = texts.get("provisioner", "")
     if (
         "python3 /trusted/dev-tools/check-talo-0001-trusted-authority.py"
         not in controller
@@ -302,6 +322,42 @@ def validate_code(findings: list[str]) -> None:
     ):
         if value not in runner_unit:
             findings.append(f"missing:runner-unit:{value}")
+    for value in (
+        "GROUP_NAME=talo-0001-trusted",
+        "REPOSITORY_ID=1207050134",
+        "WORKFLOW_PATH=.github/workflows/talo-0001-trusted-replay.yml",
+        'SELECTED_WORKFLOW="$REPOSITORY/$WORKFLOW_PATH@refs/heads/main"',
+        '.visibility == "selected"',
+        ".default == false",
+        ".allows_public_repositories == true",
+        ".restricted_to_workflows == true",
+        ".selected_workflows == [$workflow]",
+        ".total_count == 1",
+        ".repositories[0].id == $repository_id",
+        '--runnergroup "$GROUP_NAME"',
+    ):
+        if value not in provisioner:
+            findings.append(f"missing:runner-group-contract:{value}")
+    try:
+        registration = provisioner.split("register_and_start() {", 1)[1].split(
+            "\n}", 1
+        )[0]
+    except IndexError:
+        registration = ""
+        findings.append("missing:registration-function")
+    ordered_registration = (
+        'systemctl stop "$UNIT_NAME"',
+        'id=$(ensure_group)',
+        'verify_group "$id"',
+        'registration-token" --jq .token',
+        '--runnergroup "$GROUP_NAME"',
+        'verify_runner_membership "$id"',
+        'install -o root -g root -m 0644',
+        'systemctl enable --now "$UNIT_NAME"',
+    )
+    positions = [registration.find(value) for value in ordered_registration]
+    if any(position < 0 for position in positions) or positions != sorted(positions):
+        findings.append("mismatch:registration-safety-order")
 
 
 def main() -> int:

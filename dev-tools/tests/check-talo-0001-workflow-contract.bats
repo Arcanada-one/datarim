@@ -10,6 +10,7 @@ setup() {
     cp "$ROOT/dev-tools/preflight-talo-0001-workflow-run.sh" "$FIXTURE/dev-tools/"
     cp "$ROOT/dev-tools/publish-talo-0001-check.sh" "$FIXTURE/dev-tools/"
     cp "$ROOT/dev-tools/check-talo-0001-trusted-authority.py" "$FIXTURE/dev-tools/"
+    cp "$ROOT/dev-tools/provision-talo-0001-trusted-runner.sh" "$FIXTURE/dev-tools/"
     cp "$ROOT/dev-tools/systemd/talo-0001-trusted-runner.service" \
         "$FIXTURE/dev-tools/systemd/"
     cp "$ROOT/.github/workflows/dev-tools-lint.yml" \
@@ -155,6 +156,31 @@ workflow_dispatch
 TRIGGERS
 }
 
+@test "pull-request event mapping cannot exclude synchronize exact-head updates" {
+    local workflow="$FIXTURE/.github/workflows/dev-tools-lint.yml"
+    sed -i '/  pull_request:/a\    types: [opened]' "$workflow"
+    run_check
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'mismatch:projection-pull-request'* ]]
+}
+
+@test "projection paths are exact ordered and unique" {
+    local workflow="$FIXTURE/.github/workflows/dev-tools-lint.yml"
+    sed -i "/      - '.github\/actionlint.yaml'/a\      - '.github/actionlint.yaml'" \
+        "$workflow"
+    run_check
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'mismatch:projection-paths'* ]]
+}
+
+@test "projection concurrency always cancels stale heads" {
+    local workflow="$FIXTURE/.github/workflows/dev-tools-lint.yml"
+    sed -i 's/cancel-in-progress: true/cancel-in-progress: false/' "$workflow"
+    run_check
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'mismatch:projection-concurrency'* ]]
+}
+
 @test "all TALO trust files are load-bearing projection paths" {
     local workflow="$FIXTURE/.github/workflows/dev-tools-lint.yml"
     local original="$BATS_TEST_TMPDIR/dev-tools-lint.original"
@@ -246,6 +272,26 @@ PATHS
     run_check
     [ "$status" -eq 1 ] \
         && [[ "$output" == *'digest_mismatch:runner-unit'* ]]
+}
+
+@test "runner group scope and registration-before-service order are load-bearing" {
+    local provisioner="$FIXTURE/dev-tools/provision-talo-0001-trusted-runner.sh"
+    local original="$BATS_TEST_TMPDIR/provisioner.original"
+    cp "$provisioner" "$original"
+    while IFS='|' read -r old new expected; do
+        cp "$original" "$provisioner"
+        sed -i "s#$old#$new#" "$provisioner"
+        run_check
+        [ "$status" -eq 1 ] && [[ "$output" == *"$expected"* ]]
+    done <<'MUTANTS'
+GROUP_NAME=talo-0001-trusted|GROUP_NAME=Default|missing:runner-group-contract
+REPOSITORY_ID=1207050134|REPOSITORY_ID=999|missing:runner-group-contract
+WORKFLOW_PATH=.github/workflows/talo-0001-trusted-replay.yml|WORKFLOW_PATH=.github/workflows/other.yml|missing:runner-group-contract
+.restricted_to_workflows == true|.restricted_to_workflows == false|missing:runner-group-contract
+systemctl stop "$UNIT_NAME"|true|mismatch:registration-safety-order
+id=$(ensure_group)|id=1|mismatch:registration-safety-order
+verify_runner_membership "$id"|true|mismatch:registration-safety-order
+MUTANTS
 }
 
 @test "preflight accepts only the exact upstream workflow and PR tuple" {
