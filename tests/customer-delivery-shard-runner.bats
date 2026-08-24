@@ -31,55 +31,13 @@ PY
 
 write_runtime_budget_fixture() {
     local oversized_suite="$1" fixture="$2"
-    {
-        printf '%s\n' '# suite shard total mode first last platforms'
-        if [ "$oversized_suite" = functional ]; then
-            printf '%s\n' \
-                'functional 1 23 ordinal 1 11 linux,macos' \
-                'functional 2 23 ordinal 12 20 linux,macos'
-        else
-            printf '%s\n' \
-                'functional 1 23 ordinal 1 10 linux,macos' \
-                'functional 2 23 ordinal 11 20 linux,macos'
-        fi
-        printf '%s\n' \
-            'functional 3 23 ordinal 21 30 linux,macos' \
-            'functional 4 23 ordinal 31 40 linux,macos' \
-            'functional 5 23 ordinal 41 50 linux,macos' \
-            'functional 6 23 ordinal 51 60 linux,macos' \
-            'functional 7 23 ordinal 61 70 linux,macos' \
-            'functional 8 23 ordinal 71 80 linux,macos' \
-            'functional 9 23 ordinal 81 90 linux,macos' \
-            'functional 10 23 ordinal 91 100 linux,macos' \
-            'functional 11 23 ordinal 101 110 linux,macos' \
-            'functional 12 23 ordinal 111 120 linux,macos' \
-            'functional 13 23 ordinal 121 130 linux,macos' \
-            'functional 14 23 ordinal 131 140 linux,macos' \
-            'functional 15 23 ordinal 141 150 linux,macos' \
-            'functional 16 23 ordinal 151 160 linux,macos' \
-            'functional 17 23 ordinal 161 162 linux,macos' \
-            'functional 18 23 ordinal 163 - linux,macos' \
-            'functional 19 23 ordinal 164 165 linux,macos' \
-            'functional 20 23 ordinal 166 - linux,macos' \
-            'functional 21 23 ordinal 167 - linux,macos' \
-            'functional 22 23 ordinal 168 170 linux,macos' \
-            'functional 23 23 ordinal 171 177 linux,macos'
-        if [ "$oversized_suite" = schema ]; then
-            printf '%s\n' \
-                'schema 1 6 ordinal 1 31 linux,macos' \
-                'schema 2 6 ordinal 32 58 linux,macos'
-        else
-            printf '%s\n' \
-                'schema 1 6 ordinal 1 30 linux,macos' \
-                'schema 2 6 ordinal 31 58 linux,macos'
-        fi
-        printf '%s\n' \
-            'schema 3 6 ordinal 59 87 linux,macos' \
-            'schema 4 6 ordinal 88 116 linux,macos' \
-            'schema 5 6 ordinal 117 145 linux,macos' \
-            'schema 6 6 ordinal 146 173 linux,macos'
-        awk '/^mutation[[:space:]]/ { print }' "$REGISTRY"
-    } >"$fixture"
+    awk -v target="$oversized_suite" '
+        target == "functional" && $1 == "functional" && $2 == 1 { $6=11 }
+        target == "functional" && $1 == "functional" && $2 == 2 { $5=12 }
+        target == "schema" && $1 == "schema" && $2 == 1 { $6=31 }
+        target == "schema" && $1 == "schema" && $2 == 2 { $5=32 }
+        { print }
+    ' "$REGISTRY" >"$fixture"
 }
 
 write_grouped_hot_fixture() {
@@ -91,15 +49,21 @@ import sys
 registry = Path(sys.argv[1])
 hot = int(sys.argv[2])
 fixture = Path(sys.argv[3])
-groups = [list(range(start, start + 10)) for start in range(1, 161, 10)]
-if hot == 163:
-    groups += [[161, 162, 163], [164, 165], [166], [167], [168, 169, 170], list(range(171, 178))]
-elif hot == 166:
-    groups += [[161, 162], [163], [164, 165, 166], [167], [168, 169, 170], list(range(171, 178))]
-elif hot == 167:
-    groups += [[161, 162], [163], [164, 165], [166], [167, 168, 169, 170], list(range(171, 178))]
-else:
+lines = registry.read_text(encoding="utf-8").splitlines()
+functional = [line.split() for line in lines if line.startswith("functional ")]
+groups = []
+for row in functional:
+    if row[5] == "-":
+        groups.append([int(value) for value in row[4].split(",")])
+    else:
+        groups.append(list(range(int(row[4]), int(row[5]) + 1)))
+target = next(index for index, indices in enumerate(groups) if hot in indices)
+neighbors = {163: target - 1, 166: target - 1, 167: target + 1}
+if hot not in neighbors:
     raise SystemExit(f"unsupported hot index: {hot}")
+neighbor = neighbors[hot]
+groups[min(target, neighbor)] = sorted(groups[target] + groups[neighbor])
+del groups[max(target, neighbor)]
 
 rows = ["# suite shard total mode first last platforms"]
 total = len(groups)
@@ -107,7 +71,7 @@ for shard, indices in enumerate(groups, 1):
     last = "-" if len(indices) == 1 else str(indices[-1])
     rows.append(f"functional {shard} {total} ordinal {indices[0]} {last} linux,macos")
 rows.extend(
-    line for line in registry.read_text(encoding="utf-8").splitlines()
+    line for line in lines
     if line.startswith("schema ") or line.startswith("mutation ")
 )
 fixture.write_text("\n".join(rows) + "\n", encoding="utf-8")
@@ -153,7 +117,7 @@ PY
 
 @test "customer-delivery shard registry rejects overlapping coverage" {
     local fixture="$BATS_TEST_TMPDIR/overlap.tsv"
-    awk '/^functional[[:space:]]/ && $2 == 23 { $5=$5-1 } { print }' \
+    awk '/^functional[[:space:]]/ && $2 == 32 { $5=$5-1 } { print }' \
         "$REGISTRY" >"$fixture"
     run "$PYTHON" "$RUNNER" --registry "$fixture" --check
     [ "$status" -eq 2 ] \
@@ -195,16 +159,107 @@ PY
     done
 }
 
+@test "macOS hot signed-review and mutation work is partitioned by exact identity" {
+    run "$PYTHON" - "$ROOT" "$REGISTRY" <<'PY'
+import importlib.util
+from dataclasses import replace
+from pathlib import Path
+import sys
+
+root = Path(sys.argv[1])
+registry = Path(sys.argv[2])
+spec = importlib.util.spec_from_file_location("customer_delivery_shards", root / "tests/run-customer-delivery-shard.py")
+module = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = module
+spec.loader.exec_module(module)
+rows = module.load_registry(registry)
+inventories, _ = module.validate_registry(rows)
+expected = {
+    "functional": {
+        "signed review inventory rejects a duplicate review identity",
+        "signed review inventory rejects an extra review pair",
+        "signed review inventory manifest signature is independently verified",
+        "every same-requirement review remains independently authenticated",
+        "two-requirement epic cannot close with its second originating review missing",
+        "two-requirement epic closes when its exact signed review inventory is APPROVED",
+        "two-requirement epic cannot close with its second originating review OPEN",
+        "two-requirement epic cannot close with its second originating review CHANGES_REQUESTED",
+        "every originating review inventory record is authenticated",
+        "originating review inventory rejects requirements outside the exact set",
+    },
+    "mutation": {
+        "Darwin executable pth authority mutant is independently killed",
+        "Darwin dependency-site symlink mutant is independently killed",
+        "Darwin dist-info type mutant is independently killed",
+        "Darwin dist-info nofollow mutant is independently killed",
+        "Darwin dist-info working-directory mutant is independently killed",
+        "review inventory exact-set mutant is independently killed",
+        "review inventory closure mutant is independently killed",
+        "review inventory authentication mutant is independently killed",
+    },
+}
+for suite, names in expected.items():
+    inventory = inventories[suite]
+    for name in names:
+        if name not in inventory:
+            raise SystemExit(f"missing runtime-isolated identity: {suite}: {name}")
+        ordinal = inventory.index(name) + 1
+        matching = [
+            row for row in rows
+            if row.suite == suite and "macos" in row.platforms
+            and name in module.selected_names(row, inventory)
+        ]
+        if len(matching) != 1 or module.selected_names(matching[0], inventory) != [name]:
+            raise SystemExit(f"grouped runtime-isolated identity: {suite}: {ordinal}: {name}")
+        suite_rows = sorted((row for row in rows if row.suite == suite), key=lambda row: row.shard)
+        target = suite_rows.index(matching[0])
+        neighbor = min(
+            (
+                index for index, row in enumerate(suite_rows)
+                if index != target
+                and "macos" in row.platforms
+                and names.isdisjoint(module.selected_names(row, inventory))
+            ),
+            key=lambda index: len(module.selected_names(suite_rows[index], inventory)),
+        )
+        neighbor_row = suite_rows[neighbor]
+        merged_indices = sorted(
+            inventory.index(item) + 1
+            for item in module.selected_names(matching[0], inventory)
+            + module.selected_names(neighbor_row, inventory)
+        )
+        merged = replace(
+            matching[0], first=",".join(str(item) for item in merged_indices), last="-"
+        )
+        kept = [row for index, row in enumerate(suite_rows) if index not in {target, neighbor}]
+        kept.insert(min(target, neighbor), merged)
+        mutant_suite = [
+            replace(row, shard=index, total=len(kept))
+            for index, row in enumerate(kept, 1)
+        ]
+        mutant_rows = [row for row in rows if row.suite != suite] + mutant_suite
+        try:
+            module.validate_registry(mutant_rows)
+        except module.ContractError as error:
+            if name not in str(error):
+                raise SystemExit(f"wrong isolation rejection: {suite}: {name}: {error}") from error
+        else:
+            raise SystemExit(f"grouped runtime isolation accepted: {suite}: {name}")
+PY
+    [ "$status" -eq 0 ] \
+        || { printf 'partition_guard_status=%s output=%s\n' "$status" "$output"; return 1; }
+}
+
 @test "customer-delivery shard runner rejects an out-of-range selection" {
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" \
-        --suite functional --shard 24/23 --python-bin /usr/bin/python3
+        --suite functional --shard 33/32 --python-bin /usr/bin/python3
     [ "$status" -eq 2 ] \
         && [[ "$output" == *"unknown shard"* ]]
 }
 
 @test "customer-delivery shard runner rejects a command ceiling of 110 seconds" {
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" \
-        --suite functional --shard 1/23 --python-bin /usr/bin/python3 \
+        --suite functional --shard 1/32 --python-bin /usr/bin/python3 \
         --timeout-seconds 110
     [ "$status" -eq 2 ] \
         && [[ "$output" == *"timeout-seconds must be between 1 and 109"* ]]
@@ -214,18 +269,18 @@ PY
     local observed="$BATS_TEST_TMPDIR/observed-python" result="$BATS_TEST_TMPDIR/result.json"
     make_bats_child "if [ \"\${1:-}\" = --count ]; then echo 10; exit 0; fi; printf '%s\\n' \"\$CUSTOMER_DELIVERY_PYTHON\" > '$observed'; echo '1..10'; for n in {1..10}; do echo \"ok \$n fixture\"; done"
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" \
-        --suite functional --shard 1/23 --bats-bin "$CHILD" \
+        --suite functional --shard 1/32 --bats-bin "$CHILD" \
         --platform linux --result-file "$result"
     [ "$status" -eq 0 ] \
         && [ "$(<"$observed")" = /usr/bin/python3 ] \
-        && "$PYTHON" -c 'import json,sys; assert json.load(open(sys.argv[1])) == {"suite":"functional","shard":"1/23"}' "$result"
+        && "$PYTHON" -c 'import json,sys; assert json.load(open(sys.argv[1])) == {"suite":"functional","shard":"1/32"}' "$result"
 }
 
 @test "customer-delivery shard runner separates validator and fixture interpreters" {
     local observed="$BATS_TEST_TMPDIR/observed-python"
     make_bats_child "if [ \"\${1:-}\" = --count ]; then echo 10; exit 0; fi; printf '%s|%s|%s\n' \"\$CUSTOMER_DELIVERY_PYTHON\" \"\$CUSTOMER_DELIVERY_TEST_PYTHON\" \"\$CUSTOMER_SCHEMA_PYTHON\" > '$observed'; echo '1..10'; for n in {1..10}; do echo \"ok \$n fixture\"; done"
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" \
-        --suite functional --shard 1/23 --bats-bin "$CHILD" \
+        --suite functional --shard 1/32 --bats-bin "$CHILD" \
         --python-bin /usr/bin/python3 --test-python-bin /bin/true
     [ "$status" -eq 0 ] \
         && [ "$(<"$observed")" = /usr/bin/python3\|/bin/true\|/bin/true ]
@@ -234,7 +289,7 @@ PY
 @test "customer-delivery shard runner propagates a nonzero child status" {
     make_bats_child 'if [ "${1:-}" = --count ]; then echo 10; exit 0; fi; exit 17'
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" \
-        --suite functional --shard 1/23 --bats-bin "$CHILD"
+        --suite functional --shard 1/32 --bats-bin "$CHILD"
     [ "$status" -eq 17 ]
 }
 
@@ -242,7 +297,7 @@ PY
     local pid_file="$BATS_TEST_TMPDIR/descendant.pid" descendant attempt
     make_bats_child "if [ \"\${1:-}\" = --count ]; then echo 10; exit 0; fi; (trap '' TERM; sleep 30) & printf '%s\\n' \"\$!\" > '$pid_file'; wait"
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" \
-        --suite functional --shard 1/23 --bats-bin "$CHILD" --timeout-seconds 1
+        --suite functional --shard 1/32 --bats-bin "$CHILD" --timeout-seconds 1
     [ "$status" -eq 124 ] || return 1
     descendant="$(<"$pid_file")"
     for attempt in {1..10}; do
@@ -256,7 +311,7 @@ PY
 @test "customer-delivery shard runner rejects empty successful Bats output" {
     make_bats_child 'if [ "${1:-}" = --count ]; then echo 10; exit 0; fi; exit 0'
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" \
-        --suite functional --shard 1/23 --bats-bin "$CHILD"
+        --suite functional --shard 1/32 --bats-bin "$CHILD"
     [ "$status" -eq 2 ] \
         && [[ "$output" == *"Bats execution inventory mismatch: expected 10, observed 0"* ]]
 }
@@ -264,7 +319,7 @@ PY
 @test "customer-delivery shard runner rejects a wrong Bats plan despite child success" {
     make_bats_child 'if [ "${1:-}" = --count ]; then echo 10; exit 0; fi; echo "1..1"; echo "ok 1 fixture"'
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" \
-        --suite functional --shard 1/23 --bats-bin "$CHILD"
+        --suite functional --shard 1/32 --bats-bin "$CHILD"
     [ "$status" -eq 2 ] \
         && [[ "$output" == *"Bats execution inventory mismatch: expected 10, observed 1"* ]]
 }
@@ -291,14 +346,14 @@ PY
 @test "customer-delivery registry generates the complete Linux and approved macOS matrices" {
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" --matrix linux
     [ "$status" -eq 0 ] \
-        && "$PYTHON" -c 'import json,sys; rows=json.loads(sys.argv[1]); assert len(rows)==49 and len({(r["suite"],r["shard"]) for r in rows})==49 and [r["shard"] for r in rows if r["suite"]=="functional"]==[f"{i}/23" for i in range(1,24)]' "$output" \
+        && "$PYTHON" -c 'import json,sys; rows=json.loads(sys.argv[1]); assert len(rows)==61 and len({(r["suite"],r["shard"]) for r in rows})==61 and [r["shard"] for r in rows if r["suite"]=="functional"]==[f"{i}/32" for i in range(1,33)]' "$output" \
         || return 1
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" --matrix macos
     [ "$status" -eq 0 ] \
-        && "$PYTHON" -c 'import json,sys; rows=json.loads(sys.argv[1]); assert len(rows)==39 and {r["suite"] for r in rows}=={"functional","schema","mutation"} and [r["shard"] for r in rows if r["suite"]=="functional"]==[f"{i}/23" for i in range(1,24)] and [r["shard"] for r in rows if r["suite"]=="schema"]==["1/6","2/6","3/6","4/6","5/6","6/6"] and [r["shard"] for r in rows if r["suite"]=="mutation"]==["14/23","15/23","16/23","17/23","18/23","19/23","20/23","21/23","22/23","23/23"]' "$output"
+        && "$PYTHON" -c 'import json,sys; rows=json.loads(sys.argv[1]); assert len(rows)==55 and {r["suite"] for r in rows}=={"functional","schema","mutation"} and [r["shard"] for r in rows if r["suite"]=="functional"]==[f"{i}/32" for i in range(1,33)] and [r["shard"] for r in rows if r["suite"]=="schema"]==["1/6","2/6","3/6","4/6","5/6","6/6"] and [r["shard"] for r in rows if r["suite"]=="mutation"]==[f"{i}/30" for i in range(14,31)]' "$output"
 }
 
-@test "cross-platform mutation cases are split into ten bounded exact shards" {
+@test "cross-platform mutation cases are split into seventeen bounded exact shards" {
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" --check
     [ "$status" -eq 0 ] || return 1
     "$PYTHON" - "$REGISTRY" <<'PY'
@@ -306,10 +361,12 @@ import sys
 rows = [line.split() for line in open(sys.argv[1], encoding="utf-8") if line.startswith("mutation ")]
 portable = [row for row in rows if "macos" in row[-1]]
 assert [(row[1], row[2], row[4]) for row in portable] == [
-    ("14", "23", "4"), ("15", "23", "8"), ("16", "23", "9"),
-    ("17", "23", "10"), ("18", "23", "11"), ("19", "23", "12"),
-    ("20", "23", "5"), ("21", "23", "6"), ("22", "23", "7,14"),
-    ("23", "23", "13")
+    ("14", "30", "4"), ("15", "30", "12"), ("16", "30", "13"),
+    ("17", "30", "14"), ("18", "30", "15"), ("19", "30", "19"),
+    ("20", "30", "5"), ("21", "30", "6"), ("22", "30", "7"),
+    ("23", "30", "8"), ("24", "30", "9"), ("25", "30", "10"),
+    ("26", "30", "11"), ("27", "30", "16"), ("28", "30", "17"),
+    ("29", "30", "18"), ("30", "30", "20")
 ]
 PY
 }
@@ -319,7 +376,7 @@ PY
     seed_results linux "$results" || return 1
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" --check-results linux "$results"
     [ "$status" -eq 0 ] \
-        && [[ "$output" == *"customer_delivery_results=valid platform=linux count=49"* ]]
+        && [[ "$output" == *"customer_delivery_results=valid platform=linux count=61"* ]]
 }
 
 @test "customer-delivery aggregate rejects a missing result" {

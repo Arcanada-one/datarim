@@ -681,12 +681,28 @@ PY
     done
 }
 
-@test "Darwin dependency-site path and dist-info descriptor mutants are independently killed" {
+@test "Darwin executable pth authority mutant is independently killed" {
     run_darwin_dependency_site_mutants \
-        'python_pth_authority|Darwin trusted site bootstrap rejects executable pth authority' \
-        'python_site_symlink|Darwin trusted site bootstrap rejects symlinked dependency content' \
-        'python_distinfo_type|Darwin trusted site bootstrap rejects regular-file dist-info forgery' \
-        'python_distinfo_nofollow|Darwin trusted site bootstrap rejects symlinked dist-info' \
+        'python_pth_authority|Darwin trusted site bootstrap rejects executable pth authority'
+}
+
+@test "Darwin dependency-site symlink mutant is independently killed" {
+    run_darwin_dependency_site_mutants \
+        'python_site_symlink|Darwin trusted site bootstrap rejects symlinked dependency content'
+}
+
+@test "Darwin dist-info type mutant is independently killed" {
+    run_darwin_dependency_site_mutants \
+        'python_distinfo_type|Darwin trusted site bootstrap rejects regular-file dist-info forgery'
+}
+
+@test "Darwin dist-info nofollow mutant is independently killed" {
+    run_darwin_dependency_site_mutants \
+        'python_distinfo_nofollow|Darwin trusted site bootstrap rejects symlinked dist-info'
+}
+
+@test "Darwin dist-info working-directory mutant is independently killed" {
+    run_darwin_dependency_site_mutants \
         'python_distinfo_fchdir|complete canonical delivery chain is MET'
 }
 
@@ -1051,10 +1067,18 @@ PY
     done
 }
 
-@test "review inventory set closure and authentication mutants are independently killed" {
+@test "review inventory exact-set mutant is independently killed" {
     run_review_inventory_mutants \
-        'set_exact|two-requirement epic cannot close with its second originating review missing' \
-        'closure|two-requirement epic cannot close with its second originating review OPEN' \
+        'set_exact|two-requirement epic cannot close with its second originating review missing'
+}
+
+@test "review inventory closure mutant is independently killed" {
+    run_review_inventory_mutants \
+        'closure|two-requirement epic cannot close with its second originating review OPEN'
+}
+
+@test "review inventory authentication mutant is independently killed" {
+    run_review_inventory_mutants \
         'authentication|every originating review inventory record is authenticated'
 }
 

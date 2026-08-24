@@ -31,11 +31,33 @@ TAP_PLAN_PATTERN = re.compile(r"^1\.\.([0-9]+)\s*$", re.MULTILINE)
 # macOS child ceiling. These limits preserve margin while exact coverage
 # prevents omissions.
 MACOS_ORDINAL_TEST_LIMITS = {"functional": 10, "schema": 30}
-MACOS_RUNTIME_ISOLATED_TESTS = (
-    "source history subprocesses share one total deadline",
-    "source history deadline kills stubborn descendant pipe holders",
-    "global validation alarm reaps late source history child process group",
-)
+MACOS_RUNTIME_ISOLATED_TESTS = {
+    "functional": (
+        "signed review inventory rejects a duplicate review identity",
+        "signed review inventory rejects an extra review pair",
+        "signed review inventory manifest signature is independently verified",
+        "every same-requirement review remains independently authenticated",
+        "two-requirement epic cannot close with its second originating review missing",
+        "two-requirement epic closes when its exact signed review inventory is APPROVED",
+        "two-requirement epic cannot close with its second originating review OPEN",
+        "two-requirement epic cannot close with its second originating review CHANGES_REQUESTED",
+        "every originating review inventory record is authenticated",
+        "originating review inventory rejects requirements outside the exact set",
+        "source history subprocesses share one total deadline",
+        "source history deadline kills stubborn descendant pipe holders",
+        "global validation alarm reaps late source history child process group",
+    ),
+    "mutation": (
+        "Darwin executable pth authority mutant is independently killed",
+        "Darwin dependency-site symlink mutant is independently killed",
+        "Darwin dist-info type mutant is independently killed",
+        "Darwin dist-info nofollow mutant is independently killed",
+        "Darwin dist-info working-directory mutant is independently killed",
+        "review inventory exact-set mutant is independently killed",
+        "review inventory closure mutant is independently killed",
+        "review inventory authentication mutant is independently killed",
+    ),
+}
 
 
 class ContractError(ValueError):
@@ -137,11 +159,13 @@ def increment(coverage: list[int], index: int, label: str) -> None:
 def validate_registry(rows: list[Row]) -> tuple[dict[str, list[str]], list[str]]:
     inventories = {suite: extract_tests(path) for suite, path in SUITE_PATHS.items()}
     security_arms = extract_security_arms(SUITE_PATHS["mutation"])
-    isolated_indices: dict[int, str] = {}
-    for name in MACOS_RUNTIME_ISOLATED_TESTS:
-        if name not in inventories["functional"]:
-            raise ContractError(f"macOS runtime-isolated test is missing: {name}")
-        isolated_indices[inventories["functional"].index(name) + 1] = name
+    isolated_indices: dict[str, dict[int, str]] = {}
+    for suite, names in MACOS_RUNTIME_ISOLATED_TESTS.items():
+        isolated_indices[suite] = {}
+        for name in names:
+            if name not in inventories[suite]:
+                raise ContractError(f"macOS runtime-isolated test is missing: {suite}: {name}")
+            isolated_indices[suite][inventories[suite].index(name) + 1] = name
     for suite in SUITE_PATHS:
         suite_rows = [row for row in rows if row.suite == suite]
         if not suite_rows:
@@ -184,9 +208,9 @@ def validate_registry(rows: list[Row]) -> tuple[dict[str, list[str]], list[str]]
                         f"(max {runtime_limit})"
                     )
                 isolated_hits = [
-                    isolated_indices[index]
+                    isolated_indices[suite][index]
                     for index in indices
-                    if suite == "functional" and index in isolated_indices
+                    if index in isolated_indices.get(suite, {})
                 ]
                 if isolated_hits and (len(indices) != 1 or "macos" not in row.platforms):
                     raise ContractError(
