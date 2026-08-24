@@ -4,7 +4,6 @@
 #
 # Exit codes: 0 MET, 1 semantic NOT_MET, 2 usage/configuration error.
 set -euo pipefail
-IFS=$'\n\t'
 export LC_ALL=C
 
 usage() {
