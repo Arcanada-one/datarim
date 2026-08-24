@@ -133,7 +133,7 @@ assert_no_direct_in_place_sed() {
                         continue
                     }
                     if (value ~ /^(-i|-0|-v|--ignore-environment|--null|--debug)$/ ||
-                        value ~ /^--(unset|chdir|split-string)=/) {
+                        value ~ /^-[uCS].+/ || value ~ /^--(unset|chdir|split-string)=/) {
                         continue
                     }
                     if (value ~ /^[A-Za-z_][A-Za-z0-9_]*=/) {
@@ -152,6 +152,24 @@ assert_no_direct_in_place_sed() {
                     wrapper = ""
                 } else if (wrapper == "time") {
                     if (value ~ /^(--|-p)$/) {
+                        continue
+                    }
+                    wrapper = ""
+                } else if (wrapper == "run") {
+                    if (value == "!" || value ~ /^-[0-9]+$/ ||
+                        value ~ /^(--separate-stderr|--keep-empty-lines)$/) {
+                        continue
+                    }
+                    wrapper = ""
+                } else if (wrapper == "exec") {
+                    if (value ~ /^(--|-c|-l)$/) {
+                        continue
+                    }
+                    if (value == "-a") {
+                        skip_wrapper_arg = 1
+                        continue
+                    }
+                    if (value ~ /^-a.+/) {
                         continue
                     }
                     wrapper = ""
@@ -183,7 +201,15 @@ assert_no_direct_in_place_sed() {
                     value ~ /^(if|then|elif|while|until|do|!)$/) {
                     continue
                 }
-                if (value ~ /^(run|builtin|exec)$/) {
+                if (value == "run") {
+                    wrapper = "run"
+                    continue
+                }
+                if (value == "exec") {
+                    wrapper = "exec"
+                    continue
+                }
+                if (value == "builtin") {
                     wrapper = "command"
                     continue
                 }
@@ -1581,8 +1607,15 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
     printf '%s\n' 'run "sed" --in-place '\''s/x/y/'\'' mutant' >> "$mutant_suite"
     printf '%s\n' 'env MODE=test /usr/bin/sed -i '\''s/x/y/'\'' mutant' >> "$mutant_suite"
     printf '%s\n' 'env -i sed -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
+    printf '%s\n' 'env -uPATH sed -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
+    printf '%s\n' 'env -C/tmp sed -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
     printf '%s\n' 'command -- sed -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
     printf '%s\n' 'time -p sed -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
+    printf '%s\n' 'run -127 sed -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
+    printf '%s\n' 'run --separate-stderr sed -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
+    printf '%s\n' 'run --keep-empty-lines sed -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
+    printf '%s\n' 'exec -c sed -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
+    printf '%s\n' 'exec -a replacement sed -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
     printf '%s\n' 'sudo -u nobody sed -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
     printf '%s\n' '>/tmp/customer-binding-mutant sed -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
     run assert_no_direct_in_place_sed "$mutant_suite"
@@ -1598,9 +1631,12 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
     printf '%s\n' 'message="sed -i.bak is forbidden"' >> "$mutant_suite"
     printf '%s\n' 'echo "quoted separator; sed -i.bak is forbidden"' >> "$mutant_suite"
     printf '%s\n' 'env -u sed echo allowed' >> "$mutant_suite"
+    printf '%s\n' 'env -used echo allowed' >> "$mutant_suite"
     printf '%s\n' 'command -v sed' >> "$mutant_suite"
     printf '%s\n' 'sudo -u sed echo allowed' >> "$mutant_suite"
     printf '%s\n' 'time -p echo sed -i.bak is forbidden' >> "$mutant_suite"
+    printf '%s\n' 'run -127 echo sed -i.bak is forbidden' >> "$mutant_suite"
+    printf '%s\n' 'exec -a sed echo allowed' >> "$mutant_suite"
     run assert_no_direct_in_place_sed "$mutant_suite"
     if [ "$status" -ne 0 ]; then
         echo "inert sed prose was treated as executable (status=${status}): ${output}" >&2
