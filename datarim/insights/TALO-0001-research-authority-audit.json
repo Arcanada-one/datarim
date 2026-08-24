@@ -43,11 +43,6 @@
     "canonicalization": "cells-trimmed-unit-separator-rows-lf-no-final-lf/1",
     "sha256": "13abf81790ae427748637ecf6cdff2aa8cb7d64b1ccc35c431c318af6374d034"
   },
-  "authorized_mapping_additions": {
-    "R2-03": [
-      "TALO-0042"
-    ]
-  },
   "candidates": [
     {
       "path": "graph/data/local/tal-role-design-lead@r4.json",

@@ -102,6 +102,21 @@ def safe_relative_path(root: Path, raw_path: Any) -> Path | None:
     return candidate
 
 
+def safe_git_source_path(raw_path: Any) -> PurePosixPath | None:
+    """Return an unambiguous repository-relative Git path, without filesystem I/O."""
+    if not isinstance(raw_path, str) or not raw_path or ":" in raw_path:
+        return None
+    posix = PurePosixPath(raw_path)
+    if (
+        posix.is_absolute()
+        or not posix.parts
+        or any(part in {".", ".."} for part in posix.parts)
+        or posix.as_posix() != raw_path
+    ):
+        return None
+    return posix
+
+
 def git_value(root: Path, *arguments: str) -> str | None:
     try:
         result = subprocess.run(
@@ -235,6 +250,7 @@ def mapping_targets(value: str) -> tuple[str, ...]:
 def mapping_rows(source_text: str) -> dict[str, tuple[str, ...]]:
     result: dict[str, tuple[str, ...]] = {}
     mapping_index: int | None = None
+    decision_index: int | None = None
     for line in source_text.splitlines():
         if not line.startswith("|"):
             continue
@@ -243,15 +259,24 @@ def mapping_rows(source_text: str) -> dict[str, tuple[str, ...]]:
             continue
         if "Subtask" in cells:
             mapping_index = cells.index("Subtask")
+            decision_index = cells.index("Decision") if "Decision" in cells else None
             continue
         if "Lands in" in cells:
             mapping_index = cells.index("Lands in")
+            decision_index = cells.index("Decision") if "Decision" in cells else None
             continue
         match = re.match(r"^(R[12]-[0-9]{2})(?:\s|$)", cells[0])
         if match is not None:
             selected_index = mapping_index if mapping_index is not None else len(cells) - 1
             if selected_index < len(cells):
-                result[match.group(1)] = mapping_targets(cells[selected_index])
+                targets = set(mapping_targets(cells[selected_index]))
+                if decision_index is not None and decision_index < len(cells):
+                    targets.update(
+                        re.findall(
+                            r"(?i)routes?\s+to\s+(TALO-[0-9]{4})", cells[decision_index]
+                        )
+                    )
+                result[match.group(1)] = tuple(sorted(targets))
     return result
 
 
@@ -357,10 +382,8 @@ def validate_reviews_and_items(
         expected_ids.update(f"{review_id}-{ordinal:02d}" for ordinal in range(1, expected_items + 1))
 
     rows = table_rows(insights)
-    mapping_additions = manifest.get("authorized_mapping_additions", {})
-    if not isinstance(mapping_additions, dict):
-        findings.append("authorized_mapping_additions_invalid")
-        mapping_additions = {}
+    if "authorized_mapping_additions" in manifest:
+        findings.append("authorized_mapping_additions_forbidden")
     counts = Counter(cells[0] for cells in rows)
     for item_id in sorted(identifier for identifier, count in counts.items() if count > 1):
         findings.append(f"duplicate_item_id:{item_id}")
@@ -392,15 +415,7 @@ def validate_reviews_and_items(
         if expected_mapping is None:
             findings.append(f"authoritative_mapping_missing:{item_id}")
         else:
-            additions = mapping_additions.get(item_id, [])
-            if not isinstance(additions, list) or any(
-                not isinstance(value, str) or TASK_REF.fullmatch(value) is None
-                for value in additions
-            ):
-                findings.append(f"authorized_mapping_addition_invalid:{item_id}")
-                additions = []
-            authorized = set(expected_mapping) | set(additions)
-            if set(mapping_targets(mapping)) != authorized:
+            if set(mapping_targets(mapping)) != set(expected_mapping):
                 findings.append(f"delivery_mapping_mismatch:{item_id}")
         if not selection.startswith(("Direct:", "Cross-functional:", "Human boundary:")):
             findings.append(f"selection_applicability_invalid:{item_id}")
@@ -684,11 +699,7 @@ def validate_external_pins(
         repository_valid = isinstance(repository, str) and re.fullmatch(
             r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository
         ) is not None
-        source_path_valid = (
-            isinstance(source_path, str)
-            and safe_relative_path(Path("/tmp/research-pin-root"), source_path) is not None
-            and ":" not in source_path
-        )
+        source_path_valid = safe_git_source_path(source_path) is not None
         if not repository_valid:
             findings.append(f"external_pin_repository_invalid:{source_id}")
         if not source_path_valid:
