@@ -1428,13 +1428,57 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
 @test "portable sed helper preserves bytes mode and sibling cleanliness" {
     local fixture_dir="${BATS_TEST_TMPDIR}/portable-editor"
     local fixture="${fixture_dir}/sample.txt"
+    local shim_dir="${BATS_TEST_TMPDIR}/portable-editor-bin"
+    local shim_log="${BATS_TEST_TMPDIR}/portable-editor-shim.log"
+    local real_editor
+    local shim
+    local long_option="--in""-place"
     local mode
+    local original_path="$PATH"
 
-    mkdir -p "$fixture_dir"
+    real_editor="$(command -v "$(portable_editor_word)")"
+    shim="${shim_dir}/$(portable_editor_word)"
+    mkdir -p "$fixture_dir" "$shim_dir"
     printf 'alpha\n' > "$fixture"
     chmod 640 "$fixture"
+    : > "$shim_log"
+    printf '%s\n' \
+        '#!/usr/bin/env bash' \
+        'set -euo pipefail' \
+        'for argument in "$@"; do' \
+        '    case "$argument" in' \
+        '        --in-place|--in-place=*|-i*|-[A-Za-z]*i*)' \
+        '            printf '\''%s\n'\'' "$argument" >> "$SED_SHIM_LOG"' \
+        '            exit 97' \
+        '            ;;' \
+        '    esac' \
+        'done' \
+        'exec "$REAL_SED" "$@"' > "$shim"
+    chmod +x "$shim"
 
+    run env \
+        REAL_SED="$real_editor" \
+        SED_SHIM_LOG="$shim_log" \
+        PATH="${shim_dir}:${PATH}" \
+        "$(portable_editor_word)" "$long_option" 's/x/y/' "$fixture"
+    [ "$status" -eq 97 ] || return 1
+    [ -s "$shim_log" ] || return 1
+
+    : > "$shim_log"
+    run env \
+        REAL_SED="$real_editor" \
+        SED_SHIM_LOG="$shim_log" \
+        PATH="${shim_dir}:${PATH}" \
+        "$(portable_editor_word)" -n 's/^alpha$/alpha/p' "$fixture"
+    [ "$status" -eq 0 ] && [ "$output" = "alpha" ] || return 1
+    [ ! -s "$shim_log" ] || return 1
+
+    export REAL_SED="$real_editor" SED_SHIM_LOG="$shim_log"
+    PATH="${shim_dir}:${PATH}"
+    export PATH
     portable_sed_in_place 's/alpha/beta/' "$fixture"
+    PATH="$original_path"
+    export PATH
 
     [ "$(cat "$fixture")" = "beta" ] || return 1
     [ "$(wc -c < "$fixture" | tr -d '[:space:]')" -eq 5 ] || return 1
@@ -1444,6 +1488,7 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
         mode="$(stat -f '%Lp' "$fixture")"
     fi
     [ "$mode" = "640" ] || return 1
+    [ ! -s "$shim_log" ] || return 1
     [ "$(find "$fixture_dir" -type f | wc -l | tr -d '[:space:]')" -eq 1 ]
 }
 
@@ -1599,13 +1644,18 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
     done
 
     cp "${REPO_ROOT}/tests/customer-requirement-expectations-binding.bats" "$mutant_suite"
-    portable_sed_in_place "/^[[:space:]]*if ! sed /i\\
-    local editor
-    editor=\"\$(portable_editor_word)\"
-" "$mutant_suite"
     portable_sed_in_place \
-        "s/if ! sed /if ! \"\\\$editor\" ${short_option} /" \
+        's/^[[:space:]]*local temp_file$/    local temp_file editor/' \
         "$mutant_suite"
+    portable_sed_in_place '/^[[:space:]]*if ! sed "${args\[@\]}" "$file" > "$temp_file"; then$/i\
+    editor="$(portable_editor_word)"
+' "$mutant_suite"
+    portable_sed_in_place \
+        's|^[[:space:]]*if ! sed "${args\[@\]}" "$file" > "$temp_file"; then$|    if ! "$editor" '"${short_option}"' "${args[@]}" "$temp_file"; then|' \
+        "$mutant_suite"
+    portable_sed_in_place '/^[[:space:]]*mv "$temp_file" "$file"$/i\
+    rm -f "${temp_file}.bak"
+' "$mutant_suite"
     run bats --filter \
         'portable sed helper preserves bytes mode and sibling cleanliness' \
         "$mutant_suite"
