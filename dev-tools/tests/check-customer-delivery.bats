@@ -3735,6 +3735,70 @@ PY
         && { [ -z "$descendant_state" ] || [[ "$descendant_state" == Z* ]]; }
 }
 
+@test "global validation alarm reaps late source history child process group" {
+    local shim="${BATS_TEST_TMPDIR}/global-alarm-git"
+    local leader_pidfile="${BATS_TEST_TMPDIR}/global-alarm-leader.pid"
+    local descendant_pidfile="${BATS_TEST_TMPDIR}/global-alarm-descendant.pid"
+    local real_git start end elapsed leader_pid descendant_pid leader_state descendant_state
+    real_git="$(command -v git)" || return 1
+    "$PYTHON" - "$shim" "$real_git" "$leader_pidfile" "$descendant_pidfile" <<'PY' || return 1
+import os
+import sys
+
+path, real_git, leader_pidfile, descendant_pidfile = sys.argv[1:]
+with open(path, "w", encoding="utf-8") as handle:
+    handle.write(f'''#!/usr/bin/env bash
+if [[ "$*" == *"--version"* ]]; then
+    trap '' TERM
+    printf '%s\\n' "$$" > "{leader_pidfile}"
+    /usr/bin/python3 -c 'import os,signal,time; signal.signal(signal.SIGTERM, signal.SIG_IGN); open("{descendant_pidfile}", "w").write(str(os.getpid())); time.sleep(8)' &
+    sleep 8
+fi
+exec "{real_git}" "$@"
+''')
+os.chmod(path, 0o700)
+PY
+    build_test_framework global-alarm-git-reap || return 1
+    replace_test_script_literal \
+        'PINNED_GIT = "/usr/bin/git"' \
+        "PINNED_GIT = \"${shim}\"" || return 1
+    replace_test_script_literal \
+        'VALIDATION_TOTAL_TIMEOUT_SECONDS = 20' \
+        'VALIDATION_TOTAL_TIMEOUT_SECONDS = 1' || return 1
+    replace_test_script_literal \
+        'VALIDATION_DEADLINE = time.monotonic() + VALIDATION_TOTAL_TIMEOUT_SECONDS' \
+        'VALIDATION_DEADLINE = time.monotonic() + 3600' || return 1
+    start="$($PYTHON -c 'import time; print(time.time_ns())')"
+    run_test_framework_json
+    end="$($PYTHON -c 'import time; print(time.time_ns())')"
+    elapsed="$($PYTHON -c 'import sys; print((int(sys.argv[2])-int(sys.argv[1]))/1_000_000_000)' "$start" "$end")"
+    if ! leader_pid="$(cat "$leader_pidfile" 2>/dev/null)" \
+        || ! descendant_pid="$(cat "$descendant_pidfile" 2>/dev/null)"; then
+        printf 'global_alarm_missing_pid status=%s output=%s elapsed=%s\n' \
+            "$status" "$output" "$elapsed" >&3
+        return 1
+    fi
+    leader_state="$(ps -o stat= -p "$leader_pid" 2>/dev/null || true)"
+    descendant_state="$(ps -o stat= -p "$descendant_pid" 2>/dev/null || true)"
+    "$PYTHON" - "$leader_pid" <<'PY'
+import os
+import signal
+import sys
+
+try:
+    os.killpg(int(sys.argv[1]), signal.SIGKILL)
+except ProcessLookupError:
+    pass
+PY
+    printf 'global_alarm_output=%s elapsed=%s leader_state=%s descendant_state=%s\n' \
+        "$output" "$elapsed" "$leader_state" "$descendant_state" >&3
+    [ "$status" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["validation_resource_limit:deadline"]' "$output" \
+        && "$PYTHON" -c 'import sys; assert 0.5 <= float(sys.argv[1]) < 4.0' "$elapsed" \
+        && { [ -z "$leader_state" ] || [[ "$leader_state" == Z* ]]; } \
+        && { [ -z "$descendant_state" ] || [[ "$descendant_state" == Z* ]]; }
+}
+
 @test "MET requires an authoritative Git history for the requirement source" {
     mv "${ROOT}/.git" "${BATS_TEST_TMPDIR}/hidden-git"
     run_validator

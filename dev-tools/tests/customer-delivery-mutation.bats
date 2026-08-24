@@ -361,6 +361,7 @@ PY
         'wrapper_response|empty validator response cannot be accepted as MET'
         'git_no_replace_objects|Git replacement objects cannot hide an in-place source mutation'
         'git_process_group|source history deadline kills stubborn descendant pipe holders'
+        'git_alarm_cleanup|global validation alarm reaps late source history child process group'
     )
     for pair in "${pairs[@]}"; do
         kind="${pair%%|*}"
@@ -487,6 +488,15 @@ elif kind == "git_process_group":
     source = source.replace(term, '            process.terminate()').replace(
         kill, '            process.kill()'
     )
+elif kind == "git_alarm_cleanup":
+    cleanup = '''        except BaseException:
+            if process is not None:
+                terminate_process_group(process)
+            raise
+'''
+    if source.count(cleanup) != 1:
+        raise SystemExit("GIT_ALARM_CLEANUP_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+    source = source.replace(cleanup, "", 1)
 else:
     raise SystemExit(f"unknown mutant: {kind}")
 with open(path, "w", encoding="utf-8") as handle:
