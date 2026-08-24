@@ -2411,9 +2411,12 @@ PY
     diagnostic="${BATS_TEST_TMPDIR}/metadata-nonblock-diagnostic"
     build_test_framework metadata-nonblocking-race || return 1
     "$PYTHON" - "$TEST_SCRIPT" "$canary" "$diagnostic" <<'PY' || return 1
+import json
 import sys
 
 path, canary, diagnostic = sys.argv[1:]
+canary_literal = json.dumps(canary)
+diagnostic_literal = json.dumps(diagnostic)
 source = open(path, encoding="utf-8").read()
 old = '        metadata_entry = os.stat("METADATA", follow_symlinks=False)\n'
 new = f'''        metadata_entry = os.stat("METADATA", follow_symlinks=False)
@@ -2421,7 +2424,7 @@ new = f'''        metadata_entry = os.stat("METADATA", follow_symlinks=False)
             def record_nonblock_stage(message):
                 try:
                     stage_fd = os.open(
-                        {diagnostic!r},
+                        {diagnostic_literal},
                         os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_CLOEXEC,
                         0o600,
                     )
@@ -2434,15 +2437,16 @@ new = f'''        metadata_entry = os.stat("METADATA", follow_symlinks=False)
                 os.rename("METADATA", "METADATA.original-a2")
                 record_nonblock_stage("metadata_renamed")
                 # The bootstrap already fchdir-bound cwd to dist_fd and checked
-                # that identity. Apple Python 3.9 does not implement mkfifo's
+                # that identity. Apple Python 3.9 does not implement the mkfifo
                 # dir_fd argument, so create the attack FIFO relative to that
                 # authenticated cwd instead of falling back to a mutable path.
                 os.mkfifo("METADATA", 0o600)
                 record_nonblock_stage("fifo_ready")
             except BaseException as setup_error:
+                setup_errno = getattr(setup_error, "errno", None)
                 record_nonblock_stage(
                     f"setup_error={{type(setup_error).__name__}}:"
-                    f"{{getattr(setup_error, 'errno', None)}}"
+                    f"{{setup_errno}}"
                 )
                 raise
             threading = __import__("threading")
@@ -2450,7 +2454,7 @@ new = f'''        metadata_entry = os.stat("METADATA", follow_symlinks=False)
             def delayed_fifo_writer():
                 writer_started = time.monotonic_ns()
                 writer_log = os.open(
-                    {diagnostic!r},
+                    {diagnostic_literal},
                     os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_CLOEXEC,
                     0o600,
                 )
@@ -2464,7 +2468,7 @@ new = f'''        metadata_entry = os.stat("METADATA", follow_symlinks=False)
                 )
                 os.close(writer_fd)
                 writer_log = os.open(
-                    {diagnostic!r},
+                    {diagnostic_literal},
                     os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_CLOEXEC,
                     0o600,
                 )
@@ -2479,7 +2483,7 @@ after_open = '        metadata_fd = os.open("METADATA", metadata_flags)\n'
 inspect_flags = f'''        if distribution == "jsonschema":
             open_started = __import__("time").monotonic_ns()
             diagnostic_fd = os.open(
-                {diagnostic!r},
+                {diagnostic_literal},
                 os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_CLOEXEC,
                 0o600,
             )
@@ -2500,7 +2504,7 @@ inspect_flags = f'''        if distribution == "jsonschema":
                 metadata_fd, __import__("fcntl").F_GETFL,
             )
             diagnostic_fd = os.open(
-                {diagnostic!r},
+                {diagnostic_literal},
                 os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_CLOEXEC,
                 0o600,
             )
@@ -2515,7 +2519,7 @@ inspect_flags = f'''        if distribution == "jsonschema":
             os.close(diagnostic_fd)
             if not opened_flags & os.O_NONBLOCK:
                 canary_fd = os.open(
-                    {canary!r},
+                    {canary_literal},
                     os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC,
                     0o600,
                 )
@@ -2528,9 +2532,13 @@ bootstrap_prefix = '''bootstrap_program="$(/bin/cat <<'PY'
 '''
 bootstrap_start = rendered.index(bootstrap_prefix) + len(bootstrap_prefix)
 bootstrap_end = rendered.index("\nPY\n)", bootstrap_start)
-compile(rendered[bootstrap_start:bootstrap_end], "<darwin-site-bootstrap>", "exec")
+bootstrap_payload = rendered[bootstrap_start:bootstrap_end]
+compile(bootstrap_payload, "<darwin-site-bootstrap>", "exec")
+if "'" in bootstrap_payload:
+    raise SystemExit("METADATA_NONBLOCK_BASH3_QUOTE_UNSAFE")
 open(path, "w", encoding="utf-8").write(rendered)
 PY
+    /bin/bash -n "$TEST_SCRIPT" || return 1
     [[ "$(/usr/bin/uname -s)" == Darwin ]] || skip 'Darwin-only trusted site boundary'
     site_path="${CUSTOMER_TEST_PYTHON_SITE:?missing CUSTOMER_TEST_PYTHON_SITE}"
     if [[ -n "${CUSTOMER_DELIVERY_EXPECT_MUTATION_MARKER:-}" ]]; then
