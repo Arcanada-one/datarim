@@ -25,6 +25,23 @@ setup() {
         '  esac' \
         'done' \
         '[[ "$stage" == qa && "$format" == json && -n "$root" ]] || exit 2' \
+        'if [[ -f "$root/.a2-config-error" ]]; then' \
+        '  printf '\''{"decision":"ERROR","findings":["missing_dependency:test-fixture"],"stage":"qa","status":"ERROR","task":"%s"}\n'\'' "$task"' \
+        '  exit 2' \
+        'fi' \
+        'if [[ -f "$root/.a2-malformed" ]]; then' \
+        '  printf '\''not-json\n'\''' \
+        '  exit 0' \
+        'fi' \
+        'if [[ -f "$root/.a2-not-met" ]]; then' \
+        '  printf '\''{"decision":"NOT_MET","epic_status":"NOT_MET","findings":["test_semantic_gap"],"stage":"qa","status":"NOT_MET","task":"%s"}\n'\'' "$task"' \
+        '  exit 1' \
+        'fi' \
+        'if [[ -f "$root/.a2-hang" ]]; then' \
+        "  (trap '' TERM; exec /bin/sleep 120) &" \
+        '  printf '\''%s\n'\'' "$!" >"$root/.a2-descendant.pid"' \
+        '  wait' \
+        'fi' \
         'if [[ "$task" != WEB-0001 ]] || ! yq -e '\''.requirements.req-0001.coverage_chain.red_green'\'' "${root}/datarim/receipts/${task}-customer-delivery.yaml" >/dev/null 2>&1; then' \
         '  printf '\''{"decision":"NOT_MET","epic_status":"NOT_MET","findings":["test_a2_rejection"],"stage":"qa","status":"NOT_MET","task":"%s"}\n'\'' "$task"' \
         '  exit 1' \
@@ -407,6 +424,56 @@ assert_not_met() {
     }' "$RECEIPT"
     run_validator
     assert_not_met 'customer_delivery_not_met'
+}
+
+@test "A2 configuration ERROR remains exit 2 with its validated finding" {
+    : >"${ROOT}/.a2-config-error"
+    run_validator
+    [ "$status" -eq 2 ] \
+        && [[ "$output" == *'"status":"ERROR"'* ]] \
+        && [[ "$output" == *'customer_delivery:missing_dependency:test-fixture'* ]]
+}
+
+@test "malformed A2 output fails closed as a result-contract ERROR" {
+    : >"${ROOT}/.a2-malformed"
+    run_validator
+    [ "$status" -eq 2 ] \
+        && [[ "$output" == *'"status":"ERROR"'* ]] \
+        && [[ "$output" == *'customer_delivery_result_contract_invalid'* ]]
+}
+
+@test "A2 semantic NOT_MET remains exit 1" {
+    : >"${ROOT}/.a2-not-met"
+    run_validator
+    assert_not_met 'customer_delivery_not_met'
+}
+
+@test "total deadline kills and reaps a hanging A2 process group" {
+    local start end elapsed descendant_pid
+    sed -i 's/VALIDATION_TOTAL_TIMEOUT_SECONDS = 20/VALIDATION_TOTAL_TIMEOUT_SECONDS = 1/' \
+        "$SCRIPT"
+    : >"${ROOT}/.a2-hang"
+    start="$(python3 -c 'import time; print(time.perf_counter())')"
+    run_validator
+    end="$(python3 -c 'import time; print(time.perf_counter())')"
+    elapsed="$(python3 -c "print(${end} - ${start})")"
+    [ "$status" -eq 2 ] \
+        && [[ "$output" == *'"status":"ERROR"'* ]] \
+        && [[ "$output" == *'validation_resource_limit:deadline'* ]] \
+        && awk "BEGIN { exit !(${elapsed} < 5.0) }" \
+        && [ -s "${ROOT}/.a2-descendant.pid" ] || return 1
+    descendant_pid="$(<"${ROOT}/.a2-descendant.pid")"
+    for _ in {1..50}; do
+        if ! kill -0 "$descendant_pid" 2>/dev/null; then
+            return 0
+        fi
+        /bin/sleep 0.02
+    done
+    run kill -0 "$descendant_pid"
+    if [ "$status" -eq 0 ]; then
+        /bin/kill -KILL "$descendant_pid" 2>/dev/null || true
+    fi
+    [ "$status" -ne 0 ]
 }
 
 @test "canonical evolution requires an immutable existing artifact with its real digest and revision" {

@@ -1,9 +1,206 @@
 #!/bin/bash -p
+# shellcheck disable=SC2317  # The worker below the marker is executed by the Python supervisor.
 # Validate the review-to-evolution contract without treating canon evolution as
 # proof that the associated customer Requirement was delivered.
 #
 # Exit codes: 0 MET, 1 semantic NOT_MET, 2 usage/configuration error.
 set -euo pipefail
+
+# Supervise the complete validator, including every external command and Git
+# traversal, with one portable monotonic deadline. The worker body is extracted
+# from this file so there is no ambient environment switch that bypasses it.
+supervisor_python='/usr/bin/python3'
+supervisor_args=("$@")
+if [[ ! -x "$supervisor_python" || -d "$supervisor_python" ]]; then
+    supervisor_task=''
+    supervisor_format='text'
+    for ((supervisor_index = 0; supervisor_index < ${#supervisor_args[@]}; supervisor_index++)); do
+        case "${supervisor_args[$supervisor_index]}" in
+            --task)
+                ((supervisor_index + 1 < ${#supervisor_args[@]})) \
+                    && supervisor_task="${supervisor_args[$((supervisor_index + 1))]}"
+                ;;
+            --format)
+                ((supervisor_index + 1 < ${#supervisor_args[@]})) \
+                    && supervisor_format="${supervisor_args[$((supervisor_index + 1))]}"
+                ;;
+        esac
+    done
+    [[ "$supervisor_task" =~ ^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$ ]] || supervisor_task=''
+    if [[ "$supervisor_format" == json ]]; then
+        printf '{"classification":"","findings":["missing_dependency:python3"],"status":"ERROR","task":"%s"}\n' \
+            "$supervisor_task"
+    else
+        printf 'status=ERROR task=%s classification= findings=missing_dependency:python3\n' \
+            "$supervisor_task"
+        printf 'finding=missing_dependency:python3\n'
+    fi
+    exit 2
+fi
+# shellcheck disable=SC2093  # Python intentionally replaces the shell wrapper.
+exec "$supervisor_python" -I -S - "$0" "${supervisor_args[@]}" <<'PY'
+import json
+import os
+import re
+import selectors
+import signal
+import stat
+import subprocess
+import sys
+import tempfile
+import time
+
+VALIDATION_TOTAL_TIMEOUT_SECONDS = 20
+VALIDATION_MAX_STDOUT_BYTES = 1048576
+VALIDATION_MAX_STDERR_BYTES = 1048576
+VALIDATOR_MARKER = b"# __REVIEW_EVOLUTION_VALIDATOR_BODY__\n"
+
+
+def result_identity(arguments):
+    task = ""
+    output_format = "text"
+    index = 0
+    while index < len(arguments):
+        if arguments[index] in ("--task", "--format") and index + 1 < len(arguments):
+            if arguments[index] == "--task":
+                task = arguments[index + 1]
+            else:
+                output_format = arguments[index + 1]
+            index += 2
+        else:
+            index += 1
+    if re.fullmatch(r"[A-Z][A-Z0-9]{1,9}-[0-9]{4}", task or "") is None:
+        task = ""
+    return task, output_format
+
+
+def emit_error(finding, arguments):
+    task, output_format = result_identity(arguments)
+    if output_format == "json":
+        payload = {
+            "classification": "",
+            "findings": [finding],
+            "status": "ERROR",
+            "task": task,
+        }
+        sys.stdout.write(json.dumps(payload, separators=(",", ":"), sort_keys=True) + "\n")
+    else:
+        sys.stdout.write(
+            f"status=ERROR task={task} classification= findings={finding}\n"
+            f"finding={finding}\n"
+        )
+    raise SystemExit(2)
+
+
+def terminate_process_group(process):
+    # The direct worker can exit while a descendant still holds inherited pipes.
+    try:
+        os.killpg(process.pid, signal.SIGTERM)
+    except (ProcessLookupError, PermissionError):
+        pass
+    try:
+        process.wait(timeout=0.2)
+    except (subprocess.TimeoutExpired, OSError):
+        pass
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        pass
+    try:
+        process.wait(timeout=0.2)
+    except (subprocess.TimeoutExpired, OSError):
+        pass
+
+
+deadline = time.monotonic() + VALIDATION_TOTAL_TIMEOUT_SECONDS
+arguments = sys.argv[2:]
+try:
+    script_path = os.path.realpath(sys.argv[1])
+    metadata = os.stat(script_path, follow_symlinks=False)
+    if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > 1048576:
+        emit_error("validation_supervisor_source_invalid", arguments)
+    with open(script_path, "rb") as handle:
+        source = handle.read(1048577)
+    if len(source) > 1048576 or source.count(VALIDATOR_MARKER) != 1:
+        emit_error("validation_supervisor_source_invalid", arguments)
+    worker_body = source.split(VALIDATOR_MARKER, 1)[1]
+    worker_source = tempfile.TemporaryFile(dir="/tmp")
+    worker_source.write(worker_body)
+    worker_source.seek(0)
+    if time.monotonic() >= deadline:
+        emit_error("validation_resource_limit:deadline", arguments)
+    process = subprocess.Popen(
+        ["/bin/bash", "-p", "-s", "--", *arguments],
+        stdin=worker_source,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        cwd=os.getcwd(),
+        env={
+            "LC_ALL": "C",
+            "PATH": "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin",
+            "REVIEW_EVOLUTION_SCRIPT_PATH": script_path,
+            "TMPDIR": "/tmp",
+        },
+        start_new_session=True,
+    )
+except (OSError, subprocess.SubprocessError, IndexError):
+    emit_error("validation_supervisor_unavailable", arguments)
+
+selector = selectors.DefaultSelector()
+stdout = bytearray()
+stderr = bytearray()
+try:
+    for label, stream in (("stdout", process.stdout), ("stderr", process.stderr)):
+        os.set_blocking(stream.fileno(), False)
+        selector.register(stream, selectors.EVENT_READ, label)
+    while selector.get_map():
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            terminate_process_group(process)
+            emit_error("validation_resource_limit:deadline", arguments)
+        events = selector.select(timeout=min(0.05, remaining))
+        if not events and process.poll() is not None:
+            events = [(key, selectors.EVENT_READ) for key in selector.get_map().values()]
+        for key, _ in events:
+            try:
+                chunk = os.read(key.fileobj.fileno(), 65536)
+            except BlockingIOError:
+                continue
+            if not chunk:
+                selector.unregister(key.fileobj)
+                key.fileobj.close()
+                continue
+            target = stdout if key.data == "stdout" else stderr
+            limit = VALIDATION_MAX_STDOUT_BYTES if key.data == "stdout" else VALIDATION_MAX_STDERR_BYTES
+            if len(target) + len(chunk) > limit:
+                terminate_process_group(process)
+                emit_error("validation_resource_limit:subprocess_output", arguments)
+            target.extend(chunk)
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        terminate_process_group(process)
+        emit_error("validation_resource_limit:deadline", arguments)
+    try:
+        returncode = process.wait(timeout=max(0.001, remaining))
+    except subprocess.TimeoutExpired:
+        terminate_process_group(process)
+        emit_error("validation_resource_limit:deadline", arguments)
+except BaseException:
+    terminate_process_group(process)
+    raise
+finally:
+    selector.close()
+    worker_source.close()
+    for stream in (process.stdout, process.stderr):
+        if stream is not None and not stream.closed:
+            stream.close()
+
+sys.stdout.buffer.write(stdout)
+sys.stderr.buffer.write(stderr)
+raise SystemExit(returncode)
+PY
+
+# __REVIEW_EVOLUTION_VALIDATOR_BODY__
 export LC_ALL=C
 
 usage() {
@@ -139,7 +336,7 @@ esac
 requirements="${root}/datarim/tasks/${task}-customer-requirements.yaml"
 review="${root}/datarim/receipts/${task}-review-evolution.yaml"
 receipt="${root}/datarim/receipts/${task}-customer-delivery.yaml"
-script_dir="$(cd "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+script_dir="$(cd "$(/usr/bin/dirname -- "${REVIEW_EVOLUTION_SCRIPT_PATH:?}")" && pwd -P)"
 trust_registry_schema="${script_dir}/../config/customer-requirement.schema.json"
 
 resolve_artifact() {
@@ -223,15 +420,6 @@ delivery_status=$?
 set -e
 delivery_verified=false
 delivery_inputs_stable=false
-# shellcheck disable=SC2016  # $task is a jq variable.
-if [[ "$delivery_status" -eq 0 ]] \
-    && "$jq_bin" -se --arg task "$task" \
-        'length == 1 and .[0].decision == "MET" and .[0].status == "MET"
-         and .[0].epic_status == "MET" and .[0].stage == "qa"
-         and .[0].task == $task and .[0].findings == []' \
-        "$delivery_output" >/dev/null 2>&1; then
-    delivery_verified=true
-fi
 if [[ "$("$openssl_bin" dgst -sha256 "$requirements" 2>/dev/null | /usr/bin/awk '{print $NF}')" \
         == "$requirements_snapshot_digest" \
     && "$("$openssl_bin" dgst -sha256 "$review" 2>/dev/null | /usr/bin/awk '{print $NF}')" \
@@ -242,6 +430,66 @@ if [[ "$("$openssl_bin" dgst -sha256 "$requirements" 2>/dev/null | /usr/bin/awk 
         == "$trust_registry_snapshot_digest" ]]; then
     delivery_inputs_stable=true
 fi
+if [[ "$delivery_inputs_stable" != true ]]; then
+    emit_config_error 'customer_delivery_inputs_changed'
+    exit 2
+fi
+
+# A2 is a typed dependency: rc 0/1/2 must agree with one exact JSON result.
+# shellcheck disable=SC2016  # $task is a jq variable.
+case "$delivery_status" in
+    0)
+        if "$jq_bin" -se --arg task "$task" '
+          length == 1 and .[0].decision == "MET" and .[0].status == "MET"
+          and .[0].epic_status == "MET" and .[0].stage == "qa"
+          and .[0].task == $task and .[0].findings == []
+          and ((.[0] | keys | sort)
+            == (["decision", "epic_status", "findings", "stage", "status", "task"] | sort))
+        ' "$delivery_output" >/dev/null 2>&1; then
+            delivery_verified=true
+        else
+            emit_config_error 'customer_delivery_result_contract_invalid'
+            exit 2
+        fi
+        ;;
+    1)
+        if ! "$jq_bin" -se --arg task "$task" '
+          length == 1 and .[0].decision == "NOT_MET" and .[0].status == "NOT_MET"
+          and .[0].epic_status == "NOT_MET" and .[0].stage == "qa"
+          and .[0].task == $task
+          and (.[0].findings | type == "array" and length > 0
+            and all(.[]; type == "string"))
+          and ((.[0] | keys | sort)
+            == (["decision", "epic_status", "findings", "stage", "status", "task"] | sort))
+        ' "$delivery_output" >/dev/null 2>&1; then
+            emit_config_error 'customer_delivery_result_contract_invalid'
+            exit 2
+        fi
+        ;;
+    2)
+        if ! "$jq_bin" -se --arg task "$task" '
+          length == 1 and .[0].decision == "ERROR" and .[0].status == "ERROR"
+          and .[0].stage == "qa" and .[0].task == $task
+          and (.[0].findings | type == "array" and length > 0 and length <= 64
+            and all(.[]; type == "string" and length > 0 and length <= 256
+              and test("^[A-Za-z0-9_.:/-]+$")))
+          and ((.[0] | has("epic_status") | not) or .[0].epic_status == "NOT_MET")
+          and ((.[0] | keys - ["decision", "epic_status", "findings", "stage", "status", "task"])
+            | length == 0)
+        ' "$delivery_output" >/dev/null 2>&1; then
+            emit_config_error 'customer_delivery_result_contract_invalid'
+            exit 2
+        fi
+        delivery_error_finding="$("$jq_bin" -sr '.[0].findings | sort | .[0]' \
+            "$delivery_output" 2>/dev/null || true)"
+        emit_config_error "customer_delivery:${delivery_error_finding}"
+        exit 2
+        ;;
+    *)
+        emit_config_error "customer_delivery_exit_invalid:${delivery_status}"
+        exit 2
+        ;;
+esac
 
 if ! "$yq_bin" eval -o=json '.' "$review_snapshot" >"$review_json" 2>/dev/null; then
     printf '%s\n' '{}' >"$review_json"
