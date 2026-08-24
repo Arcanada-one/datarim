@@ -83,6 +83,19 @@ teardown() {
     echo "$output" | grep -q 'ALLOWED_TOOLS=Read Write Edit Bash Grep Glob'
 }
 
+@test "TALO-0001: designer spawn injects its exact runtime boundary" {
+    source "$DR_ORCH_DIR/scripts/tmux_manager.sh"
+    session_spawn_interactive "$SESSION" "bash --norc -i" designer
+    sleep 1
+    run pane_capture_tail "$SESSION" 16
+    [ "$status" -eq 0 ]
+    echo "$output" | grep -q 'AGENT=agents/designer.md'
+    echo "$output" | grep -q 'DOMAIN_SKILLS=skills/frontend-design'
+    echo "$output" | grep -q 'FORBIDDEN_ACTIONS=.*product-code-write'
+    echo "$output" | grep -q 'ALLOWED_PATHS=datarim documentation skills agents templates config'
+    echo "$output" | grep -q 'PRODUCT_CODE_ACCESS=read-only'
+}
+
 @test "wish-2: spawn without a role omits the injection (backward-compatible)" {
     source "$DR_ORCH_DIR/scripts/tmux_manager.sh"
     session_spawn_interactive "$SESSION" "bash --norc -i"
