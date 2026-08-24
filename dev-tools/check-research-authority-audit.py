@@ -12,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 from collections import Counter
+from datetime import date, datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any
 from urllib.parse import quote
@@ -29,6 +30,9 @@ SOURCE_REGISTER_ID = re.compile(r"^S[0-9]{2}$")
 SOURCE_REGISTER_SELECTION = re.compile(
     r"^\*\*(Selected(?: as a pattern)?):\*\*\s*(.*?)\s+"
     r"\*\*Rejected:\*\*\s*(.*?)$"
+)
+SOURCE_ACCESS_DATE = re.compile(
+    r"^All sources were accessed on \*\*(\d{4}-\d{2}-\d{2})\*\*\.", re.MULTILINE
 )
 COMMENT_ALGORITHM = "github-json-body-utf8-no-extra-lf/1"
 ITEM_ALGORITHM = "cells-trimmed-unit-separator-rows-lf-no-final-lf/1"
@@ -106,6 +110,12 @@ CLOSED_AUDIT_PROFILES: dict[str, dict[str, Any]] = {
             "S28": "0ef909c7dc69dd891b81b5b1ac5cac9ca0a171d0f3d63b0431c2dc20bfe9477d",
             "S29": "461cf32f5bca6d9e3eb9f98d6b418d2d899d922e3d2f83056fafcf0770c7ece9",
         },
+        "source_access_date": "2026-08-24",
+        "reuse_inventory_digests": {
+            "Datarim": "d3ee6d41ed69512090769b625071f6cb66a675cf158a304d9842f7572e2e2022",
+            "Talomnia knowledge": "c7be8e86c934bf3d5c578a58f982c4bc5a963086b5b9025ecd7aac9c2a2e4ed0",
+            "Talomnia site": "12293ff85d12837b8f6587338247ad5942995b7f17fa5e3ef4bd54eefcfcd639",
+        },
         "candidates": {
             "tal-role-design-lead@r4": "tal-role-design-lead",
             "tal-role-knowledge-curator@r2": "tal-role-knowledge-curator",
@@ -156,6 +166,17 @@ CLOSED_AUDIT_PROFILES: dict[str, dict[str, Any]] = {
                 "record_type": "approved-artifact",
                 "pointers": {"/logical_id", "/revision_id", "/content_digest"},
             },
+        },
+        "derived_record_digests": {
+            "TALO-0032-planning-envelope": (
+                "04242baf7ed9ca136834544e026a97066719bfb0eb6ef59d60f9a3bf91fab9f7"
+            ),
+            "TALO-0050-planning-envelope": (
+                "75a83dc112b762255430933c8cba72f1667cc630e41cacd1ecd6ada6b2c4bf27"
+            ),
+            "tal-skill-customer-narrative@r1": (
+                "005efa7b1838971d83636b488dad4f5b2088c5015ddc170e4c626953fdaeba37"
+            ),
         },
         "external_source_ids": {"S20", "S21", "S22", "S23", "S24", "S27", "S28", "S29"},
         "comment_ids": {"5347868439", "5347971637"},
@@ -843,6 +864,24 @@ def source_register_entry_digest(entry: dict[str, str]) -> str:
     return hashlib.sha256(canonical).hexdigest()
 
 
+def reuse_inventory_entries(insights: str) -> list[dict[str, str]]:
+    entries: list[dict[str, str]] = []
+    for line in insights.splitlines():
+        if re.match(r"^\| (Datarim|Talomnia knowledge|Talomnia site) \|", line) is None:
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) != 3:
+            continue
+        entries.append(
+            {
+                "repository": cells[0],
+                "snapshot": cells[1].strip("`"),
+                "scope": cells[2],
+            }
+        )
+    return entries
+
+
 def validate_source_register_profile(
     insights: str, expected_task_id: str, findings: list[str]
 ) -> None:
@@ -865,6 +904,44 @@ def validate_source_register_profile(
         expected = expected_digests.get(source_id)
         if expected is not None and source_register_entry_digest(entry) != expected:
             findings.append(f"source_register_authority_mismatch:{source_id}")
+
+    expected_access_date = profile.get("source_access_date")
+    if isinstance(expected_access_date, str):
+        access_dates = SOURCE_ACCESS_DATE.findall(insights)
+        if not access_dates:
+            findings.append("source_access_date_missing")
+        if len(access_dates) > 1:
+            findings.append("source_access_date_duplicate")
+        for access_date in access_dates:
+            if access_date != expected_access_date:
+                findings.append(
+                    "source_access_date_authority_mismatch:"
+                    f"expected={expected_access_date}:actual={access_date}"
+                )
+            try:
+                parsed_access_date = date.fromisoformat(access_date)
+            except ValueError:
+                findings.append(f"source_access_date_invalid:{access_date}")
+                continue
+            if parsed_access_date > datetime.now(timezone.utc).date():
+                findings.append(f"source_access_date_future:{access_date}")
+
+    expected_reuse = profile.get("reuse_inventory_digests")
+    if isinstance(expected_reuse, dict):
+        reuse_entries = reuse_inventory_entries(insights)
+        report_closed_set(
+            "reuse_inventory",
+            [entry["repository"] for entry in reuse_entries],
+            set(expected_reuse),
+            findings,
+        )
+        for entry in reuse_entries:
+            repository = entry["repository"]
+            expected = expected_reuse.get(repository)
+            if expected is None:
+                continue
+            if source_register_entry_digest(entry) != expected:
+                findings.append(f"reuse_inventory_authority_mismatch:{repository}")
 
 
 def validate_authority_digests(
@@ -988,6 +1065,15 @@ def validate_closed_profile(
                 set(expected_record["pointers"]),
                 findings,
             )
+        expected_record_digest = profile.get("derived_record_digests", {}).get(
+            record_id
+        )
+        if expected_record_digest is not None:
+            canonical_record = json.dumps(
+                record, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+            ).encode("utf-8")
+            if hashlib.sha256(canonical_record).hexdigest() != expected_record_digest:
+                findings.append(f"derived_record_authority_mismatch:{record_id}")
 
     pins = manifest.get("external_pins")
     pin_entries = pins if isinstance(pins, list) else []
