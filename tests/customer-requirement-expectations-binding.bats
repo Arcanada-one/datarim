@@ -38,7 +38,8 @@ assert_no_direct_in_place_sed() {
 
     if ! violations="$(awk '
         function inspect(line, line_number, line_len, pos, char, quote, value,
-                         count, i, expect_command, sed_command, values, kinds) {
+                         count, i, expect_command, sed_command, wrapper,
+                         skip_wrapper_arg, skip_redirection_arg, values, kinds) {
             line_len = length(line)
             pos = 1
             count = 0
@@ -90,10 +91,16 @@ assert_no_direct_in_place_sed() {
 
             expect_command = 1
             sed_command = 0
+            wrapper = ""
+            skip_wrapper_arg = 0
+            skip_redirection_arg = 0
             for (i = 1; i <= count; i++) {
                 if (kinds[i] == "separator") {
                     expect_command = 1
                     sed_command = 0
+                    wrapper = ""
+                    skip_wrapper_arg = 0
+                    skip_redirection_arg = 0
                     continue
                 }
                 value = values[i]
@@ -107,8 +114,81 @@ assert_no_direct_in_place_sed() {
                 if (!expect_command) {
                     continue
                 }
+                if (skip_wrapper_arg) {
+                    skip_wrapper_arg = 0
+                    continue
+                }
+                if (skip_redirection_arg) {
+                    skip_redirection_arg = 0
+                    continue
+                }
+
+                if (wrapper == "env") {
+                    if (value == "--") {
+                        wrapper = ""
+                        continue
+                    }
+                    if (value ~ /^(-u|-C|-S|--unset|--chdir|--split-string)$/) {
+                        skip_wrapper_arg = 1
+                        continue
+                    }
+                    if (value ~ /^(-i|-0|-v|--ignore-environment|--null|--debug)$/ ||
+                        value ~ /^--(unset|chdir|split-string)=/) {
+                        continue
+                    }
+                    if (value ~ /^[A-Za-z_][A-Za-z0-9_]*=/) {
+                        continue
+                    }
+                    wrapper = ""
+                } else if (wrapper == "command") {
+                    if (value ~ /^(--|-p)$/) {
+                        continue
+                    }
+                    if (value ~ /^-[vV]$/) {
+                        expect_command = 0
+                        wrapper = ""
+                        continue
+                    }
+                    wrapper = ""
+                } else if (wrapper == "time") {
+                    if (value ~ /^(--|-p)$/) {
+                        continue
+                    }
+                    wrapper = ""
+                } else if (wrapper == "sudo") {
+                    if (value == "--") {
+                        wrapper = ""
+                        continue
+                    }
+                    if (value ~ /^(-u|-g|-h|-p|-C|-T|-R|-D|-t|-r|-c|--user|--group|--host|--prompt|--close-from|--command-timeout|--chroot|--chdir|--type|--role)$/) {
+                        skip_wrapper_arg = 1
+                        continue
+                    }
+                    if (value ~ /^(-[ughpCTRDtrc].+|--(user|group|host|prompt|close-from|command-timeout|chroot|chdir|type|role)=)/) {
+                        continue
+                    }
+                    if (value ~ /^-/) {
+                        continue
+                    }
+                    wrapper = ""
+                }
+
+                if (value ~ /^[0-9]*(>>?|<<?|<>|>&|<&)/) {
+                    if (value ~ /^[0-9]*(>>?|<<?|<>|>&|<&)$/) {
+                        skip_redirection_arg = 1
+                    }
+                    continue
+                }
                 if (value ~ /^[A-Za-z_][A-Za-z0-9_]*=/ ||
-                    value ~ /^(if|then|elif|while|until|do|!|run|command|env|sudo|builtin|exec|time)$/) {
+                    value ~ /^(if|then|elif|while|until|do|!)$/) {
+                    continue
+                }
+                if (value ~ /^(run|builtin|exec)$/) {
+                    wrapper = "command"
+                    continue
+                }
+                if (value ~ /^(command|env|sudo|time)$/) {
+                    wrapper = value
                     continue
                 }
                 if (value == "sed" || value ~ /\/sed$/) {
@@ -1500,6 +1580,11 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
     printf '%s\n' 'echo setup; sed -Ei '\''s/x/y/'\'' mutant' >> "$mutant_suite"
     printf '%s\n' 'run "sed" --in-place '\''s/x/y/'\'' mutant' >> "$mutant_suite"
     printf '%s\n' 'env MODE=test /usr/bin/sed -i '\''s/x/y/'\'' mutant' >> "$mutant_suite"
+    printf '%s\n' 'env -i sed -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
+    printf '%s\n' 'command -- sed -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
+    printf '%s\n' 'time -p sed -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
+    printf '%s\n' 'sudo -u nobody sed -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
+    printf '%s\n' '>/tmp/customer-binding-mutant sed -i.bak '\''s/x/y/'\'' mutant' >> "$mutant_suite"
     run assert_no_direct_in_place_sed "$mutant_suite"
     if [ "$status" -ne 1 ] || [[ "$output" != *"direct in-place sed syntax"* ]]; then
         echo "wrapped in-place sed mutants were not rejected (status=${status}): ${output}" >&2
@@ -1512,6 +1597,10 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
     printf '%s\n' 'printf '\''%s\n'\'' '\''sed -i.bak is forbidden'\''' >> "$mutant_suite"
     printf '%s\n' 'message="sed -i.bak is forbidden"' >> "$mutant_suite"
     printf '%s\n' 'echo "quoted separator; sed -i.bak is forbidden"' >> "$mutant_suite"
+    printf '%s\n' 'env -u sed echo allowed' >> "$mutant_suite"
+    printf '%s\n' 'command -v sed' >> "$mutant_suite"
+    printf '%s\n' 'sudo -u sed echo allowed' >> "$mutant_suite"
+    printf '%s\n' 'time -p echo sed -i.bak is forbidden' >> "$mutant_suite"
     run assert_no_direct_in_place_sed "$mutant_suite"
     if [ "$status" -ne 0 ]; then
         echo "inert sed prose was treated as executable (status=${status}): ${output}" >&2
