@@ -288,9 +288,9 @@ Invoke both deterministic validators:
 
 ```bash
 "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-customer-delivery.sh" \
-    --root <repo-root> --task {TASK-ID} --stage qa --format json
+    --root <repo-root> --task "{TASK-ID}" --stage qa --format json
 "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-review-evolution.sh" \
-    --root <repo-root> --task {TASK-ID} --format json
+    --root <repo-root> --task "{TASK-ID}" --format json
 ```
 
 - Delivery exit `0` and review-evolution exit `0` are required. Delivery exit
