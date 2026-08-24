@@ -7,6 +7,11 @@ if [[ -z "${DR_ORCH_DIR:-}" ]]; then
   DR_ORCH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
   export DR_ORCH_DIR
 fi
+: "${DR_ORCH_CONTEXT_SETUP:=$DR_ORCH_DIR/scripts/context_window_setup.sh}"
+
+_context_window_setup() {
+  bash "$DR_ORCH_CONTEXT_SETUP" "$@"
+}
 
 session_init() {
   local s="${1:-datarim}"
@@ -160,7 +165,7 @@ session_spawn_interactive() {
       fi
       return 0
     fi
-    if bash "$DR_ORCH_DIR/scripts/context_window_setup.sh" enabled >/dev/null 2>&1; then
+    if _context_window_setup enabled >/dev/null 2>&1; then
       _session_spawn_with_context "$session" "$agent_cmd" "$role"
       return
     fi
@@ -178,7 +183,7 @@ session_spawn_interactive() {
     fi
     return
   fi
-  if bash "$DR_ORCH_DIR/scripts/context_window_setup.sh" enabled >/dev/null 2>&1; then
+  if _context_window_setup enabled >/dev/null 2>&1; then
     _session_spawn_with_context "$session" "$agent_cmd" "$role"
     return
   fi
@@ -215,7 +220,7 @@ _session_spawn_with_context() {
   epoch="$(tmux show-options -gv @datarim_context_epoch 2>/dev/null || true)"
   if [ -z "$epoch" ]; then epoch="$(openssl rand -hex 16)"; tmux set-option -g @datarim_context_epoch "$epoch"; fi
   setup_out="$(DR_ORCH_CONTEXT_PANE="$pane" DR_ORCH_CONTEXT_EPOCH="$epoch" DR_ORCH_CONTEXT_SOCKET="$socket" DR_ORCH_ACTIVE_TASK="$task" \
-    bash "$DR_ORCH_DIR/scripts/context_window_setup.sh" install --runtime "$runtime")" || { tmux kill-session -t "$session"; return 1; }
+    _context_window_setup install --runtime "$runtime")" || { tmux kill-session -t "$session"; return 1; }
   instance="$(printf '%s\n' "$setup_out" | awk -F= '$1=="instance"{print $2; exit}')"
   incarnation="$(printf '%s\n' "$setup_out" | awk -F= '$1=="incarnation"{print $2; exit}')"
   overlay="$(printf '%s\n' "$setup_out" | awk -F= '$1=="overlay"{sub(/^overlay=/, ""); print; exit}')"
@@ -226,7 +231,10 @@ _session_spawn_with_context() {
   barrier="while grep -q '\"runtime_bound\":false' $(printf '%q' "$meta"); do sleep 0.01; done; exec $launch"
   tmux respawn-pane -k -t "$session" "$barrier"
   birth="$(tmux display-message -p -t "$session" '#{pane_pid}')"
-  bash "$DR_ORCH_DIR/scripts/context_window_setup.sh" bind-process "$instance" "$incarnation" "$birth"
+  if ! _context_window_setup bind-process "$instance" "$incarnation" "$birth"; then
+    tmux kill-session -t "$session" 2>/dev/null || true
+    return 1
+  fi
   if [ -n "$role" ]; then
     if ! _inject_role_context "$session" "$role"; then
       tmux kill-session -t "$session" 2>/dev/null || true
