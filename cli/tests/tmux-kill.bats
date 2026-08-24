@@ -1,6 +1,8 @@
 #!/usr/bin/env bats
 # Phase 4 V-AC-10, V-AC-20, V-AC-25 — datarim tmux kill (irreversible, hard-gated).
 
+load 'helpers/active-aal-fixture'
+
 setup() {
     CLI_DIR="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
     DATARIM_BIN="$CLI_DIR/datarim"
@@ -10,7 +12,9 @@ setup() {
     TMP_DIR="$(mktemp -d)"
     export DATARIM_CLI_AUDIT_DIR="$TMP_DIR/audit"
     export DATARIM_CLI_HALT_PATH="$TMP_DIR/HALT"
-    export DATARIM_CLI_AGENT_ID="$("$UUID_GEN")"
+    DATARIM_CLI_AGENT_ID="$("$UUID_GEN")"
+    export DATARIM_CLI_AGENT_ID
+    setup_active_aal_fixture "$CLI_DIR/.." "$TMP_DIR/active-aal"
 }
 
 teardown() {

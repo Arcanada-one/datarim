@@ -9,17 +9,17 @@ print_aal3_warning() {
     cat <<'WARN'
 ─── Datarim CLI — AAL 3 autonomous-agent surface ───
 EN: This CLI lets external agents drive Datarim WITHOUT interactive
-EN: confirmation, including irreversible actions like /dr-archive,
-EN: git push, deploy, tmux kill, config set. AAL 3 mandate-override
-EN: was explicitly accepted by the operator on 2026-05-23 and
-EN: expires 2026-08-21 unless renewed in accepted-risk-aal.yml.
+EN: confirmation, including /dr-* dispatch, task moves, plugin changes,
+EN: and tmux new/kill. The AAL 3 mandate-override
+EN: has no active acceptance; install and mutating commands fail closed
+EN: until a current entry is approved in accepted-risk-aal.yml.
 EN: Kill-switch: `datarim audit halt` (sentinel file ~/.config/datarim-cli/HALT).
 
 RU: CLI позволяет внешним агентам управлять Datarim БЕЗ интерактивного
-RU: подтверждения, включая необратимые действия /dr-archive, git push,
-RU: deploy, tmux kill, config set. AAL 3 mandate-override явно принят
-RU: оператором 2026-05-23, истекает 2026-08-21 без продления
-RU: записи в accepted-risk-aal.yml.
+RU: подтверждения, включая /dr-* вызовы, смену стадий, плагины,
+RU: создание/удаление tmux. AAL 3 mandate-override действует
+RU: только при актуальной записи; сейчас нет действующего принятия риска,
+RU: поэтому установка и изменяющие команды блокируются.
 RU: Kill-switch: `datarim audit halt` (sentinel-файл ~/.config/datarim-cli/HALT).
 ─── audit log: datarim/audit/cli-audit-{YYYY-MM-DD}.jsonl (retention 90d) ───
 WARN

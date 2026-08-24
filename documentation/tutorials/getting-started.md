@@ -54,7 +54,7 @@ The main `./install.sh` symlinks runtime scopes (agents/skills/commands/…) int
 cd cli && ./install.sh
 ```
 
-It prints the bilingual AAL 3 warning, validates `accepted-risk-aal.yml` entry `tune-0268-aal3-cli`, and symlinks `cli/datarim` → `/usr/local/bin/datarim` (falls back to `$HOME/.local/bin/datarim` when `/usr/local/bin` is not writable). Set `DATARIM_CLI_AGENT_ID` to a UUID v7 before the first `datarim run` invocation — generate via `cli/lib/uuid7-gen.sh`. Full reference: [documentation/reference/cli.md](../reference/cli.md).
+It prints the bilingual AAL 3 warning and validates a current `accepted-risk-aal.yml` approval before creating the symlink. With no active approval, installation fails closed with exit 23. When approved, it symlinks `cli/datarim` → `/usr/local/bin/datarim` (falling back to `$HOME/.local/bin/datarim` when `/usr/local/bin` is not writable). Set `DATARIM_CLI_AGENT_ID` to a UUID v7 before the first `datarim run` invocation — generate via `cli/lib/uuid7-gen.sh`. Full reference: [documentation/reference/cli.md](../reference/cli.md).
 
 The CLI is opt-in. Slash commands inside a Claude Code session work without it.
 

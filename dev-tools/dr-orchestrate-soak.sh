@@ -27,6 +27,7 @@
 #   DR_SOAK_W_RESOLVED      — relative weight resolved corpus (default 70)
 #   DR_SOAK_W_ESCALATED     — relative weight escalated corpus (default 20)
 #   DR_SOAK_W_NOOP          — relative weight no-op mode (default 10)
+#   DR_SOAK_RANDOM_SEED     — optional integer seed for reproducible traffic
 #   DR_SOAK_CMD             — path to cmd_run.sh
 #   DR_SOAK_AUDIT_DIR       — exported as DR_ORCH_AUDIT_DIR for child
 #
@@ -46,6 +47,15 @@ W_RESOLVED="${DR_SOAK_W_RESOLVED:-70}"
 W_ESCALATED="${DR_SOAK_W_ESCALATED:-20}"
 W_NOOP="${DR_SOAK_W_NOOP:-10}"
 CMD="${DR_SOAK_CMD:-/opt/datarim/plugins/dr-orchestrate/scripts/cmd_run.sh}"
+
+if [[ -n "${DR_SOAK_RANDOM_SEED:-}" ]]; then
+  if [[ ! "$DR_SOAK_RANDOM_SEED" =~ ^(0|[1-9][0-9]{0,4})$ ]] \
+      || (( DR_SOAK_RANDOM_SEED > 32767 )); then
+    echo "[soak] ERR DR_SOAK_RANDOM_SEED must be a canonical integer in range 0..32767" >&2
+    exit 2
+  fi
+  RANDOM="$DR_SOAK_RANDOM_SEED"
+fi
 
 if [[ -n "${DR_SOAK_AUDIT_DIR:-}" ]]; then
   export DR_ORCH_AUDIT_DIR="$DR_SOAK_AUDIT_DIR"

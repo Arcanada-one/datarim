@@ -57,6 +57,8 @@ SUBCMD_DIR="$CLI_DIR/subcommands"
 . "$LIB_DIR/kill-switch.sh"
 # shellcheck source=cli/lib/agent-id.sh
 . "$LIB_DIR/agent-id.sh"
+# shellcheck source=cli/lib/accepted-risk-check.sh
+. "$LIB_DIR/accepted-risk-check.sh"
 
 # --- Dispatch -------------------------------------------------------------
 
@@ -110,12 +112,72 @@ cmd_version() {
     fi
 }
 
+effective_order_independent_operation() {
+    local family="${1:-}" op=""
+    shift || true
+
+    # tasks.sh and backlog.sh accept their operation token anywhere in the
+    # argument list. Mirror that parsing here, including option arity, so a
+    # leading global --json cannot hide a later mutating operation from the
+    # AAL gate. The last operation token wins, matching both subcommands.
+    while [ "$#" -gt 0 ]; do
+        case "$family:$1" in
+            tasks:list|tasks:show|tasks:move|backlog:list|backlog:add)
+                op="$1"
+                shift
+                ;;
+            tasks:--reason|backlog:--prefix|backlog:--id|backlog:--priority|backlog:--complexity|backlog:--title)
+                if [ "$#" -ge 2 ]; then shift 2; else shift; fi
+                ;;
+            *)
+                shift
+                ;;
+        esac
+    done
+    printf '%s' "$op"
+}
+
+required_aal3_scope() {
+    local sub="${1:-}" op arg
+    shift || true
+    case "$sub" in
+        tasks|backlog) op="$(effective_order_independent_operation "$sub" "$@")" ;;
+        *) op="${1:-}" ;;
+    esac
+    case "$sub:$op" in
+        run:*)          printf '%s\n' 'cli_subcommand:run'; return 0 ;;
+        tasks:move)     printf '%s\n' 'cli_subcommand:tasks move'; return 0 ;;
+        backlog:add)    printf '%s\n' 'cli_subcommand:backlog add'; return 0 ;;
+        tmux:attach)    printf '%s\n' 'cli_subcommand:tmux attach'; return 0 ;;
+        tmux:new)       printf '%s\n' 'cli_subcommand:tmux new'; return 0 ;;
+        tmux:kill)      printf '%s\n' 'cli_subcommand:tmux kill'; return 0 ;;
+        audit:resume)   printf '%s\n' 'cli_subcommand:audit resume'; return 0 ;;
+        audit:purge)    printf '%s\n' 'cli_subcommand:audit purge'; return 0 ;;
+        plugin:enable)  printf '%s\n' 'cli_subcommand:plugin enable'; return 0 ;;
+        plugin:disable) printf '%s\n' 'cli_subcommand:plugin disable'; return 0 ;;
+        plugin:sync)    printf '%s\n' 'cli_subcommand:plugin sync'; return 0 ;;
+        plugin:doctor)
+            for arg in "$@"; do
+                if [ "$arg" = "--fix" ]; then
+                    printf '%s\n' 'cli_subcommand:plugin doctor --fix'
+                    return 0
+                fi
+            done
+            ;;
+    esac
+    return 1
+}
+
 main() {
     # First line of every subcommand: kill-switch check (V-AC-6).
     check_kill_switch || exit $?
 
-    local sub="${1:-help}"
+    local sub="${1:-help}" required_scope
     shift || true
+
+    if required_scope="$(required_aal3_scope "$sub" "$@")"; then
+        aal_check TUNE-0268 "$required_scope" || exit $?
+    fi
 
     case "$sub" in
         version|--version|-V)

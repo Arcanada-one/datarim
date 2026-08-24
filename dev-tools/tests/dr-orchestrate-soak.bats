@@ -48,6 +48,21 @@ teardown() {
     [[ "$output" =~ "missing or not executable" ]]
 }
 
+@test "T2b non-integer random seed → exit 2" {
+    run env DR_SOAK_RANDOM_SEED=not-a-number DR_SOAK_CMD="$MOCK" \
+        DR_SOAK_DURATION_SECONDS=2 "$SOAK"
+    [ "$status" -eq 2 ]
+    [[ "$output" =~ "DR_SOAK_RANDOM_SEED must be a canonical integer in range 0..32767" ]]
+}
+
+@test "T2c octal-looking random seed → exit 2 instead of running unseeded" {
+    run env DR_SOAK_RANDOM_SEED=08 DR_SOAK_CMD="$MOCK" \
+        DR_SOAK_DURATION_SECONDS=2 "$SOAK"
+    [ "$status" -eq 2 ]
+    [[ "$output" =~ "DR_SOAK_RANDOM_SEED must be a canonical integer in range 0..32767" ]]
+    [[ "$output" != *"[soak] start"* ]]
+}
+
 @test "T3 short run respects DURATION_SECONDS" {
     start=$(date +%s)
     run env DR_SOAK_DURATION_SECONDS=3 DR_SOAK_CYCLE_SLEEP=1 DR_SOAK_CMD="$MOCK" "$SOAK"
@@ -142,6 +157,7 @@ exit 0
 WEOF
     chmod +x "$MOCK3"
     run env DR_SOAK_W_RESOLVED=100 DR_SOAK_W_ESCALATED=0 DR_SOAK_W_NOOP=0 \
+        DR_SOAK_RANDOM_SEED=2 \
         DR_SOAK_DURATION_SECONDS=3 DR_SOAK_CYCLE_SLEEP=1 DR_SOAK_CMD="$MOCK3" "$SOAK"
     [ "$status" -eq 0 ]
     [ -f "$LOG2" ]

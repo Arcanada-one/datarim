@@ -74,7 +74,9 @@ if [ ! -x "$VALIDATOR" ]; then
     printf '[install] validator not found: %s\n' "$VALIDATOR" >&2
     exit 1
 fi
-if ! "$VALIDATOR" --task TUNE-0268; then
+if "$VALIDATOR" --task TUNE-0268; then
+    :
+else
     rc=$?
     printf '[install] accepted-risk-aal validation failed (exit %s); refusing install\n' "$rc" >&2
     exit "$rc"
