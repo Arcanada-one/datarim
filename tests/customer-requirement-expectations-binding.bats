@@ -32,6 +32,81 @@ assert_contains() {
     grep -Fq -- "$literal" "$file"
 }
 
+assert_no_direct_in_place_sed() {
+    local file="$1"
+    local violations
+
+    if ! violations="$(awk '
+        {
+            line = $0
+            if (!match(line, /(^|[;&|()[:space:]])([^[:space:]]*\/)?sed[[:space:]]+/)) {
+                next
+            }
+            args = substr(line, RSTART + RLENGTH)
+            count = split(args, tokens, /[[:space:]]+/)
+            for (i = 1; i <= count; i++) {
+                token = tokens[i]
+                if (token ~ /^--in-place(=.*)?$/ || token ~ /^-[A-Za-z]*i/) {
+                    print FNR ":" $0
+                    next
+                }
+            }
+        }
+    ' "$file")"; then
+        echo "failed to inspect focused suite for direct in-place sed syntax" >&2
+        return 1
+    fi
+
+    if [ -n "$violations" ]; then
+        echo "focused suite contains direct in-place sed syntax:" >&2
+        echo "$violations" >&2
+        return 1
+    fi
+}
+
+workflow_run_block_has_suite() {
+    local workflow="$1"
+    local suite="$2"
+
+    awk -v suite="$suite" '
+        /^      - name: Run portability-sensitive suites[[:space:]]*$/ {
+            in_step = 1
+            next
+        }
+        in_step && /^      - name:/ {
+            exit
+        }
+        in_step && /^        run:[[:space:]]*\|[[:space:]]*$/ {
+            in_run = 1
+            next
+        }
+        in_run {
+            text = $0
+            sub(/^[[:space:]]+/, "", text)
+            if (text ~ /^#/) {
+                next
+            }
+            if (text ~ /^bats[[:space:]]*\\[[:space:]]*$/) {
+                in_bats = 1
+                next
+            }
+            if (in_bats) {
+                continued = text ~ /\\[[:space:]]*$/
+                sub(/[[:space:]]*\\[[:space:]]*$/, "", text)
+                if (text == suite) {
+                    found = 1
+                }
+                if (!continued) {
+                    in_bats = 0
+                }
+            }
+        }
+        END {
+            exit(found ? 0 : 1)
+        }
+    ' "$workflow"
+}
+
 template_has_exact_binding_bullets() {
     local file="$1"
     local item_count
@@ -1274,9 +1349,39 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
     local focused_suite="${REPO_ROOT}/tests/customer-requirement-expectations-binding.bats"
     local workflow="${REPO_ROOT}/.github/workflows/bats.yml"
 
-    if grep -Eq 'sed (-E )?-i([^A-Za-z]|$)' "$focused_suite"; then
-        echo "focused suite contains GNU-only sed in-place syntax" >&2
-        return 1
-    fi
-    grep -Fq 'tests/customer-requirement-expectations-binding.bats' "$workflow"
+    assert_no_direct_in_place_sed "$focused_suite" || return 1
+    workflow_run_block_has_suite \
+        "$workflow" \
+        'tests/customer-requirement-expectations-binding.bats'
+}
+
+@test "portability anti-decay rejects in-place option variants and commented macOS wiring" {
+    local mutant_suite="${BATS_TEST_TMPDIR}/customer-binding-mutant.bats"
+    local mutant_workflow="${BATS_TEST_TMPDIR}/bats-mutant.yml"
+    local direct_command
+
+    cp "${REPO_ROOT}/.github/workflows/bats.yml" "$mutant_workflow"
+    portable_sed_in_place '/^[[:space:]]*tests\/customer-requirement-expectations-binding\.bats/c\
+            # tests/customer-requirement-expectations-binding.bats' "$mutant_workflow"
+
+    for direct_command in \
+        "sed --in-place -E 's/x/y/' mutant" \
+        "sed --in-place=.bak 's/x/y/' mutant" \
+        "sed -Ei 's/x/y/' mutant" \
+        "sed -iE 's/x/y/' mutant" \
+        "sed -i.bak 's/x/y/' mutant" \
+        "sed -i'' 's/x/y/' mutant"; do
+        cp "${REPO_ROOT}/tests/customer-requirement-expectations-binding.bats" "$mutant_suite"
+        printf '%s\n' "$direct_command" >> "$mutant_suite"
+        run assert_no_direct_in_place_sed "$mutant_suite"
+        if [ "$status" -ne 1 ] || [[ "$output" != *"direct in-place sed syntax"* ]]; then
+            echo "in-place sed mutant was not rejected (${direct_command}; status=${status}): ${output}" >&2
+            return 1
+        fi
+    done
+
+    run workflow_run_block_has_suite \
+        "$mutant_workflow" \
+        'tests/customer-requirement-expectations-binding.bats'
+    [ "$status" -eq 1 ]
 }
