@@ -1,6 +1,6 @@
 ---
 name: customer-delivery
-description: Enforce traceable delivery from a verbatim customer requirement through pre-work knowledge selection, implementation, production evidence, and customer disposition. Use for customer-facing work; enabling artifacts alone are outside its closure semantics.
+description: Enforce delivery from a verbatim requirement through pre-work knowledge selection, production evidence, and disposition; excludes enabling-only closure.
 ---
 
 # Customer Delivery

@@ -19,6 +19,8 @@ assert_contains() {
     [[ -f "$DELIVERY_SKILL" ]]
     assert_contains "$DELIVERY_SKILL" 'name: customer-delivery'
     assert_contains "$DELIVERY_SKILL" 'description:'
+    description="$(sed -n 's/^description: //p' "$DELIVERY_SKILL")"
+    [[ "${#description}" -le 155 ]]
     [[ "$(grep -cE '^## U[1-8]\.' "$DELIVERY_SKILL")" -eq 8 ]]
     ! grep -Eq '[A-Z]{2,10}-[0-9]{4}' "$DELIVERY_SKILL"
 }
