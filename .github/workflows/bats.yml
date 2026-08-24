@@ -87,7 +87,6 @@ jobs:
   suites:
     name: shard ${{ matrix.shard }}/8
     needs: registry
-    if: ${{ false }} # TEMP_DIAGNOSTIC:TALO-0001-macos-functional24
     runs-on: ubuntu-latest
     strategy:
       # Never cancel siblings: one red shard must not hide failures in the
@@ -118,7 +117,6 @@ jobs:
   customer-delivery-linux:
     name: customer delivery ${{ matrix.suite }} ${{ matrix.shard }} (Linux)
     needs: registry
-    if: ${{ false }} # TEMP_DIAGNOSTIC:TALO-0001-macos-functional24
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -172,7 +170,6 @@ jobs:
   macos-portability:
     name: portability (macOS / BSD userland)
     needs: registry
-    if: ${{ false }} # TEMP_DIAGNOSTIC:TALO-0001-macos-functional24
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -257,9 +254,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - suite: functional
-            shard: 24/36 # TEMP_DIAGNOSTIC:TALO-0001-macos-functional24
+        include: ${{ fromJSON(needs.registry.outputs.macos_matrix) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -317,7 +312,7 @@ jobs:
 
   customer-delivery-aggregate:
     name: customer delivery exact result inventory
-    if: ${{ false }} # TEMP_DIAGNOSTIC:TALO-0001-macos-functional24
+    if: ${{ always() }}
     needs: [registry, customer-delivery-linux, customer-delivery-macos]
     runs-on: ubuntu-latest
     steps:
