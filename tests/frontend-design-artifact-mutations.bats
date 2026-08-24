@@ -8,11 +8,13 @@ setup() {
     REPO="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
     CONTRACT="$REPO/tests/frontend-design-artifacts.bats"
     MUTANT="$BATS_TEST_TMPDIR/mutant"
-    mkdir -p "$MUTANT/skills" "$MUTANT/agents" "$MUTANT/config" "$MUTANT/templates"
+    mkdir -p "$MUTANT/skills" "$MUTANT/agents" "$MUTANT/config" "$MUTANT/templates" "$MUTANT/dev-tools" "$MUTANT/tests/fixtures"
     cp -R "$REPO/skills/frontend-design" "$MUTANT/skills/frontend-design"
     cp "$REPO/agents/designer.md" "$REPO/agents/researcher.md" "$MUTANT/agents/"
     cp "$REPO/config/roles.yaml" "$MUTANT/config/roles.yaml"
     cp "$REPO/templates/insights-template.md" "$REPO/templates/frontend-design-brief.md" "$MUTANT/templates/"
+    cp "$REPO/dev-tools/evaluate-frontend-design.py" "$MUTANT/dev-tools/evaluate-frontend-design.py"
+    cp "$REPO/tests/fixtures/frontend-design-scenarios.yaml" "$MUTANT/tests/fixtures/frontend-design-scenarios.yaml"
 }
 
 mutate_text() {
@@ -28,64 +30,107 @@ path.write_text(text.replace(old, new, 1))
 PY
 }
 
-assert_named_red() {
-    local pattern="$1"
-    run env FRONTEND_DESIGN_ROOT="$MUTANT" bats -f "$pattern" "$CONTRACT"
+append_text() {
+    python3 - "$1" "$2" <<'PY'
+from pathlib import Path
+import sys
+
+path, addition = Path(sys.argv[1]), sys.argv[2]
+path.write_text(path.read_text() + "\n" + addition + "\n")
+PY
+}
+
+assert_evaluator_red() {
+    local expected="$1"
+    run python3 "$MUTANT/dev-tools/evaluate-frontend-design.py" \
+        --contract "$MUTANT/skills/frontend-design/references/decision-contract.yaml" \
+        --scenarios "$MUTANT/tests/fixtures/frontend-design-scenarios.yaml" \
+        --docs-root "$MUTANT" \
+        --check
     [ "$status" -ne 0 ] \
-        && [[ "$output" == *"not ok"* ]]
+        && jq -e --arg expected "$expected" \
+            '([.contract_errors[], .scenario_errors[], .documentation_errors[]] | map(contains($expected)) | any)' \
+            <<<"$output" >/dev/null
 }
 
 @test "M1: explicit designer projection is load-bearing" {
     mutate_text "$MUTANT/config/roles.yaml" 'agent: "agents/designer.md"' 'agent: "agents/not-present.md"'
-    assert_named_red 'designer and researcher execution projections'
+    run env FRONTEND_DESIGN_ROOT="$MUTANT" bats -f 'designer and researcher execution projections' "$CONTRACT"
+    [ "$status" -ne 0 ] \
+        && [[ "$output" == *"not ok"* ]]
 }
 
 @test "M2: designer ownership and acceptance boundary is load-bearing" {
-    mutate_text "$MUTANT/agents/designer.md" 'The designer owns the pre-code design packet' 'The developer may draft the design packet'
-    assert_named_red 'designer owns the pre-code packet'
+    append_text "$MUTANT/agents/designer.md" 'The designer owns customer acceptance.'
+    assert_evaluator_red 'designer is assigned acceptance authority'
 }
 
 @test "M3: backend non-trigger is load-bearing" {
-    mutate_text "$MUTANT/skills/frontend-design/SKILL.md" 'For backend-only, data-only, infrastructure-only, or non-rendered work, do not invoke this skill.' 'Invoke this skill for every task.'
-    assert_named_red 'backend-only'
+    append_text "$MUTANT/skills/frontend-design/SKILL.md" 'Invoke this skill for backend-only work.'
+    assert_evaluator_red 'unsafe backend-only invocation rule'
 }
 
 @test "M4: sparse-brief autonomous direction is load-bearing" {
-    mutate_text "$MUTANT/skills/frontend-design/references/design-decisions.md" 'Do not pause for preliminary taste approval' 'Pause for preliminary taste approval'
-    assert_named_red 'sparse brief'
+    append_text "$MUTANT/skills/frontend-design/references/design-decisions.md" 'Pause for preliminary taste approval.'
+    assert_evaluator_red 'preliminary taste approval pause contradicts policy'
 }
 
 @test "M5: existing-system reuse-first rule is load-bearing" {
-    mutate_text "$MUTANT/skills/frontend-design/references/design-decisions.md" 'Reuse or extend compatible tokens, components, and page patterns before proposing replacements.' 'Replace existing tokens and components by default.'
-    assert_named_red 'existing system'
+    mutate_text "$MUTANT/skills/frontend-design/references/decision-contract.yaml" 'replacement_default: false' 'replacement_default: true'
+    assert_evaluator_red 'policy replacement_default must equal False'
 }
 
 @test "M6: accessible-alternative rule is load-bearing" {
-    mutate_text "$MUTANT/skills/frontend-design/references/design-decisions.md" 'preserve the customer intent through an accessible alternative' 'implement the requested treatment unchanged'
-    assert_named_red 'accessibility conflict'
+    mutate_text "$MUTANT/skills/frontend-design/references/decision-contract.yaml" 'accessibility_conflict_strategy: accessible_alternative' 'accessibility_conflict_strategy: implement_unchanged'
+    assert_evaluator_red "policy accessibility_conflict_strategy must equal 'accessible_alternative'"
 }
 
 @test "M7: real Russian stress-copy rule is load-bearing" {
-    mutate_text "$MUTANT/skills/frontend-design/references/design-decisions.md" 'real RU stress copy' 'translated copy later'
-    assert_named_red 'long Russian'
+    mutate_text "$MUTANT/skills/frontend-design/references/decision-contract.yaml" 'ru_overflow_strategy: redesign_layout' 'ru_overflow_strategy: shrink_text'
+    assert_evaluator_red "policy ru_overflow_strategy must equal 'redesign_layout'"
 }
 
 @test "M8: complete twelve-cell evidence rule is load-bearing" {
-    mutate_text "$MUTANT/skills/frontend-design/references/handoff-and-evidence.md" 'RU/EN x desktop/tablet/mobile x light/dark' 'RU/EN x desktop/mobile x light/dark'
-    assert_named_red 'missing matrix'
+    append_text "$MUTANT/skills/frontend-design/references/handoff-and-evidence.md" 'A ten-cell matrix is sufficient.'
+    assert_evaluator_red 'unsafe 10-cell sufficiency rule'
 }
 
 @test "M9: post-hoc rejection is load-bearing" {
-    mutate_text "$MUTANT/skills/frontend-design/references/handoff-and-evidence.md" 'Reject post-hoc attribution' 'Allow post-hoc attribution'
-    assert_named_red 'scenario attribution'
+    append_text "$MUTANT/skills/frontend-design/references/handoff-and-evidence.md" 'Allow post-hoc binding.'
+    assert_evaluator_red 'post-hoc binding is allowed'
 }
 
 @test "M10: product-code Knowledge Contract gate is load-bearing" {
-    mutate_text "$MUTANT/skills/frontend-design/SKILL.md" 'Product code is forbidden until the contract is `MET`.' 'Product code may start while the contract is incomplete.'
-    assert_named_red 'workflow orders reuse research gaps artifacts and KC'
+    mutate_text "$MUTANT/skills/frontend-design/references/decision-contract.yaml" 'implementation_requires_knowledge_contract_state: MET' 'implementation_requires_knowledge_contract_state: OPTIONAL'
+    assert_evaluator_red 'product implementation must require Knowledge Contract MET'
 }
 
 @test "M11: canonical CapabilityDescription boundary is load-bearing" {
-    mutate_text "$MUTANT/skills/frontend-design/SKILL.md" '`Competency` is not a managed kind' '`Competency` is a managed kind'
-    assert_named_red 'canonical kinds include CapabilityDescription'
+    mutate_text "$MUTANT/skills/frontend-design/references/decision-contract.yaml" '  - CapabilityDescription' '  - Competency'
+    assert_evaluator_red 'managed_kinds must be the exact canonical seven-kind sequence'
+}
+
+@test "M12: Unbound delivery rejection is load-bearing" {
+    append_text "$MUTANT/skills/frontend-design/references/handoff-and-evidence.md" 'Allow Unbound delivery.'
+    assert_evaluator_red 'Unbound delivery is allowed'
+}
+
+@test "M13: unsafe backend synonym cannot bypass the pinned decision surfaces" {
+    append_text "$MUTANT/skills/frontend-design/SKILL.md" 'Backend-only changes activate this capability.'
+    assert_evaluator_red 'decision surface digest mismatch'
+}
+
+@test "M14: unsafe matrix synonym cannot bypass the pinned decision surfaces" {
+    append_text "$MUTANT/skills/frontend-design/references/handoff-and-evidence.md" 'Ten captures meet the complete proof threshold.'
+    assert_evaluator_red 'decision surface digest mismatch'
+}
+
+@test "M15: unknown structured override fails closed" {
+    append_text "$MUTANT/skills/frontend-design/references/decision-contract.yaml" $'documentation_override:\n  backend_only_invokes: true'
+    assert_evaluator_red 'unknown contract keys are forbidden: documentation_override'
+}
+
+@test "M16: a scenario cannot silently omit a claimed output" {
+    mutate_text "$MUTANT/tests/fixtures/frontend-design-scenarios.yaml" $'      implementation_allowed: true\n      product_code_emitted: false' $'      implementation_allowed: true'
+    assert_evaluator_red 'scenario positive_site_wave is missing expected outputs: product_code_emitted'
 }

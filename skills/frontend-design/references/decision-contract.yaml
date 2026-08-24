@@ -1,0 +1,44 @@
+schema_version: 1
+contract_id: datarim-frontend-design-decision-contract
+design_owner: designer
+acceptance_owner: operator
+managed_kinds:
+  - Role
+  - Skill
+  - Blueprint
+  - Constraint
+  - SuccessCriterion
+  - Policy
+  - CapabilityDescription
+activation:
+  requires_rendered_customer_surface: true
+  backend_only_invokes: false
+workflow:
+  ordered_stages:
+    - reuse_inventory
+    - external_research
+    - seven_kind_gap_analysis
+    - reusable_artifact_creation_and_validation
+    - knowledge_contract_issuance
+  implementation_requires_knowledge_contract_state: MET
+policies:
+  preliminary_taste_approval_required: false
+  existing_design_system_strategy: reuse_and_extend
+  accessibility_conflict_strategy: accessible_alternative
+  accessibility_floor: WCAG-2.2-AA
+  ru_overflow_strategy: redesign_layout
+  shrink_critical_text: false
+  post_hoc_binding_allowed: false
+  unbound_delivery_allowed: false
+  replacement_default: false
+  emits_product_code: false
+evidence_matrix:
+  locales: [RU, EN]
+  viewports: [desktop, tablet, mobile]
+  themes: [light, dark]
+  expected_cells_per_surface: 12
+decision_surface_sha256:
+  skills/frontend-design/SKILL.md: 3e753bd2444e85ca0a0258deb26b764fc90c008173b587490dc4679e1bd5eb30
+  skills/frontend-design/references/design-decisions.md: 71d3c156d30b6c63f4b2e2ac615ff7cb0ab04586fe345b11fdbef6e55901c2e6
+  skills/frontend-design/references/handoff-and-evidence.md: e2c28e8bf4caa807e68721a7f18b80cae13832ed5ee4ea943b95de482de1eee0
+  agents/designer.md: d854f55e2dc725e16470bdd4595813a5bb516ab0959223ecc248092e606f6968

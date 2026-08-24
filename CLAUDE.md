@@ -50,6 +50,7 @@ Agents are specialized personas loaded per pipeline stage. Each agent has define
 | **planner** | Lead Project Manager | /dr-init, /dr-plan, /dr-archive |
 | **architect** | Chief Architect | /dr-prd, /dr-design |
 | **developer** | Senior Developer (TDD) | /dr-do |
+| **designer** | Frontend Design Lead | Pre-code customer-facing frontend design and Knowledge Contract handoff |
 | **reviewer** | QA & Security Lead | /dr-qa, /dr-archive (Step 0.5 reflection) |
 | **compliance** | Compliance Runner | /dr-compliance |
 | **code-simplifier** | Code Simplification | /dr-compliance |
@@ -130,6 +131,7 @@ Skills are reusable knowledge modules loaded on demand. They provide rules, patt
 - `publishing.md` — Multi-platform publishing rules, formatting, platform limits, workflow (loaded by: writer, on demand)
 - `datarim-doctor.md` — Schema and migration semantics for /dr-doctor (thin one-liner contract, YAML description schema) (loaded by: /dr-doctor, /dr-init self-heal, /dr-archive line-format gate)
 - `file-sync-config.md` — Pre-flight checklist + ignore patterns for file-sync (Syncthing/rclone/rsync) protecting git working trees and venv/build (loaded on demand for sync setup)
+- `frontend-design.md` — Research-backed pre-code frontend design packets, reuse-first design-system decisions, and Knowledge Contract handoff (loaded by: designer)
 - `frontend-ui.md` — Frontend UI checklist: CSS specificity, dark/light themes, visual testing, mobile responsiveness, i18n parity (loaded when editing HTML/CSS)
 - `infra-automation.md` — Infrastructure ops: SSH batch execution, health checks, network debugging, pre-migration inventory (loaded for server ops)
 - `init-task-persistence.md` — Verbatim operator brief artefact contract — frontmatter + append-log + mandatory read by every pipeline command. Source of truth for operator intent across the task lifecycle. **v2.9.0** extends the contract with the `Q&A round-trip` section: six pipeline commands auto-append `Q&A by /dr-<stage>` blocks to the Append-log via `dev-tools/append-init-task-qa.sh`; `decided_by: agent` rounds carry ≥50-char `Decision rationale` and are verified by `/dr-qa` Layer 3b against the implementation.
@@ -141,7 +143,7 @@ Skills are reusable knowledge modules loaded on demand. They provide rules, patt
 - `session-handoff-replay.md` -- Consumer contract for `/dr-continue`: read session artefact in clean window, re-verify every claim via live probes (STALE SNAPSHOT / CLAIM-UNVERIFIED / FILE-MISSING banners), downgrade provenance tags, route to `/dr-next` or `/dr-auto`. Squash-collision detection via `git merge-base --is-ancestor`. Shares bilingual replay renderer with `/dr-next` via `skills/dr-next-snapshot-replay/SKILL.md § Shared Replay Renderer`. (loaded by: /dr-continue)
 - `context-window-self-clearing.md` — Default-off orchestrator contract for deterministic Claude Code/Codex pressure thresholds, checkpoint-before-reset transactions, fixed compact/clear instructions, and snapshot-first continuation. (loaded by: /dr-orchestrate plugin runtime)
 
-Skill files: `$HOME/.claude/skills/{name}/SKILL.md` (73 skills, 13 with supporting fragment directories — a "supporting fragment directory" is a skill folder that ships at least one sibling `.md` beside its `SKILL.md`)
+Skill files: `$HOME/.claude/skills/{name}/SKILL.md` (74 skills, 13 with supporting fragment directories — a "supporting fragment directory" is a skill folder that ships at least one sibling `.md` beside its `SKILL.md`)
 
 > **Available since v1.16.0:** `cta-format.md` — canonical CTA "Next Step" block specification, loaded by `planner`, `architect`, `developer`, `reviewer`, `compliance` agents. Defines structure, separators, primary marker, multi-task menu (Variant B), and FAIL-Routing variant.
 

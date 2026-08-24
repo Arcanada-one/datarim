@@ -1,0 +1,137 @@
+schema_version: 1
+scenarios:
+  - id: positive_site_wave
+    input:
+      rendered_customer_surface: true
+      backend_only: false
+      brief_detail: complete
+      existing_design_system: false
+      accessibility_conflict: false
+      ru_overflow: false
+      evidence_cells_present: 12
+      binding_timing: pre_work
+      binding_state: Bound
+      reusable_artifacts_valid: true
+    expected:
+      invoke_skill: true
+      design_action: produce_design_packet
+      knowledge_contract_state: MET
+      implementation_allowed: true
+      product_code_emitted: false
+
+  - id: sparse_visual_brief
+    input:
+      rendered_customer_surface: true
+      backend_only: false
+      brief_detail: sparse
+      evidence_cells_present: 0
+      binding_timing: pre_work
+      binding_state: Gap
+      reusable_artifacts_valid: false
+    expected:
+      invoke_skill: true
+      design_action: produce_first_direction
+      approval_pause: false
+      knowledge_contract_state: NOT_MET
+      implementation_allowed: false
+      product_code_emitted: false
+
+  - id: existing_design_system
+    input:
+      rendered_customer_surface: true
+      backend_only: false
+      brief_detail: complete
+      existing_design_system: true
+      evidence_cells_present: 0
+      binding_timing: pre_work
+      binding_state: Gap
+      reusable_artifacts_valid: false
+    expected:
+      invoke_skill: true
+      design_action: reuse_and_extend
+      replacement_default: false
+      knowledge_contract_state: NOT_MET
+      implementation_allowed: false
+      product_code_emitted: false
+
+  - id: accessibility_conflict
+    input:
+      rendered_customer_surface: true
+      backend_only: false
+      accessibility_conflict: true
+      evidence_cells_present: 0
+      binding_timing: pre_work
+      binding_state: Gap
+      reusable_artifacts_valid: false
+    expected:
+      invoke_skill: true
+      design_action: accessible_alternative
+      accessibility_floor: WCAG-2.2-AA
+      knowledge_contract_state: NOT_MET
+      implementation_allowed: false
+      product_code_emitted: false
+
+  - id: long_ru_overflow
+    input:
+      rendered_customer_surface: true
+      backend_only: false
+      ru_overflow: true
+      evidence_cells_present: 0
+      binding_timing: pre_work
+      binding_state: Gap
+      reusable_artifacts_valid: false
+    expected:
+      invoke_skill: true
+      design_action: redesign_layout
+      shrink_critical_text: false
+      knowledge_contract_state: NOT_MET
+      implementation_allowed: false
+      product_code_emitted: false
+
+  - id: missing_matrix_cell
+    input:
+      rendered_customer_surface: true
+      backend_only: false
+      evidence_cells_present: 11
+      binding_timing: pre_work
+      binding_state: Bound
+      reusable_artifacts_valid: true
+    expected:
+      invoke_skill: true
+      design_action: complete_evidence_plan
+      evidence_cells_required: 12
+      evidence_cells_present: 11
+      knowledge_contract_state: NOT_MET
+      implementation_allowed: false
+      product_code_emitted: false
+
+  - id: post_hoc_unbound
+    input:
+      rendered_customer_surface: true
+      backend_only: false
+      evidence_cells_present: 12
+      binding_timing: post_hoc
+      binding_state: Unbound
+      reusable_artifacts_valid: true
+    expected:
+      invoke_skill: true
+      design_action: reject_binding
+      binding_accepted: false
+      knowledge_contract_state: NOT_MET
+      implementation_allowed: false
+      product_code_emitted: false
+
+  - id: backend_only_migration
+    input:
+      rendered_customer_surface: false
+      backend_only: true
+      evidence_cells_present: 0
+      binding_timing: pre_work
+      binding_state: Bound
+      reusable_artifacts_valid: true
+    expected:
+      invoke_skill: false
+      design_action: route_without_frontend_design
+      knowledge_contract_state: NOT_APPLICABLE
+      implementation_allowed: null
+      product_code_emitted: false
