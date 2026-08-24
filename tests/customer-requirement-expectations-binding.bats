@@ -1444,7 +1444,7 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
         mode="$(stat -f '%Lp' "$fixture")"
     fi
     [ "$mode" = "640" ] || return 1
-    [ "$(find "$fixture_dir" -mindepth 1 -maxdepth 1 -type f | wc -l | tr -d '[:space:]')" -eq 1 ]
+    [ "$(find "$fixture_dir" -type f | wc -l | tr -d '[:space:]')" -eq 1 ]
 }
 
 @test "focused customer binding tests are BSD-portable and run in macOS CI" {
