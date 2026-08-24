@@ -38,7 +38,7 @@ PLATFORM_SHARD_POLICY = {
         **{shard: ("linux",) for shard in range(1, 14)},
         **{shard: ("linux", "macos") for shard in range(14, 20)},
         **{shard: ("macos",) for shard in range(20, 27)},
-        **{shard: ("linux", "macos") for shard in range(27, 31)},
+        **{shard: ("linux", "macos") for shard in range(27, 36)},
     },
 }
 MACOS_RUNTIME_ISOLATED_TESTS = {

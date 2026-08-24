@@ -577,46 +577,227 @@ PY
 }
 
 assert_completed_parent_descendant_cleanup() {
-    local shim="${BATS_TEST_TMPDIR}/completed-parent-openssl"
-    local pid_file="${BATS_TEST_TMPDIR}/completed-parent-descendant.pid"
-    local real_openssl child_pid attempt
+    local callsite="$1"
+    local shim="${BATS_TEST_TMPDIR}/completed-parent-${callsite}"
+    local pid_file="${BATS_TEST_TMPDIR}/completed-parent-${callsite}.pid"
+    local real_executable child_pid process_group attempt
     rm -f -- "$pid_file" || return 1
-    real_openssl="$(command -v openssl)" || return 1
-    "$PYTHON" - "$shim" "$pid_file" "$real_openssl" <<'PY' || return 1
+    case "$callsite" in
+        silent|bounded) real_executable="$(command -v openssl)" || return 1 ;;
+        source_history) real_executable="$(command -v git)" || return 1 ;;
+        *) return 1 ;;
+    esac
+    "$PYTHON" - "$shim" "$pid_file" "$real_executable" "$callsite" <<'PY' || return 1
 import os
 import sys
 
-shim, pid_file, real_openssl = sys.argv[1:]
+shim, pid_file, real_executable, callsite = sys.argv[1:]
+spawn = (
+    "  (trap '' TERM; exec </dev/null >/dev/null 2>&1; sleep 30) &\n"
+    + f"  printf '%s\\n' \"$!\" > {pid_file!r}\n"
+)
 with open(shim, "w", encoding="utf-8") as handle:
     handle.write("#!/bin/bash\n")
-    handle.write('if [ "${1:-}" = version ]; then\n')
-    handle.write("  (trap '' TERM; exec </dev/null >/dev/null 2>&1; sleep 30) &\n")
-    handle.write(f"  printf '%s\\n' \"$!\" > {pid_file!r}\n")
-    handle.write("  printf '%s\\n' 'OpenSSL 3.0.0 fixture'\n")
-    handle.write("  exit 0\n")
-    handle.write("fi\n")
-    handle.write(f'exec {real_openssl!r} "$@"\n')
+    if callsite == "bounded":
+        handle.write('if [ "${1:-}" = version ]; then\n')
+        handle.write(spawn)
+        handle.write("  printf '%s\\n' 'OpenSSL 3.0.0 fixture'\n  exit 0\nfi\n")
+    elif callsite == "silent":
+        handle.write('if [ "${1:-}" = version ]; then\n')
+        handle.write("  printf '%s\\n' 'OpenSSL 3.0.0 fixture'\n  exit 0\nfi\n")
+        handle.write(spawn)
+    elif callsite == "source_history":
+        handle.write('if [[ "$*" == *"--version"* ]]; then\n')
+        handle.write(spawn)
+        handle.write("fi\n")
+    else:
+        raise SystemExit("COMPLETED_PARENT_CALLSITE_INVALID")
+    handle.write(f'exec {real_executable!r} "$@"\n')
 os.chmod(shim, 0o755)
 PY
-    build_test_framework completed-parent-descendant || return 1
-    rebind_test_openssl "$shim" || return 1
+    build_test_framework "completed-parent-${callsite}" || return 1
+    if [[ "$callsite" == source_history ]]; then
+        replace_test_script_literal \
+            'PINNED_GIT = "/usr/bin/git"' \
+            "PINNED_GIT = \"${shim}\"" || return 1
+    else
+        rebind_test_openssl "$shim" || return 1
+    fi
     run_test_framework_json
     [ "$status" -eq 0 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["decision"] in {"MET","NOT_MET"}; assert not any(item.startswith("validation_resource_limit:") for item in d["findings"])' "$output" \
         && [ -s "$pid_file" ] \
-        || { printf 'completed_parent_cleanup_setup=status=%s output=%s\n' \
-            "$status" "$output"; return 1; }
+        || { printf 'completed_parent_cleanup_setup=%s status=%s output=%s\n' \
+            "$callsite" "$status" "$output"; return 1; }
     child_pid="$(<"$pid_file")"
     for attempt in {1..10}; do
         if ! kill -0 "$child_pid" 2>/dev/null; then
-            printf 'completed_parent_descendant=pid=%s reaped=1\n' "$child_pid"
+            printf 'completed_parent_descendant=%s pid=%s reaped=1\n' \
+                "$callsite" "$child_pid"
             return 0
         fi
         sleep 0.05
     done
-    kill -KILL "$child_pid" 2>/dev/null || true
-    printf 'completed_parent_descendant_survived=%s\n' "$child_pid"
+    process_group="$(ps -o pgid= -p "$child_pid" 2>/dev/null | tr -d '[:space:]')"
+    if [[ "$process_group" =~ ^[1-9][0-9]*$ && "$process_group" != "$$" ]]; then
+        kill -KILL -- "-${process_group}" 2>/dev/null || true
+    else
+        kill -KILL "$child_pid" 2>/dev/null || true
+    fi
+    printf 'completed_parent_descendant_survived=%s pid=%s\n' \
+        "$callsite" "$child_pid"
     return 1
+}
+
+assert_process_lifecycle_probe() {
+    local mode="$1"
+    local marker="${BATS_TEST_TMPDIR}/process-lifecycle-${mode}.marker"
+    build_test_framework "process-lifecycle-${mode}" || return 1
+    run "$PYTHON" - "$TEST_SCRIPT" "$mode" "$marker" <<'PY'
+import ast
+import os
+import pathlib
+import signal
+import subprocess
+import sys
+import tempfile
+import time
+
+script_path, mode, marker_path = sys.argv[1:]
+shell_source = pathlib.Path(script_path).read_text(encoding="utf-8")
+python_start = shell_source.index("import base64\n")
+python_end = shell_source.index("\nPY\nvalidator_status=", python_start)
+validator_source = shell_source[python_start:python_end]
+tree = ast.parse(validator_source)
+function_names = {
+    "block_and_disarm_validation_alarm",
+    "close_process_streams",
+    "process_group_is_owned",
+    "release_active_process",
+    "terminate_process_group",
+    "terminate_registered_process",
+}
+selected = [
+    node for node in tree.body
+    if (
+        isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name in function_names
+    ) or (isinstance(node, ast.ClassDef) and node.name == "RegisteredProcess")
+]
+namespace = {
+    "os": os,
+    "signal": signal,
+    "subprocess": subprocess,
+    "time": time,
+    "_active_process": None,
+}
+exec(compile(ast.Module(body=selected, type_ignores=[]), script_path, "exec"), namespace)
+
+if mode == "reused-pid":
+    events = []
+
+    class ReapedSupervisor:
+        pid = 424242
+        returncode = 0
+        stdin = None
+        stdout = None
+        stderr = None
+
+        def wait(self, timeout=None):
+            return self.returncode
+
+    process = namespace["RegisteredProcess"](ReapedSupervisor(), -1)
+    namespace["_active_process"] = process
+    real_killpg = os.killpg
+
+    try:
+        os.killpg = lambda pid, sig: events.append((pid, sig))
+        namespace["terminate_registered_process"](process)
+    finally:
+        os.killpg = real_killpg
+    if events:
+        raise SystemExit(f"reused_pid_group_signalled={events!r}")
+    pathlib.Path(marker_path).write_text("reused-pid-no-signal\n", encoding="ascii")
+elif mode == "cleanup-alarm":
+    descendant_path = marker_path + ".descendant"
+    supervisor = subprocess.Popen(
+        [
+            "/bin/bash",
+            "-c",
+            "(trap '' TERM; exec </dev/null >/dev/null 2>&1; sleep 30) & "
+            f"printf '%s\\n' \"$!\" > {descendant_path!r}; wait",
+        ],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+    process = namespace["RegisteredProcess"](supervisor, -1)
+    namespace["_active_process"] = process
+    deadline = time.monotonic() + 1.0
+    while not os.path.isfile(descendant_path):
+        if time.monotonic() >= deadline:
+            os.killpg(process.pid, signal.SIGKILL)
+            supervisor.wait(timeout=1)
+            raise SystemExit("cleanup_alarm_descendant_not_ready")
+        time.sleep(0.01)
+    descendant_pid = int(pathlib.Path(descendant_path).read_text(encoding="ascii"))
+    events = []
+    real_killpg = os.killpg
+
+    class ProbeAlarm(BaseException):
+        pass
+
+    def alarm_handler(_signum, _frame):
+        raise ProbeAlarm()
+
+    def signalling_killpg(pid, sig):
+        events.append(sig)
+        real_killpg(pid, sig)
+        if sig == signal.SIGKILL:
+            os.kill(os.getpid(), signal.SIGALRM)
+
+    previous_handler = signal.signal(signal.SIGALRM, alarm_handler)
+    os.killpg = signalling_killpg
+    alarm_observed = False
+    try:
+        try:
+            namespace["terminate_registered_process"](process)
+        except ProbeAlarm:
+            alarm_observed = True
+    finally:
+        os.killpg = real_killpg
+        signal.signal(signal.SIGALRM, previous_handler)
+        try:
+            real_killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        try:
+            supervisor.wait(timeout=1)
+        except subprocess.TimeoutExpired:
+            pass
+    descendant_alive = True
+    for _attempt in range(20):
+        try:
+            os.kill(descendant_pid, 0)
+        except ProcessLookupError:
+            descendant_alive = False
+            break
+        time.sleep(0.01)
+    if not alarm_observed or events != [signal.SIGKILL]:
+        raise SystemExit(f"cleanup_alarm_interrupted={events!r} observed={alarm_observed!r}")
+    if namespace["_active_process"] is not None or descendant_alive:
+        raise SystemExit(
+            f"cleanup_alarm_orphan=active:{namespace['_active_process']!r} "
+            f"descendant_alive:{descendant_alive!r}"
+        )
+    pathlib.Path(marker_path).write_text("cleanup-alarm-after-kill\n", encoding="ascii")
+else:
+    raise SystemExit("PROCESS_LIFECYCLE_PROBE_MODE_INVALID")
+PY
+    [ "$status" -eq 0 ] && [ -s "$marker" ] \
+        || { printf 'process_lifecycle_probe=%s status=%s output=%s\n' \
+            "$mode" "$status" "$output"; return 1; }
 }
 
 assert_post_popen_signal_cleanup() {
@@ -693,7 +874,8 @@ import sys
 
 path, pid_file = sys.argv[1:]
 source = open(path, encoding="utf-8").read()
-registered = '''        process = subprocess.Popen(arguments, **options)
+registered = '''        process = RegisteredProcess(process, status_read_fd)
+        status_read_fd = None
         _active_process = process  # SECURITY_RULE:popen_registry
 '''
 expired_while_masked = registered + f'''        with open({pid_file!r}, "w", encoding="ascii") as handle:
@@ -3260,11 +3442,26 @@ PY
 @test "OpenSSL deadline terminates stubborn descendant pipe holders" {
     local shim="${BATS_TEST_TMPDIR}/stubborn-openssl"
     local pid_file="${BATS_TEST_TMPDIR}/stubborn-openssl.pid"
-    local descendant_pid attempt elapsed parsed_json callsite descendant_reaped=0
+    local descendant_pid attempt elapsed parsed_json callsite completed_callsite descendant_reaped=0
     local post_popen_only="${CUSTOMER_DELIVERY_POST_POPEN_ONLY:-}"
+    local completed_parent_only="${CUSTOMER_DELIVERY_COMPLETED_PARENT_ONLY:-}"
+    local lifecycle_only="${CUSTOMER_DELIVERY_LIFECYCLE_ONLY:-}"
     local elapsed_marker="${BATS_TEST_TMPDIR}/stubborn-crypto.elapsed"
     rm -f -- "$pid_file" || return 1
     assert_bounded_validator_diagnostic_grammar || return 1
+    if [[ -n "$lifecycle_only" ]]; then
+        case "$lifecycle_only" in
+            cleanup-alarm|reused-pid)
+                assert_process_lifecycle_probe "$lifecycle_only" || return 1
+                ;;
+            *) return 1 ;;
+        esac
+        return 0
+    fi
+    if [[ -n "$completed_parent_only" ]]; then
+        assert_completed_parent_descendant_cleanup "$completed_parent_only" || return 1
+        return 0
+    fi
     "$PYTHON" - "$shim" "$pid_file" <<'PY' || return 1
 import os
 import sys
@@ -3319,7 +3516,9 @@ PY
         printf 'stubborn_crypto_descendant_survived=%s\n' "$descendant_pid"
         return 1
     fi
-    assert_completed_parent_descendant_cleanup || return 1
+    for completed_callsite in silent bounded source_history; do
+        assert_completed_parent_descendant_cleanup "$completed_callsite" || return 1
+    done
     if [[ -n "$post_popen_only" ]]; then
         case "$post_popen_only" in
             silent|bounded|source_history)
@@ -3336,6 +3535,8 @@ PY
         done
         assert_masked_popen_deadline_cleanup || return 1
     fi
+    assert_process_lifecycle_probe cleanup-alarm || return 1
+    assert_process_lifecycle_probe reused-pid || return 1
 }
 
 @test "non-Python executable cannot satisfy the interpreter pin" {
@@ -4204,7 +4405,7 @@ PY
 @test "source history deadline kills stubborn descendant pipe holders" {
     local shim="${BATS_TEST_TMPDIR}/descendant-pipe-git"
     local pidfile="${BATS_TEST_TMPDIR}/descendant-pipe.pid"
-    local real_git elapsed descendant_pid descendant_state
+    local real_git elapsed descendant_pid descendant_state process_group
     local elapsed_marker="${BATS_TEST_TMPDIR}/history-descendant.elapsed"
     real_git="$(command -v git)" || return 1
     "$PYTHON" - "$shim" "$real_git" "$pidfile" <<'PY' || return 1
@@ -4241,6 +4442,12 @@ PY
         return 1
     fi
     descendant_state="$(ps -o stat= -p "$descendant_pid" 2>/dev/null || true)"
+    if [[ -n "$descendant_state" && "$descendant_state" != Z* ]]; then
+        process_group="$(ps -o pgid= -p "$descendant_pid" 2>/dev/null | tr -d '[:space:]')"
+        if [[ "$process_group" =~ ^[1-9][0-9]*$ ]]; then
+            kill -KILL -- "-${process_group}" 2>/dev/null || true
+        fi
+    fi
     printf 'descendant_deadline_output=%s elapsed=%s state=%s\n' "$output" "$elapsed" "$descendant_state" >&3
     [ "$status" -eq 1 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["source_history_resource_limit:deadline"]' "$VALIDATOR_JSON" \

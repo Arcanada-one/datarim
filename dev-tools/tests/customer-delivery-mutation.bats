@@ -481,13 +481,19 @@ elif kind == "git_no_replace_objects":
         raise SystemExit("GIT_NO_REPLACE_OBJECTS_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
     source = source.replace(old, "")
 elif kind == "git_process_group":
-    term = '            os.killpg(process.pid, signal.SIGTERM)'
-    kill = '            os.killpg(process.pid, signal.SIGKILL)'
-    if source.count(term) != 1 or source.count(kill) != 1:
+    guard = '''    def terminate_git_process(process):
+        return terminate_registered_process(process)
+'''
+    mutant = '''    def terminate_git_process(process):
+        os.kill(process.pid, signal.SIGKILL)
+        process.supervisor.wait(timeout=0.4)
+        close_process_streams(process)
+        release_active_process(process)  # MUTATED:git_process_group
+        return None
+'''
+    if source.count(guard) != 1:
         raise SystemExit("GIT_PROCESS_GROUP_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
-    source = source.replace(term, '            process.terminate()').replace(
-        kill, '            process.kill()'
-    )
+    source = source.replace(guard, mutant, 1)
 elif kind == "git_finally_cleanup":
     function_start = source.index("def _validate_source_history():\n")
     function_end = source.index("\ndef validate_source_history():\n", function_start)
@@ -1075,6 +1081,147 @@ PY
     done
 }
 
+run_process_lifecycle_mutant() {
+    local mode="$1"
+    local filter='OpenSSL deadline terminates stubborn descendant pipe holders'
+    local functional_mutant validator_mutant guard mutant expected_fragment
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        CUSTOMER_DELIVERY_LIFECYCLE_ONLY="$mode" \
+        bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+    assert_baseline_green "$filter" || return 1
+
+    functional_mutant="${BATS_TEST_TMPDIR}/process-lifecycle-${mode}-mutant.bats"
+    validator_mutant="${BATS_TEST_TMPDIR}/check-customer-delivery-process-lifecycle-${mode}.sh"
+    cp "$FUNCTIONAL_TEST" "$functional_mutant" || return 1
+    cp "$SCRIPT" "$validator_mutant" || return 1
+    case "$mode" in
+        cleanup-alarm)
+            guard=$'    previous_mask = signal.pthread_sigmask(\n        signal.SIG_BLOCK, {signal.SIGALRM}\n    )  # SECURITY_RULE:cleanup_signal_mask'
+            mutant='    previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, set())  # MUTATED:cleanup_signal_mask'
+            expected_fragment='cleanup_alarm_orphan=active:'
+            ;;
+        reused-pid)
+            guard='        and process.supervisor.returncode is None'
+            mutant='        and True  # MUTATED:durable_process_group_owner'
+            expected_fragment='reused_pid_group_signalled='
+            ;;
+        *) return 1 ;;
+    esac
+    "$PYTHON" - "$functional_mutant" "$validator_mutant" "$REPO_ROOT" "$guard" "$mutant" <<'PY' || return 1
+import sys
+
+test_path, validator_path, repo_root, guard, mutant = sys.argv[1:]
+test_source = open(test_path, encoding="utf-8").read()
+validator_source = open(validator_path, encoding="utf-8").read()
+root_old = '    REPO_ROOT="${BATS_TEST_DIRNAME}/../.."\n'
+root_new = f"    REPO_ROOT={repo_root!r}\n"
+if test_source.count(root_old) != 1 or validator_source.count(guard) != 1:
+    raise SystemExit("PROCESS_LIFECYCLE_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+open(test_path, "w", encoding="utf-8").write(test_source.replace(root_old, root_new, 1))
+open(validator_path, "w", encoding="utf-8").write(validator_source.replace(guard, mutant, 1))
+PY
+    chmod +x "$validator_mutant"
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$validator_mutant" \
+        CUSTOMER_DELIVERY_LIFECYCLE_ONLY="$mode" \
+        bats --filter "^${filter}$" "$functional_mutant"
+    [ "$status" -ne 0 ] \
+        && [[ "$output" == *"${expected_fragment}"* ]] \
+        && [ "$(printf '%s\n' "$output" | awk -v target="not ok 1 ${filter}" '$0 == target { count++ } END { print count+0 }')" -eq 1 ] \
+        && [[ "$output" != *"setup_file failed"* ]] \
+        && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
+        || { printf 'process_lifecycle_mutant_not_attributed=%s status=%s output=%s\n' \
+            "$mode" "$status" "$output"; return 1; }
+    "$PYTHON" -c \
+        'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
+        "process_lifecycle_${mode}" "${filter}|${expected_fragment}"
+}
+
+run_completed_descendant_callsite_mutant() {
+    local callsite="$1"
+    local filter='OpenSSL deadline terminates stubborn descendant pipe holders'
+    local functional_mutant validator_mutant
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        CUSTOMER_DELIVERY_COMPLETED_PARENT_ONLY="$callsite" \
+        bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+    assert_baseline_green "$filter" || return 1
+
+    functional_mutant="${BATS_TEST_TMPDIR}/completed-descendant-${callsite}-mutant.bats"
+    validator_mutant="${BATS_TEST_TMPDIR}/check-customer-delivery-completed-descendant-${callsite}.sh"
+    cp "$FUNCTIONAL_TEST" "$functional_mutant" || return 1
+    cp "$SCRIPT" "$validator_mutant" || return 1
+    "$PYTHON" - "$functional_mutant" "$validator_mutant" "$REPO_ROOT" "$callsite" <<'PY' || return 1
+import sys
+
+test_path, validator_path, repo_root, callsite = sys.argv[1:]
+test_source = open(test_path, encoding="utf-8").read()
+root_old = '    REPO_ROOT="${BATS_TEST_DIRNAME}/../.."\n'
+root_new = f"    REPO_ROOT={repo_root!r}\n"
+validator_source = open(validator_path, encoding="utf-8").read()
+seams = {
+    "silent": (
+        "def run_silent_process(arguments):\n",
+        "\ndef run_bounded_process(",
+        '''        returncode = wait_process_status(process)
+        terminate_registered_process(process)
+''',
+    ),
+    "bounded": (
+        "def run_bounded_process(",
+        "\nsignal.signal(",
+        '''        returncode = wait_process_status(process)
+        terminate_registered_process(process)
+''',
+    ),
+    "source_history": (
+        "def _validate_source_history():\n",
+        "\ndef validate_source_history():\n",
+        '''            returncode = wait_process_status(process, deadline)
+            terminate_git_process(process)
+''',
+    ),
+}
+if callsite not in seams:
+    raise SystemExit("COMPLETED_DESCENDANT_CALLSITE_INVALID")
+start_token, end_token, guard = seams[callsite]
+start = validator_source.index(start_token)
+end = validator_source.index(end_token, start)
+function_source = validator_source[start:end]
+indent = "            " if callsite == "source_history" else "        "
+mutant = guard.splitlines(keepends=True)[0] + (
+    f"{indent}os.kill(process.pid, signal.SIGKILL)\n"
+    f"{indent}process.supervisor.wait(timeout=0.4)\n"
+    f"{indent}close_process_streams(process)\n"
+    f"{indent}release_active_process(process)  # MUTATED:completed_descendant_{callsite}\n"
+)
+if test_source.count(root_old) != 1 or function_source.count(guard) != 1:
+    raise SystemExit(f"COMPLETED_DESCENDANT_MUTATION_SEAM_MISSING_OR_AMBIGUOUS:{callsite}")
+function_source = function_source.replace(guard, mutant, 1)
+validator_source = validator_source[:start] + function_source + validator_source[end:]
+open(test_path, "w", encoding="utf-8").write(test_source.replace(root_old, root_new, 1))
+open(validator_path, "w", encoding="utf-8").write(validator_source)
+PY
+    chmod +x "$validator_mutant"
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$validator_mutant" \
+        CUSTOMER_DELIVERY_COMPLETED_PARENT_ONLY="$callsite" \
+        bats --filter "^${filter}$" "$functional_mutant"
+    [ "$status" -ne 0 ] \
+        && [[ "$output" == *"completed_parent_descendant_survived=${callsite} pid="* ]] \
+        && [ "$(printf '%s\n' "$output" | awk -v target="not ok 1 ${filter}" '$0 == target { count++ } END { print count+0 }')" -eq 1 ] \
+        && [[ "$output" != *"setup_file failed"* ]] \
+        && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
+        || { printf 'completed_descendant_mutant_not_attributed=%s status=%s output=%s\n' \
+            "$callsite" "$status" "$output"; return 1; }
+    "$PYTHON" -c \
+        'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
+        "completed_descendant_${callsite}" "${filter}|completed_parent_descendant_survived=${callsite}"
+}
+
 @test "review inventory exact-set mutant is independently killed" {
     run_review_inventory_mutants \
         'set_exact|two-requirement epic cannot close with its second originating review missing'
@@ -1321,53 +1468,6 @@ PY
         'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
         post_popen_stale_marker "${post_popen_filter}|99999999"
 
-    completed_descendant_mutant="${BATS_TEST_TMPDIR}/completed-descendant-mutant.bats"
-    completed_descendant_validator="${BATS_TEST_TMPDIR}/check-customer-delivery-completed-descendant.sh"
-    cp "$FUNCTIONAL_TEST" "$completed_descendant_mutant" || return 1
-    cp "$SCRIPT" "$completed_descendant_validator" || return 1
-    "$PYTHON" - "$completed_descendant_mutant" "$completed_descendant_validator" "$REPO_ROOT" <<'PY' || return 1
-import sys
-
-test_path, validator_path, repo_root = sys.argv[1:]
-test_source = open(test_path, encoding="utf-8").read()
-root_old = '    REPO_ROOT="${BATS_TEST_DIRNAME}/../.."\n'
-root_new = f"    REPO_ROOT={repo_root!r}\n"
-validator_source = open(validator_path, encoding="utf-8").read()
-guard = '''def release_completed_process(process):
-    # A completed direct child can leave same-session descendants behind even
-    # after every inherited pipe is closed. The process group remains ours
-    # until it has been terminated and the registered child has been reaped.
-    terminate_registered_process(process)
-'''
-mutant = '''def release_completed_process(process):
-    if process.poll() is None:
-        terminate_registered_process(process)
-    else:
-        close_process_streams(process)
-        release_active_process(process)  # MUTATED:completed_descendant_release
-'''
-if test_source.count(root_old) != 1 or validator_source.count(guard) != 1:
-    raise SystemExit("COMPLETED_DESCENDANT_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
-open(test_path, "w", encoding="utf-8").write(test_source.replace(root_old, root_new, 1))
-open(validator_path, "w", encoding="utf-8").write(validator_source.replace(guard, mutant, 1))
-PY
-    chmod +x "$completed_descendant_validator"
-    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
-        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
-        CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$completed_descendant_validator" \
-        CUSTOMER_DELIVERY_POST_POPEN_ONLY=silent \
-        bats --filter "^${post_popen_filter}$" "$completed_descendant_mutant"
-    [ "$status" -ne 0 ] \
-        && [[ "$output" == *"completed_parent_descendant_survived="* ]] \
-        && [ "$(printf '%s\n' "$output" | awk -v target="not ok 1 ${post_popen_filter}" '$0 == target { count++ } END { print count+0 }')" -eq 1 ] \
-        && [[ "$output" != *"setup_file failed"* ]] \
-        && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
-        || { printf 'completed_descendant_mutant_not_attributed=status=%s output=%s\n' \
-            "$status" "$output"; return 1; }
-    "$PYTHON" -c \
-        'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
-        completed_descendant_release "${post_popen_filter}|completed_parent_descendant_survived"
-
     post_popen_control="${BATS_TEST_TMPDIR}/post-popen-same-clock-control.bats"
     cp "$FUNCTIONAL_TEST" "$post_popen_control" || return 1
     "$PYTHON" - "$post_popen_control" "$REPO_ROOT" <<'PY' || return 1
@@ -1446,7 +1546,7 @@ guard_end = '''PY
     fi
 }
 
-report_bounded_validator_diagnostic_hex()'''
+report_bounded_validator_diagnostic_hex() {'''
 substring = '''        [[ "$VALIDATOR_DIAGNOSTIC" == *'check-customer-delivery.sh: line '* \\
             && "$VALIDATOR_DIAGNOSTIC" == *' Alarm clock: 14 '* ]] || return 1
 '''
@@ -1495,4 +1595,24 @@ PY
         && [[ "$output" != *"setup_file failed"* ]] \
         && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
         || { printf 'alarm_pid_width_mutant_status=%s output=%s\n' "$status" "$output"; return 1; }
+}
+
+@test "cleanup SIGALRM mask mutant is killed before registry release" {
+    run_process_lifecycle_mutant cleanup-alarm
+}
+
+@test "reaped supervisor PID ownership mutant cannot signal a reused group" {
+    run_process_lifecycle_mutant reused-pid
+}
+
+@test "silent completed-parent detached descendant cleanup mutant is killed" {
+    run_completed_descendant_callsite_mutant silent
+}
+
+@test "bounded completed-parent detached descendant cleanup mutant is killed" {
+    run_completed_descendant_callsite_mutant bounded
+}
+
+@test "source history completed-parent detached descendant cleanup mutant is killed" {
+    run_completed_descendant_callsite_mutant source_history
 }
