@@ -112,6 +112,11 @@ def parse_args() -> argparse.Namespace:
         description="Validate item-level research authority, candidate approvals, and source pins."
     )
     parser.add_argument("--manifest", required=True, type=Path)
+    parser.add_argument(
+        "--expected-task-id",
+        required=True,
+        help="Caller-bound audit profile identity; manifest data cannot select it.",
+    )
     parser.add_argument("--insights", required=True, type=Path)
     parser.add_argument("--knowledge-root", required=True, type=Path)
     parser.add_argument(
@@ -637,13 +642,18 @@ def report_closed_set(
         findings.append(f"{finding_prefix}:duplicate={','.join(duplicates)}")
 
 
-def validate_closed_profile(manifest: dict[str, Any], findings: list[str]) -> None:
-    task_id = manifest.get("task_id")
-    profile = CLOSED_AUDIT_PROFILES.get(task_id)
+def validate_closed_profile(
+    manifest: dict[str, Any], expected_task_id: str, findings: list[str]
+) -> None:
+    profile = CLOSED_AUDIT_PROFILES.get(expected_task_id)
     if profile is None:
-        findings.append(f"task_id_invalid:{task_id}")
-        findings.append(f"closed_audit_profile_missing:{task_id}")
+        findings.append(f"expected_task_profile_missing:{expected_task_id}")
         return
+    task_id = manifest.get("task_id")
+    if task_id != expected_task_id:
+        findings.append(
+            f"task_id_mismatch:expected={expected_task_id}:actual={task_id}"
+        )
 
     candidates = manifest.get("candidates")
     candidate_entries = candidates if isinstance(candidates, list) else []
@@ -709,6 +719,7 @@ def validate_closed_profile(manifest: dict[str, Any], findings: list[str]) -> No
 
 def validate_candidates(
     manifest: dict[str, Any],
+    expected_task_id: str,
     insights: str,
     knowledge_root: Path,
     snapshot: str,
@@ -754,9 +765,9 @@ def validate_candidates(
         payload = load_json_bytes(candidate_bytes, f"candidate-{revision_id}", findings)
         if not isinstance(payload, dict):
             continue
-        expected_logical_id = CLOSED_AUDIT_PROFILES.get(
-            manifest.get("task_id"), {}
-        ).get("candidates", {}).get(revision_id)
+        expected_logical_id = CLOSED_AUDIT_PROFILES.get(expected_task_id, {}).get(
+            "candidates", {}
+        ).get(revision_id)
         if payload.get("logical_id") != expected_logical_id:
             findings.append(f"candidate_logical_id_mismatch:{revision_id}")
         if payload.get("revision_id") != revision_id:
@@ -1012,7 +1023,7 @@ def main() -> int:
         findings.append("schema_version_invalid")
     if manifest.get("declared_language") != "en":
         findings.append("declared_language_invalid")
-    validate_closed_profile(manifest, findings)
+    validate_closed_profile(manifest, args.expected_task_id, findings)
     snapshot = manifest.get("knowledge_snapshot")
     actual_head = git_value(knowledge_root, "rev-parse", "HEAD")
     if not isinstance(snapshot, str) or not HEX40.fullmatch(snapshot) or actual_head != snapshot:
@@ -1025,7 +1036,7 @@ def main() -> int:
         manifest, insights, knowledge_root, snapshot, comment_bodies, findings
     )
     candidate_count = validate_candidates(
-        manifest, insights, knowledge_root, snapshot, findings
+        manifest, args.expected_task_id, insights, knowledge_root, snapshot, findings
     )
     validate_derived_records(manifest, insights, knowledge_root, snapshot, findings)
     external_count = validate_external_pins(
