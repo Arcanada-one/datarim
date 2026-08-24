@@ -81,6 +81,54 @@ valid_customer_binding() {
 EOF
 }
 
+write_cutover_expectations() {
+    local id="$1"
+    local marker="${2:-appended-customer-wish}"
+    local root="${BATS_TEST_TMPDIR}/${id}"
+    local file="${root}/datarim/tasks/${id}-expectations.md"
+    mkdir -p "$(dirname "$file")"
+    cat > "$file" <<EOF
+---
+task_id: $id
+artifact: expectations
+schema_version: 4
+customer_binding_from: $marker
+captured_at: 2026-05-14
+captured_by: /dr-prd
+status: amended
+---
+
+## Ожидания
+
+- **1. Preserved legacy wish.**
+  - wish_id: preserved-legacy-wish
+  - evidence_type: static
+  - #### История статусов
+    - 2026-05-14T00:00:00Z / 2026-05-14 00:00 (UTC) · pending → pending · /dr-prd · reason: item created
+  - #### Текущий статус
+    - pending
+
+- **2. Appended customer wish.**
+  - wish_id: appended-customer-wish
+$(valid_customer_binding "$id")
+  - evidence_type: static
+  - #### История статусов
+    - 2026-08-24T00:00:00Z / 2026-08-24 00:00 (UTC) · pending → pending · /dr-prd · reason: item appended
+  - #### Текущий статус
+    - pending
+
+- **3. Appended non-customer wish.**
+  - wish_id: appended-internal-wish
+  - customer_derived: false
+  - evidence_type: static
+  - #### История статусов
+    - 2026-08-24T00:00:00Z / 2026-08-24 00:00 (UTC) · pending → pending · /dr-prd · reason: item appended
+  - #### Текущий статус
+    - pending
+EOF
+    printf '%s\n' "$root"
+}
+
 @test "customer delivery skill is a valid history-agnostic skill entrypoint" {
     [[ -f "$DELIVERY_SKILL" ]] || return 1
     assert_contains "$DELIVERY_SKILL" 'name: customer-delivery' || return 1
@@ -230,51 +278,41 @@ EOF
 
 @test "schema v4 legacy cutover preserves old wishes and governs mixed appended wishes" {
     local id="BIND-0008"
-    local root="${BATS_TEST_TMPDIR}/${id}"
-    local file="${root}/datarim/tasks/${id}-expectations.md"
-    mkdir -p "$(dirname "$file")"
-    cat > "$file" <<EOF
----
-task_id: $id
-artifact: expectations
-schema_version: 4
-customer_binding_from: appended-customer-wish
-captured_at: 2026-05-14
-captured_by: /dr-prd
-status: amended
----
-
-## Ожидания
-
-- **1. Preserved legacy wish.**
-  - wish_id: preserved-legacy-wish
-  - evidence_type: static
-  - #### История статусов
-    - 2026-05-14T00:00:00Z / 2026-05-14 00:00 (UTC) · pending → pending · /dr-prd · reason: item created
-  - #### Текущий статус
-    - pending
-
-- **2. Appended customer wish.**
-  - wish_id: appended-customer-wish
-$(valid_customer_binding "$id")
-  - evidence_type: static
-  - #### История статусов
-    - 2026-08-24T00:00:00Z / 2026-08-24 00:00 (UTC) · pending → pending · /dr-prd · reason: item appended
-  - #### Текущий статус
-    - pending
-
-- **3. Appended non-customer wish.**
-  - wish_id: appended-internal-wish
-  - customer_derived: false
-  - evidence_type: static
-  - #### История статусов
-    - 2026-08-24T00:00:00Z / 2026-08-24 00:00 (UTC) · pending → pending · /dr-prd · reason: item appended
-  - #### Текущий статус
-    - pending
-EOF
+    local root
+    root="$(write_cutover_expectations "$id")"
 
     run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
     [ "$status" -eq 0 ]
+}
+
+@test "schema v4 amended file rejects moving cutover forward past a bound wish" {
+    local id="BIND-0017"
+    local root
+    root="$(write_cutover_expectations "$id" appended-internal-wish)"
+
+    run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"customer binding field appears before customer_binding_from"* ]]
+}
+
+@test "verify mode blocks a schema v4 cutover moved past a bound wish" {
+    local id="BIND-0019"
+    local root
+    root="$(write_cutover_expectations "$id" appended-internal-wish)"
+
+    run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"BLOCKED: expectations file fails structural validation"* ]]
+}
+
+@test "schema v4 amended file rejects moving cutover backward into a legacy wish" {
+    local id="BIND-0018"
+    local root
+    root="$(write_cutover_expectations "$id" preserved-legacy-wish)"
+
+    run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"missing customer_derived"* ]]
 }
 
 @test "schema v4 rejects a cutover marker that names no wish" {
