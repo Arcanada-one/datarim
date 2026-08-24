@@ -36,7 +36,7 @@ Alphabetical. "Loaded by" names the commands, agents, or trigger conditions that
 | dream | Task | Knowledge base maintenance rules | librarian |
 | evolution | Task | Framework self-update rules | /dr-archive (Step 0.5 via reflecting skill), /dr-optimize |
 | executing-plans | Reference | Execute a written implementation plan in a separate session with review checkpoints | on demand, when a plan artefact exists |
-| expectations-checklist | Reference | Operator wishlist artefact (flat markdown) — `wish_id` slug, status-history and current-status blocks, override semantics. Schema v2 adds a mandatory `evidence_type: empirical \| static \| measurement` per wish; mandate scope covers all of L1-L4 | /dr-init Step 4.7 (skeleton, L1-L4); /dr-prd, /dr-plan (append-merge); /dr-qa, /dr-compliance (verify + per-wish block in the QA report) |
+| expectations-checklist | Reference | Operator wishlist artefact (flat markdown) — `wish_id` slug, status history, current status, and override semantics. Schema v4 requires explicit customer derivation on every wish and a delivery binding for customer-derived wishes; v1-v3 remain frozen legacy inputs | /dr-init Step 4.7 (skeleton, L1-L4); /dr-prd, /dr-plan (append-merge); /dr-qa, /dr-compliance (verify + per-wish block in the QA report) |
 | factcheck | Task | Fact verification for publications | editor, on demand |
 | file-sync-config | Reference | Pre-flight checklist + ignore patterns for file-sync (Syncthing/rclone) | on demand for sync setup |
 | finishing-a-development-branch | Reference | Decide how to integrate completed work — merge, PR, or cleanup — via structured options, once implementation is done and tests pass | on demand at end of branch work |

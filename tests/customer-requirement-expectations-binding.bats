@@ -500,6 +500,53 @@ EOF
         && [[ "$output" == *"BLOCKED: expectations file fails structural validation"* ]]
 }
 
+@test "schema validation rejects duplicate frontmatter keys in task and verify modes" {
+    local id
+    local root
+    local file
+    local key
+    local duplicate
+    for key in schema_version status; do
+        id="DUPF-0001"
+        root="$(write_expectations "$id" 3)"
+        file="$root/datarim/tasks/${id}-expectations.md"
+        case "$key" in
+            schema_version) duplicate='schema_version: 4' ;;
+            status) duplicate='status: canonica1' ;;
+        esac
+        sed -i "/^${key}:/a ${duplicate}" "$file"
+
+        run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+        if [ "$status" -ne 1 ] || [[ "$output" != *"duplicate frontmatter field '${key}'"* ]]; then
+            echo "duplicate ${key} passed task validation: ${output}" >&2
+            return 1
+        fi
+
+        run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
+        if [ "$status" -ne 1 ] || [[ "$output" != *"BLOCKED: expectations file fails structural validation"* ]]; then
+            echo "duplicate ${key} passed verify validation: ${output}" >&2
+            return 1
+        fi
+        rm -rf "$root"
+    done
+}
+
+@test "active expectations heading with a trailing HTML comment passes both modes" {
+    local id="HEAD-0001"
+    local root
+    local file
+    root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
+    file="$root/datarim/tasks/${id}-expectations.md"
+    sed -i 's/^## Ожидания$/& <!-- active heading trailing comment -->/' "$file"
+
+    run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+    [ "$status" -eq 0 ] || return 1
+
+    run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
+    [ "$status" -eq 0 ] \
+        && [[ "$output" == *"PASS"* ]]
+}
+
 @test "verify mode blocks a structurally invalid schema v4 artifact" {
     local id="BIND-0016"
     local root
@@ -559,6 +606,8 @@ EOF
 
 @test "customer delivery skill is registered in the canonical skills inventory" {
     assert_contains "$SKILLS_REFERENCE" '| customer-delivery | Reference |' || return 1
+    assert_contains "$SKILLS_REFERENCE" '| expectations-checklist | Reference | Operator wishlist artefact' || return 1
+    assert_contains "$SKILLS_REFERENCE" 'Schema v4 requires explicit customer derivation' || return 1
 
     disk_count="$(find "${REPO_ROOT}/skills" -mindepth 2 -maxdepth 2 -name SKILL.md | wc -l | tr -d '[:space:]')"
     documented_count="$(sed -nE 's/^Datarim includes ([0-9]+) reusable skill modules\..*/\1/p' "$SKILLS_REFERENCE")"

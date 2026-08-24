@@ -161,6 +161,23 @@ extract_frontmatter_field() {
     ' "$file"
 }
 
+duplicate_frontmatter_fields() {
+    local file="$1"
+    awk '
+        /^---[ \t]*$/ {
+            if (in_fm) exit
+            in_fm = 1
+            next
+        }
+        in_fm && match($0, /^[A-Za-z_][A-Za-z0-9_-]*[ \t]*:/) {
+            key = substr($0, 1, index($0, ":") - 1)
+            sub(/[ \t]+$/, "", key)
+            seen[key]++
+            if (seen[key] == 2) print key
+        }
+    ' "$file"
+}
+
 days_between() {
     local from="$1" to="$2"
     local from_epoch to_epoch
@@ -546,7 +563,13 @@ validate_single_task() {
         return 1
     fi
 
-    local errors=0 val schema_v customer_binding_from artifact_status
+    local errors=0 val schema_v customer_binding_from artifact_status duplicate_field
+
+    while IFS= read -r duplicate_field; do
+        [ -z "$duplicate_field" ] && continue
+        echo "ERROR: $file: duplicate frontmatter field '$duplicate_field'" >&2
+        errors=$(( errors + 1 ))
+    done < <(duplicate_frontmatter_fields "$file")
 
     for field in task_id artifact schema_version captured_at captured_by status; do
         val=$(extract_frontmatter_field "$file" "$field")
@@ -590,13 +613,9 @@ validate_single_task() {
         errors=$(( errors + 1 ))
     fi
 
-    if ! grep -q '^## Ожидания[[:space:]]*$' "$file"; then
-        echo "ERROR: $file: missing required heading '## Ожидания'" >&2
-        errors=$(( errors + 1 ))
-    fi
-
-    # Item-level parse — emits to stdout (captured here for v3 post-parse) + stderr.
-    # schema_v passed through to enable evidence_type/verification_mode checks.
+    # Item-level parse is the single comment-normalized authority for the
+    # required heading and its items. It emits to stdout (captured here for v3
+    # post-parse) + stderr. schema_v enables evidence_type/verification checks.
     local items_out
     items_out=$(parse_items "$file" "${schema_v:-1}" "$id" 2>/tmp/_cec_stderr_$$) || errors=$(( errors + 1 ))
     # Pipe parse stderr to our stderr so callers see it.
