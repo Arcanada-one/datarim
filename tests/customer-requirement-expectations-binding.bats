@@ -37,28 +37,101 @@ assert_no_direct_in_place_sed() {
     local violations
 
     if ! violations="$(awk '
-        function inspect(line, line_number, args, count, i, token, tokens) {
-            if (!match(line, /(^|[;&|()[:space:]])(([^[:space:]"]*\/)?sed|"([^"]*\/)?sed"|\047([^\047]*\/)?sed\047)[[:space:]]+/)) {
-                return
-            }
-            args = substr(line, RSTART + RLENGTH)
-            count = split(args, tokens, /[[:space:]]+/)
-            for (i = 1; i <= count; i++) {
-                token = tokens[i]
-                if (token ~ /^--in-place(=.*)?$/ || token ~ /^-[A-Za-z]*i/) {
-                    print line_number ":" line
-                    return
+        function inspect(line, line_number, line_len, pos, char, quote, value,
+                         count, i, expect_command, sed_command, values, kinds) {
+            line_len = length(line)
+            pos = 1
+            count = 0
+            while (pos <= line_len) {
+                char = substr(line, pos, 1)
+                if (char ~ /[[:space:]]/) {
+                    pos++
+                    continue
                 }
+                if (char == "#") {
+                    break
+                }
+                if (char ~ /[;&|(){}]/) {
+                    values[++count] = char
+                    kinds[count] = "separator"
+                    pos++
+                    continue
+                }
+
+                value = ""
+                quote = ""
+                while (pos <= line_len) {
+                    char = substr(line, pos, 1)
+                    if (quote == "" && (char ~ /[[:space:]]/ || char ~ /[;&|(){}]/)) {
+                        break
+                    }
+                    if (quote == "" && (char == "\"" || char == "\047")) {
+                        quote = char
+                        pos++
+                        continue
+                    }
+                    if (quote != "" && char == quote) {
+                        quote = ""
+                        pos++
+                        continue
+                    }
+                    if (quote != "\047" && char == "\\" && pos < line_len) {
+                        pos++
+                        value = value substr(line, pos, 1)
+                        pos++
+                        continue
+                    }
+                    value = value char
+                    pos++
+                }
+                values[++count] = value
+                kinds[count] = "word"
+            }
+
+            expect_command = 1
+            sed_command = 0
+            for (i = 1; i <= count; i++) {
+                if (kinds[i] == "separator") {
+                    expect_command = 1
+                    sed_command = 0
+                    continue
+                }
+                value = values[i]
+                if (sed_command) {
+                    if (value ~ /^--in-place(=.*)?$/ || value ~ /^-[A-Za-z]*i/) {
+                        print line_number ":" line
+                        return
+                    }
+                    continue
+                }
+                if (!expect_command) {
+                    continue
+                }
+                if (value ~ /^[A-Za-z_][A-Za-z0-9_]*=/ ||
+                    value ~ /^(if|then|elif|while|until|do|!|run|command|env|sudo|builtin|exec|time)$/) {
+                    continue
+                }
+                if (value == "sed" || value ~ /\/sed$/) {
+                    sed_command = 1
+                    expect_command = 0
+                    continue
+                }
+                expect_command = 0
             }
         }
         {
+            physical_line = $0
+            continued = physical_line ~ /\\[[:space:]]*$/
+            if (continued) {
+                sub(/\\[[:space:]]*$/, "", physical_line)
+            }
             if (logical_line == "") {
-                logical_line = $0
+                logical_line = physical_line
                 logical_line_number = FNR
             } else {
-                logical_line = logical_line "\n" $0
+                logical_line = logical_line " " physical_line
             }
-            if ($0 ~ /\\[[:space:]]*$/) {
+            if (continued) {
                 next
             }
             inspect(logical_line, logical_line_number)
@@ -1419,6 +1492,29 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
     run assert_no_direct_in_place_sed "$mutant_suite"
     if [ "$status" -ne 1 ] || [[ "$output" != *"direct in-place sed syntax"* ]]; then
         echo "quoted sed path mutants were not rejected (status=${status}): ${output}" >&2
+        return 1
+    fi
+
+    cp "${REPO_ROOT}/tests/customer-requirement-expectations-binding.bats" "$mutant_suite"
+    printf '%s\n' 'if ! sed -i.bak '\''s/x/y/'\'' mutant; then exit 1; fi' >> "$mutant_suite"
+    printf '%s\n' 'echo setup; sed -Ei '\''s/x/y/'\'' mutant' >> "$mutant_suite"
+    printf '%s\n' 'run "sed" --in-place '\''s/x/y/'\'' mutant' >> "$mutant_suite"
+    printf '%s\n' 'env MODE=test /usr/bin/sed -i '\''s/x/y/'\'' mutant' >> "$mutant_suite"
+    run assert_no_direct_in_place_sed "$mutant_suite"
+    if [ "$status" -ne 1 ] || [[ "$output" != *"direct in-place sed syntax"* ]]; then
+        echo "wrapped in-place sed mutants were not rejected (status=${status}): ${output}" >&2
+        return 1
+    fi
+
+    cp "${REPO_ROOT}/tests/customer-requirement-expectations-binding.bats" "$mutant_suite"
+    printf '%s\n' '# Never use sed -i.bak here.' >> "$mutant_suite"
+    printf '%s\n' 'echo sed -i.bak is forbidden' >> "$mutant_suite"
+    printf '%s\n' 'printf '\''%s\n'\'' '\''sed -i.bak is forbidden'\''' >> "$mutant_suite"
+    printf '%s\n' 'message="sed -i.bak is forbidden"' >> "$mutant_suite"
+    printf '%s\n' 'echo "quoted separator; sed -i.bak is forbidden"' >> "$mutant_suite"
+    run assert_no_direct_in_place_sed "$mutant_suite"
+    if [ "$status" -ne 0 ]; then
+        echo "inert sed prose was treated as executable (status=${status}): ${output}" >&2
         return 1
     fi
 
