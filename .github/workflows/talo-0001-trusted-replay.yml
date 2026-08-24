@@ -28,7 +28,9 @@ jobs:
       github.event.workflow_run.pull_requests[0].base.ref == 'main' &&
       github.event.workflow_run.pull_requests[0].base.repo.url == 'https://api.github.com/repos/Arcanada-one/datarim' &&
       github.event.workflow_run.pull_requests[1] == null
-    runs-on: [self-hosted, Linux, X64, talo-0001-trusted]
+    runs-on:
+      group: talo-0001-trusted
+      labels: [self-hosted, Linux, X64, talo-0001-trusted]
     timeout-minutes: 8
     steps:
       - name: Check out trusted default-main controller

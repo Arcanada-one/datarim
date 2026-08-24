@@ -126,9 +126,9 @@ verify_runner_membership() {
 register_and_start() {
     local id token
     [ "$(id -u)" -eq 0 ] || { echo "ERROR: registration requires root" >&2; exit 1; }
-    systemctl stop "$UNIT_NAME" 2>/dev/null || true
     id=$(ensure_group)
     verify_group "$id"
+    systemctl stop "$UNIT_NAME" 2>/dev/null || true
     if [ ! -f "$RUNNER_DIR/.runner" ]; then
         token=$(api --method POST "orgs/$ORG/actions/runners/registration-token" --jq .token)
         [ -n "$token" ] || { echo "ERROR: empty runner registration token" >&2; exit 1; }

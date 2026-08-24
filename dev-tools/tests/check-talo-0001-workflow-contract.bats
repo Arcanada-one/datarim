@@ -47,6 +47,21 @@ run_check() {
         && [[ "$output" == *'mismatch:trusted-job'* ]]
 }
 
+@test "trusted replay requires the exact workflow-scoped runner group" {
+    local workflow="$FIXTURE/.github/workflows/talo-0001-trusted-replay.yml"
+    local original="$BATS_TEST_TMPDIR/trusted-group.original"
+    cp "$workflow" "$original"
+
+    sed -i '/      group: talo-0001-trusted/d' "$workflow"
+    run_check
+    [ "$status" -eq 1 ] && [[ "$output" == *'mismatch:trusted-job'* ]]
+
+    cp "$original" "$workflow"
+    sed -i 's/group: talo-0001-trusted/group: Default/' "$workflow"
+    run_check
+    [ "$status" -eq 1 ] && [[ "$output" == *'mismatch:trusted-job'* ]]
+}
+
 @test "each trusted pre-secret identity guard is load-bearing" {
     local controller="$FIXTURE/dev-tools/preflight-talo-0001-workflow-run.sh"
     local original="$BATS_TEST_TMPDIR/controller.original"
@@ -292,6 +307,25 @@ systemctl stop "$UNIT_NAME"|true|mismatch:registration-safety-order
 id=$(ensure_group)|id=1|mismatch:registration-safety-order
 verify_runner_membership "$id"|true|mismatch:registration-safety-order
 MUTANTS
+}
+
+@test "main-workflow API and blob failures perform no system mutation" {
+    local mock_bin="$BATS_TEST_TMPDIR/mock-bin"
+    local mock="$ROOT/dev-tools/tests/fixtures/talo-0001-command-mock.sh"
+    mkdir -p "$mock_bin"
+    for command in gh install sudo systemctl; do
+        ln -s "$mock" "$mock_bin/$command"
+    done
+    for mode in api-failure wrong-blob; do
+        local log="$BATS_TEST_TMPDIR/command-$mode.log"
+        run sudo env "PATH=$mock_bin:$PATH" "TALO_MOCK_LOG=$log" \
+            "TALO_MOCK_GH_MODE=$mode" \
+            "$ROOT/dev-tools/provision-talo-0001-trusted-runner.sh" \
+            --register-and-start
+        [ "$status" -eq 1 ]
+        [[ "$output" == *'ERROR: trusted workflow'* ]]
+        ! grep -q '^systemctl ' "$log"
+    done
 }
 
 @test "preflight accepts only the exact upstream workflow and PR tuple" {

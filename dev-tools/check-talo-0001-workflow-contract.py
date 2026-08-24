@@ -29,7 +29,7 @@ EXPECTED_DIGESTS = {
     "publisher": "adc8edc95e02c983bfd0a690dc018c0cec986115cf614444879928936f3b578e",
     "evaluator": "a0e86fc87493231afffd3164587f0c14e463f5e8c4acd8f4f9679e2504280d1a",
     "runner-unit": "929c8f138a839383bd754600fa65c72996b04703ba8050d1714c3ea51a50c67a",
-    "provisioner": "19fa54631037ef4843d006bc4f83b7f4de59b4d466a942f71cb8a19a66a87916",
+    "provisioner": "96c5c1259628302f67270c56081075702d7b0fd46429511461b725d7d8dab166",
 }
 EXPECTED_PATHS = [
     "commands/**",
@@ -242,7 +242,10 @@ def validate_trusted(workflow: dict[str, Any], findings: list[str]) -> None:
     expected_job = {
         "name": "talo-0001-trusted-replay-controller",
         "if": EXPECTED_JOB_IF,
-        "runs-on": ["self-hosted", "Linux", "X64", "talo-0001-trusted"],
+        "runs-on": {
+            "group": "talo-0001-trusted",
+            "labels": ["self-hosted", "Linux", "X64", "talo-0001-trusted"],
+        },
         "timeout-minutes": 8,
         "steps": expected_steps,
     }
@@ -346,9 +349,9 @@ def validate_code(findings: list[str]) -> None:
         registration = ""
         findings.append("missing:registration-function")
     ordered_registration = (
-        'systemctl stop "$UNIT_NAME"',
         'id=$(ensure_group)',
         'verify_group "$id"',
+        'systemctl stop "$UNIT_NAME"',
         'registration-token" --jq .token',
         '--runnergroup "$GROUP_NAME"',
         'verify_runner_membership "$id"',
