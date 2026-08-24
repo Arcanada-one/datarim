@@ -52,7 +52,7 @@ assert_no_direct_in_place_sed() {
                 if (char == "#") {
                     break
                 }
-                if (char ~ /[;&|(){}]/) {
+                if (char ~ /[;&|(){}]/ || char == "`") {
                     values[++count] = char
                     kinds[count] = "separator"
                     pos++
@@ -63,7 +63,8 @@ assert_no_direct_in_place_sed() {
                 quote = ""
                 while (pos <= line_len) {
                     char = substr(line, pos, 1)
-                    if (quote == "" && (char ~ /[[:space:]]/ || char ~ /[;&|(){}]/)) {
+                    if ((quote == "" && (char ~ /[[:space:]]/ || char ~ /[;&|(){}]/ || char == "`")) ||
+                        (quote == "\"" && char == "`")) {
                         break
                     }
                     if (quote == "" && (char == "\"" || char == "\047")) {
@@ -279,10 +280,14 @@ workflow_run_block_has_suite() {
         in_run {
             text = $0
             sub(/^[[:space:]]+/, "", text)
-            if (text ~ /^#/) {
+            if (text == "" || text ~ /^#/) {
                 next
             }
-            if (text ~ /^bats[[:space:]]*\\[[:space:]]*$/) {
+            if (!command_seen && text == "set -euo pipefail") {
+                next
+            }
+            if (!command_seen && text ~ /^bats[[:space:]]*\\[[:space:]]*$/) {
+                command_seen = 1
                 in_bats = 1
                 next
             }
@@ -295,6 +300,10 @@ workflow_run_block_has_suite() {
                 if (!continued) {
                     in_bats = 0
                 }
+                next
+            }
+            if (!command_seen) {
+                exit 1
             }
         }
         END {
@@ -1559,6 +1568,16 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
     cp "${REPO_ROOT}/.github/workflows/bats.yml" "$mutant_workflow"
     portable_sed_in_place '/^[[:space:]]*tests\/customer-requirement-expectations-binding\.bats/c\
             # tests/customer-requirement-expectations-binding.bats' "$mutant_workflow"
+    portable_sed_in_place '/^      - name: Run CI dependency and portability contracts/i\
+          cat <<'\''PORTABILITY_DECOY'\''\
+          bats \\\
+            tests/customer-requirement-expectations-binding.bats\
+          PORTABILITY_DECOY\
+          cat <<PORTABILITY_DECOY_UNQUOTED\
+          bats \\\
+            tests/customer-requirement-expectations-binding.bats\
+          PORTABILITY_DECOY_UNQUOTED\
+' "$mutant_workflow"
 
     for direct_command in \
         "sed --in-place -E 's/x/y/' mutant" \
@@ -1629,6 +1648,15 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
     fi
 
     cp "${REPO_ROOT}/tests/customer-requirement-expectations-binding.bats" "$mutant_suite"
+    printf 'ignored=\140sed --in-place -e "s/x/y/" mutant\140\n' >> "$mutant_suite"
+    printf 'quoted="\140sed -i.bak s/x/y/ mutant\140"\n' >> "$mutant_suite"
+    run assert_no_direct_in_place_sed "$mutant_suite"
+    if [ "$status" -ne 1 ] || [[ "$output" != *"direct in-place sed syntax"* ]]; then
+        echo "legacy backtick sed mutants were not rejected (status=${status}): ${output}" >&2
+        return 1
+    fi
+
+    cp "${REPO_ROOT}/tests/customer-requirement-expectations-binding.bats" "$mutant_suite"
     printf '%s\n' '# Never use sed -i.bak here.' >> "$mutant_suite"
     printf '%s\n' 'echo sed -i.bak is forbidden' >> "$mutant_suite"
     printf '%s\n' 'printf '\''%s\n'\'' '\''sed -i.bak is forbidden'\''' >> "$mutant_suite"
@@ -1643,6 +1671,8 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
     printf '%s\n' 'run -- echo sed -i.bak is forbidden' >> "$mutant_suite"
     printf '%s\n' 'exec -a sed echo allowed' >> "$mutant_suite"
     printf '%s\n' 'exec -cla sed echo allowed' >> "$mutant_suite"
+    printf "literal='\\140sed --in-place -e s/x/y/ mutant\\140'\n" >> "$mutant_suite"
+    printf 'escaped=\134\140sed --in-place -e s/x/y/ mutant\134\140\n' >> "$mutant_suite"
     run assert_no_direct_in_place_sed "$mutant_suite"
     if [ "$status" -ne 0 ]; then
         echo "inert sed prose was treated as executable (status=${status}): ${output}" >&2
