@@ -11,6 +11,7 @@ setup() {
     COMMENT_JSON="${ROOT}/comment-101.json"
     CACHE="${ROOT}/external-cache"
     REAL_MANIFEST="${REPO_ROOT}/datarim/insights/TALO-0001-research-authority-audit.json"
+    REAL_INSIGHTS="${REPO_ROOT}/datarim/insights/INSIGHTS-TALO-0001.md"
     mkdir -p "${KNOWLEDGE}/research/sources/review" \
         "${KNOWLEDGE}/graph/data/local" "${KNOWLEDGE}/resolver/data/authority" \
         "${KNOWLEDGE}/reports" "$CACHE"
@@ -208,6 +209,31 @@ assert_not_met() {
     [ "$status" -eq 1 ] \
         && [[ "$output" == *'finding=review_set_mismatch:missing=R2'* ]] \
         && [[ "$output" == *'finding=item_table_expected_rows_mismatch:expected=66:actual=28'* ]]
+}
+
+@test "TALO-0001 profile rejects changed selection text with a resealed table digest" {
+    local mutant="${ROOT}/real-mutant.json"
+    local mutant_insights="${ROOT}/real-mutant-insights.md"
+    local mutant_digest
+    cp "$REAL_INSIGHTS" "$mutant_insights"
+    sed -i 's/Direct: customer-task hierarchy/Selected after reinterpretation/' \
+        "$mutant_insights"
+    mutant_digest="$(python3 - "$SCRIPT" "$mutant_insights" <<'PY'
+import runpy
+import sys
+
+namespace = runpy.run_path(sys.argv[1])
+with open(sys.argv[2], encoding="utf-8") as handle:
+    rows = namespace["table_rows"](handle.read())
+print(namespace["item_table_digest"](rows))
+PY
+)"
+    [ "$mutant_digest" != "$(jq -r '.item_table.sha256' "$REAL_MANIFEST")" ]
+    jq --arg digest "$mutant_digest" '.item_table.sha256=$digest' \
+        "$REAL_MANIFEST" >"$mutant"
+    run_talo_0001_profile "$mutant"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'finding=item_table_digest_authority_mismatch'* ]]
 }
 
 @test "TALO-0001 profile rejects extra and duplicate review identities" {
