@@ -649,6 +649,70 @@ PY
     return 1
 }
 
+assert_spawn_failure_consumer() {
+    local callsite="$1"
+    local bad_executable="${BATS_TEST_TMPDIR}/spawn-failure-${callsite}"
+    local elapsed_marker="${BATS_TEST_TMPDIR}/spawn-failure-${callsite}.elapsed"
+    local elapsed
+    printf '%s\n' '#!/definitely/missing/customer-delivery-interpreter' > "$bad_executable"
+    chmod +x "$bad_executable"
+    build_test_framework "spawn-failure-${callsite}" || return 1
+    replace_test_script_literal \
+        'VALIDATION_TOTAL_TIMEOUT_SECONDS = 20' \
+        'VALIDATION_TOTAL_TIMEOUT_SECONDS = 1' || return 1
+    instrument_test_validator_elapsed "$elapsed_marker" || return 1
+    case "$callsite" in
+        silent)
+            "$PYTHON" - "$TEST_SCRIPT" "$bad_executable" <<'PY' || return 1
+import sys
+
+path, bad_executable = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+start = source.index("def verify_ed25519(")
+end = source.index("\ndef approval_payload_digest(", start)
+function_source = source[start:end]
+guard = '''                [
+                    PINNED_OPENSSL,
+                    "pkeyutl",
+'''
+mutant = f'''                [
+                    {bad_executable!r},
+                    "pkeyutl",
+'''
+if function_source.count(guard) != 1:
+    raise SystemExit("SILENT_SPAWN_FAILURE_SEAM_MISSING_OR_AMBIGUOUS")
+function_source = function_source.replace(guard, mutant, 1)
+open(path, "w", encoding="utf-8").write(source[:start] + function_source + source[end:])
+PY
+            ;;
+        bounded)
+            rebind_test_openssl "$bad_executable" || return 1
+            ;;
+        source_history)
+            replace_test_script_literal \
+                'PINNED_GIT = "/usr/bin/git"' \
+                "PINNED_GIT = \"${bad_executable}\"" || return 1
+            replace_test_script_literal \
+                'SOURCE_HISTORY_TOTAL_TIMEOUT_SECONDS = 10' \
+                'SOURCE_HISTORY_TOTAL_TIMEOUT_SECONDS = 1' || return 1
+            ;;
+        *) return 1 ;;
+    esac
+    run_test_framework_json
+    [ -s "$elapsed_marker" ] || {
+        printf 'spawn_failure_elapsed_missing=%s status=%s output=%s\n' \
+            "$callsite" "$status" "$output"
+        return 1
+    }
+    elapsed="$(<"$elapsed_marker")"
+    split_bounded_validator_json "$output" || return 1
+    { [ "$status" -eq 1 ] || [ "$status" -eq 2 ]; } \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["decision"] in {"NOT_MET","ERROR"}; assert d["findings"]; assert not any("resource_limit:deadline" in item for item in d["findings"])' "$VALIDATOR_JSON" \
+        && "$PYTHON" -c 'import sys; value=float(sys.argv[1]); assert 0 < value < 4' "$elapsed" \
+        || { printf 'spawn_failure_consumer=%s status=%s elapsed=%s output=%s\n' \
+            "$callsite" "$status" "$elapsed" "$output"; return 1; }
+}
+
 assert_process_lifecycle_probe() {
     local mode="$1"
     local marker="${BATS_TEST_TMPDIR}/process-lifecycle-${mode}.marker"
@@ -3446,9 +3510,19 @@ PY
     local post_popen_only="${CUSTOMER_DELIVERY_POST_POPEN_ONLY:-}"
     local completed_parent_only="${CUSTOMER_DELIVERY_COMPLETED_PARENT_ONLY:-}"
     local lifecycle_only="${CUSTOMER_DELIVERY_LIFECYCLE_ONLY:-}"
+    local spawn_failure_only="${CUSTOMER_DELIVERY_SPAWN_FAILURE_ONLY:-}"
     local elapsed_marker="${BATS_TEST_TMPDIR}/stubborn-crypto.elapsed"
     rm -f -- "$pid_file" || return 1
     assert_bounded_validator_diagnostic_grammar || return 1
+    if [[ -n "$spawn_failure_only" ]]; then
+        case "$spawn_failure_only" in
+            silent|bounded|source_history)
+                assert_spawn_failure_consumer "$spawn_failure_only" || return 1
+                ;;
+            *) return 1 ;;
+        esac
+        return 0
+    fi
     if [[ -n "$lifecycle_only" ]]; then
         case "$lifecycle_only" in
             cleanup-alarm|reused-pid)
@@ -3529,6 +3603,7 @@ PY
                 ;;
             *) return 1 ;;
         esac
+        return 0
     else
         for callsite in silent bounded source_history; do
             assert_post_popen_signal_cleanup "$callsite" || return 1
@@ -3537,6 +3612,9 @@ PY
     fi
     assert_process_lifecycle_probe cleanup-alarm || return 1
     assert_process_lifecycle_probe reused-pid || return 1
+    for callsite in silent bounded source_history; do
+        assert_spawn_failure_consumer "$callsite" || return 1
+    done
 }
 
 @test "non-Python executable cannot satisfy the interpreter pin" {

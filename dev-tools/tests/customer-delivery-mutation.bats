@@ -360,7 +360,6 @@ PY
         'python_cwd_isolation|current directory cannot shadow trusted Python dependencies'
         'wrapper_response|empty validator response cannot be accepted as MET'
         'git_no_replace_objects|Git replacement objects cannot hide an in-place source mutation'
-        'git_process_group|source history deadline kills stubborn descendant pipe holders'
         'git_finally_cleanup|global validation alarm reaps late source history child process group'
     )
     for pair in "${pairs[@]}"; do
@@ -480,20 +479,6 @@ elif kind == "git_no_replace_objects":
     if source.count(old) != 1:
         raise SystemExit("GIT_NO_REPLACE_OBJECTS_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
     source = source.replace(old, "")
-elif kind == "git_process_group":
-    guard = '''    def terminate_git_process(process):
-        return terminate_registered_process(process)
-'''
-    mutant = '''    def terminate_git_process(process):
-        os.kill(process.pid, signal.SIGKILL)
-        process.supervisor.wait(timeout=0.4)
-        close_process_streams(process)
-        release_active_process(process)  # MUTATED:git_process_group
-        return None
-'''
-    if source.count(guard) != 1:
-        raise SystemExit("GIT_PROCESS_GROUP_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
-    source = source.replace(guard, mutant, 1)
 elif kind == "git_finally_cleanup":
     function_start = source.index("def _validate_source_history():\n")
     function_end = source.index("\ndef validate_source_history():\n", function_start)
@@ -1180,7 +1165,7 @@ seams = {
         "def _validate_source_history():\n",
         "\ndef validate_source_history():\n",
         '''            returncode = wait_process_status(process, deadline)
-            terminate_git_process(process)
+            terminate_registered_process(process)
 ''',
     ),
 }
@@ -1467,7 +1452,13 @@ PY
     "$PYTHON" -c \
         'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
         post_popen_stale_marker "${post_popen_filter}|99999999"
+}
 
+@test "same-clock and Alarm diagnostic mutation attribution is fail-closed" {
+    local post_popen_control post_popen_mutant post_popen_filter
+    local marker_kind marker_value marker_hex sentinel_kind
+    local diagnostic_mutant diagnostic_filter pid_width_mutant
+    post_popen_filter='OpenSSL deadline terminates stubborn descendant pipe holders'
     post_popen_control="${BATS_TEST_TMPDIR}/post-popen-same-clock-control.bats"
     cp "$FUNCTIONAL_TEST" "$post_popen_control" || return 1
     "$PYTHON" - "$post_popen_control" "$REPO_ROOT" <<'PY' || return 1

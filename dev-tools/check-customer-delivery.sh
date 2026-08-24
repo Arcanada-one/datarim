@@ -831,6 +831,8 @@ try:
 except (OSError, ValueError, subprocess.SubprocessError):
     frame = b"V1 E spawn\n"
 else:
+    frame = f"V1 R {target.wait()}\n".encode("ascii", "strict")
+finally:
     for descriptor in (0, 1, 2, *target_fds):
         if descriptor == status_fd:
             continue
@@ -838,7 +840,6 @@ else:
             os.close(descriptor)
         except OSError:
             pass
-    frame = f"V1 R {target.wait()}\n".encode("ascii", "strict")
 try:
     if len(frame) > 64 or os.write(status_fd, frame) != len(frame):
         os._exit(125)
@@ -2563,9 +2564,6 @@ def _validate_source_history():
             repository_identity_reported = True
         return False
 
-    def terminate_git_process(process):
-        return terminate_registered_process(process)
-
     def run_git(arguments, *, input_bytes=None, output_limit=SOURCE_HISTORY_MAX_CONTROL_OUTPUT_BYTES):
         if not repository_identity_valid():
             return None
@@ -2619,7 +2617,7 @@ def _validate_source_history():
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     resource_limit("deadline")  # SECURITY_RULE:source_history_total_deadline
-                    terminate_git_process(process)
+                    terminate_registered_process(process)
                     return None
                 for key, _ in selector.select(timeout=min(0.05, remaining)):
                     stream = key.fileobj
@@ -2644,7 +2642,7 @@ def _validate_source_history():
                     except BlockingIOError:
                         continue
                     except OSError:
-                        terminate_git_process(process)
+                        terminate_registered_process(process)
                         return None
                     if not chunk:
                         selector.unregister(stream)
@@ -2655,23 +2653,23 @@ def _validate_source_history():
                             resource_limit("output_budget")  # SECURITY_RULE:source_history_stdout_stream_cap
                         else:
                             resource_limit("output_budget")  # SECURITY_RULE:source_history_stderr_stream_cap
-                        terminate_git_process(process)
+                        terminate_registered_process(process)
                         return None
                     target.extend(chunk)
 
             returncode = wait_process_status(process, deadline)
-            terminate_git_process(process)
+            terminate_registered_process(process)
             if not repository_identity_valid():
                 return None
             return returncode, bytes(stdout_buffer)
         except subprocess.TimeoutExpired:
             resource_limit("deadline")
             if process is not None:
-                terminate_git_process(process)
+                terminate_registered_process(process)
             return None
         except (OSError, subprocess.SubprocessError):
             if process is not None:
-                terminate_git_process(process)
+                terminate_registered_process(process)
             return None
         finally:
             if selector is not None:
