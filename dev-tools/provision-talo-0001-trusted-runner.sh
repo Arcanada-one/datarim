@@ -22,6 +22,7 @@ RUNNER_WORKER_SHA256=a23441ed55e5e967ecfb7b9467310693ea73e429a97596ebdc979745cbc
 RUNNER_PAYLOAD_TREE_SHA256=802a94df6d2aee3e458620b5a1175f8646f195092081d3285b8b0dd33c8cc8f6
 RUNNER_VERIFY_ATTEMPTS=10
 RUNNER_VERIFY_INTERVAL_SECONDS=2
+RUNNER_DELETE_ATTEMPTS=3
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 API_VERSION=2022-11-28
 
@@ -273,36 +274,48 @@ disable_runner_service() {
 }
 
 rollback_new_registration() {
-    local id=$1 known_runner_id=${2:-} runner cleanup_runner_id \
-        cleanup_failed=false
-    if ! group_has_no_runners "$id"; then
-        if [ -z "$known_runner_id" ] && [ -f "$RUNNER_DIR/.runner" ]; then
-            known_runner_id=$(jq -er \
-                '.AgentId | select(type == "number" and . > 0 and floor == .)' \
-                "$RUNNER_DIR/.runner" 2>/dev/null || true)
-        fi
-        if [ -z "$known_runner_id" ]; then
-            cleanup_failed=true
-        elif runner=$(exact_group_runner "$id" cleanup "$known_runner_id"); then
-            cleanup_runner_id=$(jq -r .id <<<"$runner")
-            api --method DELETE "orgs/$ORG/actions/runners/$cleanup_runner_id" \
-                >/dev/null || cleanup_failed=true
-        else
-            cleanup_failed=true
-        fi
-    fi
-    wait_for_no_runners "$id" || cleanup_failed=true
+    local id=$1 pre_registration_empty=$2 known_runner_id=${3:-}
+    [ "$pre_registration_empty" = true ] || return 1
+    remove_remote_new_registration "$id" "$known_runner_id" || return 1
     rm -f -- "$RUNNER_DIR/.runner" "$RUNNER_DIR/.credentials" \
         "$RUNNER_DIR/.credentials_rsaparams" "$RUNNER_DIR/.env" \
-        "$RUNNER_DIR/.path" || cleanup_failed=true
-    [ "$cleanup_failed" = false ]
+        "$RUNNER_DIR/.path"
+}
+
+remove_remote_new_registration() {
+    local id=$1 known_runner_id=${2:-} attempt=0 runner cleanup_runner_id \
+        expected_id
+    if [ -z "$known_runner_id" ] && [ -f "$RUNNER_DIR/.runner" ]; then
+        known_runner_id=$(jq -er \
+            '.AgentId | select(type == "number" and . > 0 and floor == .)' \
+            "$RUNNER_DIR/.runner" 2>/dev/null || true)
+    fi
+    expected_id=${known_runner_id:-null}
+    while [ "$attempt" -lt "$RUNNER_DELETE_ATTEMPTS" ]; do
+        if group_has_no_runners "$id"; then
+            wait_for_no_runners "$id" && return 0
+        else
+            runner=$(exact_group_runner "$id" cleanup "$expected_id") || return 1
+            cleanup_runner_id=$(jq -r .id <<<"$runner")
+            if api --method DELETE \
+                "orgs/$ORG/actions/runners/$cleanup_runner_id" >/dev/null; then
+                wait_for_no_runners "$id" && return 0
+            fi
+        fi
+        attempt=$((attempt + 1))
+        [ "$attempt" -lt "$RUNNER_DELETE_ATTEMPTS" ] \
+            && sleep "$RUNNER_VERIFY_INTERVAL_SECONDS"
+    done
+    return 1
 }
 
 abort_runner_transaction() {
-    local id=$1 fresh_registration=$2 known_runner_id=$3 message=$4 rollback_failed=false
+    local id=$1 fresh_registration=$2 pre_registration_empty=$3 \
+        known_runner_id=$4 message=$5 rollback_failed=false
     disable_runner_service || rollback_failed=true
     if [ "$fresh_registration" = true ]; then
-        rollback_new_registration "$id" "$known_runner_id" \
+        rollback_new_registration "$id" "$pre_registration_empty" \
+            "$known_runner_id" \
             || rollback_failed=true
     fi
     if [ "$rollback_failed" = true ]; then
@@ -352,40 +365,102 @@ harden_runner_payload() {
 }
 
 ensure_group() {
-    local id group_payload create_payload
+    local id
+    [ "$(id -u)" -eq 0 ] || {
+        echo "ERROR: runner group reconciliation requires root" >&2
+        return 1
+    }
     verify_trusted_main_workflow
-    id=$(group_id)
+    if ! id=$(group_id); then
+        echo "ERROR: trusted runner group lookup failed" >&2
+        return 1
+    fi
     [ "$(wc -w <<<"$id")" -le 1 ] || {
         echo "ERROR: duplicate trusted runner groups" >&2
-        exit 1
+        return 1
     }
-    group_payload=$(jq -cn --arg name "$GROUP_NAME" --arg workflow "$SELECTED_WORKFLOW" '
+    if [ -n "$id" ] && ! [[ "$id" =~ ^[1-9][0-9]*$ ]]; then
+        echo "ERROR: invalid runner group id" >&2
+        return 1
+    fi
+    stop_and_disable_runner_service || return 1
+    reconcile_group "$id"
+}
+
+reconcile_group() {
+    local id=$1 group_payload create_payload
+    if ! group_payload=$(jq -cn --arg name "$GROUP_NAME" \
+        --arg workflow "$SELECTED_WORKFLOW" '
         {name:$name,visibility:"selected",allows_public_repositories:true,
          restricted_to_workflows:true,selected_workflows:[$workflow]}
-    ')
+    '); then
+        echo "ERROR: trusted runner group policy encoding failed" >&2
+        return 1
+    fi
     if [ -z "$id" ]; then
-        create_payload=$(jq -c --argjson repository_id "$REPOSITORY_ID" \
-            '. + {selected_repository_ids:[$repository_id]}' <<<"$group_payload")
-        id=$(api --method POST "orgs/$ORG/actions/runner-groups" \
-            --input - --jq .id <<<"$create_payload")
+        if ! create_payload=$(jq -c --argjson repository_id "$REPOSITORY_ID" \
+            '. + {selected_repository_ids:[$repository_id]}' \
+            <<<"$group_payload"); then
+            echo "ERROR: trusted runner group creation payload failed" >&2
+            return 1
+        fi
+        if ! id=$(api --method POST "orgs/$ORG/actions/runner-groups" \
+            --input - --jq .id <<<"$create_payload"); then
+            echo "ERROR: trusted runner group creation failed" >&2
+            return 1
+        fi
     else
-        api --method PATCH "orgs/$ORG/actions/runner-groups/$id" \
-            --input - >/dev/null <<<"$group_payload"
-        jq -cn --argjson repository_id "$REPOSITORY_ID" \
+        if ! api --method PATCH "orgs/$ORG/actions/runner-groups/$id" \
+            --input - >/dev/null <<<"$group_payload"; then
+            echo "ERROR: trusted runner group policy update failed" >&2
+            return 1
+        fi
+        if ! jq -cn --argjson repository_id "$REPOSITORY_ID" \
             '{selected_repository_ids:[$repository_id]}' |
             api --method PUT "orgs/$ORG/actions/runner-groups/$id/repositories" \
-                --input - >/dev/null
+                --input - >/dev/null; then
+            echo "ERROR: trusted runner group repository update failed" >&2
+            return 1
+        fi
     fi
-    [[ "$id" =~ ^[1-9][0-9]*$ ]] || { echo "ERROR: invalid runner group id" >&2; exit 1; }
+    [[ "$id" =~ ^[1-9][0-9]*$ ]] || {
+        echo "ERROR: invalid runner group id" >&2
+        return 1
+    }
     verify_group "$id"
     printf '%s\n' "$id"
 }
 
+stop_and_disable_runner_service() {
+    local load_state
+    load_state=$(systemctl show "$UNIT_NAME" --property=LoadState --value 2>/dev/null) || {
+        echo "ERROR: unable to inspect trusted runner service" >&2
+        return 1
+    }
+    if [ "$load_state" = not-found ]; then
+        return 0
+    fi
+    [ "$load_state" = loaded ] || {
+        echo "ERROR: trusted runner service load state is invalid" >&2
+        return 1
+    }
+    systemctl stop "$UNIT_NAME" 2>/dev/null || {
+        disable_runner_service || \
+            echo "ERROR: trusted runner rollback could not prove fail-closed state" >&2
+        echo "ERROR: unable to stop trusted runner service" >&2
+        return 1
+    }
+    disable_runner_service || {
+        echo "ERROR: unable to disable trusted runner service" >&2
+        return 1
+    }
+}
+
 register_and_start() {
-    local id token runner runner_id load_state install_payload=false \
-        fresh_registration=false
+    local id token runner runner_id install_payload=false \
+        fresh_registration=false pre_registration_empty=false
     [ "$(id -u)" -eq 0 ] || { echo "ERROR: registration requires root" >&2; exit 1; }
-    id=$(ensure_group)
+    id=$(ensure_group) || exit 1
     verify_group "$id"
     if [ -f "$RUNNER_DIR/.runner" ]; then
         runner=$(exact_group_runner "$id" registered) || {
@@ -413,26 +488,6 @@ register_and_start() {
         install_payload=true
         runner_id=
     fi
-    load_state=$(systemctl show "$UNIT_NAME" --property=LoadState --value 2>/dev/null) || {
-        echo "ERROR: unable to inspect trusted runner service" >&2
-        exit 1
-    }
-    if [ "$load_state" != not-found ]; then
-        [ "$load_state" = loaded ] || {
-            echo "ERROR: trusted runner service load state is invalid" >&2
-            exit 1
-        }
-        systemctl stop "$UNIT_NAME" 2>/dev/null || {
-            disable_runner_service || \
-                echo "ERROR: trusted runner rollback could not prove fail-closed state" >&2
-            echo "ERROR: unable to stop trusted runner service" >&2
-            exit 1
-        }
-        disable_runner_service || {
-            echo "ERROR: unable to disable trusted runner service" >&2
-            exit 1
-        }
-    fi
     if [ "$install_payload" = true ]; then
         ensure_runner_payload || {
             echo "ERROR: runner payload provisioning failed" >&2
@@ -440,6 +495,11 @@ register_and_start() {
         }
     fi
     if [ ! -f "$RUNNER_DIR/.runner" ]; then
+        group_has_no_runners "$id" || {
+            echo "ERROR: trusted runner pre-registration roster is not empty" >&2
+            exit 1
+        }
+        pre_registration_empty=true
         token=$(api --method POST "orgs/$ORG/actions/runners/registration-token" --jq .token)
         [ -n "$token" ] || { echo "ERROR: empty runner registration token" >&2; exit 1; }
         fresh_registration=true
@@ -448,47 +508,57 @@ register_and_start() {
             --runnergroup "$GROUP_NAME" --name "$RUNNER_NAME" \
             --labels "$RUNNER_LABEL" --work _work --disableupdate; then
             token=REDACTED
-            abort_runner_transaction "$id" "$fresh_registration" "$runner_id" \
+            abort_runner_transaction "$id" "$fresh_registration" \
+                "$pre_registration_empty" "$runner_id" \
                 "runner configuration failed"
         fi
         token=REDACTED
         runner=$(wait_for_exact_runner "$id" registered) || {
-            abort_runner_transaction "$id" "$fresh_registration" "$runner_id" \
+            abort_runner_transaction "$id" "$fresh_registration" \
+                "$pre_registration_empty" "$runner_id" \
                 "runner registration did not reach the exact trusted group"
         }
         runner_id=$(jq -r .id <<<"$runner")
         verify_local_registration "$runner_id" "$id" || {
-            abort_runner_transaction "$id" "$fresh_registration" "$runner_id" \
+            abort_runner_transaction "$id" "$fresh_registration" \
+                "$pre_registration_empty" "$runner_id" \
                 "local runner registration mismatch"
         }
     fi
     harden_runner_payload || {
-        abort_runner_transaction "$id" "$fresh_registration" "$runner_id" \
+        abort_runner_transaction "$id" "$fresh_registration" \
+            "$pre_registration_empty" "$runner_id" \
             "runner payload hardening failed"
     }
     install -o root -g root -m 0644 \
         "$ROOT/dev-tools/systemd/$UNIT_NAME" "/etc/systemd/system/$UNIT_NAME" || {
-        abort_runner_transaction "$id" "$fresh_registration" "$runner_id" \
+        abort_runner_transaction "$id" "$fresh_registration" \
+            "$pre_registration_empty" "$runner_id" \
             "trusted runner unit installation failed"
     }
     systemctl daemon-reload || {
-        abort_runner_transaction "$id" "$fresh_registration" "$runner_id" \
+        abort_runner_transaction "$id" "$fresh_registration" \
+            "$pre_registration_empty" "$runner_id" \
             "trusted runner service reload failed"
     }
     systemctl enable --now "$UNIT_NAME" || {
-        abort_runner_transaction "$id" "$fresh_registration" "$runner_id" \
+        abort_runner_transaction "$id" "$fresh_registration" \
+            "$pre_registration_empty" "$runner_id" \
             "trusted runner service start failed"
     }
     systemctl is-active --quiet "$UNIT_NAME" || {
-        abort_runner_transaction "$id" "$fresh_registration" "$runner_id" \
+        abort_runner_transaction "$id" "$fresh_registration" \
+            "$pre_registration_empty" "$runner_id" \
             "trusted runner service is not active"
     }
     runner=$(wait_for_exact_runner "$id" online "$runner_id") || {
-        abort_runner_transaction "$id" "$fresh_registration" "$runner_id" \
+        abort_runner_transaction "$id" "$fresh_registration" \
+            "$pre_registration_empty" "$runner_id" \
             "trusted runner did not become online and idle"
     }
     verify_local_registration "$(jq -r .id <<<"$runner")" "$id" || {
-        abort_runner_transaction "$id" "$fresh_registration" "$runner_id" \
+        abort_runner_transaction "$id" "$fresh_registration" \
+            "$pre_registration_empty" "$runner_id" \
             "local runner identity changed after start"
     }
 }

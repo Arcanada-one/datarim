@@ -29,7 +29,7 @@ EXPECTED_DIGESTS = {
     "publisher": "adc8edc95e02c983bfd0a690dc018c0cec986115cf614444879928936f3b578e",
     "evaluator": "a0e86fc87493231afffd3164587f0c14e463f5e8c4acd8f4f9679e2504280d1a",
     "runner-unit": "d9b25e4ea33ed2bddad9e5d1fd5a47acedfed852749f0771fb24838f70edc131",
-    "provisioner": "b23bed5d64e454e79f67a54d9ebc9671eb8ea09d14ef44138031f1d6694918a0",
+    "provisioner": "7e68e6efffb0f30e2071c22dacc18e79724632a1890077487f30d7059bb18dbf",
 }
 EXPECTED_PATHS = [
     "commands/**",
@@ -362,6 +362,7 @@ def validate_code(findings: list[str]) -> None:
         'RUNNER_PAYLOAD_TREE_SHA256=802a94df6d2aee3e458620b5a1175f8646f195092081d3285b8b0dd33c8cc8f6',
         'RUNNER_VERIFY_ATTEMPTS=10',
         'RUNNER_VERIFY_INTERVAL_SECONDS=2',
+        'RUNNER_DELETE_ATTEMPTS=3',
         'workflow|$WORKFLOW_PATH',
         'provisioner|dev-tools/provision-talo-0001-trusted-runner.sh',
         'runner-unit|dev-tools/systemd/$UNIT_NAME',
@@ -373,35 +374,51 @@ def validate_code(findings: list[str]) -> None:
         'if ! tar --extract --gzip --file "$archive" --directory "$RUNNER_DIR"',
         'chown -R "$RUNNER_USER:$RUNNER_USER" "$RUNNER_DIR"',
         'systemctl disable --now "$UNIT_NAME"',
+        'systemctl stop "$UNIT_NAME"',
         'systemctl is-enabled "$UNIT_NAME"',
         'systemctl is-active "$UNIT_NAME"',
         'rollback_new_registration',
-        'api --method DELETE "orgs/$ORG/actions/runners/$cleanup_runner_id"',
+        'remove_remote_new_registration',
+        'if api --method DELETE',
+        '"orgs/$ORG/actions/runners/$cleanup_runner_id"',
         '[ "$consecutive" -ge 3 ]',
         'rm -f -- "$RUNNER_DIR/.runner"',
         'abort_runner_transaction',
         'fresh_registration=true',
+        'pre_registration_empty=true',
+        'expected_id=${known_runner_id:-null}',
     ):
         if value not in provisioner:
             findings.append(f"missing:runner-runtime-contract:{value}")
     if 'sudo -u "$RUNNER_USER" -- tar' in provisioner:
         findings.append("forbidden:runner-private-staging-traversal")
     try:
+        ensure_group = provisioner.split("ensure_group() {", 1)[1].split(
+            "\n}", 1
+        )[0]
         registration = provisioner.split("register_and_start() {", 1)[1].split(
             "\n}", 1
         )[0]
     except IndexError:
+        ensure_group = ""
         registration = ""
         findings.append("missing:registration-function")
+    ordered_reconciliation = (
+        "verify_trusted_main_workflow",
+        "id=$(group_id)",
+        "stop_and_disable_runner_service",
+        'reconcile_group "$id"',
+    )
+    positions = [ensure_group.find(value) for value in ordered_reconciliation]
+    if any(position < 0 for position in positions) or positions != sorted(positions):
+        findings.append("mismatch:group-reconciliation-safety-order")
     ordered_registration = (
         'id=$(ensure_group)',
         'verify_group "$id"',
         'group_has_no_runners "$id"',
-        'load_state=$(systemctl show "$UNIT_NAME"',
-        'systemctl stop "$UNIT_NAME"',
-        'disable_runner_service',
         'if [ "$install_payload" = true ]',
         'ensure_runner_payload',
+        'pre_registration_empty=true',
         'registration-token" --jq .token',
         '--runnergroup "$GROUP_NAME"',
         'runner=$(wait_for_exact_runner "$id" registered)',

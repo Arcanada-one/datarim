@@ -12,6 +12,10 @@ case "$command_name" in
                 exit 0
                 ;;
         esac
+        if [ "${TALO_MOCK_GROUP_MUTATION_FAILURE:-0}" = 1 ] \
+            && [[ " $* " == *" --method PATCH "* ]]; then
+            exit 1
+        fi
         case "$*" in
             *"contents/.github/workflows/talo-0001-trusted-replay.yml?ref=main"*)
                 printf '%s\n' "${TALO_MOCK_BLOB:?}"
@@ -34,14 +38,30 @@ case "$command_name" in
                 runner='{"id":7001,"name":"talo-0001-trusted-arcana-devs","os":"Linux","status":"offline","busy":false,"labels":[{"name":"self-hosted"},{"name":"Linux"},{"name":"X64"},{"name":"talo-0001-trusted"}]}'
                 runner_calls=$(grep -c 'runner-groups/42/runners' "${TALO_MOCK_LOG:?}" || true)
                 case "${TALO_MOCK_RUNNERS_MODE:-one}" in
+                    remote-before-local)
+                        if [ ! -f "${TALO_MOCK_CONFIG_STARTED:?}" ]; then
+                            printf '%s\n' '{"total_count":0,"runners":[]}'
+                        else
+                            printf '{"total_count":1,"runners":[%s]}\n' "$runner"
+                        fi
+                        ;;
+                    fresh-hostile)
+                        if [ ! -f "${TALO_MOCK_CONFIG_STARTED:?}" ]; then
+                            printf '%s\n' '{"total_count":0,"runners":[]}'
+                        else
+                            printf '{"total_count":2,"runners":[%s,%s]}\n' \
+                                "$runner" \
+                                '{"id":7002,"name":"hostile-runner","os":"Linux","status":"online","busy":false,"labels":[{"name":"self-hosted"},{"name":"Linux"},{"name":"X64"},{"name":"talo-0001-trusted"}]}'
+                        fi
+                        ;;
                     fresh-timeout)
                         printf '%s\n' '{"total_count":0,"runners":[]}'
                         ;;
                     fresh)
-                        if [ "$runner_calls" -eq 1 ]; then
+                        if [ ! -f "${TALO_MOCK_CONFIG_STARTED:?}" ]; then
                             printf '%s\n' '{"total_count":0,"runners":[]}'
                         else
-                            [ "$runner_calls" -le 2 ] \
+                            [ "$runner_calls" -le 3 ] \
                                 || runner="${runner/\"status\":\"offline\"/\"status\":\"online\"}"
                             printf '{"total_count":1,"runners":[%s]}\n' "$runner"
                         fi
@@ -71,6 +91,10 @@ case "$command_name" in
                 ;;
             *"registration-token"*) printf '%s\n' fixture-token ;;
             *"actions/runners/7001"*)
+                delete_count=$(cat "${TALO_MOCK_DELETE_COUNTER:?}")
+                delete_count=$((delete_count + 1))
+                printf '%s\n' "$delete_count" >"$TALO_MOCK_DELETE_COUNTER"
+                [ "$delete_count" -gt "${TALO_MOCK_DELETE_FAILURES:-0}" ] || exit 1
                 : >"${TALO_MOCK_REGISTRATION_REMOVED:?}"
                 ;;
             *) exit 1 ;;

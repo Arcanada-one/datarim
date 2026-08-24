@@ -1,4 +1,5 @@
 #!/usr/bin/env bats
+set -euo pipefail
 
 setup() {
     ROOT="$(cd "${BATS_TEST_DIRNAME}/../.." && pwd -P)"
@@ -55,6 +56,8 @@ if [ "${1:-}" = remove ]; then
     rm -f -- .runner .credentials .credentials_rsaparams .env .path
     exit 0
 fi
+: >"${TALO_MOCK_CONFIG_STARTED:?}"
+[ "${TALO_MOCK_CONFIG_REMOTE_ONLY:-0}" != 1 ] || exit 1
 cat >.runner <<'JSON'
 {"AgentId":7001,"AgentName":"talo-0001-trusted-arcana-devs","PoolId":42,"PoolName":"talo-0001-trusted","DisableUpdate":true,"Ephemeral":false,"GitHubUrl":"https://github.com/Arcanada-one","WorkFolder":"_work"}
 JSON
@@ -111,8 +114,12 @@ JSON
     MOCK_UNIT_BLOB="$(git hash-object "$FIXTURE/dev-tools/systemd/talo-0001-trusted-runner.service")"
     MOCK_SERVICE_STATE="$BATS_TEST_TMPDIR/provision-service-state"
     MOCK_REGISTRATION_REMOVED="$BATS_TEST_TMPDIR/registration-removed"
+    MOCK_DELETE_COUNTER="$BATS_TEST_TMPDIR/delete-counter"
+    MOCK_CONFIG_STARTED="$BATS_TEST_TMPDIR/config-started"
     : >"$MOCK_LOG"
     rm -f -- "$MOCK_REGISTRATION_REMOVED"
+    rm -f -- "$MOCK_CONFIG_STARTED"
+    printf '%s\n' 0 >"$MOCK_DELETE_COUNTER"
     printf '%s\n' enabled >"$MOCK_SERVICE_STATE"
 }
 
@@ -143,11 +150,16 @@ run_provision_runtime() {
         "TALO_MOCK_STOP_FAILURE=${TALO_MOCK_STOP_FAILURE:-0}" \
         "TALO_MOCK_ENABLE_FAILURE=${TALO_MOCK_ENABLE_FAILURE:-0}" \
         "TALO_MOCK_CONFIG_FAILURE=${TALO_MOCK_CONFIG_FAILURE:-0}" \
+        "TALO_MOCK_CONFIG_REMOTE_ONLY=${TALO_MOCK_CONFIG_REMOTE_ONLY:-0}" \
+        "TALO_MOCK_GROUP_MUTATION_FAILURE=${TALO_MOCK_GROUP_MUTATION_FAILURE:-0}" \
+        "TALO_MOCK_DELETE_FAILURES=${TALO_MOCK_DELETE_FAILURES:-0}" \
         "TALO_MOCK_ENFORCE_TRAVERSAL=${TALO_MOCK_ENFORCE_TRAVERSAL:-0}" \
         "TALO_MOCK_ARCHIVE=${MOCK_ARCHIVE:-}" \
         "TALO_MOCK_RUNNER_DIR=$RUNNER_FIXTURE" \
         "TALO_MOCK_SERVICE_STATE=$MOCK_SERVICE_STATE" \
         "TALO_MOCK_REGISTRATION_REMOVED=$MOCK_REGISTRATION_REMOVED" \
+        "TALO_MOCK_DELETE_COUNTER=$MOCK_DELETE_COUNTER" \
+        "TALO_MOCK_CONFIG_STARTED=$MOCK_CONFIG_STARTED" \
         "$PROVISIONER" --register-and-start
 }
 
@@ -437,9 +449,10 @@ GROUP_NAME=talo-0001-trusted|GROUP_NAME=Default|missing:runner-group-contract
 REPOSITORY_ID=1207050134|REPOSITORY_ID=999|missing:runner-group-contract
 WORKFLOW_PATH=.github/workflows/talo-0001-trusted-replay.yml|WORKFLOW_PATH=.github/workflows/other.yml|missing:runner-group-contract
 .restricted_to_workflows == true|.restricted_to_workflows == false|missing:runner-group-contract
-systemctl stop "$UNIT_NAME"|true|mismatch:registration-safety-order
+systemctl stop "$UNIT_NAME"|true|missing:runner-runtime-contract
 id=$(ensure_group)|id=1|mismatch:registration-safety-order
 runner=$(wait_for_exact_runner "$id" registered)|runner=true|mismatch:registration-safety-order
+stop_and_disable_runner_service|true|mismatch:group-reconciliation-safety-order
 MUTANTS
 }
 
@@ -462,7 +475,7 @@ RUNNER_PAYLOAD_TREE_SHA256=802a94df6d2aee3e458620b5a1175f8646f195092081d3285b8b0
 --disableupdate|--replace
 install -d -o root -g root -m 0755 "$RUNNER_DIR"|install -d -o "$RUNNER_USER" -g "$RUNNER_USER" -m 0755 "$RUNNER_DIR"
 systemctl disable --now "$UNIT_NAME"|systemctl stop "$UNIT_NAME"
-api --method DELETE "orgs/$ORG/actions/runners/$cleanup_runner_id"|true
+if api --method DELETE|if true
 fresh_registration=true|fresh_registration=false
 MUTANTS
 
@@ -526,20 +539,22 @@ MUTANTS
     ! grep -q '^systemctl enable' "$MOCK_LOG"
 }
 
-@test "local runner identity and official payload are bound before service mutation" {
+@test "local runner identity and payload failure leave service disabled before re-enable" {
     setup_provision_runtime
     sed -i 's/"AgentId":7001/"AgentId":9999/' "$RUNNER_FIXTURE/.runner"
     run_provision_runtime
     [ "$status" -eq 1 ]
     [[ "$output" == *'local runner registration mismatch'* ]]
-    ! grep -q '^systemctl stop' "$MOCK_LOG"
+    grep -q '^systemctl disable --now' "$MOCK_LOG"
+    ! grep -q '^systemctl enable' "$MOCK_LOG"
 
     setup_provision_runtime
     printf '%s\n' tampered-support >"$RUNNER_FIXTURE/externals/support.bin"
     run_provision_runtime
     [ "$status" -eq 1 ]
     [[ "$output" == *'runner payload tree mismatch'* ]]
-    ! grep -q '^systemctl stop' "$MOCK_LOG"
+    grep -q '^systemctl disable --now' "$MOCK_LOG"
+    ! grep -q '^systemctl enable' "$MOCK_LOG"
 }
 
 @test "registration stop failure is fatal before runner configuration" {
@@ -549,6 +564,17 @@ MUTANTS
     [[ "$output" == *'unable to stop trusted runner service'* ]]
     grep -q '^systemctl disable --now' "$MOCK_LOG"
     [ "$(cat "$MOCK_SERVICE_STATE")" = disabled ]
+    ! grep -q 'config.sh' "$MOCK_LOG"
+}
+
+@test "active runner is disabled before any group policy mutation" {
+    setup_provision_runtime
+    TALO_MOCK_GROUP_MUTATION_FAILURE=1 run_provision_runtime
+    [ "$status" -eq 1 ]
+    [ "$(cat "$MOCK_SERVICE_STATE")" = disabled ]
+    disable_line=$(grep -n '^systemctl disable --now' "$MOCK_LOG" | head -1 | cut -d: -f1)
+    patch_line=$(grep -n -- '--method PATCH' "$MOCK_LOG" | head -1 | cut -d: -f1)
+    [ "$disable_line" -lt "$patch_line" ]
     ! grep -q 'config.sh' "$MOCK_LOG"
 }
 
@@ -595,6 +621,60 @@ MUTANTS
     [ "$(cat "$MOCK_SERVICE_STATE")" = disabled ]
 }
 
+@test "remote registration without local config is discovered deleted and retried" {
+    setup_provision_runtime
+    prepare_fresh_runner_payload
+    TALO_MOCK_RUNNERS_MODE=remote-before-local \
+        TALO_MOCK_CONFIG_REMOTE_ONLY=1 TALO_MOCK_DELETE_FAILURES=1 \
+        run_provision_runtime
+    [ "$status" -eq 1 ]
+    [[ "$output" == *'runner configuration failed'* ]]
+    [ "$(grep -c -- '--method DELETE orgs/Arcanada-one/actions/runners/7001' "$MOCK_LOG")" -eq 2 ]
+    [ -f "$MOCK_REGISTRATION_REMOVED" ]
+    [ "$(cat "$MOCK_SERVICE_STATE")" = disabled ]
+    [ ! -e "$RUNNER_FIXTURE/.runner" ]
+}
+
+@test "hostile post-registration roster preserves local evidence while disabled" {
+    setup_provision_runtime
+    prepare_fresh_runner_payload
+    TALO_MOCK_RUNNERS_MODE=fresh-hostile TALO_MOCK_CONFIG_FAILURE=1 \
+        run_provision_runtime
+    [ "$status" -eq 1 ]
+    [[ "$output" == *'rollback could not prove fail-closed state'* ]]
+    [ "$(cat "$MOCK_SERVICE_STATE")" = disabled ]
+    [ -e "$RUNNER_FIXTURE/.runner" ]
+    [ ! -e "$MOCK_REGISTRATION_REMOVED" ]
+}
+
+@test "errexit prevents hostile loop restoration from masking a known survivor" {
+    local vulnerable="$BATS_TEST_TMPDIR/vulnerable.sh"
+    local guarded="$BATS_TEST_TMPDIR/guarded.sh"
+    cat >"$vulnerable" <<'BATS'
+#!/usr/bin/env bash
+for mutant in known-survivor; do
+    false
+    true # hostile restoration used to mask the failed assertion
+done
+BATS
+    cat >"$guarded" <<'BATS'
+#!/usr/bin/env bash
+set -euo pipefail
+for mutant in known-survivor; do
+    false
+    true # must never execute after the failed assertion
+done
+BATS
+    run bash "$vulnerable"
+    [ "$status" -eq 0 ]
+    run bash "$guarded"
+    [ "$status" -ne 0 ]
+}
+
+@test "global assertion errexit is itself load-bearing" {
+    grep -q '^set -euo pipefail$' "$BATS_TEST_FILENAME"
+}
+
 @test "staging and transactional rollback mutants are killed behaviorally" {
     setup_provision_runtime
     prepare_fresh_runner_payload
@@ -628,7 +708,8 @@ import sys
 path = Path(sys.argv[1])
 source = path.read_text(encoding="utf-8")
 old = '''    if [ "$fresh_registration" = true ]; then
-        rollback_new_registration "$id" "$known_runner_id" \\
+        rollback_new_registration "$id" "$pre_registration_empty" \\
+            "$known_runner_id" \\
             || rollback_failed=true
     fi
 '''
@@ -687,14 +768,14 @@ import sys
 
 path = Path(sys.argv[1])
 source = path.read_text(encoding="utf-8")
-old = '''        systemctl stop "$UNIT_NAME" 2>/dev/null || {
-            disable_runner_service || \\
-                echo "ERROR: trusted runner rollback could not prove fail-closed state" >&2
-            echo "ERROR: unable to stop trusted runner service" >&2
-            exit 1
-        }
+old = '''    systemctl stop "$UNIT_NAME" 2>/dev/null || {
+        disable_runner_service || \\
+            echo "ERROR: trusted runner rollback could not prove fail-closed state" >&2
+        echo "ERROR: unable to stop trusted runner service" >&2
+        return 1
+    }
 '''
-new = '''        true
+new = '''    true
 '''
 assert source.count(old) == 1
 path.write_text(source.replace(old, new, 1), encoding="utf-8")
