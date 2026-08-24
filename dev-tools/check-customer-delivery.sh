@@ -1063,11 +1063,10 @@ def start_registered_process(arguments, **options):
 
 
 def release_completed_process(process):
-    if process.poll() is None:
-        terminate_registered_process(process)
-    else:
-        close_process_streams(process)
-        release_active_process(process)
+    # A completed direct child can leave same-session descendants behind even
+    # after every inherited pipe is closed. The process group remains ours
+    # until it has been terminated and the registered child has been reaped.
+    terminate_registered_process(process)
 
 
 def run_silent_process(arguments):

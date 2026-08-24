@@ -1100,7 +1100,8 @@ PY
 @test "mutation kill attribution rejects setup syntax timeout and wrong-assertion failures" {
     local filter='focused contract' expected=42 deadline_mutant deadline_filter
     local terminal_mask_mutant terminal_mask_validator terminal_mask_filter
-    local post_popen_mutant post_popen_control post_popen_readiness_control post_popen_filter
+    local post_popen_mutant post_popen_control post_popen_readiness_control post_popen_stale_mutant post_popen_filter
+    local completed_descendant_validator completed_descendant_mutant
     local callsite marker_kind marker_value marker_hex sentinel_kind
     local diagnostic_mutant diagnostic_filter pid_width_mutant
     run assert_attributed_mutant_kill valid "$filter" "$expected" 1 \
@@ -1258,9 +1259,28 @@ delayed_startup = '''    handle.write('if [ "${1:-}" = version ]; then\\n')
     handle.write("  sleep 1.1\\n")  # TEST_FIXTURE_READINESS_DELAY
     handle.write("  (trap '' TERM; sleep 30) &\\n")
 '''
-if source.count(root_old) != 1 or source.count(startup) != 1:
+run_anchor = '''    force_test_logical_deadline_shutdown_race "$pid_file" || return 1
+    rebind_test_openssl "$shim" || return 1
+    run_test_framework_json
+'''
+stale_run = '''    force_test_logical_deadline_shutdown_race "$pid_file" || return 1
+    rebind_test_openssl "$shim" || return 1
+    printf '%s\\n' 99999999 > "$pid_file"  # TEST_STALE_PID_MARKER
+    run_test_framework_json
+    [ "$(<"$pid_file")" != 99999999 ] \\
+        || { printf 'stale_pid_marker_accepted=99999999\\n'; return 1; }
+'''
+if (
+    source.count(root_old) != 1
+    or source.count(startup) != 1
+    or source.count(run_anchor) != 1
+):
     raise SystemExit("POST_POPEN_READINESS_CONTROL_SEAM_MISSING_OR_AMBIGUOUS")
-source = source.replace(root_old, root_new, 1).replace(startup, delayed_startup, 1)
+source = (
+    source.replace(root_old, root_new, 1)
+    .replace(startup, delayed_startup, 1)
+    .replace(run_anchor, stale_run, 1)
+)
 open(path, "w", encoding="utf-8").write(source)
 PY
     run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
@@ -1268,6 +1288,85 @@ PY
         CUSTOMER_DELIVERY_POST_POPEN_ONLY=silent \
         bats --filter "^${post_popen_filter}$" "$post_popen_readiness_control"
     assert_baseline_green "$post_popen_filter" || return 1
+
+    post_popen_stale_mutant="${BATS_TEST_TMPDIR}/post-popen-stale-marker-mutant.bats"
+    cp "$post_popen_readiness_control" "$post_popen_stale_mutant" || return 1
+    "$PYTHON" - "$post_popen_stale_mutant" <<'PY' || return 1
+import sys
+
+path = sys.argv[1]
+source = open(path, encoding="utf-8").read()
+guard = '''                        and fixture_pid != process.pid
+                        and os.getpgid(fixture_pid) == process.pid
+                        and os.getsid(fixture_pid) == process.pid
+'''
+mutant = '''                        and True  # MUTATED:stale_pid_group_binding
+'''
+if source.count(guard) != 1:
+    raise SystemExit("POST_POPEN_STALE_MARKER_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+open(path, "w", encoding="utf-8").write(source.replace(guard, mutant, 1))
+PY
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        CUSTOMER_DELIVERY_POST_POPEN_ONLY=silent \
+        bats --filter "^${post_popen_filter}$" "$post_popen_stale_mutant"
+    [ "$status" -ne 0 ] \
+        && [[ "$output" == *"stale_pid_marker_accepted=99999999"* ]] \
+        && [ "$(printf '%s\n' "$output" | awk -v target="not ok 1 ${post_popen_filter}" '$0 == target { count++ } END { print count+0 }')" -eq 1 ] \
+        && [[ "$output" != *"setup_file failed"* ]] \
+        && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
+        || { printf 'post_popen_stale_marker_mutant_not_attributed=status=%s output=%s\n' \
+            "$status" "$output"; return 1; }
+    "$PYTHON" -c \
+        'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
+        post_popen_stale_marker "${post_popen_filter}|99999999"
+
+    completed_descendant_mutant="${BATS_TEST_TMPDIR}/completed-descendant-mutant.bats"
+    completed_descendant_validator="${BATS_TEST_TMPDIR}/check-customer-delivery-completed-descendant.sh"
+    cp "$FUNCTIONAL_TEST" "$completed_descendant_mutant" || return 1
+    cp "$SCRIPT" "$completed_descendant_validator" || return 1
+    "$PYTHON" - "$completed_descendant_mutant" "$completed_descendant_validator" "$REPO_ROOT" <<'PY' || return 1
+import sys
+
+test_path, validator_path, repo_root = sys.argv[1:]
+test_source = open(test_path, encoding="utf-8").read()
+root_old = '    REPO_ROOT="${BATS_TEST_DIRNAME}/../.."\n'
+root_new = f"    REPO_ROOT={repo_root!r}\n"
+validator_source = open(validator_path, encoding="utf-8").read()
+guard = '''def release_completed_process(process):
+    # A completed direct child can leave same-session descendants behind even
+    # after every inherited pipe is closed. The process group remains ours
+    # until it has been terminated and the registered child has been reaped.
+    terminate_registered_process(process)
+'''
+mutant = '''def release_completed_process(process):
+    if process.poll() is None:
+        terminate_registered_process(process)
+    else:
+        close_process_streams(process)
+        release_active_process(process)  # MUTATED:completed_descendant_release
+'''
+if test_source.count(root_old) != 1 or validator_source.count(guard) != 1:
+    raise SystemExit("COMPLETED_DESCENDANT_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+open(test_path, "w", encoding="utf-8").write(test_source.replace(root_old, root_new, 1))
+open(validator_path, "w", encoding="utf-8").write(validator_source.replace(guard, mutant, 1))
+PY
+    chmod +x "$completed_descendant_validator"
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$completed_descendant_validator" \
+        CUSTOMER_DELIVERY_POST_POPEN_ONLY=silent \
+        bats --filter "^${post_popen_filter}$" "$completed_descendant_mutant"
+    [ "$status" -ne 0 ] \
+        && [[ "$output" == *"completed_parent_descendant_survived="* ]] \
+        && [ "$(printf '%s\n' "$output" | awk -v target="not ok 1 ${post_popen_filter}" '$0 == target { count++ } END { print count+0 }')" -eq 1 ] \
+        && [[ "$output" != *"setup_file failed"* ]] \
+        && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
+        || { printf 'completed_descendant_mutant_not_attributed=status=%s output=%s\n' \
+            "$status" "$output"; return 1; }
+    "$PYTHON" -c \
+        'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
+        completed_descendant_release "${post_popen_filter}|completed_parent_descendant_survived"
 
     post_popen_control="${BATS_TEST_TMPDIR}/post-popen-same-clock-control.bats"
     cp "$FUNCTIONAL_TEST" "$post_popen_control" || return 1

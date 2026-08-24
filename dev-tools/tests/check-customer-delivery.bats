@@ -432,9 +432,21 @@ process_ready = f'''        if arguments == [PINNED_OPENSSL, "version"]:
             fixture_ready_deadline = time.monotonic() + 1.75
             while True:
                 try:
-                    if os.stat({pid_file!r}).st_size > 0:
+                    with open({pid_file!r}, "rb") as fixture_pid_handle:
+                        fixture_pid_bytes = fixture_pid_handle.read(65)
+                    fixture_pid_body = fixture_pid_bytes[:-1]
+                    fixture_pid = int(fixture_pid_body)
+                    if (
+                        fixture_pid_bytes.endswith(b"\\n")
+                        and 0 < len(fixture_pid_body) <= 20
+                        and fixture_pid_body.isdigit()
+                        and not fixture_pid_body.startswith(b"0")
+                        and fixture_pid != process.pid
+                        and os.getpgid(fixture_pid) == process.pid
+                        and os.getsid(fixture_pid) == process.pid
+                    ):
                         break
-                except OSError:
+                except (OSError, ValueError):
                     pass
                 if time.monotonic() >= fixture_ready_deadline:
                     raise RuntimeError("TEST_FIXTURE_PID_NOT_READY")
@@ -564,11 +576,55 @@ open(path, "w", encoding="utf-8").write(source.replace(anchor, instrumented, 1))
 PY
 }
 
+assert_completed_parent_descendant_cleanup() {
+    local shim="${BATS_TEST_TMPDIR}/completed-parent-openssl"
+    local pid_file="${BATS_TEST_TMPDIR}/completed-parent-descendant.pid"
+    local real_openssl child_pid attempt
+    rm -f -- "$pid_file" || return 1
+    real_openssl="$(command -v openssl)" || return 1
+    "$PYTHON" - "$shim" "$pid_file" "$real_openssl" <<'PY' || return 1
+import os
+import sys
+
+shim, pid_file, real_openssl = sys.argv[1:]
+with open(shim, "w", encoding="utf-8") as handle:
+    handle.write("#!/bin/bash\n")
+    handle.write('if [ "${1:-}" = version ]; then\n')
+    handle.write("  (trap '' TERM; exec </dev/null >/dev/null 2>&1; sleep 30) &\n")
+    handle.write(f"  printf '%s\\n' \"$!\" > {pid_file!r}\n")
+    handle.write("  printf '%s\\n' 'OpenSSL 3.0.0 fixture'\n")
+    handle.write("  exit 0\n")
+    handle.write("fi\n")
+    handle.write(f'exec {real_openssl!r} "$@"\n')
+os.chmod(shim, 0o755)
+PY
+    build_test_framework completed-parent-descendant || return 1
+    rebind_test_openssl "$shim" || return 1
+    run_test_framework_json
+    [ "$status" -eq 0 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["decision"] in {"MET","NOT_MET"}; assert not any(item.startswith("validation_resource_limit:") for item in d["findings"])' "$output" \
+        && [ -s "$pid_file" ] \
+        || { printf 'completed_parent_cleanup_setup=status=%s output=%s\n' \
+            "$status" "$output"; return 1; }
+    child_pid="$(<"$pid_file")"
+    for attempt in {1..10}; do
+        if ! kill -0 "$child_pid" 2>/dev/null; then
+            printf 'completed_parent_descendant=pid=%s reaped=1\n' "$child_pid"
+            return 0
+        fi
+        sleep 0.05
+    done
+    kill -KILL "$child_pid" 2>/dev/null || true
+    printf 'completed_parent_descendant_survived=%s\n' "$child_pid"
+    return 1
+}
+
 assert_post_popen_signal_cleanup() {
     local callsite="$1" pid_file baseline_status baseline_output control_status control_output
     local elapsed_marker elapsed marker_hex child_pid attempt
     pid_file="${BATS_TEST_TMPDIR}/post-popen-${callsite}.pid"
     elapsed_marker="${BATS_TEST_TMPDIR}/post-popen-${callsite}.elapsed"
+    rm -f -- "$pid_file" "$elapsed_marker" || return 1
 
     build_test_framework "post-popen-${callsite}-baseline" || return 1
     run_test_framework_json
@@ -3207,6 +3263,7 @@ PY
     local descendant_pid attempt elapsed parsed_json callsite descendant_reaped=0
     local post_popen_only="${CUSTOMER_DELIVERY_POST_POPEN_ONLY:-}"
     local elapsed_marker="${BATS_TEST_TMPDIR}/stubborn-crypto.elapsed"
+    rm -f -- "$pid_file" || return 1
     assert_bounded_validator_diagnostic_grammar || return 1
     "$PYTHON" - "$shim" "$pid_file" <<'PY' || return 1
 import os
@@ -3262,6 +3319,7 @@ PY
         printf 'stubborn_crypto_descendant_survived=%s\n' "$descendant_pid"
         return 1
     fi
+    assert_completed_parent_descendant_cleanup || return 1
     if [[ -n "$post_popen_only" ]]; then
         case "$post_popen_only" in
             silent|bounded|source_history)
