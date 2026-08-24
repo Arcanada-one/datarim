@@ -1433,6 +1433,70 @@ EOF
         && [[ "$output" == *"BLOCKED: expectations file fails structural validation"* ]]
 }
 
+@test "every tracked base-accepted legacy expectations artifact remains readable" {
+    local expected_tracked_ids
+    local base_accepted_ids
+    local actual_tracked_ids=""
+    local file
+    local schema
+    local id
+    expected_tracked_ids="$(printf '%s\n' \
+        TUNE-0516 TUNE-0517 TUNE-0530 TUNE-0574 TUNE-0581)"
+    base_accepted_ids="$(printf '%s\n' \
+        TUNE-0516 TUNE-0517 TUNE-0530 TUNE-0574)"
+
+    for file in "$REPO_ROOT"/datarim/tasks/*-expectations.md; do
+        schema="$(sed -nE 's/^schema_version:[[:space:]]*([123])$/\1/p' "$file")"
+        [ -n "$schema" ] || continue
+        id="$(sed -nE 's/^task_id:[[:space:]]*([^[:space:]]+)$/\1/p' "$file")"
+        actual_tracked_ids="${actual_tracked_ids}${actual_tracked_ids:+$'\n'}${id}"
+        printf '%s\n' "$base_accepted_ids" | grep -qxF "$id" || continue
+
+        run "$CHECK_EXPECTATIONS" --task "$id" --root "$REPO_ROOT"
+        if [ "$status" -ne 0 ]; then
+            echo "tracked legacy ${id} failed task validation: ${output}" >&2
+            return 1
+        fi
+        run "$CHECK_EXPECTATIONS" --verify "$id" --root "$REPO_ROOT"
+        if [ "$status" -ne 0 ]; then
+            echo "tracked legacy ${id} failed verify validation: ${output}" >&2
+            return 1
+        fi
+    done
+
+    [ "$actual_tracked_ids" = "$expected_tracked_ids" ] || {
+        echo "tracked legacy manifest drifted; expected: ${expected_tracked_ids}; actual: ${actual_tracked_ids}" >&2
+        return 1
+    }
+}
+
+@test "legacy wish identifiers retain pre-v4 cardinality and shape compatibility" {
+    local schema
+    local id
+    local root
+    local file
+
+    for schema in 1 2 3; do
+        id="LWID-000${schema}"
+        root="$(write_expectations "$id" "$schema")"
+        file="$root/datarim/tasks/${id}-expectations.md"
+        portable_sed_in_place 's/^  - wish_id: customer-outcome$/  - wish_id: historical focus key\
+  - wish_id: historical focus key/' "$file"
+
+        run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+        if [ "$status" -ne 0 ]; then
+            echo "legacy schema v${schema} rejected a pre-v4 wish identifier: ${output}" >&2
+            return 1
+        fi
+        run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
+        if [ "$status" -ne 0 ] || [[ "$output" != *"PASS"* ]]; then
+            echo "legacy schema v${schema} verify rejected a pre-v4 wish identifier: ${output}" >&2
+            return 1
+        fi
+        rm -rf "$root"
+    done
+}
+
 @test "legacy schema versions v1 through v3 remain valid without customer binding" {
     local schema
     local id

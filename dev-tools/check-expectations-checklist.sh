@@ -579,14 +579,14 @@ parse_items() {
             if (wish_id_count == 0 || wish_id == "") {
                 printf "ERROR: %s: item %d missing wish_id\n", f, current_item > "/dev/stderr"
                 errors++
-            } else if (wish_id_count > 1) {
+            } else if (schema == "4" && wish_id_count > 1) {
                 printf "ERROR: %s: item %d duplicate wish_id field\n", f, current_item > "/dev/stderr"
                 errors++
-            } else if (wish_id !~ /^[A-Za-z0-9А-Яа-яЁё]+(-[A-Za-z0-9А-Яа-яЁё]+)*$/) {
+            } else if (schema == "4" && wish_id !~ /^[A-Za-z0-9А-Яа-яЁё]+(-[A-Za-z0-9А-Яа-яЁё]+)*$/) {
                 printf "ERROR: %s: item %d wish_id must be a kebab slug: %s\n", \
                     f, current_item, wish_id > "/dev/stderr"
                 errors++
-            } else if (seen_wish_id[wish_id]++) {
+            } else if (schema == "4" && seen_wish_id[wish_id]++) {
                 printf "ERROR: %s: item %d duplicate wish_id value '\''%s'\''\n", \
                     f, current_item, wish_id > "/dev/stderr"
                 errors++
