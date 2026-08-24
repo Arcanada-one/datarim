@@ -189,3 +189,45 @@ bats tests/test-v-ac-axis-split.bats tests/customer-requirement-expectations-bin
 1..88
 88 passed, 0 failed
 ```
+
+## Stage 2 quality correction: strict YAML and role identity
+
+Stage 2 review of `0b11877ab6adfcf4ddb5981bc8c1ca04b347dd24`
+identified four independent quality gaps: duplicate YAML keys used PyYAML's
+last-key-wins interpretation, malformed or resource-hostile YAML was not
+bounded to structured JSON failures, role IDs were not unique, and M1 accepted
+an unattributed nested Bats failure.
+
+The correction was test-first. Before implementation, the seven YAML loader
+tests and two role-identity tests produced `7/7` and `2/2` attributable
+failures. M1 was separately rewritten to require an unmutated passing fixture
+and the exact diagnostic:
+`projected designer agent mismatch: expected agents/designer.md, got agents/not-present.md`.
+
+The strict safe loader now rejects duplicate or non-string mapping keys,
+invalid UTF-8, files over 1 MiB, nesting over 64 collections, more than 20,000
+nodes, and all YAML aliases before object construction. Parser, Unicode,
+recursion, memory, and I/O failures return bounded JSON without a traceback.
+The role schema rejects duplicate objects, while the registry checker rejects
+duplicate `role.id` values even when their agent projections differ.
+
+Fresh local evidence:
+
+```text
+bats tests/frontend-design-artifacts.bats tests/frontend-design-artifact-mutations.bats tests/test-role-registry.bats
+1..76
+76 passed, 0 failed
+
+bats tests/tune-0520-agent-enforcement.bats tests/check-agent-frontmatter.bats tests/check-skill-frontmatter.bats tests/check-skill-layout.bats tests/check-skill-sibling-refs.bats tests/check-component-counts.bats
+1..72
+72 passed, 0 failed
+
+bats tests/test-v-ac-axis-split.bats tests/customer-requirement-expectations-binding.bats
+1..88
+88 passed, 0 failed
+```
+
+The skill validator, Python compile, shell syntax, English-only shipped-surface
+gate (219 files), component counts, in-repo fanout lint, and whitespace checks
+also pass. Cross-root fanout reports only the 52 expected missing-consumer
+warnings and zero errors. Product code remains untouched.

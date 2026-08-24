@@ -12,6 +12,7 @@
     "roles": {
       "type": "array",
       "minItems": 6,
+      "uniqueItems": true,
       "items": { "$ref": "#/$defs/role" }
     }
   },
