@@ -288,6 +288,18 @@ split_bounded_validator_json() {
     fi
 }
 
+report_bounded_validator_diagnostic_hex() {
+    "$PYTHON" - "$1" <<'PY' >&3
+import sys
+
+raw = sys.argv[1].encode("utf-8", "surrogateescape")
+diagnostic, separator, _json_line = raw.rpartition(b"\n")
+print(f"bounded_validator_diagnostic_separator={int(bool(separator))}")
+print(f"bounded_validator_diagnostic_bytes={len(diagnostic)}")
+print(f"bounded_validator_diagnostic_hex={diagnostic.hex()}")
+PY
+}
+
 instrument_test_validator_elapsed() {
     local marker="$1"
     "$PYTHON" - "$TEST_SCRIPT" "$marker" <<'PY' || return 1
@@ -2862,7 +2874,8 @@ PY
     run_test_framework_json
     [ -s "$elapsed_marker" ] || return 1
     elapsed="$(<"$elapsed_marker")"
-    split_bounded_validator_json "$output" || return 1
+    split_bounded_validator_json "$output" \
+        || { report_bounded_validator_diagnostic_hex "$output"; return 1; }
     parsed_json="$VALIDATOR_JSON"
     split_bounded_validator_json \
         "/tmp/check-customer-delivery.sh: line 339: 123 Alarm clock: 14 command"$'\n'"$parsed_json" \
