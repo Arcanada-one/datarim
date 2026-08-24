@@ -473,29 +473,6 @@ open(path, "w", encoding="utf-8").write(source)
 PY
 }
 
-instrument_test_outer_error_line() {
-    local error_marker="$1"
-    "$PYTHON" - "$TEST_SCRIPT" "$error_marker" <<'PY' || return 1
-import sys
-
-path, marker = sys.argv[1:]
-source = open(path, encoding="utf-8").read()
-anchor = '''emit_config_error() {
-    local finding="$1"
-'''
-instrumented = f'''emit_config_error() {{
-    local finding="$1"
-    if [[ "$finding" == untrusted_python_runtime ]]; then
-        /usr/bin/printf '%s\\n' "${{BASH_LINENO[0]}}" > {marker!r}
-    fi
-'''
-if source.count(anchor) != 1:
-    raise SystemExit("TEST_OUTER_ERROR_LINE_SEAM_MISSING_OR_AMBIGUOUS")
-source = source.replace(anchor, instrumented, 1)
-open(path, "w", encoding="utf-8").write(source)
-PY
-}
-
 force_test_logical_deadline_shutdown_race() {
     local pid_file="$1"
     "$PYTHON" - "$TEST_SCRIPT" "$pid_file" <<'PY' || return 1
@@ -1460,10 +1437,9 @@ assert_inherited_alarm_real_timer_cleanup() {
     local status_marker="${BATS_TEST_TMPDIR}/inherited-alarm-real-timer.status"
     local output_marker="${BATS_TEST_TMPDIR}/inherited-alarm-real-timer.output"
     local phase_marker="${BATS_TEST_TMPDIR}/inherited-alarm-real-timer.phase"
-    local error_marker="${BATS_TEST_TMPDIR}/inherited-alarm-real-timer.error-line"
     local child_pid elapsed attempt descendant_reaped=0
-    local validator_status='missing' validator_output_hex='missing' outer_phase='missing' outer_error_line='missing'
-    rm -f -- "$pid_file" "$elapsed_marker" "$status_marker" "$output_marker" "$phase_marker" "$error_marker" || return 1
+    local validator_status='missing' validator_output_hex='missing' outer_phase='missing'
+    rm -f -- "$pid_file" "$elapsed_marker" "$status_marker" "$output_marker" "$phase_marker" || return 1
     "$PYTHON" - "$shim" "$pid_file" <<'PY' || return 1
 import os
 import sys
@@ -1489,7 +1465,6 @@ PY
     instrument_test_validator_elapsed "$elapsed_marker" || return 1
     instrument_test_validator_observation "$status_marker" "$output_marker" || return 1
     instrument_test_outer_preflight_phase "$phase_marker" || return 1
-    instrument_test_outer_error_line "$error_marker" || return 1
     rebind_test_openssl "$shim" || return 1
     run_test_framework_json_inherited_sigalrm_mask
     [ "$status" -eq 2 ] \
@@ -1504,9 +1479,8 @@ PY
                 validator_output_hex="$(od -An -v -tx1 "$output_marker" | tr -d ' \n')"
             fi
             [ -s "$phase_marker" ] && outer_phase="$(<"$phase_marker")"
-            [ -s "$error_marker" ] && outer_error_line="$(<"$error_marker")"
-            printf 'inherited_alarm_timer_failure=status=%s outer_phase=%s outer_error_line=%s validator_status=%s validator_output_hex=%s output=%s\n' \
-                "$status" "$outer_phase" "$outer_error_line" "$validator_status" "$validator_output_hex" "$output"
+            printf 'inherited_alarm_timer_failure=status=%s outer_phase=%s validator_status=%s validator_output_hex=%s output=%s\n' \
+                "$status" "$outer_phase" "$validator_status" "$validator_output_hex" "$output"
             return 1
         }
     elapsed="$(<"$elapsed_marker")"
