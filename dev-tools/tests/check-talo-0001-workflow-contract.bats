@@ -26,6 +26,82 @@ run_check() {
     run python3 "$FIXTURE/dev-tools/check-talo-0001-workflow-contract.py"
 }
 
+setup_provision_runtime() {
+    PROVISIONER="$FIXTURE/dev-tools/provision-talo-0001-trusted-runner.sh"
+    MOCK_BIN="$BATS_TEST_TMPDIR/provision-mock-bin"
+    MOCK_LOG="$BATS_TEST_TMPDIR/provision-commands.log"
+    RUNNER_FIXTURE="$BATS_TEST_TMPDIR/runner"
+    mkdir -p "$MOCK_BIN" "$RUNNER_FIXTURE/bin" "$RUNNER_FIXTURE/externals"
+    for command in chmod chown gh install sudo systemctl sleep; do
+        ln -sf "$ROOT/dev-tools/tests/fixtures/talo-0001-command-mock.sh" \
+            "$MOCK_BIN/$command"
+    done
+    sed -i "s#RUNNER_DIR=/srv/talo-0001-trusted/runner#RUNNER_DIR=$RUNNER_FIXTURE#" \
+        "$PROVISIONER"
+    printf '%s\n' fixture-config >"$RUNNER_FIXTURE/config.sh"
+    printf '%s\n' fixture-run >"$RUNNER_FIXTURE/run.sh"
+    printf '%s\n' fixture-listener >"$RUNNER_FIXTURE/bin/Runner.Listener"
+    printf '%s\n' fixture-worker >"$RUNNER_FIXTURE/bin/Runner.Worker"
+    printf '%s\n' fixture-support >"$RUNNER_FIXTURE/externals/support.bin"
+    for payload_file in env.sh run-helper.cmd.template run-helper.sh.template safe_sleep.sh; do
+        printf '%s\n' "fixture-$payload_file" >"$RUNNER_FIXTURE/$payload_file"
+    done
+    while IFS='|' read -r constant relative; do
+        digest="$(sha256sum "$RUNNER_FIXTURE/$relative")"
+        digest="${digest%% *}"
+        sed -i -E "s#^${constant}=[0-9a-f]{64}#${constant}=${digest}#" "$PROVISIONER"
+    done <<'DIGESTS'
+RUNNER_CONFIG_SHA256|config.sh
+RUNNER_SCRIPT_SHA256|run.sh
+RUNNER_LISTENER_SHA256|bin/Runner.Listener
+RUNNER_WORKER_SHA256|bin/Runner.Worker
+DIGESTS
+    tree_digest=$(
+        (
+            cd "$RUNNER_FIXTURE"
+            {
+                find bin externals -print0
+                printf '%s\0' config.sh env.sh run.sh run-helper.cmd.template \
+                    run-helper.sh.template safe_sleep.sh
+            } | LC_ALL=C sort -z | while IFS= read -r -d '' relative; do
+                if [ -L "$relative" ]; then
+                    printf 'L\0%s\0%s\0' "$relative" "$(readlink -- "$relative")"
+                elif [ -f "$relative" ]; then
+                    digest=$(sha256sum -- "$relative")
+                    digest=${digest%% *}
+                    printf 'F\0%s\0%s\0' "$relative" "$digest"
+                elif [ -d "$relative" ]; then
+                    printf 'D\0%s\0' "$relative"
+                else
+                    exit 1
+                fi
+            done
+        ) | sha256sum
+    )
+    tree_digest=${tree_digest%% *}
+    sed -i -E \
+        "s#^RUNNER_PAYLOAD_TREE_SHA256=[0-9a-f]{64}#RUNNER_PAYLOAD_TREE_SHA256=$tree_digest#" \
+        "$PROVISIONER"
+    cat >"$RUNNER_FIXTURE/.runner" <<'JSON'
+{"AgentId":7001,"AgentName":"talo-0001-trusted-arcana-devs","PoolId":42,"PoolName":"talo-0001-trusted","DisableUpdate":true,"Ephemeral":false,"GitHubUrl":"https://github.com/Arcanada-one","WorkFolder":"_work"}
+JSON
+    MOCK_BLOB="$(git hash-object "$FIXTURE/.github/workflows/talo-0001-trusted-replay.yml")"
+    MOCK_UNIT_BLOB="$(git hash-object "$FIXTURE/dev-tools/systemd/talo-0001-trusted-runner.service")"
+}
+
+run_provision_runtime() {
+    MOCK_PROVISIONER_BLOB="${TALO_MOCK_PROVISIONER_BLOB_OVERRIDE:-$(git hash-object "$PROVISIONER")}"
+    run sudo env "PATH=$MOCK_BIN:$PATH" \
+        "TALO_MOCK_LOG=$MOCK_LOG" \
+        "TALO_MOCK_GH_MODE=${TALO_MOCK_GH_MODE:-success}" \
+        "TALO_MOCK_BLOB=$MOCK_BLOB" \
+        "TALO_MOCK_PROVISIONER_BLOB=$MOCK_PROVISIONER_BLOB" \
+        "TALO_MOCK_UNIT_BLOB=$MOCK_UNIT_BLOB" \
+        "TALO_MOCK_RUNNERS_MODE=${TALO_MOCK_RUNNERS_MODE:-one}" \
+        "TALO_MOCK_STOP_FAILURE=${TALO_MOCK_STOP_FAILURE:-0}" \
+        "$PROVISIONER" --register-and-start
+}
+
 @test "trusted and projection workflow contract is MET" {
     run_check
     [ "$status" -eq 0 ] && [[ "$output" == *'talo_0001_workflow_contract=MET'* ]]
@@ -305,8 +381,51 @@ WORKFLOW_PATH=.github/workflows/talo-0001-trusted-replay.yml|WORKFLOW_PATH=.gith
 .restricted_to_workflows == true|.restricted_to_workflows == false|missing:runner-group-contract
 systemctl stop "$UNIT_NAME"|true|mismatch:registration-safety-order
 id=$(ensure_group)|id=1|mismatch:registration-safety-order
-verify_runner_membership "$id"|true|mismatch:registration-safety-order
+runner=$(wait_for_exact_runner "$id" registered)|runner=true|mismatch:registration-safety-order
 MUTANTS
+}
+
+@test "closed runner identity payload and direct listener pins are load-bearing" {
+    local provisioner="$FIXTURE/dev-tools/provision-talo-0001-trusted-runner.sh"
+    local unit="$FIXTURE/dev-tools/systemd/talo-0001-trusted-runner.service"
+    local original="$BATS_TEST_TMPDIR/runtime-contract.original"
+    cp "$provisioner" "$original"
+    while IFS='|' read -r old new; do
+        cp "$original" "$provisioner"
+        sed -i "s#$old#$new#" "$provisioner"
+        run_check
+        [ "$status" -eq 1 ] \
+            && [[ "$output" == *'missing:runner-runtime-contract:'* ]]
+    done <<'MUTANTS'
+($document.total_count == 1)|($document.total_count >= 1)
+.AgentId == $runner_id|true
+RUNNER_ARCHIVE_SHA256=04cf0be1aff4c3ec3554466c39124ca250e3effd8873bb7e8d68535aa9505d5d|RUNNER_ARCHIVE_SHA256=0000000000000000000000000000000000000000000000000000000000000000
+RUNNER_PAYLOAD_TREE_SHA256=802a94df6d2aee3e458620b5a1175f8646f195092081d3285b8b0dd33c8cc8f6|RUNNER_PAYLOAD_TREE_SHA256=0000000000000000000000000000000000000000000000000000000000000000
+--disableupdate|--replace
+MUTANTS
+
+    sed -i \
+        's#ExecStart=/srv/talo-0001-trusted/runner/bin/Runner.Listener run#ExecStart=/srv/talo-0001-trusted/runner/run.sh#' \
+        "$unit"
+    run_check
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'missing:runner-unit:ExecStart='* ]]
+}
+
+@test "every local bootstrap artifact must be the exact main blob before mutation" {
+    setup_provision_runtime
+    TALO_MOCK_PROVISIONER_BLOB_OVERRIDE=0000000000000000000000000000000000000000 \
+        run_provision_runtime
+    [ "$status" -eq 1 ]
+    [[ "$output" == *'trusted provisioner is not the exact local bootstrap on main'* ]]
+    ! grep -q '^systemctl ' "$MOCK_LOG"
+
+    setup_provision_runtime
+    MOCK_UNIT_BLOB=0000000000000000000000000000000000000000 \
+        run_provision_runtime
+    [ "$status" -eq 1 ]
+    [[ "$output" == *'trusted runner-unit is not the exact local bootstrap on main'* ]]
+    ! grep -q '^systemctl ' "$MOCK_LOG"
 }
 
 @test "main-workflow API and blob failures perform no system mutation" {
@@ -326,6 +445,114 @@ MUTANTS
         [[ "$output" == *'ERROR: trusted workflow'* ]]
         ! grep -q '^systemctl ' "$log"
     done
+}
+
+@test "exact registered runner reaches online idle service success" {
+    setup_provision_runtime
+    run_provision_runtime
+    [ "$status" -eq 0 ]
+    grep -q '^systemctl stop' "$MOCK_LOG"
+    grep -q '^systemctl enable --now' "$MOCK_LOG"
+    [ "$(grep -c 'runner-groups/42/runners' "$MOCK_LOG")" -eq 2 ]
+}
+
+@test "trusted group rejects every extra member even when its labels match" {
+    setup_provision_runtime
+    TALO_MOCK_RUNNERS_MODE=extra run_provision_runtime
+    [ "$status" -eq 1 ]
+    [[ "$output" == *'runner is not the exact trusted group member'* ]]
+    ! grep -q '^systemctl enable' "$MOCK_LOG"
+}
+
+@test "local runner identity and official payload are bound before service mutation" {
+    setup_provision_runtime
+    sed -i 's/"AgentId":7001/"AgentId":9999/' "$RUNNER_FIXTURE/.runner"
+    run_provision_runtime
+    [ "$status" -eq 1 ]
+    [[ "$output" == *'local runner registration mismatch'* ]]
+    ! grep -q '^systemctl stop' "$MOCK_LOG"
+
+    setup_provision_runtime
+    printf '%s\n' tampered-support >"$RUNNER_FIXTURE/externals/support.bin"
+    run_provision_runtime
+    [ "$status" -eq 1 ]
+    [[ "$output" == *'runner payload tree mismatch'* ]]
+    ! grep -q '^systemctl stop' "$MOCK_LOG"
+}
+
+@test "registration stop failure is fatal before runner configuration" {
+    setup_provision_runtime
+    TALO_MOCK_STOP_FAILURE=1 run_provision_runtime
+    [ "$status" -eq 1 ]
+    [[ "$output" == *'unable to stop trusted runner service'* ]]
+    ! grep -q 'config.sh' "$MOCK_LOG"
+}
+
+@test "post-start success requires the exact group member online and idle" {
+    setup_provision_runtime
+    TALO_MOCK_RUNNERS_MODE=busy run_provision_runtime
+    [ "$status" -eq 1 ]
+    [[ "$output" == *'trusted runner did not become online and idle'* ]]
+}
+
+@test "membership cardinality mutant is killed by the behavioral boundary" {
+    setup_provision_runtime
+    sed -i \
+        -e 's/($document.total_count == 1)/($document.total_count >= 1)/' \
+        -e 's/(($document.runners | length) == 1)/(($document.runners | length) >= 1)/' \
+        -e 's/"status":"offline"/"status":"online"/' \
+        "$PROVISIONER"
+    TALO_MOCK_RUNNERS_MODE=extra run_provision_runtime
+    [ "$status" -eq 0 ]
+    printf '%s\n' 'RED_SENTINEL:runner-membership-cardinality'
+}
+
+@test "local identity and payload digest mutants are killed behaviorally" {
+    setup_provision_runtime
+    local original="$BATS_TEST_TMPDIR/provisioner-identity.original"
+    cp "$PROVISIONER" "$original"
+    sed -i 's/.AgentId == $runner_id/true/' "$PROVISIONER"
+    sed -i 's/"AgentId":7001/"AgentId":9999/' "$RUNNER_FIXTURE/.runner"
+    run_provision_runtime
+    [ "$status" -eq 0 ]
+
+    cp "$original" "$PROVISIONER"
+    sed -i 's/\[ "$actual" = "$RUNNER_PAYLOAD_TREE_SHA256" \]/true/' "$PROVISIONER"
+    sed -i 's/"AgentId":9999/"AgentId":7001/' "$RUNNER_FIXTURE/.runner"
+    printf '%s\n' tampered-support >"$RUNNER_FIXTURE/externals/support.bin"
+    run_provision_runtime
+    [ "$status" -eq 0 ]
+    printf '%s\n' 'RED_SENTINEL:runner-local-payload-binding'
+}
+
+@test "stop and online-idle mutants are killed behaviorally" {
+    setup_provision_runtime
+    local original="$BATS_TEST_TMPDIR/provisioner-runtime.original"
+    cp "$PROVISIONER" "$original"
+    python3 - "$PROVISIONER" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+source = path.read_text(encoding="utf-8")
+old = '''        systemctl stop "$UNIT_NAME" 2>/dev/null || {
+            echo "ERROR: unable to stop trusted runner service" >&2
+            exit 1
+        }
+'''
+new = '''        systemctl stop "$UNIT_NAME" 2>/dev/null || true
+'''
+assert source.count(old) == 1
+path.write_text(source.replace(old, new, 1), encoding="utf-8")
+PY
+    TALO_MOCK_STOP_FAILURE=1 run_provision_runtime
+    [ "$status" -eq 0 ]
+
+    cp "$original" "$PROVISIONER"
+    sed -i 's/($runner.busy == false)/(true)/' "$PROVISIONER"
+    TALO_MOCK_RUNNERS_MODE=busy run_provision_runtime
+    [ "$status" -eq 0 ]
+    printf '%s\n' 'RED_SENTINEL:runner-runtime-terminal-state'
 }
 
 @test "preflight accepts only the exact upstream workflow and PR tuple" {

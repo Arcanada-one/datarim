@@ -28,8 +28,8 @@ EXPECTED_DIGESTS = {
     "controller": "9f7b6a6e8fefa91d2c3d288439acef736d4d1020c9013c1990cf9e79384ef74d",
     "publisher": "adc8edc95e02c983bfd0a690dc018c0cec986115cf614444879928936f3b578e",
     "evaluator": "a0e86fc87493231afffd3164587f0c14e463f5e8c4acd8f4f9679e2504280d1a",
-    "runner-unit": "929c8f138a839383bd754600fa65c72996b04703ba8050d1714c3ea51a50c67a",
-    "provisioner": "96c5c1259628302f67270c56081075702d7b0fd46429511461b725d7d8dab166",
+    "runner-unit": "d9b25e4ea33ed2bddad9e5d1fd5a47acedfed852749f0771fb24838f70edc131",
+    "provisioner": "368e05d51ed2b2dc9c7435440d27a8bf7a74273894116e4c86729333d949b957",
 }
 EXPECTED_PATHS = [
     "commands/**",
@@ -316,6 +316,7 @@ def validate_code(findings: list[str]) -> None:
     for value in (
         "User=talo-replay",
         "Group=talo-replay",
+        "ExecStart=/srv/talo-0001-trusted/runner/bin/Runner.Listener run",
         "NoNewPrivileges=true",
         "ProtectSystem=strict",
         "ProtectHome=true",
@@ -341,6 +342,36 @@ def validate_code(findings: list[str]) -> None:
     ):
         if value not in provisioner:
             findings.append(f"missing:runner-group-contract:{value}")
+    for value in (
+        "($document.total_count == 1)",
+        "(($document.runners | length) == 1)",
+        '($runner.name == $name)',
+        '($runner.busy == false)',
+        '(([$runner.labels[].name] | sort) == $labels)',
+        '.AgentId == $runner_id',
+        '.PoolId == $group_id',
+        '.PoolName == $group',
+        '.DisableUpdate == true',
+        'RUNNER_VERSION=2.336.0',
+        'RUNNER_ARCHIVE_URL=https://github.com/actions/runner/releases/download/v$RUNNER_VERSION/actions-runner-linux-x64-$RUNNER_VERSION.tar.gz',
+        'RUNNER_ARCHIVE_SHA256=04cf0be1aff4c3ec3554466c39124ca250e3effd8873bb7e8d68535aa9505d5d',
+        'RUNNER_CONFIG_SHA256=4ad01727c3f29a0b6473d625412af6bdefc6c077763a6410f359c764fc0b3ae8',
+        'RUNNER_SCRIPT_SHA256=b39d7e0ca921a3189f7fe4e0a2f686b46719d4ccc2647f156f14407ec4517e8f',
+        'RUNNER_LISTENER_SHA256=b73c247aa9f0b4198aeb00ae924b7b137c0a717e5dc1066919a80fa4876fdda4',
+        'RUNNER_WORKER_SHA256=a23441ed55e5e967ecfb7b9467310693ea73e429a97596ebdc979745cbcdba15',
+        'RUNNER_PAYLOAD_TREE_SHA256=802a94df6d2aee3e458620b5a1175f8646f195092081d3285b8b0dd33c8cc8f6',
+        'RUNNER_VERIFY_ATTEMPTS=10',
+        'RUNNER_VERIFY_INTERVAL_SECONDS=2',
+        'workflow|$WORKFLOW_PATH',
+        'provisioner|dev-tools/provision-talo-0001-trusted-runner.sh',
+        'runner-unit|dev-tools/systemd/$UNIT_NAME',
+        "--disableupdate",
+        'chown -R root:root "$RUNNER_DIR/$path"',
+        'chmod -R a-w "$RUNNER_DIR/$path"',
+        'verify_runner_payload_tree',
+    ):
+        if value not in provisioner:
+            findings.append(f"missing:runner-runtime-contract:{value}")
     try:
         registration = provisioner.split("register_and_start() {", 1)[1].split(
             "\n}", 1
@@ -351,12 +382,20 @@ def validate_code(findings: list[str]) -> None:
     ordered_registration = (
         'id=$(ensure_group)',
         'verify_group "$id"',
+        'group_has_no_runners "$id"',
+        'load_state=$(systemctl show "$UNIT_NAME"',
         'systemctl stop "$UNIT_NAME"',
+        'if [ "$install_payload" = true ]',
+        'ensure_runner_payload',
         'registration-token" --jq .token',
         '--runnergroup "$GROUP_NAME"',
-        'verify_runner_membership "$id"',
+        'runner=$(wait_for_exact_runner "$id" registered)',
+        'harden_runner_payload',
         'install -o root -g root -m 0644',
         'systemctl enable --now "$UNIT_NAME"',
+        'systemctl is-active --quiet "$UNIT_NAME"',
+        'runner=$(wait_for_exact_runner "$id" online "$runner_id")',
+        'local runner identity changed after start',
     )
     positions = [registration.find(value) for value in ordered_registration]
     if any(position < 0 for position in positions) or positions != sorted(positions):
