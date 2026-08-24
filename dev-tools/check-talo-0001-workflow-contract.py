@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parent.parent
 PROJECTION = ROOT / ".github/workflows/talo-0001-projection-contract.yml"
 TRUSTED = ROOT / ".github/workflows/talo-0001-trusted-replay.yml"
 CONTROLLER = ROOT / "dev-tools/trusted-talo-0001-replay.sh"
+PREFLIGHT = ROOT / "dev-tools/preflight-talo-0001-workflow-run.sh"
 
 
 def require(text: str, needle: str, label: str, findings: list[str]) -> None:
@@ -20,6 +21,7 @@ def main() -> int:
     projection = PROJECTION.read_text(encoding="utf-8")
     trusted = TRUSTED.read_text(encoding="utf-8")
     controller = CONTROLLER.read_text(encoding="utf-8")
+    preflight = PREFLIGHT.read_text(encoding="utf-8")
     for needle, label in (
         ("pull_request:", "projection-trigger"),
         ("contents: read", "projection-least-permission"),
@@ -40,6 +42,10 @@ def main() -> int:
         ("persist-credentials: false", "trusted-no-checkout-credentials"),
         ("secrets.TALOMNIA_KNOWLEDGE_DEPLOY_KEY", "trusted-dedicated-key"),
         ("trusted/dev-tools/trusted-talo-0001-replay.sh", "trusted-controller-command"),
+        (
+            "trusted/dev-tools/preflight-talo-0001-workflow-run.sh",
+            "trusted-preflight-command",
+        ),
         ("trusted/dev-tools/publish-talo-0001-check.sh", "trusted-publisher-command"),
     ):
         require(trusted, needle, label, findings)
@@ -70,6 +76,31 @@ def main() -> int:
         ),
     ):
         require(controller, needle, label, findings)
+    guard_needles = (
+        ("conclusion=$(jq -er", "guard-conclusion"),
+        ("event=$(jq -er", "guard-event"),
+        ("head_repository=$(jq -er", "guard-head-repository"),
+        ("pr_count=$(jq -er", "guard-pr-count"),
+        ('[[ "$head_sha" =~ ^[0-9a-f]{40}$ ]]', "guard-head-sha"),
+        ('[ "$conclusion" != success ]', "guard-success"),
+        ('[ "$event" != pull_request ]', "guard-pull-request-event"),
+        ('[ "$head_repository" != Arcanada-one/datarim ]', "guard-same-repository"),
+        ('[ "$pr_count" -ne 1 ]', "guard-single-pr"),
+    )
+    preflight_command = trusted.find(
+        "trusted/dev-tools/preflight-talo-0001-workflow-run.sh"
+    )
+    secret_materialization = trusted.find("printf '%s\\n' \"$DEPLOY_KEY\"")
+    if (
+        preflight_command < 0
+        or secret_materialization < 0
+        or preflight_command > secret_materialization
+    ):
+        findings.append("order:preflight-before-secret")
+    for needle, label in guard_needles:
+        position = preflight.find(needle)
+        if position < 0:
+            findings.append(f"missing:{label}")
     if findings:
         print("talo_0001_workflow_contract=NOT_MET")
         for finding in findings:

@@ -1,7 +1,7 @@
 name: TALO-0001 trusted replay
 
 on:
-  workflow_run:
+  workflow_run: # zizmor: ignore[dangerous-triggers] -- guarded default-main controller; contract mutants enforce every pre-secret invariant
     workflows: ['TALO-0001 projection contract']
     types: [completed]
 
@@ -22,7 +22,9 @@ jobs:
           ref: main
           path: trusted
           persist-credentials: false
-      - name: Require dedicated read-only knowledge deploy key
+      - name: Validate workflow-run identity before secret materialization
+        run: trusted/dev-tools/preflight-talo-0001-workflow-run.sh "$GITHUB_EVENT_PATH"
+      - name: Materialize dedicated read-only knowledge deploy key
         env:
           DEPLOY_KEY: ${{ secrets.TALOMNIA_KNOWLEDGE_DEPLOY_KEY }}
         run: |
