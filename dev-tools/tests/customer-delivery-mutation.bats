@@ -1176,6 +1176,49 @@ PY
         "sigchld_consumer_${callsite}" "${filter}|ignored_sigchld_status_not_preserved=${callsite}"
 }
 
+run_sigchld_portable_spawn_mutant() {
+    local callsite="$1"
+    local filter='OpenSSL deadline terminates stubborn descendant pipe holders'
+    local functional_mutant guard mutant
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        CUSTOMER_DELIVERY_LIFECYCLE_ONLY=ignored-sigchld \
+        bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+    assert_baseline_green "$filter" || return 1
+
+    functional_mutant="${BATS_TEST_TMPDIR}/sigchld-spawn-${callsite}-mutant.bats"
+    cp "$FUNCTIONAL_TEST" "$functional_mutant" || return 1
+    guard="(\"${callsite}\", [sys.executable,"
+    mutant="(\"${callsite}\", [\"/definitely/missing/datarim-${callsite}\","
+    "$PYTHON" - "$functional_mutant" "$REPO_ROOT" "$guard" "$mutant" <<'PY' || return 1
+import sys
+
+test_path, repo_root, guard, mutant = sys.argv[1:]
+source = open(test_path, encoding="utf-8").read()
+root_old = '    REPO_ROOT="${BATS_TEST_DIRNAME}/../.."\n'
+root_new = f"    REPO_ROOT={repo_root!r}\n"
+if source.count(root_old) != 1 or source.count(guard) != 1:
+    raise SystemExit("SIGCHLD_PORTABLE_SPAWN_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+source = source.replace(root_old, root_new, 1).replace(guard, mutant, 1)
+open(test_path, "w", encoding="utf-8").write(source)
+PY
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        CUSTOMER_DELIVERY_LIFECYCLE_ONLY=ignored-sigchld \
+        bats --filter "^${filter}$" "$functional_mutant"
+    [ "$status" -ne 0 ] \
+        && [[ "$output" == *"ignored_sigchld_spawn_failed=${callsite}"* ]] \
+        && [ "$(printf '%s\n' "$output" | awk -v target="not ok 1 ${filter}" '$0 == target { count++ } END { print count+0 }')" -eq 1 ] \
+        && [[ "$output" != *"Traceback"* ]] \
+        && [[ "$output" != *"setup_file failed"* ]] \
+        && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
+        || { printf 'sigchld_portable_spawn_mutant_not_attributed=%s status=%s output=%s\n' \
+            "$callsite" "$status" "$output"; return 1; }
+    "$PYTHON" -c \
+        'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
+        "sigchld_spawn_${callsite}" "${filter}|ignored_sigchld_spawn_failed=${callsite}"
+}
+
 run_cleanup_output_mutant() {
     local filter='OpenSSL deadline terminates stubborn descendant pipe holders'
     local functional_mutant validator_mutant guard mutant expected_lines cleanup_assertion_line
@@ -1740,6 +1783,9 @@ PY
 @test "cleanup signal-mask and output-before-reap mutants are independently killed" {
     run_process_lifecycle_mutant cleanup-alarm
     run_process_lifecycle_mutant ignored-sigchld
+    run_sigchld_portable_spawn_mutant silent
+    run_sigchld_portable_spawn_mutant bounded
+    run_sigchld_portable_spawn_mutant source_history
     run_sigchld_consumer_mutant silent
     run_sigchld_consumer_mutant bounded
     run_sigchld_consumer_mutant source_history

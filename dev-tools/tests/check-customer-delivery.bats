@@ -1024,17 +1024,17 @@ normalization_code = compile(
 if mode == "ignored-sigchld":
     original_sigchld = signal.getsignal(signal.SIGCHLD)
     callsites = (
-        ("silent", ["/bin/true"], {
+        ("silent", [sys.executable, "-I", "-S", "-c", "raise SystemExit(0)"], {
             "stdin": subprocess.DEVNULL,
             "stdout": subprocess.DEVNULL,
             "stderr": subprocess.DEVNULL,
         }),
-        ("bounded", ["/bin/sh", "-c", "printf bounded"], {
+        ("bounded", [sys.executable, "-I", "-S", "-c", "print('bounded')"], {
             "stdin": subprocess.DEVNULL,
             "stdout": subprocess.PIPE,
             "stderr": subprocess.PIPE,
         }),
-        ("source_history", ["/usr/bin/git", "--version"], {
+        ("source_history", [sys.executable, "-I", "-S", "-c", "print('git version fixture')"], {
             "stdin": subprocess.DEVNULL,
             "stdout": subprocess.PIPE,
             "stderr": subprocess.PIPE,
@@ -1045,9 +1045,12 @@ if mode == "ignored-sigchld":
         for callsite, arguments, options in callsites:
             signal.signal(signal.SIGCHLD, signal.SIG_IGN)
             exec(normalization_code, namespace)
-            process = namespace["start_registered_process"](
-                arguments, start_new_session=True, **options
-            )
+            try:
+                process = namespace["start_registered_process"](
+                    arguments, start_new_session=True, **options
+                )
+            except (OSError, subprocess.SubprocessError):
+                raise SystemExit(f"ignored_sigchld_spawn_failed={callsite}")
             if signal.getsignal(signal.SIGCHLD) != signal.SIG_DFL:
                 os.killpg(process.pid, signal.SIGKILL)
                 deadline = time.monotonic() + 1
@@ -1071,9 +1074,12 @@ if mode == "ignored-sigchld":
                         f"ignored_sigchld_group_signalled={callsite}:{events!r}"
                     )
                 raise SystemExit(f"ignored_sigchld_not_normalized={callsite}")
-            namespace["wait_process_status"](
-                process, deadline=time.monotonic() + 2
-            )
+            try:
+                namespace["wait_process_status"](
+                    process, deadline=time.monotonic() + 2
+                )
+            except (OSError, subprocess.SubprocessError):
+                raise SystemExit(f"ignored_sigchld_spawn_failed={callsite}")
             os.kill(process.pid, signal.SIGKILL)
             time.sleep(0.02)
             try:
