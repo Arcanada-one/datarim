@@ -25,11 +25,11 @@ ACTIONLINT = ROOT / ".github/actionlint.yaml"
 CHECKOUT = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
 EXPECTED_DIGESTS = {
     "preflight": "548acccf9f3dd75687f2984698b2b751eb6c810536b29c480546d1f17bbb9a7b",
-    "controller": "9f7b6a6e8fefa91d2c3d288439acef736d4d1020c9013c1990cf9e79384ef74d",
-    "publisher": "adc8edc95e02c983bfd0a690dc018c0cec986115cf614444879928936f3b578e",
+    "controller": "b1ebfb11b999847f38798d2ac56c5ac54e437acfd42029ddb495211ffab6d5ad",
+    "publisher": "f6d7361501a1d5dae7b44625a656cca1f7fd6abb62e843ab059a11d037151109",
     "evaluator": "a0e86fc87493231afffd3164587f0c14e463f5e8c4acd8f4f9679e2504280d1a",
     "runner-unit": "d9b25e4ea33ed2bddad9e5d1fd5a47acedfed852749f0771fb24838f70edc131",
-    "provisioner": "09732bb595f7fbc84401cf32772e2d51b6e6e2aa8e0a3bc215ad25ce2d736f85",
+    "provisioner": "7594729b551e375bfd1e93c8a5535e7752dda3e8a4efec6687342eb84c66e47f",
 }
 EXPECTED_PATHS = [
     "commands/**",
@@ -272,6 +272,7 @@ def validate_code(findings: list[str]) -> None:
         if hashlib.sha256(content).hexdigest() != EXPECTED_DIGESTS[label]:
             findings.append(f"digest_mismatch:{label}")
     controller = texts.get("controller", "")
+    publisher = texts.get("publisher", "")
     runner_unit = texts.get("runner-unit", "")
     provisioner = texts.get("provisioner", "")
     if (
@@ -314,6 +315,35 @@ def validate_code(findings: list[str]) -> None:
         if value not in controller:
             findings.append(f"missing:sandbox:{value}")
     for value in (
+        "materialize_candidate_blob()",
+        'candidate_materialized=$(realpath -m "$scratch/candidate")',
+        '[ "$mode" != 100644 ]',
+        'GIT_NO_REPLACE_OBJECTS=1 git -C "$CANDIDATE" ls-tree',
+        'GIT_NO_REPLACE_OBJECTS=1 git -C "$CANDIDATE" cat-file blob',
+        '-v "$candidate_materialized:/candidate:ro"',
+        "candidate_validator_object_sha256",
+        "manifest_object_sha256",
+    ):
+        if value not in controller:
+            findings.append(f"missing:candidate-object-contract:{value}")
+    for value in (
+        "candidate_validator_object_sha256",
+        "manifest_object_sha256",
+    ):
+        if value not in publisher:
+            findings.append(f"missing:candidate-object-contract:{value}")
+    for value in ("candidate_validator_sha256", "manifest_sha256"):
+        if value in controller or value in publisher:
+            findings.append("forbidden:worktree-candidate-digest-field")
+    if 'git -C "$CANDIDATE" checkout' in controller:
+        findings.append("forbidden:candidate-worktree-checkout")
+    for value in (
+        'sha256sum -- "$candidate_validator"',
+        'sha256sum -- "$manifest"',
+    ):
+        if value in controller:
+            findings.append("forbidden:candidate-worktree-content-digest")
+    for value in (
         "User=talo-replay",
         "Group=talo-replay",
         "ExecStart=/srv/talo-0001-trusted/runner/bin/Runner.Listener run",
@@ -348,10 +378,10 @@ def validate_code(findings: list[str]) -> None:
         '($runner.name == $name)',
         '($runner.busy == false)',
         '(([$runner.labels[].name] | sort) == $labels)',
-        '.AgentId == $runner_id',
-        '.PoolId == $group_id',
-        '.PoolName == $group',
-        '.DisableUpdate == true',
+        'settings["AgentId"] == runner_id',
+        'settings["PoolId"] == group_id',
+        'settings["PoolName"] == group_name',
+        'settings["DisableUpdate"] is True',
         'RUNNER_VERSION=2.336.0',
         'RUNNER_ARCHIVE_URL=https://github.com/actions/runner/releases/download/v$RUNNER_VERSION/actions-runner-linux-x64-$RUNNER_VERSION.tar.gz',
         'RUNNER_ARCHIVE_SHA256=04cf0be1aff4c3ec3554466c39124ca250e3effd8873bb7e8d68535aa9505d5d',
@@ -393,6 +423,24 @@ def validate_code(findings: list[str]) -> None:
         'sudo --preserve-env=ACTIONS_RUNNER_INPUT_TOKEN',
         'https://github.com/actions/runner/blob/v2.336.0/src/Runner.Listener/CommandSettings.cs',
         'sha256:937f6552579f7d1eeb0a6d0201586781eb3e2e5ea2ab3878429076560e0cab08',
+        'https://github.com/actions/runner/blob/v2.336.0/src/Runner.Common/ConfigurationStore.cs',
+        'sha256:5eca29c4f3ce56861680058dbc5e64ec7222421bdb7281f1d502717a235c56a9',
+        'https://github.com/actions/runner/blob/v2.336.0/src/Runner.Listener/Configuration/ConfigurationManager.cs',
+        'sha256:beb6d17709f931808b71b8210ee170951a99fac2342110b3600fb8a1b46d740c',
+        'https://github.com/actions/runner/blob/v2.336.0/src/Runner.Common/CredentialData.cs',
+        'sha256:495cac8f884cf458ecb186820aaac0211f0fd1090015ad1cdbb9f17f314e2de1',
+        'https://github.com/actions/runner/blob/v2.336.0/src/Runner.Listener/Configuration/IRSAKeyManager.cs',
+        'sha256:8176f9a5885eb100aa1dec7f5a3222b6e646684e090ff2eb8c2b235fad69bf96',
+        'validate_registration_identity_files',
+        'os.O_RDONLY | os.O_NOFOLLOW',
+        'settings["UseV2Flow"] is True',
+        'settings["UseRunnerAdminFlow"] is True',
+        'strict_url(settings["ServerUrl"], "tenant")',
+        'strict_url(settings["ServerUrlV2"], "broker")',
+        'strict_url(data["authorizationUrl"], "authorization")',
+        'verify_registration_identity_seal',
+        'write_registration_identity_seal',
+        '.talo-registration-seal',
     ):
         if value not in provisioner:
             findings.append(f"missing:runner-runtime-contract:{value}")

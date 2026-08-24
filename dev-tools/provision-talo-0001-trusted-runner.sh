@@ -18,6 +18,15 @@ RUNNER_ARCHIVE_URL=https://github.com/actions/runner/releases/download/v$RUNNER_
 # Token, and removes the input from the process environment before use.
 # https://github.com/actions/runner/blob/v2.336.0/src/Runner.Listener/CommandSettings.cs
 # sha256:937f6552579f7d1eeb0a6d0201586781eb3e2e5ea2ab3878429076560e0cab08
+# RunnerSettings/OAuth/RSA identity authority at the same pinned tag:
+# https://github.com/actions/runner/blob/v2.336.0/src/Runner.Common/ConfigurationStore.cs
+# sha256:5eca29c4f3ce56861680058dbc5e64ec7222421bdb7281f1d502717a235c56a9
+# https://github.com/actions/runner/blob/v2.336.0/src/Runner.Listener/Configuration/ConfigurationManager.cs
+# sha256:beb6d17709f931808b71b8210ee170951a99fac2342110b3600fb8a1b46d740c
+# https://github.com/actions/runner/blob/v2.336.0/src/Runner.Common/CredentialData.cs
+# sha256:495cac8f884cf458ecb186820aaac0211f0fd1090015ad1cdbb9f17f314e2de1
+# https://github.com/actions/runner/blob/v2.336.0/src/Runner.Listener/Configuration/IRSAKeyManager.cs
+# sha256:8176f9a5885eb100aa1dec7f5a3222b6e646684e090ff2eb8c2b235fad69bf96
 RUNNER_ARCHIVE_SHA256=04cf0be1aff4c3ec3554466c39124ca250e3effd8873bb7e8d68535aa9505d5d
 RUNNER_CONFIG_SHA256=4ad01727c3f29a0b6473d625412af6bdefc6c077763a6410f359c764fc0b3ae8
 RUNNER_SCRIPT_SHA256=b39d7e0ca921a3189f7fe4e0a2f686b46719d4ccc2647f156f14407ec4517e8f
@@ -38,8 +47,8 @@ case "$MODE" in
         exit 2
         ;;
 esac
-for command in chmod chown curl find gh git id install jq mkdir mktemp readlink rm \
-    sha256sum sleep sort stat sudo systemctl tar wc; do
+for command in chmod chown curl find gh git id install jq mkdir mktemp mv python3 \
+    readlink rm sha256sum sleep sort stat sudo systemctl tar wc; do
     command -v "$command" >/dev/null || { echo "ERROR: missing $command" >&2; exit 2; }
 done
 
@@ -159,24 +168,205 @@ wait_for_no_runners() {
     return 1
 }
 
-verify_local_registration() {
-    local runner_id=$1 group_id=$2 settings=$RUNNER_DIR/.runner size
-    [ -f "$settings" ] && [ ! -L "$settings" ] || return 1
-    size=$(stat -c '%s' "$settings" 2>/dev/null) || return 1
-    [ "$size" -gt 0 ] && [ "$size" -le 65536 ] || return 1
+validate_registration_identity_files() {
+    local runner_id=$1 group_id=$2
+    python3 - "$RUNNER_DIR/.runner" "$RUNNER_DIR/.credentials" \
+        "$RUNNER_DIR/.credentials_rsaparams" "$runner_id" "$group_id" \
+        "$RUNNER_NAME" "$GROUP_NAME" "$ORG" 2>/dev/null <<'PY'
+import base64
+import json
+import os
+from pathlib import Path
+import re
+import stat
+import sys
+from urllib.parse import urlsplit
+import uuid
+
+settings_path, credentials_path, rsa_path = map(Path, sys.argv[1:4])
+runner_id, group_id = map(int, sys.argv[4:6])
+runner_name, group_name, org = sys.argv[6:9]
+
+
+def pairs(pairs_value):
+    result = {}
+    for key, value in pairs_value:
+        if key in result:
+            raise ValueError("duplicate JSON key")
+        result[key] = value
+    return result
+
+
+def load(path):
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    try:
+        info = os.fstat(descriptor)
+        if not stat.S_ISREG(info.st_mode) or not 0 < info.st_size <= 65536:
+            raise ValueError("invalid identity file")
+        payload = os.read(descriptor, info.st_size + 1)
+        if len(payload) != info.st_size:
+            raise ValueError("identity file changed while reading")
+    finally:
+        os.close(descriptor)
+    return json.loads(payload, object_pairs_hook=pairs)
+
+
+def strict_url(value, endpoint):
+    if not isinstance(value, str):
+        raise ValueError("URL is not a string")
+    parsed = urlsplit(value)
+    if (parsed.scheme != "https" or parsed.username is not None
+            or parsed.password is not None or parsed.port is not None
+            or parsed.query or parsed.fragment):
+        raise ValueError("unsafe URL structure")
+    host = parsed.hostname or ""
+    if endpoint == "broker":
+        if value != "https://broker.actions.githubusercontent.com/":
+            raise ValueError("unexpected broker URL")
+    elif endpoint == "tenant":
+        if (not re.fullmatch(r"pipelinesghub[a-z0-9-]+\.actions\.githubusercontent\.com", host)
+                or not re.fullmatch(r"/[A-Za-z0-9_-]{16,}/", parsed.path)):
+            raise ValueError("unexpected tenant URL")
+    else:
+        if (not re.fullmatch(r"[a-z0-9-]+\.actions\.githubusercontent\.com", host)
+                or not parsed.path.startswith("/") or parsed.path == "/"):
+            raise ValueError("unexpected authorization URL")
+
+
+settings = load(settings_path)
+required_settings = {
+    "AgentId", "AgentName", "PoolId", "PoolName", "DisableUpdate",
+    "ServerUrl", "GitHubUrl", "WorkFolder", "UseV2Flow",
+    "UseRunnerAdminFlow", "ServerUrlV2",
+}
+optional_settings = {"Ephemeral", "SkipSessionRecover", "MonitorSocketAddress"}
+if not isinstance(settings, dict) or not required_settings <= settings.keys():
+    raise ValueError("missing runner setting")
+if not settings.keys() <= required_settings | optional_settings:
+    raise ValueError("unknown runner setting")
+if settings.get("Ephemeral", False) is not False:
+    raise ValueError("ephemeral runner is forbidden")
+if settings.get("SkipSessionRecover", False) is not False:
+    raise ValueError("session recovery cannot be skipped")
+if settings.get("MonitorSocketAddress") not in (None, ""):
+    raise ValueError("monitor socket override is forbidden")
+if not (
+    settings["AgentId"] == runner_id
+    and settings["AgentName"] == runner_name
+    and settings["PoolId"] == group_id
+    and settings["PoolName"] == group_name
+    and settings["DisableUpdate"] is True
+    and settings["GitHubUrl"] == f"https://github.com/{org}"
+    and settings["WorkFolder"] == "_work"
+    and settings["UseV2Flow"] is True
+    and settings["UseRunnerAdminFlow"] is True
+):
+    raise ValueError("runner identity mismatch")
+strict_url(settings["ServerUrl"], "tenant")
+strict_url(settings["ServerUrlV2"], "broker")
+
+credentials = load(credentials_path)
+if not isinstance(credentials, dict) or set(credentials) != {"Scheme", "Data"}:
+    raise ValueError("credential root mismatch")
+if credentials["Scheme"] != "OAuth" or not isinstance(credentials["Data"], dict):
+    raise ValueError("credential scheme mismatch")
+data = credentials["Data"]
+required_data = {"clientId", "authorizationUrl", "requireFipsCryptography"}
+optional_data = {"enableAuthMigrationByDefault", "authorizationUrlV2"}
+if not required_data <= data.keys() or not data.keys() <= required_data | optional_data:
+    raise ValueError("credential data mismatch")
+client_id = uuid.UUID(data["clientId"])
+if client_id.int == 0 or str(client_id) != data["clientId"].lower():
+    raise ValueError("credential client identity mismatch")
+if data["requireFipsCryptography"] not in {"True", "False"}:
+    raise ValueError("credential FIPS value mismatch")
+strict_url(data["authorizationUrl"], "authorization")
+migration_present = "enableAuthMigrationByDefault" in data or "authorizationUrlV2" in data
+if migration_present:
+    if (data.get("enableAuthMigrationByDefault") != "true"
+            or "authorizationUrlV2" not in data):
+        raise ValueError("credential migration mismatch")
+    strict_url(data["authorizationUrlV2"], "broker")
+
+rsa = load(rsa_path)
+lengths = {"d": 256, "dp": 128, "dq": 128, "inverseQ": 128,
+           "modulus": 256, "p": 128, "q": 128}
+if not isinstance(rsa, dict) or set(rsa) != set(lengths) | {"exponent"}:
+    raise ValueError("RSA identity shape mismatch")
+for key, expected_length in lengths.items():
+    value = base64.b64decode(rsa[key], validate=True)
+    if len(value) != expected_length or not any(value):
+        raise ValueError("RSA identity value mismatch")
+if base64.b64decode(rsa["exponent"], validate=True) != b"\x01\x00\x01":
+    raise ValueError("RSA exponent mismatch")
+PY
+}
+
+registration_identity_digest() {
+    local path=$1 actual
+    [ -f "$path" ] && [ ! -L "$path" ] || return 1
+    actual=$(sha256sum -- "$path") || return 1
+    printf '%s\n' "${actual%% *}"
+}
+
+verify_registration_identity_seal() {
+    local runner_id=$1 group_id=$2 seal=$RUNNER_DIR/.talo-registration-seal \
+        runner_digest credential_digest rsa_digest size
+    [ -f "$seal" ] && [ ! -L "$seal" ] || return 1
+    size=$(stat -c '%s' "$seal" 2>/dev/null) || return 1
+    [ "$size" -gt 0 ] && [ "$size" -le 4096 ] || return 1
+    runner_digest=$(registration_identity_digest "$RUNNER_DIR/.runner") || return 1
+    credential_digest=$(registration_identity_digest "$RUNNER_DIR/.credentials") || return 1
+    rsa_digest=$(registration_identity_digest "$RUNNER_DIR/.credentials_rsaparams") || return 1
     jq -e --argjson runner_id "$runner_id" --argjson group_id "$group_id" \
-        --arg name "$RUNNER_NAME" --arg group "$GROUP_NAME" \
-        --arg url "https://github.com/$ORG" '
+        --arg runner "$runner_digest" --arg credentials "$credential_digest" \
+        --arg rsa "$rsa_digest" '
         type == "object" and
-        .AgentId == $runner_id and
-        .AgentName == $name and
-        .PoolId == $group_id and
-        .PoolName == $group and
-        .DisableUpdate == true and
-        (.Ephemeral // false) == false and
-        .GitHubUrl == $url and
-        .WorkFolder == "_work"
-    ' >/dev/null "$settings"
+        (keys | sort) == ["credentials_sha256","group_id","rsa_sha256","runner_id","runner_sha256","schema_version"] and
+        .schema_version == 1 and .runner_id == $runner_id and
+        .group_id == $group_id and .runner_sha256 == $runner and
+        .credentials_sha256 == $credentials and .rsa_sha256 == $rsa
+    ' >/dev/null "$seal"
+}
+
+write_registration_identity_seal() {
+    local runner_id=$1 group_id=$2 seal=$RUNNER_DIR/.talo-registration-seal \
+        temporary runner_digest credential_digest rsa_digest
+    runner_digest=$(registration_identity_digest "$RUNNER_DIR/.runner") || return 1
+    credential_digest=$(registration_identity_digest "$RUNNER_DIR/.credentials") || return 1
+    rsa_digest=$(registration_identity_digest "$RUNNER_DIR/.credentials_rsaparams") || return 1
+    temporary=$(mktemp "$RUNNER_DIR/.talo-registration-seal.XXXXXXXX") || return 1
+    if ! jq -n --argjson runner_id "$runner_id" --argjson group_id "$group_id" \
+        --arg runner "$runner_digest" --arg credentials "$credential_digest" \
+        --arg rsa "$rsa_digest" \
+        '{schema_version:1,runner_id:$runner_id,group_id:$group_id,runner_sha256:$runner,credentials_sha256:$credentials,rsa_sha256:$rsa}' \
+        >"$temporary"; then
+        rm -f -- "$temporary"
+        return 1
+    fi
+    chown root:root "$temporary"
+    chmod 0600 "$temporary"
+    mv -f -- "$temporary" "$seal"
+}
+
+lock_registration_identity_files() {
+    local path
+    for path in .runner .credentials .credentials_rsaparams; do
+        [ -f "$RUNNER_DIR/$path" ] && [ ! -L "$RUNNER_DIR/$path" ] || return 1
+        chown root:"$RUNNER_USER" "$RUNNER_DIR/$path"
+        chmod 0640 "$RUNNER_DIR/$path"
+    done
+}
+
+verify_local_registration_core() {
+    local runner_id=$1 group_id=$2
+    validate_registration_identity_files "$runner_id" "$group_id"
+}
+
+verify_local_registration() {
+    local runner_id=$1 group_id=$2
+    verify_local_registration_core "$runner_id" "$group_id" \
+        && verify_registration_identity_seal "$runner_id" "$group_id"
 }
 
 verify_runner_payload() {
@@ -283,7 +473,7 @@ rollback_new_registration() {
     remove_remote_new_registration "$id" "$known_runner_id" || return 1
     rm -f -- "$RUNNER_DIR/.runner" "$RUNNER_DIR/.credentials" \
         "$RUNNER_DIR/.credentials_rsaparams" "$RUNNER_DIR/.env" \
-        "$RUNNER_DIR/.path"
+        "$RUNNER_DIR/.path" "$RUNNER_DIR/.talo-registration-seal"
 }
 
 remove_remote_new_registration() {
@@ -362,6 +552,13 @@ harden_runner_payload() {
             chmod 0640 "$RUNNER_DIR/$path"
         fi
     done
+    if [ ! -f "$RUNNER_DIR/.talo-registration-seal" ] \
+        || [ -L "$RUNNER_DIR/.talo-registration-seal" ]; then
+        echo "ERROR: runner registration seal is invalid" >&2
+        return 1
+    fi
+    chown root:root "$RUNNER_DIR/.talo-registration-seal"
+    chmod 0600 "$RUNNER_DIR/.talo-registration-seal"
     install -d -o "$RUNNER_USER" -g "$RUNNER_USER" -m 0750 \
         "$RUNNER_DIR/_diag" "$RUNNER_DIR/_work"
     chown root:root "$RUNNER_DIR"
@@ -370,7 +567,8 @@ harden_runner_payload() {
 
 local_registration_absent() {
     local path
-    for path in .runner .credentials .credentials_rsaparams .env .path; do
+    for path in .runner .credentials .credentials_rsaparams .env .path \
+        .talo-registration-seal; do
         if [ -e "$RUNNER_DIR/$path" ] || [ -L "$RUNNER_DIR/$path" ]; then
             return 1
         fi
@@ -574,6 +772,21 @@ register_and_start() {
                 "runner registration did not reach the exact trusted group"
         }
         runner_id=$(jq -r .id <<<"$runner")
+        lock_registration_identity_files || {
+            abort_runner_transaction "$id" "$fresh_registration" \
+                "$pre_registration_empty" "$runner_id" \
+                "runner identity files could not be locked"
+        }
+        verify_local_registration_core "$runner_id" "$id" || {
+            abort_runner_transaction "$id" "$fresh_registration" \
+                "$pre_registration_empty" "$runner_id" \
+                "local runner registration mismatch"
+        }
+        write_registration_identity_seal "$runner_id" "$id" || {
+            abort_runner_transaction "$id" "$fresh_registration" \
+                "$pre_registration_empty" "$runner_id" \
+                "runner identity seal failed"
+        }
         verify_local_registration "$runner_id" "$id" || {
             abort_runner_transaction "$id" "$fresh_registration" \
                 "$pre_registration_empty" "$runner_id" \

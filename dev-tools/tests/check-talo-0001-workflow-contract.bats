@@ -39,8 +39,27 @@ assert_file_lacks() {
     fi
 }
 
+reseal_registration_identity() {
+    local runner_digest credentials_digest rsa_digest
+    runner_digest=$(sha256sum "$RUNNER_FIXTURE/.runner")
+    runner_digest=${runner_digest%% *}
+    credentials_digest=$(sha256sum "$RUNNER_FIXTURE/.credentials")
+    credentials_digest=${credentials_digest%% *}
+    rsa_digest=$(sha256sum "$RUNNER_FIXTURE/.credentials_rsaparams")
+    rsa_digest=${rsa_digest%% *}
+    jq -n --arg runner "$runner_digest" \
+        --arg credentials "$credentials_digest" --arg rsa "$rsa_digest" \
+        '{schema_version:1,runner_id:7001,group_id:42,runner_sha256:$runner,credentials_sha256:$credentials,rsa_sha256:$rsa}' \
+        >"$RUNNER_FIXTURE/.talo-registration-seal"
+}
+
 run_check() {
     run python3 "$FIXTURE/dev-tools/check-talo-0001-workflow-contract.py"
+}
+
+candidate_materializer_source() {
+    sed -n '/^materialize_candidate_blob() {/,/^}/p' \
+        "$FIXTURE/dev-tools/trusted-talo-0001-replay.sh"
 }
 
 setup_provision_runtime() {
@@ -48,7 +67,9 @@ setup_provision_runtime() {
     MOCK_BIN="$BATS_TEST_TMPDIR/provision-mock-bin"
     MOCK_LOG="$BATS_TEST_TMPDIR/provision-commands.log"
     RUNNER_FIXTURE="$BATS_TEST_TMPDIR/runner"
+    IDENTITY_FIXTURE="$BATS_TEST_TMPDIR/runner-identity"
     mkdir -p "$MOCK_BIN" "$RUNNER_FIXTURE/bin" "$RUNNER_FIXTURE/externals"
+    mkdir -p "$IDENTITY_FIXTURE"
     for command in chmod chown curl gh install sudo systemctl sleep; do
         ln -sf "$ROOT/dev-tools/tests/fixtures/talo-0001-command-mock.sh" \
             "$MOCK_BIN/$command"
@@ -75,8 +96,10 @@ fi
 : >"${TALO_MOCK_CONFIG_STARTED:?}"
 [ "${TALO_MOCK_CONFIG_REMOTE_ONLY:-0}" != 1 ] || exit 1
 cat >.runner <<'JSON'
-{"AgentId":7001,"AgentName":"talo-0001-trusted-arcana-devs","PoolId":42,"PoolName":"talo-0001-trusted","DisableUpdate":true,"Ephemeral":false,"GitHubUrl":"https://github.com/Arcanada-one","WorkFolder":"_work"}
+{"AgentId":7001,"AgentName":"talo-0001-trusted-arcana-devs","PoolId":42,"PoolName":"talo-0001-trusted","DisableUpdate":true,"Ephemeral":false,"ServerUrl":"https://pipelinesghubeus26.actions.githubusercontent.com/AbCdEfGhIjKlMnOpQrStUvWxYz012345/","GitHubUrl":"https://github.com/Arcanada-one","WorkFolder":"_work","UseV2Flow":true,"UseRunnerAdminFlow":true,"ServerUrlV2":"https://broker.actions.githubusercontent.com/"}
 JSON
+cp -- "${TALO_MOCK_CREDENTIALS_TEMPLATE:?}" .credentials
+cp -- "${TALO_MOCK_RSA_TEMPLATE:?}" .credentials_rsaparams
 [ "${TALO_MOCK_CONFIG_FAILURE:-0}" != 1 ]
 SH
     chmod +x "$RUNNER_FIXTURE/config.sh"
@@ -123,9 +146,30 @@ DIGESTS
     sed -i -E \
         "s#^RUNNER_PAYLOAD_TREE_SHA256=[0-9a-f]{64}#RUNNER_PAYLOAD_TREE_SHA256=$tree_digest#" \
         "$PROVISIONER"
-    cat >"$RUNNER_FIXTURE/.runner" <<'JSON'
-{"AgentId":7001,"AgentName":"talo-0001-trusted-arcana-devs","PoolId":42,"PoolName":"talo-0001-trusted","DisableUpdate":true,"Ephemeral":false,"GitHubUrl":"https://github.com/Arcanada-one","WorkFolder":"_work"}
+    cat >"$IDENTITY_FIXTURE/.runner" <<'JSON'
+{"AgentId":7001,"AgentName":"talo-0001-trusted-arcana-devs","PoolId":42,"PoolName":"talo-0001-trusted","DisableUpdate":true,"Ephemeral":false,"ServerUrl":"https://pipelinesghubeus26.actions.githubusercontent.com/AbCdEfGhIjKlMnOpQrStUvWxYz012345/","GitHubUrl":"https://github.com/Arcanada-one","WorkFolder":"_work","UseV2Flow":true,"UseRunnerAdminFlow":true,"ServerUrlV2":"https://broker.actions.githubusercontent.com/"}
 JSON
+    cat >"$IDENTITY_FIXTURE/.credentials" <<'JSON'
+{"Scheme":"OAuth","Data":{"clientId":"11111111-2222-4333-8444-555555555555","authorizationUrl":"https://pipelinesghubeus26.actions.githubusercontent.com/AbCdEfGhIjKlMnOpQrStUvWxYz012345/","requireFipsCryptography":"False","enableAuthMigrationByDefault":"true","authorizationUrlV2":"https://broker.actions.githubusercontent.com/"}}
+JSON
+    python3 - "$IDENTITY_FIXTURE/.credentials_rsaparams" <<'PY'
+import base64
+import json
+from pathlib import Path
+import sys
+
+lengths = {"d": 256, "dp": 128, "dq": 128, "inverseQ": 128,
+           "modulus": 256, "p": 128, "q": 128}
+payload = {key: base64.b64encode(bytes([index + 1]) * length).decode()
+           for index, (key, length) in enumerate(lengths.items())}
+payload["exponent"] = base64.b64encode(b"\x01\x00\x01").decode()
+Path(sys.argv[1]).write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")
+PY
+    cp -- "$IDENTITY_FIXTURE/.runner" "$RUNNER_FIXTURE/.runner"
+    cp -- "$IDENTITY_FIXTURE/.credentials" "$RUNNER_FIXTURE/.credentials"
+    cp -- "$IDENTITY_FIXTURE/.credentials_rsaparams" \
+        "$RUNNER_FIXTURE/.credentials_rsaparams"
+    reseal_registration_identity
     MOCK_BLOB="$(git hash-object "$FIXTURE/.github/workflows/talo-0001-trusted-replay.yml")"
     MOCK_UNIT_BLOB="$(git hash-object "$FIXTURE/dev-tools/systemd/talo-0001-trusted-runner.service")"
     MOCK_SERVICE_STATE="$BATS_TEST_TMPDIR/provision-service-state"
@@ -146,7 +190,9 @@ prepare_fresh_runner_payload() {
     MOCK_ARCHIVE="$BATS_TEST_TMPDIR/actions-runner.tar.gz"
     mkdir -p "$archive_source"
     cp -a "$RUNNER_FIXTURE/." "$archive_source/"
-    rm -f -- "$archive_source/.runner"
+    rm -f -- "$archive_source/.runner" "$archive_source/.credentials" \
+        "$archive_source/.credentials_rsaparams" \
+        "$archive_source/.talo-registration-seal"
     tar -czf "$MOCK_ARCHIVE" -C "$archive_source" .
     archive_digest=$(sha256sum "$MOCK_ARCHIVE")
     archive_digest=${archive_digest%% *}
@@ -180,6 +226,8 @@ run_provision_runtime() {
         "TALO_MOCK_CONFIG_STARTED=$MOCK_CONFIG_STARTED" \
         "TALO_MOCK_CONFIG_CMDLINE=$MOCK_CONFIG_CMDLINE" \
         "TALO_MOCK_CONFIG_ENV_REMOVED=$MOCK_CONFIG_ENV_REMOVED" \
+        "TALO_MOCK_CREDENTIALS_TEMPLATE=$IDENTITY_FIXTURE/.credentials" \
+        "TALO_MOCK_RSA_TEMPLATE=$IDENTITY_FIXTURE/.credentials_rsaparams" \
         "$PROVISIONER" --register-and-start
 }
 
@@ -443,6 +491,92 @@ PATHS
         && [[ "$output" == *'digest_mismatch:controller'* ]]
 }
 
+@test "candidate materializer rejects a committed symlink before reading its target" {
+    local repository="$BATS_TEST_TMPDIR/symlink-candidate"
+    local materialized="$BATS_TEST_TMPDIR/symlink-materialized"
+    mkdir -p "$repository/datarim/insights" "$materialized"
+    git -C "$repository" init -q
+    git -C "$repository" config user.email test@example.com
+    git -C "$repository" config user.name test
+    ln -s /etc/hostname \
+        "$repository/datarim/insights/TALO-0001-research-authority-audit.json"
+    git -C "$repository" add .
+    git -C "$repository" commit -qm symlink
+    local head_sha source
+    head_sha=$(git -C "$repository" rev-parse HEAD)
+    source=$(candidate_materializer_source)
+    run env CANDIDATE="$repository" candidate_materialized="$materialized" \
+        head_sha="$head_sha" bash -c "$source
+materialize_candidate_blob datarim/insights/TALO-0001-research-authority-audit.json"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *'candidate object is not an exact regular Git blob'* ]]
+    [ ! -e "$materialized/datarim/insights/TALO-0001-research-authority-audit.json" ]
+}
+
+@test "candidate materializer ignores replacement refs for every blob read" {
+    local repository="$BATS_TEST_TMPDIR/replaced-candidate"
+    local materialized="$BATS_TEST_TMPDIR/replaced-materialized"
+    mkdir -p "$repository/dev-tools" "$materialized"
+    git -C "$repository" init -q
+    git -C "$repository" config user.email test@example.com
+    git -C "$repository" config user.name test
+    printf '%s' original-validator >"$repository/dev-tools/check-research-authority-audit.py"
+    git -C "$repository" add .
+    git -C "$repository" commit -qm original
+    local head_sha original_object hostile_object expected source mutant
+    head_sha=$(git -C "$repository" rev-parse HEAD)
+    original_object=$(git -C "$repository" rev-parse \
+        "$head_sha:dev-tools/check-research-authority-audit.py")
+    printf '%s' hostile-validator >"$BATS_TEST_TMPDIR/hostile-validator"
+    hostile_object=$(git -C "$repository" hash-object -w \
+        "$BATS_TEST_TMPDIR/hostile-validator")
+    git -C "$repository" replace "$original_object" "$hostile_object"
+    expected=$(printf '%s' original-validator | sha256sum | cut -d' ' -f1)
+    source=$(candidate_materializer_source)
+    run env CANDIDATE="$repository" candidate_materialized="$materialized" \
+        head_sha="$head_sha" bash -c "$source
+materialize_candidate_blob dev-tools/check-research-authority-audit.py"
+    [ "$status" -eq 0 ]
+    [ "$output" = "$expected" ]
+    [ "$(cat "$materialized/dev-tools/check-research-authority-audit.py")" = original-validator ]
+
+    mutant=${source//GIT_NO_REPLACE_OBJECTS=1 /}
+    run env CANDIDATE="$repository" \
+        candidate_materialized="$BATS_TEST_TMPDIR/replaced-mutant" \
+        head_sha="$head_sha" bash -c "mkdir -p \"\$candidate_materialized\"
+$mutant
+materialize_candidate_blob dev-tools/check-research-authority-audit.py"
+    [ "$status" -eq 0 ]
+    [ "$output" != "$expected" ]
+    printf '%s\n' 'RED_SENTINEL:candidate-replacement-ref-guard'
+}
+
+@test "Git-object modes guards and public object digests are load-bearing" {
+    local controller="$FIXTURE/dev-tools/trusted-talo-0001-replay.sh"
+    local publisher="$FIXTURE/dev-tools/publish-talo-0001-check.sh"
+    local original="$BATS_TEST_TMPDIR/object-controller.original"
+    cp "$controller" "$original"
+    sed -i 's/\[ "$mode" != 100644 \]/[ "$mode" != 120000 ]/' "$controller"
+    run_check
+    [ "$status" -eq 1 ]
+    [[ "$output" == *'missing:candidate-object-contract:'* ]]
+
+    cp "$original" "$controller"
+    sed -i 's/GIT_NO_REPLACE_OBJECTS=1 git -C "$CANDIDATE" cat-file/git -C "$CANDIDATE" cat-file/g' \
+        "$controller"
+    run_check
+    [ "$status" -eq 1 ]
+    [[ "$output" == *'missing:candidate-object-contract:'* ]]
+
+    cp "$original" "$controller"
+    sed -i 's/candidate_validator_object_sha256/candidate_validator_sha256/g' \
+        "$controller" "$publisher"
+    run_check
+    [ "$status" -eq 1 ]
+    [[ "$output" == *'missing:candidate-object-contract:'* ]]
+    [[ "$output" == *'forbidden:worktree-candidate-digest-field'* ]]
+}
+
 @test "dedicated runner identity, fixed paths, and hardening are load-bearing" {
     local unit="$FIXTURE/dev-tools/systemd/talo-0001-trusted-runner.service"
     sed -i \
@@ -491,7 +625,7 @@ MUTANTS
             && [[ "$output" == *'missing:runner-runtime-contract:'* ]]
     done <<'MUTANTS'
 ($document.total_count == 1)|($document.total_count >= 1)
-.AgentId == $runner_id|true
+settings["AgentId"] == runner_id|True
 RUNNER_ARCHIVE_SHA256=04cf0be1aff4c3ec3554466c39124ca250e3effd8873bb7e8d68535aa9505d5d|RUNNER_ARCHIVE_SHA256=0000000000000000000000000000000000000000000000000000000000000000
 RUNNER_PAYLOAD_TREE_SHA256=802a94df6d2aee3e458620b5a1175f8646f195092081d3285b8b0dd33c8cc8f6|RUNNER_PAYLOAD_TREE_SHA256=0000000000000000000000000000000000000000000000000000000000000000
 --disableupdate|--replace
@@ -609,6 +743,65 @@ MUTANTS
     [ "$status" -eq 1 ]
     [[ "$output" == *'incomplete local runner identity exists before reconciliation'* ]]
     grep -q '^systemctl disable --now' "$MOCK_LOG"
+    assert_file_lacks '--method PATCH' "$MOCK_LOG"
+    assert_file_lacks '--method PUT' "$MOCK_LOG"
+}
+
+@test "hostile runner service endpoint is rejected before group authorization" {
+    setup_provision_runtime
+    sed -i 's#https://pipelinesghubeus26.actions.githubusercontent.com/AbCdEfGhIjKlMnOpQrStUvWxYz012345/#https://attacker.example/collect/#' \
+        "$RUNNER_FIXTURE/.runner"
+    run_provision_runtime
+    [ "$status" -eq 1 ]
+    [[ "$output" == *'local runner registration mismatch'* ]]
+    assert_file_lacks '--method PATCH' "$MOCK_LOG"
+    assert_file_lacks '--method PUT' "$MOCK_LOG"
+}
+
+@test "every resealed hostile runner identity field is rejected before authorization" {
+    local original_runner original_credentials original_rsa
+    setup_provision_runtime
+    original_runner="$BATS_TEST_TMPDIR/identity-runner.original"
+    original_credentials="$BATS_TEST_TMPDIR/identity-credentials.original"
+    original_rsa="$BATS_TEST_TMPDIR/identity-rsa.original"
+    cp "$RUNNER_FIXTURE/.runner" "$original_runner"
+    cp "$RUNNER_FIXTURE/.credentials" "$original_credentials"
+    cp "$RUNNER_FIXTURE/.credentials_rsaparams" "$original_rsa"
+    while IFS='|' read -r target expression value; do
+        cp "$original_runner" "$RUNNER_FIXTURE/.runner"
+        cp "$original_credentials" "$RUNNER_FIXTURE/.credentials"
+        cp "$original_rsa" "$RUNNER_FIXTURE/.credentials_rsaparams"
+        jq "$expression = $value" "$RUNNER_FIXTURE/$target" \
+            >"$RUNNER_FIXTURE/$target.next"
+        mv "$RUNNER_FIXTURE/$target.next" "$RUNNER_FIXTURE/$target"
+        reseal_registration_identity
+        : >"$MOCK_LOG"
+        run_provision_runtime
+        [ "$status" -eq 1 ]
+        [[ "$output" == *'local runner registration mismatch'* ]]
+        assert_file_lacks '--method PATCH' "$MOCK_LOG"
+        assert_file_lacks '--method PUT' "$MOCK_LOG"
+    done <<'MUTANTS'
+.runner|.ServerUrl|"https://attacker.example/collect/"
+.runner|.ServerUrlV2|"https://attacker.example/broker/"
+.runner|.UseV2Flow|false
+.runner|.UseRunnerAdminFlow|false
+.credentials|.Data.authorizationUrl|"https://attacker.example/oauth/"
+.credentials|.Data.authorizationUrlV2|"https://attacker.example/broker/"
+.credentials|.Data.clientId|"00000000-0000-0000-0000-000000000000"
+.credentials_rsaparams|.exponent|"AAE="
+MUTANTS
+}
+
+@test "registration identity seal is load-bearing after semantic validation" {
+    setup_provision_runtime
+    jq '.runner_id = 7002' "$RUNNER_FIXTURE/.talo-registration-seal" \
+        >"$RUNNER_FIXTURE/.talo-registration-seal.next"
+    mv "$RUNNER_FIXTURE/.talo-registration-seal.next" \
+        "$RUNNER_FIXTURE/.talo-registration-seal"
+    run_provision_runtime
+    [ "$status" -eq 1 ]
+    [[ "$output" == *'local runner registration mismatch'* ]]
     assert_file_lacks '--method PATCH' "$MOCK_LOG"
     assert_file_lacks '--method PUT' "$MOCK_LOG"
 }
@@ -872,14 +1065,16 @@ PY
     setup_provision_runtime
     local original="$BATS_TEST_TMPDIR/provisioner-identity.original"
     cp "$PROVISIONER" "$original"
-    sed -i 's/.AgentId == $runner_id/true/' "$PROVISIONER"
+    sed -i 's/settings\["AgentId"\] == runner_id/True/' "$PROVISIONER"
     sed -i 's/"AgentId":7001/"AgentId":9999/' "$RUNNER_FIXTURE/.runner"
+    reseal_registration_identity
     run_provision_runtime
     [ "$status" -eq 0 ]
 
     cp "$original" "$PROVISIONER"
     sed -i 's/\[ "$actual" = "$RUNNER_PAYLOAD_TREE_SHA256" \]/true/' "$PROVISIONER"
     sed -i 's/"AgentId":9999/"AgentId":7001/' "$RUNNER_FIXTURE/.runner"
+    reseal_registration_identity
     printf '%s\n' tampered-support >"$RUNNER_FIXTURE/externals/support.bin"
     run_provision_runtime
     [ "$status" -eq 0 ]

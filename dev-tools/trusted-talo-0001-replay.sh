@@ -19,7 +19,7 @@ done
 for value in EVENT CANDIDATE OUTPUT; do
     [ -n "${!value}" ] || { echo "ERROR: --${value,,} is required" >&2; exit 2; }
 done
-for command in cmp curl docker gh git jq sha256sum; do
+for command in cmp curl docker gh git jq realpath sha256sum; do
     command -v "$command" >/dev/null || { echo "ERROR: missing $command" >&2; exit 2; }
 done
 
@@ -42,16 +42,66 @@ sandbox_uid=$(id -u)
 sandbox_gid=$(id -g)
 [ "$sandbox_uid" -ne 0 ] \
     || { echo "ERROR: trusted replay must not run as root" >&2; exit 1; }
-git init --quiet "$CANDIDATE"
-git -C "$CANDIDATE" remote add origin https://github.com/Arcanada-one/datarim.git
-git -C "$CANDIDATE" fetch --quiet --depth=1 origin "$head_sha"
-git -C "$CANDIDATE" checkout --quiet --detach "$head_sha"
-[ "$(git -C "$CANDIDATE" rev-parse HEAD)" = "$head_sha" ] \
+GIT_NO_REPLACE_OBJECTS=1 git init --quiet "$CANDIDATE"
+GIT_NO_REPLACE_OBJECTS=1 git -C "$CANDIDATE" remote add origin \
+    https://github.com/Arcanada-one/datarim.git
+GIT_NO_REPLACE_OBJECTS=1 git -C "$CANDIDATE" fetch --quiet --depth=1 origin \
+    "$head_sha"
+actual_candidate_commit=$(GIT_NO_REPLACE_OBJECTS=1 git -C "$CANDIDATE" \
+    rev-parse "$head_sha^{commit}")
+[ "$actual_candidate_commit" = "$head_sha" ] \
     || { echo "ERROR: candidate checkout mismatch" >&2; exit 1; }
 
 comments="$scratch/comments"
 cache="$scratch/cache"
-mkdir -p "$comments" "$cache"
+candidate_materialized=$(realpath -m "$scratch/candidate")
+mkdir -p "$comments" "$cache" "$candidate_materialized"
+
+materialize_candidate_blob() {
+    local relative=$1 destination entry mode type object_id recorded_path \
+        object_digest materialized_digest
+    case "$relative" in
+        /*|*..*|*//*|*:*)
+            echo "ERROR: candidate path is not canonical" >&2
+            return 1
+            ;;
+    esac
+    destination=$(realpath -m "$candidate_materialized/$relative")
+    case "$destination" in
+        "$candidate_materialized"/*) ;;
+        *) echo "ERROR: candidate path escapes materialized root" >&2; return 1 ;;
+    esac
+    entry=$(GIT_NO_REPLACE_OBJECTS=1 git -C "$CANDIDATE" ls-tree \
+        "$head_sha" -- "$relative") || return 1
+    if [ -z "$entry" ] || [[ "$entry" == *$'\n'* ]]; then
+        echo "ERROR: candidate object is missing or ambiguous" >&2
+        return 1
+    fi
+    IFS=$' \t' read -r mode type object_id recorded_path <<<"$entry"
+    if [ "$mode" != 100644 ] || [ "$type" != blob ] \
+        || ! [[ "$object_id" =~ ^[0-9a-f]{40}$ ]] \
+        || [ "$recorded_path" != "$relative" ]; then
+        echo "ERROR: candidate object is not an exact regular Git blob" >&2
+        return 1
+    fi
+    mkdir -p "$(dirname "$destination")"
+    if ! GIT_NO_REPLACE_OBJECTS=1 git -C "$CANDIDATE" cat-file blob \
+        "$object_id" >"$destination"; then
+        echo "ERROR: candidate Git object extraction failed" >&2
+        return 1
+    fi
+    chmod 0400 "$destination"
+    [ -f "$destination" ] && [ ! -L "$destination" ] || return 1
+    object_digest=$(GIT_NO_REPLACE_OBJECTS=1 git -C "$CANDIDATE" \
+        cat-file blob "$object_id" | sha256sum | cut -d' ' -f1) || return 1
+    materialized_digest=$(sha256sum -- "$destination" | cut -d' ' -f1) \
+        || return 1
+    [ "$object_digest" = "$materialized_digest" ] || {
+        echo "ERROR: candidate materialization digest mismatch" >&2
+        return 1
+    }
+    printf '%s\n' "$object_digest"
+}
 
 for comment_id in 5347868439 5347971637; do
     gh api "repos/Arcanada-one/talomnia-trace/issues/comments/$comment_id" \
@@ -73,12 +123,17 @@ S28	backstage/backstage	1a705cad96f0fbd48d4f7fe7e92e8a45d6afbab7	docs/features/s
 S29	stryker-mutator/mutation-testing-elements	befa9a40328e7ca3756772eb8551987df1b3e85b	docs/mutant-states-and-metrics.md
 PINS
 
-manifest="$CANDIDATE/datarim/insights/TALO-0001-research-authority-audit.json"
-insights="$CANDIDATE/datarim/insights/INSIGHTS-TALO-0001.md"
-candidate_validator="$CANDIDATE/dev-tools/check-research-authority-audit.py"
-for path in "$manifest" "$insights" "$candidate_validator"; do
-    [ -f "$path" ] || { echo "ERROR: candidate input missing" >&2; exit 1; }
-done
+manifest_relative=datarim/insights/TALO-0001-research-authority-audit.json
+insights_relative=datarim/insights/INSIGHTS-TALO-0001.md
+candidate_validator_relative=dev-tools/check-research-authority-audit.py
+manifest="$candidate_materialized/$manifest_relative"
+manifest_object_digest=$(materialize_candidate_blob "$manifest_relative") \
+    || { echo "ERROR: candidate manifest object rejected" >&2; exit 1; }
+materialize_candidate_blob "$insights_relative" >/dev/null \
+    || { echo "ERROR: candidate insights object rejected" >&2; exit 1; }
+candidate_validator_object_digest=$(
+    materialize_candidate_blob "$candidate_validator_relative"
+) || { echo "ERROR: candidate validator object rejected" >&2; exit 1; }
 
 run_validator() {
     local case_dir=$1 expected_status=$2 expected_text=$3
@@ -92,7 +147,8 @@ run_validator() {
         -e PYTHONDONTWRITEBYTECODE=1 \
         -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory \
         -e GIT_CONFIG_VALUE_0=/knowledge \
-        -v "$CANDIDATE:/candidate:ro" -v "$TRUSTED_ROOT:/trusted:ro" \
+        -v "$candidate_materialized:/candidate:ro" \
+        -v "$TRUSTED_ROOT:/trusted:ro" \
         -v "$KNOWLEDGE_ROOT:/knowledge:ro" \
         -v "$comments:/comments:ro" -v "$cache:/cache:ro" \
         -v "$case_dir:/case:ro" "$IMAGE" \
@@ -148,8 +204,6 @@ run_case "$scratch/sealed/task.json" 1 \
 run_case "$scratch/sealed/snapshot.json" 1 \
     $'research_authority_audit=NOT_MET\nfinding=knowledge_snapshot_authority_mismatch\nfinding=knowledge_snapshot_mismatch'
 
-candidate_validator_digest=$(sha256sum "$candidate_validator" | cut -d' ' -f1)
-manifest_digest=$(sha256sum "$manifest" | cut -d' ' -f1)
 mutation_digest=$(
     for mutant in mapping candidate external derived comment task snapshot; do
         sha256sum "$scratch/sealed/$mutant.json" | cut -d' ' -f1
@@ -157,8 +211,8 @@ mutation_digest=$(
 )
 jq -n --arg head "$head_sha" --arg knowledge "$SNAPSHOT" \
     --arg evaluator "$TRUSTED_EVALUATOR_SHA256" \
-    --arg candidate_validator "$candidate_validator_digest" \
-    --arg manifest "$manifest_digest" \
+    --arg candidate_validator "$candidate_validator_object_digest" \
+    --arg manifest "$manifest_object_digest" \
     --arg mutations "$mutation_digest" \
-    '{schema_version:1,verdict:"MET",head_sha:$head,knowledge_snapshot:$knowledge,trusted_evaluator_sha256:$evaluator,candidate_validator_sha256:$candidate_validator,manifest_sha256:$manifest,mutation_set_sha256:$mutations,counts:{items:66,candidates:19,external_pins:8,derived_records:3,comments:2,mutants:7}}' \
+    '{schema_version:1,verdict:"MET",head_sha:$head,knowledge_snapshot:$knowledge,trusted_evaluator_sha256:$evaluator,candidate_validator_object_sha256:$candidate_validator,manifest_object_sha256:$manifest,mutation_set_sha256:$mutations,counts:{items:66,candidates:19,external_pins:8,derived_records:3,comments:2,mutants:7}}' \
     >"$OUTPUT"
