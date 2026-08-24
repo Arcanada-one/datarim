@@ -517,9 +517,29 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
    - A legitimate deferral (time-dependent or hard external blocker) clears the
      gate ONLY by citing a follow-up ID / `blocked_by` reference that exists in
      `backlog.md` / `tasks.md`. Both scanners are fail-open on their own
-     git-probe failure (warn, do not block) — an infrastructure hiccup never
-     hard-blocks an otherwise-clean archive. Archive is idempotent; a fixed gap
-     re-enters cleanly on the next `/dr-archive` run.
+   git-probe failure (warn, do not block) — an infrastructure hiccup never
+   hard-blocks an otherwise-clean archive. Archive is idempotent; a fixed gap
+   re-enters cleanly on the next `/dr-archive` run.
+
+0.46. **CUSTOMER DELIVERY + REVIEW EVOLUTION CLOSURE GATE (HARD)**
+   (mandatory when a schema-v4 expectations wish declares
+   `customer_derived: true`):
+   - Re-run both validators against the exact revision being archived:
+     ```bash
+     "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-customer-delivery.sh" \
+         --root <repo-root> --task {TASK-ID} --stage archive --format json
+     "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-review-evolution.sh" \
+         --root <repo-root> --task {TASK-ID} --format json
+     ```
+   - Exit `1` from either validator means `NOT_MET`: STOP the archive and route
+     to the earliest stage named by the finding. Exit `2` is fail-closed:
+     STOP the archive until the configuration or required artifact is fixed.
+   - Preserve the customer requirement set, delivery receipt, review-evolution
+     record, validator output, deployed SHA evidence, and live painted-surface
+     matrix in the archive evidence inventory. Never rewrite or discard prior
+     receipt evidence.
+   - Tools, documentation, tests, CI, and ledger output cannot satisfy a visitor-visible requirement. Canon evolution cannot replace the product
+     fix; a clean spec-graph inventory cannot replace this closure gate.
 
 0.48. **STALE-RUNTIME REMINDER** (advisory, non-blocking):
    - Invoke the shared detector (single source of truth for this advisory):

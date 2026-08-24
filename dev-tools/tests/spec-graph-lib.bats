@@ -107,3 +107,91 @@ assert "finding_id" in f, f
     [ "$status" -eq 0 ]
     [[ "$output" == "error" ]]
 }
+
+@test "customer requirement links become Requirement to V-AC edges" {
+    cat >"$WORK/expectations.md" <<'EOF'
+---
+schema_version: 4
+---
+- **1. Visitor result.**
+  - wish_id: visitor-result
+  - customer_derived: true
+  - requirement_id: req-0001
+  - Связанный AC из PRD: V-AC-7
+  - #### Текущий статус
+    - pending
+EOF
+    run bash -c "source '$LIB'; collect_customer_requirement_vac_edges '$WORK/expectations.md'"
+    [ "$status" -eq 0 ] \
+      && [ "$output" = $'req-0001\tV-AC-7\texpectations.md' ]
+}
+
+@test "legacy or commented customer metadata does not create graph edges" {
+    cat >"$WORK/expectations.md" <<'EOF'
+---
+schema_version: 3
+---
+- **1. Legacy wish.**
+  - wish_id: legacy-wish
+  - customer_derived: true
+  - requirement_id: req-0001
+  - Связанный AC из PRD: V-AC-7
+<!--
+  - wish_id: commented-wish
+  - customer_derived: true
+  - requirement_id: req-0002
+  - Связанный AC из PRD: V-AC-8
+-->
+EOF
+    run bash -c "source '$LIB'; collect_customer_requirement_vac_edges '$WORK/expectations.md'"
+    [ "$status" -eq 0 ] && [ -z "$output" ]
+}
+
+@test "customer receipt becomes evidence implementation live and customer edges" {
+    cat >"$WORK/receipt.yaml" <<'EOF'
+requirements:
+  req-0001:
+    coverage_status: MET
+    coverage_chain:
+      requirement:
+        requirement_id: req-0001
+      selected_knowledge:
+        roles: []
+      implementation_delta:
+        task_id: task:web:0001
+      red_green:
+        red: {}
+        green: {}
+      live_evidence:
+        evidence_ref: artifacts/live.json
+      customer_disposition:
+        status: accepted
+EOF
+    run bash -c "source '$LIB'; collect_customer_receipt_edges '$WORK/receipt.yaml'"
+    [ "$status" -eq 0 ] \
+      && printf '%s\n' "$output" | grep -qF $'req-0001\tselected_knowledge' \
+      && printf '%s\n' "$output" | grep -qF $'req-0001\tred_green' \
+      && printf '%s\n' "$output" | grep -qF $'req-0001\timplementation_delta' \
+      && printf '%s\n' "$output" | grep -qF $'req-0001\tlive_evidence' \
+      && printf '%s\n' "$output" | grep -qF $'req-0001\tcustomer_disposition'
+}
+
+@test "selected knowledge collector requires immutable revision digest and timestamp" {
+    cat >"$WORK/receipt.yaml" <<'EOF'
+requirements:
+  req-0001:
+    coverage_chain:
+      selected_knowledge:
+        roles:
+          - id: reviewer
+            revision: "1"
+            digest: sha256:1111111111111111111111111111111111111111111111111111111111111111
+            selected_at: "2026-01-02T09:10:00Z"
+            selected_before_implementation: true
+            immutable: true
+        skills: [{id: incomplete-inline-entry}]
+EOF
+    run bash -c "source '$LIB'; collect_customer_selected_knowledge_kinds '$WORK/receipt.yaml'"
+    [ "$status" -eq 0 ] \
+      && [ "$output" = $'req-0001\troles' ]
+}

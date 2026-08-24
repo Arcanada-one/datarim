@@ -279,6 +279,35 @@ Invoke:
 
 ---
 
+## Layer 3d: Customer Delivery and Review Evolution (HARD)
+
+**Condition:** execute when the schema-v4 expectations file contains at least
+one `customer_derived: true` wish. Otherwise record `NOT_APPLICABLE`.
+
+Invoke both deterministic validators:
+
+```bash
+"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-customer-delivery.sh" \
+    --root <repo-root> --task {TASK-ID} --stage qa --format json
+"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-review-evolution.sh" \
+    --root <repo-root> --task {TASK-ID} --format json
+```
+
+- Delivery exit `0` and review-evolution exit `0` are required. Delivery exit
+  `1` is semantic NOT_MET and makes QA **FAIL**; exit `2` is a QA **BLOCKED**
+  configuration or required-artifact failure. Review-evolution exit `1` makes
+  QA **FAIL**; exit `2` is **BLOCKED**.
+- Include both JSON verdicts and exact findings in the QA report. Evolution
+  cannot replace the product fix, and `NO_CANON_CHANGE` is valid only with its
+  required evidence and reviewer approval.
+- Tools, documentation, tests, CI, and ledger output cannot satisfy a visitor-visible requirement. Green CI is not deployment, and deployment is
+  not customer visual acceptance.
+- The spec graph inventories Requirement-to-V-AC and downstream edges. These
+  validators retain semantic closure responsibility; do not treat a clean
+  graph inventory as delivery.
+
+---
+
 ## Layer 4: Code Quality
 
 **Condition:** Always executed.

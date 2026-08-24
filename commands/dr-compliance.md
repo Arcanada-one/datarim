@@ -80,6 +80,24 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
     -   Include graph completeness, evaluated artifacts, trace buckets, and the report-only grade in the compliance audit addendum.
     -   Exit `2` makes the verdict **NON-COMPLIANT**. In explicit hard mode, exit `1` also makes the verdict **NON-COMPLIANT**. The grade letter never changes routing.
 
+5e. **CUSTOMER DELIVERY + REVIEW EVOLUTION GATE (HARD)** (mandatory when a
+    schema-v4 expectations wish declares `customer_derived: true`):
+    - Invoke both validators independently:
+      ```bash
+      "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-customer-delivery.sh" \
+          --root <repo-root> --task {TASK-ID} --stage compliance --format json
+      "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-review-evolution.sh" \
+          --root <repo-root> --task {TASK-ID} --format json
+      ```
+    - Either validator exit `1` makes the verdict **NON-COMPLIANT**. Exit `2`
+      is a fail-closed configuration/required-artifact error and also makes the
+      verdict **NON-COMPLIANT**. Preserve both JSON results and exact findings
+      in the compliance addendum.
+    - Tools, documentation, tests, CI, and ledger output cannot satisfy a visitor-visible requirement. Canon evolution supports the associated
+      product fix and never replaces it.
+    - `spec-graph-gate.sh` only inventories the expanded edges;
+      `check-customer-delivery.sh` retains semantic closure responsibility.
+
 6.  **APPLY CHECKLIST**: Execute the appropriate checklist(s) from the compliance skill:
     - **Code** → 7-step software checklist (lint, tests, coverage, CI/CD)
     - **Documentation** → completeness, accuracy, consistency, cross-references, audience
