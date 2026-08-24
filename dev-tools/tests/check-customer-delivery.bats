@@ -385,19 +385,25 @@ import sys
 path, marker = sys.argv[1:]
 source = open(path, encoding="utf-8").read()
 anchor = "import time\nfrom datetime import datetime\n"
-instrumented = f'''import time
-import atexit
+started = '''import time
 _TEST_DEADLINE_STARTED = time.monotonic()
-def _write_test_deadline_elapsed():
+from datetime import datetime
+'''
+finalizer = '''    if _active_process is not None:
+        terminate_registered_process(_active_process)
+    encoded = terminal_response_bytes(result)
+'''
+instrumented = f'''    if _active_process is not None:
+        terminate_registered_process(_active_process)
     time.sleep(0)  # TEST_DEADLINE_STALL_MUTATION
     with open({marker!r}, "w", encoding="ascii") as handle:
         handle.write(str(time.monotonic() - _TEST_DEADLINE_STARTED))
-atexit.register(_write_test_deadline_elapsed)
-from datetime import datetime
+    encoded = terminal_response_bytes(result)
 '''
-if source.count(anchor) != 1:
+if source.count(anchor) != 1 or source.count(finalizer) != 1:
     raise SystemExit("TEST_DEADLINE_INSTRUMENTATION_SEAM_MISSING_OR_AMBIGUOUS")
-open(path, "w", encoding="utf-8").write(source.replace(anchor, instrumented, 1))
+source = source.replace(anchor, started, 1).replace(finalizer, instrumented, 1)
+open(path, "w", encoding="utf-8").write(source)
 PY
 }
 
@@ -418,13 +424,190 @@ forced_race = '''        globals()["VALIDATION_DEADLINE"] = time.monotonic() + 0
         )
 '''
 shutdown_yield = "    time.sleep(0)  # TEST_DEADLINE_STALL_MUTATION\n"
-shutdown_race = shutdown_yield + "    time.sleep(0.25)  # TEST_LOGICAL_DEADLINE_SHUTDOWN_RACE\n"
+shutdown_race = (
+    shutdown_yield
+    + "    os.kill(os.getpid(), signal.SIGALRM)  # TEST_PENDING_TERMINAL_SIGNAL\n"
+    + "    time.sleep(0.25)  # TEST_LOGICAL_DEADLINE_SHUTDOWN_RACE\n"
+)
 if source.count(crypto_probe) != 1 or source.count(shutdown_yield) != 1:
     raise SystemExit("LOGICAL_DEADLINE_SHUTDOWN_RACE_SEAM_MISSING_OR_AMBIGUOUS")
 source = source.replace(crypto_probe, forced_race, 1)
 source = source.replace(shutdown_yield, shutdown_race, 1)
 open(path, "w", encoding="utf-8").write(source)
 PY
+}
+
+force_test_pending_terminal_signal() {
+    "$PYTHON" - "$TEST_SCRIPT" <<'PY' || return 1
+import sys
+
+path = sys.argv[1]
+source = open(path, encoding="utf-8").read()
+anchor = "    encoded = terminal_response_bytes(result)\n"
+injected = (
+    "    os.kill(os.getpid(), signal.SIGALRM)  # TEST_PENDING_TERMINAL_SIGNAL\n"
+    + anchor
+)
+if source.count(anchor) != 1:
+    raise SystemExit("PENDING_TERMINAL_SIGNAL_SEAM_MISSING_OR_AMBIGUOUS")
+open(path, "w", encoding="utf-8").write(source.replace(anchor, injected, 1))
+PY
+}
+
+instrument_test_post_popen_signal() {
+    local callsite="$1" pid_file="$2" mode="$3"
+    "$PYTHON" - "$TEST_SCRIPT" "$callsite" "$pid_file" "$mode" <<'PY' || return 1
+import sys
+
+path, callsite, pid_file, mode = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+headers = {
+    "silent": "def run_silent_process(arguments):\n",
+    "bounded": "def run_bounded_process(arguments, stdout_limit=VALIDATION_MAX_STDOUT_BYTES,\n",
+    "source_history": "    def run_git(arguments, *, input_bytes=None, output_limit=SOURCE_HISTORY_MAX_CONTROL_OUTPUT_BYTES):\n",
+}
+if callsite not in headers or mode not in {"control", "signal"}:
+    raise SystemExit("POST_POPEN_TEST_ARGUMENT_INVALID")
+start = source.index(headers[callsite])
+end = source.find("\ndef ", start + len(headers[callsite]))
+if callsite == "source_history":
+    end = source.find("\n    def ", start + len(headers[callsite]))
+if end < 0:
+    end = len(source)
+call = source.index("process = start_registered_process(", start, end)
+opening = source.index("(", call)
+depth = 0
+closing = None
+for index in range(opening, end):
+    if source[index] == "(":
+        depth += 1
+    elif source[index] == ")":
+        depth -= 1
+        if depth == 0:
+            closing = index
+            break
+if closing is None or source[closing + 1] != "\n":
+    raise SystemExit("POST_POPEN_CALL_SEAM_MISSING_OR_AMBIGUOUS")
+line_start = source.rfind("\n", 0, call) + 1
+indent = source[line_start:call]
+injection = (
+    f'{indent}with open({pid_file!r}, "w", encoding="ascii") as handle:\n'
+    f'{indent}    handle.write(str(process.pid))\n'
+)
+if mode == "signal":
+    injection += f"{indent}os.kill(os.getpid(), signal.SIGALRM)\n"
+source = source[:closing + 2] + injection + source[closing + 2:]
+open(path, "w", encoding="utf-8").write(source)
+PY
+}
+
+assert_post_popen_signal_cleanup() {
+    local callsite="$1" pid_file baseline_status baseline_output control_status control_output
+    local started finished elapsed child_pid attempt
+    pid_file="${BATS_TEST_TMPDIR}/post-popen-${callsite}.pid"
+
+    build_test_framework "post-popen-${callsite}-baseline" || return 1
+    run_test_framework_json
+    baseline_status="$status"
+    baseline_output="$output"
+    [ "$baseline_status" -eq 0 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["decision"] in {"MET","NOT_MET"}; assert "validation_resource_limit:deadline" not in d["findings"]' \
+        "$baseline_output" || return 1
+
+    build_test_framework "post-popen-${callsite}-control" || return 1
+    instrument_test_post_popen_signal "$callsite" "$pid_file" control || return 1
+    run_test_framework_json
+    control_status="$status"
+    control_output="$output"
+    [ "$control_status" -eq "$baseline_status" ] \
+        && [ "$control_output" = "$baseline_output" ] \
+        || { printf 'post_popen_control_changed=%s status=%s/%s output=%s/%s\n' \
+            "$callsite" "$control_status" "$baseline_status" "$control_output" "$baseline_output"; return 1; }
+
+    build_test_framework "post-popen-${callsite}-signal" || return 1
+    instrument_test_post_popen_signal "$callsite" "$pid_file" signal || return 1
+    started="$($PYTHON -c 'import time; print(time.perf_counter())')"
+    run_test_framework_json
+    finished="$($PYTHON -c 'import time; print(time.perf_counter())')"
+    elapsed="$($PYTHON -c 'import sys; print(float(sys.argv[2])-float(sys.argv[1]))' "$started" "$finished")"
+    [ "$status" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["validation_resource_limit:deadline"]' "$output" \
+        && "$PYTHON" -c 'import sys; assert 0 <= float(sys.argv[1]) < 4' "$elapsed" \
+        && [ -s "$pid_file" ] \
+        || { printf 'post_popen_signal_failure=%s status=%s elapsed=%s output=%s\n' \
+            "$callsite" "$status" "$elapsed" "$output"; return 1; }
+    child_pid="$(<"$pid_file")"
+    for attempt in {1..10}; do
+        if ! kill -0 "$child_pid" 2>/dev/null; then
+            printf 'post_popen_signal=%s rc=2 finding=validation_resource_limit:deadline pid=%s reaped=1\n' \
+                "$callsite" "$child_pid"
+            return 0
+        fi
+        sleep 0.05
+    done
+    kill -KILL "$child_pid" 2>/dev/null || true
+    printf 'post_popen_signal_child_survived=%s pid=%s\n' "$callsite" "$child_pid"
+    return 1
+}
+
+assert_masked_popen_deadline_cleanup() {
+    local pid_file="${BATS_TEST_TMPDIR}/masked-popen-deadline.pid"
+    local baseline_status baseline_output child_pid attempt
+    build_test_framework masked-popen-baseline || return 1
+    run_test_framework_json
+    baseline_status="$status"
+    baseline_output="$output"
+    "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["decision"] in {"MET","NOT_MET"}; assert "validation_resource_limit:deadline" not in d["findings"]' \
+        "$baseline_output" \
+        || { printf 'masked_popen_baseline_failure=status=%s output=%s\n' \
+            "$baseline_status" "$baseline_output"; return 1; }
+
+    build_test_framework masked-popen-deadline || return 1
+    "$PYTHON" - "$TEST_SCRIPT" "$pid_file" <<'PY' || return 1
+import sys
+
+path, pid_file = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+registered = '''        process = subprocess.Popen(arguments, **options)
+        _active_process = process  # SECURITY_RULE:popen_registry
+'''
+expired_while_masked = registered + f'''        with open({pid_file!r}, "w", encoding="ascii") as handle:
+            handle.write(str(process.pid))
+        globals()["VALIDATION_DEADLINE"] = time.monotonic() - 0.01
+        signal.setitimer(signal.ITIMER_REAL, 0)
+'''
+post_unmask = '''    try:
+        remaining_validation_time()  # SECURITY_RULE:popen_post_unmask_deadline
+    except BaseException:
+'''
+checked = '''    try:
+        remaining_validation_time()  # SECURITY_RULE:popen_post_unmask_deadline
+        globals()["VALIDATION_DEADLINE"] = time.monotonic() + 20
+    except BaseException:
+'''
+if source.count(registered) != 1 or source.count(post_unmask) != 1:
+    raise SystemExit("MASKED_POPEN_DEADLINE_SEAM_MISSING_OR_AMBIGUOUS")
+source = source.replace(registered, expired_while_masked, 1)
+source = source.replace(post_unmask, checked, 1)
+open(path, "w", encoding="utf-8").write(source)
+PY
+    run_test_framework_json
+    [ "$status" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["validation_resource_limit:deadline"]' "$output" \
+        && [ -s "$pid_file" ] \
+        || { printf 'masked_popen_deadline_failure=status=%s output=%s baseline=%s/%s\n' \
+            "$status" "$output" "$baseline_status" "$baseline_output"; return 1; }
+    child_pid="$(<"$pid_file")"
+    for attempt in {1..10}; do
+        if ! kill -0 "$child_pid" 2>/dev/null; then
+            printf 'masked_popen_deadline=detected_post_unmask rc=2 pid=%s reaped=1\n' "$child_pid"
+            return 0
+        fi
+        sleep 0.05
+    done
+    kill -KILL "$child_pid" 2>/dev/null || true
+    printf 'masked_popen_deadline_child_survived=%s\n' "$child_pid"
+    return 1
 }
 
 assert_deadline_cleanup_elapsed() {
@@ -2941,6 +3124,7 @@ with open(sys.argv[1], "w", encoding="utf-8") as handle:
 os.chmod(sys.argv[1], 0o755)
 PY
     build_test_framework crypto-output-budget || return 1
+    force_test_pending_terminal_signal || return 1
     rebind_test_openssl "$shim" || return 1
     run_test_framework_json
     [ "$status" -eq 2 ] \
@@ -2951,7 +3135,8 @@ PY
 @test "OpenSSL deadline terminates stubborn descendant pipe holders" {
     local shim="${BATS_TEST_TMPDIR}/stubborn-openssl"
     local pid_file="${BATS_TEST_TMPDIR}/stubborn-openssl.pid"
-    local descendant_pid attempt elapsed parsed_json
+    local descendant_pid attempt elapsed parsed_json callsite descendant_reaped=0
+    local post_popen_only="${CUSTOMER_DELIVERY_POST_POPEN_ONLY:-}"
     local elapsed_marker="${BATS_TEST_TMPDIR}/stubborn-crypto.elapsed"
     assert_bounded_validator_diagnostic_grammar || return 1
     "$PYTHON" - "$shim" "$pid_file" <<'PY' || return 1
@@ -2997,12 +3182,33 @@ PY
         || { printf 'stubborn_crypto_output=%s elapsed=%s\n' "$output" "$elapsed"; return 1; }
     descendant_pid="$(<"$pid_file")"
     for attempt in {1..10}; do
-        kill -0 "$descendant_pid" 2>/dev/null || return 0
+        if ! kill -0 "$descendant_pid" 2>/dev/null; then
+            descendant_reaped=1
+            break
+        fi
         sleep 0.05
     done
-    kill -KILL "$descendant_pid" 2>/dev/null || true
-    printf 'stubborn_crypto_descendant_survived=%s\n' "$descendant_pid"
-    return 1
+    if [ "$descendant_reaped" -ne 1 ]; then
+        kill -KILL "$descendant_pid" 2>/dev/null || true
+        printf 'stubborn_crypto_descendant_survived=%s\n' "$descendant_pid"
+        return 1
+    fi
+    if [[ -n "$post_popen_only" ]]; then
+        case "$post_popen_only" in
+            silent|bounded|source_history)
+                assert_post_popen_signal_cleanup "$post_popen_only" || return 1
+                ;;
+            masked)
+                assert_masked_popen_deadline_cleanup || return 1
+                ;;
+            *) return 1 ;;
+        esac
+    else
+        for callsite in silent bounded source_history; do
+            assert_post_popen_signal_cleanup "$callsite" || return 1
+        done
+        assert_masked_popen_deadline_cleanup || return 1
+    fi
 }
 
 @test "non-Python executable cannot satisfy the interpreter pin" {

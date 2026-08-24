@@ -813,6 +813,21 @@ UniqueKeyLoader.add_constructor(
 
 
 findings = []
+_terminal_result = None
+_active_process = None
+
+
+class ValidationTerminal(BaseException):
+    def __init__(self, decision, code, epic_status, terminal_findings):
+        super().__init__(decision)
+        self.decision = decision
+        self.code = code
+        self.epic_status = epic_status
+        self.findings = tuple(terminal_findings)
+
+
+class ValidationDeadline(BaseException):
+    pass
 
 
 def add(code):
@@ -908,38 +923,64 @@ def approval_payload_digest(approval):
     return sha256_digest({field: approval[field] for field in APPROVAL_FIELDS})
 
 
-def emit(decision, code, epic_status="NOT_MET"):
-    unique = sorted(set(findings))
+def block_and_disarm_validation_alarm():
+    signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGALRM})  # SECURITY_RULE:terminal_signal_mask
+    signal.setitimer(signal.ITIMER_REAL, 0)
+
+
+def select_terminal(decision, code, epic_status="NOT_MET", additional_findings=()):
+    global _terminal_result
+    block_and_disarm_validation_alarm()
+    if _terminal_result is None:
+        findings.extend(additional_findings)
+        _terminal_result = ValidationTerminal(
+            decision,
+            code,
+            epic_status,
+            sorted(set(findings)),
+        )
+    return _terminal_result
+
+
+def terminal_response_bytes(result):
     if OUTPUT_FORMAT == "json":
-        print(json.dumps(
+        rendered = json.dumps(
             {
-                "decision": decision,
-                "epic_status": epic_status,
-                "findings": unique,
+                "decision": result.decision,
+                "epic_status": result.epic_status,
+                "findings": list(result.findings),
                 "stage": STAGE,
-                "status": decision,
+                "status": result.decision,
                 "task": TASK,
             },
             ensure_ascii=True,
             separators=(",", ":"),
             sort_keys=True,
-        ))
+        ) + "\n"
     else:
-        joined = ",".join(unique)
-        print(
-            f"decision={decision} stage={STAGE} task={TASK} status={decision} "
-            f"epic_status={epic_status} findings={joined}"
-        )
-        for finding in unique:
-            print(f"finding={finding}")
-    raise SystemExit(code)
+        joined = ",".join(result.findings)
+        lines = [
+            f"decision={result.decision} stage={STAGE} task={TASK} "
+            f"status={result.decision} epic_status={result.epic_status} findings={joined}"
+        ]
+        lines.extend(f"finding={finding}" for finding in result.findings)
+        rendered = "\n".join(lines) + "\n"
+    encoded = rendered.encode("ascii", "strict")
+    if not encoded or len(encoded) > 1048576:
+        raise RuntimeError("terminal_response_out_of_bounds")
+    return encoded
+
+
+def emit(decision, code, epic_status="NOT_MET"):
+    raise select_terminal(decision, code, epic_status)
 
 
 def validation_resource_limit(kind):
-    add(f"validation_resource_limit:{kind}")
-    if kind == "deadline":
-        signal.setitimer(signal.ITIMER_REAL, 0)  # SECURITY_RULE:validation_deadline_disarm
-    emit("ERROR", 2)
+    raise select_terminal(
+        "ERROR",
+        2,
+        additional_findings=(f"validation_resource_limit:{kind}",),
+    )
 
 
 def remaining_validation_time():
@@ -950,7 +991,7 @@ def remaining_validation_time():
 
 
 def validation_alarm_handler(_signal_number, _frame):
-    validation_resource_limit("deadline")
+    raise ValidationDeadline()
 
 
 def terminate_process_group(process):
@@ -974,9 +1015,65 @@ def terminate_process_group(process):
         pass
 
 
-def run_silent_process(arguments):
+def close_process_streams(process):
+    for stream in (process.stdin, process.stdout, process.stderr):
+        if stream is not None and not stream.closed:
+            try:
+                stream.close()
+            except OSError:
+                pass
+
+
+def release_active_process(process):
+    global _active_process
+    if _active_process is process:
+        _active_process = None
+
+
+def terminate_registered_process(process):
     try:
-        process = subprocess.Popen(
+        terminate_process_group(process)
+    finally:
+        close_process_streams(process)
+        release_active_process(process)
+
+
+def start_registered_process(arguments, **options):
+    global _active_process
+    if _active_process is not None:
+        raise RuntimeError("validation_process_registry_not_empty")
+    previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGALRM})
+    process = None
+    try:
+        process = subprocess.Popen(arguments, **options)
+        _active_process = process  # SECURITY_RULE:popen_registry
+    finally:
+        try:
+            signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+        except BaseException:
+            if process is not None:
+                terminate_registered_process(process)
+            raise
+    try:
+        remaining_validation_time()  # SECURITY_RULE:popen_post_unmask_deadline
+    except BaseException:
+        terminate_registered_process(process)
+        raise
+    return process
+
+
+def release_completed_process(process):
+    if process.poll() is None:
+        terminate_registered_process(process)
+    else:
+        close_process_streams(process)
+        release_active_process(process)
+
+
+def run_silent_process(arguments):
+    process = None
+    try:
+        process = start_registered_process(
             arguments,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
@@ -989,17 +1086,24 @@ def run_silent_process(arguments):
     try:
         return process.wait(timeout=max(0.001, remaining_validation_time()))
     except subprocess.TimeoutExpired:
-        terminate_process_group(process)
         validation_resource_limit("deadline")
     except BaseException:
-        terminate_process_group(process)
+        if process is not None:
+            terminate_registered_process(process)
         raise
+    finally:
+        if process is not None:
+            release_completed_process(process)
 
 
 def run_bounded_process(arguments, stdout_limit=VALIDATION_MAX_STDOUT_BYTES,
                         stderr_limit=VALIDATION_MAX_STDERR_BYTES):
+    process = None
+    selector = None
+    stdout = bytearray()
+    stderr = bytearray()
     try:
-        process = subprocess.Popen(
+        process = start_registered_process(
             arguments,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
@@ -1007,12 +1111,7 @@ def run_bounded_process(arguments, stdout_limit=VALIDATION_MAX_STDOUT_BYTES,
             env={"LANG": "C", "LC_ALL": "C", "PATH": "/usr/bin:/bin"},
             start_new_session=True,
         )
-    except (OSError, subprocess.SubprocessError):
-        return None, b"", b""
-    selector = selectors.DefaultSelector()
-    stdout = bytearray()
-    stderr = bytearray()
-    try:
+        selector = selectors.DefaultSelector()
         for label, stream in (("stdout", process.stdout), ("stderr", process.stderr)):
             os.set_blocking(stream.fileno(), False)
             selector.register(stream, selectors.EVENT_READ, label)
@@ -1033,41 +1132,65 @@ def run_bounded_process(arguments, stdout_limit=VALIDATION_MAX_STDOUT_BYTES,
                 target = stdout if key.data == "stdout" else stderr
                 limit = stdout_limit if key.data == "stdout" else stderr_limit
                 if len(target) + len(chunk) > limit:
-                    terminate_process_group(process)
                     validation_resource_limit("subprocess_output")  # SECURITY_RULE:validation_subprocess_output
                 target.extend(chunk)
         returncode = process.wait(timeout=max(0.001, remaining_validation_time()))
         return returncode, bytes(stdout), bytes(stderr)
     except subprocess.TimeoutExpired:
-        terminate_process_group(process)
         validation_resource_limit("deadline")
+    except (OSError, subprocess.SubprocessError):
+        return None, b"", b""
     except BaseException:
-        terminate_process_group(process)
+        if process is not None:
+            terminate_registered_process(process)
         raise
     finally:
-        selector.close()
-        for stream in (process.stdout, process.stderr):
-            if stream is not None and not stream.closed:
-                stream.close()
+        if selector is not None:
+            selector.close()
+        if process is not None:
+            release_completed_process(process)
 
 
 signal.signal(signal.SIGALRM, validation_alarm_handler)
 signal.setitimer(signal.ITIMER_REAL, VALIDATION_TOTAL_TIMEOUT_SECONDS)
 
 
-def deterministic_unicode_excepthook(error_type, error, traceback):
+def finalize_terminal(result):
+    block_and_disarm_validation_alarm()
+    if _active_process is not None:
+        terminate_registered_process(_active_process)
+    encoded = terminal_response_bytes(result)
+    try:
+        sys.stdout.flush()
+        sys.stderr.flush()
+    except (OSError, ValueError):
+        pass
+    offset = 0
+    while offset < len(encoded):
+        written = os.write(sys.stdout.fileno(), encoded[offset:])
+        if written <= 0:
+            os._exit(2)
+        offset += written
+    os._exit(result.code)
+
+
+def validator_excepthook(error_type, error, traceback):
+    if isinstance(error, ValidationTerminal):
+        finalize_terminal(error)
+    if isinstance(error, ValidationDeadline):
+        finalize_terminal(select_terminal(
+            "ERROR",
+            2,
+            additional_findings=("validation_resource_limit:deadline",),
+        ))
     if issubclass(error_type, UnicodeError):
+        block_and_disarm_validation_alarm()
         add("unicode_processing_error")  # SECURITY_RULE:unicode_top_boundary
-        try:
-            emit("ERROR", 2)
-        except SystemExit as exit_status:
-            sys.stdout.flush()
-            sys.stderr.flush()
-            os._exit(exit_status.code)
+        finalize_terminal(select_terminal("ERROR", 2))
     sys.__excepthook__(error_type, error, traceback)
 
 
-sys.excepthook = deterministic_unicode_excepthook
+sys.excepthook = validator_excepthook
 
 
 def json_pointer_segment(value):
@@ -2326,6 +2449,8 @@ def _validate_source_history():
             process.wait(timeout=0.2)
         except (subprocess.TimeoutExpired, OSError):
             pass
+        close_process_streams(process)
+        release_active_process(process)
 
     def run_git(arguments, *, input_bytes=None, output_limit=SOURCE_HISTORY_MAX_CONTROL_OUTPUT_BYTES):
         if not repository_identity_valid():
@@ -2338,12 +2463,13 @@ def _validate_source_history():
             resource_limit("output_budget")
             return None
         process = None
-        selector = selectors.DefaultSelector()
+        selector = None
         stdout_buffer = bytearray()
         stderr_buffer = bytearray()
         input_offset = 0
         saved_cwd_fd = None
         try:
+            selector = selectors.DefaultSelector()
             saved_cwd_fd = os.open(
                 ".", os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC
             )
@@ -2352,7 +2478,7 @@ def _validate_source_history():
                 cwd_metadata = os.stat(".")
                 if repository_entry_identity(cwd_metadata) != git_cwd_identity:
                     return None
-                process = subprocess.Popen(
+                process = start_registered_process(
                     [*git_prefix, *arguments],
                     env=git_env,
                     pass_fds=(
@@ -2443,16 +2569,15 @@ def _validate_source_history():
                 terminate_process_group(process)
             raise
         finally:
-            selector.close()
+            if selector is not None:
+                selector.close()
             if saved_cwd_fd is not None:
                 try:
                     os.fchdir(saved_cwd_fd)
                 finally:
                     os.close(saved_cwd_fd)
             if process is not None:
-                for stream in (process.stdin, process.stdout, process.stderr):
-                    if stream is not None and not stream.closed:
-                        stream.close()
+                release_completed_process(process)
 
     def trusted_system_path(path, final_type):
         if not os.path.isabs(path) or "\n" in path:

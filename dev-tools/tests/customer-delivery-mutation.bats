@@ -1091,7 +1091,8 @@ PY
 
 @test "mutation kill attribution rejects setup syntax timeout and wrong-assertion failures" {
     local filter='focused contract' expected=42 deadline_mutant deadline_filter
-    local deadline_disarm_mutant deadline_disarm_validator deadline_disarm_filter
+    local terminal_mask_mutant terminal_mask_validator terminal_mask_filter
+    local post_popen_mutant post_popen_filter callsite
     local diagnostic_mutant diagnostic_filter pid_width_mutant
     run assert_attributed_mutant_kill valid "$filter" "$expected" 1 \
         $'1..1\nnot ok 1 focused contract\n# (in test file fixture.bats, line 42)\n# assertion failed'
@@ -1145,37 +1146,86 @@ PY
         && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
         || { printf 'post_deadline_mutant_status=%s output=%s\n' "$status" "$output"; return 1; }
 
-    deadline_disarm_mutant="${BATS_TEST_TMPDIR}/deadline-disarm.bats"
-    deadline_disarm_validator="${BATS_TEST_TMPDIR}/check-customer-delivery-deadline-disarm.sh"
-    deadline_disarm_filter='OpenSSL deadline terminates stubborn descendant pipe holders'
-    cp "$FUNCTIONAL_TEST" "$deadline_disarm_mutant" || return 1
-    cp "$SCRIPT" "$deadline_disarm_validator" || return 1
-    "$PYTHON" - "$deadline_disarm_mutant" "$deadline_disarm_validator" "$REPO_ROOT" <<'PY' || return 1
+    terminal_mask_mutant="${BATS_TEST_TMPDIR}/terminal-mask.bats"
+    terminal_mask_validator="${BATS_TEST_TMPDIR}/check-customer-delivery-terminal-mask.sh"
+    terminal_mask_filter='OpenSSL version output is bounded before allocation'
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        bats --filter "^${terminal_mask_filter}$" "$FUNCTIONAL_TEST"
+    assert_baseline_green "$terminal_mask_filter" || return 1
+    cp "$FUNCTIONAL_TEST" "$terminal_mask_mutant" || return 1
+    cp "$SCRIPT" "$terminal_mask_validator" || return 1
+    "$PYTHON" - "$terminal_mask_mutant" "$terminal_mask_validator" "$REPO_ROOT" <<'PY' || return 1
 import sys
 
 test_path, validator_path, repo_root = sys.argv[1:]
 test_source = open(test_path, encoding="utf-8").read()
 root_old = '    REPO_ROOT="${BATS_TEST_DIRNAME}/../.."\n'
 root_new = f"    REPO_ROOT={repo_root!r}\n"
-guard = "        signal.setitimer(signal.ITIMER_REAL, 0)  # SECURITY_RULE:validation_deadline_disarm\n"
+guard = "    signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGALRM})  # SECURITY_RULE:terminal_signal_mask\n"
 if test_source.count(root_old) != 1:
-    raise SystemExit("DEADLINE_DISARM_TEST_ROOT_SEAM_MISSING_OR_AMBIGUOUS")
+    raise SystemExit("TERMINAL_MASK_TEST_ROOT_SEAM_MISSING_OR_AMBIGUOUS")
 validator_source = open(validator_path, encoding="utf-8").read()
 if validator_source.count(guard) != 1:
-    raise SystemExit("DEADLINE_DISARM_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+    raise SystemExit("TERMINAL_MASK_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
 open(test_path, "w", encoding="utf-8").write(test_source.replace(root_old, root_new, 1))
 open(validator_path, "w", encoding="utf-8").write(
-    validator_source.replace(guard, "        pass  # MUTATED:validation_deadline_disarm\n", 1)
+    validator_source.replace(guard, "    pass  # MUTATED:terminal_signal_mask\n", 1)
 )
 PY
-    chmod +x "$deadline_disarm_validator"
-    expected="$(expected_red_lines "$deadline_disarm_filter")" || return 1
+    chmod +x "$terminal_mask_validator"
+    expected="$(expected_red_lines "$terminal_mask_filter")" || return 1
     run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
-        CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$deadline_disarm_validator" \
-        bats --filter "^${deadline_disarm_filter}$" "$deadline_disarm_mutant"
-    assert_attributed_mutant_kill validation_deadline_disarm "$deadline_disarm_filter" \
+        CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$terminal_mask_validator" \
+        bats --filter "^${terminal_mask_filter}$" "$terminal_mask_mutant"
+    [[ "$output" == *"crypto_output="* ]] || return 1
+    assert_attributed_mutant_kill terminal_signal_mask "$terminal_mask_filter" \
         "$expected" "$status" "$output" || return 1
+
+    post_popen_filter='OpenSSL deadline terminates stubborn descendant pipe holders'
+    for callsite in silent bounded source_history masked; do
+        post_popen_mutant="${BATS_TEST_TMPDIR}/post-popen-${callsite}.bats"
+        cp "$FUNCTIONAL_TEST" "$post_popen_mutant" || return 1
+        "$PYTHON" - "$post_popen_mutant" "$REPO_ROOT" "$callsite" <<'PY' || return 1
+import sys
+
+path, repo_root, callsite = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+root_old = '    REPO_ROOT="${BATS_TEST_DIRNAME}/../.."\n'
+root_new = f"    REPO_ROOT={repo_root!r}\n"
+if callsite == "masked":
+    guard = ('        remaining_validation_time()  # SECURITY_RULE:popen_post_unmask_deadline\n'
+             '        globals()["VALIDATION_DEADLINE"] = time.monotonic() + 20\n')
+    mutant = ('        pass  # MUTATED:popen_post_unmask_deadline\n'
+              '        globals()["VALIDATION_DEADLINE"] = time.monotonic() + 20\n')
+else:
+    guard = 'if mode == "signal":\n'
+    mutant = f'if mode == "signal" and callsite != {callsite!r}:  # MUTATED:post_popen_{callsite}\n'
+if source.count(root_old) != 1 or source.count(guard) != 1:
+    raise SystemExit(f"POST_POPEN_MUTATION_SEAM_MISSING_OR_AMBIGUOUS:{callsite}")
+source = source.replace(root_old, root_new, 1).replace(guard, mutant, 1)
+open(path, "w", encoding="utf-8").write(source)
+PY
+        run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+            CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+            CUSTOMER_DELIVERY_POST_POPEN_ONLY="$callsite" \
+            bats --filter "^${post_popen_filter}$" "$post_popen_mutant"
+        if [[ "$callsite" == masked ]]; then
+            [[ "$output" == *"masked_popen_deadline_failure="* ]] || return 1
+        else
+            [[ "$output" == *"post_popen_signal_failure=${callsite}"* ]] || return 1
+        fi
+        [ "$status" -ne 0 ] \
+            && [ "$(printf '%s\n' "$output" | awk -v target="not ok 1 ${post_popen_filter}" '$0 == target { count++ } END { print count+0 }')" -eq 1 ] \
+            && [[ "$output" != *"setup_file failed"* ]] \
+            && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
+            || { printf 'post_popen_mutant_not_attributed=%s status=%s output=%s\n' \
+                "$callsite" "$status" "$output"; return 1; }
+        "$PYTHON" -c \
+            'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
+            "post_popen_${callsite}" "${callsite}|${post_popen_filter}"
+    done
 
     diagnostic_mutant="${BATS_TEST_TMPDIR}/alarm-diagnostic-substring.bats"
     diagnostic_filter='OpenSSL deadline terminates stubborn descendant pipe holders'
