@@ -22,6 +22,14 @@ setup() {
     fi
 }
 
+teardown() {
+    if [ -n "${RUNNER_FIXTURE:-}" ] \
+        && [[ "$RUNNER_FIXTURE" == "$BATS_TEST_TMPDIR/"* ]] \
+        && [ -e "$RUNNER_FIXTURE" ]; then
+        sudo chown -R "$(id -u):$(id -g)" "$RUNNER_FIXTURE"
+    fi
+}
+
 run_check() {
     run python3 "$FIXTURE/dev-tools/check-talo-0001-workflow-contract.py"
 }
@@ -32,13 +40,27 @@ setup_provision_runtime() {
     MOCK_LOG="$BATS_TEST_TMPDIR/provision-commands.log"
     RUNNER_FIXTURE="$BATS_TEST_TMPDIR/runner"
     mkdir -p "$MOCK_BIN" "$RUNNER_FIXTURE/bin" "$RUNNER_FIXTURE/externals"
-    for command in chmod chown gh install sudo systemctl sleep; do
+    for command in chmod chown curl gh install sudo systemctl sleep; do
         ln -sf "$ROOT/dev-tools/tests/fixtures/talo-0001-command-mock.sh" \
             "$MOCK_BIN/$command"
     done
     sed -i "s#RUNNER_DIR=/srv/talo-0001-trusted/runner#RUNNER_DIR=$RUNNER_FIXTURE#" \
         "$PROVISIONER"
-    printf '%s\n' fixture-config >"$RUNNER_FIXTURE/config.sh"
+    cat >"$RUNNER_FIXTURE/config.sh" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'config.sh %s\n' "$*" >>"${TALO_MOCK_LOG:?}"
+cd "$(dirname "$0")"
+if [ "${1:-}" = remove ]; then
+    rm -f -- .runner .credentials .credentials_rsaparams .env .path
+    exit 0
+fi
+cat >.runner <<'JSON'
+{"AgentId":7001,"AgentName":"talo-0001-trusted-arcana-devs","PoolId":42,"PoolName":"talo-0001-trusted","DisableUpdate":true,"Ephemeral":false,"GitHubUrl":"https://github.com/Arcanada-one","WorkFolder":"_work"}
+JSON
+[ "${TALO_MOCK_CONFIG_FAILURE:-0}" != 1 ]
+SH
+    chmod +x "$RUNNER_FIXTURE/config.sh"
     printf '%s\n' fixture-run >"$RUNNER_FIXTURE/run.sh"
     printf '%s\n' fixture-listener >"$RUNNER_FIXTURE/bin/Runner.Listener"
     printf '%s\n' fixture-worker >"$RUNNER_FIXTURE/bin/Runner.Worker"
@@ -87,6 +109,26 @@ DIGESTS
 JSON
     MOCK_BLOB="$(git hash-object "$FIXTURE/.github/workflows/talo-0001-trusted-replay.yml")"
     MOCK_UNIT_BLOB="$(git hash-object "$FIXTURE/dev-tools/systemd/talo-0001-trusted-runner.service")"
+    MOCK_SERVICE_STATE="$BATS_TEST_TMPDIR/provision-service-state"
+    MOCK_REGISTRATION_REMOVED="$BATS_TEST_TMPDIR/registration-removed"
+    : >"$MOCK_LOG"
+    rm -f -- "$MOCK_REGISTRATION_REMOVED"
+    printf '%s\n' enabled >"$MOCK_SERVICE_STATE"
+}
+
+prepare_fresh_runner_payload() {
+    local archive_source="$BATS_TEST_TMPDIR/archive-source"
+    MOCK_ARCHIVE="$BATS_TEST_TMPDIR/actions-runner.tar.gz"
+    mkdir -p "$archive_source"
+    cp -a "$RUNNER_FIXTURE/." "$archive_source/"
+    rm -f -- "$archive_source/.runner"
+    tar -czf "$MOCK_ARCHIVE" -C "$archive_source" .
+    archive_digest=$(sha256sum "$MOCK_ARCHIVE")
+    archive_digest=${archive_digest%% *}
+    sed -i -E \
+        "s#^RUNNER_ARCHIVE_SHA256=[0-9a-f]{64}#RUNNER_ARCHIVE_SHA256=$archive_digest#" \
+        "$PROVISIONER"
+    rm -rf -- "$RUNNER_FIXTURE"
 }
 
 run_provision_runtime() {
@@ -99,6 +141,13 @@ run_provision_runtime() {
         "TALO_MOCK_UNIT_BLOB=$MOCK_UNIT_BLOB" \
         "TALO_MOCK_RUNNERS_MODE=${TALO_MOCK_RUNNERS_MODE:-one}" \
         "TALO_MOCK_STOP_FAILURE=${TALO_MOCK_STOP_FAILURE:-0}" \
+        "TALO_MOCK_ENABLE_FAILURE=${TALO_MOCK_ENABLE_FAILURE:-0}" \
+        "TALO_MOCK_CONFIG_FAILURE=${TALO_MOCK_CONFIG_FAILURE:-0}" \
+        "TALO_MOCK_ENFORCE_TRAVERSAL=${TALO_MOCK_ENFORCE_TRAVERSAL:-0}" \
+        "TALO_MOCK_ARCHIVE=${MOCK_ARCHIVE:-}" \
+        "TALO_MOCK_RUNNER_DIR=$RUNNER_FIXTURE" \
+        "TALO_MOCK_SERVICE_STATE=$MOCK_SERVICE_STATE" \
+        "TALO_MOCK_REGISTRATION_REMOVED=$MOCK_REGISTRATION_REMOVED" \
         "$PROVISIONER" --register-and-start
 }
 
@@ -121,6 +170,15 @@ run_provision_runtime() {
     [ "$status" -eq 1 ] \
         && [[ "$output" == *'mismatch:trusted-trigger'* ]] \
         && [[ "$output" == *'mismatch:trusted-job'* ]]
+}
+
+@test "trusted workflow has no unused pull-request permission" {
+    local trusted="$FIXTURE/.github/workflows/talo-0001-trusted-replay.yml"
+    run grep -q 'pull-requests:' "$trusted"
+    [ "$status" -ne 0 ]
+    sed -i '/permissions:/a\  pull-requests: read' "$trusted"
+    run_check
+    [ "$status" -eq 1 ] && [[ "$output" == *'mismatch:trusted-permissions'* ]]
 }
 
 @test "trusted replay requires the exact workflow-scoped runner group" {
@@ -402,6 +460,10 @@ MUTANTS
 RUNNER_ARCHIVE_SHA256=04cf0be1aff4c3ec3554466c39124ca250e3effd8873bb7e8d68535aa9505d5d|RUNNER_ARCHIVE_SHA256=0000000000000000000000000000000000000000000000000000000000000000
 RUNNER_PAYLOAD_TREE_SHA256=802a94df6d2aee3e458620b5a1175f8646f195092081d3285b8b0dd33c8cc8f6|RUNNER_PAYLOAD_TREE_SHA256=0000000000000000000000000000000000000000000000000000000000000000
 --disableupdate|--replace
+install -d -o root -g root -m 0755 "$RUNNER_DIR"|install -d -o "$RUNNER_USER" -g "$RUNNER_USER" -m 0755 "$RUNNER_DIR"
+systemctl disable --now "$UNIT_NAME"|systemctl stop "$UNIT_NAME"
+api --method DELETE "orgs/$ORG/actions/runners/$cleanup_runner_id"|true
+fresh_registration=true|fresh_registration=false
 MUTANTS
 
     sed -i \
@@ -485,6 +547,8 @@ MUTANTS
     TALO_MOCK_STOP_FAILURE=1 run_provision_runtime
     [ "$status" -eq 1 ]
     [[ "$output" == *'unable to stop trusted runner service'* ]]
+    grep -q '^systemctl disable --now' "$MOCK_LOG"
+    [ "$(cat "$MOCK_SERVICE_STATE")" = disabled ]
     ! grep -q 'config.sh' "$MOCK_LOG"
 }
 
@@ -493,6 +557,94 @@ MUTANTS
     TALO_MOCK_RUNNERS_MODE=busy run_provision_runtime
     [ "$status" -eq 1 ]
     [[ "$output" == *'trusted runner did not become online and idle'* ]]
+    grep -q '^systemctl disable --now' "$MOCK_LOG"
+    [ "$(cat "$MOCK_SERVICE_STATE")" = disabled ]
+}
+
+@test "fresh bootstrap never traverses a root-private staging parent as runner user" {
+    setup_provision_runtime
+    prepare_fresh_runner_payload
+    TALO_MOCK_RUNNERS_MODE=fresh TALO_MOCK_ENFORCE_TRAVERSAL=1 \
+        run_provision_runtime
+    [ "$status" -eq 0 ]
+    grep -q '^config.sh --unattended' "$MOCK_LOG"
+    ! grep -q '^sudo .*talo-runner-payload' "$MOCK_LOG"
+}
+
+@test "fresh registration timeout removes local and remote partial registration" {
+    setup_provision_runtime
+    prepare_fresh_runner_payload
+    TALO_MOCK_RUNNERS_MODE=fresh-timeout run_provision_runtime
+    [ "$status" -eq 1 ]
+    [[ "$output" == *'runner registration did not reach the exact trusted group'* ]]
+    grep -q '^systemctl disable --now' "$MOCK_LOG"
+    [ ! -e "$RUNNER_FIXTURE/.runner" ]
+    [ "$(cat "$MOCK_SERVICE_STATE")" = disabled ]
+}
+
+@test "partial service enable failure disables reboot and removes fresh registration" {
+    setup_provision_runtime
+    prepare_fresh_runner_payload
+    TALO_MOCK_RUNNERS_MODE=fresh TALO_MOCK_ENABLE_FAILURE=1 \
+        run_provision_runtime
+    [ "$status" -eq 1 ]
+    [[ "$output" == *'trusted runner service start failed'* ]]
+    grep -q '^systemctl disable --now' "$MOCK_LOG"
+    [ -f "$MOCK_REGISTRATION_REMOVED" ]
+    [ ! -e "$RUNNER_FIXTURE/.runner" ]
+    [ "$(cat "$MOCK_SERVICE_STATE")" = disabled ]
+}
+
+@test "staging and transactional rollback mutants are killed behaviorally" {
+    setup_provision_runtime
+    prepare_fresh_runner_payload
+    local original="$BATS_TEST_TMPDIR/provisioner-transaction.original"
+    cp "$PROVISIONER" "$original"
+    sed -i \
+        's#if ! tar --extract#if ! sudo -u "$RUNNER_USER" -- tar --extract#' \
+        "$PROVISIONER"
+    TALO_MOCK_RUNNERS_MODE=fresh TALO_MOCK_ENFORCE_TRAVERSAL=1 \
+        run_provision_runtime
+    [ "$status" -eq 1 ]
+
+    sudo chown -R "$(id -u):$(id -g)" "$RUNNER_FIXTURE"
+    setup_provision_runtime
+    cp "$original" "$PROVISIONER"
+    sed -i \
+        's/    disable_runner_service || rollback_failed=true/    true/' \
+        "$PROVISIONER"
+    TALO_MOCK_RUNNERS_MODE=busy run_provision_runtime
+    [ "$status" -eq 1 ]
+    [ "$(cat "$MOCK_SERVICE_STATE")" = enabled ]
+
+    sudo chown -R "$(id -u):$(id -g)" "$RUNNER_FIXTURE"
+    setup_provision_runtime
+    cp "$original" "$PROVISIONER"
+    prepare_fresh_runner_payload
+    python3 - "$PROVISIONER" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+source = path.read_text(encoding="utf-8")
+old = '''    if [ "$fresh_registration" = true ]; then
+        rollback_new_registration "$id" "$known_runner_id" \\
+            || rollback_failed=true
+    fi
+'''
+new = '''    if [ "$fresh_registration" = true ]; then
+        true
+    fi
+'''
+assert source.count(old) == 1
+path.write_text(source.replace(old, new), encoding="utf-8")
+PY
+    TALO_MOCK_RUNNERS_MODE=fresh TALO_MOCK_ENABLE_FAILURE=1 \
+        run_provision_runtime
+    [ "$status" -eq 1 ]
+    [ -e "$RUNNER_FIXTURE/.runner" ]
+    [ ! -e "$MOCK_REGISTRATION_REMOVED" ]
+    printf '%s\n' 'RED_SENTINEL:runner-transactional-rollback'
 }
 
 @test "membership cardinality mutant is killed by the behavioral boundary" {
@@ -536,11 +688,13 @@ import sys
 path = Path(sys.argv[1])
 source = path.read_text(encoding="utf-8")
 old = '''        systemctl stop "$UNIT_NAME" 2>/dev/null || {
+            disable_runner_service || \\
+                echo "ERROR: trusted runner rollback could not prove fail-closed state" >&2
             echo "ERROR: unable to stop trusted runner service" >&2
             exit 1
         }
 '''
-new = '''        systemctl stop "$UNIT_NAME" 2>/dev/null || true
+new = '''        true
 '''
 assert source.count(old) == 1
 path.write_text(source.replace(old, new, 1), encoding="utf-8")

@@ -109,9 +109,10 @@ exact_group_runner() {
             ($expected_id == null or $runner.id == $expected_id) and
             ($runner.name == $name) and
             ($runner.os == "Linux") and
-            ($runner.busy == false) and
+            (($state == "cleanup") or ($runner.busy == false)) and
             (([$runner.labels[].name] | sort) == $labels) and
-            (($state == "registered" and ($runner.status == "offline" or $runner.status == "online")) or
+            (($state == "cleanup" and ($runner.status == "offline" or $runner.status == "online")) or
+             ($state == "registered" and ($runner.status == "offline" or $runner.status == "online")) or
              ($state == "online" and $runner.status == "online"))
         )) then $document.runners[0] else empty end
     ' <<<"$runners"
@@ -129,6 +130,22 @@ wait_for_exact_runner() {
         if runner=$(exact_group_runner "$id" "$required_state" "$expected_id"); then
             printf '%s\n' "$runner"
             return 0
+        fi
+        attempt=$((attempt + 1))
+        [ "$attempt" -lt "$RUNNER_VERIFY_ATTEMPTS" ] \
+            && sleep "$RUNNER_VERIFY_INTERVAL_SECONDS"
+    done
+    return 1
+}
+
+wait_for_no_runners() {
+    local id=$1 attempt=0 consecutive=0
+    while [ "$attempt" -lt "$RUNNER_VERIFY_ATTEMPTS" ]; do
+        if group_has_no_runners "$id"; then
+            consecutive=$((consecutive + 1))
+            [ "$consecutive" -ge 3 ] && return 0
+        else
+            consecutive=0
         fi
         attempt=$((attempt + 1))
         [ "$attempt" -lt "$RUNNER_VERIFY_ATTEMPTS" ] \
@@ -206,11 +223,9 @@ verify_runner_payload_tree() {
 }
 
 install_runner_payload() {
-    local scratch archive payload
+    local scratch archive
     scratch=$(mktemp -d /tmp/talo-runner-payload.XXXXXX)
     archive=$scratch/actions-runner.tar.gz
-    payload=$scratch/payload
-    mkdir -p "$payload"
     if ! curl --fail --location --silent --show-error --proto '=https' \
         --tlsv1.2 --max-time 90 --output "$archive" "$RUNNER_ARCHIVE_URL"; then
         rm -rf -- "$scratch"
@@ -222,20 +237,79 @@ install_runner_payload() {
         echo "ERROR: official runner archive digest mismatch" >&2
         return 1
     }
-    tar --extract --gzip --file "$archive" --directory "$payload" --no-same-owner
     if [ -e "$RUNNER_DIR" ] && [ -n "$(find "$RUNNER_DIR" -mindepth 1 -print -quit)" ]; then
         rm -rf -- "$scratch"
         echo "ERROR: unconfigured runner directory is not empty" >&2
         return 1
     fi
-    install -d -o "$RUNNER_USER" -g "$RUNNER_USER" -m 0755 "$RUNNER_DIR"
-    sudo -u "$RUNNER_USER" -- tar --create --directory "$payload" . \
-        | sudo -u "$RUNNER_USER" -- tar --extract --directory "$RUNNER_DIR"
+    install -d -o root -g root -m 0755 "$RUNNER_DIR"
+    if ! tar --extract --gzip --file "$archive" --directory "$RUNNER_DIR" \
+        --no-same-owner; then
+        rm -rf -- "$scratch"
+        echo "ERROR: official runner payload extraction failed" >&2
+        return 1
+    fi
+    chown -R "$RUNNER_USER:$RUNNER_USER" "$RUNNER_DIR"
     rm -rf -- "$scratch"
     if ! verify_runner_payload || ! verify_runner_payload_tree; then
         echo "ERROR: installed runner payload digest mismatch" >&2
         return 1
     fi
+}
+
+disable_runner_service() {
+    local enabled_state active_state
+    systemctl disable --now "$UNIT_NAME" >/dev/null 2>&1 || true
+    enabled_state=$(systemctl is-enabled "$UNIT_NAME" 2>/dev/null || true)
+    active_state=$(systemctl is-active "$UNIT_NAME" 2>/dev/null || true)
+    case "$enabled_state" in
+        disabled|not-found) ;;
+        *) return 1 ;;
+    esac
+    case "$active_state" in
+        inactive|failed|unknown) ;;
+        *) return 1 ;;
+    esac
+}
+
+rollback_new_registration() {
+    local id=$1 known_runner_id=${2:-} runner cleanup_runner_id \
+        cleanup_failed=false
+    if ! group_has_no_runners "$id"; then
+        if [ -z "$known_runner_id" ] && [ -f "$RUNNER_DIR/.runner" ]; then
+            known_runner_id=$(jq -er \
+                '.AgentId | select(type == "number" and . > 0 and floor == .)' \
+                "$RUNNER_DIR/.runner" 2>/dev/null || true)
+        fi
+        if [ -z "$known_runner_id" ]; then
+            cleanup_failed=true
+        elif runner=$(exact_group_runner "$id" cleanup "$known_runner_id"); then
+            cleanup_runner_id=$(jq -r .id <<<"$runner")
+            api --method DELETE "orgs/$ORG/actions/runners/$cleanup_runner_id" \
+                >/dev/null || cleanup_failed=true
+        else
+            cleanup_failed=true
+        fi
+    fi
+    wait_for_no_runners "$id" || cleanup_failed=true
+    rm -f -- "$RUNNER_DIR/.runner" "$RUNNER_DIR/.credentials" \
+        "$RUNNER_DIR/.credentials_rsaparams" "$RUNNER_DIR/.env" \
+        "$RUNNER_DIR/.path" || cleanup_failed=true
+    [ "$cleanup_failed" = false ]
+}
+
+abort_runner_transaction() {
+    local id=$1 fresh_registration=$2 known_runner_id=$3 message=$4 rollback_failed=false
+    disable_runner_service || rollback_failed=true
+    if [ "$fresh_registration" = true ]; then
+        rollback_new_registration "$id" "$known_runner_id" \
+            || rollback_failed=true
+    fi
+    if [ "$rollback_failed" = true ]; then
+        echo "ERROR: trusted runner rollback could not prove fail-closed state" >&2
+    fi
+    echo "ERROR: $message" >&2
+    exit 1
 }
 
 ensure_runner_payload() {
@@ -308,7 +382,8 @@ ensure_group() {
 }
 
 register_and_start() {
-    local id token runner runner_id load_state install_payload=false
+    local id token runner runner_id load_state install_payload=false \
+        fresh_registration=false
     [ "$(id -u)" -eq 0 ] || { echo "ERROR: registration requires root" >&2; exit 1; }
     id=$(ensure_group)
     verify_group "$id"
@@ -348,7 +423,13 @@ register_and_start() {
             exit 1
         }
         systemctl stop "$UNIT_NAME" 2>/dev/null || {
+            disable_runner_service || \
+                echo "ERROR: trusted runner rollback could not prove fail-closed state" >&2
             echo "ERROR: unable to stop trusted runner service" >&2
+            exit 1
+        }
+        disable_runner_service || {
+            echo "ERROR: unable to disable trusted runner service" >&2
             exit 1
         }
     fi
@@ -361,50 +442,54 @@ register_and_start() {
     if [ ! -f "$RUNNER_DIR/.runner" ]; then
         token=$(api --method POST "orgs/$ORG/actions/runners/registration-token" --jq .token)
         [ -n "$token" ] || { echo "ERROR: empty runner registration token" >&2; exit 1; }
-        sudo -u "$RUNNER_USER" "$RUNNER_DIR/config.sh" --unattended \
+        fresh_registration=true
+        if ! sudo -u "$RUNNER_USER" "$RUNNER_DIR/config.sh" --unattended \
             --url "https://github.com/$ORG" --token "$token" \
             --runnergroup "$GROUP_NAME" --name "$RUNNER_NAME" \
-            --labels "$RUNNER_LABEL" --work _work --disableupdate
+            --labels "$RUNNER_LABEL" --work _work --disableupdate; then
+            token=REDACTED
+            abort_runner_transaction "$id" "$fresh_registration" "$runner_id" \
+                "runner configuration failed"
+        fi
         token=REDACTED
         runner=$(wait_for_exact_runner "$id" registered) || {
-            echo "ERROR: runner registration did not reach the exact trusted group" >&2
-            exit 1
+            abort_runner_transaction "$id" "$fresh_registration" "$runner_id" \
+                "runner registration did not reach the exact trusted group"
         }
         runner_id=$(jq -r .id <<<"$runner")
         verify_local_registration "$runner_id" "$id" || {
-            echo "ERROR: local runner registration mismatch" >&2
-            exit 1
+            abort_runner_transaction "$id" "$fresh_registration" "$runner_id" \
+                "local runner registration mismatch"
         }
     fi
     harden_runner_payload || {
-        echo "ERROR: runner payload hardening failed" >&2
-        exit 1
+        abort_runner_transaction "$id" "$fresh_registration" "$runner_id" \
+            "runner payload hardening failed"
     }
     install -o root -g root -m 0644 \
-        "$ROOT/dev-tools/systemd/$UNIT_NAME" "/etc/systemd/system/$UNIT_NAME"
+        "$ROOT/dev-tools/systemd/$UNIT_NAME" "/etc/systemd/system/$UNIT_NAME" || {
+        abort_runner_transaction "$id" "$fresh_registration" "$runner_id" \
+            "trusted runner unit installation failed"
+    }
     systemctl daemon-reload || {
-        echo "ERROR: trusted runner service reload failed" >&2
-        exit 1
+        abort_runner_transaction "$id" "$fresh_registration" "$runner_id" \
+            "trusted runner service reload failed"
     }
     systemctl enable --now "$UNIT_NAME" || {
-        systemctl stop "$UNIT_NAME" 2>/dev/null || true
-        echo "ERROR: trusted runner service start failed" >&2
-        exit 1
+        abort_runner_transaction "$id" "$fresh_registration" "$runner_id" \
+            "trusted runner service start failed"
     }
     systemctl is-active --quiet "$UNIT_NAME" || {
-        systemctl stop "$UNIT_NAME" 2>/dev/null || true
-        echo "ERROR: trusted runner service is not active" >&2
-        exit 1
+        abort_runner_transaction "$id" "$fresh_registration" "$runner_id" \
+            "trusted runner service is not active"
     }
     runner=$(wait_for_exact_runner "$id" online "$runner_id") || {
-        systemctl stop "$UNIT_NAME" 2>/dev/null || true
-        echo "ERROR: trusted runner did not become online and idle" >&2
-        exit 1
+        abort_runner_transaction "$id" "$fresh_registration" "$runner_id" \
+            "trusted runner did not become online and idle"
     }
     verify_local_registration "$(jq -r .id <<<"$runner")" "$id" || {
-        systemctl stop "$UNIT_NAME" 2>/dev/null || true
-        echo "ERROR: local runner identity changed after start" >&2
-        exit 1
+        abort_runner_transaction "$id" "$fresh_registration" "$runner_id" \
+            "local runner identity changed after start"
     }
 }
 

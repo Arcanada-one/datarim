@@ -29,7 +29,7 @@ EXPECTED_DIGESTS = {
     "publisher": "adc8edc95e02c983bfd0a690dc018c0cec986115cf614444879928936f3b578e",
     "evaluator": "a0e86fc87493231afffd3164587f0c14e463f5e8c4acd8f4f9679e2504280d1a",
     "runner-unit": "d9b25e4ea33ed2bddad9e5d1fd5a47acedfed852749f0771fb24838f70edc131",
-    "provisioner": "368e05d51ed2b2dc9c7435440d27a8bf7a74273894116e4c86729333d949b957",
+    "provisioner": "b23bed5d64e454e79f67a54d9ebc9671eb8ea09d14ef44138031f1d6694918a0",
 }
 EXPECTED_PATHS = [
     "commands/**",
@@ -194,7 +194,7 @@ def validate_trusted(workflow: dict[str, Any], findings: list[str]) -> None:
     )
     exact(
         workflow.get("permissions"),
-        {"contents": "read", "pull-requests": "read", "checks": "write"},
+        {"contents": "read", "checks": "write"},
         "trusted-permissions",
         findings,
     )
@@ -369,9 +369,23 @@ def validate_code(findings: list[str]) -> None:
         'chown -R root:root "$RUNNER_DIR/$path"',
         'chmod -R a-w "$RUNNER_DIR/$path"',
         'verify_runner_payload_tree',
+        'install -d -o root -g root -m 0755 "$RUNNER_DIR"',
+        'if ! tar --extract --gzip --file "$archive" --directory "$RUNNER_DIR"',
+        'chown -R "$RUNNER_USER:$RUNNER_USER" "$RUNNER_DIR"',
+        'systemctl disable --now "$UNIT_NAME"',
+        'systemctl is-enabled "$UNIT_NAME"',
+        'systemctl is-active "$UNIT_NAME"',
+        'rollback_new_registration',
+        'api --method DELETE "orgs/$ORG/actions/runners/$cleanup_runner_id"',
+        '[ "$consecutive" -ge 3 ]',
+        'rm -f -- "$RUNNER_DIR/.runner"',
+        'abort_runner_transaction',
+        'fresh_registration=true',
     ):
         if value not in provisioner:
             findings.append(f"missing:runner-runtime-contract:{value}")
+    if 'sudo -u "$RUNNER_USER" -- tar' in provisioner:
+        findings.append("forbidden:runner-private-staging-traversal")
     try:
         registration = provisioner.split("register_and_start() {", 1)[1].split(
             "\n}", 1
@@ -385,6 +399,7 @@ def validate_code(findings: list[str]) -> None:
         'group_has_no_runners "$id"',
         'load_state=$(systemctl show "$UNIT_NAME"',
         'systemctl stop "$UNIT_NAME"',
+        'disable_runner_service',
         'if [ "$install_payload" = true ]',
         'ensure_runner_payload',
         'registration-token" --jq .token',

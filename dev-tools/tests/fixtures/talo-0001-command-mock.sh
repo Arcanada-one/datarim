@@ -27,9 +27,25 @@ case "$command_name" in
                 printf '%s\n' '{"total_count":1,"repositories":[{"id":1207050134}]}'
                 ;;
             *"runner-groups/42/runners"*)
+                if [ -f "${TALO_MOCK_REGISTRATION_REMOVED:-/nonexistent}" ]; then
+                    printf '%s\n' '{"total_count":0,"runners":[]}'
+                    exit 0
+                fi
                 runner='{"id":7001,"name":"talo-0001-trusted-arcana-devs","os":"Linux","status":"offline","busy":false,"labels":[{"name":"self-hosted"},{"name":"Linux"},{"name":"X64"},{"name":"talo-0001-trusted"}]}'
                 runner_calls=$(grep -c 'runner-groups/42/runners' "${TALO_MOCK_LOG:?}" || true)
                 case "${TALO_MOCK_RUNNERS_MODE:-one}" in
+                    fresh-timeout)
+                        printf '%s\n' '{"total_count":0,"runners":[]}'
+                        ;;
+                    fresh)
+                        if [ "$runner_calls" -eq 1 ]; then
+                            printf '%s\n' '{"total_count":0,"runners":[]}'
+                        else
+                            [ "$runner_calls" -le 2 ] \
+                                || runner="${runner/\"status\":\"offline\"/\"status\":\"online\"}"
+                            printf '{"total_count":1,"runners":[%s]}\n' "$runner"
+                        fi
+                        ;;
                     extra)
                         runner="${runner/\"status\":\"offline\"/\"status\":\"online\"}"
                         printf '{"total_count":2,"runners":[%s,%s]}\n' \
@@ -54,8 +70,29 @@ case "$command_name" in
                 printf '%s\n' '{"id":42,"name":"talo-0001-trusted","visibility":"selected","default":false,"allows_public_repositories":true,"restricted_to_workflows":true,"selected_workflows":["Arcanada-one/datarim/.github/workflows/talo-0001-trusted-replay.yml@refs/heads/main"]}'
                 ;;
             *"registration-token"*) printf '%s\n' fixture-token ;;
+            *"actions/runners/7001"*)
+                : >"${TALO_MOCK_REGISTRATION_REMOVED:?}"
+                ;;
             *) exit 1 ;;
         esac
+        ;;
+    curl)
+        output=
+        while [ "$#" -gt 0 ]; do
+            if [ "$1" = --output ]; then
+                output=$2
+                shift 2
+                continue
+            fi
+            shift
+        done
+        [ -n "$output" ] && [ -f "${TALO_MOCK_ARCHIVE:?}" ]
+        cp -- "$TALO_MOCK_ARCHIVE" "$output"
+        ;;
+    install)
+        if [[ " $* " == *" -d "* ]]; then
+            /usr/bin/install "$@"
+        fi
         ;;
     systemctl)
         if [ "${1:-}" = show ]; then
@@ -65,11 +102,40 @@ case "$command_name" in
         if [ "${1:-}" = stop ] && [ "${TALO_MOCK_STOP_FAILURE:-0}" = 1 ]; then
             exit 1
         fi
+        if [ "${1:-}" = disable ] && [ "${2:-}" = --now ]; then
+            printf '%s\n' disabled >"${TALO_MOCK_SERVICE_STATE:?}"
+            exit 0
+        fi
+        if [ "${1:-}" = enable ] && [ "${2:-}" = --now ]; then
+            printf '%s\n' enabled >"${TALO_MOCK_SERVICE_STATE:?}"
+            [ "${TALO_MOCK_ENABLE_FAILURE:-0}" != 1 ]
+            exit
+        fi
+        if [ "${1:-}" = is-enabled ]; then
+            state=$(cat "${TALO_MOCK_SERVICE_STATE:?}")
+            printf '%s\n' "$state"
+            [ "$state" = enabled ]
+            exit
+        fi
+        if [ "${1:-}" = is-active ]; then
+            state=$(cat "${TALO_MOCK_SERVICE_STATE:?}")
+            [ "$state" = enabled ] && exit 0
+            printf '%s\n' inactive
+            exit 3
+        fi
         exit 0
         ;;
     sudo)
-        while [ "$#" -gt 0 ] && [ "$1" != -- ]; do shift; done
-        [ "$#" -gt 0 ] && shift
+        if [ "${TALO_MOCK_ENFORCE_TRAVERSAL:-0}" = 1 ] \
+            && [[ " $* " == *"/tmp/talo-runner-payload."* ]]; then
+            exit 2
+        fi
+        if [ "${1:-}" = -u ]; then
+            shift 2
+        fi
+        if [ "${1:-}" = -- ]; then
+            shift
+        fi
         "$@"
         ;;
     *) exit 0 ;;
