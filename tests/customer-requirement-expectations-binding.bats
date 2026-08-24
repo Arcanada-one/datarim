@@ -18,6 +18,10 @@ portable_sed_in_place() {
     [ "$last_index" -gt 0 ] || return 2
     unset 'args[$last_index]'
     temp_file="$(mktemp "${file}.sed.XXXXXX")" || return 1
+    if ! cp -p "$file" "$temp_file"; then
+        rm -f "$temp_file"
+        return 1
+    fi
     if ! sed "${args[@]}" "$file" > "$temp_file"; then
         rm -f "$temp_file"
         return 1
@@ -1421,6 +1425,28 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
     [[ "$documented_count" -eq "$disk_count" ]]
 }
 
+@test "portable sed helper preserves bytes mode and sibling cleanliness" {
+    local fixture_dir="${BATS_TEST_TMPDIR}/portable-editor"
+    local fixture="${fixture_dir}/sample.txt"
+    local mode
+
+    mkdir -p "$fixture_dir"
+    printf 'alpha\n' > "$fixture"
+    chmod 640 "$fixture"
+
+    portable_sed_in_place 's/alpha/beta/' "$fixture"
+
+    [ "$(cat "$fixture")" = "beta" ] || return 1
+    [ "$(wc -c < "$fixture" | tr -d '[:space:]')" -eq 5 ] || return 1
+    if stat -c '%a' "$fixture" >/dev/null 2>&1; then
+        mode="$(stat -c '%a' "$fixture")"
+    else
+        mode="$(stat -f '%Lp' "$fixture")"
+    fi
+    [ "$mode" = "640" ] || return 1
+    [ "$(find "$fixture_dir" -mindepth 1 -maxdepth 1 -type f | wc -l | tr -d '[:space:]')" -eq 1 ]
+}
+
 @test "focused customer binding tests are BSD-portable and run in macOS CI" {
     local focused_suite="${REPO_ROOT}/tests/customer-requirement-expectations-binding.bats"
     local workflow="${REPO_ROOT}/.github/workflows/bats.yml"
@@ -1574,16 +1600,17 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
 
     cp "${REPO_ROOT}/tests/customer-requirement-expectations-binding.bats" "$mutant_suite"
     portable_sed_in_place "/^[[:space:]]*if ! sed /i\\
-    local editor=${command_token}
+    local editor
+    editor=\"\$(portable_editor_word)\"
 " "$mutant_suite"
     portable_sed_in_place \
         "s/if ! sed /if ! \"\\\$editor\" ${short_option} /" \
         "$mutant_suite"
-    run assert_no_direct_in_place_sed "$mutant_suite"
-    if [ "$status" -ne 1 ] || [[ "$output" != *"direct in-place sed syntax"* ]]; then
-        echo "two-line real-helper editor alias passed (status=${status}): ${output}" >&2
-        return 1
-    fi
+    run bats --filter \
+        'portable sed helper preserves bytes mode and sibling cleanliness' \
+        "$mutant_suite"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"not ok 1 portable sed helper preserves bytes mode and sibling cleanliness"* ]]
 }
 
 @test "portability anti-decay rejects in-place option variants and commented macOS wiring" {
