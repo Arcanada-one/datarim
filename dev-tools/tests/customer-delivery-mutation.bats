@@ -681,12 +681,28 @@ PY
     done
 }
 
-@test "Darwin dependency-site path and dist-info descriptor mutants are independently killed" {
+@test "Darwin executable pth authority mutant is independently killed" {
     run_darwin_dependency_site_mutants \
-        'python_pth_authority|Darwin trusted site bootstrap rejects executable pth authority' \
-        'python_site_symlink|Darwin trusted site bootstrap rejects symlinked dependency content' \
-        'python_distinfo_type|Darwin trusted site bootstrap rejects regular-file dist-info forgery' \
-        'python_distinfo_nofollow|Darwin trusted site bootstrap rejects symlinked dist-info' \
+        'python_pth_authority|Darwin trusted site bootstrap rejects executable pth authority'
+}
+
+@test "Darwin dependency-site symlink mutant is independently killed" {
+    run_darwin_dependency_site_mutants \
+        'python_site_symlink|Darwin trusted site bootstrap rejects symlinked dependency content'
+}
+
+@test "Darwin dist-info type mutant is independently killed" {
+    run_darwin_dependency_site_mutants \
+        'python_distinfo_type|Darwin trusted site bootstrap rejects regular-file dist-info forgery'
+}
+
+@test "Darwin dist-info nofollow mutant is independently killed" {
+    run_darwin_dependency_site_mutants \
+        'python_distinfo_nofollow|Darwin trusted site bootstrap rejects symlinked dist-info'
+}
+
+@test "Darwin dist-info working-directory mutant is independently killed" {
+    run_darwin_dependency_site_mutants \
         'python_distinfo_fchdir|complete canonical delivery chain is MET'
 }
 
@@ -1051,10 +1067,18 @@ PY
     done
 }
 
-@test "review inventory set closure and authentication mutants are independently killed" {
+@test "review inventory exact-set mutant is independently killed" {
     run_review_inventory_mutants \
-        'set_exact|two-requirement epic cannot close with its second originating review missing' \
-        'closure|two-requirement epic cannot close with its second originating review OPEN' \
+        'set_exact|two-requirement epic cannot close with its second originating review missing'
+}
+
+@test "review inventory closure mutant is independently killed" {
+    run_review_inventory_mutants \
+        'closure|two-requirement epic cannot close with its second originating review OPEN'
+}
+
+@test "review inventory authentication mutant is independently killed" {
+    run_review_inventory_mutants \
         'authentication|every originating review inventory record is authenticated'
 }
 
@@ -1066,7 +1090,8 @@ PY
 }
 
 @test "mutation kill attribution rejects setup syntax timeout and wrong-assertion failures" {
-    local filter='focused contract' expected=42
+    local filter='focused contract' expected=42 deadline_mutant deadline_filter
+    local diagnostic_mutant diagnostic_filter pid_width_mutant
     run assert_attributed_mutant_kill valid "$filter" "$expected" 1 \
         $'1..1\nnot ok 1 focused contract\n# (in test file fixture.bats, line 42)\n# assertion failed'
     [ "$status" -eq 0 ] && [[ "$output" == RED_SENTINEL:valid:* ]] || return 1
@@ -1089,5 +1114,97 @@ PY
 
     run assert_attributed_mutant_kill wrong "$filter" "$expected" 1 \
         $'1..1\nnot ok 1 focused contract\n# (in test file fixture.bats, line 43)\n# wrong assertion failed'
-    [ "$status" -ne 0 ] && [[ "$output" == *"HARNESS_INVALID:wrong:wrong-assertion"* ]]
+    [ "$status" -ne 0 ] && [[ "$output" == *"HARNESS_INVALID:wrong:wrong-assertion"* ]] \
+        || return 1
+
+    deadline_mutant="${BATS_TEST_TMPDIR}/deadline-post-stall.bats"
+    deadline_filter='source history subprocesses share one total deadline'
+    cp "$FUNCTIONAL_TEST" "$deadline_mutant" || return 1
+    "$PYTHON" - "$deadline_mutant" "$REPO_ROOT" <<'PY' || return 1
+import sys
+
+path, repo_root = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+stall_old = "    time.sleep(0)  # TEST_DEADLINE_STALL_MUTATION\n"
+stall_new = "    time.sleep(8)  # MUTATED:post_deadline_stall\n"
+root_old = '    REPO_ROOT="${BATS_TEST_DIRNAME}/../.."\n'
+root_new = f"    REPO_ROOT={repo_root!r}\n"
+if source.count(stall_old) != 1 or source.count(root_old) != 1:
+    raise SystemExit("POST_DEADLINE_STALL_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+source = source.replace(stall_old, stall_new, 1).replace(root_old, root_new, 1)
+open(path, "w", encoding="utf-8").write(source)
+PY
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        bats --filter "^${deadline_filter}$" "$deadline_mutant"
+    [ "$status" -ne 0 ] \
+        && [[ "$output" == *"not ok 1 ${deadline_filter}"* ]] \
+        && [[ "$output" == *"history_deadline_output="* ]] \
+        && [[ "$output" != *"setup_file failed"* ]] \
+        && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
+        || { printf 'post_deadline_mutant_status=%s output=%s\n' "$status" "$output"; return 1; }
+
+    diagnostic_mutant="${BATS_TEST_TMPDIR}/alarm-diagnostic-substring.bats"
+    diagnostic_filter='OpenSSL deadline terminates stubborn descendant pipe holders'
+    cp "$FUNCTIONAL_TEST" "$diagnostic_mutant" || return 1
+    "$PYTHON" - "$diagnostic_mutant" "$REPO_ROOT" <<'PY' || return 1
+import sys
+
+path, repo_root = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+guard_start = '''        "$PYTHON" - "$VALIDATOR_DIAGNOSTIC" <<'PY' || return 1
+'''
+guard_end = '''PY
+    fi
+}
+
+report_bounded_validator_diagnostic_hex()'''
+substring = '''        [[ "$VALIDATOR_DIAGNOSTIC" == *'check-customer-delivery.sh: line '* \\
+            && "$VALIDATOR_DIAGNOSTIC" == *' Alarm clock: 14 '* ]] || return 1
+'''
+root_old = '    REPO_ROOT="${BATS_TEST_DIRNAME}/../.."\n'
+root_new = f"    REPO_ROOT={repo_root!r}\n"
+if source.count(guard_start) != 1 or source.count(guard_end) != 1 or source.count(root_old) != 1:
+    raise SystemExit("ALARM_DIAGNOSTIC_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+guard_begin = source.index(guard_start)
+guard_finish = source.index(guard_end, guard_begin)
+source = source[:guard_begin] + substring + source[guard_finish + len("PY\n"):]
+source = source.replace(root_old, root_new, 1)
+open(path, "w", encoding="utf-8").write(source)
+PY
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        bats --filter "^${diagnostic_filter}$" "$diagnostic_mutant"
+    [ "$status" -ne 0 ] \
+        && [[ "$output" == *"not ok 1 ${diagnostic_filter}"* ]] \
+        && [[ "$output" == *'assert_bounded_validator_diagnostic_grammar || return 1'* ]] \
+        && [[ "$output" != *"setup_file failed"* ]] \
+        && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
+        || { printf 'alarm_diagnostic_mutant_status=%s output=%s\n' "$status" "$output"; return 1; }
+
+    pid_width_mutant="${BATS_TEST_TMPDIR}/alarm-diagnostic-four-digit-only.bats"
+    cp "$FUNCTIONAL_TEST" "$pid_width_mutant" || return 1
+    "$PYTHON" - "$pid_width_mutant" "$REPO_ROOT" <<'PY' || return 1
+import sys
+
+path, repo_root = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+guard = "if pid_field != pid.rjust(5):\n"
+four_digit_only = "if pid_field != pid.rjust(5) or len(pid) != 4:  # MUTATED:four_digit_only\n"
+root_old = '    REPO_ROOT="${BATS_TEST_DIRNAME}/../.."\n'
+root_new = f"    REPO_ROOT={repo_root!r}\n"
+if source.count(guard) != 1 or source.count(root_old) != 1:
+    raise SystemExit("ALARM_PID_WIDTH_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+source = source.replace(guard, four_digit_only, 1).replace(root_old, root_new, 1)
+open(path, "w", encoding="utf-8").write(source)
+PY
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        bats --filter "^${diagnostic_filter}$" "$pid_width_mutant"
+    [ "$status" -ne 0 ] \
+        && [[ "$output" == *"not ok 1 ${diagnostic_filter}"* ]] \
+        && [[ "$output" == *'assert_bounded_validator_diagnostic_grammar || return 1'* ]] \
+        && [[ "$output" != *"setup_file failed"* ]] \
+        && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
+        || { printf 'alarm_pid_width_mutant_status=%s output=%s\n' "$status" "$output"; return 1; }
 }
