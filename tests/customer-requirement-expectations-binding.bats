@@ -297,6 +297,36 @@ EOF
         && [[ "$output" == *"customer binding field appears before customer_binding_from"* ]]
 }
 
+@test "schema v4 rejects coordinated binding strip and cutover advance" {
+    local id="BIND-0020"
+    local root
+    local file
+    root="$(write_cutover_expectations "$id")"
+    file="$root/datarim/tasks/${id}-expectations.md"
+    sed -i 's/customer_binding_from: appended-customer-wish/customer_binding_from: appended-internal-wish/' "$file"
+    sed -E -i.bak '/^- \*\*2\./,/^- \*\*3\./ { /^  - (customer_derived|requirement_id|surface_class|visitor_visible|delivery_receipt):/d; }' "$file"
+    rm -f "${file}.bak"
+
+    run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"schema v4 must start customer binding at its first wish"* ]]
+}
+
+@test "verify blocks coordinated binding strip and cutover advance" {
+    local id="BIND-0021"
+    local root
+    local file
+    root="$(write_cutover_expectations "$id")"
+    file="$root/datarim/tasks/${id}-expectations.md"
+    sed -i 's/customer_binding_from: appended-customer-wish/customer_binding_from: appended-internal-wish/' "$file"
+    sed -E -i.bak '/^- \*\*2\./,/^- \*\*3\./ { /^  - (customer_derived|requirement_id|surface_class|visitor_visible|delivery_receipt):/d; }' "$file"
+    rm -f "${file}.bak"
+
+    run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"BLOCKED: expectations file fails structural validation"* ]]
+}
+
 @test "verify mode blocks a schema v4 cutover moved past a bound wish" {
     local id="BIND-0019"
     local root
@@ -370,6 +400,32 @@ EOF
     run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
     [ "$status" -eq 1 ] \
         && [[ "$output" == *"canonical schema v4 must start customer binding at its first wish"* ]]
+}
+
+@test "schema v4 rejects an invalid frontmatter status" {
+    local id="BIND-0022"
+    local root
+    local file
+    root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
+    file="$root/datarim/tasks/${id}-expectations.md"
+    sed -i 's/status: canonical/status: canonica1/' "$file"
+
+    run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"frontmatter status must be 'canonical' or 'amended'"* ]]
+}
+
+@test "verify blocks an invalid frontmatter status" {
+    local id="BIND-0023"
+    local root
+    local file
+    root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
+    file="$root/datarim/tasks/${id}-expectations.md"
+    sed -i 's/status: canonical/status: canonica1/' "$file"
+
+    run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"BLOCKED: expectations file fails structural validation"* ]]
 }
 
 @test "schema v4 rejects duplicate customer binding fields" {
