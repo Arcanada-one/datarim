@@ -1,14 +1,17 @@
 # suite shard total mode first last platforms
-functional 1 7 ordinal 1 24 linux,macos
-functional 2 7 ordinal 25 48 linux,macos
-functional 3 7 ordinal 49 72 linux,macos
-functional 4 7 ordinal 73 96 linux,macos
-functional 5 7 ordinal 97 120 linux,macos
-functional 6 7 ordinal 121 144 linux,macos
-functional 7 7 ordinal 145 177 linux,macos
-schema 1 3 ordinal 1 57 linux,macos
-schema 2 3 ordinal 58 113 linux,macos
-schema 3 3 ordinal 114 173 linux,macos
+functional 1 9 ordinal 1 20 linux,macos
+functional 2 9 ordinal 21 40 linux,macos
+functional 3 9 ordinal 41 60 linux,macos
+functional 4 9 ordinal 61 80 linux,macos
+functional 5 9 ordinal 81 100 linux,macos
+functional 6 9 ordinal 101 120 linux,macos
+functional 7 9 ordinal 121 140 linux,macos
+functional 8 9 ordinal 141 160 linux,macos
+functional 9 9 ordinal 161 177 linux,macos
+schema 1 4 ordinal 1 44 linux,macos
+schema 2 4 ordinal 45 87 linux,macos
+schema 3 4 ordinal 88 130 linux,macos
+schema 4 4 ordinal 131 173 linux,macos
 mutation 1 23 ordinal 1,3 - linux
 mutation 2 23 security 1 7 linux
 mutation 3 23 security 8 14 linux
