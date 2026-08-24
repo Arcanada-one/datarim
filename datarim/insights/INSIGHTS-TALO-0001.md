@@ -4,7 +4,7 @@ artifact: insights
 schema_version: 1
 research_mode: full
 created_at: 2026-08-24T12:24:36Z
-updated_at: 2026-08-24T12:42:15Z
+updated_at: 2026-08-24T17:06:13Z
 status: complete
 scope: frontend-design-knowledge-contract
 language: en
@@ -94,6 +94,137 @@ from task status or mutable branch names:
 | Datarim | `a58e1a28454ab35cba26a8df71d4794662b0d339` | customer-delivery/review-evolution canon, templates, gates, agents and skills |
 | Talomnia knowledge | `c636fea7b7dda0245fbbfd1da8a5a78c7e56c2ae` | ontology, authority events, revisions, receipts and TALO ledgers |
 | Talomnia site | `20f58029b1e81a093938e4795ed9d8b6f3ff0ed8` | design/i18n/browser gates and dependency lock |
+
+### Authoritative R1/R2 item audit
+
+The customer-side Revision 1 and Revision 2 reviews are Tier 2 sources under
+the TALO-0001 authority model. They decompose and clarify Tier 1 operator
+requirements; they cannot weaken, replace or close Tier 1. This audit selects
+all 66 items as delivery inputs. No item is rejected. `Direct` means the item
+must shape the reusable frontend-design Knowledge Contract; `cross-functional`
+means it remains in the atomic product/content/governance ledger without being
+misrepresented as a standalone design rule; `human boundary` preserves the
+source's explicit acceptance authority. A mapping below is a pinned planning
+disposition, never evidence that the visitor-facing finding has been delivered.
+
+The primary item text is pinned to Talomnia knowledge snapshot
+`c636fea7b7dda0245fbbfd1da8a5a78c7e56c2ae`:
+
+| Review | Primary source | Git blob | Items | Decision |
+|---|---|---|---:|---|
+| R1 | `research/sources/talo-0033/issue-42-review-r1.md` | `aa584b0f768d7d52d511ae0e1924201f79c3216c` | 28 | changes requested |
+| R2 | `research/sources/talo-0033/issue-44-review-r2.md` | `97493085aaccdc50e96b32b3112b4e2ca3c23833` | 38 | changes requested; R1 remains in force |
+
+The complete item bodies, measurements, required changes and acceptance text
+remain verbatim in those blobs. The rows below reproduce each item heading
+verbatim and bind it to the authoritative executor disposition. This prevents a
+short summary from silently dropping an item while avoiding a second mutable
+copy of each full review body.
+
+#### Revision 1 item coverage
+
+The mapping source is `research/sources/talo-0033/issue-42-executor-intake.md`
+(blob `192c57a5f7c183471b37295790996e1e7fd1e88c`) and its published executor record,
+[issue #42 comment 5347868439](https://github.com/Arcanada-one/talomnia-trace/issues/42#issuecomment-5347868439),
+body `sha256:13632ed476d6aec738e7bdc16b08f47d42707186a8a0d5a56e873b4d4575333b`,
+accessed 2026-08-24.
+
+| Item | Verbatim item heading | Pinned disposition and delivery mapping | KC research selection |
+|---|---|---|---|
+| R1-01 | Workforce sells internal capabilities instead of professional work | Taken -> `TALO-0033` | Direct: customer-task hierarchy |
+| R1-02 | The commercial surfaces have no data behind them | Taken -> `TALO-0034` | Cross-functional: offer data and intent |
+| R1-03 | The mandatory Market Research is not published | Taken -> `TALO-0035` | Cross-functional: publication/projection |
+| R1-04 | Workflow pages are readable by engineers, not by humans | Taken -> `TALO-0036` | Direct: progressive evidence hierarchy |
+| R1-05 | The Workflow number carries no economic meaning | Taken -> `TALO-0036` | Direct: honest evidence presentation |
+| R1-06 | The home page must explain the product faster. | Taken -> `TALO-0037` | Direct: comprehension-first hierarchy |
+| R1-07 | Separate the three levels of communication. | Taken -> `TALO-0037` plus Workforce enforcement in `TALO-0033` | Direct: customer/product/technology order |
+| R1-08 | Capability Atlas needs an overview mode. | Taken -> `TALO-0039` | Direct: overview before detail |
+| R1-09 | Capability Atlas needs search. | Taken -> `TALO-0040` | Direct: findability and filtering |
+| R1-10 | Atlas cards must be much shorter. | Taken -> `TALO-0039` | Direct: bounded card density |
+| R1-11 | Show the graph, at least minimally. | Taken -> `TALO-0040` | Direct: relationship visualization |
+| R1-12 | Make Workflows the primary evidentiary product section. | Taken -> `TALO-0036` | Direct: evidence-led information architecture |
+| R1-13 | Publish the site launch itself as a Workflow. | Taken -> `TALO-0041` | Cross-functional: case-study content |
+| R1-14 | Market Research must be both Research and Workflow, without duplicated data. | Taken -> `TALO-0035` | Direct: reciprocal information architecture |
+| R1-15 | Investor Room reads as a status page. | Taken -> `TALO-0044` | Direct: investor narrative hierarchy |
+| R1-16 | Publish the White Paper as HTML. | Taken -> `TALO-0043` | Cross-functional: document publication |
+| R1-17 | Produce the Pitch Deck. | Argued dependency deferral -> `TALO-0046` | Cross-functional: content dependency preserved |
+| R1-18 | Add Founder / Why us. | Argued identity-source deferral -> `TALO-0045` | Cross-functional: no fabricated identity facts |
+| R1-19 | Reduce internal jargon on customer-facing pages. | Taken -> `TALO-0038` | Direct: plain-language ordering |
+| R1-20 | Stop mixing Russian prose with English technical vocabulary without need. | Taken -> `TALO-0038` | Direct: bilingual terminology rule |
+| R1-21 | Explain Evidence with one concrete example. | Taken -> `TALO-0038` | Direct: example before abstraction |
+| R1-22 | Explain Knowledge Contract in plain language before the architecture. | Taken -> `TALO-0038` | Direct: plain-language explanation |
+| R1-23 | Every main page needs a contextual CTA. | Taken -> `TALO-0042` | Direct: contextual conversion |
+| R1-24 | The contact form must carry the intent it was reached from. | Taken -> `TALO-0042` | Direct: interaction-state continuity |
+| R1-25 | Add investor and co-founder intents. | Taken -> `TALO-0042` | Direct: intent taxonomy |
+| R1-26 | A human visual review is required before final acceptance. | Planned-not-closed -> `TALO-0049` | Human boundary: screenshot evidence cannot self-accept aesthetics |
+| R1-27 | Reduce density on technical pages. | Taken -> `TALO-0048` | Direct: progressive disclosure |
+| R1-28 | Give Evidence a visual language. | Taken -> `TALO-0047` | Direct: reusable evidence component |
+
+#### Revision 2 item coverage
+
+The mapping source is the published executor disposition,
+[issue #44 comment 5347971637](https://github.com/Arcanada-one/talomnia-trace/issues/44#issuecomment-5347971637),
+body `sha256:e959472939f0c81c73636b7a397b8988864696bc565e68d308aa15b46e98f6b1`,
+accessed 2026-08-24. `Fold` retains the named R1 requirement and adds only the
+R2 delta; it does not replace the R1 item.
+
+| Item | Verbatim item heading | Pinned disposition and delivery mapping | KC research selection |
+|---|---|---|---|
+| R2-01 | Remove the unapproved refund promise (§15.5 violation). | Taken, new -> `TALO-0051` | Cross-functional: commercial-policy constraint |
+| R2-02 | Publish the existing market research (extends R1-03, now much cheaper). | Fold -> `TALO-0035` | Cross-functional: publication/projection |
+| R2-03 | Pricing cards must exist as data (same as R1-02). | Fold -> `TALO-0034`; intent preselection also `TALO-0042` | Cross-functional: offer data and intent |
+| R2-04 | Resolve the Evidence Gate circularity. | Taken, new -> `TALO-0052` | Direct: non-contradictory availability copy |
+| R2-05 | Workforce must sell work, not internals (same as R1-01). | Fold -> `TALO-0033` | Direct: service deliverables before internals |
+| R2-06 | Split Workflow 0 from the launch epic, and correct the statuses. | Fold and rescope -> `TALO-0041` | Direct: truthful scope/status presentation |
+| R2-07 | Investor Room has no documents (extends R1-16, R1-17). | Fold -> `TALO-0043`, `TALO-0046` | Cross-functional: document dependency |
+| R2-08 | Separate measured from estimated in every total. | Fold -> `TALO-0036` | Direct: evidence-state semantics |
+| R2-09 | Explain what 12.1h means. | Fold -> `TALO-0036` | Direct: accounting-method presentation |
+| R2-10 | Show knowledge-production cost separately from execution cost. | Fold -> `TALO-0036` | Direct: cost-category hierarchy |
+| R2-11 | Surface the negative case: "the system stopped itself." | Taken, new -> `TALO-0054` | Direct: failure evidence without status laundering |
+| R2-12 | Every workflow shows failures, rework, gaps discovered, contracts evolved. | Fold -> `TALO-0036` | Direct: complete evidence narrative |
+| R2-13 | Cost and time visualisation. | Taken, new -> `TALO-0053` | Direct: evidence visualization |
+| R2-14 | Home: state what can be given to Talomnia now | Fold -> `TALO-0037` | Direct: concrete deliverables |
+| R2-15 | Home: lead with one real workflow rather than counters. | Fold -> `TALO-0037` | Direct: proof-led home hierarchy |
+| R2-16 | The Research 0 counter works against the project | No separate task; resolved by `TALO-0035` dependency | Direct: avoid misleading empty-state emphasis |
+| R2-17 | Atlas search | Fold -> `TALO-0040` | Direct: search facets |
+| R2-18 | Atlas detail pages start with the human question, not the identifier | Fold -> `TALO-0039` | Direct: human-first detail hierarchy |
+| R2-19 | Atlas cards show clickable usage evidence | Fold -> `TALO-0040` | Direct: actionable evidence links |
+| R2-20 | Make created-for-Talomnia vs reused-from-Arcanada/Datarim vs evolved-during-execution visually plain | Fold -> `TALO-0039` | Direct: provenance visual semantics |
+| R2-21 | Knowledge Contract: show a small human example before Resolver and Receipt | Fold -> `TALO-0038` | Direct: example before internals |
+| R2-22 | How it works needs one end-to-end example | Fold -> `TALO-0038` | Direct: end-to-end explanatory narrative |
+| R2-23 | Ecosystem page is too thin for its role | Taken, new -> `TALO-0055` | Direct: product/technology/research layer map |
+| R2-24 | Investor Room needs a compact narrative before the deck | Fold -> `TALO-0044`, `TALO-0045` | Direct: compact investor journey |
+| R2-25 | Add a distinct investor intent | Fold -> `TALO-0042` | Direct: intent taxonomy |
+| R2-26 | Intent-carrying forms | Fold -> `TALO-0042` | Direct: interaction-state continuity |
+| R2-27 | Verify the honeypot field is properly hidden | Measured; regression assertion -> `TALO-0042` | Direct: accessible hidden-control behavior |
+| R2-28 | Publish a short glossary on the site | Taken, new -> `TALO-0056` | Direct: terminology support |
+| R2-29 | One stated rule for Russian/English mixing | Fold -> `TALO-0038` | Direct: bilingual terminology rule |
+| R2-30 | RU/EN parity is now a regression gate, not an aspiration. | Standing constraint -> all subtasks | Direct: i18n parity gate |
+| R2-31 | Three-level information architecture: | Fold -> `TALO-0037` | Direct: Understand -> Believe -> Verify hierarchy |
+| R2-32 | Internal slugs must not serve as product copy | Fold; verified by `TALO-0048` | Direct: human labels before identifiers |
+| R2-33 | Card density: one to three sentences | Fold -> `TALO-0048`; Atlas implementation in `TALO-0039` | Direct: bounded card density |
+| R2-34 | Progressive disclosure for raw ledger, artifact matrix, resolution details, provenance, revision metadata | Fold -> `TALO-0048` | Direct: collapse, never delete evidence |
+| R2-35 | Diagrams where prose now stands | Taken, new -> `TALO-0057` | Direct: diagram selection and verification |
+| R2-36 | Each workflow gets a case-study identity | Fold -> `TALO-0036` | Direct: workflow case-study pattern |
+| R2-37 | The legal draft status should not dominate every page. | Taken, new -> `TALO-0058` | Direct: accurate status placement |
+| R2-38 | Deduplicate the honesty disclaimer into a reusable status component | Fold -> `TALO-0058` | Direct: reusable status component |
+
+#### Derived planning and reusable-artifact identities
+
+These records prove how the primary reviews were ingested and resolved. They
+do not replace the 66 primary rows above and cannot be used to infer customer
+acceptance or product delivery.
+
+| Derived record | Exact identity at the pinned snapshot | Boundary |
+|---|---|---|
+| TALO-0032 R1 planning contract | `K_id sha256:31ab3f467f12afc943d2f977dabc6ea8eb32675453ebe066e8df08b8b1b8cf3c`; `R_id sha256:31ec464ee27fc6079169300a5313697390701a78c9b14beef7bb824875e416f6`; `I_id sha256:48d580be951d458c2bdbf4704c4926e8331c6e380dd3824b9e622d92a405a642` | Planning-only; contract body requires all 28 findings to be dispositioned |
+| TALO-0050 R2 planning contract | `K_id sha256:0b3910acfe1fa56758f91d61fec32377574d23b2519dc38acb18f594d0af379d`; `R_id sha256:a996b7f0c7130f7508ba07c8d4ae3c8e2c841947e290f0fceb22fc3e7798679a`; `I_id sha256:f14cde136e75d7b5c481cf1e942e8e05dea7c35b2560ac1e708013856276cc59` | Planning-only; contract preserves R1, overlap folding and no evidence reduction |
+| `tal-skill-customer-narrative@r1` | `content_digest sha256:ecdffb0f3c1407858d0cc474ddf58d2c1e9bd88688f77b32076034f0b6a35cb5` | Derived from R1/R2 research for narrative execution; it covers named slices, not the complete reviews |
+
+The R1/R2 sources therefore remain selected as authoritative Tier 2 inputs in
+their entirety. The contracts, envelopes, task mappings and narrative skill are
+useful derived evidence, but none may silently narrow the source reviews or be
+treated as a customer disposition.
 
 ### Canonical ontology boundary
 
@@ -608,6 +739,10 @@ tests or screenshots alone remain insufficient for a customer-visible outcome.
 ## Research cost ledger
 
 - Research date: 2026-08-24.
+- This research record did not capture wall-clock duration, model identity,
+  input/output token counts, compute consumption, or monetary cost. Each is
+  **unknown**, not zero. The counts and repository snapshots below are scope
+  evidence only and must never be reused as the Step 7 execution-cost ledger.
 - External source records: 29.
 - Link verification: 29/29 source URLs returned HTTP 200 on 2026-08-24.
 - Canonical repository snapshots inspected: Datarim
