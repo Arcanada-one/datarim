@@ -4,7 +4,7 @@ artifact: insights
 schema_version: 1
 research_mode: full
 created_at: 2026-08-24T12:24:36Z
-updated_at: 2026-08-24T12:24:36Z
+updated_at: 2026-08-24T12:42:15Z
 status: complete
 scope: frontend-design-knowledge-contract
 language: en
@@ -35,9 +35,12 @@ forbidden until the applicable Knowledge Contract is complete and validated as
   performance and Core Web Vitals; browser and visual evidence; artifact
   identity, provenance, versions, lifecycle, relations; mutation-capable
   acceptance.
-- Local reuse boundary reviewed: Datarim `frontend-ui`, `playwright-qa`, and
-  `performance`. Those skills cover implementation hygiene and QA, but do not
-  provide a substantive pre-code design-decision workflow.
+- Reuse-first boundary reviewed at exact remote heads: Datarim customer-
+  delivery and review-evolution canon, templates, validators, agents and
+  frontend skills; Talomnia's authority-controlled knowledge graph and
+  TALO-0008/TALO-0028 evidence; and the Talomnia site design, i18n and browser
+  verification surfaces. The exact inventory and dispositions follow the
+  source register.
 - No third-party runtime endpoint or package was selected. Endpoint probes,
   migration research, package CVE research, and infrastructure sizing are not
   applicable to this research-only lane. They must be rerun if a later artifact
@@ -80,6 +83,140 @@ it does not mean importing another organization’s brand or code wholesale.
 | S27 | Backstage Software Catalog, entity descriptor — https://backstage.io/docs/features/software-catalog/descriptor-format/ | Practical versioned envelope, owner, lifecycle and authoritative relations | **Selected as a pattern:** stable identity plus kind/apiVersion/spec/owner/lifecycle/relations. **Rejected:** importing Backstage itself or treating generated UID as stable external identity. |
 | S28 | Backstage Software Catalog, catalog graph — https://backstage.io/docs/features/software-catalog/creating-the-catalog-graph/ | Relations as graph edges for ownership, dependencies and lifecycle | **Selected as a pattern:** machine-resolvable typed edges. **Rejected:** free-text “related to” lists. |
 | S29 | Stryker, mutant states and metrics — https://stryker-mutator.io/docs/mutation-testing-elements/mutant-states-and-metrics/ | Killed, survived and no-coverage semantics | **Selected:** acceptance must demonstrate that wrong bindings and missing axes fail. **Rejected:** coverage or regex presence as proof that an assertion is sensitive. |
+
+## Reuse-first inventory at exact remote heads
+
+The inventory was read from the remote-tracking commits below, not inferred
+from task status or mutable branch names:
+
+| Repository | Exact `origin/main` read | Scope inspected |
+|---|---|---|
+| Datarim | `a58e1a28454ab35cba26a8df71d4794662b0d339` | customer-delivery/review-evolution canon, templates, gates, agents and skills |
+| Talomnia knowledge | `c636fea7b7dda0245fbbfd1da8a5a78c7e56c2ae` | ontology, authority events, revisions, receipts and TALO ledgers |
+| Talomnia site | `20f58029b1e81a093938e4795ed9d8b6f3ff0ed8` | design/i18n/browser gates and dependency lock |
+
+### Canonical ontology boundary
+
+`ontology/schemas/knowledge-contract.schema.json` defines exactly seven
+managed kinds. Primary selections are `Role`, `Skill`, and `Blueprint`;
+governance selections are `Constraint`, `SuccessCriterion`, `Policy`, and
+`CapabilityDescription`. `CapabilityDescription` is therefore required in the
+gap analysis. `Competency` is not a managed primitive and must not be invented
+as an eighth kind. Competency-shaped needs are expressed through a
+`CapabilityDescription`, the `provides` claims of selected artifacts, and
+their pinned dependency closure.
+
+Every reusable selection below remains conditional on an issued contract that
+pins both `revision_id` and `content_digest`. An approved graph revision is a
+candidate, not retrospective proof that an earlier task used it.
+
+### Datarim canon and operational projections
+
+| Disposition | Existing path(s) | Applicability and boundary |
+|---|---|---|
+| **Reuse** | `skills/customer-delivery/SKILL.md`; `config/customer-requirement.schema.json`; `config/customer-delivery-receipt.schema.json` | Atomic remark-to-requirement-to-production-AC mapping and delivery receipt. These govern customer-visible closure; tools/docs/tests alone cannot close it. |
+| **Reuse** | `config/review-evolution.schema.json`; `templates/review-evolution-template.yaml`; `dev-tools/check-review-evolution.sh`; `dev-tools/tests/check-review-evolution.bats` | Review-to-evolution disposition and validation. Bind the reviewed implementation to its forward reusable change or explicit no-change result. |
+| **Reuse** | `templates/customer-requirements-template.yaml`; `templates/customer-delivery-receipt-template.yaml`; `templates/insights-template.md` | Canonical requirement, receipt and research starting shapes; specialize through schema-valid fields, not parallel ad hoc formats. |
+| **Reuse** | `dev-tools/check-customer-delivery.sh`; customer-delivery schema and mutation suites under `dev-tools/tests/` and `tests/` | Deterministic and mutation-sensitive receipt verification. These are evidence mechanisms, not customer-visible fulfillment. |
+| **Modify/project** | `agents/researcher.md` plus the Talomnia `tal-role-design-lead@r4` selection | Researcher already exists as an agent; the approved design role exists in the knowledge graph. Add only the missing Datarim execution projection/binding needed by the contract. There is no `config/roles/` designer or researcher registry at this head. |
+| **Create** | no `skills/frontend-design/` path exists | A substantive Datarim-owned pre-code `frontend-design` skill is the central missing reusable artifact. It must route to, rather than duplicate, existing implementation and QA skills. |
+
+### Approved Talomnia candidates
+
+`approved` below means the latest authority event for that exact revision and
+digest is `approve`. Relations summarize pinned dependencies or declared graph
+edges relevant to this wave. Full digests are retained so a later contract can
+select without a mutable-name lookup.
+
+| Disposition | Kind; path | Exact revision and digest | Lifecycle; relevant relations |
+|---|---|---|---|
+| **Reuse** | Role; `graph/data/local/tal-role-design-lead@r4.json` | `tal-role-design-lead@r4`; `sha256:846f1da87895f136f8594586ff8ae24c362dd3020a8542ec29d9fbdebc98ce8c` | approved 2026-08-20; uses design-research@r3, theming-anti-fouc@r3 and honesty-presentation@r2; predecessor r3 |
+| **Reuse** | Role; `graph/data/local/tal-role-knowledge-curator@r2.json` | `tal-role-knowledge-curator@r2`; `sha256:3ee16a52b8baa517b24fd3d56e54a624f34d891809fb09c8e8038fbcb8c78078` | approved 2026-08-19; predecessor r1; use for lifecycle/provenance custody |
+| **Reuse** | Role; `graph/data/local/tal-role-evidence-auditor@r2.json` | `tal-role-evidence-auditor@r2`; `sha256:f7677f8a2b6d8fea8182a6d50e09de930af64be5f6ee0c2b16461ba0654cfac5` | approved 2026-08-19; predecessor r1; use for independent evidence review |
+| **Reuse** | Role; `graph/data/local/tal-role-deployment-operator@r2.json` | `tal-role-deployment-operator@r2`; `sha256:422083673c8de8626a993efda3ef1f9b42a7979a1fbe0f0c82e399ed25ca47a8` | approved 2026-08-19; depends on deployment skills and sanitized-projection@r1; predecessor r1 |
+| **Reuse** | Skill; `graph/data/local/tal-skill-design-research@r3.json` | `tal-skill-design-research@r3`; `sha256:35d993fba2af939f11cd1f17dc704f8a69f26775c4e4eae5fd15c19fadb3bd61` | approved 2026-08-19; predecessor r2; feeds design-lead and design-system blueprint |
+| **Modify** | Skill; `graph/data/datarim/datarim-skill-frontend-ui@r2.json` | `datarim-skill-frontend-ui@r2`; `sha256:2041e05aad7da1e8e1018f32adc3e343f740f4ea96a686e88de2c42bb64b718c` | approved 2026-08-19; predecessor r1; keep as implementation checklist and add no pre-code design authority |
+| **Modify** | Skill; `graph/data/datarim/datarim-skill-playwright-qa@r2.json` | `datarim-skill-playwright-qa@r2`; `sha256:716b8dcca722330010f580532d2c36694f7b48c3e7375d01bc4defe79663269d` | approved 2026-08-19; predecessor r1; extend or pair with a unified 12-cell evidence recipe |
+| **Reuse** | Skill; `graph/data/local/tal-skill-theming-anti-fouc@r3.json` | `tal-skill-theming-anti-fouc@r3`; `sha256:8345cb3b535c4615dfd78be1116c17d6a0949918f65108250b32b83ceef2a400` | approved 2026-08-20; depends on style-guide@r3; predecessor r2 |
+| **Reuse when applicable** | Skill; `graph/data/local/tal-skill-graph-neighbor-visualization@r1.json` | `tal-skill-graph-neighbor-visualization@r1`; `sha256:4ab784b3750853a7ee611330b9457b3f5ec07c02579edb996a4b59b2dda145b4` | approved 2026-08-19; provides `skill.graph-neighbor-visualization`; only graph-bearing page work should bind it |
+| **Reuse** | Skill; `graph/data/local/tal-skill-success-criterion-measurement@r2.json` | `tal-skill-success-criterion-measurement@r2`; `sha256:c1142ce770b875b936b03b7dc58bb49a5ec952c47beaafdf09f2ffd82f9907b4` | approved 2026-08-19; predecessor r1; binds measurements to success criteria |
+| **Reuse** | Blueprint; `graph/data/local/tal-blueprint-design-system-atlas@r4.json` | `tal-blueprint-design-system-atlas@r4`; `sha256:32bf46a553a3deaed9a3999d77e3e79908cbb9f571cbfbbc9d8d77b6781dcf8e` | approved 2026-08-20; depends on design-research@r3, design-lead@r3 and honesty-presentation@r2; predecessor r3 |
+| **Reuse** | Blueprint; `graph/data/local/tal-blueprint-component-library@r4.json` | `tal-blueprint-component-library@r4`; `sha256:87d0a35d6ce59ae2c37e0d007f16fb38ad3abe759a3b56d25bc65b48ed938e6b` | approved 2026-08-20; depends on style-guide@r4, theming-anti-fouc@r3 and design-concept@r3; predecessor r3 |
+| **Modify** | Blueprint; `graph/data/local/tal-blueprint-evidence-bearing-verification@r2.json` | `tal-blueprint-evidence-bearing-verification@r2`; `sha256:30236909268f9d1a188da61ce2b9b54db0b86b4d34660cc63720fc32d05796f1` | approved 2026-08-19; depends on evidence-auditor@r1 and success-criterion-measurement@r1; add or compose the tablet-inclusive browser matrix without rewriting history |
+| **Reuse** | Constraint; `graph/data/local/tal-constraint-style-guide@r4.json` | `tal-constraint-style-guide@r4`; `sha256:8207f39ec69afde69a229e761f49f6d88d22e6ece30c3b8210e4c96770ed86c6` | approved 2026-08-20; depends on design-concept@r3; predecessor r3 |
+| **Reuse** | Constraint; `ontology/lifted/tal-constraint-sanitized-projection@r2.json` | `tal-constraint-sanitized-projection@r2`; `sha256:b0f5583f57a7d53ea311c1b313b96a8d4512a49ac972ed95496d83908b6eaa34` | approved 2026-08-19; declared part of artifact-lifecycle policy; predecessor r1 |
+| **Reuse** | Policy; `ontology/lifted/tal-policy-honesty-presentation@r2.json` | `tal-policy-honesty-presentation@r2`; `sha256:e0dbf0c75db7066fc968ed1bcd338f698f110ae35b01861012a69a4d90bc3a9f` | approved 2026-08-19; depends on sanitized-projection@r1; predecessor r1 |
+| **Modify** | SuccessCriterion; `ontology/lifted/tal-sc-design-accessibility@r2.json` | `tal-sc-design-accessibility@r2`; `sha256:c52d9d19013020bf8e191adae5ac8b5434a247d267b0f11d7ca6eba6c3b020ca` | approved 2026-08-19; part of design-system, uses contrast checker, derived from frontend-ui; add WCAG 2.2 and manual evidence bindings through a successor if absent |
+| **Modify** | SuccessCriterion; `ontology/lifted/tal-sc-design-system@r2.json` | `tal-sc-design-system@r2`; `sha256:673acd79699ba8d37f9f1f73d1e1309f329a9134a32c0da85173d39b4ad78360` | approved 2026-08-19; uses design-accessibility and contrast checker; predecessor r1; require visitor-visible and matrix-complete outcomes |
+| **Modify** | CapabilityDescription; `graph/data/local/tal-capability-design-systems@r1.json` | `tal-capability-design-systems@r1`; `sha256:8095d49ce3af963a9ebe46ee2bc9e378e90c8f0ce3bb76bc966cf1a06d39db3e` | approved 2026-08-20; provides `capability.design.systems`; depends on design-research@r3, design-system-atlas@r4 and style-guide@r3. A successor should close the bilingual production-evidence gap instead of creating a Competency kind. |
+
+### Rejected or not yet bindable
+
+- **Reject as current selections:** `tal-skill-visual-design-critique@r3`,
+  `tal-blueprint-page-templates@r5`, and `tal-policy-design-concept@r5` exist at
+  the inspected head but have no authority event for those exact revisions.
+  A higher revision number is not approval. Select an approved predecessor or
+  issue and approve a corrected successor before contract issuance.
+- **Unbindable:** `policies/policy-review-to-evolution.md` and
+  `constraints/constraint-design-anti-patterns.md` are prose sources without
+  managed graph revisions or authority events. The artifact lane must lift,
+  validate and approve them before selection; product work cannot cite the
+  prose path as a binding.
+- **Reject:** `competencies/competency-design-systems.md` as a contract kind.
+  The canonical model already represents the need through
+  `tal-capability-design-systems@r1`; the unresolved legacy competency gap is
+  not permission to extend the seven-kind ontology ad hoc.
+
+### TALO-0008 and site evidence audit
+
+The `done` label for TALO-0008 is not design-acceptance evidence:
+
+- commits `742bcfdbefa1f71a5c23c335f879ca4f7b5c2f23`,
+  `c1ddaf0083c832113d85176f4d1021fb4629ac6c`,
+  `d63894f5550879edf3101f714096e6226686c283`, and
+  `3d82914ea008fea5f6d5b7a9b85443dc72419bb0` created the research landscape,
+  reconciliation ADR, nine design artifacts plus contrast script, and
+  capability-map entries. They did not implement the site or produce the
+  required screenshot matrix.
+- `research/research-design-landscape.md` claims 43 URLs but contains zero
+  literal `http://` or `https://` URLs, so its source provenance cannot be
+  independently replayed as written.
+- `ledger/TALO-0008.jsonl` records the original attribution as post-hoc: no
+  pre-work Knowledge Contract, no approvals, unresolved competency treatment,
+  and no wired provenance from the claimed artifacts to implementation.
+- TALO-0028 later added digest-pinned successors and approvals. Site commit
+  `dd24a8b0adafdbcc95e04ac99790eeb207b184d7` is an ancestor of the inspected
+  site `origin/main` and carries the language separation/redesign work, but it
+  does not prove operator design acceptance. That distinction remains explicit
+  for the later TALO-0049 human screenshot record.
+
+The site does provide implementation mechanisms worth reusing:
+`.github/workflows/critique-production.yml`, `scripts/design-audit.mjs`,
+`scripts/design-critique.mjs`, `scripts/design-gate.mjs`,
+`scripts/visual-verify.mjs`, `scripts/composited-contrast.mjs`,
+`scripts/design-baseline.mjs`, the critique/design mutation scripts,
+`test/site/i18n-parity.spec.ts`, the rendered accessibility/contrast tests, and
+Playwright `1.62.1` pinned in `package.json`/`pnpm-lock.yaml`. None currently
+constitutes one unified RU/EN x desktop/tablet/mobile x light/dark production
+evidence recipe; that 12-cell closure remains a gap.
+
+### Seven-kind gap analysis
+
+| Managed kind | Reuse / change decision before implementation |
+|---|---|
+| Role | Reuse approved design-lead, curator, evidence-auditor and deployment-operator revisions; create only the missing Datarim designer execution projection/binding. |
+| Skill | Reuse design-research, theming and measurement; create substantive `frontend-design`; compose/extend frontend-ui and playwright-qa without granting either pre-code design authority. |
+| Blueprint | Reuse design-system and component blueprints; revise or compose evidence-bearing-verification for a single 12-cell, SHA-bound production recipe. |
+| Constraint | Reuse approved style-guide and sanitized-projection; lift and approve design-anti-patterns only if its rules survive research and forward tests. |
+| SuccessCriterion | Revise the approved design criteria to bind WCAG 2.2, RU/EN semantic parity, three viewport classes, two themes, performance, production visibility and customer disposition. |
+| Policy | Reuse honesty-presentation; lift and approve review-to-evolution so review findings cannot disappear or be attributed post hoc. Add performance/accessibility policy only where the approved graph has no equivalent. |
+| CapabilityDescription | Revise the approved design-systems capability to cover the new pre-code design and complete production-evidence abilities. Do not create `Competency`. |
+
+Non-managed operational artifacts are still required: design/token/evidence
+templates, schema-valid examples, validator recipes, independent forward-test
+fixtures, per-boundary mutations, and the issued Knowledge Contract manifest.
+They support the seven managed kinds but do not become additional `kind`
+values.
 
 ## Findings and decisions
 
@@ -382,23 +519,23 @@ coverage without task IDs, and one mutation used to claim all relationships.
 ## Required future Knowledge Contract artifact set
 
 Research indicates that a complete pre-code contract for this product class
-needs the following reusable artifacts. Names and schemas are proposals for the
-artifact-creation lane, not artifacts created by this document.
+needs the following reusable set. The managed rows use only the canonical
+seven kinds; supporting templates and recipes are explicitly non-managed.
+Names and schemas remain proposals for the artifact-creation lane, not
+artifacts created by this document.
 
-| Kind | Required content | Key evidence |
+| Canonical kind or support class | Required content | Key evidence |
 |---|---|---|
-| Role | Frontend designer authority, responsibilities, hand-offs and boundaries | Independent role-resolution test; cannot silently become developer or approver |
-| Competency profile | Content hierarchy, visual systems, typography/color, responsive interaction, accessibility, i18n, performance-aware design, evidence literacy | Scenario evaluation across all competencies |
-| Skill | `frontend-design` pre-code workflow and routing to existing skills | Forward tests on realistic bilingual design requests |
-| Blueprint | Bilingual responsive customer-site design packet | Valid example plus missing-section mutations |
-| Token template | Primitive/semantic/component tokens, light/dark pairs, state coverage and consumer bindings | Schema validation, contrast checks and alias integrity |
-| Accessibility policy | WCAG 2.2 AA scope, normative criterion bindings and manual/automated evidence | Criterion-level checks and false-positive mutants |
-| i18n constraint | UTF-8, BCP 47, language parity, CLDR-backed formats and stress fixtures | RU/EN fixture suite and missing-key RED |
-| Responsive constraint | Content-driven breakpoints, 320px reflow, touch/keyboard parity and 12-cell matrix | Browser matrix coverage and overflow mutations |
-| Performance policy | CWV field goals, lab methodology and route/resource budgets | Multi-run reports tied to SHA and threshold mutants |
-| Visual evidence recipe | Deterministic environment, metadata, screenshots, diffs, interactions and storage | Missing-axis/metadata/baseline mutations |
-| Success criteria | Visitor-visible, production-observable outcomes linked to atomic requirements | Requirement-to-AC-to-live-evidence graph validation |
-| Knowledge Contract manifest | `K_id`, revisions, pre-work timestamps, bindings, lifecycle, provenance, relations and validator evidence | Fail-closed schema/graph gate and independent forward review |
+| Role | Pinned design-lead authority plus Datarim designer execution projection, responsibilities, hand-offs and boundaries | Independent role-resolution test; cannot silently become developer or approver |
+| Skill | `frontend-design` pre-code workflow, design-research reuse, and routing to existing implementation/QA skills | Forward tests on realistic bilingual design requests |
+| Blueprint | Approved bilingual responsive design-system packet plus unified evidence-bearing verification successor/composition | Valid example plus missing-section and missing-axis mutations |
+| Constraint | Approved style/i18n/responsive/projection invariants; graph-lifted design anti-pattern rules only after validation and approval | Schema, relation and behavior tests; wrong-revision and rule-removal RED |
+| SuccessCriterion | WCAG 2.2 AA, semantic RU/EN parity, three viewport classes, two themes, performance, live production and customer disposition | Requirement-to-AC-to-live-evidence graph validation and threshold mutants |
+| Policy | Honesty, accessibility/performance governance and graph-lifted review-to-evolution | Policy-at-issuance closure, false-positive mutants and forward review |
+| CapabilityDescription | Design-systems capability successor covering content hierarchy, visual systems, typography/color, responsive interaction, accessibility, i18n, performance-aware design and evidence literacy | Scenario evaluation across the declared `provides` claims and pinned dependency closure |
+| Supporting template (non-managed) | Primitive/semantic/component tokens, light/dark pairs, state coverage and consumer bindings | Schema validation, contrast checks and alias integrity |
+| Verification recipe (non-managed) | Deterministic environment, metadata, RU/EN x desktop/tablet/mobile x light/dark screenshots, diffs and interactions | Missing-axis/metadata/baseline mutations; exact SHA and production URL |
+| Knowledge Contract manifest (issuance record) | `K_id`, revisions/digests, pre-work timestamps, bindings, lifecycle, provenance, relations and validator evidence | Fail-closed schema/graph gate and independent forward review |
 
 ## Proposed forward-test corpus for the artifact lane
 
@@ -457,7 +594,9 @@ designer-owned, evidence-backed design contract before implementation. The new
 capability should be a short pre-code orchestrator with progressively disclosed
 references for design decisions, tokens, accessibility/i18n/responsiveness,
 performance and evidence. Its output must bind to a versioned Knowledge
-Contract before product code begins.
+Contract before product code begins. That contract may select only the seven
+canonical managed kinds, including `CapabilityDescription`; it must never
+manufacture `Competency` as a primitive kind.
 
 The selected verification model is deliberately layered: normative WCAG 2.2
 AA; semantic/native implementation guidance; RU/EN content parity; a 12-cell
@@ -471,6 +610,18 @@ tests or screenshots alone remain insufficient for a customer-visible outcome.
 - Research date: 2026-08-24.
 - External source records: 29.
 - Link verification: 29/29 source URLs returned HTTP 200 on 2026-08-24.
+- Canonical repository snapshots inspected: Datarim
+  `a58e1a28454ab35cba26a8df71d4794662b0d339`, Talomnia knowledge
+  `c636fea7b7dda0245fbbfd1da8a5a78c7e56c2ae`, and Talomnia site
+  `20f58029b1e81a093938e4795ed9d8b6f3ff0ed8`.
+- Historical evidence checked: all four TALO-0008 artifact commits,
+  `ledger/TALO-0008.jsonl`, the TALO-0028 correction lineage, site commit
+  `dd24a8b0adafdbcc95e04ac99790eeb207b184d7`, authority events, graph
+  revisions and canonical Knowledge Contract schema.
+- Stage 1 correction: expanded from three local skills to a complete
+  reuse/modify/create/reject inventory; corrected the ontology from a proposed
+  competency row to the exact seven managed kinds and
+  `CapabilityDescription`.
 - Primary/official domains represented: W3C/WAI, Unicode Consortium, web.dev /
   Chrome, Playwright, GOV.UK Design System, USWDS, JSON Schema, Backstage and
   Stryker.
