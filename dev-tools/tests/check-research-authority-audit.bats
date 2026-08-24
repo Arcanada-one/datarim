@@ -10,7 +10,8 @@ setup() {
     COMMENT_JSON="${ROOT}/comment-101.json"
     CACHE="${ROOT}/external-cache"
     mkdir -p "${KNOWLEDGE}/research/sources/review" \
-        "${KNOWLEDGE}/graph/data/local" "${KNOWLEDGE}/resolver/data/authority" "$CACHE"
+        "${KNOWLEDGE}/graph/data/local" "${KNOWLEDGE}/resolver/data/authority" \
+        "${KNOWLEDGE}/reports" "$CACHE"
 
     printf '%s\n' '## R1-01 · Alpha heading' \
         >"${KNOWLEDGE}/research/sources/review/r1.md"
@@ -20,8 +21,11 @@ setup() {
         '| R1-01 Alpha | **Taken** | TALO-0033 |' \
         >"${KNOWLEDGE}/research/sources/review/r1-map.md"
     printf '%s\n' \
-        '{"content_digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","revision_id":"candidate-role@r1"}' \
+        '{"content_digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","logical_id":"candidate-role","revision_id":"candidate-role@r1"}' \
         >"${KNOWLEDGE}/graph/data/local/candidate-role@r1.json"
+    printf '%s\n' \
+        '{"contract":{"contract_digest":"sha256:1111111111111111111111111111111111111111111111111111111111111111","body":{"resolution_receipt_digest":"sha256:2222222222222222222222222222222222222222222222222222222222222222"}},"issuance_envelope":{"envelope_digest":"sha256:3333333333333333333333333333333333333333333333333333333333333333"}}' \
+        >"${KNOWLEDGE}/reports/planning.json"
     printf '%s\n' \
         '[{"authority_class":"operator","authority_id":"operator","event_id":"evt-approve-r1","event_type":"approve","issued_at":"2026-08-24T00:00:00Z","kind":"AuthorityEvent","schema_version":"talomnia-ontology/v1","subject":{"content_digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","id":"candidate-role@r1","subject_kind":"revision"}}]' \
         >"${KNOWLEDGE}/resolver/data/authority/events.json"
@@ -38,6 +42,7 @@ setup() {
         '| ID | Authority and URL | Applicability | Selection |' \
         '|---|---|---|---|' \
         '| S20 | Reference — https://example.test/reference | Test | **Selected:** use it. **Rejected:** mutable-only identity. |' \
+        'Mapping comment: https://github.com/example/reference/issues/42#issuecomment-101' \
         '#### Revision 1 item coverage' \
         '| Item | Verbatim item heading | Pinned disposition and delivery mapping | KC research selection |' \
         '|---|---|---|---|' \
@@ -46,13 +51,15 @@ setup() {
         '| Item | Verbatim item heading | Pinned disposition and delivery mapping | KC research selection |' \
         '|---|---|---|---|' \
         '| R2-01 | Beta heading | Standing constraint -> all subtasks | Cross-functional: selected |' \
+        'Derived: sha256:1111111111111111111111111111111111111111111111111111111111111111 sha256:2222222222222222222222222222222222222222222222222222222222222222 sha256:3333333333333333333333333333333333333333333333333333333333333333 candidate-role candidate-role@r1 sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' \
         '### Approved Talomnia candidates' \
         '| Disposition | Kind; path | Exact revision and digest | Lifecycle; relevant relations |' \
         '|---|---|---|---|' \
         '| **Reuse** | Role; `graph/data/local/candidate-role@r1.json` | `candidate-role@r1`; `sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa` | approved |' \
         >"$INSIGHTS"
 
-    jq -n --arg body $'| Finding | Decision | Lands in |\n|---|---|---|\n| R2-01 beta | **Taken** | (all subtasks) |\n' '{body:$body}' >"$COMMENT_JSON"
+    jq -n --arg body $'| Finding | Decision | Lands in |\n|---|---|---|\n| R2-01 beta | **Taken** | (all subtasks) |\n' \
+        '{id:101,html_url:"https://github.com/example/reference/issues/42#issuecomment-101",issue_url:"https://api.github.com/repos/example/reference/issues/42",body:$body}' >"$COMMENT_JSON"
     COMMENT_DIGEST="$(jq -j .body "$COMMENT_JSON" | sha256sum | cut -d' ' -f1)"
     printf '%s\n' 'Pinned external body' >"${CACHE}/S20.body"
     EXTERNAL_DIGEST="$(sha256sum "${CACHE}/S20.body" | cut -d' ' -f1)"
@@ -79,9 +86,21 @@ setup() {
              mapping_source_path:"research/sources/review/r1-map.md",mapping_source_git_blob:$map_blob},
             {id:"R2",source_path:"research/sources/review/r2.md",git_blob:$r2_blob,expected_items:1,mapping_comment_id:101}
           ],
-          comments:[{id:101,navigation_url:"https://example.test/comment/101",body_sha256:$comment_digest}],
+          comments:[{id:101,repository:"example/reference",issue_number:42,navigation_url:"https://github.com/example/reference/issues/42#issuecomment-101",body_sha256:$comment_digest}],
           item_table:{expected_rows:2,canonicalization:"cells-trimmed-unit-separator-rows-lf-no-final-lf/1",sha256:$item_digest},
           candidates:[{path:"graph/data/local/candidate-role@r1.json",revision_id:"candidate-role@r1",content_digest:"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}],
+          derived_records:[
+            {id:"planning",evidence_path:"reports/planning.json",assertions:[
+              {json_pointer:"/contract/contract_digest",equals:"sha256:1111111111111111111111111111111111111111111111111111111111111111"},
+              {json_pointer:"/contract/body/resolution_receipt_digest",equals:"sha256:2222222222222222222222222222222222222222222222222222222222222222"},
+              {json_pointer:"/issuance_envelope/envelope_digest",equals:"sha256:3333333333333333333333333333333333333333333333333333333333333333"}
+            ]},
+            {id:"candidate-role@r1",evidence_path:"graph/data/local/candidate-role@r1.json",assertions:[
+              {json_pointer:"/logical_id",equals:"candidate-role"},
+              {json_pointer:"/revision_id",equals:"candidate-role@r1"},
+              {json_pointer:"/content_digest",equals:"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+            ],authority_required:"approve",authority_revision_id:"candidate-role@r1",authority_content_digest:"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+          ],
           external_pins:[{source_id:"S20",navigation_url:"https://example.test/reference",accessed_at:"2026-08-24",repository:"example/reference",commit:"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",path:"docs/reference.md",git_blob:$external_blob,content_sha256:$external_digest,immutable_url:"https://github.com/example/reference/blob/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/docs/reference.md",cache_file:"S20.body"}]
         }' >"$MANIFEST"
 }
@@ -133,6 +152,16 @@ assert_not_met() {
     assert_not_met 'delivery_mapping_mismatch:R1-01'
 }
 
+@test "unauthorized extra delivery target is rejected after digest reseal" {
+    sed -i 's/Taken -> `TALO-0033`/Taken -> `TALO-0033`, `TALO-9999`/' "$INSIGHTS"
+    local mutant_digest
+    mutant_digest="$(printf '%s' $'R1-01\037Alpha heading\037Taken -> `TALO-0033`, `TALO-9999`\037Direct: selected\nR2-01\037Beta heading\037Standing constraint -> all subtasks\037Cross-functional: selected' | sha256sum | cut -d' ' -f1)"
+    jq --arg digest "$mutant_digest" '.item_table.sha256=$digest' "$MANIFEST" >"${MANIFEST}.new"
+    mv "${MANIFEST}.new" "$MANIFEST"
+    run_validator
+    assert_not_met 'delivery_mapping_mismatch:R1-01'
+}
+
 @test "bad source path and blob are rejected independently" {
     jq '.reviews[0].source_path="research/sources/review/missing.md" | .reviews[1].git_blob="0000000000000000000000000000000000000000"' "$MANIFEST" >"${MANIFEST}.new"
     mv "${MANIFEST}.new" "$MANIFEST"
@@ -167,6 +196,54 @@ assert_not_met() {
     mv "${MANIFEST}.new" "$MANIFEST"
     run_validator
     assert_not_met 'candidate_latest_authority_not_approve:candidate-role@r1:revoke'
+    jq '.[0:1]' "${KNOWLEDGE}/resolver/data/authority/events.json" >"${ROOT}/events.dirty"
+    mv "${ROOT}/events.dirty" "${KNOWLEDGE}/resolver/data/authority/events.json"
+    run_validator
+    assert_not_met 'candidate_latest_authority_not_approve:candidate-role@r1:revoke'
+}
+
+@test "dirty source and candidate bytes cannot alter exact snapshot verdict" {
+    printf '%s\n' '## R1-01 · Dirty replacement' \
+        >"${KNOWLEDGE}/research/sources/review/r1.md"
+    printf '%s\n' \
+        '{"content_digest":"sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff","revision_id":"dirty@r9"}' \
+        >"${KNOWLEDGE}/graph/data/local/candidate-role@r1.json"
+    run_validator
+    [ "$status" -eq 0 ] \
+        && [[ "$output" == *'research_authority_audit=MET items=2 candidates=1 external_pins=1'* ]]
+}
+
+@test "structured derived pointers reject swapped K and R identities" {
+    jq '.contract.contract_digest as $k |
+      .contract.body.resolution_receipt_digest as $r |
+      .contract.contract_digest=$r |
+      .contract.body.resolution_receipt_digest=$k' \
+        "${KNOWLEDGE}/reports/planning.json" >"${ROOT}/planning.new"
+    mv "${ROOT}/planning.new" "${KNOWLEDGE}/reports/planning.json"
+    git -C "$KNOWLEDGE" add .
+    GIT_AUTHOR_DATE='2026-08-24T02:00:00Z' GIT_COMMITTER_DATE='2026-08-24T02:00:00Z' \
+        git -C "$KNOWLEDGE" commit -q -m swap-derived
+    jq --arg snapshot "$(git -C "$KNOWLEDGE" rev-parse HEAD)" '.knowledge_snapshot=$snapshot' \
+        "$MANIFEST" >"${MANIFEST}.new"
+    mv "${MANIFEST}.new" "$MANIFEST"
+    run_validator
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'derived_record_pointer_mismatch:planning:/contract/contract_digest'* ]] \
+        && [[ "$output" == *'derived_record_pointer_mismatch:planning:/contract/body/resolution_receipt_digest'* ]]
+}
+
+@test "narrative artifact logical identity is structured and authority-bound" {
+    jq '.logical_id="wrong-role"' "${KNOWLEDGE}/graph/data/local/candidate-role@r1.json" \
+        >"${ROOT}/candidate.new"
+    mv "${ROOT}/candidate.new" "${KNOWLEDGE}/graph/data/local/candidate-role@r1.json"
+    git -C "$KNOWLEDGE" add .
+    GIT_AUTHOR_DATE='2026-08-24T02:10:00Z' GIT_COMMITTER_DATE='2026-08-24T02:10:00Z' \
+        git -C "$KNOWLEDGE" commit -q -m wrong-logical-id
+    jq --arg snapshot "$(git -C "$KNOWLEDGE" rev-parse HEAD)" '.knowledge_snapshot=$snapshot' \
+        "$MANIFEST" >"${MANIFEST}.new"
+    mv "${MANIFEST}.new" "$MANIFEST"
+    run_validator
+    assert_not_met 'derived_record_pointer_mismatch:candidate-role@r1:/logical_id'
 }
 
 @test "declared-English audit rejects Cyrillic item text" {
@@ -184,6 +261,19 @@ assert_not_met() {
     assert_not_met 'comment_body_digest_mismatch:101'
 }
 
+@test "comment payload identity and canonical issue URL are bound" {
+    jq '.reviews[1].mapping_comment_id=999 | .comments[0].id=999 | .comments[0].navigation_url="https://example.invalid/comment/999"' \
+        "$MANIFEST" >"${MANIFEST}.new"
+    mv "${MANIFEST}.new" "$MANIFEST"
+    run python3 "$SCRIPT" --manifest "$MANIFEST" --insights "$INSIGHTS" \
+        --knowledge-root "$KNOWLEDGE" --comment-json "999=${COMMENT_JSON}" \
+        --external-cache-dir "$CACHE"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'comment_payload_id_mismatch:999'* ]] \
+        && [[ "$output" == *'comment_navigation_url_invalid:999'* ]] \
+        && [[ "$output" == *'comment_payload_html_url_mismatch:999'* ]]
+}
+
 @test "immutable external pin validates commit blob and cached content digest" {
     jq '.external_pins[0].commit="main"' "$MANIFEST" >"${MANIFEST}.new"
     mv "${MANIFEST}.new" "$MANIFEST"
@@ -193,6 +283,58 @@ assert_not_met() {
         && [[ "$output" == *'external_pin_commit_invalid:S20'* ]] \
         && [[ "$output" == *'external_pin_blob_mismatch:S20'* ]] \
         && [[ "$output" == *'external_pin_content_digest_mismatch:S20'* ]]
+}
+
+@test "live source gate binds repository commit and path to remote bytes" {
+    local fake_bin expected_raw
+    fake_bin="${ROOT}/fake-curl-bin"
+    expected_raw='https://raw.githubusercontent.com/example/reference/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/docs/reference.md'
+    mkdir -p "$fake_bin"
+    printf '%s\n' \
+        '#!/bin/sh' \
+        'for argument do url="$argument"; done' \
+        "if [ \"\$url\" != \"${expected_raw}\" ]; then exit 22; fi" \
+        "printf '%s\\n' 'Pinned external body'" \
+        >"${fake_bin}/curl"
+    chmod +x "${fake_bin}/curl"
+    run env PATH="${fake_bin}:${PATH}" python3 "$SCRIPT" \
+        --manifest "$MANIFEST" --insights "$INSIGHTS" --knowledge-root "$KNOWLEDGE" \
+        --comment-json "101=${COMMENT_JSON}" --external-cache-dir "$CACHE" \
+        --verify-external-remote
+    [ "$status" -eq 0 ]
+
+    jq '.external_pins[0].repository="example/nonexistent" |
+      .external_pins[0].commit="cccccccccccccccccccccccccccccccccccccccc" |
+      .external_pins[0].path="docs/missing.md" |
+      .external_pins[0].immutable_url="https://github.com/example/nonexistent/blob/cccccccccccccccccccccccccccccccccccccccc/docs/missing.md"' \
+        "$MANIFEST" >"${MANIFEST}.new"
+    mv "${MANIFEST}.new" "$MANIFEST"
+    run env PATH="${fake_bin}:${PATH}" python3 "$SCRIPT" \
+        --manifest "$MANIFEST" --insights "$INSIGHTS" --knowledge-root "$KNOWLEDGE" \
+        --comment-json "101=${COMMENT_JSON}" --external-cache-dir "$CACHE" \
+        --verify-external-remote
+    assert_not_met 'external_pin_remote_fetch_failed:S20'
+}
+
+@test "malformed git hash-object response fails closed" {
+    local fake_bin real_git
+    fake_bin="${ROOT}/fake-bin"
+    real_git="$(command -v git)"
+    mkdir -p "$fake_bin"
+    printf '%s\n' \
+        '#!/bin/sh' \
+        'if [ "$1" = "hash-object" ]; then' \
+        '  cat >/dev/null' \
+        '  printf "%s\n" "not-a-git-object-id"' \
+        '  exit 0' \
+        'fi' \
+        "exec \"${real_git}\" \"\$@\"" \
+        >"${fake_bin}/git"
+    chmod +x "${fake_bin}/git"
+    run env PATH="${fake_bin}:${PATH}" python3 "$SCRIPT" \
+        --manifest "$MANIFEST" --insights "$INSIGHTS" --knowledge-root "$KNOWLEDGE" \
+        --comment-json "101=${COMMENT_JSON}" --external-cache-dir "$CACHE"
+    assert_not_met 'external_pin_blob_computation_failed:S20'
 }
 
 @test "combined legacy-style mutant cannot preserve a false green" {
