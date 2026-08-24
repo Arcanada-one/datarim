@@ -337,17 +337,24 @@ PY
 
 assert_bounded_validator_diagnostic_grammar() {
     local parsed_json='{"decision":"ERROR"}'
-    local observed_macos_diagnostic relative_path control_path altered_command
+    local observed_macos_diagnostic five_digit_pid relative_path control_path altered_command
+    local missing_five_digit_padding extra_five_digit_padding
     observed_macos_diagnostic="$(/bin/cat <<'EOF'
 /var/folders/df/djsxfhc17x95674wsm_g8s980000gn/T/bats-run-zuSwfD/test/1/framework-stubborn-crypto-descendant/dev-tools/check-customer-delivery.sh: line 339:  2875 Alarm clock: 14         /usr/bin/env -i LC_ALL=C /bin/bash -p -c 'cd / && exec -a "$1" "$2" "${@:3}"' bash "$python_bin" "$trusted_runtime_path" "${child_args[@]}"
 EOF
 )"
+    five_digit_pid="${observed_macos_diagnostic/:  2875 /: 42875 }"
     relative_path="${observed_macos_diagnostic#/}"
     control_path="/"$'\x1b'"${observed_macos_diagnostic#/}"
     altered_command="${observed_macos_diagnostic%/usr/bin/env*}/usr/bin/printf unexpected"
+    missing_five_digit_padding="${observed_macos_diagnostic/:  2875 /:42875 }"
+    extra_five_digit_padding="${observed_macos_diagnostic/:  2875 /:  42875 }"
 
     split_bounded_validator_json \
         "$observed_macos_diagnostic"$'\n'"$parsed_json" \
+        && [ "$VALIDATOR_JSON" = "$parsed_json" ] || return 1
+    split_bounded_validator_json \
+        "$five_digit_pid"$'\n'"$parsed_json" \
         && [ "$VALIDATOR_JSON" = "$parsed_json" ] || return 1
     if split_bounded_validator_json \
         "UNEXPECTED_PREFIX $observed_macos_diagnostic"$'\n'"$parsed_json"; then
@@ -360,6 +367,12 @@ EOF
         return 1
     fi
     if split_bounded_validator_json "$altered_command"$'\n'"$parsed_json"; then
+        return 1
+    fi
+    if split_bounded_validator_json "$missing_five_digit_padding"$'\n'"$parsed_json"; then
+        return 1
+    fi
+    if split_bounded_validator_json "$extra_five_digit_padding"$'\n'"$parsed_json"; then
         return 1
     fi
 }

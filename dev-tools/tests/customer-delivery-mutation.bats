@@ -1091,7 +1091,7 @@ PY
 
 @test "mutation kill attribution rejects setup syntax timeout and wrong-assertion failures" {
     local filter='focused contract' expected=42 deadline_mutant deadline_filter
-    local diagnostic_mutant diagnostic_filter
+    local diagnostic_mutant diagnostic_filter pid_width_mutant
     run assert_attributed_mutant_kill valid "$filter" "$expected" 1 \
         $'1..1\nnot ok 1 focused contract\n# (in test file fixture.bats, line 42)\n# assertion failed'
     [ "$status" -eq 0 ] && [[ "$output" == RED_SENTINEL:valid:* ]] || return 1
@@ -1177,7 +1177,34 @@ PY
         bats --filter "^${diagnostic_filter}$" "$diagnostic_mutant"
     [ "$status" -ne 0 ] \
         && [[ "$output" == *"not ok 1 ${diagnostic_filter}"* ]] \
+        && [[ "$output" == *'assert_bounded_validator_diagnostic_grammar || return 1'* ]] \
         && [[ "$output" != *"setup_file failed"* ]] \
         && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
         || { printf 'alarm_diagnostic_mutant_status=%s output=%s\n' "$status" "$output"; return 1; }
+
+    pid_width_mutant="${BATS_TEST_TMPDIR}/alarm-diagnostic-four-digit-only.bats"
+    cp "$FUNCTIONAL_TEST" "$pid_width_mutant" || return 1
+    "$PYTHON" - "$pid_width_mutant" "$REPO_ROOT" <<'PY' || return 1
+import sys
+
+path, repo_root = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+guard = "if pid_field != pid.rjust(5):\n"
+four_digit_only = "if pid_field != pid.rjust(5) or len(pid) != 4:  # MUTATED:four_digit_only\n"
+root_old = '    REPO_ROOT="${BATS_TEST_DIRNAME}/../.."\n'
+root_new = f"    REPO_ROOT={repo_root!r}\n"
+if source.count(guard) != 1 or source.count(root_old) != 1:
+    raise SystemExit("ALARM_PID_WIDTH_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+source = source.replace(guard, four_digit_only, 1).replace(root_old, root_new, 1)
+open(path, "w", encoding="utf-8").write(source)
+PY
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        bats --filter "^${diagnostic_filter}$" "$pid_width_mutant"
+    [ "$status" -ne 0 ] \
+        && [[ "$output" == *"not ok 1 ${diagnostic_filter}"* ]] \
+        && [[ "$output" == *'assert_bounded_validator_diagnostic_grammar || return 1'* ]] \
+        && [[ "$output" != *"setup_file failed"* ]] \
+        && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
+        || { printf 'alarm_pid_width_mutant_status=%s output=%s\n' "$status" "$output"; return 1; }
 }
