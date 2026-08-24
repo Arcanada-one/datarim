@@ -401,6 +401,32 @@ open(path, "w", encoding="utf-8").write(source.replace(anchor, instrumented, 1))
 PY
 }
 
+force_test_logical_deadline_shutdown_race() {
+    "$PYTHON" - "$TEST_SCRIPT" <<'PY' || return 1
+import sys
+
+path = sys.argv[1]
+source = open(path, encoding="utf-8").read()
+crypto_probe = '''        returncode, stdout, _stderr = run_bounded_process(
+            [PINNED_OPENSSL, "version"], stdout_limit=4096, stderr_limit=4096
+        )
+'''
+forced_race = '''        globals()["VALIDATION_DEADLINE"] = time.monotonic() + 0.1
+        signal.setitimer(signal.ITIMER_REAL, 0.2)
+        returncode, stdout, _stderr = run_bounded_process(
+            [PINNED_OPENSSL, "version"], stdout_limit=4096, stderr_limit=4096
+        )
+'''
+shutdown_yield = "    time.sleep(0)  # TEST_DEADLINE_STALL_MUTATION\n"
+shutdown_race = shutdown_yield + "    time.sleep(0.25)  # TEST_LOGICAL_DEADLINE_SHUTDOWN_RACE\n"
+if source.count(crypto_probe) != 1 or source.count(shutdown_yield) != 1:
+    raise SystemExit("LOGICAL_DEADLINE_SHUTDOWN_RACE_SEAM_MISSING_OR_AMBIGUOUS")
+source = source.replace(crypto_probe, forced_race, 1)
+source = source.replace(shutdown_yield, shutdown_race, 1)
+open(path, "w", encoding="utf-8").write(source)
+PY
+}
+
 assert_deadline_cleanup_elapsed() {
     "$PYTHON" -c \
         'import sys; elapsed=float(sys.argv[1]); ceiling=float(sys.argv[2]); assert 0.5 <= elapsed < ceiling' \
@@ -2948,9 +2974,14 @@ PY
         'VALIDATION_TOTAL_TIMEOUT_SECONDS = 20' \
         'VALIDATION_TOTAL_TIMEOUT_SECONDS = 1' || return 1
     instrument_test_validator_elapsed "$elapsed_marker" || return 1
+    force_test_logical_deadline_shutdown_race || return 1
     rebind_test_openssl "$shim" || return 1
     run_test_framework_json
-    [ -s "$elapsed_marker" ] || return 1
+    [ -s "$elapsed_marker" ] || {
+        report_bounded_validator_diagnostic_hex "$output"
+        printf 'logical_deadline_shutdown_output=%s\n' "$output"
+        return 1
+    }
     elapsed="$(<"$elapsed_marker")"
     if ! split_bounded_validator_json "$output"; then
         report_bounded_validator_diagnostic_hex "$output"

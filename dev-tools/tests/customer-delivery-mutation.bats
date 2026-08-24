@@ -1091,6 +1091,7 @@ PY
 
 @test "mutation kill attribution rejects setup syntax timeout and wrong-assertion failures" {
     local filter='focused contract' expected=42 deadline_mutant deadline_filter
+    local deadline_disarm_mutant deadline_disarm_validator deadline_disarm_filter
     local diagnostic_mutant diagnostic_filter pid_width_mutant
     run assert_attributed_mutant_kill valid "$filter" "$expected" 1 \
         $'1..1\nnot ok 1 focused contract\n# (in test file fixture.bats, line 42)\n# assertion failed'
@@ -1143,6 +1144,38 @@ PY
         && [[ "$output" != *"setup_file failed"* ]] \
         && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
         || { printf 'post_deadline_mutant_status=%s output=%s\n' "$status" "$output"; return 1; }
+
+    deadline_disarm_mutant="${BATS_TEST_TMPDIR}/deadline-disarm.bats"
+    deadline_disarm_validator="${BATS_TEST_TMPDIR}/check-customer-delivery-deadline-disarm.sh"
+    deadline_disarm_filter='OpenSSL deadline terminates stubborn descendant pipe holders'
+    cp "$FUNCTIONAL_TEST" "$deadline_disarm_mutant" || return 1
+    cp "$SCRIPT" "$deadline_disarm_validator" || return 1
+    "$PYTHON" - "$deadline_disarm_mutant" "$deadline_disarm_validator" "$REPO_ROOT" <<'PY' || return 1
+import sys
+
+test_path, validator_path, repo_root = sys.argv[1:]
+test_source = open(test_path, encoding="utf-8").read()
+root_old = '    REPO_ROOT="${BATS_TEST_DIRNAME}/../.."\n'
+root_new = f"    REPO_ROOT={repo_root!r}\n"
+guard = "        signal.setitimer(signal.ITIMER_REAL, 0)  # SECURITY_RULE:validation_deadline_disarm\n"
+if test_source.count(root_old) != 1:
+    raise SystemExit("DEADLINE_DISARM_TEST_ROOT_SEAM_MISSING_OR_AMBIGUOUS")
+validator_source = open(validator_path, encoding="utf-8").read()
+if validator_source.count(guard) != 1:
+    raise SystemExit("DEADLINE_DISARM_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+open(test_path, "w", encoding="utf-8").write(test_source.replace(root_old, root_new, 1))
+open(validator_path, "w", encoding="utf-8").write(
+    validator_source.replace(guard, "        pass  # MUTATED:validation_deadline_disarm\n", 1)
+)
+PY
+    chmod +x "$deadline_disarm_validator"
+    expected="$(expected_red_lines "$deadline_disarm_filter")" || return 1
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$deadline_disarm_validator" \
+        bats --filter "^${deadline_disarm_filter}$" "$deadline_disarm_mutant"
+    assert_attributed_mutant_kill validation_deadline_disarm "$deadline_disarm_filter" \
+        "$expected" "$status" "$output" || return 1
 
     diagnostic_mutant="${BATS_TEST_TMPDIR}/alarm-diagnostic-substring.bats"
     diagnostic_filter='OpenSSL deadline terminates stubborn descendant pipe holders'

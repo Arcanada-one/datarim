@@ -937,6 +937,8 @@ def emit(decision, code, epic_status="NOT_MET"):
 
 def validation_resource_limit(kind):
     add(f"validation_resource_limit:{kind}")
+    if kind == "deadline":
+        signal.setitimer(signal.ITIMER_REAL, 0)  # SECURITY_RULE:validation_deadline_disarm
     emit("ERROR", 2)
 
 
