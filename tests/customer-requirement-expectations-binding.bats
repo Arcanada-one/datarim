@@ -1437,6 +1437,7 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
     local original_path="$PATH"
 
     real_editor="$(command -v "$(portable_editor_word)")"
+    [[ "$real_editor" = /* && -x "$real_editor" ]] || return 1
     shim="${shim_dir}/$(portable_editor_word)"
     mkdir -p "$fixture_dir" "$shim_dir"
     printf 'alpha\n' > "$fixture"
@@ -1452,12 +1453,11 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
         '            exit 97' \
         '            ;;' \
         '    esac' \
-        'done' \
-        'exec "$REAL_SED" "$@"' > "$shim"
+        'done' > "$shim"
+    printf 'exec %q "$@"\n' "$real_editor" >> "$shim"
     chmod +x "$shim"
 
     run env \
-        REAL_SED="$real_editor" \
         SED_SHIM_LOG="$shim_log" \
         PATH="${shim_dir}:${PATH}" \
         "$(portable_editor_word)" "$long_option" 's/x/y/' "$fixture"
@@ -1466,14 +1466,14 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
 
     : > "$shim_log"
     run env \
-        REAL_SED="$real_editor" \
         SED_SHIM_LOG="$shim_log" \
         PATH="${shim_dir}:${PATH}" \
         "$(portable_editor_word)" -n 's/^alpha$/alpha/p' "$fixture"
     [ "$status" -eq 0 ] && [ "$output" = "alpha" ] || return 1
     [ ! -s "$shim_log" ] || return 1
 
-    export REAL_SED="$real_editor" SED_SHIM_LOG="$shim_log"
+    unset REAL_SED
+    export SED_SHIM_LOG="$shim_log"
     PATH="${shim_dir}:${PATH}"
     export PATH
     portable_sed_in_place 's/alpha/beta/' "$fixture"
@@ -1648,7 +1648,7 @@ parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
         's/^[[:space:]]*local temp_file$/    local temp_file editor/' \
         "$mutant_suite"
     portable_sed_in_place '/^[[:space:]]*if ! sed "${args\[@\]}" "$file" > "$temp_file"; then$/i\
-    editor="$(portable_editor_word)"
+    editor="${REAL_SED:-$(command -v "$(portable_editor_word)")}"
 ' "$mutant_suite"
     portable_sed_in_place \
         's|^[[:space:]]*if ! sed "${args\[@\]}" "$file" > "$temp_file"; then$|    if ! "$editor" '"${short_option}"' "${args[@]}" "$temp_file"; then|' \
