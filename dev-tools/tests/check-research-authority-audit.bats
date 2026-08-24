@@ -156,7 +156,9 @@ assert_not_met() {
     sed -i 's/Taken -> `TALO-0033`/Taken -> `TALO-0033`, `TALO-9999`/' "$INSIGHTS"
     local mutant_digest
     mutant_digest="$(printf '%s' $'R1-01\037Alpha heading\037Taken -> `TALO-0033`, `TALO-9999`\037Direct: selected\nR2-01\037Beta heading\037Standing constraint -> all subtasks\037Cross-functional: selected' | sha256sum | cut -d' ' -f1)"
-    jq --arg digest "$mutant_digest" '.item_table.sha256=$digest' "$MANIFEST" >"${MANIFEST}.new"
+    jq --arg digest "$mutant_digest" '.item_table.sha256=$digest |
+      .authorized_mapping_additions={"R1-01":["TALO-9999"]}' \
+        "$MANIFEST" >"${MANIFEST}.new"
     mv "${MANIFEST}.new" "$MANIFEST"
     run_validator
     assert_not_met 'delivery_mapping_mismatch:R1-01'
@@ -314,6 +316,19 @@ assert_not_met() {
         --comment-json "101=${COMMENT_JSON}" --external-cache-dir "$CACHE" \
         --verify-external-remote
     assert_not_met 'external_pin_remote_fetch_failed:S20'
+}
+
+@test "external source path rejects ambiguous and unsafe Git paths" {
+    local unsafe_path manifest_base
+    manifest_base="${ROOT}/authority-audit.base.json"
+    cp "$MANIFEST" "$manifest_base"
+    for unsafe_path in '../docs/reference.md' '/docs/reference.md' 'docs:reference.md' 'docs//reference.md'; do
+        jq --arg path "$unsafe_path" '.external_pins[0].path=$path' \
+            "$manifest_base" >"${MANIFEST}.new"
+        mv "${MANIFEST}.new" "$MANIFEST"
+        run_validator
+        assert_not_met 'external_pin_path_invalid:S20'
+    done
 }
 
 @test "malformed git hash-object response fails closed" {
