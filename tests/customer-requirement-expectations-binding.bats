@@ -569,11 +569,117 @@ EOF
     root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
     file="$root/datarim/tasks/${id}-expectations.md"
     sed -i '/^status: canonical$/a agent: planner\
-parent_init_task: datarim/tasks/ALWD-0001-init-task.md\
-parent_prd: datarim/prd/PRD-ALWD-0001.md' "$file"
+parent_init_task: ALWD-0001-init-task.md\
+parent_prd: ../prd/PRD-ALWD-0001.md' "$file"
 
     run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
     [ "$status" -eq 0 ]
+}
+
+@test "frontmatter envelope rejects a preamble and missing closing delimiter in both modes" {
+    local variant
+    local id
+    local root
+    local file
+    local expected
+    for variant in preamble missing_close; do
+        id="ENVE-0001"
+        root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
+        file="$root/datarim/tasks/${id}-expectations.md"
+        case "$variant" in
+            preamble)
+                sed -i '1i arbitrary preamble' "$file"
+                expected="frontmatter opener must be the first line"
+                ;;
+            missing_close)
+                sed -i '8d' "$file"
+                expected="frontmatter missing closing delimiter"
+                ;;
+        esac
+
+        run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+        if [ "$status" -ne 1 ] || [[ "$output" != *"${expected}"* ]]; then
+            echo "${variant} envelope passed task validation: ${output}" >&2
+            return 1
+        fi
+
+        run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
+        if [ "$status" -ne 1 ] || [[ "$output" != *"BLOCKED: expectations file fails structural validation"* ]]; then
+            echo "${variant} envelope passed verify validation: ${output}" >&2
+            return 1
+        fi
+        rm -rf "$root"
+    done
+}
+
+@test "frontmatter identity and value domains fail closed in both modes" {
+    local id="DOMN-0001"
+    local field
+    local replacement
+    local expected
+    local root
+    local file
+    while IFS='|' read -r field replacement expected; do
+        root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
+        file="$root/datarim/tasks/${id}-expectations.md"
+        sed -i "s@^${field}:.*@${field}: ${replacement}@" "$file"
+
+        run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+        if [ "$status" -ne 1 ] || [[ "$output" != *"${expected}"* ]]; then
+            echo "invalid ${field} domain passed task validation: ${output}" >&2
+            return 1
+        fi
+
+        run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
+        if [ "$status" -ne 1 ] || [[ "$output" != *"BLOCKED: expectations file fails structural validation"* ]]; then
+            echo "invalid ${field} domain passed verify validation: ${output}" >&2
+            return 1
+        fi
+        rm -rf "$root"
+    done <<EOF
+task_id|OTHR-0001|frontmatter task_id must equal requested task 'DOMN-0001'
+captured_at|2025-02-29|captured_at must be a real Gregorian YYYY-MM-DD date
+captured_at|2026-04-31|captured_at must be a real Gregorian YYYY-MM-DD date
+captured_by|/dr-do|captured_by must be /dr-init, /dr-prd, or /dr-plan
+EOF
+
+    for field in agent parent_init_task parent_prd; do
+        root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
+        file="$root/datarim/tasks/${id}-expectations.md"
+        case "$field" in
+            agent) replacement="reviewer"; expected="agent must be architect or planner" ;;
+            parent_init_task) replacement="../tasks/OTHR-0001-init-task.md"; expected="parent_init_task must equal DOMN-0001-init-task.md" ;;
+            parent_prd) replacement="../../other/PRD-OTHR-0001.md"; expected="parent_prd must equal ../prd/PRD-DOMN-0001.md" ;;
+        esac
+        sed -i "/^status: canonical$/a ${field}: ${replacement}" "$file"
+
+        run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+        if [ "$status" -ne 1 ] || [[ "$output" != *"${expected}"* ]]; then
+            echo "invalid ${field} domain passed task validation: ${output}" >&2
+            return 1
+        fi
+
+        run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
+        [ "$status" -eq 1 ] || return 1
+        rm -rf "$root"
+    done
+}
+
+@test "frontmatter accepts a Gregorian leap day and task-bound canonical parents" {
+    local id="LEAP-0001"
+    local root
+    local file
+    root="$(write_expectations "$id" 4 "$(valid_customer_binding "$id")")"
+    file="$root/datarim/tasks/${id}-expectations.md"
+    sed -i 's/^captured_at:.*/captured_at: 2024-02-29/' "$file"
+    sed -i '/^status: canonical$/a agent: architect\
+parent_init_task: LEAP-0001-init-task.md\
+parent_prd: ../prd/PRD-LEAP-0001.md' "$file"
+
+    run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+    [ "$status" -eq 0 ] || return 1
+    run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
+    [ "$status" -eq 0 ] && [[ "$output" == *"PASS"* ]]
 }
 
 @test "active expectations heading with a trailing HTML comment passes both modes" {

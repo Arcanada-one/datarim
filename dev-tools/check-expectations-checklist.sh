@@ -178,6 +178,30 @@ frontmatter_field_inventory() {
     ' "$file"
 }
 
+valid_gregorian_date() {
+    local value="$1"
+    local year month day max_day
+    if ! [[ "$value" =~ ^([0-9]{4})-([0-9]{2})-([0-9]{2})$ ]]; then
+        return 1
+    fi
+    year=$((10#${BASH_REMATCH[1]}))
+    month=$((10#${BASH_REMATCH[2]}))
+    day=$((10#${BASH_REMATCH[3]}))
+    [ "$year" -ge 1 ] || return 1
+    case "$month" in
+        1|3|5|7|8|10|12) max_day=31 ;;
+        4|6|9|11) max_day=30 ;;
+        2)
+            max_day=28
+            if (( year % 400 == 0 || (year % 4 == 0 && year % 100 != 0) )); then
+                max_day=29
+            fi
+            ;;
+        *) return 1 ;;
+    esac
+    [ "$day" -ge 1 ] && [ "$day" -le "$max_day" ]
+}
+
 days_between() {
     local from="$1" to="$2"
     local from_epoch to_epoch
@@ -606,6 +630,16 @@ validate_single_task() {
     fi
 
     local errors=0 val schema_v artifact_status frontmatter_field field_count
+    local first_line captured_at captured_by agent parent_init_task parent_prd
+
+    first_line=$(sed -n '1p' "$file")
+    if [ "$first_line" != "---" ]; then
+        echo "ERROR: $file: frontmatter opener must be the first line" >&2
+        errors=$(( errors + 1 ))
+    elif ! awk 'NR > 1 && $0 == "---" { found=1; exit } END { if (!found) exit 1 }' "$file"; then
+        echo "ERROR: $file: frontmatter missing closing delimiter" >&2
+        errors=$(( errors + 1 ))
+    fi
 
     while IFS='|' read -r frontmatter_field field_count; do
         [ -z "$frontmatter_field" ] && continue
@@ -661,6 +695,41 @@ validate_single_task() {
     val=$(extract_frontmatter_field "$file" "task_id")
     if [ -n "$val" ] && ! [[ "$val" =~ ^[A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*$ ]]; then
         echo "ERROR: $file: task_id '$val' does not match {PREFIX-NNNN} or {PREFIX-NNNN-suffix...}" >&2
+        errors=$(( errors + 1 ))
+    fi
+    if [ -n "$val" ] && [ "$val" != "$id" ]; then
+        echo "ERROR: $file: frontmatter task_id must equal requested task '$id', got '$val'" >&2
+        errors=$(( errors + 1 ))
+    fi
+
+    captured_at=$(extract_frontmatter_field "$file" "captured_at")
+    if [ -n "$captured_at" ] && ! valid_gregorian_date "$captured_at"; then
+        echo "ERROR: $file: captured_at must be a real Gregorian YYYY-MM-DD date, got '$captured_at'" >&2
+        errors=$(( errors + 1 ))
+    fi
+
+    captured_by=$(extract_frontmatter_field "$file" "captured_by")
+    if [ -n "$captured_by" ] && [ "$captured_by" != "/dr-init" ] \
+       && [ "$captured_by" != "/dr-prd" ] && [ "$captured_by" != "/dr-plan" ]; then
+        echo "ERROR: $file: captured_by must be /dr-init, /dr-prd, or /dr-plan, got '$captured_by'" >&2
+        errors=$(( errors + 1 ))
+    fi
+
+    agent=$(extract_frontmatter_field "$file" "agent")
+    if [ -n "$agent" ] && [ "$agent" != "architect" ] && [ "$agent" != "planner" ]; then
+        echo "ERROR: $file: agent must be architect or planner, got '$agent'" >&2
+        errors=$(( errors + 1 ))
+    fi
+
+    parent_init_task=$(extract_frontmatter_field "$file" "parent_init_task")
+    if [ -n "$parent_init_task" ] && [ "$parent_init_task" != "${id}-init-task.md" ]; then
+        echo "ERROR: $file: parent_init_task must equal ${id}-init-task.md, got '$parent_init_task'" >&2
+        errors=$(( errors + 1 ))
+    fi
+
+    parent_prd=$(extract_frontmatter_field "$file" "parent_prd")
+    if [ -n "$parent_prd" ] && [ "$parent_prd" != "../prd/PRD-${id}.md" ]; then
+        echo "ERROR: $file: parent_prd must equal ../prd/PRD-${id}.md, got '$parent_prd'" >&2
         errors=$(( errors + 1 ))
     fi
 
