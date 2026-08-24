@@ -64,8 +64,37 @@ except ImportError:
 
 roles_path, schema_path, root = sys.argv[1], sys.argv[2], sys.argv[3]
 
-with open(roles_path) as f:
-    data = yaml.safe_load(f)
+class UniqueKeyLoader(yaml.SafeLoader):
+    pass
+
+
+def construct_unique_mapping(loader, node, deep=False):
+    mapping = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if key in mapping:
+            raise yaml.constructor.ConstructorError(
+                "while constructing a mapping",
+                node.start_mark,
+                f"duplicate YAML key: {key}",
+                key_node.start_mark,
+            )
+        mapping[key] = loader.construct_object(value_node, deep=deep)
+    return mapping
+
+
+UniqueKeyLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+    construct_unique_mapping,
+)
+
+try:
+    with open(roles_path, encoding="utf-8") as f:
+        data = yaml.load(f, Loader=UniqueKeyLoader)
+except (OSError, yaml.YAMLError) as exc:
+    problem = getattr(exc, "problem", None) or str(exc)
+    print(f"FAIL: invalid role registry YAML: {problem}", file=sys.stderr)
+    sys.exit(1)
 with open(schema_path) as f:
     schema = json.load(f)
 

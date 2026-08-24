@@ -146,12 +146,18 @@ _fleet_backend_present_conn() {
 }
 
 # fleet_role_session_init <role> — emit the per-role session-start injection a
-# live fleet agent receives at spawn (design 3b): its starter skill pointer and
-# its allowed-tools allowlist, both read from the role registry. The orchestrator
-# pipes these into the spawned session so the agent starts scoped to its role.
+# live fleet agent receives at spawn (design 3b): its complete executable role
+# projection, read from the role registry. The orchestrator pipes these into the
+# spawned session so role identity, skills, path scope, and forbidden actions
+# cannot disappear between registry validation and runtime activation.
 # Output (one key per line, machine-readable):
 #   STARTER_SKILL=<skills/fleet/...>
 #   ALLOWED_TOOLS=<comma-separated tool names>
+#   AGENT=<agents/...md>                         (when configured)
+#   DOMAIN_SKILLS=<space-separated skills/...>  (when configured)
+#   ALLOWED_PATHS=<space-separated safe roots>
+#   PRODUCT_CODE_ACCESS=<none|read-only|read-write>
+#   FORBIDDEN_ACTIONS=<space-separated action ids>
 # Unknown role or unsafe id ⇒ fail closed (non-zero, nothing emitted).
 # DR_ORCH_DIR is the plugin root (plugins/dr-orchestrate); the role registry
 # lives at the framework repo root (two levels up), matching fleet_concurrency.sh.
@@ -163,17 +169,84 @@ fleet_role_session_init() {
   [[ "$role" =~ ^[A-Za-z0-9_-]+$ ]] || { echo "ERROR: invalid role id" >&2; return 2; }
   [ -f "$DR_FLEET_ROLES" ] || { echo "ERROR: roles file not found: $DR_FLEET_ROLES" >&2; return 1; }
   python3 - "$DR_FLEET_ROLES" "$role" <<'PY' || { echo "ERROR: unknown role: $role" >&2; return 1; }
-import sys, yaml
-doc = yaml.safe_load(open(sys.argv[1], encoding="utf-8")) or {}
+import re
+import sys
+import yaml
+
+
+class UniqueKeyLoader(yaml.SafeLoader):
+    pass
+
+
+def construct_unique_mapping(loader, node, deep=False):
+    mapping = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if key in mapping:
+            raise yaml.constructor.ConstructorError(
+                "while constructing a mapping",
+                node.start_mark,
+                f"duplicate YAML key: {key}",
+                key_node.start_mark,
+            )
+        mapping[key] = loader.construct_object(value_node, deep=deep)
+    return mapping
+
+
+UniqueKeyLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+    construct_unique_mapping,
+)
+
+
+def safe_list(entry, key):
+    value = entry.get(key) or []
+    if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+        raise ValueError(f"malformed {key}")
+    return value
+
+
+def safe_tokens(values, pattern, label):
+    if any(re.fullmatch(pattern, value) is None for value in values):
+        raise ValueError(f"unsafe {label}")
+    return values
+
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    doc = yaml.load(handle, Loader=UniqueKeyLoader) or {}
 role = sys.argv[2]
 for r in (doc.get("roles") or []):
     if r.get("id") == role:
         skill = r.get("starter_skill")
-        tools = r.get("allowed_tools") or []
-        if not skill or not isinstance(tools, list):
+        tools = safe_tokens(safe_list(r, "allowed_tools"), r"[A-Za-z][A-Za-z0-9_-]*", "allowed_tools")
+        paths = safe_tokens(safe_list(r, "allowed_paths"), r"[A-Za-z0-9_./*-]+", "allowed_paths")
+        forbidden = safe_tokens(safe_list(r, "forbidden_actions"), r"[a-z][a-z0-9-]*", "forbidden_actions")
+        domain_skills = safe_tokens(safe_list(r, "domain_skills"), r"skills/[a-z][a-z0-9-]*", "domain_skills")
+        agent = r.get("agent")
+        if not isinstance(skill, str) or re.fullmatch(r"skills/[a-z0-9-]+/[a-z0-9-]+", skill) is None:
             sys.exit(3)   # malformed role entry → fail closed
+        if agent is not None and (
+            not isinstance(agent, str)
+            or re.fullmatch(r"agents/[a-z][a-z0-9-]*\.md", agent) is None
+        ):
+            sys.exit(3)
+        product_paths = [path for path in paths if path.startswith("Projects/") and "/code/" in path]
+        knowledge_paths = [path.removesuffix("/**") for path in paths if path not in product_paths]
+        if any("*" in path for path in knowledge_paths):
+            sys.exit(3)
+        if product_paths:
+            product_access = "read-only" if "product-code-write" in forbidden else "read-write"
+        else:
+            product_access = "none"
         print(f"STARTER_SKILL={skill}")
         print("ALLOWED_TOOLS=" + ",".join(str(t) for t in tools))
+        if agent:
+            print(f"AGENT={agent}")
+        if domain_skills:
+            print("DOMAIN_SKILLS=" + " ".join(domain_skills))
+        print("ALLOWED_PATHS=" + " ".join(knowledge_paths))
+        print(f"PRODUCT_CODE_ACCESS={product_access}")
+        print("FORBIDDEN_ACTIONS=" + " ".join(forbidden))
         sys.exit(0)
 sys.exit(4)   # role not found
 PY

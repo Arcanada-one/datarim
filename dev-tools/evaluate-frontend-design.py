@@ -1267,6 +1267,14 @@ def _scenario_value_errors(scenario_id: str, values: dict[str, Any]) -> list[str
                 seen.add(identity)
         if duplicate:
             errors.append(f"scenario {scenario_id} input evidence_cells contains duplicate cells")
+    if (
+        values.get("rendered_customer_surface") is True
+        and values.get("backend_only") is True
+    ):
+        errors.append(
+            f"scenario {scenario_id} has contradictory applicability: "
+            "rendered_customer_surface and backend_only are both true"
+        )
     return errors
 
 

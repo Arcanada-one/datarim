@@ -406,3 +406,9 @@ PY
     assert_evaluator_load_red 'could not determine a constructor for the tag'
     [ ! -e "$sentinel" ]
 }
+
+@test "M38: rendered and backend-only applicability cannot both be true" {
+    mutate_text "$MUTANT/tests/fixtures/frontend-design-scenarios.yaml" \
+        '      backend_only: false' '      backend_only: true'
+    assert_evaluator_red 'scenario positive_site_wave has contradictory applicability: rendered_customer_surface and backend_only are both true'
+}

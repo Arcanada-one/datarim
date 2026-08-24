@@ -86,6 +86,16 @@ _fake_bin() { printf '#!/usr/bin/env bash\nexit 0\n' > "$TMP_BIN/$1"; chmod +x "
     echo "$output" | grep -q '^ALLOWED_TOOLS=Read,Grep,Glob,Bash$'
 }
 
+@test "fleet_role_session_init projects the designer agent, domain skill, paths, and prohibitions" {
+    run bash "$RESOLVER" fleet_role_session_init designer
+    [ "$status" -eq 0 ]
+    echo "$output" | grep -q '^AGENT=agents/designer.md$'
+    echo "$output" | grep -q '^DOMAIN_SKILLS=skills/frontend-design$'
+    echo "$output" | grep -q '^ALLOWED_PATHS=datarim documentation skills agents templates config$'
+    echo "$output" | grep -q '^PRODUCT_CODE_ACCESS=read-only$'
+    echo "$output" | grep -q '^FORBIDDEN_ACTIONS=prod-deploy secret-rotation code-merge product-code-write customer-acceptance$'
+}
+
 @test "fleet_role_session_init fails closed on an unknown role" {
     run bash "$RESOLVER" fleet_role_session_init no-such-role
     [ "$status" -ne 0 ]

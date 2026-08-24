@@ -253,6 +253,50 @@ PY
         && echo "$output" | grep -qF "duplicate role id 'designer'"
 }
 
+@test "rejects a duplicate registry root key before schema validation" {
+    write_projected_role
+    python3 - "$TMP/projected.yaml" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+text = path.read_text(encoding="utf-8")
+text = text.replace(
+    "global_max_parallel: 8",
+    "global_max_parallel: 7\nglobal_max_parallel: 8",
+    1,
+)
+path.write_text(text, encoding="utf-8")
+PY
+    require_jsonschema
+    run "$VALIDATOR" --file "$TMP/projected.yaml" --root "$REPO"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" != *"Traceback"* ]] \
+        && echo "$output" | grep -qF "duplicate YAML key: global_max_parallel"
+}
+
+@test "rejects a duplicate key inside a role mapping" {
+    write_projected_role
+    python3 - "$TMP/projected.yaml" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+text = path.read_text(encoding="utf-8")
+text = text.replace(
+    '    description: "Pre-code frontend design packets, design-system decisions, and Knowledge Contract handoff."',
+    '    description: "shadowed"\n    description: "Pre-code frontend design packets, design-system decisions, and Knowledge Contract handoff."',
+    1,
+)
+path.write_text(text, encoding="utf-8")
+PY
+    require_jsonschema
+    run "$VALIDATOR" --file "$TMP/projected.yaml" --root "$REPO"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" != *"Traceback"* ]] \
+        && echo "$output" | grep -qF "duplicate YAML key: description"
+}
+
 @test "invalid non-string role IDs fail validation without a traceback" {
     write_projected_role
     python3 - "$TMP/projected.yaml" <<'PY'
