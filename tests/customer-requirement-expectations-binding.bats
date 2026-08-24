@@ -482,6 +482,24 @@ EOF
         && [[ "$output" == *"no items found"* ]]
 }
 
+@test "schema v4 validates an active item header with a trailing HTML comment" {
+    local id="BIND-0015"
+    local root
+    local file
+    root="$(write_migrated_expectations "$id")"
+    file="$root/datarim/tasks/${id}-expectations.md"
+    sed -i 's/^- \*\*2\. Appended customer wish\.\*\*$/& <!-- active header trailing comment -->/' "$file"
+    sed -i '/^  - customer_derived: true$/,/^  - delivery_receipt:/d' "$file"
+
+    run "$CHECK_EXPECTATIONS" --task "$id" --root "$root"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"item 2 missing customer_derived"* ]] || return 1
+
+    run "$CHECK_EXPECTATIONS" --verify "$id" --root "$root"
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"BLOCKED: expectations file fails structural validation"* ]]
+}
+
 @test "verify mode blocks a structurally invalid schema v4 artifact" {
     local id="BIND-0016"
     local root

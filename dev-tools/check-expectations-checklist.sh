@@ -226,14 +226,8 @@ parse_items() {
         }
 
         {
-            if (in_comment) {
-                if ($0 ~ /-->/) in_comment = 0
-                next
-            }
-            if ($0 ~ /<!--/) {
-                if ($0 !~ /-->/) in_comment = 1
-                next
-            }
+            $0 = strip_html_comments($0)
+            if ($0 ~ /^[ \t]*$/) next
         }
 
         /^## Ожидания[ \t]*$/ {
@@ -373,6 +367,29 @@ parse_items() {
                 errors++
             }
             exit (errors > 0 ? 1 : 0)
+        }
+
+        function strip_html_comments(line,    open_at, close_at, prefix, tail) {
+            while (1) {
+                if (in_comment) {
+                    close_at = index(line, "-->")
+                    if (close_at == 0) return ""
+                    line = substr(line, close_at + 3)
+                    in_comment = 0
+                }
+
+                open_at = index(line, "<!--")
+                if (open_at == 0) return line
+
+                prefix = substr(line, 1, open_at - 1)
+                tail = substr(line, open_at + 4)
+                close_at = index(tail, "-->")
+                if (close_at == 0) {
+                    in_comment = 1
+                    return prefix
+                }
+                line = prefix substr(tail, close_at + 3)
+            }
         }
 
         function emit_item(    ovr_len) {
