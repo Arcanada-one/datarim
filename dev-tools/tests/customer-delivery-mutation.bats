@@ -361,7 +361,7 @@ PY
         'wrapper_response|empty validator response cannot be accepted as MET'
         'git_no_replace_objects|Git replacement objects cannot hide an in-place source mutation'
         'git_process_group|source history deadline kills stubborn descendant pipe holders'
-        'git_alarm_cleanup|global validation alarm reaps late source history child process group'
+        'git_finally_cleanup|global validation alarm reaps late source history child process group'
     )
     for pair in "${pairs[@]}"; do
         kind="${pair%%|*}"
@@ -488,15 +488,20 @@ elif kind == "git_process_group":
     source = source.replace(term, '            process.terminate()').replace(
         kill, '            process.kill()'
     )
-elif kind == "git_alarm_cleanup":
-    cleanup = '''        except BaseException:
-            if process is not None:
-                terminate_process_group(process)
-            raise
+elif kind == "git_finally_cleanup":
+    function_start = source.index("def _validate_source_history():\n")
+    function_end = source.index("\ndef validate_source_history():\n", function_start)
+    function_source = source[function_start:function_end]
+    cleanup = '''            if process is not None:
+                release_completed_process(process)
 '''
-    if source.count(cleanup) != 1:
-        raise SystemExit("GIT_ALARM_CLEANUP_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
-    source = source.replace(cleanup, "", 1)
+    mutant = '''            if process is not None:
+                pass  # MUTATED:source_history_finally_cleanup
+'''
+    if function_source.count(cleanup) != 1:
+        raise SystemExit("GIT_FINALLY_CLEANUP_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+    function_source = function_source.replace(cleanup, mutant, 1)
+    source = source[:function_start] + function_source + source[function_end:]
 else:
     raise SystemExit(f"unknown mutant: {kind}")
 with open(path, "w", encoding="utf-8") as handle:
@@ -506,6 +511,9 @@ PY
 
         run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
             bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+        if [[ "$kind" == git_finally_cleanup ]]; then
+            [[ "$output" == *"source_history_unwind_cleanup=active:"* ]] || return 1
+        fi
         assert_attributed_mutant_kill "$kind" "$filter" "$expected_lines" \
             "$status" "$output" \
             || { printf 'invalid_or_survived_mutant=%s status=%s output=%s\n' "$kind" "$status" "$output"; return 1; }
@@ -1226,6 +1234,40 @@ PY
             'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
             "post_popen_${callsite}" "${callsite}|${post_popen_filter}"
     done
+
+    post_popen_mutant="${BATS_TEST_TMPDIR}/post-popen-same-clock.bats"
+    cp "$FUNCTIONAL_TEST" "$post_popen_mutant" || return 1
+    "$PYTHON" - "$post_popen_mutant" "$REPO_ROOT" <<'PY' || return 1
+import sys
+
+path, repo_root = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+root_old = '    REPO_ROOT="${BATS_TEST_DIRNAME}/../.."\n'
+root_new = f"    REPO_ROOT={repo_root!r}\n"
+guard = '    instrument_test_validator_elapsed "$elapsed_marker" || return 1  # POST_POPEN_SAME_CLOCK\n'
+mutant = (
+    "    printf '%s' '-9.654199999999807e-05' > \"$elapsed_marker\""
+    "  # MUTATED:post_popen_same_clock\n"
+)
+if source.count(root_old) != 1 or source.count(guard) != 1:
+    raise SystemExit("POST_POPEN_SAME_CLOCK_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+source = source.replace(root_old, root_new, 1).replace(guard, mutant, 1)
+open(path, "w", encoding="utf-8").write(source)
+PY
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        CUSTOMER_DELIVERY_POST_POPEN_ONLY=silent \
+        bats --filter "^${post_popen_filter}$" "$post_popen_mutant"
+    [ "$status" -ne 0 ] \
+        && [[ "$output" == *"post_popen_elapsed_invalid=silent marker_hex=2d392e363534313939393939393939383037652d3035"* ]] \
+        && [ "$(printf '%s\n' "$output" | awk -v target="not ok 1 ${post_popen_filter}" '$0 == target { count++ } END { print count+0 }')" -eq 1 ] \
+        && [[ "$output" != *"setup_file failed"* ]] \
+        && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
+        || { printf 'post_popen_same_clock_mutant_not_attributed=status=%s output=%s\n' \
+            "$status" "$output"; return 1; }
+    "$PYTHON" -c \
+        'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
+        post_popen_same_clock "${post_popen_filter}|-9.654199999999807e-05"
 
     diagnostic_mutant="${BATS_TEST_TMPDIR}/alarm-diagnostic-substring.bats"
     diagnostic_filter='OpenSSL deadline terminates stubborn descendant pipe holders'

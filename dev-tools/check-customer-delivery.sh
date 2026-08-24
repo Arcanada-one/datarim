@@ -2564,10 +2564,6 @@ def _validate_source_history():
             if process is not None:
                 terminate_process_group(process)
             return None
-        except BaseException:
-            if process is not None:
-                terminate_process_group(process)
-            raise
         finally:
             if selector is not None:
                 selector.close()

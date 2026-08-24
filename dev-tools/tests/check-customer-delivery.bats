@@ -501,10 +501,39 @@ open(path, "w", encoding="utf-8").write(source)
 PY
 }
 
+instrument_source_history_unwind_marker() {
+    local marker="$1"
+    "$PYTHON" - "$TEST_SCRIPT" "$marker" <<'PY' || return 1
+import sys
+
+path, marker = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+anchor = '''def validate_source_history():
+    try:
+        _validate_source_history()
+    finally:
+'''
+instrumented = f'''def validate_source_history():
+    try:
+        _validate_source_history()
+    except ValidationDeadline:
+        state = b"released" if _active_process is None else f"active:{{_active_process.pid}}".encode("ascii")
+        with open({marker!r}, "wb") as handle:
+            handle.write(state)
+        raise
+    finally:
+'''
+if source.count(anchor) != 1:
+    raise SystemExit("SOURCE_HISTORY_UNWIND_MARKER_SEAM_MISSING_OR_AMBIGUOUS")
+open(path, "w", encoding="utf-8").write(source.replace(anchor, instrumented, 1))
+PY
+}
+
 assert_post_popen_signal_cleanup() {
     local callsite="$1" pid_file baseline_status baseline_output control_status control_output
-    local started finished elapsed child_pid attempt
+    local elapsed_marker elapsed marker_hex child_pid attempt
     pid_file="${BATS_TEST_TMPDIR}/post-popen-${callsite}.pid"
+    elapsed_marker="${BATS_TEST_TMPDIR}/post-popen-${callsite}.elapsed"
 
     build_test_framework "post-popen-${callsite}-baseline" || return 1
     run_test_framework_json
@@ -525,22 +554,27 @@ assert_post_popen_signal_cleanup() {
             "$callsite" "$control_status" "$baseline_status" "$control_output" "$baseline_output"; return 1; }
 
     build_test_framework "post-popen-${callsite}-signal" || return 1
+    instrument_test_validator_elapsed "$elapsed_marker" || return 1  # POST_POPEN_SAME_CLOCK
     instrument_test_post_popen_signal "$callsite" "$pid_file" signal || return 1
-    started="$($PYTHON -c 'import time; print(time.perf_counter())')"
     run_test_framework_json
-    finished="$($PYTHON -c 'import time; print(time.perf_counter())')"
-    elapsed="$($PYTHON -c 'import sys; print(float(sys.argv[2])-float(sys.argv[1]))' "$started" "$finished")"
+    [ -s "$elapsed_marker" ] \
+        || { printf 'post_popen_elapsed_missing=%s\n' "$callsite"; return 1; }
+    elapsed="$(<"$elapsed_marker")"
+    marker_hex="$("$PYTHON" -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).read_bytes().hex())' "$elapsed_marker")" \
+        || return 1
+    "$PYTHON" -c 'import re,sys; raw=sys.argv[1]; assert re.fullmatch(r"(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:e[+-]?[0-9]+)?", raw, re.ASCII); assert 0 <= float(raw) < 4' "$elapsed" \
+        || { printf 'post_popen_elapsed_invalid=%s marker_hex=%s status=%s output=%s\n' \
+            "$callsite" "$marker_hex" "$status" "$output"; return 1; }
     [ "$status" -eq 2 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["validation_resource_limit:deadline"]' "$output" \
-        && "$PYTHON" -c 'import sys; assert 0 <= float(sys.argv[1]) < 4' "$elapsed" \
         && [ -s "$pid_file" ] \
         || { printf 'post_popen_signal_failure=%s status=%s elapsed=%s output=%s\n' \
             "$callsite" "$status" "$elapsed" "$output"; return 1; }
     child_pid="$(<"$pid_file")"
     for attempt in {1..10}; do
         if ! kill -0 "$child_pid" 2>/dev/null; then
-            printf 'post_popen_signal=%s rc=2 finding=validation_resource_limit:deadline pid=%s reaped=1\n' \
-                "$callsite" "$child_pid"
+            printf 'post_popen_signal=%s rc=2 finding=validation_resource_limit:deadline pid=%s reaped=1 elapsed=%s marker_hex=%s\n' \
+                "$callsite" "$child_pid" "$elapsed" "$marker_hex"
             return 0
         fi
         sleep 0.05
@@ -4125,8 +4159,9 @@ PY
     local shim="${BATS_TEST_TMPDIR}/global-alarm-git"
     local leader_pidfile="${BATS_TEST_TMPDIR}/global-alarm-leader.pid"
     local descendant_pidfile="${BATS_TEST_TMPDIR}/global-alarm-descendant.pid"
-    local real_git elapsed leader_pid descendant_pid leader_state descendant_state
+    local real_git elapsed leader_pid descendant_pid leader_state descendant_state unwind_state unwind_hex
     local elapsed_marker="${BATS_TEST_TMPDIR}/global-alarm.elapsed"
+    local unwind_marker="${BATS_TEST_TMPDIR}/global-alarm-unwind.state"
     real_git="$(command -v git)" || return 1
     "$PYTHON" - "$shim" "$real_git" "$leader_pidfile" "$descendant_pidfile" <<'PY' || return 1
 import os
@@ -4156,10 +4191,23 @@ PY
         'VALIDATION_DEADLINE = time.monotonic() + VALIDATION_TOTAL_TIMEOUT_SECONDS' \
         'VALIDATION_DEADLINE = time.monotonic() + 3600' || return 1
     instrument_test_validator_elapsed "$elapsed_marker" || return 1
+    instrument_source_history_unwind_marker "$unwind_marker" || return 1
     run_test_framework_json
     [ -s "$elapsed_marker" ] || return 1
     elapsed="$(<"$elapsed_marker")"
     split_bounded_validator_json "$output" || return 1
+    if [[ -f "$unwind_marker" ]]; then
+        unwind_state="$(<"$unwind_marker")"
+        unwind_hex="$("$PYTHON" -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).read_bytes().hex())' "$unwind_marker")" \
+            || return 1
+    else
+        unwind_state=missing
+        unwind_hex=missing
+    fi
+    if [[ "$unwind_state" != released ]]; then
+        printf 'source_history_unwind_cleanup=%s marker_hex=%s\n' "$unwind_state" "$unwind_hex" >&3
+        return 1
+    fi
     if ! leader_pid="$(cat "$leader_pidfile" 2>/dev/null)" \
         || ! descendant_pid="$(cat "$descendant_pidfile" 2>/dev/null)"; then
         printf 'global_alarm_missing_pid status=%s output=%s elapsed=%s\n' \
