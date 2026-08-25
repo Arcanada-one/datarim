@@ -1256,7 +1256,7 @@ PY
 
 run_wrapper_sigchld_mutants() {
     local filter='OpenSSL deadline terminates stubborn descendant pipe holders'
-    local kind validator_mutant guard mutant expected_fragment
+    local kind validator_mutant guard mutant expected_fragment wrapper_mode
     run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
         CUSTOMER_DELIVERY_WRAPPER_SIGCHLD_ONLY=1 \
@@ -1264,6 +1264,7 @@ run_wrapper_sigchld_mutants() {
     assert_baseline_green "$filter" || return 1
 
     for kind in "$@"; do
+        wrapper_mode=1
         validator_mutant="${BATS_TEST_TMPDIR}/check-customer-delivery-wrapper-sigchld-${kind}.sh"
         cp "$SCRIPT" "$validator_mutant" || return 1
         case "$kind" in
@@ -1291,6 +1292,7 @@ run_wrapper_sigchld_mutants() {
                 guard=$'case "$OSTYPE" in\n    darwin*) bootstrap_python=\'/Library/Developer/CommandLineTools/usr/bin/python3\' ;;\n    linux*) bootstrap_python=\'/usr/bin/python3\' ;;\n    *) exit 126 ;;\nesac'
                 mutant='bootstrap_python="$(command -v python3)"  # MUTATED:wrapper_pinned_interpreter'
                 expected_fragment='wrapper_bootstrap_path_used'
+                wrapper_mode=interpreter
                 ;;
             delimiter)
                 guard='    marker = b"\n# CUSTOMER_DELIVERY_" + b"WORKER_V1\n"'
@@ -1326,11 +1328,16 @@ injected = '''    import time
         if time.monotonic() >= pending_deadline:
             raise RuntimeError("SIGCHLD fixture did not become pending")
         time.sleep(0.01)
-    os.waitpid(pending_child, 0)
 ''' + guard
-if source.count(guard) != 1:
+reaped_guard = '''    if signal.SIGCHLD in signal.sigpending():
+        raise RuntimeError("SIGCHLD remained pending")
+'''
+reaped = reaped_guard + '''    os.waitpid(pending_child, 0)  # TEST_WRAPPER_PENDING_SIGCHLD_REAP
+'''
+if source.count(guard) != 1 or source.count(reaped_guard) != 1:
     raise SystemExit("WRAPPER_SIGCHLD_DRAIN_CONTROL_SEAM_MISSING_OR_AMBIGUOUS")
-open(path, "w", encoding="utf-8").write(source.replace(guard, injected, 1))
+source = source.replace(guard, injected, 1).replace(reaped_guard, reaped, 1)
+open(path, "w", encoding="utf-8").write(source)
 PY
             chmod +x "$validator_mutant"
             run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
@@ -1353,7 +1360,7 @@ PY
         run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
             CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
             CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$validator_mutant" \
-            CUSTOMER_DELIVERY_WRAPPER_SIGCHLD_ONLY=1 \
+            CUSTOMER_DELIVERY_WRAPPER_SIGCHLD_ONLY="$wrapper_mode" \
             bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
         [ "$status" -ne 0 ] \
             && [[ "$output" == *"${expected_fragment}"* ]] \

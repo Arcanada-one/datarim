@@ -326,9 +326,7 @@ PY
 }
 
 assert_wrapper_sigchld_normalization() {
-    local bootstrap_path_dir="${BATS_TEST_TMPDIR}/bootstrap-path"
-    local bootstrap_path_marker="${BATS_TEST_TMPDIR}/bootstrap-path-used"
-    local bootstrap_real_python launcher_dir signal_probe_python
+    local launcher_dir signal_probe_python
     signal_probe_python="${CUSTOMER_TEST_PYTHON_RUNTIME:-$VALIDATOR_PYTHON}"
     build_test_framework wrapper-sigchld || return 1
     instrument_wrapper_sigchld_preflight "$signal_probe_python" || return 1
@@ -375,6 +373,13 @@ SH
     [ "$status" -eq 0 ] && [[ "$output" == usage:* ]] \
         || { printf 'wrapper_root_execution_failed status=%s output=%s\n' \
             "$status" "$output"; return 1; }
+    assert_wrapper_pinned_interpreter || return 1
+}
+
+assert_wrapper_pinned_interpreter() {
+    local bootstrap_path_dir="${BATS_TEST_TMPDIR}/bootstrap-path"
+    local bootstrap_path_marker="${BATS_TEST_TMPDIR}/bootstrap-path-used"
+    local bootstrap_real_python
     case "$OSTYPE" in
         darwin*) bootstrap_real_python='/Library/Developer/CommandLineTools/usr/bin/python3' ;;
         linux*) bootstrap_real_python='/usr/bin/python3' ;;
@@ -4277,6 +4282,10 @@ PY
     fi
     if [[ -n "$sigchld_consumer_only" ]]; then
         assert_ignored_sigchld_consumer "$sigchld_consumer_only" || return 1
+        return 0
+    fi
+    if [[ "$wrapper_sigchld_only" == interpreter ]]; then
+        assert_wrapper_pinned_interpreter || return 1
         return 0
     fi
     if [[ "$wrapper_sigchld_only" == 1 ]]; then
