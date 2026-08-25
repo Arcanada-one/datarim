@@ -258,14 +258,16 @@ def validate_trusted(workflow: dict[str, Any], findings: list[str]) -> None:
                 'check_id=$(jq -er --arg head "$HEAD_SHA" --arg nonce "$expected_nonce" \\\n'
                 "  'select(.name == \"talo-0001-privileged-replay\" and .head_sha == $head and .external_id == $nonce and .status == \"in_progress\") | .id | select(type == \"number\" and . > 0 and floor == .)' \\\n"
                 '  <<<"$response")\n'
-                "printf 'check_id=%s\\nexecution_nonce=%s\\ncurrent_base=true\\n' \\\n"
-                '  "$check_id" "$expected_nonce" >>"$GITHUB_OUTPUT"\n'
-                "printf 'head_sha=%s\\nbase_sha=%s\\ntrusted_run_id=%s\\ntrusted_run_attempt=%s\\n' \\\n"
-                '  "$HEAD_SHA" "$BASE_SHA" "$TRUSTED_RUN_ID" \\\n'
-                '  "$TRUSTED_RUN_ATTEMPT" >>"$GITHUB_OUTPUT"\n'
-                "printf 'workflow_sha=%s\\nsource_run_id=%s\\nsource_run_attempt=%s\\n' \\\n"
-                '  "$TRUSTED_WORKFLOW_SHA" "$SOURCE_RUN_ID" \\\n'
-                '  "$SOURCE_RUN_ATTEMPT" >>"$GITHUB_OUTPUT"\n'
+                "{\n"
+                "  printf 'check_id=%s\\nexecution_nonce=%s\\ncurrent_base=true\\n' \\\n"
+                '    "$check_id" "$expected_nonce"\n'
+                "  printf 'head_sha=%s\\nbase_sha=%s\\ntrusted_run_id=%s\\ntrusted_run_attempt=%s\\n' \\\n"
+                '    "$HEAD_SHA" "$BASE_SHA" "$TRUSTED_RUN_ID" \\\n'
+                '    "$TRUSTED_RUN_ATTEMPT"\n'
+                "  printf 'workflow_sha=%s\\nsource_run_id=%s\\nsource_run_attempt=%s\\n' \\\n"
+                '    "$TRUSTED_WORKFLOW_SHA" "$SOURCE_RUN_ID" \\\n'
+                '    "$SOURCE_RUN_ATTEMPT"\n'
+                '} >>"$GITHUB_OUTPUT"\n'
             ),
         },
         {

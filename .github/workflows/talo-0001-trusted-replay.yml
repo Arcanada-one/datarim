@@ -91,14 +91,16 @@ jobs:
           check_id=$(jq -er --arg head "$HEAD_SHA" --arg nonce "$expected_nonce" \
             'select(.name == "talo-0001-privileged-replay" and .head_sha == $head and .external_id == $nonce and .status == "in_progress") | .id | select(type == "number" and . > 0 and floor == .)' \
             <<<"$response")
-          printf 'check_id=%s\nexecution_nonce=%s\ncurrent_base=true\n' \
-            "$check_id" "$expected_nonce" >>"$GITHUB_OUTPUT"
-          printf 'head_sha=%s\nbase_sha=%s\ntrusted_run_id=%s\ntrusted_run_attempt=%s\n' \
-            "$HEAD_SHA" "$BASE_SHA" "$TRUSTED_RUN_ID" \
-            "$TRUSTED_RUN_ATTEMPT" >>"$GITHUB_OUTPUT"
-          printf 'workflow_sha=%s\nsource_run_id=%s\nsource_run_attempt=%s\n' \
-            "$TRUSTED_WORKFLOW_SHA" "$SOURCE_RUN_ID" \
-            "$SOURCE_RUN_ATTEMPT" >>"$GITHUB_OUTPUT"
+          {
+            printf 'check_id=%s\nexecution_nonce=%s\ncurrent_base=true\n' \
+              "$check_id" "$expected_nonce"
+            printf 'head_sha=%s\nbase_sha=%s\ntrusted_run_id=%s\ntrusted_run_attempt=%s\n' \
+              "$HEAD_SHA" "$BASE_SHA" "$TRUSTED_RUN_ID" \
+              "$TRUSTED_RUN_ATTEMPT"
+            printf 'workflow_sha=%s\nsource_run_id=%s\nsource_run_attempt=%s\n' \
+              "$TRUSTED_WORKFLOW_SHA" "$SOURCE_RUN_ID" \
+              "$SOURCE_RUN_ATTEMPT"
+          } >>"$GITHUB_OUTPUT"
   replay:
     name: talo-0001-trusted-replay-controller
     needs: [initialize]
