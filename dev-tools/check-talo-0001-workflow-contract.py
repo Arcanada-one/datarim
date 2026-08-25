@@ -29,7 +29,7 @@ EXPECTED_DIGESTS = {
     "publisher": "3db4e2ed14bfb1662500493753afe189161160841f2c38761a32f1ec4411c425",
     "evaluator": "a0e86fc87493231afffd3164587f0c14e463f5e8c4acd8f4f9679e2504280d1a",
     "runner-unit": "d9b25e4ea33ed2bddad9e5d1fd5a47acedfed852749f0771fb24838f70edc131",
-    "provisioner": "ff0093cdaa81d78fba9706f33757a7238d76211853d82dce7913814385617ff3",
+    "provisioner": "09640bfa07805caf9221bfd6bd77b89dcc37d600ccf40c87b9eb945e10a56c3f",
 }
 EXPECTED_PATHS = [
     "commands/**",
@@ -586,6 +586,10 @@ def validate_code(findings: list[str]) -> None:
         'workflow|$WORKFLOW_PATH',
         'provisioner|dev-tools/provision-talo-0001-trusted-runner.sh',
         'runner-unit|dev-tools/systemd/$UNIT_NAME',
+        '#!/bin/bash -p',
+        'PATH=/usr/sbin:/usr/bin:/sbin:/bin',
+        'unset -v BASH_ENV ENV CDPATH GLOBIGNORE',
+        'ROOT=$(builtin cd -- "$script_directory/.." && builtin pwd -P)',
         'bootstrap_git()',
         'GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null',
         'GIT_NO_REPLACE_OBJECTS=1 /usr/bin/git',

@@ -106,6 +106,8 @@ setup_provision_runtime() {
         ln -sf "$ROOT/dev-tools/tests/fixtures/talo-0001-command-mock.sh" \
             "$MOCK_BIN/$command"
     done
+    sed -i "s#^PATH=/usr/sbin:/usr/bin:/sbin:/bin\$#PATH=$MOCK_BIN:/usr/sbin:/usr/bin:/sbin:/bin#" \
+        "$PROVISIONER"
     sed -i "s#RUNNER_DIR=/srv/talo-0001-trusted/runner#RUNNER_DIR=$RUNNER_FIXTURE#" \
         "$PROVISIONER"
     sed -i "s#RUNNER_USER=talo-replay#RUNNER_USER=$TEST_RUNNER_USER#" \
@@ -1467,6 +1469,82 @@ MUTANTS
     assert_file_lacks '^systemctl ' "$MOCK_LOG"
 }
 
+@test "privileged bootstrap rejects ambient bash command authority" {
+    local hostile_bin="$BATS_TEST_TMPDIR/hostile-bash-bin"
+    local marker="$BATS_TEST_TMPDIR/hostile-bash-executed"
+    mkdir -p "$hostile_bin"
+    cat >"$hostile_bin/bash" <<'SH'
+#!/bin/bash
+: >"${TALO_HOSTILE_BASH_MARKER:?}"
+exit 0
+SH
+    chmod +x "$hostile_bin/bash"
+    run env PATH="$hostile_bin:/usr/bin:/bin" \
+        TALO_HOSTILE_BASH_MARKER="$marker" \
+        "$ROOT/dev-tools/provision-talo-0001-trusted-runner.sh" --invalid-mode
+    [ "$status" -eq 2 ]
+    [ ! -e "$marker" ]
+}
+
+@test "privileged bash mode rejects ambient BASH_ENV startup code" {
+    local bash_env="$BATS_TEST_TMPDIR/hostile-bash-env"
+    local marker="$BATS_TEST_TMPDIR/hostile-bash-env-executed"
+    cat >"$bash_env" <<'SH'
+: >"${TALO_HOSTILE_BASH_ENV_MARKER:?}"
+SH
+    run env BASH_ENV="$bash_env" TALO_HOSTILE_BASH_ENV_MARKER="$marker" \
+        "$ROOT/dev-tools/provision-talo-0001-trusted-runner.sh" --invalid-mode
+    [ "$status" -eq 2 ]
+    [ ! -e "$marker" ]
+}
+
+@test "privileged bootstrap rejects ambient gh and install command authority" {
+    local hostile_bin="$BATS_TEST_TMPDIR/hostile-bootstrap-bin"
+    local gh_marker="$BATS_TEST_TMPDIR/hostile-gh-executed"
+    local install_marker="$BATS_TEST_TMPDIR/hostile-install-executed"
+    local head
+    head=$(git -C "$ROOT" rev-parse HEAD)
+    mkdir -p "$hostile_bin"
+    cat >"$hostile_bin/gh" <<'SH'
+#!/bin/bash
+: >"${TALO_HOSTILE_GH_MARKER:?}"
+printf '{"ref":"refs/heads/main","node_id":"REF_node","url":"https://api.github.com/repos/Arcanada-one/datarim/git/refs/heads/main","object":{"sha":"%s","type":"commit","url":"https://api.github.com/repos/Arcanada-one/datarim/git/commits/%s"}}\n' \
+    "${TALO_HOSTILE_MAIN:?}" "$TALO_HOSTILE_MAIN"
+SH
+    cat >"$hostile_bin/install" <<'SH'
+#!/bin/bash
+: >"${TALO_HOSTILE_INSTALL_MARKER:?}"
+exec /usr/bin/install "$@"
+SH
+    chmod +x "$hostile_bin/gh" "$hostile_bin/install"
+    run sudo env PATH="$hostile_bin:/usr/bin:/bin" GH_HOST=invalid.invalid \
+        TALO_HOSTILE_GH_MARKER="$gh_marker" \
+        TALO_HOSTILE_INSTALL_MARKER="$install_marker" \
+        TALO_HOSTILE_MAIN="$head" \
+        "$ROOT/dev-tools/provision-talo-0001-trusted-runner.sh" \
+        --register-and-start
+    [ "$status" -ne 0 ]
+    [ ! -e "$gh_marker" ]
+    [ ! -e "$install_marker" ]
+}
+
+@test "absolute privileged bootstrap authority mutants are rejected" {
+    local provisioner="$FIXTURE/dev-tools/provision-talo-0001-trusted-runner.sh"
+    local original="$BATS_TEST_TMPDIR/absolute-bootstrap.original"
+    cp "$provisioner" "$original"
+
+    sed -i '1c#!/usr/bin/env bash' "$provisioner"
+    run_check
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'missing:runner-runtime-contract:#!/bin/bash -p'* ]]
+
+    cp "$original" "$provisioner"
+    sed -i 's#^PATH=/usr/sbin:/usr/bin:/sbin:/bin$#PATH=${PATH}#' "$provisioner"
+    run_check
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'missing:runner-runtime-contract:PATH=/usr/sbin:/usr/bin:/sbin:/bin'* ]]
+}
+
 @test "one live main commit supplies immutable root-staged bootstrap blobs" {
     setup_provision_runtime
     run_provision_runtime
@@ -1523,21 +1601,12 @@ MUTANTS
 }
 
 @test "main-workflow API and blob failures perform no system mutation" {
-    local mock_bin="$BATS_TEST_TMPDIR/mock-bin"
-    local mock="$ROOT/dev-tools/tests/fixtures/talo-0001-command-mock.sh"
-    mkdir -p "$mock_bin"
-    for command in gh install sudo systemctl; do
-        ln -s "$mock" "$mock_bin/$command"
-    done
     for mode in api-failure wrong-blob; do
-        local log="$BATS_TEST_TMPDIR/command-$mode.log"
-        run sudo env "PATH=$mock_bin:$PATH" "TALO_MOCK_LOG=$log" \
-            "TALO_MOCK_GH_MODE=$mode" \
-            "$ROOT/dev-tools/provision-talo-0001-trusted-runner.sh" \
-            --register-and-start
+        setup_provision_runtime
+        TALO_MOCK_GH_MODE=$mode run_provision_runtime
         [ "$status" -eq 1 ]
         [[ "$output" == *'ERROR: trusted main ref could not be resolved'* ]]
-        assert_file_lacks '^systemctl ' "$log"
+        assert_file_lacks '^systemctl ' "$MOCK_LOG"
     done
 }
 

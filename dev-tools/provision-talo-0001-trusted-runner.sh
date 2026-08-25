@@ -1,5 +1,11 @@
-#!/usr/bin/env bash
+#!/bin/bash -p
 set -euo pipefail
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+IFS=$' \t\n'
+export IFS
+unset -v BASH_ENV ENV CDPATH GLOBIGNORE
+umask 077
 
 ORG=Arcanada-one
 REPOSITORY=Arcanada-one/datarim
@@ -38,7 +44,9 @@ RUNNER_PAYLOAD_TREE_SHA256=802a94df6d2aee3e458620b5a1175f8646f195092081d3285b8b0
 RUNNER_VERIFY_ATTEMPTS=10
 RUNNER_VERIFY_INTERVAL_SECONDS=2
 RUNNER_DELETE_ATTEMPTS=3
-ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
+script_directory=${BASH_SOURCE[0]%/*}
+[ "$script_directory" != "${BASH_SOURCE[0]}" ] || script_directory=.
+ROOT=$(builtin cd -- "$script_directory/.." && builtin pwd -P)
 API_VERSION=2022-11-28
 TRUSTED_MAIN_COMMIT=
 TRUSTED_BOOTSTRAP_ROOT=
