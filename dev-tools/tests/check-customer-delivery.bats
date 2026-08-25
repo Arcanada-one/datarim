@@ -298,13 +298,18 @@ run_test_framework_json_blocked_sigchld() {
 }
 
 instrument_wrapper_sigchld_preflight() {
-    "$PYTHON" - "$TEST_SCRIPT" <<'PY'
+    local signal_probe_python="$1"
+    [[ "$signal_probe_python" == /* && -f "$signal_probe_python" \
+        && -x "$signal_probe_python" && ! -d "$signal_probe_python" ]] \
+        || return 1
+    "$PYTHON" - "$TEST_SCRIPT" "$signal_probe_python" <<'PY'
+import shlex
 import sys
 
-path = sys.argv[1]
+path, signal_probe_python = sys.argv[1:]
 source = open(path, encoding="utf-8").read()
 guard = '[[ "$$" == "$bootstrap_pid" ]] || exit 126\n'
-probe = guard + '''if "$CUSTOMER_DELIVERY_PYTHON" -I -S -c 'import signal; blocked=signal.pthread_sigmask(signal.SIG_BLOCK,set()); raise SystemExit(38 if signal.SIGCHLD in blocked else 37)'; then
+probe = guard + "if " + shlex.quote(signal_probe_python) + ''' -I -S -c 'import signal; blocked=signal.pthread_sigmask(signal.SIG_BLOCK,set()); raise SystemExit(38 if signal.SIGCHLD in blocked else 37)'; then
     wrapper_preflight_status=0
 else
     wrapper_preflight_status=$?
@@ -323,9 +328,31 @@ PY
 assert_wrapper_sigchld_normalization() {
     local bootstrap_path_dir="${BATS_TEST_TMPDIR}/bootstrap-path"
     local bootstrap_path_marker="${BATS_TEST_TMPDIR}/bootstrap-path-used"
-    local bootstrap_real_python
+    local bootstrap_real_python launcher_dir signal_probe_python
+    signal_probe_python="${CUSTOMER_TEST_PYTHON_RUNTIME:-$VALIDATOR_PYTHON}"
     build_test_framework wrapper-sigchld || return 1
-    instrument_wrapper_sigchld_preflight || return 1
+    instrument_wrapper_sigchld_preflight "$signal_probe_python" || return 1
+    if [[ -z "${CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE:-}" ]]; then
+        launcher_dir="${BATS_TEST_TMPDIR}/basename-python-launcher"
+        mkdir -p "$launcher_dir"
+        cat >"${launcher_dir}/python3" <<'SH'
+#!/bin/bash
+if [[ "${0##*/}" == python ]]; then
+    exit 72
+fi
+exec "${SIGNAL_PROBE_ACTUAL_RUNTIME:?}" "$@"
+SH
+        chmod +x "${launcher_dir}/python3"
+        ln -s python3 "${launcher_dir}/python"
+        run env SIGNAL_PROBE_ACTUAL_RUNTIME="$signal_probe_python" \
+            CUSTOMER_DELIVERY_PYTHON="${launcher_dir}/python" \
+            "$TEST_SCRIPT" --help
+        if ! { [ "$status" -eq 0 ] && [[ "$output" == usage:* ]]; }; then
+            printf 'wrapper_signal_probe_used_launcher status=%s output=%s\n' \
+                "$status" "$output"
+            return 1
+        fi
+    fi
     run_test_framework_json_ignored_sigchld
     [ "$status" -eq 0 ] && [ -n "$output" ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["decision"] == "MET" and d["findings"] == []' "$output" \
