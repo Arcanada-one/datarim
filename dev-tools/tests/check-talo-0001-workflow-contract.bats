@@ -130,6 +130,13 @@ for authority_name in GH_HOST GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN \
         exit 96
     fi
 done
+for input_name in $(compgen -A variable ACTIONS_RUNNER_INPUT_); do
+    if [ "$input_name" != ACTIONS_RUNNER_INPUT_TOKEN ]; then
+        printf 'CONFIG_ENV_LEAK=%s\n' "$input_name" \
+            >"${TALO_MOCK_CONFIG_ENV_LEAK:?}"
+        exit 96
+    fi
+done
 tr '\0' ' ' </proc/$$/cmdline >"${TALO_MOCK_CONFIG_CMDLINE:?}"
 if grep -q -- "$token" "${TALO_MOCK_CONFIG_CMDLINE:?}"; then
     exit 97
@@ -346,6 +353,9 @@ run_provision_runtime() {
         "GIT_SSL_CAINFO=${GIT_SSL_CAINFO:-}" \
         "GIT_SSL_NO_VERIFY=${GIT_SSL_NO_VERIFY:-}" \
         "GH_DEBUG=${GH_DEBUG:-}" \
+        "ACTIONS_RUNNER_INPUT_REPLACE=${ACTIONS_RUNNER_INPUT_REPLACE:-}" \
+        "ACTIONS_RUNNER_INPUT_EPHEMERAL=${ACTIONS_RUNNER_INPUT_EPHEMERAL:-}" \
+        "ACTIONS_RUNNER_INPUT_UNKNOWN_MEMBER=${ACTIONS_RUNNER_INPUT_UNKNOWN_MEMBER:-}" \
         "HOME=${TALO_MOCK_AMBIENT_HOME:-/root}" \
         "TALO_MOCK_PROVISIONER_BLOB=$MOCK_PROVISIONER_BLOB" \
         "TALO_MOCK_UNIT_BLOB=$MOCK_UNIT_BLOB" \
@@ -1955,6 +1965,118 @@ MUTANTS
     [ "$status" -eq 0 ]
     [ ! -e "$MOCK_CONFIG_ENV_LEAK" ]
     [ -f "$MOCK_CONFIG_ENV_REMOVED" ]
+}
+
+@test "registration token child receives no ambient native runner input" {
+    setup_provision_runtime
+    prepare_fresh_runner_payload
+    ACTIONS_RUNNER_INPUT_REPLACE=true ACTIONS_RUNNER_INPUT_EPHEMERAL=true \
+        ACTIONS_RUNNER_INPUT_UNKNOWN_MEMBER=hostile \
+        TALO_MOCK_RUNNERS_MODE=fresh run_provision_runtime
+    [ "$status" -eq 0 ]
+    [ ! -e "$MOCK_CONFIG_ENV_LEAK" ]
+    [ -f "$MOCK_CONFIG_ENV_REMOVED" ]
+}
+
+@test "native runner input scrub layers are independently load-bearing" {
+    local provisioner="$FIXTURE/dev-tools/provision-talo-0001-trusted-runner.sh"
+    local config_source mock_bin runner_dir parent_marker child_marker
+    local axis input_name parent_mutant child_mutant parent_unset child_guard
+    local -a axes
+    axes=(REPLACE EPHEMERAL UNKNOWN_MEMBER)
+    mock_bin="$BATS_TEST_TMPDIR/native-input-axis-bin"
+    runner_dir="$BATS_TEST_TMPDIR/native-input-axis-runner"
+    parent_marker="$BATS_TEST_TMPDIR/native-input-parent-marker"
+    child_marker="$BATS_TEST_TMPDIR/native-input-child-marker"
+    mkdir -p "$mock_bin" "$runner_dir"
+    cat >"$mock_bin/sudo" <<'SH'
+#!/bin/bash
+for input_name in $(compgen -A variable ACTIONS_RUNNER_INPUT_); do
+    [ "$input_name" = ACTIONS_RUNNER_INPUT_TOKEN ] \
+        || printf '%s\n' "$input_name" >"${TALO_PARENT_INPUT_MARKER:?}"
+done
+[[ "${1:-}" == --preserve-env=* ]] && shift
+[ "${1:-}" = -u ] && shift 2
+[ "${1:-}" != -- ] || shift
+if [ -n "${TALO_POST_SUDO_INPUT:-}" ]; then
+    exec /usr/bin/env "ACTIONS_RUNNER_INPUT_${TALO_POST_SUDO_INPUT}=hostile" "$@"
+fi
+exec "$@"
+SH
+    cat >"$runner_dir/config.sh" <<'SH'
+#!/bin/bash
+for input_name in $(compgen -A variable ACTIONS_RUNNER_INPUT_); do
+    [ "$input_name" = ACTIONS_RUNNER_INPUT_TOKEN ] \
+        || printf '%s\n' "$input_name" >"${TALO_CHILD_INPUT_MARKER:?}"
+done
+[ -n "${ACTIONS_RUNNER_INPUT_TOKEN:-}" ]
+SH
+    chmod +x "$mock_bin/sudo" "$runner_dir/config.sh"
+    config_source=$(sed -n '/^        set +e$/,/^        set -e$/p' "$provisioner")
+    parent_unset='unset -v "$input_name"'
+    child_guard='[ "$input_name" = ACTIONS_RUNNER_INPUT_TOKEN ] \'
+
+    for axis in "${axes[@]}"; do
+        input_name="ACTIONS_RUNNER_INPUT_$axis"
+        rm -f -- "$parent_marker" "$child_marker"
+        run env "PATH=$mock_bin:$PATH" \
+            TALO_PARENT_INPUT_MARKER="$parent_marker" \
+            TALO_CHILD_INPUT_MARKER="$child_marker" \
+            "$input_name=hostile" bash -c "token=fixture-token
+RUNNER_USER=$(id -un)
+RUNNER_HOME='$BATS_TEST_TMPDIR/native-input-home'
+RUNNER_DIR='$runner_dir'
+ORG=Arcanada-one
+GROUP_NAME=talo-0001-trusted
+RUNNER_NAME=talo-0001-trusted-arcana-devs
+RUNNER_LABEL=talo-0001-trusted
+$config_source
+[ \"\$config_status\" -eq 0 ]"
+        [ "$status" -eq 0 ]
+        [ ! -e "$parent_marker" ]
+        [ ! -e "$child_marker" ]
+
+        parent_mutant=${config_source/"$parent_unset"/"[ \"\$input_name\" = $input_name ] || $parent_unset"}
+        [ "$parent_mutant" != "$config_source" ]
+        rm -f -- "$parent_marker" "$child_marker"
+        run env "PATH=$mock_bin:$PATH" \
+            TALO_PARENT_INPUT_MARKER="$parent_marker" \
+            TALO_CHILD_INPUT_MARKER="$child_marker" \
+            "$input_name=hostile" bash -c "token=fixture-token
+RUNNER_USER=$(id -un)
+RUNNER_HOME='$BATS_TEST_TMPDIR/native-input-home'
+RUNNER_DIR='$runner_dir'
+ORG=Arcanada-one
+GROUP_NAME=talo-0001-trusted
+RUNNER_NAME=talo-0001-trusted-arcana-devs
+RUNNER_LABEL=talo-0001-trusted
+$parent_mutant
+[ \"\$config_status\" -eq 0 ]"
+        [ "$status" -eq 0 ]
+        [ "$(cat "$parent_marker")" = "$input_name" ]
+        [ ! -e "$child_marker" ]
+
+        child_mutant=${config_source/"$child_guard"/"[ \"\$input_name\" = ACTIONS_RUNNER_INPUT_TOKEN ] || [ \"\$input_name\" = $input_name ] \\"}
+        [ "$child_mutant" != "$config_source" ]
+        rm -f -- "$parent_marker" "$child_marker"
+        run env "PATH=$mock_bin:$PATH" \
+            TALO_PARENT_INPUT_MARKER="$parent_marker" \
+            TALO_CHILD_INPUT_MARKER="$child_marker" \
+            TALO_POST_SUDO_INPUT="$axis" bash -c "token=fixture-token
+RUNNER_USER=$(id -un)
+RUNNER_HOME='$BATS_TEST_TMPDIR/native-input-home'
+RUNNER_DIR='$runner_dir'
+ORG=Arcanada-one
+GROUP_NAME=talo-0001-trusted
+RUNNER_NAME=talo-0001-trusted-arcana-devs
+RUNNER_LABEL=talo-0001-trusted
+$child_mutant
+[ \"\$config_status\" -eq 0 ]"
+        [ "$status" -eq 0 ]
+        [ ! -e "$parent_marker" ]
+        [ "$(cat "$child_marker")" = "$input_name" ]
+    done
+    printf '%s\n' 'RED_SENTINEL:native-runner-input-scrub-layer-matrix'
 }
 
 @test "every parent token scrub axis is independently load-bearing before sudo" {

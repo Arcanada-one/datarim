@@ -1143,6 +1143,9 @@ register_and_start() {
                 http_proxy https_proxy all_proxy no_proxy \
                 SSL_CERT_FILE SSL_CERT_DIR CURL_CA_BUNDLE \
                 GIT_SSL_CAINFO GIT_SSL_NO_VERIFY
+            while IFS= read -r input_name; do
+                unset -v "$input_name"
+            done < <(compgen -A variable ACTIONS_RUNNER_INPUT_)
             ACTIONS_RUNNER_INPUT_TOKEN="$token" \
                 sudo --preserve-env=ACTIONS_RUNNER_INPUT_TOKEN \
                 -u "$RUNNER_USER" -- /usr/bin/env \
@@ -1153,7 +1156,13 @@ register_and_start() {
                 -u http_proxy -u https_proxy -u all_proxy -u no_proxy \
                 -u SSL_CERT_FILE -u SSL_CERT_DIR -u CURL_CA_BUNDLE \
                 -u GIT_SSL_CAINFO -u GIT_SSL_NO_VERIFY \
-                HOME="$RUNNER_HOME" "$RUNNER_DIR/config.sh" --unattended \
+                HOME="$RUNNER_HOME" /bin/bash -p -c '
+                    while IFS= read -r input_name; do
+                        [ "$input_name" = ACTIONS_RUNNER_INPUT_TOKEN ] \
+                            || unset -v "$input_name"
+                    done < <(compgen -A variable ACTIONS_RUNNER_INPUT_)
+                    exec "$@"
+                ' -- "$RUNNER_DIR/config.sh" --unattended \
                 --url "https://github.com/$ORG" \
                 --runnergroup "$GROUP_NAME" --name "$RUNNER_NAME" \
                 --labels "$RUNNER_LABEL" --work _work --disableupdate
