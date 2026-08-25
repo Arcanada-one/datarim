@@ -1256,121 +1256,14 @@ PY
 
 run_exact_wrapper_sigchld_drain_probe() {
     local validator_script="$1"
-    run "$PYTHON" - "$validator_script" <<'PY'
-import os
-from pathlib import Path
-import signal
-import sys
-import textwrap
-import time
-
-path = Path(sys.argv[1])
-start_anchor = "    if signal.SIGCHLD in signal.sigpending():  # SECURITY_RULE:wrapper_sigchld_pending_drain\n"
-end_anchor = "    signal.pthread_sigmask(\n        signal.SIG_UNBLOCK, {signal.SIGCHLD}\n    )  # SECURITY_RULE:wrapper_sigchld_unblock\n"
-try:
-    source = path.read_text(encoding="utf-8")
-    if source.count(start_anchor) != 1 or source.count(end_anchor) != 1:
-        raise ValueError("anchor")
-    start = source.index(start_anchor)
-    end = source.index(end_anchor, start)
-    exact_slice = textwrap.dedent(source[start:end])
-    compiled_slice = compile(exact_slice, f"{path}:wrapper_sigchld_pending_drain", "exec")
-except (OSError, UnicodeError, ValueError, SyntaxError):
-    print("HARNESS_INVALID:wrapper_sigchld_drain_anchor")
-    raise SystemExit(2)
-
-child = None
-previous_handler = signal.getsignal(signal.SIGCHLD)
-previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, set())
-result = "HARNESS_INVALID:wrapper_sigchld_drain_fixture"
-status = 2
-try:
-    signal.signal(signal.SIGCHLD, lambda _signum, _frame: None)
-    signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGCHLD})
-    if os.environ.get("CUSTOMER_DELIVERY_DRAIN_PROBE_FORCE_FIXTURE_FAILURE") == "1":
-        raise OSError("forced fixture failure")
-    child = os.fork()
-    if child == 0:
-        os._exit(0)
-    deadline = time.monotonic() + 2
-    while signal.SIGCHLD not in signal.sigpending():
-        if time.monotonic() >= deadline:
-            raise TimeoutError("SIGCHLD fixture did not become pending")
-        time.sleep(0.01)
-    try:
-        exec(compiled_slice, {"signal": signal})
-    except RuntimeError as error:
-        if str(error) != "SIGCHLD remained pending":
-            raise
-        result = "wrapper_sigchld_pending_not_drained"
-        status = 1
-    else:
-        if signal.SIGCHLD in signal.sigpending():
-            raise RuntimeError("probe accepted a pending SIGCHLD")
-        result = "PROBE_OK"
-        status = 0
-except Exception:
-    result = "HARNESS_INVALID:wrapper_sigchld_drain_fixture"
-    status = 2
-finally:
-    cleanup_failed = False
-    try:
-        if child is not None:
-            reaped = False
-            cleanup_deadline = time.monotonic() + 2
-            while time.monotonic() < cleanup_deadline:
-                try:
-                    observed, _ = os.waitpid(child, os.WNOHANG)
-                except ChildProcessError:
-                    reaped = True
-                    break
-                if observed == child:
-                    reaped = True
-                    break
-                time.sleep(0.01)
-            if not reaped:
-                os.kill(child, signal.SIGKILL)
-                os.waitpid(child, 0)
-        if os.environ.get("CUSTOMER_DELIVERY_DRAIN_PROBE_FORCE_CLEANUP_FAILURE") == "1":
-            raise OSError("forced cleanup failure")
-    except BaseException:
-        cleanup_failed = True
-        if child is not None:
-            try:
-                os.kill(child, signal.SIGKILL)
-            except (ProcessLookupError, PermissionError):
-                pass
-            try:
-                os.waitpid(child, 0)
-            except ChildProcessError:
-                pass
-    try:
-        signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGCHLD})
-        if signal.SIGCHLD in signal.sigpending():
-            signal.sigwait({signal.SIGCHLD})
-    except BaseException:
-        cleanup_failed = True
-    try:
-        signal.signal(signal.SIGCHLD, previous_handler)
-    except BaseException:
-        cleanup_failed = True
-    try:
-        signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
-    except BaseException:
-        cleanup_failed = True
-    if cleanup_failed:
-        result = "HARNESS_INVALID:wrapper_sigchld_drain_cleanup"
-        status = 2
-
-print(result)
-raise SystemExit(status)
-PY
+    run "$PYTHON" "${BATS_TEST_DIRNAME}/../../tests/customer-delivery-wrapper-drain-probe.py" \
+        "$validator_script"
 }
 
 run_wrapper_sigchld_mutants() {
     local filter='OpenSSL deadline terminates stubborn descendant pipe holders'
     local kind validator_mutant guard mutant expected_fragment wrapper_mode
-    local anchor_invalid duplicate_anchor sentinel_kind sentinel_surface
+    local anchor_invalid duplicate_anchor probe_mutant sentinel_kind sentinel_surface
     run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
         CUSTOMER_DELIVERY_WRAPPER_SIGCHLD_ONLY=1 \
@@ -1455,16 +1348,39 @@ import sys
 
 path = sys.argv[1]
 source = open(path, encoding="utf-8").read()
-anchor = "# SECURITY_RULE:wrapper_sigchld_pending_drain"
+anchor = "    if signal.SIGCHLD in signal.sigpending():  # SECURITY_RULE:wrapper_sigchld_pending_drain\n"
 if source.count(anchor) != 1:
     raise SystemExit("WRAPPER_SIGCHLD_DRAIN_DUPLICATE_CONTROL_MISSING_OR_AMBIGUOUS")
-open(path, "w", encoding="utf-8").write(source.replace(anchor, anchor + "\n# SECURITY_RULE:wrapper_sigchld_pending_drain", 1))
+duplicate = anchor + "        signal.sigwait({signal.SIGCHLD})\n"
+open(path, "w", encoding="utf-8").write(source.replace(anchor, duplicate + anchor, 1))
 PY
             run_exact_wrapper_sigchld_drain_probe "$duplicate_anchor"
             [ "$status" -eq 2 ] \
                 && [ "$output" = HARNESS_INVALID:wrapper_sigchld_drain_anchor ] \
                 || { printf 'wrapper_sigchld_drain_probe_duplicate=%s status=%s\n' \
                     "$output" "$status"; return 1; }
+            probe_mutant="${BATS_TEST_TMPDIR}/customer-delivery-wrapper-drain-probe-count-mutant.py"
+            cp "${BATS_TEST_DIRNAME}/../../tests/customer-delivery-wrapper-drain-probe.py" \
+                "$probe_mutant" || return 1
+            "$PYTHON" - "$probe_mutant" <<'PY' || return 1
+import sys
+
+path = sys.argv[1]
+source = open(path, encoding="utf-8").read()
+guard = "if source.count(START_ANCHOR) != 1 or source.count(END_ANCHOR) != 1:\n"
+mutant = "if source.count(START_ANCHOR) < 1 or source.count(END_ANCHOR) < 1:  # MUTATED:drain_anchor_count\n"
+if source.count(guard) != 1:
+    raise SystemExit("WRAPPER_SIGCHLD_DRAIN_COUNT_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+open(path, "w", encoding="utf-8").write(source.replace(guard, mutant, 1))
+PY
+            run "$PYTHON" "$probe_mutant" "$duplicate_anchor"
+            [ "$status" -eq 0 ] && [ "$output" = PROBE_OK ] \
+                || { printf 'wrapper_sigchld_drain_count_mutant=%s status=%s\n' \
+                    "$output" "$status"; return 1; }
+            "$PYTHON" -c \
+                'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
+                wrapper_sigchld_drain_anchor_count \
+                'exact_wrapper_sigchld_drain_probe|duplicate_start_anchor|count_less_than_one'
             CUSTOMER_DELIVERY_DRAIN_PROBE_FORCE_FIXTURE_FAILURE=1 \
                 run_exact_wrapper_sigchld_drain_probe "$validator_mutant"
             [ "$status" -eq 2 ] \
