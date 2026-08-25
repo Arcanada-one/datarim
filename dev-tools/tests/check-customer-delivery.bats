@@ -276,6 +276,136 @@ run_test_framework_json() {
         "$TEST_SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
 }
 
+run_test_framework_json_ignored_sigchld() {
+    run "$PYTHON" -c \
+        'import os,signal,sys; signal.signal(signal.SIGCHLD, signal.SIG_IGN); environment=dict(os.environ); environment["CUSTOMER_DELIVERY_PYTHON"]=sys.argv[2]; os.execve(sys.argv[1], [sys.argv[1], *sys.argv[3:]], environment)' \
+        "$TEST_SCRIPT" "$VALIDATOR_PYTHON" \
+        --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+}
+
+run_test_framework_json_blocked_pending_sigchld_portability_smoke() {
+    run "$PYTHON" -c \
+        'import os,signal,sys; signal.signal(signal.SIGCHLD, signal.SIG_DFL); signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGCHLD}); os.kill(os.getpid(), signal.SIGCHLD); environment=dict(os.environ); environment["CUSTOMER_DELIVERY_PYTHON"]=sys.argv[2]; os.execve(sys.argv[1], [sys.argv[1], *sys.argv[3:]], environment)' \
+        "$TEST_SCRIPT" "$VALIDATOR_PYTHON" \
+        --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+}
+
+run_test_framework_json_blocked_sigchld() {
+    run "$PYTHON" -c \
+        'import os,signal,sys; signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGCHLD}); environment=dict(os.environ); environment["CUSTOMER_DELIVERY_PYTHON"]=sys.argv[2]; os.execve(sys.argv[1], [sys.argv[1], *sys.argv[3:]], environment)' \
+        "$TEST_SCRIPT" "$VALIDATOR_PYTHON" \
+        --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+}
+
+instrument_wrapper_sigchld_preflight() {
+    local signal_probe_python="$1"
+    [[ "$signal_probe_python" == /* && -f "$signal_probe_python" \
+        && -x "$signal_probe_python" && ! -d "$signal_probe_python" ]] \
+        || return 1
+    "$PYTHON" - "$TEST_SCRIPT" "$signal_probe_python" <<'PY'
+import shlex
+import sys
+
+path, signal_probe_python = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+guard = '[[ "$$" == "$bootstrap_pid" ]] || exit 126\n'
+probe = guard + "if " + shlex.quote(signal_probe_python) + ''' -I -S -c 'import signal; disposition=signal.getsignal(signal.SIGCHLD); blocked=signal.pthread_sigmask(signal.SIG_BLOCK,set()); state=("wrapper_sigchld_preflight_reset=invalid" if disposition is not signal.SIG_DFL else "wrapper_sigchld_preflight_unblock=invalid" if signal.SIGCHLD in blocked else ""); print(state) if state else None; raise SystemExit(35 if disposition is not signal.SIG_DFL else 38 if signal.SIGCHLD in blocked else 37)' wrapper-sigchld-preflight-v1; then
+    wrapper_preflight_status=0
+else
+    wrapper_preflight_status=$?
+fi
+[[ "$wrapper_preflight_status" -eq 37 ]] || {
+    printf 'wrapper_sigchld_preflight_status=%s\\n' "$wrapper_preflight_status"
+    exit 1
+}
+'''
+if source.count(guard) != 1:
+    raise SystemExit("WRAPPER_SIGCHLD_PREFLIGHT_SEAM_MISSING_OR_AMBIGUOUS")
+open(path, "w", encoding="utf-8").write(source.replace(guard, probe, 1))
+PY
+}
+
+assert_wrapper_sigchld_normalization() {
+    local launcher_dir signal_probe_python signal_probe_actual_python
+    signal_probe_actual_python="${CUSTOMER_TEST_PYTHON_RUNTIME:-$VALIDATOR_PYTHON}"
+    signal_probe_python="${CUSTOMER_DELIVERY_SIGNAL_PROBE_RUNTIME:-$signal_probe_actual_python}"
+    build_test_framework wrapper-sigchld || return 1
+    instrument_wrapper_sigchld_preflight "$signal_probe_python" || return 1
+    if [[ -z "${CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE:-}" ]]; then
+        launcher_dir="${BATS_TEST_TMPDIR}/basename-python-launcher"
+        mkdir -p "$launcher_dir"
+        cat >"${launcher_dir}/python3" <<'SH'
+#!/bin/bash
+if [[ "${0##*/}" == python ]]; then
+    exit 72
+fi
+exec "${SIGNAL_PROBE_ACTUAL_RUNTIME:?}" "$@"
+SH
+        chmod +x "${launcher_dir}/python3"
+        ln -s python3 "${launcher_dir}/python"
+        run env SIGNAL_PROBE_ACTUAL_RUNTIME="$signal_probe_actual_python" \
+            CUSTOMER_DELIVERY_PYTHON="${launcher_dir}/python" \
+            "$TEST_SCRIPT" --help
+        if ! { [ "$status" -eq 0 ] && [[ "$output" == usage:* ]]; }; then
+            printf 'wrapper_signal_probe_used_launcher status=%s output=%s\n' \
+                "$status" "$output"
+            return 1
+        fi
+    fi
+    run_test_framework_json_ignored_sigchld
+    [ "$status" -eq 0 ] && [ -n "$output" ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["decision"] == "MET" and d["findings"] == []' "$output" \
+        || { printf 'wrapper_sigchld_not_normalized status=%s output=%s\n' \
+            "$status" "$output"; return 1; }
+    run_test_framework_json_blocked_sigchld
+    [ "$status" -eq 0 ] && [ -n "$output" ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["decision"] == "MET" and d["findings"] == []' "$output" \
+        || { printf 'wrapper_sigchld_blocked_not_unblocked status=%s output=%s\n' \
+            "$status" "$output"; return 1; }
+    run_test_framework_json_blocked_pending_sigchld_portability_smoke
+    [ "$status" -eq 0 ] && [ -n "$output" ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["decision"] == "MET" and d["findings"] == []' "$output" \
+        || { printf 'wrapper_sigchld_pending_portability_smoke_failed status=%s output=%s\n' \
+            "$status" "$output"; return 1; }
+    command -v sudo >/dev/null 2>&1 && sudo -n /usr/bin/true 2>/dev/null \
+        || { printf 'wrapper_root_execution_unavailable\n'; return 1; }
+    run sudo -n /usr/bin/env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        "$TEST_SCRIPT" --help
+    [ "$status" -eq 0 ] && [[ "$output" == usage:* ]] \
+        || { printf 'wrapper_root_execution_failed status=%s output=%s\n' \
+            "$status" "$output"; return 1; }
+    assert_wrapper_pinned_interpreter || return 1
+}
+
+assert_wrapper_pinned_interpreter() {
+    local bootstrap_path_dir="${BATS_TEST_TMPDIR}/bootstrap-path"
+    local bootstrap_path_marker="${BATS_TEST_TMPDIR}/bootstrap-path-used"
+    local bootstrap_real_python
+    case "$OSTYPE" in
+        darwin*) bootstrap_real_python='/Library/Developer/CommandLineTools/usr/bin/python3' ;;
+        linux*) bootstrap_real_python='/usr/bin/python3' ;;
+        *) return 1 ;;
+    esac
+    mkdir -p "$bootstrap_path_dir"
+    cat >"${bootstrap_path_dir}/python3" <<'SH'
+#!/bin/bash
+printf 'used\n' >"$BOOTSTRAP_PATH_MARKER"
+exec "$BOOTSTRAP_REAL_PYTHON" "$@"
+SH
+    chmod +x "${bootstrap_path_dir}/python3"
+    rm -f -- "$bootstrap_path_marker"
+    run env PATH="${bootstrap_path_dir}:$PATH" \
+        BOOTSTRAP_PATH_MARKER="$bootstrap_path_marker" \
+        BOOTSTRAP_REAL_PYTHON="$bootstrap_real_python" \
+        CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        "$TEST_SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+    [ "$status" -eq 0 ] && [ -n "$output" ] && [ ! -e "$bootstrap_path_marker" ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["decision"] == "MET" and d["findings"] == []' "$output" \
+        || { printf 'wrapper_bootstrap_path_used status=%s marker=%s output=%s\n' \
+            "$status" "$([[ -e "$bootstrap_path_marker" ]] && printf present || printf absent)" \
+            "$output"; return 1; }
+}
+
 split_bounded_validator_json() {
     local raw="$1"
     VALIDATOR_JSON="${raw##*$'\n'}"
@@ -385,20 +515,1211 @@ import sys
 path, marker = sys.argv[1:]
 source = open(path, encoding="utf-8").read()
 anchor = "import time\nfrom datetime import datetime\n"
-instrumented = f'''import time
-import atexit
+started = '''import time
 _TEST_DEADLINE_STARTED = time.monotonic()
-def _write_test_deadline_elapsed():
+from datetime import datetime
+'''
+finalizer = '''def write_terminal_response(result):
+    encoded = terminal_response_bytes(result)
+'''
+instrumented = f'''def write_terminal_response(result):
     time.sleep(0)  # TEST_DEADLINE_STALL_MUTATION
     with open({marker!r}, "w", encoding="ascii") as handle:
         handle.write(str(time.monotonic() - _TEST_DEADLINE_STARTED))
-atexit.register(_write_test_deadline_elapsed)
-from datetime import datetime
+    encoded = terminal_response_bytes(result)
+'''
+if source.count(anchor) != 1 or source.count(finalizer) != 1:
+    raise SystemExit("TEST_DEADLINE_INSTRUMENTATION_SEAM_MISSING_OR_AMBIGUOUS")
+source = source.replace(anchor, started, 1).replace(finalizer, instrumented, 1)
+open(path, "w", encoding="utf-8").write(source)
+PY
+}
+
+instrument_test_inherited_pending_alarm() {
+    "$PYTHON" - "$TEST_SCRIPT" <<'PY' || return 1
+import sys
+
+path = sys.argv[1]
+source = open(path, encoding="utf-8").read()
+anchor = "sys.excepthook = validator_excepthook\n\n"
+injected = '''signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGALRM})
+signal.setitimer(signal.ITIMER_REAL, 0.01, 0.01)
+time.sleep(0.05)  # TEST_INHERITED_PENDING_ALARM
+
+''' + anchor
+if source.count(anchor) != 1:
+    raise SystemExit("TEST_INHERITED_PENDING_ALARM_SEAM_MISSING_OR_AMBIGUOUS")
+source = source.replace(anchor, injected, 1)
+open(path, "w", encoding="utf-8").write(source)
+PY
+}
+
+instrument_test_inherited_alarm_mask() {
+    "$PYTHON" - "$TEST_SCRIPT" <<'PY' || return 1
+import sys
+
+path = sys.argv[1]
+source = open(path, encoding="utf-8").read()
+anchor = "sys.excepthook = validator_excepthook\n\n"
+injected = '''signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGALRM})
+sys.excepthook = validator_excepthook
+
 '''
 if source.count(anchor) != 1:
-    raise SystemExit("TEST_DEADLINE_INSTRUMENTATION_SEAM_MISSING_OR_AMBIGUOUS")
+    raise SystemExit("TEST_INHERITED_ALARM_MASK_SEAM_MISSING_OR_AMBIGUOUS")
+source = source.replace(anchor, injected, 1)
+open(path, "w", encoding="utf-8").write(source)
+PY
+}
+
+instrument_test_alarm_arm_before_unblock() {
+    "$PYTHON" - "$TEST_SCRIPT" <<'PY' || return 1
+import sys
+
+path = sys.argv[1]
+source = open(path, encoding="utf-8").read()
+anchor = '''signal.signal(
+    signal.SIGCHLD, signal.SIG_DFL
+)  # SECURITY_RULE:validation_sigchld_reaping
+'''
+injected = '''_test_original_pthread_sigmask = signal.pthread_sigmask
+_test_original_setitimer = signal.setitimer
+_test_alarm_unblock_observed = False
+
+def _test_require_handler_before_owned_timer(which, seconds, interval=0):
+    if (
+        which == signal.ITIMER_REAL
+        and seconds == VALIDATION_TOTAL_TIMEOUT_SECONDS
+        and signal.getsignal(signal.SIGALRM) is not validation_alarm_handler
+    ):
+        raise OSError("TEST_ALARM_HANDLER_NOT_INSTALLED")
+    return _test_original_setitimer(which, seconds, interval)
+
+def _test_require_owned_timer_before_unblock(operation, mask):
+    global _test_alarm_unblock_observed
+    if (
+        not _test_alarm_unblock_observed
+        and operation == signal.SIG_UNBLOCK
+        and signal.SIGALRM in mask
+    ):
+        _test_alarm_unblock_observed = True
+        remaining, _interval = signal.getitimer(signal.ITIMER_REAL)
+        if remaining <= 0:
+            raise OSError("TEST_ALARM_UNARMED_AT_UNBLOCK")
+    return _test_original_pthread_sigmask(operation, mask)
+
+signal.setitimer = _test_require_handler_before_owned_timer
+signal.pthread_sigmask = _test_require_owned_timer_before_unblock
+''' + anchor
+if source.count(anchor) != 1:
+    raise SystemExit("TEST_ALARM_ARM_ORDER_SEAM_MISSING_OR_AMBIGUOUS")
+source = source.replace(anchor, injected, 1)
+open(path, "w", encoding="utf-8").write(source)
+PY
+}
+
+instrument_test_post_drain_pause() {
+    "$PYTHON" - "$TEST_SCRIPT" <<'PY' || return 1
+import sys
+
+path = sys.argv[1]
+source = open(path, encoding="utf-8").read()
+anchor = "        signal.sigwait({signal.SIGALRM})\n"
+injected = anchor + "        time.sleep(0.03)  # TEST_INHERITED_TIMER_CANCEL_SETTLE\n"
+if source.count(anchor) != 1:
+    raise SystemExit("TEST_INHERITED_TIMER_CANCEL_SEAM_MISSING_OR_AMBIGUOUS")
+source = source.replace(anchor, injected, 1)
+open(path, "w", encoding="utf-8").write(source)
+PY
+}
+
+force_test_logical_deadline_shutdown_race() {
+    local pid_file="$1"
+    "$PYTHON" - "$TEST_SCRIPT" "$pid_file" <<'PY' || return 1
+import sys
+
+path, pid_file = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+crypto_probe = '''        returncode, stdout, _stderr = run_bounded_process(
+            [PINNED_OPENSSL, "version"], stdout_limit=4096, stderr_limit=4096
+        )
+'''
+forced_race = '''        globals()["VALIDATION_DEADLINE"] = time.monotonic() + 2
+        signal.setitimer(signal.ITIMER_REAL, 2)
+        returncode, stdout, _stderr = run_bounded_process(
+            [PINNED_OPENSSL, "version"], stdout_limit=4096, stderr_limit=4096
+        )
+'''
+process_ready_anchor = '''        selector = selectors.DefaultSelector()
+'''
+process_ready = f'''        if arguments == [PINNED_OPENSSL, "version"]:
+            # Arm the race only after the fixture-owned descendant has published
+            # its PID; runner scheduling before that point is not cleanup time.
+            fixture_ready_deadline = time.monotonic() + 1.75
+            while True:
+                try:
+                    with open({pid_file!r}, "rb") as fixture_pid_handle:
+                        fixture_pid_bytes = fixture_pid_handle.read(65)
+                    fixture_pid_body = fixture_pid_bytes[:-1]
+                    fixture_pid = int(fixture_pid_body)
+                    if (
+                        fixture_pid_bytes.endswith(b"\\n")
+                        and 0 < len(fixture_pid_body) <= 20
+                        and fixture_pid_body.isdigit()
+                        and not fixture_pid_body.startswith(b"0")
+                        and fixture_pid != process.pid
+                        and os.getpgid(fixture_pid) == process.pid
+                        and os.getsid(fixture_pid) == process.pid
+                    ):
+                        break
+                except (OSError, ValueError):
+                    pass
+                if time.monotonic() >= fixture_ready_deadline:
+                    raise RuntimeError("TEST_FIXTURE_PID_NOT_READY")
+                time.sleep(0.005)
+            globals()["VALIDATION_DEADLINE"] = time.monotonic() + 0.1
+            signal.setitimer(signal.ITIMER_REAL, 0.2)
+        selector = selectors.DefaultSelector()
+'''
+shutdown_yield = "    time.sleep(0)  # TEST_DEADLINE_STALL_MUTATION\n"
+shutdown_race = (
+    shutdown_yield
+    + "    os.kill(os.getpid(), signal.SIGALRM)  # TEST_PENDING_TERMINAL_SIGNAL\n"
+    + "    time.sleep(0.25)  # TEST_LOGICAL_DEADLINE_SHUTDOWN_RACE\n"
+)
+run_bounded_start = source.index("def run_bounded_process(")
+run_bounded_end = source.index("\nsignal.signal(", run_bounded_start)
+process_ready_index = source.find(
+    process_ready_anchor, run_bounded_start, run_bounded_end
+)
+if (
+    source.count(crypto_probe) != 1
+    or process_ready_index < 0
+    or source.find(process_ready_anchor, process_ready_index + 1, run_bounded_end) >= 0
+    or source.count(shutdown_yield) != 1
+):
+    raise SystemExit("LOGICAL_DEADLINE_SHUTDOWN_RACE_SEAM_MISSING_OR_AMBIGUOUS")
+source = source.replace(crypto_probe, forced_race, 1)
+source = (
+    source[:process_ready_index]
+    + process_ready
+    + source[process_ready_index + len(process_ready_anchor):]
+)
+source = source.replace(shutdown_yield, shutdown_race, 1)
+open(path, "w", encoding="utf-8").write(source)
+PY
+}
+
+force_test_pending_terminal_signal() {
+    "$PYTHON" - "$TEST_SCRIPT" <<'PY' || return 1
+import sys
+
+path = sys.argv[1]
+source = open(path, encoding="utf-8").read()
+anchor = "    encoded = terminal_response_bytes(result)\n"
+injected = (
+    "    os.kill(os.getpid(), signal.SIGALRM)  # TEST_PENDING_TERMINAL_SIGNAL\n"
+    + anchor
+)
+if source.count(anchor) != 1:
+    raise SystemExit("PENDING_TERMINAL_SIGNAL_SEAM_MISSING_OR_AMBIGUOUS")
+open(path, "w", encoding="utf-8").write(source.replace(anchor, injected, 1))
+PY
+}
+
+instrument_test_post_popen_signal() {
+    local callsite="$1" pid_file="$2" mode="$3"
+    "$PYTHON" - "$TEST_SCRIPT" "$callsite" "$pid_file" "$mode" <<'PY' || return 1
+import sys
+
+path, callsite, pid_file, mode = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+headers = {
+    "silent": "def run_silent_process(arguments):\n",
+    "bounded": "def run_bounded_process(arguments, stdout_limit=VALIDATION_MAX_STDOUT_BYTES,\n",
+    "source_history": "    def run_git(arguments, *, input_bytes=None, output_limit=SOURCE_HISTORY_MAX_CONTROL_OUTPUT_BYTES):\n",
+}
+
+if callsite not in headers or mode not in {"control", "signal"}:
+    raise SystemExit("POST_POPEN_TEST_ARGUMENT_INVALID")
+start = source.index(headers[callsite])
+end = source.find("\ndef ", start + len(headers[callsite]))
+if callsite == "source_history":
+    end = source.find("\n    def ", start + len(headers[callsite]))
+if end < 0:
+    end = len(source)
+call = source.index("process = start_registered_process(", start, end)
+opening = source.index("(", call)
+depth = 0
+closing = None
+for index in range(opening, end):
+    if source[index] == "(":
+        depth += 1
+    elif source[index] == ")":
+        depth -= 1
+        if depth == 0:
+            closing = index
+            break
+if closing is None or source[closing + 1] != "\n":
+    raise SystemExit("POST_POPEN_CALL_SEAM_MISSING_OR_AMBIGUOUS")
+line_start = source.rfind("\n", 0, call) + 1
+indent = source[line_start:call]
+injection = (
+    f'{indent}with open({pid_file!r}, "w", encoding="ascii") as handle:\n'
+    f'{indent}    handle.write(str(process.pid))\n'
+)
+if mode == "signal":
+    injection += f"{indent}os.kill(os.getpid(), signal.SIGALRM)\n"
+source = source[:closing + 2] + injection + source[closing + 2:]
+open(path, "w", encoding="utf-8").write(source)
+PY
+}
+
+instrument_pending_alarm_before_excepthook() {
+    "$PYTHON" - "$TEST_SCRIPT" <<'PY' || return 1
+import sys
+
+path = sys.argv[1]
+source = open(path, encoding="utf-8").read()
+anchor = "sys.excepthook = validator_excepthook\n\n"
+injected = '''signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGALRM})
+os.kill(os.getpid(), signal.SIGALRM)
+sys.excepthook = validator_excepthook
+
+'''
+if source.count(anchor) != 1:
+    raise SystemExit("PENDING_ALARM_ORDER_TEST_SEAM_MISSING_OR_AMBIGUOUS")
+open(path, "w", encoding="utf-8").write(source.replace(anchor, injected, 1))
+PY
+}
+
+instrument_signal_mask_api_failure() {
+    "$PYTHON" - "$TEST_SCRIPT" <<'PY' || return 1
+import sys
+
+path = sys.argv[1]
+source = open(path, encoding="utf-8").read()
+anchor = '''signal.signal(
+    signal.SIGCHLD, signal.SIG_DFL
+)  # SECURITY_RULE:validation_sigchld_reaping
+'''
+injected = '''def _test_signal_mask_unavailable(*_arguments):
+    raise AttributeError("TEST_SIGNAL_MASK_UNAVAILABLE")
+
+signal.pthread_sigmask = _test_signal_mask_unavailable
+''' + anchor
+if source.count(anchor) != 1:
+    raise SystemExit("SIGNAL_MASK_FAILURE_TEST_SEAM_MISSING_OR_AMBIGUOUS")
+open(path, "w", encoding="utf-8").write(source.replace(anchor, injected, 1))
+PY
+}
+
+instrument_source_history_unwind_marker() {
+    local marker="$1"
+    "$PYTHON" - "$TEST_SCRIPT" "$marker" <<'PY' || return 1
+import sys
+
+path, marker = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+anchor = '''def validate_source_history():
+    try:
+        _validate_source_history()
+    finally:
+'''
+instrumented = f'''def validate_source_history():
+    try:
+        signal.setitimer(
+            signal.ITIMER_REAL, 1
+        )  # TEST_SOURCE_HISTORY_GLOBAL_ALARM_ARM
+        _validate_source_history()
+    except ValidationDeadline:
+        state = b"released" if _active_process is None else f"active:{{_active_process.pid}}".encode("ascii")
+        with open({marker!r}, "wb") as handle:
+            handle.write(state)
+        raise
+    finally:
+'''
+if source.count(anchor) != 1:
+    raise SystemExit("SOURCE_HISTORY_UNWIND_MARKER_SEAM_MISSING_OR_AMBIGUOUS")
 open(path, "w", encoding="utf-8").write(source.replace(anchor, instrumented, 1))
 PY
+}
+
+assert_completed_parent_descendant_cleanup() {
+    local callsite="$1"
+    local shim="${BATS_TEST_TMPDIR}/completed-parent-${callsite}"
+    local pid_file="${BATS_TEST_TMPDIR}/completed-parent-${callsite}.pid"
+    local real_executable child_pid process_group attempt
+    rm -f -- "$pid_file" || return 1
+    case "$callsite" in
+        silent|bounded) real_executable="$(command -v openssl)" || return 1 ;;
+        source_history) real_executable="$(command -v git)" || return 1 ;;
+        *) return 1 ;;
+    esac
+    "$PYTHON" - "$shim" "$pid_file" "$real_executable" "$callsite" <<'PY' || return 1
+import os
+import sys
+
+shim, pid_file, real_executable, callsite = sys.argv[1:]
+spawn = (
+    "  (trap '' TERM; exec </dev/null >/dev/null 2>&1; sleep 30) &\n"
+    + f"  printf '%s\\n' \"$!\" > {pid_file!r}\n"
+)
+with open(shim, "w", encoding="utf-8") as handle:
+    handle.write("#!/bin/bash\n")
+    if callsite == "bounded":
+        handle.write('if [ "${1:-}" = version ]; then\n')
+        handle.write(spawn)
+        handle.write("  printf '%s\\n' 'OpenSSL 3.0.0 fixture'\n  exit 0\nfi\n")
+    elif callsite == "silent":
+        handle.write('if [ "${1:-}" = version ]; then\n')
+        handle.write("  printf '%s\\n' 'OpenSSL 3.0.0 fixture'\n  exit 0\nfi\n")
+        handle.write(spawn)
+    elif callsite == "source_history":
+        handle.write('if [[ "$*" == *"--version"* ]]; then\n')
+        handle.write(spawn)
+        handle.write("fi\n")
+    else:
+        raise SystemExit("COMPLETED_PARENT_CALLSITE_INVALID")
+    handle.write(f'exec {real_executable!r} "$@"\n')
+os.chmod(shim, 0o755)
+PY
+    build_test_framework "completed-parent-${callsite}" || return 1
+    if [[ "$callsite" == source_history ]]; then
+        replace_test_script_literal \
+            'PINNED_GIT = "/usr/bin/git"' \
+            "PINNED_GIT = \"${shim}\"" || return 1
+    else
+        rebind_test_openssl "$shim" || return 1
+    fi
+    run_test_framework_json
+    [ "$status" -eq 0 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["decision"] in {"MET","NOT_MET"}; assert not any(item.startswith("validation_resource_limit:") for item in d["findings"])' "$output" \
+        && [ -s "$pid_file" ] \
+        || { printf 'completed_parent_cleanup_setup=%s status=%s output=%s\n' \
+            "$callsite" "$status" "$output"; return 1; }
+    child_pid="$(<"$pid_file")"
+    for attempt in {1..10}; do
+        if ! kill -0 "$child_pid" 2>/dev/null; then
+            printf 'completed_parent_descendant=%s pid=%s reaped=1\n' \
+                "$callsite" "$child_pid"
+            return 0
+        fi
+        sleep 0.05
+    done
+    process_group="$(ps -o pgid= -p "$child_pid" 2>/dev/null | tr -d '[:space:]')"
+    if [[ "$process_group" =~ ^[1-9][0-9]*$ && "$process_group" != "$$" ]]; then
+        kill -KILL -- "-${process_group}" 2>/dev/null || true
+    else
+        kill -KILL "$child_pid" 2>/dev/null || true
+    fi
+    printf 'completed_parent_descendant_survived=%s pid=%s\n' \
+        "$callsite" "$child_pid"
+    return 1
+}
+
+assert_spawn_failure_consumer() {
+    local callsite="$1"
+    local bad_executable="${BATS_TEST_TMPDIR}/spawn-failure-${callsite}"
+    local elapsed_marker="${BATS_TEST_TMPDIR}/spawn-failure-${callsite}.elapsed"
+    local spawn_marker="${BATS_TEST_TMPDIR}/spawn-failure-${callsite}.reached"
+    local elapsed elapsed_ceiling=4
+    printf '%s\n' '#!/definitely/missing/customer-delivery-interpreter' > "$bad_executable"
+    chmod +x "$bad_executable"
+    build_test_framework "spawn-failure-${callsite}" || return 1
+    instrument_test_validator_elapsed "$elapsed_marker" || return 1
+    case "$callsite" in
+        silent)
+            replace_test_script_literal \
+                'VALIDATION_TOTAL_TIMEOUT_SECONDS = 20' \
+                'VALIDATION_TOTAL_TIMEOUT_SECONDS = 1' || return 1
+            "$PYTHON" - "$TEST_SCRIPT" "$bad_executable" <<'PY' || return 1
+import sys
+
+path, bad_executable = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+start = source.index("def verify_ed25519(")
+end = source.index("\ndef approval_payload_digest(", start)
+function_source = source[start:end]
+guard = '''                [
+                    PINNED_OPENSSL,
+                    "pkeyutl",
+'''
+mutant = f'''                [
+                    {bad_executable!r},
+                    "pkeyutl",
+'''
+if function_source.count(guard) != 1:
+    raise SystemExit("SILENT_SPAWN_FAILURE_SEAM_MISSING_OR_AMBIGUOUS")
+function_source = function_source.replace(guard, mutant, 1)
+open(path, "w", encoding="utf-8").write(source[:start] + function_source + source[end:])
+PY
+            ;;
+        bounded)
+            replace_test_script_literal \
+                'VALIDATION_TOTAL_TIMEOUT_SECONDS = 20' \
+                'VALIDATION_TOTAL_TIMEOUT_SECONDS = 1' || return 1
+            rebind_test_openssl "$bad_executable" || return 1
+            ;;
+        source_history)
+            elapsed_ceiling=20
+            "$PYTHON" - "$TEST_SCRIPT" "$spawn_marker" <<'PY' || return 1
+import sys
+
+path, spawn_marker = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+run_git_start = source.index("    def run_git(arguments, *, input_bytes=None,")
+run_git_end = source.index("\n    def trusted_system_path(", run_git_start)
+run_git = source[run_git_start:run_git_end]
+trusted_arguments = "                    [*git_prefix, *arguments],\n"
+failed_arguments = "                    ['/definitely/missing/customer-delivery-git'],\n"
+status_guard = '''        if frame == b"V1 E spawn\\n":
+            raise subprocess.SubprocessError("validation_process_spawn_failed")
+'''
+status_marker = f'''        if frame == b"V1 E spawn\\n":
+            with open({spawn_marker!r}, "w", encoding="ascii") as handle:
+                handle.write("source_history")
+            raise subprocess.SubprocessError("validation_process_spawn_failed")
+'''
+if run_git.count(trusted_arguments) != 1 or source.count(status_guard) != 1:
+    raise SystemExit("SOURCE_HISTORY_SPAWN_FAILURE_SEAM_MISSING_OR_AMBIGUOUS")
+run_git = run_git.replace(trusted_arguments, failed_arguments, 1)
+source = source[:run_git_start] + run_git + source[run_git_end:]
+source = source.replace(status_guard, status_marker, 1)
+open(path, "w", encoding="utf-8").write(source)
+PY
+            replace_test_script_literal \
+                'SOURCE_HISTORY_TOTAL_TIMEOUT_SECONDS = 10' \
+                'SOURCE_HISTORY_TOTAL_TIMEOUT_SECONDS = 1' || return 1
+            ;;
+        *) return 1 ;;
+    esac
+    if [[ "$callsite" == source_history ]]; then
+        "$PYTHON" - "$TEST_SCRIPT" <<'PY' || return 1
+import sys
+
+source = open(sys.argv[1], encoding="utf-8").read()
+assert source.count("VALIDATION_TOTAL_TIMEOUT_SECONDS = 20") == 1
+assert source.count("SOURCE_HISTORY_TOTAL_TIMEOUT_SECONDS = 1") == 1
+PY
+    fi
+    run_test_framework_json
+    if [[ "$callsite" == source_history ]]; then
+        [ "$(<"$spawn_marker")" = source_history ] || {
+            printf 'spawn_failure_not_reached=%s status=%s output=%s\n' \
+                "$callsite" "$status" "$output"
+            return 1
+        }
+    fi
+    [ -s "$elapsed_marker" ] || {
+        printf 'spawn_failure_elapsed_missing=%s status=%s output=%s\n' \
+            "$callsite" "$status" "$output"
+        return 1
+    }
+    elapsed="$(<"$elapsed_marker")"
+    split_bounded_validator_json "$output" || return 1
+    { [ "$status" -eq 1 ] || [ "$status" -eq 2 ]; } \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["decision"] in {"NOT_MET","ERROR"}; assert d["findings"]; assert not any("resource_limit:deadline" in item for item in d["findings"])' "$VALIDATOR_JSON" \
+        && "$PYTHON" -c 'import sys; value=float(sys.argv[1]); ceiling=float(sys.argv[2]); assert 0 < value < ceiling' "$elapsed" "$elapsed_ceiling" \
+        || { printf 'spawn_failure_consumer=%s status=%s elapsed=%s output=%s\n' \
+            "$callsite" "$status" "$elapsed" "$output"; return 1; }
+}
+
+assert_cleanup_wait_resolution() {
+    local mode="$1"
+    local marker="${BATS_TEST_TMPDIR}/cleanup-wait-${mode}.marker"
+    local expected_attempts
+    case "$mode" in
+        retry) expected_attempts=2 ;;
+        exhausted|runtime) expected_attempts=3 ;;
+        *) return 1 ;;
+    esac
+    build_test_framework "cleanup-wait-${mode}" || return 1
+    "$PYTHON" - "$TEST_SCRIPT" "$marker" "$mode" <<'PY' || return 1
+import sys
+
+path, marker, mode = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+anchor = "def validator_excepthook(error_type, error, traceback):\n"
+if mode == "retry":
+    wait_body = '''        self.attempts += 1
+        if self.attempts == 1:
+            raise subprocess.TimeoutExpired("supervisor", timeout)
+        self.returncode = -9
+        return self.returncode
+'''
+    action = f'''result = terminate_registered_process(_active_process)
+with open({marker!r}, "w", encoding="ascii") as handle:
+    handle.write(f"{{supervisor.attempts}}:{{int(_active_process is None)}}:{{result}}")
+os._exit(0)
+'''
+elif mode in {"exhausted", "runtime"}:
+    wait_body = f'''        self.attempts += 1
+        with open({marker!r}, "w", encoding="ascii") as handle:
+            handle.write(str(self.attempts))
+        raise subprocess.TimeoutExpired("supervisor", timeout)
+'''
+    action = '''finalize_terminal(ValidationTerminal(
+    "ERROR", 2, "NOT_MET", ("cleanup_wait_fixture",)
+))
+'''
+else:
+    raise SystemExit("CLEANUP_WAIT_MODE_INVALID")
+injection = f'''class CleanupWaitSupervisor:
+    def __init__(self):
+        self.pid = 424242
+        self.stdin = None
+        self.stdout = None
+        self.stderr = None
+        self.returncode = None
+        self.attempts = 0
+
+    def wait(self, timeout=None):
+{wait_body}
+
+os.killpg = lambda _pid, _signal: None
+supervisor = CleanupWaitSupervisor()
+_active_process = RegisteredProcess(supervisor, -1)
+{action}
+'''
+if source.count(anchor) != 1:
+    raise SystemExit("CLEANUP_WAIT_TEST_SEAM_MISSING_OR_AMBIGUOUS")
+source = source.replace(anchor, injection + anchor, 1)
+if mode in {"exhausted", "runtime"}:
+    darwin_guard = '''if [[ "$platform" == Darwin && ! -s "$validator_output" && "$validator_status" -ne 0 ]]; then
+'''
+    darwin_forced = '''if [[ true && ! -s "$validator_output" && "$validator_status" -ne 0 ]]; then
+'''
+    if source.count(darwin_guard) != 1:
+        raise SystemExit("CLEANUP_WAIT_DARWIN_MAPPING_SEAM_MISSING_OR_AMBIGUOUS")
+    source = source.replace(darwin_guard, darwin_forced, 1)
+if mode == "runtime":
+    abort_status = "PROCESS_CLEANUP_ABORT_STATUS = 123\n"
+    if source.count(abort_status) != 1:
+        raise SystemExit("CLEANUP_WAIT_RUNTIME_STATUS_SEAM_MISSING_OR_AMBIGUOUS")
+    source = source.replace(abort_status, "PROCESS_CLEANUP_ABORT_STATUS = 2\n", 1)
+open(path, "w", encoding="utf-8").write(source)
+PY
+    run_test_framework_json
+    if [[ "$mode" == retry ]]; then
+        [ "$(<"$marker")" = "${expected_attempts}:1:-9" ] || {
+            printf 'cleanup_wait_retry_failed=marker=%s status=%s output=%s\n' \
+                "$(<"$marker")" "$status" "$output"
+            return 1
+        }
+    elif [[ "$mode" == exhausted ]]; then
+        [ "$(<"$marker")" = "$expected_attempts" ] \
+            && [ "$status" -eq 2 ] \
+            && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["invalid_validator_response"]' "$output" \
+            && [[ "$output" != *cleanup_wait_fixture* ]] \
+            || { printf 'cleanup_wait_exhaustion_failed=marker=%s status=%s output=%s\n' \
+                "$(<"$marker")" "$status" "$output"; return 1; }
+    else
+        [ "$(<"$marker")" = "$expected_attempts" ] \
+            && [ "$status" -eq 2 ] \
+            && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_runtime"]' "$output" \
+            || { printf 'cleanup_wait_runtime_mapping_failed=marker=%s status=%s output=%s\n' \
+                "$(<"$marker")" "$status" "$output"; return 1; }
+    fi
+}
+
+assert_ignored_sigchld_consumer() {
+    local callsite="$1"
+    local marker="${BATS_TEST_TMPDIR}/ignored-sigchld-${callsite}.marker"
+    local expected_finding
+    build_test_framework "ignored-sigchld-${callsite}" || return 1
+    "$PYTHON" - "$TEST_SCRIPT" "$callsite" "$marker" <<'PY' || return 1
+import sys
+
+path, callsite, marker = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+seams = {
+    "silent": (
+        "def verify_ed25519(",
+        "\ndef approval_payload_digest(",
+        '''                    PINNED_OPENSSL,
+                    "pkeyutl",
+''',
+        '''                    sys.executable,
+                    "-I",
+                    "-S",
+                    "-c",
+                    "import signal; blocked = signal.pthread_sigmask(signal.SIG_BLOCK, set()); raise SystemExit(37 if signal.SIGALRM not in blocked and signal.getsignal(signal.SIGCHLD) == signal.SIG_DFL else 38)",
+''',
+    ),
+    "bounded": (
+        "def validate_crypto_verifier():\n",
+        "\ndef validate_trust_registry():\n",
+        '''[PINNED_OPENSSL, "version"]''',
+        '''[sys.executable, "-I", "-S", "-c", "import signal; print('OpenSSL 3.0.0 fixture'); blocked = signal.pthread_sigmask(signal.SIG_BLOCK, set()); raise SystemExit(37 if signal.SIGALRM not in blocked and signal.getsignal(signal.SIGCHLD) == signal.SIG_DFL else 38)"]''',
+    ),
+    "source_history": (
+        "    def run_git(arguments, *, input_bytes=None,",
+        "\n    def trusted_system_path(",
+        "                    [*git_prefix, *arguments],\n",
+        '''                    [sys.executable, "-I", "-S", "-c", "import signal; print('git version 2.39.0'); blocked = signal.pthread_sigmask(signal.SIG_BLOCK, set()); raise SystemExit(37 if signal.SIGALRM not in blocked and signal.getsignal(signal.SIGCHLD) == signal.SIG_DFL else 38)"],
+''',
+    ),
+}
+if callsite not in seams:
+    raise SystemExit("IGNORED_SIGCHLD_CALLSITE_INVALID")
+start_token, end_token, guard, mutant = seams[callsite]
+start = source.index(start_token)
+end = source.index(end_token, start)
+function_source = source[start:end]
+status_guard = "    result = int(match.group(1))\n"
+status_marker = f'''    result = int(match.group(1))
+    if result == 37:
+        with open({marker!r}, "w", encoding="ascii") as handle:
+            handle.write({callsite!r})
+'''
+if function_source.count(guard) != 1 or source.count(status_guard) != 1:
+    raise SystemExit("IGNORED_SIGCHLD_TEST_SEAM_MISSING_OR_AMBIGUOUS")
+function_source = function_source.replace(guard, mutant, 1)
+source = source[:start] + function_source + source[end:]
+source = source.replace(status_guard, status_marker, 1)
+open(path, "w", encoding="utf-8").write(source)
+PY
+    case "$callsite" in
+        silent) expected_finding='trust_registry_signature_invalid' ;;
+        bounded) expected_finding='untrusted_crypto_dependency:openssl3' ;;
+        source_history) expected_finding='source_history_untrusted_git' ;;
+        *) return 1 ;;
+    esac
+    run_test_framework_json_ignored_sigchld
+    [ -s "$marker" ] \
+        && [ "$(<"$marker")" = "$callsite" ] \
+        && { [ "$status" -eq 1 ] || [ "$status" -eq 2 ]; } \
+        && "$PYTHON" -c 'import json,sys; expected=sys.argv[2]; d=json.loads(sys.argv[1]); assert expected in d["findings"]; assert not any("resource_limit:deadline" in item for item in d["findings"])' "$output" "$expected_finding" \
+        || { printf 'ignored_sigchld_status_not_preserved=%s status=%s output=%s\n' \
+            "$callsite" "$status" "$output"; return 1; }
+}
+
+assert_process_lifecycle_probe() {
+    local mode="$1"
+    local marker="${BATS_TEST_TMPDIR}/process-lifecycle-${mode}.marker"
+    build_test_framework "process-lifecycle-${mode}" || return 1
+    run "$PYTHON" - "$TEST_SCRIPT" "$mode" "$marker" <<'PY'
+import ast
+import json
+import os
+import pathlib
+import re
+import selectors
+import signal
+import subprocess
+import sys
+import tempfile
+import time
+
+script_path, mode, marker_path = sys.argv[1:]
+shell_source = pathlib.Path(script_path).read_text(encoding="utf-8")
+python_start = shell_source.index("import base64\n")
+python_end = shell_source.index("\nPY\nvalidator_status=", python_start)
+validator_source = shell_source[python_start:python_end]
+tree = ast.parse(validator_source)
+function_names = {
+    "block_and_disarm_validation_alarm",
+    "close_process_streams",
+    "process_group_is_owned",
+    "release_active_process",
+    "remaining_validation_time",
+    "read_process_status",
+    "start_registered_process",
+    "terminate_process_group",
+    "terminate_registered_process",
+    "wait_process_status",
+}
+assignment_names = {
+    "PROCESS_CLEANUP_ABORT_STATUS",
+    "PROCESS_CLEANUP_WAIT_ATTEMPTS",
+    "PROCESS_CLEANUP_WAIT_SECONDS",
+    "SUPERVISOR_PROGRAM",
+}
+selected = [
+    node for node in tree.body
+    if (
+        isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name in function_names
+    ) or (isinstance(node, ast.ClassDef) and node.name == "RegisteredProcess")
+    or (
+        isinstance(node, ast.Assign)
+        and any(
+            isinstance(target, ast.Name) and target.id in assignment_names
+            for target in node.targets
+        )
+    )
+]
+namespace = {
+    "json": json,
+    "os": os,
+    "re": re,
+    "selectors": selectors,
+    "signal": signal,
+    "subprocess": subprocess,
+    "sys": sys,
+    "time": time,
+    "PROCESS_CLEANUP_WAIT_ATTEMPTS": 3,
+    "PROCESS_CLEANUP_WAIT_SECONDS": 0.4,
+    "VALIDATION_DEADLINE": time.monotonic() + 10,
+    "_active_process": None,
+}
+exec(compile(ast.Module(body=selected, type_ignores=[]), script_path, "exec"), namespace)
+sigchld_normalizations = [
+    node for node in tree.body
+    if isinstance(node, ast.Expr)
+    and isinstance(node.value, ast.Call)
+    and isinstance(node.value.func, ast.Attribute)
+    and isinstance(node.value.func.value, ast.Name)
+    and node.value.func.value.id == "signal"
+    and node.value.func.attr == "signal"
+    and len(node.value.args) == 2
+    and isinstance(node.value.args[0], ast.Attribute)
+    and node.value.args[0].attr == "SIGCHLD"
+]
+if len(sigchld_normalizations) != 1:
+    raise SystemExit("SIGCHLD_NORMALIZATION_SEAM_MISSING_OR_AMBIGUOUS")
+normalization_code = compile(
+    ast.Module(body=sigchld_normalizations, type_ignores=[]),
+    script_path,
+    "exec",
+)
+
+if mode == "ignored-sigchld":
+    original_sigchld = signal.getsignal(signal.SIGCHLD)
+    callsites = (
+        ("silent", [sys.executable, "-I", "-S", "-c", "raise SystemExit(0)"], {
+            "stdin": subprocess.DEVNULL,
+            "stdout": subprocess.DEVNULL,
+            "stderr": subprocess.DEVNULL,
+        }),
+        ("bounded", [sys.executable, "-I", "-S", "-c", "print('bounded')"], {
+            "stdin": subprocess.DEVNULL,
+            "stdout": subprocess.PIPE,
+            "stderr": subprocess.PIPE,
+        }),
+        ("source_history", [sys.executable, "-I", "-S", "-c", "print('git version fixture')"], {
+            "stdin": subprocess.DEVNULL,
+            "stdout": subprocess.PIPE,
+            "stderr": subprocess.PIPE,
+        }),
+    )
+    completed = []
+    try:
+        for callsite, arguments, options in callsites:
+            signal.signal(signal.SIGCHLD, signal.SIG_IGN)
+            exec(normalization_code, namespace)
+            try:
+                process = namespace["start_registered_process"](
+                    arguments, start_new_session=True, **options
+                )
+            except (OSError, subprocess.SubprocessError):
+                raise SystemExit(f"ignored_sigchld_spawn_failed={callsite}")
+            if signal.getsignal(signal.SIGCHLD) != signal.SIG_DFL:
+                os.killpg(process.pid, signal.SIGKILL)
+                deadline = time.monotonic() + 1
+                while True:
+                    try:
+                        os.kill(process.pid, 0)
+                    except ProcessLookupError:
+                        break
+                    if time.monotonic() >= deadline:
+                        raise SystemExit(f"ignored_sigchld_autoreap_missing={callsite}")
+                    time.sleep(0.01)
+                events = []
+                real_killpg = os.killpg
+                try:
+                    os.killpg = lambda pid, sig: events.append((pid, sig))
+                    namespace["terminate_registered_process"](process)
+                finally:
+                    os.killpg = real_killpg
+                if events:
+                    raise SystemExit(
+                        f"ignored_sigchld_group_signalled={callsite}:{events!r}"
+                    )
+                raise SystemExit(f"ignored_sigchld_not_normalized={callsite}")
+            try:
+                namespace["wait_process_status"](
+                    process, deadline=time.monotonic() + 2
+                )
+            except (OSError, subprocess.SubprocessError):
+                raise SystemExit(f"ignored_sigchld_spawn_failed={callsite}")
+            os.kill(process.pid, signal.SIGKILL)
+            time.sleep(0.02)
+            try:
+                os.kill(process.pid, 0)
+            except ProcessLookupError:
+                raise SystemExit(f"ignored_sigchld_owner_reaped={callsite}")
+            namespace["terminate_registered_process"](process)
+            if namespace["_active_process"] is not None:
+                raise SystemExit(f"ignored_sigchld_owner_retained={callsite}")
+            if signal.getsignal(signal.SIGCHLD) != signal.SIG_DFL:
+                raise SystemExit(f"ignored_sigchld_not_retained={callsite}")
+            completed.append(callsite)
+    finally:
+        active = namespace.get("_active_process")
+        if active is not None:
+            try:
+                os.killpg(active.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            try:
+                active.supervisor.wait(timeout=1)
+            except (ChildProcessError, subprocess.TimeoutExpired):
+                pass
+            namespace["_active_process"] = None
+        signal.signal(signal.SIGCHLD, original_sigchld)
+    if completed != ["silent", "bounded", "source_history"]:
+        raise SystemExit(f"ignored_sigchld_callsite_coverage={completed!r}")
+    pathlib.Path(marker_path).write_text(
+        "ignored-sigchld-owner-pinned-and-normalized\n", encoding="ascii"
+    )
+elif mode == "reused-pid":
+    events = []
+
+    class ReapedSupervisor:
+        pid = 424242
+        returncode = 0
+        stdin = None
+        stdout = None
+        stderr = None
+
+        def wait(self, timeout=None):
+            return self.returncode
+
+    process = namespace["RegisteredProcess"](ReapedSupervisor(), -1)
+    namespace["_active_process"] = process
+    real_killpg = os.killpg
+
+    try:
+        os.killpg = lambda pid, sig: events.append((pid, sig))
+        namespace["terminate_registered_process"](process)
+    finally:
+        os.killpg = real_killpg
+    if events:
+        raise SystemExit(f"reused_pid_group_signalled={events!r}")
+    pathlib.Path(marker_path).write_text("reused-pid-no-signal\n", encoding="ascii")
+elif mode == "cleanup-alarm":
+    descendant_path = marker_path + ".descendant"
+    supervisor = subprocess.Popen(
+        [
+            "/bin/bash",
+            "-c",
+            "(trap '' TERM; exec </dev/null >/dev/null 2>&1; sleep 30) & "
+            f"printf '%s\\n' \"$!\" > {descendant_path!r}; wait",
+        ],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+    process = namespace["RegisteredProcess"](supervisor, -1)
+    namespace["_active_process"] = process
+    deadline = time.monotonic() + 1.0
+    while not os.path.isfile(descendant_path):
+        if time.monotonic() >= deadline:
+            namespace["terminate_registered_process"](process)
+            raise SystemExit("cleanup_alarm_descendant_not_ready")
+        time.sleep(0.01)
+    descendant_pid = int(pathlib.Path(descendant_path).read_text(encoding="ascii"))
+    events = []
+    system_killpg = os.killpg
+
+    def real_killpg(pid, sig):
+        if namespace["_active_process"] is not process:
+            raise RuntimeError("cleanup_alarm_unowned_signal")
+        system_killpg(pid, sig)
+
+    class ProbeAlarm(BaseException):
+        pass
+
+    def alarm_handler(_signum, _frame):
+        raise ProbeAlarm()
+
+    def signalling_killpg(pid, sig):
+        events.append(sig)
+        real_killpg(pid, sig)
+        if sig == signal.SIGKILL:
+            os.kill(os.getpid(), signal.SIGALRM)
+
+    previous_handler = signal.signal(signal.SIGALRM, alarm_handler)
+    os.killpg = signalling_killpg
+    alarm_observed = False
+    interrupted_while_owned = False
+    try:
+        try:
+            namespace["terminate_registered_process"](process)
+        except ProbeAlarm:
+            alarm_observed = True
+            interrupted_while_owned = namespace["_active_process"] is process
+    finally:
+        os.killpg = system_killpg
+        signal.signal(signal.SIGALRM, previous_handler)
+        active = namespace.get("_active_process")
+        if active is not None:
+            namespace["terminate_registered_process"](active)
+        try:
+            supervisor.wait(timeout=1)
+        except subprocess.TimeoutExpired:
+            pass
+    descendant_alive = True
+    for _attempt in range(20):
+        try:
+            os.kill(descendant_pid, 0)
+        except ProcessLookupError:
+            descendant_alive = False
+            break
+        time.sleep(0.01)
+    if not alarm_observed or events != [signal.SIGKILL]:
+        raise SystemExit(f"cleanup_alarm_interrupted={events!r} observed={alarm_observed!r}")
+    if interrupted_while_owned:
+        raise SystemExit("cleanup_alarm_interrupted_owned=1")
+    if namespace["_active_process"] is not None or descendant_alive:
+        raise SystemExit(
+            f"cleanup_alarm_orphan=active:{namespace['_active_process']!r} "
+            f"descendant_alive:{descendant_alive!r}"
+        )
+    pathlib.Path(marker_path).write_text("cleanup-alarm-after-kill\n", encoding="ascii")
+else:
+    raise SystemExit("PROCESS_LIFECYCLE_PROBE_MODE_INVALID")
+PY
+    [ "$status" -eq 0 ] && [ -s "$marker" ] \
+        || { printf 'process_lifecycle_probe=%s status=%s output=%s\n' \
+            "$mode" "$status" "$output"; return 1; }
+}
+
+assert_post_popen_signal_cleanup() {
+    local callsite="$1" pid_file baseline_status baseline_output control_status control_output
+    local elapsed_marker elapsed marker_hex child_pid attempt
+    pid_file="${BATS_TEST_TMPDIR}/post-popen-${callsite}.pid"
+    elapsed_marker="${BATS_TEST_TMPDIR}/post-popen-${callsite}.elapsed"
+    rm -f -- "$pid_file" "$elapsed_marker" || return 1
+
+    build_test_framework "post-popen-${callsite}-baseline" || return 1
+    run_test_framework_json
+    baseline_status="$status"
+    baseline_output="$output"
+    [ "$baseline_status" -eq 0 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["decision"] in {"MET","NOT_MET"}; assert "validation_resource_limit:deadline" not in d["findings"]' \
+        "$baseline_output" || return 1
+
+    build_test_framework "post-popen-${callsite}-control" || return 1
+    instrument_test_post_popen_signal "$callsite" "$pid_file" control || return 1
+    run_test_framework_json
+    control_status="$status"
+    control_output="$output"
+    [ "$control_status" -eq "$baseline_status" ] \
+        && [ "$control_output" = "$baseline_output" ] \
+        || { printf 'post_popen_control_changed=%s status=%s/%s output=%s/%s\n' \
+            "$callsite" "$control_status" "$baseline_status" "$control_output" "$baseline_output"; return 1; }
+
+    build_test_framework "post-popen-${callsite}-signal" || return 1
+    instrument_test_validator_elapsed "$elapsed_marker" || return 1  # POST_POPEN_SAME_CLOCK
+    instrument_test_post_popen_signal "$callsite" "$pid_file" signal || return 1
+    run_test_framework_json
+    [ -s "$elapsed_marker" ] \
+        || { printf 'post_popen_elapsed_missing=%s\n' "$callsite"; return 1; }
+    elapsed="$(<"$elapsed_marker")"
+    marker_hex="$("$PYTHON" -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).read_bytes().hex())' "$elapsed_marker")" \
+        || return 1
+    "$PYTHON" -c 'import re,sys; raw=sys.argv[1]; assert re.fullmatch(r"(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:e[+-]?[0-9]+)?", raw, re.ASCII); assert 0 < float(raw) < 4' "$elapsed" \
+        || { printf 'post_popen_elapsed_invalid=%s marker_hex=%s status=%s output=%s\n' \
+            "$callsite" "$marker_hex" "$status" "$output"; return 1; }
+    [ "$status" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["validation_resource_limit:deadline"]' "$output" \
+        && [ -s "$pid_file" ] \
+        || { printf 'post_popen_signal_failure=%s status=%s elapsed=%s output=%s\n' \
+            "$callsite" "$status" "$elapsed" "$output"; return 1; }
+    child_pid="$(<"$pid_file")"
+    for attempt in {1..10}; do
+        if ! kill -0 "$child_pid" 2>/dev/null; then
+            printf 'post_popen_signal=%s rc=2 finding=validation_resource_limit:deadline pid=%s reaped=1 elapsed=%s marker_hex=%s\n' \
+                "$callsite" "$child_pid" "$elapsed" "$marker_hex"
+            return 0
+        fi
+        sleep 0.05
+    done
+    kill -KILL "$child_pid" 2>/dev/null || true
+    printf 'post_popen_signal_child_survived=%s pid=%s\n' "$callsite" "$child_pid"
+    return 1
+}
+
+assert_inherited_alarm_mask_cleanup() {
+    local callsite="$1" pid_file elapsed_marker elapsed child_pid attempt
+    pid_file="${BATS_TEST_TMPDIR}/inherited-alarm-${callsite}.pid"
+    elapsed_marker="${BATS_TEST_TMPDIR}/inherited-alarm-${callsite}.elapsed"
+    rm -f -- "$pid_file" "$elapsed_marker" || return 1
+    build_test_framework "inherited-alarm-${callsite}" || return 1
+    instrument_test_validator_elapsed "$elapsed_marker" || return 1
+    instrument_test_post_popen_signal "$callsite" "$pid_file" signal || return 1
+    instrument_test_inherited_alarm_mask || return 1
+    run_test_framework_json
+    [ "$status" -eq 2 ] \
+        && [ -s "$elapsed_marker" ] \
+        && [ -s "$pid_file" ] \
+        && [[ "$output" != *"Traceback"* ]] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["validation_resource_limit:deadline"]' "$output" \
+        || { printf 'inherited_alarm_mask_failure=%s status=%s output=%s\n' \
+            "$callsite" "$status" "$output"; return 1; }
+    elapsed="$(<"$elapsed_marker")"
+    "$PYTHON" -c 'import sys; elapsed=float(sys.argv[1]); assert 0 < elapsed < 4' "$elapsed" \
+        || { printf 'inherited_alarm_elapsed_invalid=%s elapsed=%s\n' \
+            "$callsite" "$elapsed"; return 1; }
+    child_pid="$(<"$pid_file")"
+    for attempt in {1..10}; do
+        if ! kill -0 "$child_pid" 2>/dev/null; then
+            printf 'inherited_alarm_mask=%s rc=2 finding=validation_resource_limit:deadline pid=%s reaped=1 elapsed=%s\n' \
+                "$callsite" "$child_pid" "$elapsed"
+            return 0
+        fi
+        sleep 0.05
+    done
+    kill -KILL "$child_pid" 2>/dev/null || true
+    printf 'inherited_alarm_child_survived=%s pid=%s\n' "$callsite" "$child_pid"
+    return 1
+}
+
+assert_pending_inherited_alarm_initialization() {
+    build_test_framework pending-inherited-alarm || return 1
+    instrument_pending_alarm_before_excepthook || return 1
+    run_test_framework_json
+    [ "$status" -eq 0 ] \
+        && [[ "$output" != *"Traceback"* ]] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["decision"] == "MET" and d["findings"] == []' "$output" \
+        || { printf 'pending_inherited_alarm_failure=status=%s output=%s\n' \
+            "$status" "$output"; return 1; }
+}
+
+assert_signal_initialization_failure() {
+    build_test_framework signal-initialization-failure || return 1
+    instrument_signal_mask_api_failure || return 1
+    run_test_framework_json
+    [ "$status" -eq 2 ] \
+        && [[ "$output" != *"Traceback"* ]] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["untrusted_python_runtime"]' "$output" \
+        || { printf 'signal_initialization_failure=status=%s output=%s\n' \
+            "$status" "$output"; return 1; }
+}
+
+assert_inherited_alarm_real_timer_cleanup() {
+    local shim="${BATS_TEST_TMPDIR}/inherited-alarm-real-timer-openssl"
+    local pid_file="${BATS_TEST_TMPDIR}/inherited-alarm-real-timer.pid"
+    local elapsed_marker="${BATS_TEST_TMPDIR}/inherited-alarm-real-timer.elapsed"
+    local child_pid elapsed attempt descendant_reaped=0
+    rm -f -- "$pid_file" "$elapsed_marker" || return 1
+    "$PYTHON" - "$shim" "$pid_file" <<'PY' || return 1
+import os
+import sys
+
+shim, pid_file = sys.argv[1:]
+with open(shim, "w", encoding="utf-8") as handle:
+    handle.write("#!/bin/bash\n")
+    handle.write('if [ "${1:-}" = version ]; then\n')
+    handle.write("  (trap '' TERM; sleep 30) &\n")
+    handle.write(f"  printf '%s\\n' \"$!\" > {pid_file!r}\n")
+    handle.write("  exit 0\n")
+    handle.write("fi\n")
+    handle.write("exit 1\n")
+os.chmod(shim, 0o755)
+PY
+    build_test_framework inherited-alarm-real-timer || return 1
+    replace_test_script_literal \
+        'VALIDATION_TOTAL_TIMEOUT_SECONDS = 20' \
+        'VALIDATION_TOTAL_TIMEOUT_SECONDS = 1' || return 1
+    replace_test_script_literal \
+        'VALIDATION_DEADLINE = time.monotonic() + VALIDATION_TOTAL_TIMEOUT_SECONDS' \
+        'VALIDATION_DEADLINE = time.monotonic() + 10' || return 1
+    instrument_test_validator_elapsed "$elapsed_marker" || return 1
+    instrument_test_inherited_pending_alarm || return 1
+    instrument_test_alarm_arm_before_unblock || return 1
+    instrument_test_post_drain_pause || return 1
+    rebind_test_openssl "$shim" || return 1
+    run_test_framework_json
+    [ "$status" -eq 2 ] \
+        && [ -s "$elapsed_marker" ] \
+        && [ -s "$pid_file" ] \
+        && [[ "$output" != *"Traceback"* ]] \
+        && split_bounded_validator_json "$output" \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["validation_resource_limit:deadline"]' "$VALIDATOR_JSON" \
+        || { printf 'inherited_alarm_timer_failure=status=%s output=%s\n' \
+            "$status" "$output"; return 1; }
+    elapsed="$(<"$elapsed_marker")"
+    "$PYTHON" -c 'import sys; elapsed=float(sys.argv[1]); assert 0.5 < elapsed < 4' "$elapsed" \
+        || { printf 'inherited_alarm_timer_elapsed_invalid=%s\n' "$elapsed"; return 1; }
+    child_pid="$(<"$pid_file")"
+    for attempt in {1..10}; do
+        if ! kill -0 "$child_pid" 2>/dev/null; then
+            descendant_reaped=1
+            break
+        fi
+        sleep 0.05
+    done
+    [ "$descendant_reaped" -eq 1 ] \
+        || { kill -KILL "$child_pid" 2>/dev/null || true; \
+            printf 'inherited_alarm_timer_child_survived=%s\n' "$child_pid"; return 1; }
+    printf 'inherited_alarm_real_timer=bounded rc=2 pid=%s reaped=1 elapsed=%s\n' \
+        "$child_pid" "$elapsed"
+}
+
+assert_masked_popen_deadline_cleanup() {
+    local pid_file="${BATS_TEST_TMPDIR}/masked-popen-deadline.pid"
+    local baseline_status baseline_output child_pid attempt
+    build_test_framework masked-popen-baseline || return 1
+    run_test_framework_json
+    baseline_status="$status"
+    baseline_output="$output"
+    "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["decision"] in {"MET","NOT_MET"}; assert "validation_resource_limit:deadline" not in d["findings"]' \
+        "$baseline_output" \
+        || { printf 'masked_popen_baseline_failure=status=%s output=%s\n' \
+            "$baseline_status" "$baseline_output"; return 1; }
+
+    build_test_framework masked-popen-deadline || return 1
+    "$PYTHON" - "$TEST_SCRIPT" "$pid_file" <<'PY' || return 1
+import sys
+
+path, pid_file = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+registered = '''        process = RegisteredProcess(process, status_read_fd)
+        status_read_fd = None
+        _active_process = process  # SECURITY_RULE:popen_registry
+'''
+expired_while_masked = registered + f'''        with open({pid_file!r}, "w", encoding="ascii") as handle:
+            handle.write(str(process.pid))
+        globals()["VALIDATION_DEADLINE"] = time.monotonic() - 0.01
+        signal.setitimer(signal.ITIMER_REAL, 0)
+'''
+post_unmask = '''    try:
+        remaining_validation_time()  # SECURITY_RULE:popen_post_unmask_deadline
+    except BaseException:
+'''
+checked = '''    try:
+        remaining_validation_time()  # SECURITY_RULE:popen_post_unmask_deadline
+        globals()["VALIDATION_DEADLINE"] = time.monotonic() + 20
+    except BaseException:
+'''
+if source.count(registered) != 1 or source.count(post_unmask) != 1:
+    raise SystemExit("MASKED_POPEN_DEADLINE_SEAM_MISSING_OR_AMBIGUOUS")
+source = source.replace(registered, expired_while_masked, 1)
+source = source.replace(post_unmask, checked, 1)
+open(path, "w", encoding="utf-8").write(source)
+PY
+    run_test_framework_json
+    [ "$status" -eq 2 ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["validation_resource_limit:deadline"]' "$output" \
+        && [ -s "$pid_file" ] \
+        || { printf 'masked_popen_deadline_failure=status=%s output=%s baseline=%s/%s\n' \
+            "$status" "$output" "$baseline_status" "$baseline_output"; return 1; }
+    child_pid="$(<"$pid_file")"
+    for attempt in {1..10}; do
+        if ! kill -0 "$child_pid" 2>/dev/null; then
+            printf 'masked_popen_deadline=detected_post_unmask rc=2 pid=%s reaped=1\n' "$child_pid"
+            return 0
+        fi
+        sleep 0.05
+    done
+    kill -KILL "$child_pid" 2>/dev/null || true
+    printf 'masked_popen_deadline_child_survived=%s\n' "$child_pid"
+    return 1
 }
 
 assert_deadline_cleanup_elapsed() {
@@ -2012,7 +3333,14 @@ PY
 
 @test "exported realpath function cannot bypass intermediate symlink confinement" {
     local outside="${BATS_TEST_TMPDIR}/outside-function"
+    local realpath_dir="${BATS_TEST_TMPDIR}/portable-realpath"
     mkdir -p "$outside"
+    mkdir -p "$realpath_dir"
+    cat >"${realpath_dir}/realpath" <<'SH'
+#!/bin/bash
+exec /usr/bin/python3 -I -S -c 'import os,sys; print(os.path.realpath(sys.argv[-1]))' "$@"
+SH
+    chmod +x "${realpath_dir}/realpath"
     mv "$REQUIREMENTS" "${outside}/${TASK_ID}-customer-requirements.yaml"
     rmdir "${ROOT}/datarim/tasks"
     ln -s "$outside" "${ROOT}/datarim/tasks"
@@ -2020,7 +3348,7 @@ PY
         printf '%s\n' "${!#}"
     }
     export -f realpath
-    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+    run env PATH="${realpath_dir}:$PATH" CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage compliance --format json
     unset -f realpath
     [ "$status" -eq 2 ] \
@@ -2915,6 +4243,7 @@ with open(sys.argv[1], "w", encoding="utf-8") as handle:
 os.chmod(sys.argv[1], 0o755)
 PY
     build_test_framework crypto-output-budget || return 1
+    force_test_pending_terminal_signal || return 1
     rebind_test_openssl "$shim" || return 1
     run_test_framework_json
     [ "$status" -eq 2 ] \
@@ -2925,9 +4254,79 @@ PY
 @test "OpenSSL deadline terminates stubborn descendant pipe holders" {
     local shim="${BATS_TEST_TMPDIR}/stubborn-openssl"
     local pid_file="${BATS_TEST_TMPDIR}/stubborn-openssl.pid"
-    local descendant_pid attempt elapsed parsed_json
+    local descendant_pid attempt elapsed parsed_json callsite completed_callsite descendant_reaped=0
+    local post_popen_only="${CUSTOMER_DELIVERY_POST_POPEN_ONLY:-}"
+    local completed_parent_only="${CUSTOMER_DELIVERY_COMPLETED_PARENT_ONLY:-}"
+    local lifecycle_only="${CUSTOMER_DELIVERY_LIFECYCLE_ONLY:-}"
+    local spawn_failure_only="${CUSTOMER_DELIVERY_SPAWN_FAILURE_ONLY:-}"
+    local cleanup_wait_only="${CUSTOMER_DELIVERY_CLEANUP_WAIT_ONLY:-}"
+    local sigchld_consumer_only="${CUSTOMER_DELIVERY_SIGCHLD_CONSUMER_ONLY:-}"
+    local wrapper_sigchld_only="${CUSTOMER_DELIVERY_WRAPPER_SIGCHLD_ONLY:-}"
+    local inherited_alarm_only="${CUSTOMER_DELIVERY_INHERITED_ALARM_ONLY:-}"
+    local pending_alarm_only="${CUSTOMER_DELIVERY_PENDING_ALARM_ONLY:-}"
+    local signal_init_only="${CUSTOMER_DELIVERY_SIGNAL_INIT_ONLY:-}"
     local elapsed_marker="${BATS_TEST_TMPDIR}/stubborn-crypto.elapsed"
+    rm -f -- "$pid_file" || return 1
     assert_bounded_validator_diagnostic_grammar || return 1
+    if [[ -n "$spawn_failure_only" ]]; then
+        case "$spawn_failure_only" in
+            silent|bounded|source_history)
+                assert_spawn_failure_consumer "$spawn_failure_only" || return 1
+                ;;
+            *) return 1 ;;
+        esac
+        return 0
+    fi
+    if [[ -n "$cleanup_wait_only" ]]; then
+        assert_cleanup_wait_resolution "$cleanup_wait_only" || return 1
+        return 0
+    fi
+    if [[ -n "$sigchld_consumer_only" ]]; then
+        assert_ignored_sigchld_consumer "$sigchld_consumer_only" || return 1
+        return 0
+    fi
+    if [[ "$wrapper_sigchld_only" == interpreter ]]; then
+        assert_wrapper_pinned_interpreter || return 1
+        return 0
+    fi
+    if [[ "$wrapper_sigchld_only" == 1 ]]; then
+        assert_wrapper_sigchld_normalization || return 1
+        return 0
+    fi
+    if [[ -n "$inherited_alarm_only" ]]; then
+        case "$inherited_alarm_only" in
+            silent|bounded|source_history)
+                assert_inherited_alarm_mask_cleanup "$inherited_alarm_only" || return 1
+                ;;
+            *) return 1 ;;
+        esac
+        return 0
+    fi
+    if [[ "$pending_alarm_only" == 1 ]]; then
+        assert_pending_inherited_alarm_initialization || return 1
+        return 0
+    fi
+    if [[ "$pending_alarm_only" == timer ]]; then
+        assert_inherited_alarm_real_timer_cleanup || return 1
+        return 0
+    fi
+    if [[ "$signal_init_only" == 1 ]]; then
+        assert_signal_initialization_failure || return 1
+        return 0
+    fi
+    if [[ -n "$lifecycle_only" ]]; then
+        case "$lifecycle_only" in
+            cleanup-alarm|reused-pid|ignored-sigchld)
+                assert_process_lifecycle_probe "$lifecycle_only" || return 1
+                ;;
+            *) return 1 ;;
+        esac
+        return 0
+    fi
+    if [[ -n "$completed_parent_only" ]]; then
+        assert_completed_parent_descendant_cleanup "$completed_parent_only" || return 1
+        return 0
+    fi
     "$PYTHON" - "$shim" "$pid_file" <<'PY' || return 1
 import os
 import sys
@@ -2948,9 +4347,14 @@ PY
         'VALIDATION_TOTAL_TIMEOUT_SECONDS = 20' \
         'VALIDATION_TOTAL_TIMEOUT_SECONDS = 1' || return 1
     instrument_test_validator_elapsed "$elapsed_marker" || return 1
+    force_test_logical_deadline_shutdown_race "$pid_file" || return 1
     rebind_test_openssl "$shim" || return 1
     run_test_framework_json
-    [ -s "$elapsed_marker" ] || return 1
+    [ -s "$elapsed_marker" ] || {
+        report_bounded_validator_diagnostic_hex "$output"
+        printf 'logical_deadline_shutdown_output=%s\n' "$output"
+        return 1
+    }
     elapsed="$(<"$elapsed_marker")"
     if ! split_bounded_validator_json "$output"; then
         report_bounded_validator_diagnostic_hex "$output"
@@ -2966,12 +4370,67 @@ PY
         || { printf 'stubborn_crypto_output=%s elapsed=%s\n' "$output" "$elapsed"; return 1; }
     descendant_pid="$(<"$pid_file")"
     for attempt in {1..10}; do
-        kill -0 "$descendant_pid" 2>/dev/null || return 0
+        if ! kill -0 "$descendant_pid" 2>/dev/null; then
+            descendant_reaped=1
+            break
+        fi
         sleep 0.05
     done
-    kill -KILL "$descendant_pid" 2>/dev/null || true
-    printf 'stubborn_crypto_descendant_survived=%s\n' "$descendant_pid"
-    return 1
+    if [ "$descendant_reaped" -ne 1 ]; then
+        kill -KILL "$descendant_pid" 2>/dev/null || true
+        printf 'stubborn_crypto_descendant_survived=%s\n' "$descendant_pid"
+        return 1
+    fi
+    if [[ -n "$post_popen_only" ]]; then
+        case "$post_popen_only" in
+            silent|bounded|source_history)
+                assert_post_popen_signal_cleanup "$post_popen_only" || return 1
+                ;;
+            masked)
+                assert_masked_popen_deadline_cleanup || return 1
+                ;;
+            *) return 1 ;;
+        esac
+        return 0
+    fi
+}
+
+@test "validation supervisor completed and signalled cleanup remains bounded" {
+    local callsite
+    for callsite in silent bounded source_history; do
+        assert_completed_parent_descendant_cleanup "$callsite" || return 1
+    done
+    for callsite in silent bounded source_history; do
+        assert_post_popen_signal_cleanup "$callsite" || return 1
+    done
+    assert_masked_popen_deadline_cleanup || return 1
+    assert_process_lifecycle_probe cleanup-alarm || return 1
+    assert_process_lifecycle_probe reused-pid || return 1
+    assert_process_lifecycle_probe ignored-sigchld || return 1
+}
+
+@test "wrapper signal and alarm initialization remains normalized" {
+    local callsite
+    assert_wrapper_sigchld_normalization || return 1
+    assert_pending_inherited_alarm_initialization || return 1
+    assert_signal_initialization_failure || return 1
+    assert_inherited_alarm_real_timer_cleanup || return 1
+    for callsite in silent bounded source_history; do
+        assert_inherited_alarm_mask_cleanup "$callsite" || return 1
+    done
+}
+
+@test "validation consumer failures and cleanup waits remain bounded" {
+    local callsite
+    for callsite in silent bounded source_history; do
+        assert_ignored_sigchld_consumer "$callsite" || return 1
+    done
+    for callsite in silent bounded source_history; do
+        assert_spawn_failure_consumer "$callsite" || return 1
+    done
+    assert_cleanup_wait_resolution retry || return 1
+    assert_cleanup_wait_resolution exhausted || return 1
+    assert_cleanup_wait_resolution runtime || return 1
 }
 
 @test "non-Python executable cannot satisfy the interpreter pin" {
@@ -3840,7 +5299,7 @@ PY
 @test "source history deadline kills stubborn descendant pipe holders" {
     local shim="${BATS_TEST_TMPDIR}/descendant-pipe-git"
     local pidfile="${BATS_TEST_TMPDIR}/descendant-pipe.pid"
-    local real_git elapsed descendant_pid descendant_state
+    local real_git elapsed descendant_pid descendant_state process_group
     local elapsed_marker="${BATS_TEST_TMPDIR}/history-descendant.elapsed"
     real_git="$(command -v git)" || return 1
     "$PYTHON" - "$shim" "$real_git" "$pidfile" <<'PY' || return 1
@@ -3877,6 +5336,12 @@ PY
         return 1
     fi
     descendant_state="$(ps -o stat= -p "$descendant_pid" 2>/dev/null || true)"
+    if [[ -n "$descendant_state" && "$descendant_state" != Z* ]]; then
+        process_group="$(ps -o pgid= -p "$descendant_pid" 2>/dev/null | tr -d '[:space:]')"
+        if [[ "$process_group" =~ ^[1-9][0-9]*$ ]]; then
+            kill -KILL -- "-${process_group}" 2>/dev/null || true
+        fi
+    fi
     printf 'descendant_deadline_output=%s elapsed=%s state=%s\n' "$output" "$elapsed" "$descendant_state" >&3
     [ "$status" -eq 1 ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["source_history_resource_limit:deadline"]' "$VALIDATOR_JSON" \
@@ -3888,8 +5353,9 @@ PY
     local shim="${BATS_TEST_TMPDIR}/global-alarm-git"
     local leader_pidfile="${BATS_TEST_TMPDIR}/global-alarm-leader.pid"
     local descendant_pidfile="${BATS_TEST_TMPDIR}/global-alarm-descendant.pid"
-    local real_git elapsed leader_pid descendant_pid leader_state descendant_state
+    local real_git elapsed leader_pid descendant_pid leader_state descendant_state unwind_state unwind_hex
     local elapsed_marker="${BATS_TEST_TMPDIR}/global-alarm.elapsed"
+    local unwind_marker="${BATS_TEST_TMPDIR}/global-alarm-unwind.state"
     real_git="$(command -v git)" || return 1
     "$PYTHON" - "$shim" "$real_git" "$leader_pidfile" "$descendant_pidfile" <<'PY' || return 1
 import os
@@ -3913,16 +5379,26 @@ PY
         'PINNED_GIT = "/usr/bin/git"' \
         "PINNED_GIT = \"${shim}\"" || return 1
     replace_test_script_literal \
-        'VALIDATION_TOTAL_TIMEOUT_SECONDS = 20' \
-        'VALIDATION_TOTAL_TIMEOUT_SECONDS = 1' || return 1
-    replace_test_script_literal \
         'VALIDATION_DEADLINE = time.monotonic() + VALIDATION_TOTAL_TIMEOUT_SECONDS' \
         'VALIDATION_DEADLINE = time.monotonic() + 3600' || return 1
     instrument_test_validator_elapsed "$elapsed_marker" || return 1
+    instrument_source_history_unwind_marker "$unwind_marker" || return 1
     run_test_framework_json
     [ -s "$elapsed_marker" ] || return 1
     elapsed="$(<"$elapsed_marker")"
     split_bounded_validator_json "$output" || return 1
+    if [[ -f "$unwind_marker" ]]; then
+        unwind_state="$(<"$unwind_marker")"
+        unwind_hex="$("$PYTHON" -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).read_bytes().hex())' "$unwind_marker")" \
+            || return 1
+    else
+        unwind_state=missing
+        unwind_hex=missing
+    fi
+    if [[ "$unwind_state" != released ]]; then
+        printf 'source_history_unwind_cleanup=%s marker_hex=%s\n' "$unwind_state" "$unwind_hex" >&3
+        return 1
+    fi
     if ! leader_pid="$(cat "$leader_pidfile" 2>/dev/null)" \
         || ! descendant_pid="$(cat "$descendant_pidfile" 2>/dev/null)"; then
         printf 'global_alarm_missing_pid status=%s output=%s elapsed=%s\n' \

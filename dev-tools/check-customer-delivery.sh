@@ -1,4 +1,5 @@
 #!/bin/bash -p
+# shellcheck disable=SC2317  # The worker below the marker is executed by the Python normalizer.
 # Deterministically validate one task's customer-delivery evidence bundle.
 #
 # Canonical task-bound artifacts under --root (no discovery or fallback):
@@ -10,6 +11,109 @@
 set -euo pipefail
 IFS=$'\n\t'
 export LC_ALL=C
+
+# Bash cannot reset SIGCHLD when it was ignored on process entry. Before any
+# child is created, execute the fixed OS Python trust anchor. The normalizer
+# validates its own runtime, repairs SIGCHLD, and feeds this file's uniquely
+# delimited worker suffix to a fresh privileged Bash over anonymous stdin.
+case "$OSTYPE" in
+    darwin*) bootstrap_python='/Library/Developer/CommandLineTools/usr/bin/python3' ;;
+    linux*) bootstrap_python='/usr/bin/python3' ;;
+    *) exit 126 ;;
+esac
+[[ -f "$bootstrap_python" && -x "$bootstrap_python" \
+    && ! -d "$bootstrap_python" ]] || exit 126
+unset BASH_ENV ENV PYTHONHOME PYTHONPATH PYTHONSTARTUP PYTHONINSPECT \
+    PYTHONWARNINGS PYTHONBREAKPOINT LD_PRELOAD LD_LIBRARY_PATH \
+    DYLD_INSERT_LIBRARIES DYLD_LIBRARY_PATH DYLD_FRAMEWORK_PATH \
+    __PYVENV_LAUNCHER__ PYTHONEXECUTABLE
+# shellcheck disable=SC2093  # Python intentionally replaces the shell prefix.
+exec "$bootstrap_python" -I -S -c '
+import os
+import signal
+import stat
+import sys
+import tempfile
+
+try:
+    bootstrap_path = os.path.abspath(sys.argv[1])
+    script_path = os.path.abspath(sys.argv[2])
+    if bootstrap_path not in {
+        "/usr/bin/python3",
+        "/Library/Developer/CommandLineTools/usr/bin/python3",
+    }:
+        raise RuntimeError("unexpected bootstrap path")
+    bootstrap_stat = os.stat(bootstrap_path)
+    executable_stat = os.stat(sys.executable)
+    if (
+        (bootstrap_stat.st_dev, bootstrap_stat.st_ino)
+        != (executable_stat.st_dev, executable_stat.st_ino)
+        or bootstrap_stat.st_uid != 0
+        or not stat.S_ISREG(bootstrap_stat.st_mode)
+        or bootstrap_stat.st_mode & 0o022
+        or sys.version_info < (3, 9)
+    ):
+        raise RuntimeError("untrusted bootstrap runtime")
+    resolved_bootstrap = os.path.realpath(bootstrap_path)
+    component = os.path.sep
+    for segment in resolved_bootstrap.split(os.path.sep)[1:]:
+        component = os.path.join(component, segment)
+        component_stat = os.stat(component)
+        if component_stat.st_uid != 0 or component_stat.st_mode & 0o022:
+            raise RuntimeError("writable bootstrap component")
+
+    signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGCHLD})
+    signal.signal(signal.SIGCHLD, signal.SIG_DFL)  # SECURITY_RULE:wrapper_sigchld_reaping
+    if signal.getsignal(signal.SIGCHLD) is not signal.SIG_DFL:
+        raise RuntimeError("SIGCHLD disposition remained non-default")
+    if signal.SIGCHLD in signal.sigpending():  # SECURITY_RULE:wrapper_sigchld_pending_drain
+        signal.sigwait({signal.SIGCHLD})
+    if signal.SIGCHLD in signal.sigpending():
+        raise RuntimeError("SIGCHLD remained pending")
+    signal.pthread_sigmask(
+        signal.SIG_UNBLOCK, {signal.SIGCHLD}
+    )  # SECURITY_RULE:wrapper_sigchld_unblock
+    if signal.SIGCHLD in signal.pthread_sigmask(signal.SIG_BLOCK, set()):
+        raise RuntimeError("SIGCHLD remained blocked")
+
+    script_fd = os.open(script_path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    script_stat = os.fstat(script_fd)
+    if not stat.S_ISREG(script_stat.st_mode):
+        raise RuntimeError("bootstrap script is not regular")
+    source = os.read(script_fd, 262145)
+    if len(source) > 262144 or os.read(script_fd, 1):
+        raise RuntimeError("bootstrap script exceeds bound")
+    marker = b"\n# CUSTOMER_DELIVERY_" + b"WORKER_V1\n"
+    if source.count(marker) != 1:
+        raise RuntimeError("worker delimiter missing or ambiguous")
+    worker = source.split(marker, 1)[1]
+    if not worker.startswith(b"validator_script="):
+        raise RuntimeError("worker prefix invalid")
+    anonymous_worker = tempfile.TemporaryFile(mode="w+b", dir="/tmp")
+    if anonymous_worker.write(worker) != len(worker):
+        raise OSError("short worker write")
+    anonymous_worker.flush()
+    anonymous_worker.seek(0)
+    os.dup2(anonymous_worker.fileno(), 0, inheritable=True)
+    environment = dict(os.environ)
+    os.execve(
+        "/bin/bash",
+        [
+            "/bin/bash", "-p", "-s", "--", script_path,
+            str(os.getpid()), *sys.argv[3:],
+        ],
+        environment,
+    )  # SECURITY_RULE:wrapper_sigchld_exec
+except BaseException:
+    os._exit(126)
+' "$bootstrap_python" "${BASH_SOURCE[0]}" "$@"
+exit 126
+
+# CUSTOMER_DELIVERY_WORKER_V1
+validator_script="${1:?missing canonical validator path}"
+bootstrap_pid="${2:?missing bootstrap pid}"
+shift 2
+[[ "$$" == "$bootstrap_pid" ]] || exit 126
 
 # Imported Bash functions and caller PATH entries are not trusted execution
 # authority. Security-relevant external utilities below are invoked only by
@@ -87,9 +191,10 @@ fi
 [[ "$task" =~ ^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$ ]] || { emit_config_error 'invalid_task'; exit 2; }
 [[ "$stage" == qa || "$stage" == compliance || "$stage" == archive ]] || { emit_config_error 'invalid_stage'; exit 2; }
 [[ -d "$root" && ! -L "$root" ]] || { emit_config_error 'invalid_root'; exit 2; }
+
 root="$(cd "$root" && pwd -P)"
 
-framework_root="$(cd "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
+framework_root="$(cd "$(/usr/bin/dirname -- "$validator_script")/.." && pwd -P)"
 [[ -d "$framework_root" ]] || { emit_config_error 'invalid_framework_root'; exit 2; }
 requirements="${root}/datarim/tasks/${task}-customer-requirements.yaml"
 receipt="${root}/datarim/receipts/${task}-customer-delivery.yaml"
@@ -770,6 +875,9 @@ SOURCE_HISTORY_MAX_COMMITS = 1024
 SOURCE_HISTORY_MAX_CONTROL_OUTPUT_BYTES = 262144
 SOURCE_HISTORY_MAX_STDERR_BYTES = 65536
 SOURCE_HISTORY_MAX_TOTAL_BLOB_BYTES = 16777216
+PROCESS_CLEANUP_WAIT_ATTEMPTS = 3
+PROCESS_CLEANUP_WAIT_SECONDS = 0.4
+PROCESS_CLEANUP_ABORT_STATUS = 123
 PINNED_REGISTRY_OWNER_ID = "authority-operator-0001"
 PINNED_REGISTRY_ROOT_KEY_ID = "key-registry-root-0001"
 PINNED_REGISTRY_PUBLIC_KEY = "3hzCOohIkBiCEu9V2qNl8r0zc9iCZE/MbLFabv6/o18="
@@ -813,6 +921,74 @@ UniqueKeyLoader.add_constructor(
 
 
 findings = []
+_terminal_result = None
+_active_process = None
+
+
+SUPERVISOR_PROGRAM = r'''import json
+import os
+import signal
+import subprocess
+import sys
+
+status_fd = int(sys.argv[1])
+arguments = json.loads(sys.argv[2])
+target_fds = tuple(json.loads(sys.argv[3]))
+try:
+    signal.pthread_sigmask(
+        signal.SIG_UNBLOCK, {signal.SIGALRM}
+    )  # SECURITY_RULE:supervisor_alarm_unblock
+except (AttributeError, OSError, ValueError, subprocess.SubprocessError):
+    frame = b"V1 E spawn\n"
+else:
+    try:
+        target = subprocess.Popen(arguments, pass_fds=target_fds)
+    except (OSError, ValueError, subprocess.SubprocessError):
+        frame = b"V1 E spawn\n"
+    else:
+        frame = f"V1 R {target.wait()}\n".encode("ascii", "strict")
+finally:
+    for descriptor in (0, 1, 2, *target_fds):
+        if descriptor == status_fd:
+            continue
+        try:
+            os.close(descriptor)
+        except OSError:
+            pass
+try:
+    if len(frame) > 64 or os.write(status_fd, frame) != len(frame):
+        os._exit(125)
+finally:
+    os.close(status_fd)
+while True:
+    signal.pause()
+'''
+
+
+class RegisteredProcess:
+    def __init__(self, supervisor, status_fd):
+        self.supervisor = supervisor
+        self.pid = supervisor.pid
+        self.stdin = supervisor.stdin
+        self.stdout = supervisor.stdout
+        self.stderr = supervisor.stderr
+        self.status_fd = status_fd
+        self.status_buffer = bytearray()
+        self.target_result = None
+        self.status_closed = False
+
+
+class ValidationTerminal(BaseException):
+    def __init__(self, decision, code, epic_status, terminal_findings):
+        super().__init__(decision)
+        self.decision = decision
+        self.code = code
+        self.epic_status = epic_status
+        self.findings = tuple(terminal_findings)
+
+
+class ValidationDeadline(BaseException):
+    pass
 
 
 def add(code):
@@ -908,36 +1084,64 @@ def approval_payload_digest(approval):
     return sha256_digest({field: approval[field] for field in APPROVAL_FIELDS})
 
 
-def emit(decision, code, epic_status="NOT_MET"):
-    unique = sorted(set(findings))
+def block_and_disarm_validation_alarm():
+    signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGALRM})  # SECURITY_RULE:terminal_signal_mask
+    signal.setitimer(signal.ITIMER_REAL, 0)
+
+
+def select_terminal(decision, code, epic_status="NOT_MET", additional_findings=()):
+    global _terminal_result
+    block_and_disarm_validation_alarm()
+    if _terminal_result is None:
+        findings.extend(additional_findings)
+        _terminal_result = ValidationTerminal(
+            decision,
+            code,
+            epic_status,
+            sorted(set(findings)),
+        )
+    return _terminal_result
+
+
+def terminal_response_bytes(result):
     if OUTPUT_FORMAT == "json":
-        print(json.dumps(
+        rendered = json.dumps(
             {
-                "decision": decision,
-                "epic_status": epic_status,
-                "findings": unique,
+                "decision": result.decision,
+                "epic_status": result.epic_status,
+                "findings": list(result.findings),
                 "stage": STAGE,
-                "status": decision,
+                "status": result.decision,
                 "task": TASK,
             },
             ensure_ascii=True,
             separators=(",", ":"),
             sort_keys=True,
-        ))
+        ) + "\n"
     else:
-        joined = ",".join(unique)
-        print(
-            f"decision={decision} stage={STAGE} task={TASK} status={decision} "
-            f"epic_status={epic_status} findings={joined}"
-        )
-        for finding in unique:
-            print(f"finding={finding}")
-    raise SystemExit(code)
+        joined = ",".join(result.findings)
+        lines = [
+            f"decision={result.decision} stage={STAGE} task={TASK} "
+            f"status={result.decision} epic_status={result.epic_status} findings={joined}"
+        ]
+        lines.extend(f"finding={finding}" for finding in result.findings)
+        rendered = "\n".join(lines) + "\n"
+    encoded = rendered.encode("ascii", "strict")
+    if not encoded or len(encoded) > 1048576:
+        raise RuntimeError("terminal_response_out_of_bounds")
+    return encoded
+
+
+def emit(decision, code, epic_status="NOT_MET"):
+    raise select_terminal(decision, code, epic_status)
 
 
 def validation_resource_limit(kind):
-    add(f"validation_resource_limit:{kind}")
-    emit("ERROR", 2)
+    raise select_terminal(
+        "ERROR",
+        2,
+        additional_findings=(f"validation_resource_limit:{kind}",),
+    )
 
 
 def remaining_validation_time():
@@ -948,33 +1152,187 @@ def remaining_validation_time():
 
 
 def validation_alarm_handler(_signal_number, _frame):
-    validation_resource_limit("deadline")
+    raise ValidationDeadline()
+
+
+def process_group_is_owned(process):
+    # The registered supervisor is never polled or waited before killpg. A
+    # live or unreaped child reserves both its PID and isolated process group;
+    # an arbitrary/reaped Popen-like value never acquires that authority.
+    return (
+        _active_process is process
+        and isinstance(process, RegisteredProcess)
+        and process.supervisor.returncode is None
+    )  # SECURITY_RULE:durable_process_group_owner
 
 
 def terminate_process_group(process):
-    # The direct child can exit while a descendant still holds its pipes.
-    # Always address the whole session process group, then reap the child.
-    try:
-        os.killpg(process.pid, signal.SIGTERM)
-    except (ProcessLookupError, PermissionError):
-        pass
-    try:
-        process.wait(timeout=0.2)
-    except (subprocess.TimeoutExpired, OSError):
-        pass
+    if not process_group_is_owned(process):
+        return None
     try:
         os.killpg(process.pid, signal.SIGKILL)  # SECURITY_RULE:validation_process_group_reap
     except (ProcessLookupError, PermissionError):
         pass
+    for _attempt in range(PROCESS_CLEANUP_WAIT_ATTEMPTS):
+        try:
+            return process.supervisor.wait(timeout=PROCESS_CLEANUP_WAIT_SECONDS)
+        except subprocess.TimeoutExpired:
+            continue
+        except OSError:
+            return None
+    return None
+
+
+def close_process_streams(process):
+    for stream in (process.stdin, process.stdout, process.stderr):
+        if stream is not None and not stream.closed:
+            try:
+                stream.close()
+            except OSError:
+                pass
+    if isinstance(process, RegisteredProcess) and process.status_fd >= 0:
+        try:
+            os.close(process.status_fd)
+        except OSError:
+            pass
+        process.status_fd = -1
+
+
+def release_active_process(process):
+    global _active_process
+    if _active_process is process:
+        _active_process = None
+
+
+def terminate_registered_process(process):
+    previous_mask = signal.pthread_sigmask(
+        signal.SIG_BLOCK, {signal.SIGALRM}
+    )  # SECURITY_RULE:cleanup_signal_mask
     try:
-        process.wait(timeout=0.2)
-    except (subprocess.TimeoutExpired, OSError):
-        pass
+        returncode = terminate_process_group(process)
+        if returncode is None and process_group_is_owned(process):
+            return None
+        close_process_streams(process)
+        release_active_process(process)
+        return returncode
+    finally:
+        signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+
+
+def read_process_status(process):
+    if process.status_closed:
+        return process.target_result
+    try:
+        chunk = os.read(process.status_fd, 65 - len(process.status_buffer))
+    except BlockingIOError:
+        return None
+    if chunk:
+        process.status_buffer.extend(chunk)
+        if len(process.status_buffer) > 64:
+            raise subprocess.SubprocessError("validation_process_status_oversize")
+        return None
+    process.status_closed = True
+    frame = bytes(process.status_buffer)
+    match = re.fullmatch(rb"V1 R (-?(?:0|[1-9][0-9]*))\n", frame)
+    if match is None:
+        if frame == b"V1 E spawn\n":
+            raise subprocess.SubprocessError("validation_process_spawn_failed")
+        raise subprocess.SubprocessError("validation_process_status_invalid")
+    result = int(match.group(1))
+    if not -255 <= result <= 255:
+        raise subprocess.SubprocessError("validation_process_status_out_of_range")
+    process.target_result = result
+    return result
+
+
+def wait_process_status(process, deadline=None):
+    selector = selectors.DefaultSelector()
+    try:
+        selector.register(process.status_fd, selectors.EVENT_READ)
+        while True:
+            if deadline is None:
+                remaining = remaining_validation_time()
+            else:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise subprocess.TimeoutExpired("process-status", 0)
+            events = selector.select(timeout=min(0.05, remaining))
+            if events:
+                result = read_process_status(process)
+                if process.status_closed:
+                    return result
+    finally:
+        selector.close()
+
+
+def start_registered_process(arguments, **options):
+    global _active_process
+    if _active_process is not None:
+        raise RuntimeError("validation_process_registry_not_empty")
+    previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGALRM})
+    process = None
+    status_read_fd = None
+    status_write_fd = None
+    try:
+        if options.pop("start_new_session", None) is not True:
+            raise ValueError("validation_process_session_required")
+        target_fds = tuple(options.pop("pass_fds", ()))
+        status_read_fd, status_write_fd = os.pipe()
+        os.set_blocking(status_read_fd, False)
+        process = subprocess.Popen(
+            [
+                sys.executable,
+                "-I",
+                "-c",
+                SUPERVISOR_PROGRAM,
+                str(status_write_fd),
+                json.dumps(arguments, ensure_ascii=True, separators=(",", ":")),
+                json.dumps(target_fds, separators=(",", ":")),
+            ],
+            pass_fds=(*target_fds, status_write_fd),
+            start_new_session=True,
+            **options,
+        )
+        os.close(status_write_fd)
+        status_write_fd = None
+        process = RegisteredProcess(process, status_read_fd)
+        status_read_fd = None
+        _active_process = process  # SECURITY_RULE:popen_registry
+    finally:
+        for descriptor in (status_read_fd, status_write_fd):
+            if descriptor is not None:
+                try:
+                    os.close(descriptor)
+                except OSError:
+                    pass
+        try:
+            signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+        except BaseException:
+            if process is not None:
+                terminate_registered_process(process)
+            raise
+    try:
+        remaining_validation_time()  # SECURITY_RULE:popen_post_unmask_deadline
+    except BaseException:
+        terminate_registered_process(process)
+        raise
+    return process
+
+
+def release_completed_process(process):
+    # A completed direct child can leave same-session descendants behind even
+    # after every inherited pipe is closed. The process group remains ours
+    # until it has been terminated and the registered child has been reaped.
+    if _active_process is process:
+        terminate_registered_process(process)
+    else:
+        close_process_streams(process)
 
 
 def run_silent_process(arguments):
+    process = None
     try:
-        process = subprocess.Popen(
+        process = start_registered_process(
             arguments,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
@@ -985,19 +1343,28 @@ def run_silent_process(arguments):
     except (OSError, subprocess.SubprocessError):
         return None
     try:
-        return process.wait(timeout=max(0.001, remaining_validation_time()))
+        returncode = wait_process_status(process)
+        terminate_registered_process(process)
+        return returncode
     except subprocess.TimeoutExpired:
-        terminate_process_group(process)
         validation_resource_limit("deadline")
     except BaseException:
-        terminate_process_group(process)
+        if process is not None:
+            terminate_registered_process(process)
         raise
+    finally:
+        if process is not None:
+            release_completed_process(process)
 
 
 def run_bounded_process(arguments, stdout_limit=VALIDATION_MAX_STDOUT_BYTES,
                         stderr_limit=VALIDATION_MAX_STDERR_BYTES):
+    process = None
+    selector = None
+    stdout = bytearray()
+    stderr = bytearray()
     try:
-        process = subprocess.Popen(
+        process = start_registered_process(
             arguments,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
@@ -1005,20 +1372,13 @@ def run_bounded_process(arguments, stdout_limit=VALIDATION_MAX_STDOUT_BYTES,
             env={"LANG": "C", "LC_ALL": "C", "PATH": "/usr/bin:/bin"},
             start_new_session=True,
         )
-    except (OSError, subprocess.SubprocessError):
-        return None, b"", b""
-    selector = selectors.DefaultSelector()
-    stdout = bytearray()
-    stderr = bytearray()
-    try:
+        selector = selectors.DefaultSelector()
         for label, stream in (("stdout", process.stdout), ("stderr", process.stderr)):
             os.set_blocking(stream.fileno(), False)
             selector.register(stream, selectors.EVENT_READ, label)
         while selector.get_map():
             remaining = remaining_validation_time()
             events = selector.select(timeout=min(0.05, remaining))
-            if not events and process.poll() is not None:
-                events = [(key, selectors.EVENT_READ) for key in selector.get_map().values()]
             for key, _ in events:
                 try:
                     chunk = os.read(key.fileobj.fileno(), 65536)
@@ -1031,41 +1391,93 @@ def run_bounded_process(arguments, stdout_limit=VALIDATION_MAX_STDOUT_BYTES,
                 target = stdout if key.data == "stdout" else stderr
                 limit = stdout_limit if key.data == "stdout" else stderr_limit
                 if len(target) + len(chunk) > limit:
-                    terminate_process_group(process)
                     validation_resource_limit("subprocess_output")  # SECURITY_RULE:validation_subprocess_output
                 target.extend(chunk)
-        returncode = process.wait(timeout=max(0.001, remaining_validation_time()))
+        returncode = wait_process_status(process)
+        terminate_registered_process(process)
         return returncode, bytes(stdout), bytes(stderr)
     except subprocess.TimeoutExpired:
-        terminate_process_group(process)
         validation_resource_limit("deadline")
+    except (OSError, subprocess.SubprocessError):
+        return None, b"", b""
     except BaseException:
-        terminate_process_group(process)
+        if process is not None:
+            terminate_registered_process(process)
         raise
     finally:
-        selector.close()
-        for stream in (process.stdout, process.stderr):
-            if stream is not None and not stream.closed:
-                stream.close()
+        if selector is not None:
+            selector.close()
+        if process is not None:
+            release_completed_process(process)
 
 
-signal.signal(signal.SIGALRM, validation_alarm_handler)
-signal.setitimer(signal.ITIMER_REAL, VALIDATION_TOTAL_TIMEOUT_SECONDS)
+def write_terminal_response(result):
+    encoded = terminal_response_bytes(result)
+    try:
+        sys.stdout.flush()
+        sys.stderr.flush()
+    except (OSError, ValueError):
+        pass
+    offset = 0
+    while offset < len(encoded):
+        written = os.write(sys.stdout.fileno(), encoded[offset:])
+        if written <= 0:
+            os._exit(2)
+        offset += written
+    os._exit(result.code)
 
 
-def deterministic_unicode_excepthook(error_type, error, traceback):
+def finalize_terminal(result):
+    block_and_disarm_validation_alarm()
+    if _active_process is not None:
+        terminate_registered_process(_active_process)
+    if _active_process is not None:
+        # Never publish an acceptance-shaped response while the registered
+        # process-group owner remains unresolved. The outer bounded shell
+        # reports an invalid response after this hard abort.
+        os._exit(PROCESS_CLEANUP_ABORT_STATUS)  # SECURITY_RULE:terminal_cleanup_before_output
+    write_terminal_response(result)
+
+
+def validator_excepthook(error_type, error, traceback):
+    if isinstance(error, ValidationTerminal):
+        finalize_terminal(error)
+    if isinstance(error, ValidationDeadline):
+        finalize_terminal(select_terminal(
+            "ERROR",
+            2,
+            additional_findings=("validation_resource_limit:deadline",),
+        ))
     if issubclass(error_type, UnicodeError):
+        block_and_disarm_validation_alarm()
         add("unicode_processing_error")  # SECURITY_RULE:unicode_top_boundary
-        try:
-            emit("ERROR", 2)
-        except SystemExit as exit_status:
-            sys.stdout.flush()
-            sys.stderr.flush()
-            os._exit(exit_status.code)
+        finalize_terminal(select_terminal("ERROR", 2))
     sys.__excepthook__(error_type, error, traceback)
 
 
-sys.excepthook = deterministic_unicode_excepthook
+sys.excepthook = validator_excepthook
+
+signal.signal(
+    signal.SIGCHLD, signal.SIG_DFL
+)  # SECURITY_RULE:validation_sigchld_reaping
+try:
+    signal.pthread_sigmask(
+        signal.SIG_BLOCK, {signal.SIGALRM}
+    )  # SECURITY_RULE:validation_alarm_initialization_mask
+    signal.setitimer(
+        signal.ITIMER_REAL, 0
+    )  # SECURITY_RULE:validation_alarm_inherited_timer_cancel
+    if signal.SIGALRM in signal.sigpending():  # SECURITY_RULE:validation_alarm_pending_drain
+        signal.sigwait({signal.SIGALRM})
+    signal.signal(signal.SIGALRM, validation_alarm_handler)
+    signal.setitimer(signal.ITIMER_REAL, VALIDATION_TOTAL_TIMEOUT_SECONDS)
+    signal.pthread_sigmask(
+        signal.SIG_UNBLOCK, {signal.SIGALRM}
+    )  # SECURITY_RULE:validation_alarm_unblock
+except (AttributeError, OSError, ValueError):
+    write_terminal_response(ValidationTerminal(
+        "ERROR", 2, "NOT_MET", ("untrusted_python_runtime",)
+    ))  # SECURITY_RULE:validation_signal_init_hard_abort
 
 
 def json_pointer_segment(value):
@@ -2298,33 +2710,6 @@ def _validate_source_history():
             repository_identity_reported = True
         return False
 
-    def terminate_process_group(process):
-        try:
-            os.killpg(process.pid, signal.SIGTERM)
-        except ProcessLookupError:
-            pass
-        except OSError:
-            pass
-        grace_deadline = min(deadline, time.monotonic() + 0.2)
-        while time.monotonic() < grace_deadline:
-            try:
-                os.killpg(process.pid, 0)
-            except ProcessLookupError:
-                break
-            except OSError:
-                break
-            time.sleep(0.01)
-        try:
-            os.killpg(process.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
-        except OSError:
-            pass
-        try:
-            process.wait(timeout=0.2)
-        except (subprocess.TimeoutExpired, OSError):
-            pass
-
     def run_git(arguments, *, input_bytes=None, output_limit=SOURCE_HISTORY_MAX_CONTROL_OUTPUT_BYTES):
         if not repository_identity_valid():
             return None
@@ -2336,12 +2721,13 @@ def _validate_source_history():
             resource_limit("output_budget")
             return None
         process = None
-        selector = selectors.DefaultSelector()
+        selector = None
         stdout_buffer = bytearray()
         stderr_buffer = bytearray()
         input_offset = 0
         saved_cwd_fd = None
         try:
+            selector = selectors.DefaultSelector()
             saved_cwd_fd = os.open(
                 ".", os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC
             )
@@ -2350,7 +2736,7 @@ def _validate_source_history():
                 cwd_metadata = os.stat(".")
                 if repository_entry_identity(cwd_metadata) != git_cwd_identity:
                     return None
-                process = subprocess.Popen(
+                process = start_registered_process(
                     [*git_prefix, *arguments],
                     env=git_env,
                     pass_fds=(
@@ -2373,18 +2759,12 @@ def _validate_source_history():
                 os.set_blocking(process.stdin.fileno(), False)
                 selector.register(process.stdin, selectors.EVENT_WRITE, "stdin")
 
-            while selector.get_map() or process.poll() is None:
+            while selector.get_map():
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     resource_limit("deadline")  # SECURITY_RULE:source_history_total_deadline
-                    terminate_process_group(process)
+                    terminate_registered_process(process)
                     return None
-                if not selector.get_map():
-                    try:
-                        process.wait(timeout=min(0.05, remaining))
-                    except subprocess.TimeoutExpired:
-                        continue
-                    break
                 for key, _ in selector.select(timeout=min(0.05, remaining)):
                     stream = key.fileobj
                     label = key.data
@@ -2408,7 +2788,7 @@ def _validate_source_history():
                     except BlockingIOError:
                         continue
                     except OSError:
-                        terminate_process_group(process)
+                        terminate_registered_process(process)
                         return None
                     if not chunk:
                         selector.unregister(stream)
@@ -2419,38 +2799,34 @@ def _validate_source_history():
                             resource_limit("output_budget")  # SECURITY_RULE:source_history_stdout_stream_cap
                         else:
                             resource_limit("output_budget")  # SECURITY_RULE:source_history_stderr_stream_cap
-                        terminate_process_group(process)
+                        terminate_registered_process(process)
                         return None
                     target.extend(chunk)
 
-            returncode = process.wait(timeout=max(0.001, deadline - time.monotonic()))
+            returncode = wait_process_status(process, deadline)
+            terminate_registered_process(process)
             if not repository_identity_valid():
                 return None
             return returncode, bytes(stdout_buffer)
         except subprocess.TimeoutExpired:
             resource_limit("deadline")
             if process is not None:
-                terminate_process_group(process)
+                terminate_registered_process(process)
             return None
         except (OSError, subprocess.SubprocessError):
             if process is not None:
-                terminate_process_group(process)
+                terminate_registered_process(process)
             return None
-        except BaseException:
-            if process is not None:
-                terminate_process_group(process)
-            raise
         finally:
-            selector.close()
+            if selector is not None:
+                selector.close()
             if saved_cwd_fd is not None:
                 try:
                     os.fchdir(saved_cwd_fd)
                 finally:
                     os.close(saved_cwd_fd)
             if process is not None:
-                for stream in (process.stdin, process.stdout, process.stderr):
-                    if stream is not None and not stream.closed:
-                        stream.close()
+                release_completed_process(process)
 
     def trusted_system_path(path, final_type):
         if not os.path.isabs(path) or "\n" in path:
@@ -3470,6 +3846,7 @@ response_valid=false
 output_size="$(validator_output_size || true)"
 if [[ "$platform" == Darwin && ! -s "$validator_output" && "$validator_status" -ne 0 ]]; then
     case "$validator_status" in
+        123) emit_config_error 'invalid_validator_response' ;;
         125) emit_config_error 'missing_python_dependencies' ;;
         124) emit_config_error 'untrusted_python_dependencies' ;;
         *) emit_config_error 'untrusted_python_runtime' ;;
