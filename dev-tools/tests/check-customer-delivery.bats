@@ -283,69 +283,87 @@ run_test_framework_json_ignored_sigchld() {
         "$TEST_SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
 }
 
-run_test_framework_json_forged_sigchld_bootstrap() {
-    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
-        "$PYTHON" -c \
-        'import os,signal,sys; signal.signal(signal.SIGCHLD, signal.SIG_IGN); read_fd,write_fd=os.pipe(); os.set_inheritable(read_fd, True); token="a"*64; os.write(write_fd, (token+"\n").encode()); os.close(write_fd); os.environ["CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_FD"]=str(read_fd); os.environ["CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_TOKEN"]=token; os.environ["CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_PID"]=str(os.getpid()); os.execve(sys.argv[1], sys.argv[1:], os.environ)' \
-        "$TEST_SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
-}
-
-run_test_framework_json_closed_sigchld_bootstrap() {
-    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
-        "$PYTHON" -c \
-        'import os,sys; os.environ["CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_FD"]="99"; os.environ["CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_TOKEN"]="b"*64; os.environ["CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_PID"]=str(os.getpid()); os.execve(sys.argv[1], sys.argv[1:], os.environ)' \
-        "$TEST_SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
-}
-
-run_test_framework_json_blocking_sigchld_bootstrap() {
-    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
-        "$PYTHON" -c \
-        'import os,sys; read_fd,write_fd=os.pipe(); os.set_inheritable(read_fd, True); os.set_inheritable(write_fd, True); os.environ["CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_FD"]=str(read_fd); os.environ["CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_TOKEN"]="c"*64; os.environ["CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_PID"]=str(os.getpid()); os.execve(sys.argv[1], sys.argv[1:], os.environ)' \
-        "$TEST_SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
-}
-
-run_test_framework_json_pending_sigchld_bootstrap() {
+run_test_framework_json_blocked_pending_sigchld() {
     run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         "$PYTHON" -c \
         'import os,signal,sys; signal.signal(signal.SIGCHLD, signal.SIG_DFL); signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGCHLD}); os.kill(os.getpid(), signal.SIGCHLD); os.execve(sys.argv[1], sys.argv[1:], os.environ)' \
         "$TEST_SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
 }
 
-run_test_framework_json_mismatched_sigchld_bootstrap() {
+run_test_framework_json_blocked_sigchld() {
     run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         "$PYTHON" -c \
-        'import os,sys; read_fd,write_fd=os.pipe(); os.set_inheritable(read_fd, True); os.write(write_fd, ("d"*64+"\n").encode()); os.close(write_fd); os.environ["CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_FD"]=str(read_fd); os.environ["CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_TOKEN"]="e"*64; os.environ["CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_PID"]=str(os.getpid()); os.execve(sys.argv[1], sys.argv[1:], os.environ)' \
+        'import os,signal,sys; signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGCHLD}); os.execve(sys.argv[1], sys.argv[1:], os.environ)' \
         "$TEST_SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
 }
 
+instrument_wrapper_sigchld_preflight() {
+    "$PYTHON" - "$TEST_SCRIPT" <<'PY'
+import sys
+
+path = sys.argv[1]
+source = open(path, encoding="utf-8").read()
+guard = '[[ "$$" == "$bootstrap_pid" ]] || exit 126\n'
+probe = guard + '''if "$CUSTOMER_DELIVERY_PYTHON" -I -S -c 'import signal; blocked=signal.pthread_sigmask(signal.SIG_BLOCK,set()); raise SystemExit(38 if signal.SIGCHLD in blocked else 37)'; then
+    wrapper_preflight_status=0
+else
+    wrapper_preflight_status=$?
+fi
+[[ "$wrapper_preflight_status" -eq 37 ]] || {
+    printf 'wrapper_sigchld_preflight_status=%s\\n' "$wrapper_preflight_status"
+    exit 1
+}
+'''
+if source.count(guard) != 1:
+    raise SystemExit("WRAPPER_SIGCHLD_PREFLIGHT_SEAM_MISSING_OR_AMBIGUOUS")
+open(path, "w", encoding="utf-8").write(source.replace(guard, probe, 1))
+PY
+}
+
 assert_wrapper_sigchld_normalization() {
+    local bootstrap_path_dir="${BATS_TEST_TMPDIR}/bootstrap-path"
+    local bootstrap_path_marker="${BATS_TEST_TMPDIR}/bootstrap-path-used"
+    local bootstrap_real_python
     build_test_framework wrapper-sigchld || return 1
+    instrument_wrapper_sigchld_preflight || return 1
     run_test_framework_json_ignored_sigchld
     [ "$status" -eq 0 ] && [ -n "$output" ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["decision"] == "MET" and d["findings"] == []' "$output" \
         || { printf 'wrapper_sigchld_not_normalized status=%s output=%s\n' \
             "$status" "$output"; return 1; }
-    run_test_framework_json_forged_sigchld_bootstrap
-    [ "$status" -eq 126 ] && [ -z "$output" ] \
-        || { printf 'wrapper_sigchld_ambient_bypass status=%s output=%s\n' \
+    run_test_framework_json_blocked_sigchld
+    [ "$status" -eq 0 ] && [ -n "$output" ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["decision"] == "MET" and d["findings"] == []' "$output" \
+        || { printf 'wrapper_sigchld_blocked_not_unblocked status=%s output=%s\n' \
             "$status" "$output"; return 1; }
-    run_test_framework_json_closed_sigchld_bootstrap
-    [ "$status" -eq 126 ] && [ -z "$output" ] \
-        || { printf 'wrapper_sigchld_closed_handshake status=%s output=%s\n' \
-            "$status" "$output"; return 1; }
-    run_test_framework_json_blocking_sigchld_bootstrap
-    [ "$status" -eq 126 ] && [ -z "$output" ] \
-        || { printf 'wrapper_sigchld_blocking_handshake status=%s output=%s\n' \
-            "$status" "$output"; return 1; }
-    run_test_framework_json_mismatched_sigchld_bootstrap
-    [ "$status" -eq 126 ] && [ -z "$output" ] \
-        || { printf 'wrapper_sigchld_mismatch_accepted status=%s output=%s\n' \
-            "$status" "$output"; return 1; }
-    run_test_framework_json_pending_sigchld_bootstrap
+    run_test_framework_json_blocked_pending_sigchld
     [ "$status" -eq 0 ] && [ -n "$output" ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["decision"] == "MET" and d["findings"] == []' "$output" \
         || { printf 'wrapper_sigchld_pending_not_drained status=%s output=%s\n' \
             "$status" "$output"; return 1; }
+    case "$OSTYPE" in
+        darwin*) bootstrap_real_python='/Library/Developer/CommandLineTools/usr/bin/python3' ;;
+        linux*) bootstrap_real_python='/usr/bin/python3' ;;
+        *) return 1 ;;
+    esac
+    mkdir -p "$bootstrap_path_dir"
+    cat >"${bootstrap_path_dir}/python3" <<'SH'
+#!/bin/bash
+printf 'used\n' >"$BOOTSTRAP_PATH_MARKER"
+exec "$BOOTSTRAP_REAL_PYTHON" "$@"
+SH
+    chmod +x "${bootstrap_path_dir}/python3"
+    rm -f -- "$bootstrap_path_marker"
+    run env PATH="${bootstrap_path_dir}:$PATH" \
+        BOOTSTRAP_PATH_MARKER="$bootstrap_path_marker" \
+        BOOTSTRAP_REAL_PYTHON="$bootstrap_real_python" \
+        CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        "$TEST_SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+    [ "$status" -eq 0 ] && [ -n "$output" ] && [ ! -e "$bootstrap_path_marker" ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["decision"] == "MET" and d["findings"] == []' "$output" \
+        || { printf 'wrapper_bootstrap_path_used status=%s marker=%s output=%s\n' \
+            "$status" "$([[ -e "$bootstrap_path_marker" ]] && printf present || printf absent)" \
+            "$output"; return 1; }
 }
 
 split_bounded_validator_json() {

@@ -1,4 +1,5 @@
 #!/bin/bash -p
+# shellcheck disable=SC2317  # The worker below the marker is executed by the Python normalizer.
 # Deterministically validate one task's customer-delivery evidence bundle.
 #
 # Canonical task-bound artifacts under --root (no discovery or fallback):
@@ -11,52 +12,60 @@ set -euo pipefail
 IFS=$'\n\t'
 export LC_ALL=C
 
-# An explicit SIGCHLD=SIG_IGN survives exec and discards child status on
-# macOS. Normalize it before any wrapper subprocess. Bash cannot reset a
-# signal ignored on entry, so an isolated Python bootstrap re-execs this exact
-# script and proves one-shot completion through a private, bounded pipe.
-bootstrap_fd="${CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_FD:-}"
-bootstrap_token="${CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_TOKEN:-}"
-bootstrap_pid="${CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_PID:-}"
+# Bash cannot reset SIGCHLD when it was ignored on process entry. Before any
+# child is created, execute the fixed OS Python trust anchor. The normalizer
+# validates its own runtime, repairs SIGCHLD, and feeds this file's uniquely
+# delimited worker suffix to a fresh privileged Bash over anonymous stdin.
 case "$OSTYPE" in
     darwin*) bootstrap_python='/Library/Developer/CommandLineTools/usr/bin/python3' ;;
     linux*) bootstrap_python='/usr/bin/python3' ;;
     *) exit 126 ;;
 esac
-[[ -x "$bootstrap_python" && ! -d "$bootstrap_python" ]] || exit 126
-if [[ -n "$bootstrap_fd" || -n "$bootstrap_token" || -n "$bootstrap_pid" ]]; then
-    [[ "$bootstrap_fd" =~ ^[1-9][0-9]*$ \
-        && "$bootstrap_token" =~ ^[0-9a-f]{64}$ \
-        && "$bootstrap_pid" == "$$" ]] || exit 126
-    observed_bootstrap_token=''
-    extra_bootstrap_token=''
-    { IFS= read -r -t 1 observed_bootstrap_token <&"$bootstrap_fd"; } \
-        2>/dev/null || exit 126
-    # Content is intentionally irrelevant: any second framed line is invalid.
-    # shellcheck disable=SC2034
-    if { IFS= read -r -t 1 extra_bootstrap_token <&"$bootstrap_fd"; } \
-        2>/dev/null; then
-        exit 126
-    fi
-    eval "exec ${bootstrap_fd}<&-"
-    unset CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_FD \
-        CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_TOKEN \
-        CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_PID
-    [[ "$observed_bootstrap_token" == "$bootstrap_token" ]] || exit 126
-else
-    unset BASH_ENV ENV PYTHONHOME PYTHONPATH PYTHONSTARTUP PYTHONINSPECT \
-        PYTHONWARNINGS PYTHONBREAKPOINT LD_PRELOAD LD_LIBRARY_PATH \
-        DYLD_INSERT_LIBRARIES DYLD_LIBRARY_PATH DYLD_FRAMEWORK_PATH \
-        __PYVENV_LAUNCHER__ PYTHONEXECUTABLE TOOLCHAINS DEVELOPER_DIR
-    exec "$bootstrap_python" -I -S -c '
-import fcntl
+[[ -f "$bootstrap_python" && -x "$bootstrap_python" \
+    && ! -d "$bootstrap_python" && ! -w "$bootstrap_python" ]] || exit 126
+unset BASH_ENV ENV PYTHONHOME PYTHONPATH PYTHONSTARTUP PYTHONINSPECT \
+    PYTHONWARNINGS PYTHONBREAKPOINT LD_PRELOAD LD_LIBRARY_PATH \
+    DYLD_INSERT_LIBRARIES DYLD_LIBRARY_PATH DYLD_FRAMEWORK_PATH \
+    __PYVENV_LAUNCHER__ PYTHONEXECUTABLE
+# shellcheck disable=SC2093  # Python intentionally replaces the shell prefix.
+exec "$bootstrap_python" -I -S -c '
 import os
 import signal
+import stat
 import sys
+import tempfile
 
 try:
+    bootstrap_path = os.path.abspath(sys.argv[1])
+    script_path = os.path.abspath(sys.argv[2])
+    if bootstrap_path not in {
+        "/usr/bin/python3",
+        "/Library/Developer/CommandLineTools/usr/bin/python3",
+    }:
+        raise RuntimeError("unexpected bootstrap path")
+    bootstrap_stat = os.stat(bootstrap_path)
+    executable_stat = os.stat(sys.executable)
+    if (
+        (bootstrap_stat.st_dev, bootstrap_stat.st_ino)
+        != (executable_stat.st_dev, executable_stat.st_ino)
+        or bootstrap_stat.st_uid != 0
+        or not stat.S_ISREG(bootstrap_stat.st_mode)
+        or bootstrap_stat.st_mode & 0o022
+        or sys.version_info < (3, 9)
+    ):
+        raise RuntimeError("untrusted bootstrap runtime")
+    resolved_bootstrap = os.path.realpath(bootstrap_path)
+    component = os.path.sep
+    for segment in resolved_bootstrap.split(os.path.sep)[1:]:
+        component = os.path.join(component, segment)
+        component_stat = os.stat(component)
+        if component_stat.st_uid != 0 or component_stat.st_mode & 0o022:
+            raise RuntimeError("writable bootstrap component")
+
     signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGCHLD})
     signal.signal(signal.SIGCHLD, signal.SIG_DFL)  # SECURITY_RULE:wrapper_sigchld_reaping
+    if signal.getsignal(signal.SIGCHLD) is not signal.SIG_DFL:
+        raise RuntimeError("SIGCHLD disposition remained non-default")
     if signal.SIGCHLD in signal.sigpending():  # SECURITY_RULE:wrapper_sigchld_pending_drain
         signal.sigwait({signal.SIGCHLD})
     if signal.SIGCHLD in signal.sigpending():
@@ -66,43 +75,45 @@ try:
     )  # SECURITY_RULE:wrapper_sigchld_unblock
     if signal.SIGCHLD in signal.pthread_sigmask(signal.SIG_BLOCK, set()):
         raise RuntimeError("SIGCHLD remained blocked")
-    initial_read_fd, write_fd = os.pipe()
-    read_fd = fcntl.fcntl(initial_read_fd, fcntl.F_DUPFD_CLOEXEC, 10)
-    os.close(initial_read_fd)
-    os.set_inheritable(read_fd, True)
-    token = os.urandom(32).hex()
-    payload = (token + "\n").encode("ascii")
-    if os.write(write_fd, payload) != len(payload):
-        raise OSError("short bootstrap token write")
-    os.close(write_fd)
-    environment = {
-        "CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_FD": str(read_fd),
-        "CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_TOKEN": token,
-        "CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_PID": str(os.getpid()),
-        "HOME": "/",
-        "LANG": "C",
-        "LC_ALL": "C",
-        "PATH": "/usr/bin:/bin",
-    }
-    customer_python = os.environ.get("CUSTOMER_DELIVERY_PYTHON")
-    if customer_python is not None:
-        environment["CUSTOMER_DELIVERY_PYTHON"] = customer_python
-    script = os.path.abspath(sys.argv[1])
-    os.execve("/bin/bash", ["/bin/bash", "-p", script, *sys.argv[2:]], environment)
+
+    script_fd = os.open(script_path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    script_stat = os.fstat(script_fd)
+    if not stat.S_ISREG(script_stat.st_mode):
+        raise RuntimeError("bootstrap script is not regular")
+    source = os.read(script_fd, 262145)
+    if len(source) > 262144 or os.read(script_fd, 1):
+        raise RuntimeError("bootstrap script exceeds bound")
+    marker = b"\n# CUSTOMER_DELIVERY_" + b"WORKER_V1\n"
+    if source.count(marker) != 1:
+        raise RuntimeError("worker delimiter missing or ambiguous")
+    worker = source.split(marker, 1)[1]
+    if not worker.startswith(b"validator_script="):
+        raise RuntimeError("worker prefix invalid")
+    anonymous_worker = tempfile.TemporaryFile(mode="w+b", dir="/tmp")
+    if anonymous_worker.write(worker) != len(worker):
+        raise OSError("short worker write")
+    anonymous_worker.flush()
+    anonymous_worker.seek(0)
+    os.dup2(anonymous_worker.fileno(), 0, inheritable=True)
+    environment = dict(os.environ)
+    os.execve(
+        "/bin/bash",
+        [
+            "/bin/bash", "-p", "-s", "--", script_path,
+            str(os.getpid()), *sys.argv[3:],
+        ],
+        environment,
+    )  # SECURITY_RULE:wrapper_sigchld_exec
 except BaseException:
     os._exit(126)
-' "${BASH_SOURCE[0]}" "$@"
-fi
+' "$bootstrap_python" "${BASH_SOURCE[0]}" "$@"
+exit 126
 
-# A caller cannot bypass normalization by pre-seeding the handshake: the
-# first child must observe the live default disposition as well as the token.
-wrapper_sigchld_state="$("$bootstrap_python" -I -S -c '
-import signal
-blocked = signal.pthread_sigmask(signal.SIG_BLOCK, set())
-ready = signal.getsignal(signal.SIGCHLD) == signal.SIG_DFL and signal.SIGCHLD not in blocked
-print("DFL_UNBLOCKED" if ready else "NOT_READY")
-' 2>/dev/null || true)"
-[[ "$wrapper_sigchld_state" == DFL_UNBLOCKED ]] || exit 126
+# CUSTOMER_DELIVERY_WORKER_V1
+validator_script="${1:?missing canonical validator path}"
+bootstrap_pid="${2:?missing bootstrap pid}"
+shift 2
+[[ "$$" == "$bootstrap_pid" ]] || exit 126
 
 # Imported Bash functions and caller PATH entries are not trusted execution
 # authority. Security-relevant external utilities below are invoked only by
@@ -183,7 +194,7 @@ fi
 
 root="$(cd "$root" && pwd -P)"
 
-framework_root="$(cd "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
+framework_root="$(cd "$(/usr/bin/dirname -- "$validator_script")/.." && pwd -P)"
 [[ -d "$framework_root" ]] || { emit_config_error 'invalid_framework_root'; exit 2; }
 requirements="${root}/datarim/tasks/${task}-customer-requirements.yaml"
 receipt="${root}/datarim/receipts/${task}-customer-delivery.yaml"

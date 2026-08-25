@@ -418,20 +418,10 @@ elif kind == "python_runtime_metadata":
     end = source.index(end_token, start) + len(end_token)
     source = source[:start] + 'if false; then  # MUTATED:python_runtime_metadata_trust' + source[end:]
 elif kind == "python_routing_env":
-    bootstrap_scrub = '''    unset BASH_ENV ENV PYTHONHOME PYTHONPATH PYTHONSTARTUP PYTHONINSPECT \\
-        PYTHONWARNINGS PYTHONBREAKPOINT LD_PRELOAD LD_LIBRARY_PATH \\
-        DYLD_INSERT_LIBRARIES DYLD_LIBRARY_PATH DYLD_FRAMEWORK_PATH \\
-        __PYVENV_LAUNCHER__ PYTHONEXECUTABLE TOOLCHAINS DEVELOPER_DIR
-'''
-    bootstrap_environment = '''    customer_python = os.environ.get("CUSTOMER_DELIVERY_PYTHON")
-'''
-    bootstrap_mutant = '''    for routing_name in (
-        "PYTHONHOME", "PYTHONPATH", "PYTHONEXECUTABLE", "__PYVENV_LAUNCHER__",
-        "DEVELOPER_DIR", "TOOLCHAINS",
-    ):
-        if routing_name in os.environ:
-            environment[routing_name] = os.environ[routing_name]
-    customer_python = os.environ.get("CUSTOMER_DELIVERY_PYTHON")
+    bootstrap_scrub = '''unset BASH_ENV ENV PYTHONHOME PYTHONPATH PYTHONSTARTUP PYTHONINSPECT \\
+    PYTHONWARNINGS PYTHONBREAKPOINT LD_PRELOAD LD_LIBRARY_PATH \\
+    DYLD_INSERT_LIBRARIES DYLD_LIBRARY_PATH DYLD_FRAMEWORK_PATH \\
+    __PYVENV_LAUNCHER__ PYTHONEXECUTABLE
 '''
     scrub = '\nunset DEVELOPER_DIR TOOLCHAINS __PYVENV_LAUNCHER__ PYTHONEXECUTABLE PYTHONHOME PYTHONPATH\n\nsecure_root_path()'
     darwin = '''trusted_runtime_path="$(/usr/bin/env -i LC_ALL=C PATH=/usr/bin:/bin \\
@@ -439,17 +429,15 @@ elif kind == "python_routing_env":
         "$trusted_python_anchor" -I -c 'import sys; print(sys.executable)' 2>/dev/null || true)"'''
     linux = '''trusted_runtime_path="$(/usr/bin/env -i LC_ALL=C PATH=/usr/bin:/bin \\
         "$trusted_python_anchor" -I -c 'import sys; print(sys.executable)' 2>/dev/null || true)"'''
-    if (source.count(bootstrap_scrub) != 1
-            or source.count(bootstrap_environment) != 1
-            or source.count(scrub) != 1
+    if (source.count(bootstrap_scrub) != 1 or source.count(scrub) != 1
             or source.count(darwin) != 1
             or source.count(linux) != 1):
         raise SystemExit("PYTHON_ROUTING_ENV_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
     source = source.replace(
         bootstrap_scrub,
-        '    pass  # MUTATED:bootstrap_python_routing_environment\n',
+        ': # MUTATED:bootstrap_python_routing_environment\n',
         1,
-    ).replace(bootstrap_environment, bootstrap_mutant, 1)
+    )
     source = source.replace(scrub, '\n: # MUTATED:python_routing_environment\n\nsecure_root_path()', 1)
     source = source.replace(
         darwin,
@@ -787,17 +775,38 @@ if source.count(old) != 1:
     raise SystemExit("CONFINEMENT_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
 source = source.replace(old, replacement)
 if sys.argv[2] == "function":
-    privileged_shebang = "#!/bin/bash -p"
-    old_unset = "unset -f cat dirname jq mktemp realpath rm stat tail wc"
-    if source.count(privileged_shebang) != 1 or source.count(old_unset) != 1:
+    privileged_worker = '            "/bin/bash", "-p", "-s", "--", script_path,'
+    ordinary_worker = '            "/bin/bash", "-s", "--", script_path,  # TEST_CONTROL:ordinary_worker'
+    if source.count(privileged_worker) != 1:
         raise SystemExit("REALPATH_FUNCTION_SANITIZATION_SEAM_MISSING_OR_AMBIGUOUS")
-    source = source.replace(privileged_shebang, "#!/usr/bin/env bash").replace(
-        old_unset, "unset -f cat dirname jq mktemp rm stat tail wc"
-    )
+    source = source.replace(privileged_worker, ordinary_worker, 1)
 with open(path, "w", encoding="utf-8") as handle:
     handle.write(source)
 PY
         chmod +x "$mutant"
+
+        if [[ "$kind" == function ]]; then
+            run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+                CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
+                bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+            assert_baseline_green "$filter" || return 1
+            "$PYTHON" - "$mutant" <<'PY' || return 1
+import sys
+
+path = sys.argv[1]
+source = open(path, encoding="utf-8").read()
+guard = "unset -f cat dirname jq mktemp realpath rm stat tail wc"
+if source.count(guard) != 1:
+    raise SystemExit("REALPATH_FUNCTION_UNSET_SEAM_MISSING_OR_AMBIGUOUS")
+open(path, "w", encoding="utf-8").write(
+    source.replace(
+        guard,
+        "unset -f cat dirname jq mktemp rm stat tail wc  # MUTATED:realpath_function_unset",
+        1,
+    )
+)
+PY
+        fi
 
         run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$mutant" \
             bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
@@ -1254,7 +1263,7 @@ run_wrapper_sigchld_mutant() {
         bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
     assert_baseline_green "$filter" || return 1
 
-    for kind in reset unblock drain exec handshake; do
+    for kind in reset unblock drain exec pinned_interpreter delimiter temp_stdin; do
         validator_mutant="${BATS_TEST_TMPDIR}/check-customer-delivery-wrapper-sigchld-${kind}.sh"
         cp "$SCRIPT" "$validator_mutant" || return 1
         case "$kind" in
@@ -1274,14 +1283,24 @@ run_wrapper_sigchld_mutant() {
                 expected_fragment='wrapper_sigchld_not_normalized'
                 ;;
             exec)
-                guard='    os.execve("/bin/bash", ["/bin/bash", "-p", script, *sys.argv[2:]], environment)'
-                mutant='    os.spawnve(os.P_WAIT, "/bin/bash", ["/bin/bash", "-p", script, *sys.argv[2:]], environment); os._exit(0)  # MUTATED:wrapper_sigchld_exec'
+                guard=$'    os.execve(\n        "/bin/bash",\n        [\n            "/bin/bash", "-p", "-s", "--", script_path,\n            str(os.getpid()), *sys.argv[3:],\n        ],\n        environment,\n    )  # SECURITY_RULE:wrapper_sigchld_exec'
+                mutant=$'    os.spawnve(\n        os.P_WAIT, "/bin/bash",\n        [\n            "/bin/bash", "-p", "-s", "--", script_path,\n            str(os.getpid()), *sys.argv[3:],\n        ],\n        environment,\n    )\n    os._exit(0)  # MUTATED:wrapper_sigchld_exec'
                 expected_fragment='wrapper_sigchld_not_normalized'
                 ;;
-            handshake)
-                guard='    [[ "$observed_bootstrap_token" == "$bootstrap_token" ]] || exit 126'
-                mutant='    true  # MUTATED:wrapper_sigchld_handshake'
-                expected_fragment='wrapper_sigchld_mismatch_accepted'
+            pinned_interpreter)
+                guard=$'case "$OSTYPE" in\n    darwin*) bootstrap_python=\'/Library/Developer/CommandLineTools/usr/bin/python3\' ;;\n    linux*) bootstrap_python=\'/usr/bin/python3\' ;;\n    *) exit 126 ;;\nesac'
+                mutant='bootstrap_python="$(command -v python3)"  # MUTATED:wrapper_pinned_interpreter'
+                expected_fragment='wrapper_bootstrap_path_used'
+                ;;
+            delimiter)
+                guard='    marker = b"\n# CUSTOMER_DELIVERY_" + b"WORKER_V1\n"'
+                mutant='    marker = b"\n# CUSTOMER_DELIVERY_" + b"WORKER_V2\n"  # MUTATED:wrapper_worker_delimiter'
+                expected_fragment='wrapper_sigchld_not_normalized'
+                ;;
+            temp_stdin)
+                guard='    os.dup2(anonymous_worker.fileno(), 0, inheritable=True)'
+                mutant='    pass  # MUTATED:wrapper_worker_temp_stdin'
+                expected_fragment='wrapper_sigchld_not_normalized'
                 ;;
             *) return 1 ;;
         esac
