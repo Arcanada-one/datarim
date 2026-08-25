@@ -25,8 +25,8 @@ ACTIONLINT = ROOT / ".github/actionlint.yaml"
 CHECKOUT = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
 EXPECTED_DIGESTS = {
     "preflight": "a18daf69186058ede3916e74423139dea2a7fdee5dd017b1e703160fef4c9784",
-    "controller": "a2f6460144d3bc608cfa92d0a75474609db31b5647bde743e0f4681f53bf30b6",
-    "publisher": "8987738d78ccfde84f1fa90ab34b3b0abdb260278d9ea47ab068efa62d0926cd",
+    "controller": "a307331a13f738cf34f78f2a3b8de73351263fb8245f4a08220e638832c9c005",
+    "publisher": "7313aaa06977fdd274e1f97fc7edf3ba7e9a8f4199e881ab63f70ce05ea69fe3",
     "evaluator": "a0e86fc87493231afffd3164587f0c14e463f5e8c4acd8f4f9679e2504280d1a",
     "runner-unit": "d9b25e4ea33ed2bddad9e5d1fd5a47acedfed852749f0771fb24838f70edc131",
     "provisioner": "95dd8ab3c2d9de0f7e2de56a6bc839b68e6efe8a6aa1fed0143075d69e3c8d13",
@@ -194,16 +194,17 @@ def validate_trusted(workflow: dict[str, Any], findings: list[str]) -> None:
     )
     exact(
         workflow.get("permissions"),
-        {"contents": "read", "checks": "write"},
+        {},
         "trusted-permissions",
         findings,
     )
     jobs = workflow.get("jobs")
-    replay = (
-        jobs.get("replay")
-        if isinstance(jobs, dict) and set(jobs) == {"replay"}
-        else None
-    )
+    if isinstance(jobs, dict) and set(jobs) == {"initialize", "replay"}:
+        initialize = jobs.get("initialize")
+        replay = jobs.get("replay")
+    else:
+        initialize = None
+        replay = None
     expected_steps = [
         {
             "name": "Initialize checkout-independent current-run verdict",
@@ -220,6 +221,13 @@ def validate_trusted(workflow: dict[str, Any], findings: list[str]) -> None:
             },
             "run": (
                 "set -euo pipefail\n"
+                '[[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]\n'
+                '[[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]]\n'
+                '[[ "$TRUSTED_WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]\n'
+                '[[ "$TRUSTED_RUN_ID" =~ ^[1-9][0-9]*$ ]]\n'
+                '[[ "$TRUSTED_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]\n'
+                '[[ "$SOURCE_RUN_ID" =~ ^[1-9][0-9]*$ ]]\n'
+                '[[ "$SOURCE_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]\n'
                 "expected_nonce=$(\n"
                 "  printf 'trusted_run_id=%s\\ntrusted_run_attempt=%s\\nworkflow_sha=%s\\nsource_run_id=%s\\nsource_run_attempt=%s\\nhead_sha=%s\\nbase_sha=%s\\n' \\\n"
                 '    "$TRUSTED_RUN_ID" "$TRUSTED_RUN_ATTEMPT" "$TRUSTED_WORKFLOW_SHA" \\\n'
@@ -236,6 +244,10 @@ def validate_trusted(workflow: dict[str, Any], findings: list[str]) -> None:
                 '  jq -e --arg head "$HEAD_SHA" --arg nonce "$expected_nonce" \\\n'
                 "    'select(.name == \"talo-0001-privileged-replay\" and .head_sha == $head and .external_id == $nonce and .status == \"completed\" and .conclusion == \"failure\") | .id | select(type == \"number\" and . > 0 and floor == .)' \\\n"
                 '    <<<"$response" >/dev/null\n'
+                "  check_id=$(jq -er '.id | select(type == \"number\" and . > 0 and floor == .)' \\\n"
+                '    <<<"$response")\n'
+                "  printf 'check_id=%s\\nexecution_nonce=%s\\ncurrent_base=false\\n' \\\n"
+                '    "$check_id" "$expected_nonce" >>"$GITHUB_OUTPUT"\n'
                 "  exit 1\n"
                 "fi\n"
                 "response=$(gh api --method POST repos/Arcanada-one/datarim/check-runs \\\n"
@@ -246,7 +258,14 @@ def validate_trusted(workflow: dict[str, Any], findings: list[str]) -> None:
                 'check_id=$(jq -er --arg head "$HEAD_SHA" --arg nonce "$expected_nonce" \\\n'
                 "  'select(.name == \"talo-0001-privileged-replay\" and .head_sha == $head and .external_id == $nonce and .status == \"in_progress\") | .id | select(type == \"number\" and . > 0 and floor == .)' \\\n"
                 '  <<<"$response")\n'
-                "printf 'check_id=%s\\n' \"$check_id\" >>\"$GITHUB_OUTPUT\"\n"
+                "printf 'check_id=%s\\nexecution_nonce=%s\\ncurrent_base=true\\n' \\\n"
+                '  "$check_id" "$expected_nonce" >>"$GITHUB_OUTPUT"\n'
+                "printf 'head_sha=%s\\nbase_sha=%s\\ntrusted_run_id=%s\\ntrusted_run_attempt=%s\\n' \\\n"
+                '  "$HEAD_SHA" "$BASE_SHA" "$TRUSTED_RUN_ID" \\\n'
+                '  "$TRUSTED_RUN_ATTEMPT" >>"$GITHUB_OUTPUT"\n'
+                "printf 'workflow_sha=%s\\nsource_run_id=%s\\nsource_run_attempt=%s\\n' \\\n"
+                '  "$TRUSTED_WORKFLOW_SHA" "$SOURCE_RUN_ID" \\\n'
+                '  "$SOURCE_RUN_ATTEMPT" >>"$GITHUB_OUTPUT"\n'
             ),
         },
         {
@@ -254,7 +273,7 @@ def validate_trusted(workflow: dict[str, Any], findings: list[str]) -> None:
             "id": "trusted-checkout",
             "uses": CHECKOUT,
             "with": {
-                "ref": "${{ github.workflow_sha }}",
+                "ref": "${{ needs.initialize.outputs.workflow_sha }}",
                 "path": "trusted",
                 "persist-credentials": False,
             },
@@ -262,7 +281,7 @@ def validate_trusted(workflow: dict[str, Any], findings: list[str]) -> None:
         {
             "name": "Validate workflow-run identity before secret materialization",
             "env": {
-                "TALO_TRUSTED_WORKFLOW_SHA": "${{ github.workflow_sha }}",
+                "TALO_TRUSTED_WORKFLOW_SHA": "${{ needs.initialize.outputs.workflow_sha }}",
             },
             "run": 'trusted/dev-tools/preflight-talo-0001-workflow-run.sh "$GITHUB_EVENT_PATH"',
         },
@@ -270,12 +289,13 @@ def validate_trusted(workflow: dict[str, Any], findings: list[str]) -> None:
             "name": "Run trusted collection and sandboxed exact-head replay",
             "env": {
                 "GH_TOKEN": "${{ github.token }}",
-                "TALO_TRUSTED_RUN_ID": "${{ github.run_id }}",
-                "TALO_TRUSTED_RUN_ATTEMPT": "${{ github.run_attempt }}",
-                "TALO_TRUSTED_WORKFLOW_SHA": "${{ github.workflow_sha }}",
-                "TALO_SOURCE_RUN_ID": "${{ github.event.workflow_run.id }}",
-                "TALO_SOURCE_RUN_ATTEMPT": "${{ github.event.workflow_run.run_attempt }}",
-                "TALO_BASE_SHA": "${{ github.event.workflow_run.pull_requests[0].base.sha }}",
+                "TALO_TRUSTED_RUN_ID": "${{ needs.initialize.outputs.trusted_run_id }}",
+                "TALO_TRUSTED_RUN_ATTEMPT": "${{ needs.initialize.outputs.trusted_run_attempt }}",
+                "TALO_TRUSTED_WORKFLOW_SHA": "${{ needs.initialize.outputs.workflow_sha }}",
+                "TALO_SOURCE_RUN_ID": "${{ needs.initialize.outputs.source_run_id }}",
+                "TALO_SOURCE_RUN_ATTEMPT": "${{ needs.initialize.outputs.source_run_attempt }}",
+                "TALO_BASE_SHA": "${{ needs.initialize.outputs.base_sha }}",
+                "TALO_EXECUTION_NONCE": "${{ needs.initialize.outputs.execution_nonce }}",
             },
             "run": (
                 "trusted/dev-tools/trusted-talo-0001-replay.sh \\\n"
@@ -289,14 +309,15 @@ def validate_trusted(workflow: dict[str, Any], findings: list[str]) -> None:
             "if": "always()",
             "env": {
                 "GH_TOKEN": "${{ github.token }}",
-                "HEAD_SHA": "${{ github.event.workflow_run.head_sha }}",
-                "BASE_SHA": "${{ github.event.workflow_run.pull_requests[0].base.sha }}",
-                "TRUSTED_RUN_ID": "${{ github.run_id }}",
-                "TRUSTED_RUN_ATTEMPT": "${{ github.run_attempt }}",
-                "TRUSTED_WORKFLOW_SHA": "${{ github.workflow_sha }}",
-                "SOURCE_RUN_ID": "${{ github.event.workflow_run.id }}",
-                "SOURCE_RUN_ATTEMPT": "${{ github.event.workflow_run.run_attempt }}",
-                "CHECK_RUN_ID": "${{ steps.initialize-verdict.outputs.check_id }}",
+                "HEAD_SHA": "${{ needs.initialize.outputs.head_sha }}",
+                "BASE_SHA": "${{ needs.initialize.outputs.base_sha }}",
+                "TRUSTED_RUN_ID": "${{ needs.initialize.outputs.trusted_run_id }}",
+                "TRUSTED_RUN_ATTEMPT": "${{ needs.initialize.outputs.trusted_run_attempt }}",
+                "TRUSTED_WORKFLOW_SHA": "${{ needs.initialize.outputs.workflow_sha }}",
+                "SOURCE_RUN_ID": "${{ needs.initialize.outputs.source_run_id }}",
+                "SOURCE_RUN_ATTEMPT": "${{ needs.initialize.outputs.source_run_attempt }}",
+                "CHECK_RUN_ID": "${{ needs.initialize.outputs.check_id }}",
+                "EXPECTED_EXECUTION_NONCE": "${{ needs.initialize.outputs.execution_nonce }}",
                 "TRUSTED_CHECKOUT_OUTCOME": "${{ steps.trusted-checkout.outcome }}",
                 "ATTESTATION": "${{ runner.temp }}/talo-0001-attestation.json",
             },
@@ -313,6 +334,7 @@ def validate_trusted(workflow: dict[str, Any], findings: list[str]) -> None:
                 '    "$SOURCE_RUN_ID" "$SOURCE_RUN_ATTEMPT" "$HEAD_SHA" "$BASE_SHA" \\\n'
                 "    | sha256sum | cut -d' ' -f1\n"
                 ")\n"
+                '[ "$expected_nonce" = "$EXPECTED_EXECUTION_NONCE" ]\n'
                 '[[ "$CHECK_RUN_ID" =~ ^[1-9][0-9]*$ ]]\n'
                 'response=$(gh api "repos/Arcanada-one/datarim/check-runs/$CHECK_RUN_ID")\n'
                 'jq -e --argjson id "$CHECK_RUN_ID" --arg head "$HEAD_SHA" \\\n'
@@ -328,17 +350,45 @@ def validate_trusted(workflow: dict[str, Any], findings: list[str]) -> None:
             ),
         },
     ]
-    expected_job = {
-        "name": "talo-0001-trusted-replay-controller",
+    expected_initialize = {
+        "name": "talo-0001-current-verdict-initializer",
         "if": EXPECTED_JOB_IF,
+        "runs-on": "ubuntu-latest",
+        "permissions": {"checks": "write"},
+        "timeout-minutes": 2,
+        "outputs": {
+            "check_id": "${{ steps.initialize-verdict.outputs.check_id }}",
+            "execution_nonce": "${{ steps.initialize-verdict.outputs.execution_nonce }}",
+            "current_base": "${{ steps.initialize-verdict.outputs.current_base }}",
+            "head_sha": "${{ steps.initialize-verdict.outputs.head_sha }}",
+            "base_sha": "${{ steps.initialize-verdict.outputs.base_sha }}",
+            "trusted_run_id": "${{ steps.initialize-verdict.outputs.trusted_run_id }}",
+            "trusted_run_attempt": "${{ steps.initialize-verdict.outputs.trusted_run_attempt }}",
+            "workflow_sha": "${{ steps.initialize-verdict.outputs.workflow_sha }}",
+            "source_run_id": "${{ steps.initialize-verdict.outputs.source_run_id }}",
+            "source_run_attempt": "${{ steps.initialize-verdict.outputs.source_run_attempt }}",
+        },
+        "steps": [expected_steps[0]],
+    }
+    expected_replay = {
+        "name": "talo-0001-trusted-replay-controller",
+        "needs": ["initialize"],
+        "if": (
+            "needs.initialize.result == 'success' && "
+            "needs.initialize.outputs.current_base == 'true' && "
+            "needs.initialize.outputs.base_sha == "
+            "needs.initialize.outputs.workflow_sha"
+        ),
         "runs-on": {
             "group": "talo-0001-trusted",
             "labels": ["self-hosted", "Linux", "X64", "talo-0001-trusted"],
         },
+        "permissions": {"contents": "read", "checks": "write"},
         "timeout-minutes": 8,
-        "steps": expected_steps,
+        "steps": expected_steps[1:],
     }
-    exact(replay, expected_job, "trusted-job", findings)
+    exact(initialize, expected_initialize, "trusted-initializer-job", findings)
+    exact(replay, expected_replay, "trusted-replay-job", findings)
 
 
 def validate_code(findings: list[str]) -> None:
@@ -419,6 +469,7 @@ def validate_code(findings: list[str]) -> None:
         'attestation_tmp=$(mktemp "${OUTPUT}.tmp.XXXXXXXX")',
         'mv -f -- "$attestation_tmp" "$OUTPUT"',
         '[ "$TALO_BASE_SHA" = "$TALO_TRUSTED_WORKFLOW_SHA" ]',
+        '[ "$execution_nonce_sha256" = "$TALO_EXECUTION_NONCE" ]',
     ):
         if value not in controller:
             findings.append(f"missing:candidate-object-contract:{value}")
@@ -433,6 +484,7 @@ def validate_code(findings: list[str]) -> None:
         '[ ! -L "$ATTESTATION" ]',
         '[ "$attestation_mode" = 600 ]',
         '[ "$BASE_SHA" = "$TRUSTED_WORKFLOW_SHA" ]',
+        '[ "$expected_nonce" = "$EXPECTED_EXECUTION_NONCE" ]',
     ):
         if value not in publisher:
             findings.append(f"missing:candidate-object-contract:{value}")

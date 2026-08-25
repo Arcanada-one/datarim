@@ -9,6 +9,10 @@ expected_nonce=$(
         "$SOURCE_RUN_ID" "$SOURCE_RUN_ATTEMPT" "$HEAD_SHA" "$BASE_SHA" \
         | sha256sum | cut -d' ' -f1
 )
+[ "$expected_nonce" = "$EXPECTED_EXECUTION_NONCE" ] || {
+    echo "ERROR: trusted execution nonce mismatch" >&2
+    exit 1
+}
 [ "$BASE_SHA" = "$TRUSTED_WORKFLOW_SHA" ] || {
     echo "ERROR: source base is not current trusted main" >&2
     exit 1

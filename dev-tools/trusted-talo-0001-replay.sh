@@ -28,7 +28,7 @@ fi
 chmod 0600 "$OUTPUT"
 for value in TALO_TRUSTED_RUN_ID TALO_TRUSTED_RUN_ATTEMPT \
     TALO_TRUSTED_WORKFLOW_SHA TALO_SOURCE_RUN_ID TALO_SOURCE_RUN_ATTEMPT \
-    TALO_BASE_SHA; do
+    TALO_BASE_SHA TALO_EXECUTION_NONCE; do
     [ -n "${!value:-}" ] || { echo "ERROR: missing trusted run binding: $value" >&2; exit 2; }
 done
 for command in chmod cmp curl docker gh git id jq mktemp mv realpath sha256sum; do
@@ -39,7 +39,8 @@ if ! [[ "$TALO_TRUSTED_RUN_ID" =~ ^[1-9][0-9]*$ ]] \
     || ! [[ "$TALO_SOURCE_RUN_ID" =~ ^[1-9][0-9]*$ ]] \
     || ! [[ "$TALO_SOURCE_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]] \
     || ! [[ "$TALO_TRUSTED_WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]] \
-    || ! [[ "$TALO_BASE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+    || ! [[ "$TALO_BASE_SHA" =~ ^[0-9a-f]{40}$ ]] \
+    || ! [[ "$TALO_EXECUTION_NONCE" =~ ^[0-9a-f]{64}$ ]]; then
     echo "ERROR: invalid trusted run binding" >&2
     exit 2
 fi
@@ -71,6 +72,10 @@ execution_nonce_sha256=$(
         "$TALO_SOURCE_RUN_ATTEMPT" "$head_sha" "$TALO_BASE_SHA" \
         | sha256sum | cut -d' ' -f1
 )
+[ "$execution_nonce_sha256" = "$TALO_EXECUTION_NONCE" ] || {
+    echo "ERROR: trusted execution nonce mismatch" >&2
+    exit 1
+}
 actual_evaluator_sha=$(sha256sum "$TRUSTED_EVALUATOR" | cut -d' ' -f1)
 [ "$actual_evaluator_sha" = "$TRUSTED_EVALUATOR_SHA256" ] \
     || { echo "ERROR: trusted evaluator digest mismatch" >&2; exit 1; }

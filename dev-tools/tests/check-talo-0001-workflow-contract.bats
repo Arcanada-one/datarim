@@ -79,10 +79,11 @@ import yaml
 
 with open(sys.argv[1], encoding="utf-8") as handle:
     workflow = yaml.safe_load(handle)
-for step in workflow["jobs"]["replay"]["steps"]:
-    if step.get("name") == sys.argv[2]:
-        print(step["run"])
-        raise SystemExit(0)
+for job in workflow["jobs"].values():
+    for step in job["steps"]:
+        if step.get("name") == sys.argv[2]:
+            print(step["run"])
+            raise SystemExit(0)
 raise SystemExit(1)
 PY
 }
@@ -331,14 +332,14 @@ run_provision_runtime() {
     run_check
     [ "$status" -eq 1 ] \
         && [[ "$output" == *'mismatch:trusted-trigger'* ]] \
-        && [[ "$output" == *'mismatch:trusted-job'* ]]
+        && [[ "$output" == *'mismatch:trusted-replay-job'* ]]
 }
 
 @test "trusted workflow has no unused pull-request permission" {
     local trusted="$FIXTURE/.github/workflows/talo-0001-trusted-replay.yml"
     run grep -q 'pull-requests:' "$trusted"
     [ "$status" -ne 0 ]
-    sed -i '/permissions:/a\  pull-requests: read' "$trusted"
+    sed -i 's/permissions: {}/permissions:\n  pull-requests: read/' "$trusted"
     run_check
     [ "$status" -eq 1 ] && [[ "$output" == *'mismatch:trusted-permissions'* ]]
 }
@@ -350,12 +351,59 @@ run_provision_runtime() {
 
     sed -i '/      group: talo-0001-trusted/d' "$workflow"
     run_check
-    [ "$status" -eq 1 ] && [[ "$output" == *'mismatch:trusted-job'* ]]
+    [ "$status" -eq 1 ] && [[ "$output" == *'mismatch:trusted-replay-job'* ]]
 
     cp "$original" "$workflow"
     sed -i 's/group: talo-0001-trusted/group: Default/' "$workflow"
     run_check
-    [ "$status" -eq 1 ] && [[ "$output" == *'mismatch:trusted-job'* ]]
+    [ "$status" -eq 1 ] && [[ "$output" == *'mismatch:trusted-replay-job'* ]]
+}
+
+@test "hosted initializer owns the current check before trusted runner queue" {
+    local workflow="$FIXTURE/.github/workflows/talo-0001-trusted-replay.yml"
+    local original="$BATS_TEST_TMPDIR/hosted-initializer.original"
+    run python3 - "$FIXTURE/.github/workflows/talo-0001-trusted-replay.yml" <<'PY'
+import sys
+import yaml
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    workflow = yaml.safe_load(handle)
+assert set(workflow["jobs"]) == {"initialize", "replay"}
+initializer = workflow["jobs"]["initialize"]
+replay = workflow["jobs"]["replay"]
+assert initializer["runs-on"] == "ubuntu-latest"
+assert initializer["permissions"] == {"checks": "write"}
+assert len(initializer["steps"]) == 1
+assert all("uses" not in step for step in initializer["steps"])
+step = initializer["steps"][0]
+assert set(step["env"]) == {
+    "GH_TOKEN", "HEAD_SHA", "BASE_SHA", "TRUSTED_RUN_ID",
+    "TRUSTED_RUN_ATTEMPT", "TRUSTED_WORKFLOW_SHA", "SOURCE_RUN_ID",
+    "SOURCE_RUN_ATTEMPT",
+}
+assert step["env"]["GH_TOKEN"] == "${{ github.token }}"
+assert all(token not in step["run"] for token in (
+    "secrets.", "candidate", "docker ", "curl ", "actions/checkout",
+))
+assert replay["needs"] == ["initialize"]
+assert replay["runs-on"]["group"] == "talo-0001-trusted"
+assert "needs.initialize.result == 'success'" in replay["if"]
+assert "needs.initialize.outputs.current_base == 'true'" in replay["if"]
+PY
+    [ "$status" -eq 0 ]
+
+    cp "$workflow" "$original"
+    sed -i '0,/runs-on: ubuntu-latest/{s/runs-on: ubuntu-latest/runs-on: [self-hosted, talo-0001-trusted]/}' \
+        "$workflow"
+    run_check
+    [ "$status" -eq 1 ]
+    [[ "$output" == *'mismatch:trusted-initializer-job'* ]]
+
+    cp "$original" "$workflow"
+    sed -i 's/needs: \[initialize\]/needs: []/' "$workflow"
+    run_check
+    [ "$status" -eq 1 ]
+    [[ "$output" == *'mismatch:trusted-replay-job'* ]]
 }
 
 @test "each trusted pre-secret identity guard is load-bearing" {
@@ -417,7 +465,7 @@ import sys
 
 path = Path(sys.argv[1])
 text = path.read_text(encoding="utf-8")
-text = text.replace("checks: write", "checks: write\n  contents: write", 1)
+text = text.replace("      checks: write", "      checks: write\n      contents: write", 1)
 text = text.replace(
     "trusted/dev-tools/trusted-talo-0001-replay.sh",
     "true # trusted/dev-tools/trusted-talo-0001-replay.sh",
@@ -670,6 +718,7 @@ materialize_candidate_blob dev-tools/check-research-authority-audit.py"
         TALO_TRUSTED_WORKFLOW_SHA=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
         TALO_SOURCE_RUN_ID=8001 TALO_SOURCE_RUN_ATTEMPT=1 \
         TALO_BASE_SHA=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+        TALO_EXECUTION_NONCE=0000000000000000000000000000000000000000000000000000000000000000 \
         "$controller" --event "$event" \
         --candidate "$BATS_TEST_TMPDIR/candidate" --output "$attestation_path"
     [ "$status" -ne 0 ]
@@ -710,6 +759,7 @@ SH
     run env "PATH=$mock_bin:$PATH" TALO_PUBLISH_LOG="$log" \
         TALO_PUBLISH_CHECK_ID=321 TALO_PUBLISH_HEAD="$head" \
         TALO_PUBLISH_NONCE="$current_nonce" CHECK_RUN_ID=321 \
+        EXPECTED_EXECUTION_NONCE="$current_nonce" \
         ATTESTATION="$attestation" HEAD_SHA="$head" BASE_SHA="$base" \
         TRUSTED_RUN_ID=9001 TRUSTED_RUN_ATTEMPT=1 \
         TRUSTED_WORKFLOW_SHA="$controller" SOURCE_RUN_ID=8001 \
@@ -727,6 +777,7 @@ SH
     run env "PATH=$mock_bin:$PATH" TALO_PUBLISH_LOG="$log" \
         TALO_PUBLISH_CHECK_ID=321 TALO_PUBLISH_HEAD="$head" \
         TALO_PUBLISH_NONCE="$nonce" CHECK_RUN_ID=321 \
+        EXPECTED_EXECUTION_NONCE="$nonce" \
         ATTESTATION="$attestation" HEAD_SHA="$head" BASE_SHA="$base" \
         TRUSTED_RUN_ID=9001 TRUSTED_RUN_ATTEMPT=1 \
         TRUSTED_WORKFLOW_SHA="$controller" SOURCE_RUN_ID=8001 \
@@ -735,7 +786,7 @@ SH
     grep -q 'conclusion=success' "$log"
 }
 
-@test "checkout failure still owns a current-run pending verdict and terminal failure path" {
+@test "hosted pending survives an offline trusted queue and checkout failure terminalizes it" {
     local initializer fallback mock_bin log github_output nonce
     local head=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
     local controller=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
@@ -769,7 +820,16 @@ SH
         TRUSTED_WORKFLOW_SHA="$controller" SOURCE_RUN_ID=8001 \
         SOURCE_RUN_ATTEMPT=3 bash -c "$initializer"
     [ "$status" -eq 0 ]
-    [ "$(cat "$github_output")" = check_id=321 ]
+    grep -qx 'check_id=321' "$github_output"
+    grep -qx "execution_nonce=$nonce" "$github_output"
+    grep -qx 'current_base=true' "$github_output"
+    grep -qx "head_sha=$head" "$github_output"
+    grep -qx "base_sha=$base" "$github_output"
+    grep -qx 'trusted_run_id=9001' "$github_output"
+    grep -qx 'trusted_run_attempt=2' "$github_output"
+    grep -qx "workflow_sha=$controller" "$github_output"
+    grep -qx 'source_run_id=8001' "$github_output"
+    grep -qx 'source_run_attempt=3' "$github_output"
     grep -q 'status=in_progress' "$log"
     grep -q "external_id=$nonce" "$log"
 
@@ -777,6 +837,7 @@ SH
     run env "PATH=$mock_bin:$PATH" TALO_PUBLISH_LOG="$log" \
         TALO_PUBLISH_HEAD="$head" TALO_PUBLISH_NONCE="$nonce" \
         HEAD_SHA="$head" BASE_SHA="$base" CHECK_RUN_ID=321 \
+        EXPECTED_EXECUTION_NONCE="$nonce" \
         TRUSTED_RUN_ID=9001 TRUSTED_RUN_ATTEMPT=2 \
         TRUSTED_WORKFLOW_SHA="$controller" SOURCE_RUN_ID=8001 \
         SOURCE_RUN_ATTEMPT=3 TRUSTED_CHECKOUT_OUTCOME=failure \
@@ -789,6 +850,7 @@ SH
     run env "PATH=$mock_bin:$PATH" TALO_PUBLISH_LOG="$log" \
         TALO_PUBLISH_HEAD="$head" TALO_PUBLISH_NONCE="$nonce" \
         HEAD_SHA="$head" BASE_SHA="$base" CHECK_RUN_ID=322 \
+        EXPECTED_EXECUTION_NONCE="$nonce" \
         TRUSTED_RUN_ID=9001 TRUSTED_RUN_ATTEMPT=2 \
         TRUSTED_WORKFLOW_SHA="$controller" SOURCE_RUN_ID=8001 \
         SOURCE_RUN_ATTEMPT=3 TRUSTED_CHECKOUT_OUTCOME=failure \
@@ -826,10 +888,13 @@ SH
     [ "$status" -eq 1 ]
     grep -q 'conclusion=failure' "$log"
     assert_file_lacks 'status=in_progress' "$log"
-    [ ! -s "$github_output" ]
+    grep -qx 'check_id=654' "$github_output"
+    grep -qx "execution_nonce=$nonce" "$github_output"
+    grep -qx 'current_base=false' "$github_output"
 
     mutant=${initializer/'if [ "$BASE_SHA" != "$TRUSTED_WORKFLOW_SHA" ]; then'/'if false; then'}
     : >"$log"
+    : >"$github_output"
     run env "PATH=$mock_bin:$PATH" \
         TALO_PUBLISH_LOG="$log" TALO_PUBLISH_HEAD="$head" \
         TALO_PUBLISH_NONCE="$nonce" TALO_PUBLISH_STATUS=in_progress \
