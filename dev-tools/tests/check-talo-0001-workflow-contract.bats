@@ -1997,7 +1997,7 @@ MUTANTS
     axes=(ACTIONS_RUNNER_INPUT_REPLACE ACTIONS_RUNNER_INPUT_EPHEMERAL \
         ACTIONS_RUNNER_INPUT_UNKNOWN_MEMBER actions_runner_input_replace \
         Actions_Runner_Input_Ephemeral \
-        aCtIoNs_RuNnEr_InPuT_Unknown_Member)
+        aCtIoNs_RuNnEr_InPuT_Unknown_Member Actions_Runner_Input_Token)
     mock_bin="$BATS_TEST_TMPDIR/native-input-axis-bin"
     runner_dir="$BATS_TEST_TMPDIR/native-input-axis-runner"
     parent_marker="$BATS_TEST_TMPDIR/native-input-parent-marker"
