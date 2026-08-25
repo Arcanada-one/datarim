@@ -98,14 +98,19 @@ def reap_owned_child(child):
 
 
 def main() -> int:
-    if len(sys.argv) != 3 or sys.argv[1] not in {"operation", "linux-dfl"}:
+    if (
+        len(sys.argv) != 4
+        or sys.argv[1] not in {"operation", "linux-dfl"}
+        or sys.argv[2] not in {"normal", "force-fixture", "force-cleanup"}
+    ):
         print("HARNESS_INVALID:wrapper_sigchld_drain_anchor")
         return 2
     mode = sys.argv[1]
+    failure_mode = sys.argv[2]
     if mode == "linux-dfl" and not sys.platform.startswith("linux"):
         print("HARNESS_INVALID:wrapper_sigchld_drain_platform")
         return 2
-    operation, load_error = load_exact_operation(Path(sys.argv[2]))
+    operation, load_error = load_exact_operation(Path(sys.argv[3]))
     if load_error is not None:
         print(f"HARNESS_INVALID:wrapper_sigchld_drain_{load_error}")
         return 2
@@ -127,7 +132,7 @@ def main() -> int:
             child_exit = 37
             pending_failure = "wrapper_sigchld_dfl_pending_not_drained"
         signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGCHLD})
-        if os.environ.get("CUSTOMER_DELIVERY_DRAIN_PROBE_FORCE_FIXTURE_FAILURE") == "1":
+        if failure_mode == "force-fixture":
             raise OSError("forced fixture failure")
         child = os.fork()
         if child == 0:
@@ -167,7 +172,7 @@ def main() -> int:
         cleanup_failed = False
         try:
             child, _ = reap_owned_child(child)
-            if os.environ.get("CUSTOMER_DELIVERY_DRAIN_PROBE_FORCE_CLEANUP_FAILURE") == "1":
+            if failure_mode == "force-cleanup":
                 raise OSError("forced cleanup failure")
         except BaseException:
             cleanup_failed = True

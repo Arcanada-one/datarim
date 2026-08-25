@@ -1256,14 +1256,16 @@ PY
 
 run_exact_wrapper_sigchld_operation_probe() {
     local validator_script="$1"
+    local failure_mode="${2:-normal}"
     run "$PYTHON" "${BATS_TEST_DIRNAME}/../../tests/customer-delivery-wrapper-drain-probe.py" \
-        operation "$validator_script"
+        operation "$failure_mode" "$validator_script"
 }
 
 run_linux_wrapper_sigchld_dfl_probe() {
     local validator_script="$1"
+    local failure_mode="${2:-normal}"
     run "$PYTHON" "${BATS_TEST_DIRNAME}/../../tests/customer-delivery-wrapper-drain-probe.py" \
-        linux-dfl "$validator_script"
+        linux-dfl "$failure_mode" "$validator_script"
 }
 
 run_wrapper_sigchld_post_bootstrap_mutant() {
@@ -1393,7 +1395,7 @@ if source.count(guard) != 1:
     raise SystemExit("WRAPPER_SIGCHLD_DFL_PENDING_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
 open(path, "w", encoding="utf-8").write(source.replace(guard, mutant, 1))
 PY
-                run "$PYTHON" "$pending_probe_mutant" linux-dfl "$validator_mutant"
+                run "$PYTHON" "$pending_probe_mutant" linux-dfl normal "$validator_mutant"
                 [ "$status" -eq 2 ] \
                     && [ "$output" = HARNESS_INVALID:wrapper_sigchld_dfl_pending_precondition ] \
                     || { printf 'wrapper_sigchld_dfl_pending_precondition=%s status=%s\n' \
@@ -1453,7 +1455,7 @@ if source.count(guard) != 1:
     raise SystemExit("WRAPPER_SIGCHLD_DRAIN_COUNT_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
 open(path, "w", encoding="utf-8").write(source.replace(guard, mutant, 1))
 PY
-            run "$PYTHON" "$probe_mutant" operation "$duplicate_anchor"
+            run "$PYTHON" "$probe_mutant" operation normal "$duplicate_anchor"
             [ "$status" -eq 0 ] && [ "$output" = PROBE_OK ] \
                 || { printf 'wrapper_sigchld_drain_count_mutant=%s status=%s\n' \
                     "$output" "$status"; return 1; }
@@ -1504,18 +1506,24 @@ PY
                     "wrapper_sigchld_drain_hostile_${hostile_kind}" \
                     "exact_wrapper_sigchld_operation_probe|${hostile_kind}|HARNESS_INVALID"
             done
-            CUSTOMER_DELIVERY_DRAIN_PROBE_FORCE_FIXTURE_FAILURE=1 \
-                run_exact_wrapper_sigchld_operation_probe "$validator_mutant"
+            run_exact_wrapper_sigchld_operation_probe "$validator_mutant" force-fixture
             [ "$status" -eq 2 ] \
                 && [ "$output" = HARNESS_INVALID:wrapper_sigchld_drain_fixture ] \
                 || { printf 'wrapper_sigchld_drain_probe_fixture=%s status=%s\n' \
                     "$output" "$status"; return 1; }
-            CUSTOMER_DELIVERY_DRAIN_PROBE_FORCE_CLEANUP_FAILURE=1 \
-                run_exact_wrapper_sigchld_operation_probe "$validator_mutant"
+            "$PYTHON" -c \
+                'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
+                wrapper_sigchld_drain_forced_fixture \
+                'operation|force-fixture|HARNESS_INVALID:wrapper_sigchld_drain_fixture'
+            run_exact_wrapper_sigchld_operation_probe "$validator_mutant" force-cleanup
             [ "$status" -eq 2 ] \
                 && [ "$output" = HARNESS_INVALID:wrapper_sigchld_drain_cleanup ] \
                 || { printf 'wrapper_sigchld_drain_probe_cleanup=%s status=%s\n' \
                     "$output" "$status"; return 1; }
+            "$PYTHON" -c \
+                'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
+                wrapper_sigchld_drain_forced_cleanup \
+                'operation|force-cleanup|HARNESS_INVALID:wrapper_sigchld_drain_cleanup'
         fi
         "$PYTHON" - "$validator_mutant" "$guard" "$mutant" <<'PY' || return 1
 import sys
