@@ -1264,6 +1264,7 @@ run_wrapper_sigchld_mutants() {
     local filter='OpenSSL deadline terminates stubborn descendant pipe holders'
     local kind validator_mutant guard mutant expected_fragment wrapper_mode
     local anchor_invalid duplicate_anchor probe_mutant sentinel_kind sentinel_surface
+    local hostile_kind hostile_path hostile_marker
     run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
         CUSTOMER_DELIVERY_WRAPPER_SIGCHLD_ONLY=1 \
@@ -1348,11 +1349,12 @@ import sys
 
 path = sys.argv[1]
 source = open(path, encoding="utf-8").read()
-anchor = "    if signal.SIGCHLD in signal.sigpending():  # SECURITY_RULE:wrapper_sigchld_pending_drain\n"
-if source.count(anchor) != 1:
+start_anchor = "    if signal.SIGCHLD in signal.sigpending():  # SECURITY_RULE:wrapper_sigchld_pending_drain\n"
+end_anchor = "    signal.pthread_sigmask(\n        signal.SIG_UNBLOCK, {signal.SIGCHLD}\n    )  # SECURITY_RULE:wrapper_sigchld_unblock\n"
+if source.count(start_anchor) != 1 or source.count(end_anchor) != 1:
     raise SystemExit("WRAPPER_SIGCHLD_DRAIN_DUPLICATE_CONTROL_MISSING_OR_AMBIGUOUS")
-duplicate = anchor + "        signal.sigwait({signal.SIGCHLD})\n"
-open(path, "w", encoding="utf-8").write(source.replace(anchor, duplicate + anchor, 1))
+duplicate = start_anchor + "        signal.sigwait({signal.SIGCHLD})\n"
+open(path, "w", encoding="utf-8").write(source.replace(end_anchor, end_anchor + duplicate, 1))
 PY
             run_exact_wrapper_sigchld_drain_probe "$duplicate_anchor"
             [ "$status" -eq 2 ] \
@@ -1381,6 +1383,49 @@ PY
                 'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
                 wrapper_sigchld_drain_anchor_count \
                 'exact_wrapper_sigchld_drain_probe|duplicate_start_anchor|count_less_than_one'
+            "$PYTHON" - "${BATS_TEST_DIRNAME}/../../tests/customer-delivery-wrapper-drain-probe.py" <<'PY' || return 1
+import re
+import sys
+
+source = open(sys.argv[1], encoding="utf-8").read()
+if re.search(r"\b(?:exec|eval|compile)\s*\(", source):
+    raise SystemExit("WRAPPER_SIGCHLD_DRAIN_DYNAMIC_EXECUTION_FORBIDDEN")
+PY
+            for hostile_kind in import open os_system sigchld message; do
+                hostile_path="${BATS_TEST_TMPDIR}/check-customer-delivery-wrapper-sigchld-${hostile_kind}.sh"
+                hostile_marker="${BATS_TEST_TMPDIR}/wrapper-sigchld-hostile-${hostile_kind}.marker"
+                cp "$validator_mutant" "$hostile_path" || return 1
+                "$PYTHON" - "$hostile_path" "$hostile_kind" "$hostile_marker" <<'PY' || return 1
+import sys
+
+path, kind, marker = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+guard = "        signal.sigwait({signal.SIGCHLD})\n"
+mutants = {
+    "import": "        import os\n        signal.sigwait({signal.SIGCHLD})\n",
+    "open": f"        open({marker!r}, 'w').write('unexpected builtin')\n",
+    "os_system": f"        os.system('printf hostile > {marker}')\n",
+    "sigchld": "        signal.sigwait({signal.SIGALRM})\n",
+    "message": "        signal.sigwait({signal.SIGCHLD})\n",
+}
+if kind == "message":
+    guard = '        raise RuntimeError("SIGCHLD remained pending")\n'
+    mutants[kind] = '        raise RuntimeError("changed message")\n'
+if kind not in mutants or source.count(guard) != 1:
+    raise SystemExit("WRAPPER_SIGCHLD_DRAIN_HOSTILE_SEAM_MISSING_OR_AMBIGUOUS")
+open(path, "w", encoding="utf-8").write(source.replace(guard, mutants[kind], 1))
+PY
+                run_exact_wrapper_sigchld_drain_probe "$hostile_path"
+                [ "$status" -eq 2 ] \
+                    && [ "$output" = HARNESS_INVALID:wrapper_sigchld_drain_operation ] \
+                    && [ ! -e "$hostile_marker" ] \
+                    || { printf 'wrapper_sigchld_drain_hostile=%s output=%s status=%s\n' \
+                        "$hostile_kind" "$output" "$status"; return 1; }
+                "$PYTHON" -c \
+                    'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
+                    "wrapper_sigchld_drain_hostile_${hostile_kind}" \
+                    "exact_wrapper_sigchld_drain_probe|${hostile_kind}|HARNESS_INVALID"
+            done
             CUSTOMER_DELIVERY_DRAIN_PROBE_FORCE_FIXTURE_FAILURE=1 \
                 run_exact_wrapper_sigchld_drain_probe "$validator_mutant"
             [ "$status" -eq 2 ] \

@@ -3,9 +3,11 @@
 
 from __future__ import annotations
 
+import ast
 import os
 from pathlib import Path
 import signal
+import stat
 import sys
 import textwrap
 import time
@@ -22,17 +24,57 @@ END_ANCHOR = (
 )
 
 
-def load_exact_slice(path: Path):
+SIGWAIT_SLICE = """\
+if signal.SIGCHLD in signal.sigpending():
+    signal.sigwait({signal.SIGCHLD})
+if signal.SIGCHLD in signal.sigpending():
+    raise RuntimeError("SIGCHLD remained pending")
+"""
+PASS_SLICE = """\
+if signal.SIGCHLD in signal.sigpending():
+    pass
+if signal.SIGCHLD in signal.sigpending():
+    raise RuntimeError("SIGCHLD remained pending")
+"""
+ALLOWED_OPERATIONS = {
+    ast.dump(ast.parse(SIGWAIT_SLICE), include_attributes=False): "sigwait",
+    ast.dump(ast.parse(PASS_SLICE), include_attributes=False): "pass",
+}
+
+
+def read_bounded_regular(path: Path):
+    descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
     try:
-        source = path.read_text(encoding="utf-8")
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > 262144:
+            raise ValueError("invalid probe source")
+        raw = os.read(descriptor, 262145)
+        if len(raw) > 262144 or os.read(descriptor, 1):
+            raise ValueError("probe source exceeds bound")
+        return raw.decode("utf-8")
+    finally:
+        os.close(descriptor)
+
+
+def load_exact_operation(path: Path):
+    try:
+        source = read_bounded_regular(path)
         if source.count(START_ANCHOR) != 1 or source.count(END_ANCHOR) != 1:
-            raise ValueError("anchor")
+            return None, "anchor"
         start = source.index(START_ANCHOR)
         end = source.index(END_ANCHOR, start)
         exact_slice = textwrap.dedent(source[start:end])
-        return compile(exact_slice, f"{path}:wrapper_sigchld_pending_drain", "exec")
-    except (OSError, UnicodeError, ValueError, SyntaxError):
-        return None
+        if len(exact_slice.encode("utf-8")) > 1024:
+            return None, "operation"
+        tree = ast.parse(exact_slice, filename=f"{path}:wrapper_sigchld_pending_drain")
+    except (OSError, UnicodeError, ValueError):
+        return None, "anchor"
+    except SyntaxError:
+        return None, "operation"
+    operation = ALLOWED_OPERATIONS.get(ast.dump(tree, include_attributes=False))
+    if operation is None:
+        return None, "operation"
+    return operation, None
 
 
 def reap_owned_child(child):
@@ -59,9 +101,9 @@ def main() -> int:
     if len(sys.argv) != 2:
         print("HARNESS_INVALID:wrapper_sigchld_drain_anchor")
         return 2
-    compiled_slice = load_exact_slice(Path(sys.argv[1]))
-    if compiled_slice is None:
-        print("HARNESS_INVALID:wrapper_sigchld_drain_anchor")
+    operation, load_error = load_exact_operation(Path(sys.argv[1]))
+    if load_error is not None:
+        print(f"HARNESS_INVALID:wrapper_sigchld_drain_{load_error}")
         return 2
 
     child = None
@@ -82,16 +124,14 @@ def main() -> int:
             if time.monotonic() >= deadline:
                 raise TimeoutError("SIGCHLD fixture did not become pending")
             time.sleep(0.01)
-        try:
-            exec(compiled_slice, {"signal": signal})
-        except RuntimeError as error:
-            if str(error) != "SIGCHLD remained pending":
-                raise
+        if signal.SIGCHLD in signal.sigpending() and operation == "sigwait":
+            observed_signal = signal.sigwait({signal.SIGCHLD})
+            if observed_signal != signal.SIGCHLD:
+                raise RuntimeError("probe drained an unexpected signal")
+        if signal.SIGCHLD in signal.sigpending():
             result = "wrapper_sigchld_pending_not_drained"
             status = 1
         else:
-            if signal.SIGCHLD in signal.sigpending():
-                raise RuntimeError("probe accepted a pending SIGCHLD")
             result = "PROBE_OK"
             status = 0
     except Exception:
