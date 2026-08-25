@@ -1272,6 +1272,8 @@ run_wrapper_sigchld_post_bootstrap_mutant() {
     local kind="$1"
     local filter='OpenSSL deadline terminates stubborn descendant pipe holders'
     local signal_probe="${BATS_TEST_TMPDIR}/wrapper-post-bootstrap-${kind}-probe"
+    local trusted_runtime="${CUSTOMER_TEST_PYTHON_RUNTIME:-$PYTHON}"
+    local trusted_site="${CUSTOMER_TEST_PYTHON_SITE:-$BATS_TEST_TMPDIR}"
     case "$kind" in reset|unblock) ;; *) return 1 ;; esac
     cat >"$signal_probe" <<'SH'
 #!/bin/bash
@@ -1280,11 +1282,15 @@ run_wrapper_sigchld_post_bootstrap_mutant() {
     printf 'wrapper_signal_probe_argv_contract=invalid\n'
     exit 126
 }
+trusted_runtime=__WRAPPER_TRUSTED_RUNTIME__
+trusted_site=__WRAPPER_TRUSTED_SITE__
+export CUSTOMER_TEST_PYTHON_RUNTIME="$trusted_runtime"
+export CUSTOMER_TEST_PYTHON_SITE="$trusted_site"
 exec "${WRAPPER_SIGNAL_PROBE_ACTUAL:?}" -c '
 import os
 import signal
 import sys
-kind, launcher, original_program = sys.argv[1:]
+kind, launcher, original_program, trusted_runtime, trusted_site = sys.argv[1:]
 if kind == "reset":
     signal.signal(signal.SIGCHLD, signal.SIG_IGN)
 elif kind == "unblock":
@@ -1292,12 +1298,31 @@ elif kind == "unblock":
 else:
     raise SystemExit(126)
 environment = {"LC_ALL": "C", "PATH": "/usr/bin:/bin"}
-for name in ("CUSTOMER_TEST_PYTHON_RUNTIME", "CUSTOMER_TEST_PYTHON_SITE"):
-    if name in os.environ:
-        environment[name] = os.environ[name]
+if bool(trusted_runtime) != bool(trusted_site):
+    raise SystemExit(126)
+if trusted_runtime:
+    environment["CUSTOMER_TEST_PYTHON_RUNTIME"] = trusted_runtime
+    environment["CUSTOMER_TEST_PYTHON_SITE"] = trusted_site
 os.execve(launcher, [launcher, "-c", original_program], environment)
-' "${WRAPPER_SIGNAL_PROBE_KIND:?}" "${WRAPPER_SIGNAL_PROBE_ACTUAL:?}" "$4"
+' "${WRAPPER_SIGNAL_PROBE_KIND:?}" "${WRAPPER_SIGNAL_PROBE_ACTUAL:?}" "$4" \
+    "$trusted_runtime" "$trusted_site"
 SH
+    "$PYTHON" - "$signal_probe" "$trusted_runtime" "$trusted_site" <<'PY' || return 1
+import shlex
+import sys
+
+path, trusted_runtime, trusted_site = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+replacements = {
+    "__WRAPPER_TRUSTED_RUNTIME__": shlex.quote(trusted_runtime),
+    "__WRAPPER_TRUSTED_SITE__": shlex.quote(trusted_site),
+}
+if any(source.count(marker) != 1 for marker in replacements):
+    raise SystemExit("WRAPPER_SIGNAL_PROBE_TRUST_BINDING_MISSING_OR_AMBIGUOUS")
+for marker, value in replacements.items():
+    source = source.replace(marker, value, 1)
+open(path, "w", encoding="utf-8").write(source)
+PY
     chmod +x "$signal_probe"
     run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
@@ -1319,6 +1344,105 @@ SH
         'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
         "wrapper_sigchld_post_bootstrap_${kind}" \
         "${filter}|wrapper_sigchld_preflight_${kind}=invalid"
+}
+
+write_strict_wrapper_signal_launcher() {
+    local target="$1"
+    cat >"$target" <<'SH'
+#!/bin/bash
+runtime="${CUSTOMER_TEST_PYTHON_RUNTIME:-}"
+site="${CUSTOMER_TEST_PYTHON_SITE:-}"
+[[ "$#" -ge 2 && "$1" == -c && "$runtime" == /* && -x "$runtime" \
+    && ! -d "$runtime" && "$site" == /* && -d "$site" && ! -L "$site" ]] || {
+    printf 'wrapper_signal_probe_launcher_contract=invalid\n'
+    exit 126
+}
+if [[ "$#" -eq 2 ]]; then
+    if [[ -n "${WRAPPER_SIGNAL_PROBE_AMBIENT_POISON+x}" ]]; then
+        printf 'wrapper_signal_probe_launcher_contract=invalid\n'
+        exit 126
+    fi
+    exec "$runtime" "$@"
+fi
+exec /usr/bin/env -i LC_ALL=C PATH=/usr/bin:/bin "$runtime" "$@"
+SH
+    chmod +x "$target"
+}
+
+run_wrapper_signal_probe_strict_baseline() {
+    local filter='OpenSSL deadline terminates stubborn descendant pipe holders'
+    local signal_probe="${BATS_TEST_TMPDIR}/wrapper-post-bootstrap-reset-probe"
+    local strict_launcher="${BATS_TEST_TMPDIR}/wrapper-signal-probe-baseline-launcher"
+    local trusted_runtime="${CUSTOMER_TEST_PYTHON_RUNTIME:-$PYTHON}"
+    local trusted_site="${CUSTOMER_TEST_PYTHON_SITE:-$BATS_TEST_TMPDIR}"
+    [[ -x "$signal_probe" ]] || return 1
+    write_strict_wrapper_signal_launcher "$strict_launcher" || return 1
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        CUSTOMER_DELIVERY_SIGNAL_PROBE_RUNTIME="$signal_probe" \
+        WRAPPER_SIGNAL_PROBE_ACTUAL="$strict_launcher" \
+        CUSTOMER_TEST_PYTHON_RUNTIME="$trusted_runtime" \
+        CUSTOMER_TEST_PYTHON_SITE="$trusted_site" \
+        WRAPPER_SIGNAL_PROBE_AMBIENT_POISON=must-not-reach-inner \
+        WRAPPER_SIGNAL_PROBE_KIND=reset \
+        CUSTOMER_DELIVERY_WRAPPER_SIGCHLD_ONLY=1 \
+        bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+    [ "$status" -ne 0 ] \
+        && [ "$(printf '%s\n' "$output" | awk 'index($0, "wrapper_sigchld_preflight_reset=invalid") { count++ } END { print count+0 }')" -eq 1 ] \
+        && [[ "$output" != *"wrapper_signal_probe_launcher_contract=invalid"* ]] \
+        && [ "$(printf '%s\n' "$output" | awk -v target="not ok 1 ${filter}" '$0 == target { count++ } END { print count+0 }')" -eq 1 ] \
+        && [[ "$output" != *"Traceback"* ]] \
+        && [[ "$output" != *"/-I"* ]] \
+        || { printf 'wrapper_signal_probe_strict_baseline_invalid=status=%s output=%s\n' \
+            "$status" "$output"; return 1; }
+    "$PYTHON" -c \
+        'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
+        wrapper_signal_probe_strict_closed_env \
+        'strict-launcher|-c-outer|-c-inner|trusted-runtime-site|ambient-scrubbed'
+}
+
+run_wrapper_signal_probe_binding_mutant() {
+    local filter='OpenSSL deadline terminates stubborn descendant pipe holders'
+    local signal_probe="${BATS_TEST_TMPDIR}/wrapper-post-bootstrap-reset-probe"
+    local mutant_probe="${BATS_TEST_TMPDIR}/wrapper-signal-probe-binding-mutant"
+    local strict_launcher="${BATS_TEST_TMPDIR}/wrapper-signal-probe-binding-launcher"
+    local trusted_runtime="${CUSTOMER_TEST_PYTHON_RUNTIME:-$PYTHON}"
+    local trusted_site="${CUSTOMER_TEST_PYTHON_SITE:-$BATS_TEST_TMPDIR}"
+    [[ -x "$signal_probe" ]] || return 1
+    cp "$signal_probe" "$mutant_probe" || return 1
+    "$PYTHON" - "$mutant_probe" <<'PY' || return 1
+import sys
+
+path = sys.argv[1]
+source = open(path, encoding="utf-8").read()
+guard = '    "$trusted_runtime" "$trusted_site"\n'
+mutant = '    "" ""  # MUTATED:signal_probe_trusted_binding_forwarding\n'
+if source.count(guard) != 1:
+    raise SystemExit("WRAPPER_SIGNAL_PROBE_BINDING_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+open(path, "w", encoding="utf-8").write(source.replace(guard, mutant, 1))
+PY
+    write_strict_wrapper_signal_launcher "$strict_launcher" || return 1
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        CUSTOMER_DELIVERY_SIGNAL_PROBE_RUNTIME="$mutant_probe" \
+        WRAPPER_SIGNAL_PROBE_ACTUAL="$strict_launcher" \
+        CUSTOMER_TEST_PYTHON_RUNTIME="$trusted_runtime" \
+        CUSTOMER_TEST_PYTHON_SITE="$trusted_site" \
+        WRAPPER_SIGNAL_PROBE_AMBIENT_POISON=must-not-reach-inner \
+        WRAPPER_SIGNAL_PROBE_KIND=reset \
+        CUSTOMER_DELIVERY_WRAPPER_SIGCHLD_ONLY=1 \
+        bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+    [ "$status" -ne 0 ] \
+        && [ "$(printf '%s\n' "$output" | awk 'index($0, "wrapper_signal_probe_launcher_contract=invalid") { count++ } END { print count+0 }')" -eq 1 ] \
+        && [ "$(printf '%s\n' "$output" | awk -v target="not ok 1 ${filter}" '$0 == target { count++ } END { print count+0 }')" -eq 1 ] \
+        && [[ "$output" != *"Traceback"* ]] \
+        && [[ "$output" != *"/-I"* ]] \
+        || { printf 'wrapper_signal_probe_binding_mutant_not_attributed=status=%s output=%s\n' \
+            "$status" "$output"; return 1; }
+    "$PYTHON" -c \
+        'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
+        wrapper_signal_probe_trusted_binding \
+        'strict-launcher|trusted-runtime-site|closed-env|contract-invalid'
 }
 
 run_wrapper_signal_probe_hop_mutant() {
@@ -1352,22 +1476,8 @@ if source.count(guard) != 1:
     raise SystemExit("WRAPPER_SIGNAL_PROBE_HOP_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
 open(path, "w", encoding="utf-8").write(source.replace(guard, mutant, 1))
 PY
-    cat >"$strict_launcher" <<'SH'
-#!/bin/bash
-runtime="${CUSTOMER_TEST_PYTHON_RUNTIME:-}"
-site="${CUSTOMER_TEST_PYTHON_SITE:-}"
-[[ "$#" -ge 2 && "$1" == -c && "$runtime" == /* && -x "$runtime" \
-    && ! -d "$runtime" && "$site" == /* && -d "$site" && ! -L "$site" ]] || {
-    printf 'wrapper_signal_probe_launcher_contract=invalid\n'
-    exit 126
-}
-if [[ "$#" -eq 2 && -n "${WRAPPER_SIGNAL_PROBE_AMBIENT_POISON+x}" ]]; then
-    printf 'wrapper_signal_probe_launcher_contract=invalid\n'
-    exit 126
-fi
-exec "$runtime" "$@"
-SH
-    chmod +x "$mutant_probe" "$strict_launcher"
+    write_strict_wrapper_signal_launcher "$strict_launcher" || return 1
+    chmod +x "$mutant_probe"
     run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
         CUSTOMER_DELIVERY_SIGNAL_PROBE_RUNTIME="$mutant_probe" \
@@ -2620,6 +2730,8 @@ PY
     run_wrapper_sigchld_mutants reset unblock drain
     run_wrapper_sigchld_post_bootstrap_mutant reset
     run_wrapper_sigchld_post_bootstrap_mutant unblock
+    run_wrapper_signal_probe_strict_baseline
+    run_wrapper_signal_probe_binding_mutant
     run_wrapper_signal_probe_hop_mutant outer
     run_wrapper_signal_probe_hop_mutant inner
 }
