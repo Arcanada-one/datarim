@@ -29,7 +29,7 @@ EXPECTED_DIGESTS = {
     "publisher": "3db4e2ed14bfb1662500493753afe189161160841f2c38761a32f1ec4411c425",
     "evaluator": "a0e86fc87493231afffd3164587f0c14e463f5e8c4acd8f4f9679e2504280d1a",
     "runner-unit": "d9b25e4ea33ed2bddad9e5d1fd5a47acedfed852749f0771fb24838f70edc131",
-    "provisioner": "34a9d617f3533044847df4d4e1bd2e9e0b1c28c1e73bc645d6b80be94fb9189b",
+    "provisioner": "6ff8ceae2e1d9c9f3e4065dbc23a77e8df93947de619baf9228a07e22a4d1c3b",
 }
 EXPECTED_PATHS = [
     "commands/**",
@@ -629,6 +629,12 @@ def validate_code(findings: list[str]) -> None:
         'bind_pre_reconcile_roster',
         'ACTIONS_RUNNER_INPUT_TOKEN="$token"',
         'sudo --preserve-env=ACTIONS_RUNNER_INPUT_TOKEN',
+        'unset -v GH_HOST GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN',
+        '-u GH_HOST -u GH_TOKEN -u GITHUB_TOKEN',
+        '-u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u NO_PROXY',
+        '-u http_proxy -u https_proxy -u all_proxy -u no_proxy',
+        '-u SSL_CERT_FILE -u SSL_CERT_DIR -u CURL_CA_BUNDLE',
+        'HOME="$RUNNER_HOME" "$RUNNER_DIR/config.sh"',
         'https://github.com/actions/runner/blob/v2.336.0/src/Runner.Listener/CommandSettings.cs',
         'sha256:937f6552579f7d1eeb0a6d0201586781eb3e2e5ea2ab3878429076560e0cab08',
         'https://github.com/actions/runner/blob/v2.336.0/src/Runner.Common/ConfigurationStore.cs',

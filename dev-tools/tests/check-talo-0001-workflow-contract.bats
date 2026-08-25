@@ -118,6 +118,18 @@ setup_provision_runtime() {
 set -euo pipefail
 printf 'config.sh %s\n' "$*" >>"${TALO_MOCK_LOG:?}"
 token=${ACTIONS_RUNNER_INPUT_TOKEN:?}
+for authority_name in GH_HOST GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN \
+    GH_CONFIG_DIR GH_HTTP_UNIX_SOCKET XDG_CONFIG_HOME GH_DEBUG \
+    HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY \
+    http_proxy https_proxy all_proxy no_proxy \
+    SSL_CERT_FILE SSL_CERT_DIR CURL_CA_BUNDLE \
+    GIT_SSL_CAINFO GIT_SSL_NO_VERIFY; do
+    if [ -n "${!authority_name:-}" ]; then
+        printf 'CONFIG_ENV_LEAK=%s\n' "$authority_name" \
+            >"${TALO_MOCK_CONFIG_ENV_LEAK:?}"
+        exit 96
+    fi
+done
 tr '\0' ' ' </proc/$$/cmdline >"${TALO_MOCK_CONFIG_CMDLINE:?}"
 if grep -q -- "$token" "${TALO_MOCK_CONFIG_CMDLINE:?}"; then
     exit 97
@@ -238,11 +250,13 @@ PY
     MOCK_CONFIG_STARTED="$BATS_TEST_TMPDIR/config-started"
     MOCK_CONFIG_CMDLINE="$BATS_TEST_TMPDIR/config-cmdline"
     MOCK_CONFIG_ENV_REMOVED="$BATS_TEST_TMPDIR/config-env-removed"
+    MOCK_CONFIG_ENV_LEAK="$BATS_TEST_TMPDIR/config-env-leak"
     MOCK_PGREP_COUNTER="$BATS_TEST_TMPDIR/pgrep-counter"
     MOCK_INSTALLED_UNIT="$BATS_TEST_TMPDIR/installed-talo-runner.service"
     : >"$MOCK_LOG"
     rm -f -- "$MOCK_REGISTRATION_REMOVED"
     rm -f -- "$MOCK_CONFIG_STARTED"
+    rm -f -- "$MOCK_CONFIG_ENV_LEAK"
     printf '%s\n' 0 >"$MOCK_DELETE_COUNTER"
     printf '%s\n' 0 >"$MOCK_PGREP_COUNTER"
     printf '%s\n' enabled >"$MOCK_SERVICE_STATE"
@@ -312,12 +326,26 @@ run_provision_runtime() {
         "TALO_MOCK_HOSTILE_MAIN_COMMIT=${TALO_MOCK_HOSTILE_MAIN_COMMIT:-}" \
         "TALO_MOCK_GH_TRANSPORT_MARKER=$BATS_TEST_TMPDIR/hostile-gh-transport" \
         "GH_HOST=${GH_HOST:-}" \
+        "GH_TOKEN=${GH_TOKEN:-}" \
+        "GITHUB_TOKEN=${GITHUB_TOKEN:-}" \
         "GH_ENTERPRISE_TOKEN=${GH_ENTERPRISE_TOKEN:-}" \
         "GH_CONFIG_DIR=${GH_CONFIG_DIR:-}" \
         "GH_HTTP_UNIX_SOCKET=${GH_HTTP_UNIX_SOCKET:-}" \
         "XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-}" \
         "HTTPS_PROXY=${HTTPS_PROXY:-}" \
+        "HTTP_PROXY=${HTTP_PROXY:-}" \
+        "ALL_PROXY=${ALL_PROXY:-}" \
+        "NO_PROXY=${NO_PROXY:-}" \
+        "https_proxy=${https_proxy:-}" \
+        "http_proxy=${http_proxy:-}" \
+        "all_proxy=${all_proxy:-}" \
+        "no_proxy=${no_proxy:-}" \
         "SSL_CERT_FILE=${SSL_CERT_FILE:-}" \
+        "SSL_CERT_DIR=${SSL_CERT_DIR:-}" \
+        "CURL_CA_BUNDLE=${CURL_CA_BUNDLE:-}" \
+        "GIT_SSL_CAINFO=${GIT_SSL_CAINFO:-}" \
+        "GIT_SSL_NO_VERIFY=${GIT_SSL_NO_VERIFY:-}" \
+        "GH_DEBUG=${GH_DEBUG:-}" \
         "HOME=${TALO_MOCK_AMBIENT_HOME:-/root}" \
         "TALO_MOCK_PROVISIONER_BLOB=$MOCK_PROVISIONER_BLOB" \
         "TALO_MOCK_UNIT_BLOB=$MOCK_UNIT_BLOB" \
@@ -344,6 +372,7 @@ run_provision_runtime() {
         "TALO_MOCK_CONFIG_STARTED=$MOCK_CONFIG_STARTED" \
         "TALO_MOCK_CONFIG_CMDLINE=$MOCK_CONFIG_CMDLINE" \
         "TALO_MOCK_CONFIG_ENV_REMOVED=$MOCK_CONFIG_ENV_REMOVED" \
+        "TALO_MOCK_CONFIG_ENV_LEAK=$MOCK_CONFIG_ENV_LEAK" \
         "TALO_MOCK_INSTALLED_UNIT=$MOCK_INSTALLED_UNIT" \
         "TALO_MOCK_MUTABLE_UNIT=$FIXTURE/dev-tools/systemd/talo-0001-trusted-runner.service" \
         "TALO_MOCK_SWAP_UNIT_SOURCE=${TALO_MOCK_SWAP_UNIT_SOURCE:-}" \
@@ -1606,6 +1635,57 @@ SH
     [ "$(grep -c -- '--hostname github.com.*git/ref/heads/main' "$MOCK_LOG")" -eq 2 ]
 }
 
+@test "every GitHub API transport scrub axis is independently load-bearing" {
+    local provisioner="$FIXTURE/dev-tools/provision-talo-0001-trusted-runner.sh"
+    local api_source mock_bin marker axis mutant
+    local -a axes authority_env
+    axes=(GH_HOST GH_ENTERPRISE_TOKEN GH_CONFIG_DIR GH_HTTP_UNIX_SOCKET \
+        XDG_CONFIG_HOME GH_DEBUG HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY \
+        http_proxy https_proxy all_proxy no_proxy SSL_CERT_FILE SSL_CERT_DIR \
+        CURL_CA_BUNDLE GIT_SSL_CAINFO GIT_SSL_NO_VERIFY)
+    mock_bin="$BATS_TEST_TMPDIR/api-axis-bin"
+    marker="$BATS_TEST_TMPDIR/api-axis-marker"
+    mkdir -p "$mock_bin"
+    cat >"$mock_bin/gh" <<'SH'
+#!/bin/bash
+for authority_name in GH_HOST GH_ENTERPRISE_TOKEN GH_CONFIG_DIR \
+    GH_HTTP_UNIX_SOCKET XDG_CONFIG_HOME GH_DEBUG \
+    HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY \
+    http_proxy https_proxy all_proxy no_proxy \
+    SSL_CERT_FILE SSL_CERT_DIR CURL_CA_BUNDLE \
+    GIT_SSL_CAINFO GIT_SSL_NO_VERIFY; do
+    [ -z "${!authority_name:-}" ] \
+        || printf '%s\n' "$authority_name" >"${TALO_API_AXIS_MARKER:?}"
+done
+[ "${HOME:-}" = /root ] || printf '%s\n' HOME >"${TALO_API_AXIS_MARKER:?}"
+printf '%s\n' '{}'
+SH
+    chmod +x "$mock_bin/gh"
+    api_source=$(sed -n '/^api() {/,/^}/p' "$provisioner")
+    authority_env=()
+    for axis in "${axes[@]}"; do
+        authority_env+=("$axis=hostile")
+    done
+    run env "PATH=$mock_bin:$PATH" TALO_API_AXIS_MARKER="$marker" \
+        "${authority_env[@]}" HOME="$BATS_TEST_TMPDIR/hostile-home" \
+        bash -c "API_VERSION=2022-11-28
+$api_source
+api repos/Arcanada-one/datarim/git/ref/heads/main"
+    [ "$status" -eq 0 ] && [ ! -e "$marker" ]
+
+    for axis in "${axes[@]}"; do
+        rm -f -- "$marker"
+        mutant=${api_source/"-u $axis"/"-u ${axis}_MUTANT"}
+        [ "$mutant" != "$api_source" ]
+        run env "PATH=$mock_bin:$PATH" TALO_API_AXIS_MARKER="$marker" \
+            "$axis=hostile" bash -c "API_VERSION=2022-11-28
+$mutant
+api repos/Arcanada-one/datarim/git/ref/heads/main"
+        [ "$status" -eq 0 ] && [ "$(cat "$marker")" = "$axis" ]
+    done
+    printf '%s\n' 'RED_SENTINEL:github-api-transport-axis-matrix'
+}
+
 @test "one live main commit supplies immutable root-staged bootstrap blobs" {
     setup_provision_runtime
     run_provision_runtime
@@ -1851,6 +1931,104 @@ MUTANTS
     [ -f "$MOCK_CONFIG_ENV_REMOVED" ]
 }
 
+@test "registration token child receives no ambient transport authority" {
+    setup_provision_runtime
+    prepare_fresh_runner_payload
+    GH_HOST=attacker.example GH_TOKEN=attacker-gh-token \
+        GITHUB_TOKEN=attacker-github-token \
+        GH_ENTERPRISE_TOKEN=attacker-enterprise-token \
+        GH_CONFIG_DIR="$BATS_TEST_TMPDIR/attacker-gh-config" \
+        GH_HTTP_UNIX_SOCKET="$BATS_TEST_TMPDIR/attacker.sock" \
+        XDG_CONFIG_HOME="$BATS_TEST_TMPDIR/attacker-xdg" GH_DEBUG=api \
+        HTTP_PROXY=http://attacker.example:8001 \
+        HTTPS_PROXY=http://attacker.example:8002 \
+        ALL_PROXY=socks5://attacker.example:8003 NO_PROXY=github.com \
+        http_proxy=http://attacker.example:8004 \
+        https_proxy=http://attacker.example:8005 \
+        all_proxy=socks5://attacker.example:8006 no_proxy=api.github.com \
+        SSL_CERT_FILE="$BATS_TEST_TMPDIR/attacker-cert.pem" \
+        SSL_CERT_DIR="$BATS_TEST_TMPDIR/attacker-certs" \
+        CURL_CA_BUNDLE="$BATS_TEST_TMPDIR/attacker-ca.pem" \
+        GIT_SSL_CAINFO="$BATS_TEST_TMPDIR/attacker-git-ca.pem" \
+        GIT_SSL_NO_VERIFY=true TALO_MOCK_RUNNERS_MODE=fresh \
+        run_provision_runtime
+    [ "$status" -eq 0 ]
+    [ ! -e "$MOCK_CONFIG_ENV_LEAK" ]
+    [ -f "$MOCK_CONFIG_ENV_REMOVED" ]
+}
+
+@test "every token child transport scrub axis is independently load-bearing" {
+    local provisioner="$FIXTURE/dev-tools/provision-talo-0001-trusted-runner.sh"
+    local config_source mock_bin runner_dir marker axis mutant
+    local -a axes authority_env
+    axes=(GH_HOST GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN GH_CONFIG_DIR \
+        GH_HTTP_UNIX_SOCKET XDG_CONFIG_HOME GH_DEBUG \
+        HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY \
+        http_proxy https_proxy all_proxy no_proxy SSL_CERT_FILE SSL_CERT_DIR \
+        CURL_CA_BUNDLE GIT_SSL_CAINFO GIT_SSL_NO_VERIFY)
+    mock_bin="$BATS_TEST_TMPDIR/config-axis-bin"
+    runner_dir="$BATS_TEST_TMPDIR/config-axis-runner"
+    marker="$BATS_TEST_TMPDIR/config-axis-marker"
+    mkdir -p "$mock_bin" "$runner_dir"
+    cat >"$mock_bin/sudo" <<'SH'
+#!/bin/bash
+[[ "${1:-}" == --preserve-env=* ]] && shift
+[ "${1:-}" = -u ] && shift 2
+[ "${1:-}" != -- ] || shift
+exec "$@"
+SH
+    cat >"$runner_dir/config.sh" <<'SH'
+#!/bin/bash
+for authority_name in GH_HOST GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN \
+    GH_CONFIG_DIR GH_HTTP_UNIX_SOCKET XDG_CONFIG_HOME GH_DEBUG \
+    HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY \
+    http_proxy https_proxy all_proxy no_proxy \
+    SSL_CERT_FILE SSL_CERT_DIR CURL_CA_BUNDLE \
+    GIT_SSL_CAINFO GIT_SSL_NO_VERIFY; do
+    [ -z "${!authority_name:-}" ] \
+        || printf '%s\n' "$authority_name" >"${TALO_CONFIG_AXIS_MARKER:?}"
+done
+[ -n "${ACTIONS_RUNNER_INPUT_TOKEN:-}" ]
+SH
+    chmod +x "$mock_bin/sudo" "$runner_dir/config.sh"
+    config_source=$(sed -n '/^        set +e$/,/^        set -e$/p' "$provisioner")
+    authority_env=()
+    for axis in "${axes[@]}"; do
+        authority_env+=("$axis=hostile")
+    done
+    run env "PATH=$mock_bin:$PATH" TALO_CONFIG_AXIS_MARKER="$marker" \
+        "${authority_env[@]}" bash -c "token=fixture-token
+RUNNER_USER=$(id -un)
+RUNNER_HOME='$BATS_TEST_TMPDIR/config-home'
+RUNNER_DIR='$runner_dir'
+ORG=Arcanada-one
+GROUP_NAME=talo-0001-trusted
+RUNNER_NAME=talo-0001-trusted-arcana-devs
+RUNNER_LABEL=talo-0001-trusted
+$config_source
+[ \"\$config_status\" -eq 0 ]"
+    [ "$status" -eq 0 ] && [ ! -e "$marker" ]
+
+    for axis in "${axes[@]}"; do
+        rm -f -- "$marker"
+        mutant=${config_source//"$axis"/"${axis}_MUTANT"}
+        [ "$mutant" != "$config_source" ]
+        run env "PATH=$mock_bin:$PATH" TALO_CONFIG_AXIS_MARKER="$marker" \
+            "$axis=hostile" bash -c "token=fixture-token
+RUNNER_USER=$(id -un)
+RUNNER_HOME='$BATS_TEST_TMPDIR/config-home'
+RUNNER_DIR='$runner_dir'
+ORG=Arcanada-one
+GROUP_NAME=talo-0001-trusted
+RUNNER_NAME=talo-0001-trusted-arcana-devs
+RUNNER_LABEL=talo-0001-trusted
+$mutant
+[ \"\$config_status\" -eq 0 ]"
+        [ "$status" -eq 0 ] && [ "$(cat "$marker")" = "$axis" ]
+    done
+    printf '%s\n' 'RED_SENTINEL:runner-config-transport-axis-matrix'
+}
+
 @test "same-UID replacement race is rejected before token materialization" {
     setup_provision_runtime
     prepare_fresh_runner_payload
@@ -2054,14 +2232,9 @@ import sys
 
 path = Path(sys.argv[1])
 source = path.read_text(encoding="utf-8")
-old = '''        ACTIONS_RUNNER_INPUT_TOKEN="$token" \\
-            sudo --preserve-env=ACTIONS_RUNNER_INPUT_TOKEN -u "$RUNNER_USER" \\
-            "$RUNNER_DIR/config.sh" --unattended \\
-            --url "https://github.com/$ORG" \\
+old = '''                --url "https://github.com/$ORG" \\
 '''
-new = '''        sudo -u "$RUNNER_USER" \\
-            "$RUNNER_DIR/config.sh" --unattended \\
-            --url "https://github.com/$ORG" --token "$token" \\
+new = '''                --url "https://github.com/$ORG" --token "$token" \\
 '''
 assert source.count(old) == 1
 path.write_text(source.replace(old, new), encoding="utf-8")

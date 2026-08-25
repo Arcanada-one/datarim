@@ -1136,12 +1136,28 @@ register_and_start() {
                 "runner registration directory could not be opened safely"
         }
         set +e
-        ACTIONS_RUNNER_INPUT_TOKEN="$token" \
-            sudo --preserve-env=ACTIONS_RUNNER_INPUT_TOKEN -u "$RUNNER_USER" \
-            "$RUNNER_DIR/config.sh" --unattended \
-            --url "https://github.com/$ORG" \
-            --runnergroup "$GROUP_NAME" --name "$RUNNER_NAME" \
-            --labels "$RUNNER_LABEL" --work _work --disableupdate
+        (
+            unset -v GH_HOST GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN \
+                GH_CONFIG_DIR GH_HTTP_UNIX_SOCKET XDG_CONFIG_HOME GH_DEBUG \
+                HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY \
+                http_proxy https_proxy all_proxy no_proxy \
+                SSL_CERT_FILE SSL_CERT_DIR CURL_CA_BUNDLE \
+                GIT_SSL_CAINFO GIT_SSL_NO_VERIFY
+            ACTIONS_RUNNER_INPUT_TOKEN="$token" \
+                sudo --preserve-env=ACTIONS_RUNNER_INPUT_TOKEN \
+                -u "$RUNNER_USER" -- /usr/bin/env \
+                -u GH_HOST -u GH_TOKEN -u GITHUB_TOKEN \
+                -u GH_ENTERPRISE_TOKEN -u GH_CONFIG_DIR \
+                -u GH_HTTP_UNIX_SOCKET -u XDG_CONFIG_HOME -u GH_DEBUG \
+                -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u NO_PROXY \
+                -u http_proxy -u https_proxy -u all_proxy -u no_proxy \
+                -u SSL_CERT_FILE -u SSL_CERT_DIR -u CURL_CA_BUNDLE \
+                -u GIT_SSL_CAINFO -u GIT_SSL_NO_VERIFY \
+                HOME="$RUNNER_HOME" "$RUNNER_DIR/config.sh" --unattended \
+                --url "https://github.com/$ORG" \
+                --runnergroup "$GROUP_NAME" --name "$RUNNER_NAME" \
+                --labels "$RUNNER_LABEL" --work _work --disableupdate
+        )
         config_status=$?
         set -e
         token=REDACTED
