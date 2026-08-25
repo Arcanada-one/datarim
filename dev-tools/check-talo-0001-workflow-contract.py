@@ -26,10 +26,10 @@ CHECKOUT = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
 EXPECTED_DIGESTS = {
     "preflight": "65fccc367606236627f3ca9ce3883f7a379c4cda4a0006d21408a7af8dbf3877",
     "controller": "183a37188f22b0cdf804dfd4fe589bb9d6701758cb806cc24399c7dd0d59c3b2",
-    "publisher": "ed1dbeba6e3aa17022dd53e0922703852b75f317f45f610460198def28c995ba",
+    "publisher": "99924f3d9b6ba053b2402504a3cf5dfd50044f993ed0770ad797d070d31f0e3e",
     "evaluator": "a0e86fc87493231afffd3164587f0c14e463f5e8c4acd8f4f9679e2504280d1a",
     "runner-unit": "d9b25e4ea33ed2bddad9e5d1fd5a47acedfed852749f0771fb24838f70edc131",
-    "provisioner": "ce8046feb794ac1c536839b39419ebb35c0884dd99df8b8c25814edf44b59e6f",
+    "provisioner": "56c44f4e2a71f6b1c1812115bf3823ea9f9b9aa7bb34476cdf922fb9a37807cf",
 }
 EXPECTED_PATHS = [
     "commands/**",
@@ -206,7 +206,40 @@ def validate_trusted(workflow: dict[str, Any], findings: list[str]) -> None:
     )
     expected_steps = [
         {
+            "name": "Initialize checkout-independent current-run verdict",
+            "id": "initialize-verdict",
+            "env": {
+                "GH_TOKEN": "${{ github.token }}",
+                "HEAD_SHA": "${{ github.event.workflow_run.head_sha }}",
+                "BASE_SHA": "${{ github.event.workflow_run.pull_requests[0].base.sha }}",
+                "TRUSTED_RUN_ID": "${{ github.run_id }}",
+                "TRUSTED_RUN_ATTEMPT": "${{ github.run_attempt }}",
+                "TRUSTED_WORKFLOW_SHA": "${{ github.workflow_sha }}",
+                "SOURCE_RUN_ID": "${{ github.event.workflow_run.id }}",
+                "SOURCE_RUN_ATTEMPT": "${{ github.event.workflow_run.run_attempt }}",
+            },
+            "run": (
+                "set -euo pipefail\n"
+                "expected_nonce=$(\n"
+                "  printf 'trusted_run_id=%s\\ntrusted_run_attempt=%s\\nworkflow_sha=%s\\nsource_run_id=%s\\nsource_run_attempt=%s\\nhead_sha=%s\\nbase_sha=%s\\n' \\\n"
+                '    "$TRUSTED_RUN_ID" "$TRUSTED_RUN_ATTEMPT" "$TRUSTED_WORKFLOW_SHA" \\\n'
+                '    "$SOURCE_RUN_ID" "$SOURCE_RUN_ATTEMPT" "$HEAD_SHA" "$BASE_SHA" \\\n'
+                "    | sha256sum | cut -d' ' -f1\n"
+                ")\n"
+                "response=$(gh api --method POST repos/Arcanada-one/datarim/check-runs \\\n"
+                '  -f name=talo-0001-privileged-replay -f head_sha="$HEAD_SHA" \\\n'
+                '  -f status=in_progress -f external_id="$expected_nonce" \\\n'
+                "  -f 'output[title]=TALO-0001 trusted replay' \\\n"
+                "  -f 'output[summary]=Current trusted replay is pending.')\n"
+                'check_id=$(jq -er --arg head "$HEAD_SHA" --arg nonce "$expected_nonce" \\\n'
+                "  'select(.name == \"talo-0001-privileged-replay\" and .head_sha == $head and .external_id == $nonce and .status == \"in_progress\") | .id | select(type == \"number\" and . > 0 and floor == .)' \\\n"
+                '  <<<"$response")\n'
+                "printf 'check_id=%s\\n' \"$check_id\" >>\"$GITHUB_OUTPUT\"\n"
+            ),
+        },
+        {
             "name": "Check out trusted default-main controller",
+            "id": "trusted-checkout",
             "uses": CHECKOUT,
             "with": {
                 "ref": "${{ github.workflow_sha }}",
@@ -248,9 +281,36 @@ def validate_trusted(workflow: dict[str, Any], findings: list[str]) -> None:
                 "TRUSTED_WORKFLOW_SHA": "${{ github.workflow_sha }}",
                 "SOURCE_RUN_ID": "${{ github.event.workflow_run.id }}",
                 "SOURCE_RUN_ATTEMPT": "${{ github.event.workflow_run.run_attempt }}",
+                "CHECK_RUN_ID": "${{ steps.initialize-verdict.outputs.check_id }}",
+                "TRUSTED_CHECKOUT_OUTCOME": "${{ steps.trusted-checkout.outcome }}",
                 "ATTESTATION": "${{ runner.temp }}/talo-0001-attestation.json",
             },
-            "run": "trusted/dev-tools/publish-talo-0001-check.sh",
+            "run": (
+                "set -euo pipefail\n"
+                "publisher=trusted/dev-tools/publish-talo-0001-check.sh\n"
+                'if [ "$TRUSTED_CHECKOUT_OUTCOME" = success ] \\\n'
+                '  && [ -f "$publisher" ] && [ ! -L "$publisher" ]; then\n'
+                '  exec "$publisher"\n'
+                "fi\n"
+                "expected_nonce=$(\n"
+                "  printf 'trusted_run_id=%s\\ntrusted_run_attempt=%s\\nworkflow_sha=%s\\nsource_run_id=%s\\nsource_run_attempt=%s\\nhead_sha=%s\\nbase_sha=%s\\n' \\\n"
+                '    "$TRUSTED_RUN_ID" "$TRUSTED_RUN_ATTEMPT" "$TRUSTED_WORKFLOW_SHA" \\\n'
+                '    "$SOURCE_RUN_ID" "$SOURCE_RUN_ATTEMPT" "$HEAD_SHA" "$BASE_SHA" \\\n'
+                "    | sha256sum | cut -d' ' -f1\n"
+                ")\n"
+                '[[ "$CHECK_RUN_ID" =~ ^[1-9][0-9]*$ ]]\n'
+                'response=$(gh api "repos/Arcanada-one/datarim/check-runs/$CHECK_RUN_ID")\n'
+                'jq -e --argjson id "$CHECK_RUN_ID" --arg head "$HEAD_SHA" \\\n'
+                '  --arg nonce "$expected_nonce" \\\n'
+                "  'select(.id == $id and .name == \"talo-0001-privileged-replay\" and .head_sha == $head and .external_id == $nonce and .status == \"in_progress\")' \\\n"
+                '  <<<"$response" >/dev/null\n'
+                "gh api --method PATCH \\\n"
+                '  "repos/Arcanada-one/datarim/check-runs/$CHECK_RUN_ID" \\\n'
+                "  -f status=completed -f conclusion=failure \\\n"
+                "  -f 'output[title]=TALO-0001 trusted replay' \\\n"
+                "  -f 'output[summary]=Trusted controller checkout failed.' >/dev/null\n"
+                "exit 1\n"
+            ),
         },
     ]
     expected_job = {
@@ -487,7 +547,7 @@ def validate_code(findings: list[str]) -> None:
         findings.append("forbidden:runner-owned-executable-payload")
     if provisioner.count("verify_runner_payload_ownership") != 5:
         findings.append("mismatch:runner-preexec-revalidation-cardinality")
-    if provisioner.count("assert_runner_user_quiescent") != 4:
+    if provisioner.count("assert_runner_user_quiescent") != 6:
         findings.append("mismatch:runner-quiescence-cardinality")
     try:
         ensure_group = provisioner.split("ensure_group() {", 1)[1].split(
@@ -505,6 +565,8 @@ def validate_code(findings: list[str]) -> None:
         "id=$(group_id)",
         "stop_and_disable_runner_service",
         "seal_interrupted_registration_directory",
+        "verify_runner_account",
+        "assert_runner_user_quiescent",
         'bind_pre_reconcile_roster "$id"',
         'reconcile_group "$id"',
     )

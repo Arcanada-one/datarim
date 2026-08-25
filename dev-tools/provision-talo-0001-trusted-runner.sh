@@ -747,6 +747,14 @@ ensure_group() {
         echo "ERROR: interrupted runner registration could not be resealed" >&2
         return 1
     }
+    verify_runner_account || {
+        echo "ERROR: runner account boundary mismatch before reconciliation" >&2
+        return 1
+    }
+    assert_runner_user_quiescent || {
+        echo "ERROR: runner identity is not quiescent before reconciliation" >&2
+        return 1
+    }
     bind_pre_reconcile_roster "$id" || return 1
     reconcile_group "$id"
 }
@@ -958,6 +966,16 @@ register_and_start() {
                 "local runner registration mismatch"
         }
     fi
+    verify_runner_account || {
+        abort_runner_transaction "$id" "$fresh_registration" \
+            "$pre_registration_empty" "$runner_id" \
+            "runner account boundary changed before service start"
+    }
+    assert_runner_user_quiescent || {
+        abort_runner_transaction "$id" "$fresh_registration" \
+            "$pre_registration_empty" "$runner_id" \
+            "runner identity is not quiescent before service start"
+    }
     harden_runner_payload || {
         abort_runner_transaction "$id" "$fresh_registration" \
             "$pre_registration_empty" "$runner_id" \

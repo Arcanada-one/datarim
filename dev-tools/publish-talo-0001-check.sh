@@ -9,6 +9,12 @@ expected_nonce=$(
         "$SOURCE_RUN_ID" "$SOURCE_RUN_ATTEMPT" "$HEAD_SHA" "$BASE_SHA" \
         | sha256sum | cut -d' ' -f1
 )
+[[ "$CHECK_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+current_check=$(gh api "repos/Arcanada-one/datarim/check-runs/$CHECK_RUN_ID")
+jq -e --argjson id "$CHECK_RUN_ID" --arg head "$HEAD_SHA" \
+    --arg nonce "$expected_nonce" \
+    'select(.id == $id and .name == "talo-0001-privileged-replay" and .head_sha == $head and .external_id == $nonce and .status == "in_progress")' \
+    <<<"$current_check" >/dev/null
 attestation_size=$(stat -c '%s' "$ATTESTATION" 2>/dev/null || true)
 attestation_owner=$(stat -c '%u' "$ATTESTATION" 2>/dev/null || true)
 attestation_mode=$(stat -c '%a' "$ATTESTATION" 2>/dev/null || true)
@@ -29,8 +35,8 @@ if [ -f "$ATTESTATION" ] && [ ! -L "$ATTESTATION" ] \
     conclusion=success
     summary=$(jq -c '{head_sha,base_sha,controller_commit,trusted_run_id,trusted_run_attempt,source_run_id,source_run_attempt,execution_nonce_sha256,knowledge_snapshot,trusted_evaluator_sha256,candidate_validator_object_sha256,manifest_object_sha256,mutation_set_sha256,counts}' "$ATTESTATION")
 fi
-gh api --method POST "repos/Arcanada-one/datarim/check-runs" \
-    -f name='talo-0001-privileged-replay' -f head_sha="$HEAD_SHA" \
+gh api --method PATCH \
+    "repos/Arcanada-one/datarim/check-runs/$CHECK_RUN_ID" \
     -f status=completed -f conclusion="$conclusion" \
     -f 'output[title]=TALO-0001 trusted replay' \
     -f "output[summary]=$summary" >/dev/null

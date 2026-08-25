@@ -8,7 +8,21 @@ case "$command_name" in
         "/usr/bin/$command_name" "$@"
         ;;
     pgrep)
-        [ "${TALO_MOCK_RUNNER_PROCESS:-0}" = 1 ]
+        if [ "${TALO_MOCK_RUNNER_PROCESS:-0}" = late ]; then
+            count=$(cat "${TALO_MOCK_PGREP_COUNTER:?}")
+            count=$((count + 1))
+            printf '%s\n' "$count" >"$TALO_MOCK_PGREP_COUNTER"
+            [ "$count" -ge 2 ]
+        else
+            [ "${TALO_MOCK_RUNNER_PROCESS:-0}" = 1 ]
+        fi
+        ;;
+    getent)
+        [ "${1:-}" = passwd ]
+        [ "${2:-}" = "${TALO_MOCK_RUNNER_USER:?}" ]
+        printf '%s:x:%s:%s:Trusted replay fixture:/srv/talo-0001-trusted:/usr/sbin/nologin\n' \
+            "$TALO_MOCK_RUNNER_USER" "${TALO_MOCK_RUNNER_UID:?}" \
+            "${TALO_MOCK_RUNNER_GID:?}"
         ;;
     gh)
         case "${TALO_MOCK_GH_MODE:-api-failure}" in

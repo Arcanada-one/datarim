@@ -32,7 +32,36 @@ jobs:
       labels: [self-hosted, Linux, X64, talo-0001-trusted]
     timeout-minutes: 8
     steps:
+      - name: Initialize checkout-independent current-run verdict
+        id: initialize-verdict
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          BASE_SHA: ${{ github.event.workflow_run.pull_requests[0].base.sha }}
+          TRUSTED_RUN_ID: ${{ github.run_id }}
+          TRUSTED_RUN_ATTEMPT: ${{ github.run_attempt }}
+          TRUSTED_WORKFLOW_SHA: ${{ github.workflow_sha }}
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+          SOURCE_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+        run: |
+          set -euo pipefail
+          expected_nonce=$(
+            printf 'trusted_run_id=%s\ntrusted_run_attempt=%s\nworkflow_sha=%s\nsource_run_id=%s\nsource_run_attempt=%s\nhead_sha=%s\nbase_sha=%s\n' \
+              "$TRUSTED_RUN_ID" "$TRUSTED_RUN_ATTEMPT" "$TRUSTED_WORKFLOW_SHA" \
+              "$SOURCE_RUN_ID" "$SOURCE_RUN_ATTEMPT" "$HEAD_SHA" "$BASE_SHA" \
+              | sha256sum | cut -d' ' -f1
+          )
+          response=$(gh api --method POST repos/Arcanada-one/datarim/check-runs \
+            -f name=talo-0001-privileged-replay -f head_sha="$HEAD_SHA" \
+            -f status=in_progress -f external_id="$expected_nonce" \
+            -f 'output[title]=TALO-0001 trusted replay' \
+            -f 'output[summary]=Current trusted replay is pending.')
+          check_id=$(jq -er --arg head "$HEAD_SHA" --arg nonce "$expected_nonce" \
+            'select(.name == "talo-0001-privileged-replay" and .head_sha == $head and .external_id == $nonce and .status == "in_progress") | .id | select(type == "number" and . > 0 and floor == .)' \
+            <<<"$response")
+          printf 'check_id=%s\n' "$check_id" >>"$GITHUB_OUTPUT"
       - name: Check out trusted default-main controller
+        id: trusted-checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.workflow_sha }}
@@ -65,5 +94,31 @@ jobs:
           TRUSTED_WORKFLOW_SHA: ${{ github.workflow_sha }}
           SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
           SOURCE_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          CHECK_RUN_ID: ${{ steps.initialize-verdict.outputs.check_id }}
+          TRUSTED_CHECKOUT_OUTCOME: ${{ steps.trusted-checkout.outcome }}
           ATTESTATION: ${{ runner.temp }}/talo-0001-attestation.json
-        run: trusted/dev-tools/publish-talo-0001-check.sh
+        run: |
+          set -euo pipefail
+          publisher=trusted/dev-tools/publish-talo-0001-check.sh
+          if [ "$TRUSTED_CHECKOUT_OUTCOME" = success ] \
+            && [ -f "$publisher" ] && [ ! -L "$publisher" ]; then
+            exec "$publisher"
+          fi
+          expected_nonce=$(
+            printf 'trusted_run_id=%s\ntrusted_run_attempt=%s\nworkflow_sha=%s\nsource_run_id=%s\nsource_run_attempt=%s\nhead_sha=%s\nbase_sha=%s\n' \
+              "$TRUSTED_RUN_ID" "$TRUSTED_RUN_ATTEMPT" "$TRUSTED_WORKFLOW_SHA" \
+              "$SOURCE_RUN_ID" "$SOURCE_RUN_ATTEMPT" "$HEAD_SHA" "$BASE_SHA" \
+              | sha256sum | cut -d' ' -f1
+          )
+          [[ "$CHECK_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          response=$(gh api "repos/Arcanada-one/datarim/check-runs/$CHECK_RUN_ID")
+          jq -e --argjson id "$CHECK_RUN_ID" --arg head "$HEAD_SHA" \
+            --arg nonce "$expected_nonce" \
+            'select(.id == $id and .name == "talo-0001-privileged-replay" and .head_sha == $head and .external_id == $nonce and .status == "in_progress")' \
+            <<<"$response" >/dev/null
+          gh api --method PATCH \
+            "repos/Arcanada-one/datarim/check-runs/$CHECK_RUN_ID" \
+            -f status=completed -f conclusion=failure \
+            -f 'output[title]=TALO-0001 trusted replay' \
+            -f 'output[summary]=Trusted controller checkout failed.' >/dev/null
+          exit 1

@@ -72,20 +72,40 @@ candidate_materializer_source() {
         "$FIXTURE/dev-tools/trusted-talo-0001-replay.sh"
 }
 
+workflow_step_run() {
+    python3 - "$FIXTURE/.github/workflows/talo-0001-trusted-replay.yml" "$1" <<'PY'
+import sys
+import yaml
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    workflow = yaml.safe_load(handle)
+for step in workflow["jobs"]["replay"]["steps"]:
+    if step.get("name") == sys.argv[2]:
+        print(step["run"])
+        raise SystemExit(0)
+raise SystemExit(1)
+PY
+}
+
 setup_provision_runtime() {
     PROVISIONER="$FIXTURE/dev-tools/provision-talo-0001-trusted-runner.sh"
     MOCK_BIN="$BATS_TEST_TMPDIR/provision-mock-bin"
     MOCK_LOG="$BATS_TEST_TMPDIR/provision-commands.log"
     RUNNER_FIXTURE="$BATS_TEST_TMPDIR/runner"
     IDENTITY_FIXTURE="$BATS_TEST_TMPDIR/runner-identity"
+    TEST_RUNNER_USER=$(id -un)
+    TEST_RUNNER_UID=$(id -u)
+    TEST_RUNNER_GID=$(id -g)
     make_runner_fixture_editable
     mkdir -p "$MOCK_BIN" "$RUNNER_FIXTURE/bin" "$RUNNER_FIXTURE/externals"
     mkdir -p "$IDENTITY_FIXTURE"
-    for command in chmod chown curl gh install pgrep sudo systemctl sleep; do
+    for command in chmod chown curl getent gh install pgrep sudo systemctl sleep; do
         ln -sf "$ROOT/dev-tools/tests/fixtures/talo-0001-command-mock.sh" \
             "$MOCK_BIN/$command"
     done
     sed -i "s#RUNNER_DIR=/srv/talo-0001-trusted/runner#RUNNER_DIR=$RUNNER_FIXTURE#" \
+        "$PROVISIONER"
+    sed -i "s#RUNNER_USER=talo-replay#RUNNER_USER=$TEST_RUNNER_USER#" \
         "$PROVISIONER"
     cat >"$RUNNER_FIXTURE/config.sh" <<'SH'
 #!/usr/bin/env bash
@@ -196,10 +216,12 @@ PY
     MOCK_CONFIG_STARTED="$BATS_TEST_TMPDIR/config-started"
     MOCK_CONFIG_CMDLINE="$BATS_TEST_TMPDIR/config-cmdline"
     MOCK_CONFIG_ENV_REMOVED="$BATS_TEST_TMPDIR/config-env-removed"
+    MOCK_PGREP_COUNTER="$BATS_TEST_TMPDIR/pgrep-counter"
     : >"$MOCK_LOG"
     rm -f -- "$MOCK_REGISTRATION_REMOVED"
     rm -f -- "$MOCK_CONFIG_STARTED"
     printf '%s\n' 0 >"$MOCK_DELETE_COUNTER"
+    printf '%s\n' 0 >"$MOCK_PGREP_COUNTER"
     printf '%s\n' enabled >"$MOCK_SERVICE_STATE"
 }
 
@@ -240,7 +262,7 @@ run_provision_runtime() {
         sudo chmod 0755 "$RUNNER_FIXTURE"
         sudo chmod g-s,o-t "$RUNNER_FIXTURE"
         for identity in .runner .credentials .credentials_rsaparams; do
-            sudo chown root:talo-replay "$RUNNER_FIXTURE/$identity"
+            sudo chown "root:$TEST_RUNNER_GID" "$RUNNER_FIXTURE/$identity"
             sudo chmod 0640 "$RUNNER_FIXTURE/$identity"
         done
         sudo chown root:root "$RUNNER_FIXTURE/.talo-registration-seal"
@@ -262,8 +284,12 @@ run_provision_runtime() {
         "TALO_MOCK_DELETE_FAILURES=${TALO_MOCK_DELETE_FAILURES:-0}" \
         "TALO_MOCK_ENFORCE_TRAVERSAL=${TALO_MOCK_ENFORCE_TRAVERSAL:-0}" \
         "TALO_MOCK_RUNNER_PROCESS=${TALO_MOCK_RUNNER_PROCESS:-0}" \
+        "TALO_MOCK_PGREP_COUNTER=$MOCK_PGREP_COUNTER" \
         "TALO_MOCK_REPLACE_EXEC=${TALO_MOCK_REPLACE_EXEC:-0}" \
         "TALO_MOCK_REAL_UID=${TALO_MOCK_REAL_UID:-0}" \
+        "TALO_MOCK_RUNNER_USER=$TEST_RUNNER_USER" \
+        "TALO_MOCK_RUNNER_UID=$TEST_RUNNER_UID" \
+        "TALO_MOCK_RUNNER_GID=$TEST_RUNNER_GID" \
         "TALO_MOCK_ARCHIVE=${MOCK_ARCHIVE:-}" \
         "TALO_MOCK_RUNNER_DIR=$RUNNER_FIXTURE" \
         "TALO_MOCK_SERVICE_STATE=$MOCK_SERVICE_STATE" \
@@ -649,21 +675,31 @@ materialize_candidate_blob dev-tools/check-research-authority-audit.py"
     local head=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
     local base=cccccccccccccccccccccccccccccccccccccccc
     local controller=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-    local nonce
+    local nonce current_nonce
     mkdir -p "$mock_bin"
     cat >"$mock_bin/gh" <<'SH'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >>"${TALO_PUBLISH_LOG:?}"
+if [[ " $* " != *" --method "* ]] && [[ "$*" == *"check-runs/"* ]]; then
+    jq -cn --argjson id "${TALO_PUBLISH_CHECK_ID:?}" \
+        --arg head "${TALO_PUBLISH_HEAD:?}" \
+        --arg nonce "${TALO_PUBLISH_NONCE:?}" \
+        '{id:$id,name:"talo-0001-privileged-replay",head_sha:$head,external_id:$nonce,status:"in_progress"}'
+fi
 SH
     chmod +x "$mock_bin/gh"
     nonce=$(printf 'trusted_run_id=%s\ntrusted_run_attempt=%s\nworkflow_sha=%s\nsource_run_id=%s\nsource_run_attempt=%s\nhead_sha=%s\nbase_sha=%s\n' \
         9000 1 "$controller" 8001 1 "$head" "$base" | sha256sum | cut -d' ' -f1)
+    current_nonce=$(printf 'trusted_run_id=%s\ntrusted_run_attempt=%s\nworkflow_sha=%s\nsource_run_id=%s\nsource_run_attempt=%s\nhead_sha=%s\nbase_sha=%s\n' \
+        9001 1 "$controller" 8001 1 "$head" "$base" | sha256sum | cut -d' ' -f1)
     jq -n --arg head "$head" --arg base "$base" --arg controller "$controller" \
         --arg nonce "$nonce" \
         '{schema_version:1,verdict:"MET",head_sha:$head,base_sha:$base,controller_commit:$controller,trusted_run_id:9000,trusted_run_attempt:1,source_run_id:8001,source_run_attempt:1,execution_nonce_sha256:$nonce,knowledge_snapshot:"c636fea7b7dda0245fbbfd1da8a5a78c7e56c2ae",trusted_evaluator_sha256:"a0e86fc87493231afffd3164587f0c14e463f5e8c4acd8f4f9679e2504280d1a",candidate_validator_object_sha256:("1"*64),manifest_object_sha256:("2"*64),mutation_set_sha256:("3"*64),counts:{items:66,candidates:19,external_pins:8,derived_records:3,comments:2,mutants:7}}' \
         >"$attestation"
     chmod 0600 "$attestation"
     run env "PATH=$mock_bin:$PATH" TALO_PUBLISH_LOG="$log" \
+        TALO_PUBLISH_CHECK_ID=321 TALO_PUBLISH_HEAD="$head" \
+        TALO_PUBLISH_NONCE="$current_nonce" CHECK_RUN_ID=321 \
         ATTESTATION="$attestation" HEAD_SHA="$head" BASE_SHA="$base" \
         TRUSTED_RUN_ID=9001 TRUSTED_RUN_ATTEMPT=1 \
         TRUSTED_WORKFLOW_SHA="$controller" SOURCE_RUN_ID=8001 \
@@ -672,20 +708,83 @@ SH
     grep -q 'conclusion=failure' "$log"
     assert_file_lacks 'conclusion=success' "$log"
 
-    nonce=$(printf 'trusted_run_id=%s\ntrusted_run_attempt=%s\nworkflow_sha=%s\nsource_run_id=%s\nsource_run_attempt=%s\nhead_sha=%s\nbase_sha=%s\n' \
-        9001 1 "$controller" 8001 1 "$head" "$base" | sha256sum | cut -d' ' -f1)
+    nonce=$current_nonce
     jq --arg nonce "$nonce" '.trusted_run_id = 9001 | .execution_nonce_sha256 = $nonce' \
         "$attestation" >"$attestation.next"
     mv "$attestation.next" "$attestation"
     chmod 0600 "$attestation"
     : >"$log"
     run env "PATH=$mock_bin:$PATH" TALO_PUBLISH_LOG="$log" \
+        TALO_PUBLISH_CHECK_ID=321 TALO_PUBLISH_HEAD="$head" \
+        TALO_PUBLISH_NONCE="$nonce" CHECK_RUN_ID=321 \
         ATTESTATION="$attestation" HEAD_SHA="$head" BASE_SHA="$base" \
         TRUSTED_RUN_ID=9001 TRUSTED_RUN_ATTEMPT=1 \
         TRUSTED_WORKFLOW_SHA="$controller" SOURCE_RUN_ID=8001 \
         SOURCE_RUN_ATTEMPT=1 "$publisher"
     [ "$status" -eq 0 ]
     grep -q 'conclusion=success' "$log"
+}
+
+@test "checkout failure still owns a current-run pending verdict and terminal failure path" {
+    local initializer fallback mock_bin log github_output nonce
+    local head=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+    local base=cccccccccccccccccccccccccccccccccccccccc
+    local controller=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    initializer=$(workflow_step_run "Initialize checkout-independent current-run verdict")
+    fallback=$(workflow_step_run "Publish fixed candidate-head verdict")
+    mock_bin="$BATS_TEST_TMPDIR/checkout-failure-bin"
+    log="$BATS_TEST_TMPDIR/checkout-failure.log"
+    github_output="$BATS_TEST_TMPDIR/github-output"
+    mkdir -p "$mock_bin"
+    cat >"$mock_bin/gh" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >>"${TALO_PUBLISH_LOG:?}"
+if [[ " $* " == *" --method POST "* ]]; then
+    jq -cn --argjson id 321 --arg head "${TALO_PUBLISH_HEAD:?}" \
+        --arg nonce "${TALO_PUBLISH_NONCE:?}" \
+        '{id:$id,name:"talo-0001-privileged-replay",head_sha:$head,external_id:$nonce,status:"in_progress"}'
+elif [[ " $* " != *" --method "* ]] && [[ "$*" == *"check-runs/321"* ]]; then
+    jq -cn --argjson id 321 --arg head "${TALO_PUBLISH_HEAD:?}" \
+        --arg nonce "${TALO_PUBLISH_NONCE:?}" \
+        '{id:$id,name:"talo-0001-privileged-replay",head_sha:$head,external_id:$nonce,status:"in_progress"}'
+fi
+SH
+    chmod +x "$mock_bin/gh"
+    nonce=$(printf 'trusted_run_id=%s\ntrusted_run_attempt=%s\nworkflow_sha=%s\nsource_run_id=%s\nsource_run_attempt=%s\nhead_sha=%s\nbase_sha=%s\n' \
+        9001 2 "$controller" 8001 3 "$head" "$base" | sha256sum | cut -d' ' -f1)
+    run env "PATH=$mock_bin:$PATH" TALO_PUBLISH_LOG="$log" \
+        TALO_PUBLISH_HEAD="$head" TALO_PUBLISH_NONCE="$nonce" \
+        GITHUB_OUTPUT="$github_output" HEAD_SHA="$head" BASE_SHA="$base" \
+        TRUSTED_RUN_ID=9001 TRUSTED_RUN_ATTEMPT=2 \
+        TRUSTED_WORKFLOW_SHA="$controller" SOURCE_RUN_ID=8001 \
+        SOURCE_RUN_ATTEMPT=3 bash -c "$initializer"
+    [ "$status" -eq 0 ]
+    [ "$(cat "$github_output")" = check_id=321 ]
+    grep -q 'status=in_progress' "$log"
+    grep -q "external_id=$nonce" "$log"
+
+    : >"$log"
+    run env "PATH=$mock_bin:$PATH" TALO_PUBLISH_LOG="$log" \
+        TALO_PUBLISH_HEAD="$head" TALO_PUBLISH_NONCE="$nonce" \
+        HEAD_SHA="$head" BASE_SHA="$base" CHECK_RUN_ID=321 \
+        TRUSTED_RUN_ID=9001 TRUSTED_RUN_ATTEMPT=2 \
+        TRUSTED_WORKFLOW_SHA="$controller" SOURCE_RUN_ID=8001 \
+        SOURCE_RUN_ATTEMPT=3 TRUSTED_CHECKOUT_OUTCOME=failure \
+        bash -c "$fallback"
+    [ "$status" -eq 1 ]
+    grep -q -- '--method PATCH.*check-runs/321' "$log"
+    grep -q 'conclusion=failure' "$log"
+
+    : >"$log"
+    run env "PATH=$mock_bin:$PATH" TALO_PUBLISH_LOG="$log" \
+        TALO_PUBLISH_HEAD="$head" TALO_PUBLISH_NONCE="$nonce" \
+        HEAD_SHA="$head" BASE_SHA="$base" CHECK_RUN_ID=322 \
+        TRUSTED_RUN_ID=9001 TRUSTED_RUN_ATTEMPT=2 \
+        TRUSTED_WORKFLOW_SHA="$controller" SOURCE_RUN_ID=8001 \
+        SOURCE_RUN_ATTEMPT=3 TRUSTED_CHECKOUT_OUTCOME=failure \
+        bash -c "$fallback"
+    [ "$status" -ne 0 ]
+    assert_file_lacks --method "$log"
 }
 
 @test "dedicated runner identity, fixed paths, and hardening are load-bearing" {
@@ -1013,10 +1112,55 @@ MUTANTS
     TALO_MOCK_RUNNERS_MODE=fresh TALO_MOCK_RUNNER_PROCESS=1 \
         run_provision_runtime
     [ "$status" -eq 1 ]
-    [[ "$output" == *'runner identity is not quiescent before registration'* ]]
+    [[ "$output" == *'runner identity is not quiescent before reconciliation'* ]]
     assert_file_lacks 'registration-token' "$MOCK_LOG"
     assert_file_lacks '^config.sh ' "$MOCK_LOG"
     [ "$(cat "$MOCK_SERVICE_STATE")" = disabled ]
+}
+
+@test "existing registration rejects a detached runner identity before policy mutation" {
+    setup_provision_runtime
+    TALO_MOCK_RUNNERS_MODE=one TALO_MOCK_RUNNER_PROCESS=1 \
+        run_provision_runtime
+    [ "$status" -eq 1 ]
+    [[ "$output" == *'runner identity is not quiescent before reconciliation'* ]]
+    assert_file_lacks '--method PATCH' "$MOCK_LOG"
+    assert_file_lacks '--method PUT' "$MOCK_LOG"
+    assert_file_lacks '^systemctl enable' "$MOCK_LOG"
+}
+
+@test "existing registration rechecks quiescence immediately before service start" {
+    setup_provision_runtime
+    TALO_MOCK_RUNNERS_MODE=one TALO_MOCK_RUNNER_PROCESS=late \
+        run_provision_runtime
+    [ "$status" -eq 1 ]
+    [[ "$output" == *'runner identity is not quiescent before service start'* ]]
+    grep -q -- '--method PATCH' "$MOCK_LOG"
+    grep -q -- '--method PUT' "$MOCK_LOG"
+    assert_file_lacks '^systemctl enable' "$MOCK_LOG"
+
+    python3 - "$PROVISIONER" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+source = path.read_text(encoding="utf-8")
+old = '''    assert_runner_user_quiescent || {
+        abort_runner_transaction "$id" "$fresh_registration" \\
+            "$pre_registration_empty" "$runner_id" \\
+            "runner identity is not quiescent before service start"
+    }
+'''
+assert source.count(old) == 1
+path.write_text(source.replace(old, ""), encoding="utf-8")
+PY
+    : >"$MOCK_LOG"
+    printf '%s\n' 0 >"$MOCK_PGREP_COUNTER"
+    TALO_MOCK_RUNNERS_MODE=one TALO_MOCK_RUNNER_PROCESS=late \
+        run_provision_runtime
+    [ "$status" -eq 0 ]
+    grep -q '^systemctl enable --now' "$MOCK_LOG"
+    printf '%s\n' 'RED_SENTINEL:prestart-quiescence-call'
 }
 
 @test "runner UID cannot replace the exact executable payload after hardening" {
@@ -1030,7 +1174,7 @@ MUTANTS
     hostile="$BATS_TEST_TMPDIR/hostile-config.sh"
     printf '%s\n' '#!/usr/bin/env bash' 'printf stolen-token' >"$hostile"
     chmod 0644 "$hostile"
-    run sudo -u talo-replay mv "$hostile" "$RUNNER_FIXTURE/config.sh"
+    run sudo -u "$TEST_RUNNER_USER" mv "$hostile" "$RUNNER_FIXTURE/config.sh"
     [ "$status" -ne 0 ]
     [ "$(sha256sum "$RUNNER_FIXTURE/config.sh" | cut -d' ' -f1)" = "$expected" ]
     [ "$(stat -c '%u:%g:%a' "$RUNNER_FIXTURE")" = 0:0:755 ]
@@ -1068,7 +1212,7 @@ MUTANTS
         "$PROVISIONER"
     TALO_MOCK_RUNNERS_MODE=fresh run_provision_runtime
     [ "$status" -eq 88 ]
-    runner_gid=$(id -g talo-replay)
+    runner_gid=$TEST_RUNNER_GID
     [ "$(stat -c '%u:%g:%a' "$RUNNER_FIXTURE")" = "0:$runner_gid:3775" ]
 
     cp "$original" "$PROVISIONER"
@@ -1102,12 +1246,28 @@ old = '''    stop_and_disable_runner_service || return 1
         echo "ERROR: interrupted runner registration could not be resealed" >&2
         return 1
     }
+    verify_runner_account || {
+        echo "ERROR: runner account boundary mismatch before reconciliation" >&2
+        return 1
+    }
+    assert_runner_user_quiescent || {
+        echo "ERROR: runner identity is not quiescent before reconciliation" >&2
+        return 1
+    }
     bind_pre_reconcile_roster "$id" || return 1
     reconcile_group "$id"
 '''
 new = '''    stop_and_disable_runner_service || return 1
     seal_interrupted_registration_directory || {
         echo "ERROR: interrupted runner registration could not be resealed" >&2
+        return 1
+    }
+    verify_runner_account || {
+        echo "ERROR: runner account boundary mismatch before reconciliation" >&2
+        return 1
+    }
+    assert_runner_user_quiescent || {
+        echo "ERROR: runner identity is not quiescent before reconciliation" >&2
         return 1
     }
     reconcile_group "$id" || return 1
