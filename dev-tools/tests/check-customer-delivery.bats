@@ -309,7 +309,7 @@ import sys
 path, signal_probe_python = sys.argv[1:]
 source = open(path, encoding="utf-8").read()
 guard = '[[ "$$" == "$bootstrap_pid" ]] || exit 126\n'
-probe = guard + "if " + shlex.quote(signal_probe_python) + ''' -I -S -c 'import signal; disposition=signal.getsignal(signal.SIGCHLD); blocked=signal.pthread_sigmask(signal.SIG_BLOCK,set()); state=("wrapper_sigchld_preflight_reset=invalid" if disposition is not signal.SIG_DFL else "wrapper_sigchld_preflight_unblock=invalid" if signal.SIGCHLD in blocked else ""); print(state) if state else None; raise SystemExit(35 if disposition is not signal.SIG_DFL else 38 if signal.SIGCHLD in blocked else 37)'; then
+probe = guard + "if " + shlex.quote(signal_probe_python) + ''' -I -S -c 'import signal; disposition=signal.getsignal(signal.SIGCHLD); blocked=signal.pthread_sigmask(signal.SIG_BLOCK,set()); state=("wrapper_sigchld_preflight_reset=invalid" if disposition is not signal.SIG_DFL else "wrapper_sigchld_preflight_unblock=invalid" if signal.SIGCHLD in blocked else ""); print(state) if state else None; raise SystemExit(35 if disposition is not signal.SIG_DFL else 38 if signal.SIGCHLD in blocked else 37)' wrapper-sigchld-preflight-v1; then
     wrapper_preflight_status=0
 else
     wrapper_preflight_status=$?
@@ -326,8 +326,9 @@ PY
 }
 
 assert_wrapper_sigchld_normalization() {
-    local launcher_dir signal_probe_python
-    signal_probe_python="${CUSTOMER_DELIVERY_SIGNAL_PROBE_RUNTIME:-${CUSTOMER_TEST_PYTHON_RUNTIME:-$VALIDATOR_PYTHON}}"
+    local launcher_dir signal_probe_python signal_probe_actual_python
+    signal_probe_actual_python="${CUSTOMER_TEST_PYTHON_RUNTIME:-$VALIDATOR_PYTHON}"
+    signal_probe_python="${CUSTOMER_DELIVERY_SIGNAL_PROBE_RUNTIME:-$signal_probe_actual_python}"
     build_test_framework wrapper-sigchld || return 1
     instrument_wrapper_sigchld_preflight "$signal_probe_python" || return 1
     if [[ -z "${CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE:-}" ]]; then
@@ -342,7 +343,7 @@ exec "${SIGNAL_PROBE_ACTUAL_RUNTIME:?}" "$@"
 SH
         chmod +x "${launcher_dir}/python3"
         ln -s python3 "${launcher_dir}/python"
-        run env SIGNAL_PROBE_ACTUAL_RUNTIME="$signal_probe_python" \
+        run env SIGNAL_PROBE_ACTUAL_RUNTIME="$signal_probe_actual_python" \
             CUSTOMER_DELIVERY_PYTHON="${launcher_dir}/python" \
             "$TEST_SCRIPT" --help
         if ! { [ "$status" -eq 0 ] && [[ "$output" == usage:* ]]; }; then
