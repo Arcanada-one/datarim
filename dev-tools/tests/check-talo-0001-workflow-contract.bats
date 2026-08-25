@@ -1957,9 +1957,9 @@ MUTANTS
     [ -f "$MOCK_CONFIG_ENV_REMOVED" ]
 }
 
-@test "every token child transport scrub axis is independently load-bearing" {
+@test "every parent token scrub axis is independently load-bearing before sudo" {
     local provisioner="$FIXTURE/dev-tools/provision-talo-0001-trusted-runner.sh"
-    local config_source mock_bin runner_dir marker axis mutant
+    local config_source mock_bin runner_dir parent_marker child_marker axis mutant
     local -a axes authority_env
     axes=(GH_HOST GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN GH_CONFIG_DIR \
         GH_HTTP_UNIX_SOCKET XDG_CONFIG_HOME GH_DEBUG \
@@ -1968,10 +1968,20 @@ MUTANTS
         CURL_CA_BUNDLE GIT_SSL_CAINFO GIT_SSL_NO_VERIFY)
     mock_bin="$BATS_TEST_TMPDIR/config-axis-bin"
     runner_dir="$BATS_TEST_TMPDIR/config-axis-runner"
-    marker="$BATS_TEST_TMPDIR/config-axis-marker"
+    parent_marker="$BATS_TEST_TMPDIR/config-parent-axis-marker"
+    child_marker="$BATS_TEST_TMPDIR/config-child-axis-marker"
     mkdir -p "$mock_bin" "$runner_dir"
     cat >"$mock_bin/sudo" <<'SH'
 #!/bin/bash
+for authority_name in GH_HOST GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN \
+    GH_CONFIG_DIR GH_HTTP_UNIX_SOCKET XDG_CONFIG_HOME GH_DEBUG \
+    HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY \
+    http_proxy https_proxy all_proxy no_proxy \
+    SSL_CERT_FILE SSL_CERT_DIR CURL_CA_BUNDLE \
+    GIT_SSL_CAINFO GIT_SSL_NO_VERIFY; do
+    [ -z "${!authority_name:-}" ] \
+        || printf '%s\n' "$authority_name" >"${TALO_PARENT_AXIS_MARKER:?}"
+done
 [[ "${1:-}" == --preserve-env=* ]] && shift
 [ "${1:-}" = -u ] && shift 2
 [ "${1:-}" != -- ] || shift
@@ -1986,7 +1996,7 @@ for authority_name in GH_HOST GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN \
     SSL_CERT_FILE SSL_CERT_DIR CURL_CA_BUNDLE \
     GIT_SSL_CAINFO GIT_SSL_NO_VERIFY; do
     [ -z "${!authority_name:-}" ] \
-        || printf '%s\n' "$authority_name" >"${TALO_CONFIG_AXIS_MARKER:?}"
+        || printf '%s\n' "$authority_name" >"${TALO_CHILD_AXIS_MARKER:?}"
 done
 [ -n "${ACTIONS_RUNNER_INPUT_TOKEN:-}" ]
 SH
@@ -1996,7 +2006,9 @@ SH
     for axis in "${axes[@]}"; do
         authority_env+=("$axis=hostile")
     done
-    run env "PATH=$mock_bin:$PATH" TALO_CONFIG_AXIS_MARKER="$marker" \
+    run env "PATH=$mock_bin:$PATH" \
+        TALO_PARENT_AXIS_MARKER="$parent_marker" \
+        TALO_CHILD_AXIS_MARKER="$child_marker" \
         "${authority_env[@]}" bash -c "token=fixture-token
 RUNNER_USER=$(id -un)
 RUNNER_HOME='$BATS_TEST_TMPDIR/config-home'
@@ -2007,13 +2019,18 @@ RUNNER_NAME=talo-0001-trusted-arcana-devs
 RUNNER_LABEL=talo-0001-trusted
 $config_source
 [ \"\$config_status\" -eq 0 ]"
-    [ "$status" -eq 0 ] && [ ! -e "$marker" ]
+    [ "$status" -eq 0 ]
+    [ ! -e "$parent_marker" ]
+    [ ! -e "$child_marker" ]
 
     for axis in "${axes[@]}"; do
-        rm -f -- "$marker"
-        mutant=${config_source//"$axis"/"${axis}_MUTANT"}
+        rm -f -- "$parent_marker" "$child_marker"
+        mutant=${config_source/"$axis"/"${axis}_PARENT_MUTANT"}
         [ "$mutant" != "$config_source" ]
-        run env "PATH=$mock_bin:$PATH" TALO_CONFIG_AXIS_MARKER="$marker" \
+        [[ "$mutant" == *"-u $axis"* ]]
+        run env "PATH=$mock_bin:$PATH" \
+            TALO_PARENT_AXIS_MARKER="$parent_marker" \
+            TALO_CHILD_AXIS_MARKER="$child_marker" \
             "$axis=hostile" bash -c "token=fixture-token
 RUNNER_USER=$(id -un)
 RUNNER_HOME='$BATS_TEST_TMPDIR/config-home'
@@ -2024,9 +2041,99 @@ RUNNER_NAME=talo-0001-trusted-arcana-devs
 RUNNER_LABEL=talo-0001-trusted
 $mutant
 [ \"\$config_status\" -eq 0 ]"
-        [ "$status" -eq 0 ] && [ "$(cat "$marker")" = "$axis" ]
+        [ "$status" -eq 0 ]
+        [ "$(cat "$parent_marker")" = "$axis" ]
+        [ ! -e "$child_marker" ]
     done
-    printf '%s\n' 'RED_SENTINEL:runner-config-transport-axis-matrix'
+    printf '%s\n' 'RED_SENTINEL:runner-config-parent-scrub-axis-matrix'
+}
+
+@test "every child token scrub axis is independently load-bearing after sudo" {
+    local provisioner="$FIXTURE/dev-tools/provision-talo-0001-trusted-runner.sh"
+    local config_source mock_bin runner_dir parent_marker child_marker axis mutant
+    local -a axes
+    axes=(GH_HOST GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN GH_CONFIG_DIR \
+        GH_HTTP_UNIX_SOCKET XDG_CONFIG_HOME GH_DEBUG \
+        HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY \
+        http_proxy https_proxy all_proxy no_proxy SSL_CERT_FILE SSL_CERT_DIR \
+        CURL_CA_BUNDLE GIT_SSL_CAINFO GIT_SSL_NO_VERIFY)
+    mock_bin="$BATS_TEST_TMPDIR/config-child-axis-bin"
+    runner_dir="$BATS_TEST_TMPDIR/config-child-axis-runner"
+    parent_marker="$BATS_TEST_TMPDIR/config-child-parent-marker"
+    child_marker="$BATS_TEST_TMPDIR/config-child-axis-marker"
+    mkdir -p "$mock_bin" "$runner_dir"
+    cat >"$mock_bin/sudo" <<'SH'
+#!/bin/bash
+for authority_name in GH_HOST GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN \
+    GH_CONFIG_DIR GH_HTTP_UNIX_SOCKET XDG_CONFIG_HOME GH_DEBUG \
+    HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY \
+    http_proxy https_proxy all_proxy no_proxy \
+    SSL_CERT_FILE SSL_CERT_DIR CURL_CA_BUNDLE \
+    GIT_SSL_CAINFO GIT_SSL_NO_VERIFY; do
+    [ -z "${!authority_name:-}" ] \
+        || printf '%s\n' "$authority_name" >"${TALO_PARENT_AXIS_MARKER:?}"
+done
+[[ "${1:-}" == --preserve-env=* ]] && shift
+[ "${1:-}" = -u ] && shift 2
+[ "${1:-}" != -- ] || shift
+exec /usr/bin/env "${TALO_POST_SUDO_AXIS:?}=hostile" "$@"
+SH
+    cat >"$runner_dir/config.sh" <<'SH'
+#!/bin/bash
+for authority_name in GH_HOST GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN \
+    GH_CONFIG_DIR GH_HTTP_UNIX_SOCKET XDG_CONFIG_HOME GH_DEBUG \
+    HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY \
+    http_proxy https_proxy all_proxy no_proxy \
+    SSL_CERT_FILE SSL_CERT_DIR CURL_CA_BUNDLE \
+    GIT_SSL_CAINFO GIT_SSL_NO_VERIFY; do
+    [ -z "${!authority_name:-}" ] \
+        || printf '%s\n' "$authority_name" >"${TALO_CHILD_AXIS_MARKER:?}"
+done
+[ -n "${ACTIONS_RUNNER_INPUT_TOKEN:-}" ]
+SH
+    chmod +x "$mock_bin/sudo" "$runner_dir/config.sh"
+    config_source=$(sed -n '/^        set +e$/,/^        set -e$/p' "$provisioner")
+
+    for axis in "${axes[@]}"; do
+        rm -f -- "$parent_marker" "$child_marker"
+        run env "PATH=$mock_bin:$PATH" \
+            TALO_PARENT_AXIS_MARKER="$parent_marker" \
+            TALO_CHILD_AXIS_MARKER="$child_marker" \
+            TALO_POST_SUDO_AXIS="$axis" bash -c "token=fixture-token
+RUNNER_USER=$(id -un)
+RUNNER_HOME='$BATS_TEST_TMPDIR/config-child-home'
+RUNNER_DIR='$runner_dir'
+ORG=Arcanada-one
+GROUP_NAME=talo-0001-trusted
+RUNNER_NAME=talo-0001-trusted-arcana-devs
+RUNNER_LABEL=talo-0001-trusted
+$config_source
+[ \"\$config_status\" -eq 0 ]"
+        [ "$status" -eq 0 ]
+        [ ! -e "$parent_marker" ]
+        [ ! -e "$child_marker" ]
+
+        mutant=${config_source/"-u $axis"/"-u ${axis}_CHILD_MUTANT"}
+        [ "$mutant" != "$config_source" ]
+        [[ "$mutant" == *"unset -v "*"$axis"* ]]
+        run env "PATH=$mock_bin:$PATH" \
+            TALO_PARENT_AXIS_MARKER="$parent_marker" \
+            TALO_CHILD_AXIS_MARKER="$child_marker" \
+            TALO_POST_SUDO_AXIS="$axis" bash -c "token=fixture-token
+RUNNER_USER=$(id -un)
+RUNNER_HOME='$BATS_TEST_TMPDIR/config-child-home'
+RUNNER_DIR='$runner_dir'
+ORG=Arcanada-one
+GROUP_NAME=talo-0001-trusted
+RUNNER_NAME=talo-0001-trusted-arcana-devs
+RUNNER_LABEL=talo-0001-trusted
+$mutant
+[ \"\$config_status\" -eq 0 ]"
+        [ "$status" -eq 0 ]
+        [ ! -e "$parent_marker" ]
+        [ "$(cat "$child_marker")" = "$axis" ]
+    done
+    printf '%s\n' 'RED_SENTINEL:runner-config-child-scrub-axis-matrix'
 }
 
 @test "same-UID replacement race is rejected before token materialization" {
