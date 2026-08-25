@@ -38,7 +38,7 @@ PLATFORM_SHARD_POLICY = {
         **{shard: ("linux",) for shard in range(1, 14)},
         **{shard: ("linux", "macos") for shard in range(14, 20)},
         **{shard: ("macos",) for shard in range(20, 27)},
-        **{shard: ("linux", "macos") for shard in range(27, 47)},
+        **{shard: ("linux", "macos") for shard in range(27, 49)},
     },
 }
 MACOS_RUNTIME_ISOLATED_TESTS = {
@@ -74,13 +74,15 @@ MACOS_RUNTIME_ISOLATED_TESTS = {
         "SIGCHLD portable spawn mutants are independently killed",
         "terminal cleanup output mutants are independently killed",
         "terminal signal-mask mutation attribution is independently killed",
-        "post-Popen deadline and readiness mutants are independently killed",
+        "post-Popen silent and bounded deadline mutants are independently killed",
         "SIGCHLD consumer normalization mutants are independently killed",
         "wrapper SIGCHLD reset unblock and drain mutants are independently killed",
         "wrapper exec and interpreter mutants are independently killed",
         "wrapper worker transport mutants are independently killed",
         "Alarm diagnostic grammar mutation attribution is fail-closed",
         "Alarm initialization mutants are independently killed",
+        "post-Popen source-history and masked deadline mutants are independently killed",
+        "post-Popen readiness and stale marker mutants are independently killed",
     ),
 }
 

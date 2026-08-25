@@ -1254,9 +1254,95 @@ PY
         "sigchld_consumer_${callsite}" "${filter}|ignored_sigchld_status_not_preserved=${callsite}"
 }
 
+run_exact_wrapper_sigchld_drain_probe() {
+    local validator_script="$1"
+    run "$PYTHON" - "$validator_script" <<'PY'
+import os
+from pathlib import Path
+import signal
+import sys
+import textwrap
+import time
+
+path = Path(sys.argv[1])
+start_anchor = "    if signal.SIGCHLD in signal.sigpending():  # SECURITY_RULE:wrapper_sigchld_pending_drain\n"
+end_anchor = "    signal.pthread_sigmask(\n        signal.SIG_UNBLOCK, {signal.SIGCHLD}\n    )  # SECURITY_RULE:wrapper_sigchld_unblock\n"
+try:
+    source = path.read_text(encoding="utf-8")
+    if source.count(start_anchor) != 1 or source.count(end_anchor) != 1:
+        raise ValueError("anchor")
+    start = source.index(start_anchor)
+    end = source.index(end_anchor, start)
+    exact_slice = textwrap.dedent(source[start:end])
+    compiled_slice = compile(exact_slice, f"{path}:wrapper_sigchld_pending_drain", "exec")
+except (OSError, UnicodeError, ValueError, SyntaxError):
+    print("HARNESS_INVALID:wrapper_sigchld_drain_anchor")
+    raise SystemExit(2)
+
+child = None
+previous_handler = signal.getsignal(signal.SIGCHLD)
+previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, set())
+result = "HARNESS_INVALID:wrapper_sigchld_drain_fixture"
+status = 2
+try:
+    signal.signal(signal.SIGCHLD, lambda _signum, _frame: None)
+    signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGCHLD})
+    if os.environ.get("CUSTOMER_DELIVERY_DRAIN_PROBE_FORCE_FIXTURE_FAILURE") == "1":
+        raise OSError("forced fixture failure")
+    child = os.fork()
+    if child == 0:
+        os._exit(0)
+    deadline = time.monotonic() + 2
+    while signal.SIGCHLD not in signal.sigpending():
+        if time.monotonic() >= deadline:
+            raise TimeoutError("SIGCHLD fixture did not become pending")
+        time.sleep(0.01)
+    try:
+        exec(compiled_slice, {"signal": signal})
+    except RuntimeError as error:
+        if str(error) != "SIGCHLD remained pending":
+            raise
+        result = "wrapper_sigchld_pending_not_drained"
+        status = 1
+    else:
+        if signal.SIGCHLD in signal.sigpending():
+            raise RuntimeError("probe accepted a pending SIGCHLD")
+        result = "PROBE_OK"
+        status = 0
+except Exception:
+    result = "HARNESS_INVALID:wrapper_sigchld_drain_fixture"
+    status = 2
+finally:
+    if child is not None:
+        reaped = False
+        cleanup_deadline = time.monotonic() + 2
+        while time.monotonic() < cleanup_deadline:
+            try:
+                observed, _ = os.waitpid(child, os.WNOHANG)
+            except ChildProcessError:
+                reaped = True
+                break
+            if observed == child:
+                reaped = True
+                break
+            time.sleep(0.01)
+        if not reaped:
+            os.kill(child, signal.SIGKILL)
+            os.waitpid(child, 0)
+    signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGCHLD})
+    if signal.SIGCHLD in signal.sigpending():
+        signal.sigwait({signal.SIGCHLD})
+    signal.signal(signal.SIGCHLD, previous_handler)
+    signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+
+print(result)
+raise SystemExit(status)
+PY
+}
+
 run_wrapper_sigchld_mutants() {
     local filter='OpenSSL deadline terminates stubborn descendant pipe holders'
-    local kind validator_mutant guard mutant expected_fragment wrapper_mode
+    local kind validator_mutant guard mutant expected_fragment wrapper_mode anchor_invalid
     run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
         CUSTOMER_DELIVERY_WRAPPER_SIGCHLD_ONLY=1 \
@@ -1281,7 +1367,7 @@ run_wrapper_sigchld_mutants() {
             drain)
                 guard='        signal.sigwait({signal.SIGCHLD})'
                 mutant='        pass  # MUTATED:wrapper_sigchld_pending_drain'
-                expected_fragment='wrapper_sigchld_not_normalized'
+                expected_fragment='wrapper_sigchld_pending_not_drained'
                 ;;
             exec)
                 guard=$'    os.execve(\n        "/bin/bash",\n        [\n            "/bin/bash", "-p", "-s", "--", script_path,\n            str(os.getpid()), *sys.argv[3:],\n        ],\n        environment,\n    )  # SECURITY_RULE:wrapper_sigchld_exec'
@@ -1312,40 +1398,33 @@ run_wrapper_sigchld_mutants() {
             *) return 1 ;;
         esac
         if [[ "$kind" == drain ]]; then
-            "$PYTHON" - "$validator_mutant" <<'PY' || return 1
+            run_exact_wrapper_sigchld_drain_probe "$validator_mutant"
+            [ "$status" -eq 0 ] && [ "$output" = PROBE_OK ] \
+                || { printf 'wrapper_sigchld_drain_probe_baseline=%s status=%s\n' \
+                    "$output" "$status"; return 1; }
+            anchor_invalid="${BATS_TEST_TMPDIR}/check-customer-delivery-wrapper-sigchld-drain-anchor.sh"
+            cp "$validator_mutant" "$anchor_invalid" || return 1
+            "$PYTHON" - "$anchor_invalid" <<'PY' || return 1
 import sys
 
 path = sys.argv[1]
 source = open(path, encoding="utf-8").read()
-guard = '''    if signal.SIGCHLD in signal.sigpending():  # SECURITY_RULE:wrapper_sigchld_pending_drain
-'''
-injected = '''    import time
-    pending_child = os.fork()  # TEST_WRAPPER_PENDING_SIGCHLD
-    if pending_child == 0:
-        os._exit(0)
-    pending_deadline = time.monotonic() + 2
-    while signal.SIGCHLD not in signal.sigpending():
-        if time.monotonic() >= pending_deadline:
-            raise RuntimeError("SIGCHLD fixture did not become pending")
-        time.sleep(0.01)
-''' + guard
-reaped_guard = '''    if signal.SIGCHLD in signal.sigpending():
-        raise RuntimeError("SIGCHLD remained pending")
-'''
-reaped = reaped_guard + '''    os.waitpid(pending_child, 0)  # TEST_WRAPPER_PENDING_SIGCHLD_REAP
-'''
-if source.count(guard) != 1 or source.count(reaped_guard) != 1:
-    raise SystemExit("WRAPPER_SIGCHLD_DRAIN_CONTROL_SEAM_MISSING_OR_AMBIGUOUS")
-source = source.replace(guard, injected, 1).replace(reaped_guard, reaped, 1)
-open(path, "w", encoding="utf-8").write(source)
+anchor = "# SECURITY_RULE:wrapper_sigchld_pending_drain"
+if source.count(anchor) != 1:
+    raise SystemExit("WRAPPER_SIGCHLD_DRAIN_ANCHOR_CONTROL_MISSING_OR_AMBIGUOUS")
+open(path, "w", encoding="utf-8").write(source.replace(anchor, "# MUTATED:missing_wrapper_sigchld_pending_drain", 1))
 PY
-            chmod +x "$validator_mutant"
-            run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
-                CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
-                CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$validator_mutant" \
-                CUSTOMER_DELIVERY_WRAPPER_SIGCHLD_ONLY=1 \
-                bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
-            assert_baseline_green "$filter" || return 1
+            run_exact_wrapper_sigchld_drain_probe "$anchor_invalid"
+            [ "$status" -eq 2 ] \
+                && [ "$output" = HARNESS_INVALID:wrapper_sigchld_drain_anchor ] \
+                || { printf 'wrapper_sigchld_drain_probe_anchor=%s status=%s\n' \
+                    "$output" "$status"; return 1; }
+            CUSTOMER_DELIVERY_DRAIN_PROBE_FORCE_FIXTURE_FAILURE=1 \
+                run_exact_wrapper_sigchld_drain_probe "$validator_mutant"
+            [ "$status" -eq 2 ] \
+                && [ "$output" = HARNESS_INVALID:wrapper_sigchld_drain_fixture ] \
+                || { printf 'wrapper_sigchld_drain_probe_fixture=%s status=%s\n' \
+                    "$output" "$status"; return 1; }
         fi
         "$PYTHON" - "$validator_mutant" "$guard" "$mutant" <<'PY' || return 1
 import sys
@@ -1356,20 +1435,27 @@ if source.count(guard) != 1:
     raise SystemExit("WRAPPER_SIGCHLD_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
 open(path, "w", encoding="utf-8").write(source.replace(guard, mutant, 1))
 PY
-        chmod +x "$validator_mutant"
-        run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
-            CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
-            CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$validator_mutant" \
-            CUSTOMER_DELIVERY_WRAPPER_SIGCHLD_ONLY="$wrapper_mode" \
-            bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
-        [ "$status" -ne 0 ] \
-            && [[ "$output" == *"${expected_fragment}"* ]] \
-            && [ "$(printf '%s\n' "$output" | awk -v target="not ok 1 ${filter}" '$0 == target { count++ } END { print count+0 }')" -eq 1 ] \
-            && [[ "$output" != *"Traceback"* ]] \
-            && [[ "$output" != *"setup_file failed"* ]] \
-            && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
-            || { printf 'wrapper_sigchld_mutant_not_attributed=%s status=%s output=%s\n' \
-                "$kind" "$status" "$output"; return 1; }
+        if [[ "$kind" == drain ]]; then
+            run_exact_wrapper_sigchld_drain_probe "$validator_mutant"
+            [ "$status" -eq 1 ] && [ "$output" = "$expected_fragment" ] \
+                || { printf 'wrapper_sigchld_mutant_not_attributed=%s status=%s output=%s\n' \
+                    "$kind" "$status" "$output"; return 1; }
+        else
+            chmod +x "$validator_mutant"
+            run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+                CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+                CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$validator_mutant" \
+                CUSTOMER_DELIVERY_WRAPPER_SIGCHLD_ONLY="$wrapper_mode" \
+                bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+            [ "$status" -ne 0 ] \
+                && [[ "$output" == *"${expected_fragment}"* ]] \
+                && [ "$(printf '%s\n' "$output" | awk -v target="not ok 1 ${filter}" '$0 == target { count++ } END { print count+0 }')" -eq 1 ] \
+                && [[ "$output" != *"Traceback"* ]] \
+                && [[ "$output" != *"setup_file failed"* ]] \
+                && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
+                || { printf 'wrapper_sigchld_mutant_not_attributed=%s status=%s output=%s\n' \
+                    "$kind" "$status" "$output"; return 1; }
+        fi
         "$PYTHON" -c \
             'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
             "wrapper_sigchld_${kind}" "${filter}|${expected_fragment}"
@@ -1882,6 +1968,7 @@ run_mutation_kill_attribution_group() {
     local completed_descendant_validator completed_descendant_mutant
     local callsite marker_kind marker_value marker_hex sentinel_kind
     local diagnostic_mutant diagnostic_filter pid_width_mutant
+    local -a post_popen_callsites
     if [[ "$group" == basics ]]; then
     run assert_attributed_mutant_kill valid "$filter" "$expected" 1 \
         $'1..1\nnot ok 1 focused contract\n# (in test file fixture.bats, line 42)\n# assertion failed'
@@ -1974,10 +2061,15 @@ PY
     assert_attributed_mutant_kill terminal_signal_mask "$terminal_mask_filter" \
         "$expected" "$status" "$output" || return 1
 
-    elif [[ "$group" == post-popen ]]; then
+    elif [[ "$group" == post-popen-signals || "$group" == post-popen-source-masked ]]; then
 
     post_popen_filter='OpenSSL deadline terminates stubborn descendant pipe holders'
-    for callsite in silent bounded source_history masked; do
+    if [[ "$group" == post-popen-signals ]]; then
+        post_popen_callsites=(silent bounded)
+    else
+        post_popen_callsites=(source_history masked)
+    fi
+    for callsite in "${post_popen_callsites[@]}"; do
         post_popen_mutant="${BATS_TEST_TMPDIR}/post-popen-${callsite}.bats"
         cp "$FUNCTIONAL_TEST" "$post_popen_mutant" || return 1
         "$PYTHON" - "$post_popen_mutant" "$REPO_ROOT" "$callsite" <<'PY' || return 1
@@ -2020,6 +2112,9 @@ PY
             "post_popen_${callsite}" "${callsite}|${post_popen_filter}"
     done
 
+    elif [[ "$group" == post-popen-readiness ]]; then
+
+    post_popen_filter='OpenSSL deadline terminates stubborn descendant pipe holders'
     run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
         CUSTOMER_DELIVERY_POST_POPEN_ONLY=silent \
@@ -2120,8 +2215,8 @@ PY
     run_mutation_kill_attribution_group terminal-mask
 }
 
-@test "post-Popen deadline and readiness mutants are independently killed" {
-    run_mutation_kill_attribution_group post-popen
+@test "post-Popen silent and bounded deadline mutants are independently killed" {
+    run_mutation_kill_attribution_group post-popen-signals
 }
 
 run_same_clock_alarm_group() {
@@ -2341,4 +2436,12 @@ PY
 
 @test "Alarm initialization mutants are independently killed" {
     run_same_clock_alarm_group alarm-initialization
+}
+
+@test "post-Popen source-history and masked deadline mutants are independently killed" {
+    run_mutation_kill_attribution_group post-popen-source-masked
+}
+
+@test "post-Popen readiness and stale marker mutants are independently killed" {
+    run_mutation_kill_attribution_group post-popen-readiness
 }
