@@ -139,6 +139,23 @@ eh_lookup_binding() {
 # without touching the real `hostname`/Tailscale MagicDNS name. Production
 # callers never set this var.
 eh_host_match() {
+    # TUNE-0596 — completion marker, a SECOND line of defence.
+    #
+    # The primary defect this task fixed was NOT an abort: under zsh the old
+    # `read -a` printed "bad option: -a" and — with no `set -e` — execution
+    # CONTINUED past it, leaving the alias list empty. The function then ran to
+    # its end and returned an honest-looking 1, so a host matching only by
+    # ALIAS was reported off-host and told to delegate to itself. That class is
+    # fixed by not using shell-specific syntax at all (see the alias loop).
+    #
+    # Under `set -e`, however, the same error DOES abort the function mid-way,
+    # and the caller reads the abort status as if it were a verdict. This
+    # marker closes that second case: cleared on entry, set on EVERY deliberate
+    # exit path, so eh_decision can distinguish "this function spoke" from
+    # "this function died" and fail closed instead of inventing an answer.
+    # Measured both modes before writing this: zsh without set -e continues,
+    # zsh with set -e aborts.
+    EH_MATCH_COMPLETED=""
     local required_host="$1" aliases_csv="${2:-}" tailscale_ip="${3:-}"
     local current
     if [ -n "${EH_TEST_HOSTNAME:-}" ]; then
@@ -146,19 +163,40 @@ eh_host_match() {
     else
         current="$(hostname -s 2>/dev/null || hostname 2>/dev/null || true)"
     fi
-    [ -n "$current" ] || return 1
+    [ -n "$current" ] || { EH_MATCH_COMPLETED=1; return 1; }
 
-    [ "$current" = "$required_host" ] && return 0
-    [ -n "$tailscale_ip" ] && [ "$current" = "$tailscale_ip" ] && return 0
+    [ "$current" = "$required_host" ] && { EH_MATCH_COMPLETED=1; return 0; }
+    [ -n "$tailscale_ip" ] && [ "$current" = "$tailscale_ip" ] && { EH_MATCH_COMPLETED=1; return 0; }
 
     if [ -n "$aliases_csv" ]; then
-        local -a aliases
-        IFS=',' read -ra aliases <<< "$aliases_csv"
-        local a
-        for a in "${aliases[@]}"; do
-            [ "$current" = "$a" ] && return 0
+        # TUNE-0596 — split WITHOUT `read -ra` and WITHOUT relying on word
+        # splitting. This library is SOURCED into the caller's shell by the
+        # Step-0 block of every /dr-* command, so it runs under whatever shell
+        # the agent has — including zsh, the macOS default.
+        #
+        # Two portability traps, both hit here in sequence:
+        #   1. `read -a` is a bashism. Under zsh it ABORTS the function with
+        #      "bad option: -a", and eh_host_match then returns 1 — which is
+        #      indistinguishable from an honest "this host does not match". A
+        #      machine that IS the execution host by alias was therefore told
+        #      it was off-host and instructed to delegate to itself.
+        #   2. `IFS=, ; set -- $csv` does NOT fix it: zsh does not word-split
+        #      unquoted parameter expansions by default, so the CSV stayed a
+        #      single element and every alias silently failed to match.
+        #
+        # Prefix/suffix trimming uses only POSIX parameter expansion and `case`
+        # and therefore behaves identically under bash, zsh and dash.
+        local rest="$aliases_csv" item
+        while [ -n "$rest" ]; do
+            item="${rest%%,*}"
+            [ "$current" = "$item" ] && { EH_MATCH_COMPLETED=1; return 0; }
+            case "$rest" in
+                *,*) rest="${rest#*,}" ;;
+                *)   rest="" ;;
+            esac
         done
     fi
+    EH_MATCH_COMPLETED=1
     return 1
 }
 
@@ -192,7 +230,19 @@ eh_decision() {
     local req_host aliases ip user agent allowed space
     IFS=$'\t' read -r req_host aliases ip user agent allowed space <<< "$binding"
 
-    if eh_host_match "$req_host" "$aliases" "$ip"; then
+    local match_rc
+    eh_host_match "$req_host" "$aliases" "$ip"
+    match_rc=$?
+
+    # TUNE-0596 fail-closed: if the matcher did not run to a deliberate exit,
+    # its status is an abort, not an answer. Emitting 0/10 here would hand the
+    # caller a verdict nothing computed — the defect this guard exists to stop.
+    if [ -z "${EH_MATCH_COMPLETED:-}" ]; then
+        EH_STATE="fail-closed"
+        return 3
+    fi
+
+    if [ "$match_rc" -eq 0 ]; then
         EH_STATE="on-host"
         return 0
     fi
