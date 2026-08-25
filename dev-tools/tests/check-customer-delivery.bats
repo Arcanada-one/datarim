@@ -4381,9 +4381,6 @@ PY
         printf 'stubborn_crypto_descendant_survived=%s\n' "$descendant_pid"
         return 1
     fi
-    for completed_callsite in silent bounded source_history; do
-        assert_completed_parent_descendant_cleanup "$completed_callsite" || return 1
-    done
     if [[ -n "$post_popen_only" ]]; then
         case "$post_popen_only" in
             silent|bounded|source_history)
@@ -4395,15 +4392,25 @@ PY
             *) return 1 ;;
         esac
         return 0
-    else
-        for callsite in silent bounded source_history; do
-            assert_post_popen_signal_cleanup "$callsite" || return 1
-        done
-        assert_masked_popen_deadline_cleanup || return 1
     fi
+}
+
+@test "validation supervisor completed and signalled cleanup remains bounded" {
+    local callsite
+    for callsite in silent bounded source_history; do
+        assert_completed_parent_descendant_cleanup "$callsite" || return 1
+    done
+    for callsite in silent bounded source_history; do
+        assert_post_popen_signal_cleanup "$callsite" || return 1
+    done
+    assert_masked_popen_deadline_cleanup || return 1
     assert_process_lifecycle_probe cleanup-alarm || return 1
     assert_process_lifecycle_probe reused-pid || return 1
     assert_process_lifecycle_probe ignored-sigchld || return 1
+}
+
+@test "wrapper signal and alarm initialization remains normalized" {
+    local callsite
     assert_wrapper_sigchld_normalization || return 1
     assert_pending_inherited_alarm_initialization || return 1
     assert_signal_initialization_failure || return 1
@@ -4411,6 +4418,10 @@ PY
     for callsite in silent bounded source_history; do
         assert_inherited_alarm_mask_cleanup "$callsite" || return 1
     done
+}
+
+@test "validation consumer failures and cleanup waits remain bounded" {
+    local callsite
     for callsite in silent bounded source_history; do
         assert_ignored_sigchld_consumer "$callsite" || return 1
     done

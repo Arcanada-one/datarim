@@ -75,18 +75,20 @@ for row in functional:
     else:
         groups.append(list(range(int(row[4]), int(row[5]) + 1)))
 target = next(index for index, indices in enumerate(groups) if hot in indices)
-neighbors = {163: target - 1, 166: target - 1, 167: target + 1}
-if hot not in neighbors:
-    raise SystemExit(f"unsupported hot index: {hot}")
-neighbor = neighbors[hot]
-groups[min(target, neighbor)] = sorted(groups[target] + groups[neighbor])
-del groups[max(target, neighbor)]
+donor_group = next(
+    index for index, indices in enumerate(groups)
+    if index != target and len(indices) > 1
+)
+donor = groups[donor_group].pop(0)
+groups[target] = sorted(groups[target] + [donor])
 
 rows = ["# suite shard total mode first last platforms"]
 total = len(groups)
 for shard, indices in enumerate(groups, 1):
-    last = "-" if len(indices) == 1 else str(indices[-1])
-    rows.append(f"functional {shard} {total} ordinal {indices[0]} {last} linux,macos")
+    contiguous = indices == list(range(indices[0], indices[-1] + 1))
+    first = str(indices[0]) if contiguous else ",".join(map(str, indices))
+    last = "-" if len(indices) == 1 or not contiguous else str(indices[-1])
+    rows.append(f"functional {shard} {total} ordinal {first} {last} linux,macos")
 rows.extend(
     line for line in lines
     if line.startswith("schema ") or line.startswith("mutation ")
@@ -134,7 +136,7 @@ PY
 
 @test "customer-delivery shard registry rejects overlapping coverage" {
     local fixture="$BATS_TEST_TMPDIR/overlap.tsv"
-    awk '/^functional[[:space:]]/ && $2 == 36 { $5=$5-1 } { print }' \
+    awk '/^functional[[:space:]]/ && $2 == 27 { $5=$5-1; $6=$6-1 } { print }' \
         "$REGISTRY" >"$fixture"
     run "$PYTHON" "$RUNNER" --registry "$fixture" --check
     [ "$status" -eq 2 ] \
@@ -183,12 +185,15 @@ PY
         || { printf 'schema_budget_status=%s output=%s\n' "$status" "$output"; return 1; }
 }
 
-@test "macOS timing-sensitive history tests require identity-pinned singleton shards" {
+@test "macOS timing-sensitive functional tests require identity-pinned singleton shards" {
     local pair hot_index hot_name fixture
     local -a pairs=(
-        '163|source history subprocesses share one total deadline'
-        '166|source history deadline kills stubborn descendant pipe holders'
-        '167|global validation alarm reaps late source history child process group'
+        '118|validation supervisor completed and signalled cleanup remains bounded'
+        '119|wrapper signal and alarm initialization remains normalized'
+        '120|validation consumer failures and cleanup waits remain bounded'
+        '166|source history subprocesses share one total deadline'
+        '169|source history deadline kills stubborn descendant pipe holders'
+        '170|global validation alarm reaps late source history child process group'
     )
     for pair in "${pairs[@]}"; do
         hot_index="${pair%%|*}"
