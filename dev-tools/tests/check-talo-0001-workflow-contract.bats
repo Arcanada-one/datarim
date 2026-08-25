@@ -308,6 +308,17 @@ run_provision_runtime() {
         "TALO_MOCK_ADVANCED_MAIN_COMMIT=${TALO_MOCK_ADVANCED_MAIN_COMMIT:-}" \
         "TALO_MOCK_MAIN_SEQUENCE=${TALO_MOCK_MAIN_SEQUENCE:-stable}" \
         "TALO_MOCK_MAIN_COUNTER=$BATS_TEST_TMPDIR/main-ref-counter" \
+        "TALO_MOCK_ASSERT_GH_TRANSPORT=${TALO_MOCK_ASSERT_GH_TRANSPORT:-0}" \
+        "TALO_MOCK_HOSTILE_MAIN_COMMIT=${TALO_MOCK_HOSTILE_MAIN_COMMIT:-}" \
+        "TALO_MOCK_GH_TRANSPORT_MARKER=$BATS_TEST_TMPDIR/hostile-gh-transport" \
+        "GH_HOST=${GH_HOST:-}" \
+        "GH_ENTERPRISE_TOKEN=${GH_ENTERPRISE_TOKEN:-}" \
+        "GH_CONFIG_DIR=${GH_CONFIG_DIR:-}" \
+        "GH_HTTP_UNIX_SOCKET=${GH_HTTP_UNIX_SOCKET:-}" \
+        "XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-}" \
+        "HTTPS_PROXY=${HTTPS_PROXY:-}" \
+        "SSL_CERT_FILE=${SSL_CERT_FILE:-}" \
+        "HOME=${TALO_MOCK_AMBIENT_HOME:-/root}" \
         "TALO_MOCK_PROVISIONER_BLOB=$MOCK_PROVISIONER_BLOB" \
         "TALO_MOCK_UNIT_BLOB=$MOCK_UNIT_BLOB" \
         "TALO_MOCK_RUNNERS_MODE=${TALO_MOCK_RUNNERS_MODE:-one}" \
@@ -1498,6 +1509,13 @@ SH
     [ ! -e "$marker" ]
 }
 
+@test "privileged bootstrap restores default splitting from hostile IFS" {
+    run env IFS=: \
+        "$ROOT/dev-tools/provision-talo-0001-trusted-runner.sh" --invalid-mode
+    [ "$status" -eq 2 ]
+    [[ "$output" == 'Usage:'* ]]
+}
+
 @test "privileged bootstrap rejects ambient gh and install command authority" {
     local hostile_bin="$BATS_TEST_TMPDIR/hostile-bootstrap-bin"
     local gh_marker="$BATS_TEST_TMPDIR/hostile-gh-executed"
@@ -1518,6 +1536,7 @@ exec /usr/bin/install "$@"
 SH
     chmod +x "$hostile_bin/gh" "$hostile_bin/install"
     run sudo env PATH="$hostile_bin:/usr/bin:/bin" GH_HOST=invalid.invalid \
+        GH_TOKEN=invalid GITHUB_TOKEN=invalid \
         TALO_HOSTILE_GH_MARKER="$gh_marker" \
         TALO_HOSTILE_INSTALL_MARKER="$install_marker" \
         TALO_HOSTILE_MAIN="$head" \
@@ -1543,6 +1562,48 @@ SH
     run_check
     [ "$status" -eq 1 ] \
         && [[ "$output" == *'missing:runner-runtime-contract:PATH=/usr/sbin:/usr/bin:/sbin:/bin'* ]]
+
+    cp "$original" "$provisioner"
+    sed -i 's/^unset -v IFS /unset -v /' "$provisioner"
+    run_check
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'missing:runner-runtime-contract:unset -v IFS BASH_ENV ENV CDPATH GLOBIGNORE'* ]]
+
+    cp "$original" "$provisioner"
+    sed -i 's/gh api --hostname github.com/gh api/' "$provisioner"
+    run_check
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'missing:runner-runtime-contract:gh api --hostname github.com'* ]]
+
+    cp "$original" "$provisioner"
+    sed -i 's/-u GH_HOST /-u GH_HOST_MUTANT /' "$provisioner"
+    run_check
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'missing:runner-runtime-contract:-u GH_HOST -u GH_ENTERPRISE_TOKEN -u GH_CONFIG_DIR'* ]]
+}
+
+@test "GitHub authority transport cannot select an ambient-host commit" {
+    local hostile_commit current_commit transport_marker
+    setup_provision_runtime
+    hostile_commit=$MOCK_MAIN_COMMIT
+    git -C "$FIXTURE" commit --allow-empty -qm current-main
+    current_commit=$(git -C "$FIXTURE" rev-parse HEAD)
+    MOCK_MAIN_COMMIT=$current_commit
+    transport_marker="$BATS_TEST_TMPDIR/hostile-gh-transport"
+    GH_HOST=attacker.example \
+        GH_ENTERPRISE_TOKEN=attacker-token \
+        GH_CONFIG_DIR="$BATS_TEST_TMPDIR/attacker-gh-config" \
+        GH_HTTP_UNIX_SOCKET="$BATS_TEST_TMPDIR/attacker-gh.sock" \
+        XDG_CONFIG_HOME="$BATS_TEST_TMPDIR/attacker-xdg" \
+        HTTPS_PROXY=http://attacker.example:8080 \
+        SSL_CERT_FILE="$BATS_TEST_TMPDIR/attacker-ca.pem" \
+        TALO_MOCK_AMBIENT_HOME="$BATS_TEST_TMPDIR/attacker-home" \
+        TALO_MOCK_ASSERT_GH_TRANSPORT=1 \
+        TALO_MOCK_HOSTILE_MAIN_COMMIT=$hostile_commit \
+        TALO_MOCK_PRESERVE_MAIN_COMMIT=1 run_provision_runtime
+    [ "$status" -eq 0 ]
+    [ ! -e "$transport_marker" ]
+    [ "$(grep -c -- '--hostname github.com.*git/ref/heads/main' "$MOCK_LOG")" -eq 2 ]
 }
 
 @test "one live main commit supplies immutable root-staged bootstrap blobs" {

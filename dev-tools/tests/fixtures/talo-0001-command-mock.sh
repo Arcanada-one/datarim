@@ -39,6 +39,23 @@ case "$command_name" in
         case "$*" in
             *"repos/Arcanada-one/datarim/git/ref/heads/main"*)
                 main_commit=${TALO_MOCK_MAIN_COMMIT:?}
+                if [ "${TALO_MOCK_ASSERT_GH_TRANSPORT:-0}" = 1 ]; then
+                    hostile_transport=false
+                    [ -z "${GH_HOST+x}" ] || hostile_transport=true
+                    [ -z "${GH_ENTERPRISE_TOKEN+x}" ] || hostile_transport=true
+                    [ -z "${GH_CONFIG_DIR+x}" ] || hostile_transport=true
+                    [ -z "${GH_HTTP_UNIX_SOCKET+x}" ] || hostile_transport=true
+                    [ -z "${XDG_CONFIG_HOME+x}" ] || hostile_transport=true
+                    [ -z "${HTTPS_PROXY+x}" ] || hostile_transport=true
+                    [ -z "${SSL_CERT_FILE+x}" ] || hostile_transport=true
+                    [ "${HOME:-}" = /root ] || hostile_transport=true
+                    [[ " $* " == *" --hostname github.com "* ]] \
+                        || hostile_transport=true
+                    if [ "$hostile_transport" = true ]; then
+                        : >"${TALO_MOCK_GH_TRANSPORT_MARKER:?}"
+                        main_commit=${TALO_MOCK_HOSTILE_MAIN_COMMIT:?}
+                    fi
+                fi
                 if [ "${TALO_MOCK_MAIN_SEQUENCE:-stable}" = advance ]; then
                     main_count=0
                     [ ! -f "${TALO_MOCK_MAIN_COUNTER:?}" ] \

@@ -2,9 +2,7 @@
 set -euo pipefail
 PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
-IFS=$' \t\n'
-export IFS
-unset -v BASH_ENV ENV CDPATH GLOBIGNORE
+unset -v IFS BASH_ENV ENV CDPATH GLOBIGNORE
 umask 077
 
 ORG=Arcanada-one
@@ -61,6 +59,8 @@ case "$MODE" in
         exit 2
         ;;
 esac
+[ "$EUID" -eq 0 ] \
+    || { echo "ERROR: trusted runner provisioning requires root" >&2; exit 1; }
 for command in awk chmod chown curl env find getent gh git id install jq mkdir \
     mktemp mv pgrep python3 readlink rm sha256sum sleep sort stat sudo systemctl \
     tar wc; do
@@ -68,7 +68,14 @@ for command in awk chmod chown curl env find getent gh git id install jq mkdir \
 done
 
 api() {
-    gh api -H "X-GitHub-Api-Version: $API_VERSION" "$@"
+    /usr/bin/env -u GH_HOST -u GH_ENTERPRISE_TOKEN -u GH_CONFIG_DIR \
+        -u GH_HTTP_UNIX_SOCKET -u XDG_CONFIG_HOME -u GH_DEBUG \
+        -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u NO_PROXY \
+        -u http_proxy -u https_proxy -u all_proxy -u no_proxy \
+        -u SSL_CERT_FILE -u SSL_CERT_DIR -u CURL_CA_BUNDLE \
+        -u GIT_SSL_CAINFO -u GIT_SSL_NO_VERIFY HOME=/root \
+        gh api --hostname github.com \
+        -H "X-GitHub-Api-Version: $API_VERSION" "$@"
 }
 
 bootstrap_git() {
