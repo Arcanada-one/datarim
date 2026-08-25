@@ -29,7 +29,7 @@ EXPECTED_DIGESTS = {
     "publisher": "3db4e2ed14bfb1662500493753afe189161160841f2c38761a32f1ec4411c425",
     "evaluator": "a0e86fc87493231afffd3164587f0c14e463f5e8c4acd8f4f9679e2504280d1a",
     "runner-unit": "d9b25e4ea33ed2bddad9e5d1fd5a47acedfed852749f0771fb24838f70edc131",
-    "provisioner": "52c48da2b62bed79c2b4999a3d25c6523e405de50b70db794d6641d65330bbfd",
+    "provisioner": "f9d88beb46ebfa4f91ec21cf86335c96ddefb335051a699df5443db608916dc6",
 }
 EXPECTED_PATHS = [
     "commands/**",
@@ -630,7 +630,9 @@ def validate_code(findings: list[str]) -> None:
         'ACTIONS_RUNNER_INPUT_TOKEN="$token"',
         'sudo --preserve-env=ACTIONS_RUNNER_INPUT_TOKEN',
         'unset -v GH_HOST GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN',
-        'compgen -A variable ACTIONS_RUNNER_INPUT_',
+        'shopt -s nocasematch',
+        '[[ "$input_name" != actions_runner_input_* ]]',
+        'compgen -A variable',
         '[ "$input_name" = ACTIONS_RUNNER_INPUT_TOKEN ]',
         "HOME=\"$RUNNER_HOME\" /bin/bash -p -c '",
         '-u GH_HOST -u GH_TOKEN -u GITHUB_TOKEN',

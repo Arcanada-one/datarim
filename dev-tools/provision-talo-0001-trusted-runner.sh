@@ -1143,9 +1143,12 @@ register_and_start() {
                 http_proxy https_proxy all_proxy no_proxy \
                 SSL_CERT_FILE SSL_CERT_DIR CURL_CA_BUNDLE \
                 GIT_SSL_CAINFO GIT_SSL_NO_VERIFY
+            shopt -s nocasematch
             while IFS= read -r input_name; do
-                unset -v "$input_name"
-            done < <(compgen -A variable ACTIONS_RUNNER_INPUT_)
+                [[ "$input_name" != actions_runner_input_* ]] \
+                    || unset -v "$input_name"
+            done < <(compgen -A variable)
+            shopt -u nocasematch
             ACTIONS_RUNNER_INPUT_TOKEN="$token" \
                 sudo --preserve-env=ACTIONS_RUNNER_INPUT_TOKEN \
                 -u "$RUNNER_USER" -- /usr/bin/env \
@@ -1157,10 +1160,13 @@ register_and_start() {
                 -u SSL_CERT_FILE -u SSL_CERT_DIR -u CURL_CA_BUNDLE \
                 -u GIT_SSL_CAINFO -u GIT_SSL_NO_VERIFY \
                 HOME="$RUNNER_HOME" /bin/bash -p -c '
+                    shopt -s nocasematch
                     while IFS= read -r input_name; do
-                        [ "$input_name" = ACTIONS_RUNNER_INPUT_TOKEN ] \
+                        [[ "$input_name" != actions_runner_input_* ]] \
+                            || [ "$input_name" = ACTIONS_RUNNER_INPUT_TOKEN ] \
                             || unset -v "$input_name"
-                    done < <(compgen -A variable ACTIONS_RUNNER_INPUT_)
+                    done < <(compgen -A variable)
+                    shopt -u nocasematch
                     exec "$@"
                 ' -- "$RUNNER_DIR/config.sh" --unattended \
                 --url "https://github.com/$ORG" \

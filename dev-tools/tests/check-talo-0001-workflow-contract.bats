@@ -130,13 +130,16 @@ for authority_name in GH_HOST GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN \
         exit 96
     fi
 done
-for input_name in $(compgen -A variable ACTIONS_RUNNER_INPUT_); do
-    if [ "$input_name" != ACTIONS_RUNNER_INPUT_TOKEN ]; then
+shopt -s nocasematch
+for input_name in $(compgen -A variable); do
+    if [[ "$input_name" == actions_runner_input_* ]] \
+        && [ "$input_name" != ACTIONS_RUNNER_INPUT_TOKEN ]; then
         printf 'CONFIG_ENV_LEAK=%s\n' "$input_name" \
             >"${TALO_MOCK_CONFIG_ENV_LEAK:?}"
         exit 96
     fi
 done
+shopt -u nocasematch
 tr '\0' ' ' </proc/$$/cmdline >"${TALO_MOCK_CONFIG_CMDLINE:?}"
 if grep -q -- "$token" "${TALO_MOCK_CONFIG_CMDLINE:?}"; then
     exit 97
@@ -356,6 +359,10 @@ run_provision_runtime() {
         "ACTIONS_RUNNER_INPUT_REPLACE=${ACTIONS_RUNNER_INPUT_REPLACE:-}" \
         "ACTIONS_RUNNER_INPUT_EPHEMERAL=${ACTIONS_RUNNER_INPUT_EPHEMERAL:-}" \
         "ACTIONS_RUNNER_INPUT_UNKNOWN_MEMBER=${ACTIONS_RUNNER_INPUT_UNKNOWN_MEMBER:-}" \
+        "actions_runner_input_replace=${actions_runner_input_replace:-}" \
+        "Actions_Runner_Input_Ephemeral=${Actions_Runner_Input_Ephemeral:-}" \
+        "aCtIoNs_RuNnEr_InPuT_Unknown_Member=${aCtIoNs_RuNnEr_InPuT_Unknown_Member:-}" \
+        "Actions_Runner_Input_Token=${Actions_Runner_Input_Token:-}" \
         "HOME=${TALO_MOCK_AMBIENT_HOME:-/root}" \
         "TALO_MOCK_PROVISIONER_BLOB=$MOCK_PROVISIONER_BLOB" \
         "TALO_MOCK_UNIT_BLOB=$MOCK_UNIT_BLOB" \
@@ -1972,6 +1979,10 @@ MUTANTS
     prepare_fresh_runner_payload
     ACTIONS_RUNNER_INPUT_REPLACE=true ACTIONS_RUNNER_INPUT_EPHEMERAL=true \
         ACTIONS_RUNNER_INPUT_UNKNOWN_MEMBER=hostile \
+        actions_runner_input_replace=true \
+        Actions_Runner_Input_Ephemeral=true \
+        aCtIoNs_RuNnEr_InPuT_Unknown_Member=hostile \
+        Actions_Runner_Input_Token=hostile-token-alias \
         TALO_MOCK_RUNNERS_MODE=fresh run_provision_runtime
     [ "$status" -eq 0 ]
     [ ! -e "$MOCK_CONFIG_ENV_LEAK" ]
@@ -1983,7 +1994,10 @@ MUTANTS
     local config_source mock_bin runner_dir parent_marker child_marker
     local axis input_name parent_mutant child_mutant parent_unset child_guard
     local -a axes
-    axes=(REPLACE EPHEMERAL UNKNOWN_MEMBER)
+    axes=(ACTIONS_RUNNER_INPUT_REPLACE ACTIONS_RUNNER_INPUT_EPHEMERAL \
+        ACTIONS_RUNNER_INPUT_UNKNOWN_MEMBER actions_runner_input_replace \
+        Actions_Runner_Input_Ephemeral \
+        aCtIoNs_RuNnEr_InPuT_Unknown_Member)
     mock_bin="$BATS_TEST_TMPDIR/native-input-axis-bin"
     runner_dir="$BATS_TEST_TMPDIR/native-input-axis-runner"
     parent_marker="$BATS_TEST_TMPDIR/native-input-parent-marker"
@@ -1991,24 +2005,32 @@ MUTANTS
     mkdir -p "$mock_bin" "$runner_dir"
     cat >"$mock_bin/sudo" <<'SH'
 #!/bin/bash
-for input_name in $(compgen -A variable ACTIONS_RUNNER_INPUT_); do
-    [ "$input_name" = ACTIONS_RUNNER_INPUT_TOKEN ] \
-        || printf '%s\n' "$input_name" >"${TALO_PARENT_INPUT_MARKER:?}"
+shopt -s nocasematch
+for input_name in $(compgen -A variable); do
+    if [[ "$input_name" == actions_runner_input_* ]] \
+        && [ "$input_name" != ACTIONS_RUNNER_INPUT_TOKEN ]; then
+        printf '%s\n' "$input_name" >"${TALO_PARENT_INPUT_MARKER:?}"
+    fi
 done
+shopt -u nocasematch
 [[ "${1:-}" == --preserve-env=* ]] && shift
 [ "${1:-}" = -u ] && shift 2
 [ "${1:-}" != -- ] || shift
 if [ -n "${TALO_POST_SUDO_INPUT:-}" ]; then
-    exec /usr/bin/env "ACTIONS_RUNNER_INPUT_${TALO_POST_SUDO_INPUT}=hostile" "$@"
+    exec /usr/bin/env "${TALO_POST_SUDO_INPUT}=hostile" "$@"
 fi
 exec "$@"
 SH
     cat >"$runner_dir/config.sh" <<'SH'
 #!/bin/bash
-for input_name in $(compgen -A variable ACTIONS_RUNNER_INPUT_); do
-    [ "$input_name" = ACTIONS_RUNNER_INPUT_TOKEN ] \
-        || printf '%s\n' "$input_name" >"${TALO_CHILD_INPUT_MARKER:?}"
+shopt -s nocasematch
+for input_name in $(compgen -A variable); do
+    if [[ "$input_name" == actions_runner_input_* ]] \
+        && [ "$input_name" != ACTIONS_RUNNER_INPUT_TOKEN ]; then
+        printf '%s\n' "$input_name" >"${TALO_CHILD_INPUT_MARKER:?}"
+    fi
 done
+shopt -u nocasematch
 [ -n "${ACTIONS_RUNNER_INPUT_TOKEN:-}" ]
 SH
     chmod +x "$mock_bin/sudo" "$runner_dir/config.sh"
@@ -2017,7 +2039,7 @@ SH
     child_guard='[ "$input_name" = ACTIONS_RUNNER_INPUT_TOKEN ] \'
 
     for axis in "${axes[@]}"; do
-        input_name="ACTIONS_RUNNER_INPUT_$axis"
+        input_name="$axis"
         rm -f -- "$parent_marker" "$child_marker"
         run env "PATH=$mock_bin:$PATH" \
             TALO_PARENT_INPUT_MARKER="$parent_marker" \
@@ -2056,13 +2078,31 @@ $parent_mutant
         [ "$(cat "$parent_marker")" = "$input_name" ]
         [ ! -e "$child_marker" ]
 
+        rm -f -- "$parent_marker" "$child_marker"
+        run env "PATH=$mock_bin:$PATH" \
+            TALO_PARENT_INPUT_MARKER="$parent_marker" \
+            TALO_CHILD_INPUT_MARKER="$child_marker" \
+            TALO_POST_SUDO_INPUT="$input_name" bash -c "token=fixture-token
+RUNNER_USER=$(id -un)
+RUNNER_HOME='$BATS_TEST_TMPDIR/native-input-home'
+RUNNER_DIR='$runner_dir'
+ORG=Arcanada-one
+GROUP_NAME=talo-0001-trusted
+RUNNER_NAME=talo-0001-trusted-arcana-devs
+RUNNER_LABEL=talo-0001-trusted
+$config_source
+[ \"\$config_status\" -eq 0 ]"
+        [ "$status" -eq 0 ]
+        [ ! -e "$parent_marker" ]
+        [ ! -e "$child_marker" ]
+
         child_mutant=${config_source/"$child_guard"/"[ \"\$input_name\" = ACTIONS_RUNNER_INPUT_TOKEN ] || [ \"\$input_name\" = $input_name ] \\"}
         [ "$child_mutant" != "$config_source" ]
         rm -f -- "$parent_marker" "$child_marker"
         run env "PATH=$mock_bin:$PATH" \
             TALO_PARENT_INPUT_MARKER="$parent_marker" \
             TALO_CHILD_INPUT_MARKER="$child_marker" \
-            TALO_POST_SUDO_INPUT="$axis" bash -c "token=fixture-token
+            TALO_POST_SUDO_INPUT="$input_name" bash -c "token=fixture-token
 RUNNER_USER=$(id -un)
 RUNNER_HOME='$BATS_TEST_TMPDIR/native-input-home'
 RUNNER_DIR='$runner_dir'
