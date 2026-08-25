@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+API_VERSION=2022-11-28
 SNAPSHOT=c636fea7b7dda0245fbbfd1da8a5a78c7e56c2ae
 IMAGE='python:3.12-bookworm@sha256:80f5d259a5969c86f6c92145d572de4a68c68e0edd28d4367dec0fb411b42af3'
 KNOWLEDGE_ROOT=/srv/talo-0001-trusted/knowledge
@@ -34,6 +35,37 @@ done
 for command in chmod cmp curl docker gh git id jq mktemp mv realpath sha256sum; do
     command -v "$command" >/dev/null || { echo "ERROR: missing $command" >&2; exit 2; }
 done
+
+live_main_commit() {
+    local response
+    response=$(gh api -H "X-GitHub-Api-Version: $API_VERSION" \
+        repos/Arcanada-one/datarim/git/ref/heads/main) || return 1
+    jq -er '
+        select(type == "object" and (keys | sort) == ["node_id","object","ref","url"])
+        | select(.ref == "refs/heads/main")
+        | select(.node_id | type == "string" and length > 0)
+        | select(.url == "https://api.github.com/repos/Arcanada-one/datarim/git/refs/heads/main")
+        | .object
+        | select(type == "object" and (keys | sort) == ["sha","type","url"])
+        | select(.type == "commit")
+        | select(.url == ("https://api.github.com/repos/Arcanada-one/datarim/git/commits/" + .sha))
+        | .sha
+        | select(type == "string" and test("^[0-9a-f]{40}$"))
+    ' <<<"$response"
+}
+
+require_live_main() {
+    local current_main
+    current_main=$(live_main_commit) || {
+        echo "ERROR: live trusted main could not be verified" >&2
+        return 1
+    }
+    [ "$current_main" = "$TALO_TRUSTED_WORKFLOW_SHA" ] || {
+        echo "ERROR: trusted controller is no longer live main" >&2
+        return 1
+    }
+}
+
 if ! [[ "$TALO_TRUSTED_RUN_ID" =~ ^[1-9][0-9]*$ ]] \
     || ! [[ "$TALO_TRUSTED_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]] \
     || ! [[ "$TALO_SOURCE_RUN_ID" =~ ^[1-9][0-9]*$ ]] \
@@ -44,6 +76,7 @@ if ! [[ "$TALO_TRUSTED_RUN_ID" =~ ^[1-9][0-9]*$ ]] \
     echo "ERROR: invalid trusted run binding" >&2
     exit 2
 fi
+require_live_main || exit 1
 [ "$TALO_BASE_SHA" = "$TALO_TRUSTED_WORKFLOW_SHA" ] || {
     echo "ERROR: source base is not current trusted main" >&2
     exit 1
@@ -91,6 +124,7 @@ sandbox_uid=$(id -u)
 sandbox_gid=$(id -g)
 [ "$sandbox_uid" -ne 0 ] \
     || { echo "ERROR: trusted replay must not run as root" >&2; exit 1; }
+require_live_main || exit 1
 GIT_NO_REPLACE_OBJECTS=1 git init --quiet "$CANDIDATE"
 GIT_NO_REPLACE_OBJECTS=1 git -C "$CANDIDATE" remote add origin \
     https://github.com/Arcanada-one/datarim.git

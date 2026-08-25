@@ -37,6 +37,21 @@ case "$command_name" in
             exit 1
         fi
         case "$*" in
+            *"repos/Arcanada-one/datarim/git/ref/heads/main"*)
+                main_commit=${TALO_MOCK_MAIN_COMMIT:?}
+                if [ "${TALO_MOCK_MAIN_SEQUENCE:-stable}" = advance ]; then
+                    main_count=0
+                    [ ! -f "${TALO_MOCK_MAIN_COUNTER:?}" ] \
+                        || main_count=$(cat "$TALO_MOCK_MAIN_COUNTER")
+                    main_count=$((main_count + 1))
+                    printf '%s\n' "$main_count" >"$TALO_MOCK_MAIN_COUNTER"
+                    if [ "$main_count" -ge 2 ]; then
+                        main_commit=${TALO_MOCK_ADVANCED_MAIN_COMMIT:?}
+                    fi
+                fi
+                jq -cn --arg sha "$main_commit" \
+                    '{ref:"refs/heads/main",node_id:"REF_node",url:"https://api.github.com/repos/Arcanada-one/datarim/git/refs/heads/main",object:{sha:$sha,type:"commit",url:("https://api.github.com/repos/Arcanada-one/datarim/git/commits/" + $sha)}}'
+                ;;
             *"contents/.github/workflows/talo-0001-trusted-replay.yml?ref=main"*)
                 printf '%s\n' "${TALO_MOCK_BLOB:?}"
                 ;;
@@ -46,7 +61,13 @@ case "$command_name" in
             *"contents/dev-tools/systemd/talo-0001-trusted-runner.service?ref=main"*)
                 printf '%s\n' "${TALO_MOCK_UNIT_BLOB:?}"
                 ;;
-            *"runner-groups?per_page=100"*) printf '%s\n' 42 ;;
+            *"runner-groups?per_page=100"*)
+                if [ -n "${TALO_MOCK_SWAP_UNIT_SOURCE:-}" ]; then
+                    rm -f -- "${TALO_MOCK_MUTABLE_UNIT:?}"
+                    ln -s -- "$TALO_MOCK_SWAP_UNIT_SOURCE" "$TALO_MOCK_MUTABLE_UNIT"
+                fi
+                printf '%s\n' 42
+                ;;
             *"runner-groups/42/repositories"*)
                 printf '%s\n' '{"total_count":1,"repositories":[{"id":1207050134}]}'
                 ;;
@@ -138,6 +159,12 @@ case "$command_name" in
         ;;
     install)
         if [[ " $* " == *" -d "* ]]; then
+            /usr/bin/install "$@"
+        elif [[ " $* " == *"talo-0001-trusted-runner.service /etc/systemd/system/talo-0001-trusted-runner.service"* ]]; then
+            install_arguments=("$@")
+            source_path=${install_arguments[${#install_arguments[@]}-2]}
+            /usr/bin/install -m 0644 -- "$source_path" "${TALO_MOCK_INSTALLED_UNIT:?}"
+        else
             /usr/bin/install "$@"
         fi
         ;;

@@ -40,6 +40,10 @@ RUNNER_VERIFY_INTERVAL_SECONDS=2
 RUNNER_DELETE_ATTEMPTS=3
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 API_VERSION=2022-11-28
+TRUSTED_MAIN_COMMIT=
+TRUSTED_BOOTSTRAP_ROOT=
+TRUSTED_SOURCE_ROOT=$ROOT
+BOOTSTRAP_PHASE=${TALO_TRUSTED_BOOTSTRAP_PHASE:-loader}
 
 MODE=${1:-}
 case "$MODE" in
@@ -49,7 +53,7 @@ case "$MODE" in
         exit 2
         ;;
 esac
-for command in awk chmod chown curl find getent gh git id install jq mkdir \
+for command in awk chmod chown curl env find getent gh git id install jq mkdir \
     mktemp mv pgrep python3 readlink rm sha256sum sleep sort stat sudo systemctl \
     tar wc; do
     command -v "$command" >/dev/null || { echo "ERROR: missing $command" >&2; exit 2; }
@@ -59,17 +63,174 @@ api() {
     gh api -H "X-GitHub-Api-Version: $API_VERSION" "$@"
 }
 
-verify_trusted_main_workflow() {
-    local label path remote_blob local_blob
-    while IFS='|' read -r label path; do
-        if ! remote_blob=$(api "repos/$REPOSITORY/contents/$path?ref=main" --jq .sha 2>/dev/null); then
-            echo "ERROR: trusted $label is not present on main" >&2
-            exit 1
-        fi
-        local_blob=$(git -C "$ROOT" hash-object "$ROOT/$path")
-        [ "$remote_blob" = "$local_blob" ] || {
-            echo "ERROR: trusted $label is not the exact local bootstrap on main" >&2
-            exit 1
+bootstrap_git() {
+    env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR \
+        -u GIT_OBJECT_DIRECTORY -u GIT_ALTERNATE_OBJECT_DIRECTORIES \
+        -u GIT_CONFIG_COUNT -u GIT_CONFIG_PARAMETERS -u GIT_INDEX_FILE \
+        -u GIT_NAMESPACE -u GIT_SHALLOW_FILE \
+        GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null \
+        GIT_NO_REPLACE_OBJECTS=1 /usr/bin/git -C "$TRUSTED_SOURCE_ROOT" "$@"
+}
+
+resolve_live_main_commit() {
+    local response
+    response=$(api "repos/$REPOSITORY/git/ref/heads/main") || return 1
+    jq -er --arg repository "$REPOSITORY" '
+        select(type == "object" and (keys | sort) == ["node_id","object","ref","url"])
+        | select(.ref == "refs/heads/main")
+        | select(.node_id | type == "string" and length > 0)
+        | select(.url == ("https://api.github.com/repos/" + $repository + "/git/refs/heads/main"))
+        | .object
+        | select(type == "object" and (keys | sort) == ["sha","type","url"])
+        | select(.type == "commit")
+        | select(.url == ("https://api.github.com/repos/" + $repository + "/git/commits/" + .sha))
+        | .sha
+        | select(type == "string" and test("^[0-9a-f]{40}$"))
+    ' <<<"$response"
+}
+
+cleanup_trusted_bootstrap() {
+    if [[ "$TRUSTED_BOOTSTRAP_ROOT" == /tmp/talo-trusted-bootstrap.* ]] \
+        && [ -d "$TRUSTED_BOOTSTRAP_ROOT" ] \
+        && [ ! -L "$TRUSTED_BOOTSTRAP_ROOT" ] \
+        && [ "$(stat -c '%u:%g:%a' "$TRUSTED_BOOTSTRAP_ROOT" 2>/dev/null || true)" = 0:0:700 ]; then
+        rm -rf -- "$TRUSTED_BOOTSTRAP_ROOT"
+    fi
+}
+
+materialize_trusted_bootstrap_blob() {
+    local commit=$1 relative=$2 destination entry mode type object_id recorded_path
+    local expected_mode file_mode materialized_object_id object_digest \
+        materialized_digest
+    case "$relative" in
+        /*|*..*|*//*|*:*) return 1 ;;
+    esac
+    entry=$(bootstrap_git ls-tree "$commit" -- "$relative") || return 1
+    [ -n "$entry" ] && [[ "$entry" != *$'\n'* ]] || return 1
+    IFS=$' \t' read -r mode type object_id recorded_path <<<"$entry"
+    expected_mode=100644
+    file_mode=0400
+    if [ "$relative" = dev-tools/provision-talo-0001-trusted-runner.sh ]; then
+        expected_mode=100755
+        file_mode=0500
+    fi
+    [ "$mode" = "$expected_mode" ] && [ "$type" = blob ] \
+        && [[ "$object_id" =~ ^[0-9a-f]{40}$ ]] \
+        && [ "$recorded_path" = "$relative" ] || return 1
+    destination=$TRUSTED_BOOTSTRAP_ROOT/$relative
+    install -d -o root -g root -m 0700 "$(dirname "$destination")" \
+        || return 1
+    install -o root -g root -m "$file_mode" /dev/null "$destination" || return 1
+    bootstrap_git cat-file blob "$object_id" >"$destination" || return 1
+    [ -f "$destination" ] && [ ! -L "$destination" ] \
+        && [ "$(stat -c '%u:%g:%a' "$destination")" = "0:0:${file_mode#0}" ] \
+        || return 1
+    materialized_object_id=$(bootstrap_git hash-object -- "$destination") \
+        || return 1
+    [ "$materialized_object_id" = "$object_id" ] || return 1
+    object_digest=$(bootstrap_git cat-file blob "$object_id" \
+        | sha256sum | cut -d' ' -f1) || return 1
+    materialized_digest=$(sha256sum -- "$destination" | cut -d' ' -f1) \
+        || return 1
+    [ "$object_digest" = "$materialized_digest" ]
+}
+
+verify_trusted_bootstrap_blob() {
+    local commit=$1 relative=$2 staged entry mode type object_id recorded_path
+    local expected_mode file_mode staged_object_id object_digest staged_digest
+    case "$relative" in
+        /*|*..*|*//*|*:*) return 1 ;;
+    esac
+    entry=$(bootstrap_git ls-tree "$commit" -- "$relative") || return 1
+    [ -n "$entry" ] && [[ "$entry" != *$'\n'* ]] || return 1
+    IFS=$' \t' read -r mode type object_id recorded_path <<<"$entry"
+    expected_mode=100644
+    file_mode=400
+    if [ "$relative" = dev-tools/provision-talo-0001-trusted-runner.sh ]; then
+        expected_mode=100755
+        file_mode=500
+    fi
+    [ "$mode" = "$expected_mode" ] && [ "$type" = blob ] \
+        && [[ "$object_id" =~ ^[0-9a-f]{40}$ ]] \
+        && [ "$recorded_path" = "$relative" ] || return 1
+    staged=$TRUSTED_BOOTSTRAP_ROOT/$relative
+    [ -f "$staged" ] && [ ! -L "$staged" ] \
+        && [ "$(stat -c '%u:%g:%a' "$staged")" = "0:0:$file_mode" ] \
+        || return 1
+    staged_object_id=$(bootstrap_git hash-object -- "$staged") || return 1
+    [ "$staged_object_id" = "$object_id" ] || return 1
+    object_digest=$(bootstrap_git cat-file blob "$object_id" \
+        | sha256sum | cut -d' ' -f1) || return 1
+    staged_digest=$(sha256sum -- "$staged" | cut -d' ' -f1) || return 1
+    [ "$object_digest" = "$staged_digest" ]
+}
+
+materialize_trusted_main_bootstrap() {
+    local resolved_commit verified_commit artifact_label relative
+    resolved_commit=$(resolve_live_main_commit) || {
+        echo "ERROR: trusted main ref could not be resolved" >&2
+        return 1
+    }
+    verified_commit=$(bootstrap_git rev-parse "$resolved_commit^{commit}") || {
+        echo "ERROR: trusted main commit is unavailable locally" >&2
+        return 1
+    }
+    [ "$verified_commit" = "$resolved_commit" ] || return 1
+    TRUSTED_MAIN_COMMIT=$resolved_commit
+    TRUSTED_BOOTSTRAP_ROOT=$(mktemp -d /tmp/talo-trusted-bootstrap.XXXXXX) \
+        || return 1
+    chown root:root "$TRUSTED_BOOTSTRAP_ROOT" || return 1
+    chmod 0700 "$TRUSTED_BOOTSTRAP_ROOT" || return 1
+    [ "$(stat -c '%u:%g:%a' "$TRUSTED_BOOTSTRAP_ROOT")" = 0:0:700 ] \
+        || return 1
+    trap cleanup_trusted_bootstrap EXIT
+    while IFS='|' read -r artifact_label relative; do
+        [ -n "$artifact_label" ] || return 1
+        materialize_trusted_bootstrap_blob "$resolved_commit" "$relative" || {
+            echo "ERROR: trusted bootstrap Git object rejected: $relative" >&2
+            return 1
+        }
+    done <<EOF
+workflow|$WORKFLOW_PATH
+provisioner|dev-tools/provision-talo-0001-trusted-runner.sh
+runner-unit|dev-tools/systemd/$UNIT_NAME
+EOF
+}
+
+validate_sealed_bootstrap() {
+    local current_main verified_commit artifact_label relative source_path
+    TRUSTED_MAIN_COMMIT=${TALO_TRUSTED_MAIN_COMMIT:-}
+    TRUSTED_BOOTSTRAP_ROOT=${TALO_TRUSTED_BOOTSTRAP_ROOT:-}
+    TRUSTED_SOURCE_ROOT=${TALO_TRUSTED_SOURCE_ROOT:-}
+    if ! [[ "$TRUSTED_MAIN_COMMIT" =~ ^[0-9a-f]{40}$ ]] \
+        || ! [[ "$TRUSTED_BOOTSTRAP_ROOT" == /tmp/talo-trusted-bootstrap.* ]] \
+        || ! [[ "$TRUSTED_SOURCE_ROOT" == /* ]] \
+        || [ ! -d "$TRUSTED_BOOTSTRAP_ROOT" ] \
+        || [ -L "$TRUSTED_BOOTSTRAP_ROOT" ] \
+        || [ "$(stat -c '%u:%g:%a' "$TRUSTED_BOOTSTRAP_ROOT" 2>/dev/null || true)" != 0:0:700 ]; then
+        echo "ERROR: sealed bootstrap identity rejected" >&2
+        return 1
+    fi
+    source_path=$(readlink -f -- "${BASH_SOURCE[0]}") || return 1
+    [ "$source_path" = "$TRUSTED_BOOTSTRAP_ROOT/dev-tools/provision-talo-0001-trusted-runner.sh" ] \
+        || { echo "ERROR: provisioner is not executing from sealed bootstrap" >&2; return 1; }
+    trap cleanup_trusted_bootstrap EXIT
+    current_main=$(resolve_live_main_commit) || {
+        echo "ERROR: live main revalidation failed before provisioning" >&2
+        return 1
+    }
+    [ "$current_main" = "$TRUSTED_MAIN_COMMIT" ] || {
+        echo "ERROR: trusted main advanced before provisioning" >&2
+        return 1
+    }
+    verified_commit=$(bootstrap_git rev-parse "$TRUSTED_MAIN_COMMIT^{commit}") \
+        || return 1
+    [ "$verified_commit" = "$TRUSTED_MAIN_COMMIT" ] || return 1
+    while IFS='|' read -r artifact_label relative; do
+        [ -n "$artifact_label" ] || return 1
+        verify_trusted_bootstrap_blob "$TRUSTED_MAIN_COMMIT" "$relative" || {
+            echo "ERROR: sealed bootstrap Git object rejected: $relative" >&2
+            return 1
         }
     done <<EOF
 workflow|$WORKFLOW_PATH
@@ -731,7 +892,10 @@ ensure_group() {
         echo "ERROR: runner group reconciliation requires root" >&2
         return 1
     }
-    verify_trusted_main_workflow
+    if [ -z "$TRUSTED_MAIN_COMMIT" ] || [ -z "$TRUSTED_BOOTSTRAP_ROOT" ]; then
+        echo "ERROR: trusted bootstrap was not materialized" >&2
+        return 1
+    fi
     if ! id=$(group_id); then
         echo "ERROR: trusted runner group lookup failed" >&2
         return 1
@@ -1014,7 +1178,8 @@ register_and_start() {
             "runner payload hardening failed"
     }
     install -o root -g root -m 0644 \
-        "$ROOT/dev-tools/systemd/$UNIT_NAME" "/etc/systemd/system/$UNIT_NAME" || {
+        "$TRUSTED_BOOTSTRAP_ROOT/dev-tools/systemd/$UNIT_NAME" \
+        "/etc/systemd/system/$UNIT_NAME" || {
         abort_runner_transaction "$id" "$fresh_registration" \
             "$pre_registration_empty" "$runner_id" \
             "trusted runner unit installation failed"
@@ -1061,10 +1226,29 @@ register_and_start() {
     }
 }
 
+case "$BOOTSTRAP_PHASE" in
+    loader)
+        materialize_trusted_main_bootstrap || exit 1
+        exec /usr/bin/env \
+            TALO_TRUSTED_BOOTSTRAP_PHASE=sealed-worker \
+            TALO_TRUSTED_BOOTSTRAP_ROOT="$TRUSTED_BOOTSTRAP_ROOT" \
+            TALO_TRUSTED_SOURCE_ROOT="$TRUSTED_SOURCE_ROOT" \
+            TALO_TRUSTED_MAIN_COMMIT="$TRUSTED_MAIN_COMMIT" \
+            "$TRUSTED_BOOTSTRAP_ROOT/dev-tools/provision-talo-0001-trusted-runner.sh" \
+            "$MODE"
+        ;;
+    sealed-worker)
+        validate_sealed_bootstrap || exit 1
+        ;;
+    *)
+        echo "ERROR: unknown trusted bootstrap phase" >&2
+        exit 1
+        ;;
+esac
+
 case "$MODE" in
     --ensure-group) ensure_group >/dev/null ;;
     --verify-group)
-        verify_trusted_main_workflow
         current_group_id=$(group_id)
         [[ "$current_group_id" =~ ^[1-9][0-9]*$ ]] || {
             echo "ERROR: trusted runner group missing or duplicated" >&2

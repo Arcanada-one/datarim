@@ -219,6 +219,15 @@ PY
     cp -- "$IDENTITY_FIXTURE/.credentials_rsaparams" \
         "$RUNNER_FIXTURE/.credentials_rsaparams"
     reseal_registration_identity
+    git -C "$FIXTURE" init -q
+    git -C "$FIXTURE" config user.email test@example.com
+    git -C "$FIXTURE" config user.name test
+    git -C "$FIXTURE" add \
+        .github/workflows/talo-0001-trusted-replay.yml \
+        dev-tools/provision-talo-0001-trusted-runner.sh \
+        dev-tools/systemd/talo-0001-trusted-runner.service
+    git -C "$FIXTURE" commit --allow-empty -qm trusted-main
+    MOCK_MAIN_COMMIT=$(git -C "$FIXTURE" rev-parse HEAD)
     MOCK_BLOB="$(git hash-object "$FIXTURE/.github/workflows/talo-0001-trusted-replay.yml")"
     MOCK_UNIT_BLOB="$(git hash-object "$FIXTURE/dev-tools/systemd/talo-0001-trusted-runner.service")"
     MOCK_SERVICE_STATE="$BATS_TEST_TMPDIR/provision-service-state"
@@ -228,6 +237,7 @@ PY
     MOCK_CONFIG_CMDLINE="$BATS_TEST_TMPDIR/config-cmdline"
     MOCK_CONFIG_ENV_REMOVED="$BATS_TEST_TMPDIR/config-env-removed"
     MOCK_PGREP_COUNTER="$BATS_TEST_TMPDIR/pgrep-counter"
+    MOCK_INSTALLED_UNIT="$BATS_TEST_TMPDIR/installed-talo-runner.service"
     : >"$MOCK_LOG"
     rm -f -- "$MOCK_REGISTRATION_REMOVED"
     rm -f -- "$MOCK_CONFIG_STARTED"
@@ -279,11 +289,23 @@ run_provision_runtime() {
         sudo chown root:root "$RUNNER_FIXTURE/.talo-registration-seal"
         sudo chmod 0600 "$RUNNER_FIXTURE/.talo-registration-seal"
     fi
+    if [ "${TALO_MOCK_PRESERVE_MAIN_COMMIT:-0}" != 1 ]; then
+        git -C "$FIXTURE" add \
+            .github/workflows/talo-0001-trusted-replay.yml \
+            dev-tools/provision-talo-0001-trusted-runner.sh \
+            dev-tools/systemd/talo-0001-trusted-runner.service
+        git -C "$FIXTURE" commit --allow-empty -qm runtime-authority
+        MOCK_MAIN_COMMIT=$(git -C "$FIXTURE" rev-parse HEAD)
+    fi
     MOCK_PROVISIONER_BLOB="${TALO_MOCK_PROVISIONER_BLOB_OVERRIDE:-$(git hash-object "$PROVISIONER")}"
     run sudo env "PATH=$MOCK_BIN:$PATH" \
         "TALO_MOCK_LOG=$MOCK_LOG" \
         "TALO_MOCK_GH_MODE=${TALO_MOCK_GH_MODE:-success}" \
         "TALO_MOCK_BLOB=$MOCK_BLOB" \
+        "TALO_MOCK_MAIN_COMMIT=$MOCK_MAIN_COMMIT" \
+        "TALO_MOCK_ADVANCED_MAIN_COMMIT=${TALO_MOCK_ADVANCED_MAIN_COMMIT:-}" \
+        "TALO_MOCK_MAIN_SEQUENCE=${TALO_MOCK_MAIN_SEQUENCE:-stable}" \
+        "TALO_MOCK_MAIN_COUNTER=$BATS_TEST_TMPDIR/main-ref-counter" \
         "TALO_MOCK_PROVISIONER_BLOB=$MOCK_PROVISIONER_BLOB" \
         "TALO_MOCK_UNIT_BLOB=$MOCK_UNIT_BLOB" \
         "TALO_MOCK_RUNNERS_MODE=${TALO_MOCK_RUNNERS_MODE:-one}" \
@@ -309,6 +331,9 @@ run_provision_runtime() {
         "TALO_MOCK_CONFIG_STARTED=$MOCK_CONFIG_STARTED" \
         "TALO_MOCK_CONFIG_CMDLINE=$MOCK_CONFIG_CMDLINE" \
         "TALO_MOCK_CONFIG_ENV_REMOVED=$MOCK_CONFIG_ENV_REMOVED" \
+        "TALO_MOCK_INSTALLED_UNIT=$MOCK_INSTALLED_UNIT" \
+        "TALO_MOCK_MUTABLE_UNIT=$FIXTURE/dev-tools/systemd/talo-0001-trusted-runner.service" \
+        "TALO_MOCK_SWAP_UNIT_SOURCE=${TALO_MOCK_SWAP_UNIT_SOURCE:-}" \
         "TALO_MOCK_CREDENTIALS_TEMPLATE=$IDENTITY_FIXTURE/.credentials" \
         "TALO_MOCK_RSA_TEMPLATE=$IDENTITY_FIXTURE/.credentials_rsaparams" \
         "$PROVISIONER" --register-and-start
@@ -750,6 +775,154 @@ materialize_candidate_blob dev-tools/check-research-authority-audit.py"
     [ "$(stat -c '%a' "$attestation_path")" = 600 ]
 }
 
+@test "trusted execution revalidates live main before privileged collection" {
+    local controller="$FIXTURE/dev-tools/trusted-talo-0001-replay.sh"
+    local event="$BATS_TEST_TMPDIR/advanced-main-event.json"
+    local attestation_path="$BATS_TEST_TMPDIR/advanced-main-attestation.json"
+    local mock_bin="$BATS_TEST_TMPDIR/advanced-main-controller-bin"
+    local log="$BATS_TEST_TMPDIR/advanced-main-controller.log"
+    local trusted=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    local advanced=2222222222222222222222222222222222222222
+    mkdir -p "$mock_bin"
+    printf '%s\n' '{}' >"$event"
+    cat >"$mock_bin/gh" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >>"${TALO_LIVE_REF_LOG:?}"
+if [[ "$*" == *"repos/Arcanada-one/datarim/git/ref/heads/main"* ]]; then
+    jq -cn --arg sha "${TALO_LIVE_MAIN:?}" \
+        '{ref:"refs/heads/main",node_id:"REF_node",url:"https://api.github.com/repos/Arcanada-one/datarim/git/refs/heads/main",object:{sha:$sha,type:"commit",url:("https://api.github.com/repos/Arcanada-one/datarim/git/commits/" + $sha)}}'
+fi
+SH
+    chmod +x "$mock_bin/gh"
+    run env "PATH=$mock_bin:$PATH" TALO_LIVE_REF_LOG="$log" \
+        TALO_LIVE_MAIN="$advanced" TALO_TRUSTED_RUN_ID=9010 \
+        TALO_TRUSTED_RUN_ATTEMPT=1 TALO_TRUSTED_WORKFLOW_SHA="$trusted" \
+        TALO_SOURCE_RUN_ID=8010 TALO_SOURCE_RUN_ATTEMPT=1 \
+        TALO_BASE_SHA="$trusted" \
+        TALO_EXECUTION_NONCE=0000000000000000000000000000000000000000000000000000000000000000 \
+        "$controller" --event "$event" \
+        --candidate "$BATS_TEST_TMPDIR/advanced-candidate" \
+        --output "$attestation_path"
+    [ "$status" -eq 1 ] \
+        && grep -q 'git/ref/heads/main' "$log" \
+        && [[ "$output" == *'trusted controller is no longer live main'* ]] \
+        && [ ! -s "$attestation_path" ]
+}
+
+@test "trusted execution rejects main advance at its second live-ref callsite" {
+    local controller="$FIXTURE/dev-tools/trusted-talo-0001-replay.sh"
+    local event="$BATS_TEST_TMPDIR/two-read-event.json"
+    local attestation_path="$BATS_TEST_TMPDIR/two-read-attestation.json"
+    local candidate="$BATS_TEST_TMPDIR/two-read-candidate"
+    local knowledge="$BATS_TEST_TMPDIR/two-read-knowledge"
+    local mock_bin="$BATS_TEST_TMPDIR/two-read-bin"
+    local log="$BATS_TEST_TMPDIR/two-read.log"
+    local counter="$BATS_TEST_TMPDIR/two-read-counter"
+    local trusted advanced=2222222222222222222222222222222222222222
+    local snapshot head=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb nonce
+    git -C "$FIXTURE" init -q
+    git -C "$FIXTURE" config user.email test@example.com
+    git -C "$FIXTURE" config user.name test
+    git -C "$FIXTURE" add .
+    git -C "$FIXTURE" commit -qm controller
+    trusted=$(git -C "$FIXTURE" rev-parse HEAD)
+    git init -q "$knowledge"
+    git -C "$knowledge" config user.email test@example.com
+    git -C "$knowledge" config user.name test
+    git -C "$knowledge" commit --allow-empty -qm snapshot
+    snapshot=$(git -C "$knowledge" rev-parse HEAD)
+    sed -i "s#^SNAPSHOT=.*#SNAPSHOT=$snapshot#; s#^KNOWLEDGE_ROOT=.*#KNOWLEDGE_ROOT=$knowledge#" \
+        "$controller"
+    git -C "$FIXTURE" add dev-tools/trusted-talo-0001-replay.sh
+    git -C "$FIXTURE" commit -qm test-seam
+    trusted=$(git -C "$FIXTURE" rev-parse HEAD)
+    python3 - "$event" "$head" "$trusted" <<'PY'
+import json
+from pathlib import Path
+import sys
+
+head, base = sys.argv[2:]
+payload = {"workflow_run": {
+    "id": 8011, "run_attempt": 1, "workflow_id": 270931528,
+    "name": "dev-tools-lint", "path": ".github/workflows/dev-tools-lint.yml",
+    "event": "pull_request", "conclusion": "success", "head_sha": head,
+    "head_repository": {"full_name": "Arcanada-one/datarim"},
+    "repository": {"full_name": "Arcanada-one/datarim"},
+    "pull_requests": [{"number": 394,
+        "head": {"sha": head, "ref": "research/TALO-0001-frontend-design",
+                 "repo": {"url": "https://api.github.com/repos/Arcanada-one/datarim"}},
+        "base": {"ref": "main", "sha": base,
+                 "repo": {"url": "https://api.github.com/repos/Arcanada-one/datarim"}}}]}}
+Path(sys.argv[1]).write_text(json.dumps(payload), encoding="utf-8")
+PY
+    mkdir -p "$mock_bin"
+    cat >"$mock_bin/gh" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >>"${TALO_LIVE_REF_LOG:?}"
+count=0
+[ ! -f "${TALO_LIVE_REF_COUNTER:?}" ] || count=$(cat "$TALO_LIVE_REF_COUNTER")
+count=$((count + 1))
+printf '%s\n' "$count" >"$TALO_LIVE_REF_COUNTER"
+sha=$TALO_TRUSTED_WORKFLOW_SHA
+[ "$count" -lt 2 ] || sha=$TALO_ADVANCED_MAIN
+jq -cn --arg sha "$sha" \
+    '{ref:"refs/heads/main",node_id:"REF_node",url:"https://api.github.com/repos/Arcanada-one/datarim/git/refs/heads/main",object:{sha:$sha,type:"commit",url:("https://api.github.com/repos/Arcanada-one/datarim/git/commits/" + $sha)}}'
+SH
+    cat >"$mock_bin/git" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" = init ] && [ "${2:-}" = --quiet ] \
+    && [ "${3:-}" = "${TALO_CANDIDATE:?}" ]; then
+    : >"${TALO_CANDIDATE_INIT_MARKER:?}"
+    exit 89
+fi
+exec /usr/bin/git "$@"
+SH
+    chmod +x "$mock_bin/gh"
+    chmod +x "$mock_bin/git"
+    nonce=$(printf 'trusted_run_id=%s\ntrusted_run_attempt=%s\nworkflow_sha=%s\nsource_run_id=%s\nsource_run_attempt=%s\nhead_sha=%s\nbase_sha=%s\n' \
+        9011 1 "$trusted" 8011 1 "$head" "$trusted" | sha256sum | cut -d' ' -f1)
+    run env "PATH=$mock_bin:$PATH" TALO_LIVE_REF_LOG="$log" \
+        TALO_LIVE_REF_COUNTER="$counter" TALO_ADVANCED_MAIN="$advanced" \
+        TALO_CANDIDATE="$candidate" \
+        TALO_CANDIDATE_INIT_MARKER="$BATS_TEST_TMPDIR/candidate-init-marker" \
+        TALO_TRUSTED_RUN_ID=9011 TALO_TRUSTED_RUN_ATTEMPT=1 \
+        TALO_TRUSTED_WORKFLOW_SHA="$trusted" TALO_SOURCE_RUN_ID=8011 \
+        TALO_SOURCE_RUN_ATTEMPT=1 TALO_BASE_SHA="$trusted" \
+        TALO_EXECUTION_NONCE="$nonce" "$controller" --event "$event" \
+        --candidate "$candidate" --output "$attestation_path"
+    [ "$status" -eq 1 ] \
+        && [ "$(grep -c 'git/ref/heads/main' "$log")" -eq 2 ] \
+        && [[ "$output" == *'trusted controller is no longer live main'* ]] \
+        && [ ! -e "$candidate/.git" ] \
+        && [ ! -s "$attestation_path" ]
+
+    python3 - "$controller" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+source = path.read_text(encoding="utf-8")
+needle = "require_live_main || exit 1"
+position = source.rfind(needle)
+assert position >= 0
+path.write_text(source[:position] + ": # MUTANT removed second live-main call" +
+                source[position + len(needle):], encoding="utf-8")
+PY
+    rm -f -- "$counter" "$BATS_TEST_TMPDIR/candidate-init-marker"
+    : >"$log"
+    run env "PATH=$mock_bin:$PATH" TALO_LIVE_REF_LOG="$log" \
+        TALO_LIVE_REF_COUNTER="$counter" TALO_ADVANCED_MAIN="$advanced" \
+        TALO_CANDIDATE="$candidate" \
+        TALO_CANDIDATE_INIT_MARKER="$BATS_TEST_TMPDIR/candidate-init-marker" \
+        TALO_TRUSTED_RUN_ID=9011 TALO_TRUSTED_RUN_ATTEMPT=1 \
+        TALO_TRUSTED_WORKFLOW_SHA="$trusted" TALO_SOURCE_RUN_ID=8011 \
+        TALO_SOURCE_RUN_ATTEMPT=1 TALO_BASE_SHA="$trusted" \
+        TALO_EXECUTION_NONCE="$nonce" "$controller" --event "$event" \
+        --candidate "$candidate" --output "$attestation_path"
+    [ -e "$BATS_TEST_TMPDIR/candidate-init-marker" ]
+    printf '%s\n' 'RED_SENTINEL:second-live-main-execution-callsite'
+}
+
 @test "publisher rejects a prior-run MET for the same candidate head" {
     local publisher="$FIXTURE/dev-tools/publish-talo-0001-check.sh"
     local attestation="$BATS_TEST_TMPDIR/prior-run-attestation.json"
@@ -758,12 +931,15 @@ materialize_candidate_blob dev-tools/check-research-authority-audit.py"
     local head=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
     local controller=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
     local base=$controller
-    local nonce current_nonce
+    local nonce current_nonce advanced=2222222222222222222222222222222222222222
     mkdir -p "$mock_bin"
     cat >"$mock_bin/gh" <<'SH'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >>"${TALO_PUBLISH_LOG:?}"
-if [[ " $* " != *" --method "* ]] && [[ "$*" == *"check-runs/"* ]]; then
+if [[ "$*" == *"repos/Arcanada-one/datarim/git/ref/heads/main"* ]]; then
+    jq -cn --arg sha "${TALO_LIVE_MAIN:?}" \
+        '{ref:"refs/heads/main",node_id:"REF_node",url:"https://api.github.com/repos/Arcanada-one/datarim/git/refs/heads/main",object:{sha:$sha,type:"commit",url:("https://api.github.com/repos/Arcanada-one/datarim/git/commits/" + $sha)}}'
+elif [[ " $* " != *" --method "* ]] && [[ "$*" == *"check-runs/"* ]]; then
     jq -cn --argjson id "${TALO_PUBLISH_CHECK_ID:?}" \
         --arg head "${TALO_PUBLISH_HEAD:?}" \
         --arg nonce "${TALO_PUBLISH_NONCE:?}" \
@@ -781,6 +957,7 @@ SH
         >"$attestation"
     chmod 0600 "$attestation"
     run env "PATH=$mock_bin:$PATH" TALO_PUBLISH_LOG="$log" \
+        TALO_LIVE_MAIN="$controller" \
         TALO_PUBLISH_CHECK_ID=321 TALO_PUBLISH_HEAD="$head" \
         TALO_PUBLISH_NONCE="$current_nonce" CHECK_RUN_ID=321 \
         EXPECTED_EXECUTION_NONCE="$current_nonce" \
@@ -799,6 +976,7 @@ SH
     chmod 0600 "$attestation"
     : >"$log"
     run env "PATH=$mock_bin:$PATH" TALO_PUBLISH_LOG="$log" \
+        TALO_LIVE_MAIN="$controller" \
         TALO_PUBLISH_CHECK_ID=321 TALO_PUBLISH_HEAD="$head" \
         TALO_PUBLISH_NONCE="$nonce" CHECK_RUN_ID=321 \
         EXPECTED_EXECUTION_NONCE="$nonce" \
@@ -808,6 +986,55 @@ SH
         SOURCE_RUN_ATTEMPT=1 "$publisher"
     [ "$status" -eq 0 ]
     grep -q 'conclusion=success' "$log"
+
+    : >"$log"
+    run env "PATH=$mock_bin:$PATH" TALO_PUBLISH_LOG="$log" \
+        TALO_LIVE_MAIN="$advanced" \
+        TALO_PUBLISH_CHECK_ID=321 TALO_PUBLISH_HEAD="$head" \
+        TALO_PUBLISH_NONCE="$nonce" CHECK_RUN_ID=321 \
+        EXPECTED_EXECUTION_NONCE="$nonce" \
+        ATTESTATION="$attestation" HEAD_SHA="$head" BASE_SHA="$base" \
+        TRUSTED_RUN_ID=9001 TRUSTED_RUN_ATTEMPT=1 \
+        TRUSTED_WORKFLOW_SHA="$controller" SOURCE_RUN_ID=8001 \
+        SOURCE_RUN_ATTEMPT=1 "$publisher"
+    [ "$status" -eq 1 ] \
+        && grep -q 'git/ref/heads/main' "$log" \
+        && grep -q 'conclusion=failure' "$log" \
+        && assert_file_lacks 'conclusion=success' "$log"
+
+    local publisher_mutant="$BATS_TEST_TMPDIR/publisher-no-final-live-main.sh"
+    cp "$publisher" "$publisher_mutant"
+    python3 - "$publisher_mutant" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+source = path.read_text(encoding="utf-8")
+needle = '''if [ "$conclusion" = success ]; then
+    current_main=$(live_main_commit || true)
+    if [ "$current_main" != "$TRUSTED_WORKFLOW_SHA" ]; then
+        conclusion=failure
+        summary='Trusted controller is no longer verified live main.'
+    fi
+fi
+'''
+assert source.count(needle) == 1
+path.write_text(source.replace(needle, ": # MUTANT removed final live-main callsite\n"),
+                encoding="utf-8")
+PY
+    chmod +x "$publisher_mutant"
+    : >"$log"
+    run env "PATH=$mock_bin:$PATH" TALO_PUBLISH_LOG="$log" \
+        TALO_LIVE_MAIN="$advanced" \
+        TALO_PUBLISH_CHECK_ID=321 TALO_PUBLISH_HEAD="$head" \
+        TALO_PUBLISH_NONCE="$nonce" CHECK_RUN_ID=321 \
+        EXPECTED_EXECUTION_NONCE="$nonce" \
+        ATTESTATION="$attestation" HEAD_SHA="$head" BASE_SHA="$base" \
+        TRUSTED_RUN_ID=9001 TRUSTED_RUN_ATTEMPT=1 \
+        TRUSTED_WORKFLOW_SHA="$controller" SOURCE_RUN_ID=8001 \
+        SOURCE_RUN_ATTEMPT=1 "$publisher_mutant"
+    [ "$status" -eq 0 ] && grep -q 'conclusion=success' "$log"
+    printf '%s\n' 'RED_SENTINEL:final-live-main-publisher-callsite'
 }
 
 @test "hosted pending survives an offline trusted queue and checkout failure terminalizes it" {
@@ -1218,20 +1445,81 @@ MUTANTS
         && [[ "$output" == *'missing:runner-unit:ExecStart='* ]]
 }
 
-@test "every local bootstrap artifact must be the exact main blob before mutation" {
+@test "every bootstrap path has an exact Git-object mode in one main commit" {
     setup_provision_runtime
-    TALO_MOCK_PROVISIONER_BLOB_OVERRIDE=0000000000000000000000000000000000000000 \
-        run_provision_runtime
+    chmod -x "$PROVISIONER"
+    git -C "$FIXTURE" add dev-tools/provision-talo-0001-trusted-runner.sh
+    git -C "$FIXTURE" commit -qm non-executable-provisioner
+    MOCK_MAIN_COMMIT=$(git -C "$FIXTURE" rev-parse HEAD)
+    chmod +x "$PROVISIONER"
+    TALO_MOCK_PRESERVE_MAIN_COMMIT=1 run_provision_runtime
     [ "$status" -eq 1 ]
-    [[ "$output" == *'trusted provisioner is not the exact local bootstrap on main'* ]]
+    [[ "$output" == *'trusted bootstrap Git object rejected: dev-tools/provision-talo-0001-trusted-runner.sh'* ]]
     assert_file_lacks '^systemctl ' "$MOCK_LOG"
 
     setup_provision_runtime
-    MOCK_UNIT_BLOB=0000000000000000000000000000000000000000 \
-        run_provision_runtime
+    git -C "$FIXTURE" rm -q dev-tools/systemd/talo-0001-trusted-runner.service
+    git -C "$FIXTURE" commit -qm missing-unit
+    MOCK_MAIN_COMMIT=$(git -C "$FIXTURE" rev-parse HEAD)
+    TALO_MOCK_PRESERVE_MAIN_COMMIT=1 run_provision_runtime
     [ "$status" -eq 1 ]
-    [[ "$output" == *'trusted runner-unit is not the exact local bootstrap on main'* ]]
+    [[ "$output" == *'trusted bootstrap Git object rejected: dev-tools/systemd/talo-0001-trusted-runner.service'* ]]
     assert_file_lacks '^systemctl ' "$MOCK_LOG"
+}
+
+@test "one live main commit supplies immutable root-staged bootstrap blobs" {
+    setup_provision_runtime
+    run_provision_runtime
+    [ "$status" -eq 0 ] \
+        && [ "$(grep -c 'git/ref/heads/main' "$MOCK_LOG")" -eq 2 ] \
+        && assert_file_lacks 'contents/.github/workflows/talo-0001-trusted-replay.yml?ref=main' "$MOCK_LOG" \
+        && assert_file_lacks 'contents/dev-tools/provision-talo-0001-trusted-runner.sh?ref=main' "$MOCK_LOG" \
+        && assert_file_lacks 'contents/dev-tools/systemd/talo-0001-trusted-runner.service?ref=main' "$MOCK_LOG" \
+        && grep -Eq '^install .* /tmp/talo-trusted-bootstrap\.[^/]+/dev-tools/systemd/talo-0001-trusted-runner.service /etc/systemd/system/talo-0001-trusted-runner.service$' \
+            "$MOCK_LOG"
+}
+
+@test "main advance between loader and sealed worker performs no mutation" {
+    local initial_commit advanced_commit
+    setup_provision_runtime
+    initial_commit=$MOCK_MAIN_COMMIT
+    printf '%s\n' '# main advanced' >>"$FIXTURE/.github/workflows/talo-0001-trusted-replay.yml"
+    git -C "$FIXTURE" add .github/workflows/talo-0001-trusted-replay.yml
+    git -C "$FIXTURE" commit -qm advanced-main
+    advanced_commit=$(git -C "$FIXTURE" rev-parse HEAD)
+    MOCK_MAIN_COMMIT=$initial_commit
+    TALO_MOCK_MAIN_SEQUENCE=advance \
+        TALO_MOCK_ADVANCED_MAIN_COMMIT=$advanced_commit \
+        TALO_MOCK_PRESERVE_MAIN_COMMIT=1 run_provision_runtime
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'trusted main advanced before provisioning'* ]] \
+        && [ "$(grep -c 'git/ref/heads/main' "$MOCK_LOG")" -eq 2 ]
+    assert_file_lacks '^systemctl ' "$MOCK_LOG"
+    assert_file_lacks '--method PATCH' "$MOCK_LOG"
+    assert_file_lacks '--method PUT' "$MOCK_LOG"
+}
+
+@test "sealed provisioner exec transition is behaviorally load-bearing" {
+    setup_provision_runtime
+    sed -i 's#^        exec /usr/bin/env \\#        /usr/bin/env \\#' "$PROVISIONER"
+    run_provision_runtime
+    [ "$status" -ne 0 ]
+    [ "$(grep -c '^systemctl stop' "$MOCK_LOG")" -ge 2 ]
+    printf '%s\n' 'RED_SENTINEL:sealed-provisioner-exec-transition'
+}
+
+@test "post-verification mutable unit swap cannot change installed bytes" {
+    local trusted_unit hostile_unit
+    setup_provision_runtime
+    trusted_unit="$BATS_TEST_TMPDIR/trusted-unit"
+    hostile_unit="$BATS_TEST_TMPDIR/hostile-unit"
+    cp "$FIXTURE/dev-tools/systemd/talo-0001-trusted-runner.service" "$trusted_unit"
+    printf '%s\n' '[Service]' 'ExecStart=/bin/false' >"$hostile_unit"
+    TALO_MOCK_SWAP_UNIT_SOURCE="$hostile_unit" run_provision_runtime
+    [ "$status" -eq 0 ] \
+        && [ -L "$FIXTURE/dev-tools/systemd/talo-0001-trusted-runner.service" ] \
+        && cmp -s "$trusted_unit" "$MOCK_INSTALLED_UNIT" \
+        && ! cmp -s "$hostile_unit" "$MOCK_INSTALLED_UNIT"
 }
 
 @test "main-workflow API and blob failures perform no system mutation" {
@@ -1248,7 +1536,7 @@ MUTANTS
             "$ROOT/dev-tools/provision-talo-0001-trusted-runner.sh" \
             --register-and-start
         [ "$status" -eq 1 ]
-        [[ "$output" == *'ERROR: trusted workflow'* ]]
+        [[ "$output" == *'ERROR: trusted main ref could not be resolved'* ]]
         assert_file_lacks '^systemctl ' "$log"
     done
 }

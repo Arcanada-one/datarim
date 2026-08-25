@@ -1,6 +1,26 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+API_VERSION=2022-11-28
+
+live_main_commit() {
+    local response
+    response=$(gh api -H "X-GitHub-Api-Version: $API_VERSION" \
+        repos/Arcanada-one/datarim/git/ref/heads/main) || return 1
+    jq -er '
+        select(type == "object" and (keys | sort) == ["node_id","object","ref","url"])
+        | select(.ref == "refs/heads/main")
+        | select(.node_id | type == "string" and length > 0)
+        | select(.url == "https://api.github.com/repos/Arcanada-one/datarim/git/refs/heads/main")
+        | .object
+        | select(type == "object" and (keys | sort) == ["sha","type","url"])
+        | select(.type == "commit")
+        | select(.url == ("https://api.github.com/repos/Arcanada-one/datarim/git/commits/" + .sha))
+        | .sha
+        | select(type == "string" and test("^[0-9a-f]{40}$"))
+    ' <<<"$response"
+}
+
 conclusion=failure
 summary='Trusted replay did not produce a sealed attestation.'
 expected_nonce=$(
@@ -42,6 +62,13 @@ if [ -f "$ATTESTATION" ] && [ ! -L "$ATTESTATION" ] \
     "$ATTESTATION" >/dev/null; then
     conclusion=success
     summary=$(jq -c '{head_sha,base_sha,controller_commit,trusted_run_id,trusted_run_attempt,source_run_id,source_run_attempt,execution_nonce_sha256,knowledge_snapshot,trusted_evaluator_sha256,candidate_validator_object_sha256,manifest_object_sha256,mutation_set_sha256,counts}' "$ATTESTATION")
+fi
+if [ "$conclusion" = success ]; then
+    current_main=$(live_main_commit || true)
+    if [ "$current_main" != "$TRUSTED_WORKFLOW_SHA" ]; then
+        conclusion=failure
+        summary='Trusted controller is no longer verified live main.'
+    fi
 fi
 gh api --method PATCH \
     "repos/Arcanada-one/datarim/check-runs/$CHECK_RUN_ID" \

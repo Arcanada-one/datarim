@@ -25,11 +25,11 @@ ACTIONLINT = ROOT / ".github/actionlint.yaml"
 CHECKOUT = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
 EXPECTED_DIGESTS = {
     "preflight": "a18daf69186058ede3916e74423139dea2a7fdee5dd017b1e703160fef4c9784",
-    "controller": "a307331a13f738cf34f78f2a3b8de73351263fb8245f4a08220e638832c9c005",
-    "publisher": "7313aaa06977fdd274e1f97fc7edf3ba7e9a8f4199e881ab63f70ce05ea69fe3",
+    "controller": "eed50399fa6b17b1d4a98851d5fbad2ac68bc59ee7b0c2a469bbdbcc01a4c8ef",
+    "publisher": "3db4e2ed14bfb1662500493753afe189161160841f2c38761a32f1ec4411c425",
     "evaluator": "a0e86fc87493231afffd3164587f0c14e463f5e8c4acd8f4f9679e2504280d1a",
     "runner-unit": "d9b25e4ea33ed2bddad9e5d1fd5a47acedfed852749f0771fb24838f70edc131",
-    "provisioner": "95dd8ab3c2d9de0f7e2de56a6bc839b68e6efe8a6aa1fed0143075d69e3c8d13",
+    "provisioner": "ff0093cdaa81d78fba9706f33757a7238d76211853d82dce7913814385617ff3",
 }
 EXPECTED_PATHS = [
     "commands/**",
@@ -495,9 +495,12 @@ def validate_code(findings: list[str]) -> None:
         'mv -f -- "$attestation_tmp" "$OUTPUT"',
         '[ "$TALO_BASE_SHA" = "$TALO_TRUSTED_WORKFLOW_SHA" ]',
         '[ "$execution_nonce_sha256" = "$TALO_EXECUTION_NONCE" ]',
+        "require_live_main()",
     ):
         if value not in controller:
             findings.append(f"missing:candidate-object-contract:{value}")
+    if controller.count("require_live_main || exit 1") != 2:
+        findings.append("mismatch:live-main-execution-revalidation-cardinality")
     for value in (
         "candidate_validator_object_sha256",
         "manifest_object_sha256",
@@ -510,6 +513,10 @@ def validate_code(findings: list[str]) -> None:
         '[ "$attestation_mode" = 600 ]',
         '[ "$BASE_SHA" = "$TRUSTED_WORKFLOW_SHA" ]',
         '[ "$expected_nonce" = "$EXPECTED_EXECUTION_NONCE" ]',
+        "live_main_commit()",
+        'if [ "$conclusion" = success ]; then',
+        'current_main=$(live_main_commit || true)',
+        'summary=\'Trusted controller is no longer verified live main.\'',
     ):
         if value not in publisher:
             findings.append(f"missing:candidate-object-contract:{value}")
@@ -579,6 +586,15 @@ def validate_code(findings: list[str]) -> None:
         'workflow|$WORKFLOW_PATH',
         'provisioner|dev-tools/provision-talo-0001-trusted-runner.sh',
         'runner-unit|dev-tools/systemd/$UNIT_NAME',
+        'bootstrap_git()',
+        'GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null',
+        'GIT_NO_REPLACE_OBJECTS=1 /usr/bin/git',
+        'expected_mode=100755',
+        'validate_sealed_bootstrap()',
+        'TALO_TRUSTED_BOOTSTRAP_PHASE=sealed-worker',
+        'exec /usr/bin/env',
+        'ERROR: trusted main advanced before provisioning',
+        '"$TRUSTED_BOOTSTRAP_ROOT/dev-tools/systemd/$UNIT_NAME"',
         "--disableupdate",
         'chown -R root:root "$RUNNER_DIR/$path"',
         'chmod -R a-w "$RUNNER_DIR/$path"',
@@ -667,7 +683,6 @@ def validate_code(findings: list[str]) -> None:
         registration = ""
         findings.append("missing:registration-function")
     ordered_reconciliation = (
-        "verify_trusted_main_workflow",
         "id=$(group_id)",
         "stop_and_disable_runner_service",
         "seal_interrupted_registration_directory",
