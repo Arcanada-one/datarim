@@ -104,6 +104,18 @@ resolve_live_main_commit() {
     ' <<<"$response"
 }
 
+require_current_trusted_main() {
+    local phase=$1 current_main
+    current_main=$(resolve_live_main_commit) || {
+        echo "ERROR: live main revalidation failed before $phase" >&2
+        return 1
+    }
+    [ "$current_main" = "$TRUSTED_MAIN_COMMIT" ] || {
+        echo "ERROR: trusted main advanced before $phase" >&2
+        return 1
+    }
+}
+
 cleanup_trusted_bootstrap() {
     if [[ "$TRUSTED_BOOTSTRAP_ROOT" == /tmp/talo-trusted-bootstrap.* ]] \
         && [ -d "$TRUSTED_BOOTSTRAP_ROOT" ] \
@@ -923,6 +935,11 @@ ensure_group() {
         echo "ERROR: invalid runner group id" >&2
         return 1
     fi
+    if ! require_current_trusted_main service-stop; then
+        disable_runner_service || \
+            echo "ERROR: stale provisioner could not disable trusted runner" >&2
+        return 1
+    fi
     stop_and_disable_runner_service || return 1
     seal_interrupted_registration_directory || {
         echo "ERROR: interrupted runner registration could not be resealed" >&2
@@ -957,17 +974,20 @@ reconcile_group() {
             echo "ERROR: trusted runner group creation payload failed" >&2
             return 1
         fi
+        require_current_trusted_main group-create || return 1
         if ! id=$(api --method POST "orgs/$ORG/actions/runner-groups" \
             --input - --jq .id <<<"$create_payload"); then
             echo "ERROR: trusted runner group creation failed" >&2
             return 1
         fi
     else
+        require_current_trusted_main group-policy-update || return 1
         if ! api --method PATCH "orgs/$ORG/actions/runner-groups/$id" \
             --input - >/dev/null <<<"$group_payload"; then
             echo "ERROR: trusted runner group policy update failed" >&2
             return 1
         fi
+        require_current_trusted_main group-repository-update || return 1
         if ! jq -cn --argjson repository_id "$REPOSITORY_ID" \
             '{selected_repository_ids:[$repository_id]}' |
             api --method PUT "orgs/$ORG/actions/runner-groups/$id/repositories" \
@@ -1110,6 +1130,11 @@ register_and_start() {
                 "$pre_registration_empty" "$runner_id" \
                 "runner executable identity changed before token request"
         fi
+        require_current_trusted_main registration-token || {
+            abort_runner_transaction "$id" "$fresh_registration" \
+                "$pre_registration_empty" "$runner_id" \
+                "trusted main is not current before token request"
+        }
         if ! token=$(api --method POST \
             "orgs/$ORG/actions/runners/registration-token" --jq .token); then
             abort_runner_transaction "$id" "$fresh_registration" \
@@ -1129,6 +1154,12 @@ register_and_start() {
                 "$pre_registration_empty" "$runner_id" \
                 "runner executable identity changed before configuration"
         fi
+        require_current_trusted_main runner-configuration || {
+            token=REDACTED
+            abort_runner_transaction "$id" "$fresh_registration" \
+                "$pre_registration_empty" "$runner_id" \
+                "trusted main is not current before runner configuration"
+        }
         open_registration_directory || {
             token=REDACTED
             abort_runner_transaction "$id" "$fresh_registration" \
@@ -1223,12 +1254,22 @@ register_and_start() {
             "$pre_registration_empty" "$runner_id" \
             "runner payload hardening failed"
     }
+    require_current_trusted_main unit-install || {
+        abort_runner_transaction "$id" "$fresh_registration" \
+            "$pre_registration_empty" "$runner_id" \
+            "trusted main is not current before unit installation"
+    }
     install -o root -g root -m 0644 \
         "$TRUSTED_BOOTSTRAP_ROOT/dev-tools/systemd/$UNIT_NAME" \
         "/etc/systemd/system/$UNIT_NAME" || {
         abort_runner_transaction "$id" "$fresh_registration" \
             "$pre_registration_empty" "$runner_id" \
             "trusted runner unit installation failed"
+    }
+    require_current_trusted_main service-reload || {
+        abort_runner_transaction "$id" "$fresh_registration" \
+            "$pre_registration_empty" "$runner_id" \
+            "trusted main is not current before service reload"
     }
     systemctl daemon-reload || {
         abort_runner_transaction "$id" "$fresh_registration" \
@@ -1244,6 +1285,11 @@ register_and_start() {
         abort_runner_transaction "$id" "$fresh_registration" \
             "$pre_registration_empty" "$runner_id" \
             "runner identity is not quiescent before service start"
+    }
+    require_current_trusted_main service-start || {
+        abort_runner_transaction "$id" "$fresh_registration" \
+            "$pre_registration_empty" "$runner_id" \
+            "trusted main is not current before service start"
     }
     systemctl enable --now "$UNIT_NAME" || {
         abort_runner_transaction "$id" "$fresh_registration" \
@@ -1269,6 +1315,11 @@ register_and_start() {
         abort_runner_transaction "$id" "$fresh_registration" \
             "$pre_registration_empty" "$runner_id" \
             "local runner identity changed after start"
+    }
+    require_current_trusted_main provision-success || {
+        abort_runner_transaction "$id" "$fresh_registration" \
+            "$pre_registration_empty" "$runner_id" \
+            "trusted main is not current at provisioning completion"
     }
 }
 

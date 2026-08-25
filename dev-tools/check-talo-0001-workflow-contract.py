@@ -29,7 +29,7 @@ EXPECTED_DIGESTS = {
     "publisher": "3db4e2ed14bfb1662500493753afe189161160841f2c38761a32f1ec4411c425",
     "evaluator": "a0e86fc87493231afffd3164587f0c14e463f5e8c4acd8f4f9679e2504280d1a",
     "runner-unit": "d9b25e4ea33ed2bddad9e5d1fd5a47acedfed852749f0771fb24838f70edc131",
-    "provisioner": "f9d88beb46ebfa4f91ec21cf86335c96ddefb335051a699df5443db608916dc6",
+    "provisioner": "10f213cd32c85d00dbbae5975fe85b6b927d3901bc664e4617e297292f8678f5",
 }
 EXPECTED_PATHS = [
     "commands/**",
@@ -604,6 +604,16 @@ def validate_code(findings: list[str]) -> None:
         'TALO_TRUSTED_BOOTSTRAP_PHASE=sealed-worker',
         'exec /usr/bin/env',
         'ERROR: trusted main advanced before provisioning',
+        'require_current_trusted_main service-stop',
+        'require_current_trusted_main group-create',
+        'require_current_trusted_main group-policy-update',
+        'require_current_trusted_main group-repository-update',
+        'require_current_trusted_main registration-token',
+        'require_current_trusted_main runner-configuration',
+        'require_current_trusted_main unit-install',
+        'require_current_trusted_main service-reload',
+        'require_current_trusted_main service-start',
+        'require_current_trusted_main provision-success',
         '"$TRUSTED_BOOTSTRAP_ROOT/dev-tools/systemd/$UNIT_NAME"',
         "--disableupdate",
         'chown -R root:root "$RUNNER_DIR/$path"',
@@ -692,6 +702,8 @@ def validate_code(findings: list[str]) -> None:
         findings.append("mismatch:runner-quiescence-cardinality")
     if provisioner.count("verify_started_runner_process") != 2:
         findings.append("mismatch:runner-post-start-identity-cardinality")
+    if provisioner.count("require_current_trusted_main") != 11:
+        findings.append("mismatch:runner-live-main-revalidation-cardinality")
     try:
         ensure_group = provisioner.split("ensure_group() {", 1)[1].split(
             "\n}", 1

@@ -270,6 +270,7 @@ PY
     printf '%s\n' 0 >"$MOCK_DELETE_COUNTER"
     printf '%s\n' 0 >"$MOCK_PGREP_COUNTER"
     printf '%s\n' enabled >"$MOCK_SERVICE_STATE"
+    rm -f -- "$BATS_TEST_TMPDIR/main-ref-counter"
 }
 
 prepare_fresh_runner_payload() {
@@ -331,6 +332,8 @@ run_provision_runtime() {
         "TALO_MOCK_MAIN_COMMIT=$MOCK_MAIN_COMMIT" \
         "TALO_MOCK_ADVANCED_MAIN_COMMIT=${TALO_MOCK_ADVANCED_MAIN_COMMIT:-}" \
         "TALO_MOCK_MAIN_SEQUENCE=${TALO_MOCK_MAIN_SEQUENCE:-stable}" \
+        "TALO_MOCK_MAIN_ADVANCE_AT=${TALO_MOCK_MAIN_ADVANCE_AT:-}" \
+        "TALO_MOCK_MAIN_FAILURE_AT=${TALO_MOCK_MAIN_FAILURE_AT:-}" \
         "TALO_MOCK_MAIN_COUNTER=$BATS_TEST_TMPDIR/main-ref-counter" \
         "TALO_MOCK_ASSERT_GH_TRANSPORT=${TALO_MOCK_ASSERT_GH_TRANSPORT:-0}" \
         "TALO_MOCK_HOSTILE_MAIN_COMMIT=${TALO_MOCK_HOSTILE_MAIN_COMMIT:-}" \
@@ -372,6 +375,7 @@ run_provision_runtime() {
         "TALO_MOCK_CONFIG_FAILURE=${TALO_MOCK_CONFIG_FAILURE:-0}" \
         "TALO_MOCK_CONFIG_REMOTE_ONLY=${TALO_MOCK_CONFIG_REMOTE_ONLY:-0}" \
         "TALO_MOCK_GROUP_MUTATION_FAILURE=${TALO_MOCK_GROUP_MUTATION_FAILURE:-0}" \
+        "TALO_MOCK_GROUP_ABSENT=${TALO_MOCK_GROUP_ABSENT:-0}" \
         "TALO_MOCK_DELETE_FAILURES=${TALO_MOCK_DELETE_FAILURES:-0}" \
         "TALO_MOCK_ENFORCE_TRAVERSAL=${TALO_MOCK_ENFORCE_TRAVERSAL:-0}" \
         "TALO_MOCK_RUNNER_PROCESS=${TALO_MOCK_RUNNER_PROCESS:-0}" \
@@ -396,6 +400,44 @@ run_provision_runtime() {
         "TALO_MOCK_CREDENTIALS_TEMPLATE=$IDENTITY_FIXTURE/.credentials" \
         "TALO_MOCK_RSA_TEMPLATE=$IDENTITY_FIXTURE/.credentials_rsaparams" \
         "$PROVISIONER" --register-and-start
+}
+
+prepare_advanced_main() {
+    local initial_commit
+    initial_commit=$MOCK_MAIN_COMMIT
+    printf '%s\n' '# main advanced during privileged provisioning' \
+        >>"$FIXTURE/.github/workflows/talo-0001-trusted-replay.yml"
+    git -C "$FIXTURE" add .github/workflows/talo-0001-trusted-replay.yml
+    git -C "$FIXTURE" commit -qm advanced-main-during-provisioning
+    MOCK_ADVANCED_MAIN_COMMIT=$(git -C "$FIXTURE" rev-parse HEAD)
+    MOCK_MAIN_COMMIT=$initial_commit
+}
+
+run_main_guard_failure() {
+    local axis=$1 call_index=$2
+    rm -f -- "$BATS_TEST_TMPDIR/main-ref-counter"
+    if [ "$axis" = advance ]; then
+        TALO_MOCK_MAIN_ADVANCE_AT=$call_index \
+            TALO_MOCK_ADVANCED_MAIN_COMMIT=$MOCK_ADVANCED_MAIN_COMMIT \
+            TALO_MOCK_PRESERVE_MAIN_COMMIT=1 run_provision_runtime
+    else
+        TALO_MOCK_MAIN_FAILURE_AT=$call_index \
+            TALO_MOCK_PRESERVE_MAIN_COMMIT=1 run_provision_runtime
+    fi
+}
+
+assert_main_guard_failure() {
+    local phase=$1 forbidden=$2
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *"live main revalidation failed before $phase"* \
+            || "$output" == *"trusted main advanced before $phase"* ]] \
+        || { printf 'phase=%s status=%s output=%s\n' \
+            "$phase" "$status" "$output"; return 1; }
+    [ "$(cat "$MOCK_SERVICE_STATE")" = disabled ] \
+        || { printf 'phase=%s service_not_disabled\n' "$phase"; return 1; }
+    if [ -n "$forbidden" ]; then
+        assert_file_lacks "$forbidden" "$MOCK_LOG"
+    fi
 }
 
 @test "trusted and projection workflow contract is MET" {
@@ -1649,7 +1691,7 @@ SH
         TALO_MOCK_PRESERVE_MAIN_COMMIT=1 run_provision_runtime
     [ "$status" -eq 0 ]
     [ ! -e "$transport_marker" ]
-    [ "$(grep -c -- '--hostname github.com.*git/ref/heads/main' "$MOCK_LOG")" -eq 2 ]
+    [ "$(grep -c -- '--hostname github.com.*git/ref/heads/main' "$MOCK_LOG")" -eq 9 ]
 }
 
 @test "every GitHub API transport scrub axis is independently load-bearing" {
@@ -1707,7 +1749,7 @@ api repos/Arcanada-one/datarim/git/ref/heads/main"
     setup_provision_runtime
     run_provision_runtime
     [ "$status" -eq 0 ] \
-        && [ "$(grep -c 'git/ref/heads/main' "$MOCK_LOG")" -eq 2 ] \
+        && [ "$(grep -c 'git/ref/heads/main' "$MOCK_LOG")" -eq 9 ] \
         && assert_file_lacks 'contents/.github/workflows/talo-0001-trusted-replay.yml?ref=main' "$MOCK_LOG" \
         && assert_file_lacks 'contents/dev-tools/provision-talo-0001-trusted-runner.sh?ref=main' "$MOCK_LOG" \
         && assert_file_lacks 'contents/dev-tools/systemd/talo-0001-trusted-runner.service?ref=main' "$MOCK_LOG" \
@@ -1733,6 +1775,64 @@ api repos/Arcanada-one/datarim/git/ref/heads/main"
     assert_file_lacks '^systemctl ' "$MOCK_LOG"
     assert_file_lacks '--method PATCH' "$MOCK_LOG"
     assert_file_lacks '--method PUT' "$MOCK_LOG"
+}
+
+@test "existing-runner privileged phases independently reject stale or unavailable live main" {
+    local axis pair phase call_index forbidden
+    local -a phases=(
+        'service-stop|3|--method PATCH'
+        'group-policy-update|4|--method PATCH'
+        'group-repository-update|5|--method PUT'
+        'unit-install|6|/etc/systemd/system/talo-0001-trusted-runner.service'
+        'service-reload|7|systemctl daemon-reload'
+        'service-start|8|systemctl enable --now'
+        'provision-success|9|'
+    )
+    for axis in advance failure; do
+        for pair in "${phases[@]}"; do
+            IFS='|' read -r phase call_index forbidden <<<"$pair"
+            setup_provision_runtime
+            prepare_advanced_main
+            run_main_guard_failure "$axis" "$call_index"
+            assert_main_guard_failure "$phase" "$forbidden"
+        done
+    done
+    printf '%s\n' 'RED_SENTINEL:existing-runner-live-main-phase-matrix'
+}
+
+@test "fresh-runner privileged phases independently reject stale or unavailable live main" {
+    local axis pair phase call_index forbidden
+    local -a phases=(
+        'group-create|4|--method POST orgs/Arcanada-one/actions/runner-groups'
+        'registration-token|5|registration-token'
+        'runner-configuration|6|^config.sh '
+        'unit-install|7|/etc/systemd/system/talo-0001-trusted-runner.service'
+        'service-reload|8|systemctl daemon-reload'
+        'service-start|9|systemctl enable --now'
+        'provision-success|10|'
+    )
+    for axis in advance failure; do
+        for pair in "${phases[@]}"; do
+            IFS='|' read -r phase call_index forbidden <<<"$pair"
+            setup_provision_runtime
+            prepare_fresh_runner_payload
+            git -C "$FIXTURE" add dev-tools/provision-talo-0001-trusted-runner.sh
+            git -C "$FIXTURE" commit --allow-empty -qm fresh-payload-authority
+            MOCK_MAIN_COMMIT=$(git -C "$FIXTURE" rev-parse HEAD)
+            prepare_advanced_main
+            TALO_MOCK_GROUP_ABSENT=1 TALO_MOCK_RUNNERS_MODE=fresh \
+                run_main_guard_failure "$axis" "$call_index"
+            assert_main_guard_failure "$phase" "$forbidden"
+            case "$phase" in
+                unit-install|service-reload|service-start|provision-success)
+                    [ -f "$MOCK_REGISTRATION_REMOVED" ] \
+                        || { printf 'phase=%s registration_not_rolled_back\n' \
+                            "$phase"; return 1; }
+                    ;;
+            esac
+        done
+    done
+    printf '%s\n' 'RED_SENTINEL:fresh-runner-live-main-phase-matrix'
 }
 
 @test "sealed provisioner exec transition is behaviorally load-bearing" {

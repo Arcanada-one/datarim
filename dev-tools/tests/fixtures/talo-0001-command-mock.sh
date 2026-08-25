@@ -56,15 +56,21 @@ case "$command_name" in
                         main_commit=${TALO_MOCK_HOSTILE_MAIN_COMMIT:?}
                     fi
                 fi
-                if [ "${TALO_MOCK_MAIN_SEQUENCE:-stable}" = advance ]; then
-                    main_count=0
-                    [ ! -f "${TALO_MOCK_MAIN_COUNTER:?}" ] \
-                        || main_count=$(cat "$TALO_MOCK_MAIN_COUNTER")
-                    main_count=$((main_count + 1))
-                    printf '%s\n' "$main_count" >"$TALO_MOCK_MAIN_COUNTER"
-                    if [ "$main_count" -ge 2 ]; then
-                        main_commit=${TALO_MOCK_ADVANCED_MAIN_COMMIT:?}
-                    fi
+                main_count=0
+                [ ! -f "${TALO_MOCK_MAIN_COUNTER:?}" ] \
+                    || main_count=$(cat "$TALO_MOCK_MAIN_COUNTER")
+                main_count=$((main_count + 1))
+                printf '%s\n' "$main_count" >"$TALO_MOCK_MAIN_COUNTER"
+                main_advance_at=${TALO_MOCK_MAIN_ADVANCE_AT:-}
+                [ "${TALO_MOCK_MAIN_SEQUENCE:-stable}" != advance ] \
+                    || main_advance_at=${main_advance_at:-2}
+                if [ -n "${TALO_MOCK_MAIN_FAILURE_AT:-}" ] \
+                    && [ "$main_count" -eq "$TALO_MOCK_MAIN_FAILURE_AT" ]; then
+                    exit 1
+                fi
+                if [ -n "$main_advance_at" ] \
+                    && [ "$main_count" -ge "$main_advance_at" ]; then
+                    main_commit=${TALO_MOCK_ADVANCED_MAIN_COMMIT:?}
                 fi
                 jq -cn --arg sha "$main_commit" \
                     '{ref:"refs/heads/main",node_id:"REF_node",url:"https://api.github.com/repos/Arcanada-one/datarim/git/refs/heads/main",object:{sha:$sha,type:"commit",url:("https://api.github.com/repos/Arcanada-one/datarim/git/commits/" + $sha)}}'
@@ -83,6 +89,9 @@ case "$command_name" in
                     rm -f -- "${TALO_MOCK_MUTABLE_UNIT:?}"
                     ln -s -- "$TALO_MOCK_SWAP_UNIT_SOURCE" "$TALO_MOCK_MUTABLE_UNIT"
                 fi
+                [ "${TALO_MOCK_GROUP_ABSENT:-0}" = 1 ] || printf '%s\n' 42
+                ;;
+            *"--method POST orgs/Arcanada-one/actions/runner-groups "*)
                 printf '%s\n' 42
                 ;;
             *"runner-groups/42/repositories"*)
