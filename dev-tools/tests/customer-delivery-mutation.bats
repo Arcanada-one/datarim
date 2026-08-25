@@ -2227,17 +2227,23 @@ PY
     run_alarm_initialization_mutant arm-before-unblock
 }
 
-@test "cleanup signal-mask and output-before-reap mutants are independently killed" {
+@test "cleanup signal-mask and process lifecycle mutants are independently killed" {
     run_process_lifecycle_mutant cleanup-alarm
     run_cleanup_second_signal_mutant
     run_process_lifecycle_mutant ignored-sigchld
     run_wrapper_sigchld_mutant
+}
+
+@test "SIGCHLD callsite normalization mutants are independently killed" {
     run_sigchld_portable_spawn_mutant silent
     run_sigchld_portable_spawn_mutant bounded
     run_sigchld_portable_spawn_mutant source_history
     run_sigchld_consumer_mutant silent
     run_sigchld_consumer_mutant bounded
     run_sigchld_consumer_mutant source_history
+}
+
+@test "terminal cleanup output mutants are independently killed" {
     run_cleanup_output_mutant
     run_cleanup_abort_mapping_mutant
 }

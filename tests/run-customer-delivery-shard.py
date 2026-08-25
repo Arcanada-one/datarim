@@ -38,7 +38,7 @@ PLATFORM_SHARD_POLICY = {
         **{shard: ("linux",) for shard in range(1, 14)},
         **{shard: ("linux", "macos") for shard in range(14, 20)},
         **{shard: ("macos",) for shard in range(20, 27)},
-        **{shard: ("linux", "macos") for shard in range(27, 37)},
+        **{shard: ("linux", "macos") for shard in range(27, 39)},
     },
 }
 MACOS_RUNTIME_ISOLATED_TESTS = {
@@ -70,6 +70,9 @@ MACOS_RUNTIME_ISOLATED_TESTS = {
         "review inventory authentication mutant is independently killed",
         "mutation kill attribution rejects setup syntax timeout and wrong-assertion failures",
         "same-clock and Alarm diagnostic mutation attribution is fail-closed",
+        "cleanup signal-mask and process lifecycle mutants are independently killed",
+        "SIGCHLD callsite normalization mutants are independently killed",
+        "terminal cleanup output mutants are independently killed",
     ),
 }
 
