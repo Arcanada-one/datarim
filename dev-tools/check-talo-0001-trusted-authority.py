@@ -1,0 +1,1517 @@
+#!/usr/bin/env python3
+"""Validate a pinned research authority audit and its mutation-sensitive joins."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+from collections import Counter
+from datetime import date, datetime, timezone
+from pathlib import Path, PurePosixPath
+from typing import Any
+from urllib.parse import quote
+
+HEX40 = re.compile(r"^[0-9a-f]{40}$")
+HEX64 = re.compile(r"^[0-9a-f]{64}$")
+ITEM_ID = re.compile(r"^R[12]-[0-9]{2}$")
+SOURCE_HEADING = re.compile(r"^## (R[12]-[0-9]{2}) · (.+)$", re.MULTILINE)
+INLINE_SOURCE_HEADING = re.compile(
+    r"^\*\*(R[12]-[0-9]{2}) · (.+?)\*\*", re.MULTILINE | re.DOTALL
+)
+CYRILLIC = re.compile(r"[\u0400-\u04ff]")
+TASK_REF = re.compile(r"TALO-[0-9]{4}")
+SOURCE_REGISTER_ID = re.compile(r"^S[0-9]{2}$")
+SOURCE_REGISTER_SELECTION = re.compile(
+    r"^\*\*(Selected(?: as a pattern)?):\*\*\s*(.*?)\s+"
+    r"\*\*Rejected:\*\*\s*(.*?)$"
+)
+SOURCE_ACCESS_DATE = re.compile(
+    r"^All sources were accessed on \*\*(\d{4}-\d{2}-\d{2})\*\*\.", re.MULTILINE
+)
+COMMENT_ALGORITHM = "github-json-body-utf8-no-extra-lf/1"
+ITEM_ALGORITHM = "cells-trimmed-unit-separator-rows-lf-no-final-lf/1"
+MAX_EXTERNAL_SOURCE_BYTES = 16 * 1024 * 1024
+MAX_JSON_INPUT_BYTES = 16 * 1024 * 1024
+MAX_TEXT_INPUT_BYTES = 16 * 1024 * 1024
+MAX_JSON_DEPTH = 128
+AUTHORITY_PROJECTION_FIELDS: dict[str, tuple[str, ...]] = {
+    "review": (
+        "id",
+        "source_path",
+        "git_blob",
+        "expected_items",
+        "mapping_source_path",
+        "mapping_source_git_blob",
+        "mapping_comment_id",
+    ),
+    "comment": (
+        "id",
+        "repository",
+        "issue_number",
+        "navigation_url",
+        "body_sha256",
+    ),
+    "external": (
+        "source_id",
+        "navigation_url",
+        "accessed_at",
+        "repository",
+        "commit",
+        "path",
+        "git_blob",
+        "content_sha256",
+        "immutable_url",
+        "cache_file",
+    ),
+    "candidate": ("revision_id", "path", "git_blob", "content_digest"),
+}
+CLOSED_AUDIT_PROFILES: dict[str, dict[str, Any]] = {
+    "TALO-0001": {
+        "knowledge_snapshot": "c636fea7b7dda0245fbbfd1da8a5a78c7e56c2ae",
+        "reviews": {"R1": 28, "R2": 38},
+        "item_table_rows": 66,
+        "item_table_sha256": (
+            "13abf81790ae427748637ecf6cdff2aa8cb7d64b1ccc35c431c318af6374d034"
+        ),
+        "source_register_digests": {
+            "S01": "6fcb6a228f5439d747490bd02d779d3ad385384c25115b6b5d037d5b5261d78c",
+            "S02": "aea2942936a5ed78d7a96437d91aa033b2bb0b5f0aa5632befcefdd161d2a999",
+            "S03": "b2605d846272a09b937dc00adbefb79268ff466726d67132b6aed55a569eb411",
+            "S04": "13600c7f95f2a9a638e4e448dc65e4da435378c22af4a6eea4db887edee5ca72",
+            "S05": "cd6eda8a01f312391d6ded89632c6fe03e8cda1068d314dfb3bd3dcb9832b993",
+            "S06": "c73eb9beb7cb093007af20d799f1932b69778b077fa05ed9913c7f7f264b6079",
+            "S07": "82f3f476ce16d76cb9c0e3477e476ff891ab9d6125161625ac4857e2dc53e3ce",
+            "S08": "b8265c1e7c5ce35327f8823d54e4d51747f2ba3ef800634a23f9cdd9551c616d",
+            "S09": "a35d95ae73af24292f95f3a806ea3df89dd2efe2a130b78c6a42c10699a532c5",
+            "S10": "0cff5cddbbf7715064222523d5e357547800be295ff295006d67f682e6b2d032",
+            "S11": "beb6d845cff4840f9fbe08a98e95741877a843d151e443c553309849bee04602",
+            "S12": "6170a4d18ff22773e5559b46706a8f145e1edbe12bc1911f484aeacddaeb2f67",
+            "S13": "bf76785abda133345fe625e159e2f5c4cb1bf029b4d9cdc12272d32be08d89ee",
+            "S14": "59ef417a0ba5296a0cba849788d0027e3c276383e6c7b92dcecc467e28714b88",
+            "S15": "9df344e0678822e3ed01ff4e0372aeb4ecfd27ac40ac12eacdb8af8261bbde7f",
+            "S16": "751c5a211b139ac6460bbd8c6b268e57cc960ee261d6966e635c669f3b08dc7b",
+            "S17": "31ddac4fa14b035efc33b33ac308576be012dd66692a6f5602fc8fe747af1312",
+            "S18": "6e6ea452364f690f380a822b2e4a94b8804e9d5f73ea4b5e1ae33b3b7a34afc2",
+            "S19": "2c00379d93e2b1ccdd8dbe21fa2e6039aa659d229663b17a1668c373bea4f1f2",
+            "S20": "26313280a411d0ce78bc79af5baf78a542d0936943f1cd50396150b36a3e25d8",
+            "S21": "739903f7488bf6228a2a8582b1f434d9bcfe720971abf01bf8d6a1b69a9c30bb",
+            "S22": "c997c7f23503de62a1744ef1b63dedb35e0e8f2c7640afefd09b2b51a83cd850",
+            "S23": "d472b9fd31de62d5bf15d43bdda3b6ca4662fc1087d5b1535a90249107c55819",
+            "S24": "968a76d2aa12aa1dac57d4a552a2a1a581415687a9d4be0b6aab0d17dfbbd9c2",
+            "S25": "2940002e992b0e3be01d8315099174afc0b9eac023faaf2b1a1be5775bac6625",
+            "S26": "efa3ec1af0d3547f7803505770ea998e7f95606ab9dd7dcce09d20a05d2eef4d",
+            "S27": "c6e8662fb75fa7c20471c9295e6f354de0f6e991ca580cd54d3f35c2b4036743",
+            "S28": "0ef909c7dc69dd891b81b5b1ac5cac9ca0a171d0f3d63b0431c2dc20bfe9477d",
+            "S29": "461cf32f5bca6d9e3eb9f98d6b418d2d899d922e3d2f83056fafcf0770c7ece9",
+        },
+        "source_access_date": "2026-08-24",
+        "reuse_inventory_digests": {
+            "Datarim": "d3ee6d41ed69512090769b625071f6cb66a675cf158a304d9842f7572e2e2022",
+            "Talomnia knowledge": "c7be8e86c934bf3d5c578a58f982c4bc5a963086b5b9025ecd7aac9c2a2e4ed0",
+            "Talomnia site": "12293ff85d12837b8f6587338247ad5942995b7f17fa5e3ef4bd54eefcfcd639",
+        },
+        "candidates": {
+            "tal-role-design-lead@r4": "tal-role-design-lead",
+            "tal-role-knowledge-curator@r2": "tal-role-knowledge-curator",
+            "tal-role-evidence-auditor@r2": "tal-role-evidence-auditor",
+            "tal-role-deployment-operator@r2": "tal-role-deployment-operator",
+            "tal-skill-design-research@r3": "tal-skill-design-research",
+            "datarim-skill-frontend-ui@r2": "datarim-skill-frontend-ui",
+            "datarim-skill-playwright-qa@r2": "datarim-skill-playwright-qa",
+            "tal-skill-theming-anti-fouc@r3": "tal-skill-theming-anti-fouc",
+            "tal-skill-graph-neighbor-visualization@r1": (
+                "tal-skill-graph-neighbor-visualization"
+            ),
+            "tal-skill-success-criterion-measurement@r2": (
+                "tal-skill-success-criterion-measurement"
+            ),
+            "tal-blueprint-design-system-atlas@r4": "tal-blueprint-design-system-atlas",
+            "tal-blueprint-component-library@r4": "tal-blueprint-component-library",
+            "tal-blueprint-evidence-bearing-verification@r2": (
+                "tal-blueprint-evidence-bearing-verification"
+            ),
+            "tal-constraint-style-guide@r4": "tal-constraint-style-guide",
+            "tal-constraint-sanitized-projection@r2": (
+                "tal-constraint-sanitized-projection"
+            ),
+            "tal-policy-honesty-presentation@r2": "tal-policy-honesty-presentation",
+            "tal-sc-design-accessibility@r2": "tal-sc-design-accessibility",
+            "tal-sc-design-system@r2": "tal-sc-design-system",
+            "tal-capability-design-systems@r1": "tal-capability-design-systems",
+        },
+        "derived_records": {
+            "TALO-0032-planning-envelope": {
+                "record_type": "planning-envelope",
+                "pointers": {
+                    "/contract/contract_digest",
+                    "/contract/body/resolution_receipt_digest",
+                    "/issuance_envelope/envelope_digest",
+                },
+            },
+            "TALO-0050-planning-envelope": {
+                "record_type": "planning-envelope",
+                "pointers": {
+                    "/contract/contract_digest",
+                    "/contract/body/resolution_receipt_digest",
+                    "/issuance_envelope/envelope_digest",
+                },
+            },
+            "tal-skill-customer-narrative@r1": {
+                "record_type": "approved-artifact",
+                "pointers": {"/logical_id", "/revision_id", "/content_digest"},
+            },
+        },
+        "derived_record_digests": {
+            "TALO-0032-planning-envelope": (
+                "04242baf7ed9ca136834544e026a97066719bfb0eb6ef59d60f9a3bf91fab9f7"
+            ),
+            "TALO-0050-planning-envelope": (
+                "75a83dc112b762255430933c8cba72f1667cc630e41cacd1ecd6ada6b2c4bf27"
+            ),
+            "tal-skill-customer-narrative@r1": (
+                "005efa7b1838971d83636b488dad4f5b2088c5015ddc170e4c626953fdaeba37"
+            ),
+        },
+        "external_source_ids": {"S20", "S21", "S22", "S23", "S24", "S27", "S28", "S29"},
+        "comment_ids": {"5347868439", "5347971637"},
+        "authority_digests": {
+            "review": {
+                "R1": "5b37406cac3b41960b6ef5af7e0f7ce560d848d69f967add80140ca463db6376",
+                "R2": "cc27955f8359a33ff4ded408e45c3b1da473ab9d9f581036f4b60052fbb939ee",
+            },
+            "comment": {
+                "5347868439": "6385f20bbcca25c8f466aca170b583a45b5ef6ea395329a82ffaa3c42865648d",
+                "5347971637": "76f3d8d847c7cdcaf41607352601cce68fd222984f3d2b2ab7e4ad379cbe2eca",
+            },
+            "external": {
+                "S20": "1999a8fec8d1c0416f3dc50e4be1273433d2cda0ce6c9111dac95389bd6d16d5",
+                "S21": "7a1fc2ca019558ab0bcdc4712a96dea70c80d276934e3c53318df86616cabf30",
+                "S22": "cb0549eef61933724396bad09245787c71d9fae6b6b4dfa064f761af5d37241c",
+                "S23": "26dd3e8fce943400f0e1d6a77b21a2cce68b1499a78f6b816cb557a892adc6f6",
+                "S24": "f217d3e43f5966c34bd6c71d4279ff162ec0c02a2771fb58326b981819a19cb4",
+                "S27": "e9d595cf0c2bf5809841d89e74ac5e914424a174f43434e187fd920dda1f5cc5",
+                "S28": "565720ce3761d53f9d9ebcbeac2f4fecb28948318435afc9ba50896e19f0b1a8",
+                "S29": "bf3948e5527b245a128445782bd7c22caade47f53426508fc42c6ecd8eee84ac",
+            },
+            "candidate": {
+                "tal-role-design-lead@r4": "0d04287430bfbe55c55a6da54b8fd55f9b205a8eefb7dd5efc5a9c154a7ef2f8",
+                "tal-role-knowledge-curator@r2": "6e3eda2b64a3792167b2fdeff3be8c7e364ccc56516fe085c1716c654f7cd1a7",
+                "tal-role-evidence-auditor@r2": "6a78bcc6c41a48343c8f6de36c54fc88d0132f3e88c197708a19b588d5d7db3f",
+                "tal-role-deployment-operator@r2": "aea327f5ebd2cea155c511b479933d9171fa4f6cf1bbe7dfa24d6e003a73373e",
+                "tal-skill-design-research@r3": "f529ae316b7dd855a202c99524a2d2cb46ea5cbb8105c472d5c7c86e924a2a76",
+                "datarim-skill-frontend-ui@r2": "b77f9547d4f7e05d25a144086f651ab0eb9e9671cf0dcdfda99bb7ac9f67b16c",
+                "datarim-skill-playwright-qa@r2": "8bceb4b8ad8582c54cbc8a79547d78f8a5e287868b5d611041f8e25968c214fd",
+                "tal-skill-theming-anti-fouc@r3": "11cf37eef508ea239c04a0a12596d4bd8652334740f2fcdf81319329ceaca5fd",
+                "tal-skill-graph-neighbor-visualization@r1": "573a3fb828f8fd48cd500aa5dbda4e44a4759ab4f942355bcd18d58a6a1d591d",
+                "tal-skill-success-criterion-measurement@r2": "c43d594d47d1e0fdd3cd0bbe9a86f3474adef667871a2747413c0edd83aab633",
+                "tal-blueprint-design-system-atlas@r4": "2a69c6bfcbbe5e3753d50140a2f0cad226097538d03d8d5c3f9e5fbf12a0a94d",
+                "tal-blueprint-component-library@r4": "b41ebe35fe37a493f36fd9f972b4190f4044fcf688844cf80fe6a1c8e99e8354",
+                "tal-blueprint-evidence-bearing-verification@r2": "f7774ce22b37fc772f2348391ac4db827cb819ec35fec9ca70aa4849d327a418",
+                "tal-constraint-style-guide@r4": "e649d8c9d2df3a7aa1fbdf217cd0c492bf8efc93b15bb2c7c92c7aaf5e76220f",
+                "tal-constraint-sanitized-projection@r2": "83b380bddd85e0171d73ba39bd47e849a93eee6cef87aa2c88cfecd2c38492d9",
+                "tal-policy-honesty-presentation@r2": "ce574d27cd269327792e5757089cc61fe8f8021987de32739a3876e9ffef4821",
+                "tal-sc-design-accessibility@r2": "cb37394354caf36defb65086f12ecb6c26471405aef3dfaa33135bca35c0fb98",
+                "tal-sc-design-system@r2": "f947d712ab7982a658cb5e6b89903209a54eff848ec2e4f11c6538577f3b9dba",
+                "tal-capability-design-systems@r1": "ba294975237f82e959ad2f4f92b5c0d67ba6ee6b4402d4421d0f336a0035773b",
+            },
+        },
+    },
+    "TALO-TEST": {
+        "reviews": {"R1": 1, "R2": 1},
+        "item_table_rows": 2,
+        "candidates": {"candidate-role@r1": "candidate-role"},
+        "derived_records": {
+            "planning": {
+                "record_type": "planning-envelope",
+                "pointers": {
+                    "/contract/contract_digest",
+                    "/contract/body/resolution_receipt_digest",
+                    "/issuance_envelope/envelope_digest",
+                },
+            },
+            "candidate-role@r1": {
+                "record_type": "approved-artifact",
+                "pointers": {"/logical_id", "/revision_id", "/content_digest"},
+            },
+        },
+        "external_source_ids": {"S20"},
+        "comment_ids": {"101"},
+    },
+}
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Validate item-level research authority, candidate approvals, and source pins."
+    )
+    parser.add_argument("--manifest", required=True, type=Path)
+    parser.add_argument(
+        "--expected-task-id",
+        required=True,
+        help="Caller-bound audit profile identity; manifest data cannot select it.",
+    )
+    parser.add_argument("--insights", required=True, type=Path)
+    parser.add_argument("--knowledge-root", required=True, type=Path)
+    parser.add_argument(
+        "--comment-json",
+        action="append",
+        default=[],
+        metavar="ID=PATH",
+        help="GitHub API JSON response used to replay a canonical comment-body digest.",
+    )
+    parser.add_argument("--external-cache-dir", type=Path)
+    parser.add_argument(
+        "--verify-external-remote",
+        action="store_true",
+        help="Fetch each derived immutable raw URL and bind the cache to live remote bytes.",
+    )
+    return parser.parse_args()
+
+
+def json_depth_within_limit(value: Any) -> bool:
+    stack = [(value, 1)]
+    while stack:
+        current, depth = stack.pop()
+        if depth > MAX_JSON_DEPTH:
+            return False
+        if isinstance(current, dict):
+            stack.extend((child, depth + 1) for child in current.values())
+        elif isinstance(current, list):
+            stack.extend((child, depth + 1) for child in current)
+    return True
+
+
+def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
+def load_json(path: Path, label: str, findings: list[str]) -> Any | None:
+    try:
+        with path.open("rb") as handle:
+            content = handle.read(MAX_JSON_INPUT_BYTES + 1)
+    except OSError:
+        findings.append(f"invalid_json:{label}")
+        return None
+    if len(content) > MAX_JSON_INPUT_BYTES:
+        findings.append(f"input_resource_limit:bytes:{label}")
+        return None
+    return load_json_bytes(content, label, findings)
+
+
+def load_json_bytes(content: bytes, label: str, findings: list[str]) -> Any | None:
+    if len(content) > MAX_JSON_INPUT_BYTES:
+        findings.append(f"input_resource_limit:bytes:{label}")
+        return None
+    try:
+        value = json.loads(
+            content.decode("utf-8"), object_pairs_hook=reject_duplicate_keys
+        )
+    except RecursionError:
+        findings.append(f"input_resource_limit:depth:{label}")
+        return None
+    except (UnicodeError, json.JSONDecodeError, ValueError):
+        findings.append(f"invalid_json:{label}")
+        return None
+    if not json_depth_within_limit(value):
+        findings.append(f"input_resource_limit:depth:{label}")
+        return None
+    return value
+
+
+def safe_relative_path(root: Path, raw_path: Any) -> Path | None:
+    if not isinstance(raw_path, str):
+        return None
+    posix = PurePosixPath(raw_path)
+    if posix.is_absolute() or not posix.parts or ".." in posix.parts:
+        return None
+    candidate = root.joinpath(*posix.parts)
+    try:
+        candidate.resolve(strict=False).relative_to(root.resolve())
+    except (OSError, ValueError):
+        return None
+    return candidate
+
+
+def safe_git_source_path(raw_path: Any) -> PurePosixPath | None:
+    """Return an unambiguous repository-relative Git path, without filesystem I/O."""
+    if not isinstance(raw_path, str) or not raw_path or ":" in raw_path:
+        return None
+    posix = PurePosixPath(raw_path)
+    if (
+        posix.is_absolute()
+        or not posix.parts
+        or any(part in {".", ".."} for part in posix.parts)
+        or posix.as_posix() != raw_path
+    ):
+        return None
+    return posix
+
+
+def git_value(root: Path, *arguments: str) -> str | None:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), *arguments],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=5,
+            env={**os.environ, "GIT_NO_REPLACE_OBJECTS": "1"},
+        )
+    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        return None
+    return result.stdout.strip()
+
+
+def git_object_bytes(
+    root: Path,
+    snapshot: str,
+    raw_path: Any,
+    findings: list[str] | None = None,
+    label: str = "git-object",
+) -> bytes | None:
+    if safe_git_source_path(raw_path) is None:
+        return None
+    object_id = git_value(root, "rev-parse", "--verify", f"{snapshot}:{raw_path}")
+    if object_id is None or HEX40.fullmatch(object_id) is None:
+        return None
+    object_type = git_value(root, "cat-file", "-t", object_id)
+    if object_type != "blob":
+        if findings is not None:
+            findings.append(f"git_object_type_invalid:{label}")
+        return None
+    raw_size = git_value(root, "cat-file", "-s", object_id)
+    try:
+        object_size = int(raw_size) if raw_size is not None else -1
+    except ValueError:
+        object_size = -1
+    if object_size < 0:
+        if findings is not None:
+            findings.append(f"git_object_size_invalid:{label}")
+        return None
+    if object_size > MAX_EXTERNAL_SOURCE_BYTES:
+        if findings is not None:
+            findings.append(f"git_object_too_large:{label}")
+        return None
+    try:
+        with tempfile.TemporaryFile() as output:
+            result = subprocess.run(
+                ["git", "-C", str(root), "cat-file", "blob", object_id],
+                stdout=output,
+                stderr=subprocess.DEVNULL,
+                check=False,
+                timeout=5,
+                env={**os.environ, "GIT_NO_REPLACE_OBJECTS": "1"},
+            )
+            if result.returncode != 0:
+                return None
+            output.seek(0)
+            content = output.read(MAX_EXTERNAL_SOURCE_BYTES + 1)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if len(content) != object_size or len(content) > MAX_EXTERNAL_SOURCE_BYTES:
+        if findings is not None:
+            findings.append(f"git_object_size_mismatch:{label}")
+        return None
+    return content
+
+
+def git_blob_id(content: bytes) -> str | None:
+    if len(content) > MAX_EXTERNAL_SOURCE_BYTES:
+        return None
+    try:
+        with tempfile.TemporaryFile() as output:
+            result = subprocess.run(
+                ["git", "hash-object", "--stdin"],
+                input=content,
+                stdout=output,
+                stderr=subprocess.DEVNULL,
+                check=False,
+                timeout=5,
+            )
+            if result.returncode != 0:
+                return None
+            output.seek(0)
+            value = output.read(129).decode("ascii", errors="strict").strip()
+    except (OSError, UnicodeError, subprocess.SubprocessError):
+        return None
+    return value if HEX40.fullmatch(value) is not None else None
+
+
+def fetch_remote_source(url: str) -> bytes | None:
+    try:
+        with tempfile.TemporaryFile() as output:
+            result = subprocess.run(
+                [
+                    "curl",
+                    "--fail",
+                    "--silent",
+                    "--show-error",
+                    "--location",
+                    "--max-time",
+                    "15",
+                    "--max-filesize",
+                    str(MAX_EXTERNAL_SOURCE_BYTES),
+                    "--proto",
+                    "=https",
+                    url,
+                ],
+                stdout=output,
+                stderr=subprocess.DEVNULL,
+                check=False,
+                timeout=20,
+            )
+            if result.returncode != 0:
+                return None
+            output.seek(0)
+            content = output.read(MAX_EXTERNAL_SOURCE_BYTES + 1)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return content if len(content) <= MAX_EXTERNAL_SOURCE_BYTES else None
+
+
+def table_rows(insights: str) -> list[list[str]]:
+    rows: list[list[str]] = []
+    for line in insights.splitlines():
+        if not re.match(r"^\|\s*R[12]-[0-9]{2}\s*\|", line):
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) == 4 and ITEM_ID.fullmatch(cells[0]):
+            rows.append(cells)
+    return rows
+
+
+def item_table_digest(rows: list[list[str]]) -> str:
+    canonical = "\n".join("\x1f".join(cells) for cells in rows).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def source_item_headings(source_text: str) -> list[tuple[str, str]]:
+    matches = list(SOURCE_HEADING.finditer(source_text)) + list(
+        INLINE_SOURCE_HEADING.finditer(source_text)
+    )
+    matches.sort(key=lambda match: match.start())
+    return [
+        (match.group(1), re.sub(r"\s+", " ", match.group(2)).strip())
+        for match in matches
+    ]
+
+
+def mapping_targets(value: str) -> tuple[str, ...]:
+    targets = {f"TALO-{match}" for match in re.findall(r"TALO-([0-9]{4})", value)}
+    targets.update(
+        f"TALO-{match}"
+        for match in re.findall(r"(?<![A-Za-z0-9-])(00[0-9]{2})(?![0-9])", value)
+    )
+    if "all subtasks" in value.lower():
+        targets.add("ALL_SUBTASKS")
+    return tuple(sorted(targets))
+
+
+def mapping_rows(source_text: str) -> dict[str, tuple[str, ...]]:
+    result: dict[str, tuple[str, ...]] = {}
+    mapping_index: int | None = None
+    decision_index: int | None = None
+    for line in source_text.splitlines():
+        if not line.startswith("|"):
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) < 2:
+            continue
+        if "Subtask" in cells:
+            mapping_index = cells.index("Subtask")
+            decision_index = cells.index("Decision") if "Decision" in cells else None
+            continue
+        if "Lands in" in cells:
+            mapping_index = cells.index("Lands in")
+            decision_index = cells.index("Decision") if "Decision" in cells else None
+            continue
+        match = re.match(r"^(R[12]-[0-9]{2})(?:\s|$)", cells[0])
+        if match is not None:
+            selected_index = (
+                mapping_index if mapping_index is not None else len(cells) - 1
+            )
+            if selected_index < len(cells):
+                targets = set(mapping_targets(cells[selected_index]))
+                if decision_index is not None and decision_index < len(cells):
+                    targets.update(
+                        re.findall(
+                            r"(?i)routes?\s+to\s+(TALO-[0-9]{4})", cells[decision_index]
+                        )
+                    )
+                result[match.group(1)] = tuple(sorted(targets))
+    return result
+
+
+def validate_git_blob(
+    root: Path,
+    snapshot: str,
+    path_value: Any,
+    expected_blob: Any,
+    label: str,
+    findings: list[str],
+) -> bytes | None:
+    content = git_object_bytes(root, snapshot, path_value, findings, label)
+    if content is None:
+        findings.append(f"source_path_missing:{label}")
+        return None
+    actual_blob = git_value(root, "rev-parse", f"{snapshot}:{path_value}")
+    if not isinstance(expected_blob, str) or actual_blob != expected_blob:
+        findings.append(f"source_blob_mismatch:{label}")
+    return content
+
+
+def parse_comment_arguments(values: list[str], findings: list[str]) -> dict[str, Path]:
+    result: dict[str, Path] = {}
+    for value in values:
+        identifier, separator, raw_path = value.partition("=")
+        if not separator or not identifier or not raw_path or identifier in result:
+            findings.append("invalid_comment_json_argument")
+            continue
+        result[identifier] = Path(raw_path)
+    return result
+
+
+def validate_reviews_and_items(
+    manifest: dict[str, Any],
+    insights: str,
+    knowledge_root: Path,
+    snapshot: str,
+    comment_bodies: dict[str, str],
+    findings: list[str],
+) -> int:
+    reviews = manifest.get("reviews")
+    if not isinstance(reviews, list) or not reviews:
+        findings.append("reviews_missing")
+        return 0
+
+    source_headings: dict[str, str] = {}
+    source_mappings: dict[str, tuple[str, ...]] = {}
+    expected_ids: set[str] = set()
+    for review in reviews:
+        if not isinstance(review, dict):
+            findings.append("review_invalid")
+            continue
+        review_id = review.get("id")
+        expected_items = review.get("expected_items")
+        if (
+            review_id not in ("R1", "R2")
+            or not isinstance(expected_items, int)
+            or expected_items < 1
+        ):
+            findings.append(f"review_identity_invalid:{review_id}")
+            continue
+        source = validate_git_blob(
+            knowledge_root,
+            snapshot,
+            review.get("source_path"),
+            review.get("git_blob"),
+            review_id,
+            findings,
+        )
+        if source is not None:
+            try:
+                source_text = source.decode("utf-8")
+            except UnicodeError:
+                findings.append(f"source_unreadable:{review_id}")
+            else:
+                selected = source_item_headings(source_text)
+                if len(selected) != expected_items:
+                    findings.append(
+                        f"source_item_count_mismatch:{review_id}:expected={expected_items}:actual={len(selected)}"
+                    )
+                for item_id, heading in selected:
+                    if item_id in source_headings:
+                        findings.append(f"source_duplicate_item_id:{item_id}")
+                    source_headings[item_id] = heading
+        mapping_path = review.get("mapping_source_path")
+        if mapping_path is not None:
+            mapping_source = validate_git_blob(
+                knowledge_root,
+                snapshot,
+                mapping_path,
+                review.get("mapping_source_git_blob"),
+                f"{review_id}-mapping",
+                findings,
+            )
+            if mapping_source is not None:
+                try:
+                    source_mappings.update(mapping_rows(mapping_source.decode("utf-8")))
+                except UnicodeError:
+                    findings.append(f"mapping_source_unreadable:{review_id}")
+        mapping_comment_id = review.get("mapping_comment_id")
+        if mapping_comment_id is not None:
+            body = comment_bodies.get(str(mapping_comment_id))
+            if body is None:
+                findings.append(f"mapping_comment_evidence_missing:{review_id}")
+            else:
+                source_mappings.update(mapping_rows(body))
+        expected_ids.update(
+            f"{review_id}-{ordinal:02d}" for ordinal in range(1, expected_items + 1)
+        )
+
+    rows = table_rows(insights)
+    if "authorized_mapping_additions" in manifest:
+        findings.append("authorized_mapping_additions_forbidden")
+    counts = Counter(cells[0] for cells in rows)
+    for item_id in sorted(
+        identifier for identifier, count in counts.items() if count > 1
+    ):
+        findings.append(f"duplicate_item_id:{item_id}")
+    actual_ids = set(counts)
+    for review in reviews:
+        if not isinstance(review, dict) or review.get("id") not in ("R1", "R2"):
+            continue
+        review_id = review["id"]
+        expected_items = review.get("expected_items")
+        if not isinstance(expected_items, int):
+            continue
+        actual_count = sum(1 for cells in rows if cells[0].startswith(f"{review_id}-"))
+        if actual_count != expected_items:
+            findings.append(
+                f"item_count_mismatch:{review_id}:expected={expected_items}:actual={actual_count}"
+            )
+    for item_id in sorted(expected_ids - actual_ids):
+        findings.append(f"item_missing:{item_id}")
+    for item_id in sorted(actual_ids - expected_ids):
+        findings.append(f"unexpected_item:{item_id}")
+
+    for cells in rows:
+        item_id, heading, mapping, selection = cells
+        if source_headings.get(item_id) != heading:
+            findings.append(f"verbatim_heading_mismatch:{item_id}")
+        if (
+            TASK_REF.search(mapping) is None
+            and mapping != "Standing constraint -> all subtasks"
+        ):
+            findings.append(f"delivery_mapping_missing:{item_id}")
+        expected_mapping = source_mappings.get(item_id)
+        if expected_mapping is None:
+            findings.append(f"authoritative_mapping_missing:{item_id}")
+        else:
+            if set(mapping_targets(mapping)) != set(expected_mapping):
+                findings.append(f"delivery_mapping_mismatch:{item_id}")
+        if not selection.startswith(
+            ("Direct:", "Cross-functional:", "Human boundary:")
+        ):
+            findings.append(f"selection_applicability_invalid:{item_id}")
+        if "Rejected" in selection:
+            findings.append(f"selected_item_rejected:{item_id}")
+        if manifest.get("declared_language") == "en" and any(
+            CYRILLIC.search(cell) for cell in cells
+        ):
+            findings.append(f"declared_english_contains_cyrillic:{item_id}")
+
+    table_contract = manifest.get("item_table")
+    if not isinstance(table_contract, dict):
+        findings.append("item_table_contract_missing")
+    else:
+        if table_contract.get("canonicalization") != ITEM_ALGORITHM:
+            findings.append("item_table_canonicalization_invalid")
+        if table_contract.get("expected_rows") != len(rows):
+            findings.append("item_table_expected_rows_mismatch")
+        expected_digest = table_contract.get("sha256")
+        if (
+            not isinstance(expected_digest, str)
+            or item_table_digest(rows) != expected_digest
+        ):
+            findings.append("item_table_digest_mismatch")
+    return len(rows)
+
+
+def validate_comments(
+    manifest: dict[str, Any],
+    comment_paths: dict[str, Path],
+    insights: str,
+    findings: list[str],
+) -> dict[str, str]:
+    bodies: dict[str, str] = {}
+    if manifest.get("comment_body_digest_algorithm") != COMMENT_ALGORITHM:
+        findings.append("comment_body_digest_algorithm_invalid")
+    comments = manifest.get("comments")
+    if not isinstance(comments, list):
+        findings.append("comments_missing")
+        return bodies
+    seen: set[str] = set()
+    for comment in comments:
+        if not isinstance(comment, dict):
+            findings.append("comment_invalid")
+            continue
+        identifier = str(comment.get("id", ""))
+        if not identifier or identifier in seen:
+            findings.append(f"comment_id_invalid:{identifier}")
+            continue
+        seen.add(identifier)
+        repository = comment.get("repository")
+        issue_number = comment.get("issue_number")
+        canonical_navigation = f"https://github.com/{repository}/issues/{issue_number}#issuecomment-{identifier}"
+        canonical_issue_api = (
+            f"https://api.github.com/repos/{repository}/issues/{issue_number}"
+        )
+        if (
+            not isinstance(repository, str)
+            or re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository) is None
+            or not isinstance(issue_number, int)
+            or issue_number < 1
+        ):
+            findings.append(f"comment_issue_identity_invalid:{identifier}")
+        if comment.get("navigation_url") != canonical_navigation:
+            findings.append(f"comment_navigation_url_invalid:{identifier}")
+        if canonical_navigation not in insights:
+            findings.append(f"comment_navigation_not_documented:{identifier}")
+        expected = comment.get("body_sha256")
+        path = comment_paths.get(identifier)
+        if path is None:
+            findings.append(f"comment_body_evidence_missing:{identifier}")
+            continue
+        payload = load_json(path, f"comment-{identifier}", findings)
+        if not isinstance(payload, dict) or not isinstance(payload.get("body"), str):
+            findings.append(f"comment_body_invalid:{identifier}")
+            continue
+        if str(payload.get("id", "")) != identifier:
+            findings.append(f"comment_payload_id_mismatch:{identifier}")
+        if payload.get("html_url") != canonical_navigation:
+            findings.append(f"comment_payload_html_url_mismatch:{identifier}")
+        if payload.get("issue_url") != canonical_issue_api:
+            findings.append(f"comment_payload_issue_url_mismatch:{identifier}")
+        bodies[identifier] = payload["body"]
+        actual = hashlib.sha256(payload["body"].encode("utf-8")).hexdigest()
+        if not isinstance(expected, str) or actual != expected:
+            findings.append(f"comment_body_digest_mismatch:{identifier}")
+    return bodies
+
+
+def report_closed_set(
+    label: str,
+    actual_values: list[Any],
+    expected_values: set[str],
+    findings: list[str],
+) -> None:
+    if ":" in label:
+        category, identity = label.split(":", 1)
+        finding_prefix = f"{category}_set_mismatch:{identity}"
+    else:
+        finding_prefix = f"{label}_set_mismatch"
+    actual = {value for value in actual_values if isinstance(value, str)}
+    missing = sorted(expected_values - actual)
+    extra = sorted(actual - expected_values)
+    if missing:
+        findings.append(f"{finding_prefix}:missing={','.join(missing)}")
+    if extra:
+        findings.append(f"{finding_prefix}:extra={','.join(extra)}")
+    duplicates = sorted(
+        value
+        for value, count in Counter(
+            value for value in actual_values if isinstance(value, str)
+        ).items()
+        if count > 1
+    )
+    if duplicates:
+        findings.append(f"{finding_prefix}:duplicate={','.join(duplicates)}")
+
+
+def authority_projection_digest(entry: dict[str, Any], category: str) -> str:
+    projection = {
+        field: entry.get(field) for field in AUTHORITY_PROJECTION_FIELDS[category]
+    }
+    canonical = json.dumps(
+        projection, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def source_register_entries(insights: str, findings: list[str]) -> list[dict[str, str]]:
+    entries: list[dict[str, str]] = []
+    for line in insights.splitlines():
+        if re.match(r"^\|\s*S[0-9]{2}\s*\|", line) is None:
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        source_id = cells[0] if cells else "unknown"
+        if len(cells) != 4 or SOURCE_REGISTER_ID.fullmatch(source_id) is None:
+            findings.append(f"source_register_row_invalid:{source_id}")
+            continue
+        selection = SOURCE_REGISTER_SELECTION.fullmatch(cells[3])
+        if selection is None:
+            findings.append(f"source_register_selection_invalid:{source_id}")
+            continue
+        entries.append(
+            {
+                "id": source_id,
+                "authority_url": cells[1],
+                "applicability": cells[2],
+                "selected_label": selection.group(1),
+                "selected": selection.group(2),
+                "rejected": selection.group(3),
+            }
+        )
+    return entries
+
+
+def source_register_entry_digest(entry: dict[str, str]) -> str:
+    canonical = json.dumps(
+        entry, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def reuse_inventory_entries(insights: str) -> list[dict[str, str]]:
+    entries: list[dict[str, str]] = []
+    for line in insights.splitlines():
+        if re.match(r"^\| (Datarim|Talomnia knowledge|Talomnia site) \|", line) is None:
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) != 3:
+            continue
+        entries.append(
+            {
+                "repository": cells[0],
+                "snapshot": cells[1].strip("`"),
+                "scope": cells[2],
+            }
+        )
+    return entries
+
+
+def validate_source_register_profile(
+    insights: str, expected_task_id: str, findings: list[str]
+) -> None:
+    profile = CLOSED_AUDIT_PROFILES.get(expected_task_id)
+    if profile is None:
+        findings.append(f"expected_task_profile_missing:{expected_task_id}")
+        return
+    expected_digests = profile.get("source_register_digests")
+    if not isinstance(expected_digests, dict):
+        return
+    entries = source_register_entries(insights, findings)
+    report_closed_set(
+        "source_register",
+        [entry["id"] for entry in entries],
+        set(expected_digests),
+        findings,
+    )
+    for entry in entries:
+        source_id = entry["id"]
+        expected = expected_digests.get(source_id)
+        if expected is not None and source_register_entry_digest(entry) != expected:
+            findings.append(f"source_register_authority_mismatch:{source_id}")
+
+    expected_access_date = profile.get("source_access_date")
+    if isinstance(expected_access_date, str):
+        access_dates = SOURCE_ACCESS_DATE.findall(insights)
+        if not access_dates:
+            findings.append("source_access_date_missing")
+        if len(access_dates) > 1:
+            findings.append("source_access_date_duplicate")
+        for access_date in access_dates:
+            if access_date != expected_access_date:
+                findings.append(
+                    "source_access_date_authority_mismatch:"
+                    f"expected={expected_access_date}:actual={access_date}"
+                )
+            try:
+                parsed_access_date = date.fromisoformat(access_date)
+            except ValueError:
+                findings.append(f"source_access_date_invalid:{access_date}")
+                continue
+            if parsed_access_date > datetime.now(timezone.utc).date():
+                findings.append(f"source_access_date_future:{access_date}")
+
+    expected_reuse = profile.get("reuse_inventory_digests")
+    if isinstance(expected_reuse, dict):
+        reuse_entries = reuse_inventory_entries(insights)
+        report_closed_set(
+            "reuse_inventory",
+            [entry["repository"] for entry in reuse_entries],
+            set(expected_reuse),
+            findings,
+        )
+        for entry in reuse_entries:
+            repository = entry["repository"]
+            expected = expected_reuse.get(repository)
+            if expected is None:
+                continue
+            if source_register_entry_digest(entry) != expected:
+                findings.append(f"reuse_inventory_authority_mismatch:{repository}")
+
+
+def validate_authority_digests(
+    entries: list[Any],
+    category: str,
+    identity_field: str,
+    expected_digests: dict[str, str],
+    findings: list[str],
+) -> None:
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        identity = str(entry.get(identity_field))
+        expected = expected_digests.get(identity)
+        if expected is None:
+            continue
+        if authority_projection_digest(entry, category) != expected:
+            findings.append(f"{category}_authority_mismatch:{identity}")
+
+
+def validate_closed_profile(
+    manifest: dict[str, Any], expected_task_id: str, findings: list[str]
+) -> None:
+    profile = CLOSED_AUDIT_PROFILES.get(expected_task_id)
+    if profile is None:
+        findings.append(f"expected_task_profile_missing:{expected_task_id}")
+        return
+    task_id = manifest.get("task_id")
+    if task_id != expected_task_id:
+        findings.append(
+            f"task_id_mismatch:expected={expected_task_id}:actual={task_id}"
+        )
+    expected_snapshot = profile.get("knowledge_snapshot")
+    if (
+        expected_snapshot is not None
+        and manifest.get("knowledge_snapshot") != expected_snapshot
+    ):
+        findings.append("knowledge_snapshot_authority_mismatch")
+
+    reviews = manifest.get("reviews")
+    review_entries = reviews if isinstance(reviews, list) else []
+    expected_reviews = profile.get("reviews", {})
+    report_closed_set(
+        "review",
+        [entry.get("id") for entry in review_entries if isinstance(entry, dict)],
+        set(expected_reviews),
+        findings,
+    )
+    for review in review_entries:
+        if not isinstance(review, dict) or review.get("id") not in expected_reviews:
+            continue
+        review_id = review["id"]
+        expected_items = expected_reviews[review_id]
+        if review.get("expected_items") != expected_items:
+            findings.append(
+                f"review_item_count_mismatch:{review_id}:"
+                f"expected={expected_items}:actual={review.get('expected_items')}"
+            )
+
+    expected_item_table_rows = profile.get("item_table_rows")
+    if expected_item_table_rows != sum(expected_reviews.values()):
+        findings.append("closed_profile_item_count_invalid")
+    item_table = manifest.get("item_table")
+    actual_item_table_rows = (
+        item_table.get("expected_rows") if isinstance(item_table, dict) else None
+    )
+    if actual_item_table_rows != expected_item_table_rows:
+        findings.append(
+            "item_table_expected_rows_mismatch:"
+            f"expected={expected_item_table_rows}:actual={actual_item_table_rows}"
+        )
+    expected_item_table_digest = profile.get("item_table_sha256")
+    actual_item_table_digest = (
+        item_table.get("sha256") if isinstance(item_table, dict) else None
+    )
+    if (
+        expected_item_table_digest is not None
+        and actual_item_table_digest != expected_item_table_digest
+    ):
+        findings.append("item_table_digest_authority_mismatch")
+
+    candidates = manifest.get("candidates")
+    candidate_entries = candidates if isinstance(candidates, list) else []
+    report_closed_set(
+        "candidate",
+        [
+            entry.get("revision_id")
+            for entry in candidate_entries
+            if isinstance(entry, dict)
+        ],
+        set(profile["candidates"]),
+        findings,
+    )
+
+    records = manifest.get("derived_records")
+    record_entries = records if isinstance(records, list) else []
+    expected_records = profile["derived_records"]
+    report_closed_set(
+        "derived_record",
+        [entry.get("id") for entry in record_entries if isinstance(entry, dict)],
+        set(expected_records),
+        findings,
+    )
+    for record in record_entries:
+        if not isinstance(record, dict) or record.get("id") not in expected_records:
+            continue
+        record_id = record["id"]
+        expected_record = expected_records[record_id]
+        if record.get("record_type") != expected_record["record_type"]:
+            findings.append(f"derived_record_type_mismatch:{record_id}")
+        assertions = record.get("assertions")
+        if isinstance(assertions, list):
+            pointers = [
+                assertion.get("json_pointer")
+                for assertion in assertions
+                if isinstance(assertion, dict)
+            ]
+            report_closed_set(
+                f"derived_record_assertion:{record_id}",
+                pointers,
+                set(expected_record["pointers"]),
+                findings,
+            )
+        expected_record_digest = profile.get("derived_record_digests", {}).get(
+            record_id
+        )
+        if expected_record_digest is not None:
+            canonical_record = json.dumps(
+                record, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+            ).encode("utf-8")
+            if hashlib.sha256(canonical_record).hexdigest() != expected_record_digest:
+                findings.append(f"derived_record_authority_mismatch:{record_id}")
+
+    pins = manifest.get("external_pins")
+    pin_entries = pins if isinstance(pins, list) else []
+    report_closed_set(
+        "external_pin",
+        [entry.get("source_id") for entry in pin_entries if isinstance(entry, dict)],
+        set(profile["external_source_ids"]),
+        findings,
+    )
+
+    comments = manifest.get("comments")
+    comment_entries = comments if isinstance(comments, list) else []
+    report_closed_set(
+        "comment",
+        [str(entry.get("id")) for entry in comment_entries if isinstance(entry, dict)],
+        set(profile["comment_ids"]),
+        findings,
+    )
+
+    authority_digests = profile.get("authority_digests")
+    if isinstance(authority_digests, dict):
+        validate_authority_digests(
+            review_entries,
+            "review",
+            "id",
+            authority_digests.get("review", {}),
+            findings,
+        )
+        validate_authority_digests(
+            comment_entries,
+            "comment",
+            "id",
+            authority_digests.get("comment", {}),
+            findings,
+        )
+        validate_authority_digests(
+            pin_entries,
+            "external",
+            "source_id",
+            authority_digests.get("external", {}),
+            findings,
+        )
+        validate_authority_digests(
+            candidate_entries,
+            "candidate",
+            "revision_id",
+            authority_digests.get("candidate", {}),
+            findings,
+        )
+
+
+def validate_candidates(
+    manifest: dict[str, Any],
+    expected_task_id: str,
+    insights: str,
+    knowledge_root: Path,
+    snapshot: str,
+    findings: list[str],
+) -> int:
+    candidates = manifest.get("candidates")
+    if not isinstance(candidates, list):
+        findings.append("candidates_missing")
+        return 0
+    authority_bytes = git_object_bytes(
+        knowledge_root,
+        snapshot,
+        manifest.get("authority_events_path"),
+        findings,
+        "candidate-authority-events",
+    )
+    events = (
+        load_json_bytes(authority_bytes, "authority-events", findings)
+        if authority_bytes is not None
+        else None
+    )
+    if not isinstance(events, list):
+        findings.append("authority_events_invalid")
+        events = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            findings.append("candidate_invalid")
+            continue
+        revision_id = candidate.get("revision_id")
+        path_value = candidate.get("path")
+        expected_git_blob = candidate.get("git_blob")
+        content_digest = candidate.get("content_digest")
+        if not isinstance(revision_id, str) or revision_id in seen:
+            findings.append(f"candidate_revision_duplicate:{revision_id}")
+            continue
+        seen.add(revision_id)
+        actual_git_blob = git_value(
+            knowledge_root, "rev-parse", "--verify", f"{snapshot}:{path_value}"
+        )
+        if expected_git_blob is not None and actual_git_blob != expected_git_blob:
+            findings.append(f"candidate_git_blob_mismatch:{revision_id}")
+        candidate_bytes = git_object_bytes(
+            knowledge_root, snapshot, path_value, findings, f"candidate:{revision_id}"
+        )
+        if candidate_bytes is None:
+            findings.append(f"candidate_path_missing:{revision_id}")
+            continue
+        payload = load_json_bytes(candidate_bytes, f"candidate-{revision_id}", findings)
+        if not isinstance(payload, dict):
+            continue
+        expected_logical_id = (
+            CLOSED_AUDIT_PROFILES.get(expected_task_id, {})
+            .get("candidates", {})
+            .get(revision_id)
+        )
+        if payload.get("logical_id") != expected_logical_id:
+            findings.append(f"candidate_logical_id_mismatch:{revision_id}")
+        if payload.get("revision_id") != revision_id:
+            findings.append(f"candidate_revision_mismatch:{revision_id}")
+        if payload.get("content_digest") != content_digest:
+            findings.append(f"candidate_digest_mismatch:{revision_id}")
+        documented = any(
+            isinstance(value, str) and value in line
+            for value in (path_value, revision_id, content_digest)
+            for line in insights.splitlines()
+            if all(
+                str(required) in line
+                for required in (path_value, revision_id, content_digest)
+            )
+        )
+        if not documented:
+            findings.append(f"candidate_not_documented:{revision_id}")
+        matching = [
+            event
+            for event in events
+            if isinstance(event, dict)
+            and isinstance(event.get("subject"), dict)
+            and event["subject"].get("id") == revision_id
+        ]
+        if not matching:
+            findings.append(f"candidate_authority_missing:{revision_id}")
+            continue
+        latest = max(
+            enumerate(matching),
+            key=lambda pair: (str(pair[1].get("issued_at", "")), pair[0]),
+        )[1]
+        if latest.get("event_type") != "approve":
+            findings.append(
+                f"candidate_latest_authority_not_approve:{revision_id}:{latest.get('event_type')}"
+            )
+        subject = latest.get("subject", {})
+        if subject.get("content_digest") != content_digest:
+            findings.append(f"candidate_authority_digest_mismatch:{revision_id}")
+    return len(candidates)
+
+
+def validate_derived_records(
+    manifest: dict[str, Any],
+    insights: str,
+    knowledge_root: Path,
+    snapshot: str,
+    findings: list[str],
+) -> None:
+    records = manifest.get("derived_records", [])
+    if not isinstance(records, list):
+        findings.append("derived_records_invalid")
+        return
+    authority_bytes = git_object_bytes(
+        knowledge_root,
+        snapshot,
+        manifest.get("authority_events_path"),
+        findings,
+        "derived-authority-events",
+    )
+    authority_events = (
+        load_json_bytes(authority_bytes, "derived-authority-events", findings)
+        if authority_bytes is not None
+        else []
+    )
+    if not isinstance(authority_events, list):
+        authority_events = []
+
+    def pointer_value(payload: Any, pointer: str) -> Any:
+        if not pointer.startswith("/"):
+            raise KeyError(pointer)
+        current = payload
+        for token in pointer[1:].split("/"):
+            token = token.replace("~1", "/").replace("~0", "~")
+            if isinstance(current, dict) and token in current:
+                current = current[token]
+            elif (
+                isinstance(current, list)
+                and token.isdigit()
+                and int(token) < len(current)
+            ):
+                current = current[int(token)]
+            else:
+                raise KeyError(pointer)
+        return current
+
+    for record in records:
+        if not isinstance(record, dict) or not isinstance(record.get("id"), str):
+            findings.append("derived_record_invalid")
+            continue
+        record_id = record["id"]
+        evidence_bytes = git_object_bytes(
+            knowledge_root,
+            snapshot,
+            record.get("evidence_path"),
+            findings,
+            f"derived:{record_id}",
+        )
+        if evidence_bytes is None:
+            findings.append(f"derived_record_path_missing:{record_id}")
+            continue
+        payload = load_json_bytes(evidence_bytes, f"derived-{record_id}", findings)
+        if payload is None:
+            continue
+        assertions = record.get("assertions")
+        if not isinstance(assertions, list) or not assertions:
+            findings.append(f"derived_record_assertions_missing:{record_id}")
+            continue
+        for assertion in assertions:
+            if not isinstance(assertion, dict):
+                findings.append(f"derived_record_assertion_invalid:{record_id}")
+                continue
+            pointer = assertion.get("json_pointer")
+            expected = assertion.get("equals")
+            if not isinstance(pointer, str) or not isinstance(expected, str):
+                findings.append(f"derived_record_assertion_invalid:{record_id}")
+                continue
+            try:
+                actual = pointer_value(payload, pointer)
+            except KeyError:
+                actual = None
+            if actual != expected:
+                findings.append(
+                    f"derived_record_pointer_mismatch:{record_id}:{pointer}"
+                )
+            if expected not in insights:
+                findings.append(f"derived_record_not_documented:{record_id}:{pointer}")
+        authority_required = record.get("authority_required")
+        if authority_required is not None:
+            revision_id = record.get("authority_revision_id")
+            content_digest = record.get("authority_content_digest")
+            matching = [
+                event
+                for event in authority_events
+                if isinstance(event, dict)
+                and isinstance(event.get("subject"), dict)
+                and event["subject"].get("id") == revision_id
+            ]
+            if not matching:
+                findings.append(f"derived_record_authority_missing:{record_id}")
+                continue
+            latest = max(
+                enumerate(matching),
+                key=lambda pair: (str(pair[1].get("issued_at", "")), pair[0]),
+            )[1]
+            if latest.get("event_type") != authority_required:
+                findings.append(f"derived_record_authority_state_mismatch:{record_id}")
+            if latest.get("subject", {}).get("content_digest") != content_digest:
+                findings.append(f"derived_record_authority_digest_mismatch:{record_id}")
+
+
+def validate_external_pins(
+    manifest: dict[str, Any],
+    insights: str,
+    cache_dir: Path | None,
+    verify_remote: bool,
+    findings: list[str],
+) -> int:
+    pins = manifest.get("external_pins")
+    if not isinstance(pins, list) or not pins:
+        findings.append("external_pins_missing")
+        return 0
+    seen: set[str] = set()
+    for pin in pins:
+        if not isinstance(pin, dict):
+            findings.append("external_pin_invalid")
+            continue
+        source_id = pin.get("source_id")
+        if not isinstance(source_id, str) or source_id in seen:
+            findings.append(f"external_pin_id_invalid:{source_id}")
+            continue
+        seen.add(source_id)
+        commit = pin.get("commit")
+        blob = pin.get("git_blob")
+        digest = pin.get("content_sha256")
+        immutable_url = pin.get("immutable_url")
+        repository = pin.get("repository")
+        source_path = pin.get("path")
+        repository_valid = (
+            isinstance(repository, str)
+            and re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository) is not None
+        )
+        source_path_valid = safe_git_source_path(source_path) is not None
+        if not repository_valid:
+            findings.append(f"external_pin_repository_invalid:{source_id}")
+        if not source_path_valid:
+            findings.append(f"external_pin_path_invalid:{source_id}")
+        if not isinstance(commit, str) or HEX40.fullmatch(commit) is None:
+            findings.append(f"external_pin_commit_invalid:{source_id}")
+        if not isinstance(blob, str) or HEX40.fullmatch(blob) is None:
+            findings.append(f"external_pin_blob_invalid:{source_id}")
+        if not isinstance(digest, str) or HEX64.fullmatch(digest) is None:
+            findings.append(f"external_pin_content_digest_invalid:{source_id}")
+        expected_immutable = f"https://github.com/{repository}/blob/{commit}/{quote(str(source_path), safe='/')}"
+        if immutable_url != expected_immutable:
+            findings.append(f"external_pin_immutable_url_invalid:{source_id}")
+        navigation_url = pin.get("navigation_url")
+        if not isinstance(navigation_url, str) or not any(
+            source_id in line and navigation_url in line
+            for line in insights.splitlines()
+        ):
+            findings.append(f"external_pin_navigation_not_documented:{source_id}")
+        if cache_dir is None:
+            findings.append(f"external_pin_cache_missing:{source_id}")
+            continue
+        cache_path = safe_relative_path(cache_dir, pin.get("cache_file"))
+        if cache_path is None or not cache_path.is_file():
+            findings.append(f"external_pin_cache_missing:{source_id}")
+            continue
+        try:
+            with cache_path.open("rb") as handle:
+                content = handle.read(MAX_EXTERNAL_SOURCE_BYTES + 1)
+        except OSError:
+            findings.append(f"external_pin_cache_unreadable:{source_id}")
+            continue
+        if len(content) > MAX_EXTERNAL_SOURCE_BYTES:
+            findings.append(f"external_pin_cache_too_large:{source_id}")
+            continue
+        actual_digest = hashlib.sha256(content).hexdigest()
+        actual_blob = git_blob_id(content)
+        if actual_digest != digest:
+            findings.append(f"external_pin_content_digest_mismatch:{source_id}")
+        if actual_blob is None:
+            findings.append(f"external_pin_blob_computation_failed:{source_id}")
+        elif actual_blob != blob:
+            findings.append(f"external_pin_blob_mismatch:{source_id}")
+        if (
+            verify_remote
+            and repository_valid
+            and source_path_valid
+            and isinstance(commit, str)
+        ):
+            raw_url = (
+                f"https://raw.githubusercontent.com/{repository}/{commit}/"
+                f"{quote(source_path, safe='/')}"
+            )
+            remote_content = fetch_remote_source(raw_url)
+            if remote_content is None:
+                findings.append(f"external_pin_remote_fetch_failed:{source_id}")
+            else:
+                if remote_content != content:
+                    findings.append(f"external_pin_remote_cache_mismatch:{source_id}")
+                if hashlib.sha256(remote_content).hexdigest() != digest:
+                    findings.append(f"external_pin_remote_digest_mismatch:{source_id}")
+                remote_blob = git_blob_id(remote_content)
+                if remote_blob is None:
+                    findings.append(
+                        f"external_pin_remote_blob_computation_failed:{source_id}"
+                    )
+                elif remote_blob != blob:
+                    findings.append(f"external_pin_remote_blob_mismatch:{source_id}")
+    return len(pins)
+
+
+def main() -> int:
+    args = parse_args()
+    findings: list[str] = []
+    manifest = load_json(args.manifest, "manifest", findings)
+    if not isinstance(manifest, dict):
+        print("research_authority_audit=ERROR finding=invalid_manifest")
+        for finding in dict.fromkeys(findings):
+            print(f"finding={finding}")
+        return 2
+    try:
+        with args.insights.open("rb") as handle:
+            insights_bytes = handle.read(MAX_TEXT_INPUT_BYTES + 1)
+    except (OSError, UnicodeError):
+        print("research_authority_audit=ERROR finding=invalid_insights")
+        return 2
+    if len(insights_bytes) > MAX_TEXT_INPUT_BYTES:
+        print(
+            "research_authority_audit=ERROR finding=input_resource_limit:bytes:insights"
+        )
+        return 2
+    try:
+        insights = insights_bytes.decode("utf-8")
+    except UnicodeError:
+        print("research_authority_audit=ERROR finding=invalid_insights")
+        return 2
+    knowledge_root = args.knowledge_root.resolve()
+    if not knowledge_root.is_dir():
+        print("research_authority_audit=ERROR finding=invalid_knowledge_root")
+        return 2
+
+    if manifest.get("schema_version") != "datarim.research-authority-audit/v1":
+        findings.append("schema_version_invalid")
+    if manifest.get("declared_language") != "en":
+        findings.append("declared_language_invalid")
+    validate_closed_profile(manifest, args.expected_task_id, findings)
+    validate_source_register_profile(insights, args.expected_task_id, findings)
+    snapshot = manifest.get("knowledge_snapshot")
+    actual_head = git_value(knowledge_root, "rev-parse", "HEAD")
+    if (
+        not isinstance(snapshot, str)
+        or not HEX40.fullmatch(snapshot)
+        or actual_head != snapshot
+    ):
+        findings.append("knowledge_snapshot_mismatch")
+        snapshot = actual_head or "HEAD"
+
+    comment_paths = parse_comment_arguments(args.comment_json, findings)
+    comment_bodies = validate_comments(manifest, comment_paths, insights, findings)
+    item_count = validate_reviews_and_items(
+        manifest, insights, knowledge_root, snapshot, comment_bodies, findings
+    )
+    candidate_count = validate_candidates(
+        manifest, args.expected_task_id, insights, knowledge_root, snapshot, findings
+    )
+    validate_derived_records(manifest, insights, knowledge_root, snapshot, findings)
+    external_count = validate_external_pins(
+        manifest,
+        insights,
+        args.external_cache_dir,
+        args.verify_external_remote,
+        findings,
+    )
+
+    unique_findings = list(dict.fromkeys(findings))
+    if unique_findings:
+        print("research_authority_audit=NOT_MET")
+        for finding in unique_findings:
+            print(f"finding={finding}")
+        return 1
+    print(
+        "research_authority_audit=MET "
+        f"items={item_count} candidates={candidate_count} external_pins={external_count}"
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
