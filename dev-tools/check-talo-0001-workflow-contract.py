@@ -215,7 +215,7 @@ def validate_trusted(workflow: dict[str, Any], findings: list[str]) -> None:
                 "BASE_SHA": "${{ github.event.workflow_run.pull_requests[0].base.sha }}",
                 "TRUSTED_RUN_ID": "${{ github.run_id }}",
                 "TRUSTED_RUN_ATTEMPT": "${{ github.run_attempt }}",
-                "TRUSTED_WORKFLOW_SHA": "${{ github.workflow_sha }}",
+                "EVENT_WORKFLOW_SHA": "${{ github.workflow_sha }}",
                 "SOURCE_RUN_ID": "${{ github.event.workflow_run.id }}",
                 "SOURCE_RUN_ATTEMPT": "${{ github.event.workflow_run.run_attempt }}",
             },
@@ -223,24 +223,47 @@ def validate_trusted(workflow: dict[str, Any], findings: list[str]) -> None:
                 "set -euo pipefail\n"
                 '[[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]\n'
                 '[[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]]\n'
-                '[[ "$TRUSTED_WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]\n'
+                '[[ "$EVENT_WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]\n'
                 '[[ "$TRUSTED_RUN_ID" =~ ^[1-9][0-9]*$ ]]\n'
                 '[[ "$TRUSTED_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]\n'
                 '[[ "$SOURCE_RUN_ID" =~ ^[1-9][0-9]*$ ]]\n'
                 '[[ "$SOURCE_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]\n'
+                "live_main_response=''\n"
+                "trusted_workflow_sha=''\n"
+                "if live_main_response=$(gh api repos/Arcanada-one/datarim/git/ref/heads/main); then\n"
+                "  trusted_workflow_sha=$(jq -er '\n"
+                '    select(type == "object" and (keys | sort) == ["node_id","object","ref","url"])\n'
+                '    | select(.ref == "refs/heads/main")\n'
+                '    | select(.node_id | type == "string" and length > 0)\n'
+                '    | select(.url == "https://api.github.com/repos/Arcanada-one/datarim/git/refs/heads/main")\n'
+                "    | .object\n"
+                '    | select(type == "object" and (keys | sort) == ["sha","type","url"])\n'
+                '    | select(.type == "commit")\n'
+                '    | select(.url == ("https://api.github.com/repos/Arcanada-one/datarim/git/commits/" + .sha))\n'
+                "    | .sha\n"
+                '    | select(type == "string" and test("^[0-9a-f]{40}$"))\n'
+                "  ' <<<\"$live_main_response\" 2>/dev/null || true)\n"
+                "fi\n"
+                "live_main_available=true\n"
+                'if [[ ! "$trusted_workflow_sha" =~ ^[0-9a-f]{40}$ ]]; then\n'
+                "  live_main_available=false\n"
+                "  trusted_workflow_sha=$EVENT_WORKFLOW_SHA\n"
+                "fi\n"
                 "expected_nonce=$(\n"
                 "  printf 'trusted_run_id=%s\\ntrusted_run_attempt=%s\\nworkflow_sha=%s\\nsource_run_id=%s\\nsource_run_attempt=%s\\nhead_sha=%s\\nbase_sha=%s\\n' \\\n"
-                '    "$TRUSTED_RUN_ID" "$TRUSTED_RUN_ATTEMPT" "$TRUSTED_WORKFLOW_SHA" \\\n'
+                '    "$TRUSTED_RUN_ID" "$TRUSTED_RUN_ATTEMPT" "$trusted_workflow_sha" \\\n'
                 '    "$SOURCE_RUN_ID" "$SOURCE_RUN_ATTEMPT" "$HEAD_SHA" "$BASE_SHA" \\\n'
                 "    | sha256sum | cut -d' ' -f1\n"
                 ")\n"
-                'if [ "$BASE_SHA" != "$TRUSTED_WORKFLOW_SHA" ]; then\n'
+                'if [ "$live_main_available" != true ] \\\n'
+                '  || [ "$EVENT_WORKFLOW_SHA" != "$trusted_workflow_sha" ] \\\n'
+                '  || [ "$BASE_SHA" != "$trusted_workflow_sha" ]; then\n'
                 "  response=$(gh api --method POST repos/Arcanada-one/datarim/check-runs \\\n"
                 '    -f name=talo-0001-privileged-replay -f head_sha="$HEAD_SHA" \\\n'
                 "    -f status=completed -f conclusion=failure \\\n"
                 '    -f external_id="$expected_nonce" \\\n'
                 "    -f 'output[title]=TALO-0001 trusted replay' \\\n"
-                "    -f 'output[summary]=Source run base is not current trusted main.')\n"
+                "    -f 'output[summary]=Controller or source base is not verified against live main.')\n"
                 '  jq -e --arg head "$HEAD_SHA" --arg nonce "$expected_nonce" \\\n'
                 "    'select(.name == \"talo-0001-privileged-replay\" and .head_sha == $head and .external_id == $nonce and .status == \"completed\" and .conclusion == \"failure\") | .id | select(type == \"number\" and . > 0 and floor == .)' \\\n"
                 '    <<<"$response" >/dev/null\n'
@@ -265,7 +288,7 @@ def validate_trusted(workflow: dict[str, Any], findings: list[str]) -> None:
                 '    "$HEAD_SHA" "$BASE_SHA" "$TRUSTED_RUN_ID" \\\n'
                 '    "$TRUSTED_RUN_ATTEMPT"\n'
                 "  printf 'workflow_sha=%s\\nsource_run_id=%s\\nsource_run_attempt=%s\\n' \\\n"
-                '    "$TRUSTED_WORKFLOW_SHA" "$SOURCE_RUN_ID" \\\n'
+                '    "$trusted_workflow_sha" "$SOURCE_RUN_ID" \\\n'
                 '    "$SOURCE_RUN_ATTEMPT"\n'
                 '} >>"$GITHUB_OUTPUT"\n'
             ),
@@ -356,7 +379,7 @@ def validate_trusted(workflow: dict[str, Any], findings: list[str]) -> None:
         "name": "talo-0001-current-verdict-initializer",
         "if": EXPECTED_JOB_IF,
         "runs-on": "ubuntu-latest",
-        "permissions": {"checks": "write"},
+        "permissions": {"checks": "write", "contents": "read"},
         "timeout-minutes": 2,
         "outputs": {
             "check_id": "${{ steps.initialize-verdict.outputs.check_id }}",

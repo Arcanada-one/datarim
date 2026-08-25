@@ -372,13 +372,13 @@ assert set(workflow["jobs"]) == {"initialize", "replay"}
 initializer = workflow["jobs"]["initialize"]
 replay = workflow["jobs"]["replay"]
 assert initializer["runs-on"] == "ubuntu-latest"
-assert initializer["permissions"] == {"checks": "write"}
+assert initializer["permissions"] == {"checks": "write", "contents": "read"}
 assert len(initializer["steps"]) == 1
 assert all("uses" not in step for step in initializer["steps"])
 step = initializer["steps"][0]
 assert set(step["env"]) == {
     "GH_TOKEN", "HEAD_SHA", "BASE_SHA", "TRUSTED_RUN_ID",
-    "TRUSTED_RUN_ATTEMPT", "TRUSTED_WORKFLOW_SHA", "SOURCE_RUN_ID",
+    "TRUSTED_RUN_ATTEMPT", "EVENT_WORKFLOW_SHA", "SOURCE_RUN_ID",
     "SOURCE_RUN_ATTEMPT",
 }
 assert step["env"]["GH_TOKEN"] == "${{ github.token }}"
@@ -404,6 +404,30 @@ PY
     run_check
     [ "$status" -eq 1 ]
     [[ "$output" == *'mismatch:trusted-replay-job'* ]]
+}
+
+@test "hosted live-main API authority is exact and least-privileged" {
+    local workflow="$FIXTURE/.github/workflows/talo-0001-trusted-replay.yml"
+    local original="$BATS_TEST_TMPDIR/live-main-auth.original"
+    cp "$workflow" "$original"
+
+    sed -i '/      contents: read/d' "$workflow"
+    run_check
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'mismatch:trusted-initializer-job'* ]]
+
+    cp "$original" "$workflow"
+    sed -i '0,/GH_TOKEN: \${{ github.token }}/{s/GH_TOKEN: \${{ github.token }}/GH_TOKEN: disabled/}' \
+        "$workflow"
+    run_check
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'mismatch:trusted-initializer-job'* ]]
+
+    cp "$original" "$workflow"
+    sed -i 's#git/ref/heads/main#git/ref/heads/retired#' "$workflow"
+    run_check
+    [ "$status" -eq 1 ] \
+        && [[ "$output" == *'mismatch:trusted-initializer-job'* ]]
 }
 
 @test "each trusted pre-secret identity guard is load-bearing" {
@@ -800,7 +824,10 @@ SH
     cat >"$mock_bin/gh" <<'SH'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >>"${TALO_PUBLISH_LOG:?}"
-if [[ " $* " == *" --method POST "* ]]; then
+if [[ "$*" == "api repos/Arcanada-one/datarim/git/ref/heads/main" ]]; then
+    jq -cn --arg sha "${TALO_LIVE_MAIN:?}" \
+        '{ref:"refs/heads/main",node_id:"REF_node",url:"https://api.github.com/repos/Arcanada-one/datarim/git/refs/heads/main",object:{sha:$sha,type:"commit",url:("https://api.github.com/repos/Arcanada-one/datarim/git/commits/" + $sha)}}'
+elif [[ " $* " == *" --method POST "* ]]; then
     jq -cn --argjson id 321 --arg head "${TALO_PUBLISH_HEAD:?}" \
         --arg nonce "${TALO_PUBLISH_NONCE:?}" \
         '{id:$id,name:"talo-0001-privileged-replay",head_sha:$head,external_id:$nonce,status:"in_progress"}'
@@ -817,7 +844,7 @@ SH
         TALO_PUBLISH_HEAD="$head" TALO_PUBLISH_NONCE="$nonce" \
         GITHUB_OUTPUT="$github_output" HEAD_SHA="$head" BASE_SHA="$base" \
         TRUSTED_RUN_ID=9001 TRUSTED_RUN_ATTEMPT=2 \
-        TRUSTED_WORKFLOW_SHA="$controller" SOURCE_RUN_ID=8001 \
+        TALO_LIVE_MAIN="$controller" EVENT_WORKFLOW_SHA="$controller" SOURCE_RUN_ID=8001 \
         SOURCE_RUN_ATTEMPT=3 bash -c "$initializer"
     [ "$status" -eq 0 ]
     grep -qx 'check_id=321' "$github_output"
@@ -872,9 +899,14 @@ SH
     cat >"$mock_bin/gh" <<'SH'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >>"${TALO_PUBLISH_LOG:?}"
-jq -cn --argjson id 654 --arg head "${TALO_PUBLISH_HEAD:?}" \
-    --arg nonce "${TALO_PUBLISH_NONCE:?}" --arg status "${TALO_PUBLISH_STATUS:?}" \
-    '{id:$id,name:"talo-0001-privileged-replay",head_sha:$head,external_id:$nonce,status:$status,conclusion:(if $status == "completed" then "failure" else null end)}'
+if [[ "$*" == "api repos/Arcanada-one/datarim/git/ref/heads/main" ]]; then
+    jq -cn --arg sha "${TALO_LIVE_MAIN:?}" \
+        '{ref:"refs/heads/main",node_id:"REF_node",url:"https://api.github.com/repos/Arcanada-one/datarim/git/refs/heads/main",object:{sha:$sha,type:"commit",url:("https://api.github.com/repos/Arcanada-one/datarim/git/commits/" + $sha)}}'
+else
+    jq -cn --argjson id 654 --arg head "${TALO_PUBLISH_HEAD:?}" \
+        --arg nonce "${TALO_PUBLISH_NONCE:?}" --arg status "${TALO_PUBLISH_STATUS:?}" \
+        '{id:$id,name:"talo-0001-privileged-replay",head_sha:$head,external_id:$nonce,status:$status,conclusion:(if $status == "completed" then "failure" else null end)}'
+fi
 SH
     chmod +x "$mock_bin/gh"
     nonce=$(printf 'trusted_run_id=%s\ntrusted_run_attempt=%s\nworkflow_sha=%s\nsource_run_id=%s\nsource_run_attempt=%s\nhead_sha=%s\nbase_sha=%s\n' \
@@ -883,7 +915,8 @@ SH
         TALO_PUBLISH_HEAD="$head" TALO_PUBLISH_NONCE="$nonce" \
         TALO_PUBLISH_STATUS=completed GITHUB_OUTPUT="$github_output" \
         HEAD_SHA="$head" BASE_SHA="$stale_base" TRUSTED_RUN_ID=9002 \
-        TRUSTED_RUN_ATTEMPT=1 TRUSTED_WORKFLOW_SHA="$current_main" \
+        TRUSTED_RUN_ATTEMPT=1 TALO_LIVE_MAIN="$current_main" \
+        EVENT_WORKFLOW_SHA="$current_main" \
         SOURCE_RUN_ID=8002 SOURCE_RUN_ATTEMPT=1 bash -c "$initializer"
     [ "$status" -eq 1 ]
     grep -q 'conclusion=failure' "$log"
@@ -892,7 +925,7 @@ SH
     grep -qx "execution_nonce=$nonce" "$github_output"
     grep -qx 'current_base=false' "$github_output"
 
-    mutant=${initializer/'if [ "$BASE_SHA" != "$TRUSTED_WORKFLOW_SHA" ]; then'/'if false; then'}
+    mutant=${initializer/'|| [ "$BASE_SHA" != "$trusted_workflow_sha" ]; then'/'|| false; then'}
     : >"$log"
     : >"$github_output"
     run env "PATH=$mock_bin:$PATH" \
@@ -900,11 +933,185 @@ SH
         TALO_PUBLISH_NONCE="$nonce" TALO_PUBLISH_STATUS=in_progress \
         GITHUB_OUTPUT="$github_output" HEAD_SHA="$head" BASE_SHA="$stale_base" \
         TRUSTED_RUN_ID=9002 TRUSTED_RUN_ATTEMPT=1 \
-        TRUSTED_WORKFLOW_SHA="$current_main" SOURCE_RUN_ID=8002 \
+        TALO_LIVE_MAIN="$current_main" EVENT_WORKFLOW_SHA="$current_main" SOURCE_RUN_ID=8002 \
         SOURCE_RUN_ATTEMPT=1 bash -c "$mutant"
     [ "$status" -eq 0 ]
     grep -q 'status=in_progress' "$log"
     printf '%s\n' 'RED_SENTINEL:stale-base-equality-guard'
+}
+
+@test "retired controller is failed against the live main ref before replay" {
+    local initializer mock_bin log github_output nonce
+    local head=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+    local retired=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    local live_main=2222222222222222222222222222222222222222
+    initializer=$(workflow_step_run "Initialize checkout-independent current-run verdict")
+    mock_bin="$BATS_TEST_TMPDIR/live-main-race-bin"
+    log="$BATS_TEST_TMPDIR/live-main-race.log"
+    github_output="$BATS_TEST_TMPDIR/live-main-race-output"
+    mkdir -p "$mock_bin"
+    cat >"$mock_bin/gh" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >>"${TALO_PUBLISH_LOG:?}"
+if [[ "$*" == "api repos/Arcanada-one/datarim/git/ref/heads/main" ]]; then
+    jq -cn --arg sha "${TALO_LIVE_MAIN:?}" \
+        '{ref:"refs/heads/main",node_id:"REF_node",url:"https://api.github.com/repos/Arcanada-one/datarim/git/refs/heads/main",object:{sha:$sha,type:"commit",url:("https://api.github.com/repos/Arcanada-one/datarim/git/commits/" + $sha)}}'
+elif [[ " $* " == *" --method POST "* ]]; then
+    jq -cn --argjson id 655 --arg head "${TALO_PUBLISH_HEAD:?}" \
+        --arg nonce "${TALO_PUBLISH_NONCE:?}" \
+        '{id:$id,name:"talo-0001-privileged-replay",head_sha:$head,external_id:$nonce,status:"completed",conclusion:"failure"}'
+fi
+SH
+    chmod +x "$mock_bin/gh"
+    nonce=$(printf 'trusted_run_id=%s\ntrusted_run_attempt=%s\nworkflow_sha=%s\nsource_run_id=%s\nsource_run_attempt=%s\nhead_sha=%s\nbase_sha=%s\n' \
+        9003 1 "$live_main" 8003 1 "$head" "$retired" | sha256sum | cut -d' ' -f1)
+    run env "PATH=$mock_bin:$PATH" TALO_PUBLISH_LOG="$log" \
+        TALO_PUBLISH_HEAD="$head" TALO_PUBLISH_NONCE="$nonce" \
+        TALO_LIVE_MAIN="$live_main" GITHUB_OUTPUT="$github_output" \
+        HEAD_SHA="$head" BASE_SHA="$retired" TRUSTED_RUN_ID=9003 \
+        TRUSTED_RUN_ATTEMPT=1 EVENT_WORKFLOW_SHA="$retired" \
+        SOURCE_RUN_ID=8003 SOURCE_RUN_ATTEMPT=1 bash -c "$initializer"
+    [ "$status" -eq 1 ] \
+        && grep -qx 'api repos/Arcanada-one/datarim/git/ref/heads/main' "$log" \
+        && grep -q 'status=completed' "$log" \
+        && grep -q 'conclusion=failure' "$log" \
+        && assert_file_lacks 'status=in_progress' "$log" \
+        && grep -qx 'current_base=false' "$github_output"
+}
+
+@test "live main API failure terminalizes before replay allocation" {
+    local initializer mock_bin log github_output nonce
+    local head=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+    local controller=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    initializer=$(workflow_step_run "Initialize checkout-independent current-run verdict")
+    mock_bin="$BATS_TEST_TMPDIR/live-main-failure-bin"
+    log="$BATS_TEST_TMPDIR/live-main-failure.log"
+    github_output="$BATS_TEST_TMPDIR/live-main-failure-output"
+    mkdir -p "$mock_bin"
+    cat >"$mock_bin/gh" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >>"${TALO_PUBLISH_LOG:?}"
+if [[ "$*" == "api repos/Arcanada-one/datarim/git/ref/heads/main" ]]; then
+    exit 71
+elif [[ " $* " == *" --method POST "* ]]; then
+    jq -cn --argjson id 656 --arg head "${TALO_PUBLISH_HEAD:?}" \
+        --arg nonce "${TALO_PUBLISH_NONCE:?}" \
+        '{id:$id,name:"talo-0001-privileged-replay",head_sha:$head,external_id:$nonce,status:"completed",conclusion:"failure"}'
+fi
+SH
+    chmod +x "$mock_bin/gh"
+    nonce=$(printf 'trusted_run_id=%s\ntrusted_run_attempt=%s\nworkflow_sha=%s\nsource_run_id=%s\nsource_run_attempt=%s\nhead_sha=%s\nbase_sha=%s\n' \
+        9004 1 "$controller" 8004 1 "$head" "$controller" | sha256sum | cut -d' ' -f1)
+    run env "PATH=$mock_bin:$PATH" TALO_PUBLISH_LOG="$log" \
+        TALO_PUBLISH_HEAD="$head" TALO_PUBLISH_NONCE="$nonce" \
+        GITHUB_OUTPUT="$github_output" HEAD_SHA="$head" BASE_SHA="$controller" \
+        TRUSTED_RUN_ID=9004 TRUSTED_RUN_ATTEMPT=1 \
+        EVENT_WORKFLOW_SHA="$controller" SOURCE_RUN_ID=8004 \
+        SOURCE_RUN_ATTEMPT=1 bash -c "$initializer"
+    [ "$status" -eq 1 ] \
+        && grep -qx 'api repos/Arcanada-one/datarim/git/ref/heads/main' "$log" \
+        && grep -q 'status=completed' "$log" \
+        && grep -q 'conclusion=failure' "$log" \
+        && assert_file_lacks 'status=in_progress' "$log" \
+        && grep -qx 'current_base=false' "$github_output"
+}
+
+@test "live main response schema and identity guards are load-bearing" {
+    local initializer mutant mock_bin log github_output nonce response
+    local head=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+    local live_main=2222222222222222222222222222222222222222
+    initializer=$(workflow_step_run "Initialize checkout-independent current-run verdict")
+    mock_bin="$BATS_TEST_TMPDIR/live-main-schema-bin"
+    log="$BATS_TEST_TMPDIR/live-main-schema.log"
+    github_output="$BATS_TEST_TMPDIR/live-main-schema-output"
+    mkdir -p "$mock_bin"
+    cat >"$mock_bin/gh" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >>"${TALO_PUBLISH_LOG:?}"
+if [[ "$*" == "api repos/Arcanada-one/datarim/git/ref/heads/main" ]]; then
+    printf '%s\n' "${TALO_REF_RESPONSE:?}"
+elif [[ " $* " == *" --method POST "* ]]; then
+    jq -cn --argjson id 657 --arg head "${TALO_PUBLISH_HEAD:?}" \
+        --arg nonce "${TALO_PUBLISH_NONCE:?}" --arg status "${TALO_PUBLISH_STATUS:?}" \
+        '{id:$id,name:"talo-0001-privileged-replay",head_sha:$head,external_id:$nonce,status:$status,conclusion:(if $status == "completed" then "failure" else null end)}'
+fi
+SH
+    chmod +x "$mock_bin/gh"
+    nonce=$(printf 'trusted_run_id=%s\ntrusted_run_attempt=%s\nworkflow_sha=%s\nsource_run_id=%s\nsource_run_attempt=%s\nhead_sha=%s\nbase_sha=%s\n' \
+        9005 1 "$live_main" 8005 1 "$head" "$live_main" | sha256sum | cut -d' ' -f1)
+    while IFS= read -r response; do
+        : >"$log"
+        : >"$github_output"
+        run env "PATH=$mock_bin:$PATH" TALO_PUBLISH_LOG="$log" \
+            TALO_PUBLISH_HEAD="$head" TALO_PUBLISH_NONCE="$nonce" \
+            TALO_PUBLISH_STATUS=completed TALO_REF_RESPONSE="$response" \
+            GITHUB_OUTPUT="$github_output" HEAD_SHA="$head" BASE_SHA="$live_main" \
+            TRUSTED_RUN_ID=9005 TRUSTED_RUN_ATTEMPT=1 \
+            EVENT_WORKFLOW_SHA="$live_main" SOURCE_RUN_ID=8005 \
+            SOURCE_RUN_ATTEMPT=1 bash -c "$initializer"
+        [ "$status" -eq 1 ] \
+            && grep -q 'status=completed' "$log" \
+            && assert_file_lacks 'status=in_progress' "$log" \
+            && grep -qx 'current_base=false' "$github_output"
+    done <<JSON
+{"ref":"refs/heads/main","node_id":"REF_node","url":"https://api.github.com/repos/Arcanada-one/datarim/git/refs/heads/main","extra":true,"object":{"sha":"$live_main","type":"commit","url":"https://api.github.com/repos/Arcanada-one/datarim/git/commits/$live_main"}}
+{"ref":"refs/heads/retired","node_id":"REF_node","url":"https://api.github.com/repos/Arcanada-one/datarim/git/refs/heads/main","object":{"sha":"$live_main","type":"commit","url":"https://api.github.com/repos/Arcanada-one/datarim/git/commits/$live_main"}}
+{"ref":"refs/heads/main","node_id":"REF_node","url":"https://api.github.com/repos/Arcanada-one/datarim/git/refs/heads/main","object":{"sha":"$live_main","type":"tag","url":"https://api.github.com/repos/Arcanada-one/datarim/git/commits/$live_main"}}
+JSON
+
+    response=$(printf '%s' \
+        "{\"ref\":\"refs/heads/main\",\"node_id\":\"REF_node\",\"url\":\"https://api.github.com/repos/Arcanada-one/datarim/git/refs/heads/main\",\"extra\":true,\"object\":{\"sha\":\"$live_main\",\"type\":\"commit\",\"url\":\"https://api.github.com/repos/Arcanada-one/datarim/git/commits/$live_main\"}}")
+    mutant=${initializer/'select(type == "object" and (keys | sort) == ["node_id","object","ref","url"])'/'select(type == "object")'}
+    : >"$log"
+    : >"$github_output"
+    run env "PATH=$mock_bin:$PATH" TALO_PUBLISH_LOG="$log" \
+        TALO_PUBLISH_HEAD="$head" TALO_PUBLISH_NONCE="$nonce" \
+        TALO_PUBLISH_STATUS=in_progress TALO_REF_RESPONSE="$response" \
+        GITHUB_OUTPUT="$github_output" HEAD_SHA="$head" BASE_SHA="$live_main" \
+        TRUSTED_RUN_ID=9005 TRUSTED_RUN_ATTEMPT=1 \
+        EVENT_WORKFLOW_SHA="$live_main" SOURCE_RUN_ID=8005 \
+        SOURCE_RUN_ATTEMPT=1 bash -c "$mutant"
+    [ "$status" -eq 0 ] \
+        && grep -q 'status=in_progress' "$log" \
+        && printf '%s\n' 'RED_SENTINEL:live-main-closed-schema'
+}
+
+@test "event controller freshness guard is independently load-bearing" {
+    local initializer mutant mock_bin log github_output nonce
+    local head=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+    local retired=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    local live_main=2222222222222222222222222222222222222222
+    initializer=$(workflow_step_run "Initialize checkout-independent current-run verdict")
+    mock_bin="$BATS_TEST_TMPDIR/event-controller-bin"
+    log="$BATS_TEST_TMPDIR/event-controller.log"
+    github_output="$BATS_TEST_TMPDIR/event-controller-output"
+    mkdir -p "$mock_bin"
+    cat >"$mock_bin/gh" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >>"${TALO_PUBLISH_LOG:?}"
+if [[ "$*" == "api repos/Arcanada-one/datarim/git/ref/heads/main" ]]; then
+    jq -cn --arg sha "${TALO_LIVE_MAIN:?}" \
+        '{ref:"refs/heads/main",node_id:"REF_node",url:"https://api.github.com/repos/Arcanada-one/datarim/git/refs/heads/main",object:{sha:$sha,type:"commit",url:("https://api.github.com/repos/Arcanada-one/datarim/git/commits/" + $sha)}}'
+elif [[ " $* " == *" --method POST "* ]]; then
+    jq -cn --argjson id 658 --arg head "${TALO_PUBLISH_HEAD:?}" \
+        --arg nonce "${TALO_PUBLISH_NONCE:?}" --arg status "${TALO_PUBLISH_STATUS:?}" \
+        '{id:$id,name:"talo-0001-privileged-replay",head_sha:$head,external_id:$nonce,status:$status,conclusion:(if $status == "completed" then "failure" else null end)}'
+fi
+SH
+    chmod +x "$mock_bin/gh"
+    nonce=$(printf 'trusted_run_id=%s\ntrusted_run_attempt=%s\nworkflow_sha=%s\nsource_run_id=%s\nsource_run_attempt=%s\nhead_sha=%s\nbase_sha=%s\n' \
+        9006 1 "$live_main" 8006 1 "$head" "$live_main" | sha256sum | cut -d' ' -f1)
+    mutant=${initializer/'|| [ "$EVENT_WORKFLOW_SHA" != "$trusted_workflow_sha" ]'/'|| false'}
+    run env "PATH=$mock_bin:$PATH" TALO_PUBLISH_LOG="$log" \
+        TALO_PUBLISH_HEAD="$head" TALO_PUBLISH_NONCE="$nonce" \
+        TALO_PUBLISH_STATUS=in_progress TALO_LIVE_MAIN="$live_main" \
+        GITHUB_OUTPUT="$github_output" HEAD_SHA="$head" BASE_SHA="$live_main" \
+        TRUSTED_RUN_ID=9006 TRUSTED_RUN_ATTEMPT=1 \
+        EVENT_WORKFLOW_SHA="$retired" SOURCE_RUN_ID=8006 \
+        SOURCE_RUN_ATTEMPT=1 bash -c "$mutant"
+    [ "$status" -eq 0 ] \
+        && grep -q 'status=in_progress' "$log" \
+        && printf '%s\n' 'RED_SENTINEL:event-controller-freshness'
 }
 
 @test "dedicated runner identity, fixed paths, and hardening are load-bearing" {
