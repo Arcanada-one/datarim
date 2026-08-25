@@ -1537,6 +1537,10 @@ PY
                     && [ "$output" = wrapper_sigchld_dfl_pending_not_drained ] \
                     || { printf 'wrapper_sigchld_dfl_mutant_not_attributed=%s status=%s output=%s\n' \
                         "$kind" "$status" "$output"; return 1; }
+                "$PYTHON" -c \
+                    'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
+                    wrapper_sigchld_linux_dfl_drain \
+                    'linux-dfl|real-child|wrapper_sigchld_dfl_pending_not_drained'
             fi
         else
             chmod +x "$validator_mutant"
