@@ -1254,16 +1254,65 @@ PY
         "sigchld_consumer_${callsite}" "${filter}|ignored_sigchld_status_not_preserved=${callsite}"
 }
 
-run_exact_wrapper_sigchld_drain_probe() {
+run_exact_wrapper_sigchld_operation_probe() {
     local validator_script="$1"
     run "$PYTHON" "${BATS_TEST_DIRNAME}/../../tests/customer-delivery-wrapper-drain-probe.py" \
-        "$validator_script"
+        operation "$validator_script"
+}
+
+run_linux_wrapper_sigchld_dfl_probe() {
+    local validator_script="$1"
+    run "$PYTHON" "${BATS_TEST_DIRNAME}/../../tests/customer-delivery-wrapper-drain-probe.py" \
+        linux-dfl "$validator_script"
+}
+
+run_wrapper_sigchld_post_bootstrap_mutant() {
+    local kind="$1"
+    local filter='OpenSSL deadline terminates stubborn descendant pipe holders'
+    local signal_probe="${BATS_TEST_TMPDIR}/wrapper-post-bootstrap-${kind}-probe"
+    case "$kind" in reset|unblock) ;; *) return 1 ;; esac
+    cat >"$signal_probe" <<'SH'
+#!/bin/bash
+exec "${WRAPPER_SIGNAL_PROBE_ACTUAL:?}" -I -S -c '
+import os
+import signal
+import sys
+if sys.argv[1] == "reset":
+    signal.signal(signal.SIGCHLD, signal.SIG_IGN)
+elif sys.argv[1] == "unblock":
+    signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGCHLD})
+else:
+    raise SystemExit(126)
+os.execve(sys.argv[2], [sys.argv[2], *sys.argv[3:]], os.environ)
+' "${WRAPPER_SIGNAL_PROBE_KIND:?}" "${WRAPPER_SIGNAL_PROBE_ACTUAL:?}" "$@"
+SH
+    chmod +x "$signal_probe"
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        CUSTOMER_DELIVERY_SIGNAL_PROBE_RUNTIME="$signal_probe" \
+        WRAPPER_SIGNAL_PROBE_ACTUAL="$PYTHON" \
+        WRAPPER_SIGNAL_PROBE_KIND="$kind" \
+        CUSTOMER_DELIVERY_WRAPPER_SIGCHLD_ONLY=1 \
+        bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+    [ "$status" -ne 0 ] \
+        && [[ "$output" == *"wrapper_sigchld_preflight_${kind}=invalid"* ]] \
+        && [ "$(printf '%s\n' "$output" | awk -v token="wrapper_sigchld_preflight_${kind}=invalid" 'index($0, token) { count++ } END { print count+0 }')" -eq 1 ] \
+        && [ "$(printf '%s\n' "$output" | awk -v target="not ok 1 ${filter}" '$0 == target { count++ } END { print count+0 }')" -eq 1 ] \
+        && [[ "$output" != *"Traceback"* ]] \
+        && [[ "$output" != *"setup_file failed"* ]] \
+        && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
+        || { printf 'wrapper_sigchld_post_bootstrap_mutant_not_attributed=%s status=%s output=%s\n' \
+            "$kind" "$status" "$output"; return 1; }
+    "$PYTHON" -c \
+        'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
+        "wrapper_sigchld_post_bootstrap_${kind}" \
+        "${filter}|wrapper_sigchld_preflight_${kind}=invalid"
 }
 
 run_wrapper_sigchld_mutants() {
     local filter='OpenSSL deadline terminates stubborn descendant pipe holders'
     local kind validator_mutant guard mutant expected_fragment wrapper_mode
-    local anchor_invalid duplicate_anchor probe_mutant sentinel_kind sentinel_surface
+    local anchor_invalid duplicate_anchor probe_mutant pending_probe_mutant sentinel_kind sentinel_surface
     local hostile_kind hostile_path hostile_marker
     run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
@@ -1290,7 +1339,7 @@ run_wrapper_sigchld_mutants() {
             drain)
                 guard='        signal.sigwait({signal.SIGCHLD})'
                 mutant='        pass  # MUTATED:wrapper_sigchld_pending_drain'
-                expected_fragment='wrapper_sigchld_pending_not_drained'
+                expected_fragment='wrapper_sigchld_operation_pending_not_drained'
                 ;;
             exec)
                 guard=$'    os.execve(\n        "/bin/bash",\n        [\n            "/bin/bash", "-p", "-s", "--", script_path,\n            str(os.getpid()), *sys.argv[3:],\n        ],\n        environment,\n    )  # SECURITY_RULE:wrapper_sigchld_exec'
@@ -1321,10 +1370,39 @@ run_wrapper_sigchld_mutants() {
             *) return 1 ;;
         esac
         if [[ "$kind" == drain ]]; then
-            run_exact_wrapper_sigchld_drain_probe "$validator_mutant"
+            run_exact_wrapper_sigchld_operation_probe "$validator_mutant"
             [ "$status" -eq 0 ] && [ "$output" = PROBE_OK ] \
-                || { printf 'wrapper_sigchld_drain_probe_baseline=%s status=%s\n' \
+                || { printf 'wrapper_sigchld_operation_probe_baseline=%s status=%s\n' \
                     "$output" "$status"; return 1; }
+            if "$PYTHON" -c 'import sys; raise SystemExit(0 if sys.platform.startswith("linux") else 1)'; then
+                run_linux_wrapper_sigchld_dfl_probe "$validator_mutant"
+                [ "$status" -eq 0 ] && [ "$output" = PROBE_OK ] \
+                    || { printf 'wrapper_sigchld_dfl_probe_baseline=%s status=%s\n' \
+                        "$output" "$status"; return 1; }
+                pending_probe_mutant="${BATS_TEST_TMPDIR}/customer-delivery-wrapper-drain-pending-mutant.py"
+                cp "${BATS_TEST_DIRNAME}/../../tests/customer-delivery-wrapper-drain-probe.py" \
+                    "$pending_probe_mutant" || return 1
+                "$PYTHON" - "$pending_probe_mutant" <<'PY' || return 1
+import sys
+
+path = sys.argv[1]
+source = open(path, encoding="utf-8").read()
+guard = "            os._exit(child_exit)\n"
+mutant = "            time.sleep(3)  # MUTATED:linux_dfl_pending_precondition\n            os._exit(child_exit)\n"
+if source.count(guard) != 1:
+    raise SystemExit("WRAPPER_SIGCHLD_DFL_PENDING_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+open(path, "w", encoding="utf-8").write(source.replace(guard, mutant, 1))
+PY
+                run "$PYTHON" "$pending_probe_mutant" linux-dfl "$validator_mutant"
+                [ "$status" -eq 2 ] \
+                    && [ "$output" = HARNESS_INVALID:wrapper_sigchld_dfl_pending_precondition ] \
+                    || { printf 'wrapper_sigchld_dfl_pending_precondition=%s status=%s\n' \
+                        "$output" "$status"; return 1; }
+                "$PYTHON" -c \
+                    'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
+                    wrapper_sigchld_dfl_pending_precondition \
+                    'linux-dfl|real-child|pending-precondition|HARNESS_INVALID'
+            fi
             anchor_invalid="${BATS_TEST_TMPDIR}/check-customer-delivery-wrapper-sigchld-drain-anchor.sh"
             cp "$validator_mutant" "$anchor_invalid" || return 1
             "$PYTHON" - "$anchor_invalid" <<'PY' || return 1
@@ -1337,7 +1415,7 @@ if source.count(anchor) != 1:
     raise SystemExit("WRAPPER_SIGCHLD_DRAIN_ANCHOR_CONTROL_MISSING_OR_AMBIGUOUS")
 open(path, "w", encoding="utf-8").write(source.replace(anchor, "# MUTATED:missing_wrapper_sigchld_pending_drain", 1))
 PY
-            run_exact_wrapper_sigchld_drain_probe "$anchor_invalid"
+            run_exact_wrapper_sigchld_operation_probe "$anchor_invalid"
             [ "$status" -eq 2 ] \
                 && [ "$output" = HARNESS_INVALID:wrapper_sigchld_drain_anchor ] \
                 || { printf 'wrapper_sigchld_drain_probe_anchor=%s status=%s\n' \
@@ -1356,7 +1434,7 @@ if source.count(start_anchor) != 1 or source.count(end_anchor) != 1:
 duplicate = start_anchor + "        signal.sigwait({signal.SIGCHLD})\n"
 open(path, "w", encoding="utf-8").write(source.replace(end_anchor, end_anchor + duplicate, 1))
 PY
-            run_exact_wrapper_sigchld_drain_probe "$duplicate_anchor"
+            run_exact_wrapper_sigchld_operation_probe "$duplicate_anchor"
             [ "$status" -eq 2 ] \
                 && [ "$output" = HARNESS_INVALID:wrapper_sigchld_drain_anchor ] \
                 || { printf 'wrapper_sigchld_drain_probe_duplicate=%s status=%s\n' \
@@ -1375,14 +1453,14 @@ if source.count(guard) != 1:
     raise SystemExit("WRAPPER_SIGCHLD_DRAIN_COUNT_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
 open(path, "w", encoding="utf-8").write(source.replace(guard, mutant, 1))
 PY
-            run "$PYTHON" "$probe_mutant" "$duplicate_anchor"
+            run "$PYTHON" "$probe_mutant" operation "$duplicate_anchor"
             [ "$status" -eq 0 ] && [ "$output" = PROBE_OK ] \
                 || { printf 'wrapper_sigchld_drain_count_mutant=%s status=%s\n' \
                     "$output" "$status"; return 1; }
             "$PYTHON" -c \
                 'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
                 wrapper_sigchld_drain_anchor_count \
-                'exact_wrapper_sigchld_drain_probe|duplicate_start_anchor|count_less_than_one'
+                'exact_wrapper_sigchld_operation_probe|duplicate_start_anchor|count_less_than_one'
             "$PYTHON" - "${BATS_TEST_DIRNAME}/../../tests/customer-delivery-wrapper-drain-probe.py" <<'PY' || return 1
 import re
 import sys
@@ -1415,7 +1493,7 @@ if kind not in mutants or source.count(guard) != 1:
     raise SystemExit("WRAPPER_SIGCHLD_DRAIN_HOSTILE_SEAM_MISSING_OR_AMBIGUOUS")
 open(path, "w", encoding="utf-8").write(source.replace(guard, mutants[kind], 1))
 PY
-                run_exact_wrapper_sigchld_drain_probe "$hostile_path"
+                run_exact_wrapper_sigchld_operation_probe "$hostile_path"
                 [ "$status" -eq 2 ] \
                     && [ "$output" = HARNESS_INVALID:wrapper_sigchld_drain_operation ] \
                     && [ ! -e "$hostile_marker" ] \
@@ -1424,16 +1502,16 @@ PY
                 "$PYTHON" -c \
                     'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
                     "wrapper_sigchld_drain_hostile_${hostile_kind}" \
-                    "exact_wrapper_sigchld_drain_probe|${hostile_kind}|HARNESS_INVALID"
+                    "exact_wrapper_sigchld_operation_probe|${hostile_kind}|HARNESS_INVALID"
             done
             CUSTOMER_DELIVERY_DRAIN_PROBE_FORCE_FIXTURE_FAILURE=1 \
-                run_exact_wrapper_sigchld_drain_probe "$validator_mutant"
+                run_exact_wrapper_sigchld_operation_probe "$validator_mutant"
             [ "$status" -eq 2 ] \
                 && [ "$output" = HARNESS_INVALID:wrapper_sigchld_drain_fixture ] \
                 || { printf 'wrapper_sigchld_drain_probe_fixture=%s status=%s\n' \
                     "$output" "$status"; return 1; }
             CUSTOMER_DELIVERY_DRAIN_PROBE_FORCE_CLEANUP_FAILURE=1 \
-                run_exact_wrapper_sigchld_drain_probe "$validator_mutant"
+                run_exact_wrapper_sigchld_operation_probe "$validator_mutant"
             [ "$status" -eq 2 ] \
                 && [ "$output" = HARNESS_INVALID:wrapper_sigchld_drain_cleanup ] \
                 || { printf 'wrapper_sigchld_drain_probe_cleanup=%s status=%s\n' \
@@ -1449,10 +1527,17 @@ if source.count(guard) != 1:
 open(path, "w", encoding="utf-8").write(source.replace(guard, mutant, 1))
 PY
         if [[ "$kind" == drain ]]; then
-            run_exact_wrapper_sigchld_drain_probe "$validator_mutant"
+            run_exact_wrapper_sigchld_operation_probe "$validator_mutant"
             [ "$status" -eq 1 ] && [ "$output" = "$expected_fragment" ] \
                 || { printf 'wrapper_sigchld_mutant_not_attributed=%s status=%s output=%s\n' \
                     "$kind" "$status" "$output"; return 1; }
+            if "$PYTHON" -c 'import sys; raise SystemExit(0 if sys.platform.startswith("linux") else 1)'; then
+                run_linux_wrapper_sigchld_dfl_probe "$validator_mutant"
+                [ "$status" -eq 1 ] \
+                    && [ "$output" = wrapper_sigchld_dfl_pending_not_drained ] \
+                    || { printf 'wrapper_sigchld_dfl_mutant_not_attributed=%s status=%s output=%s\n' \
+                        "$kind" "$status" "$output"; return 1; }
+            fi
         else
             chmod +x "$validator_mutant"
             run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
@@ -1470,8 +1555,8 @@ PY
                     "$kind" "$status" "$output"; return 1; }
         fi
         if [[ "$kind" == drain ]]; then
-            sentinel_kind=exact_wrapper_sigchld_drain_probe
-            sentinel_surface="exact_wrapper_sigchld_drain_probe|${expected_fragment}"
+            sentinel_kind=exact_wrapper_sigchld_operation_probe
+            sentinel_surface="exact_wrapper_sigchld_operation_probe|${expected_fragment}"
         else
             sentinel_surface="${filter}|${expected_fragment}"
         fi
@@ -2439,6 +2524,8 @@ PY
 
 @test "wrapper SIGCHLD reset unblock and drain mutants are independently killed" {
     run_wrapper_sigchld_mutants reset unblock drain
+    run_wrapper_sigchld_post_bootstrap_mutant reset
+    run_wrapper_sigchld_post_bootstrap_mutant unblock
 }
 
 @test "wrapper exec and interpreter mutants are independently killed" {

@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""Exercise the exact wrapper SIGCHLD drain slice in an isolated process."""
+"""Exercise the exact wrapper drain operation and Linux DFL integration."""
 
 from __future__ import annotations
 
@@ -98,10 +98,14 @@ def reap_owned_child(child):
 
 
 def main() -> int:
-    if len(sys.argv) != 2:
+    if len(sys.argv) != 3 or sys.argv[1] not in {"operation", "linux-dfl"}:
         print("HARNESS_INVALID:wrapper_sigchld_drain_anchor")
         return 2
-    operation, load_error = load_exact_operation(Path(sys.argv[1]))
+    mode = sys.argv[1]
+    if mode == "linux-dfl" and not sys.platform.startswith("linux"):
+        print("HARNESS_INVALID:wrapper_sigchld_drain_platform")
+        return 2
+    operation, load_error = load_exact_operation(Path(sys.argv[2]))
     if load_error is not None:
         print(f"HARNESS_INVALID:wrapper_sigchld_drain_{load_error}")
         return 2
@@ -112,28 +116,50 @@ def main() -> int:
     result = "HARNESS_INVALID:wrapper_sigchld_drain_fixture"
     status = 2
     try:
-        signal.signal(signal.SIGCHLD, lambda _signum, _frame: None)
+        if mode == "operation":
+            signal.signal(signal.SIGCHLD, lambda _signum, _frame: None)
+            child_exit = 0
+            pending_failure = "wrapper_sigchld_operation_pending_not_drained"
+        else:
+            signal.signal(signal.SIGCHLD, signal.SIG_DFL)
+            if signal.getsignal(signal.SIGCHLD) is not signal.SIG_DFL:
+                raise RuntimeError("SIGCHLD disposition remained non-default")
+            child_exit = 37
+            pending_failure = "wrapper_sigchld_dfl_pending_not_drained"
         signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGCHLD})
         if os.environ.get("CUSTOMER_DELIVERY_DRAIN_PROBE_FORCE_FIXTURE_FAILURE") == "1":
             raise OSError("forced fixture failure")
         child = os.fork()
         if child == 0:
-            os._exit(0)
+            os._exit(child_exit)
         deadline = time.monotonic() + 2
         while signal.SIGCHLD not in signal.sigpending():
             if time.monotonic() >= deadline:
+                if mode == "linux-dfl":
+                    result = "HARNESS_INVALID:wrapper_sigchld_dfl_pending_precondition"
+                    status = 2
+                    break
                 raise TimeoutError("SIGCHLD fixture did not become pending")
             time.sleep(0.01)
-        if signal.SIGCHLD in signal.sigpending() and operation == "sigwait":
-            observed_signal = signal.sigwait({signal.SIGCHLD})
-            if observed_signal != signal.SIGCHLD:
-                raise RuntimeError("probe drained an unexpected signal")
-        if signal.SIGCHLD in signal.sigpending():
-            result = "wrapper_sigchld_pending_not_drained"
-            status = 1
         else:
-            result = "PROBE_OK"
-            status = 0
+            if operation == "sigwait":
+                observed_signal = signal.sigwait({signal.SIGCHLD})
+                if observed_signal != signal.SIGCHLD:
+                    raise RuntimeError("probe drained an unexpected signal")
+            if signal.SIGCHLD in signal.sigpending():
+                result = pending_failure
+                status = 1
+            else:
+                result = "PROBE_OK"
+                status = 0
+        owned_child = child
+        observed_child, child_status = os.waitpid(owned_child, 0)
+        if observed_child == owned_child:
+            child = None
+        if observed_child != owned_child or not os.WIFEXITED(child_status):
+            raise RuntimeError("probe child ownership was lost")
+        if os.WEXITSTATUS(child_status) != child_exit:
+            raise RuntimeError("probe child status changed")
     except Exception:
         result = "HARNESS_INVALID:wrapper_sigchld_drain_fixture"
         status = 2

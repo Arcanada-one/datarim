@@ -283,7 +283,7 @@ run_test_framework_json_ignored_sigchld() {
         --root "$ROOT" --task "$TASK_ID" --stage qa --format json
 }
 
-run_test_framework_json_blocked_pending_sigchld() {
+run_test_framework_json_blocked_pending_sigchld_portability_smoke() {
     run "$PYTHON" -c \
         'import os,signal,sys; signal.signal(signal.SIGCHLD, signal.SIG_DFL); signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGCHLD}); os.kill(os.getpid(), signal.SIGCHLD); environment=dict(os.environ); environment["CUSTOMER_DELIVERY_PYTHON"]=sys.argv[2]; os.execve(sys.argv[1], [sys.argv[1], *sys.argv[3:]], environment)' \
         "$TEST_SCRIPT" "$VALIDATOR_PYTHON" \
@@ -309,7 +309,7 @@ import sys
 path, signal_probe_python = sys.argv[1:]
 source = open(path, encoding="utf-8").read()
 guard = '[[ "$$" == "$bootstrap_pid" ]] || exit 126\n'
-probe = guard + "if " + shlex.quote(signal_probe_python) + ''' -I -S -c 'import signal; blocked=signal.pthread_sigmask(signal.SIG_BLOCK,set()); raise SystemExit(38 if signal.SIGCHLD in blocked else 37)'; then
+probe = guard + "if " + shlex.quote(signal_probe_python) + ''' -I -S -c 'import signal; disposition=signal.getsignal(signal.SIGCHLD); blocked=signal.pthread_sigmask(signal.SIG_BLOCK,set()); state=("wrapper_sigchld_preflight_reset=invalid" if disposition is not signal.SIG_DFL else "wrapper_sigchld_preflight_unblock=invalid" if signal.SIGCHLD in blocked else ""); print(state) if state else None; raise SystemExit(35 if disposition is not signal.SIG_DFL else 38 if signal.SIGCHLD in blocked else 37)'; then
     wrapper_preflight_status=0
 else
     wrapper_preflight_status=$?
@@ -327,7 +327,7 @@ PY
 
 assert_wrapper_sigchld_normalization() {
     local launcher_dir signal_probe_python
-    signal_probe_python="${CUSTOMER_TEST_PYTHON_RUNTIME:-$VALIDATOR_PYTHON}"
+    signal_probe_python="${CUSTOMER_DELIVERY_SIGNAL_PROBE_RUNTIME:-${CUSTOMER_TEST_PYTHON_RUNTIME:-$VALIDATOR_PYTHON}}"
     build_test_framework wrapper-sigchld || return 1
     instrument_wrapper_sigchld_preflight "$signal_probe_python" || return 1
     if [[ -z "${CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE:-}" ]]; then
@@ -361,10 +361,10 @@ SH
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["decision"] == "MET" and d["findings"] == []' "$output" \
         || { printf 'wrapper_sigchld_blocked_not_unblocked status=%s output=%s\n' \
             "$status" "$output"; return 1; }
-    run_test_framework_json_blocked_pending_sigchld
+    run_test_framework_json_blocked_pending_sigchld_portability_smoke
     [ "$status" -eq 0 ] && [ -n "$output" ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["decision"] == "MET" and d["findings"] == []' "$output" \
-        || { printf 'wrapper_sigchld_pending_not_drained status=%s output=%s\n' \
+        || { printf 'wrapper_sigchld_pending_portability_smoke_failed status=%s output=%s\n' \
             "$status" "$output"; return 1; }
     command -v sudo >/dev/null 2>&1 && sudo -n /usr/bin/true 2>/dev/null \
         || { printf 'wrapper_root_execution_unavailable\n'; return 1; }
