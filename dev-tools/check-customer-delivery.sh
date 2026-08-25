@@ -11,6 +11,99 @@ set -euo pipefail
 IFS=$'\n\t'
 export LC_ALL=C
 
+# An explicit SIGCHLD=SIG_IGN survives exec and discards child status on
+# macOS. Normalize it before any wrapper subprocess. Bash cannot reset a
+# signal ignored on entry, so an isolated Python bootstrap re-execs this exact
+# script and proves one-shot completion through a private, bounded pipe.
+bootstrap_fd="${CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_FD:-}"
+bootstrap_token="${CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_TOKEN:-}"
+bootstrap_pid="${CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_PID:-}"
+case "$OSTYPE" in
+    darwin*) bootstrap_python='/Library/Developer/CommandLineTools/usr/bin/python3' ;;
+    linux*) bootstrap_python='/usr/bin/python3' ;;
+    *) exit 126 ;;
+esac
+[[ -x "$bootstrap_python" && ! -d "$bootstrap_python" ]] || exit 126
+if [[ -n "$bootstrap_fd" || -n "$bootstrap_token" || -n "$bootstrap_pid" ]]; then
+    [[ "$bootstrap_fd" =~ ^[1-9][0-9]*$ \
+        && "$bootstrap_token" =~ ^[0-9a-f]{64}$ \
+        && "$bootstrap_pid" == "$$" ]] || exit 126
+    observed_bootstrap_token=''
+    extra_bootstrap_token=''
+    { IFS= read -r -t 1 observed_bootstrap_token <&"$bootstrap_fd"; } \
+        2>/dev/null || exit 126
+    # Content is intentionally irrelevant: any second framed line is invalid.
+    # shellcheck disable=SC2034
+    if { IFS= read -r -t 1 extra_bootstrap_token <&"$bootstrap_fd"; } \
+        2>/dev/null; then
+        exit 126
+    fi
+    eval "exec ${bootstrap_fd}<&-"
+    unset CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_FD \
+        CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_TOKEN \
+        CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_PID
+    [[ "$observed_bootstrap_token" == "$bootstrap_token" ]] || exit 126
+else
+    unset BASH_ENV ENV PYTHONHOME PYTHONPATH PYTHONSTARTUP PYTHONINSPECT \
+        PYTHONWARNINGS PYTHONBREAKPOINT LD_PRELOAD LD_LIBRARY_PATH \
+        DYLD_INSERT_LIBRARIES DYLD_LIBRARY_PATH DYLD_FRAMEWORK_PATH \
+        __PYVENV_LAUNCHER__ PYTHONEXECUTABLE TOOLCHAINS DEVELOPER_DIR
+    exec "$bootstrap_python" -I -S -c '
+import fcntl
+import os
+import signal
+import sys
+
+try:
+    signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGCHLD})
+    signal.signal(signal.SIGCHLD, signal.SIG_DFL)  # SECURITY_RULE:wrapper_sigchld_reaping
+    if signal.SIGCHLD in signal.sigpending():  # SECURITY_RULE:wrapper_sigchld_pending_drain
+        signal.sigwait({signal.SIGCHLD})
+    if signal.SIGCHLD in signal.sigpending():
+        raise RuntimeError("SIGCHLD remained pending")
+    signal.pthread_sigmask(
+        signal.SIG_UNBLOCK, {signal.SIGCHLD}
+    )  # SECURITY_RULE:wrapper_sigchld_unblock
+    if signal.SIGCHLD in signal.pthread_sigmask(signal.SIG_BLOCK, set()):
+        raise RuntimeError("SIGCHLD remained blocked")
+    initial_read_fd, write_fd = os.pipe()
+    read_fd = fcntl.fcntl(initial_read_fd, fcntl.F_DUPFD_CLOEXEC, 10)
+    os.close(initial_read_fd)
+    os.set_inheritable(read_fd, True)
+    token = os.urandom(32).hex()
+    payload = (token + "\n").encode("ascii")
+    if os.write(write_fd, payload) != len(payload):
+        raise OSError("short bootstrap token write")
+    os.close(write_fd)
+    environment = {
+        "CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_FD": str(read_fd),
+        "CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_TOKEN": token,
+        "CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_PID": str(os.getpid()),
+        "HOME": "/",
+        "LANG": "C",
+        "LC_ALL": "C",
+        "PATH": "/usr/bin:/bin",
+    }
+    customer_python = os.environ.get("CUSTOMER_DELIVERY_PYTHON")
+    if customer_python is not None:
+        environment["CUSTOMER_DELIVERY_PYTHON"] = customer_python
+    script = os.path.abspath(sys.argv[1])
+    os.execve("/bin/bash", ["/bin/bash", "-p", script, *sys.argv[2:]], environment)
+except BaseException:
+    os._exit(126)
+' "${BASH_SOURCE[0]}" "$@"
+fi
+
+# A caller cannot bypass normalization by pre-seeding the handshake: the
+# first child must observe the live default disposition as well as the token.
+wrapper_sigchld_state="$("$bootstrap_python" -I -S -c '
+import signal
+blocked = signal.pthread_sigmask(signal.SIG_BLOCK, set())
+ready = signal.getsignal(signal.SIGCHLD) == signal.SIG_DFL and signal.SIGCHLD not in blocked
+print("DFL_UNBLOCKED" if ready else "NOT_READY")
+' 2>/dev/null || true)"
+[[ "$wrapper_sigchld_state" == DFL_UNBLOCKED ]] || exit 126
+
 # Imported Bash functions and caller PATH entries are not trusted execution
 # authority. Security-relevant external utilities below are invoked only by
 # their validated host paths; clearing common names also prevents accidental
@@ -87,6 +180,7 @@ fi
 [[ "$task" =~ ^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$ ]] || { emit_config_error 'invalid_task'; exit 2; }
 [[ "$stage" == qa || "$stage" == compliance || "$stage" == archive ]] || { emit_config_error 'invalid_stage'; exit 2; }
 [[ -d "$root" && ! -L "$root" ]] || { emit_config_error 'invalid_root'; exit 2; }
+
 root="$(cd "$root" && pwd -P)"
 
 framework_root="$(cd "$(/usr/bin/dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"

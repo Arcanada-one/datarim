@@ -418,14 +418,38 @@ elif kind == "python_runtime_metadata":
     end = source.index(end_token, start) + len(end_token)
     source = source[:start] + 'if false; then  # MUTATED:python_runtime_metadata_trust' + source[end:]
 elif kind == "python_routing_env":
+    bootstrap_scrub = '''    unset BASH_ENV ENV PYTHONHOME PYTHONPATH PYTHONSTARTUP PYTHONINSPECT \\
+        PYTHONWARNINGS PYTHONBREAKPOINT LD_PRELOAD LD_LIBRARY_PATH \\
+        DYLD_INSERT_LIBRARIES DYLD_LIBRARY_PATH DYLD_FRAMEWORK_PATH \\
+        __PYVENV_LAUNCHER__ PYTHONEXECUTABLE TOOLCHAINS DEVELOPER_DIR
+'''
+    bootstrap_environment = '''    customer_python = os.environ.get("CUSTOMER_DELIVERY_PYTHON")
+'''
+    bootstrap_mutant = '''    for routing_name in (
+        "PYTHONHOME", "PYTHONPATH", "PYTHONEXECUTABLE", "__PYVENV_LAUNCHER__",
+        "DEVELOPER_DIR", "TOOLCHAINS",
+    ):
+        if routing_name in os.environ:
+            environment[routing_name] = os.environ[routing_name]
+    customer_python = os.environ.get("CUSTOMER_DELIVERY_PYTHON")
+'''
     scrub = '\nunset DEVELOPER_DIR TOOLCHAINS __PYVENV_LAUNCHER__ PYTHONEXECUTABLE PYTHONHOME PYTHONPATH\n\nsecure_root_path()'
     darwin = '''trusted_runtime_path="$(/usr/bin/env -i LC_ALL=C PATH=/usr/bin:/bin \\
         DEVELOPER_DIR="$trusted_developer_root" \\
         "$trusted_python_anchor" -I -c 'import sys; print(sys.executable)' 2>/dev/null || true)"'''
     linux = '''trusted_runtime_path="$(/usr/bin/env -i LC_ALL=C PATH=/usr/bin:/bin \\
         "$trusted_python_anchor" -I -c 'import sys; print(sys.executable)' 2>/dev/null || true)"'''
-    if source.count(scrub) != 1 or source.count(darwin) != 1 or source.count(linux) != 1:
+    if (source.count(bootstrap_scrub) != 1
+            or source.count(bootstrap_environment) != 1
+            or source.count(scrub) != 1
+            or source.count(darwin) != 1
+            or source.count(linux) != 1):
         raise SystemExit("PYTHON_ROUTING_ENV_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+    source = source.replace(
+        bootstrap_scrub,
+        '    pass  # MUTATED:bootstrap_python_routing_environment\n',
+        1,
+    ).replace(bootstrap_environment, bootstrap_mutant, 1)
     source = source.replace(scrub, '\n: # MUTATED:python_routing_environment\n\nsecure_root_path()', 1)
     source = source.replace(
         darwin,
@@ -1219,6 +1243,97 @@ PY
     "$PYTHON" -c \
         'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
         "sigchld_consumer_${callsite}" "${filter}|ignored_sigchld_status_not_preserved=${callsite}"
+}
+
+run_wrapper_sigchld_mutant() {
+    local filter='OpenSSL deadline terminates stubborn descendant pipe holders'
+    local kind validator_mutant guard mutant expected_fragment
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+        CUSTOMER_DELIVERY_WRAPPER_SIGCHLD_ONLY=1 \
+        bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+    assert_baseline_green "$filter" || return 1
+
+    for kind in reset unblock drain exec handshake; do
+        validator_mutant="${BATS_TEST_TMPDIR}/check-customer-delivery-wrapper-sigchld-${kind}.sh"
+        cp "$SCRIPT" "$validator_mutant" || return 1
+        case "$kind" in
+            reset)
+                guard='    signal.signal(signal.SIGCHLD, signal.SIG_DFL)  # SECURITY_RULE:wrapper_sigchld_reaping'
+                mutant='    signal.signal(signal.SIGCHLD, signal.SIG_IGN)  # MUTATED:wrapper_sigchld_reaping'
+                expected_fragment='wrapper_sigchld_not_normalized'
+                ;;
+            unblock)
+                guard=$'        signal.SIG_UNBLOCK, {signal.SIGCHLD}\n    )  # SECURITY_RULE:wrapper_sigchld_unblock'
+                mutant=$'        signal.SIG_BLOCK, {signal.SIGCHLD}\n    )  # MUTATED:wrapper_sigchld_unblock'
+                expected_fragment='wrapper_sigchld_not_normalized'
+                ;;
+            drain)
+                guard='        signal.sigwait({signal.SIGCHLD})'
+                mutant='        pass  # MUTATED:wrapper_sigchld_pending_drain'
+                expected_fragment='wrapper_sigchld_not_normalized'
+                ;;
+            exec)
+                guard='    os.execve("/bin/bash", ["/bin/bash", "-p", script, *sys.argv[2:]], environment)'
+                mutant='    os.spawnve(os.P_WAIT, "/bin/bash", ["/bin/bash", "-p", script, *sys.argv[2:]], environment); os._exit(0)  # MUTATED:wrapper_sigchld_exec'
+                expected_fragment='wrapper_sigchld_not_normalized'
+                ;;
+            handshake)
+                guard='    [[ "$observed_bootstrap_token" == "$bootstrap_token" ]] || exit 126'
+                mutant='    true  # MUTATED:wrapper_sigchld_handshake'
+                expected_fragment='wrapper_sigchld_mismatch_accepted'
+                ;;
+            *) return 1 ;;
+        esac
+        if [[ "$kind" == drain ]]; then
+            "$PYTHON" - "$validator_mutant" <<'PY' || return 1
+import sys
+
+path = sys.argv[1]
+source = open(path, encoding="utf-8").read()
+guard = '''    if signal.SIGCHLD in signal.sigpending():  # SECURITY_RULE:wrapper_sigchld_pending_drain
+'''
+injected = '''    os.kill(os.getpid(), signal.SIGCHLD)  # TEST_WRAPPER_PENDING_SIGCHLD
+''' + guard
+if source.count(guard) != 1:
+    raise SystemExit("WRAPPER_SIGCHLD_DRAIN_CONTROL_SEAM_MISSING_OR_AMBIGUOUS")
+open(path, "w", encoding="utf-8").write(source.replace(guard, injected, 1))
+PY
+            chmod +x "$validator_mutant"
+            run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+                CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+                CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$validator_mutant" \
+                CUSTOMER_DELIVERY_WRAPPER_SIGCHLD_ONLY=1 \
+                bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+            assert_baseline_green "$filter" || return 1
+        fi
+        "$PYTHON" - "$validator_mutant" "$guard" "$mutant" <<'PY' || return 1
+import sys
+
+path, guard, mutant = sys.argv[1:]
+source = open(path, encoding="utf-8").read()
+if source.count(guard) != 1:
+    raise SystemExit("WRAPPER_SIGCHLD_MUTATION_SEAM_MISSING_OR_AMBIGUOUS")
+open(path, "w", encoding="utf-8").write(source.replace(guard, mutant, 1))
+PY
+        chmod +x "$validator_mutant"
+        run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+            CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
+            CUSTOMER_DELIVERY_VALIDATOR_OVERRIDE="$validator_mutant" \
+            CUSTOMER_DELIVERY_WRAPPER_SIGCHLD_ONLY=1 \
+            bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
+        [ "$status" -ne 0 ] \
+            && [[ "$output" == *"${expected_fragment}"* ]] \
+            && [ "$(printf '%s\n' "$output" | awk -v target="not ok 1 ${filter}" '$0 == target { count++ } END { print count+0 }')" -eq 1 ] \
+            && [[ "$output" != *"Traceback"* ]] \
+            && [[ "$output" != *"setup_file failed"* ]] \
+            && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
+            || { printf 'wrapper_sigchld_mutant_not_attributed=%s status=%s output=%s\n' \
+                "$kind" "$status" "$output"; return 1; }
+        "$PYTHON" -c \
+            'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
+            "wrapper_sigchld_${kind}" "${filter}|${expected_fragment}"
+    done
 }
 
 run_sigchld_portable_spawn_mutant() {
@@ -2092,6 +2207,7 @@ PY
     run_process_lifecycle_mutant cleanup-alarm
     run_cleanup_second_signal_mutant
     run_process_lifecycle_mutant ignored-sigchld
+    run_wrapper_sigchld_mutant
     run_sigchld_portable_spawn_mutant silent
     run_sigchld_portable_spawn_mutant bounded
     run_sigchld_portable_spawn_mutant source_history

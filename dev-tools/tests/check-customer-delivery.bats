@@ -283,6 +283,71 @@ run_test_framework_json_ignored_sigchld() {
         "$TEST_SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
 }
 
+run_test_framework_json_forged_sigchld_bootstrap() {
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        "$PYTHON" -c \
+        'import os,signal,sys; signal.signal(signal.SIGCHLD, signal.SIG_IGN); read_fd,write_fd=os.pipe(); os.set_inheritable(read_fd, True); token="a"*64; os.write(write_fd, (token+"\n").encode()); os.close(write_fd); os.environ["CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_FD"]=str(read_fd); os.environ["CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_TOKEN"]=token; os.environ["CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_PID"]=str(os.getpid()); os.execve(sys.argv[1], sys.argv[1:], os.environ)' \
+        "$TEST_SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+}
+
+run_test_framework_json_closed_sigchld_bootstrap() {
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        "$PYTHON" -c \
+        'import os,sys; os.environ["CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_FD"]="99"; os.environ["CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_TOKEN"]="b"*64; os.environ["CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_PID"]=str(os.getpid()); os.execve(sys.argv[1], sys.argv[1:], os.environ)' \
+        "$TEST_SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+}
+
+run_test_framework_json_blocking_sigchld_bootstrap() {
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        "$PYTHON" -c \
+        'import os,sys; read_fd,write_fd=os.pipe(); os.set_inheritable(read_fd, True); os.set_inheritable(write_fd, True); os.environ["CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_FD"]=str(read_fd); os.environ["CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_TOKEN"]="c"*64; os.environ["CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_PID"]=str(os.getpid()); os.execve(sys.argv[1], sys.argv[1:], os.environ)' \
+        "$TEST_SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+}
+
+run_test_framework_json_pending_sigchld_bootstrap() {
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        "$PYTHON" -c \
+        'import os,signal,sys; signal.signal(signal.SIGCHLD, signal.SIG_DFL); signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGCHLD}); os.kill(os.getpid(), signal.SIGCHLD); os.execve(sys.argv[1], sys.argv[1:], os.environ)' \
+        "$TEST_SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+}
+
+run_test_framework_json_mismatched_sigchld_bootstrap() {
+    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        "$PYTHON" -c \
+        'import os,sys; read_fd,write_fd=os.pipe(); os.set_inheritable(read_fd, True); os.write(write_fd, ("d"*64+"\n").encode()); os.close(write_fd); os.environ["CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_FD"]=str(read_fd); os.environ["CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_TOKEN"]="e"*64; os.environ["CUSTOMER_DELIVERY_SIGCHLD_BOOTSTRAP_PID"]=str(os.getpid()); os.execve(sys.argv[1], sys.argv[1:], os.environ)' \
+        "$TEST_SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+}
+
+assert_wrapper_sigchld_normalization() {
+    build_test_framework wrapper-sigchld || return 1
+    run_test_framework_json_ignored_sigchld
+    [ "$status" -eq 0 ] && [ -n "$output" ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["decision"] == "MET" and d["findings"] == []' "$output" \
+        || { printf 'wrapper_sigchld_not_normalized status=%s output=%s\n' \
+            "$status" "$output"; return 1; }
+    run_test_framework_json_forged_sigchld_bootstrap
+    [ "$status" -eq 126 ] && [ -z "$output" ] \
+        || { printf 'wrapper_sigchld_ambient_bypass status=%s output=%s\n' \
+            "$status" "$output"; return 1; }
+    run_test_framework_json_closed_sigchld_bootstrap
+    [ "$status" -eq 126 ] && [ -z "$output" ] \
+        || { printf 'wrapper_sigchld_closed_handshake status=%s output=%s\n' \
+            "$status" "$output"; return 1; }
+    run_test_framework_json_blocking_sigchld_bootstrap
+    [ "$status" -eq 126 ] && [ -z "$output" ] \
+        || { printf 'wrapper_sigchld_blocking_handshake status=%s output=%s\n' \
+            "$status" "$output"; return 1; }
+    run_test_framework_json_mismatched_sigchld_bootstrap
+    [ "$status" -eq 126 ] && [ -z "$output" ] \
+        || { printf 'wrapper_sigchld_mismatch_accepted status=%s output=%s\n' \
+            "$status" "$output"; return 1; }
+    run_test_framework_json_pending_sigchld_bootstrap
+    [ "$status" -eq 0 ] && [ -n "$output" ] \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["decision"] == "MET" and d["findings"] == []' "$output" \
+        || { printf 'wrapper_sigchld_pending_not_drained status=%s output=%s\n' \
+            "$status" "$output"; return 1; }
+}
+
 split_bounded_validator_json() {
     local raw="$1"
     VALIDATOR_JSON="${raw##*$'\n'}"
@@ -705,6 +770,9 @@ anchor = '''def validate_source_history():
 '''
 instrumented = f'''def validate_source_history():
     try:
+        signal.setitimer(
+            signal.ITIMER_REAL, 1
+        )  # TEST_SOURCE_HISTORY_GLOBAL_ALARM_ARM
         _validate_source_history()
     except ValidationDeadline:
         state = b"released" if _active_process is None else f"active:{{_active_process.pid}}".encode("ascii")
@@ -4128,6 +4196,7 @@ PY
     local spawn_failure_only="${CUSTOMER_DELIVERY_SPAWN_FAILURE_ONLY:-}"
     local cleanup_wait_only="${CUSTOMER_DELIVERY_CLEANUP_WAIT_ONLY:-}"
     local sigchld_consumer_only="${CUSTOMER_DELIVERY_SIGCHLD_CONSUMER_ONLY:-}"
+    local wrapper_sigchld_only="${CUSTOMER_DELIVERY_WRAPPER_SIGCHLD_ONLY:-}"
     local inherited_alarm_only="${CUSTOMER_DELIVERY_INHERITED_ALARM_ONLY:-}"
     local pending_alarm_only="${CUSTOMER_DELIVERY_PENDING_ALARM_ONLY:-}"
     local signal_init_only="${CUSTOMER_DELIVERY_SIGNAL_INIT_ONLY:-}"
@@ -4149,6 +4218,10 @@ PY
     fi
     if [[ -n "$sigchld_consumer_only" ]]; then
         assert_ignored_sigchld_consumer "$sigchld_consumer_only" || return 1
+        return 0
+    fi
+    if [[ "$wrapper_sigchld_only" == 1 ]]; then
+        assert_wrapper_sigchld_normalization || return 1
         return 0
     fi
     if [[ -n "$inherited_alarm_only" ]]; then
@@ -4262,6 +4335,7 @@ PY
     assert_process_lifecycle_probe cleanup-alarm || return 1
     assert_process_lifecycle_probe reused-pid || return 1
     assert_process_lifecycle_probe ignored-sigchld || return 1
+    assert_wrapper_sigchld_normalization || return 1
     assert_pending_inherited_alarm_initialization || return 1
     assert_signal_initialization_failure || return 1
     assert_inherited_alarm_real_timer_cleanup || return 1
@@ -5224,9 +5298,6 @@ PY
     replace_test_script_literal \
         'PINNED_GIT = "/usr/bin/git"' \
         "PINNED_GIT = \"${shim}\"" || return 1
-    replace_test_script_literal \
-        'VALIDATION_TOTAL_TIMEOUT_SECONDS = 20' \
-        'VALIDATION_TOTAL_TIMEOUT_SECONDS = 1' || return 1
     replace_test_script_literal \
         'VALIDATION_DEADLINE = time.monotonic() + VALIDATION_TOTAL_TIMEOUT_SECONDS' \
         'VALIDATION_DEADLINE = time.monotonic() + 3600' || return 1
