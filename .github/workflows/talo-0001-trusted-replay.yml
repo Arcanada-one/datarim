@@ -35,7 +35,7 @@ jobs:
       - name: Check out trusted default-main controller
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: main
+          ref: ${{ github.workflow_sha }}
           path: trusted
           persist-credentials: false
       - name: Validate workflow-run identity before secret materialization
@@ -43,6 +43,12 @@ jobs:
       - name: Run trusted collection and sandboxed exact-head replay
         env:
           GH_TOKEN: ${{ github.token }}
+          TALO_TRUSTED_RUN_ID: ${{ github.run_id }}
+          TALO_TRUSTED_RUN_ATTEMPT: ${{ github.run_attempt }}
+          TALO_TRUSTED_WORKFLOW_SHA: ${{ github.workflow_sha }}
+          TALO_SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+          TALO_SOURCE_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          TALO_BASE_SHA: ${{ github.event.workflow_run.pull_requests[0].base.sha }}
         run: |
           trusted/dev-tools/trusted-talo-0001-replay.sh \
             --event "$GITHUB_EVENT_PATH" \
@@ -53,5 +59,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          BASE_SHA: ${{ github.event.workflow_run.pull_requests[0].base.sha }}
+          TRUSTED_RUN_ID: ${{ github.run_id }}
+          TRUSTED_RUN_ATTEMPT: ${{ github.run_attempt }}
+          TRUSTED_WORKFLOW_SHA: ${{ github.workflow_sha }}
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+          SOURCE_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
           ATTESTATION: ${{ runner.temp }}/talo-0001-attestation.json
         run: trusted/dev-tools/publish-talo-0001-check.sh

@@ -10,6 +10,7 @@ SELECTED_WORKFLOW="$REPOSITORY/$WORKFLOW_PATH@refs/heads/main"
 RUNNER_NAME=talo-0001-trusted-arcana-devs
 RUNNER_LABEL=talo-0001-trusted
 RUNNER_USER=talo-replay
+RUNNER_HOME=/srv/talo-0001-trusted
 RUNNER_DIR=/srv/talo-0001-trusted/runner
 UNIT_NAME=talo-0001-trusted-runner.service
 RUNNER_VERSION=2.336.0
@@ -47,8 +48,8 @@ case "$MODE" in
         exit 2
         ;;
 esac
-for command in chmod chown curl find gh git id install jq mkdir mktemp mv python3 \
-    readlink rm sha256sum sleep sort stat sudo systemctl tar wc; do
+for command in chmod chown curl find getent gh git id install jq mkdir mktemp mv \
+    pgrep python3 readlink rm sha256sum sleep sort stat sudo systemctl tar wc; do
     command -v "$command" >/dev/null || { echo "ERROR: missing $command" >&2; exit 2; }
 done
 
@@ -417,6 +418,121 @@ verify_runner_payload_tree() {
     [ "$actual" = "$RUNNER_PAYLOAD_TREE_SHA256" ]
 }
 
+verify_runner_account() {
+    local record name _password uid gid _gecos home shell extra
+    record=$(getent passwd "$RUNNER_USER") || return 1
+    [ "$(wc -l <<<"$record")" -eq 1 ] || return 1
+    IFS=: read -r name _password uid gid _gecos home shell extra <<<"$record"
+    [ "$name" = "$RUNNER_USER" ] && [ -z "$extra" ] \
+        && [[ "$uid" =~ ^[1-9][0-9]*$ ]] \
+        && [[ "$gid" =~ ^[1-9][0-9]*$ ]] \
+        && [ "$home" = "$RUNNER_HOME" ] \
+        && { [ "$shell" = /usr/sbin/nologin ] || [ "$shell" = /sbin/nologin ]; }
+}
+
+assert_runner_user_quiescent() {
+    local status
+    if pgrep -u "$RUNNER_USER" >/dev/null 2>&1; then
+        echo "ERROR: trusted runner identity is not quiescent" >&2
+        return 1
+    else
+        status=$?
+    fi
+    [ "$status" -eq 1 ] || {
+        echo "ERROR: trusted runner process inspection failed" >&2
+        return 1
+    }
+}
+
+verify_runner_payload_ownership() {
+    [ "$(stat -c '%u:%g:%a' "$RUNNER_DIR")" = 0:0:755 ] || return 1
+    verify_root_owned_executable_inventory
+}
+
+verify_root_owned_executable_inventory() {
+    local path owner mode
+    for path in \
+        bin externals config.sh env.sh run.sh run-helper.cmd.template \
+        run-helper.sh.template safe_sleep.sh; do
+        if [ ! -e "$RUNNER_DIR/$path" ] || [ -L "$RUNNER_DIR/$path" ]; then
+            echo "ERROR: executable payload inventory is incomplete: $path" >&2
+            return 1
+        fi
+    done
+    while IFS= read -r -d '' path; do
+        owner=$(stat -c '%u:%g' -- "$path") || return 1
+        [ "$owner" = 0:0 ] || {
+            echo "ERROR: executable payload is not root-owned: $path" >&2
+            return 1
+        }
+        if [ ! -L "$path" ]; then
+            mode=$(stat -c '%a' -- "$path") || return 1
+            (( (8#$mode & 022) == 0 )) || {
+                echo "ERROR: executable payload is writable: $path" >&2
+                return 1
+            }
+        fi
+    done < <(find \
+        "$RUNNER_DIR/bin" "$RUNNER_DIR/externals" \
+        "$RUNNER_DIR/config.sh" "$RUNNER_DIR/env.sh" "$RUNNER_DIR/run.sh" \
+        "$RUNNER_DIR/run-helper.cmd.template" \
+        "$RUNNER_DIR/run-helper.sh.template" "$RUNNER_DIR/safe_sleep.sh" \
+        -print0)
+}
+
+harden_executable_payload() {
+    local path
+    for path in \
+        bin externals config.sh env.sh run.sh run-helper.cmd.template \
+        run-helper.sh.template safe_sleep.sh; do
+        if [ ! -e "$RUNNER_DIR/$path" ] || [ -L "$RUNNER_DIR/$path" ]; then
+            echo "ERROR: runner executable payload inventory mismatch" >&2
+            return 1
+        fi
+        chown -R root:root "$RUNNER_DIR/$path"
+        chmod -R a-w "$RUNNER_DIR/$path"
+    done
+    chown root:root "$RUNNER_DIR"
+    chmod 0755 "$RUNNER_DIR"
+    chmod g-s,o-t "$RUNNER_DIR"
+    install -d -o "$RUNNER_USER" -g "$RUNNER_USER" -m 0750 \
+        "$RUNNER_DIR/_diag" "$RUNNER_DIR/_work"
+    verify_runner_payload && verify_runner_payload_tree \
+        && verify_runner_payload_ownership
+}
+
+open_registration_directory() {
+    local runner_gid
+    local_registration_absent || return 1
+    runner_gid=$(id -g "$RUNNER_USER") || return 1
+    [[ "$runner_gid" =~ ^[1-9][0-9]*$ ]] || return 1
+    chown root:"$RUNNER_USER" "$RUNNER_DIR"
+    chmod 3775 "$RUNNER_DIR"
+    [ "$(stat -c '%u:%g:%a' "$RUNNER_DIR")" = "0:$runner_gid:3775" ] \
+        && verify_root_owned_executable_inventory
+}
+
+seal_registration_directory() {
+    local state
+    chmod 0755 "$RUNNER_DIR" || return 1
+    chmod g-s,o-t "$RUNNER_DIR" || return 1
+    chown root:root "$RUNNER_DIR" || return 1
+    state=$(stat -c '%u:%g:%a' "$RUNNER_DIR") || return 1
+    [ "$state" = 0:0:755 ] || {
+        echo "ERROR: registration directory seal mismatch: $state" >&2
+        return 1
+    }
+    verify_root_owned_executable_inventory
+}
+
+seal_interrupted_registration_directory() {
+    if [ ! -e "$RUNNER_DIR" ] && [ ! -L "$RUNNER_DIR" ]; then
+        return 0
+    fi
+    [ -d "$RUNNER_DIR" ] && [ ! -L "$RUNNER_DIR" ] \
+        && seal_registration_directory
+}
+
 install_runner_payload() {
     local scratch archive
     scratch=$(mktemp -d /tmp/talo-runner-payload.XXXXXX)
@@ -444,9 +560,8 @@ install_runner_payload() {
         echo "ERROR: official runner payload extraction failed" >&2
         return 1
     fi
-    chown -R "$RUNNER_USER:$RUNNER_USER" "$RUNNER_DIR"
     rm -rf -- "$scratch"
-    if ! verify_runner_payload || ! verify_runner_payload_tree; then
+    if ! harden_executable_payload; then
         echo "ERROR: installed runner payload digest mismatch" >&2
         return 1
     fi
@@ -507,6 +622,7 @@ abort_runner_transaction() {
     local id=$1 fresh_registration=$2 pre_registration_empty=$3 \
         known_runner_id=$4 message=$5 rollback_failed=false
     disable_runner_service || rollback_failed=true
+    seal_registration_directory || rollback_failed=true
     if [ "$fresh_registration" = true ]; then
         rollback_new_registration "$id" "$pre_registration_empty" \
             "$known_runner_id" \
@@ -521,10 +637,12 @@ abort_runner_transaction() {
 
 ensure_runner_payload() {
     if [ -e "$RUNNER_DIR/.runner" ]; then
-        verify_runner_payload
+        verify_runner_payload && verify_runner_payload_tree \
+            && verify_runner_payload_ownership
         return
     fi
     if verify_runner_payload && verify_runner_payload_tree; then
+        harden_executable_payload
         return
     fi
     install_runner_payload
@@ -532,16 +650,7 @@ ensure_runner_payload() {
 
 harden_runner_payload() {
     local path
-    for path in \
-        bin externals config.sh env.sh run.sh run-helper.cmd.template \
-        run-helper.sh.template safe_sleep.sh; do
-        if [ ! -e "$RUNNER_DIR/$path" ] || [ -L "$RUNNER_DIR/$path" ]; then
-            echo "ERROR: runner payload hardening inventory mismatch" >&2
-            return 1
-        fi
-        chown -R root:root "$RUNNER_DIR/$path"
-        chmod -R a-w "$RUNNER_DIR/$path"
-    done
+    harden_executable_payload || return 1
     for path in .runner .credentials .credentials_rsaparams .env .path; do
         if [ -e "$RUNNER_DIR/$path" ]; then
             if [ ! -f "$RUNNER_DIR/$path" ] || [ -L "$RUNNER_DIR/$path" ]; then
@@ -559,10 +668,6 @@ harden_runner_payload() {
     fi
     chown root:root "$RUNNER_DIR/.talo-registration-seal"
     chmod 0600 "$RUNNER_DIR/.talo-registration-seal"
-    install -d -o "$RUNNER_USER" -g "$RUNNER_USER" -m 0750 \
-        "$RUNNER_DIR/_diag" "$RUNNER_DIR/_work"
-    chown root:root "$RUNNER_DIR"
-    chmod 0755 "$RUNNER_DIR"
 }
 
 local_registration_absent() {
@@ -602,6 +707,10 @@ bind_pre_reconcile_roster() {
             echo "ERROR: runner payload tree mismatch" >&2
             return 1
         }
+        harden_executable_payload || {
+            echo "ERROR: runner payload ownership mismatch" >&2
+            return 1
+        }
         return 0
     fi
     local_registration_absent || {
@@ -634,6 +743,10 @@ ensure_group() {
         return 1
     fi
     stop_and_disable_runner_service || return 1
+    seal_interrupted_registration_directory || {
+        echo "ERROR: interrupted runner registration could not be resealed" >&2
+        return 1
+    }
     bind_pre_reconcile_roster "$id" || return 1
     reconcile_group "$id"
 }
@@ -708,7 +821,7 @@ stop_and_disable_runner_service() {
 }
 
 register_and_start() {
-    local id token runner runner_id install_payload=false \
+    local id token runner runner_id config_status install_payload=false \
         fresh_registration=false pre_registration_empty=false
     [ "$(id -u)" -eq 0 ] || { echo "ERROR: registration requires root" >&2; exit 1; }
     id=$(ensure_group) || exit 1
@@ -751,32 +864,84 @@ register_and_start() {
             exit 1
         }
         pre_registration_empty=true
-        token=$(api --method POST "orgs/$ORG/actions/runners/registration-token" --jq .token)
-        [ -n "$token" ] || { echo "ERROR: empty runner registration token" >&2; exit 1; }
         fresh_registration=true
-        if ! ACTIONS_RUNNER_INPUT_TOKEN="$token" \
+        verify_runner_account || {
+            abort_runner_transaction "$id" "$fresh_registration" \
+                "$pre_registration_empty" "$runner_id" \
+                "runner account boundary mismatch"
+        }
+        assert_runner_user_quiescent || {
+            abort_runner_transaction "$id" "$fresh_registration" \
+                "$pre_registration_empty" "$runner_id" \
+                "runner identity is not quiescent before registration"
+        }
+        if ! { verify_runner_payload && verify_runner_payload_tree \
+            && verify_runner_payload_ownership; }; then
+            abort_runner_transaction "$id" "$fresh_registration" \
+                "$pre_registration_empty" "$runner_id" \
+                "runner executable identity changed before token request"
+        fi
+        if ! token=$(api --method POST \
+            "orgs/$ORG/actions/runners/registration-token" --jq .token); then
+            abort_runner_transaction "$id" "$fresh_registration" \
+                "$pre_registration_empty" "$runner_id" \
+                "runner registration token request failed"
+        fi
+        [ -n "$token" ] || {
+            abort_runner_transaction "$id" "$fresh_registration" \
+                "$pre_registration_empty" "$runner_id" \
+                "empty runner registration token"
+        }
+        if ! { verify_runner_payload && verify_runner_payload_tree \
+            && verify_runner_payload_ownership \
+            && assert_runner_user_quiescent; }; then
+            token=REDACTED
+            abort_runner_transaction "$id" "$fresh_registration" \
+                "$pre_registration_empty" "$runner_id" \
+                "runner executable identity changed before configuration"
+        fi
+        open_registration_directory || {
+            token=REDACTED
+            abort_runner_transaction "$id" "$fresh_registration" \
+                "$pre_registration_empty" "$runner_id" \
+                "runner registration directory could not be opened safely"
+        }
+        set +e
+        ACTIONS_RUNNER_INPUT_TOKEN="$token" \
             sudo --preserve-env=ACTIONS_RUNNER_INPUT_TOKEN -u "$RUNNER_USER" \
             "$RUNNER_DIR/config.sh" --unattended \
             --url "https://github.com/$ORG" \
             --runnergroup "$GROUP_NAME" --name "$RUNNER_NAME" \
-            --labels "$RUNNER_LABEL" --work _work --disableupdate; then
-            token=REDACTED
+            --labels "$RUNNER_LABEL" --work _work --disableupdate
+        config_status=$?
+        set -e
+        token=REDACTED
+        seal_registration_directory || {
+            abort_runner_transaction "$id" "$fresh_registration" \
+                "$pre_registration_empty" "$runner_id" \
+                "runner registration directory could not be resealed"
+        }
+        [ "$config_status" -eq 0 ] || {
             abort_runner_transaction "$id" "$fresh_registration" \
                 "$pre_registration_empty" "$runner_id" \
                 "runner configuration failed"
-        fi
-        token=REDACTED
+        }
+        assert_runner_user_quiescent || {
+            abort_runner_transaction "$id" "$fresh_registration" \
+                "$pre_registration_empty" "$runner_id" \
+                "runner identity remained active after configuration"
+        }
+        lock_registration_identity_files || {
+            abort_runner_transaction "$id" "$fresh_registration" \
+                "$pre_registration_empty" "$runner_id" \
+                "runner identity files could not be locked"
+        }
         runner=$(wait_for_exact_runner "$id" registered) || {
             abort_runner_transaction "$id" "$fresh_registration" \
                 "$pre_registration_empty" "$runner_id" \
                 "runner registration did not reach the exact trusted group"
         }
         runner_id=$(jq -r .id <<<"$runner")
-        lock_registration_identity_files || {
-            abort_runner_transaction "$id" "$fresh_registration" \
-                "$pre_registration_empty" "$runner_id" \
-                "runner identity files could not be locked"
-        }
         verify_local_registration_core "$runner_id" "$id" || {
             abort_runner_transaction "$id" "$fresh_registration" \
                 "$pre_registration_empty" "$runner_id" \

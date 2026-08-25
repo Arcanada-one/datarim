@@ -4,6 +4,12 @@ set -euo pipefail
 command_name=$(basename "$0")
 printf '%s\n' "$command_name $*" >>"${TALO_MOCK_LOG:?}"
 case "$command_name" in
+    chmod|chown)
+        "/usr/bin/$command_name" "$@"
+        ;;
+    pgrep)
+        [ "${TALO_MOCK_RUNNER_PROCESS:-0}" = 1 ]
+        ;;
     gh)
         case "${TALO_MOCK_GH_MODE:-api-failure}" in
             api-failure) exit 1 ;;
@@ -153,6 +159,7 @@ case "$command_name" in
         exit 0
         ;;
     sudo)
+        sudo_user=
         if [ "${TALO_MOCK_ENFORCE_TRAVERSAL:-0}" = 1 ] \
             && [[ " $* " == *"/tmp/talo-runner-payload."* ]]; then
             exit 2
@@ -161,12 +168,19 @@ case "$command_name" in
             shift
         fi
         if [ "${1:-}" = -u ]; then
+            sudo_user=$2
             shift 2
         fi
         if [ "${1:-}" = -- ]; then
             shift
         fi
-        "$@"
+        if [ "${TALO_MOCK_REAL_UID:-0}" = 1 ] && [ -n "$sudo_user" ]; then
+            /usr/bin/sudo \
+                --preserve-env=ACTIONS_RUNNER_INPUT_TOKEN,TALO_MOCK_LOG,TALO_MOCK_CONFIG_CMDLINE,TALO_MOCK_CONFIG_ENV_REMOVED,TALO_MOCK_CONFIG_STARTED,TALO_MOCK_CONFIG_REMOTE_ONLY,TALO_MOCK_CREDENTIALS_TEMPLATE,TALO_MOCK_RSA_TEMPLATE,TALO_MOCK_CONFIG_FAILURE,TALO_MOCK_REPLACE_EXEC \
+                -u "$sudo_user" -- "$@"
+        else
+            "$@"
+        fi
         ;;
     *) exit 0 ;;
 esac

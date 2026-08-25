@@ -19,14 +19,54 @@ done
 for value in EVENT CANDIDATE OUTPUT; do
     [ -n "${!value}" ] || { echo "ERROR: --${value,,} is required" >&2; exit 2; }
 done
-for command in cmp curl docker gh git jq realpath sha256sum; do
+umask 077
+if [ -L "$OUTPUT" ] || { [ -e "$OUTPUT" ] && [ ! -f "$OUTPUT" ]; }; then
+    echo "ERROR: attestation output is not a regular path" >&2
+    exit 2
+fi
+: >"$OUTPUT"
+chmod 0600 "$OUTPUT"
+for value in TALO_TRUSTED_RUN_ID TALO_TRUSTED_RUN_ATTEMPT \
+    TALO_TRUSTED_WORKFLOW_SHA TALO_SOURCE_RUN_ID TALO_SOURCE_RUN_ATTEMPT \
+    TALO_BASE_SHA; do
+    [ -n "${!value:-}" ] || { echo "ERROR: missing trusted run binding: $value" >&2; exit 2; }
+done
+for command in chmod cmp curl docker gh git id jq mktemp mv realpath sha256sum; do
     command -v "$command" >/dev/null || { echo "ERROR: missing $command" >&2; exit 2; }
 done
+if ! [[ "$TALO_TRUSTED_RUN_ID" =~ ^[1-9][0-9]*$ ]] \
+    || ! [[ "$TALO_TRUSTED_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]] \
+    || ! [[ "$TALO_SOURCE_RUN_ID" =~ ^[1-9][0-9]*$ ]] \
+    || ! [[ "$TALO_SOURCE_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]] \
+    || ! [[ "$TALO_TRUSTED_WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]] \
+    || ! [[ "$TALO_BASE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+    echo "ERROR: invalid trusted run binding" >&2
+    exit 2
+fi
 
 scratch=$(mktemp -d)
 trap 'rm -rf -- "$scratch"' EXIT
 "$TRUSTED_ROOT/dev-tools/preflight-talo-0001-workflow-run.sh" "$EVENT" >/dev/null
 head_sha=$(jq -er '.workflow_run.head_sha' "$EVENT")
+source_run_id=$(jq -er '.workflow_run.id' "$EVENT")
+source_run_attempt=$(jq -er '.workflow_run.run_attempt' "$EVENT")
+base_sha=$(jq -er '.workflow_run.pull_requests[0].base.sha' "$EVENT")
+if [ "$source_run_id" != "$TALO_SOURCE_RUN_ID" ] \
+    || [ "$source_run_attempt" != "$TALO_SOURCE_RUN_ATTEMPT" ] \
+    || [ "$base_sha" != "$TALO_BASE_SHA" ]; then
+    echo "ERROR: event run binding mismatch" >&2
+    exit 1
+fi
+controller_commit=$(GIT_NO_REPLACE_OBJECTS=1 git -C "$TRUSTED_ROOT" rev-parse HEAD)
+[ "$controller_commit" = "$TALO_TRUSTED_WORKFLOW_SHA" ] \
+    || { echo "ERROR: trusted controller commit mismatch" >&2; exit 1; }
+execution_nonce_sha256=$(
+    printf 'trusted_run_id=%s\ntrusted_run_attempt=%s\nworkflow_sha=%s\nsource_run_id=%s\nsource_run_attempt=%s\nhead_sha=%s\nbase_sha=%s\n' \
+        "$TALO_TRUSTED_RUN_ID" "$TALO_TRUSTED_RUN_ATTEMPT" \
+        "$TALO_TRUSTED_WORKFLOW_SHA" "$TALO_SOURCE_RUN_ID" \
+        "$TALO_SOURCE_RUN_ATTEMPT" "$head_sha" "$TALO_BASE_SHA" \
+        | sha256sum | cut -d' ' -f1
+)
 actual_evaluator_sha=$(sha256sum "$TRUSTED_EVALUATOR" | cut -d' ' -f1)
 [ "$actual_evaluator_sha" = "$TRUSTED_EVALUATOR_SHA256" ] \
     || { echo "ERROR: trusted evaluator digest mismatch" >&2; exit 1; }
@@ -209,10 +249,19 @@ mutation_digest=$(
         sha256sum "$scratch/sealed/$mutant.json" | cut -d' ' -f1
     done | sha256sum | cut -d' ' -f1
 )
-jq -n --arg head "$head_sha" --arg knowledge "$SNAPSHOT" \
+attestation_tmp=$(mktemp "${OUTPUT}.tmp.XXXXXXXX")
+jq -n --arg head "$head_sha" --arg base "$TALO_BASE_SHA" \
+    --arg controller "$TALO_TRUSTED_WORKFLOW_SHA" \
+    --argjson trusted_run_id "$TALO_TRUSTED_RUN_ID" \
+    --argjson trusted_run_attempt "$TALO_TRUSTED_RUN_ATTEMPT" \
+    --argjson source_run_id "$TALO_SOURCE_RUN_ID" \
+    --argjson source_run_attempt "$TALO_SOURCE_RUN_ATTEMPT" \
+    --arg nonce "$execution_nonce_sha256" --arg knowledge "$SNAPSHOT" \
     --arg evaluator "$TRUSTED_EVALUATOR_SHA256" \
     --arg candidate_validator "$candidate_validator_object_digest" \
     --arg manifest "$manifest_object_digest" \
     --arg mutations "$mutation_digest" \
-    '{schema_version:1,verdict:"MET",head_sha:$head,knowledge_snapshot:$knowledge,trusted_evaluator_sha256:$evaluator,candidate_validator_object_sha256:$candidate_validator,manifest_object_sha256:$manifest,mutation_set_sha256:$mutations,counts:{items:66,candidates:19,external_pins:8,derived_records:3,comments:2,mutants:7}}' \
-    >"$OUTPUT"
+    '{schema_version:1,verdict:"MET",head_sha:$head,base_sha:$base,controller_commit:$controller,trusted_run_id:$trusted_run_id,trusted_run_attempt:$trusted_run_attempt,source_run_id:$source_run_id,source_run_attempt:$source_run_attempt,execution_nonce_sha256:$nonce,knowledge_snapshot:$knowledge,trusted_evaluator_sha256:$evaluator,candidate_validator_object_sha256:$candidate_validator,manifest_object_sha256:$manifest,mutation_set_sha256:$mutations,counts:{items:66,candidates:19,external_pins:8,derived_records:3,comments:2,mutants:7}}' \
+    >"$attestation_tmp"
+chmod 0600 "$attestation_tmp"
+mv -f -- "$attestation_tmp" "$OUTPUT"

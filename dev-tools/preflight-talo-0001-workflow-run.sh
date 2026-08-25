@@ -10,6 +10,8 @@ repository=$(jq -er '.workflow_run.repository.full_name' "$event_file")
 workflow_id=$(jq -er '.workflow_run.workflow_id' "$event_file")
 workflow_name=$(jq -er '.workflow_run.name' "$event_file")
 workflow_path=$(jq -er '.workflow_run.path' "$event_file")
+source_run_id=$(jq -er '.workflow_run.id' "$event_file")
+source_run_attempt=$(jq -er '.workflow_run.run_attempt' "$event_file")
 pr_count=$(jq -er '.workflow_run.pull_requests | length' "$event_file")
 pr_head_sha=$(jq -er '.workflow_run.pull_requests[0].head.sha' "$event_file")
 pr_number=$(jq -er '.workflow_run.pull_requests[0].number' "$event_file")
@@ -18,10 +20,14 @@ pr_head_repository=$(jq -er \
     '.workflow_run.pull_requests[0].head.repo.url | sub("https://api.github.com/repos/"; "")' \
     "$event_file")
 pr_base_ref=$(jq -er '.workflow_run.pull_requests[0].base.ref' "$event_file")
+pr_base_sha=$(jq -er '.workflow_run.pull_requests[0].base.sha' "$event_file")
 pr_base_repository=$(jq -er \
     '.workflow_run.pull_requests[0].base.repo.url | sub("https://api.github.com/repos/"; "")' \
     "$event_file")
 [[ "$head_sha" =~ ^[0-9a-f]{40}$ ]] || exit 1
+[[ "$pr_base_sha" =~ ^[0-9a-f]{40}$ ]] || exit 1
+[[ "$source_run_id" =~ ^[1-9][0-9]*$ ]] || exit 1
+[[ "$source_run_attempt" =~ ^[1-9][0-9]*$ ]] || exit 1
 if [ "$conclusion" != success ] || [ "$event" != pull_request ] \
     || [ "$head_repository" != Arcanada-one/datarim ] \
     || [ "$repository" != Arcanada-one/datarim ] \

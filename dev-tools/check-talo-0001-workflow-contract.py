@@ -24,12 +24,12 @@ ACTIONLINT = ROOT / ".github/actionlint.yaml"
 
 CHECKOUT = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
 EXPECTED_DIGESTS = {
-    "preflight": "548acccf9f3dd75687f2984698b2b751eb6c810536b29c480546d1f17bbb9a7b",
-    "controller": "b1ebfb11b999847f38798d2ac56c5ac54e437acfd42029ddb495211ffab6d5ad",
-    "publisher": "f6d7361501a1d5dae7b44625a656cca1f7fd6abb62e843ab059a11d037151109",
+    "preflight": "65fccc367606236627f3ca9ce3883f7a379c4cda4a0006d21408a7af8dbf3877",
+    "controller": "183a37188f22b0cdf804dfd4fe589bb9d6701758cb806cc24399c7dd0d59c3b2",
+    "publisher": "ed1dbeba6e3aa17022dd53e0922703852b75f317f45f610460198def28c995ba",
     "evaluator": "a0e86fc87493231afffd3164587f0c14e463f5e8c4acd8f4f9679e2504280d1a",
     "runner-unit": "d9b25e4ea33ed2bddad9e5d1fd5a47acedfed852749f0771fb24838f70edc131",
-    "provisioner": "7594729b551e375bfd1e93c8a5535e7752dda3e8a4efec6687342eb84c66e47f",
+    "provisioner": "ce8046feb794ac1c536839b39419ebb35c0884dd99df8b8c25814edf44b59e6f",
 }
 EXPECTED_PATHS = [
     "commands/**",
@@ -209,7 +209,7 @@ def validate_trusted(workflow: dict[str, Any], findings: list[str]) -> None:
             "name": "Check out trusted default-main controller",
             "uses": CHECKOUT,
             "with": {
-                "ref": "main",
+                "ref": "${{ github.workflow_sha }}",
                 "path": "trusted",
                 "persist-credentials": False,
             },
@@ -220,7 +220,15 @@ def validate_trusted(workflow: dict[str, Any], findings: list[str]) -> None:
         },
         {
             "name": "Run trusted collection and sandboxed exact-head replay",
-            "env": {"GH_TOKEN": "${{ github.token }}"},
+            "env": {
+                "GH_TOKEN": "${{ github.token }}",
+                "TALO_TRUSTED_RUN_ID": "${{ github.run_id }}",
+                "TALO_TRUSTED_RUN_ATTEMPT": "${{ github.run_attempt }}",
+                "TALO_TRUSTED_WORKFLOW_SHA": "${{ github.workflow_sha }}",
+                "TALO_SOURCE_RUN_ID": "${{ github.event.workflow_run.id }}",
+                "TALO_SOURCE_RUN_ATTEMPT": "${{ github.event.workflow_run.run_attempt }}",
+                "TALO_BASE_SHA": "${{ github.event.workflow_run.pull_requests[0].base.sha }}",
+            },
             "run": (
                 "trusted/dev-tools/trusted-talo-0001-replay.sh \\\n"
                 '  --event "$GITHUB_EVENT_PATH" \\\n'
@@ -234,6 +242,12 @@ def validate_trusted(workflow: dict[str, Any], findings: list[str]) -> None:
             "env": {
                 "GH_TOKEN": "${{ github.token }}",
                 "HEAD_SHA": "${{ github.event.workflow_run.head_sha }}",
+                "BASE_SHA": "${{ github.event.workflow_run.pull_requests[0].base.sha }}",
+                "TRUSTED_RUN_ID": "${{ github.run_id }}",
+                "TRUSTED_RUN_ATTEMPT": "${{ github.run_attempt }}",
+                "TRUSTED_WORKFLOW_SHA": "${{ github.workflow_sha }}",
+                "SOURCE_RUN_ID": "${{ github.event.workflow_run.id }}",
+                "SOURCE_RUN_ATTEMPT": "${{ github.event.workflow_run.run_attempt }}",
                 "ATTESTATION": "${{ runner.temp }}/talo-0001-attestation.json",
             },
             "run": "trusted/dev-tools/publish-talo-0001-check.sh",
@@ -323,12 +337,24 @@ def validate_code(findings: list[str]) -> None:
         '-v "$candidate_materialized:/candidate:ro"',
         "candidate_validator_object_sha256",
         "manifest_object_sha256",
+        ': >"$OUTPUT"',
+        'controller_commit=$(GIT_NO_REPLACE_OBJECTS=1 git -C "$TRUSTED_ROOT" rev-parse HEAD)',
+        'execution_nonce_sha256=',
+        'attestation_tmp=$(mktemp "${OUTPUT}.tmp.XXXXXXXX")',
+        'mv -f -- "$attestation_tmp" "$OUTPUT"',
     ):
         if value not in controller:
             findings.append(f"missing:candidate-object-contract:{value}")
     for value in (
         "candidate_validator_object_sha256",
         "manifest_object_sha256",
+        "expected_nonce=",
+        'trusted_run_id == $trusted_run_id',
+        'source_run_id == $source_run_id',
+        '.base_sha == $base',
+        '.controller_commit == $controller',
+        '[ ! -L "$ATTESTATION" ]',
+        '[ "$attestation_mode" = 600 ]',
     ):
         if value not in publisher:
             findings.append(f"missing:candidate-object-contract:{value}")
@@ -402,7 +428,6 @@ def validate_code(findings: list[str]) -> None:
         'verify_runner_payload_tree',
         'install -d -o root -g root -m 0755 "$RUNNER_DIR"',
         'if ! tar --extract --gzip --file "$archive" --directory "$RUNNER_DIR"',
-        'chown -R "$RUNNER_USER:$RUNNER_USER" "$RUNNER_DIR"',
         'systemctl disable --now "$UNIT_NAME"',
         'systemctl stop "$UNIT_NAME"',
         'systemctl is-enabled "$UNIT_NAME"',
@@ -441,6 +466,16 @@ def validate_code(findings: list[str]) -> None:
         'verify_registration_identity_seal',
         'write_registration_identity_seal',
         '.talo-registration-seal',
+        'RUNNER_HOME=/srv/talo-0001-trusted',
+        'verify_runner_account',
+        'assert_runner_user_quiescent',
+        'verify_runner_payload_ownership',
+        'harden_executable_payload',
+        'open_registration_directory',
+        'seal_registration_directory',
+        'seal_interrupted_registration_directory',
+        'chmod 3775 "$RUNNER_DIR"',
+        '[ "$(stat -c \'%u:%g:%a\' "$RUNNER_DIR")" = 0:0:755 ]',
     ):
         if value not in provisioner:
             findings.append(f"missing:runner-runtime-contract:{value}")
@@ -448,6 +483,12 @@ def validate_code(findings: list[str]) -> None:
         findings.append("forbidden:runner-private-staging-traversal")
     if '--token "$token"' in provisioner:
         findings.append("forbidden:runner-token-in-argv")
+    if 'chown -R "$RUNNER_USER:$RUNNER_USER" "$RUNNER_DIR"' in provisioner:
+        findings.append("forbidden:runner-owned-executable-payload")
+    if provisioner.count("verify_runner_payload_ownership") != 5:
+        findings.append("mismatch:runner-preexec-revalidation-cardinality")
+    if provisioner.count("assert_runner_user_quiescent") != 4:
+        findings.append("mismatch:runner-quiescence-cardinality")
     try:
         ensure_group = provisioner.split("ensure_group() {", 1)[1].split(
             "\n}", 1
@@ -463,6 +504,7 @@ def validate_code(findings: list[str]) -> None:
         "verify_trusted_main_workflow",
         "id=$(group_id)",
         "stop_and_disable_runner_service",
+        "seal_interrupted_registration_directory",
         'bind_pre_reconcile_roster "$id"',
         'reconcile_group "$id"',
     )
@@ -476,8 +518,15 @@ def validate_code(findings: list[str]) -> None:
         'if [ "$install_payload" = true ]',
         'ensure_runner_payload',
         'pre_registration_empty=true',
+        'verify_runner_account',
+        'assert_runner_user_quiescent',
+        'verify_runner_payload_ownership',
         'registration-token" --jq .token',
+        'runner executable identity changed before configuration',
+        'open_registration_directory',
         '--runnergroup "$GROUP_NAME"',
+        'seal_registration_directory',
+        'lock_registration_identity_files',
         'runner=$(wait_for_exact_runner "$id" registered)',
         'harden_runner_payload',
         'install -o root -g root -m 0644',
