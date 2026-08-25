@@ -283,13 +283,6 @@ run_test_framework_json_ignored_sigchld() {
         "$TEST_SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
 }
 
-run_test_framework_json_inherited_sigalrm_mask() {
-    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
-        "$PYTHON" -c \
-        'import os,signal,sys; signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGALRM}); os.execve(sys.argv[1], sys.argv[1:], os.environ)' \
-        "$TEST_SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
-}
-
 split_bounded_validator_json() {
     local raw="$1"
     VALIDATOR_JSON="${raw##*$'\n'}"
@@ -415,6 +408,104 @@ instrumented = f'''def write_terminal_response(result):
 if source.count(anchor) != 1 or source.count(finalizer) != 1:
     raise SystemExit("TEST_DEADLINE_INSTRUMENTATION_SEAM_MISSING_OR_AMBIGUOUS")
 source = source.replace(anchor, started, 1).replace(finalizer, instrumented, 1)
+open(path, "w", encoding="utf-8").write(source)
+PY
+}
+
+instrument_test_inherited_pending_alarm() {
+    "$PYTHON" - "$TEST_SCRIPT" <<'PY' || return 1
+import sys
+
+path = sys.argv[1]
+source = open(path, encoding="utf-8").read()
+anchor = "sys.excepthook = validator_excepthook\n\n"
+injected = '''signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGALRM})
+signal.setitimer(signal.ITIMER_REAL, 0.01, 0.01)
+time.sleep(0.05)  # TEST_INHERITED_PENDING_ALARM
+
+''' + anchor
+if source.count(anchor) != 1:
+    raise SystemExit("TEST_INHERITED_PENDING_ALARM_SEAM_MISSING_OR_AMBIGUOUS")
+source = source.replace(anchor, injected, 1)
+open(path, "w", encoding="utf-8").write(source)
+PY
+}
+
+instrument_test_inherited_alarm_mask() {
+    "$PYTHON" - "$TEST_SCRIPT" <<'PY' || return 1
+import sys
+
+path = sys.argv[1]
+source = open(path, encoding="utf-8").read()
+anchor = "sys.excepthook = validator_excepthook\n\n"
+injected = '''signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGALRM})
+sys.excepthook = validator_excepthook
+
+'''
+if source.count(anchor) != 1:
+    raise SystemExit("TEST_INHERITED_ALARM_MASK_SEAM_MISSING_OR_AMBIGUOUS")
+source = source.replace(anchor, injected, 1)
+open(path, "w", encoding="utf-8").write(source)
+PY
+}
+
+instrument_test_alarm_arm_before_unblock() {
+    "$PYTHON" - "$TEST_SCRIPT" <<'PY' || return 1
+import sys
+
+path = sys.argv[1]
+source = open(path, encoding="utf-8").read()
+anchor = '''signal.signal(
+    signal.SIGCHLD, signal.SIG_DFL
+)  # SECURITY_RULE:validation_sigchld_reaping
+'''
+injected = '''_test_original_pthread_sigmask = signal.pthread_sigmask
+_test_original_setitimer = signal.setitimer
+_test_alarm_unblock_observed = False
+
+def _test_require_handler_before_owned_timer(which, seconds, interval=0):
+    if (
+        which == signal.ITIMER_REAL
+        and seconds == VALIDATION_TOTAL_TIMEOUT_SECONDS
+        and signal.getsignal(signal.SIGALRM) is not validation_alarm_handler
+    ):
+        raise OSError("TEST_ALARM_HANDLER_NOT_INSTALLED")
+    return _test_original_setitimer(which, seconds, interval)
+
+def _test_require_owned_timer_before_unblock(operation, mask):
+    global _test_alarm_unblock_observed
+    if (
+        not _test_alarm_unblock_observed
+        and operation == signal.SIG_UNBLOCK
+        and signal.SIGALRM in mask
+    ):
+        _test_alarm_unblock_observed = True
+        remaining, _interval = signal.getitimer(signal.ITIMER_REAL)
+        if remaining <= 0:
+            raise OSError("TEST_ALARM_UNARMED_AT_UNBLOCK")
+    return _test_original_pthread_sigmask(operation, mask)
+
+signal.setitimer = _test_require_handler_before_owned_timer
+signal.pthread_sigmask = _test_require_owned_timer_before_unblock
+''' + anchor
+if source.count(anchor) != 1:
+    raise SystemExit("TEST_ALARM_ARM_ORDER_SEAM_MISSING_OR_AMBIGUOUS")
+source = source.replace(anchor, injected, 1)
+open(path, "w", encoding="utf-8").write(source)
+PY
+}
+
+instrument_test_post_drain_pause() {
+    "$PYTHON" - "$TEST_SCRIPT" <<'PY' || return 1
+import sys
+
+path = sys.argv[1]
+source = open(path, encoding="utf-8").read()
+anchor = "        signal.sigwait({signal.SIGALRM})\n"
+injected = anchor + "        time.sleep(0.03)  # TEST_INHERITED_TIMER_CANCEL_SETTLE\n"
+if source.count(anchor) != 1:
+    raise SystemExit("TEST_INHERITED_TIMER_CANCEL_SEAM_MISSING_OR_AMBIGUOUS")
+source = source.replace(anchor, injected, 1)
 open(path, "w", encoding="utf-8").write(source)
 PY
 }
@@ -1048,15 +1139,22 @@ namespace = {
     "_active_process": None,
 }
 exec(compile(ast.Module(body=selected, type_ignores=[]), script_path, "exec"), namespace)
-normalization_start = validator_source.index(
-    "signal.signal(\n    signal.SIGCHLD, signal.SIG_"
-)
-normalization_end = validator_source.index(
-    "\nsignal.signal(signal.SIGALRM, validation_alarm_handler)",
-    normalization_start,
-)
+sigchld_normalizations = [
+    node for node in tree.body
+    if isinstance(node, ast.Expr)
+    and isinstance(node.value, ast.Call)
+    and isinstance(node.value.func, ast.Attribute)
+    and isinstance(node.value.func.value, ast.Name)
+    and node.value.func.value.id == "signal"
+    and node.value.func.attr == "signal"
+    and len(node.value.args) == 2
+    and isinstance(node.value.args[0], ast.Attribute)
+    and node.value.args[0].attr == "SIGCHLD"
+]
+if len(sigchld_normalizations) != 1:
+    raise SystemExit("SIGCHLD_NORMALIZATION_SEAM_MISSING_OR_AMBIGUOUS")
 normalization_code = compile(
-    validator_source[normalization_start:normalization_end] + "\n",
+    ast.Module(body=sigchld_normalizations, type_ignores=[]),
     script_path,
     "exec",
 )
@@ -1328,7 +1426,8 @@ assert_inherited_alarm_mask_cleanup() {
     build_test_framework "inherited-alarm-${callsite}" || return 1
     instrument_test_validator_elapsed "$elapsed_marker" || return 1
     instrument_test_post_popen_signal "$callsite" "$pid_file" signal || return 1
-    run_test_framework_json_inherited_sigalrm_mask
+    instrument_test_inherited_alarm_mask || return 1
+    run_test_framework_json
     [ "$status" -eq 2 ] \
         && [ -s "$elapsed_marker" ] \
         && [ -s "$pid_file" ] \
@@ -1358,9 +1457,9 @@ assert_pending_inherited_alarm_initialization() {
     build_test_framework pending-inherited-alarm || return 1
     instrument_pending_alarm_before_excepthook || return 1
     run_test_framework_json
-    [ "$status" -eq 2 ] \
+    [ "$status" -eq 0 ] \
         && [[ "$output" != *"Traceback"* ]] \
-        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["findings"] == ["validation_resource_limit:deadline"]' "$output" \
+        && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["decision"] == "MET" and d["findings"] == []' "$output" \
         || { printf 'pending_inherited_alarm_failure=status=%s output=%s\n' \
             "$status" "$output"; return 1; }
 }
@@ -1405,8 +1504,11 @@ PY
         'VALIDATION_DEADLINE = time.monotonic() + VALIDATION_TOTAL_TIMEOUT_SECONDS' \
         'VALIDATION_DEADLINE = time.monotonic() + 10' || return 1
     instrument_test_validator_elapsed "$elapsed_marker" || return 1
+    instrument_test_inherited_pending_alarm || return 1
+    instrument_test_alarm_arm_before_unblock || return 1
+    instrument_test_post_drain_pause || return 1
     rebind_test_openssl "$shim" || return 1
-    run_test_framework_json_inherited_sigalrm_mask
+    run_test_framework_json
     [ "$status" -eq 2 ] \
         && [ -s "$elapsed_marker" ] \
         && [ -s "$pid_file" ] \

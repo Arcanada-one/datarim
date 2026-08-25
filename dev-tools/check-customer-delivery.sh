@@ -1355,12 +1355,20 @@ sys.excepthook = validator_excepthook
 signal.signal(
     signal.SIGCHLD, signal.SIG_DFL
 )  # SECURITY_RULE:validation_sigchld_reaping
-signal.signal(signal.SIGALRM, validation_alarm_handler)
 try:
+    signal.pthread_sigmask(
+        signal.SIG_BLOCK, {signal.SIGALRM}
+    )  # SECURITY_RULE:validation_alarm_initialization_mask
+    signal.setitimer(
+        signal.ITIMER_REAL, 0
+    )  # SECURITY_RULE:validation_alarm_inherited_timer_cancel
+    if signal.SIGALRM in signal.sigpending():  # SECURITY_RULE:validation_alarm_pending_drain
+        signal.sigwait({signal.SIGALRM})
+    signal.signal(signal.SIGALRM, validation_alarm_handler)
+    signal.setitimer(signal.ITIMER_REAL, VALIDATION_TOTAL_TIMEOUT_SECONDS)
     signal.pthread_sigmask(
         signal.SIG_UNBLOCK, {signal.SIGALRM}
     )  # SECURITY_RULE:validation_alarm_unblock
-    signal.setitimer(signal.ITIMER_REAL, VALIDATION_TOTAL_TIMEOUT_SECONDS)
 except (AttributeError, OSError, ValueError):
     write_terminal_response(ValidationTerminal(
         "ERROR", 2, "NOT_MET", ("untrusted_python_runtime",)

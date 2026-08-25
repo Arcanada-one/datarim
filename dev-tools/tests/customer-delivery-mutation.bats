@@ -1419,8 +1419,8 @@ run_alarm_initialization_mutant() {
     local functional_mutant validator_mutant selector expected_fragment
     case "$mode" in
         handler-order)
-            selector='CUSTOMER_DELIVERY_PENDING_ALARM_ONLY=1'
-            expected_fragment='pending_inherited_alarm_failure='
+            selector='CUSTOMER_DELIVERY_PENDING_ALARM_ONLY=timer'
+            expected_fragment='inherited_alarm_timer_failure='
             ;;
         timer-bound)
             selector='CUSTOMER_DELIVERY_PENDING_ALARM_ONLY=timer'
@@ -1429,6 +1429,10 @@ run_alarm_initialization_mutant() {
         init-hard-abort)
             selector='CUSTOMER_DELIVERY_SIGNAL_INIT_ONLY=1'
             expected_fragment='signal_initialization_failure='
+            ;;
+        cancel-inherited|drain-inherited|arm-before-unblock)
+            selector='CUSTOMER_DELIVERY_PENDING_ALARM_ONLY=timer'
+            expected_fragment='inherited_alarm_timer_failure='
             ;;
         *) return 1 ;;
     esac
@@ -1450,20 +1454,8 @@ source = open(validator_path, encoding="utf-8").read()
 root_old = '    REPO_ROOT="${BATS_TEST_DIRNAME}/../.."\n'
 root_new = f"    REPO_ROOT={repo_root!r}\n"
 if mode == "handler-order":
-    guard = '''signal.signal(signal.SIGALRM, validation_alarm_handler)
-try:
-    signal.pthread_sigmask(
-        signal.SIG_UNBLOCK, {signal.SIGALRM}
-    )  # SECURITY_RULE:validation_alarm_unblock
-    signal.setitimer(signal.ITIMER_REAL, VALIDATION_TOTAL_TIMEOUT_SECONDS)
-'''
-    mutant = '''try:
-    signal.pthread_sigmask(
-        signal.SIG_UNBLOCK, {signal.SIGALRM}
-    )  # MUTATED:validation_alarm_handler_order
-    signal.signal(signal.SIGALRM, validation_alarm_handler)
-    signal.setitimer(signal.ITIMER_REAL, VALIDATION_TOTAL_TIMEOUT_SECONDS)
-'''
+    guard = "    signal.signal(signal.SIGALRM, validation_alarm_handler)\n"
+    mutant = "    signal.signal(signal.SIGALRM, signal.SIG_DFL)  # MUTATED:validation_alarm_handler_order\n"
 elif mode == "timer-bound":
     guard = "    signal.setitimer(signal.ITIMER_REAL, VALIDATION_TOTAL_TIMEOUT_SECONDS)\n"
     mutant = "    signal.setitimer(signal.ITIMER_REAL, VALIDATION_TOTAL_TIMEOUT_SECONDS * 8)  # MUTATED:validation_alarm_timer_bound\n"
@@ -1475,6 +1467,31 @@ elif mode == "init-hard-abort":
     mutant = '''    finalize_terminal(select_terminal(
         "ERROR", 2, additional_findings=("untrusted_python_runtime",)
     ))  # MUTATED:validation_signal_init_hard_abort
+'''
+elif mode == "cancel-inherited":
+    guard = '''    signal.setitimer(
+        signal.ITIMER_REAL, 0
+    )  # SECURITY_RULE:validation_alarm_inherited_timer_cancel
+'''
+    mutant = '''    pass  # MUTATED:validation_alarm_inherited_timer_cancel
+'''
+elif mode == "drain-inherited":
+    guard = '''    if signal.SIGALRM in signal.sigpending():  # SECURITY_RULE:validation_alarm_pending_drain
+        signal.sigwait({signal.SIGALRM})
+'''
+    mutant = '''    if False:  # MUTATED:validation_alarm_pending_drain
+        signal.sigwait({signal.SIGALRM})
+'''
+elif mode == "arm-before-unblock":
+    guard = '''    signal.setitimer(signal.ITIMER_REAL, VALIDATION_TOTAL_TIMEOUT_SECONDS)
+    signal.pthread_sigmask(
+        signal.SIG_UNBLOCK, {signal.SIGALRM}
+    )  # SECURITY_RULE:validation_alarm_unblock
+'''
+    mutant = '''    signal.pthread_sigmask(
+        signal.SIG_UNBLOCK, {signal.SIGALRM}
+    )  # MUTATED:validation_alarm_arm_after_unblock
+    signal.setitimer(signal.ITIMER_REAL, VALIDATION_TOTAL_TIMEOUT_SECONDS)
 '''
 else:
     raise SystemExit("ALARM_INITIALIZATION_MUTATION_MODE_INVALID")
@@ -2066,6 +2083,9 @@ PY
     run_alarm_initialization_mutant handler-order
     run_alarm_initialization_mutant timer-bound
     run_alarm_initialization_mutant init-hard-abort
+    run_alarm_initialization_mutant cancel-inherited
+    run_alarm_initialization_mutant drain-inherited
+    run_alarm_initialization_mutant arm-before-unblock
 }
 
 @test "cleanup signal-mask and output-before-reap mutants are independently killed" {
