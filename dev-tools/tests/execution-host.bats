@@ -404,3 +404,98 @@ teardown() {
     run bash -c "source '$LIB'; EH_TEST_HOSTNAME='test-host' eh_decision '$BOUND_WS' '$MAP'; bash -c 'printf \"%s\" \"\${EH_STATE:-absent}\"'"
     [ "$output" = "absent" ]
 }
+
+# ============================================================================
+# TUNE-0596 — the library is SOURCED into the caller's shell by the Step-0
+# EXECUTION HOST block of every /dr-* command, so it runs under whatever shell
+# the agent happens to be (zsh is the macOS default). Every test above runs it
+# under `bash -c`, which is exactly why a bashism survived here undetected.
+#
+# The defect: `IFS=',' read -ra aliases` is bash-only. Under zsh it printed
+# "bad option: -a" and — without `set -e` — execution CONTINUED with an empty
+# alias list, so eh_host_match returned a perfectly honest-looking 1. A host
+# that matched only by ALIAS was therefore reported off-host and told to
+# delegate to itself, while the same map under bash resolved on-host.
+#
+# These cases pin the behaviour under a non-bash shell. They skip (rather than
+# fail) where zsh is absent, so a bash-only CI runner stays green while the
+# coverage is real on any machine that has zsh.
+# ============================================================================
+
+@test "zsh: eh_host_match matches by alias (the TUNE-0596 regression)" {
+    command -v zsh >/dev/null 2>&1 || skip "zsh not installed on this host"
+    run zsh -c "source '$LIB'; EH_TEST_HOSTNAME='Test-Host' eh_host_match 'test-host' 'test-host,Test-Host' '100.64.0.42'"
+    [ "$status" -eq 0 ]
+}
+
+@test "zsh: eh_host_match matches an alias in a later CSV position" {
+    command -v zsh >/dev/null 2>&1 || skip "zsh not installed on this host"
+    run zsh -c "source '$LIB'; EH_TEST_HOSTNAME='third' eh_host_match 'req' 'one,two,third' ''"
+    [ "$status" -eq 0 ]
+}
+
+@test "zsh: eh_host_match still REJECTS a genuine non-match" {
+    command -v zsh >/dev/null 2>&1 || skip "zsh not installed on this host"
+    run zsh -c "source '$LIB'; EH_TEST_HOSTNAME='stranger' eh_host_match 'req' 'one,two' ''"
+    [ "$status" -eq 1 ]
+}
+
+@test "zsh: eh_host_match handles a single alias with no comma" {
+    command -v zsh >/dev/null 2>&1 || skip "zsh not installed on this host"
+    run zsh -c "source '$LIB'; EH_TEST_HOSTNAME='solo' eh_host_match 'req' 'solo' ''"
+    [ "$status" -eq 0 ]
+}
+
+@test "zsh: eh_decision resolves on-host via alias, exactly as bash does" {
+    command -v zsh >/dev/null 2>&1 || skip "zsh not installed on this host"
+    run zsh -c "source '$LIB'; EH_TEST_HOSTNAME='Test-Host' eh_decision '$BOUND_WS' '$MAP'"
+    [ "$status" -eq 0 ]
+    run bash -c "source '$LIB'; EH_TEST_HOSTNAME='Test-Host' eh_decision '$BOUND_WS' '$MAP'"
+    [ "$status" -eq 0 ]
+}
+
+@test "zsh: eh_decision still reports off-host for a foreign hostname" {
+    command -v zsh >/dev/null 2>&1 || skip "zsh not installed on this host"
+    run zsh -c "source '$LIB'; EH_TEST_HOSTNAME='stranger' eh_decision '$BOUND_WS' '$MAP'"
+    [ "$status" -eq 10 ]
+}
+
+# The alias loop must not depend on shell-specific word splitting. This asserts
+# the mechanism directly, so a future rewrite that reintroduces `read -a` or
+# `set -- $csv` (zsh does not word-split unquoted expansions by default) fails
+# here rather than silently degrading a live routing decision.
+@test "eh_host_match: alias parsing uses no bash-only array syntax" {
+    # Comments are stripped first: the fix's own commentary NAMES the banned
+    # syntax to explain it, and a naive grep matches that prose. Measured — the
+    # first version of this test went red on its own explanation.
+    run bash -c "sed 's/#.*//' '$LIB' | grep -nE 'read -(r?)a|local -a|declare -a|mapfile|readarray'"
+    [ "$status" -ne 0 ]
+}
+
+# Positive control for the gate above: the banned syntax IS detected when it is
+# real code rather than a comment. Without this, a broken grep would pass
+# silently and the gate would be decoration.
+@test "eh_host_match: the bash-only-syntax gate can actually fail" {
+    probe="$TEST_TMP/probe.sh"
+    printf '%s\n' 'f() {' '    local -a arr' '    IFS="," read -ra arr <<< "a,b"' '}' > "$probe"
+    run bash -c "sed 's/#.*//' '$probe' | grep -nE 'read -(r?)a|local -a|declare -a|mapfile|readarray'"
+    [ "$status" -eq 0 ]
+}
+
+# eh_decision must never hand back a verdict its matcher did not produce. Under
+# `set -e` a shell incompatibility aborts eh_host_match mid-way; without the
+# completion marker the caller reads that abort as a clean on-host/off-host.
+# NOTE: the status must be captured with NO command after eh_decision — a
+# trailing `echo` overwrites $? and the assertion then reads the echo's 0.
+@test "eh_decision: fails closed (3) when the matcher did not complete" {
+    run bash -c "source '$LIB'; eh_host_match() { EH_MATCH_COMPLETED=''; return 1; }; EH_TEST_HOSTNAME='stranger' eh_decision '$BOUND_WS' '$MAP'"
+    [ "$status" -eq 3 ]
+}
+
+# Control for the guard above: the SAME stub that DOES set the marker yields a
+# normal verdict, proving the guard keys on the marker and not merely on the
+# presence of a stub.
+@test "eh_decision: a completed matcher still yields a normal verdict" {
+    run bash -c "source '$LIB'; eh_host_match() { EH_MATCH_COMPLETED=1; return 1; }; EH_TEST_HOSTNAME='stranger' eh_decision '$BOUND_WS' '$MAP'"
+    [ "$status" -eq 10 ]
+}
