@@ -1313,27 +1313,54 @@ except Exception:
     result = "HARNESS_INVALID:wrapper_sigchld_drain_fixture"
     status = 2
 finally:
-    if child is not None:
-        reaped = False
-        cleanup_deadline = time.monotonic() + 2
-        while time.monotonic() < cleanup_deadline:
+    cleanup_failed = False
+    try:
+        if child is not None:
+            reaped = False
+            cleanup_deadline = time.monotonic() + 2
+            while time.monotonic() < cleanup_deadline:
+                try:
+                    observed, _ = os.waitpid(child, os.WNOHANG)
+                except ChildProcessError:
+                    reaped = True
+                    break
+                if observed == child:
+                    reaped = True
+                    break
+                time.sleep(0.01)
+            if not reaped:
+                os.kill(child, signal.SIGKILL)
+                os.waitpid(child, 0)
+        if os.environ.get("CUSTOMER_DELIVERY_DRAIN_PROBE_FORCE_CLEANUP_FAILURE") == "1":
+            raise OSError("forced cleanup failure")
+    except BaseException:
+        cleanup_failed = True
+        if child is not None:
             try:
-                observed, _ = os.waitpid(child, os.WNOHANG)
+                os.kill(child, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                pass
+            try:
+                os.waitpid(child, 0)
             except ChildProcessError:
-                reaped = True
-                break
-            if observed == child:
-                reaped = True
-                break
-            time.sleep(0.01)
-        if not reaped:
-            os.kill(child, signal.SIGKILL)
-            os.waitpid(child, 0)
-    signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGCHLD})
-    if signal.SIGCHLD in signal.sigpending():
-        signal.sigwait({signal.SIGCHLD})
-    signal.signal(signal.SIGCHLD, previous_handler)
-    signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+                pass
+    try:
+        signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGCHLD})
+        if signal.SIGCHLD in signal.sigpending():
+            signal.sigwait({signal.SIGCHLD})
+    except BaseException:
+        cleanup_failed = True
+    try:
+        signal.signal(signal.SIGCHLD, previous_handler)
+    except BaseException:
+        cleanup_failed = True
+    try:
+        signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+    except BaseException:
+        cleanup_failed = True
+    if cleanup_failed:
+        result = "HARNESS_INVALID:wrapper_sigchld_drain_cleanup"
+        status = 2
 
 print(result)
 raise SystemExit(status)
@@ -1342,7 +1369,8 @@ PY
 
 run_wrapper_sigchld_mutants() {
     local filter='OpenSSL deadline terminates stubborn descendant pipe holders'
-    local kind validator_mutant guard mutant expected_fragment wrapper_mode anchor_invalid
+    local kind validator_mutant guard mutant expected_fragment wrapper_mode
+    local anchor_invalid duplicate_anchor sentinel_kind sentinel_surface
     run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         CUSTOMER_DELIVERY_TEST_PYTHON="$PYTHON" \
         CUSTOMER_DELIVERY_WRAPPER_SIGCHLD_ONLY=1 \
@@ -1351,6 +1379,7 @@ run_wrapper_sigchld_mutants() {
 
     for kind in "$@"; do
         wrapper_mode=1
+        sentinel_kind="wrapper_sigchld_${kind}"
         validator_mutant="${BATS_TEST_TMPDIR}/check-customer-delivery-wrapper-sigchld-${kind}.sh"
         cp "$SCRIPT" "$validator_mutant" || return 1
         case "$kind" in
@@ -1419,11 +1448,34 @@ PY
                 && [ "$output" = HARNESS_INVALID:wrapper_sigchld_drain_anchor ] \
                 || { printf 'wrapper_sigchld_drain_probe_anchor=%s status=%s\n' \
                     "$output" "$status"; return 1; }
+            duplicate_anchor="${BATS_TEST_TMPDIR}/check-customer-delivery-wrapper-sigchld-drain-duplicate.sh"
+            cp "$validator_mutant" "$duplicate_anchor" || return 1
+            "$PYTHON" - "$duplicate_anchor" <<'PY' || return 1
+import sys
+
+path = sys.argv[1]
+source = open(path, encoding="utf-8").read()
+anchor = "# SECURITY_RULE:wrapper_sigchld_pending_drain"
+if source.count(anchor) != 1:
+    raise SystemExit("WRAPPER_SIGCHLD_DRAIN_DUPLICATE_CONTROL_MISSING_OR_AMBIGUOUS")
+open(path, "w", encoding="utf-8").write(source.replace(anchor, anchor + "\n# SECURITY_RULE:wrapper_sigchld_pending_drain", 1))
+PY
+            run_exact_wrapper_sigchld_drain_probe "$duplicate_anchor"
+            [ "$status" -eq 2 ] \
+                && [ "$output" = HARNESS_INVALID:wrapper_sigchld_drain_anchor ] \
+                || { printf 'wrapper_sigchld_drain_probe_duplicate=%s status=%s\n' \
+                    "$output" "$status"; return 1; }
             CUSTOMER_DELIVERY_DRAIN_PROBE_FORCE_FIXTURE_FAILURE=1 \
                 run_exact_wrapper_sigchld_drain_probe "$validator_mutant"
             [ "$status" -eq 2 ] \
                 && [ "$output" = HARNESS_INVALID:wrapper_sigchld_drain_fixture ] \
                 || { printf 'wrapper_sigchld_drain_probe_fixture=%s status=%s\n' \
+                    "$output" "$status"; return 1; }
+            CUSTOMER_DELIVERY_DRAIN_PROBE_FORCE_CLEANUP_FAILURE=1 \
+                run_exact_wrapper_sigchld_drain_probe "$validator_mutant"
+            [ "$status" -eq 2 ] \
+                && [ "$output" = HARNESS_INVALID:wrapper_sigchld_drain_cleanup ] \
+                || { printf 'wrapper_sigchld_drain_probe_cleanup=%s status=%s\n' \
                     "$output" "$status"; return 1; }
         fi
         "$PYTHON" - "$validator_mutant" "$guard" "$mutant" <<'PY' || return 1
@@ -1456,9 +1508,15 @@ PY
                 || { printf 'wrapper_sigchld_mutant_not_attributed=%s status=%s output=%s\n' \
                     "$kind" "$status" "$output"; return 1; }
         fi
+        if [[ "$kind" == drain ]]; then
+            sentinel_kind=exact_wrapper_sigchld_drain_probe
+            sentinel_surface="exact_wrapper_sigchld_drain_probe|${expected_fragment}"
+        else
+            sentinel_surface="${filter}|${expected_fragment}"
+        fi
         "$PYTHON" -c \
             'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
-            "wrapper_sigchld_${kind}" "${filter}|${expected_fragment}"
+            "$sentinel_kind" "$sentinel_surface"
     done
 }
 
