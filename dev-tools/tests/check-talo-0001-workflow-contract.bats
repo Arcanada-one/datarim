@@ -93,11 +93,13 @@ setup_provision_runtime() {
     MOCK_LOG="$BATS_TEST_TMPDIR/provision-commands.log"
     RUNNER_FIXTURE="$BATS_TEST_TMPDIR/runner"
     IDENTITY_FIXTURE="$BATS_TEST_TMPDIR/runner-identity"
+    PROC_FIXTURE="$BATS_TEST_TMPDIR/proc"
     TEST_RUNNER_USER=$(id -un)
     TEST_RUNNER_UID=$(id -u)
     TEST_RUNNER_GID=$(id -g)
     make_runner_fixture_editable
-    mkdir -p "$MOCK_BIN" "$RUNNER_FIXTURE/bin" "$RUNNER_FIXTURE/externals"
+    mkdir -p "$MOCK_BIN" "$RUNNER_FIXTURE/bin" "$RUNNER_FIXTURE/externals" \
+        "$PROC_FIXTURE/4242"
     mkdir -p "$IDENTITY_FIXTURE"
     for command in chmod chown curl getent gh install pgrep sudo systemctl sleep; do
         ln -sf "$ROOT/dev-tools/tests/fixtures/talo-0001-command-mock.sh" \
@@ -107,6 +109,7 @@ setup_provision_runtime() {
         "$PROVISIONER"
     sed -i "s#RUNNER_USER=talo-replay#RUNNER_USER=$TEST_RUNNER_USER#" \
         "$PROVISIONER"
+    sed -i "s#PROC_ROOT=/proc#PROC_ROOT=$PROC_FIXTURE#" "$PROVISIONER"
     cat >"$RUNNER_FIXTURE/config.sh" <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -145,6 +148,13 @@ SH
     printf '%s\n' fixture-listener >"$RUNNER_FIXTURE/bin/Runner.Listener"
     printf '%s\n' fixture-worker >"$RUNNER_FIXTURE/bin/Runner.Worker"
     printf '%s\n' fixture-support >"$RUNNER_FIXTURE/externals/support.bin"
+    ln -sfn "$RUNNER_FIXTURE/bin/Runner.Listener" "$PROC_FIXTURE/4242/exe"
+    printf 'Uid:\t%s\t%s\t%s\t%s\nGid:\t%s\t%s\t%s\t%s\n' \
+        "$TEST_RUNNER_UID" "$TEST_RUNNER_UID" "$TEST_RUNNER_UID" \
+        "$TEST_RUNNER_UID" "$TEST_RUNNER_GID" "$TEST_RUNNER_GID" \
+        "$TEST_RUNNER_GID" "$TEST_RUNNER_GID" >"$PROC_FIXTURE/4242/status"
+    printf '0::/system.slice/talo-0001-trusted-runner.service\n' \
+        >"$PROC_FIXTURE/4242/cgroup"
     for payload_file in env.sh run-helper.cmd.template run-helper.sh.template safe_sleep.sh; do
         printf '%s\n' "fixture-$payload_file" >"$RUNNER_FIXTURE/$payload_file"
     done
@@ -659,7 +669,7 @@ materialize_candidate_blob dev-tools/check-research-authority-audit.py"
     run env TALO_TRUSTED_RUN_ID=9001 TALO_TRUSTED_RUN_ATTEMPT=1 \
         TALO_TRUSTED_WORKFLOW_SHA=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
         TALO_SOURCE_RUN_ID=8001 TALO_SOURCE_RUN_ATTEMPT=1 \
-        TALO_BASE_SHA=cccccccccccccccccccccccccccccccccccccccc \
+        TALO_BASE_SHA=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
         "$controller" --event "$event" \
         --candidate "$BATS_TEST_TMPDIR/candidate" --output "$attestation_path"
     [ "$status" -ne 0 ]
@@ -673,8 +683,8 @@ materialize_candidate_blob dev-tools/check-research-authority-audit.py"
     local mock_bin="$BATS_TEST_TMPDIR/publisher-bin"
     local log="$BATS_TEST_TMPDIR/publisher.log"
     local head=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
-    local base=cccccccccccccccccccccccccccccccccccccccc
     local controller=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    local base=$controller
     local nonce current_nonce
     mkdir -p "$mock_bin"
     cat >"$mock_bin/gh" <<'SH'
@@ -728,8 +738,8 @@ SH
 @test "checkout failure still owns a current-run pending verdict and terminal failure path" {
     local initializer fallback mock_bin log github_output nonce
     local head=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
-    local base=cccccccccccccccccccccccccccccccccccccccc
     local controller=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    local base=$controller
     initializer=$(workflow_step_run "Initialize checkout-independent current-run verdict")
     fallback=$(workflow_step_run "Publish fixed candidate-head verdict")
     mock_bin="$BATS_TEST_TMPDIR/checkout-failure-bin"
@@ -785,6 +795,51 @@ SH
         bash -c "$fallback"
     [ "$status" -ne 0 ]
     assert_file_lacks --method "$log"
+}
+
+@test "stale source base is failed before pending check or replay" {
+    local initializer mutant mock_bin log github_output nonce
+    local head=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+    local stale_base=1111111111111111111111111111111111111111
+    local current_main=2222222222222222222222222222222222222222
+    initializer=$(workflow_step_run "Initialize checkout-independent current-run verdict")
+    mock_bin="$BATS_TEST_TMPDIR/stale-base-bin"
+    log="$BATS_TEST_TMPDIR/stale-base.log"
+    github_output="$BATS_TEST_TMPDIR/stale-base-output"
+    mkdir -p "$mock_bin"
+    cat >"$mock_bin/gh" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >>"${TALO_PUBLISH_LOG:?}"
+jq -cn --argjson id 654 --arg head "${TALO_PUBLISH_HEAD:?}" \
+    --arg nonce "${TALO_PUBLISH_NONCE:?}" --arg status "${TALO_PUBLISH_STATUS:?}" \
+    '{id:$id,name:"talo-0001-privileged-replay",head_sha:$head,external_id:$nonce,status:$status,conclusion:(if $status == "completed" then "failure" else null end)}'
+SH
+    chmod +x "$mock_bin/gh"
+    nonce=$(printf 'trusted_run_id=%s\ntrusted_run_attempt=%s\nworkflow_sha=%s\nsource_run_id=%s\nsource_run_attempt=%s\nhead_sha=%s\nbase_sha=%s\n' \
+        9002 1 "$current_main" 8002 1 "$head" "$stale_base" | sha256sum | cut -d' ' -f1)
+    run env "PATH=$mock_bin:$PATH" TALO_PUBLISH_LOG="$log" \
+        TALO_PUBLISH_HEAD="$head" TALO_PUBLISH_NONCE="$nonce" \
+        TALO_PUBLISH_STATUS=completed GITHUB_OUTPUT="$github_output" \
+        HEAD_SHA="$head" BASE_SHA="$stale_base" TRUSTED_RUN_ID=9002 \
+        TRUSTED_RUN_ATTEMPT=1 TRUSTED_WORKFLOW_SHA="$current_main" \
+        SOURCE_RUN_ID=8002 SOURCE_RUN_ATTEMPT=1 bash -c "$initializer"
+    [ "$status" -eq 1 ]
+    grep -q 'conclusion=failure' "$log"
+    assert_file_lacks 'status=in_progress' "$log"
+    [ ! -s "$github_output" ]
+
+    mutant=${initializer/'if [ "$BASE_SHA" != "$TRUSTED_WORKFLOW_SHA" ]; then'/'if false; then'}
+    : >"$log"
+    run env "PATH=$mock_bin:$PATH" \
+        TALO_PUBLISH_LOG="$log" TALO_PUBLISH_HEAD="$head" \
+        TALO_PUBLISH_NONCE="$nonce" TALO_PUBLISH_STATUS=in_progress \
+        GITHUB_OUTPUT="$github_output" HEAD_SHA="$head" BASE_SHA="$stale_base" \
+        TRUSTED_RUN_ID=9002 TRUSTED_RUN_ATTEMPT=1 \
+        TRUSTED_WORKFLOW_SHA="$current_main" SOURCE_RUN_ID=8002 \
+        SOURCE_RUN_ATTEMPT=1 bash -c "$mutant"
+    [ "$status" -eq 0 ]
+    grep -q 'status=in_progress' "$log"
+    printf '%s\n' 'RED_SENTINEL:stale-base-equality-guard'
 }
 
 @test "dedicated runner identity, fixed paths, and hardening are load-bearing" {
@@ -1163,6 +1218,23 @@ PY
     printf '%s\n' 'RED_SENTINEL:prestart-quiescence-call'
 }
 
+@test "post-start process must be the exact listener identity in the service cgroup" {
+    setup_provision_runtime
+    printf '0::/system.slice/hostile.service\n' >"$PROC_FIXTURE/4242/cgroup"
+    TALO_MOCK_RUNNERS_MODE=one run_provision_runtime
+    [ "$status" -eq 1 ]
+    [[ "$output" == *'started runner process/cgroup identity mismatch'* ]]
+    [ "$(cat "$MOCK_SERVICE_STATE")" = disabled ]
+
+    sed -i 's/    verify_started_runner_process || {/    true || {/' \
+        "$PROVISIONER"
+    : >"$MOCK_LOG"
+    TALO_MOCK_RUNNERS_MODE=one run_provision_runtime
+    [ "$status" -eq 0 ]
+    grep -q '^systemctl enable --now' "$MOCK_LOG"
+    printf '%s\n' 'RED_SENTINEL:post-start-process-cgroup-boundary'
+}
+
 @test "runner UID cannot replace the exact executable payload after hardening" {
     setup_provision_runtime
     prepare_fresh_runner_payload
@@ -1534,7 +1606,8 @@ payload = {"workflow_run": {
 }}
 Path(sys.argv[1]).write_text(json.dumps(payload), encoding="utf-8")
 PY
-    run "$preflight" "$event"
+    run env TALO_TRUSTED_WORKFLOW_SHA=cccccccccccccccccccccccccccccccccccccccc \
+        "$preflight" "$event"
     [ "$status" -eq 0 ]
 
     while IFS='|' read -r expression value; do
@@ -1552,7 +1625,8 @@ for part in parts[:-1]:
 target[parts[-1]] = json.loads(sys.argv[3])
 path.write_text(json.dumps(data), encoding="utf-8")
 PY
-        run "$preflight" "$event"
+        run env TALO_TRUSTED_WORKFLOW_SHA=cccccccccccccccccccccccccccccccccccccccc \
+            "$preflight" "$event"
         [ "$status" -ne 0 ]
         python3 - "$event" "$expression" <<'PY'
 import json

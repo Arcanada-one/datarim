@@ -24,12 +24,12 @@ ACTIONLINT = ROOT / ".github/actionlint.yaml"
 
 CHECKOUT = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
 EXPECTED_DIGESTS = {
-    "preflight": "65fccc367606236627f3ca9ce3883f7a379c4cda4a0006d21408a7af8dbf3877",
-    "controller": "183a37188f22b0cdf804dfd4fe589bb9d6701758cb806cc24399c7dd0d59c3b2",
-    "publisher": "99924f3d9b6ba053b2402504a3cf5dfd50044f993ed0770ad797d070d31f0e3e",
+    "preflight": "a18daf69186058ede3916e74423139dea2a7fdee5dd017b1e703160fef4c9784",
+    "controller": "a2f6460144d3bc608cfa92d0a75474609db31b5647bde743e0f4681f53bf30b6",
+    "publisher": "8987738d78ccfde84f1fa90ab34b3b0abdb260278d9ea47ab068efa62d0926cd",
     "evaluator": "a0e86fc87493231afffd3164587f0c14e463f5e8c4acd8f4f9679e2504280d1a",
     "runner-unit": "d9b25e4ea33ed2bddad9e5d1fd5a47acedfed852749f0771fb24838f70edc131",
-    "provisioner": "56c44f4e2a71f6b1c1812115bf3823ea9f9b9aa7bb34476cdf922fb9a37807cf",
+    "provisioner": "95dd8ab3c2d9de0f7e2de56a6bc839b68e6efe8a6aa1fed0143075d69e3c8d13",
 }
 EXPECTED_PATHS = [
     "commands/**",
@@ -226,6 +226,18 @@ def validate_trusted(workflow: dict[str, Any], findings: list[str]) -> None:
                 '    "$SOURCE_RUN_ID" "$SOURCE_RUN_ATTEMPT" "$HEAD_SHA" "$BASE_SHA" \\\n'
                 "    | sha256sum | cut -d' ' -f1\n"
                 ")\n"
+                'if [ "$BASE_SHA" != "$TRUSTED_WORKFLOW_SHA" ]; then\n'
+                "  response=$(gh api --method POST repos/Arcanada-one/datarim/check-runs \\\n"
+                '    -f name=talo-0001-privileged-replay -f head_sha="$HEAD_SHA" \\\n'
+                "    -f status=completed -f conclusion=failure \\\n"
+                '    -f external_id="$expected_nonce" \\\n'
+                "    -f 'output[title]=TALO-0001 trusted replay' \\\n"
+                "    -f 'output[summary]=Source run base is not current trusted main.')\n"
+                '  jq -e --arg head "$HEAD_SHA" --arg nonce "$expected_nonce" \\\n'
+                "    'select(.name == \"talo-0001-privileged-replay\" and .head_sha == $head and .external_id == $nonce and .status == \"completed\" and .conclusion == \"failure\") | .id | select(type == \"number\" and . > 0 and floor == .)' \\\n"
+                '    <<<"$response" >/dev/null\n'
+                "  exit 1\n"
+                "fi\n"
                 "response=$(gh api --method POST repos/Arcanada-one/datarim/check-runs \\\n"
                 '  -f name=talo-0001-privileged-replay -f head_sha="$HEAD_SHA" \\\n'
                 '  -f status=in_progress -f external_id="$expected_nonce" \\\n'
@@ -249,6 +261,9 @@ def validate_trusted(workflow: dict[str, Any], findings: list[str]) -> None:
         },
         {
             "name": "Validate workflow-run identity before secret materialization",
+            "env": {
+                "TALO_TRUSTED_WORKFLOW_SHA": "${{ github.workflow_sha }}",
+            },
             "run": 'trusted/dev-tools/preflight-talo-0001-workflow-run.sh "$GITHUB_EVENT_PATH"',
         },
         {
@@ -346,6 +361,7 @@ def validate_code(findings: list[str]) -> None:
         if hashlib.sha256(content).hexdigest() != EXPECTED_DIGESTS[label]:
             findings.append(f"digest_mismatch:{label}")
     controller = texts.get("controller", "")
+    preflight = texts.get("preflight", "")
     publisher = texts.get("publisher", "")
     runner_unit = texts.get("runner-unit", "")
     provisioner = texts.get("provisioner", "")
@@ -402,6 +418,7 @@ def validate_code(findings: list[str]) -> None:
         'execution_nonce_sha256=',
         'attestation_tmp=$(mktemp "${OUTPUT}.tmp.XXXXXXXX")',
         'mv -f -- "$attestation_tmp" "$OUTPUT"',
+        '[ "$TALO_BASE_SHA" = "$TALO_TRUSTED_WORKFLOW_SHA" ]',
     ):
         if value not in controller:
             findings.append(f"missing:candidate-object-contract:{value}")
@@ -415,9 +432,12 @@ def validate_code(findings: list[str]) -> None:
         '.controller_commit == $controller',
         '[ ! -L "$ATTESTATION" ]',
         '[ "$attestation_mode" = 600 ]',
+        '[ "$BASE_SHA" = "$TRUSTED_WORKFLOW_SHA" ]',
     ):
         if value not in publisher:
             findings.append(f"missing:candidate-object-contract:{value}")
+    if '[ "$pr_base_sha" != "$trusted_workflow_sha" ]' not in preflight:
+        findings.append("missing:preflight-current-main-binding")
     for value in ("candidate_validator_sha256", "manifest_sha256"):
         if value in controller or value in publisher:
             findings.append("forbidden:worktree-candidate-digest-field")
@@ -527,8 +547,15 @@ def validate_code(findings: list[str]) -> None:
         'write_registration_identity_seal',
         '.talo-registration-seal',
         'RUNNER_HOME=/srv/talo-0001-trusted',
+        'PROC_ROOT=/proc',
         'verify_runner_account',
         'assert_runner_user_quiescent',
+        'verify_started_runner_process',
+        '--property=MainPID',
+        '--property=ControlGroup',
+        '"$PROC_ROOT/$main_pid/exe"',
+        '"$PROC_ROOT/$main_pid/status"',
+        '"$PROC_ROOT/$main_pid/cgroup"',
         'verify_runner_payload_ownership',
         'harden_executable_payload',
         'open_registration_directory',
@@ -549,6 +576,8 @@ def validate_code(findings: list[str]) -> None:
         findings.append("mismatch:runner-preexec-revalidation-cardinality")
     if provisioner.count("assert_runner_user_quiescent") != 6:
         findings.append("mismatch:runner-quiescence-cardinality")
+    if provisioner.count("verify_started_runner_process") != 2:
+        findings.append("mismatch:runner-post-start-identity-cardinality")
     try:
         ensure_group = provisioner.split("ensure_group() {", 1)[1].split(
             "\n}", 1
@@ -592,8 +621,12 @@ def validate_code(findings: list[str]) -> None:
         'runner=$(wait_for_exact_runner "$id" registered)',
         'harden_runner_payload',
         'install -o root -g root -m 0644',
+        'systemctl daemon-reload',
+        'runner account boundary changed before service start',
+        'runner identity is not quiescent before service start',
         'systemctl enable --now "$UNIT_NAME"',
         'systemctl is-active --quiet "$UNIT_NAME"',
+        'verify_started_runner_process',
         'runner=$(wait_for_exact_runner "$id" online "$runner_id")',
         'local runner identity changed after start',
     )

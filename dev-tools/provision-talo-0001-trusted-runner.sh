@@ -12,6 +12,7 @@ RUNNER_LABEL=talo-0001-trusted
 RUNNER_USER=talo-replay
 RUNNER_HOME=/srv/talo-0001-trusted
 RUNNER_DIR=/srv/talo-0001-trusted/runner
+PROC_ROOT=/proc
 UNIT_NAME=talo-0001-trusted-runner.service
 RUNNER_VERSION=2.336.0
 RUNNER_ARCHIVE_URL=https://github.com/actions/runner/releases/download/v$RUNNER_VERSION/actions-runner-linux-x64-$RUNNER_VERSION.tar.gz
@@ -48,8 +49,9 @@ case "$MODE" in
         exit 2
         ;;
 esac
-for command in chmod chown curl find getent gh git id install jq mkdir mktemp mv \
-    pgrep python3 readlink rm sha256sum sleep sort stat sudo systemctl tar wc; do
+for command in awk chmod chown curl find getent gh git id install jq mkdir \
+    mktemp mv pgrep python3 readlink rm sha256sum sleep sort stat sudo systemctl \
+    tar wc; do
     command -v "$command" >/dev/null || { echo "ERROR: missing $command" >&2; exit 2; }
 done
 
@@ -828,6 +830,46 @@ stop_and_disable_runner_service() {
     }
 }
 
+verify_started_runner_process() {
+    local main_pid control_group executable expected_uid expected_gid
+    local uid_real uid_effective uid_saved uid_fs
+    local gid_real gid_effective gid_saved gid_fs
+    main_pid=$(systemctl show "$UNIT_NAME" --property=MainPID --value) \
+        || return 1
+    [[ "$main_pid" =~ ^[1-9][0-9]*$ ]] || return 1
+    control_group=$(systemctl show "$UNIT_NAME" --property=ControlGroup --value) \
+        || return 1
+    [[ "$control_group" == /* && "$control_group" == */"$UNIT_NAME" ]] \
+        || return 1
+    [[ "$control_group" != *'..'* && "$control_group" != *'//'* \
+        && "$control_group" != *[[:space:]]* ]] || return 1
+    executable=$(readlink -f -- "$PROC_ROOT/$main_pid/exe") || return 1
+    [ "$executable" = "$RUNNER_DIR/bin/Runner.Listener" ] || return 1
+    expected_uid=$(id -u "$RUNNER_USER") || return 1
+    expected_gid=$(id -g "$RUNNER_USER") || return 1
+    read -r uid_real uid_effective uid_saved uid_fs < <(
+        awk '$1 == "Uid:" {print $2, $3, $4, $5}' \
+            "$PROC_ROOT/$main_pid/status"
+    ) || return 1
+    read -r gid_real gid_effective gid_saved gid_fs < <(
+        awk '$1 == "Gid:" {print $2, $3, $4, $5}' \
+            "$PROC_ROOT/$main_pid/status"
+    ) || return 1
+    [ "$uid_real" = "$expected_uid" ] \
+        && [ "$uid_effective" = "$expected_uid" ] \
+        && [ "$uid_saved" = "$expected_uid" ] \
+        && [ "$uid_fs" = "$expected_uid" ] \
+        && [ "$gid_real" = "$expected_gid" ] \
+        && [ "$gid_effective" = "$expected_gid" ] \
+        && [ "$gid_saved" = "$expected_gid" ] \
+        && [ "$gid_fs" = "$expected_gid" ] \
+        && awk -F: -v expected="$control_group" '
+            NF != 3 || $3 != expected {exit 1}
+            {seen = 1}
+            END {if (!seen) exit 1}
+        ' "$PROC_ROOT/$main_pid/cgroup"
+}
+
 register_and_start() {
     local id token runner runner_id config_status install_payload=false \
         fresh_registration=false pre_registration_empty=false
@@ -966,16 +1008,6 @@ register_and_start() {
                 "local runner registration mismatch"
         }
     fi
-    verify_runner_account || {
-        abort_runner_transaction "$id" "$fresh_registration" \
-            "$pre_registration_empty" "$runner_id" \
-            "runner account boundary changed before service start"
-    }
-    assert_runner_user_quiescent || {
-        abort_runner_transaction "$id" "$fresh_registration" \
-            "$pre_registration_empty" "$runner_id" \
-            "runner identity is not quiescent before service start"
-    }
     harden_runner_payload || {
         abort_runner_transaction "$id" "$fresh_registration" \
             "$pre_registration_empty" "$runner_id" \
@@ -992,6 +1024,16 @@ register_and_start() {
             "$pre_registration_empty" "$runner_id" \
             "trusted runner service reload failed"
     }
+    verify_runner_account || {
+        abort_runner_transaction "$id" "$fresh_registration" \
+            "$pre_registration_empty" "$runner_id" \
+            "runner account boundary changed before service start"
+    }
+    assert_runner_user_quiescent || {
+        abort_runner_transaction "$id" "$fresh_registration" \
+            "$pre_registration_empty" "$runner_id" \
+            "runner identity is not quiescent before service start"
+    }
     systemctl enable --now "$UNIT_NAME" || {
         abort_runner_transaction "$id" "$fresh_registration" \
             "$pre_registration_empty" "$runner_id" \
@@ -1001,6 +1043,11 @@ register_and_start() {
         abort_runner_transaction "$id" "$fresh_registration" \
             "$pre_registration_empty" "$runner_id" \
             "trusted runner service is not active"
+    }
+    verify_started_runner_process || {
+        abort_runner_transaction "$id" "$fresh_registration" \
+            "$pre_registration_empty" "$runner_id" \
+            "started runner process/cgroup identity mismatch"
     }
     runner=$(wait_for_exact_runner "$id" online "$runner_id") || {
         abort_runner_transaction "$id" "$fresh_registration" \

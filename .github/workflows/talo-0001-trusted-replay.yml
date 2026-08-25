@@ -51,6 +51,18 @@ jobs:
               "$SOURCE_RUN_ID" "$SOURCE_RUN_ATTEMPT" "$HEAD_SHA" "$BASE_SHA" \
               | sha256sum | cut -d' ' -f1
           )
+          if [ "$BASE_SHA" != "$TRUSTED_WORKFLOW_SHA" ]; then
+            response=$(gh api --method POST repos/Arcanada-one/datarim/check-runs \
+              -f name=talo-0001-privileged-replay -f head_sha="$HEAD_SHA" \
+              -f status=completed -f conclusion=failure \
+              -f external_id="$expected_nonce" \
+              -f 'output[title]=TALO-0001 trusted replay' \
+              -f 'output[summary]=Source run base is not current trusted main.')
+            jq -e --arg head "$HEAD_SHA" --arg nonce "$expected_nonce" \
+              'select(.name == "talo-0001-privileged-replay" and .head_sha == $head and .external_id == $nonce and .status == "completed" and .conclusion == "failure") | .id | select(type == "number" and . > 0 and floor == .)' \
+              <<<"$response" >/dev/null
+            exit 1
+          fi
           response=$(gh api --method POST repos/Arcanada-one/datarim/check-runs \
             -f name=talo-0001-privileged-replay -f head_sha="$HEAD_SHA" \
             -f status=in_progress -f external_id="$expected_nonce" \
@@ -68,6 +80,8 @@ jobs:
           path: trusted
           persist-credentials: false
       - name: Validate workflow-run identity before secret materialization
+        env:
+          TALO_TRUSTED_WORKFLOW_SHA: ${{ github.workflow_sha }}
         run: trusted/dev-tools/preflight-talo-0001-workflow-run.sh "$GITHUB_EVENT_PATH"
       - name: Run trusted collection and sandboxed exact-head replay
         env:

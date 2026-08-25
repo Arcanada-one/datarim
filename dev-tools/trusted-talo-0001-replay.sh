@@ -43,6 +43,10 @@ if ! [[ "$TALO_TRUSTED_RUN_ID" =~ ^[1-9][0-9]*$ ]] \
     echo "ERROR: invalid trusted run binding" >&2
     exit 2
 fi
+[ "$TALO_BASE_SHA" = "$TALO_TRUSTED_WORKFLOW_SHA" ] || {
+    echo "ERROR: source base is not current trusted main" >&2
+    exit 1
+}
 
 scratch=$(mktemp -d)
 trap 'rm -rf -- "$scratch"' EXIT

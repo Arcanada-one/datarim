@@ -9,6 +9,10 @@ expected_nonce=$(
         "$SOURCE_RUN_ID" "$SOURCE_RUN_ATTEMPT" "$HEAD_SHA" "$BASE_SHA" \
         | sha256sum | cut -d' ' -f1
 )
+[ "$BASE_SHA" = "$TRUSTED_WORKFLOW_SHA" ] || {
+    echo "ERROR: source base is not current trusted main" >&2
+    exit 1
+}
 [[ "$CHECK_RUN_ID" =~ ^[1-9][0-9]*$ ]]
 current_check=$(gh api "repos/Arcanada-one/datarim/check-runs/$CHECK_RUN_ID")
 jq -e --argjson id "$CHECK_RUN_ID" --arg head "$HEAD_SHA" \

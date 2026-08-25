@@ -143,7 +143,14 @@ case "$command_name" in
         ;;
     systemctl)
         if [ "${1:-}" = show ]; then
-            printf '%s\n' loaded
+            case " $* " in
+                *" --property=MainPID "*) printf '%s\n' 4242 ;;
+                *" --property=ControlGroup "*)
+                    printf '%s\n' /system.slice/talo-0001-trusted-runner.service
+                    ;;
+                *" --property=LoadState "*) printf '%s\n' loaded ;;
+                *) exit 1 ;;
+            esac
             exit 0
         fi
         if [ "${1:-}" = stop ] && [ "${TALO_MOCK_STOP_FAILURE:-0}" = 1 ]; then

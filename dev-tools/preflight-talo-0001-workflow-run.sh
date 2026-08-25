@@ -2,6 +2,7 @@
 set -euo pipefail
 
 event_file=${1:?event path required}
+trusted_workflow_sha=${TALO_TRUSTED_WORKFLOW_SHA:?trusted workflow SHA required}
 head_sha=$(jq -er '.workflow_run.head_sha' "$event_file")
 conclusion=$(jq -er '.workflow_run.conclusion' "$event_file")
 event=$(jq -er '.workflow_run.event' "$event_file")
@@ -26,6 +27,7 @@ pr_base_repository=$(jq -er \
     "$event_file")
 [[ "$head_sha" =~ ^[0-9a-f]{40}$ ]] || exit 1
 [[ "$pr_base_sha" =~ ^[0-9a-f]{40}$ ]] || exit 1
+[[ "$trusted_workflow_sha" =~ ^[0-9a-f]{40}$ ]] || exit 1
 [[ "$source_run_id" =~ ^[1-9][0-9]*$ ]] || exit 1
 [[ "$source_run_attempt" =~ ^[1-9][0-9]*$ ]] || exit 1
 if [ "$conclusion" != success ] || [ "$event" != pull_request ] \
@@ -39,6 +41,7 @@ if [ "$conclusion" != success ] || [ "$event" != pull_request ] \
     || [ "$pr_head_ref" != research/TALO-0001-frontend-design ] \
     || [ "$pr_head_repository" != Arcanada-one/datarim ] \
     || [ "$pr_base_ref" != main ] \
+    || [ "$pr_base_sha" != "$trusted_workflow_sha" ] \
     || [ "$pr_base_repository" != Arcanada-one/datarim ] \
     || [ "$pr_count" -ne 1 ]; then
     exit 1
