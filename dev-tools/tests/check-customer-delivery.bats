@@ -1138,20 +1138,20 @@ seams = {
                     "-I",
                     "-S",
                     "-c",
-                    "import signal; blocked = signal.pthread_sigmask(signal.SIG_BLOCK, set()); raise SystemExit(37 if signal.SIGALRM not in blocked else 38)",
+                    "import signal; blocked = signal.pthread_sigmask(signal.SIG_BLOCK, set()); raise SystemExit(37 if signal.SIGALRM not in blocked and signal.getsignal(signal.SIGCHLD) == signal.SIG_DFL else 38)",
 ''',
     ),
     "bounded": (
         "def validate_crypto_verifier():\n",
         "\ndef validate_trust_registry():\n",
         '''[PINNED_OPENSSL, "version"]''',
-        '''[sys.executable, "-I", "-S", "-c", "import signal; print('OpenSSL 3.0.0 fixture'); blocked = signal.pthread_sigmask(signal.SIG_BLOCK, set()); raise SystemExit(37 if signal.SIGALRM not in blocked else 38)"]''',
+        '''[sys.executable, "-I", "-S", "-c", "import signal; print('OpenSSL 3.0.0 fixture'); blocked = signal.pthread_sigmask(signal.SIG_BLOCK, set()); raise SystemExit(37 if signal.SIGALRM not in blocked and signal.getsignal(signal.SIGCHLD) == signal.SIG_DFL else 38)"]''',
     ),
     "source_history": (
         "    def run_git(arguments, *, input_bytes=None,",
         "\n    def trusted_system_path(",
         "                    [*git_prefix, *arguments],\n",
-        '''                    [sys.executable, "-I", "-S", "-c", "import signal; print('git version 2.39.0'); blocked = signal.pthread_sigmask(signal.SIG_BLOCK, set()); raise SystemExit(37 if signal.SIGALRM not in blocked else 38)"],
+        '''                    [sys.executable, "-I", "-S", "-c", "import signal; print('git version 2.39.0'); blocked = signal.pthread_sigmask(signal.SIG_BLOCK, set()); raise SystemExit(37 if signal.SIGALRM not in blocked and signal.getsignal(signal.SIGCHLD) == signal.SIG_DFL else 38)"],
 ''',
     ),
 }

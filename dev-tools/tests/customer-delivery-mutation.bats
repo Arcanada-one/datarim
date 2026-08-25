@@ -1254,7 +1254,7 @@ PY
         "sigchld_consumer_${callsite}" "${filter}|ignored_sigchld_status_not_preserved=${callsite}"
 }
 
-run_wrapper_sigchld_mutant() {
+run_wrapper_sigchld_mutants() {
     local filter='OpenSSL deadline terminates stubborn descendant pipe holders'
     local kind validator_mutant guard mutant expected_fragment
     run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
@@ -1263,7 +1263,7 @@ run_wrapper_sigchld_mutant() {
         bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
     assert_baseline_green "$filter" || return 1
 
-    for kind in reset unblock drain exec pinned_interpreter delimiter temp_stdin root_writable; do
+    for kind in "$@"; do
         validator_mutant="${BATS_TEST_TMPDIR}/check-customer-delivery-wrapper-sigchld-${kind}.sh"
         cp "$SCRIPT" "$validator_mutant" || return 1
         case "$kind" in
@@ -1317,7 +1317,16 @@ path = sys.argv[1]
 source = open(path, encoding="utf-8").read()
 guard = '''    if signal.SIGCHLD in signal.sigpending():  # SECURITY_RULE:wrapper_sigchld_pending_drain
 '''
-injected = '''    os.kill(os.getpid(), signal.SIGCHLD)  # TEST_WRAPPER_PENDING_SIGCHLD
+injected = '''    import time
+    pending_child = os.fork()  # TEST_WRAPPER_PENDING_SIGCHLD
+    if pending_child == 0:
+        os._exit(0)
+    pending_deadline = time.monotonic() + 2
+    while signal.SIGCHLD not in signal.sigpending():
+        if time.monotonic() >= pending_deadline:
+            raise RuntimeError("SIGCHLD fixture did not become pending")
+        time.sleep(0.01)
+    os.waitpid(pending_child, 0)
 ''' + guard
 if source.count(guard) != 1:
     raise SystemExit("WRAPPER_SIGCHLD_DRAIN_CONTROL_SEAM_MISSING_OR_AMBIGUOUS")
@@ -1858,13 +1867,15 @@ PY
         'manifest_signature|signed review inventory manifest signature is independently verified'
 }
 
-@test "mutation kill attribution rejects setup syntax timeout and wrong-assertion failures" {
+run_mutation_kill_attribution_group() {
+    local group="$1"
     local filter='focused contract' expected=42 deadline_mutant deadline_filter
     local terminal_mask_mutant terminal_mask_validator terminal_mask_filter
     local post_popen_mutant post_popen_control post_popen_readiness_control post_popen_stale_mutant post_popen_filter
     local completed_descendant_validator completed_descendant_mutant
     local callsite marker_kind marker_value marker_hex sentinel_kind
     local diagnostic_mutant diagnostic_filter pid_width_mutant
+    if [[ "$group" == basics ]]; then
     run assert_attributed_mutant_kill valid "$filter" "$expected" 1 \
         $'1..1\nnot ok 1 focused contract\n# (in test file fixture.bats, line 42)\n# assertion failed'
     [ "$status" -eq 0 ] && [[ "$output" == RED_SENTINEL:valid:* ]] || return 1
@@ -1917,6 +1928,8 @@ PY
         && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
         || { printf 'post_deadline_mutant_status=%s output=%s\n' "$status" "$output"; return 1; }
 
+    elif [[ "$group" == terminal-mask ]]; then
+
     terminal_mask_mutant="${BATS_TEST_TMPDIR}/terminal-mask.bats"
     terminal_mask_validator="${BATS_TEST_TMPDIR}/check-customer-delivery-terminal-mask.sh"
     terminal_mask_filter='OpenSSL version output is bounded before allocation'
@@ -1953,6 +1966,8 @@ PY
     [[ "$output" == *"crypto_output="* ]] || return 1
     assert_attributed_mutant_kill terminal_signal_mask "$terminal_mask_filter" \
         "$expected" "$status" "$output" || return 1
+
+    elif [[ "$group" == post-popen ]]; then
 
     post_popen_filter='OpenSSL deadline terminates stubborn descendant pipe holders'
     for callsite in silent bounded source_history masked; do
@@ -2085,12 +2100,29 @@ PY
     "$PYTHON" -c \
         'import hashlib,sys; print(f"RED_SENTINEL:{sys.argv[1]}:{hashlib.sha256(sys.argv[2].encode()).hexdigest()}")' \
         post_popen_stale_marker "${post_popen_filter}|99999999"
+    else
+        return 1
+    fi
 }
 
-@test "same-clock and Alarm diagnostic mutation attribution is fail-closed" {
+@test "mutation kill attribution rejects setup syntax timeout and wrong-assertion failures" {
+    run_mutation_kill_attribution_group basics
+}
+
+@test "terminal signal-mask mutation attribution is independently killed" {
+    run_mutation_kill_attribution_group terminal-mask
+}
+
+@test "post-Popen deadline and readiness mutants are independently killed" {
+    run_mutation_kill_attribution_group post-popen
+}
+
+run_same_clock_alarm_group() {
+    local group="$1"
     local post_popen_control post_popen_mutant post_popen_filter
     local marker_kind marker_value marker_hex sentinel_kind
     local diagnostic_mutant diagnostic_filter pid_width_mutant
+    if [[ "$group" == elapsed ]]; then
     post_popen_filter='OpenSSL deadline terminates stubborn descendant pipe holders'
     post_popen_control="${BATS_TEST_TMPDIR}/post-popen-same-clock-control.bats"
     cp "$FUNCTIONAL_TEST" "$post_popen_control" || return 1
@@ -2156,6 +2188,7 @@ PY
             "$sentinel_kind" "${post_popen_filter}|${marker_value}"
     done
 
+    elif [[ "$group" == diagnostic ]]; then
     diagnostic_mutant="${BATS_TEST_TMPDIR}/alarm-diagnostic-substring.bats"
     diagnostic_filter='OpenSSL deadline terminates stubborn descendant pipe holders'
     cp "$FUNCTIONAL_TEST" "$diagnostic_mutant" || return 1
@@ -2219,28 +2252,32 @@ PY
         && [[ "$output" != *"setup_file failed"* ]] \
         && [[ "$output" != *"BATS_TEST_TIMEOUT"* ]] \
         || { printf 'alarm_pid_width_mutant_status=%s output=%s\n' "$status" "$output"; return 1; }
+    elif [[ "$group" == alarm-initialization ]]; then
     run_alarm_initialization_mutant handler-order
     run_alarm_initialization_mutant timer-bound
     run_alarm_initialization_mutant init-hard-abort
     run_alarm_initialization_mutant cancel-inherited
     run_alarm_initialization_mutant drain-inherited
     run_alarm_initialization_mutant arm-before-unblock
+    else
+        return 1
+    fi
+}
+
+@test "same-clock elapsed marker mutation attribution is fail-closed" {
+    run_same_clock_alarm_group elapsed
 }
 
 @test "cleanup signal-mask and process lifecycle mutants are independently killed" {
     run_process_lifecycle_mutant cleanup-alarm
     run_cleanup_second_signal_mutant
     run_process_lifecycle_mutant ignored-sigchld
-    run_wrapper_sigchld_mutant
 }
 
-@test "SIGCHLD callsite normalization mutants are independently killed" {
+@test "SIGCHLD portable spawn mutants are independently killed" {
     run_sigchld_portable_spawn_mutant silent
     run_sigchld_portable_spawn_mutant bounded
     run_sigchld_portable_spawn_mutant source_history
-    run_sigchld_consumer_mutant silent
-    run_sigchld_consumer_mutant bounded
-    run_sigchld_consumer_mutant source_history
 }
 
 @test "terminal cleanup output mutants are independently killed" {
@@ -2271,4 +2308,30 @@ PY
     run_inherited_alarm_mask_mutant source_history
     run_supervisor_alarm_mask_mutant source_history
     run_post_registration_alarm_restore_mutant source_history
+}
+
+@test "SIGCHLD consumer normalization mutants are independently killed" {
+    run_sigchld_consumer_mutant silent
+    run_sigchld_consumer_mutant bounded
+    run_sigchld_consumer_mutant source_history
+}
+
+@test "wrapper SIGCHLD reset unblock and drain mutants are independently killed" {
+    run_wrapper_sigchld_mutants reset unblock drain
+}
+
+@test "wrapper exec and interpreter mutants are independently killed" {
+    run_wrapper_sigchld_mutants exec pinned_interpreter
+}
+
+@test "wrapper worker transport mutants are independently killed" {
+    run_wrapper_sigchld_mutants delimiter temp_stdin root_writable
+}
+
+@test "Alarm diagnostic grammar mutation attribution is fail-closed" {
+    run_same_clock_alarm_group diagnostic
+}
+
+@test "Alarm initialization mutants are independently killed" {
+    run_same_clock_alarm_group alarm-initialization
 }
