@@ -22,7 +22,7 @@ case "$OSTYPE" in
     *) exit 126 ;;
 esac
 [[ -f "$bootstrap_python" && -x "$bootstrap_python" \
-    && ! -d "$bootstrap_python" && ! -w "$bootstrap_python" ]] || exit 126
+    && ! -d "$bootstrap_python" ]] || exit 126
 unset BASH_ENV ENV PYTHONHOME PYTHONPATH PYTHONSTARTUP PYTHONINSPECT \
     PYTHONWARNINGS PYTHONBREAKPOINT LD_PRELOAD LD_LIBRARY_PATH \
     DYLD_INSERT_LIBRARIES DYLD_LIBRARY_PATH DYLD_FRAMEWORK_PATH \

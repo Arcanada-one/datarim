@@ -277,24 +277,24 @@ run_test_framework_json() {
 }
 
 run_test_framework_json_ignored_sigchld() {
-    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
-        "$PYTHON" -c \
-        'import os,signal,sys; signal.signal(signal.SIGCHLD, signal.SIG_IGN); os.execve(sys.argv[1], sys.argv[1:], os.environ)' \
-        "$TEST_SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+    run "$PYTHON" -c \
+        'import os,signal,sys; signal.signal(signal.SIGCHLD, signal.SIG_IGN); environment=dict(os.environ); environment["CUSTOMER_DELIVERY_PYTHON"]=sys.argv[2]; os.execve(sys.argv[1], [sys.argv[1], *sys.argv[3:]], environment)' \
+        "$TEST_SCRIPT" "$VALIDATOR_PYTHON" \
+        --root "$ROOT" --task "$TASK_ID" --stage qa --format json
 }
 
 run_test_framework_json_blocked_pending_sigchld() {
-    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
-        "$PYTHON" -c \
-        'import os,signal,sys; signal.signal(signal.SIGCHLD, signal.SIG_DFL); signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGCHLD}); os.kill(os.getpid(), signal.SIGCHLD); os.execve(sys.argv[1], sys.argv[1:], os.environ)' \
-        "$TEST_SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+    run "$PYTHON" -c \
+        'import os,signal,sys; signal.signal(signal.SIGCHLD, signal.SIG_DFL); signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGCHLD}); os.kill(os.getpid(), signal.SIGCHLD); environment=dict(os.environ); environment["CUSTOMER_DELIVERY_PYTHON"]=sys.argv[2]; os.execve(sys.argv[1], [sys.argv[1], *sys.argv[3:]], environment)' \
+        "$TEST_SCRIPT" "$VALIDATOR_PYTHON" \
+        --root "$ROOT" --task "$TASK_ID" --stage qa --format json
 }
 
 run_test_framework_json_blocked_sigchld() {
-    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
-        "$PYTHON" -c \
-        'import os,signal,sys; signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGCHLD}); os.execve(sys.argv[1], sys.argv[1:], os.environ)' \
-        "$TEST_SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage qa --format json
+    run "$PYTHON" -c \
+        'import os,signal,sys; signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGCHLD}); environment=dict(os.environ); environment["CUSTOMER_DELIVERY_PYTHON"]=sys.argv[2]; os.execve(sys.argv[1], [sys.argv[1], *sys.argv[3:]], environment)' \
+        "$TEST_SCRIPT" "$VALIDATOR_PYTHON" \
+        --root "$ROOT" --task "$TASK_ID" --stage qa --format json
 }
 
 instrument_wrapper_sigchld_preflight() {
@@ -340,6 +340,13 @@ assert_wrapper_sigchld_normalization() {
     [ "$status" -eq 0 ] && [ -n "$output" ] \
         && "$PYTHON" -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["decision"] == "MET" and d["findings"] == []' "$output" \
         || { printf 'wrapper_sigchld_pending_not_drained status=%s output=%s\n' \
+            "$status" "$output"; return 1; }
+    command -v sudo >/dev/null 2>&1 && sudo -n /usr/bin/true 2>/dev/null \
+        || { printf 'wrapper_root_execution_unavailable\n'; return 1; }
+    run sudo -n /usr/bin/env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+        "$TEST_SCRIPT" --help
+    [ "$status" -eq 0 ] && [[ "$output" == usage:* ]] \
+        || { printf 'wrapper_root_execution_failed status=%s output=%s\n' \
             "$status" "$output"; return 1; }
     case "$OSTYPE" in
         darwin*) bootstrap_real_python='/Library/Developer/CommandLineTools/usr/bin/python3' ;;
@@ -3293,7 +3300,14 @@ PY
 
 @test "exported realpath function cannot bypass intermediate symlink confinement" {
     local outside="${BATS_TEST_TMPDIR}/outside-function"
+    local realpath_dir="${BATS_TEST_TMPDIR}/portable-realpath"
     mkdir -p "$outside"
+    mkdir -p "$realpath_dir"
+    cat >"${realpath_dir}/realpath" <<'SH'
+#!/bin/bash
+exec /usr/bin/python3 -I -S -c 'import os,sys; print(os.path.realpath(sys.argv[-1]))' "$@"
+SH
+    chmod +x "${realpath_dir}/realpath"
     mv "$REQUIREMENTS" "${outside}/${TASK_ID}-customer-requirements.yaml"
     rmdir "${ROOT}/datarim/tasks"
     ln -s "$outside" "${ROOT}/datarim/tasks"
@@ -3301,7 +3315,7 @@ PY
         printf '%s\n' "${!#}"
     }
     export -f realpath
-    run env CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
+    run env PATH="${realpath_dir}:$PATH" CUSTOMER_DELIVERY_PYTHON="$VALIDATOR_PYTHON" \
         "$SCRIPT" --root "$ROOT" --task "$TASK_ID" --stage compliance --format json
     unset -f realpath
     [ "$status" -eq 2 ] \

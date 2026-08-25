@@ -1263,7 +1263,7 @@ run_wrapper_sigchld_mutant() {
         bats --filter "^${filter}$" "$FUNCTIONAL_TEST"
     assert_baseline_green "$filter" || return 1
 
-    for kind in reset unblock drain exec pinned_interpreter delimiter temp_stdin; do
+    for kind in reset unblock drain exec pinned_interpreter delimiter temp_stdin root_writable; do
         validator_mutant="${BATS_TEST_TMPDIR}/check-customer-delivery-wrapper-sigchld-${kind}.sh"
         cp "$SCRIPT" "$validator_mutant" || return 1
         case "$kind" in
@@ -1301,6 +1301,11 @@ run_wrapper_sigchld_mutant() {
                 guard='    os.dup2(anonymous_worker.fileno(), 0, inheritable=True)'
                 mutant='    pass  # MUTATED:wrapper_worker_temp_stdin'
                 expected_fragment='wrapper_sigchld_not_normalized'
+                ;;
+            root_writable)
+                guard=$'[[ -f "$bootstrap_python" && -x "$bootstrap_python" \\\n    && ! -d "$bootstrap_python" ]] || exit 126'
+                mutant=$'[[ -f "$bootstrap_python" && -x "$bootstrap_python" \\\n    && ! -d "$bootstrap_python" && ! -w "$bootstrap_python" ]] || exit 126  # MUTATED:root_relative_writability'
+                expected_fragment='wrapper_root_execution_failed'
                 ;;
             *) return 1 ;;
         esac
