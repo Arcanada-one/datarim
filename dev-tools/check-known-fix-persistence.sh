@@ -105,7 +105,11 @@ if [ -f "$REFLECTION" ]; then
     # this gate over bolding.
     PLAIN="$(tr -d '*_`' <"$REFLECTION")"
 
-    if printf '%s\n' "$PLAIN" | grep -qiE '^[[:space:]]*known fix[[:space:]]*:[[:space:]]*none'; then
+    # A verdict is just as valid as a list item ("- Known Fix: none.") as it is
+    # as a standalone line; a real reflection in the corpus used exactly that
+    # form and an earlier revision of this gate scored it silent.
+    if printf '%s\n' "$PLAIN" \
+        | grep -qiE '^[[:space:]]*([-+*]|[0-9]+[.)])?[[:space:]]*known fix[[:space:]]*:[[:space:]]*none'; then
         say "declined: reflection records an explicit 'none' verdict"
         exit 0
     fi
@@ -118,6 +122,7 @@ if [ -f "$REFLECTION" ]; then
         inside && line ~ /^#{1,6}[[:space:]]/ { inside = 0 }
         inside && NF {
             sub(/^[[:space:]]+/, "", line)
+            sub(/^([-+*]|[0-9]+[.)])[[:space:]]+/, "", line)
             if (line ~ /^none/) { found = 1 }
             inside = 0
         }

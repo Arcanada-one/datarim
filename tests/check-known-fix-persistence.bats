@@ -87,6 +87,25 @@ EOF
     [ "$status" -eq 0 ]
 }
 
+@test "declined: a bullet-prefixed verdict is accepted (found in the real corpus)" {
+    write_reflection
+    append_reflection "- Known Fix: none. The reusable fixes above are framework recommendations."
+    run "$GATE" --task FIX-0001 --root "$ROOT"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *declined* ]]
+}
+
+@test "declined: a bulleted body line under the section heading is accepted" {
+    write_reflection
+    append_reflection ""
+    append_reflection "## Known Fix"
+    append_reflection ""
+    append_reflection "- none — findings only."
+    run "$GATE" --task FIX-0001 --root "$ROOT"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *declined* ]]
+}
+
 # --- verdict: silent (the defect state this gate exists to expose) -----------
 
 @test "silent: a reflection with no verdict at all fails" {
