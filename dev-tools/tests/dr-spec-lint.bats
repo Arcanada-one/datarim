@@ -66,6 +66,79 @@ EOF
     [ "$status" -eq 0 ]
 }
 
+@test "L2 resolves the embedded task-description as its canonical plan" {
+    cat >"$WORK/datarim/tasks/EX-0003-task-description.md" <<'EOF'
+---
+task_id: EX-0003
+complexity: L2
+plan: null
+---
+
+## Requirements (D-REQ)
+
+#### D-REQ-01: embedded plans are linted
+
+## Success Criteria
+
+- V-AC-1: embedded plan validation succeeds
+  Covers: D-REQ-01
+
+## Implementation Plan
+
+- Step 1: lint the embedded plan
+  Verifies: V-AC-1
+EOF
+    run "$SCRIPT" --task EX-0003 --root "$WORK" --stage plan --format json
+    [ "$status" -eq 0 ] && [ -z "$output" ]
+}
+
+@test "L3 plan stage requires its dedicated canonical plan" {
+    write_clean_fixture
+    rm "$WORK/datarim/plans/EX-0001-plan.md"
+    run "$SCRIPT" --task EX-0001 --root "$WORK" --stage plan --format json
+    [ "$status" -eq 2 ] \
+      && [[ "$output" == *"required canonical plan missing for L3 task"* ]] \
+      && [[ "$output" == *"datarim/plans/EX-0001-plan.md"* ]]
+}
+
+@test "explicit PRD L3 takes precedence over stale L2 task metadata" {
+    write_clean_fixture
+    sed -i.bak 's/Level 3/Level 2/' \
+      "$WORK/datarim/tasks/EX-0001-task-description.md"
+    printf '%s\n' 'complexity: L2' \
+      > "$WORK/datarim/tasks/EX-0001-task-description.md"
+    rm "$WORK/datarim/plans/EX-0001-plan.md"
+    run "$SCRIPT" --task EX-0001 --root "$WORK" --stage plan --format json
+    [ "$status" -eq 2 ] \
+      && [[ "$output" == *"required canonical plan missing for L3 task"* ]]
+}
+
+@test "L2 index fallback resolves the embedded canonical plan" {
+    cat >"$WORK/datarim/prd/PRD-EX-0004.md" <<'EOF'
+# PRD: Index fallback
+
+#### D-REQ-01: fallback remains consistent
+
+- V-AC-1: embedded validation succeeds
+  Covers: D-REQ-01
+EOF
+    cat >"$WORK/datarim/tasks/EX-0004-task-description.md" <<'EOF'
+---
+task_id: EX-0004
+plan: null
+---
+
+## Implementation Plan
+
+- Step 1: lint the embedded plan
+  Verifies: V-AC-1
+EOF
+    printf '%s\n' '- EX-0004 · in_progress · P2 · L2 · Index fallback fixture' \
+      > "$WORK/datarim/tasks.md"
+    run "$SCRIPT" --task EX-0004 --root "$WORK" --stage plan --format json
+    [ "$status" -eq 0 ] && [ -z "$output" ]
+}
+
 @test "dreq-id-format — bad slug flagged" {
     write_clean_fixture
     # corrupt one D-REQ to a single-digit id

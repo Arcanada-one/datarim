@@ -12,6 +12,11 @@ ROOT="$BATS_TEST_DIRNAME/.."
     && grep -qF 'route to `/dr-do`' "$ROOT/commands/dr-do.md"
 }
 
+@test "/dr-do passes the resolved implementation repository to the checker" {
+  grep -qF -- '--repo <implementation-repo>' "$ROOT/commands/dr-do.md" \
+    && ! grep -qF -- '--repo <framework-repo>' "$ROOT/commands/dr-do.md"
+}
+
 @test "/dr-qa independently runs the same checker and blocks PASS routes" {
   grep -qF '${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-framework-version-accountability.sh' "$ROOT/commands/dr-qa.md" \
     && grep -qF 'overall QA result is **FAIL**' "$ROOT/commands/dr-qa.md" \
