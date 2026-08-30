@@ -54,7 +54,8 @@ done
 [ -n "$DATARIM_ROOT" ] || usage_die "datarim/ not found from $ROOT"
 
 PRD="$DATARIM_ROOT/prd/PRD-${TASK}.md"
-PLAN="$DATARIM_ROOT/plans/${TASK}-plan.md"
+DEDICATED_PLAN="$DATARIM_ROOT/plans/${TASK}-plan.md"
+PLAN="$DEDICATED_PLAN"
 EXPECTATIONS="$DATARIM_ROOT/tasks/${TASK}-expectations.md"
 TASK_DESC="$DATARIM_ROOT/tasks/${TASK}-task-description.md"
 
@@ -109,6 +110,13 @@ if [ "$_resolved" -eq 0 ]; then
         fi
     done
 fi
+
+# Planning storage is complexity-dependent: L1/L2 embed the canonical plan in
+# the task description, while L3/L4 own a dedicated datarim/plans artefact.
+case "$LEVEL" in
+    L1|L2) PLAN="$TASK_DESC" ;;
+    L3|L4) PLAN="$DEDICATED_PLAN" ;;
+esac
 
 MODE="${DATARIM_SPEC_GRAPH_MODE:-advisory}"
 case "$MODE" in advisory|hard) ;; *) usage_die "DATARIM_SPEC_GRAPH_MODE must be advisory|hard" ;; esac
@@ -174,7 +182,9 @@ case "$STAGE" in
     plan|do|qa|compliance) required+=("$PLAN") ;;
 esac
 case "$STAGE" in
-    do|qa|compliance) required+=("$TASK_DESC") ;;
+    do|qa|compliance)
+        [ "$TASK_DESC" = "$PLAN" ] || required+=("$TASK_DESC")
+        ;;
 esac
 if { [ "$LEVEL" = "L3" ] || [ "$LEVEL" = "L4" ]; } && [ "$STAGE" != "verify" ]; then
     required+=("$EXPECTATIONS")
@@ -279,11 +289,13 @@ with open(grade_path, encoding="utf-8") as fh:
     grade = json.load(fh)
 included = [
     {"path": os.path.relpath(path, root), "reason": "canonical current-task artifact"}
-    for path in canonical if os.path.isfile(path)
+    for index, path in enumerate(canonical)
+    if path not in canonical[:index] and os.path.isfile(path)
 ]
 excluded = [
     {"path": os.path.relpath(path, root), "reason": "artifact absent and optional for this stage"}
-    for path in canonical if not os.path.isfile(path)
+    for index, path in enumerate(canonical)
+    if path not in canonical[:index] and not os.path.isfile(path)
 ]
 print(json.dumps({
     "task": task,

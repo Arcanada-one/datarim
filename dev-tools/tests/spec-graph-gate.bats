@@ -63,11 +63,46 @@ EOF
       && printf '%s\n' "$output" | grep -qF '"decision":"advisory"'
 }
 
-@test "missing plan at plan stage is fail-closed exit 2" {
+@test "L3 plan stage still requires a dedicated plan file" {
     write_fixture
     rm "$WORK/datarim/plans/GT-0001-plan.md"
     run "$SCRIPT" --task GT-0001 --stage plan --root "$WORK" --format json
-    [ "$status" -eq 2 ]
+    [ "$status" -eq 2 ] \
+      && [[ "$output" == *"required artifact missing"* ]] \
+      && [[ "$output" == *"datarim/plans/GT-0001-plan.md"* ]]
+}
+
+@test "L2 plan stage validates the canonical embedded task-description plan" {
+    cat >"$WORK/datarim/prd/PRD-GT-0004.md" <<'EOF'
+# PRD: Embedded plan
+**Complexity:** Level 2
+
+## Requirements (D-REQ)
+
+#### D-REQ-01: embedded plans are validated
+
+## Success Criteria
+
+- V-AC-1: embedded validation succeeds
+  Covers: D-REQ-01
+EOF
+    cat >"$WORK/datarim/tasks/GT-0004-task-description.md" <<'EOF'
+---
+task_id: GT-0004
+complexity: L2
+plan: null
+---
+
+## Implementation Plan
+
+- Step 1: validate the embedded plan
+  Verifies: V-AC-1
+EOF
+    run "$SCRIPT" --task GT-0004 --stage plan --root "$WORK" --format json
+    [ "$status" -eq 0 ] \
+      && [[ "$output" == *'"decision":"clean"'* ]] \
+      && [[ "$output" == *'datarim/tasks/GT-0004-task-description.md'* ]] \
+      && [[ "$output" != *'datarim/plans/GT-0004-plan.md'* ]]
 }
 
 @test "L1 task without PRD skips from task-description complexity" {
