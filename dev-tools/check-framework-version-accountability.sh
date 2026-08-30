@@ -90,6 +90,27 @@ is_accountability_path() {
   esac
 }
 
+is_datarim_identity_commit() {
+  local oid="$1"
+  [ "$(git -C "$repo" cat-file -t "$oid:VERSION" 2>/dev/null || true)" = blob ] \
+    && [ "$(git -C "$repo" cat-file -t "$oid:commands" 2>/dev/null || true)" = tree ] \
+    && [ "$(git -C "$repo" cat-file -t "$oid:skills" 2>/dev/null || true)" = tree ]
+}
+
+has_committed_datarim_identity() {
+  local oid
+  if is_datarim_identity_commit "$head_oid"; then
+    return 0
+  fi
+  while IFS= read -r oid; do
+    [ -n "$oid" ] || continue
+    if is_datarim_identity_commit "$oid"; then
+      return 0
+    fi
+  done < <(git -C "$repo" rev-list --all -- VERSION commands skills)
+  return 1
+}
+
 emit() {
   local disposition="$1" code="$2"
   printf 'framework-version-accountability: disposition=%s base=%s head=%s scope_digest=%s\n' \
@@ -128,6 +149,12 @@ git -C "$repo" rev-parse --git-dir >/dev/null 2>&1 || fail_untrusted not_git_rep
 head_oid="$(git -C "$repo" rev-parse 'HEAD^{commit}' 2>/dev/null)" || fail_untrusted invalid_head
 
 record="$workspace/datarim/.auto/version-accountability/$task/baseline.record"
+if [ ! -e "$record" ] && [ ! -L "$record" ]; then
+  if ! has_committed_datarim_identity; then
+    emit not_applicable 0
+  fi
+  fail_untrusted missing_baseline
+fi
 if [ ! -f "$record" ] || [ -L "$record" ]; then fail_untrusted missing_baseline; fi
 [ "$(stat_owner "$record")" = "$(id -u)" ] || fail_untrusted baseline_owner
 [ "$(stat_mode "$record")" = 600 ] || fail_untrusted baseline_mode

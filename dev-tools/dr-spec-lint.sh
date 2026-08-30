@@ -77,21 +77,11 @@ done
 [ -n "$DATARIM_ROOT" ] || usage_die "datarim/ not found from $ROOT"
 
 PRD_FILE="$DATARIM_ROOT/prd/PRD-${SPEC_TASK}.md"
-PLAN_FILE="$DATARIM_ROOT/plans/${SPEC_TASK}-plan.md"
+DEDICATED_PLAN_FILE="$DATARIM_ROOT/plans/${SPEC_TASK}-plan.md"
 EXP_FILE="$DATARIM_ROOT/tasks/${SPEC_TASK}-expectations.md"
 TASK_FILE="$DATARIM_ROOT/tasks/${SPEC_TASK}-task-description.md"
 QA_FILE="$DATARIM_ROOT/qa/qa-report-${SPEC_TASK}.md"
 COMPLIANCE_FILE="$DATARIM_ROOT/reports/compliance-report-${SPEC_TASK}.md"
-
-# The graph needs at least one source artefact (PRD or plan) to exist.
-if [ ! -f "$PRD_FILE" ] && [ ! -f "$PLAN_FILE" ]; then
-    usage_die "no PRD or plan artefact for $SPEC_TASK under $DATARIM_ROOT (prd/ plans/)"
-fi
-
-# Spec-graph documents to scan (PRD carries D-REQ + V-AC; plan may carry V-AC).
-SPEC_DOCS=()
-[ -f "$PRD_FILE" ] && SPEC_DOCS+=("$PRD_FILE")
-[ -f "$PLAN_FILE" ] && SPEC_DOCS+=("$PLAN_FILE")
 
 # Determine complexity from the canonical field, with task-description fallback.
 LEVEL="L3"
@@ -104,6 +94,30 @@ elif [ -f "$TASK_FILE" ]; then
     elif grep -qiE '^[[:space:]]*(\*\*)?complexity[^:]*:[^[:alnum:]]*(Level[[:space:]]+1|L1)\b' "$TASK_FILE"; then LEVEL="L1"
     fi
 fi
+
+# Planning storage is complexity-dependent: L1/L2 embed the canonical plan in
+# the task description, while L3/L4 own a dedicated datarim/plans artefact.
+case "$LEVEL" in
+    L1|L2) PLAN_FILE="$TASK_FILE" ;;
+    L3|L4) PLAN_FILE="$DEDICATED_PLAN_FILE" ;;
+esac
+
+case "$SPEC_STAGE" in
+    plan|do|qa|compliance)
+        [ -f "$PLAN_FILE" ] \
+            || usage_die "required canonical plan missing for $LEVEL task: $PLAN_FILE"
+        ;;
+esac
+
+# The graph needs at least one source artefact (PRD or canonical plan) to exist.
+if [ ! -f "$PRD_FILE" ] && [ ! -f "$PLAN_FILE" ]; then
+    usage_die "no PRD or canonical plan artefact for $SPEC_TASK under $DATARIM_ROOT"
+fi
+
+# Spec-graph documents to scan (PRD carries D-REQ + V-AC; plan may carry V-AC).
+SPEC_DOCS=()
+[ -f "$PRD_FILE" ] && SPEC_DOCS+=("$PRD_FILE")
+[ -f "$PLAN_FILE" ] && SPEC_DOCS+=("$PLAN_FILE")
 
 # ---------------------------------------------------------------------------
 # Findings bookkeeping. We collect findings into a temp file (JSONL) so we can

@@ -111,7 +111,7 @@ Note: the machine-local PreToolUse guard remains the hard floor; this Step-0 che
     applicability; task prose or the parent command must not pre-classify it.
     ```bash
     "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-framework-version-accountability.sh" \
-      --task {TASK-ID} --workspace <workspace-root> --repo <framework-repo>
+      --task {TASK-ID} --workspace <workspace-root> --repo <implementation-repo>
     ```
     - Exit 0 with `not_applicable`, `satisfied_by_version`, or
       `satisfied_by_deferral` permits the remaining `/dr-do` gates.
