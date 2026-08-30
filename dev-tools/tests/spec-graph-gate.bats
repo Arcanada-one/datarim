@@ -105,6 +105,60 @@ EOF
       && [[ "$output" != *'datarim/plans/GT-0004-plan.md'* ]]
 }
 
+@test "explicit PRD L3 cannot be downgraded by stale L2 task metadata" {
+    cat >"$WORK/datarim/prd/PRD-GT-0005.md" <<'EOF'
+# PRD: L3 precedence
+**Complexity:** Level 3
+
+#### D-REQ-01: L3 storage remains dedicated
+
+- V-AC-1: dedicated plan is required
+  Covers: D-REQ-01
+EOF
+    cat >"$WORK/datarim/tasks/GT-0005-task-description.md" <<'EOF'
+---
+task_id: GT-0005
+complexity: L2
+---
+
+## Implementation Plan
+
+- Step 1: stale embedded plan
+  Verifies: V-AC-1
+EOF
+    run "$SCRIPT" --task GT-0005 --stage plan --root "$WORK" --format json
+    [ "$status" -eq 2 ] \
+      && [[ "$output" == *"datarim/plans/GT-0005-plan.md"* ]]
+}
+
+@test "gate and linter share the L2 index fallback for embedded plans" {
+    cat >"$WORK/datarim/prd/PRD-GT-0006.md" <<'EOF'
+# PRD: Index fallback
+
+#### D-REQ-01: fallback remains consistent
+
+- V-AC-1: embedded validation succeeds
+  Covers: D-REQ-01
+EOF
+    cat >"$WORK/datarim/tasks/GT-0006-task-description.md" <<'EOF'
+---
+task_id: GT-0006
+plan: null
+---
+
+## Implementation Plan
+
+- Step 1: validate the embedded plan
+  Verifies: V-AC-1
+EOF
+    printf '%s\n' '- GT-0006 · in_progress · P2 · L2 · Index fallback fixture' \
+      > "$WORK/datarim/tasks.md"
+    run "$SCRIPT" --task GT-0006 --stage plan --root "$WORK" --format json
+    [ "$status" -eq 0 ] \
+      && [[ "$output" == *'"complexity":"L2"'* ]] \
+      && [[ "$output" == *'"decision":"clean"'* ]]
+}
+
 @test "L1 task without PRD skips from task-description complexity" {
     cat >"$WORK/datarim/tasks/GT-0002-task-description.md" <<'EOF'
 ---
