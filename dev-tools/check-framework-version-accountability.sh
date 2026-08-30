@@ -90,6 +90,42 @@ is_accountability_path() {
   esac
 }
 
+is_datarim_identity_commit() {
+  local oid="$1" entries
+  entries="$(git -C "$repo" ls-tree "$oid" -- VERSION commands skills 2>/dev/null)" \
+    || return 2
+  printf '%s\n' "$entries" | awk '
+    $2 == "blob" && $4 == "VERSION" { version = 1 }
+    $2 == "tree" && $4 == "commands" { commands = 1 }
+    $2 == "tree" && $4 == "skills" { skills = 1 }
+    END { exit(version && commands && skills ? 0 : 1) }
+  '
+}
+
+has_committed_datarim_identity() {
+  local oid identity_status history
+  identity_status=0
+  is_datarim_identity_commit "$head_oid" || identity_status=$?
+  case "$identity_status" in
+    0) return 0 ;;
+    1) ;;
+    *) return 2 ;;
+  esac
+  history="$(git -C "$repo" rev-list --all -- VERSION commands skills 2>/dev/null)" \
+    || return 2
+  while IFS= read -r oid; do
+    [ -n "$oid" ] || continue
+    identity_status=0
+    is_datarim_identity_commit "$oid" || identity_status=$?
+    case "$identity_status" in
+      0) return 0 ;;
+      1) ;;
+      *) return 2 ;;
+    esac
+  done <<< "$history"
+  return 1
+}
+
 emit() {
   local disposition="$1" code="$2"
   printf 'framework-version-accountability: disposition=%s base=%s head=%s scope_digest=%s\n' \
@@ -128,6 +164,15 @@ git -C "$repo" rev-parse --git-dir >/dev/null 2>&1 || fail_untrusted not_git_rep
 head_oid="$(git -C "$repo" rev-parse 'HEAD^{commit}' 2>/dev/null)" || fail_untrusted invalid_head
 
 record="$workspace/datarim/.auto/version-accountability/$task/baseline.record"
+if [ ! -e "$record" ] && [ ! -L "$record" ]; then
+  identity_status=0
+  has_committed_datarim_identity || identity_status=$?
+  case "$identity_status" in
+    0) fail_untrusted missing_baseline ;;
+    1) emit not_applicable 0 ;;
+    *) fail_untrusted identity_history_unreadable ;;
+  esac
+fi
 if [ ! -f "$record" ] || [ -L "$record" ]; then fail_untrusted missing_baseline; fi
 [ "$(stat_owner "$record")" = "$(id -u)" ] || fail_untrusted baseline_owner
 [ "$(stat_mode "$record")" = 600 ] || fail_untrusted baseline_mode

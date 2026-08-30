@@ -112,8 +112,57 @@ write_deferral() {
 }
 
 @test "checker fails closed when the INIT baseline is missing" {
+  mkdir -p "$REPO/commands" "$REPO/skills/example"
+  printf '%s\n' '# command' > "$REPO/commands/dr-example.md"
+  printf '%s\n' '# skill' > "$REPO/skills/example/SKILL.md"
+  git -C "$REPO" add commands skills
+  git -C "$REPO" commit -qm 'add current Datarim identity markers'
   run "$CHECKER" --task "$TASK_ID" --workspace "$WORKSPACE" --repo "$REPO"
   [ "$status" -eq 2 ] && [[ "$output" == *"error=missing_baseline"* ]]
+}
+
+@test "checker returns not_applicable without a baseline for a consumer repository" {
+  run "$CHECKER" --task "$TASK_ID" --workspace "$WORKSPACE" --repo "$REPO"
+  [ "$status" -eq 0 ] && [[ "$output" == *"disposition=not_applicable"* ]]
+}
+
+@test "checker fails closed without a baseline for a historical Datarim repository" {
+  mkdir -p "$REPO/commands" "$REPO/skills/example"
+  printf '%s\n' '# command' > "$REPO/commands/dr-example.md"
+  printf '%s\n' '# skill' > "$REPO/skills/example/SKILL.md"
+  git -C "$REPO" add commands skills
+  git -C "$REPO" commit -qm 'add historical Datarim identity markers'
+  git -C "$REPO" rm -qr commands skills
+  git -C "$REPO" commit -qm 'remove Datarim identity markers'
+  run "$CHECKER" --task "$TASK_ID" --workspace "$WORKSPACE" --repo "$REPO"
+  [ "$status" -eq 2 ] && [[ "$output" == *"error=missing_baseline"* ]]
+}
+
+@test "checker fails closed on a malformed baseline for a consumer repository" {
+  capture_baseline
+  printf '%s\n' 'malformed' \
+    > "$WORKSPACE/datarim/.auto/version-accountability/$TASK_ID/baseline.record"
+  run "$CHECKER" --task "$TASK_ID" --workspace "$WORKSPACE" --repo "$REPO"
+  [ "$status" -eq 2 ] && [[ "$output" == *"error=baseline_schema"* ]]
+}
+
+@test "checker fails closed on a symlink baseline for a consumer repository" {
+  local record real_record
+  capture_baseline
+  record="$WORKSPACE/datarim/.auto/version-accountability/$TASK_ID/baseline.record"
+  real_record="$(dirname "$record")/real.record"
+  mv "$record" "$real_record"
+  ln -s "$(basename "$real_record")" "$record"
+  run "$CHECKER" --task "$TASK_ID" --workspace "$WORKSPACE" --repo "$REPO"
+  [ "$status" -eq 2 ] && [[ "$output" == *"error=missing_baseline"* ]]
+}
+
+@test "checker fails closed when committed history cannot be classified" {
+  printf '%040d\n' 0 | tr '0' 'f' > "$REPO/.git/refs/heads/unreadable-history"
+  run "$CHECKER" --task "$TASK_ID" --workspace "$WORKSPACE" --repo "$REPO"
+  [ "$status" -eq 2 ] \
+    && [[ "$output" == *"error=identity_history_unreadable"* ]] \
+    && [[ "$output" != *"disposition=not_applicable"* ]]
 }
 
 @test "tests-only diff is not applicable" {
