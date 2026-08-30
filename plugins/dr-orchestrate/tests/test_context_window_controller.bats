@@ -42,6 +42,60 @@ evaluate() { run bash "$CONTROLLER" evaluate --used-percent "$1"; }
 @test "pressure above 100 is rejected" { evaluate 101; [ "$status" -ne 0 ]; }
 @test "fractional controller pressure is rejected" { evaluate 74.5; [ "$status" -ne 0 ]; }
 
+# --- absolute token ceiling -------------------------------------------------
+# The percentage arm alone hides its denominator. These cases pin the arm that
+# made the real incident detectable: a large window whose percentage read as
+# calm while the working set was far past any sane ceiling.
+
+abs() { run bash "$CONTROLLER" evaluate --used-percent "$1" --used-tokens "$2"; }
+win() { run bash "$CONTROLLER" evaluate --used-percent "$1" --window-tokens "$2"; }
+
+@test "absolute: below the soft ceiling is no_op" { abs 10 199999; [ "$status" -eq 0 ] && [ "$output" = no_op ]; }
+@test "absolute: at the soft ceiling is selective_drop" { abs 10 200000; [ "$status" -eq 0 ] && [ "$output" = selective_drop ]; }
+@test "absolute: at the hard ceiling is full_clear" { abs 10 280000; [ "$status" -eq 0 ] && [ "$output" = full_clear ]; }
+
+@test "absolute arm overrides a calm percentage" {
+  # 25% of a 1M window = 250k tokens: calm by ratio, past the soft ceiling.
+  abs 25 250000; [ "$status" -eq 0 ] && [ "$output" = selective_drop ]
+}
+
+@test "the stricter arm wins when the percentage is the strict one" {
+  # 95% of a small window is few tokens, but the percentage arm still clears.
+  abs 95 40000; [ "$status" -eq 0 ] && [ "$output" = full_clear ]
+}
+
+@test "window size derives the token count" {
+  win 25 1000000; [ "$status" -eq 0 ] && [ "$output" = selective_drop ]
+}
+
+@test "the same percentage means different modes on different windows" {
+  # The defect this arm exists to kill: one threshold, two meanings.
+  win 25 200000; [ "$status" -eq 0 ] && [ "$output" = no_op ]
+  win 25 1000000; [ "$status" -eq 0 ] && [ "$output" = selective_drop ]
+}
+
+@test "the incident case clears: a large window at high pressure" {
+  win 98 1000000; [ "$status" -eq 0 ] && [ "$output" = full_clear ]
+}
+
+@test "ceilings are overridable per deployment" {
+  run env DR_CTX_SOFT_TOKENS=50000 DR_CTX_HARD_TOKENS=60000 \
+    bash "$CONTROLLER" evaluate --used-percent 5 --used-tokens 55000
+  [ "$status" -eq 0 ] && [ "$output" = selective_drop ]
+}
+
+@test "absent token evidence the percentage arm still decides" {
+  evaluate 90; [ "$status" -eq 0 ] && [ "$output" = full_clear ]
+}
+
+@test "malformed token count is rejected, never treated as calm" {
+  abs 10 not-a-number; [ "$status" -ne 0 ]
+}
+
+@test "zero window is rejected rather than dividing" {
+  win 50 0; [ "$status" -ne 0 ]
+}
+
 @test "taught launch label selects enum above its floor" {
   policy="$BATS_TEST_TMPDIR/policy.tsv"
   printf 'deep\tfull_clear\t60\n' >"$policy"; chmod 600 "$policy"
