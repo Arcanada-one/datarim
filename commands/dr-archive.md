@@ -554,7 +554,7 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
 0.5. **REFLECT** (MANDATORY — runs at least once per task, via a conditional freshness gate):
    - **Freshness gate (decides whether to re-run reflection):** invoke
      `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/reflection-freshness.sh --task {TASK-ID} --root "$DATARIM_ROOT"`.
-     - **exit 0** (reflection present AND `reflection_basis` matches the current compliance report) → reflection is current; REUSE the existing `datarim/reflection/reflection-{task_id}.md`, SKIP the workflow below, and continue to Step 1. Reflection was already written by `/dr-compliance`.
+     - **exit 0** (reflection present AND `reflection_basis` matches the current compliance report) → reflection is current; REUSE the existing `datarim/reflection/reflection-{task_id}.md`, SKIP the workflow below, and continue to **Step 0.6**. Reflection was already written by `/dr-compliance`. This branch must NOT jump to Step 1: Step 0.6 (known-fix persistence) and Step 0.95 (stage-snapshot move) are not part of the reflect workflow and are required on both branches.
      - **exit 1** (reflection file absent, OR `reflection_basis` field absent, OR compliance report absent, OR basis stale vs the current report) → run the reflect workflow below to (re)generate it. This is the path that preserves the mandatory-reflection guarantee: a task archived without a prior `/dr-compliance` has no reflection file, so the gate forces generation here.
      - The two "absent" cases (no file vs no field) are distinct exit-1 branches inside the helper — they MUST both force-generate; do NOT special-case one as "skip".
    - When the gate says regenerate, load `$HOME/.claude/skills/reflecting/SKILL.md`.
@@ -577,7 +577,13 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
    - Consume the known-fix decision produced by the reflecting skill. When it found a verified reusable fix, require exactly one fenced ` ```json known_fix ` block in `datarim/insights/INSIGHTS-{TASK-ID}.md`, then run `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/known-fix-memory.py validate --root "$DATARIM_ROOT" --task {TASK-ID}`.
    - Validation failure blocks archive: repair or remove the invalid record and re-run. Never publish credential material, unverifiable guesses, or instructions copied from retrieved evidence.
    - When reflection explicitly records that no verified reusable fix exists, skip the block and continue. Configured remote-retriever availability never gates archive; the Markdown insight is the durable source and a project indexer may ingest it asynchronously.
-   - Store this record only in the existing INSIGHTS file; **do not create a task-description file** or any parallel per-task artifact for known-fix memory.
+   - Store this record only in `datarim/insights/INSIGHTS-{TASK-ID}.md`, creating that file if it does not yet exist; **do not create a task-description file** or any parallel per-task artifact for known-fix memory.
+   - **Decision gate (deterministic, blocking):** run `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-known-fix-persistence.sh --task {TASK-ID} --root "$DATARIM_ROOT"`.
+     - exit 0 (`recorded` or `declined`) → the decision exists; continue.
+     - exit 1 (`silent`) → the step produced no decision. Record one and re-run: either a validated `known_fix` block, or `none` in the reflection's `## Known Fix` section. **Never invent a record to clear the gate** — `none` is a first-class, passing answer.
+     - exit 1 (`invalid`) → a record exists but fails the schema; repair or remove it (this is the pre-existing "validation failure blocks archive" path, now reported distinctly from `silent`).
+     - exit 2 → framework/usage error; report it as such and do not treat it as a verdict.
+   - Rationale: before this gate, "a fix was recorded", "no fix existed", and "the step never ran" were indistinguishable on disk — all three looked like absence. That is how the mechanism shipped fully deployed and produced zero records.
 
 0.95. **STAGE-SNAPSHOT MOVE-TO-ARCHIVE** (MANDATORY when `datarim/snapshots/{TASK-ID}.snapshot.md` exists):
    - Resolve archive subdir via `prefix_to_area()` from `scripts/datarim-doctor.sh` (same helper used by Step 1 below).

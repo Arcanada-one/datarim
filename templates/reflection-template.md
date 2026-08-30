@@ -29,6 +29,14 @@ reflection_basis: "{16-hex sha256 prefix of the compliance report this reflectio
 ## Lessons Learned
 -
 
+## Known Fix
+{Exactly one of:
+ - `none` plus one clause saying why (no verified, reusable failure-to-fix mapping), or
+ - a one-line pointer to the validated ` ```json known_fix ` block written into
+   `datarim/insights/INSIGHTS-{TASK-ID}.md`.
+Never invent a record to fill this section — `none` is a first-class, passing answer.
+Verified by `dev-tools/check-known-fix-persistence.sh` at `/dr-archive` Step 0.6.}
+
 ## Evolution Proposals
 
 ### Proposal 1
