@@ -77,6 +77,7 @@ _resolved=0
 
 if [ -f "$PRD" ]; then
     if _match_complexity "$PRD" "L4"; then LEVEL="L4"; _resolved=1
+    elif _match_complexity "$PRD" "L3"; then LEVEL="L3"; _resolved=1
     elif _match_complexity "$PRD" "L2"; then LEVEL="L2"; _resolved=1
     elif _match_complexity "$PRD" "L1"; then LEVEL="L1"; _resolved=1
     fi
@@ -84,6 +85,7 @@ fi
 
 if [ "$_resolved" -eq 0 ] && [ -f "$TASK_DESC" ]; then
     if _match_complexity "$TASK_DESC" "L4"; then LEVEL="L4"; _resolved=1
+    elif _match_complexity "$TASK_DESC" "L3"; then LEVEL="L3"; _resolved=1
     elif _match_complexity "$TASK_DESC" "L2"; then LEVEL="L2"; _resolved=1
     elif _match_complexity "$TASK_DESC" "L1"; then LEVEL="L1"; _resolved=1
     fi

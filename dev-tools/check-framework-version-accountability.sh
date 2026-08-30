@@ -91,23 +91,38 @@ is_accountability_path() {
 }
 
 is_datarim_identity_commit() {
-  local oid="$1"
-  [ "$(git -C "$repo" cat-file -t "$oid:VERSION" 2>/dev/null || true)" = blob ] \
-    && [ "$(git -C "$repo" cat-file -t "$oid:commands" 2>/dev/null || true)" = tree ] \
-    && [ "$(git -C "$repo" cat-file -t "$oid:skills" 2>/dev/null || true)" = tree ]
+  local oid="$1" entries
+  entries="$(git -C "$repo" ls-tree "$oid" -- VERSION commands skills 2>/dev/null)" \
+    || return 2
+  printf '%s\n' "$entries" | awk '
+    $2 == "blob" && $4 == "VERSION" { version = 1 }
+    $2 == "tree" && $4 == "commands" { commands = 1 }
+    $2 == "tree" && $4 == "skills" { skills = 1 }
+    END { exit(version && commands && skills ? 0 : 1) }
+  '
 }
 
 has_committed_datarim_identity() {
-  local oid
-  if is_datarim_identity_commit "$head_oid"; then
-    return 0
-  fi
+  local oid identity_status history
+  identity_status=0
+  is_datarim_identity_commit "$head_oid" || identity_status=$?
+  case "$identity_status" in
+    0) return 0 ;;
+    1) ;;
+    *) return 2 ;;
+  esac
+  history="$(git -C "$repo" rev-list --all -- VERSION commands skills 2>/dev/null)" \
+    || return 2
   while IFS= read -r oid; do
     [ -n "$oid" ] || continue
-    if is_datarim_identity_commit "$oid"; then
-      return 0
-    fi
-  done < <(git -C "$repo" rev-list --all -- VERSION commands skills)
+    identity_status=0
+    is_datarim_identity_commit "$oid" || identity_status=$?
+    case "$identity_status" in
+      0) return 0 ;;
+      1) ;;
+      *) return 2 ;;
+    esac
+  done <<< "$history"
   return 1
 }
 
@@ -150,10 +165,13 @@ head_oid="$(git -C "$repo" rev-parse 'HEAD^{commit}' 2>/dev/null)" || fail_untru
 
 record="$workspace/datarim/.auto/version-accountability/$task/baseline.record"
 if [ ! -e "$record" ] && [ ! -L "$record" ]; then
-  if ! has_committed_datarim_identity; then
-    emit not_applicable 0
-  fi
-  fail_untrusted missing_baseline
+  identity_status=0
+  has_committed_datarim_identity || identity_status=$?
+  case "$identity_status" in
+    0) fail_untrusted missing_baseline ;;
+    1) emit not_applicable 0 ;;
+    *) fail_untrusted identity_history_unreadable ;;
+  esac
 fi
 if [ ! -f "$record" ] || [ -L "$record" ]; then fail_untrusted missing_baseline; fi
 [ "$(stat_owner "$record")" = "$(id -u)" ] || fail_untrusted baseline_owner

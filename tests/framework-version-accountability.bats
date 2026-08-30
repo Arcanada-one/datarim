@@ -157,6 +157,14 @@ write_deferral() {
   [ "$status" -eq 2 ] && [[ "$output" == *"error=missing_baseline"* ]]
 }
 
+@test "checker fails closed when committed history cannot be classified" {
+  printf '%040d\n' 0 | tr '0' 'f' > "$REPO/.git/refs/heads/unreadable-history"
+  run "$CHECKER" --task "$TASK_ID" --workspace "$WORKSPACE" --repo "$REPO"
+  [ "$status" -eq 2 ] \
+    && [[ "$output" == *"error=identity_history_unreadable"* ]] \
+    && [[ "$output" != *"disposition=not_applicable"* ]]
+}
+
 @test "tests-only diff is not applicable" {
   capture_baseline
   commit_file 'tests/new-case.bats' '@test "x" { true; }'

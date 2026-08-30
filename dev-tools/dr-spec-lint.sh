@@ -83,16 +83,37 @@ TASK_FILE="$DATARIM_ROOT/tasks/${SPEC_TASK}-task-description.md"
 QA_FILE="$DATARIM_ROOT/qa/qa-report-${SPEC_TASK}.md"
 COMPLIANCE_FILE="$DATARIM_ROOT/reports/compliance-report-${SPEC_TASK}.md"
 
-# Determine complexity from the canonical field, with task-description fallback.
+# Determine complexity from the canonical field, with task-description and
+# index-row fallbacks matching spec-graph-gate.sh.
 LEVEL="L3"
-if [ -f "$PRD_FILE" ] && grep -qiE '^[[:space:]]*(\*\*)?complexity[^:]*:[^[:alnum:]]*(Level[[:space:]]+4|L4)\b' "$PRD_FILE"; then LEVEL="L4"
-elif [ -f "$PRD_FILE" ] && grep -qiE '^[[:space:]]*(\*\*)?complexity[^:]*:[^[:alnum:]]*(Level[[:space:]]+2|L2)\b' "$PRD_FILE"; then LEVEL="L2"
-elif [ -f "$PRD_FILE" ] && grep -qiE '^[[:space:]]*(\*\*)?complexity[^:]*:[^[:alnum:]]*(Level[[:space:]]+1|L1)\b' "$PRD_FILE"; then LEVEL="L1"
-elif [ -f "$TASK_FILE" ]; then
-    if grep -qiE '^[[:space:]]*(\*\*)?complexity[^:]*:[^[:alnum:]]*(Level[[:space:]]+4|L4)\b' "$TASK_FILE"; then LEVEL="L4"
-    elif grep -qiE '^[[:space:]]*(\*\*)?complexity[^:]*:[^[:alnum:]]*(Level[[:space:]]+2|L2)\b' "$TASK_FILE"; then LEVEL="L2"
-    elif grep -qiE '^[[:space:]]*(\*\*)?complexity[^:]*:[^[:alnum:]]*(Level[[:space:]]+1|L1)\b' "$TASK_FILE"; then LEVEL="L1"
+_resolved=0
+if [ -f "$PRD_FILE" ]; then
+    if grep -qiE '^[[:space:]]*(\*\*)?complexity[^:]*:[^[:alnum:]]*(Level[[:space:]]+4|L4)\b' "$PRD_FILE"; then LEVEL="L4"; _resolved=1
+    elif grep -qiE '^[[:space:]]*(\*\*)?complexity[^:]*:[^[:alnum:]]*(Level[[:space:]]+3|L3)\b' "$PRD_FILE"; then LEVEL="L3"; _resolved=1
+    elif grep -qiE '^[[:space:]]*(\*\*)?complexity[^:]*:[^[:alnum:]]*(Level[[:space:]]+2|L2)\b' "$PRD_FILE"; then LEVEL="L2"; _resolved=1
+    elif grep -qiE '^[[:space:]]*(\*\*)?complexity[^:]*:[^[:alnum:]]*(Level[[:space:]]+1|L1)\b' "$PRD_FILE"; then LEVEL="L1"; _resolved=1
     fi
+fi
+
+if [ "$_resolved" -eq 0 ] && [ -f "$TASK_FILE" ]; then
+    if grep -qiE '^[[:space:]]*(\*\*)?complexity[^:]*:[^[:alnum:]]*(Level[[:space:]]+4|L4)\b' "$TASK_FILE"; then LEVEL="L4"; _resolved=1
+    elif grep -qiE '^[[:space:]]*(\*\*)?complexity[^:]*:[^[:alnum:]]*(Level[[:space:]]+3|L3)\b' "$TASK_FILE"; then LEVEL="L3"; _resolved=1
+    elif grep -qiE '^[[:space:]]*(\*\*)?complexity[^:]*:[^[:alnum:]]*(Level[[:space:]]+2|L2)\b' "$TASK_FILE"; then LEVEL="L2"; _resolved=1
+    elif grep -qiE '^[[:space:]]*(\*\*)?complexity[^:]*:[^[:alnum:]]*(Level[[:space:]]+1|L1)\b' "$TASK_FILE"; then LEVEL="L1"; _resolved=1
+    fi
+fi
+
+if [ "$_resolved" -eq 0 ]; then
+    for _idx in "$DATARIM_ROOT/backlog.md" "$DATARIM_ROOT/tasks.md"; do
+        [ -f "$_idx" ] || continue
+        _row="$(grep -m1 -E "^- ${SPEC_TASK} ·" "$_idx" || true)"
+        [ -n "$_row" ] || continue
+        if printf '%s' "$_row" | grep -qE '· L1 ·'; then LEVEL="L1"; break
+        elif printf '%s' "$_row" | grep -qE '· L2 ·'; then LEVEL="L2"; break
+        elif printf '%s' "$_row" | grep -qE '· L4 ·'; then LEVEL="L4"; break
+        elif printf '%s' "$_row" | grep -qE '· L3 ·'; then LEVEL="L3"; break
+        fi
+    done
 fi
 
 # Planning storage is complexity-dependent: L1/L2 embed the canonical plan in
