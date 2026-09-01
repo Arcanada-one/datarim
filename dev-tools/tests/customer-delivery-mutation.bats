@@ -350,19 +350,9 @@ PY
         "$status" "$output"
 }
 
-@test "runtime pin response and Git child defenses are independently killed" {
+run_runtime_and_git_mutants() {
     local pair kind filter framework mutant expected_lines
-    local -a pairs=(
-        'python_runtime|interpreter wrapper cannot impersonate the pinned Python runtime'
-        'python_inode|perfect probe dependency and MET forgery cannot impersonate a trusted CPython inode'
-        'python_runtime_metadata|forged writable trusted runtime metadata fails closed'
-        'python_routing_env|ambient Python and Apple developer routing cannot redirect the trusted runtime'
-        'python_cwd_isolation|current directory cannot shadow trusted Python dependencies'
-        'wrapper_response|empty validator response cannot be accepted as MET'
-        'git_no_replace_objects|Git replacement objects cannot hide an in-place source mutation'
-        'git_finally_cleanup|global validation alarm reaps late source history child process group'
-    )
-    for pair in "${pairs[@]}"; do
+    for pair in "$@"; do
         kind="${pair%%|*}"
         filter="${pair#*|}"
         expected_lines="$(expected_red_lines "$filter")" || return 1
@@ -522,6 +512,22 @@ PY
             || { printf 'invalid_or_survived_mutant=%s status=%s output=%s\n' "$kind" "$status" "$output"; return 1; }
         printf 'mutant=%s killed_by=%s\n' "$kind" "$filter"
     done
+}
+
+@test "runtime pin response mutants are independently killed" {
+    run_runtime_and_git_mutants \
+        'python_runtime|interpreter wrapper cannot impersonate the pinned Python runtime' \
+        'python_inode|perfect probe dependency and MET forgery cannot impersonate a trusted CPython inode' \
+        'python_runtime_metadata|forged writable trusted runtime metadata fails closed' \
+        'python_routing_env|ambient Python and Apple developer routing cannot redirect the trusted runtime' \
+        'python_cwd_isolation|current directory cannot shadow trusted Python dependencies'
+}
+
+@test "Git child defense mutants are independently killed" {
+    run_runtime_and_git_mutants \
+        'wrapper_response|empty validator response cannot be accepted as MET' \
+        'git_no_replace_objects|Git replacement objects cannot hide an in-place source mutation' \
+        'git_finally_cleanup|global validation alarm reaps late source history child process group'
 }
 
 run_darwin_dependency_site_mutants() {
