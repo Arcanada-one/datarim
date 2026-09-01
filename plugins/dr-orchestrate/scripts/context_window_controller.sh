@@ -47,16 +47,59 @@ policy_mode() {
   [ "$rc" -eq 0 ] && printf '%s\n' "$result"; return "$rc"
 }
 
+# Absolute working-set ceiling, in tokens. A percentage alone cannot express
+# pressure: 75 percent of a 200k window is 150k tokens, 75 percent of a 1M
+# window is 750k. Attention degrades with the LENGTH of the history, not with
+# its ratio to a limit, so a large window is headroom for one big read — never
+# a licence to accumulate. These ceilings therefore bind independently of the
+# percentage, and the STRICTER of the two verdicts wins.
+DR_CTX_SOFT_TOKENS="${DR_CTX_SOFT_TOKENS:-200000}"   # prepare handoff
+DR_CTX_HARD_TOKENS="${DR_CTX_HARD_TOKENS:-280000}"   # reset now
+
+absolute_mode() {
+  local used_tokens="$1"
+  if [ "$used_tokens" -ge "$DR_CTX_HARD_TOKENS" ]; then printf 'full_clear\n'
+  elif [ "$used_tokens" -ge "$DR_CTX_SOFT_TOKENS" ]; then printf 'selective_drop\n'
+  else printf 'no_op\n'; fi
+}
+
+mode_rank() {
+  case "$1" in no_op) printf '0\n' ;; selective_drop) printf '1\n' ;;
+    full_clear) printf '2\n' ;; *) printf '0\n' ;; esac
+}
+
 evaluate() {
-  local used mode rc
+  local used mode rc used_tokens window abs
   used="$(arg_value --used-percent "$@")" || die '--used-percent is required'
   [[ "$used" =~ ^[0-9]+$ ]] && [ "$used" -le 100 ] || die 'used percent must be integer 0..100'
   set +e; mode="$(policy_mode "$used")"; rc=$?; set -e
-  if [ "$rc" -eq 0 ]; then printf '%s\n' "$mode"; return 0; fi
-  [ "$rc" -eq 3 ] || [ "$rc" -eq 4 ] || die 'unsafe taught policy'
-  if [ "$used" -ge 90 ]; then printf 'full_clear\n'
-  elif [ "$used" -ge 75 ]; then printf 'selective_drop\n'
-  else printf 'no_op\n'; fi
+  if [ "$rc" -ne 0 ]; then
+    [ "$rc" -eq 3 ] || [ "$rc" -eq 4 ] || die 'unsafe taught policy'
+    if [ "$used" -ge 90 ]; then mode='full_clear'
+    elif [ "$used" -ge 75 ]; then mode='selective_drop'
+    else mode='no_op'; fi
+  fi
+
+  # Absolute arm. Tokens may be supplied directly, or derived from the window
+  # size. Absent both, the percentage verdict stands alone — unchanged
+  # behaviour for every existing caller.
+  used_tokens="$(arg_value --used-tokens "$@")" || used_tokens=''
+  if [ -z "$used_tokens" ]; then
+    window="$(arg_value --window-tokens "$@")" || window=''
+    if [ -n "$window" ]; then
+      [[ "$window" =~ ^[0-9]+$ ]] && [ "$window" -gt 0 ] || die 'window tokens must be a positive integer'
+      used_tokens=$(( window * used / 100 ))
+    fi
+  else
+    [[ "$used_tokens" =~ ^[0-9]+$ ]] || die 'used tokens must be a non-negative integer'
+  fi
+
+  if [ -n "$used_tokens" ]; then
+    abs="$(absolute_mode "$used_tokens")"
+    [ "$(mode_rank "$abs")" -gt "$(mode_rank "$mode")" ] && mode="$abs"
+  fi
+
+  printf '%s\n' "$mode"
 }
 
 instruction() {

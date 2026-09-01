@@ -16,9 +16,29 @@ that explicitly enable context-window automation. It is default-off.
 1. Read the active task snapshot first. Bind the active task-description path,
    last completed snapshot stage, snapshot path, and snapshot digest into a
    private transaction before sending a reset instruction.
-2. Treat pressure below 75 percent as `no_op`, 75 through 89 as
-   `selective_drop`, and 90 through 100 as `full_clear`. A private exact-label
+2. Pressure has TWO arms and the stricter verdict wins.
+
+   **Absolute arm (primary).** Below 200000 tokens of working set is `no_op`,
+   200000 through 279999 is `selective_drop`, 280000 and above is `full_clear`.
+   Ceilings are overridable per deployment via `DR_CTX_SOFT_TOKENS` and
+   `DR_CTX_HARD_TOKENS`.
+
+   **Percentage arm (retained).** Below 75 percent is `no_op`, 75 through 89 is
+   `selective_drop`, 90 through 100 is `full_clear`. A private exact-label
    policy may select a mode only at or above its declared floor, never below 50.
+
+   A percentage alone cannot express pressure, because it hides its
+   denominator: 75 percent of a 200k window is 150k tokens, while 75 percent of
+   a 1M window is 750k. Attention degrades with the LENGTH of the accumulated
+   history, not with its ratio to a limit, so a larger window is headroom for
+   one large read — never a licence to accumulate proportionally more. A
+   threshold written only as a percentage silently changes meaning when the
+   runtime's window changes, which is how a session reached 98 percent of a
+   large window while every declared threshold read as satisfied.
+
+   An orchestrator that cannot obtain a token count MUST still apply the
+   percentage arm, and MUST treat the missing count as a gap to close rather
+   than as evidence of low pressure.
 3. Use only these fixed instructions:
    - Codex selective: `/compact`
    - Claude selective: `/compact Preserve active Datarim task pointer last completed phase current plan open verification findings and next action`
