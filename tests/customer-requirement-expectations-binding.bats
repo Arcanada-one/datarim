@@ -1549,7 +1549,7 @@ EOF
     assert_contains "$SKILLS_REFERENCE" '| expectations-checklist | Reference | Operator wishlist artefact' || return 1
     assert_contains "$SKILLS_REFERENCE" 'Schema v4 requires explicit customer derivation' || return 1
 
-    disk_count="$(find "${REPO_ROOT}/skills" -mindepth 2 -maxdepth 2 -name SKILL.md | wc -l | tr -d '[:space:]')"
+    disk_count="$(find "${REPO_ROOT}/skills" -mindepth 2 -maxdepth 3 -name SKILL.md ! -path "${REPO_ROOT}/skills/.*" | wc -l | tr -d '[:space:]')"
     documented_count="$(sed -nE 's/^Datarim includes ([0-9]+) reusable skill modules\..*/\1/p' "$SKILLS_REFERENCE")"
     [[ "$documented_count" -eq "$disk_count" ]]
 }
