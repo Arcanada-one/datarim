@@ -32,7 +32,7 @@ TAP_PLAN_PATTERN = re.compile(r"^1\.\.([0-9]+)\s*$", re.MULTILINE)
 # prevents omissions.
 MACOS_ORDINAL_TEST_LIMITS = {"functional": 10, "schema": 15}
 PLATFORM_SHARD_POLICY = {
-    "functional": {shard: ("linux", "macos") for shard in range(1, 37)},
+    "functional": {shard: ("linux", "macos") for shard in range(1, 38)},
     "schema": {shard: ("linux", "macos") for shard in range(1, 13)},
     "mutation": {
         **{shard: ("linux",) for shard in range(1, 14)},

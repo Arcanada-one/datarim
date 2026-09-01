@@ -11,6 +11,17 @@ All notable changes to the Datarim framework are documented here. Format follows
   spec-graph regression fixtures use portable insertion logic so the same
   negative controls run on BSD/macOS and GNU/Linux.
 
+## [2.67.1] — 2026-09-02
+
+### Fixed
+
+- **Bound macOS customer-delivery shards.** The trusted-review registry cases
+  that exceeded the macOS shard ceiling are now split across two exact shards
+  (functional 27/37 covers ordinals 131–135 and functional 28/37 covers
+  ordinals 136–140). The shard-runner regression matrix and its macOS test
+  interpreter fixture use the platform's resolved `true` binary, preserving
+  the same checks on BSD/macOS and GNU/Linux.
+
 ## [2.67.0] — 2026-08-16
 
 ### Added
