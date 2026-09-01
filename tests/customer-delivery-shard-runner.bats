@@ -154,8 +154,8 @@ source, target = map(Path, sys.argv[1:])
 text = source.read_text(encoding="utf-8")
 old_schema = "schema 1 12 ordinal 1 15 linux,macos"
 new_schema = "schema 1 12 ordinal 1 15 macos"
-old_mutation = "mutation 20 48 ordinal 5 - macos"
-new_mutation = "mutation 20 48 ordinal 5 - linux,macos"
+old_mutation = "mutation 16 49 ordinal 6 - macos"
+new_mutation = "mutation 16 49 ordinal 6 - linux,macos"
 if text.count(old_schema) != 1 or text.count(old_mutation) != 1:
     raise SystemExit("platform policy mutation seam missing or ambiguous")
 target.write_text(
@@ -419,11 +419,11 @@ PY
 @test "customer-delivery registry generates the complete Linux and approved macOS matrices" {
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" --matrix linux
     [ "$status" -eq 0 ] \
-        && "$PYTHON" -c 'import json,sys; rows=json.loads(sys.argv[1]); assert len(rows)==90 and len({(r["suite"],r["shard"]) for r in rows})==90 and [r["shard"] for r in rows if r["suite"]=="functional"]==[f"{i}/37" for i in range(1,38)]' "$output" \
+        && "$PYTHON" -c 'import json,sys; rows=json.loads(sys.argv[1]); assert len(rows)==91 and len({(r["suite"],r["shard"]) for r in rows})==91 and [r["shard"] for r in rows if r["suite"]=="functional"]==[f"{i}/37" for i in range(1,38)]' "$output" \
         || return 1
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" --matrix macos
     [ "$status" -eq 0 ] \
-        && "$PYTHON" -c 'import json,sys; rows=json.loads(sys.argv[1]); assert len(rows)==84 and {r["suite"] for r in rows}=={"functional","schema","mutation"} and [r["shard"] for r in rows if r["suite"]=="functional"]==[f"{i}/37" for i in range(1,38)] and [r["shard"] for r in rows if r["suite"]=="schema"]==[f"{i}/12" for i in range(1,13)] and [r["shard"] for r in rows if r["suite"]=="mutation"]==[f"{i}/48" for i in range(14,49)]' "$output"
+        && "$PYTHON" -c 'import json,sys; rows=json.loads(sys.argv[1]); assert len(rows)==85 and {r["suite"] for r in rows}=={"functional","schema","mutation"} and [r["shard"] for r in rows if r["suite"]=="functional"]==[f"{i}/37" for i in range(1,38)] and [r["shard"] for r in rows if r["suite"]=="schema"]==[f"{i}/12" for i in range(1,13)] and [r["shard"] for r in rows if r["suite"]=="mutation"]==[f"{i}/49" for i in range(14,50)]' "$output"
 }
 
 @test "macOS trusted-review registry work stays within a bounded shard" {
@@ -441,7 +441,7 @@ PY
     [ "$status" -eq 0 ]
 }
 
-@test "cross-platform mutation cases are split into thirty-five bounded exact shards" {
+@test "cross-platform mutation cases are split into thirty-six bounded exact shards" {
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" --check
     [ "$status" -eq 0 ] || return 1
     "$PYTHON" - "$REGISTRY" <<'PY'
@@ -449,18 +449,18 @@ import sys
 rows = [line.split() for line in open(sys.argv[1], encoding="utf-8") if line.startswith("mutation ")]
 portable = [row for row in rows if "macos" in row[-1]]
 assert [(row[1], row[2], row[4]) for row in portable] == [
-    ("14", "48", "4"), ("15", "48", "12"), ("16", "48", "13"),
-    ("17", "48", "14"), ("18", "48", "15"), ("19", "48", "19"),
-    ("20", "48", "5"), ("21", "48", "6"), ("22", "48", "7"),
-    ("23", "48", "8"), ("24", "48", "9"), ("25", "48", "10"),
-    ("26", "48", "11"), ("27", "48", "16"), ("28", "48", "17"),
-    ("29", "48", "18"), ("30", "48", "20"), ("31", "48", "21"),
-    ("32", "48", "22"), ("33", "48", "23"), ("34", "48", "24"),
-    ("35", "48", "25"), ("36", "48", "26"), ("37", "48", "27"),
-    ("38", "48", "28"), ("39", "48", "29"), ("40", "48", "30"),
-    ("41", "48", "31"), ("42", "48", "32"), ("43", "48", "33"),
-    ("44", "48", "34"), ("45", "48", "35"), ("46", "48", "36"),
-    ("47", "48", "37"), ("48", "48", "38")
+    ("14", "49", "4"), ("15", "49", "5"), ("16", "49", "6"),
+    ("17", "49", "7"), ("18", "49", "8"), ("19", "49", "9"),
+    ("20", "49", "10"), ("21", "49", "11"), ("22", "49", "12"),
+    ("23", "49", "13"), ("24", "49", "14"), ("25", "49", "15"),
+    ("26", "49", "16"), ("27", "49", "17"), ("28", "49", "18"),
+    ("29", "49", "19"), ("30", "49", "20"), ("31", "49", "21"),
+    ("32", "49", "22"), ("33", "49", "23"), ("34", "49", "24"),
+    ("35", "49", "25"), ("36", "49", "26"), ("37", "49", "27"),
+    ("38", "49", "28"), ("39", "49", "29"), ("40", "49", "30"),
+    ("41", "49", "31"), ("42", "49", "32"), ("43", "49", "33"),
+    ("44", "49", "34"), ("45", "49", "35"), ("46", "49", "36"),
+    ("47", "49", "37"), ("48", "49", "38"), ("49", "49", "39")
 ]
 PY
 }
@@ -470,7 +470,7 @@ PY
     seed_results linux "$results" || return 1
     run "$PYTHON" "$RUNNER" --registry "$REGISTRY" --check-results linux "$results"
     [ "$status" -eq 0 ] \
-        && [[ "$output" == *"customer_delivery_results=valid platform=linux count=90"* ]]
+        && [[ "$output" == *"customer_delivery_results=valid platform=linux count=91"* ]]
 }
 
 @test "customer-delivery aggregate rejects a missing result" {

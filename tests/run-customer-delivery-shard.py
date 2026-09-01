@@ -36,9 +36,9 @@ PLATFORM_SHARD_POLICY = {
     "schema": {shard: ("linux", "macos") for shard in range(1, 13)},
     "mutation": {
         **{shard: ("linux",) for shard in range(1, 14)},
-        **{shard: ("linux", "macos") for shard in range(14, 20)},
-        **{shard: ("macos",) for shard in range(20, 27)},
-        **{shard: ("linux", "macos") for shard in range(27, 49)},
+        **{shard: ("linux", "macos") for shard in range(14, 16)},
+        **{shard: ("macos",) for shard in range(16, 23)},
+        **{shard: ("linux", "macos") for shard in range(23, 50)},
     },
 }
 MACOS_RUNTIME_ISOLATED_TESTS = {
