@@ -1,10 +1,10 @@
 # Skills Reference
 
-Datarim includes 73 reusable skill modules. Skills provide rules, patterns, and guidelines loaded on demand by agents and commands. Each skill is a directory under `skills/` containing a `SKILL.md` plus any supporting fragment files.
+Datarim includes 78 reusable skill modules. Skills provide rules, patterns, and guidelines loaded on demand by agents and commands. Each skill is a directory under `skills/` containing a `SKILL.md` plus any supporting fragment files. This count includes the five tier-specific skills under `skills/fleet/`.
 
 Skills are split into two categories:
-- **Reference skills** — rules and patterns the caller applies inline. No `model` field in frontmatter, so they inherit the caller's model. 53 of the 73.
-- **Task skills** — perform an action when invoked. Carry an explicit `model` field per the [Model Assignment Convention](../../skills/datarim-system/SKILL.md). 20 of the 73.
+- **Reference skills** — rules and patterns the caller applies inline. No `model` field in frontmatter, so they inherit the caller's model. 58 of the 78.
+- **Task skills** — perform an action when invoked. Carry an explicit `model` field per the [Model Assignment Convention](../../skills/datarim-system/SKILL.md). 20 of the 78.
 
 Every shipped skill resolves to `inherit` — the operator's session model wins. Pinning a concrete model generation in a skill breaks under runtimes that do not offer it; express capability intent with `metadata.model_tier:` (resolved through `config/model-tiers.yaml`) instead.
 
@@ -41,6 +41,11 @@ Alphabetical. "Loaded by" names the commands, agents, or trigger conditions that
 | file-sync-config | Reference | Pre-flight checklist + ignore patterns for file-sync (Syncthing/rclone) | on demand for sync setup |
 | finishing-a-development-branch | Reference | Decide how to integrate completed work — merge, PR, or cleanup — via structured options, once implementation is done and tests pass | on demand at end of branch work |
 | fleet | Task | Router for the five-tier fleet starter skill (l1-basic..l5-autonomous) — selects the AAL/complexity level and its context budget for a spawned agent | /dr-init, /dr-prd, /dr-orchestrate |
+| fleet/l1-basic | Reference | Fleet starter for a level-1 single-step task with minimal context | fleet router |
+| fleet/l2-structured | Reference | Fleet starter for a level-2 templated task with a compact context | fleet router |
+| fleet/l3-analyst | Reference | Fleet starter for a level-3 analytical task with on-demand retrieval | fleet router |
+| fleet/l4-expert | Reference | Fleet starter for a level-4 multi-subtask task with on-demand retrieval | fleet router |
+| fleet/l5-autonomous | Reference | Fleet starter for a level-5 self-managed task with bounded autonomy | fleet router |
 | frontend-ui | Task | CSS specificity, dark/light themes, visual testing, mobile responsiveness | when editing HTML/CSS |
 | health-controller-stub-detector | Reference | Surface hard-coded stub literals (`pending-integration`, `not-implemented`, `stub`) in health/status controllers at /dr-do, before /dr-qa wish gating | /dr-do, when a health or status controller is touched |
 | human-summary | Reference | Plain-language operator recap — four sub-sections + banlist + whitelist + per-paragraph escape hatch + 150–400 word budget | /dr-qa, /dr-compliance, /dr-archive (Step 8) |
@@ -88,7 +93,7 @@ Alphabetical. "Loaded by" names the commands, agents, or trigger conditions that
 | writing | Task | Content creation and editorial workflow | writer, editor |
 | writing-plans | Reference | Turn a spec or set of requirements for a multi-step task into a written plan, before touching code | on demand, before implementation |
 
-**Distribution:** 53 reference skills (no `model` field — inherit the caller), 20 task skills (explicit `model: inherit`).
+**Distribution:** 58 reference skills (no `model` field — inherit the caller), 20 task skills (explicit `model: inherit`).
 
 ## Loading Hierarchy
 

@@ -41,8 +41,8 @@
 #   Ground truth (relative to repo root):
 #     agents/*.md          -> category "agents"
 #     commands/*.md        -> category "commands"
-#     skills/*/SKILL.md    -> category "skills"
-#     templates/*.md       -> category "templates"
+#     skills/**/SKILL.md   -> category "skills" (including nested tiers)
+#     templates/**/*.md    -> category "templates" (including nested docs)
 #   Claim surfaces (relative to repo root; skipped when absent):
 #     CLAUDE.md                                    "Agent files: ... (N agents)"
 #     CLAUDE.md                                    "Skill files: ... (N skills, ..."
@@ -180,8 +180,8 @@ done < <(surfaces)
 # count against a missing directory is real drift, not a skip condition.
 count_agents=$(find "$root/agents" -maxdepth 1 -name '*.md' 2>/dev/null | wc -l | tr -d '[:space:]')
 count_commands=$(find "$root/commands" -maxdepth 1 -name '*.md' 2>/dev/null | wc -l | tr -d '[:space:]')
-count_skills=$(find "$root/skills" -mindepth 2 -maxdepth 2 -iname 'SKILL.md' 2>/dev/null | wc -l | tr -d '[:space:]')
-count_templates=$(find "$root/templates" -maxdepth 1 -name '*.md' 2>/dev/null | wc -l | tr -d '[:space:]')
+count_skills=$(find "$root/skills" -mindepth 2 -maxdepth 3 -type f -iname 'SKILL.md' ! -path "$root/skills/.*" 2>/dev/null | wc -l | tr -d '[:space:]')
+count_templates=$(find "$root/templates" -mindepth 1 -maxdepth 3 -type f -name '*.md' 2>/dev/null | wc -l | tr -d '[:space:]')
 
 ground_truth_for() {
     case "$1" in

@@ -78,7 +78,7 @@ counts:
     # Layout is skills/<name>/SKILL.md — `skills/*.md` expanded to 0, so this
     # rule compared 0 against the documented count and could never be
     # meaningful.
-    source_glob: skills/*/SKILL.md
+    source_glob: skills/**/SKILL.md
     consumer_file: documentation/reference/skills.md
     pattern: ([0-9]+) reusable skill
     severity: error
@@ -110,7 +110,7 @@ counts:
     pattern: ([0-9]+) commands
     severity: warning
   - id: site_hero_skill_count
-    source_glob: skills/*/SKILL.md
+    source_glob: skills/**/SKILL.md
     consumer_file: ../../../Websites/datarim.club/content/en.php
     pattern: ([0-9]+) skills
     severity: warning
@@ -125,7 +125,7 @@ counts:
     pattern: ([0-9]+) commands
     severity: warning
   - id: site_about_skill_count
-    source_glob: skills/*/SKILL.md
+    source_glob: skills/**/SKILL.md
     consumer_file: ../../../Websites/datarim.club/pages/about.php
     pattern: ([0-9]+) skills
     severity: warning

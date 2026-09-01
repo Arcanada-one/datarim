@@ -21,8 +21,9 @@
 #
 #   commands   find commands  -mindepth 1 -maxdepth 1 -name '*.md' | wc -l
 #   agents     find agents    -mindepth 1 -maxdepth 1 -name '*.md' | wc -l
-#   skills     find skills    -mindepth 1 -maxdepth 1 -type d      | wc -l   (one dir per skill, SKILL.md inside)
-#   templates  find templates -mindepth 1 -maxdepth 1 -name '*.md' | wc -l
+#   skills     find skills    -mindepth 2 -maxdepth 3 -name 'SKILL.md' | wc -l
+#                         (includes nested tiered skill directories)
+#   templates  find templates -mindepth 1 -maxdepth 3 -name '*.md' | wc -l
 #
 # KNOWN GAP (out of scope for this script, tracked as a follow-up): this
 # check does NOT extend to the public site (datarim.club — pages/about.php,
@@ -96,10 +97,11 @@ actual_count() {  # $1=category
     case "$cat" in
         # Hidden directories are runtime scaffolding, not shipped skills: a
         # Codex install drops an untracked `skills/.system/` holding its own
-        # bundled helpers. Counting it inflated the local total to 68 against a
-        # correct documented 67 — a drift report that fired only on a developer
-        # machine and never in CI (where the untracked dir does not exist).
-        skills) find "$dir" -mindepth 1 -maxdepth 1 -type d ! -name '.*' 2>/dev/null | wc -l | tr -d ' ' ;;
+        # bundled helpers. Count the canonical SKILL.md files instead of
+        # directories so nested Fleet tiers are included without counting the
+        # hidden runtime tree.
+        skills) find "$dir" -mindepth 2 -maxdepth 3 -type f -name 'SKILL.md' ! -path "$dir/.*" 2>/dev/null | wc -l | tr -d ' ' ;;
+        templates) find "$dir" -mindepth 1 -maxdepth 3 -type f -name '*.md' 2>/dev/null | wc -l | tr -d ' ' ;;
         *)      find "$dir" -mindepth 1 -maxdepth 1 -name '*.md' 2>/dev/null | wc -l | tr -d ' ' ;;
     esac
 }

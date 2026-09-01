@@ -141,7 +141,7 @@ Skills are reusable knowledge modules loaded on demand. They provide rules, patt
 - `session-handoff-replay.md` -- Consumer contract for `/dr-continue`: read session artefact in clean window, re-verify every claim via live probes (STALE SNAPSHOT / CLAIM-UNVERIFIED / FILE-MISSING banners), downgrade provenance tags, route to `/dr-next` or `/dr-auto`. Squash-collision detection via `git merge-base --is-ancestor`. Shares bilingual replay renderer with `/dr-next` via `skills/dr-next-snapshot-replay/SKILL.md § Shared Replay Renderer`. (loaded by: /dr-continue)
 - `context-window-self-clearing.md` — Default-off orchestrator contract for deterministic Claude Code/Codex pressure thresholds, checkpoint-before-reset transactions, fixed compact/clear instructions, and snapshot-first continuation. (loaded by: /dr-orchestrate plugin runtime)
 
-Skill files: `$HOME/.claude/skills/{name}/SKILL.md` (73 skills, 13 with supporting fragment directories — a "supporting fragment directory" is a skill folder that ships at least one sibling `.md` beside its `SKILL.md`)
+Skill files: `$HOME/.claude/skills/{name}/SKILL.md` (78 skills, 13 with supporting fragment directories — a "supporting fragment directory" is a skill folder that ships at least one sibling `.md` beside its `SKILL.md`)
 
 > **Available since v1.16.0:** `cta-format.md` — canonical CTA "Next Step" block specification, loaded by `planner`, `architect`, `developer`, `reviewer`, `compliance` agents. Defines structure, separators, primary marker, multi-task menu (Variant B), and FAIL-Routing variant.
 

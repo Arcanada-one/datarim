@@ -381,12 +381,115 @@ substitute_name() {
 }
 
 # --- Glob expansion (relative to ROOT_ABS) ------------------------------------
+# Bash 3.2 (the system shell on macOS) has no `globstar`. Keep the native
+# expansion where it exists, and use a component-aware matcher otherwise. The
+# fallback deliberately treats `*` as one path component and `**` as zero or
+# more components, matching the intent of the configured repository globs
+# without allowing the ordinary `*` to cross `/`.
+GLOB_PARTS=()
+PATH_PARTS=()
+GLOB_PART_COUNT=0
+PATH_PART_COUNT=0
+
+glob_component_matches() {
+    local value="$1" pattern="$2"
+
+    # Match the pathname-expansion rule that a wildcard does not select a
+    # leading dot unless the pattern component explicitly starts with one.
+    case "$value" in
+        .*)
+            case "$pattern" in
+                .*) ;;
+                *) return 1 ;;
+            esac
+            ;;
+    esac
+
+    # shellcheck disable=SC2053,SC2254
+    case "$value" in
+        $pattern) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+glob_match_parts() {
+    local pi="$1" vi="$2" part value
+
+    if [ "$pi" -eq "$GLOB_PART_COUNT" ]; then
+        [ "$vi" -eq "$PATH_PART_COUNT" ]
+        return
+    fi
+
+    part="${GLOB_PARTS[$pi]}"
+    if [ "$part" = "**" ]; then
+        # `**` may consume no component.
+        if glob_match_parts $((pi + 1)) "$vi"; then
+            return 0
+        fi
+
+        # Or it may consume one or more visible components. With dotglob off,
+        # native Bash globstar does not descend through hidden components.
+        while [ "$vi" -lt "$PATH_PART_COUNT" ]; do
+            value="${PATH_PARTS[$vi]}"
+            case "$value" in
+                .*) return 1 ;;
+            esac
+            vi=$((vi + 1))
+            if glob_match_parts "$pi" "$vi"; then
+                return 0
+            fi
+        done
+        return 1
+    fi
+
+    [ "$vi" -lt "$PATH_PART_COUNT" ] || return 1
+    value="${PATH_PARTS[$vi]}"
+    glob_component_matches "$value" "$part" || return 1
+    glob_match_parts $((pi + 1)) $((vi + 1))
+}
+
+glob_path_matches() {
+    local pattern="$1" path="$2"
+    GLOB_PARTS=()
+    PATH_PARTS=()
+    IFS='/' read -r -a GLOB_PARTS <<< "$pattern"
+    IFS='/' read -r -a PATH_PARTS <<< "$path"
+    GLOB_PART_COUNT="${#GLOB_PARTS[@]}"
+    PATH_PART_COUNT="${#PATH_PARTS[@]}"
+    glob_match_parts 0 0
+}
+
 expand_glob() {
     # expand_glob pattern → newline-separated absolute paths
-    local pat="$1"
-    # shellcheck disable=SC2086
-    (cd "$ROOT_ABS" && shopt -s nullglob && \
-        for f in $pat; do printf '%s\n' "$ROOT_ABS/$f"; done)
+    local pat="$1" f rel find_bin
+
+    # Prefer Bash's native expansion when globstar is available.
+    if (shopt -s globstar) 2>/dev/null; then
+        # shellcheck disable=SC2086
+        (cd "$ROOT_ABS" && shopt -s nullglob globstar && \
+            for f in $pat; do printf '%s\n' "$ROOT_ABS/$f"; done)
+        return
+    fi
+
+    # Portable fallback for the system Bash shipped with macOS. Use an
+    # absolute find path when available so a token-reduction shim cannot
+    # rewrite the compound predicate used by this gate.
+    if [ -x /usr/bin/find ]; then
+        find_bin=/usr/bin/find
+    elif [ -x /bin/find ]; then
+        find_bin=/bin/find
+    else
+        find_bin="$(command -v find 2>/dev/null || :)"
+    fi
+    [ -x "$find_bin" ] || return 1
+
+    "$find_bin" "$ROOT_ABS" -type f -print0 |
+        while IFS= read -r -d '' f; do
+            rel="${f#"$ROOT_ABS"/}"
+            if glob_path_matches "$pat" "$rel"; then
+                printf '%s\n' "$f"
+            fi
+        done
 }
 
 # --- Resolve cross-root path safely -------------------------------------------

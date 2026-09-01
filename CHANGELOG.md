@@ -4,6 +4,13 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Catalogue and macOS test parity.** Reference documentation now accounts for
+  all 78 shipped skills, including the five Fleet tier skills, and the
+  spec-graph regression fixtures use portable insertion logic so the same
+  negative controls run on BSD/macOS and GNU/Linux.
+
 ## [2.67.0] — 2026-08-16
 
 ### Added
