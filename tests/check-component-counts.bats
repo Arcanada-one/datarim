@@ -8,12 +8,13 @@
 setup() {
     DETECTOR="${BATS_TEST_DIRNAME}/../dev-tools/check-component-counts.sh"
     KB="$(mktemp -d)"
-    mkdir -p "$KB/commands" "$KB/agents" "$KB/skills/skill-a" "$KB/skills/skill-b" "$KB/templates"
+    mkdir -p "$KB/commands" "$KB/agents" "$KB/skills/skill-a" "$KB/skills/skill-b" "$KB/skills/fleet/l1" "$KB/templates"
     : > "$KB/commands/a.md"; : > "$KB/commands/b.md"                       # 2 commands
     : > "$KB/agents/x.md"                                                 # 1 agent
-    : > "$KB/skills/skill-a/SKILL.md"; : > "$KB/skills/skill-b/SKILL.md"  # 2 skills (one dir each)
+    : > "$KB/skills/skill-a/SKILL.md"; : > "$KB/skills/skill-b/SKILL.md"  # 2 top-level skills
+    : > "$KB/skills/fleet/l1/SKILL.md"                                      # 1 nested skill
     : > "$KB/templates/t1.md"                                             # 1 template
-    write_docs 2 1 2 1   # default: fully-consistent claims (commands agents skills templates)
+    write_docs 2 1 3 1   # default: fully-consistent claims (commands agents skills templates)
 }
 
 teardown() { rm -rf "$KB"; }
@@ -60,7 +61,7 @@ EOF
 }
 
 @test "corrupted templates claim: --check exits 1, --report names category+claim+actual (V-AC-2)" {
-    write_docs 2 1 2 19   # templates claim corrupted to 19, actual is still 1
+    write_docs 2 1 3 19   # templates claim corrupted to 19, actual is still 1
     run bash "$DETECTOR" --check --root "$KB"
     [ "$status" -eq 1 ]
     run bash "$DETECTOR" --report --root "$KB"
@@ -70,13 +71,13 @@ EOF
 }
 
 @test "corrupted skills claim: --check exits 1 (V-AC-2)" {
-    write_docs 2 1 99 1   # skills claim corrupted, actual dirs still 2
+    write_docs 2 1 99 1   # skills claim corrupted, actual files still 3
     run bash "$DETECTOR" --check --root "$KB"
     [ "$status" -eq 1 ]
     run bash "$DETECTOR" --report --root "$KB"
     [[ "$output" == *skills* ]]
     [[ "$output" == *"claims 99"* ]]
-    [[ "$output" == *"actual 2"* ]]
+    [[ "$output" == *"actual 3"* ]]
 }
 
 @test "corrupted commands claim: --check exits 1 (V-AC-2)" {

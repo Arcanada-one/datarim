@@ -17,6 +17,7 @@
 #   T13 --verbose multiline output
 #   T14 SUMMARY line content
 #   T15 --strict promotes warning to exit 1
+#   T16 recursive `**` matches nested paths while `*` remains one component
 
 LINT="$BATS_TEST_DIRNAME/../doc-fanout-lint.sh"
 
@@ -84,6 +85,32 @@ counts:
   - id: c
     source_glob: skills/*.md
     consumer_file: docs/skills.md
+    pattern: ([0-9]+) reusable skill
+    severity: error'
+    run "$LINT" --root "$TMPROOT" --quiet
+    [ "$status" -eq 0 ]
+}
+
+@test "T16: recursive glob counts nested paths without making * recursive" {
+    mk_artefact "skills/root/SKILL.md"
+    mk_artefact "skills/fleet/l1/SKILL.md"
+    mk_consumer "docs/skills.md" "2 reusable skill modules"
+    write_cfg 'version: 1
+counts:
+  - id: recursive_skill_count
+    source_glob: skills/**/SKILL.md
+    consumer_file: docs/skills.md
+    pattern: ([0-9]+) reusable skill
+    severity: error'
+    run "$LINT" --root "$TMPROOT" --quiet
+    [ "$status" -eq 0 ]
+
+    mk_consumer "docs/root-skills.md" "1 reusable skill module"
+    write_cfg 'version: 1
+counts:
+  - id: nonrecursive_skill_count
+    source_glob: skills/*/SKILL.md
+    consumer_file: docs/root-skills.md
     pattern: ([0-9]+) reusable skill
     severity: error'
     run "$LINT" --root "$TMPROOT" --quiet
