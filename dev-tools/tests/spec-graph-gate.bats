@@ -187,7 +187,15 @@ EOF
     write_fixture
     sed -i.bak 's/    - pending/    - missed/' \
         "$WORK/datarim/tasks/GT-0001-expectations.md"
-    sed -i.bak '/missed/i\  - override: nope\n  - override_by: operator' \
+    awk '{
+        if ($0 == "    - missed") {
+            print "  - override: nope"
+            print "  - override_by: operator"
+        }
+        print
+    }' "$WORK/datarim/tasks/GT-0001-expectations.md" \
+        > "$WORK/datarim/tasks/GT-0001-expectations.md.tmp"
+    mv "$WORK/datarim/tasks/GT-0001-expectations.md.tmp" \
         "$WORK/datarim/tasks/GT-0001-expectations.md"
     sed -i.bak '/Verifies:/d' "$WORK/datarim/plans/GT-0001-plan.md"
     run env DATARIM_SPEC_GRAPH_MODE=hard "$SCRIPT" \
@@ -200,7 +208,15 @@ EOF
     write_fixture
     sed -i.bak 's/    - pending/    - partial/' \
         "$WORK/datarim/tasks/GT-0001-expectations.md"
-    sed -i.bak '/partial/i\  - override: operator accepted this deferral\n  - override_by: operator' \
+    awk '{
+        if ($0 == "    - partial") {
+            print "  - override: operator accepted this deferral"
+            print "  - override_by: operator"
+        }
+        print
+    }' "$WORK/datarim/tasks/GT-0001-expectations.md" \
+        > "$WORK/datarim/tasks/GT-0001-expectations.md.tmp"
+    mv "$WORK/datarim/tasks/GT-0001-expectations.md.tmp" \
         "$WORK/datarim/tasks/GT-0001-expectations.md"
     sed -i.bak '/Verifies:/d' "$WORK/datarim/plans/GT-0001-plan.md"
     run env DATARIM_SPEC_GRAPH_MODE=hard "$SCRIPT" \
