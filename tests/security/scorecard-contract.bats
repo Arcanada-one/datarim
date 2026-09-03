@@ -89,7 +89,25 @@ PY
   grep -F 'gpg.ssh.allowedSignersFile=.github/ssh-signing-allowed-signers' "$workflow"
   grep -F 'test "$EXPECTED_REF" = refs/heads/main' "$workflow"
   grep -F 'test "$(git cat-file -t "$tag")" = tag' "$workflow"
+  grep -F 'git tag --merged "${release_sha}^" --list' "$workflow"
+  grep -F -- '--from "$previous_tag" --to "$release_sha"' "$workflow"
+  ! grep -F -- '--from v2.67.1' "$workflow"
   grep -F 'ref: ${{ needs.classify.outputs.release_sha }}' "$workflow"
   [ "$(wc -l < .github/ssh-signing-allowed-signers)" -eq 1 ]
   grep -E '^dev@veritasarcana\.ai ssh-ed25519 [A-Za-z0-9+/=]+$' .github/ssh-signing-allowed-signers
+}
+
+@test "Scorecard residuals are explicitly bounded and re-evaluated" {
+  cd "$REPO_ROOT"
+  for marker in \
+    "Token-Permissions / release" \
+    "Token-Permissions / Dependabot" \
+    "Code-Review" \
+    "Fuzzing" \
+    "CII Best Practices"
+  do
+    grep -F "$marker" SECURITY.md
+  done
+  grep -F "accepted limitations, not silent exceptions" SECURITY.md
+  grep -F "must be reopened if the trust model or executable surface changes" SECURITY.md
 }

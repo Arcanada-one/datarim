@@ -1,7 +1,7 @@
 name: security
 
 # Datarim full security gate (TUNE-0045 P2).
-# 12 parallel jobs covering shell + python + supply chain + secrets + workflows.
+# 15 parallel jobs covering shell + python + supply chain + secrets + workflows.
 # Replaces the P1 stop-gap security-minimal.yml.
 #
 # Tools install pattern:
@@ -226,7 +226,7 @@ jobs:
         with:
           category: codeql-python-v1
 
-  # 6. gitleaks — full git history secret scan (sha256-pinned binary)
+  # 7. gitleaks — full git history secret scan (sha256-pinned binary)
   gitleaks:
     name: gitleaks
     runs-on: ubuntu-latest
@@ -265,7 +265,7 @@ jobs:
           path: /tmp/gitleaks.sarif
           if-no-files-found: ignore
 
-  # 7. trufflehog — verified secrets only (binary verified via release checksums)
+  # 8. trufflehog — verified secrets only (binary verified via release checksums)
   trufflehog:
     name: trufflehog
     runs-on: ubuntu-latest
@@ -290,7 +290,7 @@ jobs:
       - name: Run trufflehog filesystem (verified only)
         run: trufflehog filesystem . --only-verified --fail --no-update
 
-  # 8. actionlint — workflow-yaml lint (binary verified via release checksums)
+  # 9. actionlint — workflow-yaml lint (binary verified via release checksums)
   actionlint:
     name: actionlint
     runs-on: ubuntu-latest
@@ -314,7 +314,7 @@ jobs:
       - name: Run actionlint
         run: actionlint -color
 
-  # 9. zizmor — GitHub Actions security audit
+  # 10. zizmor — GitHub Actions security audit
   zizmor:
     name: zizmor
     runs-on: ubuntu-latest
@@ -332,7 +332,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: zizmor --min-severity medium .github/workflows/
 
-  # 10. osv-scanner — dependency vulnerabilities (binary verified via release checksums)
+  # 11. osv-scanner — dependency vulnerabilities (binary verified via release checksums)
   osv-scanner:
     name: osv-scanner
     runs-on: ubuntu-latest
@@ -371,7 +371,7 @@ jobs:
             echo "no package manifests in repo — osv-scanner skipped (n/a)"
           fi
 
-  # 11. bats regression tests for fixed findings
+  # 12. bats regression tests for fixed findings
   regression-bats:
     name: regression-bats
     runs-on: ubuntu-latest
@@ -393,7 +393,7 @@ jobs:
       - name: Run security regression tests
         run: bash tests/security/run-all.sh
 
-  # 12. markdown-policy — anti-pattern grep over shipped docs (counter-example fence aware)
+  # 13. markdown-policy — anti-pattern grep over shipped docs (counter-example fence aware)
   markdown-policy:
     name: markdown-policy
     runs-on: ubuntu-latest
@@ -430,7 +430,7 @@ jobs:
           fi
           echo "markdown-policy: clean"
 
-  # 13. doc-refs — markdown reference integrity linter (TUNE-0054)
+  # 14. doc-refs — markdown reference integrity linter (TUNE-0054)
   doc-refs:
     name: doc-refs
     runs-on: ubuntu-latest
@@ -454,7 +454,7 @@ jobs:
       - name: Self-dogfood — run linter against repo HEAD with baseline applied
         run: bash scripts/check-doc-refs.sh --root .
 
-  # 14. task-id-gate — history-agnostic policy on governed public surfaces
+  # 15. task-id-gate — history-agnostic policy on governed public surfaces
   task-id-gate:
     name: task-id-gate
     runs-on: ubuntu-latest

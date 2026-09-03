@@ -76,7 +76,15 @@ jobs:
           msg="$(git for-each-ref "refs/tags/${tag}" --format='%(contents)')"
           stamped="$(printf '%s\n' "$msg" | sed -n 's/^bump_level=//p' | head -1)"
           case "$stamped" in patch|minor|major) ;; *) echo "::error::missing/invalid bump_level stamp" >&2; exit 1 ;; esac
-          ci_output="$(dev-tools/release-classify.sh --repo . --from v2.67.1 --to "$release_sha" --api-diff auto)"
+          previous_tag=""
+          while IFS= read -r candidate; do
+            if [[ "$candidate" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(rc|alpha|beta|test)[0-9]+)?$ ]]; then
+              previous_tag="$candidate"
+              break
+            fi
+          done < <(git tag --merged "${release_sha}^" --list 'v*' --sort=-v:refname)
+          test -n "$previous_tag"
+          ci_output="$(dev-tools/release-classify.sh --repo . --from "$previous_tag" --to "$release_sha" --api-diff auto)"
           ci="$(printf '%s\n' "$ci_output" | sed -n 's/^bump_level=//p' | head -1)"
           api_diff="$(printf '%s\n' "$ci_output" | sed -n 's/^api_diff=//p' | head -1)"
           rationale="$(printf '%s\n' "$ci_output" | sed -n 's/^rationale=//p' | head -1)"
@@ -99,7 +107,7 @@ jobs:
       # (.github/environments-policy.yml). Fail-soft by design: the script
       # exits 0 on missing token/API access and on drift (advisory), so this
       # step cannot block a release — it validates the declaration file and
-      # surfaces "environment lost the v* tag policy" BEFORE the release job
+      # surfaces missing main/v* deployment policies BEFORE the release job
       # hits the environment gate and dies with an opaque rejection.
       - name: Release environment policy drift check (advisory)
         env:
@@ -115,18 +123,14 @@ jobs:
     # Conditional environment (TUNE-0351): a major bump routes to release-manual
     # (required reviewer); patch/minor flows through release-auto (no reviewer).
     #
-    # REQUIRED ENVIRONMENT POLICY: both `release-auto` and `release-manual` MUST
-    # allow deployments from the `v*` tag pattern. This workflow triggers on tag
-    # pushes (`on: push: tags`), and a tag is NOT a protected branch — so an
-    # environment whose deployment branch policy is "Protected branches only"
-    # rejects every tagged release at job start (~2s, no steps run). The policy
-    # is DECLARED in version control at `.github/environments-policy.yml` (see
-    # its header for the repo-recreate recipe) and drift-checked by the
-    # advisory step in the classify job (`dev-tools/check-release-env-policy.sh`).
-    # Applied via `dev-tools/provision-release-env.sh --repo <owner/name>
-    # --env <name> --apply` (idempotent; add `--reviewers User:<id>` for
-    # release-manual) — re-run it after any environment recreate instead of
-    # fixing the policy live via the API/UI.
+    # REQUIRED ENVIRONMENT POLICY: both `release-auto` and `release-manual`
+    # MUST allow deployments from the `main` branch used by workflow_dispatch.
+    # The retained `v*` tag policy keeps the provisioner compatible with
+    # tag-triggered consumers. The policy is declared in version control at
+    # `.github/environments-policy.yml` and drift-checked in the classify job.
+    # Apply it with `dev-tools/provision-release-env.sh --repo <owner/name>
+    # --env <name> --tag-policy 'v*' --branch-policy main --apply`
+    # (idempotent; add `--reviewers User:<id>` for release-manual).
     environment:
       name: ${{ (needs.classify.outputs.bump_level == 'major' && 'release-manual') || 'release-auto' }}
     permissions:
