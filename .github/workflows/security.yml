@@ -1,7 +1,7 @@
 name: security
 
 # Datarim full security gate (TUNE-0045 P2).
-# 12 parallel jobs covering shell + python + supply chain + secrets + workflows.
+# 15 parallel jobs covering shell + python + supply chain + secrets + workflows.
 # Replaces the P1 stop-gap security-minimal.yml.
 #
 # Tools install pattern:
@@ -117,12 +117,12 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install bandit
-        run: pipx install bandit
+        run: pipx install 'bandit==1.9.4'
       - name: Run bandit on .py files
         run: |
           set -euo pipefail
-          if find . -name '*.py' -not -path './.git/*' -not -path './_extracted/*' | head -1 | grep -q .; then
-            bandit -r . -ll -ii -x ./_extracted,./.git
+          if find . -name '*.py' -not -path './.git/*' -not -path './_extracted/*' -not -path './tests/security/fixtures/*' | head -1 | grep -q .; then
+            bandit -r . -ll -ii -x ./_extracted,./.git,./tests/security/fixtures
           else
             echo "no python sources"
           fi
@@ -142,7 +142,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install bandit
-        run: pipx install bandit
+        run: pipx install 'bandit==1.9.4'
       - name: Extract python blocks from markdown
         run: |
           set -euo pipefail
@@ -162,33 +162,71 @@ jobs:
             echo "no extracted python blocks"
           fi
 
-  # 5. semgrep multi-config
-  semgrep:
-    name: semgrep
+  # 5. Semgrep with repository-owned rules and SARIF upload
+  semgrep-sarif:
+    name: semgrep-sarif
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    env:
+      EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
       - name: Install semgrep
-        run: pipx install semgrep
+        run: pipx install 'semgrep==1.176.0'
       - name: Run semgrep
         run: |
           set -euo pipefail
-          semgrep --error \
-            --config p/default \
-            --config p/python \
-            --config p/secrets \
-            --config p/github-actions \
-            --config p/security-audit \
+          set +e
+          semgrep scan --config .semgrep.yml --error --sarif --output semgrep.sarif \
             --exclude tests/security/fixtures \
             --exclude _extracted \
             .
+          scan_status=$?
+          set -e
+          jq -e '.runs | type == "array"' semgrep.sarif >/dev/null
+          if [ "$scan_status" -ne 0 ]; then
+            jq -e '[.runs[].results[]?] | length > 0' semgrep.sarif >/dev/null
+          fi
+          exit "$scan_status"
+      - name: Upload Semgrep SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep-python-security-v1
 
-  # 6. gitleaks — full git history secret scan (sha256-pinned binary)
+  # 6. CodeQL for the shipped Python implementation surface
+  codeql-python:
+    name: codeql-python
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    env:
+      EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+          persist-credentials: false
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28
+        with:
+          languages: python
+      - name: Analyze Python
+        uses: github/codeql-action/analyze@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28
+        with:
+          category: codeql-python-v1
+
+  # 7. gitleaks — full git history secret scan (sha256-pinned binary)
   gitleaks:
     name: gitleaks
     runs-on: ubuntu-latest
@@ -227,7 +265,7 @@ jobs:
           path: /tmp/gitleaks.sarif
           if-no-files-found: ignore
 
-  # 7. trufflehog — verified secrets only (binary verified via release checksums)
+  # 8. trufflehog — verified secrets only (binary verified via release checksums)
   trufflehog:
     name: trufflehog
     runs-on: ubuntu-latest
@@ -252,7 +290,7 @@ jobs:
       - name: Run trufflehog filesystem (verified only)
         run: trufflehog filesystem . --only-verified --fail --no-update
 
-  # 8. actionlint — workflow-yaml lint (binary verified via release checksums)
+  # 9. actionlint — workflow-yaml lint (binary verified via release checksums)
   actionlint:
     name: actionlint
     runs-on: ubuntu-latest
@@ -276,7 +314,7 @@ jobs:
       - name: Run actionlint
         run: actionlint -color
 
-  # 9. zizmor — GitHub Actions security audit
+  # 10. zizmor — GitHub Actions security audit
   zizmor:
     name: zizmor
     runs-on: ubuntu-latest
@@ -288,13 +326,13 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install zizmor
-        run: pipx install zizmor
+        run: pipx install 'zizmor==1.30.0'
       - name: Run zizmor
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: zizmor --min-severity medium .github/workflows/
 
-  # 10. osv-scanner — dependency vulnerabilities (binary verified via release checksums)
+  # 11. osv-scanner — dependency vulnerabilities (binary verified via release checksums)
   osv-scanner:
     name: osv-scanner
     runs-on: ubuntu-latest
@@ -333,7 +371,7 @@ jobs:
             echo "no package manifests in repo — osv-scanner skipped (n/a)"
           fi
 
-  # 11. bats regression tests for fixed findings
+  # 12. bats regression tests for fixed findings
   regression-bats:
     name: regression-bats
     runs-on: ubuntu-latest
@@ -355,7 +393,7 @@ jobs:
       - name: Run security regression tests
         run: bash tests/security/run-all.sh
 
-  # 12. markdown-policy — anti-pattern grep over shipped docs (counter-example fence aware)
+  # 13. markdown-policy — anti-pattern grep over shipped docs (counter-example fence aware)
   markdown-policy:
     name: markdown-policy
     runs-on: ubuntu-latest
@@ -392,7 +430,7 @@ jobs:
           fi
           echo "markdown-policy: clean"
 
-  # 13. doc-refs — markdown reference integrity linter (TUNE-0054)
+  # 14. doc-refs — markdown reference integrity linter (TUNE-0054)
   doc-refs:
     name: doc-refs
     runs-on: ubuntu-latest
@@ -416,7 +454,7 @@ jobs:
       - name: Self-dogfood — run linter against repo HEAD with baseline applied
         run: bash scripts/check-doc-refs.sh --root .
 
-  # 14. task-id-gate — history-agnostic policy on governed public surfaces
+  # 15. task-id-gate — history-agnostic policy on governed public surfaces
   task-id-gate:
     name: task-id-gate
     runs-on: ubuntu-latest

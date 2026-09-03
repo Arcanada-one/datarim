@@ -27,7 +27,13 @@ jobs:
   auto-merge:
     name: enable-auto-merge
     runs-on: ubuntu-latest
-    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    if: >-
+      github.event.sender.id == 49699333 &&
+      github.event.pull_request.user.id == 49699333 &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.base.ref == 'main' &&
+      startsWith(github.event.pull_request.head.ref, 'dependabot/') &&
+      startsWith(github.event.pull_request.html_url, format('https://github.com/{0}/pull/', github.repository))
     permissions:
       contents: write
       pull-requests: write

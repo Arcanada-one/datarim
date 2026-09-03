@@ -1,0 +1,14 @@
+rules:
+  - id: datarim.python.subprocess-shell-true
+    languages: [python]
+    severity: ERROR
+    message: Do not invoke a shell through Python.
+    patterns:
+      - pattern: subprocess.$METHOD(..., shell=True, ...)
+  - id: datarim.python.dynamic-eval
+    languages: [python]
+    severity: ERROR
+    message: Do not dynamically evaluate Python input.
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: exec(...)

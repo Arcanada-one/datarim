@@ -53,14 +53,14 @@ sha256sum -c "datarim-${TAG}-source.tar.gz.sha256"
 # 3. Verify the cosign signature over the tarball.
 cosign verify-blob \
   --bundle "datarim-${TAG}-source.tar.gz.cosign.bundle" \
-  --certificate-identity "https://github.com/Arcanada-one/datarim/.github/workflows/release.yml@refs/tags/${TAG}" \
+  --certificate-identity "https://github.com/Arcanada-one/datarim/.github/workflows/release.yml@refs/heads/main" \
   --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
   "datarim-${TAG}-source.tar.gz"
 
 # 4. Verify the cosign signature over the SBOM (same identity binding).
 cosign verify-blob \
   --bundle "datarim-${TAG}-sbom.cdx.json.cosign.bundle" \
-  --certificate-identity "https://github.com/Arcanada-one/datarim/.github/workflows/release.yml@refs/tags/${TAG}" \
+  --certificate-identity "https://github.com/Arcanada-one/datarim/.github/workflows/release.yml@refs/heads/main" \
   --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
   "datarim-${TAG}-sbom.cdx.json"
 
@@ -75,9 +75,9 @@ Any non-zero exit → the artefact is **untrusted**; do not deploy it.
 | Step | Property |
 |---|---|
 | `sha256sum -c` | Integrity. The tarball is not corrupt in transit. |
-| `cosign verify-blob` (tarball) | Authenticity. The tarball was produced by `release.yml` on this exact tag in `Arcanada-one/datarim`. The signature is anchored in the [Sigstore Rekor](https://search.sigstore.dev/) public transparency log. |
+| `cosign verify-blob` (tarball) | Authenticity. The tarball was produced by `release.yml` from protected `main` after authenticating this exact signed tag in `Arcanada-one/datarim`. The signature is anchored in the [Sigstore Rekor](https://search.sigstore.dev/) public transparency log. |
 | `cosign verify-blob` (SBOM) | The SBOM was produced by the same workflow run as the tarball. |
-| `gh attestation verify` | SLSA L2 build provenance — the artefact was built by GitHub-hosted runners from source on this exact tag. |
+| `gh attestation verify` | SLSA L2 build provenance — the artefact was built by GitHub-hosted runners from the source SHA authenticated by this exact tag. |
 
 `cosign verify-blob` is the step that binds the tarball to the build origin. A sha256 without cosign proves nothing on its own: an attacker who can replace the archive can also replace the `.sha256` file at the same time.
 
@@ -116,7 +116,7 @@ cosign verify-blob \
 
 | Symptom | Cause / fix |
 |---|---|
-| `cosign verify-blob` → `no matching signatures` | The `--certificate-identity` does not match `release.yml@refs/tags/<TAG>` from the signing workflow. Re-check the exact TAG and the capitalisation of org / repo. |
+| `cosign verify-blob` → `no matching signatures` | The `--certificate-identity` does not match `release.yml@refs/heads/main` from the trusted dispatch. Re-check the exact TAG and the capitalisation of org / repo. |
 | `gh attestation verify` → `no attestations found` | The release was created by hand or before `release.yml` landed (2026-04-29). Only tags that passed through `release.yml` carry a SLSA L2 attestation. |
 | `sha256sum: WARNING: 1 computed checksum did NOT match` | The tarball is corrupt or was tampered with in transit. Re-download; if the problem reproduces, open an issue. |
 | `gh: command not found` | Install [GitHub CLI](https://cli.github.com/) ≥ 2.40 — it is required only for step 5 (attestation verify); steps 1-4 can be done with `curl` + `cosign`. |

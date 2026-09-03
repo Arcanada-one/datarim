@@ -2,20 +2,20 @@
 # deployment-environment policy this repo's release pipeline depends on.
 #
 # WHY THIS FILE EXISTS
-#   The release workflow (.github/workflows/release.yml) triggers on tag
-#   pushes and routes through the `release-auto` / `release-manual`
-#   deployment environments. A tag is NOT a protected branch, so an
-#   environment left on GitHub's default "Protected branches only"
-#   deployment-branch-policy rejects every tagged release at job start
-#   (~2s, zero steps run). That policy previously lived ONLY in repo
-#   Settings — invisible to review and lost on repo re-create. This file is
-#   the declared source of truth; drift against the live repo is detected
-#   by dev-tools/check-release-env-policy.sh.
+#   The release workflow (.github/workflows/release.yml) is dispatched from
+#   protected `main` for one authenticated signed tag and routes through the
+#   `release-auto` / `release-manual` deployment environments. Each
+#   environment therefore admits only `main` plus the historical `v*` tag
+#   path retained for compatible consumers. That policy previously lived ONLY
+#   in repo Settings — invisible to review and lost on repo re-create. This
+#   file is the declared source of truth; drift against the live repo is
+#   detected by dev-tools/check-release-env-policy.sh.
 #
 # REPO-RECREATE RECIPE (reproduces the policy from scratch)
-#   1. dev-tools/provision-release-env.sh --repo <owner/name> --env release-auto --apply
+#   1. dev-tools/provision-release-env.sh --repo <owner/name> --env release-auto \
+#        --tag-policy 'v*' --branch-policy main --apply
 #   2. dev-tools/provision-release-env.sh --repo <owner/name> --env release-manual \
-#        --reviewers User:<numeric-id> --apply
+#        --tag-policy 'v*' --branch-policy main --reviewers User:<numeric-id> --apply
 #   3. bash dev-tools/check-release-env-policy.sh --check          # file sanity
 #   4. bash dev-tools/check-release-env-policy.sh --live --repo <owner/name>
 #                                                                  # live drift
@@ -29,6 +29,7 @@
 # SCHEMA (v1, closed)
 #   environments.<name>.deployment_branch_policy.custom_branch_policies: true
 #   environments.<name>.deployment_branch_policy.tag_patterns: [<glob>, ...]
+#   environments.<name>.deployment_branch_policy.branch_patterns: [<glob>, ...]
 #   environments.<name>.required_reviewers: true|false  (informational — the
 #     reviewer numeric IDs are operator-specific and stay out of git per S3.1)
 
@@ -40,10 +41,14 @@ environments:
       custom_branch_policies: true
       tag_patterns:
         - "v*"
+      branch_patterns:
+        - "main"
     required_reviewers: false
   release-manual:
     deployment_branch_policy:
       custom_branch_policies: true
       tag_patterns:
         - "v*"
+      branch_patterns:
+        - "main"
     required_reviewers: true

@@ -69,7 +69,7 @@ be surfaced explicitly so the agent does not falsely conclude work was lost.
 
 For every path in Layer 3:
 ```bash
-stat <path>
+stat "/path/to/referenced-file"
 ```
 If missing → emit:
 

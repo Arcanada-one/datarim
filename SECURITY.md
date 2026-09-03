@@ -94,14 +94,46 @@ This repository enforces a security baseline composed of:
 - Supply chain: CycloneDX SBOM via `syft`, cosign keyless signing,
   SLSA L2 build provenance attestation on every release.
 - Pre-commit: optional local enforcement via `.pre-commit-config.yaml`.
-- Repository hardening: branch protection with required reviews,
-  required status checks, no force-push, no deletions; tag protection
-  for release tags; `CODEOWNERS` routing critical paths to a security
-  team.
+- Repository hardening: pull-request-only integration, required status checks,
+  resolved review conversations, no force-push, and no branch deletion; immutable
+  release tags; `CODEOWNERS` routing critical paths to the service owner.
 
 See `documentation/how-to/release-verification.md` for downstream consumer verification
 recipe and `documentation/how-to/release-process.md` for the maintainer release
 playbook.
+
+## Documented Scorecard Limitations
+
+OpenSSF Scorecard findings are remediated when they represent an actionable
+control gap. The following repository-shape signals are explicitly accepted and
+are re-evaluated on every security release:
+
+- **Token-Permissions / release:** the release job needs `contents: write`,
+  `id-token: write`, and `attestations: write` to publish, sign, and attest.
+  The workflow default is empty, classification is read-only, dispatch is pinned
+  to protected `main`, and the supplied annotated tag is SSH-authenticated and
+  required to peel to the exact checked-out SHA before write authority exists.
+- **Token-Permissions / Dependabot:** the auto-merge job needs write authority.
+  It has no checkout and is bound to the complete trusted event tuple: actor,
+  sender, PR author, source repository, base `main`, branch prefix, and canonical
+  PR URL.
+- **Code-Review:** this owner-operated public framework currently has one
+  eligible service author. Pull requests, independent review evidence, required
+  checks, and conversation resolution are mandatory; a distinct approval count
+  is zero because requiring the same author to self-approve is not an independent
+  control.
+- **Fuzzing:** the shipped executable surface is shell/Python orchestration with
+  bounded text schemas rather than a network parser or native memory-unsafe
+  library. Deterministic Bats boundary tests, unsafe fixtures, Semgrep, CodeQL,
+  Bandit, and adversarial review provide the proportionate control.
+- **CII Best Practices:** a separate OpenSSF Best Practices registration is not
+  an execution control for this owner-operated framework. The repository instead
+  publishes its security policy, signed releases, SBOM, provenance, tests, and
+  live Scorecard evidence directly.
+
+These are accepted limitations, not silent exceptions. Their corresponding
+Scorecard alerts may be dismissed only with a reference to this section and
+must be reopened if the trust model or executable surface changes.
 
 ## Standards Mapping
 
