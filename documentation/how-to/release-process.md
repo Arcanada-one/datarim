@@ -8,8 +8,10 @@ consumer-facing verification recipe lives in
 
 - **Release engineer** — runs the release. By default this is a member
   of `@Arcanada-one/security-reviewers`.
-- **Code-owner reviewer** — approves the release PR. Must be a
-  different person from the release engineer.
+- **Independent reviewer** — records findings on the release PR or evidence
+  artifact. Repositories with more than one eligible principal should also
+  require a distinct GitHub approval; single-principal repositories retain
+  auditable review evidence without inventing an impossible approval.
 
 ## Cadence
 
@@ -38,12 +40,12 @@ consumer-facing verification recipe lives in
 > below remain the operator path for major releases and for any release the agent
 > escalates.
 
-> **One-time environment provisioning.** For a tag-driven publish, every GitHub
-> deployment environment the publish job routes to (`release-auto`,
-> `release-manual`) MUST allow the `v*` tag pattern — GitHub's default
-> `protected_branches=true` policy silently excludes tags. Provision once per new
-> repo before the first publish: see
-> [How to provision a tag-driven release deployment environment](provision-release-environment.md).
+> **One-time environment provisioning.** Datarim dispatches the trusted release
+> workflow from protected `main` and authenticates one signed tag. Both
+> `release-auto` and `release-manual` MUST therefore allow the `main` branch;
+> the declared policy also retains `v*` for compatible tag-triggered consumers.
+> Provision once per repo and after recreation: see
+> [How to provision a release deployment environment](provision-release-environment.md).
 
 ## Pre-flight (manual, fail-closed)
 
@@ -51,8 +53,8 @@ consumer-facing verification recipe lives in
 2. `pre-commit run --all-files` is clean locally.
 3. `bats tests/` is fully green.
 4. `gitleaks detect --redact` finds nothing new.
-5. The release branch / commit has been reviewed and approved per
-   `CODEOWNERS`.
+5. The release branch / commit has independent review evidence; any configured
+   `CODEOWNERS` approval requirement is satisfied.
 6. The `VERSION` file matches the intended tag (without the leading
    `v`).
 
@@ -92,11 +94,14 @@ git pull --ff-only
 # exists locally. Do not downgrade to an annotated-only tag silently.
 git config --get gpg.format
 git config --get user.signingkey
-git tag -s "vX.Y.Z-signing-probe" -m "release signing probe"
-git tag -v "vX.Y.Z-signing-probe"
+git tag -s "vX.Y.Z-signing-probe" -m "release signing probe" -m "bump_level=patch"
+git -c gpg.ssh.allowedSignersFile=.github/ssh-signing-allowed-signers \
+  verify-tag "vX.Y.Z-signing-probe"
 git tag -d "vX.Y.Z-signing-probe"
 
-git tag -s "vX.Y.Z" -m "release vX.Y.Z"   # signed tag
+git tag -s "vX.Y.Z" -m "release vX.Y.Z" -m "bump_level=patch"
+git -c gpg.ssh.allowedSignersFile=.github/ssh-signing-allowed-signers \
+  verify-tag "vX.Y.Z"
 git push origin "vX.Y.Z"
 ```
 
@@ -121,25 +126,36 @@ git tag -s "vX.Y.Z-rc1" -m "release candidate vX.Y.Z-rc1"
 
 Accepted suffixes: `-rc<N>`, `-alpha<N>`, `-beta<N>`, `-test<N>`.
 
-### 3. Pipeline runs automatically
+### 3. Dispatch the trusted-main pipeline
 
-Pushing the tag triggers `.github/workflows/release.yml`, which:
+Pushing the tag alone does not publish. Dispatch `.github/workflows/release.yml`
+from protected `main` and pass the signed tag as data:
 
-1. Validates the tag format.
-2. Checks out the repository at the tag (no persisted credentials).
-3. Installs `cosign` and `syft` from upstream releases (SHA-pinned).
-4. Builds a deterministic source tarball with `git archive HEAD`.
-5. Computes a CycloneDX SBOM with `syft scan dir:.`.
-6. Signs the tarball and the SBOM with `cosign sign-blob`
+```bash
+gh workflow run release.yml --repo Arcanada-one/datarim \
+  --ref main -f release_tag=vX.Y.Z
+```
+
+The workflow authenticates the annotated tag, proves it peels to the exact
+checked-out `main` SHA, then:
+
+1. Validates the tag format and SSH signature.
+2. Resolves the previous SemVer tag and independently classifies the bump.
+3. Checks out the exact peeled tag SHA (no persisted credentials).
+4. Installs `cosign` and `syft` from upstream releases (SHA-pinned).
+5. Builds a deterministic source tarball with `git archive HEAD`.
+6. Computes a CycloneDX SBOM with `syft scan dir:.`.
+7. Signs the tarball and the SBOM with `cosign sign-blob`
    (keyless OIDC).
-7. Attests SLSA L2 build provenance for the tarball.
-8. Publishes a GitHub Release with all artefacts attached. RC tags are
+8. Attests SLSA L2 build provenance for the tarball.
+9. Publishes a GitHub Release with all artefacts attached. RC tags are
    marked as prerelease.
 
 Watch the run:
 
 ```bash
-gh run watch --repo Arcanada-one/datarim
+gh run list --repo Arcanada-one/datarim --workflow release.yml --limit 1
+gh run watch --repo Arcanada-one/datarim <RUN-ID>
 ```
 
 ### 4. Verify the release end-to-end

@@ -6,8 +6,9 @@
 #
 # COMPANION DATA FILE: .github/environments-policy.yml — the declared
 # source of truth for the release environments' deployment-branch-policy
-# (both release environments must allow the `v*` TAG pattern, else every
-# tagged release is rejected at job start). Repo-recreate recipe lives in
+# (both release environments must allow the protected `main` BRANCH used by
+# trusted workflow dispatch, plus the retained `v*` TAG compatibility path).
+# Repo-recreate recipe lives in
 # that file's header; the apply-side tool is
 # dev-tools/provision-release-env.sh.
 #
@@ -17,7 +18,7 @@
 #                          - file exists, schema_version: 1
 #                          - both release-auto and release-manual declared
 #                          - each has custom_branch_policies: true
-#                          - each has at least one tag pattern, incl. v*
+#                          - each includes tag pattern v* and branch main
 #   --live               Additionally compare the live policy via `gh api
 #                        repos/<owner/name>/environments/<env>/deployment-branch-policies`.
 #                        ADVISORY (fail-soft): missing gh, missing token, or
@@ -87,8 +88,14 @@ for env_name in release-auto release-manual; do
         echo "FAIL: $env_name: custom_branch_policies must be true (tags cannot deploy under protected-branches-only)"
         fail=1
     fi
-    if ! grep -qE '^[[:space:]]+-[[:space:]]*"?v\*"?[[:space:]]*$' <<< "$block"; then
+    tag_block="$(grep -A3 -E '^[[:space:]]+tag_patterns:' <<< "$block" || true)"
+    if ! grep -qE '^[[:space:]]+-[[:space:]]*"?v\*"?[[:space:]]*$' <<< "$tag_block"; then
         echo "FAIL: $env_name: tag_patterns must include the v* pattern"
+        fail=1
+    fi
+    branch_block="$(grep -A3 -E '^[[:space:]]+branch_patterns:' <<< "$block" || true)"
+    if ! grep -qE '^[[:space:]]+-[[:space:]]*"?main"?[[:space:]]*$' <<< "$branch_block"; then
+        echo "FAIL: $env_name: branch_patterns must include main"
         fail=1
     fi
 done
@@ -116,6 +123,11 @@ if [[ "$DO_LIVE" -eq 1 ]]; then
         exit 2
     fi
 
+    if [[ "$live_skipped" -eq 0 ]] && ! command -v jq >/dev/null 2>&1; then
+        echo "NOTE: 'jq' not available — skipping live drift comparison (advisory)."
+        live_skipped=1
+    fi
+
     if [[ "$live_skipped" -eq 0 ]]; then
         for env_name in release-auto release-manual; do
             # shellcheck disable=SC2086  # GH_API_CMD is a trusted, space-split command prefix
@@ -123,14 +135,16 @@ if [[ "$DO_LIVE" -eq 1 ]]; then
                 echo "NOTE: could not read live policy for '$env_name' (no token / no access) — advisory skip."
                 continue
             fi
-            # Expect a policy entry {"name":"v*","type":"tag"} (key order and
-            # whitespace vary; match both fields independently on one entry).
-            if grep -qE '"name":[[:space:]]*"v\*"' <<< "$live" \
-               && grep -qE '"type":[[:space:]]*"tag"' <<< "$live"; then
-                echo "live OK: $env_name allows the v* tag pattern"
+            missing=()
+            jq -e '.branch_policies[]? | select(.name == "v*" and .type == "tag")' <<< "$live" >/dev/null \
+                || missing+=("v* TAG")
+            jq -e '.branch_policies[]? | select(.name == "main" and .type == "branch")' <<< "$live" >/dev/null \
+                || missing+=("main BRANCH")
+            if [[ "${#missing[@]}" -eq 0 ]]; then
+                echo "live OK: $env_name allows v* TAG and main BRANCH"
             else
-                echo "DRIFT: $env_name live deployment-branch-policy lacks the v* TAG pattern declared in $POLICY_FILE"
-                echo "       fix: dev-tools/provision-release-env.sh --repo $REPO --env $env_name --apply"
+                echo "DRIFT: $env_name lacks declared policy entries: ${missing[*]}"
+                echo "       fix: dev-tools/provision-release-env.sh --repo $REPO --env $env_name --tag-policy 'v*' --branch-policy main --apply"
                 drift=1
             fi
         done

@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # provision-release-env.bats — idempotent GitHub deployment-environment
-# provisioner with a tag-aware deployment-branch-policy.
+# provisioner with exact tag and branch deployment policies.
 #
 # TDD-red first. The GitHub API edge is injected via the GH_API_CMD hook so the
 # test is deterministic and mocks only the boundary (gh), never the provisioning
@@ -14,6 +14,8 @@ setup() {
     # canned body for the GET that reads back the current policy. Verbs that
     # mutate (PUT/POST/DELETE) only ever appear in CALLS under --apply.
     export GH_CALLS="$WORK/gh-calls.log"
+    export GH_ENV_RESPONSE='{}'
+    export GH_POLICIES_RESPONSE='{}'
     : > "$GH_CALLS"
     cat > "$WORK/gh" <<'MOCK'
 #!/usr/bin/env bash
@@ -31,8 +33,13 @@ if [ "$read_stdin" -eq 1 ]; then
     [ -n "$body" ] && line="$line ${body}"
 fi
 printf '%s\n' "$line" >> "$GH_CALLS"
-# A GET on an existing environment returns a body; everything else: {}.
-printf '{}\n'
+if [[ "$line" != *" -X "* && "$line" == *"deployment-branch-policies"* ]]; then
+    printf '%s\n' "$GH_POLICIES_RESPONSE"
+elif [[ "$line" != *" -X "* && "$line" == *"/environments/"* ]]; then
+    printf '%s\n' "$GH_ENV_RESPONSE"
+else
+    printf '{}\n'
+fi
 MOCK
     chmod +x "$WORK/gh"
     export GH_API_CMD="$WORK/gh"
@@ -67,6 +74,12 @@ _calls() { cat "$GH_CALLS"; }
     [ "$status" -eq 2 ]
 }
 
+@test "unsafe branch policy is rejected before API mutation" {
+    _run --repo Arcanada-one/coworker --env release-auto --branch-policy 'main\"}'
+    [ "$status" -eq 2 ]
+    [ ! -s "$GH_CALLS" ]
+}
+
 # --- dry-run default (no mutation) ------------------------------------------
 
 @test "default is dry-run: NO mutating gh call fires" {
@@ -92,15 +105,17 @@ _calls() { cat "$GH_CALLS"; }
     [ "$status" -eq 0 ]
 }
 
-@test "dry-run prints the planned PUT environment + tag-policy POST" {
+@test "dry-run prints the planned PUT plus tag and branch policy POSTs" {
     _run --repo Arcanada-one/coworker --env release-auto
     [ "$status" -eq 0 ]
     [[ "$output" == *"environments/release-auto"* ]]
     [[ "$output" == *"deployment-branch-policies"* ]]
     [[ "$output" == *"v*"* ]]
+    [[ "$output" == *"main"* ]]
+    [[ "$output" == *'"type":"branch"'* ]]
 }
 
-# --- apply: environment + tag policy ----------------------------------------
+# --- apply: environment + exact tag/branch policies -------------------------
 
 @test "--apply PUTs the environment with custom_branch_policies=true" {
     _run --repo Arcanada-one/coworker --env release-auto --apply
@@ -122,10 +137,24 @@ _calls() { cat "$GH_CALLS"; }
     [ "$status" -eq 0 ]
 }
 
+@test "--apply POSTs the main branch deployment policy" {
+    _run --repo Arcanada-one/coworker --env release-auto --apply
+    [ "$status" -eq 0 ]
+    run grep -- '"name":"main","type":"branch"' "$GH_CALLS"
+    [ "$status" -eq 0 ]
+}
+
 @test "custom --tag-policy is honoured in the POST" {
     _run --repo Arcanada-one/coworker --env release-auto --apply --tag-policy 'release-v*'
     [ "$status" -eq 0 ]
     run grep -F -- 'release-v*' "$GH_CALLS"
+    [ "$status" -eq 0 ]
+}
+
+@test "custom --branch-policy is honoured in the POST" {
+    _run --repo Arcanada-one/coworker --env release-auto --apply --branch-policy 'release/*'
+    [ "$status" -eq 0 ]
+    run grep -F -- '"name":"release/*","type":"branch"' "$GH_CALLS"
     [ "$status" -eq 0 ]
 }
 
@@ -143,19 +172,61 @@ _calls() { cat "$GH_CALLS"; }
     [ "$status" -eq 2 ]
 }
 
-@test "without --reviewers no required_reviewers rule is sent (auto env)" {
+@test "without --reviewers no required_reviewers rule is sent for a new auto env" {
     _run --repo Arcanada-one/coworker --env release-auto --apply
     [ "$status" -eq 0 ]
     run grep -- 'required_reviewers' "$GH_CALLS"
     [ "$status" -ne 0 ]
 }
 
-# --- idempotency: re-running does not duplicate the tag policy ---------------
+@test "existing custom environment is not PUT and retains server-side protections" {
+    export GH_ENV_RESPONSE='{"deployment_branch_policy":{"custom_branch_policies":true,"protected_branches":false},"protection_rules":[{"type":"required_reviewers","reviewers":[{"type":"User","reviewer":{"id":24621879}}]}]}'
+    _run --repo Arcanada-one/coworker --env release-manual --apply
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"preserving protection rules"* ]]
+    run grep -E -- '-X PUT .*environments/release-manual' "$GH_CALLS"
+    [ "$status" -ne 0 ]
+}
 
-@test "--apply checks existing policies before POSTing (GET precedes POST)" {
+@test "required reviewers and timer survive a necessary environment PUT" {
+    export GH_ENV_RESPONSE='{"deployment_branch_policy":{"custom_branch_policies":false,"protected_branches":true},"prevent_self_review":true,"protection_rules":[{"type":"required_reviewers","reviewers":[{"type":"User","reviewer":{"id":24621879}}]},{"type":"wait_timer","wait_timer":12}]}'
+    _run --repo Arcanada-one/coworker --env release-manual --apply
+    [ "$status" -eq 0 ]
+    run grep -- '"required_reviewers":\[{"type":"User","id":24621879}\]' "$GH_CALLS"
+    [ "$status" -eq 0 ]
+    run grep -- '"wait_timer":12' "$GH_CALLS"
+    [ "$status" -eq 0 ]
+    run grep -- '"prevent_self_review":true' "$GH_CALLS"
+    [ "$status" -eq 0 ]
+}
+
+# --- idempotency and exact tuple matching ------------------------------------
+
+@test "--apply reads environment and policies before mutation" {
     _run --repo Arcanada-one/coworker --env release-auto --apply
     [ "$status" -eq 0 ]
-    # The first gh call must be a read of the existing branch policies.
-    run head -n1 "$GH_CALLS"
-    [[ "$output" == *"deployment-branch-policies"* ]] || [[ "$output" == *"environments/release-auto"* ]]
+    run sed -n '1p' "$GH_CALLS"
+    [[ "$output" == *"environments/release-auto"* ]]
+    [[ "$output" != *"deployment-branch-policies"* ]]
+    run sed -n '2p' "$GH_CALLS"
+    [[ "$output" == *"deployment-branch-policies"* ]]
+}
+
+@test "existing exact policies suppress duplicate POSTs" {
+    export GH_ENV_RESPONSE='{"deployment_branch_policy":{"custom_branch_policies":true,"protected_branches":false}}'
+    export GH_POLICIES_RESPONSE='{"branch_policies":[{"name":"v*","type":"tag"},{"name":"main","type":"branch"}]}'
+    _run --repo Arcanada-one/coworker --env release-auto --apply
+    [ "$status" -eq 0 ]
+    run grep -E -- '-X POST' "$GH_CALLS"
+    [ "$status" -ne 0 ]
+}
+
+@test "name/type inversion does not pass exact policy matching" {
+    export GH_ENV_RESPONSE='{"deployment_branch_policy":{"custom_branch_policies":true,"protected_branches":false}}'
+    export GH_POLICIES_RESPONSE='{"branch_policies":[{"name":"v*","type":"branch"},{"name":"main","type":"tag"}]}'
+    _run --repo Arcanada-one/coworker --env release-auto --apply
+    [ "$status" -eq 0 ]
+    run grep -c -E -- '-X POST .*deployment-branch-policies' "$GH_CALLS"
+    [ "$status" -eq 0 ]
+    [ "$output" -eq 2 ]
 }

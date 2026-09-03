@@ -1,21 +1,31 @@
 ---
-Title: How to provision a tag-driven release deployment environment
+Title: How to provision a release deployment environment
 Category: How-to (Diátaxis how-to)
 ---
 
-# How to provision a tag-driven release deployment environment
+# How to provision a release deployment environment
 
-Tag-driven publish pipelines (`on: push: tags: [v*]`) route through a GitHub deployment environment. By default, GitHub creates environments with `deployment_branch_policy.protected_branches=true`, which matches protected *branches* and silently *excludes tags*. The first tag-driven publish is then rejected with "Tag vX.Y.Z is not allowed to deploy due to environment protection rules". This fix sets `custom_branch_policies=true` and adds a tag-based deployment branch policy for every environment the publish job routes to.
+Release pipelines may run from a tag trigger or, as Datarim does, from a
+trusted `workflow_dispatch` on protected `main` that authenticates one signed
+tag. GitHub deployment environments evaluate the workflow ref, so their custom
+deployment policy must admit every intended path: `main` for trusted dispatch
+and `v*` for compatible tag-triggered consumers. This recipe declares,
+provisions, and verifies both exact policy tuples.
 
 ---
 
 ## When you need this
 
-Any new repository whose `release.yml` routes a tag push through one or more GitHub deployment environments:
-- `release-auto` – for automated patch/minor releases
-- `release-manual` – for major releases requiring approval
+Any repository whose `release.yml` routes through one or more GitHub
+deployment environments:
 
-This applies to the first tag-driven publish of a brand-new package. After provisioning, all subsequent tag pushes will be accepted by the environment policy.
+- `release-auto` – automated patch/minor releases.
+- `release-manual` – major releases requiring approval.
+
+Run it before the first release and after any environment recreation. For a
+main-dispatched workflow, omitting the `main` branch policy rejects the job
+before any step runs. For a tag-triggered workflow, omitting `v*` has the same
+effect.
 
 ---
 
@@ -42,14 +52,16 @@ dev-tools/provision-release-env.sh --repo Arcanada-one/coworker --env release-ma
   --reviewers User:24621879 --apply
 ```
 
-The tag pattern defaults to `v*`; override it with `--tag-policy '<glob>'`.
+The defaults are `--tag-policy 'v*'` and `--branch-policy main`; override either explicitly when a consumer uses a different ref convention.
 
 The script:
 - Dry-run by default — only `--apply` performs the mutating PUT/POST.
-- Idempotent: re-running with `--apply` skips the tag policy if already present.
-- Sets `custom_branch_policies=true` / `protected_branches=false` on the environment.
-- Creates a deployment-branch-policy with `{name: v*, type: tag}`.
-- With one `--reviewers <User|Team>:<numeric-id>` per entry: adds a
+- Idempotent: re-running with `--apply` skips exact policies already present.
+- Preserves live protection rules when custom policies are already enabled.
+- If an environment PUT is needed, preserves its reviewer, wait-timer, and
+  self-review settings unless explicit `--reviewers` replace the reviewer list.
+- Creates `{name: v*, type: tag}` and `{name: main, type: branch}`.
+- With one `--reviewers <User|Team>:<numeric-id>` per entry, sets the
   `required_reviewers` rule on the manual environment.
 
 ---
@@ -102,7 +114,18 @@ gh api --method POST repos/Arcanada-one/coworker/environments/release-auto/deplo
 JSON
 ```
 
-**3. For the manual environment, include `required_reviewers` in the PUT call:**
+**3. Add the protected-main branch policy:**
+```bash
+gh api --method POST repos/Arcanada-one/coworker/environments/release-auto/deployment-branch-policies \
+  --input - <<'JSON'
+{
+  "name": "main",
+  "type": "branch"
+}
+JSON
+```
+
+**4. For the manual environment, include `required_reviewers` in the PUT call:**
 ```bash
 gh api --method PUT repos/Arcanada-one/coworker/environments/release-manual \
   --input - <<'JSON'
@@ -118,7 +141,7 @@ gh api --method PUT repos/Arcanada-one/coworker/environments/release-manual \
 JSON
 ```
 
-Then add the tag policy step (step 2) for the manual environment as well.
+Then add both policy steps (steps 2 and 3) for the manual environment as well. Prefer the script for existing environments because it preserves server-side protection rules.
 
 ---
 
@@ -134,8 +157,8 @@ gh api repos/Arcanada-one/coworker/environments/release-auto \
 **Deployment branch policies:**
 ```bash
 gh api repos/Arcanada-one/coworker/environments/release-auto/deployment-branch-policies \
-  --jq '.branch_policies[] | select(.name=="v*")'
-# Expected: {"name":"v*","type":"tag"}
+  --jq '.branch_policies[] | select((.name=="v*" and .type=="tag") or (.name=="main" and .type=="branch"))'
+# Expected: exactly v*/tag and main/branch
 ```
 
 **Required reviewers (manual environment):**

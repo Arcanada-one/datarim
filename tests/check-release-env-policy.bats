@@ -31,27 +31,34 @@ environments:
       custom_branch_policies: true
       tag_patterns:
         - "v*"
+      branch_patterns:
+        - "main"
     required_reviewers: false
   release-manual:
     deployment_branch_policy:
       custom_branch_policies: true
       tag_patterns:
         - "v*"
+      branch_patterns:
+        - "main"
     required_reviewers: true
 YAML
 }
 
-# gh-api stub factory: $1 = mode (with-tag | without-tag | fail)
+# gh-api stub factory: $1 = mode (with-both | without-tag | without-branch | fail)
 write_gh_stub() {
   local mode="$1"
   cat > "$FIX/gh-stub" <<STUB
 #!/usr/bin/env bash
 case "$mode" in
-  with-tag)
-    echo '{"total_count":1,"branch_policies":[{"id":1,"name":"v*","type":"tag"}]}'
+  with-both)
+    echo '{"total_count":2,"branch_policies":[{"id":1,"name":"v*","type":"tag"},{"id":2,"name":"main","type":"branch"}]}'
     ;;
   without-tag)
-    echo '{"total_count":1,"branch_policies":[{"id":1,"name":"main","type":"branch"}]}'
+    echo '{"total_count":1,"branch_policies":[{"id":2,"name":"main","type":"branch"}]}'
+    ;;
+  without-branch)
+    echo '{"total_count":1,"branch_policies":[{"id":1,"name":"v*","type":"tag"}]}'
     ;;
   fail)
     exit 1
@@ -93,6 +100,14 @@ STUB
   [[ "$output" == *"tag_patterns must include the v* pattern"* ]]
 }
 
+@test "missing main branch pattern fails" {
+  write_valid_policy
+  sed 's/- "main"/- "release"/' "$FIX/policy.yml" > "$FIX/p2.yml"
+  run bash "$SCRIPT" --check --file "$FIX/p2.yml"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"branch_patterns must include main"* ]]
+}
+
 @test "custom_branch_policies false fails" {
   write_valid_policy
   sed 's/custom_branch_policies: true/custom_branch_policies: false/' \
@@ -120,22 +135,32 @@ STUB
 
 @test "--live is fail-soft when no repo slug is available" {
   write_valid_policy
-  write_gh_stub with-tag
+  write_gh_stub with-both
   run env GH_API_CMD="$FIX/gh-stub" GITHUB_REPOSITORY= \
     bash "$SCRIPT" --check --live --file "$FIX/policy.yml"
   [ "$status" -eq 0 ]
   [[ "$output" == *"skipping live drift comparison"* ]]
 }
 
-@test "--live PASS when live policy carries the v* tag pattern" {
+@test "--live PASS when live policy carries v* tag and main branch" {
   write_valid_policy
-  write_gh_stub with-tag
+  write_gh_stub with-both
   run env GH_API_CMD="$FIX/gh-stub" \
     bash "$SCRIPT" --check --live --repo owner/name --file "$FIX/policy.yml"
   [ "$status" -eq 0 ]
   [[ "$output" == *"live OK: release-auto"* ]]
   [[ "$output" == *"live OK: release-manual"* ]]
   [[ "$output" != *"DRIFT"* ]]
+}
+
+@test "--live reports a missing main branch policy" {
+  write_valid_policy
+  write_gh_stub without-branch
+  run env GH_API_CMD="$FIX/gh-stub" \
+    bash "$SCRIPT" --check --live --repo owner/name --file "$FIX/policy.yml"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"main BRANCH"* ]]
+  [[ "$output" == *"DRIFT"* ]]
 }
 
 @test "--live drift is ADVISORY by default (exit 0, DRIFT reported)" {
@@ -168,7 +193,7 @@ STUB
 
 @test "invalid repo slug is a usage error" {
   write_valid_policy
-  write_gh_stub with-tag
+  write_gh_stub with-both
   run env GH_API_CMD="$FIX/gh-stub" \
     bash "$SCRIPT" --check --live --repo 'owner/name;rm -rf /' --file "$FIX/policy.yml"
   [ "$status" -eq 2 ]

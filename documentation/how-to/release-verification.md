@@ -33,14 +33,14 @@ sha256sum -c "datarim-${TAG}-source.tar.gz.sha256"
 # 3. Verify cosign signature on the tarball.
 cosign verify-blob \
   --bundle "datarim-${TAG}-source.tar.gz.cosign.bundle" \
-  --certificate-identity "https://github.com/Arcanada-one/datarim/.github/workflows/release.yml@refs/tags/${TAG}" \
+  --certificate-identity "https://github.com/Arcanada-one/datarim/.github/workflows/release.yml@refs/heads/main" \
   --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
   "datarim-${TAG}-source.tar.gz"
 
 # 4. Verify cosign signature on the SBOM (same identity binding).
 cosign verify-blob \
   --bundle "datarim-${TAG}-sbom.cdx.json.cosign.bundle" \
-  --certificate-identity "https://github.com/Arcanada-one/datarim/.github/workflows/release.yml@refs/tags/${TAG}" \
+  --certificate-identity "https://github.com/Arcanada-one/datarim/.github/workflows/release.yml@refs/heads/main" \
   --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
   "datarim-${TAG}-sbom.cdx.json"
 
@@ -55,7 +55,7 @@ All five commands must exit `0`. Any non-zero exit means the artefact is untrust
 | Step | Property |
 |---|---|
 | `sha256sum -c` | Integrity. The tarball was not corrupted in transit. |
-| `cosign verify-blob` (tarball) | Authenticity. The tarball was produced by `release.yml` running at this exact tag in `Arcanada-one/datarim`. Signature is anchored in [Sigstore Rekor](https://search.sigstore.dev/) public transparency log. |
+| `cosign verify-blob` (tarball) | Authenticity. The tarball was produced by `release.yml` dispatched from protected `main` after authenticating this exact signed tag in `Arcanada-one/datarim`. Signature is anchored in [Sigstore Rekor](https://search.sigstore.dev/) public transparency log. |
 | `cosign verify-blob` (SBOM) | The SBOM was produced by the same workflow run as the tarball. |
 | `gh attestation verify` | SLSA L2 build provenance. The artefact was built by GitHub-hosted runners from the source at this tag. |
 

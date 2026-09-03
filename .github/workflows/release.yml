@@ -1,7 +1,7 @@
 name: release
 
 # Datarim release workflow (TUNE-0050).
-# Triggers on tags matching v*. Builds source tarball via `git archive`,
+# Dispatches trusted workflow code from protected main for one signed tag. Builds source via `git archive`,
 # generates CycloneDX SBOM via syft, signs both with cosign keyless OIDC,
 # attests build provenance (SLSA L2) via actions/attest-build-provenance,
 # publishes everything to GitHub Releases.
@@ -16,13 +16,17 @@ name: release
 #     → SHA-pinned to commit.
 
 on:
-  push:
-    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Signed annotated SemVer tag to publish
+        required: true
+        type: string
 
 permissions: {}
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ inputs.release_tag }}
   cancel-in-progress: false
 
 env:
@@ -43,28 +47,57 @@ jobs:
       contents: read
     outputs:
       bump_level: ${{ steps.read.outputs.bump_level }}
+      release_sha: ${{ steps.read.outputs.release_sha }}
+      release_tag: ${{ steps.read.outputs.release_tag }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0           # full history — the CI re-classify walks a commit range
           persist-credentials: false
-      - name: Read and re-classify bump from annotated tag
+      - name: Authenticate signed tag on protected main and classify bump
         id: read
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          EXPECTED_REF: ${{ github.ref }}
         run: |
           set -euo pipefail
-          # Bump level the agent stamped into the annotated tag message.
-          msg="$(git for-each-ref "refs/tags/${GITHUB_REF_NAME}" --format='%(contents)')"
+          tag="$RELEASE_TAG"
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(rc|alpha|beta|test)[0-9]+)?$ ]]; then
+            echo "::error::invalid release tag: $tag" >&2
+            exit 1
+          fi
+          test "$EXPECTED_REF" = refs/heads/main
+          git fetch --force origin "refs/tags/${tag}:refs/tags/${tag}"
+          test "$(git cat-file -t "$tag")" = tag
+          git -c gpg.ssh.allowedSignersFile=.github/ssh-signing-allowed-signers verify-tag "$tag"
+          release_sha="$(git rev-parse "${tag}^{}")"
+          main_sha="$(git rev-parse HEAD)"
+          test "$release_sha" = "$main_sha"
+          msg="$(git for-each-ref "refs/tags/${tag}" --format='%(contents)')"
           stamped="$(printf '%s\n' "$msg" | sed -n 's/^bump_level=//p' | head -1)"
-          : "${stamped:=minor}"     # missing stamp => safe autonomous default
-          # Re-run the classifier in CI (where API-diff tooling is pinned).
-          ci="$(dev-tools/release-classify.sh --repo . --api-diff auto \
-                  | sed -n 's/^bump_level=//p' | head -1)"
-          : "${ci:=minor}"
+          case "$stamped" in patch|minor|major) ;; *) echo "::error::missing/invalid bump_level stamp" >&2; exit 1 ;; esac
+          previous_tag=""
+          while IFS= read -r candidate; do
+            if [[ "$candidate" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(rc|alpha|beta|test)[0-9]+)?$ ]]; then
+              previous_tag="$candidate"
+              break
+            fi
+          done < <(git tag --merged "${release_sha}^" --list 'v*' --sort=-v:refname)
+          test -n "$previous_tag"
+          ci_output="$(dev-tools/release-classify.sh --repo . --from "$previous_tag" --to "$release_sha" --api-diff auto)"
+          ci="$(printf '%s\n' "$ci_output" | sed -n 's/^bump_level=//p' | head -1)"
+          api_diff="$(printf '%s\n' "$ci_output" | sed -n 's/^api_diff=//p' | head -1)"
+          rationale="$(printf '%s\n' "$ci_output" | sed -n 's/^rationale=//p' | head -1)"
+          case "$ci" in patch|minor|major) ;; *) echo "::error::invalid classifier bump" >&2; exit 1 ;; esac
+          case "$api_diff" in clean|unavailable) ;; *) echo "::error::invalid API-diff result" >&2; exit 1 ;; esac
+          test -n "$rationale"
           rank() { case "$1" in patch) echo 1;; minor) echo 2;; major) echo 3;; *) echo 0;; esac; }
           if [ "$(rank "$ci")" -ge "$(rank "$stamped")" ]; then final="$ci"; else final="$stamped"; fi
-          echo "bump_level=${final}" >> "$GITHUB_OUTPUT"
-          # Hard guard: CI says major but the tag stamped lower => abort (never
-          # route a CI-detected major into release-auto).
+          {
+            echo "bump_level=${final}"
+            echo "release_sha=${release_sha}"
+            echo "release_tag=${tag}"
+          } >> "$GITHUB_OUTPUT"
           if [ "$ci" = "major" ] && [ "$stamped" != "major" ]; then
             echo "::error::CI classified MAJOR but the tag stamped '${stamped}' — aborting" >&2
             exit 1
@@ -74,7 +107,7 @@ jobs:
       # (.github/environments-policy.yml). Fail-soft by design: the script
       # exits 0 on missing token/API access and on drift (advisory), so this
       # step cannot block a release — it validates the declaration file and
-      # surfaces "environment lost the v* tag policy" BEFORE the release job
+      # surfaces missing main/v* deployment policies BEFORE the release job
       # hits the environment gate and dies with an opaque rejection.
       - name: Release environment policy drift check (advisory)
         env:
@@ -90,18 +123,14 @@ jobs:
     # Conditional environment (TUNE-0351): a major bump routes to release-manual
     # (required reviewer); patch/minor flows through release-auto (no reviewer).
     #
-    # REQUIRED ENVIRONMENT POLICY: both `release-auto` and `release-manual` MUST
-    # allow deployments from the `v*` tag pattern. This workflow triggers on tag
-    # pushes (`on: push: tags`), and a tag is NOT a protected branch — so an
-    # environment whose deployment branch policy is "Protected branches only"
-    # rejects every tagged release at job start (~2s, no steps run). The policy
-    # is DECLARED in version control at `.github/environments-policy.yml` (see
-    # its header for the repo-recreate recipe) and drift-checked by the
-    # advisory step in the classify job (`dev-tools/check-release-env-policy.sh`).
-    # Applied via `dev-tools/provision-release-env.sh --repo <owner/name>
-    # --env <name> --apply` (idempotent; add `--reviewers User:<id>` for
-    # release-manual) — re-run it after any environment recreate instead of
-    # fixing the policy live via the API/UI.
+    # REQUIRED ENVIRONMENT POLICY: both `release-auto` and `release-manual`
+    # MUST allow deployments from the `main` branch used by workflow_dispatch.
+    # The retained `v*` tag policy keeps the provisioner compatible with
+    # tag-triggered consumers. The policy is declared in version control at
+    # `.github/environments-policy.yml` and drift-checked in the classify job.
+    # Apply it with `dev-tools/provision-release-env.sh --repo <owner/name>
+    # --env <name> --tag-policy 'v*' --branch-policy main --apply`
+    # (idempotent; add `--reviewers User:<id>` for release-manual).
     environment:
       name: ${{ (needs.classify.outputs.bump_level == 'major' && 'release-manual') || 'release-auto' }}
     permissions:
@@ -110,18 +139,23 @@ jobs:
       attestations: write   # required for actions/attest-build-provenance
     steps:
       - name: Validate tag format
+        env:
+          RELEASE_TAG: ${{ needs.classify.outputs.release_tag }}
+          RELEASE_SHA: ${{ needs.classify.outputs.release_sha }}
         run: |
           set -euo pipefail
-          tag="${GITHUB_REF_NAME}"
+          tag="$RELEASE_TAG"
+          target_sha="$RELEASE_SHA"
           if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(rc|alpha|beta|test)[0-9]+)?$ ]]; then
             echo "::error::tag '$tag' does not match release format ^v\\d+\\.\\d+\\.\\d+(-(rc|alpha|beta|test)\\d+)?$"
             exit 1
           fi
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
           {
             echo "TAG=$tag"
             echo "VERSION=${tag#v}"
+            echo "RELEASE_SHA=$target_sha"
           } >> "$GITHUB_ENV"
-          # Mark non-stable suffixes as prerelease.
           if [[ "$tag" =~ -(rc|alpha|beta|test)[0-9]+$ ]]; then
             echo "IS_PRERELEASE=true" >> "$GITHUB_ENV"
           else
@@ -130,8 +164,14 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ needs.classify.outputs.release_sha }}
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Confirm release tree identity
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
 
       - name: Install cosign (verified binary)
         run: |
