@@ -79,3 +79,17 @@ PY
   grep -F 'startsWith(github.event.pull_request.html_url' "$workflow"
   ! grep -F 'actions/checkout' "$workflow"
 }
+
+@test "release authority is trusted main plus one SSH-signed annotated tag" {
+  cd "$REPO_ROOT"
+  workflow=.github/workflows/release.yml
+  grep -F 'workflow_dispatch:' "$workflow"
+  grep -F 'release_tag:' "$workflow"
+  ! grep -F "tags: ['v*']" "$workflow"
+  grep -F 'gpg.ssh.allowedSignersFile=.github/ssh-signing-allowed-signers' "$workflow"
+  grep -F 'test "$EXPECTED_REF" = refs/heads/main' "$workflow"
+  grep -F 'test "$(git cat-file -t "$tag")" = tag' "$workflow"
+  grep -F 'ref: ${{ needs.classify.outputs.release_sha }}' "$workflow"
+  [ "$(wc -l < .github/ssh-signing-allowed-signers)" -eq 1 ]
+  grep -E '^dev@veritasarcana\.ai ssh-ed25519 [A-Za-z0-9+/=]+$' .github/ssh-signing-allowed-signers
+}

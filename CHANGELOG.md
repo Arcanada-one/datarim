@@ -4,12 +4,26 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.67.2] — 2026-09-03
+
 ### Changed
 
 - **Catalogue and macOS test parity.** Reference documentation now accounts for
   all 78 shipped skills, including the five Fleet tier skills, and the
   spec-graph regression fixtures use portable insertion logic so the same
   negative controls run on BSD/macOS and GNU/Linux.
+
+### Security
+
+- **Protected-main release authority.** Releases are dispatched from the
+  workflow on protected `main`, require an SSH-signed annotated tag that peels
+  to that exact commit, and publish checksum, Cosign bundle, SBOM, and GitHub
+  provenance evidence.
+- **Exact-head SAST.** Repository-owned Semgrep rules and Python CodeQL now run
+  on the exact pull-request or `main` commit and upload stable SARIF categories.
+- **Reduced privileged automation.** Obsolete TALO replay and mutable SHA-bridge
+  workflows were retired; Dependabot write authority is bound to the complete
+  trusted event tuple; Python workflow tools are exactly version pinned.
 
 ## [2.67.1] — 2026-09-02
 
