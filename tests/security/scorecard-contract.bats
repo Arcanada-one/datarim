@@ -66,3 +66,16 @@ PY
   ! rg -n -- '--config p/' .github/workflows/security.yml
   [ "$(rg -c 'security-events: write' .github/workflows/security.yml)" -eq 2 ]
 }
+
+@test "Dependabot write authority is bound to the complete trusted event tuple" {
+  cd "$REPO_ROOT"
+  workflow=.github/workflows/dependabot-auto-merge.yml
+  grep -F "github.actor == 'dependabot[bot]'" "$workflow"
+  grep -F "github.event.sender.login == 'dependabot[bot]'" "$workflow"
+  grep -F "github.event.pull_request.user.login == 'dependabot[bot]'" "$workflow"
+  grep -F 'github.event.pull_request.head.repo.full_name == github.repository' "$workflow"
+  grep -F "github.event.pull_request.base.ref == 'main'" "$workflow"
+  grep -F "startsWith(github.event.pull_request.head.ref, 'dependabot/')" "$workflow"
+  grep -F 'startsWith(github.event.pull_request.html_url' "$workflow"
+  ! grep -F 'actions/checkout' "$workflow"
+}
