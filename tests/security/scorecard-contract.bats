@@ -56,3 +56,13 @@ if bad:
 PY
   [ "$status" -eq 0 ]
 }
+
+@test "SAST is exact-head local Semgrep plus Python CodeQL" {
+  cd "$REPO_ROOT"
+  for rule in datarim.python.subprocess-shell-true datarim.python.dynamic-eval; do
+    grep -F "$rule" .semgrep.yml
+  done
+  grep -F 'github.event.pull_request.head.sha || github.sha' .github/workflows/security.yml
+  ! rg -n -- '--config p/' .github/workflows/security.yml
+  [ "$(rg -c 'security-events: write' .github/workflows/security.yml)" -eq 2 ]
+}

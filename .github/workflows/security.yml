@@ -162,13 +162,19 @@ jobs:
             echo "no extracted python blocks"
           fi
 
-  # 5. semgrep multi-config
-  semgrep:
-    name: semgrep
+  # 5. Semgrep with repository-owned rules and SARIF upload
+  semgrep-sarif:
+    name: semgrep-sarif
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    env:
+      EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -178,15 +184,47 @@ jobs:
       - name: Run semgrep
         run: |
           set -euo pipefail
-          semgrep --error \
-            --config p/default \
-            --config p/python \
-            --config p/secrets \
-            --config p/github-actions \
-            --config p/security-audit \
+          set +e
+          semgrep scan --config .semgrep.yml --error --sarif --output semgrep.sarif \
             --exclude tests/security/fixtures \
             --exclude _extracted \
             .
+          scan_status=$?
+          set -e
+          jq -e '.runs | type == "array"' semgrep.sarif >/dev/null
+          if [ "$scan_status" -ne 0 ]; then
+            jq -e '[.runs[].results[]?] | length > 0' semgrep.sarif >/dev/null
+          fi
+          exit "$scan_status"
+      - name: Upload Semgrep SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep-python-security-v1
+
+  # 6. CodeQL for the shipped Python implementation surface
+  codeql-python:
+    name: codeql-python
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    env:
+      EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+          persist-credentials: false
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28
+        with:
+          languages: python
+      - name: Analyze Python
+        uses: github/codeql-action/analyze@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28
+        with:
+          category: codeql-python-v1
 
   # 6. gitleaks — full git history secret scan (sha256-pinned binary)
   gitleaks:
