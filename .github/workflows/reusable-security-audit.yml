@@ -202,7 +202,7 @@ jobs:
               echo "::group::python audit"
               # INFRA-0365: was `python`, which is absent on every runner host
               # (only python3 is installed) — this profile could never have run.
-              python3 -m pip install --upgrade pip pip-audit
+              python3 -m pip install --disable-pip-version-check 'pip-audit==2.10.1'
               pip-audit -s osv --strict
               echo "::endgroup::"
               ;;

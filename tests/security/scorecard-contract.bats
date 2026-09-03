@@ -41,3 +41,18 @@ setup() {
   ! rg -n 'sha-bridge-currency-audit|sha-bridge-audit\.sh' \
     .github dev-tools tests --glob '!tests/security/scorecard-contract.bats'
 }
+
+@test "Python tools installed by workflows are exactly version pinned" {
+  cd "$REPO_ROOT"
+  run python3 - <<'PY'
+from pathlib import Path
+bad = []
+for path in Path('.github/workflows').glob('*.yml'):
+    for number, line in enumerate(path.read_text().splitlines(), 1):
+        if ('pip install' in line or 'pipx install' in line) and '==' not in line and '--require-hashes' not in line:
+            bad.append(f'{path}:{number}:{line.strip()}')
+if bad:
+    raise SystemExit('\n'.join(bad))
+PY
+  [ "$status" -eq 0 ]
+}

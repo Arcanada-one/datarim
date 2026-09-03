@@ -117,7 +117,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install bandit
-        run: pipx install bandit
+        run: pipx install 'bandit==1.9.4'
       - name: Run bandit on .py files
         run: |
           set -euo pipefail
@@ -142,7 +142,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install bandit
-        run: pipx install bandit
+        run: pipx install 'bandit==1.9.4'
       - name: Extract python blocks from markdown
         run: |
           set -euo pipefail
@@ -174,7 +174,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install semgrep
-        run: pipx install semgrep
+        run: pipx install 'semgrep==1.176.0'
       - name: Run semgrep
         run: |
           set -euo pipefail
@@ -288,7 +288,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install zizmor
-        run: pipx install zizmor
+        run: pipx install 'zizmor==1.30.0'
       - name: Run zizmor
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
