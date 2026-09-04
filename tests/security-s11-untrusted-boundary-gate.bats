@@ -44,7 +44,7 @@ CM="${REPO_ROOT}/CLAUDE.md"
 @test "S11: source incident evidence is present (history-agnostic)" {
     grep -q "three L1 hardening items that every CI check had passed over" "$SB"
     # skills/ are history-agnostic — no ecosystem task-ID may leak in (task-id-gate T11)
-    ! grep -qE '\b[A-Z]{2,10}-[0-9]{4}\b' "$SB"
+    ! grep -qE '\b[A-Z][A-Z0-9]{1,9}-[0-9]{4}\b' "$SB"
 }
 
 @test "S11: appears in the Quick reference table" {

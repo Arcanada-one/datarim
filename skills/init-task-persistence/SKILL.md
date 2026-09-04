@@ -47,7 +47,7 @@ Required YAML frontmatter (closed schema):
 
 ```yaml
 ---
-task_id: <TASK-ID>            # ^[A-Z]{2,10}-[0-9]{4}$ — required
+task_id: <TASK-ID>            # ^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$ — required
 artifact: init-task           # literal — required
 schema_version: 1             # integer — required
 captured_at: <YYYY-MM-DD>     # date `/dr-init` ran — required

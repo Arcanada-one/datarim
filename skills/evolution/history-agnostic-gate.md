@@ -68,14 +68,14 @@ binary inputs, traversal failures, and Git diff failures fail closed.
 ## Denylist (single regex)
 
 <!-- gate:history-allowed -->
-The semantic match shape is `[A-Z]{2,10}-[0-9]{4}` — two-to-ten upper-case
-letters, hyphen, exactly four digits — bounded on both sides by non-word
+The semantic match shape is `[A-Z][A-Z0-9]{1,9}-[0-9]{4}` — an upper-case letter followed by one-to-nine upper-case letters or digits,
+then a hyphen and exactly four digits — bounded on both sides by non-word
 characters. The implementation uses POSIX-awk character checks rather than
 `\b`, whose meaning is not portable across GNU and BSD grep. Examples that
 match are kept in this exempt contract. Examples that do NOT match: `AB-1`
 (too few digits), `FOO-12345`
 (too many digits), `tune-0042` (lowercase), `1.21.0` (no letters), bare numeric
-tokens like `25055434967` (no hyphenated letter prefix).
+tokens like `25055434967` (no hyphenated task prefix).
 <!-- /gate:history-allowed -->
 
 The single-regex shape is by design. Task IDs across the ecosystem share one

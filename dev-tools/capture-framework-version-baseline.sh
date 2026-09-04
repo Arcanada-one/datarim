@@ -85,7 +85,7 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-if ! [[ "$task" =~ ^[A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*$ ]]; then
+if ! [[ "$task" =~ ^[A-Z][A-Z0-9]{1,9}-[0-9]{4}(-[A-Za-z0-9]+)*$ ]]; then
   printf 'framework-version-baseline: error=invalid_task\n' >&2
   exit 2
 fi

@@ -813,7 +813,7 @@ validate_single_task() {
     fi
 
     val=$(extract_frontmatter_field "$file" "task_id")
-    if [ -n "$val" ] && ! [[ "$val" =~ ^[A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*$ ]]; then
+    if [ -n "$val" ] && ! [[ "$val" =~ ^[A-Z][A-Z0-9]{1,9}-[0-9]{4}(-[A-Za-z0-9]+)*$ ]]; then
         echo "ERROR: $file: task_id '$val' does not match {PREFIX-NNNN} or {PREFIX-NNNN-suffix...}" >&2
         errors=$(( errors + 1 ))
     fi

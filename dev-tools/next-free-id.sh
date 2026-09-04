@@ -89,7 +89,7 @@ if [[ "${1:-}" == "--release" ]]; then
     REL_ID="$2"
     REL_ROOT="$3"
     # Strict-validate the ID before any filesystem op (Security S1 — no traversal)
-    if ! [[ "$REL_ID" =~ ^[A-Z]{2,10}-[0-9]{4,}$ ]]; then
+    if ! [[ "$REL_ID" =~ ^[A-Z][A-Z0-9]{1,9}-[0-9]{4,}$ ]]; then
         echo "ERROR: invalid ID '${REL_ID}' for --release — expected PREFIX-NNNN" >&2
         exit 1
     fi
@@ -111,9 +111,9 @@ fi
 PREFIX="$1"
 DATARIM_ROOT="$2"
 
-# Regex-validate prefix: 2–10 uppercase letters only (Security S1)
-if ! [[ "$PREFIX" =~ ^[A-Z]{2,10}$ ]]; then
-    echo "ERROR: invalid prefix '${PREFIX}' — must be 2–10 uppercase letters" >&2
+# Regex-validate prefix: starts uppercase, then 1–9 uppercase letters/digits (Security S1)
+if ! [[ "$PREFIX" =~ ^[A-Z][A-Z0-9]{1,9}$ ]]; then
+    echo "ERROR: invalid prefix '${PREFIX}' — must start with an uppercase letter and contain 2–10 uppercase letters/digits" >&2
     exit 1
 fi
 

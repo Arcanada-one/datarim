@@ -179,6 +179,18 @@ teardown() {
     echo "$output" | grep -iE "invalid prefix"
 }
 
+@test "B06a: next-free-id.sh accepts a digit-bearing prefix after the leading letter" {
+    run bash "${HELPER}" "A2B" "${FIXTURE_DIR}"
+    [ "$status" -eq 0 ]
+    [ "$output" = "A2B-0001" ]
+}
+
+@test "B06b: next-free-id.sh rejects a prefix beginning with a digit" {
+    run bash "${HELPER}" "2AB" "${FIXTURE_DIR}"
+    [ "$status" -ne 0 ]
+    echo "$output" | grep -iE "invalid prefix"
+}
+
 @test "B07: next-free-id.sh handles TUNE-9999 boundary — absorbs TUNE-0229 DoD" {
     # CONTRACT REVERSED BY TUNE-0542 — deliberate, not a regression.
     #

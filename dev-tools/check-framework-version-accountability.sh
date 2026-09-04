@@ -152,7 +152,7 @@ done
 base_oid="0000000000000000000000000000000000000000"
 head_oid="0000000000000000000000000000000000000000"
 scope_digest="0000000000000000000000000000000000000000000000000000000000000000"
-if ! [[ "$task" =~ ^[A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*$ ]]; then fail_untrusted invalid_task; fi
+if ! [[ "$task" =~ ^[A-Z][A-Z0-9]{1,9}-[0-9]{4}(-[A-Za-z0-9]+)*$ ]]; then fail_untrusted invalid_task; fi
 if [ ! -d "$workspace" ] || [ ! -d "$repo" ] || [ -L "$workspace" ] || [ -L "$repo" ]; then fail_untrusted invalid_root; fi
 workspace="$(cd "$workspace" && pwd -P)"
 repo="$(cd "$repo" && pwd -P)"

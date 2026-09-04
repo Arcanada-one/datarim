@@ -38,7 +38,7 @@ set -euo pipefail
 _TERMINAL_RE='^(done|archived|completed|cancelled)$'
 
 # Anchored task-ID regex (same as task-id-gate.sh / pre-archive-check.sh).
-_ID_RE='^[A-Z]{2,10}-[0-9]{4}$'
+_ID_RE='^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$'
 
 # ---------- helpers ----------------------------------------------------------
 
@@ -125,7 +125,7 @@ declare -a keep_lines=()
 
 while IFS= read -r line; do
     # Only examine canonical backlog one-liners (start with "- ").
-    if printf '%s' "$line" | grep -qE '^- [A-Z]{2,10}-[0-9]+'; then
+    if printf '%s' "$line" | grep -qE '^- [A-Z][A-Z0-9]{1,9}-[0-9]+'; then
         id="$(_extract_id "$line")"
         status="$(_extract_status "$line")"
 

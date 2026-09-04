@@ -101,8 +101,8 @@ if [ -z "$TASK_ID" ]; then
     usage_error "--task-id is required"
 fi
 
-if ! [[ "$TASK_ID" =~ ^[A-Z]{2,10}-[0-9]{4}$ ]]; then
-    usage_error "--task-id must match ^[A-Z]{2,10}-[0-9]{4}\$, got: ${TASK_ID}"
+if ! [[ "$TASK_ID" =~ ^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$ ]]; then
+    usage_error "--task-id must match ^[A-Z][A-Z0-9]{1,9}-[0-9]{4}\$, got: ${TASK_ID}"
 fi
 
 if [ -n "$SPACE_NAME" ] && ! [[ "$SPACE_NAME" =~ ^[a-z0-9][a-z0-9_-]*$ ]]; then
@@ -118,7 +118,7 @@ if [ -n "$NONCE" ] && ! [[ "$NONCE" =~ ^[a-f0-9]{16,64}$ ]]; then
     usage_error "--nonce must be lowercase hex 16-64 chars, got: ${NONCE}"
 fi
 
-if [ -n "$DISPATCH_SESSION" ] && ! [[ "$DISPATCH_SESSION" =~ ^dr-[a-z0-9][a-z0-9-]*-[A-Z]{2,10}-[0-9]{4}$ ]]; then
+if [ -n "$DISPATCH_SESSION" ] && ! [[ "$DISPATCH_SESSION" =~ ^dr-[a-z0-9][a-z0-9-]*-[A-Z][A-Z0-9]{1,9}-[0-9]{4}$ ]]; then
     usage_error "--dispatch-session must match ^dr-<space>-<TASK-ID>\$, got: ${DISPATCH_SESSION}"
 fi
 

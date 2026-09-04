@@ -174,10 +174,10 @@ msg_matches() {
 # ---------------------------------------------------------------------------
 
 # STUB: replace with the regex for your tracked-item reference format.
-EXISTING_ITEM_RE='[A-Z]{2,10}-[0-9]{4}'
+EXISTING_ITEM_RE='[A-Z][A-Z0-9]{1,9}-[0-9]{4}'
 
 # STUB: replace with comment-intent lead phrases relevant to your domain.
-COMMENT_INTENT_RE='comment|amend|amendment|on [A-Z]{2,10}-[0-9]{4}'
+COMMENT_INTENT_RE='comment|amend|amendment|on [A-Z][A-Z0-9]{1,9}-[0-9]{4}'
 
 has_existing_item=0
 EXTRACTED_ITEM_ID=""
@@ -234,7 +234,7 @@ fi
 # ---------------------------------------------------------------------------
 
 # STUB: replace with the regex for recognisable prefix / category tokens.
-PREFIX_TOKEN_RE='[[:space:]][A-Z]{2,10}[[:space:]:]|^[A-Z]{2,10}[[:space:]:]'
+PREFIX_TOKEN_RE='[[:space:]][A-Z][A-Z0-9]{1,9}[[:space:]:]|^[A-Z][A-Z0-9]{1,9}[[:space:]:]'
 
 has_prefix_token=0
 EXTRACTED_PREFIX=""

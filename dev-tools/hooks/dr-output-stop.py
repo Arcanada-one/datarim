@@ -36,9 +36,9 @@ STAGE_HEADER_EXCEPTIONS = frozenset({"/dr-help", "/dr-status", "/dr-doctor"})
 _DEFERRED_HEADER_CMDS = frozenset({"/dr-init", "/dr-quick"})
 HUMAN_SUMMARY_TRIGGERS = frozenset({"/dr-archive", "/dr-compliance", "/dr-qa"})
 
-HEADER_RE = re.compile(r"^\*\*[A-Z]{2,10}-\d{4} · .+\*\*$")
+HEADER_RE = re.compile(r"^\*\*[A-Z][A-Z0-9]{1,9}-\d{4} · .+\*\*$")
 DR_CMD_RE = re.compile(r"(?<![A-Za-z])/dr-[a-z][a-z0-9-]*")
-TASK_ID_ANY_RE = re.compile(r"\*\*[A-Z]{2,10}-\d{4}\b")
+TASK_ID_ANY_RE = re.compile(r"\*\*[A-Z][A-Z0-9]{1,9}-\d{4}\b")
 
 HS_SECTION_RE = re.compile(
     r"^##\s+(?:Отчёт оператору|Operator summary)\s*$", re.MULTILINE

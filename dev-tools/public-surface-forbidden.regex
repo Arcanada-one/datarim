@@ -19,11 +19,11 @@
 # reflection). Closed pattern set — every consumer's task IDs route through
 # one of these.
 \b(AGENT|BENCH|CONTENT|DATA|DEV|DEVOPS|FIN|INFRA|MAINT|QA|QCK|RESEARCH|ROB|SEC|TUNE|WEB)-[0-9]{4}\b
-\bPRD-[A-Z]{2,10}-[0-9]{4}\b
-\bcreative-[A-Z]{2,10}-[0-9]{4}\b
-\bplans-[A-Z]{2,10}-[0-9]{4}\b
-\binsights-[A-Z]{2,10}-[0-9]{4}\b
-\breflection-[A-Z]{2,10}-[0-9]{4}\b
+\bPRD-[A-Z][A-Z0-9]{1,9}-[0-9]{4}\b
+\bcreative-[A-Z][A-Z0-9]{1,9}-[0-9]{4}\b
+\bplans-[A-Z][A-Z0-9]{1,9}-[0-9]{4}\b
+\binsights-[A-Z][A-Z0-9]{1,9}-[0-9]{4}\b
+\breflection-[A-Z][A-Z0-9]{1,9}-[0-9]{4}\b
 
 # Internal-only repo paths inside the canonical Datarim layout. Public
 # packages must not link to these — they are gitignored in the framework

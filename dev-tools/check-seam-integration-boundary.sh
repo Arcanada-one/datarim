@@ -41,7 +41,7 @@ usage: check-seam-integration-boundary.sh --line "<text>" [--strict] [--report]
        check-seam-integration-boundary.sh --task <TASK-ID> [--backlog <path>]
            [--root <repo-root>] [--strict] [--report]
   --line     backlog one-liner text to scan (mutually exclusive with --task)
-  --task     TASK-ID (^[A-Z]{2,10}-[0-9]{4}$); reads its one-liner from the backlog
+  --task     TASK-ID (^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$); reads its one-liner from the backlog
   --backlog  backlog index path (default: <root>/datarim/backlog.md)
   --root     repo/workspace root for the default backlog path (default: .)
   --strict   exit 3 when a seam+integration mix is flagged (default: exit 0, advisory)
@@ -83,8 +83,8 @@ fi
 
 # --task: resolve the one-liner from the backlog.
 if [ -n "$TASK" ]; then
-    if ! printf '%s' "$TASK" | grep -Eq '^[A-Z]{2,10}-[0-9]{4}$'; then
-        echo "ERROR: --task must match ^[A-Z]{2,10}-[0-9]{4}$ (got: $TASK)" >&2; exit 2
+    if ! printf '%s' "$TASK" | grep -Eq '^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$'; then
+        echo "ERROR: --task must match ^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$ (got: $TASK)" >&2; exit 2
     fi
     : "${BACKLOG:=$ROOT/datarim/backlog.md}"
     if [ ! -f "$BACKLOG" ]; then

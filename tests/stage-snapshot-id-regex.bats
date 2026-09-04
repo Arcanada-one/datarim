@@ -7,7 +7,7 @@
 #   - Canonical short IDs (e.g. TUNE-0334) continue to be accepted.
 #   - Path-traversal and malformed IDs are still rejected (T-1 security control).
 #
-# Canonical regex: ^[A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*$
+# Canonical regex: ^[A-Z][A-Z0-9]{1,9}-[0-9]{4}(-[A-Za-z0-9]+)*$
 
 REPO_ROOT="$(cd "${BATS_TEST_DIRNAME}/.." && pwd)"
 WRITER_LIB="${REPO_ROOT}/scripts/lib/snapshot-writer.sh"
@@ -83,6 +83,20 @@ setup() {
     [ -f "$TMPROOT/datarim/snapshots/ABCDEFGHIJ-0001.snapshot.md" ]
 }
 
+@test "digit-bearing prefix after a leading letter (A2B-0003) is accepted" {
+    run write_stage_snapshot \
+        --root "$TMPROOT" \
+        --task A2B-0003 \
+        --stage 'do' \
+        --command /dr-do \
+        --captured-by agent \
+        --recommended-next /dr-qa \
+        --options-file "$OPTIONS" \
+        --body-file "$BODY"
+    [ "$status" -eq 0 ]
+    [ -f "$TMPROOT/datarim/snapshots/A2B-0003.snapshot.md" ]
+}
+
 # ---------------------------------------------------------------------------
 # Rejected IDs — T-1 path-traversal + malformed (security control)
 # ---------------------------------------------------------------------------
@@ -114,12 +128,25 @@ setup() {
     [ "$status" -eq 1 ]
 }
 
-@test "too-short prefix (AB-1234) is rejected — prefix requires 2+ uppercase chars (already 2; only 1-char prefix rejected)" {
-    # AB has 2 chars which satisfies {2,10} — so AB-1234 MUST be accepted.
+@test "one-character prefix (A-1234) is rejected" {
+    # AB has 2 chars and is valid; only single-character prefixes are rejected.
     # This test documents that 1-char prefix single-letter IDs like A-1234 are rejected.
     run write_stage_snapshot \
         --root "$TMPROOT" \
         --task 'A-1234' \
+        --stage 'do' \
+        --command /dr-do \
+        --captured-by agent \
+        --recommended-next /dr-qa \
+        --options-file "$OPTIONS" \
+        --body-file "$BODY"
+    [ "$status" -eq 1 ]
+}
+
+@test "prefix beginning with a digit (2AB-0003) is rejected" {
+    run write_stage_snapshot \
+        --root "$TMPROOT" \
+        --task '2AB-0003' \
         --stage 'do' \
         --command /dr-do \
         --captured-by agent \

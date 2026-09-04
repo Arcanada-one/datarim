@@ -4,6 +4,12 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.67.5] — 2026-09-04
+
+### Fixed
+
+- Accept registered task prefixes that contain digits after the required leading upper-case letter (for example `C2M`) across commands, validators, orchestration, snapshots, heartbeat parsing, and ID allocation; retain strict length, case, and four-digit sequence validation with regression coverage.
+
 ## [2.67.4] — 2026-09-04
 
 ### Fixed

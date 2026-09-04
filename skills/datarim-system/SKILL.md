@@ -30,7 +30,7 @@ Operational files are machine-parseable, single-line ledgers. Active indexes are
 `tasks.md` and `activeContext.md` use the strict `ONELINER_RE` contract:
 
 ```
-^- ([A-Z]{2,10}-[0-9]{4}) · (STATUS) · P[0-3] · L[1-4] · (.+) → tasks/\1-(task-description|init-task)\.md$
+^- ([A-Z][A-Z0-9]{1,9}-[0-9]{4}) · (STATUS) · P[0-3] · L[1-4] · (.+) → tasks/\1-(task-description|init-task)\.md$
 ```
 
 `ONELINER_RE` accepts `in_progress|blocked|not_started|pending|blocked-pending|cancelled`
@@ -114,7 +114,7 @@ Required frontmatter (8 fields, closed schema):
 
 ```yaml
 ---
-task_id: <TASK-ID>           # ^[A-Z]{2,10}-[0-9]{4}$
+task_id: <TASK-ID>           # ^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$
 artifact: init-task          # literal
 schema_version: 1            # integer
 captured_at: <YYYY-MM-DD>
@@ -136,7 +136,7 @@ Two mandatory body headings: `## Operator brief (verbatim)`, `## Append-log
 
 ```yaml
 ---
-id: <TASK-ID>                 # ^[A-Z]{2,10}-[0-9]{4}$
+id: <TASK-ID>                 # ^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$
 title: <string>               # ≤ 80 chars
 status: <enum>                # in_progress|blocked|not_started|pending|blocked-pending|cancelled
 priority: <enum>              # P0|P1|P2|P3

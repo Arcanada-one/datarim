@@ -7,7 +7,7 @@ ONE section only — strict mirror of tasks.md § Active.
 Identical lines, identical order. Validated by pre-archive-check.sh.
 
 Active Tasks line regex (canonical):
-  ^- ([A-Z]{2,10}-[0-9]{4}) · (in_progress|blocked|not_started) · P[0-3] · L[1-4] · (.+) → tasks/\1-(task-description|init-task)\.md$
+  ^- ([A-Z][A-Z0-9]{1,9}-[0-9]{4}) · (in_progress|blocked|not_started) · P[0-3] · L[1-4] · (.+) → tasks/\1-(task-description|init-task)\.md$
 
 Removed in v1.19.1:
   - the legacy Russian "recently completed" section — runtime via `/dr-status --recent N`

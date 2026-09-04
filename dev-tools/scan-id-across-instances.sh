@@ -40,9 +40,9 @@ TASK_ID="$1"
 SCAN_ROOT="$2"
 SELF_DATARIM_DIR="${3:-}"
 
-# TASK-ID: 2–10 uppercase letters, dash, exactly 4 digits (Security S1)
-if ! [[ "$TASK_ID" =~ ^[A-Z]{2,10}-[0-9]{4}$ ]]; then
-    echo "ERROR: invalid TASK-ID '${TASK_ID}' — expected PREFIX-NNNN (2–10 uppercase letters, 4 digits)" >&2
+# TASK-ID: uppercase letter + 1–9 uppercase letters/digits, dash, exactly 4 digits (Security S1)
+if ! [[ "$TASK_ID" =~ ^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$ ]]; then
+    echo "ERROR: invalid TASK-ID '${TASK_ID}' — expected PREFIX-NNNN (prefix starts with an uppercase letter and contains 2–10 uppercase letters/digits; exactly 4 trailing digits)" >&2
     exit 1
 fi
 
