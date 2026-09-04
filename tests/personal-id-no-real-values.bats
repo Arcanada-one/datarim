@@ -46,18 +46,9 @@ teardown() {
     rm -rf "$TMP_DIR"
 }
 
-# Paths whose match IS the detector's own needle and cannot be synthetic.
-# Keep this list SHORT and justified — every entry is a suppression.
-#
-#   dev-tools/dead-ip-*        post-relocate dead-IP sweep: the decommissioned
-#   dev-tools/tests/dead-ip-*  address is the input the tool and its fixtures
-#   check-db-relocation-class  hunt for. Already exempt in the gate's whitelist.
-#   this file                  describes the mechanism; holds no address.
-EXEMPT_PATHS=':!dev-tools/dead-ip-consumer-sweep.sh
-:!dev-tools/tests/dead-ip-consumer-sweep.bats
-:!dev-tools/tests/dead-ip-sweep-wiring.bats
-:!dev-tools/tests/check-db-relocation-class.bats
-:!tests/personal-id-no-real-values.bats'
+# This file contains detector mechanics but no real address. All dead-IP sweep
+# fixtures use RFC 5737 documentation space and are scanned like shipped code.
+EXEMPT_PATHS=':!tests/personal-id-no-real-values.bats'
 
 @test "no real infrastructure address appears anywhere in the repository" {
     [ -n "$OVERLAY" ] || skip "no local overlay present — nothing to compare against"

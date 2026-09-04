@@ -88,18 +88,18 @@ jobs:
       # `runs-on: [self-hosted, linux]` matches nearly all of them and they are
       # NOT interchangeable. Measured 2026-07-29 across the seven runner hosts:
       #
-      #   host             node corepack pnpm python python3 shellcheck cargo
-      #   host-devs       y     y       y     N      y       y          y
-      #   host-prod       y     y       y     N      y       y          N
-      #   host-dbs        y     y       y     N      y       N          N
-      #   host-kb         y     y       y     N      y       y          N
-      #   host-www        N     N       N     N      y       N          N
-      #   host-trading    y     y       N     N      y       N          N
-      #   host-agents     y     y       y     N      y       N          y
+      #   role      node corepack pnpm python python3 shellcheck cargo
+      #   runner-A   y     y       y     N      y       y          y
+      #   runner-B   y     y       y     N      y       y          N
+      #   runner-C   y     y       y     N      y       N          N
+      #   runner-D   y     y       y     N      y       y          N
+      #   runner-E   N     N       N     N      y       N          N
+      #   runner-F   y     y       N     N      y       N          N
+      #   runner-G   y     y       y     N      y       N          y
       #
       # Consequences that were live before this change:
-      #   - typescript_pnpm exited 127 on host-www (cubrim-api PR #21) while
-      #     passing on host-prod-ci (PR #16) — identical code, different verdict.
+      #   - typescript_pnpm exited 127 on runner-E (cubrim-api PR #21) while
+      #     passing on runner-B (PR #16) — identical code, different verdict.
       #   - `python` is absent on EVERY host, so the python profile could never
       #     have run at all.
       #   - `framework` silently SKIPPED its only check on the 4 hosts without

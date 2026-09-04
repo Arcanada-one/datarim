@@ -203,14 +203,7 @@ whitelist_paths=("$regex_file" "$0" "$_regex_basename" "$_self_basename"
     "tests/datarim-doctor-execution-drift.bats"
     # Supreme Directive canonical Source-of-Truth URL — public canon, not a
     # personal data leak. The URL is the published identifier of the spec.
-    "templates/project-claude-md.md"
-    # Dead-IP-sweep tooling embeds the decommissioned public IP it hunts — the
-    # IP is the detector's own needle (same rationale as the regex source file
-    # being exempt from its own scan). Flagging these would break the tool.
-    "dev-tools/dead-ip-consumer-sweep.sh"
-    "dev-tools/tests/dead-ip-consumer-sweep.bats"
-    "dev-tools/tests/dead-ip-sweep-wiring.bats"
-    "dev-tools/tests/check-db-relocation-class.bats")
+    "templates/project-claude-md.md")
 
 # Load additional whitelist paths (one prefix per line, # comments ok).
 if [ -n "$whitelist_file" ] && [ -f "$whitelist_file" ]; then

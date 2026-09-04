@@ -23,23 +23,23 @@ teardown() {
 ---
 type: db-relocation
 title: Migrate DB to new host
-decommissioned_ip: 23.88.34.218
+decommissioned_ip: 192.0.2.218
 ---
 
-Relocate DB from 23.88.34.218 to new host.
-DB_HOST=23.88.34.218 currently in environment.
+Relocate DB from 192.0.2.218 to new host.
+DB_HOST=192.0.2.218 currently in environment.
 EOF
 
     # Live consumer in the workspace
     mkdir -p "$WORK/Projects/App/code"
     cat >"$WORK/Projects/App/code/.env" <<'EOF'
-DB_HOST=23.88.34.218
+DB_HOST=192.0.2.218
 DB_PORT=5432
 EOF
 
     # Valid audit (but live hit should still block)
     cat >"$WORK/audit.md" <<'EOF'
-dead_ip: 23.88.34.218
+dead_ip: 192.0.2.218
 live_consumers: 0
 assertion: zero live consumers confirmed
 EOF
@@ -49,7 +49,7 @@ EOF
     [ "$status" -eq 0 ]
 
     # 2. Sweep must block due to live consumer
-    run "$SWEEP" --dead-ip 23.88.34.218 --workspace-root "$WORK" --audit "$WORK/audit.md"
+    run "$SWEEP" --dead-ip 192.0.2.218 --workspace-root "$WORK" --audit "$WORK/audit.md"
     [ "$status" -eq 1 ]
     [[ "$output" == *"BLOCK"* ]]
 }
@@ -62,10 +62,10 @@ EOF
 ---
 type: db-relocation
 title: Migrate DB to new host
-decommissioned_ip: 23.88.34.218
+decommissioned_ip: 192.0.2.218
 ---
 
-Relocate DB from 23.88.34.218 to new host.
+Relocate DB from 192.0.2.218 to new host.
 EOF
 
     # No live consumer — all configs reference new IP
@@ -77,7 +77,7 @@ EOF
 
     # Valid audit
     cat >"$WORK/audit.md" <<'EOF'
-dead_ip: 23.88.34.218
+dead_ip: 192.0.2.218
 live_consumers: 0
 assertion: zero live consumers confirmed
 EOF
@@ -87,7 +87,7 @@ EOF
     [ "$status" -eq 0 ]
 
     # 2. Sweep must pass
-    run "$SWEEP" --dead-ip 23.88.34.218 --workspace-root "$WORK" --audit "$WORK/audit.md"
+    run "$SWEEP" --dead-ip 192.0.2.218 --workspace-root "$WORK" --audit "$WORK/audit.md"
     [ "$status" -eq 0 ]
 }
 
