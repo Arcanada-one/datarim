@@ -82,6 +82,53 @@ EOF
     [ "$status" -eq 0 ]
     [[ "$output" == *'"task_id":"FIX-0001"'* ]]
     [[ "$output" == *'datarim/insights/INSIGHTS-FIX-0001.md'* ]]
+    [[ "$output" == *'"local_status":"ok"'* ]]
+    [[ "$output" == *'"local_scanned":1'* ]]
+    [[ "$output" == *'"local_parsed":1'* ]]
+    [[ "$output" == *'"local_unparseable":0'* ]]
+    [[ "$output" == *'"local_first_error":null'* ]]
+}
+
+@test "query fails closed when every local insight is unparseable" {
+    printf '# Insight without a known-fix record\n' \
+        >"$ROOT/datarim/insights/INSIGHTS-BAD-0001.md"
+
+    run python3 "$TOOL" query --root "$ROOT" --query "cache" --limit 3
+
+    [ "$status" -eq 2 ]
+    [[ "$output" == *'"local_status":"invalid"'* ]]
+    [[ "$output" == *'"local_results":[]'* ]]
+    [[ "$output" == *'"local_scanned":1'* ]]
+    [[ "$output" == *'"local_parsed":0'* ]]
+    [[ "$output" == *'"local_unparseable":1'* ]]
+    [[ "$output" == *'"local_first_error":"expected exactly one'* ]]
+}
+
+@test "query reports but tolerates one invalid insight beside valid evidence" {
+    write_insight
+    printf '# Insight without a known-fix record\n' \
+        >"$ROOT/datarim/insights/INSIGHTS-BAD-0001.md"
+
+    run python3 "$TOOL" query --root "$ROOT" --query "tenant cache" --limit 3
+
+    [ "$status" -eq 0 ]
+    [[ "$output" == *'"local_status":"partial"'* ]]
+    [[ "$output" == *'"task_id":"FIX-0001"'* ]]
+    [[ "$output" == *'"local_scanned":2'* ]]
+    [[ "$output" == *'"local_parsed":1'* ]]
+    [[ "$output" == *'"local_unparseable":1'* ]]
+    [[ "$output" == *'"local_first_error":"expected exactly one'* ]]
+}
+
+@test "query distinguishes an empty local corpus from an invalid one" {
+    run python3 "$TOOL" query --root "$ROOT" --query "cache" --limit 3
+
+    [ "$status" -eq 0 ]
+    [[ "$output" == *'"local_status":"empty"'* ]]
+    [[ "$output" == *'"local_scanned":0'* ]]
+    [[ "$output" == *'"local_parsed":0'* ]]
+    [[ "$output" == *'"local_unparseable":0'* ]]
+    [[ "$output" == *'"local_first_error":null'* ]]
 }
 
 @test "query treats an unavailable configured retriever as fail-soft" {
@@ -99,6 +146,9 @@ EOF
     run python3 "$TOOL" query --root "$ROOT" --query "tenant cache" --limit 3
     [ "$status" -eq 0 ]
     [[ "$output" == *'"task_id":"FIX-0001"'* ]]
+    [[ "$output" == *'"local_status":"partial"'* ]]
+    [[ "$output" == *'"local_unparseable":1'* ]]
+    [[ "$output" == *'"local_first_error":"insight is not valid UTF-8'* ]]
 }
 
 @test "query bounds configured retriever output" {
@@ -133,6 +183,8 @@ EOF
     grep -F "evidence only" "$spec"
     grep -F "fail-soft" "$spec"
     grep -F "three-second timeout and a maximum limit of five" "$spec"
+    grep -F '`invalid` means candidates exist but none parse' "$spec"
+    grep -F 'exits 2' "$spec"
 }
 
 @test "reflection and archive require validated known_fix persistence" {
