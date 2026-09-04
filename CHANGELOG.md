@@ -4,6 +4,16 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.67.3] — 2026-09-04
+
+### Fixed
+
+- **Known-fix query diagnostics.** Local recall now reports candidate, parsed,
+  and unparseable counts plus the first bounded contract error. A corpus with
+  candidates but zero valid records exits 2 after emitting diagnostic JSON,
+  so a broken producer can no longer masquerade as a genuine empty result;
+  mixed corpora remain usable with an explicit `partial` status.
+
 ## [2.67.2] — 2026-09-03
 
 ### Changed

@@ -239,14 +239,23 @@ def query_command(args: argparse.Namespace) -> None:
         fail("query must be 1..500 printable characters")
     query_tokens = set(TOKEN_RE.findall(args.query.lower()))
     results: list[dict[str, Any]] = []
+    scanned = 0
+    parsed = 0
+    unparseable = 0
+    first_error: str | None = None
     base = args.root / "datarim" / "insights"
     if base.is_dir():
         for path in sorted(base.glob("INSIGHTS-*.md")):
+            scanned += 1
             task = path.stem.removeprefix("INSIGHTS-")
             try:
                 value, _ = load_one(args.root, task)
-            except ContractError:
+            except ContractError as exc:
+                unparseable += 1
+                if first_error is None:
+                    first_error = str(exc)[:500]
                 continue
+            parsed += 1
             rank = score(query_tokens, value)
             if rank:
                 results.append(
@@ -260,14 +269,29 @@ def query_command(args: argparse.Namespace) -> None:
                 )
     results.sort(key=lambda item: (-item["score"], item["task_id"]))
     remote_status, remote = remote_results(args.query, args.limit)
+    if scanned == 0:
+        local_status = "empty"
+    elif parsed == 0 and unparseable:
+        local_status = "invalid"
+    elif unparseable:
+        local_status = "partial"
+    else:
+        local_status = "ok"
     output = {
         "contract": "evidence_only_untrusted",
         "query": args.query,
+        "local_status": local_status,
         "local_results": results[: args.limit],
+        "local_scanned": scanned,
+        "local_parsed": parsed,
+        "local_unparseable": unparseable,
+        "local_first_error": first_error,
         "remote_status": remote_status,
         "remote_results": remote,
     }
     print(json.dumps(output, ensure_ascii=False, separators=(",", ":")))
+    if local_status == "invalid":
+        raise SystemExit(2)
 
 
 def parser() -> argparse.ArgumentParser:
