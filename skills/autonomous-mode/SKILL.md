@@ -16,7 +16,7 @@ The skill is active if and only if **all three conditions** hold:
 
 1. `DATARIM_AUTO_MODE=1` is set in the agent's environment.
 2. The effective autonomous-mode marker exists and parses as YAML. The marker is per-task at `datarim/.auto/<TASK-ID>.mode` (collision-safe in a shared parallel workspace); the legacy single file `datarim/.auto-mode-active` is still honoured as a fallback for a hand-run `/dr-auto`. Resolve the effective path with `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/auto-mode-marker.sh resolve --root <DIR> --task-id <ID>` rather than hardcoding either path.
-3. The `task_id` field inside that marker matches the current TASK-ID (regex `^[A-Z]{2,10}-[0-9]{4}$`).
+3. The `task_id` field inside that marker matches the current TASK-ID (regex `^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$`).
 
 **Spawned subagents (relaxed activation).** A subagent dispatched by `/dr-auto` does NOT inherit the `DATARIM_AUTO_MODE` environment variable (the Agent tool does not propagate the parent environment). For such a subagent the skill is active when its dispatch prompt carries an explicit auto-signal (a line naming the current stage and "autonomous mode for `<TASK-ID>`") AND conditions 2 and 3 hold (the marker file exists, parses, and its `task_id` matches the current TASK-ID). The environment variable (condition 1) is NOT required in this branch. The top-level `/dr-auto` cycle still requires all three conditions. The auto-signal only removes the env-var requirement — it never substitutes for a missing or mismatched marker file.
 
@@ -61,7 +61,7 @@ autonomous execution) and is never legitimate.
 ## Delegated bootstrap — bare task-id enters /dr-auto on startup
 
 When a task is delegated to a remote executor, the agent starts in a fresh
-session and receives ONLY a bare task-id (`^[A-Z]{2,10}-[0-9]{4}$`) — there is
+session and receives ONLY a bare task-id (`^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$`) — there is
 no operator watching the remote pane to answer pipeline questions. The
 autonomy signal therefore travels through the synced marker, NOT through a live
 keystroke (a keystroke is racy and can be dropped before the CLI is ready).

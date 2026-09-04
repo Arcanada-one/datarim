@@ -37,7 +37,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MARKER_TOOL="$SCRIPT_DIR/auto-mode-marker.sh"
 FB_RULES="$SCRIPT_DIR/rules/fb-rules.yaml"
-# Any well-formed task-id (^[A-Z]{2,10}-[0-9]{4}$) works; the smoke uses a
+# Any well-formed task-id (^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$) works; the smoke uses a
 # reserved sentinel so it never collides with a real task's marker.
 SMOKE_TASK_ID="TUNE-0000"
 

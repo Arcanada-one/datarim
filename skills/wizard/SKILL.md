@@ -99,7 +99,7 @@ vs guided `/dr-wizard`), avoiding a second, drifting discovery pass.
 
 Enforced by the engine, not by prose: S9 injection gate (escape `\`/`"`/TAB, reject
 LF/CR/other C0/DEL); allowlists (qid/node-id `^[A-Za-z0-9_-]+$`; category slug;
-type/relation closed enums); S5 path containment (TASK-ID `^[A-Z]{2,10}-[0-9]{4}$`,
+type/relation closed enums); S5 path containment (TASK-ID `^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$`,
 symlink target refused, append under an mkdir-lock); S1 redaction on the outbound
 graph sink. See `dev-tools/lib/wizard-state.sh` header and `tests/wizard-state.bats`.
 

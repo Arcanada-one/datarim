@@ -306,7 +306,7 @@ EOF
     description="$(sed -n 's/^description: //p' "$DELIVERY_SKILL")"
     [[ "${#description}" -le 155 ]] || return 1
     [[ "$(grep -cE '^## U[1-8]\.' "$DELIVERY_SKILL")" -eq 8 ]] || return 1
-    if grep -Eq '[A-Z]{2,10}-[0-9]{4}' "$DELIVERY_SKILL"; then return 1; fi
+    if grep -Eq '[A-Z][A-Z0-9]{1,9}-[0-9]{4}' "$DELIVERY_SKILL"; then return 1; fi
 }
 
 @test "customer delivery skill preserves verbatim remarks under atomic stable requirement IDs" {

@@ -52,11 +52,11 @@ _hb_usage() { echo "heartbeat-status: $*" >&2; return 2; }
 # the canonical PREFIX-NNNN shape so a crafted id cannot escape the runtime dir.
 _hb_status_path() {
     local root="$1" task="$2"
-    # Strict PREFIX-NNNN: 2-10 uppercase letters, a hyphen, exactly 4 digits,
+    # Strict PREFIX-NNNN: uppercase letter + 1-9 uppercase letters/digits, a hyphen, exactly 4 digits,
     # and NOTHING else. A bash glob `case` is too loose here (it matched
     # `lowercase-0001`); an anchored ERE is the reliable contract check and
     # closes the runtime-dir-escape vector (`../`, slashes, extra segments).
-    if [[ ! "$task" =~ ^[A-Z]{2,10}-[0-9]{4}$ ]]; then
+    if [[ ! "$task" =~ ^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$ ]]; then
         _hb_usage "invalid task-id '$task' (want PREFIX-NNNN)"; return 2
     fi
     printf '%s/%s/%s.status' "$root" "$HB_RUNTIME_RELDIR" "$task"

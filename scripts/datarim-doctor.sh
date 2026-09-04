@@ -262,7 +262,7 @@ prefix_to_area() {
 validate_task_id() {
     local id="$1"
     # TUNE-0088: accept compound IDs (e.g. DEV-1212-S8, DEV-1196-FOLLOWUP-lock-ownership-doc)
-    [[ "$id" =~ ^[A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*$ ]] && return 0 || return 1
+    [[ "$id" =~ ^[A-Z][A-Z0-9]{1,9}-[0-9]{4}(-[A-Za-z0-9]+)*$ ]] && return 0 || return 1
 }
 
 # Validate that a description-file relpath stays inside ROOT.
@@ -282,7 +282,7 @@ validate_relpath() {
 #   3) extract_field <block> <key> → grep the "- **Key:** value" line within block
 extract_ids() {
     # compound IDs + optional trailing colon (e.g. PREFIX-NNNN-FOLLOWUP-slug).
-    grep -oE '^### [A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*:?( |$)' "$1" 2>/dev/null \
+    grep -oE '^### [A-Z][A-Z0-9]{1,9}-[0-9]{4}(-[A-Za-z0-9]+)*:?( |$)' "$1" 2>/dev/null \
         | sed -E 's/^### //; s/:?[[:space:]]*$//'
 }
 
@@ -481,10 +481,10 @@ scan_file() {
             [[ "$line" =~ ^[-*][[:space:]]+\*\*[A-Z]+-[0-9]+\*\* ]] && archive_bullets=$((archive_bullets + 1))
             continue
         fi
-        if [[ "$line" =~ ^###[[:space:]]+[A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*:?([[:space:]]|$) ]]; then
+        if [[ "$line" =~ ^###[[:space:]]+[A-Z][A-Z0-9]{1,9}-[0-9]{4}(-[A-Za-z0-9]+)*:?([[:space:]]|$) ]]; then
             FINDINGS=$((FINDINGS + 1))
             FINDING_LINES+=("$file:$lineno: legacy block-style entry")
-        elif [[ "$line" =~ ^\<!--[[:space:]]+[A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*[[:space:]]+(archived|cancelled|superseded|closed|dropped)[[:space:]] ]]; then
+        elif [[ "$line" =~ ^\<!--[[:space:]]+[A-Z][A-Z0-9]{1,9}-[0-9]{4}(-[A-Za-z0-9]+)*[[:space:]]+(archived|cancelled|superseded|closed|dropped)[[:space:]] ]]; then
             FINDINGS=$((FINDINGS + 1))
             FINDING_LINES+=("$file:$lineno: HTML-comment archive note (Pass 7 — run --fix to strip if archive file exists)")
         elif [ "$(basename "$file")" = "tasks.md" ] && [[ "$line" =~ ^##[[:space:]]+Backlog[[:space:]]*$ ]]; then
@@ -773,7 +773,7 @@ chmod 0600 "$BACKUP_TARBALL"
 PARSED_COUNT=0
 for f in "$ROOT_ABS/tasks.md" "$ROOT_ABS/backlog.md"; do
     [ -f "$f" ] || continue
-    n=$(grep -cE '^### [A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*:?( |$)' "$f" 2>/dev/null || true)
+    n=$(grep -cE '^### [A-Z][A-Z0-9]{1,9}-[0-9]{4}(-[A-Za-z0-9]+)*:?( |$)' "$f" 2>/dev/null || true)
     PARSED_COUNT=$((PARSED_COUNT + n))
 done
 if [ -f "$ROOT_ABS/activeContext.md" ]; then
@@ -798,7 +798,7 @@ migrate_file() {
     local src="$1" out="$2" heading="$3" status_default="$4"
     [ -f "$src" ] || return 0
     # Idempotency: if file has zero legacy headings, treat as already compliant.
-    if ! grep -qE '^### [A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*:?( |$)' "$src"; then
+    if ! grep -qE '^### [A-Z][A-Z0-9]{1,9}-[0-9]{4}(-[A-Za-z0-9]+)*:?( |$)' "$src"; then
         return 0
     fi
     local -a out_lines=()
@@ -980,7 +980,7 @@ migrate_ledger_history() {
         rest="${base#ADR-}"
         case "$rest" in
             [A-Z][A-Z]*-[0-9][0-9][0-9][0-9]-*)
-                rest="$(printf '%s' "$rest" | sed -E 's/^[A-Z]{2,10}-[0-9]{4}-//')" ;;
+                rest="$(printf '%s' "$rest" | sed -E 's/^[A-Z][A-Z0-9]{1,9}-[0-9]{4}-//')" ;;
         esac
         git_mv_or_mv "$adr" "$adr_dst/ADR-0002-$rest"
     done
@@ -1521,7 +1521,7 @@ for f in "$ROOT_ABS/tasks.md" "$ROOT_ABS/backlog.md" "$ROOT_ABS/activeContext.md
     # Leading whitespace tolerated: indented bullets are real ledger rows, and a
     # flush-left-only count under-reports EMITTED, which would fire the data-loss
     # restore below on a migration that actually lost nothing.
-    n=$(grep -cE '^[[:space:]]*- [A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)* · ' "$f" 2>/dev/null || true)
+    n=$(grep -cE '^[[:space:]]*- [A-Z][A-Z0-9]{1,9}-[0-9]{4}(-[A-Za-z0-9]+)* · ' "$f" 2>/dev/null || true)
     EMITTED_COUNT=$((EMITTED_COUNT + n))
 done
 
