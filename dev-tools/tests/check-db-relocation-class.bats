@@ -65,7 +65,7 @@ title: Database migration
 ---
 
 Relocate the database from the old host.
-The application currently points DB_HOST=23.88.34.218 via environment variable.
+The application currently points DB_HOST=192.0.2.218 via environment variable.
 After migration update the connection string to the new host.
 EOF
     run "$SCRIPT" --task-description "$WORK/task.md"
@@ -137,7 +137,7 @@ EOF
 ---
 type: infra
 title: Repoint consumers off the old DB host
-decommissioned_ip: 23.88.34.218
+decommissioned_ip: 192.0.2.218
 ---
 
 Relocate consumers from the old host to the new database server.
