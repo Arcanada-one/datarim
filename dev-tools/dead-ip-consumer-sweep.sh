@@ -114,7 +114,7 @@ escape_ip_for_ere() {
 #   - starts with # (comment)
 #   - is in a documentation/archive/ subtree
 #   - is in a *.bak file
-#   - line contains only a comment reference (e.g. "# was 23.88.34.218")
+#   - line contains only a comment reference (e.g. "# was 192.0.2.218")
 line_is_historical() {
     local line="$1"
     # Trim leading whitespace

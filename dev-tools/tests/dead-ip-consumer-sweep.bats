@@ -29,11 +29,11 @@ EOF
     # Create required audit asserting zero live consumers
     cat >"$WORK/audit.md" <<EOF
 # Audit
-dead_ip: 23.88.34.218
+dead_ip: 192.0.2.218
 live_consumers: 0
 assertion: zero live consumers confirmed
 EOF
-    run "$SCRIPT" --dead-ip 23.88.34.218 --workspace-root "$WORK" --audit "$WORK/audit.md"
+    run "$SCRIPT" --dead-ip 192.0.2.218 --workspace-root "$WORK" --audit "$WORK/audit.md"
     [ "$status" -eq 0 ]
 }
 
@@ -43,16 +43,16 @@ EOF
 @test "block-on-a-live-connstring — class-a hit exits 1" {
     mkdir -p "$WORK/Projects/App/code"
     cat >"$WORK/Projects/App/code/.env" <<'EOF'
-DB_HOST=23.88.34.218
+DB_HOST=192.0.2.218
 DB_PORT=5432
 EOF
     cat >"$WORK/audit.md" <<'EOF'
 # Audit
-dead_ip: 23.88.34.218
+dead_ip: 192.0.2.218
 live_consumers: 0
 assertion: zero live consumers confirmed
 EOF
-    run "$SCRIPT" --dead-ip 23.88.34.218 --workspace-root "$WORK" --audit "$WORK/audit.md"
+    run "$SCRIPT" --dead-ip 192.0.2.218 --workspace-root "$WORK" --audit "$WORK/audit.md"
     [ "$status" -eq 1 ]
     [[ "$output" == *"BLOCK"* ]]
 }
@@ -63,16 +63,16 @@ EOF
 @test "block-on-b-live-bind — class-b hit exits 1" {
     mkdir -p "$WORK/Projects/Svc/code"
     cat >"$WORK/Projects/Svc/code/redis.conf" <<'EOF'
-bind 23.88.34.218
+bind 192.0.2.218
 port 6379
 EOF
     cat >"$WORK/audit.md" <<'EOF'
 # Audit
-dead_ip: 23.88.34.218
+dead_ip: 192.0.2.218
 live_consumers: 0
 assertion: zero live consumers confirmed
 EOF
-    run "$SCRIPT" --dead-ip 23.88.34.218 --workspace-root "$WORK" --audit "$WORK/audit.md"
+    run "$SCRIPT" --dead-ip 192.0.2.218 --workspace-root "$WORK" --audit "$WORK/audit.md"
     [ "$status" -eq 1 ]
     [[ "$output" == *"BLOCK"* ]]
 }
@@ -84,20 +84,20 @@ EOF
     mkdir -p "$WORK/documentation/archive"
     cat >"$WORK/documentation/archive/old-infra.md" <<'EOF'
 # Old infra (decommissioned)
-Previously hosted at 23.88.34.218 (now offline, migrated 2026-06-10).
+Previously hosted at 192.0.2.218 (now offline, migrated 2026-06-10).
 EOF
     mkdir -p "$WORK/Projects/App/code"
     cat >"$WORK/Projects/App/code/config.yml" <<'EOF'
-# Old DB was at 23.88.34.218, now using 10.0.0.5
+# Old DB was at 192.0.2.218, now using 10.0.0.5
 db_host: 10.0.0.5
 EOF
     cat >"$WORK/audit.md" <<'EOF'
 # Audit
-dead_ip: 23.88.34.218
+dead_ip: 192.0.2.218
 live_consumers: 0
 assertion: zero live consumers confirmed
 EOF
-    run "$SCRIPT" --dead-ip 23.88.34.218 --workspace-root "$WORK" --audit "$WORK/audit.md"
+    run "$SCRIPT" --dead-ip 192.0.2.218 --workspace-root "$WORK" --audit "$WORK/audit.md"
     [ "$status" -eq 0 ]
 }
 
@@ -121,7 +121,7 @@ EOF
 # 7. fail-closed-unreadable-root — workspace root does not exist
 # ---------------------------------------------------------------------------
 @test "fail-closed-unreadable-root — missing root exits non-zero" {
-    run "$SCRIPT" --dead-ip 23.88.34.218 --workspace-root /no/such/dir/xyz
+    run "$SCRIPT" --dead-ip 192.0.2.218 --workspace-root /no/such/dir/xyz
     [ "$status" -ne 0 ]
 }
 
@@ -133,7 +133,7 @@ EOF
     cat >"$WORK/Projects/App/code/config.yml" <<'EOF'
 db_host: 10.0.0.5
 EOF
-    run "$SCRIPT" --dead-ip 23.88.34.218 --workspace-root "$WORK" --audit "$WORK/nonexistent-audit.md"
+    run "$SCRIPT" --dead-ip 192.0.2.218 --workspace-root "$WORK" --audit "$WORK/nonexistent-audit.md"
     [ "$status" -eq 1 ]
     [[ "$output" == *"BLOCK"* ]]
 }
@@ -148,11 +148,11 @@ db_host: 10.0.0.5
 EOF
     cat >"$WORK/audit.md" <<'EOF'
 # Dead-IP Audit
-dead_ip: 23.88.34.218
+dead_ip: 192.0.2.218
 live_consumers: 0
 assertion: zero live consumers confirmed
 EOF
-    run "$SCRIPT" --dead-ip 23.88.34.218 --workspace-root "$WORK" --audit "$WORK/audit.md"
+    run "$SCRIPT" --dead-ip 192.0.2.218 --workspace-root "$WORK" --audit "$WORK/audit.md"
     [ "$status" -eq 0 ]
 }
 
@@ -166,10 +166,10 @@ db_host: 10.0.0.5
 EOF
     cat >"$WORK/audit.md" <<'EOF'
 # Dead-IP Audit
-dead_ip: 23.88.34.218
+dead_ip: 192.0.2.218
 some_note: investigated
 EOF
-    run "$SCRIPT" --dead-ip 23.88.34.218 --workspace-root "$WORK" --audit "$WORK/audit.md"
+    run "$SCRIPT" --dead-ip 192.0.2.218 --workspace-root "$WORK" --audit "$WORK/audit.md"
     [ "$status" -eq 1 ]
     [[ "$output" == *"BLOCK"* ]]
 }
@@ -180,14 +180,14 @@ EOF
 @test "defensive-invariant — live hit wording matches non-zero exit" {
     mkdir -p "$WORK/Projects/App/code"
     cat >"$WORK/Projects/App/code/.env" <<'EOF'
-DB_HOST=23.88.34.218
+DB_HOST=192.0.2.218
 EOF
     cat >"$WORK/audit.md" <<'EOF'
-dead_ip: 23.88.34.218
+dead_ip: 192.0.2.218
 live_consumers: 0
 assertion: zero live consumers confirmed
 EOF
-    run "$SCRIPT" --dead-ip 23.88.34.218 --workspace-root "$WORK" --audit "$WORK/audit.md"
+    run "$SCRIPT" --dead-ip 192.0.2.218 --workspace-root "$WORK" --audit "$WORK/audit.md"
     [ "$status" -ne 0 ]
     [[ "$output" == *"BLOCK"* ]]
 }
@@ -200,15 +200,15 @@ EOF
     cat >"$WORK/spaces/foreign/space.yml" <<'EOF'
 name: foreign
 servers:
-  - ip: 23.88.34.218
+  - ip: 192.0.2.218
     role: db
 EOF
     cat >"$WORK/audit.md" <<'EOF'
-dead_ip: 23.88.34.218
+dead_ip: 192.0.2.218
 live_consumers: 0
 assertion: zero live consumers confirmed
 EOF
-    run "$SCRIPT" --dead-ip 23.88.34.218 --workspace-root "$WORK" --audit "$WORK/audit.md"
+    run "$SCRIPT" --dead-ip 192.0.2.218 --workspace-root "$WORK" --audit "$WORK/audit.md"
     [ "$status" -eq 1 ]
     [[ "$output" == *"BLOCK"* ]]
 }
@@ -221,15 +221,15 @@ EOF
     cat >"$WORK/spaces/cluster/space.yml" <<'EOF'
 name: cluster
 cluster_hosts:
-  - 23.88.34.218
+  - 192.0.2.218
   - 10.0.0.2
 EOF
     cat >"$WORK/audit.md" <<'EOF'
-dead_ip: 23.88.34.218
+dead_ip: 192.0.2.218
 live_consumers: 0
 assertion: zero live consumers confirmed
 EOF
-    run "$SCRIPT" --dead-ip 23.88.34.218 --workspace-root "$WORK" --audit "$WORK/audit.md"
+    run "$SCRIPT" --dead-ip 192.0.2.218 --workspace-root "$WORK" --audit "$WORK/audit.md"
     [ "$status" -eq 1 ]
     [[ "$output" == *"BLOCK"* ]]
 }

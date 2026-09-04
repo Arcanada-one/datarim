@@ -14,6 +14,18 @@ All notable changes to the Datarim framework are documented here. Format follows
   so a broken producer can no longer masquerade as a genuine empty result;
   mixed corpora remain usable with an explicit `partial` status.
 
+### Security
+
+- **Public fixture hygiene.** The retired infrastructure-address fixtures now
+  use RFC 5737 documentation space, removing four obsolete personal-ID gate
+  suppressions and keeping those files inside the normal shipped-surface scan.
+- **Fleet-detail minimization.** The reusable security workflow preserves its
+  portability evidence with anonymous runner roles instead of publishing the
+  fleet's real hostnames.
+- **Protected-main completeness.** Version consistency, task-ID and regression
+  checks, and all eight Bats shards are required on `main` in addition to the
+  existing SAST and secret-scanning contexts.
+
 ## [2.67.2] — 2026-09-03
 
 ### Changed
