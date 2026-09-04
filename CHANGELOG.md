@@ -4,6 +4,12 @@ All notable changes to the Datarim framework are documented here. Format follows
 
 ## [Unreleased]
 
+## [2.67.4] — 2026-09-04
+
+### Fixed
+
+- Preserve validated `severity-overrides` values in the preflight composite action instead of replacing them with input defaults in the downstream run step; add executable regression coverage for both default and override paths.
+
 ## [2.67.3] — 2026-09-04
 
 ### Fixed

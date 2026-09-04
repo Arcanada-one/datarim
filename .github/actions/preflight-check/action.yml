@@ -100,9 +100,9 @@ runs:
       env:
         PREFLIGHT_TARGET_HOST: ${{ inputs.target-host }}
         PREFLIGHT_SERVICE_NAME: ${{ inputs.service-name }}
-        PREFLIGHT_MIN_FREE_DISK_GB: ${{ inputs.min-free-disk-gb }}
-        PREFLIGHT_DISK_WARN_PERCENT: ${{ inputs.disk-warn-percent }}
-        PREFLIGHT_DISK_FAIL_PERCENT: ${{ inputs.disk-fail-percent }}
+        PREFLIGHT_DEFAULT_MIN_FREE_DISK_GB: ${{ inputs.min-free-disk-gb }}
+        PREFLIGHT_DEFAULT_DISK_WARN_PERCENT: ${{ inputs.disk-warn-percent }}
+        PREFLIGHT_DEFAULT_DISK_FAIL_PERCENT: ${{ inputs.disk-fail-percent }}
         PREFLIGHT_EXTRA_CHECKS: ${{ inputs.extra-checks }}
         PREFLIGHT_OPS_BOT_EMIT: ${{ inputs.ops-bot-emit }}
         PREFLIGHT_OPS_BOT_URL: ${{ inputs.ops-bot-url }}
@@ -110,6 +110,7 @@ runs:
         PREFLIGHT_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         OPSBOT_KEY: ${{ inputs.ops-bot-key != '' && inputs.ops-bot-key || env.OPSBOT_KEY }}
       run: |
+        source "${{ github.action_path }}/../../../dev-tools/preflight-resolve-thresholds.sh"
         "${{ github.action_path }}/../../../dev-tools/preflight-check.sh"
     - name: Upload report
       if: always()
