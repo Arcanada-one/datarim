@@ -682,12 +682,14 @@ EOF
 # T23a/T23b — ops-bot-url allowlist guard (PROD strict, non-PROD WARN)
 # T26-T29   — severity-overrides jq schema gate
 # T30       — ops-bot-key → OPSBOT_KEY env propagation (action.yml literal)
+# T39-T41   — action threshold defaults preserve validated overrides
 #
 # Validation logic lives in dev-tools/preflight-validate-{url,overrides}.sh
 # (extracted from action.yml composite steps for testability).
 
 VAL_URL="$BATS_TEST_DIRNAME/../dev-tools/preflight-validate-url.sh"
 VAL_OVR="$BATS_TEST_DIRNAME/../dev-tools/preflight-validate-overrides.sh"
+RESOLVE_OVR="$BATS_TEST_DIRNAME/../dev-tools/preflight-resolve-thresholds.sh"
 ACTION_YML="$BATS_TEST_DIRNAME/../.github/actions/preflight-check/action.yml"
 
 @test "T23a ops-bot-url allowlist: PROD + canonical accepts (exit 0)" {
@@ -774,4 +776,50 @@ ACTION_YML="$BATS_TEST_DIRNAME/../.github/actions/preflight-check/action.yml"
         GITHUB_OUTPUT="$GITHUB_OUTPUT" \
         bash "$SCRIPT"
     [ "$status" -eq 3 ] && [[ "$output" == *"invalid ops-bot-agent"* ]]
+}
+
+@test "T39 threshold resolver: action inputs provide defaults when no override exists" {
+    run env \
+        PREFLIGHT_DEFAULT_MIN_FREE_DISK_GB=2 \
+        PREFLIGHT_DEFAULT_DISK_WARN_PERCENT=80 \
+        PREFLIGHT_DEFAULT_DISK_FAIL_PERCENT=90 \
+        bash -c 'source "$1"; printf "%s,%s,%s" "$PREFLIGHT_MIN_FREE_DISK_GB" "$PREFLIGHT_DISK_WARN_PERCENT" "$PREFLIGHT_DISK_FAIL_PERCENT"' \
+        bash "$RESOLVE_OVR"
+    [ "$status" -eq 0 ]
+    [ "$output" = "2,80,90" ]
+}
+
+@test "T40 threshold resolver: validated GITHUB_ENV overrides win over action defaults" {
+    run env \
+        PREFLIGHT_DEFAULT_MIN_FREE_DISK_GB=2 \
+        PREFLIGHT_DEFAULT_DISK_WARN_PERCENT=80 \
+        PREFLIGHT_DEFAULT_DISK_FAIL_PERCENT=90 \
+        PREFLIGHT_MIN_FREE_DISK_GB=5 \
+        PREFLIGHT_DISK_WARN_PERCENT=75 \
+        PREFLIGHT_DISK_FAIL_PERCENT=85 \
+        bash -c 'source "$1"; printf "%s,%s,%s" "$PREFLIGHT_MIN_FREE_DISK_GB" "$PREFLIGHT_DISK_WARN_PERCENT" "$PREFLIGHT_DISK_FAIL_PERCENT"' \
+        bash "$RESOLVE_OVR"
+    [ "$status" -eq 0 ]
+    [ "$output" = "5,75,85" ]
+    ! grep -qE '^        PREFLIGHT_(MIN_FREE_DISK_GB|DISK_WARN_PERCENT|DISK_FAIL_PERCENT):' "$ACTION_YML"
+    grep -qF 'source "${{ github.action_path }}/../../../dev-tools/preflight-resolve-thresholds.sh"' "$ACTION_YML"
+}
+
+@test "T41 severity override reaches the resolved preflight environment end to end" {
+    GITHUB_ENV_FILE="$TMPROOT/github_env_e2e"
+    : > "$GITHUB_ENV_FILE"
+    run env \
+        PREFLIGHT_SEVERITY_OVERRIDES='{"min_free_disk_gb":5,"disk_warn_percent":75,"disk_fail_percent":85}' \
+        GITHUB_ENV="$GITHUB_ENV_FILE" \
+        bash "$VAL_OVR"
+    [ "$status" -eq 0 ]
+
+    run env \
+        PREFLIGHT_DEFAULT_MIN_FREE_DISK_GB=2 \
+        PREFLIGHT_DEFAULT_DISK_WARN_PERCENT=80 \
+        PREFLIGHT_DEFAULT_DISK_FAIL_PERCENT=90 \
+        bash -c 'set -a; source "$1"; set +a; source "$2"; printf "%s,%s,%s" "$PREFLIGHT_MIN_FREE_DISK_GB" "$PREFLIGHT_DISK_WARN_PERCENT" "$PREFLIGHT_DISK_FAIL_PERCENT"' \
+        bash "$GITHUB_ENV_FILE" "$RESOLVE_OVR"
+    [ "$status" -eq 0 ]
+    [ "$output" = "5,75,85" ]
 }
