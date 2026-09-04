@@ -14,7 +14,7 @@ Two modes: the default **push-mode** dashboard (all active tasks + backlog + rec
 
 ## Display (thin-index schema)
 1. **All active tasks** — parse one-liner format from `## Active Tasks` in `activeContext.md` (or `## Active` in `tasks.md`):
-   - Regex: `^- ([A-Z]{2,10}-[0-9]{4}) · (status) · (P[0-3]) · (L[1-4]) · (.+) → tasks/\1-task-description\.md$`
+   - Regex: `^- ([A-Z][A-Z0-9]{1,9}-[0-9]{4}) · (status) · (P[0-3]) · (L[1-4]) · (.+) → tasks/\1-task-description\.md$`
    - Render numbered list: `{N}. {ID} · {status} · {P}/{L} · {title}`. Max 80-char title (already capped by schema).
    - If no active tasks → say so explicitly.
 2. **Backlog summary** — count one-liners by status in `backlog.md`:
@@ -56,7 +56,7 @@ rather than re-printing the whole board.
 
 Pull-mode activates when the invocation carries **both**:
 
-1. A `{TASK-ID}` token matching `^[A-Z]{2,10}-[0-9]{4,5}$`, and
+1. A `{TASK-ID}` token matching `^[A-Z][A-Z0-9]{1,9}-[0-9]{4,5}$`, and
 2. A free-form natural-language question (e.g. `what's next?`, `where am I?`,
    `what should I run now?`, `is this ready to archive?`).
 

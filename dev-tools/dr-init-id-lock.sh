@@ -45,8 +45,8 @@ usage() {
 [[ $# -ge 1 ]] || usage
 ACTION="$1"; shift
 
-TASKID_RE='^[A-Z]{2,10}-[0-9]{4}$'
-PREFIX_RE='^[A-Z]{2,10}$'
+TASKID_RE='^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$'
+PREFIX_RE='^[A-Z][A-Z0-9]{1,9}$'
 
 # Marker mtime in epoch seconds (portable: try GNU stat, then BSD stat).
 _marker_mtime() {

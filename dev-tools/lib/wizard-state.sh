@@ -37,7 +37,7 @@
 #     are rejected (preserves one-line-per-record). qid/node-id allowlist
 #     ^[A-Za-z0-9_-]+$; category slug ^[a-z][a-z0-9_-]*$; type/relation/flag
 #     closed enums.
-#   - S5 path: TASK-ID must match ^[A-Z]{2,10}-[0-9]{4}$ (rejects .. / and
+#   - S5 path: TASK-ID must match ^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$ (rejects .. / and
 #     leading dash); target must be a real file, never a symlink; append under
 #     an mkdir-lock (>> is atomic only <= PIPE_BUF).
 #   - S1 redaction: graph.jsonl flows OUTBOUND to Munera/LTM — node labels are
@@ -51,8 +51,8 @@ _wz_valid_id() {  # $1=id → ^[A-Za-z0-9_-]+$
     printf '%s' "$1" | grep -Eq '^[A-Za-z0-9_-]+$'
 }
 
-_wz_valid_taskid() {  # $1=task-id → ^[A-Z]{2,10}-[0-9]{4}$ (also the path gate)
-    printf '%s' "$1" | grep -Eq '^[A-Z]{2,10}-[0-9]{4}$'
+_wz_valid_taskid() {  # $1=task-id → ^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$ (also the path gate)
+    printf '%s' "$1" | grep -Eq '^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$'
 }
 
 _wz_valid_slug() {  # $1=category → ^[a-z][a-z0-9_-]*$

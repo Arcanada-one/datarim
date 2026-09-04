@@ -40,7 +40,7 @@ redefine them inside Doctor or a downstream validator.
 `tasks.md` and `activeContext.md` use `ONELINER_RE`:
 
 ```
-^- ([A-Z]{2,10}-[0-9]{4}) · (STATUS) · P[0-3] · L[1-4] · (.+) → tasks/\1-(task-description|init-task)\.md$
+^- ([A-Z][A-Z0-9]{1,9}-[0-9]{4}) · (STATUS) · P[0-3] · L[1-4] · (.+) → tasks/\1-(task-description|init-task)\.md$
 ```
 
 `ONELINER_RE` accepts `in_progress|blocked|not_started|pending|blocked-pending|cancelled`
@@ -112,7 +112,7 @@ The legacy `## Последние завершённые` section is **abolished
 
 ```yaml
 ---
-id: <TASK-ID>                 # regex ^[A-Z]{2,10}-[0-9]{4}$
+id: <TASK-ID>                 # regex ^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$
 title: <string>               # ≤ 80 chars, single line
 status: <enum>                # in_progress|blocked|not_started|pending|blocked-pending|cancelled
 priority: <enum>              # P0|P1|P2|P3
@@ -169,7 +169,7 @@ Applied by `scripts/datarim-doctor.sh --fix`. Single transactional sequence guar
 
 ### Pass 1 — Description files (build cache)
 
-1. Walk `datarim/tasks.md` and `datarim/backlog.md` for legacy block-style headings: `^### ([A-Z]{2,10}-[0-9]{4}(?:-[A-Za-z0-9]+)*):?\s*(.*)$`. Trailing colon is optional; compound IDs (e.g. `PREFIX-NNNN-FOLLOWUP-slug`) accepted.
+1. Walk `datarim/tasks.md` and `datarim/backlog.md` for legacy block-style headings: `^### ([A-Z][A-Z0-9]{1,9}-[0-9]{4}(?:-[A-Za-z0-9]+)*):?\s*(.*)$`. Trailing colon is optional; compound IDs (e.g. `PREFIX-NNNN-FOLLOWUP-slug`) accepted.
 2. For each legacy block, extract the body until the next `### ID:` heading or section break.
 3. Parse known fields (case-insensitive, leading `- ` or `* ` allowed):
     - **Status / Status:** → frontmatter `status`
@@ -226,7 +226,7 @@ Task IDs may be **compound** — `<PREFIX-NNNN>`, `<PREFIX-NNNN>-<SUFFIX>`, `<PR
 
 Per bullet:
 
-1. Validate task ID matches `^[A-Z]{2,10}-[0-9]{4}(-[A-Za-z0-9]+)*$`. Invalid → preserve in operational file with manual-migration marker.
+1. Validate task ID matches `^[A-Z][A-Z0-9]{1,9}-[0-9]{4}(-[A-Za-z0-9]+)*$`. Invalid → preserve in operational file with manual-migration marker.
 2. **Explicit-pointer dispatch:** if bullet body contains `→ documentation/archive/{path}.md`, prefer that path as canonical; otherwise fall back to `prefix_to_area()` (prefix→area mapping) → `documentation/archive/{area}/archive-{ID}.md`.
 3. Path-traversal safety: canonical path MUST stay under `documentation/archive/`; violation rejects explicit pointer and falls back to `prefix_to_area`. If fallback also escapes → preserve, warn.
 

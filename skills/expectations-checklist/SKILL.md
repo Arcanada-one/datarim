@@ -59,7 +59,7 @@ Required YAML frontmatter (closed schema):
 
 ```yaml
 ---
-task_id: <TASK-ID>          # ^[A-Z]{2,10}-[0-9]{4}$ — required
+task_id: <TASK-ID>          # ^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$ — required
 artifact: expectations      # literal — required
 schema_version: 4           # integer — required (current: 4; legacy: 1-3)
 captured_at: <YYYY-MM-DD>   # date of first write — required

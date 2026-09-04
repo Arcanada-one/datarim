@@ -21,7 +21,7 @@ target_aal: 2
 /dr-auto "<free-text brief>" # Bootstrap a brand-new task (runs /dr-init first).
 ```
 
-`TASK-ID` is matched by the pattern `^[A-Z]{2,10}-[0-9]{4}$` — two to ten upper-case letters, a hyphen, then four digits. Anything else is treated as a free-text brief for a new task.
+`TASK-ID` is matched by the pattern `^[A-Z][A-Z0-9]{1,9}-[0-9]{4}$` — an upper-case letter followed by one to nine upper-case letters or digits, a hyphen, then four digits. Anything else is treated as a free-text brief for a new task.
 
 ## What happens, step by step
 
