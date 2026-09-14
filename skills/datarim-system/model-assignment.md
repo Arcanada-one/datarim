@@ -69,17 +69,34 @@ the user's project; it is a separate axis and is not duplicated here.
 
 ### Current Assignments
 
-> Snapshot of explicit-model assignments. Refresh on changes via `/dr-optimize` or routine reflection. The lists below are alphabetical for diff-stability; canonical source remains the `model:` field in each artifact.
+> Snapshot of the `model:` field as it stands on the surface, measured rather
+> than maintained by hand. Canonical source remains the field in each artifact;
+> re-measure with the commands below rather than editing the counts.
 
-**Agents (17):**
-- `opus`: architect, planner, reviewer, security, skill-creator, strategist
-- `sonnet`: code-simplifier, compliance, developer, devops, editor, librarian, optimizer, researcher, sre, writer
-- `haiku`: tester
+**Not one artifact names a concrete model.** Every `model:` field on the
+instruction surface is `inherit`, which is what the vendor-default rule above
+prescribes: the tier carries the capability intent (`metadata.model_tier`,
+present on 19 artifacts) and the adapter stays silent about the model, so
+whatever the operator's session is already talking to answers.
 
-**Task-skills (14, explicit `model`):**
-- `opus`: consilium, evolution
-- `sonnet`: compliance, discovery, dream, factcheck, frontend-ui, humanize, infra-automation, research-workflow, visual-maps, writing
-- `haiku`: publishing, utilities
+| Surface | Count | `model:` |
+|---|---|---|
+| Agents | 19 | `inherit` — all 19 |
+| Skills | 20 | `inherit` |
+| Skills | 53 | no `model:` field (inherit from the caller by absence) |
 
-**Reference skills (no `model` field — inherit from caller):**
-- ai-quality, cta-format, datarim-doctor, datarim-system, file-sync-config, performance, project-init, reflecting, release-verify, security, security-baseline, tech-stack, testing
+Skills carrying `model: inherit` explicitly: autonomous-mode, compliance,
+consilium, context-window-self-clearing, discovery, dream, evolution, factcheck,
+fleet, frontend-ui, humanize, image-prompting, immutability, infra-automation,
+publishing, research-workflow, utilities, visual-maps, wizard, writing.
+
+Re-measure:
+
+```sh
+for f in agents/*.md; do rg -m1 '^model:' "$f"; done | sort | uniq -c
+for f in skills/*/SKILL.md; do rg -m1 '^model:' "$f"; done | sort | uniq -c
+```
+
+`check-skill-frontmatter.sh` accepts `inherit|sonnet|opus|haiku` or a full model
+ID, so a concrete value here passes validation and is still refused by this
+policy. What keeps the surface uniform is this rule, not the validator.
