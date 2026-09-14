@@ -322,3 +322,41 @@ keys:
     category: M
     mirror: none
     status: live
+
+  # ── template surface — M — generation provenance ────────────────────────────
+  # Which model produced an artefact, and when. Descriptive only: it records
+  # what happened, it never selects anything. Deliberately NOT the `model:` key
+  # above — that one means "which model to RUN" on the instruction surface, and
+  # a concrete model id there is a hard validation failure. Keeping provenance
+  # under separate keys lets an artefact say "deepseek-v4-pro wrote this on
+  # 2026-09-14" without colliding with the run-time selector.
+  #
+  # The point is comparability: when a cheaper tier is suspected of producing
+  # weaker artefacts, these fields are what makes a re-run on a stronger model
+  # an A/B comparison rather than an impression.
+  - key: generated_by
+    surface: template
+    category: M
+    mirror: none
+    status: live
+    note: >-
+      Concrete model id that produced the artefact body, verbatim as the
+      provider names it (e.g. deepseek-v4-pro, deepseek-flash). Not a tier —
+      a tier is an intent and can be re-pointed later, which would silently
+      rewrite history. Pair with generated_at; add generated_via when the call
+      went through a transport worth naming.
+  - key: generated_at
+    surface: template
+    category: M
+    mirror: none
+    status: live
+    note: "RFC 3339 timestamp of the generating call. Sibling of captured_at, which records observation rather than generation."
+  - key: generated_via
+    surface: template
+    category: M
+    mirror: none
+    status: live
+    note: >-
+      Optional transport/route of the generating call (command-line tool, service route,
+      delegation tool). Records how the model was reached, for the cases where
+      the same model behaves differently through different routes.
