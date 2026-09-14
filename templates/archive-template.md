@@ -8,6 +8,9 @@ type: {framework|infra|content|bugfix|...}
 project: {Datarim|Arcanada|...}
 related: []
 archive_doc: documentation/archive/{subdir}/archive-{TASK-ID}.md
+generated_by: {concrete model id that wrote this body, e.g. deepseek-v4-pro — omit the block entirely if a human wrote it}
+generated_at: {YYYY-MM-DDThh:mm:ssZ}
+generated_via: {optional — transport, e.g. an API endpoint or delegation tool}
 verification_outcome:
   caught_by_verify: 0
   missed_by_verify: 0
@@ -16,6 +19,19 @@ verification_outcome:
   dogfood_window: "{window-id}"
 ---
 <!--
+generation-provenance field semantics:
+- generated_by: the concrete model id, verbatim as the provider names it — not a tier.
+  A tier is an intent and can be re-pointed later, which would silently rewrite what
+  this artefact claims about its own past. Drop all three keys when a human wrote the body.
+- generated_at: RFC 3339 / ISO 8601 timestamp of the generating call.
+- generated_via: optional route (API endpoint, CLI, delegation tool) for the cases where
+  the same model behaves differently through different transports.
+- Why record it at all: to make "the cheap tier writes weaker artefacts" a measurable
+  claim. Without the model on the artefact, a re-run on a stronger model is an
+  impression; with it, the two are comparable.
+- This is deliberately NOT the `model:` key used on the instruction surface — that one
+  selects which model to RUN, and a concrete id there is a hard validation failure.
+
 verification_outcome field semantics:
 - caught_by_verify: integer count of high/medium gaps caught BEFORE /dr-archive
 - missed_by_verify: integer count of gaps that escaped /dr-verify and required post-archive followup
