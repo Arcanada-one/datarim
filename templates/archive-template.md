@@ -10,7 +10,7 @@ related: []
 archive_doc: documentation/archive/{subdir}/archive-{TASK-ID}.md
 generated_by: {concrete model id that wrote this body, e.g. deepseek-v4-pro — omit the block entirely if a human wrote it}
 generated_at: {YYYY-MM-DDThh:mm:ssZ}
-generated_via: {optional — transport, e.g. an API endpoint or delegation tool}
+generated_via: {optional — how the model was reached, e.g. a service route or a delegation tool}
 verification_outcome:
   caught_by_verify: 0
   missed_by_verify: 0
@@ -24,7 +24,7 @@ generation-provenance field semantics:
   A tier is an intent and can be re-pointed later, which would silently rewrite what
   this artefact claims about its own past. Drop all three keys when a human wrote the body.
 - generated_at: RFC 3339 / ISO 8601 timestamp of the generating call.
-- generated_via: optional route (API endpoint, CLI, delegation tool) for the cases where
+- generated_via: optional route (service address, command-line tool, delegation tool) for the cases where
   the same model behaves differently through different transports.
 - Why record it at all: to make "the cheap tier writes weaker artefacts" a measurable
   claim. Without the model on the artefact, a re-run on a stronger model is an

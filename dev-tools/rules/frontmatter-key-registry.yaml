@@ -357,6 +357,6 @@ keys:
     mirror: none
     status: live
     note: >-
-      Optional transport/route of the generating call (CLI, API endpoint,
+      Optional transport/route of the generating call (command-line tool, service route,
       delegation tool). Records how the model was reached, for the cases where
       the same model behaves differently through different routes.
