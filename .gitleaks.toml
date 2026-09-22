@@ -22,6 +22,7 @@ paths = [
   # scans `--log-opts="--all"`, so every ref (tags included) stays in scope and
   # any PR inherits the finding while those tags exist.
   '''tests/fixtures/fleet-evolution/audit/cli-audit-fixture\.jsonl''',
+
 ]
 # Belt-and-suspenders: the specific synthetic key literal used in fixtures.
 regexes = [

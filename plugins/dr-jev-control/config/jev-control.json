@@ -1,0 +1,90 @@
+{
+  "api": {
+    "base_url": "https://api.typesafe.ai/v1/systemone",
+    "model": "jev-latest",
+    "timeout_seconds": 15,
+    "retries": 2,
+    "fail_mode": "open",
+    "connect_timeout_seconds": 5,
+    "transport": "auto",
+    "hook_timeout_seconds": 4,
+    "hook_retries": 0
+  },
+  "routing": {
+    "enabled": true,
+    "catalog_shortlist": 12,
+    "max_state_chars": 18000,
+    "models": {
+      "haiku": "haiku",
+      "sonnet": "sonnet",
+      "opus": "opus"
+    },
+    "default_model": "sonnet",
+    "risk_thresholds": {
+      "advisory": 0.55,
+      "require_review": 0.78,
+      "deny_autonomous": 0.94
+    },
+    "default_mode": "balanced",
+    "component_selection": {
+      "multi_select_max": 4,
+      "apply_threshold": 0.70,
+      "mention_threshold": 0.45,
+      "candidate_probe_limit": 8
+    },
+    "modes": {
+      "economy": {
+        "description": "Minimize Claude cost and fan-out; prefer Haiku, allow Sonnet when needed, avoid Opus unless explicitly overridden.",
+        "model_policy": "cost_first",
+        "max_agents": 1,
+        "context_budget": "small",
+        "validation": "targeted"
+      },
+      "balanced": {
+        "description": "Default. Balance cost, reliability, context, and validation for normal engineering work.",
+        "model_policy": "balanced",
+        "max_agents": 3,
+        "context_budget": "medium",
+        "validation": "risk_based"
+      },
+      "quality": {
+        "description": "Prioritize solution quality; allow stronger models, broader context, parallel agents, and stronger validation.",
+        "model_policy": "quality_first",
+        "max_agents": 6,
+        "context_budget": "large",
+        "validation": "strong"
+      }
+    }
+  },
+  "live": {
+    "enabled": true,
+    "escalate_threshold": 0.75,
+    "deescalate_threshold": 0.85,
+    "min_tokens_between_switches": 25000,
+    "min_seconds_between_switches": 90,
+    "max_switches_per_session": 6,
+    "turns_between_reroutes": 2,
+    "effort_switching": true,
+    "model_ceiling": {
+      "economy": "sonnet",
+      "balanced": "opus",
+      "quality": "opus"
+    },
+    "model_floor": {
+      "economy": "haiku",
+      "balanced": "haiku",
+      "quality": "sonnet"
+    }
+  },
+  "hooks": {
+    "prompt_router": true,
+    "pretool_risk": true,
+    "posttool_validation": true,
+    "enforce_jev_denials": false
+  },
+  "telemetry": {
+    "enabled": true,
+    "path": "~/.datarim/jev/ledger.jsonl",
+    "store_prompt_text": false
+  }
+}

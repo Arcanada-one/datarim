@@ -10,7 +10,7 @@ parent_init_task: {TASK-ID}-init-task.md
 parent_prd: ../prd/PRD-{TASK-ID}.md
 ---
 
-<!-- allow-non-ascii-block: canonical expectations schema field and section names plus their Russian placeholder prose — cited verbatim so check-expectations-checklist.sh can string-match them, and an operator-facing hard exclusion under CLAUDE.md § Artifact Language Policy -->
+<!-- allow-non-ascii-block: canonical expectations schema field and section names plus their Russian placeholder prose — cited verbatim so check-expectations-checklist.sh can string-match them, and an operator-facing hard exclusion under AGENTS.md § Artifact Language Policy -->
 
 # {TASK-ID} — Ожидания оператора
 
@@ -24,7 +24,7 @@ parent_prd: ../prd/PRD-{TASK-ID}.md
 > НЕ вложена под `#### Текущий статус` (4 пробела) — иначе валидатор её не видит и держит BLOCKED.
 >
 > Контракт схемы: `skills/expectations-checklist/SKILL.md`.
-> Валидатор: `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --task {TASK-ID}`.
+> Валидатор: `"${DATARIM_RUNTIME:?}/dev-tools/check-expectations-checklist.sh" --task {TASK-ID}`.
 
 ## Ожидания
 

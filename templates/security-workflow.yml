@@ -1,0 +1,16 @@
+# Copy to .github/workflows/security-audit.yml in the consumer repository.
+# Select the actual stack and pin both refs to the same reviewed Datarim commit.
+name: security-audit
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  audit:
+    uses: Arcanada-one/datarim/.github/workflows/reusable-security-audit.yml@29f28486f2206098e5a9a571477c42fc5b7324bf
+    with:
+      stack: framework
+      datarim_ref: 29f28486f2206098e5a9a571477c42fc5b7324bf
+      runner_labels: '["ubuntu-latest"]'

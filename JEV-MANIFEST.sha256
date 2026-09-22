@@ -1,0 +1,29 @@
+# Integrity manifest for the dr-jev-control plugin (source files only).
+# Regenerate: see the command in documentation/how-to/claude-code-jev-control-plane.md
+# Verify: shasum -a 256 -c JEV-MANIFEST.sha256
+21eda5e0a9a2cc1d796cd0a10f90a8401f797e4e45a6dcb6d6a81ee2e54ed70d  plugins/dr-jev-control/config/jev-control.json
+5daefdd15347a0fa419911ec1909c9d5439e6d99fa068be0ff6b067a1049e4df  plugins/dr-jev-control/plugin.yaml
+dd7008f6cb99c8f849ffa20acc8ce6c1f1bec3420f539ee7ed13c078ecba342c  plugins/dr-jev-control/README.md
+8c03fc0437a760867fc5754921e333d02654cf94caa6f124c9bb1b19a6ffa91e  plugins/dr-jev-control/scripts/catalog.py
+3d06dbf880b6ab23f8d1d85aff6661eda8b8fb18be2b739499c72c1e30599ba7  plugins/dr-jev-control/scripts/cli_report.py
+8bddc9fc0c436429546e0d36f3de195b4385c35485fac790f1e31e729dae5230  plugins/dr-jev-control/scripts/components.py
+db87f25ee02988ccbc057c4655297194d7b143f5756c6099b3fe3a7433efef8e  plugins/dr-jev-control/scripts/doctor_api.py
+81fa6fce3edc971f2ce6d9e3588ca12fdc11b8752c818d83a696113c541fdc5b  plugins/dr-jev-control/scripts/hook_post_tool.py
+ad47a34eeadb6cc0499ce4fafb61e5eaf76388b6bc414d29f47c775212edfb8e  plugins/dr-jev-control/scripts/hook_pre_tool.py
+e951e8c30bc331248a3feae7f17cdb33ef5947d479b4ed7432827622dc4fbd34  plugins/dr-jev-control/scripts/hook_stop.py
+345a29ebc348423993226e9eaacbbe2f0b1c0ff72a40e1bafcafee4295633405  plugins/dr-jev-control/scripts/hook_user_prompt.py
+f5a8935ee76e3cdf222778697769f71b4535d7dd2e242cafe28cd627348b7977  plugins/dr-jev-control/scripts/install.py
+3ecf6b4bf813cd5072d9d966384f41300f07d42ba42e9ad11ee8a534f7ac393b  plugins/dr-jev-control/scripts/jev_client.py
+31e70b15f52bcaf0fe2cd6e1f3c4da4baa2806cf29fc366b63075c288da90a27  plugins/dr-jev-control/scripts/ledger.py
+7aee1416d40d06ab6ec16a0a83b4550c8b3326c0ba2315512fb93a8496d643dc  plugins/dr-jev-control/scripts/live_policy.py
+cac2e5d1b90874c423f52406ae0a94a811d8623cd5de66c2ec3ae27060ef2ee8  plugins/dr-jev-control/scripts/live_supervisor.py
+79948b5be83ba7276429247013c54fa6b66e2e622c9893cb4a2769d8b8d9c2ff  plugins/dr-jev-control/scripts/route.py
+b358029f7d68cfb557019385bfb4561b51ef952a3370a7ce0c16008e9344969c  plugins/dr-jev-control/scripts/runtimes.py
+3a89e76e93cea7fe712a72d1eafee5b42cfd3d0dcd5c2c9ed9dc4f0030a28212  plugins/dr-jev-control/scripts/safety_floor.py
+015033c2452caf6ecd7d8c8351cd8dc9e110a7d1739f1ef627054df2e4b97f5f  plugins/dr-jev-control/tests/fake_codex.py
+933fa37beba5dbdaa07b079baa73143ee8f0a82ae2e51ebac09eaae138f2ede0  plugins/dr-jev-control/tests/test_live.py
+b52bd3b762f722ff21fbc25397d5fe1067b13ef501b9464283a1b593760c6725  plugins/dr-jev-control/tests/test_local.py
+a3ab4440b4a078429f975ca447741c474fadc6aa769ef97eaf089075aa0363b1  plugins/dr-jev-control/tests/test_runtimes.py
+a58cc2b648a8c62aa52b43169c82d52f893b1b5bd09061aeadf2d7030906335e  plugins/dr-jev-control/tests/test_supervisor_e2e.py
+cd5f695b9d031701c6da1c1827968c5c46def37ee11f16796105b22aae1f57fd  plugins/dr-jev-control/bin/dr-jev
+79b8a513e90b9b0cbdd21b677409702e0a1d65372e34d061c007f527e4666637  plugins/dr-jev-control/bin/dr-claude-jev

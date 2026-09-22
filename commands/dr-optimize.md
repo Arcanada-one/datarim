@@ -8,7 +8,7 @@ effort: high
 # /dr-optimize — Framework Optimization
 
 **Role**: Optimizer Agent
-**Source**: `$HOME/.claude/agents/optimizer.md`
+**Source**: `${DATARIM_RUNTIME:?}/agents/optimizer.md`
 
 ## When to Run
 
@@ -21,16 +21,16 @@ effort: high
 ## Instructions
 
 
-**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header.
-1.  **LOAD**: Read `$HOME/.claude/agents/optimizer.md` and adopt that persona.
+**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md` § Stage Header.
+1.  **LOAD**: Read `${DATARIM_RUNTIME:?}/agents/optimizer.md` and adopt that persona.
 2.  **LOAD SKILLS**:
-    - `$HOME/.claude/skills/datarim-system/SKILL.md` (Always)
-    - `$HOME/.claude/skills/evolution/SKILL.md` (Evolution proposal format and approval gate)
+    - `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` (Always)
+    - `${DATARIM_RUNTIME:?}/skills/evolution/SKILL.md` (Evolution proposal format and approval gate)
 3.  **DETERMINE SCOPE**: What to audit?
     - If user said "project" → scan project `.claude/` directory
-    - If user said "global" or "user" → scan `$HOME/.claude/`
+    - If user said "global" or "user" → scan `${DATARIM_RUNTIME:?}/`
     - If user said "datarim" or "framework" → scan the Datarim source repo
-    - Default: scan both project `.claude/` and `$HOME/.claude/`, report separately
+    - Default: scan both project `.claude/` and `${DATARIM_RUNTIME:?}/`, report separately
 4.  **FULL AUDIT**: For the target scope, build a complete inventory:
 
     ```
@@ -68,7 +68,7 @@ effort: high
     | Duplicate coverage | >70% overlap or repeated instruction blocks | Propose `merge-skills` / rewrite |
     | Stale description | Description != content | Propose `fix-description` |
     | Broken reference | Referenced but missing | Propose `fix-references` |
-    | Doc count mismatch | CLAUDE.md / README.md / help docs != disk | Propose `sync-docs` |
+    | Doc count mismatch | AGENTS.md / README.md / help docs != disk | Propose `sync-docs` |
     | Description budget | Any description `>160` chars or total `>8K` chars | Propose `fix-description` |
     | Selective-loading candidate | Monolithic file with mixed subdomains | Propose split into entry + supporting files |
     | Low-value provenance comments | Task-origin or migration notes that do not affect usage/policy | Propose rewrite cleanup |
@@ -122,10 +122,10 @@ effort: high
     - Ask: "Which proposals should I apply? (all / none / comma-separated numbers)"
     - Wait for explicit response
     - Apply ONLY approved changes
-    - **Stack-agnostic gate (MANDATORY before each write to `$HOME/.claude/{skills,agents,commands,templates}/`):** load `$HOME/.claude/skills/evolution/stack-agnostic-gate.md` and run gate over each proposal's text (script form: `scripts/stack-agnostic-gate.sh <target>`). FAIL → reject the proposal silently for now and surface to user as «stack-specific — relocate to project's CLAUDE.md or reword stack-neutral».
+    - **Stack-agnostic gate (MANDATORY before each write to `${DATARIM_RUNTIME:?}/{skills,agents,commands,templates}/`):** load `${DATARIM_RUNTIME:?}/skills/evolution/stack-agnostic-gate.md` and run gate over each proposal's text (script form: `scripts/stack-agnostic-gate.sh <target>`). FAIL → reject the proposal silently for now and surface to user as «stack-specific — relocate to project's AGENTS.md or reword stack-neutral».
 
 9.  **APPLY AND SYNC**: After applying changes:
-    - Update CLAUDE.md if counts, behavior descriptions, or references became stale
+    - Update AGENTS.md if counts, behavior descriptions, or references became stale
     - Update README.md if install flow, counts, or structure documentation became stale
     - Update dr-help.md if command behavior or command lists changed
     - Log all changes in `datarim/history/evolution-log.md`
@@ -149,7 +149,7 @@ effort: high
 
 ## Next Steps (CTA)
 
-After optimize-pass, the optimizer agent MUST emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
+After optimize-pass, the optimizer agent MUST emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-optimize`:**
 

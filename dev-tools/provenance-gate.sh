@@ -47,6 +47,8 @@ EXPECTED_SHA=""
 TASK=""
 STAGE=""
 ALLOW_DIRTY=0
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+. "${SCRIPT_DIR}/../scripts/lib/schema-regex.sh"
 
 usage_die() {
     printf 'provenance-gate: %s\n' "$*" >&2
@@ -79,7 +81,7 @@ done
 [[ -d "$ROOT" ]] || usage_die "root not found: $ROOT"
 
 if [[ -n "$TASK" ]]; then
-    [[ "$TASK" =~ ^[A-Z]+-[0-9]+(-[A-Za-z0-9]+)*$ ]] || usage_die "invalid task id: $TASK"
+    printf '%s' "$TASK" | grep -qE "$TASK_ID_RE" || usage_die "invalid task id: $TASK"
     [[ -n "$EVIDENCE_FILE" ]] || EVIDENCE_FILE="$ROOT/datarim/provenance/${TASK}.sha"
 fi
 

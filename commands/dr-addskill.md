@@ -9,16 +9,16 @@ effort: high
 # /dr-addskill — Create or Update Skills, Agents, Commands
 
 **Role**: Skill Creator Agent
-**Source**: `$HOME/.claude/agents/skill-creator.md`
+**Source**: `${DATARIM_RUNTIME:?}/agents/skill-creator.md`
 
 ## Instructions
 
 
-**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header.
-1.  **LOAD**: Read `$HOME/.claude/agents/skill-creator.md` and adopt that persona.
+**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md` § Stage Header.
+1.  **LOAD**: Read `${DATARIM_RUNTIME:?}/agents/skill-creator.md` and adopt that persona.
 2.  **LOAD SKILLS**:
-    - `$HOME/.claude/skills/datarim-system/SKILL.md` (Always)
-    - `$HOME/.claude/skills/evolution/SKILL.md` (Framework modification rules)
+    - `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` (Always)
+    - `${DATARIM_RUNTIME:?}/skills/evolution/SKILL.md` (Framework modification rules)
 3.  **PARSE REQUEST**: Analyze `$ARGUMENTS` to understand:
     - What domain or capability is needed?
     - What concrete actions should the new skill/agent perform?
@@ -33,7 +33,7 @@ effort: high
     - Check if the user's need is already covered (fully or partially)
     - Determine: Create new? Update existing? Extend + supplement?
 6.  **DETERMINE SCOPE** (where to install):
-    - If user said "global" / "user-level" / "for all projects" → `$HOME/.claude/`
+    - If user said "global" / "user-level" / "for all projects" → `${DATARIM_RUNTIME:?}/`
     - If project has `.claude/skills/` with at least one `.md` file → project `.claude/`
     - If project has `.claude/` directory → project `.claude/`
     - Otherwise → ask the user
@@ -43,7 +43,7 @@ effort: high
     - Commands: Frontmatter (name, description, argument-hint) + Instructions + Next Steps
     - Keep descriptions under 250 characters for reliable skill triggering
     - Refer to existing skills in Context Loading where relevant
-    - **Determine model per `$HOME/.claude/skills/datarim-system/SKILL.md` § Model Assignment Convention:**
+    - **Determine model per `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` § Model Assignment Convention:**
       - Agents: REQUIRED (opus / sonnet / haiku)
       - Task skills: REQUIRED (opus / sonnet / haiku)
       - Reference skills (rules/patterns only): omit `model` (inherits from caller)
@@ -75,11 +75,11 @@ effort: high
     For pure-reference skills (rules / constants / cross-reference indexes) the RED step is replaced by a retrieval gap test: ask a fresh agent the questions the skill is meant to answer; record gaps; write the skill to fill those gaps.
 
 9.  **APPLY**: After approval:
-    - **Stack-agnostic gate (MANDATORY when target scope is `$HOME/.claude/{skills,agents,commands,templates}/`):** load `$HOME/.claude/skills/evolution/stack-agnostic-gate.md` and run gate over each new/updated artifact's full text (script form: `scripts/stack-agnostic-gate.sh <target>`). FAIL → do NOT write; return to user with the matched keywords and either (a) reword stack-neutral, or (b) install into a project-scoped `.claude/` dir instead.
+    - **Stack-agnostic gate (MANDATORY when target scope is `${DATARIM_RUNTIME:?}/{skills,agents,commands,templates}/`):** load `${DATARIM_RUNTIME:?}/skills/evolution/stack-agnostic-gate.md` and run gate over each new/updated artifact's full text (script form: `scripts/stack-agnostic-gate.sh <target>`). FAIL → do NOT write; return to user with the matched keywords and either (a) reword stack-neutral, or (b) install into a project-scoped `.claude/` dir instead.
     - Create necessary directories (`mkdir -p .claude/skills .claude/agents .claude/commands`)
     - Write the files
-    - If updating Datarim source repo, also update CLAUDE.md counts and tables
-    - **All-occurrences discipline (count sync):** when bumping any count (skills/agents/commands, "N with supporting fragment directories", etc.), `grep` the WHOLE of each touched file for the OLD value first and update every hit — a count usually appears in more than one place (a headline plus a secondary mention). Verify cross-file agreement (`CLAUDE.md` ↔ `README.md` ↔ `documentation/reference/*.md` ↔ site `config.php`/counts) before committing; a single stale straggler is the most common registry-sync regression.
+    - If updating Datarim source repo, also update AGENTS.md counts and tables
+    - **All-occurrences discipline (count sync):** when bumping any count (skills/agents/commands, "N with supporting fragment directories", etc.), `grep` the WHOLE of each touched file for the OLD value first and update every hit — a count usually appears in more than one place (a headline plus a secondary mention). Verify cross-file agreement (`AGENTS.md` ↔ `README.md` ↔ `documentation/reference/*.md` ↔ site `config.php`/counts) before committing; a single stale straggler is the most common registry-sync regression.
 10. **CONFIRM**: Tell the user:
     - What was installed and where
     - How to use it (slash command, auto-trigger, or both)
@@ -89,7 +89,7 @@ effort: high
 
 | Condition | Install to |
 |-----------|-----------|
-| User said "global" or "user-level" | `$HOME/.claude/` |
+| User said "global" or "user-level" | `${DATARIM_RUNTIME:?}/` |
 | Project has `.claude/skills/*.md` | Project `.claude/` |
 | Project has `.claude/` dir | Project `.claude/` |
 | No project `.claude/` | Ask user, default to project `.claude/` |
@@ -105,12 +105,12 @@ effort: high
 
 ## Next Steps (CTA)
 
-After skill creation, the skill-creator agent MUST emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
+After skill creation, the skill-creator agent MUST emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-addskill`:**
 
 - New skill needs testing → primary "ask user to invoke and review output" + alternative `/dr-qa {TASK-ID}` if part of TUNE task
-- Updating Datarim source → primary "update counts in CLAUDE.md, README.md, dr-help.md" + reminder to `git diff` and commit in the canonical repo
+- Updating Datarim source → primary "update counts in AGENTS.md, README.md, dr-help.md" + reminder to `git diff` and commit in the canonical repo
 - Need more domain expertise → alternative `/dr-prd {TASK-ID}` (research-phase) before iterating
 - Always include `/dr-status` as escape hatch
 

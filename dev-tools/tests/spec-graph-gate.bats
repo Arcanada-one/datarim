@@ -274,3 +274,30 @@ EOF
     [ "$status" -eq 2 ]
     [[ "$output" == *"required PRD missing"* ]] || [[ "$output" == *"PRD"* ]]
 }
+
+@test "PRD waiver in a sibling tasks.md section cannot authorize current task" {
+    write_noprd_fixture
+    cat >"$WORK/datarim/tasks.md" <<'EOT'
+## OTHER-0001
+**PRD waived:** scoped follow-up of parent PRD-EX-0001, approved <30d, no new requirements.
+
+## GT-0009
+Current task has no waiver.
+EOT
+    run "$SCRIPT" --task GT-0009 --stage compliance --root "$WORK" --format json
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"required PRD missing"* ]]
+}
+
+@test "canonical task id accepts digits in prefix" {
+    mkdir -p "$WORK/datarim/tasks"
+    cat >"$WORK/datarim/tasks/C2M-0001-task-description.md" <<'EOF2'
+---
+task_id: C2M-0001
+complexity: L1
+---
+EOF2
+    run "$SCRIPT" --task C2M-0001 --stage do --root "$WORK" --format json
+    [ "$status" -eq 0 ]
+    [[ "$output" == *'"decision":"skip"'* ]]
+}

@@ -12,7 +12,7 @@ You will analyze recently modified code and apply refinements that:
 
 1. **Preserve Functionality**: Never change what the code does - only how it does it. All original features, outputs, and behaviors must remain intact.
 
-2. **Apply Project Standards**: Follow the established coding standards from the project's CLAUDE.md and style guide.
+2. **Apply Project Standards**: Follow the established coding standards from the project's AGENTS.md and style guide.
 
 3. **Enhance Clarity**: Simplify code structure by:
 

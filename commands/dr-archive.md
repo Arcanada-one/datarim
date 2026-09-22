@@ -10,11 +10,11 @@ description: Archive completed task with comprehensive documentation and Datarim
 Complete and archive current task.
 
 ## Path Resolution
-**RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system/SKILL.md` § Path Resolution Rule.
+**RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` § Path Resolution Rule.
 
 ### EXECUTION HOST
 
-1. Source the resolver: `source "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/lib/execution-host.sh"`.
+1. Source the resolver: `source "${DATARIM_RUNTIME:?}/dev-tools/lib/execution-host.sh"`.
 2. Call `eh_decision <workspace-root> <execution-hosts-map-path>` (default map: `~/.claude/local/config/execution-hosts.yml`).
 3. On **off-host** (exit code 10), AUTO-DISPATCH -- do NOT stop and hand the command back for the operator to type. The `required_host` binding IS the operator's standing authorization to run there, and dispatch (spawning a remote tmux session) is a reversible transport action; every irreversible step (prod deploy, secret rotation, force-push, public message) stays hard-gated on the remote agent downstream. Contract:
    a. **RUN vs INSPECT.** Auto-dispatch only when intent is to RUN the task (operator asked to run/execute/go, autonomous-mode marker active, or reached via `/dr-auto`). On INSPECT/read-only intent, do NOT dispatch: proceed locally read-only and surface the dispatch directive as information, not a blocking question.
@@ -31,15 +31,15 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
 ## Steps
 
 
-**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header.
-0. **TASK RESOLUTION**: Apply Task Resolution Rule from `$HOME/.claude/skills/datarim-system/SKILL.md` § Task Resolution Rule. Resolve which task is being archived (from argument or disambiguation). Use the resolved task ID for all subsequent steps.
+**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md` § Stage Header.
+0. **TASK RESOLUTION**: Apply Task Resolution Rule from `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` § Task Resolution Rule. Resolve which task is being archived (from argument or disambiguation). Use the resolved task ID for all subsequent steps.
 
 0.025. **ARCHIVE AUTO-COMMIT OPTION RESOLUTION** (default-off):
    - `--auto-commit` explicitly requests the local archive-record commit described in Steps 0.49 and 7.5. Absence of the flag leaves the capability disabled.
    - `--no-auto-commit` explicitly disables it. If both flags are present, the negative override wins. Record the resolved state as `AUTO_COMMIT_REQUESTED=true|false`; do not infer opt-in from autonomous mode, environment variables, prior tasks, or repository configuration.
    - This option changes only whether the completed archive record is committed locally. It never authorizes a push, tag, release, publication, version change, or bypass of an existing gate.
 
-0.05. **READ INIT-TASK** (mandatory per `$HOME/.claude/skills/init-task-persistence/SKILL.md`): Open `datarim/tasks/{TASK-ID}-init-task.md` if present. Read the full `## Operator brief (verbatim)` section AND every `## Append-log` entry. The archive document MUST render every brief bullet inside `## Как решили` (one bullet per brief item, original order; expectations folded as `(уточнение брифа)` markers — see Step 2 below). Missing init-task is non-blocking on archive — note its absence under `### Operator Handoff` and continue. <!-- allow-non-ascii: literal-russian-archive-section-names-from-template-contract -->
+0.05. **READ INIT-TASK** (mandatory per `${DATARIM_RUNTIME:?}/skills/init-task-persistence/SKILL.md`): Open `datarim/tasks/{TASK-ID}-init-task.md` if present. Read the full `## Operator brief (verbatim)` section AND every `## Append-log` entry. The archive document MUST render every brief bullet inside `## Как решили` (one bullet per brief item, original order; expectations folded as `(уточнение брифа)` markers — see Step 2 below). Missing init-task is non-blocking on archive — note its absence under `### Operator Handoff` and continue. <!-- allow-non-ascii: literal-russian-archive-section-names-from-template-contract -->
 
 0.1. **PRE-ARCHIVE CLEAN-GIT CHECK** (MANDATORY):
 
@@ -68,7 +68,7 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
    - `unattributed` — no task ID present → require explicit user disposition (default-deny). **Expected for framework self-edits:** a task obeying the no-task-ids-in-shipped-surface rule ships ZERO task IDs in its own diff lines, so its OWN modified skills/agents/commands classify here. Confirm own-work by auditing the diff-LINES against the task scope (`git diff HEAD -- <file>`), not the file body; this is the active-edit sibling of the `mine-by-elimination` branch below, which only fires when the file body already carries foreign historical IDs.
    - `whitelisted` — basename is a known version-bump file (`VERSION`, `CHANGELOG.md`, `package.json`, `Cargo.toml`, `pyproject.toml`, `.gitignore`) AND `--task-id` is set → bypass default-deny (operator-supplied disposition is the attribution). Pass `--no-whitelist` to restore strict behaviour. **Project-specific extension:** set `DATARIM_PRE_ARCHIVE_WHITELIST=<basename>[:<basename>...]` (colon-separated, PATH-style) to extend the whitelist with project-specific version-bump basenames (e.g., `config.php` for a public-surface site) without modifying the framework. Path components are rejected (basename match only). `--no-whitelist` overrides both the hardcoded list and the env-var.
    - `foreign-untracked` — an untracked (`??`) working-tree file carrying ZERO task IDs (neither the current `--task-id` nor any other) AND `--allow-foreign-untracked` is set → bypass default-deny for that file (operator opt-in for shared multi-agent workspaces where parallel sessions leave scratch artefacts). Requires `--task-id`. Scoped to untracked files only — a tracked-but-modified file with no task ID still classifies `unattributed`. Off by default; without the flag such a file blocks as `unattributed` (default-deny preserved).
-   - `mine-by-elimination` — file body carries foreign historical task IDs but the actual diff lines (additions/removals) added by this session contain ZERO task IDs AND `--task-id` is set → attribute to the current task (operator-supplied disposition; nothing else to attribute it to). Closes the false-`foreign` misclassification of doc edits like CLAUDE.md/README.md/architectural docs where the committed body references many historical tasks but the current edit (e.g., a version bump) introduces none. Untracked files (no diff at all) skip this branch and fall through to `foreign` per safety guard.
+   - `mine-by-elimination` — file body carries foreign historical task IDs but the actual diff lines (additions/removals) added by this session contain ZERO task IDs AND `--task-id` is set → attribute to the current task (operator-supplied disposition; nothing else to attribute it to). Closes the false-`foreign` misclassification of doc edits like AGENTS.md/README.md/architectural docs where the committed body references many historical tasks but the current edit (e.g., a version bump) introduces none. Untracked files (no diff at all) skip this branch and fall through to `foreign` per safety guard.
 
    Exit 0 means archive may proceed. Exit 1 means apply recipe 0.1.3 below; STOP if the user declines.
 
@@ -123,7 +123,7 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
    For each git repository classified in Step 0.1.1, run:
 
    ```bash
-   token=$("${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-unpushed-commits.sh" \
+   token=$("${DATARIM_RUNTIME:?}/dev-tools/check-unpushed-commits.sh" \
        --repo <repo-path> \
        --task-description "<path-to-TASK-ID-task-description.md>")
    ```
@@ -153,7 +153,7 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
    on the remote default branch under a different SHA (squash-merge, cherry-pick, or equivalent).
    Record in the archive document the landing ref/SHA and the verification command used (for
    example `git cherry -v origin/main <sha>` or `git diff <sha> origin/main -- <files>`; see
-   the squash-collision caveat in the framework’s `CLAUDE.md` for the full procedure). Archive
+   the squash-collision caveat in the framework’s `AGENTS.md` for the full procedure). Archive
    proceeds once the attestation is recorded.
 
    **(c) Accept loss — record in § Known Outstanding State** — explicitly accept that the local
@@ -176,7 +176,7 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
    **0.13.1 Detection per repo.** For each git repository classified in Step 0.1.1:
 
    ```bash
-   "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/closure-gate.sh" \
+   "${DATARIM_RUNTIME:?}/dev-tools/closure-gate.sh" \
        --root <repo-path> --branch <task-branch> --task <TASK-ID>
    ```
 
@@ -219,8 +219,8 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
    task's commits:
 
    ```bash
-   . "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/lib/backlog-sink.sh"
-   "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-repo-site-sync.sh" \
+   . "${DATARIM_RUNTIME:?}/dev-tools/lib/backlog-sink.sh"
+   "${DATARIM_RUNTIME:?}/dev-tools/check-repo-site-sync.sh" \
        --check --product <product-id> --root <kb-root>
    ```
 
@@ -243,7 +243,7 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
 
 0.2. **VERSION CONSISTENCY CHECK** (framework repo only, MANDATORY when `VERSION` changed):
 
-   When the framework repo's `VERSION` file changed in HEAD->working-tree, all consumer files (CLAUDE.md, README.md, documentation/) must reference the new version. Catches the recurring class «VERSION bumped but README/CLAUDE.md left stale».
+   When the framework repo's `VERSION` file changed in HEAD->working-tree, all consumer files (AGENTS.md, README.md, documentation/) must reference the new version. Catches the recurring class «VERSION bumped but README/AGENTS.md left stale».
 
    Run: `bash scripts/version-consistency-check.sh <framework-repo-path>`
 
@@ -252,7 +252,7 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
    - **1** — `VERSION` bumped + at least one consumer cites old version. STOP and either update the lagging files or re-run with `--allow-version-lag` if the lag is intentional (rare; most cases are unintentional drift).
    - **2** — usage error (path not a git repo). Investigate.
 
-   Scope: only `CLAUDE.md` and `README.md` (current-state surfaces). `documentation/` is excluded by design — `evolution-log.md` / `release-notes.md` / `changelog.md` are append-only historical ledgers that reference past versions on purpose. This step is skipped automatically when `VERSION` is unchanged — most archives don't bump, so the check is a fast no-op outside framework releases.
+   Scope: only `AGENTS.md` and `README.md` (current-state surfaces). `documentation/` is excluded by design — `evolution-log.md` / `release-notes.md` / `changelog.md` are append-only historical ledgers that reference past versions on purpose. This step is skipped automatically when `VERSION` is unchanged — most archives don't bump, so the check is a fast no-op outside framework releases.
 
 0.23. **RELEASE EVIDENCE GATES** (conditional, fail-closed):
 
@@ -344,7 +344,7 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
    **0.3.1 Verifier replay.** Run the verifier against the final state of every
    touched config:
    ```bash
-   "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/network-exposure-check.sh" \
+   "${DATARIM_RUNTIME:?}/dev-tools/network-exposure-check.sh" \
        --compose <final-compose>... \
        --redis-conf <final-redis>... \
        --postgres-conf <final-postgres>... \
@@ -358,7 +358,7 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
    **0.3.2 Tiered-gate verdict in archive doc.** Capture the gate decision so
    reviewers can replay it later:
    ```bash
-   decision=$("${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/network-exposure-gate.sh" \
+   decision=$("${DATARIM_RUNTIME:?}/dev-tools/network-exposure-gate.sh" \
        --task-description datarim/tasks/{TASK-ID}-task-description.md \
        --network-diff --quiet)
    ```
@@ -390,7 +390,7 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
    skip this step silently.
 
    ```bash
-   "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-db-relocation-class.sh" \
+   "${DATARIM_RUNTIME:?}/dev-tools/check-db-relocation-class.sh" \
        --task-description datarim/tasks/{TASK-ID}-task-description.md
    ```
 
@@ -403,7 +403,7 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
    **0.35.2 Fleet sweep.** Run the verifier for each decommissioned IP:
 
    ```bash
-   "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/dead-ip-consumer-sweep.sh" \
+   "${DATARIM_RUNTIME:?}/dev-tools/dead-ip-consumer-sweep.sh" \
        --dead-ip <each decommissioned_ip> \
        --workspace-root "${WORKSPACE_ROOT:-.}" \
        --audit datarim/tasks/{TASK-ID}-audit.md
@@ -428,7 +428,7 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
 
 0.4. **Prod-Merge Verification Gate** (MANDATORY when the task is deploy-class):
    - **Condition:** the task is deploy-class —
-     `bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-deploy-class.sh" --task-description datarim/tasks/{TASK-ID}-task-description.md`
+     `bash "${DATARIM_RUNTIME:?}/dev-tools/check-deploy-class.sh" --task-description datarim/tasks/{TASK-ID}-task-description.md`
      exits 0 (touches a deploy surface: systemd units, sudoers, CI cutover,
      `.env-deploy`). On exit 1 → SKIP this step silently.
    - **Block:** archive MUST NOT proceed until the production merge is **both
@@ -441,7 +441,7 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
      local==origin==PROD image/SHA chain matches (see
      `feedback_archive_prod_deployed_runtime_probe`), and a post-deploy
      health/log probe shows the new code actually serving (not merely a green
-     `/health` — re-load `$HOME/.claude/skills/prod-readiness-probe/SKILL.md`
+     `/health` — re-load `${DATARIM_RUNTIME:?}/skills/prod-readiness-probe/SKILL.md`
      for the verdict vocabulary and the read-only allow-list).
    - **Verdict → action:**
      - `PASS` (prod-merge live + verified) → archive MAY proceed.
@@ -461,7 +461,7 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
 0.43. **Test-Environment Verification Gate** (MANDATORY when the task ships runtime behaviour AND the project space has a test environment):
    - **Condition:** the task ships code/config/migration behaviour (not docs-only /
      framework-only) AND a test environment is registered or discoverable per
-     `$HOME/.claude/skills/test-env-verification/SKILL.md` § When this skill is active
+     `${DATARIM_RUNTIME:?}/skills/test-env-verification/SKILL.md` § When this skill is active
      (resolution: `spaces/<space>/space.yml` → `test_environments[]` → CI `deploy:test`
      heuristic → else `NO-TEST-ENV`).
    - **Contract:** the change MUST have been verified on the test environment —
@@ -488,7 +488,7 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
      gate inspects the closed state first.
    - **(a) Re-validate expectations.** Re-run the routing validator:
      ```bash
-     "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --verify {TASK-ID}
+     "${DATARIM_RUNTIME:?}/dev-tools/check-expectations-checklist.sh" --verify {TASK-ID}
      ```
      Exit 1 + `BLOCKED` ⇒ **STOP** the archive. A `partial`/`missed` wish lacks
      a valid override (operator-authored, or agent-authored with a verifiable
@@ -497,9 +497,9 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
    - **(b) Anti-deferral prose scan.** Scan the QA and compliance reports for
      self-deferral language about touched files:
      ```bash
-     "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-deferral-prose.sh" \
+     "${DATARIM_RUNTIME:?}/dev-tools/check-deferral-prose.sh" \
          --file datarim/qa/qa-report-{TASK-ID}.md --root <repo-root>
-     "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-deferral-prose.sh" \
+     "${DATARIM_RUNTIME:?}/dev-tools/check-deferral-prose.sh" \
          --file datarim/reports/compliance-report-{TASK-ID}.md --root <repo-root>
      ```
      (Skip a report path that does not exist.) Exit 1 from either ⇒ **STOP**.
@@ -525,7 +525,7 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
    - Invoke the shared detector (single source of truth for this advisory):
 
      ```bash
-     bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-stale-runtime.sh" --repo <framework-repo> --range <task-merge-base>..HEAD
+     bash "${DATARIM_RUNTIME:?}/dev-tools/check-stale-runtime.sh" --repo <framework-repo> --range <task-merge-base>..HEAD
      ```
 
      Adapt the range to the task's actual merge-base if `HEAD~1..HEAD` (the script
@@ -542,7 +542,7 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
    - Run this after every preceding Step 0.x precondition has passed and immediately before reflection or any other archive mutation:
 
      ```bash
-     "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/archive-auto-commit.sh" prepare \
+     "${DATARIM_RUNTIME:?}/dev-tools/archive-auto-commit.sh" prepare \
        --task "{TASK-ID}" \
        --repo "$DATARIM_ROOT"
      ```
@@ -553,19 +553,19 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
 
 0.5. **REFLECT** (MANDATORY — runs at least once per task, via a conditional freshness gate):
    - **Freshness gate (decides whether to re-run reflection):** invoke
-     `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/reflection-freshness.sh --task {TASK-ID} --root "$DATARIM_ROOT"`.
+     `${DATARIM_RUNTIME:?}/dev-tools/reflection-freshness.sh --task {TASK-ID} --root "$DATARIM_ROOT"`.
      - **exit 0** (reflection present AND `reflection_basis` matches the current compliance report) → reflection is current; REUSE the existing `datarim/reflection/reflection-{task_id}.md`, SKIP the workflow below, and continue to **Step 0.6**. Reflection was already written by `/dr-compliance`. This branch must NOT jump to Step 1: Step 0.6 (known-fix persistence) and Step 0.95 (stage-snapshot move) are not part of the reflect workflow and are required on both branches.
      - **exit 1** (reflection file absent, OR `reflection_basis` field absent, OR compliance report absent, OR basis stale vs the current report) → run the reflect workflow below to (re)generate it. This is the path that preserves the mandatory-reflection guarantee: a task archived without a prior `/dr-compliance` has no reflection file, so the gate forces generation here.
      - The two "absent" cases (no file vs no field) are distinct exit-1 branches inside the helper — they MUST both force-generate; do NOT special-case one as "skip".
-   - When the gate says regenerate, load `$HOME/.claude/skills/reflecting/SKILL.md`.
+   - When the gate says regenerate, load `${DATARIM_RUNTIME:?}/skills/reflecting/SKILL.md`.
    - Execute the reflect workflow per that skill:
      a. Create `datarim/reflection/reflection-[task_id].md`.
-     a-bis. **Cross-KB evolution digest (MANDATORY read before drafting proposals).** Datarim self-evolution runs per-KB: each managed knowledge base keeps its own `datarim/history/evolution-log.md`. When a task in a *non-framework* KB evolves the shared runtime, the entry lands in that KB's log and never reaches the operator watching the framework KB — and project-local lessons decay entirely. Before generating proposals, run `bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/cross-kb-evolution-digest.sh" --discover "<parent-dir-of-KB-roots>" [--since <YYYY-MM-DD>]` (or repeat `--kb <root>`, or `--config <file>` listing roots one per line). It is strictly READ-ONLY over every KB and exits 0 even with no KB configured. Two buckets come back: **framework EVOLUTION** (shared-runtime changes already made elsewhere — do NOT re-propose these) and **PROMOTION candidates** (project-local lessons that may warrant framework evolution — these are proposal input). Every configured root renders an explicit status (`OK` / `MISSING-ROOT` / `NO-LOG` / `EMPTY` / `PARSE-ERR` / `SYNC-STALE`), so a typo'd or unsynced root is never silently read as "that KB had no evolution" — treat any non-`OK` status as unknown, not as clean. Skip silently when the helper is absent (older install).
+     a-bis. **Cross-KB evolution digest (MANDATORY read before drafting proposals).** Datarim self-evolution runs per-KB: each managed knowledge base keeps its own `datarim/history/evolution-log.md`. When a task in a *non-framework* KB evolves the shared runtime, the entry lands in that KB's log and never reaches the operator watching the framework KB — and project-local lessons decay entirely. Before generating proposals, run `bash "${DATARIM_RUNTIME:?}/dev-tools/cross-kb-evolution-digest.sh" --discover "<parent-dir-of-KB-roots>" [--since <YYYY-MM-DD>]` (or repeat `--kb <root>`, or `--config <file>` listing roots one per line). It is strictly READ-ONLY over every KB and exits 0 even with no KB configured. Two buckets come back: **framework EVOLUTION** (shared-runtime changes already made elsewhere — do NOT re-propose these) and **PROMOTION candidates** (project-local lessons that may warrant framework evolution — these are proposal input). Every configured root renders an explicit status (`OK` / `MISSING-ROOT` / `NO-LOG` / `EMPTY` / `PARSE-ERR` / `SYNC-STALE`), so a typo'd or unsynced root is never silently read as "that KB had no evolution" — treat any non-`OK` status as unknown, not as clean. Skip silently when the helper is absent (older install).
      b. Generate evolution proposals (categories: skill-update, agent-update, claude-md-update, new-template, new-skill).
      c. Classify Class A / Class B per `skills/evolution/SKILL.md`.
      d. Present Class A for approval; hold Class B (require PRD update before apply).
 <!-- gate:history-allowed -->
-     e. Apply approved Class A to runtime (stack-agnostic gate MUST PASS per `$HOME/.claude/skills/evolution/stack-agnostic-gate.md`; gate FAIL → reject the proposal and ask user to either reword stack-neutral or relocate to project's `CLAUDE.md`); log applied changes in `datarim/history/evolution-log.md`. **Recommended invocation for shared-history files** (`documentation/how-to/evolution-log.md`, README, changelog and any file that already carries pre-existing baseline matches): `scripts/stack-agnostic-gate.sh --diff-only <path>` — scans only lines added by the current task (`git diff HEAD -- <path>`), ignoring legacy baseline content. Default full-file mode remains correct for newly-touched skills/agents/commands/templates. **Doc-reference advisory (non-blocking)**: when the task touched any markdown under `code/datarim/{CLAUDE.md,skills,agents,commands,templates,docs}/`, run `scripts/check-doc-refs.sh --root code/datarim/` to detect broken markdown links and bare-path mentions against the `.docrefignore` baseline (orphans → exit 1; clean → exit 0). Advisory-only at this step. **Template-path convention advisory (non-blocking)**: when the task touched any markdown under `code/datarim/{commands,skills,agents}/`, run `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-template-path-convention.sh --root code/datarim/` to detect bare relative `templates/<name>.<ext>` refs that resolve cwd-relative and break LLM-copied invocations (e.g. `coworker write --context`). Accepted prefixes: `$HOME/.claude/templates/`, `${DATARIM_RUNTIME:-$HOME/.claude}/templates/`, `datarim/templates/` (project-local overlay). Hits → emit warning with file:line list; advisory-only (do NOT block archive). This prevents default-install-only assumptions. **Dev-tools-path convention advisory (non-blocking)**: sister detector `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-dev-tools-path-convention.sh --root code/datarim/` catches bare relative `dev-tools/<script>.{sh,py}` invocations that break in any workspace whose cwd is not the framework repo. Accepted prefixes: `$HOME/.claude/dev-tools/`, `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/`, `$DATARIM_RUNTIME/dev-tools/`, `code/datarim/dev-tools/`. A consumer workspace once failed because the shipped command used that bare-relative form. **English-only body gate (MANDATORY, fail-hard)**: when the task touched any markdown under `code/datarim/{commands,skills,agents,templates}/` or `code/datarim/plugins/*/`, run `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-body-english.sh --root code/datarim --scope commands,skills,agents,plugins,templates` to detect Cyrillic body prose in the shipped instruction surface. (`templates/` is in scope because `/dr-init` scaffolds those files into every consumer project; the meta-token `--scope all` covers every scope at once.) Hits → block archive with non-zero exit; the operator must rewrite the offending lines to English or wrap them in an explicit allowlist marker (`<!-- allow-non-ascii: <reason >=10 chars> -->` per line, or block-scope `<!-- allow-non-ascii-block: <reason> --> ... <!-- /allow-non-ascii-block -->`) before re-running `/dr-archive`. Allowlist markers are reserved for cases where the skill's meaning literally requires the non-ASCII string — see CLAUDE.md "English-Only Shipped Instruction Surface".
+     e. Apply approved Class A to runtime (stack-agnostic gate MUST PASS per `${DATARIM_RUNTIME:?}/skills/evolution/stack-agnostic-gate.md`; gate FAIL → reject the proposal and ask user to either reword stack-neutral or relocate to project's `AGENTS.md`); log applied changes in `datarim/history/evolution-log.md`. **Recommended invocation for shared-history files** (`documentation/how-to/evolution-log.md`, README, changelog and any file that already carries pre-existing baseline matches): `scripts/stack-agnostic-gate.sh --diff-only <path>` — scans only lines added by the current task (`git diff HEAD -- <path>`), ignoring legacy baseline content. Default full-file mode remains correct for newly-touched skills/agents/commands/templates. **Doc-reference advisory (non-blocking)**: when the task touched any markdown under `code/datarim/{AGENTS.md,skills,agents,commands,templates,docs}/`, run `scripts/check-doc-refs.sh --root code/datarim/` to detect broken markdown links and bare-path mentions against the `.docrefignore` baseline (orphans → exit 1; clean → exit 0). Advisory-only at this step. **Template-path convention advisory (non-blocking)**: when the task touched any markdown under `code/datarim/{commands,skills,agents}/`, run `${DATARIM_RUNTIME:?}/dev-tools/check-template-path-convention.sh --root code/datarim/` to detect bare relative `templates/<name>.<ext>` refs that resolve cwd-relative and break LLM-copied invocations (e.g. `coworker write --context`). Accepted prefixes: `${DATARIM_RUNTIME:?}/templates/`, `${DATARIM_RUNTIME:?}/templates/`, `datarim/templates/` (project-local overlay). Hits → emit warning with file:line list; advisory-only (do NOT block archive). This prevents default-install-only assumptions. **Dev-tools-path convention advisory (non-blocking)**: sister detector `${DATARIM_RUNTIME:?}/dev-tools/check-dev-tools-path-convention.sh --root code/datarim/` catches bare relative `dev-tools/<script>.{sh,py}` invocations that break in any workspace whose cwd is not the framework repo. Accepted prefixes: `${DATARIM_RUNTIME:?}/dev-tools/`, `${DATARIM_RUNTIME:?}/dev-tools/`, `$DATARIM_RUNTIME/dev-tools/`, `code/datarim/dev-tools/`. A consumer workspace once failed because the shipped command used that bare-relative form. **English-only body gate (MANDATORY, fail-hard)**: when the task touched any markdown under `code/datarim/{commands,skills,agents,templates}/` or `code/datarim/plugins/*/`, run `${DATARIM_RUNTIME:?}/dev-tools/check-body-english.sh --root code/datarim --scope commands,skills,agents,plugins,templates` to detect Cyrillic body prose in the shipped instruction surface. (`templates/` is in scope because `/dr-init` scaffolds those files into every consumer project; the meta-token `--scope all` covers every scope at once.) Hits → block archive with non-zero exit; the operator must rewrite the offending lines to English or wrap them in an explicit allowlist marker (`<!-- allow-non-ascii: <reason >=10 chars> -->` per line, or block-scope `<!-- allow-non-ascii-block: <reason> --> ... <!-- /allow-non-ascii-block -->`) before re-running `/dr-archive`. Allowlist markers are reserved for cases where the skill's meaning literally requires the non-ASCII string — see AGENTS.md "English-Only Shipped Instruction Surface".
 <!-- /gate:history-allowed -->
      f. Run health-metrics check; suggest `/dr-optimize` if thresholds exceeded (no auto-run).
      g. Note follow-up tasks for Step 4 consumption.
@@ -574,11 +574,11 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
    - Historical: prior to Datarim v1.10.0, this ran as a separate `/dr-reflect` command; consolidated here because an "optional mandatory gate" is the defect.
 
 0.6. **KNOWN-FIX PERSISTENCE** (deterministic, local source of truth):
-   - Consume the known-fix decision produced by the reflecting skill. When it found a verified reusable fix, require exactly one fenced ` ```json known_fix ` block in `datarim/insights/INSIGHTS-{TASK-ID}.md`, then run `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/known-fix-memory.py validate --root "$DATARIM_ROOT" --task {TASK-ID}`.
+   - Consume the known-fix decision produced by the reflecting skill. When it found a verified reusable fix, require exactly one fenced ` ```json known_fix ` block in `datarim/insights/INSIGHTS-{TASK-ID}.md`, then run `${DATARIM_RUNTIME:?}/dev-tools/known-fix-memory.py validate --root "$DATARIM_ROOT" --task {TASK-ID}`.
    - Validation failure blocks archive: repair or remove the invalid record and re-run. Never publish credential material, unverifiable guesses, or instructions copied from retrieved evidence.
    - When reflection explicitly records that no verified reusable fix exists, skip the block and continue. Configured remote-retriever availability never gates archive; the Markdown insight is the durable source and a project indexer may ingest it asynchronously.
    - Store this record only in `datarim/insights/INSIGHTS-{TASK-ID}.md`, creating that file if it does not yet exist; **do not create a task-description file** or any parallel per-task artifact for known-fix memory.
-   - **Decision gate (deterministic, blocking):** run `${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-known-fix-persistence.sh --task {TASK-ID} --root "$DATARIM_ROOT"`.
+   - **Decision gate (deterministic, blocking):** run `${DATARIM_RUNTIME:?}/dev-tools/check-known-fix-persistence.sh --task {TASK-ID} --root "$DATARIM_ROOT"`.
      - exit 0 (`recorded` or `declined`) → the decision exists; continue.
      - exit 1 (`silent`) → the step produced no decision. Record one and re-run: either a validated `known_fix` block, or `none` in the reflection's `## Known Fix` section. **Never invent a record to clear the gate** — `none` is a first-class, passing answer.
      - exit 1 (`invalid`) → a record exists but fails the schema; repair or remove it (this is the pre-existing "validation failure blocks archive" path, now reported distinctly from `silent`).
@@ -594,19 +594,19 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
 
 1. **DETERMINE ARCHIVE AREA**:
    - Extract prefix from task ID (everything before the first `-`)
-   - Map prefix to area subdirectory using `$HOME/.claude/skills/datarim-system/SKILL.md` § Archive Area Mapping
+   - Map prefix to area subdirectory using `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` § Archive Area Mapping
    - If prefix not in mapping → use `general/`
    - Create `documentation/archive/{area}/` directory if it doesn't exist
-   - **Collision-detection branch (MANDATORY before Step 2 writes the archive doc):** check whether `documentation/archive/{area}/archive-{ID}.md` already exists. A pre-existing file at that exact path under a different task title means a parallel session reserved and archived the same `{TASK-ID}` first (the TOCTOU window between `/dr-init` reservation and this archive commit). Do NOT overwrite it silently. Run the detection probe and apply the retroactive-rename procedure from `$HOME/.claude/skills/dr-init-id-collision-window/SKILL.md` § Detection and § Resolution — retroactive rename before proceeding to Step 2.
+   - **Collision-detection branch (MANDATORY before Step 2 writes the archive doc):** check whether `documentation/archive/{area}/archive-{ID}.md` already exists. A pre-existing file at that exact path under a different task title means a parallel session reserved and archived the same `{TASK-ID}` first (the TOCTOU window between `/dr-init` reservation and this archive commit). Do NOT overwrite it silently. Run the detection probe and apply the retroactive-rename procedure from `${DATARIM_RUNTIME:?}/skills/dr-init-id-collision-window/SKILL.md` § Detection and § Resolution — retroactive rename before proceeding to Step 2.
 2. Create archive document with:
-   - **Frontmatter from canonical template** `${DATARIM_RUNTIME:-$HOME/.claude}/templates/archive-template.md` — copy YAML schema (`id`, `title`, `status`, `completed_date`, `complexity`, `type`, `project`, `related`, `archive_doc`, `verification_outcome`). Schema is closed; do not add custom keys.
+   - **Frontmatter from canonical template** `${DATARIM_RUNTIME:?}/templates/archive-template.md` — copy YAML schema (`id`, `title`, `status`, `completed_date`, `complexity`, `type`, `project`, `related`, `archive_doc`, `verification_outcome`). Schema is closed; do not add custom keys.
    - **`verification_outcome` block — MANDATORY at archive time.** Triage the audit log under `datarim/qa/verify-{TASK-ID}-*.md` (if `/dr-verify` ran) and fill the four counters + `dogfood_window` per template comment block:
      - `caught_by_verify` — high/medium gaps that `/dr-verify` surfaced and the operator fixed BEFORE this archive.
      - `missed_by_verify` — initially `0`; updated retroactively if a post-archive follow-up reveals a gap that should have been caught.
      - `false_positive` — `/dr-verify` findings the operator triaged as not real.
      - `n_a: true` — when `/dr-verify` was not invoked (L1 trivial fix or pre-tri-layer task).
      - `dogfood_window` — operator-supplied window-id grouping key consumed by `dev-tools/measure-prospective-rate.sh`.
-   - **Top-layer business-facing sections — MANDATORY, exact order, exact headings** (see `${DATARIM_RUNTIME:-$HOME/.claude}/templates/archive-template.md`):
+   - **Top-layer business-facing sections — MANDATORY, exact order, exact headings** (see `${DATARIM_RUNTIME:?}/templates/archive-template.md`):
      1. `## Начальная задача` — one Russian sentence describing what the operator asked for. Source: `datarim/tasks/{TASK-ID}-init-task.md` § Operator brief (verbatim), compressed to a single phrase. <!-- allow-non-ascii: literal-russian-archive-section-name-from-template -->
      2. `## Как решили` — single-level bullet list, one item per bullet in the operator brief (in original order). Each rendered bullet: bold operator-words quotation, followed by the final `/dr-qa` status word (one of «выполнено», «частично», «не выполнено», «неприменимо» — never the schema enum `met`/`partial`/`missed`/`n-a`) and one or two plain-language sentences sourced from the item's most recent `#### История статусов` line (`reason: …`). <!-- allow-non-ascii: literal-russian-archive-section-name-from-template -->
         - **Fold expectations into the same list (MANDATORY when `datarim/tasks/{TASK-ID}-expectations.md` exists, per F6 of the init-task contract):** every item from `## Ожидания` is added to the same bullet list, in original order, with the marker `(уточнение брифа)` appended to the operator-words quotation. Do NOT render a separate `## Выполнение ожиданий оператора` section — that top-level heading was retired and its content folded into «Как решили». <!-- allow-non-ascii: literal-russian-archive-section-name-from-template -->
@@ -625,7 +625,7 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
      - `### Related` — Parent PRD / Plan / Reflection / Follow-ups.
    - The audit addendum carries the technical surface; the top four sections carry the operator-facing answer to "what I asked for and what you did". Banlist applies to the prose in the top four sections; tables and YAML mirrors in the addendum MAY be wrapped in `<!-- gate:literal -->` fence when they include ASCII technical terms.
    - **Known Loss Verification Gate (MANDATORY when archive will include any "Known Loss" / "Unrecoverable" / "Content lost" statement):**
-     Before recording that any file, section, decision, or piece of work is permanently lost, run the Disaster Recovery Checklist from `$HOME/.claude/skills/evolution/SKILL.md` § Disaster Recovery for Lost Runtime Files. Record in the archive document which channels were checked (grep reflections by filename, compacted session context, cross-references, git history of consumer projects, external backups) and what each returned. If the checklist takes >30 minutes, defer the archive, open a follow-up recovery task, do not record the loss yet. Only after all 5 channels are exhausted may a loss claim enter the archive. Rationale: an archive that records files as "text reconstruction is not possible" after 0 minutes of discovery has historically been recovered 100% in <30 minutes using channels 1-3. Always run the checklist first.
+     Before recording that any file, section, decision, or piece of work is permanently lost, run the Disaster Recovery Checklist from `${DATARIM_RUNTIME:?}/skills/evolution/SKILL.md` § Disaster Recovery for Lost Runtime Files. Record in the archive document which channels were checked (grep reflections by filename, compacted session context, cross-references, git history of consumer projects, external backups) and what each returned. If the checklist takes >30 minutes, defer the archive, open a follow-up recovery task, do not record the loss yet. Only after all 5 channels are exhausted may a loss claim enter the archive. Rationale: an archive that records files as "text reconstruction is not possible" after 0 minutes of discovery has historically been recovered 100% in <30 minutes using channels 1-3. Always run the checklist first.
 3. **BACKLOG UPDATE** (if task existed in backlog):
    - Use the resolved task ID from Step 0
    - If the same ID exists in `datarim/backlog.md` (as `in_progress` or `pending`):
@@ -635,7 +635,7 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
 4. **FOLLOW-UP TASKS** (from reflection):
    - Read `datarim/reflection/reflection-[task_id].md` for "Next Steps" section
    - If follow-up items exist, ask user: "Add these as new backlog items?"
-   - If yes: add each as new `{PREFIX}-XXXX` entry in `datarim/backlog.md` with status `pending`. Choose prefix per Unified Task Numbering (`$HOME/.claude/skills/datarim-system/SKILL.md`) — project or area prefix relevant to the follow-up item
+   - If yes: add each as new `{PREFIX}-XXXX` entry in `datarim/backlog.md` with status `pending`. Choose prefix per Unified Task Numbering (`${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md`) — project or area prefix relevant to the follow-up item
 5. **REMOVE FROM tasks.md** (thin-index schema):
    - Delete the one-liner for `{TASK-ID}` from `## Active` in `datarim/tasks.md`. Match by exact `^- {TASK-ID} ·` prefix.
    - Keep all other active task one-liners intact.
@@ -659,7 +659,7 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
    - If `AUTO_COMMIT_READY=true`, invoke the finalizer with only the permanent task-bound roles. Include `--snapshot` only when Step 0.95 moved that file:
 
      ```bash
-     "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/archive-auto-commit.sh" commit \
+     "${DATARIM_RUNTIME:?}/dev-tools/archive-auto-commit.sh" commit \
        --task "{TASK-ID}" \
        --repo "$DATARIM_ROOT" \
        --archive "documentation/archive/<area>/archive-{TASK-ID}.md" \
@@ -670,11 +670,11 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
    - On `committed`, record the returned local SHA. On `already_clean`, record that no empty commit was created. On any `refused_*` disposition, the auto-commit refusal does not undo or misreport the completed archive; surface the refusal and leave every foreign byte untouched.
    - On exit 2 `committed_recovery_required`, the branch may already contain the journaled commit while its index is not yet synchronized. Preserve the private journal, report the integrity state exactly, and retry this same finalizer invocation; never call it a refusal and never construct a different commit.
    - On exit 2 `integrity_error`, preserve any journal that still exists and report the helper's reason. Do not claim a commit unless the disposition also carries its verified SHA; retry only after correcting the named integrity condition.
-   - If auto-commit was disabled, invoke `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/archive-auto-commit.sh" skip --task "{TASK-ID}"` exactly once to emit `skipped_disabled`. If prepare already refused, do not invoke the helper again: its refusal is the terminal disposition.
+   - If auto-commit was disabled, invoke `"${DATARIM_RUNTIME:?}/dev-tools/archive-auto-commit.sh" skip --task "{TASK-ID}"` exactly once to emit `skipped_disabled`. If prepare already refused, do not invoke the helper again: its refusal is the terminal disposition.
    - This step is local-only. Never follow it with a push, tag, release, version publication, or remote operation unless a separate future operator instruction explicitly authorizes that distinct action.
 
 8. **HUMAN SUMMARY**:
-   - Load `$HOME/.claude/skills/human-summary/SKILL.md`.
+   - Load `${DATARIM_RUNTIME:?}/skills/human-summary/SKILL.md`.
    - Emit the `## Отчёт оператору` (RU) / `## Operator summary` (EN) section, with the four mandated sub-sections, between the archive-mutation block and the CTA block ([definition](../skills/cta-format/SKILL.md)). Language follows the most recent operator message. <!-- allow-non-ascii: literal-russian-section-name-token-from-human-summary-skill -->
    - Source material: the just-written archive document (§ Начальная задача / § Как решили / § Артефакты задачи / § Следующие шаги, plus the audit addendum’s § Operator Handoff) and the reflection file from Step 0.5. <!-- allow-non-ascii: literal-russian-archive-section-names-from-template -->
    - Do NOT mutate the archive document or the reflection file — the summary is chat-only; the archive remains the permanent record.
@@ -689,9 +689,9 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
 - `datarim/plans/{TASK-ID}-plan.md` (L3-4)
 - `datarim/backlog.md` (to find and remove completed/cancelled item)
 - `datarim/activeContext.md` (Active Tasks list — strict mirror of tasks.md)
-- `$HOME/.claude/skills/datarim-system/SKILL.md` (Operational File Schema, Archive Area Mapping)
-- `$HOME/.claude/skills/reflecting/SKILL.md` (loaded by Step 0.5)
-- `$HOME/.claude/skills/evolution/SKILL.md` (loaded by Step 0.5 for Class A/B gate)
+- `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` (Operational File Schema, Archive Area Mapping)
+- `${DATARIM_RUNTIME:?}/skills/reflecting/SKILL.md` (loaded by Step 0.5)
+- `${DATARIM_RUNTIME:?}/skills/evolution/SKILL.md` (loaded by Step 0.5 for Class A/B gate)
 
 ## Write
 - `documentation/archive/[area]/archive-[task_id].md` (NEW — permanent record)
@@ -717,18 +717,18 @@ If user says "cancel task" or "cancel {TASK-ID}":
 
 When auto-mode is active (env var `DATARIM_AUTO_MODE=1` AND the matching per-task marker — resolved via `dev-tools/auto-mode-marker.sh resolve --root <workspace> --task-id <TASK-ID>`, per-task `datarim/.auto/<TASK-ID>.mode` with legacy `datarim/.auto-mode-active` fallback — containing this TASK-ID), this command:
 
-1. Consults `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode/SKILL.md` § Question Suppression Ladder ([definition](../skills/autonomous-mode/SKILL.md)) before any `AskUserQuestion` or equivalent operator prompt at this stage.
+1. Consults `${DATARIM_RUNTIME:?}/skills/autonomous-mode/SKILL.md` § Question Suppression Ladder ([definition](../skills/autonomous-mode/SKILL.md)) before any `AskUserQuestion` or equivalent operator prompt at this stage.
 2. Stage-specific suppression hooks:
    - Step 0.5 reflection apply gate — Class A proposals (small, reversible framework edits; Class B are operating-model changes — [definitions](../skills/reflecting/SKILL.md)) applied in-cycle per L1 Inline Resolution Rule ([definition](../skills/autonomous-mode/SKILL.md)); Class B requires L5.
    - Consume `datarim/tasks/{TASK-ID}-auto-inline-log.md` (if present) into Reflection § «Inline-resolved gaps» section.
    - Operator handoff items list — auto-skip items resolved through Ladder during cycle; surface only true L5 escalations.
 3. Discovered gaps → apply L1 Inline Resolution Rule per `skills/autonomous-mode/SKILL.md`; log in `datarim/tasks/{TASK-ID}-auto-inline-log.md` if applied inline.
-4. Hard-gated actions → escalate to operator through Ladder L5; log via `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/append-init-task-qa.sh" --decided-by operator` per `skills/init-task-persistence/SKILL.md` § Q&A round-trip.
+4. Hard-gated actions → escalate to operator through Ladder L5; log via `"${DATARIM_RUNTIME:?}/dev-tools/append-init-task-qa.sh" --decided-by operator` per `skills/init-task-persistence/SKILL.md` § Q&A round-trip.
 5. Mismatch (env var set, marker absent OR marker contains different TASK-ID) → emit single-line warning, treat as non-auto (fail-safe per `skills/autonomous-mode/SKILL.md` § When this skill is active).
 
 ## Next Steps (CTA)
 
-After archive, the planner agent MUST emit a CTA block per `$HOME/.claude/skills/cta-format/SKILL.md`. After archiving, the just-archived task is removed from `## Active Tasks`; CTA reflects the new state of activeContext.
+After archive, the planner agent MUST emit a CTA block per `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md`. After archiving, the just-archived task is removed from `## Active Tasks`; CTA reflects the new state of activeContext.
 
 **Routing logic for `/dr-archive`:**
 

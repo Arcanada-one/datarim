@@ -6,19 +6,19 @@ description: Explore architectural and design decisions for complex features (Le
 # /dr-design - Architecture & Design Mode
 
 **Role**: Architect Agent
-**Source**: `$HOME/.claude/agents/architect.md`
+**Source**: `${DATARIM_RUNTIME:?}/agents/architect.md`
 
 ## Instructions
 
 
-**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `$HOME/.claude/skills/cta-format/SKILL.md` § Stage Header.
-1.  **LOAD**: Read `$HOME/.claude/agents/architect.md` and adopt that persona.
-1.5. **SKILL**: Also load `$HOME/.claude/skills/immutability/SKILL.md` — read the `/dr-design Rules` fragment for design decision immutability, ADR-calibre artefact freeze, and Return-to-Source routing.
-2.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `$HOME/.claude/skills/datarim-system/SKILL.md` § Path Resolution Rule.
+**Stage Header (mandatory)**: Emit `**{TASK-ID} · {title}**` as the first line of your response, before any tool-call narration. The title is the verbatim one-liner field from `tasks.md` (between `L{N} · ` and ` → tasks/`). Skip this header only for `/dr-help`, `/dr-status`, `/dr-doctor`, and `/dr-init` Steps 1-3 (which emit it immediately after Step 4). See `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md` § Stage Header.
+1.  **LOAD**: Read `${DATARIM_RUNTIME:?}/agents/architect.md` and adopt that persona.
+1.5. **SKILL**: Also load `${DATARIM_RUNTIME:?}/skills/immutability/SKILL.md` — read the `/dr-design Rules` fragment for design decision immutability, ADR-calibre artefact freeze, and Return-to-Source routing.
+2.  **RESOLVE PATH**: Before any read/write to `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, STOP and tell user to run `/dr-init`. Do NOT create it — only `/dr-init` may create `datarim/`. See `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` § Path Resolution Rule.
 
 ### EXECUTION HOST
 
-1. Source the resolver: `source "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/lib/execution-host.sh"`.
+1. Source the resolver: `source "${DATARIM_RUNTIME:?}/dev-tools/lib/execution-host.sh"`.
 2. Call `eh_decision <workspace-root> <execution-hosts-map-path>` (default map: `~/.claude/local/config/execution-hosts.yml`).
 3. On **off-host** (exit code 10), AUTO-DISPATCH -- do NOT stop and hand the command back for the operator to type. The `required_host` binding IS the operator's standing authorization to run there, and dispatch (spawning a remote tmux session) is a reversible transport action; every irreversible step (prod deploy, secret rotation, force-push, public message) stays hard-gated on the remote agent downstream. Contract:
    a. **RUN vs INSPECT.** Auto-dispatch only when intent is to RUN the task (operator asked to run/execute/go, autonomous-mode marker active, or reached via `/dr-auto`). On INSPECT/read-only intent, do NOT dispatch: proceed locally read-only and surface the dispatch directive as information, not a blocking question.
@@ -31,7 +31,7 @@ description: Explore architectural and design decisions for complex features (Le
 
 Enforcing this binding mechanically is **site policy, and the framework ships no reference implementation**. What ships is the mechanism, not the decision: the resolver library (`dev-tools/lib/execution-host.sh`), the drift validator (`dev-tools/check-execution-host-drift.sh`) and their tests. If your setup separates a control machine from execution hosts, wire your own PreToolUse hook against that resolver and keep it in your own workspace repo — a hook that decides which host may run work encodes your topology, and a second copy of an enforcement artefact living in two repos is exactly what drifted and failed closed before. This Step-0 check is the cooperative soft layer over the same resolver.
 
-3.  **CONTEXT**: Read `datarim/tasks.md` and `datarim/systemPatterns.md`. Additionally, read `datarim/tasks/{TASK-ID}-init-task.md` if present (mandatory per `$HOME/.claude/skills/init-task-persistence/SKILL.md`): the verbatim operator brief + every append-log block. Any divergence between the operator's stated intent and the design proposals MUST be recorded in each creative doc's § Decisions. Missing init-task is non-blocking — flag as advisory and continue.
+3.  **CONTEXT**: Read `datarim/tasks.md` and `datarim/systemPatterns.md`. Additionally, read `datarim/tasks/{TASK-ID}-init-task.md` if present (mandatory per `${DATARIM_RUNTIME:?}/skills/init-task-persistence/SKILL.md`): the verbatim operator brief + every append-log block. Any divergence between the operator's stated intent and the design proposals MUST be recorded in each creative doc's § Decisions. Missing init-task is non-blocking — flag as advisory and continue.
 
 4.  **DETERMINE DESIGN TYPE**: Classify each component needing design into one of these types:
 
@@ -56,14 +56,14 @@ Enforcing this binding mechanically is **site policy, and the framework ships no
     - **Deploy-gated cross-reference (when this Decision's rollout gates a plan step).** If a plan implementation step cannot run until this decision's deploy has landed, record the reciprocal marker in the § Decision section so the plan step and this creative Decision point at each other: the plan step carries `[deploy-gated — see creative-{ID}.md § Decision]` (see `/dr-plan`), and this Decision names the gated plan step. The cross-reference lets QA confirm neither side ships ahead of the deploy gate.
 
 7.  **CONSILIUM** (for L3-4 tasks):
-    - Load `$HOME/.claude/skills/consilium/SKILL.md`.
+    - Load `${DATARIM_RUNTIME:?}/skills/consilium/SKILL.md`.
     - Assemble relevant agent panel based on the design question.
     - Run pipeline: SCOPE -> ASSEMBLE -> ANALYZE -> DEBATE -> CONVERGE -> DELIVER.
     - Include conflict resolution via Priority Ladder.
     - Output includes Failure Mode Table.
     - **Waiver:** If one option clearly dominates all others across every tradeoff dimension, Consilium may be waived. Record: "Consilium waived — Option X dominates (see tradeoff table)" in the creative document. Include a Failure Mode Table regardless (lightweight version acceptable).
 
-7.5. **APPEND Q&A IF ANY** (mandatory per `$HOME/.claude/skills/init-task-persistence/SKILL.md` § Q&A round-trip contract): for every operator clarification round captured during design exploration — either operator answer or autonomous agent-decision under FB-1..FB-5 — invoke `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/append-init-task-qa.sh"` to persist the round into `datarim/tasks/{TASK-ID}-init-task.md § Append-log`.
+7.5. **APPEND Q&A IF ANY** (mandatory per `${DATARIM_RUNTIME:?}/skills/init-task-persistence/SKILL.md` § Q&A round-trip contract): for every operator clarification round captured during design exploration — either operator answer or autonomous agent-decision under FB-1..FB-5 — invoke `"${DATARIM_RUNTIME:?}/dev-tools/append-init-task-qa.sh"` to persist the round into `datarim/tasks/{TASK-ID}-init-task.md § Append-log`.
     -   Write the question, answer, and rationale (when applicable) to temp files first; free-form text MUST come via `--*-file <path>` per Security Mandate § S1.
     -   Required flags: `--root <repo-root> --task {TASK-ID} --stage design --round <N> --question-file <path> --answer-file <path> --decided-by <operator|agent> --summary "<one-line>"`.
     -   When `--decided-by agent`: `--rationale-file <path>` MUST contain ≥ 50 non-whitespace characters citing the architectural basis of the choice.
@@ -85,7 +85,7 @@ Before proceeding to `/dr-do`:
 
 ## Next Steps (CTA)
 
-After design phase, the architect agent MUST emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`.
+After design phase, the architect agent MUST emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md`.
 
 **Routing logic for `/dr-design`:**
 
@@ -97,7 +97,7 @@ The CTA block MUST follow the canonical format (numbered list, one primary recom
 
 ## Stage Snapshot Emission (Mandatory Terminal Step)
 
-After the `## Next Steps (CTA)` block above, the agent MUST perform snapshot emission ([definition](../skills/stage-snapshot-writer/SKILL.md)) per `$HOME/.claude/skills/cta-format/SKILL.md` § Snapshot Emission. Parameters bound for this command:
+After the `## Next Steps (CTA)` block above, the agent MUST perform snapshot emission ([definition](../skills/stage-snapshot-writer/SKILL.md)) per `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md` § Snapshot Emission. Parameters bound for this command:
 
 - `stage`: `design`
 - `command`: `/dr-design`

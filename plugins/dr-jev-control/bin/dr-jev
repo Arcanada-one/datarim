@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+set -euo pipefail
+resolve_plugin_home(){ if [[ -n "${DATARIM_JEV_HOME:-}" ]]; then printf '%s\n' "$DATARIM_JEV_HOME"; return; fi; local source="${BASH_SOURCE[0]}" dir; while [[ -L "$source" ]]; do dir="$(cd -P "$(dirname "$source")" >/dev/null 2>&1 && pwd)"; source="$(readlink "$source")"; [[ "$source" != /* ]] && source="$dir/$source"; done; cd -P "$(dirname "$source")/.." >/dev/null 2>&1 && pwd; }
+HERE="$(resolve_plugin_home)"
+help(){ cat <<'USAGE'
+dr-jev — inspect and diagnose the Datarim Jev control plane
+
+Commands:
+  dr-jev route [--mode MODE] "task"   Show routing decision (default mode: balanced)
+  dr-jev route --summary "task"       Compact operator-facing decision summary
+  dr-jev route --explain "task"       Summary plus the full probability JSON
+  dr-jev last [--json]                Show the most recent decision with probabilities
+  dr-jev stats [--json]               Accumulated statistics and predicted-vs-actual
+  dr-jev doctor                       Check local installation
+  dr-jev doctor --api                 Check local installation + live TypeSafe API
+  dr-jev modes                        Show routing modes
+  dr-jev runtimes                     Show supported agent runtimes and their status
+  dr-jev off                          Disable the integration machine-wide (Datarim runs plain)
+  dr-jev on                           Re-enable the integration
+  dr-jev status                       Show whether the integration is currently active
+  dr-jev help                         Show this help
+
+Modes: economy | balanced (default) | quality
+Runtimes: claude (default) | codex
+
+Launch Claude Code with: dr-claude-jev [--mode MODE] "task"
+Dynamic (live) routing:  dr-claude-jev --live "task"
+Supervise Codex:         dr-claude-jev --live --runtime codex "task"
+For full launcher options: dr-claude-jev --help
+USAGE
+}
+# Defaulted so `set -u` cannot abort before the case dispatch on a host with no
+# HOME. This is the one command whose entire purpose is to be more reliable than
+# the integration it disables, so it must not fail silently.
+DISABLE_FLAG="${HOME:-/nonexistent}/.datarim/jev/DISABLED"
+case "${1:-help}" in
+ route)
+   shift
+   # --summary/--explain render their own output; everything else keeps the
+   # historical pretty-printed JSON contract.
+   for a in "$@"; do case "$a" in --summary|--explain) exec python3 "$HERE/scripts/route.py" "$@";; esac; done
+   exec python3 "$HERE/scripts/route.py" --pretty "$@";;
+ last|stats) exec python3 "$HERE/scripts/cli_report.py" "$@";;
+ off)
+   # Every step is checked explicitly: under `set -e` an unwritable HOME would
+   # otherwise abort mid-command, leaving the operator with a partial message
+   # and the integration still ON. Telling them the fallback matters more than
+   # a clean exit code here.
+   fallback_hint='Set DATARIM_JEV_DISABLE=1 in your shell instead (works without any file).'
+   if ! mkdir -p "$(dirname "$DISABLE_FLAG")" 2>/dev/null; then
+     echo "FAIL cannot create $(dirname "$DISABLE_FLAG") — integration is STILL ENABLED." >&2
+     echo "$fallback_hint" >&2; exit 1
+   fi
+   if ! printf 'Disabled by dr-jev off at %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" > "$DISABLE_FLAG" 2>/dev/null; then
+     echo "FAIL cannot write $DISABLE_FLAG — integration is STILL ENABLED." >&2
+     echo "$fallback_hint" >&2; exit 1
+   fi
+   chmod 600 "$DISABLE_FLAG" 2>/dev/null || true
+   if [[ ! -f "$DISABLE_FLAG" ]]; then
+     echo "ERROR: internal invariant violated: flag reported written but is absent" >&2; exit 2
+   fi
+   echo "Jev integration DISABLED (flag: $DISABLE_FLAG)"
+   echo "Datarim, Claude Code and Codex now run with no Jev routing."
+   echo "The deterministic safety floor stays active. Re-enable with: dr-jev on";;
+ on)
+   if [[ -f "$DISABLE_FLAG" ]]; then rm -f "$DISABLE_FLAG"; echo "Removed $DISABLE_FLAG"; else echo "No flag file to remove"; fi
+   if [[ -n "${DATARIM_JEV_DISABLE:-}" && "${DATARIM_JEV_DISABLE}" != 0 ]]; then
+     echo "NOTE: DATARIM_JEV_DISABLE=${DATARIM_JEV_DISABLE} is still set in this shell; unset it to finish re-enabling." >&2
+   fi
+   echo "Jev integration ENABLED";;
+ status)
+   # Errors are reported, not swallowed: "ACTIVE" must mean "checked and
+   # active", never "the check itself failed".
+   if ! reason="$(python3 -c 'import sys;sys.path.insert(0,"'"$HERE"'/scripts");from route import kill_switch_reason;print(kill_switch_reason() or "")' 2>&1)"; then
+     echo "Jev integration: UNKNOWN — status check failed: ${reason:-no output}" >&2
+     echo "Treat as possibly ACTIVE. Set DATARIM_JEV_DISABLE=1 to be certain it is off." >&2
+     exit 2
+   fi
+   if [[ -n "$reason" ]]; then echo "Jev integration: DISABLED ($reason)"; else echo "Jev integration: ACTIVE"; fi
+   [[ -n "${TYPESAFE_API_KEY:-}" ]] && echo "TYPESAFE_API_KEY: set" || echo "TYPESAFE_API_KEY: NOT set (routing would fail open)"
+   ;;
+ runtimes)
+   python3 - "$HERE" <<'PY'
+import sys
+sys.path.insert(0, sys.argv[1] + "/scripts")
+from runtimes import REGISTRY, available, build
+for name in sorted(REGISTRY):
+    rt = build(name, "sonnet")
+    switch = "in-process (live session)" if rt.in_process_switch else "next turn (resume-chained)"
+    print(f"{name:8} {'installed' if available(name) else 'NOT FOUND':10} tier switch: {switch}")
+PY
+   ;;
+ modes) cat <<'MODES'
+economy   Cost-first: low fan-out, smaller context, targeted validation.
+balanced  DEFAULT: balanced cost, reliability, context, fan-out, validation.
+quality   Quality-first: stronger models/context/fan-out/validation allowed.
+MODES
+ ;;
+ doctor)
+   API_CHECK=0; [[ "${2:-}" == "--api" ]] && API_CHECK=1
+   echo "Datarim Jev Control Plane"; echo "Plugin: $HERE"; echo
+   command -v python3 >/dev/null && echo "OK python3: $(command -v python3)" || { echo 'FAIL python3'; exit 1; }
+   # At least one agent runtime must exist; neither is individually required, so
+   # a missing one is a WARN and a missing pair is a FAIL.
+   rt_found=0
+   if command -v "${CLAUDE_BIN:-claude}" >/dev/null; then echo "OK claude: $(command -v "${CLAUDE_BIN:-claude}")"; rt_found=1; else echo 'WARN claude not found'; fi
+   if command -v "${CODEX_BIN:-codex}" >/dev/null; then echo "OK codex: $(command -v "${CODEX_BIN:-codex}")"; rt_found=1; else echo 'WARN codex not found'; fi
+   [[ "$rt_found" == 1 ]] || { echo 'FAIL no agent runtime found (need claude or codex)'; exit 1; }
+   ks="$(python3 -c 'import sys;sys.path.insert(0,"'"$HERE"'/scripts");from route import kill_switch_reason;print(kill_switch_reason() or "")' 2>/dev/null || true)"
+   if [[ -n "$ks" ]]; then
+     echo "WARN Jev integration is DISABLED ($ks) — routing is off, Datarim runs plain"
+   else
+     echo 'OK Jev integration active'
+   fi
+   [[ -n "${TYPESAFE_API_KEY:-}" ]] && echo 'OK TYPESAFE_API_KEY set' || echo 'WARN TYPESAFE_API_KEY not set (routing fails open)'
+   [[ -d "$HERE" ]] && echo 'OK plugin directory' || { echo "FAIL plugin directory: $HERE"; exit 1; }
+   [[ -f "$HERE/config/jev-control.json" ]] && echo 'OK config exists' || { echo "FAIL config missing: $HERE/config/jev-control.json"; exit 1; }
+   python3 -m json.tool "$HERE/config/jev-control.json" >/dev/null && echo 'OK config valid' || { echo 'FAIL config invalid'; exit 1; }
+   [[ -f "$HERE/scripts/route.py" ]] && echo 'OK router exists' || { echo 'FAIL router missing'; exit 1; }
+   if [[ "$API_CHECK" == 1 ]]; then echo; echo "Checking TypeSafe API..."; python3 "$HERE/scripts/doctor_api.py" || exit $?; fi
+   echo; echo READY;;
+ help|-h|--help) help;; *) help >&2; exit 2;;
+esac

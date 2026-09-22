@@ -1,6 +1,6 @@
 # Security / Deps Upgrade Plan — {TASK-ID}
 
-> Use for maintenance tasks closing dependency CVEs, framework version bumps, transitive overrides. Stack-neutral — fill in the package-manager / language commands relevant to the project (see project CLAUDE.md for the canonical stack).
+> Use for maintenance tasks closing dependency CVEs, framework version bumps, transitive overrides. Stack-neutral — fill in the package-manager / language commands relevant to the project (see project AGENTS.md for the canonical stack).
 
 ## Baseline Audit Snapshot
 
@@ -31,7 +31,7 @@ Capture full output to `datarim/qa/qa-{TASK-ID}-baseline.txt` (gitignored).
 
 ## Live Audit Checkpoint (mandatory before commit-ing plan)
 
-Per `$HOME/.claude/skills/ai-quality/SKILL.md` § Live Audit Checkpoint — verify the proposed lock against a disposable manifest BEFORE touching production.
+Per `${DATARIM_RUNTIME:?}/skills/ai-quality/SKILL.md` § Live Audit Checkpoint — verify the proposed lock against a disposable manifest BEFORE touching production.
 
 ```
 1. mkdir -p /tmp/dr-plan-audit-{TASK-ID}

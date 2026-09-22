@@ -18,7 +18,7 @@ for dir in agents skills commands templates; do
     count=$(find "$SCRIPT_DIR/$dir" -maxdepth 1 -name "*.md" -type f 2>/dev/null | wc -l | tr -d ' ')
     if [ "$dir" = "skills" ]; then
         # Directory-per-skill layout: also count subdir-shaped skills/<name>/SKILL.md.
-        sub_count=$(find "$SCRIPT_DIR/$dir" -maxdepth 2 -name "SKILL.md" -type f 2>/dev/null | wc -l | tr -d ' ')
+        sub_count=$(find "$SCRIPT_DIR/$dir" -mindepth 2 -name "SKILL.md" -type f 2>/dev/null | wc -l | tr -d ' ')
         count=$((count + sub_count))
     fi
     if [ "$count" -gt 0 ]; then
@@ -128,6 +128,18 @@ if [ -d "$LOCAL_DIR" ]; then
     fi
 fi
 
+# Persistent Code Contracts: syntax and directory-scope identity are part of
+# repository validation and do not depend on the optional upstream Node CLI.
+if [ -x "$SCRIPT_DIR/dev-tools/check-code-contracts.sh" ]; then
+    echo ""
+    echo "Code Contracts Check:"
+    if "$SCRIPT_DIR/dev-tools/check-code-contracts.sh" --root "$SCRIPT_DIR"; then
+        :
+    else
+        ERRORS=$((ERRORS + 1))
+    fi
+fi
+
 # Runtime drift check: a runtime symlinked into a feature-worktree serves
 # stale rules to every agent on the host. Blocking — that state must be loud.
 if [ -f "$SCRIPT_DIR/dev-tools/check-runtime-drift.sh" ]; then
@@ -140,6 +152,18 @@ if [ -f "$SCRIPT_DIR/dev-tools/check-runtime-drift.sh" ]; then
     fi
 fi
 
+# Canonical framework graph: inventory + generated visual maps must agree with
+# the repository. This is intentionally blocking; stale topology is executable
+# documentation drift for agent runtimes.
+echo ""
+echo "Framework Graph Consistency:"
+if python3 "$SCRIPT_DIR/dev-tools/framework-graph.py" --check; then
+    echo "  PASS: canonical framework graph and generated maps are current"
+else
+    echo "  FAIL: framework graph drift detected"
+    ERRORS=$((ERRORS + 1))
+fi
+
 # Summary counts
 echo ""
 # Counting rules — one shipped component per unit, NOT every .md on disk:
@@ -147,14 +171,13 @@ echo ""
 #                              recursive find over templates/ also swept the
 #                              documentation-diataxis/*/README.md stubs and
 #                              reported 29 instead of 25.
-#   skills                     one directory per skill, `skills/<name>/SKILL.md`.
-#                              A recursive find counted supporting fragment
-#                              files too and reported 129 instead of 67.
+#   skills                     one SKILL.md per skill node, including nested
+#                              composite skills such as fleet/l1-basic.
 #   documentation              recursive: the tree is organised into Diataxis
 #                              subdirectories, so depth 1 holds no .md at all.
 echo "Framework Inventory:"
 echo "  Agents:    $(find "$SCRIPT_DIR/agents" -maxdepth 1 -name "*.md" -type f 2>/dev/null | wc -l | tr -d ' ')"
-echo "  Skills:    $(find "$SCRIPT_DIR/skills" -mindepth 2 -maxdepth 2 -name "SKILL.md" -type f 2>/dev/null | wc -l | tr -d ' ')"
+echo "  Skills:    $(find "$SCRIPT_DIR/skills" -mindepth 2 -name "SKILL.md" -type f 2>/dev/null | wc -l | tr -d ' ')"
 echo "  Commands:  $(find "$SCRIPT_DIR/commands" -maxdepth 1 -name "*.md" -type f 2>/dev/null | wc -l | tr -d ' ')"
 echo "  Templates: $(find "$SCRIPT_DIR/templates" -maxdepth 1 -name "*.md" -type f 2>/dev/null | wc -l | tr -d ' ')"
 echo "  Docs:      $(find "$SCRIPT_DIR/documentation" -name "*.md" -type f 2>/dev/null | wc -l | tr -d ' ')"

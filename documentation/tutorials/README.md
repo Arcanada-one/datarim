@@ -32,6 +32,7 @@ Kebab-case `.md` filenames describing the learning goal, for example
 |------|-----------------|
 | [`getting-started.md`](getting-started.md) | Install Datarim, initialise it in a project, and run your first task end to end. |
 | [`use-cases.md`](use-cases.md) | Worked examples across domains, plus the canonical runtime support matrix. |
+| [`working-with-jev-orchestrator.md`](working-with-jev-orchestrator.md) | Which commands to type once the optional Jev orchestrator is installed: static vs live routing, Claude Code vs Codex, and how to switch the integration off. |
 
 ---
 

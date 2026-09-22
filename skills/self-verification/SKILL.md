@@ -56,7 +56,7 @@ Stage-specific gates:
 
 ```
 You are an ADVERSARIAL reviewer. Your job: find weaknesses, NOT bless the doc.
-This artifact claims X is 'done' — but real software always has gaps. You MUST find at least 2 substantive concerns.
+Do not assume a completed artifact is correct. Actively search the required risk classes and report every substantive concern you can support. Zero findings is valid only when the required checks actually ran; never invent concerns to satisfy a quota.
 Look HARD at:
 1. AC verification commands — semantic correctness vs syntax check (e.g. grep -c X file confirms text, NOT semantic)
 2. DoD claims — logged-but-not-test-run patterns (claims with no actual run output)
@@ -106,9 +106,9 @@ Pre-LLM shell pipeline. Implemented in `code/datarim/dev-tools/dr-verify-floor.s
 - **File-touched audit** — files referenced in `plans/{TASK-ID}-plan.md` (backticked paths with known extensions) resolve in workspace. Unresolved → `severity=low, category=completeness` (NEW pre-/dr-do is benign; phantom is the real risk). **Framework-self-edit caveat:** when the task edits framework code that lives in a nested clone distinct from the `datarim/` artifact workspace (the plan's backticked code paths resolve under the framework repo, not the workspace root passed as `--workspace`), every such path reports `not resolvable` — these are EXPECTED false-positives, not phantoms. Resolve the plan's code paths against the framework repo before flagging, or pass the framework repo as `--workspace`; the orchestrator should auto-discard this FP class when the workspace root and the plan's code-path root differ.
 - **Test-presence parse** — heuristic manifest detection (`package.json`/`pyproject.toml`/`Cargo.toml`/`go.mod`/`composer.json`/`Gemfile`). Informational only on v1.
 - **shellcheck recursive** — runs `shellcheck -S warning` against `dev-tools/*.sh` and `scripts/*.sh`. `error:` → `severity=high`; `warning:` → `severity=medium`.
-- **init-task presence** — for the current `{TASK-ID}`, runs `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-init-task-presence.sh" --task {TASK-ID}`. Missing file or malformed frontmatter → `severity=medium, category=completeness, check_name=init_task_presence`. Subject to the per-task 30-day soft window enforced by the script itself; outside the window the floor demotes to `severity=low` (`check_name` unchanged).
-- **expectations presence (L3+)** — when `datarim/tasks/{TASK-ID}-task-description.md` frontmatter declares `complexity: L3` or `L4`, runs `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --task {TASK-ID}`. Missing or malformed file → `severity=medium, category=completeness, check_name=expectations_presence`. Skipped silently for L1/L2 (the contract is L3+ mandatory; below that, expectations are advisory).
-- **expectations status block** — when an expectations file exists, runs `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --verify {TASK-ID}` and parses the verdict marker on stdout. `BLOCKED` ⇒ one finding per blocking wish_id: `severity=high, category=completeness, check_name=expectations_status, evidence=<wish_id and current status>`. `CONDITIONAL_PASS` ⇒ a single low-severity informational finding noting how many items carry an override. `PASS` ⇒ no findings emitted.
+- **init-task presence** — for the current `{TASK-ID}`, runs `"${DATARIM_RUNTIME:?}/dev-tools/check-init-task-presence.sh" --task {TASK-ID}`. Missing file or malformed frontmatter → `severity=medium, category=completeness, check_name=init_task_presence`. Subject to the per-task 30-day soft window enforced by the script itself; outside the window the floor demotes to `severity=low` (`check_name` unchanged).
+- **expectations presence (L3+)** — when `datarim/tasks/{TASK-ID}-task-description.md` frontmatter declares `complexity: L3` or `L4`, runs `"${DATARIM_RUNTIME:?}/dev-tools/check-expectations-checklist.sh" --task {TASK-ID}`. Missing or malformed file → `severity=medium, category=completeness, check_name=expectations_presence`. Skipped silently for L1/L2 (the contract is L3+ mandatory; below that, expectations are advisory).
+- **expectations status block** — when an expectations file exists, runs `"${DATARIM_RUNTIME:?}/dev-tools/check-expectations-checklist.sh" --verify {TASK-ID}` and parses the verdict marker on stdout. `BLOCKED` ⇒ one finding per blocking wish_id: `severity=high, category=completeness, check_name=expectations_status, evidence=<wish_id and current status>`. `CONDITIONAL_PASS` ⇒ a single low-severity informational finding noting how many items carry an override. `PASS` ⇒ no findings emitted.
 
 **Output:** JSONL findings on stdout (one per line), schema fields per §Findings Schema with `source_layer: "floor"`. Stderr carries progress lines (`[check_name] PASS|SKIP|...`).
 
@@ -159,9 +159,9 @@ Adversarial reviewer with **clean context** (no upstream Claude/Codex history �
 - `peer_review_mode: <enum>` — taxonomy tag
 - `peer_review_provider_source_layer: <enum>` — chain step that resolved
 
-These enable per-mode rate aggregation in `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/measure-prospective-rate.sh" --verify-dir <path>`, which emits `cross_claude_family_rate` and `same_model_isolated_rate` keys for current runs. Historical archives may still contain legacy `cross_vendor_rate`.
+These enable per-mode rate aggregation in `"${DATARIM_RUNTIME:?}/dev-tools/measure-prospective-rate.sh" --verify-dir <path>`, which emits `cross_claude_family_rate` and `same_model_isolated_rate` keys for current runs. Historical archives may still contain legacy `cross_vendor_rate`.
 
-**Reference contract:** `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/resolve-peer-provider.sh" --help` prints the canonical output schema and exit codes (0 success / 1 invalid provider / 2 cost-cap breach).
+**Reference contract:** `"${DATARIM_RUNTIME:?}/dev-tools/resolve-peer-provider.sh" --help` prints the canonical output schema and exit codes (0 success / 1 invalid provider / 2 cost-cap breach).
 
 #### JSONL emission discipline (Layer 2 reviewer prompts)
 
@@ -223,7 +223,7 @@ severity: high | medium | low
 category: correctness | completeness | consistency | safety
 drift_subtype: scope_creep | spec_decay | execution_skew | orphaned_requirements   # OPTIONAL — only when category=consistency
 evidence:
-  type: file_quote | test_output | absent
+  type: file_quote | test_output | verified_absence | absent
   source: <file:line> OR <command-or-test-name>   # required when type ≠ absent
   excerpt: <verbatim text, ≤200 chars>            # required when type ≠ absent
 suggested_fix: <optional, free-text ≤500 chars>
@@ -239,15 +239,16 @@ verified_at: <RFC 3339 / ISO 8601 timestamp>
 agent_origin: reviewer | tester | security | codex_single | floor_pipeline | peer_review_external
 ```
 
-### 7 Validator Rules
+### 8 Validator Rules
 
 1. `category=consistency` ⟺ `drift_subtype` may be set; otherwise `drift_subtype` MUST be absent.
-2. `evidence.type=absent` ⟹ `source` AND `excerpt` MUST be absent → `discarded=true, discard_reason=no_evidence_provided`.
-3. `evidence.type ∈ {file_quote, test_output}` ⟹ `source` AND `excerpt` MUST be present.
-4. `excerpt` length ≤200 chars (truncate with suffix `"[truncated]"`).
-5. `severity ∈ {high, medium, low}` (strict enum).
-6. `ac_criteria` MUST be array (may be empty `[]`).
-7. `suggested_fix` length ≤500 chars (optional).
+2. `evidence.type=absent` means **no evidence was supplied**; `source` AND `excerpt` MUST be absent → `discarded=true, discard_reason=no_evidence_provided`.
+3. `evidence.type=verified_absence` means a required artifact/value was deterministically searched for and confirmed missing; `source` and `excerpt` MUST identify the check/search performed. It is evidence and MUST NOT be auto-discarded.
+4. `evidence.type ∈ {file_quote, test_output, verified_absence}` ⟹ `source` AND `excerpt` MUST be present.
+5. `excerpt` length ≤200 chars (truncate with suffix `"[truncated]"`).
+6. `severity ∈ {high, medium, low}` (strict enum).
+7. `ac_criteria` MUST be array (may be empty `[]`).
+8. `suggested_fix` length ≤500 chars (optional).
 
 ## Severity Anchors
 
@@ -276,7 +277,7 @@ agent_origin: reviewer | tester | security | codex_single | floor_pipeline | pee
 
 ### Auto-Discard Rule
 
-`type=absent` → finding logged with `discarded=true, discard_reason=no_evidence_provided`; it is NOT counted in the summary verdict.
+`type=absent` → finding logged with `discarded=true, discard_reason=no_evidence_provided`; it is NOT counted in the summary verdict. `type=verified_absence` is retained and counted like other evidence-backed findings.
 
 ### Verifiability Rule (post-write)
 

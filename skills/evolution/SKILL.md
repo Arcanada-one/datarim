@@ -61,7 +61,7 @@ Load only the fragment needed for the current sub-problem:
 - `class-ab-gate.md`
   Use when evaluating whether a proposal changes the framework contract (Class A vs B operating-model gate, founding incident, decision aid, atomicity rule).
 - `disaster-recovery.md`
-  Use when runtime files in `$HOME/.claude/` are lost or corrupted. 5-channel recovery checklist.
+  Use when runtime files in `${DATARIM_RUNTIME:?}/` are lost or corrupted. 5-channel recovery checklist.
 - `examples-and-patterns.md`
   Use for reference when writing proposals or applying the deprecation pattern (forward-pointer annotations).
 - `stack-agnostic-gate.md`
@@ -77,7 +77,7 @@ Load only the fragment needed for the current sub-problem:
 |----------|--------|-------------|
 | `skill-update` | `skills/{name}.md` | Improve existing skill — add recipes, fix inaccuracies, expand coverage |
 | `agent-update` | `agents/{name}.md` | Refine agent capabilities, context loading, or decision criteria |
-| `claude-md-update` | `CLAUDE.md` | Update project-level rules, pipeline definitions, or conventions |
+| `claude-md-update` | `AGENTS.md` | Update project-level rules, pipeline definitions, or conventions |
 | `new-template` | `templates/{name}.md` | Create template for a recurring pattern |
 | `new-skill` | `skills/{name}.md` | Create entirely new skill for an uncovered domain |
 | `promote-recurring-incident-to-gate` | a blocking gate in a `commands/{name}.md` or `skills/{name}.md` | Promote a **recurring** incident-class into a blocking pipeline gate. Use when a lesson recurs (matches a prior reflection or describes a repeat of a known failure) and the existing contracts demonstrably did not prevent it. See the anti-self-suppression rule in `class-ab-gate.md`. |
@@ -95,7 +95,7 @@ Load only the fragment needed for the current sub-problem:
 | `rewrite-skill` | `skills/{name}.md` | Restructure a skill for clarity and context efficiency |
 | `fix-description` | any `.md` | Optimize description for better auto-triggering or shorter context |
 | `fix-references` | any `.md` | Fix broken cross-references between components |
-| `sync-docs` | `CLAUDE.md`, `README.md`, `dr-help.md` | Update documentation counts and tables to match actual files |
+| `sync-docs` | `AGENTS.md`, `README.md`, `dr-help.md` | Update documentation counts and tables to match actual files |
 
 ---
 
@@ -220,7 +220,7 @@ Each Evolution change is a discrete edit to a specific file. Rollback strategy:
 - **If not using git:** The evolution log provides enough information to manually undo changes. The diff preview in the original proposal shows what was added.
 - **For prune operations:** The optimizer creates a backup of deleted files in `documentation/archive/optimized/` before removal. Files can be restored from there.
 
-> **Note:** Since 2026-04-22, `skills/`, `commands/`, `agents/`, `templates/` in `$HOME/.claude/` are symlinks to the Datarim git repo. Manual sync (`install.sh`) is no longer needed for these directories — changes are shared instantly. `install.sh` remains relevant only for first-time installation or rollback. See `skills/datarim-system/path-and-storage.md` § Symlink Architecture.
+> **Note:** Since 2026-04-22, `skills/`, `commands/`, `agents/`, `templates/` in `${DATARIM_RUNTIME:?}/` are symlinks to the Datarim git repo. Manual sync (`install.sh`) is no longer needed for these directories — changes are shared instantly. `install.sh` remains relevant only for first-time installation or rollback. See `skills/datarim-system/path-and-storage.md` § Symlink Architecture.
 
 **Rule:** Never make changes that cannot be independently reverted. If two proposals modify the same file, apply them as separate edits so either can be rolled back without affecting the other.
 

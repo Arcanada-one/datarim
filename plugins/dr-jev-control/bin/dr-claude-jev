@@ -1,0 +1,193 @@
+#!/usr/bin/env bash
+set -euo pipefail
+resolve_plugin_home() {
+  if [[ -n "${DATARIM_JEV_HOME:-}" ]]; then printf '%s\n' "$DATARIM_JEV_HOME"; return; fi
+  local source="${BASH_SOURCE[0]}" dir
+  while [[ -L "$source" ]]; do dir="$(cd -P "$(dirname "$source")" >/dev/null 2>&1 && pwd)"; source="$(readlink "$source")"; [[ "$source" != /* ]] && source="$dir/$source"; done
+  cd -P "$(dirname "$source")/.." >/dev/null 2>&1 && pwd
+}
+HERE="$(resolve_plugin_home)"; ROOT="$(cd "$HERE/../.." && pwd)"; ROUTE="$HERE/scripts/route.py"; LIVE="$HERE/scripts/live_supervisor.py"; CLAUDE_BIN="${CLAUDE_BIN:-claude}"
+export DATARIM_ROOT="${DATARIM_ROOT:-$ROOT}" DATARIM_JEV_HOME="$HERE"
+usage(){ cat <<'USAGE'
+dr-claude-jev — Claude Code + Datarim + Jev control plane
+
+Usage:
+  dr-claude-jev [--mode MODE] "task"        Route task, then launch Claude Code
+  dr-claude-jev                            Launch interactive Claude Code
+  dr-claude-jev --live [--mode MODE] "task" Supervised session with DYNAMIC routing:
+                                            Jev re-evaluates at phase boundaries and
+                                            switches model/effort mid-task
+  dr-claude-jev --live --runtime codex "task"
+                                            Supervise Codex instead of Claude Code
+  dr-claude-jev --route [--mode MODE] "task"  Show Jev decision only
+  dr-claude-jev --print [--mode MODE] "task"  Claude non-interactive print mode
+  dr-claude-jev --model MODEL "task"       Override Jev model selection
+  dr-claude-jev --no-route "task"          Skip initial Jev routing
+  dr-claude-jev --explain "task"           Print the full Jev probability JSON first
+  dr-claude-jev --quiet "task"             Suppress the Jev decision summary
+  dr-claude-jev -- <claude args...>         Pass arguments directly to Claude
+
+Multi-turn supervision (requires --live):
+  --continue-prompt "<text>"   Keep driving the agent with this follow-up
+  --done-marker TASK_COMPLETE  Token the agent emits to end the run
+  --max-turns N                Cap on turns
+  --max-seconds N              Wall-clock cap on the whole run
+
+Modes:
+  balanced  DEFAULT. Balance cost, quality, context, fan-out, and validation.
+  economy   Minimize cost/fan-out; prefer cheaper models and targeted validation.
+  quality   Prioritize quality; permit stronger models, broader context and validation.
+
+Examples:
+  dr-claude-jev "Fix the failing tests"
+  dr-claude-jev --mode economy "Update these docs"
+  dr-claude-jev --mode quality "Review and redesign this concurrency subsystem"
+  dr-claude-jev --route "Implement OAuth callback handling"
+  dr-claude-jev --model opus "Analyze this architecture"
+
+Diagnostics / help:
+  dr-jev doctor
+  dr-jev doctor --api
+  dr-jev last                  Last decision with full probabilities
+  dr-jev stats                 Accumulated stats + predicted-vs-actual
+  dr-jev help
+  dr-claude-jev --help
+
+Environment:
+  TYPESAFE_API_KEY    Required for Jev routing
+  DATARIM_JEV_HOME    Optional explicit plugin path
+  DATARIM_ROOT        Optional Datarim root override
+  CLAUDE_BIN          Optional Claude executable override
+USAGE
+}
+runmode=interactive; override=""; route=1; task=""; pass=(); profile="${DATARIM_JEV_MODE:-balanced}"; quiet=0; explain=0
+agent_runtime="${DATARIM_JEV_RUNTIME:-claude}"
+# Multi-turn supervision options. Consumed here rather than passed through:
+# `claude` has its own `--max-turns` with different semantics, so letting these
+# fall into the pass-through bucket made the documented multi-turn invocation
+# fail with "option '--max-turns <turns>' argument '--continue-prompt' is
+# invalid" -- the child rejecting a flag meant for the supervisor.
+sup=()
+while (($#)); do
+ case "$1" in
+  -h|--help|help) usage; exit 0;;
+  --mode) profile="${2:?mode required}"; shift 2;;
+  --runtime) agent_runtime="${2:?runtime required}"; shift 2;;
+  --print) runmode=print; shift;; --route) runmode=route; shift;; --live) runmode=live; shift;; --no-route) route=0; shift;;
+  --quiet) quiet=1; shift;; --explain) explain=1; shift;;
+  --continue-prompt) sup+=(--continue-prompt "${2:?text required}"); shift 2;;
+  --done-marker) sup+=(--done-marker "${2:?marker required}"); shift 2;;
+  --max-turns) sup+=(--max-turns "${2:?count required}"); shift 2;;
+  --max-seconds) sup+=(--max-seconds "${2:?seconds required}"); shift 2;;
+  --model) override="${2:?model required}"; shift 2;; --) shift; pass+=("$@"); break;; -* ) pass+=("$1"); shift;;
+  *) if [[ -z "$task" ]]; then task="$1"; else task+=" $1"; fi; shift;;
+ esac
+done
+# These only mean something to the supervisor, so using them without --live is
+# an instruction that would be silently dropped.
+if ((${#sup[@]})) && [[ "$runmode" != live ]]; then
+ echo "Multi-turn options (--continue-prompt/--done-marker/--max-turns/--max-seconds) require --live" >&2
+ exit 2
+fi
+case "$profile" in economy|balanced|quality) ;; *) echo "Invalid mode: $profile (use economy|balanced|quality)" >&2; exit 2;; esac
+case "$agent_runtime" in claude|codex) ;; *) echo "Invalid runtime: $agent_runtime (use claude|codex)" >&2; exit 2;; esac
+export DATARIM_JEV_MODE="$profile" DATARIM_JEV_RUNTIME="$agent_runtime" DRJEV_RUNTIME="$agent_runtime"
+[[ "$runmode" == route ]] && { [[ -n "$task" ]] || { echo 'task required' >&2; exit 2; }; exec python3 "$ROUTE" --mode "$profile" --pretty "$task"; }
+
+if [[ "$runmode" == live ]]; then
+ [[ -n "$task" ]] || { echo 'task required' >&2; exit 2; }
+ live_args=(--mode "$profile" --runtime "$agent_runtime")
+ ((quiet)) && live_args+=(--quiet)
+ ((explain)) && live_args+=(--explain)
+ ((${#sup[@]})) && live_args+=("${sup[@]}")
+ # Claude pass-through args go after `--` so the supervisor's own parser
+ # does not try to interpret them.
+ if ((${#pass[@]})); then exec python3 "$LIVE" "${live_args[@]}" "$task" -- "${pass[@]}"; fi
+ exec python3 "$LIVE" "${live_args[@]}" "$task"
+fi
+
+export DRJEV_SCRIPTS="$HERE/scripts"
+model="${override:-}"
+if [[ -n "$task" && "$route" == 1 && -z "$model" ]]; then
+ # One routing call; reuse its JSON for both the model choice and the summary so
+ # showing the decision costs nothing extra.
+ decision="$(python3 "$ROUTE" --mode "$profile" "$task" 2>/dev/null || true)"
+ model="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("model","sonnet"))' <<<"${decision:-{}}" 2>/dev/null || echo sonnet)"
+ if ((quiet==0)) && [[ -n "${decision:-}" ]]; then
+  DRJEV_EXPLAIN="$explain" python3 -c '
+import json,os,sys
+sys.path.insert(0,os.environ["DRJEV_SCRIPTS"])
+try: d=json.load(sys.stdin)
+except Exception: raise SystemExit(0)
+if not d.get("ok"): raise SystemExit(0)
+from live_supervisor import render_summary
+print(render_summary(d,runtime=os.environ.get("DRJEV_RUNTIME") or None))
+if os.environ.get("DRJEV_EXPLAIN")=="1": print(json.dumps(d,ensure_ascii=False,indent=2))
+print("Starting %s...\n" % (os.environ.get("DRJEV_RUNTIME") or "Claude Code"))
+' <<<"$decision" 2>/dev/null || true
+ fi
+fi
+model="${model:-sonnet}"
+
+# Non-live Codex path: Jev still picks the tier, which for Codex means a
+# reasoning-effort level (model availability there is account-dependent, so no
+# -m is sent unless DATARIM_CODEX_MODEL_<TIER> asks for one).
+if [[ "$agent_runtime" == codex ]]; then
+ CODEX_BIN="${CODEX_BIN:-codex}"
+ effort="$(python3 -c '
+import sys,os
+sys.path.insert(0,os.environ["DRJEV_SCRIPTS"])
+from runtimes import CODEX_TIER_MAP
+print((CODEX_TIER_MAP.get(sys.argv[1]) or (None,"medium"))[1])' "$model" 2>/dev/null || echo medium)"
+ # Outside a git repo Codex refuses to run without this flag; the supervised
+ # path already passes it, so the non-live path must match or the two disagree
+ # about where they can be used. Skipped inside a repo so Codex keeps its own
+ # default behaviour there.
+ # No --json here: the non-live path is for a human reading the terminal, so
+ # Codex's own rendering is what is wanted. The supervised path uses --json
+ # because it has to parse the stream.
+ cx=(-c "model_reasoning_effort=$effort")
+ # Bounded probe, matching the adapter's 5s timeout: git can hang on a
+ # network-backed filesystem or a stale index lock, and the launcher must not
+ # hang with it. No timeout(1) on stock macOS, so fall back to the bare probe.
+ if command -v timeout >/dev/null 2>&1; then
+  timeout 5 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || cx+=(--skip-git-repo-check)
+ else
+  git rev-parse --is-inside-work-tree >/dev/null 2>&1 || cx+=(--skip-git-repo-check)
+ fi
+ # Indirect expansion rather than eval (security baseline S1: no eval on a
+ # value derived from a routing decision). `${!name}` needs bash 4, so fall
+ # back to a plain case for bash 3.2, the system bash on macOS.
+ tier_var="DATARIM_CODEX_MODEL_$(printf '%s' "$model" | tr '[:lower:]' '[:upper:]')"
+ if ((BASH_VERSINFO[0] >= 4)); then
+  tier_model="${!tier_var:-}"
+ else
+  case "$model" in
+   haiku) tier_model="${DATARIM_CODEX_MODEL_HAIKU:-}";;
+   sonnet) tier_model="${DATARIM_CODEX_MODEL_SONNET:-}";;
+   opus) tier_model="${DATARIM_CODEX_MODEL_OPUS:-}";;
+   *) tier_model="";;
+  esac
+ fi
+ [[ -n "$tier_model" ]] && cx+=(-m "$tier_model")
+ if [[ -n "$task" ]]; then
+  if ((${#pass[@]})); then exec "$CODEX_BIN" exec "${cx[@]}" "${pass[@]}" "$task"; fi
+  exec "$CODEX_BIN" exec "${cx[@]}" "$task"
+ fi
+ if ((${#pass[@]})); then exec "$CODEX_BIN" "${pass[@]}"; fi
+ exec "$CODEX_BIN"
+fi
+
+# Empty-array expansion guards: under `set -u`, bash 3.2 (the system bash on
+# macOS) treats "${pass[@]}" on an empty array as an unbound variable and aborts.
+# The length check keeps the launcher working on whichever bash resolves first.
+if [[ "$runmode" == print ]]; then
+ if ((${#pass[@]})); then exec "$CLAUDE_BIN" --model "$model" -p "$task" "${pass[@]}"; fi
+ exec "$CLAUDE_BIN" --model "$model" -p "$task"
+fi
+if [[ -n "$task" ]]; then
+ if ((${#pass[@]})); then exec "$CLAUDE_BIN" --model "$model" "$task" "${pass[@]}"; fi
+ exec "$CLAUDE_BIN" --model "$model" "$task"
+fi
+if ((${#pass[@]})); then exec "$CLAUDE_BIN" "${pass[@]}"; fi
+exec "$CLAUDE_BIN"

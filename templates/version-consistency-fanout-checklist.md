@@ -8,9 +8,9 @@ change this release").
 | # | Surface | Path | Applies? |
 |---|---------|------|----------|
 | 1 | Framework VERSION | `code/datarim/VERSION` | |
-| 2 | Framework CLAUDE.md | `code/datarim/CLAUDE.md` | |
+| 2 | Framework AGENTS.md | `code/datarim/AGENTS.md` | |
 | 3 | Framework README.md | `code/datarim/README.md` | |
-| 4 | Workspace CLAUDE.md | `Projects/Datarim/CLAUDE.md` | |
+| 4 | Workspace AGENTS.md | `Projects/Datarim/AGENTS.md` | |
 | 5 | Workspace README.md | `Projects/Datarim/README.md` | |
 | 6 | Site config (version) | `Projects/Websites/datarim.club/config.php` | |
 | 7 | Site changelog | `Projects/Websites/datarim.club/pages/changelog.php` | |

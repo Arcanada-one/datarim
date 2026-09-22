@@ -158,7 +158,7 @@ on both the tag-derived and the built version.
 
 - Canonical recipe: [`documentation/how-to/release-verification.md`](../../documentation/how-to/release-verification.md) (the user-facing page).
 - Workflow that produces the artefacts: [`.github/workflows/release.yml`](../../.github/workflows/release.yml).
-- Security Mandate § S4 (Supply Chain): [`CLAUDE.md`](../../CLAUDE.md#security-mandate).
+- Security Mandate § S4 (Supply Chain): [`AGENTS.md`](../../AGENTS.md#security-mandate).
 - Sigstore cosign docs: https://docs.sigstore.dev/cosign/
 - SLSA spec: https://slsa.dev/
 

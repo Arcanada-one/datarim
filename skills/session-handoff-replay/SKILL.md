@@ -20,7 +20,7 @@ claims in the artefact as unverified until re-probed.
 |--------|-------|
 | Consumer touchpoints | `commands/dr-continue.md` |
 | Artefact path | `datarim/sessions/{SESSION-ID}.session.md` (latest file by mtime when no explicit ID given) |
-| Validator | `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-session-handoff.sh" --validate-frontmatter --session <ID>` (exit 0 = ok) |
+| Validator | `"${DATARIM_RUNTIME:?}/dev-tools/check-session-handoff.sh" --validate-frontmatter --session <ID>` (exit 0 = ok) |
 | Fallback policy | artefact absent OR validator exit ≠ 0 → inform the operator, do NOT silently proceed |
 | Replay template | See § Replay-prompt template below (shared renderer, per `skills/dr-next-snapshot-replay/SKILL.md` § Shared Replay Renderer) |
 

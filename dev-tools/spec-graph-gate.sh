@@ -34,7 +34,8 @@ while [ $# -gt 0 ]; do
 done
 
 [ -n "$TASK" ] || usage_die "--task <ID> is required"
-printf '%s' "$TASK" | grep -qE '^[A-Z]+-[0-9]+(-[A-Za-z0-9]+)*$' \
+. "${SCRIPT_DIR}/../scripts/lib/schema-regex.sh"
+printf '%s' "$TASK" | grep -qE "$TASK_ID_RE" \
     || usage_die "invalid task id: $TASK"
 case "$STAGE" in
     prd|plan|do|qa|compliance|verify) ;;
@@ -148,11 +149,20 @@ if [ ! -f "$PRD" ]; then
     # unverifiable (honest, non-fabricated). No invented marker: keyed strictly
     # off the canonical `**PRD waived:**` token.
     waiver_line=""
-    for _src in "$DATARIM_ROOT/tasks.md" "$PLAN" "$TASK_DESC" "$EXPECTATIONS"; do
+    for _src in "$PLAN" "$TASK_DESC" "$EXPECTATIONS"; do
         [ -f "$_src" ] || continue
         waiver_line="$(grep -m1 -F '**PRD waived:**' "$_src" 2>/dev/null || true)"
         [ -n "$waiver_line" ] && break
     done
+    # tasks.md is shared by every task. Search only the current task's section;
+    # a waiver recorded for a sibling task must never authorize this task.
+    if [ -z "$waiver_line" ] && [ -f "$DATARIM_ROOT/tasks.md" ]; then
+        waiver_line="$(awk -v task="$TASK" '
+            $0 ~ "^##+[[:space:]]+" task "([[:space:]]|$)" {in_task=1; next}
+            in_task && /^##+[[:space:]]+/ {exit}
+            in_task && index($0, "**PRD waived:**") {print; exit}
+        ' "$DATARIM_ROOT/tasks.md")"
+    fi
     if [ -n "$waiver_line" ]; then
         # Best-effort parent-PRD age check: pull the first PRD id token from the
         # marker line and, if the corresponding PRD file exists and is <=30 days

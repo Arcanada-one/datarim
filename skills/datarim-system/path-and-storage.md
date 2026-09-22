@@ -163,20 +163,20 @@ documentation/
 
 ## Symlink Architecture
 
-The framework runtime directories in `$HOME/.claude/` are **symlinks** pointing to the Datarim git repository. This means edits to skills/commands/agents/templates in runtime are automatically tracked by git.
+The framework runtime directories in `${DATARIM_RUNTIME:?}/` are **symlinks** pointing to the Datarim git repository. This means edits to skills/commands/agents/templates in runtime are automatically tracked by git.
 
 | Runtime path | Symlink target |
 |-------------|---------------|
-| `$HOME/.claude/skills/` | `Projects/Datarim/code/datarim/skills/` |
-| `$HOME/.claude/commands/` | `Projects/Datarim/code/datarim/commands/` |
-| `$HOME/.claude/agents/` | `Projects/Datarim/code/datarim/agents/` |
-| `${DATARIM_RUNTIME:-$HOME/.claude}/templates/` | `Projects/Datarim/code/datarim/templates/` |
+| `${DATARIM_RUNTIME:?}/skills/` | `Projects/Datarim/code/datarim/skills/` |
+| `${DATARIM_RUNTIME:?}/commands/` | `Projects/Datarim/code/datarim/commands/` |
+| `${DATARIM_RUNTIME:?}/agents/` | `Projects/Datarim/code/datarim/agents/` |
+| `${DATARIM_RUNTIME:?}/templates/` | `Projects/Datarim/code/datarim/templates/` |
 
 **Implications:**
 - `git diff` in the Datarim repo shows runtime changes to skills/commands/agents/templates
 - No manual sync needed for these 4 directories — symlinks keep them identical
 - `install.sh` is needed only for first-time setup or rollback from backup
-- Backup of pre-symlink originals: `$HOME/.claude/backups/pre-symlink-2026-04-22/`
+- Backup of pre-symlink originals: `${DATARIM_RUNTIME:?}/backups/pre-symlink-2026-04-22/`
 - If the repo path changes, symlinks must be recreated
 
 **Established:** 2026-04-22.

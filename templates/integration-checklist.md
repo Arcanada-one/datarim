@@ -2,11 +2,11 @@
 
 > Use for any task that adds, replaces, or significantly modifies an integration with an external HTTP API, SDK, webhook target, OAuth provider, payment gateway, message queue, storage API, LLM/STT/TTS endpoint, or anything else not under our control.
 >
-> Stack-neutral — fill in the language / HTTP client / test runner commands that match the project's stack (see project CLAUDE.md for canonical choices). Reference from `dr-plan` Step 6 (Technology Validation) when the task contains the `external API` keyword or introduces a new third-party dependency.
+> Stack-neutral — fill in the language / HTTP client / test runner commands that match the project's stack (see project AGENTS.md for canonical choices). Reference from `dr-plan` Step 6 (Technology Validation) when the task contains the `external API` keyword or introduces a new third-party dependency.
 
 ## 1. Endpoint Shape Verification (mandatory, before any code is written)
 
-Per `$HOME/.claude/skills/research-workflow/SKILL.md` § Empirical Provider Verification — documentation drifts, SDKs paper over differences, and "this worked elsewhere" memories are not evidence. Confirm the contract against the live endpoint.
+Per `${DATARIM_RUNTIME:?}/skills/research-workflow/SKILL.md` § Empirical Provider Verification — documentation drifts, SDKs paper over differences, and "this worked elsewhere" memories are not evidence. Confirm the contract against the live endpoint.
 
 ```
 1. Send the smallest valid request that exercises the *real* input shape (curl / httpx / fetch / equivalent).

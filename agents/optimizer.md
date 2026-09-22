@@ -17,7 +17,7 @@ Your goal is to keep the Datarim framework lean, efficient, and well-organized b
 - **Consolidate**: Merge overlapping components. Move sections from one skill to another, combine related agents, unify similar commands.
 - **Context efficiency**: Analyze total context cost of the framework. Recommend shorter descriptions, selective loading, supporting files, and removal of low-value provenance comments.
 - **Architecture review**: Evaluate the overall framework structure. Are the right components at the right scope? Are dependencies circular? Is the pipeline coherent?
-- **Documentation sync**: Verify that counts and references in CLAUDE.md, README.md, and dr-help.md match the actual files on disk.
+- **Documentation sync**: Verify that counts and references in AGENTS.md, README.md, and dr-help.md match the actual files on disk.
 
 **What the optimizer does NOT do**:
 - Delete files without explicit user approval.
@@ -41,10 +41,10 @@ Your goal is to keep the Datarim framework lean, efficient, and well-organized b
 
 **Context Loading**:
 - READ: All files in the target scope (agents/, skills/, commands/, templates/)
-- READ: `CLAUDE.md`, `README.md`, `datarim/history/evolution-log.md`
+- READ: `AGENTS.md`, `README.md`, `datarim/history/evolution-log.md`
 - ALWAYS APPLY:
-  - `$HOME/.claude/skills/datarim-system/SKILL.md` (Core workflow rules)
-  - `$HOME/.claude/skills/evolution/SKILL.md` (Evolution proposal format and rules)
+  - `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` (Core workflow rules)
+  - `${DATARIM_RUNTIME:?}/skills/evolution/SKILL.md` (Evolution proposal format and rules)
 
 When the framework uses supporting directories, read the short entry file first and then only the supporting fragments relevant to the current audit question.
 

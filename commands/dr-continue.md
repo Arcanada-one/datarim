@@ -25,7 +25,7 @@ Usage:
 
 ### Step 1 — Load the consumer skill
 
-Read `${DATARIM_RUNTIME:-$HOME/.claude}/skills/session-handoff-replay/SKILL.md`.
+Read `${DATARIM_RUNTIME:?}/skills/session-handoff-replay/SKILL.md`.
 Apply the consumer-awareness clause: the prior session was destroyed; treat
 all claims as unverified until re-probed.
 
@@ -49,7 +49,7 @@ SESSION_ID="$(basename "$ARTEFACT" .session.md)"
 ### Step 3 — Validate the artefact
 
 ```bash
-bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-session-handoff.sh" \
+bash "${DATARIM_RUNTIME:?}/dev-tools/check-session-handoff.sh" \
     --validate-frontmatter \
     --session "${SESSION_ID}"
 ```
@@ -88,7 +88,7 @@ so the "report claim as unverified" property is deterministic, not free-prose:
 
 ```bash
 # noshellcheck-extract
-EMITTER="${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/reverify-session-claims.sh"
+EMITTER="${DATARIM_RUNTIME:?}/dev-tools/reverify-session-claims.sh"
 bash "$EMITTER" --sha-presence --repo <repo> --sha <saved-sha> --files <files…>
 bash "$EMITTER" --stale        --repo <repo> --saved-sha <saved-sha>
 bash "$EMITTER" --file-missing --path <path>
@@ -121,7 +121,7 @@ the operator can override.
 
 When auto-mode is active (env var + matching marker), this command:
 
-1. Consults `${DATARIM_RUNTIME:-$HOME/.claude}/skills/autonomous-mode/SKILL.md`
+1. Consults `${DATARIM_RUNTIME:?}/skills/autonomous-mode/SKILL.md`
    § Question Suppression Ladder before any operator prompt.
 2. Resolves TASK-ID via L1 (read `datarim/tasks.md`) — no question needed for
    single-task sessions.

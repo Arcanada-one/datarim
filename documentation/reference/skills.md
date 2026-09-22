@@ -1,10 +1,10 @@
 # Skills Reference
 
-Datarim includes 78 reusable skill modules. Skills provide rules, patterns, and guidelines loaded on demand by agents and commands. Each skill is a directory under `skills/` containing a `SKILL.md` plus any supporting fragment files. This count includes the five tier-specific skills under `skills/fleet/`.
+Datarim includes 79 reusable skill modules. Skills provide rules, patterns, and guidelines loaded on demand by agents and commands. Each skill is a directory under `skills/` containing a `SKILL.md` plus any supporting fragment files. This count includes the five tier-specific skills under `skills/fleet/`; `fleet` itself is also a skill node.
 
 Skills are split into two categories:
-- **Reference skills** — rules and patterns the caller applies inline. No `model` field in frontmatter, so they inherit the caller's model. 58 of the 78.
-- **Task skills** — perform an action when invoked. Carry an explicit `model` field per the [Model Assignment Convention](../../skills/datarim-system/SKILL.md). 20 of the 78.
+- **Reference skills** — rules and patterns the caller applies inline. No `model` field in frontmatter, so they inherit the caller's model. 59 of the 79.
+- **Task skills** — perform an action when invoked. Carry an explicit `model` field per the [Model Assignment Convention](../../skills/datarim-system/SKILL.md). 20 of the 79.
 
 Every shipped skill resolves to `inherit` — the operator's session model wins. Pinning a concrete model generation in a skill breaks under runtimes that do not offer it; express capability intent with `metadata.model_tier:` (resolved through `config/model-tiers.yaml`) instead.
 
@@ -71,6 +71,7 @@ Alphabetical. "Loaded by" names the commands, agents, or trigger conditions that
 | rotation-runbook | Reference | Credential rotation playbook — consumer inventory, auth-scoped verification, full payload replay, canonical secret paths, rotation log | on demand, for any planned rotation or leak response |
 | seam-vs-integration-boundary | Reference | Plan-time scope-boundary pattern: split a one-liner that bundles a seam/contract concern with an integration/call-site concern, or scope the ACs so the integration is explicitly deferred. Advisory detector `dev-tools/check-seam-integration-boundary.sh` | /dr-plan Phase 4 Component Breakdown |
 | security | Reference | Auth, input validation, data protection | reviewer, security agent |
+| code-contracts | Reference | Persistent code-local and directory-scoped invariants; Datarim profile integrates CONTRACTS with implementation and verification | /dr-do, /dr-verify, reviewers |
 | security-baseline | Reference | Canonical S1–S11 security rule reference cited from CLAUDE.md § Security Mandate | plan/qa/compliance/do touching shipped artefacts |
 | self-verification | Reference | Orchestrator for runtime-aware self-verification — tri-layer: deterministic shell floor, peer review, runtime dispatch | /dr-verify; also /dr-prd, /dr-plan, /dr-do, peer-reviewer agent |
 | session-handoff-replay | Reference | Consumer contract for /dr-continue — reads the session artefact in a clean window, re-verifies every claim via live probes (stale-snapshot / unverified-claim / missing-file banners), downgrades provenance tags, routes to /dr-next or /dr-auto. Squash-collision detection via `git merge-base --is-ancestor` | /dr-continue |

@@ -5,7 +5,7 @@ description: Pre-flight grep checklist for any file relocation (git mv, cross-re
 
 # File Relocation Checklist
 
-When a file is moved/renamed/relocated within the framework repo (or cross-repo from framework to workspace), references from unexpected callers — skills, agents, templates, CLAUDE.md, docs, scripts — are easy to miss. The post-hoc safety net (`scripts/check-doc-refs.sh`) catches them after the fact, but the cleanest pattern is to make the relocation atomic with its reference-fixup commit.
+When a file is moved/renamed/relocated within the framework repo (or cross-repo from framework to workspace), references from unexpected callers — skills, agents, templates, AGENTS.md, docs, scripts — are easy to miss. The post-hoc safety net (`scripts/check-doc-refs.sh`) catches them after the fact, but the cleanest pattern is to make the relocation atomic with its reference-fixup commit.
 
 ## Pre-Flight Recipe
 

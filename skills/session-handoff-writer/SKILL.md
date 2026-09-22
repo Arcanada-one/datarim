@@ -28,7 +28,7 @@ that prevents a stale snapshot from misleading a resume session.
 
 | Aspect | Value |
 |--------|-------|
-| Entry point | `bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/session-handoff-writer-wrapper.sh"` (never `sh`) |
+| Entry point | `bash "${DATARIM_RUNTIME:?}/dev-tools/session-handoff-writer-wrapper.sh"` (never `sh`) |
 | Artefact path | `datarim/sessions/SESSION-{YYYYMMDD-HHMMSS}.session.md` |
 | Semantics | Append-only decision-log — a second `/dr-save` in the same session APPENDS a new dated block, never truncates prior blocks |
 | Lock | `datarim/sessions/.lock.{SESSION-ID}` (mkdir-based atomic, POSIX-portable) |
@@ -109,7 +109,7 @@ SESSION_ID="SESSION-$(date -u +%Y%m%d-%H%M%S)"
 BODY_FILE="$(mktemp)"
 # ... populate $BODY_FILE with the 5-layer body ...
 
-bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/session-handoff-writer-wrapper.sh" \
+bash "${DATARIM_RUNTIME:?}/dev-tools/session-handoff-writer-wrapper.sh" \
     --root "${REPO_ROOT:-$PWD}" \
     --session "${SESSION_ID}" \
     --captured-by agent \
@@ -179,7 +179,7 @@ the session's framework-repo changes so a resumed session is reminded that a
 shipped script or skill edited this session is live only on the committing box:
 
 ```bash
-bash "${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-stale-runtime.sh" --repo <framework-repo> --range <base>..HEAD
+bash "${DATARIM_RUNTIME:?}/dev-tools/check-stale-runtime.sh" --repo <framework-repo> --range <base>..HEAD
 ```
 
 When the range touched a shipped script (`scripts/lib/*.sh`) or skill

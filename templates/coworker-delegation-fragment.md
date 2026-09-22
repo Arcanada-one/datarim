@@ -2,7 +2,7 @@
 
 > **Source of truth.** This fragment is generated/copied into every agent
 > runtime that supports `coworker`:
-> - Claude Code → `~/.claude/CLAUDE.md` § Coworker Delegation.
+> - Claude Code → `~/.claude/AGENTS.md` § Coworker Delegation.
 > - Codex CLI → `~/.codex/AGENTS.override.md` prepend emitted by
 >   `install.sh generate_codex_agents_manifest`.
 > - Cursor IDE → `~/.cursor/rules/coworker-delegation.mdc` mirrored from
@@ -85,7 +85,7 @@ this list — see § Do NOT delegate, "Voice-bearing and judgment content".
 - **≥3 files** for one question.
 - Any read from `wiki/_raw_/`.
 - `/dr-do`, `/dr-prd`, `/dr-plan`, `/dr-archive`, `/dr-dream`, `/dr-qa`
-  bootstrap (`tasks.md` + `backlog.md` + `CLAUDE.md` + PRD + plan) — ONE
+  bootstrap (`tasks.md` + `backlog.md` + `AGENTS.md` + PRD + plan) — ONE
   `coworker ask --profile doc-read` call for literal extraction/summarization,
   not per-file `Read`. Do not use coworker for semantic review, AC verification,
   root-cause analysis, architecture, or hidden-gap discovery; the selected agent
@@ -264,7 +264,7 @@ current provider's retry budget is exhausted, not as a substitute for it.
 ## Runtime enforcement
 
 A per-machine hook script (`~/.local/bin/coworker-hook-guard`, canonical
-source `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/coworker-hook-guard.sh"`) inspects every `PreToolUse`
+source `"${DATARIM_RUNTIME:?}/dev-tools/coworker-hook-guard.sh"`) inspects every `PreToolUse`
 event and emits `permissionDecision=deny` when the agent attempts a direct
 `Read`/`Write`/`Bash` (Claude) or `view`/`apply_patch`/`shell` (Codex) call
 that violates the rules above. The hook is registered via

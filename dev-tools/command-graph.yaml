@@ -2,8 +2,8 @@ schema_version: 1
 # Command dependency graph for the Datarim framework.
 # Source of truth — the derived Mermaid diagram in
 # skills/visual-maps/command-dependencies.md is generated from this file.
-# Keep in sync: when adding or changing command relationships here,
-# update the Mermaid diagram in that file as well.
+# The Mermaid view is generated. Never synchronize it by hand; run
+# `python3 dev-tools/framework-graph.py --write`.
 #
 # Fields per command:
 #   stage:       pipeline stage this command belongs to

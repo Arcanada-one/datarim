@@ -10,7 +10,7 @@ Show current task and Backlog status.
 Two modes: the default **push-mode** dashboard (all active tasks + backlog + recent archives, Sections 1-4 below) and the **pull-mode oracle** — a TASK-ID plus a free-form question (`what's next?`) answered with a stage-derived next-step recommendation (see § Pull-mode Oracle).
 
 ## Path Resolution
-**RESOLVE PATH**: Before any read from `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, tell user to run `/dr-init`. See `$HOME/.claude/skills/datarim-system/SKILL.md` § Path Resolution Rule.
+**RESOLVE PATH**: Before any read from `datarim/`, find the correct path by walking up directories from cwd. If `datarim/` is not found anywhere, tell user to run `/dr-init`. See `${DATARIM_RUNTIME:?}/skills/datarim-system/SKILL.md` § Path Resolution Rule.
 
 ## Display (thin-index schema)
 1. **All active tasks** — parse one-liner format from `## Active Tasks` in `activeContext.md` (or `## Active` in `tasks.md`):
@@ -83,7 +83,7 @@ so the answer stays consistent with what a resume would replay:
 ```
 1. Resolve {TASK-ID} per the Path Resolution Rule and the Task Resolution Rule.
 2. snapshot_path = "$REPO_ROOT/datarim/snapshots/{TASK-ID}.snapshot.md"
-3. if `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-stage-snapshot-on-exit.sh" \
+3. if `"${DATARIM_RUNTIME:?}/dev-tools/check-stage-snapshot-on-exit.sh" \
         --validate-frontmatter --task {TASK-ID}` exits 0:
        read the snapshot frontmatter (stage, command, recommended_next, options)
        → PRIMARY SOURCE. The oracle's recommendation is the snapshot's
@@ -155,7 +155,7 @@ None (read-only)
 
 ## Next Steps (CTA)
 
-After printing status, MUST emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`. Since `/dr-status` is read-only, the CTA is purely navigational.
+After printing status, MUST emit a CTA block ([definition](../skills/cta-format/SKILL.md)) per `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md`. Since `/dr-status` is read-only, the CTA is purely navigational.
 
 **Routing logic for `/dr-status`:**
 

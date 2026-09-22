@@ -1,6 +1,6 @@
 ---
 name: tech-stack
-description: Technology guidance and stack selection: starting points, viable alternatives, decision-making method, and proposal template for new projects and modules.
+description: "Technology guidance and stack selection: starting points, viable alternatives, decision-making method, and proposal template for new projects and modules."
 current_aal: 1
 target_aal: 2
 ---
@@ -363,4 +363,4 @@ graph TD
 
 ## Reusable Templates
 
-For stack-specific scaffolds (NestJS, Django, Rails, etc.) consult the relevant project's `CLAUDE.md` or its per-project `templates/` directory. The Datarim framework does not ship stack-specific scaffolds — this skill is the designated technology guidance file (whitelisted in `skills/evolution/stack-agnostic-gate.md` per the rationale: names concrete technologies to give actionable recommendations while presenting alternatives and trade-offs rather than single mandated answers).
+For stack-specific scaffolds (NestJS, Django, Rails, etc.) consult the relevant project's `AGENTS.md` or its per-project `templates/` directory. The Datarim framework does not ship stack-specific scaffolds — this skill is the designated technology guidance file (whitelisted in `skills/evolution/stack-agnostic-gate.md` per the rationale: names concrete technologies to give actionable recommendations while presenting alternatives and trade-offs rather than single mandated answers).

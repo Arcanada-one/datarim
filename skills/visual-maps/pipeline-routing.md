@@ -42,7 +42,7 @@ Brackets `[]` indicate stages that are conditional at that complexity level. `/d
 
 ## CTA Decision Points (v1.16.0)
 
-Every transition between stages MUST emit a canonical CTA block ([definition](../cta-format/SKILL.md)) per `$HOME/.claude/skills/cta-format/SKILL.md`. Diagram representation:
+Every transition between stages MUST emit a canonical CTA block ([definition](../cta-format/SKILL.md)) per `${DATARIM_RUNTIME:?}/skills/cta-format/SKILL.md`. Diagram representation:
 
 <!-- gate:history-allowed -->
 ```mermaid
@@ -129,7 +129,7 @@ graph LR
 Three artefact nodes were introduced in v2.8.0:
 
 - **`init-task`** — `datarim/tasks/{TASK-ID}-init-task.md`. Verbatim operator brief captured at `/dr-init`; appended (never overwritten) by the operator across the lifecycle. Read mandatorily by every pipeline command.
-- **`expectations`** — `datarim/tasks/{TASK-ID}-expectations.md`. Operator-readable wishlist of «what to verify after the work is done». Written at `/dr-prd` (or `/dr-plan` for L2 without PRD). Verified at `/dr-qa` and `/dr-compliance` via `"${DATARIM_RUNTIME:-$HOME/.claude}/dev-tools/check-expectations-checklist.sh" --verify`.
+- **`expectations`** — `datarim/tasks/{TASK-ID}-expectations.md`. Operator-readable wishlist of «what to verify after the work is done». Written at `/dr-prd` (or `/dr-plan` for L2 without PRD). Verified at `/dr-qa` and `/dr-compliance` via `"${DATARIM_RUNTIME:?}/dev-tools/check-expectations-checklist.sh" --verify`.
 - **`playwright-run`** — `datarim/qa/playwright-{TASK-ID}/run-<ISO-ts>/`. Browser pass artefacts (screenshot + trace + summary) written by `/dr-qa` Layer 4f when the task changes any frontend markup. Skipped silently for non-frontend tasks.
 
 Solid arrows = control flow. Brackets `(())` mark the new operator-facing artefacts; the orange-outlined `/dr-qa` node is the gate that consumes all three (init-task as input, expectations as the Layer 3b verifier, playwright-run as the Layer 4f side-effect).

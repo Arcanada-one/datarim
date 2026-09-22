@@ -87,10 +87,10 @@ Source: prior incident — research phase produces insights before discovery int
 Common live-counts:
 
 ```sh
-ls $HOME/.claude/commands/dr-*.md | wc -l   # current dr-* command count
-ls $HOME/.claude/skills/*.md | wc -l         # skills (single .md file)
-ls $HOME/.claude/agents/*.md | wc -l         # agents
-ls $HOME/.claude/templates/*.md | wc -l      # templates
+ls ${DATARIM_RUNTIME:?}/commands/dr-*.md | wc -l   # current dr-* command count
+ls ${DATARIM_RUNTIME:?}/skills/*.md | wc -l         # skills (single .md file)
+ls ${DATARIM_RUNTIME:?}/agents/*.md | wc -l         # agents
+ls ${DATARIM_RUNTIME:?}/templates/*.md | wc -l      # templates
 git ls-files '*.service.ts' | wc -l          # services in monorepo (example)
 ```
 
@@ -121,7 +121,7 @@ Sources to check (in order):
 3. `datarim/techContext.md` — technology decisions
 4. `datarim/systemPatterns.md` — architecture patterns
 5. `package.json`, `Cargo.toml`, `go.mod`, etc. — tech stack
-6. `README.md`, `CLAUDE.md` — project conventions
+6. `README.md`, `AGENTS.md` — project conventions
 7. Existing code structure and tests
 
 **If you can look it up, don't ask.** State what you found and ask the user to confirm:
